@@ -1,0 +1,69 @@
+/*
+ * SpinalHDL
+ * Copyright (c) Dolu, All rights reserved.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3.0 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library.
+ */
+
+package spinal
+
+/**
+ * Created by PIC18F on 21.08.2014.
+ */
+
+trait EdgeKind;
+
+object RISING extends EdgeKind;
+object FALLING extends EdgeKind;
+
+trait ResetKind;
+
+object ASYNC extends ResetKind;
+object SYNC extends ResetKind;
+object BOOT extends ResetKind;
+
+trait ClockDomainUser{
+  def getClock : Bool
+  def getClockEnable : Bool
+  def getReset : Bool
+}
+
+
+object ClockDomain{
+  def apply(clock : Bool,reset : Bool = null,resetKind : ResetKind = SYNC) : ClockDomain = {
+    new ClockDomain(clock,RISING,null,reset,resetKind,true)
+  }
+
+  val stack = new SafeStack[ClockDomain]
+
+  def push(c: ClockDomain): Unit = {
+    stack.push(c)
+  }
+  def pop(c: ClockDomain): Unit = {
+    stack.pop(c)
+  }
+
+  def current = stack.head()
+
+
+  def readClock = current.readClock
+  def readReset = current.readReset
+  def readClockEnable = current.readClockEnable
+}
+
+class ClockDomain(val clock : Bool,val edge : EdgeKind,val clockEnable : Bool,val reset : Bool,val resetKind : ResetKind,val resetActiveHigh : Boolean){
+  def readClock = if(clock == null) Bool(false) else Data.doPull(clock, Component.current,true,true)
+  def readReset = if(reset == null) Bool(!resetActiveHigh) else Data.doPull(reset, Component.current,true,true)
+  def readClockEnable = if(clockEnable == null) Bool(true) else Data.doPull(clockEnable, Component.current,true,true)
+}

@@ -1,0 +1,511 @@
+/*
+ * SpinalHDL
+ * Copyright (c) Dolu, All rights reserved.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3.0 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library.
+ */
+
+package spinal
+
+import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
+
+/**
+ * Created by PIC18F on 07.01.2015.
+ */
+
+
+object Backend {
+  def resetAll: Unit = {
+    when.stack.reset
+    Component.stack.reset
+    ClockDomain.stack.reset
+    Node.areInferringWidth = false
+  }
+}
+
+class Backend {
+
+  val components = ArrayBuffer[Component]()
+  var sortedComponents = ArrayBuffer[Component]()
+  val globalScope = new Scope()
+
+  // val uniqueNameAllocator = new UniqueNameAllocator()
+  def addReservedKeyWord(scope: Scope): Unit = {
+
+  }
+
+  def elaborate[T <: Component](gen: () => T): T = {
+    Backend.resetAll
+    val topLevel = gen()
+    elaborate(topLevel)
+    topLevel
+  }
+
+
+  protected def elaborate(topLevel: Component): Unit = {
+    addReservedKeyWord(globalScope)
+
+    addComponent(topLevel)
+    sortedComponents = components.sortWith(_.level > _.level)
+
+
+    setIo
+    walkNodes(walker_pullClockDomains)
+    // addOutputsBinding
+    walkNodes(walker_addBinding_addNodeIntoComponent, {
+      val nodesStack = walkNodesDefautStack
+      components.foreach(_.nodes = new ArrayBuffer[Node])
+      nodesStack
+    })
+    allowNodesToReadInputOfKindComponent
+
+    // walkNodes(walker_pullClockDomains)
+    //walkNodes(walker_boolCast)
+    nameAll
+
+    inferWidth
+    propagateBaseTypeWidth
+    walkNodes(walker_matchWidth)
+
+    walkNodes(walker_nodeConsumer)
+    walkNodes(walker_deleteUselessBaseTypes)
+    simplifyBlacBoxGenerics
+    checkCombinationalLoops
+
+    nameAll
+    simplifyBlackBoxIoNames
+    allocateNames
+
+    removeEmptyComponent
+
+
+    def nameAll(): Unit = {
+      if (topLevel.getName() == null) topLevel.setWeakName("toplevel")
+      for (c <- sortedComponents) {
+        c.nameElements()
+        nameComponentDeclaration(c)
+      }
+
+    }
+
+
+
+    def allocateNames = {
+      for (c <- sortedComponents) {
+        addReservedKeyWord(c.localScope)
+        c.allocateNames
+
+        if (c.isInstanceOf[BlackBox])
+          globalScope.lockName(c.definitionName)
+        else
+          c.definitionName = globalScope.allocateName(c.definitionName)
+      }
+    }
+
+    def setIo(): Unit = {
+      components.foreach(_.io.flatten.foreach(_._2.isIo = true))
+    }
+
+    def removeEmptyComponent = {
+
+      sortedComponents = sortedComponents.filter(c => {
+        if (c.nodes.isEmpty) {
+          //unused component
+          if (c.parent != null) c.parent.kinds -= c
+          false
+        } else if (c.isInstanceOf[BlackBox]) {
+          false
+        } else {
+          true
+        }
+      })
+      components.clear()
+      components ++= sortedComponents
+    }
+
+    def nameComponentDeclaration(c: Component): Unit = {
+      c.definitionName = c.getClass.getSimpleName
+    }
+
+    /*  def walkNodes: Unit = {
+        val walkedNodes = mutable.Set[Node](null)
+        val nodeStack = mutable.Stack[Node]()
+        topLevel.io.flatten.map(_._2).filter(_.isOutput).foreach(addNodeToStack(_))
+
+        while (!nodeStack.isEmpty) {
+          walkNode(nodeStack.pop())
+        }
+
+        def walkNode(node: Node): Unit = {
+          node.inputs.foreach(addNodeToStack(_))
+          for (i <- 0 until node.inputs.size) {
+            val nodeInput = node.inputs(i)
+            nodeInput match {
+              case nodeInput: BaseType => {
+
+              case _ =>
+            }
+          }
+          node.component.nodes += node
+        }
+
+        def addNodeToStack(node: Node): Unit = {
+          if (walkedNodes.contains(node)) return
+          nodeStack.push(node)
+          walkedNodes += node
+        }
+      }*/
+
+
+    def walkNodesDefautStack = {
+      val nodeStack = mutable.Stack[Node]()
+
+      topLevel.getNodeIo.foreach(nodeStack.push(_))
+      components.foreach(_ match {
+        case blackBox: BlackBox => blackBox.getNodeIo.filter(_.isInput).foreach(nodeStack.push(_))
+        case _ =>
+      })
+      nodeStack
+    }
+
+    def walkNodes(walker: (Node, mutable.Stack[Node]) => Unit, nodeStack: mutable.Stack[Node] = walkNodesDefautStack): Unit = {
+      val walkedNodes = mutable.Set[Node]()
+
+
+      while (!nodeStack.isEmpty) {
+        val pop = nodeStack.pop()
+        if (pop != null && walkedNodes.contains(pop) == false) {
+          walker(pop, nodeStack)
+          walkedNodes += pop
+        }
+
+      }
+
+      def addNodeToStack(node: Node): Unit = {
+        nodeStack.push(node)
+      }
+    }
+
+    def walkNodes2(walker: (Node) => Unit, nodeStack: mutable.Stack[Node] = walkNodesDefautStack): Unit = {
+      walkNodes((node, stack) => {
+        walker(node)
+        node.inputs.foreach(stack.push(_))
+      }, nodeStack)
+    }
+
+    def walkNodesBlackBoxGenerics = {
+      val nodeStack = mutable.Stack[Node]()
+      components.foreach(_ match {
+        case blackBox: BlackBox => {
+          blackBox.generic.flatten.foreach(tuple => nodeStack.push(tuple._2))
+        }
+        case _ =>
+      })
+      nodeStack
+    }
+
+
+    def inferWidth: Unit = {
+      Node.areInferringWidth = true
+      val nodes = ArrayBuffer[Node]()
+      walkNodes2(nodes += _, walkNodesDefautStack ++ walkNodesBlackBoxGenerics)
+
+
+      def checkAll: Unit = {
+        for (node <- nodes) {
+          if (node.inferWidth || node.inferWidth) {
+            throw new Exception(s"Infer width on $node fail") //TODO print all then exeption
+          }
+        }
+      }
+
+      var iterationCounter = 0
+      while (true) {
+        iterationCounter = iterationCounter + 1
+        var somethingChange = false
+        for (node <- nodes) {
+          val hasChange = node.inferWidth
+
+          somethingChange = somethingChange || hasChange
+        }
+
+        if (!somethingChange || iterationCounter == nodes.size) {
+          checkAll
+          return
+        }
+      }
+    }
+
+
+
+    def allowNodesToReadInputOfKindComponent = {
+      walkNodes2(node => {
+        for (i <- 0 until node.inputs.size) {
+          val input = node.inputs(i)
+          input match {
+            case baseTypeInput: BaseType => {
+              if (baseTypeInput.isInput && baseTypeInput.component.parent == node.component) {
+                node.inputs(i) = baseTypeInput.inputs(0)
+              }
+            }
+            case _ =>
+          }
+        }
+      })
+    }
+
+    def simplifyBlackBoxIoNames: Unit = {
+      for (c <- components) c match {
+        case bb: BlackBox => {
+          for ((eName, e) <- bb.io.flatten) {
+            if (e.isWeak) {
+              e.setWeakName(eName.substring(3, eName.size))
+            }
+          }
+          for ((eName, e) <- bb.generic.flatten) {
+            if (e.isWeak && eName != "generic") {
+              e.setWeakName(eName.substring(8, eName.size))
+            }
+          }
+        }
+        case _ =>
+      }
+    }
+
+    def propagateBaseTypeWidth: Unit = {
+      walkNodes2(node => {
+        node match {
+          case node: BaseType => {
+            val width = node.getWidth
+
+            node.inputs(0) match {
+              case that: Reg => {
+                that.inferredWidth = width
+                walk(that.getInitialValue)
+                walk(that.getDataInput)
+              }
+              case _ => walk(node.inputs(0))
+            }
+            walk(node.inputs(0))
+
+            def walk(that: Node): Unit = that match {
+              case that: Multiplexer => {
+                that.inferredWidth = width
+                walk(that.inputs(1))
+                walk(that.inputs(2))
+              }
+              case _ =>
+            }
+
+          }
+          case _ =>
+        }
+      })
+    }
+    //    def fixRegisterWidth: Unit = {
+    //      walkNodes2(node => {
+    //        node match {
+    //          case node: BaseType => {
+    //            if (node.isReg) {
+    //              val width = node.getWidth
+    //              node.inputs(0).inferredWidth = width
+    //              walkWhenMux(node.inputs(0).inputs(0))
+    //              def walkWhenMux(that: Node): Unit = that match {
+    //                case that: Multiplexer => {
+    //                  if (that.whenMux) {
+    //                    that.inferredWidth = width
+    //                    walkWhenMux(that.inputs(1))
+    //                    walkWhenMux(that.inputs(2))
+    //                  }
+    //                }
+    //                case _ =>
+    //              }
+    //            }
+    //          }
+    //          case _ =>
+    //        }
+    //      })
+    //    }
+    def walker_matchWidth(node: Node, stack: mutable.Stack[Node]): Unit = {
+      node.inputs.foreach(stack.push(_))
+      node.normalizeInputs
+    }
+
+    def checkCombinationalLoops: Unit = {
+
+    }
+
+
+
+    def walker_pullClockDomains(node: Node, stack: mutable.Stack[Node]): Unit = {
+      node match {
+        case reg: Reg => {
+          Component.push(reg.component)
+          reg.inputs(2) = reg.clockDomain.readClock
+          reg.inputs(3) = reg.clockDomain.readReset
+          reg.inputs(4) = reg.clockDomain.readClockEnable
+          Component.pop(reg.component)
+        }
+        case _ =>
+      }
+      node.inputs.foreach(stack.push(_))
+    }
+
+    def walker_nodeConsumer(node: Node, stack: mutable.Stack[Node]): Unit = {
+      node.inputs.foreach(n => if (n != null) n.consumers += node)
+      node.inputs.foreach(stack.push(_))
+    }
+
+    def walker_deleteUselessBaseTypes(node: Node, stack: mutable.Stack[Node]): Unit = {
+      node match {
+        case node: BaseType => {
+          if (node.isWeak && !node.isIo && node.consumers.size == 1 && !node.keepMe) {
+            if (!node.isReg || node.consumers(0).isInstanceOf[BaseType]) {
+              val consumerInputs = node.consumers(0).inputs
+              val inputConsumer = node.inputs(0).consumers
+              for (i <- 0 until consumerInputs.size)
+                if (consumerInputs(i) == node)
+                  consumerInputs(i) = node.inputs(0)
+              inputConsumer -= node //TODO remove is slow
+              inputConsumer += node.consumers(0)
+              node.component.nodes -= node
+            }
+          }
+        }
+
+        case _ =>
+      }
+      node.inputs.foreach(stack.push(_))
+    }
+
+    def simplifyBlacBoxGenerics: Unit = {
+      components.foreach(_ match {
+        case blackBox: BlackBox => {
+          blackBox.generic.flatten.foreach(tuple => {
+            val signal = tuple._2
+            walk(signal, signal)
+            def walk(node: Node, first: Node): Unit = node match {
+              case node: BaseType => {
+                first.inputs(0) = node.inputs(0)
+                first.inputs(0).inferredWidth = first.inferredWidth
+                walk(node.inputs(0), first)
+              }
+              case lit: Literal =>
+              case _ => throw new Exception("BlackBox generic can be literal")
+            }
+          })
+        }
+        case _ =>
+      })
+    }
+
+
+    /*
+        def addOutputsBinding: Unit = {
+          for (component <- components) {
+            Component.push(component)
+            for (kind <- component.kinds) {
+              for (output <- kind.getNodeIo if output.isOutput) {
+                val outBind = OutBinding(nodeInput, node.component)
+                node.inputs(i) = outBind
+              }
+            }
+            Component.pop(component)
+          }
+
+
+          /*
+                walkNodes2(node => {
+                  node match {*/
+        }*/
+
+    def walker_addBinding_addNodeIntoComponent(node: Node, stack: mutable.Stack[Node]): Unit = {
+
+      node.inputs.foreach(stack.push(_))
+
+      if (node.isInstanceOf[BaseType] && node.component.parent != null) {
+        val baseType = node.asInstanceOf[BaseType]
+        if (baseType.isInput) {
+          baseType.inputs(0) match{
+            case input : Reg =>
+            case input : BaseType =>{
+              input.keepIt
+           //   if(input.isUnnamed) input.setName(baseType.component.getName() + "_" + baseType.getName())
+            }
+            case _ =>{
+              val inBinding = baseType.clone
+              inBinding.inputs(0) = baseType.inputs(0)
+              baseType.inputs(0) = inBinding
+              inBinding.keepIt
+              inBinding.component = node.component.parent
+              stack.push(inBinding)
+              //inBinding.component.nodes += inBinding
+              //inBinding.setName(baseType.component.getName() + "_" + baseType.getName())
+            }
+          }
+
+        }
+      }
+
+      for (i <- 0 until node.inputs.size) {
+        val nodeInput = node.inputs(i)
+        nodeInput match {
+          case nodeInput: BaseType => {
+            if (nodeInput.isIo && nodeInput.isOutput && (nodeInput.component.parent == node.component || (nodeInput.component.parent == node.component.parent && nodeInput.component != node.component))) {
+              val outBind = OutBinding(nodeInput, nodeInput.component.parent)
+              node.inputs(i) = outBind
+            }
+
+            node.inputs(i) = getFirstReadableNode(node.inputs(i), node.component)
+
+            def getFirstReadableNode(node: Node, component: Component): Node = node match {
+              case baseType: BaseType => {
+                if (baseType.isIo && baseType.isOutput && baseType.component == component) {
+                  getFirstReadableNode(baseType.inputs(0), component)
+                } else {
+                  baseType
+                }
+              }
+              case n: Node => n
+            }
+          }
+          case _ =>
+        }
+      }
+
+      node.component.nodes += node
+    }
+
+
+    def addComponent(c: Component): Unit = {
+      components += c
+      c.kinds.foreach(addComponent(_))
+    }
+
+  }
+
+
+  def emitReference(node: Node): String = {
+    node match {
+      case n: Nameable => {
+        n.getNameElseThrow
+      }
+
+    }
+
+    //THROW
+  }
+
+}
