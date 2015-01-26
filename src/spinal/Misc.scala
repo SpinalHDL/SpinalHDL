@@ -151,9 +151,26 @@ object SpinalExit {
   }
 }
 
+
+
+
 class SpinalExit extends Exception;
+//class SpinalCantInferredWidth extends Exception;
+
+/*
+object SpinalCantInferredWidth{
+  def apply(node : Node): Unit = {
+    SpinalError.printError(s"Can't infer width on $node because of unspecified width")
+    throw new SpinalCantInferredWidth
+  }
+}*/
+
 
 object SpinalError {
+  def apply() = {
+    SpinalExit()
+  }
+
   def apply(message: String) = {
     printError(message)
     SpinalExit()

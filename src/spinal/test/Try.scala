@@ -17,7 +17,7 @@
  */
 
 package spinal.test
-
+import spinal.IntBuilder._
 import spinal._
 
 /**
@@ -118,13 +118,13 @@ object Try {
 
   class BundleAA extends BundleA {
     val a = new Bool()
-    val d = new UInt()
+    val d = new Bool()
   }
 
 
   class BundleA extends Bundle {
     val b = new Bool()
-    val c = new Bool()
+    val c = UInt (8 bit)
   }
 
   class VecA extends Vec(new BundleAA()) {
@@ -153,7 +153,7 @@ object Try {
     def apply() = true
   }
 
-  import spinal.IntBuilder._
+
 
   class MyBlackBox extends BlackBox {
     val generic = new Bundle {
@@ -202,7 +202,7 @@ object Try {
       //   val outBundle = new BundleAA().asOutput
       //      //   val outBits = new Bits().asOutput
       //
-      //      val inVec = new VecA().asInput
+            val inVec = new VecA().asInput
       //      //  val outVec = new VecA().asOutput
       //
       //
@@ -241,6 +241,15 @@ object Try {
     reg := io.inu4b + io.inu4b
     io.outu := reg
 
+
+    val bundleClone = io.inBundle0.clone().keep
+    bundleClone := io.inBundle0
+
+    val vecClone = io.inVecU.clone().keep
+    vecClone := io.inVecU
+
+   /* val vec2Clone = io.inVec.clone().keep
+    vec2Clone := io.inVec*/
 
     val keepMePlease =  io.inu4b + io.inu4b
     keepMePlease.keep

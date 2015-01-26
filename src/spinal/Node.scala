@@ -101,6 +101,8 @@ abstract class Node extends ComponentLocated {
   var dontSimplify = false
   def dontSimplifyIt = dontSimplify = true
 
+
+  //TODO trow unspecified width exception instead of -1
   def getWidth: Int = {
     if (Node.areInferringWidth) {
       inferredWidth
@@ -123,6 +125,12 @@ abstract class Node extends ComponentLocated {
       }else{
         temp = calcWidth
       }
+
+      if(temp == -1){
+        Node.getWidthWalkedSet.clear()
+        SpinalError(s"Can't infer width on $this because of unspecified width")
+      }
+
       Node.getWidthWalkedSet -= this
 
       if (isFirst) Node.getWidthWalkedSet.clear()

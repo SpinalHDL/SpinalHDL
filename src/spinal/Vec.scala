@@ -154,4 +154,9 @@ class Vec[T <: Data](baseType: T) extends MultiData with collection.IndexedSeq[T
     elementsCache
   }
 
+  override def clone(): this.type = {
+    val newVec = new Vec[T](baseType)
+    vec.foreach(newVec.vec += _.clone())
+    newVec.asInstanceOf[this.type]
+  }
 }
