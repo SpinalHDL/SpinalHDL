@@ -126,6 +126,8 @@ trait Data extends ComponentLocated with Nameable with Assignable {
     this
   }
 
+
+
   /*def :=(that :this.type) : Unit = {
     this assignFrom that
   }*/
@@ -145,6 +147,8 @@ trait Data extends ComponentLocated with Nameable with Assignable {
 
   def toBits: Bits
 
+
+  def keep = flatten.foreach(t => t._2.component.additionalNodesRoot += t._2)
 
   //TODO cehck clone on Vec and on Bundle
   override def clone(): this.type = {

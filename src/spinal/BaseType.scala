@@ -64,6 +64,7 @@ object BaseType {
 abstract class BaseType extends Node with Data with Nameable {
   inputs += null
 
+
   val whenScope = when.stack.head()
   var compositeAssign : Assignable = null
 
@@ -152,5 +153,8 @@ abstract class BaseType extends Node with Data with Nameable {
     typeNode.setInput(node)
     typeNode
   }
+
+
+  override def toString() : String = s"${getClassIdentifier}(named ${"\"" + getName() + "\""},into ${component.getClass.getSimpleName}})"
 }
 

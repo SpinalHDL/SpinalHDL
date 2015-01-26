@@ -62,14 +62,23 @@ abstract class BitVector extends BaseType {
     return inputs(0).getWidth
   }
 
-  //TODO use Vec DSL, getWidth must be totaly solved
+
   def toBools: Vec[Bool] = {
     val vec = new Vec(new Bool())
-    for (i <- 0 until getWidth) vec.vec += this(i)
+    val bitCount = getWidth
+    Node.widthInferredCheck +=toBoolsCheck(bitCount)
+    if(bitCount == -1) SpinalError("Can't convert to bools a Bits that has unspecified width value")
+    for (i <- 0 until bitCount) vec.vec += this(i)
     vec
   }
+
+  def toBoolsCheck(wantedWidth : Int)() = {
+    if(getWidth != wantedWidth){
+      SpinalError(s"$this has changed width after a toBools call. It's not allowed")
+    }
+  }
+
   //extract bit
-  //TODO bitId Range check ?
   def apply(bitId: Int): Bool = {
     val extract = ExtractBool(this, bitId)
     val bool = new Bool()
@@ -77,7 +86,6 @@ abstract class BitVector extends BaseType {
     bool
   }
   //extract bit
-  //TODO bitId Range check ?
   def apply(bitId: UInt): Bool = {
     val extract = ExtractBool(this, bitId)
     val bool = new Bool()
@@ -85,7 +93,6 @@ abstract class BitVector extends BaseType {
     bool
   }
   //extract bits
-  //TODO bitId Range check ?
   def apply(highBit: Int, lowBit: Int): Bits = {
     val extract = ExtractBitsVector(this, highBit, lowBit)
     val bits = new Bits()
@@ -94,7 +101,6 @@ abstract class BitVector extends BaseType {
   }
 
   //extract bits
-  //TODO bitId Range check ?
   def apply(highBit: UInt, lowBit: UInt): Bits = {
     ExtractBitsVector(this, highBit, lowBit)
   }

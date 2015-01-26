@@ -18,39 +18,42 @@
 
 package spinal
 
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 /**
  * Created by PIC18F on 21.08.2014.
  */
 
-object InputNormalize{
-  def none(node : Node): Unit ={
+object InputNormalize {
+  def none(node: Node): Unit = {
 
   }
-  def regImpl(node : Node): Unit ={
+  def regImpl(node: Node): Unit = {
     val targetWidth = node.getWidth
-    for(i <- 0 until 2)
-      Misc.resize(node, i, targetWidth)
+    for (i <- 0 until 2)
+      Misc.normalizeResize(node, i, targetWidth)
   }
-  def nodeWidth(node : Node): Unit ={
+  def nodeWidth(node: Node): Unit = {
     val targetWidth = node.getWidth
-    for(i <- 0 until node.inputs.size)
-      Misc.resize(node, i, targetWidth)
+    for (i <- 0 until node.inputs.size)
+      Misc.normalizeResize(node, i, targetWidth)
   }
-  def inputWidthMax(node : Node): Unit ={
+  def inputWidthMax(node: Node): Unit = {
     val targetWidth = Math.max(node.inputs(0).getWidth, node.inputs(1).getWidth)
-    for(i <- 0 until node.inputs.size)
-      Misc.resize(node, i, targetWidth)
+    for (i <- 0 until node.inputs.size)
+      Misc.normalizeResize(node, i, targetWidth)
   }
 }
 
-object WidthInfer{
+object WidthInfer {
   def inputMaxWidthl(node: Node): Int = {
     node.inputs.foldLeft(-1)((best, n) => Math.max(best, if (n != null) n.getWidth else -1))
   }
   def regImpl(node: Node): Int = {
-    math.max(node.inputs(0).getWidth,node.inputs(1).getWidth)
+    val dataIn = node.inputs(0)
+    val init = node.inputs(1)
+    math.max(if(dataIn != node)dataIn.getWidth else -1, if(init != node)init.getWidth else -1)
   }
 
   def cumulateInputWidth(node: Node): Int = {
@@ -79,6 +82,8 @@ object Node {
 
 
   var areInferringWidth = false
+  val getWidthWalkedSet: mutable.Set[Node] = mutable.Set[Node]()
+  val widthInferredCheck = ArrayBuffer[() => Unit]()
 }
 
 //object NoNode extends Node{
@@ -90,15 +95,38 @@ abstract class Node extends ComponentLocated {
   val inputs = new ArrayBuffer[Node]
 
 
-  var keepMe = false
-  def keepIt = keepMe = true
 
-  //TODO protect from infinit loop when calcWidth
+
+
+  var dontSimplify = false
+  def dontSimplifyIt = dontSimplify = true
+
   def getWidth: Int = {
     if (Node.areInferringWidth) {
       inferredWidth
     } else {
-      calcWidth
+      val isFirst = Node.getWidthWalkedSet.isEmpty
+      if (Node.getWidthWalkedSet.contains(this))
+        SpinalError(s"Can't calculate width of $this when design is in construction phase")
+
+      Node.getWidthWalkedSet += this
+      var temp: Int = 0;
+      if (isFirst) {
+        try {
+          temp = calcWidth
+        } catch {
+          case e: Exception => {
+            Node.getWidthWalkedSet.clear()
+            throw e
+          }
+        }
+      }else{
+        temp = calcWidth
+      }
+      Node.getWidthWalkedSet -= this
+
+      if (isFirst) Node.getWidthWalkedSet.clear()
+      temp
     }
   }
 
@@ -121,7 +149,7 @@ abstract class Node extends ComponentLocated {
   var inferredWidth = -1
 
 
-  def normalizeInputs: Unit ={
+  def normalizeInputs: Unit = {
 
   }
 
@@ -129,4 +157,6 @@ abstract class Node extends ComponentLocated {
     inputs(0) = node
   }
 
+
+  def getClassIdentifier: String = this.getClass.getSimpleName
 }

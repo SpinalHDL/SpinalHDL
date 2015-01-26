@@ -79,7 +79,7 @@ object Try {
     val r1 = Reg(io.in.clone);
     when(io.in /*&& ClockDomain.readReset*/) {
       r1 := r1 /*&& ClockDomain.readClock*/
-    }otherwise{
+    } otherwise {
       r1 := Bool(true)
     }
     io.out := r1
@@ -157,8 +157,8 @@ object Try {
 
   class MyBlackBox extends BlackBox {
     val generic = new Bundle {
-      val genA = UInt (1,5 bit)
-      val genB = Bool (false)
+      val genA = UInt(1, 5 bit)
+      val genB = Bool(false)
       val genC = Number(44)
       val genD = SString("salut")
     }
@@ -185,43 +185,49 @@ object Try {
       val inu8b = in UInt (8 bit)
       val c = in UInt (5 bit)
       val d = in UInt (5 bit)
-    //  val o = out UInt (5 bit)
-      val outu = out.UInt ()
+      //  val o = out UInt (5 bit)
+      val outu = out.UInt()
 
       //      val default = new UInt().asInput
-//      // val outSInt = new SInt().asOutput
-//      //   val out = new UInt().asOutput
-//      //   val out2 = new UInt().asOutput
-//      //  val outBool = new Bool().asOutput
-//
-//
+      //      // val outSInt = new SInt().asOutput
+      //      //   val out = new UInt().asOutput
+      //      //   val out2 = new UInt().asOutput
+      //      //  val outBool = new Bool().asOutput
+      //
+      //
       val inBundle0 = new BundleAA().asInput
       val inBundle1 = new BundleA().asInput
       val inBundle2 = new BundleAA().asInput
       val inBundle3 = new BundleA().asInput
-   //   val outBundle = new BundleAA().asOutput
-//      //   val outBits = new Bits().asOutput
-//
-//      val inVec = new VecA().asInput
-//      //  val outVec = new VecA().asOutput
-//
-//
-//      // val outBool = out.Bool.apply()
-//      //  val outBool = out.Bool()
-//
-//      // val outUInt = out.UInt (0)
-//
-//      val inVecU = in(Vec.tabulate(4)(i => UInt(4 + i bit)))
+      //   val outBundle = new BundleAA().asOutput
+      //      //   val outBits = new Bits().asOutput
+      //
+      //      val inVec = new VecA().asInput
+      //      //  val outVec = new VecA().asOutput
+      //
+      //
+      //      // val outBool = out.Bool.apply()
+      //      //  val outBool = out.Bool()
+      //
+      //      // val outUInt = out.UInt (0)
+      //
+      //      val inVecU = in(Vec.tabulate(4)(i => UInt(4 + i bit)))
       //  val outVecU = out (Vec.fill(4)(UInt(4 bit)))
       val inUIntA = in UInt (5 bit)
-     // val outUIntA = out UInt (5 bit)
+      //  val outUIntA = out UInt (5 bit)
 
-     // val outBool = out.Bool()
+      //  val outBool = out.Bool()
+
+
+      /* val inShiftVec = in UInt (4 bit)
+       val inShiftHi= in UInt (6 bit)
+       val inShiftLow = in UInt (6 bit)
+       val outShift = out.Bits ()*/
 
     }
 
-
-  //  io.outVecU := io.inVecU
+    //io.outShift := io.inShiftVec(io.inShiftHi,io.inShiftLow)
+    //  io.outVecU := io.inVecU
 
     // io.outBool := io.a > 2
 
@@ -230,51 +236,52 @@ object Try {
     ClockDomain.push(clk)
 
     val reg = Reg(UInt())
-    reg := reg + io.inu4b
+    reg := io.inu4b + io.inu4b
     io.outu := reg
 
 
+    val keepMePlease =  io.inu4b + io.inu4b
+    keepMePlease.keep
 
     //  val AA = Component(new ComponentAA)
     //    val AB = Component(new ComponentAB)
     //
 
-/*
-    val blackBoxA = Component(new MyBlackBox)
-    val blackBoxB = Component(new MyBlackBox)
+    /*
+        val blackBoxA = Component(new MyBlackBox)
+        val blackBoxB = Component(new MyBlackBox)
 
-    blackBoxB.generic.genC := Number(22)
-    blackBoxB.generic.genA := UInt(7)
-    blackBoxB.generic.genD := SString("Miaou")
+        blackBoxB.generic.genC := Number(22)
+        blackBoxB.generic.genA := UInt(7)
+        blackBoxB.generic.genD := SString("Miaou")
 
-    blackBoxA.io.inUIntA := io.inUIntA
-    blackBoxB.io.inUIntA := blackBoxA.io.outUIntA
-    io.outUIntA := blackBoxB.io.outUIntA + blackBoxB.io.outUIntA + blackBoxB.io.outUIntA*/
+        blackBoxA.io.inUIntA := io.inUIntA
+        blackBoxB.io.inUIntA := blackBoxA.io.outUIntA
+        io.outUIntA := blackBoxB.io.outUIntA + blackBoxB.io.outUIntA + blackBoxB.io.outUIntA
 
 
-
-   // val componentAA = Component(new ComponentAA)
-   // componentAA.io.in := io.cond0
+        val componentAA = Component(new ComponentAA)
+        componentAA.io.in := io.cond0*/
     /*when(io.cond0){
       componentAA.io.in := io.cond0
     }otherwise{
       componentAA.io.in := RegNext(componentAA.io.in)
-    }*/
+    }
+    io.outBool := componentAA.io.out && io.inUIntA(4)*/
+    /* io.outBool := componentAA.io.out
 
-   /* io.outBool := componentAA.io.out
 
+         val temp = Reg(io.inBundle0,io.inBundle3)
+         when(!io.cond0) {
+           temp := io.inBundle1
+           when(io.cond1) {
+             temp := io.inBundle2
+           }
+         }
 
-        val temp = Reg(io.inBundle0,io.inBundle3)
-        when(!io.cond0) {
-          temp := io.inBundle1
-          when(io.cond1) {
-            temp := io.inBundle2
-          }
-        }
+         io.outBundle := temp*/
 
-        io.outBundle := temp*/
-
-      //  io.outBool := Bool(true)
+    //  io.outBool := Bool(true)
 
     nameElements()
 

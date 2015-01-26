@@ -57,7 +57,7 @@ abstract class Component extends Nameable {
   def io: Data
 
   var outBindingHosted = mutable.Map[BaseType, OutBinding]()
-
+  val additionalNodesRoot = mutable.Set[BaseType]()
   var definitionName = ""
   val level = Component.stack.size()
   val kinds = ArrayBuffer[Component]()
@@ -79,16 +79,6 @@ abstract class Component extends Nameable {
   }
 
   def nameElements(): Unit = {
-    /*for (node <- nodes) node match {
-      case nameable: Nameable => {
-        if (nameable.isUnnamed) {
-          nameable.setWeakName("zz")
-        }
-      }
-      case _ =>
-    }*/
-
-
     Misc.reflect(this, (name, obj) => {
       obj match {
         case component: Component => {
@@ -101,20 +91,6 @@ abstract class Component extends Nameable {
         case _ =>
       }
     })
-
-
-    /*
-        for (kind <- kinds; if kind.isUnnamed) {
-          var name = kind.getClass.getName
-          name = Character.toLowerCase(name.charAt(0)) + (if(name.length() > 1) name.substring(1) else "");
-          kind.setWeakName(name)
-        }*/
-
-    for ((bindedOut, bind) <- outBindingHosted) {
-      bind.setWeakName(bindedOut.component.getName() + "_" + bindedOut.getName())
-    }
-
-
   }
 
   def allocateNames(): Unit = {
@@ -142,7 +118,6 @@ abstract class Component extends Nameable {
     val nodeIo = mutable.Set[BaseType]()
     if(nodes == null) {
       io.flatten.foreach(nodeIo += _._2)
-      //TODO add inputs node that are not into nodes tree
     }else {
       nodes.foreach(node => node match {
         case b: BaseType => if (b.isIo) nodeIo += b

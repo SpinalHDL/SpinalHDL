@@ -119,6 +119,7 @@ class ExtractBool extends Node {
 
 object ExtractBitsVector {
   def apply(bitVector: BitVector, bitIdHi: Int, bitIdLow: Int): ExtractBitsVector = {
+    SpinalError(s"Static bits extraction with a negative size ($bitIdHi downto $bitIdLow)")
     val op = new ExtractBitsVector
     op.inputs += bitVector.toBits
     op.inputs += new IntLiteral(bitIdHi)
@@ -126,7 +127,7 @@ object ExtractBitsVector {
     op
   }
 
-  //todo need test
+
   def apply(bitVector: BitVector, bitIdHi: UInt, bitIdLow: UInt): Bits = {
     val sr = bitVector.toBits >> bitIdLow
     val mask = (UInt(1) << bitIdLow) - UInt(1)
@@ -156,8 +157,8 @@ class Multiplexer(opName: String) extends Modifier(opName, WidthInfer.inputMaxWi
   def whenFalse = inputs(2)
 
   override def normalizeInputs: Unit = {
-    Misc.resize(this, 1, this.getWidth)
-    Misc.resize(this, 2, this.getWidth)
+    Misc.normalizeResize(this, 1, this.getWidth)
+    Misc.normalizeResize(this, 2, this.getWidth)
   }
 }
 

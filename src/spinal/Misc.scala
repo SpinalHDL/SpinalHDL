@@ -37,36 +37,36 @@ import reflect.runtime.{universe => ru}
 object Misc {
   def reflect(o: Object, onEach: (String, Object) => Unit): Unit = {
 
-   /* val fieldSymbols = ru.typeOf[o.type].members.collect { case m: ru.Constant => m}
-    val mmm = ru.typeOf[o.type].paramLists
-    val mmm2 = ru.typeOf[o.type]
-    val tt = o.getClass.getFields
-    val ttt = o.getClass.getDeclaredFields
-    val tttt = o.getClass.getSuperclass
-    val ttttt = o.getClass.getSuperclass.getDeclaredFields
-    val tttttt = o.getClass.getSuperclass.getFields
-    ttt(0).setAccessible(true)
-    val r = ttt(0).get(o)*/
-   /* for (method <- o.getClass.getMethods) {
-      if (method.getParameterTypes.length == 0
-        && Modifier.isPublic(method.getModifiers)) {
-        val tt = method.getAnnotations
-        val obj = method.invoke(o)
-        if (obj != null) {
-          onEach(method.getName, obj)
-        }
-      }
-    }*/
+    /* val fieldSymbols = ru.typeOf[o.type].members.collect { case m: ru.Constant => m}
+     val mmm = ru.typeOf[o.type].paramLists
+     val mmm2 = ru.typeOf[o.type]
+     val tt = o.getClass.getFields
+     val ttt = o.getClass.getDeclaredFields
+     val tttt = o.getClass.getSuperclass
+     val ttttt = o.getClass.getSuperclass.getDeclaredFields
+     val tttttt = o.getClass.getSuperclass.getFields
+     ttt(0).setAccessible(true)
+     val r = ttt(0).get(o)*/
+    /* for (method <- o.getClass.getMethods) {
+       if (method.getParameterTypes.length == 0
+         && Modifier.isPublic(method.getModifiers)) {
+         val tt = method.getAnnotations
+         val obj = method.invoke(o)
+         if (obj != null) {
+           onEach(method.getName, obj)
+         }
+       }
+     }*/
 
     val refs = mutable.Set[Object]()
     explore(o.getClass)
-    def explore(c : Class[_]): Unit ={
-      if(c == null) return
+    def explore(c: Class[_]): Unit = {
+      if (c == null) return
       explore(c.getSuperclass)
-      for(f <- c.getDeclaredFields){
+      for (f <- c.getDeclaredFields) {
         f.setAccessible(true)
         val fieldRef = f.get(o)
-        if(!refs.contains(fieldRef)){
+        if (!refs.contains(fieldRef)) {
           onEach(f.getName, fieldRef)
           refs += fieldRef
         }
@@ -77,13 +77,15 @@ object Misc {
 
   }
 
-  def resize(to: Node, inputId: Integer, width: Int) {
+  def normalizeResize(to: Node, inputId: Integer, width: Int) {
     val input = to.inputs(inputId)
     if (input == null || input.getWidth == width) return;
 
     val that = input.asInstanceOf[BitVector]
     Component.push(that.component)
-    to.inputs(inputId) = that.resize(width)
+    val resize = that.resize(width)
+    resize.inferredWidth = width
+    to.inputs(inputId) = resize
     Component.pop(that.component)
   }
 
@@ -101,7 +103,7 @@ class Scope {
     if (count == 0) name else name + "_" + count
   }
 
-  def lockName(name : String): Unit ={
+  def lockName(name: String): Unit = {
     val count = map.get(name).getOrElse(1)
     map(name) = count
   }
@@ -143,4 +145,23 @@ class SafeStack[T] {
   def reset = stack.clear()
 }
 
+object SpinalExit {
+  def apply(): Unit = {
+    throw new SpinalExit
+  }
+}
 
+class SpinalExit extends Exception;
+
+object SpinalError {
+  def apply(message: String) = {
+    printError(message)
+    SpinalExit()
+  }
+  def apply(messages: Seq[String]) = {
+    messages.foreach(printError(_))
+    SpinalExit()
+  }
+
+  def printError(message: String) = println(s"[Error] $message")
+}

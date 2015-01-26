@@ -27,7 +27,6 @@ object OutBinding  {
     var bind = into.findBinding(out)
     if (bind != null) return bind
     bind = new OutBinding(out)
-    into.nodes += bind
     into.outBindingHosted.put(out,bind)
     bind.inputs += out
     bind.component = into
