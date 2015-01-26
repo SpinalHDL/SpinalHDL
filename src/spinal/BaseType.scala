@@ -77,7 +77,7 @@ abstract class BaseType extends Node with Data with Nameable {
   }
 
 
-
+  override def getBitsWidth : Int = getWidth
 
   def isReg = inputs(0).isInstanceOf[Reg]
 

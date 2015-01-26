@@ -54,6 +54,16 @@ abstract class MultiData extends Data{
     }
   }
 
+  override def getBitsWidth : Int = {
+    var accumulateWidth = 0
+    for((eName,e) <- flatten) {
+      val width = e.getWidth
+      if(width == -1) return -1
+      accumulateWidth += width
+    }
+    accumulateWidth
+  }
+
   override def asInput: this.type = {
     elements.foreach(_._2.asInput);
     this

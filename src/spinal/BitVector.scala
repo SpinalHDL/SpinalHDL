@@ -58,7 +58,7 @@ abstract class BitVector extends BaseType {
 
   override def calcWidth: Int = {
     if (isFixedWidth) return fixedWidth
-    if (inputs.size == 0) return -1
+    if (inputs(0) == null) return -1
     return inputs(0).getWidth
   }
 

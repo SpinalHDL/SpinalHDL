@@ -118,7 +118,7 @@ object Try {
 
   class BundleAA extends BundleA {
     val a = new Bool()
-    val d = new Bool()
+    val d = new UInt()
   }
 
 
@@ -211,7 +211,7 @@ object Try {
       //
       //      // val outUInt = out.UInt (0)
       //
-      //      val inVecU = in(Vec.tabulate(4)(i => UInt(4 + i bit)))
+            val inVecU = in(Vec.tabulate(4)(i => UInt(4 + i bit)))
       //  val outVecU = out (Vec.fill(4)(UInt(4 bit)))
       val inUIntA = in UInt (5 bit)
       //  val outUIntA = out UInt (5 bit)
@@ -231,7 +231,9 @@ object Try {
 
     // io.outBool := io.a > 2
 
-
+    println(io.inBundle0.getBitsWidth)
+    println(io.inBundle1.getBitsWidth)
+    println(io.inVecU.getBitsWidth)
     val clk = new ClockDomain(io.myClock, RISING, null, io.myReset, SYNC, false)
     ClockDomain.push(clk)
 

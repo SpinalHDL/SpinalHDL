@@ -112,7 +112,7 @@ object Data {
 }
 
 
-trait Data extends ComponentLocated with Nameable with Assignable {
+trait Data extends ComponentLocated with Nameable with Assignable{
   var dir: IODirection = null
   var isIo = false
 
@@ -146,7 +146,7 @@ trait Data extends ComponentLocated with Nameable with Assignable {
 
 
   def toBits: Bits
-
+  def getBitsWidth : Int
 
   def keep = flatten.foreach(t => t._2.component.additionalNodesRoot += t._2)
 
