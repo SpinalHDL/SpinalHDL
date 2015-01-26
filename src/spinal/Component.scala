@@ -26,7 +26,6 @@ import scala.collection.mutable.ArrayBuffer
  */
 
 
-
 object Component {
   def apply[T <: Component](c: T): T = {
 
@@ -39,7 +38,7 @@ object Component {
 
 
   def push(c: Component): Unit = {
-  //  if (when.stack.size() != 0) throw new Exception("Creating a component into hardware conditional expression")
+    //  if (when.stack.size() != 0) throw new Exception("Creating a component into hardware conditional expression")
     stack.push(c)
   }
 
@@ -66,17 +65,16 @@ abstract class Component extends Nameable {
     parent.kinds += this;
   }
 
-  var nodes : ArrayBuffer[Node] = null
+  var nodes: ArrayBuffer[Node] = null
 
 
   var pulledDataCache = mutable.Map[Data, Data]()
 
-  if(Component.stack.stack.isEmpty){
+  if (Component.stack.stack.isEmpty) {
     BackendToComponentBridge.defaultClock.component = this
     BackendToComponentBridge.defaultReset.component = this
   }
   Component.push(this)
-
 
 
   def parents(of: Component = this, list: List[Component] = Nil): List[Component] = {
@@ -105,7 +103,10 @@ abstract class Component extends Nameable {
         if (nameable.isUnnamed) {
           nameable.setWeakName("zz")
         }
-        nameable.setName(localScope.allocateName(nameable.getName()));
+        if (nameable.isWeak)
+          nameable.setName(localScope.allocateName(nameable.getName()));
+        else
+          localScope.iWantIt(nameable.getName())
       }
       case _ =>
     }
@@ -122,9 +123,9 @@ abstract class Component extends Nameable {
 
   def getNodeIo = {
     val nodeIo = mutable.Set[BaseType]()
-    if(nodes == null) {
+    if (nodes == null) {
       io.flatten.foreach(nodeIo += _._2)
-    }else {
+    } else {
       nodes.foreach(node => node match {
         case b: BaseType => if (b.isIo) nodeIo += b
         case _ =>

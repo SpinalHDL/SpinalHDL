@@ -107,6 +107,11 @@ class Scope {
     val count = map.get(name).getOrElse(1)
     map(name) = count
   }
+
+  def iWantIt(name : String): Unit = {
+    if(map.contains(name)) SpinalError("Reserved name $name is not free")
+    map(name) = 1
+  }
 }
 
 /*

@@ -22,7 +22,7 @@ package spinal
  * Created by PIC18F on 10.01.2015.
  */
 
-//TODO fix case where register is an input IO
+
 object Reg {
   def apply[T <: Data](dataType: T, init: T = null): T = {
     val regOut = dataType.clone()

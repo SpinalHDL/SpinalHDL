@@ -37,9 +37,9 @@ object Backend {
   }
 }
 
-object BackendToComponentBridge{
-  var defaultReset : Bool = null
-  var defaultClock : Bool = null
+object BackendToComponentBridge {
+  var defaultReset: Bool = null
+  var defaultClock: Bool = null
 }
 
 class Backend {
@@ -69,7 +69,7 @@ class Backend {
     BackendToComponentBridge.defaultReset = reset
 
     //default clockDomain
-    val defaultClockDomain = ClockDomain(clock,reset)
+    val defaultClockDomain = ClockDomain(clock, reset)
 
     ClockDomain.push(defaultClockDomain)
     val topLevel = gen()
@@ -79,6 +79,14 @@ class Backend {
     topLevel
   }
 
+  //TODO
+  //TODO check there is no input register
+  //TODO no null input into nodes graph
+  //TODO no cross hyearchy read write
+  //TODO no asyncrounous loop
+  //TODO no cross clock domain violation
+  //TODO generate test bench
+  //TODO
 
   protected def elaborate(topLevel: Component): Unit = {
     addReservedKeyWord(globalScope)
@@ -90,6 +98,7 @@ class Backend {
 
     //Component connection
     configureComponentIo
+    //moveInputRegisterToParent
     pullClockDomains
     addInOutBinding
     allowNodesToReadInputOfKindComponent
@@ -157,6 +166,27 @@ class Backend {
     def addInOutBinding: Unit = {
       walkNodes(walker_addBinding)
     }
+
+/*
+    def moveInputRegisterToParent: Unit = {
+      walkNodes2((node) => {
+        node match {
+          case regSignal: BaseType => {
+            if (regSignal.isReg && regSignal.isInput) {
+              val reg = regSignal.inputs(0)
+              val regSignalClone = regSignal.clone
+              reg.component = regSignal.component.parent
+              regSignalClone.inputs(0) = reg
+              regSignalClone.component = reg.component
+              regSignal.inputs(0) = regSignalClone
+            }
+          }
+          case _=>
+        }
+      })
+    }
+*/
+
     def pullClockDomains: Unit = {
       walkNodes(walker_pullClockDomains)
     }

@@ -73,7 +73,7 @@ object Try {
 
   class ComponentAAA extends Component {
     val io = new Bundle {
-      val in = new Bool().asInput
+      val in = (new Bool().asInput)
       val out = new Bool().asOutput
     }
 
@@ -88,7 +88,7 @@ object Try {
 
   class ComponentAA extends Component {
     val io = new Bundle {
-      val in = new Bool().asInput
+      val in = (new Bool()).asInput
       val out = new Bool().asOutput
     }
     val AAA = Component(new ComponentAAA)
@@ -186,7 +186,7 @@ object Try {
       val c = in UInt (5 bit)
       val d = in UInt (5 bit)
       //  val o = out UInt (5 bit)
-      val outu = (out.UInt())
+      val outu = Reg(out.UInt())
 
       //      val default = new UInt().asInput
       //      // val outSInt = new SInt().asOutput
@@ -237,7 +237,7 @@ object Try {
    // val clk = new ClockDomain(io.myClock, RISING, null, io.myReset, SYNC, false)
    // ClockDomain.push(clk)
 
-    val reg = Reg(UInt())
+    val reg = (UInt())
     reg := io.inu4b + io.inu4b
     io.outu := reg
 
@@ -450,7 +450,11 @@ object Try {
 
   def main(args: Array[String]) {
     println("START")
-    SpinalMain(Component(new ComponentA))
+    var comp : ComponentA = null
+    SpinalMain({
+      comp = new ComponentA
+      Component(comp)
+    })
     println("DONE")
   }
 
