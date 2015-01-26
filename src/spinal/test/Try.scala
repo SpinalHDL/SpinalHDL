@@ -17,6 +17,7 @@
  */
 
 package spinal.test
+
 import spinal.IntBuilder._
 import spinal._
 
@@ -76,9 +77,9 @@ object Try {
       val out = new Bool().asOutput
     }
 
-    val r1 = Reg(io.in.clone);
-    when(io.in /*&& ClockDomain.readReset*/) {
-      r1 := r1 /*&& ClockDomain.readClock*/
+    val r1 = (io.in.clone);
+    when(io.in) {
+      r1 := r1
     } otherwise {
       r1 := Bool(true)
     }
@@ -124,7 +125,7 @@ object Try {
 
   class BundleA extends Bundle {
     val b = new Bool()
-    val c = UInt (8 bit)
+    val c = UInt(8 bit)
   }
 
   class VecA extends Vec(new BundleAA()) {
@@ -135,7 +136,7 @@ object Try {
     def addE = {
       val e = new BundleAA()
 
-      vec += e
+      addElement(e)
     }
   }
 
@@ -152,7 +153,6 @@ object Try {
     def °(b: Int): UInt = UInt(b)
     def apply() = true
   }
-
 
 
   class MyBlackBox extends BlackBox {
@@ -186,13 +186,13 @@ object Try {
       val c = in UInt (5 bit)
       val d = in UInt (5 bit)
       //  val o = out UInt (5 bit)
-      val outu = out.UInt()
+      val outu = (out.UInt())
 
       //      val default = new UInt().asInput
       //      // val outSInt = new SInt().asOutput
       //      //   val out = new UInt().asOutput
       //      //   val out2 = new UInt().asOutput
-      //      //  val outBool = new Bool().asOutput
+              val outBool = new Bool().asOutput
       //
       //
       val inBundle0 = new BundleAA().asInput
@@ -202,7 +202,7 @@ object Try {
       //   val outBundle = new BundleAA().asOutput
       //      //   val outBits = new Bits().asOutput
       //
-            val inVec = new VecA().asInput
+      val inVec = new VecA().asInput
       //      //  val outVec = new VecA().asOutput
       //
       //
@@ -211,10 +211,10 @@ object Try {
       //
       //      // val outUInt = out.UInt (0)
       //
-            val inVecU = in(Vec.tabulate(4)(i => UInt(4 + i bit)))
+      val inVecU = in(Vec.tabulate(4)(i => UInt(4 + i bit)))
       //  val outVecU = out (Vec.fill(4)(UInt(4 bit)))
       val inUIntA = in UInt (5 bit)
-      //  val outUIntA = out UInt (5 bit)
+        val outUIntA = out UInt (5 bit)
 
       //  val outBool = out.Bool()
 
@@ -234,8 +234,8 @@ object Try {
     println(io.inBundle0.getBitsWidth)
     println(io.inBundle1.getBitsWidth)
     println(io.inVecU.getBitsWidth)
-    val clk = new ClockDomain(io.myClock, RISING, null, io.myReset, SYNC, false)
-    ClockDomain.push(clk)
+   // val clk = new ClockDomain(io.myClock, RISING, null, io.myReset, SYNC, false)
+   // ClockDomain.push(clk)
 
     val reg = Reg(UInt())
     reg := io.inu4b + io.inu4b
@@ -248,31 +248,32 @@ object Try {
     val vecClone = io.inVecU.clone().keep
     vecClone := io.inVecU
 
-   /* val vec2Clone = io.inVec.clone().keep
-    vec2Clone := io.inVec*/
+    /* val vec2Clone = io.inVec.clone().keep
+     vec2Clone := io.inVec*/
 
-    val keepMePlease =  io.inu4b + io.inu4b
+    val keepMePlease = io.inu4b + io.inu4b
     keepMePlease.keep
 
     //  val AA = Component(new ComponentAA)
     //    val AB = Component(new ComponentAB)
     //
 
-    /*
-        val blackBoxA = Component(new MyBlackBox)
-        val blackBoxB = Component(new MyBlackBox)
 
-        blackBoxB.generic.genC := Number(22)
-        blackBoxB.generic.genA := UInt(7)
-        blackBoxB.generic.genD := SString("Miaou")
+    val blackBoxA = Component(new MyBlackBox)
+    val blackBoxB = Component(new MyBlackBox)
 
-        blackBoxA.io.inUIntA := io.inUIntA
-        blackBoxB.io.inUIntA := blackBoxA.io.outUIntA
-        io.outUIntA := blackBoxB.io.outUIntA + blackBoxB.io.outUIntA + blackBoxB.io.outUIntA
+    blackBoxB.generic.genC := Number(22)
+    blackBoxB.generic.genA := UInt(7)
+    blackBoxB.generic.genD := SString("Miaou")
+
+    blackBoxA.io.inUIntA := io.inUIntA
+    blackBoxB.io.inUIntA := blackBoxA.io.outUIntA
+    io.outUIntA := blackBoxB.io.outUIntA + blackBoxB.io.outUIntA + blackBoxB.io.outUIntA
 
 
-        val componentAA = Component(new ComponentAA)
-        componentAA.io.in := io.cond0*/
+    val componentAA = Component(new ComponentAA)
+    componentAA.io.in := io.cond0
+    io.outBool := componentAA.io.out && io.inUIntA(4)
     /*when(io.cond0){
       componentAA.io.in := io.cond0
     }otherwise{
@@ -439,7 +440,7 @@ object Try {
 
 
 
-    ClockDomain.pop(clk)
+   // ClockDomain.pop(clk)
 
   }
 
@@ -449,7 +450,7 @@ object Try {
 
   def main(args: Array[String]) {
     println("START")
-    SpinalMain(new ComponentA)
+    SpinalMain(Component(new ComponentA))
     println("DONE")
   }
 

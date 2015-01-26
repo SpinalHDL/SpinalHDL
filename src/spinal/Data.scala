@@ -102,7 +102,7 @@ object Data {
       }
       risePath = risePath.tail
     }
-    //TODO check end
+
     Component.push(nextData.component)
     nextData.assignFrom(srcData)
     Component.pop(nextData.component)

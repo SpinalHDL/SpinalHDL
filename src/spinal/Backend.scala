@@ -37,6 +37,11 @@ object Backend {
   }
 }
 
+object BackendToComponentBridge{
+  var defaultReset : Bool = null
+  var defaultClock : Bool = null
+}
+
 class Backend {
 
   val components = ArrayBuffer[Component]()
@@ -50,7 +55,26 @@ class Backend {
 
   def elaborate[T <: Component](gen: () => T): T = {
     Backend.resetAll
+
+    //Default clock
+    val clock = in.Bool()
+    clock.setName("clk")
+    clock.isIo = true
+    BackendToComponentBridge.defaultClock = clock
+
+    //Default reset
+    val reset = in.Bool()
+    reset.setName("reset")
+    reset.isIo = true
+    BackendToComponentBridge.defaultReset = reset
+
+    //default clockDomain
+    val defaultClockDomain = ClockDomain(clock,reset)
+
+    ClockDomain.push(defaultClockDomain)
     val topLevel = gen()
+    ClockDomain.pop(defaultClockDomain)
+
     elaborate(topLevel)
     topLevel
   }

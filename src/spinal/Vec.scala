@@ -34,7 +34,7 @@ object Vec{
       else throw new Exception("can't mux that")
     }).clone()
     val vec = new Vec(vecType)
-    vec.vec ++= elements
+    elements.foreach(vec.addElement(_))
     vec
   }
 
@@ -78,11 +78,17 @@ class VecAccessAssign[T <: BaseType](enables: Seq[Bool], tos: Seq[T]) extends As
 }
 
 class Vec[T <: Data](baseType: T) extends MultiData with collection.IndexedSeq[T]{
-  //TODO protect from modification / check no read/write on vec come before last modification
-  val vec = ArrayBuffer[T]()
+  private val vec = ArrayBuffer[T]()
+  var vecLock = false
   val accessMap = mutable.Map[UInt, T]()
   var vecTransposedCache: ArrayBuffer[ArrayBuffer[BaseType]] = null
 
+
+  def lockIt() : Unit = vecLock = true
+  def addElement (e : T): Unit ={
+    if(vecLock) SpinalError("You can't modify Vec after read/write it")
+    vec += e
+  }
 
   def vecTransposed: ArrayBuffer[ArrayBuffer[BaseType]] = {
     if (vecTransposedCache == null) {
@@ -103,19 +109,25 @@ class Vec[T <: Data](baseType: T) extends MultiData with collection.IndexedSeq[T
   override def length: Int = vec.size
 
 
-  def apply(idx: Int): T = vec(idx)
+  def apply(idx: Int): T = {
+    lockIt()
+    if(idx < 0 || idx >= vec.size) SpinalError(s"Static Vec($idx) is outside the range (${vec.size - 1} downto 0) of ${this}")
+    vec(idx)
+  }
 
   def :=(that: Vec[T]): Unit = {
+    lockIt()
     this.assignFrom(that)
   }
 
 
   def apply(address: UInt): T = {
+    lockIt()
     access(address)
   }
 
-  //TODO address width ?
   def access(address: UInt): T = {
+    lockIt()
     if (accessMap.contains(address)) return accessMap.get(address).getOrElse(null.asInstanceOf[T])
 
 
@@ -130,6 +142,7 @@ class Vec[T <: Data](baseType: T) extends MultiData with collection.IndexedSeq[T
   }
 
   override def assignFrom(that: Data): Unit = {
+    lockIt()
     that match {
       case that: Vec[T] => {
         if (that.vec.size != this.vec.size) throw new Exception("Can't assign Vec with a different size")
@@ -157,6 +170,7 @@ class Vec[T <: Data](baseType: T) extends MultiData with collection.IndexedSeq[T
   override def clone(): this.type = {
     val newVec = new Vec[T](baseType)
     vec.foreach(newVec.vec += _.clone())
+    newVec.lockIt()
     newVec.asInstanceOf[this.type]
   }
 }

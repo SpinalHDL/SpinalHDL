@@ -70,7 +70,13 @@ abstract class Component extends Nameable {
 
 
   var pulledDataCache = mutable.Map[Data, Data]()
+
+  if(Component.stack.stack.isEmpty){
+    BackendToComponentBridge.defaultClock.component = this
+    BackendToComponentBridge.defaultReset.component = this
+  }
   Component.push(this)
+
 
 
   def parents(of: Component = this, list: List[Component] = Nil): List[Component] = {

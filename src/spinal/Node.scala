@@ -102,7 +102,7 @@ abstract class Node extends ComponentLocated {
   def dontSimplifyIt = dontSimplify = true
 
 
-  //TODO trow unspecified width exception instead of -1
+
   def getWidth: Int = {
     if (Node.areInferringWidth) {
       inferredWidth

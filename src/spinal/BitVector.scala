@@ -68,7 +68,7 @@ abstract class BitVector extends BaseType {
     val bitCount = getWidth
     Node.widthInferredCheck +=toBoolsCheck(bitCount)
     if(bitCount == -1) SpinalError("Can't convert to bools a Bits that has unspecified width value")
-    for (i <- 0 until bitCount) vec.vec += this(i)
+    for (i <- 0 until bitCount) vec.addElement(this(i))
     vec
   }
 
