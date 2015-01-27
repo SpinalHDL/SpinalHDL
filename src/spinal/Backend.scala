@@ -80,10 +80,8 @@ class Backend {
   }
 
   //TODO
-  //TODO no asyncrounous loop
   //TODO no cross clock domain violation
   //TODO generate test bench
-  //TODO add Log2 library
   //TODO
 
   protected def elaborate(topLevel: Component): Unit = {
@@ -115,15 +113,18 @@ class Backend {
     normalizeNodeInputs
     checkInferedWidth
 
+    //Check
+    SpinalInfoPhase("Check Combinational Loops")
+    checkCombinationalLoops
+
+
     //Simplify nodes
     SpinalInfoPhase("Simplify graph's nodes")
     fillNodeConsumer
     deleteUselessBaseTypes
     simplifyBlacBoxGenerics
 
-    //Check
-    SpinalInfoPhase("Check graph")
-    checkCombinationalLoops
+
 
 
     SpinalInfoPhase("Finalise")
@@ -137,6 +138,8 @@ class Backend {
     removeEmptyComponent
     allocateNames
 
+    printStates
+
 
     def nameNodesByReflection(): Unit = {
       if (topLevel.getName() == null) topLevel.setWeakName("toplevel")
@@ -147,6 +150,12 @@ class Backend {
 
     }
 
+
+    def printStates: Unit = {
+      var counter = 0
+      walkNodes2(_ => counter = counter + 1)
+      SpinalInfo(s"Graph has $counter nodes")
+    }
 
     def nameBinding: Unit = {
       for (c <- components) {
@@ -490,7 +499,67 @@ class Backend {
     }
 
     def checkCombinationalLoops: Unit = {
+      val errors = mutable.ArrayBuffer[String]()
+      val pendingNodes: mutable.Stack[Node] = walkNodesDefautStack
+      val walkedNodes = mutable.Set[Node]()
+      val localNodes = mutable.Set[Node]()
+      val stack = mutable.Stack[Node]()
 
+      while (!pendingNodes.isEmpty) {
+        val pop = pendingNodes.pop()
+        if (pop != null && !walkedNodes.contains(pop)) {
+          localNodes.clear()
+          walk(pop)
+        }
+      }
+
+      if (!errors.isEmpty)
+        SpinalError(errors)
+
+      def addPendingNode(node: Node) = {
+        if (!walkedNodes.contains(node)) pendingNodes.push(node)
+      }
+
+      def walk(node: Node): Unit = {
+        if (node == null) return
+        if (node.isInstanceOf[Reg]) {
+          val reg = node.asInstanceOf[Reg]
+          walkedNodes += node
+          addPendingNode(reg.getDataInput)
+          addPendingNode(reg.getInitialValue)
+          addPendingNode(reg.getClock)
+          if(reg.clockDomain.resetKind == ASYNC)
+            walk(reg.getReset)
+          else
+            addPendingNode(reg.getReset)
+          addPendingNode(reg.getClockEnable)
+
+        } else {
+          if (localNodes.contains(node)) {
+            val it = stack.iterator
+            val loopStack = mutable.Stack[Node](node)
+            var v: Node = null
+            do {
+              v = it.next
+              loopStack.push(v)
+            } while (v != node)
+            val wellNameLoop = loopStack.reverseIterator.filter(n => n.isInstanceOf[Nameable] && n.asInstanceOf[Nameable].isNamed).map(_.asInstanceOf[Nameable].getName()).reduceLeft(_ + " -> " + _)
+            val multiLineLoop = loopStack.reverseIterator.map(n => "      " + n.toString).reduceLeft(_ + "\n" + _)
+            errors += s"  Combinational loop ! ${wellNameLoop}\n${multiLineLoop}"
+          } else {
+            if (!walkedNodes.contains(node)) {
+              walkedNodes += node
+              localNodes += node
+              stack.push(node)
+              for (in <- node.inputs) {
+                walk(in)
+              }
+              stack.pop()
+              localNodes -= node
+            }
+          }
+        }
+      }
     }
 
 

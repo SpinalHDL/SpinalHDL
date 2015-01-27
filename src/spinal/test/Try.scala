@@ -78,8 +78,10 @@ object Try {
     }
 
     val r1 = (io.in.clone);
+    val tempSignal = !r1
+    val tempSignal2 = !tempSignal
     when(io.in) {
-      r1 := r1
+      r1 := RegNext(r1 && tempSignal2)
     } otherwise {
       r1 := Bool(true)
     }

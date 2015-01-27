@@ -151,8 +151,8 @@ class SafeStack[T] {
 }
 
 object SpinalExit {
-  def apply(): Unit = {
-    throw new SpinalExit
+  def apply(message: String = "Unspecified exit"): Unit = {
+    throw new SpinalExit("\n" + message)
   }
 }
 
@@ -160,8 +160,11 @@ object SpinalExit {
 object SpinalInfoPhase {
   def apply(message: String) = println(s"[Progress] at ${f"${Driver.executionTime}%1.3f"} : $message")
 }
+object SpinalInfo {
+  def apply(message: String) = println(s"[Info] $message")
+}
 
-class SpinalExit extends Exception;
+class SpinalExit(message: String) extends Exception(message);
 
 //class SpinalCantInferredWidth extends Exception;
 
@@ -180,12 +183,10 @@ object SpinalError {
   }
 
   def apply(message: String) = {
-    printError(message)
-    SpinalExit()
+    SpinalExit(message)
   }
   def apply(messages: Seq[String]) = {
-    messages.foreach(printError(_))
-    SpinalExit()
+    SpinalExit(messages.reduceLeft(_ + "\n" + _))
   }
 
   def printError(message: String) = println(s"[Error] $message")

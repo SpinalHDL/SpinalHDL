@@ -78,8 +78,9 @@ class Modifier(val opName: String, widthImpl: (Node) => Int) extends Node {
 
 
   override def toString(): String = {
-    s"($opName ${inputs.mkString(" ")})"
+    s"($opName ${this.inputs.map(_.nonRecursiveToString()).reduceLeft(_+" "+_)})"
   }
+  override def nonRecursiveToString(): String = opName
 }
 
 class Function(opName: String, widthImpl: (Node) => Int) extends Modifier(opName, widthImpl) {

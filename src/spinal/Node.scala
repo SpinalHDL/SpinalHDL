@@ -167,4 +167,10 @@ abstract class Node extends ComponentLocated {
 
 
   def getClassIdentifier: String = this.getClass.getSimpleName
+
+
+
+  def nonRecursiveToString() : String = {
+    toString()
+  }
 }
