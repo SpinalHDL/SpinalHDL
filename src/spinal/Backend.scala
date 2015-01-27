@@ -118,7 +118,7 @@ class Backend {
     checkCombinationalLoops
 
     //Name patch
-    nameOutputBinding
+    nameBinding
     simplifyBlackBoxIoNames
 
     //Finalise
@@ -136,12 +136,24 @@ class Backend {
 
     }
 
-    def nameOutputBinding: Unit = {
+    def nameBinding: Unit = {
       for (c <- components) {
         for ((bindedOut, bind) <- c.outBindingHosted) {
           bind.setWeakName(bindedOut.component.getName() + "_" + bindedOut.getName())
         }
       }
+
+      walkNodes2(node => node match {
+        case node: BaseType => {
+          if (node.isInput && node.inputs(0) != null && node.inputs(0).isInstanceOf[Nameable]) {
+            val nameable = node.inputs(0).asInstanceOf[Nameable]
+            if (nameable.isUnnamed) {
+              nameable.setWeakName(node.component.getName() + "_" + node.getName())
+            }
+          }
+        }
+        case _ =>
+      })
     }
 
     def allocateNames = {
@@ -167,25 +179,25 @@ class Backend {
       walkNodes(walker_addBinding)
     }
 
-/*
-    def moveInputRegisterToParent: Unit = {
-      walkNodes2((node) => {
-        node match {
-          case regSignal: BaseType => {
-            if (regSignal.isReg && regSignal.isInput) {
-              val reg = regSignal.inputs(0)
-              val regSignalClone = regSignal.clone
-              reg.component = regSignal.component.parent
-              regSignalClone.inputs(0) = reg
-              regSignalClone.component = reg.component
-              regSignal.inputs(0) = regSignalClone
+    /*
+        def moveInputRegisterToParent: Unit = {
+          walkNodes2((node) => {
+            node match {
+              case regSignal: BaseType => {
+                if (regSignal.isReg && regSignal.isInput) {
+                  val reg = regSignal.inputs(0)
+                  val regSignalClone = regSignal.clone
+                  reg.component = regSignal.component.parent
+                  regSignalClone.inputs(0) = reg
+                  regSignalClone.component = reg.component
+                  regSignal.inputs(0) = regSignalClone
+                }
+              }
+              case _=>
             }
-          }
-          case _=>
+          })
         }
-      })
-    }
-*/
+    */
 
     def pullClockDomains: Unit = {
       walkNodes(walker_pullClockDomains)

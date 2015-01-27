@@ -54,6 +54,10 @@ class VhdlBackend extends Backend {
     out.close();
   }
 
+  def emitTestBench(topLevel: Component): Unit ={
+
+  }
+
 
   def compile(component: Component): Unit = {
     val text = emit(component)
