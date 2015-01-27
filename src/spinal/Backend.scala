@@ -80,9 +80,6 @@ class Backend {
   }
 
   //TODO
-  //TODO check there is no input register
-  //TODO no null input into nodes graph
-  //TODO no cross hyearchy read write
   //TODO no asyncrounous loop
   //TODO no cross clock domain violation
   //TODO generate test bench
@@ -99,11 +96,14 @@ class Backend {
     SpinalInfoPhase("Get names from reflection")
     nameNodesByReflection
 
+
+
     //Component connection
     SpinalInfoPhase("Transform connection")
     configureComponentIo
     //moveInputRegisterToParent
     pullClockDomains
+    check_noNull_noCrossHierarchy_noInputRegister
     addInOutBinding
     allowNodesToReadInputOfKindComponent
 
@@ -147,6 +147,7 @@ class Backend {
 
     }
 
+
     def nameBinding: Unit = {
       for (c <- components) {
         for ((bindedOut, bind) <- c.outBindingHosted) {
@@ -167,6 +168,53 @@ class Backend {
         }
         case _ =>
       })
+    }
+
+
+    def check_noNull_noCrossHierarchy_noInputRegister: Unit = {
+      val errors = mutable.ArrayBuffer[String]()
+      walkNodes2(node => {
+
+        node match {
+          case node: BaseType => {
+            val in = node.inputs(0)
+            if (in != null) {
+              if (node.isInput && in.isInstanceOf[Reg] && in.component == node.component) {
+                errors += s"Input register are not allowed $node"
+              } else {
+                val inIsIo = in.isInstanceOf[BaseType] && in.asInstanceOf[BaseType].isIo
+                if (node.isIo) {
+                  if (node.isInput) {
+                    if (in.component != node.component.parent && !(!in.component.isTopLevel && inIsIo && in.component.parent == node.component.parent))
+                      errors += s"Input $node is not assigned by parent component but an other"
+                  } else if (node.isOutput) {
+                    if (in.component != node.component && !(inIsIo && node.component == in.component.parent))
+                      errors += s"Output $node is not assigned by his component but an other"
+                  } else errors += s"No direction specified on IO $node"
+                } else {
+                  if (in.component != node.component && !(inIsIo && node.component == in.component.parent))
+                    errors += s"Node $node is assigned outside his component "
+                }
+              }
+            } else {
+              if (!(node.isInput && node.component.isTopLevel) && !(node.isOutput && node.component.isInstanceOf[BlackBox]))
+                errors += s"No driver on $node"
+            }
+          }
+          case _ => {
+            for (in <- node.inputs) {
+              if (in == null) {
+                errors += s"No driver on $node"
+              } else {
+                if (in.component != node.component && !(in.isInstanceOf[BaseType] && in.asInstanceOf[BaseType].isIo && node.component == in.component.parent))
+                  errors += s"Node is drived outside his component $node"
+              }
+            }
+          }
+        }
+      })
+      if (!errors.isEmpty)
+        SpinalError(errors)
     }
 
     def allocateNames = {

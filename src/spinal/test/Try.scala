@@ -130,8 +130,8 @@ object Try {
 
   class RecursiveComponent(n : Int) extends Component{
     val io = new Bundle{
-      val input = in.Bool()
-      val output = out.Bool()
+      val input = (in.Bool())
+      val output = (out.Bool())
     }
 
     val subComponent = (0 until n).map(i => {

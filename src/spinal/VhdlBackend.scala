@@ -49,7 +49,7 @@ class VhdlBackend extends Backend {
     emitPackage(out)
 
     for (c <- sortedComponents) {
-      SpinalInfoPhase(s"  emit ${c.definitionName}}]")
+      SpinalInfoPhase(s"${"  " * (1+c.level)}emit ${c.definitionName}}]")
       compile(c)
     }
 

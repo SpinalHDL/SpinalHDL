@@ -49,28 +49,6 @@ object Misc {
 
 
   def reflect(o: Object, onEach: (String, Object) => Unit): Unit = {
-
-    /* val fieldSymbols = ru.typeOf[o.type].members.collect { case m: ru.Constant => m}
-     val mmm = ru.typeOf[o.type].paramLists
-     val mmm2 = ru.typeOf[o.type]
-     val tt = o.getClass.getFields
-     val ttt = o.getClass.getDeclaredFields
-     val tttt = o.getClass.getSuperclass
-     val ttttt = o.getClass.getSuperclass.getDeclaredFields
-     val tttttt = o.getClass.getSuperclass.getFields
-     ttt(0).setAccessible(true)
-     val r = ttt(0).get(o)*/
-    /* for (method <- o.getClass.getMethods) {
-       if (method.getParameterTypes.length == 0
-         && Modifier.isPublic(method.getModifiers)) {
-         val tt = method.getAnnotations
-         val obj = method.invoke(o)
-         if (obj != null) {
-           onEach(method.getName, obj)
-         }
-       }
-     }*/
-
     val refs = mutable.Set[Object]()
     explore(o.getClass)
     def explore(c: Class[_]): Unit = {
@@ -83,8 +61,9 @@ object Misc {
         val fieldRef = f.get(o)
         if (!refs.contains(fieldRef)) {
           fieldRef match {
-            case seq: Seq[_] => { //TODO excluse Vec
-              for((obj,i) <- seq.zipWithIndex){
+            case vec: Vec[_] =>
+            case seq: Seq[_] => {
+              for ((obj, i) <- seq.zipWithIndex) {
                 onEach(f.getName + i, obj.asInstanceOf[Object])
                 refs += fieldRef
               }
@@ -94,11 +73,8 @@ object Misc {
           onEach(f.getName, fieldRef)
           refs += fieldRef
         }
-
       }
-
     }
-
   }
 
   def normalizeResize(to: Node, inputId: Integer, width: Int) {
@@ -182,7 +158,7 @@ object SpinalExit {
 
 
 object SpinalInfoPhase {
-  def apply(message: String) = println(s"[Progress] at ${Driver.executionTime} : $message")
+  def apply(message: String) = println(s"[Progress] at ${f"${Driver.executionTime}%1.3f"} : $message")
 }
 
 class SpinalExit extends Exception;

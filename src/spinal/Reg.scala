@@ -63,9 +63,9 @@ object RegInit{
 class Reg(output: BaseType, val clockDomain: ClockDomain = ClockDomain.current) extends Node with Assignable {
   inputs += this
   inputs += this
-  inputs += null//clockDomain.clock
-  inputs += null//clockDomain.clockEnable
-  inputs += null//clockDomain.reset
+  inputs += clockDomain.clock
+  inputs += clockDomain.clockEnable
+  inputs += clockDomain.reset
 
 
   def calcWidth = WidthInfer.regImpl(this)

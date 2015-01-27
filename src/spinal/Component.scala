@@ -64,6 +64,7 @@ abstract class Component extends Nameable {
   if (parent != null) {
     parent.kinds += this;
   }
+  def isTopLevel : Boolean = parent == null
 
   var nodes: ArrayBuffer[Node] = null
 
