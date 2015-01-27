@@ -80,6 +80,7 @@ trait Nameable {
   var compositeName: Nameable = null
   def getName(): String = if (compositeName == null) name else compositeName.getName()
   def isUnnamed: Boolean = name == "" && compositeName == null
+  def isNamed : Boolean = !isUnnamed
   var isWeak = true
 
 

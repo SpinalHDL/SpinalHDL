@@ -112,7 +112,7 @@ abstract class Component extends Nameable {
     }
     for (kind <- kinds) {
       if (kind.isUnnamed) {
-        var name = kind.getClass.getName
+        var name = kind.getClass.getSimpleName
         name = Character.toLowerCase(name.charAt(0)) + (if (name.length() > 1) name.substring(1) else "");
         kind.setWeakName(name)
       }

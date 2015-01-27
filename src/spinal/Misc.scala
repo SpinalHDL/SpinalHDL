@@ -35,6 +35,19 @@ class utils extends scala.annotation.StaticAnnotation
 import reflect.runtime.{universe => ru}
 
 object Misc {
+
+  def addReflectionExclusion(o: Object) = reflectExclusion += o.getClass
+  val reflectExclusion = mutable.Set[Class[_]]()
+
+
+  addReflectionExclusion(new Bundle())
+  addReflectionExclusion(new Vec(null))
+  addReflectionExclusion(new Bool)
+  addReflectionExclusion(new Bits)
+  addReflectionExclusion(new UInt)
+  addReflectionExclusion(new SInt)
+
+
   def reflect(o: Object, onEach: (String, Object) => Unit): Unit = {
 
     /* val fieldSymbols = ru.typeOf[o.type].members.collect { case m: ru.Constant => m}
@@ -62,11 +75,22 @@ object Misc {
     explore(o.getClass)
     def explore(c: Class[_]): Unit = {
       if (c == null) return
+      if (reflectExclusion.contains(c) || c.getName + "$" == Component.getClass.getName)
+        return
       explore(c.getSuperclass)
       for (f <- c.getDeclaredFields) {
         f.setAccessible(true)
         val fieldRef = f.get(o)
         if (!refs.contains(fieldRef)) {
+          fieldRef match {
+            case seq: Seq[_] => { //TODO excluse Vec
+              for((obj,i) <- seq.zipWithIndex){
+                onEach(f.getName + i, obj.asInstanceOf[Object])
+                refs += fieldRef
+              }
+            }
+            case _ =>
+          }
           onEach(f.getName, fieldRef)
           refs += fieldRef
         }
@@ -108,8 +132,8 @@ class Scope {
     map(name) = count
   }
 
-  def iWantIt(name : String): Unit = {
-    if(map.contains(name)) SpinalError("Reserved name $name is not free")
+  def iWantIt(name: String): Unit = {
+    if (map.contains(name)) SpinalError("Reserved name $name is not free")
     map(name) = 1
   }
 }
@@ -157,9 +181,12 @@ object SpinalExit {
 }
 
 
-
+object SpinalInfoPhase {
+  def apply(message: String) = println(s"[Progress] at ${Driver.executionTime} : $message")
+}
 
 class SpinalExit extends Exception;
+
 //class SpinalCantInferredWidth extends Exception;
 
 /*

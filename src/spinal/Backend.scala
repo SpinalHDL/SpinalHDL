@@ -86,36 +86,47 @@ class Backend {
   //TODO no asyncrounous loop
   //TODO no cross clock domain violation
   //TODO generate test bench
+  //TODO add Log2 library
   //TODO
 
   protected def elaborate(topLevel: Component): Unit = {
-    addReservedKeyWord(globalScope)
+    SpinalInfoPhase("Start analysis and transform")
 
+    addReservedKeyWord(globalScope)
     addComponent(topLevel)
     sortedComponents = components.sortWith(_.level > _.level)
 
+    SpinalInfoPhase("Get names from reflection")
     nameNodesByReflection
 
     //Component connection
+    SpinalInfoPhase("Transform connection")
     configureComponentIo
     //moveInputRegisterToParent
     pullClockDomains
     addInOutBinding
     allowNodesToReadInputOfKindComponent
 
+
     //Node width
+    SpinalInfoPhase("Infer nodes's bit width")
     inferWidth
     propagateBaseTypeWidth
     normalizeNodeInputs
     checkInferedWidth
 
     //Simplify nodes
+    SpinalInfoPhase("Simplify graph's nodes")
     fillNodeConsumer
     deleteUselessBaseTypes
     simplifyBlacBoxGenerics
 
     //Check
+    SpinalInfoPhase("Check graph")
     checkCombinationalLoops
+
+
+    SpinalInfoPhase("Finalise")
 
     //Name patch
     nameBinding
@@ -139,7 +150,9 @@ class Backend {
     def nameBinding: Unit = {
       for (c <- components) {
         for ((bindedOut, bind) <- c.outBindingHosted) {
-          bind.setWeakName(bindedOut.component.getName() + "_" + bindedOut.getName())
+          if (bindedOut.component.isNamed && bindedOut.isNamed) {
+            bind.setWeakName(bindedOut.component.getName() + "_" + bindedOut.getName())
+          }
         }
       }
 
@@ -147,7 +160,7 @@ class Backend {
         case node: BaseType => {
           if (node.isInput && node.inputs(0) != null && node.inputs(0).isInstanceOf[Nameable]) {
             val nameable = node.inputs(0).asInstanceOf[Nameable]
-            if (nameable.isUnnamed) {
+            if (nameable.isUnnamed && node.component.isNamed && node.isNamed) {
               nameable.setWeakName(node.component.getName() + "_" + node.getName())
             }
           }

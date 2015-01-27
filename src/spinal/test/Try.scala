@@ -128,6 +128,23 @@ object Try {
     val c = UInt(8 bit)
   }
 
+  class RecursiveComponent(n : Int) extends Component{
+    val io = new Bundle{
+      val input = in.Bool()
+      val output = out.Bool()
+    }
+
+    val subComponent = (0 until n).map(i => {
+      val c = Component(new RecursiveComponent(n-1))
+      c.io.input := io.input
+      c
+    })
+
+
+    io.output := subComponent.foldLeft(io.input)(_ && _.io.output)
+
+  }
+
   class VecA extends Vec(new BundleAA()) {
     addE
     addE
@@ -192,7 +209,8 @@ object Try {
       //      // val outSInt = new SInt().asOutput
       //      //   val out = new UInt().asOutput
       //      //   val out2 = new UInt().asOutput
-              val outBool = new Bool().asOutput
+      val outBool = new Bool().asOutput
+      val outBool2 = new Bool().asOutput
       //
       //
       val inBundle0 = new BundleAA().asInput
@@ -206,7 +224,7 @@ object Try {
       //      //  val outVec = new VecA().asOutput
       //
       //
-      //      // val outBool = out.Bool.apply()
+            // val outBool = out.Bool.apply()
       //      //  val outBool = out.Bool()
       //
       //      // val outUInt = out.UInt (0)
@@ -231,11 +249,16 @@ object Try {
 
     // io.outBool := io.a > 2
 
+
+    val recursiveComponent = Component(new RecursiveComponent(3))
+    recursiveComponent.io.input := io.cond0
+    io.outBool2 := recursiveComponent.io.output
+
+
     println(io.inBundle0.getBitsWidth)
     println(io.inBundle1.getBitsWidth)
     println(io.inVecU.getBitsWidth)
-   // val clk = new ClockDomain(io.myClock, RISING, null, io.myReset, SYNC, false)
-   // ClockDomain.push(clk)
+
 
     val reg = (UInt())
     reg := io.inu4b + io.inu4b
@@ -248,15 +271,10 @@ object Try {
     val vecClone = io.inVecU.clone().keep
     vecClone := io.inVecU
 
-    /* val vec2Clone = io.inVec.clone().keep
-     vec2Clone := io.inVec*/
+
 
     val keepMePlease = io.inu4b + io.inu4b
     keepMePlease.keep
-
-    //  val AA = Component(new ComponentAA)
-    //    val AB = Component(new ComponentAB)
-    //
 
 
     val blackBoxA = Component(new MyBlackBox)

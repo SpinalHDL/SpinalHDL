@@ -42,11 +42,14 @@ class VhdlBackend extends Backend {
 
   override def elaborate(topLevel: Component): Unit = {
     super.elaborate(topLevel)
+    SpinalInfoPhase("Write VHDL")
+
     out = new java.io.FileWriter("out.vhd")
 
     emitPackage(out)
 
     for (c <- sortedComponents) {
+      SpinalInfoPhase(s"  emit ${c.definitionName}}]")
       compile(c)
     }
 
