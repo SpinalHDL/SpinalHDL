@@ -144,6 +144,12 @@ trait Data extends ComponentLocated with Nameable with Assignable{
     this.toBits ## right.toBits
   }
 
+  def isEguals(that : Data) : Bool ={
+    (this.flatten,that.flatten).zipped.map((a,b) => a._2.isEguals(b._2)).reduceLeft(_ || _)
+  }
+
+ // def ===(that: Object) : Boolean = this == (that)
+ // def !==(that: Object) : Boolean = this != (that)
 
   def toBits: Bits
   def getBitsWidth : Int

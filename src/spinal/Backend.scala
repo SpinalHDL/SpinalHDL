@@ -29,6 +29,7 @@ import scala.collection.mutable.ArrayBuffer
 object Backend {
   def resetAll: Unit = {
     when.stack.reset
+    switch.stack.reset
     Component.stack.reset
     ClockDomain.stack.reset
     Node.areInferringWidth = false
@@ -586,7 +587,7 @@ class Backend {
     def walker_deleteUselessBaseTypes(node: Node, stack: mutable.Stack[Node]): Unit = {
       node match {
         case node: BaseType => {
-          if (node.isWeak && !node.isIo && node.consumers.size == 1 && !node.dontSimplify) {
+          if (node.isUnnamed && !node.isIo && node.consumers.size == 1 && !node.dontSimplify) {
             if (!node.isReg || node.consumers(0).isInstanceOf[BaseType]) {
               val consumerInputs = node.consumers(0).inputs
               val inputConsumer = node.inputs(0).consumers

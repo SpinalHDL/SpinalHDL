@@ -22,49 +22,54 @@ package spinal
  * Created by PIC18F on 16.01.2015.
  */
 
-object Bits extends BitsFactory{
+object Bits extends BitsFactory {
 
 }
 
-class BitsFactory extends BitVectorFactory[Bits]{
+class BitsFactory extends BitVectorFactory[Bits] {
   def apply() = new Bits()
 }
 
-class Bits extends BitVector{
+class Bits extends BitVector {
 
-  def ## (right: Bits): Bits = newBinaryOperator("##",right,WidthInfer.cumulateInputWidth,InputNormalize.none)
+  def ##(right: Bits): Bits = newBinaryOperator("##", right, WidthInfer.cumulateInputWidth, InputNormalize.none)
 
 
-  def |(that: Bits): Bits = newBinaryOperator("b|b", that, WidthInfer.inputMaxWidthl,InputNormalize.nodeWidth);
-  def &(that: Bits): Bits = newBinaryOperator("b&b", that, WidthInfer.inputMaxWidthl,InputNormalize.nodeWidth);
-  def ^(that: Bits): Bits = newBinaryOperator("b^b", that, WidthInfer.inputMaxWidthl,InputNormalize.nodeWidth);
-  def ~(that: Bits): Bits = newBinaryOperator("~b", that, WidthInfer.inputMaxWidthl,InputNormalize.none);
+  def |(that: Bits): Bits = newBinaryOperator("b|b", that, WidthInfer.inputMaxWidthl, InputNormalize.nodeWidth);
+  def &(that: Bits): Bits = newBinaryOperator("b&b", that, WidthInfer.inputMaxWidthl, InputNormalize.nodeWidth);
+  def ^(that: Bits): Bits = newBinaryOperator("b^b", that, WidthInfer.inputMaxWidthl, InputNormalize.nodeWidth);
+  def ~(that: Bits): Bits = newBinaryOperator("~b", that, WidthInfer.inputMaxWidthl, InputNormalize.none);
 
-  def ==(that: Bits): Bool = newLogicalOperator("b==b", that,InputNormalize.inputWidthMax);
-  def !=(that: Bits): Bool = newLogicalOperator("b!=b", that,InputNormalize.inputWidthMax);
+  def ==(that: Bits): Bool = newLogicalOperator("b==b", that, InputNormalize.inputWidthMax);
+  def !=(that: Bits): Bool = newLogicalOperator("b!=b", that, InputNormalize.inputWidthMax);
 
-  def >>(that: Int): this.type = newBinaryOperator("b>>i", IntLiteral(that), WidthInfer.shiftRightWidth,InputNormalize.none);
-  def <<(that: Int): this.type = newBinaryOperator("b<<i", IntLiteral(that), WidthInfer.shiftLeftWidth,InputNormalize.none);
-  def >>(that: UInt): this.type = newBinaryOperator("b>>u", that, WidthInfer.shiftRightWidth,InputNormalize.none);
-  def <<(that: UInt): this.type = newBinaryOperator("b<<u", that, WidthInfer.shiftLeftWidth,InputNormalize.none);
+  def >>(that: Int): this.type = newBinaryOperator("b>>i", IntLiteral(that), WidthInfer.shiftRightWidth, InputNormalize.none);
+  def <<(that: Int): this.type = newBinaryOperator("b<<i", IntLiteral(that), WidthInfer.shiftLeftWidth, InputNormalize.none);
+  def >>(that: UInt): this.type = newBinaryOperator("b>>u", that, WidthInfer.shiftRightWidth, InputNormalize.none);
+  def <<(that: UInt): this.type = newBinaryOperator("b<<u", that, WidthInfer.shiftLeftWidth, InputNormalize.none);
 
   def :=(bits: Bits): Unit = assignFrom(bits)
 
-  override def newMultiplexor(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,b,b)",sel,whenTrue,whenFalse)
+  override def newMultiplexor(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,b,b)", sel, whenTrue, whenFalse)
 
   override def resize(width: Int): this.type = newResize("resize(b,i)", this :: new IntLiteral(width) :: Nil, WidthInfer.intLit1Width)
 
   def toSInt: SInt = new SInt().castFrom("b->s", this)
   def toUInt: UInt = new UInt().castFrom("b->u", this)
-  override def toBits : Bits = {
+  override def toBits: Bits = {
     val ret = new Bits()
     ret.assignFrom(this)
     ret
   }
 
 
-
- /* override def castThatInSame(that : BaseType): this.type ={
-    that.toBits.asInstanceOf[ this.type]
-  }*/
+  /* override def castThatInSame(that : BaseType): this.type ={
+     that.toBits.asInstanceOf[ this.type]
+   }*/
+  override def isEguals(that: Data): Bool = {
+   that match{
+     case that : Bits => this == that
+     case _ => SpinalError(s"Don't know how compare $this with $that"); null
+   }
+  }
 }

@@ -36,6 +36,10 @@ class BoolFactory {
 class Bool extends BaseType {
   override def calcWidth : Int = 1
 
+  def ==(that: Bool): Bool = newLogicalOperator("B==B", that, InputNormalize.none);
+  def !=(that: Bool): Bool = newLogicalOperator("B!=B", that, InputNormalize.none);
+
+
   def &&(b: Bool): Bool = newLogicalOperator("&&", b,InputNormalize.none)
   def ||(b: Bool): Bool = newLogicalOperator("||", b,InputNormalize.none)
   def unary_!(): Bool = newUnaryOperator("!")
@@ -44,7 +48,17 @@ class Bool extends BaseType {
 
   override def newMultiplexor(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,B,B)",sel,whenTrue,whenFalse)
 
+  override def isEguals(that: Data): Bool = {
+    that match{
+      case that : Bool => this == that
+      case _ => SpinalError(s"Don't know how compare $this with $that"); null
+    }
+  }
+
   override def toBits : Bits = new Bits().castFrom("B->b",this)
   def toUInt : UInt = toBits.toUInt
+
+
+
 
 }

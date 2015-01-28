@@ -95,7 +95,53 @@ object Try {
     }
     val AAA = Component(new ComponentAAA)
     AAA.io.in := io.in
-    io.out := AAA.io.out
+
+
+    val c1 = io.in.clone; c1 := io.in
+    val c2 = io.in.clone; c2 := io.in
+    val c3 = io.in.clone; c3 := io.in
+    val c4 = io.in.clone; c4 := io.in
+    val c5 = io.in.clone; c5 := io.in
+    val v1 = io.in.clone; v1 := io.in
+    val v2 = io.in.clone; v2 := io.in
+    val v3 = io.in.clone; v3 := io.in
+    val v4 = io.in.clone; v4 := io.in
+    val v5 = io.in.clone; v5 := io.in
+
+    val res = Reg(io.out.clone)
+
+    nameElements()
+    res := v1
+    when(c1){
+      when(c2){
+        res := v2
+      }.elsewhen(c3){
+        res := v3
+      }.elsewhen(c4){
+        res := v4
+      }
+    } otherwise {
+
+      switch(c5){
+        is(v5 && v1){
+          res := v5 && v1
+        }
+        is(v5 && v2){
+          res := v5 && v2
+          when(v5 && v4){
+            res := v5 && v4
+          }
+        }
+        is(v5 && v3){
+          res := v5 && v3
+        }
+        is((!v1) :: (!v2) :: (!v3) :: Nil){
+          res := v5 && v5
+        }
+      }
+
+    }
+    io.out := AAA.io.out && res
   }
 
   class ComponentABA extends Component {

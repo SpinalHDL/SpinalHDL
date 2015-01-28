@@ -450,7 +450,7 @@ class VhdlBackend extends Backend {
       case 1 => s"($vhd ${emitLogic(op.inputs(0))})"
       case 2 => {
         val temp = s"(${emitLogic(op.inputs(0))} $vhd ${emitLogic(op.inputs(1))})"
-        if (opThatNeedBoolCast.contains(vhd))
+        if (opThatNeedBoolCast.contains(op.opName))
           return s"pkg_toStdLogic$temp"
         else
           return temp
@@ -530,6 +530,9 @@ class VhdlBackend extends Backend {
 
 
   //bool
+  modifierImplMap.put("B==B", operatorImplAsOperator("="))
+  modifierImplMap.put("B!=B", operatorImplAsOperator("/="))
+
   modifierImplMap.put("!", operatorImplAsOperator("not"))
   modifierImplMap.put("&&", operatorImplAsOperator("and"))
   modifierImplMap.put("||", operatorImplAsOperator("or"))
@@ -558,8 +561,14 @@ class VhdlBackend extends Backend {
   modifierImplMap.put("mux(B,u,u)", operatorImplAsFunction("pkg_mux"))
   modifierImplMap.put("mux(B,s,s)", operatorImplAsFunction("pkg_mux"))
 
-
-  val opThatNeedBoolCast = mutable.Set[String]("==", "!=", "<", "<=")
+  def opThatNeedBoolCastGen(a : String,b : String) : List[String] = {
+    ("==" ::  "!=" ::  "<" :: "<=" :: Nil).map(a + _ + b)
+  }
+  val opThatNeedBoolCast = mutable.Set[String]()
+  opThatNeedBoolCast ++= opThatNeedBoolCastGen("B","B")
+  opThatNeedBoolCast ++= opThatNeedBoolCastGen("b","b")
+  opThatNeedBoolCast ++= opThatNeedBoolCastGen("u","u")
+  opThatNeedBoolCast ++= opThatNeedBoolCastGen("s","s")
 
 
   def emitLogic(node: Node): String = node match {
@@ -610,10 +619,10 @@ class VhdlBackend extends Backend {
         val activeArray = if (withReset) arrayWithReset else arrayWithoutReset
         if (activeArray.size == 0) return;
         val clock = component.pulledDataCache.getOrElse(clockDomain.clock, throw new Exception("???")).asInstanceOf[Bool]
-        val reset = if (clockDomain.reset == null || !withReset) null else component.pulledDataCache.getOrElse(clockDomain.reset, throw new Exception("???")).asInstanceOf[Bool]
-        val clockEnable = if (clockDomain.clockEnable == null) null else component.pulledDataCache.getOrElse(clockDomain.clockEnable, throw new Exception("???")).asInstanceOf[Bool]
-        val asyncReset = reset != null && clockDomain.resetKind == ASYNC
-        val syncReset = reset != null && clockDomain.resetKind == SYNC
+        val reset = if (null == clockDomain.reset || !withReset) null else component.pulledDataCache.getOrElse(clockDomain.reset, throw new Exception("???")).asInstanceOf[Bool]
+        val clockEnable = if (null == clockDomain.clockEnable) null else component.pulledDataCache.getOrElse(clockDomain.clockEnable, throw new Exception("???")).asInstanceOf[Bool]
+        val asyncReset = (null != reset) && clockDomain.resetKind == ASYNC
+        val syncReset = (null != reset) && clockDomain.resetKind == SYNC
         ret ++= s"  process(${emitReference(clock)}${if (asyncReset) "," + emitReference(reset) else ""})\n"
         ret ++= s"  begin\n"
         if (asyncReset) {

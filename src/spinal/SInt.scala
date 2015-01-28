@@ -56,7 +56,12 @@ class SInt extends BitVector with MinMaxProvider {
   def :=(sint: SInt): Unit = assignFrom(sint)
 
   override def newMultiplexor(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,s,s)",sel,whenTrue,whenFalse)
-
+  override def isEguals(that: Data): Bool = {
+    that match{
+      case that : SInt => this == that
+      case _ => SpinalError(s"Don't know how compare $this with $that"); null
+    }
+  }
 
   override def toBits: Bits = new Bits().castFrom("s->b", this)
   def toUInt: UInt = new UInt().castFrom("s->u", this)

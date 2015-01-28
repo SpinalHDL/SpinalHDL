@@ -145,7 +145,7 @@ class SafeStack[T] {
 
   def head() = stack.headOption.getOrElse(null.asInstanceOf[T])
   def oldest() = stack.lastOption.getOrElse(null.asInstanceOf[T])
-
+  def isEmpty : Boolean = stack.isEmpty
   def size() = stack.size
   def reset = stack.clear()
 }

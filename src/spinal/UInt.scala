@@ -54,6 +54,12 @@ class UInt extends BitVector with MinMaxProvider {
   def <<(that: UInt): this.type = newBinaryOperator("u<<u", that, WidthInfer.shiftLeftWidth, InputNormalize.none);
 
   override def newMultiplexor(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,u,u)", sel, whenTrue, whenFalse)
+  override def isEguals(that: Data): Bool = {
+    that match{
+      case that : UInt => this == that
+      case _ => SpinalError(s"Don't know how compare $this with $that"); null
+    }
+  }
 
   override def minValue: BigInt = BigInt(0)
   override def maxValue: BigInt = (BigInt(1) << getWidth) - 1

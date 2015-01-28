@@ -63,7 +63,7 @@ object ClockDomain{
 }
 
 class ClockDomain(val clock : Bool,val edge : EdgeKind,val clockEnable : Bool,val reset : Bool,val resetKind : ResetKind,val resetActiveHigh : Boolean){
-  def readClock = if(clock == null) Bool(false) else Data.doPull(clock, Component.current,true,true)
-  def readReset = if(reset == null) Bool(!resetActiveHigh) else Data.doPull(reset, Component.current,true,true)
-  def readClockEnable = if(clockEnable == null) Bool(true) else Data.doPull(clockEnable, Component.current,true,true)
+  def readClock = if(null == clock) Bool(false) else Data.doPull(clock, Component.current,true,true)
+  def readReset = if(null == reset) Bool(!resetActiveHigh) else Data.doPull(reset, Component.current,true,true)
+  def readClockEnable = if(null == clockEnable) Bool(true) else Data.doPull(clockEnable, Component.current,true,true)
 }
