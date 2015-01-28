@@ -28,7 +28,6 @@ import scala.collection.mutable.ArrayBuffer
 
 object Component {
   def apply[T <: Component](c: T): T = {
-
     pop(c);
     return c;
   }
@@ -43,8 +42,16 @@ object Component {
   }
 
   def pop(c: Component): Unit = {
-    stack.pop(c)
+    try {
+      if(lastPoped == c) return;
+      lastPoped = c
+      stack.pop(c)
+    } catch{
+      case e: Exception => SpinalError(s"You probably forget the 'Component(new MyComponent)' into ${c.getClass.getName}")
+    }
   }
+
+  var lastPoped : Component = null
 
   def current = stack.head()
 }
@@ -153,6 +160,9 @@ abstract class Component extends Nameable {
   def findBinding(baseType: BaseType): OutBinding = {
     outBindingHosted.getOrElse(baseType, null)
   }
+
+
+  def endComponent = Component.pop(this)
 }
 
 

@@ -31,6 +31,7 @@ object Backend {
     when.stack.reset
     switch.stack.reset
     Component.stack.reset
+    Component.lastPoped = null
     ClockDomain.stack.reset
     Node.areInferringWidth = false
     Node.getWidthWalkedSet.clear()

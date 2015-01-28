@@ -17,6 +17,8 @@
  */
 
 
+import javax.annotation.PostConstruct
+
 import scala.math._
 /*
  * SpinalHDL
@@ -35,12 +37,34 @@ import scala.math._
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library.
  */
+
+
+trait PostInit{
+  @PostConstruct
+  def init : Unit = println("postInit")
+
+}/*
+
+class A{
+  println("A")
+}
+
+class B(i : Int) extends A with PostInit{
+  println("B")
+
+
+}
+
+new B
 object log2Up{
   def apply(value : BigInt): Int ={
     (value-1).bitLength
   }
-}
 
+  @PostConstruct
+  def init : Unit = println("postInit")
+}
+*//*
 
 log2Up(0)
 log2Up(1)
@@ -48,6 +72,5 @@ log2Up(2)
 log2Up(3)
 log2Up(4)
 log2Up(5)
+ceil(log(5)/log(2)).toInt*/
 
-
-ceil(log(5)/log(2)).toInt
