@@ -30,6 +30,7 @@ class VhdlBackend extends Backend {
   var out: java.io.FileWriter = null
   var library = "work"
   val packageName = "pkg_scala2hdl" // + Random.nextInt(100000)
+  val outputFile = "out" // + Random.nextInt(100000)
 
 
   val reservedKeyWords = Set[String]("in", "out", "buffer", "inout", "entity", "component", "architecture")
@@ -44,8 +45,7 @@ class VhdlBackend extends Backend {
     super.elaborate(topLevel)
     SpinalInfoPhase("Write VHDL")
 
-    out = new java.io.FileWriter("out.vhd")
-
+    out = new java.io.FileWriter(outputFile + ".vhd")
     emitPackage(out)
 
     for (c <- sortedComponents) {
@@ -55,10 +55,35 @@ class VhdlBackend extends Backend {
 
     out.flush();
     out.close();
+
+    emitTestBench(topLevel :: Nil,topLevel.definitionName + "_tb")
+
+
   }
 
-  def emitTestBench(topLevel: Component): Unit ={
+  def emitTestBench(components : Iterable[Component],tbName : String): Unit ={
+    val tbFile = new java.io.FileWriter(outputFile + "_tb.vhd")
 
+    val ret = new StringBuilder()
+
+    ret ++= s"""library IEEE;
+              |use IEEE.STD_LOGIC_1164.ALL;
+              |use IEEE.NUMERIC_STD.all;
+              |
+              |entity $tbName is
+              |end $tbName;
+              |
+              |architecture arch of $tbName is
+              |""".stripMargin
+
+    ret ++= "begin\n"
+   //   emitComponentInstances(c,ret,false)
+    ret ++= "end arch\n"
+
+
+    tbFile.write(ret.result())
+    tbFile.flush();
+    tbFile.close();
   }
 
 

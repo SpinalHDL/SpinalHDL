@@ -23,6 +23,9 @@ import scala.collection.mutable
 object SpinalMain {
   def apply[T <: Component](gen : => T): T = {
 
+ //   val graphTranslator = new VhdlBackend()
+
+
     val backend = new VhdlBackend()
 
 

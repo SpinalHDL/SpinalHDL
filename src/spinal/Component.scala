@@ -47,7 +47,7 @@ object Component {
       lastPoped = c
       stack.pop(c)
     } catch{
-      case e: Exception => SpinalError(s"You probably forget the 'Component(new MyComponent)' into ${c.getClass.getName}")
+      case e: Exception => SpinalError(s"You probably forget the 'Component(new ${stack.head().getClass.getName})' into ${c.getClass.getName}")
     }
   }
 

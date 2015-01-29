@@ -88,7 +88,6 @@ object Try {
     io.out := r1
 
 
-    endComponent
   }
 
   class ComponentAA extends Component {
@@ -96,7 +95,7 @@ object Try {
       val in = (new Bool()).asInput
       val out = new Bool().asOutput
     }
-    val AAA = (new ComponentAAA)
+    val AAA = Component(new ComponentAAA)
     AAA.io.in := io.in
 
 
