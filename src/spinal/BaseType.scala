@@ -155,6 +155,6 @@ abstract class BaseType extends Node with Data with Nameable {
   }
 
 
-  override def toString() : String = s"${getClassIdentifier}(named ${"\"" + getName() + "\""},into ${component.getClass.getSimpleName}})"
+  override def toString() : String = s"${getClassIdentifier}(named ${"\"" + getName() + "\""},into ${if(component == null) "null" else component.getClass.getSimpleName}})"
 }
 

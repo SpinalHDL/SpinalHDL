@@ -20,70 +20,40 @@ package spinal
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
-import scala.runtime.RangedProxy
-import scala.util.Random
+
 
 /**
  * Created by PIC18F on 07.01.2015.
  */
-class VhdlBackend extends Backend {
+class VhdlBackend extends Backend with VhdlBase {
   var out: java.io.FileWriter = null
   var library = "work"
-  val packageName = "pkg_scala2hdl" // + Random.nextInt(100000)
+  val packageName = "pkg_scala2hdl"
+  // + Random.nextInt(100000)
   val outputFile = "out" // + Random.nextInt(100000)
 
 
-  val reservedKeyWords = Set[String]("in", "out", "buffer", "inout", "entity", "component", "architecture")
-
-  override def addReservedKeyWord(scope: Scope): Unit = {
-    super.addReservedKeyWord(scope)
-    reservedKeyWords.foreach(scope.allocateName(_))
-  }
+  reservedKeyWords ++= vhdlKeyWords
 
 
-  override def elaborate(topLevel: Component): Unit = {
-    super.elaborate(topLevel)
+  override protected def elaborate[T <: Component](topLevel: T): BackendReport[T] = {
+    val report = super.elaborate(topLevel)
     SpinalInfoPhase("Write VHDL")
 
     out = new java.io.FileWriter(outputFile + ".vhd")
     emitPackage(out)
 
     for (c <- sortedComponents) {
-      SpinalInfoPhase(s"${"  " * (1+c.level)}emit ${c.definitionName}")
+      SpinalInfoPhase(s"${"  " * (1 + c.level)}emit ${c.definitionName}")
       compile(c)
     }
 
     out.flush();
     out.close();
 
-    emitTestBench(topLevel :: Nil,topLevel.definitionName + "_tb")
+    //  emitTestBench(topLevel :: Nil,topLevel.definitionName + "_tb")
 
-
-  }
-
-  def emitTestBench(components : Iterable[Component],tbName : String): Unit ={
-    val tbFile = new java.io.FileWriter(outputFile + "_tb.vhd")
-
-    val ret = new StringBuilder()
-
-    ret ++= s"""library IEEE;
-              |use IEEE.STD_LOGIC_1164.ALL;
-              |use IEEE.NUMERIC_STD.all;
-              |
-              |entity $tbName is
-              |end $tbName;
-              |
-              |architecture arch of $tbName is
-              |""".stripMargin
-
-    ret ++= "begin\n"
-   //   emitComponentInstances(c,ret,false)
-    ret ++= "end arch\n"
-
-
-    tbFile.write(ret.result())
-    tbFile.flush();
-    tbFile.close();
+    report
   }
 
 
@@ -435,9 +405,6 @@ class VhdlBackend extends Backend {
     ret ++= s"  \n"
   }
 
-  def emitSignal(ref: Node, typeNode: Node): String = {
-    s"  signal ${emitReference(ref)} : ${emitDataType(typeNode)};\n"
-  }
 
   def emitSignals(component: Component, ret: StringBuilder): Unit = {
     for (node <- component.nodes) {
@@ -449,9 +416,6 @@ class VhdlBackend extends Backend {
         case outBinding: OutBinding => {
           ret ++= emitSignal(outBinding, outBinding.out);
         }
-        //        case op: Operator => {
-        //          ret ++= emitSignal(op, op);
-        //        }
         case _ =>
       }
     }
@@ -586,14 +550,14 @@ class VhdlBackend extends Backend {
   modifierImplMap.put("mux(B,u,u)", operatorImplAsFunction("pkg_mux"))
   modifierImplMap.put("mux(B,s,s)", operatorImplAsFunction("pkg_mux"))
 
-  def opThatNeedBoolCastGen(a : String,b : String) : List[String] = {
-    ("==" ::  "!=" ::  "<" :: "<=" :: Nil).map(a + _ + b)
+  def opThatNeedBoolCastGen(a: String, b: String): List[String] = {
+    ("==" :: "!=" :: "<" :: "<=" :: Nil).map(a + _ + b)
   }
   val opThatNeedBoolCast = mutable.Set[String]()
-  opThatNeedBoolCast ++= opThatNeedBoolCastGen("B","B")
-  opThatNeedBoolCast ++= opThatNeedBoolCastGen("b","b")
-  opThatNeedBoolCast ++= opThatNeedBoolCastGen("u","u")
-  opThatNeedBoolCast ++= opThatNeedBoolCastGen("s","s")
+  opThatNeedBoolCast ++= opThatNeedBoolCastGen("B", "B")
+  opThatNeedBoolCast ++= opThatNeedBoolCastGen("b", "b")
+  opThatNeedBoolCast ++= opThatNeedBoolCastGen("u", "u")
+  opThatNeedBoolCast ++= opThatNeedBoolCastGen("s", "s")
 
 
   def emitLogic(node: Node): String = node match {
@@ -772,14 +736,6 @@ class VhdlBackend extends Backend {
 
   }
 
-  def emitClockEdge(clock: Bool, edgeKind: EdgeKind): String = {
-    s"${
-      edgeKind match {
-        case RISING => "rising_edge"
-        case FALLING => "falling_edge"
-      }
-    }(${emitReference(clock)}) then\n"
-  }
 
   def emitComponentInstances(component: Component, ret: StringBuilder): Unit = {
     for (kind <- component.kinds) {
@@ -805,11 +761,9 @@ class VhdlBackend extends Backend {
       for (data <- kind.getNodeIo) {
         if (data.isOutput) {
           val bind = component.findBinding(data)
-          if (bind != null)
+          if (bind != null) {
             ret ++= s"      ${emitReference(data)} => ${emitReference(component.findBinding(data))},\n"
-          // else
-          //   ret ++= s"    --${emitReference(data)} => ,\n"
-
+          }
         }
         else if (data.isInput)
           ret ++= s"      ${emitReference(data)} => ${emitReference(data.inputs(0))},\n"
@@ -819,27 +773,5 @@ class VhdlBackend extends Backend {
       ret ++= s"    );"
       ret ++= s"\n"
     }
-
-
   }
-
-  def emitDataType(node: Node, constrained: Boolean = true) = node match {
-    case bool: Bool => "std_logic"
-    case uint: UInt => s"unsigned${if (constrained) emitRange(uint) else ""}"
-    case sint: SInt => s"signed${if (constrained) emitRange(sint) else ""}"
-    case bits: Bits => s"std_logic_vector${if (constrained) emitRange(bits) else ""}"
-    case number: Number => s"integer"
-    case string: SString => s"string"
-    case _ => throw new Exception("Unknown datatype"); ""
-  }
-
-  def emitDirection(baseType: BaseType) = baseType.dir match {
-    case spinal.in => "in"
-    case spinal.out => "out"
-    case _ => throw new Exception("Unknown direction"); ""
-  }
-
-
-  def emitRange(node: Node) = s"(${node.getWidth - 1} downto 0)"
-
 }

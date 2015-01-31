@@ -99,45 +99,56 @@ object Try {
     AAA.io.in := io.in
 
 
-    val c1 = io.in.clone; c1 := io.in
-    val c2 = io.in.clone; c2 := io.in
-    val c3 = io.in.clone; c3 := io.in
-    val c4 = io.in.clone; c4 := io.in
-    val c5 = io.in.clone; c5 := io.in
-    val v1 = io.in.clone; v1 := io.in
-    val v2 = io.in.clone; v2 := io.in
-    val v3 = io.in.clone; v3 := io.in
-    val v4 = io.in.clone; v4 := io.in
-    val v5 = io.in.clone; v5 := io.in
+    val c1 = io.in.clone;
+    c1 := io.in
+    val c2 = io.in.clone;
+    c2 := io.in
+    val c3 = io.in.clone;
+    c3 := io.in
+    val c4 = io.in.clone;
+    c4 := io.in
+    val c5 = io.in.clone;
+    c5 := io.in
+    val v1 = io.in.clone;
+    v1 := io.in
+    val v2 = io.in.clone;
+    v2 := io.in
+    val v3 = io.in.clone;
+    v3 := io.in
+    val v4 = io.in.clone;
+    v4 := io.in
+    val v5 = io.in.clone;
+    v5 := io.in
 
-    val res = Reg(io.out.clone)
+    val res = RegInit(Bool(true))
+
 
     nameElements()
     res := v1
-    when(c1){
-      when(c2){
+    when(c1) {
+      when(c2) {
         res := v2
-      }.elsewhen(c3){
+      }.elsewhen(c3) {
         res := v3
-      }.elsewhen(c4){
+      }.elsewhen(c4) {
         res := v4
       }
     } otherwise {
 
-      switch(c5){
-        is(v5 && v1){
+      switch(c5) {
+        is(v5 && v1) {
           res := v5 && v1
         }
-        is(v5 && v2){
+        is(v5 && v2) {
           res := v5 && v2
-          when(v5 && v4){
+          when(v5 && v4) {
             res := v5 && v4
           }
         }
-        is(v5 && v3){
+        is(v5 && v3) {
           res := v5 && v3
         }
-        is((!v1) :: (!v2) :: (!v3) :: Nil){
+        is((!v1) :: (!v2) :: (!v3) :: Nil) {
           res := v5 && v5
         }
       }
@@ -179,14 +190,14 @@ object Try {
     val c = UInt(8 bit)
   }
 
-  class RecursiveComponent(n : Int) extends Component{
-    val io = new Bundle{
+  class RecursiveComponent(n: Int) extends Component {
+    val io = new Bundle {
       val input = (in.Bool())
       val output = (out.Bool())
     }
 
     val subComponent = (0 until n).map(i => {
-      val c = Component(new RecursiveComponent(n-1))
+      val c = Component(new RecursiveComponent(n - 1))
       c.io.input := io.input
       c
     })
@@ -237,6 +248,18 @@ object Try {
     }
   }
 
+  object S {
+    def one = UInt(1)
+    def two = one + one
+  }
+
+  class ComponentS extends Component {
+    val io = new Bundle {
+      val outUIntS = out UInt (5 bit)
+    }
+    io.outUIntS := S.two
+  }
+
   class ComponentA extends Component {
 
     val io = new Bundle {
@@ -254,6 +277,7 @@ object Try {
       val c = in UInt (5 bit)
       val d = in UInt (5 bit)
       //  val o = out UInt (5 bit)
+
       val outu = Reg(out.UInt())
 
       //      val default = new UInt().asInput
@@ -275,7 +299,7 @@ object Try {
       //      //  val outVec = new VecA().asOutput
       //
       //
-            // val outBool = out.Bool.apply()
+      // val outBool = out.Bool.apply()
       //      //  val outBool = out.Bool()
       //
       //      // val outUInt = out.UInt (0)
@@ -283,7 +307,8 @@ object Try {
       val inVecU = in(Vec.tabulate(4)(i => UInt(4 + i bit)))
       //  val outVecU = out (Vec.fill(4)(UInt(4 bit)))
       val inUIntA = in UInt (5 bit)
-        val outUIntA = out UInt (5 bit)
+      val outUIntA = out UInt (5 bit)
+      val outUIntS = out UInt (5 bit)
 
       //  val outBool = out.Bool()
 
@@ -294,7 +319,12 @@ object Try {
        val outShift = out.Bits ()*/
 
     }
+    //var myInt = WeekDay.c
+   // myInt := WeekDay.Mon
 
+
+    val componentS = Component(new ComponentS)
+    io.outUIntS := S.two + componentS.io.outUIntS
     //io.outShift := io.inShiftVec(io.inShiftHi,io.inShiftLow)
     //  io.outVecU := io.inVecU
 
@@ -323,7 +353,6 @@ object Try {
     vecClone := io.inVecU
 
 
-
     val keepMePlease = io.inu4b + io.inu4b
     keepMePlease.keep
 
@@ -341,7 +370,7 @@ object Try {
 
 
     val componentAA = Component(new ComponentAA)
-    componentAA.io.in := io.cond0 &&  io.cond0
+    componentAA.io.in := io.cond0 && io.cond0
     io.outBool := componentAA.io.out && io.inUIntA(4)
     /*when(io.cond0){
       componentAA.io.in := io.cond0
@@ -507,9 +536,7 @@ object Try {
     //io.out := Mux(io.sel,io.a,io.b)
 
 
-
-
-   // ClockDomain.pop(clk)
+    // ClockDomain.pop(clk)
 
   }
 
@@ -519,11 +546,13 @@ object Try {
 
   def main(args: Array[String]) {
     println("START")
-    var comp : ComponentA = null
+    var comp: ComponentA = null
     SpinalMain({
       comp = new ComponentA
       Component(comp)
     })
+
+    new VhdlTestBenchBackend().elaborate(comp)
     println("DONE")
   }
 

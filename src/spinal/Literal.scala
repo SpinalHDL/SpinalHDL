@@ -78,3 +78,4 @@ class SStringLiteral(val value: String) extends Literal {
   def calcWidth: Int = 0
 
 }
+

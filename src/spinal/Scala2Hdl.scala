@@ -21,15 +21,19 @@ package spinal
 import scala.collection.mutable
 
 object SpinalMain {
-  def apply[T <: Component](gen : => T): T = {
+  def apply[T <: Component](gen : => T): BackendReport[T] = {
 
- //   val graphTranslator = new VhdlBackend()
-
-
-    val backend = new VhdlBackend()
-
-
+    val backend = new VhdlBackend
     val topLevel = backend.elaborate(() => gen)
+
+   /* for(backend <- backends){
+      graphAdapter.reservedKeyWords ++= backend.getReservedKeyword
+    }
+
+    val topLevel = graphAdapter.elaborate(() => gen)
+    for(backend <- backends){
+      backend.elaborate(graphAdapter)
+    }*/
     return topLevel;
   }
 }

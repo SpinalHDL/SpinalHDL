@@ -16,14 +16,8 @@
  * License along with this library.
  */
 
-class A;
-object dsl {
-  object A { //If you move this object outside dsl object all is ok
-  def apply(): A = new A()
-    def apply(value: Boolean): A = new A() //If you remove this apply def all is ok
-  }
-}
-var myA = dsl.A ()   //If you do dsl.A() all is ok
-myA = new A   //myA is interpretted by the scala plugin as Nothing type instead of A
+import spinal._
+import spinal.IntBuilder._
 
-
+val r0 = RegNext(UInt(3 bit))
+println("asd")
