@@ -325,6 +325,9 @@ object Try {
       val outEnumBool = out.Bool()
       val outEnumBool2 = out.Bool()
 
+
+      val inBundleToBits = in (new BundleAA)
+      val outBundleFromBits = out (new BundleAA)
       //  val outBool = out.Bool()
 
 
@@ -336,8 +339,11 @@ object Try {
     }
     //var myInt = WeekDay.c
     // myInt := WeekDay.Mon
+    val bitsFromBundle = io.inBundleToBits.toBits
+    println(bitsFromBundle.getWidth)
+    io.outBundleFromBits.fromBits(bitsFromBundle)
 
-    io.outEnumFromBits.from(io.inEnumBits)
+    io.outEnumFromBits.fromBits(io.inEnumBits)
 
     io.outEnum := io.inEnum
     when(MyEnum.s2 == io.inEnum) {

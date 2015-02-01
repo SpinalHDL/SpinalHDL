@@ -23,8 +23,8 @@ package spinal
  */
 
 object EnumCast {
-  def apply(enum : SpinalEnumCraft[_],opName: String, that: Node, widthImpl: (Node) => Int = WidthInfer.inputMaxWidthl): Modifier = {
-    val op = new EnumCast(enum,opName, widthImpl)
+  def apply(enum: SpinalEnumCraft[_], opName: String, that: Node, widthImpl: (Node) => Int = WidthInfer.inputMaxWidthl): Modifier = {
+    val op = new EnumCast(enum, opName, widthImpl)
     op.inputs += that
     op
   }
@@ -50,6 +50,7 @@ object Resize {
   }
 
 }
+
 object Function {
   def apply(opName: String, args: List[Node], widthImpl: (Node) => Int = WidthInfer.inputMaxWidthl): Modifier = {
     val op = new Function(opName, widthImpl)
@@ -89,7 +90,7 @@ class Modifier(val opName: String, widthImpl: (Node) => Int) extends Node {
 
 
   override def toString(): String = {
-    s"($opName ${this.inputs.map(_.nonRecursiveToString()).reduceLeft(_+" "+_)})"
+    s"($opName ${this.inputs.map(_.nonRecursiveToString()).reduceLeft(_ + " " + _)})"
   }
   override def nonRecursiveToString(): String = opName
 }
@@ -101,11 +102,13 @@ class Function(opName: String, widthImpl: (Node) => Int) extends Modifier(opName
 class Cast(opName: String, widthImpl: (Node) => Int = WidthInfer.inputMaxWidthl) extends Modifier(opName, widthImpl) {
 
 }
-class EnumCast(val enum : SpinalEnumCraft[_],opName: String, widthImpl: (Node) => Int = WidthInfer.inputMaxWidthl) extends Modifier(opName, widthImpl) {
+
+class EnumCast(val enum: SpinalEnumCraft[_], opName: String, widthImpl: (Node) => Int = WidthInfer.inputMaxWidthl) extends Modifier(opName, widthImpl) {
   override def normalizeInputs: Unit = {
     Misc.normalizeResize(this, 0, this.getWidth)
   }
 }
+
 object ExtractBool {
   def apply(bitVector: BitVector, bitId: Int): ExtractBool = {
     val op = new ExtractBool
@@ -135,7 +138,7 @@ class ExtractBool extends Node {
 
 object ExtractBitsVector {
   def apply(bitVector: BitVector, bitIdHi: Int, bitIdLow: Int): ExtractBitsVector = {
-    SpinalError(s"Static bits extraction with a negative size ($bitIdHi downto $bitIdLow)")
+    if (bitIdHi - bitIdLow < -1) SpinalError(s"Static bits extraction with a negative size ($bitIdHi downto $bitIdLow)")
     val op = new ExtractBitsVector
     op.inputs += bitVector.toBits
     op.inputs += new IntLiteral(bitIdHi)
@@ -179,17 +182,17 @@ class Multiplexer(opName: String) extends Modifier(opName, WidthInfer.inputMaxWi
 }
 
 object Mux {
-/*
-  def apply(sel: Bool, whenTrue: Bool, whenFalse: Bool): Bool = {
-    whenTrue.clone.addTypeNodeFrom(Multiplex.baseType(sel,whenTrue,whenFalse))
-  }*/
+  /*
+    def apply(sel: Bool, whenTrue: Bool, whenFalse: Bool): Bool = {
+      whenTrue.clone.addTypeNodeFrom(Multiplex.baseType(sel,whenTrue,whenFalse))
+    }*/
 
   def apply[T <: Data](sel: Bool, whenTrue: T, whenFalse: T): T = {
-    Multiplex.complexData(sel,whenTrue,whenFalse)
-   /* Tuple2(whenTrue,whenFalse) match {
-      case data : Tuple2[BaseType,BaseType] => data._1.clone().addTypeNodeFrom(Multiplex.baseType(sel,data._1,data._2))
-      case data : Tuple2[Bundle,Bundle] => Multiplex.complexData(sel,data._1,data._2)
-    }*/
+    Multiplex.complexData(sel, whenTrue, whenFalse)
+    /* Tuple2(whenTrue,whenFalse) match {
+       case data : Tuple2[BaseType,BaseType] => data._1.clone().addTypeNodeFrom(Multiplex.baseType(sel,data._1,data._2))
+       case data : Tuple2[Bundle,Bundle] => Multiplex.complexData(sel,data._1,data._2)
+     }*/
   }
 }
 
@@ -229,7 +232,7 @@ private[spinal] object Multiplex {
   }
 
   def baseType[T <: BaseType](sel: Bool, whenTrue: T, whenFalse: T): Multiplexer = {
-    whenTrue.newMultiplexor(sel,whenTrue,whenFalse)
+    whenTrue.newMultiplexor(sel, whenTrue, whenFalse)
   }
 
 
@@ -246,8 +249,8 @@ private[spinal] object Multiplex {
     muxInTrue.assignFrom(whenTrue)
     muxInFalse.assignFrom(whenFalse)
 
-    for(((x,out),(y,t),(z,f)) <- (muxOut.flatten,muxInTrue.flatten,muxInFalse.flatten).zipped){
-      out.setInput(Multiplex.baseType(sel,t,f))
+    for (((x, out), (y, t), (z, f)) <- (muxOut.flatten, muxInTrue.flatten, muxInFalse.flatten).zipped) {
+      out.setInput(Multiplex.baseType(sel, t, f))
     }
 
     muxOut

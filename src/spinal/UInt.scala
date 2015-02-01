@@ -72,7 +72,7 @@ class UInt extends BitVector with MinMaxProvider {
  // implicit def dd(value: Int) = UInt(value)
 
   override def toBits: Bits = new Bits().castFrom("u->b", this)
-
+  override def fromBits(bits: Bits) : Unit = this := bits.toUInt
 }
 
 /*

@@ -64,6 +64,8 @@ class SInt extends BitVector with MinMaxProvider {
   }
 
   override def toBits: Bits = new Bits().castFrom("s->b", this)
+  override def fromBits(bits: Bits) : Unit = this := bits.toSInt
+
   def toUInt: UInt = new UInt().castFrom("s->u", this)
 
 

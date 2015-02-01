@@ -22,8 +22,8 @@ package spinal
  * Created by PIC18F on 24.01.2015.
  */
 
-object Number{
-  def apply(value : BigInt): Number ={
+object Number {
+  def apply(value: BigInt): Number = {
     val number = new Number;
     number.inputs(0) = IntLiteral(value)
     number
@@ -31,19 +31,18 @@ object Number{
 }
 
 //ONLY FOR BLACK BOX   generic parameters
-class Number extends BaseType{
+class Number extends BaseType {
   override def calcWidth = 32
 
-  def :=(that : Number)={
+  def :=(that: Number) = {
     this.assignFrom(that)
   }
 
 
-  override def toBits: Bits = {
-    throw new Exception("Illegal")
-  }
+  override def toBits: Bits = throw new Exception("Illegal")
+  override def fromBits(bits: Bits): Unit = throw new Exception("Illegal")
 
-  override def newMultiplexor(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer =  throw new Exception("Illegal")
+  override def newMultiplexor(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = throw new Exception("Illegal")
 
 
 }

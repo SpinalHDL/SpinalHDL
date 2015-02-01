@@ -56,16 +56,17 @@ class Bits extends BitVector {
 
   def toSInt: SInt = new SInt().castFrom("b->s", this)
   def toUInt: UInt = new UInt().castFrom("b->u", this)
+
   override def toBits: Bits = {
     val ret = new Bits()
     ret.assignFrom(this)
     ret
   }
-
+  override def fromBits(bits: Bits) : Unit = this := bits
 
   /* override def castThatInSame(that : BaseType): this.type ={
-     that.toBits.asInstanceOf[ this.type]
-   }*/
+       that.toBits.asInstanceOf[ this.type]
+     }*/
   override def isEguals(that: Data): Bool = {
    that match{
      case that : Bits => this == that

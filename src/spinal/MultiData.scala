@@ -26,39 +26,39 @@ import scala.collection.mutable.ArrayBuffer
 
 import IntBuilder._
 
-abstract class MultiData extends Data{
+abstract class MultiData extends Data {
 
-  def elements : ArrayBuffer[(String,Data)]
+  def elements: ArrayBuffer[(String, Data)]
 
 
-  def find(name : String): Data = {
+  def find(name: String): Data = {
     val temp = elements.find((tuple) => tuple._1 == name).getOrElse(null)
-    if(temp == null) return null
+    if (temp == null) return null
     temp._2
   }
 
-  override def toBits : Bits = {
-    var ret : Bits = null
-    for((eName,e) <- elements){
-      if(ret == null.asInstanceOf[Object]) ret = e.toBits
+  override def toBits: Bits = {
+    var ret: Bits = null
+    for ((eName, e) <- elements) {
+      if (ret == null.asInstanceOf[Object]) ret = e.toBits
       else ret = ret ## e.toBits
     }
-    if(ret.asInstanceOf[Object] == null) ret = Bits(0 bit)
+    if (ret.asInstanceOf[Object] == null) ret = Bits(0 bit)
     ret
   }
 
-  override def nameChangeEvent(weak : Boolean): Unit = {
+  override def nameChangeEvent(weak: Boolean): Unit = {
     super.nameChangeEvent(weak)
-    for((eName,e) <- elements) e match{
-      case nameable : Nameable => nameable.setName(getName() + "_" + eName,weak)
+    for ((eName, e) <- elements) e match {
+      case nameable: Nameable => nameable.setName(getName() + "_" + eName, weak)
     }
   }
 
-  override def getBitsWidth : Int = {
+  override def getBitsWidth: Int = {
     var accumulateWidth = 0
-    for((eName,e) <- flatten) {
+    for ((eName, e) <- flatten) {
       val width = e.getWidth
-      if(width == -1) return -1
+      if (width == -1) return -1
       accumulateWidth += width
     }
     accumulateWidth
@@ -82,5 +82,15 @@ abstract class MultiData extends Data{
       ret ++= data.flatten
     }
     ret
+  }
+
+
+  override def fromBits(bits: Bits): Unit = {
+    var offset = 0
+    for ((n, e) <- flatten.reverse) {
+      val width = e.getWidth
+      e.fromBits(bits(width + offset - 1, offset))
+      offset = offset + width
+    }
   }
 }

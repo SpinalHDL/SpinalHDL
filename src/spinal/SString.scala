@@ -37,9 +37,8 @@ class SString extends BaseType{
     this.assignFrom(that)
   }
 
-  override def toBits: Bits = {
-    throw new Exception("Illegal")
-  }
+  override def toBits: Bits = throw new Exception("Illegal")
+  override def fromBits(bits: Bits): Unit = throw new Exception("Illegal")
 
   override def newMultiplexor(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer =  throw new Exception("Illegal")
 }

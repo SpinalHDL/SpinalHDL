@@ -152,6 +152,8 @@ trait Data extends ComponentLocated with Nameable with Assignable{
  // def !==(that: Object) : Boolean = this != (that)
 
   def toBits: Bits
+  def fromBits(bits : Bits): Unit
+
   def getBitsWidth : Int
 
   def keep : this.type = {
