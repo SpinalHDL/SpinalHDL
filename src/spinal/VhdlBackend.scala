@@ -130,7 +130,7 @@ class VhdlBackend extends Backend with VhdlBase {
 
       def idToBits(enum: SpinalEnumElement[_]): String = {
         val str = enum.id.toString(2)
-          "\"" + ("0" * (enum.getWidth -  str.length)) + str  + "\""
+        "\"" + ("0" * (enum.getWidth - str.length)) + str + "\""
 
       }
     }
@@ -386,16 +386,13 @@ class VhdlBackend extends Backend with VhdlBase {
   }
 
   def emitLibrary(component: Component, ret: StringBuilder): Unit = {
-    ret ++=
-      s"""library IEEE;
-         |use IEEE.STD_LOGIC_1164.ALL;
-         |use IEEE.NUMERIC_STD.all;
-         |
-         |library $library;
-                            |use $library.$packageName.all;
-                                                        |use $library.$enumPackageName.all;
-                                                                                        | """.stripMargin
-
+    ret ++= "library IEEE;"
+    ret ++= "use IEEE.STD_LOGIC_1164.ALL;\n"
+    ret ++= "use IEEE.NUMERIC_STD.all;\n"
+    ret ++= "\n"
+    ret ++= s"library $library;\n"
+    ret ++= s"use $library.$packageName.all;\n"
+    ret ++= s"use $library.$enumPackageName.all;\n\n"
   }
 
   def emitEntityName(component: Component): Unit = {
@@ -405,14 +402,17 @@ class VhdlBackend extends Backend with VhdlBase {
   def emitEntity(component: Component, ret: StringBuilder): Unit = {
     ret ++= s"\nentity ${component.definitionName} is\n"
     ret ++= s"  port(\n"
-    component.nodes.foreach(_ match {
-      case baseType: BaseType => {
-        if (baseType.isIo) {
-          ret ++= s"    ${baseType.getName()} : ${emitDirection(baseType)} ${emitDataType(baseType)};\n"
-        }
-      }
-      case _ =>
-    })
+        component.nodes.foreach(_ match {
+          case baseType: BaseType => {
+            if (baseType.isIo) {
+              ret ++= s"    ${baseType.getName()} : ${emitDirection(baseType)} ${emitDataType(baseType)};\n"
+            }
+          }
+          case _ =>
+        })
+    /*component.getOrdredNodeIo.foreach(baseType =>
+      ret ++= s"    ${baseType.getName()} : ${emitDirection(baseType)} ${emitDataType(baseType)};\n"
+    )*/
     ret.setCharAt(ret.size - 2, ' ')
     ret ++= s"  );\n"
     ret ++= s"end ${component.definitionName};\n"

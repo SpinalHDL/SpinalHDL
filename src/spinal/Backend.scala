@@ -759,6 +759,11 @@ class Backend {
       if (comp.nodes == null) comp.nodes = new ArrayBuffer[Node]
       comp.nodes += node
     })
+
+
+    for(c <- components){
+      c.nodes = c.nodes.sortWith(_.instanceCounter < _.instanceCounter)
+    }
   }
 
   def addComponent(c: Component): Unit = {

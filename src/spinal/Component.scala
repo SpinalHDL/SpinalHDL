@@ -141,7 +141,7 @@ abstract class Component extends Nameable {
     }
     nodeIo
   }
-
+  def getOrdredNodeIo = getNodeIo.toList.sortWith(_.instanceCounter < _.instanceCounter)
   /*
     def getRegs = nodes.filter(node => node match{
       case b : BaseType => b.isReg

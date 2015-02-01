@@ -84,6 +84,13 @@ object Node {
   var areInferringWidth = false
   val getWidthWalkedSet: mutable.Set[Node] = mutable.Set[Node]()
   val widthInferredCheck = ArrayBuffer[() => Unit]()
+
+  var instanceCounter = 0
+  def getCounter : Int = {
+    val temp = instanceCounter
+    instanceCounter = instanceCounter + 1
+    temp
+  }
 }
 
 //object NoNode extends Node{
@@ -102,6 +109,7 @@ abstract class Node extends ComponentLocated {
   def dontSimplifyIt = dontSimplify = true
 
 
+  var instanceCounter = Node.getCounter
 
   def getWidth: Int = {
     if (Node.areInferringWidth) {
