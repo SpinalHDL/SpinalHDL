@@ -28,6 +28,7 @@ import scala.collection.mutable.ArrayBuffer
 class VhdlBackend extends Backend with VhdlBase {
   var out: java.io.FileWriter = null
   var library = "work"
+  val enumPackageName = "pkg_enum"
   val packageName = "pkg_scala2hdl"
   // + Random.nextInt(100000)
   val outputFile = "out" // + Random.nextInt(100000)
@@ -41,6 +42,7 @@ class VhdlBackend extends Backend with VhdlBase {
     SpinalInfoPhase("Write VHDL")
 
     out = new java.io.FileWriter(outputFile + ".vhd")
+    emitEnumPackage(out)
     emitPackage(out)
 
     for (c <- sortedComponents) {
@@ -71,15 +73,81 @@ class VhdlBackend extends Backend with VhdlBase {
     ret.result()
   }
 
+  def emitEnumPackage(out: java.io.FileWriter): Unit = {
+    val ret = new StringBuilder();
+    ret ++= s"""library IEEE;
+               |use IEEE.STD_LOGIC_1164.ALL;
+               |use IEEE.NUMERIC_STD.all;
+               |
+               |package $enumPackageName is
+                                          |""".stripMargin
+    for (enumDef <- enums) {
+      ret ++= s"  type ${enumDef.getName()} is (${enumDef.values.map(_.getName()).reduceLeft(_ + "," + _)});\n"
+    }
+
+    for (enumDef <- enums) {
+      val enumName = enumDef.getName()
+      ret ++= s"  function pkg_mux (sel : std_logic;one : $enumName;zero : $enumName) return $enumName;\n"
+      ret ++= s"  function pkg_toStdLogicVector (value : $enumName) return std_logic_vector;\n"
+      ret ++= s"  function pkg_to$enumName (value : std_logic_vector) return $enumName;\n"
+    }
+
+    ret ++= s"end $enumPackageName;\n\n"
+
+    ret ++= s"package body $enumPackageName is\n"
+    for (enumDef <- enums) {
+      val enumName = enumDef.getName()
+      ret ++= s"  function pkg_mux (sel : std_logic;one : $enumName;zero : $enumName) return $enumName is\n"
+      ret ++= "  begin\n"
+      ret ++= "    if sel = '1' then\n"
+      ret ++= "      return one;\n"
+      ret ++= "    else\n"
+      ret ++= "      return zero;\n"
+      ret ++= "    end if;\n"
+      ret ++= "  end pkg_mux;\n\n"
+
+
+      ret ++= s"  function pkg_toStdLogicVector (value : $enumName) return std_logic_vector is\n"
+      ret ++= "  begin\n"
+      ret ++= "    case value is \n"
+      for (e <- enumDef.values) {
+        ret ++= s"      when ${e.getName()} => return ${idToBits(e)};\n"
+      }
+      ret ++= s"      when others => return ${idToBits(enumDef.values.head)};\n"
+      ret ++= "    end case;\n"
+      ret ++= "  end pkg_toStdLogicVector;\n\n"
+
+      ret ++= s"  function pkg_to$enumName (value : std_logic_vector) return $enumName is\n"
+      ret ++= "  begin\n"
+      ret ++= "    case to_integer(unsigned(value)) is \n"
+      for (e <- enumDef.values) {
+        ret ++= s"      when ${e.id} => return ${e.getName()};\n"
+      }
+      ret ++= s"      when others => return ${enumDef.values.head.getName()};\n"
+      ret ++= "    end case;\n"
+      ret ++= s"  end pkg_to$enumName;\n\n"
+
+
+      def idToBits(enum: SpinalEnumElement[_]): String = {
+        val str = enum.id.toString(2)
+          "\"" + ("0" * (enum.getWidth -  str.length)) + str  + "\""
+
+      }
+    }
+    ret ++= s"end $enumPackageName;\n\n\n"
+    out.write(ret.result())
+  }
 
   def emitPackage(out: java.io.FileWriter): Unit = {
 
     def pkgExtractBool(kind: String): Tuple2[String, String] = {
-      (s"function pkg_extract (that : $kind; bitId : integer) return std_logic",
-        s"""|  begin
-            |    return that(bitId);
-            |  end pkg_extract;
-            |  """.stripMargin)
+      val ret = new StringBuilder();
+      (s"function pkg_extract (that : $kind; bitId : integer) return std_logic", {
+        ret ++= "  begin\n"
+        ret ++= "    return that(bitId);\n"
+        ret ++= "  end pkg_extract;\n\n"
+        ret.result()
+      })
     }
 
     /*def pkgResize(kind: String): Tuple2[String, String] = {
@@ -97,232 +165,236 @@ class VhdlBackend extends Backend with VhdlBase {
     })
 
     val ret = new StringBuilder();
-    ret ++= s"""library IEEE;
-              |use IEEE.STD_LOGIC_1164.ALL;
-              |use IEEE.NUMERIC_STD.all;
-              |
-              |package $packageName is
-              |${funcs.map("  " + _._1 + ";\n").reduce(_ + _)}
-              |
-              |  function pkg_mux (sel : std_logic;one : std_logic;zero : std_logic) return std_logic;
-              |  function pkg_mux (sel : std_logic;one : std_logic_vector;zero : std_logic_vector) return std_logic_vector;
-              |  function pkg_mux (sel : std_logic;one : unsigned;zero : unsigned) return unsigned;
-              |  function pkg_mux (sel : std_logic;one : signed;zero : signed) return signed;
-              |
-              |  function pkg_toStdLogic (value : boolean) return std_logic;
-              |  function pkg_toStdLogicVector (value : std_logic) return std_logic_vector;
-              |  function pkg_toUnsigned(value : std_logic) return unsigned;
-              |  function pkg_toSigned (value : std_logic) return signed;
-              |  function pkg_stdLogicVector (lit : std_logic_vector; bitCount : integer) return std_logic_vector;
-              |  function pkg_unsigned (lit : unsigned; bitCount : integer) return unsigned;
-              |  function pkg_signed (lit : signed; bitCount : integer) return signed;
-              |
-              |  function pkg_resize (that : std_logic_vector; width : integer) return std_logic_vector;
-              |  function pkg_resize (that : unsigned; width : integer) return unsigned;
-              |  function pkg_resize (that : signed; width : integer) return signed;
-              |
-              |  function pkg_extract (that : std_logic_vector; high : integer; low : integer) return std_logic_vector;
-              |
-              |  function pkg_shiftRight (that : std_logic_vector; size : natural) return std_logic_vector;
-              |  function pkg_shiftRight (that : std_logic_vector; size : unsigned) return std_logic_vector;
-              |  function pkg_shiftLeft (that : std_logic_vector; size : natural) return std_logic_vector;
-              |  function pkg_shiftLeft (that : std_logic_vector; size : unsigned) return std_logic_vector;
-              |
-              |  function pkg_shiftRight (that : unsigned; size : natural) return unsigned;
-              |  function pkg_shiftRight (that : unsigned; size : unsigned) return unsigned;
-              |  function pkg_shiftLeft (that : unsigned; size : natural) return unsigned;
-              |  function pkg_shiftLeft (that : unsigned; size : unsigned) return unsigned;
-              |
-              |  function pkg_shiftRight (that : signed; size : natural) return signed;
-              |  function pkg_shiftRight (that : signed; size : unsigned) return signed;
-              |  function pkg_shiftLeft (that : signed; size : natural) return signed;
-              |  function pkg_shiftLeft (that : signed; size : unsigned) return signed;
-              |end  $packageName;
-              |
-              |package body $packageName is
-              |${funcs.map(f => "  " + f._1 + " is\n" + f._2 + "\n").reduce(_ + _)}
-              |
-              |  -- unsigned shifts
-              |  function pkg_shiftRight (that : unsigned; size : natural) return unsigned is
-              |  begin
-              |    if size >= that then
-              |      return "";
-              |    else
-              |      return shift_right(that,size)(that'high-size downto 0);
-              |    end if;
-              |  end pkg_shiftRight;
-              |
-              |  function pkg_shiftRight (that : unsigned; size : unsigned) return unsigned is
-              |  begin
-              |    return shift_right(that,to_integer(size));
-              |  end pkg_shiftRight;
-              |
-              |  function pkg_shiftLeft (that : unsigned; size : natural) return unsigned is
-              |  begin
-              |    return shift_left(resize(that,that'length + size),size);
-              |  end pkg_shiftLeft;
-              |
-              |  function pkg_shiftLeft (that : unsigned; size : unsigned) return unsigned is
-              |  begin
-              |    return shift_left(resize(that,that'length + 2**size'length - 1),to_integer(size));
-              |  end pkg_shiftLeft;
-              |
-              |
-              |  -- std_logic_vector shifts
-              |  function pkg_shiftRight (that : std_logic_vector; size : natural) return std_logic_vector is
-              |  begin
-              |    return std_logic_vector(pkg_shiftRight(unsigned(that),size));
-              |  end pkg_shiftRight;
-              |
-              |  function pkg_shiftRight (that : std_logic_vector; size : unsigned) return std_logic_vector is
-              |  begin
-              |    return std_logic_vector(pkg_shiftRight(unsigned(that),size));
-              |  end pkg_shiftRight;
-              |
-              |  function pkg_shiftLeft (that : std_logic_vector; size : natural) return std_logic_vector is
-              |  begin
-              |    return std_logic_vector(pkg_shiftLeft(unsigned(that),size));
-              |  end pkg_shiftLeft;
-              |
-              |  function pkg_shiftLeft (that : std_logic_vector; size : unsigned) return std_logic_vector is
-              |  begin
-              |    return std_logic_vector(pkg_shiftLeft(unsigned(that),size));
-              |  end pkg_shiftLeft;
-              |
-              |  -- signed shifts
-              |  function pkg_shiftRight (that : signed; size : natural) return signed is
-              |  begin
-              |    return signed(pkg_shiftRight(unsigned(that),size));
-              |  end pkg_shiftRight;
-              |
-              |  function pkg_shiftRight (that : signed; size : unsigned) return signed is
-              |  begin
-              |    return signed(pkg_shiftRight(unsigned(that),size));
-              |  end pkg_shiftRight;
-              |
-              |  function pkg_shiftLeft (that : signed; size : natural) return signed is
-              |  begin
-              |    return signed(pkg_shiftLeft(unsigned(that),size));
-              |  end pkg_shiftLeft;
-              |
-              |  function pkg_shiftLeft (that : signed; size : unsigned) return signed is
-              |  begin
-              |    return signed(pkg_shiftLeft(unsigned(that),size));
-              |  end pkg_shiftLeft;
-              |
-              |  function pkg_extract (that : std_logic_vector; high : integer; low : integer) return std_logic_vector is
-              |  begin
-              |    return that(high downto low);
-              |  end pkg_extract;
-              |
-              |  function pkg_mux (sel : std_logic;one : std_logic;zero : std_logic) return std_logic is
-              |  begin
-              |    if sel = '1' then
-              |      return one;
-              |    else
-              |      return zero;
-              |    end if;
-              |  end pkg_mux;
-              |
-              |  function pkg_mux (sel : std_logic;one : std_logic_vector;zero : std_logic_vector) return std_logic_vector is
-              |  begin
-              |    if sel = '1' then
-              |      return one;
-              |    else
-              |      return zero;
-              |    end if;
-              |  end pkg_mux;
-              |
-              |  function pkg_mux (sel : std_logic;one : unsigned;zero : unsigned) return unsigned is
-              |  begin
-              |    if sel = '1' then
-              |      return one;
-              |    else
-              |      return zero;
-              |    end if;
-              |  end pkg_mux;
-              |
-              |  function pkg_mux (sel : std_logic;one : signed;zero : signed) return signed is
-              |  begin
-              |    if sel = '1' then
-              |      return one;
-              |    else
-              |      return zero;
-              |    end if;
-              |  end pkg_mux;
-              |
-              |  function pkg_toStdLogic (value : boolean) return std_logic is
-              |  begin
-              |    if value = true then
-              |      return '1';
-              |    else
-              |      return '0';
-              |    end if;
-              |  end pkg_toStdLogic;
-              |
-              |  function pkg_toStdLogicVector (value : std_logic) return std_logic_vector is
-              |    variable ret : std_logic_vector(0 downto 0);
-              |  begin
-              |    ret(0) := value;
-              |    return ret;
-              |  end pkg_toStdLogicVector;
-              |
-              |  function pkg_toUnsigned (value : std_logic) return unsigned is
-              |    variable ret : unsigned(0 downto 0);
-              |  begin
-              |    ret(0) := value;
-              |    return ret;
-              |  end pkg_toUnsigned;
-              |
-              |  function pkg_toSigned (value : std_logic) return signed is
-              |    variable ret : signed(0 downto 0);
-              |  begin
-              |    ret(0) := value;
-              |    return ret;
-              |  end pkg_toSigned;
-              |
-              |  function pkg_stdLogicVector (lit : std_logic_vector; bitCount : integer) return std_logic_vector is
-              |  begin
-              |    return pkg_resize(lit,bitCount);
-              |  end pkg_stdLogicVector;
-              |
-              |  function pkg_unsigned (lit : unsigned; bitCount : integer) return unsigned is
-              |  begin
-              |    return pkg_resize(lit,bitCount);
-              |  end pkg_unsigned;
-              |
-              |  function pkg_signed (lit : signed; bitCount : integer) return signed is
-              |  begin
-              |    return pkg_resize(lit,bitCount);
-              |  end pkg_signed;
-              |
-              |  function pkg_resize (that : std_logic_vector; width : integer) return std_logic_vector is
-              |  begin
-              |    return std_logic_vector(resize(unsigned(that),width));
-              |  end pkg_resize;
-              |
-              |  function pkg_resize (that : unsigned; width : integer) return unsigned is
-              |  begin
-              |    return resize(that,width);
-              |  end pkg_resize;
-              |
-              |  function pkg_resize (that : signed; width : integer) return signed is
-              |  begin
-              |    return resize(that,width);
-              |  end pkg_resize;
-              |end $packageName;
-              |
-              |""".stripMargin
+    ret ++= s"library IEEE;\n"
+    ret ++= "use IEEE.STD_LOGIC_1164.ALL;\n"
+    ret ++= "use IEEE.NUMERIC_STD.all;\n"
+    ret ++= "\n"
+    ret ++= s"package $packageName is\n"
+    ret ++= s"${funcs.map("  " + _._1 + ";\n").reduce(_ + _)}\n"
+    ret ++= "\n"
+    ret ++= "  function pkg_mux (sel : std_logic;one : std_logic;zero : std_logic) return std_logic;\n"
+    ret ++= "  function pkg_mux (sel : std_logic;one : std_logic_vector;zero : std_logic_vector) return std_logic_vector;\n"
+    ret ++= "  function pkg_mux (sel : std_logic;one : unsigned;zero : unsigned) return unsigned;\n"
+    ret ++= "  function pkg_mux (sel : std_logic;one : signed;zero : signed) return signed;\n"
+    ret ++= s"\n"
+    ret ++= "  function pkg_toStdLogic (value : boolean) return std_logic;\n"
+    ret ++= "  function pkg_toStdLogicVector (value : std_logic) return std_logic_vector;\n"
+    ret ++= "  function pkg_toUnsigned(value : std_logic) return unsigned;\n"
+    ret ++= "  function pkg_toSigned (value : std_logic) return signed;\n"
+    ret ++= "  function pkg_stdLogicVector (lit : std_logic_vector; bitCount : integer) return std_logic_vector;\n"
+    ret ++= "  function pkg_unsigned (lit : unsigned; bitCount : integer) return unsigned;\n"
+    ret ++= "  function pkg_signed (lit : signed; bitCount : integer) return signed;\n"
+    ret ++= "\n"
+    ret ++= "  function pkg_resize (that : std_logic_vector; width : integer) return std_logic_vector;\n"
+    ret ++= "  function pkg_resize (that : unsigned; width : integer) return unsigned;\n"
+    ret ++= "  function pkg_resize (that : signed; width : integer) return signed;\n"
+    ret ++= "\n"
+    ret ++= "  function pkg_extract (that : std_logic_vector; high : integer; low : integer) return std_logic_vector;\n"
+    ret ++= "\n"
+    ret ++= "  function pkg_shiftRight (that : std_logic_vector; size : natural) return std_logic_vector;\n"
+    ret ++= "  function pkg_shiftRight (that : std_logic_vector; size : unsigned) return std_logic_vector;\n"
+    ret ++= "  function pkg_shiftLeft (that : std_logic_vector; size : natural) return std_logic_vector;\n"
+    ret ++= "  function pkg_shiftLeft (that : std_logic_vector; size : unsigned) return std_logic_vector;\n"
+    ret ++= "\n"
+    ret ++= "  function pkg_shiftRight (that : unsigned; size : natural) return unsigned;\n"
+    ret ++= "  function pkg_shiftRight (that : unsigned; size : unsigned) return unsigned;\n"
+    ret ++= "  function pkg_shiftLeft (that : unsigned; size : natural) return unsigned;\n"
+    ret ++= "  function pkg_shiftLeft (that : unsigned; size : unsigned) return unsigned;\n"
+    ret ++= "\n"
+    ret ++= "  function pkg_shiftRight (that : signed; size : natural) return signed;\n"
+    ret ++= "  function pkg_shiftRight (that : signed; size : unsigned) return signed;\n"
+    ret ++= "  function pkg_shiftLeft (that : signed; size : natural) return signed;\n"
+    ret ++= "  function pkg_shiftLeft (that : signed; size : unsigned) return signed;\n"
+    ret ++= s"end  $packageName;\n"
+    ret ++= "\n"
+    ret ++= s"package body $packageName is\n"
+    ret ++= s"${funcs.map(f => "  " + f._1 + " is\n" + f._2 + "\n").reduce(_ + _)}"
+    ret ++= "\n"
+    ret ++= "  -- unsigned shifts\n"
+    ret ++= "  function pkg_shiftRight (that : unsigned; size : natural) return unsigned is\n"
+    ret ++= "  begin\n"
+    ret ++= "    if size >= that then\n"
+    ret ++= "      return \"\";\n"
+    ret ++= "    else\n"
+    ret ++= "      return shift_right(that,size)(that'high-size downto 0);\n"
+    ret ++= "    end if;\n"
+    ret ++= "  end pkg_shiftRight;\n"
+    ret ++= "\n"
+    ret ++= "  function pkg_shiftRight (that : unsigned; size : unsigned) return unsigned is\n"
+    ret ++= "  begin\n"
+    ret ++= "    return shift_right(that,to_integer(size));\n"
+    ret ++= "  end pkg_shiftRight;\n"
+    ret ++= "\n"
+    ret ++= "  function pkg_shiftLeft (that : unsigned; size : natural) return unsigned is\n"
+    ret ++= "  begin\n"
+    ret ++= "    return shift_left(resize(that,that'length + size),size);\n"
+    ret ++= "  end pkg_shiftLeft;\n"
+    ret ++= "\n"
+    ret ++= "  function pkg_shiftLeft (that : unsigned; size : unsigned) return unsigned is\n"
+    ret ++= "  begin\n"
+    ret ++= "    return shift_left(resize(that,that'length + 2**size'length - 1),to_integer(size));\n"
+    ret ++= "  end pkg_shiftLeft;\n"
+    ret ++= "\n"
+    ret ++= "\n"
+    ret ++= "  -- std_logic_vector shifts\n"
+    ret ++= "  function pkg_shiftRight (that : std_logic_vector; size : natural) return std_logic_vector is\n"
+    ret ++= "  begin\n"
+    ret ++= "    return std_logic_vector(pkg_shiftRight(unsigned(that),size));\n"
+    ret ++= "  end pkg_shiftRight;\n"
+    ret ++= "\n"
+    ret ++= "  function pkg_shiftRight (that : std_logic_vector; size : unsigned) return std_logic_vector is\n"
+    ret ++= "  begin\n"
+    ret ++= "    return std_logic_vector(pkg_shiftRight(unsigned(that),size));\n"
+    ret ++= "  end pkg_shiftRight;\n"
+    ret ++= "\n"
+    ret ++= "  function pkg_shiftLeft (that : std_logic_vector; size : natural) return std_logic_vector is\n"
+    ret ++= "  begin\n"
+    ret ++= "    return std_logic_vector(pkg_shiftLeft(unsigned(that),size));\n"
+    ret ++= "  end pkg_shiftLeft;\n"
+    ret ++= "\n"
+    ret ++= "  function pkg_shiftLeft (that : std_logic_vector; size : unsigned) return std_logic_vector is\n"
+    ret ++= "  begin\n"
+    ret ++= "    return std_logic_vector(pkg_shiftLeft(unsigned(that),size));\n"
+    ret ++= "  end pkg_shiftLeft;\n"
+    ret ++= "\n"
+    ret ++= "  -- signed shifts\n"
+    ret ++= "  function pkg_shiftRight (that : signed; size : natural) return signed is\n"
+    ret ++= "  begin\n"
+    ret ++= "    return signed(pkg_shiftRight(unsigned(that),size));\n"
+    ret ++= "  end pkg_shiftRight;\n"
+    ret ++= "\n"
+    ret ++= "  function pkg_shiftRight (that : signed; size : unsigned) return signed is\n"
+    ret ++= "  begin\n"
+    ret ++= "    return signed(pkg_shiftRight(unsigned(that),size));\n"
+    ret ++= "  end pkg_shiftRight;\n"
+    ret ++= "\n"
+    ret ++= "  function pkg_shiftLeft (that : signed; size : natural) return signed is\n"
+    ret ++= "  begin\n"
+    ret ++= "    return signed(pkg_shiftLeft(unsigned(that),size));\n"
+    ret ++= "  end pkg_shiftLeft;\n"
+    ret ++= "\n"
+    ret ++= "  function pkg_shiftLeft (that : signed; size : unsigned) return signed is\n"
+    ret ++= "  begin\n"
+    ret ++= "    return signed(pkg_shiftLeft(unsigned(that),size));\n"
+    ret ++= "  end pkg_shiftLeft;\n"
+    ret ++= "\n"
+    ret ++= "  function pkg_extract (that : std_logic_vector; high : integer; low : integer) return std_logic_vector is\n"
+    ret ++= "  begin\n"
+    ret ++= "    return that(high downto low);\n"
+    ret ++= "  end pkg_extract;\n"
+    ret ++= "\n"
+    ret ++= "  function pkg_mux (sel : std_logic;one : std_logic;zero : std_logic) return std_logic is\n"
+    ret ++= "  begin\n"
+    ret ++= "    if sel = '1' then\n"
+    ret ++= "      return one;\n"
+    ret ++= "    else\n"
+    ret ++= "      return zero;\n"
+    ret ++= "    end if;\n"
+    ret ++= "  end pkg_mux;\n"
+    ret ++= "\n"
+    ret ++= "  function pkg_mux (sel : std_logic;one : std_logic_vector;zero : std_logic_vector) return std_logic_vector is\n"
+    ret ++= "  begin\n"
+    ret ++= "    if sel = '1' then\n"
+    ret ++= "      return one;\n"
+    ret ++= "    else\n"
+    ret ++= "      return zero;\n"
+    ret ++= "    end if;\n"
+    ret ++= "  end pkg_mux;\n"
+    ret ++= "\n"
+    ret ++= "  function pkg_mux (sel : std_logic;one : unsigned;zero : unsigned) return unsigned is\n"
+    ret ++= "  begin\n"
+    ret ++= "    if sel = '1' then\n"
+    ret ++= "      return one;\n"
+    ret ++= "    else\n"
+    ret ++= "      return zero;\n"
+    ret ++= "    end if;\n"
+    ret ++= "  end pkg_mux;\n"
+    ret ++= "\n"
+    ret ++= "  function pkg_mux (sel : std_logic;one : signed;zero : signed) return signed is\n"
+    ret ++= "  begin\n"
+    ret ++= "    if sel = '1' then\n"
+    ret ++= "      return one;\n"
+    ret ++= "    else\n"
+    ret ++= "      return zero;\n"
+    ret ++= "    end if;\n"
+    ret ++= "  end pkg_mux;\n"
+    ret ++= "\n"
+    ret ++= "  function pkg_toStdLogic (value : boolean) return std_logic is\n"
+    ret ++= "  begin\n"
+    ret ++= "    if value = true then\n"
+    ret ++= "      return '1';\n"
+    ret ++= "    else\n"
+    ret ++= "      return '0';\n"
+    ret ++= "    end if;\n"
+    ret ++= "  end pkg_toStdLogic;\n"
+    ret ++= "\n"
+    ret ++= "  function pkg_toStdLogicVector (value : std_logic) return std_logic_vector is\n"
+    ret ++= "    variable ret : std_logic_vector(0 downto 0);\n"
+    ret ++= "  begin\n"
+    ret ++= "    ret(0) := value;\n"
+    ret ++= "    return ret;\n"
+    ret ++= "  end pkg_toStdLogicVector;\n"
+    ret ++= "\n"
+    ret ++= "  function pkg_toUnsigned (value : std_logic) return unsigned is\n"
+    ret ++= "    variable ret : unsigned(0 downto 0);\n"
+    ret ++= "  begin\n"
+    ret ++= "    ret(0) := value;\n"
+    ret ++= "    return ret;\n"
+    ret ++= "  end pkg_toUnsigned;\n"
+    ret ++= "\n"
+    ret ++= "  function pkg_toSigned (value : std_logic) return signed is\n"
+    ret ++= "    variable ret : signed(0 downto 0);\n"
+    ret ++= "  begin\n"
+    ret ++= "    ret(0) := value;\n"
+    ret ++= "    return ret;\n"
+    ret ++= "  end pkg_toSigned;\n"
+    ret ++= "\n"
+    ret ++= "  function pkg_stdLogicVector (lit : std_logic_vector; bitCount : integer) return std_logic_vector is\n"
+    ret ++= "  begin\n"
+    ret ++= "    return pkg_resize(lit,bitCount);\n"
+    ret ++= "  end pkg_stdLogicVector;\n"
+    ret ++= "\n"
+    ret ++= "  function pkg_unsigned (lit : unsigned; bitCount : integer) return unsigned is\n"
+    ret ++= "  begin\n"
+    ret ++= "    return pkg_resize(lit,bitCount);\n"
+    ret ++= "  end pkg_unsigned;\n"
+    ret ++= "\n"
+    ret ++= "  function pkg_signed (lit : signed; bitCount : integer) return signed is\n"
+    ret ++= "  begin\n"
+    ret ++= "    return pkg_resize(lit,bitCount);\n"
+    ret ++= "  end pkg_signed;\n"
+    ret ++= "\n"
+    ret ++= "  function pkg_resize (that : std_logic_vector; width : integer) return std_logic_vector is\n"
+    ret ++= "  begin\n"
+    ret ++= "    return std_logic_vector(resize(unsigned(that),width));\n"
+    ret ++= "  end pkg_resize;\n"
+    ret ++= "\n"
+    ret ++= "  function pkg_resize (that : unsigned; width : integer) return unsigned is\n"
+    ret ++= "  begin\n"
+    ret ++= "    return resize(that,width);\n"
+    ret ++= "  end pkg_resize;\n"
+    ret ++= "\n"
+    ret ++= "  function pkg_resize (that : signed; width : integer) return signed is\n"
+    ret ++= "  begin\n"
+    ret ++= "    return resize(that,width);\n"
+    ret ++= "  end pkg_resize;\n"
+    ret ++= s"end $packageName;\n"
+    ret ++= "\n"
+    ret ++= "\n"
+
     out.write(ret.result())
   }
 
   def emitLibrary(component: Component, ret: StringBuilder): Unit = {
-    ret ++= s"""library IEEE;
-              |use IEEE.STD_LOGIC_1164.ALL;
-              |use IEEE.NUMERIC_STD.all;
-              |library $library;
-              |use $library.$packageName.all;
-              | """.stripMargin
+    ret ++=
+      s"""library IEEE;
+         |use IEEE.STD_LOGIC_1164.ALL;
+         |use IEEE.NUMERIC_STD.all;
+         |
+         |library $library;
+                            |use $library.$packageName.all;
+                                                        |use $library.$enumPackageName.all;
+                                                                                        | """.stripMargin
 
   }
 
@@ -450,7 +522,10 @@ class VhdlBackend extends Backend with VhdlBase {
   def operatorImplAsFunction(vhd: String)(func: Modifier): String = {
     s"$vhd(${func.inputs.map(emitLogic(_)).reduce(_ + "," + _)})"
   }
-
+  def operatorImplAsBitsToEnum(func: Modifier): String = {
+    val enumCast = func.asInstanceOf[EnumCast]
+    s"pkg_to${enumCast.enum.getParentName}(${func.inputs.map(emitLogic(_)).reduce(_ + "," + _)})"
+  }
   val modifierImplMap = mutable.Map[String, Modifier => String]()
 
 
@@ -528,16 +603,23 @@ class VhdlBackend extends Backend with VhdlBase {
 
 
 
+  //enum
+  modifierImplMap.put("e==e", operatorImplAsOperator("="))
+  modifierImplMap.put("e!=e", operatorImplAsOperator("/="))
+
   //cast
   modifierImplMap.put("s->b", operatorImplAsFunction("std_logic_vector"))
   modifierImplMap.put("u->b", operatorImplAsFunction("std_logic_vector"))
   modifierImplMap.put("B->b", operatorImplAsFunction("pkg_toStdLogicVector"))
+  modifierImplMap.put("e->b", operatorImplAsFunction("pkg_toStdLogicVector"))
 
   modifierImplMap.put("b->s", operatorImplAsFunction("signed"))
   modifierImplMap.put("u->s", operatorImplAsFunction("signed"))
 
   modifierImplMap.put("b->u", operatorImplAsFunction("unsigned"))
   modifierImplMap.put("s->u", operatorImplAsFunction("unsigned"))
+
+  modifierImplMap.put("b->e", operatorImplAsBitsToEnum)
 
 
   //misc
@@ -549,6 +631,7 @@ class VhdlBackend extends Backend with VhdlBase {
   modifierImplMap.put("mux(B,b,b)", operatorImplAsFunction("pkg_mux"))
   modifierImplMap.put("mux(B,u,u)", operatorImplAsFunction("pkg_mux"))
   modifierImplMap.put("mux(B,s,s)", operatorImplAsFunction("pkg_mux"))
+  modifierImplMap.put("mux(B,e,e)", operatorImplAsFunction("pkg_mux"))
 
   def opThatNeedBoolCastGen(a: String, b: String): List[String] = {
     ("==" :: "!=" :: "<" :: "<=" :: Nil).map(a + _ + b)
@@ -558,6 +641,7 @@ class VhdlBackend extends Backend with VhdlBase {
   opThatNeedBoolCast ++= opThatNeedBoolCastGen("b", "b")
   opThatNeedBoolCast ++= opThatNeedBoolCastGen("u", "u")
   opThatNeedBoolCast ++= opThatNeedBoolCastGen("s", "s")
+  opThatNeedBoolCast ++= opThatNeedBoolCastGen("e", "e")
 
 
   def emitLogic(node: Node): String = node match {
@@ -571,6 +655,7 @@ class VhdlBackend extends Backend with VhdlBase {
     case lit: IntLiteral => lit.value.toString(10)
     case lit: SStringLiteral => "\"" + lit.value + "\""
     case lit: BoolLiteral => "\'" + (if (lit.value) "1" else "0") + "\'"
+    case lit: EnumLiteral[_] => lit.enum.getName()
     case node: Modifier => modifierImplMap.getOrElse(node.opName, throw new Exception("can't find " + node.opName))(node)
     case node: ExtractBool => {
       val bitIdString = node.bitId match {
@@ -580,6 +665,7 @@ class VhdlBackend extends Backend with VhdlBase {
       s"pkg_extract(${emitLogic(node.bitVector)},$bitIdString)"
     }
     case node: ExtractBitsVector => s"pkg_extract(${emitLogic(node.bitVector)},${node.bitIdHi.value},${node.bitIdLo.value})"
+
     case _ => throw new Exception("Don't know how emit that logic")
   }
 

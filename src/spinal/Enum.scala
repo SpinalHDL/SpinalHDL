@@ -44,7 +44,8 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T) extends BaseType {
   }
 
   override def newMultiplexor(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,e,e)", sel, whenTrue, whenFalse)
-  override def toBits: Bits = ???
+  override def toBits: Bits = new Bits().castFrom("e->b", this)
+  def from(bits : Bits): this.type = enumCastFrom("b->e", bits,(node) => this.getWidth)
   override def calcWidth: Int = blueprint.getWidth
   override def clone: this.type = {
     val res = new SpinalEnumCraft(blueprint).asInstanceOf[this.type]
@@ -52,9 +53,12 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T) extends BaseType {
     res
   }
 
+
+  def getParentName = blueprint.getName()
+
 }
 
-class SpinalEnumElement[T <: SpinalEnum](val parent: T, val id: Int, val name: String) {
+class SpinalEnumElement[T <: SpinalEnum](val parent: T, val id: BigInt) extends Nameable{
   def ==(that: SpinalEnumCraft[T]) = {
     that == this
   }
@@ -68,15 +72,18 @@ class SpinalEnumElement[T <: SpinalEnum](val parent: T, val id: Int, val name: S
     ret.inputs(0) = new EnumLiteral(this)
     ret
   }
+
+  def toBits: Bits = new Bits().castFrom("e->b", craft)
+  def getWidth = parent.getWidth
 }
 
-class SpinalEnum {
+class SpinalEnum extends Nameable{
 
-  private val idMap = new mutable.HashMap[Int, SpinalEnumElement[this.type]]()
+  private val idMap = new mutable.HashMap[BigInt, SpinalEnumElement[this.type]]()
 
 
-  var nextInt = 0
-  def getNextInt: Int = {
+  var nextInt : BigInt = 0
+  def getNextInt: BigInt = {
     val i = nextInt
     nextInt = nextInt + 1
     if (idMap.contains(nextInt)) getNextInt else i
@@ -85,11 +92,12 @@ class SpinalEnum {
   def values = idMap.values
 
   def Value(): SpinalEnumElement[this.type] = Value(getNextInt, null)
-  def Value(id: Int): SpinalEnumElement[this.type] = Value(id, null)
+  def Value(id: BigInt): SpinalEnumElement[this.type] = Value(id, null)
   def Value(name: String): SpinalEnumElement[this.type] = Value(getNextInt, name)
-  def Value(id: Int, name: String): SpinalEnumElement[this.type] = {
+  def Value(id: BigInt, name: String): SpinalEnumElement[this.type] = {
     if (idMap.contains(id)) SpinalError("Spinal enumeration already contain this unique id")
-    val v = new SpinalEnumElement(this, id, name).asInstanceOf[SpinalEnumElement[this.type]]
+    val v = new SpinalEnumElement(this, id).asInstanceOf[SpinalEnumElement[this.type]]
+    if(name != null) v.setName(name)
     idMap += id -> v
     v
   }
@@ -101,7 +109,7 @@ class SpinalEnum {
       ret
     }*/
 
-  def getWidth = log2Up(values.foldLeft(0)((v, n) => Math.max(v, n.id)) + 1)
+  def getWidth = log2Up(values.foldLeft(BigInt(0))((v, n) => v.max(n.id)) + 1)
   def craft(): SpinalEnumCraft[this.type] = new SpinalEnumCraft[this.type](this)
 
   //type SpinalEnum = Val

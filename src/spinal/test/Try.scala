@@ -260,6 +260,10 @@ object Try {
     io.outUIntS := S.two
   }
 
+  object MyEnum extends SpinalEnum {
+    val s0, s1, s2 = Value
+  }
+
   class ComponentA extends Component {
 
     val io = new Bundle {
@@ -310,6 +314,17 @@ object Try {
       val outUIntA = out UInt (5 bit)
       val outUIntS = out UInt (5 bit)
 
+
+      val inEnum = in(MyEnum)
+      val inEnumBits = in Bits(1 bit)
+
+      val outEnum = out(MyEnum)
+      val outEnum2 = out(MyEnum)
+      val outEnumFromBits = out(MyEnum)
+      val outEnumBits = out.Bits()
+      val outEnumBool = out.Bool()
+      val outEnumBool2 = out.Bool()
+
       //  val outBool = out.Bool()
 
 
@@ -320,7 +335,22 @@ object Try {
 
     }
     //var myInt = WeekDay.c
-   // myInt := WeekDay.Mon
+    // myInt := WeekDay.Mon
+
+    io.outEnumFromBits.from(io.inEnumBits)
+
+    io.outEnum := io.inEnum
+    when(MyEnum.s2 == io.inEnum) {
+      io.outEnum2 := MyEnum.s1
+      io.outEnumBits := MyEnum.s1.toBits
+    } otherwise {
+      io.outEnum2 := io.inEnum
+      io.outEnumBits := io.inEnum.toBits
+    }
+
+
+    io.outEnumBool := io.inEnum == MyEnum.s2
+    io.outEnumBool2 := io.inEnum == io.inEnum
 
 
     val componentS = Component(new ComponentS)

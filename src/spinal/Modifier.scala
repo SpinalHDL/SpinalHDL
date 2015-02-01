@@ -22,6 +22,17 @@ package spinal
  * Created by PIC18F on 21.08.2014.
  */
 
+object EnumCast {
+  def apply(enum : SpinalEnumCraft[_],opName: String, that: Node, widthImpl: (Node) => Int = WidthInfer.inputMaxWidthl): Modifier = {
+    val op = new EnumCast(enum,opName, widthImpl)
+    op.inputs += that
+    op
+  }
+
+
+}
+
+
 object Cast {
   def apply(opName: String, that: Node, widthImpl: (Node) => Int = WidthInfer.inputMaxWidthl): Modifier = {
     val op = new Cast(opName, widthImpl)
@@ -90,7 +101,11 @@ class Function(opName: String, widthImpl: (Node) => Int) extends Modifier(opName
 class Cast(opName: String, widthImpl: (Node) => Int = WidthInfer.inputMaxWidthl) extends Modifier(opName, widthImpl) {
 
 }
-
+class EnumCast(val enum : SpinalEnumCraft[_],opName: String, widthImpl: (Node) => Int = WidthInfer.inputMaxWidthl) extends Modifier(opName, widthImpl) {
+  override def normalizeInputs: Unit = {
+    Misc.normalizeResize(this, 0, this.getWidth)
+  }
+}
 object ExtractBool {
   def apply(bitVector: BitVector, bitId: Int): ExtractBool = {
     val op = new ExtractBool

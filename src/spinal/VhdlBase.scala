@@ -27,7 +27,7 @@ import scala.collection.mutable.ArrayBuffer
  */
 trait VhdlBase {
 
-  val vhdlKeyWords = Set[String]("in", "out", "buffer", "inout", "entity", "component", "architecture")
+  val vhdlKeyWords = Set[String]("in", "out", "buffer", "inout", "entity", "component", "architecture","type")
 
 //  override def getReservedKeyword(): Iterable[String] = {
 //    return reservedKeyWords
@@ -54,6 +54,7 @@ trait VhdlBase {
     case uint: UInt => s"unsigned${if (constrained) emitRange(uint) else ""}"
     case sint: SInt => s"signed${if (constrained) emitRange(sint) else ""}"
     case bits: Bits => s"std_logic_vector${if (constrained) emitRange(bits) else ""}"
+    case enum: SpinalEnumCraft[_] => enum.blueprint.getName()
     case number: Number => s"integer"
     case string: SString => s"string"
     case _ => throw new Exception("Unknown datatype"); ""

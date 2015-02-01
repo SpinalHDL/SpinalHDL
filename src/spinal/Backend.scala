@@ -55,7 +55,7 @@ class Backend {
   val globalScope = new Scope()
   val reservedKeyWords = mutable.Set[String]()
   var topLevel : Component = null
-
+  val enums = mutable.Set[SpinalEnum]()
 
   def addReservedKeyWordToScope(scope: Scope): Unit = {
     reservedKeyWords.foreach(scope.allocateName(_))
@@ -104,6 +104,8 @@ class Backend {
     nameNodesByReflection
 
 
+    //Enum
+    collectAndNameEnum
 
     //Component connection
     SpinalInfoPhase("Transform connection")
@@ -193,6 +195,36 @@ class Backend {
   }
 
 
+  def collectAndNameEnum: Unit ={
+    walkNodes2(node => {
+      node match{
+        case enum : SpinalEnumCraft[_] => enums += enum.blueprint
+        case _ =>
+      }
+    })
+
+    for(enumDef <- enums){
+      Misc.reflect(enumDef,(name,obj) => {
+        obj match{
+          case obj : Nameable => obj.setWeakName(name)
+          case _ =>
+        }
+      })
+      for(e <- enumDef.values){
+        if(e.isUnnamed){
+          e.setWeakName("s"+e.id)
+        }
+      }
+      if(enumDef.isWeak){
+        var name = enumDef.getClass.getSimpleName
+        if(name.endsWith("$"))
+          name = name.substring(0,name.length-1)
+        enumDef.setWeakName(name)
+      }
+    }
+  }
+
+
   def check_noNull_noCrossHierarchy_noInputRegister: Unit = {
     val errors = mutable.ArrayBuffer[String]()
     walkNodes2(node => {
@@ -240,6 +272,12 @@ class Backend {
   }
 
   def allocateNames = {
+    for(enumDef <- enums){
+      if (enumDef.isWeak)
+        enumDef.setName(globalScope.allocateName(enumDef.getName()));
+      else
+        globalScope.iWantIt(enumDef.getName())
+    }
     for (c <- sortedComponents) {
       addReservedKeyWordToScope(c.localScope)
       c.allocateNames
@@ -249,6 +287,8 @@ class Backend {
       else
         c.definitionName = globalScope.allocateName(c.definitionName)
     }
+
+
   }
 
   def configureComponentIo(): Unit = {

@@ -46,6 +46,8 @@ object Misc {
   addReflectionExclusion(new Bits)
   addReflectionExclusion(new UInt)
   addReflectionExclusion(new SInt)
+  addReflectionExclusion(new SpinalEnum)
+  addReflectionExclusion(new SpinalEnumCraft(null))
 
 
   def reflect(o: Object, onEach: (String, Object) => Unit): Unit = {

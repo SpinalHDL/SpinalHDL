@@ -19,10 +19,12 @@
 
 package spinal
 
-trait IODirection {
-  def applyIt[T <: Data](data: T): T = data.asInput
+import spinal.test.Try
 
+trait IODirection {
+  def applyIt[T <: Data](data: T): T
   def apply[T <: Data](data: T): T = applyIt(data)
+  def apply(enum: SpinalEnum) = applyIt(enum.craft())
 
 
   object Bool extends BoolFactory {
@@ -80,7 +82,7 @@ trait Nameable {
   var compositeName: Nameable = null
   def getName(): String = if (compositeName == null) name else compositeName.getName()
   def isUnnamed: Boolean = name == "" && compositeName == null
-  def isNamed : Boolean = !isUnnamed
+  def isNamed: Boolean = !isUnnamed
   var isWeak = true
 
 
