@@ -21,6 +21,7 @@ package spinal
 
 import spinal.test.Try
 
+
 trait IODirection {
   def applyIt[T <: Data](data: T): T
   def apply[T <: Data](data: T): T = applyIt(data)

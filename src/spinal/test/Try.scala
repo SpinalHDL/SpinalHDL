@@ -182,6 +182,7 @@ object Try {
   class BundleAA extends BundleA {
     val a = new Bool()
     val d = new Bool()
+    val e = MyEnum.craft()
   }
 
 
@@ -328,6 +329,12 @@ object Try {
 
       val inBundleToBits = in (new BundleAA)
       val outBundleFromBits = out (new BundleAA)
+
+
+      val slaveHandshake = slave Handshake(new BundleAA)
+      val masterHandshake = master Handshake(new BundleAA)
+
+
       //  val outBool = out.Bool()
 
 
@@ -337,6 +344,10 @@ object Try {
        val outShift = out.Bits ()*/
 
     }
+   // io.masterHandshake :== io.slaveHandshake
+
+    io.masterHandshake << io.slaveHandshake
+
     //var myInt = WeekDay.c
     // myInt := WeekDay.Mon
     val bitsFromBundle = io.inBundleToBits.toBits
@@ -592,6 +603,25 @@ object Try {
     println("DONE")
   }
 
+ /* class Data{
+    def :=[T <: Data](that : T) = println("data := data")
+  }
+
+  class Bits extends Data{
+
+  }
+
+  val b1,b2 = new Bits
+  b1 := b2
+  class Flow[T <: Data](val gen : T){
+    def <<(that : Flow[T]) = {
+      this.gen := that.gen
+    }
+  }
+
+  val f1,f2 = new Flow(new Bits)
+
+  f1 << f2*/
 
 }
 

@@ -112,7 +112,7 @@ object Data {
 }
 
 
-trait Data extends ComponentLocated with Nameable with Assignable{
+trait Data extends ComponentLocated with Nameable with Assignable {
   var dir: IODirection = null
   var isIo = false
 
@@ -127,7 +127,6 @@ trait Data extends ComponentLocated with Nameable with Assignable{
   }
 
 
-
   /*def :=(that :this.type) : Unit = {
     this assignFrom that
   }*/
@@ -140,23 +139,28 @@ trait Data extends ComponentLocated with Nameable with Assignable{
 
   def pull: this.type = Data.doPull(this, Component.current, false, false)
 
+ // type Self <: Data
+ // def :==[T <: this.type](that: T): Unit = assignFrom(that)
+//  def :== (that: Self): Unit = assignFrom(that)
+
+
   def ##(right: Data): Bits = {
     this.toBits ## right.toBits
   }
 
-  def isEguals(that : Data) : Bool ={
-    (this.flatten,that.flatten).zipped.map((a,b) => a._2.isEguals(b._2)).reduceLeft(_ || _)
+  def isEguals(that: Data): Bool = {
+    (this.flatten, that.flatten).zipped.map((a, b) => a._2.isEguals(b._2)).reduceLeft(_ || _)
   }
 
- // def ===(that: Object) : Boolean = this == (that)
- // def !==(that: Object) : Boolean = this != (that)
+  // def ===(that: Object) : Boolean = this == (that)
+  // def !==(that: Object) : Boolean = this != (that)
 
   def toBits: Bits
-  def fromBits(bits : Bits): Unit
+  def fromBits(bits: Bits): Unit
 
-  def getBitsWidth : Int
+  def getBitsWidth: Int
 
-  def keep : this.type = {
+  def keep: this.type = {
     flatten.foreach(t => t._2.component.additionalNodesRoot += t._2)
     this
   }
