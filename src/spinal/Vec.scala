@@ -77,7 +77,9 @@ class VecAccessAssign[T <: BaseType](enables: Seq[Bool], tos: Seq[T]) extends As
   }
 }
 
-class Vec[T <: Data](baseType: T) extends MultiData with collection.IndexedSeq[T]{
+class Vec[T <: Data](val baseType: T) extends MultiData with collection.IndexedSeq[T]{
+  override type SSelf = Vec[T]
+
   private val vec = ArrayBuffer[T]()
   var vecLock = false
   val accessMap = mutable.Map[UInt, T]()
@@ -115,11 +117,18 @@ class Vec[T <: Data](baseType: T) extends MultiData with collection.IndexedSeq[T
     vec(idx)
   }
 
-  def :=(that: Vec[T]): Unit = {
-    lockIt()
-    this.assignFrom(that)
-  }
 
+
+//  def :=(that: Vec[T]): Unit = {
+//    lockIt()
+//    this.assignFrom(that)
+//  }
+
+
+  override def :=(that: SSelf): Unit = {
+    lockIt()
+    super.:=(that)
+  }
 
   def apply(address: UInt): T = {
     lockIt()

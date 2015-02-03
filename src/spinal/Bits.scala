@@ -22,15 +22,17 @@ package spinal
  * Created by PIC18F on 16.01.2015.
  */
 
-object Bits extends BitsFactory {
+object Bits extends BitsFactory{
 
 }
+
 
 class BitsFactory extends BitVectorFactory[Bits] {
   def apply() = new Bits()
 }
 
 class Bits extends BitVector {
+  override type SSelf = Bits
 
   def ##(right: Bits): Bits = newBinaryOperator("##", right, WidthInfer.cumulateInputWidth, InputNormalize.none)
 
@@ -48,7 +50,7 @@ class Bits extends BitVector {
   def >>(that: UInt): this.type = newBinaryOperator("b>>u", that, WidthInfer.shiftRightWidth, InputNormalize.none);
   def <<(that: UInt): this.type = newBinaryOperator("b<<u", that, WidthInfer.shiftLeftWidth, InputNormalize.none);
 
-  def :=(bits: Bits): Unit = assignFrom(bits)
+  //def :=(bits: Bits): Unit = assignFrom(bits)
 
   override def newMultiplexor(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,b,b)", sel, whenTrue, whenFalse)
 
@@ -64,9 +66,6 @@ class Bits extends BitVector {
   }
   override def fromBits(bits: Bits) : Unit = this := bits
 
-  /* override def castThatInSame(that : BaseType): this.type ={
-       that.toBits.asInstanceOf[ this.type]
-     }*/
   override def isEguals(that: Data): Bool = {
    that match{
      case that : Bits => this == that

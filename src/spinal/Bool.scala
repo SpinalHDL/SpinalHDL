@@ -34,6 +34,8 @@ class BoolFactory {
 
 
 class Bool extends BaseType {
+  override type SSelf = Bool
+
   override def calcWidth : Int = 1
 
   def ==(that: Bool): Bool = newLogicalOperator("B==B", that, InputNormalize.none);
@@ -44,7 +46,7 @@ class Bool extends BaseType {
   def ||(b: Bool): Bool = newLogicalOperator("||", b,InputNormalize.none)
   def unary_!(): Bool = newUnaryOperator("!")
 
-  def := (bool : Bool): Unit = assignFrom(bool)
+  //def := (bool : Bool): Unit = assignFrom(bool)
 
   override def newMultiplexor(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,B,B)",sel,whenTrue,whenFalse)
 

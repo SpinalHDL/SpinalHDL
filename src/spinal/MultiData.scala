@@ -89,7 +89,7 @@ abstract class MultiData extends Data {
     var offset = 0
     for ((n, e) <- flatten.reverse) {
       val width = e.getWidth
-      e.fromBits(bits(width + offset - 1, offset))
+      e.fromBits(bits(offset, width))
       offset = offset + width
     }
   }

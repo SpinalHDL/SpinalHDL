@@ -21,6 +21,10 @@ package spinal
 /**
  * Created by PIC18F on 22.01.2015.
  */
+/*
+object BitCount {
+
+}*/
 
 class BitCount(val value: Int) {
 
@@ -54,7 +58,6 @@ abstract class BitVector extends BaseType {
   }
 
   def resize(width: Int): this.type
-  //def resize(width: Int): this.type
 
   override def calcWidth: Int = {
     if (isFixedWidth) return fixedWidth
@@ -93,17 +96,28 @@ abstract class BitVector extends BaseType {
     bool
   }
   //extract bits
-  def apply(highBit: Int, lowBit: Int): Bits = {
-    val extract = ExtractBitsVector(this, highBit, lowBit)
+  def apply(offset: Int,bitCount: Int): Bits = {
+    val extract = ExtractBitsVector(this, bitCount+offset-1, offset)
     val bits = new Bits()
     bits.setInput(extract)
     bits
   }
 
+  //TODO UInt extract
+//  def apply(offset: UInt,bitCount: UInt): Bits = {
+//    val extract = ExtractBitsVector(this, bitCount + offset - 1, offset)
+//    val bits = new Bits()
+//    bits.setInput(extract)
+//    bits
+//  }
+ /* def apply(index: Int, bitCount: Int): Bits = {
+
+  }*/
+
   //extract bits
-  def apply(highBit: UInt, lowBit: UInt): Bits = {
-    ExtractBitsVector(this, highBit, lowBit)
-  }
+//  def apply(highBit: UInt, lowBit: UInt): Bits = {
+//    ExtractBitsVector(this, highBit, lowBit)
+//  }
 
   override def addTypeNodeFrom(node: Node): this.type = {
     val typeNode = super.addTypeNodeFrom(node)

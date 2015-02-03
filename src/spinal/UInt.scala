@@ -31,6 +31,8 @@ class UIntFactory extends BitVectorFactory[UInt]{
 }
 
 class UInt extends BitVector with MinMaxProvider {
+  override type SSelf = UInt
+
   def +(that: UInt): UInt = newBinaryOperator("u+u", that, WidthInfer.inputMaxWidthl, InputNormalize.nodeWidth);
   def -(that: UInt): UInt = newBinaryOperator("u-u", that, WidthInfer.inputMaxWidthl, InputNormalize.nodeWidth);
   def *(that: UInt): UInt = newBinaryOperator("u*u", that, WidthInfer.cumulateInputWidth, InputNormalize.none);
@@ -64,7 +66,7 @@ class UInt extends BitVector with MinMaxProvider {
   override def minValue: BigInt = BigInt(0)
   override def maxValue: BigInt = (BigInt(1) << getWidth) - 1
 
-  def :=(that: UInt): Unit = assignFrom(that)
+  //def :=(that: UInt): Unit = assignFrom(that)
 
   override def resize(width: Int): this.type = newResize("resize(u,i)", this :: new IntLiteral(width) :: Nil, WidthInfer.intLit1Width)
 

@@ -93,10 +93,10 @@ class Handshake[T <: Data](gen: T) extends Bundle with Interface {
   }
 
 
-  def <<(last: Handshake[T]): Handshake[T] = {
+  def <<[S <: bits.SSelf](last: Handshake[S]): Handshake[T] = {
     this.valid := last.valid
     last.ready := this.ready
-    this.bits assignFrom last.bits
+    this.bits := last.bits
     this
   }
 }

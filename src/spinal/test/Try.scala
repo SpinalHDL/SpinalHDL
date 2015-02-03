@@ -26,6 +26,36 @@ import spinal._
  */
 object Try {
 
+//  abstract class Data{
+//    type Self <: Data
+//    def :=(that: Self)
+//    def :==[S <: Self](that: S)
+//  }
+//
+//  class Bits extends Data {
+//    override type Self = Bits
+//    override def :==[S <: Bits](that: S): Unit =  println(s"$this := $that")
+//    override def :=(that: Self): Unit = println(s"$this := $that")
+//  }
+//
+//  class UInt extends Data {
+//    override type Self = UInt
+//    override def :==[S <: UInt](that: S): Unit =  println(s"$this := $that")
+//    override def :=(that: Self): Unit = println(s"$this := $that")
+//  }
+//
+//  class Flow[T <: Data](gen: T) {
+//    def <<(that: Flow[T]) = {
+//      this.gen :== that.gen
+//    }
+//  }
+//
+//  new Bits() :==  new Bits()
+//  val f1, f2 = new Flow(new Bits)
+//  f1 << f2
+
+  //import spinal.IntBuilder._
+  //val b = in Bits(3 bit)
   /*class ComponentAAA extends Component {
     val io = new Bool
     io.asOutput
@@ -230,7 +260,9 @@ object Try {
 
 
   object u {
-    def °(b: Int): UInt = UInt(b)
+    def °(b: Int) = UInt(3)
+
+
     def apply() = true
   }
 
@@ -317,7 +349,7 @@ object Try {
 
 
       val inEnum = in(MyEnum)
-      val inEnumBits = in Bits(1 bit)
+      val inEnumBits = in Bits (1 bit)
 
       val outEnum = out(MyEnum)
       val outEnum2 = out(MyEnum)
@@ -327,12 +359,12 @@ object Try {
       val outEnumBool2 = out.Bool()
 
 
-      val inBundleToBits = in (new BundleAA)
-      val outBundleFromBits = out (new BundleAA)
+      val inBundleToBits = in(new BundleAA)
+      val outBundleFromBits = out(new BundleAA)
 
 
-      val slaveHandshake = slave Handshake(new BundleAA)
-      val masterHandshake = master Handshake(new BundleAA)
+      val slaveHandshake = slave Handshake (new BundleAA)
+      val masterHandshake = master Handshake (new BundleAA)
 
 
       //  val outBool = out.Bool()
@@ -344,7 +376,7 @@ object Try {
        val outShift = out.Bits ()*/
 
     }
-   // io.masterHandshake :== io.slaveHandshake
+    // io.masterHandshake :== io.slaveHandshake
 
     io.masterHandshake << io.slaveHandshake
 
@@ -603,25 +635,25 @@ object Try {
     println("DONE")
   }
 
- /* class Data{
-    def :=[T <: Data](that : T) = println("data := data")
-  }
+  /* class Data{
+     def :=[T <: Data](that : T) = println("data := data")
+   }
 
-  class Bits extends Data{
+   class Bits extends Data{
 
-  }
+   }
 
-  val b1,b2 = new Bits
-  b1 := b2
-  class Flow[T <: Data](val gen : T){
-    def <<(that : Flow[T]) = {
-      this.gen := that.gen
-    }
-  }
+   val b1,b2 = new Bits
+   b1 := b2
+   class Flow[T <: Data](val gen : T){
+     def <<(that : Flow[T]) = {
+       this.gen := that.gen
+     }
+   }
 
-  val f1,f2 = new Flow(new Bits)
+   val f1,f2 = new Flow(new Bits)
 
-  f1 << f2*/
+   f1 << f2*/
 
 }
 

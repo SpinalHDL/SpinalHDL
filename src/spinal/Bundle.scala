@@ -29,13 +29,12 @@ object Bundle{
 }
 
 class Bundle extends MultiData with Nameable{
-
+  override type SSelf = Bundle
  // override type Self <: Bundle
 
 
-  def :=(that: Bundle): Unit = {
-    this.assignFrom(that)
-  }
+  //def :=(that: Bundle): Unit = this.assignFrom(that)
+
 
 
   override def assignFrom(that: Data): Unit = {

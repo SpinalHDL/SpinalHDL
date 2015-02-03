@@ -31,6 +31,8 @@ class SIntFactory extends BitVectorFactory[SInt]{
 }
 
 class SInt extends BitVector with MinMaxProvider {
+  override type SSelf = SInt
+
   def +(that: SInt): SInt = newBinaryOperator("s+s", that, WidthInfer.inputMaxWidthl,InputNormalize.nodeWidth);
   def -(that: SInt): SInt = newBinaryOperator("s-s", that, WidthInfer.inputMaxWidthl,InputNormalize.nodeWidth);
   def *(that: SInt): SInt = newBinaryOperator("s*s", that, WidthInfer.cumulateInputWidth,InputNormalize.none);
@@ -53,7 +55,7 @@ class SInt extends BitVector with MinMaxProvider {
   def >>(that: UInt): this.type = newBinaryOperator("s>>u", that, WidthInfer.shiftRightWidth,InputNormalize.none);
   def <<(that: UInt): this.type = newBinaryOperator("s<<u", that, WidthInfer.shiftLeftWidth,InputNormalize.none);
 
-  def :=(sint: SInt): Unit = assignFrom(sint)
+  //def :=(sint: SInt): Unit = assignFrom(sint)
 
   override def newMultiplexor(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,s,s)",sel,whenTrue,whenFalse)
   override def isEguals(that: Data): Bool = {

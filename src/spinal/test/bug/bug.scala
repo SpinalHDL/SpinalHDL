@@ -25,32 +25,34 @@ class Bool {
 
 }
 
-/*
-class BoolFactory {
-  def apply(): Bool = new Bool()
-}
-
-object Bool extends BoolFactory {
-
-}
-trait Direction {
-  object Bool extends BoolFactory {
-    override def apply(): Bool = super.apply()
+object tt {
+  abstract class Data {
+    type Self <: Data
+    def :=(that: Self)
   }
+/*
+  class Bits extends Data {
+    override type Self = Bits
+    override def :=(that: Self): Unit = println(s"$this := $that")
+  }
+
+  class UInt extends Data {
+    override type Self = UInt
+    override def :=(that: Self): Unit = println(s"$this := $that")
+  }*/
+
+  class Flow[T <: Data](val gen: T){
+    def <<(that: Flow[gen.Self]) = {
+      this.gen := that.gen
+    }
+  }
+
+  //Some stupide exemples of usage
+ /* new Bits() := new Bits()
+  val f1 = new Flow(new Bits)
+  val f2 = new Flow(new Bits)
+  f1 << f2*/
 }
-
-
-object out extends Direction{
-
-
-
-}
-object in extends Direction{
-
-
-
-}
-*/
 
 object out {
 
