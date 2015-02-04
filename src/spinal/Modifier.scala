@@ -90,7 +90,7 @@ class Modifier(val opName: String, widthImpl: (Node) => Int) extends Node {
 
 
   override def toString(): String = {
-    s"($opName ${this.inputs.map(_.nonRecursiveToString()).reduceLeft(_ + " " + _)})"
+    s"($opName ${this.inputs.map(in => if(in == null) "null" else in.nonRecursiveToString()).reduceLeft(_ + " " + _)})"
   }
   override def nonRecursiveToString(): String = opName
 }

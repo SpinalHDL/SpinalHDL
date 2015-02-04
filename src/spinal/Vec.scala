@@ -124,11 +124,11 @@ class Vec[T <: Data](val baseType: T) extends MultiData with collection.IndexedS
 //    this.assignFrom(that)
 //  }
 
-
-  override def :=(that: SSelf): Unit = {
+  //TODO restor it
+ /* override def :=(that: SSelf): Unit = {
     lockIt()
     super.:=(that)
-  }
+  }*/
 
   def apply(address: UInt): T = {
     lockIt()

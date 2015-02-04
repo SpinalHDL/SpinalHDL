@@ -126,6 +126,8 @@ trait Data extends ComponentLocated with Nameable with Assignable {
     this
   }
 
+  def isOutputDir: Boolean = dir == out
+  def isInputDir: Boolean = dir == in
 
   def isOutput: Boolean = dir == out && isIo
   def isInput: Boolean = dir == in && isIo
@@ -135,8 +137,10 @@ trait Data extends ComponentLocated with Nameable with Assignable {
 
   def pull: this.type = Data.doPull(this, Component.current, false, false)
 
- // def <> (that : Data)
+  //TODO check type
+  def autoConnect (that : Data) : Unit = (this.flatten,that.flatten).zipped.foreach(_._2 autoConnect _._2)
 
+  //def :=[U <: SSelf](that: U) = this assignFrom(that)
   def :=(that: SSelf) = this assignFrom(that)
   def ##(right: Data): Bits = this.toBits ## right.toBits
   def isEguals(that: Data): Bool = (this.flatten, that.flatten).zipped.map((a, b) => a._2.isEguals(b._2)).reduceLeft(_ || _)

@@ -71,6 +71,8 @@ class Flow[T <: Data](gen: T) extends Bundle with Interface {
   val valid = Bool()
   val bits = gen.clone()
 
+  override def clone: this.type = new Flow(gen).asInstanceOf[this.type]
+
   override def asMaster: Unit = asOutput
   override def asSlave: Unit = asInput
 }
@@ -79,6 +81,8 @@ class Handshake[T <: Data](gen: T) extends Bundle with Interface {
   val valid = Bool()
   val ready = Bool()
   val bits = gen.clone()
+
+  override def clone: this.type = new Handshake(gen).asInstanceOf[this.type]
 
   override def asMaster: Unit = {
     valid.asOutput
@@ -93,10 +97,43 @@ class Handshake[T <: Data](gen: T) extends Bundle with Interface {
   }
 
 
+
+
   def <<[S <: bits.SSelf](last: Handshake[S]): Handshake[T] = {
     this.valid := last.valid
     last.ready := this.ready
     this.bits := last.bits
     this
   }
+
+  def ~[T2 <: Data](nextBits: T2): Handshake[T2] = {
+    val next = new Handshake(nextBits)
+    next.valid := this.valid
+    this.ready := next.ready
+    //next.bits := nextBits
+   // nextBits := nextBits
+    next
+  }
+
+  def &(linkEnable: Bool): Handshake[T] = {
+    val next = new Handshake(gen)
+    next.valid := this.valid && linkEnable
+    this.ready := next.ready && linkEnable
+    next.bits := this.bits.asInstanceOf[next.bits.SSelf]
+    return next
+  }
+
+  //TODO next << this
+  def throwIf(cond: Bool): Handshake[T] = {
+    val next = this.clone
+   // next := this
+   // next << this
+    //next.bits := this.bits.asInstanceOf[next.bits.SSelf]
+    when(cond) {
+      next.valid := Bool(false)
+      this.ready := Bool(true)
+    }
+    next
+  }
 }
+

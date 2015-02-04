@@ -28,6 +28,7 @@ import scala.collection.mutable.ArrayBuffer
 
 object Component {
   def apply[T <: Component](c: T): T = {
+    c.io.flatten.foreach(_._2.isIo = true)
     pop(c);
     return c;
   }

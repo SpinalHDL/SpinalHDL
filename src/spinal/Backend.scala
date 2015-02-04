@@ -109,7 +109,7 @@ class Backend {
 
     //Component connection
     SpinalInfoPhase("Transform connection")
-    configureComponentIo
+   // configureComponentIo
     //moveInputRegisterToParent
     pullClockDomains
     check_noNull_noCrossHierarchy_noInputRegister
@@ -291,9 +291,9 @@ class Backend {
 
   }
 
-  def configureComponentIo(): Unit = {
+  /*def configureComponentIo(): Unit = {
     components.foreach(_.io.flatten.foreach(_._2.isIo = true))
-  }
+  }*/
 
   def normalizeNodeInputs: Unit = {
     walkNodes(walker_matchWidth)

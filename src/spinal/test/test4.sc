@@ -16,35 +16,67 @@
  * License along with this library.
  */
 
-
-
-abstract class Data {
-  type Self <: Data
-  def :=(that: Self):Unit = println(s"$this := $that")
+object impl {
+  // implicit def trololol[T <: Data](that : T) : that.Self = that.asInstanceOf[that.Self]
+  // implicit def trololol2(that : Data)  : that.Self = that.autoCast
+  val t: Data = new Bits()
+  // val r : t.Self = (t)
 }
 
+import impl._
+import spinal.test.Try.S
+
+object Data {
+  //implicit def trololol(that : Data) : Int = 2
+  ///implicit def trololol2[T <: Data](that : T) = that.autoCast
+}
+
+import Data._
+
+class Data {
+  type Self <: Data
+  def :=(that: Self): Unit = println(s"$this := $that")
+}
 class Bits extends Data {
   override type Self = Bits
- // override def :=(that: Self): Unit = println(s"$this := $that")
+  override def :=(that: Self): Unit = ???
 }
-
 class UInt extends Data {
   override type Self = UInt
-  //override def :=(that: Self): Unit = println(s"$this := $that")
+  override def :=(that: Self): Unit = ???
 }
+object Something {
+  implicit def trololol2[T3 <: Data](that : T3) = that.asInstanceOf[that.Self]
+  def doIt[T2 <: Data](that: T2): Unit = {
 
-class Flow[T <: Data](val gen: T){
-  def <<(that: Flow[gen.type]) = {
-    this.gen := that.gen  // <- There is a compilation error  : value gen is not a member of spinal.test.Try.Flow[T]
+    //that := that //Error: type mismatch;
+    //found   : that.type (with underlying type T2)
+    //required: that.Self
+    //that := that
     //^
   }
 }
 
+
+class Flow[T2 <: Data](val gen: T2) {
+  def <<(that: Flow[gen.Self]) = {
+  //  this.gen := that.gen
+  }
+}
 //Some stupide exemples of usage
+//t.Self
+val b1 = new Bits
+val b2 = new Bits
+val u1 = new UInt
+val u2 = new Bits
+//Something.doIt(b1)
 new Bits() := new Bits()
 val f1 = new Flow(new Bits)
 val f2 = new Flow(new Bits)
 f1 << f2
+
+
+
 //abstract class Data {
 //  type Self <: Data
 //  def :=(that: Self)

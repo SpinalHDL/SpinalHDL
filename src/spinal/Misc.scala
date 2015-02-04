@@ -18,7 +18,7 @@
 
 package spinal
 
-import java.lang.reflect.{Method}
+import java.lang.reflect.Method
 
 import scala.collection.mutable
 import scala.collection.mutable.Stack
@@ -50,6 +50,34 @@ object Misc {
   addReflectionExclusion(new SpinalEnumCraft(null))
 
 
+  //  def reflect(o: Object, onEach: (String, Object) => Unit): Unit = {
+  //    val refs = mutable.Set[Object]()
+  //    explore(o.getClass)
+  //    def explore(c: Class[_]): Unit = {
+  //      if (c == null) return
+  //      if (reflectExclusion.contains(c) || c.getName + "$" == Component.getClass.getName)
+  //        return
+  //      explore(c.getSuperclass)
+  //      for (f <- c.getDeclaredFields) {
+  //        f.setAccessible(true)
+  //        val fieldRef = f.get(o)
+  //        if (!refs.contains(fieldRef)) {
+  //          fieldRef match {
+  //            case vec: Vec[_] =>
+  //            case seq: Seq[_] => {
+  //              for ((obj, i) <- seq.zipWithIndex) {
+  //                onEach(f.getName + i, obj.asInstanceOf[Object])
+  //                refs += fieldRef
+  //              }
+  //            }
+  //            case _ =>
+  //          }
+  //          onEach(f.getName, fieldRef)
+  //          refs += fieldRef
+  //        }
+  //      }
+  //    }
+  //  }
   def reflect(o: Object, onEach: (String, Object) => Unit): Unit = {
     val refs = mutable.Set[Object]()
     explore(o.getClass)
@@ -58,24 +86,29 @@ object Misc {
       if (reflectExclusion.contains(c) || c.getName + "$" == Component.getClass.getName)
         return
       explore(c.getSuperclass)
-      for (f <- c.getDeclaredFields) {
-        f.setAccessible(true)
-        val fieldRef = f.get(o)
+
+      val fields = c.getDeclaredFields
+      def isValDef(m: Method) = fields exists (fd => fd.getName == m.getName && fd.getType == m.getReturnType)
+      val methods = c.getMethods filter (m => m.getParameterTypes.isEmpty && isValDef(m))
+
+      for(method <- methods){
+        method.setAccessible(true)
+        val fieldRef = method.invoke(o)
         if (!refs.contains(fieldRef)) {
           fieldRef match {
             case vec: Vec[_] =>
             case seq: Seq[_] => {
               for ((obj, i) <- seq.zipWithIndex) {
-                onEach(f.getName + i, obj.asInstanceOf[Object])
+                onEach(method.getName + i, obj.asInstanceOf[Object])
                 refs += fieldRef
               }
             }
             case _ =>
           }
-          onEach(f.getName, fieldRef)
+          onEach(method.getName, fieldRef)
           refs += fieldRef
         }
-      }
+       }
     }
   }
 
@@ -147,7 +180,7 @@ class SafeStack[T] {
 
   def head() = stack.headOption.getOrElse(null.asInstanceOf[T])
   def oldest() = stack.lastOption.getOrElse(null.asInstanceOf[T])
-  def isEmpty : Boolean = stack.isEmpty
+  def isEmpty: Boolean = stack.isEmpty
   def size() = stack.size
   def reset = stack.clear()
 }
@@ -162,6 +195,7 @@ object SpinalExit {
 object SpinalInfoPhase {
   def apply(message: String) = println(s"[Progress] at ${f"${Driver.executionTime}%1.3f"} : $message")
 }
+
 object SpinalInfo {
   def apply(message: String) = println(s"[Info] $message")
 }

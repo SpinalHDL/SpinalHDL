@@ -66,22 +66,23 @@ abstract class BaseType extends Node with Data with Nameable {
 
 
   val whenScope = when.stack.head()
-  var compositeAssign : Assignable = null
+  var compositeAssign: Assignable = null
 
   final override def assignFrom(that: Data): Unit = {
-    if(compositeAssign != null){
+    if (compositeAssign != null) {
       compositeAssign.assignFrom(that)
-    }else{
+    } else {
       assignFromImpl(that)
     }
   }
 
 
-  override def getBitsWidth : Int = getWidth
+  override def getBitsWidth: Int = getWidth
 
   def isReg = inputs(0).isInstanceOf[Reg]
 
   //  override def :=(bits: this.type): Unit = assignFrom(bits)
+
 
   def assignFromImpl(that: Data): Unit = {
     that match {
@@ -92,8 +93,53 @@ abstract class BaseType extends Node with Data with Nameable {
     }
   }
 
+  override def autoConnect(that: Data): Unit = {
+    if (this.component == that.component) {
+      if(this.component == Component.current) {
+        sameFromInside
+      }else if(this.component.parent == Component.current) {
+        sameFromOutside
+      }else SpinalError("You cand autoconnect from here")
+    } else if (this.component.parent == that.component.parent) {
+      kindAndKind
+    } else if (this.component == that.component.parent) {
+      parentAndKind(this,that)
+    } else if (this.component.parent == that.component) {
+      parentAndKind(that,this)
+    } else SpinalError("Don't know how autoconnect")
 
- // def castThatInSame(that: BaseType): this.type = throw new Exception("Not defined")
+    def sameFromOutside: Unit = {
+      if (this.isOutput && that.isInput) {
+        that assignFrom this
+      } else if (this.isInput && that.isOutput) {
+        this assignFrom that
+      } else SpinalError("Bad input output specification for autoconnect")
+    }
+    def sameFromInside: Unit = {
+      if (that.isOutputDir && this.isInputDir) {
+        that assignFrom this
+      } else if (that.isInputDir && this.isOutputDir) {
+        this assignFrom that
+      } else SpinalError("Bad input output specification for autoconnect")
+    }
+
+    def kindAndKind: Unit = {
+      if (this.isOutput && that.isInput) {
+        that assignFrom this
+      } else if (this.isInput && that.isOutput) {
+        this assignFrom that
+      } else SpinalError("Bad input output specification for autoconnect")
+    }
+
+    def parentAndKind(p: Data, k: Data): Unit = {
+      if(k.isOutput){
+        p assignFrom k
+      }else if(k.isInput){
+        k assignFrom p
+      }else SpinalError("Bad input output specification for autoconnect")
+    }
+  }
+  // def castThatInSame(that: BaseType): this.type = throw new Exception("Not defined")
 
 
   override def flatten: ArrayBuffer[(String, BaseType)] = ArrayBuffer((getName(), this));
@@ -104,8 +150,6 @@ abstract class BaseType extends Node with Data with Nameable {
     res.dir = this.dir
     res
   }
-
-
 
 
   def newMultiplexor(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer
@@ -136,7 +180,7 @@ abstract class BaseType extends Node with Data with Nameable {
     this
   }
   def enumCastFrom(opName: String, that: Node, getWidthImpl: (Node) => Int = WidthInfer.inputMaxWidthl): this.type = {
-    val op = EnumCast(this.asInstanceOf[SpinalEnumCraft[_]],opName, that, getWidthImpl)
+    val op = EnumCast(this.asInstanceOf[SpinalEnumCraft[_]], opName, that, getWidthImpl)
     this.setInput(op)
     this
   }
@@ -159,6 +203,6 @@ abstract class BaseType extends Node with Data with Nameable {
   }
 
 
-  override def toString() : String = s"${getClassIdentifier}(named ${"\"" + getName() + "\""},into ${if(component == null) "null" else component.getClass.getSimpleName}})"
+  override def toString(): String = s"${getClassIdentifier}(named ${"\"" + getName() + "\""},into ${if (component == null) "null" else component.getClass.getSimpleName}})"
 }
 

@@ -23,6 +23,17 @@ import spinal.IntBuilder._
 /**
  * Created by PIC18F on 02.02.2015.
  */
+
+
+
+/*
+val mem = Mem(Bits(2 bit),1024)
+mem(28) := UInt(3)
+
+
+
+ */
+
 class RamDualPort(wordCount_ : Int,wordWidth_ : Int) extends BlackBox{
   val generic = new Bundle {
     val wordCount = Number(wordCount_)

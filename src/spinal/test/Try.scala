@@ -25,7 +25,19 @@ import spinal._
  * Created by PIC18F on 22.08.2014.
  */
 object Try {
+ /* object ttttttt{
+    class Data {
+      type Self <: Data
+      def :=(that: Self) = println(2)
+    }
+    class Flow[T <: Data](val gen: T){
+      def <<(that: Flow[gen.Self]) = {
+        this.gen := that.gen         //that.gen  is marked as read (type mismatch, expected Flow.this.gen.Self, actual that.gen.Self
+      }
+    }
 
+   // new Flow(new Data) << new Flow(new Data)
+  }*/
 //  abstract class Data{
 //    type Self <: Data
 //    def :=(that: Self)
@@ -329,7 +341,8 @@ object Try {
       val inBundle1 = new BundleA().asInput
       val inBundle2 = new BundleAA().asInput
       val inBundle3 = new BundleA().asInput
-      //   val outBundle = new BundleAA().asOutput
+      val outBundleAA = new BundleAA().asOutput
+      val outBundleA = new BundleA().asOutput
       //      //   val outBits = new Bits().asOutput
       //
       val inVec = new VecA().asInput
@@ -342,7 +355,7 @@ object Try {
       //      // val outUInt = out.UInt (0)
       //
       val inVecU = in(Vec.tabulate(4)(i => UInt(4 + i bit)))
-      //  val outVecU = out (Vec.fill(4)(UInt(4 bit)))
+      val outVecU = out (Vec.fill(4)(UInt(4 bit)))
       val inUIntA = in UInt (5 bit)
       val outUIntA = out UInt (5 bit)
       val outUIntS = out UInt (5 bit)
@@ -365,6 +378,8 @@ object Try {
 
       val slaveHandshake = slave Handshake (new BundleAA)
       val masterHandshake = master Handshake (new BundleAA)
+    //  val masterHandshakeThrow = master Handshake (new BundleAA)
+    //  val masterHandshakeUInt = master Handshake (UInt(4 bit))
 
 
       //  val outBool = out.Bool()
@@ -376,10 +391,16 @@ object Try {
        val outShift = out.Bits ()*/
 
     }
+
+    io.outBundleAA := io.inBundle0
+    io.outBundleA := io.inBundle1
     // io.masterHandshake :== io.slaveHandshake
-
-    io.masterHandshake << io.slaveHandshake
-
+    io.outVecU := io.inVecU
+    io.slaveHandshake autoConnect io.masterHandshake
+   // io.masterHandshake << io.slaveHandshake
+   // io.masterHandshakeThrow << io.slaveHandshake.throwIf(io.cond1)
+   // io.masterHandshakeUInt << (io.slaveHandshake ~ UInt(3))
+    //io.masterHandshakeUInt.bits := UInt(2)
     //var myInt = WeekDay.c
     // myInt := WeekDay.Mon
     val bitsFromBundle = io.inBundleToBits.toBits
@@ -626,6 +647,9 @@ object Try {
   def main(args: Array[String]) {
     println("START")
     var comp: ComponentA = null
+   // val h1 = new Handshake(new BundleA())
+   // val h2 = h1.clone()
+
     SpinalMain({
       comp = new ComponentA
       Component(comp)
