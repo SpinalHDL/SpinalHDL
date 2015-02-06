@@ -26,7 +26,7 @@ import scala.collection.mutable.ArrayBuffer
 
 
 object Data {
-
+  implicit def autoCast[T <: Data, T2 <: T](that: T): T2#SSelf = that.asInstanceOf[T2#SSelf]
 
   def doPull[T <: Data](srcData: T, finalComponent: Component, useCache: Boolean = false, propagateName: Boolean = false): T = {
     val startComponent = srcData.component
@@ -111,7 +111,6 @@ object Data {
   }
 }
 
-
 trait Data extends ComponentLocated with Nameable with Assignable {
   type SSelf <: Data
   var dir: IODirection = null
@@ -140,7 +139,7 @@ trait Data extends ComponentLocated with Nameable with Assignable {
   //TODO check type
   def autoConnect (that : Data) : Unit = (this.flatten,that.flatten).zipped.foreach(_._2 autoConnect _._2)
 
-  //def :=[U <: SSelf](that: U) = this assignFrom(that)
+ // def :=[U <: SSelf](that: U) = this assignFrom(that)
   def :=(that: SSelf) = this assignFrom(that)
   def ##(right: Data): Bits = this.toBits ## right.toBits
   def isEguals(that: Data): Bool = (this.flatten, that.flatten).zipped.map((a, b) => a._2.isEguals(b._2)).reduceLeft(_ || _)

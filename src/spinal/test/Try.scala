@@ -378,8 +378,8 @@ object Try {
 
       val slaveHandshake = slave Handshake (new BundleAA)
       val masterHandshake = master Handshake (new BundleAA)
-    //  val masterHandshakeThrow = master Handshake (new BundleAA)
-    //  val masterHandshakeUInt = master Handshake (UInt(4 bit))
+      val masterHandshakeThrow = master Handshake (new BundleAA)
+      val masterHandshakeUInt = master Handshake (UInt(4 bit))
 
 
       //  val outBool = out.Bool()
@@ -392,14 +392,15 @@ object Try {
 
     }
 
+
     io.outBundleAA := io.inBundle0
     io.outBundleA := io.inBundle1
     // io.masterHandshake :== io.slaveHandshake
     io.outVecU := io.inVecU
-    io.slaveHandshake autoConnect io.masterHandshake
-   // io.masterHandshake << io.slaveHandshake
-   // io.masterHandshakeThrow << io.slaveHandshake.throwIf(io.cond1)
-   // io.masterHandshakeUInt << (io.slaveHandshake ~ UInt(3))
+    //io.slaveHandshake autoConnect io.masterHandshake
+    io.masterHandshake << io.slaveHandshake
+    io.masterHandshakeThrow << io.slaveHandshake.throwIf(io.cond1)
+    io.masterHandshakeUInt << (io.slaveHandshake ~ UInt(3))
     //io.masterHandshakeUInt.bits := UInt(2)
     //var myInt = WeekDay.c
     // myInt := WeekDay.Mon

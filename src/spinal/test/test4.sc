@@ -16,38 +16,70 @@
  * License along with this library.
  */
 
-object impl {
-  // implicit def trololol[T <: Data](that : T) : that.Self = that.asInstanceOf[that.Self]
-  // implicit def trololol2(that : Data)  : that.Self = that.autoCast
-  val t: Data = new Bits()
-  // val r : t.Self = (t)
-}
 
-import impl._
-import spinal.test.Try.S
+object tt1 {
 
-object Data {
-  //implicit def trololol(that : Data) : Int = 2
+  class A {
+
+  }
+
+  class B {
+
+  }
+
+  implicit def trololol(that: A) = new B
+
+
+  val t1: B = new A
   ///implicit def trololol2[T <: Data](that : T) = that.autoCast
 }
 
-import Data._
+object tt2 {
+
+  class A {
+    type Self <: A
+    def doIt(that: Self): Unit = println("doit")
+  }
+
+  class B extends A {
+    override type Self = B
+  }
+
+  implicit def autoCast[T <: A](that: T): T#Self = that.asInstanceOf[T#Self]
+
+  def f1[T <: A](that: T): Unit = {
+    val t1: T#Self = that
+
+    that.doIt(that)
+  }
+  f1(new B)
+
+  //val t1 : B = new B
+  ///implicit def trololol2[T <: Data](that : T) = that.autoCast
+}
+
+
+
+object Data {
+  implicit def autoCast2[T <: Data, T2 <: T](that: T): T2#Self = that.asInstanceOf[T2#Self]
+}
 
 class Data {
   type Self <: Data
-  //def :=(that: Self): Unit = println(s"$this := $that")
-  def :=[T2 <: Data#Self](that: T2): Unit = println(s"$this := $that")
+  def :=(that: Self): Unit = println(s"$this := $that")
 }
+
 class Bits extends Data {
   override type Self = Bits
- // override def :=(that: Self): Unit = ???
+  override def :=(that: Self): Unit = ???
 }
+
 class UInt extends Data {
   override type Self = UInt
-//  override def :=(that: Self): Unit = ???
+  override def :=(that: Self): Unit = ???
 }
+
 object Something {
-  implicit def trololol2[T3 <: Data](that : T3) = that.asInstanceOf[that.Self]
   def doIt[T2 <: Data](that: T2): Unit = {
     that := that
   }
@@ -55,10 +87,12 @@ object Something {
 
 
 class Flow[T2 <: Data](val gen: T2) {
+  implicit def autoCast[T <: Data](that: T): T#Self = that.asInstanceOf[T#Self]
   def <<(that: Flow[gen.Self]) = {
-  //  this.gen := that.gen
+    this.gen := that.gen
   }
 }
+
 //Some stupide exemples of usage
 //t.Self
 val b1 = new Bits
@@ -70,7 +104,6 @@ new Bits() := new Bits()
 val f1 = new Flow(new Bits)
 val f2 = new Flow(new Bits)
 f1 << f2
-
 //abstract class Data {
 //  type Self <: Data
 //  def :=(that: Self)

@@ -39,7 +39,8 @@ trait Interface {
 
 object master {
   def apply[T <: Interface](i: T) = {
-    i.asMaster; i
+    i.asMaster;
+    i
   }
 
   object Flow {
@@ -54,7 +55,8 @@ object master {
 
 object slave {
   def apply[T <: Interface](i: T) = {
-    i.asSlave; i
+    i.asSlave;
+    i
   }
 
   object Flow {
@@ -98,8 +100,7 @@ class Handshake[T <: Data](gen: T) extends Bundle with Interface {
 
 
 
-
-  def <<[S <: bits.SSelf](last: Handshake[S]): Handshake[T] = {
+  def <<(last: Handshake[T]): Handshake[T] = {
     this.valid := last.valid
     last.ready := this.ready
     this.bits := last.bits
@@ -107,11 +108,13 @@ class Handshake[T <: Data](gen: T) extends Bundle with Interface {
   }
 
   def ~[T2 <: Data](nextBits: T2): Handshake[T2] = {
+
+    // Bits() := UInt()
     val next = new Handshake(nextBits)
     next.valid := this.valid
     this.ready := next.ready
-    //next.bits := nextBits
-   // nextBits := nextBits
+    next.bits := nextBits //.asInstanceOf[next.bits.SSelf]
+    // nextBits := nextBits
     next
   }
 
@@ -119,16 +122,15 @@ class Handshake[T <: Data](gen: T) extends Bundle with Interface {
     val next = new Handshake(gen)
     next.valid := this.valid && linkEnable
     this.ready := next.ready && linkEnable
-    next.bits := this.bits.asInstanceOf[next.bits.SSelf]
+    next.bits := this.bits
     return next
   }
 
   //TODO next << this
   def throwIf(cond: Bool): Handshake[T] = {
     val next = this.clone
-   // next := this
-   // next << this
-    //next.bits := this.bits.asInstanceOf[next.bits.SSelf]
+    //next := this
+    next << this
     when(cond) {
       next.valid := Bool(false)
       this.ready := Bool(true)
