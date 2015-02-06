@@ -28,28 +28,28 @@ import spinal.IntBuilder._
 
 /*
 val mem = Mem(Bits(2 bit),1024)
-mem(28) := UInt(3)
+mem(28) := UInt(3) =>
 
 
 
  */
 
-class RamDualPort(wordCount_ : Int,wordWidth_ : Int) extends BlackBox{
+class RamDualPort(wordCount : Int,wordWidth : Int) extends BlackBox{
   val generic = new Bundle {
-    val wordCount = Number(wordCount_)
-    val wordWidth = Number(wordWidth_)
+    val wordCount = Number(RamDualPort.this.wordCount)
+    val wordWidth = Number(RamDualPort.this.wordWidth)
   }
 
   val io = new Bundle {
     val wr = new Bundle{
       val en = in.Bool()
-      val addr = in Bits(log2Up(wordCount_) bit)
-      val data = in Bits(wordWidth_ bit)
+      val addr = in Bits(log2Up(wordCount) bit)
+      val data = in Bits(wordWidth bit)
     }
     val rd = new Bundle{
       val en = in.Bool()
-      val addr = in Bits(log2Up(wordCount_) bit)
-      val data = out Bits(wordWidth_ bit)
+      val addr = in Bits(log2Up(wordCount) bit)
+      val data = out Bits(wordWidth bit)
     }
 
   }

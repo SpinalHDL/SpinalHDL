@@ -93,6 +93,7 @@ abstract class BaseType extends Node with Data with Nameable {
     }
   }
 
+  //TODO betther autoconect with component io set as io
   override def autoConnect(that: Data): Unit = {
     if (this.component == that.component) {
       if(this.component == Component.current) {

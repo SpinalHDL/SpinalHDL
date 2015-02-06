@@ -81,6 +81,7 @@ abstract class BitVector extends BaseType {
     }
   }
 
+  //TODO composite write ?
   //extract bit
   def apply(bitId: Int): Bool = {
     val extract = ExtractBool(this, bitId)

@@ -35,25 +35,21 @@ import Data._
 
 class Data {
   type Self <: Data
-  def :=(that: Self): Unit = println(s"$this := $that")
+  //def :=(that: Self): Unit = println(s"$this := $that")
+  def :=[T2 <: Data#Self](that: T2): Unit = println(s"$this := $that")
 }
 class Bits extends Data {
   override type Self = Bits
-  override def :=(that: Self): Unit = ???
+ // override def :=(that: Self): Unit = ???
 }
 class UInt extends Data {
   override type Self = UInt
-  override def :=(that: Self): Unit = ???
+//  override def :=(that: Self): Unit = ???
 }
 object Something {
   implicit def trololol2[T3 <: Data](that : T3) = that.asInstanceOf[that.Self]
   def doIt[T2 <: Data](that: T2): Unit = {
-
-    //that := that //Error: type mismatch;
-    //found   : that.type (with underlying type T2)
-    //required: that.Self
-    //that := that
-    //^
+    that := that
   }
 }
 
@@ -69,13 +65,11 @@ val b1 = new Bits
 val b2 = new Bits
 val u1 = new UInt
 val u2 = new Bits
-//Something.doIt(b1)
+Something.doIt(b1)
 new Bits() := new Bits()
 val f1 = new Flow(new Bits)
 val f2 = new Flow(new Bits)
 f1 << f2
-
-
 
 //abstract class Data {
 //  type Self <: Data
