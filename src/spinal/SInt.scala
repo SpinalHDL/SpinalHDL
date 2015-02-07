@@ -42,8 +42,8 @@ class SInt extends BitVector with MinMaxProvider {
   def ^(that: SInt): SInt = newBinaryOperator("s^s", that, WidthInfer.inputMaxWidthl,InputNormalize.nodeWidth);
   def ~(that: SInt): SInt = newBinaryOperator("~s", that, WidthInfer.inputMaxWidthl,InputNormalize.none);
 
-  def ==(that: SInt): Bool = newLogicalOperator("s==s", that,InputNormalize.inputWidthMax);
-  def !=(that: SInt): Bool = newLogicalOperator("s!=s", that,InputNormalize.inputWidthMax);
+  override def ===(that: SSelf): Bool = newLogicalOperator("s==s", that,InputNormalize.inputWidthMax);
+  override def !==(that: SSelf): Bool = newLogicalOperator("s!=s", that,InputNormalize.inputWidthMax);
   def <(that: SInt): Bool = newLogicalOperator("s<s", that,InputNormalize.inputWidthMax);
   def >(that: SInt): Bool = that < this
   def <=(that: SInt): Bool = newLogicalOperator("s<=s", that,InputNormalize.inputWidthMax);
@@ -57,11 +57,12 @@ class SInt extends BitVector with MinMaxProvider {
 
   //def :=(sint: SInt): Unit = assignFrom(sint)
   override def :=(that: SSelf): Unit = super.:=(that)
+  override def <>(that: SSelf): Unit = super.<>(that)
 
   override def newMultiplexor(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,s,s)",sel,whenTrue,whenFalse)
   override def isEguals(that: Data): Bool = {
     that match{
-      case that : SInt => this == that
+      case that : SInt => this === that
       case _ => SpinalError(s"Don't know how compare $this with $that"); null
     }
   }

@@ -18,12 +18,10 @@
 
 package spinal
 
+
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-/**
- * Created by PIC18F on 21.08.2014.
- */
 
 
 object Component {

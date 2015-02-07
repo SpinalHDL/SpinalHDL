@@ -113,7 +113,8 @@ object is {
     if(switch.stack.isEmpty) SpinalError("Use 'is' statement outside the 'switch'")
     if(keys.isEmpty) SpinalError("There is no key in 'is' statement")
     val value = switch.stack.head()
-    when(keys.map(key => (key isEguals value.value)).reduceLeft(_ || _)){
+
+    when(keys.map(key => (key === value.value)).reduceLeft(_ || _)){
       block
     }
   }

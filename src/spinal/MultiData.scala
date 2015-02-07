@@ -18,11 +18,10 @@
 
 package spinal
 
+
 import scala.collection.mutable.ArrayBuffer
 
-/**
- * Created by PIC18F on 21.01.2015.
- */
+
 
 import IntBuilder._
 

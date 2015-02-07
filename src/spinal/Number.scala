@@ -18,9 +18,6 @@
 
 package spinal
 
-/**
- * Created by PIC18F on 24.01.2015.
- */
 
 object Number {
   def apply(value: BigInt): Number = {
@@ -36,6 +33,11 @@ class Number extends BaseType {
   override def calcWidth = 32
 
   override def :=(that: SSelf): Unit = super.:=(that)
+  override def <>(that: SSelf): Unit = super.<>(that)
+
+
+  override def ===(that: SSelf): Bool = throw new Exception("Illegal")
+  override def !==(that: SSelf): Bool = throw new Exception("Illegal")
 
 
   override def toBits: Bits = throw new Exception("Illegal")

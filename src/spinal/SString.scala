@@ -18,9 +18,7 @@
 
 package spinal
 
-/**
- * Created by PIC18F on 24.01.2015.
- */
+
 object SString{
   def apply(value : String): SString ={
     val ret = new SString;
@@ -35,7 +33,10 @@ class SString extends BaseType{
   override def calcWidth = 0
 
   override def :=(that: SSelf): Unit = super.:=(that)
+  override def <>(that: SSelf): Unit = super.<>(that)
 
+  override def ===(that: SSelf): Bool = throw new Exception("Illegal")
+  override def !==(that: SSelf): Bool = throw new Exception("Illegal")
 
   override def toBits: Bits = throw new Exception("Illegal")
   override def fromBits(bits: Bits): Unit = throw new Exception("Illegal")

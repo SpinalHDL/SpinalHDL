@@ -18,9 +18,6 @@
 
 package spinal
 
-/**
- * Created by PIC18F on 09.01.2015.
- */
 
 object OutBinding  {
   def apply(out: BaseType, into: Component /*,from : Component*/): OutBinding = {

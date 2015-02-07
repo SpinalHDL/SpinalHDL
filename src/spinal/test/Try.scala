@@ -409,6 +409,8 @@ object Try {
     doIt(io.outType ,io.inType)*/
     io.outType :=  io.inType.toUInt
 
+
+  //  io.outType.assignFromImpl(io.inType)
    /* def doIt[T <: Data,T2 <: T](into : T,from : T2): Unit = {
       into := from
     }*/
@@ -418,6 +420,8 @@ object Try {
     s += Vec.fill(4)(Bool())*/
     val a =  Vec.fill(4)(UInt())
     val b = Vec.fill(4)(Bool())
+
+
    // a := b
   //  doIt(io.outBundleAA , io.inBundle0) // inBundle0
     io.outBundleAA := io.inBundle0
@@ -440,7 +444,7 @@ object Try {
     io.outEnumFromBits.fromBits(io.inEnumBits)
 
     io.outEnum := io.inEnum
-    when(MyEnum.s2 == io.inEnum) {
+    when(MyEnum.s2 === io.inEnum) {
       io.outEnum2 := MyEnum.s1
       io.outEnumBits := MyEnum.s1.toBits
     } otherwise {
@@ -449,8 +453,8 @@ object Try {
     }
 
 
-    io.outEnumBool := io.inEnum == MyEnum.s2
-    io.outEnumBool2 := io.inEnum == io.inEnum
+    io.outEnumBool := io.inEnum === MyEnum.s2
+    io.outEnumBool2 := io.inEnum === io.inEnum
 
 
     val componentS = Component(new ComponentS)

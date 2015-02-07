@@ -18,6 +18,8 @@
 
 package spinal
 
+
+
 import scala.collection.mutable
 
 
@@ -32,20 +34,24 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T) extends BaseType {
     if(this.blueprint != that.blueprint) SpinalError("Enum is assigned by a incompatible enum")
     super.:=(that)
   }
+  override def <>(that: SSelf): Unit = {
+    if(this.blueprint != that.blueprint) SpinalError("Enum is assigned by a incompatible enum")
+    super.<>(that)
+  }
 
   //def :=(that: SpinalEnumCraft[T]): Unit = this.assignFromImpl(that)
   def :=(that: SpinalEnumElement[T]): Unit = this := that.craft()
 
-  def ==(that: SpinalEnumCraft[T]): Bool = newLogicalOperator("e==e", that, InputNormalize.none);
-  def ==(that: SpinalEnumElement[T]): Bool = this == (that.craft())
+  override def ===(that: SSelf): Bool = newLogicalOperator("e==e", that, InputNormalize.none);
+  def ===(that: SpinalEnumElement[T]): Bool = this === (that.craft())
 
-  def !=(that: SpinalEnumCraft[T]): Bool = newLogicalOperator("e!=e", that, InputNormalize.none);
-  def !=(that: SpinalEnumElement[T]): Bool = this != (that.craft())
+  override def !==(that: SSelf): Bool = newLogicalOperator("e!=e", that, InputNormalize.none);
+  def !==(that: SpinalEnumElement[T]): Bool = this !== (that.craft())
 
 
   override def isEguals(that: Data): Bool = {
     that match {
-      case that: SpinalEnumCraft[T] => this == that
+      case that: SpinalEnumCraft[T] => this === that
       case _ => SpinalError(s"Don't know how compare $this with $that"); null
     }
   }
@@ -66,11 +72,11 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T) extends BaseType {
 }
 
 class SpinalEnumElement[T <: SpinalEnum](val parent: T, val id: BigInt) extends Nameable{
-  def ==(that: SpinalEnumCraft[T]) = {
-    that == this
+  def ===(that: SpinalEnumCraft[T]) : Bool = {
+    that === this
   }
-  def !=(that: SpinalEnumCraft[T]) = {
-    that != this
+  def !=(that: SpinalEnumCraft[T]): Bool = {
+    that !== this
   }
 
 

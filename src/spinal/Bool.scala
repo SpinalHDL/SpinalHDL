@@ -18,9 +18,7 @@
 
 package spinal
 
-/**
- * Created by PIC18F on 21.08.2014.
- */
+
 
 object Bool extends BoolFactory{
 
@@ -38,8 +36,8 @@ class Bool extends BaseType {
 
   override def calcWidth : Int = 1
 
-  def ==(that: Bool): Bool = newLogicalOperator("B==B", that, InputNormalize.none);
-  def !=(that: Bool): Bool = newLogicalOperator("B!=B", that, InputNormalize.none);
+  override def ===(that: SSelf): Bool = newLogicalOperator("B==B", that, InputNormalize.none);
+  override def !==(that: SSelf): Bool = newLogicalOperator("B!=B", that, InputNormalize.none);
 
 
   def &&(b: Bool): Bool = newLogicalOperator("&&", b,InputNormalize.none)
@@ -48,12 +46,13 @@ class Bool extends BaseType {
 
   //def := (bool : Bool): Unit = assignFrom(bool)
   override def :=(that: SSelf): Unit = super.:=(that)
+  override def <>(that: SSelf): Unit = super.<>(that)
 
   override def newMultiplexor(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,B,B)",sel,whenTrue,whenFalse)
 
   override def isEguals(that: Data): Bool = {
     that match{
-      case that : Bool => this == that
+      case that : Bool => this === that
       case _ => SpinalError(s"Don't know how compare $this with $that"); null
     }
   }

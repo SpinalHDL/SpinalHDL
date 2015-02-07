@@ -42,8 +42,8 @@ class Bits extends BitVector {
   def ^(that: Bits): Bits = newBinaryOperator("b^b", that, WidthInfer.inputMaxWidthl, InputNormalize.nodeWidth);
   def ~(that: Bits): Bits = newBinaryOperator("~b", that, WidthInfer.inputMaxWidthl, InputNormalize.none);
 
-  def ==(that: Bits): Bool = newLogicalOperator("b==b", that, InputNormalize.inputWidthMax);
-  def !=(that: Bits): Bool = newLogicalOperator("b!=b", that, InputNormalize.inputWidthMax);
+  override def ===(that: SSelf): Bool = newLogicalOperator("b==b", that, InputNormalize.inputWidthMax);
+  override def !==(that: SSelf): Bool = newLogicalOperator("b!=b", that, InputNormalize.inputWidthMax);
 
   def >>(that: Int): this.type = newBinaryOperator("b>>i", IntLiteral(that), WidthInfer.shiftRightWidth, InputNormalize.none);
   def <<(that: Int): this.type = newBinaryOperator("b<<i", IntLiteral(that), WidthInfer.shiftLeftWidth, InputNormalize.none);
@@ -52,6 +52,7 @@ class Bits extends BitVector {
 
   //def :=(bits: Bits): Unit = assignFrom(bits)
   override def :=(that: SSelf): Unit = super.:=(that)
+  override def <>(that: SSelf): Unit = super.<>(that)
 
   override def newMultiplexor(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,b,b)", sel, whenTrue, whenFalse)
 
@@ -69,7 +70,7 @@ class Bits extends BitVector {
 
   override def isEguals(that: Data): Bool = {
    that match{
-     case that : Bits => this == that
+     case that : Bits => this === that
      case _ => SpinalError(s"Don't know how compare $this with $that"); null
    }
   }

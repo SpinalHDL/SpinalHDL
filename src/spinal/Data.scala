@@ -18,6 +18,8 @@
 
 package spinal
 
+
+
 import scala.collection.mutable.ArrayBuffer
 
 /**
@@ -139,16 +141,23 @@ trait Data extends ComponentLocated with Nameable with Assignable {
   def pull: this.type = Data.doPull(this, Component.current, false, false)
 
   //TODO check type
-  def autoConnect(that: Data): Unit = (this.flatten, that.flatten).zipped.foreach(_._2 autoConnect _._2)
+
 
 
   def :=(that: SSelf) : Unit = this assignFrom (that)
+  def <>(that: SSelf) : Unit = this autoConnect that
+  def ===(that: SSelf) : Bool = isEguals(that)
+  def !==(that: SSelf) : Bool = !isEguals(that)
 
   def ##(right: Data): Bits = this.toBits ## right.toBits
-  def isEguals(that: Data): Bool = (this.flatten, that.flatten).zipped.map((a, b) => a._2.isEguals(b._2)).reduceLeft(_ || _)
 
   def toBits: Bits
   def fromBits(bits: Bits): Unit
+
+  def isEguals(that: Data): Bool = (this.flatten, that.flatten).zipped.map((a, b) => a._2.isEguals(b._2)).reduceLeft(_ || _)
+  def autoConnect(that: Data): Unit = (this.flatten, that.flatten).zipped.foreach(_._2 autoConnect _._2)
+
+
 
   def getBitsWidth: Int
 

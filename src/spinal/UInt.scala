@@ -42,8 +42,8 @@ class UInt extends BitVector with MinMaxProvider {
   def ^(that: UInt): UInt = newBinaryOperator("u^u", that, WidthInfer.inputMaxWidthl, InputNormalize.nodeWidth);
   def ~(that: UInt): UInt = newBinaryOperator("~u", that, WidthInfer.inputMaxWidthl, InputNormalize.none);
 
-  def ==(that: UInt): Bool = newLogicalOperator("u==u", that, InputNormalize.inputWidthMax);
-  def !=(that: UInt): Bool = newLogicalOperator("u!=u", that, InputNormalize.inputWidthMax);
+  override def ===(that: SSelf): Bool = newLogicalOperator("u==u", that, InputNormalize.inputWidthMax);
+  override def !==(that: SSelf): Bool = newLogicalOperator("u!=u", that, InputNormalize.inputWidthMax);
   def <(that: UInt): Bool = newLogicalOperator("u<u", that, InputNormalize.inputWidthMax);
   def >(that: UInt): Bool = that < this
   def <=(that: UInt): Bool = newLogicalOperator("u<=u", that, InputNormalize.inputWidthMax);
@@ -58,7 +58,7 @@ class UInt extends BitVector with MinMaxProvider {
   override def newMultiplexor(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,u,u)", sel, whenTrue, whenFalse)
   override def isEguals(that: Data): Bool = {
     that match{
-      case that : UInt => this == that
+      case that : UInt => this === that
       case _ => SpinalError(s"Don't know how compare $this with $that"); null
     }
   }
@@ -72,6 +72,7 @@ class UInt extends BitVector with MinMaxProvider {
 
   // def :=[U <: SSelf](that: U) = this assignFrom(that)
   override def :=(that: SSelf): Unit = super.:=(that)
+  override def <>(that: SSelf): Unit = super.<>(that)
 
   override def resize(width: Int): this.type = newResize("resize(u,i)", this :: new IntLiteral(width) :: Nil, WidthInfer.intLit1Width)
 

@@ -18,9 +18,7 @@
 
 package spinal
 
-/**
- * Created by PIC18F on 21.08.2014.
- */
+
 
 object EnumCast {
   def apply(enum: SpinalEnumCraft[_], opName: String, that: Node, widthImpl: (Node) => Int = WidthInfer.inputMaxWidthl): Modifier = {

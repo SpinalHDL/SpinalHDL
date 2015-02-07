@@ -37,6 +37,7 @@ class Bundle extends MultiData with Nameable{
 
 
   override def :=(that: SSelf): Unit = super.:=(that)
+  override def <>(that: SSelf): Unit = super.<>(that)
 
   override def assignFrom(that: Data): Unit = {
     that match {

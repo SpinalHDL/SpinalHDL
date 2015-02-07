@@ -18,12 +18,10 @@
 
 package spinal
 
+
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-/**
- * Created by PIC18F on 21.01.2015.
- */
 
 
 object Vec{
@@ -81,6 +79,7 @@ class Vec[T <: Data](val baseType: T) extends MultiData with collection.IndexedS
   override type SSelf = Vec[T]
 
   override def :=(that: SSelf): Unit = super.:=(that)
+  override def <>(that: SSelf): Unit = super.<>(that)
 
   private val vec = ArrayBuffer[T]()
   var vecLock = false

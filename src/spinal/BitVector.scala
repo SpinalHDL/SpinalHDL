@@ -18,13 +18,7 @@
 
 package spinal
 
-/**
- * Created by PIC18F on 22.01.2015.
- */
-/*
-object BitCount {
 
-}*/
 
 class BitCount(val value: Int) {
 
