@@ -23,10 +23,12 @@ import scala.collection.mutable.ArrayBuffer
 /**
  * Created by PIC18F on 21.08.2014.
  */
+import scala.reflect.runtime.universe._
 
 
 object Data {
   implicit def autoCast[T <: Data, T2 <: T](that: T): T2#SSelf = that.asInstanceOf[T2#SSelf]
+
 
   def doPull[T <: Data](srcData: T, finalComponent: Component, useCache: Boolean = false, propagateName: Boolean = false): T = {
     val startComponent = srcData.component
@@ -51,7 +53,7 @@ object Data {
         val cacheState = componentPtr.pulledDataCache.getOrElse(srcData, null)
         if (cacheState != null) {
           Component.push(componentPtr)
-          nextData.assignFrom(cacheState)
+          nextData := cacheState
           Component.pop(componentPtr)
           return ret
         }
@@ -62,7 +64,7 @@ object Data {
         from.setCompositeName(srcData)
       from.asInput
       from.isIo = true
-      if (nextData != null) nextData.assignFrom(from) else ret = from
+      if (nextData != null) nextData := from else ret = from
       Component.pop(componentPtr)
 
       if (useCache) componentPtr.pulledDataCache.put(srcData, from)
@@ -78,7 +80,7 @@ object Data {
         val cacheState = componentPtr.pulledDataCache.getOrElse(srcData, null)
         if (cacheState != null) {
           Component.push(componentPtr)
-          nextData.assignFrom(cacheState)
+          nextData.:=(cacheState)
           Component.pop(componentPtr)
           return ret
         }
@@ -93,7 +95,7 @@ object Data {
         from.asOutput
         Component.pop(fromComponent)
         Component.push(componentPtr)
-        if (nextData != null) nextData.assignFrom(from) else ret = from
+        if (nextData != null) nextData := from else ret = from
         Component.pop(componentPtr)
 
         if (useCache) componentPtr.pulledDataCache.put(srcData, from)
@@ -104,7 +106,7 @@ object Data {
     }
 
     Component.push(nextData.component)
-    nextData.assignFrom(srcData)
+    nextData := srcData
     Component.pop(nextData.component)
 
     ret
@@ -137,10 +139,11 @@ trait Data extends ComponentLocated with Nameable with Assignable {
   def pull: this.type = Data.doPull(this, Component.current, false, false)
 
   //TODO check type
-  def autoConnect (that : Data) : Unit = (this.flatten,that.flatten).zipped.foreach(_._2 autoConnect _._2)
+  def autoConnect(that: Data): Unit = (this.flatten, that.flatten).zipped.foreach(_._2 autoConnect _._2)
 
- // def :=[U <: SSelf](that: U) = this assignFrom(that)
-  def :=(that: SSelf) = this assignFrom(that)
+
+  def :=(that: SSelf) : Unit = this assignFrom (that)
+
   def ##(right: Data): Bits = this.toBits ## right.toBits
   def isEguals(that: Data): Bool = (this.flatten, that.flatten).zipped.map((a, b) => a._2.isEguals(b._2)).reduceLeft(_ || _)
 

@@ -16,59 +16,79 @@
  * License along with this library.
  */
 
-//class A;
-//object dsl {
-//  object A { //If you move this object outside dsl object all is ok
-//  def apply(): A = new A()
-//    def apply(value: Boolean): A = new A() //If you remove this apply def all is ok
-//  }
-//}
-//var myA = dsl.A ()   //If you do dsl.A() all is ok
-//myA = new A   //myA is interpretted by the scala plugin as Nothing type instead of A
-//abstract class Data {
-//  type Self <: Data
-//  def :=(that: Self)
-//}
-//class Flow[T <: Data](val gen: T){
-//  def <<(that: Flow[gen.Self]) = {
-//    this.gen := that.gen         //that.gen  is marked as read (type mismatch, expected Flow.this.gen.Self, actual that.gen.Self
-//  }
-//}
+/*
+object tt1 {
 
+  class A {
 
-
-
-abstract class Data[T]{
-  def :=(that: Data[T])= println(s"$this := $that")
-  //def :=[S <: T](that: Data[S]) = println(s"$this := $that")
-}
-class Bits extends Data[Bits] {
- /// override def :=[S <: Bits](that: Data[S]): Unit = println(s"$this := $that")
-}
-class UInt extends Data[UInt] {
- // override def :=[S <: UInt](that: Data[S]): Unit = println(s"$this := $that")
-}
-class Bundle extends Data[Bundle] {
- // override def :=[S <: Bundle](that: Data[S]): Unit = println(s"$this := $that")
-}
-class MyBundle extends Bundle {
-}
-class Flow[T](val gen: Data[T]) extends Bundle{
-  def <<(that: Flow[T]) = {
-    this.gen := that.gen
   }
+
+  class B {
+
+  }
+
+  implicit def trololol(that: A) = new B
+
+
+  val t1: B = new A
+  ///implicit def trololol2[T <: Data](that : T) = that.autoCast
 }
 
-object DoIt{
-  def doIt[S <: Data](that : S) : Unit = {
-    that := that
-    //  that := that
+object tt2 {
+
+  class A {
+    type Self <: A
+    def doIt(that: Self): Unit = println("doit")
   }
+
+  class B extends A {
+    override type Self = B
+  }
+
+  implicit def autoCast[T <: A](that: T): T#Self = that.asInstanceOf[T#Self]
+
+  def f1[T <: A](that: T): Unit = {
+    val t1: T#Self = that
+
+    that.doIt(that)
+  }
+  f1(new B)
+
+  //val t1 : B = new B
+  ///implicit def trololol2[T <: Data](that : T) = that.autoCast
+}*/
+
+
+
+object Data {
+  implicit def autoCast[T <: Data, T2 <: T](that: T): T2#SSelf = that.asInstanceOf[T2#SSelf]
 }
-val b1 = new Flow(new MyBundle)
-val b2 = new Flow(new Bundle)
-b1 << b2
-b1 := b2
-val f1 = new Flow(new Bits)
-val f2 = new Flow(new Bits)
-f1 << f2
+
+trait Data {
+  type SSelf <: Data
+  def :=(that: SSelf): Unit = this.assignFrom(that)
+  def assignFrom(that: Data): Unit = ???
+  def autoConnect(that: Data): Unit = ???
+}
+
+class Bits extends Data {
+  override type SSelf = Bits
+ // override def :=(that: SSelf): Unit = ???
+  override def autoConnect(that: Data): Unit = {
+    this := that
+  }
+  final override def assignFrom(that: Data): Unit = println(s"$this := $that")
+}
+class UInt extends Data {
+  override type SSelf = UInt
+  //override def :=(that: SSelf): Unit = ???
+}
+
+
+val b1 = new Bits
+val u1 = new UInt
+
+
+"***"
+b1 := u1
+"*****"

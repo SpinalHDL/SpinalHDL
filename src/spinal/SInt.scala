@@ -56,6 +56,7 @@ class SInt extends BitVector with MinMaxProvider {
   def <<(that: UInt): this.type = newBinaryOperator("s<<u", that, WidthInfer.shiftLeftWidth,InputNormalize.none);
 
   //def :=(sint: SInt): Unit = assignFrom(sint)
+  override def :=(that: SSelf): Unit = super.:=(that)
 
   override def newMultiplexor(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,s,s)",sel,whenTrue,whenFalse)
   override def isEguals(that: Data): Bool = {

@@ -66,7 +66,12 @@ class UInt extends BitVector with MinMaxProvider {
   override def minValue: BigInt = BigInt(0)
   override def maxValue: BigInt = (BigInt(1) << getWidth) - 1
 
+
+
   //def :=(that: UInt): Unit = assignFrom(that)
+
+  // def :=[U <: SSelf](that: U) = this assignFrom(that)
+  override def :=(that: SSelf): Unit = super.:=(that)
 
   override def resize(width: Int): this.type = newResize("resize(u,i)", this :: new IntLiteral(width) :: Nil, WidthInfer.intLit1Width)
 

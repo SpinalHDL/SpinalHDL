@@ -51,6 +51,7 @@ class Bits extends BitVector {
   def <<(that: UInt): this.type = newBinaryOperator("b<<u", that, WidthInfer.shiftLeftWidth, InputNormalize.none);
 
   //def :=(bits: Bits): Unit = assignFrom(bits)
+  override def :=(that: SSelf): Unit = super.:=(that)
 
   override def newMultiplexor(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,b,b)", sel, whenTrue, whenFalse)
 
@@ -61,7 +62,7 @@ class Bits extends BitVector {
 
   override def toBits: Bits = {
     val ret = new Bits()
-    ret.assignFrom(this)
+    ret := this
     ret
   }
   override def fromBits(bits: Bits) : Unit = this := bits

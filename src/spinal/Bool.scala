@@ -47,6 +47,7 @@ class Bool extends BaseType {
   def unary_!(): Bool = newUnaryOperator("!")
 
   //def := (bool : Bool): Unit = assignFrom(bool)
+  override def :=(that: SSelf): Unit = super.:=(that)
 
   override def newMultiplexor(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,B,B)",sel,whenTrue,whenFalse)
 

@@ -27,7 +27,7 @@ object Reg {
   def apply[T <: Data](dataType: T, init: T = null): T = {
     val regOut = dataType.clone()
     val regInit = dataType.clone()
-    if(init != null) regInit assignFrom init
+    if(init != null) regInit := init
     for (((eName, e), (y, initElement)) <- (regOut.flatten, regInit.flatten).zipped) {
       val reg = new Reg(e)
       e.inputs(0) = reg;
@@ -50,7 +50,7 @@ object Reg {
 object RegNext{
   def apply[T <: Data](next : T,init : T = null): T ={
     val reg = Reg(next,init)
-    reg assignFrom next
+    reg := next
     reg
   }
 }

@@ -31,11 +31,11 @@ object SString{
 
 //ONLY FOR BLACK BOX   generic parameters
 class SString extends BaseType{
+  override type SSelf = SString
   override def calcWidth = 0
 
-  def :=(that : SString)={
-    this.assignFrom(that)
-  }
+  override def :=(that: SSelf): Unit = super.:=(that)
+
 
   override def toBits: Bits = throw new Exception("Illegal")
   override def fromBits(bits: Bits): Unit = throw new Exception("Illegal")

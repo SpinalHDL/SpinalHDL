@@ -21,6 +21,8 @@ package spinal.test
 import spinal.IntBuilder._
 import spinal._
 
+import scala.collection.mutable
+
 /**
  * Created by PIC18F on 22.08.2014.
  */
@@ -308,6 +310,9 @@ object Try {
   object MyEnum extends SpinalEnum {
     val s0, s1, s2 = Value
   }
+  object MyEnum2 extends SpinalEnum {
+    val e0, e1, e2 = Value
+  }
 
   class ComponentA extends Component {
 
@@ -323,8 +328,8 @@ object Try {
       val cond5 = new Bool().asInput
       val inu4b = in UInt (4 bit)
       val inu8b = in UInt (8 bit)
-      val c = in UInt (5 bit)
-      val d = in UInt (5 bit)
+     // val c = in UInt (5 bit)
+    //  val d = in UInt (5 bit)
       //  val o = out UInt (5 bit)
 
       val outu = Reg(out.UInt())
@@ -362,10 +367,12 @@ object Try {
 
 
       val inEnum = in(MyEnum)
+      val inEnum2 = in(MyEnum2)
       val inEnumBits = in Bits (1 bit)
 
       val outEnum = out(MyEnum)
       val outEnum2 = out(MyEnum)
+      val outEnum22 = out(MyEnum2)
       val outEnumFromBits = out(MyEnum)
       val outEnumBits = out.Bits()
       val outEnumBool = out.Bool()
@@ -375,13 +382,16 @@ object Try {
       val inBundleToBits = in(new BundleAA)
       val outBundleFromBits = out(new BundleAA)
 
+      val slaveHandshakeUInt = slave Handshake (UInt(3 bit))
+      val masterHandshakeSInt = master Handshake (SInt(3 bit))
 
       val slaveHandshake = slave Handshake (new BundleAA)
       val masterHandshake = master Handshake (new BundleAA)
       val masterHandshakeThrow = master Handshake (new BundleAA)
       val masterHandshakeUInt = master Handshake (UInt(4 bit))
 
-
+      val inType =  in SInt(4 bit)
+      val outType =  out UInt(4 bit)
       //  val outBool = out.Bool()
 
 
@@ -392,12 +402,31 @@ object Try {
 
     }
 
+    io.outEnum22 := io.inEnum2
+  /*def doIt( a : Data,b : Data): Unit ={
+    a := b
+  }
+    doIt(io.outType ,io.inType)*/
+    io.outType :=  io.inType.toUInt
 
+   /* def doIt[T <: Data,T2 <: T](into : T,from : T2): Unit = {
+      into := from
+    }*/
+   // io := io.inBundle0
+/*  val s = new mutable.ArrayBuffer[Vec[Data]]
+    s += Vec.fill(4)(UInt())
+    s += Vec.fill(4)(Bool())*/
+    val a =  Vec.fill(4)(UInt())
+    val b = Vec.fill(4)(Bool())
+   // a := b
+  //  doIt(io.outBundleAA , io.inBundle0) // inBundle0
     io.outBundleAA := io.inBundle0
     io.outBundleA := io.inBundle1
     // io.masterHandshake :== io.slaveHandshake
     io.outVecU := io.inVecU
-    //io.slaveHandshake autoConnect io.masterHandshake
+
+    io.masterHandshakeSInt << (io.slaveHandshakeUInt ~ io.slaveHandshakeUInt.toBits.toSInt)
+
     io.masterHandshake << io.slaveHandshake
     io.masterHandshakeThrow << io.slaveHandshake.throwIf(io.cond1)
     io.masterHandshakeUInt << (io.slaveHandshake ~ UInt(3))
@@ -658,6 +687,9 @@ object Try {
 
     new VhdlTestBenchBackend().elaborate(comp)
     println("DONE")
+
+
+
   }
 
   /* class Data{

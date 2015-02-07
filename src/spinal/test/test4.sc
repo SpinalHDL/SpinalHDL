@@ -16,7 +16,7 @@
  * License along with this library.
  */
 
-
+/*
 object tt1 {
 
   class A {
@@ -56,49 +56,56 @@ object tt2 {
 
   //val t1 : B = new B
   ///implicit def trololol2[T <: Data](that : T) = that.autoCast
-}
+}*/
 
 
 
 object Data {
-  implicit def autoCast2[T <: Data, T2 <: T](that: T): T2#Self = that.asInstanceOf[T2#Self]
+  implicit def autoCast[T <: Data, T2 <: T](that: T): T2#SSelf = that.asInstanceOf[T2#SSelf]
 }
 
-class Data {
-  type Self <: Data
-  def :=(that: Self): Unit = println(s"$this := $that")
+trait Data {
+  type SSelf <: Data
+  def :=(that: SSelf): Unit = this.assignFrom(that)
+  def assignFrom(that: Data): Unit = ???
+  def autoConnect(that: Data): Unit = ???
 }
 
 class Bits extends Data {
-  override type Self = Bits
-  override def :=(that: Self): Unit = ???
+  override type SSelf = Bits
+  override def :=(that: SSelf): Unit = ???
+  override def autoConnect(that: Data): Unit = {
+    this := that
+  }
+  final override def assignFrom(that: Data): Unit = println(s"$this := $that")
 }
-
 class UInt extends Data {
-  override type Self = UInt
-  override def :=(that: Self): Unit = ???
+  override type SSelf = UInt
+  override def :=(that: SSelf): Unit = ???
 }
-
 object Something {
   def doIt[T2 <: Data](that: T2): Unit = {
     that := that
   }
 }
 
-
 class Flow[T2 <: Data](val gen: T2) {
-  implicit def autoCast[T <: Data](that: T): T#Self = that.asInstanceOf[T#Self]
-  def <<(that: Flow[gen.Self]) = {
+  def <<(that: Flow[gen.SSelf]) = {
     this.gen := that.gen
   }
 }
+
 
 //Some stupide exemples of usage
 //t.Self
 val b1 = new Bits
 val b2 = new Bits
 val u1 = new UInt
-val u2 = new Bits
+val u2 = new UInt
+
+"***"
+b1 := u1
+"***"
 Something.doIt(b1)
 new Bits() := new Bits()
 val f1 = new Flow(new Bits)

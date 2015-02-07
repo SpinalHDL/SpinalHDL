@@ -26,7 +26,14 @@ class EnumLiteral[T <: SpinalEnum](val enum: SpinalEnumElement[T]) extends Liter
 }
 
 class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T) extends BaseType {
-  def :=(that: SpinalEnumCraft[T]): Unit = this.assignFromImpl(that)
+  override type SSelf = SpinalEnumCraft[T]
+
+  override def :=(that: SSelf): Unit = {
+    if(this.blueprint != that.blueprint) SpinalError("Enum is assigned by a incompatible enum")
+    super.:=(that)
+  }
+
+  //def :=(that: SpinalEnumCraft[T]): Unit = this.assignFromImpl(that)
   def :=(that: SpinalEnumElement[T]): Unit = this := that.craft()
 
   def ==(that: SpinalEnumCraft[T]): Bool = newLogicalOperator("e==e", that, InputNormalize.none);

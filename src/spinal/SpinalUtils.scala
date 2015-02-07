@@ -108,13 +108,10 @@ class Handshake[T <: Data](gen: T) extends Bundle with Interface {
   }
 
   def ~[T2 <: Data](nextBits: T2): Handshake[T2] = {
-
-    // Bits() := UInt()
     val next = new Handshake(nextBits)
     next.valid := this.valid
     this.ready := next.ready
-    next.bits := nextBits //.asInstanceOf[next.bits.SSelf]
-    // nextBits := nextBits
+    next.bits := nextBits
     next
   }
 

@@ -71,7 +71,7 @@ class VecAccessAssign[T <: BaseType](enables: Seq[Bool], tos: Seq[T]) extends As
   override def assignFrom(that: Data): Unit = {
     for ((enable, to) <- (enables, tos).zipped) {
       when(enable) {
-        to assignFrom that
+        to := that
       }
     }
   }
@@ -79,6 +79,8 @@ class VecAccessAssign[T <: BaseType](enables: Seq[Bool], tos: Seq[T]) extends As
 
 class Vec[T <: Data](val baseType: T) extends MultiData with collection.IndexedSeq[T]{
   override type SSelf = Vec[T]
+
+  override def :=(that: SSelf): Unit = super.:=(that)
 
   private val vec = ArrayBuffer[T]()
   var vecLock = false
@@ -153,10 +155,10 @@ class Vec[T <: Data](val baseType: T) extends MultiData with collection.IndexedS
   override def assignFrom(that: Data): Unit = {
     lockIt()
     that match {
-      case that: Vec[T] => {
+      case that: SSelf => { //TODO WHY that don't filter [T] ?
         if (that.vec.size != this.vec.size) throw new Exception("Can't assign Vec with a different size")
         for ((to, from) <- (this.vec, that.vec).zipped) {
-          to.assignFrom(from)
+          to.:=(from)
         }
       }
       case _ => throw new Exception("Undefined assignement")

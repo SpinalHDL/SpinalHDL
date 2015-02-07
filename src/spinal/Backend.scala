@@ -89,6 +89,7 @@ class Backend {
   }
 
   //TODO
+  //TODO fix output loop
   //TODO no cross clock domain violation
   //TODO generate test bench
   //TODO

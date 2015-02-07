@@ -36,6 +36,7 @@ class Bundle extends MultiData with Nameable{
   //def :=(that: Bundle): Unit = this.assignFrom(that)
 
 
+  override def :=(that: SSelf): Unit = super.:=(that)
 
   override def assignFrom(that: Data): Unit = {
     that match {
@@ -43,7 +44,7 @@ class Bundle extends MultiData with Nameable{
         for((name,element) <- elements){
           val other = that.find(name)
           if(other != null)
-            element.assignFrom(other)
+            element := other
         }
       }
       case _ =>throw new Exception("Undefined assignement")

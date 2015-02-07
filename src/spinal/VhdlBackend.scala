@@ -73,6 +73,7 @@ class VhdlBackend extends Backend with VhdlBase {
     ret.result()
   }
 
+  //TODO inorder enum element declaration
   def emitEnumPackage(out: java.io.FileWriter): Unit = {
     val ret = new StringBuilder();
     ret ++= s"""library IEEE;

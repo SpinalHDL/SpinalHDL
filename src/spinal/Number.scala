@@ -32,11 +32,10 @@ object Number {
 
 //ONLY FOR BLACK BOX   generic parameters
 class Number extends BaseType {
+  override type SSelf = Number
   override def calcWidth = 32
 
-  def :=(that: Number) = {
-    this.assignFrom(that)
-  }
+  override def :=(that: SSelf): Unit = super.:=(that)
 
 
   override def toBits: Bits = throw new Exception("Illegal")
