@@ -25,57 +25,60 @@ package spinal
 
 
 object Reg {
+
+  //TODO check betther init with null input
   def apply[T <: Data](dataType: T, init: T = null): T = {
     val regOut = dataType.clone()
     val regInit = dataType.clone()
-    if(init != null) regInit := init
+    if (init != null) regInit := init
     for (((eName, e), (y, initElement)) <- (regOut.flatten, regInit.flatten).zipped) {
       val reg = new Reg(e)
       e.inputs(0) = reg;
-      if(initElement.inputs(0) != null)
-        reg.inputs(1) = initElement
+      if (initElement.inputs(0) != null && initElement.inputs(0).inputs(0) != null)
+        reg.setInitialValue(initElement)
       e.compositeAssign = reg
     }
-/*
-    if (init != null) {
-      for (((x, regSignal), (y, initElement)) <- (regOut.flatten, init.flatten).zipped) {
-        regSignal.inputs(0).inputs(1) = initElement
-      }
-    }*/
 
     regOut
   }
 }
 
 
-object RegNext{
-  def apply[T <: Data](next : T,init : T = null): T ={
-    val reg = Reg(next,init)
+object RegNext {
+  def apply[T <: Data](next: T, init: T = null): T = {
+    val reg = Reg(next, init)
     reg := next
     reg
   }
 }
-object RegInit{
-  def apply[T <: Data](init : T): T ={
-    Reg(init,init)
+
+object RegInit {
+  def apply[T <: Data](init: T): T = {
+    Reg(init, init)
   }
 }
+object RegS{
+  def getDataInputId: Int = 3
+  def getInitialValueId: Int = 4
+}
 
-class Reg(output: BaseType, val clockDomain: ClockDomain = ClockDomain.current) extends Node with Assignable {
+class Reg(val output: BaseType, clockDomain: ClockDomain = ClockDomain.current) extends DelayNode(clockDomain) with Assignable {
   inputs += this
   inputs += this
-  inputs += clockDomain.clock
-  inputs += clockDomain.clockEnable
-  inputs += clockDomain.reset
+
+
+  def getDataInput: Node = inputs(RegS.getDataInputId)
+  def getInitialValue: Node = inputs(RegS.getInitialValueId)
+
+  def setDataInput(that : Node): Unit = inputs(RegS.getDataInputId) = that
+  def setInitialValue(that : Node): Unit = inputs(RegS.getInitialValueId) = that
 
 
   def calcWidth = WidthInfer.regImpl(this)
 
-  def getDataInput: Node = inputs(0)
-  def getInitialValue: Node = inputs(1)
-  def getClock: Bool = inputs(2).asInstanceOf[Bool]
-  def getClockEnable: Bool = inputs(3).asInstanceOf[Bool]
-  def getReset: Bool = inputs(4).asInstanceOf[Bool]
+  override def normalizeInputs: Unit = {
+    InputNormalize.regImpl(this)
+  }
 
   def hasInitialValue = getInitialValue != null
 
@@ -83,15 +86,9 @@ class Reg(output: BaseType, val clockDomain: ClockDomain = ClockDomain.current) 
   override def assignFrom(that: Data): Unit = {
     that match {
       case that: BaseType => {
-        BaseType.assignFrom(output, this, that)
+        BaseType.assignFrom(output, this,RegS.getDataInputId, that)
       }
       case _ => throw new Exception("Undefined assignement")
     }
-
   }
-
-  override def normalizeInputs: Unit ={
-    InputNormalize.regImpl(this)
-  }
-
 }

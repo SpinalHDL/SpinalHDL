@@ -19,7 +19,6 @@
 package spinal
 
 
-
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
@@ -405,14 +404,14 @@ class VhdlBackend extends Backend with VhdlBase {
   def emitEntity(component: Component, ret: StringBuilder): Unit = {
     ret ++= s"\nentity ${component.definitionName} is\n"
     ret ++= s"  port(\n"
-        component.nodes.foreach(_ match {
-          case baseType: BaseType => {
-            if (baseType.isIo) {
-              ret ++= s"    ${baseType.getName()} : ${emitDirection(baseType)} ${emitDataType(baseType)};\n"
-            }
-          }
-          case _ =>
-        })
+    component.nodes.foreach(_ match {
+      case baseType: BaseType => {
+        if (baseType.isIo) {
+          ret ++= s"    ${baseType.getName()} : ${emitDirection(baseType)} ${emitDataType(baseType)};\n"
+        }
+      }
+      case _ =>
+    })
     /*component.getOrdredNodeIo.foreach(baseType =>
       ret ++= s"    ${baseType.getName()} : ${emitDirection(baseType)} ${emitDataType(baseType)};\n"
     )*/
@@ -490,6 +489,10 @@ class VhdlBackend extends Backend with VhdlBase {
         }
         case outBinding: OutBinding => {
           ret ++= emitSignal(outBinding, outBinding.out);
+        }
+        case mem: Mem[_] => {
+          ret ++= s"  type ${emitReference(mem)}_type is array (0 to ${mem.wordCount - 1}) of std_logic_vector(${mem.getWidth - 1} downto 0);\n"
+          ret ++= emitSignal(mem, mem);
         }
         case _ =>
       }
@@ -668,25 +671,40 @@ class VhdlBackend extends Backend with VhdlBase {
       s"pkg_extract(${emitLogic(node.bitVector)},$bitIdString)"
     }
     case node: ExtractBitsVector => s"pkg_extract(${emitLogic(node.bitVector)},${node.bitIdHi.value},${node.bitIdLo.value})"
+    case memRead: MemRead => s"${emitReference(memRead.getMem)}(to_integer(${emitReference(memRead.getAddress)}))"
 
-    case _ => throw new Exception("Don't know how emit that logic")
+    case o => throw new Exception("Don't know how emit logic of " + o.getClass.getSimpleName)
   }
 
+
+  //  case mem : Mem[_] => {
+  //    for(memIn <- mem.inputs)memIn match{
+  //    case write : MemWrite => {
+  //
+  //  }
+  //  }
+  //  }
   def emitSyncronous(component: Component, ret: StringBuilder): Unit = {
-    ret ++= "  -- synchronous\n"
+   // ret ++= "  -- synchronous\n"
 
-    val regSignals = component.getRegs
+    val delayNodes = component.getDelays
 
-    val clockDomainMap = mutable.Map[ClockDomain, ArrayBuffer[BaseType]]()
+    val clockDomainMap = mutable.Map[ClockDomain, ArrayBuffer[DelayNode]]()
 
-    for (regSignal <- regSignals) {
-      clockDomainMap.getOrElseUpdate(regSignal.inputs(0).asInstanceOf[Reg].clockDomain, new ArrayBuffer[BaseType]()) += regSignal
+    for (delayNode <- delayNodes) {
+      clockDomainMap.getOrElseUpdate(delayNode.getClockDomain, new ArrayBuffer[DelayNode]()) += delayNode
     }
 
     for ((clockDomain, array) <- clockDomainMap) {
-      val arrayWithReset = ArrayBuffer[BaseType]()
-      val arrayWithoutReset = ArrayBuffer[BaseType]()
-      array.foreach(regSignal => if (regSignal.inputs(0).inputs(1) != regSignal.inputs(0)) arrayWithReset += regSignal else arrayWithoutReset += regSignal)
+      val arrayWithReset = ArrayBuffer[DelayNode]()
+      val arrayWithoutReset = ArrayBuffer[DelayNode]()
+
+      for (delayNode <- array) delayNode match{
+        case reg : Reg =>{
+          if(reg.getInitialValue != reg) arrayWithReset += reg else arrayWithoutReset += reg
+        }
+        case memWrite : MemWrite => arrayWithoutReset += memWrite
+      }
 
       emitClockDomain(true)
       emitClockDomain(false)
@@ -728,11 +746,13 @@ class VhdlBackend extends Backend with VhdlBase {
         ret ++= s"  \n"
 
         def emitRegsInitialValue(tab: String): Unit = {
-          for (regSignal <- activeArray) {
-            val reg = regSignal.inputs(0).asInstanceOf[Reg]
-            if (reg.hasInitialValue) {
-              ret ++= s"$tab${emitReference(regSignal)} <= ${emitLogic(reg.getInitialValue)};\n"
+          for (delayNode <- activeArray) delayNode match {
+            case reg: Reg => {
+              if (reg.hasInitialValue) {
+                ret ++= s"$tab${emitReference(reg.output)} <= ${emitLogic(reg.getInitialValue)};\n"
+              }
             }
+            case memWrite: MemWrite =>
           }
         }
         def emitRegsLogic(tab: String): Unit = {
@@ -752,33 +772,40 @@ class VhdlBackend extends Backend with VhdlBase {
 
           val rootContext = new Context
 
-          for (regSignal <- activeArray) {
-            if (!regSignal.isIo || !regSignal.isInput) {
-              val in = regSignal.inputs(0).inputs(0)
-              val reg = regSignal.inputs(0)
-              if (in != reg) //check that reg has logic
-                walkMux(in, rootContext)
+          for (delayNode <- activeArray) delayNode match {
+            case reg: Reg => {
+              val regSignal = reg.output
+              if (!regSignal.isIo || !regSignal.isInput) {
+                val in = reg.getDataInput
+                if (in != reg) //check that reg has logic
+                  walkMux(in, rootContext)
 
-              def walkMux(that: Node, context: Context): Unit = {
-                if (that == null) return
-                that match {
-                  case mux: Multiplexer => {
-                    if (mux.whenMux) {
-                      if (mux.whenTrue != reg) {
-                        val when = context.when.getOrElseUpdate(mux.cond, new WhenTree(mux.cond))
-                        walkMux(mux.whenTrue, when.whenTrue)
+                def walkMux(that: Node, context: Context): Unit = {
+                  if (that == null) return
+                  that match {
+                    case mux: Multiplexer => {
+                      if (mux.whenMux) {
+                        if (mux.whenTrue != reg) {
+                          val when = context.when.getOrElseUpdate(mux.cond, new WhenTree(mux.cond))
+                          walkMux(mux.whenTrue, when.whenTrue)
+                        }
+                        if (mux.whenFalse != reg) {
+                          val when = context.when.getOrElseUpdate(mux.cond, new WhenTree(mux.cond))
+                          walkMux(mux.whenFalse, when.whenFalse)
+                        }
+                      } else {
+                        context.logic += new Tuple2(regSignal, that)
                       }
-                      if (mux.whenFalse != reg) {
-                        val when = context.when.getOrElseUpdate(mux.cond, new WhenTree(mux.cond))
-                        walkMux(mux.whenFalse, when.whenFalse)
-                      }
-                    } else {
-                      context.logic += new Tuple2(regSignal, that)
                     }
+                    case _ => context.logic += new Tuple2(regSignal, that)
                   }
-                  case _ => context.logic += new Tuple2(regSignal, that)
                 }
               }
+            }
+            case memWrite: MemWrite =>{
+              ret ++= s"${tab}if ${emitReference(memWrite.getEnable)} = '1' then\n"
+              ret ++= s"$tab  ${emitReference(memWrite.getMem)}(to_integer(${emitReference(memWrite.getAddress)})) <= ${emitReference(memWrite.getData)};\n"
+              ret ++= s"${tab}end if;\n"
             }
           }
 
@@ -820,7 +847,7 @@ class VhdlBackend extends Backend with VhdlBase {
       }
     }
 
-    ret ++= "  -- end synchronous\n"
+    //ret ++= "  -- end synchronous\n"
 
 
   }

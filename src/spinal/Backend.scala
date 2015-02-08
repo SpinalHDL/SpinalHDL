@@ -576,6 +576,7 @@ class Backend {
       if (!walkedNodes.contains(node)) pendingNodes.push(node)
     }
 
+    //TODO add Mem support
     def walk(node: Node): Unit = {
       if (node == null) return
       if (node.isInstanceOf[Reg]) {
@@ -584,7 +585,7 @@ class Backend {
         addPendingNode(reg.getDataInput)
         addPendingNode(reg.getInitialValue)
         addPendingNode(reg.getClock)
-        if (reg.clockDomain.resetKind == ASYNC)
+        if (reg.getClockDomain.resetKind == ASYNC)
           walk(reg.getReset)
         else
           addPendingNode(reg.getReset)
@@ -622,12 +623,12 @@ class Backend {
 
   def walker_pullClockDomains(node: Node, stack: mutable.Stack[Node]): Unit = {
     node match {
-      case reg: Reg => {
-        Component.push(reg.component)
-        reg.inputs(2) = reg.clockDomain.readClock
-        reg.inputs(3) = reg.clockDomain.readReset
-        reg.inputs(4) = reg.clockDomain.readClockEnable
-        Component.pop(reg.component)
+      case delay: DelayNode => {
+        Component.push(delay.component)
+        delay.inputs(DelayNode.getClockInputId) = delay.getClockDomain.readClock
+        delay.inputs(DelayNode.getClockResetId) = delay.getClockDomain.readReset
+        delay.inputs(DelayNode.getClockEnableId) = delay.getClockDomain.readClockEnable
+        Component.pop(delay.component)
       }
       case _ =>
     }

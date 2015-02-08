@@ -56,13 +56,13 @@ object out extends IODirection {
 }
 
 
-object IntBuilder {
-  implicit def IntToBuilder(value: Int) = new IntBuilder(value)
-}
-
-case class IntBuilder(i: Int) {
-  def bit = new BitCount(i)
-}
+//object IntBuilder {
+//  implicit def IntToBuilder(value: Int) = new IntBuilder(value)
+//}
+//
+//case class IntBuilder(i: Int) {
+//  def bit = new BitCount(i)
+//}
 
 
 trait MinMaxProvider {
@@ -74,8 +74,36 @@ trait ComponentLocated {
   var component = Component.current
 }
 
+/*trait Delay {
+  def getClockDomain: ClockDomain
+}*/
+
+object DelayNode{
+  def getClockInputId: Int = 0
+  def getClockEnableId: Int = 1
+  def getClockResetId: Int = 2
+}
+
+abstract class DelayNode(clockDomain: ClockDomain = ClockDomain.current) extends Node {
+  inputs += clockDomain.clock
+  inputs += clockDomain.clockEnable
+  inputs += clockDomain.reset
+
+
+  def getClockDomain: ClockDomain = clockDomain
+
+
+  def getClock: Bool = inputs(DelayNode.getClockInputId).asInstanceOf[Bool]
+  def getClockEnable: Bool = inputs(DelayNode.getClockInputId).asInstanceOf[Bool]
+  def getReset: Bool = inputs(DelayNode.getClockResetId).asInstanceOf[Bool]
+}
+
 trait Assignable {
   def assignFrom(that: Data): Unit
+}
+
+trait CrossHierarchyInputs {
+  def getCrossHierarchyInputsId: Seq[Int]
 }
 
 trait Nameable {

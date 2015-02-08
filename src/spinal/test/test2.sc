@@ -16,6 +16,34 @@
  * License along with this library.
  */
 
+
+
+
+object ImportMe{
+  implicit class BitCount(value : Int){
+    def bit : BitCount = this
+  }
+}
+
+import ImportMe._
+
+def f1(value : BitCount) = {
+
+}
+
+
+f1(3 bit)
+def getIndex[T, CC](seq: CC, value: T)(implicit conv: CC => Seq[T]) = seq.indexOf(value)
+
+getIndex("abc", 'a')
+
+
+object Obj1{
+  import spinal._
+  import spinal.IntBuilder._
+  Bits(3 bit)
+}
+/*
 val myList = List[String]("a")
 
 m[Int](myList)
@@ -29,3 +57,6 @@ def m[T : TypeTag] (par : List[String]): Unit = {
     case _ => println("no match")
   }
 }
+
+
+*/

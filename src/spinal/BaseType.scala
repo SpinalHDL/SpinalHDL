@@ -27,10 +27,10 @@ import scala.collection.mutable.ArrayBuffer
 
 object BaseType {
 
-  def assignFrom(baseType: BaseType, initialConsumer: Node, that: Node): Unit = {
+  def assignFrom(baseType: BaseType, initialConsumer: Node,initialConsumerInputId : Int, that: Node): Unit = {
     //var consumer: Node = if (baseType.isReg) baseType.inputs(0) else baseType
     var consumer = initialConsumer
-    var consumerInputId: Int = 0
+    var consumerInputId: Int = initialConsumerInputId
     var whenHit = baseType.whenScope == null
 
     for (when <- when.stack.stack.reverseIterator) {
@@ -87,7 +87,7 @@ abstract class BaseType extends Node with Data with Nameable {
   def assignFromImpl(that: Data): Unit = {
     that match {
       case that: BaseType => {
-        BaseType.assignFrom(this, this, that)
+        BaseType.assignFrom(this, this,0, that)
       }
       case _ => throw new Exception("Undefined assignement")
     }
@@ -100,7 +100,7 @@ abstract class BaseType extends Node with Data with Nameable {
         sameFromInside
       }else if(this.component.parent == Component.current) {
         sameFromOutside
-      }else SpinalError("You cand autoconnect from here")
+      }else SpinalError("You cant autoconnect from here")
     } else if (this.component.parent == that.component.parent) {
       kindAndKind
     } else if (this.component == that.component.parent) {

@@ -23,7 +23,7 @@ import scala.collection.mutable.ArrayBuffer
 
 
 
-import IntBuilder._
+import ImportMe._
 
 abstract class MultiData extends Data {
 

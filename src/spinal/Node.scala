@@ -31,8 +31,12 @@ object InputNormalize {
   }
   def regImpl(node: Node): Unit = {
     val targetWidth = node.getWidth
-    for (i <- 0 until 2)
-      Misc.normalizeResize(node, i, targetWidth)
+    Misc.normalizeResize(node, RegS.getDataInputId, targetWidth)
+    Misc.normalizeResize(node, RegS.getInitialValueId, targetWidth)
+  }
+  def memWriteImpl(node: Node): Unit = {
+    val targetWidth = node.getWidth
+    Misc.normalizeResize(node, MemWrite.getDataId, targetWidth)
   }
   def nodeWidth(node: Node): Unit = {
     val targetWidth = node.getWidth
@@ -53,7 +57,7 @@ object WidthInfer {
   def regImpl(node: Node): Int = {
     val dataIn = node.inputs(0)
     val init = node.inputs(1)
-    math.max(if(dataIn != node)dataIn.getWidth else -1, if(init != node)init.getWidth else -1)
+    math.max(if (dataIn != node) dataIn.getWidth else -1, if (init != node) init.getWidth else -1)
   }
 
   def cumulateInputWidth(node: Node): Int = {
@@ -86,7 +90,7 @@ object Node {
   val widthInferredCheck = ArrayBuffer[() => Unit]()
 
   var instanceCounter = 0
-  def getCounter : Int = {
+  def getCounter: Int = {
     val temp = instanceCounter
     instanceCounter = instanceCounter + 1
     temp
@@ -102,11 +106,8 @@ abstract class Node extends ComponentLocated {
   val inputs = new ArrayBuffer[Node]
 
 
-
-
-
   var dontSimplify = false
-  def dontSimplifyIt = dontSimplify = true
+  def dontSimplifyIt : this.type = {dontSimplify = true; this}
 
 
   var instanceCounter = Node.getCounter
@@ -130,11 +131,11 @@ abstract class Node extends ComponentLocated {
             throw e
           }
         }
-      }else{
+      } else {
         temp = calcWidth
       }
 
-      if(temp == -1){
+      if (temp == -1) {
         Node.getWidthWalkedSet.clear()
         SpinalError(s"Can't infer width on $this because of unspecified width")
       }
@@ -177,8 +178,7 @@ abstract class Node extends ComponentLocated {
   def getClassIdentifier: String = this.getClass.getSimpleName
 
 
-
-  def nonRecursiveToString() : String = {
+  def nonRecursiveToString(): String = {
     toString()
   }
 }

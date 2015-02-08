@@ -16,16 +16,19 @@
  * License along with this library.
  */
 
-/**
- * Created by PIC18F on 06.01.2015.
- */
-object Main {
-  def main(args: Array[String]) {
-    println("START")
+package spinal
 
-    var a = 1
-    val b = a + 2
-    println(s"a:$a  b:$b")
-    println("DONE")
+object ImportMe {
+  //  implicit case class BitCount(val value : Int){
+  //    def bit : BitCount = this
+  //  }
+
+  implicit def IntToBuilder(value: Int) = new IntBuilder(value)
+
+  case class IntBuilder(i: Int) {
+    def bit = new BitCount(i)
   }
+
 }
+
+case class BitCount(val value: Int) {}

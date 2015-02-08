@@ -19,7 +19,6 @@
 package spinal
 
 
-
 import scala.collection.mutable
 
 
@@ -30,35 +29,37 @@ class EnumLiteral[T <: SpinalEnum](val enum: SpinalEnumElement[T]) extends Liter
 class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T) extends BaseType {
   override type SSelf = SpinalEnumCraft[T]
 
+  def assertSameType(than: SpinalEnumCraft[_]): Unit = if (blueprint != than.blueprint) SpinalError("Enum is assigned by a incompatible enum")
+
   override def :=(that: SSelf): Unit = {
-    if(this.blueprint != that.blueprint) SpinalError("Enum is assigned by a incompatible enum")
+    assertSameType(that)
     super.:=(that)
   }
   override def <>(that: SSelf): Unit = {
-    if(this.blueprint != that.blueprint) SpinalError("Enum is assigned by a incompatible enum")
+    assertSameType(that);
     super.<>(that)
   }
+  override def ===(that: SSelf): Bool = {
+    assertSameType(that);
+    newLogicalOperator("e==e", that, InputNormalize.none);
+  }
+  override def !==(that: SSelf): Bool = {
+    assertSameType(that);
+    newLogicalOperator("e!=e", that, InputNormalize.none);
+  }
 
-  //def :=(that: SpinalEnumCraft[T]): Unit = this.assignFromImpl(that)
   def :=(that: SpinalEnumElement[T]): Unit = this := that.craft()
-
-  override def ===(that: SSelf): Bool = newLogicalOperator("e==e", that, InputNormalize.none);
   def ===(that: SpinalEnumElement[T]): Bool = this === (that.craft())
-
-  override def !==(that: SSelf): Bool = newLogicalOperator("e!=e", that, InputNormalize.none);
   def !==(that: SpinalEnumElement[T]): Bool = this !== (that.craft())
 
 
   override def isEguals(that: Data): Bool = {
-    that match {
-      case that: SpinalEnumCraft[T] => this === that
-      case _ => SpinalError(s"Don't know how compare $this with $that"); null
-    }
+    this === that
   }
 
   override def newMultiplexor(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,e,e)", sel, whenTrue, whenFalse)
   override def toBits: Bits = new Bits().castFrom("e->b", this)
-  override def fromBits(bits : Bits): Unit = enumCastFrom("b->e", bits,(node) => this.getWidth)
+  override def fromBits(bits: Bits): Unit = enumCastFrom("b->e", bits, (node) => this.getWidth)
   override def calcWidth: Int = blueprint.getWidth
   override def clone: this.type = {
     val res = new SpinalEnumCraft(blueprint).asInstanceOf[this.type]
@@ -71,8 +72,8 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T) extends BaseType {
 
 }
 
-class SpinalEnumElement[T <: SpinalEnum](val parent: T, val id: BigInt) extends Nameable{
-  def ===(that: SpinalEnumCraft[T]) : Bool = {
+class SpinalEnumElement[T <: SpinalEnum](val parent: T, val id: BigInt) extends Nameable {
+  def ===(that: SpinalEnumCraft[T]): Bool = {
     that === this
   }
   def !=(that: SpinalEnumCraft[T]): Bool = {
@@ -90,12 +91,12 @@ class SpinalEnumElement[T <: SpinalEnum](val parent: T, val id: BigInt) extends 
   def getWidth = parent.getWidth
 }
 
-class SpinalEnum extends Nameable{
+class SpinalEnum extends Nameable {
 
   private val idMap = new mutable.HashMap[BigInt, SpinalEnumElement[this.type]]()
 
 
-  var nextInt : BigInt = 0
+  var nextInt: BigInt = 0
   def getNextInt: BigInt = {
     val i = nextInt
     nextInt = nextInt + 1
@@ -110,7 +111,7 @@ class SpinalEnum extends Nameable{
   def Value(id: BigInt, name: String): SpinalEnumElement[this.type] = {
     if (idMap.contains(id)) SpinalError("Spinal enumeration already contain this unique id")
     val v = new SpinalEnumElement(this, id).asInstanceOf[SpinalEnumElement[this.type]]
-    if(name != null) v.setName(name)
+    if (name != null) v.setName(name)
     idMap += id -> v
     v
   }

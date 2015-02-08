@@ -18,7 +18,7 @@
 
 package spinal.test
 
-import spinal.IntBuilder._
+import spinal.ImportMe._
 import spinal._
 
 import scala.collection.mutable
@@ -114,6 +114,8 @@ object Try {
       io.b := opAnd
     }
   */
+
+  //val i : Int = "asd"
 
   class ComponentAAA extends Component {
     val io = new Bundle {
@@ -410,6 +412,7 @@ object Try {
     io.outType :=  io.inType.toUInt
 
 
+
   //  io.outType.assignFromImpl(io.inType)
    /* def doIt[T <: Data,T2 <: T](into : T,from : T2): Unit = {
       into := from
@@ -418,7 +421,7 @@ object Try {
 /*  val s = new mutable.ArrayBuffer[Vec[Data]]
     s += Vec.fill(4)(UInt())
     s += Vec.fill(4)(Bool())*/
-    val a =  Vec.fill(4)(UInt())
+    val a = Vec.fill(4)(UInt())
     val b = Vec.fill(4)(Bool())
 
 

@@ -75,11 +75,17 @@ class VecAccessAssign[T <: BaseType](enables: Seq[Bool], tos: Seq[T]) extends As
   }
 }
 
-class Vec[T <: Data](val baseType: T) extends MultiData with collection.IndexedSeq[T]{
+class Vec[T <: Data](val dataType: T) extends MultiData with collection.IndexedSeq[T]{
   override type SSelf = Vec[T]
 
-  override def :=(that: SSelf): Unit = super.:=(that)
-  override def <>(that: SSelf): Unit = super.<>(that)
+  override def :=(that: SSelf): Unit = {
+    lockIt()
+    super.:=(that)
+  }
+  override def <>(that: SSelf): Unit = {
+    lockIt()
+    super.<>(that)
+  }
 
   private val vec = ArrayBuffer[T]()
   var vecLock = false
@@ -96,7 +102,7 @@ class Vec[T <: Data](val baseType: T) extends MultiData with collection.IndexedS
   def vecTransposed: ArrayBuffer[ArrayBuffer[BaseType]] = {
     if (vecTransposedCache == null) {
       vecTransposedCache = new ArrayBuffer[ArrayBuffer[BaseType]]()
-      val size = baseType.flatten.size
+      val size = dataType.flatten.size
       for (i <- 0 until size)
         vecTransposedCache += ArrayBuffer[BaseType]()
 
@@ -125,11 +131,7 @@ class Vec[T <: Data](val baseType: T) extends MultiData with collection.IndexedS
 //    this.assignFrom(that)
 //  }
 
-  //TODO restor it
- /* override def :=(that: SSelf): Unit = {
-    lockIt()
-    super.:=(that)
-  }*/
+
 
   def apply(address: UInt): T = {
     lockIt()
@@ -178,7 +180,7 @@ class Vec[T <: Data](val baseType: T) extends MultiData with collection.IndexedS
   }
 
   override def clone(): this.type = {
-    val newVec = new Vec[T](baseType)
+    val newVec = new Vec[T](dataType)
     vec.foreach(newVec.vec += _.clone())
     newVec.lockIt()
     newVec.asInstanceOf[this.type]

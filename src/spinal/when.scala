@@ -48,6 +48,26 @@ object when {
     stack.pop(w)
   }
 
+  //TODO check
+  def getWhensCond: Bool = {
+    val compWhen = Component.current.initialWhen
+
+    var ret : Bool = null
+    for (w <- when.stack.stack) {
+      if (w == compWhen) return returnFunc
+      val newCond = (if (w.isTrue) w.cond else !w.cond)
+      if (ret == null) {
+        ret = newCond
+      } else {
+        ret = ret && newCond
+      }
+    }
+
+
+    def returnFunc = if(ret == null) Bool(true) else ret
+
+    returnFunc
+  }
 }
 
 class when(val cond: Bool) {
@@ -71,14 +91,14 @@ class when(val cond: Bool) {
     w
   }
 
-  def restackElseWhen: Unit ={
-    if(parentElseWhen == null) return
+  def restackElseWhen: Unit = {
+    if (parentElseWhen == null) return
     parentElseWhen.restackElseWhen
     when.push(parentElseWhen)
   }
 
-  def destackElseWhen: Unit ={
-    if(parentElseWhen == null) return
+  def destackElseWhen: Unit = {
+    if (parentElseWhen == null) return
     when.pop(parentElseWhen)
     parentElseWhen.restackElseWhen
   }
@@ -87,8 +107,8 @@ class when(val cond: Bool) {
 
 }
 
-class SwitchStack(val value : Data){
- // var lastWhen : when = null
+class SwitchStack(val value: Data) {
+  // var lastWhen : when = null
 }
 
 object switch {
@@ -103,18 +123,17 @@ object switch {
 }
 
 
-
 object is {
   def apply[T <: Data](value: T)(block: => Unit): Unit = {
     is(value :: Nil)(block)
   }
 
   def apply[T <: Data](keys: Iterable[T])(block: => Unit): Unit = {
-    if(switch.stack.isEmpty) SpinalError("Use 'is' statement outside the 'switch'")
-    if(keys.isEmpty) SpinalError("There is no key in 'is' statement")
+    if (switch.stack.isEmpty) SpinalError("Use 'is' statement outside the 'switch'")
+    if (keys.isEmpty) SpinalError("There is no key in 'is' statement")
     val value = switch.stack.head()
 
-    when(keys.map(key => (key === value.value)).reduceLeft(_ || _)){
+    when(keys.map(key => (key === value.value)).reduceLeft(_ || _)) {
       block
     }
   }

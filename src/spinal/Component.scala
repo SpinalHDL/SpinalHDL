@@ -61,6 +61,7 @@ abstract class Component extends Nameable {
 
   def io: Data
 
+  val postCreationTask = mutable.ArrayBuffer[() => Unit]()
   var outBindingHosted = mutable.Map[BaseType, OutBinding]()
   val additionalNodesRoot = mutable.Set[BaseType]()
   var definitionName = ""
@@ -71,6 +72,7 @@ abstract class Component extends Nameable {
     parent.kinds += this;
   }
   def isTopLevel : Boolean = parent == null
+  val initialWhen = when.stack.head()
 
   var nodes: ArrayBuffer[Node] = null
 
@@ -141,20 +143,24 @@ abstract class Component extends Nameable {
     nodeIo
   }
   def getOrdredNodeIo = getNodeIo.toList.sortWith(_.instanceCounter < _.instanceCounter)
-  /*
-    def getRegs = nodes.filter(node => node match{
-      case b : BaseType => b.isReg
-      case _ => false
-    })*/
-  def getRegs = {
-    val regs = new ArrayBuffer[BaseType]()
+
+//  def getRegs = {
+//    val regs = new ArrayBuffer[BaseType]()
+//    nodes.foreach(node => node match {
+//      case b: BaseType => if (b.isReg) regs += b
+//      case _ =>
+//    })
+//    regs
+//  }
+
+  def getDelays = {
+    val delays = new ArrayBuffer[DelayNode]()
     nodes.foreach(node => node match {
-      case b: BaseType => if (b.isReg) regs += b
+      case delay: DelayNode => delays += delay
       case _ =>
     })
-    regs
+    delays
   }
-
 
   def findBinding(baseType: BaseType): OutBinding = {
     outBindingHosted.getOrElse(baseType, null)

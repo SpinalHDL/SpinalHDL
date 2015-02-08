@@ -123,7 +123,7 @@ class Handshake[T <: Data](gen: T) extends Bundle with Interface {
     return next
   }
 
-  //TODO next << this
+
   def throwIf(cond: Bool): Handshake[T] = {
     val next = this.clone
     //next := this

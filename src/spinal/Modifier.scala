@@ -243,11 +243,15 @@ private[spinal] object Multiplex {
     val muxInTrue = outType.clone()
     val muxInFalse = outType.clone()
 
-    //TODO need strong asignement (bundle case) ? what happend if bundle are not same type
+
     muxInTrue := whenTrue
     muxInFalse := whenFalse
 
+
     for (((x, out), (y, t), (z, f)) <- (muxOut.flatten, muxInTrue.flatten, muxInFalse.flatten).zipped) {
+      if(t == null) SpinalError("Create a mux with incompatible true input type")
+      if(f == null) SpinalError("Create a mux with incompatible false input type")
+
       out.setInput(Multiplex.baseType(sel, t, f))
     }
 

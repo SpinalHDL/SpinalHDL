@@ -19,11 +19,6 @@
 package spinal
 
 
-
-class BitCount(val value: Int) {
-
-}
-
 abstract class BitVectorFactory[T <: BitVector] {
   def apply(): T
   def apply(value: BigInt): T = BitsLiteral(value, -1, this())
