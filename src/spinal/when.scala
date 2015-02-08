@@ -48,13 +48,12 @@ object when {
     stack.pop(w)
   }
 
-  //TODO check
-  def getWhensCond: Bool = {
-    val compWhen = Component.current.initialWhen
+  def getWhensCond(that : ContextUser): Bool = {
+    val whenScope = if(that == null) null else that.whenScope
 
     var ret : Bool = null
     for (w <- when.stack.stack) {
-      if (w == compWhen) return returnFunc
+      if (w == whenScope) return returnFunc
       val newCond = (if (w.isTrue) w.cond else !w.cond)
       if (ret == null) {
         ret = newCond

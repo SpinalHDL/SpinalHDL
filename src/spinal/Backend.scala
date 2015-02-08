@@ -19,7 +19,6 @@
 package spinal
 
 
-
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
@@ -46,7 +45,7 @@ object BackendToComponentBridge {
   var defaultClock: Bool = null
 }
 
-class BackendReport[T <: Component](val topLevel : T){
+class BackendReport[T <: Component](val topLevel: T) {
 
 }
 
@@ -56,7 +55,7 @@ class Backend {
   var sortedComponents = ArrayBuffer[Component]()
   val globalScope = new Scope()
   val reservedKeyWords = mutable.Set[String]()
-  var topLevel : Component = null
+  var topLevel: Component = null
   val enums = mutable.Set[SpinalEnum]()
 
   def addReservedKeyWordToScope(scope: Scope): Unit = {
@@ -64,8 +63,7 @@ class Backend {
   }
 
 
-
-  def elaborate[T <: Component](gen: () => T): BackendReport[T]  = {
+  def elaborate[T <: Component](gen: () => T): BackendReport[T] = {
     Backend.resetAll
 
     //Default clock
@@ -91,7 +89,6 @@ class Backend {
   }
 
   //TODO
-  //TODO fix output loop
   //TODO no cross clock domain violation
   //TODO generate test bench
   //TODO
@@ -112,7 +109,7 @@ class Backend {
 
     //Component connection
     SpinalInfoPhase("Transform connection")
-   // configureComponentIo
+    // configureComponentIo
     //moveInputRegisterToParent
     pullClockDomains
     check_noNull_noCrossHierarchy_noInputRegister
@@ -198,30 +195,30 @@ class Backend {
   }
 
 
-  def collectAndNameEnum: Unit ={
+  def collectAndNameEnum: Unit = {
     walkNodes2(node => {
-      node match{
-        case enum : SpinalEnumCraft[_] => enums += enum.blueprint
+      node match {
+        case enum: SpinalEnumCraft[_] => enums += enum.blueprint
         case _ =>
       }
     })
 
-    for(enumDef <- enums){
-      Misc.reflect(enumDef,(name,obj) => {
-        obj match{
-          case obj : Nameable => obj.setWeakName(name)
+    for (enumDef <- enums) {
+      Misc.reflect(enumDef, (name, obj) => {
+        obj match {
+          case obj: Nameable => obj.setWeakName(name)
           case _ =>
         }
       })
-      for(e <- enumDef.values){
-        if(e.isUnnamed){
-          e.setWeakName("s"+e.id)
+      for (e <- enumDef.values) {
+        if (e.isUnnamed) {
+          e.setWeakName("s" + e.id)
         }
       }
-      if(enumDef.isWeak){
+      if (enumDef.isWeak) {
         var name = enumDef.getClass.getSimpleName
-        if(name.endsWith("$"))
-          name = name.substring(0,name.length-1)
+        if (name.endsWith("$"))
+          name = name.substring(0, name.length - 1)
         enumDef.setWeakName(name)
       }
     }
@@ -275,7 +272,7 @@ class Backend {
   }
 
   def allocateNames = {
-    for(enumDef <- enums){
+    for (enumDef <- enums) {
       if (enumDef.isWeak)
         enumDef.setName(globalScope.allocateName(enumDef.getName()));
       else
@@ -391,8 +388,6 @@ class Backend {
   }
 
 
-
-
   def walkNodesDefautStack = {
     val nodeStack = mutable.Stack[Node]()
 
@@ -481,7 +476,6 @@ class Backend {
       }
     }
   }
-
 
 
   def allowNodesToReadInputOfKindComponent = {
@@ -576,20 +570,31 @@ class Backend {
       if (!walkedNodes.contains(node)) pendingNodes.push(node)
     }
 
-    //TODO add Mem support
+
     def walk(node: Node): Unit = {
       if (node == null) return
-      if (node.isInstanceOf[Reg]) {
-        val reg = node.asInstanceOf[Reg]
+
+      if (node.isInstanceOf[DelayNode]) {
+        val delayNode = node.asInstanceOf[DelayNode]
         walkedNodes += node
-        addPendingNode(reg.getDataInput)
-        addPendingNode(reg.getInitialValue)
-        addPendingNode(reg.getClock)
-        if (reg.getClockDomain.resetKind == ASYNC)
-          walk(reg.getReset)
-        else
-          addPendingNode(reg.getReset)
-        addPendingNode(reg.getClockEnable)
+
+        delayNode.getSynchronousInputs.foreach(addPendingNode(_))
+        delayNode.getAsynchronousInputs.foreach(walk(_))
+
+
+        //      if (node.isInstanceOf[Reg]) {
+        //        val reg = node.asInstanceOf[Reg]
+        //        walkedNodes += node
+        //        addPendingNode(reg.getDataInput)
+        //        addPendingNode(reg.getClock)
+        //        addPendingNode(reg.getClockEnable)
+        //        if (reg.getClockDomain.resetKind == ASYNC) {
+        //          walk(reg.getReset)
+        //          walk(reg.getInitialValue)
+        //        } else {
+        //          addPendingNode(reg.getReset)
+        //          addPendingNode(reg.getInitialValue)
+        //        }
 
       } else {
         if (localNodes.contains(node)) {
@@ -620,13 +625,13 @@ class Backend {
   }
 
 
-
   def walker_pullClockDomains(node: Node, stack: mutable.Stack[Node]): Unit = {
     node match {
       case delay: DelayNode => {
         Component.push(delay.component)
         delay.inputs(DelayNode.getClockInputId) = delay.getClockDomain.readClock
-        delay.inputs(DelayNode.getClockResetId) = delay.getClockDomain.readReset
+        if (delay.isUsingReset)
+          delay.inputs(DelayNode.getClockResetId) = delay.getClockDomain.readReset
         delay.inputs(DelayNode.getClockEnableId) = delay.getClockDomain.readClockEnable
         Component.pop(delay.component)
       }
@@ -738,18 +743,25 @@ class Backend {
             node.inputs(i) = outBind
           }
 
+          val walkSet = mutable.Set[Node]()
+
           node.inputs(i) = getFirstReadableNode(node.inputs(i), node.component)
 
-          def getFirstReadableNode(node: Node, component: Component): Node = node match {
-            case baseType: BaseType => {
-              if (baseType.isIo && baseType.isOutput && baseType.component == component) {
-                getFirstReadableNode(baseType.inputs(0), component)
-              } else {
-                baseType
+          def getFirstReadableNode(node: Node, component: Component): Node = {
+            if(walkSet.contains(node)) SpinalError(s"Combinational loop at $node")
+            walkSet += node
+            node match {
+              case baseType: BaseType => {
+                if (baseType.isIo && baseType.isOutput && baseType.component == component) {
+                  getFirstReadableNode(baseType.inputs(0), component)
+                } else {
+                  baseType
+                }
               }
+              case n: Node => n
             }
-            case n: Node => n
           }
+
         }
         case _ =>
       }
@@ -765,7 +777,7 @@ class Backend {
     })
 
 
-    for(c <- components){
+    for (c <- components) {
       c.nodes = c.nodes.sortWith(_.instanceCounter < _.instanceCounter)
     }
   }

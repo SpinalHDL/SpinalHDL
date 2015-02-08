@@ -24,7 +24,7 @@ import spinal._
 /**
  * Created by PIC18F on 22.08.2014.
  */
-object Try2 {
+object Try3 {
 
   class BundleAA extends BundleA {
     val a = new Bool()
@@ -47,29 +47,25 @@ object Try2 {
 
   class ComponentA extends Component {
     val io = new Bundle {
-      val cond0 = in.Bool()
-      val cond1 = in.Bool()
-      val cond2 = in.Bool()
-      val cond3 = in.Bool()
+      val inRegBundle = in(new BundleAA())
+      val outRegBundle = out(new BundleAA())
+    }
+    {
+      var regBundleInit = io.inRegBundle.clone()
+      regBundleInit.a := Bool(true)
+      regBundleInit.e := MyEnum.s1
 
-      val wrEnable = in.Bool()
-      val wrAddr = in UInt (4 bit)
-      val wrData = in(new BundleA)
-
-      val rdEnable = in.Bool()
-      val rdAddr = in UInt (4 bit)
-      val rdData = out(new BundleA)
+      val regBundle = RegInit(regBundleInit)
+      regBundle := io.inRegBundle
+      io.outRegBundle := regBundle
     }
 
-    when(io.cond3) {
-      val mem = new Mem(io.wrData, 1 << io.wrAddr.getWidth)
-      when(io.cond0 && io.cond1) {
-        mem.write(io.wrAddr + UInt(1), io.wrData)
-      }
-      io.rdData := mem.read(io.rdAddr + UInt(2))
-    }otherwise {
-      io.rdData := io.wrData
-    }
+//    val uC = u
+//    val uCf = uC.getDeclaredFields
+//    println("**")
+  //  regBundle.flatten.foreach(_._2.dontSimplifyIt)
+//    regBundleInit = null
+//    regBundle = null
   }
 
 

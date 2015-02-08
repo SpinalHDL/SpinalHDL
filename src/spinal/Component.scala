@@ -98,7 +98,7 @@ abstract class Component extends Nameable {
           component.setWeakName(name)
         }
         case namable: Nameable => {
-          if (!namable.isInstanceOf[ComponentLocated] || namable.asInstanceOf[ComponentLocated].component == this)
+          if (!namable.isInstanceOf[ContextUser] || namable.asInstanceOf[ContextUser].component == this)
             namable.setWeakName(name)
         }
         case _ =>
@@ -107,6 +107,7 @@ abstract class Component extends Nameable {
   }
 
   def allocateNames(): Unit = {
+    localScope.allocateName("zz")
     for (node <- nodes) node match {
       case nameable: Nameable => {
         if (nameable.isUnnamed) {

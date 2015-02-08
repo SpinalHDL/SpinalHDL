@@ -101,9 +101,11 @@ object Node {
 //  def calcWidth: Int = 0
 //}
 
-abstract class Node extends ComponentLocated {
+abstract class Node extends ContextUser {
   val consumers = new ArrayBuffer[Node]
   val inputs = new ArrayBuffer[Node]
+
+
 
 
   var dontSimplify = false

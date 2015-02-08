@@ -18,6 +18,8 @@
 
 package spinal
 
+import scala.collection.mutable.ArrayBuffer
+
 
 /**
  * Created by PIC18F on 10.01.2015.
@@ -25,16 +27,16 @@ package spinal
 
 
 object Reg {
-
-  //TODO check betther init with null input
   def apply[T <: Data](dataType: T, init: T = null): T = {
     val regOut = dataType.clone()
     val regInit = dataType.clone()
     if (init != null) regInit := init
     for (((eName, e), (y, initElement)) <- (regOut.flatten, regInit.flatten).zipped) {
-      val reg = new Reg(e)
+      val useReset = initElement.inputs(0) != null && initElement.inputs(0).inputs(0) != null
+      val reg = new Reg(e,useReset)
+      e.dontSimplifyIt
       e.inputs(0) = reg;
-      if (initElement.inputs(0) != null && initElement.inputs(0).inputs(0) != null)
+      if(useReset)
         reg.setInitialValue(initElement)
       e.compositeAssign = reg
     }
@@ -62,10 +64,13 @@ object RegS{
   def getInitialValueId: Int = 4
 }
 
-class Reg(val output: BaseType, clockDomain: ClockDomain = ClockDomain.current) extends DelayNode(clockDomain) with Assignable {
+class Reg(val output: BaseType,useReset : Boolean, clockDomain: ClockDomain = ClockDomain.current) extends DelayNode(clockDomain,useReset) with Assignable {
   inputs += this
   inputs += this
 
+
+  override def getSynchronousInputs: ArrayBuffer[Node] = super.getSynchronousInputs += getDataInput
+  override def getResetStyleInputs: ArrayBuffer[Node] = super.getResetStyleInputs += getInitialValue
 
   def getDataInput: Node = inputs(RegS.getDataInputId)
   def getInitialValue: Node = inputs(RegS.getInitialValueId)

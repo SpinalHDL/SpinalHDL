@@ -156,7 +156,7 @@ class Vec[T <: Data](val dataType: T) extends MultiData with collection.IndexedS
   override def assignFrom(that: Data): Unit = {
     lockIt()
     that match {
-      case that: SSelf => { //TODO WHY that don't filter [T] ?
+      case that: SSelf => {
         if (that.vec.size != this.vec.size) throw new Exception("Can't assign Vec with a different size")
         for ((to, from) <- (this.vec, that.vec).zipped) {
           to.:=(from)

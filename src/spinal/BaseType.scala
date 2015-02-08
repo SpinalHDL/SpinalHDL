@@ -65,7 +65,7 @@ abstract class BaseType extends Node with Data with Nameable {
   inputs += null
 
 
-  val whenScope = when.stack.head()
+
   var compositeAssign: Assignable = null
 
   final override def assignFrom(that: Data): Unit = {

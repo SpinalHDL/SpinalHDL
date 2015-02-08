@@ -21,6 +21,8 @@ package spinal
 
 import spinal.ImportMe._
 
+import scala.collection.mutable.ArrayBuffer
+
 /**
  * Created by PIC18F on 02.02.2015.
  */
@@ -50,7 +52,7 @@ class Mem[T <: Data](val wordType: T, val wordCount: Int) extends Node with Name
 
   def write(address: UInt, data: T): Unit = {
 
-    val writePort = new MemWrite(this, address.dontSimplifyIt, data.toBits.dontSimplifyIt, when.getWhensCond.dontSimplifyIt)
+    val writePort = new MemWrite(this, address.dontSimplifyIt, data.toBits.dontSimplifyIt, when.getWhensCond(this).dontSimplifyIt)
     inputs += writePort
   }
 }
@@ -73,10 +75,14 @@ object MemWrite {
   def getEnableId: Int = 5
 }
 
-class MemWrite(mem: Mem[_], address: UInt, data: Bits, enable: Bool, clockDomain: ClockDomain = ClockDomain.current) extends DelayNode {
+class MemWrite(mem: Mem[_], address: UInt, data: Bits, enable: Bool, clockDomain: ClockDomain = ClockDomain.current) extends DelayNode(clockDomain, false) {
   inputs += address
   inputs += data
   inputs += enable
+
+
+  override def getSynchronousInputs: ArrayBuffer[Node] = super.getSynchronousInputs ++= getAddress :: getData :: getEnable :: Nil
+
 
   def getMem = mem
   def getAddress = inputs(MemWrite.getAddressId)

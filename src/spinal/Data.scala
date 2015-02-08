@@ -115,8 +115,9 @@ object Data {
   }
 }
 
-trait Data extends ComponentLocated with Nameable with Assignable {
+trait Data extends ContextUser with Nameable with Assignable {
   type SSelf <: Data
+
   var dir: IODirection = null
   var isIo = false
 
@@ -145,7 +146,7 @@ trait Data extends ComponentLocated with Nameable with Assignable {
   def <>(that: SSelf): Unit = this autoConnect that
   def ===(that: SSelf): Bool = isEguals(that)
   def !==(that: SSelf): Bool = !isEguals(that)
-//  def :-(that: SSelf): this.type = {
+//  def :-(that: => SSelf): this.type = {
 //    val task = () => {
 //      this := that
 //    }

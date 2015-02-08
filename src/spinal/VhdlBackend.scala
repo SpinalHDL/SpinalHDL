@@ -74,7 +74,7 @@ class VhdlBackend extends Backend with VhdlBase {
     ret.result()
   }
 
-  //TODO inorder enum element declaration
+
   def emitEnumPackage(out: java.io.FileWriter): Unit = {
     val ret = new StringBuilder();
     ret ++= s"""library IEEE;
@@ -84,7 +84,7 @@ class VhdlBackend extends Backend with VhdlBase {
                |package $enumPackageName is
                                           |""".stripMargin
     for (enumDef <- enums) {
-      ret ++= s"  type ${enumDef.getName()} is (${enumDef.values.map(_.getName()).reduceLeft(_ + "," + _)});\n"
+      ret ++= s"  type ${enumDef.getName()} is (${enumDef.values.toList.sortWith(_.id < _.id).map(_.getName()).reduceLeft(_ + "," + _)});\n"
     }
 
     for (enumDef <- enums) {

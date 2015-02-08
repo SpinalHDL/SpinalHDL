@@ -27,46 +27,47 @@ import scala.collection.mutable
  * Created by PIC18F on 22.08.2014.
  */
 object Try {
- /* object ttttttt{
-    class Data {
-      type Self <: Data
-      def :=(that: Self) = println(2)
-    }
-    class Flow[T <: Data](val gen: T){
-      def <<(that: Flow[gen.Self]) = {
-        this.gen := that.gen         //that.gen  is marked as read (type mismatch, expected Flow.this.gen.Self, actual that.gen.Self
-      }
-    }
 
-   // new Flow(new Data) << new Flow(new Data)
-  }*/
-//  abstract class Data{
-//    type Self <: Data
-//    def :=(that: Self)
-//    def :==[S <: Self](that: S)
-//  }
-//
-//  class Bits extends Data {
-//    override type Self = Bits
-//    override def :==[S <: Bits](that: S): Unit =  println(s"$this := $that")
-//    override def :=(that: Self): Unit = println(s"$this := $that")
-//  }
-//
-//  class UInt extends Data {
-//    override type Self = UInt
-//    override def :==[S <: UInt](that: S): Unit =  println(s"$this := $that")
-//    override def :=(that: Self): Unit = println(s"$this := $that")
-//  }
-//
-//  class Flow[T <: Data](gen: T) {
-//    def <<(that: Flow[T]) = {
-//      this.gen :== that.gen
-//    }
-//  }
-//
-//  new Bits() :==  new Bits()
-//  val f1, f2 = new Flow(new Bits)
-//  f1 << f2
+  /* object ttttttt{
+     class Data {
+       type Self <: Data
+       def :=(that: Self) = println(2)
+     }
+     class Flow[T <: Data](val gen: T){
+       def <<(that: Flow[gen.Self]) = {
+         this.gen := that.gen         //that.gen  is marked as read (type mismatch, expected Flow.this.gen.Self, actual that.gen.Self
+       }
+     }
+
+    // new Flow(new Data) << new Flow(new Data)
+   }*/
+  //  abstract class Data{
+  //    type Self <: Data
+  //    def :=(that: Self)
+  //    def :==[S <: Self](that: S)
+  //  }
+  //
+  //  class Bits extends Data {
+  //    override type Self = Bits
+  //    override def :==[S <: Bits](that: S): Unit =  println(s"$this := $that")
+  //    override def :=(that: Self): Unit = println(s"$this := $that")
+  //  }
+  //
+  //  class UInt extends Data {
+  //    override type Self = UInt
+  //    override def :==[S <: UInt](that: S): Unit =  println(s"$this := $that")
+  //    override def :=(that: Self): Unit = println(s"$this := $that")
+  //  }
+  //
+  //  class Flow[T <: Data](gen: T) {
+  //    def <<(that: Flow[T]) = {
+  //      this.gen :== that.gen
+  //    }
+  //  }
+  //
+  //  new Bits() :==  new Bits()
+  //  val f1, f2 = new Flow(new Bits)
+  //  f1 << f2
 
   //import spinal.IntBuilder._
   //val b = in Bits(3 bit)
@@ -133,7 +134,7 @@ object Try {
     }
     io.out := r1
 
-
+    //io.out := io.out
   }
 
   class ComponentAA extends Component {
@@ -312,6 +313,7 @@ object Try {
   object MyEnum extends SpinalEnum {
     val s0, s1, s2 = Value
   }
+
   object MyEnum2 extends SpinalEnum {
     val e0, e1, e2 = Value
   }
@@ -330,8 +332,8 @@ object Try {
       val cond5 = new Bool().asInput
       val inu4b = in UInt (4 bit)
       val inu8b = in UInt (8 bit)
-     // val c = in UInt (5 bit)
-    //  val d = in UInt (5 bit)
+      // val c = in UInt (5 bit)
+      //  val d = in UInt (5 bit)
       //  val o = out UInt (5 bit)
 
       val outu = Reg(out.UInt())
@@ -362,7 +364,7 @@ object Try {
       //      // val outUInt = out.UInt (0)
       //
       val inVecU = in(Vec.tabulate(4)(i => UInt(4 + i bit)))
-      val outVecU = out (Vec.fill(4)(UInt(4 bit)))
+      val outVecU = out(Vec.fill(4)(UInt(4 bit)))
       val inUIntA = in UInt (5 bit)
       val outUIntA = out UInt (5 bit)
       val outUIntS = out UInt (5 bit)
@@ -392,8 +394,8 @@ object Try {
       val masterHandshakeThrow = master Handshake (new BundleAA)
       val masterHandshakeUInt = master Handshake (UInt(4 bit))
 
-      val inType =  in SInt(4 bit)
-      val outType =  out UInt(4 bit)
+      val inType = in SInt (4 bit)
+      val outType = out UInt (4 bit)
       //  val outBool = out.Bool()
 
 
@@ -402,31 +404,45 @@ object Try {
        val inShiftLow = in UInt (6 bit)
        val outShift = out.Bits ()*/
 
+
+      val inRegBundle = in(new BundleAA())
+      val outRegBundle = out(new BundleAA())
+
     }
 
+    var regBundleInit = io.inRegBundle.clone()
+    regBundleInit.a := Bool(true)
+    regBundleInit.e := MyEnum.s1
+
+    var regBundle = RegInit(regBundleInit)
+    regBundle := io.inRegBundle
+    io.outRegBundle := regBundle
+
+    regBundleInit = null
+    regBundle = null
+
     io.outEnum22 := io.inEnum2
-  /*def doIt( a : Data,b : Data): Unit ={
-    a := b
-  }
-    doIt(io.outType ,io.inType)*/
-    io.outType :=  io.inType.toUInt
+    /*def doIt( a : Data,b : Data): Unit ={
+      a := b
+    }
+      doIt(io.outType ,io.inType)*/
+    io.outType := io.inType.toUInt
 
 
-
-  //  io.outType.assignFromImpl(io.inType)
-   /* def doIt[T <: Data,T2 <: T](into : T,from : T2): Unit = {
-      into := from
-    }*/
-   // io := io.inBundle0
-/*  val s = new mutable.ArrayBuffer[Vec[Data]]
-    s += Vec.fill(4)(UInt())
-    s += Vec.fill(4)(Bool())*/
+    //  io.outType.assignFromImpl(io.inType)
+    /* def doIt[T <: Data,T2 <: T](into : T,from : T2): Unit = {
+       into := from
+     }*/
+    // io := io.inBundle0
+    /*  val s = new mutable.ArrayBuffer[Vec[Data]]
+        s += Vec.fill(4)(UInt())
+        s += Vec.fill(4)(Bool())*/
     val a = Vec.fill(4)(UInt())
     val b = Vec.fill(4)(Bool())
 
 
-   // a := b
-  //  doIt(io.outBundleAA , io.inBundle0) // inBundle0
+    // a := b
+    //  doIt(io.outBundleAA , io.inBundle0) // inBundle0
     io.outBundleAA := io.inBundle0
     io.outBundleA := io.inBundle1
     // io.masterHandshake :== io.slaveHandshake
@@ -478,10 +494,11 @@ object Try {
     println(io.inVecU.getBitsWidth)
 
 
-    val reg = (UInt())
+    var reg = (UInt()).dontSimplifyIt
     reg := io.inu4b + io.inu4b
     io.outu := reg
 
+    reg = null
 
     val bundleClone = io.inBundle0.clone().keep
     bundleClone := io.inBundle0
@@ -490,7 +507,8 @@ object Try {
     vecClone := io.inVecU
 
 
-    val keepMePlease = io.inu4b + io.inu4b
+    val keepMePlease : UInt = io.inu4b.clone()
+    keepMePlease := io.inu4b + io.inu4b
     keepMePlease.keep
 
 
@@ -684,8 +702,8 @@ object Try {
   def main(args: Array[String]) {
     println("START")
     var comp: ComponentA = null
-   // val h1 = new Handshake(new BundleA())
-   // val h2 = h1.clone()
+    // val h1 = new Handshake(new BundleA())
+    // val h2 = h1.clone()
 
     SpinalMain({
       comp = new ComponentA
@@ -694,7 +712,6 @@ object Try {
 
     new VhdlTestBenchBackend().elaborate(comp)
     println("DONE")
-
 
 
   }
