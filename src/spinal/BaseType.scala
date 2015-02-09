@@ -18,6 +18,8 @@
 
 package spinal
 
+import com.sun.org.apache.bcel.internal.classfile.AttributeReader
+
 import scala.collection.mutable.ArrayBuffer
 
 /**
@@ -64,7 +66,8 @@ object BaseType {
 abstract class BaseType extends Node with Data with Nameable {
   inputs += null
 
-
+  var dontSimplify = false
+  override def dontSimplifyIt : this.type = {dontSimplify = true; this}
 
   var compositeAssign: Assignable = null
 
@@ -145,6 +148,10 @@ abstract class BaseType extends Node with Data with Nameable {
 
   override def flatten: ArrayBuffer[(String, BaseType)] = ArrayBuffer((getName(), this));
 
+  override def add(attribute: Attribute): Unit = {
+    attributes += attribute
+    dontSimplifyIt
+  }
 
   override def clone: this.type = {
     val res = this.getClass.newInstance.asInstanceOf[this.type];

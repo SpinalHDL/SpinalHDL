@@ -426,6 +426,7 @@ class VhdlBackend extends Backend with VhdlBase {
   def emitArchitecture(component: Component, ret: StringBuilder): Unit = {
     ret ++= s"architecture arch of ${component.definitionName} is\n"
     emitBlackBoxComponents(component, ret)
+    emitAttributesDef(component, ret)
     emitSignals(component, ret)
     ret ++= s"begin\n"
     emitComponentInstances(component, ret)
@@ -479,23 +480,67 @@ class VhdlBackend extends Backend with VhdlBase {
     ret ++= s"  \n"
   }
 
+  def emitAttributesDef(component: Component, ret: StringBuilder): Unit = {
+    val map = mutable.Map[String, Attribute]()
 
+    for (node <- component.nodes) {
+      node match {
+        case attributeReady: AttributeReady => {
+          for (attribute <- attributeReady.attributes) {
+            val mAttribute = map.getOrElseUpdate(attribute.getName, attribute)
+            if (!mAttribute.sameType(attribute)) SpinalError(s"There is some attributes with different nature (${attribute} and ${mAttribute} at ${node.component}})")
+          }
+        }
+        case _ =>
+      }
+    }
+
+    for (attribute <- map.values) {
+      val typeString = attribute match {
+        case _: AttributeString => "string"
+        case _: AttributeFlag => "boolean"
+      }
+      ret ++= s"  attribute ${attribute.getName} : $typeString;\n"
+    }
+
+    ret ++= "\n"
+  }
   def emitSignals(component: Component, ret: StringBuilder): Unit = {
     for (node <- component.nodes) {
       node match {
         case signal: BaseType => {
           if (!signal.isIo)
             ret ++= emitSignal(signal, signal);
+
+          emitAttributes(signal, "signal", ret)
         }
         case outBinding: OutBinding => {
           ret ++= emitSignal(outBinding, outBinding.out);
+          emitAttributes(outBinding, "signal", ret)
         }
         case mem: Mem[_] => {
           ret ++= s"  type ${emitReference(mem)}_type is array (0 to ${mem.wordCount - 1}) of std_logic_vector(${mem.getWidth - 1} downto 0);\n"
           ret ++= emitSignal(mem, mem);
+          emitAttributes(mem, "signal", ret)
         }
         case _ =>
       }
+
+
+    }
+  }
+
+  def emitAttributes(node: Node, vhdlType: String, ret: StringBuilder): Unit = {
+    if (!node.isInstanceOf[AttributeReady]) return
+    val attributeReady = node.asInstanceOf[AttributeReady]
+
+    for (attribute <- attributeReady.attributes) {
+      val value = attribute match {
+        case attribute: AttributeString => "\"" + attribute.value + "\""
+        case attribute: AttributeFlag => "true"
+      }
+
+      ret ++= s"  attribute ${attribute.getName} of ${emitReference(node)}: signal is $value;\n"
     }
   }
 
@@ -685,7 +730,7 @@ class VhdlBackend extends Backend with VhdlBase {
   //  }
   //  }
   def emitSyncronous(component: Component, ret: StringBuilder): Unit = {
-   // ret ++= "  -- synchronous\n"
+    // ret ++= "  -- synchronous\n"
 
     val delayNodes = component.getDelays
 
@@ -699,11 +744,11 @@ class VhdlBackend extends Backend with VhdlBase {
       val arrayWithReset = ArrayBuffer[DelayNode]()
       val arrayWithoutReset = ArrayBuffer[DelayNode]()
 
-      for (delayNode <- array) delayNode match{
-        case reg : Reg =>{
-          if(reg.getInitialValue != reg) arrayWithReset += reg else arrayWithoutReset += reg
+      for (delayNode <- array) delayNode match {
+        case reg: Reg => {
+          if (reg.getInitialValue != reg) arrayWithReset += reg else arrayWithoutReset += reg
         }
-        case memWrite : MemWrite => arrayWithoutReset += memWrite
+        case memWrite: MemWrite => arrayWithoutReset += memWrite
       }
 
       emitClockDomain(true)
@@ -802,7 +847,7 @@ class VhdlBackend extends Backend with VhdlBase {
                 }
               }
             }
-            case memWrite: MemWrite =>{
+            case memWrite: MemWrite => {
               ret ++= s"${tab}if ${emitReference(memWrite.getEnable)} = '1' then\n"
               ret ++= s"$tab  ${emitReference(memWrite.getMem)}(to_integer(${emitReference(memWrite.getAddress)})) <= ${emitReference(memWrite.getData)};\n"
               ret ++= s"${tab}end if;\n"

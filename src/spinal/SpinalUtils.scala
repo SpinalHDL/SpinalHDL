@@ -69,11 +69,15 @@ object slave {
 
 }
 
+object Flow{
+  def apply[T <: Data](gen: T) = new Flow(gen)
+}
+
 class Flow[T <: Data](gen: T) extends Bundle with Interface {
   val valid = Bool()
   val data = gen.clone()
 
-  override def clone: this.type = new Flow(gen).asInstanceOf[this.type]
+  override def clone: this.type = Flow(gen).asInstanceOf[this.type]
 
   override def asMaster: Unit = asOutput
   override def asSlave: Unit = asInput
@@ -113,12 +117,17 @@ class Flow[T <: Data](gen: T) extends Bundle with Interface {
 
 }
 
+
+object Handshake{
+  def apply[T <: Data](gen: T) = new Handshake(gen)
+}
+
 class Handshake[T <: Data](gen: T) extends Bundle with Interface {
   val valid = Bool()
   val ready = Bool()
   val data = gen.clone()
 
-  override def clone: this.type = new Handshake(gen).asInstanceOf[this.type]
+  override def clone: this.type = Handshake(gen).asInstanceOf[this.type]
 
   override def asMaster: Unit = {
     valid.asOutput
@@ -132,15 +141,21 @@ class Handshake[T <: Data](gen: T) extends Bundle with Interface {
     data.asInput
   }
 
-  def <<(that: Handshake[T]): Unit = connectFrom(that)
+  def <<(that: Handshake[T]): Handshake[T] = connectFrom(that)
+  def <-<(that: Handshake[T]): Handshake[T] = this m2sPipeFrom that
+  def </<(that: Handshake[T]): Handshake[T] = this s2mPipeFrom that
+  def <-/<(that: Handshake[T]): Handshake[T] = {
+    this m2sPipeFrom (clone s2mPipeFrom that)
+  }
   def ~[T2 <: Data](that: T2): Handshake[T2] = translateWith(that)
   def &(cond: Bool): Handshake[T] = continueIf(cond)
 
 
-  def connectFrom(that: Handshake[T]): Unit = {
+  def connectFrom(that: Handshake[T]): Handshake[T] = {
     this.valid := that.valid
     that.ready := this.ready
     this.data := that.data
+    that
   }
 
   def m2sPipeFrom(that: Handshake[T]): Handshake[T] = {
@@ -156,7 +171,7 @@ class Handshake[T <: Data](gen: T) extends Bundle with Interface {
 
     this.valid := rValid
     this.data := rData
-    this
+    that
   }
 
   def s2mPipeFrom(that: Handshake[T]): Handshake[T] = {
@@ -175,7 +190,7 @@ class Handshake[T <: Data](gen: T) extends Bundle with Interface {
       rValid := that.valid
       rBits := that.data
     }
-    this
+    that
   }
 
   def translateWith[T2 <: Data](that: T2): Handshake[T2] = {

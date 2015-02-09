@@ -108,8 +108,8 @@ abstract class Node extends ContextUser {
 
 
 
-  var dontSimplify = false
-  def dontSimplifyIt : this.type = {dontSimplify = true; this}
+ // var dontSimplify = false
+  //def dontSimplifyIt : this.type = {dontSimplify = true; this}
 
 
   var instanceCounter = Node.getCounter

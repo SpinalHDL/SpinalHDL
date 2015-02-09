@@ -16,26 +16,37 @@
  * License along with this library.
  */
 
-
-
-
-class Stack[A] {
-  def push[B >: A](elem: B): Stack[B] = new Stack[B] {
-    override def top: B = elem
-    override def pop: Stack[B] = Stack.this
-    override def toString() = elem.toString() + " " +
-      Stack.this.toString()
+class A(val i : Int){
+  def >>(that : A): A ={
+    println(s"$i >> ${that.i}")
+    that
   }
-  def top: A = sys.error("no element on stack")
-  def pop: Stack[A] = sys.error("no element on stack")
-  override def toString() = ""
 }
-object VariancesTest extends App {
-  var s: Stack[Any] = new Stack().push("hello");
-  s = s.push(new Object())
-  s = s.push(7)
-  println(s)
-}
+
+def one = new A(1)
+def two = new A(2)
+def tree = new A(3)
+
+one >> two >> tree
+
+//
+//class Stack[A] {
+//  def push[B >: A](elem: B): Stack[B] = new Stack[B] {
+//    override def top: B = elem
+//    override def pop: Stack[B] = Stack.this
+//    override def toString() = elem.toString() + " " +
+//      Stack.this.toString()
+//  }
+//  def top: A = sys.error("no element on stack")
+//  def pop: Stack[A] = sys.error("no element on stack")
+//  override def toString() = ""
+//}
+//object VariancesTest extends App {
+//  var s: Stack[Any] = new Stack().push("hello");
+//  s = s.push(new Object())
+//  s = s.push(7)
+//  println(s)
+//}
 
 /*
 val myList = List[String]("a")

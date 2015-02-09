@@ -115,7 +115,7 @@ object Data {
   }
 }
 
-trait Data extends ContextUser with Nameable with Assignable {
+trait Data extends ContextUser with Nameable with Assignable with AttributeReady {
   type SSelf <: Data
 
   var dir: IODirection = null
@@ -146,14 +146,14 @@ trait Data extends ContextUser with Nameable with Assignable {
   def <>(that: SSelf): Unit = this autoConnect that
   def ===(that: SSelf): Bool = isEguals(that)
   def !==(that: SSelf): Bool = !isEguals(that)
-//  def :-(that: => SSelf): this.type = {
-//    val task = () => {
-//      this := that
-//    }
-//    component.postCreationTask += task
-//
-//    this
-//  }
+  //  def :-(that: => SSelf): this.type = {
+  //    val task = () => {
+  //      this := that
+  //    }
+  //    component.postCreationTask += task
+  //
+  //    this
+  //  }
 
   def ##(right: Data): Bits = this.toBits ## right.toBits
 
@@ -171,9 +171,17 @@ trait Data extends ContextUser with Nameable with Assignable {
     this
   }
 
-  //TODO test
-  def setRegInit(init : Data): Unit ={
-    if(!flatten.foldLeft(true)(_ && _._2.isReg)) SpinalError(s"Try to set initial value of a data that is not a register ($this)")
+  def dontSimplifyIt : this.type = {
+    flatten.foreach(_._2.dontSimplifyIt)
+    this
+  }
+
+  override def add(attribute: Attribute): Unit = {
+    flatten.foreach(_._2.add(attribute))
+  }
+
+  def setRegInit(init: Data): Unit = {
+    if (!flatten.foldLeft(true)(_ && _._2.isReg)) SpinalError(s"Try to set initial value of a data that is not a register ($this)")
     val regInit = clone()
     regInit := init
     for (((eName, e), (y, initElement)) <- (this.flatten, regInit.flatten).zipped) {

@@ -28,12 +28,11 @@ import scala.collection.mutable.ArrayBuffer
 
 object Reg {
   def apply[T <: Data](dataType: T, init: T = null.asInstanceOf[T]): T = {
-    val regOut = dataType.clone()
+    val regOut = dataType.clone().dontSimplifyIt
     val regInit = dataType.clone()
     if (init != null) regInit := init
     for (((eName, e), (y, initElement)) <- (regOut.flatten, regInit.flatten).zipped) {
       val reg = new Reg(e)
-      e.dontSimplifyIt
       e.inputs(0) = reg;
       if (initElement.inputs(0) != null && initElement.inputs(0).inputs(0) != null)
         reg.setInitialValue(initElement)
