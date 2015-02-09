@@ -195,7 +195,7 @@ object Try {
         is(v5 && v3) {
           res := v5 && v3
         }
-        is((!v1) :: (!v2) :: (!v3) :: Nil) {
+        is(!v1,!v2,!v3) {
           res := v5 && v5
         }
       }

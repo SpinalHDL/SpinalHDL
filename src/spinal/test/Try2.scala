@@ -62,20 +62,16 @@ object Try2 {
     }
 
 
+    val mem = new Mem(io.wrData, 1 << io.wrAddr.getWidth)
 
-    when(io.cond3) {
-      val mem = new Mem(io.wrData, 1 << io.wrAddr.getWidth)
-      when(io.cond0 && io.cond1) {
-        mem.write(io.wrAddr + UInt(1), io.wrData)
-      }
-      val tmp = mem.read(io.rdAddr + UInt(2))
-      io.rdData := tmp
-      tmp.setName("hallo")
-      tmp.add(new AttributeString("myAttribut","hallo"))
-      tmp.add(new AttributeFlag("yolo"))
-    }otherwise {
-      io.rdData := io.wrData
+    when(io.cond0 && io.cond1) {
+      mem.write(io.wrAddr + UInt(1), io.wrData)
     }
+    val tmp = RegNext(mem.read(io.rdAddr + UInt(2)))
+    io.rdData := tmp
+    tmp.add(new AttributeString("myAttribut", "hallo"))
+    tmp.add(new AttributeFlag("yolo"))
+
   }
 
 

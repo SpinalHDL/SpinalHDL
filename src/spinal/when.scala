@@ -48,10 +48,10 @@ object when {
     stack.pop(w)
   }
 
-  def getWhensCond(that : ContextUser): Bool = {
-    val whenScope = if(that == null) null else that.whenScope
+  def getWhensCond(that: ContextUser): Bool = {
+    val whenScope = if (that == null) null else that.whenScope
 
-    var ret : Bool = null
+    var ret: Bool = null
     for (w <- when.stack.stack) {
       if (w == whenScope) return returnFunc
       val newCond = (if (w.isTrue) w.cond else !w.cond)
@@ -63,7 +63,7 @@ object when {
     }
 
 
-    def returnFunc = if(ret == null) Bool(true) else ret
+    def returnFunc = if (ret == null) Bool(true) else ret
 
     returnFunc
   }
@@ -123,10 +123,10 @@ object switch {
 
 
 object is {
-  def apply[T <: Data](value: T)(block: => Unit): Unit = {
-    is(value :: Nil)(block)
-  }
+  def apply[T <: Data](value: T)(block: => Unit): Unit = is(value :: Nil)(block)
 
+  def apply[T <: Data](value: T, values: T*)(block: => Unit): Unit = is(value :: values.toList)(block)
+  //TODO bether mlitple arguments
   def apply[T <: Data](keys: Iterable[T])(block: => Unit): Unit = {
     if (switch.stack.isEmpty) SpinalError("Use 'is' statement outside the 'switch'")
     if (keys.isEmpty) SpinalError("There is no key in 'is' statement")
