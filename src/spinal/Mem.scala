@@ -75,14 +75,14 @@ object MemWrite {
   def getEnableId: Int = 5
 }
 
-class MemWrite(mem: Mem[_], address: UInt, data: Bits, enable: Bool, clockDomain: ClockDomain = ClockDomain.current) extends DelayNode(clockDomain, false) {
+class MemWrite(mem: Mem[_], address: UInt, data: Bits, enable: Bool, clockDomain: ClockDomain = ClockDomain.current) extends DelayNode(clockDomain) {
   inputs += address
   inputs += data
   inputs += enable
 
 
   override def getSynchronousInputs: ArrayBuffer[Node] = super.getSynchronousInputs ++= getAddress :: getData :: getEnable :: Nil
-
+  override def isUsingReset: Boolean = false
 
   def getMem = mem
   def getAddress = inputs(MemWrite.getAddressId)

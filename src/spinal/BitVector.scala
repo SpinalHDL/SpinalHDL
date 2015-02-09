@@ -85,13 +85,29 @@ abstract class BitVector extends BaseType {
     bool.setInput(extract)
     bool
   }
-  //extract bits
-  def apply(offset: Int,bitCount: Int): Bits = {
-    val extract = ExtractBitsVector(this, bitCount+offset-1, offset)
+
+  def apply(hi: Int,lo: Int): Bits = {
+    val extract = ExtractBitsVector(this, hi,lo)
     val bits = new Bits()
     bits.setInput(extract)
     bits
   }
+
+  //extract bits     that(5,7 bit)
+  def apply(offset: Int,bitCount: BitCount): Bits = {
+    val extract = ExtractBitsVector(this, bitCount.value+offset-1, offset)
+    val bits = new Bits()
+    bits.setInput(extract)
+    bits
+  }
+
+  //bits(offset + width + index*step downto offset + index*step)
+//  def apply(offset: Int,bitCount: BitCount): Bits = {
+//    val bits = new Bits()
+//    bits.setInput(???)
+//    bits
+//  }
+
 
   //TODO UInt extract
 //  def apply(offset: UInt,bitCount: UInt): Bits = {

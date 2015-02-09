@@ -87,17 +87,18 @@ object DelayNode{
   def getClockResetId: Int = 2
 }
 
-abstract class DelayNode(clockDomain: ClockDomain = ClockDomain.current,useReset : Boolean) extends Node {
+abstract class DelayNode(clockDomain: ClockDomain = ClockDomain.current) extends Node {
   inputs += clockDomain.clock
   inputs += clockDomain.clockEnable
-  inputs += (if(useReset) clockDomain.reset else Bool(!clockDomain.resetActiveHigh))
+  inputs += Bool(!clockDomain.resetActiveHigh)
 
   def getSynchronousInputs = ArrayBuffer[Node](getClock,getClockEnable) ++= (if(clockDomain.resetKind != ASYNC) getResetStyleInputs else Nil)
   def getAsynchronousInputs = ArrayBuffer[Node] () ++= (if(clockDomain.resetKind == ASYNC) getResetStyleInputs else Nil)
 
   def getResetStyleInputs = ArrayBuffer[Node](getReset)
 
-  def isUsingReset : Boolean = useReset
+  def isUsingReset : Boolean
+  def setUseReset = inputs(DelayNode.getClockResetId) = clockDomain.reset
   def getClockDomain: ClockDomain = clockDomain
 
   def getClock: Bool = inputs(DelayNode.getClockInputId).asInstanceOf[Bool]

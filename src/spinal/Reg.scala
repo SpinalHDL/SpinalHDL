@@ -27,20 +27,20 @@ import scala.collection.mutable.ArrayBuffer
 
 
 object Reg {
-  def apply[T <: Data](dataType: T, init: T = null): T = {
+  def apply[T <: Data](dataType: T, init: T = null.asInstanceOf[T]): T = {
     val regOut = dataType.clone()
     val regInit = dataType.clone()
     if (init != null) regInit := init
     for (((eName, e), (y, initElement)) <- (regOut.flatten, regInit.flatten).zipped) {
-      val useReset = initElement.inputs(0) != null && initElement.inputs(0).inputs(0) != null
-      val reg = new Reg(e,useReset)
+      val reg = new Reg(e)
       e.dontSimplifyIt
       e.inputs(0) = reg;
-      if(useReset)
+      if (initElement.inputs(0) != null && initElement.inputs(0).inputs(0) != null)
         reg.setInitialValue(initElement)
       e.compositeAssign = reg
     }
 
+    if (init != null) regOut.setRegInit(init)
     regOut
   }
 }
@@ -59,24 +59,29 @@ object RegInit {
     Reg(init, init)
   }
 }
-object RegS{
+
+object RegS {
   def getDataInputId: Int = 3
   def getInitialValueId: Int = 4
 }
 
-class Reg(val output: BaseType,useReset : Boolean, clockDomain: ClockDomain = ClockDomain.current) extends DelayNode(clockDomain,useReset) with Assignable {
+class Reg(val output: BaseType, clockDomain: ClockDomain = ClockDomain.current) extends DelayNode(clockDomain) with Assignable {
   inputs += this
   inputs += this
 
 
+  override def isUsingReset: Boolean = getInitialValue != this
   override def getSynchronousInputs: ArrayBuffer[Node] = super.getSynchronousInputs += getDataInput
   override def getResetStyleInputs: ArrayBuffer[Node] = super.getResetStyleInputs += getInitialValue
 
   def getDataInput: Node = inputs(RegS.getDataInputId)
   def getInitialValue: Node = inputs(RegS.getInitialValueId)
 
-  def setDataInput(that : Node): Unit = inputs(RegS.getDataInputId) = that
-  def setInitialValue(that : Node): Unit = inputs(RegS.getInitialValueId) = that
+  def setDataInput(that: Node): Unit = inputs(RegS.getDataInputId) = that
+  def setInitialValue(that: Node): Unit = {
+    inputs(RegS.getInitialValueId) = that
+    setUseReset
+  }
 
 
   def calcWidth = WidthInfer.regImpl(this)
@@ -91,7 +96,7 @@ class Reg(val output: BaseType,useReset : Boolean, clockDomain: ClockDomain = Cl
   override def assignFrom(that: Data): Unit = {
     that match {
       case that: BaseType => {
-        BaseType.assignFrom(output, this,RegS.getDataInputId, that)
+        BaseType.assignFrom(output, this, RegS.getDataInputId, that)
       }
       case _ => throw new Exception("Undefined assignement")
     }

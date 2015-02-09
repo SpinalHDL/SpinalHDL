@@ -49,6 +49,12 @@ object Try3 {
     val io = new Bundle {
       val inRegBundle = in(new BundleAA())
       val outRegBundle = out(new BundleAA())
+
+      val slaveFlow = slave(new Flow(new BundleA))
+      val masterFlow = master(new Flow(new BundleA))
+
+      val slaveHandshake = slave(new Handshake(new BundleA))
+      val masterHandshake = master(new Handshake(new BundleA))
     }
     {
       var regBundleInit = io.inRegBundle.clone()
@@ -60,6 +66,9 @@ object Try3 {
       io.outRegBundle := regBundle
     }
 
+
+    io.masterFlow <-< io.slaveFlow
+    io.masterHandshake.m2sPipeFrom(io.slaveHandshake)
 //    val uC = u
 //    val uCf = uC.getDeclaredFields
 //    println("**")

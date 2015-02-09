@@ -415,6 +415,7 @@ object Try {
     regBundleInit.e := MyEnum.s1
 
     var regBundle = RegInit(regBundleInit)
+    regBundle.d.setRegInit(Bool(false))
     regBundle := io.inRegBundle
     io.outRegBundle := regBundle
 
@@ -448,11 +449,11 @@ object Try {
     // io.masterHandshake :== io.slaveHandshake
     io.outVecU := io.inVecU
 
-    io.masterHandshakeSInt << (io.slaveHandshakeUInt ~ io.slaveHandshakeUInt.toBits.toSInt)
+    io.masterHandshakeSInt connectFrom (io.slaveHandshakeUInt translateWith io.slaveHandshakeUInt.toBits.toSInt)
 
-    io.masterHandshake << io.slaveHandshake
-    io.masterHandshakeThrow << io.slaveHandshake.throwIf(io.cond1)
-    io.masterHandshakeUInt << (io.slaveHandshake ~ UInt(3))
+    io.masterHandshake connectFrom io.slaveHandshake
+    io.masterHandshakeThrow connectFrom io.slaveHandshake.throwIf(io.cond1)
+    io.masterHandshakeUInt connectFrom (io.slaveHandshake translateWith UInt(3))
     //io.masterHandshakeUInt.bits := UInt(2)
     //var myInt = WeekDay.c
     // myInt := WeekDay.Mon

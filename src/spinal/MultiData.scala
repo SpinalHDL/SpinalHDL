@@ -22,7 +22,6 @@ package spinal
 import scala.collection.mutable.ArrayBuffer
 
 
-
 import ImportMe._
 
 abstract class MultiData extends Data {
@@ -88,7 +87,7 @@ abstract class MultiData extends Data {
     var offset = 0
     for ((n, e) <- flatten.reverse) {
       val width = e.getWidth
-      e.fromBits(bits(offset, width))
+      e.fromBits(bits(offset, width bit))
       offset = offset + width
     }
   }

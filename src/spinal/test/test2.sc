@@ -19,30 +19,24 @@
 
 
 
-object ImportMe{
-  implicit class BitCount(value : Int){
-    def bit : BitCount = this
+class Stack[A] {
+  def push[B >: A](elem: B): Stack[B] = new Stack[B] {
+    override def top: B = elem
+    override def pop: Stack[B] = Stack.this
+    override def toString() = elem.toString() + " " +
+      Stack.this.toString()
   }
+  def top: A = sys.error("no element on stack")
+  def pop: Stack[A] = sys.error("no element on stack")
+  override def toString() = ""
+}
+object VariancesTest extends App {
+  var s: Stack[Any] = new Stack().push("hello");
+  s = s.push(new Object())
+  s = s.push(7)
+  println(s)
 }
 
-import ImportMe._
-
-def f1(value : BitCount) = {
-
-}
-
-
-f1(3 bit)
-def getIndex[T, CC](seq: CC, value: T)(implicit conv: CC => Seq[T]) = seq.indexOf(value)
-
-getIndex("abc", 'a')
-
-
-object Obj1{
-  import spinal._
-  import spinal.IntBuilder._
-  Bits(3 bit)
-}
 /*
 val myList = List[String]("a")
 
