@@ -126,7 +126,7 @@ object is {
   def apply[T <: Data](value: T)(block: => Unit): Unit = is(value :: Nil)(block)
 
   def apply[T <: Data](value: T, values: T*)(block: => Unit): Unit = is(value :: values.toList)(block)
-  //TODO bether mlitple arguments
+
   def apply[T <: Data](keys: Iterable[T])(block: => Unit): Unit = {
     if (switch.stack.isEmpty) SpinalError("Use 'is' statement outside the 'switch'")
     if (keys.isEmpty) SpinalError("There is no key in 'is' statement")
