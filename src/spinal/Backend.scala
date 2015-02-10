@@ -126,6 +126,7 @@ class Backend {
     pullClockDomains
     check_noNull_noCrossHierarchy_noInputRegister
     addInOutBinding
+    allowNodesToReadOutputs
     allowNodesToReadInputOfKindComponent
 
 
@@ -157,8 +158,8 @@ class Backend {
     simplifyBlackBoxIoNames
 
     //Finalise
-    addNodeIntoComponent
-    removeEmptyComponent
+    addNodeIntoComponent_removeEmptyComponent
+  //  removeEmptyComponent
     allocateNames
 
     printStates
@@ -373,7 +374,7 @@ class Backend {
     walkNodes(walker_matchWidth)
   }
   def addInOutBinding: Unit = {
-    walkNodes(walker_addBinding)
+    walkNodes(walker_addInOutBinding)
   }
 
   /*
@@ -551,6 +552,29 @@ class Backend {
     }
   }
 
+
+  def allowNodesToReadOutputs : Unit = {
+    val outputsBuffers = mutable.Map[BaseType, BaseType]()
+    walkNodes2(node => {
+      for (i <- 0 until node.inputs.size) {
+       node.inputs(i) match {
+          case baseTypeInput: BaseType => {
+            if (baseTypeInput.isOutput && baseTypeInput.component.parent != node.component ) {
+              val buffer = outputsBuffers.getOrElseUpdate(baseTypeInput, {
+                val buffer = baseTypeInput.clone()
+                buffer.inputs(0) = baseTypeInput.inputs(0)
+                baseTypeInput.inputs(0) = buffer
+                buffer.component = baseTypeInput.component
+                buffer
+              })
+              node.inputs(i) = buffer
+            }
+          }
+          case _ =>
+        }
+      }
+    })
+  }
 
   def allowNodesToReadInputOfKindComponent = {
     walkNodes2(node => {
@@ -746,8 +770,7 @@ class Backend {
   }
 
 
-
-  def walker_addBinding(node: Node, stack: mutable.Stack[Node]): Unit = {
+  def walker_addInOutBinding(node: Node, stack: mutable.Stack[Node]): Unit = {
     if (node.isInstanceOf[BaseType] && node.component.parent != null) {
       val baseType = node.asInstanceOf[BaseType]
       if (baseType.isInput) {
@@ -779,25 +802,6 @@ class Backend {
 
             node.inputs(i) = bind
           }
-
-          //TODO redo by clone output node and move connection to it
-          val walkSet = mutable.Set[Node]()
-          node.inputs(i) = getFirstReadableNode(node.inputs(i), node.component)
-          def getFirstReadableNode(node: Node, component: Component): Node = {
-            if (walkSet.contains(node)) SpinalError(s"Combinational loop at $node")
-            walkSet += node
-            node match {
-              case baseType: BaseType => {
-                if (baseType.isIo && baseType.isOutput && baseType.component == component) {
-                  getFirstReadableNode(baseType.inputs(0), component)
-                } else {
-                  baseType
-                }
-              }
-              case n: Node => n
-            }
-          }
-
         }
         case _ =>
       }
@@ -805,13 +809,14 @@ class Backend {
 
   }
 
-  def addNodeIntoComponent: Unit = {
+  def addNodeIntoComponent_removeEmptyComponent: Unit = {
     walkNodes2(node => {
       val comp = node.component
       if (comp.nodes == null) comp.nodes = new ArrayBuffer[Node]
       comp.nodes += node
     })
 
+    removeEmptyComponent
 
     for (c <- components) {
       c.nodes = c.nodes.sortWith(_.instanceCounter < _.instanceCounter)

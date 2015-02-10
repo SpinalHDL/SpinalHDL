@@ -75,8 +75,7 @@ object Try2 {
     }
     val componentAA = Component(new ComponentAA)
     componentAA.io.input := io.input
-    io.output := componentAA.io.output
-
+    io.output := RegNext(io.output)
 
     val mem = new Mem(io.wrData, 1 << io.wrAddr.getWidth)
 
