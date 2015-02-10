@@ -178,59 +178,59 @@ class Backend {
   }
 
 
-//  def notifyNodes(phase: BackendPhase) : Unit = {
-//    walkNodes2(node => node.notify(phase))
-//  }
+  //  def notifyNodes(phase: BackendPhase) : Unit = {
+  //    walkNodes2(node => node.notify(phase))
+  //  }
 
   //TODO  better
-  def remplaceMemByBlackBox : Unit = {
-    class MemTopo(val mem : Mem[_]){
+  def remplaceMemByBlackBox: Unit = {
+    class MemTopo(val mem: Mem[_]) {
       val writes = ArrayBuffer[MemWrite]()
       val readsAsync = ArrayBuffer[MemReadAsync]()
       val readsSync = ArrayBuffer[MemReadSync]()
     }
-    val memsTopo = mutable.Map[Mem[_],MemTopo]()
+    val memsTopo = mutable.Map[Mem[_], MemTopo]()
 
-    def topoOf(mem : Mem[_]) = memsTopo.getOrElseUpdate(mem,new MemTopo(mem))
+    def topoOf(mem: Mem[_]) = memsTopo.getOrElseUpdate(mem, new MemTopo(mem))
 
-    walkNodes2(node => node match{
-      case write : MemWrite => topoOf(write.getMem).writes += write
-      case readAsync : MemReadAsync => topoOf(readAsync.getMem).readsAsync += readAsync
-      case readSync : MemReadSync => topoOf(readSync.getMem).readsSync += readSync
+    walkNodes2(node => node match {
+      case write: MemWrite => topoOf(write.getMem).writes += write
+      case readAsync: MemReadAsync => topoOf(readAsync.getMem).readsAsync += readAsync
+      case readSync: MemReadSync => topoOf(readSync.getMem).readsSync += readSync
       case _ =>
     })
 
 
 
-    for((mem,topo) <- memsTopo.iterator){
-      if(topo.writes.size == 1 && topo.readsAsync.size == 1 && topo.readsSync.size == 0){
+    for ((mem, topo) <- memsTopo.iterator) {
+      if (topo.writes.size == 1 && topo.readsAsync.size == 1 && topo.readsSync.size == 0) {
         Component.push(mem.component)
-        val ram = Component(new Ram_1c_1w_1ra(mem.getWidth,mem.wordCount))
+        val ram = Component(new Ram_1c_1w_1ra(mem.getWidth, mem.wordCount))
         val wr = topo.writes(0)
         val rd = topo.readsAsync(0)
 
-        ram.io.wr.en := wr.getEnable
-        ram.io.wr.addr := wr.getAddress
-        ram.io.wr.data := wr.getData
+        ram.io.wr.en := wr.getEnable.allowSimplifyIt
+        ram.io.wr.addr := wr.getAddress.allowSimplifyIt
+        ram.io.wr.data := wr.getData.allowSimplifyIt
 
-        ram.io.rd.addr := rd.getAddress
-        rd.getData := ram.io.rd.data
+        ram.io.rd.addr := rd.getAddress.allowSimplifyIt
+        rd.getData.allowSimplifyIt := ram.io.rd.data
 
         ram.setCompositeName(mem)
         Component.pop(mem.component)
-      } else if(topo.writes.size == 1 && topo.readsAsync.size == 0 && topo.readsSync.size == 1){
+      } else if (topo.writes.size == 1 && topo.readsAsync.size == 0 && topo.readsSync.size == 1) {
         Component.push(mem.component)
-        val ram = Component(new Ram_1c_1w_1rs(mem.getWidth,mem.wordCount))
+        val ram = Component(new Ram_1c_1w_1rs(mem.getWidth, mem.wordCount))
         val wr = topo.writes(0)
         val rd = topo.readsSync(0)
 
-        ram.io.wr.en := wr.getEnable
-        ram.io.wr.addr := wr.getAddress
-        ram.io.wr.data := wr.getData
+        ram.io.wr.en := wr.getEnable.allowSimplifyIt
+        ram.io.wr.addr := wr.getAddress.allowSimplifyIt
+        ram.io.wr.data := wr.getData.allowSimplifyIt
 
-        ram.io.rd.en := rd.getEnable
-        ram.io.rd.addr := rd.getAddress
-        rd.getData := ram.io.rd.data
+        ram.io.rd.en := rd.getEnable.allowSimplifyIt
+        ram.io.rd.addr := rd.getAddress.allowSimplifyIt
+        rd.getData.allowSimplifyIt := ram.io.rd.data
 
         ram.setCompositeName(mem)
         Component.pop(mem.component)
@@ -245,9 +245,10 @@ class Backend {
     SpinalInfo(s"Graph has $counter nodes")
   }
 
+
   def nameBinding: Unit = {
     for (c <- components) {
-      for ((bindedOut, bind) <- c.outBindingHosted) {
+      for ((bindedOut, bind) <- c.kindsOutputsToBindings) {
         if (bindedOut.component.isNamed && bindedOut.isNamed) {
           bind.setWeakName(bindedOut.component.getName() + "_" + bindedOut.getName())
         }
@@ -653,22 +654,6 @@ class Backend {
 
         delayNode.getSynchronousInputs.foreach(addPendingNode(_))
         delayNode.getAsynchronousInputs.foreach(walk(_))
-
-
-        //      if (node.isInstanceOf[Reg]) {
-        //        val reg = node.asInstanceOf[Reg]
-        //        walkedNodes += node
-        //        addPendingNode(reg.getDataInput)
-        //        addPendingNode(reg.getClock)
-        //        addPendingNode(reg.getClockEnable)
-        //        if (reg.getClockDomain.resetKind == ASYNC) {
-        //          walk(reg.getReset)
-        //          walk(reg.getInitialValue)
-        //        } else {
-        //          addPendingNode(reg.getReset)
-        //          addPendingNode(reg.getInitialValue)
-        //        }
-
       } else {
         if (localNodes.contains(node)) {
           val it = stack.iterator
@@ -761,47 +746,16 @@ class Backend {
   }
 
 
-  /*
-      def addOutputsBinding: Unit = {
-        for (component <- components) {
-          Component.push(component)
-          for (kind <- component.kinds) {
-            for (output <- kind.getNodeIo if output.isOutput) {
-              val outBind = OutBinding(nodeInput, node.component)
-              node.inputs(i) = outBind
-            }
-          }
-          Component.pop(component)
-        }
-
-
-        /*
-              walkNodes2(node => {
-                node match {*/
-      }*/
 
   def walker_addBinding(node: Node, stack: mutable.Stack[Node]): Unit = {
-
-
     if (node.isInstanceOf[BaseType] && node.component.parent != null) {
       val baseType = node.asInstanceOf[BaseType]
       if (baseType.isInput) {
-        baseType.inputs(0) match {
-          case input: Reg =>
-          case input: BaseType => {
-            input.dontSimplifyIt
-            //   if(input.isUnnamed) input.setName(baseType.component.getName() + "_" + baseType.getName())
-          }
-          case _ => {
-            val inBinding = baseType.clone
-            inBinding.inputs(0) = baseType.inputs(0)
-            baseType.inputs(0) = inBinding
-            inBinding.dontSimplifyIt
-            inBinding.component = node.component.parent
-            //inBinding.setName(baseType.component.getName() + "_" + baseType.getName())
-          }
-        }
-
+        val inBinding = baseType.clone //To be sure that there is no need of resize between it and node
+        inBinding.inputs(0) = baseType.inputs(0)
+        baseType.inputs(0) = inBinding
+        inBinding.dontSimplifyIt
+        inBinding.component = node.component.parent
       }
     }
 
@@ -812,16 +766,25 @@ class Backend {
       nodeInput match {
         case nodeInput: BaseType => {
           if (nodeInput.isIo && nodeInput.isOutput && (nodeInput.component.parent == node.component || (nodeInput.component.parent == node.component.parent && nodeInput.component != node.component))) {
-            val outBind = OutBinding(nodeInput, nodeInput.component.parent)
-            node.inputs(i) = outBind
+            val into = nodeInput.component.parent
+            val bind = into.kindsOutputsToBindings.getOrElseUpdate(nodeInput, {
+              val bind = nodeInput.clone
+              into.kindsOutputsToBindings.put(nodeInput, bind)
+              into.kindsOutputsBindings += bind
+              bind.component = into
+              bind.inputs(0) = nodeInput
+              bind.dontSimplifyIt
+              bind
+            })
+
+            node.inputs(i) = bind
           }
 
+          //TODO redo by clone output node and move connection to it
           val walkSet = mutable.Set[Node]()
-
           node.inputs(i) = getFirstReadableNode(node.inputs(i), node.component)
-
           def getFirstReadableNode(node: Node, component: Component): Node = {
-            if(walkSet.contains(node)) SpinalError(s"Combinational loop at $node")
+            if (walkSet.contains(node)) SpinalError(s"Combinational loop at $node")
             walkSet += node
             node match {
               case baseType: BaseType => {

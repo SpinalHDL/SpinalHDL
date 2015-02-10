@@ -516,10 +516,10 @@ class VhdlBackend extends Backend with VhdlBase {
 
           emitAttributes(signal, "signal", ret)
         }
-        case outBinding: OutBinding => {
-          ret ++= emitSignal(outBinding, outBinding.out);
-          emitAttributes(outBinding, "signal", ret)
-        }
+//        case outBinding: OutBinding => {
+//          ret ++= emitSignal(outBinding, outBinding.out);
+//          emitAttributes(outBinding, "signal", ret)
+//        }
         case mem: Mem[_] => {
           ret ++= s"  type ${emitReference(mem)}_type is array (0 to ${mem.wordCount - 1}) of std_logic_vector(${mem.getWidth - 1} downto 0);\n"
           ret ++= emitSignal(mem, mem);
@@ -551,7 +551,7 @@ class VhdlBackend extends Backend with VhdlBase {
       node match {
         case signal: BaseType => {
           if (!signal.isDelay)
-            if (!signal.isIo || !signal.isInput)
+            if (!((signal.isIo && signal.isInput) || component.kindsOutputsBindings.contains(signal)))
               ret ++= s"  ${emitReference(signal)} <= ${emitLogic(signal.inputs(0))};\n"
         }
         case _ =>
@@ -699,7 +699,7 @@ class VhdlBackend extends Backend with VhdlBase {
 
   def emitLogic(node: Node): String = node match {
     case baseType: BaseType => emitReference(baseType)
-    case outBinding: OutBinding => emitReference(outBinding)
+//    case outBinding: OutBinding => emitReference(outBinding)
     case lit: BitsLiteral => lit.kind match {
       case _: Bits => s"pkg_stdLogicVector(X${'\"'}${lit.value.toString(16)}${'\"'},${lit.getWidth})"
       case _: UInt => s"pkg_unsigned(X${'\"'}${lit.value.toString(16)}${'\"'},${lit.getWidth})"
@@ -925,9 +925,9 @@ class VhdlBackend extends Backend with VhdlBase {
       ret ++= s"    port map (\n"
       for (data <- kind.getNodeIo) {
         if (data.isOutput) {
-          val bind = component.findBinding(data)
+          val bind = component.kindsOutputsToBindings.getOrElse(data,null)
           if (bind != null) {
-            ret ++= s"      ${emitReference(data)} => ${emitReference(component.findBinding(data))},\n"
+            ret ++= s"      ${emitReference(data)} => ${emitReference(bind)},\n"
           }
         }
         else if (data.isInput)

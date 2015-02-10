@@ -19,19 +19,19 @@
 package spinal
 
 
-object OutBinding  {
-  def apply(out: BaseType, into: Component /*,from : Component*/): OutBinding = {
-    var bind = into.findBinding(out)
-    if (bind != null) return bind
-    bind = new OutBinding(out)
-    into.outBindingHosted.put(out,bind)
-    bind.inputs += out
-    bind.component = into
-    bind
-  }
-}
-
-
-class OutBinding(val out: BaseType) extends Node with Nameable {
-  override def calcWidth : Int = WidthInfer.inputMaxWidthl(this)
-}
+//object OutBinding  {
+//  def apply(out: BaseType, into: Component /*,from : Component*/): OutBinding = {
+//    var bind = into.findBinding(out)
+//    if (bind != null) return bind
+//    bind = new OutBinding(out)
+//    into.outBindingHosted.put(out,bind)
+//    bind.inputs += out
+//    bind.component = into
+//    bind
+//  }
+//}
+//
+//
+//class OutBinding(val out: BaseType) extends Node with Nameable {
+//  override def calcWidth : Int = WidthInfer.inputMaxWidthl(this)
+//}

@@ -47,10 +47,10 @@ object Try2 {
 
   class ComponentAA extends Component {
     val io = new Bundle {
-      val input = in UInt (9 bit)
-      val output = out UInt (9 bit)
+      val input = in UInt (5 bit)
+      val output = out UInt (8 bit)
     }
-    val temp = in UInt (9 bit)
+    val temp = in UInt (7 bit)
     temp := io.input
     io.output := temp
   }

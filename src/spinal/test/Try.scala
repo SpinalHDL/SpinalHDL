@@ -513,6 +513,10 @@ object Try {
     keepMePlease.keep
 
 
+    val componentAA = Component(new ComponentAA)
+    componentAA.io.in := io.cond0 && io.cond0
+    io.outBool := componentAA.io.out && io.inUIntA(4)
+
     val blackBoxA = Component(new MyBlackBox)
     val blackBoxB = Component(new MyBlackBox)
 
@@ -525,174 +529,8 @@ object Try {
     io.outUIntA := blackBoxB.io.outUIntA + blackBoxB.io.outUIntA + blackBoxB.io.outUIntA
 
 
-    val componentAA = Component(new ComponentAA)
-    componentAA.io.in := io.cond0 && io.cond0
-    io.outBool := componentAA.io.out && io.inUIntA(4)
-    /*when(io.cond0){
-      componentAA.io.in := io.cond0
-    }otherwise{
-      componentAA.io.in := RegNext(componentAA.io.in)
-    }
-    io.outBool := componentAA.io.out && io.inUIntA(4)*/
-    /* io.outBool := componentAA.io.out
 
 
-         val temp = Reg(io.inBundle0,io.inBundle3)
-         when(!io.cond0) {
-           temp := io.inBundle1
-           when(io.cond1) {
-             temp := io.inBundle2
-           }
-         }
-
-         io.outBundle := temp*/
-
-    //  io.outBool := Bool(true)
-
-    nameElements()
-
-    /*
-        val temp = Reg(new VecA)
-
-        temp := io.inVec
-        io.outVec := temp
-        temp(io.a) := io.inBundle3
-        //temp(io.b).c := UInt(3)(1)
-
-        io.outBundle := io.inVec(io.b)*/
-
-    /*io.outVec := io.inVec
-    io.out := io.inVec(io.a)
-    io.out2 := io.inVec(io.a)
-    io.outVec(1) := io.a*/
-
-    /*   val bundleReg = Reg(io.outBundle)
-       when(io.cond0) {
-         bundleReg := Mux(io.cond0,io.inBundle0,io.inBundle1)
-       } otherwise {
-         bundleReg := io.inBundle2
-       }
-       io.outBundle := bundleReg*/
-
-
-    // io.outBundle := Mux(io.cond0,io.inBundle0,io.inBundle1)
-
-    //io.outBits := (io.a >> io.b).resize(8).toBits
-    //io.outBits := UInt(2,8).toBits
-    /*  val uintTemp = new UInt()
-      uintTemp := UInt(3)
-      when(io.a < io.b) {
-
-        when(io.a(1) && io.b(io.c)) {
-          uintTemp := UInt(2)
-        } otherwise {
-
-        }
-      } otherwise {
-        uintTemp := UInt(4)
-      }
-      io.outBits :=  uintTemp.toBits*/
-    // io.outBits := io.a(io.c,io.b)
-
-    /*
-        io.outBool := io.a < io.b
-
-
-        val out = Reg(io.out)
-        val out2 = Reg(io.out2)
-        out.inputs(0).inputs(4) = io.d + io.d
-        //out2.inputs(0).inputs(4) = io.d - io.d
-
-        //  out := io.a + io.b + io.out
-        when(io.a < io.b) {
-          when(io.a(1) && io.b(io.c)) {
-            when(io.cond4) {
-              out := io.inBundleA ## io.cond1 ## io.cond0;
-            } otherwise {
-              out := io.a + io.b
-              out2 := io.c
-            }
-          }
-        }
-
-        io.out := out
-        io.out2 := out2*/
-
-    /*
-        io.outSInt := io.out.toSInt
-        val out = Reg(io.out)
-        when(io.cond3) {
-          when(io.cond4) {
-            out := io.inBundleA ## io.cond2 ## io.cond1 ## io.cond0;
-          } otherwise {
-            out := io.a.resize(5)
-          }
-        }
-        io.out := out
-
-        io.outCat := io.inBundleA.toBits*/
-
-
-    /*
-        when(io.a > io.b) {
-          io.out := UInt(3,5)
-        }otherwise {
-          io.out := io.d
-        }
-        io.outSInt := io.out.toSInt*/
-
-    /*AA.io.in := io.in
-    AB.io.in := io.in
-    when(AA.io.out) {
-      io.out := io.a
-    } otherwise {
-      io.out := io.b
-    }
-
-    io.outSInt := io.out.toSInt*/
-
-
-    /*
-        val pulledAAA = AA.AAA.temp.pull
-
-        val r0 = Reg(io.default);
-
-        when(io.cond0) {
-          when(io.cond1 && pulledAAA) {
-            when(io.cond2) {
-              r0 := io.a;
-            }
-            when(io.cond3) {
-              r0 := io.b;
-            }
-          }
-        }.otherwise {
-          when(io.cond4) {
-            r0 := io.c;
-          }
-        }
-        io.out := r0*/
-
-    /* when(io.cond0) {
-       when(io.cond1) {
-         when(io.cond2) {
-           io.out := io.a;
-         }
-         when(io.cond3) {
-           io.out := io.b;
-         }
-       }
-     }.otherwise {
-       when(io.cond4) {
-         io.out := io.c;
-       }
-     }*/
-
-
-    //io.out := Mux(io.sel,io.a,io.b)
-
-
-    // ClockDomain.pop(clk)
 
   }
 

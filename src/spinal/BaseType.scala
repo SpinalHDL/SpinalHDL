@@ -68,6 +68,7 @@ abstract class BaseType extends Node with Data with Nameable {
 
   var dontSimplify = false
   override def dontSimplifyIt : this.type = {dontSimplify = true; this}
+  override def allowSimplifyIt : this.type = {dontSimplify = false; this}
 
   var compositeAssign: Assignable = null
 

@@ -175,6 +175,10 @@ trait Data extends ContextUser with Nameable with Assignable with AttributeReady
     flatten.foreach(_._2.dontSimplifyIt)
     this
   }
+  def allowSimplifyIt : this.type = {
+    flatten.foreach(_._2.allowSimplifyIt)
+    this
+  }
 
   override def add(attribute: Attribute): Unit = {
     flatten.foreach(_._2.add(attribute))

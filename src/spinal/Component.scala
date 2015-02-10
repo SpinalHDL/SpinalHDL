@@ -62,7 +62,8 @@ abstract class Component extends Nameable {
   def io: Data
 
   val postCreationTask = mutable.ArrayBuffer[() => Unit]()
-  var outBindingHosted = mutable.Map[BaseType, OutBinding]()
+  val kindsOutputsToBindings = mutable.Map[BaseType, BaseType]()
+  val kindsOutputsBindings = mutable.Set[BaseType]()
   val additionalNodesRoot = mutable.Set[BaseType]()
   var definitionName = ""
   val level = Component.stack.size()
@@ -163,9 +164,9 @@ abstract class Component extends Nameable {
     delays
   }
 
-  def findBinding(baseType: BaseType): OutBinding = {
-    outBindingHosted.getOrElse(baseType, null)
-  }
+//  def findBinding(baseType: BaseType): BaseType = {
+//    outBindingHosted.getOrElse(baseType, null)
+//  }
 
 
   def endComponent = Component.pop(this)
