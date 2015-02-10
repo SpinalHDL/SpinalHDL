@@ -550,7 +550,7 @@ class VhdlBackend extends Backend with VhdlBase {
     for (node <- component.nodes) {
       node match {
         case signal: BaseType => {
-          if (!signal.isReg)
+          if (!signal.isDelay)
             if (!signal.isIo || !signal.isInput)
               ret ++= s"  ${emitReference(signal)} <= ${emitLogic(signal.inputs(0))};\n"
         }
@@ -718,7 +718,7 @@ class VhdlBackend extends Backend with VhdlBase {
       s"pkg_extract(${emitLogic(node.bitVector)},$bitIdString)"
     }
     case node: ExtractBitsVector => s"pkg_extract(${emitLogic(node.bitVector)},${node.bitIdHi.value},${node.bitIdLo.value})"
-    case memRead: MemRead => s"${emitReference(memRead.getMem)}(to_integer(${emitReference(memRead.getAddress)}))"
+    case memRead: MemReadAsync => s"${emitReference(memRead.getMem)}(to_integer(${emitReference(memRead.getAddress)}))"
 
     case o => throw new Exception("Don't know how emit logic of " + o.getClass.getSimpleName)
   }
@@ -746,11 +746,8 @@ class VhdlBackend extends Backend with VhdlBase {
       val arrayWithReset = ArrayBuffer[DelayNode]()
       val arrayWithoutReset = ArrayBuffer[DelayNode]()
 
-      for (delayNode <- array) delayNode match {
-        case reg: Reg => {
-          if (reg.getInitialValue != reg) arrayWithReset += reg else arrayWithoutReset += reg
-        }
-        case memWrite: MemWrite => arrayWithoutReset += memWrite
+      for (delayNode <- array){
+        if(delayNode.isUsingReset) arrayWithReset += delayNode else arrayWithoutReset += delayNode
       }
 
       emitClockDomain(true)
@@ -852,6 +849,11 @@ class VhdlBackend extends Backend with VhdlBase {
             case memWrite: MemWrite => {
               ret ++= s"${tab}if ${emitReference(memWrite.getEnable)} = '1' then\n"
               ret ++= s"$tab  ${emitReference(memWrite.getMem)}(to_integer(${emitReference(memWrite.getAddress)})) <= ${emitReference(memWrite.getData)};\n"
+              ret ++= s"${tab}end if;\n"
+            }
+            case memReadSync: MemReadSync => {
+              ret ++= s"${tab}if ${emitReference(memReadSync.getEnable)} = '1' then\n"
+              ret ++= s"$tab   ${emitReference(memReadSync.consumers(0))} <= ${emitReference(memReadSync.getMem)}(to_integer(${emitReference(memReadSync.getAddress)}));\n"
               ret ++= s"${tab}end if;\n"
             }
           }

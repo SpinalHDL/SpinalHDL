@@ -26,29 +26,50 @@ import scala.collection.mutable.ArrayBuffer
 /**
  * Created by PIC18F on 02.02.2015.
  */
-trait MemWriteToReadKind
+trait MemWriteToReadKind{
 
-object WriteFirst extends MemWriteToReadKind
+}
 
-object ReadFirst extends MemWriteToReadKind
+object writeFirst extends MemWriteToReadKind{
+  override def toString: String = "writeFirst"
+}
 
-object DontCare extends MemWriteToReadKind
+object readFirst extends MemWriteToReadKind{
+  override def toString: String = "readFirst"
+}
+
+object dontCare extends MemWriteToReadKind{
+  override def toString: String = "dontCare"
+}
 
 class Mem[T <: Data](val wordType: T, val wordCount: Int) extends Node with Nameable {
   override def calcWidth: Int = wordType.getBitsWidth
+  def addressWidth = log2Up(wordCount)
 
-
-  def read(address: UInt): T = {
-    val readPort = new MemRead(this, address.dontSimplifyIt)
-
+  def readAsync(address: UInt): T = {
     val readBits = Bits(wordType.getBitsWidth bit)
     val readWord = wordType.clone()
+
+    val readPort = new MemReadAsync(this, address.dontSimplifyIt, readBits)
 
     readBits.inputs(0) = readPort
     readWord.fromBits(readBits)
 
     readWord
   }
+
+  def readSync(address: UInt): T = {
+    val readBits = Bits(wordType.getBitsWidth bit)
+    val readWord = wordType.clone()
+
+    val readPort = new MemReadSync(this, address.dontSimplifyIt,readBits, when.getWhensCond(this).dontSimplifyIt)
+
+    readBits.inputs(0) = readPort
+    readWord.fromBits(readBits)
+
+    readWord
+  }
+
 
   def write(address: UInt, data: T): Unit = {
 
@@ -57,17 +78,45 @@ class Mem[T <: Data](val wordType: T, val wordCount: Int) extends Node with Name
   }
 }
 
-class MemRead(mem: Mem[_], address: UInt) extends Node {
+class MemReadAsync(mem: Mem[_], address: UInt, data: Bits) extends Node {
   inputs += address
   inputs += mem
 
-
-  def getAddress = inputs(0)
+  def getData = data
+  def getAddress = inputs(0).asInstanceOf[UInt]
   def getMem = inputs(1).asInstanceOf[Mem[_]]
 
   override def calcWidth: Int = getMem.getWidth
+}
+
+
+object MemReadSync {
+  def getAddressId: Int = 3
+  def getEnableId: Int = 4
+}
+
+class MemReadSync(mem: Mem[_], address: UInt, data: Bits, enable: Bool, clockDomain: ClockDomain = ClockDomain.current) extends DelayNode(clockDomain) {
+  inputs += address
+  inputs += enable
+  inputs += mem
+
+
+  override def getSynchronousInputs: ArrayBuffer[Node] = super.getSynchronousInputs ++= getAddress :: getEnable :: Nil
+  override def isUsingReset: Boolean = false
+
+  def getData = data
+  def getMem = mem
+  def getAddress = inputs(MemReadSync.getAddressId).asInstanceOf[UInt]
+  def getEnable = inputs(MemReadSync.getEnableId).asInstanceOf[Bool]
+
+  override def calcWidth: Int = getMem.getWidth
+
+  override def normalizeInputs: Unit = {
+    Misc.normalizeResize(this, MemReadSync.getAddressId, getMem.addressWidth)
+  }
 
 }
+
 
 object MemWrite {
   def getAddressId: Int = 3
@@ -85,14 +134,14 @@ class MemWrite(mem: Mem[_], address: UInt, data: Bits, enable: Bool, clockDomain
   override def isUsingReset: Boolean = false
 
   def getMem = mem
-  def getAddress = inputs(MemWrite.getAddressId)
-  def getData = inputs(MemWrite.getDataId)
-  def getEnable = inputs(MemWrite.getEnableId)
+  def getAddress = inputs(MemWrite.getAddressId).asInstanceOf[UInt]
+  def getData = inputs(MemWrite.getDataId).asInstanceOf[Bits]
+  def getEnable = inputs(MemWrite.getEnableId).asInstanceOf[Bool]
 
-  override def calcWidth: Int = data.getWidth
+  override def calcWidth: Int = getMem.getWidth
 
   override def normalizeInputs: Unit = {
-    InputNormalize.memWriteImpl(this)
+    Misc.normalizeResize(this, MemReadSync.getAddressId, getMem.addressWidth)
   }
 
 }
@@ -109,23 +158,42 @@ mem(28) := UInt(3) =>
 
  */
 
-class RamDualPort(wordCount: Int, wordWidth: Int) extends BlackBox {
+class Ram_1c_1w_1ra(wordWidth: Int, wordCount: Int) extends BlackBox {
   val generic = new Bundle {
-    val wordCount = Number(RamDualPort.this.wordCount)
-    val wordWidth = Number(RamDualPort.this.wordWidth)
+    val wordCount = Number(Ram_1c_1w_1ra.this.wordCount)
+    val wordWidth = Number(Ram_1c_1w_1ra.this.wordWidth)
   }
 
   val io = new Bundle {
     val wr = new Bundle {
       val en = in.Bool()
-      val addr = in Bits (log2Up(wordCount) bit)
+      val addr = in UInt (log2Up(wordCount) bit)
+      val data = in Bits (wordWidth bit)
+    }
+    val rd = new Bundle {
+      val addr = in UInt (log2Up(wordCount) bit)
+      val data = out Bits (wordWidth bit)
+    }
+  }
+}
+
+class Ram_1c_1w_1rs( wordWidth: Int,wordCount: Int,writeToReadKind : MemWriteToReadKind = dontCare) extends BlackBox {
+  val generic = new Bundle {
+    val wordCount = Number(Ram_1c_1w_1rs.this.wordCount)
+    val wordWidth = Number(Ram_1c_1w_1rs.this.wordWidth)
+    val readToWriteKind = SString(writeToReadKind.toString)
+  }
+
+  val io = new Bundle {
+    val wr = new Bundle {
+      val en = in.Bool()
+      val addr = in UInt (log2Up(wordCount) bit)
       val data = in Bits (wordWidth bit)
     }
     val rd = new Bundle {
       val en = in.Bool()
-      val addr = in Bits (log2Up(wordCount) bit)
+      val addr = in UInt (log2Up(wordCount) bit)
       val data = out Bits (wordWidth bit)
     }
-
   }
 }

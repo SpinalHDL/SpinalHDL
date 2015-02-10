@@ -45,6 +45,16 @@ object Try2 {
     val e0, e1, e2 = Value
   }
 
+  class ComponentAA extends Component {
+    val io = new Bundle {
+      val input = in UInt (9 bit)
+      val output = out UInt (9 bit)
+    }
+    val temp = in UInt (9 bit)
+    temp := io.input
+    io.output := temp
+  }
+
   class ComponentA extends Component {
     val io = new Bundle {
       val cond0 = in.Bool()
@@ -59,7 +69,13 @@ object Try2 {
       val rdEnable = in.Bool()
       val rdAddr = in UInt (4 bit)
       val rdData = out(new BundleA)
+
+      val input = in UInt (4 bit)
+      val output = out UInt (9 bit)
     }
+    val componentAA = Component(new ComponentAA)
+    componentAA.io.input := io.input
+    io.output := componentAA.io.output
 
 
     val mem = new Mem(io.wrData, 1 << io.wrAddr.getWidth)
@@ -67,7 +83,7 @@ object Try2 {
     when(io.cond0 && io.cond1) {
       mem.write(io.wrAddr + UInt(1), io.wrData)
     }
-    val tmp = RegNext(mem.read(io.rdAddr + UInt(2)))
+    val tmp = (mem.readSync(io.rdAddr + UInt(2)))
     io.rdData := tmp
     tmp.add(new AttributeString("myAttribut", "hallo"))
     tmp.add(new AttributeFlag("yolo"))

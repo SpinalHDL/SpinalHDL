@@ -34,10 +34,17 @@ object InputNormalize {
     Misc.normalizeResize(node, RegS.getDataInputId, targetWidth)
     Misc.normalizeResize(node, RegS.getInitialValueId, targetWidth)
   }
-  def memWriteImpl(node: Node): Unit = {
-    val targetWidth = node.getWidth
-    Misc.normalizeResize(node, MemWrite.getDataId, targetWidth)
+
+  def memReadImpl(node: Node): Unit = {
+    //not here
+    //Misc.normalizeResize(node, MemReadSync.getAddressId, node.asInstanceOf[].addressWidth)
   }
+
+  def memWriteImpl(node: Node): Unit = {
+    Misc.normalizeResize(node, MemWrite.getDataId, node.getWidth)
+    Misc.normalizeResize(node, MemWrite.getAddressId, node.asInstanceOf[Mem[_]].addressWidth)
+  }
+
   def nodeWidth(node: Node): Unit = {
     val targetWidth = node.getWidth
     for (i <- 0 until node.inputs.size)
@@ -167,10 +174,11 @@ abstract class Node extends ContextUser {
 
   var inferredWidth = -1
 
-
   def normalizeInputs: Unit = {
 
   }
+
+  //def notify(phase : BackendPhase) : Unit = {}
 
   def setInput(node: Node): Unit = {
     inputs(0) = node

@@ -27,6 +27,9 @@ import scala.collection.mutable.ArrayBuffer
  */
 
 
+//trait BackendPhase
+//object StartPhase extends BackendPhase
+
 object Backend {
   def resetAll: Unit = {
     when.stack.reset
@@ -91,20 +94,29 @@ class Backend {
   //TODO
   //TODO no cross clock domain violation
   //TODO generate test bench
+  //TODO check case sensitive names
+  //TODO add clock domaine to Ram_***
+  //TODO Exception in thread "main" java.lang.ClassCastException: spinal.OutBinding cannot be cast to spinal.BitVector
+  //     at spinal.Misc$.normalizeResize(Misc.scala:119)
+  //TODO scala.MatchError: (resize(u,i) UInt(named "io_input",into ComponentA}) spinal.IntLiteral@1f36e637) (of class spinal.Function)
+  //     at spinal.VhdlBase$class.emitReference(VhdlBase.scala:72)
   //TODO
 
   protected def elaborate[T <: Component](topLevel: T): BackendReport[T] = {
     SpinalInfoPhase("Start analysis and transform")
 
+    remplaceMemByBlackBox
+
     addReservedKeyWordToScope(globalScope)
     addComponent(topLevel)
     sortedComponents = components.sortWith(_.level > _.level)
 
+
+
+    //notifyNodes(StartPhase)
+
     SpinalInfoPhase("Get names from reflection")
     nameNodesByReflection
-
-
-    //Enum
     collectAndNameEnum
 
     //Component connection
@@ -165,6 +177,67 @@ class Backend {
 
   }
 
+
+//  def notifyNodes(phase: BackendPhase) : Unit = {
+//    walkNodes2(node => node.notify(phase))
+//  }
+
+  //TODO  better
+  def remplaceMemByBlackBox : Unit = {
+    class MemTopo(val mem : Mem[_]){
+      val writes = ArrayBuffer[MemWrite]()
+      val readsAsync = ArrayBuffer[MemReadAsync]()
+      val readsSync = ArrayBuffer[MemReadSync]()
+    }
+    val memsTopo = mutable.Map[Mem[_],MemTopo]()
+
+    def topoOf(mem : Mem[_]) = memsTopo.getOrElseUpdate(mem,new MemTopo(mem))
+
+    walkNodes2(node => node match{
+      case write : MemWrite => topoOf(write.getMem).writes += write
+      case readAsync : MemReadAsync => topoOf(readAsync.getMem).readsAsync += readAsync
+      case readSync : MemReadSync => topoOf(readSync.getMem).readsSync += readSync
+      case _ =>
+    })
+
+
+
+    for((mem,topo) <- memsTopo.iterator){
+      if(topo.writes.size == 1 && topo.readsAsync.size == 1 && topo.readsSync.size == 0){
+        Component.push(mem.component)
+        val ram = Component(new Ram_1c_1w_1ra(mem.getWidth,mem.wordCount))
+        val wr = topo.writes(0)
+        val rd = topo.readsAsync(0)
+
+        ram.io.wr.en := wr.getEnable
+        ram.io.wr.addr := wr.getAddress
+        ram.io.wr.data := wr.getData
+
+        ram.io.rd.addr := rd.getAddress
+        rd.getData := ram.io.rd.data
+
+        ram.setCompositeName(mem)
+        Component.pop(mem.component)
+      } else if(topo.writes.size == 1 && topo.readsAsync.size == 0 && topo.readsSync.size == 1){
+        Component.push(mem.component)
+        val ram = Component(new Ram_1c_1w_1rs(mem.getWidth,mem.wordCount))
+        val wr = topo.writes(0)
+        val rd = topo.readsSync(0)
+
+        ram.io.wr.en := wr.getEnable
+        ram.io.wr.addr := wr.getAddress
+        ram.io.wr.data := wr.getData
+
+        ram.io.rd.en := rd.getEnable
+        ram.io.rd.addr := rd.getAddress
+        rd.getData := ram.io.rd.data
+
+        ram.setCompositeName(mem)
+        Component.pop(mem.component)
+      }
+    }
+
+  }
 
   def printStates: Unit = {
     var counter = 0
@@ -649,7 +722,7 @@ class Backend {
     node match {
       case node: BaseType => {
         if (node.isUnnamed && !node.isIo && node.consumers.size == 1 && !node.dontSimplify) {
-          if (!node.isReg || node.consumers(0).isInstanceOf[BaseType]) {
+          if (!node.isDelay || node.consumers(0).isInstanceOf[BaseType]) {
             val consumerInputs = node.consumers(0).inputs
             val inputConsumer = node.inputs(0).consumers
             for (i <- 0 until consumerInputs.size)
