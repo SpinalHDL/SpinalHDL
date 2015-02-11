@@ -96,10 +96,6 @@ class Backend {
   //TODO generate test bench
   //TODO check case sensitive names
   //TODO add clock domaine to Ram_***
-  //TODO Exception in thread "main" java.lang.ClassCastException: spinal.OutBinding cannot be cast to spinal.BitVector
-  //     at spinal.Misc$.normalizeResize(Misc.scala:119)
-  //TODO scala.MatchError: (resize(u,i) UInt(named "io_input",into ComponentA}) spinal.IntLiteral@1f36e637) (of class spinal.Function)
-  //     at spinal.VhdlBase$class.emitReference(VhdlBase.scala:72)
   //TODO
 
   protected def elaborate[T <: Component](topLevel: T): BackendReport[T] = {
@@ -250,7 +246,7 @@ class Backend {
   def nameBinding: Unit = {
     for (c <- components) {
       for ((bindedOut, bind) <- c.kindsOutputsToBindings) {
-        if (bindedOut.component.isNamed && bindedOut.isNamed) {
+        if (bind.isUnnamed && bindedOut.component.isNamed && bindedOut.isNamed) {
           bind.setWeakName(bindedOut.component.getName() + "_" + bindedOut.getName())
         }
       }
@@ -734,14 +730,26 @@ class Backend {
           val consumer = node.consumers(0)
           val input = node.inputs(0)
           if (!node.isDelay || consumer.isInstanceOf[BaseType]) {
-            if (input.isInstanceOf[BaseType] || !consumer.isInstanceOf[BaseType] || !consumer.asInstanceOf[BaseType].isInput) { // don't allow to put a non base type on component inputs
-              val consumerInputs = consumer.inputs
-              val inputConsumer = input.consumers
-              for (i <- 0 until consumerInputs.size)
-                if (consumerInputs(i) == node)
-                  consumerInputs(i) = input
-              inputConsumer -= node
-              inputConsumer += consumer
+            // don't allow to put a non base type on component inputs
+            if (input.isInstanceOf[BaseType] || !consumer.isInstanceOf[BaseType] || !consumer.asInstanceOf[BaseType].isInput) {
+              //don't allow to jump from kind to kind
+              val isKindOutputBinding = node.component.kindsOutputsBindings.contains(node)
+              if (!(isKindOutputBinding && (!consumer.isInstanceOf[BaseType] || node.component == consumer.component.parent))) {
+                val consumerInputs = consumer.inputs
+                val inputConsumer = input.consumers
+
+                if (isKindOutputBinding) {
+                  val newBind = consumer.asInstanceOf[BaseType]
+                  node.component.kindsOutputsBindings += newBind
+                  node.component.kindsOutputsToBindings += (input.asInstanceOf[BaseType] -> newBind)
+                }
+
+                for (i <- 0 until consumerInputs.size)
+                  if (consumerInputs(i) == node)
+                    consumerInputs(i) = input
+                inputConsumer -= node
+                inputConsumer += consumer
+              }
             }
           }
         }
@@ -799,7 +807,6 @@ class Backend {
               into.kindsOutputsBindings += bind
               bind.component = into
               bind.inputs(0) = nodeInput
-              bind.dontSimplifyIt
               bind
             })
 

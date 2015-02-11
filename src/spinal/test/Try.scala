@@ -514,8 +514,8 @@ object Try {
 
 
     val componentAA = Component(new ComponentAA)
-    componentAA.io.in := io.cond0 && io.cond0
-    io.outBool := componentAA.io.out && io.inUIntA(4)
+    componentAA.io.in := io.cond0
+    io.outBool := componentAA.io.out
 
     val blackBoxA = Component(new MyBlackBox)
     val blackBoxB = Component(new MyBlackBox)
