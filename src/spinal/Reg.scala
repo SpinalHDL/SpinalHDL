@@ -34,7 +34,7 @@ object Reg {
     for (((eName, e), (y, initElement)) <- (regOut.flatten, regInit.flatten).zipped) {
       val reg = new Reg(e)
       e.inputs(0) = reg;
-      if (initElement.inputs(0) != null && initElement.inputs(0).inputs(0) != null)
+      if (init != null && initElement.inputs(0) != null && initElement.inputs(0).inputs(0) != null)
         reg.setInitialValue(initElement)
       e.compositeAssign = reg
     }
@@ -66,10 +66,10 @@ object RegS {
 
 class Reg(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) extends DelayNode(clockDomain) with Assignable {
   inputs += this
-  inputs += this
+  inputs += new NoneNode
 
 
-  override def isUsingReset: Boolean = getInitialValue != this
+  override def isUsingReset: Boolean = !getInitialValue.isInstanceOf[NoneNode]
   override def getSynchronousInputs: ArrayBuffer[Node] = super.getSynchronousInputs += getDataInput
   override def getResetStyleInputs: ArrayBuffer[Node] = super.getResetStyleInputs += getInitialValue
 

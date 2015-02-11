@@ -32,7 +32,7 @@ object InputNormalize {
   def regImpl(node: Node): Unit = {
     val targetWidth = node.getWidth
     Misc.normalizeResize(node, RegS.getDataInputId, targetWidth)
-    Misc.normalizeResize(node, RegS.getInitialValueId, targetWidth)
+    if(node.asInstanceOf[Reg].isUsingReset) Misc.normalizeResize(node, RegS.getInitialValueId, targetWidth)
   }
 
   def memReadImpl(node: Node): Unit = {
@@ -64,7 +64,7 @@ object WidthInfer {
   def regImpl(node: Node): Int = {
     val dataIn = node.inputs(0)
     val init = node.inputs(1)
-    math.max(if (dataIn != node) dataIn.getWidth else -1, if (init != node) init.getWidth else -1)
+    math.max(if (dataIn != node) dataIn.getWidth else -1,if(node.asInstanceOf[Reg].isUsingReset) init.getWidth else -1)
   }
 
   def cumulateInputWidth(node: Node): Int = {
@@ -191,4 +191,9 @@ abstract class Node extends ContextUser {
   def nonRecursiveToString(): String = {
     toString()
   }
+}
+
+
+class NoneNode extends Node{
+  override def calcWidth: Int = 0
 }

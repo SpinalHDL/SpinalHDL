@@ -159,7 +159,7 @@ class Backend {
 
     //Finalise
     addNodeIntoComponent_removeEmptyComponent
-  //  removeEmptyComponent
+    //  removeEmptyComponent
     allocateNames
 
     printStates
@@ -553,13 +553,13 @@ class Backend {
   }
 
 
-  def allowNodesToReadOutputs : Unit = {
+  def allowNodesToReadOutputs: Unit = {
     val outputsBuffers = mutable.Map[BaseType, BaseType]()
     walkNodes2(node => {
       for (i <- 0 until node.inputs.size) {
-       node.inputs(i) match {
+        node.inputs(i) match {
           case baseTypeInput: BaseType => {
-            if (baseTypeInput.isOutput && baseTypeInput.component.parent != node.component ) {
+            if (baseTypeInput.isOutput && baseTypeInput.component.parent != node.component) {
               val buffer = outputsBuffers.getOrElseUpdate(baseTypeInput, {
                 val buffer = baseTypeInput.clone()
                 buffer.inputs(0) = baseTypeInput.inputs(0)
@@ -731,14 +731,18 @@ class Backend {
     node match {
       case node: BaseType => {
         if (node.isUnnamed && !node.isIo && node.consumers.size == 1 && !node.dontSimplify) {
-          if (!node.isDelay || node.consumers(0).isInstanceOf[BaseType]) {
-            val consumerInputs = node.consumers(0).inputs
-            val inputConsumer = node.inputs(0).consumers
-            for (i <- 0 until consumerInputs.size)
-              if (consumerInputs(i) == node)
-                consumerInputs(i) = node.inputs(0)
-            inputConsumer -= node
-            inputConsumer += node.consumers(0)
+          val consumer = node.consumers(0)
+          val input = node.inputs(0)
+          if (!node.isDelay || consumer.isInstanceOf[BaseType]) {
+            if (input.isInstanceOf[BaseType] || !consumer.isInstanceOf[BaseType] || !consumer.asInstanceOf[BaseType].isInput) { // don't allow to put a non base type on component inputs
+              val consumerInputs = consumer.inputs
+              val inputConsumer = input.consumers
+              for (i <- 0 until consumerInputs.size)
+                if (consumerInputs(i) == node)
+                  consumerInputs(i) = input
+              inputConsumer -= node
+              inputConsumer += consumer
+            }
           }
         }
       }
@@ -777,7 +781,6 @@ class Backend {
         val inBinding = baseType.clone //To be sure that there is no need of resize between it and node
         inBinding.inputs(0) = baseType.inputs(0)
         baseType.inputs(0) = inBinding
-        inBinding.dontSimplifyIt
         inBinding.component = node.component.parent
       }
     }
