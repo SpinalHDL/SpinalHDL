@@ -33,11 +33,6 @@ object ASYNC extends ResetKind;
 object SYNC extends ResetKind;
 object BOOT extends ResetKind;
 
-trait ClockDomainUser{
-  def getClock : Bool
-  def getClockEnable : Bool
-  def getReset : Bool
-}
 
 
 object ClockDomain{
@@ -63,6 +58,10 @@ object ClockDomain{
 }
 
 class ClockDomain(val clock : Bool,val edge : EdgeKind,val clockEnable : Bool,val reset : Bool,val resetKind : ResetKind,val resetActiveHigh : Boolean){
+  def hasClockEnable = clockEnable != null
+  def hasReset = reset != null
+
+
   def readClock = if(null == clock) Bool(false) else Data.doPull(clock, Component.current,true,true)
   def readReset = if(null == reset) Bool(!resetActiveHigh) else Data.doPull(reset, Component.current,true,true)
   def readClockEnable = if(null == clockEnable) Bool(true) else Data.doPull(clockEnable, Component.current,true,true)

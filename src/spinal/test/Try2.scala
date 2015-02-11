@@ -82,7 +82,7 @@ object Try2 {
     when(io.cond0 && io.cond1) {
       mem.write(io.wrAddr + UInt(1), io.wrData)
     }
-    val tmp = (mem.readSync(io.rdAddr + UInt(2)))
+    val tmp = (mem.readAsync(io.rdAddr + UInt(2)))
     io.rdData := tmp
     tmp.add(new AttributeString("myAttribut", "hallo"))
     tmp.add(new AttributeFlag("yolo"))

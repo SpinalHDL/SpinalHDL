@@ -25,14 +25,31 @@ import scala.collection.mutable.ArrayBuffer
  */
 
 
-trait GenericParameter{
+abstract class BlackBox extends Component {
+  def generic: Bundle
 
-}
+  def use(clockDomain: ClockDomain, clockIn: Bool, resetIn: Bool = null, clockEnableIn: Bool = null): Unit = {
+    Component.push(parent)
+    if (clockDomain.hasClockEnable) {
+      if (clockEnableIn == null) SpinalError(s"Clock domain has clock enable, but blackbox is not compatible $this")
+      pulledDataCache += (clockDomain.clockEnable -> clockEnableIn)
+      clockEnableIn := ClockDomain.current.readClockEnable
+    }
+    if (resetIn != null) {
+      if (!clockDomain.hasReset) SpinalError(s"Clock domain has no reset, but blackbox need it $this")
+      pulledDataCache += (clockDomain.reset -> resetIn)
+      resetIn := ClockDomain.current.readReset
+    }
+    pulledDataCache += (clockDomain.clock -> clockIn)
+    clockIn := ClockDomain.current.readClock
+
+    Component.pop(parent)
+  }
 
 
+  def useCurrentClockDomain(clockIn: Bool, resetIn: Bool = null, clockEnableIn: Bool = null): Unit ={
+    use(ClockDomain.current,clockIn,resetIn,clockEnableIn)
+  }
 
-abstract class BlackBox extends Component{
- // val generics = new ArrayBuffer[(String,Literal)]
-  def generic : Bundle
-
+  override def isInBlackBoxTree: Boolean = true
 }

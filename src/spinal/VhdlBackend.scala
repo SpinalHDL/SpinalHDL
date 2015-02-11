@@ -923,7 +923,7 @@ class VhdlBackend extends Backend with VhdlBase {
         }
       }
       ret ++= s"    port map (\n"
-      for (data <- kind.getNodeIo) {
+      for (data <- kind.getOrdredNodeIo) {
         if (data.isOutput) {
           val bind = component.kindsOutputsToBindings.getOrElse(data,null)
           if (bind != null) {

@@ -28,6 +28,7 @@ object Component {
   def apply[T <: Component](c: T): T = {
     c.io.flatten.foreach(_._2.isIo = true)
     pop(c);
+    c.userParentCalledDef
     return c;
   }
 
@@ -42,15 +43,15 @@ object Component {
 
   def pop(c: Component): Unit = {
     try {
-      if(lastPoped == c) return;
-      lastPoped = c
+     /* if(lastPoped == c) return;
+      lastPoped = c*/
       stack.pop(c)
     } catch{
       case e: Exception => SpinalError(s"You probably forget the 'Component(new ${stack.head().getClass.getName})' into ${c.getClass.getName}")
     }
   }
 
-  var lastPoped : Component = null
+  //var lastPoped : Component = null
 
   def current = stack.head()
 }
@@ -146,14 +147,6 @@ abstract class Component extends Nameable {
   }
   def getOrdredNodeIo = getNodeIo.toList.sortWith(_.instanceCounter < _.instanceCounter)
 
-//  def getRegs = {
-//    val regs = new ArrayBuffer[BaseType]()
-//    nodes.foreach(node => node match {
-//      case b: BaseType => if (b.isReg) regs += b
-//      case _ =>
-//    })
-//    regs
-//  }
 
   def getDelays = {
     val delays = new ArrayBuffer[DelayNode]()
@@ -164,12 +157,13 @@ abstract class Component extends Nameable {
     delays
   }
 
-//  def findBinding(baseType: BaseType): BaseType = {
-//    outBindingHosted.getOrElse(baseType, null)
-//  }
 
 
-  def endComponent = Component.pop(this)
+  def userParentCalledDef : Unit = {
+
+  }
+
+  def isInBlackBoxTree : Boolean = if(parent == null) false else parent.isInBlackBoxTree
 }
 
 

@@ -187,7 +187,7 @@ abstract class Node extends ContextUser {
 
   def getClassIdentifier: String = this.getClass.getSimpleName
 
-
+  def isInBlackBoxTree = component.isInBlackBoxTree
   def nonRecursiveToString(): String = {
     toString()
   }

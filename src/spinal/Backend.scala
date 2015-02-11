@@ -35,7 +35,7 @@ object Backend {
     when.stack.reset
     switch.stack.reset
     Component.stack.reset
-    Component.lastPoped = null
+    //Component.lastPoped = null
     ClockDomain.stack.reset
     Node.areInferringWidth = false
     Node.getWidthWalkedSet.clear()
@@ -95,7 +95,6 @@ class Backend {
   //TODO no cross clock domain violation
   //TODO generate test bench
   //TODO check case sensitive names
-  //TODO add clock domaine to Ram_***
   //TODO
 
   protected def elaborate[T <: Component](topLevel: T): BackendReport[T] = {
@@ -154,9 +153,11 @@ class Backend {
     simplifyBlackBoxIoNames
 
     //Finalise
-    addNodeIntoComponent_removeEmptyComponent
-    //  removeEmptyComponent
+    addNodesIntoComponent
+    orderComponentsNodes
     allocateNames
+    removeComponentThatNeedNoHdlEmit
+
 
     printStates
 
@@ -180,6 +181,7 @@ class Backend {
   //  }
 
   //TODO  better
+  //TODO clock enable
   def remplaceMemByBlackBox: Unit = {
     class MemTopo(val mem: Mem[_]) {
       val writes = ArrayBuffer[MemWrite]()
@@ -201,10 +203,13 @@ class Backend {
 
     for ((mem, topo) <- memsTopo.iterator) {
       if (topo.writes.size == 1 && topo.readsAsync.size == 1 && topo.readsSync.size == 0) {
-        Component.push(mem.component)
-        val ram = Component(new Ram_1c_1w_1ra(mem.getWidth, mem.wordCount))
         val wr = topo.writes(0)
         val rd = topo.readsAsync(0)
+        ClockDomain.push(wr.getClockDomain)
+        Component.push(mem.component)
+        val ram = Component(new Ram_1c_1w_1ra(mem.getWidth, mem.wordCount))
+
+        // ram.io.clk := wr.getClockDomain.readClock
 
         ram.io.wr.en := wr.getEnable.allowSimplifyIt
         ram.io.wr.addr := wr.getAddress.allowSimplifyIt
@@ -215,22 +220,30 @@ class Backend {
 
         ram.setCompositeName(mem)
         Component.pop(mem.component)
+        ClockDomain.pop(wr.getClockDomain)
       } else if (topo.writes.size == 1 && topo.readsAsync.size == 0 && topo.readsSync.size == 1) {
-        Component.push(mem.component)
-        val ram = Component(new Ram_1c_1w_1rs(mem.getWidth, mem.wordCount))
         val wr = topo.writes(0)
         val rd = topo.readsSync(0)
+        if (rd.getClockDomain.clock == wr.getClockDomain.clock) {
+          ClockDomain.push(wr.getClockDomain)
+          Component.push(mem.component)
+          val ram = Component(new Ram_1c_1w_1rs(mem.getWidth, mem.wordCount))
 
-        ram.io.wr.en := wr.getEnable.allowSimplifyIt
-        ram.io.wr.addr := wr.getAddress.allowSimplifyIt
-        ram.io.wr.data := wr.getData.allowSimplifyIt
 
-        ram.io.rd.en := rd.getEnable.allowSimplifyIt
-        ram.io.rd.addr := rd.getAddress.allowSimplifyIt
-        rd.getData.allowSimplifyIt := ram.io.rd.data
+          //  ram.io.clk := wr.getClockDomain.readClock
 
-        ram.setCompositeName(mem)
-        Component.pop(mem.component)
+          ram.io.wr.en := wr.getEnable.allowSimplifyIt
+          ram.io.wr.addr := wr.getAddress.allowSimplifyIt
+          ram.io.wr.data := wr.getData.allowSimplifyIt
+
+          ram.io.rd.en := rd.getEnable.allowSimplifyIt
+          ram.io.rd.addr := rd.getAddress.allowSimplifyIt
+          rd.getData.allowSimplifyIt := ram.io.rd.data
+
+          ram.setCompositeName(mem)
+          Component.pop(mem.component)
+          ClockDomain.pop(wr.getClockDomain)
+        }
       }
     }
 
@@ -401,14 +414,13 @@ class Backend {
     walkNodes(walker_deleteUselessBaseTypes)
   }
 
-  def removeEmptyComponent = {
+  def removeComponentThatNeedNoHdlEmit = {
 
     sortedComponents = sortedComponents.filter(c => {
-      if (c.nodes == null) {
-        //unused component
-        if (c.parent != null) c.parent.kinds -= c
+      if (c.isInBlackBoxTree) {
         false
-      } else if (c.isInstanceOf[BlackBox]) {
+      } else if (c.nodes.size == 0) {
+        if (c.parent != null) c.parent.kinds -= c
         false
       } else {
         true
@@ -704,17 +716,19 @@ class Backend {
 
 
   def walker_pullClockDomains(node: Node, stack: mutable.Stack[Node]): Unit = {
-    node match {
-      case delay: DelayNode => {
-        Component.push(delay.component)
-        delay.inputs(DelayNode.getClockInputId) = delay.getClockDomain.readClock
-        if (delay.isUsingReset)
-          delay.inputs(DelayNode.getClockResetId) = delay.getClockDomain.readReset
-        delay.inputs(DelayNode.getClockEnableId) = delay.getClockDomain.readClockEnable
-        Component.pop(delay.component)
+  //  if (!node.isInBlackBoxTree) {
+      node match {
+        case delay: DelayNode => {
+          Component.push(delay.component)
+          delay.inputs(DelayNode.getClockInputId) = delay.getClockDomain.readClock
+          if (delay.isUsingReset)
+            delay.inputs(DelayNode.getClockResetId) = delay.getClockDomain.readReset
+          delay.inputs(DelayNode.getClockEnableId) = delay.getClockDomain.readClockEnable
+          Component.pop(delay.component)
+        }
+        case _ =>
       }
-      case _ =>
-    }
+  //  }
     node.inputs.foreach(stack.push(_))
   }
 
@@ -819,19 +833,25 @@ class Backend {
 
   }
 
-  def addNodeIntoComponent_removeEmptyComponent: Unit = {
+  def addNodesIntoComponent: Unit = {
     walkNodes2(node => {
-      val comp = node.component
-      if (comp.nodes == null) comp.nodes = new ArrayBuffer[Node]
-      comp.nodes += node
+      node.component.nodes += node
+    },{
+      val stack = walkNodesDefautStack
+      for(c <- components){
+        c.nodes = ArrayBuffer[Node]()
+      }
+      stack
     })
+  }
 
-    removeEmptyComponent
 
+  def orderComponentsNodes: Unit = {
     for (c <- components) {
       c.nodes = c.nodes.sortWith(_.instanceCounter < _.instanceCounter)
     }
   }
+
 
   def addComponent(c: Component): Unit = {
     components += c
