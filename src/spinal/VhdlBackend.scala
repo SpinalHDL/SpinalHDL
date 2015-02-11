@@ -793,7 +793,7 @@ class VhdlBackend extends Backend with VhdlBase {
           for (delayNode <- activeArray) delayNode match {
             case reg: Reg => {
               if (reg.hasInitialValue) {
-                ret ++= s"$tab${emitReference(reg.output)} <= ${emitLogic(reg.getInitialValue)};\n"
+                ret ++= s"$tab${emitReference(reg.getOutputByConsumers)} <= ${emitLogic(reg.getInitialValue)};\n"
               }
             }
             case memWrite: MemWrite =>
@@ -818,7 +818,7 @@ class VhdlBackend extends Backend with VhdlBase {
 
           for (delayNode <- activeArray) delayNode match {
             case reg: Reg => {
-              val regSignal = reg.output
+              val regSignal = reg.getOutputByConsumers
               if (!regSignal.isIo || !regSignal.isInput) {
                 val in = reg.getDataInput
                 if (in != reg) //check that reg has logic

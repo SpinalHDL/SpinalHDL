@@ -28,7 +28,7 @@ import scala.collection.mutable.ArrayBuffer
 
 object Reg {
   def apply[T <: Data](dataType: T, init: T = null.asInstanceOf[T]): T = {
-    val regOut = dataType.clone().dontSimplifyIt
+    val regOut = dataType.clone()//.dontSimplifyIt
     val regInit = dataType.clone()
     if (init != null) regInit := init
     for (((eName, e), (y, initElement)) <- (regOut.flatten, regInit.flatten).zipped) {
@@ -64,7 +64,7 @@ object RegS {
   def getInitialValueId: Int = 4
 }
 
-class Reg(val output: BaseType, clockDomain: ClockDomain = ClockDomain.current) extends DelayNode(clockDomain) with Assignable {
+class Reg(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) extends DelayNode(clockDomain) with Assignable {
   inputs += this
   inputs += this
 
@@ -91,11 +91,13 @@ class Reg(val output: BaseType, clockDomain: ClockDomain = ClockDomain.current) 
 
   def hasInitialValue = getInitialValue != null
 
+  def getOutputByConsumers = consumers.find(_.isInstanceOf[BaseType]).get.asInstanceOf[BaseType]
+
 
   override def assignFrom(that: Data): Unit = {
     that match {
       case that: BaseType => {
-        BaseType.assignFrom(output, this, RegS.getDataInputId, that)
+        BaseType.assignFrom(outType, this, RegS.getDataInputId, that)
       }
       case _ => throw new Exception("Undefined assignement")
     }
