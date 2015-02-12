@@ -613,6 +613,7 @@ class VhdlBackend extends Backend with VhdlBase {
   modifierImplMap.put("s&s", operatorImplAsOperator("and"))
   modifierImplMap.put("s^s", operatorImplAsOperator("xor"))
   modifierImplMap.put("~s", operatorImplAsOperator("not"))
+  modifierImplMap.put("-s", operatorImplAsOperator("-"))
 
   modifierImplMap.put("s==s", operatorImplAsOperator("="))
   modifierImplMap.put("s!=s", operatorImplAsOperator("/="))

@@ -205,7 +205,7 @@ class Backend {
         val rd = topo.readsAsync(0)
         ClockDomain.push(wr.getClockDomain)
         Component.push(mem.component)
-        val ram = Component(new Ram_1c_1w_1ra(mem.getWidth, mem.wordCount))
+        val ram = Component(new Ram_1c_1w_1ra(mem.getWidth, mem.wordCount,rd.writeToReadKind))
 
         // ram.io.clk := wr.getClockDomain.readClock
 
@@ -225,7 +225,7 @@ class Backend {
         if (rd.getClockDomain.clock == wr.getClockDomain.clock) {
           ClockDomain.push(wr.getClockDomain)
           Component.push(mem.component)
-          val ram = Component(new Ram_1c_1w_1rs(mem.getWidth, mem.wordCount))
+          val ram = Component(new Ram_1c_1w_1rs(mem.getWidth, mem.wordCount,rd.writeToReadKind))
 
 
           //  ram.io.clk := wr.getClockDomain.readClock

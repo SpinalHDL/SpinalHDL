@@ -41,6 +41,7 @@ class SInt extends BitVector with MinMaxProvider {
   def &(that: SInt): SInt = newBinaryOperator("s&s", that, WidthInfer.inputMaxWidthl,InputNormalize.nodeWidth);
   def ^(that: SInt): SInt = newBinaryOperator("s^s", that, WidthInfer.inputMaxWidthl,InputNormalize.nodeWidth);
   def unary_~(): SInt = newUnaryOperator("~s");
+  def unary_-(): SInt = newUnaryOperator("-s");
 
   override def ===(that: SSelf): Bool = newLogicalOperator("s==s", that,InputNormalize.inputWidthMax);
   override def !==(that: SSelf): Bool = newLogicalOperator("s!=s", that,InputNormalize.inputWidthMax);
