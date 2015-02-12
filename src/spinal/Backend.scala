@@ -94,7 +94,6 @@ class Backend {
   //TODO
   //TODO no cross clock domain violation
   //TODO generate test bench
-  //TODO check case sensitive names
   //TODO
 
   protected def elaborate[T <: Component](topLevel: T): BackendReport[T] = {
@@ -180,8 +179,7 @@ class Backend {
   //    walkNodes2(node => node.notify(phase))
   //  }
 
-  //TODO  better
-  //TODO clock enable
+  //TODO  more
   def remplaceMemByBlackBox: Unit = {
     class MemTopo(val mem: Mem[_]) {
       val writes = ArrayBuffer[MemWrite]()

@@ -30,11 +30,12 @@ abstract class BlackBox extends Component {
 
   def use(clockDomain: ClockDomain, clockIn: Bool, resetIn: Bool = null, clockEnableIn: Bool = null): Unit = {
     Component.push(parent)
-    if (clockDomain.hasClockEnable) {
-      if (clockEnableIn == null) SpinalError(s"Clock domain has clock enable, but blackbox is not compatible $this")
+    if (clockDomain.hasClockEnable && clockEnableIn == null) SpinalError(s"Clock domain has clock enable, but blackbox is not compatible $this")
+    if (clockEnableIn != null) {
       pulledDataCache += (clockDomain.clockEnable -> clockEnableIn)
       clockEnableIn := ClockDomain.current.readClockEnable
     }
+
     if (resetIn != null) {
       if (!clockDomain.hasReset) SpinalError(s"Clock domain has no reset, but blackbox need it $this")
       pulledDataCache += (clockDomain.reset -> resetIn)
@@ -47,8 +48,8 @@ abstract class BlackBox extends Component {
   }
 
 
-  def useCurrentClockDomain(clockIn: Bool, resetIn: Bool = null, clockEnableIn: Bool = null): Unit ={
-    use(ClockDomain.current,clockIn,resetIn,clockEnableIn)
+  def useCurrentClockDomain(clockIn: Bool, resetIn: Bool = null, clockEnableIn: Bool = null): Unit = {
+    use(ClockDomain.current, clockIn, resetIn, clockEnableIn)
   }
 
   override def isInBlackBoxTree: Boolean = true

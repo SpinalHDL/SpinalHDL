@@ -22,11 +22,11 @@ package spinal
  * Created by PIC18F on 21.08.2014.
  */
 
-object UInt extends UIntFactory{
+object UInt extends UIntFactory {
 
 }
 
-class UIntFactory extends BitVectorFactory[UInt]{
+class UIntFactory extends BitVectorFactory[UInt] {
   def apply() = new UInt()
 }
 
@@ -40,7 +40,7 @@ class UInt extends BitVector with MinMaxProvider {
   def |(that: UInt): UInt = newBinaryOperator("u|u", that, WidthInfer.inputMaxWidthl, InputNormalize.nodeWidth);
   def &(that: UInt): UInt = newBinaryOperator("u&u", that, WidthInfer.inputMaxWidthl, InputNormalize.nodeWidth);
   def ^(that: UInt): UInt = newBinaryOperator("u^u", that, WidthInfer.inputMaxWidthl, InputNormalize.nodeWidth);
-  def ~(that: UInt): UInt = newBinaryOperator("~u", that, WidthInfer.inputMaxWidthl, InputNormalize.none);
+  def unary_~(): UInt = newUnaryOperator("~u");
 
   override def ===(that: SSelf): Bool = newLogicalOperator("u==u", that, InputNormalize.inputWidthMax);
   override def !==(that: SSelf): Bool = newLogicalOperator("u!=u", that, InputNormalize.inputWidthMax);
@@ -57,8 +57,8 @@ class UInt extends BitVector with MinMaxProvider {
 
   override def newMultiplexor(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,u,u)", sel, whenTrue, whenFalse)
   override def isEguals(that: Data): Bool = {
-    that match{
-      case that : UInt => this === that
+    that match {
+      case that: UInt => this === that
       case _ => SpinalError(s"Don't know how compare $this with $that"); null
     }
   }
@@ -67,8 +67,20 @@ class UInt extends BitVector with MinMaxProvider {
   override def maxValue: BigInt = (BigInt(1) << getWidth) - 1
 
 
-
   //def :=(that: UInt): Unit = assignFrom(that)
+
+
+//  override def apply(bitId: Int): Bool = {
+//    val ret = super.apply(bitId)
+//    ret.compositeAssign = new Assignable{
+//      override def assignFrom(that: Data): Unit = {
+//        val mask = UInt(1) << bitId
+//        UInt.this := Mux(that.asInstanceOf[Bool],UInt.this | mask,UInt.this & (~mask))
+//      }
+//    }
+//    ret
+//  }
+
 
   // def :=[U <: SSelf](that: U) = this assignFrom(that)
   override def :=(that: SSelf): Unit = super.:=(that)
@@ -77,10 +89,10 @@ class UInt extends BitVector with MinMaxProvider {
   override def resize(width: Int): this.type = newResize("resize(u,i)", this :: new IntLiteral(width) :: Nil, WidthInfer.intLit1Width)
 
 
- // implicit def dd(value: Int) = UInt(value)
+  // implicit def dd(value: Int) = UInt(value)
 
   override def toBits: Bits = new Bits().castFrom("u->b", this)
-  override def fromBits(bits: Bits) : Unit = this := bits.toUInt
+  override def fromBits(bits: Bits): Unit = this := bits.toUInt
 }
 
 /*

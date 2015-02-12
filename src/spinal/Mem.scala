@@ -156,17 +156,19 @@ class MemReadWrite extends Node {
 
 
 
-class Ram_1c_1w_1ra(wordWidth: Int, wordCount: Int) extends BlackBox {
+class Ram_1c_1w_1ra(wordWidth: Int, wordCount: Int, writeToReadKind: MemWriteToReadKind = dontCare) extends BlackBox {
   val generic = new Bundle {
     val wordCount = Number(Ram_1c_1w_1ra.this.wordCount)
     val wordWidth = Number(Ram_1c_1w_1ra.this.wordWidth)
+    val readToWriteKind = SString(writeToReadKind.toString)
   }
 
   val io = new Bundle {
-    val clk = in.Bool()
+    val clk = in Bool()
+    val clkEn = in Bool()
 
     val wr = new Bundle {
-      val en = in.Bool()
+      val en = in Bool()
       val addr = in UInt (log2Up(wordCount) bit)
       val data = in Bits (wordWidth bit)
     }
@@ -176,13 +178,13 @@ class Ram_1c_1w_1ra(wordWidth: Int, wordCount: Int) extends BlackBox {
     }
   }
 
-  useCurrentClockDomain(io.clk)
+  useCurrentClockDomain(io.clk,null,io.clkEn)
 
+  //Following is not obligatory, just to describe blackbox logic
   val mem = Mem(io.wr.data, wordCount)
   when(io.wr.en) {
     mem.write(io.wr.addr, io.wr.data)
   }
-
   io.rd.data := mem.readAsync(io.rd.addr)
 }
 
@@ -194,26 +196,27 @@ class Ram_1c_1w_1rs(wordWidth: Int, wordCount: Int, writeToReadKind: MemWriteToR
   }
 
   val io = new Bundle {
-    val clk = in.Bool()
+    val clk = in Bool()
+    val clkEn = in Bool()
 
     val wr = new Bundle {
-      val en = in.Bool()
+      val en = in Bool()
       val addr = in UInt (log2Up(wordCount) bit)
       val data = in Bits (wordWidth bit)
     }
     val rd = new Bundle {
-      val en = in.Bool()
+      val en = in Bool()
       val addr = in UInt (log2Up(wordCount) bit)
       val data = out Bits (wordWidth bit)
     }
   }
 
-  useCurrentClockDomain(io.clk)
+  useCurrentClockDomain(io.clk,null,io.clkEn)
 
+  //Following is not obligatory, just to describe blackbox logic
   val mem = Mem(io.wr.data, wordCount)
   when(io.wr.en) {
     mem.write(io.wr.addr, io.wr.data)
   }
-
   io.rd.data := mem.readSync(io.rd.addr, io.rd.en)
 }

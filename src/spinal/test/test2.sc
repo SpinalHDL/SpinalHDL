@@ -29,6 +29,14 @@ def tree = new A(3)
 
 one >> two >> tree
 
+
+
+object O{
+  def apply = 2
+}
+
+
+
 //
 //class Stack[A] {
 //  def push[B >: A](elem: B): Stack[B] = new Stack[B] {

@@ -40,7 +40,7 @@ class Bits extends BitVector {
   def |(that: Bits): Bits = newBinaryOperator("b|b", that, WidthInfer.inputMaxWidthl, InputNormalize.nodeWidth);
   def &(that: Bits): Bits = newBinaryOperator("b&b", that, WidthInfer.inputMaxWidthl, InputNormalize.nodeWidth);
   def ^(that: Bits): Bits = newBinaryOperator("b^b", that, WidthInfer.inputMaxWidthl, InputNormalize.nodeWidth);
-  def ~(that: Bits): Bits = newBinaryOperator("~b", that, WidthInfer.inputMaxWidthl, InputNormalize.none);
+  def unary_~(): Bits = newUnaryOperator("~b");
 
   override def ===(that: SSelf): Bool = newLogicalOperator("b==b", that, InputNormalize.inputWidthMax);
   override def !==(that: SSelf): Bool = newLogicalOperator("b!=b", that, InputNormalize.inputWidthMax);

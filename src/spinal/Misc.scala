@@ -133,19 +133,22 @@ class Scope {
 
 
   def allocateName(name: String): String = {
-    val count = map.get(name).getOrElse(0)
-    map(name) = count + 1
+    val lowerCase = name.toLowerCase
+    val count = map.get(lowerCase).getOrElse(0)
+    map(lowerCase) = count + 1
     if (count == 0) name else name + "_" + count
   }
 
   def lockName(name: String): Unit = {
-    val count = map.get(name).getOrElse(1)
-    map(name) = count
+    val lowerCase = name.toLowerCase
+    val count = map.get(lowerCase).getOrElse(1)
+    map(lowerCase) = count
   }
 
   def iWantIt(name: String): Unit = {
-    if (map.contains(name)) SpinalError("Reserved name $name is not free")
-    map(name) = 1
+    val lowerCase = name.toLowerCase
+    if (map.contains(lowerCase)) SpinalError("Reserved name $name is not free")
+    map(lowerCase) = 1
   }
 }
 

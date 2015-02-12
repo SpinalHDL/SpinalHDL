@@ -368,6 +368,8 @@ object Try {
       val inUIntA = in UInt (5 bit)
       val outUIntA = out UInt (5 bit)
       val outUIntS = out UInt (5 bit)
+      val inUIntBitSel = in UInt (3 bit)
+      val outUIntBitSet = out UInt (5 bit)
 
 
       val inEnum = in(MyEnum)
@@ -530,6 +532,12 @@ object Try {
 
 
 
+
+    val uintBitSetReg = Reg(io.outUIntBitSet)
+
+   // uintBitSetReg(io.inUIntBitSel) := io.cond0
+
+    io.outUIntBitSet := uintBitSetReg
 
 
   }
