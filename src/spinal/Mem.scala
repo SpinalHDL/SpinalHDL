@@ -30,6 +30,7 @@ trait MemWriteToReadKind {
 
 }
 
+
 object writeFirst extends MemWriteToReadKind {
   override def toString: String = "writeFirst"
 }
@@ -83,7 +84,7 @@ class Mem[T <: Data](val wordType: T, val wordCount: Int) extends Node with Name
 }
 
 class MemReadAsync(mem: Mem[_], address: UInt, data: Bits,val writeToReadKind: MemWriteToReadKind) extends Node {
-  if(writeToReadKind == writeFirst) SpinalError("writeFirst mode for asyncronous read is not alowed")
+  if(writeToReadKind == readFirst) SpinalError("readFirst mode for asyncronous read is not alowed")
 
   inputs += address
   inputs += mem
@@ -159,7 +160,7 @@ class MemReadWrite extends Node {
 
 
 class Ram_1c_1w_1ra(wordWidth: Int, wordCount: Int, writeToReadKind: MemWriteToReadKind = dontCare) extends BlackBox {
-  if(writeToReadKind == writeFirst) SpinalError("writeFirst mode for asyncronous read is not alowed")
+  if(writeToReadKind == readFirst) SpinalError("readFirst mode for asyncronous read is not alowed")
 
   val generic = new Bundle {
     val wordCount = Number(Ram_1c_1w_1ra.this.wordCount)

@@ -82,12 +82,12 @@ object Try3 {
     println("START")
     var comp: ComponentA = null
 
-    SpinalMain({
+    SpinalVhdl({
       comp = new ComponentA
-      Component(comp)
-    })
+      comp
+    }).elaborate
 
-    new VhdlTestBenchBackend().elaborate(comp)
+
     println("DONE")
 
 

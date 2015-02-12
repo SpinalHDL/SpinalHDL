@@ -202,6 +202,9 @@ object SpinalInfoPhase {
 object SpinalInfo {
   def apply(message: String) = println(s"[Info] $message")
 }
+object SpinalWarning {
+  def apply(message: String) = println(s"[Warning] $message")
+}
 
 class SpinalExit(message: String) extends Exception(message);
 

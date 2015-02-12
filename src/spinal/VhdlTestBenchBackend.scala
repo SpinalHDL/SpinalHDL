@@ -18,27 +18,37 @@
 
 package spinal
 
-/**
- * Created by PIC18F on 30.01.2015.
- */
-class VhdlTestBenchBackend extends VhdlBase {
+import java.io.BufferedReader
+import java.nio.file.{Paths, Files}
+import scala.collection.mutable
+import scala.io.Source
+
+class VhdlTestBenchBackend() extends VhdlBase {
   var out: java.io.FileWriter = null
-  var library = "work"
-  val packageName = "pkg_scala2hdl"
-  // + Random.nextInt(100000)
-  val outputFile = "out_tb"
-  // + Random.nextInt(100000)
-  val tbName = "testBench" // + Random.nextInt(100000)
+  var outputFile : String = null
+  var tbName : String = null
+
+  val userCodes = mutable.Map[String,String]()
 
 
-  def elaborate(toplevel: Component): Unit = {
-    val tbFile = new java.io.FileWriter(outputFile + ".vhd")
+  var topLevel : Component = null
+  var backend : VhdlBackend = null
+
+  def elaborate(backend : VhdlBackend,topLevel: Component): Unit = {
+    this.topLevel = topLevel
+    this.backend = backend
+
+    if(outputFile == null) outputFile = backend.outputFile.replace(".","_tb.")
+    if(tbName == null) tbName = topLevel.definitionName + "_tb"
+    extractUserCodes
+
+    val tbFile = new java.io.FileWriter(outputFile)
 
     val ret = new StringBuilder()
 
-    ret ++= s"""library IEEE;
-              |use IEEE.STD_LOGIC_1164.ALL;
-              |use IEEE.NUMERIC_STD.all;
+    backend.emitLibrary(ret)
+    emitUserCode("","userLibrary",ret)
+    ret ++= s"""
               |
               |entity $tbName is
               |end $tbName;
@@ -46,9 +56,13 @@ class VhdlTestBenchBackend extends VhdlBase {
               |architecture arch of $tbName is
               |""".stripMargin
 
-    emitSignals(toplevel, ret)
+
+    emitSignals(topLevel, ret)
+    emitUserCode("  ","userDeclarations",ret)
+
     ret ++= "begin\n"
-    emitComponentInstance(toplevel, ret)
+    emitUserCode("  ","userLogics",ret)
+    emitComponentInstance(topLevel, ret)
     ret ++= "end arch;\n"
 
 
@@ -57,17 +71,50 @@ class VhdlTestBenchBackend extends VhdlBase {
     tbFile.close();
   }
 
+
+
+  def extractUserCodes : Unit ={
+    if(!Files.exists(Paths.get(outputFile))) return
+    val iterator =  Source.fromFile(outputFile).getLines()
+    val begin = "#spinalBegin"
+    val end = "#spinalEnd"
+    while(iterator.hasNext){
+      val line = iterator.next()
+      if(line.contains("#spinalBegin")){
+        val split = line.split(" ")
+        val name = split.iterator.dropWhile(_ != begin).drop(1).next()
+        var done = false
+        val buffer = new StringBuilder()
+        do{
+          val line = iterator.next()
+          if(line.contains(end))
+            done = true
+          else{
+            buffer ++= line
+            buffer ++= "\n"}
+        }while(done)
+        userCodes += (name -> buffer.result())
+      }
+    }
+  }
+
+  def emitUserCode(tab : String,name : String,ret : StringBuilder): Unit ={
+    ret ++= s"$tab-- #spinalBegin $name\n"
+    if(userCodes.contains(name))ret ++= userCodes(name)
+    ret ++= s"$tab-- #spinalEnd $name\n"
+  }
+
   def emitSignals(c: Component, ret: StringBuilder): Unit = {
-    for (io <- c.getNodeIo) {
+    for (io <- c.getOrdredNodeIo) {
       ret ++= emitSignal(io, io);
     }
   }
 
   def emitComponentInstance(c: Component, ret: StringBuilder): Unit = {
-    val definitionString = s"entity $library.${c.definitionName}"
+    val definitionString = s"entity ${backend.library}.${c.definitionName}"
     ret ++= s"  uut : $definitionString\n"
     ret ++= s"    port map (\n"
-    for (data <- c.getNodeIo) {
+    for (data <- c.getOrdredNodeIo) {
       ret ++= s"      ${emitReference(data)} =>  ${emitReference(data)},\n"
     }
     ret.setCharAt(ret.size - 2, ' ')

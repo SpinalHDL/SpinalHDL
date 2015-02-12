@@ -29,10 +29,9 @@ import scala.collection.mutable.ArrayBuffer
 class VhdlBackend extends Backend with VhdlBase {
   var out: java.io.FileWriter = null
   var library = "work"
-  val enumPackageName = "pkg_enum"
-  val packageName = "pkg_scala2hdl"
-  // + Random.nextInt(100000)
-  val outputFile = "out" // + Random.nextInt(100000)
+  var enumPackageName = "pkg_enum"
+  var packageName = "pkg_scala2hdl"
+  var outputFile : String = null
 
 
   reservedKeyWords ++= vhdlKeyWords
@@ -42,7 +41,9 @@ class VhdlBackend extends Backend with VhdlBase {
     val report = super.elaborate(topLevel)
     SpinalInfoPhase("Write VHDL")
 
-    out = new java.io.FileWriter(outputFile + ".vhd")
+    if(outputFile == null) outputFile = topLevel.definitionName + ".vhd"
+
+    out = new java.io.FileWriter(outputFile)
     emitEnumPackage(out)
     emitPackage(out)
 
@@ -67,7 +68,7 @@ class VhdlBackend extends Backend with VhdlBase {
 
   def emit(component: Component): String = {
     val ret = new StringBuilder()
-    emitLibrary(component, ret)
+    emitLibrary(ret)
     emitEntity(component, ret)
     emitArchitecture(component, ret)
     //ret ++= component.name + "\n"
@@ -389,7 +390,7 @@ class VhdlBackend extends Backend with VhdlBase {
     out.write(ret.result())
   }
 
-  def emitLibrary(component: Component, ret: StringBuilder): Unit = {
+  def emitLibrary(ret: StringBuilder): Unit = {
     ret ++= "library IEEE;"
     ret ++= "use IEEE.STD_LOGIC_1164.ALL;\n"
     ret ++= "use IEEE.NUMERIC_STD.all;\n"
@@ -719,7 +720,10 @@ class VhdlBackend extends Backend with VhdlBase {
       s"pkg_extract(${emitLogic(node.bitVector)},$bitIdString)"
     }
     case node: ExtractBitsVector => s"pkg_extract(${emitLogic(node.bitVector)},${node.bitIdHi.value},${node.bitIdLo.value})"
-    case memRead: MemReadAsync => s"${emitReference(memRead.getMem)}(to_integer(${emitReference(memRead.getAddress)}))"
+    case memRead: MemReadAsync => {
+      if(memRead.writeToReadKind == dontCare) SpinalWarning(s"memReadAsync with dontCare is as writeFirst into VHDL")
+      s"${emitReference(memRead.getMem)}(to_integer(${emitReference(memRead.getAddress)}))"
+    }
 
     case o => throw new Exception("Don't know how emit logic of " + o.getClass.getSimpleName)
   }
@@ -852,7 +856,9 @@ class VhdlBackend extends Backend with VhdlBase {
               ret ++= s"$tab  ${emitReference(memWrite.getMem)}(to_integer(${emitReference(memWrite.getAddress)})) <= ${emitReference(memWrite.getData)};\n"
               ret ++= s"${tab}end if;\n"
             }
-            case memReadSync: MemReadSync => {
+            case memReadSync: MemReadSync => { //readFirst
+              if(memReadSync.writeToReadKind == writeFirst) SpinalError(s"Can't translate a memReadSync with writeFirst into VHDL $memReadSync")
+              if(memReadSync.writeToReadKind == dontCare) SpinalWarning(s"memReadSync with dontCare is as readFirst into VHDL $memReadSync")
               ret ++= s"${tab}if ${emitReference(memReadSync.getEnable)} = '1' then\n"
               ret ++= s"$tab   ${emitReference(memReadSync.consumers(0))} <= ${emitReference(memReadSync.getMem)}(to_integer(${emitReference(memReadSync.getAddress)}));\n"
               ret ++= s"${tab}end if;\n"

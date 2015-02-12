@@ -72,8 +72,7 @@ object Try4 {
 
   def main(args: Array[String]) {
     println("START")
-    val report = SpinalMain(Component(new TopLevel))
-    new VhdlTestBenchBackend().elaborate(report.topLevel)
+    SpinalVhdl(new TopLevel).elaborate
     println("DONE")
   }
 

@@ -18,7 +18,52 @@
 
 package spinal
 
-import scala.collection.mutable
+object SpinalVhdl{
+  def apply[T <: Component](gen : => T) = {
+    new SpinalVhdl(gen)
+  }
+}
+
+class SpinalVhdl[T <: Component](gen : => T){
+  val backend = new VhdlBackend
+  val tbGen = new VhdlTestBenchBackend()
+  def elaborate ={
+    val report = backend.elaborate(() => gen)
+    tbGen.elaborate(backend,report.topLevel)
+    report
+  }
+
+
+  def setLibrary(name : String): this.type ={
+    backend.library = name
+    this
+  }
+  def setSpinalPackage(name : String): this.type ={
+    backend.packageName = name
+    this
+  }
+  def setEnumPackage(name : String): this.type ={
+    backend.enumPackageName = name
+    this
+  }
+  def setOutputFile(name : String): this.type ={
+    backend.outputFile = name
+    this
+  }
+  def setTbOutputFile(name : String): this.type ={
+    tbGen.outputFile = name
+    this
+  }
+  def setTbName(name : String): this.type ={
+    tbGen.tbName = name
+    this
+  }
+}
+
+
+class SpinalVhdlTb[T <: Component](gen : => T) {
+
+}
 
 object SpinalMain {
   def apply[T <: Component](gen : => T): BackendReport[T] = {

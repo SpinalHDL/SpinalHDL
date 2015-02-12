@@ -549,15 +549,15 @@ object Try {
   def main(args: Array[String]) {
     println("START")
     var comp: ComponentA = null
-    // val h1 = new Handshake(new BundleA())
-    // val h2 = h1.clone()
 
-    SpinalMain({
+    //SpinalVhdl(new ComponentA().setPackage.elaborate
+
+    SpinalVhdl({
       comp = new ComponentA
-      Component(comp)
-    })
+      comp
+    }).elaborate
 
-    new VhdlTestBenchBackend().elaborate(comp)
+
     println("DONE")
 
 

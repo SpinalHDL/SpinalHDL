@@ -87,6 +87,10 @@ object Try2 {
     tmp.add(new AttributeString("myAttribut", "hallo"))
     tmp.add(new AttributeFlag("yolo"))
 
+
+
+   // io.output := Mux(io.cond3,SInt(2),UInt(4))
+
   }
 
 
@@ -94,12 +98,11 @@ object Try2 {
     println("START")
     var comp: ComponentA = null
 
-    SpinalMain({
+    SpinalVhdl({
       comp = new ComponentA
-      Component(comp)
-    })
+      comp
+    }).elaborate
 
-    new VhdlTestBenchBackend().elaborate(comp)
     println("DONE")
 
 

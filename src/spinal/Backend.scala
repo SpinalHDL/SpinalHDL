@@ -85,7 +85,7 @@ class Backend {
     val defaultClockDomain = ClockDomain(clock, reset)
 
     ClockDomain.push(defaultClockDomain)
-    topLevel = gen()
+    topLevel = Component(gen())
     ClockDomain.pop(defaultClockDomain)
 
     elaborate(topLevel.asInstanceOf[T])
@@ -94,6 +94,8 @@ class Backend {
   //TODO
   //TODO no cross clock domain violation
   //TODO generate test bench
+  //TODO Betther VHDL library system
+  //TODO ROM support
   //TODO
 
   protected def elaborate[T <: Component](topLevel: T): BackendReport[T] = {
