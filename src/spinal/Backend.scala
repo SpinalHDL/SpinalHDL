@@ -93,7 +93,6 @@ class Backend {
 
   //TODO
   //TODO ROM support
-  //TODO Clock enable support
   //TODO
 
   protected def elaborate[T <: Component](topLevel: T): BackendReport[T] = {
@@ -248,7 +247,7 @@ class Backend {
   def printStates: Unit = {
     var counter = 0
     walkNodes2(_ => counter = counter + 1)
-    SpinalInfo(s"Graph has $counter nodes")
+    //SpinalInfo(s"Graph has $counter nodes")
   }
 
 

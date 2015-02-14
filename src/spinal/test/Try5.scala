@@ -38,6 +38,7 @@ object Try5 {
     val io = new Bundle {
       val clkA = in Bool()
       val resetA = in Bool()
+      val clkEnA = in Bool()
 
       val clkB = in Bool()
       val resetB = in Bool()
@@ -52,16 +53,16 @@ object Try5 {
       val outX = out Bool()
 
     }
-    val clockA = ClockDomain(io.clkA, io.resetA)
+    val clockA = ClockDomain(io.clkA, io.resetA,clockEnable = io.clkEnA)
     val clockB = ClockDomain(io.clkB, io.resetB)
 
 
     clockA.push
-    io.outA := RegNext(io.in0)
+    io.outA := RegNext(io.in0,Bool(true))
     clockA.pop
 
     clockB.push
-    io.outB := RegNext(io.in1)
+    io.outB := RegNext(io.in1,Bool(true))
     io.outX := RegNext(io.outA && io.outB).addTag(crossClockDomain)
     clockB.pop
 

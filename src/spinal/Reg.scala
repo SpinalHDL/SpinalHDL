@@ -23,7 +23,7 @@ import scala.collection.mutable.ArrayBuffer
 
 
 object Reg {
-  def apply[T <: Data](dataType: T, init: T = null.asInstanceOf[T]): T = {
+  def apply[T <: Data](dataType: T, init: T = null.asInstanceOf[T],next : T = null.asInstanceOf[T]): T = {
     val regOut = dataType.clone()//.dontSimplifyIt
     val regInit = dataType.clone()
     if (init != null) regInit := init
@@ -37,17 +37,15 @@ object Reg {
     }
 
     if (init != null) regOut.setRegInit(init)
+
+    if(next != null) regOut := next
     regOut
   }
 }
 
 
 object RegNext {
-  def apply[T <: Data](next: T, init: T = null): T = {
-    val reg = Reg(next, init)
-    reg := next
-    reg
-  }
+  def apply[T <: Data](next: T, init: T = null): T = Reg(next, init,next)
 }
 
 object RegInit {

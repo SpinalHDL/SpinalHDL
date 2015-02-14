@@ -36,10 +36,20 @@ object BOOT extends ResetKind;
 
 
 object ClockDomain{
-  def apply(clock : Bool,reset : Bool = null,resetKind : ResetKind = SYNC) : ClockDomain = {
-    new ClockDomain(clock,RISING,null,reset,resetKind,true)
+  def apply(clock : Bool,reset : Bool = null,resetKind : ResetKind = SYNC,edge : EdgeKind = RISING, clockEnable : Bool = null,resetActiveHigh : Boolean = true,clockEnableActiveHigh : Boolean = true) : ClockDomain = {
+    new ClockDomain(clock,edge,clockEnable,reset,resetKind,resetActiveHigh,clockEnableActiveHigh)
   }
 
+
+//  def apply(clock : Bool,resetKind : ResetKind = SYNC) : ClockDomain = {
+//    apply(clock,null,resetKind)
+//  }
+//  def apply(clock : Bool,reset : Bool,resetKind : ResetKind = SYNC) : ClockDomain = {
+//    new ClockDomain(clock,RISING,null,reset,resetKind,true)
+//  }
+//  def apply(clock : Bool,clockEnable : Bool,reset : Bool,resetKind : ResetKind = SYNC) : ClockDomain = {
+//    new ClockDomain(clock,RISING,clockEnable,reset,resetKind,true)
+//  }
   val stack = new SafeStack[ClockDomain]
 
   def push(c: ClockDomain): Unit = {
@@ -57,7 +67,7 @@ object ClockDomain{
   def readClockEnable = current.readClockEnable
 }
 
-class ClockDomain(val clock : Bool,val edge : EdgeKind,val clockEnable : Bool,val reset : Bool,val resetKind : ResetKind,val resetActiveHigh : Boolean){
+class ClockDomain(val clock : Bool,val edge : EdgeKind,val clockEnable : Bool,val reset : Bool,val resetKind : ResetKind,val resetActiveHigh : Boolean,val clockEnableActiveHigh : Boolean){
   def hasClockEnable = clockEnable != null
   def hasReset = reset != null
 

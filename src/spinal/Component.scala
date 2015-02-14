@@ -164,6 +164,8 @@ abstract class Component extends Nameable {
   }
 
   def isInBlackBoxTree : Boolean = if(parent == null) false else parent.isInBlackBoxTree
+
+
 }
 
 

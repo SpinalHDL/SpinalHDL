@@ -31,7 +31,7 @@ class VhdlBackend extends Backend with VhdlBase {
   var library = "work"
   var enumPackageName = "pkg_enum"
   var packageName = "pkg_scala2hdl"
-  var outputFile : String = null
+  var outputFile: String = null
 
 
   reservedKeyWords ++= vhdlKeyWords
@@ -41,7 +41,7 @@ class VhdlBackend extends Backend with VhdlBase {
     val report = super.elaborate(topLevel)
     SpinalInfoPhase("Write VHDL")
 
-    if(outputFile == null) outputFile = topLevel.definitionName + ".vhd"
+    if (outputFile == null) outputFile = topLevel.definitionName + ".vhd"
 
     out = new java.io.FileWriter(outputFile)
     emitEnumPackage(out)
@@ -517,10 +517,10 @@ class VhdlBackend extends Backend with VhdlBase {
 
           emitAttributes(signal, "signal", ret)
         }
-//        case outBinding: OutBinding => {
-//          ret ++= emitSignal(outBinding, outBinding.out);
-//          emitAttributes(outBinding, "signal", ret)
-//        }
+        //        case outBinding: OutBinding => {
+        //          ret ++= emitSignal(outBinding, outBinding.out);
+        //          emitAttributes(outBinding, "signal", ret)
+        //        }
         case mem: Mem[_] => {
           ret ++= s"  type ${emitReference(mem)}_type is array (0 to ${mem.wordCount - 1}) of std_logic_vector(${mem.getWidth - 1} downto 0);\n"
           ret ++= emitSignal(mem, mem);
@@ -701,7 +701,7 @@ class VhdlBackend extends Backend with VhdlBase {
 
   def emitLogic(node: Node): String = node match {
     case baseType: BaseType => emitReference(baseType)
-//    case outBinding: OutBinding => emitReference(outBinding)
+    //    case outBinding: OutBinding => emitReference(outBinding)
     case lit: BitsLiteral => lit.kind match {
       case _: Bits => s"pkg_stdLogicVector(X${'\"'}${lit.value.toString(16)}${'\"'},${lit.getWidth})"
       case _: UInt => s"pkg_unsigned(X${'\"'}${lit.value.toString(16)}${'\"'},${lit.getWidth})"
@@ -721,7 +721,7 @@ class VhdlBackend extends Backend with VhdlBase {
     }
     case node: ExtractBitsVector => s"pkg_extract(${emitLogic(node.bitVector)},${node.bitIdHi.value},${node.bitIdLo.value})"
     case memRead: MemReadAsync => {
-      if(memRead.writeToReadKind == dontCare) SpinalWarning(s"memReadAsync with dontCare is as writeFirst into VHDL")
+      if (memRead.writeToReadKind == dontCare) SpinalWarning(s"memReadAsync with dontCare is as writeFirst into VHDL")
       s"${emitReference(memRead.getMem)}(to_integer(${emitReference(memRead.getAddress)}))"
     }
 
@@ -751,8 +751,8 @@ class VhdlBackend extends Backend with VhdlBase {
       val arrayWithReset = ArrayBuffer[SyncNode]()
       val arrayWithoutReset = ArrayBuffer[SyncNode]()
 
-      for (syncNode <- array){
-        if(syncNode.isUsingReset) arrayWithReset += syncNode else arrayWithoutReset += syncNode
+      for (syncNode <- array) {
+        if (syncNode.isUsingReset) arrayWithReset += syncNode else arrayWithoutReset += syncNode
       }
 
       emitClockDomain(true)
@@ -768,31 +768,51 @@ class VhdlBackend extends Backend with VhdlBase {
         val clockEnable = if (null == clockDomain.clockEnable) null else component.pulledDataCache.getOrElse(clockDomain.clockEnable, throw new Exception("???")).asInstanceOf[Bool]
         val asyncReset = (null != reset) && clockDomain.resetKind == ASYNC
         val syncReset = (null != reset) && clockDomain.resetKind == SYNC
-        ret ++= s"  process(${emitReference(clock)}${if (asyncReset) "," + emitReference(reset) else ""})\n"
-        ret ++= s"  begin\n"
+        var tabLevel = 1
+        def tabStr = "  " * tabLevel
+        def inc = {tabLevel = tabLevel + 1}
+        def dec = {tabLevel = tabLevel - 1}
+        ret ++= s"${tabStr}process(${emitReference(clock)}${if (asyncReset) "," + emitReference(reset) else ""})\n"
+        ret ++= s"${tabStr}begin\n"
+        inc
         if (asyncReset) {
-          ret ++= s"    if ${emitReference(reset)} = \'${if (clockDomain.resetActiveHigh) 1 else 0}\' then\n"
-          emitRegsInitialValue("      ")
-          ret ++= s"    elsif ${emitClockEdge(clock, clockDomain.edge)}"
-          /*  if(clockEnable != null){
-              ret ++= s"      if ${emitReference(reset)} = \'${if (clockDomain.resetActiveHigh) 1 else 0}\' then\n"
-            }*/
+          ret ++= s"${tabStr}if ${emitReference(reset)} = \'${if (clockDomain.resetActiveHigh) 1 else 0}\' then\n";
+          inc
+          emitRegsInitialValue(tabStr)
+          dec
+          ret ++= s"${tabStr}elsif ${emitClockEdge(clock, clockDomain.edge)}"
+          inc
         } else {
-          ret ++= s"    if ${emitClockEdge(clock, clockDomain.edge)}"
+          ret ++= s"${tabStr}if ${emitClockEdge(clock, clockDomain.edge)}"
+          inc
+        }
+        if (clockEnable != null) {
+          ret ++= s"${tabStr}if ${emitReference(clockEnable)} = \'${if (clockDomain.clockEnableActiveHigh) 1 else 0}\' then\n"
+          inc
         }
         if (syncReset) {
-          ret ++= s"      if ${emitReference(reset)} = \'${if (clockDomain.resetActiveHigh) 1 else 0}\' then\n"
-          emitRegsInitialValue("        ")
-          ret ++= s"      else\n"
-          emitRegsLogic("        ")
-          ret ++= s"      end if;\n"
+          ret ++= s"${tabStr}if ${emitReference(reset)} = \'${if (clockDomain.resetActiveHigh) 1 else 0}\' then\n"
+          inc
+          emitRegsInitialValue(tabStr)
+          dec
+          ret ++= s"${tabStr}else\n"
+          inc
+          emitRegsLogic(tabStr)
+          dec
+          ret ++= s"${tabStr}end if;\n"
+          dec
         } else {
-          emitRegsLogic("      ")
+          emitRegsLogic(tabStr)
+          dec
         }
 
-        ret ++= s"    end if;\n"
-        ret ++= s"  end process;\n"
-        ret ++= s"  \n"
+        while (tabLevel != 1) {
+          ret ++= s"${tabStr}end if;\n"
+          dec
+        }
+        ret ++= s"${tabStr}end process;\n"
+        dec
+        ret ++= s"${tabStr}\n"
 
         def emitRegsInitialValue(tab: String): Unit = {
           for (syncNode <- activeArray) syncNode match {
@@ -856,9 +876,10 @@ class VhdlBackend extends Backend with VhdlBase {
               ret ++= s"$tab  ${emitReference(memWrite.getMem)}(to_integer(${emitReference(memWrite.getAddress)})) <= ${emitReference(memWrite.getData)};\n"
               ret ++= s"${tab}end if;\n"
             }
-            case memReadSync: MemReadSync => { //readFirst
-              if(memReadSync.writeToReadKind == writeFirst) SpinalError(s"Can't translate a memReadSync with writeFirst into VHDL $memReadSync")
-              if(memReadSync.writeToReadKind == dontCare) SpinalWarning(s"memReadSync with dontCare is as readFirst into VHDL $memReadSync")
+            case memReadSync: MemReadSync => {
+              //readFirst
+              if (memReadSync.writeToReadKind == writeFirst) SpinalError(s"Can't translate a memReadSync with writeFirst into VHDL $memReadSync")
+              if (memReadSync.writeToReadKind == dontCare) SpinalWarning(s"memReadSync with dontCare is as readFirst into VHDL $memReadSync")
               ret ++= s"${tab}if ${emitReference(memReadSync.getEnable)} = '1' then\n"
               ret ++= s"$tab   ${emitReference(memReadSync.consumers(0))} <= ${emitReference(memReadSync.getMem)}(to_integer(${emitReference(memReadSync.getAddress)}));\n"
               ret ++= s"${tab}end if;\n"
@@ -932,7 +953,7 @@ class VhdlBackend extends Backend with VhdlBase {
       ret ++= s"    port map (\n"
       for (data <- kind.getOrdredNodeIo) {
         if (data.isOutput) {
-          val bind = component.kindsOutputsToBindings.getOrElse(data,null)
+          val bind = component.kindsOutputsToBindings.getOrElse(data, null)
           if (bind != null) {
             ret ++= s"      ${emitReference(data)} => ${emitReference(bind)},\n"
           }
