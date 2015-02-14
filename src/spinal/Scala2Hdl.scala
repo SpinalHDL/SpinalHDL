@@ -77,6 +77,13 @@ class SpinalVhdl[T <: Component](gen: => T) {
     backend.outputFile = name
     this
   }
+
+
+  def forceMemToBlackboxTranslation : this.type = {
+    backend.forceMemToBlackboxTranslation = true
+    this
+  }
+
   def setTbOutputFile(name: String): this.type = {
     tbGen.outputFile = name
     this

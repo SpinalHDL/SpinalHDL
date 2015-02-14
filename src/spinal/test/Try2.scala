@@ -77,12 +77,12 @@ object Try2 {
     componentAA.io.input := io.input
     io.output := RegNext(io.output)
 
-    val mem = new Mem(io.wrData, 1 << io.wrAddr.getWidth)
+    val mem = new Mem(io.wrData, 1 << io.wrAddr.getWidth).setAsBlackBox
 
     when(io.cond0 && io.cond1) {
       mem.write(io.wrAddr + UInt(1), io.wrData)
     }
-    val tmp = (mem.readSync(io.rdAddr + UInt(2),io.cond2,writeFirst))
+    val tmp = mem.readSync(io.rdAddr + UInt(2),io.cond2,writeFirst)
     io.rdData := tmp
     tmp.add(new AttributeString("myAttribut", "hallo"))
     tmp.add(new AttributeFlag("yolo"))

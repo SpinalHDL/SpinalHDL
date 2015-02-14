@@ -59,6 +59,7 @@ class Backend {
   val reservedKeyWords = mutable.Set[String]()
   var topLevel: Component = null
   val enums = mutable.Set[SpinalEnum]()
+  var forceMemToBlackboxTranslation = false
 
   def addReservedKeyWordToScope(scope: Scope): Unit = {
     reservedKeyWords.foreach(scope.allocateName(_))
@@ -93,7 +94,6 @@ class Backend {
   //TODO
   //TODO no cross clock domain violation
   //TODO ROM support
-  //TODO use more ScalaLocated
   //TODO
 
   protected def elaborate[T <: Component](topLevel: T): BackendReport[T] = {
@@ -195,7 +195,7 @@ class Backend {
 
 
 
-    for ((mem, topo) <- memsTopo.iterator) {
+    for ((mem, topo) <- memsTopo.iterator if forceMemToBlackboxTranslation || mem.forceMemToBlackboxTranslation) {
       if (topo.writes.size == 1 && topo.readsAsync.size == 1 && topo.readsSync.size == 0) {
         val wr = topo.writes(0)
         val rd = topo.readsAsync(0)

@@ -389,10 +389,10 @@ object Try {
       val inBundleToBits = in(new BundleAA)
       val outBundleFromBits = out(new BundleAA)
 
-      val slaveHandshakeUInt = slave Handshake (UInt(3 bit))
-      val masterHandshakeSInt = master Handshake (SInt(3 bit))
+      val slaveHandshakeUInt = slave Handshake UInt(3 bit)
+      val masterHandshakeSInt = master Handshake SInt(3 bit)
 
-      val slaveHandshake = slave Handshake (new BundleAA)
+      val slaveHandshake = slave Handshake new BundleAA
       val masterHandshake = master Handshake (new BundleAA)
       val masterHandshakeThrow = master Handshake (new BundleAA)
       val masterHandshakeUInt = master Handshake (UInt(4 bit))

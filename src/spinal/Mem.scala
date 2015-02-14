@@ -48,8 +48,14 @@ object Mem {
 }
 
 class Mem[T <: Data](val wordType: T, val wordCount: Int) extends Node with Nameable {
+  var forceMemToBlackboxTranslation = false
   override def calcWidth: Int = wordType.getBitsWidth
   def addressWidth = log2Up(wordCount)
+
+  def setAsBlackBox : this.type = {
+    forceMemToBlackboxTranslation = true
+    this
+  }
 
   def readAsync(address: UInt,writeToReadKind: MemWriteToReadKind = dontCare): T = {
     val readBits = Bits(wordType.getBitsWidth bit)
