@@ -178,4 +178,5 @@ trait ScalaLocated {
   }
   def getScalaTraceString: String = getScalaTraceString("    ")
 
+  def getScalaLocationString : String = this.toString + " at\n" + getScalaTraceString
 }

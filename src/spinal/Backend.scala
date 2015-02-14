@@ -312,34 +312,34 @@ class Backend {
           val in = node.inputs(0)
           if (in != null) {
             if (node.isInput && in.isInstanceOf[Reg] && in.component == node.component) {
-              errors += s"Input register are not allowed $node"
+              errors += s"Input register are not allowed ${node.getScalaLocationString}"
             } else {
               val inIsIo = in.isInstanceOf[BaseType] && in.asInstanceOf[BaseType].isIo
               if (node.isIo) {
                 if (node.isInput) {
                   if (in.component != node.component.parent && !(!in.component.isTopLevel && inIsIo && in.component.parent == node.component.parent))
-                    errors += s"Input $node is not assigned by parent component but an other"
+                    errors += s"Input $node is not assigned by parent component but an other at ${node.getScalaTraceString}"
                 } else if (node.isOutput) {
                   if (in.component != node.component && !(inIsIo && node.component == in.component.parent))
-                    errors += s"Output $node is not assigned by his component but an other"
-                } else errors += s"No direction specified on IO $node"
+                    errors += s"Output $node is not assigned by his component but an other at ${node.getScalaTraceString}"
+                } else errors += s"No direction specified on IO ${node.getScalaLocationString}"
               } else {
                 if (in.component != node.component && !(inIsIo && node.component == in.component.parent))
-                  errors += s"Node $node is assigned outside his component "
+                  errors += s"Node $node is assigned outside his component at ${node.getScalaTraceString}"
               }
             }
           } else {
             if (!(node.isInput && node.component.isTopLevel) && !(node.isOutput && node.component.isInstanceOf[BlackBox]))
-              errors += s"No driver on $node at\n${node.getScalaTraceString}"
+              errors += s"No driver on ${node.getScalaLocationString}"
           }
         }
         case _ => {
           for (in <- node.inputs) {
             if (in == null) {
-              errors += s"No driver on $node at\n${node.getScalaTraceString}"
+              errors += s"No driver on ${node.getScalaLocationString}"
             } else {
               if (in.component != node.component && !(in.isInstanceOf[BaseType] && in.asInstanceOf[BaseType].isIo && node.component == in.component.parent))
-                errors += s"Node is drived outside his component $node"
+                errors += s"Node is drived outside his component ${node.getScalaLocationString}"
             }
           }
         }
@@ -441,7 +441,7 @@ class Backend {
           extract.bitId match {
             case lit: IntLiteral => {
               if (lit.value < 0 || lit.value >= extract.bitVector.getWidth) {
-                errors += s"Static bool extraction (bit ${lit.value}) is outside the range (${extract.bitVector.getWidth - 1} downto 0) of ${extract.bitVector}"
+                errors += s"Static bool extraction (bit ${lit.value}) is outside the range (${extract.bitVector.getWidth - 1} downto 0) of ${extract.bitVector} at\n${extract.getScalaTraceString}"
               }
             }
             case _ =>
@@ -453,7 +453,7 @@ class Backend {
           val lo = extract.bitIdLo.value
           val width = extract.bitVector.getWidth
           if (hi >= width || lo < 0) {
-            errors += s"Static bits extraction ($hi downto $lo) is outside the range (${width - 1} downto 0) of ${extract.bitVector}"
+            errors += s"Static bits extraction ($hi downto $lo) is outside the range (${width - 1} downto 0) of ${extract.bitVector} at\n${extract.getScalaTraceString}"
           }
 
         }
@@ -528,7 +528,7 @@ class Backend {
         if (node.inferWidth || node.inferWidth) {
           node match {
             case baseType: BaseType =>
-              errors += s"Can't infer width on $node"
+              errors += s"Can't infer width on ${node.getScalaLocationString}"
             case _ =>
           }
         }

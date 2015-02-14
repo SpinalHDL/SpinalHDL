@@ -168,6 +168,7 @@ object Try {
     v5 := io.in
 
     val res = RegInit(Bool(true))
+ //   val res = (Bool())
 
 
     nameElements()
