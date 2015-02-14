@@ -29,6 +29,12 @@ abstract class MultiData extends Data {
   def elements: ArrayBuffer[(String, Data)]
 
 
+  override def addTag(spinalTag: SpinalTag): this.type = {
+    super.addTag(spinalTag)
+    elements.foreach(_._2.addTag(spinalTag))
+    this
+  }
+
   def find(name: String): Data = {
     val temp = elements.find((tuple) => tuple._1 == name).getOrElse(null)
     if (temp == null) return null

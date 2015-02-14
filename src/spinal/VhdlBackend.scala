@@ -739,20 +739,20 @@ class VhdlBackend extends Backend with VhdlBase {
   def emitSyncronous(component: Component, ret: StringBuilder): Unit = {
     // ret ++= "  -- synchronous\n"
 
-    val delayNodes = component.getDelays
+    val syncNodes = component.getDelays
 
-    val clockDomainMap = mutable.Map[ClockDomain, ArrayBuffer[DelayNode]]()
+    val clockDomainMap = mutable.Map[ClockDomain, ArrayBuffer[SyncNode]]()
 
-    for (delayNode <- delayNodes) {
-      clockDomainMap.getOrElseUpdate(delayNode.getClockDomain, new ArrayBuffer[DelayNode]()) += delayNode
+    for (syncNode <- syncNodes) {
+      clockDomainMap.getOrElseUpdate(syncNode.getClockDomain, new ArrayBuffer[SyncNode]()) += syncNode
     }
 
     for ((clockDomain, array) <- clockDomainMap) {
-      val arrayWithReset = ArrayBuffer[DelayNode]()
-      val arrayWithoutReset = ArrayBuffer[DelayNode]()
+      val arrayWithReset = ArrayBuffer[SyncNode]()
+      val arrayWithoutReset = ArrayBuffer[SyncNode]()
 
-      for (delayNode <- array){
-        if(delayNode.isUsingReset) arrayWithReset += delayNode else arrayWithoutReset += delayNode
+      for (syncNode <- array){
+        if(syncNode.isUsingReset) arrayWithReset += syncNode else arrayWithoutReset += syncNode
       }
 
       emitClockDomain(true)
@@ -795,7 +795,7 @@ class VhdlBackend extends Backend with VhdlBase {
         ret ++= s"  \n"
 
         def emitRegsInitialValue(tab: String): Unit = {
-          for (delayNode <- activeArray) delayNode match {
+          for (syncNode <- activeArray) syncNode match {
             case reg: Reg => {
               if (reg.hasInitialValue) {
                 ret ++= s"$tab${emitReference(reg.getOutputByConsumers)} <= ${emitLogic(reg.getInitialValue)};\n"
@@ -821,7 +821,7 @@ class VhdlBackend extends Backend with VhdlBase {
 
           val rootContext = new Context
 
-          for (delayNode <- activeArray) delayNode match {
+          for (syncNode <- activeArray) syncNode match {
             case reg: Reg => {
               val regSignal = reg.getOutputByConsumers
               if (!regSignal.isIo || !regSignal.isInput) {

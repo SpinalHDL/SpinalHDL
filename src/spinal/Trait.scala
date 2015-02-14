@@ -82,31 +82,31 @@ trait ContextUser {
   def getClockDomain: ClockDomain
 }*/
 
-object DelayNode {
+object SyncNode {
   def getClockInputId: Int = 0
   def getClockEnableId: Int = 1
   def getClockResetId: Int = 2
 }
 
-abstract class DelayNode(clockDomain: ClockDomain = ClockDomain.current) extends Node {
+abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends Node {
   inputs += clockDomain.clock
   inputs += clockDomain.clockEnable
   inputs += Bool(!clockDomain.resetActiveHigh)
 
   def getLatency = 1
 
-  def getSynchronousInputs = ArrayBuffer[Node](getClock, getClockEnable) ++= (if (clockDomain.resetKind != ASYNC) getResetStyleInputs else Nil)
+  def getSynchronousInputs = ArrayBuffer[Node](/*getClock, */getClockEnable) ++= (if (clockDomain.resetKind != ASYNC) getResetStyleInputs else Nil)
   def getAsynchronousInputs = ArrayBuffer[Node]() ++= (if (clockDomain.resetKind == ASYNC) getResetStyleInputs else Nil)
 
   def getResetStyleInputs = ArrayBuffer[Node](getReset)
 
   def isUsingReset: Boolean
-  def setUseReset = inputs(DelayNode.getClockResetId) = clockDomain.reset
+  def setUseReset = inputs(SyncNode.getClockResetId) = clockDomain.reset
   def getClockDomain: ClockDomain = clockDomain
 
-  def getClock: Bool = inputs(DelayNode.getClockInputId).asInstanceOf[Bool]
-  def getClockEnable: Bool = inputs(DelayNode.getClockInputId).asInstanceOf[Bool]
-  def getReset: Bool = inputs(DelayNode.getClockResetId).asInstanceOf[Bool]
+  def getClock: Bool = inputs(SyncNode.getClockInputId).asInstanceOf[Bool]
+  def getClockEnable: Bool = inputs(SyncNode.getClockInputId).asInstanceOf[Bool]
+  def getReset: Bool = inputs(SyncNode.getClockResetId).asInstanceOf[Bool]
 }
 
 trait Assignable {
@@ -161,6 +161,7 @@ object ScalaLocated {
   var enable = false
 
   var unfiltredFiles = mutable.Set("SpinalUtils.scala")
+  var unfiltredPackages = mutable.Set("spinal.test.")
 }
 
 trait ScalaLocated {
@@ -169,14 +170,47 @@ trait ScalaLocated {
   def getScalaTrace = {
     scalaTrace
   }
+  def getScalaTraceSmart = {
+    val temp = scalaTrace.getStackTrace.filter(trace => {
+      val className = trace.getClassName
+      !((className.startsWith("scala.") || className.startsWith("spinal.")) &&  !ScalaLocated.unfiltredPackages.map(className.startsWith(_)).reduceLeft(_ || _)) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
+    })
+    temp
+  }
+
   def getScalaTraceString(tab: String): String = {
     if (scalaTrace == null) return ""
-    (scalaTrace.getStackTrace.filter(trace => {
-      val className = trace.getClassName
-      !(className.startsWith("spinal.") && !className.startsWith("spinal.test.")) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
-    }).map(tab + _.toString) reduceLeft (_ + "\n" + _)) + "\n\n"
+    (getScalaTraceSmart.map(tab + _.toString) reduceLeft (_ + "\n" + _)) + "\n\n"
   }
   def getScalaTraceString: String = getScalaTraceString("    ")
 
-  def getScalaLocationString : String = this.toString + " at\n" + getScalaTraceString
+  def getScalaLocationString: String = this.toString + " at\n" + getScalaTraceString
+  def getScalaLocationStringShort : String = {
+    if (scalaTrace == null) return ""
+    this.toString + s" at ${getScalaTraceSmart.apply(0).toString}"
+  }
 }
+
+
+
+trait SpinalTagReady{
+  val spinalTags = mutable.Set[SpinalTag]()
+  var compositeTagReady : SpinalTagReady = null
+
+  def addTag(spinalTag: SpinalTag): this.type ={
+    spinalTags += spinalTag
+    this
+  }
+
+  def hasTag(spinalTag: SpinalTag) : Boolean = {
+    if(spinalTags.contains(spinalTag)) return true
+    if(compositeTagReady != null && compositeTagReady.hasTag(spinalTag))return true
+    return false
+  }
+}
+
+trait SpinalTag{
+
+}
+
+object crossClockDomain extends SpinalTag

@@ -108,7 +108,7 @@ object MemReadSync {
   def getEnableId: Int = 4
 }
 
-class MemReadSync(mem: Mem[_], address: UInt, data: Bits, enable: Bool,val writeToReadKind: MemWriteToReadKind, clockDomain: ClockDomain) extends DelayNode(clockDomain) {
+class MemReadSync(mem: Mem[_], address: UInt, data: Bits, enable: Bool,val writeToReadKind: MemWriteToReadKind, clockDomain: ClockDomain) extends SyncNode(clockDomain) {
   inputs += address
   inputs += enable
   inputs += mem
@@ -137,7 +137,7 @@ object MemWrite {
   def getEnableId: Int = 5
 }
 
-class MemWrite(mem: Mem[_], address: UInt, data: Bits, enable: Bool, clockDomain: ClockDomain) extends DelayNode(clockDomain) {
+class MemWrite(mem: Mem[_], address: UInt, data: Bits, enable: Bool, clockDomain: ClockDomain) extends SyncNode(clockDomain) {
   inputs += address
   inputs += data
   inputs += enable

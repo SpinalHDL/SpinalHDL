@@ -149,9 +149,9 @@ abstract class Component extends Nameable {
 
 
   def getDelays = {
-    val delays = new ArrayBuffer[DelayNode]()
+    val delays = new ArrayBuffer[SyncNode]()
     nodes.foreach(node => node match {
-      case delay: DelayNode => delays += delay
+      case delay: SyncNode => delays += delay
       case _ =>
     })
     delays

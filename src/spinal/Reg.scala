@@ -33,6 +33,7 @@ object Reg {
     if (init != null) regInit := init
     for (((eName, e), (y, initElement)) <- (regOut.flatten, regInit.flatten).zipped) {
       val reg = new Reg(e)
+      reg.compositeTagReady = e
       e.inputs(0) = reg;
       if (init != null && initElement.inputs(0) != null && initElement.inputs(0).inputs(0) != null)
         reg.setInitialValue(initElement)
@@ -64,7 +65,7 @@ object RegS {
   def getInitialValueId: Int = 4
 }
 
-class Reg(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) extends DelayNode(clockDomain) with Assignable {
+class Reg(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) extends SyncNode(clockDomain) with Assignable {
   inputs += this
   inputs += new NoneNode
 

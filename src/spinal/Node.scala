@@ -106,7 +106,7 @@ object Node {
 
 
 
-abstract class Node extends ContextUser with ScalaLocated{
+abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady{
   val consumers = new ArrayBuffer[Node]
   val inputs = new ArrayBuffer[Node]
 

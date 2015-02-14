@@ -94,6 +94,8 @@ class Backend {
   //TODO
   //TODO no cross clock domain violation
   //TODO ROM support
+  //TODO Clock enable support
+  //TODO allow clock definition from outside with signal pull
   //TODO
 
   protected def elaborate[T <: Component](topLevel: T): BackendReport[T] = {
@@ -130,8 +132,10 @@ class Backend {
     checkInferedWidth
 
     //Check
-    SpinalInfoPhase("Check Combinational Loops")
+    SpinalInfoPhase("Check combinational loops")
     checkCombinationalLoops
+    SpinalInfoPhase("Check cross clock domains")
+    checkCrossClockDomains
 
 
     //Simplify nodes
@@ -201,7 +205,7 @@ class Backend {
         val rd = topo.readsAsync(0)
         ClockDomain.push(wr.getClockDomain)
         Component.push(mem.component)
-        val ram = Component(new Ram_1c_1w_1ra(mem.getWidth, mem.wordCount,rd.writeToReadKind))
+        val ram = Component(new Ram_1c_1w_1ra(mem.getWidth, mem.wordCount, rd.writeToReadKind))
 
         // ram.io.clk := wr.getClockDomain.readClock
 
@@ -221,7 +225,7 @@ class Backend {
         if (rd.getClockDomain.clock == wr.getClockDomain.clock) {
           ClockDomain.push(wr.getClockDomain)
           Component.push(mem.component)
-          val ram = Component(new Ram_1c_1w_1rs(mem.getWidth, mem.wordCount,rd.writeToReadKind))
+          val ram = Component(new Ram_1c_1w_1rs(mem.getWidth, mem.wordCount, rd.writeToReadKind))
 
 
           //  ram.io.clk := wr.getClockDomain.readClock
@@ -648,6 +652,37 @@ class Backend {
     node.normalizeInputs
   }
 
+  def checkCrossClockDomains: Unit = {
+    val errors = mutable.ArrayBuffer[String]()
+    walkNodes2(node => {
+      node match {
+        case syncNode: SyncNode => {
+          if (!syncNode.hasTag(crossClockDomain)) {
+            val consumerCockDomain = syncNode.getClockDomain
+            for (syncInput <- syncNode.getSynchronousInputs) {
+              check(syncInput)
+              def check(that: Node): Unit = {
+                that match {
+                  case syncDriver: SyncNode => {
+                    if (syncDriver.getClockDomain.clock != consumerCockDomain.clock) {
+                      errors += s"Synchronous element ${syncNode.getScalaLocationStringShort} is drived by ${syncDriver.getScalaLocationStringShort} but they don't have the same clock domain. Register declaration at\n${syncNode.getScalaTraceString}"
+                    }
+                  }
+                  case _ => that.inputs.foreach(input => if (input != null) check(input))
+                }
+              }
+            }
+          }
+        }
+        case _ =>
+      }
+    })
+
+    if (!errors.isEmpty)
+      SpinalError(errors)
+  }
+
+
   def checkCombinationalLoops: Unit = {
     val errors = mutable.ArrayBuffer[String]()
     val pendingNodes: mutable.Stack[Node] = walkNodesDefautStack
@@ -674,12 +709,12 @@ class Backend {
     def walk(node: Node): Unit = {
       if (node == null) return
 
-      if (node.isInstanceOf[DelayNode]) {
-        val delayNode = node.asInstanceOf[DelayNode]
+      if (node.isInstanceOf[SyncNode]) {
+        val syncNode = node.asInstanceOf[SyncNode]
         walkedNodes += node
 
-        delayNode.getSynchronousInputs.foreach(addPendingNode(_))
-        delayNode.getAsynchronousInputs.foreach(walk(_))
+        syncNode.getSynchronousInputs.foreach(addPendingNode(_))
+        syncNode.getAsynchronousInputs.foreach(walk(_))
       } else {
         if (localNodes.contains(node)) {
           val it = stack.iterator
@@ -710,19 +745,19 @@ class Backend {
 
 
   def walker_pullClockDomains(node: Node, stack: mutable.Stack[Node]): Unit = {
-  //  if (!node.isInBlackBoxTree) {
-      node match {
-        case delay: DelayNode => {
-          Component.push(delay.component)
-          delay.inputs(DelayNode.getClockInputId) = delay.getClockDomain.readClock
-          if (delay.isUsingReset)
-            delay.inputs(DelayNode.getClockResetId) = delay.getClockDomain.readReset
-          delay.inputs(DelayNode.getClockEnableId) = delay.getClockDomain.readClockEnable
-          Component.pop(delay.component)
-        }
-        case _ =>
+    //  if (!node.isInBlackBoxTree) {
+    node match {
+      case delay: SyncNode => {
+        Component.push(delay.component)
+        delay.inputs(SyncNode.getClockInputId) = delay.getClockDomain.readClock
+        if (delay.isUsingReset)
+          delay.inputs(SyncNode.getClockResetId) = delay.getClockDomain.readReset
+        delay.inputs(SyncNode.getClockEnableId) = delay.getClockDomain.readClockEnable
+        Component.pop(delay.component)
       }
-  //  }
+      case _ =>
+    }
+    //  }
     node.inputs.foreach(stack.push(_))
   }
 
@@ -830,9 +865,9 @@ class Backend {
   def addNodesIntoComponent: Unit = {
     walkNodes2(node => {
       node.component.nodes += node
-    },{
+    }, {
       val stack = walkNodesDefautStack
-      for(c <- components){
+      for (c <- components) {
         c.nodes = ArrayBuffer[Node]()
       }
       stack
