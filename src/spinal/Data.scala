@@ -39,12 +39,12 @@ object Data {
       if (finalComponentCacheState != null) return finalComponentCacheState.asInstanceOf[srcData.type]
     }
 
-    if (startComponent == finalComponent || (finalComponent == startComponent.parent && srcData.isIo)) {
+    if (startComponent == finalComponent || (startComponent != null && finalComponent == startComponent.parent && srcData.isIo)) {
       finalComponent.pulledDataCache.put(srcData, srcData)
       return srcData
     }
 
-    val startComponentStack = startComponent.parents() :+ startComponent
+    val startComponentStack = if(startComponent == null) List[Component](null) else startComponent.parents() :+ startComponent
     var componentPtr = finalComponent
     var nextData: srcData.type = null.asInstanceOf[srcData.type]
     var ret: srcData.type = null.asInstanceOf[srcData.type]
@@ -75,7 +75,7 @@ object Data {
     }
 
     val lowerComponent = componentPtr
-    var risePath = startComponentStack.takeRight(startComponentStack.size - 1 - componentPtr.parents().size)
+    var risePath = if(lowerComponent == null)  List[Component]() else  startComponentStack.takeRight(startComponentStack.size - 1 - componentPtr.parents().size)
     //pull from lower component to start component (rise)
     while (componentPtr != startComponent) {
       if (useCache) {

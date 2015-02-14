@@ -25,9 +25,16 @@ import spinal._
  * Created by PIC18F on 22.08.2014.
  */
 object Try5 {
+  class SubComponent extends Component {
+    val io = new Bundle {
+      val in = (new Bool().asInput)
+      val out = new Bool().asOutput
+    }
+    io.out := RegNext(io.in)
+  }
 
 
-  class TopLevel extends Component {
+  class TopLevel(clockC : ClockDomain) extends Component {
     val io = new Bundle {
       val clkA = in Bool()
       val resetA = in Bool()
@@ -41,6 +48,7 @@ object Try5 {
       val in2 = in Bool()
       val outA = out Bool()
       val outB = out Bool()
+      val outC = out Bool()
       val outX = out Bool()
 
     }
@@ -57,13 +65,21 @@ object Try5 {
     io.outX := RegNext(io.outA && io.outB).addTag(crossClockDomain)
     clockB.pop
 
+    clockC.push
+    val subComponent = Component(new SubComponent)
+    subComponent.io.in := io.in2
+    io.outC := subComponent.io.out
+    clockC.pop
+
 
   }
 
 
   def main(args: Array[String]) {
     println("START")
-    SpinalVhdl(new TopLevel)
+    val clockC = ClockDomain(Bool().setName("clkC"),Bool().setName("resetC"))
+
+    SpinalVhdl(new TopLevel(clockC))
     println("DONE")
   }
 

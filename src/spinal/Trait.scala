@@ -141,7 +141,7 @@ trait Nameable {
     compositeName = null
   }
 
-  def setName(name: String, weak: Boolean = false) = {
+  def setName(name: String, weak: Boolean = false) : this.type = {
     compositeName = null
     if (!weak) {
       this.name = name;
@@ -152,6 +152,7 @@ trait Nameable {
       this.name = name;
       nameChangeEvent(weak)
     }
+    this
   }
 
   protected def nameChangeEvent(weak: Boolean): Unit = {}

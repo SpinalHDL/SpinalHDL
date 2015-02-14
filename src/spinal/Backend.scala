@@ -92,10 +92,8 @@ class Backend {
   }
 
   //TODO
-  //TODO no cross clock domain violation
   //TODO ROM support
   //TODO Clock enable support
-  //TODO allow clock definition from outside with signal pull
   //TODO
 
   protected def elaborate[T <: Component](topLevel: T): BackendReport[T] = {
@@ -489,7 +487,7 @@ class Backend {
 
     while (!nodeStack.isEmpty) {
       val pop = nodeStack.pop()
-      if (pop != null && walkedNodes.contains(pop) == false) {
+      if (pop != null && walkedNodes.contains(pop) == false && pop.component != null) {
         walker(pop, nodeStack)
         walkedNodes += pop
       }

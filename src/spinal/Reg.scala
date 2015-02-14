@@ -21,10 +21,6 @@ package spinal
 import scala.collection.mutable.ArrayBuffer
 
 
-/**
- * Created by PIC18F on 10.01.2015.
- */
-
 
 object Reg {
   def apply[T <: Data](dataType: T, init: T = null.asInstanceOf[T]): T = {
