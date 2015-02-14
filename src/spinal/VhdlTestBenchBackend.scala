@@ -18,7 +18,7 @@
 
 package spinal
 
-import java.io.BufferedReader
+
 import java.nio.file.{Paths, Files}
 import scala.collection.mutable
 import scala.io.Source
@@ -80,7 +80,7 @@ class VhdlTestBenchBackend() extends VhdlBase {
     val end = "#spinalEnd"
     while(iterator.hasNext){
       val line = iterator.next()
-      if(line.contains("#spinalBegin")){
+      if(line.contains(begin)){
         val split = line.split(" ")
         val name = split.iterator.dropWhile(_ != begin).drop(1).next()
         var done = false
@@ -92,7 +92,7 @@ class VhdlTestBenchBackend() extends VhdlBase {
           else{
             buffer ++= line
             buffer ++= "\n"}
-        }while(done)
+        }while(!done)
         userCodes += (name -> buffer.result())
       }
     }

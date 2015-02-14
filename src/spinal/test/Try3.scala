@@ -85,7 +85,7 @@ object Try3 {
     SpinalVhdl({
       comp = new ComponentA
       comp
-    }).elaborate
+    })
 
 
     println("DONE")

@@ -72,7 +72,7 @@ object Try4 {
 
   def main(args: Array[String]) {
     println("START")
-    SpinalVhdl(new TopLevel).elaborate
+    SpinalVhdl(new TopLevel)
     println("DONE")
   }
 

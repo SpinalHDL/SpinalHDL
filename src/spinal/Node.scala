@@ -104,19 +104,11 @@ object Node {
   }
 }
 
-//object NoNode extends Node{
-//  def calcWidth: Int = 0
-//}
 
-abstract class Node extends ContextUser {
+
+abstract class Node extends ContextUser with ScalaLocated{
   val consumers = new ArrayBuffer[Node]
   val inputs = new ArrayBuffer[Node]
-
-
-
-
- // var dontSimplify = false
-  //def dontSimplifyIt : this.type = {dontSimplify = true; this}
 
 
   var instanceCounter = Node.getCounter
@@ -177,8 +169,6 @@ abstract class Node extends ContextUser {
   def normalizeInputs: Unit = {
 
   }
-
-  //def notify(phase : BackendPhase) : Unit = {}
 
   def setInput(node: Node): Unit = {
     inputs(0) = node

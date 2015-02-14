@@ -21,6 +21,7 @@ package spinal
 
 import spinal.test.Try
 
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 
@@ -81,7 +82,7 @@ trait ContextUser {
   def getClockDomain: ClockDomain
 }*/
 
-object DelayNode{
+object DelayNode {
   def getClockInputId: Int = 0
   def getClockEnableId: Int = 1
   def getClockResetId: Int = 2
@@ -94,12 +95,12 @@ abstract class DelayNode(clockDomain: ClockDomain = ClockDomain.current) extends
 
   def getLatency = 1
 
-  def getSynchronousInputs = ArrayBuffer[Node](getClock,getClockEnable) ++= (if(clockDomain.resetKind != ASYNC) getResetStyleInputs else Nil)
-  def getAsynchronousInputs = ArrayBuffer[Node] () ++= (if(clockDomain.resetKind == ASYNC) getResetStyleInputs else Nil)
+  def getSynchronousInputs = ArrayBuffer[Node](getClock, getClockEnable) ++= (if (clockDomain.resetKind != ASYNC) getResetStyleInputs else Nil)
+  def getAsynchronousInputs = ArrayBuffer[Node]() ++= (if (clockDomain.resetKind == ASYNC) getResetStyleInputs else Nil)
 
   def getResetStyleInputs = ArrayBuffer[Node](getReset)
 
-  def isUsingReset : Boolean
+  def isUsingReset: Boolean
   def setUseReset = inputs(DelayNode.getClockResetId) = clockDomain.reset
   def getClockDomain: ClockDomain = clockDomain
 
@@ -154,4 +155,27 @@ trait Nameable {
   }
 
   protected def nameChangeEvent(weak: Boolean): Unit = {}
+}
+
+object ScalaLocated {
+  var enable = false
+
+  var unfiltredFiles = mutable.Set("SpinalUtils.scala")
+}
+
+trait ScalaLocated {
+  val scalaTrace = if (!ScalaLocated.enable) null else new Throwable()
+
+  def getScalaTrace = {
+    scalaTrace
+  }
+  def getScalaTraceString(tab: String): String = {
+    if (scalaTrace == null) return ""
+    (scalaTrace.getStackTrace.filter(trace => {
+      val className = trace.getClassName
+      !(className.startsWith("spinal.") && !className.startsWith("spinal.test.")) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
+    }).map(tab + _.toString) reduceLeft (_ + "\n" + _)) + "\n\n"
+  }
+  def getScalaTraceString: String = getScalaTraceString("    ")
+
 }

@@ -35,7 +35,6 @@ object Backend {
     when.stack.reset
     switch.stack.reset
     Component.stack.reset
-    //Component.lastPoped = null
     ClockDomain.stack.reset
     Node.areInferringWidth = false
     Node.getWidthWalkedSet.clear()
@@ -93,9 +92,8 @@ class Backend {
 
   //TODO
   //TODO no cross clock domain violation
-  //TODO generate test bench
-  //TODO Betther VHDL library system
   //TODO ROM support
+  //TODO use more ScalaLocated
   //TODO
 
   protected def elaborate[T <: Component](topLevel: T): BackendReport[T] = {
@@ -117,8 +115,6 @@ class Backend {
 
     //Component connection
     SpinalInfoPhase("Transform connection")
-    // configureComponentIo
-    //moveInputRegisterToParent
     pullClockDomains
     check_noNull_noCrossHierarchy_noInputRegister
     addInOutBinding
@@ -143,8 +139,6 @@ class Backend {
     fillNodeConsumer
     deleteUselessBaseTypes
     simplifyBlacBoxGenerics
-
-
 
 
     SpinalInfoPhase("Finalise")
@@ -336,13 +330,13 @@ class Backend {
             }
           } else {
             if (!(node.isInput && node.component.isTopLevel) && !(node.isOutput && node.component.isInstanceOf[BlackBox]))
-              errors += s"No driver on $node"
+              errors += s"No driver on $node at\n${node.getScalaTraceString}"
           }
         }
         case _ => {
           for (in <- node.inputs) {
             if (in == null) {
-              errors += s"No driver on $node"
+              errors += s"No driver on $node at\n${node.getScalaTraceString}"
             } else {
               if (in.component != node.component && !(in.isInstanceOf[BaseType] && in.asInstanceOf[BaseType].isIo && node.component == in.component.parent))
                 errors += s"Node is drived outside his component $node"

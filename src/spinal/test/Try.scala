@@ -555,7 +555,7 @@ object Try {
     SpinalVhdl({
       comp = new ComponentA
       comp
-    }).elaborate
+    })
 
 
     println("DONE")

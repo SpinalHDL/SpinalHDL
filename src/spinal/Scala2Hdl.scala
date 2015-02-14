@@ -18,102 +18,73 @@
 
 package spinal
 
-object SpinalVhdl{
-  def apply[T <: Component](gen : => T) = {
-    new SpinalVhdl(gen)
+object SpinalVhdl {
+  def apply[T <: Component](gen: => T) : BackendReport[T] = apply(gen,_.nothing)
+  def apply[T <: Component](gen: => T, config: SpinalVhdl[_] => Unit): BackendReport[T] = {
+    val factory = new SpinalVhdl(gen)
+    config(factory)
+
+    try {
+      ScalaLocated.enable = false
+      return factory.elaborate
+    } catch {
+      case e: SpinalExit => {
+        println("\n**********************************************************************************************")
+        SpinalInfo("Elaboration fail !!! Spinal restart it with scala trace to help you to find the problem")
+        println("**********************************************************************************************\n")
+        ScalaLocated.enable = true
+
+        try {
+          factory.elaborate
+        } catch {
+          case e: SpinalExit => {
+            println("\n**********************************************************************************************")
+            SpinalInfo("Elaboration fail !!!")
+            println("**********************************************************************************************")
+            print(e.getMessage)
+            null
+          }
+        }
+      }
+    }
   }
 }
 
-class SpinalVhdl[T <: Component](gen : => T){
+class SpinalVhdl[T <: Component](gen: => T) {
   val backend = new VhdlBackend
   val tbGen = new VhdlTestBenchBackend()
-  def elaborate ={
+
+  def elaborate = {
     val report = backend.elaborate(() => gen)
-    tbGen.elaborate(backend,report.topLevel)
+    tbGen.elaborate(backend, report.topLevel)
     report
   }
 
 
-  def setLibrary(name : String): this.type ={
+  def setLibrary(name: String): this.type = {
     backend.library = name
     this
   }
-  def setSpinalPackage(name : String): this.type ={
+  def setSpinalPackage(name: String): this.type = {
     backend.packageName = name
     this
   }
-  def setEnumPackage(name : String): this.type ={
+  def setEnumPackage(name: String): this.type = {
     backend.enumPackageName = name
     this
   }
-  def setOutputFile(name : String): this.type ={
+  def setOutputFile(name: String): this.type = {
     backend.outputFile = name
     this
   }
-  def setTbOutputFile(name : String): this.type ={
+  def setTbOutputFile(name: String): this.type = {
     tbGen.outputFile = name
     this
   }
-  def setTbName(name : String): this.type ={
+  def setTbName(name: String): this.type = {
     tbGen.tbName = name
     this
   }
+  def nothing : this.type  = {this}
 }
-
-
-class SpinalVhdlTb[T <: Component](gen : => T) {
-
-}
-
-object SpinalMain {
-  def apply[T <: Component](gen : => T): BackendReport[T] = {
-
-    val backend = new VhdlBackend
-    val topLevel = backend.elaborate(() => gen)
-
-   /* for(backend <- backends){
-      graphAdapter.reservedKeyWords ++= backend.getReservedKeyword
-    }
-
-    val topLevel = graphAdapter.elaborate(() => gen)
-    for(backend <- backends){
-      backend.elaborate(graphAdapter)
-    }*/
-    return topLevel;
-  }
-}
-
-class Scala2Hdl[T <: Component](topLevel: T) {
-
-/*
-  var components = mutable.MutableList[Component]()
-  addComponent(topLevel)
-  components = components.sortWith(_.level > _.level)
-  if(topLevel.instanceName == null) topLevel.instanceName = "toplevel"
-  components.foreach(_.nameKinds())
-  components.foreach(c => println(c.name))
-
-
-
-  def addComponent(c : Component): Unit ={
-    components += c
-    c.kinds.foreach(addComponent(_))
-  }
-
-*/
-
-
-
-
-  def printHierarchy() {
-    printHierarchy(topLevel)
-  }
-  def printHierarchy(c: Component) {
-    println(" ".*(c.level) + c.getName())
-    for (kind <- c.kinds) {
-      printHierarchy(kind)
-    }
-  }
-}
-
 

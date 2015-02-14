@@ -391,7 +391,7 @@ class VhdlBackend extends Backend with VhdlBase {
   }
 
   def emitLibrary(ret: StringBuilder): Unit = {
-    ret ++= "library IEEE;"
+    ret ++= "library IEEE;\n"
     ret ++= "use IEEE.STD_LOGIC_1164.ALL;\n"
     ret ++= "use IEEE.NUMERIC_STD.all;\n"
     ret ++= "\n"

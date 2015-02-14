@@ -16,6 +16,13 @@
  * License along with this library.
  */
 
+
+object B{
+  object C{
+    new Throwable().getStackTrace
+  }
+}
+
 class A(val i : Int){
   def >>(that : A): A ={
     println(s"$i >> ${that.i}")
