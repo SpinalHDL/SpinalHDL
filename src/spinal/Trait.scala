@@ -215,3 +215,7 @@ trait SpinalTag{
 }
 
 object crossClockDomain extends SpinalTag
+
+trait ComponentPart{
+
+}

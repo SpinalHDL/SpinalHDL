@@ -25,6 +25,7 @@ import spinal._
  * Created by PIC18F on 22.08.2014.
  */
 object Try5 {
+
   class SubComponent extends Component {
     val io = new Bundle {
       val in = (new Bool().asInput)
@@ -34,7 +35,7 @@ object Try5 {
   }
 
 
-  class TopLevel(clockC : ClockDomain) extends Component {
+  class TopLevel(clockC: ClockDomain) extends Component {
     val io = new Bundle {
       val clkA = in Bool()
       val resetA = in Bool()
@@ -53,18 +54,22 @@ object Try5 {
       val outX = out Bool()
 
     }
-    val clockA = ClockDomain(io.clkA, io.resetA,clockEnable = io.clkEnA)
+    val clockA = ClockDomain(io.clkA, io.resetA, clockEnable = io.clkEnA)
     val clockB = ClockDomain(io.clkB, io.resetB)
 
 
     clockA.push
-    io.outA := RegNext(io.in0,Bool(true))
+    io.outA := RegNext(io.in0, Bool(true))
     clockA.pop
 
-    clockB.push
-    io.outB := RegNext(io.in1,Bool(true))
-    io.outX := RegNext(io.outA && io.outB).addTag(crossClockDomain)
-    clockB.pop
+    val B = new ComponentPart {
+      clockB.push
+      val reg1 = RegNext(io.in1, Bool(true))
+      io.outB := reg1
+      io.outX := RegNext(io.outA && io.outB).addTag(crossClockDomain)
+      clockB.pop
+    }
+
 
     clockC.push
     val subComponent = Component(new SubComponent)
@@ -78,7 +83,7 @@ object Try5 {
 
   def main(args: Array[String]) {
     println("START")
-    val clockC = ClockDomain(Bool().setName("clkC"),Bool().setName("resetC"))
+    val clockC = ClockDomain(Bool().setName("clkC"), Bool().setName("resetC"))
 
     SpinalVhdl(new TopLevel(clockC))
     println("DONE")

@@ -20,6 +20,8 @@ package spinal
 
 import java.lang.reflect.Method
 
+import spinal.ComponentPart
+
 import scala.collection.mutable
 import scala.collection.mutable.Stack
 
@@ -78,7 +80,7 @@ object Misc {
   //      }
   //    }
   //  }
-  def reflect(o: Object, onEach: (String, Object) => Unit): Unit = {
+  def reflect(o: Object, onEach: (String, Object) => Unit,namePrefix :String = ""): Unit = {
     val refs = mutable.Set[Object]()
     explore(o.getClass)
     def explore(c: Class[_]): Unit = {
@@ -95,17 +97,21 @@ object Misc {
         method.setAccessible(true)
         val fieldRef = method.invoke(o)
         if (!refs.contains(fieldRef)) {
+          val name = namePrefix + method.getName
           fieldRef match {
             case vec: Vec[_] =>
             case seq: Seq[_] => {
               for ((obj, i) <- seq.zipWithIndex) {
-                onEach(method.getName + i, obj.asInstanceOf[Object])
+                onEach(name + i, obj.asInstanceOf[Object])
                 refs += fieldRef
               }
             }
+            case zone : ComponentPart => {
+              reflect(zone,onEach,name + "_")
+            }
             case _ =>
           }
-          onEach(method.getName, fieldRef)
+          onEach(name, fieldRef)
           refs += fieldRef
         }
        }

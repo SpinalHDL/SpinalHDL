@@ -80,3 +80,10 @@ class ClockDomain(val clock : Bool,val edge : EdgeKind,val clockEnable : Bool,va
   def readReset = if(null == reset) Bool(!resetActiveHigh) else Data.doPull(reset, Component.current,true,true)
   def readClockEnable = if(null == clockEnable) Bool(true) else Data.doPull(clockEnable, Component.current,true,true)
 }
+
+
+//abstract class ClockDomainZone(clockDomain: ClockDomain){
+//  clockDomain.push
+//
+//  clockDomain.pop
+//}

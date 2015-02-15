@@ -97,4 +97,5 @@ class Reg(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) ext
       case _ => throw new Exception("Undefined assignement")
     }
   }
+  override def toString: String = "Reg of " + outType.toString()
 }
