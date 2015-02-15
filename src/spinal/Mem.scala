@@ -19,7 +19,7 @@
 package spinal
 
 
-import spinal.ImportMe._
+import spinal.importMe._
 
 import scala.collection.mutable.ArrayBuffer
 

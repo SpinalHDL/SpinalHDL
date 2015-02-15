@@ -16,22 +16,7 @@
  * License along with this library.
  */
 
-
-
-
-import spinal._
-import spinal.IntBuilder._
-
-import scala.collection.mutable
-
-
-//class SpinalEnum2 extends Enumeration {
-//  implicit def valueToCraft(x: Value): SpinalEnumCraft[this.type] = {
-//    val ret = craft()
-//    ret.inputs(0) = new EnumLiteral(this, x.id)
-//    ret
-//  }
-//  def getWidth = log2Up(values.foldLeft(0)((v, n) => Math.max(v, n.id)) + 1)
+s.foldLeft(0)((v, n) => Math.max(v, n.id)) + 1)
 //  def craft(): SpinalEnumCraft[this.type] = new SpinalEnumCraft[this.type](this)
 //
 //  type SpinalEnum = Val
@@ -63,7 +48,6 @@ object WeekDay extends SpinalEnum {
 }
 
 object WeekDay2 extends SpinalEnum {
-
  // val Mon, Tue, Wed, Thu, Fri, Sat, Sun = Value
 
 }
@@ -80,7 +64,6 @@ object MyEnum extends SpinalEnum {
   implicit def EnumToCraft(that : WeekDay2.V) = new IntBuilder(value)
 }*/
 ClockDomain.push(ClockDomain(null))
-
 println("a" + WeekDay)
 val myCraft = WeekDay.craft()
 println("b")

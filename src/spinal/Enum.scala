@@ -92,6 +92,7 @@ class SpinalEnumElement[T <: SpinalEnum](val parent: T, val id: BigInt) extends 
 }
 
 class SpinalEnum extends Nameable {
+  def apply() = craft
 
   private val idMap = new mutable.HashMap[BigInt, SpinalEnumElement[this.type]]()
 

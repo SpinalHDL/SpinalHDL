@@ -19,7 +19,7 @@
 
 package spinal
 
-import spinal.test.Try
+import spinal.test.code.Try
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -47,6 +47,9 @@ trait IODirection {
     override def apply() = applyIt(super.apply())
   }
 
+  object Vec extends VecFactory{
+    override def apply[T <: Data](elements : Iterable[T]) : Vec[T] = applyIt(super.apply(elements))
+  }
 
 }
 

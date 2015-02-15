@@ -18,7 +18,7 @@
 
 package spinal
 
-object ImportMe {
+object importMe {
   //  implicit case class BitCount(val value : Int){
   //    def bit : BitCount = this
   //  }

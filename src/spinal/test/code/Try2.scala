@@ -16,20 +16,20 @@
  * License along with this library.
  */
 
-package spinal.test
+package spinal.test.code
 
-import spinal.ImportMe._
 import spinal._
+import spinal.importMe._
 
 /**
  * Created by PIC18F on 22.08.2014.
  */
-object Try3 {
+object Try2 {
 
   class BundleAA extends BundleA {
     val a = new Bool()
     val d = new Bool()
-    val e = MyEnum.craft()
+    val e = MyEnum()
   }
 
   class BundleA extends Bundle {
@@ -45,36 +45,52 @@ object Try3 {
     val e0, e1, e2 = Value
   }
 
+  class ComponentAA extends Component {
+    val io = new Bundle {
+      val input = in UInt (5 bit)
+      val output = out UInt (8 bit)
+    }
+    val temp = in UInt (7 bit)
+    temp := io.input
+    io.output := temp
+  }
+
   class ComponentA extends Component {
     val io = new Bundle {
-      val inRegBundle = in(new BundleAA())
-      val outRegBundle = out(new BundleAA())
+      val cond0 = in.Bool()
+      val cond1 = in.Bool()
+      val cond2 = in.Bool()
+      val cond3 = in.Bool()
 
-      val slaveFlow = slave(new Flow(new BundleA))
-      val masterFlow = master(new Flow(new BundleA))
+      val wrEnable = in.Bool()
+      val wrAddr = in UInt (4 bit)
+      val wrData = in(new BundleA)
 
-      val slaveHandshake = slave(new Handshake(new BundleA))
-      val masterHandshake = master(new Handshake(new BundleA))
+      val rdEnable = in.Bool()
+      val rdAddr = in UInt (4 bit)
+      val rdData = out(new BundleA)
+
+      val input = in UInt (4 bit)
+      val output = out UInt (9 bit)
     }
-    {
-      var regBundleInit = io.inRegBundle.clone()
-      regBundleInit.a := Bool(true)
-      regBundleInit.e := MyEnum.s1
+    val componentAA = Component(new ComponentAA)
+    componentAA.io.input := io.input
+    io.output := RegNext(io.output)
 
-      val regBundle = RegInit(regBundleInit)
-      regBundle := io.inRegBundle
-      io.outRegBundle := regBundle
+    val mem = new Mem(io.wrData, 1 << io.wrAddr.getWidth).setAsBlackBox
+
+    when(io.cond0 && io.cond1) {
+      mem.write(io.wrAddr + UInt(1), io.wrData)
     }
+    val tmp = mem.readSync(io.rdAddr + UInt(2),io.cond2,writeFirst)
+    io.rdData := tmp
+    tmp.add(new AttributeString("myAttribut", "hallo"))
+    tmp.add(new AttributeFlag("yolo"))
 
 
-    io.masterFlow <-< io.slaveFlow
-    io.masterHandshake.m2sPipeFrom(io.slaveHandshake)
-//    val uC = u
-//    val uCf = uC.getDeclaredFields
-//    println("**")
-  //  regBundle.flatten.foreach(_._2.dontSimplifyIt)
-//    regBundleInit = null
-//    regBundle = null
+
+   // io.output := Mux(io.cond3,SInt(2),UInt(4))
+
   }
 
 
@@ -86,7 +102,6 @@ object Try3 {
       comp = new ComponentA
       comp
     })
-
 
     println("DONE")
 

@@ -20,14 +20,10 @@ package spinal
 
 import java.lang.reflect.Method
 
-import spinal.ComponentPart
 
 import scala.collection.mutable
 import scala.collection.mutable.Stack
 
-/**
- * Created by PIC18F on 08.01.2015.
- */
 
 
 import scala.reflect.runtime.universe._

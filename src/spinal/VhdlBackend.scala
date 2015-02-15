@@ -96,48 +96,49 @@ class VhdlBackend extends Backend with VhdlBase {
     }
 
     ret ++= s"end $enumPackageName;\n\n"
+    if (enums.size != 0) {
+      ret ++= s"package body $enumPackageName is\n"
+      for (enumDef <- enums) {
+        val enumName = enumDef.getName()
+        ret ++= s"  function pkg_mux (sel : std_logic;one : $enumName;zero : $enumName) return $enumName is\n"
+        ret ++= "  begin\n"
+        ret ++= "    if sel = '1' then\n"
+        ret ++= "      return one;\n"
+        ret ++= "    else\n"
+        ret ++= "      return zero;\n"
+        ret ++= "    end if;\n"
+        ret ++= "  end pkg_mux;\n\n"
 
-    ret ++= s"package body $enumPackageName is\n"
-    for (enumDef <- enums) {
-      val enumName = enumDef.getName()
-      ret ++= s"  function pkg_mux (sel : std_logic;one : $enumName;zero : $enumName) return $enumName is\n"
-      ret ++= "  begin\n"
-      ret ++= "    if sel = '1' then\n"
-      ret ++= "      return one;\n"
-      ret ++= "    else\n"
-      ret ++= "      return zero;\n"
-      ret ++= "    end if;\n"
-      ret ++= "  end pkg_mux;\n\n"
+
+        ret ++= s"  function pkg_toStdLogicVector (value : $enumName) return std_logic_vector is\n"
+        ret ++= "  begin\n"
+        ret ++= "    case value is \n"
+        for (e <- enumDef.values) {
+          ret ++= s"      when ${e.getName()} => return ${idToBits(e)};\n"
+        }
+        ret ++= s"      when others => return ${idToBits(enumDef.values.head)};\n"
+        ret ++= "    end case;\n"
+        ret ++= "  end pkg_toStdLogicVector;\n\n"
+
+        ret ++= s"  function pkg_to$enumName (value : std_logic_vector) return $enumName is\n"
+        ret ++= "  begin\n"
+        ret ++= "    case to_integer(unsigned(value)) is \n"
+        for (e <- enumDef.values) {
+          ret ++= s"      when ${e.id} => return ${e.getName()};\n"
+        }
+        ret ++= s"      when others => return ${enumDef.values.head.getName()};\n"
+        ret ++= "    end case;\n"
+        ret ++= s"  end pkg_to$enumName;\n\n"
 
 
-      ret ++= s"  function pkg_toStdLogicVector (value : $enumName) return std_logic_vector is\n"
-      ret ++= "  begin\n"
-      ret ++= "    case value is \n"
-      for (e <- enumDef.values) {
-        ret ++= s"      when ${e.getName()} => return ${idToBits(e)};\n"
+        def idToBits(enum: SpinalEnumElement[_]): String = {
+          val str = enum.id.toString(2)
+          "\"" + ("0" * (enum.getWidth - str.length)) + str + "\""
+
+        }
       }
-      ret ++= s"      when others => return ${idToBits(enumDef.values.head)};\n"
-      ret ++= "    end case;\n"
-      ret ++= "  end pkg_toStdLogicVector;\n\n"
-
-      ret ++= s"  function pkg_to$enumName (value : std_logic_vector) return $enumName is\n"
-      ret ++= "  begin\n"
-      ret ++= "    case to_integer(unsigned(value)) is \n"
-      for (e <- enumDef.values) {
-        ret ++= s"      when ${e.id} => return ${e.getName()};\n"
-      }
-      ret ++= s"      when others => return ${enumDef.values.head.getName()};\n"
-      ret ++= "    end case;\n"
-      ret ++= s"  end pkg_to$enumName;\n\n"
-
-
-      def idToBits(enum: SpinalEnumElement[_]): String = {
-        val str = enum.id.toString(2)
-        "\"" + ("0" * (enum.getWidth - str.length)) + str + "\""
-
-      }
+      ret ++= s"end $enumPackageName;\n\n\n"
     }
-    ret ++= s"end $enumPackageName;\n\n\n"
     out.write(ret.result())
   }
 
@@ -770,8 +771,12 @@ class VhdlBackend extends Backend with VhdlBase {
         val syncReset = (null != reset) && clockDomain.resetKind == SYNC
         var tabLevel = 1
         def tabStr = "  " * tabLevel
-        def inc = {tabLevel = tabLevel + 1}
-        def dec = {tabLevel = tabLevel - 1}
+        def inc = {
+          tabLevel = tabLevel + 1
+        }
+        def dec = {
+          tabLevel = tabLevel - 1
+        }
         ret ++= s"${tabStr}process(${emitReference(clock)}${if (asyncReset) "," + emitReference(reset) else ""})\n"
         ret ++= s"${tabStr}begin\n"
         inc

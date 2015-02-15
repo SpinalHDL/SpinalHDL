@@ -16,12 +16,10 @@
  * License along with this library.
  */
 
-package spinal.test
+package spinal.test.code
 
-import spinal.ImportMe._
 import spinal._
-
-import scala.collection.mutable
+import spinal.importMe._
 
 /**
  * Created by PIC18F on 22.08.2014.

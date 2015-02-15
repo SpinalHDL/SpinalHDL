@@ -22,9 +22,11 @@ package spinal
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
+object Vec extends VecFactory{
 
+}
 
-object Vec{
+class VecFactory{
   def apply[T <: Data](elements : Iterable[T]) : Vec[T] = {
     val vecType = elements.reduce((a,b) => {
       if (a.getClass.isAssignableFrom(b.getClass)) a
@@ -36,7 +38,8 @@ object Vec{
     vec
   }
 
-
+  def apply[T <: Data](size : Int,gen : => T) : Vec[T] = fill(size)(gen)
+  def apply[T <: Data](size : Int,gen :(Int) => T) : Vec[T] = tabulate(size)(gen)
 
   def tabulate[T <: Data](size : Int)(gen : (Int)=> T) : Vec[T] ={
     this((0 until size).map(gen(_)))

@@ -22,7 +22,7 @@ package spinal
 import scala.collection.mutable.ArrayBuffer
 
 
-import ImportMe._
+import importMe._
 
 abstract class MultiData extends Data {
 
