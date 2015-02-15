@@ -29,38 +29,38 @@ abstract class SpinalJUnit {
     simulateHDL
   }
 
-  def elaborate: Unit ={
+  def elaborate: Unit = {
     SpinalVhdl(createToplevel)
   }
 
-  def elaborateWithFail: Unit ={
+  def elaborateWithFail: Unit = {
     try {
       elaborate
-      assert(false,"Spinal elaboration has not fail :(")
-    }catch{
-      case e : Throwable => return;
+      assert(false, "Spinal elaboration has not fail :(")
+    } catch {
+      case e: Throwable => return;
     }
   }
 
 
-  def checkHDL(mustSuccess : Boolean) : Unit ={
+  def checkHDL(mustSuccess: Boolean): Unit = {
     println("GHDL compilation")
-    assert(((s"ghdl -a $getName.vhd ${getName}_tb.vhd" !) == 0) == mustSuccess,if(mustSuccess) "compilation fail" else "Compilation has not fail :(")
+    assert(((s"ghdl -a $getName.vhd ${getName}_tb.vhd" !) == 0) == mustSuccess, if (mustSuccess) "compilation fail" else "Compilation has not fail :(")
 
     println("GHDL elaborate")
-    assert(((s"ghdl -e ${getName}_tb" !) == 0) == mustSuccess,if(mustSuccess) "compilation fail" else "Compilation has not fail :(")
+    assert(((s"ghdl -e ${getName}_tb" !) == 0) == mustSuccess, if (mustSuccess) "compilation fail" else "Compilation has not fail :(")
   }
 
-  def checkHDL : Unit = checkHDL(true)
-  def checkHDLWithFail: Unit ={
+  def checkHDL: Unit = checkHDL(true)
+  def checkHDLWithFail: Unit = {
     checkHDL(false)
   }
 
-  def simulateHDL : Unit = {
+  def simulateHDL: Unit = {
     println("GHDL run")
-    assert((s"ghdl -r ${getName}_tb" !) == 0,"run fail")
+    assert((s"ghdl -r ${getName}_tb" !) == 0, "run fail")
   }
 
-  def getName : String
-  def createToplevel : Component
+  def getName: String
+  def createToplevel: Component
 }
