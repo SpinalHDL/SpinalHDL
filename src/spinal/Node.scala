@@ -94,11 +94,6 @@ object WidthInfer {
 
 object Node {
 
-
-  var areInferringWidth = false
-  val getWidthWalkedSet: mutable.Set[Node] = mutable.Set[Node]()
-  val widthInferredCheck = ArrayBuffer[() => Unit]()
-
   var instanceCounter = 0
   def getCounter: Int = {
     val temp = instanceCounter
@@ -109,29 +104,30 @@ object Node {
 
 
 
-abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady{
+abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady with GlobalDataUser{
   val consumers = new ArrayBuffer[Node]
   val inputs = new ArrayBuffer[Node]
+
 
 
   var instanceCounter = Node.getCounter
 
   def getWidth: Int = {
-    if (Node.areInferringWidth) {
+    if (globalData.nodeAreInferringWidth) {
       inferredWidth
     } else {
-      val isFirst = Node.getWidthWalkedSet.isEmpty
-      if (Node.getWidthWalkedSet.contains(this))
+      val isFirst = globalData.nodeGetWidthWalkedSet.isEmpty
+      if (globalData.nodeGetWidthWalkedSet.contains(this))
         SpinalError(s"Can't calculate width of $this when design is in construction phase")
 
-      Node.getWidthWalkedSet += this
+      globalData.nodeGetWidthWalkedSet += this
       var temp: Int = 0;
       if (isFirst) {
         try {
           temp = calcWidth
         } catch {
           case e: Exception => {
-            Node.getWidthWalkedSet.clear()
+            globalData.nodeGetWidthWalkedSet.clear()
             throw e
           }
         }
@@ -140,13 +136,13 @@ abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady{
       }
 
       if (temp == -1) {
-        Node.getWidthWalkedSet.clear()
+        globalData.nodeGetWidthWalkedSet.clear()
         SpinalError(s"Can't infer width on $this because of unspecified width")
       }
 
-      Node.getWidthWalkedSet -= this
+      globalData.nodeGetWidthWalkedSet -= this
 
-      if (isFirst) Node.getWidthWalkedSet.clear()
+      if (isFirst) globalData.nodeGetWidthWalkedSet.clear()
       temp
     }
   }

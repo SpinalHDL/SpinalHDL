@@ -33,32 +33,34 @@ object Component {
   }
 
 
-  val stack = new SafeStack[Component]
+
 
 
   def push(c: Component): Unit = {
     //  if (when.stack.size() != 0) throw new Exception("Creating a component into hardware conditional expression")
-    stack.push(c)
+    c.globalData.componentStack.push(c)
   }
 
   def pop(c: Component): Unit = {
     try {
      /* if(lastPoped == c) return;
       lastPoped = c*/
-      stack.pop(c)
+      c.globalData.componentStack.pop(c)
     } catch{
-      case e: Exception => SpinalError(s"You probably forget the 'Component(new ${stack.head().getClass.getName})' into ${c.getClass.getName}")
+      case e: Exception => SpinalError(s"You probably forget the 'Component(new ${c.globalData.componentStack.head().getClass.getName})' into ${c.getClass.getName}")
     }
   }
 
   //var lastPoped : Component = null
 
-  def current = stack.head()
+  def current : Component = current(GlobalData.get)
+  def current(globalData: GlobalData) : Component  = globalData.componentStack.head()
 }
 
 
-abstract class Component extends Nameable {
+abstract class Component extends Nameable with GlobalDataUser {
   val localScope = new Scope()
+
 
   def io: Data
 
@@ -67,14 +69,14 @@ abstract class Component extends Nameable {
   val kindsOutputsBindings = mutable.Set[BaseType]()
   val additionalNodesRoot = mutable.Set[BaseType]()
   var definitionName = ""
-  val level = Component.stack.size()
+  val level = globalData.componentStack.size()
   val kinds = ArrayBuffer[Component]()
   val parent = Component.current
   if (parent != null) {
     parent.kinds += this;
   }
   def isTopLevel : Boolean = parent == null
-  val initialWhen = when.stack.head()
+  val initialWhen = globalData.whenStack.head()
 
   var nodes: ArrayBuffer[Node] = null
 

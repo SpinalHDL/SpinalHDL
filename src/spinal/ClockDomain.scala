@@ -50,16 +50,16 @@ object ClockDomain{
 //  def apply(clock : Bool,clockEnable : Bool,reset : Bool,resetKind : ResetKind = SYNC) : ClockDomain = {
 //    new ClockDomain(clock,RISING,clockEnable,reset,resetKind,true)
 //  }
-  val stack = new SafeStack[ClockDomain]
+
 
   def push(c: ClockDomain): Unit = {
-    stack.push(c)
+    GlobalData.get.clockDomainStack.push(c)
   }
   def pop(c: ClockDomain): Unit = {
-    stack.pop(c)
+    GlobalData.get.clockDomainStack.pop(c)
   }
 
-  def current = stack.head()
+  def current = GlobalData.get.clockDomainStack.head()
 
 
   def readClock = current.readClock

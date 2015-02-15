@@ -64,7 +64,41 @@ class WhenTester extends Component {
   }
 }
 
+
+//class WhenTester2 extends WhenTester
+//class WhenTester3 extends WhenTester
+//class WhenTester4 extends WhenTester
+//class WhenTester5 extends WhenTester
+//class WhenTester6 extends WhenTester
+
+
 class WhenTesterJUnit extends SpinalJUnit {
   override def getName: String = "WhenTester"
   override def createToplevel: Component = new WhenTester
 }
+
+//
+//class WhenTester2JUnit extends SpinalJUnit {
+//  override def getName: String = "WhenTester2"
+//  override def createToplevel: Component = new WhenTester2
+//}
+//
+//class WhenTester3JUnit extends SpinalJUnit {
+//  override def getName: String = "WhenTester3"
+//  override def createToplevel: Component = new WhenTester3
+//}
+//
+//class WhenTester4JUnit extends SpinalJUnit {
+//  override def getName: String = "WhenTester4"
+//  override def createToplevel: Component = new WhenTester4
+//}
+//
+//class WhenTester5JUnit extends SpinalJUnit {
+//  override def getName: String = "WhenTester5"
+//  override def createToplevel: Component = new WhenTester5
+//}
+//
+//class WhenTester6JUnit extends SpinalJUnit {
+//  override def getName: String = "WhenTester6"
+//  override def createToplevel: Component = new WhenTester6
+//}

@@ -18,6 +18,7 @@
 
 package spinal.test
 
+
 import org.junit.Test
 import spinal.{Component, SpinalVhdl}
 import sys.process._

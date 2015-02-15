@@ -19,6 +19,8 @@
 package spinal
 
 
+import jdk.nashorn.internal.objects.Global
+
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
@@ -27,32 +29,13 @@ import scala.collection.mutable.ArrayBuffer
  */
 
 
-//trait BackendPhase
-//object StartPhase extends BackendPhase
-
-object Backend {
-  def resetAll: Unit = {
-    when.stack.reset
-    switch.stack.reset
-    Component.stack.reset
-    ClockDomain.stack.reset
-    Node.areInferringWidth = false
-    Node.getWidthWalkedSet.clear()
-    Node.widthInferredCheck.clear()
-  }
-}
-/*
-object BackendToComponentBridge {
-  var defaultReset: Bool = null
-  var defaultClock: Bool = null
-}*/
 
 class BackendReport[T <: Component](val topLevel: T) {
 
 }
 
 class Backend {
-
+  var globalData = GlobalData.reset
   val components = ArrayBuffer[Component]()
   var sortedComponents = ArrayBuffer[Component]()
   val globalScope = new Scope()
@@ -67,7 +50,7 @@ class Backend {
 
 
   def elaborate[T <: Component](gen: () => T): BackendReport[T] = {
-    Backend.resetAll
+
 
     //Default clock
     val clock = in.Bool()
@@ -434,7 +417,7 @@ class Backend {
 
 
   def checkInferedWidth: Unit = {
-    Node.widthInferredCheck.foreach(_())
+    globalData.nodeWidthInferredCheck.foreach(_())
     val errors = mutable.ArrayBuffer[String]()
     walkNodes2(node => {
       node match {
@@ -518,7 +501,7 @@ class Backend {
 
 
   def inferWidth: Unit = {
-    Node.areInferringWidth = true
+    globalData.nodeAreInferringWidth = true
     val nodes = ArrayBuffer[Node]()
     walkNodes2(nodes += _, walkNodesDefautStack ++ walkNodesBlackBoxGenerics)
 

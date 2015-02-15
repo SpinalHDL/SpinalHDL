@@ -115,7 +115,7 @@ object Data {
   }
 }
 
-trait Data extends ContextUser with Nameable with Assignable with AttributeReady with SpinalTagReady {
+trait Data extends ContextUser with Nameable with Assignable with AttributeReady with SpinalTagReady with GlobalDataUser {
   type SSelf <: Data
 
   var dir: IODirection = null

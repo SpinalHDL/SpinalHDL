@@ -47,8 +47,8 @@ trait IODirection {
     override def apply() = applyIt(super.apply())
   }
 
-  object Vec extends VecFactory{
-    override def apply[T <: Data](elements : Iterable[T]) : Vec[T] = applyIt(super.apply(elements))
+  object Vec extends VecFactory {
+    override def apply[T <: Data](elements: Iterable[T]): Vec[T] = applyIt(super.apply(elements))
   }
 
 }
@@ -76,14 +76,15 @@ trait MinMaxProvider {
   def maxValue: BigInt
 }
 
-trait ContextUser {
-  var component = Component.current
-  val whenScope = when.stack.head()
+trait ContextUser extends GlobalDataUser{
+  var component = Component.current(globalData)
+  val whenScope = globalData.whenStack.head()
 }
 
-/*trait Delay {
-  def getClockDomain: ClockDomain
-}*/
+trait GlobalDataUser{
+  val globalData = GlobalData.get
+}
+
 
 object SyncNode {
   def getClockInputId: Int = 0
@@ -98,7 +99,7 @@ abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends 
 
   def getLatency = 1
 
-  def getSynchronousInputs = ArrayBuffer[Node](/*getClock, */getClockEnable) ++= (if (clockDomain.resetKind != ASYNC) getResetStyleInputs else Nil)
+  def getSynchronousInputs = ArrayBuffer[Node](/*getClock, */ getClockEnable) ++= (if (clockDomain.resetKind != ASYNC) getResetStyleInputs else Nil)
   def getAsynchronousInputs = ArrayBuffer[Node]() ++= (if (clockDomain.resetKind == ASYNC) getResetStyleInputs else Nil)
 
   def getResetStyleInputs = ArrayBuffer[Node](getReset)
@@ -144,7 +145,7 @@ trait Nameable {
     compositeName = null
   }
 
-  def setName(name: String, weak: Boolean = false) : this.type = {
+  def setName(name: String, weak: Boolean = false): this.type = {
     compositeName = null
     if (!weak) {
       this.name = name;
@@ -177,7 +178,7 @@ trait ScalaLocated {
   def getScalaTraceSmart = {
     val temp = scalaTrace.getStackTrace.filter(trace => {
       val className = trace.getClassName
-      !((className.startsWith("scala.") || className.startsWith("spinal.")) &&  !ScalaLocated.unfiltredPackages.map(className.startsWith(_)).reduceLeft(_ || _)) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
+      !((className.startsWith("scala.") || className.startsWith("spinal.")) && !ScalaLocated.unfiltredPackages.map(className.startsWith(_)).reduceLeft(_ || _)) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
     })
     temp
   }
@@ -189,36 +190,55 @@ trait ScalaLocated {
   def getScalaTraceString: String = getScalaTraceString("    ")
 
   def getScalaLocationString: String = this.toString + " at\n" + getScalaTraceString
-  def getScalaLocationStringShort : String = {
+  def getScalaLocationStringShort: String = {
     if (scalaTrace == null) return ""
     this.toString + s" at ${getScalaTraceSmart.apply(0).toString}"
   }
 }
 
 
-
-trait SpinalTagReady{
+trait SpinalTagReady {
   val spinalTags = mutable.Set[SpinalTag]()
-  var compositeTagReady : SpinalTagReady = null
+  var compositeTagReady: SpinalTagReady = null
 
-  def addTag(spinalTag: SpinalTag): this.type ={
+  def addTag(spinalTag: SpinalTag): this.type = {
     spinalTags += spinalTag
     this
   }
 
-  def hasTag(spinalTag: SpinalTag) : Boolean = {
-    if(spinalTags.contains(spinalTag)) return true
-    if(compositeTagReady != null && compositeTagReady.hasTag(spinalTag))return true
+  def hasTag(spinalTag: SpinalTag): Boolean = {
+    if (spinalTags.contains(spinalTag)) return true
+    if (compositeTagReady != null && compositeTagReady.hasTag(spinalTag)) return true
     return false
   }
 }
 
-trait SpinalTag{
+trait SpinalTag {
 
 }
 
 object crossClockDomain extends SpinalTag
 
-trait ComponentPart{
+trait ComponentPart {
+
+}
+
+object GlobalData {
+  private val it = new ThreadLocal[GlobalData]
+  def get = it.get()
+  def reset = {
+    it.set(new GlobalData)
+    get
+  }
+}
+
+class GlobalData {
+  var nodeAreInferringWidth = false
+  val nodeGetWidthWalkedSet: mutable.Set[Node] = mutable.Set[Node]()
+  val nodeWidthInferredCheck = ArrayBuffer[() => Unit]()
+  val clockDomainStack = new SafeStack[ClockDomain]
+  val componentStack = new SafeStack[Component]
+  val switchStack = new SafeStack[SwitchStack]
+  val whenStack = new SafeStack[when]
 
 }

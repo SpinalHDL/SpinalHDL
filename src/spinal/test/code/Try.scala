@@ -542,8 +542,6 @@ object Try {
   }
 
 
-  val bo = out Bool()
-
 
   def main(args: Array[String]) {
     println("START")

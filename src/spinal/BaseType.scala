@@ -30,12 +30,13 @@ import scala.collection.mutable.ArrayBuffer
 object BaseType {
 
   def assignFrom(baseType: BaseType, initialConsumer: Node,initialConsumerInputId : Int, that: Node): Unit = {
+    val globalData = baseType.globalData
     //var consumer: Node = if (baseType.isReg) baseType.inputs(0) else baseType
     var consumer = initialConsumer
     var consumerInputId: Int = initialConsumerInputId
     var whenHit = baseType.whenScope == null
 
-    for (when <- when.stack.stack.reverseIterator) {
+    for (when <- globalData.whenStack.stack.reverseIterator) {
 
       if (!whenHit) {
         if (when == baseType.whenScope) whenHit = true
