@@ -41,11 +41,11 @@ object Backend {
     Node.widthInferredCheck.clear()
   }
 }
-
+/*
 object BackendToComponentBridge {
   var defaultReset: Bool = null
   var defaultClock: Bool = null
-}
+}*/
 
 class BackendReport[T <: Component](val topLevel: T) {
 
@@ -72,14 +72,14 @@ class Backend {
     //Default clock
     val clock = in.Bool()
     clock.setName("clk")
-    clock.isIo = true
-    BackendToComponentBridge.defaultClock = clock
+   // clock.isIo = true
+   // BackendToComponentBridge.defaultClock = clock
 
     //Default reset
     val reset = in.Bool()
     reset.setName("reset")
-    reset.isIo = true
-    BackendToComponentBridge.defaultReset = reset
+   // reset.isIo = true
+  // BackendToComponentBridge.defaultReset = reset
 
     //default clockDomain
     val defaultClockDomain = ClockDomain(clock, reset)
