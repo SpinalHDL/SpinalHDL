@@ -749,7 +749,7 @@ class Backend {
   def walker_deleteUselessBaseTypes(node: Node, stack: mutable.Stack[Node]): Unit = {
     node match {
       case node: BaseType => {
-        if (node.isUnnamed && !node.isIo && node.consumers.size == 1 && !node.dontSimplify) {
+        if (node.isUnnamed && !node.isIo && node.consumers.size == 1 && node.canSymplifyIt) {
           val consumer = node.consumers(0)
           val input = node.inputs(0)
           if (!node.isDelay || consumer.isInstanceOf[BaseType]) {

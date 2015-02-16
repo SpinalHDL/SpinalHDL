@@ -16,12 +16,12 @@
  * License along with this library.
  */
 
-package spinal.test
-
+package spinal.test.junit
 
 import org.junit.Test
 import spinal.{Component, SpinalVhdl}
-import sys.process._
+
+import scala.sys.process._
 
 abstract class SpinalJUnit {
   @Test def testIt: Unit = {
@@ -59,8 +59,10 @@ abstract class SpinalJUnit {
 
   def simulateHDL: Unit = {
     println("GHDL run")
-    assert((s"ghdl -r ${getName}_tb" !) == 0, "run fail")
+    assert((s"ghdl -r ${getName}_tb${if (!withWaveform) "" else s" --vcd=$getName.vcd"}" !) == 0, "run fail")
   }
+
+  def withWaveform : Boolean = false
 
   def getName: String
   def createToplevel: Component

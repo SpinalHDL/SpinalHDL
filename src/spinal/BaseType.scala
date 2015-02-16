@@ -67,7 +67,8 @@ object BaseType {
 abstract class BaseType extends Node with Data with Nameable {
   inputs += null
 
-  var dontSimplify = false
+  def canSymplifyIt = !dontSimplify && attributes.isEmpty
+  private var dontSimplify = false
   override def dontSimplifyIt : this.type = {dontSimplify = true; this}
   override def allowSimplifyIt : this.type = {dontSimplify = false; this}
 

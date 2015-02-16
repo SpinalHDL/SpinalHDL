@@ -16,12 +16,12 @@
  * License along with this library.
  */
 
-package spinal.test.whenTester
+package spinal.test.junit.whenTester
 
 import spinal._
 import spinal.importMe._
-import spinal.test.SpinalJUnit
 import org.junit._
+import spinal.test.junit.SpinalJUnit
 
 class WhenTester extends Component {
   val io = new Bundle {
@@ -29,6 +29,7 @@ class WhenTester extends Component {
     val data = in Vec(12, UInt(8 bit))
     val outDefault = out UInt (8 bit)
     val outComplex = out UInt (8 bit)
+    val outRegComplex = out (Reg(UInt (8 bit)))
   }
 
   io.outDefault := io.data(0)
@@ -36,32 +37,39 @@ class WhenTester extends Component {
     io.outDefault := io.data(1)
   }
 
-  when(io.conds(0)) {
-    io.outComplex := io.data(0)
-  }.elsewhen(io.conds(1)) {
-    io.outComplex := io.data(1)
-    switch(io.data(3)) {
-      is(io.data(4)) {
-        io.outComplex := io.data(5)
-      }
-      is(io.data(6)) {
-        io.outComplex := io.data(7)
-      }
-      is(UInt(0x55)) {
-        when(io.conds(2)) {
-          io.outComplex := UInt(0xAA)
-        }.elsewhen(io.conds(3)) {
-          io.outComplex := io.data(8)
+
+  complexOn(io.outComplex)
+  complexOn(io.outRegComplex)
+
+  def complexOn(that : UInt): Unit = {
+    when(io.conds(0)) {
+      that := io.data(0)
+    }.elsewhen(io.conds(1)) {
+      that := io.data(1)
+      switch(io.data(3)) {
+        is(io.data(4)) {
+          that := io.data(5)
+        }
+        is(io.data(6)) {
+          that := io.data(7)
+        }
+        is(UInt(0x55)) {
+          when(io.conds(2)) {
+            that := UInt(0xAA)
+          }.elsewhen(io.conds(3)) {
+            that := io.data(8)
+          }
         }
       }
-    }
-  }.otherwise {
-    when(io.conds(4)) {
-      io.outComplex := io.data(9)
-    }otherwise{
-      io.outComplex := io.data(10)
+    }.otherwise {
+      when(io.conds(4)) {
+        that := io.data(9)
+      }otherwise{
+        that := io.data(10)
+      }
     }
   }
+
 }
 
 
