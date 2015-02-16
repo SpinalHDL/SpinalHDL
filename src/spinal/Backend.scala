@@ -318,6 +318,9 @@ class Backend {
           }
         }
         case _ => {
+          if(node.isInstanceOf[Mem[_]] && node.inputs.isEmpty)
+            errors += s"No driver on ${node.getScalaLocationString}"
+
           for (in <- node.inputs) {
             if (in == null) {
               errors += s"No driver on ${node.getScalaLocationString}"
