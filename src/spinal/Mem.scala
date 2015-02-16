@@ -49,7 +49,8 @@ object Mem {
 
 class Mem[T <: Data](val wordType: T, val wordCount: Int) extends Node with Nameable {
   var forceMemToBlackboxTranslation = false
-  override def calcWidth: Int = wordType.getBitsWidth
+
+  override def calcWidth: Int = wordType.flatten.map(_._2.calcWidth).reduceLeft(_ + _)
   def addressWidth = log2Up(wordCount)
 
   def setAsBlackBox : this.type = {
@@ -74,6 +75,7 @@ class Mem[T <: Data](val wordType: T, val wordCount: Int) extends Node with Name
     val readWord = wordType.clone()
 
     val readPort = new MemReadSync(this, address.dontSimplifyIt, readBits, enable.dontSimplifyIt,writeToReadKind,ClockDomain.current)
+    readPort.compositeTagReady = readWord
 
     readBits.inputs(0) = readPort
     readWord.fromBits(readBits)
@@ -113,8 +115,7 @@ class MemReadSync(mem: Mem[_], address: UInt, data: Bits, enable: Bool,val write
   inputs += enable
   inputs += mem
 
-
-  override def getSynchronousInputs: ArrayBuffer[Node] = super.getSynchronousInputs ++= getAddress :: getEnable :: Nil
+  override def getSynchronousInputs: ArrayBuffer[Node] = super.getSynchronousInputs ++= getMem :: getAddress :: getEnable ::  Nil
   override def isUsingReset: Boolean = false
 
   def getData = data
@@ -122,7 +123,7 @@ class MemReadSync(mem: Mem[_], address: UInt, data: Bits, enable: Bool,val write
   def getAddress = inputs(MemReadSync.getAddressId).asInstanceOf[UInt]
   def getEnable = inputs(MemReadSync.getEnableId).asInstanceOf[Bool]
 
-  override def calcWidth: Int = getMem.getWidth
+  override def calcWidth: Int = getMem.calcWidth
 
   override def normalizeInputs: Unit = {
     Misc.normalizeResize(this, MemReadSync.getAddressId, getMem.addressWidth)
@@ -151,7 +152,7 @@ class MemWrite(mem: Mem[_], address: UInt, data: Bits, enable: Bool, clockDomain
   def getData = inputs(MemWrite.getDataId).asInstanceOf[Bits]
   def getEnable = inputs(MemWrite.getEnableId).asInstanceOf[Bool]
 
-  override def calcWidth: Int = getMem.getWidth
+  override def calcWidth: Int = getMem.calcWidth
 
   override def normalizeInputs: Unit = {
     Misc.normalizeResize(this, MemReadSync.getAddressId, getMem.addressWidth)

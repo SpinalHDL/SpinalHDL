@@ -19,7 +19,7 @@
 package spinal.test.code
 
 import spinal._
-
+import spinal.importMe._
 /**
  * Created by PIC18F on 22.08.2014.
  */
@@ -52,13 +52,19 @@ object Try5 {
       val outC = out Bool()
       val outX = out Bool()
 
+      val wrAddr = in UInt(4 bit)
+      val wrData = in Bool()
+      val rdAddr = in UInt(4 bit)
+      val rdData = out Bool()
     }
     val clockA = ClockDomain(io.clkA, io.resetA, clockEnable = io.clkEnA)
     val clockB = ClockDomain(io.clkB, io.resetB)
-
+    val mem = Mem(Bool(),16)
 
     clockA.push
     io.outA := RegNext(io.in0, Bool(true))
+    mem.write(io.wrAddr,io.wrData)
+
     clockA.pop
 
     val B = new ComponentPart {
@@ -66,6 +72,9 @@ object Try5 {
       val reg1 = RegNext(io.in1, Bool(true))
       io.outB := reg1
       io.outX := RegNext(io.outA && io.outB).addTag(crossClockDomain)
+
+      io.rdData := RegNext(mem.readSync(io.rdAddr).addTag(crossClockDomain))
+
       clockB.pop
     }
 
@@ -82,9 +91,10 @@ object Try5 {
 
   def main(args: Array[String]) {
     println("START")
-    val clockC = ClockDomain(Bool().setName("clkC"), Bool().setName("resetC"))
 
-    SpinalVhdl(new TopLevel(clockC))
+    SpinalVhdl({
+      val clockC = ClockDomain(Bool().setName("clkC"), Bool().setName("resetC"))
+      new TopLevel(clockC)})
     println("DONE")
   }
 

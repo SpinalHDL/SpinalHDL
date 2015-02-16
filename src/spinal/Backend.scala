@@ -509,11 +509,12 @@ class Backend {
     def checkAll: Unit = {
       val errors = mutable.ArrayBuffer[String]()
       for (node <- nodes) {
-        if (node.inferWidth || node.inferWidth) {
+        if (node.inferWidth) {
           node match {
-            case baseType: BaseType =>
-              errors += s"Can't infer width on ${node.getScalaLocationString}"
+            //case baseType: BaseType =>
+            //  errors += s"Can't infer width on ${node.getScalaLocationString}"
             case _ =>
+              errors += s"Can't infer width on ${node.getScalaLocationString}"
           }
         }
       }
