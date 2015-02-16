@@ -231,7 +231,14 @@ object GlobalData {
     get
   }
 }
-
+//object GlobalData {
+//  var it : GlobalData = null
+//  def get = it
+//  def reset = {
+//    it = new GlobalData
+//    get
+//  }
+//}
 class GlobalData {
   var nodeAreInferringWidth = false
   val nodeGetWidthWalkedSet: mutable.Set[Node] = mutable.Set[Node]()
