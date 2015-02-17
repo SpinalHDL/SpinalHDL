@@ -16,15 +16,23 @@
  * License along with this library.
  */
 
-package spinal.junit
+package spinal.scalaTest
 
-import org.junit.Test
+//import org.junit.Test
+
+import org.scalatest.FunSuite
 import spinal.{Component, SpinalVhdl}
 
 import scala.sys.process._
 
-abstract class SpinalJUnit {
-  @Test def testIt: Unit = {
+abstract class SpinalTesterBase extends FunSuite  {
+
+  test(getName) {
+    testIt
+  }
+
+
+  def testIt: Unit = {
     elaborate
     checkHDL
     simulateHDL

@@ -16,7 +16,7 @@
  * License along with this library.
  */
 
-package spinal.junit
+package spinal.scalaTest
 
 import spinal._
 
@@ -56,7 +56,7 @@ class BundleTester extends Component {
 }
 
 
-class BundleTesterJUnit extends SpinalJUnit {
+class BundleTesterBoot extends SpinalTesterBase {
   override def getName: String = "BundleTester"
   override def createToplevel: Component = new BundleTester
 }

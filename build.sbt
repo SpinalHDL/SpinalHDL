@@ -2,9 +2,9 @@ name := "SpinalCore"
 
 version := "1.0"
 
-scalaVersion := "2.10.4"
+scalaVersion := "2.11.5"
 
 
 libraryDependencies ++= Seq(
-  "junit" % "junit" % "4.12" % "test"
+  "org.scalatest" % "scalatest_2.11" % "2.2.1" % "test"
 )

@@ -16,7 +16,7 @@
  * License along with this library.
  */
 
-package spinal.junit
+package spinal.scalaTest
 
 import spinal._
 import spinal.importMe._
@@ -78,7 +78,7 @@ class WhenTester extends Component {
 //class WhenTester6 extends WhenTester
 
 
-class WhenTesterJUnit extends SpinalJUnit {
+class WhenTesterBoot extends SpinalTesterBase {
   override def getName: String = "WhenTester"
   override def createToplevel: Component = new WhenTester
 }
