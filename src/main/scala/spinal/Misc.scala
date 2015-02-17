@@ -90,7 +90,7 @@ object Misc {
       for(method <- methods){
         method.setAccessible(true)
         val fieldRef = method.invoke(o)
-        if (!refs.contains(fieldRef)) {
+        if (fieldRef != null && !refs.contains(fieldRef)) {
           val name = namePrefix + method.getName
           fieldRef match {
             case vec: Vec[_] =>
