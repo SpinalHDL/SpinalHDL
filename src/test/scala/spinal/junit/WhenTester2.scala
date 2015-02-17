@@ -16,12 +16,10 @@
  * License along with this library.
  */
 
-package spinal.test.junit.whenTester
+package spinal.junit
 
 import spinal._
 import spinal.importMe._
-import org.junit._
-import spinal.test.junit.SpinalJUnit
 
 class WhenTester extends Component {
   val io = new Bundle {

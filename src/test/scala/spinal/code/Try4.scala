@@ -16,7 +16,7 @@
  * License along with this library.
  */
 
-package spinal.test.code
+package spinal.code
 
 import spinal._
 import spinal.importMe._

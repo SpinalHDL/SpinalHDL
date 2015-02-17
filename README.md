@@ -1,2 +1,0 @@
-# SpinalCore
-SpinalHDL core

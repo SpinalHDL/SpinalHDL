@@ -16,12 +16,9 @@
  * License along with this library.
  */
 
-package spinal.test.junit.bundleTester
+package spinal.junit
 
 import spinal._
-import spinal.importMe._
-import org.junit._
-import spinal.test.junit.SpinalJUnit
 
 class BundleAA extends BundleA{
   val b = Bool()

@@ -19,7 +19,6 @@
 
 package spinal
 
-import spinal.test.code.Try
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer

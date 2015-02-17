@@ -16,7 +16,7 @@
  * License along with this library.
  */
 
-package spinal.test.junit
+package spinal.junit
 
 import org.junit.Test
 import spinal.{Component, SpinalVhdl}
@@ -46,7 +46,7 @@ abstract class SpinalJUnit {
 
   def checkHDL(mustSuccess: Boolean): Unit = {
     println("GHDL compilation")
-    assert(((s"ghdl -a $getName.vhd ${getName}_tb.vhd" !) == 0) == mustSuccess, if (mustSuccess) "compilation fail" else "Compilation has not fail :(")
+    assert(((s"ghdl -a $getName.vhd src/test/resources/${getName}_tb.vhd" !) == 0) == mustSuccess, if (mustSuccess) "compilation fail" else "Compilation has not fail :(")
 
     println("GHDL elaborate")
     assert(((s"ghdl -e ${getName}_tb" !) == 0) == mustSuccess, if (mustSuccess) "compilation fail" else "Compilation has not fail :(")
