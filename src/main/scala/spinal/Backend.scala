@@ -29,7 +29,6 @@ import scala.collection.mutable.ArrayBuffer
  */
 
 
-
 class BackendReport[T <: Component](val topLevel: T) {
 
 }
@@ -55,14 +54,14 @@ class Backend {
     //Default clock
     val clock = in.Bool()
     clock.setName("clk")
-   // clock.isIo = true
-   // BackendToComponentBridge.defaultClock = clock
+    // clock.isIo = true
+    // BackendToComponentBridge.defaultClock = clock
 
     //Default reset
     val reset = in.Bool()
     reset.setName("reset")
-   // reset.isIo = true
-  // BackendToComponentBridge.defaultReset = reset
+    // reset.isIo = true
+    // BackendToComponentBridge.defaultReset = reset
 
     //default clockDomain
     val defaultClockDomain = ClockDomain(clock, reset)
@@ -129,7 +128,7 @@ class Backend {
 
     //Name patch
     nameBinding
-    simplifyBlackBoxIoNames
+    //simplifyBlackBoxIoNames
 
     //Finalise
     addNodesIntoComponent
@@ -150,6 +149,12 @@ class Backend {
     for (c <- sortedComponents) {
       c.nameElements()
       nameComponentDeclaration(c)
+      c match {
+        case bb: BlackBox => {
+          bb.generic.genNames
+        }
+        case _ =>
+      }
     }
 
   }
@@ -360,6 +365,7 @@ class Backend {
   def normalizeNodeInputs: Unit = {
     walkNodes(walker_matchWidth)
   }
+
   def addInOutBinding: Unit = {
     walkNodes(walker_addInOutBinding)
   }
@@ -407,6 +413,7 @@ class Backend {
     components.clear()
     components ++= sortedComponents
   }
+
   def fillNodeConsumer: Unit = {
     walkNodes(walker_nodeConsumer)
   }
@@ -488,22 +495,22 @@ class Backend {
     }, nodeStack)
   }
 
-  def walkNodesBlackBoxGenerics = {
-    val nodeStack = mutable.Stack[Node]()
-    components.foreach(_ match {
-      case blackBox: BlackBox => {
-        blackBox.generic.flatten.foreach(tuple => nodeStack.push(tuple._2))
-      }
-      case _ =>
-    })
-    nodeStack
-  }
+  //  def walkNodesBlackBoxGenerics = {
+  //    val nodeStack = mutable.Stack[Node]()
+  //    components.foreach(_ match {
+  //      case blackBox: BlackBox => {
+  //        blackBox.generic.flatten.foreach(tuple => nodeStack.push(tuple._2))
+  //      }
+  //      case _ =>
+  //    })
+  //    nodeStack
+  //  }
 
 
   def inferWidth: Unit = {
     globalData.nodeAreInferringWidth = true
     val nodes = ArrayBuffer[Node]()
-    walkNodes2(nodes += _, walkNodesDefautStack ++ walkNodesBlackBoxGenerics)
+    walkNodes2(nodes += _, walkNodesDefautStack /* ++ walkNodesBlackBoxGenerics*/)
 
 
     def checkAll: Unit = {
@@ -579,23 +586,23 @@ class Backend {
     })
   }
 
-  def simplifyBlackBoxIoNames: Unit = {
-    for (c <- components) c match {
-      case bb: BlackBox => {
-        for ((eName, e) <- bb.io.flatten) {
-          if (e.isWeak) {
-            e.setWeakName(eName.substring(3, eName.size))
-          }
-        }
-        for ((eName, e) <- bb.generic.flatten) {
-          if (e.isWeak && eName != "generic") {
-            e.setWeakName(eName.substring(8, eName.size))
-          }
-        }
-      }
-      case _ =>
-    }
-  }
+  //  def simplifyBlackBoxIoNames: Unit = {
+  //    for (c <- components) c match {
+  //      case bb: BlackBox => {
+  //        for ((eName, e) <- bb.io.flatten) {
+  //          if (e.isWeak) {
+  //            e.setWeakName(eName.substring(3, eName.size))
+  //          }
+  //        }
+  //        for ((eName, e) <- bb.generic.flatten) {
+  //          if (e.isWeak && eName != "generic") {
+  //            e.setWeakName(eName.substring(8, eName.size))
+  //          }
+  //        }
+  //      }
+  //      case _ =>
+  //    }
+  //  }
 
   def propagateBaseTypeWidth: Unit = {
     walkNodes2(node => {
@@ -789,21 +796,46 @@ class Backend {
       case blackBox: BlackBox => {
         blackBox.generic.flatten.foreach(tuple => {
           val signal = tuple._2
-          walk(signal, signal)
-          def walk(node: Node, first: Node): Unit = node match {
-            case node: BaseType => {
-              first.inputs(0) = node.inputs(0)
-              first.inputs(0).inferredWidth = first.inferredWidth
-              walk(node.inputs(0), first)
+          if (signal.isInstanceOf[BaseType]) {
+            val baseType = signal.asInstanceOf[BaseType]
+            walk(baseType, baseType)
+            def walk(node: Node, first: Node): Unit = node match {
+              case node: BaseType => {
+                first.inputs(0) = node.inputs(0)
+                first.inputs(0).inferredWidth = first.inferredWidth
+                walk(node.inputs(0), first)
+              }
+              case lit: Literal =>
+              case _ => throw new Exception("BlackBox generic must be literal")
             }
-            case lit: Literal =>
-            case _ => throw new Exception("BlackBox generic can be literal")
           }
+
         })
       }
       case _ =>
     })
   }
+
+  //  def simplifyBlacBoxGenerics: Unit = {
+  //    components.foreach(_ match {
+  //      case blackBox: BlackBox => {
+  //        blackBox.generic.flatten.foreach(tuple => {
+  //          val signal = tuple._2
+  //          walk(signal, signal)
+  //          def walk(node: Node, first: Node): Unit = node match {
+  //            case node: BaseType => {
+  //              first.inputs(0) = node.inputs(0)
+  //              first.inputs(0).inferredWidth = first.inferredWidth
+  //              walk(node.inputs(0), first)
+  //            }
+  //            case lit: Literal =>
+  //            case _ => throw new Exception("BlackBox generic can be literal")
+  //          }
+  //        })
+  //      }
+  //      case _ =>
+  //    })
+  //  }
 
 
   def walker_addInOutBinding(node: Node, stack: mutable.Stack[Node]): Unit = {

@@ -460,12 +460,20 @@ class VhdlBackend extends Backend with VhdlBase {
     val genericFlat = component.generic.flatten
     if (genericFlat.size != 0) {
       ret ++= s"    generic(\n"
-      genericFlat.foreach(_._2 match {
-        case baseType: BaseType => {
-          ret ++= s"      ${baseType.getName()} : ${emitDataType(baseType, false)};\n"
+      for((name,e) <- genericFlat){
+        e match {
+          case baseType: BaseType => ret ++= s"      ${emitReference(baseType)} : ${emitDataType(baseType, false)};\n"
+          case s : String =>ret ++= s"      $name : string;\n"
+          case i : Int => ret ++= s"      $name : integer;\n"
+          case d : Double => ret ++= s"      $name : real;\n"
+          case b : Boolean => ret ++= s"      $name : boolean;\n"
         }
-        case _ =>
-      })
+      }
+
+//      genericFlat.foreach(_._2 match {
+//        case baseType: BaseType => ret ++= s"      ${baseType.getName()} : ${emitDataType(baseType, false)};\n"
+//        case string : String =>ret ++= s"      ${string.getName()} : ${emitDataType(baseType, false)};\n"
+//      })
       ret.setCharAt(ret.size - 2, ' ')
       ret ++= s"    );\n"
     }
@@ -945,12 +953,22 @@ class VhdlBackend extends Backend with VhdlBase {
         val genericFlat = bb.generic.flatten
         if (genericFlat.size != 0) {
           ret ++= s"    generic map(\n"
-          genericFlat.foreach(_._2 match {
-            case baseType: BaseType => {
-              ret ++= s"      ${emitReference(baseType)} => ${emitLogic(baseType.inputs(0))},\n"
+
+
+          for((name,e) <- genericFlat){
+            e match {
+              case baseType: BaseType => ret ++= s"      ${emitReference(baseType)} => ${emitLogic(baseType.inputs(0))},\n"
+              case s : String =>ret ++= s"      ${name} => ${"\""}${s}${"\""},\n"
+              case i : Int => ret ++= s"      ${name} => $i,\n"
+              case d : Double => ret ++= s"      ${name} => $d,\n"
+              case b : Boolean => ret ++= s"      ${name} => $b,\n"
             }
-            case _ =>
-          })
+          }
+//          genericFlat.foreach(_._2 match {
+//            case baseType: BaseType => {
+//              ret ++= s"      ${emitReference(baseType)} => ${emitLogic(baseType.inputs(0))},\n"
+//            }
+//          })
           ret.setCharAt(ret.size - 2, ' ')
           ret ++= s"    )\n"
         }

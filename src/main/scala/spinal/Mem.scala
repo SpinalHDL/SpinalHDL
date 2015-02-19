@@ -170,10 +170,10 @@ class MemReadWrite extends Node {
 class Ram_1c_1w_1ra(wordWidth: Int, wordCount: Int, writeToReadKind: MemWriteToReadKind = dontCare) extends BlackBox {
   if(writeToReadKind == readFirst) SpinalError("readFirst mode for asyncronous read is not alowed")
 
-  val generic = new Bundle {
-    val wordCount = Number(Ram_1c_1w_1ra.this.wordCount)
-    val wordWidth = Number(Ram_1c_1w_1ra.this.wordWidth)
-    val readToWriteKind = SString(writeToReadKind.toString)
+  val generic = new Generic {
+    val wordCount = Ram_1c_1w_1ra.this.wordCount
+    val wordWidth = Ram_1c_1w_1ra.this.wordWidth
+    val readToWriteKind = writeToReadKind.toString
   }
 
   val io = new Bundle {
@@ -202,10 +202,11 @@ class Ram_1c_1w_1ra(wordWidth: Int, wordCount: Int, writeToReadKind: MemWriteToR
 }
 
 class Ram_1c_1w_1rs(wordWidth: Int, wordCount: Int, writeToReadKind: MemWriteToReadKind = dontCare) extends BlackBox {
-  val generic = new Bundle {
-    val wordCount = Number(Ram_1c_1w_1rs.this.wordCount)
-    val wordWidth = Number(Ram_1c_1w_1rs.this.wordWidth)
-    val readToWriteKind = SString(writeToReadKind.toString)
+
+  val generic = new Generic {
+    val wordCount = Ram_1c_1w_1rs.this.wordCount
+    val wordWidth = Ram_1c_1w_1rs.this.wordWidth
+    val readToWriteKind = writeToReadKind.toString
   }
 
   val io = new Bundle {

@@ -26,7 +26,7 @@ import scala.collection.mutable.ArrayBuffer
 
 
 class Generic {
-  var flattenCache: ArrayBuffer[(String, Object)] = null
+  var flattenCache: ArrayBuffer[(String, Any)] = null
 
 
   def genNames: Unit ={
@@ -41,7 +41,7 @@ class Generic {
 
   def flatten = {
     if (flattenCache == null) {
-      flattenCache = ArrayBuffer[(String, Object)]()
+      flattenCache = ArrayBuffer[(String, Any)]()
       Misc.reflect(this, (name, obj) => {
         obj match{
           case obj : Data =>
@@ -56,7 +56,8 @@ class Generic {
 }
 
 abstract class BlackBox extends Component {
-  def generic: Bundle
+
+  def generic: Generic// = new Generic{}
 
   def use(clockDomain: ClockDomain, clockIn: Bool, resetIn: Bool = null, clockEnableIn: Bool = null): Unit = {
     Component.push(parent)

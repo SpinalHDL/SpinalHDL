@@ -109,18 +109,18 @@ object Try5 {
 
     SpinalVhdl({
 
-
-      val gen = new Generic{
-        val a = 1
-        val b = "asd"
-        val sub = new Bundle{
-          val c = Bool(true)
-          val d = UInt(3,8 bit)
-        }
-      }
-
-      gen.genNames
-      val genElements = gen.flatten
+//
+//      val gen = new Generic{
+//        val a = 1
+//        val b = "asd"
+//        val sub = new Bundle{
+//          val c = Bool(true)
+//          val d = UInt(3,8 bit)
+//        }
+//      }
+//
+//      gen.genNames
+//      val genElements = gen.flatten
 
       val clockC = ClockDomain(Bool().setName("clkC"), Bool().setName("resetC"))
       new TopLevel(clockC)})

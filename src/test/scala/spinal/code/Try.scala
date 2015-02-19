@@ -284,11 +284,13 @@ object Try {
 
 
   class MyBlackBox extends BlackBox {
-    val generic = new Bundle {
+    val generic = new Generic {
       val genA = UInt(1, 5 bit)
       val genB = Bool(false)
       val genC = Number(44)
       val genD = SString("salut")
+      val genE = "miaou"
+      val genF = 2
     }
 
     val io = new Bundle {
