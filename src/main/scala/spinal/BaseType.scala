@@ -29,7 +29,7 @@ import scala.collection.mutable.ArrayBuffer
 
 object BaseType {
 
-  def assignFrom(baseType: BaseType, initialConsumer: Node,initialConsumerInputId : Int, that: Node): Unit = {
+  def assignFrom(baseType: BaseType, initialConsumer: Node, initialConsumerInputId: Int, that: Node): Unit = {
     val globalData = baseType.globalData
     //var consumer: Node = if (baseType.isReg) baseType.inputs(0) else baseType
     var consumer = initialConsumer
@@ -68,9 +68,16 @@ abstract class BaseType extends Node with Data with Nameable {
   inputs += null
 
   def canSymplifyIt = !dontSimplify && attributes.isEmpty
+
   private var dontSimplify = false
-  override def dontSimplifyIt : this.type = {dontSimplify = true; this}
-  override def allowSimplifyIt : this.type = {dontSimplify = false; this}
+
+  override def dontSimplifyIt: this.type = {
+    dontSimplify = true; this
+  }
+
+  override def allowSimplifyIt: this.type = {
+    dontSimplify = false; this
+  }
 
   var compositeAssign: Assignable = null
 
@@ -82,10 +89,17 @@ abstract class BaseType extends Node with Data with Nameable {
     }
   }
 
+  def getLiteral[T <: Literal]: T = inputs(0) match {
+    case lit: Literal => lit.asInstanceOf[T]
+    case bt: BaseType => bt.getLiteral[T]
+    case _ => null.asInstanceOf[T]
+  }
+
 
   override def getBitsWidth: Int = getWidth
 
   def isReg = inputs(0).isInstanceOf[Reg]
+
   def isDelay = inputs(0).isInstanceOf[SyncNode]
 
   //  override def :=(bits: this.type): Unit = assignFrom(bits)
@@ -94,7 +108,7 @@ abstract class BaseType extends Node with Data with Nameable {
   def assignFromImpl(that: Data): Unit = {
     that match {
       case that: BaseType => {
-        BaseType.assignFrom(this, this,0, that)
+        BaseType.assignFrom(this, this, 0, that)
       }
       case _ => throw new Exception("Undefined assignement")
     }
@@ -103,17 +117,17 @@ abstract class BaseType extends Node with Data with Nameable {
 
   override def autoConnect(that: Data): Unit = {
     if (this.component == that.component) {
-      if(this.component == Component.current) {
+      if (this.component == Component.current) {
         sameFromInside
-      }else if(this.component.parent == Component.current) {
+      } else if (this.component.parent == Component.current) {
         sameFromOutside
-      }else SpinalError("You cant autoconnect from here")
+      } else SpinalError("You cant autoconnect from here")
     } else if (this.component.parent == that.component.parent) {
       kindAndKind
     } else if (this.component == that.component.parent) {
-      parentAndKind(this,that)
+      parentAndKind(this, that)
     } else if (this.component.parent == that.component) {
-      parentAndKind(that,this)
+      parentAndKind(that, this)
     } else SpinalError("Don't know how autoconnect")
 
     def sameFromOutside: Unit = {
@@ -140,13 +154,14 @@ abstract class BaseType extends Node with Data with Nameable {
     }
 
     def parentAndKind(p: Data, k: Data): Unit = {
-      if(k.isOutput){
+      if (k.isOutput) {
         p := k
-      }else if(k.isInput){
+      } else if (k.isInput) {
         k := p
-      }else SpinalError("Bad input output specification for autoconnect")
+      } else SpinalError("Bad input output specification for autoconnect")
     }
   }
+
   // def castThatInSame(that: BaseType): this.type = throw new Exception("Not defined")
 
 
@@ -191,11 +206,13 @@ abstract class BaseType extends Node with Data with Nameable {
     this.setInput(op)
     this
   }
+
   def enumCastFrom(opName: String, that: Node, getWidthImpl: (Node) => Int = WidthInfer.inputMaxWidthl): this.type = {
     val op = EnumCast(this.asInstanceOf[SpinalEnumCraft[_]], opName, that, getWidthImpl)
     this.setInput(op)
     this
   }
+
   def newFunction(opName: String, args: List[Node], getWidthImpl: (Node) => Int = WidthInfer.inputMaxWidthl): this.type = {
     val op = Function(opName, args, getWidthImpl)
     val typeNode = addTypeNodeFrom(op)

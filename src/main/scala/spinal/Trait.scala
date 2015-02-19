@@ -162,14 +162,12 @@ trait Nameable {
 }
 
 object ScalaLocated {
-  var enable = false
-
   var unfiltredFiles = mutable.Set("SpinalUtils.scala")
   var unfiltredPackages = mutable.Set("spinal.test.")
 }
 
-trait ScalaLocated {
-  val scalaTrace = if (!ScalaLocated.enable) null else new Throwable()
+trait ScalaLocated extends GlobalDataUser{
+  val scalaTrace = if (!globalData.scalaLocatedEnable) null else new Throwable()
 
   def getScalaTrace = {
     scalaTrace
@@ -246,5 +244,6 @@ class GlobalData {
   val componentStack = new SafeStack[Component]
   val switchStack = new SafeStack[SwitchStack]
   val whenStack = new SafeStack[when]
+  var scalaLocatedEnable = false
 
 }

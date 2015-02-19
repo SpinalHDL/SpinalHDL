@@ -212,9 +212,6 @@ class Backend {
           Component.push(mem.component)
           val ram = Component(new Ram_1c_1w_1rs(mem.getWidth, mem.wordCount, rd.writeToReadKind))
 
-
-          //  ram.io.clk := wr.getClockDomain.readClock
-
           ram.io.wr.en := wr.getEnable.allowSimplifyIt
           ram.io.wr.addr := wr.getAddress.allowSimplifyIt
           ram.io.wr.data := wr.getData.allowSimplifyIt
@@ -222,6 +219,11 @@ class Backend {
           ram.io.rd.en := rd.getEnable.allowSimplifyIt
           ram.io.rd.addr := rd.getAddress.allowSimplifyIt
           rd.getData.allowSimplifyIt := ram.io.rd.data
+
+          ram.generic.useReadEnable = {
+            val lit = ram.io.rd.en.getLiteral[BoolLiteral]
+            lit == null || lit.value == false
+          }
 
           ram.setCompositeName(mem)
           Component.pop(mem.component)

@@ -460,20 +460,20 @@ class VhdlBackend extends Backend with VhdlBase {
     val genericFlat = component.generic.flatten
     if (genericFlat.size != 0) {
       ret ++= s"    generic(\n"
-      for((name,e) <- genericFlat){
+      for ((name, e) <- genericFlat) {
         e match {
           case baseType: BaseType => ret ++= s"      ${emitReference(baseType)} : ${emitDataType(baseType, false)};\n"
-          case s : String =>ret ++= s"      $name : string;\n"
-          case i : Int => ret ++= s"      $name : integer;\n"
-          case d : Double => ret ++= s"      $name : real;\n"
-          case b : Boolean => ret ++= s"      $name : boolean;\n"
+          case s: String => ret ++= s"      $name : string;\n"
+          case i: Int => ret ++= s"      $name : integer;\n"
+          case d: Double => ret ++= s"      $name : real;\n"
+          case b: Boolean => ret ++= s"      $name : boolean;\n"
         }
       }
 
-//      genericFlat.foreach(_._2 match {
-//        case baseType: BaseType => ret ++= s"      ${baseType.getName()} : ${emitDataType(baseType, false)};\n"
-//        case string : String =>ret ++= s"      ${string.getName()} : ${emitDataType(baseType, false)};\n"
-//      })
+      //      genericFlat.foreach(_._2 match {
+      //        case baseType: BaseType => ret ++= s"      ${baseType.getName()} : ${emitDataType(baseType, false)};\n"
+      //        case string : String =>ret ++= s"      ${string.getName()} : ${emitDataType(baseType, false)};\n"
+      //      })
       ret.setCharAt(ret.size - 2, ' ')
       ret ++= s"    );\n"
     }
@@ -517,6 +517,7 @@ class VhdlBackend extends Backend with VhdlBase {
 
     ret ++= "\n"
   }
+
   def emitSignals(component: Component, ret: StringBuilder): Unit = {
     for (node <- component.nodes) {
       node match {
@@ -585,10 +586,12 @@ class VhdlBackend extends Backend with VhdlBase {
   def operatorImplAsFunction(vhd: String)(func: Modifier): String = {
     s"$vhd(${func.inputs.map(emitLogic(_)).reduce(_ + "," + _)})"
   }
+
   def operatorImplAsBitsToEnum(func: Modifier): String = {
     val enumCast = func.asInstanceOf[EnumCast]
     s"pkg_to${enumCast.enum.getParentName}(${func.inputs.map(emitLogic(_)).reduce(_ + "," + _)})"
   }
+
   val modifierImplMap = mutable.Map[String, Modifier => String]()
 
 
@@ -700,6 +703,7 @@ class VhdlBackend extends Backend with VhdlBase {
   def opThatNeedBoolCastGen(a: String, b: String): List[String] = {
     ("==" :: "!=" :: "<" :: "<=" :: Nil).map(a + _ + b)
   }
+
   val opThatNeedBoolCast = mutable.Set[String]()
   opThatNeedBoolCast ++= opThatNeedBoolCastGen("B", "B")
   opThatNeedBoolCast ++= opThatNeedBoolCastGen("b", "b")
@@ -844,6 +848,7 @@ class VhdlBackend extends Backend with VhdlBase {
             val when = mutable.Map[Node, WhenTree]()
 
             def isEmpty = logic.isEmpty && when.isEmpty
+
             def isNotEmpty = !isEmpty
           }
 
@@ -885,17 +890,29 @@ class VhdlBackend extends Backend with VhdlBase {
               }
             }
             case memWrite: MemWrite => {
-              ret ++= s"${tab}if ${emitReference(memWrite.getEnable)} = '1' then\n"
-              ret ++= s"$tab  ${emitReference(memWrite.getMem)}(to_integer(${emitReference(memWrite.getAddress)})) <= ${emitReference(memWrite.getData)};\n"
-              ret ++= s"${tab}end if;\n"
+              if (memWrite.useWriteEnable) {
+                ret ++= s"${tab}if ${emitReference(memWrite.getEnable)} = '1' then\n"
+                emitWrite(tab + "  ")
+                ret ++= s"${tab}end if;\n"
+              } else {
+                emitWrite(tab)
+              }
+
+              def emitWrite(tab: String) = ret ++= s"$tab${emitReference(memWrite.getMem)}(to_integer(${emitReference(memWrite.getAddress)})) <= ${emitReference(memWrite.getData)};\n"
             }
             case memReadSync: MemReadSync => {
               //readFirst
               if (memReadSync.writeToReadKind == writeFirst) SpinalError(s"Can't translate a memReadSync with writeFirst into VHDL $memReadSync")
               if (memReadSync.writeToReadKind == dontCare) SpinalWarning(s"memReadSync with dontCare is as readFirst into VHDL $memReadSync")
-              ret ++= s"${tab}if ${emitReference(memReadSync.getEnable)} = '1' then\n"
-              ret ++= s"$tab   ${emitReference(memReadSync.consumers(0))} <= ${emitReference(memReadSync.getMem)}(to_integer(${emitReference(memReadSync.getAddress)}));\n"
-              ret ++= s"${tab}end if;\n"
+              if (memReadSync.useReadEnable) {
+                ret ++= s"${tab}if ${emitReference(memReadSync.getEnable)} = '1' then\n"
+                emitRead(tab + "  ")
+                ret ++= s"${tab}end if;\n"
+              } else {
+                emitRead(tab)
+              }
+              def emitRead(tab: String) = ret ++= s"$tab${emitReference(memReadSync.consumers(0))} <= ${emitReference(memReadSync.getMem)}(to_integer(${emitReference(memReadSync.getAddress)}));\n"
+
             }
           }
 
@@ -955,20 +972,20 @@ class VhdlBackend extends Backend with VhdlBase {
           ret ++= s"    generic map(\n"
 
 
-          for((name,e) <- genericFlat){
+          for ((name, e) <- genericFlat) {
             e match {
               case baseType: BaseType => ret ++= s"      ${emitReference(baseType)} => ${emitLogic(baseType.inputs(0))},\n"
-              case s : String =>ret ++= s"      ${name} => ${"\""}${s}${"\""},\n"
-              case i : Int => ret ++= s"      ${name} => $i,\n"
-              case d : Double => ret ++= s"      ${name} => $d,\n"
-              case b : Boolean => ret ++= s"      ${name} => $b,\n"
+              case s: String => ret ++= s"      ${name} => ${"\""}${s}${"\""},\n"
+              case i: Int => ret ++= s"      ${name} => $i,\n"
+              case d: Double => ret ++= s"      ${name} => $d,\n"
+              case b: Boolean => ret ++= s"      ${name} => $b,\n"
             }
           }
-//          genericFlat.foreach(_._2 match {
-//            case baseType: BaseType => {
-//              ret ++= s"      ${emitReference(baseType)} => ${emitLogic(baseType.inputs(0))},\n"
-//            }
-//          })
+          //          genericFlat.foreach(_._2 match {
+          //            case baseType: BaseType => {
+          //              ret ++= s"      ${emitReference(baseType)} => ${emitLogic(baseType.inputs(0))},\n"
+          //            }
+          //          })
           ret.setCharAt(ret.size - 2, ' ')
           ret ++= s"    )\n"
         }

@@ -126,6 +126,11 @@ class MemReadSync(mem: Mem[_], address: UInt, data: Bits, enable: Bool,val write
 
   override def calcWidth: Int = getMem.calcWidth
 
+  def useReadEnable : Boolean = {
+    val lit = getEnable.getLiteral[BoolLiteral]
+    return lit == null || lit.value == false
+  }
+
   override def normalizeInputs: Unit = {
     Misc.normalizeResize(this, MemReadSync.getAddressId, getMem.addressWidth)
   }
@@ -154,6 +159,11 @@ class MemWrite(mem: Mem[_], address: UInt, data: Bits, enable: Bool, clockDomain
   def getEnable = inputs(MemWrite.getEnableId).asInstanceOf[Bool]
 
   override def calcWidth: Int = getMem.calcWidth
+
+  def useWriteEnable : Boolean = {
+    val lit = getEnable.getLiteral[BoolLiteral]
+    return lit == null || lit.value == false
+  }
 
   override def normalizeInputs: Unit = {
     Misc.normalizeResize(this, MemReadSync.getAddressId, getMem.addressWidth)
@@ -207,6 +217,7 @@ class Ram_1c_1w_1rs(wordWidth: Int, wordCount: Int, writeToReadKind: MemWriteToR
     val wordCount = Ram_1c_1w_1rs.this.wordCount
     val wordWidth = Ram_1c_1w_1rs.this.wordWidth
     val readToWriteKind = writeToReadKind.toString
+    var useReadEnable = true
   }
 
   val io = new Bundle {
@@ -226,6 +237,8 @@ class Ram_1c_1w_1rs(wordWidth: Int, wordCount: Int, writeToReadKind: MemWriteToR
   }
 
   useCurrentClockDomain(io.clk,null,io.clkEn)
+
+  def useReadEnable = io.rd.en.getLiteral[BoolLiteral]
 
   //Following is not obligatory, just to describe blackbox logic
   val mem = Mem(io.wr.data, wordCount)
