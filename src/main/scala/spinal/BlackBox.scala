@@ -25,6 +25,36 @@ import scala.collection.mutable.ArrayBuffer
  */
 
 
+class Generic {
+  var flattenCache: ArrayBuffer[(String, Object)] = null
+
+
+  def genNames: Unit ={
+    Misc.reflect(this, (name, obj) => {
+      obj match{
+        case obj : Nameable =>
+          obj.setWeakName(name)
+        case _ =>
+      }
+    })
+  }
+
+  def flatten = {
+    if (flattenCache == null) {
+      flattenCache = ArrayBuffer[(String, Object)]()
+      Misc.reflect(this, (name, obj) => {
+        obj match{
+          case obj : Data =>
+            flattenCache ++= obj.flatten
+          case _ =>
+            flattenCache += Tuple2(name, obj)
+        }
+      })
+    }
+    flattenCache
+  }
+}
+
 abstract class BlackBox extends Component {
   def generic: Bundle
 

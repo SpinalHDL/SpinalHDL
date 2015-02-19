@@ -63,6 +63,7 @@ class Mem[T <: Data](val wordType: T, val wordCount: Int) extends Node with Name
     val readWord = wordType.clone()
 
     val readPort = new MemReadAsync(this, address.dontSimplifyIt, readBits,writeToReadKind)
+    readPort.compositeTagReady = readWord
 
     readBits.inputs(0) = readPort
     readWord.fromBits(readBits)

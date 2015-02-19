@@ -30,11 +30,6 @@ object Bundle{
 
 class Bundle extends MultiData with Nameable{
   override type SSelf = Bundle
- // override type Self <: Bundle
-
-
-  //def :=(that: Bundle): Unit = this.assignFrom(that)
-
 
   override def :=(that: SSelf): Unit = super.:=(that)
   override def <>(that: SSelf): Unit = super.<>(that)
@@ -51,9 +46,6 @@ class Bundle extends MultiData with Nameable{
       case _ =>throw new Exception("Undefined assignement")
     }
   }
-
-
-
 
   private var elementsCache: ArrayBuffer[(String, Data)] = null
 

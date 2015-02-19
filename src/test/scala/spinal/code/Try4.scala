@@ -21,9 +21,6 @@ package spinal.code
 import spinal._
 import spinal.importMe._
 
-/**
- * Created by PIC18F on 22.08.2014.
- */
 object Try4 {
 
 
@@ -41,8 +38,8 @@ object Try4 {
 
   class TopLevel extends Component {
     val io = new Bundle {
-      val cond0 = in.Bool()
-      val cond1 = in.Bool()
+      val cond0 = in Bool()
+      val cond1 = in Bool()
       val outBool = out.Bool()
 
       val inBundleA = in(new BundleA)

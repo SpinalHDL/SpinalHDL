@@ -42,6 +42,7 @@ object Misc {
   addReflectionExclusion(new Bits)
   addReflectionExclusion(new UInt)
   addReflectionExclusion(new SInt)
+  addReflectionExclusion(new Generic)
   addReflectionExclusion(new SpinalEnum)
   addReflectionExclusion(new SpinalEnumCraft(null))
 

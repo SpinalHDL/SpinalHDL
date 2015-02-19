@@ -33,9 +33,22 @@ object Try5 {
     io.out := RegNext(io.in)
   }
 
+  class BundleA extends Bundle{
+    val a = Bool()
+
+    val sub = new Bundle{
+      val b = Bool()
+      val sub = new Bundle{
+        val c = Bool()
+      }
+    }
+  }
 
   class TopLevel(clockC: ClockDomain) extends Component {
     val io = new Bundle {
+      val bundleIn = in (new BundleA)
+
+
       val clkA = in Bool()
       val resetA = in Bool()
       val clkEnA = in Bool()
@@ -90,9 +103,25 @@ object Try5 {
 
 
   def main(args: Array[String]) {
+
+
     println("START")
 
     SpinalVhdl({
+
+
+      val gen = new Generic{
+        val a = 1
+        val b = "asd"
+        val sub = new Bundle{
+          val c = Bool(true)
+          val d = UInt(3,8 bit)
+        }
+      }
+
+      gen.genNames
+      val genElements = gen.flatten
+
       val clockC = ClockDomain(Bool().setName("clkC"), Bool().setName("resetC"))
       new TopLevel(clockC)})
     println("DONE")
