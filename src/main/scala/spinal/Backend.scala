@@ -75,7 +75,7 @@ class Backend {
 
   //TODO
   //TODO ROM support
-  //TODO
+  //TODO check bundle flatten order
 
   protected def elaborate[T <: Component](topLevel: T): BackendReport[T] = {
     SpinalInfoPhase("Start analysis and transform")

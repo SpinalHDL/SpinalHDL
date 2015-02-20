@@ -245,5 +245,10 @@ class GlobalData {
   val switchStack = new SafeStack[SwitchStack]
   val whenStack = new SafeStack[when]
   var scalaLocatedEnable = false
-
+  var instanceCounter = 0
+  def getInstanceCounter: Int = {
+    val temp = instanceCounter
+    instanceCounter = instanceCounter + 1
+    temp
+  }
 }

@@ -287,8 +287,8 @@ object Try {
     val generic = new Generic {
       val genA = UInt(1, 5 bit)
       val genB = Bool(false)
-      val genC = Number(44)
-      val genD = SString("salut")
+      val genC = 44
+      val genD = "salut"
       val genE = "miaou"
       val genF = 2
     }
@@ -523,9 +523,6 @@ object Try {
     val blackBoxA = Component(new MyBlackBox)
     val blackBoxB = Component(new MyBlackBox)
 
-    blackBoxB.generic.genC := Number(22)
-    blackBoxB.generic.genA := UInt(7)
-    blackBoxB.generic.genD := SString("Miaou")
 
     blackBoxA.io.inUIntA := io.inUIntA
     blackBoxB.io.inUIntA := blackBoxA.io.outUIntA

@@ -92,15 +92,6 @@ object WidthInfer {
 
 
 
-object Node {
-
-  var instanceCounter = 0
-  def getCounter: Int = {
-    val temp = instanceCounter
-    instanceCounter = instanceCounter + 1
-    temp
-  }
-}
 
 
 
@@ -110,7 +101,7 @@ abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady wi
 
 
 
-  var instanceCounter = Node.getCounter
+  var instanceCounter = globalData.getInstanceCounter
 
   def getWidth: Int = {
     if (globalData.nodeAreInferringWidth) {
