@@ -101,7 +101,7 @@ abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady wi
 
 
 
-  var instanceCounter = globalData.getInstanceCounter
+
 
   def getWidth: Int = {
     if (globalData.nodeAreInferringWidth) {

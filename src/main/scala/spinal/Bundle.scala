@@ -62,6 +62,6 @@ class Bundle extends MultiData with Nameable{
         }
       })
     }
-    elementsCache
+    elementsCache.sortWith(_._2.instanceCounter < _._2.instanceCounter)
   }
 }

@@ -86,7 +86,7 @@ object Misc {
 
       val fields = c.getDeclaredFields
       def isValDef(m: Method) = fields exists (fd => fd.getName == m.getName && fd.getType == m.getReturnType)
-      val methods = c.getMethods filter (m => m.getParameterTypes.isEmpty && isValDef(m))
+      val methods = c.getDeclaredMethods filter (m => m.getParameterTypes.isEmpty && isValDef(m))
 
       for(method <- methods){
         method.setAccessible(true)
