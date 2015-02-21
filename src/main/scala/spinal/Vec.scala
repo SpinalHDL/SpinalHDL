@@ -175,9 +175,11 @@ class Vec[T <: Data](val dataType: T) extends MultiData with collection.IndexedS
   def elements = {
     if (elementsCache == null) {
       elementsCache = ArrayBuffer[(String, Data)]()
-      for (i <- 0 until vec.size)
+      var i = vec.size -1
+      while(i >= 0) {
         elementsCache += Tuple2(i.toString, vec(i))
-
+        i = i - 1
+      }
     }
     elementsCache
   }

@@ -27,15 +27,20 @@ import scala.sys.process._
 
 abstract class SpinalTesterBase extends FunSuite  {
 
+  var withWaveform = false
+  var elaborateMustFail = false
+  var checkHDLMustFail = false
+  var simulateMustFail = false
+
   test(getName) {
     testIt
   }
 
 
   def testIt: Unit = {
-    elaborate
-    checkHDL
-    simulateHDL
+    if(!elaborateMustFail) elaborate else elaborateWithFail
+    if(!checkHDLMustFail) checkHDL else checkHDLWithFail
+    if(!simulateMustFail) simulateHDL else simulateHDLWithFail
   }
 
   def elaborate: Unit = {
@@ -61,16 +66,20 @@ abstract class SpinalTesterBase extends FunSuite  {
   }
 
   def checkHDL: Unit = checkHDL(true)
-  def checkHDLWithFail: Unit = {
-    checkHDL(false)
-  }
+  def checkHDLWithFail: Unit = checkHDL(false)
 
-  def simulateHDL: Unit = {
+
+  def simulateHDL : Unit= simulateHDL(true)
+  def simulateHDLWithFail : Unit= simulateHDL(false)
+
+  def simulateHDL(mustSuccess : Boolean): Unit = {
     println("GHDL run")
-    assert((s"ghdl -r ${getName}_tb${if (!withWaveform) "" else s" --vcd=$getName.vcd"}" !) == 0, "run fail")
+    val ret = (s"ghdl -r ${getName}_tb${if (!withWaveform) "" else s" --vcd=$getName.vcd"}" !)
+    assert(!mustSuccess || ret == 0,"Simulation fail")
+    assert(mustSuccess || ret != 0,"Simulation has not fail :(")
   }
 
-  def withWaveform : Boolean = false
+
 
   def getName: String
   def createToplevel: Component

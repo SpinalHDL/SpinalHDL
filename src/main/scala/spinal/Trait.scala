@@ -164,7 +164,7 @@ trait Nameable {
 
 object ScalaLocated {
   var unfiltredFiles = mutable.Set("SpinalUtils.scala")
-  var unfiltredPackages = mutable.Set("spinal.test.")
+  var unfiltredPackages = mutable.Set("spinal.code.","spinal.bug.","spinal.scalaTest.")
 }
 
 trait ScalaLocated extends GlobalDataUser{

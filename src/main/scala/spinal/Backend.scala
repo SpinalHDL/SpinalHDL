@@ -75,7 +75,6 @@ class Backend {
 
   //TODO
   //TODO ROM support
-  //TODO check bundle flatten order
 
   protected def elaborate[T <: Component](topLevel: T): BackendReport[T] = {
     SpinalInfoPhase("Start analysis and transform")
@@ -308,8 +307,12 @@ class Backend {
               val inIsIo = in.isInstanceOf[BaseType] && in.asInstanceOf[BaseType].isIo
               if (node.isIo) {
                 if (node.isInput) {
-                  if (in.component != node.component.parent && !(!in.component.isTopLevel && inIsIo && in.component.parent == node.component.parent))
-                    errors += s"Input $node is not assigned by parent component but an other at ${node.getScalaTraceString}"
+                  if (in.component != node.component.parent && !(!in.component.isTopLevel && inIsIo && in.component.parent == node.component.parent)){
+                    if(in.component == node.component)
+                      errors += s"Input $node can't be assigned from inside at ${node.getScalaTraceString}"
+                    else
+                      errors += s"Input $node is not assigned by parent component but an other at ${node.getScalaTraceString}"
+                  }
                 } else if (node.isOutput) {
                   if (in.component != node.component && !(inIsIo && node.component == in.component.parent))
                     errors += s"Output $node is not assigned by his component but an other at ${node.getScalaTraceString}"

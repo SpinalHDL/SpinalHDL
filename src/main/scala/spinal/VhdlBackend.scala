@@ -664,10 +664,11 @@ class VhdlBackend extends Backend with VhdlBase {
   modifierImplMap.put("B==B", operatorImplAsOperator("="))
   modifierImplMap.put("B!=B", operatorImplAsOperator("/="))
 
+
   modifierImplMap.put("!", operatorImplAsOperator("not"))
   modifierImplMap.put("&&", operatorImplAsOperator("and"))
   modifierImplMap.put("||", operatorImplAsOperator("or"))
-
+  modifierImplMap.put("B^B", operatorImplAsOperator("xor"))
 
 
   //enum

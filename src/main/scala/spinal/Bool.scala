@@ -40,6 +40,7 @@ class Bool extends BaseType {
   override def !==(that: SSelf): Bool = newLogicalOperator("B!=B", that, InputNormalize.none);
 
 
+  def ^(b: Bool): Bool = newLogicalOperator("B^B", b,InputNormalize.none)
   def &&(b: Bool): Bool = newLogicalOperator("&&", b,InputNormalize.none)
   def ||(b: Bool): Bool = newLogicalOperator("||", b,InputNormalize.none)
   def unary_!(): Bool = newUnaryOperator("!")

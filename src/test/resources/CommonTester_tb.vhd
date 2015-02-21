@@ -24,6 +24,9 @@ architecture arch of CommonTester_tb is
   signal io_conds_5 : std_logic;
   signal io_conds_6 : std_logic;
   signal io_conds_7 : std_logic;
+  signal io_inUIntA : unsigned(7 downto 0);
+  signal io_inUIntB : unsigned(7 downto 0);
+  signal io_outUIntAdder : unsigned(7 downto 0);
   signal io_inAA_bod_gggg : std_logic;
   signal io_inAA_bod_aosi : unsigned(2 downto 0);
   signal io_inAA_ahe : std_logic;
@@ -107,6 +110,9 @@ begin
     random(io_inAA_lwee);
     random(io_inAABits);
 
+    random(io_inUIntA);
+    random(io_inUIntB);
+
     wait for 1 ns;
     asyncProcess <= not asyncProcess;
     
@@ -126,7 +132,8 @@ begin
       assert io_outAABits(6) = io_inAA_zwg report "io_outAABits fail" severity failure;
       assert io_outAABits(5) = io_inAA_vsw report "io_outAABits fail" severity failure;
       assert io_outAABits(4 downto 0) = std_logic_vector(io_inAA_lwee) report "io_outAABits fail" severity failure;
-       
+
+      assert io_inUIntA + io_inUIntB = io_outUIntAdder  report "io_outUIntAdder fail" severity failure;
    end if;
 
     
@@ -147,6 +154,9 @@ begin
       io_conds_5 =>  io_conds_5,
       io_conds_6 =>  io_conds_6,
       io_conds_7 =>  io_conds_7,
+      io_inUIntA =>  io_inUIntA,
+      io_inUIntB =>  io_inUIntB,
+      io_outUIntAdder =>  io_outUIntAdder,
       io_inAA_bod_gggg =>  io_inAA_bod_gggg,
       io_inAA_bod_aosi =>  io_inAA_bod_aosi,
       io_inAA_ahe =>  io_inAA_ahe,

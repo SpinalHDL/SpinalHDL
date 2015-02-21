@@ -25,13 +25,14 @@ object CommonTester {
 
 
   class BundleA extends Bundle {
-    val bod = new Bundle{
+    val bod = new Bundle {
       val gggg = Bool()
       val aosi = UInt(3 bit)
     }
     val ahe = Bool()
     val zwg = Bool()
   }
+
   class BundleAA extends BundleA {
     val vsw = Bool()
     val lwee = UInt(5 bit)
@@ -41,16 +42,36 @@ object CommonTester {
     val io = new Bundle {
       val conds = in Vec(8, Bool())
 
+      val inUIntA = in UInt (8 bit)
+      val inUIntB = in UInt (8 bit)
+      val outUIntAdder = out UInt()
+
       val inAA = in(new BundleAA)
-      val inAABits = in Bits(new BundleAA().getBitsWidth bit)
+      val inAABits = in Bits (new BundleAA().getBitsWidth bit)
       val outAA = out(new BundleAA)
-      val outAABits = out Bits(new BundleAA().getBitsWidth bit)
+      val outAABits = out Bits (new BundleAA().getBitsWidth bit)
 
     }
 
 
     io.outAA.fromBits(io.inAABits)
-    io.outAABits  := io.inAA.toBits
+    io.outAABits := io.inAA.toBits
+
+
+    /*val combAdder = new ComponentPart */{
+      val size = io.inUIntA.getWidth
+      var out = Vec(size, Bool())
+
+      var c = Bool(false)
+      for (i <- 0 until size) {
+        val a = io.inUIntA(i)
+        val b = io.inUIntB(i)
+        out(i) := a ^ b ^ c
+        c = (a && b) || (a && c) || (b && c);
+      }
+      io.outUIntAdder := out.toBits.toUInt
+    }
+
 
   }
 
