@@ -159,9 +159,6 @@ class Backend {
   }
 
 
-  //  def notifyNodes(phase: BackendPhase) : Unit = {
-  //    walkNodes2(node => node.notify(phase))
-  //  }
 
   //TODO  more
   def remplaceMemByBlackBox: Unit = {

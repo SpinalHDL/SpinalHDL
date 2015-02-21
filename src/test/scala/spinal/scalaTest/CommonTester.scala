@@ -58,7 +58,7 @@ object CommonTester {
     io.outAABits := io.inAA.toBits
 
 
-    /*val combAdder = new ComponentPart */{
+    val combAdder = new ComponentPart {
       val size = io.inUIntA.getWidth
       var out = Vec(size, Bool())
 
