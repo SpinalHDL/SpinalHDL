@@ -21,7 +21,7 @@ package spinal
 
 
 object EnumCast {
-  def apply(enum: SpinalEnumCraft[_], opName: String, that: Node, widthImpl: (Node) => Int = WidthInfer.inputMaxWidthl): Modifier = {
+  def apply(enum: SpinalEnumCraft[_], opName: String, that: Node, widthImpl: (Node) => Int = WidthInfer.inputMaxWidth): Modifier = {
     val op = new EnumCast(enum, opName, widthImpl)
     op.inputs += that
     op
@@ -32,7 +32,7 @@ object EnumCast {
 
 
 object Cast {
-  def apply(opName: String, that: Node, widthImpl: (Node) => Int = WidthInfer.inputMaxWidthl): Modifier = {
+  def apply(opName: String, that: Node, widthImpl: (Node) => Int = WidthInfer.inputMaxWidth): Modifier = {
     val op = new Cast(opName, widthImpl)
     op.inputs += that
     op
@@ -40,7 +40,7 @@ object Cast {
 }
 
 object Resize {
-  def apply(opName: String, args: List[Node], widthImpl: (Node) => Int = WidthInfer.inputMaxWidthl): Modifier = {
+  def apply(opName: String, args: List[Node], widthImpl: (Node) => Int = WidthInfer.inputMaxWidth): Modifier = {
     val op = new Function(opName, widthImpl)
     op.inputs ++= args
     op.inferredWidth = widthImpl(op)
@@ -50,7 +50,7 @@ object Resize {
 }
 
 object Function {
-  def apply(opName: String, args: List[Node], widthImpl: (Node) => Int = WidthInfer.inputMaxWidthl): Modifier = {
+  def apply(opName: String, args: List[Node], widthImpl: (Node) => Int = WidthInfer.inputMaxWidth): Modifier = {
     val op = new Function(opName, widthImpl)
     op.inputs ++= args
     op
@@ -97,11 +97,11 @@ class Function(opName: String, widthImpl: (Node) => Int) extends Modifier(opName
 
 }
 
-class Cast(opName: String, widthImpl: (Node) => Int = WidthInfer.inputMaxWidthl) extends Modifier(opName, widthImpl) {
+class Cast(opName: String, widthImpl: (Node) => Int = WidthInfer.inputMaxWidth) extends Modifier(opName, widthImpl) {
 
 }
 
-class EnumCast(val enum: SpinalEnumCraft[_], opName: String, widthImpl: (Node) => Int = WidthInfer.inputMaxWidthl) extends Modifier(opName, widthImpl) {
+class EnumCast(val enum: SpinalEnumCraft[_], opName: String, widthImpl: (Node) => Int = WidthInfer.inputMaxWidth) extends Modifier(opName, widthImpl) {
   override def normalizeInputs: Unit = {
     Misc.normalizeResize(this, 0, this.getWidth)
   }
@@ -166,9 +166,7 @@ class ExtractBitsVector extends Node {
   def bitIdLo = inputs(2).asInstanceOf[IntLiteral]
 }
 
-class Multiplexer(opName: String) extends Modifier(opName, WidthInfer.inputMaxWidthl) {
-  var whenMux: Boolean = false;
-
+class Multiplexer(opName: String) extends Modifier(opName, WidthInfer.multiplexImpl) {
   def cond = inputs(0)
   def whenTrue = inputs(1)
   def whenFalse = inputs(2)
@@ -254,9 +252,31 @@ private[spinal] object Multiplex {
 
       out.setInput(Multiplex.baseType(sel, t, f))
     }
-
     muxOut
   }
-
 }
 
+
+
+class PartialAssignment(out : BaseType) extends Node{
+  override def calcWidth: Int = out.getWidth
+  out.dontSimplifyIt
+}
+
+class PartialAssignmentElement(in : Node,hi : Node, low : Node) extends Node{
+  //TODO better
+  override def calcWidth: Int = in.getWidth
+}
+
+
+
+class PartialRangedAssignment(in : Node,hi : Node, low : Node) extends Node{
+  //TODO better
+  override def calcWidth: Int = in.getWidth
+}
+
+class MultipleAssignmentNode extends Node{
+  override def calcWidth: Int = WidthInfer.inputMaxWidth(this)
+
+
+}

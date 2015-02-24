@@ -33,13 +33,13 @@ class SIntFactory extends BitVectorFactory[SInt]{
 class SInt extends BitVector with MinMaxProvider {
   override type SSelf = SInt
 
-  def +(that: SInt): SInt = newBinaryOperator("s+s", that, WidthInfer.inputMaxWidthl,InputNormalize.nodeWidth);
-  def -(that: SInt): SInt = newBinaryOperator("s-s", that, WidthInfer.inputMaxWidthl,InputNormalize.nodeWidth);
+  def +(that: SInt): SInt = newBinaryOperator("s+s", that, WidthInfer.inputMaxWidth,InputNormalize.nodeWidth);
+  def -(that: SInt): SInt = newBinaryOperator("s-s", that, WidthInfer.inputMaxWidth,InputNormalize.nodeWidth);
   def *(that: SInt): SInt = newBinaryOperator("s*s", that, WidthInfer.cumulateInputWidth,InputNormalize.none);
 
-  def |(that: SInt): SInt = newBinaryOperator("s|s", that, WidthInfer.inputMaxWidthl,InputNormalize.nodeWidth);
-  def &(that: SInt): SInt = newBinaryOperator("s&s", that, WidthInfer.inputMaxWidthl,InputNormalize.nodeWidth);
-  def ^(that: SInt): SInt = newBinaryOperator("s^s", that, WidthInfer.inputMaxWidthl,InputNormalize.nodeWidth);
+  def |(that: SInt): SInt = newBinaryOperator("s|s", that, WidthInfer.inputMaxWidth,InputNormalize.nodeWidth);
+  def &(that: SInt): SInt = newBinaryOperator("s&s", that, WidthInfer.inputMaxWidth,InputNormalize.nodeWidth);
+  def ^(that: SInt): SInt = newBinaryOperator("s^s", that, WidthInfer.inputMaxWidth,InputNormalize.nodeWidth);
   def unary_~(): SInt = newUnaryOperator("~s");
   def unary_-(): SInt = newUnaryOperator("-s");
 

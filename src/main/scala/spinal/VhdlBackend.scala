@@ -743,13 +743,7 @@ class VhdlBackend extends Backend with VhdlBase {
   }
 
 
-  //  case mem : Mem[_] => {
-  //    for(memIn <- mem.inputs)memIn match{
-  //    case write : MemWrite => {
-  //
-  //  }
-  //  }
-  //  }
+
   def emitSyncronous(component: Component, ret: StringBuilder): Unit = {
     // ret ++= "  -- synchronous\n"
 
@@ -871,18 +865,14 @@ class VhdlBackend extends Backend with VhdlBase {
                 def walkMux(that: Node, context: Context): Unit = {
                   if (that == null) return
                   that match {
-                    case mux: Multiplexer => {
-                      if (mux.whenMux) {
-                        if (mux.whenTrue != reg) {
-                          val when = context.when.getOrElseUpdate(mux.cond, new WhenTree(mux.cond))
-                          walkMux(mux.whenTrue, when.whenTrue)
-                        }
-                        if (mux.whenFalse != reg) {
-                          val when = context.when.getOrElseUpdate(mux.cond, new WhenTree(mux.cond))
-                          walkMux(mux.whenFalse, when.whenFalse)
-                        }
-                      } else {
-                        context.logic += new Tuple2(regSignal, that)
+                    case whenNode: WhenNode => {
+                      if (whenNode.whenTrue != reg) {
+                        val when = context.when.getOrElseUpdate(whenNode.cond, new WhenTree(whenNode.cond))
+                        walkMux(whenNode.whenTrue, when.whenTrue)
+                      }
+                      if (whenNode.whenFalse != reg) {
+                        val when = context.when.getOrElseUpdate(whenNode.cond, new WhenTree(whenNode.cond))
+                        walkMux(whenNode.whenFalse, when.whenFalse)
                       }
                     }
                     case _ => context.logic += new Tuple2(regSignal, that)

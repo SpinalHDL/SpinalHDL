@@ -67,7 +67,7 @@ object CommonTester {
         val a = io.inUIntA(i)
         val b = io.inUIntB(i)
         out(i) := a ^ b ^ c
-        c = (a && b) || (a && c) || (b && c);
+        c = (a & b) | (a & c) | (b & c);
       }
       io.outUIntAdder := out.toBits.toUInt
     }
@@ -79,5 +79,6 @@ object CommonTester {
 
 class CommonTesterBoot extends SpinalTesterBase {
   override def getName: String = "CommonTester"
+
   override def createToplevel: Component = new CommonTester.CommonTester
 }

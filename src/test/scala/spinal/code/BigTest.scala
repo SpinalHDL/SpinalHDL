@@ -24,7 +24,7 @@ import spinal.importMe._
 /**
  * Created by PIC18F on 22.08.2014.
  */
-object Try {
+object BigTest {
 
   /* object ttttttt{
      class Data {

@@ -21,48 +21,25 @@ package spinal.code
 import spinal._
 import spinal.importMe._
 
-object Try4 {
-
-
-  class BundleA extends Bundle {
-    val first = Bool()
-    val second = UInt(8 bit)
-
-    val sub = new Bundle {
-      val third = SInt(8 bit)
-    }
-  }
-
-
+object Debug {
 
 
   class TopLevel extends Component {
     val io = new Bundle {
-      val cond0 = in Bool()
-      val cond1 = in Bool()
-      val outBool = out.Bool()
-
-      val inBundleA = in(new BundleA)
-      val outBundleA = out(new BundleA)
-
-      val slaveHandshake = slave Handshake(new BundleA)
-      val masterHandshake = master Handshake(new BundleA)
+      val conds = in Vec(4,Bool())
+      val outs = out Vec(1,Bool())
     }
 
+    val reg0 = Reg(Bool())
 
-    io.masterHandshake << (io.slaveHandshake & io.cond0)
-
-
-    val myReg = Reg(io.inBundleA.second)
-
-    when(io.cond0) {
-      myReg := myReg + UInt(1)
+    when(io.conds(0)){
+      //reg0 := ! reg0
+      when(io.conds(1)){
+        reg0 := reg0 ^ io.conds(2)
+      }
     }
-    val myReg2 = RegNext(io.cond0 && io.cond1 && (myReg !== UInt(0)))
-    io.outBool := myReg2
 
-    io.outBundleA := io.inBundleA
-
+    io.outs(0) := reg0
 
   }
 

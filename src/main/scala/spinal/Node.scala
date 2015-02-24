@@ -58,9 +58,14 @@ object InputNormalize {
 }
 
 object WidthInfer {
-  def inputMaxWidthl(node: Node): Int = {
+  def inputMaxWidth(node: Node): Int = {
     node.inputs.foldLeft(-1)((best, n) => Math.max(best, if (n != null) n.getWidth else -1))
   }
+
+  def multiplexImpl(node : Node) : Int = {
+    Math.max(node.inputs(1).getWidth,node.inputs(2).getWidth)
+  }
+
   def regImpl(node: Node): Int = {
     val dataIn = node.inputs(0)
     val init = node.inputs(1)
@@ -173,7 +178,9 @@ abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady wi
   }
 }
 
-
+object NoneNode{
+  def apply() = new NoneNode
+}
 class NoneNode extends Node{
   override def calcWidth: Int = 0
 }

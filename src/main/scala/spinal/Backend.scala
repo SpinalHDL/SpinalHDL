@@ -623,10 +623,21 @@ class Backend {
           walk(node.inputs(0))
 
           def walk(that: Node): Unit = that match {
-            case that: Multiplexer => {
+            case that : Multiplexer => {
               that.inferredWidth = width
               walk(that.inputs(1))
               walk(that.inputs(2))
+            }
+            case that : WhenNode => {
+              that.inferredWidth = width
+              walk(that.whenTrue)
+              walk(that.whenFalse)
+            }
+            case that : MultipleAssignmentNode => {
+              that.inferredWidth = width
+              for(node <- that.inputs){
+                walk(node)
+              }
             }
             case _ =>
           }

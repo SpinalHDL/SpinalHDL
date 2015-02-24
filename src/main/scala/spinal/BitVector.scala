@@ -102,6 +102,20 @@ abstract class BitVector extends BaseType {
     bits
   }
 
+
+  def partialAssignementImpl(from : Bits,hi : Node,lo : Node): Unit = {
+    var (consumer,inputId) = BaseType.walkWhenNodes(this, this, 0)
+    if(!consumer.isInstanceOf[PartialAssignment]){
+      val pa = new PartialAssignment(this)
+      consumer = pa
+    }
+    val pa = consumer.asInstanceOf[PartialAssignment]
+    pa.inputs += new PartialAssignmentElement(from,hi,lo)
+  }
+
+
+  //def castInBitVectorType(that: BitVector) :
+
   //bits(offset + width + index*step downto offset + index*step)
 //  def apply(offset: Int,bitCount: BitCount): Bits = {
 //    val bits = new Bits()

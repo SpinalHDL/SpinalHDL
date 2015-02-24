@@ -92,7 +92,8 @@ class Reg(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) ext
   override def assignFrom(that: Data): Unit = {
     that match {
       case that: BaseType => {
-        BaseType.assignFrom(outType, this, RegS.getDataInputId, that)
+        val (consumer,inputId) = BaseType.walkWhenNodes(outType, this, RegS.getDataInputId)
+        consumer.inputs(inputId) = that
       }
       case _ => throw new Exception("Undefined assignement")
     }
