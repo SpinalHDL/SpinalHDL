@@ -54,8 +54,6 @@ trait VhdlBase {
     case bits: Bits => s"std_logic_vector${if (constrained) emitRange(bits) else ""}"
     case mem: Mem[_] => s"${emitReference(mem)}_type"
     case enum: SpinalEnumCraft[_] => enum.blueprint.getName()
-    case number: Number => s"integer"
-    case string: SString => s"string"
     case _ => throw new Exception("Unknown datatype"); ""
   }
 
