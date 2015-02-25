@@ -559,8 +559,8 @@ class VhdlBackend extends Backend with VhdlBase {
 
   def emitAsyncronous(component: Component, ret: StringBuilder): Unit = {
 
-
-    class Process {
+    var processCounter = 0
+    class Process(val order : Int){
       val sensitivity = mutable.Set[Node]()
       val nodes = ArrayBuffer[Node]()
       val whens = ArrayBuffer[when]()
@@ -577,14 +577,14 @@ class VhdlBackend extends Backend with VhdlBase {
       }
     }
 
-    val processList = mutable.Set[Process]()
+    val processSet = mutable.Set[Process]()
     val whenToProcess = mutable.Map[when, Process]()
 
     def move(to: Process, from: Process): Unit = {
       to.nodes ++= from.nodes
       to.whens ++= from.whens
       from.whens.foreach(whenToProcess(_) = to)
-      processList.remove(from)
+      processSet.remove(from)
     }
 
     val asyncSignals = component.nodes.filter(_ match {
@@ -609,9 +609,9 @@ class VhdlBackend extends Backend with VhdlBase {
               }
             } else {
               if (process == null) {
-                process = new Process
+                process = new Process(processCounter);processCounter += 1
                 process.nodes += signal
-                processList += process
+                processSet += process
               }
               process.whens += wn.w
               whenToProcess += (wn.w -> process)
@@ -625,18 +625,17 @@ class VhdlBackend extends Backend with VhdlBase {
           }
           case that => {
             if (process == null) {
-              process = new Process
+              process = new Process(processCounter);processCounter += 1
               process.nodes += signal
-              processList += process
+              processSet += process
             }
           }
         }
       }
     }
 
-    for (process <- processList) {
-      process.genSensitivity
-    }
+    val processList = processSet.toList.sortWith(_.order < _.order)
+
 
     for (process <- processList if process.whens.isEmpty) {
       for (node <- process.nodes) {
@@ -645,15 +644,23 @@ class VhdlBackend extends Backend with VhdlBase {
     }
 
     for (process <- processList if !process.whens.isEmpty) {
-      val context = new Context
-      for (node <- process.nodes) {
-        context.walkWhenTree(node, node.inputs(0))
-      }
+      process.genSensitivity
 
-      ret ++= s"  process(${process.sensitivity.map(emitReference(_)).reduceLeft(_ + "," + _)})\n"
-      ret ++= "  begin\n"
-      context.emitContext(ret, "    ")
-      ret ++= "  end process;\n\n"
+      if(process.sensitivity.size != 0) {
+        val context = new Context
+        for (node <- process.nodes) {
+          context.walkWhenTree(node, node.inputs(0))
+        }
+
+        ret ++= s"  process(${process.sensitivity.map(emitReference(_)).reduceLeft(_ + "," + _)})\n"
+        ret ++= "  begin\n"
+        context.emitContext(ret, "    ")
+        ret ++= "  end process;\n\n"
+      }else{
+        for (node <- process.nodes) {
+          ret ++= s"  ${emitReference(node)} <= ${emitLogic(node.inputs(0))};\n"
+        }
+      }
     }
 
   }
@@ -784,6 +791,7 @@ class VhdlBackend extends Backend with VhdlBase {
   modifierImplMap.put("resize(u,i)", operatorImplAsFunction("pkg_resize"))
   modifierImplMap.put("resize(b,i)", operatorImplAsFunction("pkg_resize"))
 
+  //Memo whenNode hardcode emitlogic
   modifierImplMap.put("mux(B,B,B)", operatorImplAsFunction("pkg_mux"))
   modifierImplMap.put("mux(B,b,b)", operatorImplAsFunction("pkg_mux"))
   modifierImplMap.put("mux(B,u,u)", operatorImplAsFunction("pkg_mux"))
@@ -827,7 +835,9 @@ class VhdlBackend extends Backend with VhdlBase {
       if (memRead.writeToReadKind == dontCare) SpinalWarning(s"memReadAsync with dontCare is as writeFirst into VHDL")
       s"${emitReference(memRead.getMem)}(to_integer(${emitReference(memRead.getAddress)}))"
     }
-
+    case whenNode : WhenNode => {//Exeptional case with asyncrouns of literal
+      s"pkg_mux(${whenNode.inputs.map(emitLogic(_)).reduce(_ + "," + _)})"
+    }
     case o => throw new Exception("Don't know how emit logic of " + o.getClass.getSimpleName)
   }
 
@@ -970,10 +980,9 @@ class VhdlBackend extends Backend with VhdlBase {
     }
   }
 
-  class WhenTree(val cond: Node, ic: Int) extends InstanceCounter {
+  class WhenTree(val cond: Node,val instanceCounter: Int) {
     var whenTrue: Context = new Context
     var whenFalse: Context = new Context
-    instanceCounter = ic
   }
 
   class Context {

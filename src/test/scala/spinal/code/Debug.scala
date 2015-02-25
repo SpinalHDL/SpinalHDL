@@ -27,7 +27,7 @@ object Debug {
   class TopLevel extends Component {
     val io = new Bundle {
       val conds = in Vec(8,Bool())
-      val outs = out Vec(4,Bool())
+      val outs = out Vec(5,Bool())
     }
 
     val reg0 = Reg(Bool())
@@ -65,6 +65,12 @@ object Debug {
     }
 
 
+
+    when(UInt(3,4 bit) < UInt(5,7 bit)){
+      io.outs(4) := Bool(false)
+    }.otherwise{
+      io.outs(4) := Bool(true)
+    }
 
   }
 

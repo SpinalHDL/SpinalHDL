@@ -75,14 +75,11 @@ trait MinMaxProvider {
   def maxValue: BigInt
 }
 
-trait InstanceCounter{
-  var instanceCounter : Int = -1;
-}
 
-trait ContextUser extends GlobalDataUser with InstanceCounter{
+trait ContextUser extends GlobalDataUser {
   var component = Component.current(globalData)
   val whenScope = globalData.whenStack.head()
-  instanceCounter = globalData.getInstanceCounter
+  var instanceCounter = globalData.getInstanceCounter
 }
 
 trait GlobalDataUser{

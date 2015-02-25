@@ -30,7 +30,7 @@ import scala.collection.mutable.ArrayBuffer
 object BaseType {
 
   //TODO default conservative must be false
-  def walkWhenNodes(baseType: BaseType, initialConsumer: Node, initialConsumerInputId: Int, conservative: Boolean = true) = {
+  def walkWhenNodes(baseType: BaseType, initialConsumer: Node, initialConsumerInputId: Int, conservative: Boolean = false) = {
     val globalData = baseType.globalData
     var consumer = initialConsumer
     var consumerInputId: Int = initialConsumerInputId
