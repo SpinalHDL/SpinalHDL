@@ -27,12 +27,19 @@ object Debug {
   class TopLevel extends Component {
     val io = new Bundle {
       val conds = in Vec(8, Bool())
-      val outs = out Vec(6, Bool())
+      val outs = out Vec(7, Bool())
 
       val outBits = out Bits(8 bit)
     }
 
-
+    {
+      val initialValue = Bool()
+      initialValue := io.conds(4)
+      when(io.conds(5)) {
+        initialValue := Bool(false)
+      }
+      io.outs(6) := RegNext(!io.outs(6),initialValue)
+    }
     io.outBits := Bits(0xAA)
     io.outBits.partialAssignementImpl(io.conds.toBits(1,0),IntLiteral(3),IntLiteral(2))
 

@@ -936,14 +936,18 @@ class VhdlBackend extends Backend with VhdlBase {
         ret ++= s"${tabStr}\n"
 
         def emitRegsInitialValue(tab: String): Unit = {
+
+          val assignementLevel = new AssignementLevel
           for (syncNode <- activeArray) syncNode match {
             case reg: Reg => {
               if (reg.hasInitialValue) {
-                ret ++= s"$tab${emitReference(reg.getOutputByConsumers)} <= ${emitLogic(reg.getInitialValue)};\n"
+                assignementLevel.walkWhenTree(reg.getOutputByConsumers, reg.getInitialValue)
+                //ret ++= s"$tab${emitReference(reg.getOutputByConsumers)} <= ${emitLogic(reg.getInitialValue)};\n"
               }
             }
             case memWrite: MemWrite =>
           }
+          assignementLevel.emitContext(ret,tab)
         }
         def emitRegsLogic(tab: String): Unit = {
 
