@@ -564,6 +564,7 @@ class VhdlBackend extends Backend with VhdlBase {
       val sensitivity = mutable.Set[Node]()
       val nodes = ArrayBuffer[Node]()
       val whens = ArrayBuffer[when]()
+      var hasMultipleAssignment = false
 
       def genSensitivity: Unit = {
         nodes.foreach(_.inputs.foreach(walk(_)))
@@ -575,6 +576,8 @@ class VhdlBackend extends Backend with VhdlBase {
             node.inputs.foreach(walk(_))
         }
       }
+
+      def needProcessDef = hasMultipleAssignment || !whens.isEmpty || nodes.size > 1
     }
 
     val processSet = mutable.Set[Process]()
@@ -583,6 +586,7 @@ class VhdlBackend extends Backend with VhdlBase {
     def move(to: Process, from: Process): Unit = {
       to.nodes ++= from.nodes
       to.whens ++= from.whens
+      to.hasMultipleAssignment |= from.hasMultipleAssignment
       from.whens.foreach(whenToProcess(_) = to)
       processSet.remove(from)
     }
@@ -594,6 +598,7 @@ class VhdlBackend extends Backend with VhdlBase {
 
     for (signal <- asyncSignals) {
       var process: Process = null
+      var hasMultipleAssignment = false
       walk(signal.inputs(0))
       def walk(that: Node): Unit = {
         that match {
@@ -632,22 +637,24 @@ class VhdlBackend extends Backend with VhdlBase {
           }
         }
       }
+
+      process.hasMultipleAssignment |= hasMultipleAssignment
     }
 
     val processList = processSet.toList.sortWith(_.order < _.order)
 
 
-    for (process <- processList if process.whens.isEmpty) {
+    for (process <- processList if !process.needProcessDef) {
       for (node <- process.nodes) {
         ret ++= s"  ${emitReference(node)} <= ${emitLogic(node.inputs(0))};\n"
       }
     }
 
-    for (process <- processList if !process.whens.isEmpty) {
+    for (process <- processList if process.needProcessDef) {
       process.genSensitivity
 
       if(process.sensitivity.size != 0) {
-        val context = new Context
+        val context = new AssignementLevel
         for (node <- process.nodes) {
           context.walkWhenTree(node, node.inputs(0))
         }
@@ -937,7 +944,7 @@ class VhdlBackend extends Backend with VhdlBase {
         def emitRegsLogic(tab: String): Unit = {
 
 
-          val rootContext = new Context
+          val rootContext = new AssignementLevel
 
           for (syncNode <- activeArray) syncNode match {
             case reg: Reg => {
@@ -981,13 +988,13 @@ class VhdlBackend extends Backend with VhdlBase {
   }
 
   class WhenTree(val cond: Node,val instanceCounter: Int) {
-    var whenTrue: Context = new Context
-    var whenFalse: Context = new Context
+    var whenTrue: AssignementLevel = new AssignementLevel
+    var whenFalse: AssignementLevel = new AssignementLevel
   }
 
-  class Context {
+  class AssignementLevel {
     val logicChunk = mutable.Map[WhenTree, ArrayBuffer[(Node, Node)]]()
-    val when = mutable.Map[Node, WhenTree]()
+    val when = mutable.Map[when, WhenTree]()
 
     def isEmpty = logicChunk.isEmpty && when.isEmpty
 
@@ -1008,12 +1015,12 @@ class VhdlBackend extends Backend with VhdlBase {
         node match {
           case whenNode: WhenNode => {
             if (!whenNode.whenTrue.isInstanceOf[NoneNode]) {
-              val when = this.when.getOrElseUpdate(whenNode.cond, new WhenTree(whenNode.cond, node.instanceCounter))
+              val when = this.when.getOrElseUpdate(whenNode.w, new WhenTree(whenNode.cond, node.instanceCounter))
               lastWhenTree = when
               when.whenTrue.walkWhenTree(root, whenNode.whenTrue)
             }
             if (!whenNode.whenFalse.isInstanceOf[NoneNode]) {
-              val when = this.when.getOrElseUpdate(whenNode.cond, new WhenTree(whenNode.cond, node.instanceCounter))
+              val when = this.when.getOrElseUpdate(whenNode.w, new WhenTree(whenNode.cond, node.instanceCounter))
               lastWhenTree = when
               when.whenFalse.walkWhenTree(root, whenNode.whenFalse)
             }

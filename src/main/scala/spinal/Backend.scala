@@ -75,7 +75,7 @@ class Backend {
 
   //TODO
   //TODO ROM support
-
+  //TODO check asyncrounous missing input (WhenNode)
   protected def elaborate[T <: Component](topLevel: T): BackendReport[T] = {
     SpinalInfoPhase("Start analysis and transform")
 
