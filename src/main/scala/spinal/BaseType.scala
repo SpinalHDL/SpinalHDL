@@ -19,6 +19,7 @@
 package spinal
 
 import com.sun.org.apache.bcel.internal.classfile.AttributeReader
+import spinal.WhenNode
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -81,11 +82,24 @@ object BaseType {
     if (!whenHit)
       throw new Exception("Basetype is affected outside his scope")
 
-    if (conservative) { //TODO emit warning message
-      if (consumer.inputs(consumerInputId).isInstanceOf[MultipleAssignmentNode]) {
-        consumer = consumer.inputs(consumerInputId)
-        consumerInputId = consumer.inputs.size;
-        consumer.inputs += null
+    if (conservative) {
+      //TODO emit warning message
+      consumer.inputs(consumerInputId) match {
+        case that: NoneNode =>
+        case null =>
+        case man: MultipleAssignmentNode => {
+          consumer = consumer.inputs(consumerInputId)
+          consumerInputId = consumer.inputs.size;
+          consumer.inputs += null
+        }
+        case that =>{
+          val man = new MultipleAssignmentNode
+          man.inputs += that
+          man.inputs += null
+          consumer.inputs(consumerInputId) = man
+          consumerInputId = 1
+          consumer = man
+        }
       }
     }
     (consumer, consumerInputId)

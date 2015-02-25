@@ -263,9 +263,17 @@ class PartialAssignment(out : BaseType) extends Node{
   out.dontSimplifyIt
 }
 
-class PartialAssignmentElement(in : Node,hi : Node, low : Node) extends Node{
+class PartialAssignmentElement(out : Node,in : Node,hi : Node, lo : Node) extends Node{
+  inputs += in
+  inputs += hi
+  inputs += lo
+
+  def getInput = inputs(0)
+  def getHi = inputs(1)
+  def getLo = inputs(2)
+
   //TODO better
-  override def calcWidth: Int = in.getWidth
+  override def calcWidth: Int = out.getWidth
 }
 
 

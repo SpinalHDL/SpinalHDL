@@ -16,26 +16,19 @@
  * License along with this library.
  */
 
-package spinal.code
+package spinal.scalaTest.pending
 
 import spinal._
 import spinal.importMe._
 
 object Debug {
 
-
+  //Test new WhenNode system
   class TopLevel extends Component {
     val io = new Bundle {
       val conds = in Vec(8, Bool())
       val outs = out Vec(6, Bool())
-
-      val outBits = out Bits(8 bit)
     }
-
-
-    io.outBits := Bits(0xAA)
-    io.outBits.partialAssignementImpl(io.conds.toBits(1,0),IntLiteral(3),IntLiteral(2))
-
 
     val reg0 = Reg(Bool())
 

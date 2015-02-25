@@ -104,13 +104,8 @@ abstract class BitVector extends BaseType {
 
 
   def partialAssignementImpl(from : Bits,hi : Node,lo : Node): Unit = {
-    var (consumer,inputId) = BaseType.walkWhenNodes(this, this, 0)
-    if(!consumer.isInstanceOf[PartialAssignment]){
-      val pa = new PartialAssignment(this)
-      consumer = pa
-    }
-    val pa = consumer.asInstanceOf[PartialAssignment]
-    pa.inputs += new PartialAssignmentElement(from,hi,lo)
+    val (consumer,inputId) = BaseType.walkWhenNodes(this, this, 0,true)
+    consumer.inputs(inputId) = new PartialAssignmentElement(consumer,from,hi,lo)
   }
 
 

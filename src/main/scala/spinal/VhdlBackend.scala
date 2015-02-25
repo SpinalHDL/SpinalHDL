@@ -560,7 +560,7 @@ class VhdlBackend extends Backend with VhdlBase {
   def emitAsyncronous(component: Component, ret: StringBuilder): Unit = {
 
     var processCounter = 0
-    class Process(val order : Int){
+    class Process(val order: Int) {
       val sensitivity = mutable.Set[Node]()
       val nodes = ArrayBuffer[Node]()
       val whens = ArrayBuffer[when]()
@@ -614,7 +614,8 @@ class VhdlBackend extends Backend with VhdlBase {
               }
             } else {
               if (process == null) {
-                process = new Process(processCounter);processCounter += 1
+                process = new Process(processCounter);
+                processCounter += 1
                 process.nodes += signal
                 processSet += process
               }
@@ -627,10 +628,12 @@ class VhdlBackend extends Backend with VhdlBase {
           }
           case man: MultipleAssignmentNode => {
             man.inputs.foreach(walk(_))
+            hasMultipleAssignment = true
           }
           case that => {
             if (process == null) {
-              process = new Process(processCounter);processCounter += 1
+              process = new Process(processCounter);
+              processCounter += 1
               process.nodes += signal
               processSet += process
             }
@@ -646,14 +649,15 @@ class VhdlBackend extends Backend with VhdlBase {
 
     for (process <- processList if !process.needProcessDef) {
       for (node <- process.nodes) {
-        ret ++= s"  ${emitReference(node)} <= ${emitLogic(node.inputs(0))};\n"
+        emitAssignement(node,node.inputs(0),ret,"  ")
+        //ret ++= s"  ${emitReference(node)} <= ${emitLogic(node.inputs(0))};\n"
       }
     }
 
     for (process <- processList if process.needProcessDef) {
       process.genSensitivity
 
-      if(process.sensitivity.size != 0) {
+      if (process.sensitivity.size != 0) {
         val context = new AssignementLevel
         for (node <- process.nodes) {
           context.walkWhenTree(node, node.inputs(0))
@@ -663,7 +667,7 @@ class VhdlBackend extends Backend with VhdlBase {
         ret ++= "  begin\n"
         context.emitContext(ret, "    ")
         ret ++= "  end process;\n\n"
-      }else{
+      } else {
         for (node <- process.nodes) {
           ret ++= s"  ${emitReference(node)} <= ${emitLogic(node.inputs(0))};\n"
         }
@@ -826,7 +830,6 @@ class VhdlBackend extends Backend with VhdlBase {
       case _: SInt => s"pkg_signed(X${'\"'}${lit.value.toString(16)}${'\"'},${lit.getWidth})"
     }
     case lit: IntLiteral => lit.value.toString(10)
-    case lit: SStringLiteral => "\"" + lit.value + "\""
     case lit: BoolLiteral => "\'" + (if (lit.value) "1" else "0") + "\'"
     case lit: EnumLiteral[_] => lit.enum.getName()
     case node: Modifier => modifierImplMap.getOrElse(node.opName, throw new Exception("can't find " + node.opName))(node)
@@ -842,7 +845,8 @@ class VhdlBackend extends Backend with VhdlBase {
       if (memRead.writeToReadKind == dontCare) SpinalWarning(s"memReadAsync with dontCare is as writeFirst into VHDL")
       s"${emitReference(memRead.getMem)}(to_integer(${emitReference(memRead.getAddress)}))"
     }
-    case whenNode : WhenNode => {//Exeptional case with asyncrouns of literal
+    case whenNode: WhenNode => {
+      //Exeptional case with asyncrouns of literal
       s"pkg_mux(${whenNode.inputs.map(emitLogic(_)).reduce(_ + "," + _)})"
     }
     case o => throw new Exception("Don't know how emit logic of " + o.getClass.getSimpleName)
@@ -987,7 +991,17 @@ class VhdlBackend extends Backend with VhdlBase {
     }
   }
 
-  class WhenTree(val cond: Node,val instanceCounter: Int) {
+  def emitAssignement(to : Node,from : Node,ret : StringBuilder,tab : String): Unit ={
+    from match {
+      case pa: PartialAssignmentElement => {
+        ret ++= s"$tab${emitReference(to)}(${emitLogic(pa.getHi)} downto ${emitLogic(pa.getLo)}) <= ${emitLogic(pa.getInput)};\n"
+      }
+      case _ => ret ++= s"$tab${emitReference(to)} <= ${emitLogic(from)};\n"
+    }
+  }
+
+
+  class WhenTree(val cond: Node, val instanceCounter: Int) {
     var whenTrue: AssignementLevel = new AssignementLevel
     var whenFalse: AssignementLevel = new AssignementLevel
   }
@@ -1036,7 +1050,7 @@ class VhdlBackend extends Backend with VhdlBase {
       def emitLogicChunk(key: WhenTree): Unit = {
         if (this.logicChunk.contains(key)) {
           for ((to, from) <- this.logicChunk.get(key).get) {
-            ret ++= s"$tab${emitReference(to)} <= ${emitLogic(from)};\n"
+            emitAssignement(to,from,ret,tab)
           }
         }
       }
@@ -1086,29 +1100,11 @@ class VhdlBackend extends Backend with VhdlBase {
 
           for ((name, e) <- genericFlat) {
             e match {
-              case baseType: BaseType => ret ++= s"      ${
-                emitReference(baseType)
-              } => ${
-                emitLogic(baseType.inputs(0))
-              },\n"
-              case s: String => ret ++= s"      ${
-                name
-              } => ${
-                "\""
-              }${
-                s
-              }${
-                "\""
-              },\n"
-              case i: Int => ret ++= s"      ${
-                name
-              } => $i,\n"
-              case d: Double => ret ++= s"      ${
-                name
-              } => $d,\n"
-              case b: Boolean => ret ++= s"      ${
-                name
-              } => $b,\n"
+              case baseType: BaseType => ret ++= s"      ${emitReference(baseType)} => ${emitLogic(baseType.inputs(0))},\n"
+              case s: String => ret ++= s"      ${name} => ${"\""}${s}${"\""},\n"
+              case i: Int => ret ++= s"      ${name} => $i,\n"
+              case d: Double => ret ++= s"      ${name} => $d,\n"
+              case b: Boolean => ret ++= s"      ${name} => $b,\n"
             }
           }
           //          genericFlat.foreach(_._2 match {

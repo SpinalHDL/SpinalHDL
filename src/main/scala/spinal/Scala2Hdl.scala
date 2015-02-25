@@ -35,13 +35,14 @@ object SpinalVhdl {
               println("\n**********************************************************************************************")
               SpinalInfo("Elaboration fail !!! Spinal restart it with scala trace to help you to find the problem")
               println("**********************************************************************************************\n")
+              Thread.sleep(10);
               return doIt(1)
             }
             case 1 => {
               println("\n**********************************************************************************************")
               SpinalInfo("Elaboration fail !!!")
               println("**********************************************************************************************")
-              //  print(e.getMessage)
+              Thread.sleep(10);
               throw e
             }
           }
