@@ -75,4 +75,6 @@ trait VhdlBase {
       }
     }
   }
+
+  def isReferenceable(node: Node) = node.isInstanceOf[Nameable]
 }

@@ -27,7 +27,7 @@ object Debug {
   class TopLevel extends Component {
     val io = new Bundle {
       val conds = in Vec(8,Bool())
-      val outs = out Vec(1,Bool())
+      val outs = out Vec(4,Bool())
     }
 
     val reg0 = Reg(Bool())
@@ -43,8 +43,28 @@ object Debug {
         reg0 := reg0 ^ io.conds(6)
       }
     }
-
     io.outs(0) := reg0
+
+
+    io.outs(1) :=io.conds(0)
+    when(io.conds(1)){
+      io.outs(1) := Bool(false)
+    }
+    io.outs(2) :=io.conds(3)
+    when(io.conds(4)){
+      io.outs(2) := Bool(false)
+    }
+    io.outs(3) :=io.conds(4)
+    when(io.conds(5)){
+      io.outs(3) := Bool(false)
+    }
+
+    when(io.conds(6)){
+      io.outs(1) := Bool(true)
+      io.outs(2) := Bool(true)
+    }
+
+
 
   }
 

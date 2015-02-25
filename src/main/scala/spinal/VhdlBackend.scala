@@ -558,17 +558,106 @@ class VhdlBackend extends Backend with VhdlBase {
   }
 
   def emitAsyncronous(component: Component, ret: StringBuilder): Unit = {
-    for (node <- component.nodes) {
-      node match {
-        case signal: BaseType => {
-          if (!signal.isDelay)
-            if (!((signal.isIo && signal.isInput) || component.kindsOutputsBindings.contains(signal)))
-              ret ++= s"  ${emitReference(signal)} <= ${emitLogic(signal.inputs(0))};\n"
+
+
+    class Process {
+      val sensitivity = mutable.Set[Node]()
+      val nodes = ArrayBuffer[Node]()
+      val whens = ArrayBuffer[when]()
+
+      def genSensitivity: Unit = {
+        nodes.foreach(_.inputs.foreach(walk(_)))
+
+        def walk(node: Node): Unit = {
+          if (isReferenceable(node))
+            sensitivity += node
+          else
+            node.inputs.foreach(walk(_))
         }
-        case _ =>
       }
     }
+
+    val processList = mutable.Set[Process]()
+    val whenToProcess = mutable.Map[when, Process]()
+
+    def move(to: Process, from: Process): Unit = {
+      to.nodes ++= from.nodes
+      to.whens ++= from.whens
+      from.whens.foreach(whenToProcess(_) = to)
+      processList.remove(from)
+    }
+
+    val asyncSignals = component.nodes.filter(_ match {
+      case signal: BaseType => (!signal.isDelay) && (!((signal.isIo && signal.isInput) || component.kindsOutputsBindings.contains(signal)))
+      case _ => false
+    })
+
+    for (signal <- asyncSignals) {
+      var process: Process = null
+      walk(signal.inputs(0))
+      def walk(that: Node): Unit = {
+        that match {
+          case wn: WhenNode => {
+            if (whenToProcess.contains(wn.w)) {
+              val otherProcess = whenToProcess.get(wn.w).get
+              if (process == null) {
+                process = otherProcess
+                otherProcess.nodes += signal
+              } else if (process != otherProcess) {
+                move(otherProcess, process)
+                process = otherProcess
+              }
+            } else {
+              if (process == null) {
+                process = new Process
+                process.nodes += signal
+                processList += process
+              }
+              process.whens += wn.w
+              whenToProcess += (wn.w -> process)
+            }
+
+            walk(wn.whenTrue)
+            walk(wn.whenFalse)
+          }
+          case man: MultipleAssignmentNode => {
+            man.inputs.foreach(walk(_))
+          }
+          case that => {
+            if (process == null) {
+              process = new Process
+              process.nodes += signal
+              processList += process
+            }
+          }
+        }
+      }
+    }
+
+    for (process <- processList) {
+      process.genSensitivity
+    }
+
+    for (process <- processList if process.whens.isEmpty) {
+      for (node <- process.nodes) {
+        ret ++= s"  ${emitReference(node)} <= ${emitLogic(node.inputs(0))};\n"
+      }
+    }
+
+    for (process <- processList if !process.whens.isEmpty) {
+      val context = new Context
+      for (node <- process.nodes) {
+        context.walkWhenTree(node, node.inputs(0))
+      }
+
+      ret ++= s"  process(${process.sensitivity.map(emitReference(_)).reduceLeft(_ + "," + _)})\n"
+      ret ++= "  begin\n"
+      context.emitContext(ret, "    ")
+      ret ++= "  end process;\n\n"
+    }
+
   }
+
 
   def operatorImplAsOperator(vhd: String)(op: Modifier): String = {
     op.inputs.size match {
@@ -837,21 +926,6 @@ class VhdlBackend extends Backend with VhdlBase {
         }
         def emitRegsLogic(tab: String): Unit = {
 
-          class Context {
-            val logicChunk = mutable.Map[WhenTree, ArrayBuffer[(Node, Node)]]()
-            //   val logic = mutable.ArrayBuffer[(Node, Node)]()
-            val when = mutable.Map[Node, WhenTree]()
-
-            def isEmpty = logicChunk.isEmpty && when.isEmpty
-
-            def isNotEmpty = !isEmpty
-          }
-
-          class WhenTree(val cond: Node, ic: Int) extends InstanceCounter {
-            var whenTrue: Context = new Context
-            var whenFalse: Context = new Context
-            instanceCounter = ic
-          }
 
           val rootContext = new Context
 
@@ -860,38 +934,8 @@ class VhdlBackend extends Backend with VhdlBase {
               val regSignal = reg.getOutputByConsumers
               if (!regSignal.isIo || !regSignal.isInput) {
                 val in = reg.getDataInput
-                if (in != reg) //check that reg has logic
-                  walkWhenTree(in, rootContext)
-
-                def walkWhenTree(that: Node, context: Context): Unit = {
-                  def getElements: ArrayBuffer[Node] = {
-                    if (that.isInstanceOf[MultipleAssignmentNode]) {
-                      return that.inputs
-                    } else {
-                      return ArrayBuffer(that)
-                    }
-                  }
-
-                  var lastWhenTree: WhenTree = null
-                  for (node <- getElements) {
-                    node match {
-                      case whenNode: WhenNode => {
-                        if (!whenNode.whenTrue.isInstanceOf[NoneNode]) {
-                          val when = context.when.getOrElseUpdate(whenNode.cond, new WhenTree(whenNode.cond, node.instanceCounter))
-                          lastWhenTree = when
-                          walkWhenTree(whenNode.whenTrue, when.whenTrue)
-                        }
-                        if (!whenNode.whenFalse.isInstanceOf[NoneNode]) {
-                          val when = context.when.getOrElseUpdate(whenNode.cond, new WhenTree(whenNode.cond, node.instanceCounter))
-                          lastWhenTree = when
-                          walkWhenTree(whenNode.whenFalse, when.whenFalse)
-                        }
-                      }
-                      case reg: Reg =>
-                      case _ => context.logicChunk.getOrElseUpdate(lastWhenTree, new ArrayBuffer[(Node, Node)]) += new Tuple2(regSignal, node)
-                    }
-                  }
-                }
+                if (in != reg)
+                  rootContext.walkWhenTree(regSignal, in)
               }
             }
             case memWrite: MemWrite => {
@@ -920,54 +964,92 @@ class VhdlBackend extends Backend with VhdlBase {
 
             }
           }
+          rootContext.emitContext(ret, tab)
+        }
+      }
+    }
+  }
 
-          emitContext(rootContext, tab)
+  class WhenTree(val cond: Node, ic: Int) extends InstanceCounter {
+    var whenTrue: Context = new Context
+    var whenFalse: Context = new Context
+    instanceCounter = ic
+  }
+
+  class Context {
+    val logicChunk = mutable.Map[WhenTree, ArrayBuffer[(Node, Node)]]()
+    val when = mutable.Map[Node, WhenTree]()
+
+    def isEmpty = logicChunk.isEmpty && when.isEmpty
+
+    def isNotEmpty = !isEmpty
 
 
-          def emitContext(context: Context, tab: String): Unit = {
-            def emitLogicChunk(key: WhenTree): Unit = {
-              if (context.logicChunk.contains(key)) {
-                for ((to, from) <- context.logicChunk.get(key).get) {
-                  ret ++= s"$tab${emitReference(to)} <= ${emitLogic(from)};\n"
-                }
-              }
+    def walkWhenTree(root: Node, that: Node): Unit = {
+      def getElements: ArrayBuffer[Node] = {
+        if (that.isInstanceOf[MultipleAssignmentNode]) {
+          return that.inputs
+        } else {
+          return ArrayBuffer(that)
+        }
+      }
+
+      var lastWhenTree: WhenTree = null
+      for (node <- getElements) {
+        node match {
+          case whenNode: WhenNode => {
+            if (!whenNode.whenTrue.isInstanceOf[NoneNode]) {
+              val when = this.when.getOrElseUpdate(whenNode.cond, new WhenTree(whenNode.cond, node.instanceCounter))
+              lastWhenTree = when
+              when.whenTrue.walkWhenTree(root, whenNode.whenTrue)
             }
-
-            emitLogicChunk(null)
-
-            for (when <- context.when.values.toList.sortWith(_.instanceCounter < _.instanceCounter)) {
-              def doTrue = when.whenTrue.isNotEmpty
-              def doFalse = when.whenFalse.isNotEmpty
-
-              if (!doTrue && doFalse) {
-                ret ++= s"${tab}if ${emitLogic(when.cond)} = '0'  then\n"
-                emitContext(when.whenFalse, tab + "  ")
-                ret ++= s"${tab}end if;\n"
-              } else if (doTrue && !doFalse) {
-                ret ++= s"${tab}if ${emitLogic(when.cond)} = '1' then\n"
-                emitContext(when.whenTrue, tab + "  ")
-                ret ++= s"${tab}end if;\n"
-              } else if (doTrue && doFalse) {
-                ret ++= s"${tab}if ${emitLogic(when.cond)} = '1' then\n"
-                emitContext(when.whenTrue, tab + "  ")
-                ret ++= s"${tab}else\n"
-                emitContext(when.whenFalse, tab + "  ")
-                ret ++= s"${tab}end if;\n"
-              }
-
-              emitLogicChunk(when)
-
+            if (!whenNode.whenFalse.isInstanceOf[NoneNode]) {
+              val when = this.when.getOrElseUpdate(whenNode.cond, new WhenTree(whenNode.cond, node.instanceCounter))
+              lastWhenTree = when
+              when.whenFalse.walkWhenTree(root, whenNode.whenFalse)
             }
           }
+          case reg: Reg =>
+          case _ => this.logicChunk.getOrElseUpdate(lastWhenTree, new ArrayBuffer[(Node, Node)]) += new Tuple2(root, node)
         }
       }
     }
 
-    //ret ++= "  -- end synchronous\n"
 
+    def emitContext(ret: mutable.StringBuilder, tab: String): Unit = {
+      def emitLogicChunk(key: WhenTree): Unit = {
+        if (this.logicChunk.contains(key)) {
+          for ((to, from) <- this.logicChunk.get(key).get) {
+            ret ++= s"$tab${emitReference(to)} <= ${emitLogic(from)};\n"
+          }
+        }
+      }
 
+      emitLogicChunk(null)
+
+      for (when <- this.when.values.toList.sortWith(_.instanceCounter < _.instanceCounter)) {
+        def doTrue = when.whenTrue.isNotEmpty
+        def doFalse = when.whenFalse.isNotEmpty
+
+        if (!doTrue && doFalse) {
+          ret ++= s"${tab}if ${emitLogic(when.cond)} = '0'  then\n"
+          when.whenFalse.emitContext(ret, tab + "  ")
+          ret ++= s"${tab}end if;\n"
+        } else if (doTrue && !doFalse) {
+          ret ++= s"${tab}if ${emitLogic(when.cond)} = '1' then\n"
+          when.whenTrue.emitContext(ret, tab + "  ")
+          ret ++= s"${tab}end if;\n"
+        } else if (doTrue && doFalse) {
+          ret ++= s"${tab}if ${emitLogic(when.cond)} = '1' then\n"
+          when.whenTrue.emitContext(ret, tab + "  ")
+          ret ++= s"${tab}else\n"
+          when.whenFalse.emitContext(ret, tab + "  ")
+          ret ++= s"${tab}end if;\n"
+        }
+        emitLogicChunk(when)
+      }
+    }
   }
-
 
   def emitComponentInstances(component: Component, ret: StringBuilder): Unit = {
     for (kind <- component.kinds) {
