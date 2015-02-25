@@ -29,7 +29,8 @@ import scala.collection.mutable.ArrayBuffer
 
 object BaseType {
 
-  def walkWhenNodes(baseType: BaseType, initialConsumer: Node, initialConsumerInputId: Int) = {
+  //TODO default conservative must be false
+  def walkWhenNodes(baseType: BaseType, initialConsumer: Node, initialConsumerInputId: Int, conservative: Boolean = true) = {
     val globalData = baseType.globalData
     var consumer = initialConsumer
     var consumerInputId: Int = initialConsumerInputId
@@ -45,14 +46,14 @@ object BaseType {
             consumer.inputs(consumerInputId) = whenNode
             consumer = whenNode
           }
-          case that : NoneNode => {
+          case that: NoneNode => {
             val whenNode = WhenNode(when)
             consumer.inputs(consumerInputId) = whenNode
             consumer = whenNode
           }
-          case man : MultipleAssignmentNode => {
+          case man: MultipleAssignmentNode => {
             man.inputs.last match {
-              case whenNode : WhenNode if whenNode.w == when => {
+              case whenNode: WhenNode if whenNode.w == when => {
                 consumer = whenNode
               }
               case _ => {
@@ -62,12 +63,13 @@ object BaseType {
               }
             }
           }
-          case whenNode : WhenNode if whenNode.w == when => consumer = whenNode
+          case whenNode: WhenNode if whenNode.w == when => consumer = whenNode
           case that => {
             val man = new MultipleAssignmentNode
-            man.inputs += that
             val whenNode = WhenNode(when)
+            man.inputs += that
             man.inputs += whenNode
+            consumer.inputs(consumerInputId) = man
             consumer = whenNode
           }
         }
@@ -79,9 +81,14 @@ object BaseType {
     if (!whenHit)
       throw new Exception("Basetype is affected outside his scope")
 
-    (consumer,consumerInputId)
-   // consumer.inputs(consumerInputId) = that
-
+    if (conservative) { //TODO emit warning message
+      if (consumer.inputs(consumerInputId).isInstanceOf[MultipleAssignmentNode]) {
+        consumer = consumer.inputs(consumerInputId)
+        consumerInputId = consumer.inputs.size;
+        consumer.inputs += null
+      }
+    }
+    (consumer, consumerInputId)
   }
 }
 
@@ -94,11 +101,13 @@ abstract class BaseType extends Node with Data with Nameable {
   private var dontSimplify = false
 
   override def dontSimplifyIt: this.type = {
-    dontSimplify = true; this
+    dontSimplify = true;
+    this
   }
 
   override def allowSimplifyIt: this.type = {
-    dontSimplify = false; this
+    dontSimplify = false;
+    this
   }
 
   var compositeAssign: Assignable = null
@@ -130,7 +139,7 @@ abstract class BaseType extends Node with Data with Nameable {
   def assignFromImpl(that: Data): Unit = {
     that match {
       case that: BaseType => {
-        val (consumer,inputId) = BaseType.walkWhenNodes(this, this, 0)
+        val (consumer, inputId) = BaseType.walkWhenNodes(this, this, 0)
         consumer.inputs(inputId) = that
       }
       case _ => throw new Exception("Undefined assignement")

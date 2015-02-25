@@ -743,7 +743,6 @@ class VhdlBackend extends Backend with VhdlBase {
   }
 
 
-
   def emitSyncronous(component: Component, ret: StringBuilder): Unit = {
     // ret ++= "  -- synchronous\n"
 
@@ -839,17 +838,19 @@ class VhdlBackend extends Backend with VhdlBase {
         def emitRegsLogic(tab: String): Unit = {
 
           class Context {
-            val logic = mutable.ArrayBuffer[(Node, Node)]()
+            val logicChunk = mutable.Map[WhenTree, ArrayBuffer[(Node, Node)]]()
+            //   val logic = mutable.ArrayBuffer[(Node, Node)]()
             val when = mutable.Map[Node, WhenTree]()
 
-            def isEmpty = logic.isEmpty && when.isEmpty
+            def isEmpty = logicChunk.isEmpty && when.isEmpty
 
             def isNotEmpty = !isEmpty
           }
 
-          class WhenTree(val cond: Node) {
+          class WhenTree(val cond: Node, ic: Int) extends InstanceCounter {
             var whenTrue: Context = new Context
             var whenFalse: Context = new Context
+            instanceCounter = ic
           }
 
           val rootContext = new Context
@@ -860,22 +861,35 @@ class VhdlBackend extends Backend with VhdlBase {
               if (!regSignal.isIo || !regSignal.isInput) {
                 val in = reg.getDataInput
                 if (in != reg) //check that reg has logic
-                  walkMux(in, rootContext)
+                  walkWhenTree(in, rootContext)
 
-                def walkMux(that: Node, context: Context): Unit = {
-                  if (that == null) return
-                  that match {
-                    case whenNode: WhenNode => {
-                      if (whenNode.whenTrue != reg) {
-                        val when = context.when.getOrElseUpdate(whenNode.cond, new WhenTree(whenNode.cond))
-                        walkMux(whenNode.whenTrue, when.whenTrue)
-                      }
-                      if (whenNode.whenFalse != reg) {
-                        val when = context.when.getOrElseUpdate(whenNode.cond, new WhenTree(whenNode.cond))
-                        walkMux(whenNode.whenFalse, when.whenFalse)
-                      }
+                def walkWhenTree(that: Node, context: Context): Unit = {
+                  def getElements: ArrayBuffer[Node] = {
+                    if (that.isInstanceOf[MultipleAssignmentNode]) {
+                      return that.inputs
+                    } else {
+                      return ArrayBuffer(that)
                     }
-                    case _ => context.logic += new Tuple2(regSignal, that)
+                  }
+
+                  var lastWhenTree: WhenTree = null
+                  for (node <- getElements) {
+                    node match {
+                      case whenNode: WhenNode => {
+                        if (!whenNode.whenTrue.isInstanceOf[NoneNode]) {
+                          val when = context.when.getOrElseUpdate(whenNode.cond, new WhenTree(whenNode.cond, node.instanceCounter))
+                          lastWhenTree = when
+                          walkWhenTree(whenNode.whenTrue, when.whenTrue)
+                        }
+                        if (!whenNode.whenFalse.isInstanceOf[NoneNode]) {
+                          val when = context.when.getOrElseUpdate(whenNode.cond, new WhenTree(whenNode.cond, node.instanceCounter))
+                          lastWhenTree = when
+                          walkWhenTree(whenNode.whenFalse, when.whenFalse)
+                        }
+                      }
+                      case reg: Reg =>
+                      case _ => context.logicChunk.getOrElseUpdate(lastWhenTree, new ArrayBuffer[(Node, Node)]) += new Tuple2(regSignal, node)
+                    }
                   }
                 }
               }
@@ -911,34 +925,38 @@ class VhdlBackend extends Backend with VhdlBase {
 
 
           def emitContext(context: Context, tab: String): Unit = {
-            for ((to, from) <- context.logic) {
-              ret ++= s"$tab${emitReference(to)} <= ${emitLogic(from)};\n"
+            def emitLogicChunk(key: WhenTree): Unit = {
+              if (context.logicChunk.contains(key)) {
+                for ((to, from) <- context.logicChunk.get(key).get) {
+                  ret ++= s"$tab${emitReference(to)} <= ${emitLogic(from)};\n"
+                }
+              }
             }
-            for (when <- context.when.values) {
+
+            emitLogicChunk(null)
+
+            for (when <- context.when.values.toList.sortWith(_.instanceCounter < _.instanceCounter)) {
               def doTrue = when.whenTrue.isNotEmpty
               def doFalse = when.whenFalse.isNotEmpty
 
               if (!doTrue && doFalse) {
-
                 ret ++= s"${tab}if ${emitLogic(when.cond)} = '0'  then\n"
                 emitContext(when.whenFalse, tab + "  ")
                 ret ++= s"${tab}end if;\n"
-
               } else if (doTrue && !doFalse) {
-
                 ret ++= s"${tab}if ${emitLogic(when.cond)} = '1' then\n"
                 emitContext(when.whenTrue, tab + "  ")
                 ret ++= s"${tab}end if;\n"
-
               } else if (doTrue && doFalse) {
-
                 ret ++= s"${tab}if ${emitLogic(when.cond)} = '1' then\n"
                 emitContext(when.whenTrue, tab + "  ")
                 ret ++= s"${tab}else\n"
                 emitContext(when.whenFalse, tab + "  ")
                 ret ++= s"${tab}end if;\n"
-
               }
+
+              emitLogicChunk(when)
+
             }
           }
         }
@@ -954,8 +972,13 @@ class VhdlBackend extends Backend with VhdlBase {
   def emitComponentInstances(component: Component, ret: StringBuilder): Unit = {
     for (kind <- component.kinds) {
       val isBB = kind.isInstanceOf[BlackBox]
-      val definitionString = if (isBB) kind.definitionName else s"entity $library.${kind.definitionName}"
-      ret ++= s"  ${kind.getName()} : $definitionString\n"
+      val definitionString = if (isBB) kind.definitionName
+      else s"entity $library.${
+        kind.definitionName
+      }"
+      ret ++= s"  ${
+        kind.getName()
+      } : $definitionString\n"
       if (kind.isInstanceOf[BlackBox]) {
         val bb = kind.asInstanceOf[BlackBox]
         val genericFlat = bb.generic.flatten
@@ -965,11 +988,29 @@ class VhdlBackend extends Backend with VhdlBase {
 
           for ((name, e) <- genericFlat) {
             e match {
-              case baseType: BaseType => ret ++= s"      ${emitReference(baseType)} => ${emitLogic(baseType.inputs(0))},\n"
-              case s: String => ret ++= s"      ${name} => ${"\""}${s}${"\""},\n"
-              case i: Int => ret ++= s"      ${name} => $i,\n"
-              case d: Double => ret ++= s"      ${name} => $d,\n"
-              case b: Boolean => ret ++= s"      ${name} => $b,\n"
+              case baseType: BaseType => ret ++= s"      ${
+                emitReference(baseType)
+              } => ${
+                emitLogic(baseType.inputs(0))
+              },\n"
+              case s: String => ret ++= s"      ${
+                name
+              } => ${
+                "\""
+              }${
+                s
+              }${
+                "\""
+              },\n"
+              case i: Int => ret ++= s"      ${
+                name
+              } => $i,\n"
+              case d: Double => ret ++= s"      ${
+                name
+              } => $d,\n"
+              case b: Boolean => ret ++= s"      ${
+                name
+              } => $b,\n"
             }
           }
           //          genericFlat.foreach(_._2 match {
@@ -986,11 +1027,19 @@ class VhdlBackend extends Backend with VhdlBase {
         if (data.isOutput) {
           val bind = component.kindsOutputsToBindings.getOrElse(data, null)
           if (bind != null) {
-            ret ++= s"      ${emitReference(data)} => ${emitReference(bind)},\n"
+            ret ++= s"      ${
+              emitReference(data)
+            } => ${
+              emitReference(bind)
+            },\n"
           }
         }
         else if (data.isInput)
-          ret ++= s"      ${emitReference(data)} => ${emitReference(data.inputs(0))},\n"
+          ret ++= s"      ${
+            emitReference(data)
+          } => ${
+            emitReference(data.inputs(0))
+          },\n"
       }
       ret.setCharAt(ret.size - 2, ' ')
 

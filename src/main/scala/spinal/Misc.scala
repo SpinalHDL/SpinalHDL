@@ -115,7 +115,7 @@ object Misc {
 
   def normalizeResize(to: Node, inputId: Integer, width: Int) {
     val input = to.inputs(inputId)
-    if (input == null || input.getWidth == width) return;
+    if (input == null  || input.getWidth == width || input.isInstanceOf[NoneNode]) return;
 
     val that = input.asInstanceOf[BitVector]
     Component.push(that.component)

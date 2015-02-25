@@ -61,7 +61,7 @@ object RegS {
 
 class Reg(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) extends SyncNode(clockDomain) with Assignable {
   inputs += this
-  inputs += new NoneNode
+  inputs += new NoneNode //TODO what happen if it's a complex node with multiple assignement or some whenNode (backend)
 
 
   override def isUsingReset: Boolean = !getInitialValue.isInstanceOf[NoneNode]
