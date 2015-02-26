@@ -480,7 +480,7 @@ object BigTest {
     io.outEnumBool2 := io.inEnum === io.inEnum
 
 
-    val componentS = Component(new ComponentS)
+    val componentS = (new ComponentS)
     io.outUIntS := S.two + componentS.io.outUIntS
     //io.outShift := io.inShiftVec(io.inShiftHi,io.inShiftLow)
     //  io.outVecU := io.inVecU
@@ -488,7 +488,7 @@ object BigTest {
     // io.outBool := io.a > 2
 
 
-    val recursiveComponent = Component(new RecursiveComponent(3))
+    val recursiveComponent = (new RecursiveComponent(3))
     recursiveComponent.io.input := io.cond0
     io.outBool2 := recursiveComponent.io.output
 

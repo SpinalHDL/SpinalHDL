@@ -18,10 +18,52 @@ import scala.runtime.Nothing$
  * License along with this library.
  */
 
-class A{
-  def doit = println("asd\n")
+abstract class Helper extends DelayedInit {
+  def delayedInit(body: => Unit) = {
+    println("a")
+    body // evaluates the initialization code of C
+    println("b")
+  }
 }
 
-val a = new A
-a.doit
+class C extends Helper {
+  println("Code")
+}
+val c = new C
 
+
+
+trait OnCreate extends DelayedInit {
+  def onCreate:Unit
+
+  def delayedInit(body: => Unit) = {
+    body
+
+//    if ((body _).getClass.getDeclaringClass == this.getClass)
+//    {
+      onCreate
+//    }
+  }
+}
+
+class A extends DelayedInit {
+  def delayedInit(body: => Unit) = {
+    body
+
+    //    if ((body _).getClass.getDeclaringClass == this.getClass)
+    //    {
+    onCreate
+    //    }
+  }
+  def onCreate = println("Creation is fully complete")
+
+  println("a complete")
+}
+
+class B extends A {
+
+  println("b complete")
+}
+
+
+new B
