@@ -99,7 +99,7 @@ object BaseType {
       }
     }else{
       val overrided = consumer.inputs(consumerInputId)
-      if(overrided != null && !overrided.isInstanceOf[NoneNode])
+      if(overrided != null && !overrided.isInstanceOf[NoneNode] && !overrided.isInstanceOf[Reg])
         SpinalWarning(s"Value of $baseType is overridden at ${ScalaLocated.getScalaTraceSmart}")
     }
     (consumer, consumerInputId)

@@ -455,7 +455,7 @@ object BigTest {
     io.masterHandshakeSInt connectFrom (io.slaveHandshakeUInt translateWith io.slaveHandshakeUInt.toBits.toSInt)
 
     io.masterHandshake connectFrom io.slaveHandshake
-    io.masterHandshakeThrow connectFrom io.slaveHandshake.throwIf(io.cond1)
+    io.masterHandshakeThrow connectFrom (io.slaveHandshake.throwIf(io.cond1))
     io.masterHandshakeUInt connectFrom (io.slaveHandshake translateWith UInt(3))
     //io.masterHandshakeUInt.bits := UInt(2)
     //var myInt = WeekDay.c
