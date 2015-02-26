@@ -840,7 +840,7 @@ class VhdlBackend extends Backend with VhdlBase {
       }
       s"pkg_extract(${emitLogic(node.bitVector)},$bitIdString)"
     }
-    case node: ExtractBitsVector => s"pkg_extract(${emitLogic(node.bitVector)},${node.bitIdHi.value},${node.bitIdLo.value})"
+    case node: ExtractBitsVector => s"pkg_extract(${emitLogic(node.getInput)},${node.hi},${node.lo})"
     case memRead: MemReadAsync => {
       if (memRead.writeToReadKind == dontCare) SpinalWarning(s"memReadAsync with dontCare is as writeFirst into VHDL")
       s"${emitReference(memRead.getMem)}(to_integer(${emitReference(memRead.getAddress)}))"
@@ -997,9 +997,9 @@ class VhdlBackend extends Backend with VhdlBase {
 
   def emitAssignement(to : Node,from : Node,ret : StringBuilder,tab : String): Unit ={
     from match {
-      case pa: PartialAssignmentElement => {
-        ret ++= s"$tab${emitReference(to)}(${emitLogic(pa.getHi)} downto ${emitLogic(pa.getLo)}) <= ${emitLogic(pa.getInput)};\n"
-      }
+      case pa: RangedAssignmentFixed => {
+        ret ++= s"$tab${emitReference(to)}(${pa.getHi} downto ${pa.getLo}) <= ${emitLogic(pa.getInput)};\n"
+      } //        ret ++= s"$tab${emitReference(to)}(${emitLogic(pa.getHi)} downto ${emitLogic(pa.getLo)}) <= ${emitLogic(pa.getInput)};\n"
       case _ => ret ++= s"$tab${emitReference(to)} <= ${emitLogic(from)};\n"
     }
   }

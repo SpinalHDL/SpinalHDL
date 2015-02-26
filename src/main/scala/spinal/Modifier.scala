@@ -19,7 +19,6 @@
 package spinal
 
 
-
 object EnumCast {
   def apply(enum: SpinalEnumCraft[_], opName: String, that: Node, widthImpl: (Node) => Int = WidthInfer.inputMaxWidth): Modifier = {
     val op = new EnumCast(enum, opName, widthImpl)
@@ -88,8 +87,9 @@ class Modifier(val opName: String, widthImpl: (Node) => Int) extends Node {
 
 
   override def toString(): String = {
-    s"($opName ${this.inputs.map(in => if(in == null) "null" else in.nonRecursiveToString()).reduceLeft(_ + " " + _)})"
+    s"($opName ${this.inputs.map(in => if (in == null) "null" else in.nonRecursiveToString()).reduceLeft(_ + " " + _)})"
   }
+
   override def nonRecursiveToString(): String = opName
 }
 
@@ -107,68 +107,12 @@ class EnumCast(val enum: SpinalEnumCraft[_], opName: String, widthImpl: (Node) =
   }
 }
 
-object ExtractBool {
-  def apply(bitVector: BitVector, bitId: Int): ExtractBool = {
-    val op = new ExtractBool
-    op.inputs += bitVector
-    op.inputs += new IntLiteral(bitId)
-    op
-  }
-
-  def apply(bitVector: BitVector, bitId: UInt): ExtractBool = {
-    val op = new ExtractBool
-    op.inputs += bitVector
-    op.inputs += bitId
-    op
-  }
-}
-
-class ExtractBool extends Node {
-
-  def calcWidth: Int = {
-    1
-  }
-
-  def bitVector = inputs(0)
-
-  def bitId = inputs(1)
-}
-
-object ExtractBitsVector {
-  def apply(bitVector: BitVector, bitIdHi: Int, bitIdLow: Int): ExtractBitsVector = {
-    if (bitIdHi - bitIdLow < -1) SpinalError(s"Static bits extraction with a negative size ($bitIdHi downto $bitIdLow)")
-    val op = new ExtractBitsVector
-    op.inputs += bitVector.toBits
-    op.inputs += new IntLiteral(bitIdHi)
-    op.inputs += new IntLiteral(bitIdLow)
-    op
-  }
-
-
-  def apply(bitVector: BitVector, bitIdHi: UInt, bitIdLow: UInt): Bits = {
-    val sr = bitVector.toBits >> bitIdLow
-    val mask = (UInt(1) << bitIdLow) - UInt(1)
-    val ret = sr & mask.toBits;
-    ret
-  }
-}
-
-class ExtractBitsVector extends Node {
-  def calcWidth: Int = (bitIdHi, bitIdLo) match {
-    case range: (IntLiteral, IntLiteral) => {
-      (range._1.value + 1 - range._2.value).toInt
-    }
-
-  }
-
-  def bitVector = inputs(0)
-  def bitIdHi = inputs(1).asInstanceOf[IntLiteral]
-  def bitIdLo = inputs(2).asInstanceOf[IntLiteral]
-}
 
 class Multiplexer(opName: String) extends Modifier(opName, WidthInfer.multiplexImpl) {
   def cond = inputs(0)
+
   def whenTrue = inputs(1)
+
   def whenFalse = inputs(2)
 
   override def normalizeInputs: Unit = {
@@ -247,8 +191,8 @@ private[spinal] object Multiplex {
 
 
     for (((x, out), (y, t), (z, f)) <- (muxOut.flatten, muxInTrue.flatten, muxInFalse.flatten).zipped) {
-      if(t == null) SpinalError("Create a mux with incompatible true input type")
-      if(f == null) SpinalError("Create a mux with incompatible false input type")
+      if (t == null) SpinalError("Create a mux with incompatible true input type")
+      if (f == null) SpinalError("Create a mux with incompatible false input type")
 
       out.setInput(Multiplex.baseType(sel, t, f))
     }
@@ -257,13 +201,119 @@ private[spinal] object Multiplex {
 }
 
 
+object ExtractBool {
+  def apply(bitVector: BitVector, bitId: Int): ExtractBool = {
+    val op = new ExtractBool
+    op.inputs += bitVector
+    op.inputs += new IntLiteral(bitId)
+    op
+  }
 
-class PartialAssignment(out : BaseType) extends Node{
-  override def calcWidth: Int = out.getWidth
-  out.dontSimplifyIt
+  def apply(bitVector: BitVector, bitId: UInt): ExtractBool = {
+    val op = new ExtractBool
+    op.inputs += bitVector
+    op.inputs += bitId
+    op
+  }
 }
 
-class PartialAssignmentElement(out : Node,in : Node,hi : Node, lo : Node) extends Node{
+class ExtractBool extends Node {
+  def calcWidth: Int = 1
+
+  def bitVector = inputs(0)
+
+  def bitId = inputs(1)
+
+  override def checkInferedWidth: String = {
+    bitId match {
+      case lit: IntLiteral => {
+        if (lit.value < 0 || lit.value >= bitVector.getWidth) {
+          return s"Static bool extraction (bit ${lit.value}) is outside the range (${bitVector.getWidth - 1} downto 0) of ${bitVector} at\n${getScalaTraceString}"
+        }
+      }
+      case _ =>
+    }
+    return null
+  }
+}
+
+object ExtractBitsVector {
+  def apply(bitVector: BitVector, bitIdHi: Int, bitIdLow: Int): ExtractBitsVector = {
+    if (bitIdHi - bitIdLow < -1) SpinalError(s"Static bits extraction with a negative size ($bitIdHi downto $bitIdLow)")
+    val op = new ExtractBitsVector(bitIdHi, bitIdLow)
+    op.inputs += bitVector
+    op
+  }
+
+
+  def apply(bitVector: BitVector, bitIdHi: UInt, bitIdLow: UInt): Bits = {
+    val sr = bitVector.toBits >> bitIdLow
+    val mask = (UInt(1) << bitIdLow) - UInt(1)
+    val ret = sr & mask.toBits;
+    ret
+  }
+}
+
+class ExtractBitsVector(val hi: Int, val lo: Int) extends Node {
+  def calcWidth: Int = hi - lo + 1
+  def getInput = inputs(0)
+
+  override def checkInferedWidth: String = {
+    val width = getInput.getWidth
+    if (hi >= width || lo < 0) {
+      return s"Static bits extraction ($hi downto $lo) is outside the range (${width - 1} downto 0) of ${getInput} at\n${getScalaTraceString}"
+    }
+    return null
+  }
+}
+
+trait AssignementNode extends Node{
+
+}
+
+class BitAssignmentFixed(out: Node, in: Node, bitId: Int) extends AssignementNode {
+  inputs += in
+
+  def getInput = inputs(0)
+  def getBitId = bitId
+  override def calcWidth: Int = out.getWidth
+
+  override def checkInferedWidth: String = {
+    if (bitId < 0 || bitId >= out.getWidth) {
+      return s"Static bool extraction (bit ${bitId}) is outside the range (${out.getWidth - 1} downto 0) of ${out} at\n${getScalaTraceString}"
+    }
+    return null
+  }
+}
+
+class BitAssignmentFloating(out: Node, in: Node, bitId: UInt) extends AssignementNode {
+  inputs += in
+
+  def getInput = inputs(0)
+  def getBitId = bitId
+  override def calcWidth: Int = out.getWidth
+}
+
+
+class RangedAssignmentFixed(out: Node, in: Node, hi: Int, lo: Int) extends AssignementNode {
+  inputs += in
+
+  def getInput = inputs(0)
+  def getHi = hi
+  def getLo = lo
+
+  override def calcWidth: Int = out.getWidth
+
+  override def checkInferedWidth: String = {
+    val width = out.getWidth
+    if (hi >= width || lo < 0) {
+      return s"Static bits assignement ($hi downto $lo) is outside the range (${width - 1} downto 0) of ${out} at\n${getScalaTraceString}"
+    }
+    return null
+  }
+}
+
+class RangedAssignmentFloating(out: Node, in: Node, hi: UInt, lo: UInt) extends AssignementNode {
   inputs += in
   inputs += hi
   inputs += lo
@@ -272,19 +322,10 @@ class PartialAssignmentElement(out : Node,in : Node,hi : Node, lo : Node) extend
   def getHi = inputs(1)
   def getLo = inputs(2)
 
-  //TODO better
   override def calcWidth: Int = out.getWidth
 }
 
 
-
-class PartialRangedAssignment(in : Node,hi : Node, low : Node) extends Node{
-  //TODO better
-  override def calcWidth: Int = in.getWidth
-}
-
-class MultipleAssignmentNode extends Node{
+class MultipleAssignmentNode extends Node {
   override def calcWidth: Int = WidthInfer.inputMaxWidth(this)
-
-
 }

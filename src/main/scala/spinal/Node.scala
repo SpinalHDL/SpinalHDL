@@ -161,6 +161,8 @@ abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady wi
 
   var inferredWidth = -1
 
+  def checkInferedWidth : String = null
+
   def normalizeInputs: Unit = {
 
   }

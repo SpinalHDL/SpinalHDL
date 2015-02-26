@@ -153,7 +153,7 @@ trait Data extends ContextUser with Nameable with Assignable with AttributeReady
   def pull: this.type = Data.doPull(this, Component.current, false, false)
 
 
-  def :=(that: SSelf): Unit = this assignFrom (that)
+  def :=(that: SSelf): Unit = this assignFrom (that,false)
   def <>(that: SSelf): Unit = this autoConnect that
   def ===(that: SSelf): Bool = isEguals(that)
   def !==(that: SSelf): Bool = !isEguals(that)

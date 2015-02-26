@@ -69,10 +69,11 @@ object SeqMux {
 }
 
 class VecAccessAssign[T <: BaseType](enables: Seq[Bool], tos: Seq[T]) extends Assignable {
-  override def assignFrom(that: Data): Unit = {
+  override def assignFrom(that: AnyRef,conservative : Boolean): Unit = {
+    assert(!conservative)
     for ((enable, to) <- (enables, tos).zipped) {
       when(enable) {
-        to := that
+        to := that.asInstanceOf[Data]
       }
     }
   }
@@ -156,7 +157,8 @@ class Vec[T <: Data](val dataType: T) extends MultiData with collection.IndexedS
     ret
   }
 
-  override def assignFrom(that: Data): Unit = {
+  override def assignFrom(that: AnyRef,conservative : Boolean): Unit = {
+    assert(!conservative)
     lockIt()
     that match {
       case that: SSelf => {

@@ -115,7 +115,7 @@ abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends 
 }
 
 trait Assignable {
-  def assignFrom(that: Data): Unit
+  def assignFrom(that: AnyRef,conservative : Boolean): Unit
 }
 
 trait CrossHierarchyInputs {
@@ -166,7 +166,18 @@ trait Nameable {
 object ScalaLocated {
   var unfiltredFiles = mutable.Set("SpinalUtils.scala")
   var unfiltredPackages = mutable.Set("spinal.code.","spinal.bug.","spinal.scalaTest.")
+
+  def getScalaTraceSmart : String = {
+    val scalaTrace = new Throwable()
+    val temp = scalaTrace.getStackTrace.filter(trace => {
+      val className = trace.getClassName
+      !((className.startsWith("scala.") || className.startsWith("spinal.")) && !ScalaLocated.unfiltredPackages.map(className.startsWith(_)).reduceLeft(_ || _)) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
+    })
+    temp.apply(0).toString
+  }
 }
+
+
 
 trait ScalaLocated extends GlobalDataUser{
   val scalaTrace = if (!globalData.scalaLocatedEnable) null else new Throwable()

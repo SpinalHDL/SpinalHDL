@@ -41,7 +41,7 @@ object Debug {
       io.outs(6) := RegNext(!io.outs(6),initialValue)
     }
     io.outBits := Bits(0xAA)
-    io.outBits.partialAssignementImpl(io.conds.toBits(1,0),IntLiteral(3),IntLiteral(2))
+    io.outBits(3,2) := io.conds.toBits(1,0)
 
 
     val reg0 = Reg(Bool())

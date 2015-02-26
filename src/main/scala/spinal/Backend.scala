@@ -429,29 +429,8 @@ class Backend {
     globalData.nodeWidthInferredCheck.foreach(_())
     val errors = mutable.ArrayBuffer[String]()
     walkNodes2(node => {
-      node match {
-        case extract: ExtractBool => {
-          extract.bitId match {
-            case lit: IntLiteral => {
-              if (lit.value < 0 || lit.value >= extract.bitVector.getWidth) {
-                errors += s"Static bool extraction (bit ${lit.value}) is outside the range (${extract.bitVector.getWidth - 1} downto 0) of ${extract.bitVector} at\n${extract.getScalaTraceString}"
-              }
-            }
-            case _ =>
-          }
-
-        }
-        case extract: ExtractBitsVector => {
-          val hi = extract.bitIdHi.value
-          val lo = extract.bitIdLo.value
-          val width = extract.bitVector.getWidth
-          if (hi >= width || lo < 0) {
-            errors += s"Static bits extraction ($hi downto $lo) is outside the range (${width - 1} downto 0) of ${extract.bitVector} at\n${extract.getScalaTraceString}"
-          }
-
-        }
-        case _ =>
-      }
+      val error = node.checkInferedWidth
+      if(error != null) errors += error
     })
     if (!errors.isEmpty)
       SpinalError(errors)

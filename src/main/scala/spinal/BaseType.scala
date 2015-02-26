@@ -18,8 +18,7 @@
 
 package spinal
 
-import com.sun.org.apache.bcel.internal.classfile.AttributeReader
-import spinal.WhenNode
+
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -29,8 +28,6 @@ import scala.collection.mutable.ArrayBuffer
 
 
 object BaseType {
-
-  //TODO default conservative must be false
   def walkWhenNodes(baseType: BaseType, initialConsumer: Node, initialConsumerInputId: Int, conservative: Boolean = false) = {
     val globalData = baseType.globalData
     var consumer = initialConsumer
@@ -83,7 +80,6 @@ object BaseType {
       throw new Exception("Basetype is affected outside his scope")
 
     if (conservative) {
-      //TODO emit warning message
       consumer.inputs(consumerInputId) match {
         case that: NoneNode =>
         case null =>
@@ -101,6 +97,10 @@ object BaseType {
           consumer = man
         }
       }
+    }else{
+      val overrided = consumer.inputs(consumerInputId)
+      if(overrided != null && !overrided.isInstanceOf[NoneNode])
+        SpinalWarning(s"Value of $baseType is overridden at ${ScalaLocated.getScalaTraceSmart}")
     }
     (consumer, consumerInputId)
   }
@@ -126,11 +126,11 @@ abstract class BaseType extends Node with Data with Nameable {
 
   var compositeAssign: Assignable = null
 
-  final override def assignFrom(that: Data): Unit = {
+  final override def assignFrom(that: AnyRef,conservative : Boolean): Unit = {
     if (compositeAssign != null) {
-      compositeAssign.assignFrom(that)
+      compositeAssign.assignFrom(that,conservative)
     } else {
-      assignFromImpl(that)
+      assignFromImpl(that,conservative)
     }
   }
 
@@ -150,10 +150,14 @@ abstract class BaseType extends Node with Data with Nameable {
   //  override def :=(bits: this.type): Unit = assignFrom(bits)
 
 
-  def assignFromImpl(that: Data): Unit = {
+  def assignFromImpl(that: AnyRef,conservative : Boolean): Unit = {
     that match {
       case that: BaseType => {
-        val (consumer, inputId) = BaseType.walkWhenNodes(this, this, 0)
+        val (consumer, inputId) = BaseType.walkWhenNodes(this, this, 0,conservative)
+        consumer.inputs(inputId) = that
+      }
+      case that : AssignementNode => {
+        val (consumer, inputId) = BaseType.walkWhenNodes(this, this, 0,conservative)
         consumer.inputs(inputId) = that
       }
       case _ => throw new Exception("Undefined assignement")

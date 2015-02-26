@@ -74,4 +74,21 @@ class Bits extends BitVector {
      case _ => SpinalError(s"Don't know how compare $this with $that"); null
    }
   }
+  //extract bits     that(8,2)
+  override def apply(hi: Int, lo: Int): SSelf = {
+    val ret = super.apply(hi, lo)
+    ret.compositeAssign = new Assignable {
+      override def assignFrom(that: AnyRef, conservative: Boolean): Unit = {
+        Bits.this.assignFrom(new RangedAssignmentFixed(Bits.this,that.asInstanceOf[Bits],hi,lo),true)
+      }
+    }
+    ret
+  }
 }
+
+
+//class BitsRangedAssignementFixed(bits: Bits) extends Assignable{
+//  override def assignFrom(that: Data, conservative: Boolean): Unit = {
+//
+//  }
+//}
