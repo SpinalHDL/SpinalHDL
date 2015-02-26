@@ -493,22 +493,25 @@ class Backend {
     }, nodeStack)
   }
 
-  //  def walkNodesBlackBoxGenerics = {
-  //    val nodeStack = mutable.Stack[Node]()
-  //    components.foreach(_ match {
-  //      case blackBox: BlackBox => {
-  //        blackBox.generic.flatten.foreach(tuple => nodeStack.push(tuple._2))
-  //      }
-  //      case _ =>
-  //    })
-  //    nodeStack
-  //  }
+    def walkNodesBlackBoxGenerics = {
+      val nodeStack = mutable.Stack[Node]()
+      components.foreach(_ match {
+        case blackBox: BlackBox => {
+          blackBox.generic.flatten.foreach(_._2 match{
+            case bt : BaseType => nodeStack.push(bt)
+            case _ =>
+          })
+        }
+        case _ =>
+      })
+      nodeStack
+    }
 
 
   def inferWidth: Unit = {
     globalData.nodeAreInferringWidth = true
     val nodes = ArrayBuffer[Node]()
-    walkNodes2(nodes += _, walkNodesDefautStack /* ++ walkNodesBlackBoxGenerics*/)
+    walkNodes2(nodes += _, walkNodesDefautStack ++ walkNodesBlackBoxGenerics)
 
 
     def checkAll: Unit = {
