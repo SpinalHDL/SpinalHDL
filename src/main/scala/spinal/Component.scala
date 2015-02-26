@@ -23,17 +23,13 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 
-
 object Component {
   def apply[T <: Component](c: T): T = {
-    c.io.flatten.foreach(_._2.isIo = true)
-    pop(c);
-    c.userParentCalledDef
+    //    c.io.flatten.foreach(_._2.isIo = true)
+    //    pop(c);
+    //    c.userParentCalledDef
     return c;
   }
-
-
-
 
 
   def push(c: Component): Unit = {
@@ -43,23 +39,33 @@ object Component {
 
   def pop(c: Component): Unit = {
     try {
-     /* if(lastPoped == c) return;
-      lastPoped = c*/
+      /* if(lastPoped == c) return;
+       lastPoped = c*/
       c.globalData.componentStack.pop(c)
-    } catch{
+    } catch {
       case e: Exception => SpinalError(s"You probably forget the 'Component(new ${c.globalData.componentStack.head().getClass.getName})' into ${c.getClass.getName}")
     }
   }
 
   //var lastPoped : Component = null
 
-  def current : Component = current(GlobalData.get)
-  def current(globalData: GlobalData) : Component  = globalData.componentStack.head()
+  def current: Component = current(GlobalData.get)
+  def current(globalData: GlobalData): Component = globalData.componentStack.head()
 }
 
 
-abstract class Component extends Nameable with GlobalDataUser {
+abstract class Component extends Nameable with GlobalDataUser with DelayedInit {
   val localScope = new Scope()
+
+  override def delayedInit(body: => Unit) = {
+    body
+
+    if ((body _).getClass.getDeclaringClass == this.getClass) {
+      this.io.flatten.foreach(_._2.isIo = true)
+      Component.pop(this);
+      this.userParentCalledDef
+    }
+  }
 
 
   def io: Data
@@ -75,7 +81,7 @@ abstract class Component extends Nameable with GlobalDataUser {
   if (parent != null) {
     parent.kinds += this;
   }
-  def isTopLevel : Boolean = parent == null
+  def isTopLevel: Boolean = parent == null
   val initialWhen = globalData.whenStack.head()
 
   var nodes: ArrayBuffer[Node] = null
@@ -83,10 +89,10 @@ abstract class Component extends Nameable with GlobalDataUser {
 
   var pulledDataCache = mutable.Map[Data, Data]()
 
-//  if (Component.stack.stack.isEmpty) {
-//    BackendToComponentBridge.defaultClock.component = this
-//    BackendToComponentBridge.defaultReset.component = this
-//  }
+  //  if (Component.stack.stack.isEmpty) {
+  //    BackendToComponentBridge.defaultClock.component = this
+  //    BackendToComponentBridge.defaultReset.component = this
+  //  }
   Component.push(this)
 
 
@@ -160,12 +166,11 @@ abstract class Component extends Nameable with GlobalDataUser {
   }
 
 
-
-  def userParentCalledDef : Unit = {
+  def userParentCalledDef: Unit = {
 
   }
 
-  def isInBlackBoxTree : Boolean = if(parent == null) false else parent.isInBlackBoxTree
+  def isInBlackBoxTree: Boolean = if (parent == null) false else parent.isInBlackBoxTree
 
 
 }

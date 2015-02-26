@@ -1,3 +1,5 @@
+import scala.runtime.Nothing$
+
 /*
  * SpinalHDL
  * Copyright (c) Dolu, All rights reserved.
@@ -16,67 +18,52 @@
  * License along with this library.
  */
 
-
-object B{
-  object C{
-    new Throwable().getStackTrace
+abstract class Helper extends DelayedInit {
+  def delayedInit(body: => Unit) = {
+    println("a")
+    body // evaluates the initialization code of C
+    println("b")
   }
 }
 
-class A(val i : Int){
-  def >>(that : A): A ={
-    println(s"$i >> ${that.i}")
-    that
+class C extends Helper {
+  println("Code")
+}
+val c = new C
+
+
+
+trait OnCreate extends DelayedInit {
+  def onCreate:Unit
+
+  def delayedInit(body: => Unit) = {
+    body
+
+//    if ((body _).getClass.getDeclaringClass == this.getClass)
+//    {
+      onCreate
+//    }
   }
 }
 
-def one = new A(1)
-def two = new A(2)
-def tree = new A(3)
+class A extends DelayedInit {
+  def delayedInit(body: => Unit) = {
+    body
 
-one >> two >> tree
-
-
-
-object O{
-  def apply = 2
-}
-
-
-
-//
-//class Stack[A] {
-//  def push[B >: A](elem: B): Stack[B] = new Stack[B] {
-//    override def top: B = elem
-//    override def pop: Stack[B] = Stack.this
-//    override def toString() = elem.toString() + " " +
-//      Stack.this.toString()
-//  }
-//  def top: A = sys.error("no element on stack")
-//  def pop: Stack[A] = sys.error("no element on stack")
-//  override def toString() = ""
-//}
-//object VariancesTest extends App {
-//  var s: Stack[Any] = new Stack().push("hello");
-//  s = s.push(new Object())
-//  s = s.push(7)
-//  println(s)
-//}
-
-/*
-val myList = List[String]("a")
-
-m[Int](myList)
-
-import scala.reflect.runtime.universe._
-def m[T : TypeTag] (par : List[String]): Unit = {
-  par match{
-    case a : List[T] if T =:= typeOf[String]=> {
-      println("is List[T]")
-    }
-    case _ => println("no match")
+    //    if ((body _).getClass.getDeclaringClass == this.getClass)
+    //    {
+    onCreate
+    //    }
   }
+  def onCreate = println("Creation is fully complete")
+
+  println("a complete")
+}
+
+class B extends A {
+
+  println("b complete")
 }
 
 
-*/
+new B

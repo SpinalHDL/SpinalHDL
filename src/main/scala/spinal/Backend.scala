@@ -75,7 +75,7 @@ class Backend {
 
   //TODO
   //TODO ROM support
-
+  //TODO check asyncrounous missing input (WhenNode)
   protected def elaborate[T <: Component](topLevel: T): BackendReport[T] = {
     SpinalInfoPhase("Start analysis and transform")
 
@@ -119,6 +119,7 @@ class Backend {
     //Simplify nodes
     SpinalInfoPhase("Simplify graph's nodes")
     fillNodeConsumer
+    dontSymplifyBasetypeWithComplexAssignement
     deleteUselessBaseTypes
     simplifyBlacBoxGenerics
 
@@ -396,6 +397,22 @@ class Backend {
     walkNodes(walker_pullClockDomains)
   }
 
+  def dontSymplifyBasetypeWithComplexAssignement: Unit ={
+    walkNodes2(node => {
+      node match {
+        case baseType : BaseType =>{
+          baseType.inputs(0) match{
+            case wn : WhenNode => baseType.dontSimplifyIt
+            case an : AssignementNode => baseType.dontSimplifyIt
+            case man : MultipleAssignmentNode => baseType.dontSimplifyIt
+            case _ =>
+          }
+        }
+        case _ =>
+      }
+    })
+  }
+
   def deleteUselessBaseTypes: Unit = {
     walkNodes(walker_deleteUselessBaseTypes)
   }
@@ -429,29 +446,8 @@ class Backend {
     globalData.nodeWidthInferredCheck.foreach(_())
     val errors = mutable.ArrayBuffer[String]()
     walkNodes2(node => {
-      node match {
-        case extract: ExtractBool => {
-          extract.bitId match {
-            case lit: IntLiteral => {
-              if (lit.value < 0 || lit.value >= extract.bitVector.getWidth) {
-                errors += s"Static bool extraction (bit ${lit.value}) is outside the range (${extract.bitVector.getWidth - 1} downto 0) of ${extract.bitVector} at\n${extract.getScalaTraceString}"
-              }
-            }
-            case _ =>
-          }
-
-        }
-        case extract: ExtractBitsVector => {
-          val hi = extract.bitIdHi.value
-          val lo = extract.bitIdLo.value
-          val width = extract.bitVector.getWidth
-          if (hi >= width || lo < 0) {
-            errors += s"Static bits extraction ($hi downto $lo) is outside the range (${width - 1} downto 0) of ${extract.bitVector} at\n${extract.getScalaTraceString}"
-          }
-
-        }
-        case _ =>
-      }
+      val error = node.checkInferedWidth
+      if(error != null) errors += error
     })
     if (!errors.isEmpty)
       SpinalError(errors)
@@ -497,22 +493,25 @@ class Backend {
     }, nodeStack)
   }
 
-  //  def walkNodesBlackBoxGenerics = {
-  //    val nodeStack = mutable.Stack[Node]()
-  //    components.foreach(_ match {
-  //      case blackBox: BlackBox => {
-  //        blackBox.generic.flatten.foreach(tuple => nodeStack.push(tuple._2))
-  //      }
-  //      case _ =>
-  //    })
-  //    nodeStack
-  //  }
+    def walkNodesBlackBoxGenerics = {
+      val nodeStack = mutable.Stack[Node]()
+      components.foreach(_ match {
+        case blackBox: BlackBox => {
+          blackBox.generic.flatten.foreach(_._2 match{
+            case bt : BaseType => nodeStack.push(bt)
+            case _ =>
+          })
+        }
+        case _ =>
+      })
+      nodeStack
+    }
 
 
   def inferWidth: Unit = {
     globalData.nodeAreInferringWidth = true
     val nodes = ArrayBuffer[Node]()
-    walkNodes2(nodes += _, walkNodesDefautStack /* ++ walkNodesBlackBoxGenerics*/)
+    walkNodes2(nodes += _, walkNodesDefautStack ++ walkNodesBlackBoxGenerics)
 
 
     def checkAll: Unit = {
@@ -623,10 +622,21 @@ class Backend {
           walk(node.inputs(0))
 
           def walk(that: Node): Unit = that match {
-            case that: Multiplexer => {
+            case that : Multiplexer => {
               that.inferredWidth = width
               walk(that.inputs(1))
               walk(that.inputs(2))
+            }
+            case that : WhenNode => {
+              that.inferredWidth = width
+              walk(that.whenTrue)
+              walk(that.whenFalse)
+            }
+            case that : MultipleAssignmentNode => {
+              that.inferredWidth = width
+              for(node <- that.inputs){
+                walk(node)
+              }
             }
             case _ =>
           }

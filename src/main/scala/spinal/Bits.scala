@@ -37,9 +37,9 @@ class Bits extends BitVector {
   def ##(right: Bits): Bits = newBinaryOperator("##", right, WidthInfer.cumulateInputWidth, InputNormalize.none)
 
 
-  def |(that: Bits): Bits = newBinaryOperator("b|b", that, WidthInfer.inputMaxWidthl, InputNormalize.nodeWidth);
-  def &(that: Bits): Bits = newBinaryOperator("b&b", that, WidthInfer.inputMaxWidthl, InputNormalize.nodeWidth);
-  def ^(that: Bits): Bits = newBinaryOperator("b^b", that, WidthInfer.inputMaxWidthl, InputNormalize.nodeWidth);
+  def |(that: Bits): Bits = newBinaryOperator("b|b", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth);
+  def &(that: Bits): Bits = newBinaryOperator("b&b", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth);
+  def ^(that: Bits): Bits = newBinaryOperator("b^b", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth);
   def unary_~(): Bits = newUnaryOperator("~b");
 
   override def ===(that: SSelf): Bool = newLogicalOperator("b==b", that, InputNormalize.inputWidthMax);
@@ -74,4 +74,21 @@ class Bits extends BitVector {
      case _ => SpinalError(s"Don't know how compare $this with $that"); null
    }
   }
+  //extract bits     that(8,2)
+  override def apply(hi: Int, lo: Int): SSelf = {
+    val ret = super.apply(hi, lo)
+    ret.compositeAssign = new Assignable {
+      override def assignFrom(that: AnyRef, conservative: Boolean): Unit = {
+        Bits.this.assignFrom(new RangedAssignmentFixed(Bits.this,that.asInstanceOf[Bits],hi,lo),true)
+      }
+    }
+    ret
+  }
 }
+
+
+//class BitsRangedAssignementFixed(bits: Bits) extends Assignable{
+//  override def assignFrom(that: Data, conservative: Boolean): Unit = {
+//
+//  }
+//}

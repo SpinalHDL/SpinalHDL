@@ -24,7 +24,7 @@ import spinal.importMe._
 /**
  * Created by PIC18F on 22.08.2014.
  */
-object Try {
+object BigTest {
 
   /* object ttttttt{
      class Data {
@@ -455,7 +455,7 @@ object Try {
     io.masterHandshakeSInt connectFrom (io.slaveHandshakeUInt translateWith io.slaveHandshakeUInt.toBits.toSInt)
 
     io.masterHandshake connectFrom io.slaveHandshake
-    io.masterHandshakeThrow connectFrom io.slaveHandshake.throwIf(io.cond1)
+    io.masterHandshakeThrow connectFrom (io.slaveHandshake.throwIf(io.cond1))
     io.masterHandshakeUInt connectFrom (io.slaveHandshake translateWith UInt(3))
     //io.masterHandshakeUInt.bits := UInt(2)
     //var myInt = WeekDay.c
@@ -480,7 +480,7 @@ object Try {
     io.outEnumBool2 := io.inEnum === io.inEnum
 
 
-    val componentS = Component(new ComponentS)
+    val componentS = (new ComponentS)
     io.outUIntS := S.two + componentS.io.outUIntS
     //io.outShift := io.inShiftVec(io.inShiftHi,io.inShiftLow)
     //  io.outVecU := io.inVecU
@@ -488,7 +488,7 @@ object Try {
     // io.outBool := io.a > 2
 
 
-    val recursiveComponent = Component(new RecursiveComponent(3))
+    val recursiveComponent = (new RecursiveComponent(3))
     recursiveComponent.io.input := io.cond0
     io.outBool2 := recursiveComponent.io.output
 

@@ -68,14 +68,3 @@ class IntLiteral(val value: BigInt) extends Literal with MinMaxProvider{
   def minValue : BigInt = value
   def maxValue : BigInt = value
 }
-
-object SStringLiteral {
-  def apply(value : String): SStringLiteral ={
-    return new SStringLiteral(value)
-  }
-}
-class SStringLiteral(val value: String) extends Literal {
-  def calcWidth: Int = 0
-
-}
-

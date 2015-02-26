@@ -19,6 +19,7 @@
 package spinal
 
 
+
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
@@ -558,17 +559,124 @@ class VhdlBackend extends Backend with VhdlBase {
   }
 
   def emitAsyncronous(component: Component, ret: StringBuilder): Unit = {
-    for (node <- component.nodes) {
-      node match {
-        case signal: BaseType => {
-          if (!signal.isDelay)
-            if (!((signal.isIo && signal.isInput) || component.kindsOutputsBindings.contains(signal)))
-              ret ++= s"  ${emitReference(signal)} <= ${emitLogic(signal.inputs(0))};\n"
+
+    var processCounter = 0
+    class Process(val order: Int) {
+      val sensitivity = mutable.Set[Node]()
+      val nodes = ArrayBuffer[Node]()
+      val whens = ArrayBuffer[when]()
+      var hasMultipleAssignment = false
+
+      def genSensitivity: Unit = {
+        nodes.foreach(_.inputs.foreach(walk(_)))
+
+        def walk(node: Node): Unit = {
+          if (isReferenceable(node))
+            sensitivity += node
+          else
+            node.inputs.foreach(walk(_))
         }
-        case _ =>
+      }
+
+      def needProcessDef = hasMultipleAssignment || !whens.isEmpty || nodes.size > 1
+    }
+
+    val processSet = mutable.Set[Process]()
+    val whenToProcess = mutable.Map[when, Process]()
+
+    def move(to: Process, from: Process): Unit = {
+      to.nodes ++= from.nodes
+      to.whens ++= from.whens
+      to.hasMultipleAssignment |= from.hasMultipleAssignment
+      from.whens.foreach(whenToProcess(_) = to)
+      processSet.remove(from)
+    }
+
+    val asyncSignals = component.nodes.filter(_ match {
+      case signal: BaseType => (!signal.isDelay) && (!((signal.isIo && signal.isInput) || component.kindsOutputsBindings.contains(signal)))
+      case _ => false
+    })
+
+    for (signal <- asyncSignals) {
+      var process: Process = null
+      var hasMultipleAssignment = false
+      walk(signal.inputs(0))
+      def walk(that: Node): Unit = {
+        that match {
+          case wn: WhenNode => {
+            if (whenToProcess.contains(wn.w)) {
+              val otherProcess = whenToProcess.get(wn.w).get
+              if (process == null) {
+                process = otherProcess
+                otherProcess.nodes += signal
+              } else if (process != otherProcess) {
+                move(otherProcess, process)
+                process = otherProcess
+              }
+            } else {
+              if (process == null) {
+                process = new Process(processCounter);
+                processCounter += 1
+                process.nodes += signal
+                processSet += process
+              }
+              process.whens += wn.w
+              whenToProcess += (wn.w -> process)
+            }
+
+            walk(wn.whenTrue)
+            walk(wn.whenFalse)
+          }
+          case man: MultipleAssignmentNode => {
+            man.inputs.foreach(walk(_))
+            hasMultipleAssignment = true
+          }
+          case that => {
+            if (process == null) {
+              process = new Process(processCounter);
+              processCounter += 1
+              process.nodes += signal
+              processSet += process
+            }
+          }
+        }
+      }
+
+      process.hasMultipleAssignment |= hasMultipleAssignment
+    }
+
+    val processList = processSet.toList.sortWith(_.order < _.order)
+
+
+    for (process <- processList if !process.needProcessDef) {
+      for (node <- process.nodes) {
+        emitAssignement(node, node.inputs(0), ret, "  ")
+        //ret ++= s"  ${emitReference(node)} <= ${emitLogic(node.inputs(0))};\n"
       }
     }
+
+    for (process <- processList if process.needProcessDef) {
+      process.genSensitivity
+
+      if (process.sensitivity.size != 0) {
+        val context = new AssignementLevel
+        for (node <- process.nodes) {
+          context.walkWhenTree(node, node.inputs(0))
+        }
+
+        ret ++= s"  process(${process.sensitivity.toList.sortWith(_.instanceCounter < _.instanceCounter).map(emitReference(_)).reduceLeft(_ + "," + _)})\n"
+        ret ++= "  begin\n"
+        context.emitContext(ret, "    ")
+        ret ++= "  end process;\n\n"
+      } else {
+        for (node <- process.nodes) {
+          ret ++= s"  ${emitReference(node)} <= ${emitLogic(node.inputs(0))};\n"
+        }
+      }
+    }
+
   }
+
 
   def operatorImplAsOperator(vhd: String)(op: Modifier): String = {
     op.inputs.size match {
@@ -695,6 +803,7 @@ class VhdlBackend extends Backend with VhdlBase {
   modifierImplMap.put("resize(u,i)", operatorImplAsFunction("pkg_resize"))
   modifierImplMap.put("resize(b,i)", operatorImplAsFunction("pkg_resize"))
 
+  //Memo whenNode hardcode emitlogic
   modifierImplMap.put("mux(B,B,B)", operatorImplAsFunction("pkg_mux"))
   modifierImplMap.put("mux(B,b,b)", operatorImplAsFunction("pkg_mux"))
   modifierImplMap.put("mux(B,u,u)", operatorImplAsFunction("pkg_mux"))
@@ -715,41 +824,27 @@ class VhdlBackend extends Backend with VhdlBase {
 
   def emitLogic(node: Node): String = node match {
     case baseType: BaseType => emitReference(baseType)
-    //    case outBinding: OutBinding => emitReference(outBinding)
+    case node: Modifier => modifierImplMap.getOrElse(node.opName, throw new Exception("can't find " + node.opName))(node)
     case lit: BitsLiteral => lit.kind match {
       case _: Bits => s"pkg_stdLogicVector(X${'\"'}${lit.value.toString(16)}${'\"'},${lit.getWidth})"
       case _: UInt => s"pkg_unsigned(X${'\"'}${lit.value.toString(16)}${'\"'},${lit.getWidth})"
       case _: SInt => s"pkg_signed(X${'\"'}${lit.value.toString(16)}${'\"'},${lit.getWidth})"
     }
     case lit: IntLiteral => lit.value.toString(10)
-    case lit: SStringLiteral => "\"" + lit.value + "\""
     case lit: BoolLiteral => "\'" + (if (lit.value) "1" else "0") + "\'"
     case lit: EnumLiteral[_] => lit.enum.getName()
-    case node: Modifier => modifierImplMap.getOrElse(node.opName, throw new Exception("can't find " + node.opName))(node)
-    case node: ExtractBool => {
-      val bitIdString = node.bitId match {
-        case bitId: IntLiteral => emitLogic(bitId)
-        case bitId: UInt => s"to_integer(${emitLogic(bitId)})"
-      }
-      s"pkg_extract(${emitLogic(node.bitVector)},$bitIdString)"
-    }
-    case node: ExtractBitsVector => s"pkg_extract(${emitLogic(node.bitVector)},${node.bitIdHi.value},${node.bitIdLo.value})"
+    case node: ExtractBoolFixed => s"pkg_extract(${emitLogic(node.bitVector)},${node.bitId})"
+    case node: ExtractBoolFloating => s"pkg_extract(${emitLogic(node.bitVector)},to_integer(${emitLogic(node.bitId)})"
+    case node: ExtractBitsVectorFixed => s"pkg_extract(${emitLogic(node.getInput)},${node.hi},${node.lo})"
     case memRead: MemReadAsync => {
       if (memRead.writeToReadKind == dontCare) SpinalWarning(s"memReadAsync with dontCare is as writeFirst into VHDL")
       s"${emitReference(memRead.getMem)}(to_integer(${emitReference(memRead.getAddress)}))"
     }
-
+    case whenNode: WhenNode => s"pkg_mux(${whenNode.inputs.map(emitLogic(_)).reduce(_ + "," + _)})" //Exeptional case with asyncrouns of literal
     case o => throw new Exception("Don't know how emit logic of " + o.getClass.getSimpleName)
   }
 
 
-  //  case mem : Mem[_] => {
-  //    for(memIn <- mem.inputs)memIn match{
-  //    case write : MemWrite => {
-  //
-  //  }
-  //  }
-  //  }
   def emitSyncronous(component: Component, ret: StringBuilder): Unit = {
     // ret ++= "  -- synchronous\n"
 
@@ -833,61 +928,31 @@ class VhdlBackend extends Backend with VhdlBase {
         ret ++= s"${tabStr}\n"
 
         def emitRegsInitialValue(tab: String): Unit = {
+
+          val assignementLevel = new AssignementLevel
           for (syncNode <- activeArray) syncNode match {
             case reg: Reg => {
               if (reg.hasInitialValue) {
-                ret ++= s"$tab${emitReference(reg.getOutputByConsumers)} <= ${emitLogic(reg.getInitialValue)};\n"
+                assignementLevel.walkWhenTree(reg.getOutputByConsumers, reg.getInitialValue)
+                //ret ++= s"$tab${emitReference(reg.getOutputByConsumers)} <= ${emitLogic(reg.getInitialValue)};\n"
               }
             }
             case memWrite: MemWrite =>
           }
+          assignementLevel.emitContext(ret, tab)
         }
         def emitRegsLogic(tab: String): Unit = {
 
-          class Context {
-            val logic = mutable.ArrayBuffer[(Node, Node)]()
-            val when = mutable.Map[Node, WhenTree]()
 
-            def isEmpty = logic.isEmpty && when.isEmpty
-
-            def isNotEmpty = !isEmpty
-          }
-
-          class WhenTree(val cond: Node) {
-            var whenTrue: Context = new Context
-            var whenFalse: Context = new Context
-          }
-
-          val rootContext = new Context
+          val rootContext = new AssignementLevel
 
           for (syncNode <- activeArray) syncNode match {
             case reg: Reg => {
               val regSignal = reg.getOutputByConsumers
               if (!regSignal.isIo || !regSignal.isInput) {
                 val in = reg.getDataInput
-                if (in != reg) //check that reg has logic
-                  walkMux(in, rootContext)
-
-                def walkMux(that: Node, context: Context): Unit = {
-                  if (that == null) return
-                  that match {
-                    case mux: Multiplexer => {
-                      if (mux.whenMux) {
-                        if (mux.whenTrue != reg) {
-                          val when = context.when.getOrElseUpdate(mux.cond, new WhenTree(mux.cond))
-                          walkMux(mux.whenTrue, when.whenTrue)
-                        }
-                        if (mux.whenFalse != reg) {
-                          val when = context.when.getOrElseUpdate(mux.cond, new WhenTree(mux.cond))
-                          walkMux(mux.whenFalse, when.whenFalse)
-                        }
-                      } else {
-                        context.logic += new Tuple2(regSignal, that)
-                      }
-                    }
-                    case _ => context.logic += new Tuple2(regSignal, that)
-                  }
-                }
+                if (in != reg)
+                  rootContext.walkWhenTree(regSignal, in)
               }
             }
             case memWrite: MemWrite => {
@@ -916,56 +981,116 @@ class VhdlBackend extends Backend with VhdlBase {
 
             }
           }
+          rootContext.emitContext(ret, tab)
+        }
+      }
+    }
+  }
 
-          emitContext(rootContext, tab)
+  def emitAssignement(to: Node, from: Node, ret: StringBuilder, tab: String): Unit = {
+    from match {
+      case from: AssignementNode => {
+        from match {
+          case assign : BitAssignmentFixed => ret ++= s"$tab${emitReference(to)}(${assign.getBitId}) <= ${emitLogic(assign.getInput)};\n"
+          case assign : BitAssignmentFloating => ret ++= s"$tab${emitReference(to)}(to_integer(${emitLogic(assign.getBitId)})) <= ${emitLogic(assign.getInput)};\n"
+          case assign : RangedAssignmentFixed => ret ++= s"$tab${emitReference(to)}(${assign.getHi} downto ${assign.getLo}) <= ${emitLogic(assign.getInput)};\n"
+        }
+      } //        ret ++= s"$tab${emitReference(to)}(${emitLogic(pa.getHi)} downto ${emitLogic(pa.getLo)}) <= ${emitLogic(pa.getInput)};\n"
+      case _ => ret ++= s"$tab${emitReference(to)} <= ${emitLogic(from)};\n"
+    }
+  }
 
 
-          def emitContext(context: Context, tab: String): Unit = {
-            for ((to, from) <- context.logic) {
-              ret ++= s"$tab${emitReference(to)} <= ${emitLogic(from)};\n"
+  class WhenTree(val cond: Node, val instanceCounter: Int) {
+    var whenTrue: AssignementLevel = new AssignementLevel
+    var whenFalse: AssignementLevel = new AssignementLevel
+  }
+
+  class AssignementLevel {
+    val logicChunk = mutable.Map[WhenTree, ArrayBuffer[(Node, Node)]]()
+    val when = mutable.Map[when, WhenTree]()
+
+    def isEmpty = logicChunk.isEmpty && when.isEmpty
+
+    def isNotEmpty = !isEmpty
+
+
+    def walkWhenTree(root: Node, that: Node): Unit = {
+      def getElements: ArrayBuffer[Node] = {
+        if (that.isInstanceOf[MultipleAssignmentNode]) {
+          return that.inputs
+        } else {
+          return ArrayBuffer(that)
+        }
+      }
+
+      var lastWhenTree: WhenTree = null
+      for (node <- getElements) {
+        node match {
+          case whenNode: WhenNode => {
+            if (!whenNode.whenTrue.isInstanceOf[NoneNode]) {
+              val when = this.when.getOrElseUpdate(whenNode.w, new WhenTree(whenNode.cond, node.instanceCounter))
+              lastWhenTree = when
+              when.whenTrue.walkWhenTree(root, whenNode.whenTrue)
             }
-            for (when <- context.when.values) {
-              def doTrue = when.whenTrue.isNotEmpty
-              def doFalse = when.whenFalse.isNotEmpty
-
-              if (!doTrue && doFalse) {
-
-                ret ++= s"${tab}if ${emitLogic(when.cond)} = '0'  then\n"
-                emitContext(when.whenFalse, tab + "  ")
-                ret ++= s"${tab}end if;\n"
-
-              } else if (doTrue && !doFalse) {
-
-                ret ++= s"${tab}if ${emitLogic(when.cond)} = '1' then\n"
-                emitContext(when.whenTrue, tab + "  ")
-                ret ++= s"${tab}end if;\n"
-
-              } else if (doTrue && doFalse) {
-
-                ret ++= s"${tab}if ${emitLogic(when.cond)} = '1' then\n"
-                emitContext(when.whenTrue, tab + "  ")
-                ret ++= s"${tab}else\n"
-                emitContext(when.whenFalse, tab + "  ")
-                ret ++= s"${tab}end if;\n"
-
-              }
+            if (!whenNode.whenFalse.isInstanceOf[NoneNode]) {
+              val when = this.when.getOrElseUpdate(whenNode.w, new WhenTree(whenNode.cond, node.instanceCounter))
+              lastWhenTree = when
+              when.whenFalse.walkWhenTree(root, whenNode.whenFalse)
             }
           }
+          case reg: Reg =>
+          case _ => this.logicChunk.getOrElseUpdate(lastWhenTree, new ArrayBuffer[(Node, Node)]) += new Tuple2(root, node)
         }
       }
     }
 
-    //ret ++= "  -- end synchronous\n"
 
+    def emitContext(ret: mutable.StringBuilder, tab: String): Unit = {
+      def emitLogicChunk(key: WhenTree): Unit = {
+        if (this.logicChunk.contains(key)) {
+          for ((to, from) <- this.logicChunk.get(key).get) {
+            emitAssignement(to, from, ret, tab)
+          }
+        }
+      }
 
+      emitLogicChunk(null)
+
+      for (when <- this.when.values.toList.sortWith(_.instanceCounter < _.instanceCounter)) {
+        def doTrue = when.whenTrue.isNotEmpty
+        def doFalse = when.whenFalse.isNotEmpty
+
+        if (!doTrue && doFalse) {
+          ret ++= s"${tab}if ${emitLogic(when.cond)} = '0'  then\n"
+          when.whenFalse.emitContext(ret, tab + "  ")
+          ret ++= s"${tab}end if;\n"
+        } else if (doTrue && !doFalse) {
+          ret ++= s"${tab}if ${emitLogic(when.cond)} = '1' then\n"
+          when.whenTrue.emitContext(ret, tab + "  ")
+          ret ++= s"${tab}end if;\n"
+        } else if (doTrue && doFalse) {
+          ret ++= s"${tab}if ${emitLogic(when.cond)} = '1' then\n"
+          when.whenTrue.emitContext(ret, tab + "  ")
+          ret ++= s"${tab}else\n"
+          when.whenFalse.emitContext(ret, tab + "  ")
+          ret ++= s"${tab}end if;\n"
+        }
+        emitLogicChunk(when)
+      }
+    }
   }
-
 
   def emitComponentInstances(component: Component, ret: StringBuilder): Unit = {
     for (kind <- component.kinds) {
       val isBB = kind.isInstanceOf[BlackBox]
-      val definitionString = if (isBB) kind.definitionName else s"entity $library.${kind.definitionName}"
-      ret ++= s"  ${kind.getName()} : $definitionString\n"
+      val definitionString = if (isBB) kind.definitionName
+      else s"entity $library.${
+        kind.definitionName
+      }"
+      ret ++= s"  ${
+        kind.getName()
+      } : $definitionString\n"
       if (kind.isInstanceOf[BlackBox]) {
         val bb = kind.asInstanceOf[BlackBox]
         val genericFlat = bb.generic.flatten
@@ -996,11 +1121,19 @@ class VhdlBackend extends Backend with VhdlBase {
         if (data.isOutput) {
           val bind = component.kindsOutputsToBindings.getOrElse(data, null)
           if (bind != null) {
-            ret ++= s"      ${emitReference(data)} => ${emitReference(bind)},\n"
+            ret ++= s"      ${
+              emitReference(data)
+            } => ${
+              emitReference(bind)
+            },\n"
           }
         }
         else if (data.isInput)
-          ret ++= s"      ${emitReference(data)} => ${emitReference(data.inputs(0))},\n"
+          ret ++= s"      ${
+            emitReference(data)
+          } => ${
+            emitReference(data.inputs(0))
+          },\n"
       }
       ret.setCharAt(ret.size - 2, ' ')
 

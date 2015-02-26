@@ -30,13 +30,13 @@ class UIntFactory extends BitVectorFactory[UInt] {
 class UInt extends BitVector with MinMaxProvider {
   override type SSelf = UInt
 
-  def +(that: UInt): UInt = newBinaryOperator("u+u", that, WidthInfer.inputMaxWidthl, InputNormalize.nodeWidth);
-  def -(that: UInt): UInt = newBinaryOperator("u-u", that, WidthInfer.inputMaxWidthl, InputNormalize.nodeWidth);
+  def +(that: UInt): UInt = newBinaryOperator("u+u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth);
+  def -(that: UInt): UInt = newBinaryOperator("u-u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth);
   def *(that: UInt): UInt = newBinaryOperator("u*u", that, WidthInfer.cumulateInputWidth, InputNormalize.none);
 
-  def |(that: UInt): UInt = newBinaryOperator("u|u", that, WidthInfer.inputMaxWidthl, InputNormalize.nodeWidth);
-  def &(that: UInt): UInt = newBinaryOperator("u&u", that, WidthInfer.inputMaxWidthl, InputNormalize.nodeWidth);
-  def ^(that: UInt): UInt = newBinaryOperator("u^u", that, WidthInfer.inputMaxWidthl, InputNormalize.nodeWidth);
+  def |(that: UInt): UInt = newBinaryOperator("u|u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth);
+  def &(that: UInt): UInt = newBinaryOperator("u&u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth);
+  def ^(that: UInt): UInt = newBinaryOperator("u^u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth);
   def unary_~(): UInt = newUnaryOperator("~u");
 
   override def ===(that: SSelf): Bool = newLogicalOperator("u==u", that, InputNormalize.inputWidthMax);
