@@ -51,8 +51,33 @@ object CommonTester {
       val outAA = out(new BundleAA)
       val outAABits = out Bits (new BundleAA().getBitsWidth bit)
 
+
+      val assign = new Bundle{
+        val sel = in Vec(4,UInt(4 bit))
+        val bitDemux = out Bits(16 bit)
+
+
+        def doit: Unit ={
+          bitDemux := Bits(0)
+          bitDemux(sel(0)) := conds(0)
+          when(conds(1)){
+            bitDemux(sel(1)) := conds(2)
+          }.elsewhen(conds(3)){
+            bitDemux(sel(0)) := conds(4)
+          }
+          when(conds(5)){
+            bitDemux(sel(1)) := conds(6)
+          }
+          bitDemux(5) := Bool(true)
+        }
+      }
+      def doit: Unit ={
+        assign.doit
+      }
     }
 
+
+    io.doit
 
     io.outAA.fromBits(io.inAABits)
     io.outAABits := io.inAA.toBits

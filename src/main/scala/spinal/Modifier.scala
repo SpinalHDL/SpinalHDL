@@ -201,46 +201,44 @@ private[spinal] object Multiplex {
 }
 
 
-object ExtractBool {
-  def apply(bitVector: BitVector, bitId: Int): ExtractBool = {
-    val op = new ExtractBool
+object ExtractBoolFixed {
+  def apply(bitVector: BitVector, bitId: Int): ExtractBoolFixed = {
+    val op = new ExtractBoolFixed(bitId)
     op.inputs += bitVector
-    op.inputs += new IntLiteral(bitId)
     op
   }
 
-  def apply(bitVector: BitVector, bitId: UInt): ExtractBool = {
-    val op = new ExtractBool
+  def apply(bitVector: BitVector, bitId: UInt): ExtractBoolFloating = {
+    val op = new ExtractBoolFloating
     op.inputs += bitVector
     op.inputs += bitId
     op
   }
 }
 
-class ExtractBool extends Node {
+class ExtractBoolFixed(val bitId: Int) extends Node {
   def calcWidth: Int = 1
-
   def bitVector = inputs(0)
 
-  def bitId = inputs(1)
-
   override def checkInferedWidth: String = {
-    bitId match {
-      case lit: IntLiteral => {
-        if (lit.value < 0 || lit.value >= bitVector.getWidth) {
-          return s"Static bool extraction (bit ${lit.value}) is outside the range (${bitVector.getWidth - 1} downto 0) of ${bitVector} at\n${getScalaTraceString}"
-        }
-      }
-      case _ =>
+    if (bitId < 0 || bitId >= bitVector.getWidth) {
+      return s"Static bool extraction (bit ${bitId}) is outside the range (${bitVector.getWidth - 1} downto 0) of ${bitVector} at\n${getScalaTraceString}"
     }
+
     return null
   }
 }
 
-object ExtractBitsVector {
-  def apply(bitVector: BitVector, bitIdHi: Int, bitIdLow: Int): ExtractBitsVector = {
+class ExtractBoolFloating extends Node {
+  def calcWidth: Int = 1
+  def bitVector = inputs(0)
+  def bitId = inputs(1)
+}
+
+object ExtractBitsVectorFixed {
+  def apply(bitVector: BitVector, bitIdHi: Int, bitIdLow: Int): ExtractBitsVectorFixed = {
     if (bitIdHi - bitIdLow < -1) SpinalError(s"Static bits extraction with a negative size ($bitIdHi downto $bitIdLow)")
-    val op = new ExtractBitsVector(bitIdHi, bitIdLow)
+    val op = new ExtractBitsVectorFixed(bitIdHi, bitIdLow)
     op.inputs += bitVector
     op
   }
@@ -254,7 +252,7 @@ object ExtractBitsVector {
   }
 }
 
-class ExtractBitsVector(val hi: Int, val lo: Int) extends Node {
+class ExtractBitsVectorFixed(val hi: Int, val lo: Int) extends Node {
   def calcWidth: Int = hi - lo + 1
   def getInput = inputs(0)
 
@@ -267,9 +265,11 @@ class ExtractBitsVector(val hi: Int, val lo: Int) extends Node {
   }
 }
 
-trait AssignementNode extends Node{
+//TODO take a look to inputs width normalization for all AssignementNode
+trait AssignementNode extends Node {
 
 }
+
 
 class BitAssignmentFixed(out: Node, in: Node, bitId: Int) extends AssignementNode {
   inputs += in
@@ -288,9 +288,11 @@ class BitAssignmentFixed(out: Node, in: Node, bitId: Int) extends AssignementNod
 
 class BitAssignmentFloating(out: Node, in: Node, bitId: UInt) extends AssignementNode {
   inputs += in
+  inputs += bitId
 
   def getInput = inputs(0)
-  def getBitId = bitId
+  def getBitId = inputs(1)
+
   override def calcWidth: Int = out.getWidth
 }
 
@@ -328,4 +330,8 @@ class RangedAssignmentFloating(out: Node, in: Node, hi: UInt, lo: UInt) extends 
 
 class MultipleAssignmentNode extends Node {
   override def calcWidth: Int = WidthInfer.inputMaxWidth(this)
+  override def normalizeInputs: Unit = {
+    for(i <- 0 until inputs.size)
+      Misc.normalizeResize(this, i, this.getWidth)
+  }
 }

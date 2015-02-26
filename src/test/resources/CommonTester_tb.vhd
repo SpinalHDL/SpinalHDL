@@ -41,10 +41,17 @@ architecture arch of CommonTester_tb is
   signal io_outAA_vsw : std_logic;
   signal io_outAA_lwee : unsigned(4 downto 0);
   signal io_outAABits : std_logic_vector(11 downto 0);
+  signal io_assign_sel_0 : unsigned(3 downto 0);
+  signal io_assign_sel_1 : unsigned(3 downto 0);
+  signal io_assign_sel_2 : unsigned(3 downto 0);
+  signal io_assign_sel_3 : unsigned(3 downto 0);
+  signal io_assign_bitDemux : std_logic_vector(15 downto 0);
   -- #spinalBegin userDeclarations
   signal clk : std_logic;
   signal asyncProcess : std_logic := '0';
-  
+
+  signal io_assign_bitDemux_ref : std_logic_vector(15 downto 0);
+
   shared variable done : boolean := false; 
   -- #spinalEnd userDeclarations
 begin
@@ -58,6 +65,22 @@ begin
     end if;
     clk <= '1';
     wait for 5 ns;
+  end process;
+
+
+  process(asyncProcess)
+  begin
+    io_assign_bitDemux_ref <= (others => '0');
+    io_assign_bitDemux_ref(to_integer(io_assign_sel_0)) <= io_conds_0;
+    if io_conds_1 = '1' then
+      io_assign_bitDemux_ref(to_integer(io_assign_sel_1)) <= io_conds_2;
+    elsif io_conds_3 = '1' then
+      io_assign_bitDemux_ref(to_integer(io_assign_sel_0)) <= io_conds_4;
+    end if;
+    if io_conds_5 = '1' then
+      io_assign_bitDemux_ref(to_integer(io_assign_sel_1)) <= io_conds_6;
+    end if;
+    io_assign_bitDemux_ref(5) <= '1';
   end process;
   
 
@@ -113,6 +136,12 @@ begin
     random(io_inUIntA);
     random(io_inUIntB);
 
+    random(io_assign_sel_0);
+    random(io_assign_sel_1);
+    random(io_assign_sel_2);
+    random(io_assign_sel_3);
+
+
     wait for 1 ns;
     asyncProcess <= not asyncProcess;
     
@@ -134,6 +163,8 @@ begin
       assert io_outAABits(4 downto 0) = std_logic_vector(io_inAA_lwee) report "io_outAABits fail" severity failure;
 
       assert io_inUIntA + io_inUIntB = io_outUIntAdder  report "io_outUIntAdder fail" severity failure;
+
+      assert io_assign_bitDemux = io_assign_bitDemux_ref  report "io_assign_bitDemux_ref fail" severity failure;
    end if;
 
     
@@ -170,6 +201,11 @@ begin
       io_outAA_zwg =>  io_outAA_zwg,
       io_outAA_vsw =>  io_outAA_vsw,
       io_outAA_lwee =>  io_outAA_lwee,
-      io_outAABits =>  io_outAABits 
+      io_outAABits =>  io_outAABits,
+      io_assign_sel_0 =>  io_assign_sel_0,
+      io_assign_sel_1 =>  io_assign_sel_1,
+      io_assign_sel_2 =>  io_assign_sel_2,
+      io_assign_sel_3 =>  io_assign_sel_3,
+      io_assign_bitDemux =>  io_assign_bitDemux 
     );
 end arch;

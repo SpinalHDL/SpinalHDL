@@ -119,6 +119,7 @@ class Backend {
     //Simplify nodes
     SpinalInfoPhase("Simplify graph's nodes")
     fillNodeConsumer
+    dontSymplifyBasetypeWithComplexAssignement
     deleteUselessBaseTypes
     simplifyBlacBoxGenerics
 
@@ -394,6 +395,22 @@ class Backend {
 
   def pullClockDomains: Unit = {
     walkNodes(walker_pullClockDomains)
+  }
+
+  def dontSymplifyBasetypeWithComplexAssignement: Unit ={
+    walkNodes2(node => {
+      node match {
+        case baseType : BaseType =>{
+          baseType.inputs(0) match{
+            case wn : WhenNode => baseType.dontSimplifyIt
+            case an : AssignementNode => baseType.dontSimplifyIt
+            case man : MultipleAssignmentNode => baseType.dontSimplifyIt
+            case _ =>
+          }
+        }
+        case _ =>
+      }
+    })
   }
 
   def deleteUselessBaseTypes: Unit = {

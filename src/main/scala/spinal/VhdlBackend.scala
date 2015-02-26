@@ -19,6 +19,7 @@
 package spinal
 
 
+
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
@@ -649,7 +650,7 @@ class VhdlBackend extends Backend with VhdlBase {
 
     for (process <- processList if !process.needProcessDef) {
       for (node <- process.nodes) {
-        emitAssignement(node,node.inputs(0),ret,"  ")
+        emitAssignement(node, node.inputs(0), ret, "  ")
         //ret ++= s"  ${emitReference(node)} <= ${emitLogic(node.inputs(0))};\n"
       }
     }
@@ -663,7 +664,7 @@ class VhdlBackend extends Backend with VhdlBase {
           context.walkWhenTree(node, node.inputs(0))
         }
 
-        ret ++= s"  process(${process.sensitivity.map(emitReference(_)).reduceLeft(_ + "," + _)})\n"
+        ret ++= s"  process(${process.sensitivity.toList.sortWith(_.instanceCounter < _.instanceCounter).map(emitReference(_)).reduceLeft(_ + "," + _)})\n"
         ret ++= "  begin\n"
         context.emitContext(ret, "    ")
         ret ++= "  end process;\n\n"
@@ -823,7 +824,7 @@ class VhdlBackend extends Backend with VhdlBase {
 
   def emitLogic(node: Node): String = node match {
     case baseType: BaseType => emitReference(baseType)
-    //    case outBinding: OutBinding => emitReference(outBinding)
+    case node: Modifier => modifierImplMap.getOrElse(node.opName, throw new Exception("can't find " + node.opName))(node)
     case lit: BitsLiteral => lit.kind match {
       case _: Bits => s"pkg_stdLogicVector(X${'\"'}${lit.value.toString(16)}${'\"'},${lit.getWidth})"
       case _: UInt => s"pkg_unsigned(X${'\"'}${lit.value.toString(16)}${'\"'},${lit.getWidth})"
@@ -832,23 +833,14 @@ class VhdlBackend extends Backend with VhdlBase {
     case lit: IntLiteral => lit.value.toString(10)
     case lit: BoolLiteral => "\'" + (if (lit.value) "1" else "0") + "\'"
     case lit: EnumLiteral[_] => lit.enum.getName()
-    case node: Modifier => modifierImplMap.getOrElse(node.opName, throw new Exception("can't find " + node.opName))(node)
-    case node: ExtractBool => {
-      val bitIdString = node.bitId match {
-        case bitId: IntLiteral => emitLogic(bitId)
-        case bitId: UInt => s"to_integer(${emitLogic(bitId)})"
-      }
-      s"pkg_extract(${emitLogic(node.bitVector)},$bitIdString)"
-    }
-    case node: ExtractBitsVector => s"pkg_extract(${emitLogic(node.getInput)},${node.hi},${node.lo})"
+    case node: ExtractBoolFixed => s"pkg_extract(${emitLogic(node.bitVector)},${node.bitId})"
+    case node: ExtractBoolFloating => s"pkg_extract(${emitLogic(node.bitVector)},to_integer(${emitLogic(node.bitId)})"
+    case node: ExtractBitsVectorFixed => s"pkg_extract(${emitLogic(node.getInput)},${node.hi},${node.lo})"
     case memRead: MemReadAsync => {
       if (memRead.writeToReadKind == dontCare) SpinalWarning(s"memReadAsync with dontCare is as writeFirst into VHDL")
       s"${emitReference(memRead.getMem)}(to_integer(${emitReference(memRead.getAddress)}))"
     }
-    case whenNode: WhenNode => {
-      //Exeptional case with asyncrouns of literal
-      s"pkg_mux(${whenNode.inputs.map(emitLogic(_)).reduce(_ + "," + _)})"
-    }
+    case whenNode: WhenNode => s"pkg_mux(${whenNode.inputs.map(emitLogic(_)).reduce(_ + "," + _)})" //Exeptional case with asyncrouns of literal
     case o => throw new Exception("Don't know how emit logic of " + o.getClass.getSimpleName)
   }
 
@@ -947,7 +939,7 @@ class VhdlBackend extends Backend with VhdlBase {
             }
             case memWrite: MemWrite =>
           }
-          assignementLevel.emitContext(ret,tab)
+          assignementLevel.emitContext(ret, tab)
         }
         def emitRegsLogic(tab: String): Unit = {
 
@@ -995,10 +987,14 @@ class VhdlBackend extends Backend with VhdlBase {
     }
   }
 
-  def emitAssignement(to : Node,from : Node,ret : StringBuilder,tab : String): Unit ={
+  def emitAssignement(to: Node, from: Node, ret: StringBuilder, tab: String): Unit = {
     from match {
-      case pa: RangedAssignmentFixed => {
-        ret ++= s"$tab${emitReference(to)}(${pa.getHi} downto ${pa.getLo}) <= ${emitLogic(pa.getInput)};\n"
+      case from: AssignementNode => {
+        from match {
+          case assign : BitAssignmentFixed => ret ++= s"$tab${emitReference(to)}(${assign.getBitId}) <= ${emitLogic(assign.getInput)};\n"
+          case assign : BitAssignmentFloating => ret ++= s"$tab${emitReference(to)}(to_integer(${emitLogic(assign.getBitId)})) <= ${emitLogic(assign.getInput)};\n"
+          case assign : RangedAssignmentFixed => ret ++= s"$tab${emitReference(to)}(${assign.getHi} downto ${assign.getLo}) <= ${emitLogic(assign.getInput)};\n"
+        }
       } //        ret ++= s"$tab${emitReference(to)}(${emitLogic(pa.getHi)} downto ${emitLogic(pa.getLo)}) <= ${emitLogic(pa.getInput)};\n"
       case _ => ret ++= s"$tab${emitReference(to)} <= ${emitLogic(from)};\n"
     }
@@ -1054,7 +1050,7 @@ class VhdlBackend extends Backend with VhdlBase {
       def emitLogicChunk(key: WhenTree): Unit = {
         if (this.logicChunk.contains(key)) {
           for ((to, from) <- this.logicChunk.get(key).get) {
-            emitAssignement(to,from,ret,tab)
+            emitAssignement(to, from, ret, tab)
           }
         }
       }
