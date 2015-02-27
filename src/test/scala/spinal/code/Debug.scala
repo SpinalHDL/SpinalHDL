@@ -36,11 +36,27 @@ object Debug {
       val selOut = out SInt(3 bit)
 
       val demux = out SInt(16 bit)
+      val partialAssign = out Bits(16 bit)
     }
+
+    io.partialAssign(0) := io.conds(0)
+    io.partialAssign(1) := io.conds(1)
+    when(io.conds(2)){
+      io.partialAssign(2) := Bool(false)
+    }.elsewhen(io.conds(3)) {
+      io.partialAssign(2) := Bool(true)
+    }.otherwise{
+      io.partialAssign(3,2) := Bits(54)
+    }
+    io.partialAssign(3,13 bit) := Bits(0)
+
+
 
     io.selOut := io.selIn(io.sel,io.selOut.getWidth bit)
     io.demux := SInt(0)
     io.demux(io.sel,io.selOut.getWidth bit) := io.selOut
+
+
 
 
     {

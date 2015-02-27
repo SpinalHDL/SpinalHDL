@@ -153,7 +153,17 @@ class VhdlBackend extends Backend with VhdlBase {
         ret.result()
       })
     }
-
+    def pkgCat(kind: String): Tuple2[String, String] = {
+      val ret = new StringBuilder();
+      (s"function pkg_cat (a : $kind; b : $kind) return $kind", {
+        ret ++= s"    variable cat : $kind(a'length + b'length-1 downto 0);\n"
+        ret ++= s"  begin\n"
+        ret ++= s"    cat := a & b;\n"
+        ret ++= s"    return cat;\n"
+        ret ++= s"  end pkg_cat;\n\n"
+        ret.result()
+      })
+    }
     /*def pkgResize(kind: String): Tuple2[String, String] = {
       (s"function pkg_extract (that : $kind; width : integer) return std_logic",
         s"""|  begin
@@ -166,6 +176,7 @@ class VhdlBackend extends Backend with VhdlBase {
     val funcs = ArrayBuffer[Tuple2[String, String]]()
     vectorTypes.foreach(kind => {
       funcs += pkgExtractBool(kind)
+      funcs += pkgCat(kind)
     })
 
     val ret = new StringBuilder();
@@ -765,7 +776,7 @@ class VhdlBackend extends Backend with VhdlBase {
 
 
   //bits
-  modifierImplMap.put("##", operatorImplAsOperator("&"))
+  modifierImplMap.put("b##b", operatorImplAsFunction("pkg_cat"))
 
   modifierImplMap.put("b|b", operatorImplAsOperator("or"))
   modifierImplMap.put("b&b", operatorImplAsOperator("and"))
@@ -842,7 +853,6 @@ class VhdlBackend extends Backend with VhdlBase {
   modifierImplMap.put("extract(s,u,w)", extractBitVectorFloating)
 
 
-
   def extractBoolFixed(func: Modifier): String = {
     val that = func.asInstanceOf[ExtractBoolFixed]
     s"pkg_extract(${emitLogic(that.getBitVector)},${that.getBitId})"
@@ -859,7 +869,7 @@ class VhdlBackend extends Backend with VhdlBase {
   }
   def extractBitVectorFloating(func: Modifier): String = {
     val that = func.asInstanceOf[ExtractBitsVectorFloating]
-    s"pkg_extract(${emitLogic(that.getBitVector)},${that.getBitCount.value-1} + to_integer(${emitLogic(that.getOffset)}),to_integer(${emitLogic(that.getOffset)}))"
+    s"pkg_extract(${emitLogic(that.getBitVector)},${that.getBitCount.value - 1} + to_integer(${emitLogic(that.getOffset)}),to_integer(${emitLogic(that.getOffset)}))"
   }
 
 
@@ -1041,10 +1051,10 @@ class VhdlBackend extends Backend with VhdlBase {
     from match {
       case from: AssignementNode => {
         from match {
-          case assign: BitAssignmentFixed => ret ++= s"$tab${emitReference(to)}(${assign.getBitId}) <= ${emitLogic(assign.getInput)};\n"
-          case assign: BitAssignmentFloating => ret ++= s"$tab${emitReference(to)}(to_integer(${emitLogic(assign.getBitId)})) <= ${emitLogic(assign.getInput)};\n"
-          case assign: RangedAssignmentFixed => ret ++= s"$tab${emitReference(to)}(${assign.getHi} downto ${assign.getLo}) <= ${emitLogic(assign.getInput)};\n"
-          case assign : RangedAssignmentFloating  => ret ++= s"$tab${emitReference(to)}(${assign.getBitCount.value-1} + to_integer(${emitLogic(assign.getOffset)}) downto to_integer(${emitLogic(assign.getOffset)})) <= ${emitLogic(assign.getInput)};\n"
+          case assign : BitAssignmentFixed => ret ++= s"$tab${emitReference(to)}(${assign.getBitId}) <= ${emitLogic(assign.getInput)};\n"
+          case assign : BitAssignmentFloating => ret ++= s"$tab${emitReference(to)}(to_integer(${emitLogic(assign.getBitId)})) <= ${emitLogic(assign.getInput)};\n"
+          case assign : RangedAssignmentFixed => ret ++= s"$tab${emitReference(to)}(${assign.getHi} downto ${assign.getLo}) <= ${emitLogic(assign.getInput)};\n"
+          case assign: RangedAssignmentFloating => ret ++= s"$tab${emitReference(to)}(${assign.getBitCount.value - 1} + to_integer(${emitLogic(assign.getOffset)}) downto to_integer(${emitLogic(assign.getOffset)})) <= ${emitLogic(assign.getInput)};\n"
         }
       } //        ret ++= s"$tab${emitReference(to)}(${emitLogic(pa.getHi)} downto ${emitLogic(pa.getLo)}) <= ${emitLogic(pa.getInput)};\n"
       case _ => ret ++= s"$tab${emitReference(to)} <= ${emitLogic(from)};\n"

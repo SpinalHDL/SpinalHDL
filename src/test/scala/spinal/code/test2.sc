@@ -18,6 +18,12 @@ import scala.runtime.Nothing$
  * License along with this library.
  */
 
+
+BigInt(15) &~ BigInt(2)
+BigInt(15) &~ BigInt(32)
+BigInt(15) & BigInt(2)
+
+
 abstract class Helper extends DelayedInit {
   def delayedInit(body: => Unit) = {
     println("a")
@@ -30,12 +36,8 @@ class C extends Helper {
   println("Code")
 }
 val c = new C
-
-
-
 trait OnCreate extends DelayedInit {
   def onCreate:Unit
-
   def delayedInit(body: => Unit) = {
     body
 
@@ -49,7 +51,6 @@ trait OnCreate extends DelayedInit {
 class A extends DelayedInit {
   def delayedInit(body: => Unit) = {
     body
-
     //    if ((body _).getClass.getDeclaringClass == this.getClass)
     //    {
     onCreate

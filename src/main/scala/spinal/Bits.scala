@@ -35,7 +35,7 @@ class Bits extends BitVector {
   override type SSelf = Bits
   def prefix : String = "b"
 
-  def ##(right: Bits): Bits = newBinaryOperator("##", right, WidthInfer.cumulateInputWidth, InputNormalize.none)
+  def ##(right: Bits): Bits = newBinaryOperator("b##b", right, WidthInfer.cumulateInputWidth, InputNormalize.none)
 
 
   def |(that: Bits): Bits = newBinaryOperator("b|b", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth);

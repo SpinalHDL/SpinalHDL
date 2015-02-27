@@ -277,7 +277,7 @@ abstract class BaseType extends Node with Data with Nameable {
   }
 
 
-  //TODO Clone is not good because of fixed width
+
   def addTypeNodeFrom(node: Node): this.type = {
     val typeNode = weakClone
     typeNode.setInput(node)

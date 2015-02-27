@@ -75,7 +75,6 @@ class Backend {
 
   //TODO
   //TODO ROM support
-  //TODO check asyncrounous missing input (WhenNode)
   protected def elaborate[T <: Component](topLevel: T): BackendReport[T] = {
     SpinalInfoPhase("Start analysis and transform")
 
@@ -97,6 +96,7 @@ class Backend {
     SpinalInfoPhase("Transform connection")
     pullClockDomains
     check_noNull_noCrossHierarchy_noInputRegister
+
     addInOutBinding
     allowNodesToReadOutputs
     allowNodesToReadInputOfKindComponent
@@ -109,9 +109,13 @@ class Backend {
     normalizeNodeInputs
     checkInferedWidth
 
+
+
     //Check
     SpinalInfoPhase("Check combinational loops")
     checkCombinationalLoops
+    SpinalInfoPhase("Check that there is no incomplet assignement")
+    check_noAsyncNodeWithIncompletAssignment
     SpinalInfoPhase("Check cross clock domains")
     checkCrossClockDomains
 
@@ -290,6 +294,53 @@ class Backend {
     }
   }
 
+
+
+  def check_noAsyncNodeWithIncompletAssignment: Unit ={
+
+
+    val errors = mutable.ArrayBuffer[String]()
+
+    walkNodes2(node => node match{
+      case signal : BaseType if !signal.isDelay =>{
+
+        val signalRange = new AssignedRange(signal.getWidth -1,0)
+
+        def walk(nodes : ArrayBuffer[Node]): AssignedBits = {
+          val assignedBits = new AssignedBits
+
+          for(node <- nodes)node match{
+            case wn : WhenNode => {
+              assignedBits.add(AssignedBits.intersect(walk(ArrayBuffer(wn.whenTrue)),walk(ArrayBuffer(wn.whenFalse))))
+            }
+            case an : AssignementNode => {
+              assignedBits.add(an.getAssignedBits)
+            }
+            case man : MultipleAssignmentNode => return walk(man.inputs)
+            case nothing : NoneNode =>
+            case _ => assignedBits.add(signalRange)
+          }
+          assignedBits
+        }
+
+        val assignedBits = walk(signal.inputs)
+
+        val unassignedBits = AssignedBits()
+        unassignedBits.add(signalRange)
+        unassignedBits.remove(assignedBits)
+        if(!unassignedBits.isEmpty)
+          errors += s"Incomplet assignment is detected on $signal, unassigned bit mask is ${unassignedBits.value.toString(2)}}, declared at ${signal.getScalaLocationString}"
+
+
+
+
+      }
+      case _ =>
+    })
+
+    if (!errors.isEmpty)
+      SpinalError(errors)
+  }
 
   def check_noNull_noCrossHierarchy_noInputRegister: Unit = {
     val errors = mutable.ArrayBuffer[String]()
