@@ -19,7 +19,6 @@
 package spinal
 
 
-
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
@@ -195,6 +194,8 @@ class VhdlBackend extends Backend with VhdlBase {
     ret ++= "  function pkg_resize (that : signed; width : integer) return signed;\n"
     ret ++= "\n"
     ret ++= "  function pkg_extract (that : std_logic_vector; high : integer; low : integer) return std_logic_vector;\n"
+    ret ++= "  function pkg_extract (that : unsigned; high : integer; low : integer) return unsigned;\n"
+    ret ++= "  function pkg_extract (that : signed; high : integer; low : integer) return signed;\n"
     ret ++= "\n"
     ret ++= "  function pkg_shiftRight (that : std_logic_vector; size : natural) return std_logic_vector;\n"
     ret ++= "  function pkg_shiftRight (that : std_logic_vector; size : unsigned) return std_logic_vector;\n"
@@ -285,6 +286,20 @@ class VhdlBackend extends Backend with VhdlBase {
     ret ++= "\n"
     ret ++= "  function pkg_extract (that : std_logic_vector; high : integer; low : integer) return std_logic_vector is\n"
     ret ++= "    variable temp : std_logic_vector(high-low downto 0);\n"
+    ret ++= "  begin\n"
+    ret ++= "    temp := that(high downto low);\n"
+    ret ++= "    return temp;\n"
+    ret ++= "  end pkg_extract;\n"
+    ret ++= "\n"
+    ret ++= "  function pkg_extract (that : unsigned; high : integer; low : integer) return unsigned is\n"
+    ret ++= "    variable temp : unsigned(high-low downto 0);\n"
+    ret ++= "  begin\n"
+    ret ++= "    temp := that(high downto low);\n"
+    ret ++= "    return temp;\n"
+    ret ++= "  end pkg_extract;\n"
+    ret ++= "\n"
+    ret ++= "  function pkg_extract (that : signed; high : integer; low : integer) return signed is\n"
+    ret ++= "    variable temp : signed(high-low downto 0);\n"
     ret ++= "  begin\n"
     ret ++= "    temp := that(high downto low);\n"
     ret ++= "    return temp;\n"
@@ -810,6 +825,42 @@ class VhdlBackend extends Backend with VhdlBase {
   modifierImplMap.put("mux(B,s,s)", operatorImplAsFunction("pkg_mux"))
   modifierImplMap.put("mux(B,e,e)", operatorImplAsFunction("pkg_mux"))
 
+  modifierImplMap.put("extract(b,i)", extractBoolFixed)
+  modifierImplMap.put("extract(u,i)", extractBoolFixed)
+  modifierImplMap.put("extract(s,i)", extractBoolFixed)
+
+  modifierImplMap.put("extract(b,u)", extractBoolFloating)
+  modifierImplMap.put("extract(u,u)", extractBoolFloating)
+  modifierImplMap.put("extract(s,u)", extractBoolFloating)
+
+  modifierImplMap.put("extract(b,i,i)", extractBitVectorFixed)
+  modifierImplMap.put("extract(u,i,i)", extractBitVectorFixed)
+  modifierImplMap.put("extract(s,i,i)", extractBitVectorFixed)
+
+
+
+
+  def extractBoolFixed(func: Modifier): String = {
+    val that = func.asInstanceOf[ExtractBoolFixed]
+    s"pkg_extract(${emitLogic(that.getBitVector)},${that.bitId})"
+  }
+
+  def extractBoolFloating(func: Modifier): String = {
+    val that = func.asInstanceOf[ExtractBoolFloating]
+    s"pkg_extract(${emitLogic(that.getBitVector)},to_integer(${that.getBitId}))"
+  }
+
+  def extractBitVectorFixed(func: Modifier): String = {
+    val that = func.asInstanceOf[ExtractBitsVectorFixed]
+    s"pkg_extract(${emitLogic(that.getBitVector)},${that.hi},${that.lo})"
+  }
+
+
+  //  case node: ExtractBoolFixed => s"pkg_extract(${emitLogic(node.bitVector)},${node.bitId})"
+  //  case node: ExtractBoolFloating => s"pkg_extract(${emitLogic(node.bitVector)},to_integer(${emitLogic(node.bitId)})"
+  //  case node: ExtractBitsVectorFixed => s"pkg_extract(${emitLogic(node.getInput)},${node.hi},${node.lo})"
+
+
   def opThatNeedBoolCastGen(a: String, b: String): List[String] = {
     ("==" :: "!=" :: "<" :: "<=" :: Nil).map(a + _ + b)
   }
@@ -833,9 +884,6 @@ class VhdlBackend extends Backend with VhdlBase {
     case lit: IntLiteral => lit.value.toString(10)
     case lit: BoolLiteral => "\'" + (if (lit.value) "1" else "0") + "\'"
     case lit: EnumLiteral[_] => lit.enum.getName()
-    case node: ExtractBoolFixed => s"pkg_extract(${emitLogic(node.bitVector)},${node.bitId})"
-    case node: ExtractBoolFloating => s"pkg_extract(${emitLogic(node.bitVector)},to_integer(${emitLogic(node.bitId)})"
-    case node: ExtractBitsVectorFixed => s"pkg_extract(${emitLogic(node.getInput)},${node.hi},${node.lo})"
     case memRead: MemReadAsync => {
       if (memRead.writeToReadKind == dontCare) SpinalWarning(s"memReadAsync with dontCare is as writeFirst into VHDL")
       s"${emitReference(memRead.getMem)}(to_integer(${emitReference(memRead.getAddress)}))"
@@ -991,9 +1039,9 @@ class VhdlBackend extends Backend with VhdlBase {
     from match {
       case from: AssignementNode => {
         from match {
-          case assign : BitAssignmentFixed => ret ++= s"$tab${emitReference(to)}(${assign.getBitId}) <= ${emitLogic(assign.getInput)};\n"
-          case assign : BitAssignmentFloating => ret ++= s"$tab${emitReference(to)}(to_integer(${emitLogic(assign.getBitId)})) <= ${emitLogic(assign.getInput)};\n"
-          case assign : RangedAssignmentFixed => ret ++= s"$tab${emitReference(to)}(${assign.getHi} downto ${assign.getLo}) <= ${emitLogic(assign.getInput)};\n"
+          case assign: BitAssignmentFixed => ret ++= s"$tab${emitReference(to)}(${assign.getBitId}) <= ${emitLogic(assign.getInput)};\n"
+          case assign: BitAssignmentFloating => ret ++= s"$tab${emitReference(to)}(to_integer(${emitLogic(assign.getBitId)})) <= ${emitLogic(assign.getInput)};\n"
+          case assign: RangedAssignmentFixed => ret ++= s"$tab${emitReference(to)}(${assign.getHi} downto ${assign.getLo}) <= ${emitLogic(assign.getInput)};\n"
         }
       } //        ret ++= s"$tab${emitReference(to)}(${emitLogic(pa.getHi)} downto ${emitLogic(pa.getLo)}) <= ${emitLogic(pa.getInput)};\n"
       case _ => ret ++= s"$tab${emitReference(to)} <= ${emitLogic(from)};\n"
@@ -1142,3 +1190,4 @@ class VhdlBackend extends Backend with VhdlBase {
     }
   }
 }
+

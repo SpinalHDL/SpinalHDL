@@ -73,7 +73,7 @@ abstract class BitVector extends BaseType {
 
   //extract bit
   def apply(bitId: Int): Bool = {
-    val extract = ExtractBoolFixed(this, bitId)
+    val extract = new ExtractBoolFixed(s"extract($prefix,i)", this, bitId)
     val bool = new Bool()
     bool.setInput(extract)
 
@@ -85,9 +85,10 @@ abstract class BitVector extends BaseType {
 
     bool
   }
+
   //extract bit
   def apply(bitId: UInt): Bool = {
-    val extract = ExtractBoolFixed(this, bitId)
+    val extract = new ExtractBoolFloating(s"extract($prefix,u)",this, bitId)
     val bool = new Bool()
     bool.setInput(extract)
 
@@ -101,53 +102,22 @@ abstract class BitVector extends BaseType {
   }
 
   //extract bits     that(8,2)
-  def apply(hi: Int,lo: Int): Bits = {
-    val extract = ExtractBitsVectorFixed(this, hi,lo)
-    val bits = new Bits()
-    bits.setInput(extract)
-    bits
+  def apply(hi: Int,lo: Int): this.type = {
+    val ret = addTypeNodeFrom(new ExtractBitsVectorFixed(s"extract($prefix,i,i)",this, hi,lo))
+
+    ret.compositeAssign = new Assignable {
+      override def assignFrom(that: AnyRef, conservative: Boolean): Unit = {
+        BitVector.this.assignFrom(new RangedAssignmentFixed(BitVector.this,that.asInstanceOf[Bits],hi,lo),true)
+      }
+    }
+
+    ret
   }
 
   //extract bits     that(5,7 bit)
-  def apply(offset: Int,bitCount: BitCount): Bits = {
-    val extract = ExtractBitsVectorFixed(this, bitCount.value+offset-1, offset)
-    val bits = new Bits()
-    bits.setInput(extract)
-    bits
-  }
+  def apply(offset: Int,bitCount: BitCount): this.type = this.apply(bitCount.value+offset-1, offset)
 
 
-//  def rangedAssignment(from : Bits,hi : Int,lo : Int): Unit = {
-//    val (consumer,inputId) = BaseType.walkWhenNodes(this, this, 0,true)
-//    consumer.inputs(inputId) = new RangedAssignmentFixed(consumer,from,hi,lo)
-//  }
-
-
-  //def castInBitVectorType(that: BitVector) :
-
-  //bits(offset + width + index*step downto offset + index*step)
-//  def apply(offset: Int,bitCount: BitCount): Bits = {
-//    val bits = new Bits()
-//    bits.setInput(???)
-//    bits
-//  }
-
-
-
-//  def apply(offset: UInt,bitCount: UInt): Bits = {
-//    val extract = ExtractBitsVector(this, bitCount + offset - 1, offset)
-//    val bits = new Bits()
-//    bits.setInput(extract)
-//    bits
-//  }
- /* def apply(index: Int, bitCount: Int): Bits = {
-
-  }*/
-
-  //extract bits
-//  def apply(highBit: UInt, lowBit: UInt): Bits = {
-//    ExtractBitsVector(this, highBit, lowBit)
-//  }
 
   override def addTypeNodeFrom(node: Node): this.type = {
     val typeNode = super.addTypeNodeFrom(node)
@@ -155,5 +125,7 @@ abstract class BitVector extends BaseType {
     typeNode
   }
 
+
+  def prefix : String
 
 }

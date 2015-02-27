@@ -29,6 +29,7 @@ class UIntFactory extends BitVectorFactory[UInt] {
 
 class UInt extends BitVector with MinMaxProvider {
   override type SSelf = UInt
+  def prefix : String = "u"
 
   def +(that: UInt): UInt = newBinaryOperator("u+u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth);
   def -(that: UInt): UInt = newBinaryOperator("u-u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth);

@@ -32,6 +32,7 @@ class SIntFactory extends BitVectorFactory[SInt]{
 
 class SInt extends BitVector with MinMaxProvider {
   override type SSelf = SInt
+  def prefix : String = "s"
 
   def +(that: SInt): SInt = newBinaryOperator("s+s", that, WidthInfer.inputMaxWidth,InputNormalize.nodeWidth);
   def -(that: SInt): SInt = newBinaryOperator("s-s", that, WidthInfer.inputMaxWidth,InputNormalize.nodeWidth);

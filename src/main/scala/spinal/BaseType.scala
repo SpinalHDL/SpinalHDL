@@ -232,6 +232,7 @@ abstract class BaseType extends Node with Data with Nameable {
   def newMultiplexor(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer
 
 
+
   def newLogicalOperator(opName: String, right: Node, normalizeInputsImpl: (Node) => Unit): Bool = {
     val op = BinaryOperator(opName, this, right, WidthInfer.oneWidth, normalizeInputsImpl)
     val typeNode = new Bool()
@@ -275,12 +276,16 @@ abstract class BaseType extends Node with Data with Nameable {
     typeNode
   }
 
+
+  //TODO Clone is not good because of fixed width
   def addTypeNodeFrom(node: Node): this.type = {
-    val typeNode = this.clone()
+    val typeNode = weakClone
     typeNode.setInput(node)
     typeNode
   }
 
+
+  def weakClone : this.type = this.getClass.newInstance().asInstanceOf[this.type]
 
   override def toString(): String = s"${getClassIdentifier}(named ${"\"" + getName() + "\""},into ${if (component == null) "null" else component.getClass.getSimpleName})"
 }

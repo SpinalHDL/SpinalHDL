@@ -201,65 +201,73 @@ private[spinal] object Multiplex {
 }
 
 
-object ExtractBoolFixed {
-  def apply(bitVector: BitVector, bitId: Int): ExtractBoolFixed = {
-    val op = new ExtractBoolFixed(bitId)
-    op.inputs += bitVector
-    op
-  }
+//object ExtractBoolFixed {
+//  def apply(bitVector: BitVector, bitId: Int): ExtractBoolFixed = {
+//    val op = new ExtractBoolFixed(bitId)
+//    op.inputs += bitVector
+//    op
+//  }
+//
+//  def apply(bitVector: BitVector, bitId: UInt): ExtractBoolFloating = {
+//    val op = new ExtractBoolFloating
+//    op.inputs += bitVector
+//    op.inputs += bitId
+//    op
+//  }
+//}
 
-  def apply(bitVector: BitVector, bitId: UInt): ExtractBoolFloating = {
-    val op = new ExtractBoolFloating
-    op.inputs += bitVector
-    op.inputs += bitId
-    op
-  }
-}
+class ExtractBoolFixed(opName : String , initialBitVector : BitVector,val bitId: Int) extends Modifier(opName,null) {
+  inputs += initialBitVector
 
-class ExtractBoolFixed(val bitId: Int) extends Node {
-  def calcWidth: Int = 1
-  def bitVector = inputs(0)
+  def getBitVector = inputs(0)
+
+  override def calcWidth: Int = 1
 
   override def checkInferedWidth: String = {
-    if (bitId < 0 || bitId >= bitVector.getWidth) {
-      return s"Static bool extraction (bit ${bitId}) is outside the range (${bitVector.getWidth - 1} downto 0) of ${bitVector} at\n${getScalaTraceString}"
+    if (bitId < 0 || bitId >= getBitVector.getWidth) {
+      return s"Static bool extraction (bit ${bitId}) is outside the range (${getBitVector.getWidth - 1} downto 0) of ${getBitVector} at\n${getScalaTraceString}"
     }
-
     return null
   }
 }
 
-class ExtractBoolFloating extends Node {
-  def calcWidth: Int = 1
-  def bitVector = inputs(0)
-  def bitId = inputs(1)
+class ExtractBoolFloating(opName : String ,initialBitVector: BitVector,val initialBitId: UInt) extends Modifier(opName,null) {
+  override def calcWidth: Int = 1
+  inputs += initialBitVector
+  inputs += initialBitId
+
+  def getBitVector = inputs(0)
+  def getBitId = inputs(1)
 }
 
-object ExtractBitsVectorFixed {
-  def apply(bitVector: BitVector, bitIdHi: Int, bitIdLow: Int): ExtractBitsVectorFixed = {
-    if (bitIdHi - bitIdLow < -1) SpinalError(s"Static bits extraction with a negative size ($bitIdHi downto $bitIdLow)")
-    val op = new ExtractBitsVectorFixed(bitIdHi, bitIdLow)
-    op.inputs += bitVector
-    op
-  }
+//object ExtractBitsVectorFixed {
+//  def apply(bitVector: BitVector, bitIdHi: Int, bitIdLow: Int): ExtractBitsVectorFixed = {
+//    val op = new ExtractBitsVectorFixed(bitIdHi, bitIdLow)
+//    op.inputs += bitVector
+//    op
+//  }
+//
+//
+//  def apply(bitVector: BitVector, bitIdHi: UInt, bitIdLow: UInt): Bits = {
+//    val sr = bitVector.toBits >> bitIdLow
+//    val mask = (UInt(1) << bitIdLow) - UInt(1)
+//    val ret = sr & mask.toBits;
+//    ret
+//  }
+//}
 
+class ExtractBitsVectorFixed(opName: String,initialBitVector: BitVector,val hi: Int, val lo: Int) extends Modifier(opName,null) {
+  if (hi - lo < -1) SpinalError(s"Static bits extraction with a negative size ($hi downto $lo)")
 
-  def apply(bitVector: BitVector, bitIdHi: UInt, bitIdLow: UInt): Bits = {
-    val sr = bitVector.toBits >> bitIdLow
-    val mask = (UInt(1) << bitIdLow) - UInt(1)
-    val ret = sr & mask.toBits;
-    ret
-  }
-}
+  override def calcWidth: Int = hi - lo + 1
 
-class ExtractBitsVectorFixed(val hi: Int, val lo: Int) extends Node {
-  def calcWidth: Int = hi - lo + 1
-  def getInput = inputs(0)
+  inputs += initialBitVector
+  def getBitVector = inputs(0)
 
   override def checkInferedWidth: String = {
-    val width = getInput.getWidth
+    val width = getBitVector.getWidth
     if (hi >= width || lo < 0) {
-      return s"Static bits extraction ($hi downto $lo) is outside the range (${width - 1} downto 0) of ${getInput} at\n${getScalaTraceString}"
+      return s"Static bits extraction ($hi downto $lo) is outside the range (${width - 1} downto 0) of ${getBitVector} at\n${getScalaTraceString}"
     }
     return null
   }
