@@ -837,12 +837,15 @@ class VhdlBackend extends Backend with VhdlBase {
   modifierImplMap.put("extract(u,i,i)", extractBitVectorFixed)
   modifierImplMap.put("extract(s,i,i)", extractBitVectorFixed)
 
+  modifierImplMap.put("extract(b,u,w)", extractBitVectorFloating)
+  modifierImplMap.put("extract(u,u,w)", extractBitVectorFloating)
+  modifierImplMap.put("extract(s,u,w)", extractBitVectorFloating)
 
 
 
   def extractBoolFixed(func: Modifier): String = {
     val that = func.asInstanceOf[ExtractBoolFixed]
-    s"pkg_extract(${emitLogic(that.getBitVector)},${that.bitId})"
+    s"pkg_extract(${emitLogic(that.getBitVector)},${that.getBitId})"
   }
 
   def extractBoolFloating(func: Modifier): String = {
@@ -852,13 +855,12 @@ class VhdlBackend extends Backend with VhdlBase {
 
   def extractBitVectorFixed(func: Modifier): String = {
     val that = func.asInstanceOf[ExtractBitsVectorFixed]
-    s"pkg_extract(${emitLogic(that.getBitVector)},${that.hi},${that.lo})"
+    s"pkg_extract(${emitLogic(that.getBitVector)},${that.getHi},${that.getLo})"
   }
-
-
-  //  case node: ExtractBoolFixed => s"pkg_extract(${emitLogic(node.bitVector)},${node.bitId})"
-  //  case node: ExtractBoolFloating => s"pkg_extract(${emitLogic(node.bitVector)},to_integer(${emitLogic(node.bitId)})"
-  //  case node: ExtractBitsVectorFixed => s"pkg_extract(${emitLogic(node.getInput)},${node.hi},${node.lo})"
+  def extractBitVectorFloating(func: Modifier): String = {
+    val that = func.asInstanceOf[ExtractBitsVectorFloating]
+    s"pkg_extract(${emitLogic(that.getBitVector)},${that.getBitCount.value-1} + to_integer(${emitLogic(that.getOffset)}),to_integer(${emitLogic(that.getOffset)}))"
+  }
 
 
   def opThatNeedBoolCastGen(a: String, b: String): List[String] = {
@@ -1042,6 +1044,7 @@ class VhdlBackend extends Backend with VhdlBase {
           case assign: BitAssignmentFixed => ret ++= s"$tab${emitReference(to)}(${assign.getBitId}) <= ${emitLogic(assign.getInput)};\n"
           case assign: BitAssignmentFloating => ret ++= s"$tab${emitReference(to)}(to_integer(${emitLogic(assign.getBitId)})) <= ${emitLogic(assign.getInput)};\n"
           case assign: RangedAssignmentFixed => ret ++= s"$tab${emitReference(to)}(${assign.getHi} downto ${assign.getLo}) <= ${emitLogic(assign.getInput)};\n"
+          case assign : RangedAssignmentFloating  => ret ++= s"$tab${emitReference(to)}(${assign.getBitCount.value-1} + to_integer(${emitLogic(assign.getOffset)}) downto to_integer(${emitLogic(assign.getOffset)})) <= ${emitLogic(assign.getInput)};\n"
         }
       } //        ret ++= s"$tab${emitReference(to)}(${emitLogic(pa.getHi)} downto ${emitLogic(pa.getLo)}) <= ${emitLogic(pa.getInput)};\n"
       case _ => ret ++= s"$tab${emitReference(to)} <= ${emitLogic(from)};\n"

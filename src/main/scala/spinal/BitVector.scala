@@ -107,7 +107,7 @@ abstract class BitVector extends BaseType {
 
     ret.compositeAssign = new Assignable {
       override def assignFrom(that: AnyRef, conservative: Boolean): Unit = {
-        BitVector.this.assignFrom(new RangedAssignmentFixed(BitVector.this,that.asInstanceOf[Bits],hi,lo),true)
+        BitVector.this.assignFrom(new RangedAssignmentFixed(BitVector.this,that.asInstanceOf[BitVector],hi,lo),true)
       }
     }
 
@@ -117,6 +117,17 @@ abstract class BitVector extends BaseType {
   //extract bits     that(5,7 bit)
   def apply(offset: Int,bitCount: BitCount): this.type = this.apply(bitCount.value+offset-1, offset)
 
+  def apply(offset: UInt,bitCount: BitCount): this.type = {
+    val ret = addTypeNodeFrom(new ExtractBitsVectorFloating(s"extract($prefix,u,w)",this, offset,bitCount))
+
+    ret.compositeAssign = new Assignable {
+      override def assignFrom(that: AnyRef, conservative: Boolean): Unit = {
+        BitVector.this.assignFrom(new RangedAssignmentFloating(BitVector.this,that.asInstanceOf[BitVector],offset,bitCount),true)
+      }
+    }
+
+    ret
+  }
 
 
   override def addTypeNodeFrom(node: Node): this.type = {

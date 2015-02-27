@@ -30,7 +30,18 @@ object Debug {
       val outs = out Vec(7, Bool())
 
       val outBits = out Bits(8 bit)
+
+      val sel = in UInt(4 bit)
+      val selIn = in SInt(16 bit)
+      val selOut = out SInt(3 bit)
+
+      val demux = out SInt(16 bit)
     }
+
+    io.selOut := io.selIn(io.sel,io.selOut.getWidth bit)
+    io.demux := SInt(0)
+    io.demux(io.sel,io.selOut.getWidth bit) := io.selOut
+
 
     {
       val initialValue = Bool()
