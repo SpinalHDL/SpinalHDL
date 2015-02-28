@@ -139,4 +139,5 @@ abstract class BitVector extends BaseType {
 
   def prefix : String
 
+
 }

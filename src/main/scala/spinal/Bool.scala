@@ -69,5 +69,5 @@ class Bool extends BaseType {
 
 
 
-
+  override def getZero: this.type = Bool(false).asInstanceOf[this.type]
 }

@@ -18,6 +18,8 @@
 
 package spinal
 
+import spinal.importMe._
+
 /**
  * Created by PIC18F on 27.01.2015.
  */
@@ -29,6 +31,29 @@ object log2Up {
   def apply(value: BigInt): Int = {
     if (value < 0) SpinalError(s"No negative value ($value) on ${this.getClass.getSimpleName}")
     (value - 1).bitLength
+  }
+}
+
+object OHToUInt{
+  def apply(bools : collection.IndexedSeq[Bool]): UInt ={
+    val boolsSize = bools.size
+    if(boolsSize < 2) return UInt(0)
+
+    val retBitCount = log2Up(bools.size)
+    val ret = Vec(retBitCount,Bool())
+
+    for(retBitId <- 0 until retBitCount){
+      var bit : Bool = null
+      for(boolsBitId <- 0 until boolsSize if ((boolsBitId >> retBitId) & 1) != 0){
+        if(bit != null)
+          bit = bit | bools(boolsBitId)
+        else
+          bit = bools(boolsBitId)
+      }
+      ret(retBitId) := bit.dontSimplifyIt
+    }
+
+    ret.toBits.toUInt
   }
 }
 
@@ -69,7 +94,7 @@ object slave {
 
 }
 
-object Flow{
+object Flow {
   def apply[T <: Data](gen: T) = new Flow(gen)
 }
 
@@ -108,7 +133,7 @@ class Flow[T <: Data](gen: T) extends Bundle with Interface {
     next
   }
 
-  def m2sPipeFrom(that : Flow[T]): Flow[T] = {
+  def m2sPipeFrom(that: Flow[T]): Flow[T] = {
     val reg = RegNext(that)
     reg.valid.setRegInit(Bool(false))
     this connectFrom reg
@@ -118,7 +143,7 @@ class Flow[T <: Data](gen: T) extends Bundle with Interface {
 }
 
 
-object Handshake{
+object Handshake {
   def apply[T <: Data](gen: T) = new Handshake(gen)
 }
 
@@ -222,5 +247,35 @@ class Handshake[T <: Data](gen: T) extends Bundle with Interface {
 
   def haltIf(cond: Bool): Handshake[T] = continueIf(!cond)
   def takeIf(cond: Bool): Handshake[T] = throwIf(!cond)
+}
+
+
+class ArbiterCoreIO[T <: Data](portCount: Int, dataType: T) extends Bundle {
+  val input = Vec(portCount, slave Handshake (dataType))
+  val output = master Handshake (dataType)
+  val chosen = out UInt (log2Up(portCount) bit)
+}
+
+abstract class ArbiterCore[T <: Data](portCount: Int, dataType: T) extends Component {
+  val io = new ArbiterCoreIO(portCount, dataType)
+
+  val maskProposal = Vec(portCount, Bool())
+  val inputZipped = (io.input, maskProposal).zipped
+
+  io.chosen := OHToUInt(maskProposal)
+
+  io.output.valid := inputZipped.map(_.valid & _).reduceLeft(_ | _)
+  io.output.data.fromBits(inputZipped.map((d, b) => Mux(b, d.data.toBits, Bits(0))).reduceLeft(_ | _))
+  inputZipped.foreach(_.ready := _ && io.output.ready)
+}
+
+//TODOTEST
+class ArbiterWithPriorityImpl[T <: Data](portCount: Int, dataType: T) extends ArbiterCore(portCount, dataType) {
+  var search = Bool(true)
+  for (i <- 0 to portCount - 2) {
+    maskProposal(i) := search & io.input(i).valid
+    search = search & !io.input(i).valid
+  }
+  maskProposal(portCount - 1) := search
 }
 

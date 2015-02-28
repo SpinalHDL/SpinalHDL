@@ -33,7 +33,7 @@ class BitsFactory extends BitVectorFactory[Bits] {
 
 class Bits extends BitVector {
   override type SSelf = Bits
-  def prefix : String = "b"
+  def prefix: String = "b"
 
   def ##(right: Bits): Bits = newBinaryOperator("b##b", right, WidthInfer.cumulateInputWidth, InputNormalize.none)
 
@@ -67,29 +67,14 @@ class Bits extends BitVector {
     ret := this
     ret
   }
-  override def fromBits(bits: Bits) : Unit = this := bits
+  override def fromBits(bits: Bits): Unit = this := bits
 
   override def isEguals(that: Data): Bool = {
-   that match{
-     case that : Bits => this === that
-     case _ => SpinalError(s"Don't know how compare $this with $that"); null
-   }
+    that match {
+      case that: Bits => this === that
+      case _ => SpinalError(s"Don't know how compare $this with $that"); null
+    }
   }
-//  //extract bits     that(8,2)
-//  override def apply(hi: Int, lo: Int): SSelf = {
-//    val ret = super.apply(hi, lo)
-//    ret.compositeAssign = new Assignable {
-//      override def assignFrom(that: AnyRef, conservative: Boolean): Unit = {
-//        Bits.this.assignFrom(new RangedAssignmentFixed(Bits.this,that.asInstanceOf[Bits],hi,lo),true)
-//      }
-//    }
-//    ret
-//  }
+
+  override def getZero: this.type = Bits(0).asInstanceOf[this.type]
 }
-
-
-//class BitsRangedAssignementFixed(bits: Bits) extends Assignable{
-//  override def assignFrom(that: Data, conservative: Boolean): Unit = {
-//
-//  }
-//}

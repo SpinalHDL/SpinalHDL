@@ -55,7 +55,6 @@ object Component {
 
 
 abstract class Component extends Nameable with GlobalDataUser with DelayedInit {
-  val localScope = new Scope()
 
   override def delayedInit(body: => Unit) = {
     body
@@ -70,6 +69,7 @@ abstract class Component extends Nameable with GlobalDataUser with DelayedInit {
 
   def io: Data
 
+  val localScope = new Scope()
   val postCreationTask = mutable.ArrayBuffer[() => Unit]()
   val kindsOutputsToBindings = mutable.Map[BaseType, BaseType]()
   val kindsOutputsBindings = mutable.Set[BaseType]()

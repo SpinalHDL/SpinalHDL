@@ -18,6 +18,7 @@
 
 package spinal.code
 
+
 import spinal._
 import spinal.importMe._
 
@@ -45,7 +46,7 @@ object SpinalLibTest {
     val e0, e1, e2 = Value
   }
 
-  class ComponentA extends Component {
+  class TopLevel extends Component {
     val io = new Bundle {
       val inRegBundle = in(new BundleAA())
       val outRegBundle = out(new BundleAA())
@@ -55,7 +56,15 @@ object SpinalLibTest {
 
       val slaveHandshake = slave(new Handshake(new BundleA))
       val masterHandshake = master(new Handshake(new BundleA))
+
+
+      val arbiter = new ArbiterCoreIO(8,new BundleA)
+
     }
+
+    val arbiter = new ArbiterWithPriorityImpl(8,new BundleA)
+    arbiter.io <> io.arbiter
+
     {
       var regBundleInit = io.inRegBundle.clone()
       regBundleInit.a := Bool(true)
@@ -80,10 +89,10 @@ object SpinalLibTest {
 
   def main(args: Array[String]) {
     println("START")
-    var comp: ComponentA = null
+    var comp: TopLevel = null
 
     SpinalVhdl({
-      comp = new ComponentA
+      comp = new TopLevel
       comp
     })
 

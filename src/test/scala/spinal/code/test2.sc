@@ -19,10 +19,18 @@ import scala.runtime.Nothing$
  */
 
 
+for(i <- 0 to  2){
+  println(i)
+}
+for(i <- 0 to 4) println(i)
+for(i <- 0 until 4) println(i)
+class Test{
+  val a = 1
+  private val b = 2
+}
 BigInt(15) &~ BigInt(2)
 BigInt(15) &~ BigInt(32)
 BigInt(15) & BigInt(2)
-
 
 abstract class Helper extends DelayedInit {
   def delayedInit(body: => Unit) = {
@@ -31,7 +39,6 @@ abstract class Helper extends DelayedInit {
     println("b")
   }
 }
-
 class C extends Helper {
   println("Code")
 }
@@ -47,7 +54,6 @@ trait OnCreate extends DelayedInit {
 //    }
   }
 }
-
 class A extends DelayedInit {
   def delayedInit(body: => Unit) = {
     body

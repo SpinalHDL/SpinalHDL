@@ -147,6 +147,14 @@ trait Data extends ContextUser with Nameable with Assignable with AttributeReady
     this
   }
 
+  def getZero : this.type = {
+    val ret = clone()
+    ret.flatten.foreach(t => {
+      t._2 := t._2.getZero
+    })
+
+    ret
+  }
 
   def flatten: ArrayBuffer[(String, BaseType)]
 
