@@ -35,6 +35,8 @@ object log2Up {
 }
 
 object OHToUInt{
+  def apply(bitVector: BitVector) : UInt = apply(bitVector.toBools)
+
   def apply(bools : collection.IndexedSeq[Bool]): UInt ={
     val boolsSize = bools.size
     if(boolsSize < 2) return UInt(0)
@@ -256,21 +258,35 @@ class ArbiterCoreIO[T <: Data](portCount: Int, dataType: T) extends Bundle {
   val chosen = out UInt (log2Up(portCount) bit)
 }
 
-abstract class ArbiterCore[T <: Data](portCount: Int, dataType: T) extends Component {
+abstract class ArbiterCore[T <: Data](portCount: Int, dataType: T,allowSwitchWithoutConsumption : Boolean) extends Component {
   val io = new ArbiterCoreIO(portCount, dataType)
 
+  val locked = RegInit(Bool(false))
+
   val maskProposal = Vec(portCount, Bool())
-  val inputZipped = (io.input, maskProposal).zipped
+  val maskLocked = Reg(Vec(portCount, Bool()))
+  val maskRouted = if(allowSwitchWithoutConsumption) maskProposal else Mux(locked,maskLocked,maskProposal)
 
-  io.chosen := OHToUInt(maskProposal)
+  //Lock
+  when(io.output.valid){
+    locked := Bool(true)
+    maskLocked := maskRouted
+  }
+  when(io.output.ready){
+    locked := Bool(false)
+  }
 
-  io.output.valid := inputZipped.map(_.valid & _).reduceLeft(_ | _)
-  io.output.data.fromBits(inputZipped.map((d, b) => Mux(b, d.data.toBits, Bits(0))).reduceLeft(_ | _))
-  inputZipped.foreach(_.ready := _ && io.output.ready)
+
+  //Router
+  val zips = (io.input, maskRouted).zipped
+  io.chosen := OHToUInt(maskRouted)
+  io.output.valid := io.input.map(_.valid).reduceLeft(_ | _)
+  io.output.data.fromBits(zips.map((d, b) => Mux(b, d.data.toBits, Bits(0))).reduceLeft(_ | _))
+  zips.foreach(_.ready := _ && io.output.ready)
 }
 
 //TODOTEST
-class ArbiterWithPriorityImpl[T <: Data](portCount: Int, dataType: T) extends ArbiterCore(portCount, dataType) {
+class ArbiterWithPriorityImpl[T <: Data](portCount: Int, dataType: T,allowSwitchWithoutConsumption : Boolean = false) extends ArbiterCore(portCount, dataType,allowSwitchWithoutConsumption) {
   var search = Bool(true)
   for (i <- 0 to portCount - 2) {
     maskProposal(i) := search & io.input(i).valid

@@ -64,16 +64,16 @@ abstract class BlackBox extends Component {
     if (clockDomain.hasClockEnable && clockEnableIn == null) SpinalError(s"Clock domain has clock enable, but blackbox is not compatible $this")
     if (clockEnableIn != null) {
       pulledDataCache += (clockDomain.clockEnable -> clockEnableIn)
-      clockEnableIn := ClockDomain.current.readClockEnable
+      clockEnableIn := ClockDomain.current.readClockEnableWire
     }
 
     if (resetIn != null) {
       if (!clockDomain.hasReset) SpinalError(s"Clock domain has no reset, but blackbox need it $this")
       pulledDataCache += (clockDomain.reset -> resetIn)
-      resetIn := ClockDomain.current.readReset
+      resetIn := ClockDomain.current.readResetWire
     }
     pulledDataCache += (clockDomain.clock -> clockIn)
-    clockIn := ClockDomain.current.readClock
+    clockIn := ClockDomain.current.readClockWire
 
     Component.pop(parent)
   }

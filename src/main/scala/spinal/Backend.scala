@@ -238,7 +238,7 @@ class Backend {
   def printStates: Unit = {
     var counter = 0
     walkNodes2(_ => counter = counter + 1)
-    //SpinalInfo(s"Graph has $counter nodes")
+    SpinalInfo(s"Graph has $counter nodes")
   }
 
 
@@ -800,10 +800,10 @@ class Backend {
     node match {
       case delay: SyncNode => {
         Component.push(delay.component)
-        delay.inputs(SyncNode.getClockInputId) = delay.getClockDomain.readClock
+        delay.inputs(SyncNode.getClockInputId) = delay.getClockDomain.readClockWire
         if (delay.isUsingReset)
-          delay.inputs(SyncNode.getClockResetId) = delay.getClockDomain.readReset
-        delay.inputs(SyncNode.getClockEnableId) = delay.getClockDomain.readClockEnable
+          delay.inputs(SyncNode.getClockResetId) = delay.getClockDomain.readResetWire
+        delay.inputs(SyncNode.getClockEnableId) = delay.getClockDomain.readClockEnableWire
         Component.pop(delay.component)
       }
       case _ =>

@@ -187,6 +187,7 @@ trait Data extends ContextUser with Nameable with Assignable with AttributeReady
 
   def keep: this.type = {
     flatten.foreach(t => t._2.component.additionalNodesRoot += t._2);
+    dontSimplifyIt
     this
   }
 

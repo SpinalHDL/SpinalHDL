@@ -62,9 +62,9 @@ object ClockDomain{
   def current = GlobalData.get.clockDomainStack.head()
 
 
-  def readClock = current.readClock
-  def readReset = current.readReset
-  def readClockEnable = current.readClockEnable
+  def readClock = current.readClockWire
+  def readReset = current.readResetWire
+  def readClockEnable = current.readClockEnableWire
 }
 
 class ClockDomain(val clock : Bool,val edge : EdgeKind,val clockEnable : Bool,val reset : Bool,val resetKind : ResetKind,val resetActiveHigh : Boolean,val clockEnableActiveHigh : Boolean){
@@ -74,11 +74,12 @@ class ClockDomain(val clock : Bool,val edge : EdgeKind,val clockEnable : Bool,va
   def push: Unit = ClockDomain.push(this)
   def pop: Unit = ClockDomain.pop(this)
 
+  def isResetActive = if(resetActiveHigh) readResetWire else ! readResetWire
+  def isClockEnableActive = if(clockEnableActiveHigh) readClockEnableWire else ! readClockEnableWire
 
-
-  def readClock = if(null == clock) Bool(false) else Data.doPull(clock, Component.current,true,true)
-  def readReset = if(null == reset) Bool(!resetActiveHigh) else Data.doPull(reset, Component.current,true,true)
-  def readClockEnable = if(null == clockEnable) Bool(true) else Data.doPull(clockEnable, Component.current,true,true)
+  def readClockWire = if(null == clock) Bool(edge == FALLING) else Data.doPull(clock, Component.current,true,true)
+  def readResetWire = if(null == reset) Bool(!resetActiveHigh) else Data.doPull(reset, Component.current,true,true)
+  def readClockEnableWire = if(null == clockEnable) Bool(clockEnableActiveHigh) else Data.doPull(clockEnable, Component.current,true,true)
 }
 
 
