@@ -22,7 +22,8 @@ package spinal
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
-
+import spinal.lib.Handshake
+import spinal.lib.Flow
 
 trait IODirection {
   def applyIt[T <: Data](data: T): T
@@ -165,13 +166,14 @@ trait Nameable {
 
 object ScalaLocated {
   var unfiltredFiles = mutable.Set("SpinalUtils.scala")
-  var unfiltredPackages = mutable.Set("spinal.code.","spinal.bug.","spinal.scalaTest.")
+  //var unfiltredPackages = mutable.Set("spinal.code.","spinal.bug.","spinal.scalaTest.")
 
   def getScalaTraceSmart : String = {
     val scalaTrace = new Throwable()
     val temp = scalaTrace.getStackTrace.filter(trace => {
       val className = trace.getClassName
-      !((className.startsWith("scala.") || className.startsWith("spinal.")) && !ScalaLocated.unfiltredPackages.map(className.startsWith(_)).reduceLeft(_ || _)) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
+    //  !((className.startsWith("scala.") || className.startsWith("spinal.")) && !ScalaLocated.unfiltredPackages.map(className.startsWith(_)).reduceLeft(_ || _)) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
+      !(className.startsWith("scala.") || (className.startsWith("spinal.") && className.count(_ == '.') == 1)) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
     })
     temp.apply(0).toString
   }
@@ -188,7 +190,9 @@ trait ScalaLocated extends GlobalDataUser{
   def getScalaTraceSmart = {
     val temp = scalaTrace.getStackTrace.filter(trace => {
       val className = trace.getClassName
-      !((className.startsWith("scala.") || className.startsWith("spinal.")) && !ScalaLocated.unfiltredPackages.map(className.startsWith(_)).reduceLeft(_ || _)) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
+  //    !((className.startsWith("scala.") || className.startsWith("spinal.")) && !ScalaLocated.unfiltredPackages.map(className.startsWith(_)).reduceLeft(_ || _)) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
+      !(className.startsWith("scala.") || (className.startsWith("spinal.") && className.count(_ == '.') == 1)) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
+
     })
     temp
   }
@@ -264,4 +268,45 @@ class GlobalData {
     instanceCounter = instanceCounter + 1
     temp
   }
+}
+
+
+
+
+
+trait Interface {
+  def asMaster
+  def asSlave
+}
+
+object master {
+  def apply[T <: Interface](i: T) = {
+    i.asMaster;
+    i
+  }
+
+  object Flow {
+    def apply[T <: Data](gen: T): Flow[T] = master.apply(new Flow(gen))
+  }
+
+  object Handshake {
+    def apply[T <: Data](gen: T): Handshake[T] = master.apply(new Handshake(gen))
+  }
+
+}
+
+object slave {
+  def apply[T <: Interface](i: T) = {
+    i.asSlave;
+    i
+  }
+
+  object Flow {
+    def apply[T <: Data](gen: T): Flow[T] = slave.apply(new Flow(gen))
+  }
+
+  object Handshake {
+    def apply[T <: Data](gen: T): Handshake[T] = slave.apply(new Handshake(gen))
+  }
+
 }

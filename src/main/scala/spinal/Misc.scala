@@ -27,8 +27,6 @@ import scala.collection.mutable.Stack
 
 
 
-class utils extends scala.annotation.StaticAnnotation
-
 
 object Misc {
 

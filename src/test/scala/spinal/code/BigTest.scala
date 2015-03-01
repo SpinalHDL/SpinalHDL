@@ -389,13 +389,13 @@ object BigTest {
       val inBundleToBits = in(new BundleAA)
       val outBundleFromBits = out(new BundleAA)
 
-      val slaveHandshakeUInt = slave Handshake UInt(3 bit)
-      val masterHandshakeSInt = master Handshake SInt(3 bit)
+      val slaveHandshakeUInt = spinal.slave Handshake UInt(3 bit)
+      val masterHandshakeSInt = spinal.master Handshake SInt(3 bit)
 
-      val slaveHandshake = slave Handshake new BundleAA
-      val masterHandshake = master Handshake (new BundleAA)
-      val masterHandshakeThrow = master Handshake (new BundleAA)
-      val masterHandshakeUInt = master Handshake (UInt(4 bit))
+      val slaveHandshake = spinal.slave Handshake new BundleAA
+      val masterHandshake = spinal.master Handshake (new BundleAA)
+      val masterHandshakeThrow = spinal.master Handshake (new BundleAA)
+      val masterHandshakeUInt = spinal.master Handshake (UInt(4 bit))
 
       val inType = in SInt (4 bit)
       val outType = out UInt (4 bit)

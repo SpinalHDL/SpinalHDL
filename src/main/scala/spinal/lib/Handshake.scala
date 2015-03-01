@@ -1,151 +1,7 @@
-/*
- * SpinalHDL
- * Copyright (c) Dolu, All rights reserved.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 3.0 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library.
- */
+package spinal.lib
 
-package spinal
-
+import spinal._
 import spinal.importMe._
-
-/**
- * Created by PIC18F on 27.01.2015.
- */
-
-//Give number of bit to encode a given number of states
-
-
-object log2Up {
-  def apply(value: BigInt): Int = {
-    if (value < 0) SpinalError(s"No negative value ($value) on ${this.getClass.getSimpleName}")
-    (value - 1).bitLength
-  }
-}
-
-object OHToUInt{
-  def apply(bitVector: BitVector) : UInt = apply(bitVector.toBools)
-
-  def apply(bools : collection.IndexedSeq[Bool]): UInt ={
-    val boolsSize = bools.size
-    if(boolsSize < 2) return UInt(0)
-
-    val retBitCount = log2Up(bools.size)
-    val ret = Vec(retBitCount,Bool())
-
-    for(retBitId <- 0 until retBitCount){
-      var bit : Bool = null
-      for(boolsBitId <- 0 until boolsSize if ((boolsBitId >> retBitId) & 1) != 0){
-        if(bit != null)
-          bit = bit | bools(boolsBitId)
-        else
-          bit = bools(boolsBitId)
-      }
-      ret(retBitId) := bit.dontSimplifyIt
-    }
-
-    ret.toBits.toUInt
-  }
-}
-
-trait Interface {
-  def asMaster
-  def asSlave
-}
-
-object master {
-  def apply[T <: Interface](i: T) = {
-    i.asMaster;
-    i
-  }
-
-  object Flow {
-    def apply[T <: Data](gen: T): Flow[T] = master.apply(new Flow(gen))
-  }
-
-  object Handshake {
-    def apply[T <: Data](gen: T): Handshake[T] = master.apply(new Handshake(gen))
-  }
-
-}
-
-object slave {
-  def apply[T <: Interface](i: T) = {
-    i.asSlave;
-    i
-  }
-
-  object Flow {
-    def apply[T <: Data](gen: T): Flow[T] = slave.apply(new Flow(gen))
-  }
-
-  object Handshake {
-    def apply[T <: Data](gen: T): Handshake[T] = slave.apply(new Handshake(gen))
-  }
-
-}
-
-object Flow {
-  def apply[T <: Data](gen: T) = new Flow(gen)
-}
-
-class Flow[T <: Data](gen: T) extends Bundle with Interface {
-  val valid = Bool()
-  val data = gen.clone()
-
-  override def clone: this.type = Flow(gen).asInstanceOf[this.type]
-
-  override def asMaster: Unit = asOutput
-  override def asSlave: Unit = asInput
-
-  def <<(that: Flow[T]): Unit = this connectFrom that
-  def <-<(that: Flow[T]): Unit = this m2sPipeFrom that
-
-  def fire: Bool = valid
-
-  def connectFrom(that: Flow[T]): Unit = {
-    valid := that.valid
-    data := that.data
-  }
-
-  def takeIf(cond: Bool): Flow[T] = {
-    val next = new Flow(gen)
-    next.valid := this.valid && cond
-    next.data := this.data
-    return next
-  }
-
-  def throwIt(cond: Bool): Flow[T] = {
-    this takeIf (!cond)
-  }
-
-  def translateWith[T2 <: Data](that: T2): Flow[T2] = {
-    val next = new Flow(that)
-    next.valid := this.valid
-    next.data := that
-    next
-  }
-
-  def m2sPipeFrom(that: Flow[T]): Flow[T] = {
-    val reg = RegNext(that)
-    reg.valid.setRegInit(Bool(false))
-    this connectFrom reg
-    this
-  }
-
-}
-
 
 object Handshake {
   def apply[T <: Data](gen: T) = new Handshake(gen)
@@ -296,11 +152,11 @@ abstract class ArbiterCore[T <: Data](dataType: T,portCount: Int,allowSwitchWith
 
 
 
-//  val zips = (io.inputs, maskRouted).zipped
-//  io.chosen := OHToUInt(maskRouted)
-//  io.output.valid := io.inputs.map(_.valid).reduceLeft(_ | _)
-//  io.output.data.fromBits(zips.map((d, b) => Mux(b, d.data.toBits, Bits(0))).reduceLeft(_ | _))
-//  zips.foreach(_.ready := _ && io.output.ready)
+  //  val zips = (io.inputs, maskRouted).zipped
+  //  io.chosen := OHToUInt(maskRouted)
+  //  io.output.valid := io.inputs.map(_.valid).reduceLeft(_ | _)
+  //  io.output.data.fromBits(zips.map((d, b) => Mux(b, d.data.toBits, Bits(0))).reduceLeft(_ | _))
+  //  zips.foreach(_.ready := _ && io.output.ready)
 }
 
 //TODOTEST

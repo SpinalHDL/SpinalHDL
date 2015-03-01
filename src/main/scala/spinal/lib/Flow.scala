@@ -1,0 +1,54 @@
+package spinal.lib
+
+import spinal._
+
+
+object Flow {
+  def apply[T <: Data](gen: T) = new Flow(gen)
+}
+
+class Flow[T <: Data](gen: T) extends Bundle with Interface {
+  val valid = Bool()
+  val data = gen.clone()
+
+  override def clone: this.type = Flow(gen).asInstanceOf[this.type]
+
+  override def asMaster: Unit = asOutput
+  override def asSlave: Unit = asInput
+
+  def <<(that: Flow[T]): Unit = this connectFrom that
+  def <-<(that: Flow[T]): Unit = this m2sPipeFrom that
+
+  def fire: Bool = valid
+
+  def connectFrom(that: Flow[T]): Unit = {
+    valid := that.valid
+    data := that.data
+  }
+
+  def takeIf(cond: Bool): Flow[T] = {
+    val next = new Flow(gen)
+    next.valid := this.valid && cond
+    next.data := this.data
+    return next
+  }
+
+  def throwIt(cond: Bool): Flow[T] = {
+    this takeIf (!cond)
+  }
+
+  def translateWith[T2 <: Data](that: T2): Flow[T2] = {
+    val next = new Flow(that)
+    next.valid := this.valid
+    next.data := that
+    next
+  }
+
+  def m2sPipeFrom(that: Flow[T]): Flow[T] = {
+    val reg = RegNext(that)
+    reg.valid.setRegInit(Bool(false))
+    this connectFrom reg
+    this
+  }
+
+}
