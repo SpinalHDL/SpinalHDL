@@ -19,8 +19,6 @@
 package spinal.scalaTest
 
 import spinal._
-import spinal.importMe._
-
 object CommonTester {
 
 

@@ -19,7 +19,6 @@
 package spinal.code
 
 import spinal._
-import spinal.importMe._
 
 object Debug {
 

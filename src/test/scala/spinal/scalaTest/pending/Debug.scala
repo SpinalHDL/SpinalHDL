@@ -19,7 +19,6 @@
 package spinal.scalaTest.pending
 
 import spinal._
-import spinal.importMe._
 
 object Debug {
 

@@ -18,6 +18,9 @@ import scala.runtime.Nothing$
  * License along with this library.
  */
 
+import spinal._
+
+val i : Int = "2"
 
 for(i <- 0 to  2){
   println(i)

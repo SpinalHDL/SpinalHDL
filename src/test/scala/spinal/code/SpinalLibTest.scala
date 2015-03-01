@@ -20,13 +20,10 @@ package spinal.code
 
 
 import spinal._
-import spinal.importMe._
-import spinal.lib.{Flow, ArbiterWithPriorityImpl, ArbiterCoreIO, Handshake}
+import spinal.lib._
 
 
-/**
- * Created by PIC18F on 22.08.2014.
- */
+
 object SpinalLibTest {
 
   class BundleAA extends BundleA {
@@ -59,12 +56,11 @@ object SpinalLibTest {
       val slaveHandshake = spinal.slave(new Handshake(new BundleA))
       val masterHandshake = spinal.master(new Handshake(new BundleA))
 
-
-      val arbiter = new ArbiterCoreIO(new BundleA,4)
+      val arbiter = new HandshakeArbiterCoreIO(new BundleA,4)
 
     }
 
-    val arbiter = new ArbiterWithPriorityImpl(new BundleA,4,true)
+    val arbiter = new HandshakeArbiterPriorityImpl(new BundleA,4,true)
     arbiter.io <> io.arbiter
 
     {

@@ -25,6 +25,8 @@ import scala.collection.mutable.ArrayBuffer
 import spinal.lib.Handshake
 import spinal.lib.Flow
 
+case class BitCount(val value: Int) {}
+
 trait IODirection {
   def applyIt[T <: Data](data: T): T
   def apply[T <: Data](data: T): T = applyIt(data)

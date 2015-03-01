@@ -1,10 +1,12 @@
 package spinal.lib
 
 import spinal._
-import spinal.importMe._
 
 object Handshake {
   def apply[T <: Data](gen: T) = new Handshake(gen)
+
+
+
 }
 
 class Handshake[T <: Data](gen: T) extends Bundle with Interface {
@@ -112,27 +114,33 @@ class Handshake[T <: Data](gen: T) extends Bundle with Interface {
 }
 
 
-class ArbiterCoreIO[T <: Data](dataType: T,portCount: Int) extends Bundle {
+
+
+
+
+class HandshakeArbiterCoreIO[T <: Data](dataType: T, portCount: Int) extends Bundle {
   val inputs = Vec(portCount, slave Handshake (dataType))
   val output = master Handshake (dataType)
   val chosen = out UInt (log2Up(portCount) bit)
 }
 
-abstract class ArbiterCore[T <: Data](dataType: T,portCount: Int,allowSwitchWithoutConsumption : Boolean) extends Component {
-  val io = new ArbiterCoreIO(dataType,portCount)
+abstract class HandshakeArbiterCore[T <: Data](dataType: T, portCount: Int, allowSwitchWithoutConsumption: Boolean) extends Component {
+  val io = new HandshakeArbiterCoreIO(dataType, portCount)
 
   val locked = RegInit(Bool(false))
 
   val maskProposal = Vec(portCount, Bool())
   val maskLocked = Reg(Vec(portCount, Bool()))
-  val maskRouted = if(allowSwitchWithoutConsumption) maskProposal else Mux(locked,maskLocked,maskProposal)
+  val maskRouted = if (allowSwitchWithoutConsumption) maskProposal else Mux(locked, maskLocked, maskProposal)
 
 
-  when(io.output.valid){ //Lock
+  when(io.output.valid) {
+    //Lock
     locked := Bool(true)
     maskLocked := maskRouted
   }
-  when(io.output.ready){ //unlock
+  when(io.output.ready) {
+    //unlock
     locked := Bool(false)
   }
 
@@ -140,7 +148,7 @@ abstract class ArbiterCore[T <: Data](dataType: T,portCount: Int,allowSwitchWith
   //Route
   var outputValid = Bool(false)
   var outputData = Bits(0)
-  for((input,mask) <- (io.inputs, maskRouted).zipped){
+  for ((input, mask) <- (io.inputs, maskRouted).zipped) {
     outputValid = outputValid | input.valid
     outputData = outputData | Mux(mask, input.data.toBits, Bits(0))
     input.ready := mask & io.output.ready
@@ -160,7 +168,7 @@ abstract class ArbiterCore[T <: Data](dataType: T,portCount: Int,allowSwitchWith
 }
 
 //TODOTEST
-class ArbiterWithPriorityImpl[T <: Data](dataType: T,portCount: Int,allowSwitchWithoutConsumption : Boolean = false) extends ArbiterCore(dataType,portCount,allowSwitchWithoutConsumption) {
+class HandshakeArbiterPriorityImpl[T <: Data](dataType: T, portCount: Int, allowSwitchWithoutConsumption: Boolean = false) extends HandshakeArbiterCore(dataType, portCount, allowSwitchWithoutConsumption) {
   var search = Bool(true)
   for (i <- 0 to portCount - 2) {
     maskProposal(i) := search & io.inputs(i).valid
@@ -170,14 +178,13 @@ class ArbiterWithPriorityImpl[T <: Data](dataType: T,portCount: Int,allowSwitchW
 }
 
 
-
 //TODOTEST
 class HandshakeFork[T <: Data](dataType: T, portCount: Int) extends Component {
   val io = new Bundle {
-    val in = slave Handshake(dataType)
-    val out = Vec(portCount,master Handshake(dataType))
+    val in = slave Handshake (dataType)
+    val out = Vec(portCount, master Handshake (dataType))
   }
-  val linkEnable = Vec(portCount,RegInit(Bool(true)))
+  val linkEnable = Vec(portCount, RegInit(Bool(true)))
 
   io.in.ready := Bool(true)
   for (i <- (0 to portCount - 1)) {
@@ -202,9 +209,9 @@ class HandshakeFork[T <: Data](dataType: T, portCount: Int) extends Component {
 //TODOTEST
 class HandshakeDemux[T <: Data](dataType: T, portCount: Int) extends Component {
   val io = new Bundle {
-    val sel = in UInt(log2Up(portCount) bit)
-    val input = slave Handshake(dataType)
-    val output = Vec(portCount,master Handshake(dataType))
+    val sel = in UInt (log2Up(portCount) bit)
+    val input = slave Handshake (dataType)
+    val output = Vec(portCount, master Handshake (dataType))
   }
   io.input.ready := Bool(false)
 

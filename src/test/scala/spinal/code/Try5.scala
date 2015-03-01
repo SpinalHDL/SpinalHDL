@@ -19,7 +19,6 @@
 package spinal.code
 
 import spinal._
-import spinal.importMe._
 /**
  * Created by PIC18F on 22.08.2014.
  */

@@ -27,3 +27,13 @@ object Driver {
   val startTime = System.currentTimeMillis()
   def executionTime: Double = (System.currentTimeMillis - startTime)/1000.0
 }
+
+
+//package object spinal {
+//
+//  implicit def idioticallyStringsAre5( s : String ) : Int = 5
+//
+//  //define other utilities that should be available within
+//  //the package or importable
+//
+//}

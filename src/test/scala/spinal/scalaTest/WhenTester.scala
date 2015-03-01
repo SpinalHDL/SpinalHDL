@@ -19,7 +19,6 @@
 package spinal.scalaTest
 
 import spinal._
-import spinal.importMe._
 
 class WhenTester extends Component {
   val io = new Bundle {
