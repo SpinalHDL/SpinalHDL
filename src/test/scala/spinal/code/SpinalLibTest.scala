@@ -58,11 +58,11 @@ object SpinalLibTest {
       val masterHandshake = master(new Handshake(new BundleA))
 
 
-      val arbiter = new ArbiterCoreIO(4,new BundleA)
+      val arbiter = new ArbiterCoreIO(new BundleA,4)
 
     }
 
-    val arbiter = new ArbiterWithPriorityImpl(4,new BundleA,false)
+    val arbiter = new ArbiterWithPriorityImpl(new BundleA,4,true)
     arbiter.io <> io.arbiter
 
     {
