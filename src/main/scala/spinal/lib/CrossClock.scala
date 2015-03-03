@@ -3,29 +3,44 @@ package spinal.lib
 import spinal._
 
 
-
 object CCBuffer {
   def apply[T <: Data](input: T): T = apply(input, null.asInstanceOf[T])
-  def apply[T <: Data](input: T, init: T): T = apply(input,init, ClockDomain.current, 2)
-  def apply[T <: Data](input: T, init: T = null, clockOut: ClockDomain, bufferDepth: Int): T = {
-    assert(bufferDepth >= 1)
+  def apply[T <: Data](input: T, init: T): T = apply(input, init, 2)
+  def apply[T <: Data](input: T, init: T, bufferDepth: Int): T = {
+    val c = new CCBuffer(input, init != null, bufferDepth)
+    c.io.input := input
+    if(init != null) c.io.init := init
+    return c.io.output
+  }
+}
 
-    val buffers = Vec(bufferDepth, Reg(input, init))
+class CCBuffer[T <: Data](dataType: T, withInit : Boolean, bufferDepth: Int) extends Component {
+  assert(bufferDepth >= 1)
 
-    buffers(0) := input
-    buffers(0).addTag(crossClockDomain)
-    for (i <- 1 until bufferDepth) {
-      buffers(i) := buffers(i - 1)
-      buffers(i).addTag(crossClockBuffer)
-    }
-    return buffers.last
+  val io = new Bundle {
+    val input = in(dataType.clone)
+    val init = if(!withInit) null.asInstanceOf[T] else in(dataType.clone)
+    val output = out(dataType.clone)
+  }
+
+  val buffers = Vec(bufferDepth, Reg(dataType, io.init))
+
+  buffers(0) := io.input
+  buffers(0).addTag(crossClockDomain)
+  for (i <- 1 until bufferDepth) {
+    buffers(i) := buffers(i - 1)
+    buffers(i).addTag(crossClockBuffer)
 
   }
+
+  io.output := buffers.last
+
+
 }
 
 object CCHandshakeByToggle {
   def apply[T <: Data](input: Handshake[T], clockIn: ClockDomain, clockOut: ClockDomain): Handshake[T] = {
-    val c = new CCHandshakeByToggle[T](input.data,clockIn,clockOut)
+    val c = new CCHandshakeByToggle[T](input.data, clockIn, clockOut)
     c.io.input connectFrom input
     return c.io.output
   }
@@ -71,26 +86,35 @@ class CCHandshakeByToggle[T <: Data](dataType: T, clockIn: ClockDomain, clockOut
 
 object CCPulseByToggle {
   def apply(input: Bool, clockIn: ClockDomain, clockOut: ClockDomain): Bool = {
-    clockIn.push
-    val inToogle = RegInit(Bool(false))
-    when(input) {
-      inToogle := !inToogle
-    }
+    val c = new CCPulseByToggle(clockIn,clockOut)
+    c.io.input := input
+    return c.io.output
 
-    clockIn.pop
-    clockOut.push
-
-    val outTarget = CCBuffer(inToogle, Bool(false))
-    val outHit = RegInit(Bool(false));
-
-    when(outTarget !== outHit) {
-      outHit := !outHit
-    }
-
-    clockOut.pop
-
-    return outTarget !== outHit
   }
 
 }
 
+
+class CCPulseByToggle(clockIn: ClockDomain, clockOut: ClockDomain) extends Component{
+  val io = new Bundle{
+    val input = in Bool()
+    val output = in Bool()
+  }
+  val inputArea = new ClockingArea(clockIn) {
+    val target = RegInit(Bool(false))
+    when(io.input) {
+      target := !target
+    }
+  }
+
+  val outputArea = new ClockingArea(clockOut) {
+    val target = CCBuffer(inputArea.target, Bool(false))
+    val hit = RegInit(Bool(false));
+
+    when(target !== hit) {
+      hit := !hit
+    }
+
+    io.output := (target !== hit)
+  }
+}

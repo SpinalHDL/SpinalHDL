@@ -79,8 +79,11 @@ object SpinalLibTest {
 
     {
       var regBundleInit = io.inRegBundle.clone()
+      regBundleInit := regBundleInit.getZero
       regBundleInit.a := Bool(true)
       regBundleInit.e := MyEnum.s1
+
+
 
       val regBundle = RegInit(regBundleInit)
       regBundle := io.inRegBundle

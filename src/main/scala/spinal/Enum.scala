@@ -73,7 +73,11 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T) extends BaseType {
   def getParentName = blueprint.getName()
 
 
-  override def getZero: this.type = clone().fromBits(Bits(0)).asInstanceOf[this.type]
+  override def getZero: this.type = {
+    val ret = clone
+    ret.fromBits(Bits(0))
+    ret
+  }
 }
 
 class SpinalEnumElement[T <: SpinalEnum](val parent: T, val id: BigInt) extends Nameable {
@@ -136,8 +140,6 @@ class SpinalEnum extends Nameable {
   /* class Val(i: Int, name: String) extends Val(i, name) {
      def ===(that: this.type) = "hallo3"
    }*/
-
-
 
 
 }

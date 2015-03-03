@@ -31,7 +31,7 @@ object Reg {
       val reg = new Reg(e)
       reg.compositeTagReady = e
       e.inputs(0) = reg;
-      if (init != null && initElement.inputs(0) != null && initElement.inputs(0).inputs(0) != null)
+      if (init != null && initElement.inputs(0) != null)
         reg.setInitialValue(initElement)
       e.compositeAssign = reg
     }

@@ -30,6 +30,7 @@ import scala.collection.mutable.ArrayBuffer
 
 object Data {
   implicit def autoCast[T <: Data, T2 <: T](that: T): T2#SSelf = that.asInstanceOf[T2#SSelf]
+ // implicit def autoCast[T <: Data](that: Null): T = that.asInstanceOf[T]
 
 
   def doPull[T <: Data](srcData: T, finalComponent: Component, useCache: Boolean = false, propagateName: Boolean = false): T = {
