@@ -97,7 +97,7 @@ object SpinalLibTest {
 //    io.masterHandshakeClkB << crossClockHandshake.io.output
 
 
-   io.masterHandshakeClkB << CrossClockStream_HandShake(io.slaveHandshakeClkA,clockA,clockB)
+   io.masterHandshakeClkB << CCHandshakeByToggle(io.slaveHandshakeClkA,clockA,clockB)
 
   }
 

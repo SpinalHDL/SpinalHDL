@@ -65,7 +65,7 @@ class Handshake[T <: Data](dataType: T) extends Bundle with Interface {
 
   def m2sPipe: Handshake[T] = m2sPipe(false)
 
-  //TODO return this or that ?
+
   def m2sPipe(crossClockData : Boolean) : Handshake[T] = {
     val ret = Handshake(dataType)
 

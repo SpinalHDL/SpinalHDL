@@ -20,7 +20,10 @@ import scala.runtime.Nothing$
 
 import spinal._
 
-val i : Int = "2"
+
+
+
+
 
 for(i <- 0 to  2){
   println(i)

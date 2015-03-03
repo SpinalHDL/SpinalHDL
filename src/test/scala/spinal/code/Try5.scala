@@ -79,7 +79,7 @@ object Try5 {
 
     clockA.pop
 
-    val B = new ComponentPart {
+    val B = new Area {
       clockB.push
       val reg1 = RegNext(io.in1, Bool(true))
       io.outB := reg1

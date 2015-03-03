@@ -3,10 +3,11 @@ package spinal.lib
 import spinal._
 
 
-object CrossClockBuffer {
+
+object CCBuffer {
   def apply[T <: Data](input: T): T = apply(input, null.asInstanceOf[T])
-  def apply[T <: Data](input: T, init: T): T = apply(input, ClockDomain.current, 2, init)
-  def apply[T <: Data](input: T, clockOut: ClockDomain, bufferDepth: Int, init: T = null): T = {
+  def apply[T <: Data](input: T, init: T): T = apply(input,init, ClockDomain.current, 2)
+  def apply[T <: Data](input: T, init: T = null, clockOut: ClockDomain, bufferDepth: Int): T = {
     assert(bufferDepth >= 1)
 
     val buffers = Vec(bufferDepth, Reg(input, init))
@@ -22,16 +23,16 @@ object CrossClockBuffer {
   }
 }
 
-object CrossClockStream_HandShake {
+object CCHandshakeByToggle {
   def apply[T <: Data](input: Handshake[T], clockIn: ClockDomain, clockOut: ClockDomain): Handshake[T] = {
-    val c = new CrossClockStream_HandShake(input.data,clockIn,clockOut) //TODO create intelij scala issus coode code marked red
+    val c = new CCHandshakeByToggle[T](input.data,clockIn,clockOut)
     c.io.input connectFrom input
     return c.io.output
   }
 }
 
 
-class CrossClockStream_HandShake[T <: Data](dataType: T, clockIn: ClockDomain, clockOut: ClockDomain) extends Component {
+class CCHandshakeByToggle[T <: Data](dataType: T, clockIn: ClockDomain, clockOut: ClockDomain) extends Component {
   val io = new Bundle {
     val input = slave Handshake (dataType)
     val output = master Handshake (dataType)
@@ -39,8 +40,8 @@ class CrossClockStream_HandShake[T <: Data](dataType: T, clockIn: ClockDomain, c
 
   val outHitSignal = Bool()
 
-  val clockInDomain = new ComponentPartClockDomain(clockIn) {
-    val hit = CrossClockBuffer(outHitSignal, Bool(false))
+  val inputArea = new ClockingArea(clockIn) {
+    val hit = CCBuffer(outHitSignal, Bool(false))
     val target = RegInit(Bool(false))
     val data = Reg(io.input.data)
     io.input.ready := Bool(false)
@@ -52,27 +53,23 @@ class CrossClockStream_HandShake[T <: Data](dataType: T, clockIn: ClockDomain, c
   }
 
 
-
-
-  val clockOutDomain = new ComponentPartClockDomain(clockOut) {
-    val target = CrossClockBuffer(clockInDomain.target, Bool(false))
+  val outputArea = new ClockingArea(clockOut) {
+    val target = CCBuffer(inputArea.target, Bool(false))
     val hit = RegInit(Bool(false))
     outHitSignal := hit
 
     val handshake = io.input.clone
     handshake.valid := (target !== hit)
-    handshake.data := clockInDomain.data
+    handshake.data := inputArea.data
     when(handshake.fire) {
       hit := !hit
     }
 
-    val output = handshake.m2sPipe(true)
-    output.data.addTag(crossClockDomain)
-    io.output << output
+    io.output << handshake.m2sPipe(true)
   }
 }
 
-object CrossClockEvent_HandShake {
+object CCPulseByToggle {
   def apply(input: Bool, clockIn: ClockDomain, clockOut: ClockDomain): Bool = {
     clockIn.push
     val inToogle = RegInit(Bool(false))
@@ -83,7 +80,7 @@ object CrossClockEvent_HandShake {
     clockIn.pop
     clockOut.push
 
-    val outTarget = CrossClockBuffer(inToogle, Bool(false))
+    val outTarget = CCBuffer(inToogle, Bool(false))
     val outHit = RegInit(Bool(false));
 
     when(outTarget !== outHit) {

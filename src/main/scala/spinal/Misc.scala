@@ -99,12 +99,12 @@ object Misc {
                 refs += fieldRef
               }
             }
-            case zone : ComponentPart => {
+            case zone : Area => {
               reflect(zone,onEach,name + "_")
             }
-            case zone : ComponentPartClockDomain => { //TODO it's not preaty
-              reflect(zone,onEach,name + "_")
-            }
+//            case zone : ClockingArea => {
+//              reflect(zone,onEach,name + "_")
+//            }
             case _ =>
           }
           onEach(name, fieldRef)
