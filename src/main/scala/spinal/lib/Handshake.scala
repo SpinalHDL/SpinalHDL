@@ -3,18 +3,22 @@ package spinal.lib
 import spinal._
 
 object Handshake {
-  def apply[T <: Data](gen: T) = new Handshake(gen)
+ // implicit def autoCast[T2 <: Data, T <: T2](that: Handshake[T]): Handshake[T2] = that.asInstanceOf[Handshake[T2]]
 
+
+
+
+  def apply[T <: Data](dataType: T) = new Handshake(dataType)
 
 
 }
 
-class Handshake[T <: Data](gen: T) extends Bundle with Interface {
+class Handshake[T <: Data](dataType: T) extends Bundle with Interface {
   val valid = Bool()
   val ready = Bool()
-  val data = gen.clone()
+  val data = dataType.clone()
 
-  override def clone: this.type = Handshake(gen).asInstanceOf[this.type]
+  override def clone: this.type = Handshake(dataType).asInstanceOf[this.type]
 
   override def asMaster: Unit = {
     valid.asOutput
@@ -29,17 +33,28 @@ class Handshake[T <: Data](gen: T) extends Bundle with Interface {
   }
 
   def <<(that: Handshake[T]): Handshake[T] = connectFrom(that)
-  def <-<(that: Handshake[T]): Handshake[T] = this m2sPipeFrom that
-  def </<(that: Handshake[T]): Handshake[T] = this s2mPipeFrom that
-  def <-/<(that: Handshake[T]): Handshake[T] = {
-    this m2sPipeFrom (clone s2mPipeFrom that)
+
+  def <-<(that: Handshake[T]): Handshake[T] = {
+    this << that.m2sPipe
+    that
   }
+
+  def </<(that: Handshake[T]): Handshake[T] = {
+    this << that.s2mPipe
+    that
+  }
+
+  def <-/<(that: Handshake[T]): Handshake[T] = {
+    this << that.s2mPipe.m2sPipe
+    that
+  }
+
   def ~[T2 <: Data](that: T2): Handshake[T2] = translateWith(that)
   def &(cond: Bool): Handshake[T] = continueIf(cond)
 
 
   def fire: Bool = valid & ready
-
+  def isFree: Bool = !valid || ready
   def connectFrom(that: Handshake[T]): Handshake[T] = {
     this.valid := that.valid
     that.ready := this.ready
@@ -47,39 +62,50 @@ class Handshake[T <: Data](gen: T) extends Bundle with Interface {
     that
   }
 
-  def m2sPipeFrom(that: Handshake[T]): Handshake[T] = {
+
+  def m2sPipe: Handshake[T] = m2sPipe(false)
+
+  //TODO return this or that ?
+  def m2sPipe(crossClockData : Boolean) : Handshake[T] = {
+    val ret = Handshake(dataType)
+
     val rValid = RegInit(Bool(false))
-    val rData = Reg(gen)
+    val rData = Reg(dataType)
+    if(crossClockData) rData.addTag(crossClockDomain)
 
-    that.ready := (!this.valid) || this.ready
-
-    when(that.ready) {
-      rValid := that.valid
-      rData := that.data
-    }
-
-    this.valid := rValid
-    this.data := rData
-    that
-  }
-
-  def s2mPipeFrom(that: Handshake[T]): Handshake[T] = {
-    val rValid = RegInit(Bool(false))
-    val rBits = Reg(gen)
-
-    this.valid := that.valid || rValid
-    that.ready := !rValid
-    this.data := Mux(rValid, rBits, that.data)
+    this.ready := (!ret.valid) || ret.ready
 
     when(this.ready) {
+      rValid := this.valid
+      rData := this.data
+    }
+
+    ret.valid := rValid
+    ret.data := rData
+
+
+    ret
+  }
+
+  def s2mPipe: Handshake[T] = {
+    val ret = Handshake(dataType)
+
+    val rValid = RegInit(Bool(false))
+    val rBits = Reg(dataType)
+
+    ret.valid := this.valid || rValid
+    this.ready := !rValid
+    ret.data := Mux(rValid, rBits, this.data)
+
+    when(ret.ready) {
       rValid := Bool(false)
     }
 
-    when(that.ready && (!this.ready)) {
-      rValid := that.valid
-      rBits := that.data
+    when(this.ready && (!ret.ready)) {
+      rValid := this.valid
+      rBits := this.data
     }
-    that
+    ret
   }
 
   def translateWith[T2 <: Data](that: T2): Handshake[T2] = {
@@ -91,7 +117,7 @@ class Handshake[T <: Data](gen: T) extends Bundle with Interface {
   }
 
   def continueIf(cond: Bool): Handshake[T] = {
-    val next = new Handshake(gen)
+    val next = new Handshake(dataType)
     next.valid := this.valid && cond
     this.ready := next.ready && cond
     next.data := this.data
@@ -112,8 +138,6 @@ class Handshake[T <: Data](gen: T) extends Bundle with Interface {
   def haltIf(cond: Bool): Handshake[T] = continueIf(!cond)
   def takeIf(cond: Bool): Handshake[T] = throwIf(!cond)
 }
-
-
 
 
 

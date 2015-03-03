@@ -47,6 +47,12 @@ object SpinalLibTest {
 
   class TopLevel extends Component {
     val io = new Bundle {
+      val clkA = in Bool()
+      val resetA = in Bool()
+
+      val clkB = in Bool()
+      val resetB = in Bool()
+
       val inRegBundle = in(new BundleAA())
       val outRegBundle = out(new BundleAA())
 
@@ -56,9 +62,17 @@ object SpinalLibTest {
       val slaveHandshake = spinal.slave(new Handshake(new BundleA))
       val masterHandshake = spinal.master(new Handshake(new BundleA))
 
+
+      val slaveHandshakeClkA = spinal.slave(new Handshake(new BundleA))
+      val masterHandshakeClkB = spinal.master(new Handshake(new BundleA))
+
       val arbiter = new HandshakeArbiterCoreIO(new BundleA,4)
 
     }
+
+    val clockA = ClockDomain(io.clkA, io.resetA)
+    val clockB = ClockDomain(io.clkB, io.resetB)
+
 
     val arbiter = new HandshakeArbiterPriorityImpl(new BundleA,4,true)
     arbiter.io <> io.arbiter
@@ -75,13 +89,16 @@ object SpinalLibTest {
 
 
     io.masterFlow <-< io.slaveFlow
-    io.masterHandshake.m2sPipeFrom(io.slaveHandshake)
-//    val uC = u
-//    val uCf = uC.getDeclaredFields
-//    println("**")
-  //  regBundle.flatten.foreach(_._2.dontSimplifyIt)
-//    regBundleInit = null
-//    regBundle = null
+    io.masterHandshake connectFrom io.slaveHandshake
+
+
+//    val crossClockHandshake = new CrossClockStream_HandShake(io.slaveHandshakeClkA.data,clockA,clockB)
+//    crossClockHandshake.io.input << io.slaveHandshakeClkA
+//    io.masterHandshakeClkB << crossClockHandshake.io.output
+
+
+   io.masterHandshakeClkB << CrossClockStream_HandShake(io.slaveHandshakeClkA,clockA,clockB)
+
   }
 
 

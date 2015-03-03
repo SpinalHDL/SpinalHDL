@@ -4,14 +4,14 @@ import spinal._
 
 
 object Flow {
-  def apply[T <: Data](gen: T) = new Flow(gen)
+  def apply[T <: Data](dataType: T) = new Flow(dataType)
 }
 
-class Flow[T <: Data](gen: T) extends Bundle with Interface {
+class Flow[T <: Data](dataType: T) extends Bundle with Interface {
   val valid = Bool()
-  val data = gen.clone()
+  val data = dataType.clone()
 
-  override def clone: this.type = Flow(gen).asInstanceOf[this.type]
+  override def clone: this.type = Flow(dataType).asInstanceOf[this.type]
 
   override def asMaster: Unit = asOutput
   override def asSlave: Unit = asInput
@@ -27,7 +27,7 @@ class Flow[T <: Data](gen: T) extends Bundle with Interface {
   }
 
   def takeIf(cond: Bool): Flow[T] = {
-    val next = new Flow(gen)
+    val next = new Flow(dataType)
     next.valid := this.valid && cond
     next.data := this.data
     return next

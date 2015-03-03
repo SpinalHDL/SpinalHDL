@@ -19,7 +19,7 @@
 package spinal.lib
 
 import spinal._
-import spinal.importMe._
+
 
 //Give number of bit to encode a given number of states
 object log2Up {

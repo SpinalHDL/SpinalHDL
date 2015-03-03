@@ -121,6 +121,7 @@ trait Assignable {
   def assignFrom(that: AnyRef,conservative : Boolean): Unit
 }
 
+//TODO ???
 trait CrossHierarchyInputs {
   def getCrossHierarchyInputsId: Seq[Int]
 }
@@ -234,8 +235,23 @@ trait SpinalTag {
 }
 
 object crossClockDomain extends SpinalTag
+object crossClockBuffer extends SpinalTag
+
 
 trait ComponentPart {
+
+}
+
+class ComponentPartClockDomain(clockDomain : ClockDomain) extends DelayedInit{
+  clockDomain.push
+
+  override def delayedInit(body: => Unit) = {
+    body
+
+    if ((body _).getClass.getDeclaringClass == this.getClass) {
+      clockDomain.pop
+    }
+  }
 
 }
 

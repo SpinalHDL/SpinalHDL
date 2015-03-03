@@ -102,6 +102,9 @@ object Misc {
             case zone : ComponentPart => {
               reflect(zone,onEach,name + "_")
             }
+            case zone : ComponentPartClockDomain => { //TODO it's not preaty
+              reflect(zone,onEach,name + "_")
+            }
             case _ =>
           }
           onEach(name, fieldRef)
