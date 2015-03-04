@@ -7,19 +7,18 @@ class Uart extends Bundle with Interface {
   val txd = Bool()
   val rxd = Bool()
 
-  override def asMaster: Unit = {
+  override def asMaster: this.type = {
     out(txd)
     in(rxd)
+    this
   }
-  override def asSlave: Unit = {
-    in(txd)
-    out(rxd)
-  }
+  override def asSlave: this.type = asMaster.flip
 }
 
 
 object UartConfig {
-    object StopType extends SpinalEnum {
+
+  object StopType extends SpinalEnum {
     val eStop1bit, eStop2bit = Value
 
     val toBitCount = SpinalMap(
@@ -58,15 +57,15 @@ class UartTx(dataWidthMax: Int = 8) extends Component {
     val counter = Reg(io.config.clockDivider);
     val reset = Bool()
     val tick = counter === UInt(0)
-    
+
     counter := counter - UInt(1)
     when(tick || reset) {
       counter := io.config.clockDivider
     }
   }
-  
-  val tickCounter = new Area{
-    val value = Reg(UInt(Math.max(dataWidthMax,2) bit));
+
+  val tickCounter = new Area {
+    val value = Reg(UInt(Math.max(dataWidthMax, 2) bit));
     val reset = Bool()
 
     when(timer.tick) {
@@ -80,22 +79,22 @@ class UartTx(dataWidthMax: Int = 8) extends Component {
   val stateMachine = new Area {
     val state = RegInit(State.idle())
     val paritySum = Reg(Bool());
-    val lockingForJob = Bool()
     val dataBuffer = Reg(io.cmd.data)
 
+    val lookingForJob = Bool()
     val txd = Bool()
 
     when(timer.tick) {
       paritySum := paritySum ^ txd
     }
 
-    lockingForJob := Bool(false)
+    lookingForJob := Bool(false)
     tickCounter.reset := Bool(false)
     timer.reset := Bool(false)
     txd := Bool(true)
     switch(state) {
       is(State.idle) {
-        lockingForJob := Bool(true)
+        lookingForJob := Bool(true)
       }
       is(State.start) {
         txd := Bool(false)
@@ -129,14 +128,14 @@ class UartTx(dataWidthMax: Int = 8) extends Component {
         when(timer.tick) {
           when(tickCounter.value === StopType.toBitCount(io.config.stop)) {
             state := State.idle
-            lockingForJob := Bool(true)
+            lookingForJob := Bool(true)
           }
         }
       }
     }
 
     io.cmd.ready := Bool(false)
-    when(lockingForJob && io.cmd.valid) {
+    when(lookingForJob && io.cmd.valid) {
       io.cmd.ready := Bool(true)
       timer.reset := Bool(true)
       dataBuffer := io.cmd.data

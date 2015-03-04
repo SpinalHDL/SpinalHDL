@@ -140,8 +140,8 @@ trait Data extends ContextUser with Nameable with Assignable with AttributeReady
   def flip : this.type = {
     for((n,e) <- flatten){
       e.dir match {
-        case `in` => dir = out
-        case `out` => dir = in
+        case `in` => e.dir = out
+        case `out` => e.dir = in
         case _ => SpinalError(s"Can't flip a data that is direction less $e")
       }
     }

@@ -290,8 +290,8 @@ class GlobalData {
 
 
 trait Interface {
-  def asMaster
-  def asSlave
+  def asMaster : this.type
+  def asSlave : this.type
 }
 
 object master {

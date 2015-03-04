@@ -13,8 +13,8 @@ class Flow[T <: Data](dataType: T) extends Bundle with Interface {
 
   override def clone: this.type = Flow(dataType).asInstanceOf[this.type]
 
-  override def asMaster: Unit = asOutput
-  override def asSlave: Unit = asInput
+  override def asMaster: this.type = asOutput
+  override def asSlave: this.type = asInput
 
   def <<(that: Flow[T]): Unit = this connectFrom that
   def <-<(that: Flow[T]): Unit = this m2sPipeFrom that

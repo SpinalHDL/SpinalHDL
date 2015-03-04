@@ -20,17 +20,14 @@ class Handshake[T <: Data](dataType: T) extends Bundle with Interface {
 
   override def clone: this.type = Handshake(dataType).asInstanceOf[this.type]
 
-  override def asMaster: Unit = {
+  override def asMaster: this.type = {
     valid.asOutput
     ready.asInput
     data.asOutput
+    this
   }
 
-  override def asSlave: Unit = {
-    valid.asInput
-    ready.asOutput
-    data.asInput
-  }
+  override def asSlave: this.type = asMaster.flip
 
   def <<(that: Handshake[T]): Handshake[T] = connectFrom(that)
 
