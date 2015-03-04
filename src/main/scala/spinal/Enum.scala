@@ -26,6 +26,8 @@ import scala.collection.mutable
 
 class EnumLiteral[T <: SpinalEnum](val enum: SpinalEnumElement[T]) extends Literal {
   override def calcWidth: Int = enum.parent.getWidth
+
+  override def clone() : this.type = new EnumLiteral(enum).asInstanceOf[this.type]
 }
 
 class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T) extends BaseType {
@@ -81,6 +83,9 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T) extends BaseType {
 }
 
 class SpinalEnumElement[T <: SpinalEnum](val parent: T, val id: BigInt) extends Nameable {
+/// implicit def implicitCraft : SpinalEnumCraft[T] = craft()
+
+
   def ===(that: SpinalEnumCraft[T]): Bool = {
     that === this
   }
@@ -88,7 +93,7 @@ class SpinalEnumElement[T <: SpinalEnum](val parent: T, val id: BigInt) extends 
     that !== this
   }
 
-
+  def apply() : SpinalEnumCraft[T] = craft()
   def craft(): SpinalEnumCraft[T] = {
     val ret = parent.craft().asInstanceOf[SpinalEnumCraft[T]]
     ret.inputs(0) = new EnumLiteral(this)

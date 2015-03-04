@@ -94,6 +94,7 @@ class Backend {
 
     //Component connection
     SpinalInfoPhase("Transform connection")
+    allowLiteralToCrossHierarchy
     pullClockDomains
     check_noNull_noCrossHierarchy_noInputRegister
 
@@ -162,7 +163,6 @@ class Backend {
     }
 
   }
-
 
 
   //TODO  more
@@ -295,29 +295,28 @@ class Backend {
   }
 
 
-
-  def check_noAsyncNodeWithIncompletAssignment: Unit ={
+  def check_noAsyncNodeWithIncompletAssignment: Unit = {
 
 
     val errors = mutable.ArrayBuffer[String]()
 
-    walkNodes2(node => node match{
-      case signal : BaseType if !signal.isDelay =>{
+    walkNodes2(node => node match {
+      case signal: BaseType if !signal.isDelay => {
 
-        val signalRange = new AssignedRange(signal.getWidth -1,0)
+        val signalRange = new AssignedRange(signal.getWidth - 1, 0)
 
-        def walk(nodes : ArrayBuffer[Node]): AssignedBits = {
+        def walk(nodes: ArrayBuffer[Node]): AssignedBits = {
           val assignedBits = new AssignedBits
 
-          for(node <- nodes)node match{
-            case wn : WhenNode => {
-              assignedBits.add(AssignedBits.intersect(walk(ArrayBuffer(wn.whenTrue)),walk(ArrayBuffer(wn.whenFalse))))
+          for (node <- nodes) node match {
+            case wn: WhenNode => {
+              assignedBits.add(AssignedBits.intersect(walk(ArrayBuffer(wn.whenTrue)), walk(ArrayBuffer(wn.whenFalse))))
             }
-            case an : AssignementNode => {
+            case an: AssignementNode => {
               assignedBits.add(an.getAssignedBits)
             }
-            case man : MultipleAssignmentNode => return walk(man.inputs)
-            case nothing : NoneNode =>
+            case man: MultipleAssignmentNode => return walk(man.inputs)
+            case nothing: NoneNode =>
             case _ => assignedBits.add(signalRange)
           }
           assignedBits
@@ -328,10 +327,8 @@ class Backend {
         val unassignedBits = AssignedBits()
         unassignedBits.add(signalRange)
         unassignedBits.remove(assignedBits)
-        if(!unassignedBits.isEmpty)
+        if (!unassignedBits.isEmpty)
           errors += s"Incomplet assignment is detected on $signal, unassigned bit mask is ${unassignedBits.value.toString(2)}}, declared at ${signal.getScalaLocationString}"
-
-
 
 
       }
@@ -340,6 +337,29 @@ class Backend {
 
     if (!errors.isEmpty)
       SpinalError(errors)
+  }
+
+  def allowLiteralToCrossHierarchy: Unit = {
+    walkNodes2(consumer => {
+      for(consumerInputId <- 0 until consumer.inputs.size){
+        val consumerInput = consumer.inputs(consumerInputId)
+        consumerInput match {
+          case litBaseType : BaseType  if litBaseType.inputs(0).isInstanceOf[Literal] => {
+            val lit : spinal.Literal = litBaseType.inputs(0).asInstanceOf[Literal]
+            val c = if(consumer.isInstanceOf[BaseType] && consumer.asInstanceOf[BaseType].isInput) consumer.component.parent else consumer.component
+            Component.push(c)
+            val newBt = litBaseType.clone()
+            val newLit : spinal.Literal = lit.clone()
+
+            newBt.inputs(0) = newLit
+            consumer.inputs(consumerInputId) = newBt
+            Component.pop(c)
+
+          }
+          case _ =>
+        }
+      }
+    })
   }
 
   def check_noNull_noCrossHierarchy_noInputRegister: Unit = {
@@ -356,8 +376,8 @@ class Backend {
               val inIsIo = in.isInstanceOf[BaseType] && in.asInstanceOf[BaseType].isIo
               if (node.isIo) {
                 if (node.isInput) {
-                  if (in.component != node.component.parent && !(!in.component.isTopLevel && inIsIo && in.component.parent == node.component.parent)){
-                    if(in.component == node.component)
+                  if (in.component != node.component.parent && !(!in.component.isTopLevel && inIsIo && in.component.parent == node.component.parent)) {
+                    if (in.component == node.component)
                       errors += s"Input $node can't be assigned from inside at ${node.getScalaTraceString}"
                     else
                       errors += s"Input $node is not assigned by parent component but an other at ${node.getScalaTraceString}"
@@ -448,14 +468,14 @@ class Backend {
     walkNodes(walker_pullClockDomains)
   }
 
-  def dontSymplifyBasetypeWithComplexAssignement: Unit ={
+  def dontSymplifyBasetypeWithComplexAssignement: Unit = {
     walkNodes2(node => {
       node match {
-        case baseType : BaseType =>{
-          baseType.inputs(0) match{
-            case wn : WhenNode => baseType.dontSimplifyIt
-            case an : AssignementNode => baseType.dontSimplifyIt
-            case man : MultipleAssignmentNode => baseType.dontSimplifyIt
+        case baseType: BaseType => {
+          baseType.inputs(0) match {
+            case wn: WhenNode => baseType.dontSimplifyIt
+            case an: AssignementNode => baseType.dontSimplifyIt
+            case man: MultipleAssignmentNode => baseType.dontSimplifyIt
             case _ =>
           }
         }
@@ -498,7 +518,7 @@ class Backend {
     val errors = mutable.ArrayBuffer[String]()
     walkNodes2(node => {
       val error = node.checkInferedWidth
-      if(error != null) errors += error
+      if (error != null) errors += error
     })
     if (!errors.isEmpty)
       SpinalError(errors)
@@ -544,19 +564,19 @@ class Backend {
     }, nodeStack)
   }
 
-    def walkNodesBlackBoxGenerics = {
-      val nodeStack = mutable.Stack[Node]()
-      components.foreach(_ match {
-        case blackBox: BlackBox => {
-          blackBox.generic.flatten.foreach(_._2 match{
-            case bt : BaseType => nodeStack.push(bt)
-            case _ =>
-          })
-        }
-        case _ =>
-      })
-      nodeStack
-    }
+  def walkNodesBlackBoxGenerics = {
+    val nodeStack = mutable.Stack[Node]()
+    components.foreach(_ match {
+      case blackBox: BlackBox => {
+        blackBox.generic.flatten.foreach(_._2 match {
+          case bt: BaseType => nodeStack.push(bt)
+          case _ =>
+        })
+      }
+      case _ =>
+    })
+    nodeStack
+  }
 
 
   def inferWidth: Unit = {
@@ -673,19 +693,19 @@ class Backend {
           walk(node.inputs(0))
 
           def walk(that: Node): Unit = that match {
-            case that : Multiplexer => {
+            case that: Multiplexer => {
               that.inferredWidth = width
               walk(that.inputs(1))
               walk(that.inputs(2))
             }
-            case that : WhenNode => {
+            case that: WhenNode => {
               that.inferredWidth = width
               walk(that.whenTrue)
               walk(that.whenFalse)
             }
-            case that : MultipleAssignmentNode => {
+            case that: MultipleAssignmentNode => {
               that.inferredWidth = width
-              for(node <- that.inputs){
+              for (node <- that.inputs) {
                 walk(node)
               }
             }

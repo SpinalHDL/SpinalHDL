@@ -53,3 +53,24 @@ object OHToUInt{
     ret.toBits.toUInt
   }
 }
+
+object SpinalMap{
+  def apply[Key <: Data,Value <: Data](elems: (Key, Value)*): SpinalMap[Key,Value] ={
+    new SpinalMap(elems)
+  }
+}
+
+class SpinalMap[Key <: Data,Value <: Data](pairs : Iterable[(Key,Value)]){
+  def apply(key : Key) : Value = {
+    val ret : Value = pairs.head._2.clone().asInstanceOf[Value]
+    ret := pairs.head._2
+
+    for((k,v) <- pairs.tail){
+      when(k === key){
+        ret := v
+      }
+    }
+
+    ret
+  }
+}

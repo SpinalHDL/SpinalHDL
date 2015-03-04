@@ -20,10 +20,10 @@
 package spinal
 
 
+import spinal.lib._
+
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
-import spinal.lib.Handshake
-import spinal.lib.Flow
 
 case class BitCount(val value: Int) {}
 
@@ -252,7 +252,7 @@ class ClockingArea(clockDomain : ClockDomain) extends Area with DelayedInit {
 
 }
 
-object GlobalData {
+object GlobalData { //Per thread implementation
   private val it = new ThreadLocal[GlobalData]
   def get = it.get()
   def reset = {
@@ -260,7 +260,7 @@ object GlobalData {
     get
   }
 }
-//object GlobalData {
+//object GlobalData { //Per application implementation
 //  var it : GlobalData = null
 //  def get = it
 //  def reset = {

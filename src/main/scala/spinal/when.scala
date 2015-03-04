@@ -121,9 +121,13 @@ object switch {
 
 
 object is {
-  def apply[T <: Data](value: T)(block: => Unit): Unit = is(value :: Nil)(block)
 
+  def apply[T <: Data](value: T)(block: => Unit): Unit = is(value :: Nil)(block)
   def apply[T <: Data](value: T, values: T*)(block: => Unit): Unit = is(value :: values.toList)(block)
+
+  def apply[T <: SpinalEnum](value: SpinalEnumElement[T])(block: => Unit): Unit = is(value() :: Nil)(block)
+  def apply[T <: SpinalEnum](value: SpinalEnumElement[T],values: SpinalEnumElement[T]*)(block: => Unit): Unit = is(value() :: values.map(_()).toList)(block)
+
 
   def apply[T <: Data](keys: Iterable[T])(block: => Unit): Unit = {
     if (keys.isEmpty) SpinalError("There is no key in 'is' statement")

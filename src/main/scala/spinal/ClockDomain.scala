@@ -34,11 +34,11 @@ object ASYNC extends ResetKind;
 
 object SYNC extends ResetKind;
 
-object BOOT extends ResetKind;
+
 
 
 object ClockDomain {
-  def apply(clock: Bool, reset: Bool = null, resetKind: ResetKind = SYNC, edge: EdgeKind = RISING, clockEnable: Bool = null, resetActiveHigh: Boolean = true, clockEnableActiveHigh: Boolean = true): ClockDomain = {
+  def apply(clock: Bool, reset: Bool = null, resetKind: ResetKind = ASYNC, edge: EdgeKind = RISING, clockEnable: Bool = null, resetActiveHigh: Boolean = true, clockEnableActiveHigh: Boolean = true): ClockDomain = {
     new ClockDomain(clock, edge, clockEnable, reset, resetKind, resetActiveHigh, clockEnableActiveHigh)
   }
 

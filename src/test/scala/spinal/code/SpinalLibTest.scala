@@ -23,7 +23,6 @@ import spinal._
 import spinal.lib._
 
 
-
 object SpinalLibTest {
 
   class BundleAA extends BundleA {
@@ -68,7 +67,16 @@ object SpinalLibTest {
 
       val arbiter = new HandshakeArbiterCoreIO(new BundleA,4)
 
+
+      val uart = master(new Uart)
+      val uartCmd = slave Handshake( Bits(8 bit))
+      val uartConfig = in(new UartConfig())
     }
+
+    val uartTx = new UartTx()
+    uartTx.io.config := io.uartConfig
+    uartTx.io.cmd << io.uartCmd
+    io.uart.txd := uartTx.io.txd
 
     val clockA = ClockDomain(io.clkA, io.resetA)
     val clockB = ClockDomain(io.clkB, io.resetB)

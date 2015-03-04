@@ -860,7 +860,7 @@ class VhdlBackend extends Backend with VhdlBase {
 
   def extractBoolFloating(func: Modifier): String = {
     val that = func.asInstanceOf[ExtractBoolFloating]
-    s"pkg_extract(${emitLogic(that.getBitVector)},to_integer(${that.getBitId}))"
+    s"pkg_extract(${emitLogic(that.getBitVector)},to_integer(${emitLogic(that.getBitId)}))"
   }
 
   def extractBitVectorFixed(func: Modifier): String = {

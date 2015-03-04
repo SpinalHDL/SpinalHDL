@@ -22,49 +22,56 @@ package spinal
  * Created by PIC18F on 21.08.2014.
  */
 
-abstract class Literal extends Node {
-
+trait Literal extends Node {
+  override def clone: this.type = ???
 }
 
-object BitsLiteral{
-  def apply[T <: Node](value: BigInt,specifiedBitCount : Int,on : T): T ={
-    val valueBitCount = value.bitLength + (if(on.isInstanceOf[SInt]) 1 else 0)
+object BitsLiteral {
+  def apply[T <: Node](value: BigInt, specifiedBitCount: Int, on: T): T = {
+    val valueBitCount = value.bitLength + (if (on.isInstanceOf[SInt]) 1 else 0)
     var bitCount = specifiedBitCount
-    if(!on.isInstanceOf[SInt] && value < 0) throw new Exception("literal value is negative and can be represented")
-    if(bitCount != -1){
-      if(valueBitCount > bitCount) throw new Exception("literal width specification is to little")
-    }else{
+    if (!on.isInstanceOf[SInt] && value < 0) throw new Exception("literal value is negative and can be represented")
+    if (bitCount != -1) {
+      if (valueBitCount > bitCount) throw new Exception("literal width specification is to little")
+    } else {
       bitCount = valueBitCount
     }
-    on.inputs(0) = new BitsLiteral(value,bitCount,on)
+    on.inputs(0) = new BitsLiteral(value, bitCount, on)
     on
   }
 }
 
-class BitsLiteral(val value: BigInt,val bitCount : Integer,val kind : Node) extends Literal{
+class BitsLiteral(val value: BigInt, val bitCount: Integer, val kind: Node) extends Literal {
   def calcWidth: Int = bitCount
+
+  override def clone(): this.type = new BitsLiteral(value, bitCount, kind).asInstanceOf[this.type]
 }
 
 
-object BoolLiteral{
-  def apply(value: Boolean,on : Bool): Bool ={
+object BoolLiteral {
+  def apply(value: Boolean, on: Bool): Bool = {
     on.inputs(0) = new BoolLiteral(value)
     on
   }
 }
-class BoolLiteral(val value: Boolean) extends Literal{
+
+class BoolLiteral(val value: Boolean) extends Literal {
   def calcWidth: Int = 1
+  override def clone(): this.type = new BoolLiteral(value).asInstanceOf[this.type]
 }
 
 
 object IntLiteral {
-  def apply(value : BigInt): IntLiteral ={
+  def apply(value: BigInt): IntLiteral = {
     return new IntLiteral(value)
   }
 }
-class IntLiteral(val value: BigInt) extends Literal with MinMaxProvider{
+
+class IntLiteral(val value: BigInt) extends Literal with MinMaxProvider {
   def calcWidth: Int = 0
 
-  def minValue : BigInt = value
-  def maxValue : BigInt = value
+  def minValue: BigInt = value
+  def maxValue: BigInt = value
+
+  override def clone(): this.type = new IntLiteral(value).asInstanceOf[this.type]
 }
