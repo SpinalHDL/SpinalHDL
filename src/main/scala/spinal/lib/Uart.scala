@@ -19,18 +19,7 @@ class Uart extends Bundle with Interface {
 
 
 object UartConfig {
-
-
-  //  object DataType extends SpinalEnum {
-  //    val eData7bit, eData8bit, eData9bit = Value
-  //
-  //    val toBitCount = Map(
-  //      eData7bit -> UInt(7),
-  //      eData8bit -> UInt(8),
-  //      eData9bit -> UInt(9))
-  //  }
-
-  object StopType extends SpinalEnum {
+    object StopType extends SpinalEnum {
     val eStop1bit, eStop2bit = Value
 
     val toBitCount = SpinalMap(
@@ -68,91 +57,94 @@ class UartTx(dataWidthMax: Int = 8) extends Component {
   val timer = new Area {
     val counter = Reg(io.config.clockDivider);
     val reset = Bool()
-    val tick = Bool()
-
-    tick := Bool(false)
+    val tick = counter === UInt(0)
+    
     counter := counter - UInt(1)
-    when(counter === UInt(0) || reset) {
+    when(tick || reset) {
       counter := io.config.clockDivider
-      tick := Bool(true)
+    }
+  }
+  
+  val tickCounter = new Area{
+    val value = Reg(UInt(Math.max(dataWidthMax,2) bit));
+    val reset = Bool()
+
+    when(timer.tick) {
+      value := value + UInt(1)
+    }
+    when(reset) {
+      value := UInt(0)
     }
   }
 
+  val stateMachine = new Area {
+    val state = RegInit(State.idle())
+    val paritySum = Reg(Bool());
+    val lockingForJob = Bool()
+    val dataBuffer = Reg(io.cmd.data)
 
-  val state = RegInit(State.idle())
-  val counter = Reg(UInt(4 bit));
-  val counterReset = Bool()
-  val paritySum = Reg(Bool());
-  val lockingForJob = Bool()
-  val dataBuffer = Reg(io.cmd.data)
+    val txd = Bool()
 
-  val txd = Bool()
-
-  when(timer.tick) {
-    counter := counter + UInt(1)
-  }
-  when(counterReset) {
-    counter := UInt(0)
-  }
-  when(timer.tick) {
-    paritySum := paritySum ^ txd
-  }
-
-
-  lockingForJob := Bool(false)
-  counterReset := Bool(false)
-  timer.reset := Bool(false)
-  txd := Bool(true)
-  switch(state) {
-    is(State.idle) {
-      lockingForJob := Bool(true)
+    when(timer.tick) {
+      paritySum := paritySum ^ txd
     }
-    is(State.start) {
-      txd := Bool(false)
-      when(timer.tick) {
-        state := State.data
-        paritySum := io.config.parity === ParityType.eParityOdd
-        counterReset := Bool(true)
+
+    lockingForJob := Bool(false)
+    tickCounter.reset := Bool(false)
+    timer.reset := Bool(false)
+    txd := Bool(true)
+    switch(state) {
+      is(State.idle) {
+        lockingForJob := Bool(true)
       }
-    }
-    is(State.data) {
-      txd := dataBuffer(counter)
-      when(timer.tick) {
-        when(counter === io.config.dataLength) {
-          counterReset := Bool(true)
-          when(io.config.parity === ParityType.eParityNone) {
-            state := State.stop
-          } otherwise {
-            state := State.parity
+      is(State.start) {
+        txd := Bool(false)
+        when(timer.tick) {
+          state := State.data
+          paritySum := io.config.parity === ParityType.eParityOdd
+          tickCounter.reset := Bool(true)
+        }
+      }
+      is(State.data) {
+        txd := dataBuffer(tickCounter.value)
+        when(timer.tick) {
+          when(tickCounter.value === io.config.dataLength) {
+            tickCounter.reset := Bool(true)
+            when(io.config.parity === ParityType.eParityNone) {
+              state := State.stop
+            } otherwise {
+              state := State.parity
+            }
+          }
+        }
+      }
+      is(State.parity) {
+        txd := paritySum
+        when(timer.tick) {
+          state := State.stop
+          tickCounter.reset := Bool(true)
+        }
+      }
+      is(State.stop) {
+        when(timer.tick) {
+          when(tickCounter.value === StopType.toBitCount(io.config.stop)) {
+            state := State.idle
+            lockingForJob := Bool(true)
           }
         }
       }
     }
-    is(State.parity) {
-      txd := paritySum
-      when(timer.tick) {
-        state := State.stop
-        counterReset := Bool(true)
-      }
-    }
-    is(State.stop) {
-      when(timer.tick) {
-        when(counter === StopType.toBitCount(io.config.stop)) {
-          state := State.idle
-          lockingForJob := Bool(true)
-        }
-      }
+
+    io.cmd.ready := Bool(false)
+    when(lockingForJob && io.cmd.valid) {
+      io.cmd.ready := Bool(true)
+      timer.reset := Bool(true)
+      dataBuffer := io.cmd.data
+      state := State.start
     }
   }
 
-  io.cmd.ready := Bool(false)
-  when(lockingForJob && io.cmd.valid) {
-    io.cmd.ready := Bool(true)
-    dataBuffer := io.cmd.data
-    state := State.start
-  }
-
-  io.txd := RegNext(txd, Bool(true))
+  io.txd := RegNext(stateMachine.txd, Bool(true))
 
 }
 
