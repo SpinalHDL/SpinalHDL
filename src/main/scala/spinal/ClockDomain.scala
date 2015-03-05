@@ -69,7 +69,7 @@ object ClockDomain {
   def readClockEnable = current.readClockEnableWire
 }
 
-class ClockDomain(val clock: Bool, val edge: EdgeKind, val clockEnable: Bool, val reset: Bool, val resetKind: ResetKind, val resetActiveHigh: Boolean, val clockEnableActiveHigh: Boolean) {
+class ClockDomain(val clock: Bool, val edge: EdgeKind, var clockEnable: Bool, val reset: Bool, val resetKind: ResetKind, val resetActiveHigh: Boolean, val clockEnableActiveHigh: Boolean) {
   def hasClockEnable = clockEnable != null
   def hasReset = reset != null
 
@@ -96,6 +96,9 @@ class ClockDomain(val clock: Bool, val edge: EdgeKind, val clockEnable: Bool, va
     pop
     ret
   }
+
+
+  override def clone() : this.type = new ClockDomain(clock,edge,clockEnable,reset,resetKind,resetActiveHigh,clockEnableActiveHigh).asInstanceOf[this.type]
 }
 
 

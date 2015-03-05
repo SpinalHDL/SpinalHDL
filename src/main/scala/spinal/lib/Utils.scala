@@ -20,6 +20,8 @@ package spinal.lib
 
 import spinal._
 
+import scala.collection.mutable.ArrayBuffer
+
 
 //Give number of bit to encode a given number of states
 object log2Up {
@@ -29,20 +31,20 @@ object log2Up {
   }
 }
 
-object OHToUInt{
-  def apply(bitVector: BitVector) : UInt = apply(bitVector.toBools)
+object OHToUInt {
+  def apply(bitVector: BitVector): UInt = apply(bitVector.toBools)
 
-  def apply(bools : collection.IndexedSeq[Bool]): UInt ={
+  def apply(bools: collection.IndexedSeq[Bool]): UInt = {
     val boolsSize = bools.size
-    if(boolsSize < 2) return UInt(0)
+    if (boolsSize < 2) return UInt(0)
 
     val retBitCount = log2Up(bools.size)
-    val ret = Vec(retBitCount,Bool())
+    val ret = Vec(retBitCount, Bool())
 
-    for(retBitId <- 0 until retBitCount){
-      var bit : Bool = null
-      for(boolsBitId <- 0 until boolsSize if ((boolsBitId >> retBitId) & 1) != 0){
-        if(bit != null)
+    for (retBitId <- 0 until retBitCount) {
+      var bit: Bool = null
+      for (boolsBitId <- 0 until boolsSize if ((boolsBitId >> retBitId) & 1) != 0) {
+        if (bit != null)
           bit = bit | bools(boolsBitId)
         else
           bit = bools(boolsBitId)
@@ -54,19 +56,39 @@ object OHToUInt{
   }
 }
 
-object SpinalMap{
-  def apply[Key <: Data,Value <: Data](elems: (Key, Value)*): SpinalMap[Key,Value] ={
+
+object MajorityVote {
+  def apply(that: BitVector): Bool = apply(that.toBools)
+  def apply(that: collection.IndexedSeq[Bool]): Bool = {
+    val size = that.size
+    val trigger = that.size/2 + 1
+    var ret = Bool(false)
+    for(i <- BigInt(0) until (BigInt(1) << size)){
+      if(i.bitCount == trigger){
+        val bits = ArrayBuffer[Bool]()
+        for(bitId <- 0 until i.bitLength){
+          if(i.testBit(bitId)) bits += that(bitId)
+        }
+        ret = ret | bits.reduceLeft(_ & _)
+      }
+    }
+    ret
+  }
+}
+
+object SpinalMap {
+  def apply[Key <: Data, Value <: Data](elems: (Key, Value)*): SpinalMap[Key, Value] = {
     new SpinalMap(elems)
   }
 }
 
-class SpinalMap[Key <: Data,Value <: Data](pairs : Iterable[(Key,Value)]){
-  def apply(key : Key) : Value = {
-    val ret : Value = pairs.head._2.clone().asInstanceOf[Value]
+class SpinalMap[Key <: Data, Value <: Data](pairs: Iterable[(Key, Value)]) {
+  def apply(key: Key): Value = {
+    val ret: Value = pairs.head._2.clone().asInstanceOf[Value]
     ret := pairs.head._2
 
-    for((k,v) <- pairs.tail){
-      when(k === key){
+    for ((k, v) <- pairs.tail) {
+      when(k === key) {
         ret := v
       }
     }

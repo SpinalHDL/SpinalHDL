@@ -85,7 +85,7 @@ trait ContextUser extends GlobalDataUser {
   var instanceCounter = globalData.getInstanceCounter
 }
 
-trait GlobalDataUser{
+trait GlobalDataUser {
   val globalData = GlobalData.get
 }
 
@@ -118,9 +118,8 @@ abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends 
 }
 
 trait Assignable {
-  def assignFrom(that: AnyRef,conservative : Boolean): Unit
+  def assignFrom(that: AnyRef, conservative: Boolean): Unit
 }
-
 
 
 trait Nameable {
@@ -168,11 +167,11 @@ object ScalaLocated {
   var unfiltredFiles = mutable.Set("SpinalUtils.scala")
   //var unfiltredPackages = mutable.Set("spinal.code.","spinal.bug.","spinal.scalaTest.")
 
-  def getScalaTraceSmart : String = {
+  def getScalaTraceSmart: String = {
     val scalaTrace = new Throwable()
     val temp = scalaTrace.getStackTrace.filter(trace => {
       val className = trace.getClassName
-    //  !((className.startsWith("scala.") || className.startsWith("spinal.")) && !ScalaLocated.unfiltredPackages.map(className.startsWith(_)).reduceLeft(_ || _)) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
+      //  !((className.startsWith("scala.") || className.startsWith("spinal.")) && !ScalaLocated.unfiltredPackages.map(className.startsWith(_)).reduceLeft(_ || _)) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
       !(className.startsWith("scala.") || (className.startsWith("spinal.") && className.count(_ == '.') == 1)) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
     })
     temp.apply(0).toString
@@ -180,8 +179,7 @@ object ScalaLocated {
 }
 
 
-
-trait ScalaLocated extends GlobalDataUser{
+trait ScalaLocated extends GlobalDataUser {
   val scalaTrace = if (!globalData.scalaLocatedEnable) null else new Throwable()
 
   def getScalaTrace = {
@@ -190,7 +188,7 @@ trait ScalaLocated extends GlobalDataUser{
   def getScalaTraceSmart = {
     val temp = scalaTrace.getStackTrace.filter(trace => {
       val className = trace.getClassName
-  //    !((className.startsWith("scala.") || className.startsWith("spinal.")) && !ScalaLocated.unfiltredPackages.map(className.startsWith(_)).reduceLeft(_ || _)) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
+      //    !((className.startsWith("scala.") || className.startsWith("spinal.")) && !ScalaLocated.unfiltredPackages.map(className.startsWith(_)).reduceLeft(_ || _)) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
       !(className.startsWith("scala.") || (className.startsWith("spinal.") && className.count(_ == '.') == 1)) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
 
     })
@@ -232,6 +230,7 @@ trait SpinalTag {
 }
 
 object crossClockDomain extends SpinalTag
+
 object crossClockBuffer extends SpinalTag
 
 
@@ -239,7 +238,7 @@ trait Area {
 
 }
 
-class ClockingArea(clockDomain : ClockDomain) extends Area with DelayedInit {
+class ClockingArea(clockDomain: ClockDomain) extends Area with DelayedInit {
   clockDomain.push
 
   override def delayedInit(body: => Unit) = {
@@ -249,10 +248,28 @@ class ClockingArea(clockDomain : ClockDomain) extends Area with DelayedInit {
       clockDomain.pop
     }
   }
-
 }
 
-object GlobalData { //Per thread implementation
+class ClockEnableArea(clockEnable: Bool) extends Area with DelayedInit {
+  val clockDomain = ClockDomain.current.clone()
+  if (clockDomain.clockEnableActiveHigh)
+    clockDomain.clockEnable = clockDomain.readClockEnableWire & clockEnable
+  else
+    clockDomain.clockEnable = clockDomain.readClockEnableWire | !clockEnable
+
+  clockDomain.push
+
+  override def delayedInit(body: => Unit) = {
+    body
+
+    if ((body _).getClass.getDeclaringClass == this.getClass) {
+      clockDomain.pop
+    }
+  }
+}
+
+object GlobalData {
+  //Per thread implementation
   private val it = new ThreadLocal[GlobalData]
   def get = it.get()
   def reset = {
@@ -260,6 +277,7 @@ object GlobalData { //Per thread implementation
     get
   }
 }
+
 //object GlobalData { //Per application implementation
 //  var it : GlobalData = null
 //  def get = it
@@ -286,12 +304,9 @@ class GlobalData {
 }
 
 
-
-
-
 trait Interface {
-  def asMaster : this.type
-  def asSlave : this.type
+  def asMaster: this.type
+  def asSlave: this.type
 }
 
 object master {

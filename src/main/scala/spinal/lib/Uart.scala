@@ -45,12 +45,8 @@ class UartConfig(dataWidthMax: Int = 8) extends Bundle {
 class UartTx(dataWidthMax: Int = 8) extends Component {
   val io = new Bundle {
     val config = in(new UartConfig(dataWidthMax))
-    val cmd = slave Handshake (Bits(dataWidthMax bit));
-    val txd = out Bool();
-  }
-
-  object State extends SpinalEnum {
-    val idle, start, data, parity, stop = Value
+    val cmd = slave Handshake (Bits(dataWidthMax bit))
+    val txd = out Bool()
   }
 
   val timer = new Area {
@@ -77,6 +73,11 @@ class UartTx(dataWidthMax: Int = 8) extends Component {
   }
 
   val stateMachine = new Area {
+
+    object State extends SpinalEnum {
+      val idle, start, data, parity, stop = Value
+    }
+
     val state = RegInit(State.idle())
     val paritySum = Reg(Bool());
     val dataBuffer = Reg(io.cmd.data)
@@ -147,3 +148,124 @@ class UartTx(dataWidthMax: Int = 8) extends Component {
 
 }
 
+
+class UartRx(dataWidthMax: Int = 8, sampleCount: Int = 6, transitionSize: Int = 2) extends Component {
+  val io = new Bundle {
+    val config = in(new UartConfig(dataWidthMax))
+    val cmd = master Flow (Bits(dataWidthMax bit))
+    val rxd = in Bool()
+  }
+
+  val clockDivider = new Area {
+    val counter = Reg(io.config.clockDivider)
+    val tick = counter === UInt(0)
+
+    counter := counter - UInt(1)
+    when(tick) {
+      counter := io.config.clockDivider
+    }
+  }
+
+  val sampler = new Area {
+    val frontBuffer = CCBuffer(io.rxd)
+    val samples = RegInit(BitsSet(sampleCount bit))
+    when(clockDivider.tick) {
+      samples := samples ## frontBuffer
+    }
+    val value = RegNext(MajorityVote(samples))
+    val event = RegNext(clockDivider.tick)
+  }
+
+  val baud = new Area {
+    val counter = Reg(UInt(log2Up(sampleCount + transitionSize)))
+    val tick = counter === UInt(0)
+
+    when(sampler.event) {
+      counter := counter - UInt(1)
+    }
+    when(tick) {
+      counter := UInt(sampleCount + transitionSize - 1)
+    }
+
+    //TODO verify UInt(sampleCount / 2 - 1)
+    def reset: Unit = counter := UInt(sampleCount / 2 - 1)
+    def value = sampler.value
+  }
+
+
+  val baudCounter = new Area {
+    val value = Reg(UInt(Math.max(dataWidthMax, 2) bit))
+    def reset: Unit = value := UInt(0)
+
+    when(baud.tick) {
+      value := value + UInt(1)
+    }
+  }
+
+  val stateMachine = new Area {
+    object State extends SpinalEnum {
+      val idle, start, data, parity, stop = Value
+    }
+
+    val state = RegInit(State.idle())
+    val paritySum = Reg(Bool())
+    val dataBuffer = Reg(io.cmd.data)
+
+    when(baud.tick) {
+      paritySum := paritySum ^ baud.value
+    }
+
+    io.cmd.valid := Bool(false)
+    switch(state) {
+      is(State.idle) {
+        when(baud.value === Bool(false)) {
+          state := State.start
+          baud.reset
+        }
+      }
+      is(State.start) {
+        when(baud.tick) {
+          state := State.data
+          baudCounter.reset
+          paritySum := io.config.parity === ParityType.eParityOdd
+          when(baud.value === Bool(true)) {
+            state := State.idle
+          }
+        }
+      }
+      is(State.data) {
+        when(baud.tick) {
+          dataBuffer(baudCounter.value) := baud.value
+          when(baudCounter.value === io.config.dataLength) {
+            baudCounter.reset
+            when(io.config.parity === ParityType.eParityNone) {
+              state := State.stop
+            } otherwise {
+              state := State.parity
+            }
+          }
+        }
+      }
+      is(State.parity) {
+        when(baud.tick) {
+          state := State.stop
+          baudCounter.reset
+          when(paritySum === baud.value) {
+            state := State.idle
+          }
+        }
+      }
+      is(State.stop) {
+        when(baud.tick) {
+          when(!baud.value) {
+            state := State.idle
+          }.elsewhen(baudCounter.value === StopType.toBitCount(io.config.stop)) {
+            state := State.idle
+            io.cmd.valid := Bool(true)
+          }
+        }
+      }
+    }
+  }
+  io.cmd.data := stateMachine.dataBuffer
+}

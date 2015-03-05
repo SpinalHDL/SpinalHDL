@@ -25,7 +25,9 @@ package spinal
 object Bits extends BitsFactory{
 
 }
-
+object BitsSet{
+  def apply(bitCount: BitCount) = Bits((BigInt(1) << bitCount.value) - 1,bitCount)
+}
 
 class BitsFactory extends BitVectorFactory[Bits] {
   def apply() = new Bits()

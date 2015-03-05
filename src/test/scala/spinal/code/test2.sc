@@ -23,7 +23,7 @@ import spinal._
 
 
 
-
+BigInt(10).bitCount
 
 for(i <- 0 to  2){
   println(i)

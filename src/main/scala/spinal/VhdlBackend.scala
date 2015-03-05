@@ -1204,3 +1204,37 @@ class VhdlBackend extends Backend with VhdlBase {
   }
 }
 
+//if (asyncReset) {
+//ret ++= s"${tabStr}if ${emitReference(reset)} = \'${if (clockDomain.resetActiveHigh) 1 else 0}\' then\n";
+//inc
+//emitRegsInitialValue(tabStr)
+//dec
+//ret ++= s"${tabStr}elsif ${emitClockEdge(clock, clockDomain.edge)}"
+//inc
+//} else {
+//ret ++= s"${tabStr}if ${emitClockEdge(clock, clockDomain.edge)}"
+//inc
+//}
+//if (syncReset) {
+//ret ++= s"${tabStr}if ${emitReference(reset)} = \'${if (clockDomain.resetActiveHigh) 1 else 0}\' then\n"
+//inc
+//emitRegsInitialValue(tabStr)
+//dec
+//ret ++= s"${tabStr}else\n"
+//inc
+//}
+//if (clockEnable != null) {
+//ret ++= s"${tabStr}if ${emitReference(clockEnable)} = \'${if (clockDomain.clockEnableActiveHigh) 1 else 0}\' then\n"
+//inc
+//emitRegsLogic(tabStr)
+//}else{
+//emitRegsLogic(tabStr)
+//}
+//
+//while (tabLevel != 2) {
+//dec
+//ret ++= s"${tabStr}end if;\n"
+//}
+//ret ++= s"${tabStr}end process;\n"
+//dec
+//ret ++= s"${tabStr}\n"
