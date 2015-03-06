@@ -20,7 +20,7 @@ package spinal
 
 
 import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.{StringBuilder, ArrayBuffer}
 
 
 /**
@@ -33,6 +33,8 @@ class VhdlBackend extends Backend with VhdlBase {
   var packageName = "pkg_scala2hdl"
   var outputFile: String = null
 
+  val emitedComponent = mutable.Map[ComponentBuilder, ComponentBuilder]()
+  val emitedComponentRef = mutable.Map[Component,Component]()
 
   reservedKeyWords ++= vhdlKeyWords
 
@@ -66,13 +68,61 @@ class VhdlBackend extends Backend with VhdlBase {
     out.write(text)
   }
 
+  class ComponentBuilder(val component: Component) {
+    val parts = ArrayBuffer[(StringBuilder, Boolean)]()
+
+    def newPart(mustMatch: Boolean): StringBuilder = {
+      val builder = new mutable.StringBuilder
+      parts += (builder -> mustMatch)
+      builder
+    }
+
+    def result: String = {
+      val ret = new mutable.StringBuilder
+      parts.foreach(ret ++= _._1)
+      ret.result()
+    }
+    var hash: Integer = null
+    override def hashCode(): Int = {
+      if (hash == null) {
+        hash = parts.filter(_._2).foldLeft(0)(_ + _._1.result().hashCode())
+      }
+      hash
+    }
+    override def equals(obj: scala.Any): Boolean = {
+      if(this.hashCode() != obj.hashCode()) return false //Colision into hashmap implementation don't check it XD
+      obj match {
+        case cb: ComponentBuilder => {
+          for((a,b) <- (parts,cb.parts).zipped){
+            if(a._2 || b._2){
+              if(a._1.result() != b._1.result()){
+                return false
+              }
+            }
+          }
+          return true;
+        }
+        case _ => return ???
+      }
+    }
+  }
+
   def emit(component: Component): String = {
     val ret = new StringBuilder()
-    emitLibrary(ret)
-    emitEntity(component, ret)
-    emitArchitecture(component, ret)
-    //ret ++= component.name + "\n"
-    ret.result()
+    val builder = new ComponentBuilder(component)
+
+    emitLibrary(builder)
+    emitEntity(component, builder)
+    emitArchitecture(component, builder)
+
+    val oldBuilder = emitedComponent.getOrElse(builder,null)
+    if(oldBuilder == null){
+      emitedComponent += (builder -> builder)
+      return builder.result
+    }else{
+      emitedComponentRef += (component -> oldBuilder.component)
+      return ""
+    }
   }
 
 
@@ -153,6 +203,17 @@ class VhdlBackend extends Backend with VhdlBase {
         ret.result()
       })
     }
+//    def pkgExtractOffsetedBitCound(kind: String): Tuple2[String, String] = {
+//      val ret = new StringBuilder();
+//      (s"function pkg_extract (that : $kind;offset : unsigned; bitCount : natural) return $kind", {
+//        ret ++= s"    variable temp : $kind(bitCount-1 downto 0);\n"
+//        ret ++= "  begin\n"
+//        ret ++= "    temp := pkg_resize(pkg_shiftRight(that,offset),bitCount);\n"
+//        ret ++= "    return temp;\n"
+//        ret ++= "  end pkg_extract;\n\n"
+//        ret.result()
+//      })
+//    }
     def pkgCat(kind: String): Tuple2[String, String] = {
       val ret = new StringBuilder();
       (s"function pkg_cat (a : $kind; b : $kind) return $kind", {
@@ -164,6 +225,19 @@ class VhdlBackend extends Backend with VhdlBase {
         ret.result()
       })
     }
+
+    def pkgDummy(kind: String): Tuple2[String, String] = {
+      val ret = new StringBuilder();
+      (s"function pkg_dummy (that : $kind) return $kind", {
+        ret ++= s"    variable dummy : $kind(that'high downto 0);\n"
+        ret ++= s"  begin\n"
+        ret ++= s"    dummy := that;\n"
+        ret ++= s"    return dummy;\n"
+        ret ++= s"  end pkg_dummy;\n\n"
+        ret.result()
+      })
+    }
+
     /*def pkgResize(kind: String): Tuple2[String, String] = {
       (s"function pkg_extract (that : $kind; width : integer) return std_logic",
         s"""|  begin
@@ -176,8 +250,11 @@ class VhdlBackend extends Backend with VhdlBase {
     val funcs = ArrayBuffer[Tuple2[String, String]]()
     vectorTypes.foreach(kind => {
       funcs += pkgExtractBool(kind)
+      funcs += pkgDummy(kind)
       funcs += pkgCat(kind)
     })
+
+
 
     val ret = new StringBuilder();
     ret ++= s"library IEEE;\n"
@@ -418,6 +495,10 @@ class VhdlBackend extends Backend with VhdlBase {
     out.write(ret.result())
   }
 
+  def emitLibrary(builder: ComponentBuilder): Unit = {
+    val ret = builder.newPart(true)
+    emitLibrary(ret)
+  }
   def emitLibrary(ret: StringBuilder): Unit = {
     ret ++= "library IEEE;\n"
     ret ++= "use IEEE.STD_LOGIC_1164.ALL;\n"
@@ -432,8 +513,10 @@ class VhdlBackend extends Backend with VhdlBase {
 
   }
 
-  def emitEntity(component: Component, ret: StringBuilder): Unit = {
+  def emitEntity(component: Component, builder: ComponentBuilder): Unit = {
+    var ret = builder.newPart(false)
     ret ++= s"\nentity ${component.definitionName} is\n"
+    ret = builder.newPart(true)
     ret ++= s"  port(\n"
     component.nodes.foreach(_ match {
       case baseType: BaseType => {
@@ -448,14 +531,17 @@ class VhdlBackend extends Backend with VhdlBase {
     )*/
     ret.setCharAt(ret.size - 2, ' ')
     ret ++= s"  );\n"
+    ret = builder.newPart(false)
     ret ++= s"end ${component.definitionName};\n"
     ret ++= s"\n"
 
   }
 
 
-  def emitArchitecture(component: Component, ret: StringBuilder): Unit = {
+  def emitArchitecture(component: Component, builder: ComponentBuilder): Unit = {
+    var ret = builder.newPart(false)
     ret ++= s"architecture arch of ${component.definitionName} is\n"
+    ret = builder.newPart(true)
     emitBlackBoxComponents(component, ret)
     emitAttributesDef(component, ret)
     emitSignals(component, ret)
@@ -869,7 +955,7 @@ class VhdlBackend extends Backend with VhdlBase {
   }
   def extractBitVectorFloating(func: Modifier): String = {
     val that = func.asInstanceOf[ExtractBitsVectorFloating]
-    s"pkg_extract(${emitLogic(that.getBitVector)},${that.getBitCount.value - 1} + to_integer(${emitLogic(that.getOffset)}),to_integer(${emitLogic(that.getOffset)}))"
+    s"pkg_dummy(${emitLogic(that.getBitVector)}(to_integer(${emitLogic(that.getOffset)}) + ${that.getBitCount.value - 1}  downto to_integer(${emitLogic(that.getOffset)})))"
   }
 
 
@@ -1051,9 +1137,9 @@ class VhdlBackend extends Backend with VhdlBase {
     from match {
       case from: AssignementNode => {
         from match {
-          case assign : BitAssignmentFixed => ret ++= s"$tab${emitReference(to)}(${assign.getBitId}) <= ${emitLogic(assign.getInput)};\n"
-          case assign : BitAssignmentFloating => ret ++= s"$tab${emitReference(to)}(to_integer(${emitLogic(assign.getBitId)})) <= ${emitLogic(assign.getInput)};\n"
-          case assign : RangedAssignmentFixed => ret ++= s"$tab${emitReference(to)}(${assign.getHi} downto ${assign.getLo}) <= ${emitLogic(assign.getInput)};\n"
+          case assign: BitAssignmentFixed => ret ++= s"$tab${emitReference(to)}(${assign.getBitId}) <= ${emitLogic(assign.getInput)};\n"
+          case assign: BitAssignmentFloating => ret ++= s"$tab${emitReference(to)}(to_integer(${emitLogic(assign.getBitId)})) <= ${emitLogic(assign.getInput)};\n"
+          case assign: RangedAssignmentFixed => ret ++= s"$tab${emitReference(to)}(${assign.getHi} downto ${assign.getLo}) <= ${emitLogic(assign.getInput)};\n"
           case assign: RangedAssignmentFloating => ret ++= s"$tab${emitReference(to)}(${assign.getBitCount.value - 1} + to_integer(${emitLogic(assign.getOffset)}) downto to_integer(${emitLogic(assign.getOffset)})) <= ${emitLogic(assign.getInput)};\n"
         }
       } //        ret ++= s"$tab${emitReference(to)}(${emitLogic(pa.getHi)} downto ${emitLogic(pa.getLo)}) <= ${emitLogic(pa.getInput)};\n"
@@ -1147,7 +1233,7 @@ class VhdlBackend extends Backend with VhdlBase {
       val isBB = kind.isInstanceOf[BlackBox]
       val definitionString = if (isBB) kind.definitionName
       else s"entity $library.${
-        kind.definitionName
+        emitedComponentRef.getOrElse(kind,kind).definitionName
       }"
       ret ++= s"  ${
         kind.getName()

@@ -67,16 +67,16 @@ object SpinalLibTest {
 
       val arbiter = new HandshakeArbiterCoreIO(new BundleA,4)
 
-
-      val uart = master(new Uart)
-      val uartCmd = slave Handshake( Bits(8 bit))
-      val uartConfig = in(new UartConfig())
+      val uart = new UartCtrlIo()
+      val uartX = new UartCtrlIo()
     }
 
-    val uartTx = new UartTx()
-    uartTx.io.config := io.uartConfig
-    uartTx.io.cmd << io.uartCmd
-    io.uart.txd := uartTx.io.txd
+    val uartCtrl = new UartCtrl()
+    io.uart <> uartCtrl.io
+
+    val uartCtrlX = new UartCtrl()
+    io.uartX <> uartCtrlX.io
+
 
     val clockA = ClockDomain(io.clkA, io.resetA)
     val clockB = ClockDomain(io.clkB, io.resetB)
@@ -86,14 +86,14 @@ object SpinalLibTest {
     arbiter.io <> io.arbiter
 
     {
-      var regBundleInit = io.inRegBundle.clone()
-      regBundleInit := regBundleInit.getZero
-      regBundleInit.a := Bool(true)
-      regBundleInit.e := MyEnum.s1
 
 
 
-      val regBundle = RegInit(regBundleInit)
+
+      val regBundle = Reg(io.inRegBundle)
+      regBundle.a.setRegInit(Bool(true))
+      regBundle.e.setRegInit(MyEnum.s1())
+
       regBundle := io.inRegBundle
       io.outRegBundle := regBundle
     }

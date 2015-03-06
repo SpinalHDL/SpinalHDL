@@ -30,6 +30,7 @@ class Handshake[T <: Data](dataType: T) extends Bundle with Interface {
   override def asSlave: this.type = asMaster.flip
 
   def <<(that: Handshake[T]): Handshake[T] = connectFrom(that)
+  def >>(into: Handshake[T]): Handshake[T] = {into << this; into}
 
   def <-<(that: Handshake[T]): Handshake[T] = {
     this << that.m2sPipe

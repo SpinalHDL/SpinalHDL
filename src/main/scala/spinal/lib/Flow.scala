@@ -16,14 +16,24 @@ class Flow[T <: Data](dataType: T) extends Bundle with Interface {
   override def asMaster: this.type = asOutput
   override def asSlave: this.type = asInput
 
-  def <<(that: Flow[T]): Unit = this connectFrom that
-  def <-<(that: Flow[T]): Unit = this m2sPipeFrom that
+  def <<(that: Flow[T]): Flow[T] = this connectFrom that
+  def >>(into: Flow[T]): Flow[T] = {
+    into << this;
+    into
+  }
+
+
+  def <-<(that: Flow[T]): Flow[T] = {
+    this << that.m2sPipe
+    that
+  }
 
   def fire: Bool = valid
 
-  def connectFrom(that: Flow[T]): Unit = {
+  def connectFrom(that: Flow[T]): Flow[T] = {
     valid := that.valid
     data := that.data
+    that
   }
 
   def takeIf(cond: Bool): Flow[T] = {
@@ -44,11 +54,11 @@ class Flow[T <: Data](dataType: T) extends Bundle with Interface {
     next
   }
 
-  def m2sPipeFrom(that: Flow[T]): Flow[T] = {
-    val reg = RegNext(that)
-    reg.valid.setRegInit(Bool(false))
-    this connectFrom reg
-    this
+  def m2sPipe(): Flow[T] = {
+    val ret = RegNext(this)
+    ret.valid.setRegInit(Bool(false))
+    ret connectFrom this
+    ret
   }
 
 }

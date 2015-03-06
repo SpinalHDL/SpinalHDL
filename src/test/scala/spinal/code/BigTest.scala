@@ -412,16 +412,14 @@ object BigTest {
 
     }
 
-    var regBundleInit = io.inRegBundle.clone()
-    regBundleInit.a := Bool(true)
-    regBundleInit.e := MyEnum.s1
 
-    var regBundle = RegInit(regBundleInit)
+
+    var regBundle = Reg(io.inRegBundle)
     regBundle.d.setRegInit(Bool(false))
     regBundle := io.inRegBundle
     io.outRegBundle := regBundle
 
-    regBundleInit = null
+
     regBundle = null
 
     io.outEnum22 := io.inEnum2

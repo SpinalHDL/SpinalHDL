@@ -30,6 +30,12 @@ object log2Up {
     (value - 1).bitLength
   }
 }
+object isPow2{
+  def apply(that : BigInt) : Boolean = {
+    if(that < 0) return false
+    return that.bitCount == 1
+  }
+}
 
 object OHToUInt {
   def apply(bitVector: BitVector): UInt = apply(bitVector.toBools)

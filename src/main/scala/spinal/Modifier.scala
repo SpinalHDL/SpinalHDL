@@ -269,6 +269,8 @@ class ExtractBitsVectorFixed(opName: String, bitVector: BitVector, hi: Int, lo: 
 class ExtractBitsVectorFloating(opName: String, bitVector: BitVector, offset: UInt, bitCount: BitCount) extends Modifier(opName, null) {
   override def calcWidth: Int = bitCount.value
 
+  offset.dontSimplifyIt //Because it can appear at multipe location (o+bc-1 downto o)
+
   inputs += bitVector
   inputs += offset
 
