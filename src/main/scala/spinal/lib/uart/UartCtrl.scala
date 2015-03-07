@@ -1,46 +1,17 @@
-package spinal.lib
-
+package spinal.lib.uart
 import spinal._
+import spinal.lib._
+import UartParityType._
+import UartStopType._
 
-
-class Uart extends Bundle with Interface {
-  val txd = Bool()
-  val rxd = Bool()
-
-  override def asMaster: this.type = {
-    out(txd)
-    in(rxd)
-    this
-  }
-  override def asSlave: this.type = asMaster.flip
-}
-
-
-object UartStopType extends SpinalEnum {
-  val eStop1bit, eStop2bit = Value
-
-  val toBitCount = SpinalMap(
-    eStop1bit() -> UInt(0),
-    eStop2bit() -> UInt(1)
-  )
-}
-
-object UartParityType extends SpinalEnum {
-  val eParityNone, eParityEven, eParityOdd = Value
-}
-
-
-import spinal.lib.UartParityType._
-import spinal.lib.UartStopType._
-
-class UartConfig(dataWidthMax: Int = 8) extends Bundle {
+class UartCtrlConfig(dataWidthMax: Int = 8) extends Bundle {
   val dataLength = UInt(log2Up(dataWidthMax) bit)
   val stop = UartStopType()
   val parity = UartParityType()
 }
 
 class UartCtrlIo(dataWidthMax: Int = 8, clockDividerWidth: Int = 20) extends Bundle {
-  val config = in(new UartConfig(dataWidthMax))
+  val config = in(new UartCtrlConfig(dataWidthMax))
   val clockDivider = in UInt (clockDividerWidth bit)
   val write = slave Handshake (Bits(dataWidthMax bit))
   val read = master Flow (Bits(dataWidthMax bit))
@@ -74,7 +45,7 @@ object UartCtrlTxState extends SpinalEnum {
 
 class UartCtrlTx(dataWidthMax: Int = 8, clockDividerWidth: Int = 24) extends Component {
   val io = new Bundle {
-    val config = in(new UartConfig(dataWidthMax))
+    val config = in(new UartCtrlConfig(dataWidthMax))
     val clockDivider = in UInt (clockDividerWidth bit)
     val write = slave Handshake (Bits(dataWidthMax bit))
     val txd = out Bool()
@@ -104,7 +75,7 @@ class UartCtrlTx(dataWidthMax: Int = 8, clockDividerWidth: Int = 24) extends Com
   }
 
   val stateMachine = new Area {
-    import UartCtrlTxState._
+    import spinal.lib.uart.UartCtrlTxState._
 
 
     val state = RegInit(sIdle())
@@ -182,8 +153,11 @@ object UartCtrlRxState extends SpinalEnum {
 }
 
 class UartCtrlRx(dataWidthMax: Int = 8, clockDividerWidth: Int = 21, preSamplingSize: Int = 1, samplingSize: Int = 5, postSamplingSize: Int = 2) extends Component {
+  if((samplingSize & 1) != 1)
+    SpinalWarning(s"It's not nice to have a even samplingSize value at ${ScalaLocated.getScalaTraceSmart}")
+
   val io = new Bundle {
-    val config = in(new UartConfig(dataWidthMax))
+    val config = in(new UartCtrlConfig(dataWidthMax))
     val clockDivider = in UInt (clockDividerWidth bit)
     val read = master Flow (Bits(dataWidthMax bit))
     val rxd = in Bool()
@@ -222,10 +196,11 @@ class UartCtrlRx(dataWidthMax: Int = 8, clockDividerWidth: Int = 21, preSampling
       }
     }
 
-    //TODO verify UInt(sampleCount / 2 - 1)
-    def reset: Unit = counter := UInt(preSamplingSize + samplingSize / 2 - 1)
+    def reset: Unit = counter := UInt(preSamplingSize + (samplingSize - 1) / 2 - 1)
     def value = sampler.value
   }
+
+  //      that.size - that.size/2 - 1
 
 
   val baudCounter = new Area {
@@ -238,9 +213,9 @@ class UartCtrlRx(dataWidthMax: Int = 8, clockDividerWidth: Int = 21, preSampling
   }
 
   val stateMachine = new Area {
-    import UartCtrlRxState._
+    import spinal.lib.uart.UartCtrlRxState._
 
-    
+
     val state = RegInit(sIdle())
     val paritySum = Reg(Bool())
     val dataBuffer = Reg(io.read.data)

@@ -54,7 +54,7 @@ object Component {
 }
 
 
-abstract class Component extends Nameable with GlobalDataUser with DelayedInit {
+abstract class Component extends Nameable with GlobalDataUser with ScalaLocated with DelayedInit {
 
   override def delayedInit(body: => Unit) = {
     body

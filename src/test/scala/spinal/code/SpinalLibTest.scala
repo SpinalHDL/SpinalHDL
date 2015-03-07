@@ -21,6 +21,7 @@ package spinal.code
 
 import spinal._
 import spinal.lib._
+import spinal.lib.uart.{UartCtrl, UartCtrlIo}
 
 
 object SpinalLibTest {
