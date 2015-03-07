@@ -15,8 +15,8 @@ end UartTester_tb;
 
 architecture arch of UartTester_tb is
   signal io_uart_config_dataLength : unsigned(2 downto 0);
-  signal io_uart_config_stop : StopType;
-  signal io_uart_config_parity : ParityType;
+  signal io_uart_config_stop : UartStopType;
+  signal io_uart_config_parity : UartParityType;
   signal io_uart_clockDivider : unsigned(19 downto 0);
   signal io_uart_write_valid : std_logic;
   signal io_uart_write_ready : std_logic;
@@ -64,7 +64,7 @@ begin
     io_uart_config_stop <= eStop1bit;
     io_uart_config_parity <= eParityEven; 
     io_uart_clockDivider <= X"00063";
-    
+
     io_uart_write_valid <= '0';
     
     wait for 10 us;

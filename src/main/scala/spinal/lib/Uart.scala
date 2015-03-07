@@ -1,7 +1,7 @@
 package spinal.lib
 
 import spinal._
-import spinal.lib.UartConfig.{ParityType, StopType}
+
 
 class Uart extends Bundle with Interface {
   val txd = Bool()
@@ -16,27 +16,27 @@ class Uart extends Bundle with Interface {
 }
 
 
-object UartConfig {
+object UartStopType extends SpinalEnum {
+  val eStop1bit, eStop2bit = Value
 
-  object StopType extends SpinalEnum {
-    val eStop1bit, eStop2bit = Value
-
-    val toBitCount = SpinalMap(
-      eStop1bit() -> UInt(0),
-      eStop2bit() -> UInt(1)
-    )
-  }
-
-  object ParityType extends SpinalEnum {
-    val eParityNone, eParityEven, eParityOdd = Value
-  }
-
+  val toBitCount = SpinalMap(
+    eStop1bit() -> UInt(0),
+    eStop2bit() -> UInt(1)
+  )
 }
+
+object UartParityType extends SpinalEnum {
+  val eParityNone, eParityEven, eParityOdd = Value
+}
+
+
+import spinal.lib.UartParityType._
+import spinal.lib.UartStopType._
 
 class UartConfig(dataWidthMax: Int = 8) extends Bundle {
   val dataLength = UInt(log2Up(dataWidthMax) bit)
-  val stop = StopType()
-  val parity = ParityType()
+  val stop = UartStopType()
+  val parity = UartParityType()
 }
 
 class UartCtrlIo(dataWidthMax: Int = 8, clockDividerWidth: Int = 20) extends Bundle {
@@ -69,7 +69,7 @@ class UartCtrl(dataWidthMax: Int = 8, clockDividerWidth: Int = 20, preSamplingSi
 }
 
 object UartCtrlTxState extends SpinalEnum {
-  val idle, start, data, parity, stop = Value
+  val sIdle, sStart, sData, sParity, sStop = Value
 }
 
 class UartCtrlTx(dataWidthMax: Int = 8, clockDividerWidth: Int = 24) extends Component {
@@ -104,10 +104,10 @@ class UartCtrlTx(dataWidthMax: Int = 8, clockDividerWidth: Int = 24) extends Com
   }
 
   val stateMachine = new Area {
+    import UartCtrlTxState._
 
 
-
-    val state = RegInit(UartCtrlTxState.idle())
+    val state = RegInit(sIdle())
     val paritySum = Reg(Bool());
     val dataBuffer = Reg(io.write.data)
 
@@ -123,41 +123,41 @@ class UartCtrlTx(dataWidthMax: Int = 8, clockDividerWidth: Int = 24) extends Com
     timer.reset := Bool(false)
     txd := Bool(true)
     switch(state) {
-      is(UartCtrlTxState.idle) {
+      is(sIdle) {
         lookingForJob := Bool(true)
       }
-      is(UartCtrlTxState.start) {
+      is(sStart) {
         txd := Bool(false)
         when(timer.tick) {
-          state := UartCtrlTxState.data
-          paritySum := io.config.parity === ParityType.eParityOdd
+          state := sData
+          paritySum := io.config.parity === eParityOdd
           tickCounter.reset := Bool(true)
         }
       }
-      is(UartCtrlTxState.data) {
+      is(sData) {
         txd := dataBuffer(tickCounter.value)
         when(timer.tick) {
           when(tickCounter.value === io.config.dataLength) {
             tickCounter.reset := Bool(true)
-            when(io.config.parity === ParityType.eParityNone) {
-              state := UartCtrlTxState.stop
+            when(io.config.parity === eParityNone) {
+              state := sStop
             } otherwise {
-              state := UartCtrlTxState.parity
+              state := sParity
             }
           }
         }
       }
-      is(UartCtrlTxState.parity) {
+      is(sParity) {
         txd := paritySum
         when(timer.tick) {
-          state := UartCtrlTxState.stop
+          state := sStop
           tickCounter.reset := Bool(true)
         }
       }
-      is(UartCtrlTxState.stop) {
+      is(sStop) {
         when(timer.tick) {
-          when(tickCounter.value === StopType.toBitCount(io.config.stop)) {
-            state := UartCtrlTxState.idle
+          when(tickCounter.value === toBitCount(io.config.stop)) {
+            state := sIdle
             lookingForJob := Bool(true)
           }
         }
@@ -169,7 +169,7 @@ class UartCtrlTx(dataWidthMax: Int = 8, clockDividerWidth: Int = 24) extends Com
       io.write.ready := Bool(true)
       timer.reset := Bool(true)
       dataBuffer := io.write.data
-      state := UartCtrlTxState.start
+      state := sStart
     }
   }
 
@@ -178,7 +178,7 @@ class UartCtrlTx(dataWidthMax: Int = 8, clockDividerWidth: Int = 24) extends Com
 }
 
 object UartCtrlRxState extends SpinalEnum {
-  val idle, start, data, parity, stop = Value
+  val sIdle, sStart, sData, sParity, sStop = Value
 }
 
 class UartCtrlRx(dataWidthMax: Int = 8, clockDividerWidth: Int = 21, preSamplingSize: Int = 1, samplingSize: Int = 5, postSamplingSize: Int = 2) extends Component {
@@ -238,10 +238,10 @@ class UartCtrlRx(dataWidthMax: Int = 8, clockDividerWidth: Int = 21, preSampling
   }
 
   val stateMachine = new Area {
+    import UartCtrlRxState._
 
-
-
-    val state = RegInit(UartCtrlRxState.idle())
+    
+    val state = RegInit(sIdle())
     val paritySum = Reg(Bool())
     val dataBuffer = Reg(io.read.data)
 
@@ -251,50 +251,50 @@ class UartCtrlRx(dataWidthMax: Int = 8, clockDividerWidth: Int = 21, preSampling
 
     io.read.valid := Bool(false)
     switch(state) {
-      is(UartCtrlRxState.idle) {
+      is(sIdle) {
         when(sampler.value === Bool(false)) {
-          state := UartCtrlRxState.start
+          state := sStart
           baud.reset
         }
       }
-      is(UartCtrlRxState.start) {
+      is(sStart) {
         when(baud.tick) {
-          state := UartCtrlRxState.data
+          state := sData
           baudCounter.reset
-          paritySum := io.config.parity === ParityType.eParityOdd
+          paritySum := io.config.parity === eParityOdd
           when(baud.value === Bool(true)) {
-            state := UartCtrlRxState.idle
+            state := sIdle
           }
         }
       }
-      is(UartCtrlRxState.data) {
+      is(sData) {
         when(baud.tick) {
           dataBuffer(baudCounter.value) := baud.value
           when(baudCounter.value === io.config.dataLength) {
             baudCounter.reset
-            when(io.config.parity === ParityType.eParityNone) {
-              state := UartCtrlRxState.stop
+            when(io.config.parity === eParityNone) {
+              state := sStop
             } otherwise {
-              state := UartCtrlRxState.parity
+              state := sParity
             }
           }
         }
       }
-      is(UartCtrlRxState.parity) {
+      is(sParity) {
         when(baud.tick) {
-          state := UartCtrlRxState.stop
+          state := sStop
           baudCounter.reset
           when(paritySum !== baud.value) {
-            state := UartCtrlRxState.idle
+            state := sIdle
           }
         }
       }
-      is(UartCtrlRxState.stop) {
+      is(sStop) {
         when(baud.tick) {
           when(!baud.value) {
-            state := UartCtrlRxState.idle
-          }.elsewhen(baudCounter.value === StopType.toBitCount(io.config.stop)) {
-            state := UartCtrlRxState.idle
+            state := sIdle
+          }.elsewhen(baudCounter.value === toBitCount(io.config.stop)) {
+            state := sIdle
             io.read.valid := Bool(true)
           }
         }
