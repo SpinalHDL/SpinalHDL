@@ -19,14 +19,10 @@
 package spinal
 
 
-import jdk.nashorn.internal.objects.Global
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-/**
- * Created by PIC18F on 07.01.2015.
- */
 
 
 class BackendReport[T <: Component](val topLevel: T) {

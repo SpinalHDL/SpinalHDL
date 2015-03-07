@@ -18,10 +18,8 @@
 
 package spinal.scalaTest
 
-//import org.junit.Test
-
 import org.scalatest.FunSuite
-import spinal.{Component, SpinalVhdl}
+import spinal._
 
 import scala.sys.process._
 
@@ -59,7 +57,7 @@ abstract class SpinalTesterBase extends FunSuite  {
 
   def checkHDL(mustSuccess: Boolean): Unit = {
     println("GHDL compilation")
-    assert(((s"ghdl -a $getName.vhd ../src/test/resources/${getName}_tb.vhd" !) == 0) == mustSuccess, if (mustSuccess) "compilation fail" else "Compilation has not fail :(")
+    assert(((s"ghdl -a $getName.vhd ../test/src/main/resources/${getName}_tb.vhd" !) == 0) == mustSuccess, if (mustSuccess) "compilation fail" else "Compilation has not fail :(")
 
     println("GHDL elaborate")
     assert(((s"ghdl -e ${getName}_tb" !) == 0) == mustSuccess, if (mustSuccess) "compilation fail" else "Compilation has not fail :(")
