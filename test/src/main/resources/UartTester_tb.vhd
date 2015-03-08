@@ -32,7 +32,7 @@ architecture arch of UartTester_tb is
 
   signal io_assign_bitDemux_ref : std_logic_vector(15 downto 0);
 
-  shared variable done : boolean := false;
+  shared variable done : integer := 0;
   -- #spinalEnd userDeclarations
 begin
   -- #spinalBegin userLogics
@@ -40,14 +40,16 @@ begin
   begin
     clk <= '0';
     wait for 5 ns;
-    if done then
+    if done = 2 then
       wait;
     end if;
+    assert now < 1 ms report "timeout" severity failure;
     clk <= '1';
     wait for 5 ns;
   end process;
   
   
+
   process 
     procedure uartCtrlWrite(that:  std_logic_vector(7 downto 0)) is            
     begin
@@ -75,12 +77,81 @@ begin
     uartCtrlWrite(X"30");
     wait for 10 us;
     wait until rising_edge(clk); 
-    uartCtrlWrite(X"AA");
+    uartCtrlWrite(X"AB");
      wait for 150 us;   
     
-    done := true;
+
     wait;
   end process;
+
+
+  process
+    procedure checkBit(value:  std_logic) is
+    begin
+        wait for 8 us;
+        assert io_uart_uart_txd'DELAYED'LAST_ACTIVE >= 8 us and io_uart_uart_txd'DELAYED = value report "io_uart_uart_txd fail" severity failure;
+    end checkBit;
+
+    procedure checkTx(that:  std_logic_vector(7 downto 0)) is
+      variable parity : std_logic;
+      variable stopTime : time;
+    begin
+        if io_uart_config_parity = eParityEven then
+          parity := '0';
+        else
+          parity := '1';
+        end if;
+        
+        if io_uart_config_stop = eStop1bit then
+          stopTime := 8 us;
+        else
+          stopTime := 16 us;
+        end if;
+        
+        if io_uart_uart_txd = '1' then
+          wait until io_uart_uart_txd'event;
+        end if;
+        
+        assert io_uart_uart_txd'DELAYED'LAST_ACTIVE >= stopTime and io_uart_uart_txd'DELAYED = '1' report "io_uart_uart_txd fail" severity failure;
+        
+        checkBit('0');
+        
+        for i in 0 to that'high loop
+          checkBit(that(i));
+          parity := parity xor that(i);
+        end loop;
+        
+        checkBit(parity);
+        
+        checkBit('1');
+        if io_uart_config_stop = eStop2bit then
+         checkBit('1');       
+        end if;
+    end checkTx;
+  begin
+    wait for 10 ns;
+    checkTx(X"30");
+    checkTx(X"AB");   
+    done := done + 1;
+    wait;
+  end process;
+  
+  
+  process
+    procedure checkRx(that:  std_logic_vector(7 downto 0)) is
+    begin
+      wait until rising_edge(clk) and io_uart_read_valid = '1';
+      assert io_uart_read_data = that report "io_uart_read_data fail" severity failure;
+    end checkRx;
+  begin
+    wait until rising_edge(clk) and reset = '0';
+    checkRx(X"30");
+    checkRx(X"AB");
+    done := done + 1;
+    wait;
+  end process;
+  
+  
   
   io_uart_uart_rxd <= io_uart_uart_txd;
   
