@@ -80,6 +80,7 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T) extends BaseType {
     ret.fromBits(Bits(0))
     ret
   }
+  override def weakClone: this.type = new SpinalEnumCraft(blueprint).asInstanceOf[this.type]
 }
 
 class SpinalEnumElement[T <: SpinalEnum](val parent: T, val id: BigInt) extends Nameable {

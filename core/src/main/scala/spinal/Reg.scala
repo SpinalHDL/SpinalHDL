@@ -89,7 +89,7 @@ class Reg(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) ext
   def getOutputByConsumers = consumers.find(_.isInstanceOf[BaseType]).get.asInstanceOf[BaseType]
 
 
-  override def assignFrom(that: AnyRef,conservative : Boolean): Unit = {
+  override def assignFromImpl(that: AnyRef,conservative : Boolean): Unit = {
     that match {
       case that: BaseType => {
         val (consumer,inputId) = BaseType.walkWhenNodes(outType, this, RegS.getDataInputId,conservative)

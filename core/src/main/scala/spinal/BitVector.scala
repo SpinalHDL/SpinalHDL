@@ -78,7 +78,7 @@ abstract class BitVector extends BaseType {
     bool.setInput(extract)
 
     bool.compositeAssign = new Assignable {
-      override def assignFrom(that: AnyRef, conservative: Boolean): Unit = {
+      override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
         BitVector.this.assignFrom(new BitAssignmentFixed(BitVector.this,that.asInstanceOf[Bool],bitId),true)
       }
     }
@@ -93,7 +93,7 @@ abstract class BitVector extends BaseType {
     bool.setInput(extract)
 
     bool.compositeAssign = new Assignable {
-      override def assignFrom(that: AnyRef, conservative: Boolean): Unit = {
+      override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
         BitVector.this.assignFrom(new BitAssignmentFloating(BitVector.this,that.asInstanceOf[Bool],bitId),true)
       }
     }
@@ -106,7 +106,7 @@ abstract class BitVector extends BaseType {
     val ret = addTypeNodeFrom(new ExtractBitsVectorFixed(s"extract($prefix,i,i)",this, hi,lo))
 
     ret.compositeAssign = new Assignable {
-      override def assignFrom(that: AnyRef, conservative: Boolean): Unit = {
+      override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
         BitVector.this.assignFrom(new RangedAssignmentFixed(BitVector.this,that.asInstanceOf[BitVector],hi,lo),true)
       }
     }
@@ -121,7 +121,7 @@ abstract class BitVector extends BaseType {
     val ret = addTypeNodeFrom(new ExtractBitsVectorFloating(s"extract($prefix,u,w)",this, offset,bitCount))
 
     ret.compositeAssign = new Assignable {
-      override def assignFrom(that: AnyRef, conservative: Boolean): Unit = {
+      override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
         BitVector.this.assignFrom(new RangedAssignmentFloating(BitVector.this,that.asInstanceOf[BitVector],offset,bitCount),true)
       }
     }

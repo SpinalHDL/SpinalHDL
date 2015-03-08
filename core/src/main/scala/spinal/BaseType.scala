@@ -19,7 +19,6 @@
 package spinal
 
 
-
 import scala.collection.mutable.ArrayBuffer
 
 /**
@@ -29,6 +28,16 @@ import scala.collection.mutable.ArrayBuffer
 
 object BaseType {
   def walkWhenNodes(baseType: BaseType, initialConsumer: Node, initialConsumerInputId: Int, conservative: Boolean = false) = {
+    def initMan(man: MultipleAssignmentNode, that: Node): Unit = { //To be sure that there is basetype to bufferise (for future resize)
+      if (that.isInstanceOf[WhenNode] || that.isInstanceOf[BaseType] || that.isInstanceOf[AssignementNode] || that.isInstanceOf[MultipleAssignmentNode] || that.isInstanceOf[Reg]) {
+        man.inputs += that
+      } else {
+        val bt = baseType.weakClone
+        bt.inputs(0) = that
+        man.inputs += bt
+      }
+    }
+
     val globalData = baseType.globalData
     var consumer = initialConsumer
     var consumerInputId: Int = initialConsumerInputId
@@ -65,7 +74,7 @@ object BaseType {
           case that => {
             val man = new MultipleAssignmentNode
             val whenNode = WhenNode(when)
-            man.inputs += that
+            initMan(man, that)
             man.inputs += whenNode
             consumer.inputs(consumerInputId) = man
             consumer = whenNode
@@ -88,18 +97,18 @@ object BaseType {
           consumerInputId = consumer.inputs.size;
           consumer.inputs += null
         }
-        case that =>{
+        case that => {
           val man = new MultipleAssignmentNode
-          man.inputs += that
+          initMan(man, that)
           man.inputs += null
           consumer.inputs(consumerInputId) = man
           consumerInputId = 1
           consumer = man
         }
       }
-    }else{
+    } else {
       val overrided = consumer.inputs(consumerInputId)
-      if(overrided != null && !overrided.isInstanceOf[NoneNode] && !overrided.isInstanceOf[Reg])
+      if (overrided != null && !overrided.isInstanceOf[NoneNode] && !overrided.isInstanceOf[Reg])
         SpinalWarning(s"Value of $baseType is overridden at ${ScalaLocated.getScalaTraceSmart}")
     }
     (consumer, consumerInputId)
@@ -124,15 +133,6 @@ abstract class BaseType extends Node with Data with Nameable {
     this
   }
 
-  var compositeAssign: Assignable = null
-
-  final override def assignFrom(that: AnyRef,conservative : Boolean): Unit = {
-    if (compositeAssign != null) {
-      compositeAssign.assignFrom(that,conservative)
-    } else {
-      assignFromImpl(that,conservative)
-    }
-  }
 
   def getLiteral[T <: Literal]: T = inputs(0) match {
     case lit: Literal => lit.asInstanceOf[T]
@@ -152,14 +152,14 @@ abstract class BaseType extends Node with Data with Nameable {
 
   override def getZero: this.type
 
-  def assignFromImpl(that: AnyRef,conservative : Boolean): Unit = {
+  def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
     that match {
       case that: BaseType => {
-        val (consumer, inputId) = BaseType.walkWhenNodes(this, this, 0,conservative)
+        val (consumer, inputId) = BaseType.walkWhenNodes(this, this, 0, conservative)
         consumer.inputs(inputId) = that
       }
-      case that : AssignementNode => {
-        val (consumer, inputId) = BaseType.walkWhenNodes(this, this, 0,conservative)
+      case that: AssignementNode => {
+        val (consumer, inputId) = BaseType.walkWhenNodes(this, this, 0, conservative)
         consumer.inputs(inputId) = that
       }
       case _ => throw new Exception("Undefined assignement")
@@ -234,7 +234,6 @@ abstract class BaseType extends Node with Data with Nameable {
   def newMultiplexor(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer
 
 
-
   def newLogicalOperator(opName: String, right: Node, normalizeInputsImpl: (Node) => Unit): Bool = {
     val op = BinaryOperator(opName, this, right, WidthInfer.oneWidth, normalizeInputsImpl)
     val typeNode = new Bool()
@@ -279,7 +278,6 @@ abstract class BaseType extends Node with Data with Nameable {
   }
 
 
-
   def addTypeNodeFrom(node: Node): this.type = {
     val typeNode = weakClone
     typeNode.setInput(node)
@@ -287,8 +285,11 @@ abstract class BaseType extends Node with Data with Nameable {
   }
 
 
-  def weakClone : this.type = this.getClass.newInstance().asInstanceOf[this.type]
-
+  def weakClone: this.type = this.getClass.newInstance().asInstanceOf[this.type]
+  //  def strongClone : this.type = {
+  //    val ret = clone()
+  //
+  //  }
   override def toString(): String = s"${getClassIdentifier}(named ${"\"" + getName() + "\""},into ${if (component == null) "null" else component.getClass.getSimpleName})"
 }
 

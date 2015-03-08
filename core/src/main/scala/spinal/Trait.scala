@@ -118,7 +118,17 @@ abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends 
 }
 
 trait Assignable {
-  def assignFrom(that: AnyRef, conservative: Boolean): Unit
+  var compositeAssign: Assignable = null
+
+  final def assignFrom(that: AnyRef,conservative : Boolean): Unit = {
+    if (compositeAssign != null) {
+      compositeAssign.assignFrom(that,conservative)
+    } else {
+      assignFromImpl(that,conservative)
+    }
+  }
+
+  def assignFromImpl(that: AnyRef, conservative: Boolean): Unit
 }
 
 

@@ -250,10 +250,10 @@ class HandshakeDemux[T <: Data](dataType: T, portCount: Int) extends Component {
 class HandshakeFifoIo[T <: Data](dataType: T, depth: Int) extends Bundle {
   val push = slave Handshake (dataType)
   val pop = master Handshake (dataType)
-  val occupancy = out UInt (log2Up(depth + 1))
+  val occupancy = out UInt (log2Up(depth + 1) bit)
 }
 
-class HandshakeFifo[T <: Data](dataType: T, depth: Int) {
+class HandshakeFifo[T <: Data](dataType: T, depth: Int) extends Component{
   val io = new HandshakeFifoIo(dataType, depth)
 
   val ram = Mem(dataType, depth)

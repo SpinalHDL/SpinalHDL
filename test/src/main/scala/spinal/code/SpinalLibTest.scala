@@ -69,7 +69,12 @@ object SpinalLibTest {
 
       val uart = new UartCtrlIo()
       val uartX = new UartCtrlIo()
+
+      val fifo = new HandshakeFifoIo(Bits(36 bit),256)
     }
+
+    val fifo = new HandshakeFifo(Bits(36 bit),256)
+    fifo.io <> io.fifo
 
     val uartCtrl = new UartCtrl()
     io.uart <> uartCtrl.io

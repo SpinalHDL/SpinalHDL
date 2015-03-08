@@ -20,9 +20,9 @@ class Uart extends Bundle with Interface {
 object UartStopType extends SpinalEnum {
   val eStop1bit, eStop2bit = Value
 
-  val toBitCount = SpinalMap(
-    eStop1bit() -> UInt(0),
-    eStop2bit() -> UInt(1)
+  val toBitCount = SpinalMap( //TODO better
+    (()=> eStop1bit()) -> (() => UInt(0)),
+    (()=> eStop2bit()) -> (() => UInt(1))
   )
 }
 

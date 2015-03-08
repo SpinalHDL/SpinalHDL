@@ -60,7 +60,13 @@ class Mem[T <: Data](val wordType: T, val wordCount: Int) extends Node with Name
 
   def apply(address: UInt): T = {
     val ret = readAsync(address)
-    ret.
+
+    ret.compositeAssign = new Assignable {
+      override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
+        assert(!conservative)
+        write(address,that.asInstanceOf[T])
+      }
+    }
     ret
   }
 

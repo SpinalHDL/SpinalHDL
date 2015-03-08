@@ -990,7 +990,7 @@ class VhdlBackend extends Backend with VhdlBase {
     case o => throw new Exception("Don't know how emit logic of " + o.getClass.getSimpleName)
   }
 
-
+  //TODO add sensitivity for asyncronous reset
   def emitSyncronous(component: Component, ret: StringBuilder): Unit = {
     // ret ++= "  -- synchronous\n"
 

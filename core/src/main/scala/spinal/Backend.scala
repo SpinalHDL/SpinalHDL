@@ -90,7 +90,7 @@ class Backend {
 
     //Component connection
     SpinalInfoPhase("Transform connection")
-    allowLiteralToCrossHierarchy
+   // allowLiteralToCrossHierarchy
     pullClockDomains
     check_noNull_noCrossHierarchy_noInputRegister
 
@@ -335,6 +335,7 @@ class Backend {
       SpinalError(errors)
   }
 
+  //clone is to week, lose tag and don't symplify :(
   def allowLiteralToCrossHierarchy: Unit = {
     walkNodes2(consumer => {
       for(consumerInputId <- 0 until consumer.inputs.size){
