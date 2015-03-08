@@ -18,7 +18,6 @@
 
 package spinal.code
 
-
 import spinal._
 import spinal.lib._
 import spinal.lib.uart.{UartCtrl, UartCtrlIo}
@@ -56,15 +55,15 @@ object SpinalLibTest {
       val inRegBundle = in(new BundleAA())
       val outRegBundle = out(new BundleAA())
 
-      val slaveFlow = spinal.slave(new Flow(new BundleA))
-      val masterFlow = spinal.master(new Flow(new BundleA))
+      val slaveFlow = slave(new Flow(new BundleA))
+      val masterFlow = master(new Flow(new BundleA))
 
-      val slaveHandshake = spinal.slave(new Handshake(new BundleA))
-      val masterHandshake = spinal.master(new Handshake(new BundleA))
+      val slaveHandshake = slave(new Handshake(new BundleA))
+      val masterHandshake = master(new Handshake(new BundleA))
 
 
-      val slaveHandshakeClkA = spinal.slave(new Handshake(new BundleA))
-      val masterHandshakeClkB = spinal.master(new Handshake(new BundleA))
+      val slaveHandshakeClkA = slave(new Handshake(new BundleA))
+      val masterHandshakeClkB = master(new Handshake(new BundleA))
 
       val arbiter = new HandshakeArbiterCoreIO(new BundleA,4)
 

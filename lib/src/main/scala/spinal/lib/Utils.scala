@@ -23,19 +23,7 @@ import spinal._
 import scala.collection.mutable.ArrayBuffer
 
 
-//Give number of bit to encode a given number of states
-object log2Up {
-  def apply(value: BigInt): Int = {
-    if (value < 0) SpinalError(s"No negative value ($value) on ${this.getClass.getSimpleName}")
-    (value - 1).bitLength
-  }
-}
-object isPow2{
-  def apply(that : BigInt) : Boolean = {
-    if(that < 0) return false
-    return that.bitCount == 1
-  }
-}
+
 
 object OHToUInt {
   def apply(bitVector: BitVector): UInt = apply(bitVector.toBools)

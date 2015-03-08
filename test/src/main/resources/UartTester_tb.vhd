@@ -29,9 +29,6 @@ architecture arch of UartTester_tb is
   signal reset : std_logic;
   -- #spinalBegin userDeclarations
   signal asyncProcess : std_logic := '0';
-
-  signal io_assign_bitDemux_ref : std_logic_vector(15 downto 0);
-
   shared variable done : integer := 0;
   -- #spinalEnd userDeclarations
 begin
