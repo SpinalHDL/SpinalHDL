@@ -3,18 +3,18 @@ package spinal.lib
 import spinal._
 
 
-object CCBuffer {
+object BufferCC {
   def apply[T <: Data](input: T): T = apply(input, null.asInstanceOf[T])
   def apply[T <: Data](input: T, init: T): T = apply(input, init, 2)
   def apply[T <: Data](input: T, init: T, bufferDepth: Int): T = {
-    val c = new CCBuffer(input, init != null, bufferDepth)
+    val c = new BufferCC(input, init != null, bufferDepth)
     c.io.input := input
     if(init != null) c.io.init := init
     return c.io.output
   }
 }
 
-class CCBuffer[T <: Data](dataType: T, withInit : Boolean, bufferDepth: Int) extends Component {
+class BufferCC[T <: Data](dataType: T, withInit : Boolean, bufferDepth: Int) extends Component {
   assert(bufferDepth >= 1)
 
   val io = new Bundle {
@@ -38,55 +38,10 @@ class CCBuffer[T <: Data](dataType: T, withInit : Boolean, bufferDepth: Int) ext
 
 }
 
-object CCHandshakeByToggle {
-  def apply[T <: Data](input: Handshake[T], clockIn: ClockDomain, clockOut: ClockDomain): Handshake[T] = {
-    val c = new CCHandshakeByToggle[T](input.data, clockIn, clockOut)
-    c.io.input connectFrom input
-    return c.io.output
-  }
-}
 
-
-class CCHandshakeByToggle[T <: Data](dataType: T, clockIn: ClockDomain, clockOut: ClockDomain) extends Component {
-  val io = new Bundle {
-    val input = slave Handshake (dataType)
-    val output = master Handshake (dataType)
-  }
-
-  val outHitSignal = Bool()
-
-  val inputArea = new ClockingArea(clockIn) {
-    val hit = CCBuffer(outHitSignal, Bool(false))
-    val target = RegInit(Bool(false))
-    val data = Reg(io.input.data)
-    io.input.ready := Bool(false)
-    when(io.input.valid && hit === target) {
-      target := !target
-      data := io.input.data
-      io.input.ready := Bool(true)
-    }
-  }
-
-
-  val outputArea = new ClockingArea(clockOut) {
-    val target = CCBuffer(inputArea.target, Bool(false))
-    val hit = RegInit(Bool(false))
-    outHitSignal := hit
-
-    val handshake = io.input.clone
-    handshake.valid := (target !== hit)
-    handshake.data := inputArea.data
-    when(handshake.fire) {
-      hit := !hit
-    }
-
-    io.output << handshake.m2sPipe(true)
-  }
-}
-
-object CCPulseByToggle {
+object PulseCCByToggle {
   def apply(input: Bool, clockIn: ClockDomain, clockOut: ClockDomain): Bool = {
-    val c = new CCPulseByToggle(clockIn,clockOut)
+    val c = new PulseCCByToggle(clockIn,clockOut)
     c.io.input := input
     return c.io.output
 
@@ -95,7 +50,7 @@ object CCPulseByToggle {
 }
 
 
-class CCPulseByToggle(clockIn: ClockDomain, clockOut: ClockDomain) extends Component{
+class PulseCCByToggle(clockIn: ClockDomain, clockOut: ClockDomain) extends Component{
   val io = new Bundle{
     val input = in Bool()
     val output = in Bool()
@@ -108,7 +63,7 @@ class CCPulseByToggle(clockIn: ClockDomain, clockOut: ClockDomain) extends Compo
   }
 
   val outputArea = new ClockingArea(clockOut) {
-    val target = CCBuffer(inputArea.target, Bool(false))
+    val target = BufferCC(inputArea.target, Bool(false))
     val hit = RegInit(Bool(false));
 
     when(target !== hit) {

@@ -20,7 +20,7 @@ package spinal.code
 
 import spinal._
 import spinal.lib._
-import spinal.lib.uart.{UartCtrl, UartCtrlIo}
+import spinal.lib.com.uart.{UartCtrl, UartCtrlIo}
 
 
 object SpinalLibTest {
@@ -108,7 +108,7 @@ object SpinalLibTest {
 //    io.masterHandshakeClkB << crossClockHandshake.io.output
 
 
-   io.masterHandshakeClkB << CCHandshakeByToggle(io.slaveHandshakeClkA,clockA,clockB)
+   io.masterHandshakeClkB << HandshakeCCByToggle(io.slaveHandshakeClkA,clockA,clockB)
 
   }
 

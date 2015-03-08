@@ -1,4 +1,5 @@
-package spinal.lib.uart
+package spinal.lib.com.uart
+
 import spinal._
 import spinal.lib._
 import UartParityType._
@@ -75,7 +76,8 @@ class UartCtrlTx(dataWidthMax: Int = 8, clockDividerWidth: Int = 24) extends Com
   }
 
   val stateMachine = new Area {
-    import spinal.lib.uart.UartCtrlTxState._
+
+    import spinal.lib.com.uart.UartCtrlTxState._
 
 
     val state = RegInit(sIdle())
@@ -153,7 +155,7 @@ object UartCtrlRxState extends SpinalEnum {
 }
 
 class UartCtrlRx(dataWidthMax: Int = 8, clockDividerWidth: Int = 21, preSamplingSize: Int = 1, samplingSize: Int = 5, postSamplingSize: Int = 2) extends Component {
-  if((samplingSize & 1) != 1)
+  if ((samplingSize & 1) != 1)
     SpinalWarning(s"It's not nice to have a even samplingSize value at ${ScalaLocated.getScalaTraceSmart}")
 
   val io = new Bundle {
@@ -174,7 +176,7 @@ class UartCtrlRx(dataWidthMax: Int = 8, clockDividerWidth: Int = 21, preSampling
   }
 
   val sampler = new Area {
-    val frontBuffer = CCBuffer(io.rxd)
+    val frontBuffer = BufferCC(io.rxd)
     val samples = RegInit(BitsSet(samplingSize bit))
     when(clockDivider.tick) {
       samples := samples ## frontBuffer
@@ -213,8 +215,8 @@ class UartCtrlRx(dataWidthMax: Int = 8, clockDividerWidth: Int = 21, preSampling
   }
 
   val stateMachine = new Area {
-    import spinal.lib.uart.UartCtrlRxState._
-
+    import spinal.lib.com.uart.UartCtrlRxState._
+    //implicit def valueToCraft[T <: SpinalEnum](element: SpinalEnumElement[T])= element.craft()
 
     val state = RegInit(sIdle())
     val paritySum = Reg(Bool())

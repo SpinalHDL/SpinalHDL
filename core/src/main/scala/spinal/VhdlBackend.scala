@@ -121,7 +121,7 @@ class VhdlBackend extends Backend with VhdlBase {
       return builder.result
     }else{
       emitedComponentRef += (component -> oldBuilder.component)
-      return ""
+      return s"\n--${component.definitionName} remplaced by ${oldBuilder.component.definitionName}\n\n"
     }
   }
 

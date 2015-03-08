@@ -23,8 +23,6 @@ import spinal._
 import scala.collection.mutable.ArrayBuffer
 
 
-
-
 object OHToUInt {
   def apply(bitVector: BitVector): UInt = apply(bitVector.toBools)
 
@@ -50,18 +48,60 @@ object OHToUInt {
   }
 }
 
+object Counter {
+  def apply(stateCount: Int) = new Counter(stateCount)
+  implicit def implicitValue(c: Counter) = c.value
+}
+
+//class Counter(val stateCount: Int) extends Area{
+//  val value = RegInit(UInt(0, log2Up(stateCount) bit))
+//  def inc : Bool = {
+//    val overflow = value === UInt(stateCount-1)
+//    if(isPow2(stateCount))
+//      value := value + UInt(1)
+//    else
+//      when(overflow){
+//        value := UInt(0)
+//      }otherwise {
+//        value := value + UInt(1)
+//      }
+//
+//    overflow
+//  }
+//  def ++ = inc
+//}
+
+class Counter(val stateCount: Int) extends Area {
+  val inc = Bool()   //TODO better bool declaration
+  inc := Bool(false)
+  def ++ : Unit = inc := Bool(true)
+
+  val valueNext = UInt(log2Up(stateCount) bit)
+  val value = RegNext(valueNext, UInt(0))
+
+  if (isPow2(stateCount))
+    valueNext := value + inc.toUInt
+  else
+    when(inc) {
+      when(value === UInt(stateCount - 1)) {
+        valueNext := UInt(0)
+      } otherwise {
+        valueNext := value + UInt(1)
+      }
+    }
+}
 
 object MajorityVote {
   def apply(that: BitVector): Bool = apply(that.toBools)
   def apply(that: collection.IndexedSeq[Bool]): Bool = {
     val size = that.size
-    val trigger = that.size/2 + 1
+    val trigger = that.size / 2 + 1
     var ret = Bool(false)
-    for(i <- BigInt(0) until (BigInt(1) << size)){
-      if(i.bitCount == trigger){
+    for (i <- BigInt(0) until (BigInt(1) << size)) {
+      if (i.bitCount == trigger) {
         val bits = ArrayBuffer[Bool]()
-        for(bitId <- 0 until i.bitLength){
-          if(i.testBit(bitId)) bits += that(bitId)
+        for (bitId <- 0 until i.bitLength) {
+          if (i.testBit(bitId)) bits += that(bitId)
         }
         ret = ret | bits.reduceLeft(_ & _)
       }

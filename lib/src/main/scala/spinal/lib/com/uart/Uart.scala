@@ -1,4 +1,4 @@
-package spinal.lib.uart
+package spinal.lib.com.uart
 
 import spinal._
 import spinal.lib._
