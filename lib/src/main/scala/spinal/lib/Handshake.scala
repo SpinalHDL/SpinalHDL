@@ -275,7 +275,7 @@ class HandshakeFifo[T <: Data](dataType: T, depth: Int) {
     risingOccupancy := pushing
   }
   when(pushing) {
-    ram.write(pushPtr.value, io.push.data)
+    ram(pushPtr.value) := io.push.data
     pushPtr ++
   }
   when(popping) {

@@ -58,6 +58,12 @@ class Mem[T <: Data](val wordType: T, val wordCount: Int) extends Node with Name
     this
   }
 
+  def apply(address: UInt): T = {
+    val ret = readAsync(address)
+    ret.
+    ret
+  }
+
   def readAsync(address: UInt,writeToReadKind: MemWriteToReadKind = dontCare): T = {
     val readBits = Bits(wordType.getBitsWidth bit)
     val readWord = wordType.clone()
