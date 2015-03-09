@@ -670,25 +670,35 @@ class VhdlBackend extends Backend with VhdlBase {
     }
   }
 
+
+  def getSensitivity(nodes : Iterable[Node],includeNodes : Boolean): mutable.Set[Node] ={
+    val sensitivity = mutable.Set[Node]()
+
+    if(includeNodes)
+      nodes.foreach(walk(_))
+    else
+      nodes.foreach(_.inputs.foreach(walk(_)))
+
+    def walk(node: Node): Unit = {
+      if (isReferenceable(node))
+        sensitivity += node
+      else
+        node.inputs.foreach(walk(_))
+    }
+
+    sensitivity
+  }
   def emitAsyncronous(component: Component, ret: StringBuilder): Unit = {
 
     var processCounter = 0
     class Process(val order: Int) {
-      val sensitivity = mutable.Set[Node]()
+      var sensitivity : mutable.Set[Node]= null
       val nodes = ArrayBuffer[Node]()
       val whens = ArrayBuffer[when]()
       var hasMultipleAssignment = false
 
-      def genSensitivity: Unit = {
-        nodes.foreach(_.inputs.foreach(walk(_)))
+      def genSensitivity: Unit = sensitivity = getSensitivity(nodes,false)
 
-        def walk(node: Node): Unit = {
-          if (isReferenceable(node))
-            sensitivity += node
-          else
-            node.inputs.foreach(walk(_))
-        }
-      }
 
       def needProcessDef = hasMultipleAssignment || !whens.isEmpty || nodes.size > 1
     }
@@ -990,7 +1000,7 @@ class VhdlBackend extends Backend with VhdlBase {
     case o => throw new Exception("Don't know how emit logic of " + o.getClass.getSimpleName)
   }
 
-  //TODO add sensitivity for asyncronous reset
+
   def emitSyncronous(component: Component, ret: StringBuilder): Unit = {
     // ret ++= "  -- synchronous\n"
 
@@ -1031,13 +1041,33 @@ class VhdlBackend extends Backend with VhdlBase {
         def dec = {
           tabLevel = tabLevel - 1
         }
-        ret ++= s"${tabStr}process(${emitReference(clock)}${if (asyncReset) "," + emitReference(reset) else ""})\n"
+
+        val initialValueAssignement = new AssignementLevel
+        val initialValues = ArrayBuffer[Node]()
+        for (syncNode <- activeArray) syncNode match {
+          case reg: Reg => {
+            if (reg.hasInitialValue) {
+              initialValueAssignement.walkWhenTree(reg.getOutputByConsumers, reg.getInitialValue)
+              initialValues += reg.getInitialValue
+            }
+          }
+          case _ =>
+        }
+
+
+        if(asyncReset){
+          val sensitivity = getSensitivity(initialValues,true)
+          ret ++= s"${tabStr}process(${emitReference(clock)},${emitReference(reset)}${sensitivity.foldLeft("")(_ + "," + emitReference(_))})\n"
+        }else{
+          ret ++= s"${tabStr}process(${emitReference(clock)})\n"
+        }
+
         ret ++= s"${tabStr}begin\n"
         inc
         if (asyncReset) {
           ret ++= s"${tabStr}if ${emitReference(reset)} = \'${if (clockDomain.resetActiveHigh) 1 else 0}\' then\n";
           inc
-          emitRegsInitialValue(tabStr)
+          emitRegsInitialValue(initialValueAssignement,tabStr)
           dec
           ret ++= s"${tabStr}elsif ${emitClockEdge(clock, clockDomain.edge)}"
           inc
@@ -1052,7 +1082,7 @@ class VhdlBackend extends Backend with VhdlBase {
         if (syncReset) {
           ret ++= s"${tabStr}if ${emitReference(reset)} = \'${if (clockDomain.resetActiveHigh) 1 else 0}\' then\n"
           inc
-          emitRegsInitialValue(tabStr)
+          emitRegsInitialValue(initialValueAssignement,tabStr)
           dec
           ret ++= s"${tabStr}else\n"
           inc
@@ -1073,20 +1103,12 @@ class VhdlBackend extends Backend with VhdlBase {
         dec
         ret ++= s"${tabStr}\n"
 
-        def emitRegsInitialValue(tab: String): Unit = {
 
-          val assignementLevel = new AssignementLevel
-          for (syncNode <- activeArray) syncNode match {
-            case reg: Reg => {
-              if (reg.hasInitialValue) {
-                assignementLevel.walkWhenTree(reg.getOutputByConsumers, reg.getInitialValue)
-                //ret ++= s"$tab${emitReference(reg.getOutputByConsumers)} <= ${emitLogic(reg.getInitialValue)};\n"
-              }
-            }
-            case memWrite: MemWrite =>
-          }
+        def emitRegsInitialValue(assignementLevel : AssignementLevel,tab: String): Unit = {
           assignementLevel.emitContext(ret, tab)
         }
+
+
         def emitRegsLogic(tab: String): Unit = {
 
 

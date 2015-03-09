@@ -53,24 +53,6 @@ object Counter {
   implicit def implicitValue(c: Counter) = c.value
 }
 
-//class Counter(val stateCount: Int) extends Area{
-//  val value = RegInit(UInt(0, log2Up(stateCount) bit))
-//  def inc : Bool = {
-//    val overflow = value === UInt(stateCount-1)
-//    if(isPow2(stateCount))
-//      value := value + UInt(1)
-//    else
-//      when(overflow){
-//        value := UInt(0)
-//      }otherwise {
-//        value := value + UInt(1)
-//      }
-//
-//    overflow
-//  }
-//  def ++ = inc
-//}
-
 class Counter(val stateCount: Int) extends Area {
   val inc = Bool(false)
   def ++ : Unit = inc := Bool(true)
@@ -80,7 +62,7 @@ class Counter(val stateCount: Int) extends Area {
 
   if (isPow2(stateCount))
     valueNext := value + inc.toUInt
-  else
+  else {
     when(inc) {
       when(value === UInt(stateCount - 1)) {
         valueNext := UInt(0)
@@ -88,6 +70,7 @@ class Counter(val stateCount: Int) extends Area {
         valueNext := value + UInt(1)
       }
     }
+  }
 }
 
 object MajorityVote {
