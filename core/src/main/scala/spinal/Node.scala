@@ -67,8 +67,8 @@ object WidthInfer {
   }
 
   def regImpl(node: Node): Int = {
-    val dataIn = node.inputs(0)
-    val init = node.inputs(1)
+    val dataIn = node.inputs(RegS.getDataInputId)
+    val init = node.inputs(RegS.getInitialValueId)
     math.max(if (dataIn != node) dataIn.getWidth else -1,if(node.asInstanceOf[Reg].isUsingReset) init.getWidth else -1)
   }
 

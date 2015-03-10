@@ -74,7 +74,7 @@ object Data {
     val lowerComponent = componentPtr
     var risePath = if(lowerComponent == null)  List[Component]() else  startComponentStack.takeRight(startComponentStack.size - 1 - componentPtr.parents().size)
     //pull from lower component to start component (rise)
-    while (componentPtr != startComponent) {
+    while (!risePath.isEmpty) {
       if (useCache) {
         val cacheState = componentPtr.pulledDataCache.getOrElse(srcData, null)
         if (cacheState != null) {

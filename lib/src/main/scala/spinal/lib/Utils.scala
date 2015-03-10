@@ -55,7 +55,7 @@ object Counter {
 
 class Counter(val stateCount: Int) extends Area {
   val inc = Bool(false)
-  def ++ : Unit = inc := Bool(true)
+  def ++() : Unit = inc := Bool(true)
 
   val valueNext = UInt(log2Up(stateCount) bit)
   val value = RegNext(valueNext, UInt(0))

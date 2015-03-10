@@ -253,7 +253,7 @@ class HandshakeFifoIo[T <: Data](dataType: T, depth: Int) extends Bundle {
   val occupancy = out UInt (log2Up(depth + 1) bit)
 }
 
-class HandshakeFifo[T <: Data](dataType: T, depth: Int) extends Component{
+class HandshakeFifo[T <: Data](dataType: T, depth: Int) extends Component {
   val io = new HandshakeFifoIo(dataType, depth)
 
   val ram = Mem(dataType, depth)
@@ -268,7 +268,7 @@ class HandshakeFifo[T <: Data](dataType: T, depth: Int) extends Component{
   val full = ptrMatch & risingOccupancy
 
   io.push.ready := !full
-  io.pop.valid := !empty && !RegNext(empty,Bool(false)) //mem write to read propagation
+  io.pop.valid := !empty && !RegNext(empty, Bool(false)) //mem write to read propagation
   io.pop.data := ram.readSync(popPtr.valueNext)
 
   when(pushing !== popping) {
@@ -285,12 +285,13 @@ class HandshakeFifo[T <: Data](dataType: T, depth: Int) extends Component{
   val ptrDif = pushPtr - popPtr
   if (isPow2(depth))
     io.occupancy := ((risingOccupancy && ptrMatch) ## ptrDif).toUInt
-  else
+  else {
     when(ptrMatch) {
       io.occupancy := Mux(risingOccupancy, UInt(depth), UInt(0))
     } otherwise {
       io.occupancy := Mux(pushPtr > popPtr, ptrDif, UInt(depth) + ptrDif)
     }
+  }
 
 }
 

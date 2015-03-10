@@ -63,10 +63,14 @@ object ClockDomain {
 
   def current = GlobalData.get.clockDomainStack.head()
 
+  def isResetActive = current.isResetActive
+  def isClockEnableActive = current.isClockEnableActive
 
-  def readClock = current.readClockWire
-  def readReset = current.readResetWire
-  def readClockEnable = current.readClockEnableWire
+
+  def readClockWire = current.readClockWire
+  def readResetWire = current.readResetWire
+  def readClockEnableWire = current.readClockEnableWire
+
 }
 
 class ClockDomain(val clock: Bool, val edge: EdgeKind, var clockEnable: Bool, val reset: Bool, val resetKind: ResetKind, val resetActiveHigh: Boolean, val clockEnableActiveHigh: Boolean) {

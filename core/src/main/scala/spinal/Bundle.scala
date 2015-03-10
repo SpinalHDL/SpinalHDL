@@ -27,6 +27,13 @@ import scala.collection.mutable.ArrayBuffer
 object Bundle{
 
 }
+object NoData{
+  def apply() = new NoData
+}
+
+class NoData extends Bundle{
+
+}
 
 class Bundle extends MultiData with Nameable{
   override type SSelf = Bundle

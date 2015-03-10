@@ -113,7 +113,7 @@ abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends 
   def getClockDomain: ClockDomain = clockDomain
 
   def getClock: Bool = inputs(SyncNode.getClockInputId).asInstanceOf[Bool]
-  def getClockEnable: Bool = inputs(SyncNode.getClockInputId).asInstanceOf[Bool]
+  def getClockEnable: Bool = inputs(SyncNode.getClockEnableId).asInstanceOf[Bool]
   def getReset: Bool = inputs(SyncNode.getClockResetId).asInstanceOf[Bool]
 }
 
