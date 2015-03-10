@@ -48,7 +48,7 @@ object RegNext {
   def apply[T <: Data](next: T, init: T = null): T = Reg(next, init,next)
 }
 
-object RegInit { //TODO check that init is not a literal with no with specification
+object RegInit {
   def apply[T <: Data](init: T): T = {
     Reg(init, init)
   }

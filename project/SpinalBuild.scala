@@ -1,24 +1,27 @@
 import sbt._
 import Keys._
+import xerial.sbt.Sonatype.SonatypeKeys
+import SonatypeKeys._
+import SpinalVersion._
 
-object GraphBuild extends Build {
+object SpinalBuild extends Build {
   lazy val all = Project(
     id = "SpinalHDL-all",
     base = file("."),
     settings = defaultSettings ++ Seq(
-      name      := "SpinalHDL all",
-      version   := Version.all,
+      name := "SpinalHDL all",
+      version := SpinalVersion.all,
       publishTo := None
-	  ),
-    aggregate = Seq(core,lib,test)
+    ),
+    aggregate = Seq(core, lib, test)
   )
 
   lazy val core = Project(
     id = "SpinalHDL-core",
     base = file("Core"),
     settings = defaultSettings ++ Seq(
-      name      := "SpinalHDL Core",
-      version   := Version.core
+      name := "SpinalHDL Core",
+      version := SpinalVersion.core
     )
   )
 
@@ -26,8 +29,8 @@ object GraphBuild extends Build {
     id = "SpinalHDL-lib",
     base = file("Lib"),
     settings = defaultSettings ++ Seq(
-      name      := "SpinalHDL Lib",
-      version   := Version.lib
+      name := "SpinalHDL Lib",
+      version := SpinalVersion.lib
     )
   ) dependsOn (core)
 
@@ -35,16 +38,46 @@ object GraphBuild extends Build {
     id = "SpinalHDL-test",
     base = file("Test"),
     settings = defaultSettings ++ Seq(
-      name      := "SpinalHDL Test",
-      version   := Version.test,
-	    libraryDependencies += "org.scalatest" % "scalatest_2.11" % "2.2.1"
+      name := "SpinalHDL Test",
+      version := SpinalVersion.test,
+      libraryDependencies += "org.scalatest" % "scalatest_2.11" % "2.2.1",
+      publishTo := None
     )
-  ) dependsOn (core,lib)
-  
-  lazy val defaultSettings = Defaults.defaultSettings ++ Seq(
-    organization := "org.spinalhdl",
-    scalaVersion := Version.compiler,
-    scalacOptions ++= Seq("-unchecked","-feature")     
-    //"-deprecation"
+  ) dependsOn(core, lib)
+
+  //sbt clean reload publishSigned
+  //https://oss.sonatype.org
+  lazy val defaultSettings = Defaults.defaultSettings ++ xerial.sbt.Sonatype.sonatypeSettings ++ Seq(
+    organization := "com.github.spinalhdl",
+    scalaVersion := SpinalVersion.compiler,
+    scalacOptions ++= Seq("-unchecked", "-feature"),
+
+
+    profileName := "Dolu1990",
+    publishMavenStyle := true,
+    publishArtifact in Test := false,
+    pomIncludeRepository := (_ => false),
+    pomExtra := {
+      <url>github.com/SpinalHDL/SpinalHDL</url>
+        <licenses>
+          <license>
+            <name>LGPL3</name>
+            <url>https://www.gnu.org/licenses/lgpl.html</url>
+          </license>
+        </licenses>
+        <scm>
+          <connection>scm:git:github.com/SpinalHDL/SpinalHDL</connection>
+          <developerConnection>scm:git:git@github.com:SpinalHDL/SpinalHDL</developerConnection>
+          <url>github.com/SpinalHDL/SpinalHDL</url>
+        </scm>
+        <developers>
+          <developer>
+            <id>Dolu1990</id>
+            <name>Dolu1990</name>
+            <url>none</url>
+          </developer>
+        </developers>
+    }
+
   )
 }
