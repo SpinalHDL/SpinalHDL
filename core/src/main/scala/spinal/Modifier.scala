@@ -202,9 +202,13 @@ private[spinal] object Multiplex {
     muxOut
   }
 }
+abstract class Extract(opName: String) extends Modifier(opName, null){
+  def getScopeBits: AssignedBits
+  def getBitVector: Node
+  def getParameterNodes: List[Node]
+}
 
-
-class ExtractBoolFixed(opName: String, bitVector: BitVector, bitId: Int) extends Modifier(opName, null) {
+class ExtractBoolFixed(opName: String, bitVector: BitVector, bitId: Int) extends Extract(opName) {
   inputs += bitVector
 
   def getBitVector = inputs(0)
@@ -218,15 +222,20 @@ class ExtractBoolFixed(opName: String, bitVector: BitVector, bitId: Int) extends
     }
     return null
   }
+  def getParameterNodes: List[Node] = Nil
+  def getScopeBits: AssignedBits = AssignedBits(bitId)
 }
 
-class ExtractBoolFloating(opName: String, bitVector: BitVector, bitId: UInt) extends Modifier(opName, null) {
+class ExtractBoolFloating(opName: String, bitVector: BitVector, bitId: UInt) extends Extract(opName) {
   override def calcWidth: Int = 1
   inputs += bitVector
   inputs += bitId
 
   def getBitVector = inputs(0)
   def getBitId = inputs(1)
+
+  def getParameterNodes: List[Node] = inputs(1) :: Nil
+  def getScopeBits: AssignedBits = AssignedBits(Math.min(getBitVector.getWidth-1,(1 << Math.min(20,bitId.getWidth)) - 1), 0)
 }
 
 //object ExtractBitsVectorFixed {
@@ -245,7 +254,7 @@ class ExtractBoolFloating(opName: String, bitVector: BitVector, bitId: UInt) ext
 //  }
 //}
 
-class ExtractBitsVectorFixed(opName: String, bitVector: BitVector, hi: Int, lo: Int) extends Modifier(opName, null) {
+class ExtractBitsVectorFixed(opName: String, bitVector: BitVector, hi: Int, lo: Int) extends Extract(opName) {
   if (hi - lo < -1) SpinalError(s"Static bits extraction with a negative size ($hi downto $lo)")
 
   override def calcWidth: Int = hi - lo + 1
@@ -263,10 +272,13 @@ class ExtractBitsVectorFixed(opName: String, bitVector: BitVector, hi: Int, lo: 
     }
     return null
   }
+
+  def getParameterNodes: List[Node] =  Nil
+  def getScopeBits: AssignedBits = AssignedBits(hi,lo)
 }
 
 
-class ExtractBitsVectorFloating(opName: String, bitVector: BitVector, offset: UInt, bitCount: BitCount) extends Modifier(opName, null) {
+class ExtractBitsVectorFloating(opName: String, bitVector: BitVector, offset: UInt, bitCount: BitCount) extends Extract(opName) {
   override def calcWidth: Int = bitCount.value
 
   offset.dontSimplifyIt //Because it can appear at multipe location (o+bc-1 downto o)
@@ -277,7 +289,11 @@ class ExtractBitsVectorFloating(opName: String, bitVector: BitVector, offset: UI
   def getBitVector = inputs(0)
   def getOffset = inputs(1)
   def getBitCount = bitCount
+
+  def getParameterNodes: List[Node] = inputs(1) :: Nil
+  def getScopeBits: AssignedBits = AssignedBits(Math.min(getBitVector.getWidth-1,(1 << Math.min(20,offset.getWidth))+ bitCount.value - 1), 0)
 }
+
 //
 //object AssignedBits {
 //  def apply() = new AssignedBits
@@ -367,7 +383,6 @@ class ExtractBitsVectorFloating(opName: String, bitVector: BitVector, offset: UI
 //}
 
 
-
 object AssignedBits {
   def apply() = new AssignedBits
   def apply(bitId: Int): AssignedBits = {
@@ -381,7 +396,7 @@ object AssignedBits {
     ab
   }
 
-  def common(a: AssignedBits, b: AssignedBits): AssignedBits = {
+  def union(a: AssignedBits, b: AssignedBits): AssignedBits = {
     val ret = AssignedBits()
 
     ret.add(a)
@@ -405,14 +420,13 @@ object AssignedBits {
 
 }
 
-class AssignedRange(val hi: Int, val lo: Int){
-  def toBigInt = ((BigInt(1) << (hi+1-lo)) - 1) << lo
+class AssignedRange(val hi: Int, val lo: Int) {
+  def toBigInt = ((BigInt(1) << (hi + 1 - lo)) - 1) << lo
 
 }
 
 class AssignedBits {
-  var value : BigInt = 0
-
+  var value: BigInt = 0
 
 
   def add(range: AssignedRange): Unit = {
@@ -432,13 +446,14 @@ class AssignedBits {
 }
 
 
-
 trait AssignementNode extends Node {
   def getAssignedBits: AssignedBits
+  def getScopeBits: AssignedBits
+  def getOutBaseType: BaseType
 }
 
 
-class BitAssignmentFixed(out: Node, in: Node, bitId: Int) extends AssignementNode {
+class BitAssignmentFixed(out: BitVector, in: Node, bitId: Int) extends AssignementNode {
   inputs += in
 
   def getInput = inputs(0)
@@ -453,9 +468,11 @@ class BitAssignmentFixed(out: Node, in: Node, bitId: Int) extends AssignementNod
   }
 
   def getAssignedBits: AssignedBits = AssignedBits(bitId)
+  def getScopeBits: AssignedBits = getAssignedBits
+  def getOutBaseType: BaseType = out
 }
 
-class BitAssignmentFloating(out: Node, in: Node, bitId: UInt) extends AssignementNode {
+class BitAssignmentFloating(out: BitVector, in: Node, bitId: UInt) extends AssignementNode {
   inputs += in
   inputs += bitId
 
@@ -465,12 +482,12 @@ class BitAssignmentFloating(out: Node, in: Node, bitId: UInt) extends Assignemen
   override def calcWidth: Int = out.getWidth
 
   def getAssignedBits: AssignedBits = AssignedBits()
+  def getScopeBits: AssignedBits = AssignedBits(Math.min(out.getWidth-1,(1 << Math.min(20,bitId.getWidth)) - 1), 0)
+  def getOutBaseType: BaseType = out
 }
 
 
-
-
-class RangedAssignmentFixed(out: Node, in: Node, hi: Int, lo: Int) extends AssignementNode {
+class RangedAssignmentFixed(out: BitVector, in: Node, hi: Int, lo: Int) extends AssignementNode {
   inputs += in
 
   def getInput = inputs(0)
@@ -488,15 +505,17 @@ class RangedAssignmentFixed(out: Node, in: Node, hi: Int, lo: Int) extends Assig
   }
 
   override def normalizeInputs: Unit = {
-    Misc.normalizeResize(this, 0, hi+1-lo)
+    Misc.normalizeResize(this, 0, hi + 1 - lo)
   }
 
 
   def getAssignedBits: AssignedBits = AssignedBits(hi, lo)
+  def getScopeBits: AssignedBits = getAssignedBits
+  def getOutBaseType: BaseType = out
 
 }
 
-class RangedAssignmentFloating(out: Node, in: Node, offset: UInt, bitCount: BitCount) extends AssignementNode {
+class RangedAssignmentFloating(out: BitVector, in: Node, offset: UInt, bitCount: BitCount) extends AssignementNode {
   inputs += in
   inputs += offset
 
@@ -507,16 +526,18 @@ class RangedAssignmentFloating(out: Node, in: Node, offset: UInt, bitCount: BitC
   override def calcWidth: Int = out.getWidth
 
 
-//  override def checkInferedWidth: String = {
-//    if (getInput.getWidth != bitCount.value) return s"Ranged assignement bit count miss match at ${getScalaLocationString}"
-//    null
-//  }
+  //  override def checkInferedWidth: String = {
+  //    if (getInput.getWidth != bitCount.value) return s"Ranged assignement bit count miss match at ${getScalaLocationString}"
+  //    null
+  //  }
 
   override def normalizeInputs: Unit = {
     Misc.normalizeResize(this, 0, bitCount.value)
   }
 
   def getAssignedBits: AssignedBits = AssignedBits()
+  def getScopeBits: AssignedBits = AssignedBits(Math.min(out.getWidth-1,(1 << Math.min(20,offset.getWidth))+ bitCount.value - 1), 0)
+  def getOutBaseType: BaseType = out
 }
 
 

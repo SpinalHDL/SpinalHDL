@@ -315,7 +315,7 @@ class HandshakeFifoCC[T <: Data](dataType: T, depth: Int, pushClockDomain: Clock
 
   val io = new HandshakeFifoCCIo(dataType, depth)
 
-  val ptrWidth = log2Up(depth + 1)
+  val ptrWidth = log2Up(depth)+1
   def isFull(a: Bits, b: Bits) = a(ptrWidth - 1, ptrWidth - 2) === ~b(ptrWidth - 1, ptrWidth - 2) && a(ptrWidth - 3, 0) === ~b(ptrWidth - 3, 0)
   def isEmpty(a: Bits, b: Bits) = a === b
 
@@ -326,7 +326,7 @@ class HandshakeFifoCC[T <: Data](dataType: T, depth: Int, pushClockDomain: Clock
   val pushToPopGray = Bits(ptrWidth bit)
 
   val pushCC = new ClockingArea(pushClockDomain) {
-    val pushPtr = Counter(depth)
+    val pushPtr = Counter(depth << 1)
     val pushPtrGray = RegNext(toGray(pushPtr.valueNext))
     val popPtrGray = BufferCC(popToPushGray)
     val full = isFull(pushPtrGray, popPtrGray)
@@ -341,18 +341,18 @@ class HandshakeFifoCC[T <: Data](dataType: T, depth: Int, pushClockDomain: Clock
   }
 
   val popCC = new ClockingArea(popClockDomain) {
-    val popPtr = Counter(depth)
+    val popPtr = Counter(depth << 1)
     val popPtrGray = RegNext(toGray(popPtr.valueNext))
     val pushPtrGray = BufferCC(pushToPopGray)
     val empty = isEmpty(popPtrGray, pushPtrGray)
 
     io.pop.valid := !empty
-    io.pop.data := ram.readSync(popPtr.valueNext)
+    io.pop.data := ram.readSyncCC(popPtr.valueNext)
     when(io.pop.fire) {
       popPtr ++
     }
 
-    io.pushOccupancy := fromGray(pushPtrGray) - popPtr
+    io.popOccupancy := fromGray(pushPtrGray) - popPtr
   }
 
   pushToPopGray := pushCC.pushPtrGray

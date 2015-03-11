@@ -47,6 +47,7 @@ object Mem {
   def apply[T <: Data](wordType: T, wordCount: Int) = new Mem(wordType, wordCount)
 }
 
+//TODO mem port use don't siymplify, but resize fro backend can break it, fix for each type of port
 class Mem[T <: Data](val wordType: T, val wordCount: Int) extends Node with Nameable {
   var forceMemToBlackboxTranslation = false
 
@@ -73,8 +74,9 @@ class Mem[T <: Data](val wordType: T, val wordCount: Int) extends Node with Name
   def readAsync(address: UInt,writeToReadKind: MemWriteToReadKind = dontCare): T = {
     val readBits = Bits(wordType.getBitsWidth bit)
     val readWord = wordType.clone()
-
-    val readPort = new MemReadAsync(this, address.dontSimplifyIt, readBits,writeToReadKind)
+    val addressBuffer = UInt(addressWidth bit).dontSimplifyIt
+    addressBuffer := address
+    val readPort = new MemReadAsync(this, addressBuffer, readBits,writeToReadKind)
     readPort.compositeTagReady = readWord
 
     readBits.inputs(0) = readPort
@@ -83,12 +85,15 @@ class Mem[T <: Data](val wordType: T, val wordCount: Int) extends Node with Name
     readWord
   }
 
-  def readSync(address: UInt, enable: Bool = Bool(true),writeToReadKind: MemWriteToReadKind = dontCare): T = {
+  def readSync(address: UInt, enable: Bool = Bool(true),writeToReadKind: MemWriteToReadKind = dontCare,crossClock : Boolean = false): T = {
     val readBits = Bits(wordType.getBitsWidth bit)
     val readWord = wordType.clone()
 
-    val readPort = new MemReadSync(this, address.dontSimplifyIt, readBits, enable.dontSimplifyIt,writeToReadKind,ClockDomain.current)
+    val addressBuffer = UInt(addressWidth bit).dontSimplifyIt
+    addressBuffer := address
+    val readPort = new MemReadSync(this, addressBuffer, readBits, enable.dontSimplifyIt,writeToReadKind,ClockDomain.current)
     readPort.compositeTagReady = readWord
+    readPort.addTag(crossClockDomain)
 
     readBits.inputs(0) = readPort
     readWord.fromBits(readBits)
@@ -96,10 +101,14 @@ class Mem[T <: Data](val wordType: T, val wordCount: Int) extends Node with Name
     readWord
   }
 
+  def readSyncCC(address: UInt, enable: Bool = Bool(true),writeToReadKind: MemWriteToReadKind = dontCare) : T = {
+    readSync(address,enable,writeToReadKind,true)
+  }
 
   def write(address: UInt, data: T): Unit = {
-
-    val writePort = new MemWrite(this, address.dontSimplifyIt, data.toBits.dontSimplifyIt, when.getWhensCond(this).dontSimplifyIt,ClockDomain.current)
+    val addressBuffer = UInt(addressWidth bit).dontSimplifyIt
+    addressBuffer := address
+    val writePort = new MemWrite(this, addressBuffer, data.toBits.dontSimplifyIt, when.getWhensCond(this).dontSimplifyIt,ClockDomain.current)
     inputs += writePort
   }
 }
@@ -133,7 +142,7 @@ class MemReadSync(mem: Mem[_], address: UInt, data: Bits, enable: Bool,val write
 
   def getData = data
   def getMem = mem
-  def getAddress = inputs(MemReadSync.getAddressId).asInstanceOf[UInt]
+  def getAddress = inputs(MemReadSync.getAddressId).asInstanceOf[UInt] //TODO address can be resized by backend, and than can't be casted
   def getEnable = inputs(MemReadSync.getEnableId).asInstanceOf[Bool]
 
   override def calcWidth: Int = getMem.calcWidth
