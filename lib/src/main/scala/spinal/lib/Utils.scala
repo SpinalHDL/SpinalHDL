@@ -48,14 +48,32 @@ object OHToUInt {
   }
 }
 
+object CounterFreeRun {
+  def apply(stateCount: Int) : Counter  = {
+    val counter = Counter(stateCount)
+    counter ++;
+    counter
+  }
+}
+
 object Counter {
-  def apply(stateCount: Int) = new Counter(stateCount)
+  def apply(stateCount: Int) : Counter = new Counter(stateCount)
+  def apply(stateCount: Int,inc : Bool) : Counter  = {
+    val counter = Counter(stateCount)
+    when(inc) {
+      counter ++;
+    }
+    counter
+  }
   implicit def implicitValue(c: Counter) = c.value
 }
 
 class Counter(val stateCount: Int) extends Area {
   val inc = Bool(false)
-  def ++() : Unit = inc := Bool(true)
+  def ++(): UInt = {
+    inc := Bool(true)
+    valueNext
+  }
 
   val valueNext = UInt(log2Up(stateCount) bit)
   val value = RegNext(valueNext, UInt(0))
@@ -98,7 +116,7 @@ object SpinalMap {
   }
 }
 
-class SpinalMap[Key <: Data, Value <: Data](pairs: Iterable[( () => Key,() => Value)]) {
+class SpinalMap[Key <: Data, Value <: Data](pairs: Iterable[(() => Key, () => Value)]) {
   def apply(key: Key): Value = {
     val ret: Value = pairs.head._2()
 

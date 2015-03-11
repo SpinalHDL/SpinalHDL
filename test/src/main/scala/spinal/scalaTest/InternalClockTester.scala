@@ -8,10 +8,8 @@ object InternalClockTester{
   class ClockGeneratorSub extends Component{
     val io = NoData()
 
-    val internalClock = Bool()
-    val clkDivider = Counter(16)
-    clkDivider ++;
-    internalClock := clkDivider(0)
+    val internalClock = CounterFreeRun(16)(0)
+
     val initCounter = RegInit(UInt(7))
     val srcReset = initCounter !== UInt(0)
     when(srcReset){
@@ -27,6 +25,7 @@ object InternalClockTester{
 
     val internalClockDomain = ClockDomain(internalClock,internalReset)
   }
+
   class ClockGenerator extends Component{
     val io = NoData()
     val sub = new ClockGeneratorSub
@@ -40,6 +39,7 @@ object InternalClockTester{
     counter ++;
     io.counter := counter
   }
+
   class CounterComponent extends Component{
     val io = new Bundle{
       val counter = out UInt(8 bit)
