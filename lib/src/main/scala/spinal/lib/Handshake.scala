@@ -37,6 +37,10 @@ class Handshake[T <: Data](dataType: T) extends Bundle with Interface {
     this << that.m2sPipe
     that
   }
+  def >->(into: Handshake[T]): Handshake[T] = {
+    into <-< this;
+    into
+  }
 
   def </<(that: Handshake[T]): Handshake[T] = {
     this << that.s2mPipe
@@ -46,6 +50,10 @@ class Handshake[T <: Data](dataType: T) extends Bundle with Interface {
   def <-/<(that: Handshake[T]): Handshake[T] = {
     this << that.s2mPipe.m2sPipe
     that
+  }
+  def >/->(into: Handshake[T]): Handshake[T] = {
+    into <-/< this;
+    into
   }
 
   def ~[T2 <: Data](that: T2): Handshake[T2] = translateWith(that)

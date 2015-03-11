@@ -101,7 +101,7 @@ abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends 
   inputs += clockDomain.clockEnable
   inputs += Bool(!clockDomain.resetActiveHigh)
 
-  def getLatency = 1
+  final def getLatency = 1 //if not final => update latencyAnalyser
 
   def getSynchronousInputs = ArrayBuffer[Node](/*getClock, */ getClockEnable) ++= (if (clockDomain.resetKind != ASYNC) getResetStyleInputs else Nil)
   def getAsynchronousInputs = ArrayBuffer[Node]() ++= (if (clockDomain.resetKind == ASYNC) getResetStyleInputs else Nil)

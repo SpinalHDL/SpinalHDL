@@ -22,8 +22,10 @@ class HandshakeTester extends Component {
 
   val fifo0 = new HandshakeFifo(new BundleA,16)
   fifo0.io.push << io.slave0
-  fifo0.io.pop >> io.master0
+  fifo0.io.pop >/-> io.master0
   io.fifo0_occupancy := fifo0.io.occupancy
+
+  println(latencyAnalysis(io.slave0.valid,io.master0.valid))
 }
 
 

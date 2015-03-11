@@ -18,7 +18,7 @@ class BufferCC[T <: Data](dataType: T, withInit : Boolean, bufferDepth: Int) ext
   assert(bufferDepth >= 1)
 
   val io = new Bundle {
-    val input = in(dataType.clone)
+    val input = in(cloneOf(dataType))
     val init = if(!withInit) null.asInstanceOf[T] else in(dataType.clone)
     val output = out(dataType.clone)
   }
