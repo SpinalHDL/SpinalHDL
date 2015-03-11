@@ -268,7 +268,7 @@ class HandshakeFifo[T <: Data](dataType: T, depth: Int) extends Component {
   val full = ptrMatch & risingOccupancy
 
   io.push.ready := !full
-  io.pop.valid := !empty && !RegNext(empty, Bool(false)) //mem write to read propagation
+  io.pop.valid := !empty & !(RegNext(popPtr.valueNext === pushPtr, Bool(false)) & !full) //mem write to read propagation
   io.pop.data := ram.readSync(popPtr.valueNext)
 
   when(pushing !== popping) {

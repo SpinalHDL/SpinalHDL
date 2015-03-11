@@ -38,7 +38,9 @@ object isPow2{
     return that.bitCount == 1
   }
 }
-
+object CloneOf{
+  def apply[T <: Data](that : T) = that.clone()
+}
 
 object Misc {
 
