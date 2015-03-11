@@ -48,11 +48,25 @@ object OHToUInt {
   }
 }
 
+object toGray{
+  def apply(uint : UInt): Bits ={
+    Bits((uint >> UInt(1)) ^ uint)
+  }
+}
+object fromGray{
+  def apply(gray : Bits): UInt ={
+    val ret = UInt(widthOf(gray) bit)
+    ret.msb := gray.msb
+    for(i <- 0 until widthOf(gray)-1){
+      ret(i) := gray(i) ^ ret(i+1)
+    }
+    ret
+  }
+}
+
 object CounterFreeRun {
   def apply(stateCount: Int) : Counter  = {
-    val counter = Counter(stateCount)
-    counter ++;
-    counter
+    new Counter(stateCount,true)
   }
 }
 
@@ -68,8 +82,8 @@ object Counter {
   implicit def implicitValue(c: Counter) = c.value
 }
 
-class Counter(val stateCount: Int) extends Area {
-  val inc = Bool(false)
+class Counter(val stateCount: Int,freeRun : Boolean = false) extends Area {
+  val inc = Bool(freeRun)
   def ++(): UInt = {
     inc := Bool(true)
     valueNext

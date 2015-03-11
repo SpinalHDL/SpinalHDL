@@ -29,7 +29,11 @@ abstract class BitVectorFactory[T <: BitVector] {
 abstract class BitVector extends BaseType {
   var fixedWidth = -1
 
+  def high = getWidth-1
+  def msb = this(high)
+
   def isFixedWidth = fixedWidth != -1
+
 
   def setWidth(width: Int): this.type = {
     fixedWidth = width

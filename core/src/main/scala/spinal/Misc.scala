@@ -39,7 +39,10 @@ object isPow2{
   }
 }
 object cloneOf{
-  def apply[T <: Data](that : T) = that.clone()
+  def apply[T <: Data](that : T) : T = that.clone()
+}
+object widthOf{
+  def apply[T <: Data](that : T): Int = that.getBitsWidth
 }
 
 object Misc {

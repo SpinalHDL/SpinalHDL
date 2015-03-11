@@ -25,7 +25,8 @@ class HandshakeTester extends Component {
   fifo0.io.pop >/-> io.master0
   io.fifo0_occupancy := fifo0.io.occupancy
 
-  println(latencyAnalysis(io.slave0.valid,io.master0.valid))
+  assert(3 == latencyAnalysis(io.slave0.data.a,fifo0.ram,io.master0.data.a))
+  assert(2 == latencyAnalysis(io.master0.ready,io.slave0.ready))
 }
 
 

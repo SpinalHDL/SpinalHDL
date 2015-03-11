@@ -31,6 +31,7 @@ object BitsSet{
 
 class BitsFactory extends BitVectorFactory[Bits] {
   def apply() = new Bits()
+  def apply(that : UInt) = that.toBits
 }
 
 class Bits extends BitVector {
