@@ -57,10 +57,10 @@ object toGray{
 object fromGray{
   def apply(gray : Bits): UInt ={
     val ret = UInt(widthOf(gray) bit)
-    ret.msb := gray.msb
     for(i <- 0 until widthOf(gray)-1){
       ret(i) := gray(i) ^ ret(i+1)
     }
+    ret.msb := gray.msb
     ret
   }
 }

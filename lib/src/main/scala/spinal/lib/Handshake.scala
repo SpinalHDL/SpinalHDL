@@ -312,13 +312,13 @@ class HandshakeFifoCCIo[T <: Data](dataType: T, depth: Int) extends Bundle {
 
 class HandshakeFifoCC[T <: Data](dataType: T, depth: Int, pushClockDomain: ClockDomain, popClockDomain: ClockDomain) extends Component {
   assert(isPow2(depth))
+  assert(depth >= 2)
 
   val io = new HandshakeFifoCCIo(dataType, depth)
 
   val ptrWidth = log2Up(depth)+1
   def isFull(a: Bits, b: Bits) = a(ptrWidth - 1, ptrWidth - 2) === ~b(ptrWidth - 1, ptrWidth - 2) && a(ptrWidth - 3, 0) === b(ptrWidth - 3, 0)
   def isEmpty(a: Bits, b: Bits) = a === b
-
 
   val ram = Mem(dataType, depth)
 
