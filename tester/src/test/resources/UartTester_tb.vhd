@@ -2,9 +2,9 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.all;
 
-library work;
-use work.pkg_scala2hdl.all;
-use work.pkg_enum.all;
+library lib_UartTester;
+use lib_UartTester.pkg_scala2hdl.all;
+use lib_UartTester.pkg_enum.all;
 
 -- #spinalBegin userLibrary
 -- #spinalEnd userLibrary
@@ -153,7 +153,7 @@ begin
   io_uart_uart_rxd <= io_uart_uart_txd;
   
   -- #spinalEnd userLogics
-  uut : entity work.UartTester
+  uut : entity lib_UartTester.UartTester
     port map (
       io_uart_config_dataLength =>  io_uart_config_dataLength,
       io_uart_config_stop =>  io_uart_config_stop,

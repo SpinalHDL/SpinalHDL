@@ -13,7 +13,7 @@ object SpinalBuild extends Build {
       version := SpinalVersion.all,
       publishTo := None
     ),
-    aggregate = Seq(core, lib, test)
+    aggregate = Seq(core, lib, tester)
   )
 
   lazy val core = Project(
@@ -34,12 +34,12 @@ object SpinalBuild extends Build {
     )
   ) dependsOn (core)
 
-  lazy val test = Project(
-    id = "SpinalHDL-test",
-    base = file("Test"),
+  lazy val tester = Project(
+    id = "SpinalHDL-tester",
+    base = file("tester"),
     settings = defaultSettings ++ Seq(
-      name := "SpinalHDL Test",
-      version := SpinalVersion.test,
+      name := "SpinalHDL tester",
+      version := SpinalVersion.tester,
       libraryDependencies += "org.scalatest" % "scalatest_2.11" % "2.2.1",
       publishTo := None
     )
@@ -51,7 +51,7 @@ object SpinalBuild extends Build {
     organization := "com.github.spinalhdl",
     scalaVersion := SpinalVersion.compiler,
     scalacOptions ++= Seq("-unchecked", "-feature"),
-
+    baseDirectory in test := file("/out/"),
 
     profileName := "Dolu1990",
     publishMavenStyle := true,

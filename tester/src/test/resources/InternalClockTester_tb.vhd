@@ -2,9 +2,9 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.all;
 
-library work;
-use work.pkg_scala2hdl.all;
-use work.pkg_enum.all;
+library lib_InternalClockTester;
+use lib_InternalClockTester.pkg_scala2hdl.all;
+use lib_InternalClockTester.pkg_enum.all;
 
 -- #spinalBegin userLibrary
 -- #spinalEnd userLibrary
@@ -58,7 +58,7 @@ begin
     wait;
   end process;
   -- #spinalEnd userLogics
-  uut : entity work.InternalClockTester
+  uut : entity lib_InternalClockTester.InternalClockTester
     port map (
       io_internalClkCounter =>  io_internalClkCounter,
       clk =>  clk,

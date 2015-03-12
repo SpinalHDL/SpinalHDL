@@ -8,7 +8,7 @@ object SpinalVersion {
   val all         = s"$major$snapshot"
   val core        = s"$major$snapshot"
   val lib         = s"$major$snapshot"
-  val test        = s"$major$snapshot"
+  val tester        = s"$major$snapshot"
 
 
 }

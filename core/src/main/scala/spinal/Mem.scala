@@ -236,7 +236,6 @@ class Ram_1c_1w_1ra(wordWidth: Int, wordCount: Int, writeToReadKind: MemWriteToR
 }
 
 class Ram_1c_1w_1rs(wordWidth: Int, wordCount: Int, writeToReadKind: MemWriteToReadKind = dontCare) extends BlackBox {
-
   val generic = new Generic {
     val wordCount = Ram_1c_1w_1rs.this.wordCount
     val wordWidth = Ram_1c_1w_1rs.this.wordWidth

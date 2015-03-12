@@ -2,9 +2,9 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.all;
 
-library work;
-use work.pkg_scala2hdl.all;
-use work.pkg_enum.all;
+library lib_BundleTester;
+use lib_BundleTester.pkg_scala2hdl.all;
+use lib_BundleTester.pkg_enum.all;
 
 -- #spinalBegin userLibrary
 library IEEE;
@@ -157,7 +157,7 @@ begin
   end process;  
   
   -- #spinalEnd userLogics
-  uut : entity work.BundleTester
+  uut : entity lib_BundleTester.BundleTester
     port map (
       io_conds_0 =>  io_conds_0,
       io_conds_1 =>  io_conds_1,
