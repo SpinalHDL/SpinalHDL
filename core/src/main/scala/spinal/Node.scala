@@ -106,8 +106,7 @@ abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady wi
 
 
 
-
-
+  var widthWhenNotInferred = -1
   def getWidth: Int = {
     if (globalData.nodeAreInferringWidth) {
       inferredWidth
@@ -139,6 +138,8 @@ abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady wi
       globalData.nodeGetWidthWalkedSet -= this
 
       if (isFirst) globalData.nodeGetWidthWalkedSet.clear()
+      if(widthWhenNotInferred != -1 && widthWhenNotInferred != temp) SpinalError(s"getWidth result differ from last call $getScalaLocationString")
+      widthWhenNotInferred = temp
       temp
     }
   }

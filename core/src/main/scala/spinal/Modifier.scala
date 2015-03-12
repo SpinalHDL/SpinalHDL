@@ -407,13 +407,16 @@ object AssignedBits {
 
 
   def intersect(a: AssignedBits, b: AssignedBits): AssignedBits = {
+//    val ret = AssignedBits()
+//    val temp = AssignedBits()
+//
+//    ret.add(a)
+//    temp.add(a)
+//    temp.remove(b)
+//    ret.remove(temp)
+//    ret
     val ret = AssignedBits()
-    val temp = AssignedBits()
-
-    ret.add(a)
-    temp.add(a)
-    temp.remove(b)
-    ret.remove(temp)
+    ret.value = a.value & b.value
     ret
   }
 

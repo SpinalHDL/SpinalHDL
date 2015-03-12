@@ -47,7 +47,7 @@ object Mem {
   def apply[T <: Data](wordType: T, wordCount: Int) = new Mem(wordType, wordCount)
 }
 
-//TODO mem port use don't siymplify, but resize fro backend can break it, fix for each type of port
+
 class Mem[T <: Data](val wordType: T, val wordCount: Int) extends Node with Nameable {
   var forceMemToBlackboxTranslation = false
 
@@ -108,7 +108,9 @@ class Mem[T <: Data](val wordType: T, val wordCount: Int) extends Node with Name
   def write(address: UInt, data: T): Unit = {
     val addressBuffer = UInt(addressWidth bit).dontSimplifyIt
     addressBuffer := address
-    val writePort = new MemWrite(this, addressBuffer, data.toBits.dontSimplifyIt, when.getWhensCond(this).dontSimplifyIt,ClockDomain.current)
+    val dataBuffer = Bits(getWidth bit).dontSimplifyIt
+    dataBuffer := data.toBits
+    val writePort = new MemWrite(this, addressBuffer, dataBuffer, when.getWhensCond(this).dontSimplifyIt,ClockDomain.current)
     inputs += writePort
   }
 }
@@ -142,7 +144,7 @@ class MemReadSync(mem: Mem[_], address: UInt, data: Bits, enable: Bool,val write
 
   def getData = data
   def getMem = mem
-  def getAddress = inputs(MemReadSync.getAddressId).asInstanceOf[UInt] //TODO address can be resized by backend, and than can't be casted
+  def getAddress = inputs(MemReadSync.getAddressId).asInstanceOf[UInt]
   def getEnable = inputs(MemReadSync.getEnableId).asInstanceOf[Bool]
 
   override def calcWidth: Int = getMem.calcWidth
@@ -152,9 +154,9 @@ class MemReadSync(mem: Mem[_], address: UInt, data: Bits, enable: Bool,val write
     return lit == null || lit.value == false
   }
 
-  override def normalizeInputs: Unit = {
-    Misc.normalizeResize(this, MemReadSync.getAddressId, getMem.addressWidth)
-  }
+//  override def normalizeInputs: Unit = {
+//    Misc.normalizeResize(this, MemReadSync.getAddressId, getMem.addressWidth)
+//  }
 
 }
 
@@ -186,9 +188,10 @@ class MemWrite(mem: Mem[_], address: UInt, data: Bits, enable: Bool, clockDomain
     return lit == null || lit.value == false
   }
 
-  override def normalizeInputs: Unit = {
-    Misc.normalizeResize(this, MemReadSync.getAddressId, getMem.addressWidth)
-  }
+//  override def normalizeInputs: Unit = {
+//    Misc.normalizeResize(this, MemWrite.getAddressId, getMem.addressWidth)
+//    //Misc.normalizeResize(this, MemWrite.getDataId, getMem.getWidth)
+//  }
 
 }
 

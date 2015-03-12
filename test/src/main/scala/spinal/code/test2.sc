@@ -1,3 +1,5 @@
+
+import scala.collection.BitSet
 import scala.runtime.Nothing$
 
 /*
@@ -20,8 +22,9 @@ import scala.runtime.Nothing$
 
 import spinal._
 
+val bitSet : BitSet = BitSet()
 
-
+bitSet.&()
 
 BigInt(10).bitCount
 

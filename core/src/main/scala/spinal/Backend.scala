@@ -584,12 +584,10 @@ class Backend {
       val errors = mutable.ArrayBuffer[String]()
       for (node <- nodes) {
         if (node.inferWidth) {
-          node match {
-            //case baseType: BaseType =>
-            //  errors += s"Can't infer width on ${node.getScalaLocationString}"
-            case _ =>
-              errors += s"Can't infer width on ${node.getScalaLocationString}"
-          }
+          errors += s"Can't infer width on ${node.getScalaLocationString}"
+        }
+        if(node.widthWhenNotInferred != -1 && node.widthWhenNotInferred != node.getWidth){
+          errors += s"getWidth call result during elaboration differ from inferred width on ${node.getScalaLocationString}"
         }
       }
       if (!errors.isEmpty)
