@@ -5,21 +5,25 @@ About SpinalHDL
 
 Getting started
 ===============
-SBT =>
+## SBT
 
-    scalaVersion := "2.11.2"
+```scala
+scalaVersion := "2.11.2"
 
-    libraryDependencies ++= Seq(
-      "com.github.spinalhdl" % "spinalhdl-core_2.11" % "latest.release",
-      "com.github.spinalhdl" % "spinalhdl-lib_2.11" % "latest.release"
-    )
+libraryDependencies ++= Seq(
+  "com.github.spinalhdl" % "spinalhdl-core_2.11" % "latest.release",
+  "com.github.spinalhdl" % "spinalhdl-lib_2.11" % "latest.release"
+)
+```
 
-JAR =>
+## JAR
 
     https://oss.sonatype.org/content/groups/public/com/github/spinalhdl/spinalhdl-core_2.11/
     https://oss.sonatype.org/content/groups/public/com/github/spinalhdl/spinalhdl-lib_2.11/
 
-Simple component =>
+Examples
+===============
+## Simple component
 
 ```scala
 import spinal._
@@ -39,8 +43,7 @@ object MyTopLevel {
 }
 ```
 
-
-Dual clock FIFO =>
+## Dual clock FIFO
 
 ```scala
 class HandshakeFifoCCIo[T <: Data](dataType: T, depth: Int) extends Bundle {
