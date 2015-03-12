@@ -36,6 +36,7 @@ class MyTopLevel extends Component {
   }
   io.c := io.a && io.b
 }
+
 object MyTopLevel {
   def main(args: Array[String]) {
     SpinalVhdl(new MyTopLevel)
@@ -102,3 +103,7 @@ class HandshakeFifoCC[T <: Data](dataType: T, depth: Int, pushClockDomain: Clock
   popToPushGray := popCC.popPtrGray
 }
 ```
+
+Other consideration
+===============
+Intellij scala plugin has some syntax highlight bug. Some issue are patched in the next release of this plugin ( > 1.3.3).
