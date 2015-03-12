@@ -776,8 +776,6 @@ class Backend {
 
     def walk(node: Node): Unit = {
       if (node == null) return
-
-      //TODO add Extraction map, same way than partialAssignements
       if (node.isInstanceOf[SyncNode]) {
         //End of comb path
         val syncNode = node.asInstanceOf[SyncNode]

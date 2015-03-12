@@ -34,7 +34,7 @@ class VhdlBackend extends Backend with VhdlBase {
   var outputFile: String = null
 
   val emitedComponent = mutable.Map[ComponentBuilder, ComponentBuilder]()
-  val emitedComponentRef = mutable.Map[Component,Component]()
+  val emitedComponentRef = mutable.Map[Component, Component]()
 
   reservedKeyWords ++= vhdlKeyWords
 
@@ -90,12 +90,12 @@ class VhdlBackend extends Backend with VhdlBase {
       hash
     }
     override def equals(obj: scala.Any): Boolean = {
-      if(this.hashCode() != obj.hashCode()) return false //Colision into hashmap implementation don't check it XD
+      if (this.hashCode() != obj.hashCode()) return false //Colision into hashmap implementation don't check it XD
       obj match {
         case cb: ComponentBuilder => {
-          for((a,b) <- (parts,cb.parts).zipped){
-            if(a._2 || b._2){
-              if(a._1.result() != b._1.result()){
+          for ((a, b) <- (parts, cb.parts).zipped) {
+            if (a._2 || b._2) {
+              if (a._1.result() != b._1.result()) {
                 return false
               }
             }
@@ -115,11 +115,11 @@ class VhdlBackend extends Backend with VhdlBase {
     emitEntity(component, builder)
     emitArchitecture(component, builder)
 
-    val oldBuilder = emitedComponent.getOrElse(builder,null)
-    if(oldBuilder == null){
+    val oldBuilder = emitedComponent.getOrElse(builder, null)
+    if (oldBuilder == null) {
       emitedComponent += (builder -> builder)
       return builder.result
-    }else{
+    } else {
       emitedComponentRef += (component -> oldBuilder.component)
       return s"\n--${component.definitionName} remplaced by ${oldBuilder.component.definitionName}\n\n"
     }
@@ -203,17 +203,17 @@ class VhdlBackend extends Backend with VhdlBase {
         ret.result()
       })
     }
-//    def pkgExtractOffsetedBitCound(kind: String): Tuple2[String, String] = {
-//      val ret = new StringBuilder();
-//      (s"function pkg_extract (that : $kind;offset : unsigned; bitCount : natural) return $kind", {
-//        ret ++= s"    variable temp : $kind(bitCount-1 downto 0);\n"
-//        ret ++= "  begin\n"
-//        ret ++= "    temp := pkg_resize(pkg_shiftRight(that,offset),bitCount);\n"
-//        ret ++= "    return temp;\n"
-//        ret ++= "  end pkg_extract;\n\n"
-//        ret.result()
-//      })
-//    }
+    //    def pkgExtractOffsetedBitCound(kind: String): Tuple2[String, String] = {
+    //      val ret = new StringBuilder();
+    //      (s"function pkg_extract (that : $kind;offset : unsigned; bitCount : natural) return $kind", {
+    //        ret ++= s"    variable temp : $kind(bitCount-1 downto 0);\n"
+    //        ret ++= "  begin\n"
+    //        ret ++= "    temp := pkg_resize(pkg_shiftRight(that,offset),bitCount);\n"
+    //        ret ++= "    return temp;\n"
+    //        ret ++= "  end pkg_extract;\n\n"
+    //        ret.result()
+    //      })
+    //    }
     def pkgCat(kind: String): Tuple2[String, String] = {
       val ret = new StringBuilder();
       (s"function pkg_cat (a : $kind; b : $kind) return $kind", {
@@ -671,10 +671,10 @@ class VhdlBackend extends Backend with VhdlBase {
   }
 
 
-  def getSensitivity(nodes : Iterable[Node],includeNodes : Boolean): mutable.Set[Node] ={
+  def getSensitivity(nodes: Iterable[Node], includeNodes: Boolean): mutable.Set[Node] = {
     val sensitivity = mutable.Set[Node]()
 
-    if(includeNodes)
+    if (includeNodes)
       nodes.foreach(walk(_))
     else
       nodes.foreach(_.inputs.foreach(walk(_)))
@@ -692,15 +692,30 @@ class VhdlBackend extends Backend with VhdlBase {
 
     var processCounter = 0
     class Process(val order: Int) {
-      var sensitivity : mutable.Set[Node]= null
+      var sensitivity: mutable.Set[Node] = null
       val nodes = ArrayBuffer[Node]()
       val whens = ArrayBuffer[when]()
       var hasMultipleAssignment = false
 
-      def genSensitivity: Unit = sensitivity = getSensitivity(nodes,false)
+      def genSensitivity: Unit = sensitivity = getSensitivity(nodes, false)
 
 
-      def needProcessDef = hasMultipleAssignment || !whens.isEmpty || nodes.size > 1
+      def needProcessDef : Boolean = {
+        if (!whens.isEmpty || nodes.size > 1) return true
+        if (hasMultipleAssignment) {
+          val ma: MultipleAssignmentNode = nodes(0).inputs(0).asInstanceOf[MultipleAssignmentNode]
+          val assignedBits = AssignedBits()
+          for (input <- ma.inputs) input match{
+            case assign : AssignementNode => {
+              val scope = assign.getScopeBits
+              if(!AssignedBits.intersect(scope,assignedBits).isEmpty) return true
+              assignedBits.add(scope)
+            }
+            case _ => return true
+          }
+        }
+        return false
+      }
     }
 
     val processSet = mutable.Set[Process]()
@@ -1055,10 +1070,10 @@ class VhdlBackend extends Backend with VhdlBase {
         }
 
 
-        if(asyncReset){
-          val sensitivity = getSensitivity(initialValues,true)
+        if (asyncReset) {
+          val sensitivity = getSensitivity(initialValues, true)
           ret ++= s"${tabStr}process(${emitReference(clock)},${emitReference(reset)}${sensitivity.foldLeft("")(_ + "," + emitReference(_))})\n"
-        }else{
+        } else {
           ret ++= s"${tabStr}process(${emitReference(clock)})\n"
         }
 
@@ -1067,7 +1082,7 @@ class VhdlBackend extends Backend with VhdlBase {
         if (asyncReset) {
           ret ++= s"${tabStr}if ${emitReference(reset)} = \'${if (clockDomain.resetActiveHigh) 1 else 0}\' then\n";
           inc
-          emitRegsInitialValue(initialValueAssignement,tabStr)
+          emitRegsInitialValue(initialValueAssignement, tabStr)
           dec
           ret ++= s"${tabStr}elsif ${emitClockEdge(clock, clockDomain.edge)}"
           inc
@@ -1082,7 +1097,7 @@ class VhdlBackend extends Backend with VhdlBase {
         if (syncReset) {
           ret ++= s"${tabStr}if ${emitReference(reset)} = \'${if (clockDomain.resetActiveHigh) 1 else 0}\' then\n"
           inc
-          emitRegsInitialValue(initialValueAssignement,tabStr)
+          emitRegsInitialValue(initialValueAssignement, tabStr)
           dec
           ret ++= s"${tabStr}else\n"
           inc
@@ -1104,7 +1119,7 @@ class VhdlBackend extends Backend with VhdlBase {
         ret ++= s"${tabStr}\n"
 
 
-        def emitRegsInitialValue(assignementLevel : AssignementLevel,tab: String): Unit = {
+        def emitRegsInitialValue(assignementLevel: AssignementLevel, tab: String): Unit = {
           assignementLevel.emitContext(ret, tab)
         }
 
@@ -1164,7 +1179,12 @@ class VhdlBackend extends Backend with VhdlBase {
           case assign: RangedAssignmentFixed => ret ++= s"$tab${emitReference(to)}(${assign.getHi} downto ${assign.getLo}) <= ${emitLogic(assign.getInput)};\n"
           case assign: RangedAssignmentFloating => ret ++= s"$tab${emitReference(to)}(${assign.getBitCount.value - 1} + to_integer(${emitLogic(assign.getOffset)}) downto to_integer(${emitLogic(assign.getOffset)})) <= ${emitLogic(assign.getInput)};\n"
         }
-      } //        ret ++= s"$tab${emitReference(to)}(${emitLogic(pa.getHi)} downto ${emitLogic(pa.getLo)}) <= ${emitLogic(pa.getInput)};\n"
+      }
+      case man : MultipleAssignmentNode => { //For some case with asyncronous partial assignement
+        for(assign <- man.inputs){
+          emitAssignement(to,assign,ret,tab)
+        }
+      }
       case _ => ret ++= s"$tab${emitReference(to)} <= ${emitLogic(from)};\n"
     }
   }
@@ -1255,7 +1275,7 @@ class VhdlBackend extends Backend with VhdlBase {
       val isBB = kind.isInstanceOf[BlackBox]
       val definitionString = if (isBB) kind.definitionName
       else s"entity $library.${
-        emitedComponentRef.getOrElse(kind,kind).definitionName
+        emitedComponentRef.getOrElse(kind, kind).definitionName
       }"
       ret ++= s"  ${
         kind.getName()

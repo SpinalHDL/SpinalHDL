@@ -20,6 +20,7 @@ package spinal.lib
 
 import spinal._
 
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 
@@ -141,5 +142,57 @@ class SpinalMap[Key <: Data, Value <: Data](pairs: Iterable[(() => Key, () => Va
     }
 
     ret
+  }
+}
+
+
+object latencyAnalysis {
+  //Don't care about clock domain
+  def apply(paths: Node*): Integer = {
+    var stack = 0;
+    for (i <- (0 to paths.size - 2)) {
+      stack = stack + impl(paths(i), paths(i + 1))
+    }
+    stack
+  }
+
+  def impl(from: Node, to: Node): Integer = {
+    val walked = mutable.Set[Node]()
+    var pendingStack = mutable.ArrayBuffer[Node](to)
+    var depth = 0;
+
+    while (pendingStack.size != 0) {
+      val iterOn = pendingStack
+      pendingStack = new mutable.ArrayBuffer[Node](10000)
+      for (start <- iterOn) {
+        if (walk(start)) return depth;
+      }
+      depth = depth + 1
+    }
+
+    def walk(that: Node, depth: Integer = 0): Boolean = {
+      if (that == null) return false
+      if (walked.contains(that)) return false
+      walked += that
+      if (that == from)
+        return true
+      that match {
+        case delay: SyncNode => {
+          for (input <- delay.getAsynchronousInputs) {
+            if (walk(input)) return true
+          }
+          pendingStack ++= delay.getSynchronousInputs
+        }
+        case _ => {
+          for (input <- that.inputs) {
+            if (walk(input)) return true
+          }
+        }
+      }
+      false
+    }
+
+    SpinalError("latencyAnalysis don't find any path")
+    -1
   }
 }
