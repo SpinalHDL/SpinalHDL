@@ -84,10 +84,8 @@ begin
     slave0_counter <= X"00";
     io_slave0_valid <= '0';
     waitClk(3);
-    
     reset <= '0';
-    waitClk(3);
-    
+
     for i in 0 to slave0_transactionCount loop
         slave0_push;
         while randomBool loop
@@ -114,11 +112,9 @@ begin
     end master0_pop;
  
   begin
-    reset <= '1';
     master0_counter <= X"00";
-    waitClk(3);
-    
-    reset <= '0';
+    wait until rising_edge(clk) and reset = '0';
+
     
     for i in 0 to slave0_transactionCount loop
       master0_pop;

@@ -316,7 +316,7 @@ class HandshakeFifoCC[T <: Data](dataType: T, depth: Int, pushClockDomain: Clock
   val io = new HandshakeFifoCCIo(dataType, depth)
 
   val ptrWidth = log2Up(depth)+1
-  def isFull(a: Bits, b: Bits) = a(ptrWidth - 1, ptrWidth - 2) === ~b(ptrWidth - 1, ptrWidth - 2) && a(ptrWidth - 3, 0) === ~b(ptrWidth - 3, 0)
+  def isFull(a: Bits, b: Bits) = a(ptrWidth - 1, ptrWidth - 2) === ~b(ptrWidth - 1, ptrWidth - 2) && a(ptrWidth - 3, 0) === b(ptrWidth - 3, 0)
   def isEmpty(a: Bits, b: Bits) = a === b
 
 

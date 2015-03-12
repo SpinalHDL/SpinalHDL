@@ -10,7 +10,10 @@ object BufferCC {
     val c = new BufferCC(input, init != null, bufferDepth)
     c.io.input := input
     if(init != null) c.io.init := init
-    return c.io.output
+
+    val ret = cloneOf(c.io.output)
+    ret := c.io.output
+    return ret
   }
 }
 
