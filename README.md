@@ -26,7 +26,7 @@ Examples
 ## Simple component
 
 ```scala
-import spinal._
+import spinal.core._
 
 class MyTopLevel extends Component {
   val io = new Bundle {
@@ -47,6 +47,9 @@ object MyTopLevel {
 ## Dual clock FIFO
 
 ```scala
+import spinal.core._
+import spinal.lib._
+
 class HandshakeFifoCCIo[T <: Data](dataType: T, depth: Int) extends Bundle {
   val push = slave Handshake (dataType)
   val pop = master Handshake (dataType)
