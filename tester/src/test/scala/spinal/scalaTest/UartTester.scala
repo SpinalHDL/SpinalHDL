@@ -1,9 +1,7 @@
 package spinal.scalaTest
 
-
-import spinal._
-import spinal.lib._
-import spinal.lib.com.uart.{UartCtrl, UartCtrlIo}
+import spinal.core._
+import spinal.lib.com.uart._
 
 class UartTester extends Component {
   val io = new Bundle {

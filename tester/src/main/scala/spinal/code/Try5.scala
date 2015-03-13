@@ -18,7 +18,9 @@
 
 package spinal.code
 
-import spinal._
+import spinal.core
+import spinal.core._
+
 /**
  * Created by PIC18F on 22.08.2014.
  */
@@ -36,63 +38,63 @@ object Try5 {
     val a = Bool()
 
     val sub = new Bundle{
-      val b = Bool()
+      val b = core.Bool()
       val sub = new Bundle{
-        val c = Bool()
+        val c = core.Bool()
       }
     }
   }
 
   class TopLevel(clockC: ClockDomain) extends Component {
     val io = new Bundle {
-      val bundleIn = in (new BundleA)
+      val bundleIn = core.in (new BundleA)
 
 
-      val clkA = in Bool()
-      val resetA = in Bool()
-      val clkEnA = in Bool()
+      val clkA = core.in Bool()
+      val resetA = core.in Bool()
+      val clkEnA = core.in Bool()
 
-      val clkB = in Bool()
-      val resetB = in Bool()
+      val clkB = core.in Bool()
+      val resetB = core.in Bool()
 
 
-      val in0 = in Bool()
-      val in1 = in Bool()
-      val in2 = in Bool()
-      val outA = out Bool()
-      val outB = out Bool()
-      val outC = out Bool()
-      val outX = out Bool()
+      val in0 = core.in Bool()
+      val in1 = core.in Bool()
+      val in2 = core.in Bool()
+      val outA = core.out Bool()
+      val outB = core.out Bool()
+      val outC = core.out Bool()
+      val outX = core.out Bool()
 
-      val wrAddr = in UInt(4 bit)
-      val wrData = in Bool()
-      val rdAddr = in UInt(4 bit)
-      val rdData = out Bool()
+      val wrAddr = core.in UInt(4 bit)
+      val wrData = core.in Bool()
+      val rdAddr = core.in UInt(4 bit)
+      val rdData = core.out Bool()
     }
     val clockA = ClockDomain(io.clkA, io.resetA, clockEnable = io.clkEnA)
-    val clockB = ClockDomain(io.clkB, io.resetB)
-    val mem = Mem(Bool(),16)
+    val clockB = core.ClockDomain(io.clkB, io.resetB)
+    val mem = Mem(core.Bool(),16)
 
     clockA.push
-    io.outA := RegNext(io.in0, Bool(true))
+    io.outA := core.RegNext(io.in0, core.Bool(true))
     mem.write(io.wrAddr,io.wrData)
 
     clockA.pop
 
     val B = new Area {
       clockB.push
-      val reg1 = RegNext(io.in1, Bool(true))
+      val reg1 = core.RegNext(io.in1, core.Bool(true))
       io.outB := reg1
-      io.outX := RegNext(io.outA && io.outB).addTag(crossClockDomain)
+      io.outX := core.RegNext(io.outA && io.outB).addTag(core.crossClockDomain)
 
-      io.rdData := RegNext(mem.readSync(io.rdAddr).addTag(crossClockDomain))
+      io.rdData := core.RegNext(mem.readSync(io.rdAddr).addTag(core.crossClockDomain))
 
       clockB.pop
     }
 
 
     clockC.push
-    val subComponent = Component(new SubComponent)
+    val subComponent = core.Component(new SubComponent)
     subComponent.io.in := io.in2
     io.outC := subComponent.io.out
     clockC.pop
@@ -121,7 +123,7 @@ object Try5 {
 //      gen.genNames
 //      val genElements = gen.flatten
 
-      val clockC = ClockDomain(Bool().setName("clkC"), Bool().setName("resetC"))
+      val clockC = core.ClockDomain(core.Bool().setName("clkC"), core.Bool().setName("resetC"))
       new TopLevel(clockC)})
     println("DONE")
   }

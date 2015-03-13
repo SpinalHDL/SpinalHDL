@@ -18,10 +18,9 @@
 
 package spinal.code
 
-import spinal._
+import spinal.core._
 import spinal.lib._
-import spinal.lib.com.uart.{UartCtrl, UartCtrlIo}
-
+import spinal.lib.com.uart._
 
 object SpinalLibTest {
 

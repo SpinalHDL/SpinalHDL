@@ -1,6 +1,6 @@
 package spinal.lib.com.uart
 
-import spinal._
+import spinal.core._
 import spinal.lib._
 
 

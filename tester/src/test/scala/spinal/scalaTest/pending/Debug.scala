@@ -18,7 +18,8 @@
 
 package spinal.scalaTest.pending
 
-import spinal._
+import spinal.core
+import spinal.core._
 
 object Debug {
 
@@ -26,19 +27,19 @@ object Debug {
   class TopLevel extends Component {
     val io = new Bundle {
       val conds = in Vec(8, Bool())
-      val outs = out Vec(6, Bool())
+      val outs = core.out Vec(6, core.Bool())
     }
 
-    val reg0 = Reg(Bool())
+    val reg0 = Reg(core.Bool())
 
     when(io.conds(0)) {
       reg0 := !reg0
-      when(io.conds(1)) {
+      core.when(io.conds(1)) {
         reg0 := reg0 ^ io.conds(2)
       }
       reg0 := !io.conds(3)
       reg0 := !io.conds(4)
-      when(io.conds(5)) {
+      core.when(io.conds(5)) {
         reg0 := reg0 ^ io.conds(6)
       }
     }
@@ -46,26 +47,26 @@ object Debug {
 
 
     io.outs(1) := io.conds(0)
-    when(io.conds(1)) {
-      io.outs(1) := Bool(false)
+    core.when(io.conds(1)) {
+      io.outs(1) := core.Bool(false)
     }
     io.outs(2) := io.conds(3)
-    when(io.conds(4)) {
-      io.outs(2) := Bool(false)
+    core.when(io.conds(4)) {
+      io.outs(2) := core.Bool(false)
     }
     io.outs(3) := io.conds(4)
-    when(io.conds(5)) {
-      io.outs(3) := Bool(false)
+    core.when(io.conds(5)) {
+      io.outs(3) := core.Bool(false)
     }
 
     var memo : Bool = null
-    when(io.conds(6)) {
-      memo = Bool()
+    core.when(io.conds(6)) {
+      memo = core.Bool()
       memo := io.conds(6)
-      when(io.conds(7)){
-        memo := Bool(false)
-        io.outs(1) := Bool(true)
-        io.outs(2) := Bool(true)
+      core.when(io.conds(7)){
+        memo := core.Bool(false)
+        io.outs(1) := core.Bool(true)
+        io.outs(2) := core.Bool(true)
       }
     }
 
@@ -73,10 +74,10 @@ object Debug {
     memo = null
 
 
-    when(UInt(3, 4 bit) < UInt(5, 7 bit)) {
-      io.outs(4) := Bool(false)
+    core.when(core.UInt(3, 4 bit) < core.UInt(5, 7 bit)) {
+      io.outs(4) := core.Bool(false)
     }.otherwise {
-      io.outs(4) := Bool(true)
+      io.outs(4) := core.Bool(true)
     }
 
   }

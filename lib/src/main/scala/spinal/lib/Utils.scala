@@ -18,7 +18,8 @@
 
 package spinal.lib
 
-import spinal._
+import spinal.core
+import spinal.core._
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -29,9 +30,9 @@ object OHToUInt {
 
   def apply(bools: collection.IndexedSeq[Bool]): UInt = {
     val boolsSize = bools.size
-    if (boolsSize < 2) return UInt(0)
+    if (boolsSize < 2) return core.UInt(0)
 
-    val retBitCount = log2Up(bools.size)
+    val retBitCount = core.log2Up(bools.size)
     val ret = Vec(retBitCount, Bool())
 
     for (retBitId <- 0 until retBitCount) {
@@ -51,13 +52,13 @@ object OHToUInt {
 
 object toGray{
   def apply(uint : UInt): Bits ={
-    Bits((uint >> UInt(1)) ^ uint)
+    core.Bits((uint >> core.UInt(1)) ^ uint)
   }
 }
 object fromGray{
   def apply(gray : Bits): UInt ={
-    val ret = UInt(widthOf(gray) bit)
-    for(i <- 0 until widthOf(gray)-1){
+    val ret = core.UInt(core.widthOf(gray) bit)
+    for(i <- 0 until core.widthOf(gray)-1){
       ret(i) := gray(i) ^ ret(i+1)
     }
     ret.msb := gray.msb
@@ -84,23 +85,23 @@ object Counter {
 }
 
 class Counter(val stateCount: Int,freeRun : Boolean = false) extends Area {
-  val inc = Bool(freeRun)
+  val inc = core.Bool(freeRun)
   def ++(): UInt = {
-    inc := Bool(true)
+    inc := core.Bool(true)
     valueNext
   }
 
-  val valueNext = UInt(log2Up(stateCount) bit)
-  val value = RegNext(valueNext, UInt(0))
+  val valueNext = core.UInt(core.log2Up(stateCount) bit)
+  val value = RegNext(valueNext, core.UInt(0))
 
-  if (isPow2(stateCount))
+  if (core.isPow2(stateCount))
     valueNext := value + inc.toUInt
   else {
-    when(inc) {
-      when(value === UInt(stateCount - 1)) {
-        valueNext := UInt(0)
+    core.when(inc) {
+      core.when(value === core.UInt(stateCount - 1)) {
+        valueNext := core.UInt(0)
       } otherwise {
-        valueNext := value + UInt(1)
+        valueNext := value + core.UInt(1)
       }
     }
   }
@@ -111,7 +112,7 @@ object MajorityVote {
   def apply(that: collection.IndexedSeq[Bool]): Bool = {
     val size = that.size
     val trigger = that.size / 2 + 1
-    var ret = Bool(false)
+    var ret = core.Bool(false)
     for (i <- BigInt(0) until (BigInt(1) << size)) {
       if (i.bitCount == trigger) {
         val bits = ArrayBuffer[Bool]()
@@ -136,7 +137,7 @@ class SpinalMap[Key <: Data, Value <: Data](pairs: Iterable[(() => Key, () => Va
     val ret: Value = pairs.head._2()
 
     for ((k, v) <- pairs.tail) {
-      when(k() === key) {
+      core.when(k() === key) {
         ret := v()
       }
     }
@@ -192,7 +193,7 @@ object latencyAnalysis {
       false
     }
 
-    SpinalError("latencyAnalysis don't find any path")
+    core.SpinalError("latencyAnalysis don't find any path")
     -1
   }
 }

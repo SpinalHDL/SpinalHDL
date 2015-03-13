@@ -1,8 +1,8 @@
 package spinal.scalaTest
 
-
-import spinal._
+import spinal.core._
 import spinal.lib._
+
 
 object MultiClockTester{
   class BundleA extends Bundle{

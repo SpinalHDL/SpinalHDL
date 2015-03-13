@@ -1,3 +1,5 @@
+import spinal.core.in
+
 /*
  * SpinalHDL
  * Copyright (c) Dolu, All rights reserved.
@@ -59,8 +61,7 @@ object A {
 1 + new A(1)
 // because it is converted into this:
 A.fromInt(1) + new A(1)
-import spinal._
-import spinal.in
+
 ////import spinal.IntBuilder._
 //val b = in Bits(3 bit)
 ////var str : String = 2

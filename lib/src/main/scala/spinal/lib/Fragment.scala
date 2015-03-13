@@ -1,6 +1,6 @@
 package spinal.lib
 
-import spinal._
+import spinal.core.{Data, Bundle, Bool}
 
 object Fragment{
   def apply[T <: Data](dataType: T) : Fragment[T] = new Fragment(dataType)

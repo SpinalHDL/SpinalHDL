@@ -19,8 +19,7 @@
 package spinal.scalaTest
 
 import org.scalatest.FunSuite
-import spinal._
-
+import spinal.core._
 import scala.sys.process._
 
 abstract class SpinalTesterBase extends FunSuite  {

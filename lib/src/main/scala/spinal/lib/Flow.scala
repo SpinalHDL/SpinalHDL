@@ -1,6 +1,7 @@
 package spinal.lib
 
-import spinal._
+import spinal.core
+import spinal.core.{Data, Bundle, RegNext, Bool}
 
 
 object Flow {
@@ -56,7 +57,7 @@ class Flow[T <: Data](dataType: T) extends Bundle with Interface {
 
   def m2sPipe(): Flow[T] = {
     val ret = RegNext(this)
-    ret.valid.setRegInit(Bool(false))
+    ret.valid.setRegInit(core.Bool(false))
     ret connectFrom this
     ret
   }

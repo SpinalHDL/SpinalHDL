@@ -1,6 +1,6 @@
 package spinal.lib
 
-import spinal._
+import spinal.core.Data
 
 trait Interface {
   def asMaster: this.type

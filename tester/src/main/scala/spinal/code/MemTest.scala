@@ -18,7 +18,7 @@
 
 package spinal.code
 
-import spinal._
+import spinal.core._
 
 /**
  * Created by PIC18F on 22.08.2014.
@@ -33,7 +33,7 @@ object MemTest {
 
   class BundleA extends Bundle {
     val b = new Bool()
-    val c = UInt(8 bit)
+    val c = spinal.core.UInt(8 bit)
   }
 
   object MyEnum extends SpinalEnum {
@@ -46,42 +46,42 @@ object MemTest {
 
   class ComponentAA extends Component {
     val io = new Bundle {
-      val input = in UInt (5 bit)
-      val output = out UInt (8 bit)
+      val input = spinal.core.in UInt (5 bit)
+      val output = spinal.core.out UInt (8 bit)
     }
-    val temp = in UInt (7 bit)
+    val temp = spinal.core.in UInt (7 bit)
     temp := io.input
     io.output := temp
   }
 
   class ComponentA extends Component {
     val io = new Bundle {
-      val cond0 = in.Bool()
-      val cond1 = in.Bool()
-      val cond2 = in.Bool()
-      val cond3 = in.Bool()
+      val cond0 = spinal.core.in.Bool()
+      val cond1 = spinal.core.in.Bool()
+      val cond2 = spinal.core.in.Bool()
+      val cond3 = spinal.core.in.Bool()
 
-      val wrEnable = in.Bool()
-      val wrAddr = in UInt (4 bit)
-      val wrData = in(new BundleA)
+      val wrEnable = spinal.core.in.Bool()
+      val wrAddr = spinal.core.in UInt (4 bit)
+      val wrData = spinal.core.in(new BundleA)
 
-      val rdEnable = in.Bool()
-      val rdAddr = in UInt (4 bit)
-      val rdData = out(new BundleA)
+      val rdEnable = spinal.core.in.Bool()
+      val rdAddr = spinal.core.in UInt (4 bit)
+      val rdData = spinal.core.out(new BundleA)
 
-      val input = in UInt (4 bit)
-      val output = out UInt (9 bit)
+      val input = spinal.core.in UInt (4 bit)
+      val output = spinal.core.out UInt (9 bit)
     }
-    val componentAA = Component(new ComponentAA)
+    val componentAA = spinal.core.Component(new ComponentAA)
     componentAA.io.input := io.input
     io.output := RegNext(io.output)
 
     val mem = new Mem(io.wrData, 1 << io.wrAddr.getWidth).setAsBlackBox
 
     when(io.cond0 && io.cond1) {
-      mem.write(io.wrAddr + UInt(1), io.wrData)
+      mem.write(io.wrAddr + spinal.core.UInt(1), io.wrData)
     }
-    val tmp = mem.readSync(io.rdAddr + UInt(2),io.cond2,readFirst)
+    val tmp = mem.readSync(io.rdAddr + spinal.core.UInt(2),io.cond2,readFirst)
     io.rdData := tmp
     tmp.add(new AttributeString("myAttribut", "hallo"))
     tmp.add(new AttributeFlag("yolo"))
@@ -97,7 +97,7 @@ object MemTest {
     println("START")
     var comp: ComponentA = null
 
-    SpinalVhdl({
+    spinal.core.SpinalVhdl({
       comp = new ComponentA
       comp
     })

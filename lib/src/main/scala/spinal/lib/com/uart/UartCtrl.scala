@@ -1,9 +1,9 @@
 package spinal.lib.com.uart
 
-import spinal._
-import spinal.lib._
 import UartParityType._
 import UartStopType._
+import spinal.core._
+import spinal.lib._
 
 class UartCtrlConfig(dataWidthMax: Int = 8) extends Bundle {
   val dataLength = UInt(log2Up(dataWidthMax) bit)
@@ -76,9 +76,7 @@ class UartCtrlTx(dataWidthMax: Int = 8, clockDividerWidth: Int = 24) extends Com
   }
 
   val stateMachine = new Area {
-
-    import spinal.lib.com.uart.UartCtrlTxState._
-
+    import UartCtrlTxState._
 
     val state = RegInit(sIdle())
     val paritySum = Reg(Bool());
@@ -215,7 +213,7 @@ class UartCtrlRx(dataWidthMax: Int = 8, clockDividerWidth: Int = 21, preSampling
   }
 
   val stateMachine = new Area {
-    import spinal.lib.com.uart.UartCtrlRxState._
+    import UartCtrlRxState._
     //implicit def valueToCraft[T <: SpinalEnum](element: SpinalEnumElement[T])= element.craft()
 
     val state = RegInit(sIdle())

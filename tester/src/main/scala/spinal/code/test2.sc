@@ -20,8 +20,6 @@ import scala.runtime.Nothing$
  * License along with this library.
  */
 
-import spinal._
-
 val bitSet : BitSet = BitSet()
 
 //bitSet.&()

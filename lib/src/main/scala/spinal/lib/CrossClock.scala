@@ -1,6 +1,7 @@
 package spinal.lib
 
-import spinal._
+import spinal.core
+import spinal.core._
 
 
 object BufferCC {
@@ -11,7 +12,7 @@ object BufferCC {
     c.io.input := input
     if(init != null) c.io.init := init
 
-    val ret = cloneOf(c.io.output)
+    val ret = core.cloneOf(c.io.output)
     ret := c.io.output
     return ret
   }
@@ -21,18 +22,18 @@ class BufferCC[T <: Data](dataType: T, withInit : Boolean, bufferDepth: Int) ext
   assert(bufferDepth >= 1)
 
   val io = new Bundle {
-    val input = in(cloneOf(dataType))
-    val init = if(!withInit) null.asInstanceOf[T] else in(dataType.clone)
-    val output = out(dataType.clone)
+    val input = core.in(core.cloneOf(dataType))
+    val init = if(!withInit) null.asInstanceOf[T] else core.in(dataType.clone)
+    val output = core.out(dataType.clone)
   }
 
   val buffers = Vec(bufferDepth, Reg(dataType, io.init))
 
   buffers(0) := io.input
-  buffers(0).addTag(crossClockDomain)
+  buffers(0).addTag(core.crossClockDomain)
   for (i <- 1 until bufferDepth) {
     buffers(i) := buffers(i - 1)
-    buffers(i).addTag(crossClockBuffer)
+    buffers(i).addTag(core.crossClockBuffer)
 
   }
 
@@ -55,8 +56,8 @@ object PulseCCByToggle {
 
 class PulseCCByToggle(clockIn: ClockDomain, clockOut: ClockDomain) extends Component{
   val io = new Bundle{
-    val input = in Bool()
-    val output = in Bool()
+    val input = core.in Bool()
+    val output = core.in Bool()
   }
   val inputArea = new ClockingArea(clockIn) {
     val target = RegInit(Bool(false))
@@ -66,10 +67,10 @@ class PulseCCByToggle(clockIn: ClockDomain, clockOut: ClockDomain) extends Compo
   }
 
   val outputArea = new ClockingArea(clockOut) {
-    val target = BufferCC(inputArea.target, Bool(false))
-    val hit = RegInit(Bool(false));
+    val target = BufferCC(inputArea.target, core.Bool(false))
+    val hit = core.RegInit(core.Bool(false));
 
-    when(target !== hit) {
+    core.when(target !== hit) {
       hit := !hit
     }
 
