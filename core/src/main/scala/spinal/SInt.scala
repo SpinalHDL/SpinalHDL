@@ -23,7 +23,9 @@ package spinal
  */
 
 object SInt extends SIntFactory{
-
+  def apply(that : Bool) : SInt = that.toSInt
+  def apply(that : Bits) : SInt = that.toSInt
+  def apply(that : UInt) : SInt = that.toSInt
 }
 
 class SIntFactory extends BitVectorFactory[SInt]{

@@ -21,7 +21,9 @@ package spinal
 
 
 object Bool extends BoolFactory{
-
+  def apply(that : Bits) : Bool = that(0)
+  def apply(that : UInt) : Bool = that(0)
+  def apply(that : SInt) : Bool = that(0)
 }
 
 class BoolFactory {
@@ -66,7 +68,7 @@ class Bool extends BaseType {
   override def fromBits(bits: Bits) : Unit = this := bits(0)
 
   def toUInt : UInt = toBits.toUInt
-
+  def toSInt : SInt = toBits.toSInt
 
 
   override def getZero: this.type = Bool(false).asInstanceOf[this.type]

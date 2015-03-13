@@ -23,7 +23,7 @@ package spinal
  */
 
 object Bits extends BitsFactory{
-
+  def apply(that : Data) : Bits = that.toBits //Any Data can be translated into Bits
 }
 object BitsSet{
   def apply(bitCount: BitCount) = Bits((BigInt(1) << bitCount.value) - 1,bitCount)
@@ -31,7 +31,6 @@ object BitsSet{
 
 class BitsFactory extends BitVectorFactory[Bits] {
   def apply() = new Bits()
-  def apply(that : UInt) = that.toBits
 }
 
 class Bits extends BitVector {

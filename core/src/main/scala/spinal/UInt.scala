@@ -20,7 +20,9 @@ package spinal
 
 
 object UInt extends UIntFactory {
-
+  def apply(that : Bool) : UInt = that.toUInt
+  def apply(that : Bits) : UInt = that.toUInt
+  def apply(that : SInt) : UInt = that.toUInt
 }
 
 class UIntFactory extends BitVectorFactory[UInt] {
@@ -89,6 +91,7 @@ class UInt extends BitVector with MinMaxProvider {
 
   // implicit def dd(value: Int) = UInt(value)
 
+  def toSInt: SInt = new SInt().castFrom("u->s", this)
   override def toBits: Bits = new Bits().castFrom("u->b", this)
   override def fromBits(bits: Bits): Unit = this := bits.toUInt
 
