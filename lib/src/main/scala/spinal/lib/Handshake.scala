@@ -3,14 +3,17 @@ package spinal.lib
 import spinal.core
 import spinal.core._
 
-object Handshake {
-  // implicit def autoCast[T2 <: Data, T <: T2](that: Handshake[T]): Handshake[T2] = that.asInstanceOf[Handshake[T2]]
+class HandshakeFactory extends MSFactory{
+  def apply[T <: Data](dataType: T) = {
+    val ret = new Handshake(dataType)
+    postApply(ret)
+    ret
+  }
 
-
-  def apply[T <: Data](dataType: T) = new Handshake(dataType)
-
-
+  object Fragment extends HandshakeFragmentFactory
 }
+
+object Handshake extends HandshakeFactory
 
 class Handshake[T <: Data](dataType: T) extends Bundle with Interface {
   val valid = Bool()

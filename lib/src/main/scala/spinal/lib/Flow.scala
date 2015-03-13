@@ -4,9 +4,17 @@ import spinal.core
 import spinal.core.{Data, Bundle, RegNext, Bool}
 
 
-object Flow {
-  def apply[T <: Data](dataType: T) = new Flow(dataType)
+class FlowFactory extends MSFactory{
+  def apply[T <: Data](dataType: T) = {
+    val ret = new Flow(dataType)
+    postApply(ret)
+    ret
+  }
+
+  object Fragment extends FlowFragmentFactory
 }
+
+object Flow extends FlowFactory
 
 class Flow[T <: Data](dataType: T) extends Bundle with Interface {
   val valid = Bool()

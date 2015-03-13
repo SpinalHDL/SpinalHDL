@@ -13,12 +13,12 @@ object SpinalBuild extends Build {
       version := SpinalVersion.all,
       publishTo := None
     ),
-    aggregate = Seq(core, lib, tester)
+    aggregate = Seq(core, lib,debugger,tester)
   )
 
   lazy val core = Project(
     id = "SpinalHDL-core",
-    base = file("Core"),
+    base = file("core"),
     settings = defaultSettings ++ Seq(
       name := "SpinalHDL Core",
       version := SpinalVersion.core
@@ -27,12 +27,22 @@ object SpinalBuild extends Build {
 
   lazy val lib = Project(
     id = "SpinalHDL-lib",
-    base = file("Lib"),
+    base = file("lib"),
     settings = defaultSettings ++ Seq(
       name := "SpinalHDL Lib",
       version := SpinalVersion.lib
     )
   ) dependsOn (core)
+
+  lazy val debugger = Project(
+    id = "SpinalHDL-debugger",
+    base = file("debugger"),
+    settings = defaultSettings ++ Seq(
+      name := "SpinalHDL Debugger",
+      version := SpinalVersion.debugger
+    )
+  ) dependsOn (core,lib)
+
 
   lazy val tester = Project(
     id = "SpinalHDL-tester",

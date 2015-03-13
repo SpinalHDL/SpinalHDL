@@ -171,7 +171,8 @@ trait Nameable {
 }
 
 object ScalaLocated {
-  var unfiltredFiles = mutable.Set("SpinalUtils.scala")
+  var unfiltredFiles = mutable.Set[String](/*"SpinalUtils.scala"*/)
+  var filtredFiles = mutable.Set[String]()
   //var unfiltredPackages = mutable.Set("spinal.code.","spinal.bug.","spinal.scalaTest.")
 
   def getScalaTraceSmart: String = {
@@ -179,7 +180,7 @@ object ScalaLocated {
     val temp = scalaTrace.getStackTrace.filter(trace => {
       val className = trace.getClassName
       //  !((className.startsWith("scala.") || className.startsWith("spinal.")) && !ScalaLocated.unfiltredPackages.map(className.startsWith(_)).reduceLeft(_ || _)) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
-      !(className.startsWith("scala.") || (className.startsWith("spinal.") && className.count(_ == '.') == 1)) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
+      !(className.startsWith("scala.") || className.startsWith("spinal.core")) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
     })
     temp.apply(0).toString
   }
@@ -196,7 +197,7 @@ trait ScalaLocated extends GlobalDataUser {
     val temp = scalaTrace.getStackTrace.filter(trace => {
       val className = trace.getClassName
       //    !((className.startsWith("scala.") || className.startsWith("spinal.")) && !ScalaLocated.unfiltredPackages.map(className.startsWith(_)).reduceLeft(_ || _)) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
-      !(className.startsWith("scala.") || (className.startsWith("spinal.") && className.count(_ == '.') == 1)) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
+      !(className.startsWith("scala.") || className.startsWith("spinal.core") || ScalaLocated.filtredFiles.contains(trace.getFileName)) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
 
     })
     temp

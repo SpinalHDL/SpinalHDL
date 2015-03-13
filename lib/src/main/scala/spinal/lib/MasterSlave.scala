@@ -7,34 +7,38 @@ trait Interface {
   def asSlave: this.type
 }
 
-object master {
-  def apply[T <: Interface](i: T) = {
+trait MSFactory{
+  def postApply(interface : Interface) : Unit = {}
+}
+
+trait MS{
+  def apply[T <: Interface](i: T) : T
+
+  object Flow extends FlowFactory{
+    override def postApply(interface : Interface) : Unit = {
+      super.postApply(interface)
+      MS.this.apply(interface)
+    }
+  }
+
+  object Handshake extends HandshakeFactory{
+    override def postApply(interface : Interface) : Unit = {
+      super.postApply(interface)
+      MS.this.apply(interface)
+    }
+  }
+}
+
+object master extends MS{
+  override def apply[T <: Interface](i: T) = {
     i.asMaster;
     i
   }
-
-  object Flow {
-    def apply[T <: Data](gen: T): Flow[T] = master.apply(new Flow(gen))
-  }
-
-  object Handshake {
-    def apply[T <: Data](gen: T): Handshake[T] = master.apply(new Handshake(gen))
-  }
-
 }
 
-object slave {
+object slave extends MS {
   def apply[T <: Interface](i: T) = {
     i.asSlave;
     i
   }
-
-  object Flow {
-    def apply[T <: Data](gen: T): Flow[T] = slave.apply(new Flow(gen))
-  }
-
-  object Handshake {
-    def apply[T <: Data](gen: T): Handshake[T] = slave.apply(new Handshake(gen))
-  }
-
 }
