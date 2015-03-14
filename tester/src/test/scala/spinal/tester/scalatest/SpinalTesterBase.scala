@@ -16,10 +16,11 @@
  * License along with this library.
  */
 
-package spinal.scalaTest
+package spinal.tester.scalatest
 
 import org.scalatest.FunSuite
 import spinal.core._
+
 import scala.sys.process._
 
 abstract class SpinalTesterBase extends FunSuite  {

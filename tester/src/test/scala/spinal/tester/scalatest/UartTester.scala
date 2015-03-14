@@ -1,4 +1,4 @@
-package spinal.scalaTest
+package spinal.tester.scalatest
 
 import spinal.core._
 import spinal.lib.com.uart._

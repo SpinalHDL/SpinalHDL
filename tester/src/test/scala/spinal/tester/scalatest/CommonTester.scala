@@ -16,9 +16,8 @@
  * License along with this library.
  */
 
-package spinal.scalaTest
+package spinal.tester.scalatest
 
-import spinal.core
 import spinal.core._
 
 object CommonTester {
@@ -27,34 +26,34 @@ object CommonTester {
   class BundleA extends Bundle {
     val bod = new Bundle {
       val gggg = Bool()
-      val aosi = core.UInt(3 bit)
+      val aosi = UInt(3 bit)
     }
-    val ahe = core.Bool()
-    val zwg = core.Bool()
+    val ahe = Bool()
+    val zwg = Bool()
   }
 
   class BundleAA extends BundleA {
-    val vsw = core.Bool()
-    val lwee = core.UInt(5 bit)
+    val vsw = Bool()
+    val lwee = UInt(5 bit)
   }
 
   class CommonTester extends Component {
     val io = new Bundle {
-      val conds = in Vec(8, core.Bool())
+      val conds = in Vec(8, Bool())
 
-      val inUIntA = core.in UInt (8 bit)
-      val inUIntB = core.in UInt (8 bit)
-      val outUIntAdder = core.out UInt()
+      val inUIntA = in UInt (8 bit)
+      val inUIntB = in UInt (8 bit)
+      val outUIntAdder = out UInt()
 
-      val inAA = core.in(new BundleAA)
-      val inAABits = core.in Bits (new BundleAA().getBitsWidth bit)
-      val outAA = core.out(new BundleAA)
-      val outAABits = core.out Bits (new BundleAA().getBitsWidth bit)
+      val inAA = in(new BundleAA)
+      val inAABits = in Bits (new BundleAA().getBitsWidth bit)
+      val outAA = out(new BundleAA)
+      val outAABits = out Bits (new BundleAA().getBitsWidth bit)
 
 
       val assign = new Bundle{
-        val sel = core.in Vec(4,core.UInt(4 bit))
-        val bitDemux = core.out Bits(16 bit)
+        val sel = in Vec(4,UInt(4 bit))
+        val bitDemux = out Bits(16 bit)
 
 
         def doit: Unit ={
@@ -65,10 +64,10 @@ object CommonTester {
           }.elsewhen(conds(3)){
             bitDemux(sel(0)) := conds(4)
           }
-          core.when(conds(5)){
+          when(conds(5)){
             bitDemux(sel(1)) := conds(6)
           }
-          bitDemux(5) := core.Bool(true)
+          bitDemux(5) := Bool(true)
         }
       }
       def doit: Unit ={
@@ -85,9 +84,9 @@ object CommonTester {
 
     val combAdder = new Area {
       val size = io.inUIntA.getWidth
-      var out = Vec(size, core.Bool())
+      var out = Vec(size, Bool())
 
-      var c = core.Bool(false)
+      var c = Bool(false)
       for (i <- 0 until size) {
         val a = io.inUIntA(i)
         val b = io.inUIntB(i)

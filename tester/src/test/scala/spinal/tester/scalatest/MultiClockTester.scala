@@ -1,4 +1,4 @@
-package spinal.scalaTest
+package spinal.tester.scalatest
 
 import spinal.core._
 import spinal.lib._
@@ -11,7 +11,7 @@ object MultiClockTester{
   }
 }
 
-import HandshakeTester._
+import spinal.tester.scalatest.HandshakeTester._
 
 class MultiClockTester extends Component {
   val io = new Bundle {

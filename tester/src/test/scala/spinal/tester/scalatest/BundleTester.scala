@@ -16,37 +16,36 @@
  * License along with this library.
  */
 
-package spinal.scalaTest
+package spinal.tester.scalatest
 
-import spinal.core
 import spinal.core._
 
 object BundleTester {
   class BundleAA extends BundleA {
     val b = Bool()
-    val d = core.Bool()
+    val d = Bool()
   }
 
   class BundleA extends Bundle {
-    val a = core.Bool()
-    val c = core.Bool()
+    val a = Bool()
+    val c = Bool()
   }
 }
 
-import BundleTester._
+import spinal.tester.scalatest.BundleTester._
 
 class BundleTester extends Component {
   val io = new Bundle {
-    val conds = in Vec(8, core.Bool())
+    val conds = in Vec(8, Bool())
 
-    val inAA = core.in Vec(3, new BundleAA)
-    val inA = core.in Vec(1, new BundleA)
+    val inAA = in Vec(3, new BundleAA)
+    val inA = in Vec(1, new BundleA)
 
     val outAA = out(new BundleAA)
   }
 
   val zero = new BundleAA
-  zero.flatten.foreach(_._2 := core.Bool(false))
+  zero.flatten.foreach(_._2 := Bool(false))
 
   when(io.conds(0)) {
     io.outAA := io.inAA(0)
@@ -55,7 +54,7 @@ class BundleTester extends Component {
     io.outAA := zero
   }
 
-  core.when(io.conds(1)) {
+  when(io.conds(1)) {
     io.outAA := io.inAA(1)
   }
 }

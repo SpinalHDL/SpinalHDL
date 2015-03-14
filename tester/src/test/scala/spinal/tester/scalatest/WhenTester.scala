@@ -16,18 +16,16 @@
  * License along with this library.
  */
 
-package spinal.scalaTest
+package spinal.tester.scalatest
 
-import spinal.core
 import spinal.core._
-
 class WhenTester extends Component {
   val io = new Bundle {
-    val conds = core.in Vec(8, Bool())
-    val data = core.in Vec(12, core.UInt(8 bit))
-    val outDefault = core.out UInt (8 bit)
-    val outComplex = core.out UInt (8 bit)
-    val outRegComplex = core.out (Reg(core.UInt (8 bit)))
+    val conds = in Vec(8, Bool())
+    val data = in Vec(12, UInt(8 bit))
+    val outDefault = out UInt (8 bit)
+    val outComplex = out UInt (8 bit)
+    val outRegComplex = out (Reg(UInt (8 bit)))
   }
 
   io.outDefault := io.data(0)
@@ -40,7 +38,7 @@ class WhenTester extends Component {
   complexOn(io.outRegComplex)
 
   def complexOn(that : UInt): Unit = {
-    core.when(io.conds(0)) {
+    when(io.conds(0)) {
       that := io.data(0)
     }.elsewhen(io.conds(1)) {
       that := io.data(1)
@@ -48,19 +46,19 @@ class WhenTester extends Component {
         is(io.data(4)) {
           that := io.data(5)
         }
-        core.is(io.data(6)) {
+        is(io.data(6)) {
           that := io.data(7)
         }
-        core.is(core.UInt(0x55)) {
-          core.when(io.conds(2)) {
-            that := core.UInt(0xAA)
+        is(UInt(0x55)) {
+          when(io.conds(2)) {
+            that := UInt(0xAA)
           }.elsewhen(io.conds(3)) {
             that := io.data(8)
           }
         }
       }
     }.otherwise {
-      core.when(io.conds(4)) {
+      when(io.conds(4)) {
         that := io.data(9)
       }otherwise{
         that := io.data(10)

@@ -16,7 +16,7 @@
  * License along with this library.
  */
 
-package spinal.scalaTest.pending
+package spinal.tester.pending
 
 import spinal.core
 import spinal.core._

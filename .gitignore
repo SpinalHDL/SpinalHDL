@@ -18,3 +18,9 @@ project/plugins/project/
 
 .idea
 out
+
+
+#User
+*.vhd
+*.cf
+!tester/src/test/resources/*.vhd
