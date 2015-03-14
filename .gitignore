@@ -24,3 +24,4 @@ out
 *.vhd
 *.cf
 !tester/src/test/resources/*.vhd
+src

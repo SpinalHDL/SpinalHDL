@@ -1,9 +1,9 @@
 package spinal.lib
 
-import spinal.core
 import spinal.core._
 
-class HandshakeFactory extends MSFactory{
+
+class HandshakeFactory extends MSFactory {
   def apply[T <: Data](dataType: T) = {
     val ret = new Handshake(dataType)
     postApply(ret)
@@ -11,13 +11,14 @@ class HandshakeFactory extends MSFactory{
   }
 
   object Fragment extends HandshakeFragmentFactory
+
 }
 
 object Handshake extends HandshakeFactory
 
 class Handshake[T <: Data](dataType: T) extends Bundle with Interface {
   val valid = Bool()
-  val ready = core.Bool()
+  val ready = Bool()
   val data = dataType.clone()
 
   override def clone: this.type = Handshake(dataType).asInstanceOf[this.type]
@@ -80,9 +81,9 @@ class Handshake[T <: Data](dataType: T) extends Bundle with Interface {
   def m2sPipe(crossClockData: Boolean): Handshake[T] = {
     val ret = Handshake(dataType)
 
-    val rValid = core.RegInit(core.Bool(false))
+    val rValid = RegInit(Bool(false))
     val rData = Reg(dataType)
-    if (crossClockData) rData.addTag(core.crossClockDomain)
+    if (crossClockData) rData.addTag(crossClockDomain)
 
     this.ready := (!ret.valid) || ret.ready
 
@@ -101,18 +102,18 @@ class Handshake[T <: Data](dataType: T) extends Bundle with Interface {
   def s2mPipe: Handshake[T] = {
     val ret = Handshake(dataType)
 
-    val rValid = core.RegInit(core.Bool(false))
-    val rBits = core.Reg(dataType)
+    val rValid = RegInit(Bool(false))
+    val rBits = Reg(dataType)
 
     ret.valid := this.valid || rValid
     this.ready := !rValid
-    ret.data := core.Mux(rValid, rBits, this.data)
+    ret.data := Mux(rValid, rBits, this.data)
 
-    core.when(ret.ready) {
-      rValid := core.Bool(false)
+    when(ret.ready) {
+      rValid := Bool(false)
     }
 
-    core.when(this.ready && (!ret.ready)) {
+    when(this.ready && (!ret.ready)) {
       rValid := this.valid
       rBits := this.data
     }
@@ -139,9 +140,9 @@ class Handshake[T <: Data](dataType: T) extends Bundle with Interface {
     val next = this.clone
 
     next connectFrom this
-    core.when(cond) {
-      next.valid := core.Bool(false)
-      this.ready := core.Bool(true)
+    when(cond) {
+      next.valid := Bool(false)
+      this.ready := Bool(true)
     }
     next
   }
@@ -154,36 +155,36 @@ class Handshake[T <: Data](dataType: T) extends Bundle with Interface {
 class HandshakeArbiterCoreIO[T <: Data](dataType: T, portCount: Int) extends Bundle {
   val inputs = Vec(portCount, slave Handshake (dataType))
   val output = master Handshake (dataType)
-  val chosen = core.out UInt (core.log2Up(portCount) bit)
+  val chosen = out UInt (log2Up(portCount) bit)
 }
 
 abstract class HandshakeArbiterCore[T <: Data](dataType: T, portCount: Int, allowSwitchWithoutConsumption: Boolean) extends Component {
   val io = new HandshakeArbiterCoreIO(dataType, portCount)
 
-  val locked = core.RegInit(core.Bool(false))
+  val locked = RegInit(Bool(false))
 
-  val maskProposal = core.Vec(portCount, core.Bool())
-  val maskLocked = core.Reg(core.Vec(portCount, core.Bool()))
-  val maskRouted = if (allowSwitchWithoutConsumption) maskProposal else core.Mux(locked, maskLocked, maskProposal)
+  val maskProposal = Vec(portCount, Bool())
+  val maskLocked = Reg(Vec(portCount, Bool()))
+  val maskRouted = if (allowSwitchWithoutConsumption) maskProposal else Mux(locked, maskLocked, maskProposal)
 
 
-  core.when(io.output.valid) {
+  when(io.output.valid) {
     //Lock
-    locked := core.Bool(true)
+    locked := Bool(true)
     maskLocked := maskRouted
   }
-  core.when(io.output.ready) {
+  when(io.output.ready) {
     //unlock
-    locked := core.Bool(false)
+    locked := Bool(false)
   }
 
 
   //Route
-  var outputValid = core.Bool(false)
-  var outputData = core.Bits(0)
+  var outputValid = Bool(false)
+  var outputData = Bits(0)
   for ((input, mask) <- (io.inputs, maskRouted).zipped) {
     outputValid = outputValid | input.valid
-    outputData = outputData | core.Mux(mask, input.data.toBits, core.Bits(0))
+    outputData = outputData | Mux(mask, input.data.toBits, Bits(0))
     input.ready := mask & io.output.ready
   }
   io.output.valid := outputValid
@@ -202,7 +203,7 @@ abstract class HandshakeArbiterCore[T <: Data](dataType: T, portCount: Int, allo
 
 //TODOTEST
 class HandshakeArbiterPriorityImpl[T <: Data](dataType: T, portCount: Int, allowSwitchWithoutConsumption: Boolean = false) extends HandshakeArbiterCore(dataType, portCount, allowSwitchWithoutConsumption) {
-  var search = core.Bool(true)
+  var search = Bool(true)
   for (i <- 0 to portCount - 2) {
     maskProposal(i) := search & io.inputs(i).valid
     search = search & !io.inputs(i).valid
@@ -215,43 +216,43 @@ class HandshakeArbiterPriorityImpl[T <: Data](dataType: T, portCount: Int, allow
 class HandshakeFork[T <: Data](dataType: T, portCount: Int) extends Component {
   val io = new Bundle {
     val in = slave Handshake (dataType)
-    val out = core.Vec(portCount, master Handshake (dataType))
+    val out = Vec(portCount, master Handshake (dataType))
   }
-  val linkEnable = core.Vec(portCount, core.RegInit(core.Bool(true)))
+  val linkEnable = Vec(portCount, RegInit(Bool(true)))
 
-  io.in.ready := core.Bool(true)
+  io.in.ready := Bool(true)
   for (i <- (0 to portCount - 1)) {
-    core.when(!io.out(i).ready && linkEnable(i)) {
-      io.in.ready := core.Bool(false)
+    when(!io.out(i).ready && linkEnable(i)) {
+      io.in.ready := Bool(false)
     }
   }
 
   for (i <- (0 to portCount - 1)) {
     io.out(i).valid := io.in.valid && linkEnable(i)
     io.out(i).data := io.in.data
-    core.when(io.out(i).fire) {
-      linkEnable(i) := core.Bool(false)
+    when(io.out(i).fire) {
+      linkEnable(i) := Bool(false)
     }
   }
 
-  core.when(io.in.ready) {
-    linkEnable.map(_ := core.Bool(true))
+  when(io.in.ready) {
+    linkEnable.map(_ := Bool(true))
   }
 }
 
 //TODOTEST
 class HandshakeDemux[T <: Data](dataType: T, portCount: Int) extends Component {
   val io = new Bundle {
-    val sel = core.in UInt (core.log2Up(portCount) bit)
+    val sel = in UInt (log2Up(portCount) bit)
     val input = slave Handshake (dataType)
-    val output = core.Vec(portCount, master Handshake (dataType))
+    val output = Vec(portCount, master Handshake (dataType))
   }
-  io.input.ready := core.Bool(false)
+  io.input.ready := Bool(false)
 
   for (i <- 0 to portCount - 1) {
     io.output(i).data := io.input.data
-    core.when(core.UInt(i) !== io.sel) {
-      io.output(i).valid := core.Bool(false)
+    when(UInt(i) !== io.sel) {
+      io.output(i).valid := Bool(false)
     } otherwise {
       io.output(i).valid := io.input.valid
       io.input.ready := io.output(i).ready
@@ -262,46 +263,46 @@ class HandshakeDemux[T <: Data](dataType: T, portCount: Int) extends Component {
 class HandshakeFifoIo[T <: Data](dataType: T, depth: Int) extends Bundle {
   val push = slave Handshake (dataType)
   val pop = master Handshake (dataType)
-  val occupancy = core.out UInt (core.log2Up(depth + 1) bit)
+  val occupancy = out UInt (log2Up(depth + 1) bit)
 }
 
 class HandshakeFifo[T <: Data](dataType: T, depth: Int) extends Component {
   val io = new HandshakeFifoIo(dataType, depth)
 
-  val ram = core.Mem(dataType, depth)
+  val ram = Mem(dataType, depth)
 
   val pushPtr = Counter(depth)
   val popPtr = Counter(depth)
   val ptrMatch = pushPtr === popPtr
-  val risingOccupancy = core.RegInit(core.Bool(false))
+  val risingOccupancy = RegInit(Bool(false))
   val pushing = io.push.fire
   val popping = io.pop.fire
   val empty = ptrMatch & !risingOccupancy
   val full = ptrMatch & risingOccupancy
 
   io.push.ready := !full
-  io.pop.valid := !empty & !(RegNext(popPtr.valueNext === pushPtr, core.Bool(false)) & !full) //mem write to read propagation
+  io.pop.valid := !empty & !(RegNext(popPtr.valueNext === pushPtr, Bool(false)) & !full) //mem write to read propagation
   io.pop.data := ram.readSync(popPtr.valueNext)
 
-  core.when(pushing !== popping) {
+  when(pushing !== popping) {
     risingOccupancy := pushing
   }
-  core.when(pushing) {
+  when(pushing) {
     ram(pushPtr.value) := io.push.data
     pushPtr ++
   }
-  core.when(popping) {
+  when(popping) {
     popPtr ++
   }
 
   val ptrDif = pushPtr - popPtr
-  if (core.isPow2(depth))
+  if (isPow2(depth))
     io.occupancy := ((risingOccupancy && ptrMatch) ## ptrDif).toUInt
   else {
-    core.when(ptrMatch) {
-      io.occupancy := core.Mux(risingOccupancy, core.UInt(depth), core.UInt(0))
+    when(ptrMatch) {
+      io.occupancy := Mux(risingOccupancy, UInt(depth), UInt(0))
     } otherwise {
-      io.occupancy := core.Mux(pushPtr > popPtr, ptrDif, core.UInt(depth) + ptrDif)
+      io.occupancy := Mux(pushPtr > popPtr, ptrDif, UInt(depth) + ptrDif)
     }
   }
 }
@@ -310,33 +311,33 @@ class HandshakeFifo[T <: Data](dataType: T, depth: Int) extends Component {
 class HandshakeFifoCCIo[T <: Data](dataType: T, depth: Int) extends Bundle {
   val push = slave Handshake (dataType)
   val pop = master Handshake (dataType)
-  val pushOccupancy = core.out UInt (core.log2Up(depth + 1) bit)
-  val popOccupancy = core.out UInt (core.log2Up(depth + 1) bit)
+  val pushOccupancy = out UInt (log2Up(depth) + 1 bit)
+  val popOccupancy = out UInt (log2Up(depth) + 1 bit)
 }
 
 class HandshakeFifoCC[T <: Data](dataType: T, depth: Int, pushClockDomain: ClockDomain, popClockDomain: ClockDomain) extends Component {
-  assert(core.isPow2(depth))
+  assert(isPow2(depth))
   assert(depth >= 2)
 
   val io = new HandshakeFifoCCIo(dataType, depth)
 
-  val ptrWidth = core.log2Up(depth)+1
+  val ptrWidth = log2Up(depth) + 1
   def isFull(a: Bits, b: Bits) = a(ptrWidth - 1, ptrWidth - 2) === ~b(ptrWidth - 1, ptrWidth - 2) && a(ptrWidth - 3, 0) === b(ptrWidth - 3, 0)
   def isEmpty(a: Bits, b: Bits) = a === b
 
-  val ram = core.Mem(dataType, depth)
+  val ram = Mem(dataType, depth)
 
-  val popToPushGray = core.Bits(ptrWidth bit)
-  val pushToPopGray = core.Bits(ptrWidth bit)
+  val popToPushGray = Bits(ptrWidth bit)
+  val pushToPopGray = Bits(ptrWidth bit)
 
   val pushCC = new ClockingArea(pushClockDomain) {
     val pushPtr = Counter(depth << 1)
-    val pushPtrGray = core.RegNext(toGray(pushPtr.valueNext))
-    val popPtrGray = BufferCC(popToPushGray,core.Bits(0))
+    val pushPtrGray = RegNext(toGray(pushPtr.valueNext))
+    val popPtrGray = BufferCC(popToPushGray, Bits(0))
     val full = isFull(pushPtrGray, popPtrGray)
 
     io.push.ready := !full
-    core.when(io.push.fire) {
+    when(io.push.fire) {
       ram(pushPtr) := io.push.data
       pushPtr ++
     }
@@ -346,13 +347,13 @@ class HandshakeFifoCC[T <: Data](dataType: T, depth: Int, pushClockDomain: Clock
 
   val popCC = new ClockingArea(popClockDomain) {
     val popPtr = Counter(depth << 1)
-    val popPtrGray = core.RegNext(toGray(popPtr.valueNext))
-    val pushPtrGray = BufferCC(pushToPopGray,core.Bits(0))
+    val popPtrGray = RegNext(toGray(popPtr.valueNext))
+    val pushPtrGray = BufferCC(pushToPopGray, Bits(0))
     val empty = isEmpty(popPtrGray, pushPtrGray)
 
     io.pop.valid := !empty
     io.pop.data := ram.readSyncCC(popPtr.valueNext)
-    core.when(io.pop.fire) {
+    when(io.pop.fire) {
       popPtr ++
     }
 
@@ -378,30 +379,30 @@ class HandshakeCCByToggle[T <: Data](dataType: T, clockIn: ClockDomain, clockOut
     val output = master Handshake (dataType)
   }
 
-  val outHitSignal = core.Bool()
+  val outHitSignal = Bool()
 
   val inputArea = new ClockingArea(clockIn) {
-    val hit = BufferCC(outHitSignal, core.Bool(false))
-    val target = core.RegInit(core.Bool(false))
-    val data = core.Reg(io.input.data)
-    io.input.ready := core.Bool(false)
-    core.when(io.input.valid && hit === target) {
+    val hit = BufferCC(outHitSignal, Bool(false))
+    val target = RegInit(Bool(false))
+    val data = Reg(io.input.data)
+    io.input.ready := Bool(false)
+    when(io.input.valid && hit === target) {
       target := !target
       data := io.input.data
-      io.input.ready := core.Bool(true)
+      io.input.ready := Bool(true)
     }
   }
 
 
   val outputArea = new ClockingArea(clockOut) {
-    val target = BufferCC(inputArea.target, core.Bool(false))
-    val hit = core.RegInit(core.Bool(false))
+    val target = BufferCC(inputArea.target, Bool(false))
+    val hit = RegInit(Bool(false))
     outHitSignal := hit
 
     val handshake = io.input.clone
     handshake.valid := (target !== hit)
     handshake.data := inputArea.data
-    core.when(handshake.fire) {
+    when(handshake.fire) {
       hit := !hit
     }
 
