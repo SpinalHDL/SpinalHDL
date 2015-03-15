@@ -66,6 +66,18 @@ object fromGray{
   }
 }
 
+
+
+//object Flag{
+//  def apply() = new Flag
+//
+//  implicit def implicitValue(f: Flag) = f.value
+//}
+//class Flag extends Area{
+//  val value = Bool(false)
+//  def set = value := Bool(true)
+//}
+
 object CounterFreeRun {
   def apply(stateCount: Int) : Counter  = {
     new Counter(stateCount,true)
@@ -106,6 +118,9 @@ class Counter(val stateCount: Int,freeRun : Boolean = false) extends Area {
     }
   }
 }
+
+
+
 
 object MajorityVote {
   def apply(that: BitVector): Bool = apply(that.toBools)

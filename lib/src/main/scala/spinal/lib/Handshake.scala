@@ -4,13 +4,15 @@ import spinal.core._
 
 
 class HandshakeFactory extends MSFactory {
+  object Fragment extends HandshakeFragmentFactory
+
+
   def apply[T <: Data](dataType: T) = {
     val ret = new Handshake(dataType)
     postApply(ret)
     ret
   }
 
-  object Fragment extends HandshakeFragmentFactory
 
 }
 
@@ -19,7 +21,7 @@ object Handshake extends HandshakeFactory
 class Handshake[T <: Data](dataType: T) extends Bundle with Interface {
   val valid = Bool()
   val ready = Bool()
-  val data = dataType.clone()
+  val data : T = dataType.clone()
 
   override def clone: this.type = Handshake(dataType).asInstanceOf[this.type]
 
@@ -33,6 +35,8 @@ class Handshake[T <: Data](dataType: T) extends Bundle with Interface {
   override def asSlave: this.type = asMaster.flip
 
   def <<(that: Handshake[T]): Handshake[T] = connectFrom(that)
+  def <<[T2 <: Data](that : Handshake[T2])(dataAssignement : (T,T2) => Unit): Handshake[T2]  = connectFrom(that)(dataAssignement)
+
   def >>(into: Handshake[T]): Handshake[T] = {
     into << this;
     into
@@ -61,8 +65,12 @@ class Handshake[T <: Data](dataType: T) extends Bundle with Interface {
     into
   }
 
-  def ~[T2 <: Data](that: T2): Handshake[T2] = translateWith(that)
   def &(cond: Bool): Handshake[T] = continueIf(cond)
+  def ~[T2 <: Data](that: T2): Handshake[T2] = translateWith(that)
+  def ~~[T2 <: Data](translate : (T) => T2): Handshake[T2] ={
+    (this ~ translate(this.data))
+  }
+
 
 
   def fire: Bool = valid & ready
@@ -73,6 +81,15 @@ class Handshake[T <: Data](dataType: T) extends Bundle with Interface {
     this.data := that.data
     that
   }
+
+  def connectFrom[T2 <: Data](that : Handshake[T2])(dataAssignement : (T,that.data.type) => Unit): Handshake[T2] ={
+    this.valid := that.valid
+    that.ready := this.ready
+    dataAssignement(this.data,that.data)
+    that
+  }
+
+
 
 
   def m2sPipe: Handshake[T] = m2sPipe(false)

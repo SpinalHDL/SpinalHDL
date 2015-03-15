@@ -66,29 +66,12 @@ class UInt extends BitVector with MinMaxProvider {
   override def maxValue: BigInt = (BigInt(1) << getWidth) - 1
 
 
-  //def :=(that: UInt): Unit = assignFrom(that)
-
-
-//  override def apply(bitId: Int): Bool = {
-//    val ret = super.apply(bitId)
-//    ret.compositeAssign = new Assignable{
-//      override def assignFrom(that: Data): Unit = {
-//        val mask = UInt(1) << bitId
-//        UInt.this := Mux(that.asInstanceOf[Bool],UInt.this | mask,UInt.this & (~mask))
-//      }
-//    }
-//    ret
-//  }
-
-
-  // def :=[U <: SSelf](that: U) = this assignFrom(that)
   override def :=(that: SSelf): Unit = super.:=(that)
   override def <>(that: SSelf): Unit = super.<>(that)
 
   override def resize(width: Int): this.type = newResize("resize(u,i)", this :: new IntLiteral(width) :: Nil, WidthInfer.intLit1Width)
 
 
-  // implicit def dd(value: Int) = UInt(value)
 
   def toSInt: SInt = new SInt().castFrom("u->s", this)
   override def toBits: Bits = new Bits().castFrom("u->b", this)
@@ -97,9 +80,3 @@ class UInt extends BitVector with MinMaxProvider {
 
   override def getZero: this.type = UInt(0).asInstanceOf[this.type]
 }
-
-/*
-   def ===(that: Object) : Boolean = super.==(that)
-def ==(that: Object): Bool = that match {
-   case that : UInt => newLogicalOperator("u==u", that);
- }*/

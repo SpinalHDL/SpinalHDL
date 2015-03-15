@@ -80,8 +80,13 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T) extends BaseType {
   override def weakClone: this.type = new SpinalEnumCraft(blueprint).asInstanceOf[this.type]
 }
 
+
+//object SpinalEnumElement{
+//  implicit def EnumElementToCraft[T <: SpinalEnum](element : SpinalEnumElement[T]) : SpinalEnumCraft[T] = element()
+//}
+
 class SpinalEnumElement[T <: SpinalEnum](val parent: T, val id: BigInt) extends Nameable {
-/// implicit def implicitCraft : SpinalEnumCraft[T] = craft()
+
 
 
   def ===(that: SpinalEnumCraft[T]): Bool = {

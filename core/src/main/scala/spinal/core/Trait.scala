@@ -28,7 +28,7 @@ trait IODirection {
   def applyIt[T <: Data](data: T): T
   def apply[T <: Data](data: T): T = applyIt(data)
   def apply(enum: SpinalEnum) = applyIt(enum.craft())
-
+  def cloneOf[T <: Data](that : T) : T = cloneOf(that)
 
   object Bool extends BoolFactory {
     override def apply() = applyIt(super.apply())
@@ -49,6 +49,8 @@ trait IODirection {
   object Vec extends VecFactory {
     override def apply[T <: Data](elements: Iterable[T]): Vec[T] = applyIt(super.apply(elements))
   }
+
+
 
 }
 

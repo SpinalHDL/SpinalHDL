@@ -9,6 +9,7 @@ package object core {
 
 
   implicit def IntToBuilder(value: Int) = new IntBuilder(value)
+ // implicit def EnumElementToCraft[T <: SpinalEnum](element : SpinalEnumElement[T]) : SpinalEnumCraft[T] = element()
 
   case class IntBuilder(i: Int) {
     def bit = new BitCount(i)

@@ -69,6 +69,7 @@ class Backend {
   //TODO
   //TODO ROM support
   //TODO Union support
+  //TODO Init signals for sim
   protected def elaborate[T <: Component](topLevel: T): BackendReport[T] = {
     SpinalInfoPhase("Start analysis and transform")
 

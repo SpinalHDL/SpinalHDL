@@ -47,11 +47,24 @@ object Reg {
 object RegNext {
   def apply[T <: Data](next: T, init: T = null): T = Reg(next, init,next)
 }
+object RegNextWhen {
+  def apply[T <: Data](next: T,cond : Bool, init: T = null): T = {
+    val reg = Reg(next,init)
+    when(cond){
+      reg := next
+    }
+    reg
+  }
+}
+
 
 object RegInit {
   def apply[T <: Data](init: T): T = {
     Reg(init, init)
   }
+
+  def apply[T <: SpinalEnum](init : SpinalEnumElement[T]) : SpinalEnumCraft[T] = apply(init())
+
 }
 
 object RegS {

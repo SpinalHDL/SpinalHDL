@@ -5,13 +5,15 @@ import spinal.core.{Data, Bundle, RegNext, Bool}
 
 
 class FlowFactory extends MSFactory{
+  object Fragment extends FlowFragmentFactory
+
   def apply[T <: Data](dataType: T) = {
     val ret = new Flow(dataType)
     postApply(ret)
     ret
   }
 
-  object Fragment extends FlowFragmentFactory
+
 }
 
 object Flow extends FlowFactory

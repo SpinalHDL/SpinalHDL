@@ -53,6 +53,9 @@ class Bool extends BaseType {
   override def :=(that: SSelf): Unit = super.:=(that)
   override def <>(that: SSelf): Unit = super.<>(that)
 
+  def set = this := Bool(true)
+  def clear = this := Bool(false)
+
   override def newMultiplexor(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,B,B)",sel,whenTrue,whenFalse)
 
   override def isEguals(that: Data): Bool = {
