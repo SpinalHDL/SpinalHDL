@@ -80,7 +80,7 @@ class Mem[T <: Data](val wordType: T, val wordCount: Int) extends Node with Name
     readPort.compositeTagReady = readWord
 
     readBits.inputs(0) = readPort
-    readWord.fromBits(readBits)
+    readWord.assignFromBits(readBits)
 
     readWord
   }
@@ -96,7 +96,7 @@ class Mem[T <: Data](val wordType: T, val wordCount: Int) extends Node with Name
     readPort.addTag(crossClockDomain)
 
     readBits.inputs(0) = readPort
-    readWord.fromBits(readBits)
+    readWord.assignFromBits(readBits)
 
     readWord
   }

@@ -212,3 +212,12 @@ object latencyAnalysis {
     -1
   }
 }
+
+
+
+trait DataCarrier[T <: Data]{
+  def fire : Bool
+  def valid : Bool
+  def data : T
+  def freeRun : Unit
+}

@@ -13,13 +13,51 @@ object FlowFragment extends FlowFragmentFactory
 object HandshakeFragment extends HandshakeFragmentFactory
 
 
-class FlowFragmentPimped[T <: Data](that : Flow[Fragment[T]]){
-  def isFirst = isFirstFragment(that)
+class FlowFragmentPimped[T <: Data](that: Flow[Fragment[T]]) {
+
 }
 
 
-class HandshakeFragmentPimped[T <: Data](that : Handshake[Fragment[T]]){
-  def isFirst = isFirstFragment(that)
+class HandshakeFragmentPimped[T <: Data](that: Handshake[Fragment[T]]) {
+
+}
+
+
+class DataCarrierFragmentPimped[T <: Data](pimped: DataCarrier[Fragment[T]]) {
+  def isNotTail = RegNextWhen(pimped.data.last, pimped.fire, Bool(true))
+  def isTail = !isNotTail
+
+  def isFirst = pimped.valid && isNotTail
+  def isLast = pimped.valid && pimped.data.last
+}
+
+
+class DataCarrierFragmentBitsPimped(pimped: DataCarrier[Fragment[Bits]]) {
+
+  //Little endian
+  def toFlowOf[T <: Data](toDataType: T): Flow[T] = {
+    val fromWidth = pimped.data.fragment.getWidth
+    val toWidth = toDataType.getBitsWidth
+    val ret = Flow(toDataType)
+
+    pimped.freeRun
+
+    if (toWidth <= fromWidth) {
+      ret.valid := pimped.fire && pimped.data.last
+      ret.data.assignFromBits(pimped.data.fragment)
+    } else {
+      val missingBitsCount = toWidth - fromWidth
+
+      val buffer = Reg(Bits(((missingBitsCount-1)/fromWidth + 1)*fromWidth bit))
+      when(pimped.fire) {
+        buffer := pimped.data.fragment ## (buffer >> fromWidth)
+      }
+
+      ret.valid := pimped.isLast
+      ret.data.assignFromBits(pimped.data.fragment ## buffer)
+    }
+    ret
+  }
 }
 
 
@@ -42,7 +80,7 @@ class HandshakeFragmentFactory extends MSFactory {
 
 class Fragment[T <: Data](dataType: T) extends Bundle {
   val last = Bool()
-  val fragment : T = dataType.clone
+  val fragment: T = dataType.clone
 
   override def clone: this.type = {
     new Fragment(dataType).asInstanceOf[this.type];
@@ -50,30 +88,27 @@ class Fragment[T <: Data](dataType: T) extends Bundle {
 }
 
 
-object isFirstFragment{
-  def apply[T <: Data](flow : Flow[Fragment[T]]) : Bool = RegNextWhen(flow.data.last,flow.fire,Bool(true))
-  def apply[T <: Data](flow : Handshake[Fragment[T]]) : Bool = RegNextWhen(flow.data.last,flow.fire,Bool(true))
-}
 
-object FlowFragmentRouter{
-    def apply(input : Flow[Fragment[Bits]],outputSize : Int) : Vec[Flow[Fragment[Bits]]] = {
-      FlowFragmentRouter(input,(0 until outputSize).map(BigInt(_)))
-    }
 
-    def apply(input : Flow[Fragment[Bits]],mapTo : Iterable[BigInt]) : Vec[Flow[Fragment[Bits]]] = {
-    val router = new FlowFragmentRouter(input,mapTo)
+object FlowFragmentRouter {
+  def apply(input: Flow[Fragment[Bits]], outputSize: Int): Vec[Flow[Fragment[Bits]]] = {
+    FlowFragmentRouter(input, (0 until outputSize).map(BigInt(_)))
+  }
+
+  def apply(input: Flow[Fragment[Bits]], mapTo: Iterable[BigInt]): Vec[Flow[Fragment[Bits]]] = {
+    val router = new FlowFragmentRouter(input, mapTo)
     return router.outputs
   }
 }
 
-class FlowFragmentRouter(input : Flow[Fragment[Bits]],mapTo : Iterable[BigInt]) extends Area{
-  val outputs = Vec(mapTo.size,input)
-  val enables = Vec(mapTo.size,Reg(Bool()))
+class FlowFragmentRouter(input: Flow[Fragment[Bits]], mapTo: Iterable[BigInt]) extends Area {
+  val outputs = Vec(mapTo.size, input)
+  val enables = Vec(mapTo.size, Reg(Bool()))
 
   outputs.foreach(_.data := input.data)
-  when(input.isFirst){
-    (enables,mapTo).zipped.foreach(_ := Bits(_) === input.data.fragment)
-  } otherwise{
-    (outputs,enables).zipped.foreach(_.valid := _)
+  when(input.isNotTail) {
+    (enables, mapTo).zipped.foreach(_ := Bits(_) === input.data.fragment)
+  } otherwise {
+    (outputs, enables).zipped.foreach(_.valid := _)
   }
 }

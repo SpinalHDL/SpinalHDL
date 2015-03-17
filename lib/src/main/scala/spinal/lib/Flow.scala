@@ -1,7 +1,6 @@
 package spinal.lib
 
-import spinal.core
-import spinal.core.{Data, Bundle, RegNext, Bool}
+import spinal.core._
 
 
 class FlowFactory extends MSFactory{
@@ -18,7 +17,7 @@ class FlowFactory extends MSFactory{
 
 object Flow extends FlowFactory
 
-class Flow[T <: Data](dataType: T) extends Bundle with Interface {
+class Flow[T <: Data](dataType: T) extends Bundle with Interface with DataCarrier[T]{
   val valid = Bool()
   val data = dataType.clone()
 
@@ -26,6 +25,14 @@ class Flow[T <: Data](dataType: T) extends Bundle with Interface {
 
   override def asMaster: this.type = asOutput
   override def asSlave: this.type = asInput
+
+
+  override def freeRun: Unit = {}
+
+
+  def toReg : T = toReg(null.asInstanceOf[T])
+  def toReg(init: T): T = RegNextWhen(this.data,this.fire,init)
+
 
   def <<(that: Flow[T]): Flow[T] = this connectFrom that
   def >>(into: Flow[T]): Flow[T] = {
@@ -39,7 +46,7 @@ class Flow[T <: Data](dataType: T) extends Bundle with Interface {
     that
   }
 
-  def fire: Bool = valid
+  override def fire: Bool = valid
 
   def connectFrom(that: Flow[T]): Flow[T] = {
     valid := that.valid
@@ -47,15 +54,15 @@ class Flow[T <: Data](dataType: T) extends Bundle with Interface {
     that
   }
 
-  def takeIf(cond: Bool): Flow[T] = {
+  def takeWhen(cond: Bool): Flow[T] = {
     val next = new Flow(dataType)
     next.valid := this.valid && cond
     next.data := this.data
     return next
   }
 
-  def throwIt(cond: Bool): Flow[T] = {
-    this takeIf (!cond)
+  def throwWhen(cond: Bool): Flow[T] = {
+    this takeWhen (!cond)
   }
 
   def translateWith[T2 <: Data](that: T2): Flow[T2] = {
@@ -67,9 +74,9 @@ class Flow[T <: Data](dataType: T) extends Bundle with Interface {
 
   def m2sPipe(): Flow[T] = {
     val ret = RegNext(this)
-    ret.valid.setRegInit(core.Bool(false))
+    ret.valid.setRegInit(Bool(false))
     ret connectFrom this
     ret
   }
-
 }
+

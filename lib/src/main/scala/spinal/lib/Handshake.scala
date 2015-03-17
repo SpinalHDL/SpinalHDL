@@ -18,7 +18,7 @@ class HandshakeFactory extends MSFactory {
 
 object Handshake extends HandshakeFactory
 
-class Handshake[T <: Data](dataType: T) extends Bundle with Interface {
+class Handshake[T <: Data](dataType: T) extends Bundle with Interface with DataCarrier[T]{
   val valid = Bool()
   val ready = Bool()
   val data : T = dataType.clone()
@@ -33,6 +33,16 @@ class Handshake[T <: Data](dataType: T) extends Bundle with Interface {
   }
 
   override def asSlave: this.type = asMaster.flip
+
+  override def freeRun: Unit = ready := Bool(true)
+
+  def toFlow : Flow[T] = {
+    freeRun
+    val ret = Flow(dataType)
+    ret.valid := this.valid
+    ret.data := this.data
+    ret
+  }
 
   def <<(that: Handshake[T]): Handshake[T] = connectFrom(that)
   def <<[T2 <: Data](that : Handshake[T2])(dataAssignement : (T,T2) => Unit): Handshake[T2]  = connectFrom(that)(dataAssignement)
@@ -65,7 +75,7 @@ class Handshake[T <: Data](dataType: T) extends Bundle with Interface {
     into
   }
 
-  def &(cond: Bool): Handshake[T] = continueIf(cond)
+  def &(cond: Bool): Handshake[T] = continueWhen(cond)
   def ~[T2 <: Data](that: T2): Handshake[T2] = translateWith(that)
   def ~~[T2 <: Data](translate : (T) => T2): Handshake[T2] ={
     (this ~ translate(this.data))
@@ -73,7 +83,7 @@ class Handshake[T <: Data](dataType: T) extends Bundle with Interface {
 
 
 
-  def fire: Bool = valid & ready
+  override def fire: Bool = valid & ready
   def isFree: Bool = !valid || ready
   def connectFrom(that: Handshake[T]): Handshake[T] = {
     this.valid := that.valid
@@ -145,7 +155,7 @@ class Handshake[T <: Data](dataType: T) extends Bundle with Interface {
     next
   }
 
-  def continueIf(cond: Bool): Handshake[T] = {
+  def continueWhen(cond: Bool): Handshake[T] = {
     val next = new Handshake(dataType)
     next.valid := this.valid && cond
     this.ready := next.ready && cond
@@ -153,7 +163,7 @@ class Handshake[T <: Data](dataType: T) extends Bundle with Interface {
     return next
   }
 
-  def throwIf(cond: Bool): Handshake[T] = {
+  def throwWhen(cond: Bool): Handshake[T] = {
     val next = this.clone
 
     next connectFrom this
@@ -164,8 +174,8 @@ class Handshake[T <: Data](dataType: T) extends Bundle with Interface {
     next
   }
 
-  def haltIf(cond: Bool): Handshake[T] = continueIf(!cond)
-  def takeIf(cond: Bool): Handshake[T] = throwIf(!cond)
+  def haltWhen(cond: Bool): Handshake[T] = continueWhen(!cond)
+  def takeWhen(cond: Bool): Handshake[T] = throwWhen(!cond)
 }
 
 
@@ -205,7 +215,7 @@ abstract class HandshakeArbiterCore[T <: Data](dataType: T, portCount: Int, allo
     input.ready := mask & io.output.ready
   }
   io.output.valid := outputValid
-  io.output.data.fromBits(outputData)
+  io.output.data.assignFromBits(outputData)
 
   io.chosen := OHToUInt(maskRouted)
 
@@ -418,7 +428,7 @@ class HandshakeCCByToggle[T <: Data](dataType: T, clockIn: ClockDomain, clockOut
 
     val handshake = io.input.clone
     handshake.valid := (target !== hit)
-    handshake.data := inputArea.data
+    handshake.data := inputArea.data //TODO add to backend cross clock analysis the capability to check tags on signals
     when(handshake.fire) {
       hit := !hit
     }

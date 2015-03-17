@@ -453,16 +453,16 @@ object BigTest {
     io.masterHandshakeSInt connectFrom (io.slaveHandshakeUInt translateWith io.slaveHandshakeUInt.toBits.toSInt)
 
     io.masterHandshake connectFrom io.slaveHandshake
-    io.masterHandshakeThrow connectFrom (io.slaveHandshake.throwIf(io.cond1))
+    io.masterHandshakeThrow connectFrom (io.slaveHandshake.throwWhen(io.cond1))
     io.masterHandshakeUInt connectFrom (io.slaveHandshake translateWith UInt(3))
     //io.masterHandshakeUInt.bits := UInt(2)
     //var myInt = WeekDay.c
     // myInt := WeekDay.Mon
     val bitsFromBundle = io.inBundleToBits.toBits
     println(bitsFromBundle.getWidth)
-    io.outBundleFromBits.fromBits(bitsFromBundle)
+    io.outBundleFromBits.assignFromBits(bitsFromBundle)
 
-    io.outEnumFromBits.fromBits(io.inEnumBits)
+    io.outEnumFromBits.assignFromBits(io.inEnumBits)
 
     io.outEnum := io.inEnum
     when(MyEnum.s2 === io.inEnum) {

@@ -69,7 +69,7 @@ class Bits extends BitVector {
     ret := this
     ret
   }
-  override def fromBits(bits: Bits): Unit = this := bits
+  override def assignFromBits(bits: Bits): Unit = this := bits
 
   override def isEguals(that: Data): Bool = {
     that match {

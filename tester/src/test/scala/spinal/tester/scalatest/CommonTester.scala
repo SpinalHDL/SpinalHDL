@@ -78,7 +78,7 @@ object CommonTester {
 
     io.doit
 
-    io.outAA.fromBits(io.inAABits)
+    io.outAA.assignFromBits(io.inAABits)
     io.outAABits := io.inAA.toBits
 
 

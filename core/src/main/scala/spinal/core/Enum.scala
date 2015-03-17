@@ -60,7 +60,7 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T) extends BaseType {
 
   override def newMultiplexor(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,e,e)", sel, whenTrue, whenFalse)
   override def toBits: Bits = new Bits().castFrom("e->b", this)
-  override def fromBits(bits: Bits): Unit = enumCastFrom("b->e", bits, (node) => this.getWidth)
+  override def assignFromBits(bits: Bits): Unit = enumCastFrom("b->e", bits, (node) => this.getWidth)
   override def calcWidth: Int = blueprint.getWidth
   override def clone: this.type = {
     val res = new SpinalEnumCraft(blueprint).asInstanceOf[this.type]
@@ -74,7 +74,7 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T) extends BaseType {
 
   override def getZero: this.type = {
     val ret = clone
-    ret.fromBits(Bits(0))
+    ret.assignFromBits(Bits(0))
     ret
   }
   override def weakClone: this.type = new SpinalEnumCraft(blueprint).asInstanceOf[this.type]

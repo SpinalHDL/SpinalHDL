@@ -130,6 +130,7 @@ class VhdlBackend extends Backend with VhdlBase {
     ret ++= s"""library IEEE;
                |use IEEE.STD_LOGIC_1164.ALL;
                |use IEEE.NUMERIC_STD.all;
+               |use ieee.math_real.all;
                |
                |package $enumPackageName is
                                           |""".stripMargin
@@ -237,6 +238,19 @@ class VhdlBackend extends Backend with VhdlBase {
       })
     }
 
+    def pkgRand(kind: String): Tuple2[String, String] = {
+      val ret = new StringBuilder();
+      (s"impure function pkg_rand (bitCount : integer) return $kind", {
+        ret ++= s"    variable ret : $kind(bitCount-1 downto 0);\n"
+        ret ++= s"  begin\n"
+        ret ++= s"    for i in ret'range loop\n"
+        ret ++= s"      ret(i) := pkg_rand;\n"
+        ret ++= s"    end loop;\n"
+        ret ++= s"    return ret;\n"
+        ret ++= s"  end pkg_rand;\n\n"
+        ret.result()
+      })
+    }
     /*def pkgResize(kind: String): Tuple2[String, String] = {
       (s"function pkg_extract (that : $kind; width : integer) return std_logic",
         s"""|  begin
@@ -251,14 +265,16 @@ class VhdlBackend extends Backend with VhdlBase {
       funcs += pkgExtractBool(kind)
       funcs += pkgDummy(kind)
       funcs += pkgCat(kind)
+      funcs += pkgRand(kind)
     })
 
 
 
     val ret = new StringBuilder();
     ret ++= s"library IEEE;\n"
-    ret ++= "use IEEE.STD_LOGIC_1164.ALL;\n"
-    ret ++= "use IEEE.NUMERIC_STD.all;\n"
+    ret ++= "use ieee.std_logic_1164.all;\n"
+    ret ++= "use ieee.numeric_std.all;\n"
+    ret ++= "use ieee.math_real.all;\n"
     ret ++= "\n"
     ret ++= s"package $packageName is\n"
     ret ++= s"${funcs.map("  " + _._1 + ";\n").reduce(_ + _)}\n"
@@ -267,6 +283,10 @@ class VhdlBackend extends Backend with VhdlBase {
     ret ++= "  function pkg_mux (sel : std_logic;one : std_logic_vector;zero : std_logic_vector) return std_logic_vector;\n"
     ret ++= "  function pkg_mux (sel : std_logic;one : unsigned;zero : unsigned) return unsigned;\n"
     ret ++= "  function pkg_mux (sel : std_logic;one : signed;zero : signed) return signed;\n"
+    ret ++= s"\n"
+    ret ++= "  shared variable randSeed0, randSeed1: positive;\n"
+    ret ++= "  impure function pkg_rand return std_logic;\n"
+    //ret ++= "  impure function pkg_rand (bitCount : integer) return std_logic_vector;\n"
     ret ++= s"\n"
     ret ++= "  function pkg_toStdLogic (value : boolean) return std_logic;\n"
     ret ++= "  function pkg_toStdLogicVector (value : std_logic) return std_logic_vector;\n"
@@ -303,6 +323,28 @@ class VhdlBackend extends Backend with VhdlBase {
     ret ++= s"package body $packageName is\n"
     ret ++= s"${funcs.map(f => "  " + f._1 + " is\n" + f._2 + "\n").reduce(_ + _)}"
     ret ++= "\n"
+
+    ret ++= "  impure function pkg_rand return std_logic is\n"
+    ret ++= "    variable rand: real;\n"
+    ret ++= "  begin\n"
+    ret ++= "    UNIFORM(randSeed0, randSeed1, rand);\n"
+    ret ++= "    if rand >= 0.5 then\n"
+    ret ++= "      return '1';\n"
+    ret ++= "    else\n"
+    ret ++= "      return '0';\n"
+    ret ++= "    end if;\n"
+    ret ++= "  end pkg_rand;\n"
+    ret ++= "\n"
+//    ret ++= "  impure function pkg_rand (bitCount : integer) return std_logic_vector is\n"
+//    ret ++= "    variable ret : std_logic_vector(bitCount -1 downto 0);\n"
+//    ret ++= "  begin\n"
+//    ret ++= "    for i in ret'range loop\n"
+//    ret ++= "      ret(i) := pkg_rand;\n"
+//    ret ++= "    end loop;\n"
+//    ret ++= "    return ret;\n"
+//    ret ++= "  end pkg_rand;\n"
+
+//    ret ++= "\n"
     ret ++= "  -- unsigned shifts\n"
     ret ++= "  function pkg_shiftRight (that : unsigned; size : natural) return unsigned is\n"
     ret ++= "  begin\n"
@@ -499,9 +541,9 @@ class VhdlBackend extends Backend with VhdlBase {
     emitLibrary(ret)
   }
   def emitLibrary(ret: StringBuilder): Unit = {
-    ret ++= "library IEEE;\n"
-    ret ++= "use IEEE.STD_LOGIC_1164.ALL;\n"
-    ret ++= "use IEEE.NUMERIC_STD.all;\n"
+    ret ++= "library ieee;\n"
+    ret ++= "use ieee.std_logic_1164.all;\n"
+    ret ++= "use ieee.numeric_std.all;\n"
     ret ++= "\n"
     ret ++= s"library $library;\n"
     ret ++= s"use $library.$packageName.all;\n"
@@ -634,8 +676,20 @@ class VhdlBackend extends Backend with VhdlBase {
     for (node <- component.nodes) {
       node match {
         case signal: BaseType => {
-          if (!signal.isIo)
-            ret ++= emitSignal(signal, signal);
+          if (!signal.isIo){
+            ret ++= s"  signal ${emitReference(signal)} : ${emitDataType(signal)}"
+            if(!signal.isReg){
+              ret ++= ";\n"
+            }else{ //TODO disable option
+              signal match{
+                case b : Bool =>  ret ++= " := pkg_rand"
+                case bv : BitVector =>  ret ++= s" := pkg_rand(${bv.getWidth})"
+                case e : SpinalEnumCraft[_] =>
+              }
+              ret ++= ";\n"
+            }
+          }
+
 
           emitAttributes(signal, "signal", ret)
         }
@@ -654,6 +708,9 @@ class VhdlBackend extends Backend with VhdlBase {
 
     }
   }
+
+
+
 
   def emitAttributes(node: Node, vhdlType: String, ret: StringBuilder): Unit = {
     if (!node.isInstanceOf[AttributeReady]) return

@@ -24,7 +24,7 @@ class LogicAnalyser(p: LogicAnalyserParameter) extends Component {
     val packetSlave = slave Flow Fragment(Bits(8 bit))
     val packetMaster = master Handshake Fragment(Bits(8 bit))
   }
-  io.packetSlave.isFirst
+  //io.packetSlave.isFirst
 
   val trigger = new Area {
     val event = CounterFreeRun(16) === UInt(0)
@@ -101,14 +101,14 @@ class LogicAnalyserLogger(p: LogicAnalyserParameter, probeType: Bits) extends Co
 
 
   when(state === sWaitTrigger) {
-    sampler.preEnable.set
+    sampler.preEnable := Bool(true)
     when(io.trigger) {
       state := sSample
       memReadAddress := memWriteAddress + config.samplesLeftAfterTrigger + UInt(2)
     }
   }
   when(state === sSample) {
-    sampler.postEnable.set
+    sampler.postEnable := Bool(true)
     when(sampler.done) {
       state := sPush
       pushCounter := UInt(0)

@@ -88,11 +88,11 @@ abstract class MultiData extends Data {
   }
 
 
-  override def fromBits(bits: Bits): Unit = {
+  override def assignFromBits(bits: Bits): Unit = {
     var offset = 0
     for ((n, e) <- flatten.reverse) {
       val width = e.getWidth
-      e.fromBits(bits(offset, width bit))
+      e.assignFromBits(bits(offset, width bit))
       offset = offset + width
     }
   }
