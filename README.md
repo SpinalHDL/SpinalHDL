@@ -34,12 +34,41 @@ class MyTopLevel extends Component {
     val b = in Bool()
     val c = out Bool()
   }
-  io.c := io.a && io.b
+  io.c := io.a & io.b
 }
 
 object MyTopLevel {
   def main(args: Array[String]) {
     SpinalVhdl(new MyTopLevel)
+  }
+}
+```
+
+## Carry adder
+
+```scala
+import spinal.core._
+
+class CarryAdder(size : Int) extends Component{
+  val io = new Bundle{
+    val a = in UInt(size bit)
+    val b = in UInt(size bit)
+    val result = out UInt(size bit)      //result = a + b
+  }
+
+  var c = Bool(false)                   //Carry, like a VHDL variable
+  for (i <- 0 until size) {
+    val a = io.a(i)
+    val b = io.a(i)
+    io.result(i) := a ^ b ^ c
+    c = (a & b) | (a & c) | (b & c);    //variable assignment
+  }
+}
+
+
+object CarryAdderProject {
+  def main(args: Array[String]) {
+    SpinalVhdl(new CarryAdder(4))
   }
 }
 ```

@@ -84,7 +84,7 @@ object CommonTester {
 
     val combAdder = new Area {
       val size = io.inUIntA.getWidth
-      var out = Vec(size, Bool())
+      val out = UInt(size bit)
 
       var c = Bool(false)
       for (i <- 0 until size) {
@@ -93,7 +93,7 @@ object CommonTester {
         out(i) := a ^ b ^ c
         c = (a & b) | (a & c) | (b & c);
       }
-      io.outUIntAdder := out.toBits.toUInt
+      io.outUIntAdder := out
     }
 
 
