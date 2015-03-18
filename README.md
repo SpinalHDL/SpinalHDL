@@ -73,6 +73,26 @@ object CarryAdderProject {
 }
 ```
 
+## Counter with parity
+
+```scala
+class CounterWithParity(size : Int) extends Component{
+  val io = new Bundle{
+    val increment = in Bool()
+    val value = out UInt(size bit)
+    val evenParity = out Bool()
+  }
+
+  val counter = RegInit(UInt(0,size bit))
+  when(io.increment){
+    counter := counter + UInt(1)
+  }
+  io.evenParity := counter.toBools.reduceLeft(_ ^ _)
+
+  io.value := counter
+}
+```
+
 ## Dual clock FIFO
 
 ```scala
