@@ -18,10 +18,28 @@ import java.util
  * License along with this library.
  */
 
+//a = b =>
+//
+//val c = cloneOf(b)
+//c := b
+//return c
+
+
+class MyClass(i: Int) {
+  def +(j: Int) = new MyClass(j + i)
+  def -(j: Int) = new MyClass(i - j)
+  def ^(j: Int) = new MyClass(j)
+  def +|(j: Int) = new MyClass(j + i / 3)
+  def \(a : Int) = new MyClass(a)
+}
+
+
+var c = new MyClass(1)
+c \= 6
 
 class Bar {
   def foo = 4
-  def foo_=(x : Int) = {
+  def foo_=(x: Int) = {
     println(x)
   }
 }
@@ -29,25 +47,26 @@ class Bar {
 val b = new Bar
 b.foo = 2
 
-class A{
-  def aa: A ={
+class A {
+  def aa: A = {
     println("A")
     this
   }
-  def aa_= (i : Int) : A = {
+  def aa_=(i: Int): A = {
     println("B " + i)
     new A
   }
 
-//  def apply_= (i : Int) : A = {
-//    println("B " + i)
-//    this
-//  }
+  //  def apply_= (i : Int) : A = {
+  //    println("B " + i)
+  //    this
+  //  }
 
-  def update(value : Int): Unit = {
+  def update(value: Int): Unit = {
     println(value)
   }
 }
+
 val a = new A
 
 a.aa = 2

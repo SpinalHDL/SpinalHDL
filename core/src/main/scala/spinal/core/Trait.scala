@@ -80,7 +80,7 @@ trait MinMaxProvider {
 
 trait ContextUser extends GlobalDataUser {
   var component = Component.current(globalData)
-  val whenScope = globalData.whenStack.head()
+  var whenScope = globalData.whenStack.head()
   var instanceCounter = globalData.getInstanceCounter
 }
 

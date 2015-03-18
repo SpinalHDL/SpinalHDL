@@ -27,13 +27,17 @@ object Debug {
 
   class TopLevel extends Component {
     val io = new Bundle {
-      val output = out UInt(4 bit)
+      val input = in UInt (4 bit)
+      val output = out UInt (4 bit)
     }
 
-    val output = Reg(UInt(4 bit))
-   // output := output + UInt(1)
-   // output(0) := Bool(false)
-    io.output := output
+    var carry = Bool(false)
+    for (i <- 0 until 4) {
+      when(io.input(i)) {
+        carry \= Bool(true)
+      }
+      io.output(i) := io.input(i) & carry
+    }
   }
 
 

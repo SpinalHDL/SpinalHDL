@@ -91,7 +91,7 @@ object CommonTester {
         val a = io.inUIntA(i)
         val b = io.inUIntB(i)
         out(i) := a ^ b ^ c
-        c = (a & b) | (a & c) | (b & c);
+        c = (a & b) | (a & c) | (b & c)
       }
       io.outUIntAdder := out
     }
