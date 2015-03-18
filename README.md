@@ -87,9 +87,52 @@ class CounterWithParity(size : Int) extends Component{
   when(io.increment){
     counter := counter + UInt(1)
   }
-  io.evenParity := counter.toBools.reduceLeft(_ ^ _)
+  io.evenParity := counter.toBools.reduceLeft(_ ^ _)    //Get all bit of counter and then xor them together
 
   io.value := counter
+}
+```
+
+## Interface / Custom data types / Multi clock system
+
+```scala
+
+import spinal.core._
+import spinal.lib._
+
+//Define custom data types
+class MyDataType extends Bundle{
+  val a = UInt(8 bit)
+  val b = Bool()
+}
+
+class MultiClockTopLevel extends Component {
+  val io = new Bundle {
+    val clkA = in Bool()
+    val resetA = in Bool()
+    val clkB = in Bool()
+    val resetB = in Bool()
+
+    //Create handshake interface (valid, ready, data) to transport MyDataType data
+    val slaveInteface = slave Handshake(new MyDataType)
+    val masterInterface = master Handshake(new MyDataType)
+  }
+
+  //Create clock domains from inputs clocks and resets
+  val clockDomainA = ClockDomain(io.clkA,io.resetA)
+  val clockDomainB = ClockDomain(io.clkB,io.resetB)
+
+  //Create a fifo able to cross clock domain a handshake of MyDataType
+  val fifo = new HandshakeFifoCC(new MyDataType,16,clockDomainA,clockDomainB)
+  fifo.io.push << io.slaveInteface    //Easy connection provided by Handshake library
+  fifo.io.pop >> io.masterInterface
+}
+
+
+object MultiClockTopLevel {
+  def main(args: Array[String]) {
+    SpinalVhdl(new MultiClockTopLevel)
+  }
 }
 ```
 
@@ -158,4 +201,4 @@ class HandshakeFifoCC[T <: Data](dataType: T, depth: Int, pushClockDomain: Clock
 
 Other consideration
 ===============
-Intellij scala plugin has some syntax highlight bug. Some issue are patched in the next release of this plugin ( > 1.3.3).
+Intellij scala plugin has some syntax highlight bug. Please use scala plugin >= 1.4
