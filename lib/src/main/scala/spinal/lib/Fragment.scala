@@ -24,10 +24,10 @@ class HandshakeFragmentPimped[T <: Data](that: Handshake[Fragment[T]]) {
 
 
 class DataCarrierFragmentPimped[T <: Data](pimped: DataCarrier[Fragment[T]]) {
-  def isNotTail = RegNextWhen(pimped.data.last, pimped.fire, Bool(true))
-  def isTail = !isNotTail
+  def isNotInTail = RegNextWhen(pimped.data.last, pimped.fire, Bool(true))
+  def isInTail = !isNotInTail
 
-  def isFirst = pimped.valid && isNotTail
+  def isFirst = pimped.valid && isNotInTail
   def isLast = pimped.valid && pimped.data.last
 }
 
@@ -106,7 +106,7 @@ class FlowFragmentRouter(input: Flow[Fragment[Bits]], mapTo: Iterable[BigInt]) e
   val enables = Vec(mapTo.size, Reg(Bool()))
 
   outputs.foreach(_.data := input.data)
-  when(input.isNotTail) {
+  when(input.isNotInTail) {
     (enables, mapTo).zipped.foreach(_ := Bits(_) === input.data.fragment)
   } otherwise {
     (outputs, enables).zipped.foreach(_.valid := _)

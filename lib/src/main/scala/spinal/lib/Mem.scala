@@ -14,8 +14,7 @@ class MemPimped[T <: Data](mem : Mem[T]) {
 
     val retValid = RegInit(Bool(false))
     val retData = mem.readSync(cmd.data,cmd.ready)
-    val aaa : Data = linkedData
-    val retLinked = RegNextWhen(aaa,cmd.ready)
+    val retLinked = RegNextWhen(linkedData,cmd.ready)
 
     when(ret.ready){
       retValid := Bool(false)

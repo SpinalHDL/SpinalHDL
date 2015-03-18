@@ -529,9 +529,9 @@ object BigTest {
 
 
 
-    val uintBitSetReg = Reg(io.outUIntBitSet)
+    val uintBitSetReg = Reg(UInt(3 bit))
 
-   // uintBitSetReg(io.inUIntBitSel) := io.cond0
+    //uintBitSetReg(io.inUIntBitSel) := io.cond0
 
     io.outUIntBitSet := uintBitSetReg
 

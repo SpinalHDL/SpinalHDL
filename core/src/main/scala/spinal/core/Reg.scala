@@ -45,10 +45,10 @@ object Reg {
 
 
 object RegNext {
-  def apply[T <: Data](next: T, init: T = null): T = Reg(next, init,next)
+  def apply[T <: Data](next: T, init: T = null.asInstanceOf[T]): T = Reg(next, init,next)
 }
 object RegNextWhen {
-  def apply[T <: Data](next: T,cond : Bool, init: T = null): T = {
+  def apply[T <: Data](next: T,cond : Bool, init: T = null.asInstanceOf[T]): T = {
     val reg = Reg(next,init)
     when(cond){
       reg := next

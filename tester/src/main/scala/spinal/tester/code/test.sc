@@ -1,3 +1,5 @@
+import java.util
+
 /*
  * SpinalHDL
  * Copyright (c) Dolu, All rights reserved.
@@ -16,62 +18,40 @@
  * License along with this library.
  */
 
-s.foldLeft(0)((v, n) => Math.max(v, n.id)) + 1)
-//  def craft(): SpinalEnumCraft[this.type] = new SpinalEnumCraft[this.type](this)
-//
-//  type SpinalEnum = Val
-//
-//  abstract class Value extends super.Value{
-//    def caca = 2
+
+class Bar {
+  def foo = 4
+  def foo_=(x : Int) = {
+    println(x)
+  }
+}
+
+val b = new Bar
+b.foo = 2
+
+class A{
+  def aa: A ={
+    println("A")
+    this
+  }
+  def aa_= (i : Int) : A = {
+    println("B " + i)
+    new A
+  }
+
+//  def apply_= (i : Int) : A = {
+//    println("B " + i)
+//    this
 //  }
-//
-//  class Val(i: Int, name: String) extends Val(i, name) {
-//    def ===(that: this.type) = "hallo3"
-//
-//  }
-//}
-//object WeekDay3 extends SpinalEnum2 {
-//  val Mon, Tue, Wed, Thu, Fri, Sat, Sun = Value
-//  Mon.caca
-//}
 
-
-
-
-
-
-
-
-
-object WeekDay extends SpinalEnum {
-  val Mon, Tue, Wed, Thu, Fri, Sat, Sun = Value
+  def update(value : Int): Unit = {
+    println(value)
+  }
 }
+val a = new A
 
-object WeekDay2 extends SpinalEnum {
- // val Mon, Tue, Wed, Thu, Fri, Sat, Sun = Value
+a.aa = 2
 
-}
 
-object MyEnum extends SpinalEnum {
-  val e0 = 0;
-  val e1 = 1;
-  val e2 = 3;
-}
 
-//val s_idle :: s_5 :: s_10 :: s_15 :: s_ok :: Nil = SpinalEnum(6)
-
-/*object IntBuilder {
-  implicit def EnumToCraft(that : WeekDay2.V) = new IntBuilder(value)
-}*/
-ClockDomain.push(ClockDomain(null))
-println("a" + WeekDay)
-val myCraft = WeekDay.craft()
-println("b")
-myCraft := WeekDay.Fri
-println("c")
-val r0 = RegNext(WeekDay.craft())
-println("d")
-val str = WeekDay.Fri == r0
-str
-println("e")
-println("str :" + str)
+scala.collection.mutable.HashMap

@@ -69,7 +69,6 @@ class Backend {
   //TODO
   //TODO ROM support
   //TODO Union support
-  //TODO Init signals for sim
   protected def elaborate[T <: Component](topLevel: T): BackendReport[T] = {
     SpinalInfoPhase("Start analysis and transform")
 
@@ -584,10 +583,11 @@ class Backend {
     def checkAll: Unit = {
       val errors = mutable.ArrayBuffer[String]()
       for (node <- nodes) {
-        if (node.inferWidth) {
+        if (node.inferWidth && !node.isInstanceOf[Reg]) {
+          //Don't care about Reg width inference
           errors += s"Can't infer width on ${node.getScalaLocationString}"
         }
-        if(node.widthWhenNotInferred != -1 && node.widthWhenNotInferred != node.getWidth){
+        if (node.widthWhenNotInferred != -1 && node.widthWhenNotInferred != node.getWidth) {
           errors += s"getWidth call result during elaboration differ from inferred width on ${node.getScalaLocationString}"
         }
       }
@@ -727,13 +727,15 @@ class Backend {
             for (syncInput <- syncNode.getSynchronousInputs) {
               check(syncInput)
               def check(that: Node): Unit = {
-                that match {
-                  case syncDriver: SyncNode => {
-                    if (syncDriver.getClockDomain.clock != consumerCockDomain.clock) {
-                      errors += s"Synchronous element ${syncNode.getScalaLocationStringShort} is drived by ${syncDriver.getScalaLocationStringShort} but they don't have the same clock domain. Register declaration at\n${syncNode.getScalaTraceString}"
+                if (!that.hasTag(crossClockDomain)) {
+                  that match {
+                    case syncDriver: SyncNode => {
+                      if (syncDriver.getClockDomain.clock != consumerCockDomain.clock) {
+                        errors += s"Synchronous element ${syncNode.getScalaLocationStringShort} is drived by ${syncDriver.getScalaLocationStringShort} but they don't have the same clock domain. Register declaration at\n${syncNode.getScalaTraceString}"
+                      }
                     }
+                    case _ => that.inputs.foreach(input => if (input != null) check(input))
                   }
-                  case _ => that.inputs.foreach(input => if (input != null) check(input))
                 }
               }
             }
@@ -754,7 +756,7 @@ class Backend {
     val walkedNodes = mutable.Set[Node]()
     val localNodes = mutable.Set[Node]()
     val stack = mutable.Stack[Node]()
-    val partialAssignements = mutable.Map[Node, AssignedBits]()  //Case where extract than assign different bits of the same signal
+    val partialAssignements = mutable.Map[Node, AssignedBits]() //Case where extract than assign different bits of the same signal
     val extractAssignements = mutable.Map[Node, AssignedBits]()
     while (!pendingNodes.isEmpty) {
       val pop = pendingNodes.pop()
@@ -810,15 +812,15 @@ class Backend {
               val notAllowedBits = extractAssignements.get(bv).get
               if (!AssignedBits.intersect(notAllowedBits, ab).isEmpty) {
                 continueLocalWith(node.inputs) //Continue => errors come at next iteration (wanted)
-              }else{
+              } else {
                 //Nothing to do, extract node inputs already walked
               }
-            }else{
+            } else {
               continueLocalWith(node.inputs)
             }
 
             pa.remove(ab)
-            if(pa.isEmpty) partialAssignements.remove(bv)
+            if (pa.isEmpty) partialAssignements.remove(bv)
           }
           case extract: Extract => {
             val bv = extract.getBitVector
@@ -831,20 +833,20 @@ class Backend {
               val notAllowedBits = partialAssignements.get(bv).get
               if (!AssignedBits.intersect(notAllowedBits, ab).isEmpty) {
                 continueLocalWith(node.inputs) //Continue => errors come at next iteration (wanted)
-              }else{
+              } else {
                 continueLocalWith(extract.getParameterNodes)
               }
-            }else{
+            } else {
               continueLocalWith(node.inputs)
             }
 
             ea.remove(ab)
-            if(ea.isEmpty) extractAssignements.remove(bv)
+            if (ea.isEmpty) extractAssignements.remove(bv)
           }
           case _ => continueLocalWith(node.inputs)
         }
 
-        def continueLocalWith(inputs : Iterable[Node]): Unit ={
+        def continueLocalWith(inputs: Iterable[Node]): Unit = {
           stack.push(node)
           for (in <- inputs) {
             walk(in)

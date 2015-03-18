@@ -428,12 +428,14 @@ class HandshakeCCByToggle[T <: Data](dataType: T, clockIn: ClockDomain, clockOut
 
     val handshake = io.input.clone
     handshake.valid := (target !== hit)
-    handshake.data := inputArea.data //TODO add to backend cross clock analysis the capability to check tags on signals
+    handshake.data := inputArea.data
+    handshake.data.addTag(crossClockDomain)
+
     when(handshake.fire) {
       hit := !hit
     }
 
-    io.output << handshake.m2sPipe(true)
+    io.output << handshake.m2sPipe
   }
 }
 
