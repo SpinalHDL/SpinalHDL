@@ -1,10 +1,28 @@
 About SpinalHDL
 ============
-
-
+SpinalHDL is a scala library that allows the user to describe his digital hardware and then generate the corresponding VHDL file.
+## Advantage over VHDL/Verilog
+- No restriction to the genericity of your hardware description by using Scala constructs
+- No more endless wiring. Create and connect complex buses like AXI in one line.
+- Evolving capabilities. Create your own buses definition and abstraction layer.
+- Reduce code size by a high factor, especially for wiring. Allowing you to have a better visibility, more productivity and fewer headaches.
+- Free and user friendly IDE. Thanks to scala world for auto-completion, error highlight, navigation shortcut and many others
+- Extract information from your digital design and then generate files that contain information about some latency and addresses
+- Bidirectional translation between any data type and bits. Useful to load a complex data structure from a CPU interface.
+- Check for you that there is no combinational loop / latch
+- Check that there is no user unintentional cross clock domain
 
 Getting started
 ===============
+## Basics
+- VHDL backend : The HDL is flushed into a synthesizable VHDL file
+- Base Types : Bool, Bits, UInt, SInt, Enumeration
+- Bundle : That allow you to describe a data structure with the possibility for each element to specify the direction (in,out). That is useful to describe bus
+- Reg : Create a register signal
+- Vec : That allow you to create an array of data
+- Mem : Give the possibility to manipulate memory
+- BlackBox : Allow you to instantiate a third party HDL component
+
 ## SBT
 
 ```scala
@@ -20,6 +38,7 @@ libraryDependencies ++= Seq(
 
     https://oss.sonatype.org/content/groups/public/com/github/spinalhdl/spinalhdl-core_2.11/
     https://oss.sonatype.org/content/groups/public/com/github/spinalhdl/spinalhdl-lib_2.11/
+
 
 Examples
 ===============
