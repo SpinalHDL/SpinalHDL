@@ -236,7 +236,7 @@ trait SpinalTagReady {
 }
 
 trait SpinalTag {
-
+  def isAssignedTo(that : SpinalTagReady) = that.hasTag(this)
 }
 
 object crossClockDomain extends SpinalTag

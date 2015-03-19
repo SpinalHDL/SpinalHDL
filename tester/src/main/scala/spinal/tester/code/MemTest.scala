@@ -78,10 +78,13 @@ object MemTest {
 
     val mem = new Mem(io.wrData, 1 << io.wrAddr.getWidth).setAsBlackBox
 
+    val commonAddress = io.wrAddr + spinal.core.UInt(3)
     when(io.cond0 && io.cond1) {
-      mem.write(io.wrAddr + spinal.core.UInt(1), io.wrData)
+   //   mem.write(io.wrAddr + spinal.core.UInt(1), io.wrData)
+      mem.write(commonAddress, io.wrData)
     }
-    val tmp = mem.readSync(io.rdAddr + spinal.core.UInt(2),io.cond2,readFirst)
+   // val tmp = mem.readSync(io.rdAddr + spinal.core.UInt(2),io.cond2,readFirst)
+    val tmp = mem.readSync(commonAddress,io.cond2,readFirst)
     io.rdData := tmp
     tmp.add(new AttributeString("myAttribut", "hallo"))
     tmp.add(new AttributeFlag("yolo"))

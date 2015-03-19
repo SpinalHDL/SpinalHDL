@@ -72,7 +72,7 @@ class Backend {
   protected def elaborate[T <: Component](topLevel: T): BackendReport[T] = {
     SpinalInfoPhase("Start analysis and transform")
 
-    remplaceMemByBlackBox
+    remplaceMemByBlackBox_simplifyWriteReadWithSameAddress
 
     addReservedKeyWordToScope(globalScope)
     addComponent(topLevel)
@@ -160,20 +160,41 @@ class Backend {
 
 
   //TODO  more
-  def remplaceMemByBlackBox: Unit = {
+  def remplaceMemByBlackBox_simplifyWriteReadWithSameAddress: Unit = {
     class MemTopo(val mem: Mem[_]) {
       val writes = ArrayBuffer[MemWrite]()
       val readsAsync = ArrayBuffer[MemReadAsync]()
       val readsSync = ArrayBuffer[MemReadSync]()
+      val writeReadSync = ArrayBuffer[(MemWrite,MemReadSync)]()
     }
     val memsTopo = mutable.Map[Mem[_], MemTopo]()
 
     def topoOf(mem: Mem[_]) = memsTopo.getOrElseUpdate(mem, new MemTopo(mem))
 
     walkNodes2(node => node match {
-      case write: MemWrite => topoOf(write.getMem).writes += write
+      case write: MemWrite => {
+        val memTopo = topoOf(write.getMem)
+        val readSync = memTopo.readsSync.find(readSync => readSync.originalAddress == write.originalAddress).getOrElse(null)
+        if(readSync == null){
+          memTopo.writes += write
+        } else {
+          memTopo.readsSync -= readSync
+          memTopo.writeReadSync += (write -> readSync)
+          readSync.sameAddressThan(write)
+        }
+      }
       case readAsync: MemReadAsync => topoOf(readAsync.getMem).readsAsync += readAsync
-      case readSync: MemReadSync => topoOf(readSync.getMem).readsSync += readSync
+      case readSync: MemReadSync => {
+        val memTopo = topoOf(readSync.getMem)
+        val write = memTopo.writes.find(write => readSync.originalAddress == write.originalAddress).getOrElse(null)
+        if(write == null){
+          memTopo.readsSync += readSync
+        } else {
+          memTopo.writes -= write
+          memTopo.writeReadSync += (write -> readSync)
+          readSync.sameAddressThan(write)
+        }
+      }
       case _ =>
     })
 
@@ -183,13 +204,14 @@ class Backend {
       if (topo.writes.size == 1 && topo.readsAsync.size == 1 && topo.readsSync.size == 0) {
         val wr = topo.writes(0)
         val rd = topo.readsAsync(0)
-        ClockDomain.push(wr.getClockDomain)
+        val clockDomain = wr.getClockDomain
+        clockDomain.push
         Component.push(mem.component)
+
         val ram = Component(new Ram_1c_1w_1ra(mem.getWidth, mem.wordCount, rd.writeToReadKind))
+        val enable = clockDomain.isClockEnableActive
 
-        // ram.io.clk := wr.getClockDomain.readClock
-
-        ram.io.wr.en := wr.getEnable.allowSimplifyIt
+        ram.io.wr.en := wr.getEnable.allowSimplifyIt && enable
         ram.io.wr.addr := wr.getAddress.allowSimplifyIt
         ram.io.wr.data := wr.getData.allowSimplifyIt
 
@@ -198,20 +220,24 @@ class Backend {
 
         ram.setCompositeName(mem)
         Component.pop(mem.component)
-        ClockDomain.pop(wr.getClockDomain)
+        clockDomain.pop
       } else if (topo.writes.size == 1 && topo.readsAsync.size == 0 && topo.readsSync.size == 1) {
         val wr = topo.writes(0)
         val rd = topo.readsSync(0)
         if (rd.getClockDomain.clock == wr.getClockDomain.clock) {
-          ClockDomain.push(wr.getClockDomain)
-          Component.push(mem.component)
-          val ram = Component(new Ram_1c_1w_1rs(mem.getWidth, mem.wordCount, rd.writeToReadKind))
+          val clockDomain = wr.getClockDomain
 
-          ram.io.wr.en := wr.getEnable.allowSimplifyIt
+          clockDomain.push
+          Component.push(mem.component)
+
+          val ram = Component(new Ram_1c_1w_1rs(mem.getWidth, mem.wordCount, rd.writeToReadKind)) //TODO manage with cross clock
+          val enable = clockDomain.isClockEnableActive
+
+          ram.io.wr.en := wr.getEnable.allowSimplifyIt && enable
           ram.io.wr.addr := wr.getAddress.allowSimplifyIt
           ram.io.wr.data := wr.getData.allowSimplifyIt
 
-          ram.io.rd.en := rd.getEnable.allowSimplifyIt
+          ram.io.rd.en := rd.getEnable.allowSimplifyIt && enable
           ram.io.rd.addr := rd.getAddress.allowSimplifyIt
           rd.getData.allowSimplifyIt := ram.io.rd.data
 
@@ -222,7 +248,7 @@ class Backend {
 
           ram.setCompositeName(mem)
           Component.pop(mem.component)
-          ClockDomain.pop(wr.getClockDomain)
+          clockDomain.pop
         }
       }
     }

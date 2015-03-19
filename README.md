@@ -15,7 +15,7 @@ SpinalHDL is a scala library that allows the user to describe his digital hardwa
 Getting started
 ===============
 ## Basics
-- VHDL backend : The HDL is flushed into a synthesizable VHDL file
+- VHDL backend : The digital hardware description is flushed into a synthesizable VHDL file
 - Base Types : Bool, Bits, UInt, SInt, Enumeration
 - Bundle : That allow you to describe a data structure with the possibility for each element to specify the direction (in,out). That is useful to describe bus
 - Reg : Create a register signal
