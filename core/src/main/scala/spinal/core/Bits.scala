@@ -52,7 +52,7 @@ class Bits extends BitVector {
   def >>(that: UInt): this.type = newBinaryOperator("b>>u", that, WidthInfer.shiftRightWidth, InputNormalize.none);
   def <<(that: UInt): this.type = newBinaryOperator("b<<u", that, WidthInfer.shiftLeftWidth, InputNormalize.none);
 
-  //def :=(bits: Bits): Unit = assignFrom(bits)
+  override def \(that: SSelf) = super.\(that)
   override def :=(that: SSelf): Unit = super.:=(that)
   override def <>(that: SSelf): Unit = super.<>(that)
 

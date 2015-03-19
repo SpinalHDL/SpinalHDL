@@ -38,6 +38,7 @@ class NoData extends Bundle{
 class Bundle extends MultiData with Nameable{
   override type SSelf = Bundle
 
+  override def \(that: SSelf) = super.\(that)
   override def :=(that: SSelf): Unit = super.:=(that)
   override def <>(that: SSelf): Unit = super.<>(that)
 

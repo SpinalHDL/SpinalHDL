@@ -65,7 +65,7 @@ class UInt extends BitVector with MinMaxProvider {
   override def minValue: BigInt = BigInt(0)
   override def maxValue: BigInt = (BigInt(1) << getWidth) - 1
 
-
+  override def \(that: SSelf) = super.\(that)
   override def :=(that: SSelf): Unit = super.:=(that)
   override def <>(that: SSelf): Unit = super.<>(that)
 

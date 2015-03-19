@@ -59,7 +59,7 @@ class CarryAdder(size : Int) extends Component{
   var c = Bool(false)                   //Carry, like a VHDL variable
   for (i <- 0 until size) {
     val a = io.a(i)
-    val b = io.a(i)
+    val b = io.b(i)
     io.result(i) := a ^ b ^ c
     c = (a & b) | (a & c) | (b & c);    //variable assignment
   }

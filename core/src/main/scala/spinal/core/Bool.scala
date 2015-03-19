@@ -49,7 +49,7 @@ class Bool extends BaseType {
   def |(b: Bool): Bool = this || b
 
 
-  //def := (bool : Bool): Unit = assignFrom(bool)
+  override def \(that: SSelf) = super.\(that)
   override def :=(that: SSelf): Unit = super.:=(that)
   override def <>(that: SSelf): Unit = super.<>(that)
 

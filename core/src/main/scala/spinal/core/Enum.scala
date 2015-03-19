@@ -32,6 +32,7 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T) extends BaseType {
 
   def assertSameType(than: SpinalEnumCraft[_]): Unit = if (blueprint != than.blueprint) SpinalError("Enum is assigned by a incompatible enum")
 
+  override def \(that: SSelf) = super.\(that)
   override def :=(that: SSelf): Unit = {
     assertSameType(that)
     super.:=(that)

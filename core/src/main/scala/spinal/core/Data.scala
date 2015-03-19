@@ -157,7 +157,6 @@ trait Data extends ContextUser with Nameable with Assignable with AttributeReady
   def pull: this.type = Data.doPull(this, Component.current, false, false)
 
   //Use as \= to have the same behavioral than VHDL variable
-  //TODO add into each Data kinds for bad code marked red by intelij
   def \(that: SSelf) = {
     val ret = that.clone()
     ret := this
