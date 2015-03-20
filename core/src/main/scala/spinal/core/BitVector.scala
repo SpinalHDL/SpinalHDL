@@ -20,9 +20,9 @@ package spinal.core
 
 abstract class BitVectorFactory[T <: BitVector] {
   def apply(): T
-  def apply(value: BigInt): T = BitsLiteral(value, -1, this())
+  def apply(value: LiteralInt): T = BitsLiteral(value.value, -1, this())
   def apply(width: BitCount): T = this().setWidth(width.value)
-  def apply(value: BigInt, width: BitCount): T = BitsLiteral(value, width.value, this().setWidth(width.value))
+  def apply(value: LiteralInt, width: BitCount): T = BitsLiteral(value.value, width.value, this().setWidth(width.value))
 }
 
 abstract class BitVector extends BaseType {

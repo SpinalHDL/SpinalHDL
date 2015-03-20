@@ -23,6 +23,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 case class BitCount(val value: Int) {}
+case class LiteralInt(val value: BigInt) {}
 
 trait IODirection {
   def applyIt[T <: Data](data: T): T

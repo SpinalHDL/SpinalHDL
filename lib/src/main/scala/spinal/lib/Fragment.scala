@@ -107,7 +107,7 @@ class FlowFragmentRouter(input: Flow[Fragment[Bits]], mapTo: Iterable[BigInt]) e
 
   outputs.foreach(_.data := input.data)
   when(input.isNotInTail) {
-    (enables, mapTo).zipped.foreach(_ := Bits(_) === input.data.fragment)
+    (enables, mapTo).zipped.foreach((en,filter) => en := Bits(filter lit) === input.data.fragment)
   } otherwise {
     (outputs, enables).zipped.foreach(_.valid := _)
   }

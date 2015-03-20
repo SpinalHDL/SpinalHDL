@@ -74,7 +74,7 @@ object Debug {
     memo = null
 
 
-    core.when(core.UInt(3, 4 bit) < core.UInt(5, 7 bit)) {
+    core.when(core.UInt(3 lit, 4 bit) < core.UInt(5 lit, 7 bit)) {
       io.outs(4) := core.Bool(false)
     }.otherwise {
       io.outs(4) := core.Bool(true)

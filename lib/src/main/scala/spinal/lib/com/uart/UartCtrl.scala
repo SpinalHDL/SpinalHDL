@@ -55,9 +55,9 @@ class UartCtrlTx(dataWidthMax: Int = 8, clockDividerWidth: Int = 24) extends Com
   val timer = new Area {
     val counter = Reg(io.clockDivider);
     val reset = Bool()
-    val tick = counter === UInt(0)
+    val tick = counter === UInt(0 lit)
 
-    counter := counter - UInt(1)
+    counter := counter - UInt(1 lit)
     when(tick || reset) {
       counter := io.clockDivider
     }
@@ -68,10 +68,10 @@ class UartCtrlTx(dataWidthMax: Int = 8, clockDividerWidth: Int = 24) extends Com
     val reset = Bool()
 
     when(timer.tick) {
-      value := value + UInt(1)
+      value := value + UInt(1 lit)
     }
     when(reset) {
-      value := UInt(0)
+      value := UInt(0 lit)
     }
   }
 
@@ -164,10 +164,10 @@ class UartCtrlRx(dataWidthMax: Int = 8, clockDividerWidth: Int = 21, preSampling
   }
 
   val clockDivider = new Area {
-    val counter = RegInit(UInt(0, clockDividerWidth bit))
-    val tick = counter === UInt(0)
+    val counter = RegInit(UInt(0 lit, clockDividerWidth bit))
+    val tick = counter === UInt(0 lit)
 
-    counter := counter - UInt(1)
+    counter := counter - UInt(1 lit)
     when(tick) {
       counter := io.clockDivider
     }
@@ -189,14 +189,14 @@ class UartCtrlRx(dataWidthMax: Int = 8, clockDividerWidth: Int = 21, preSampling
 
     tick := Bool(false)
     when(sampler.event) {
-      counter := counter - UInt(1)
-      when(counter === UInt(0)) {
+      counter := counter - UInt(1 lit)
+      when(counter === UInt(0 lit)) {
         tick := Bool(true)
-        counter := UInt(preSamplingSize + samplingSize + postSamplingSize - 1)
+        counter := UInt(preSamplingSize + samplingSize + postSamplingSize - 1 lit)
       }
     }
 
-    def reset: Unit = counter := UInt(preSamplingSize + (samplingSize - 1) / 2 - 1)
+    def reset: Unit = counter := UInt(preSamplingSize + (samplingSize - 1) / 2 - 1 lit)
     def value = sampler.value
   }
 
@@ -205,10 +205,10 @@ class UartCtrlRx(dataWidthMax: Int = 8, clockDividerWidth: Int = 21, preSampling
 
   val baudCounter = new Area {
     val value = Reg(UInt(Math.max(dataWidthMax, 2) bit))
-    def reset: Unit = value := UInt(0)
+    def reset: Unit = value := UInt(0 lit)
 
     when(baud.tick) {
-      value := value + UInt(1)
+      value := value + UInt(1 lit)
     }
   }
 

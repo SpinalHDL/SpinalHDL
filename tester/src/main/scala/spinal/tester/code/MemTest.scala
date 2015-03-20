@@ -78,7 +78,7 @@ object MemTest {
 
     val mem = new Mem(io.wrData, 1 << io.wrAddr.getWidth).setAsBlackBox
 
-    val commonAddress = io.wrAddr + spinal.core.UInt(3)
+    val commonAddress = io.wrAddr + spinal.core.UInt(3 lit)
     when(io.cond0 && io.cond1) {
    //   mem.write(io.wrAddr + spinal.core.UInt(1), io.wrData)
      // mem.write(commonAddress, io.wrData)

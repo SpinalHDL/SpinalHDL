@@ -26,7 +26,7 @@ object Bits extends BitsFactory{
   def apply(that : Data) : Bits = that.toBits //Any Data can be translated into Bits
 }
 object BitsSet{
-  def apply(bitCount: BitCount) = Bits((BigInt(1) << bitCount.value) - 1,bitCount)
+  def apply(bitCount: BitCount) = Bits((BigInt(1) << bitCount.value) - 1 lit,bitCount)
 }
 
 class BitsFactory extends BitVectorFactory[Bits] {
@@ -77,5 +77,5 @@ class Bits extends BitVector {
     }
   }
 
-  override def getZero: this.type = Bits(0).asInstanceOf[this.type]
+  override def getZero: this.type = Bits(0 lit).asInstanceOf[this.type]
 }

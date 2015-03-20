@@ -22,6 +22,22 @@ package spinal.core
  * Created by PIC18F on 21.08.2014.
  */
 
+abstract class BitVectorLiteralFactory[T <: BitVector] {
+  def apply(): T
+  def apply(value: BigInt): T = BitsLiteral(value, -1, this())
+  def apply(value: BigInt, width: BitCount): T = BitsLiteral(value, width.value, this().setWidth(width.value))
+}
+
+object BLit extends BitVectorLiteralFactory[Bits]{
+  def apply() = new Bits()
+}
+object ULit extends BitVectorLiteralFactory[UInt]{
+  def apply() = new UInt()
+}
+object SLit extends BitVectorLiteralFactory[SInt]{
+  def apply() = new SInt()
+}
+
 trait Literal extends Node {
   override def clone: this.type = ???
 }

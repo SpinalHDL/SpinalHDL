@@ -57,7 +57,7 @@ object CommonTester {
 
 
         def doit: Unit ={
-          bitDemux := Bits(0)
+          bitDemux := BLit(0)
           bitDemux(sel(0)) := conds(0)
           when(conds(1)){
             bitDemux(sel(1)) := conds(2)
@@ -82,19 +82,34 @@ object CommonTester {
     io.outAABits := io.inAA.toBits
 
 
-    val combAdder = new Area {
+    def combAdderFunc(x : UInt,y : UInt) = {
+      val ret = UInt(Math.max(widthOf(x),widthOf(y)) bit)
       val size = io.inUIntA.getWidth
-      val out = UInt(size bit)
-
       var c = Bool(false)
       for (i <- 0 until size) {
-        val a = io.inUIntA(i)
-        val b = io.inUIntB(i)
-        out(i) := a ^ b ^ c
+        val a = x(i)
+        val b = y(i)
+        ret(i) := a ^ b ^ c
         c = (a & b) | (a & c) | (b & c)
       }
-      io.outUIntAdder := out
+      ret
     }
+
+
+//    val combAdder = new Area {
+//      val size = io.inUIntA.getWidth
+//      val out = UInt(size bit)
+//
+//      var c = Bool(false)
+//      for (i <- 0 until size) {
+//        val a = io.inUIntA(i)
+//        val b = io.inUIntB(i)
+//        out(i) := a ^ b ^ c
+//        c = (a & b) | (a & c) | (b & c)
+//      }
+//      io.outUIntAdder := out
+//    }
+    io.outUIntAdder := combAdderFunc(io.inUIntA,io.inUIntB)
 
 
   }

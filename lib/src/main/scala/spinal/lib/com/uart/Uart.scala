@@ -21,8 +21,8 @@ object UartStopType extends SpinalEnum {
   val eStop1bit, eStop2bit = Value
 
   val toBitCount = SpinalMap(
-    (()=> eStop1bit()) -> (() => UInt(0)),
-    (()=> eStop2bit()) -> (() => UInt(1))
+    (()=> eStop1bit()) -> (() => UInt(0 lit)),
+    (()=> eStop2bit()) -> (() => UInt(1 lit))
   )
 }
 

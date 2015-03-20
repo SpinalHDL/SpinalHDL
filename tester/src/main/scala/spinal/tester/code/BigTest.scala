@@ -276,7 +276,7 @@ object BigTest {
 
 
   object u {
-    def °(b: Int) = UInt(3)
+    def °(b: Int) = UInt(3 lit)
 
 
     def apply() = true
@@ -285,7 +285,7 @@ object BigTest {
 
   class MyBlackBox extends BlackBox {
     val generic = new Generic {
-      val genA = UInt(1, 5 bit)
+      val genA = UInt(1 lit, 5 bit)
       val genB = Bool(false)
       val genC = 44
       val genD = "salut"
@@ -300,7 +300,7 @@ object BigTest {
   }
 
   object S {
-    def one = UInt(1)
+    def one = UInt(1 lit)
     def two = one + one
   }
 
@@ -454,7 +454,7 @@ object BigTest {
 
     io.masterHandshake connectFrom io.slaveHandshake
     io.masterHandshakeThrow connectFrom (io.slaveHandshake.throwWhen(io.cond1))
-    io.masterHandshakeUInt connectFrom (io.slaveHandshake translateWith UInt(3))
+    io.masterHandshakeUInt connectFrom (io.slaveHandshake translateWith UInt(3 lit))
     //io.masterHandshakeUInt.bits := UInt(2)
     //var myInt = WeekDay.c
     // myInt := WeekDay.Mon

@@ -27,7 +27,7 @@ class LogicAnalyser(p: LogicAnalyserParameter) extends Component {
   //io.packetSlave.isFirst
 
   val trigger = new Area {
-    val event = CounterFreeRun(16) === UInt(0)
+    val event = CounterFreeRun(16) === UInt(0 lit)
   }
 
   val probe = Cat(p.dataList.map(_.pull))
@@ -79,17 +79,17 @@ class LogicAnalyserLogger(p: LogicAnalyserParameter, probeType: Bits) extends Co
     val counter = Reg(mem.addressType)
 
     when(postEnable){
-      counter := counter - UInt(1)
+      counter := counter - UInt(1 lit)
     } otherwise{
       counter := config.samplesLeftAfterTrigger
     }
 
     when(preEnable || postEnable) {
       mem(memWriteAddress) := io.probe
-      memWriteAddress := memWriteAddress + UInt(1)
+      memWriteAddress := memWriteAddress + UInt(1 lit)
     }
 
-    val done = counter === UInt(0)
+    val done = counter === UInt(0 lit)
   }
 
 
@@ -104,23 +104,23 @@ class LogicAnalyserLogger(p: LogicAnalyserParameter, probeType: Bits) extends Co
     sampler.preEnable := Bool(true)
     when(io.trigger) {
       state := sSample
-      memReadAddress := memWriteAddress + config.samplesLeftAfterTrigger + UInt(2)
+      memReadAddress := memWriteAddress + config.samplesLeftAfterTrigger + UInt(2 lit)
     }
   }
   when(state === sSample) {
     sampler.postEnable := Bool(true)
     when(sampler.done) {
       state := sPush
-      pushCounter := UInt(0)
+      pushCounter := UInt(0 lit)
     }
   }
   when(state === sPush) {
     memReadCmd.valid := Bool(true)
     when(memReadCmd.ready) {
-      memReadAddress := memReadAddress + UInt(1)
-      pushCounter := pushCounter + UInt(1)
+      memReadAddress := memReadAddress + UInt(1 lit)
+      pushCounter := pushCounter + UInt(1 lit)
     }
-    when(pushCounter === UInt((1 << pushCounter.getWidth) - 1)) {
+    when(pushCounter === UInt((1 << pushCounter.getWidth) - 1 lit)) {
       memReadCmdIsLast := Bool(true)
       when(memReadCmd.ready) {
         state := sWaitTrigger

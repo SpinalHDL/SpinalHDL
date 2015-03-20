@@ -208,10 +208,10 @@ abstract class HandshakeArbiterCore[T <: Data](dataType: T, portCount: Int, allo
 
   //Route
   var outputValid = Bool(false)
-  var outputData = Bits(0)
+  var outputData = Bits(0 lit)
   for ((input, mask) <- (io.inputs, maskRouted).zipped) {
     outputValid = outputValid | input.valid
-    outputData = outputData | Mux(mask, input.data.toBits, Bits(0))
+    outputData = outputData | Mux(mask, input.data.toBits, Bits(0 lit))
     input.ready := mask & io.output.ready
   }
   io.output.valid := outputValid
@@ -278,7 +278,7 @@ class HandshakeDemux[T <: Data](dataType: T, portCount: Int) extends Component {
 
   for (i <- 0 to portCount - 1) {
     io.output(i).data := io.input.data
-    when(UInt(i) !== io.sel) {
+    when(UInt(i lit) !== io.sel) {
       io.output(i).valid := Bool(false)
     } otherwise {
       io.output(i).valid := io.input.valid
@@ -327,9 +327,9 @@ class HandshakeFifo[T <: Data](dataType: T, depth: Int) extends Component {
     io.occupancy := ((risingOccupancy && ptrMatch) ## ptrDif).toUInt
   else {
     when(ptrMatch) {
-      io.occupancy := Mux(risingOccupancy, UInt(depth), UInt(0))
+      io.occupancy := Mux(risingOccupancy, UInt(depth lit), UInt(0 lit))
     } otherwise {
-      io.occupancy := Mux(pushPtr > popPtr, ptrDif, UInt(depth) + ptrDif)
+      io.occupancy := Mux(pushPtr > popPtr, ptrDif, UInt(depth lit) + ptrDif)
     }
   }
 }
@@ -360,7 +360,7 @@ class HandshakeFifoCC[T <: Data](dataType: T, depth: Int, pushClockDomain: Clock
   val pushCC = new ClockingArea(pushClockDomain) {
     val pushPtr = Counter(depth << 1)
     val pushPtrGray = RegNext(toGray(pushPtr.valueNext))
-    val popPtrGray = BufferCC(popToPushGray, Bits(0))
+    val popPtrGray = BufferCC(popToPushGray, Bits(0 lit))
     val full = isFull(pushPtrGray, popPtrGray)
 
     io.push.ready := !full
@@ -375,7 +375,7 @@ class HandshakeFifoCC[T <: Data](dataType: T, depth: Int, pushClockDomain: Clock
   val popCC = new ClockingArea(popClockDomain) {
     val popPtr = Counter(depth << 1)
     val popPtrGray = RegNext(toGray(popPtr.valueNext))
-    val pushPtrGray = BufferCC(pushToPopGray, Bits(0))
+    val pushPtrGray = BufferCC(pushToPopGray, Bits(0 lit))
     val empty = isEmpty(popPtrGray, pushPtrGray)
 
     io.pop.valid := !empty

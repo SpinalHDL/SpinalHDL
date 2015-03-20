@@ -25,6 +25,17 @@ import java.util
 //return c
 
 
+object l{
+  def apply(value : Int) = println(value)
+}
+
+UInt of 3 bit
+  UInt at 4 of 3 bit
+UInt(4 lit,3 bit)
+
+when(myVar === UInt(4 lit))
+
+
 class MyClass(i: Int) {
   def +(j: Int) = new MyClass(j + i)
   def -(j: Int) = new MyClass(i - j)
