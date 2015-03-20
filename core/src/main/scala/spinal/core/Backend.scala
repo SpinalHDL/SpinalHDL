@@ -166,6 +166,7 @@ class Backend {
       val readsAsync = ArrayBuffer[MemReadAsync]()
       val readsSync = ArrayBuffer[MemReadSync]()
       val writeReadSync = ArrayBuffer[(MemWrite, MemReadSync)]()
+      val writeOrReadSync = ArrayBuffer[(MemWriteOrRead_writePart, MemWriteOrRead_readPart)]()
     }
     val memsTopo = mutable.Map[Mem[_], MemTopo]()
 
@@ -195,13 +196,25 @@ class Backend {
           readSync.sameAddressThan(write)
         }
       }
+      case writePart : MemWriteOrRead_writePart => {
+        val memTopo = topoOf(writePart.getMem)
+        if(memTopo.writeOrReadSync.count(_._1 == writePart) == 0){
+          memTopo.writeOrReadSync += (writePart -> writePart.readPart)
+        }
+      }
+      case readPart : MemWriteOrRead_readPart => {
+        val memTopo = topoOf(readPart.getMem)
+        if(memTopo.writeOrReadSync.count(_._2 == readPart) == 0){
+          memTopo.writeOrReadSync += (readPart.writePart -> readPart)
+        }
+      }
       case _ =>
     })
 
 
 
     for ((mem, topo) <- memsTopo.iterator if forceMemToBlackboxTranslation || mem.forceMemToBlackboxTranslation) {
-      if (topo.writes.size == 1 && topo.readsAsync.size == 1 && topo.readsSync.size == 0 && topo.writeReadSync.size == 0) {
+      if (topo.writes.size == 1 && topo.readsAsync.size == 1 && topo.readsSync.size == 0 && topo.writeReadSync.size == 0 && topo.writeOrReadSync.size == 0) {
         val wr = topo.writes(0)
         val rd = topo.readsAsync(0)
         val clockDomain = wr.getClockDomain
@@ -221,7 +234,7 @@ class Backend {
         ram.setCompositeName(mem)
         Component.pop(mem.component)
         clockDomain.pop
-      } else if (topo.writes.size == 1 && topo.readsAsync.size == 0 && topo.readsSync.size == 1 && topo.writeReadSync.size == 0) {
+      } else if (topo.writes.size == 1 && topo.readsAsync.size == 0 && topo.readsSync.size == 1 && topo.writeReadSync.size == 0 && topo.writeOrReadSync.size == 0) {
         val wr = topo.writes(0)
         val rd = topo.readsSync(0)
         if (rd.getClockDomain.clock == wr.getClockDomain.clock) {
@@ -250,7 +263,7 @@ class Backend {
           Component.pop(mem.component)
           clockDomain.pop
         }
-      } else if (topo.writes.size == 0 && topo.readsAsync.size == 0 && topo.readsSync.size == 0 && topo.writeReadSync.size == 1) {
+      } else if (topo.writes.size == 0 && topo.readsAsync.size == 0 && topo.readsSync.size == 0 && topo.writeReadSync.size == 1 && topo.writeOrReadSync.size == 0) {
         val wr = topo.writeReadSync(0)._1
         val rd = topo.writeReadSync(0)._2
         if (rd.getClockDomain.clock == wr.getClockDomain.clock) {
@@ -273,6 +286,29 @@ class Backend {
             val lit = ram.io.rd.en.getLiteral[BoolLiteral]
             lit == null || lit.value == false
           }
+
+          ram.setCompositeName(mem)
+          Component.pop(mem.component)
+          clockDomain.pop
+        }
+      } else if (topo.writes.size == 0 && topo.readsAsync.size == 0 && topo.readsSync.size == 0 && topo.writeReadSync.size == 0 && topo.writeOrReadSync.size == 1) {
+        val wr = topo.writeOrReadSync(0)._1
+        val rd = topo.writeOrReadSync(0)._2
+        if (rd.getClockDomain.clock == wr.getClockDomain.clock) {
+          val clockDomain = wr.getClockDomain
+
+          clockDomain.push
+          Component.push(mem.component)
+
+          val ram = Component(new Ram_1wors(mem.getWidth, mem.wordCount, rd.writeToReadKind)) //TODO manage with cross clock
+          val enable = clockDomain.isClockEnableActive
+
+          ram.io.addr := wr.getAddress.allowSimplifyIt
+          ram.io.cs := wr.getChipSelect.allowSimplifyIt && enable
+          ram.io.we := wr.getWriteEnable.allowSimplifyIt
+          ram.io.wrData := wr.getData.allowSimplifyIt
+
+          rd.getData.allowSimplifyIt := ram.io.rdData
 
           ram.setCompositeName(mem)
           Component.pop(mem.component)

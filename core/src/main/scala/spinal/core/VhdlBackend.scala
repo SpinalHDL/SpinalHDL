@@ -1219,6 +1219,26 @@ class VhdlBackend extends Backend with VhdlBase {
               def emitRead(tab: String) = ret ++= s"$tab${emitReference(memReadSync.consumers(0))} <= ${emitReference(memReadSync.getMem)}(to_integer(${emitReference(memReadSync.getAddress)}));\n"
 
             }
+
+            case memWrite  : MemWriteOrRead_writePart => {
+              val memReadSync = memWrite.readPart
+              if(memReadSync.writeToReadKind == writeFirst) SpinalError(s"Can't translate a MemWriteOrRead with writeFirst into VHDL $memReadSync")
+              if (memReadSync.writeToReadKind == dontCare) SpinalWarning(s"MemWriteOrRead with dontCare is as readFirst into VHDL $memReadSync")
+
+              ret ++= s"${tab}if ${emitReference(memWrite.getChipSelect)} = '1' then\n"
+              ret ++= s"${tab}  if ${emitReference(memWrite.getWriteEnable)} = '1' then\n"
+              emitWrite(tab + "    ")
+              ret ++= s"${tab}  end if;\n"
+              if(memReadSync.component.nodes.contains(memReadSync))
+                emitRead(tab + "  ")
+              ret ++= s"${tab}end if;\n"
+
+              def emitWrite(tab: String) = ret ++= s"$tab${emitReference(memWrite.getMem)}(to_integer(${emitReference(memWrite.getAddress)})) <= ${emitReference(memWrite.getData)};\n"
+              def emitRead(tab: String) = ret ++= s"$tab${emitReference(memReadSync.consumers(0))} <= ${emitReference(memReadSync.getMem)}(to_integer(${emitReference(memReadSync.getAddress)}));\n"
+            }
+            case memWriteRead_readPart : MemWriteOrRead_readPart => {
+
+            }
           }
           rootContext.emitContext(ret, tab)
         }

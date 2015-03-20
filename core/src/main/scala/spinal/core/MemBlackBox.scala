@@ -104,3 +104,31 @@ class Ram_1wrs(wordWidth: Int, wordCount: Int, writeToReadKind: MemWriteToReadKi
   }
   io.rd.data := mem.readSync(io.addr, io.rd.en)
 }
+
+
+
+
+
+class Ram_1wors(wordWidth: Int, wordCount: Int, writeToReadKind: MemWriteToReadKind = dontCare) extends BlackBox {
+  val generic = new Generic {
+    val wordCount = Ram_1wors.this.wordCount
+    val wordWidth = Ram_1wors.this.wordWidth
+    val readToWriteKind = writeToReadKind.toString
+  }
+
+  val io = new Bundle {
+    val clk = in Bool()
+
+    val cs = in Bool()
+    val we = in Bool()
+    val addr = in UInt (log2Up(wordCount) bit)
+    val wrData = in Bits (wordWidth bit)
+    val rdData = out Bits (wordWidth bit)
+  }
+
+  useCurrentClockDomain(io.clk)
+
+  //Following is not obligatory, just to describe blackbox logic
+  val mem = Mem(io.wrData, wordCount)
+  io.rdData := mem.writeOrReadSync(io.addr, io.wrData,io.cs,io.we,writeToReadKind)
+}

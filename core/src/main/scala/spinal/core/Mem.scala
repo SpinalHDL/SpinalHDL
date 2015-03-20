@@ -91,9 +91,10 @@ class Mem[T <: Data](val wordType: T, val wordCount: Int) extends Node with Name
 
     val addressBuffer = UInt(addressWidth bit).dontSimplifyIt
     addressBuffer := address
-    val readPort = new MemReadSync(this,address, addressBuffer, readBits, enable.dontSimplifyIt, writeToReadKind, ClockDomain.current)
+    val readPort = new MemReadSync(this, address, addressBuffer, readBits, enable.dontSimplifyIt, writeToReadKind, ClockDomain.current)
     readPort.compositeTagReady = readWord
-    readPort.addTag(crossClockDomain)
+    if(crossClock)
+      readPort.addTag(crossClockDomain)
 
     readBits.inputs(0) = readPort
     readWord.assignFromBits(readBits)
@@ -110,13 +111,38 @@ class Mem[T <: Data](val wordType: T, val wordCount: Int) extends Node with Name
     addressBuffer := address
     val dataBuffer = Bits(getWidth bit).dontSimplifyIt
     dataBuffer := data.toBits
-    val writePort = new MemWrite(this,address, addressBuffer, dataBuffer, when.getWhensCond(this).dontSimplifyIt, ClockDomain.current)
+    val writePort = new MemWrite(this, address, addressBuffer, dataBuffer, when.getWhensCond(this).dontSimplifyIt, ClockDomain.current)
     inputs += writePort
   }
 
+  //Asic friendly single port ram
+  def writeOrReadSync(address: UInt, writeData: T, chipSelect : Bool,writeEnable : Bool, writeToReadKind: MemWriteToReadKind = dontCare,crossClock: Boolean = false): T = {
+    val addressBuffer = UInt(addressWidth bit).dontSimplifyIt
+    addressBuffer := address
+    chipSelect.dontSimplifyIt
+    writeEnable.dontSimplifyIt
 
-  def writeReadSync(address: UInt, writeData: T, writeEnable: Bool, readEnable: Bool): Unit = {
 
+    val dataBuffer = Bits(getWidth bit).dontSimplifyIt
+    dataBuffer := writeData.toBits
+    val writePort = new MemWriteOrRead_writePart(this, addressBuffer, dataBuffer, chipSelect,writeEnable, ClockDomain.current)
+    inputs += writePort
+
+
+    val readBits = Bits(wordType.getBitsWidth bit)
+    val readWord = wordType.clone()
+    val readPort = new MemWriteOrRead_readPart(this, addressBuffer, readBits,  chipSelect,writeEnable, writeToReadKind, ClockDomain.current)
+    readPort.compositeTagReady = readWord
+    readBits.inputs(0) = readPort
+    readWord.assignFromBits(readBits)
+    if(crossClock)
+      readPort.addTag(crossClockDomain)
+
+
+    writePort.readPart = readPort;
+    readPort.writePart = writePort
+
+    readWord
   }
 }
 
@@ -139,7 +165,7 @@ object MemReadSync {
   def getEnableId: Int = 4
 }
 
-class MemReadSync(mem: Mem[_],val originalAddress: UInt, address: UInt, data: Bits, enable: Bool, val writeToReadKind: MemWriteToReadKind, clockDomain: ClockDomain) extends SyncNode(clockDomain) {
+class MemReadSync(mem: Mem[_], val originalAddress: UInt, address: UInt, data: Bits, enable: Bool, val writeToReadKind: MemWriteToReadKind, clockDomain: ClockDomain) extends SyncNode(clockDomain) {
   inputs += address
   inputs += enable
   inputs += mem
@@ -159,7 +185,8 @@ class MemReadSync(mem: Mem[_],val originalAddress: UInt, address: UInt, data: Bi
     return lit == null || lit.value == false
   }
 
-  def sameAddressThan(write : MemWrite): Unit ={ //Used by backed to symplify
+  def sameAddressThan(write: MemWrite): Unit = {
+    //Used by backed to symplify
     inputs(MemReadSync.getAddressId) = write.getAddress
   }
 
@@ -176,7 +203,7 @@ object MemWrite {
   def getEnableId: Int = 5
 }
 
-class MemWrite(mem: Mem[_],val originalAddress: UInt, address: UInt, data: Bits, enable: Bool, clockDomain: ClockDomain) extends SyncNode(clockDomain) {
+class MemWrite(mem: Mem[_], val originalAddress: UInt, address: UInt, data: Bits, enable: Bool, clockDomain: ClockDomain) extends SyncNode(clockDomain) {
   inputs += address
   inputs += data
   inputs += enable
@@ -198,28 +225,95 @@ class MemWrite(mem: Mem[_],val originalAddress: UInt, address: UInt, data: Bits,
   }
 }
 
+object MemWriteOrRead_writePart {
+  def getAddressId: Int = 3
+  def getDataId: Int = 4
+  def getChipSelectId: Int = 5
+  def getWriteEnableId: Int = 6
+}
 
-//object MemReadWrite {
-//  def getAddressId: Int = 3
-//  def getWriteDataId: Int = 4
-//  def getWriteEnableId: Int = 5
-//  def getReadEnableId: Int = 5
+class MemWriteOrRead_writePart(mem: Mem[_], address: UInt, data: Bits, chipSelect: Bool, writeEnable: Bool, clockDomain: ClockDomain) extends SyncNode(clockDomain) {
+  inputs += address
+  inputs += data
+  inputs += chipSelect
+  inputs += writeEnable
+
+  var readPart: MemWriteOrRead_readPart = null
+
+  override def getSynchronousInputs: ArrayBuffer[Node] = super.getSynchronousInputs ++= getAddress :: getData :: getChipSelect :: getWriteEnable :: Nil
+  override def isUsingReset: Boolean = false
+
+  def getMem = mem
+  def getAddress = inputs(MemWriteOrRead_writePart.getAddressId).asInstanceOf[UInt]
+  def getData = inputs(MemWriteOrRead_writePart.getDataId).asInstanceOf[Bits]
+  def getChipSelect = inputs(MemWriteOrRead_writePart.getChipSelectId).asInstanceOf[Bool]
+  def getWriteEnable = inputs(MemWriteOrRead_writePart.getWriteEnableId).asInstanceOf[Bool]
+
+  override def calcWidth: Int = getMem.calcWidth
+
+  //  def useWriteEnable: Boolean = {
+  //    val lit = getEnable.getLiteral[BoolLiteral]
+  //    return lit == null || lit.value == false
+  //  }
+}
+
+
+object MemWriteOrRead_readPart {
+  def getAddressId: Int = 3
+  def getChipSelectId: Int = 4
+  def getWriteEnableId: Int = 5
+}
+
+class MemWriteOrRead_readPart(mem: Mem[_], address: UInt, data: Bits, chipSelect: Bool, writeEnable: Bool, val writeToReadKind: MemWriteToReadKind, clockDomain: ClockDomain) extends SyncNode(clockDomain) {
+  inputs += address
+  inputs += chipSelect
+  inputs += writeEnable
+  inputs += mem
+
+  var writePart: MemWriteOrRead_writePart = null
+
+  override def getSynchronousInputs: ArrayBuffer[Node] = super.getSynchronousInputs ++= getMem :: getAddress :: getChipSelect :: getWriteEnable :: Nil
+  override def isUsingReset: Boolean = false
+
+  def getData = data
+  def getMem = mem
+  def getAddress = inputs(MemWriteOrRead_readPart.getAddressId).asInstanceOf[UInt]
+  def getChipSelect = inputs(MemWriteOrRead_readPart.getChipSelectId).asInstanceOf[Bool]
+  def getWriteEnable = inputs(MemWriteOrRead_readPart.getWriteEnableId).asInstanceOf[Bool]
+
+  override def calcWidth: Int = getMem.calcWidth
+
+  //  def useReadEnable: Boolean = {
+  //    val lit = getEnable.getLiteral[BoolLiteral]
+  //    return lit == null || lit.value == false
+  //  }
+
+}
+
+
+//object MemReadOrWrite {
+//  def getEnableId: Int = 3
+//  def getWriteElseReadId: Int = 4
+//  def getAddressId: Int = 5
+//  def getWriteDataId: Int = 6
+//
 //}
-
-//class MemReadWrite(mem: Mem[_], address: UInt, writeData: Bits, writeEnable: Bool, readEnable: Bool, clockDomain: ClockDomain) extends SyncNode(clockDomain) {
+//
+//class MemWriteOrReadSync(mem: Mem[_], address: UInt, writeData: Bits, enable: Bool, writeElseRead: Bool, clockDomain: ClockDomain) extends SyncNode(clockDomain) {
+//  inputs += enable
+//  inputs += writeElseRead
 //  inputs += address
 //  inputs += writeData
-//  inputs += writeEnable
 //
 //
 //  override def getSynchronousInputs: ArrayBuffer[Node] = super.getSynchronousInputs ++= getAddress :: getWriteData :: getWriteEnable :: getMem :: getReadEnable :: Nil
 //  override def isUsingReset: Boolean = false
 //
 //  def getMem = mem
-//  def getAddress = inputs(MemReadWrite.getAddressId).asInstanceOf[UInt]
-//  def getWriteData = inputs(MemReadWrite.getWriteDataId).asInstanceOf[Bits]
-//  def getWriteEnable = inputs(MemReadWrite.getWriteEnableId).asInstanceOf[Bool]
-//  def getReadEnable = inputs(MemReadWrite.getReadEnableId).asInstanceOf[Bool]
+//  def getAddress = inputs(MemReadOrWrite.getAddressId).asInstanceOf[UInt]
+//  def getWriteData = inputs(MemReadOrWrite.getWriteDataId).asInstanceOf[Bits]
+//  def getEnable = inputs(MemReadOrWrite.getEnableId).asInstanceOf[Bool]
+//  def getWriteOrRead = inputs(MemReadOrWrite.getWriteElseReadId).asInstanceOf[Bool]
 //
 //  override def calcWidth: Int = getMem.calcWidth
 //
