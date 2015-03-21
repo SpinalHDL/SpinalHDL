@@ -39,7 +39,8 @@ object SpinalBuild extends Build {
     base = file("debugger"),
     settings = defaultSettings ++ Seq(
       name := "SpinalHDL Debugger",
-      version := SpinalVersion.debugger
+      version := SpinalVersion.debugger,
+      publishTo := None
     )
   ) dependsOn (core,lib)
 

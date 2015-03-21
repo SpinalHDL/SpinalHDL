@@ -18,14 +18,6 @@
 
 package spinal.core
 
-abstract class BitVectorFactory2[T <: BitVector] {
-  def apply(): T
-  def apply(width: BitCount): T = this().setWidth(width.value)
-  @deprecated def apply(value: Int): T = apply(value)
-  @deprecated def apply(value: BigInt): T = BitsLiteral(value, -1, this())
-  @deprecated def apply(value: Int, width: BitCount): T = apply(value,width)
-  @deprecated def apply(value: BigInt, width: BitCount): T = BitsLiteral(value, width.value, this().setWidth(width.value))
-}
 
 abstract class BitVector extends BaseType {
   var fixedWidth = -1

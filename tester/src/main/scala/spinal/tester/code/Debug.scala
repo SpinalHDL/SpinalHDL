@@ -32,7 +32,7 @@ object Debug {
       val output2 = out UInt
 
       val boolTest = out (Reg(Bool))
-      val xx = out (u"16x0FF")
+      val xx = out UInt
 
 
     }

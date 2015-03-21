@@ -101,7 +101,15 @@ package object core extends BaseTypeFactory with BaseTypeCast{
       case 2 => {
         val radix = getRadix(split(0))
         val value = BigInt(split(1), radix)
-        return builder(value)
+        val minus = split(1).charAt(0) == '-'
+        val digitCount = split(1).size - (if(minus) 1 else 0)
+        radix match{
+          case 16 => return builder(value,digitCount*4 bit)
+          case 10 => return builder(value)
+          case 8 => return builder(value,digitCount*3 bit)
+          case 2 => return builder(value,digitCount bit)
+        }
+        return ???
       }
       case 3 => {
         val bitCount = split(0).toInt
