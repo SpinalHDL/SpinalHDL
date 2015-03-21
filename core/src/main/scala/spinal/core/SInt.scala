@@ -22,14 +22,15 @@ package spinal.core
  * Created by PIC18F on 21.08.2014.
  */
 
-object SInt extends SIntFactory{
-  def apply(that : Bool) : SInt = that.toSInt
-  def apply(that : Bits) : SInt = that.toSInt
-  def apply(that : UInt) : SInt = that.toSInt
+trait SIntCast{
+  def toSInt(that : Bool) : SInt = that.toSInt
+  def toSInt(that : Bits) : SInt = that.toSInt
+  def toSInt(that : UInt) : SInt = that.toSInt
 }
 
-class SIntFactory extends BitVectorFactory[SInt]{
-  def apply() = new SInt()
+trait SIntFactory{
+  def SInt = new SInt()
+  def SInt(width: BitCount): SInt = SInt.setWidth(width.value)
 }
 
 class SInt extends BitVector with MinMaxProvider {

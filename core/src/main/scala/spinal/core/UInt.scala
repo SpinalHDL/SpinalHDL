@@ -18,14 +18,15 @@
 
 package spinal.core
 
-object UInt extends UIntFactory {
-  def apply(that : Bool) : UInt = that.toUInt
-  def apply(that : Bits) : UInt = that.toUInt
-  def apply(that : SInt) : UInt = that.toUInt
+trait UIntCast{
+  def toUInt(that : Bool) : UInt = that.toUInt
+  def toUInt(that : Bits) : UInt = that.toUInt
+  def toUInt(that : SInt) : UInt = that.toUInt
 }
 
-class UIntFactory extends BitVectorFactory[UInt] {
-  def apply() = new UInt()
+trait UIntFactory{
+  def UInt = new UInt()
+  def UInt(width: BitCount): UInt = UInt.setWidth(width.value)
 }
 
 class UInt extends BitVector with MinMaxProvider {

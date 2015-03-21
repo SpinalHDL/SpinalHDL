@@ -45,13 +45,13 @@ class Backend {
 
 
     //Default clock
-    val clock = in.Bool()
+    val clock = in.Bool
     clock.setName("clk")
     // clock.isIo = true
     // BackendToComponentBridge.defaultClock = clock
 
     //Default reset
-    val reset = in.Bool()
+    val reset = in.Bool
     reset.setName("reset")
     // reset.isIo = true
     // BackendToComponentBridge.defaultReset = reset

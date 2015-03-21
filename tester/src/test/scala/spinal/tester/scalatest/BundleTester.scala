@@ -22,13 +22,13 @@ import spinal.core._
 
 object BundleTester {
   class BundleAA extends BundleA {
-    val b = Bool()
-    val d = Bool()
+    val b = Bool
+    val d = Bool
   }
 
   class BundleA extends Bundle {
-    val a = Bool()
-    val c = Bool()
+    val a = Bool
+    val c = Bool
   }
 }
 
@@ -36,7 +36,7 @@ import spinal.tester.scalatest.BundleTester._
 
 class BundleTester extends Component {
   val io = new Bundle {
-    val conds = in Vec(8, Bool())
+    val conds = in Vec(8, Bool)
 
     val inAA = in Vec(3, new BundleAA)
     val inA = in Vec(1, new BundleA)
@@ -45,7 +45,7 @@ class BundleTester extends Component {
   }
 
   val zero = new BundleAA
-  zero.flatten.foreach(_._2 := Bool(false))
+  zero.flatten.foreach(_._2 := False)
 
   when(io.conds(0)) {
     io.outAA := io.inAA(0)

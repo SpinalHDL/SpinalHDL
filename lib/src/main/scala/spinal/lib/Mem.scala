@@ -12,7 +12,7 @@ class MemPimped[T <: Data](mem : Mem[T]) {
   def handshakeReadSync[T2 <: Data](cmd: Handshake[UInt],linkedData : T2) = {
     val ret = Handshake(new HandshakeReadRetData(mem.wordType,linkedData))
 
-    val retValid = RegInit(Bool(false))
+    val retValid = RegInit(False)
     val retData = mem.readSync(cmd.data,cmd.ready)
     val retLinked = RegNextWhen(linkedData,cmd.ready)
 

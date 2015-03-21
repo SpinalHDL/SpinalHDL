@@ -21,7 +21,7 @@ package spinal.tester.scalatest
 import spinal.core._
 class WhenTester extends Component {
   val io = new Bundle {
-    val conds = in Vec(8, Bool())
+    val conds = in Vec(8, Bool)
     val data = in Vec(12, UInt(8 bit))
     val outDefault = out UInt (8 bit)
     val outComplex = out UInt (8 bit)

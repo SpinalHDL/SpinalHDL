@@ -25,25 +25,25 @@ object CommonTester {
 
   class BundleA extends Bundle {
     val bod = new Bundle {
-      val gggg = Bool()
+      val gggg = Bool
       val aosi = UInt(3 bit)
     }
-    val ahe = Bool()
-    val zwg = Bool()
+    val ahe = Bool
+    val zwg = Bool
   }
 
   class BundleAA extends BundleA {
-    val vsw = Bool()
+    val vsw = Bool
     val lwee = UInt(5 bit)
   }
 
   class CommonTester extends Component {
     val io = new Bundle {
-      val conds = in Vec(8, Bool())
+      val conds = in Vec(8, Bool)
 
       val inUIntA = in UInt (8 bit)
       val inUIntB = in UInt (8 bit)
-      val outUIntAdder = out UInt()
+      val outUIntAdder = out UInt
 
       val inAA = in(new BundleAA)
       val inAABits = in Bits (new BundleAA().getBitsWidth bit)
@@ -67,7 +67,7 @@ object CommonTester {
           when(conds(5)){
             bitDemux(sel(1)) := conds(6)
           }
-          bitDemux(5) := Bool(true)
+          bitDemux(5) := True
         }
       }
       def doit: Unit ={
@@ -101,7 +101,7 @@ object CommonTester {
 //      val size = io.inUIntA.getWidth
 //      val out = UInt(size bit)
 //
-//      var c = Bool(false)
+//      var c = False
 //      for (i <- 0 until size) {
 //        val a = io.inUIntA(i)
 //        val b = io.inUIntB(i)

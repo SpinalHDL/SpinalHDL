@@ -22,15 +22,17 @@ package spinal.core
  * Created by PIC18F on 16.01.2015.
  */
 
-object Bits extends BitsFactory{
-  def apply(that : Data) : Bits = that.toBits //Any Data can be translated into Bits
+trait BitsCast{
+  def toBits(that : Data) : Bits = that.toBits
 }
+
 object BitsSet{
   def apply(bitCount: BitCount) = b((BigInt(1) << bitCount.value) - 1,bitCount)
 }
 
-class BitsFactory extends BitVectorFactory[Bits] {
-  def apply() = new Bits()
+trait BitsFactory{
+  def Bits = new Bits()
+  def Bits(width: BitCount): Bits = Bits.setWidth(width.value)
 }
 
 class Bits extends BitVector {

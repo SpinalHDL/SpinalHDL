@@ -85,7 +85,7 @@ class Mem[T <: Data](val wordType: T, val wordCount: Int) extends Node with Name
     readWord
   }
 
-  def readSync(address: UInt, enable: Bool = Bool(true), writeToReadKind: MemWriteToReadKind = dontCare, crossClock: Boolean = false): T = {
+  def readSync(address: UInt, enable: Bool = True, writeToReadKind: MemWriteToReadKind = dontCare, crossClock: Boolean = false): T = {
     val readBits = Bits(wordType.getBitsWidth bit)
     val readWord = wordType.clone()
 
@@ -102,7 +102,7 @@ class Mem[T <: Data](val wordType: T, val wordCount: Int) extends Node with Name
     readWord
   }
 
-  def readSyncCC(address: UInt, enable: Bool = Bool(true), writeToReadKind: MemWriteToReadKind = dontCare): T = {
+  def readSyncCC(address: UInt, enable: Bool = True, writeToReadKind: MemWriteToReadKind = dontCare): T = {
     readSync(address, enable, writeToReadKind, true)
   }
 

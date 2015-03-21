@@ -4,9 +4,9 @@ import spinal.core._
 
 class CounterWithParity(size : Int) extends Component{
   val io = new Bundle{
-    val increment = in Bool()
+    val increment = in Bool
     val value = out UInt(size bit)
-    val evenParity = out Bool()
+    val evenParity = out Bool
   }
 
   val counter = RegInit(u(0,size bit))

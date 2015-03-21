@@ -18,15 +18,15 @@
 
 package spinal.core
 
-object Bool extends BoolFactory{
-  def apply(that : Bits) : Bool = that(0)
-  def apply(that : UInt) : Bool = that(0)
-  def apply(that : SInt) : Bool = that(0)
+trait BoolCast{
+  def toBool(that : Bits) : Bool = that(0)
+  def toBool(that : UInt) : Bool = that(0)
+  def toBool(that : SInt) : Bool = that(0)
 }
 
-class BoolFactory {
-  def apply() : Bool = new Bool()
-  def apply(value : Boolean) : Bool = BoolLiteral(value,apply())
+trait BoolFactory {
+  def Bool : Bool = new Bool
+  def Bool(value : Boolean) : Bool = BoolLiteral(value,Bool)
 }
 
 
@@ -53,8 +53,8 @@ class Bool extends BaseType {
   override def :=(that: SSelf): Unit = super.:=(that)
   override def <>(that: SSelf): Unit = super.<>(that)
 
-  def set = this := Bool(true)
-  def clear = this := Bool(false)
+  def set = this := True
+  def clear = this := False
 
   override def newMultiplexor(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,B,B)",sel,whenTrue,whenFalse)
 
@@ -72,5 +72,5 @@ class Bool extends BaseType {
   def toSInt : SInt = toBits.toSInt
 
 
-  override def getZero: this.type = Bool(false).asInstanceOf[this.type]
+  override def getZero: this.type = False.asInstanceOf[this.type]
 }

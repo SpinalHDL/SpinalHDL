@@ -10,10 +10,10 @@ class Ram_1c_1w_1ra(wordWidth: Int, wordCount: Int, writeToReadKind: MemWriteToR
   }
 
   val io = new Bundle {
-    val clk = in Bool()
+    val clk = in Bool
 
     val wr = new Bundle {
-      val en = in Bool()
+      val en = in Bool
       val addr = in UInt (log2Up(wordCount) bit)
       val data = in Bits (wordWidth bit)
     }
@@ -42,15 +42,15 @@ class Ram_1c_1w_1rs(wordWidth: Int, wordCount: Int, writeToReadKind: MemWriteToR
   }
 
   val io = new Bundle {
-    val clk = in Bool()
+    val clk = in Bool
 
     val wr = new Bundle {
-      val en = in Bool()
+      val en = in Bool
       val addr = in UInt (log2Up(wordCount) bit)
       val data = in Bits (wordWidth bit)
     }
     val rd = new Bundle {
-      val en = in Bool()
+      val en = in Bool
       val addr = in UInt (log2Up(wordCount) bit)
       val data = out Bits (wordWidth bit)
     }
@@ -79,16 +79,16 @@ class Ram_1wrs(wordWidth: Int, wordCount: Int, writeToReadKind: MemWriteToReadKi
   }
 
   val io = new Bundle {
-    val clk = in Bool()
+    val clk = in Bool
 
     val addr = in UInt (log2Up(wordCount) bit)
 
     val wr = new Bundle {
-      val en = in Bool()
+      val en = in Bool
       val data = in Bits (wordWidth bit)
     }
     val rd = new Bundle {
-      val en = in Bool()
+      val en = in Bool
       val data = out Bits (wordWidth bit)
     }
   }
@@ -117,10 +117,10 @@ class Ram_1wors(wordWidth: Int, wordCount: Int, writeToReadKind: MemWriteToReadK
   }
 
   val io = new Bundle {
-    val clk = in Bool()
+    val clk = in Bool
 
-    val cs = in Bool()
-    val we = in Bool()
+    val cs = in Bool
+    val we = in Bool
     val addr = in UInt (log2Up(wordCount) bit)
     val wrData = in Bits (wordWidth bit)
     val rdData = out Bits (wordWidth bit)

@@ -33,7 +33,7 @@ object OHToUInt {
     if (boolsSize < 2) return u(0)
 
     val retBitCount = log2Up(bools.size)
-    val ret = Vec(retBitCount, Bool())
+    val ret = Vec(retBitCount, Bool)
 
     for (retBitId <- 0 until retBitCount) {
       var bit: Bool = null
@@ -52,7 +52,7 @@ object OHToUInt {
 
 object toGray{
   def apply(uint : UInt): Bits ={
-    Bits((uint >> u(1)) ^ uint)
+    toBits((uint >> u(1)) ^ uint)
   }
 }
 
@@ -75,8 +75,8 @@ object fromGray{
 //  implicit def implicitValue(f: Flag) = f.value
 //}
 //class Flag extends Area{
-//  val value = Bool(false)
-//  def set = value := Bool(true)
+//  val value = False
+//  def set = value := True
 //}
 
 object CounterFreeRun {
@@ -100,7 +100,7 @@ object Counter {
 class Counter(val stateCount: Int,freeRun : Boolean = false) extends Area {
   val inc = Bool(freeRun)
   def ++(): UInt = {
-    inc := Bool(true)
+    inc := True
     valueNext
   }
 
@@ -128,7 +128,7 @@ object MajorityVote {
   def apply(that: collection.IndexedSeq[Bool]): Bool = {
     val size = that.size
     val trigger = that.size / 2 + 1
-    var ret = Bool(false)
+    var ret = False
     for (i <- BigInt(0) until (BigInt(1) << size)) {
       if (i.bitCount == trigger) {
         val bits = ArrayBuffer[Bool]()

@@ -49,12 +49,12 @@ class UartCtrlTx(dataWidthMax: Int = 8, clockDividerWidth: Int = 24) extends Com
     val config = in(new UartCtrlConfig(dataWidthMax))
     val clockDivider = in UInt (clockDividerWidth bit)
     val write = slave Handshake (Bits(dataWidthMax bit))
-    val txd = out Bool()
+    val txd = out Bool
   }
 
   val timer = new Area {
     val counter = Reg(io.clockDivider);
-    val reset = Bool()
+    val reset = Bool
     val tick = counter === 0
 
     counter := counter - 1
@@ -65,7 +65,7 @@ class UartCtrlTx(dataWidthMax: Int = 8, clockDividerWidth: Int = 24) extends Com
 
   val tickCounter = new Area {
     val value = Reg(UInt(Math.max(dataWidthMax, 2) bit));
-    val reset = Bool()
+    val reset = Bool
 
     when(timer.tick) {
       value := value + 1
@@ -80,37 +80,37 @@ class UartCtrlTx(dataWidthMax: Int = 8, clockDividerWidth: Int = 24) extends Com
     import UartCtrlTxState._
 
     val state = RegInit(sIdle())
-    val paritySum = Reg(Bool());
+    val paritySum = Reg(Bool);
     val dataBuffer = Reg(io.write.data)
 
-    val lookingForJob = Bool()
-    val txd = Bool()
+    val lookingForJob = Bool
+    val txd = Bool
 
     when(timer.tick) {
       paritySum := paritySum ^ txd
     }
 
-    lookingForJob := Bool(false)
-    tickCounter.reset := Bool(false)
-    timer.reset := Bool(false)
-    txd := Bool(true)
+    lookingForJob := False
+    tickCounter.reset := False
+    timer.reset := False
+    txd := True
     switch(state) {
       is(sIdle) {
-        lookingForJob := Bool(true)
+        lookingForJob := True
       }
       is(sStart) {
-        txd := Bool(false)
+        txd := False
         when(timer.tick) {
           state := sData
           paritySum := io.config.parity === eParityOdd
-          tickCounter.reset := Bool(true)
+          tickCounter.reset := True
         }
       }
       is(sData) {
         txd := dataBuffer(tickCounter.value)
         when(timer.tick) {
           when(tickCounter.value === io.config.dataLength) {
-            tickCounter.reset := Bool(true)
+            tickCounter.reset := True
             when(io.config.parity === eParityNone) {
               state := sStop
             } otherwise {
@@ -123,29 +123,29 @@ class UartCtrlTx(dataWidthMax: Int = 8, clockDividerWidth: Int = 24) extends Com
         txd := paritySum
         when(timer.tick) {
           state := sStop
-          tickCounter.reset := Bool(true)
+          tickCounter.reset := True
         }
       }
       is(sStop) {
         when(timer.tick) {
           when(tickCounter.value === toBitCount(io.config.stop)) {
             state := sIdle
-            lookingForJob := Bool(true)
+            lookingForJob := True
           }
         }
       }
     }
 
-    io.write.ready := Bool(false)
+    io.write.ready := False
     when(lookingForJob && io.write.valid) {
-      io.write.ready := Bool(true)
-      timer.reset := Bool(true)
+      io.write.ready := True
+      timer.reset := True
       dataBuffer := io.write.data
       state := sStart
     }
   }
 
-  io.txd := RegNext(stateMachine.txd, Bool(true))
+  io.txd := RegNext(stateMachine.txd, True)
 
 }
 
@@ -161,7 +161,7 @@ class UartCtrlRx(dataWidthMax: Int = 8, clockDividerWidth: Int = 21, preSampling
     val config = in(new UartCtrlConfig(dataWidthMax))
     val clockDivider = in UInt (clockDividerWidth bit)
     val read = master Flow (Bits(dataWidthMax bit))
-    val rxd = in Bool()
+    val rxd = in Bool
   }
 
   val clockDivider = new Area {
@@ -186,13 +186,13 @@ class UartCtrlRx(dataWidthMax: Int = 8, clockDividerWidth: Int = 21, preSampling
 
   val baud = new Area {
     val counter = Reg(UInt(log2Up(preSamplingSize + samplingSize + postSamplingSize) bit))
-    val tick = Bool()
+    val tick = Bool
 
-    tick := Bool(false)
+    tick := False
     when(sampler.event) {
       counter := counter - 1
       when(0 === counter) {
-        tick := Bool(true)
+        tick := True
         counter := u(preSamplingSize + samplingSize + postSamplingSize - 1)
       }
     }
@@ -220,7 +220,7 @@ class UartCtrlRx(dataWidthMax: Int = 8, clockDividerWidth: Int = 21, preSampling
     //implicit def valueToCraft[T <: SpinalEnum](element: SpinalEnumElement[T])= element.craft()
 
     val state = RegInit(sIdle())
-    val paritySum = Reg(Bool())
+    val paritySum = Reg(Bool)
     val dataBuffer = Reg(io.read.data)
 
     when(baud.tick) {

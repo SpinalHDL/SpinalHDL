@@ -76,9 +76,9 @@ object BigTest {
 
   class ComponentAA extends Component {
     val io = new Bundle {
-      val e = new Bool().asInput
-      val f = new Bool().asOutput
-      val g = new Bool().asOutput
+      val e = Bool.asInput
+      val f = Bool.asOutput
+      val g = Bool.asOutput
     }
     io.g := io.e
     io.f := io.g
@@ -87,8 +87,8 @@ object BigTest {
   /*
     class ComponentA extends Component {
       val io = new Bundle {
-        val a = new Bool().asInput
-        val b = new Bool().asOutput
+        val a = Bool.asInput
+        val b = Bool.asOutput
         val x = new UInt().asInput
         val y = new UInt().asInput
         val z = new UInt().asOutput
@@ -118,8 +118,8 @@ object BigTest {
 
   class ComponentAAA extends Component {
     val io = new Bundle {
-      val in = (new Bool().asInput)
-      val out = new Bool().asOutput
+      val in = (Bool.asInput)
+      val out = Bool.asOutput
     }
 
     val r1 = (io.in.clone);
@@ -128,7 +128,7 @@ object BigTest {
     when(io.in) {
       r1 := RegNext(r1 && tempSignal2)
     } otherwise {
-      r1 := Bool(true)
+      r1 := True
     }
     io.out := r1
 
@@ -137,8 +137,8 @@ object BigTest {
 
   class ComponentAA extends Component {
     val io = new Bundle {
-      val in = (new Bool()).asInput
-      val out = new Bool().asOutput
+      val in = (new Bool).asInput
+      val out = Bool.asOutput
     }
     val AAA = Component(new ComponentAAA)
     AAA.io.in := io.in
@@ -165,8 +165,8 @@ object BigTest {
     val v5 = io.in.clone;
     v5 := io.in
 
-    val res = RegInit(Bool(true))
- //   val res = (Bool())
+    val res = RegInit(True)
+ //   val res = (Bool)
 
 
     nameElements()
@@ -206,8 +206,8 @@ object BigTest {
 
   class ComponentABA extends Component {
     val io = new Bundle {
-      val in = new Bool().asInput
-      val out = new Bool().asOutput
+      val in = Bool.asInput
+      val out = Bool.asOutput
     }
     // io.out := ClockDomain.current.clock
     val temp = io.in.clone
@@ -217,8 +217,8 @@ object BigTest {
 
   class ComponentAB extends Component {
     val io = new Bundle {
-      val in = new Bool().asInput
-      val out = new Bool().asOutput
+      val in = Bool.asInput
+      val out = Bool.asOutput
     }
     val ABA = Component(new ComponentABA)
     ABA.io.in := io.in
@@ -226,21 +226,21 @@ object BigTest {
   }
 
   class BundleAA extends BundleA {
-    val a = new Bool()
-    val d = new Bool()
+    val a = new Bool
+    val d = new Bool
     val e = MyEnum.craft()
   }
 
 
   class BundleA extends Bundle {
-    val b = new Bool()
+    val b = new Bool
     val c = UInt(8 bit)
   }
 
   class RecursiveComponent(n: Int) extends Component {
     val io = new Bundle {
-      val input = (in.Bool())
-      val output = (out.Bool())
+      val input = (in.Bool)
+      val output = (out.Bool)
     }
 
     val subComponent = (0 until n).map(i => {
@@ -280,7 +280,7 @@ object BigTest {
   class MyBlackBox extends BlackBox {
     val generic = new Generic {
       val genA = u(1, 5 bit)
-      val genB = Bool(false)
+      val genB = False
       val genC = 44
       val genD = "salut"
       val genE = "miaou"
@@ -316,29 +316,29 @@ object BigTest {
   class ComponentA extends Component {
 
     val io = new Bundle {
-      val myClock = new Bool().asInput
-      val myReset = new Bool().asInput
-      //   val in = new Bool().asInput
-      val cond0 = in.Bool()
-      val cond1 = new Bool().asInput
-      val cond2 = new Bool().asInput
-      val cond3 = new Bool().asInput
-      val cond4 = new Bool().asInput
-      val cond5 = new Bool().asInput
+      val myClock = Bool.asInput
+      val myReset = Bool.asInput
+      //   val in = Bool.asInput
+      val cond0 = in.Bool
+      val cond1 = Bool.asInput
+      val cond2 = Bool.asInput
+      val cond3 = Bool.asInput
+      val cond4 = Bool.asInput
+      val cond5 = Bool.asInput
       val inu4b = in UInt (4 bit)
       val inu8b = in UInt (8 bit)
       // val c = in UInt (5 bit)
       //  val d = in UInt (5 bit)
       //  val o = out UInt (5 bit)
 
-      val outu = Reg(out.UInt())
+      val outu = Reg(out UInt)
 
       //      val default = new UInt().asInput
       //      // val outSInt = new SInt().asOutput
       //      //   val out = new UInt().asOutput
       //      //   val out2 = new UInt().asOutput
-      val outBool = new Bool().asOutput
-      val outBool2 = new Bool().asOutput
+      val outBool = Bool.asOutput
+      val outBool2 = Bool.asOutput
       //
       //
       val inBundle0 = new BundleAA().asInput
@@ -354,7 +354,7 @@ object BigTest {
       //
       //
       // val outBool = out.Bool.apply()
-      //      //  val outBool = out.Bool()
+      //      //  val outBool = out.Bool
       //
       //      // val outUInt = out.UInt (0)
       //
@@ -375,9 +375,9 @@ object BigTest {
       val outEnum2 = out(MyEnum)
       val outEnum22 = out(MyEnum2)
       val outEnumFromBits = out(MyEnum)
-      val outEnumBits = out.Bits()
-      val outEnumBool = out.Bool()
-      val outEnumBool2 = out.Bool()
+      val outEnumBits = out Bits
+      val outEnumBool = out.Bool
+      val outEnumBool2 = out.Bool
 
 
       val inBundleToBits = in(new BundleAA)
@@ -393,7 +393,7 @@ object BigTest {
 
       val inType = in SInt (4 bit)
       val outType = out UInt (4 bit)
-      //  val outBool = out.Bool()
+      //  val outBool = out.Bool
 
 
       /* val inShiftVec = in UInt (4 bit)
@@ -410,7 +410,7 @@ object BigTest {
 
 
     var regBundle = Reg(io.inRegBundle)
-    regBundle.d.init(Bool(false))
+    regBundle.d.init(False)
     regBundle := io.inRegBundle
     io.outRegBundle := regBundle
 
@@ -432,9 +432,9 @@ object BigTest {
     // io := io.inBundle0
     /*  val s = new mutable.ArrayBuffer[Vec[Data]]
         s += Vec.fill(4)(UInt())
-        s += Vec.fill(4)(Bool())*/
-    val a = Vec.fill(4)(UInt())
-    val b = Vec.fill(4)(Bool())
+        s += Vec.fill(4)(Bool)*/
+    val a = Vec.fill(4)(UInt)
+    val b = Vec.fill(4)(Bool)
 
 
     // a := b
@@ -490,7 +490,7 @@ object BigTest {
     println(io.inVecU.getBitsWidth)
 
 
-    var reg = (UInt()).dontSimplifyIt
+    var reg = (UInt).dontSimplifyIt
     reg := io.inu4b + io.inu4b
     io.outu := reg
 

@@ -19,8 +19,8 @@ class HandshakeFactory extends MSFactory {
 object Handshake extends HandshakeFactory
 
 class Handshake[T <: Data](dataType: T) extends Bundle with Interface with DataCarrier[T]{
-  val valid = Bool()
-  val ready = Bool()
+  val valid = Bool
+  val ready = Bool
   val data : T = dataType.clone()
 
   override def clone: this.type = Handshake(dataType).asInstanceOf[this.type]
@@ -34,7 +34,7 @@ class Handshake[T <: Data](dataType: T) extends Bundle with Interface with DataC
 
   override def asSlave: this.type = asMaster.flip
 
-  override def freeRun: Unit = ready := Bool(true)
+  override def freeRun: Unit = ready := True
 
   def toFlow : Flow[T] = {
     freeRun
@@ -108,7 +108,7 @@ class Handshake[T <: Data](dataType: T) extends Bundle with Interface with DataC
   def m2sPipe(crossClockData: Boolean): Handshake[T] = {
     val ret = Handshake(dataType)
 
-    val rValid = RegInit(Bool(false))
+    val rValid = RegInit(False)
     val rData = Reg(dataType)
     if (crossClockData) rData.addTag(crossClockDomain)
 
@@ -129,7 +129,7 @@ class Handshake[T <: Data](dataType: T) extends Bundle with Interface with DataC
   def s2mPipe: Handshake[T] = {
     val ret = Handshake(dataType)
 
-    val rValid = RegInit(Bool(false))
+    val rValid = RegInit(False)
     val rBits = Reg(dataType)
 
     ret.valid := this.valid || rValid
@@ -137,7 +137,7 @@ class Handshake[T <: Data](dataType: T) extends Bundle with Interface with DataC
     ret.data := Mux(rValid, rBits, this.data)
 
     when(ret.ready) {
-      rValid := Bool(false)
+      rValid := False
     }
 
     when(this.ready && (!ret.ready)) {
@@ -168,8 +168,8 @@ class Handshake[T <: Data](dataType: T) extends Bundle with Interface with DataC
 
     next connectFrom this
     when(cond) {
-      next.valid := Bool(false)
-      this.ready := Bool(true)
+      next.valid := False
+      this.ready := True
     }
     next
   }
@@ -188,26 +188,26 @@ class HandshakeArbiterCoreIO[T <: Data](dataType: T, portCount: Int) extends Bun
 abstract class HandshakeArbiterCore[T <: Data](dataType: T, portCount: Int, allowSwitchWithoutConsumption: Boolean) extends Component {
   val io = new HandshakeArbiterCoreIO(dataType, portCount)
 
-  val locked = RegInit(Bool(false))
+  val locked = RegInit(False)
 
-  val maskProposal = Vec(portCount, Bool())
-  val maskLocked = Reg(Vec(portCount, Bool()))
+  val maskProposal = Vec(portCount, Bool)
+  val maskLocked = Reg(Vec(portCount, Bool))
   val maskRouted = if (allowSwitchWithoutConsumption) maskProposal else Mux(locked, maskLocked, maskProposal)
 
 
   when(io.output.valid) {
     //Lock
-    locked := Bool(true)
+    locked := True
     maskLocked := maskRouted
   }
   when(io.output.ready) {
     //unlock
-    locked := Bool(false)
+    locked := False
   }
 
 
   //Route
-  var outputValid = Bool(false)
+  var outputValid = False
   var outputData = b(0)
   for ((input, mask) <- (io.inputs, maskRouted).zipped) {
     outputValid = outputValid | input.valid
@@ -230,7 +230,7 @@ abstract class HandshakeArbiterCore[T <: Data](dataType: T, portCount: Int, allo
 
 //TODOTEST
 class HandshakeArbiterPriorityImpl[T <: Data](dataType: T, portCount: Int, allowSwitchWithoutConsumption: Boolean = false) extends HandshakeArbiterCore(dataType, portCount, allowSwitchWithoutConsumption) {
-  var search = Bool(true)
+  var search = True
   for (i <- 0 to portCount - 2) {
     maskProposal(i) := search & io.inputs(i).valid
     search = search & !io.inputs(i).valid
@@ -245,12 +245,12 @@ class HandshakeFork[T <: Data](dataType: T, portCount: Int) extends Component {
     val in = slave Handshake (dataType)
     val out = Vec(portCount, master Handshake (dataType))
   }
-  val linkEnable = Vec(portCount, RegInit(Bool(true)))
+  val linkEnable = Vec(portCount, RegInit(True))
 
-  io.in.ready := Bool(true)
+  io.in.ready := True
   for (i <- (0 to portCount - 1)) {
     when(!io.out(i).ready && linkEnable(i)) {
-      io.in.ready := Bool(false)
+      io.in.ready := False
     }
   }
 
@@ -258,12 +258,12 @@ class HandshakeFork[T <: Data](dataType: T, portCount: Int) extends Component {
     io.out(i).valid := io.in.valid && linkEnable(i)
     io.out(i).data := io.in.data
     when(io.out(i).fire) {
-      linkEnable(i) := Bool(false)
+      linkEnable(i) := False
     }
   }
 
   when(io.in.ready) {
-    linkEnable.map(_ := Bool(true))
+    linkEnable.map(_ := True)
   }
 }
 
@@ -274,12 +274,12 @@ class HandshakeDemux[T <: Data](dataType: T, portCount: Int) extends Component {
     val input = slave Handshake (dataType)
     val output = Vec(portCount, master Handshake (dataType))
   }
-  io.input.ready := Bool(false)
+  io.input.ready := False
 
   for (i <- 0 to portCount - 1) {
     io.output(i).data := io.input.data
     when(u(i) !== io.sel) {
-      io.output(i).valid := Bool(false)
+      io.output(i).valid := False
     } otherwise {
       io.output(i).valid := io.input.valid
       io.input.ready := io.output(i).ready
@@ -301,14 +301,14 @@ class HandshakeFifo[T <: Data](dataType: T, depth: Int) extends Component {
   val pushPtr = Counter(depth)
   val popPtr = Counter(depth)
   val ptrMatch = pushPtr === popPtr
-  val risingOccupancy = RegInit(Bool(false))
+  val risingOccupancy = RegInit(False)
   val pushing = io.push.fire
   val popping = io.pop.fire
   val empty = ptrMatch & !risingOccupancy
   val full = ptrMatch & risingOccupancy
 
   io.push.ready := !full
-  io.pop.valid := !empty & !(RegNext(popPtr.valueNext === pushPtr, Bool(false)) & !full) //mem write to read propagation
+  io.pop.valid := !empty & !(RegNext(popPtr.valueNext === pushPtr, False) & !full) //mem write to read propagation
   io.pop.data := ram.readSync(popPtr.valueNext)
 
   when(pushing !== popping) {
@@ -360,7 +360,7 @@ class HandshakeFifoCC[T <: Data](dataType: T, depth: Int, pushClockDomain: Clock
   val pushCC = new ClockingArea(pushClockDomain) {
     val pushPtr = Counter(depth << 1)
     val pushPtrGray = RegNext(toGray(pushPtr.valueNext))
-    val popPtrGray = BufferCC(popToPushGray, b(0))
+    val popPtrGray = BufferCC(popToPushGray, b"0")
     val full = isFull(pushPtrGray, popPtrGray)
 
     io.push.ready := !full
@@ -375,7 +375,7 @@ class HandshakeFifoCC[T <: Data](dataType: T, depth: Int, pushClockDomain: Clock
   val popCC = new ClockingArea(popClockDomain) {
     val popPtr = Counter(depth << 1)
     val popPtrGray = RegNext(toGray(popPtr.valueNext))
-    val pushPtrGray = BufferCC(pushToPopGray, b(0))
+    val pushPtrGray = BufferCC(pushToPopGray, b"0")
     val empty = isEmpty(popPtrGray, pushPtrGray)
 
     io.pop.valid := !empty
@@ -406,24 +406,24 @@ class HandshakeCCByToggle[T <: Data](dataType: T, clockIn: ClockDomain, clockOut
     val output = master Handshake (dataType)
   }
 
-  val outHitSignal = Bool()
+  val outHitSignal = Bool
 
   val inputArea = new ClockingArea(clockIn) {
-    val hit = BufferCC(outHitSignal, Bool(false))
-    val target = RegInit(Bool(false))
+    val hit = BufferCC(outHitSignal, False)
+    val target = RegInit(False)
     val data = Reg(io.input.data)
-    io.input.ready := Bool(false)
+    io.input.ready := False
     when(io.input.valid && hit === target) {
       target := !target
       data := io.input.data
-      io.input.ready := Bool(true)
+      io.input.ready := True
     }
   }
 
 
   val outputArea = new ClockingArea(clockOut) {
-    val target = BufferCC(inputArea.target, Bool(false))
-    val hit = RegInit(Bool(false))
+    val target = BufferCC(inputArea.target, False)
+    val hit = RegInit(False)
     outHitSignal := hit
 
     val handshake = io.input.clone

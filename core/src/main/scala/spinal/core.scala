@@ -3,7 +3,8 @@ package spinal
 import scala.collection.mutable.ArrayBuffer
 
 
-package object core {
+package object core extends BaseTypeFactory with BaseTypeCast{
+  import languageFeature._
   implicit lazy val implicitConversions = scala.language.implicitConversions
   implicit lazy val reflectiveCalls = scala.language.reflectiveCalls
   implicit lazy val postfixOps = scala.language.postfixOps
@@ -25,6 +26,7 @@ package object core {
     def bit = new BitCount(i.toInt)
     def lit = new LiteralInt(i)
   }
+
 
 
   def True = Bool(true)

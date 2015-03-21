@@ -26,13 +26,13 @@ object Debug {
   //Test new WhenNode system
   class TopLevel extends Component {
     val io = new Bundle {
-      val conds = in Vec(8, Bool())
-      val outs = out Vec(6, Bool())
+      val conds = in Vec(8, Bool)
+      val outs = out Vec(6, Bool)
 
 
     }
 
-    val reg0 = Reg(Bool())
+    val reg0 = Reg(Bool)
 
     when(io.conds(0)) {
       reg0 := !reg0
@@ -50,25 +50,25 @@ object Debug {
 
     io.outs(1) := io.conds(0)
     when(io.conds(1)) {
-      io.outs(1) := Bool(false)
+      io.outs(1) := False
     }
     io.outs(2) := io.conds(3)
     when(io.conds(4)) {
-      io.outs(2) := Bool(false)
+      io.outs(2) := False
     }
     io.outs(3) := io.conds(4)
     when(io.conds(5)) {
-      io.outs(3) := Bool(false)
+      io.outs(3) := False
     }
 
     var memo : Bool = null
     when(io.conds(6)) {
-      memo = Bool()
+      memo = Bool
       memo := io.conds(6)
       when(io.conds(7)){
-        memo := Bool(false)
-        io.outs(1) := Bool(true)
-        io.outs(2) := Bool(true)
+        memo := False
+        io.outs(1) := True
+        io.outs(2) := True
       }
     }
 
@@ -77,9 +77,9 @@ object Debug {
 
 
     when(u(3, 4 bit) < u(5, 7 bit)) {
-      io.outs(4) := Bool(false)
+      io.outs(4) := False
     }.otherwise {
-      io.outs(4) := Bool(true)
+      io.outs(4) := True
     }
 
 

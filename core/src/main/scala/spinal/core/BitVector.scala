@@ -18,7 +18,7 @@
 
 package spinal.core
 
-abstract class BitVectorFactory[T <: BitVector] {
+abstract class BitVectorFactory2[T <: BitVector] {
   def apply(): T
   def apply(width: BitCount): T = this().setWidth(width.value)
   @deprecated def apply(value: Int): T = apply(value)
@@ -61,7 +61,7 @@ abstract class BitVector extends BaseType {
 
 
   def toBools: Vec[Bool] = {
-    val vec = new Vec(new Bool())
+    val vec = new Vec(new Bool)
     val bitCount = getWidth
     globalData.nodeWidthInferredCheck +=toBoolsCheck(bitCount)
     if(bitCount == -1) SpinalError("Can't convert to bools a Bits that has unspecified width value")
@@ -79,7 +79,7 @@ abstract class BitVector extends BaseType {
   //extract bit
   def apply(bitId: Int): Bool = {
     val extract = new ExtractBoolFixed(s"extract($prefix,i)", this, bitId)
-    val bool = new Bool()
+    val bool = new Bool
     bool.setInput(extract)
 
     bool.compositeAssign = new Assignable {
@@ -94,7 +94,7 @@ abstract class BitVector extends BaseType {
   //extract bit
   def apply(bitId: UInt): Bool = {
     val extract = new ExtractBoolFloating(s"extract($prefix,u)",this, bitId)
-    val bool = new Bool()
+    val bool = new Bool
     bool.setInput(extract)
 
     bool.compositeAssign = new Assignable {

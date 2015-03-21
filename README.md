@@ -49,9 +49,9 @@ import spinal.core._
 
 class MyTopLevel extends Component {
   val io = new Bundle {
-    val a = in Bool()
-    val b = in Bool()
-    val c = out Bool()
+    val a = in Bool
+    val b = in Bool
+    val c = out Bool
   }
   io.c := io.a & io.b
 }
@@ -97,9 +97,9 @@ object CarryAdderProject {
 ```scala
 class CounterWithParity(size : Int) extends Component{
   val io = new Bundle{
-    val increment = in Bool()
+    val increment = in Bool
     val value = out UInt(size bit)
-    val evenParity = out Bool()
+    val evenParity = out Bool
   }
 
   val counter = Reg(UInt(size bit)) init(0)
@@ -122,15 +122,15 @@ import spinal.lib._
 //Define custom data types
 class MyDataType extends Bundle{
   val a = UInt(8 bit)
-  val b = Bool()
+  val b = Bool
 }
 
 class MultiClockTopLevel extends Component {
   val io = new Bundle {
-    val clkA = in Bool()
-    val resetA = in Bool()
-    val clkB = in Bool()
-    val resetB = in Bool()
+    val clkA = in Bool
+    val resetA = in Bool
+    val clkB = in Bool
+    val resetB = in Bool
 
     //Create handshake interface (valid, ready, data) to transport MyDataType data
     val slaveInteface = slave Handshake(new MyDataType)
@@ -186,7 +186,7 @@ class HandshakeFifoCC[T <: Data](dataType: T, depth: Int, pushClockDomain: Clock
   val pushCC = new ClockingArea(pushClockDomain) {
     val pushPtr = Counter(depth << 1)
     val pushPtrGray = RegNext(toGray(pushPtr.valueNext))
-    val popPtrGray = BufferCC(popToPushGray, Bits(0))
+    val popPtrGray = BufferCC(popToPushGray, b"0")
     val full = isFull(pushPtrGray, popPtrGray)
 
     io.push.ready := !full
@@ -201,7 +201,7 @@ class HandshakeFifoCC[T <: Data](dataType: T, depth: Int, pushClockDomain: Clock
   val popCC = new ClockingArea(popClockDomain) {
     val popPtr = Counter(depth << 1)
     val popPtrGray = RegNext(toGray(popPtr.valueNext))
-    val pushPtrGray = BufferCC(pushToPopGray, Bits(0))
+    val pushPtrGray = BufferCC(pushToPopGray, b"0")
     val empty = isEmpty(popPtrGray, pushPtrGray)
 
     io.pop.valid := !empty

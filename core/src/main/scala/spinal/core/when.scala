@@ -55,7 +55,7 @@ object when {
     }
 
 
-    def returnFunc = if (ret == null) Bool(true) else ret
+    def returnFunc = if (ret == null) True else ret
 
     returnFunc
   }

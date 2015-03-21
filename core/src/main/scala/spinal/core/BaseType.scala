@@ -24,6 +24,8 @@ import scala.collection.mutable.ArrayBuffer
  * Created by PIC18F on 21.08.2014.
  */
 
+trait BaseTypeFactory extends BoolFactory with BitsFactory with UIntFactory with SIntFactory
+trait BaseTypeCast extends  BoolCast with UIntCast with SIntCast with BitsCast
 
 object BaseType {
   def walkWhenNodes(baseType: BaseType, initialConsumer: Node, initialConsumerInputId: Int, conservative: Boolean = false) = {
@@ -235,7 +237,7 @@ abstract class BaseType extends Node with Data with Nameable {
 
   def newLogicalOperator(opName: String, right: Node, normalizeInputsImpl: (Node) => Unit): Bool = {
     val op = BinaryOperator(opName, this, right, WidthInfer.oneWidth, normalizeInputsImpl)
-    val typeNode = new Bool()
+    val typeNode = new Bool
     typeNode.inputs(0) = op
     typeNode
   }

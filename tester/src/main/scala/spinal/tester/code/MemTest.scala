@@ -26,13 +26,13 @@ import spinal.core._
 object MemTest {
 
   class BundleAA extends BundleA {
-    val a = new Bool()
-    val d = new Bool()
+    val a = Bool
+    val d = Bool
     val e = MyEnum()
   }
 
   class BundleA extends Bundle {
-    val b = new Bool()
+    val b = Bool
     val c = spinal.core.UInt(8 bit)
   }
 
@@ -56,16 +56,16 @@ object MemTest {
 
   class ComponentA extends Component {
     val io = new Bundle {
-      val cond0 = spinal.core.in.Bool()
-      val cond1 = spinal.core.in.Bool()
-      val cond2 = spinal.core.in.Bool()
-      val cond3 = spinal.core.in.Bool()
+      val cond0 = spinal.core.in.Bool
+      val cond1 = spinal.core.in.Bool
+      val cond2 = spinal.core.in.Bool
+      val cond3 = spinal.core.in.Bool
 
-      val wrEnable = spinal.core.in.Bool()
+      val wrEnable = spinal.core.in.Bool
       val wrAddr = spinal.core.in UInt (4 bit)
       val wrData = spinal.core.in(new BundleA)
 
-      val rdEnable = spinal.core.in.Bool()
+      val rdEnable = spinal.core.in.Bool
       val rdAddr = spinal.core.in UInt (4 bit)
       val rdData = spinal.core.out(new BundleA)
 

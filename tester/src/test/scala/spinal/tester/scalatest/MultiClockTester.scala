@@ -7,7 +7,7 @@ import spinal.lib._
 object MultiClockTester{
   class BundleA extends Bundle{
     val a = UInt(8 bit)
-    val b = Bool()
+    val b = Bool
   }
 }
 
@@ -15,15 +15,15 @@ import spinal.tester.scalatest.HandshakeTester._
 
 class MultiClockTester extends Component {
   val io = new Bundle {
-    val clkA = in Bool()
-    val resetA = in Bool()
-    val clkB = in Bool()
-    val resetB = in Bool()
+    val clkA = in Bool
+    val resetA = in Bool
+    val clkB = in Bool
+    val resetB = in Bool
 
     val slave0 = slave Handshake(new BundleA)
     val master0 = master Handshake(new BundleA)
-    val fifo0_pushOccupancy = out UInt()
-    val fifo0_popOccupancy = out UInt()
+    val fifo0_pushOccupancy = out UInt
+    val fifo0_popOccupancy = out UInt
   }
 
   val clockDomainA = ClockDomain(io.clkA,io.resetA)

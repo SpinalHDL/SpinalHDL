@@ -18,7 +18,7 @@ class FlowFactory extends MSFactory{
 object Flow extends FlowFactory
 
 class Flow[T <: Data](dataType: T) extends Bundle with Interface with DataCarrier[T]{
-  val valid = Bool()
+  val valid = Bool
   val data = dataType.clone()
 
   override def clone: this.type = Flow(dataType).asInstanceOf[this.type]
@@ -74,7 +74,7 @@ class Flow[T <: Data](dataType: T) extends Bundle with Interface with DataCarrie
 
   def m2sPipe(): Flow[T] = {
     val ret = RegNext(this)
-    ret.valid.init(Bool(false))
+    ret.valid.init(False)
     ret connectFrom this
     ret
   }

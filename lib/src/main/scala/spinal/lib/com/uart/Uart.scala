@@ -5,8 +5,8 @@ import spinal.lib._
 
 
 class Uart extends Bundle with Interface {
-  val txd = Bool()
-  val rxd = Bool()
+  val txd = Bool
+  val rxd = Bool
 
   override def asMaster: this.type = {
     out(txd)

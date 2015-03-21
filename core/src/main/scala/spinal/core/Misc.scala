@@ -39,9 +39,11 @@ object isPow2{
   }
 }
 object cloneOf{
+  //Return a new data with the same data structure than the given parameter (including bit width)
   def apply[T <: Data](that : T) : T = that.clone()
 }
 object widthOf{
+  //Return the number of bit of the given data
   def apply[T <: Data](that : T): Int = that.getBitsWidth
 }
 

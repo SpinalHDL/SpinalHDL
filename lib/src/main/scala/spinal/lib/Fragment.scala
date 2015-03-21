@@ -24,7 +24,7 @@ class HandshakeFragmentPimped[T <: Data](that: Handshake[Fragment[T]]) {
 
 
 class DataCarrierFragmentPimped[T <: Data](pimped: DataCarrier[Fragment[T]]) {
-  def isNotInTail = RegNextWhen(pimped.data.last, pimped.fire, Bool(true))
+  def isNotInTail = RegNextWhen(pimped.data.last, pimped.fire, True)
   def isInTail = !isNotInTail
 
   def isFirst = pimped.valid && isNotInTail
@@ -79,7 +79,7 @@ class HandshakeFragmentFactory extends MSFactory {
 
 
 class Fragment[T <: Data](dataType: T) extends Bundle {
-  val last = Bool()
+  val last = Bool
   val fragment: T = dataType.clone
 
   override def clone: this.type = {
@@ -103,7 +103,7 @@ object FlowFragmentRouter {
 
 class FlowFragmentRouter(input: Flow[Fragment[Bits]], mapTo: Iterable[BigInt]) extends Area {
   val outputs = Vec(mapTo.size, input)
-  val enables = Vec(mapTo.size, Reg(Bool()))
+  val enables = Vec(mapTo.size, Reg(Bool))
 
   outputs.foreach(_.data := input.data)
   when(input.isNotInTail) {

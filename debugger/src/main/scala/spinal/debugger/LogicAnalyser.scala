@@ -53,7 +53,7 @@ class LogicAnalyserLogger(p: LogicAnalyserParameter, probeType: Bits) extends Co
   val io = new Bundle {
     val packetSlave = slave Flow Fragment(Bits(8 bit))
 
-    val trigger = in Bool()
+    val trigger = in Bool
     val probe = in cloneOf(probeType)
 
     val log = master Handshake Fragment(probe)
@@ -74,8 +74,8 @@ class LogicAnalyserLogger(p: LogicAnalyserParameter, probeType: Bits) extends Co
 
 
   val sampler = new Area {
-    val preEnable = Bool(false)
-    val postEnable = Bool(false)
+    val preEnable = False
+    val postEnable = False
     val counter = Reg(mem.addressType)
 
     when(postEnable){
@@ -94,34 +94,34 @@ class LogicAnalyserLogger(p: LogicAnalyserParameter, probeType: Bits) extends Co
 
 
   val memReadCmd = Handshake(mem.addressType)
-  val memReadCmdIsLast = Bool(false)
+  val memReadCmdIsLast = False
 
-  memReadCmd.valid := Bool(false)
+  memReadCmd.valid := False
   memReadCmd.data := memReadAddress
 
 
   when(state === sWaitTrigger) {
-    sampler.preEnable := Bool(true)
+    sampler.preEnable := True
     when(io.trigger) {
       state := sSample
       memReadAddress := memWriteAddress + config.samplesLeftAfterTrigger + u(2)
     }
   }
   when(state === sSample) {
-    sampler.postEnable := Bool(true)
+    sampler.postEnable := True
     when(sampler.done) {
       state := sPush
       pushCounter := u(0)
     }
   }
   when(state === sPush) {
-    memReadCmd.valid := Bool(true)
+    memReadCmd.valid := True
     when(memReadCmd.ready) {
       memReadAddress := memReadAddress + u(1)
       pushCounter := pushCounter + u(1)
     }
     when(pushCounter === u((1 << pushCounter.getWidth) - 1)) {
-      memReadCmdIsLast := Bool(true)
+      memReadCmdIsLast := True
       when(memReadCmd.ready) {
         state := sWaitTrigger
       }

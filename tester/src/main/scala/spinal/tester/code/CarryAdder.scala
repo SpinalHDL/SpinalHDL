@@ -9,7 +9,7 @@ class CarryAdder(size : Int) extends Component{
     val result = out UInt(size bit)
   }
 
-  var c = Bool(false)
+  var c = False
   for (i <- 0 until size) {
     val a = io.a(i)
     val b = io.a(i)

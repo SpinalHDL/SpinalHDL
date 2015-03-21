@@ -29,16 +29,19 @@ object Debug {
     val io = new Bundle {
       val input = in UInt (4 bit)
       val output = out UInt (4 bit)
-      val output2 = out UInt ()
+      val output2 = out UInt
 
+      val boolTest = out (Reg(Bool))
       val xx = out (u"16x0FF")
+
+
     }
 
     io.xx := "x423"
-    var carry = Bool(false)
+    var carry = False
     for (i <- 0 until 4) {
       when(io.input(i)) {
-        carry \= Bool(true)
+        carry \= True
       }
       io.output(i) := io.input(i) & carry
     }

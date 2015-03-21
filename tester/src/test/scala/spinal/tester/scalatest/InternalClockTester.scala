@@ -16,7 +16,7 @@ object InternalClockTester{
       initCounter := initCounter - u(1)
     }
     val internalClk = ClockDomain(internalClock)
-    val internalReset = Bool()
+    val internalReset = Bool
 
     val resetBuffer = new ClockingArea(internalClk){
       val internalReset = BufferCC(srcReset)

@@ -6,15 +6,15 @@ import spinal.lib._
 //Define custom data types
 class MyDataType extends Bundle{
   val a = UInt(8 bit)
-  val b = Bool()
+  val b = Bool
 }
 
 class MultiClockTopLevel extends Component {
   val io = new Bundle {
-    val clkA = in Bool()
-    val resetA = in Bool()
-    val clkB = in Bool()
-    val resetB = in Bool()
+    val clkA = in Bool
+    val resetA = in Bool
+    val clkB = in Bool
+    val resetB = in Bool
 
     //Create handshake interface (valid, ready, data)
     val slaveInteface = slave Handshake(new MyDataType)

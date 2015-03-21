@@ -25,27 +25,28 @@ import scala.collection.mutable.ArrayBuffer
 case class BitCount(val value: Int) {}
 case class LiteralInt(val value: BigInt) {}
 
-trait IODirection {
+trait IODirection extends BaseTypeFactory with BaseTypeCast{
   def applyIt[T <: Data](data: T): T
   def apply[T <: Data](data: T): T = applyIt(data)
   def apply(enum: SpinalEnum) = applyIt(enum.craft())
   def cloneOf[T <: Data](that : T) : T = cloneOf(that)
 
-  object Bool extends BoolFactory {
-    override def apply() = applyIt(super.apply())
-  }
+  override def Bool = applyIt(super.Bool)
+  override def Bits = applyIt(super.Bits)
+  override def UInt = applyIt(super.UInt)
+  override def SInt = applyIt(super.SInt)
 
-  object Bits extends BitsFactory {
-    override def apply() = applyIt(super.apply())
-  }
-
-  object UInt extends UIntFactory {
-    override def apply() = applyIt(super.apply())
-  }
-
-  object SInt extends SIntFactory {
-    override def apply() = applyIt(super.apply())
-  }
+//  object Bits extends BitsFactory {
+//    override def apply() = applyIt(super.apply())
+//  }
+//
+//  object UInt extends UIntFactory {
+//    override def apply() = applyIt(super.apply())
+//  }
+//
+//  object SInt extends SIntFactory {
+//    override def apply() = applyIt(super.apply())
+//  }
 
   object Vec extends VecFactory {
     override def apply[T <: Data](elements: Iterable[T]): Vec[T] = applyIt(super.apply(elements))
