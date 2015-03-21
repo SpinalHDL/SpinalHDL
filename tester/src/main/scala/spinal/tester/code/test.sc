@@ -1,40 +1,19 @@
-import java.util
-
-/*
- * SpinalHDL
- * Copyright (c) Dolu, All rights reserved.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 3.0 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library.
- */
-
-//a = b =>
-//
-//val c = cloneOf(b)
-//c := b
-//return c
+import spinal.core._
+import spinal.test._
+//import spinal.core.test.s2
+//val x: Int = s2"{ a: ${2} }"
 
 
-object l{
-  def apply(value : Int) = println(value)
-}
+//val asd = u"aaa${1}bbb${2}"
+//asd
+u"asd"
 
-UInt of 3 bit
-  UInt at 4 of 3 bit
-UInt(4 lit,3 bit)
-
-when(myVar === UInt(4 lit))
-
+//class IntPimped(i : Int){
+//  def UInt = spinal.core.u(i)
+//  def UInt(bitCount: BitCount) = u(i,bitCount)
+//}
+//implicit def intPimped(i : Int) = new IntPimped(i)
+//val myUInt = 2 UInt(3 bit)
 
 class MyClass(i: Int) {
   def +(j: Int) = new MyClass(j + i)
@@ -57,7 +36,6 @@ class Bar {
 
 val b = new Bar
 b.foo = 2
-
 class A {
   def aa: A = {
     println("A")
@@ -79,9 +57,5 @@ class A {
 }
 
 val a = new A
-
 a.aa = 2
-
-
-
 scala.collection.mutable.HashMap

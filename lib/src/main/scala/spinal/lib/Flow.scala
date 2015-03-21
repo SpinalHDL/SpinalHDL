@@ -74,7 +74,7 @@ class Flow[T <: Data](dataType: T) extends Bundle with Interface with DataCarrie
 
   def m2sPipe(): Flow[T] = {
     val ret = RegNext(this)
-    ret.valid.setRegInit(Bool(false))
+    ret.valid.init(Bool(false))
     ret connectFrom this
     ret
   }

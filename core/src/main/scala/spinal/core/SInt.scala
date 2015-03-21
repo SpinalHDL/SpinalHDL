@@ -84,5 +84,5 @@ class SInt extends BitVector with MinMaxProvider {
   override def maxValue: BigInt = (BigInt(1) << (getWidth - 1)) - 1
 
 
-  override def getZero: this.type = SInt(0 lit).asInstanceOf[this.type]
+  override def getZero: this.type = s(0).asInstanceOf[this.type]
 }

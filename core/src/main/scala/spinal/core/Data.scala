@@ -208,8 +208,11 @@ trait Data extends ContextUser with Nameable with Assignable with AttributeReady
     flatten.foreach(_._2.add(attribute))
   }
 
-  def setRegInit(init: Data): Unit = {
-    if (!flatten.foldLeft(true)(_ && _._2.isReg)) SpinalError(s"Try to set initial value of a data that is not a register ($this)")
+  def isReg : Boolean = flatten.foldLeft(true)(_ && _._2.isReg)
+
+  /*private[core] */
+  def init(init: SSelf): this.type = {
+    if (!isReg) SpinalError(s"Try to set initial value of a data that is not a register ($this)")
     val regInit = clone()
     regInit := init
     for (((eName, e), (y, initElement)) <- (this.flatten, regInit.flatten).zipped) {
@@ -217,6 +220,14 @@ trait Data extends ContextUser with Nameable with Assignable with AttributeReady
         e.inputs(0).asInstanceOf[Reg].setInitialValue(initElement)
       }
     }
+    this
+  }
+
+  /*private[core] */
+  def next(next: SSelf): this.type = {
+    if (!isReg) SpinalError(s"Try to set next value of a data that is not a register ($this)")
+    this := next
+    this
   }
 
 

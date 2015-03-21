@@ -49,7 +49,7 @@ object Cat{
   def apply(data : Data*) : Bits =apply(data.toList)
 
   def apply[T <: Data](data : Iterable[T]) = {
-    if(data.isEmpty) Bits(0 lit,0 bit)
+    if(data.isEmpty) b(0,0 bit)
     else data.map(_.toBits).reduce(_ ## _)
   }
 }
@@ -217,7 +217,7 @@ class SafeStack[T] {
 }
 
 object SpinalExit {
-  def apply(message: String = "Unspecified exit"): Unit = {
+  def apply(message: String = "Unspecified exit") = {
     throw new SpinalExit("\n" + message)
   }
 }

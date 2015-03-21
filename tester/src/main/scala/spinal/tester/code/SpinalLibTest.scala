@@ -95,8 +95,8 @@ object SpinalLibTest {
 
 
       val regBundle = Reg(io.inRegBundle)
-      regBundle.a.setRegInit(Bool(true))
-      regBundle.e.setRegInit(MyEnum.s1())
+      regBundle.a.init(Bool(true))
+      regBundle.e.init(MyEnum.s1())
 
       regBundle := io.inRegBundle
       io.outRegBundle := regBundle

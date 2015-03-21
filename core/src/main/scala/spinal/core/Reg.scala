@@ -21,26 +21,23 @@ package spinal.core
 import scala.collection.mutable.ArrayBuffer
 
 
-
 object Reg {
   def apply[T <: Data](dataType: T, init: T = null.asInstanceOf[T],next : T = null.asInstanceOf[T]): T = {
     val regOut = dataType.clone()//.dontSimplifyIt
-    val regInit = dataType.clone()
-    if (init != null) regInit := init
-    for (((eName, e), (y, initElement)) <- (regOut.flatten, regInit.flatten).zipped) {
+    for (((eName, e)) <- regOut.flatten) {
       val reg = new Reg(e)
       reg.compositeTagReady = e
       e.inputs(0) = reg;
-      if (init != null && initElement.inputs(0) != null)
-        reg.setInitialValue(initElement)
       e.compositeAssign = reg
     }
 
-    if (init != null) regOut.setRegInit(init)
-
+    if (init != null) regOut.init(init)
     if(next != null) regOut := next
     regOut
   }
+
+
+ // def apply[T <: Data](dataType: T)(init: T = null.asInstanceOf[T],next : T = null.asInstanceOf[T]): T = Reg(dataType,init,next)
 }
 
 
@@ -64,7 +61,6 @@ object RegInit {
   }
 
   def apply[T <: SpinalEnum](init : SpinalEnumElement[T]) : SpinalEnumCraft[T] = apply(init())
-
 }
 
 object RegS {

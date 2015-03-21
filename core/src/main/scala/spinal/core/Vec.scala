@@ -151,7 +151,7 @@ class Vec[T <: Data](val dataType: T) extends MultiData with collection.IndexedS
 
 
     val ret = SeqMux(vec, address)
-    val enables = (UInt(1 lit) << address).toBools
+    val enables = (u(1) << address).toBools
     for (((accessEName, accessE), to) <- (ret.flatten, vecTransposed).zipped) {
       accessE.compositeAssign = new VecAccessAssign(enables,to)
     }

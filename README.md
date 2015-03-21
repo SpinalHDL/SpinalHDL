@@ -75,7 +75,7 @@ class CarryAdder(size : Int) extends Component{
     val result = out UInt(size bit)      //result = a + b
   }
 
-  var c = Bool(false)                   //Carry, like a VHDL variable
+  var c = False                   //Carry, like a VHDL variable
   for (i <- 0 until size) {
     val a = io.a(i)
     val b = io.b(i)
@@ -102,9 +102,9 @@ class CounterWithParity(size : Int) extends Component{
     val evenParity = out Bool()
   }
 
-  val counter = RegInit(UInt(0,size bit))
+  val counter = Reg(UInt(size bit)) init(0)
   when(io.increment){
-    counter := counter + UInt(1)
+    counter := counter + 1
   }
   io.evenParity := counter.toBools.reduceLeft(_ ^ _)    //Get all bit of counter and then xor them together
 

@@ -18,7 +18,6 @@
 
 package spinal.tester.code
 
-import spinal.core
 import spinal.core._
 
 
@@ -26,11 +25,16 @@ object Debug {
 
 
   class TopLevel extends Component {
+
     val io = new Bundle {
       val input = in UInt (4 bit)
       val output = out UInt (4 bit)
+      val output2 = out UInt ()
+
+      val xx = out (u"16x0FF")
     }
 
+    io.xx := "x423"
     var carry = Bool(false)
     for (i <- 0 until 4) {
       when(io.input(i)) {
@@ -38,12 +42,17 @@ object Debug {
       }
       io.output(i) := io.input(i) & carry
     }
+
+
+    val output2 = Reg(UInt(8 bit)) init(4) next(io.input + 1)
+    io.output2 := output2
+
   }
 
 
   def main(args: Array[String]) {
     println("START")
-    core.SpinalVhdl(new TopLevel)
+    SpinalVhdl(new TopLevel)
     println("DONE")
   }
 

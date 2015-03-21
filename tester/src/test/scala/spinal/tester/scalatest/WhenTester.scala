@@ -49,9 +49,9 @@ class WhenTester extends Component {
         is(io.data(6)) {
           that := io.data(7)
         }
-        is(UInt(0x55 lit)) {
+        is(u(0x55)) {
           when(io.conds(2)) {
-            that := UInt(0xAA lit)
+            that := u(0xAA)
           }.elsewhen(io.conds(3)) {
             that := io.data(8)
           }

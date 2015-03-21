@@ -28,21 +28,25 @@ abstract class BitVectorLiteralFactory[T <: BitVector] {
   def apply(value: BigInt, width: BitCount): T = BitsLiteral(value, width.value, this().setWidth(width.value))
 }
 
-object BLit extends BitVectorLiteralFactory[Bits]{
+object b extends BitVectorLiteralFactory[Bits] {
   def apply() = new Bits()
 }
-object ULit extends BitVectorLiteralFactory[UInt]{
+
+object u extends BitVectorLiteralFactory[UInt] {
   def apply() = new UInt()
 }
-object SLit extends BitVectorLiteralFactory[SInt]{
+
+object s extends BitVectorLiteralFactory[SInt] {
   def apply() = new SInt()
 }
+
 
 trait Literal extends Node {
   override def clone: this.type = ???
 }
 
 object BitsLiteral {
+
   def apply[T <: Node](value: BigInt, specifiedBitCount: Int, on: T): T = {
     val valueBitCount = value.bitLength + (if (on.isInstanceOf[SInt]) 1 else 0)
     var bitCount = specifiedBitCount

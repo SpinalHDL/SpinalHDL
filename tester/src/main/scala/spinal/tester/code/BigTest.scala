@@ -275,17 +275,11 @@ object BigTest {
     }*/
 
 
-  object u {
-    def °(b: Int) = UInt(3 lit)
-
-
-    def apply() = true
-  }
 
 
   class MyBlackBox extends BlackBox {
     val generic = new Generic {
-      val genA = UInt(1 lit, 5 bit)
+      val genA = u(1, 5 bit)
       val genB = Bool(false)
       val genC = 44
       val genD = "salut"
@@ -300,7 +294,7 @@ object BigTest {
   }
 
   object S {
-    def one = UInt(1 lit)
+    def one = u(1)
     def two = one + one
   }
 
@@ -416,7 +410,7 @@ object BigTest {
 
 
     var regBundle = Reg(io.inRegBundle)
-    regBundle.d.setRegInit(Bool(false))
+    regBundle.d.init(Bool(false))
     regBundle := io.inRegBundle
     io.outRegBundle := regBundle
 
@@ -454,7 +448,7 @@ object BigTest {
 
     io.masterHandshake connectFrom io.slaveHandshake
     io.masterHandshakeThrow connectFrom (io.slaveHandshake.throwWhen(io.cond1))
-    io.masterHandshakeUInt connectFrom (io.slaveHandshake translateWith UInt(3 lit))
+    io.masterHandshakeUInt connectFrom (io.slaveHandshake translateWith u(3))
     //io.masterHandshakeUInt.bits := UInt(2)
     //var myInt = WeekDay.c
     // myInt := WeekDay.Mon

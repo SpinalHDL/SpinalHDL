@@ -10,10 +10,10 @@ object InternalClockTester{
 
     val internalClock = CounterFreeRun(16)(0)
 
-    val initCounter = RegInit(UInt(7 lit))
-    val srcReset = initCounter !== UInt(0 lit)
+    val initCounter = RegInit(u(7))
+    val srcReset = initCounter !== u(0)
     when(srcReset){
-      initCounter := initCounter - UInt(1 lit)
+      initCounter := initCounter - u(1)
     }
     val internalClk = ClockDomain(internalClock)
     val internalReset = Bool()
