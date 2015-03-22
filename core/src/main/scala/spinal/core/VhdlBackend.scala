@@ -678,16 +678,14 @@ class VhdlBackend extends Backend with VhdlBase {
         case signal: BaseType => {
           if (!signal.isIo){
             ret ++= s"  signal ${emitReference(signal)} : ${emitDataType(signal)}"
-            if(!signal.isReg){
-              ret ++= ";\n"
-            }else{ //TODO disable option
+            if(signal.hasTag(randomBoot)){
               signal match{
                 case b : Bool =>  ret ++= " := pkg_rand"
                 case bv : BitVector =>  ret ++= s" := pkg_rand(${bv.getWidth})"
                 case e : SpinalEnumCraft[_] =>
               }
-              ret ++= ";\n"
             }
+            ret ++= ";\n"
           }
 
 

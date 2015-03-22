@@ -21,11 +21,9 @@ package spinal.core
 import scala.collection.mutable.ArrayBuffer
 
 
-
-
 object Data {
   implicit def autoCast[T <: Data, T2 <: T](that: T): T2#SSelf = that.asInstanceOf[T2#SSelf]
- // implicit def autoCast[T <: Data](that: Null): T = that.asInstanceOf[T]
+  // implicit def autoCast[T <: Data](that: Null): T = that.asInstanceOf[T]
 
 
   def doPull[T <: Data](srcData: T, finalComponent: Component, useCache: Boolean = false, propagateName: Boolean = false): T = {
@@ -40,7 +38,7 @@ object Data {
       return srcData
     }
 
-    val startComponentStack = if(startComponent == null) List[Component](null) else startComponent.parents() :+ startComponent
+    val startComponentStack = if (startComponent == null) List[Component](null) else startComponent.parents() :+ startComponent
     var componentPtr = finalComponent
     var nextData: srcData.type = null.asInstanceOf[srcData.type]
     var ret: srcData.type = null.asInstanceOf[srcData.type]
@@ -71,7 +69,7 @@ object Data {
     }
 
     val lowerComponent = componentPtr
-    var risePath = if(lowerComponent == null)  List[Component]() else  startComponentStack.takeRight(startComponentStack.size - 1 - componentPtr.parents().size)
+    var risePath = if (lowerComponent == null) List[Component]() else startComponentStack.takeRight(startComponentStack.size - 1 - componentPtr.parents().size)
     //pull from lower component to start component (rise)
     while (!risePath.isEmpty) {
       if (useCache) {
@@ -132,8 +130,8 @@ trait Data extends ContextUser with Nameable with Assignable with AttributeReady
   def isOutput: Boolean = dir == out && isIo
   def isInput: Boolean = dir == in && isIo
   def isDirectionLess: Boolean = dir == null || !isIo
-  def flip : this.type = {
-    for((n,e) <- flatten){
+  def flip: this.type = {
+    for ((n, e) <- flatten) {
       e.dir match {
         case `in` => e.dir = out
         case `out` => e.dir = in
@@ -143,7 +141,7 @@ trait Data extends ContextUser with Nameable with Assignable with AttributeReady
     this
   }
 
-  def getZero : this.type = {
+  def getZero: this.type = {
     val ret = clone()
     ret.flatten.foreach(t => {
       t._2 := t._2.getZero
@@ -165,7 +163,7 @@ trait Data extends ContextUser with Nameable with Assignable with AttributeReady
     ret
   }
 
-  def :=(that: SSelf): Unit = this assignFrom (that,false)
+  def :=(that: SSelf): Unit = this assignFrom(that, false)
   def <>(that: SSelf): Unit = this autoConnect that
   def ===(that: SSelf): Bool = isEguals(that)
   def !==(that: SSelf): Bool = !isEguals(that)
@@ -195,11 +193,11 @@ trait Data extends ContextUser with Nameable with Assignable with AttributeReady
     this
   }
 
-  def dontSimplifyIt : this.type = {
+  def dontSimplifyIt: this.type = {
     flatten.foreach(_._2.dontSimplifyIt)
     this
   }
-  def allowSimplifyIt : this.type = {
+  def allowSimplifyIt: this.type = {
     flatten.foreach(_._2.allowSimplifyIt)
     this
   }
@@ -208,7 +206,7 @@ trait Data extends ContextUser with Nameable with Assignable with AttributeReady
     flatten.foreach(_._2.add(attribute))
   }
 
-  def isReg : Boolean = flatten.foldLeft(true)(_ && _._2.isReg)
+  def isReg: Boolean = flatten.foldLeft(true)(_ && _._2.isReg)
 
   /*private[core] */
   def init(init: SSelf): this.type = {
@@ -227,6 +225,12 @@ trait Data extends ContextUser with Nameable with Assignable with AttributeReady
   def next(next: SSelf): this.type = {
     if (!isReg) SpinalError(s"Try to set next value of a data that is not a register ($this)")
     this := next
+    this
+  }
+
+
+  def randBoot(): this.type = {
+    flatten.foreach(_._2.addTag(spinal.core.randomBoot))
     this
   }
 

@@ -242,8 +242,8 @@ trait SpinalTag {
 }
 
 object crossClockDomain extends SpinalTag
-
 object crossClockBuffer extends SpinalTag
+object randomBoot extends SpinalTag
 
 
 trait Area {

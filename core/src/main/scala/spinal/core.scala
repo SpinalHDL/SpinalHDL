@@ -10,8 +10,6 @@ package object core extends BaseTypeFactory with BaseTypeCast{
   implicit lazy val postfixOps = scala.language.postfixOps
 
 
-  //  implicit def implicitLiteralInt(value: Int) = new LiteralInt(value)
-  //  implicit def implicitLiteralInt(value: BigInt) = new LiteralInt(value)
   implicit def IntToBuilder(value: Int) = new IntBuilder(value)
   implicit def BigIntToBuilder(value: BigInt) = new BigIntBuilder(value)
 

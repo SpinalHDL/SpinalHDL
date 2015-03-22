@@ -47,7 +47,7 @@ object Debug {
     }
 
 
-    val output2 = Reg(UInt(8 bit)) init(4) next(io.input + 1)
+    val output2 = Reg(UInt(8 bit)) init(4) next(io.input + 1) randBoot()
     io.output2 := output2
 
   }
