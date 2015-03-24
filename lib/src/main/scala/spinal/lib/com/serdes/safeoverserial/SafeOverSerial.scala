@@ -50,13 +50,10 @@ class SafeSerialRx(wordCountMax: Int) extends Component {
   val buffer = new Area {
     val ram = Mem(Bits(bitsWidth bit), wordCountMax)
     val writePtr = Counter(wordCountMax)
-    val validPtr = Reg(UInt(log2Up(wordCountMax) bit)) init(0)
+    val validPtr = Reg(UInt(log2Up(wordCountMax) bit)) init (0)
 
     val checksum = Reg(UInt(16 bit))
 
-    def clearChecksum: Unit = {
-      checksum := 0
-    }
 
     def write(that: Bits): Bool = {
       val success = !(writePtr === readPtr && risingOccupancy)
@@ -74,8 +71,8 @@ class SafeSerialRx(wordCountMax: Int) extends Component {
     }
     def writeStart: Unit = {
       writePtr := validPtr
+      checksum := 0
     }
-
 
 
     val readPtr = Counter(wordCountMax)
@@ -110,10 +107,9 @@ class SafeSerialRx(wordCountMax: Int) extends Component {
           is(cMagic) {
             consumeData := True
           }
-          //TODO restor me
-          //          default{
-          //            consumeData := True
-          //          }
+          default {
+            state := idle
+          }
         }
       } otherwise {
         when(io.input.data === cMagic) {

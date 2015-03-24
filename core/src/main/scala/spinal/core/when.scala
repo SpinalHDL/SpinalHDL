@@ -131,8 +131,6 @@ object is {
 
 
   def apply[T <: Data](keys: Iterable[T])(block: => Unit): Unit = {
-    val wHead = GlobalData.get.whenStack.head()
-
     if (keys.isEmpty) SpinalError("There is no key in 'is' statement")
     val globalData = keys.head.globalData
     if (globalData.switchStack.isEmpty) SpinalError("Use 'is' statement outside the 'switch'")
@@ -147,9 +145,6 @@ object is {
       value.lastWhen = when(keys.map(key => (key === value.value)).reduceLeft(_ || _)) (block)
     } else {
       value.lastWhen = value.lastWhen.elsewhen(keys.map(key => (key === value.value)).reduceLeft(_ || _)) (block)
-    }
-    if(wHead != GlobalData.get.whenStack.head()){
-      println("dead")
     }
   }
 }

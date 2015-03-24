@@ -63,7 +63,18 @@ class Backend {
     topLevel = Component(gen())
     ClockDomain.pop(defaultClockDomain)
 
-    elaborate(topLevel.asInstanceOf[T])
+
+    def checkGlobalData: Unit ={
+      if(!GlobalData.get.clockDomainStack.isEmpty)SpinalWarning("clockDomain stack is not empty :(")
+      if(!GlobalData.get.componentStack.isEmpty)SpinalWarning("componentStack stack is not empty :(")
+      if(!GlobalData.get.switchStack.isEmpty)SpinalWarning("switchStack stack is not empty :(")
+      if(!GlobalData.get.whenStack.isEmpty)SpinalWarning("whenStack stack is not empty :(")
+    }
+    checkGlobalData
+    val ret = elaborate(topLevel.asInstanceOf[T])
+    checkGlobalData
+
+    ret
   }
 
   //TODO
