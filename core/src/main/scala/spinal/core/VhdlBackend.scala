@@ -1059,7 +1059,7 @@ class VhdlBackend extends Backend with VhdlBase {
       case _: SInt => s"pkg_signed(X${'\"'}${lit.value.toString(16)}${'\"'},${lit.getWidth})"
     }
     case lit: IntLiteral => lit.value.toString(10)
-    case lit: BoolLiteral => "\'" + (if (lit.value) "1" else "0") + "\'"
+    case lit: BoolLiteral => s"pkg_toStdLogic(${lit.value})"
     case lit: EnumLiteral[_] => lit.enum.getName()
     case memRead: MemReadAsync => {
       if (memRead.writeToReadKind == dontCare) SpinalWarning(s"memReadAsync with dontCare is as writeFirst into VHDL")

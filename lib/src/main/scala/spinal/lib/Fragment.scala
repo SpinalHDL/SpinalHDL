@@ -18,8 +18,32 @@ class FlowFragmentPimped[T <: Data](that: Flow[Fragment[T]]) {
 }
 
 
-class HandshakeFragmentPimped[T <: Data](that: Handshake[Fragment[T]]) {
+class HandshakeFragmentPimped[T <: Data](pimped: Handshake[Fragment[T]]) {
+  def insertHeader(header : T) : Handshake[Fragment[T]] = {
+    val ret = cloneOf(pimped)
+    val waitPacket = RegInit(True)
 
+    ret.valid := False
+    ret.data.last := False
+
+    when(pimped.valid){
+      ret.valid := True
+      when(waitPacket){
+        ret.data.fragment := header
+      } otherwise{
+        ret.data := pimped.data
+      }
+    }
+
+    when(ret.fire){
+      waitPacket := False
+      when(ret.data.last){
+        waitPacket := True
+      }
+    }
+
+    ret
+  }
 }
 
 
@@ -112,3 +136,23 @@ class FlowFragmentRouter(input: Flow[Fragment[Bits]], mapTo: Iterable[BigInt]) e
     (outputs, enables).zipped.foreach(_.valid := _)
   }
 }
+
+
+class HandshakeToHandshakeFragmentBits[T <: Data](dataType : T,bitsWidth : Int) extends Component{
+  val io = new Bundle{
+    val input = slave Handshake(dataType)
+    val output = master Handshake Fragment(Bits(bitsWidth bit))
+  }
+  val counter = Counter((widthOf(dataType)-1)/bitsWidth + 1)
+  val inputBits = b(0,bitsWidth bit) ## toBits(io.input.data) //The cat allow to mux inputBits
+
+  io.input.ready := counter.overflow
+  io.output.data.last := counter.overflow
+  io.output.valid := io.input.valid
+  io.output.data.fragment := inputBits(counter * u(bitsWidth),bitsWidth bit)
+  when(io.output.fire){
+    counter++
+  }
+}
+
+

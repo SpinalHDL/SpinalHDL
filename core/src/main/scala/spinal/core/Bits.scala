@@ -31,7 +31,7 @@ object BitsSet{
 }
 
 trait BitsFactory{
-  def Bits = new Bits()
+  def Bits() = new Bits()
   def Bits(width: BitCount): Bits = Bits.setWidth(width.value)
 }
 

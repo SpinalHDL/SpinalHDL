@@ -29,7 +29,7 @@ trait SIntCast{
 }
 
 trait SIntFactory{
-  def SInt = new SInt()
+  def SInt() = new SInt()
   def SInt(width: BitCount): SInt = SInt.setWidth(width.value)
 }
 

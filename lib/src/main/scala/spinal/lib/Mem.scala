@@ -30,4 +30,24 @@ class MemPimped[T <: Data](mem : Mem[T]) {
     ret.data.linked := retLinked
     ret
   }
+
+  def handshakeReadSync(cmd: Handshake[UInt]) = {
+    val ret = Handshake(mem.wordType)
+
+    val retValid = RegInit(False)
+    val retData = mem.readSync(cmd.data,cmd.ready)
+
+    when(ret.ready){
+      retValid := Bool(false)
+    }
+    when(cmd.ready){
+      retValid := cmd.valid
+    }
+
+    cmd.ready := ret.isFree
+
+    ret.valid := retValid
+    ret.data := retData
+    ret
+  }
 }

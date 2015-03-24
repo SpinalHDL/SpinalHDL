@@ -45,7 +45,7 @@ class Handshake[T <: Data](dataType: T) extends Bundle with Interface with DataC
   }
 
   def <<(that: Handshake[T]): Handshake[T] = connectFrom(that)
-  def <<[T2 <: Data](that : Handshake[T2])(dataAssignement : (T,T2) => Unit): Handshake[T2]  = connectFrom(that)(dataAssignement)
+  //def <<[T2 <: Data](that : Handshake[T2])(dataAssignement : (T,T2) => Unit): Handshake[T2]  = connectFrom(that)(dataAssignement)
 
   def >>(into: Handshake[T]): Handshake[T] = {
     into << this;
@@ -176,6 +176,14 @@ class Handshake[T <: Data](dataType: T) extends Bundle with Interface with DataC
 
   def haltWhen(cond: Bool): Handshake[T] = continueWhen(!cond)
   def takeWhen(cond: Bool): Handshake[T] = throwWhen(!cond)
+
+
+
+  def toFragmentBits (bitsWidth : Int): Handshake[Fragment[Bits]] ={
+    val converter = new HandshakeToHandshakeFragmentBits(dataType,bitsWidth)
+    converter.io.input << this
+    return converter.io.output
+  }
 }
 
 

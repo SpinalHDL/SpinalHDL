@@ -56,6 +56,9 @@ class WhenTester extends Component {
             that := io.data(8)
           }
         }
+        default{
+          that := io.data(11)
+        }
       }
     }.otherwise {
       when(io.conds(4)) {

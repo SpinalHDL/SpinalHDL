@@ -39,7 +39,6 @@ object when {
   }
 
 
-
   def getWhensCond(that: ContextUser): Bool = {
     val whenScope = if (that == null) null else that.whenScope
 
@@ -61,7 +60,7 @@ object when {
   }
 }
 
-class when(val cond: Bool) extends GlobalDataUser{
+class when(val cond: Bool) extends GlobalDataUser {
   var isTrue: Boolean = true;
   var parentElseWhen: when = null
 
@@ -91,12 +90,12 @@ class when(val cond: Bool) extends GlobalDataUser{
   def destackElseWhen: Unit = {
     if (parentElseWhen == null) return
     parentElseWhen.pop
-    parentElseWhen.restackElseWhen
+    parentElseWhen.destackElseWhen
   }
 
 
   def push: Unit = {
-   globalData.whenStack.push(this)
+    globalData.whenStack.push(this)
   }
 
   def pop: Unit = {
@@ -106,7 +105,9 @@ class when(val cond: Bool) extends GlobalDataUser{
 }
 
 class SwitchStack(val value: Data) {
-  // var lastWhen : when = null
+  var lastWhen: when = null
+  var hasDefault = false
+  val whenStackHead = GlobalData.get.whenStack.head()
 }
 
 object switch {
@@ -126,30 +127,58 @@ object is {
   def apply[T <: Data](value: T, values: T*)(block: => Unit): Unit = is(value :: values.toList)(block)
 
   def apply[T <: SpinalEnum](value: SpinalEnumElement[T])(block: => Unit): Unit = is(value() :: Nil)(block)
-  def apply[T <: SpinalEnum](value: SpinalEnumElement[T],values: SpinalEnumElement[T]*)(block: => Unit): Unit = is(value() :: values.map(_()).toList)(block)
+  def apply[T <: SpinalEnum](value: SpinalEnumElement[T], values: SpinalEnumElement[T]*)(block: => Unit): Unit = is(value() :: values.map(_()).toList)(block)
 
 
   def apply[T <: Data](keys: Iterable[T])(block: => Unit): Unit = {
+    val wHead = GlobalData.get.whenStack.head()
+
     if (keys.isEmpty) SpinalError("There is no key in 'is' statement")
     val globalData = keys.head.globalData
     if (globalData.switchStack.isEmpty) SpinalError("Use 'is' statement outside the 'switch'")
 
     val value = globalData.switchStack.head()
+    if(value.whenStackHead != globalData.whenStack.head())
+      SpinalError("'is' statement is not at the top level of the 'switch'")
+    if(value.hasDefault)
+      SpinalError("'is' statement must appear before the 'default' statement of the 'switch'")
 
-    when(keys.map(key => (key === value.value)).reduceLeft(_ || _)) {
-      block
+    if (value.lastWhen == null) {
+      value.lastWhen = when(keys.map(key => (key === value.value)).reduceLeft(_ || _)) (block)
+    } else {
+      value.lastWhen = value.lastWhen.elsewhen(keys.map(key => (key === value.value)).reduceLeft(_ || _)) (block)
+    }
+    if(wHead != GlobalData.get.whenStack.head()){
+      println("dead")
     }
   }
 }
 
+object default {
+  def apply(block: => Unit): Unit = {
+    val globalData = GlobalData.get
+    if (globalData.switchStack.isEmpty) SpinalError("Use 'default' statement outside the 'switch'")
+    val value = globalData.switchStack.head()
 
-object WhenNode{
+    if(value.whenStackHead != globalData.whenStack.head()) SpinalError("'default' statement is not at the top level of the 'switch'")
+    if(value.hasDefault)SpinalError("'default' statement must appear only one time in the 'switch'")
+    value.hasDefault = true
+    if(value.lastWhen == null){
+      block
+    }else{
+      value.lastWhen.otherwise(block)
+    }
 
-  def apply(w : when) : WhenNode ={
-    apply(w,w.cond,NoneNode(),NoneNode())
+  }
+}
+
+object WhenNode {
+
+  def apply(w: when): WhenNode = {
+    apply(w, w.cond, NoneNode(), NoneNode())
   }
 
-  def apply(w : when,cond: Bool, whenTrue: Node, whenFalse: Node): WhenNode ={
+  def apply(w: when, cond: Bool, whenTrue: Node, whenFalse: Node): WhenNode = {
     val ret = new WhenNode(w)
     ret.inputs += cond
     ret.inputs += whenTrue
@@ -158,8 +187,8 @@ object WhenNode{
   }
 }
 
-class WhenNode(val w : when) extends Node{
-  override def calcWidth: Int = Math.max(whenTrue.getWidth,whenFalse.getWidth)
+class WhenNode(val w: when) extends Node {
+  override def calcWidth: Int = Math.max(whenTrue.getWidth, whenFalse.getWidth)
 
   def cond = inputs(0)
   def whenTrue = inputs(1)

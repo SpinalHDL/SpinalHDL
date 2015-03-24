@@ -76,16 +76,16 @@ begin
       io_outComplex_ref <= io_data_1;
       if io_data_3 = io_data_4 then
           io_outComplex_ref <= io_data_5;
-      end if;
-      if io_data_3 = io_data_6 then
+      elsif io_data_3 = io_data_6 then
         io_outComplex_ref <= io_data_7;
-      end if;
-      if io_data_3 = X"55" then
+      elsif io_data_3 = X"55" then
         if io_conds_2 = '1' then
           io_outComplex_ref <= X"AA";
         elsif io_conds_3 = '1' then
           io_outComplex_ref <= io_data_8;
         end if;
+      else
+        io_outComplex_ref <= io_data_11;
       end if;
     else
       if io_conds_4 = '1' then

@@ -54,14 +54,14 @@ object SpinalBuild extends Build {
       libraryDependencies += "org.scalatest" % "scalatest_2.11" % "2.2.1",
       publishTo := None
     )
-  ) dependsOn(core, lib)
+  ) dependsOn(core, lib,debugger)
 
   //sbt clean reload publishSigned
   //https://oss.sonatype.org
   lazy val defaultSettings = Defaults.defaultSettings ++ xerial.sbt.Sonatype.sonatypeSettings ++ Seq(
     organization := "com.github.spinalhdl",
     scalaVersion := SpinalVersion.compiler,
-    scalacOptions ++= Seq("-unchecked", "-feature","-deprecation"),
+    scalacOptions ++= Seq("-unchecked", "-feature"/*,"-deprecation"*/),
     baseDirectory in test := file("/out/"),
 
     profileName := "Dolu1990",

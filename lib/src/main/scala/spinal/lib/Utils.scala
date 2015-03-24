@@ -50,23 +50,22 @@ object OHToUInt {
   }
 }
 
-object toGray{
-  def apply(uint : UInt): Bits ={
+object toGray {
+  def apply(uint: UInt): Bits = {
     toBits((uint >> u(1)) ^ uint)
   }
 }
 
-object fromGray{
-  def apply(gray : Bits): UInt ={
+object fromGray {
+  def apply(gray: Bits): UInt = {
     val ret = UInt(widthOf(gray) bit)
-    for(i <- 0 until widthOf(gray)-1){
-      ret(i) := gray(i) ^ ret(i+1)
+    for (i <- 0 until widthOf(gray) - 1) {
+      ret(i) := gray(i) ^ ret(i + 1)
     }
     ret.msb := gray.msb
     ret
   }
 }
-
 
 
 //object Flag{
@@ -80,14 +79,14 @@ object fromGray{
 //}
 
 object CounterFreeRun {
-  def apply(stateCount: Int) : Counter  = {
-    new Counter(stateCount,true)
+  def apply(stateCount: Int): Counter = {
+    new Counter(stateCount, true)
   }
 }
 
 object Counter {
-  def apply(stateCount: Int) : Counter = new Counter(stateCount)
-  def apply(stateCount: Int,inc : Bool) : Counter  = {
+  def apply(stateCount: BigInt): Counter = new Counter(stateCount)
+  def apply(stateCount: BigInt, inc: Bool): Counter = {
     val counter = Counter(stateCount)
     when(inc) {
       counter ++;
@@ -97,30 +96,40 @@ object Counter {
   implicit def implicitValue(c: Counter) = c.value
 }
 
-class Counter(val stateCount: Int,freeRun : Boolean = false) extends Area {
+class Counter(val stateCount: BigInt, freeRun: Boolean = false) extends Area {
   val inc = Bool(freeRun)
-  def ++(): UInt = {
+  val res = False
+  def ++ : UInt = {
     inc := True
     valueNext
   }
 
+  def reset: Unit = res := True
+
   val valueNext = UInt(log2Up(stateCount) bit)
   val value = RegNext(valueNext, u(0))
+  val overflow = False
 
-  if (isPow2(stateCount))
-    valueNext := value + inc.toUInt
+  if (isPow2(stateCount)) {
+    valueNext := value + toUInt(inc)
+    when(inc && value === stateCount - 1) {
+      overflow := True
+    }
+  }
   else {
     when(inc) {
       when(value === u(stateCount - 1)) {
         valueNext := u(0)
+        overflow := True
       } otherwise {
         valueNext := value + u(1)
       }
     }
   }
+  when(res) {
+    valueNext := 0
+  }
 }
-
-
 
 
 object MajorityVote {
@@ -215,10 +224,12 @@ object latencyAnalysis {
 }
 
 
-
-trait DataCarrier[T <: Data]{
-  def fire : Bool
-  def valid : Bool
-  def data : T
-  def freeRun : Unit
+trait DataCarrier[T <: Data] {
+  def fire: Bool
+  def valid: Bool
+  def data: T
+  def freeRun: Unit
 }
+
+
+
