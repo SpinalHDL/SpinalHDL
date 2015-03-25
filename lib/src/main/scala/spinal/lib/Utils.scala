@@ -108,19 +108,22 @@ class Counter(val stateCount: BigInt, freeRun: Boolean = false) extends Area {
 
   val valueNext = UInt(log2Up(stateCount) bit)
   val value = RegNext(valueNext, u(0))
-  val overflow = False
+  val overflowIfInc = False
+  val overflow = overflowIfInc && inc
 
   if (isPow2(stateCount)) {
     valueNext := value + toUInt(inc)
-    when(inc && value === stateCount - 1) {
-      overflow := True
+    when(value === stateCount - 1) {
+      overflowIfInc := True
     }
   }
   else {
+    when(value === u(stateCount - 1)) {
+      overflowIfInc := True
+    }
     when(inc) {
-      when(value === u(stateCount - 1)) {
+      when(overflowIfInc) {
         valueNext := u(0)
-        overflow := True
       } otherwise {
         valueNext := value + u(1)
       }
