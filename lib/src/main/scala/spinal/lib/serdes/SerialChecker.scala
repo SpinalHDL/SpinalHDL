@@ -4,9 +4,9 @@ import spinal.core._
 import spinal.lib._
 
 object SerialCheckerConst {
-//  def cMagic = b"xA5"
-//  def cStart = b"xD8"
-//  def cEnd = b"x9A"
+  //  def cMagic = b"xA5"
+  //  def cStart = b"xD8"
+  //  def cEnd = b"x9A"
 
   def chunkDataSizeMax = 32
   def bitsWidth = 8
@@ -24,7 +24,7 @@ class SerialCheckerPhysical(bitsWidth: Int) extends Bundle {
 
   def isBits = !isStart && !isEnd
 
-  override def clone() : this.type = new SerialCheckerPhysical(bitsWidth).asInstanceOf[this.type]
+  override def clone(): this.type = new SerialCheckerPhysical(bitsWidth).asInstanceOf[this.type]
 }
 
 class SerialCheckerTx(bitsWidth: Int) extends Component {
@@ -144,6 +144,7 @@ object SerialCheckerRxState extends SpinalEnum {
 //}
 
 class SerialCheckerRx(wordCountMax: Int) extends Component {
+  assert(isPow2(wordCountMax))
 
   import SerialCheckerConst._
   import SerialCheckerRxState._
@@ -155,7 +156,7 @@ class SerialCheckerRx(wordCountMax: Int) extends Component {
 
   val buffer = new Area {
     val ram = Mem(Bits(bitsWidth + 1 bit), wordCountMax)
-    val writePtr = Counter(wordCountMax)
+    val writePtr = Counter(wordCountMax << 1)
     val validPtr = Reg(UInt(log2Up(wordCountMax) bit)) init (0)
 
     val checksum = Reg(UInt(16 bit))
@@ -178,7 +179,7 @@ class SerialCheckerRx(wordCountMax: Int) extends Component {
     }
 
     def push: Bool = {
-      val success = !(writePtr === readPtr && risingOccupancy)
+      val success = !(writePtr === (readPtr ^ wordCountMax))
       when(success) {
         pushFlag := True
       }
@@ -204,11 +205,8 @@ class SerialCheckerRx(wordCountMax: Int) extends Component {
       to.fragment := from
     })
 
-    val risingOccupancy = RegInit(False)
-    when(writePtr.inc !== readPtr.inc) {
-      risingOccupancy := writePtr.inc
-    }
   }
+
 
   val stateMachine = new Area {
     val state = RegInit(idle)
@@ -220,14 +218,14 @@ class SerialCheckerRx(wordCountMax: Int) extends Component {
             overflow := overflow | !buffer.push
           }
           is(check0) {
-            when(io.input.data === buffer.checksum(7, 0)) {
+            when(io.input.data === toBits(buffer.checksum(7, 0))) {
               state := check1
             } otherwise {
               state := idle
             }
           }
           is(check1) {
-            when(!overflow && io.input.data === buffer.checksum(15, 8)) {
+            when(!overflow && io.input.data === toBits(buffer.checksum(15, 8))) {
               buffer.flush
             }
             state := idle

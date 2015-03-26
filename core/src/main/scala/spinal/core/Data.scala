@@ -23,8 +23,13 @@ import scala.collection.mutable.ArrayBuffer
 
 object Data {
   implicit def autoCast[T <: Data, T2 <: T](that: T): T2#SSelf = that.asInstanceOf[T2#SSelf]
-  // implicit def autoCast[T <: Data](that: Null): T = that.asInstanceOf[T]
-
+   //implicit def autoCast[T <: Data](that: T#SSelf): T = that.asInstanceOf[T]
+//  implicit def autoCast[T2 <: Bool](that: Bool): T2#SSelf = that.asInstanceOf[T2#SSelf]
+//  implicit def autoCast[T2 <: Bits](that: Bits): T2#SSelf = that.asInstanceOf[T2#SSelf]
+//  implicit def autoCast[T2 <: UInt](that: UInt): T2#SSelf = that.asInstanceOf[T2#SSelf]
+//  implicit def autoCast[T2 <: SInt](that: SInt): T2#SSelf = that.asInstanceOf[T2#SSelf]
+//  implicit def autoCast[T2 <: Bundle](that: Bundle): T2#SSelf = that.asInstanceOf[T2#SSelf]
+//  implicit def autoCast[T2 <: Vec](that: Vec): T2#SSelf = that.asInstanceOf[T2#SSelf]
 
   def doPull[T <: Data](srcData: T, finalComponent: Component, useCache: Boolean = false, propagateName: Boolean = false): T = {
     val startComponent = srcData.component

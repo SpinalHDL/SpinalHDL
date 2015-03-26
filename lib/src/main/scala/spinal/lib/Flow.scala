@@ -78,5 +78,10 @@ class Flow[T <: Data](dataType: T) extends Bundle with Interface with DataCarrie
     ret connectFrom this
     ret
   }
+
+  def push(that : T): Unit ={
+    valid := True
+    data := that
+  }
 }
 
