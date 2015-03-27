@@ -58,8 +58,8 @@ package object core extends BaseTypeFactory with BaseTypeCast{
     def SInt(args: Any*): SInt = s(args)
 
     private def getString(args: Any*): String = {
-      println(sc.parts.size + " " + args.size)
-      println(sc.parts.head + "-----" + args.head)
+     // println(sc.parts.size + " " + args.size)
+     // println(sc.parts.head + "-----" + args.head)
     //  sc.standardInterpolator(_.toString(), args)
 
       val pi = sc.parts.iterator
@@ -69,7 +69,7 @@ package object core extends BaseTypeFactory with BaseTypeCast{
         if(ai.hasNext && !ai.next.isInstanceOf[List[_]])bldr append ai.next
         if(pi.hasNext && !pi.next.isInstanceOf[List[_]])bldr append pi.next
       }
-      println(bldr.result)
+      //println(bldr.result)
       bldr.result.replace("_", "")
     }
   }

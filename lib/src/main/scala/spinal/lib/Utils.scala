@@ -127,6 +127,8 @@ class Counter(val stateCount: BigInt, freeRun: Boolean = false) extends Area {
       } otherwise {
         valueNext := value + u(1)
       }
+    }otherwise{
+      valueNext := value
     }
   }
   when(res) {

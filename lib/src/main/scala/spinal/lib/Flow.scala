@@ -83,5 +83,10 @@ class Flow[T <: Data](dataType: T) extends Bundle with Interface with DataCarrie
     valid := True
     data := that
   }
+
+  def default(that : T): Unit ={
+    valid := False
+    data := that
+  }
 }
 

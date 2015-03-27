@@ -1,0 +1,51 @@
+package spinal.tester.scalatest
+
+import spinal.core._
+import spinal.lib._
+import spinal.lib.serdes._
+
+object SerdesSerialTester {
+
+  class BundleA extends Bundle {
+    val a = UInt(8 bit)
+    val b = Bool
+  }
+
+}
+
+import spinal.tester.scalatest.HandshakeTester._
+
+class SerdesSerialTester extends Component {
+  val io = new Bundle {
+    val rx = slave Flow (Bits(8 bit))
+    val tx = master Handshake (Bits(8 bit))
+  }
+
+  val physicalRx = new SerialCheckerPhysicalfromSerial(8)
+  physicalRx.io.input << io.rx
+
+  val serialCheckerRx = new SerialCheckerRx(128)
+  serialCheckerRx.io.input << physicalRx.io.output
+
+//  val serialLinkRx = new SerialLinkRx
+//  serialLinkRx.io.input << serialCheckerRx.io.output
+//
+//  val serialLinkTx = new SerialLinkTx(128,32,1000)
+//  serialLinkTx.io.rxToTx := serialLinkRx.io.rxToTx
+//  serialLinkTx.io.input << serialLinkRx.io.output
+
+  val serialCheckerTx = new SerialCheckerTx(8)
+//  serialCheckerTx.io.input << serialLinkTx.io.output
+  serialCheckerTx.io.input << serialCheckerRx.io.output
+
+  val physicalTx = new SerialCheckerPhysicalToSerial(8)
+  physicalTx.io.input << serialCheckerTx.io.output
+
+  io.tx << physicalTx.io.output
+}
+
+
+class SerdesSerialTesterBoot extends SpinalTesterBase {
+  override def getName: String = "SerdesSerialTester"
+  override def createToplevel: Component = new SerdesSerialTester
+}

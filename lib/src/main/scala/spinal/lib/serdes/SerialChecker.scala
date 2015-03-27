@@ -4,9 +4,9 @@ import spinal.core._
 import spinal.lib._
 
 object SerialCheckerConst {
-  //  def cMagic = b"xA5"
-  //  def cStart = b"xD8"
-  //  def cEnd = b"x9A"
+  def cMagic = b"xA5"
+  def cStart = b"xD8"
+  def cEnd = b"x9A"
 
   def chunkDataSizeMax = 32
   def bitsWidth = 8
@@ -39,7 +39,6 @@ class SerialCheckerTx(bitsWidth: Int) extends Component {
 
   io.output.valid := False
   io.output.data.bits := io.input.data.fragment
-  io.output.data.isBits := False
   io.output.data.isStart := False
   io.output.data.isEnd := False
   io.input.ready := False
@@ -61,13 +60,9 @@ class SerialCheckerTx(bitsWidth: Int) extends Component {
       is(eData) {
         io.output.valid := io.input.valid
         io.output.data.bits := io.input.data.fragment
-        io.output.data.isBits := True
-        when(!io.input.valid) {
-          state := eEnd
-        }
+        io.input.ready := io.output.ready
         when(io.output.fire) {
           checksum := checksum + toUInt(io.input.data.fragment)
-          io.input.ready := True
           when(io.input.data.last) {
             state := eEnd
           }
@@ -82,16 +77,14 @@ class SerialCheckerTx(bitsWidth: Int) extends Component {
       }
       is(eCheck0) {
         io.output.valid := True
-        io.output.data := checksum(7, 0)
-        io.output.data.isBits := True
+        io.output.data.bits := toBits(checksum(7, 0))
         when(io.output.ready) {
           state := eCheck1
         }
       }
       is(eCheck1) {
         io.output.valid := True
-        io.output.data := checksum(15, 8)
-        io.output.data.isBits := True
+        io.output.data.bits := toBits(checksum(15, 8))
         when(io.output.ready) {
           state := eStart
         }
@@ -102,46 +95,88 @@ class SerialCheckerTx(bitsWidth: Int) extends Component {
 
 
 object SerialCheckerRxState extends SpinalEnum {
-  val idle, data, check0, check1 = Value
+  val eIdle, eData, eCheck0, eCheck1 = Value
 }
 
 
-//class MagicRx(bitsWidth: Int) extends Component{
-//  val io = new Bundle{
-//    val input = slave Flow (new SerialCheckerPhysical(bitsWidth))
-//    val output = master Flow (new SerialCheckerPhysical(bitsWidth))
-//  }
-//}
-//val state = RegInit(idle)
-//val inMagic = RegInit(False)
-//val consumeData = False
-//val overflow = Reg(Bool)
-//when(io.input.fire) {
-//when(inMagic) {
-//switch(io.input.data) {
-//is(cStart) {
-//state := data
-//overflow := False
-//buffer.writeStart
-//}
-//is(cEnd) {
-//state := check0
-//}
-//is(cMagic) {
-//consumeData := True
-//}
-//default {
-//state := idle
-//}
-//}
-//} otherwise {
-//when(io.input.data === cMagic) {
-//inMagic := True
-//} otherwise {
-//consumeData := True
-//}
-//}
-//}
+class SerialCheckerPhysicalToSerial(bitsWidth: Int) extends Component {
+
+  import SerialCheckerConst._
+
+  val io = new Bundle {
+    val input = slave Handshake (new SerialCheckerPhysical(bitsWidth))
+    val output = master Handshake (Bits(bitsWidth bit))
+  }
+
+  val inMagic = RegInit(False)
+
+  io.output.valid := io.input.valid
+  io.output.data := io.input.data.bits
+  io.input.ready := io.output.ready
+
+  when(inMagic) {
+    when(io.input.data.isStart) {
+      io.output.data := cStart
+    }
+    when(io.input.data.isEnd) {
+      io.output.data := cEnd
+    }
+    when(io.output.fire) {
+      inMagic := False
+    }
+  } otherwise {
+    when(!io.input.data.isBits || io.input.data.bits === cMagic) {
+      io.input.ready := False
+      io.output.data := cMagic
+      when(io.output.fire) {
+        inMagic := True
+      }
+    }
+  }
+}
+
+class SerialCheckerPhysicalfromSerial(bitsWidth: Int) extends Component {
+
+  import SerialCheckerConst._
+
+  val io = new Bundle {
+    val input = slave Flow (Bits(bitsWidth bit))
+    val output = master Flow (new SerialCheckerPhysical(bitsWidth))
+  }
+
+  val inMagic = RegInit(False)
+
+  io.output.valid := False
+  io.output.data.bits := io.input.data
+  io.output.data.isStart := False
+  io.output.data.isEnd := False
+
+  when(io.input.fire) {
+    when(inMagic) {
+      switch(io.input.data) {
+        is(cStart) {
+          io.output.valid := True
+          io.output.data.isStart := True
+        }
+        is(cEnd) {
+          io.output.valid := True
+          io.output.data.isEnd := True
+        }
+        is(cMagic) {
+          io.output.valid := True
+        }
+      }
+      inMagic := False
+    } otherwise {
+      when(io.input.data === cMagic) {
+        inMagic := True
+      } otherwise {
+        io.output.valid := True
+      }
+    }
+  }
+}
+
 
 class SerialCheckerRx(wordCountMax: Int) extends Component {
   assert(isPow2(wordCountMax))
@@ -164,10 +199,10 @@ class SerialCheckerRx(wordCountMax: Int) extends Component {
     val pushFlag = False
     val flushFlag = False
 
-    val lastWriteData = RegNextWhen(io.input.data.bits, pushFlag)
+    val lastWriteData = RegNextWhen(io.input.data.bits(bitsWidth - 1, 0), pushFlag)
 
     when(pushFlag || flushFlag) {
-      ram(writePtr - toUInt(flushFlag)) := Mux(pushFlag, io.input.data.bits, True ## lastWriteData)
+      ram(writePtr - toUInt(flushFlag)) := Mux(pushFlag, io.input.data.bits, True ## lastWriteData)  //TODO BUG mux size inferance is 8 in place of 9
     }
 
     when(pushFlag) {
@@ -209,36 +244,36 @@ class SerialCheckerRx(wordCountMax: Int) extends Component {
 
 
   val stateMachine = new Area {
-    val state = RegInit(idle)
+    val state = RegInit(eIdle)
     val overflow = Reg(Bool)
     when(io.input.fire) {
       when(io.input.data.isBits) {
         switch(state) {
-          is(data) {
+          is(eData) {
             overflow := overflow | !buffer.push
           }
-          is(check0) {
-            when(io.input.data === toBits(buffer.checksum(7, 0))) {
-              state := check1
+          is(eCheck0) {
+            when(io.input.data.bits === toBits(buffer.checksum(7, 0))) {
+              state := eCheck1
             } otherwise {
-              state := idle
+              state := eIdle
             }
           }
-          is(check1) {
-            when(!overflow && io.input.data === toBits(buffer.checksum(15, 8))) {
+          is(eCheck1) {
+            when(!overflow && io.input.data.bits === toBits(buffer.checksum(15, 8))) {
               buffer.flush
             }
-            state := idle
+            state := eIdle
           }
         }
       }
       when(io.input.data.isStart) {
-        state := data
+        state := eData
         overflow := False
         buffer.writeStart
       }
       when(io.input.data.isEnd) {
-        state := check0
+        state := eCheck0
       }
     }
 
