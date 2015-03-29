@@ -56,6 +56,7 @@ class SerialCheckerTx(bitsWidth: Int) extends Component {
             state := eData
           }
         }
+        checksum := 0
       }
       is(eData) {
         io.output.valid := io.input.valid

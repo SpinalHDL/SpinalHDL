@@ -57,11 +57,14 @@ abstract class SpinalTesterBase extends FunSuite  {
 
 
   def checkHDL(mustSuccess: Boolean): Unit = {
-    println("GHDL compilation")
-    assert(((s"ghdl -a --work=$getLibraryName $getName.vhd tester/src/test/resources/${getName}_tb.vhd" !) == 0) == mustSuccess, if (mustSuccess) "compilation fail" else "Compilation has not fail :(")
+    val comp = s"ghdl -a --work=$getLibraryName $getName.vhd tester/src/test/resources/${getName}_tb.vhd"
+    println("GHDL compilation " + comp)
+    assert(((comp !) == 0) == mustSuccess, if (mustSuccess) "compilation fail" else "Compilation has not fail :(")
 
-    println("GHDL elaborate")
-    assert(((s"ghdl -e --work=$getLibraryName ${getName}_tb" !) == 0) == mustSuccess, if (mustSuccess) "compilation fail" else "Compilation has not fail :(")
+
+    val elab = s"ghdl -e --work=$getLibraryName ${getName}_tb"
+    println("GHDL elaborate " + elab)
+    assert(((elab !) == 0) == mustSuccess, if (mustSuccess) "compilation fail" else "Compilation has not fail :(")
   }
 
   def checkHDL: Unit = checkHDL(true)
