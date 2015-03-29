@@ -64,7 +64,7 @@ class SerialCheckerTx(bitsWidth: Int) extends Component {
         io.input.ready := io.output.ready
         when(io.output.fire) {
           checksum := checksum + toUInt(io.input.data.fragment)
-          when(io.input.data.last) {
+          when(io.input.last) {
             state := eEnd
           }
         }

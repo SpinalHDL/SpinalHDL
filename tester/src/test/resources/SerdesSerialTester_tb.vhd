@@ -65,13 +65,29 @@ begin
       end loop;
     end waitClk;
     
-    procedure tx(that : std_logic_vector) is
+    procedure tx(that : std_logic_vector(7 downto 0)) is
     begin
       io_rx_valid <= '1';
       io_rx_data <= that;
       wait until rising_edge(clk);
       io_rx_valid <= '0';
     end tx;
+
+    procedure txPacket(thatIn : std_logic_vector) is
+      variable checksum : unsigned(15 downto 0) := X"0000";
+      variable that : std_logic_vector( thatIn'high downto 0) := thatIn;
+    begin
+      tx(X"A5");
+      tx(X"D8");
+      for i in (that'length / 8) -1 downto 0 loop
+        tx(that(i*8+7 downto i*8));
+        checksum := checksum + unsigned(that(i*8+7 downto i*8));
+      end loop;
+      tx(X"A5");
+      tx(X"9A");    
+      tx(std_logic_vector(checksum(7 downto 0)));
+      tx(std_logic_vector(checksum(15 downto 8))); 
+    end txPacket;
   begin
     io_rx_valid <= '0';
     waitClk(3);
@@ -97,7 +113,9 @@ begin
     tx(X"9A");   
     tx(X"06");
     tx(X"00");  
-    
+        
+    waitClk(50);
+    txPacket(X"010203");
     wait;
   end process;
 

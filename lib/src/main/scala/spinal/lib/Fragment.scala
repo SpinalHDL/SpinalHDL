@@ -14,11 +14,17 @@ object HandshakeFragment extends HandshakeFragmentFactory
 
 
 class FlowFragmentPimped[T <: Data](that: Flow[Fragment[T]]) {
-
+  def last = that.data.last
+  def fragment = that.data.fragment
 }
 
 
 class HandshakeFragmentPimped[T <: Data](pimped: Handshake[Fragment[T]]) {
+  def last = pimped.data.last
+  def fragment = pimped.data.fragment
+
+
+
   def insertHeader(header : T) : Handshake[Fragment[T]] = {
     val ret = cloneOf(pimped)
     val waitPacket = RegInit(True)
