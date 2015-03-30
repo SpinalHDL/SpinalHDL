@@ -92,30 +92,18 @@ begin
     io_rx_valid <= '0';
     waitClk(3);
     wait until rising_edge(clk) and reset = '0';
-    tx(X"A5");
-    tx(X"D8");
-    tx(X"01");
-    tx(X"02");
-    tx(X"03");
-    tx(X"A5");
-    tx(X"9A");    
-    tx(X"06");
-    tx(X"00");   
-    
-    waitClk(50);
-    
-    tx(X"A5");
-    tx(X"D8");
-    tx(X"01");
-    tx(X"02");
-    tx(X"03");
-    tx(X"A5");
-    tx(X"9A");   
-    tx(X"06");
-    tx(X"00");  
-        
-    waitClk(50);
-    txPacket(X"010203");
+    txPacket(X"03"); waitClk(50);
+    txPacket(X"02"); waitClk(50);
+    txPacket(X"03"); waitClk(50);
+    txPacket(X"01_0000_0000_112233"); waitClk(50);
+    txPacket(X"01_0000_0300_445566"); waitClk(50);
+	wait for 20 us;
+	waitClk(1);
+	txPacket(X"01_0200"); 
+	wait for 20 us;
+	waitClk(1);
+	txPacket(X"01_0600"); 
+	
     wait;
   end process;
 

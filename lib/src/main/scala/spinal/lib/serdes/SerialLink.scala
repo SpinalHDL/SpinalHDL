@@ -5,11 +5,17 @@ import spinal.lib._
 
 object SerialLinkConst {
   def cData = b"01"
+
   def cClose = b"02"
+
   def cOpen = b"03"
+
   def cIsClose = b"04"
+
   def cIsOpen = b"05"
+
   def chunkDataSizeMax = 32
+
   def bitsWidth = 8
 }
 
@@ -32,7 +38,7 @@ class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) ext
   import SerialLinkTxState._
 
   val io = new Bundle {
-    val input = slave Handshake Fragment(Bits(bitsWidth bit))
+    val input = slave Handshake (Bits(bitsWidth bit))
     val output = master Handshake Fragment(Bits(bitsWidth bit))
 
     val rxToTx = in(new SerialLinkRxToTx)
@@ -42,7 +48,7 @@ class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) ext
     //TODO maybe add to Utils lib the timeout pattern ?
     val value = RegInit(False)
 
-    val timeout = Counter(resendTimeoutLimit)
+    val timeout = CounterFreeRun(resendTimeoutLimit)
     when(timeout.overflow) {
       value := True
     }
@@ -56,12 +62,12 @@ class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) ext
   val alive = new Area {
     val value = RegInit(False)
 
-    val timeout = Counter(resendTimeoutLimit)
+    val timeout = CounterFreeRun(resendTimeoutLimit)
     when(timeout.overflow) {
       value := True
     }
 
-    when(io.output.valid){
+    when(io.output.fire) {
       timeout.reset
       value := False
     }
@@ -71,14 +77,19 @@ class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) ext
   val buffer = new Area {
     val ram = Mem(Bits(bitsWidth bit), bufferSize)
 
-    val writePtr = Counter(1<<16)
-    val readPtr = Counter(1<<16)
-    val syncPtr = Reg(UInt(log2Up(bufferSize) bit))
+    val writePtr = Counter(1 << 16)
+    val readPtr = Counter(1 << 16)
+    val syncPtr = Reg(UInt(16 bit))
 
 
-    val empty = writePtr(log2Up(bufferSize),0) === readPtr(log2Up(bufferSize),0)
-    val full = writePtr(log2Up(bufferSize),0) === (readPtr(log2Up(bufferSize),0) ^ bufferSize)
+    val empty = writePtr(log2Up(bufferSize), 0) === readPtr(log2Up(bufferSize), 0)
+    val full = writePtr(log2Up(bufferSize), 0) === (readPtr(log2Up(bufferSize), 0) ^ bufferSize)
 
+    io.input.ready := !full
+    when(io.input.fire) {
+      ram.write(writePtr, io.input.data)
+      writePtr ++
+    }
 
     when(io.rxToTx.otherRxPtr.fire) {
       syncPtr := io.rxToTx.otherRxPtr.data
@@ -101,10 +112,10 @@ class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) ext
 
   val close = RegInit(True)
   val open = RegInit(False)
-  when(io.rxToTx.close){
+  when(io.rxToTx.close) {
     close := True
   }
-  when(io.rxToTx.open){
+  when(io.rxToTx.open) {
     open := True
   }
 
@@ -119,15 +130,15 @@ class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) ext
     when(buffer.readCmd.fire) {
       dataCounter := dataCounter + 1
     }
-    when(!isOpen){
+    when(!isOpen) {
       buffer.writePtr := 0
       buffer.readPtr := 0
       buffer.syncPtr := 0
     }
 
     io.output.valid := False
-    io.output.data := io.input.data
-    io.input.ready := False
+    io.output.last := False
+    io.output.fragment := buffer.readPort.data
     buffer.readPort.ready := io.output.ready
 
     switch(state) {
@@ -135,25 +146,25 @@ class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) ext
         when(resend.value) {
           buffer.readPtr := buffer.syncPtr
           resend.clear
-        }.elsewhen(close){
+        }.elsewhen(close) {
           io.output.valid := True
-          io.output.data.last := True
-          io.output.data.fragment := cIsClose
+          io.output.last := True
+          io.output.fragment := cIsClose
           isOpen := False
-          when(io.output.ready){
+          when(io.output.ready) {
             close := False
           }
-        }.elsewhen(open){
+        }.elsewhen(open) {
           io.output.valid := True
-          io.output.data.last := True
-          io.output.data.fragment := cIsOpen
+          io.output.last := True
+          io.output.fragment := cIsOpen
           isOpen := True
-          when(io.output.ready){
+          when(io.output.ready) {
             open := False
           }
         }.elsewhen(isOpen && (!buffer.empty || alive.value)) {
           io.output.valid := True
-          io.output.data.fragment := cData
+          io.output.fragment := cData
           when(io.output.ready) {
             state := eMyPtr0
             dataCounter := 0
@@ -162,7 +173,7 @@ class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) ext
       }
       is(eMyPtr0) {
         io.output.valid := True
-        io.output.data.fragment := toBits(io.rxToTx.rxPtr(7, 0))
+        io.output.fragment := toBits(io.rxToTx.rxPtr(7, 0))
         dataBuffer := toBits(io.rxToTx.rxPtr(15, 8))
         when(io.output.ready) {
           state := eMyPtr1
@@ -170,24 +181,31 @@ class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) ext
       }
       is(eMyPtr1) {
         io.output.valid := True
-        io.output.data.fragment := dataBuffer
-        when(io.output.ready) {
-          state := eMessagePtr0
+        io.output.fragment := dataBuffer
+        when(buffer.empty) {
+          io.output.last := True
+          when(io.output.ready) {
+            state := eNewFrame
+          }
+        } otherwise {
+          when(io.output.ready) {
+            state := eMessagePtr0
+          }
         }
       }
       is(eMessagePtr0) {
         io.output.valid := True
-        io.output.data.fragment := toBits(buffer.readPtr(7, 0))
+        io.output.fragment := toBits(buffer.readPtr(7, 0))
         when(io.output.ready) {
           state := eMessagePtr1
         }
       }
       is(eMessagePtr1) {
         io.output.valid := True
-        io.output.data.fragment := toBits(buffer.readPtr(15, 8))
+        io.output.fragment := toBits(buffer.readPtr(15, 8))
 
         when(buffer.empty) {
-          io.output.data.last := True
+          io.output.last := True
           when(io.output.ready) {
             state := eNewFrame
           }
@@ -201,12 +219,11 @@ class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) ext
       }
       is(eData) {
         io.output.valid := True
-        io.output.data.fragment := buffer.readPort.data
         when((dataCounter !== burstSize - 1) && !buffer.empty && !isLastData) {
           buffer.readCmdFlag := True
         } otherwise {
           isLastData := True
-          io.output.data.last := True
+          io.output.last := True
           when(io.output.ready) {
             state := eNewFrame
           }
@@ -229,7 +246,7 @@ class SerialLinkRx extends Component {
 
   val io = new Bundle {
     val input = slave Handshake Fragment(Bits(bitsWidth bit))
-    val output = master Handshake Fragment(Bits(bitsWidth bit))
+    val output = master Handshake (Bits(bitsWidth bit))
 
     val rxToTx = out(new SerialLinkRxToTx)
   }
@@ -237,9 +254,9 @@ class SerialLinkRx extends Component {
   val softReset = RegInit(True)
   val state = RegInit(eType)
   val rxPtr = Reg(UInt(16 bit))
-  val keepData = Reg(Bool)
+  val keepData = RegInit(False)
 
-  val data = io.input.data.fragment
+  val data = io.input.fragment
   val dataOld = RegNextWhen(data, io.input.valid)
 
   io.rxToTx.close := False
@@ -247,8 +264,8 @@ class SerialLinkRx extends Component {
   io.rxToTx.miss := False
   io.rxToTx.otherRxPtr.default(0)
 
-  io.output.valid := io.input.valid && keepData
-  io.output.data := io.input.data
+  io.output.valid := False
+  io.output.data := io.input.fragment
   io.input.ready := False
   when(io.input.valid) {
     switch(state) {
@@ -297,6 +314,7 @@ class SerialLinkRx extends Component {
         io.input.ready := True
       }
       is(eData) {
+        io.output.valid := io.input.valid && keepData
         io.input.ready := io.output.ready
       }
     }

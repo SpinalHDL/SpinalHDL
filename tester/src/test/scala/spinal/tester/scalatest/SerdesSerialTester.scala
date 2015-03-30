@@ -27,16 +27,16 @@ class SerdesSerialTester extends Component {
   val serialCheckerRx = new SerialCheckerRx(128)
   serialCheckerRx.io.input << physicalRx.io.output
 
-//  val serialLinkRx = new SerialLinkRx
-//  serialLinkRx.io.input << serialCheckerRx.io.output
-//
-//  val serialLinkTx = new SerialLinkTx(128,32,1000)
-//  serialLinkTx.io.rxToTx := serialLinkRx.io.rxToTx
-//  serialLinkTx.io.input << serialLinkRx.io.output
+  val serialLinkRx = new SerialLinkRx
+  serialLinkRx.io.input << serialCheckerRx.io.output
+
+  val serialLinkTx = new SerialLinkTx(128,32,1000)
+  serialLinkTx.io.rxToTx := serialLinkRx.io.rxToTx
+  serialLinkTx.io.input << serialLinkRx.io.output
 
   val serialCheckerTx = new SerialCheckerTx(8)
-  //serialCheckerTx.io.input << serialLinkTx.io.output
-  serialCheckerTx.io.input << serialCheckerRx.io.output
+  serialCheckerTx.io.input << serialLinkTx.io.output
+  //serialCheckerTx.io.input << serialCheckerRx.io.output
 
   val physicalTx = new SerialCheckerPhysicalToSerial(8)
   physicalTx.io.input << serialCheckerTx.io.output

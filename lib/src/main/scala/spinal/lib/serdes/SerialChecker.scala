@@ -38,7 +38,7 @@ class SerialCheckerTx(bitsWidth: Int) extends Component {
   }
 
   io.output.valid := False
-  io.output.data.bits := io.input.data.fragment
+  io.output.data.bits := io.input.fragment
   io.output.data.isStart := False
   io.output.data.isEnd := False
   io.input.ready := False
@@ -60,10 +60,10 @@ class SerialCheckerTx(bitsWidth: Int) extends Component {
       }
       is(eData) {
         io.output.valid := io.input.valid
-        io.output.data.bits := io.input.data.fragment
+        io.output.data.bits := io.input.fragment
         io.input.ready := io.output.ready
         when(io.output.fire) {
-          checksum := checksum + toUInt(io.input.data.fragment)
+          checksum := checksum + toUInt(io.input.fragment)
           when(io.input.last) {
             state := eEnd
           }
