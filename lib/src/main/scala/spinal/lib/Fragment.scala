@@ -14,36 +14,35 @@ object HandshakeFragment extends HandshakeFragmentFactory
 
 
 class FlowFragmentPimped[T <: Data](that: Flow[Fragment[T]]) {
-//  def last : Bool = that.last
-//  def fragment : T = that.data.fragment
+  //  def last : Bool = that.last
+  //  def fragment : T = that.data.fragment
 }
 
 
 class HandshakeFragmentPimped[T <: Data](pimped: Handshake[Fragment[T]]) {
-//  def last : Bool = pimped.last
-//  def fragment : T = pimped.data.fragment
+  //  def last : Bool = pimped.last
+  //  def fragment : T = pimped.data.fragment
 
 
-
-  def insertHeader(header : T) : Handshake[Fragment[T]] = {
+  def insertHeader(header: T): Handshake[Fragment[T]] = {
     val ret = cloneOf(pimped)
     val waitPacket = RegInit(True)
 
     ret.valid := False
     ret.last := False
 
-    when(pimped.valid){
+    when(pimped.valid) {
       ret.valid := True
-      when(waitPacket){
+      when(waitPacket) {
         ret.fragment := header
-      } otherwise{
+      } otherwise {
         ret.data := pimped.data
       }
     }
 
-    when(ret.fire){
+    when(ret.fire) {
       waitPacket := False
-      when(ret.last){
+      when(ret.last) {
         waitPacket := True
       }
     }
@@ -52,10 +51,80 @@ class HandshakeFragmentPimped[T <: Data](pimped: Handshake[Fragment[T]]) {
   }
 }
 
+object FragmentToBitsStates extends SpinalEnum {
+  val eDefault, eFinish0, eFinish1, eMagicData = Value
+}
+
+class HandshakeBitsPimped(pimped: Handshake[Bits]) {
+//  def toHandshakeFragmentBits(magic: Bits = 0x74): Handshake[Fragment[Bits]] = {
+//    val ret = Handshake Fragment (pimped.data)
+//    val isFirst
+//
+//
+//    ret.valid := pimped.valid
+//    ret.data := Mux(waitNew, magic, pimped.fragment)
+//    ret.ready := pimped.ready && !waitNew
+//
+//    ret
+//  }
+}
+
+class HandshakeFragmentBitsPimped(pimped: Handshake[Fragment[Bits]]) {
+  def toHandshakeBits(cMagic: Bits = 0x74, cLast: Bits = 0x53): Handshake[Bits] = {
+    import FragmentToBitsStates._
+    val ret = Handshake(pimped.fragment)
+    val state = RegInit(eDefault)
+    val endIt = Reg(False)
+    val retFire = ret.fire
+
+    pimped.ready := False
+
+    switch(state) {
+      is(eMagicData) {
+        ret.valid := True
+        ret.data := pimped.fragment
+        when(ret.ready) {
+          pimped.ready := True
+          state := eDefault
+        }
+      }
+      is(eFinish0) {
+        ret.valid := True
+        ret.data := cMagic
+        when(ret.ready) {
+          state := eFinish1
+        }
+      }
+      is(eFinish1) {
+        ret.valid := True
+        ret.data := cLast
+        when(ret.ready) {
+          state := eDefault
+        }
+      }
+      default {
+        ret.valid := pimped.valid
+        ret.data := pimped.fragment
+        pimped.ready := ret.ready
+
+        when(pimped.valid && pimped.fragment === cMagic) {
+          pimped.ready := False
+          state := eMagicData
+        }
+      }
+    }
+
+    when(pimped.fire && pimped.last) {
+      state := eFinish0
+    }
+
+    ret
+  }
+}
 
 class DataCarrierFragmentPimped[T <: Data](pimped: DataCarrier[Fragment[T]]) {
-  def last : Bool = pimped.data.last
-  def fragment : T = pimped.data.fragment
+  def last: Bool = pimped.data.last
+  def fragment: T = pimped.data.fragment
 
 
   def isNotInTail = RegNextWhen(pimped.last, pimped.fire, True)
@@ -82,7 +151,7 @@ class DataCarrierFragmentBitsPimped(pimped: DataCarrier[Fragment[Bits]]) {
     } else {
       val missingBitsCount = toWidth - fromWidth
 
-      val buffer = Reg(Bits(((missingBitsCount-1)/fromWidth + 1)*fromWidth bit))
+      val buffer = Reg(Bits(((missingBitsCount - 1) / fromWidth + 1) * fromWidth bit))
       when(pimped.fire) {
         buffer := pimped.fragment ## (buffer >> fromWidth)
       }
@@ -92,6 +161,8 @@ class DataCarrierFragmentBitsPimped(pimped: DataCarrier[Fragment[Bits]]) {
     }
     ret
   }
+
+
 }
 
 
@@ -122,8 +193,6 @@ class Fragment[T <: Data](dataType: T) extends Bundle {
 }
 
 
-
-
 object FlowFragmentRouter {
   def apply(input: Flow[Fragment[Bits]], outputSize: Int): Vec[Flow[Fragment[Bits]]] = {
     FlowFragmentRouter(input, (0 until outputSize).map(BigInt(_)))
@@ -141,28 +210,31 @@ class FlowFragmentRouter(input: Flow[Fragment[Bits]], mapTo: Iterable[BigInt]) e
 
   outputs.foreach(_.data := input.data)
   when(input.isNotInTail) {
-    (enables, mapTo).zipped.foreach((en,filter) => en := b(filter) === input.fragment)
+    (enables, mapTo).zipped.foreach((en, filter) => en := b(filter) === input.fragment)
   } otherwise {
     (outputs, enables).zipped.foreach(_.valid := _)
   }
 }
 
 
-class HandshakeToHandshakeFragmentBits[T <: Data](dataType : T,bitsWidth : Int) extends Component{
-  val io = new Bundle{
-    val input = slave Handshake(dataType)
+class HandshakeToHandshakeFragmentBits[T <: Data](dataType: T, bitsWidth: Int) extends Component {
+  val io = new Bundle {
+    val input = slave Handshake (dataType)
     val output = master Handshake Fragment(Bits(bitsWidth bit))
   }
-  val counter = Counter((widthOf(dataType)-1)/bitsWidth + 1)
-  val inputBits = b(0,bitsWidth bit) ## toBits(io.input.data) //The cat allow to mux inputBits
+  val counter = Counter((widthOf(dataType) - 1) / bitsWidth + 1)
+  val inputBits = b(0, bitsWidth bit) ## toBits(io.input.data) //The cat allow to mux inputBits
 
   io.input.ready := counter.overflow
   io.output.last := counter.overflow
   io.output.valid := io.input.valid
-  io.output.fragment := inputBits(counter * u(bitsWidth),bitsWidth bit)
-  when(io.output.fire){
-    counter++
+  io.output.fragment := inputBits(counter * u(bitsWidth), bitsWidth bit)
+  when(io.output.fire) {
+    counter ++
   }
 }
+
+
+
 
 

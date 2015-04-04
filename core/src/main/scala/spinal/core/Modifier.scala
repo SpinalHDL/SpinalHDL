@@ -184,7 +184,7 @@ private[spinal] object Multiplex {
     else if (whenFalse.getClass.isAssignableFrom(whenTrue.getClass)) whenFalse
     else throw new Exception("can't mux that")
 
-    //TODO Bug because outtype can force width of bits in place of take the bigger
+
     val muxOut = outType.clone()
     muxOut.flatten.foreach(_._2 match{
       case bv : BitVector => bv.fixedWidth = -1

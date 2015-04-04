@@ -57,8 +57,8 @@ object DebuggerTestCode {
 
 
 
-    //uartCtrl.io.read >> logicAnalyser.io.packetSlave
-    //uartCtrl.io.write << logicAnalyser.io.packetMaster
+//    uartCtrl.io.read >> logicAnalyser.io.packetSlave
+    uartCtrl.io.write << logicAnalyser.io.packetMaster.toHandshakeBits()
   }
 
 

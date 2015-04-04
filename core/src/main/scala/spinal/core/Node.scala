@@ -132,7 +132,7 @@ abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady wi
 
       if (temp == -1) {
         globalData.nodeGetWidthWalkedSet.clear()
-        SpinalError(s"Can't infer width on $this because of unspecified width")
+        SpinalError(s"Can't infer width because of unspecified width on ${this.getScalaLocationString}")
       }
 
       globalData.nodeGetWidthWalkedSet -= this

@@ -180,7 +180,7 @@ class Handshake[T <: Data](dataType: T) extends Bundle with Interface with DataC
 
 
   def toFragmentBits (bitsWidth : Int): Handshake[Fragment[Bits]] ={
-    val converter = new HandshakeToHandshakeFragmentBits(dataType,bitsWidth)
+    val converter = new HandshakeToHandshakeFragmentBits(data,bitsWidth)
     converter.io.input << this
     return converter.io.output
   }
