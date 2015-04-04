@@ -80,6 +80,16 @@ class HandshakeFragmentBitsPimped(pimped: Handshake[Fragment[Bits]]) {
     pimped.ready := False
 
     switch(state) {
+      default {
+        ret.valid := pimped.valid
+        ret.data := pimped.fragment
+        pimped.ready := ret.ready
+
+        when(pimped.valid && pimped.fragment === cMagic) {
+          pimped.ready := False
+          state := eMagicData
+        }
+      }
       is(eMagicData) {
         ret.valid := True
         ret.data := pimped.fragment
@@ -100,16 +110,6 @@ class HandshakeFragmentBitsPimped(pimped: Handshake[Fragment[Bits]]) {
         ret.data := cLast
         when(ret.ready) {
           state := eDefault
-        }
-      }
-      default {
-        ret.valid := pimped.valid
-        ret.data := pimped.fragment
-        pimped.ready := ret.ready
-
-        when(pimped.valid && pimped.fragment === cMagic) {
-          pimped.ready := False
-          state := eMagicData
         }
       }
     }

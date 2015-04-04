@@ -106,7 +106,7 @@ class when(val cond: Bool) extends GlobalDataUser {
 
 class SwitchStack(val value: Data) {
   var lastWhen: when = null
-  var hasDefault = false
+  var defaultBlock : () => Unit = null
   val whenStackHead = GlobalData.get.whenStack.head()
 }
 
@@ -116,6 +116,13 @@ object switch {
     val s = new SwitchStack(value)
     value.globalData.switchStack.push(s)
     block
+    if(s.defaultBlock != null){
+      if(s.lastWhen == null){
+        block
+      }else{
+        s.lastWhen.otherwise(s.defaultBlock())
+      }
+    }
     value.globalData.switchStack.pop(s)
   }
 }
@@ -138,8 +145,8 @@ object is {
     val value = globalData.switchStack.head()
     if(value.whenStackHead != globalData.whenStack.head())
       SpinalError("'is' statement is not at the top level of the 'switch'")
-    if(value.hasDefault)
-      SpinalError("'is' statement must appear before the 'default' statement of the 'switch'")
+//    if(value.defaultBlock != null)
+//      SpinalError("'is' statement must appear before the 'default' statement of the 'switch'")
 
     if (value.lastWhen == null) {
       value.lastWhen = when(keys.map(key => (key === value.value)).reduceLeft(_ || _)) (block)
@@ -156,14 +163,8 @@ object default {
     val value = globalData.switchStack.head()
 
     if(value.whenStackHead != globalData.whenStack.head()) SpinalError("'default' statement is not at the top level of the 'switch'")
-    if(value.hasDefault)SpinalError("'default' statement must appear only one time in the 'switch'")
-    value.hasDefault = true
-    if(value.lastWhen == null){
-      block
-    }else{
-      value.lastWhen.otherwise(block)
-    }
-
+    if(value.defaultBlock != null)SpinalError("'default' statement must appear only one time in the 'switch'")
+    value.defaultBlock = () => {block}
   }
 }
 
