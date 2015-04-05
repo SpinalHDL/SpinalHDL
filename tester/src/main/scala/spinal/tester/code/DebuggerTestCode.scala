@@ -55,9 +55,7 @@ object DebuggerTestCode {
 
     val logicAnalyser = new LogicAnalyser(logicAnalyserParameter)
 
-
-
-//    uartCtrl.io.read >> logicAnalyser.io.packetSlave
+    uartCtrl.io.read.toFlowFragmentBits() >> logicAnalyser.io.packetSlave
     uartCtrl.io.write << logicAnalyser.io.packetMaster.toHandshakeBits()
   }
 

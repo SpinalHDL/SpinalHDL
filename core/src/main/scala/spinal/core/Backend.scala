@@ -480,7 +480,8 @@ class Backend {
                 } else if (node.isOutput) {
                   if (in.component != node.component && !(inIsIo && node.component == in.component.parent))
                     errors += s"Output $node is not assigned by his component but an other at ${node.getScalaTraceString}"
-                } else errors += s"No direction specified on IO ${node.getScalaLocationString}"
+                } else
+                  errors += s"No direction specified on IO ${node.getScalaLocationString}"
               } else {
                 if (in.component != node.component && !(inIsIo && node.component == in.component.parent))
                   errors += s"Node $node is assigned outside his component at ${node.getScalaTraceString}"
@@ -609,7 +610,6 @@ class Backend {
 
 
   def checkInferedWidth: Unit = {
-    globalData.nodeWidthInferredCheck.foreach(_())
     val errors = mutable.ArrayBuffer[String]()
     walkNodes2(node => {
       val error = node.checkInferedWidth

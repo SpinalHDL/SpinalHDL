@@ -28,14 +28,14 @@ class HandshakeFragmentPimped[T <: Data](pimped: Handshake[Fragment[T]]) {
     val ret = cloneOf(pimped)
     val waitPacket = RegInit(True)
 
+    pimped.ready := ret.ready && waitPacket
     ret.valid := False
     ret.last := False
+    ret.fragment := header
 
     when(pimped.valid) {
       ret.valid := True
-      when(waitPacket) {
-        ret.fragment := header
-      } otherwise {
+      when(!waitPacket){
         ret.data := pimped.data
       }
     }
@@ -51,22 +51,67 @@ class HandshakeFragmentPimped[T <: Data](pimped: Handshake[Fragment[T]]) {
   }
 }
 
+
+class FlowBitsPimped(pimped: Flow[Bits]) {
+  def toFlowFragmentBits(cMagic: Bits = "x74", cLast: Bits = "x74"): Flow[Fragment[Bits]] = {
+    val ret = Flow Fragment (pimped.dataType)
+
+    val inMagic = RegInit(False)
+    val buffer = Reg(pimped)
+    val newData = False
+    val isLast = False
+    val isMagic = pimped.data !== cMagic
+    buffer.valid.init(False)
+    when(pimped.valid) {
+      when(!inMagic || isMagic) {
+        buffer.valid := True
+        buffer.data := pimped.data
+        newData := True
+      }
+      when(!inMagic && isMagic) {
+        inMagic := True
+      }
+      when(inMagic && pimped.data === cLast) {
+        isLast := True
+      }
+    }
+
+    ret.valid := False
+    ret.last := isLast
+    ret.fragment := buffer.data
+    when(isLast || newData){
+      ret.valid := buffer.valid
+      buffer.valid := False
+    }
+
+    ret
+  }
+
+}
+
+
 object FragmentToBitsStates extends SpinalEnum {
   val eDefault, eFinish0, eFinish1, eMagicData = Value
 }
 
+
 class HandshakeBitsPimped(pimped: Handshake[Bits]) {
-//  def toHandshakeFragmentBits(magic: Bits = 0x74): Handshake[Fragment[Bits]] = {
-//    val ret = Handshake Fragment (pimped.data)
-//    val isFirst
-//
-//
-//    ret.valid := pimped.valid
-//    ret.data := Mux(waitNew, magic, pimped.fragment)
-//    ret.ready := pimped.ready && !waitNew
-//
-//    ret
-//  }
+  //  def toHandshakeFragmentBits(cMagic: Bits = "x74", cLast: Bits = "x74"): Handshake[Fragment[Bits]] = {
+  //    val ret = Handshake Fragment (pimped.data)
+  //    val inMagic = RegInit(False)
+  //    when(pimped.fire){
+  //      inMagic := pimped.data === cMagic && !inMagic
+  //    }
+  //
+  //    val buffer = pimped.throwWhen(inMagic).m2sPipe
+  //
+  //    ret.connectFrom(buffer.haltWhen(!pimped.valid).throwWhen(inMagic && (pimped.data !== cMagic)))((to,from) => {
+  //      to.last := inMagic && pimped.data === cLast
+  //      to.fragment := buffer.data
+  //    })
+  //
+  //    ret
+  //  }
 }
 
 class HandshakeFragmentBitsPimped(pimped: Handshake[Fragment[Bits]]) {
@@ -74,8 +119,7 @@ class HandshakeFragmentBitsPimped(pimped: Handshake[Fragment[Bits]]) {
     import FragmentToBitsStates._
     val ret = Handshake(pimped.fragment)
     val state = RegInit(eDefault)
-    val endIt = Reg(False)
-    val retFire = ret.fire
+
 
     pimped.ready := False
 
@@ -124,13 +168,16 @@ class HandshakeFragmentBitsPimped(pimped: Handshake[Fragment[Bits]]) {
 
 class DataCarrierFragmentPimped[T <: Data](pimped: DataCarrier[Fragment[T]]) {
   def last: Bool = pimped.data.last
+
   def fragment: T = pimped.data.fragment
 
 
   def isNotInTail = RegNextWhen(pimped.last, pimped.fire, True)
+
   def isInTail = !isNotInTail
 
   def isFirst = pimped.valid && isNotInTail
+
   def isLast = pimped.valid && pimped.last
 }
 
@@ -205,7 +252,7 @@ object FlowFragmentRouter {
 }
 
 class FlowFragmentRouter(input: Flow[Fragment[Bits]], mapTo: Iterable[BigInt]) extends Area {
-  val outputs = Vec(mapTo.size, input)
+  val outputs = Vec(mapTo.size, cloneOf(input))
   val enables = Vec(mapTo.size, Reg(Bool))
 
   outputs.foreach(_.data := input.data)

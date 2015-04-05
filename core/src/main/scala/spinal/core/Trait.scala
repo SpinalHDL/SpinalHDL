@@ -29,7 +29,7 @@ trait IODirection extends BaseTypeFactory with BaseTypeCast{
   def applyIt[T <: Data](data: T): T
   def apply[T <: Data](data: T): T = applyIt(data)
   def apply(enum: SpinalEnum) = applyIt(enum.craft())
-  def cloneOf[T <: Data](that : T) : T = spinal.core.cloneOf(that)
+  def cloneOf[T <: Data](that : T) : T = applyIt(spinal.core.cloneOf(that))
 
   override def Bool = applyIt(super.Bool)
   override def Bits = applyIt(super.Bits)
@@ -301,7 +301,7 @@ object GlobalData {
 class GlobalData {
   var nodeAreInferringWidth = false
   val nodeGetWidthWalkedSet: mutable.Set[Node] = mutable.Set[Node]()
-  val nodeWidthInferredCheck = ArrayBuffer[() => Unit]()
+ // val nodeWidthInferredCheck = ArrayBuffer[() => Unit]()
   val clockDomainStack = new SafeStack[ClockDomain]
   val componentStack = new SafeStack[Component]
   val switchStack = new SafeStack[SwitchStack]

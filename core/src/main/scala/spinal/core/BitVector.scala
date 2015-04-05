@@ -55,17 +55,11 @@ abstract class BitVector extends BaseType {
   def toBools: Vec[Bool] = {
     val vec = new Vec(new Bool)
     val bitCount = getWidth
-    globalData.nodeWidthInferredCheck +=toBoolsCheck(bitCount)
     if(bitCount == -1) SpinalError("Can't convert to bools a Bits that has unspecified width value")
     for (i <- 0 until bitCount) vec.addElement(this(i))
     vec
   }
 
-  def toBoolsCheck(wantedWidth : Int)() = {
-    if(getWidth != wantedWidth){
-      SpinalError(s"$this has changed width after a toBools call. It's not allowed")
-    }
-  }
 
 
   //extract bit

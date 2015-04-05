@@ -19,7 +19,7 @@
 package spinal.tester.code
 
 import spinal.core._
-import spinal.lib.serdes.{SerialCheckerRx, SerialLinkRx}
+import spinal.lib._
 
 
 object Debug {
@@ -28,18 +28,18 @@ object Debug {
   class TopLevel extends Component {
 
     val io = new Bundle {
-      val input = in UInt (4 bit)
-      val output = out UInt (4 bit)
-
+      val input = slave Handshake(Bits(8 bit))
+      val output = master Handshake Fragment (Bits(8 bit))
     }
 
+    //io.output << io.input.toHandshakeFragmentBits()
 
   }
 
 
   def main(args: Array[String]) {
     println("START")
-    SpinalVhdl(new SerialCheckerRx(128))
+    SpinalVhdl(new TopLevel)
     println("DONE")
   }
 

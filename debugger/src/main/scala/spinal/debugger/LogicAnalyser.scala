@@ -70,7 +70,7 @@ class LogicAnalyserLogger(p: LogicAnalyserParameter, probeType: Bits) extends Co
   val config = new Bundle {
     val samplesLeftAfterTrigger = mem.addressType
   }
-
+  config.samplesLeftAfterTrigger := 10
 
   val state = RegInit(sWaitTrigger)
   val pushCounter = Reg(mem.addressType)
