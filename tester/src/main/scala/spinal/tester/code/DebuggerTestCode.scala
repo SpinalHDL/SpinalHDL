@@ -19,21 +19,23 @@ package spinal.tester.code
 
 
 import spinal.core._
-import spinal.lib._
 import spinal.debugger._
-import spinal.lib.com.uart._
+import spinal.lib._
 
 
 object DebuggerTestCode {
 
 
-  class TopLevel extends Component {
+  class DebuggerTopLevel extends Component {
 
     val io = new Bundle {
       val input = in UInt (4 bit)
       val output = out UInt (4 bit)
 
-      val uart = master(new Uart)
+
+      val slavePort = slave Flow Fragment(Bits(8 bit))
+      val masterPort = master Handshake Fragment(Bits(8 bit))
+      //      val uart = master(new Uart)
     }
 
     val subComponentA = new SubComponentA
@@ -41,27 +43,28 @@ object DebuggerTestCode {
     io.output := subComponentA.io.output
 
 
-
-    val uartCtrl = new UartCtrl()
-    uartCtrl.io.clockDivider := 100
-    uartCtrl.io.config.dataLength := 7
-    uartCtrl.io.config.parity := UartParityType.eParityNone
-    uartCtrl.io.config.stop := UartStopType.eStop1bit
-    uartCtrl.io.uart <> io.uart
-
     val logicAnalyserParameter = new LogicAnalyserParameter
     logicAnalyserParameter.probe(subComponentA.internalA)
     logicAnalyserParameter.probe(subComponentA.internalB)
 
     val logicAnalyser = new LogicAnalyser(logicAnalyserParameter)
 
-    uartCtrl.io.read.toFlowFragmentBits() >> logicAnalyser.io.packetSlave
-    uartCtrl.io.write << logicAnalyser.io.packetMaster.toHandshakeBits()
+    io.slavePort >> logicAnalyser.io.slavePort
+    io.masterPort << logicAnalyser.io.masterPort
+
+
+    //    val uartCtrl = new UartCtrl()
+    //    uartCtrl.io.clockDivider := 100
+    //    uartCtrl.io.config.dataLength := 7
+    //    uartCtrl.io.config.parity := UartParityType.eParityNone
+    //    uartCtrl.io.config.stop := UartStopType.eStop1bit
+    //    uartCtrl.io.uart <> io.uart
+    //    uartCtrl.io.read.toFlowFragmentBits() >> logicAnalyser.io.packetSlave
+    //    uartCtrl.io.write << logicAnalyser.io.packetMaster.toHandshakeBits()
   }
 
 
-
-  class SubComponentA extends Component{
+  class SubComponentA extends Component {
     val io = new Bundle {
       val input = in UInt (4 bit)
       val output = out UInt (4 bit)
@@ -77,7 +80,7 @@ object DebuggerTestCode {
 
   def main(args: Array[String]) {
     println("START")
-    SpinalVhdl(new TopLevel)
+    SpinalVhdl(new DebuggerTopLevel)
     println("DONE")
   }
 

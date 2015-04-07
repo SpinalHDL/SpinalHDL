@@ -17,11 +17,12 @@ class FlowFactory extends MSFactory{
 
 object Flow extends FlowFactory
 
-class Flow[T <: Data](val dataType: T) extends Bundle with Interface with DataCarrier[T]{
+class Flow[T <: Data](_dataType: T) extends Bundle with Interface with DataCarrier[T]{
   val valid = Bool
-  val data : T = dataType.clone()
+  val data : T = _dataType.clone()
 
-  override def clone: this.type = Flow(dataType).asInstanceOf[this.type]
+  def dataType = _dataType
+  override def clone: this.type = Flow(_dataType).asInstanceOf[this.type]
 
   override def asMaster: this.type = asOutput
   override def asSlave: this.type = asInput
@@ -55,7 +56,7 @@ class Flow[T <: Data](val dataType: T) extends Bundle with Interface with DataCa
   }
 
   def takeWhen(cond: Bool): Flow[T] = {
-    val next = new Flow(dataType)
+    val next = new Flow(_dataType)
     next.valid := this.valid && cond
     next.data := this.data
     return next

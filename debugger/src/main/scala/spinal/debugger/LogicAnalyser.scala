@@ -22,8 +22,8 @@ class LogicAnalyserParameter {
 class LogicAnalyser(p: LogicAnalyserParameter) extends Component {
   val fragmentWidth = 8
   val io = new Bundle {
-    val packetSlave = slave Flow Fragment(Bits(fragmentWidth bit))
-    val packetMaster = master Handshake Fragment(Bits(fragmentWidth bit))
+    val slavePort = slave Flow Fragment(Bits(fragmentWidth bit))
+    val masterPort = master Handshake Fragment(Bits(fragmentWidth bit))
   }
   //io.packetSlave.isFirst
 
@@ -33,7 +33,7 @@ class LogicAnalyser(p: LogicAnalyserParameter) extends Component {
 
   val probe = Cat(p.dataList.map(_.pull))
 
-  val packetSlaves = FlowFragmentRouter(io.packetSlave,1)
+  val packetSlaves = FlowFragmentRouter(io.slavePort,1)
 
   val logger = new LogicAnalyserLogger(p,probe)
   logger.io.packetSlave << packetSlaves(0)
@@ -41,7 +41,7 @@ class LogicAnalyser(p: LogicAnalyserParameter) extends Component {
   logger.io.probe := probe
 
   //TODO better toFragmentBits with internal cat header to logger stream and remove insertHeader (less ressource usage)
-  io.packetMaster << logger.io.log.toFragmentBits(fragmentWidth).insertHeader(0xAA)
+  io.masterPort << logger.io.log.toFragmentBits(fragmentWidth).insertHeader(0xAA)
 }
 
 

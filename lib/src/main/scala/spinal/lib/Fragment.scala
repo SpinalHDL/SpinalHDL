@@ -35,7 +35,7 @@ class HandshakeFragmentPimped[T <: Data](pimped: Handshake[Fragment[T]]) {
 
     when(pimped.valid) {
       ret.valid := True
-      when(!waitPacket){
+      when(!waitPacket) {
         ret.data := pimped.data
       }
     }
@@ -49,11 +49,14 @@ class HandshakeFragmentPimped[T <: Data](pimped: Handshake[Fragment[T]]) {
 
     ret
   }
+
+
+  def toFragmentBits(bitsWidth: Int): Handshake[Fragment[Bits]] = ???
 }
 
 
 class FlowBitsPimped(pimped: Flow[Bits]) {
-  def toFlowFragmentBits(cMagic: Bits = "x74", cLast: Bits = "x74"): Flow[Fragment[Bits]] = {
+  def toFlowFragmentBits(cMagic: Bits = "x74", cLast: Bits = "x53"): Flow[Fragment[Bits]] = {
     val ret = Flow Fragment (pimped.dataType)
 
     val inMagic = RegInit(False)
@@ -79,7 +82,7 @@ class FlowBitsPimped(pimped: Flow[Bits]) {
     ret.valid := False
     ret.last := isLast
     ret.fragment := buffer.data
-    when(isLast || newData){
+    when(isLast || newData) {
       ret.valid := buffer.valid
       buffer.valid := False
     }
@@ -96,7 +99,7 @@ object FragmentToBitsStates extends SpinalEnum {
 
 
 class HandshakeBitsPimped(pimped: Handshake[Bits]) {
-  //  def toHandshakeFragmentBits(cMagic: Bits = "x74", cLast: Bits = "x74"): Handshake[Fragment[Bits]] = {
+  //  def toHandshakeFragmentBits(cMagic: Bits = "x74", cLast: Bits = "x53"): Handshake[Fragment[Bits]] = {
   //    val ret = Handshake Fragment (pimped.data)
   //    val inMagic = RegInit(False)
   //    when(pimped.fire){
@@ -263,7 +266,7 @@ class FlowFragmentRouter(input: Flow[Fragment[Bits]], mapTo: Iterable[BigInt]) e
   }
 }
 
-
+//TODO fix it
 class HandshakeToHandshakeFragmentBits[T <: Data](dataType: T, bitsWidth: Int) extends Component {
   val io = new Bundle {
     val input = slave Handshake (dataType)

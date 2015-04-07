@@ -18,12 +18,14 @@ class HandshakeFactory extends MSFactory {
 
 object Handshake extends HandshakeFactory
 
-class Handshake[T <: Data](dataType: T) extends Bundle with Interface with DataCarrier[T]{
+class Handshake[T <: Data](_dataType: T) extends Bundle with Interface with DataCarrier[T]{
   val valid = Bool
   val ready = Bool
-  val data : T = dataType.clone()
+  val data : T = _dataType.clone()
 
-  override def clone: this.type = Handshake(dataType).asInstanceOf[this.type]
+  
+  def dataType = _dataType
+  override def clone: this.type = Handshake(_dataType).asInstanceOf[this.type]
 
   override def asMaster: this.type = {
     valid.asOutput
@@ -38,7 +40,7 @@ class Handshake[T <: Data](dataType: T) extends Bundle with Interface with DataC
 
   def toFlow : Flow[T] = {
     freeRun
-    val ret = Flow(dataType)
+    val ret = Flow(_dataType)
     ret.valid := this.valid
     ret.data := this.data
     ret
@@ -106,10 +108,10 @@ class Handshake[T <: Data](dataType: T) extends Bundle with Interface with DataC
 
 
   def m2sPipe(crossClockData: Boolean): Handshake[T] = {
-    val ret = Handshake(dataType)
+    val ret = Handshake(_dataType)
 
     val rValid = RegInit(False)
-    val rData = Reg(dataType)
+    val rData = Reg(_dataType)
     if (crossClockData) rData.addTag(crossClockDomain)
 
     this.ready := (!ret.valid) || ret.ready
@@ -127,10 +129,10 @@ class Handshake[T <: Data](dataType: T) extends Bundle with Interface with DataC
   }
 
   def s2mPipe: Handshake[T] = {
-    val ret = Handshake(dataType)
+    val ret = Handshake(_dataType)
 
     val rValid = RegInit(False)
-    val rBits = Reg(dataType)
+    val rBits = Reg(_dataType)
 
     ret.valid := this.valid || rValid
     this.ready := !rValid
@@ -156,7 +158,7 @@ class Handshake[T <: Data](dataType: T) extends Bundle with Interface with DataC
   }
 
   def continueWhen(cond: Bool): Handshake[T] = {
-    val next = new Handshake(dataType)
+    val next = new Handshake(_dataType)
     next.valid := this.valid && cond
     this.ready := next.ready && cond
     next.data := this.data
@@ -179,7 +181,7 @@ class Handshake[T <: Data](dataType: T) extends Bundle with Interface with DataC
 
 
 
-  def toFragmentBits (bitsWidth : Int): Handshake[Fragment[Bits]] ={
+  def fragmentTransaction (bitsWidth : Int): Handshake[Fragment[Bits]] ={
     val converter = new HandshakeToHandshakeFragmentBits(data,bitsWidth)
     converter.io.input << this
     return converter.io.output
