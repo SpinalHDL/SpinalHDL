@@ -28,7 +28,7 @@ class LogicAnalyser(p: LogicAnalyserParameter) extends Component {
   //io.packetSlave.isFirst
 
   val trigger = new Area {
-    val event = CounterFreeRun(16) === u(0)
+    val event = CounterFreeRun(1000) === u(999)
   }
 
   val probe = Cat(p.dataList.map(_.pull))
@@ -63,7 +63,7 @@ class LogicAnalyserLogger(p: LogicAnalyserParameter, probeType: Bits) extends Co
   }
 
   val mem = Mem(probeType, 1 << p.memAddressWidth)
-  val memWriteAddress = Reg(mem.addressType)
+  val memWriteAddress = Reg(mem.addressType) randBoot
   val memReadAddress = Reg(mem.addressType)
 
 
@@ -133,7 +133,7 @@ class LogicAnalyserLogger(p: LogicAnalyserParameter, probeType: Bits) extends Co
 
 
   val memReadPort = mem.handshakeReadSync(memReadCmd, memReadCmdIsLast)
-  io.log.connectFrom(memReadPort)((to, from) => {
+  io.log.connectFrom2(memReadPort)((to, from) => {
     to.last := from.linked
     to.fragment := from.value
   })

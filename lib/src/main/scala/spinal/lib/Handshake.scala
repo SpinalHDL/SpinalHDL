@@ -94,7 +94,8 @@ class Handshake[T <: Data](_dataType: T) extends Bundle with Interface with Data
     that
   }
 
-  def connectFrom[T2 <: Data](that : Handshake[T2])(dataAssignement : (T,that.data.type) => Unit): Handshake[T2] ={
+  //TODO better name
+  def connectFrom2[T2 <: Data](that : Handshake[T2])(dataAssignement : (T,that.data.type) => Unit): Handshake[T2] ={
     this.valid := that.valid
     that.ready := this.ready
     dataAssignement(this.data,that.data)

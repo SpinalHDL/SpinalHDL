@@ -28,7 +28,7 @@ class HandshakeFragmentPimped[T <: Data](pimped: Handshake[Fragment[T]]) {
     val ret = cloneOf(pimped)
     val waitPacket = RegInit(True)
 
-    pimped.ready := ret.ready && waitPacket
+    pimped.ready := ret.ready && !waitPacket
     ret.valid := False
     ret.last := False
     ret.fragment := header
@@ -51,7 +51,22 @@ class HandshakeFragmentPimped[T <: Data](pimped: Handshake[Fragment[T]]) {
   }
 
 
-  def toFragmentBits(bitsWidth: Int): Handshake[Fragment[Bits]] = ???
+  //Todo prety impl
+  def toFragmentBits(bitsWidth: Int): Handshake[Fragment[Bits]] = {
+    val pimpedWidhoutLast = Handshake(pimped.fragment)
+    pimpedWidhoutLast.connectFrom2(pimped)((to, from) => {
+      to := from.fragment
+    })
+    
+    val fragmented = pimpedWidhoutLast.fragmentTransaction(bitsWidth)
+
+    val ret = Handshake Fragment (Bits(bitsWidth bit))
+    ret.connectFrom2(fragmented)((to, from) => {
+      to.last := from.last && pimped.last
+      to.fragment := from.fragment
+    })
+    ret
+  }
 }
 
 
@@ -284,6 +299,15 @@ class HandshakeToHandshakeFragmentBits[T <: Data](dataType: T, bitsWidth: Int) e
   }
 }
 
+//class HandshakeFragmentToHandshakeFragmentBits[T <: Data](dataType: T, bitsWidth: Int) extends Component {
+//  val io = new Bundle {
+//    val input = slave Handshake Fragment (dataType)
+//    val output = master Handshake Fragment(Bits(bitsWidth bit))
+//  }
+//
+//  io.input.
+//
+//}
 
 
 

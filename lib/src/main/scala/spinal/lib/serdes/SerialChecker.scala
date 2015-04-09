@@ -236,7 +236,7 @@ class SerialCheckerRx(wordCountMax: Int) extends Component {
     readCmd.valid := (validPtr !== readPtr)
     readCmd.data := readPtr
     readPtr.inc := readCmd.fire
-    io.output.connectFrom(ram.handshakeReadSync(readCmd))((to, from) => {
+    io.output.connectFrom2(ram.handshakeReadSync(readCmd))((to, from) => {
       to.last := from.msb
       to.fragment := from
     })

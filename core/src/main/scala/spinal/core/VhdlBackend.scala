@@ -229,7 +229,7 @@ class VhdlBackend extends Backend with VhdlBase {
     def pkgDummy(kind: String): Tuple2[String, String] = {
       val ret = new StringBuilder();
       (s"function pkg_dummy (that : $kind) return $kind", {
-        ret ++= s"    variable dummy : $kind(that'high downto 0);\n"
+        ret ++= s"    variable dummy : $kind(that'length-1 downto 0);\n"
         ret ++= s"  begin\n"
         ret ++= s"    dummy := that;\n"
         ret ++= s"    return dummy;\n"
