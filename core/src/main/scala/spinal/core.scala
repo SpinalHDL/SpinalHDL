@@ -17,12 +17,10 @@ package object core extends BaseTypeFactory with BaseTypeCast{
 
   case class IntBuilder(i: Int) {
     def bit = new BitCount(i)
-    def lit = new LiteralInt(i)
   }
 
   case class BigIntBuilder(i: BigInt) {
     def bit = new BitCount(i.toInt)
-    def lit = new LiteralInt(i)
   }
 
 

@@ -43,11 +43,11 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T) extends BaseType {
   }
   override def ===(that: SSelf): Bool = {
     assertSameType(that);
-    newLogicalOperator("e==e", that, InputNormalize.none);
+    newLogicalOperator("e==e", that, InputNormalize.none,ZeroWidth.none);
   }
   override def !==(that: SSelf): Bool = {
     assertSameType(that);
-    newLogicalOperator("e!=e", that, InputNormalize.none);
+    newLogicalOperator("e!=e", that, InputNormalize.none,ZeroWidth.none);
   }
 
   def :=(that: SpinalEnumElement[T]): Unit = this := that.craft()

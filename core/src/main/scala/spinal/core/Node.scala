@@ -33,6 +33,12 @@ object ZeroWidth {
     }
   }
 
+  def replaceNodeInput(it: Node,inId : Int,by : Node): Unit ={
+    it.inputs(inId).consumers -= it
+    it.inputs(inId) = by
+    by.consumers += it
+  }
+
   def replaceNode(it: Node, by: Int): Unit = {
     replaceNode(it, it.inputs(by))
   }
@@ -59,7 +65,90 @@ object ZeroWidth {
     }
   }
 
+  def binaryUIntSmaller(node: Node): Unit = {
+    val w0 = node.inputs(0).getWidth
+    val w1 = node.inputs(1).getWidth
+    if (w0 == 0 && w1 == 0) {
+      Component.push(node.component)
+      replaceNode(node, False)
+      Component.pop(node.component)
+    } else if (w0 == 0) {
+      Component.push(node.component)
+      replaceNodeInput(node,0,u(0,w1 bit))
+      Component.pop(node.component)
+    } else if (w1 == 0) {
+      Component.push(node.component)
+      replaceNode(node, False)
+      Component.pop(node.component)
+    }
+  }
 
+  def binaryUIntSmallerOrEgual(node: Node): Unit = {
+    val w0 = node.inputs(0).getWidth
+    val w1 = node.inputs(1).getWidth
+    if (w0 == 0 && w1 == 0) {
+      Component.push(node.component)
+      replaceNode(node, True)
+      Component.pop(node.component)
+    } else if (w0 == 0) {
+      Component.push(node.component)
+      replaceNodeInput(node,0,u(0,w1 bit))
+      Component.pop(node.component)
+    } else if (w1 == 0) {
+      Component.push(node.component)
+      replaceNodeInput(node,1,u(0,w0 bit))
+      Component.pop(node.component)
+    }
+  }
+
+  def binarySIntSmaller(node: Node): Unit = {
+    val w0 = node.inputs(0).getWidth
+    val w1 = node.inputs(1).getWidth
+    if (w0 == 0 && w1 == 0) {
+      Component.push(node.component)
+      replaceNode(node, False)
+      Component.pop(node.component)
+    } else if (w0 == 0) {
+      Component.push(node.component)
+      replaceNodeInput(node,0,s(0,w1 bit))
+      Component.pop(node.component)
+    } else if (w1 == 0) {
+      Component.push(node.component)
+      replaceNodeInput(node,1,s(0,w0 bit))
+      Component.pop(node.component)
+    }
+  }
+
+  def binarySIntSmallerOrEgual(node: Node): Unit = {
+    val w0 = node.inputs(0).getWidth
+    val w1 = node.inputs(1).getWidth
+    if (w0 == 0 && w1 == 0) {
+      Component.push(node.component)
+      replaceNode(node, True)
+      Component.pop(node.component)
+    } else if (w0 == 0) {
+      Component.push(node.component)
+      replaceNodeInput(node,0,s(0,w1 bit))
+      Component.pop(node.component)
+    } else if (w1 == 0) {
+      Component.push(node.component)
+      replaceNodeInput(node,1,s(0,w0 bit))
+      Component.pop(node.component)
+    }
+  }
+
+
+  def binaryMinus(zeroFactory: (BigInt, BitCount) => Node)(node: Node): Unit = {
+    val w0 = node.inputs(0).getWidth
+    val w1 = node.inputs(1).getWidth
+    if(w1 == 0) {
+      replaceNode(node,0)
+    } else if (w0 == 0) {
+      Component.push(node.component)
+      replaceNodeInput(node,0,zeroFactory(0,w1 bit))
+      Component.pop(node.component)
+    }
+  }
 
   def binaryInductZeroWithOtherWidth(zeroFactory: (BigInt, BitCount) => Node)(node: Node): Unit = {
     val partition = binaryPartition(node)

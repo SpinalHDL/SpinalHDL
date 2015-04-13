@@ -36,14 +36,14 @@ class Bool extends BaseType {
 
   override def calcWidth : Int = 1
 
-  override def ===(that: SSelf): Bool = newLogicalOperator("B==B", that, InputNormalize.none);
-  override def !==(that: SSelf): Bool = newLogicalOperator("B!=B", that, InputNormalize.none);
+  override def ===(that: SSelf): Bool = newLogicalOperator("B==B", that, InputNormalize.none,ZeroWidth.none);
+  override def !==(that: SSelf): Bool = newLogicalOperator("B!=B", that, InputNormalize.none,ZeroWidth.none);
 
 
-  def ^(b: Bool): Bool = newLogicalOperator("B^B", b,InputNormalize.none)
-  def &&(b: Bool): Bool = newLogicalOperator("&&", b,InputNormalize.none)
-  def ||(b: Bool): Bool = newLogicalOperator("||", b,InputNormalize.none)
-  def unary_!(): Bool = newUnaryOperator("!")
+  def ^(b: Bool): Bool = newLogicalOperator("B^B", b,InputNormalize.none,ZeroWidth.none)
+  def &&(b: Bool): Bool = newLogicalOperator("&&", b,InputNormalize.none,ZeroWidth.none)
+  def ||(b: Bool): Bool = newLogicalOperator("||", b,InputNormalize.none,ZeroWidth.none)
+  def unary_!(): Bool = newUnaryOperator("!",WidthInfer.inputMaxWidth,ZeroWidth.none)
 
   def &(b: Bool): Bool = this && b
   def |(b: Bool): Bool = this || b
