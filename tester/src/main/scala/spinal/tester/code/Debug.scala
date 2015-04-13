@@ -28,10 +28,13 @@ object Debug {
   class TopLevel extends Component {
 
     val io = new Bundle {
-      val input = slave Handshake(Bits(8 bit))
-      val output = master Handshake Fragment (Bits(8 bit))
+      val in0 = in Bits(0 bit)
+      val in8 = in Bits(8 bit)
+  //    val out = out Bits(0 bit)
+      val output = out Bool
     }
 
+    io.output := io.in0 === io.in8
     //io.output << io.input.toHandshakeFragmentBits()
 
   }

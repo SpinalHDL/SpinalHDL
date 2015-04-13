@@ -64,11 +64,11 @@ class Backend {
     ClockDomain.pop(defaultClockDomain)
 
 
-    def checkGlobalData: Unit ={
-      if(!GlobalData.get.clockDomainStack.isEmpty)SpinalWarning("clockDomain stack is not empty :(")
-      if(!GlobalData.get.componentStack.isEmpty)SpinalWarning("componentStack stack is not empty :(")
-      if(!GlobalData.get.switchStack.isEmpty)SpinalWarning("switchStack stack is not empty :(")
-      if(!GlobalData.get.whenStack.isEmpty)SpinalWarning("whenStack stack is not empty :(")
+    def checkGlobalData: Unit = {
+      if (!GlobalData.get.clockDomainStack.isEmpty) SpinalWarning("clockDomain stack is not empty :(")
+      if (!GlobalData.get.componentStack.isEmpty) SpinalWarning("componentStack stack is not empty :(")
+      if (!GlobalData.get.switchStack.isEmpty) SpinalWarning("switchStack stack is not empty :(")
+      if (!GlobalData.get.whenStack.isEmpty) SpinalWarning("whenStack stack is not empty :(")
     }
     checkGlobalData
     val ret = elaborate(topLevel.asInstanceOf[T])
@@ -81,6 +81,7 @@ class Backend {
   //TODO ROM support
   //TODO Union support
   //TODO zero width wire => ?
+  //TODO 1 bit * 3 bit => 3 bit in place of 4 bit
   protected def elaborate[T <: Component](topLevel: T): BackendReport[T] = {
     SpinalInfoPhase("Start analysis and transform")
 
@@ -112,6 +113,7 @@ class Backend {
     //Node width
     SpinalInfoPhase("Infer nodes's bit width")
     inferWidth
+    simplifyNodes
     propagateBaseTypeWidth
     normalizeNodeInputs
     checkInferedWidth
@@ -207,15 +209,15 @@ class Backend {
           readSync.sameAddressThan(write)
         }
       }
-      case writePart : MemWriteOrRead_writePart => {
+      case writePart: MemWriteOrRead_writePart => {
         val memTopo = topoOf(writePart.getMem)
-        if(memTopo.writeOrReadSync.count(_._1 == writePart) == 0){
+        if (memTopo.writeOrReadSync.count(_._1 == writePart) == 0) {
           memTopo.writeOrReadSync += (writePart -> writePart.readPart)
         }
       }
-      case readPart : MemWriteOrRead_readPart => {
+      case readPart: MemWriteOrRead_readPart => {
         val memTopo = topoOf(readPart.getMem)
-        if(memTopo.writeOrReadSync.count(_._2 == readPart) == 0){
+        if (memTopo.writeOrReadSync.count(_._2 == readPart) == 0) {
           memTopo.writeOrReadSync += (readPart.writePart -> readPart)
         }
       }
@@ -1017,6 +1019,16 @@ class Backend {
       case _ =>
     }
     node.inputs.foreach(stack.push(_))
+  }
+
+  def simplifyNodes: Unit = {
+    fillNodeConsumer
+    walkNodes2(_.simplifyNode)
+    removeNodeConsumer
+  }
+
+  def removeNodeConsumer : Unit = {
+    walkNodes2(_.consumers.clear())
   }
 
   def simplifyBlacBoxGenerics: Unit = {

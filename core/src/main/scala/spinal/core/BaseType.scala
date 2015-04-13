@@ -25,11 +25,13 @@ import scala.collection.mutable.ArrayBuffer
  */
 
 trait BaseTypeFactory extends BoolFactory with BitsFactory with UIntFactory with SIntFactory
-trait BaseTypeCast extends  BoolCast with UIntCast with SIntCast with BitsCast
+
+trait BaseTypeCast extends BoolCast with UIntCast with SIntCast with BitsCast
 
 object BaseType {
   def walkWhenNodes(baseType: BaseType, initialConsumer: Node, initialConsumerInputId: Int, conservative: Boolean = false) = {
-    def initMan(man: MultipleAssignmentNode, that: Node): Unit = { //To be sure that there is basetype to bufferise (for future resize)
+    def initMan(man: MultipleAssignmentNode, that: Node): Unit = {
+      //To be sure that there is basetype to bufferise (for future resize)
       if (that.isInstanceOf[WhenNode] || that.isInstanceOf[BaseType] || that.isInstanceOf[AssignementNode] || that.isInstanceOf[MultipleAssignmentNode] || that.isInstanceOf[Reg]) {
         man.inputs += that
       } else {
@@ -235,21 +237,23 @@ abstract class BaseType extends Node with Data with Nameable {
   def newMultiplexor(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer
 
 
-  def newLogicalOperator(opName: String, right: Node, normalizeInputsImpl: (Node) => Unit): Bool = {
-    val op = BinaryOperator(opName, this, right, WidthInfer.oneWidth, normalizeInputsImpl)
+  def newLogicalOperator(opName: String, right: Node, normalizeInputsImpl: (Node) => Unit, simplifyNodeImpl: (Node) => Unit = ZeroWidth.none): Bool = {
+    val op = BinaryOperator(opName, this, right, WidthInfer.oneWidth, normalizeInputsImpl, simplifyNodeImpl)
     val typeNode = new Bool
     typeNode.inputs(0) = op
     typeNode
   }
 
-  def newBinaryOperator(opName: String, right: Node, getWidthImpl: (Node) => Int, normalizeInputsImpl: (Node) => Unit): this.type = {
-    val op = BinaryOperator(opName, this, right, getWidthImpl, normalizeInputsImpl)
+  def newBinaryOperator(opName: String, right: Node, getWidthImpl: (Node) => Int, normalizeInputsImpl: (Node) => Unit, simplifyNodeImpl: (Node) => Unit = ZeroWidth.none): this.type = {
+    val op = BinaryOperator(opName, this, right, getWidthImpl, normalizeInputsImpl, simplifyNodeImpl)
     val typeNode = addTypeNodeFrom(op)
     typeNode
   }
 
-  def newUnaryOperator(opName: String, getWidthImpl: (Node) => Int = WidthInfer.inputMaxWidth): this.type = {
-    val op = UnaryOperator(opName, this, getWidthImpl, InputNormalize.none)
+  //def newUnaryOperator(opName: String, simplifyNodeImpl: (Node) => Unit = ZeroWidth.none): this.type = newUnaryOperator(opName, WidthInfer.inputMaxWidth, simplifyNodeImpl)
+
+  def newUnaryOperator(opName: String, getWidthImpl: (Node) => Int = WidthInfer.inputMaxWidth, simplifyNodeImpl: (Node) => Unit = ZeroWidth.none): this.type = {
+    val op = UnaryOperator(opName, this, getWidthImpl, InputNormalize.none, simplifyNodeImpl)
     val typeNode = addTypeNodeFrom(op)
     typeNode
   }
@@ -266,14 +270,14 @@ abstract class BaseType extends Node with Data with Nameable {
     this
   }
 
-  def newFunction(opName: String, args: List[Node], getWidthImpl: (Node) => Int = WidthInfer.inputMaxWidth): this.type = {
-    val op = Function(opName, args, getWidthImpl)
+  def newFunction(opName: String, args: List[Node], getWidthImpl: (Node) => Int = WidthInfer.inputMaxWidth, simplifyNodeImpl: (Node) => Unit): this.type = {
+    val op = Function(opName, args, getWidthImpl,simplifyNodeImpl)
     val typeNode = addTypeNodeFrom(op)
     typeNode
   }
 
-  def newResize(opName: String, args: List[Node], getWidthImpl: (Node) => Int = WidthInfer.inputMaxWidth): this.type = {
-    val op = Resize(opName, args, getWidthImpl)
+  def newResize(opName: String, args: List[Node], getWidthImpl: (Node) => Int = WidthInfer.inputMaxWidth, simplifyNodeImpl: (Node) => Unit): this.type = {
+    val op = Resize(opName, args, getWidthImpl, simplifyNodeImpl)
     val typeNode = addTypeNodeFrom(op)
     typeNode
   }

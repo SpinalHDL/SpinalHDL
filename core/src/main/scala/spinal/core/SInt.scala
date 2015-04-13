@@ -78,7 +78,7 @@ class SInt extends BitVector with MinMaxProvider {
   def toUInt: UInt = new UInt().castFrom("s->u", this)
 
 
-  override def resize(width: Int): this.type = newResize("resize(s,i)", this :: new IntLiteral(width) :: Nil, WidthInfer.intLit1Width)
+  override def resize(width: Int): this.type = newResize("resize(s,i)", this :: new IntLiteral(width) :: Nil, WidthInfer.intLit1Width,ZeroWidth.resizeImpl(s.apply))
 
 
   override def minValue: BigInt = -(BigInt(1) << (getWidth - 1))

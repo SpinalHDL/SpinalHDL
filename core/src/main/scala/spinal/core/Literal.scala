@@ -48,7 +48,7 @@ trait Literal extends Node {
 object BitsLiteral {
 
   def apply[T <: Node](value: BigInt, specifiedBitCount: Int, on: T): T = {
-    val valueBitCount = value.bitLength + (if (on.isInstanceOf[SInt]) 1 else 0)
+    val valueBitCount = value.bitLength + (if (on.isInstanceOf[SInt] && value != 0) 1 else 0)
     var bitCount = specifiedBitCount
     if (!on.isInstanceOf[SInt] && value < 0) throw new Exception("literal value is negative and can be represented")
     if (bitCount != -1) {
@@ -63,6 +63,7 @@ object BitsLiteral {
 
 class BitsLiteral(val value: BigInt, val bitCount: Integer, val kind: Node) extends Literal {
   def calcWidth: Int = bitCount
+  if(globalData.nodeAreInferringWidth) inferredWidth = bitCount
 
   override def clone(): this.type = new BitsLiteral(value, bitCount, kind).asInstanceOf[this.type]
 }
@@ -88,7 +89,7 @@ object IntLiteral {
 }
 
 class IntLiteral(val value: BigInt) extends Literal with MinMaxProvider {
-  def calcWidth: Int = 0
+  def calcWidth: Int = value.bitLength + (if (value < 0) 1 else 0)
 
   def minValue: BigInt = value
   def maxValue: BigInt = value

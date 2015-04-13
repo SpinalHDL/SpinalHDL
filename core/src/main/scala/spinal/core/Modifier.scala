@@ -42,8 +42,8 @@ object Cast {
 }
 
 object Resize {
-  def apply(opName: String, args: List[Node], widthImpl: (Node) => Int = WidthInfer.inputMaxWidth): Modifier = {
-    val op = new Function(opName, widthImpl)
+  def apply(opName: String, args: List[Node], widthImpl: (Node) => Int = WidthInfer.inputMaxWidth,simplifyNodeImpl: (Node) => Unit): Modifier = {
+    val op = new Function(opName, widthImpl,simplifyNodeImpl)
     op.inputs ++= args
     op.inferredWidth = widthImpl(op)
     op
@@ -52,34 +52,37 @@ object Resize {
 }
 
 object Function {
-  def apply(opName: String, args: List[Node], widthImpl: (Node) => Int = WidthInfer.inputMaxWidth): Modifier = {
-    val op = new Function(opName, widthImpl)
+  def apply(opName: String, args: List[Node], widthImpl: (Node) => Int = WidthInfer.inputMaxWidth,simplifyNodeImpl : (Node) => Unit): Modifier = {
+    val op = new Function(opName, widthImpl,simplifyNodeImpl)
     op.inputs ++= args
     op
   }
-
 }
 
 object UnaryOperator {
-  def apply(opName: String, right: Node, widthImpl: (Node) => Int, normalizeInputsImpl: (Node) => Unit): Modifier = {
-    val op = new Operator(opName, widthImpl, normalizeInputsImpl)
+  def apply(opName: String, right: Node, widthImpl: (Node) => Int, normalizeInputsImpl: (Node) => Unit,simplifyNodeImpl : (Node) => Unit): Modifier = {
+    val op = new Operator(opName, widthImpl, normalizeInputsImpl,simplifyNodeImpl)
     op.inputs += right
     op
   }
 }
 
 object BinaryOperator {
-  def apply(opName: String, left: Node, right: Node, widthImpl: (Node) => Int, normalizeInputsImpl: (Node) => Unit): Modifier = {
-    val op = new Operator(opName, widthImpl, normalizeInputsImpl)
+  def apply(opName: String, left: Node, right: Node, widthImpl: (Node) => Int, normalizeInputsImpl: (Node) => Unit,simplifyNodeImpl : (Node) => Unit): Modifier = {
+    val op = new Operator(opName, widthImpl, normalizeInputsImpl,simplifyNodeImpl)
     op.inputs += left
     op.inputs += right
     op
   }
 }
 
-class Operator(opName: String, widthImpl: (Node) => Int, val normalizeInputsImpl: (Node) => Unit) extends Modifier(opName, widthImpl) {
+class Operator(opName: String, widthImpl: (Node) => Int, val normalizeInputsImpl: (Node) => Unit,simplifyNodeImpl : (Node) => Unit) extends Modifier(opName, widthImpl) {
   override def normalizeInputs: Unit = {
     normalizeInputsImpl(this)
+  }
+
+  override def simplifyNode: Unit = {
+    simplifyNodeImpl(this)
   }
 }
 
@@ -96,8 +99,10 @@ class Modifier(val opName: String, widthImpl: (Node) => Int) extends Node {
   override def nonRecursiveToString(): String = opName
 }
 
-class Function(opName: String, widthImpl: (Node) => Int) extends Modifier(opName, widthImpl) {
-
+class Function(opName: String, widthImpl: (Node) => Int,simplifyNodeImpl : (Node) => Unit) extends Modifier(opName, widthImpl) {
+  override def simplifyNode: Unit = {
+    simplifyNodeImpl(this)
+  }
 }
 
 class Cast(opName: String, widthImpl: (Node) => Int = WidthInfer.inputMaxWidth) extends Modifier(opName, widthImpl) {
@@ -122,6 +127,8 @@ class Multiplexer(opName: String) extends Modifier(opName, WidthInfer.multiplexI
     Misc.normalizeResize(this, 1, this.getWidth)
     Misc.normalizeResize(this, 2, this.getWidth)
   }
+
+  override def simplifyNode: Unit = ZeroWidth.multiplexerImpl(this)
 }
 
 object Mux {

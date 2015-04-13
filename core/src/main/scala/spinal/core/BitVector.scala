@@ -22,7 +22,7 @@ package spinal.core
 abstract class BitVector extends BaseType {
   var fixedWidth = -1
 
-  def high = getWidth-1
+  def high = getWidth - 1
   def msb = this(high)
 
   def isFixedWidth = fixedWidth != -1
@@ -30,6 +30,7 @@ abstract class BitVector extends BaseType {
 
   def setWidth(width: Int): this.type = {
     fixedWidth = width
+    if (globalData.nodeAreInferringWidth) inferredWidth = fixedWidth
     this
   }
 
@@ -39,7 +40,7 @@ abstract class BitVector extends BaseType {
     res
   }
 
-  override def normalizeInputs: Unit ={
+  override def normalizeInputs: Unit = {
     InputNormalize.nodeWidth(this)
   }
 
@@ -55,11 +56,10 @@ abstract class BitVector extends BaseType {
   def toBools: Vec[Bool] = {
     val vec = new Vec(new Bool)
     val bitCount = getWidth
-    if(bitCount == -1) SpinalError("Can't convert to bools a Bits that has unspecified width value")
+    if (bitCount == -1) SpinalError("Can't convert to bools a Bits that has unspecified width value")
     for (i <- 0 until bitCount) vec.addElement(this(i))
     vec
   }
-
 
 
   //extract bit
@@ -70,7 +70,7 @@ abstract class BitVector extends BaseType {
 
     bool.compositeAssign = new Assignable {
       override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
-        BitVector.this.assignFrom(new BitAssignmentFixed(BitVector.this,that.asInstanceOf[Bool],bitId),true)
+        BitVector.this.assignFrom(new BitAssignmentFixed(BitVector.this, that.asInstanceOf[Bool], bitId), true)
       }
     }
 
@@ -79,13 +79,13 @@ abstract class BitVector extends BaseType {
 
   //extract bit
   def apply(bitId: UInt): Bool = {
-    val extract = new ExtractBoolFloating(s"extract($prefix,u)",this, bitId)
+    val extract = new ExtractBoolFloating(s"extract($prefix,u)", this, bitId)
     val bool = new Bool
     bool.setInput(extract)
 
     bool.compositeAssign = new Assignable {
       override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
-        BitVector.this.assignFrom(new BitAssignmentFloating(BitVector.this,that.asInstanceOf[Bool],bitId),true)
+        BitVector.this.assignFrom(new BitAssignmentFloating(BitVector.this, that.asInstanceOf[Bool], bitId), true)
       }
     }
 
@@ -93,12 +93,12 @@ abstract class BitVector extends BaseType {
   }
 
   //extract bits     that(8,2)
-  def apply(hi: Int,lo: Int): this.type = {
-    val ret = addTypeNodeFrom(new ExtractBitsVectorFixed(s"extract($prefix,i,i)",this, hi,lo))
+  def apply(hi: Int, lo: Int): this.type = {
+    val ret = addTypeNodeFrom(new ExtractBitsVectorFixed(s"extract($prefix,i,i)", this, hi, lo))
 
     ret.compositeAssign = new Assignable {
       override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
-        BitVector.this.assignFrom(new RangedAssignmentFixed(BitVector.this,that.asInstanceOf[BitVector],hi,lo),true)
+        BitVector.this.assignFrom(new RangedAssignmentFixed(BitVector.this, that.asInstanceOf[BitVector], hi, lo), true)
       }
     }
 
@@ -106,14 +106,14 @@ abstract class BitVector extends BaseType {
   }
 
   //extract bits     that(5,7 bit)
-  def apply(offset: Int,bitCount: BitCount): this.type = this.apply(bitCount.value+offset-1, offset)
+  def apply(offset: Int, bitCount: BitCount): this.type = this.apply(bitCount.value + offset - 1, offset)
 
-  def apply(offset: UInt,bitCount: BitCount): this.type = {
-    val ret = addTypeNodeFrom(new ExtractBitsVectorFloating(s"extract($prefix,u,w)",this, offset,bitCount))
+  def apply(offset: UInt, bitCount: BitCount): this.type = {
+    val ret = addTypeNodeFrom(new ExtractBitsVectorFloating(s"extract($prefix,u,w)", this, offset, bitCount))
 
     ret.compositeAssign = new Assignable {
       override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
-        BitVector.this.assignFrom(new RangedAssignmentFloating(BitVector.this,that.asInstanceOf[BitVector],offset,bitCount),true)
+        BitVector.this.assignFrom(new RangedAssignmentFloating(BitVector.this, that.asInstanceOf[BitVector], offset, bitCount), true)
       }
     }
 
@@ -128,7 +128,7 @@ abstract class BitVector extends BaseType {
   }
 
 
-  def prefix : String
+  def prefix: String
 
 
 }

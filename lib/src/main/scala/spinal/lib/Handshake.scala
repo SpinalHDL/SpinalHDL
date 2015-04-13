@@ -4,6 +4,7 @@ import spinal.core._
 
 
 class HandshakeFactory extends MSFactory {
+
   object Fragment extends HandshakeFragmentFactory
 
 
@@ -18,12 +19,12 @@ class HandshakeFactory extends MSFactory {
 
 object Handshake extends HandshakeFactory
 
-class Handshake[T <: Data](_dataType: T) extends Bundle with Interface with DataCarrier[T]{
+class Handshake[T <: Data](_dataType: T) extends Bundle with Interface with DataCarrier[T] {
   val valid = Bool
   val ready = Bool
-  val data : T = _dataType.clone()
+  val data: T = _dataType.clone()
 
-  
+
   def dataType = _dataType
   override def clone: this.type = Handshake(_dataType).asInstanceOf[this.type]
 
@@ -38,7 +39,7 @@ class Handshake[T <: Data](_dataType: T) extends Bundle with Interface with Data
 
   override def freeRun: Unit = ready := True
 
-  def toFlow : Flow[T] = {
+  def toFlow: Flow[T] = {
     freeRun
     val ret = Flow(_dataType)
     ret.valid := this.valid
@@ -79,10 +80,9 @@ class Handshake[T <: Data](_dataType: T) extends Bundle with Interface with Data
 
   def &(cond: Bool): Handshake[T] = continueWhen(cond)
   def ~[T2 <: Data](that: T2): Handshake[T2] = translateWith(that)
-  def ~~[T2 <: Data](translate : (T) => T2): Handshake[T2] ={
+  def ~~[T2 <: Data](translate: (T) => T2): Handshake[T2] = {
     (this ~ translate(this.data))
   }
-
 
 
   override def fire: Bool = valid & ready
@@ -95,14 +95,12 @@ class Handshake[T <: Data](_dataType: T) extends Bundle with Interface with Data
   }
 
   //TODO better name
-  def connectFrom2[T2 <: Data](that : Handshake[T2])(dataAssignement : (T,that.data.type) => Unit): Handshake[T2] ={
+  def connectFrom2[T2 <: Data](that: Handshake[T2])(dataAssignement: (T, that.data.type) => Unit): Handshake[T2] = {
     this.valid := that.valid
     that.ready := this.ready
-    dataAssignement(this.data,that.data)
+    dataAssignement(this.data, that.data)
     that
   }
-
-
 
 
   def m2sPipe: Handshake[T] = m2sPipe(false)
@@ -181,9 +179,8 @@ class Handshake[T <: Data](_dataType: T) extends Bundle with Interface with Data
   def takeWhen(cond: Bool): Handshake[T] = throwWhen(!cond)
 
 
-
-  def fragmentTransaction (bitsWidth : Int): Handshake[Fragment[Bits]] ={
-    val converter = new HandshakeToHandshakeFragmentBits(data,bitsWidth)
+  def fragmentTransaction(bitsWidth: Int): Handshake[Fragment[Bits]] = {
+    val converter = new HandshakeToHandshakeFragmentBits(data, bitsWidth)
     converter.io.input << this
     return converter.io.output
   }
