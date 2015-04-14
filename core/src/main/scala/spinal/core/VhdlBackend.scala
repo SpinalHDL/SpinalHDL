@@ -19,7 +19,7 @@
 package spinal.core
 
 import scala.collection.mutable
-import scala.collection.mutable.{StringBuilder, ArrayBuffer}
+import scala.collection.mutable.{ArrayBuffer, StringBuilder}
 
 
 /**
@@ -335,16 +335,16 @@ class VhdlBackend extends Backend with VhdlBase {
     ret ++= "    end if;\n"
     ret ++= "  end pkg_rand;\n"
     ret ++= "\n"
-//    ret ++= "  impure function pkg_rand (bitCount : integer) return std_logic_vector is\n"
-//    ret ++= "    variable ret : std_logic_vector(bitCount -1 downto 0);\n"
-//    ret ++= "  begin\n"
-//    ret ++= "    for i in ret'range loop\n"
-//    ret ++= "      ret(i) := pkg_rand;\n"
-//    ret ++= "    end loop;\n"
-//    ret ++= "    return ret;\n"
-//    ret ++= "  end pkg_rand;\n"
+    //    ret ++= "  impure function pkg_rand (bitCount : integer) return std_logic_vector is\n"
+    //    ret ++= "    variable ret : std_logic_vector(bitCount -1 downto 0);\n"
+    //    ret ++= "  begin\n"
+    //    ret ++= "    for i in ret'range loop\n"
+    //    ret ++= "      ret(i) := pkg_rand;\n"
+    //    ret ++= "    end loop;\n"
+    //    ret ++= "    return ret;\n"
+    //    ret ++= "  end pkg_rand;\n"
 
-//    ret ++= "\n"
+    //    ret ++= "\n"
     ret ++= "  -- unsigned shifts\n"
     ret ++= "  function pkg_shiftRight (that : unsigned; size : natural) return unsigned is\n"
     ret ++= "  begin\n"
@@ -586,13 +586,16 @@ class VhdlBackend extends Backend with VhdlBase {
     emitBlackBoxComponents(component, ret)
     emitAttributesDef(component, ret)
     emitSignals(component, ret)
-    ret ++= s"begin\n"
-    emitComponentInstances(component, ret)
-    emitAsyncronous(component, ret)
-    emitSyncronous(component, ret)
-    ret ++= s"end arch;\n"
-    ret ++= s"\n"
+    val retTemp = new StringBuilder
+    retTemp ++= s"begin\n"
+    emitComponentInstances(component, retTemp)
+    emitAsyncronous(component, retTemp,ret)
+    emitSyncronous(component, retTemp)
+    retTemp ++= s"end arch;\n"
+    retTemp ++= s"\n"
 
+
+    ret ++= retTemp
 
   }
 
@@ -676,13 +679,13 @@ class VhdlBackend extends Backend with VhdlBase {
     for (node <- component.nodes) {
       node match {
         case signal: BaseType => {
-          if (!signal.isIo){
+          if (!signal.isIo) {
             ret ++= s"  signal ${emitReference(signal)} : ${emitDataType(signal)}"
-            if(signal.hasTag(randomBoot)){
-              signal match{
-                case b : Bool =>  ret ++= " := pkg_rand"
-                case bv : BitVector =>  ret ++= s" := pkg_rand(${bv.getWidth})"
-                case e : SpinalEnumCraft[_] =>
+            if (signal.hasTag(randomBoot)) {
+              signal match {
+                case b: Bool => ret ++= " := pkg_rand"
+                case bv: BitVector => ret ++= s" := pkg_rand(${bv.getWidth})"
+                case e: SpinalEnumCraft[_] =>
               }
             }
             ret ++= ";\n"
@@ -706,8 +709,6 @@ class VhdlBackend extends Backend with VhdlBase {
 
     }
   }
-
-
 
 
   def emitAttributes(node: Node, vhdlType: String, ret: StringBuilder): Unit = {
@@ -742,7 +743,7 @@ class VhdlBackend extends Backend with VhdlBase {
 
     sensitivity
   }
-  def emitAsyncronous(component: Component, ret: StringBuilder): Unit = {
+  def emitAsyncronous(component: Component, ret: StringBuilder,funcRet: StringBuilder): Unit = {
 
     var processCounter = 0
     class Process(val order: Int) {
@@ -754,15 +755,15 @@ class VhdlBackend extends Backend with VhdlBase {
       def genSensitivity: Unit = sensitivity = getSensitivity(nodes, false)
 
 
-      def needProcessDef : Boolean = {
+      def needProcessDef: Boolean = {
         if (!whens.isEmpty || nodes.size > 1) return true
         if (hasMultipleAssignment) {
           val ma: MultipleAssignmentNode = nodes(0).inputs(0).asInstanceOf[MultipleAssignmentNode]
           val assignedBits = AssignedBits()
-          for (input <- ma.inputs) input match{
-            case assign : AssignementNode => {
+          for (input <- ma.inputs) input match {
+            case assign: AssignementNode => {
               val scope = assign.getScopeBits
-              if(!AssignedBits.intersect(scope,assignedBits).isEmpty) return true
+              if (!AssignedBits.intersect(scope, assignedBits).isEmpty) return true
               assignedBits.add(scope)
             }
             case _ => return true
@@ -841,7 +842,7 @@ class VhdlBackend extends Backend with VhdlBase {
 
     for (process <- processList if !process.needProcessDef) {
       for (node <- process.nodes) {
-        emitAssignement(node, node.inputs(0), ret, "  ")
+        emitAssignement(node, node.inputs(0), ret, "  ","<=")
         //ret ++= s"  ${emitReference(node)} <= ${emitLogic(node.inputs(0))};\n"
       }
     }
@@ -849,25 +850,42 @@ class VhdlBackend extends Backend with VhdlBase {
     for (process <- processList if process.needProcessDef) {
       process.genSensitivity
 
+      val context = new AssignementLevel
+      for (node <- process.nodes) {
+        context.walkWhenTree(node, node.inputs(0))
+      }
+
       if (process.sensitivity.size != 0) {
-        val context = new AssignementLevel
-        for (node <- process.nodes) {
-          context.walkWhenTree(node, node.inputs(0))
-        }
 
         ret ++= s"  process(${process.sensitivity.toList.sortWith(_.instanceCounter < _.instanceCounter).map(emitReference(_)).reduceLeft(_ + "," + _)})\n"
         ret ++= "  begin\n"
-        context.emitContext(ret, "    ")
+        context.emitContext(ret, "    ","<=")
         ret ++= "  end process;\n\n"
       } else {
+        //emit func as logic
+        assert(process.nodes.size == 1)
         for (node <- process.nodes) {
-          ret ++= s"  ${emitReference(node)} <= ${emitLogic(node.inputs(0))};\n"
+          val funcName = "zz_" + emitReference(node)
+          funcRet ++= emitFuncDef(funcName, node, context)
+          ret ++= s"  ${emitReference(node)} <= ${funcName};\n"
+          //          ret ++= s"  ${emitReference(node)} <= ${emitLogic(node.inputs(0))};\n"
         }
       }
     }
 
   }
 
+
+  def emitFuncDef(funcName: String, node: Node, context: AssignementLevel): StringBuilder = {
+    val ret = new StringBuilder
+    //context.emitContext(ret, "    ",":=")
+    ret ++= s"  function $funcName return ${emitDataType(node, false)} is\n"
+    ret ++= s"    variable ${emitReference(node)} : ${emitDataType(node, true)};\n"
+    ret ++= s"  begin\n"
+    context.emitContext(ret, "    ",":=")
+    ret ++= s"    return ${emitReference(node)};\n"
+    ret ++= s"  end function;\n"
+  }
 
   def operatorImplAsOperator(vhd: String)(op: Modifier): String = {
     op.inputs.size match {
@@ -1174,7 +1192,7 @@ class VhdlBackend extends Backend with VhdlBase {
 
 
         def emitRegsInitialValue(assignementLevel: AssignementLevel, tab: String): Unit = {
-          assignementLevel.emitContext(ret, tab)
+          assignementLevel.emitContext(ret, tab,"<=")
         }
 
 
@@ -1218,48 +1236,49 @@ class VhdlBackend extends Backend with VhdlBase {
 
             }
 
-            case memWrite  : MemWriteOrRead_writePart => {
+            case memWrite: MemWriteOrRead_writePart => {
               val memReadSync = memWrite.readPart
-              if(memReadSync.writeToReadKind == writeFirst) SpinalError(s"Can't translate a MemWriteOrRead with writeFirst into VHDL $memReadSync")
+              if (memReadSync.writeToReadKind == writeFirst) SpinalError(s"Can't translate a MemWriteOrRead with writeFirst into VHDL $memReadSync")
               if (memReadSync.writeToReadKind == dontCare) SpinalWarning(s"MemWriteOrRead with dontCare is as readFirst into VHDL $memReadSync")
 
               ret ++= s"${tab}if ${emitReference(memWrite.getChipSelect)} = '1' then\n"
               ret ++= s"${tab}  if ${emitReference(memWrite.getWriteEnable)} = '1' then\n"
               emitWrite(tab + "    ")
               ret ++= s"${tab}  end if;\n"
-              if(memReadSync.component.nodes.contains(memReadSync))
+              if (memReadSync.component.nodes.contains(memReadSync))
                 emitRead(tab + "  ")
               ret ++= s"${tab}end if;\n"
 
               def emitWrite(tab: String) = ret ++= s"$tab${emitReference(memWrite.getMem)}(to_integer(${emitReference(memWrite.getAddress)})) <= ${emitReference(memWrite.getData)};\n"
               def emitRead(tab: String) = ret ++= s"$tab${emitReference(memReadSync.consumers(0))} <= ${emitReference(memReadSync.getMem)}(to_integer(${emitReference(memReadSync.getAddress)}));\n"
             }
-            case memWriteRead_readPart : MemWriteOrRead_readPart => {
+            case memWriteRead_readPart: MemWriteOrRead_readPart => {
 
             }
           }
-          rootContext.emitContext(ret, tab)
+          rootContext.emitContext(ret, tab,"<=")
         }
       }
     }
   }
 
-  def emitAssignement(to: Node, from: Node, ret: StringBuilder, tab: String): Unit = {
+  def emitAssignement(to: Node, from: Node, ret: StringBuilder, tab: String,assignementKind : String): Unit = {
     from match {
       case from: AssignementNode => {
         from match {
-          case assign: BitAssignmentFixed => ret ++= s"$tab${emitReference(to)}(${assign.getBitId}) <= ${emitLogic(assign.getInput)};\n"
-          case assign: BitAssignmentFloating => ret ++= s"$tab${emitReference(to)}(to_integer(${emitLogic(assign.getBitId)})) <= ${emitLogic(assign.getInput)};\n"
-          case assign: RangedAssignmentFixed => ret ++= s"$tab${emitReference(to)}(${assign.getHi} downto ${assign.getLo}) <= ${emitLogic(assign.getInput)};\n"
-          case assign: RangedAssignmentFloating => ret ++= s"$tab${emitReference(to)}(${assign.getBitCount.value - 1} + to_integer(${emitLogic(assign.getOffset)}) downto to_integer(${emitLogic(assign.getOffset)})) <= ${emitLogic(assign.getInput)};\n"
+          case assign: BitAssignmentFixed => ret ++= s"$tab${emitReference(to)}(${assign.getBitId}) ${assignementKind} ${emitLogic(assign.getInput)};\n"
+          case assign: BitAssignmentFloating => ret ++= s"$tab${emitReference(to)}(to_integer(${emitLogic(assign.getBitId)})) ${assignementKind} ${emitLogic(assign.getInput)};\n"
+          case assign: RangedAssignmentFixed => ret ++= s"$tab${emitReference(to)}(${assign.getHi} downto ${assign.getLo}) ${assignementKind} ${emitLogic(assign.getInput)};\n"
+          case assign: RangedAssignmentFloating => ret ++= s"$tab${emitReference(to)}(${assign.getBitCount.value - 1} + to_integer(${emitLogic(assign.getOffset)}) downto to_integer(${emitLogic(assign.getOffset)})) ${assignementKind} ${emitLogic(assign.getInput)};\n"
         }
       }
-      case man : MultipleAssignmentNode => { //For some case with asyncronous partial assignement
-        for(assign <- man.inputs){
-          emitAssignement(to,assign,ret,tab)
+      case man: MultipleAssignmentNode => {
+        //For some case with asyncronous partial assignement
+        for (assign <- man.inputs) {
+          emitAssignement(to, assign, ret, tab,assignementKind)
         }
       }
-      case _ => ret ++= s"$tab${emitReference(to)} <= ${emitLogic(from)};\n"
+      case _ => ret ++= s"$tab${emitReference(to)} ${assignementKind} ${emitLogic(from)};\n"
     }
   }
 
@@ -1309,11 +1328,11 @@ class VhdlBackend extends Backend with VhdlBase {
     }
 
 
-    def emitContext(ret: mutable.StringBuilder, tab: String): Unit = {
+    def emitContext(ret: mutable.StringBuilder, tab: String,assignementKind : String): Unit = {
       def emitLogicChunk(key: WhenTree): Unit = {
         if (this.logicChunk.contains(key)) {
           for ((to, from) <- this.logicChunk.get(key).get) {
-            emitAssignement(to, from, ret, tab)
+            emitAssignement(to, from, ret, tab,assignementKind)
           }
         }
       }
@@ -1326,17 +1345,17 @@ class VhdlBackend extends Backend with VhdlBase {
 
         if (!doTrue && doFalse) {
           ret ++= s"${tab}if ${emitLogic(when.cond)} = '0'  then\n"
-          when.whenFalse.emitContext(ret, tab + "  ")
+          when.whenFalse.emitContext(ret, tab + "  ",assignementKind)
           ret ++= s"${tab}end if;\n"
         } else if (doTrue && !doFalse) {
           ret ++= s"${tab}if ${emitLogic(when.cond)} = '1' then\n"
-          when.whenTrue.emitContext(ret, tab + "  ")
+          when.whenTrue.emitContext(ret, tab + "  ",assignementKind)
           ret ++= s"${tab}end if;\n"
         } else if (doTrue && doFalse) {
           ret ++= s"${tab}if ${emitLogic(when.cond)} = '1' then\n"
-          when.whenTrue.emitContext(ret, tab + "  ")
+          when.whenTrue.emitContext(ret, tab + "  ",assignementKind)
           ret ++= s"${tab}else\n"
-          when.whenFalse.emitContext(ret, tab + "  ")
+          when.whenFalse.emitContext(ret, tab + "  ",assignementKind)
           ret ++= s"${tab}end if;\n"
         }
         emitLogicChunk(when)

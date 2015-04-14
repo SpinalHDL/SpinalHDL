@@ -46,6 +46,7 @@ architecture arch of CommonTester_tb is
   signal io_assign_sel_2 : unsigned(3 downto 0);
   signal io_assign_sel_3 : unsigned(3 downto 0);
   signal io_assign_bitDemux : std_logic_vector(15 downto 0);
+  signal io_complexLiteral : unsigned(15 downto 0);
   -- #spinalBegin userDeclarations
   signal clk : std_logic;
   signal asyncProcess : std_logic := '0';
@@ -148,6 +149,7 @@ begin
     wait until rising_edge(clk);
 
     if testCounter /= 0 then
+	  assert io_complexLiteral = "0001011101100010" report "io_complexLiteral fail " & integer'image(to_integer(io_complexLiteral)) severity failure;
       assert io_inAABits(11) = io_outAA_bod_gggg report "io_outAA_bod_gggg fail" severity failure;
       assert io_inAABits(10 downto 8) = std_logic_vector(io_outAA_bod_aosi) report "io_inAA_bod_aosi fail" severity failure;
       assert io_inAABits(7) = io_outAA_ahe report "io_outAA_ahe fail" severity failure;
@@ -174,6 +176,8 @@ begin
     end if;
   end process;  
   
+  
+
   -- #spinalEnd userLogics
   uut : entity lib_CommonTester.CommonTester
     port map (
@@ -206,6 +210,7 @@ begin
       io_assign_sel_1 =>  io_assign_sel_1,
       io_assign_sel_2 =>  io_assign_sel_2,
       io_assign_sel_3 =>  io_assign_sel_3,
+	  io_complexLiteral => io_complexLiteral,
       io_assign_bitDemux =>  io_assign_bitDemux 
     );
 end arch;

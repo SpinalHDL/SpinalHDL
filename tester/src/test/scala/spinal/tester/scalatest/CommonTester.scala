@@ -50,6 +50,8 @@ object CommonTester {
       val outAA = out(new BundleAA)
       val outAABits = out Bits (new BundleAA().getBitsWidth bit)
 
+      val complexLiteral = out UInt (16 bit)
+
 
       val assign = new Bundle{
         val sel = in Vec(4,UInt(4 bit))
@@ -81,7 +83,13 @@ object CommonTester {
     io.outAA.assignFromBits(io.inAABits)
     io.outAABits := io.inAA.toBits
 
-
+    io.complexLiteral(15,4) := 0x70
+    io.complexLiteral(15,12) := u"2" + u"1"
+    io.complexLiteral(6) := True
+    io.complexLiteral(3) := True
+    io.complexLiteral(5) := True
+    io.complexLiteral(3,0) := 2
+    io.complexLiteral(13) := False
 
     def combAdderFunc(x : UInt,y : UInt) = {
       val ret = UInt(Math.max(widthOf(x),widthOf(y)) bit)
