@@ -186,7 +186,7 @@ class HandshakeFifoCC[T <: Data](dataType: T, depth: Int, pushClockDomain: Clock
   val pushCC = new ClockingArea(pushClockDomain) {
     val pushPtr = Counter(depth << 1)
     val pushPtrGray = RegNext(toGray(pushPtr.valueNext))
-    val popPtrGray = BufferCC(popToPushGray, b"0")
+    val popPtrGray = BufferCC(popToPushGray, B"0")
     val full = isFull(pushPtrGray, popPtrGray)
 
     io.push.ready := !full
@@ -201,7 +201,7 @@ class HandshakeFifoCC[T <: Data](dataType: T, depth: Int, pushClockDomain: Clock
   val popCC = new ClockingArea(popClockDomain) {
     val popPtr = Counter(depth << 1)
     val popPtrGray = RegNext(toGray(popPtr.valueNext))
-    val pushPtrGray = BufferCC(pushToPopGray, b"0")
+    val pushPtrGray = BufferCC(pushToPopGray, B"0")
     val empty = isEmpty(popPtrGray, pushPtrGray)
 
     io.pop.valid := !empty

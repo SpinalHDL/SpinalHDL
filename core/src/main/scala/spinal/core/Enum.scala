@@ -75,7 +75,7 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T) extends BaseType {
 
   override def getZero: this.type = {
     val ret = clone
-    ret.assignFromBits(b(0))
+    ret.assignFromBits(B(0))
     ret
   }
   override def weakClone: this.type = new SpinalEnumCraft(blueprint).asInstanceOf[this.type]

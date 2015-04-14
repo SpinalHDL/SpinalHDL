@@ -32,28 +32,28 @@ package object core extends BaseTypeFactory with BaseTypeCast{
  // implicit def RegRefToReg[T <: Data](that : RegRef[T]) : T = that.getReg
 
 
-  implicit def IntToUInt(that: Int) = u(that)
-  implicit def BigIntToUInt(that: BigInt) = u(that)
+  implicit def IntToUInt(that: Int) = U(that)
+  implicit def BigIntToUInt(that: BigInt) = U(that)
 
-  implicit def IntToSInt(that: Int) = s(that)
-  implicit def BigIntToSInt(that: BigInt) = s(that)
+  implicit def IntToSInt(that: Int) = S(that)
+  implicit def BigIntToSInt(that: BigInt) = S(that)
 
-  implicit def IntToBits(that: Int) = b(that)
-  implicit def BigIntToBits(that: BigInt) = b(that)
+  implicit def IntToBits(that: Int) = B(that)
+  implicit def BigIntToBits(that: BigInt) = B(that)
 
 
-  implicit def StringToBits(that: String) = parser(spinal.core.b, that)
-  implicit def StringToUInt(that: String) = parser(spinal.core.u, that)
-  implicit def StringToSInt(that: String) = parser(spinal.core.s, that)
+  implicit def StringToBits(that: String) = parser(spinal.core.B, that)
+  implicit def StringToUInt(that: String) = parser(spinal.core.U, that)
+  implicit def StringToSInt(that: String) = parser(spinal.core.S, that)
 
   implicit class LiteralBuilder(private val sc: StringContext) extends AnyVal {
-    def b(args: Any*): Bits = parser(spinal.core.b, getString(args))
-    def u(args: Any*): UInt = parser(spinal.core.u, getString(args))
-    def s(args: Any*): SInt = parser(spinal.core.s, getString(args))
+    def B(args: Any*): Bits = parser(spinal.core.B, getString(args))
+    def U(args: Any*): UInt = parser(spinal.core.U, getString(args))
+    def S(args: Any*): SInt = parser(spinal.core.S, getString(args))
 
-    def Bits(args: Any*): Bits = b(args)
-    def UInt(args: Any*): UInt = u(args)
-    def SInt(args: Any*): SInt = s(args)
+    def Bits(args: Any*): Bits = B(args)
+    def UInt(args: Any*): UInt = U(args)
+    def SInt(args: Any*): SInt = S(args)
 
     private def getString(args: Any*): String = {
      // println(sc.parts.size + " " + args.size)

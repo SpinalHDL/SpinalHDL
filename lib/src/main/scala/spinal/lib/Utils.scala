@@ -30,7 +30,7 @@ object OHToUInt {
 
   def apply(bools: collection.IndexedSeq[Bool]): UInt = {
     val boolsSize = bools.size
-    if (boolsSize < 2) return u(0)
+    if (boolsSize < 2) return U(0)
 
     val retBitCount = log2Up(bools.size)
     val ret = Vec(retBitCount, Bool)
@@ -52,7 +52,7 @@ object OHToUInt {
 
 object toGray {
   def apply(uint: UInt): Bits = {
-    toBits((uint >> u(1)) ^ uint)
+    toBits((uint >> U(1)) ^ uint)
   }
 }
 
@@ -107,7 +107,7 @@ class Counter(val stateCount: BigInt, freeRun: Boolean = false) extends Area {
   def reset: Unit = res := True
 
   val valueNext = UInt(log2Up(stateCount) bit)
-  val value = RegNext(valueNext, u(0))
+  val value = RegNext(valueNext, U(0))
   val overflowIfInc = False
   val overflow = overflowIfInc && inc
 
@@ -118,14 +118,14 @@ class Counter(val stateCount: BigInt, freeRun: Boolean = false) extends Area {
     }
   }
   else {
-    when(value === u(stateCount - 1)) {
+    when(value === U(stateCount - 1)) {
       overflowIfInc := True
     }
     when(inc) {
       when(overflowIfInc) {
-        valueNext := u(0)
+        valueNext := U(0)
       } otherwise {
-        valueNext := value + u(1)
+        valueNext := value + U(1)
       }
     }otherwise{
       valueNext := value

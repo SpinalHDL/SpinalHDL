@@ -4,9 +4,9 @@ import spinal.core._
 import spinal.lib._
 
 object SerialCheckerConst {
-  def cMagic = b"xA5"
-  def cStart = b"xD8"
-  def cEnd = b"x9A"
+  def cMagic = B"xA5"
+  def cStart = B"xD8"
+  def cEnd = B"x9A"
 
   def chunkDataSizeMax = 32
   def bitsWidth = 8

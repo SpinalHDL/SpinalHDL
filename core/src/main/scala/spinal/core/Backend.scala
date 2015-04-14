@@ -80,9 +80,8 @@ class Backend {
   //TODO
   //TODO ROM support
   //TODO Union support
-  //TODO zero width wire => ?
+  //TODO zero width impl check
   //TODO 1 bit * 3 bit => 3 bit in place of 4 bit
-  //TODO Generate a function to load complex literal into wire OR simplify when with true or false cond and then symplify multiple assignement that are overrided by these change to avoid process def
   protected def elaborate[T <: Component](topLevel: T): BackendReport[T] = {
     SpinalInfoPhase("Start analysis and transform")
 

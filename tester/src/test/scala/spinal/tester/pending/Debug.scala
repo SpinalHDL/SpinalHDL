@@ -76,7 +76,7 @@ object Debug {
     memo = null
 
 
-    when(u(3, 4 bit) < u(5, 7 bit)) {
+    when(U(3, 4 bit) < U(5, 7 bit)) {
       io.outs(4) := False
     }.otherwise {
       io.outs(4) := True

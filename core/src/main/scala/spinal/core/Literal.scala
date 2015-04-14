@@ -28,15 +28,15 @@ abstract class BitVectorLiteralFactory[T <: BitVector] {
   def apply(value: BigInt, width: BitCount): T = BitsLiteral(value, width.value, this().setWidth(width.value))
 }
 
-object b extends BitVectorLiteralFactory[Bits] {
+object B extends BitVectorLiteralFactory[Bits] {
   def apply() = new Bits()
 }
 
-object u extends BitVectorLiteralFactory[UInt] {
+object U extends BitVectorLiteralFactory[UInt] {
   def apply() = new UInt()
 }
 
-object s extends BitVectorLiteralFactory[SInt] {
+object S extends BitVectorLiteralFactory[SInt] {
   def apply() = new SInt()
 }
 

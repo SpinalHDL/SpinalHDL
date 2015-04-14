@@ -74,7 +74,7 @@ object ZeroWidth {
       Component.pop(node.component)
     } else if (w0 == 0) {
       Component.push(node.component)
-      replaceNodeInput(node,0,u(0,w1 bit))
+      replaceNodeInput(node,0,U(0,w1 bit))
       Component.pop(node.component)
     } else if (w1 == 0) {
       Component.push(node.component)
@@ -92,11 +92,11 @@ object ZeroWidth {
       Component.pop(node.component)
     } else if (w0 == 0) {
       Component.push(node.component)
-      replaceNodeInput(node,0,u(0,w1 bit))
+      replaceNodeInput(node,0,U(0,w1 bit))
       Component.pop(node.component)
     } else if (w1 == 0) {
       Component.push(node.component)
-      replaceNodeInput(node,1,u(0,w0 bit))
+      replaceNodeInput(node,1,U(0,w0 bit))
       Component.pop(node.component)
     }
   }
@@ -110,11 +110,11 @@ object ZeroWidth {
       Component.pop(node.component)
     } else if (w0 == 0) {
       Component.push(node.component)
-      replaceNodeInput(node,0,s(0,w1 bit))
+      replaceNodeInput(node,0,S(0,w1 bit))
       Component.pop(node.component)
     } else if (w1 == 0) {
       Component.push(node.component)
-      replaceNodeInput(node,1,s(0,w0 bit))
+      replaceNodeInput(node,1,S(0,w0 bit))
       Component.pop(node.component)
     }
   }
@@ -128,11 +128,11 @@ object ZeroWidth {
       Component.pop(node.component)
     } else if (w0 == 0) {
       Component.push(node.component)
-      replaceNodeInput(node,0,s(0,w1 bit))
+      replaceNodeInput(node,0,S(0,w1 bit))
       Component.pop(node.component)
     } else if (w1 == 0) {
       Component.push(node.component)
-      replaceNodeInput(node,1,s(0,w0 bit))
+      replaceNodeInput(node,1,S(0,w0 bit))
       Component.pop(node.component)
     }
   }
@@ -176,7 +176,7 @@ object ZeroWidth {
       Component.pop(node.component)
     }
   }
-  s
+  S
   def shiftLeftImpl(zeroFactory: (BigInt, BitCount) => Node)(node: Node): Unit = {
     val w0 = node.inputs(0).getWidth
     val w1 = node.inputs(1).getWidth
@@ -219,7 +219,7 @@ object ZeroWidth {
   def unaryZero(node: Node): Unit = {
     if (node.inputs(0).getWidth == 0) {
       Component.push(node.component)
-      replaceNode(node, u(0, 0 bit))
+      replaceNode(node, U(0, 0 bit))
       Component.pop(node.component)
     }
   }

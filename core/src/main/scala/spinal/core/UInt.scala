@@ -35,12 +35,12 @@ class UInt extends BitVector with MinMaxProvider {
   def prefix : String = "u"
 
   def +(that: UInt): UInt = newBinaryOperator("u+u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,ZeroWidth.binaryTakeOther);
-  def -(that: UInt): UInt = newBinaryOperator("u-u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,ZeroWidth.binaryMinus(u.apply));
-  def *(that: UInt): UInt = newBinaryOperator("u*u", that, WidthInfer.cumulateInputWidth, InputNormalize.none,ZeroWidth.binaryInductZeroWithOtherWidth(u.apply));
+  def -(that: UInt): UInt = newBinaryOperator("u-u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,ZeroWidth.binaryMinus(U.apply));
+  def *(that: UInt): UInt = newBinaryOperator("u*u", that, WidthInfer.cumulateInputWidth, InputNormalize.none,ZeroWidth.binaryInductZeroWithOtherWidth(U.apply));
 
 
   def |(that: UInt): UInt = newBinaryOperator("u|u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,ZeroWidth.binaryTakeOther);
-  def &(that: UInt): UInt = newBinaryOperator("u&u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,ZeroWidth.binaryInductZeroWithOtherWidth(u.apply));
+  def &(that: UInt): UInt = newBinaryOperator("u&u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,ZeroWidth.binaryInductZeroWithOtherWidth(U.apply));
   def ^(that: UInt): UInt = newBinaryOperator("u^u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,ZeroWidth.binaryTakeOther);
   def unary_~(): UInt = newUnaryOperator("~u",WidthInfer.inputMaxWidth,ZeroWidth.unaryZero);
 
@@ -53,9 +53,9 @@ class UInt extends BitVector with MinMaxProvider {
 
 
   def >>(that: Int): this.type = newBinaryOperator("u>>i", IntLiteral(that), WidthInfer.shiftRightWidth, InputNormalize.none,ZeroWidth.shiftRightImpl);
-  def <<(that: Int): this.type = newBinaryOperator("u<<i", IntLiteral(that), WidthInfer.shiftLeftWidth, InputNormalize.none,ZeroWidth.shiftLeftImpl(u.apply));
+  def <<(that: Int): this.type = newBinaryOperator("u<<i", IntLiteral(that), WidthInfer.shiftLeftWidth, InputNormalize.none,ZeroWidth.shiftLeftImpl(U.apply));
   def >>(that: UInt): this.type = newBinaryOperator("u>>u", that, WidthInfer.shiftRightWidth, InputNormalize.none,ZeroWidth.shiftRightImpl);
-  def <<(that: UInt): this.type = newBinaryOperator("u<<u", that, WidthInfer.shiftLeftWidth, InputNormalize.none,ZeroWidth.shiftLeftImpl(u.apply));
+  def <<(that: UInt): this.type = newBinaryOperator("u<<u", that, WidthInfer.shiftLeftWidth, InputNormalize.none,ZeroWidth.shiftLeftImpl(U.apply));
 
   override def newMultiplexor(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,u,u)", sel, whenTrue, whenFalse)
   override def isEguals(that: Data): Bool = {
@@ -72,7 +72,7 @@ class UInt extends BitVector with MinMaxProvider {
   override def :=(that: SSelf): Unit = super.:=(that)
   override def <>(that: SSelf): Unit = super.<>(that)
 
-  override def resize(width: Int): this.type = newResize("resize(u,i)", this :: new IntLiteral(width) :: Nil, WidthInfer.intLit1Width,ZeroWidth.resizeImpl(u.apply))
+  override def resize(width: Int): this.type = newResize("resize(u,i)", this :: new IntLiteral(width) :: Nil, WidthInfer.intLit1Width,ZeroWidth.resizeImpl(U.apply))
 
 
 
@@ -81,5 +81,5 @@ class UInt extends BitVector with MinMaxProvider {
   override def assignFromBits(bits: Bits): Unit = this := bits.toUInt
 
 
-  override def getZero: this.type = u(0).asInstanceOf[this.type]
+  override def getZero: this.type = U(0).asInstanceOf[this.type]
 }

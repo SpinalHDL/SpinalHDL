@@ -216,10 +216,10 @@ abstract class HandshakeArbiterCore[T <: Data](dataType: T, portCount: Int, allo
 
   //Route
   var outputValid = False
-  var outputData = b(0)
+  var outputData = B(0)
   for ((input, mask) <- (io.inputs, maskRouted).zipped) {
     outputValid = outputValid | input.valid
-    outputData = outputData | Mux(mask, input.data.toBits, b(0))
+    outputData = outputData | Mux(mask, input.data.toBits, B(0))
     input.ready := mask & io.output.ready
   }
   io.output.valid := outputValid
@@ -286,7 +286,7 @@ class HandshakeDemux[T <: Data](dataType: T, portCount: Int) extends Component {
 
   for (i <- 0 to portCount - 1) {
     io.output(i).data := io.input.data
-    when(u(i) !== io.sel) {
+    when(U(i) !== io.sel) {
       io.output(i).valid := False
     } otherwise {
       io.output(i).valid := io.input.valid
@@ -335,9 +335,9 @@ class HandshakeFifo[T <: Data](dataType: T, depth: Int) extends Component {
     io.occupancy := ((risingOccupancy && ptrMatch) ## ptrDif).toUInt
   else {
     when(ptrMatch) {
-      io.occupancy := Mux(risingOccupancy, u(depth), u(0))
+      io.occupancy := Mux(risingOccupancy, U(depth), U(0))
     } otherwise {
-      io.occupancy := Mux(pushPtr > popPtr, ptrDif, u(depth) + ptrDif)
+      io.occupancy := Mux(pushPtr > popPtr, ptrDif, U(depth) + ptrDif)
     }
   }
 }
@@ -368,7 +368,7 @@ class HandshakeFifoCC[T <: Data](dataType: T, depth: Int, pushClockDomain: Clock
   val pushCC = new ClockingArea(pushClockDomain) {
     val pushPtr = Counter(depth << 1)
     val pushPtrGray = RegNext(toGray(pushPtr.valueNext))
-    val popPtrGray = BufferCC(popToPushGray, b"0")
+    val popPtrGray = BufferCC(popToPushGray, B"0")
     val full = isFull(pushPtrGray, popPtrGray)
 
     io.push.ready := !full
@@ -383,7 +383,7 @@ class HandshakeFifoCC[T <: Data](dataType: T, depth: Int, pushClockDomain: Clock
   val popCC = new ClockingArea(popClockDomain) {
     val popPtr = Counter(depth << 1)
     val popPtrGray = RegNext(toGray(popPtr.valueNext))
-    val pushPtrGray = BufferCC(pushToPopGray, b"0")
+    val pushPtrGray = BufferCC(pushToPopGray, B"0")
     val empty = isEmpty(popPtrGray, pushPtrGray)
 
     io.pop.valid := !empty

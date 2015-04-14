@@ -165,7 +165,7 @@ class UartCtrlRx(dataWidthMax: Int = 8, clockDividerWidth: Int = 21, preSampling
   }
 
   val clockDivider = new Area {
-    val counter = RegInit(u(0, clockDividerWidth bit))
+    val counter = RegInit(U(0, clockDividerWidth bit))
     val tick = counter === 0
 
     counter := counter - 1
@@ -193,11 +193,11 @@ class UartCtrlRx(dataWidthMax: Int = 8, clockDividerWidth: Int = 21, preSampling
       counter := counter - 1
       when(0 === counter) {
         tick := True
-        counter := u(preSamplingSize + samplingSize + postSamplingSize - 1)
+        counter := U(preSamplingSize + samplingSize + postSamplingSize - 1)
       }
     }
 
-    def reset: Unit = counter := u(preSamplingSize + (samplingSize - 1) / 2 - 1)
+    def reset: Unit = counter := U(preSamplingSize + (samplingSize - 1) / 2 - 1)
     def value = sampler.value
   }
 

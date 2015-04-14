@@ -275,7 +275,7 @@ class FlowFragmentRouter(input: Flow[Fragment[Bits]], mapTo: Iterable[BigInt]) e
 
   outputs.foreach(_.data := input.data)
   when(input.isNotInTail) {
-    (enables, mapTo).zipped.foreach((en, filter) => en := b(filter) === input.fragment)
+    (enables, mapTo).zipped.foreach((en, filter) => en := B(filter) === input.fragment)
   } otherwise {
     (outputs, enables).zipped.foreach(_.valid := _)
   }
@@ -288,12 +288,12 @@ class HandshakeToHandshakeFragmentBits[T <: Data](dataType: T, bitsWidth: Int) e
     val output = master Handshake Fragment(Bits(bitsWidth bit))
   }
   val counter = Counter((widthOf(dataType) - 1) / bitsWidth + 1)
-  val inputBits = b(0, bitsWidth bit) ## toBits(io.input.data) //The cat allow to mux inputBits
+  val inputBits = B(0, bitsWidth bit) ## toBits(io.input.data) //The cat allow to mux inputBits
 
   io.input.ready := counter.overflow
   io.output.last := counter.overflow
   io.output.valid := io.input.valid
-  io.output.fragment := inputBits(counter * u(bitsWidth), bitsWidth bit)
+  io.output.fragment := inputBits(counter * U(bitsWidth), bitsWidth bit)
   when(io.output.fire) {
     counter ++
   }

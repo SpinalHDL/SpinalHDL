@@ -27,7 +27,7 @@ trait BitsCast{
 }
 
 object BitsSet{
-  def apply(bitCount: BitCount) = b((BigInt(1) << bitCount.value) - 1,bitCount)
+  def apply(bitCount: BitCount) = B((BigInt(1) << bitCount.value) - 1,bitCount)
 }
 
 trait BitsFactory{
@@ -42,7 +42,7 @@ class Bits extends BitVector {
   def ##(right: Bits): Bits = newBinaryOperator("b##b", right, WidthInfer.cumulateInputWidth, InputNormalize.none,ZeroWidth.binaryTakeOther)
 
   def |(that: Bits): Bits = newBinaryOperator("b|b", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,ZeroWidth.binaryTakeOther);
-  def &(that: Bits): Bits = newBinaryOperator("b&b", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,ZeroWidth.binaryInductZeroWithOtherWidth(b.apply));
+  def &(that: Bits): Bits = newBinaryOperator("b&b", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,ZeroWidth.binaryInductZeroWithOtherWidth(B.apply));
   def ^(that: Bits): Bits = newBinaryOperator("b^b", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,ZeroWidth.binaryTakeOther);
   def unary_~(): Bits = newUnaryOperator("~b",WidthInfer.inputMaxWidth,ZeroWidth.unaryZero);
 
@@ -50,9 +50,9 @@ class Bits extends BitVector {
   override def !==(that: SSelf): Bool = newLogicalOperator("b!=b", that, InputNormalize.inputWidthMax,ZeroWidth.binaryThatIfBoth(False));
 
   def >>(that: Int): this.type = newBinaryOperator("b>>i", IntLiteral(that), WidthInfer.shiftRightWidth, InputNormalize.none,ZeroWidth.shiftRightImpl);
-  def <<(that: Int): this.type = newBinaryOperator("b<<i", IntLiteral(that), WidthInfer.shiftLeftWidth, InputNormalize.none,ZeroWidth.shiftLeftImpl(b.apply));
+  def <<(that: Int): this.type = newBinaryOperator("b<<i", IntLiteral(that), WidthInfer.shiftLeftWidth, InputNormalize.none,ZeroWidth.shiftLeftImpl(B.apply));
   def >>(that: UInt): this.type = newBinaryOperator("b>>u", that, WidthInfer.shiftRightWidth, InputNormalize.none,ZeroWidth.shiftRightImpl);
-  def <<(that: UInt): this.type = newBinaryOperator("b<<u", that, WidthInfer.shiftLeftWidth, InputNormalize.none,ZeroWidth.shiftLeftImpl(b.apply));
+  def <<(that: UInt): this.type = newBinaryOperator("b<<u", that, WidthInfer.shiftLeftWidth, InputNormalize.none,ZeroWidth.shiftLeftImpl(B.apply));
 
   override def \(that: SSelf) = super.\(that)
   override def :=(that: SSelf): Unit = super.:=(that)
@@ -60,7 +60,7 @@ class Bits extends BitVector {
 
   override def newMultiplexor(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,b,b)", sel, whenTrue, whenFalse)
 
-  override def resize(width: Int): this.type = newResize("resize(b,i)", this :: new IntLiteral(width) :: Nil, WidthInfer.intLit1Width,ZeroWidth.resizeImpl(b.apply))
+  override def resize(width: Int): this.type = newResize("resize(b,i)", this :: new IntLiteral(width) :: Nil, WidthInfer.intLit1Width,ZeroWidth.resizeImpl(B.apply))
 
   def toSInt: SInt = new SInt().castFrom("b->s", this)
   def toUInt: UInt = new UInt().castFrom("b->u", this)
@@ -79,5 +79,5 @@ class Bits extends BitVector {
     }
   }
 
-  override def getZero: this.type = b(0).asInstanceOf[this.type]
+  override def getZero: this.type = B(0).asInstanceOf[this.type]
 }

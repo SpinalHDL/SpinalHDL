@@ -59,7 +59,7 @@ object CommonTester {
 
 
         def doit: Unit ={
-          bitDemux := b(0)
+          bitDemux := B(0)
           bitDemux(sel(0)) := conds(0)
           when(conds(1)){
             bitDemux(sel(1)) := conds(2)
@@ -84,7 +84,7 @@ object CommonTester {
     io.outAABits := io.inAA.toBits
 
     io.complexLiteral(15,4) := 0x70
-    io.complexLiteral(15,12) := u"2" + u"1"
+    io.complexLiteral(15,12) := U"2" + U"1"
     io.complexLiteral(6) := True
     io.complexLiteral(3) := True
     io.complexLiteral(5) := True

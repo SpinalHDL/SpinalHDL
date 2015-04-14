@@ -70,7 +70,7 @@ object DebuggerTestCode {
       val output = out UInt (4 bit)
     }
 
-    val internalA = RegInit(u"4x0")
+    val internalA = RegInit(U"4x0")
     internalA := internalA + io.input
 
     val internalB = RegNext(internalA)

@@ -9,9 +9,9 @@ class CounterWithParity(size : Int) extends Component{
     val evenParity = out Bool
   }
 
-  val counter = RegInit(u(0,size bit))
+  val counter = RegInit(U(0,size bit))
   when(io.increment){
-    counter := counter + u(1)
+    counter := counter + U(1)
   }
   io.evenParity := counter.toBools.reduceLeft(_ ^ _)
 

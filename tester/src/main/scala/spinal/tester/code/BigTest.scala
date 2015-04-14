@@ -279,7 +279,7 @@ object BigTest {
 
   class MyBlackBox extends BlackBox {
     val generic = new Generic {
-      val genA = u(1, 5 bit)
+      val genA = U(1, 5 bit)
       val genB = False
       val genC = 44
       val genD = "salut"
@@ -294,7 +294,7 @@ object BigTest {
   }
 
   object S {
-    def one = u(1)
+    def one = U(1)
     def two = one + one
   }
 
@@ -448,7 +448,7 @@ object BigTest {
 
     io.masterHandshake connectFrom io.slaveHandshake
     io.masterHandshakeThrow connectFrom (io.slaveHandshake.throwWhen(io.cond1))
-    io.masterHandshakeUInt connectFrom (io.slaveHandshake translateWith u(3))
+    io.masterHandshakeUInt connectFrom (io.slaveHandshake translateWith U(3))
     //io.masterHandshakeUInt.bits := UInt(2)
     //var myInt = WeekDay.c
     // myInt := WeekDay.Mon
