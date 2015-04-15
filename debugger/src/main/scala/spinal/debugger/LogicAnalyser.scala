@@ -25,10 +25,16 @@ class LogicAnalyser(p: LogicAnalyserParameter) extends Component {
     val slavePort = slave Flow Fragment(Bits(fragmentWidth bit))
     val masterPort = master Handshake Fragment(Bits(fragmentWidth bit))
   }
-  //io.packetSlave.isFirst
+
+
+
+  val waitTrigger = io.slavePort filterHeader(0x01) toRegOf(Bool) init(False)
 
   val trigger = new Area {
-    val event = CounterFreeRun(1000) === U(999)
+    val event = CounterFreeRun(1000) === U(999) && waitTrigger
+    when(event){
+      waitTrigger := False
+    }
   }
 
   val probe = Cat(p.dataList.map(_.pull))

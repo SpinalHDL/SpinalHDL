@@ -16,7 +16,25 @@ object HandshakeFragment extends HandshakeFragmentFactory
 class FlowFragmentPimped[T <: Data](that: Flow[Fragment[T]]) {
   //  def last : Bool = that.last
   //  def fragment : T = that.data.fragment
+
+  def filterHeader(header : T) : Flow[Fragment[T]] = {
+    val takeIt = RegInit(False)
+
+    when(that.isFirst){
+      when(that.fragment === header){
+        takeIt := True
+      }
+    }
+
+    when(that.isLast){
+      takeIt := False
+    }
+
+    return that.takeWhen(takeIt)
+  }
+
 }
+
 
 
 class HandshakeFragmentPimped[T <: Data](pimped: Handshake[Fragment[T]]) {
@@ -201,6 +219,9 @@ class DataCarrierFragmentPimped[T <: Data](pimped: DataCarrier[Fragment[T]]) {
 
 
 class DataCarrierFragmentBitsPimped(pimped: DataCarrier[Fragment[Bits]]) {
+
+
+  def toRegOf[T <: Data](toDataType: T) = toFlowOf(toDataType).toReg
 
   //Little endian
   def toFlowOf[T <: Data](toDataType: T): Flow[T] = {

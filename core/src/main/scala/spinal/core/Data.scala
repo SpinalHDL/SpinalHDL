@@ -23,13 +23,13 @@ import scala.collection.mutable.ArrayBuffer
 
 object Data {
   implicit def autoCast[T <: Data, T2 <: T](that: T): T2#SSelf = that.asInstanceOf[T2#SSelf]
-   //implicit def autoCast[T <: Data](that: T#SSelf): T = that.asInstanceOf[T]
-//  implicit def autoCast[T2 <: Bool](that: Bool): T2#SSelf = that.asInstanceOf[T2#SSelf]
-//  implicit def autoCast[T2 <: Bits](that: Bits): T2#SSelf = that.asInstanceOf[T2#SSelf]
-//  implicit def autoCast[T2 <: UInt](that: UInt): T2#SSelf = that.asInstanceOf[T2#SSelf]
-//  implicit def autoCast[T2 <: SInt](that: SInt): T2#SSelf = that.asInstanceOf[T2#SSelf]
-//  implicit def autoCast[T2 <: Bundle](that: Bundle): T2#SSelf = that.asInstanceOf[T2#SSelf]
-//  implicit def autoCast[T2 <: Vec](that: Vec): T2#SSelf = that.asInstanceOf[T2#SSelf]
+  //implicit def autoCast[T <: Data](that: T#SSelf): T = that.asInstanceOf[T]
+  //  implicit def autoCast[T2 <: Bool](that: Bool): T2#SSelf = that.asInstanceOf[T2#SSelf]
+  //  implicit def autoCast[T2 <: Bits](that: Bits): T2#SSelf = that.asInstanceOf[T2#SSelf]
+  //  implicit def autoCast[T2 <: UInt](that: UInt): T2#SSelf = that.asInstanceOf[T2#SSelf]
+  //  implicit def autoCast[T2 <: SInt](that: SInt): T2#SSelf = that.asInstanceOf[T2#SSelf]
+  //  implicit def autoCast[T2 <: Bundle](that: Bundle): T2#SSelf = that.asInstanceOf[T2#SSelf]
+  //  implicit def autoCast[T2 <: Vec](that: Vec): T2#SSelf = that.asInstanceOf[T2#SSelf]
 
   def doPull[T <: Data](srcData: T, finalComponent: Component, useCache: Boolean = false, propagateName: Boolean = false): T = {
     val startComponent = srcData.component
@@ -215,12 +215,26 @@ trait Data extends ContextUser with Nameable with Assignable with AttributeReady
 
   /*private[core] */
   def init(init: SSelf): this.type = {
-    if (!isReg) SpinalError(s"Try to set initial value of a data that is not a register ($this)")
+    // if (!isReg) SpinalError(s"Try to set initial value of a data that is not a register ($this)")
     val regInit = clone()
     regInit := init
     for (((eName, e), (y, initElement)) <- (this.flatten, regInit.flatten).zipped) {
-      if (initElement.inputs(0) != null && initElement.inputs(0).inputs(0) != null) {
-        e.inputs(0).asInstanceOf[Reg].setInitialValue(initElement)
+      def recursiveSearch(ptr: Node): Unit = {
+        if (ptr.component != init.component) SpinalError(s"Try to set initial value of a data that is not in current component ($this)")
+        ptr match {
+          case bt: BaseType => {
+            if (bt.isReg)
+              bt.inputs(0).asInstanceOf[Reg].setInitialValue(initElement)
+            else
+              recursiveSearch(bt)
+          }
+          case _ => SpinalError(s"Try to set initial value of a data that is not a register ($this)")
+        }
+      }
+
+      //maybe need to restor commented ?
+      if (initElement.inputs(0) != null /* && initElement.inputs(0).inputs(0) != null*/ ) {
+        recursiveSearch(e)
       }
     }
     this
