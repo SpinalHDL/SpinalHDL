@@ -20,7 +20,6 @@ package spinal.lib
 
 import spinal.core._
 
-
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
@@ -127,7 +126,7 @@ class Counter(val stateCount: BigInt, freeRun: Boolean = false) extends Area {
       } otherwise {
         valueNext := value + U(1)
       }
-    }otherwise{
+    } otherwise {
       valueNext := value
     }
   }
@@ -237,4 +236,55 @@ trait DataCarrier[T <: Data] {
 }
 
 
+object DelayEvent {
+  def apply(event: Bool, t: Double, hz: Double): Bool = {
+    DelayEvent(event, ((t - 100e-12) * hz).ceil.toInt)
+  }
 
+  def apply(event: Bool, cycle: BigInt): Bool = {
+    if (cycle == 0) return event
+    val run = RegInit(False)
+    val counter = Counter(cycle)
+
+    counter ++
+
+    when(counter.overflow) {
+      run := False
+    }
+
+    when(event) {
+      run := True
+      counter.reset
+    }
+
+    return run && counter.overflow
+  }
+
+  def apply(event: Bool, cycle: UInt): Bool = {
+    val ret = False
+    val isDelaying = RegInit(False)
+    val counter = Reg(cycle)
+    val counterNext = cloneOf(cycle)
+    val counterMatch = counterNext === cycle
+
+    counterNext := counter + 1
+
+    when(event){
+      counterNext := 0
+      when(counterMatch){
+        isDelaying := False
+        ret := True
+      }otherwise{
+        isDelaying := True
+      }
+    }.elsewhen(isDelaying){
+      when(counterMatch){
+        isDelaying := False
+        ret := True
+      }
+    }
+
+    ret
+  }
+
+}

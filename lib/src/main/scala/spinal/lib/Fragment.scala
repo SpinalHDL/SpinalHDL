@@ -17,24 +17,24 @@ class FlowFragmentPimped[T <: Data](that: Flow[Fragment[T]]) {
   //  def last : Bool = that.last
   //  def fragment : T = that.data.fragment
 
-  def filterHeader(header : T) : Flow[Fragment[T]] = {
+  def filterHeader(header: T): Flow[Fragment[T]] = {
     val takeIt = RegInit(False)
 
-    when(that.isFirst){
-      when(that.fragment === header){
+    when(that.isFirst) {
+      when(that.fragment === header) {
         takeIt := True
       }
     }
 
-    when(that.isLast){
+    when(that.isLast) {
       takeIt := False
     }
 
     return that.takeWhen(takeIt)
   }
 
+  def eventOn(header: T):Bool = that.isFirst && that.fragment === header
 }
-
 
 
 class HandshakeFragmentPimped[T <: Data](pimped: Handshake[Fragment[T]]) {
@@ -75,7 +75,7 @@ class HandshakeFragmentPimped[T <: Data](pimped: Handshake[Fragment[T]]) {
     pimpedWidhoutLast.connectFrom2(pimped)((to, from) => {
       to := from.fragment
     })
-    
+
     val fragmented = pimpedWidhoutLast.fragmentTransaction(bitsWidth)
 
     val ret = Handshake Fragment (Bits(bitsWidth bit))
@@ -221,7 +221,30 @@ class DataCarrierFragmentPimped[T <: Data](pimped: DataCarrier[Fragment[T]]) {
 class DataCarrierFragmentBitsPimped(pimped: DataCarrier[Fragment[Bits]]) {
 
 
-  def toRegOf[T <: Data](toDataType: T) = toFlowOf(toDataType).toReg
+  //safeTransition => when false, the design is smaller, but the register is a Shift Register (unwanted state during loading)
+  def toRegOf[T <: Data](dataType: T, safeTransition: Boolean = true): T = {
+    if (safeTransition)
+      toFlowOf(dataType).toReg
+    else {
+      val fromWidth = pimped.fragment.getWidth
+      val toWidth = dataType.getBitsWidth
+      val missingBitsCount = toWidth - fromWidth
+
+      val bufferLowWidth = ((missingBitsCount - 1) / fromWidth + 1) * fromWidth
+      val bufferHighWidth = toWidth - bufferLowWidth
+      val buffer = Reg(Bits(toWidth bit))
+
+      when(pimped.fire) {
+        when(pimped.last) {
+          buffer(buffer.high,bufferLowWidth) := pimped.fragment
+        } otherwise {
+          buffer(bufferLowWidth - 1, 0) := pimped.fragment ## (buffer >> fromWidth)
+        }
+      }
+
+      buffer.toDataType(dataType)
+    }
+  }
 
   //Little endian
   def toFlowOf[T <: Data](toDataType: T): Flow[T] = {

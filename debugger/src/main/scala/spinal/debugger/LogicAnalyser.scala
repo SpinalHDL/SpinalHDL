@@ -19,6 +19,14 @@ class LogicAnalyserParameter {
   }
 }
 
+class LogicAnalyserConfig extends Bundle{
+  val trigger = new Bundle{
+    val delay = UInt(32 bit)
+  }
+
+  override def clone() : this.type = new LogicAnalyserConfig().asInstanceOf[this.type]
+}
+
 class LogicAnalyser(p: LogicAnalyserParameter) extends Component {
   val fragmentWidth = 8
   val io = new Bundle {
@@ -29,9 +37,11 @@ class LogicAnalyser(p: LogicAnalyserParameter) extends Component {
 
 
   val waitTrigger = io.slavePort filterHeader(0x01) toRegOf(Bool) init(False)
+  val userTrigger = io.slavePort eventOn(0x02)
+  val configs = io.slavePort filterHeader(0x0F) toRegOf(new LogicAnalyserConfig,false)
 
   val trigger = new Area {
-    val event = CounterFreeRun(1000) === U(999) && waitTrigger
+    val event = CounterFreeRun(1000) === U(999) || userTrigger
     when(event){
       waitTrigger := False
     }
@@ -39,11 +49,9 @@ class LogicAnalyser(p: LogicAnalyserParameter) extends Component {
 
   val probe = Cat(p.dataList.map(_.pull))
 
-  val packetSlaves = FlowFragmentRouter(io.slavePort,1)
-
   val logger = new LogicAnalyserLogger(p,probe)
-  logger.io.packetSlave << packetSlaves(0)
-  logger.io.trigger := trigger.event
+  logger.io.packetSlave << io.slavePort
+  logger.io.trigger := DelayEvent(trigger.event,configs.trigger.delay) && waitTrigger
   logger.io.probe := probe
 
   //TODO better toFragmentBits with internal cat header to logger stream and remove insertHeader (less ressource usage)

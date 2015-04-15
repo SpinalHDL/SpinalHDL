@@ -25,7 +25,7 @@ trait UIntCast{
 }
 
 trait UIntFactory{
-  def UInt() = new UInt()
+  def UInt = new UInt()
 //  def UInt(width : Int): UInt = UInt.setWidth(width)
   def UInt(width: BitCount): UInt = UInt.setWidth(width.value)
 }

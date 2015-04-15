@@ -79,5 +79,11 @@ class Bits extends BitVector {
     }
   }
 
+  def toDataType[T <: Data](dataType : T) : T = {
+    val ret = cloneOf(dataType)
+    ret.assignFromBits(this)
+    ret
+  }
+
   override def getZero: this.type = B(0).asInstanceOf[this.type]
 }
