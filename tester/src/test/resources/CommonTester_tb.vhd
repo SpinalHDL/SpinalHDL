@@ -150,19 +150,19 @@ begin
 
     if testCounter /= 0 then
 	  assert io_complexLiteral = "0001011101100010" report "io_complexLiteral fail " & integer'image(to_integer(io_complexLiteral)) severity failure;
-      assert io_inAABits(11) = io_outAA_bod_gggg report "io_outAA_bod_gggg fail" severity failure;
-      assert io_inAABits(10 downto 8) = std_logic_vector(io_outAA_bod_aosi) report "io_inAA_bod_aosi fail" severity failure;
-      assert io_inAABits(7) = io_outAA_ahe report "io_outAA_ahe fail" severity failure;
-      assert io_inAABits(6) = io_outAA_zwg report "io_outAA_zwg fail" severity failure;
-      assert io_inAABits(5) = io_outAA_vsw report "io_outAA_vsw fail" severity failure;
-      assert io_inAABits(4 downto 0) = std_logic_vector(io_outAA_lwee) report "io_outAA_lwee fail" severity failure;
+      assert io_inAABits(0) = io_outAA_bod_gggg report "io_outAA_bod_gggg fail" severity failure;
+      assert io_inAABits(3 downto 1) = std_logic_vector(io_outAA_bod_aosi) report "io_inAA_bod_aosi fail" severity failure;
+      assert io_inAABits(4) = io_outAA_ahe report "io_outAA_ahe fail" severity failure;
+      assert io_inAABits(5) = io_outAA_zwg report "io_outAA_zwg fail" severity failure;
+      assert io_inAABits(6) = io_outAA_vsw report "io_outAA_vsw fail" severity failure;
+      assert io_inAABits(11 downto 7) = std_logic_vector(io_outAA_lwee) report "io_outAA_lwee fail" severity failure;
       
-      assert io_outAABits(11) = io_inAA_bod_gggg report "io_outAABits fail" severity failure;
-      assert io_outAABits(10 downto 8) = std_logic_vector(io_inAA_bod_aosi) report "io_outAABits fail" severity failure;
-      assert io_outAABits(7) = io_inAA_ahe report "io_outAABits fail" severity failure;
-      assert io_outAABits(6) = io_inAA_zwg report "io_outAABits fail" severity failure;
-      assert io_outAABits(5) = io_inAA_vsw report "io_outAABits fail" severity failure;
-      assert io_outAABits(4 downto 0) = std_logic_vector(io_inAA_lwee) report "io_outAABits fail" severity failure;
+      assert io_outAABits(0) = io_inAA_bod_gggg report "io_outAABits fail" severity failure;
+      assert io_outAABits(3 downto 1) = std_logic_vector(io_inAA_bod_aosi) report "io_outAABits fail" severity failure;
+      assert io_outAABits(4) = io_inAA_ahe report "io_outAABits fail" severity failure;
+      assert io_outAABits(5) = io_inAA_zwg report "io_outAABits fail" severity failure;
+      assert io_outAABits(6) = io_inAA_vsw report "io_outAABits fail" severity failure;
+      assert io_outAABits(11 downto 7) = std_logic_vector(io_inAA_lwee) report "io_outAABits fail" severity failure;
 
       assert io_inUIntA + io_inUIntB = io_outUIntAdder  report "io_outUIntAdder fail" severity failure;
 

@@ -72,14 +72,14 @@ class HandshakeFragmentPimped[T <: Data](pimped: Handshake[Fragment[T]]) {
   //Todo prety impl
   def toFragmentBits(bitsWidth: Int): Handshake[Fragment[Bits]] = {
     val pimpedWidhoutLast = Handshake(pimped.fragment)
-    pimpedWidhoutLast.connectFrom2(pimped)((to, from) => {
+    pimpedWidhoutLast.translateFrom(pimped)((to, from) => {
       to := from.fragment
     })
 
     val fragmented = pimpedWidhoutLast.fragmentTransaction(bitsWidth)
 
     val ret = Handshake Fragment (Bits(bitsWidth bit))
-    ret.connectFrom2(fragmented)((to, from) => {
+    ret.translateFrom(fragmented)((to, from) => {
       to.last := from.last && pimped.last
       to.fragment := from.fragment
     })
@@ -238,7 +238,7 @@ class DataCarrierFragmentBitsPimped(pimped: DataCarrier[Fragment[Bits]]) {
         when(pimped.last) {
           buffer(buffer.high,bufferLowWidth) := pimped.fragment
         } otherwise {
-          buffer(bufferLowWidth - 1, 0) := pimped.fragment ## (buffer >> fromWidth)
+          buffer(bufferLowWidth - 1, 0) := pimped.fragment ## buffer(bufferLowWidth - 1, fromWidth)
         }
       }
 

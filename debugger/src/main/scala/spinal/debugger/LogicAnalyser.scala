@@ -19,12 +19,15 @@ class LogicAnalyserParameter {
   }
 }
 
-class LogicAnalyserConfig extends Bundle{
+class LogicAnalyserConfig(p: LogicAnalyserParameter) extends Bundle{
   val trigger = new Bundle{
     val delay = UInt(32 bit)
   }
+  val logger = new Bundle{
+    val samplesLeftAfterTrigger = UInt(p.memAddressWidth bit)
+  }
 
-  override def clone() : this.type = new LogicAnalyserConfig().asInstanceOf[this.type]
+  override def clone() : this.type = new LogicAnalyserConfig(p).asInstanceOf[this.type]
 }
 
 class LogicAnalyser(p: LogicAnalyserParameter) extends Component {
@@ -38,7 +41,7 @@ class LogicAnalyser(p: LogicAnalyserParameter) extends Component {
 
   val waitTrigger = io.slavePort filterHeader(0x01) toRegOf(Bool) init(False)
   val userTrigger = io.slavePort eventOn(0x02)
-  val configs = io.slavePort filterHeader(0x0F) toRegOf(new LogicAnalyserConfig,false)
+  val configs = io.slavePort filterHeader(0x0F) toRegOf(new LogicAnalyserConfig(p),false)
 
   val trigger = new Area {
     val event = CounterFreeRun(1000) === U(999) || userTrigger
@@ -50,11 +53,10 @@ class LogicAnalyser(p: LogicAnalyserParameter) extends Component {
   val probe = Cat(p.dataList.map(_.pull))
 
   val logger = new LogicAnalyserLogger(p,probe)
-  logger.io.packetSlave << io.slavePort
+  logger.io.configs := configs
   logger.io.trigger := DelayEvent(trigger.event,configs.trigger.delay) && waitTrigger
   logger.io.probe := probe
 
-  //TODO better toFragmentBits with internal cat header to logger stream and remove insertHeader (less ressource usage)
   io.masterPort << logger.io.log.toFragmentBits(fragmentWidth).insertHeader(0xAA)
 }
 
@@ -68,7 +70,7 @@ class LogicAnalyserLogger(p: LogicAnalyserParameter, probeType: Bits) extends Co
   import LogicAnalyserLoggerState._
 
   val io = new Bundle {
-    val packetSlave = slave Flow Fragment(Bits(8 bit))
+    val configs = in (new LogicAnalyserConfig(p))
 
     val trigger = in Bool
     val probe = in cloneOf(probeType)
@@ -81,10 +83,7 @@ class LogicAnalyserLogger(p: LogicAnalyserParameter, probeType: Bits) extends Co
   val memReadAddress = Reg(mem.addressType)
 
 
-  val config = new Bundle {
-    val samplesLeftAfterTrigger = mem.addressType
-  }
-  config.samplesLeftAfterTrigger := 10
+
 
   val state = RegInit(sWaitTrigger)
   val pushCounter = Reg(mem.addressType)
@@ -96,17 +95,17 @@ class LogicAnalyserLogger(p: LogicAnalyserParameter, probeType: Bits) extends Co
     val counter = Reg(mem.addressType)
 
     when(postEnable){
-      counter := counter - U(1)
+      counter := counter - 1
     } otherwise{
-      counter := config.samplesLeftAfterTrigger
+      counter := io.configs.logger.samplesLeftAfterTrigger
     }
 
     when(preEnable || postEnable) {
       mem(memWriteAddress) := io.probe
-      memWriteAddress := memWriteAddress + U(1)
+      memWriteAddress := memWriteAddress + 1
     }
 
-    val done = counter === U(0)
+    val done = counter === 0
   }
 
 
@@ -121,7 +120,7 @@ class LogicAnalyserLogger(p: LogicAnalyserParameter, probeType: Bits) extends Co
     sampler.preEnable := True
     when(io.trigger) {
       state := sSample
-      memReadAddress := memWriteAddress + config.samplesLeftAfterTrigger + U(2)
+      memReadAddress := memWriteAddress + io.configs.logger.samplesLeftAfterTrigger + 2
     }
   }
   when(state === sSample) {
@@ -147,7 +146,7 @@ class LogicAnalyserLogger(p: LogicAnalyserParameter, probeType: Bits) extends Co
 
 
   val memReadPort = mem.handshakeReadSync(memReadCmd, memReadCmdIsLast)
-  io.log.connectFrom2(memReadPort)((to, from) => {
+  io.log.translateFrom(memReadPort)((to, from) => {
     to.last := from.linked
     to.fragment := from.value
   })

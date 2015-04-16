@@ -44,7 +44,7 @@ abstract class MultiData extends Data {
     var ret: Bits = null
     for ((eName, e) <- elements) {
       if (ret == null.asInstanceOf[Object]) ret = e.toBits
-      else ret = ret ## e.toBits
+      else ret = e.toBits ## ret
     }
     if (ret.asInstanceOf[Object] == null) ret = Bits(0 bit)
     ret
@@ -90,7 +90,7 @@ abstract class MultiData extends Data {
 
   override def assignFromBits(bits: Bits): Unit = {
     var offset = 0
-    for ((n, e) <- flatten.reverse) {
+    for ((n, e) <- flatten) {
       val width = e.getWidth
       e.assignFromBits(bits(offset, width bit))
       offset = offset + width
