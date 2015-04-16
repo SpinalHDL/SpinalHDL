@@ -15,27 +15,23 @@ object FlowFragment extends FlowFragmentFactory
 object HandshakeFragment extends HandshakeFragmentFactory
 
 
-class FlowFragmentPimped[T <: Data](that: Flow[Fragment[T]]) {
-  //  def last : Bool = that.last
-  //  def fragment : T = that.data.fragment
-
+class FlowFragmentPimped[T <: Data](pimped: Flow[Fragment[T]]) {
   def filterHeader(header: T): Flow[Fragment[T]] = {
     val takeIt = RegInit(False)
 
-    when(that.isFirst) {
-      when(that.fragment === header) {
+    when(pimped.isFirst) {
+      when(pimped.fragment === header) {
         takeIt := True
       }
     }
-
-    when(that.isLast) {
+    when(pimped.isLast) {
       takeIt := False
     }
 
-    return that.takeWhen(takeIt)
+    return pimped.takeWhen(takeIt)
   }
 
-  def eventOn(header: T):Bool = that.isFirst && that.fragment === header
+  def eventOn(header: T):Bool = pimped.isFirst && pimped.fragment === header
 }
 
 

@@ -1,7 +1,7 @@
 About SpinalHDL
 ============
 SpinalHDL is a scala library that allows the user to describe his digital hardware and then generate the corresponding VHDL file.
-## Advantage over VHDL/Verilog
+## Advantages over VHDL/Verilog
 - No restriction to the genericity of your hardware description by using Scala constructs
 - No more endless wiring. Create and connect complex buses like AXI in one line.
 - Evolving capabilities. Create your own buses definition and abstraction layer.
@@ -221,6 +221,10 @@ class HandshakeFifoCC[T <: Data](dataType: T, depth: Int, pushClockDomain: Clock
 ## Example of abstraction with bus
 
 ```scala
+
+import spinal.core._
+import spinal.lib._
+
 //Define a data structure that is used as configuration of the LogicAnalyser
 class LogicAnalyserConfig extends Bundle{
   val trigger = new Bundle{
@@ -268,6 +272,43 @@ class LogicAnalyser extends Component {
 
 Function like filterHeader, toRegOf and eventOn are not hardcoded into the language.
 The user can extend it by using the Pimp my library scala pattern.
+
+There is the implementation of filterHeader and eventOn with pimp my library pattern :
+```scala
+package spinal
+import spinal.core._
+
+package object lib {
+  ...
+  implicit def flowFragmentPimped[T <: Data](that : Flow[Fragment[T]]) = new FlowFragmentPimped[T](that)
+  ...
+}
+```
+
+```scala
+package spinal.lib
+
+import spinal.core._
+
+class FlowFragmentPimped[T <: Data](pimped: Flow[Fragment[T]]) {
+  def filterHeader(header: T): Flow[Fragment[T]] = {
+    val takeIt = RegInit(False)
+
+    when(pimped.isFirst) {
+      when(pimped.fragment === header) {
+        takeIt := True
+      }
+    }
+    when(pimped.isLast) {
+      takeIt := False
+    }
+
+    return pimped.takeWhen(takeIt)
+  }
+
+  def eventOn(header: T):Bool = pimped.isFirst && pimped.fragment === header
+}
+```
 
 Other consideration
 ===============
