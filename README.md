@@ -218,6 +218,52 @@ class HandshakeFifoCC[T <: Data](dataType: T, depth: Int, pushClockDomain: Clock
 }
 ```
 
+## Example of abstraction with bus
+
+```scala
+//Define a data structure that is used as configuration of the LogicAnalyser
+class LogicAnalyserConfig extends Bundle{
+  val trigger = new Bundle{
+    val delay = UInt(32 bit)
+    ...
+  }
+  val logger = new Bundle{
+    val samplesLeftAfterTrigger = UInt(8 bit)
+    ...
+  }
+  ...
+}
+
+
+//Define the LogicAnalyser component
+class LogicAnalyser extends Component {
+  val io = new Bundle {
+    ...
+    //Flow is a very simple bus with the "valid" flag and "data".
+    //Fragment is a data type that allow to transport packets with multiple fragment => "last" flag and "fragment".
+    //Flow Fragment(Bits(8 bit)) is a Flow bus that carry Fragment of 8 bit each
+    val slavePort = slave Flow Fragment(Bits(8 bit)) //This port carry configuration of the LogicAnalyser
+    ...
+  }
+  ...
+
+  //When the first fragment of one packet is 0x01, then load the next fragment and save it as Bool into waitTrigger
+  //In addition, the initial value of waitTrigger (register reset) is False
+  val waitTrigger = io.slavePort filterHeader(0x01) toRegOf(Bool) init(False)
+  
+  //When the first fragment of one packet is 0x02, create a one cycle pulse on userTrigger
+  val userTrigger = io.slavePort eventOn(0x02)
+  
+  //When the first fragment of one packet is 0x0F, load the configs data structure (LogicAnalyserConfig type)
+  //The false argument mean that the configs register is allowed to take intermediate value when it's
+  //unserialize from the slavePort.
+  val configs = io.slavePort filterHeader(0x0F) toRegOf(new LogicAnalyserConfig,false)
+  ... 
+ }
+```
+
+Function like filterHeader, toRegOf and eventOn are not hardcoded into the language, the user can extend it.
+
 Other consideration
 ===============
 Intellij scala plugin has some syntax highlight bug. Please use scala plugin >= 1.4

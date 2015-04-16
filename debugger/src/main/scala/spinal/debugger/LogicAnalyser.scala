@@ -27,7 +27,7 @@ class LogicAnalyserConfig(p: LogicAnalyserParameter) extends Bundle{
     val samplesLeftAfterTrigger = UInt(p.memAddressWidth bit)
   }
 
-  override def clone() : this.type = new LogicAnalyserConfig(p).asInstanceOf[this.type]
+  //override def clone() : this.type = new LogicAnalyserConfig(p).asInstanceOf[this.type]
 }
 
 class LogicAnalyser(p: LogicAnalyserParameter) extends Component {

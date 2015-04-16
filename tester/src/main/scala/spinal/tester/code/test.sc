@@ -1,7 +1,14 @@
 
 import spinal.core._
+import scala.reflect.runtime.universe._
 
+class Foo(name: String, i: Int) { def this(name: String) = this(name, 0) }
 
+val params = typeOf[Foo].declaration(nme.CONSTRUCTOR).asTerm.alternatives.collect {
+  case m: MethodSymbol => m.paramss.map(_.map(_.name))
+}
+
+params
 
 private  val codeSections = Seq(
   // (hw: hw_implemented) => hw.getIncludeCode, // Must remove duplicates files
