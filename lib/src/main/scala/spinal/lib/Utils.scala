@@ -263,8 +263,8 @@ object DelayEvent {
   def apply(event: Bool, cycle: UInt): Bool = {
     val ret = False
     val isDelaying = RegInit(False)
-    val counter = Reg(cycle)
     val counterNext = cloneOf(cycle)
+    val counter = RegNext(counterNext)
     val counterMatch = counterNext === cycle
 
     counterNext := counter + 1

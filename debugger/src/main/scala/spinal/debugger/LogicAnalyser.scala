@@ -44,7 +44,8 @@ class LogicAnalyser(p: LogicAnalyserParameter) extends Component {
   val configs = io.slavePort filterHeader(0x0F) toRegOf(new LogicAnalyserConfig(p),false)
 
   val trigger = new Area {
-    val event = CounterFreeRun(1000) === U(999) || userTrigger
+    val aggregate = CounterFreeRun(1000) === U(999) || userTrigger
+    val event = DelayEvent(aggregate,configs.trigger.delay) && waitTrigger
     when(event){
       waitTrigger := False
     }
@@ -54,7 +55,7 @@ class LogicAnalyser(p: LogicAnalyserParameter) extends Component {
 
   val logger = new LogicAnalyserLogger(p,probe)
   logger.io.configs := configs
-  logger.io.trigger := DelayEvent(trigger.event,configs.trigger.delay) && waitTrigger
+  logger.io.trigger := trigger.event
   logger.io.probe := probe
 
   io.masterPort << logger.io.log.toFragmentBits(fragmentWidth).insertHeader(0xAA)

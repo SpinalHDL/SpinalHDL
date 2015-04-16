@@ -2,6 +2,8 @@ package spinal.lib
 
 import spinal.core._
 
+import scala.collection.mutable
+
 class FragmentFactory {
   def apply[T <: Data](dataType: T): Fragment[T] = new Fragment(dataType)
 }
@@ -204,16 +206,10 @@ class HandshakeFragmentBitsPimped(pimped: Handshake[Fragment[Bits]]) {
 
 class DataCarrierFragmentPimped[T <: Data](pimped: DataCarrier[Fragment[T]]) {
   def last: Bool = pimped.data.last
-
   def fragment: T = pimped.data.fragment
-
-
-  def isNotInTail = RegNextWhen(pimped.last, pimped.fire, True)
-
+  def isNotInTail : Bool = signalCache(pimped,"isNotInTail",() => RegNextWhen(pimped.last, pimped.fire, True))
   def isInTail = !isNotInTail
-
   def isFirst = pimped.valid && isNotInTail
-
   def isLast = pimped.valid && pimped.last
 }
 

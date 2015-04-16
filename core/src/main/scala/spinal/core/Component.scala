@@ -68,6 +68,7 @@ abstract class Component extends Nameable with GlobalDataUser with ScalaLocated 
 
   def io: Data
 
+  val userCache = mutable.Map[Object,mutable.Map[Object,Object]]()
   val localScope = new Scope()
   val postCreationTask = mutable.ArrayBuffer[() => Unit]()
   val kindsOutputsToBindings = mutable.Map[BaseType, BaseType]()

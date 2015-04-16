@@ -1,6 +1,29 @@
 
 import spinal.core._
 
+
+
+private  val codeSections = Seq(
+  // (hw: hw_implemented) => hw.getIncludeCode, // Must remove duplicates files
+  (hw: Int) => "asd",
+  (hw: Int) => "asd2"
+)
+def a = 2
+def xx(dummy : Int) = () => a
+
+val f1 : (Int) => (()  => Int) = xx
+val f2 : (Int) => (()  => Int) = xx
+
+f1.hashCode()
+f2.hashCode()
+
+class XAS{
+  object attributs{
+    def a = 2
+  }
+  def ? = attributs
+}
+new XAS().?.a
 U(2)
 U"x1492"
 Bool(true)

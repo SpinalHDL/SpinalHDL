@@ -47,6 +47,13 @@ object widthOf{
   def apply[T <: Data](that : T): Int = that.getBitsWidth
 }
 
+object signalCache{
+  def apply[T <: Data](key : Object,subKey : Object,factory : () => T): T ={
+    val cache = GlobalData.get.componentStack.head().userCache.getOrElseUpdate(key,scala.collection.mutable.Map[Object,Object]())
+    cache.getOrElseUpdate(subKey,factory()).asInstanceOf[T]
+  }
+}
+
 object Cat{
   def apply(data : Data*) : Bits =apply(data.toList)
 
