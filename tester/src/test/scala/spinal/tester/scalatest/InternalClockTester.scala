@@ -6,7 +6,7 @@ import spinal.lib._
 
 object InternalClockTester{
   class ClockGeneratorSub extends Component{
-    val io = NoData()
+    val io = NoData
 
     val internalClock = CounterFreeRun(16)(0)
 
@@ -27,7 +27,7 @@ object InternalClockTester{
   }
 
   class ClockGenerator extends Component{
-    val io = NoData()
+    val io = NoData
     val sub = new ClockGeneratorSub
   }
 

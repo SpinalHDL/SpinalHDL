@@ -2,8 +2,6 @@ package spinal.lib
 
 import spinal.core._
 
-import scala.collection.mutable
-
 class FragmentFactory {
   def apply[T <: Data](dataType: T): Fragment[T] = new Fragment(dataType)
 }
@@ -31,7 +29,23 @@ class FlowFragmentPimped[T <: Data](pimped: Flow[Fragment[T]]) {
     return pimped.takeWhen(takeIt)
   }
 
-  def eventOn(header: T):Bool = pimped.isFirst && pimped.fragment === header
+  def pulseOn(header: T): Bool = pimped.isFirst && pimped.fragment === header
+  def eventOn(header: T): Event = {
+    val ret = slave Event
+
+    val state = RegInit(False)
+    when(pimped.isFirst && pimped.fragment === header) {
+      state := True
+    }
+    when(ret.ready) {
+      state := False
+    }
+
+    ret.valid := state
+    ret
+  }
+
+
 }
 
 
@@ -203,7 +217,7 @@ class HandshakeFragmentBitsPimped(pimped: Handshake[Fragment[Bits]]) {
 class DataCarrierFragmentPimped[T <: Data](pimped: DataCarrier[Fragment[T]]) {
   def last: Bool = pimped.data.last
   def fragment: T = pimped.data.fragment
-  def isNotInTail : Bool = signalCache(pimped,"isNotInTail",() => RegNextWhen(pimped.last, pimped.fire, True))
+  def isNotInTail: Bool = signalCache(pimped, "isNotInTail", () => RegNextWhen(pimped.last, pimped.fire, True))
   def isInTail = !isNotInTail
   def isFirst = pimped.valid && isNotInTail
   def isLast = pimped.valid && pimped.last
@@ -228,7 +242,7 @@ class DataCarrierFragmentBitsPimped(pimped: DataCarrier[Fragment[Bits]]) {
 
       when(pimped.fire) {
         when(pimped.last) {
-          buffer(buffer.high,bufferLowWidth) := pimped.fragment
+          buffer(buffer.high, bufferLowWidth) := pimped.fragment
         } otherwise {
           buffer(bufferLowWidth - 1, 0) := pimped.fragment ## buffer(bufferLowWidth - 1, fromWidth)
         }
@@ -346,5 +360,28 @@ class HandshakeToHandshakeFragmentBits[T <: Data](dataType: T, bitsWidth: Int) e
 //}
 
 
+object HandshakeFragmentGenerator {
+  def apply(event: Event, packetData: Vec[Bits], bitsWidth: Int): Handshake[Fragment[Bits]] = {
+    apply(event, packetData, Bits(bitsWidth bit))
+  }
 
+  def apply[T <: Data](event: Event, packetData: Vec[T], dataType: T): Handshake[Fragment[T]] = {
+    val ret = Handshake Fragment (packetData.dataType)
+    val counter = Counter(packetData.size)
 
+    event.ready := Bool(false)
+    ret.valid := event.valid
+    ret.last := counter.overflowIfInc
+    ret.fragment := packetData(counter)
+    when(ret.fire) {
+      counter ++
+    }
+
+    when(counter.overflow) {
+      event.ready := Bool(true)
+    }
+
+    ret
+  }
+
+}

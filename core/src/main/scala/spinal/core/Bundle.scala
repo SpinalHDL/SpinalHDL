@@ -27,9 +27,6 @@ import scala.collection.mutable.ArrayBuffer
 object Bundle{
 
 }
-object NoData{
-  def apply() = new NoData
-}
 
 class NoData extends Bundle{
 

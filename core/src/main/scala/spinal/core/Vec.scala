@@ -78,8 +78,10 @@ class VecAccessAssign[T <: BaseType](enables: Seq[Bool], tos: Seq[T]) extends As
   }
 }
 
-class Vec[T <: Data](val dataType: T) extends MultiData with collection.IndexedSeq[T]{
+class Vec[T <: Data](_dataType: T) extends MultiData with collection.IndexedSeq[T]{
   override type SSelf = Vec[T]
+
+  def dataType = cloneOf(_dataType)
 
   override def \(that: SSelf) = {
     lockIt()

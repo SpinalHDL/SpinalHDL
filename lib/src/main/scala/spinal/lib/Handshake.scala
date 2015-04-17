@@ -4,20 +4,26 @@ import spinal.core._
 
 
 class HandshakeFactory extends MSFactory {
-
   object Fragment extends HandshakeFragmentFactory
-
 
   def apply[T <: Data](dataType: T) = {
     val ret = new Handshake(dataType)
     postApply(ret)
     ret
   }
+}
+object Handshake extends HandshakeFactory
 
 
+class EventFactory extends MSFactory {
+  def apply = {
+    val ret = new Handshake(new NoData)
+    postApply(ret)
+    ret
+  }
 }
 
-object Handshake extends HandshakeFactory
+
 
 class Handshake[T <: Data](_dataType: T) extends Bundle with Interface with DataCarrier[T] {
   val valid = Bool
@@ -187,32 +193,29 @@ class Handshake[T <: Data](_dataType: T) extends Bundle with Interface with Data
 }
 
 
+
 class HandshakeArbiterCoreIO[T <: Data](dataType: T, portCount: Int) extends Bundle {
   val inputs = Vec(portCount, slave Handshake (dataType))
   val output = master Handshake (dataType)
   val chosen = out UInt (log2Up(portCount) bit)
 }
 
-abstract class HandshakeArbiterCore[T <: Data](dataType: T, portCount: Int, allowSwitchWithoutConsumption: Boolean) extends Component {
+class HandshakeArbiterCore[T <: Data](dataType: T,val portCount: Int)(arbitrationLogic : (HandshakeArbiterCore[T]) => Area, lockLogic : (HandshakeArbiterCore[T]) => Area) extends Component {
   val io = new HandshakeArbiterCoreIO(dataType, portCount)
 
   val locked = RegInit(False)
 
   val maskProposal = Vec(portCount, Bool)
   val maskLocked = Reg(Vec(portCount, Bool))
-  val maskRouted = if (allowSwitchWithoutConsumption) maskProposal else Mux(locked, maskLocked, maskProposal)
+  val maskRouted = Mux(locked, maskLocked, maskProposal)
 
 
   when(io.output.valid) {
-    //Lock
-    locked := True
     maskLocked := maskRouted
   }
-  when(io.output.ready) {
-    //unlock
-    locked := False
-  }
 
+  val arbitration = arbitrationLogic(this)
+  val lock = lockLogic(this)
 
   //Route
   var outputValid = False
@@ -226,25 +229,56 @@ abstract class HandshakeArbiterCore[T <: Data](dataType: T, portCount: Int, allo
   io.output.data.assignFromBits(outputData)
 
   io.chosen := OHToUInt(maskRouted)
+  
+}
 
+object HandshakeArbiterCore{
+  def arbitration_lowIdPortFirst[T <: Data](core : HandshakeArbiterCore[T]) = new Area{
+    import core._
+    var search = True
+    for (i <- 0 to portCount - 2) {
+      maskProposal(i) := search & io.inputs(i).valid
+      search = search & !io.inputs(i).valid
+    }
+    maskProposal(portCount - 1) := search
+  }
 
+  def lock_none[T <: Data](core : HandshakeArbiterCore[T]) = new Area {
+    import core._
 
-  //  val zips = (io.inputs, maskRouted).zipped
-  //  io.chosen := OHToUInt(maskRouted)
-  //  io.output.valid := io.inputs.map(_.valid).reduceLeft(_ | _)
-  //  io.output.data.fromBits(zips.map((d, b) => Mux(b, d.data.toBits, Bits(0))).reduceLeft(_ | _))
-  //  zips.foreach(_.ready := _ && io.output.ready)
+  }
+
+  def lock_transactionLock[T <: Data](core : HandshakeArbiterCore[T]) = new Area {
+    import core._
+    when(io.output.valid) {
+      locked := True
+    }
+    when(io.output.ready) {
+      locked := False
+    }
+  }
+
+  def lock_fragmentLock[T <: Data](core : HandshakeArbiterCore[Fragment[T]]) = new Area {
+    import core._
+
+    when(io.output.valid) {
+      locked := True
+    }
+    when(io.output.ready && io.output.last) {
+      locked := False
+    }
+  }
 }
 
 //TODOTEST
-class HandshakeArbiterPriorityImpl[T <: Data](dataType: T, portCount: Int, allowSwitchWithoutConsumption: Boolean = false) extends HandshakeArbiterCore(dataType, portCount, allowSwitchWithoutConsumption) {
-  var search = True
-  for (i <- 0 to portCount - 2) {
-    maskProposal(i) := search & io.inputs(i).valid
-    search = search & !io.inputs(i).valid
-  }
-  maskProposal(portCount - 1) := search
-}
+//class HandshakeArbiterPriorityImpl[T <: Data](dataType: T, portCount: Int, allowSwitchWithoutConsumption: Boolean = false) extends HandshakeArbiterCore(dataType, portCount, allowSwitchWithoutConsumption) {
+//  var search = True
+//  for (i <- 0 to portCount - 2) {
+//    maskProposal(i) := search & io.inputs(i).valid
+//    search = search & !io.inputs(i).valid
+//  }
+//  maskProposal(portCount - 1) := search
+//}
 
 
 //TODOTEST

@@ -259,7 +259,7 @@ class LogicAnalyser extends Component {
   val waitTrigger = io.slavePort filterHeader(0x01) toRegOf(Bool) init(False)
   
   //When the first fragment of one packet is 0x02, create a one cycle pulse on userTrigger
-  val userTrigger = io.slavePort eventOn(0x02)
+  val userTrigger = io.slavePort pulseOn(0x02)
   
   //When the first fragment of one packet is 0x0F, 
   //  load the configs data structure (LogicAnalyserConfig type)
@@ -270,12 +270,13 @@ class LogicAnalyser extends Component {
  }
 ```
 
-Function like filterHeader, toRegOf and eventOn are not hardcoded into the language.
+Function like filterHeader, toRegOf and pulseOn are not hardcoded into the language.
 The user can extend it by using the Pimp my library scala pattern.
 
-There is the implementation of filterHeader and eventOn with pimp my library pattern :
+There is the implementation of filterHeader and pulseOn with pimp my library pattern :
 ```scala
 package spinal
+
 import spinal.core._
 
 package object lib {
@@ -306,7 +307,7 @@ class FlowFragmentPimped[T <: Data](pimped: Flow[Fragment[T]]) {
     return pimped.takeWhen(takeIt)
   }
 
-  def eventOn(header: T):Bool = pimped.isFirst && pimped.fragment === header
+  def pulseOn(header: T):Bool = pimped.isFirst && pimped.fragment === header
 }
 ```
 

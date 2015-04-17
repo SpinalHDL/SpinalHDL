@@ -27,6 +27,19 @@ trait MS{
       MS.this.apply(interface)
     }
   }
+
+  object event extends EventFactory{
+    override def postApply(interface : Interface) : Unit = {
+      super.postApply(interface)
+      MS.this.apply(interface)
+    }
+  }
+
+  def Event = {
+    val ret = spinal.lib.Event
+    MS.this.apply(ret)
+    ret
+  }
 }
 
 object master extends MS{

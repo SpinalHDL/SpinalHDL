@@ -4,6 +4,7 @@ import spinal.core._
 import spinal.lib._
 
 import scala.collection.mutable.ArrayBuffer
+import scala.util.Random
 
 
 object LogicAnalyser {
@@ -27,7 +28,7 @@ class LogicAnalyserConfig(p: LogicAnalyserParameter) extends Bundle{
     val samplesLeftAfterTrigger = UInt(p.memAddressWidth bit)
   }
 
-  //override def clone() : this.type = new LogicAnalyserConfig(p).asInstanceOf[this.type]
+  override def clone() : this.type = new LogicAnalyserConfig(p).asInstanceOf[this.type]
 }
 
 class LogicAnalyser(p: LogicAnalyserParameter) extends Component {
@@ -40,8 +41,9 @@ class LogicAnalyser(p: LogicAnalyserParameter) extends Component {
 
 
   val waitTrigger = io.slavePort filterHeader(0x01) toRegOf(Bool) init(False)
-  val userTrigger = io.slavePort eventOn(0x02)
+  val userTrigger = io.slavePort pulseOn(0x02)
   val configs = io.slavePort filterHeader(0x0F) toRegOf(new LogicAnalyserConfig(p),false)
+  val passportEvent = io.slavePort eventOn(0xFF)
 
   val trigger = new Area {
     val aggregate = CounterFreeRun(1000) === U(999) || userTrigger
@@ -58,7 +60,16 @@ class LogicAnalyser(p: LogicAnalyserParameter) extends Component {
   logger.io.trigger := trigger.event
   logger.io.probe := probe
 
-  io.masterPort << logger.io.log.toFragmentBits(fragmentWidth).insertHeader(0xAA)
+
+
+
+  val passport = passportEvent.translateWith(S(Random.nextInt())).fragmentTransaction(fragmentWidth).insertHeader(0xFF)
+  val logs = logger.io.log.toFragmentBits(fragmentWidth).insertHeader(0xAA)
+
+  val arbiter = new HandshakeArbiterCore(io.masterPort.dataType,2)(HandshakeArbiterCore.arbitration_lowIdPortFirst,HandshakeArbiterCore.lock_fragmentLock)
+  arbiter.io.inputs(0) << passport
+  arbiter.io.inputs(1) << logs
+  arbiter.io.output >> io.masterPort
 }
 
 

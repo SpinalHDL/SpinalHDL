@@ -3,6 +3,11 @@ package spinal
 import spinal.core._
 
 package object lib {
+  type Event = Handshake[NoData]
+
+  def Event =  new Handshake(NoData)
+  def NoData = new NoData
+
   implicit def flowFragmentPimped[T <: Data](that : Flow[Fragment[T]]) = new FlowFragmentPimped[T](that)
   implicit def handshakeFragmentPimped[T <: Data](that : Handshake[Fragment[T]]) = new HandshakeFragmentPimped[T](that)
 

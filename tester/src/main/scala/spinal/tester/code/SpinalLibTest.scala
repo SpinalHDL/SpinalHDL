@@ -86,8 +86,8 @@ object SpinalLibTest {
     val clockB = ClockDomain(io.clkB, io.resetB)
 
 
-    val arbiter = new HandshakeArbiterPriorityImpl(new BundleA,4,true)
-    arbiter.io <> io.arbiter
+//    val arbiter = new HandshakeArbiterPriorityImpl(new BundleA,4,true)
+//    arbiter.io <> io.arbiter
 
     {
 

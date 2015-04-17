@@ -1074,7 +1074,7 @@ class VhdlBackend extends Backend with VhdlBase {
     case lit: BitsLiteral => lit.kind match {
       case _: Bits => s"pkg_stdLogicVector(X${'\"'}${lit.value.toString(16)}${'\"'},${lit.getWidth})"
       case _: UInt => s"pkg_unsigned(X${'\"'}${lit.value.toString(16)}${'\"'},${lit.getWidth})"
-      case _: SInt => s"pkg_signed(X${'\"'}${lit.value.toString(16)}${'\"'},${lit.getWidth})"
+      case _: SInt => s"pkg_signed(X${'\"'}${if(lit.value >= 0)lit.value.toString(16) else ((BigInt(1) << lit.getWidth)-lit.value).toString(16)}${'\"'},${lit.getWidth})"
     }
     case lit: IntLiteral => lit.value.toString(10)
     case lit: BoolLiteral => s"pkg_toStdLogic(${lit.value})"
