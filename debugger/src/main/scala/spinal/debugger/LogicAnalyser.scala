@@ -63,7 +63,7 @@ class LogicAnalyser(p: LogicAnalyserParameter) extends Component {
 
 
 
-  val passport = passportEvent.translateWith(S(Random.nextInt())).fragmentTransaction(fragmentWidth).insertHeader(0xFF)
+  val passport = passportEvent.translateWith(S(-2,32 bit)).fragmentTransaction(fragmentWidth).insertHeader(0xFF)
   val logs = logger.io.log.toFragmentBits(fragmentWidth).insertHeader(0xAA)
 
   val arbiter = new HandshakeArbiterCore(io.masterPort.dataType,2)(HandshakeArbiterCore.arbitration_lowIdPortFirst,HandshakeArbiterCore.lock_fragmentLock)
