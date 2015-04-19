@@ -49,6 +49,15 @@ class Flow[T <: Data](_dataType: T) extends Bundle with Interface with DataCarri
 
   override def fire: Bool = valid
 
+  def toHandshake  : Handshake[T] = toHandshake(null)
+  def toHandshake(overflow : Bool) : Handshake[T] = {
+    val ret = Handshake(dataType)
+    ret.valid := this.valid
+    ret.data := this.data
+    if(overflow != null) overflow := ret.valid && !ret.ready
+    ret
+  }
+
   def connectFrom(that: Flow[T]): Flow[T] = {
     valid := that.valid
     data := that.data

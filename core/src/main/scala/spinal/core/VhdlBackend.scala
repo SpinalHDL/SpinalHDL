@@ -20,6 +20,7 @@ package spinal.core
 
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, StringBuilder}
+import scala.util.Random
 
 
 /**
@@ -683,9 +684,9 @@ class VhdlBackend extends Backend with VhdlBase {
             ret ++= s"  signal ${emitReference(signal)} : ${emitDataType(signal)}"
             if (signal.hasTag(randomBoot)) {
               signal match {
-                case b: Bool => ret ++= " := pkg_rand"
-                case bv: BitVector => ret ++= s" := pkg_rand(${bv.getWidth})"
-                case e: SpinalEnumCraft[_] =>
+                case b: Bool => ret ++= " := " + {if(Random.nextBoolean()) "'1'" else "'0'"}
+                case bv: BitVector => ret ++= " := \"" + BigInt(bv.getWidth,Random).toString(2) + "\""
+                case e: SpinalEnumCraft[_] => ??? //TODO
               }
             }
             ret ++= ";\n"

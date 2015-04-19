@@ -1,8 +1,7 @@
+import sbt.Keys._
 import sbt._
-import Keys._
 import xerial.sbt.Sonatype.SonatypeKeys
-import SonatypeKeys._
-import SpinalVersion._
+import xerial.sbt.Sonatype.SonatypeKeys._
 
 object SpinalBuild extends Build {
   lazy val all = Project(
@@ -13,7 +12,7 @@ object SpinalBuild extends Build {
       version := SpinalVersion.all,
       publishTo := None
     ),
-    aggregate = Seq(core, lib,debugger,tester)
+    aggregate = Seq(core, lib, debugger, tester)
   )
 
   lazy val core = Project(
@@ -40,9 +39,12 @@ object SpinalBuild extends Build {
     settings = defaultSettings ++ Seq(
       name := "SpinalHDL Debugger",
       version := SpinalVersion.debugger,
+      libraryDependencies += "org.scalafx" %% "scalafx" % "8.0.40-R8",
+      libraryDependencies += "com.sparetimelabs" % "purejavacomm" % "0.0.22",
+      resolvers += "sparetimelabs" at "http://www.sparetimelabs.com/maven2/",
       publishTo := None
     )
-  ) dependsOn (core,lib)
+  ) dependsOn(core, lib)
 
 
   lazy val tester = Project(
@@ -54,16 +56,15 @@ object SpinalBuild extends Build {
       libraryDependencies += "org.scalatest" % "scalatest_2.11" % "2.2.1",
       publishTo := None
     )
-  ) dependsOn(core, lib,debugger)
+  ) dependsOn(core, lib, debugger)
 
   //sbt clean reload publishSigned
   //https://oss.sonatype.org
   lazy val defaultSettings = Defaults.defaultSettings ++ xerial.sbt.Sonatype.sonatypeSettings ++ Seq(
     organization := "com.github.spinalhdl",
     scalaVersion := SpinalVersion.compiler,
-    scalacOptions ++= Seq("-unchecked", "-feature"/*,"-deprecation"*/),
+    scalacOptions ++= Seq("-unchecked", "-feature" /*,"-deprecation"*/),
     baseDirectory in test := file("/out/"),
-
     profileName := "Dolu1990",
     publishMavenStyle := true,
     publishArtifact in Test := false,

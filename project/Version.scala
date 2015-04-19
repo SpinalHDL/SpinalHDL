@@ -1,5 +1,5 @@
 object SpinalVersion {
-  val compiler = "2.11.2"
+  val compiler = "2.11.6"
   val compilerIsRC = false
 
   val isSnapshot = false

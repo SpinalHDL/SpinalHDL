@@ -108,21 +108,7 @@ class FlowBitsPimped(pimped: Flow[Bits]) {
     val buffer = Reg(pimped)
     val newData = False
     val isLast = False
-    val isMagic = pimped.data !== cMagic
-    buffer.valid.init(False)
-    when(pimped.valid) {
-      when(!inMagic || isMagic) {
-        buffer.valid := True
-        buffer.data := pimped.data
-        newData := True
-      }
-      when(!inMagic && isMagic) {
-        inMagic := True
-      }
-      when(inMagic && pimped.data === cLast) {
-        isLast := True
-      }
-    }
+    val isMagic = pimped.data === cMagic
 
     ret.valid := False
     ret.last := isLast
@@ -131,6 +117,27 @@ class FlowBitsPimped(pimped: Flow[Bits]) {
       ret.valid := buffer.valid
       buffer.valid := False
     }
+
+
+
+    buffer.valid.init(False)
+    when(pimped.valid) {
+      when(inMagic) {
+        inMagic := False
+        when(pimped.data === cLast) {
+          isLast := True
+        }
+      }.elsewhen(isMagic) {
+        inMagic := True
+      }
+
+      when((inMagic && isMagic) || (!inMagic && !isMagic)) {
+        buffer.valid := True
+        buffer.data := pimped.data
+        newData := True
+      }
+    }
+
 
     ret
   }
@@ -170,16 +177,17 @@ class HandshakeFragmentBitsPimped(pimped: Handshake[Fragment[Bits]]) {
 
 
     pimped.ready := False
-
     switch(state) {
       default {
         ret.valid := pimped.valid
         ret.data := pimped.fragment
         pimped.ready := ret.ready
 
-        when(pimped.valid && pimped.fragment === cMagic) {
+        when(pimped.fragment === cMagic) {
           pimped.ready := False
-          state := eMagicData
+          when(pimped.valid) {
+            state := eMagicData
+          }
         }
       }
       is(eMagicData) {
@@ -215,12 +223,12 @@ class HandshakeFragmentBitsPimped(pimped: Handshake[Fragment[Bits]]) {
 }
 
 class DataCarrierFragmentPimped[T <: Data](pimped: DataCarrier[Fragment[T]]) {
-  def last: Bool = pimped.data.last
   def fragment: T = pimped.data.fragment
-  def isNotInTail: Bool = signalCache(pimped, "isNotInTail", () => RegNextWhen(pimped.last, pimped.fire, True))
-  def isInTail = !isNotInTail
-  def isFirst = pimped.valid && isNotInTail
-  def isLast = pimped.valid && pimped.last
+  def first: Bool = signalCache(pimped, "first", () => RegNextWhen(pimped.last, pimped.fire, True))
+  def tail: Bool = !first
+  def last: Bool = pimped.data.last
+  def isFirst: Bool = pimped.valid && first
+  def isLast: Bool = pimped.valid && pimped.last
 }
 
 
@@ -308,30 +316,54 @@ class Fragment[T <: Data](dataType: T) extends Bundle {
 }
 
 
-object FlowFragmentRouter {
-  def apply(input: Flow[Fragment[Bits]], outputSize: Int): Vec[Flow[Fragment[Bits]]] = {
-    FlowFragmentRouter(input, (0 until outputSize).map(BigInt(_)))
-  }
+//object FlowFragmentRouter {
+//  def apply(input: Flow[Fragment[Bits]], outputSize: Int): Vec[Flow[Fragment[Bits]]] = {
+//    FlowFragmentRouter(input, (0 until outputSize).map(BigInt(_)))
+//  }
+//
+//  def apply(input: Flow[Fragment[Bits]], mapTo: Iterable[BigInt]): Vec[Flow[Fragment[Bits]]] = {
+//    val router = new FlowFragmentRouter(input, mapTo)
+//    return router.outputs
+//  }
+//}
+//
+//class FlowFragmentRouter(input: Flow[Fragment[Bits]], mapTo: Iterable[BigInt]) extends Area {
+//  val outputs = Vec(mapTo.size, cloneOf(input))
+//  val enables = Vec(mapTo.size, Reg(Bool))
+//
+//  outputs.foreach(_.data := input.data)
+//  when(input.isNotInTail) {
+//    (enables, mapTo).zipped.foreach((en, filter) => en := B(filter) === input.fragment)
+//  } otherwise {
+//    (outputs, enables).zipped.foreach(_.valid := _)
+//  }
+//}
 
-  def apply(input: Flow[Fragment[Bits]], mapTo: Iterable[BigInt]): Vec[Flow[Fragment[Bits]]] = {
-    val router = new FlowFragmentRouter(input, mapTo)
-    return router.outputs
+object FlowFragmentBitsRouter {
+  def apply(input: Flow[Fragment[Bits]], allowBroadcast: Boolean = false) = new FlowFragmentBitsRouter(input, allowBroadcast)
+}
+
+class FlowFragmentBitsRouter(input: Flow[Fragment[Bits]], allowBroadcast: Boolean = false) {
+  val broadcast = if (allowBroadcast) input.fragment === (BigInt(1) << widthOf(input.fragment)) - 1 else False
+  val isFirst = input.isFirst
+  val isLast = input.isLast
+
+  def filter(header: Bits): Flow[Fragment[Bits]] = {
+    val enable = RegInit(False)
+
+    when(isFirst) {
+      enable := input.fragment === header || broadcast
+    }
+    when(isLast) {
+      enable := False
+    }
+
+    input.takeWhen(enable)
   }
 }
 
-class FlowFragmentRouter(input: Flow[Fragment[Bits]], mapTo: Iterable[BigInt]) extends Area {
-  val outputs = Vec(mapTo.size, cloneOf(input))
-  val enables = Vec(mapTo.size, Reg(Bool))
 
-  outputs.foreach(_.data := input.data)
-  when(input.isNotInTail) {
-    (enables, mapTo).zipped.foreach((en, filter) => en := B(filter) === input.fragment)
-  } otherwise {
-    (outputs, enables).zipped.foreach(_.valid := _)
-  }
-}
 
-//TODO fix it
 class HandshakeToHandshakeFragmentBits[T <: Data](dataType: T, bitsWidth: Int) extends Component {
   val io = new Bundle {
     val input = slave Handshake (dataType)
@@ -341,7 +373,7 @@ class HandshakeToHandshakeFragmentBits[T <: Data](dataType: T, bitsWidth: Int) e
   val inputBits = B(0, bitsWidth bit) ## toBits(io.input.data) //The cat allow to mux inputBits
 
   io.input.ready := counter.overflow
-  io.output.last := counter.overflow
+  io.output.last := counter.overflowIfInc
   io.output.valid := io.input.valid
   io.output.fragment := inputBits(counter * U(bitsWidth), bitsWidth bit)
   when(io.output.fire) {
@@ -384,4 +416,25 @@ object HandshakeFragmentGenerator {
     ret
   }
 
+}
+
+
+object HandshakeFragmentArbiter {
+
+  // def apply[T <: Data](dataType: T,portCount: Int) = new HandshakeArbiterCore(dataType,2)(HandshakeArbiterCore.arbitration_lowIdPortFirst,HandshakeArbiterCore.lock_fragmentLock)
+
+  def apply[T <: Data](dataType: T)(inputs: Seq[Tuple2[Handshake[Fragment[T]], T]]): Handshake[Fragment[T]] = {
+    val arbiter = new HandshakeArbiterCore(Fragment(dataType), inputs.size)(HandshakeArbiterCore.arbitration_lowIdPortFirst, HandshakeArbiterCore.lock_fragmentLock)
+    (inputs, arbiter.io.inputs).zipped.foreach(_._1 >> _)
+
+    val ret = Handshake Fragment (dataType)
+    def first = ret.first
+    ret.valid := arbiter.io.output.valid
+    ret.last := arbiter.io.output.last && !first
+    ret.fragment := Mux(first, Vec(inputs.map(_._2))(arbiter.io.chosen), arbiter.io.output.fragment)
+    arbiter.io.output.ready := ret.ready && !first
+
+    ret
+   // arbiter.io.output
+  }
 }

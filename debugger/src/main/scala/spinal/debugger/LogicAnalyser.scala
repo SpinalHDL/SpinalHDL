@@ -20,15 +20,15 @@ class LogicAnalyserParameter {
   }
 }
 
-class LogicAnalyserConfig(p: LogicAnalyserParameter) extends Bundle{
-  val trigger = new Bundle{
+class LogicAnalyserConfig(p: LogicAnalyserParameter) extends Bundle {
+  val trigger = new Bundle {
     val delay = UInt(32 bit)
   }
-  val logger = new Bundle{
+  val logger = new Bundle {
     val samplesLeftAfterTrigger = UInt(p.memAddressWidth bit)
   }
 
-  override def clone() : this.type = new LogicAnalyserConfig(p).asInstanceOf[this.type]
+  override def clone(): this.type = new LogicAnalyserConfig(p).asInstanceOf[this.type]
 }
 
 class LogicAnalyser(p: LogicAnalyserParameter) extends Component {
@@ -38,38 +38,36 @@ class LogicAnalyser(p: LogicAnalyserParameter) extends Component {
     val masterPort = master Handshake Fragment(Bits(fragmentWidth bit))
   }
 
-
-
-  val waitTrigger = io.slavePort filterHeader(0x01) toRegOf(Bool) init(False)
-  val userTrigger = io.slavePort pulseOn(0x02)
-  val configs = io.slavePort filterHeader(0x0F) toRegOf(new LogicAnalyserConfig(p),false)
-  val passportEvent = io.slavePort eventOn(0xFF)
+  //val slavePortRouter = FlowFragmentBitsRouter(io.slavePort)
+  val waitTrigger = io.slavePort filterHeader (0x01) toRegOf (Bool) init (False)
+  val userTrigger = io.slavePort pulseOn (0x02)
+  val configs = io.slavePort filterHeader (0x0F) toRegOf(new LogicAnalyserConfig(p), false)
+  val passportEvent = io.slavePort eventOn (0xFF)
 
   val trigger = new Area {
     val aggregate = CounterFreeRun(1000) === U(999) || userTrigger
-    val event = DelayEvent(aggregate,configs.trigger.delay) && waitTrigger
-    when(event){
+    val event = DelayEvent(aggregate, configs.trigger.delay) && waitTrigger
+    when(event) {
       waitTrigger := False
     }
   }
 
   val probe = Cat(p.dataList.map(_.pull))
 
-  val logger = new LogicAnalyserLogger(p,probe)
+  val logger = new LogicAnalyserLogger(p, probe)
   logger.io.configs := configs
   logger.io.trigger := trigger.event
   logger.io.probe := probe
 
 
+  val passport = passportEvent.translateWith(S(Random.nextInt(), 32 bit)).fragmentTransaction(fragmentWidth)
+  val logs = logger.io.log.toFragmentBits(fragmentWidth)
 
 
-  val passport = passportEvent.translateWith(S(-2,32 bit)).fragmentTransaction(fragmentWidth).insertHeader(0xFF)
-  val logs = logger.io.log.toFragmentBits(fragmentWidth).insertHeader(0xAA)
-
-  val arbiter = new HandshakeArbiterCore(io.masterPort.dataType,2)(HandshakeArbiterCore.arbitration_lowIdPortFirst,HandshakeArbiterCore.lock_fragmentLock)
-  arbiter.io.inputs(0) << passport
-  arbiter.io.inputs(1) << logs
-  arbiter.io.output >> io.masterPort
+  io.masterPort << HandshakeFragmentArbiter(Bits(fragmentWidth bit))(Seq(
+    (passport -> 0xFF),
+    (logs -> 0xAA)
+  ))
 }
 
 
@@ -82,10 +80,10 @@ class LogicAnalyserLogger(p: LogicAnalyserParameter, probeType: Bits) extends Co
   import LogicAnalyserLoggerState._
 
   val io = new Bundle {
-    val configs = in (new LogicAnalyserConfig(p))
+    val configs = in(new LogicAnalyserConfig(p))
 
     val trigger = in Bool
-    val probe = in cloneOf(probeType)
+    val probe = in cloneOf (probeType)
 
     val log = master Handshake Fragment(probe)
   }
@@ -93,8 +91,6 @@ class LogicAnalyserLogger(p: LogicAnalyserParameter, probeType: Bits) extends Co
   val mem = Mem(probeType, 1 << p.memAddressWidth)
   val memWriteAddress = Reg(mem.addressType) randBoot
   val memReadAddress = Reg(mem.addressType)
-
-
 
 
   val state = RegInit(sWaitTrigger)
@@ -106,9 +102,9 @@ class LogicAnalyserLogger(p: LogicAnalyserParameter, probeType: Bits) extends Co
     val postEnable = False
     val counter = Reg(mem.addressType)
 
-    when(postEnable){
+    when(postEnable) {
       counter := counter - 1
-    } otherwise{
+    } otherwise {
       counter := io.configs.logger.samplesLeftAfterTrigger
     }
 

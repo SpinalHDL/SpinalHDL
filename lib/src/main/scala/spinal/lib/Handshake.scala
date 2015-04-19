@@ -91,6 +91,12 @@ class Handshake[T <: Data](_dataType: T) extends Bundle with Interface with Data
   }
 
 
+  def queue(size : Int) : Handshake[T] ={
+    val fifo = new HandshakeFifo(dataType,size)
+    fifo.io.push << this
+    return fifo.io.pop
+  }
+
   override def fire: Bool = valid & ready
   def isFree: Bool = !valid || ready
   def connectFrom(that: Handshake[T]): Handshake[T] = {

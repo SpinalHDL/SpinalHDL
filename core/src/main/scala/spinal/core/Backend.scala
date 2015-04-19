@@ -895,7 +895,7 @@ class Backend {
           v = it.next
           loopStack.push(v)
         } while (v != node)
-        val wellNameLoop = loopStack.reverseIterator.filter(n => n.isInstanceOf[Nameable] && n.asInstanceOf[Nameable].isNamed).map(_.asInstanceOf[Nameable].getName()).foldLeft("")(_ + _ + " -> ")
+        val wellNameLoop = loopStack.reverseIterator.filter(n => n.isInstanceOf[Nameable] && n.asInstanceOf[Nameable].isNamed).map(that => that.component.getClass.getSimpleName + "." + that.asInstanceOf[Nameable].getName()).foldLeft("")(_ + _ + " -> ")
         val multiLineLoop = loopStack.reverseIterator.map(n => "      " + n.toString).reduceLeft(_ + "\n" + _)
         errors += s"  Combinational loop ! ${wellNameLoop}\n${multiLineLoop}"
       } else if (!walkedNodes.contains(node)) {
