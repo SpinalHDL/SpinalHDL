@@ -1,5 +1,4 @@
-package spinal.debugger
-
+package spinal.debugger.gui
 
 import purejavacomm.{CommPortIdentifier, SerialPort, SerialPortEvent, SerialPortEventListener}
 
@@ -83,7 +82,7 @@ object DebuggerGui extends JFXApp {
             val baudrateGui = new ComboBox[String] {
               editable = true
               items = ObservableBuffer(1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600).map(_.toString)
-              value = "115200"
+              value = "57600"
             }
 
             val portNameGui = new ComboBox[String] {
@@ -107,77 +106,29 @@ object DebuggerGui extends JFXApp {
               maxWidth = Double.MaxValue
               onAction = handle {
                 busTree += new TreeItem[String] {
-                  val p = CommPortIdentifier.getPortIdentifier("COM11").open("spinalDebugger", 0).asInstanceOf[SerialPort];
-                  p.setSerialPortParams(57600, SerialPort.DATABITS_8, SerialPort.STOPBITS_1, SerialPort.PARITY_NONE);
+                  val periphTree  = ObservableBuffer[TreeItem[String]]()
 
-                  val out = p.getOutputStream
-                  val in = p.getInputStream
-
-                  val cMagic = 0x74
-                  val cLast = 0x53
-
-                  value = "Serial port " + portNameGui.getValue
-                  dialogStage.close()
-
-
-                  var periphTree  = ObservableBuffer[TreeItem[String]]()
-                  implicit def b(x: Int) = x.toByte
-                  p.notifyOnDataAvailable(true)
-                  p.addEventListener(new SerialPortEventListener {
-                    val bytesBuffer = ArrayBuffer[Byte]()
-                    var inMagic = false
-                    override def serialEvent(serialPortEvent: SerialPortEvent): Unit = {
-                      while (in.available() != 0) {
-                        val byte = in.read().toByte
-                        if (inMagic) {
-                          if (byte == cMagic) {
-                            bytesBuffer += byte
-                          } else {
-                            rx
-                          }
-                          inMagic = false
-                        } else {
-                          if (byte == cMagic) {
-                            inMagic = true
-                          } else {
-                            bytesBuffer += byte
-                          }
-                        }
-                        print(BigInt(byte).toString(16) + " ")
+                  val streamHal = new SerialPortByteStreamHal(portNameGui.getValue,baudrateGui.getValue.toInt, SerialPort.STOPBITS_1, SerialPort.PARITY_NONE)
+                  val packetHal = new BytePacketHal(streamHal)
+                  val busManager = new BusManager(packetHal,new IGuiTreeViewManager{
+                    override def add(info: Seq[String]): AnyRef = {
+                      val key = new TreeItem[String] {
+                        value = info.mkString(" ")
                       }
+                      periphTree += key
+                      children = periphTree
+                      key
                     }
 
-                    def rx: Unit ={
-                      periphTree +=  new TreeItem[String] {
-                        value = bytesBuffer.mkString(" ")
-                      }
+                    override def remove(key: Object): Unit = {
+                      periphTree -= key.asInstanceOf[TreeItem[String]]
                       children = periphTree
-                      bytesBuffer.clear()
                     }
                   })
 
 
-                  //INIT
-                  {
-                    flush
-                    passportCall
-                  }
-
-                  def passportCall: Unit = {
-                    sendPacket(Seq(0xFF, 0xFF, 0xFF, 0xFF))
-                  }
-
-                  def sendPacket(bytes: Seq[Byte]): Unit = {
-                    for (byte <- bytes) {
-                      if (byte == cMagic) out.write(cMagic)
-                      out.write(byte)
-                    }
-                    flush
-                  }
-                  def flush: Unit = {
-                    out.write(cMagic)
-                    out.write(cLast)
-                  }
+                  value = "Serial port " + portNameGui.getValue
+                  dialogStage.close()
                 }
                 busTreeRoot.children = busTree
               }
@@ -232,6 +183,14 @@ object DebuggerGui extends JFXApp {
   //  }
 }
 
+
+
+
+
+trait IGuiTreeViewManager{
+  def add(info : Seq[String]) : Object
+  def remove(key : Object)
+}
 
 //      grid.add(new VBox {
 //        vgrow = Priority.Always
