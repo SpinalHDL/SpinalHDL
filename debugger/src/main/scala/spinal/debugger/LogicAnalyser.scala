@@ -1,9 +1,13 @@
 package spinal.debugger
 
+
+import net.liftweb.json.DefaultFormats
+import net.liftweb.json.Extraction._
+import net.liftweb.json.JsonAST._
+import net.liftweb.json.Printer._
 import spinal.core._
 import spinal.lib._
 
-import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
 
@@ -11,15 +15,43 @@ object LogicAnalyser {
 
 }
 
-class LogicAnalyserParameter {
-  var memAddressWidth = 8
 
-  val dataList = ArrayBuffer[Data]()
-  def probe(that: Data) {
-    dataList += that
+object ProbeAdd {
+  def apply(baseType: BaseType): Probe = apply("", baseType)
+
+  def apply(name: String, baseType: BaseType): Probe = {
+    val ret = Probe(name, baseType.getClass.getSimpleName)
+    ret.baseType = baseType
+    ret
   }
 }
 
+case class Probe(var name: String, kind: String, var width: Int = -1) {
+  var baseType: BaseType = null
+
+  def postBackend: Unit = {
+    if (name == "") name = baseType.getName()
+    width = baseType.getWidth
+  }
+}
+
+case class LogicAnalyserParameter(memAddressWidth: Int, probes: Seq[Probe]) {
+  var uid: Int = Random.nextInt()
+  def postBackend: Unit = {
+    probes.foreach(_.postBackend)
+    implicit val formats = DefaultFormats
+    import net.liftweb.json.JsonDSL._
+    val json =
+      ("clazz" -> "uidPeripheral") ~
+        ("kind" -> "logicAnalyser") ~
+        ("uid" -> uid.toString) ~
+        ("parameters" -> decompose(this))
+    GlobalData.get.addJsonReport(pretty(render(json)))
+  }
+}
+
+
+case class JsonReport(clazz: String)
 class LogicAnalyserConfig(p: LogicAnalyserParameter) extends Bundle {
   val trigger = new Bundle {
     val delay = UInt(32 bit)
@@ -30,6 +62,7 @@ class LogicAnalyserConfig(p: LogicAnalyserParameter) extends Bundle {
 
   override def clone(): this.type = new LogicAnalyserConfig(p).asInstanceOf[this.type]
 }
+
 
 class LogicAnalyser(p: LogicAnalyserParameter) extends Component {
   val fragmentWidth = 8
@@ -52,7 +85,7 @@ class LogicAnalyser(p: LogicAnalyserParameter) extends Component {
     }
   }
 
-  val probe = Cat(p.dataList.map(_.pull))
+  val probe = Cat(p.probes.map(_.baseType.pull))
 
   val logger = new LogicAnalyserLogger(p, probe)
   logger.io.configs := configs
@@ -60,7 +93,7 @@ class LogicAnalyser(p: LogicAnalyserParameter) extends Component {
   logger.io.probe := probe
 
 
-  val passport = passportEvent.translateWith(S(Random.nextInt(), 32 bit)).fragmentTransaction(fragmentWidth)
+  val passport = passportEvent.translateWith(S(p.uid, 32 bit)).fragmentTransaction(fragmentWidth)
   val logs = logger.io.log.toFragmentBits(fragmentWidth)
 
 
@@ -68,6 +101,10 @@ class LogicAnalyser(p: LogicAnalyserParameter) extends Component {
     (passport -> 0xFF),
     (logs -> 0xAA)
   ))
+
+  globalData.addPostBackendTask({
+    p.postBackend
+  })
 }
 
 

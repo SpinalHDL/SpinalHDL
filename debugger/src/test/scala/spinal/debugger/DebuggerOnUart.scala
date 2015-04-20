@@ -38,26 +38,24 @@ object DebuggerOnUart {
     io.output := subComponentA.io.output
 
 
-    val logicAnalyserParameter = new LogicAnalyserParameter
-    logicAnalyserParameter.probe(subComponentA.internalA)
-    logicAnalyserParameter.probe(subComponentA.internalB)
-
-    val logicAnalyser = new LogicAnalyser(logicAnalyserParameter)
-
-
-
     val uartCtrl = new UartCtrl()
-    uartCtrl.io.clockDivider := BigInt((50e6/57.6e3/8).toLong)
+    uartCtrl.io.clockDivider := BigInt((50e6 / 57.6e3 / 8).toLong)
     uartCtrl.io.config.dataLength := 7
     uartCtrl.io.config.parity := UartParityType.eParityNone
     uartCtrl.io.config.stop := UartStopType.eStop1bit
     uartCtrl.io.uart <> io.uart
 
+    val (uartFlowFragment, uartSoftReset) = uartCtrl.io.read.toFlowFragmentBitsAndReset()
 
-    //uartCtrl.io.read.toHandshake.queue(128) >> uartCtrl.io.write
-//    uartCtrl.io.read.toFlowFragmentBits().toHandshake.queue(128).toHandshakeBits() >> uartCtrl.io.write
 
-    uartCtrl.io.read.toFlowFragmentBits() >> logicAnalyser.io.slavePort
+    val logicAnalyserParameter = new LogicAnalyserParameter(log2Up(256), Seq(
+      ProbeAdd(subComponentA.internalA),
+      ProbeAdd(subComponentA.internalB)
+    ))
+
+    val logicAnalyser = new LogicAnalyser(logicAnalyserParameter)
+
+    uartFlowFragment >> logicAnalyser.io.slavePort
     uartCtrl.io.write << logicAnalyser.io.masterPort.toHandshakeBits()
   }
 

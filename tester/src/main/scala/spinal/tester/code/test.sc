@@ -2,6 +2,8 @@
 import spinal.core._
 import scala.reflect.runtime.universe._
 
+
+
 class Foo(name: String, i: Int) { def this(name: String) = this(name, 0) }
 
 val params = typeOf[Foo].declaration(nme.CONSTRUCTOR).asTerm.alternatives.collect {

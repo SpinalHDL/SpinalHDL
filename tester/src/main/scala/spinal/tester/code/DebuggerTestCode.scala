@@ -43,9 +43,10 @@ object DebuggerTestCode {
     io.output := subComponentA.io.output
 
 
-    val logicAnalyserParameter = new LogicAnalyserParameter
-    logicAnalyserParameter.probe(subComponentA.internalA)
-    logicAnalyserParameter.probe(subComponentA.internalB)
+    val logicAnalyserParameter = new LogicAnalyserParameter(log2Up(256), Seq(
+      ProbeAdd("AA",subComponentA.internalA),
+      ProbeAdd("BB",subComponentA.internalB)
+    ))
 
     val logicAnalyser = new LogicAnalyser(logicAnalyserParameter)
 

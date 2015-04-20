@@ -43,9 +43,10 @@ class VhdlBackend extends Backend with VhdlBase {
     val report = super.elaborate(topLevel)
     SpinalInfoPhase("Write VHDL")
 
-    if (outputFile == null) outputFile = topLevel.definitionName + ".vhd"
+    if (outputFile == null) outputFile = topLevel.definitionName
+    if(jsonReportPath == "") jsonReportPath = outputFile
 
-    out = new java.io.FileWriter(outputFile)
+    out = new java.io.FileWriter(outputFile + ".vhd")
     emitEnumPackage(out)
     emitPackage(out)
 
@@ -685,7 +686,10 @@ class VhdlBackend extends Backend with VhdlBase {
             if (signal.hasTag(randomBoot)) {
               signal match {
                 case b: Bool => ret ++= " := " + {if(Random.nextBoolean()) "'1'" else "'0'"}
-                case bv: BitVector => ret ++= " := \"" + BigInt(bv.getWidth,Random).toString(2) + "\""
+                case bv: BitVector =>{
+                  val rand = BigInt(bv.getWidth,Random).toString(2)
+                  ret ++= " := \"" + "0" * (bv.getWidth - rand.length) +  rand + "\""
+                }
                 case e: SpinalEnumCraft[_] => ??? //TODO
               }
             }

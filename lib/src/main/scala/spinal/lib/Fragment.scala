@@ -102,8 +102,12 @@ class HandshakeFragmentPimped[T <: Data](pimped: Handshake[Fragment[T]]) {
 
 class FlowBitsPimped(pimped: Flow[Bits]) {
   def toFlowFragmentBits(cMagic: Bits = "x74", cLast: Bits = "x53"): Flow[Fragment[Bits]] = {
-    val ret = Flow Fragment (pimped.dataType)
+    toFlowFragmentBitsAndReset(cMagic,cLast)._1
+  }
 
+  def toFlowFragmentBitsAndReset(cMagic: Bits = "x74", cLast: Bits = "x53", cResetSet: Bits = "x54", cResetClear: Bits = "x55"): (Flow[Fragment[Bits]],Bool) = {
+    val ret = Flow Fragment (pimped.dataType)
+    val softReset = RegInit(True)
     val inMagic = RegInit(False)
     val buffer = Reg(pimped)
     val newData = False
@@ -127,6 +131,12 @@ class FlowBitsPimped(pimped: Flow[Bits]) {
         when(pimped.data === cLast) {
           isLast := True
         }
+        when(pimped.data === cResetSet){
+          softReset := True
+        }
+        when(pimped.data === cResetClear){
+          softReset := False
+        }
       }.elsewhen(isMagic) {
         inMagic := True
       }
@@ -139,9 +149,8 @@ class FlowBitsPimped(pimped: Flow[Bits]) {
     }
 
 
-    ret
+    (ret,softReset)
   }
-
 }
 
 

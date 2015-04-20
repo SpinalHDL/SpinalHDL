@@ -23,35 +23,35 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 case class BitCount(val value: Int) {}
+
 case class LiteralInt(val value: BigInt) {}
 
-trait IODirection extends BaseTypeFactory with BaseTypeCast{
+trait IODirection extends BaseTypeFactory with BaseTypeCast {
   def applyIt[T <: Data](data: T): T
   def apply[T <: Data](data: T): T = applyIt(data)
   def apply(enum: SpinalEnum) = applyIt(enum.craft())
-  def cloneOf[T <: Data](that : T) : T = applyIt(spinal.core.cloneOf(that))
+  def cloneOf[T <: Data](that: T): T = applyIt(spinal.core.cloneOf(that))
 
   override def Bool = applyIt(super.Bool)
   override def Bits = applyIt(super.Bits)
   override def UInt = applyIt(super.UInt)
   override def SInt = applyIt(super.SInt)
 
-//  object Bits extends BitsFactory {
-//    override def apply() = applyIt(super.apply())
-//  }
-//
-//  object UInt extends UIntFactory {
-//    override def apply() = applyIt(super.apply())
-//  }
-//
-//  object SInt extends SIntFactory {
-//    override def apply() = applyIt(super.apply())
-//  }
+  //  object Bits extends BitsFactory {
+  //    override def apply() = applyIt(super.apply())
+  //  }
+  //
+  //  object UInt extends UIntFactory {
+  //    override def apply() = applyIt(super.apply())
+  //  }
+  //
+  //  object SInt extends SIntFactory {
+  //    override def apply() = applyIt(super.apply())
+  //  }
 
   object Vec extends VecFactory {
     override def apply[T <: Data](elements: Iterable[T]): Vec[T] = applyIt(super.apply(elements))
   }
-
 
 
 }
@@ -121,11 +121,11 @@ abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends 
 trait Assignable {
   var compositeAssign: Assignable = null
 
-  final def assignFrom(that: AnyRef,conservative : Boolean): Unit = {
+  final def assignFrom(that: AnyRef, conservative: Boolean): Unit = {
     if (compositeAssign != null) {
-      compositeAssign.assignFrom(that,conservative)
+      compositeAssign.assignFrom(that, conservative)
     } else {
-      assignFromImpl(that,conservative)
+      assignFromImpl(that, conservative)
     }
   }
 
@@ -238,11 +238,13 @@ trait SpinalTagReady {
 }
 
 trait SpinalTag {
-  def isAssignedTo(that : SpinalTagReady) = that.hasTag(this)
+  def isAssignedTo(that: SpinalTagReady) = that.hasTag(this)
 }
 
 object crossClockDomain extends SpinalTag
+
 object crossClockBuffer extends SpinalTag
+
 object randomBoot extends SpinalTag
 
 
@@ -280,6 +282,26 @@ class ClockEnableArea(clockEnable: Bool) extends Area with DelayedInit {
   }
 }
 
+
+class ResetArea(reset: Bool, cumulative: Boolean) extends Area with DelayedInit {
+  val clockDomain = ClockDomain.current.clone()
+  if (clockDomain.resetActiveHigh)
+    clockDomain.reset = if (cumulative) clockDomain.readResetWire & reset else reset
+  else
+    clockDomain.reset = if (cumulative) clockDomain.readResetWire | !reset else reset
+
+  clockDomain.push
+
+  override def delayedInit(body: => Unit) = {
+    body
+
+    if ((body _).getClass.getDeclaringClass == this.getClass) {
+      clockDomain.pop
+    }
+  }
+}
+
+
 object GlobalData {
   //Per thread implementation
   private val it = new ThreadLocal[GlobalData]
@@ -301,18 +323,26 @@ object GlobalData {
 class GlobalData {
   var nodeAreInferringWidth = false
   val nodeGetWidthWalkedSet: mutable.Set[Node] = mutable.Set[Node]()
- // val nodeWidthInferredCheck = ArrayBuffer[() => Unit]()
+  // val nodeWidthInferredCheck = ArrayBuffer[() => Unit]()
   val clockDomainStack = new SafeStack[ClockDomain]
   val componentStack = new SafeStack[Component]
   val switchStack = new SafeStack[SwitchStack]
   val whenStack = new SafeStack[when]
   var scalaLocatedEnable = false
   var instanceCounter = 0
+  val postBackendTask = mutable.ArrayBuffer[() => Unit]()
+
+  val jsonReports = ArrayBuffer[String]()
+
   def getInstanceCounter: Int = {
     val temp = instanceCounter
     instanceCounter = instanceCounter + 1
     temp
   }
+
+
+  def addPostBackendTask(task :  => Unit) : Unit = postBackendTask += (() => task)
+  def addJsonReport(report : String) : Unit = jsonReports += report
 }
 
 

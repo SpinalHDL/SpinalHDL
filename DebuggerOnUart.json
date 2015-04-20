@@ -1,0 +1,20 @@
+{
+"reports":[
+  {
+    "clazz":"uidPeripheral",
+    "kind":"logicAnalyser",
+    "uid":"1886072961",
+    "parameters":{
+      "memAddressWidth":8,
+      "probes":[{
+        "name":"internalA",
+        "kind":"UInt",
+        "width":4
+      },{
+        "name":"internalB",
+        "kind":"UInt",
+        "width":4
+      }]
+    }
+  }  ]
+}

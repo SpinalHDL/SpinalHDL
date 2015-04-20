@@ -35,6 +35,7 @@ class Backend {
   var topLevel: Component = null
   val enums = mutable.Set[SpinalEnum]()
   var forceMemToBlackboxTranslation = false
+  var jsonReportPath = ""
 
   def addReservedKeyWordToScope(scope: Scope): Unit = {
     reservedKeyWords.foreach(scope.allocateName(_))
@@ -73,6 +74,23 @@ class Backend {
     checkGlobalData
     val ret = elaborate(topLevel.asInstanceOf[T])
     checkGlobalData
+
+
+    globalData.postBackendTask.foreach(_())
+    val reports = globalData.jsonReports
+
+
+    val builder = new mutable.StringBuilder
+    builder ++= "{\n"
+    builder ++= "\"reports\":[\n"
+    builder ++= "  "; builder ++= globalData.jsonReports.reduceLeft(_ + ",\n" + _).replace("\n","\n  ")
+    builder ++= "  ]\n"
+    builder ++= "}\n"
+    val out = new java.io.FileWriter(jsonReportPath + ".json")
+    out.write(builder.toString())
+    out.flush();
+    out.close();
+
 
     ret
   }

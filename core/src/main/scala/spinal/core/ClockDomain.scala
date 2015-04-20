@@ -73,7 +73,7 @@ object ClockDomain {
 
 }
 
-class ClockDomain(val clock: Bool, val edge: EdgeKind, var clockEnable: Bool, val reset: Bool, val resetKind: ResetKind, val resetActiveHigh: Boolean, val clockEnableActiveHigh: Boolean) {
+class ClockDomain(val clock: Bool, val edge: EdgeKind, var clockEnable: Bool, var reset: Bool, val resetKind: ResetKind, val resetActiveHigh: Boolean, val clockEnableActiveHigh: Boolean) {
   def hasClockEnable = clockEnable != null
   def hasReset = reset != null
 

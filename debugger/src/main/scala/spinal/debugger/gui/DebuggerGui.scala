@@ -17,6 +17,8 @@ object DebuggerGui extends JFXApp {
   var busTree: ObservableBuffer[TreeItem[String]] = null
   var busTreeRoot: TreeItem[String] = null
 
+  
+
   stage = new JFXApp.PrimaryStage {
     title = "Menu Example"
     width = 400

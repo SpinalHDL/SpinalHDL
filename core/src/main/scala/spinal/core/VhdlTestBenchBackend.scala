@@ -41,7 +41,7 @@ class VhdlTestBenchBackend() extends VhdlBase {
     if(tbName == null) tbName = topLevel.definitionName + "_tb"
     extractUserCodes
 
-    val tbFile = new java.io.FileWriter(outputFile)
+    val tbFile = new java.io.FileWriter(outputFile + ".vhd")
 
     val ret = new StringBuilder()
 
