@@ -431,7 +431,17 @@ object HandshakeFragmentGenerator {
 object HandshakeFragmentArbiter {
 
   // def apply[T <: Data](dataType: T,portCount: Int) = new HandshakeArbiterCore(dataType,2)(HandshakeArbiterCore.arbitration_lowIdPortFirst,HandshakeArbiterCore.lock_fragmentLock)
+  def apply[T <: Data](dataType: T)(inputs: Seq[Handshake[Fragment[T]]]): Handshake[Fragment[T]] = {
+    val arbiter = new HandshakeArbiterCore(Fragment(dataType), inputs.size)(HandshakeArbiterCore.arbitration_lowIdPortFirst, HandshakeArbiterCore.lock_fragmentLock)
+    (inputs, arbiter.io.inputs).zipped.foreach(_ >> _)
+    arbiter.io.output
+  }
 
+
+
+}
+
+object HandshakeFragmentArbiterAndHeaderAdder {
   def apply[T <: Data](dataType: T)(inputs: Seq[Tuple2[Handshake[Fragment[T]], T]]): Handshake[Fragment[T]] = {
     val arbiter = new HandshakeArbiterCore(Fragment(dataType), inputs.size)(HandshakeArbiterCore.arbitration_lowIdPortFirst, HandshakeArbiterCore.lock_fragmentLock)
     (inputs, arbiter.io.inputs).zipped.foreach(_._1 >> _)
@@ -444,6 +454,6 @@ object HandshakeFragmentArbiter {
     arbiter.io.output.ready := ret.ready && !first
 
     ret
-   // arbiter.io.output
+    // arbiter.io.output
   }
 }

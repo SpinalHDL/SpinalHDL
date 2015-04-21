@@ -24,7 +24,7 @@ trait IBytePacketHal {
   def close: Unit
 
   def tx(packet: Seq[Byte])
-  def setObserver(obs: IBytePacketHalObserver)
+  def addObserver(obs: IBytePacketHalObserver)
 }
 
 trait IBytePacketHalObserver {
@@ -54,9 +54,9 @@ class BytePacketHal(hal: IByteStreamHal) extends IBytePacketHal with IByteStream
     bytesBuffer = null
   }
 
-  var obs: IBytePacketHalObserver = null
-  override def setObserver(obs: IBytePacketHalObserver): Unit = {
-    this.obs = obs
+  var obs = ArrayBuffer[IBytePacketHalObserver]()
+  override def addObserver(obs: IBytePacketHalObserver): Unit = {
+    this.obs += obs
   }
   override def tx(packet: Seq[Byte]): Unit = {
     if(!isOpen) return
@@ -97,7 +97,7 @@ class BytePacketHal(hal: IByteStreamHal) extends IBytePacketHal with IByteStream
         if (byte == cMagic) {
           bytesBuffer += byte
         } else {
-          obs.packetHalEvent(bytesBuffer)
+          obs.foreach(_.packetHalEvent(bytesBuffer))
           bytesBuffer = null
         }
         inMagic = false
@@ -110,5 +110,34 @@ class BytePacketHal(hal: IByteStreamHal) extends IBytePacketHal with IByteStream
       }
     }
   }
+}
+
+abstract class PeripheralManager(val address : Seq[Byte],hal: IBytePacketHal) extends IBytePacketHalObserver{
+  hal.addObserver(this)
+
+  override def packetHalEvent(in: Seq[Byte]): Unit = {
+    if((address,in).zipped.map(_ == _).reduce(_ && _)){
+      rx(in.takeRight(in.length-address.length))
+    }
+  }
+
+  def rx(packet : Seq[Byte]): Unit
+
+  def tx(packet : Seq[Byte]): Unit ={
+    hal.tx(address ++ packet)
+  }
+}
+
+class PacketRouter{
+  val managers = ArrayBuffer[PeripheralManager]()
+
+  def rx(packet : Seq[Byte]): Unit ={
+    for(manager <- managers){
+      if((manager.address,packet).zipped.map(_ == _).reduce(_ && _)){
+        manager.rx(packet.takeRight(packet.length-manager.address.length))
+      }
+    }
+  }
+
 }
 

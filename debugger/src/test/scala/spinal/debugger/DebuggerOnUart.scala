@@ -47,16 +47,17 @@ object DebuggerOnUart {
 
     val (uartFlowFragment, uartSoftReset) = uartCtrl.io.read.toFlowFragmentBitsAndReset()
 
+    val debugger = new ResetArea(uartSoftReset,false) {
+      val logicAnalyserParameter = new LogicAnalyserParameter(log2Up(256), Seq(
+        ProbeIt(subComponentA.internalA),
+        ProbeIt(subComponentA.internalB)
+      ))
 
-    val logicAnalyserParameter = new LogicAnalyserParameter(log2Up(256), Seq(
-      ProbeAdd(subComponentA.internalA),
-      ProbeAdd(subComponentA.internalB)
-    ))
+      val logicAnalyser = new LogicAnalyser(logicAnalyserParameter)
 
-    val logicAnalyser = new LogicAnalyser(logicAnalyserParameter)
-
-    uartFlowFragment >> logicAnalyser.io.slavePort
-    uartCtrl.io.write << logicAnalyser.io.masterPort.toHandshakeBits()
+      uartFlowFragment >> logicAnalyser.io.slavePort
+      uartCtrl.io.write << logicAnalyser.io.masterPort.toHandshakeBits()
+    }
   }
 
 

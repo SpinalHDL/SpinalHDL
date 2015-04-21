@@ -16,7 +16,7 @@ object LogicAnalyser {
 }
 
 
-object ProbeAdd {
+object ProbeIt {
   def apply(baseType: BaseType): Probe = apply("", baseType)
 
   def apply(name: String, baseType: BaseType): Probe = {
@@ -98,8 +98,8 @@ class LogicAnalyser(p: LogicAnalyserParameter) extends Component {
 
 
   io.masterPort << HandshakeFragmentArbiter(Bits(fragmentWidth bit))(Seq(
-    (passport -> 0xFF),
-    (logs -> 0xAA)
+    passport,
+    logs
   ))
 
   globalData.addPostBackendTask({
@@ -109,7 +109,7 @@ class LogicAnalyser(p: LogicAnalyserParameter) extends Component {
 
 
 object LogicAnalyserLoggerState extends SpinalEnum {
-  val sWaitTrigger, sSample, sPush, Nil = Value
+  val sWaitTrigger, sSample, sPush = Value
 }
 
 class LogicAnalyserLogger(p: LogicAnalyserParameter, probeType: Bits) extends Component {

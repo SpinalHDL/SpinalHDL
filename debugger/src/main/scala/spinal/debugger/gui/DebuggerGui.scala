@@ -1,6 +1,12 @@
 package spinal.debugger.gui
 
-import purejavacomm.{CommPortIdentifier, SerialPort, SerialPortEvent, SerialPortEventListener}
+import java.io.{File, FileFilter}
+import java.nio.charset.Charset
+import java.nio.file.Files
+import javafx.stage.DirectoryChooser
+
+import net.liftweb.json.JsonAST.JValue
+import purejavacomm.{CommPortIdentifier, SerialPort}
 
 import scala.collection.mutable.ArrayBuffer
 import scalafx.Includes._
@@ -12,15 +18,38 @@ import scalafx.scene.control.{MenuItem, _}
 import scalafx.scene.layout._
 import scalafx.stage.Stage
 
+
 object DebuggerGui extends JFXApp {
 
   var busTree: ObservableBuffer[TreeItem[String]] = null
   var busTreeRoot: TreeItem[String] = null
 
-  
+  val reports = ArrayBuffer[JValue]()
+
+  def scanFile(file: File): Unit = {
+    try {
+      if (file.isDirectory) {
+        val jsonsFile = file.listFiles(new FileFilter {
+          override def accept(pathname: File): Boolean = pathname.getName.endsWith(".json")
+        })
+        jsonsFile.foreach(scanFile(_))
+      } else {
+        val str = new String(Files.readAllBytes(file.toPath),Charset.defaultCharset())
+        val root = net.liftweb.json.parse(str)
+        val reportsJson = root.\\("reports")
+        reports += reportsJson
+        val i = 0
+      }
+    } catch {
+      case _ =>
+    }
+  }
+
+
+  scanFile(new File(System.getProperty("user.dir")))
 
   stage = new JFXApp.PrimaryStage {
-    title = "Menu Example"
+    title = "Bus manager"
     width = 400
     scene = new Scene {
       root = new VBox {
@@ -32,6 +61,15 @@ object DebuggerGui extends JFXApp {
             menus = List(
               new Menu("Menu") {
                 items = List(
+                  new MenuItem("Add report") {
+                    onAction = handle {
+                      val directoryChooser = new DirectoryChooser()
+                      val selectedDirectory = directoryChooser.showDialog(stage);
+                      if (selectedDirectory != null) {
+                        scanFile(selectedDirectory)
+                      }
+                    }
+                  },
                   new MenuItem("Exit") {
                     onAction = handle {
                       System.exit(0)
@@ -74,7 +112,8 @@ object DebuggerGui extends JFXApp {
     Platform.runLater {
       var dialogStage: Stage = null
       dialogStage = new Stage {
-        title = "CheckBox Test"
+
+        title = "Add serial port"
         scene = new Scene {
           content = new GridPane {
             padding = Insets(10)
@@ -108,11 +147,11 @@ object DebuggerGui extends JFXApp {
               maxWidth = Double.MaxValue
               onAction = handle {
                 busTree += new TreeItem[String] {
-                  val periphTree  = ObservableBuffer[TreeItem[String]]()
+                  val periphTree = ObservableBuffer[TreeItem[String]]()
 
-                  val streamHal = new SerialPortByteStreamHal(portNameGui.getValue,baudrateGui.getValue.toInt, SerialPort.STOPBITS_1, SerialPort.PARITY_NONE)
+                  val streamHal = new SerialPortByteStreamHal(portNameGui.getValue, baudrateGui.getValue.toInt, SerialPort.STOPBITS_1, SerialPort.PARITY_NONE)
                   val packetHal = new BytePacketHal(streamHal)
-                  val busManager = new BusManager(packetHal,new IGuiTreeViewManager{
+                  val busManager = new BusManager(packetHal, new IGuiTreeViewManager {
                     override def add(info: Seq[String]): AnyRef = {
                       val key = new TreeItem[String] {
                         value = info.mkString(" ")
@@ -126,7 +165,7 @@ object DebuggerGui extends JFXApp {
                       periphTree -= key.asInstanceOf[TreeItem[String]]
                       children = periphTree
                     }
-                  })
+                  },reports)
 
 
                   value = "Serial port " + portNameGui.getValue
@@ -186,12 +225,9 @@ object DebuggerGui extends JFXApp {
 }
 
 
-
-
-
-trait IGuiTreeViewManager{
-  def add(info : Seq[String]) : Object
-  def remove(key : Object)
+trait IGuiTreeViewManager {
+  def add(info: Seq[String]): Object
+  def remove(key: Object)
 }
 
 //      grid.add(new VBox {
