@@ -24,6 +24,7 @@ out
 #User
 *.vhd
 *.cf
+*.json
 !tester/src/test/resources/*.vhd
 
 /src/

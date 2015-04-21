@@ -37,7 +37,7 @@ class VhdlTestBenchBackend() extends VhdlBase {
     this.topLevel = topLevel
     this.backend = backend
 
-    if(outputFile == null) outputFile = backend.outputFile.replace(".","_tb.")
+    if(outputFile == null) outputFile = backend.outputFile + "_tb"
     if(tbName == null) tbName = topLevel.definitionName + "_tb"
     extractUserCodes
 

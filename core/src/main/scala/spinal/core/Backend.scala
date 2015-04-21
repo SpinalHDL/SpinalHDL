@@ -83,7 +83,10 @@ class Backend {
     val builder = new mutable.StringBuilder
     builder ++= "{\n"
     builder ++= "\"reports\":[\n"
-    builder ++= "  "; builder ++= globalData.jsonReports.reduceLeft(_ + ",\n" + _).replace("\n","\n  ")
+    if(globalData.jsonReports.size != 0) {
+      builder ++= "  ";
+      builder ++= globalData.jsonReports.reduceLeft(_ + ",\n" + _).replace("\n", "\n  ")
+    }
     builder ++= "  ]\n"
     builder ++= "}\n"
     val out = new java.io.FileWriter(jsonReportPath + ".json")
