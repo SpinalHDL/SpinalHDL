@@ -112,13 +112,15 @@ class BytePacketHal(hal: IByteStreamHal) extends IBytePacketHal with IByteStream
   }
 }
 
-abstract class PeripheralManager(val address : Seq[Byte],hal: IBytePacketHal) extends IBytePacketHalObserver{
+abstract class PeripheralManager(address : Seq[Byte],hal: IBytePacketHal) extends IBytePacketHalObserver{
   hal.addObserver(this)
 
   override def packetHalEvent(in: Seq[Byte]): Unit = {
-    if((address,in).zipped.map(_ == _).reduce(_ && _)){
-      rx(in.takeRight(in.length-address.length))
+    var ok = true
+    for(i <- 0 until address.length){
+      if(i >= in.length || in(i) != address(i)) ok = false
     }
+   if(ok)  rx(in.takeRight(in.length-address.length))
   }
 
   def rx(packet : Seq[Byte]): Unit
@@ -128,16 +130,16 @@ abstract class PeripheralManager(val address : Seq[Byte],hal: IBytePacketHal) ex
   }
 }
 
-class PacketRouter{
-  val managers = ArrayBuffer[PeripheralManager]()
-
-  def rx(packet : Seq[Byte]): Unit ={
-    for(manager <- managers){
-      if((manager.address,packet).zipped.map(_ == _).reduce(_ && _)){
-        manager.rx(packet.takeRight(packet.length-manager.address.length))
-      }
-    }
-  }
-
-}
-
+//class PacketRouter{
+//  val managers = ArrayBuffer[PeripheralManager]()
+//
+//  def rx(packet : Seq[Byte]): Unit ={
+//    for(manager <- managers){
+//      if((manager.address,packet).zipped.map(_ == _).reduce(_ && _)){
+//        manager.rx(packet.takeRight(packet.length-manager.address.length))
+//      }
+//    }
+//  }
+//
+//}
+//

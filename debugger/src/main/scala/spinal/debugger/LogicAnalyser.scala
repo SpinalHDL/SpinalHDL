@@ -12,9 +12,10 @@ import scala.util.Random
 
 
 object LogicAnalyser {
-
+  def waitTriggerHeader = 0x01
+  def userTriggerHeader  = 0x02
+  def configsHeader  = 0x0F
 }
-
 
 object ProbeIt {
   def apply(baseType: BaseType): Probe = apply("", baseType)
@@ -48,6 +49,8 @@ case class LogicAnalyserParameter(memAddressWidth: Int, probes: Seq[Probe]) {
         ("parameters" -> decompose(this))
     GlobalData.get.addJsonReport(pretty(render(json)))
   }
+
+  def memAddressCount = 1 << memAddressWidth
 }
 
 
@@ -65,6 +68,7 @@ class LogicAnalyserConfig(p: LogicAnalyserParameter) extends Bundle {
 
 
 class LogicAnalyser(p: LogicAnalyserParameter) extends Component {
+  import LogicAnalyser._
   val fragmentWidth = 8
   val io = new Bundle {
     val slavePort = slave Flow Fragment(Bits(fragmentWidth bit))
@@ -72,9 +76,9 @@ class LogicAnalyser(p: LogicAnalyserParameter) extends Component {
   }
 
   //val slavePortRouter = FlowFragmentBitsRouter(io.slavePort)
-  val waitTrigger = io.slavePort filterHeader (0x01) toRegOf (Bool) init (False)
-  val userTrigger = io.slavePort pulseOn (0x02)
-  val configs = io.slavePort filterHeader (0x0F) toRegOf(new LogicAnalyserConfig(p), false)
+  val waitTrigger = io.slavePort filterHeader (waitTriggerHeader) toRegOf (Bool) init (False)
+  val userTrigger = io.slavePort pulseOn (userTriggerHeader)
+  val configs = io.slavePort filterHeader (configsHeader) toRegOf(new LogicAnalyserConfig(p), false)
   val passportEvent = io.slavePort eventOn (0xFF)
 
   val trigger = new Area {

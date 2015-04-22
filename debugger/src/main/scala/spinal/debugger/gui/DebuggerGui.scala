@@ -7,6 +7,7 @@ import javafx.stage.DirectoryChooser
 
 import net.liftweb.json.JsonAST.JValue
 import purejavacomm.{CommPortIdentifier, SerialPort}
+import spinal.lib.BitAggregator
 
 import scala.collection.mutable.ArrayBuffer
 import scalafx.Includes._
@@ -20,6 +21,7 @@ import scalafx.stage.Stage
 
 
 object DebuggerGui extends JFXApp {
+
 
   var busTree: ObservableBuffer[TreeItem[String]] = null
   var busTreeRoot: TreeItem[String] = null

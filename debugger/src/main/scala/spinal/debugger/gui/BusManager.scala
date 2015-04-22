@@ -33,13 +33,15 @@ class BusManager(hal: BytePacketHal, guiTreeViewManager: IGuiTreeViewManager, re
       Thread.sleep(400)
       for (passport <- passports) {
         implicit val formats = DefaultFormats
-        val addressString = BigInt(passport.takeRight(4).reverseIterator.toArray).toString(10)
+        val uidString = BigInt(passport.takeRight(4).reverseIterator.toArray).toString(10)
+        val address = passport.take(passport.length-4)
         val report = reports.filter(report => {
           report.\("uid") match{
-            case jString : JString => jString.values == addressString
+            case jString : JString => jString.values == uidString
             case _ => false
           }
         })
+
 
         if(report.length > 1) throw SpinalError("Multiple UID with same value ???")
 
@@ -47,7 +49,16 @@ class BusManager(hal: BytePacketHal, guiTreeViewManager: IGuiTreeViewManager, re
           try {
             val periphReport = r.extract[UidPeripheral]
             if(periphReport.clazz == "uidPeripheral"){
-              guiTreeViewManager.add(Seq(periphReport.kind,periphReport.uid))
+              periphReport.kind match{
+                case "logicAnalyser" => {
+                  new LogicAnalyserManager(address,hal,r)
+                  guiTreeViewManager.add(Seq(periphReport.kind,periphReport.uid))
+                }
+                case _ =>{
+                  guiTreeViewManager.add(Seq(periphReport.kind,periphReport.uid))
+                }
+              }
+
             }
           } catch {
             case e : Exception =>

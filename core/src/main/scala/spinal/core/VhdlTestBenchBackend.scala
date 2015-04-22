@@ -18,27 +18,28 @@
 
 package spinal.core
 
-import java.nio.file.{Paths, Files}
+import java.nio.file.{Files, Paths}
+
 import scala.collection.mutable
 import scala.io.Source
 
 class VhdlTestBenchBackend() extends VhdlBase {
   var out: java.io.FileWriter = null
-  var outputFile : String = null
-  var tbName : String = null
+  var outputFile: String = null
+  var tbName: String = null
 
-  val userCodes = mutable.Map[String,String]()
+  val userCodes = mutable.Map[String, String]()
 
 
-  var topLevel : Component = null
-  var backend : VhdlBackend = null
+  var topLevel: Component = null
+  var backend: VhdlBackend = null
 
-  def elaborate(backend : VhdlBackend,topLevel: Component): Unit = {
+  def elaborate(backend: VhdlBackend, topLevel: Component): Unit = {
     this.topLevel = topLevel
     this.backend = backend
 
-    if(outputFile == null) outputFile = backend.outputFile + "_tb"
-    if(tbName == null) tbName = topLevel.definitionName + "_tb"
+    if (outputFile == null) outputFile = backend.outputFile + "_tb"
+    if (tbName == null) tbName = topLevel.definitionName + "_tb"
     extractUserCodes
 
     val tbFile = new java.io.FileWriter(outputFile + ".vhd")
@@ -46,21 +47,21 @@ class VhdlTestBenchBackend() extends VhdlBase {
     val ret = new StringBuilder()
 
     backend.emitLibrary(ret)
-    emitUserCode("","userLibrary",ret)
+    emitUserCode("", "userLibrary", ret)
     ret ++= s"""
-              |
-              |entity $tbName is
-              |end $tbName;
-              |
-              |architecture arch of $tbName is
-              |""".stripMargin
+               |
+               |entity $tbName is
+                                |end $tbName;
+                                              |
+                                              |architecture arch of $tbName is
+                                                                             |""".stripMargin
 
 
     emitSignals(topLevel, ret)
-    emitUserCode("  ","userDeclarations",ret)
+    emitUserCode("  ", "userDeclarations", ret)
 
     ret ++= "begin\n"
-    emitUserCode("  ","userLogics",ret)
+    emitUserCode("  ", "userLogics", ret)
     emitComponentInstance(topLevel, ret)
     ret ++= "end arch;\n"
 
@@ -71,35 +72,35 @@ class VhdlTestBenchBackend() extends VhdlBase {
   }
 
 
-
-  def extractUserCodes : Unit ={
-    if(!Files.exists(Paths.get(outputFile))) return
-    val iterator =  Source.fromFile(outputFile).getLines()
+  def extractUserCodes: Unit = {
+    if (!Files.exists(Paths.get(outputFile + ".vhd"))) return
+    val iterator = Source.fromFile(outputFile + ".vhd").getLines()
     val begin = "#spinalBegin"
     val end = "#spinalEnd"
-    while(iterator.hasNext){
+    while (iterator.hasNext) {
       val line = iterator.next()
-      if(line.contains(begin)){
+      if (line.contains(begin)) {
         val split = line.split(" ")
         val name = split.iterator.dropWhile(_ != begin).drop(1).next()
         var done = false
         val buffer = new StringBuilder()
-        do{
+        do {
           val line = iterator.next()
-          if(line.contains(end))
+          if (line.contains(end))
             done = true
-          else{
+          else {
             buffer ++= line
-            buffer ++= "\n"}
-        }while(!done)
+            buffer ++= "\n"
+          }
+        } while (!done)
         userCodes += (name -> buffer.result())
       }
     }
   }
 
-  def emitUserCode(tab : String,name : String,ret : StringBuilder): Unit ={
+  def emitUserCode(tab: String, name: String, ret: StringBuilder): Unit = {
     ret ++= s"$tab-- #spinalBegin $name\n"
-    if(userCodes.contains(name))ret ++= userCodes(name)
+    if (userCodes.contains(name)) ret ++= userCodes(name)
     ret ++= s"$tab-- #spinalEnd $name\n"
   }
 

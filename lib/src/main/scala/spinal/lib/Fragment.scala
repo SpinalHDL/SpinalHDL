@@ -102,10 +102,10 @@ class HandshakeFragmentPimped[T <: Data](pimped: Handshake[Fragment[T]]) {
 
 class FlowBitsPimped(pimped: Flow[Bits]) {
   def toFlowFragmentBits(cMagic: Bits = "x74", cLast: Bits = "x53"): Flow[Fragment[Bits]] = {
-    toFlowFragmentBitsAndReset(cMagic,cLast)._1
+    toFlowFragmentBitsAndReset(cMagic, cLast)._1
   }
 
-  def toFlowFragmentBitsAndReset(cMagic: Bits = "x74", cLast: Bits = "x53", cResetSet: Bits = "x54", cResetClear: Bits = "x55"): (Flow[Fragment[Bits]],Bool) = {
+  def toFlowFragmentBitsAndReset(cMagic: Bits = "x74", cLast: Bits = "x53", cResetSet: Bits = "x54", cResetClear: Bits = "x55"): (Flow[Fragment[Bits]], Bool) = {
     val ret = Flow Fragment (pimped.dataType)
     val softReset = RegInit(True)
     val inMagic = RegInit(False)
@@ -131,10 +131,10 @@ class FlowBitsPimped(pimped: Flow[Bits]) {
         when(pimped.data === cLast) {
           isLast := True
         }
-        when(pimped.data === cResetSet){
+        when(pimped.data === cResetSet) {
           softReset := True
         }
-        when(pimped.data === cResetClear){
+        when(pimped.data === cResetClear) {
           softReset := False
         }
       }.elsewhen(isMagic) {
@@ -149,7 +149,7 @@ class FlowBitsPimped(pimped: Flow[Bits]) {
     }
 
 
-    (ret,softReset)
+    (ret, softReset)
   }
 }
 
@@ -253,7 +253,7 @@ class DataCarrierFragmentBitsPimped(pimped: DataCarrier[Fragment[Bits]]) {
       val toWidth = dataType.getBitsWidth
       val missingBitsCount = toWidth - fromWidth
 
-      val bufferLowWidth = ((missingBitsCount - 1) / fromWidth + 1) * fromWidth
+      val bufferLowWidth = (missingBitsCount + fromWidth - 1) / fromWidth * fromWidth
       val bufferHighWidth = toWidth - bufferLowWidth
       val buffer = Reg(Bits(toWidth bit))
 
@@ -283,7 +283,7 @@ class DataCarrierFragmentBitsPimped(pimped: DataCarrier[Fragment[Bits]]) {
     } else {
       val missingBitsCount = toWidth - fromWidth
 
-      val buffer = Reg(Bits(((missingBitsCount - 1) / fromWidth + 1) * fromWidth bit))
+      val buffer = Reg(Bits((missingBitsCount + fromWidth - 1) / fromWidth * fromWidth bit))
       when(pimped.fire) {
         buffer := pimped.fragment ## (buffer >> fromWidth)
       }
@@ -372,7 +372,6 @@ class FlowFragmentBitsRouter(input: Flow[Fragment[Bits]], allowBroadcast: Boolea
 }
 
 
-
 class HandshakeToHandshakeFragmentBits[T <: Data](dataType: T, bitsWidth: Int) extends Component {
   val io = new Bundle {
     val input = slave Handshake (dataType)
@@ -436,7 +435,6 @@ object HandshakeFragmentArbiter {
     (inputs, arbiter.io.inputs).zipped.foreach(_ >> _)
     arbiter.io.output
   }
-
 
 
 }

@@ -66,6 +66,41 @@ object fromGray {
   }
 }
 
+class BitAggregator {
+  val elements = ArrayBuffer[(BigInt, Int)]()
+  def clear = elements.clear()
+  def add(valueParam: BigInt, bitCount: Int): Unit = elements += (valueParam -> bitCount)
+
+  def getWidth = elements.foldLeft(0)(_ + _._2)
+
+  def toBytes: Seq[Byte] = {
+    val elementsWidth = getWidth
+    val bytes = new Array[Byte]((elementsWidth + 7) / 8)
+    var byteId = 0
+    var byteBitId = 0
+    for (element <- elements) {
+      var bitCount = element._2
+      var value = (element._1 & (BigInt(1) << element._2) - 1) << byteBitId;
+      while (bitCount != 0) {
+        val bitToInsert = Math.min(bitCount, 8 - byteBitId);
+
+        bytes(byteId) = (bytes(byteId) | value.toByte).toByte
+
+        byteBitId += bitToInsert;
+        if (byteBitId == 8) {
+          byteBitId = 0;
+          byteId += 1
+        }
+        value >>= 8;
+        bitCount -= bitToInsert;
+      }
+    }
+
+    bytes
+  }
+
+  override def toString: String = toBytes.map("%02X" format _).mkString(" ")
+}
 
 //object Flag{
 //  def apply() = new Flag
@@ -269,16 +304,16 @@ object DelayEvent {
 
     counterNext := counter + 1
 
-    when(event){
+    when(event) {
       counterNext := 0
-      when(counterMatch){
+      when(counterMatch) {
         isDelaying := False
         ret := True
-      }otherwise{
+      } otherwise {
         isDelaying := True
       }
-    }.elsewhen(isDelaying){
-      when(counterMatch){
+    }.elsewhen(isDelaying) {
+      when(counterMatch) {
         isDelaying := False
         ret := True
       }
