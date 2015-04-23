@@ -3,18 +3,18 @@
   {
     "clazz":"uidPeripheral",
     "kind":"logicAnalyser",
-    "uid":"-137155307",
-    "parameters":{
-      "memAddressWidth":8,
-      "probes":[{
-        "name":"internalA",
-        "kind":"UInt",
-        "width":4
-      },{
-        "name":"internalB",
-        "kind":"UInt",
-        "width":4
-      }]
-    }
+    "uid":"-895703923",
+    "memAddressWidth":8,
+    "probes":[{
+      "name":"internalA",
+      "scope":["toplevel","subComponentA"],
+      "kind":"UInt",
+      "width":4
+    },{
+      "name":"internalB",
+      "scope":["toplevel","subComponentA"],
+      "kind":"UInt",
+      "width":4
+    }]
   }  ]
 }

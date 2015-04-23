@@ -1,16 +1,20 @@
 
+import java.util.Calendar
+
 import spinal.core._
 import spinal.lib._
 import scala.reflect.runtime.universe._
 
 
+val stringList = Seq("a","b","c")
+println(stringList.reduceRight((l,r) => r + l))
+println(Calendar.getInstance().getTime())
 //val bits = scala.collection.mutable.BitSet(BigInt(16))
 ////bits.aggregate(BigInt(16))
-
-val bitSet = scala.collection.BitSet(12)
-bitSet + 32
-val array = new Array[Int](4)
-bitSet.copyToArray(array,0,3)
+val arr = new Array[Byte](2)
+arr(0) = 0xFF.toByte
+arr(1) = 0x7F.toByte
+val bi = BigInt.apply(arr)
 
 val aggregator = new BitAggregator
 aggregator.add(0xd,9)

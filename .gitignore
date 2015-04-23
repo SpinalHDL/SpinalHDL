@@ -25,6 +25,7 @@ out
 *.vhd
 *.cf
 *.json
+*.vcd
 !tester/src/test/resources/*.vhd
 
 /src/

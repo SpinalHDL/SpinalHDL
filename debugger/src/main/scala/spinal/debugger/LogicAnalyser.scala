@@ -1,56 +1,154 @@
 package spinal.debugger
 
 
-import net.liftweb.json.DefaultFormats
+import net.liftweb.json
 import net.liftweb.json.Extraction._
 import net.liftweb.json.JsonAST._
 import net.liftweb.json.Printer._
+import net.liftweb.json.{DefaultFormats, Formats, TypeInfo}
 import spinal.core._
 import spinal.lib._
 
+import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
 
 object LogicAnalyser {
   def waitTriggerHeader = 0x01
-  def userTriggerHeader  = 0x02
-  def configsHeader  = 0x0F
+  def userTriggerHeader = 0x02
+  def configsHeader = 0x0F
+
+  def jsonSerDes = Seq(Probe , LogicAnalyserParameter)
 }
 
-object ProbeIt {
+
+object Probe extends net.liftweb.json.Serializer[Probe] {
+
   def apply(baseType: BaseType): Probe = apply("", baseType)
 
   def apply(name: String, baseType: BaseType): Probe = {
-    val ret = Probe(name, baseType.getClass.getSimpleName)
+    val ret = new Probe
+    ret.name = name
     ret.baseType = baseType
     ret
   }
-}
 
-case class Probe(var name: String, kind: String, var width: Int = -1) {
-  var baseType: BaseType = null
 
-  def postBackend: Unit = {
-    if (name == "") name = baseType.getName()
-    width = baseType.getWidth
+
+  private val Class = classOf[Probe]
+
+  override def deserialize(implicit format: Formats): PartialFunction[(TypeInfo, json.JValue), Probe] = {
+    case (TypeInfo(Class, _), json) =>
+      val probe = new Probe
+      probe.fromJson(json)
+      //a.street = (json \ "street").extract[String]
+      probe
+  }
+
+  override def serialize(implicit format: Formats): PartialFunction[Any, json.JValue] = {
+    case x: Probe =>
+      x.toJson
+    //JObject(JField("street" JString(x.street) :: Nil)
   }
 }
 
-case class LogicAnalyserParameter(memAddressWidth: Int, probes: Seq[Probe]) {
+class Probe {
+  var name = ""
+  var scope = ArrayBuffer[String]()
+  var kind = ""
+  var width = -1
+  var baseType: BaseType = null
+
+
+  def postBackend: Unit = {
+    if (kind == "") kind = baseType.getClass.getSimpleName
+    if (name == "") name = baseType.getName()
+    width = baseType.getWidth
+    // scope = (baseType.component.parents() ++ List(baseType.component)).map(_.getName()).reduceLeft(_ + " " + _)
+    scope ++= (baseType.component.parents() ++ List(baseType.component)).map(_.getName())
+  }
+
+  implicit val formats = DefaultFormats ++ LogicAnalyser.jsonSerDes
+
+  import net.liftweb.json.JsonDSL._
+
+  def fromJson(json: JValue): Unit = {
+    name = (json \ "name").extract[String]
+    scope ++= (json \ "scope").children.map(_.extract[String])
+    kind = (json \ "kind").extract[String]
+    width = (json \ "width").extract[Int]
+  }
+
+  def toJson: JValue = {
+    ("name" -> name) ~
+      ("scope" -> scope) ~
+      ("kind" -> kind) ~
+      ("width" -> width)
+  }
+}
+
+
+object LogicAnalyserParameter extends net.liftweb.json.Serializer[LogicAnalyserParameter] {
+  private val Class = classOf[LogicAnalyserParameter]
+
+  override def deserialize(implicit format: Formats): PartialFunction[(TypeInfo, json.JValue), LogicAnalyserParameter] = {
+    case (TypeInfo(Class, _), json) =>
+      val x = new LogicAnalyserParameter
+      x.fromJson(json)
+      x
+  }
+
+  override def serialize(implicit format: Formats): PartialFunction[Any, json.JValue] = {
+    case x: LogicAnalyserParameter =>
+      x.toJson
+  }
+}
+
+
+class LogicAnalyserParameter {
+  var memAddressWidth = 8
+  val probes = ArrayBuffer[Probe]()
   var uid: Int = Random.nextInt()
+
+
+  def probe (baseType : BaseType): LogicAnalyserParameter = {
+    probes += Probe(baseType)
+    this
+  }
+  def setSampleCount(sampleCount : Int) : LogicAnalyserParameter = {
+    memAddressWidth = log2Up(sampleCount)
+    this
+  }
+
   def postBackend: Unit = {
     probes.foreach(_.postBackend)
-    implicit val formats = DefaultFormats
+    implicit val formats = DefaultFormats ++ LogicAnalyser.jsonSerDes
     import net.liftweb.json.JsonDSL._
-    val json =
-      ("clazz" -> "uidPeripheral") ~
-        ("kind" -> "logicAnalyser") ~
-        ("uid" -> uid.toString) ~
-        ("parameters" -> decompose(this))
+    val json = toJson
     GlobalData.get.addJsonReport(pretty(render(json)))
   }
 
   def memAddressCount = 1 << memAddressWidth
+
+
+  implicit val formats = DefaultFormats ++ LogicAnalyser.jsonSerDes
+
+  import net.liftweb.json.JsonDSL._
+
+
+  def fromJson(json: JValue): Unit = {
+    uid = (json \ "uid").extract[String].toInt
+    memAddressWidth = (json \ "memAddressWidth").extract[Int]
+    probes ++= (json \ "probes").children.map(_.extract[Probe])
+  }
+
+  def toJson: JValue = {
+    ("clazz" -> "uidPeripheral") ~
+      ("kind" -> "logicAnalyser") ~
+      ("uid" -> uid.toString) ~
+      ("memAddressWidth" -> memAddressWidth)~
+    ("probes" -> decompose(probes))
+  }
 }
 
 
@@ -68,7 +166,9 @@ class LogicAnalyserConfig(p: LogicAnalyserParameter) extends Bundle {
 
 
 class LogicAnalyser(p: LogicAnalyserParameter) extends Component {
+
   import LogicAnalyser._
+
   val fragmentWidth = 8
   val io = new Bundle {
     val slavePort = slave Flow Fragment(Bits(fragmentWidth bit))
@@ -83,10 +183,11 @@ class LogicAnalyser(p: LogicAnalyserParameter) extends Component {
 
   val trigger = new Area {
     val aggregate = CounterFreeRun(1000) === U(999) || userTrigger
-    val event = DelayEvent(aggregate, configs.trigger.delay) && waitTrigger
-    when(event) {
+    when(aggregate) {
       waitTrigger := False
     }
+    val event = DelayEvent(aggregate && waitTrigger, configs.trigger.delay)
+
   }
 
   val probe = Cat(p.probes.map(_.baseType.pull))

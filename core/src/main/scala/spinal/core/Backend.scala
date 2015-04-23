@@ -61,7 +61,8 @@ class Backend {
     val defaultClockDomain = ClockDomain(clock, reset)
 
     ClockDomain.push(defaultClockDomain)
-    topLevel = Component(gen())
+    topLevel = gen()
+    if(topLevel.isUnnamed)topLevel.setWeakName("toplevel")
     ClockDomain.pop(defaultClockDomain)
 
 
