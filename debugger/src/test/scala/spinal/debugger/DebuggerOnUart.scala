@@ -54,8 +54,6 @@ object DebuggerOnUart {
         .probe(subComponentA.internalA)
         .probe(subComponentA.internalB)
 
-
-
       val logicAnalyser = new LogicAnalyser(logicAnalyserParameter)
 
       uartFlowFragment >> logicAnalyser.io.slavePort
