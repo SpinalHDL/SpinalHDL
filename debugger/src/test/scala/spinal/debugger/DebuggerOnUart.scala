@@ -27,6 +27,7 @@ object DebuggerOnUart {
 
   class DebuggerOnUart extends Component {
     val io = new Bundle {
+      val conds = in Bits(4 bit)
       val input = in UInt (4 bit)
       val output = out UInt (4 bit)
 
@@ -36,6 +37,8 @@ object DebuggerOnUart {
     val subComponentA = new SubComponentA
     subComponentA.io.input := io.input
     io.output := subComponentA.io.output
+
+    val condsParity = io.conds.toBools.reduceLeft(_ ^ _)
 
 
     val uartCtrl = new UartCtrl()
@@ -49,9 +52,12 @@ object DebuggerOnUart {
 
     val debugger = new ResetArea(uartSoftReset,false) {
       val logicAnalyserParameter = new LogicAnalyserParameter
-      logicAnalyserParameter.setSampleCount(256)
+      logicAnalyserParameter
         .setSampleCount(256)
+        .probe(io.conds)
+        .probe(io.input)
         .probe(subComponentA.internalA)
+        .probe(condsParity)
         .probe(subComponentA.internalB)
 
       val logicAnalyser = new LogicAnalyser(logicAnalyserParameter)

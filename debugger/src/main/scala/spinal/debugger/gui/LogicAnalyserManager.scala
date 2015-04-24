@@ -32,14 +32,14 @@ class LogicAnalyserManager(address: Seq[Byte], hal: IBytePacketHal, report: JVal
   }
 
   override def rx(packet: Seq[Byte]): Unit = {
-//    var i = 0
-//    for (p <- packet.map("%02X" format _)) {
-//      if (i % 16 == 15)
-//        println(p)
-//      else
-//        print(p + " ")
-//      i += 1
-//    }
+    var i = 0
+    for (p <- packet.map("%02X" format _)) {
+      if (i % 16 == 15)
+        println(p)
+      else
+        print(p + " ")
+      i += 1
+    }
     val outFile = new java.io.FileWriter("logicAnalyser.vcd")
     val ret = new StringBuilder()
     ret ++= "$date\n"

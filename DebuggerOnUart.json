@@ -3,13 +3,28 @@
   {
     "clazz":"uidPeripheral",
     "kind":"logicAnalyser",
-    "uid":"-895703923",
+    "uid":"-121487018",
     "memAddressWidth":8,
     "probes":[{
+      "name":"io_conds",
+      "scope":["toplevel"],
+      "kind":"Bits",
+      "width":4
+    },{
+      "name":"io_input",
+      "scope":["toplevel"],
+      "kind":"UInt",
+      "width":4
+    },{
       "name":"internalA",
       "scope":["toplevel","subComponentA"],
       "kind":"UInt",
       "width":4
+    },{
+      "name":"condsParity",
+      "scope":["toplevel"],
+      "kind":"Bool",
+      "width":1
     },{
       "name":"internalB",
       "scope":["toplevel","subComponentA"],

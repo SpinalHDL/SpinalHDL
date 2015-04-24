@@ -194,7 +194,7 @@ class HandshakeFragmentBitsPimped(pimped: Handshake[Fragment[Bits]]) {
 
         when(pimped.fragment === cMagic) {
           pimped.ready := False
-          when(pimped.valid) {
+          when(ret.fire) {
             state := eMagicData
           }
         }

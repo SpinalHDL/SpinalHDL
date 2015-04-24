@@ -123,7 +123,6 @@ class LogicAnalyserParameter {
   def postBackend: Unit = {
     probes.foreach(_.postBackend)
     implicit val formats = DefaultFormats ++ LogicAnalyser.jsonSerDes
-    import net.liftweb.json.JsonDSL._
     val json = toJson
     GlobalData.get.addJsonReport(pretty(render(json)))
   }
@@ -190,7 +189,7 @@ class LogicAnalyser(p: LogicAnalyserParameter) extends Component {
 
   }
 
-  val probe = Cat(p.probes.map(_.baseType.pull))
+  val probe = Cat(p.probes.reverse.map(_.baseType.pull))
 
   val logger = new LogicAnalyserLogger(p, probe)
   logger.io.configs := configs
