@@ -43,7 +43,7 @@ object DebuggerGui extends JFXApp {
         val i = 0
       }
     } catch {
-      case _ =>
+      case e : Exception =>
     }
   }
 

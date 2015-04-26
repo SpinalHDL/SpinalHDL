@@ -1,12 +1,9 @@
 package spinal.debugger.gui
 
 import java.io.{InputStream, OutputStream}
-
+import scala.language.implicitConversions
 import scala.collection.mutable.ArrayBuffer
 
-/**
- * Created by PIC on 19.04.2015.
- */
 trait IByteStreamHal {
   def open: Unit
   def close: Unit

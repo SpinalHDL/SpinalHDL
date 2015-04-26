@@ -24,7 +24,6 @@ class EventFactory extends MSFactory {
 }
 
 
-
 class Handshake[T <: Data](_dataType: T) extends Bundle with Interface with DataCarrier[T] {
   val valid = Bool
   val ready = Bool
@@ -91,8 +90,8 @@ class Handshake[T <: Data](_dataType: T) extends Bundle with Interface with Data
   }
 
 
-  def queue(size : Int) : Handshake[T] ={
-    val fifo = new HandshakeFifo(dataType,size)
+  def queue(size: Int): Handshake[T] = {
+    val fifo = new HandshakeFifo(dataType, size)
     fifo.io.push << this
     return fifo.io.pop
   }
@@ -107,13 +106,17 @@ class Handshake[T <: Data](_dataType: T) extends Bundle with Interface with Data
   }
 
   //TODO better name
-  def translateFrom[T2 <: Data](that: Handshake[T2])(dataAssignement: (T, that.data.type) => Unit): Handshake[T2] = {
+  def translateFrom[T2 <: Data](that: Handshake[T2])(dataAssignement: (T, that.data.type) => Unit): Handshake[T] = {
     this.valid := that.valid
     that.ready := this.ready
     dataAssignement(this.data, that.data)
-    that
+    this
   }
 
+  def translateInto[T2 <: Data](into: Handshake[T2])(dataAssignement: (T2, T) => Unit): Handshake[T2] = {
+    into.translateFrom(this)(dataAssignement)
+    into
+  }
 
   def m2sPipe: Handshake[T] = m2sPipe(false)
 
@@ -199,14 +202,13 @@ class Handshake[T <: Data](_dataType: T) extends Bundle with Interface with Data
 }
 
 
-
 class HandshakeArbiterCoreIO[T <: Data](dataType: T, portCount: Int) extends Bundle {
   val inputs = Vec(portCount, slave Handshake (dataType))
   val output = master Handshake (dataType)
   val chosen = out UInt (log2Up(portCount) bit)
 }
 
-class HandshakeArbiterCore[T <: Data](dataType: T,val portCount: Int)(arbitrationLogic : (HandshakeArbiterCore[T]) => Area, lockLogic : (HandshakeArbiterCore[T]) => Area) extends Component {
+class HandshakeArbiterCore[T <: Data](dataType: T, val portCount: Int)(arbitrationLogic: (HandshakeArbiterCore[T]) => Area, lockLogic: (HandshakeArbiterCore[T]) => Area) extends Component {
   val io = new HandshakeArbiterCoreIO(dataType, portCount)
 
   val locked = RegInit(False)
@@ -235,12 +237,14 @@ class HandshakeArbiterCore[T <: Data](dataType: T,val portCount: Int)(arbitratio
   io.output.data.assignFromBits(outputData)
 
   io.chosen := OHToUInt(maskRouted)
-  
+
 }
 
-object HandshakeArbiterCore{
-  def arbitration_lowIdPortFirst[T <: Data](core : HandshakeArbiterCore[T]) = new Area{
+object HandshakeArbiterCore {
+  def arbitration_lowIdPortFirst[T <: Data](core: HandshakeArbiterCore[T]) = new Area {
+
     import core._
+
     var search = True
     for (i <- 0 to portCount - 2) {
       maskProposal(i) := search & io.inputs(i).valid
@@ -249,13 +253,14 @@ object HandshakeArbiterCore{
     maskProposal(portCount - 1) := search
   }
 
-  def lock_none[T <: Data](core : HandshakeArbiterCore[T]) = new Area {
-    import core._
+  def lock_none[T <: Data](core: HandshakeArbiterCore[T]) = new Area {
 
   }
 
-  def lock_transactionLock[T <: Data](core : HandshakeArbiterCore[T]) = new Area {
+  def lock_transactionLock[T <: Data](core: HandshakeArbiterCore[T]) = new Area {
+
     import core._
+
     when(io.output.valid) {
       locked := True
     }
@@ -264,7 +269,8 @@ object HandshakeArbiterCore{
     }
   }
 
-  def lock_fragmentLock[T <: Data](core : HandshakeArbiterCore[Fragment[T]]) = new Area {
+  def lock_fragmentLock[T <: Data](core: HandshakeArbiterCore[Fragment[T]]) = new Area {
+
     import core._
 
     when(io.output.valid) {

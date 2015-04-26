@@ -8,9 +8,9 @@ class FragmentFactory {
 
 object Fragment extends FragmentFactory
 
-object FlowFragment extends FlowFragmentFactory
+//object FlowFragment extends FlowFragmentFactory
 
-object HandshakeFragment extends HandshakeFragmentFactory
+//object HandshakeFragment extends HandshakeFragmentFactory
 
 
 class FlowFragmentPimped[T <: Data](pimped: Flow[Fragment[T]]) {
@@ -81,21 +81,17 @@ class HandshakeFragmentPimped[T <: Data](pimped: Handshake[Fragment[T]]) {
   }
 
 
-  //Todo prety impl
   def toFragmentBits(bitsWidth: Int): Handshake[Fragment[Bits]] = {
-    val pimpedWidhoutLast = Handshake(pimped.fragment)
-    pimpedWidhoutLast.translateFrom(pimped)((to, from) => {
+    val pimpedWidhoutLast = (Handshake(pimped.fragment)).translateFrom(pimped)((to, from) => {
       to := from.fragment
     })
 
     val fragmented = pimpedWidhoutLast.fragmentTransaction(bitsWidth)
 
-    val ret = Handshake Fragment (Bits(bitsWidth bit))
-    ret.translateFrom(fragmented)((to, from) => {
+    return (Handshake Fragment (Bits(bitsWidth bit))).translateFrom(fragmented)((to, from) => {
       to.last := from.last && pimped.last
       to.fragment := from.fragment
     })
-    ret
   }
 }
 
@@ -378,7 +374,7 @@ class HandshakeToHandshakeFragmentBits[T <: Data](dataType: T, bitsWidth: Int) e
     val output = master Handshake Fragment(Bits(bitsWidth bit))
   }
   val counter = Counter((widthOf(dataType) - 1) / bitsWidth + 1)
-  val inputBits = B(0, bitsWidth bit) ## toBits(io.input.data) //The cat allow to mux inputBits
+  val inputBits = B(0, bitsWidth bit) ## toBits(io.input.data) //The ## allow to mux inputBits
 
   io.input.ready := counter.overflow
   io.output.last := counter.overflowIfInc
@@ -389,15 +385,6 @@ class HandshakeToHandshakeFragmentBits[T <: Data](dataType: T, bitsWidth: Int) e
   }
 }
 
-//class HandshakeFragmentToHandshakeFragmentBits[T <: Data](dataType: T, bitsWidth: Int) extends Component {
-//  val io = new Bundle {
-//    val input = slave Handshake Fragment (dataType)
-//    val output = master Handshake Fragment(Bits(bitsWidth bit))
-//  }
-//
-//  io.input.
-//
-//}
 
 
 object HandshakeFragmentGenerator {

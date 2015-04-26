@@ -6,6 +6,7 @@ import spinal.core.SpinalError
 
 import scala.collection.mutable.ArrayBuffer
 
+import scala.language.implicitConversions
 
 object BusManager {
   sealed trait BusManagerStates

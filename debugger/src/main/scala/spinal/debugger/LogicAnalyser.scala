@@ -91,6 +91,7 @@ class Probe {
 object LogicAnalyserParameter extends net.liftweb.json.Serializer[LogicAnalyserParameter] {
   private val Class = classOf[LogicAnalyserParameter]
 
+
   override def deserialize(implicit format: Formats): PartialFunction[(TypeInfo, json.JValue), LogicAnalyserParameter] = {
     case (TypeInfo(Class, _), json) =>
       val x = new LogicAnalyserParameter
@@ -119,6 +120,8 @@ class LogicAnalyserParameter {
     memAddressWidth = log2Up(sampleCount)
     this
   }
+
+  def build = new LogicAnalyser(this)
 
   def postBackend: Unit = {
     probes.foreach(_.postBackend)

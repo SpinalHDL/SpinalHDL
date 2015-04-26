@@ -252,6 +252,13 @@ trait Area {
 
 }
 
+object ImplicitArea{
+  implicit def toImplicit[T](area: ImplicitArea[T]): T = area.toImplicit
+}
+abstract class ImplicitArea[T] extends Area {
+  implicit def toImplicit: T
+}
+
 class ClockingArea(clockDomain: ClockDomain) extends Area with DelayedInit {
   clockDomain.push
 

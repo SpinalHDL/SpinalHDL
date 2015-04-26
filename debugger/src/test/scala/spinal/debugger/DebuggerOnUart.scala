@@ -27,11 +27,21 @@ object DebuggerOnUart {
 
   class DebuggerOnUart extends Component {
     val io = new Bundle {
-      val conds = in Bits(4 bit)
+      val conds = in Bits (4 bit)
       val input = in UInt (4 bit)
       val output = out UInt (4 bit)
 
       val uart = master(new Uart)
+    }
+
+
+    val customeArea = new ImplicitArea[Bool] {
+      override implicit def toImplicit: Bool = True
+    }
+
+
+    when(customeArea) {
+
     }
 
     val subComponentA = new SubComponentA
@@ -50,17 +60,16 @@ object DebuggerOnUart {
 
     val (uartFlowFragment, uartSoftReset) = uartCtrl.io.read.toFlowFragmentBitsAndReset()
 
-    val debugger = new ResetArea(uartSoftReset,false) {
-      val logicAnalyserParameter = new LogicAnalyserParameter
-      logicAnalyserParameter
+    val debugger = new ResetArea(uartSoftReset, false) {
+      val logicAnalyser = new LogicAnalyserParameter()
         .setSampleCount(256)
         .probe(io.conds)
         .probe(io.input)
         .probe(subComponentA.internalA)
         .probe(condsParity)
         .probe(subComponentA.internalB)
+        .build
 
-      val logicAnalyser = new LogicAnalyser(logicAnalyserParameter)
 
       uartFlowFragment >> logicAnalyser.io.slavePort
       uartCtrl.io.write << logicAnalyser.io.masterPort.toHandshakeBits()
