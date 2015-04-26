@@ -34,6 +34,8 @@ object DebuggerOnUart {
       val uart = master(new Uart)
     }
 
+    val input = BufferCC(io.input)
+    val conds = BufferCC(io.conds)
 
     val customeArea = new ImplicitArea[Bool] {
       override implicit def toImplicit: Bool = True
@@ -50,6 +52,7 @@ object DebuggerOnUart {
 
     val condsParity = io.conds.toBools.reduceLeft(_ ^ _)
 
+    val counter = CounterFreeRun(1024)
 
     val uartCtrl = new UartCtrl()
     uartCtrl.io.clockDivider := BigInt((50e6 / 57.6e3 / 8).toLong)
@@ -63,8 +66,11 @@ object DebuggerOnUart {
     val debugger = new ResetArea(uartSoftReset, false) {
       val logicAnalyser = new LogicAnalyserParameter()
         .setSampleCount(256)
-        .probe(io.conds)
-        .probe(io.input)
+        .exTrigger(conds.msb)
+        .exTrigger(conds.lsb)
+        .probe(conds)
+        .probe(counter)
+        .probe(input)
         .probe(subComponentA.internalA)
         .probe(condsParity)
         .probe(subComponentA.internalB)

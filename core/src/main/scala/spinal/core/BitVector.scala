@@ -24,6 +24,7 @@ abstract class BitVector extends BaseType {
 
   def high = getWidth - 1
   def msb = this(high)
+  def lsb = this(0)
 
   def isFixedWidth = fixedWidth != -1
 

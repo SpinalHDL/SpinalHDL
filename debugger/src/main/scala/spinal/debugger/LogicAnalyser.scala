@@ -18,7 +18,7 @@ object LogicAnalyser {
   def userTriggerHeader = 0x02
   def configsHeader = 0x0F
 
-  def jsonSerDes = Seq(Probe , LogicAnalyserParameter)
+  def jsonSerDes = Seq(Probe , LogicAnalyserParameter,ExTrigger)
 }
 
 
@@ -86,6 +86,59 @@ class Probe {
       ("width" -> width)
   }
 }
+object ExTrigger extends net.liftweb.json.Serializer[ExTrigger] {
+
+  def apply(trigger: Bool): ExTrigger = apply("", trigger)
+
+  def apply(name: String, trigger: Bool): ExTrigger = {
+    val ret = new ExTrigger
+    ret.name = name
+    ret.trigger = trigger
+    ret
+  }
+
+
+
+  private val Class = classOf[ExTrigger]
+
+  override def deserialize(implicit format: Formats): PartialFunction[(TypeInfo, json.JValue), ExTrigger] = {
+    case (TypeInfo(Class, _), json) =>
+      val exTrigger = new ExTrigger
+      exTrigger.fromJson(json)
+      exTrigger
+  }
+
+  override def serialize(implicit format: Formats): PartialFunction[Any, json.JValue] = {
+    case x: ExTrigger =>
+      x.toJson
+  }
+}
+
+class ExTrigger {
+  var name = ""
+  var scope = ArrayBuffer[String]()
+  var trigger: Bool = null
+
+
+  def postBackend: Unit = {
+    if (name == "") name = trigger.getName()
+    scope ++= (trigger.component.parents() ++ List(trigger.component)).map(_.getName())
+  }
+
+  implicit val formats = DefaultFormats ++ LogicAnalyser.jsonSerDes
+
+  import net.liftweb.json.JsonDSL._
+
+  def fromJson(json: JValue): Unit = {
+    name = (json \ "name").extract[String]
+    scope ++= (json \ "scope").children.map(_.extract[String])
+  }
+
+  def toJson: JValue = {
+    ("name" -> name) ~
+      ("scope" -> scope) 
+  }
+}
 
 
 object LogicAnalyserParameter extends net.liftweb.json.Serializer[LogicAnalyserParameter] {
@@ -106,12 +159,20 @@ object LogicAnalyserParameter extends net.liftweb.json.Serializer[LogicAnalyserP
 }
 
 
+
+
 class LogicAnalyserParameter {
   var memAddressWidth = 8
   val probes = ArrayBuffer[Probe]()
   var uid: Int = Random.nextInt()
+  var zeroSampleLeftAfterTriggerWindow = 2
+  val exTriggers = ArrayBuffer[ExTrigger]()
 
 
+  def exTrigger(trigger : Bool): LogicAnalyserParameter = {
+    exTriggers += ExTrigger(trigger)
+    this
+  }
   def probe (baseType : BaseType): LogicAnalyserParameter = {
     probes += Probe(baseType)
     this
@@ -121,10 +182,12 @@ class LogicAnalyserParameter {
     this
   }
 
+
   def build = new LogicAnalyser(this)
 
   def postBackend: Unit = {
     probes.foreach(_.postBackend)
+    exTriggers  .foreach(_.postBackend)
     implicit val formats = DefaultFormats ++ LogicAnalyser.jsonSerDes
     val json = toJson
     GlobalData.get.addJsonReport(pretty(render(json)))
@@ -141,7 +204,9 @@ class LogicAnalyserParameter {
   def fromJson(json: JValue): Unit = {
     uid = (json \ "uid").extract[String].toInt
     memAddressWidth = (json \ "memAddressWidth").extract[Int]
+    zeroSampleLeftAfterTriggerWindow = (json \ "zeroSampleLeftAfterTriggerWindow").extract[Int]
     probes ++= (json \ "probes").children.map(_.extract[Probe])
+    exTriggers ++= (json \ "exTriggers").children.map(_.extract[ExTrigger])
   }
 
   def toJson: JValue = {
@@ -149,7 +214,9 @@ class LogicAnalyserParameter {
       ("kind" -> "logicAnalyser") ~
       ("uid" -> uid.toString) ~
       ("memAddressWidth" -> memAddressWidth)~
-    ("probes" -> decompose(probes))
+      ("zeroSampleLeftAfterTriggerWindow" -> zeroSampleLeftAfterTriggerWindow)~
+      ("probes" -> decompose(probes))~
+    ("exTriggers" -> decompose(exTriggers))
   }
 }
 
@@ -177,6 +244,10 @@ class LogicAnalyser(p: LogicAnalyserParameter) extends Component {
     val masterPort = master Handshake Fragment(Bits(fragmentWidth bit))
   }
 
+  val probes = Cat(p.probes.reverse.map(_.baseType.pull))
+  val exTriggers = p.exTriggers.reverse.map(_.trigger.pull)
+
+
   //val slavePortRouter = FlowFragmentBitsRouter(io.slavePort)
   val waitTrigger = io.slavePort filterHeader (waitTriggerHeader) toRegOf (Bool) init (False)
   val userTrigger = io.slavePort pulseOn (userTriggerHeader)
@@ -184,20 +255,19 @@ class LogicAnalyser(p: LogicAnalyserParameter) extends Component {
   val passportEvent = io.slavePort eventOn (0xFF)
 
   val trigger = new Area {
-    val aggregate = CounterFreeRun(1000) === U(999) || userTrigger
-    when(aggregate) {
+    val aggregate = exTriggers.foldLeft(False)(_ || _) || userTrigger   //CounterFreeRun(1000) === U(999)
+    when(waitTrigger && aggregate) {
       waitTrigger := False
     }
     val event = DelayEvent(aggregate && waitTrigger, configs.trigger.delay)
 
   }
 
-  val probe = Cat(p.probes.reverse.map(_.baseType.pull))
 
-  val logger = new LogicAnalyserLogger(p, probe)
+  val logger = new LogicAnalyserLogger(p, probes)
   logger.io.configs := configs
   logger.io.trigger := trigger.event
-  logger.io.probe := probe
+  logger.io.probe := probes
 
 
   val passport = passportEvent.translateWith(S(p.uid, 32 bit)).fragmentTransaction(fragmentWidth)

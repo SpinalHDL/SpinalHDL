@@ -3,15 +3,21 @@
   {
     "clazz":"uidPeripheral",
     "kind":"logicAnalyser",
-    "uid":"641039817",
+    "uid":"2131834876",
     "memAddressWidth":8,
+    "zeroSampleLeftAfterTriggerWindow":2,
     "probes":[{
-      "name":"io_conds",
+      "name":"conds",
       "scope":["toplevel"],
       "kind":"Bits",
       "width":4
     },{
-      "name":"io_input",
+      "name":"counter_value",
+      "scope":["toplevel"],
+      "kind":"UInt",
+      "width":10
+    },{
+      "name":"input",
       "scope":["toplevel"],
       "kind":"UInt",
       "width":4
@@ -30,6 +36,13 @@
       "scope":["toplevel","subComponentA"],
       "kind":"UInt",
       "width":4
+    }],
+    "exTriggers":[{
+      "name":"debugger_logicAnalyser_exTriggers1",
+      "scope":["toplevel"]
+    },{
+      "name":"debugger_logicAnalyser_exTriggers0",
+      "scope":["toplevel"]
     }]
   }  ]
 }

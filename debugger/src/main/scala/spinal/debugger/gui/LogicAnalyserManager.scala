@@ -31,6 +31,8 @@ class LogicAnalyserManager(address: Seq[Byte], hal: IBytePacketHal, report: JVal
     createGui
   }
 
+  var captureOffsetMemo = 0
+  var triggerDelayGuiMemo = 0
   override def rx(packet: Seq[Byte]): Unit = {
     var i = 0
     for (p <- packet.map("%02X" format _)) {
@@ -40,6 +42,8 @@ class LogicAnalyserManager(address: Seq[Byte], hal: IBytePacketHal, report: JVal
         print(p + " ")
       i += 1
     }
+
+
     val outFile = new java.io.FileWriter("logicAnalyser.vcd")
     val ret = new StringBuilder()
     ret ++= "$date\n"
@@ -92,7 +96,8 @@ class LogicAnalyserManager(address: Seq[Byte], hal: IBytePacketHal, report: JVal
     for (probe <- hardwareParameters.probes) {
       root.insert(probe, probe.scope.iterator)
     }
-
+    ret ++= s"${"$"}var wire 1 tr trigger ${"$"}end\n"
+    ret ++= s"${"$"}var wire 32 ti time ${"$"}end\n"
     root.emit(ret, "")
 //    ret ++= "$dumpvars\n"
 //    for (probe <- hardwareParameters.probes) {
@@ -104,12 +109,18 @@ class LogicAnalyserManager(address: Seq[Byte], hal: IBytePacketHal, report: JVal
 
     val bytePerSample = (hardwareParameters.probes.foldLeft(0)(_ + _.width)+7)/8
 
+    val triggerAt = hardwareParameters.memAddressCount-hardwareParameters.zeroSampleLeftAfterTriggerWindow - triggerDelayGuiMemo - captureOffsetMemo
+
     var time = 0
     val packetIterator = packet.iterator
     var byteLeft = packet.length
     val lastMap = collection.mutable.Map[Probe,String]()
     while (byteLeft >= bytePerSample) {
       ret ++= s"#$time\n"
+      ret ++= s"  b${String.format("%32s", Integer.toBinaryString(time-triggerAt)).replace(' ', '0')} ti\n"
+      if(time == 0) ret ++= s"  b0 tr\n"
+      if(time == triggerAt) ret ++= s"  b1 tr\n"
+      if(time == triggerAt + 1) ret ++= s"  b0 tr\n"
       var bits = packetIterator.take(bytePerSample).map(byte => String.format("%8s", Integer.toBinaryString(byte.toInt & 0xFF)).replace(' ', '0')).reduceLeft((l, r) => r + l)
       var bitsPtr = 0
       for (probe <- hardwareParameters.probes) {
@@ -153,13 +164,16 @@ class LogicAnalyserManager(address: Seq[Byte], hal: IBytePacketHal, report: JVal
                 triggerDelayGui.getEditor.onActionProperty.get().handle(null)
                 captureOffset.getEditor.onActionProperty.get().handle(null)
 
-                val aggregator = new BitAggregator
+                triggerDelayGuiMemo = triggerDelayGui.getValue
+                captureOffsetMemo = hardwareParameters.memAddressCount/2 +  captureOffset.getValue -1
 
+                val aggregator = new BitAggregator
                 aggregator.add(BigInt(LogicAnalyser.configsHeader), 8)
-                aggregator.add(BigInt(triggerDelayGui.getValue), 32)
-                aggregator.add(BigInt(captureOffset.getValue), hardwareParameters.memAddressWidth)
+                aggregator.add(BigInt(triggerDelayGuiMemo), 32)
+                aggregator.add(BigInt(captureOffsetMemo), hardwareParameters.memAddressWidth)
                 println(aggregator)
                 tx(aggregator.toBytes)
+
 
                 aggregator.clear
                 aggregator.add(BigInt(LogicAnalyser.waitTriggerHeader), 8)
