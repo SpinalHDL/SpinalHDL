@@ -45,18 +45,24 @@ Examples
 ## Simple component
 
 ```scala
-import spinal.core._
+import spinal.core._  
 
+//A simple component definition
 class MyTopLevel extends Component {
+  //Define some input/output. Bundle like a VHDL record or a verilog struct.
   val io = new Bundle {
     val a = in Bool
     val b = in Bool
     val c = out Bool
   }
+  
+  //Define some asynchronous logic
   io.c := io.a & io.b
 }
 
-object MyTopLevel {
+//This is the main of the project. It create a instance of MyTopLevel and 
+//call the SpinalHDL library to flush it into a VHDL file.
+object MyMain {
   def main(args: Array[String]) {
     SpinalVhdl(new MyTopLevel)
   }
@@ -77,7 +83,7 @@ class CarryAdder(size : Int) extends Component{
 
   var c = False                   //Carry, like a VHDL variable
   for (i <- 0 until size) {
-    val a = io.a(i)
+    val a = io.a(i)	 //Create a intermediate value named in the loop
     val b = io.b(i)
     io.result(i) := a ^ b ^ c
     c = (a & b) | (a & c) | (b & c);    //variable assignment
@@ -102,11 +108,20 @@ class CounterWithParity(size : Int) extends Component{
     val evenParity = out Bool
   }
 
+  //Create a register of UInt(size-1 downto 0) 
+  //init(0) force it to zero when a reset occur
+  //In Spinal, you don't have to play with clock and reset signals each time
+  //  you create register. You define a clock domain area and this is done.
   val counter = Reg(UInt(size bit)) init(0)
   when(io.increment){
     counter := counter + 1
   }
-  io.evenParity := counter.toBools.reduceLeft(_ ^ _)    //Get all bit of counter and then xor them together
+  
+  //Get all bit of counter and then xor them together
+  //toBools create a vector of Bool from each bit of counter
+  //reduceLeft is a scala function that mix all bit together 
+  //  from the left to the right
+  io.evenParity := counter.toBools.reduceLeft(_ ^ _)   
 
   io.value := counter
 }
@@ -119,10 +134,12 @@ class CounterWithParity(size : Int) extends Component{
 import spinal.core._
 import spinal.lib._
 
-//Define custom data types
+//Define custom data types.
+//You can use Bundle into Bundle
 class MyDataType extends Bundle{
   val a = UInt(8 bit)
   val b = Bool
+  val c = Vec(4,Bool) //Create a array of 4 Bool
 }
 
 class MultiClockTopLevel extends Component {
@@ -161,20 +178,21 @@ object MultiClockTopLevel {
 import spinal.core._
 import spinal.lib._
 
-class HandshakeFifoCCIo[T <: Data](dataType: T, depth: Int) extends Bundle {
-  val push = slave Handshake (dataType)
-  val pop = master Handshake (dataType)
-  val pushOccupancy = out UInt (log2Up(depth) + 1 bit)
-  val popOccupancy = out UInt (log2Up(depth) + 1 bit)
-}
-
 class HandshakeFifoCC[T <: Data](dataType: T, depth: Int, pushClockDomain: ClockDomain, popClockDomain: ClockDomain) extends Component {
   assert(isPow2(depth))
   assert(depth >= 2)
 
-  val io = new HandshakeFifoCCIo(dataType, depth)
+  val io = new Bundle {
+    val push = slave Handshake (dataType)
+    val pop = master Handshake (dataType)
+	
+    val pushOccupancy = out UInt (log2Up(depth) + 1 bit)
+    val popOccupancy = out UInt (log2Up(depth) + 1 bit)
+  }
 
   val ptrWidth = log2Up(depth) + 1
+  
+  //isFull and isEmpty take gray value as argument and return the corresponding state
   def isFull(a: Bits, b: Bits) = a(ptrWidth - 1, ptrWidth - 2) === ~b(ptrWidth - 1, ptrWidth - 2) && a(ptrWidth - 3, 0) === b(ptrWidth - 3, 0)
   def isEmpty(a: Bits, b: Bits) = a === b
 
@@ -183,29 +201,42 @@ class HandshakeFifoCC[T <: Data](dataType: T, depth: Int, pushClockDomain: Clock
   val popToPushGray = Bits(ptrWidth bit)
   val pushToPopGray = Bits(ptrWidth bit)
 
-  val pushCC = new ClockingArea(pushClockDomain) {
-    val pushPtr = Counter(depth << 1)
+  val pushLogic = new ClockingArea(pushClockDomain) {
+	//Counter come from SpinalLib, 	
+	//  It's a UInt register with some logic
+    val pushPtr = Counter(depth << 1)	
+	
+	//RegNext is a way to create a register 
+	//  that take the specified value each cycle
+	//toGray is provided by the SpinalLib
     val pushPtrGray = RegNext(toGray(pushPtr.valueNext))
+	
+	//Spinal check that there is no unspecified cross clock domain
+	//BufferCC is a simple 2 stage (default) register buffer from SpinalLib
+	//  B"0" specify it initial value
     val popPtrGray = BufferCC(popToPushGray, B"0")
     val full = isFull(pushPtrGray, popPtrGray)
 
     io.push.ready := !full
-    when(io.push.fire) {
+	
+	//fire is true when a transaction occur (valid && ready)
+    when(io.push.fire) {  
       ram(pushPtr) := io.push.data
       pushPtr ++
     }
-
+	
+	//fromGray is provided by the SpinalLib
     io.pushOccupancy := pushPtr - fromGray(popPtrGray)
   }
 
-  val popCC = new ClockingArea(popClockDomain) {
+  val popLogic = new ClockingArea(popClockDomain) {
     val popPtr = Counter(depth << 1)
     val popPtrGray = RegNext(toGray(popPtr.valueNext))
     val pushPtrGray = BufferCC(pushToPopGray, B"0")
     val empty = isEmpty(popPtrGray, pushPtrGray)
 
     io.pop.valid := !empty
-    io.pop.data := ram.readSyncCC(popPtr.valueNext)
+    io.pop.data := ram.readSyncCC(popPtr.valueNext) //Cross clock domain synchronous read
     when(io.pop.fire) {
       popPtr ++
     }

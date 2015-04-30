@@ -12,6 +12,9 @@ import spinal.lib._
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
+object LogicAnalyserBuilder {
+  def apply() = new LogicAnalyserParameter
+}
 
 object LogicAnalyser {
   def waitTriggerHeader = 0x01

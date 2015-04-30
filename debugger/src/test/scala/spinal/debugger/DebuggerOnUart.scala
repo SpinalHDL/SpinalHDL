@@ -64,7 +64,7 @@ object DebuggerOnUart {
     val (uartFlowFragment, uartSoftReset) = uartCtrl.io.read.toFlowFragmentBitsAndReset()
 
     val debugger = new ResetArea(uartSoftReset, false) {
-      val logicAnalyser = new LogicAnalyserParameter()
+      val logicAnalyser = LogicAnalyserBuilder()
         .setSampleCount(256)
         .exTrigger(conds.msb)
         .exTrigger(conds.lsb)

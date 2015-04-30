@@ -43,7 +43,7 @@ object DebuggerTestCode {
     io.output := subComponentA.io.output
 
 
-    val logicAnalyser = new LogicAnalyserParameter()
+    val logicAnalyser = LogicAnalyserBuilder()
       .setSampleCount(256)
       .exTrigger(io.input.msb)
       .exTrigger(io.input.lsb)

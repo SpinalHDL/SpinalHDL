@@ -28,11 +28,12 @@ object Debug {
   class TopLevel extends Component {
 
     val io = new Bundle {
-      val vin = in Vec(4,Bool)
-      val vout = out Vec(4,Bool)
+      val vin = in Bool
+      val vin2 = in Bool
+      val vout = out Bool
     }
 
-    io.vout := io.vin
+    io.vout := BufferCC(io.vin) & BufferCC(io.vin2)
   }
 
 
