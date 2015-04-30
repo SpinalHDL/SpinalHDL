@@ -83,8 +83,11 @@ class CarryAdder(size : Int) extends Component{
 
   var c = False                   //Carry, like a VHDL variable
   for (i <- 0 until size) {
-    val a = io.a(i)	 //Create a intermediate value named in the loop
-    val b = io.b(i)
+	//Create some intermediate value in the loop scope.
+    val a = io.a(i)	 
+    val b = io.b(i)  
+	
+	//The carry adder's asynchronous logic
     io.result(i) := a ^ b ^ c
     c = (a & b) | (a & c) | (b & c);    //variable assignment
   }
