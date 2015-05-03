@@ -44,35 +44,8 @@ class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) ext
     val rxToTx = in(new SerialLinkRxToTx)
   }
 
-  val resend = new Area {
-    //TODO maybe add to Utils lib the timeout pattern ?
-    val value = RegInit(False)
-
-    val timeout = CounterFreeRun(resendTimeoutLimit)
-    when(timeout.overflow) {
-      value := True
-    }
-
-    def clear: Unit = {
-      timeout.reset
-      value := False
-    }
-  }
-
-  val alive = new Area {
-    val value = RegInit(False)
-
-    val timeout = CounterFreeRun(resendTimeoutLimit)
-    when(timeout.overflow) {
-      value := True
-    }
-
-    when(io.output.fire) {
-      timeout.reset
-      value := False
-    }
-  }
-
+  val resendTimeout = Timeout(resendTimeoutLimit)
+  val aliveTimeout = Timeout(resendTimeoutLimit) //TODO implement logic
 
   val buffer = new Area {
     val ram = Mem(Bits(bitsWidth bit), bufferSize)
@@ -94,7 +67,7 @@ class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) ext
     when(io.rxToTx.otherRxPtr.fire) {
       syncPtr := io.rxToTx.otherRxPtr.data
       when(syncPtr !== io.rxToTx.otherRxPtr.data) {
-        resend.clear
+        resendTimeout.clear
       }
     }
 
@@ -143,9 +116,9 @@ class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) ext
 
     switch(state) {
       is(eNewFrame) {
-        when(resend.value) {
+        when(resendTimeout) {
           buffer.readPtr := buffer.syncPtr
-          resend.clear
+          resendTimeout.clear
         }.elsewhen(close) {
           io.output.valid := True
           io.output.last := True
@@ -162,7 +135,7 @@ class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) ext
           when(io.output.ready) {
             open := False
           }
-        }.elsewhen(isOpen && (!buffer.empty || alive.value)) {
+        }.elsewhen(isOpen && (!buffer.empty || aliveTimeout)) {
           io.output.valid := True
           io.output.fragment := cData
           when(io.output.ready) {

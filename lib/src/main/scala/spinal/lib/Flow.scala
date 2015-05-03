@@ -24,8 +24,8 @@ class Flow[T <: Data](_dataType: T) extends Bundle with Interface with DataCarri
   def dataType = _dataType
   override def clone: this.type = Flow(_dataType).asInstanceOf[this.type]
 
-  override def asMaster: this.type = asOutput
-  override def asSlave: this.type = asInput
+  override def asMaster: this.type = out(this)
+  override def asSlave: this.type = in(this)
 
 
   override def freeRun: Unit = {}

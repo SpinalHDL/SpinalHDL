@@ -28,6 +28,8 @@ architecture arch of UartTester_tb is
   signal clk : std_logic;
   signal reset : std_logic;
   -- #spinalBegin userDeclarations
+  constant clockDivider : integer := 3;
+  constant baudPeriod : time := (10 ns * ((clockDivider+1)*8)) ;
   signal asyncProcess : std_logic := '0';
   shared variable done : integer := 0;
   -- #spinalEnd userDeclarations
@@ -40,7 +42,7 @@ begin
     if done = 2 then
       wait;
     end if;
-    assert now < 1 ms report "timeout" severity failure;
+    assert now < 10 ms report "timeout" severity failure;
     clk <= '1';
     wait for 5 ns;
   end process;
@@ -62,7 +64,7 @@ begin
     io_uart_config_dataLength <= "111";
     io_uart_config_stop <= eStop1bit;
     io_uart_config_parity <= eParityEven; 
-    io_uart_clockDivider <= X"00063";
+    io_uart_clockDivider <= to_unsigned(clockDivider,20);
 
     io_uart_write_valid <= '0';
     
@@ -75,8 +77,10 @@ begin
     wait for 10 us;
     wait until rising_edge(clk); 
     uartCtrlWrite(X"AB");
-     wait for 150 us;   
-    
+    wait for 10 us;
+    for i in 0 to 255 loop
+      uartCtrlWrite(std_logic_vector(to_unsigned(i,8)));
+    end loop;
 
     wait;
   end process;
@@ -85,8 +89,8 @@ begin
   process
     procedure checkBit(value:  std_logic) is
     begin
-        wait for 8 us;
-        assert io_uart_uart_txd'DELAYED'LAST_ACTIVE >= 8 us and io_uart_uart_txd'DELAYED = value report "io_uart_uart_txd fail" severity failure;
+        wait for baudPeriod;
+        assert io_uart_uart_txd'DELAYED'LAST_ACTIVE >= baudPeriod and io_uart_uart_txd'DELAYED = value report "io_uart_uart_txd fail" severity failure;
     end checkBit;
 
     procedure checkTx(that:  std_logic_vector(7 downto 0)) is
@@ -100,9 +104,9 @@ begin
         end if;
         
         if io_uart_config_stop = eStop1bit then
-          stopTime := 8 us;
+          stopTime := baudPeriod;
         else
-          stopTime := 16 us;
+          stopTime := 2 * baudPeriod;
         end if;
         
         if io_uart_uart_txd = '1' then
@@ -128,7 +132,11 @@ begin
   begin
     wait for 10 ns;
     checkTx(X"30");
-    checkTx(X"AB");   
+    checkTx(X"AB");
+    for i in 0 to 255 loop
+      checkTx(std_logic_vector(to_unsigned(i,8)));
+    end loop;
+
     done := done + 1;
     wait;
   end process;
@@ -144,6 +152,9 @@ begin
     wait until rising_edge(clk) and reset = '0';
     checkRx(X"30");
     checkRx(X"AB");
+    for i in 0 to 255 loop
+      checkRx(std_logic_vector(to_unsigned(i,8)));
+    end loop;
     done := done + 1;
     wait;
   end process;

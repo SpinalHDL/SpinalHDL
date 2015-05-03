@@ -34,9 +34,9 @@ class Handshake[T <: Data](_dataType: T) extends Bundle with Interface with Data
   override def clone: this.type = Handshake(_dataType).asInstanceOf[this.type]
 
   override def asMaster: this.type = {
-    valid.asOutput
-    ready.asInput
-    data.asOutput
+    out(valid)
+    in(ready)
+    out(data)
     this
   }
 
@@ -105,7 +105,6 @@ class Handshake[T <: Data](_dataType: T) extends Bundle with Interface with Data
     that
   }
 
-  //TODO better name
   def translateFrom[T2 <: Data](that: Handshake[T2])(dataAssignement: (T, that.data.type) => Unit): Handshake[T] = {
     this.valid := that.valid
     that.ready := this.ready

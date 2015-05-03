@@ -102,8 +102,8 @@ class Backend {
   //TODO
   //TODO ROM support
   //TODO Union support
-  //TODO zero width impl check
-  //TODO 1 bit * 3 bit => 3 bit in place of 4 bit
+  //TODO 1 bit * 3 bit => 3 bit in place of 4 bit ?
+  //TODO function to check if 2 clocks are drived from same signal and apply it to mem blackbox inference and cross clock checker(rd.getClockDomain.clock == wr.getClockDomain.clock)
   protected def elaborate[T <: Component](topLevel: T): BackendReport[T] = {
     SpinalInfoPhase("Start analysis and transform")
 
@@ -278,7 +278,7 @@ class Backend {
           clockDomain.push
           Component.push(mem.component)
 
-          val ram = Component(new Ram_1c_1w_1rs(mem.getWidth, mem.wordCount, rd.writeToReadKind)) //TODO manage with cross clock
+          val ram = Component(new Ram_1c_1w_1rs(mem.getWidth, mem.wordCount, rd.writeToReadKind))
           val enable = clockDomain.isClockEnableActive
 
           ram.io.wr.en := wr.getEnable.allowSimplifyIt && enable
@@ -307,7 +307,7 @@ class Backend {
           clockDomain.push
           Component.push(mem.component)
 
-          val ram = Component(new Ram_1wrs(mem.getWidth, mem.wordCount, rd.writeToReadKind)) //TODO manage with cross clock
+          val ram = Component(new Ram_1wrs(mem.getWidth, mem.wordCount, rd.writeToReadKind))
           val enable = clockDomain.isClockEnableActive
 
           ram.io.addr := wr.getAddress.allowSimplifyIt
@@ -335,7 +335,7 @@ class Backend {
           clockDomain.push
           Component.push(mem.component)
 
-          val ram = Component(new Ram_1wors(mem.getWidth, mem.wordCount, rd.writeToReadKind)) //TODO manage with cross clock
+          val ram = Component(new Ram_1wors(mem.getWidth, mem.wordCount, rd.writeToReadKind))
           val enable = clockDomain.isClockEnableActive
 
           ram.io.addr := wr.getAddress.allowSimplifyIt

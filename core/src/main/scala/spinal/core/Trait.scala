@@ -253,11 +253,18 @@ trait Area {
 }
 
 object ImplicitArea{
-  implicit def toImplicit[T](area: ImplicitArea[T]): T = area.toImplicit
+  implicit def toImplicit[T](area: ImplicitArea[T]): T = area.implicitValue
 }
 abstract class ImplicitArea[T] extends Area {
-  implicit def toImplicit: T
+  def implicitValue: T
 }
+
+//object ImplicitArea2{
+//  implicit def toImplicit[T](area: ImplicitArea2[T]): T = area.implicitValue
+//}
+//abstract class ImplicitArea2[T <: Data](dataType : T) extends Area{
+//  protected val implicitValue = cloneOf(dataType)
+//}
 
 class ClockingArea(clockDomain: ClockDomain) extends Area with DelayedInit {
   clockDomain.push

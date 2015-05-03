@@ -38,7 +38,7 @@ object DebuggerOnUart {
     val conds = BufferCC(io.conds)
 
     val customeArea = new ImplicitArea[Bool] {
-      override implicit def toImplicit: Bool = True
+      override implicit def implicitValue: Bool = True
     }
 
 

@@ -113,7 +113,7 @@ class BitAggregator {
 //}
 
 object CounterFreeRun {
-  def apply(stateCount: Int): Counter = {
+  def apply(stateCount: BigInt): Counter = {
     new Counter(stateCount, true)
   }
 }
@@ -171,22 +171,64 @@ class Counter(val stateCount: BigInt, freeRun: Boolean = false) extends Area {
 }
 
 
+
+object Timeout{
+  def apply(limit: BigInt) = new Timeout(limit)
+}
+
+class Timeout(val limit: BigInt) extends ImplicitArea[Bool] {
+  val state = RegInit(False)
+  val stateRise = False
+
+  val counter = CounterFreeRun(limit)
+  when(counter.overflow) {
+    state := True
+    stateRise := True
+  }
+
+  def clear: Unit = {
+    counter.reset
+    state := False
+  }
+
+  override def implicitValue: Bool = state
+}
+
+//class Timeout(val limit: BigInt) extends ImplicitArea2(Bool) {
+//  val state = RegInit(False)
+//  val stateRise = False
+//
+//  val counter = CounterFreeRun(limit)
+//  when(counter.overflow) {
+//    state := True
+//    stateRise := True
+//  }
+//
+//  def clear: Unit = {
+//    counter.reset
+//    state := False
+//  }
+//
+//  implicitValue := state
+//}
+
+
 object MajorityVote {
   def apply(that: BitVector): Bool = apply(that.toBools)
   def apply(that: collection.IndexedSeq[Bool]): Bool = {
     val size = that.size
     val trigger = that.size / 2 + 1
-    var ret = False
+    var globalOr = False
     for (i <- BigInt(0) until (BigInt(1) << size)) {
       if (i.bitCount == trigger) {
-        val bits = ArrayBuffer[Bool]()
+        var localAnd = True
         for (bitId <- 0 until i.bitLength) {
-          if (i.testBit(bitId)) bits += that(bitId)
+          if (i.testBit(bitId)) localAnd &= that(bitId)
         }
-        ret = ret | bits.reduceLeft(_ & _)
+        globalOr = globalOr | localAnd
       }
     }
-    ret
+    globalOr
   }
 }
 
