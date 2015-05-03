@@ -18,11 +18,11 @@
 
 package spinal.core
 
-import java.lang.reflect.Method
 
 
 import scala.collection.mutable
 import scala.collection.mutable.Stack
+
 
 
 //Give number of bit to encode a given number of states
@@ -63,6 +63,13 @@ object Cat{
   }
 }
 
+
+object ScalaUniverse{
+  def isCaseClass(o: Any): Boolean = {
+    o.getClass.getInterfaces.find(_ == classOf[scala.Product]) != None
+  }
+}
+
 object Misc {
 
   def addReflectionExclusion(o: Object) = reflectExclusion += o.getClass
@@ -80,34 +87,7 @@ object Misc {
   addReflectionExclusion(new SpinalEnumCraft(null))
 
 
-  //  def reflect(o: Object, onEach: (String, Object) => Unit): Unit = {
-  //    val refs = mutable.Set[Object]()
-  //    explore(o.getClass)
-  //    def explore(c: Class[_]): Unit = {
-  //      if (c == null) return
-  //      if (reflectExclusion.contains(c) || c.getName + "$" == Component.getClass.getName)
-  //        return
-  //      explore(c.getSuperclass)
-  //      for (f <- c.getDeclaredFields) {
-  //        f.setAccessible(true)
-  //        val fieldRef = f.get(o)
-  //        if (!refs.contains(fieldRef)) {
-  //          fieldRef match {
-  //            case vec: Vec[_] =>
-  //            case seq: Seq[_] => {
-  //              for ((obj, i) <- seq.zipWithIndex) {
-  //                onEach(f.getName + i, obj.asInstanceOf[Object])
-  //                refs += fieldRef
-  //              }
-  //            }
-  //            case _ =>
-  //          }
-  //          onEach(f.getName, fieldRef)
-  //          refs += fieldRef
-  //        }
-  //      }
-  //    }
-  //  }
+
   def reflect(o: Object, onEach: (String, Object) => Unit,namePrefix :String = ""): Unit = {
     val refs = mutable.Set[Object]()
     explore(o.getClass)
@@ -118,8 +98,14 @@ object Misc {
       explore(c.getSuperclass)
 
       val fields = c.getDeclaredFields
-      def isValDef(m: Method) = fields exists (fd => fd.getName == m.getName && fd.getType == m.getReturnType)
+      def isValDef(m: java.lang.reflect.Method) = fields exists (fd => fd.getName == m.getName && fd.getType == m.getReturnType)
       val methods = c.getDeclaredMethods filter (m => m.getParameterTypes.isEmpty && isValDef(m))
+
+
+
+
+
+
 
       for(method <- methods){
         method.setAccessible(true)

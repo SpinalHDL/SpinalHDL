@@ -177,41 +177,25 @@ object Timeout{
 }
 
 class Timeout(val limit: BigInt) extends ImplicitArea[Bool] {
+  assert(limit > 1)
+
   val state = RegInit(False)
   val stateRise = False
 
   val counter = CounterFreeRun(limit)
   when(counter.overflow) {
     state := True
-    stateRise := True
+    stateRise := True && ! state
   }
 
   def clear: Unit = {
     counter.reset
     state := False
+    stateRise := False
   }
 
   override def implicitValue: Bool = state
 }
-
-//class Timeout(val limit: BigInt) extends ImplicitArea2(Bool) {
-//  val state = RegInit(False)
-//  val stateRise = False
-//
-//  val counter = CounterFreeRun(limit)
-//  when(counter.overflow) {
-//    state := True
-//    stateRise := True
-//  }
-//
-//  def clear: Unit = {
-//    counter.reset
-//    state := False
-//  }
-//
-//  implicitValue := state
-//}
-
 
 object MajorityVote {
   def apply(that: BitVector): Bool = apply(that.toBools)

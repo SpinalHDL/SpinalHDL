@@ -5,7 +5,7 @@ import spinal.lib._
 
 
 object HandshakeTester{
-  class BundleA extends Bundle{
+  case class BundleA(aaa : Int) extends Bundle{
     val a = UInt(8 bit)
     val b = Bool
   }
@@ -15,12 +15,12 @@ import spinal.tester.scalatest.HandshakeTester._
 
 class HandshakeTester extends Component {
   val io = new Bundle {
-    val slave0 = slave Handshake(new BundleA)
-    val master0 = master Handshake(new BundleA)
+    val slave0 = slave Handshake new BundleA(8)
+    val master0 = master Handshake new BundleA(8)
     val fifo0_occupancy = out UInt
   }
 
-  val fifo0 = new HandshakeFifo(new BundleA,16)
+  val fifo0 = new HandshakeFifo(new BundleA(8),16)
   fifo0.io.push << io.slave0
   fifo0.io.pop >/-> io.master0
   io.fifo0_occupancy := fifo0.io.occupancy

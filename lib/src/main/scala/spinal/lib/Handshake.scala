@@ -30,7 +30,7 @@ class Handshake[T <: Data](_dataType: T) extends Bundle with Interface with Data
   val data: T = _dataType.clone()
 
 
-  def dataType = _dataType
+  def dataType = cloneOf(_dataType)
   override def clone: this.type = Handshake(_dataType).asInstanceOf[this.type]
 
   override def asMaster: this.type = {

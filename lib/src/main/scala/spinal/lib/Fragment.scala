@@ -8,10 +8,6 @@ class FragmentFactory {
 
 object Fragment extends FragmentFactory
 
-//object FlowFragment extends FlowFragmentFactory
-
-//object HandshakeFragment extends HandshakeFragmentFactory
-
 
 class FlowFragmentPimped[T <: Data](pimped: Flow[Fragment[T]]) {
   def filterHeader(header: T): Flow[Fragment[T]] = {
@@ -311,12 +307,13 @@ class HandshakeFragmentFactory extends MSFactory {
 }
 
 
-class Fragment[T <: Data](dataType: T) extends Bundle {
+class Fragment[T <: Data](_dataType: T) extends Bundle {
   val last = Bool
-  val fragment: T = dataType.clone
+  val fragment: T = _dataType.clone
 
+  def dataType = cloneOf(_dataType)
   override def clone: this.type = {
-    new Fragment(dataType).asInstanceOf[this.type];
+    new Fragment(_dataType).asInstanceOf[this.type];
   }
 }
 

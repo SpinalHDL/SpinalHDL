@@ -16,7 +16,7 @@
  * License along with this library.
  */
 
-package spinal.tester.code
+package landapkg
 
 import spinal.core._
 import spinal.lib._

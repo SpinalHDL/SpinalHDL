@@ -23,7 +23,16 @@ import scala.collection.mutable.ArrayBuffer
 
 
 
-abstract class MultiData extends Data {
+abstract class MultiData extends Data with DelayedInit {
+  globalData.dataStack.push(this)
+
+  override def delayedInit(body: => Unit) = {
+    body
+    if ((body _).getClass.getDeclaringClass == this.getClass) {
+      globalData.dataStack.pop(this)
+    }
+  }
+
 
   def elements: ArrayBuffer[(String, Data)]
 

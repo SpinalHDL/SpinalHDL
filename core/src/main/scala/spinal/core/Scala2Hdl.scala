@@ -29,7 +29,7 @@ object SpinalVhdl {
         if (tryCounter != 0) GlobalData.get.scalaLocatedEnable = true
         return factory.elaborate
       } catch {
-        case e: SpinalExit => {
+        case e: Exception => {
           tryCounter match {
             case 0 => {
               println("\n**********************************************************************************************")

@@ -15,9 +15,9 @@ object JsonTest {
     implicit val formats = DefaultFormats // Brings in default date formats etc.
 
 
-    case class Child(name: String, age: Int, birthdate: Option[java.util.Date])
-    case class Address(street: String, city: String)
-    case class Person(var name: String, var address: Address, var children: Seq[Child])
+    class Child(name: String, age: Int, birthdate: Option[java.util.Date])
+    class Address(street: String, city: String)
+    class Person( name: String, address: Address, children: Seq[Child])
     val json = net.liftweb.json.parse( """
          { "name": "joe",
            "address": {
@@ -40,13 +40,15 @@ object JsonTest {
 
     import net.liftweb.json.JsonDSL._
 
+    val person = json.extract[Person]
+    println(pretty(render(decompose(person))))
+
     case class Winner(id: Long, numbers: List[Int])
     case class Lotto(id: Long, winningNumbers: List[Int], winners: List[Winner], drawDate: Option[java.util.Date])
 
     val winners = List(Winner(23, List(2, 45, 34, 23, 3, 5)), Winner(54, List(52, 3, 12, 11, 18, 22)))
     val lotto = Lotto(5, List(2, 45, 34, 23, 7, 5, 3), winners, None)
-    val person = json.extract[Person]
-    println(pretty(render(decompose(person))))
+
 
     val j =
       ("lotto" ->

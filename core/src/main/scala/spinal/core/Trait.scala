@@ -316,6 +316,7 @@ class ResetArea(reset: Bool, cumulative: Boolean) extends Area with DelayedInit 
 }
 
 
+
 object GlobalData {
   //Per thread implementation
   private val it = new ThreadLocal[GlobalData]
@@ -342,6 +343,8 @@ class GlobalData {
   val componentStack = new SafeStack[Component]
   val switchStack = new SafeStack[SwitchStack]
   val whenStack = new SafeStack[when]
+  val dataStack = new SafeStack[Data]
+
   var scalaLocatedEnable = false
   var instanceCounter = 0
   val postBackendTask = mutable.ArrayBuffer[() => Unit]()

@@ -14,6 +14,7 @@ object MultiClockTester{
 import spinal.tester.scalatest.HandshakeTester._
 
 class MultiClockTester extends Component {
+  import MultiClockTester._
   val io = new Bundle {
     val clkA = in Bool
     val resetA = in Bool

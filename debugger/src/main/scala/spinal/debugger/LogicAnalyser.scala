@@ -224,7 +224,7 @@ class LogicAnalyserParameter {
 }
 
 
-case class JsonReport(clazz: String)
+
 class LogicAnalyserConfig(p: LogicAnalyserParameter) extends Bundle {
   val trigger = new Bundle {
     val delay = UInt(32 bit)
@@ -238,7 +238,6 @@ class LogicAnalyserConfig(p: LogicAnalyserParameter) extends Bundle {
 
 
 class LogicAnalyser(p: LogicAnalyserParameter) extends Component {
-
   import LogicAnalyser._
 
   val fragmentWidth = 8
@@ -251,7 +250,6 @@ class LogicAnalyser(p: LogicAnalyserParameter) extends Component {
   val exTriggers = p.exTriggers.reverse.map(_.trigger.pull)
 
 
-  //val slavePortRouter = FlowFragmentBitsRouter(io.slavePort)
   val waitTrigger = io.slavePort filterHeader (waitTriggerHeader) toRegOf (Bool) init (False)
   val userTrigger = io.slavePort pulseOn (userTriggerHeader)
   val configs = io.slavePort filterHeader (configsHeader) toRegOf(new LogicAnalyserConfig(p), false)
@@ -263,7 +261,6 @@ class LogicAnalyser(p: LogicAnalyserParameter) extends Component {
       waitTrigger := False
     }
     val event = DelayEvent(aggregate && waitTrigger, configs.trigger.delay)
-
   }
 
 

@@ -114,7 +114,7 @@ object Data {
   }
 }
 
-trait Data extends ContextUser with Nameable with Assignable with AttributeReady with SpinalTagReady with GlobalDataUser {
+trait Data extends ContextUser with Nameable with Assignable with AttributeReady with SpinalTagReady with GlobalDataUser with ScalaLocated {
   type SSelf <: Data
 
   var dir: IODirection = null
@@ -145,6 +145,9 @@ trait Data extends ContextUser with Nameable with Assignable with AttributeReady
     }
     this
   }
+
+
+  val parentData = globalData.dataStack.head()
 
   def getZero: this.type = {
     val ret = clone()
@@ -259,14 +262,29 @@ trait Data extends ContextUser with Nameable with Assignable with AttributeReady
       val constructor = this.getClass.getConstructors.head
       constructor.getParameterTypes.size match {
         case 0 => return constructor.newInstance().asInstanceOf[this.type]
-        case 1 => {
-          val paramtype = constructor.getParameterTypes.head
-          if (classOf[Bundle].isAssignableFrom(paramtype) || classOf[Component].isAssignableFrom(paramtype)) {
-            return constructor.newInstance(null).asInstanceOf[this.type]
+        /* case 1 => {
+           val paramtype = constructor.getParameterTypes.head
+           if (classOf[Bundle].isAssignableFrom(paramtype) || classOf[Component].isAssignableFrom(paramtype)) {
+             return constructor.newInstance(null).asInstanceOf[this.type]
+           }
+           needCloneImpl()
+         }*/
+        case _ => {
+          if (ScalaUniverse.isCaseClass(this)) {
+            val clas = getClass
+            val constructor = clas.getDeclaredConstructors.head
+            val argumentCount = constructor.getParameterTypes.size
+            val fields = clas.getDeclaredFields
+            val arguments = (0 until argumentCount) map { i =>
+              val fieldName = fields(i).getName
+              val getter = clas.getMethod(fieldName)
+              getter.invoke(this)
+            }
+            return constructor.newInstance(arguments: _*).asInstanceOf[this.type]
+          } else {
+            needCloneImpl()
           }
-          needCloneImpl()
         }
-        case _ => needCloneImpl()
       }
     } catch {
       case npe: java.lang.reflect.InvocationTargetException if npe.getCause.isInstanceOf[java.lang.NullPointerException] =>
@@ -276,7 +294,13 @@ trait Data extends ContextUser with Nameable with Assignable with AttributeReady
     }
 
     def needCloneImpl(): this.type = {
-      throw new Exception(s"Can't clone this data, you must implit it by yourself");
+      SpinalError(
+        """
+          |*** Spinal can't clone one of your datatype
+          |*** You have two way to solve that :
+          |*** In place to declare a "class Bundle(args){}", create a "case class Bundle(args){}"
+          |*** Or override by your self the bundle clone function
+          |*** The error is """.stripMargin +  this.getScalaLocationString);
       null
     }
     null

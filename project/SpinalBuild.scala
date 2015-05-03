@@ -20,6 +20,7 @@ object SpinalBuild extends Build {
     base = file("core"),
     settings = defaultSettings ++ Seq(
       name := "SpinalHDL Core",
+      libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value,
       version := SpinalVersion.core
     )
   )
@@ -63,6 +64,7 @@ object SpinalBuild extends Build {
   //https://oss.sonatype.org
   lazy val defaultSettings = Defaults.defaultSettings ++ xerial.sbt.Sonatype.sonatypeSettings ++ Seq(
     organization := "com.github.spinalhdl",
+    javacOptions += "-parameters",
     scalaVersion := SpinalVersion.compiler,
     scalacOptions ++= Seq("-unchecked", "-feature" /*,"-deprecation"*/),
     baseDirectory in test := file("/out/"),

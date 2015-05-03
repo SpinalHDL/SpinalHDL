@@ -24,32 +24,32 @@ import scala.collection.mutable.ArrayBuffer
  * Created by PIC18F on 08.01.2015.
  */
 
-object Bundle{
+object Bundle {
 
 }
 
-class NoData extends Bundle{
+class NoData extends Bundle {
 
 }
 
-class Bundle extends MultiData with Nameable{
+class Bundle extends MultiData with Nameable {
   override type SSelf = Bundle
 
   override def \(that: SSelf) = super.\(that)
   override def :=(that: SSelf): Unit = super.:=(that)
   override def <>(that: SSelf): Unit = super.<>(that)
 
-  override def assignFromImpl(that: AnyRef,conservative : Boolean): Unit = {
+  override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
     assert(!conservative)
     that match {
-      case that : Bundle => {
-        for((name,element) <- elements){
+      case that: Bundle => {
+        for ((name, element) <- elements) {
           val other = that.find(name)
-          if(other != null)
+          if (other != null)
             element := other
         }
       }
-      case _ =>throw new Exception("Undefined assignement")
+      case _ => throw new Exception("Undefined assignement")
     }
   }
 
@@ -62,7 +62,9 @@ class Bundle extends MultiData with Nameable{
       Misc.reflect(this, (name, obj) => {
         obj match {
           case data: Data => {
-            elementsCache += Tuple2(name, data)
+            if (data.parentData == this) { //To avoid bundle argument
+              elementsCache += Tuple2(name, data)
+            }
           }
           case _ =>
         }

@@ -21,12 +21,12 @@ package spinal.tester.scalatest
 import spinal.core._
 
 object BundleTester {
-  class BundleAA extends BundleA {
+  class BundleAA extends BundleA(True,3) {
     val b = Bool
     val d = Bool
   }
 
-  class BundleA extends Bundle {
+  case class BundleA(param : Bool,parm2 : Int) extends Bundle {
     val a = Bool
     val c = Bool
   }
@@ -39,7 +39,7 @@ class BundleTester extends Component {
     val conds = in Vec(8, Bool)
 
     val inAA = in Vec(3, new BundleAA)
-    val inA = in Vec(1, new BundleA)
+    val inA = in Vec(1, new BundleA(False,6))
 
     val outAA = out(new BundleAA)
   }

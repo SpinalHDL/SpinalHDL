@@ -49,12 +49,12 @@ class VhdlTestBenchBackend() extends VhdlBase {
     backend.emitLibrary(ret)
     emitUserCode("", "userLibrary", ret)
     ret ++= s"""
-               |
-               |entity $tbName is
-                                |end $tbName;
-                                              |
-                                              |architecture arch of $tbName is
-                                                                             |""".stripMargin
+                |
+                |entity $tbName is
+                |end $tbName;
+                |
+                |architecture arch of $tbName is
+                |""".stripMargin
 
 
     emitSignals(topLevel, ret)
