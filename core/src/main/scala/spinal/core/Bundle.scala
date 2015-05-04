@@ -30,11 +30,9 @@ object Bundle {
 
 
 
-class NoData extends Bundle {
-  val dummy = "Because of DelayedInit trait"
-}
 
-class Bundle extends MultiData with Nameable {
+
+class Bundle extends MultiData with Nameable with OverridedEqualsHashCode {
   override type SSelf = Bundle
 
   override def \(that: SSelf) = super.\(that)

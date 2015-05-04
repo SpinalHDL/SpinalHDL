@@ -33,7 +33,15 @@ abstract class MultiData extends Data with DelayedInit {
     if ((body _).getClass.getDeclaringClass == this.getClass) {
       //println("  " * MultiData.tab + "-")
       //if (globalData.dataStack.head() == this) {
-        globalData.dataStack.pop(this)
+      if(globalData.dataStack.head() != this){
+        SpinalWarning(
+          """
+            |*** One of your bundle as a empty body.
+            |*** It's not allowed for the moment (in scala 2.12 it will be)
+            |*** Please, put a dummy field like "val dummy = 0" into the empty bundle """.stripMargin + globalData.dataStack.head().getScalaLocationString)
+      }
+
+      globalData.dataStack.pop(this)
         //MultiData.tab -= 1
         //println("  " * MultiData.tab + "pop")
       //}

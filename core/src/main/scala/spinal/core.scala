@@ -28,7 +28,6 @@ package object core extends BaseTypeFactory with BaseTypeCast{
   def True = Bool(true)
   def False = Bool(false)
 
-  def NoData = new NoData
 
  // implicit def RegRefToReg[T <: Data](that : RegRef[T]) : T = that.getReg
 

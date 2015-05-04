@@ -126,9 +126,13 @@ begin
     io_tx_ready <= '0';
     waitClk(3);
     wait until rising_edge(clk) and reset = '0';
-    while true loop
+    for i in 0 to 20 loop
       rx;
     end loop;
+
+    done := done + 1;
+
+    wait;
   end process;
   
   -- #spinalEnd userLogics

@@ -363,3 +363,7 @@ class GlobalData {
 }
 
 
+trait OverridedEqualsHashCode{
+  override def equals(obj: scala.Any): Boolean = super.equals(obj)
+  override def hashCode(): Int = super.hashCode()
+}

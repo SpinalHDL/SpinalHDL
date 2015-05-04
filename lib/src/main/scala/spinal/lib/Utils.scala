@@ -24,6 +24,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 
+
 object OHToUInt {
   def apply(bitVector: BitVector): UInt = apply(bitVector.toBools)
 
@@ -348,4 +349,9 @@ object DelayEvent {
     ret
   }
 
+}
+
+
+class NoData extends Bundle {
+  val dummy = "Because of DelayedInit trait"
 }
