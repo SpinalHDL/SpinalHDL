@@ -121,6 +121,18 @@ object CommonTester {
     io.outUIntAdder := combAdderFunc(io.inUIntA,io.inUIntB)
 
 
+
+    //Clone test
+    case class MyBundle(paramBool : Bool,asd : Int) extends Bundle{
+      val a = cloneOf(paramBool)
+    }
+
+    class MyBundle2 extends Bundle{
+      val a = Bool
+    }
+
+    cloneOf(new MyBundle(True,1))
+    cloneOf(new MyBundle2)
   }
 
 }

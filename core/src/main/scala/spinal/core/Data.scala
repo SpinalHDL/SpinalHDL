@@ -260,32 +260,41 @@ trait Data extends ContextUser with Nameable with Assignable with AttributeReady
   override def clone(): this.type = {
     try {
       val constructor = this.getClass.getConstructors.head
-      constructor.getParameterTypes.size match {
-        case 0 => return constructor.newInstance().asInstanceOf[this.type]
-        /* case 1 => {
-           val paramtype = constructor.getParameterTypes.head
-           if (classOf[Bundle].isAssignableFrom(paramtype) || classOf[Component].isAssignableFrom(paramtype)) {
-             return constructor.newInstance(null).asInstanceOf[this.type]
-           }
-           needCloneImpl()
-         }*/
-        case _ => {
-          if (ScalaUniverse.isCaseClass(this)) {
-            val clas = getClass
-            val constructor = clas.getDeclaredConstructors.head
-            val argumentCount = constructor.getParameterTypes.size
-            val fields = clas.getDeclaredFields
-            val arguments = (0 until argumentCount) map { i =>
-              val fieldName = fields(i).getName
-              val getter = clas.getMethod(fieldName)
-              getter.invoke(this)
-            }
-            return constructor.newInstance(arguments: _*).asInstanceOf[this.type]
-          } else {
-            needCloneImpl()
-          }
+      val constrParamCount = constructor.getParameterTypes.size
+      //No param =>
+      if(constrParamCount == 0) return constructor.newInstance().asInstanceOf[this.type]
+
+      //Case class =>
+      if (ScalaUniverse.isCaseClass(this)) {
+        val clas = getClass
+        val outer = clas.getFields.find(_.getName == "$outer")
+        val constructor = clas.getDeclaredConstructors.head
+        val argumentCount = constructor.getParameterTypes.size - (if (outer.isDefined) 1 else 0)
+        val fields = clas.getDeclaredFields
+        val arguments = (0 until argumentCount) map { i =>
+          val fieldName = fields(i).getName
+          val getter = clas.getMethod(fieldName)
+          getter.invoke(this)
+        }
+        if (outer.isEmpty)
+          return constructor.newInstance(arguments: _*).asInstanceOf[this.type]
+        else {
+          val args = (outer.get.get(this) :: Nil) ++ arguments
+          return constructor.newInstance(args : _*).asInstanceOf[this.type]
         }
       }
+
+      //Inner class with no user parameters
+      if(constrParamCount == 1) {
+        val clas = getClass
+        val outer = clas.getFields.find(_.getName == "$outer")
+        if(outer.isDefined) {
+          return constructor.newInstance(outer.get.get(this)).asInstanceOf[this.type]
+        }
+      }
+
+      needCloneImpl()
+
     } catch {
       case npe: java.lang.reflect.InvocationTargetException if npe.getCause.isInstanceOf[java.lang.NullPointerException] =>
         needCloneImpl()
@@ -300,7 +309,7 @@ trait Data extends ContextUser with Nameable with Assignable with AttributeReady
           |*** You have two way to solve that :
           |*** In place to declare a "class Bundle(args){}", create a "case class Bundle(args){}"
           |*** Or override by your self the bundle clone function
-          |*** The error is """.stripMargin +  this.getScalaLocationString);
+          |*** The error is """.stripMargin + this.getScalaLocationString);
       null
     }
     null

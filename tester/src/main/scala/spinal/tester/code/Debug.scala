@@ -21,24 +21,34 @@ package spinal.tester.code
 import spinal.core._
 import spinal.lib._
 
-case class MyBundle(paramBool : Bool,asd : Int) extends Bundle{
-  val a = cloneOf(paramBool)
-}
+
 
 object Debug {
 
 
   class TopLevel extends Component {
+    case class MyBundle(paramBool : Bool,asd : Int) extends Bundle{
+      val a = cloneOf(paramBool)
+    }
 
+    class MyBundle2 extends Bundle{
+      val a = Bool
+    }
     val io = new Bundle {
       val in1 = in (new MyBundle(Bool,1))
       val out1 = out (new MyBundle(Bool,2))
+      val in2 = in (new MyBundle2)
+      val out2 = out (new MyBundle2)
     }
 
 
     val temp = cloneOf(io.in1)
     temp := io.in1
     io.out1 := temp
+
+    val temp2 = cloneOf(io.in2)
+    temp2 := io.in2
+    io.out2 := temp2
 
   }
 
