@@ -28,8 +28,10 @@ object Bundle {
 
 }
 
-class NoData extends Bundle {
 
+
+class NoData extends Bundle {
+  val dummy = "Because of DelayedInit trait"
 }
 
 class Bundle extends MultiData with Nameable {

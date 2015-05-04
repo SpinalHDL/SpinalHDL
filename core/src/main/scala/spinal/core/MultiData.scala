@@ -20,16 +20,25 @@ package spinal.core
 
 import scala.collection.mutable.ArrayBuffer
 
-
-
-
+object MultiData{
+ // var tab = 0
+}
 abstract class MultiData extends Data with DelayedInit {
   globalData.dataStack.push(this)
-
+  //println("  " * MultiData.tab + "push")
+ // MultiData.tab += 1
   override def delayedInit(body: => Unit) = {
     body
+
     if ((body _).getClass.getDeclaringClass == this.getClass) {
-      globalData.dataStack.pop(this)
+      //println("  " * MultiData.tab + "-")
+      //if (globalData.dataStack.head() == this) {
+        globalData.dataStack.pop(this)
+        //MultiData.tab -= 1
+        //println("  " * MultiData.tab + "pop")
+      //}
+      //else
+       // println("????")
     }
   }
 

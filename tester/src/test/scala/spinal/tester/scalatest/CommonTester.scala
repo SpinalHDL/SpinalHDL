@@ -80,6 +80,8 @@ object CommonTester {
 
     io.doit
 
+    val noData = NoData
+
     io.outAA.assignFromBits(io.inAABits)
     io.outAABits := io.inAA.toBits
 
@@ -133,6 +135,9 @@ object CommonTester {
 
     cloneOf(new MyBundle(True,1))
     cloneOf(new MyBundle2)
+
+
+
   }
 
 }
