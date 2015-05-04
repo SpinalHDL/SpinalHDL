@@ -27,7 +27,7 @@ object Debug {
 
 
   class TopLevel extends Component {
-    case class MyBundle(paramBool : Bool,asd : Int) extends Bundle{
+    @valParams class MyBundle(val paramBool : Bool,val asd : Int) extends Bundle{
       val a = cloneOf(paramBool)
     }
 

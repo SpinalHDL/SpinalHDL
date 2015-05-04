@@ -225,15 +225,13 @@ class LogicAnalyserParameter {
 
 
 
-class LogicAnalyserConfig(p: LogicAnalyserParameter) extends Bundle {
+case class LogicAnalyserConfig(p: LogicAnalyserParameter) extends Bundle {
   val trigger = new Bundle {
     val delay = UInt(32 bit)
   }
   val logger = new Bundle {
     val samplesLeftAfterTrigger = UInt(p.memAddressWidth bit)
   }
-
-  override def clone(): this.type = new LogicAnalyserConfig(p).asInstanceOf[this.type]
 }
 
 

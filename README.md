@@ -45,6 +45,7 @@ Examples
 ## Simple component
 
 ```scala
+// spinal.core contain all basics (Bool, UInt, Bundle, Reg, Component, ..)
 import spinal.core._  
 
 //A simple component definition
@@ -133,8 +134,17 @@ class CounterWithParity(size : Int) extends Component{
 ## Interface / Custom data types / Multi clock system
 
 ```scala
-
+// spinal.core contain all basics (Bool, UInt, Bundle, Reg, Component, ..)
 import spinal.core._
+
+// spinal.lib contain some abstraction built over the spinal.core like
+//   utils          : log2up, toGray, fromGray, 
+//                    majority vote, latency analysis (in cycle)
+//   bus            : Flow      (valid, data)
+//                    Handshake (valid, ready, data)
+//                    Flow or Handshake of Fragment  ( .. , last, data),
+//   abstraction    : counter, timeout,
+//   implementation : handshake fifo/arbiter/fork, UART controller
 import spinal.lib._
 
 //Define custom data types.

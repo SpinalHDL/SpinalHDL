@@ -259,21 +259,20 @@ trait Data extends ContextUser with Nameable with Assignable with AttributeReady
 
   override def clone(): this.type = {
     try {
-      val constructor = this.getClass.getConstructors.head
+      val clazz = this.getClass
+      val constructor = clazz.getConstructors.head
       val constrParamCount = constructor.getParameterTypes.size
       //No param =>
       if(constrParamCount == 0) return constructor.newInstance().asInstanceOf[this.type]
 
-      //Case class =>
-      if (ScalaUniverse.isCaseClass(this)) {
-        val clas = getClass
-        val outer = clas.getFields.find(_.getName == "$outer")
-        val constructor = clas.getDeclaredConstructors.head
+      def constructorParamsAreVal: this.type ={
+        val outer = clazz.getFields.find(_.getName == "$outer")
+        val constructor = clazz.getDeclaredConstructors.head
         val argumentCount = constructor.getParameterTypes.size - (if (outer.isDefined) 1 else 0)
-        val fields = clas.getDeclaredFields
+        val fields = clazz.getDeclaredFields
         val arguments = (0 until argumentCount) map { i =>
           val fieldName = fields(i).getName
-          val getter = clas.getMethod(fieldName)
+          val getter = clazz.getMethod(fieldName)
           getter.invoke(this)
         }
         if (outer.isEmpty)
@@ -283,14 +282,21 @@ trait Data extends ContextUser with Nameable with Assignable with AttributeReady
           return constructor.newInstance(args : _*).asInstanceOf[this.type]
         }
       }
+      //Case class =>
+      if (ScalaUniverse.isCaseClass(this)) {
+        return constructorParamsAreVal
+      }
 
       //Inner class with no user parameters
       if(constrParamCount == 1) {
-        val clas = getClass
-        val outer = clas.getFields.find(_.getName == "$outer")
+        val outer = clazz.getFields.find(_.getName == "$outer")
         if(outer.isDefined) {
           return constructor.newInstance(outer.get.get(this)).asInstanceOf[this.type]
         }
+      }
+
+      if(clazz.getAnnotations.find(_.isInstanceOf[valParams]).isDefined){
+        return constructorParamsAreVal
       }
 
       needCloneImpl()

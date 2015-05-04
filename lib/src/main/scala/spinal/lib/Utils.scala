@@ -67,6 +67,7 @@ object fromGray {
   }
 }
 
+//This is a pure software, It can be used by a software driver to pack data
 class BitAggregator {
   val elements = ArrayBuffer[(BigInt, Int)]()
   def clear = elements.clear()
