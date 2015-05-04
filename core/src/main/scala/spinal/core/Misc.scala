@@ -66,7 +66,8 @@ object Cat{
 
 object ScalaUniverse{
   def isCaseClass(o: Any): Boolean = {
-    o.getClass.getInterfaces.find(_ == classOf[scala.Product]) != None
+    val clazz = o.getClass
+    clazz.getInterfaces.find(_ == classOf[scala.Product]).isDefined && clazz.getDeclaredMethods.find(_.getName == "copy").isDefined
   }
 }
 
