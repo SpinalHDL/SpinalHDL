@@ -39,14 +39,31 @@ class Bundle extends MultiData with Nameable with OverridedEqualsHashCode {
   override def :=(that: SSelf): Unit = super.:=(that)
   override def <>(that: SSelf): Unit = super.<>(that)
 
+  def assignAllByName(that: SSelf) = {
+    for ((name, element) <- elements) {
+      val other = that.find(name)
+      if (other == null) SpinalError("Bundle assignement is not complet at " + ScalaLocated.getScalaTrace)
+      element := other
+    }
+  }
+  
+  def assignSomeByName(that: SSelf) = {
+    for ((name, element) <- elements) {
+      val other = that.find(name)
+      if (other != null)
+        element := other
+    }
+  }
+
   override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
     assert(!conservative)
     that match {
       case that: Bundle => {
+        if(this.getClass != that.getClass) SpinalError("Bundles must have the same final class to be assigned. Else use assignByName or assignSomeByName at \n" + ScalaLocated.getScalaTrace)
         for ((name, element) <- elements) {
           val other = that.find(name)
-          if (other != null)
-            element := other
+          if (other == null) SpinalError("Bundle assignement is not complet at " + ScalaLocated.getScalaTrace)
+          element := other
         }
       }
       case _ => throw new Exception("Undefined assignement")

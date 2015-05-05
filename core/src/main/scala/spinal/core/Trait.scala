@@ -129,7 +129,7 @@ trait Assignable {
     }
   }
 
-  def assignFromImpl(that: AnyRef, conservative: Boolean): Unit
+  private[spinal] def assignFromImpl(that: AnyRef, conservative: Boolean): Unit
 }
 
 
@@ -187,6 +187,16 @@ object ScalaLocated {
       !(className.startsWith("scala.") || className.startsWith("spinal.core")) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
     })
     temp.apply(0).toString
+  }
+
+  def getScalaTrace: String = {
+    val scalaTrace = new Throwable()
+    val temp = scalaTrace.getStackTrace.filter(trace => {
+      val className = trace.getClassName
+      //  !((className.startsWith("scala.") || className.startsWith("spinal.")) && !ScalaLocated.unfiltredPackages.map(className.startsWith(_)).reduceLeft(_ || _)) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
+      !(className.startsWith("scala.") || className.startsWith("spinal.core")) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
+    })
+    temp.map(_.toString).mkString("\n")
   }
 }
 

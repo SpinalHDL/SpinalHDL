@@ -27,28 +27,22 @@ object Debug {
 
 
   class TopLevel extends Component {
-    @valParams class MyBundle(val paramBool : Bool,val asd : Int) extends Bundle{
-      val a = cloneOf(paramBool)
+    class MyBundle extends Bundle{
+      val a = Bool
+      val b = Bool
     }
 
     class MyBundle2 extends Bundle{
       val a = Bool
+      val b = Bool
     }
     val io = new Bundle {
-      val in1 = in (new MyBundle(Bool,1))
-      val out1 = out (new MyBundle(Bool,2))
-      val in2 = in (new MyBundle2)
-      val out2 = out (new MyBundle2)
+      val in1 = in (new MyBundle)
+      val out1 = out (new MyBundle2)
     }
 
+    io.out1 := io.in1
 
-    val temp = cloneOf(io.in1)
-    temp := io.in1
-    io.out1 := temp
-
-    val temp2 = cloneOf(io.in2)
-    temp2 := io.in2
-    io.out2 := temp2
 
   }
 

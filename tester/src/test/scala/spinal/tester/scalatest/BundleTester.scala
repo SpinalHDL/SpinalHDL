@@ -49,7 +49,7 @@ class BundleTester extends Component {
 
   when(io.conds(0)) {
     io.outAA := io.inAA(0)
-    io.outAA := io.inA(0)
+    io.outAA assignSomeByName io.inA(0)
   } otherwise {
     io.outAA := zero
   }

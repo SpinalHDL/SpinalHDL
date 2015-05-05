@@ -78,7 +78,7 @@ object Misc {
 
 
   addReflectionExclusion(new Bundle())
-  addReflectionExclusion(new Vec(null))
+  addReflectionExclusion(new Vec(null,null))
   addReflectionExclusion(new Bool)
   addReflectionExclusion(new Bits)
   addReflectionExclusion(new UInt)

@@ -254,17 +254,7 @@ object BigTest {
 
   }
 
-  class VecA extends Vec(new BundleAA()) {
-    addE
-    addE
-    addE
-    addE
-    def addE = {
-      val e = new BundleAA()
 
-      addElement(e)
-    }
-  }
 
   /*
     import obj._
@@ -349,7 +339,7 @@ object BigTest {
       val outBundleA = new BundleA().asOutput
       //      //   val outBits = new Bits().asOutput
       //
-      val inVec = new VecA().asInput
+     // val inVec = new VecA().asInput
       //      //  val outVec = new VecA().asOutput
       //
       //

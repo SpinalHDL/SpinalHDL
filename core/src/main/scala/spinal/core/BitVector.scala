@@ -18,6 +18,8 @@
 
 package spinal.core
 
+import scala.collection.mutable.ArrayBuffer
+
 
 abstract class BitVector extends BaseType {
   var fixedWidth = -1
@@ -55,11 +57,11 @@ abstract class BitVector extends BaseType {
 
 
   def toBools: Vec[Bool] = {
-    val vec = new Vec(new Bool)
+    val vec = ArrayBuffer[Bool]()
     val bitCount = getWidth
     if (bitCount == -1) SpinalError("Can't convert to bools a Bits that has unspecified width value")
-    for (i <- 0 until bitCount) vec.addElement(this(i))
-    vec
+    for (i <- 0 until bitCount) vec += this(i)
+    Vec(vec)
   }
 
 

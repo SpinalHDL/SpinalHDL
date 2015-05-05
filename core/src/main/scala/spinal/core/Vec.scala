@@ -32,8 +32,8 @@ class VecFactory{
       else if (b.getClass.isAssignableFrom(a.getClass)) b
       else throw new Exception("can't mux that")
     }).clone()
-    val vec = new Vec(vecType)
-    elements.foreach(vec.addElement(_))
+
+    val vec = new Vec(vecType,elements.toVector)
     vec
   }
 
@@ -78,35 +78,36 @@ class VecAccessAssign[T <: BaseType](enables: Seq[Bool], tos: Seq[T]) extends As
   }
 }
 
-class Vec[T <: Data](_dataType: T) extends MultiData with collection.IndexedSeq[T]{
+class Vec[T <: Data](_dataType: T,val vec : Vector[T]) extends MultiData with collection.IndexedSeq[T]{
   override type SSelf = Vec[T]
 
   def dataType = cloneOf(_dataType)
 
   override def \(that: SSelf) = {
-    lockIt()
     super.\(that)
   }
   override def :=(that: SSelf): Unit = {
-    lockIt()
     super.:=(that)
   }
   override def <>(that: SSelf): Unit = {
-    lockIt()
     super.<>(that)
   }
 
-  private val vec = ArrayBuffer[T]()
-  var vecLock = false
+  override def equals(that : Any) : Boolean = that match{
+    case that : Vec[_] => instanceCounter == that.instanceCounter
+    case _ => false
+  }
+  override def hashCode(): Int = instanceCounter
+
   val accessMap = mutable.Map[UInt, T]()
   var vecTransposedCache: ArrayBuffer[ArrayBuffer[BaseType]] = null
 
 
-  def lockIt() : Unit = vecLock = true
-  def addElement (e : T): Unit ={
-    if(vecLock) SpinalError("You can't modify Vec after read/write it")
-    vec += e
-  }
+
+//  def addElement (e : T): Unit ={
+//    if(vecLock) SpinalError("You can't modify Vec after read/write it")
+//    vec += e
+//  }
 
   def vecTransposed: ArrayBuffer[ArrayBuffer[BaseType]] = {
     if (vecTransposedCache == null) {
@@ -128,7 +129,6 @@ class Vec[T <: Data](_dataType: T) extends MultiData with collection.IndexedSeq[
 
 
   def apply(idx: Int): T = {
-    lockIt()
     if(idx < 0 || idx >= vec.size) SpinalError(s"Static Vec($idx) is outside the range (${vec.size - 1} downto 0) of ${this}")
     vec(idx)
   }
@@ -143,12 +143,10 @@ class Vec[T <: Data](_dataType: T) extends MultiData with collection.IndexedSeq[
 
 
   def apply(address: UInt): T = {
-    lockIt()
     access(address)
   }
 
   def access(address: UInt): T = {
-    lockIt()
     if (accessMap.contains(address)) return accessMap.get(address).getOrElse(null.asInstanceOf[T])
 
 
@@ -164,7 +162,6 @@ class Vec[T <: Data](_dataType: T) extends MultiData with collection.IndexedSeq[
 
   override def assignFromImpl(that: AnyRef,conservative : Boolean): Unit = {
     assert(!conservative)
-    lockIt()
     that match {
       case that: SSelf => {
         if (that.vec.size != this.vec.size) throw new Exception("Can't assign Vec with a different size")
@@ -192,9 +189,6 @@ class Vec[T <: Data](_dataType: T) extends MultiData with collection.IndexedSeq[
   }
 
   override def clone(): this.type = {
-    val newVec = new Vec[T](dataType)
-    vec.foreach(newVec.vec += _.clone())
-    newVec.lockIt()
-    newVec.asInstanceOf[this.type]
+    new Vec[T](dataType,vec.map(_.clone())).asInstanceOf[this.type]
   }
 }

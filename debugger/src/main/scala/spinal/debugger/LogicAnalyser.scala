@@ -336,62 +336,36 @@ class LogicAnalyserLogger(p: LogicAnalyserParameter, probeType: Bits) extends Co
   memReadCmd.data := memReadAddress
 
 
-  when(state === sWaitTrigger) {
-    sampler.preEnable := True
-    when(io.trigger) {
-      state := sSample
-      memReadAddress := memWriteAddress + io.configs.logger.samplesLeftAfterTrigger + 2
+
+  switch(state) {
+    is(sWaitTrigger) {
+      sampler.preEnable := True
+      when(io.trigger) {
+        state := sSample
+        memReadAddress := memWriteAddress + io.configs.logger.samplesLeftAfterTrigger + 2
+      }
     }
-  }
-  when(state === sSample) {
-    sampler.postEnable := True
-    when(sampler.done) {
-      state := sPush
-      pushCounter := U(0)
+    is(sSample) {
+      sampler.postEnable := True
+      when(sampler.done) {
+        state := sPush
+        pushCounter := 0
+      }
     }
-  }
-  when(state === sPush) {
-    memReadCmd.valid := True
-    when(memReadCmd.ready) {
-      memReadAddress := memReadAddress + U(1)
-      pushCounter := pushCounter + U(1)
-    }
-    when(pushCounter === U((1 << pushCounter.getWidth) - 1)) {
-      memReadCmdIsLast := True
+    is(sPush) {
+      memReadCmd.valid := True
       when(memReadCmd.ready) {
-        state := sWaitTrigger
+        memReadAddress := memReadAddress + 1
+        pushCounter := pushCounter + 1
+      }
+      when(pushCounter === (1 << pushCounter.getWidth) - 1) {
+        memReadCmdIsLast := True
+        when(memReadCmd.ready) {
+          state := sWaitTrigger
+        }
       }
     }
   }
-//  switch(state) {
-//    is(sWaitTrigger) {
-//      sampler.preEnable := True
-//      when(io.trigger) {
-//        state := sSample
-//        memReadAddress := memWriteAddress + io.configs.logger.samplesLeftAfterTrigger + 2
-//      }
-//    }
-//    is(sSample) {
-//      sampler.postEnable := True
-//      when(sampler.done) {
-//        state := sPush
-//        pushCounter := U(0)
-//      }
-//    }
-//    is(sPush) {
-//      memReadCmd.valid := True
-//      when(memReadCmd.ready) {
-//        memReadAddress := memReadAddress + U(1)
-//        pushCounter := pushCounter + U(1)
-//      }
-//      when(pushCounter === U((1 << pushCounter.getWidth) - 1)) {
-//        memReadCmdIsLast := True
-//        when(memReadCmd.ready) {
-//          state := sWaitTrigger
-//        }
-//      }
-//    }
-//  }
 
   val memReadPort = mem.handshakeReadSync(memReadCmd, memReadCmdIsLast)
   io.log.translateFrom(memReadPort)((to, from) => {
