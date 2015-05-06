@@ -690,7 +690,11 @@ class VhdlBackend extends Backend with VhdlBase {
                   val rand = BigInt(bv.getWidth,Random).toString(2)
                   ret ++= " := \"" + "0" * (bv.getWidth - rand.length) +  rand + "\""
                 }
-                case e: SpinalEnumCraft[_] => ??? //TODO
+                case e: SpinalEnumCraft[_] => {
+                  val vec =  e.blueprint.values.toVector
+                  val rand = vec(Random.nextInt(vec.size))
+                  ret ++= " := " + rand.getName()
+                }
               }
             }
             ret ++= ";\n"

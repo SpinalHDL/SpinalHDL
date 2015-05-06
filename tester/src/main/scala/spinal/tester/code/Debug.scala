@@ -25,25 +25,36 @@ import spinal.lib._
 
 object Debug {
 
+  class MyBundle extends Bundle{
+    val a = Bool
+    val b = Bool
+    val c = Vec(2,new MyBundle2)
+  }
+
+  class MyBundle2 extends Bundle{
+    val a = Bool
+    val b = Bool
+  }
 
   class TopLevel extends Component {
-    class MyBundle extends Bundle{
-      val a = Bool
-      val b = Bool
-    }
 
-    class MyBundle2 extends Bundle{
-      val a = Bool
-      val b = Bool
-    }
     val io = new Bundle {
-      val in1 = in (new MyBundle)
-      val out1 = out (new MyBundle2)
+//      val in1 = in (new MyBundle)
+//      val out1 = out (new MyBundle2)
+
+//      val outputVec = Vec(3, master Handshake (new MyBundle))
+
+      val input = slave Handshake (new MyBundle)
+      val output = master Handshake (new MyBundle)
+
     }
 
-    io.out1 := io.in1
+    //io.out1 assignAllByName io.in1
 
-
+    val forks = HandshakeFork(io.input,3) 
+    io.output << HandshakeArbiterPriorityToLow(forks)
+  //  io.output <> HandshakeFork(io.input,3)
+   // (io.outputVec , HandshakeFork(io.input,3)).zipped.foreach(_ << _)
   }
 
 

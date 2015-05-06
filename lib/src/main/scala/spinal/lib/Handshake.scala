@@ -281,6 +281,18 @@ object HandshakeArbiterCore {
   }
 }
 
+object HandshakeArbiterPriorityToLow{
+  def apply[T <: Data](dataType: T, portCount : Int) : HandshakeArbiterCore[T] ={
+    new HandshakeArbiterCore(dataType,portCount)(HandshakeArbiterCore.arbitration_lowIdPortFirst,HandshakeArbiterCore.lock_none)
+  }
+
+  def apply[T <: Data](input: Vec[Handshake[T]]) : Handshake[T] ={
+    val arbiter = new HandshakeArbiterCore(input(0).dataType,input.size)(HandshakeArbiterCore.arbitration_lowIdPortFirst,HandshakeArbiterCore.lock_none)
+    (arbiter.io.inputs,input).zipped.foreach(_ << _)
+    return arbiter.io.output
+  }
+}
+
 //TODOTEST
 //class HandshakeArbiterPriorityImpl[T <: Data](dataType: T, portCount: Int, allowSwitchWithoutConsumption: Boolean = false) extends HandshakeArbiterCore(dataType, portCount, allowSwitchWithoutConsumption) {
 //  var search = True
@@ -292,31 +304,39 @@ object HandshakeArbiterCore {
 //}
 
 
+object HandshakeFork{
+  def apply[T <: Data](input : Handshake[T], portCount: Int): Vec[Handshake[T]] ={
+    val fork = new HandshakeFork(input.dataType,portCount)
+    fork.io.input << input
+    return fork.io.output
+  }
+}
+
 //TODOTEST
 class HandshakeFork[T <: Data](dataType: T, portCount: Int) extends Component {
   val io = new Bundle {
-    val in = slave Handshake (dataType)
-    val out = Vec(portCount, master Handshake (dataType))
+    val input = slave Handshake (dataType)
+    val output = Vec(portCount, master Handshake (dataType))
   }
   val linkEnable = Vec(portCount, RegInit(True))
 
-  io.in.ready := True
-  for (i <- (0 to portCount - 1)) {
-    when(!io.out(i).ready && linkEnable(i)) {
-      io.in.ready := False
+  io.input.ready := True
+  for (i <- 0 until portCount) {
+    when(!io.output(i).ready && linkEnable(i)) {
+      io.input.ready := False
     }
   }
 
-  for (i <- (0 to portCount - 1)) {
-    io.out(i).valid := io.in.valid && linkEnable(i)
-    io.out(i).data := io.in.data
-    when(io.out(i).fire) {
+  for (i <- 0 until portCount) {
+    io.output(i).valid := io.input.valid && linkEnable(i)
+    io.output(i).data := io.input.data
+    when(io.output(i).fire) {
       linkEnable(i) := False
     }
   }
 
-  when(io.in.ready) {
-    linkEnable.map(_ := True)
+  when(io.input.ready) {
+    linkEnable.foreach(_ := True)
   }
 }
 
