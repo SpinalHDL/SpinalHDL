@@ -51,7 +51,7 @@ object Debug {
 
     //io.out1 assignAllByName io.in1
 
-    val forks = HandshakeFork(io.input,3) 
+    val forks = HandshakeFork(io.input,3)
     io.output << HandshakeArbiterPriorityToLow(forks)
   //  io.output <> HandshakeFork(io.input,3)
    // (io.outputVec , HandshakeFork(io.input,3)).zipped.foreach(_ << _)

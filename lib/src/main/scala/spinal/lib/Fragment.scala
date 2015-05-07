@@ -415,7 +415,7 @@ object HandshakeFragmentArbiter {
 
   // def apply[T <: Data](dataType: T,portCount: Int) = new HandshakeArbiterCore(dataType,2)(HandshakeArbiterCore.arbitration_lowIdPortFirst,HandshakeArbiterCore.lock_fragmentLock)
   def apply[T <: Data](dataType: T)(inputs: Seq[Handshake[Fragment[T]]]): Handshake[Fragment[T]] = {
-    val arbiter = new HandshakeArbiterCore(Fragment(dataType), inputs.size)(HandshakeArbiterCore.arbitration_lowIdPortFirst, HandshakeArbiterCore.lock_fragmentLock)
+    val arbiter = new HandshakeArbiter(Fragment(dataType), inputs.size)(HandshakeArbiter.arbitration_lowIdPortFirst, HandshakeArbiter.lock_fragmentLock)
     (inputs, arbiter.io.inputs).zipped.foreach(_ >> _)
     arbiter.io.output
   }
@@ -425,7 +425,7 @@ object HandshakeFragmentArbiter {
 
 object HandshakeFragmentArbiterAndHeaderAdder {
   def apply[T <: Data](dataType: T)(inputs: Seq[Tuple2[Handshake[Fragment[T]], T]]): Handshake[Fragment[T]] = {
-    val arbiter = new HandshakeArbiterCore(Fragment(dataType), inputs.size)(HandshakeArbiterCore.arbitration_lowIdPortFirst, HandshakeArbiterCore.lock_fragmentLock)
+    val arbiter = new HandshakeArbiter(Fragment(dataType), inputs.size)(HandshakeArbiter.arbitration_lowIdPortFirst, HandshakeArbiter.lock_fragmentLock)
     (inputs, arbiter.io.inputs).zipped.foreach(_._1 >> _)
 
     val ret = Handshake Fragment (dataType)

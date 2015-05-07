@@ -64,16 +64,16 @@ object SpinalLibTest {
       val slaveHandshakeClkA = slave(new Handshake(new BundleA))
       val masterHandshakeClkB = master(new Handshake(new BundleA))
 
-      val arbiter = new HandshakeArbiterCoreIO(new BundleA,4)
+      //val arbiter = new HandshakeArbiterIO(new BundleA,4)
 
       val uart = new UartCtrlIo()
       val uartX = new UartCtrlIo()
 
-      val fifo = new HandshakeFifoIo(Bits(36 bit),256)
+     // val fifo = new HandshakeFifoIo(Bits(36 bit),256)
     }
 
-    val fifo = new HandshakeFifo(Bits(36 bit),256)
-    fifo.io <> io.fifo
+    /*val fifo = new HandshakeFifo(Bits(36 bit),256)
+    fifo.io <> io.fifo*/
 
     val uartCtrl = new UartCtrl()
     io.uart <> uartCtrl.io

@@ -201,14 +201,12 @@ class Handshake[T <: Data](_dataType: T) extends Bundle with Interface with Data
 }
 
 
-class HandshakeArbiterCoreIO[T <: Data](dataType: T, portCount: Int) extends Bundle {
-  val inputs = Vec(portCount, slave Handshake (dataType))
-  val output = master Handshake (dataType)
-  val chosen = out UInt (log2Up(portCount) bit)
-}
-
-class HandshakeArbiterCore[T <: Data](dataType: T, val portCount: Int)(arbitrationLogic: (HandshakeArbiterCore[T]) => Area, lockLogic: (HandshakeArbiterCore[T]) => Area) extends Component {
-  val io = new HandshakeArbiterCoreIO(dataType, portCount)
+class HandshakeArbiter[T <: Data](dataType: T, val portCount: Int)(arbitrationLogic: (HandshakeArbiter[T]) => Area, lockLogic: (HandshakeArbiter[T]) => Area) extends Component {
+  val io = new Bundle {
+    val inputs = Vec(portCount, slave Handshake (dataType))
+    val output = master Handshake (dataType)
+    val chosen = out UInt (log2Up(portCount) bit)
+  }
 
   val locked = RegInit(False)
 
@@ -239,8 +237,8 @@ class HandshakeArbiterCore[T <: Data](dataType: T, val portCount: Int)(arbitrati
 
 }
 
-object HandshakeArbiterCore {
-  def arbitration_lowIdPortFirst[T <: Data](core: HandshakeArbiterCore[T]) = new Area {
+object HandshakeArbiter {
+  def arbitration_lowIdPortFirst[T <: Data](core: HandshakeArbiter[T]) = new Area {
 
     import core._
 
@@ -252,11 +250,11 @@ object HandshakeArbiterCore {
     maskProposal(portCount - 1) := search
   }
 
-  def lock_none[T <: Data](core: HandshakeArbiterCore[T]) = new Area {
+  def lock_none[T <: Data](core: HandshakeArbiter[T]) = new Area {
 
   }
 
-  def lock_transactionLock[T <: Data](core: HandshakeArbiterCore[T]) = new Area {
+  def lock_transactionLock[T <: Data](core: HandshakeArbiter[T]) = new Area {
 
     import core._
 
@@ -268,7 +266,7 @@ object HandshakeArbiterCore {
     }
   }
 
-  def lock_fragmentLock[T <: Data](core: HandshakeArbiterCore[Fragment[T]]) = new Area {
+  def lock_fragmentLock[T <: Data](core: HandshakeArbiter[Fragment[T]]) = new Area {
 
     import core._
 
@@ -282,12 +280,12 @@ object HandshakeArbiterCore {
 }
 
 object HandshakeArbiterPriorityToLow{
-  def apply[T <: Data](dataType: T, portCount : Int) : HandshakeArbiterCore[T] ={
-    new HandshakeArbiterCore(dataType,portCount)(HandshakeArbiterCore.arbitration_lowIdPortFirst,HandshakeArbiterCore.lock_none)
+  def apply[T <: Data](dataType: T, portCount : Int) : HandshakeArbiter[T] ={
+    new HandshakeArbiter(dataType,portCount)(HandshakeArbiter.arbitration_lowIdPortFirst,HandshakeArbiter.lock_none)
   }
 
   def apply[T <: Data](input: Vec[Handshake[T]]) : Handshake[T] ={
-    val arbiter = new HandshakeArbiterCore(input(0).dataType,input.size)(HandshakeArbiterCore.arbitration_lowIdPortFirst,HandshakeArbiterCore.lock_none)
+    val arbiter = new HandshakeArbiter(input(0).dataType,input.size)(HandshakeArbiter.arbitration_lowIdPortFirst,HandshakeArbiter.lock_none)
     (arbiter.io.inputs,input).zipped.foreach(_ << _)
     return arbiter.io.output
   }
@@ -360,14 +358,13 @@ class HandshakeDemux[T <: Data](dataType: T, portCount: Int) extends Component {
   }
 }
 
-class HandshakeFifoIo[T <: Data](dataType: T, depth: Int) extends Bundle {
-  val push = slave Handshake (dataType)
-  val pop = master Handshake (dataType)
-  val occupancy = out UInt (log2Up(depth + 1) bit)
-}
 
 class HandshakeFifo[T <: Data](dataType: T, depth: Int) extends Component {
-  val io = new HandshakeFifoIo(dataType, depth)
+  val io = new Bundle {
+    val push = slave Handshake (dataType)
+    val pop = master Handshake (dataType)
+    val occupancy = out UInt (log2Up(depth + 1) bit)
+  }
 
   val ram = Mem(dataType, depth)
 
@@ -408,18 +405,17 @@ class HandshakeFifo[T <: Data](dataType: T, depth: Int) extends Component {
 }
 
 
-class HandshakeFifoCCIo[T <: Data](dataType: T, depth: Int) extends Bundle {
-  val push = slave Handshake (dataType)
-  val pop = master Handshake (dataType)
-  val pushOccupancy = out UInt (log2Up(depth) + 1 bit)
-  val popOccupancy = out UInt (log2Up(depth) + 1 bit)
-}
 
 class HandshakeFifoCC[T <: Data](dataType: T, depth: Int, pushClockDomain: ClockDomain, popClockDomain: ClockDomain) extends Component {
   assert(isPow2(depth))
   assert(depth >= 2)
 
-  val io = new HandshakeFifoCCIo(dataType, depth)
+  val io = new Bundle {
+    val push = slave Handshake (dataType)
+    val pop = master Handshake (dataType)
+    val pushOccupancy = out UInt (log2Up(depth) + 1 bit)
+    val popOccupancy = out UInt (log2Up(depth) + 1 bit)
+  }
 
   val ptrWidth = log2Up(depth) + 1
   def isFull(a: Bits, b: Bits) = a(ptrWidth - 1, ptrWidth - 2) === ~b(ptrWidth - 1, ptrWidth - 2) && a(ptrWidth - 3, 0) === b(ptrWidth - 3, 0)
