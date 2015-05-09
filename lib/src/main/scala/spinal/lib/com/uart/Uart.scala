@@ -4,7 +4,7 @@ import spinal.core._
 import spinal.lib._
 
 
-class Uart extends Bundle with Interface {
+class Uart extends Bundle with IMasterSlave {
   val txd = Bool
   val rxd = Bool
 

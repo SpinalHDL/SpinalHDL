@@ -24,7 +24,6 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 
-
 object OHToUInt {
   def apply(bitVector: BitVector): UInt = apply(bitVector.toBools)
 
@@ -64,6 +63,13 @@ object fromGray {
     }
     ret.msb := gray.msb
     ret
+  }
+}
+
+object adderAndCarry {
+  def apply(left: UInt, right: UInt): (UInt, Bool) = {
+    val temp = left.resize(left.getWidth + 1) + right.resize(right.getWidth + 1)
+    return (temp(temp.getWidth - 2, 0), temp.msb)
   }
 }
 
@@ -173,8 +179,7 @@ class Counter(val stateCount: BigInt, freeRun: Boolean = false) extends Area {
 }
 
 
-
-object Timeout{
+object Timeout {
   def apply(limit: BigInt) = new Timeout(limit)
 }
 
@@ -187,7 +192,7 @@ class Timeout(val limit: BigInt) extends ImplicitArea[Bool] {
   val counter = CounterFreeRun(limit)
   when(counter.overflow) {
     state := True
-    stateRise := True && ! state
+    stateRise := True && !state
   }
 
   def clear: Unit = {
@@ -355,4 +360,28 @@ object DelayEvent {
 
 class NoData extends Bundle {
   val dummy = "Because of DelayedInit trait"
+}
+
+
+class TraversableOncePimped[T](pimped: TraversableOnce[T]) {
+  def reduceBalancedSpinal(op: (T, T) => T): T = {
+    def stage(elements: ArrayBuffer[T]): T = {
+      if(elements.length == 1) return elements.head
+      val stageLogic = new ArrayBuffer[T]()
+      val logicCount = (elements.length+1)/2
+
+      for(i <- 0 until logicCount ){
+        if(i*2+1 < elements.length)
+          stageLogic += op(elements(i*2),elements(i*2+1))
+        else
+          stageLogic += elements(i*2)
+      }
+      println(stageLogic.mkString(" "))
+      stage(stageLogic)
+
+    }
+    val array = ArrayBuffer[T]() ++ pimped
+    assert(array.length >= 1)
+    stage(array)
+  }
 }

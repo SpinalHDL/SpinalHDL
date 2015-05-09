@@ -53,13 +53,14 @@ class VecFactory{
 object SeqMux {
   def apply[T <: Data](elements: Seq[T], address: UInt): T = {
     val addressBools = address.toBools
+    val addressWidth = address.getWidth
     def stage(elements: Seq[T], level: Int): T = {
       elements.size match {
         case 0 => throw new Exception("Can't mux a Vec of size zero")
         case 1 => elements(0)
         case _ => {
           val split = elements.grouped((elements.size + 1) / 2).toList
-          Mux(addressBools(level), stage(split(1), level + 1), stage(split(0), level + 1))
+          Mux(addressBools(addressWidth-level-1), stage(split(1), level + 1), stage(split(0), level + 1))
         }
       }
     }
@@ -146,6 +147,7 @@ class Vec[T <: Data](_dataType: T,val vec : Vector[T]) extends MultiData with co
     access(address)
   }
 
+  //TODO cache must keep attention component
   def access(address: UInt): T = {
     if (accessMap.contains(address)) return accessMap.get(address).getOrElse(null.asInstanceOf[T])
 

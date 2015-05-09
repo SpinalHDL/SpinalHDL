@@ -17,7 +17,7 @@ class FlowFactory extends MSFactory{
 
 object Flow extends FlowFactory
 
-class Flow[T <: Data](_dataType: T) extends Bundle with Interface with DataCarrier[T]{
+class Flow[T <: Data](_dataType: T) extends Bundle with IMasterSlave with DataCarrier[T]{
   val valid = Bool
   val data : T = _dataType.clone()
 

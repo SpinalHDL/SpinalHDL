@@ -2,40 +2,40 @@ package spinal.lib
 
 import spinal.core.Data
 
-trait Interface {
+trait IMasterSlave {
   def asMaster: this.type
   def asSlave: this.type
 }
 
 trait MSFactory{
-  def postApply(interface : Interface) : Unit = {}
+  def postApply(interface : IMasterSlave) : Unit = {}
 }
 
 trait MS{
-  def apply[T <: Interface](i: T) : T
+  def apply[T <: IMasterSlave](i: T) : T
 
   object Flow extends FlowFactory{
-    override def postApply(interface : Interface) : Unit = {
+    override def postApply(interface : IMasterSlave) : Unit = {
       super.postApply(interface)
       MS.this.apply(interface)
     }
   }
 
   object Handshake extends HandshakeFactory{
-    override def postApply(interface : Interface) : Unit = {
+    override def postApply(interface : IMasterSlave) : Unit = {
       super.postApply(interface)
       MS.this.apply(interface)
     }
   }
 
   object event extends EventFactory{
-    override def postApply(interface : Interface) : Unit = {
+    override def postApply(interface : IMasterSlave) : Unit = {
       super.postApply(interface)
       MS.this.apply(interface)
     }
   }
 
-  def Event = {
+  def Event : Event = {
     val ret = spinal.lib.Event
     MS.this.apply(ret)
     ret
@@ -43,14 +43,14 @@ trait MS{
 }
 
 object master extends MS{
-  override def apply[T <: Interface](i: T) = {
+  override def apply[T <: IMasterSlave](i: T) = {
     i.asMaster;
     i
   }
 }
 
 object slave extends MS {
-  def apply[T <: Interface](i: T) = {
+  def apply[T <: IMasterSlave](i: T) = {
     i.asSlave;
     i
   }

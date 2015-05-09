@@ -24,7 +24,7 @@ class EventFactory extends MSFactory {
 }
 
 
-class Handshake[T <: Data](_dataType: T) extends Bundle with Interface with DataCarrier[T] {
+class Handshake[T <: Data](_dataType: T) extends Bundle with IMasterSlave with DataCarrier[T] {
   val valid = Bool
   val ready = Bool
   val data: T = _dataType.clone()
