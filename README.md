@@ -14,8 +14,9 @@ SpinalHDL is a scala library that allows the user to describe his digital hardwa
 
 Getting started
 ===============
-## Documents
-- There is a presentation of the language there   : https://github.com/SpinalHDL/SpinalDoc/tree/master/presentation/en
+## Lings
+- There is a base project                         : https://github.com/SpinalHDL/SpinalBaseProject
+- There is a presentation of the language there   : https://github.com/SpinalHDL/SpinalDoc/tree/master/presentation/en (pptx has comments)
 - There is a small paper about it there           : https://github.com/SpinalHDL/SpinalDoc/tree/master/paper/en
 
 ## Basics
