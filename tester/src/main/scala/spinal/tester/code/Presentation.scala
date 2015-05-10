@@ -1,6 +1,7 @@
 package spinal.tester.code
 
 import spinal.core._
+import spinal.debugger.LogicAnalyserBuilder
 import spinal.lib._
 
 object C0 {
@@ -369,8 +370,63 @@ object C10_removed {
     def fire: Bool
     def throwWhen(cond: Bool)
   }
+
+
+
 }
 
 object C11 {
+  val cond = Bool
+  val inPort = Handshake(Bits(32 bit))
+  val outPort = Handshake(Bits(32 bit))
 
+  outPort << inPort
+  outPort <-< inPort
+  outPort </< inPort
+  outPort <-/< inPort
+  val haltedPort = inPort.haltWhen(cond)  // & operator
+  val filteredPort = inPort.throwWhen(inPort.data === 0)
+  val outPortWithMsb = inPort.translateWith(inPort.data.msb) // ~ operator
+
+
+  object somewhere{
+    object inThe{
+      object hierarchy{
+        val trigger = True
+        val signalA = True
+        val signalB = True
+      }
+    }
+
+    val signalC = True
+  }
+
+  val logicAnalyser = LogicAnalyserBuilder()
+    .setSampleCount(256)
+    .exTrigger(somewhere.inThe.hierarchy.trigger)
+    .probe(somewhere.inThe.hierarchy.signalA)
+    .probe(somewhere.inThe.hierarchy.signalB)
+    .probe(somewhere.signalC)
+    .build
+
+//  val uartCtrl = new UartCtrl()
+//  uartCtrl.read >> logicAnalyser.io.slavePort
+//  uartCtrl.write << logicAnalyser.io.masterPort
+}
+
+object C12{
+  class MyComponentWithLatencyAssert extends Component {
+    val io = new Bundle {
+      val slavePort = slave Handshake (UInt(8 bit))
+      val masterPort = master Handshake (UInt(8 bit))
+    }
+
+    //These 3 line are equivalent to io.slavePort.queue(16) >/-> io.masterPort
+    val fifo = new HandshakeFifo((UInt(8 bit)),16)
+    fifo.io.push << io.slavePort
+    fifo.io.pop >/-> io.masterPort
+
+    assert(3 == latencyAnalysis(io.slavePort.data,io.masterPort.data))
+    assert(2 == latencyAnalysis(io.masterPort.ready,io.slavePort.ready))
+  }
 }
