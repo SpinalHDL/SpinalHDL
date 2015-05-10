@@ -19,6 +19,7 @@
 package spinal.core
 
 import scala.collection.mutable
+import scala.reflect.macros.blackbox
 
 
 class EnumLiteral[T <: SpinalEnum](val enum: SpinalEnumElement[T]) extends Literal {
@@ -69,6 +70,9 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T) extends BaseType {
     res
   }
 
+  def init(enumElement: SpinalEnumElement[T]): this.type = {
+    init(enumElement())
+  }
 
   def getParentName = blueprint.getName()
 

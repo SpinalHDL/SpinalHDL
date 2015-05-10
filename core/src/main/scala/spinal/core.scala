@@ -13,7 +13,9 @@ package object core extends BaseTypeFactory with BaseTypeCast{
   implicit def IntToBuilder(value: Int) = new IntBuilder(value)
   implicit def BigIntToBuilder(value: BigInt) = new BigIntBuilder(value)
 
-  // implicit def EnumElementToCraft[T <: SpinalEnum](element : SpinalEnumElement[T]) : SpinalEnumCraft[T] = element()
+  //implicit def EnumElementToCraft[T <: SpinalEnum](element : SpinalEnumElement[T]) : SpinalEnumCraft[T] = element()
+//  implicit def EnumElementToCraft[T <: SpinalEnum](enumDef : T) : SpinalEnumCraft[T] = enumDef.craft().asInstanceOf[SpinalEnumCraft[T]]
+//  implicit def EnumElementToCraft2[T <: SpinalEnum](enumDef : SpinalEnumElement[T]) : SpinalEnumCraft[T] = enumDef.craft().asInstanceOf[SpinalEnumCraft[T]]
 
   case class IntBuilder(i: Int) {
     def bit = new BitCount(i)

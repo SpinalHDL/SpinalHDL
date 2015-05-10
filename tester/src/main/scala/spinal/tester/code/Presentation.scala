@@ -305,17 +305,17 @@ object C10_2 {
     val io = new Bundle {
       val run = slave Event
 
-      val memoryReadAddress = master Handshake(Bits(32 bit))
-      val memoryReadData = slave Handshake(Bits(32 bit))
+      val memoryReadAddress = master Handshake (Bits(32 bit))
+      val memoryReadData = slave Handshake (Bits(32 bit))
 
       val colorStream = master Handshake (Color(8))
     }
 
     io.run.ready := False
     val addressCounter = RegInit(U"x0000")
-    when(io.memoryReadAddress.fire){
+    when(io.memoryReadAddress.fire) {
       addressCounter := addressCounter + 1
-      when(addressCounter === U"xFFFF"){
+      when(addressCounter === U"xFFFF") {
         addressCounter := 0
         io.run.ready := True
       }
@@ -372,7 +372,6 @@ object C10_removed {
   }
 
 
-
 }
 
 object C11 {
@@ -384,14 +383,16 @@ object C11 {
   outPort <-< inPort
   outPort </< inPort
   outPort <-/< inPort
-  val haltedPort = inPort.haltWhen(cond)  // & operator
+  val haltedPort = inPort.haltWhen(cond)
+  // & operator
   val filteredPort = inPort.throwWhen(inPort.data === 0)
-  val outPortWithMsb = inPort.translateWith(inPort.data.msb) // ~ operator
+  val outPortWithMsb = inPort.translateWith(inPort.data.msb)
+  // ~ operator
 
 
-  object somewhere{
-    object inThe{
-      object hierarchy{
+  object somewhere {
+    object inThe {
+      object hierarchy {
         val trigger = True
         val signalA = True
         val signalB = True
@@ -409,12 +410,12 @@ object C11 {
     .probe(somewhere.signalC)
     .build
 
-//  val uartCtrl = new UartCtrl()
-//  uartCtrl.read >> logicAnalyser.io.slavePort
-//  uartCtrl.write << logicAnalyser.io.masterPort
+  //  val uartCtrl = new UartCtrl()
+  //  uartCtrl.read >> logicAnalyser.io.slavePort
+  //  uartCtrl.write << logicAnalyser.io.masterPort
 }
 
-object C12{
+object C12 {
   class MyComponentWithLatencyAssert extends Component {
     val io = new Bundle {
       val slavePort = slave Handshake (UInt(8 bit))
@@ -422,11 +423,41 @@ object C12{
     }
 
     //These 3 line are equivalent to io.slavePort.queue(16) >/-> io.masterPort
-    val fifo = new HandshakeFifo((UInt(8 bit)),16)
+    val fifo = new HandshakeFifo((UInt(8 bit)), 16)
     fifo.io.push << io.slavePort
     fifo.io.pop >/-> io.masterPort
 
-    assert(3 == latencyAnalysis(io.slavePort.data,io.masterPort.data))
-    assert(2 == latencyAnalysis(io.masterPort.ready,io.slavePort.ready))
+    assert(3 == latencyAnalysis(io.slavePort.data, io.masterPort.data))
+    assert(2 == latencyAnalysis(io.masterPort.ready, io.slavePort.ready))
   }
 }
+
+
+object C13 {
+
+  object MyEnum extends SpinalEnum {
+    val state0, state1, anotherState = Value
+  }
+  
+  abstract class MyComponent extends Component {
+    val logicOfA = new Area {
+      val flag = Bool
+      val logic = Bool
+    }
+    val fsm = new Area {
+      import MyEnum._
+
+      val state = Reg(MyEnum()) init (state0)
+      switch(state) {
+        is(state0) {
+          when(logicOfA.flag) {
+            state := state1
+          }
+        }
+        default {
+        }
+      }
+    }
+  }
+}
+
