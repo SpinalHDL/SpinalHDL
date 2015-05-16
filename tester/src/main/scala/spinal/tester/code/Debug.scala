@@ -80,15 +80,16 @@ object Debug {
       }
     }
 
+    //    for(i <- 0 to 63){
+    //      romData += MyData(false,i)
+    //    }
+
     case class MyData() extends Bundle{
       val a = Bool
       val b = UInt(3 bit)
     }
 
     val romData = ArrayBuffer(MyData(false,1),MyData(false,2),MyData(true,3),MyData(false,4))
-    for(i <- 0 to 63){
-      romData += MyData(false,i)
-    }
     val rom = Mem(MyData(),68) init(romData)
 
     io.romRead := rom(io.romCmd)
