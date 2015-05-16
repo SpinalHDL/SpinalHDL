@@ -26,6 +26,12 @@ class EnumLiteral[T <: SpinalEnum](val enum: SpinalEnumElement[T]) extends Liter
   override def calcWidth: Int = enum.parent.getWidth
 
   override def clone() : this.type = new EnumLiteral(enum).asInstanceOf[this.type]
+
+  override def getBitsStringOn(bitCount: Int): String = {
+    assert(bitCount == enum.parent.getWidth)
+    val str = enum.id.toString(2)
+    return "0" * (bitCount - str.length) + str
+  }
 }
 
 class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T) extends BaseType {

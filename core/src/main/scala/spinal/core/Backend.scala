@@ -100,7 +100,6 @@ class Backend {
   }
 
   //TODO
-  //TODO ROM support
   //TODO Union support
   //TODO 1 bit * 3 bit => 3 bit in place of 4 bit ?
   //TODO function to check if 2 clocks are drived from same signal and apply it to mem blackbox inference and cross clock checker(rd.getClockDomain.clock == wr.getClockDomain.clock)
@@ -248,7 +247,9 @@ class Backend {
 
 
 
-    for ((mem, topo) <- memsTopo.iterator if forceMemToBlackboxTranslation || mem.forceMemToBlackboxTranslation) {
+    for ((mem, topo) <- memsTopo.iterator if forceMemToBlackboxTranslation || mem.forceMemToBlackboxTranslation
+                                          if mem.initialContant == null) {
+
       if (topo.writes.size == 1 && topo.readsAsync.size == 1 && topo.readsSync.size == 0 && topo.writeReadSync.size == 0 && topo.writeOrReadSync.size == 0) {
         val wr = topo.writes(0)
         val rd = topo.readsAsync(0)

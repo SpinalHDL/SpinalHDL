@@ -44,7 +44,7 @@ class VhdlBackend extends Backend with VhdlBase {
     SpinalInfoPhase("Write VHDL")
 
     if (outputFile == null) outputFile = topLevel.definitionName
-    if(jsonReportPath == "") jsonReportPath = outputFile
+    if (jsonReportPath == "") jsonReportPath = outputFile
 
     out = new java.io.FileWriter(outputFile + ".vhd")
     emitEnumPackage(out)
@@ -591,7 +591,7 @@ class VhdlBackend extends Backend with VhdlBase {
     val retTemp = new StringBuilder
     retTemp ++= s"begin\n"
     emitComponentInstances(component, retTemp)
-    emitAsyncronous(component, retTemp,ret)
+    emitAsyncronous(component, retTemp, ret)
     emitSyncronous(component, retTemp)
     retTemp ++= s"end arch;\n"
     retTemp ++= s"\n"
@@ -685,13 +685,15 @@ class VhdlBackend extends Backend with VhdlBase {
             ret ++= s"  signal ${emitReference(signal)} : ${emitDataType(signal)}"
             if (signal.hasTag(randomBoot)) {
               signal match {
-                case b: Bool => ret ++= " := " + {if(Random.nextBoolean()) "'1'" else "'0'"}
-                case bv: BitVector =>{
-                  val rand = BigInt(bv.getWidth,Random).toString(2)
-                  ret ++= " := \"" + "0" * (bv.getWidth - rand.length) +  rand + "\""
+                case b: Bool => ret ++= " := " + {
+                  if (Random.nextBoolean()) "'1'" else "'0'"
+                }
+                case bv: BitVector => {
+                  val rand = BigInt(bv.getWidth, Random).toString(2)
+                  ret ++= " := \"" + "0" * (bv.getWidth - rand.length) + rand + "\""
                 }
                 case e: SpinalEnumCraft[_] => {
-                  val vec =  e.blueprint.values.toVector
+                  val vec = e.blueprint.values.toVector
                   val rand = vec(Random.nextInt(vec.size))
                   ret ++= " := " + rand.getName()
                 }
@@ -709,7 +711,36 @@ class VhdlBackend extends Backend with VhdlBase {
         //        }
         case mem: Mem[_] => {
           ret ++= s"  type ${emitReference(mem)}_type is array (0 to ${mem.wordCount - 1}) of std_logic_vector(${mem.getWidth - 1} downto 0);\n"
-          ret ++= emitSignal(mem, mem);
+          //ret ++= emitSignal(mem, mem);
+          var initAssignementBuilder = new StringBuilder()
+          if (mem.initialContant != null) {
+            initAssignementBuilder ++= " := ("
+            val values = mem.initialContant.map(e => {
+              e.hashCode()
+            })
+
+            var first = true
+            for((e,index) <- mem.initialContant.zipWithIndex){
+              if(!first)
+                initAssignementBuilder ++= ","
+              else
+                first = false
+
+              if((index & 15) == 0){
+                initAssignementBuilder ++= "\n     "
+              }
+
+              val values = (e.flatten,mem._widths).zipped.map((e,width) => {
+                e._2.getLiteral.getBitsStringOn(width)
+              })
+
+              initAssignementBuilder ++= "\"" + values.reduceLeft((l,r) => r + l) + "\""
+            }
+
+            initAssignementBuilder ++= ")"
+          }
+
+          ret ++= s"  signal ${emitReference(mem)} : ${emitDataType(mem)}${initAssignementBuilder.toString()};\n"
           emitAttributes(mem, "signal", ret)
         }
         case _ =>
@@ -752,7 +783,7 @@ class VhdlBackend extends Backend with VhdlBase {
 
     sensitivity
   }
-  def emitAsyncronous(component: Component, ret: StringBuilder,funcRet: StringBuilder): Unit = {
+  def emitAsyncronous(component: Component, ret: StringBuilder, funcRet: StringBuilder): Unit = {
 
     var processCounter = 0
     class Process(val order: Int) {
@@ -851,7 +882,7 @@ class VhdlBackend extends Backend with VhdlBase {
 
     for (process <- processList if !process.needProcessDef) {
       for (node <- process.nodes) {
-        emitAssignement(node, node.inputs(0), ret, "  ","<=")
+        emitAssignement(node, node.inputs(0), ret, "  ", "<=")
         //ret ++= s"  ${emitReference(node)} <= ${emitLogic(node.inputs(0))};\n"
       }
     }
@@ -868,7 +899,7 @@ class VhdlBackend extends Backend with VhdlBase {
 
         ret ++= s"  process(${process.sensitivity.toList.sortWith(_.instanceCounter < _.instanceCounter).map(emitReference(_)).reduceLeft(_ + "," + _)})\n"
         ret ++= "  begin\n"
-        context.emitContext(ret, "    ","<=")
+        context.emitContext(ret, "    ", "<=")
         ret ++= "  end process;\n\n"
       } else {
         //emit func as logic
@@ -891,7 +922,7 @@ class VhdlBackend extends Backend with VhdlBase {
     ret ++= s"  function $funcName return ${emitDataType(node, false)} is\n"
     ret ++= s"    variable ${emitReference(node)} : ${emitDataType(node, true)};\n"
     ret ++= s"  begin\n"
-    context.emitContext(ret, "    ",":=")
+    context.emitContext(ret, "    ", ":=")
     ret ++= s"    return ${emitReference(node)};\n"
     ret ++= s"  end function;\n"
   }
@@ -1083,7 +1114,7 @@ class VhdlBackend extends Backend with VhdlBase {
     case lit: BitsLiteral => lit.kind match {
       case _: Bits => s"pkg_stdLogicVector(X${'\"'}${lit.value.toString(16)}${'\"'},${lit.getWidth})"
       case _: UInt => s"pkg_unsigned(X${'\"'}${lit.value.toString(16)}${'\"'},${lit.getWidth})"
-      case _: SInt => s"pkg_signed(X${'\"'}${if(lit.value >= 0)lit.value.toString(16) else ((BigInt(1) << lit.getWidth)+lit.value).toString(16)}${'\"'},${lit.getWidth})"
+      case _: SInt => s"pkg_signed(X${'\"'}${if (lit.value >= 0) lit.value.toString(16) else ((BigInt(1) << lit.getWidth) + lit.value).toString(16)}${'\"'},${lit.getWidth})"
     }
     case lit: IntLiteral => lit.value.toString(10)
     case lit: BoolLiteral => s"pkg_toStdLogic(${lit.value})"
@@ -1201,7 +1232,7 @@ class VhdlBackend extends Backend with VhdlBase {
 
 
         def emitRegsInitialValue(assignementLevel: AssignementLevel, tab: String): Unit = {
-          assignementLevel.emitContext(ret, tab,"<=")
+          assignementLevel.emitContext(ret, tab, "<=")
         }
 
 
@@ -1265,13 +1296,13 @@ class VhdlBackend extends Backend with VhdlBase {
 
             }
           }
-          rootContext.emitContext(ret, tab,"<=")
+          rootContext.emitContext(ret, tab, "<=")
         }
       }
     }
   }
 
-  def emitAssignement(to: Node, from: Node, ret: StringBuilder, tab: String,assignementKind : String): Unit = {
+  def emitAssignement(to: Node, from: Node, ret: StringBuilder, tab: String, assignementKind: String): Unit = {
     from match {
       case from: AssignementNode => {
         from match {
@@ -1284,7 +1315,7 @@ class VhdlBackend extends Backend with VhdlBase {
       case man: MultipleAssignmentNode => {
         //For some case with asyncronous partial assignement
         for (assign <- man.inputs) {
-          emitAssignement(to, assign, ret, tab,assignementKind)
+          emitAssignement(to, assign, ret, tab, assignementKind)
         }
       }
       case _ => ret ++= s"$tab${emitReference(to)} ${assignementKind} ${emitLogic(from)};\n"
@@ -1337,11 +1368,11 @@ class VhdlBackend extends Backend with VhdlBase {
     }
 
 
-    def emitContext(ret: mutable.StringBuilder, tab: String,assignementKind : String): Unit = {
+    def emitContext(ret: mutable.StringBuilder, tab: String, assignementKind: String): Unit = {
       def emitLogicChunk(key: WhenTree): Unit = {
         if (this.logicChunk.contains(key)) {
           for ((to, from) <- this.logicChunk.get(key).get) {
-            emitAssignement(to, from, ret, tab,assignementKind)
+            emitAssignement(to, from, ret, tab, assignementKind)
           }
         }
       }
@@ -1354,17 +1385,17 @@ class VhdlBackend extends Backend with VhdlBase {
 
         if (!doTrue && doFalse) {
           ret ++= s"${tab}if ${emitLogic(when.cond)} = '0'  then\n"
-          when.whenFalse.emitContext(ret, tab + "  ",assignementKind)
+          when.whenFalse.emitContext(ret, tab + "  ", assignementKind)
           ret ++= s"${tab}end if;\n"
         } else if (doTrue && !doFalse) {
           ret ++= s"${tab}if ${emitLogic(when.cond)} = '1' then\n"
-          when.whenTrue.emitContext(ret, tab + "  ",assignementKind)
+          when.whenTrue.emitContext(ret, tab + "  ", assignementKind)
           ret ++= s"${tab}end if;\n"
         } else if (doTrue && doFalse) {
           ret ++= s"${tab}if ${emitLogic(when.cond)} = '1' then\n"
-          when.whenTrue.emitContext(ret, tab + "  ",assignementKind)
+          when.whenTrue.emitContext(ret, tab + "  ", assignementKind)
           ret ++= s"${tab}else\n"
-          when.whenFalse.emitContext(ret, tab + "  ",assignementKind)
+          when.whenFalse.emitContext(ret, tab + "  ", assignementKind)
           ret ++= s"${tab}end if;\n"
         }
         emitLogicChunk(when)

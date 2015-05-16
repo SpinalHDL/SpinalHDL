@@ -285,6 +285,10 @@ object C10_2 {
     }
   }
 
+  val myBits = Bits(4 bit)
+  val myUInt = UInt(4 bit)
+
+
   class LogicAnalyser extends Component {
     val io = new Bundle {
       val cfgPort = slave Flow Fragment(Bits(8 bit))
@@ -372,6 +376,17 @@ object C10_removed {
   }
 
 
+
+  //Memory of 1024 Bool
+  val mem = Mem(Bool, 1024)
+
+  //Write it
+  mem(5) := True
+
+  //Read it
+  val read0 = mem.readAsync(4)
+  val read1 = mem.readSync(6)
+
 }
 
 object C11 {
@@ -384,10 +399,20 @@ object C11 {
   outPort </< inPort
   outPort <-/< inPort
   val haltedPort = inPort.haltWhen(cond)
-  // & operator
   val filteredPort = inPort.throwWhen(inPort.data === 0)
   val outPortWithMsb = inPort.translateWith(inPort.data.msb)
-  // ~ operator
+
+  val mem = Mem(Bool, 1024)
+  val memReadCmd = Handshake(UInt(10 bit))
+  val memReadPort = mem.handshakeReadSync(memReadCmd, memReadCmd.data)
+  memReadPort.valid //arbitration
+  memReadPort.ready //arbitration
+  memReadPort.data.value //Readed value
+  memReadPort.data.linked //Linked value (memReadCmd.data)
+
+
+
+
 
 
   object somewhere {
@@ -459,5 +484,26 @@ object C13 {
       }
     }
   }
+}
+
+object C14 {
+  //Create a timeout, he become asserted if the function clear
+  //was not called in the last 1000 cycles
+  val timeout = Timeout(1000)
+  when(timeout){ //implicit conversion to Bool
+    timeout.clear //Clear the flag and the internal counter
+  }
+
+  //Create a counter of 10 states (0 to 9)
+  val counter = Counter(10)
+  counter.value     //current value
+  counter.valueNext //Next value
+  counter.reset     //When called it reset the counter. It's not a flag
+  counter.inc       //When called it increment the counter. It's not a flag
+  counter.overflow  //Flag that indicate if the counter overflow this cycle
+  when(counter === 5){ }  //counter is implicitly its value
+  
+
+
 }
 

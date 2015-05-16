@@ -100,7 +100,7 @@ class Vec[T <: Data](_dataType: T,val vec : Vector[T]) extends MultiData with co
   }
   override def hashCode(): Int = instanceCounter
 
-  val accessMap = mutable.Map[UInt, T]()
+  val accessMap = mutable.Map[(Component,UInt), T]()
   var vecTransposedCache: ArrayBuffer[ArrayBuffer[BaseType]] = null
 
 
@@ -147,9 +147,10 @@ class Vec[T <: Data](_dataType: T,val vec : Vector[T]) extends MultiData with co
     access(address)
   }
 
-  //TODO cache must keep attention component
+
   def access(address: UInt): T = {
-    if (accessMap.contains(address)) return accessMap.get(address).getOrElse(null.asInstanceOf[T])
+    val key = (Component.current,address)
+    if (accessMap.contains(key)) return accessMap(key)
 
 
     val ret = SeqMux(vec, address)
@@ -158,7 +159,7 @@ class Vec[T <: Data](_dataType: T,val vec : Vector[T]) extends MultiData with co
       accessE.compositeAssign = new VecAccessAssign(enables,to)
     }
 
-    accessMap += (address -> ret)
+    accessMap += (key -> ret)
     ret
   }
 

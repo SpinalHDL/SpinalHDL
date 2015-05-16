@@ -21,6 +21,7 @@ package spinal.tester.code
 import spinal.core._
 import spinal.lib._
 
+import scala.collection.mutable.ArrayBuffer
 
 
 object Debug {
@@ -36,6 +37,14 @@ object Debug {
     val b = Bool
   }
 
+
+
+  object MyEnum extends SpinalEnum{
+    val s0,s1,s2 = Value
+  }
+  object MyEnum2 extends SpinalEnum{
+    val s0,s1,s2 = Value
+  }
   class TopLevel extends Component {
 
     val io = new Bundle {
@@ -47,14 +56,42 @@ object Debug {
       val input = slave Handshake (new MyBundle)
       val output = master Handshake (new MyBundle)
 
+//      val romCmd = slave Handshake(UInt(2 bit))
+//      val romRead = master Handshake(RomData())
+      val romCmd = in(UInt(2 bit))
+      val romRead = out(MyData())
     }
+    MyEnum.s1 === MyEnum.s2()
+//    implicit def EnumElementToCraft[T <: SpinalEnum](enumDef : T) : SpinalEnumCraft[T] = enumDef.craft().asInstanceOf[SpinalEnumCraft[T]]
+//    implicit def EnumElementToCraft2[T <: SpinalEnum](enumDef : SpinalEnumElement[T]) : SpinalEnumCraft[T] = enumDef.craft().asInstanceOf[SpinalEnumCraft[T]]
+//
+    val s0Reg = RegNext(MyEnum.s0())
 
-    //io.out1 assignAllByName io.in1
 
     val forks = HandshakeFork(io.input,3)
     io.output << HandshakeArbiterPriorityToLow(forks)
-  //  io.output <> HandshakeFork(io.input,3)
-   // (io.outputVec , HandshakeFork(io.input,3)).zipped.foreach(_ << _)
+
+    object MyData{
+      def apply(a : Boolean,b : BigInt) : MyData ={
+        val ret = MyData()
+        ret.a := Bool(a)
+        ret.b := b
+        ret
+      }
+    }
+
+    case class MyData() extends Bundle{
+      val a = Bool
+      val b = UInt(3 bit)
+    }
+
+    val romData = ArrayBuffer(MyData(false,1),MyData(false,2),MyData(true,3),MyData(false,4))
+    for(i <- 0 to 63){
+      romData += MyData(false,i)
+    }
+    val rom = Mem(MyData(),68) init(romData)
+
+    io.romRead := rom(io.romCmd)
   }
 
 

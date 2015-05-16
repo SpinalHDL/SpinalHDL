@@ -43,6 +43,9 @@ object S extends BitVectorLiteralFactory[SInt] {
 
 trait Literal extends Node {
   override def clone: this.type = ???
+  def getBitsStringOn(bitCount : Int) : String
+
+
 }
 
 object BitsLiteral {
@@ -66,6 +69,19 @@ class BitsLiteral(val value: BigInt, val bitCount: Integer, val kind: Node) exte
   if(globalData.nodeAreInferringWidth) inferredWidth = bitCount
 
   override def clone(): this.type = new BitsLiteral(value, bitCount, kind).asInstanceOf[this.type]
+  override def getBitsStringOn(bitCount: Int): String = {
+    def makeIt(fillWidth : Boolean) : String = {
+      val str = (value).toString(2)
+      val filling = if(fillWidth) "1" else "0"
+      return (filling * (bitCount - str.length) + str).takeRight(bitCount)
+    }
+
+    kind match{
+      case b : Bits => makeIt(false)
+      case u : UInt => makeIt(false)
+      case s : SInt => makeIt(value < 0)
+    }
+  }
 }
 
 
@@ -79,6 +95,10 @@ object BoolLiteral {
 class BoolLiteral(val value: Boolean) extends Literal {
   def calcWidth: Int = 1
   override def clone(): this.type = new BoolLiteral(value).asInstanceOf[this.type]
+  override def getBitsStringOn(bitCount: Int): String = {
+    assert(bitCount == 1)
+    (if(value) "1" else "0")
+  }
 }
 
 
@@ -94,5 +114,9 @@ class IntLiteral(val value: BigInt) extends Literal with MinMaxProvider {
   def minValue: BigInt = value
   def maxValue: BigInt = value
 
+
+
   override def clone(): this.type = new IntLiteral(value).asInstanceOf[this.type]
+
+  override def getBitsStringOn(bitCount: Int): String = ???
 }

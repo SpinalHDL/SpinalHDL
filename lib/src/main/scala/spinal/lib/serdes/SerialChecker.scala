@@ -235,7 +235,7 @@ class SerialCheckerRx(wordCountMax: Int) extends Component {
     val readCmd = Handshake(UInt(log2Up(wordCountMax) bit))
     readCmd.valid := (validPtr !== readPtr)
     readCmd.data := readPtr
-    readPtr.inc := readCmd.fire
+    readPtr.increment := readCmd.fire
     io.output.translateFrom(ram.handshakeReadSync(readCmd))((to, from) => {
       to.last := from.msb
       to.fragment := from
