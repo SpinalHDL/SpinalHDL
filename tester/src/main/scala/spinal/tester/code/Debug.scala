@@ -61,6 +61,7 @@ object Debug {
 //      val romCmd = in(UInt(2 bit))
 //      val romRead = out(MyData())
       val sin = out SInt(16 bit)
+      val fir = out SInt(16 bit)
     }
     MyEnum.s1 === MyEnum.s2()
 //    implicit def EnumElementToCraft[T <: SpinalEnum](enumDef : T) : SpinalEnumCraft[T] = enumDef.craft().asInstanceOf[SpinalEnumCraft[T]]
@@ -102,11 +103,13 @@ object Debug {
 //    io.sin := (lockupTable(counter)*lockupTable(counter)) >> 16
 
 
-//    val lockupTable =
-//
-//
-//    val counter = CounterFreeRun(1024)
-    io.sin := (Mem(SInt(16 bit),1024).init((0 to 1023).map(i => S((Math.sin(i*2*Math.PI/1024.0)*32767).toInt))).apply(CounterFreeRun(1024)))
+    io.sin := Mem(SInt(16 bit),(0 to 1023).map(i => S((Math.pow(Math.sin(i*2*Math.PI*8/1024.0),1)*32767).toInt))).readSync(CounterFreeRun(1024))
+
+
+    val firLength = 32
+    val coefs = (0 until firLength).map(i => S(((0.54-0.46*Math.cos(2*Math.PI*i/firLength))*32767/firLength).toInt,16 bit))
+    io.fir := (coefs,Delays(io.sin,firLength)).zipped.map((coef,delay) => (coef * delay) >> 15).reduce(_ + _)
+
   }
 
 

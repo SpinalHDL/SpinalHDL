@@ -165,7 +165,7 @@ trait Nameable {
       isWeak = false;
       nameChangeEvent(weak)
     }
-    else if (isWeak) {
+    else if (isWeak && !isNamed) {
       this.name = name;
       nameChangeEvent(weak)
     }
@@ -377,4 +377,19 @@ class GlobalData {
 trait OverridedEqualsHashCode{
   override def equals(obj: scala.Any): Boolean = super.equals(obj)
   override def hashCode(): Int = super.hashCode()
+}
+
+
+abstract trait Num[T <: Data] {
+  def +  (right: T): T;
+  def -  (right: T): T;
+  def *  (right: T): T;
+
+  def <  (right: T): Bool;
+  def <= (right: T): Bool;
+  def >  (right: T): Bool;
+  def >= (right: T): Bool;
+
+  def min(right: T): T = Mux(this < right, this.asInstanceOf[T], right)
+  def max(right: T): T = Mux(this < right, right, this.asInstanceOf[T])
 }

@@ -379,12 +379,34 @@ class TraversableOncePimped[T](pimped: TraversableOnce[T]) {
         else
           stageLogic += elements(i*2)
       }
-      println(stageLogic.mkString(" "))
       stage(stageLogic)
 
     }
     val array = ArrayBuffer[T]() ++ pimped
     assert(array.length >= 1)
     stage(array)
+  }
+}
+
+
+object Delay{
+  def apply[T <: Data](that : T,length : Int) : T = {
+    length match{
+      case 0 => that
+      case _ => Delay(RegNext(that),length -1)
+    }
+  }
+}
+
+
+object Delays{
+  def apply[T <: Data](that : T,length : Int) : Vec[T] = {
+    def builder(that : T,left : Int) : List[T] = {
+      left match{
+        case 0 => that :: Nil
+        case _ => that :: builder(RegNext(that),left - 1)
+      }
+    }
+    Vec(builder(that,length))
   }
 }

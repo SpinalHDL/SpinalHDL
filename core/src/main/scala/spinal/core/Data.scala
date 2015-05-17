@@ -21,6 +21,7 @@ package spinal.core
 import scala.collection.mutable.ArrayBuffer
 
 
+
 object Data {
   implicit def autoCast[T <: Data, T2 <: T](that: T): T2#SSelf = that.asInstanceOf[T2#SSelf]
   //implicit def autoCast[T <: Data](that: T#SSelf): T = that.asInstanceOf[T]

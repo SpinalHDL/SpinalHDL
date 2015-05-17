@@ -42,6 +42,7 @@ object dontCare extends MemWriteToReadKind {
 
 object Mem {
   def apply[T <: Data](wordType: T, wordCount: Int) = new Mem(wordType, wordCount)
+  def apply[T <: Data](wordType: T, initialContent: Seq[T]) = new Mem(wordType, initialContent.length) init(initialContent)
 }
 
 
@@ -61,6 +62,7 @@ class Mem[T <: Data](val wordType: T, val wordCount: Int) extends Node with Name
   var initialContant : Seq[T] = null
 
   def init(initialContant : Seq[T]): this.type ={
+    assert(initialContant.length == wordCount,s"The initial content if the rom doesn't fit with it word count, ${initialContant.length} vs $wordCount " + this.getScalaLocationString )
     this.initialContant = initialContant
     this
   }

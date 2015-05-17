@@ -30,13 +30,13 @@ trait UIntFactory{
   def UInt(width: BitCount): UInt = UInt.setWidth(width.value)
 }
 
-class UInt extends BitVector with MinMaxProvider {
+class UInt extends BitVector with Num[UInt] with MinMaxProvider {
   override type SSelf = UInt
   def prefix : String = "u"
 
-  def +(that: UInt): UInt = newBinaryOperator("u+u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,ZeroWidth.binaryTakeOther);
-  def -(that: UInt): UInt = newBinaryOperator("u-u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,ZeroWidth.binaryMinus(U.apply));
-  def *(that: UInt): UInt = newBinaryOperator("u*u", that, WidthInfer.cumulateInputWidth, InputNormalize.none,ZeroWidth.binaryInductZeroWithOtherWidth(U.apply));
+  override def +(that: UInt): UInt = newBinaryOperator("u+u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,ZeroWidth.binaryTakeOther);
+  override def -(that: UInt): UInt = newBinaryOperator("u-u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,ZeroWidth.binaryMinus(U.apply));
+  override def *(that: UInt): UInt = newBinaryOperator("u*u", that, WidthInfer.cumulateInputWidth, InputNormalize.none,ZeroWidth.binaryInductZeroWithOtherWidth(U.apply));
 
 
   def |(that: UInt): UInt = newBinaryOperator("u|u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,ZeroWidth.binaryTakeOther);
@@ -46,10 +46,10 @@ class UInt extends BitVector with MinMaxProvider {
 
   override def ===(that: SSelf): Bool = newLogicalOperator("u==u", that, InputNormalize.inputWidthMax,ZeroWidth.binaryThatIfBoth(True));
   override def !==(that: SSelf): Bool = newLogicalOperator("u!=u", that, InputNormalize.inputWidthMax,ZeroWidth.binaryThatIfBoth(False));
-  def <(that: UInt): Bool = newLogicalOperator("u<u", that, InputNormalize.inputWidthMax,ZeroWidth.binaryUIntSmaller);
-  def >(that: UInt): Bool = that < this
-  def <=(that: UInt): Bool = newLogicalOperator("u<=u", that, InputNormalize.inputWidthMax,ZeroWidth.binaryUIntSmallerOrEgual);
-  def >=(that: UInt): Bool = that <= this
+  override def <(that: UInt): Bool = newLogicalOperator("u<u", that, InputNormalize.inputWidthMax,ZeroWidth.binaryUIntSmaller);
+  override def >(that: UInt): Bool = that < this
+  override def <=(that: UInt): Bool = newLogicalOperator("u<=u", that, InputNormalize.inputWidthMax,ZeroWidth.binaryUIntSmallerOrEgual);
+  override def >=(that: UInt): Bool = that <= this
 
 
   def >>(that: Int): this.type = newBinaryOperator("u>>i", IntLiteral(that), WidthInfer.shiftRightWidth, InputNormalize.none,ZeroWidth.shiftRightImpl);
