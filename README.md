@@ -330,7 +330,7 @@ import spinal.core._
 
 package object lib {
   ...
-  implicit def flowFragmentPimped[T <: Data](that : Flow[Fragment[T]]) = new FlowFragmentPimped[T](that)
+  implicit def flowFragmentPimpIt[T <: Data](that : Flow[Fragment[T]]) = new FlowFragmentPimpIt[T](that)
   ...
 }
 ```
@@ -340,23 +340,23 @@ package spinal.lib
 
 import spinal.core._
 
-class FlowFragmentPimped[T <: Data](pimped: Flow[Fragment[T]]) {
+class FlowFragmentPimpIt[T <: Data](PimpIt: Flow[Fragment[T]]) {
   def filterHeader(header: T): Flow[Fragment[T]] = {
     val takeIt = RegInit(False)
 
-    when(pimped.isFirst) {
-      when(pimped.fragment === header) {
+    when(PimpIt.isFirst) {
+      when(PimpIt.fragment === header) {
         takeIt := True
       }
     }
-    when(pimped.isLast) {
+    when(PimpIt.isLast) {
       takeIt := False
     }
 
-    return pimped.takeWhen(takeIt)
+    return PimpIt.takeWhen(takeIt)
   }
 
-  def pulseOn(header: T):Bool = pimped.isFirst && pimped.fragment === header
+  def pulseOn(header: T):Bool = PimpIt.isFirst && PimpIt.fragment === header
 }
 ```
 

@@ -350,7 +350,7 @@ class VhdlBackend extends Backend with VhdlBase {
     ret ++= "  -- unsigned shifts\n"
     ret ++= "  function pkg_shiftRight (that : unsigned; size : natural) return unsigned is\n"
     ret ++= "  begin\n"
-    ret ++= "    if size >= that then\n"
+    ret ++= "    if size >= that'length then\n"
     ret ++= "      return \"\";\n"
     ret ++= "    else\n"
     ret ++= "      return shift_right(that,size)(that'high-size downto 0);\n"

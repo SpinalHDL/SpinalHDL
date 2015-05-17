@@ -58,8 +58,9 @@ object Debug {
 
 //      val romCmd = slave Handshake(UInt(2 bit))
 //      val romRead = master Handshake(RomData())
-      val romCmd = in(UInt(2 bit))
-      val romRead = out(MyData())
+//      val romCmd = in(UInt(2 bit))
+//      val romRead = out(MyData())
+      val sin = out SInt(16 bit)
     }
     MyEnum.s1 === MyEnum.s2()
 //    implicit def EnumElementToCraft[T <: SpinalEnum](enumDef : T) : SpinalEnumCraft[T] = enumDef.craft().asInstanceOf[SpinalEnumCraft[T]]
@@ -89,10 +90,23 @@ object Debug {
       val b = UInt(3 bit)
     }
 
-    val romData = ArrayBuffer(MyData(false,1),MyData(false,2),MyData(true,3),MyData(false,4))
-    val rom = Mem(MyData(),68) init(romData)
+//    val romData = ArrayBuffer(MyData(false,1),MyData(false,2),MyData(true,3),MyData(false,4))
+//    val rom = Mem(MyData(),68) init(romData)
+//
+//    io.romRead := rom(io.romCmd)
 
-    io.romRead := rom(io.romCmd)
+//    val lockupTable = Mem(SInt(16 bit),1024)
+//    lockupTable.init((0 to 1023).map(i => S((Math.sin(i*2*Math.PI/1024.0)*32767).toInt)))
+//
+//    val counter = CounterFreeRun(1024)
+//    io.sin := (lockupTable(counter)*lockupTable(counter)) >> 16
+
+
+//    val lockupTable =
+//
+//
+//    val counter = CounterFreeRun(1024)
+    io.sin := (Mem(SInt(16 bit),1024).init((0 to 1023).map(i => S((Math.sin(i*2*Math.PI/1024.0)*32767).toInt))).apply(CounterFreeRun(1024)))
   }
 
 

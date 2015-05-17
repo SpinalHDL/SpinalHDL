@@ -71,7 +71,7 @@ class BitsLiteral(val value: BigInt, val bitCount: Integer, val kind: Node) exte
   override def clone(): this.type = new BitsLiteral(value, bitCount, kind).asInstanceOf[this.type]
   override def getBitsStringOn(bitCount: Int): String = {
     def makeIt(fillWidth : Boolean) : String = {
-      val str = (value).toString(2)
+      val str = (if(value > 0) value else ((BigInt(1) << bitCount) + value)).toString(2)
       val filling = if(fillWidth) "1" else "0"
       return (filling * (bitCount - str.length) + str).takeRight(bitCount)
     }
