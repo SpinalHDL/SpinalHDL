@@ -201,7 +201,7 @@ class Handshake[T <: Data](_dataType: T) extends Bundle with IMasterSlave with D
 }
 
 
-class HandshakeArbiter[T <: Data](dataType: T, val portCount: Int)(arbitrationLogic: (HandshakeArbiter[T]) => Area, lockLogic: (HandshakeArbiter[T]) => Area) extends Component {
+class HandshakeArbiterCore[T <: Data](dataType: T, val portCount: Int)(arbitrationLogic: (HandshakeArbiterCore[T]) => Area, lockLogic: (HandshakeArbiterCore[T]) => Area) extends Component {
   val io = new Bundle {
     val inputs = Vec(portCount, slave Handshake (dataType))
     val output = master Handshake (dataType)
@@ -237,10 +237,67 @@ class HandshakeArbiter[T <: Data](dataType: T, val portCount: Int)(arbitrationLo
 
 }
 
-object HandshakeArbiter {
-  def arbitration_lowIdPortFirst[T <: Data](core: HandshakeArbiter[T]) = new Area {
+class HandshakeArbiterCoreFactory{
+  var arbitrationLogic : (HandshakeArbiterCore[_]) => Area = HandshakeArbiterCore.arbitration_lowIdPortFirst
+  var lockLogic : (HandshakeArbiterCore[_]) => Area = HandshakeArbiterCore.lock_transactionLock
 
+  def build[T <: Data](dataType: T, portCount : Int) : HandshakeArbiterCore[T] = {
+    new HandshakeArbiterCore(dataType,portCount)(arbitrationLogic,lockLogic)
+  }
+
+  def build[T <: Data](input: Seq[Handshake[T]]) : Handshake[T] ={
+    val arbiter = build(input(0).dataType,input.size)
+    (arbiter.io.inputs,input).zipped.foreach(_ << _)
+    return arbiter.io.output
+  }
+
+  def lowIdPortFirst : this.type = {
+    arbitrationLogic = HandshakeArbiterCore.arbitration_lowIdPortFirst
+    this
+  }
+  def inOrder : this.type = {
+    arbitrationLogic = HandshakeArbiterCore.arbitration_InOrder
+    this
+  }
+  def noLock : this.type = {
+    lockLogic = HandshakeArbiterCore.lock_transactionLock
+    this
+  }
+  def fragmentLock : this.type = {
+    lockLogic = HandshakeArbiterCore.lock_fragmentLock
+    this
+  }
+  def transactionLock : this.type = {
+    lockLogic = HandshakeArbiterCore.lock_transactionLock
+    this
+  }
+}
+
+object HandshakeArbiterCore {
+  def arbitration_lowIdPortFirst(core: HandshakeArbiterCore[_]) = new Area {
     import core._
+    var search = True
+    for (i <- 0 to portCount - 2) {
+      maskProposal(i) := search & io.inputs(i).valid
+      search = search & !io.inputs(i).valid
+    }
+    maskProposal(portCount - 1) := search
+  }
+
+  def arbitration_InOrder(core: HandshakeArbiterCore[_]) = new Area {
+    import core._
+
+    val counter = Counter(core.portCount,io.output.fire)
+
+    if (core.portCount == 1) {
+      io.inputs(0) >> io.output
+    } else {
+      for (i <- 0 to core.portCount - 1) {
+        io.inputs(i).ready := Bool(false)
+      }
+
+      io.inputs(counter) >> io.output
+    }
 
     var search = True
     for (i <- 0 to portCount - 2) {
@@ -250,12 +307,11 @@ object HandshakeArbiter {
     maskProposal(portCount - 1) := search
   }
 
-  def lock_none[T <: Data](core: HandshakeArbiter[T]) = new Area {
+  def lock_none(core: HandshakeArbiterCore[_]) = new Area {
 
   }
 
-  def lock_transactionLock[T <: Data](core: HandshakeArbiter[T]) = new Area {
-
+  def lock_transactionLock(core: HandshakeArbiterCore[_]) = new Area {
     import core._
 
     when(io.output.valid) {
@@ -266,30 +322,30 @@ object HandshakeArbiter {
     }
   }
 
-  def lock_fragmentLock[T <: Data](core: HandshakeArbiter[Fragment[T]]) = new Area {
-
-    import core._
+  def lock_fragmentLock(core: HandshakeArbiterCore[_]) = new Area {
+    val realCore = core.asInstanceOf[HandshakeArbiterCore[Fragment[_]]]
+    import realCore._
 
     when(io.output.valid) {
       locked := True
     }
-    when(io.output.ready && io.output.last) {
+    when(io.output.ready && io.output.data.last) {
       locked := False
     }
   }
 }
 
-object HandshakeArbiterPriorityToLow{
-  def apply[T <: Data](dataType: T, portCount : Int) : HandshakeArbiter[T] ={
-    new HandshakeArbiter(dataType,portCount)(HandshakeArbiter.arbitration_lowIdPortFirst,HandshakeArbiter.lock_none)
-  }
-
-  def apply[T <: Data](input: Vec[Handshake[T]]) : Handshake[T] ={
-    val arbiter = new HandshakeArbiter(input(0).dataType,input.size)(HandshakeArbiter.arbitration_lowIdPortFirst,HandshakeArbiter.lock_none)
-    (arbiter.io.inputs,input).zipped.foreach(_ << _)
-    return arbiter.io.output
-  }
-}
+//object HandshakeArbiterPriorityToLow{
+//  def apply[T <: Data](dataType: T, portCount : Int) : HandshakeArbiter[T] ={
+//    new HandshakeArbiter(dataType,portCount)(HandshakeArbiter.arbitration_lowIdPortFirst,HandshakeArbiter.lock_none)
+//  }
+//
+//  def apply[T <: Data](input: Vec[Handshake[T]]) : Handshake[T] ={
+//    val arbiter = new HandshakeArbiter(input(0).dataType,input.size)(HandshakeArbiter.arbitration_lowIdPortFirst,HandshakeArbiter.lock_none)
+//    (arbiter.io.inputs,input).zipped.foreach(_ << _)
+//    return arbiter.io.output
+//  }
+//}
 
 //TODOTEST
 //class HandshakeArbiterPriorityImpl[T <: Data](dataType: T, portCount: Int, allowSwitchWithoutConsumption: Boolean = false) extends HandshakeArbiterCore(dataType, portCount, allowSwitchWithoutConsumption) {
@@ -509,3 +565,27 @@ class HandshakeCCByToggle[T <: Data](dataType: T, clockIn: ClockDomain, clockOut
 }
 
 
+
+
+class DispatcherInOrder[T <: Data](gen: T, n: Int) extends Component {
+  val io = new Bundle {
+    val input = slave Handshake(gen)
+    val output = Vec(n,master Handshake(gen))
+  }
+  val counter = Counter(n,io.input.fire)
+
+  if (n == 1) {
+    io.input >> io.output(0)
+  } else {
+    io.input.ready := False
+    for (i <- 0 to n - 1) {
+      io.output(i).data := io.input.data
+      when(counter !== i) {
+        io.output(i).valid := False
+      } otherwise {
+        io.output(i).valid := io.input.valid
+        io.input.ready := io.output(i).ready
+      }
+    }
+  }
+}

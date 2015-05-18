@@ -100,3 +100,13 @@ class Flow[T <: Data](_dataType: T) extends Bundle with IMasterSlave with DataCa
   }
 }
 
+
+
+object RegFlow{
+  def apply[T <: Data](dataType : T) = {
+    val reg = Reg(Flow(dataType))
+    reg.valid init(False)
+    reg
+  }
+}
+

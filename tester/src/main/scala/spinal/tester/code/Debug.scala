@@ -71,7 +71,7 @@ object Debug {
 
 
     val forks = HandshakeFork(io.input,3)
-    io.output << HandshakeArbiterPriorityToLow(forks)
+    io.output << HandshakeArbiter.lowIdPortFirst.transactionLock.build(forks)
 
     object MyData{
       def apply(a : Boolean,b : BigInt) : MyData ={

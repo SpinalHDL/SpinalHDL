@@ -24,4 +24,9 @@ package object lib {
 
 
   implicit def memPimped[T <: Data](mem : Mem[T]) = new MemPimped(mem)
+
+
+
+  def HandshakeArbiter = new HandshakeArbiterCoreFactory()
+
 }

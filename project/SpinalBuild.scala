@@ -48,6 +48,16 @@ object SpinalBuild extends Build {
     )
   ) dependsOn(core, lib)
 
+  lazy val demo = Project(
+    id = "SpinalHDL-demo",
+    base = file("demo"),
+    settings = defaultSettings ++ Seq(
+      name := "SpinalHDL Demo",
+      version := SpinalVersion.demo,
+      publishTo := None
+    )
+  ) dependsOn(core, lib)
+
 
   lazy val tester = Project(
     id = "SpinalHDL-tester",
@@ -58,7 +68,7 @@ object SpinalBuild extends Build {
       libraryDependencies += "org.scalatest" % "scalatest_2.11" % "2.2.1",
       publishTo := None
     )
-  ) dependsOn(core, lib, debugger)
+  ) dependsOn(core, lib, debugger,demo)
 
   //sbt clean reload publishSigned
   //https://oss.sonatype.org
