@@ -73,7 +73,10 @@ class Handshake[T <: Data](_dataType: T) extends Bundle with IMasterSlave with D
     this << that.s2mPipe
     that
   }
-
+  def >/>(that: Handshake[T]): Handshake[T] = {
+    that </< this
+    that
+  }
   def <-/<(that: Handshake[T]): Handshake[T] = {
     this << that.s2mPipe.m2sPipe
     that

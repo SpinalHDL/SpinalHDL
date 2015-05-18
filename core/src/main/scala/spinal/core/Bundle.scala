@@ -46,12 +46,27 @@ class Bundle extends MultiData with Nameable with OverridedEqualsHashCode {
       element := other
     }
   }
-  
-  def assignSomeByName(that: SSelf) = {
+
+//
+//  def assignSomeByName(that: SSelf) = {
+//    val others = that.flatten
+//    for ((name, element) <- flatten) {
+//      val other = others.find(_._1  == name).getOrElse(null)
+//      if (other != null)
+//        element assignFrom (other,false)
+//    }
+//  }
+  def assignSomeByName(that: SSelf) : Unit = {
     for ((name, element) <- elements) {
       val other = that.find(name)
-      if (other != null)
-        element := other
+      if (other != null) {
+        element match{
+          case b : Bundle => b.assignSomeByName(other)
+          case _ => element assignFrom(other, false)
+        }
+
+
+      }
     }
   }
 

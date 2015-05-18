@@ -190,6 +190,8 @@ trait Data extends ContextUser with Nameable with Assignable with AttributeReady
   def toBits: Bits
   def assignFromBits(bits: Bits): Unit
 
+
+
   def isEguals(that: Data): Bool = (this.flatten, that.flatten).zipped.map((a, b) => a._2.isEguals(b._2)).reduceLeft(_ || _)
   def autoConnect(that: Data): Unit = (this.flatten, that.flatten).zipped.foreach(_._2 autoConnect _._2)
 
