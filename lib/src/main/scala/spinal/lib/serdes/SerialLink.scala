@@ -104,8 +104,8 @@ class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) ext
       dataCounter := dataCounter + 1
     }
     when(!isOpen) {
-      buffer.writePtr := 0
-      buffer.readPtr := 0
+      buffer.writePtr.valueNext := 0
+      buffer.readPtr.valueNext := 0
       buffer.syncPtr := 0
     }
 
@@ -117,7 +117,7 @@ class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) ext
     switch(state) {
       is(eNewFrame) {
         when(resendTimeout) {
-          buffer.readPtr := buffer.syncPtr
+          buffer.readPtr.valueNext := buffer.syncPtr
           resendTimeout.clear
         }.elsewhen(close) {
           io.output.valid := True

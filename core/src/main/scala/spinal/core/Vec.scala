@@ -73,26 +73,16 @@ class VecAccessAssign[T <: BaseType](enables: Seq[Bool], tos: Seq[T]) extends As
     assert(!conservative)
     for ((enable, to) <- (enables, tos).zipped) {
       when(enable) {
-        to := that.asInstanceOf[Data]
+        to := that.asInstanceOf[T]
       }
     }
   }
 }
 
 class Vec[T <: Data](_dataType: T,val vec : Vector[T]) extends MultiData with collection.IndexedSeq[T]{
-  override type SSelf = Vec[T]
 
   def dataType = cloneOf(_dataType)
 
-  override def \(that: SSelf) = {
-    super.\(that)
-  }
-  override def :=(that: SSelf): Unit = {
-    super.:=(that)
-  }
-  override def <>(that: SSelf): Unit = {
-    super.<>(that)
-  }
 
   override def equals(that : Any) : Boolean = that match{
     case that : Vec[_] => instanceCounter == that.instanceCounter
@@ -166,7 +156,7 @@ class Vec[T <: Data](_dataType: T,val vec : Vector[T]) extends MultiData with co
   override def assignFromImpl(that: AnyRef,conservative : Boolean): Unit = {
     assert(!conservative)
     that match {
-      case that: SSelf => {
+      case that: Vec[T] => {
         if (that.vec.size != this.vec.size) throw new Exception("Can't assign Vec with a different size")
         for ((to, from) <- (this.vec, that.vec).zipped) {
           to.:=(from)

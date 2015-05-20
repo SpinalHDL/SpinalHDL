@@ -189,14 +189,14 @@ abstract class BaseType extends Node with Data with Nameable {
       if (this.isOutput && that.isInput) {
         that := this
       } else if (this.isInput && that.isOutput) {
-        this := that
+        this assignFrom (that,false)
       } else SpinalError("Bad input output specification for autoconnect")
     }
     def sameFromInside: Unit = {
       if (that.isOutputDir && this.isInputDir) {
         that := this
       } else if (that.isInputDir && this.isOutputDir) {
-        this := that
+        this assignFrom (that,false)
       } else SpinalError("Bad input output specification for autoconnect")
     }
 
@@ -204,7 +204,7 @@ abstract class BaseType extends Node with Data with Nameable {
       if (this.isOutput && that.isInput) {
         that := this
       } else if (this.isInput && that.isOutput) {
-        this := that
+        this assignFrom (that,false)
       } else SpinalError("Bad input output specification for autoconnect")
     }
 

@@ -33,13 +33,8 @@ object Bundle {
 
 
 class Bundle extends MultiData with Nameable with OverridedEqualsHashCode {
-  override type SSelf  = Bundle
 
-  override def \(that: SSelf) = super.\(that)
-  override def :=(that: SSelf): Unit = super.:=(that)
-  override def <>(that: SSelf): Unit = super.<>(that)
-
-  def assignAllByName(that: SSelf) = {
+  def assignAllByName(that: Bundle) = {
     for ((name, element) <- elements) {
       val other = that.find(name)
       if (other == null) SpinalError("Bundle assignement is not complet at " + ScalaLocated.getScalaTrace)
@@ -47,25 +42,14 @@ class Bundle extends MultiData with Nameable with OverridedEqualsHashCode {
     }
   }
 
-//
-//  def assignSomeByName(that: SSelf) = {
-//    val others = that.flatten
-//    for ((name, element) <- flatten) {
-//      val other = others.find(_._1  == name).getOrElse(null)
-//      if (other != null)
-//        element assignFrom (other,false)
-//    }
-//  }
-  def assignSomeByName(that: SSelf) : Unit = {
+  def assignSomeByName(that: Bundle) : Unit = {
     for ((name, element) <- elements) {
       val other = that.find(name)
       if (other != null) {
         element match{
-          case b : Bundle => b.assignSomeByName(other)
+          case b : Bundle => b.assignSomeByName(other.asInstanceOf[Bundle])
           case _ => element assignFrom(other, false)
         }
-
-
       }
     }
   }
@@ -74,7 +58,7 @@ class Bundle extends MultiData with Nameable with OverridedEqualsHashCode {
     assert(!conservative)
     that match {
       case that: Bundle => {
-        if(this.getClass != that.getClass) SpinalError("Bundles must have the same final class to be assigned. Else use assignByName or assignSomeByName at \n" + ScalaLocated.getScalaTrace)
+        if(! this.getClass.isAssignableFrom(that.getClass)) SpinalError("Bundles must have the same final class to be assigned. Else use assignByName or assignSomeByName at \n" + ScalaLocated.getScalaTrace)
         for ((name, element) <- elements) {
           val other = that.find(name)
           if (other == null) SpinalError("Bundle assignement is not complet at " + ScalaLocated.getScalaTrace)

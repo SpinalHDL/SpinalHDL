@@ -394,7 +394,6 @@ class HandshakeDemux[T <: Data](dataType: T, portCount: Int) extends Component {
     val output = Vec(portCount, master Handshake (dataType))
   }
   io.input.ready := False
-
   for (i <- 0 to portCount - 1) {
     io.output(i).data := io.input.data
     when(U(i) !== io.sel) {

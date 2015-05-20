@@ -32,12 +32,8 @@ trait BoolFactory {
 
 
 class Bool extends BaseType {
-  override type SSelf = Bool
-
   override def calcWidth : Int = 1
 
-  override def ===(that: SSelf): Bool = newLogicalOperator("B==B", that, InputNormalize.none,ZeroWidth.none);
-  override def !==(that: SSelf): Bool = newLogicalOperator("B!=B", that, InputNormalize.none,ZeroWidth.none);
 
 
   def ^(b: Bool): Bool = newLogicalOperator("B^B", b,InputNormalize.none,ZeroWidth.none)
@@ -49,10 +45,6 @@ class Bool extends BaseType {
   def |(b: Bool): Bool = this || b
 
 
-  override def \(that: SSelf) = super.\(that)
-  override def :=(that: SSelf): Unit = super.:=(that)
-  override def <>(that: SSelf): Unit = super.<>(that)
-
   def set = this := True
   def clear = this := False
 
@@ -60,7 +52,13 @@ class Bool extends BaseType {
 
   override def isEguals(that: Data): Bool = {
     that match{
-      case that : Bool => this === that
+      case that : Bool => newLogicalOperator("B==B", that, InputNormalize.none,ZeroWidth.none);
+      case _ => SpinalError(s"Don't know how compare $this with $that"); null
+    }
+  }
+  override def isNotEguals(that: Data): Bool = {
+    that match{
+      case that : Bool => newLogicalOperator("B!=B", that, InputNormalize.none,ZeroWidth.none);
       case _ => SpinalError(s"Don't know how compare $this with $that"); null
     }
   }

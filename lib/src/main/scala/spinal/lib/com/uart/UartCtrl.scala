@@ -191,7 +191,7 @@ class UartCtrlRx(dataWidthMax: Int = 8, clockDividerWidth: Int = 21, preSampling
     tick := False
     when(sampler.event) {
       counter := counter - 1
-      when(0 === counter) {
+      when(counter === 0) {
         tick := True
         counter := U(preSamplingSize + samplingSize + postSamplingSize - 1)
       }

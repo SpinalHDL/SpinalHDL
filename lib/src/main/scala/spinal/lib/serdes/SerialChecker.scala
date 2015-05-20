@@ -226,7 +226,7 @@ class SerialCheckerRx(wordCountMax: Int) extends Component {
       flushFlag := True
     }
     def writeStart: Unit = {
-      writePtr := validPtr
+      writePtr.valueNext := validPtr
       checksum := 0
     }
 

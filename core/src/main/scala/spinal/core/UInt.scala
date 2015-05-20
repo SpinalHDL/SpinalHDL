@@ -31,7 +31,6 @@ trait UIntFactory{
 }
 
 class UInt extends BitVector with Num[UInt] with MinMaxProvider {
-  override type SSelf = UInt
   def prefix : String = "u"
 
   override def +(that: UInt): UInt = newBinaryOperator("u+u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,ZeroWidth.binaryTakeOther);
@@ -44,8 +43,6 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider {
   def ^(that: UInt): UInt = newBinaryOperator("u^u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,ZeroWidth.binaryTakeOther);
   def unary_~(): UInt = newUnaryOperator("~u",WidthInfer.inputMaxWidth,ZeroWidth.unaryZero);
 
-  override def ===(that: SSelf): Bool = newLogicalOperator("u==u", that, InputNormalize.inputWidthMax,ZeroWidth.binaryThatIfBoth(True));
-  override def !==(that: SSelf): Bool = newLogicalOperator("u!=u", that, InputNormalize.inputWidthMax,ZeroWidth.binaryThatIfBoth(False));
   override def <(that: UInt): Bool = newLogicalOperator("u<u", that, InputNormalize.inputWidthMax,ZeroWidth.binaryUIntSmaller);
   override def >(that: UInt): Bool = that < this
   override def <=(that: UInt): Bool = newLogicalOperator("u<=u", that, InputNormalize.inputWidthMax,ZeroWidth.binaryUIntSmallerOrEgual);
@@ -60,7 +57,13 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider {
   override def newMultiplexor(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,u,u)", sel, whenTrue, whenFalse)
   override def isEguals(that: Data): Bool = {
     that match {
-      case that: UInt => this === that
+      case that: UInt => newLogicalOperator("u==u", that, InputNormalize.inputWidthMax,ZeroWidth.binaryThatIfBoth(True));
+      case _ => SpinalError(s"Don't know how compare $this with $that"); null
+    }
+  }
+  override def isNotEguals(that: Data): Bool = {
+    that match {
+      case that: UInt => newLogicalOperator("u!=u", that, InputNormalize.inputWidthMax,ZeroWidth.binaryThatIfBoth(False));
       case _ => SpinalError(s"Don't know how compare $this with $that"); null
     }
   }
@@ -68,9 +71,6 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider {
   override def minValue: BigInt = BigInt(0)
   override def maxValue: BigInt = (BigInt(1) << getWidth) - 1
 
-  override def \(that: SSelf) = super.\(that)
-  override def :=(that: SSelf): Unit = super.:=(that)
-  override def <>(that: SSelf): Unit = super.<>(that)
 
   override def resize(width: Int): this.type = newResize("resize(u,i)", this :: new IntLiteral(width) :: Nil, WidthInfer.intLit1Width,ZeroWidth.resizeImpl(U.apply))
 

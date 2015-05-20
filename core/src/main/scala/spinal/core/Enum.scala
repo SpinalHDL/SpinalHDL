@@ -35,27 +35,19 @@ class EnumLiteral[T <: SpinalEnum](val enum: SpinalEnumElement[T]) extends Liter
 }
 
 class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T) extends BaseType {
-  override type SSelf = SpinalEnumCraft[T]
 
   def assertSameType(than: SpinalEnumCraft[_]): Unit = if (blueprint != than.blueprint) SpinalError("Enum is assigned by a incompatible enum")
 
-  override def \(that: SSelf) = super.\(that)
-  override def :=(that: SSelf): Unit = {
-    assertSameType(that)
-    super.:=(that)
-  }
-  override def <>(that: SSelf): Unit = {
-    assertSameType(that);
-    super.<>(that)
-  }
-  override def ===(that: SSelf): Bool = {
-    assertSameType(that);
-    newLogicalOperator("e==e", that, InputNormalize.none,ZeroWidth.none);
-  }
-  override def !==(that: SSelf): Bool = {
-    assertSameType(that);
-    newLogicalOperator("e!=e", that, InputNormalize.none,ZeroWidth.none);
-  }
+  //TODO check assert same type on the pimped
+//  override def \(that: SSelf) = super.\(that)
+////  override def :=(that: SSelf): Unit = {
+////    assertSameType(that)
+////    super.:=(that)
+////  }
+//  override def <>(that: SSelf): Unit = {
+//    assertSameType(that);
+//    super.<>(that)
+//  }
 
   def :=(that: SpinalEnumElement[T]): Unit = this := that.craft()
   def ===(that: SpinalEnumElement[T]): Bool = this === (that.craft())
@@ -63,7 +55,16 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T) extends BaseType {
 
 
   override def isEguals(that: Data): Bool = {
-    this === that
+    that match{
+      case that : SpinalEnumCraft[_] if that.blueprint == blueprint =>  newLogicalOperator("e==e", that, InputNormalize.none,ZeroWidth.none);
+      case _ => SpinalError("Uncompatible test")
+    }
+  }
+  override def isNotEguals(that: Data): Bool = {
+    that match{
+      case that : SpinalEnumCraft[_] if that.blueprint == blueprint =>  newLogicalOperator("e!=e", that, InputNormalize.none,ZeroWidth.none);
+      case _ => SpinalError("Uncompatible test")
+    }
   }
 
   override def newMultiplexor(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,e,e)", sel, whenTrue, whenFalse)
@@ -77,7 +78,7 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T) extends BaseType {
   }
 
   def init(enumElement: SpinalEnumElement[T]): this.type = {
-    init(enumElement())
+    this.initImpl(enumElement())
   }
 
   def getParentName = blueprint.getName()

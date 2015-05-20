@@ -7,14 +7,6 @@ import scala.collection.mutable.ArrayBuffer
  */
 
 
-class XX extends Data{
-  override type SSelf = XX
-  override def flatten: Seq[BaseType] = ???
-  override def getBitsWidth: Int = ???
-  override def assignFromBits(bits: Bits): Unit = ???
-  override def toBits: Bits = ???
-  override private[spinal] def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = ???
-}
 
 
 object SFix{
@@ -23,11 +15,7 @@ object SFix{
 
 @valClone
 class SFix(val exp : Int,val bitCount : Int) extends MultiData{
-  override type SSelf = SFix
 
-  override def \(that: SSelf) = super.\(that)
-  override def :=(that: SSelf): Unit = super.:=(that)
-  override def <>(that: SSelf): Unit = super.<>(that)
 
   override def elements: ArrayBuffer[(String, Data)] = ArrayBuffer(("theRaw" -> raw))
   override private[spinal] def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {

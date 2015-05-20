@@ -18,12 +18,8 @@
 
 package spinal.core
 
-import scala.collection.mutable.ArrayBuffer
-
-
 
 object Data {
-//  implicit def autoCast[T <: Data, T2 <: T](that: T): T2#SSelf = that.asInstanceOf[T2#SSelf]
 
   def doPull[T <: Data](srcData: T, finalComponent: Component, useCache: Boolean = false, propagateName: Boolean = false): T = {
     val startComponent = srcData.component
@@ -48,7 +44,7 @@ object Data {
         val cacheState = componentPtr.pulledDataCache.getOrElse(srcData, null)
         if (cacheState != null) {
           Component.push(componentPtr)
-          nextData := cacheState
+          nextData assignFrom(cacheState, false)
           Component.pop(componentPtr)
           return ret
         }
@@ -75,7 +71,7 @@ object Data {
         val cacheState = componentPtr.pulledDataCache.getOrElse(srcData, null)
         if (cacheState != null) {
           Component.push(componentPtr)
-          nextData.:=(cacheState)
+          nextData assignFrom(cacheState, false)
           Component.pop(componentPtr)
           return ret
         }
@@ -108,9 +104,27 @@ object Data {
   }
 }
 
-trait Data extends ContextUser with Nameable with Assignable with AttributeReady with SpinalTagReady with GlobalDataUser with ScalaLocated {
-  type SSelf <: Data
+class DataPimper[T <: Data](pimpIt: T) {
+  def ===(that: T): Bool = pimpIt.isEguals(that)
+  def !==(that: T): Bool = pimpIt.isNotEguals(that)
 
+
+  def :=(that: T): Unit = pimpIt assignFrom(that, false)
+
+  //Use as \= to have the same behavioral than VHDL variable
+  def \(that: T) = {
+    val ret = cloneOf(that)
+    ret := pimpIt
+    ret.whenScope = pimpIt.whenScope
+    ret := that
+    ret
+  }
+
+  def <>(that: T): Unit = pimpIt autoConnect that
+  def init(that: T): T = pimpIt.initImpl(that)
+}
+
+trait Data extends ContextUser with Nameable with Assignable with AttributeReady with SpinalTagReady with GlobalDataUser with ScalaLocated {
   var dir: IODirection = null
   var isIo = false
 
@@ -156,19 +170,6 @@ trait Data extends ContextUser with Nameable with Assignable with AttributeReady
 
   def pull: this.type = Data.doPull(this, Component.current, false, false)
 
-  //Use as \= to have the same behavioral than VHDL variable
-  def \(that: SSelf) = {
-    val ret = that.clone()
-    ret := this
-    ret.whenScope = this.whenScope
-    ret := that
-    ret
-  }
-
-  def :=(that: SSelf): Unit = this assignFrom(that, false)
-  def <>(that: SSelf): Unit = this autoConnect that
-  def ===(that: SSelf): Bool = isEguals(that)
-  def !==(that: SSelf): Bool = !isEguals(that)
   //  def :-(that: => SSelf): this.type = {
   //    val task = () => {
   //      this := that
@@ -184,8 +185,8 @@ trait Data extends ContextUser with Nameable with Assignable with AttributeReady
   def assignFromBits(bits: Bits): Unit
 
 
-
-  def isEguals(that: Data): Bool = (this.flatten, that.flatten).zipped.map((a, b) => a.isEguals(b)).reduceLeft(_ || _)
+  def isEguals(that: Data): Bool = (this.flatten, that.flatten).zipped.map((a, b) => a.isEguals(b)).reduceLeft(_ && _)
+  def isNotEguals(that: Data): Bool = (this.flatten, that.flatten).zipped.map((a, b) => a.isNotEguals(b)).reduceLeft(_ || _)
   def autoConnect(that: Data): Unit = (this.flatten, that.flatten).zipped.foreach(_ autoConnect _)
 
 
@@ -213,7 +214,7 @@ trait Data extends ContextUser with Nameable with Assignable with AttributeReady
   def isReg: Boolean = flatten.foldLeft(true)(_ && _.isReg)
 
   /*private[core] */
-  def init(init: SSelf): this.type = {
+  def initImpl(init: Data): this.type = {
     // if (!isReg) SpinalError(s"Try to set initial value of a data that is not a register ($this)")
     val regInit = clone()
     regInit := init
@@ -240,11 +241,11 @@ trait Data extends ContextUser with Nameable with Assignable with AttributeReady
   }
 
   /*private[core] */
-  def next(next: SSelf): this.type = {
-    if (!isReg) SpinalError(s"Try to set next value of a data that is not a register ($this)")
-    this := next
-    this
-  }
+  //  def next(next: SSelf): this.type = {
+  //    if (!isReg) SpinalError(s"Try to set next value of a data that is not a register ($this)")
+  //    this := next
+  //    this
+  //  }
 
 
   def randBoot(): this.type = {
@@ -259,9 +260,9 @@ trait Data extends ContextUser with Nameable with Assignable with AttributeReady
       val constructor = clazz.getConstructors.head
       val constrParamCount = constructor.getParameterTypes.size
       //No param =>
-      if(constrParamCount == 0) return constructor.newInstance().asInstanceOf[this.type]
+      if (constrParamCount == 0) return constructor.newInstance().asInstanceOf[this.type]
 
-      def constructorParamsAreVal: this.type ={
+      def constructorParamsAreVal: this.type = {
         val outer = clazz.getFields.find(_.getName == "$outer")
         val constructor = clazz.getDeclaredConstructors.head
         val argumentCount = constructor.getParameterTypes.size - (if (outer.isDefined) 1 else 0)
@@ -275,7 +276,7 @@ trait Data extends ContextUser with Nameable with Assignable with AttributeReady
           return constructor.newInstance(arguments: _*).asInstanceOf[this.type]
         else {
           val args = (outer.get.get(this) :: Nil) ++ arguments
-          return constructor.newInstance(args : _*).asInstanceOf[this.type]
+          return constructor.newInstance(args: _*).asInstanceOf[this.type]
         }
       }
       //Case class =>
@@ -284,14 +285,14 @@ trait Data extends ContextUser with Nameable with Assignable with AttributeReady
       }
 
       //Inner class with no user parameters
-      if(constrParamCount == 1) {
+      if (constrParamCount == 1) {
         val outer = clazz.getFields.find(_.getName == "$outer")
-        if(outer.isDefined) {
+        if (outer.isDefined) {
           return constructor.newInstance(outer.get.get(this)).asInstanceOf[this.type]
         }
       }
 
-      if(clazz.getAnnotations.find(_.isInstanceOf[valClone]).isDefined){
+      if (clazz.getAnnotations.find(_.isInstanceOf[valClone]).isDefined) {
         return constructorParamsAreVal
       }
 

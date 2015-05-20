@@ -143,9 +143,10 @@ package object core extends BaseTypeFactory with BaseTypeCast{
   //  implicit def BigIntToUInt(that : BigInt) = UInt(that lit)
   //
   // implicit def BooleanToBool(that : Boolean) = Bool(that)
+    implicit def DataPimped[T <: Data](that : T) = new DataPimper(that)
 
+//    implicit def autoCast[T <: Data, T2 <: T](that: T): T2#SSelf = that.asInstanceOf[T2#SSelf]
+//  implicit def autoCast[T <: Data](that: T): T#SSelf = that.asInstanceOf[T#SSelf]
 
-    implicit def autoCast[T <: Data, T2 <: T](that: T): T2#SSelf = that.asInstanceOf[T2#SSelf]
-//  implicit def autoCast[T <: Data](that: T): T#SSelf = that.asInstanceOf[T2#SSelf]
 
 }

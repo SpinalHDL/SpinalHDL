@@ -34,7 +34,6 @@ trait SIntFactory{
 }
 
 class SInt extends BitVector with Num[SInt] with MinMaxProvider {
-  override type SSelf = SInt
   def prefix : String = "s"
 
   override def +(that: SInt): SInt = newBinaryOperator("s+s", that, WidthInfer.inputMaxWidth,InputNormalize.nodeWidth,ZeroWidth.binaryTakeOther);
@@ -49,8 +48,7 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider {
   def unary_~(): SInt = newUnaryOperator("~s",WidthInfer.inputMaxWidth,ZeroWidth.unaryZero);
   def unary_-(): SInt = newUnaryOperator("-s",WidthInfer.inputMaxWidth,ZeroWidth.unaryZero);
 
-  override def ===(that: SSelf): Bool = newLogicalOperator("s==s", that,InputNormalize.inputWidthMax,ZeroWidth.binaryThatIfBoth(True));
-  override def !==(that: SSelf): Bool = newLogicalOperator("s!=s", that,InputNormalize.inputWidthMax,ZeroWidth.binaryThatIfBoth(False));
+
   override def <(that: SInt): Bool = newLogicalOperator("s<s", that,InputNormalize.inputWidthMax,ZeroWidth.binarySIntSmaller);
   override def >(that: SInt): Bool = that < this
   override def <=(that: SInt): Bool = newLogicalOperator("s<=s", that,InputNormalize.inputWidthMax,ZeroWidth.binarySIntSmallerOrEgual);
@@ -61,14 +59,17 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider {
   def >>(that: UInt): this.type = newBinaryOperator("s>>u", that, WidthInfer.shiftRightWidth,InputNormalize.none,ZeroWidth.shiftRightImpl);
   def <<(that: UInt): this.type = newBinaryOperator("s<<u", that, WidthInfer.shiftLeftWidth,InputNormalize.none,ZeroWidth.shiftLeftImpl(S.apply));
 
-  override def \(that: SSelf) = super.\(that)
-  override def :=(that: SSelf): Unit = super.:=(that)
-  override def <>(that: SSelf): Unit = super.<>(that)
 
   override def newMultiplexor(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,s,s)",sel,whenTrue,whenFalse)
   override def isEguals(that: Data): Bool = {
-    that match{
-      case that : SInt => this === that
+    that match {
+      case that: UInt => newLogicalOperator("s==s", that, InputNormalize.inputWidthMax,ZeroWidth.binaryThatIfBoth(True));
+      case _ => SpinalError(s"Don't know how compare $this with $that"); null
+    }
+  }
+  override def isNotEguals(that: Data): Bool = {
+    that match {
+      case that: UInt => newLogicalOperator("s!=s", that, InputNormalize.inputWidthMax,ZeroWidth.binaryThatIfBoth(False));
       case _ => SpinalError(s"Don't know how compare $this with $that"); null
     }
   }

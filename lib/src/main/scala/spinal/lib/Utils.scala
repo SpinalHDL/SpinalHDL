@@ -148,6 +148,8 @@ class Counter(val stateCount: BigInt, freeRun: Boolean = false) extends Area {
   def inc : Unit = {
     increment := True
   }
+  def ===(that : UInt) : Bool = this.value === that
+  def !==(that : UInt) : Bool = this.value !== that
 
   def reset: Unit = res := True
 

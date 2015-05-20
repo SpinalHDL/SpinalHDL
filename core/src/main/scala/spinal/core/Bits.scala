@@ -36,7 +36,6 @@ trait BitsFactory{
 }
 
 class Bits extends BitVector {
-  override type SSelf = Bits
   def prefix: String = "b"
 
   def ##(right: Bits): Bits = newBinaryOperator("b##b", right, WidthInfer.cumulateInputWidth, InputNormalize.none,ZeroWidth.binaryTakeOther)
@@ -46,17 +45,11 @@ class Bits extends BitVector {
   def ^(that: Bits): Bits = newBinaryOperator("b^b", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,ZeroWidth.binaryTakeOther);
   def unary_~(): Bits = newUnaryOperator("~b",WidthInfer.inputMaxWidth,ZeroWidth.unaryZero);
 
-  override def ===(that: SSelf): Bool = newLogicalOperator("b==b", that, InputNormalize.inputWidthMax,ZeroWidth.binaryThatIfBoth(True));
-  override def !==(that: SSelf): Bool = newLogicalOperator("b!=b", that, InputNormalize.inputWidthMax,ZeroWidth.binaryThatIfBoth(False));
-
   def >>(that: Int): this.type = newBinaryOperator("b>>i", IntLiteral(that), WidthInfer.shiftRightWidth, InputNormalize.none,ZeroWidth.shiftRightImpl);
   def <<(that: Int): this.type = newBinaryOperator("b<<i", IntLiteral(that), WidthInfer.shiftLeftWidth, InputNormalize.none,ZeroWidth.shiftLeftImpl(B.apply));
   def >>(that: UInt): this.type = newBinaryOperator("b>>u", that, WidthInfer.shiftRightWidth, InputNormalize.none,ZeroWidth.shiftRightImpl);
   def <<(that: UInt): this.type = newBinaryOperator("b<<u", that, WidthInfer.shiftLeftWidth, InputNormalize.none,ZeroWidth.shiftLeftImpl(B.apply));
 
-  override def \(that: SSelf) = super.\(that)
-  override def :=(that: SSelf): Unit = super.:=(that)
-  override def <>(that: SSelf): Unit = super.<>(that)
 
   override def newMultiplexor(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,b,b)", sel, whenTrue, whenFalse)
 
@@ -74,7 +67,13 @@ class Bits extends BitVector {
 
   override def isEguals(that: Data): Bool = {
     that match {
-      case that: Bits => this === that
+      case that: Bits => newLogicalOperator("b==b", that, InputNormalize.inputWidthMax,ZeroWidth.binaryThatIfBoth(True));
+      case _ => SpinalError(s"Don't know how compare $this with $that"); null
+    }
+  }
+  override def isNotEguals(that: Data): Bool = {
+    that match {
+      case that: Bits => newLogicalOperator("b!=b", that, InputNormalize.inputWidthMax,ZeroWidth.binaryThatIfBoth(False));
       case _ => SpinalError(s"Don't know how compare $this with $that"); null
     }
   }

@@ -149,9 +149,9 @@ object is {
 //      SpinalError("'is' statement must appear before the 'default' statement of the 'switch'")
 
     if (value.lastWhen == null) {
-      value.lastWhen = when(keys.map(key => (key === value.value)).reduceLeft(_ || _)) (block)
+      value.lastWhen = when(keys.map(key => (key.isEguals(value.value))).reduceLeft(_ || _)) (block)
     } else {
-      value.lastWhen = value.lastWhen.elsewhen(keys.map(key => (key === value.value)).reduceLeft(_ || _)) (block)
+      value.lastWhen = value.lastWhen.elsewhen(keys.map(key => (key.isEguals(value.value))).reduceLeft(_ || _)) (block)
     }
   }
 }
