@@ -45,7 +45,7 @@ class BundleTester extends Component {
   }
 
   val zero = new BundleAA
-  zero.flatten.foreach(_._2 := False)
+  zero.flatten.foreach(_ := False)
 
   when(io.conds(0)) {
     io.outAA := io.inAA(0)

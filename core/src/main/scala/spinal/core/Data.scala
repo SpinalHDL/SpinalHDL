@@ -23,7 +23,7 @@ import scala.collection.mutable.ArrayBuffer
 
 
 object Data {
-  implicit def autoCast[T <: Data, T2 <: T](that: T): T2#SSelf = that.asInstanceOf[T2#SSelf]
+//  implicit def autoCast[T <: Data, T2 <: T](that: T): T2#SSelf = that.asInstanceOf[T2#SSelf]
 
   def doPull[T <: Data](srcData: T, finalComponent: Component, useCache: Boolean = false, propagateName: Boolean = false): T = {
     val startComponent = srcData.component
@@ -130,7 +130,7 @@ trait Data extends ContextUser with Nameable with Assignable with AttributeReady
   def isInput: Boolean = dir == in && isIo
   def isDirectionLess: Boolean = dir == null || !isIo
   def flip: this.type = {
-    for ((n, e) <- flatten) {
+    for (e <- flatten) {
       e.dir match {
         case `in` => e.dir = out
         case `out` => e.dir = in
@@ -146,13 +146,13 @@ trait Data extends ContextUser with Nameable with Assignable with AttributeReady
   def getZero: this.type = {
     val ret = clone()
     ret.flatten.foreach(t => {
-      t._2 := t._2.getZero
+      t := t.getZero
     })
 
     ret
   }
 
-  def flatten: ArrayBuffer[(String, BaseType)]
+  def flatten: Seq[BaseType]
 
   def pull: this.type = Data.doPull(this, Component.current, false, false)
 
@@ -185,39 +185,39 @@ trait Data extends ContextUser with Nameable with Assignable with AttributeReady
 
 
 
-  def isEguals(that: Data): Bool = (this.flatten, that.flatten).zipped.map((a, b) => a._2.isEguals(b._2)).reduceLeft(_ || _)
-  def autoConnect(that: Data): Unit = (this.flatten, that.flatten).zipped.foreach(_._2 autoConnect _._2)
+  def isEguals(that: Data): Bool = (this.flatten, that.flatten).zipped.map((a, b) => a.isEguals(b)).reduceLeft(_ || _)
+  def autoConnect(that: Data): Unit = (this.flatten, that.flatten).zipped.foreach(_ autoConnect _)
 
 
   def getBitsWidth: Int
 
   def keep: this.type = {
-    flatten.foreach(t => t._2.component.additionalNodesRoot += t._2);
+    flatten.foreach(t => t.component.additionalNodesRoot += t);
     dontSimplifyIt
     this
   }
 
   def dontSimplifyIt: this.type = {
-    flatten.foreach(_._2.dontSimplifyIt)
+    flatten.foreach(_.dontSimplifyIt)
     this
   }
   def allowSimplifyIt: this.type = {
-    flatten.foreach(_._2.allowSimplifyIt)
+    flatten.foreach(_.allowSimplifyIt)
     this
   }
 
   override def add(attribute: Attribute): Unit = {
-    flatten.foreach(_._2.add(attribute))
+    flatten.foreach(_.add(attribute))
   }
 
-  def isReg: Boolean = flatten.foldLeft(true)(_ && _._2.isReg)
+  def isReg: Boolean = flatten.foldLeft(true)(_ && _.isReg)
 
   /*private[core] */
   def init(init: SSelf): this.type = {
     // if (!isReg) SpinalError(s"Try to set initial value of a data that is not a register ($this)")
     val regInit = clone()
     regInit := init
-    for (((eName, e), (y, initElement)) <- (this.flatten, regInit.flatten).zipped) {
+    for ((e, initElement) <- (this.flatten, regInit.flatten).zipped) {
       def recursiveSearch(ptr: Node): Unit = {
         if (ptr.component != init.component) SpinalError(s"Try to set initial value of a data that is not in current component ($this)")
         ptr match {
@@ -248,7 +248,7 @@ trait Data extends ContextUser with Nameable with Assignable with AttributeReady
 
 
   def randBoot(): this.type = {
-    flatten.foreach(_._2.addTag(spinal.core.randomBoot))
+    flatten.foreach(_.addTag(spinal.core.randomBoot))
     this
   }
 
@@ -318,3 +318,23 @@ trait Data extends ContextUser with Nameable with Assignable with AttributeReady
   }
 
 }
+
+
+//
+//abstract class CustomData extends Data{
+//  override def getBitsWidth: Int = flatten.map(_.getBitsWidth).reduce(_ + _)
+//  override def assignFromBits(bits: Bits): Unit = {
+//    var offset = 0
+//    for(e <- flatten){
+//      e.assignFromBits(bits(e.getBitsWidth + offset-1,offset))
+//      offset += e.getBitsWidth
+//    }
+//  }
+//  override def toBits: Bits = Cat(flatten.reverse.map(_.toBits))
+//  override private[spinal] def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
+//    assert(!conservative)
+//    assert(that.getClass == this.getClass)
+//    val t = that.asInstanceOf[CustomData]
+//    (this.flatten,t.flatten).zipped.map(_.assignFromImpl(_,conservative))
+//  }
+//}

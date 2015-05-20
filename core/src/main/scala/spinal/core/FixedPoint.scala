@@ -7,15 +7,45 @@ import scala.collection.mutable.ArrayBuffer
  */
 
 
+class XX extends Data{
+  override type SSelf = XX
+  override def flatten: Seq[BaseType] = ???
+  override def getBitsWidth: Int = ???
+  override def assignFromBits(bits: Bits): Unit = ???
+  override def toBits: Bits = ???
+  override private[spinal] def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = ???
+}
+
+
 object SFix{
   def apply(exp : Int,bitCount : Int) = new SFix(exp,bitCount)
 }
 
 @valClone
-class SFix(val exp : Int,val bitCount : Int) extends Bundle{
-  //override type SSelf = SFix
+class SFix(val exp : Int,val bitCount : Int) extends MultiData{
+  override type SSelf = SFix
 
+  override def \(that: SSelf) = super.\(that)
+  override def :=(that: SSelf): Unit = super.:=(that)
+  override def <>(that: SSelf): Unit = super.<>(that)
+
+  override def elements: ArrayBuffer[(String, Data)] = ArrayBuffer(("theRaw" -> raw))
+  override private[spinal] def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
+    that match{
+      case that : SFix => {
+        val difLsb = this.difLsb(that)
+        if(difLsb > 0)
+          this.raw := that.raw >> difLsb
+        else if(difLsb < 0)
+          this.raw := that.raw  << -difLsb
+        else
+          this.raw := that.raw
+      }
+      case _ => SpinalError("Undefined assignement")
+    }
+  }
   val raw = SInt(bitCount bit)
+
 
   def difLsb(that : SFix) = (this.exp-this.bitCount) - (that.exp-that.bitCount)
   def alignLsb(that : SFix) : Tuple2[SInt,SInt] = {
@@ -33,7 +63,7 @@ class SFix(val exp : Int,val bitCount : Int) extends Bundle{
   }
 
   def *(that : SFix): SFix = {
-    val ret = new SFix(this.exp + that.exp,Math.max(this.bitCount,that.bitCount))
+    val ret = new SFix(this.exp + that.exp,this.bitCount +that.bitCount)
     ret.raw := this.raw *that.raw
     ret
   }

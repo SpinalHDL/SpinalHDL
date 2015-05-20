@@ -193,7 +193,7 @@ private[spinal] object Multiplex {
 
 
     val muxOut = outType.clone()
-    muxOut.flatten.foreach(_._2 match{
+    muxOut.flatten.foreach(_ match{
       case bv : BitVector => bv.fixedWidth = -1
       case _ =>
     })
@@ -205,7 +205,7 @@ private[spinal] object Multiplex {
     muxInFalse := whenFalse
 
 
-    for (((x, out), (y, t), (z, f)) <- (muxOut.flatten, muxInTrue.flatten, muxInFalse.flatten).zipped) {
+    for ((out, t,  f) <- (muxOut.flatten, muxInTrue.flatten, muxInFalse.flatten).zipped) {
       if (t == null) SpinalError("Create a mux with incompatible true input type")
       if (f == null) SpinalError("Create a mux with incompatible false input type")
 

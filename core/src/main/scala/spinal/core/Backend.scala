@@ -688,7 +688,7 @@ class Backend {
     val nodeStack = mutable.Stack[Node]()
     components.foreach(_ match {
       case blackBox: BlackBox => {
-        blackBox.generic.flatten.foreach(_._2 match {
+        blackBox.generic.flatten.foreach(_ match {
           case bt: BaseType => nodeStack.push(bt)
           case _ =>
         })
@@ -1058,7 +1058,7 @@ class Backend {
     components.foreach(_ match {
       case blackBox: BlackBox => {
         blackBox.generic.flatten.foreach(tuple => {
-          val signal = tuple._2
+          val signal = tuple
           if (signal.isInstanceOf[BaseType]) {
             val baseType = signal.asInstanceOf[BaseType]
             walk(baseType, baseType)

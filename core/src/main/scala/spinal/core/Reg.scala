@@ -26,7 +26,7 @@ object Reg {
 
   def apply[T <: Data](dataType: T, init: T = null.asInstanceOf[T],next : T = null.asInstanceOf[T]): T = {
     val regOut = dataType.clone()//.dontSimplifyIt
-    for (((eName, e)) <- regOut.flatten) {
+    for ( e <- regOut.flatten) {
       val reg = new Reg(e)
       reg.compositeTagReady = e
       e.inputs(0) = reg;

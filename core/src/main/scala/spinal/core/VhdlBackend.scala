@@ -731,7 +731,7 @@ class VhdlBackend extends Backend with VhdlBase {
               }
 
               val values = (e.flatten,mem._widths).zipped.map((e,width) => {
-                e._2.getLiteral.getBitsStringOn(width)
+                e.getLiteral.getBitsStringOn(width)
               })
 
               initAssignementBuilder ++= "\"" + values.reduceLeft((l,r) => r + l) + "\""

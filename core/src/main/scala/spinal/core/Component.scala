@@ -59,7 +59,7 @@ abstract class Component extends Nameable with GlobalDataUser with ScalaLocated 
     body
 
     if ((body _).getClass.getDeclaringClass == this.getClass) {
-      this.io.flatten.foreach(_._2.isIo = true)
+      this.io.flatten.foreach(_.isIo = true)
       Component.pop(this);
       this.userParentCalledDef
     }
@@ -144,7 +144,7 @@ abstract class Component extends Nameable with GlobalDataUser with ScalaLocated 
   def getNodeIo = {
     val nodeIo = mutable.Set[BaseType]()
     if (nodes == null) {
-      io.flatten.foreach(nodeIo += _._2)
+      io.flatten.foreach(nodeIo += _)
     } else {
       nodes.foreach(node => node match {
         case b: BaseType => if (b.isIo) nodeIo += b

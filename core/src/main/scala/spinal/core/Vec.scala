@@ -118,7 +118,7 @@ class Vec[T <: Data](_dataType: T,val vec : Vector[T]) extends MultiData with co
         vecTransposedCache += ArrayBuffer[BaseType]()
 
       for (vecElement <- vec) {
-        for (((eName, e), i) <- vecElement.flatten.zipWithIndex) {
+        for ((e, i) <- vecElement.flatten.zipWithIndex) {
           vecTransposedCache(i) += e;
         }
       }
@@ -155,7 +155,7 @@ class Vec[T <: Data](_dataType: T,val vec : Vector[T]) extends MultiData with co
 
     val ret = SeqMux(vec, address)
     val enables = (U(1) << address).toBools
-    for (((accessEName, accessE), to) <- (ret.flatten, vecTransposed).zipped) {
+    for ((accessE, to) <- (ret.flatten, vecTransposed).zipped) {
       accessE.compositeAssign = new VecAccessAssign(enables,to)
     }
 

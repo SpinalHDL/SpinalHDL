@@ -48,10 +48,10 @@ object Mem {
 
 class Mem[T <: Data](val wordType: T, val wordCount: Int) extends Node with Nameable {
   var forceMemToBlackboxTranslation = false
-  val _widths = wordType.flatten.map(t => t._2.getWidth).toVector //Force to fix width of each wire
+  val _widths = wordType.flatten.map(t => t.getWidth).toVector //Force to fix width of each wire
 
 
-  override def calcWidth: Int = wordType.flatten.map(_._2.calcWidth).reduceLeft(_ + _)
+  override def calcWidth: Int = wordType.flatten.map(_.calcWidth).reduceLeft(_ + _)
   def addressWidth = log2Up(wordCount)
 
   def setAsBlackBox: this.type = {

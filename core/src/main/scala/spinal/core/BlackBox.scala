@@ -26,7 +26,7 @@ import scala.collection.mutable.ArrayBuffer
 
 
 class Generic {
-  var flattenCache: ArrayBuffer[(String, Any)] = null
+  var flattenCache: ArrayBuffer[Any] = null
 
 
   def genNames: Unit ={
@@ -41,7 +41,7 @@ class Generic {
 
   def flatten = {
     if (flattenCache == null) {
-      flattenCache = ArrayBuffer[(String, Any)]()
+      flattenCache = ArrayBuffer[Any]()
       Misc.reflect(this, (name, obj) => {
         obj match{
           case obj : Data =>

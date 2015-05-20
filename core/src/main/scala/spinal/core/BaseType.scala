@@ -220,7 +220,7 @@ abstract class BaseType extends Node with Data with Nameable {
   // def castThatInSame(that: BaseType): this.type = throw new Exception("Not defined")
 
 
-  override def flatten: ArrayBuffer[(String, BaseType)] = ArrayBuffer((getName(), this));
+  override def flatten: Seq[BaseType] = Seq(this);
 
   override def add(attribute: Attribute): Unit = {
     attributes += attribute

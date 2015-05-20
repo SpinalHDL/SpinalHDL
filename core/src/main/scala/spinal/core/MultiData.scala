@@ -85,7 +85,7 @@ abstract class MultiData extends Data with DelayedInit {
 
   override def getBitsWidth: Int = {
     var accumulateWidth = 0
-    for ((eName, e) <- flatten) {
+    for (e <- flatten) {
       val width = e.getWidth
       if (width == -1) return -1
       accumulateWidth += width
@@ -105,18 +105,14 @@ abstract class MultiData extends Data with DelayedInit {
   }
 
 
-  override def flatten: ArrayBuffer[(String, BaseType)] = {
-    val ret = ArrayBuffer[(String, BaseType)]()
-    for ((name, data) <- elements) {
-      ret ++= data.flatten
-    }
-    ret
+  override def flatten: Seq[BaseType] = {
+    elements.map(_._2.flatten).foldLeft(List[BaseType]())(_ ++ _)
   }
 
 
   override def assignFromBits(bits: Bits): Unit = {
     var offset = 0
-    for ((n, e) <- flatten) {
+    for (e <- flatten) {
       val width = e.getWidth
       e.assignFromBits(bits(offset, width bit))
       offset = offset + width
