@@ -381,14 +381,17 @@ trait OverridedEqualsHashCode{
 
 
 abstract trait Num[T <: Data] {
-  def +  (right: T): T;
-  def -  (right: T): T;
-  def *  (right: T): T;
+  def +  (right: T): T
+  def -  (right: T): T
+  def *  (right: T): T
 
-  def <  (right: T): Bool;
-  def <= (right: T): Bool;
-  def >  (right: T): Bool;
-  def >= (right: T): Bool;
+  def <  (right: T): Bool
+  def <= (right: T): Bool
+  def >  (right: T): Bool
+  def >= (right: T): Bool
+
+  def << (shift : Int) : T
+  def >> (shift : Int) : T
 
   def min(right: T): T = Mux(this < right, this.asInstanceOf[T], right)
   def max(right: T): T = Mux(this < right, right, this.asInstanceOf[T])

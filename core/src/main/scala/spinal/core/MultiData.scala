@@ -30,11 +30,21 @@ abstract class MultiData extends Data with DelayedInit {
   override def delayedInit(body: => Unit) = {
     body
 
-    if ((body _).getClass.getDeclaringClass == this.getClass) {
+
+    def getLastBodyClass(clazz : Class[_]) : Class[_] = {
+      val endPoint = "delayedEndpoint$" + clazz.getName.replace(".","$") + "$1"
+      for(m <- clazz.getDeclaredMethods){
+      //  if(m.getName.startsWith("delayedEndpoint$"))
+        if(m.getName == endPoint)
+          return clazz
+      }
+      return getLastBodyClass(clazz.getSuperclass)
+    }
+    if ((body _).getClass.getDeclaringClass == getLastBodyClass(this.getClass)) {
       //println("  " * MultiData.tab + "-")
       //if (globalData.dataStack.head() == this) {
       if(globalData.dataStack.head() != this){
-        SpinalWarning(
+        SpinalError(
           """
             |*** One of your bundle as a empty body.
             |*** It's not allowed for the moment (in scala 2.12 it will be)

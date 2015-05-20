@@ -45,10 +45,10 @@ class Bits extends BitVector {
   def ^(that: Bits): Bits = newBinaryOperator("b^b", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,ZeroWidth.binaryTakeOther);
   def unary_~(): Bits = newUnaryOperator("~b",WidthInfer.inputMaxWidth,ZeroWidth.unaryZero);
 
-  def >>(that: Int): this.type = newBinaryOperator("b>>i", IntLiteral(that), WidthInfer.shiftRightWidth, InputNormalize.none,ZeroWidth.shiftRightImpl);
-  def <<(that: Int): this.type = newBinaryOperator("b<<i", IntLiteral(that), WidthInfer.shiftLeftWidth, InputNormalize.none,ZeroWidth.shiftLeftImpl(B.apply));
-  def >>(that: UInt): this.type = newBinaryOperator("b>>u", that, WidthInfer.shiftRightWidth, InputNormalize.none,ZeroWidth.shiftRightImpl);
-  def <<(that: UInt): this.type = newBinaryOperator("b<<u", that, WidthInfer.shiftLeftWidth, InputNormalize.none,ZeroWidth.shiftLeftImpl(B.apply));
+  def >>(that: Int): Bits = newBinaryOperator("b>>i", IntLiteral(that), WidthInfer.shiftRightWidth, InputNormalize.none,ZeroWidth.shiftRightImpl);
+  def <<(that: Int): Bits = newBinaryOperator("b<<i", IntLiteral(that), WidthInfer.shiftLeftWidth, InputNormalize.none,ZeroWidth.shiftLeftImpl(B.apply));
+  def >>(that: UInt): Bits = newBinaryOperator("b>>u", that, WidthInfer.shiftRightWidth, InputNormalize.none,ZeroWidth.shiftRightImpl);
+  def <<(that: UInt): Bits = newBinaryOperator("b<<u", that, WidthInfer.shiftLeftWidth, InputNormalize.none,ZeroWidth.shiftLeftImpl(B.apply));
 
 
   override def newMultiplexor(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,b,b)", sel, whenTrue, whenFalse)

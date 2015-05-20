@@ -26,6 +26,19 @@ import scala.collection.mutable.ArrayBuffer
 
 object Debug {
 
+  class A{
+    val a = 1
+    val aa = 2
+  }
+
+  class B extends A{
+    val b = 2
+  }
+
+  class C(xx : Int) extends B{
+
+  }
+
   class MyBundle extends Bundle{
     val a = Bool
     val b = Bool
@@ -115,6 +128,9 @@ object Debug {
 
   def main(args: Array[String]) {
     println("START")
+    val a = new A
+    val b = new B
+    val c = new C(2)
     SpinalVhdl(new TopLevel)
     println("DONE")
   }

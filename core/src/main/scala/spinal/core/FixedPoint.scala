@@ -13,11 +13,31 @@ object SFix{
   def apply(exp : Int,bitCount : Int) = new SFix(exp,bitCount)
 }
 
-@valClone
-class SFix(val exp : Int,val bitCount : Int) extends MultiData{
 
 
-  override def elements: ArrayBuffer[(String, Data)] = ArrayBuffer(("theRaw" -> raw))
+
+abstract class XFix[T <: XFix[T,R],R <: Data with Num[R]](val exp : Int,val bitCount : Int) extends MultiData {
+  val raw = rawFactory(exp,bitCount)
+
+  override def elements: ArrayBuffer[(String, Data)] = ArrayBuffer(("raw" -> raw))
+
+  def rawFactory(exp : Int,bitCount : Int) : R
+  def difLsb(that : T) = (this.exp-this.bitCount) - (that.exp-that.bitCount)
+  def alignLsb(that : T) : Tuple2[R,R] = {
+    val lsbDif = difLsb(that)
+    val left : R = if(lsbDif > 0) (this.raw << lsbDif) else this.raw
+    val right : R = if(lsbDif < 0) (that.raw << -lsbDif) else that.raw
+    (left,right)
+  }
+}
+
+
+
+class SFix(exp : Int,bitCount : Int) extends XFix[SFix,SInt](exp,bitCount){
+
+
+  override def rawFactory(exp: Int, bitCount: Int): SInt = SInt(bitCount bit)
+
   override private[spinal] def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
     that match{
       case that : SFix => {
@@ -31,16 +51,6 @@ class SFix(val exp : Int,val bitCount : Int) extends MultiData{
       }
       case _ => SpinalError("Undefined assignement")
     }
-  }
-  val raw = SInt(bitCount bit)
-
-
-  def difLsb(that : SFix) = (this.exp-this.bitCount) - (that.exp-that.bitCount)
-  def alignLsb(that : SFix) : Tuple2[SInt,SInt] = {
-    val lsbDif = difLsb(that)
-    val left = if(lsbDif > 0) (this.raw << lsbDif) else this.raw
-    val right = if(lsbDif < 0) (that.raw << -lsbDif) else that.raw
-    (left,right)
   }
 
   def +(that : SFix): SFix = {
@@ -57,17 +67,8 @@ class SFix(val exp : Int,val bitCount : Int) extends MultiData{
   }
 
   def <(that : SFix): Bool = {
-    val (rawLeft,rawRight) = alignLsb(that)
+    val (rawLeft, rawRight) = alignLsb(that)
     rawLeft < rawRight
   }
-
-//  override def :=(that: SSelf): Unit = {
-//    val difLsb = this.difLsb(that)
-//    if(difLsb > 0)
-//      this.raw := that.raw >> difLsb
-//    else if(difLsb < 0)
-//      that.raw << -difLsb
-//    else
-//      this.raw := that.raw
-//  }
+  override def clone(): this.type = new SFix(exp,bitCount).asInstanceOf[this.type]
 }

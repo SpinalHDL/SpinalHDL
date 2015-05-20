@@ -364,7 +364,7 @@ object DelayEvent {
 
 
 class NoData extends Bundle {
-  val dummy = "Because of DelayedInit trait"
+
 }
 
 

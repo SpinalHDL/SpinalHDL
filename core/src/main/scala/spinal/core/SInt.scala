@@ -54,10 +54,10 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider {
   override def <=(that: SInt): Bool = newLogicalOperator("s<=s", that,InputNormalize.inputWidthMax,ZeroWidth.binarySIntSmallerOrEgual);
   override def >=(that: SInt): Bool = that <= this
 
-  def >>(that: Int): this.type = newBinaryOperator("s>>i", IntLiteral(that), WidthInfer.shiftRightWidth,InputNormalize.none,ZeroWidth.shiftRightImpl);
-  def <<(that: Int): this.type = newBinaryOperator("s<<i", IntLiteral(that), WidthInfer.shiftLeftWidth,InputNormalize.none,ZeroWidth.shiftLeftImpl(S.apply));
-  def >>(that: UInt): this.type = newBinaryOperator("s>>u", that, WidthInfer.shiftRightWidth,InputNormalize.none,ZeroWidth.shiftRightImpl);
-  def <<(that: UInt): this.type = newBinaryOperator("s<<u", that, WidthInfer.shiftLeftWidth,InputNormalize.none,ZeroWidth.shiftLeftImpl(S.apply));
+  override def >>(that: Int): SInt = newBinaryOperator("s>>i", IntLiteral(that), WidthInfer.shiftRightWidth,InputNormalize.none,ZeroWidth.shiftRightImpl);
+  override def <<(that: Int): SInt = newBinaryOperator("s<<i", IntLiteral(that), WidthInfer.shiftLeftWidth,InputNormalize.none,ZeroWidth.shiftLeftImpl(S.apply));
+  def >>(that: UInt): SInt = newBinaryOperator("s>>u", that, WidthInfer.shiftRightWidth,InputNormalize.none,ZeroWidth.shiftRightImpl);
+  def <<(that: UInt): SInt = newBinaryOperator("s<<u", that, WidthInfer.shiftLeftWidth,InputNormalize.none,ZeroWidth.shiftLeftImpl(S.apply));
 
 
   override def newMultiplexor(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,s,s)",sel,whenTrue,whenFalse)
