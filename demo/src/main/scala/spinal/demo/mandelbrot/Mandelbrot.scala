@@ -29,8 +29,8 @@ case class Task(p: Mandelbrot.Parameter) extends Bundle {
 
 class Mandelbrot(p: Mandelbrot.Parameter) extends Component {
   val io = new Bundle {
-    val job = slave Handshake(Job())
-    val result = master (p.resultStream.asMaster)
+    val job = slave Handshake (Job())
+    val result = master(p.resultStream.asMaster)
   }
 
   val taskGenerator = new TaskGenerator(p)
@@ -49,18 +49,17 @@ class Mandelbrot(p: Mandelbrot.Parameter) extends Component {
 }
 
 
-
 class TaskGenerator(p: Mandelbrot.Parameter) extends Component {
   val io = new Bundle {
-    val job = slave Handshake(Job())
+    val job = slave Handshake (Job())
     val solverTask = master(p.solverTaskStream)
   }
 
-  val screenX = Reg(UInt( 11 bit))
-  val screenY = Reg(UInt( 11 bit))
-  val mandelbrotX = Reg(SInt( 32+10  bit))
-  val mandelbrotY = Reg(SInt( 32+10 bit))
-  val setup = RegInit(Bool(true))
+  val screenX = Reg(UInt(11 bit))
+  val screenY = Reg(UInt(11 bit))
+  val mandelbrotX = Reg(SInt(32 + 10 bit))
+  val mandelbrotY = Reg(SInt(32 + 10 bit))
+  val setup = RegInit(True)
 
   val solverTask = Handshake(Task(p))
 
@@ -68,12 +67,12 @@ class TaskGenerator(p: Mandelbrot.Parameter) extends Component {
 
 
   when(io.job.ready) {
-    setup := Bool(true)
+    setup := True
   }
 
   when(io.job.valid && solverTask.ready) {
     when(setup) {
-      setup := Bool(false)
+      setup := False
       screenX := 0
       screenY := 0
       mandelbrotX := io.job.data.xStart << 10
@@ -90,15 +89,15 @@ class TaskGenerator(p: Mandelbrot.Parameter) extends Component {
           mandelbrotY := mandelbrotY + io.job.data.yInc
         }.otherwise {
           mandelbrotY := io.job.data.yStart << 10
-          io.job.ready := Bool(true) //Asyncronous acknoledge into syncronous space <3
+          io.job.ready := True //Asyncronous acknoledge into syncronous space <3
         }
       }
     }
   }
 
   solverTask.valid := io.job.valid && !setup;
-  solverTask.data.x := mandelbrotX >> (10 - (p.fixWidth-p.fixExp - 28));
-  solverTask.data.y := mandelbrotY >> (10 - (p.fixWidth-p.fixExp - 28));
+  solverTask.data.x := mandelbrotX >> (10 - (p.fixWidth - p.fixExp - 28));
+  solverTask.data.y := mandelbrotY >> (10 - (p.fixWidth - p.fixExp - 28));
 
   solverTask >-> io.solverTask
 
@@ -114,18 +113,19 @@ class SolverPipelined(p: Mandelbrot.Parameter) extends Component {
   abstract class ContextBase(p: Mandelbrot.Parameter) extends Bundle {
     val task = new Task(p)
     val done = Bool
-    val order = UInt(4 bit) //Used to reorder result in same oder than input task
+    val order = UInt(4 bit)
+    //Used to reorder result in same oder than input task
     val iteration = UInt(9 bit)
     val zX = p.fix
     val zY = p.fix
   }
 
-  case class Context(p: Mandelbrot.Parameter) extends ContextBase(p){
+  case class Context(p: Mandelbrot.Parameter) extends ContextBase(p) {
     "dummy ;)"
   }
 
   //Extended context with x*x   y*y   x*y result 
-  case class Stage3Context(p: Mandelbrot.Parameter) extends ContextBase(p){
+  case class Stage3Context(p: Mandelbrot.Parameter) extends ContextBase(p) {
     val zXzX = p.fix
     val zYzY = p.fix
     val zXzY = p.fix
@@ -153,21 +153,23 @@ class SolverPipelined(p: Mandelbrot.Parameter) extends Component {
       val step1_a0b1 = RegNext(step0_a0b1)
       val step1_a1b1 = RegNext(step0_a1b1)
 
-      val step2_a0b1_a1b0  = RegNext(step1_a0b1+step1_a1b0)
+      val step2_a0b1_a1b0 = RegNext(step1_a0b1 + step1_a1b0)
       val step2_a1b1 = RegNext(step1_a1b1)
 
-      val result =  ((step2_a0b1_a1b0) << lowWidth) + (step2_a1b1 << (lowWidth * 2))
+      val result = ((step2_a0b1_a1b0) << lowWidth) + (step2_a1b1 << (lowWidth * 2))
       return result(width * 2 - p.fixExp - 1, width - p.fixExp)
     }
   }
 
 
-  val insertTaskOrder = Reg(UInt(4 bit)) init(0)
-  val resultOrder = Reg(UInt(4 bit)) init(0)
+  val insertTaskOrder = Reg(UInt(4 bit)) init (0)
+  val resultOrder = Reg(UInt(4 bit)) init (0)
 
 
-  val stage0 = RegFlow(new Context(p))//First stage
-  val loopBack = RegFlow(new Context(p)) //Loop back from end of pipeline
+  val stage0 = RegFlow(new Context(p))
+  //First stage
+  val loopBack = RegFlow(new Context(p))
+  //Loop back from end of pipeline
   val insertTask = new Handshake(new Context(p)) //Task to insert into the pipeline
 
   //Functional way to translate the input Task to Context
@@ -197,14 +199,15 @@ class SolverPipelined(p: Mandelbrot.Parameter) extends Component {
   //((io.task ~ insertTaskBits) & (insertTaskOrder === resultOrder)) >> insertTask //same than precedent line but limit the number of "thread" into the pipeline to one
   //End of hardcoded way to translate the input Task to Context
 
-  when(io.task.fire) {   //When a transaction is done on io.task =>
-    insertTaskOrder := insertTaskOrder +1
+  when(io.task.fire) {
+    //When a transaction is done on io.task =>
+    insertTaskOrder := insertTaskOrder + 1
   }
 
   //begin of the solver pipeline => insert contexts from loopback or insertTask
   stage0.valid := loopBack.valid || insertTask.valid
   insertTask.ready := !loopBack.valid
-  stage0.data := Mux(loopBack.valid, loopBack.data,insertTask.data)
+  stage0.data := Mux(loopBack.valid, loopBack.data, insertTask.data)
 
   //Stage1 is a routing stage
   val stage1b = RegFlow(new Context(p))
@@ -251,7 +254,7 @@ class SolverPipelined(p: Mandelbrot.Parameter) extends Component {
   result.valid := stage4.valid && readyForresult
   result.data := stage4.data.iteration
 
-  when(result.fire){
+  when(result.fire) {
     resultOrder := resultOrder + 1
   }
 
@@ -261,7 +264,6 @@ class SolverPipelined(p: Mandelbrot.Parameter) extends Component {
   loopBack.data := stage4.data
 
 }
-
 
 
 object Main {

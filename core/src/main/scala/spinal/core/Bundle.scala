@@ -33,7 +33,7 @@ object Bundle {
 
 
 class Bundle extends MultiData with Nameable with OverridedEqualsHashCode {
-  override type SSelf = Bundle
+  override type SSelf  = Bundle
 
   override def \(that: SSelf) = super.\(that)
   override def :=(that: SSelf): Unit = super.:=(that)

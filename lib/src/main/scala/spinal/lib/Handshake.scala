@@ -292,22 +292,11 @@ object HandshakeArbiterCore {
 
     val counter = Counter(core.portCount,io.output.fire)
 
-    if (core.portCount == 1) {
-      io.inputs(0) >> io.output
-    } else {
-      for (i <- 0 to core.portCount - 1) {
-        io.inputs(i).ready := Bool(false)
-      }
-
-      io.inputs(counter) >> io.output
+    for (i <- 0 to core.portCount - 1) {
+      maskProposal(i) := False
     }
 
-    var search = True
-    for (i <- 0 to portCount - 2) {
-      maskProposal(i) := search & io.inputs(i).valid
-      search = search & !io.inputs(i).valid
-    }
-    maskProposal(portCount - 1) := search
+    maskProposal(counter) := True
   }
 
   def lock_none(core: HandshakeArbiterCore[_]) = new Area {
