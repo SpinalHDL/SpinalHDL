@@ -51,6 +51,9 @@ object Debug {
   }
 
 
+  class MyBundleSub extends MyBundle{
+
+  }
 
   object MyEnum extends SpinalEnum{
     val s0,s1,s2 = Value
@@ -131,6 +134,7 @@ object Debug {
     val a = new A
     val b = new B
     val c = new C(2)
+
     SpinalVhdl(new TopLevel)
     println("DONE")
   }

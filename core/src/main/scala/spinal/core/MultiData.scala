@@ -93,23 +93,27 @@ abstract class MultiData extends Data with DelayedInit {
     }
   }
 
+
   override def getBitsWidth: Int = {
     var accumulateWidth = 0
-    for (e <- flatten) {
-      val width = e.getWidth
-      if (width == -1) return -1
+    for ((_,e) <- elements) {
+      val width = e.getBitsWidth
+      if (width == -1) SpinalError("Can't return bits width")
       accumulateWidth += width
     }
     accumulateWidth
   }
 
   override def asInput: this.type = {
+    super.asInput
     elements.foreach(_._2.asInput);
+
     this
   }
 
 
   override def asOutput: this.type = {
+    super.asOutput
     elements.foreach(_._2.asOutput);
     this
   }
@@ -122,10 +126,51 @@ abstract class MultiData extends Data with DelayedInit {
 
   override def assignFromBits(bits: Bits): Unit = {
     var offset = 0
-    for (e <- flatten) {
-      val width = e.getWidth
+    for ((_,e) <- elements) {
+      val width = e.getBitsWidth
       e.assignFromBits(bits(offset, width bit))
       offset = offset + width
     }
+  }
+
+
+
+
+  def isEguals(that: Data): Bool = {
+    that match{
+      case that : MultiData => {
+        zippedMap(that,_ === _).reduce(_ && _)
+      }
+      case _ => SpinalError("Can't do that")
+    }
+  }
+
+
+  def isNotEguals(that: Data): Bool  = {
+    that match{
+      case that : MultiData => {
+        zippedMap(that,_ !== _).reduce(_ || _)
+      }
+      case _ => SpinalError("Can't do that")
+    }
+  }
+
+  override def autoConnect(that: Data): Unit = {
+    that match{
+      case that : MultiData => {
+        zippedMap(that,_ autoConnect _)
+      }
+      case _ => SpinalError("Can't do that")
+    }
+  }
+
+  def zippedMap[T](that: MultiData,task : (Data,Data) => T) : Seq[T] = {
+    if(that.elements.length != this.elements.length) SpinalError("Can't do that")
+    this.elements.map(x => {
+      val (n,e) = x
+      val other = that.find(n)
+      if(e == null)  SpinalError("Can't do that")
+      task(e,other)
+    })
   }
 }

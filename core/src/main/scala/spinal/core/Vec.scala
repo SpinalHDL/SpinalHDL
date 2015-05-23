@@ -93,13 +93,6 @@ class Vec[T <: Data](_dataType: T,val vec : Vector[T]) extends MultiData with co
   val accessMap = mutable.Map[(Component,UInt), T]()
   var vecTransposedCache: ArrayBuffer[ArrayBuffer[BaseType]] = null
 
-
-
-//  def addElement (e : T): Unit ={
-//    if(vecLock) SpinalError("You can't modify Vec after read/write it")
-//    vec += e
-//  }
-
   def vecTransposed: ArrayBuffer[ArrayBuffer[BaseType]] = {
     if (vecTransposedCache == null) {
       vecTransposedCache = new ArrayBuffer[ArrayBuffer[BaseType]]()
@@ -124,12 +117,6 @@ class Vec[T <: Data](_dataType: T,val vec : Vector[T]) extends MultiData with co
     vec(idx)
   }
 
-
-
-//  def :=(that: Vec[T]): Unit = {
-//    lockIt()
-//    this.assignFrom(that)
-//  }
 
 
 

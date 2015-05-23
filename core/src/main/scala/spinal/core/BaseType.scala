@@ -170,56 +170,13 @@ abstract class BaseType extends Node with Data with Nameable {
   }
 
 
-  override def autoConnect(that: Data): Unit = {
-    if (this.component == that.component) {
-      if (this.component == Component.current) {
-        sameFromInside
-      } else if (this.component.parent == Component.current) {
-        sameFromOutside
-      } else SpinalError("You cant autoconnect from here")
-    } else if (this.component.parent == that.component.parent) {
-      kindAndKind
-    } else if (this.component == that.component.parent) {
-      parentAndKind(this, that)
-    } else if (this.component.parent == that.component) {
-      parentAndKind(that, this)
-    } else SpinalError("Don't know how autoconnect")
 
-    def sameFromOutside: Unit = {
-      if (this.isOutput && that.isInput) {
-        that := this
-      } else if (this.isInput && that.isOutput) {
-        this assignFrom (that,false)
-      } else SpinalError("Bad input output specification for autoconnect")
-    }
-    def sameFromInside: Unit = {
-      if (that.isOutputDir && this.isInputDir) {
-        that := this
-      } else if (that.isInputDir && this.isOutputDir) {
-        this assignFrom (that,false)
-      } else SpinalError("Bad input output specification for autoconnect")
-    }
-
-    def kindAndKind: Unit = {
-      if (this.isOutput && that.isInput) {
-        that := this
-      } else if (this.isInput && that.isOutput) {
-        this assignFrom (that,false)
-      } else SpinalError("Bad input output specification for autoconnect")
-    }
-
-    def parentAndKind(p: Data, k: Data): Unit = {
-      if (k.isOutput) {
-        p := k
-      } else if (k.isInput) {
-        k := p
-      } else SpinalError("Bad input output specification for autoconnect")
-    }
-  }
 
   // def castThatInSame(that: BaseType): this.type = throw new Exception("Not defined")
 
 
+  // = (this.flatten, that.flatten).zipped.map((a, b) => a.isNotEguals(b)).reduceLeft(_ || _)
+  override def autoConnect(that: Data): Unit = autoConnectBaseImpl(that)
   override def flatten: Seq[BaseType] = Seq(this);
 
   override def add(attribute: Attribute): Unit = {
