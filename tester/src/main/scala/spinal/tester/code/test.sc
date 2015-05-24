@@ -1,27 +1,8 @@
-class Data{
-  type Self <: Data
 
-  def := (that : Self) : Unit = println("a")
-}
-class UInt extends Data{
-  type Self = UInt
-}
+val x = 1.32e32
+x.toString
+BigDecimal.valueOf(x).toBigInt();
 
-class Bundle extends Data{
-  type Self = Bundle
-}
-
-class SFix extends Bundle{
-  override type Self = super.Self
-}
-
-val u1 = new UInt()
-val b1 = new Bundle()
-val b2 = new Bundle()
-val s1 = new SFix()
-//b1 := u1
-b1 := b2
-s1 := b2
 //
 //
 //import spinal.core._

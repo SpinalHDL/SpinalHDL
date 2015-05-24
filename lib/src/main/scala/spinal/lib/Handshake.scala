@@ -561,21 +561,21 @@ class HandshakeCCByToggle[T <: Data](dataType: T, clockIn: ClockDomain, clockOut
 class DispatcherInOrder[T <: Data](gen: T, n: Int) extends Component {
   val io = new Bundle {
     val input = slave Handshake(gen)
-    val output = Vec(n,master Handshake(gen))
+    val outputs = Vec(n,master Handshake(gen))
   }
   val counter = Counter(n,io.input.fire)
 
   if (n == 1) {
-    io.input >> io.output(0)
+    io.input >> io.outputs(0)
   } else {
     io.input.ready := False
     for (i <- 0 to n - 1) {
-      io.output(i).data := io.input.data
+      io.outputs(i).data := io.input.data
       when(counter !== i) {
-        io.output(i).valid := False
+        io.outputs(i).valid := False
       } otherwise {
-        io.output(i).valid := io.input.valid
-        io.input.ready := io.output(i).ready
+        io.outputs(i).valid := io.input.valid
+        io.input.ready := io.outputs(i).ready
       }
     }
   }

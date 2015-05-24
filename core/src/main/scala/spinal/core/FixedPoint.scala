@@ -12,11 +12,12 @@ import scala.collection.mutable.ArrayBuffer
 
 object SFix{
   def apply(exp : Int,bitCount : Int) : SFix = new SFix(exp,bitCount)
-  def apply(config: FixedPointFactory) : SFix = config.SFix
+  def apply(config : (Int,Int)) : SFix = new SFix(config._1,config._2)
+  def apply(config: FixFactory) : SFix = config.SFix
 }
 
 
-case class FixedPointFactory(exp : Int,bitCount : Int){
+case class FixFactory(exp : Int,bitCount : Int){
   def SFix = spinal.core.SFix.apply(exp,bitCount)
 }
 
@@ -36,6 +37,7 @@ abstract class XFix[T <: XFix[T,R],R <: Data with Num[R]](val exp : Int,val bitC
     val right : R = if(lsbDif < 0) (that.raw << -lsbDif) else that.raw
     (left,right)
   }
+
 
 
   def doAddSub(that : T,sub : Boolean) : T = {
@@ -60,6 +62,13 @@ abstract class XFix[T <: XFix[T,R],R <: Data with Num[R]](val exp : Int,val bitC
     val (rawLeft, rawRight) = alignLsb(that)
     rawLeft <= rawRight
   }
+
+  def doShiftLeft(that : Int) : T = {
+    val ret = fixFactory(exp << 1,bitCount << 1)
+    ret.raw := this.raw << 1
+    ret
+  }
+
   override def autoConnect(that: Data): Unit = autoConnectBaseImpl(that)
 
   override private[spinal] def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
@@ -88,14 +97,26 @@ class SFix(exp : Int,bitCount : Int) extends XFix[SFix,SInt](exp,bitCount){
 
   def +(that : SFix) : SFix = doAddSub(that,false)
   def -(that : SFix) : SFix = doAddSub(that,true)
-
-
   def *(that : SFix): SFix = doMul(that)
+
+  def << (that : Int) : SFix = doShiftLeft(that)
 
   def <(that : SFix): Bool = doSmaller(that)
   def >(that : SFix): Bool = that.doSmaller(this)
   def <=(that : SFix): Bool = doSmallerEguals(that)
   def >=(that : SFix): Bool = that.doSmallerEguals(this)
+
+  //TODO assert if that is greater or smaller than max/max of this
+  def >=(that : Double): Bool = {
+    val other = cloneOf(this)
+    other := that
+    this >= other
+  }
+
+  def := (that : Double): Unit ={
+    val value = BigDecimal.valueOf(that * math.pow(2.0,bitCount - exp)).toBigInt()
+    this.raw := S(value)
+  }
 
   override def clone(): this.type = new SFix(exp,bitCount).asInstanceOf[this.type]
 }
