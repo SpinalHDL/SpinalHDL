@@ -9,56 +9,44 @@ case class UInt2D(bitCount: BitCount) extends Bundle{
   val y = UInt(bitCount)
 }
 
+
+
 object SFix2D{
-  def apply(copy : SFix) : SFix2D = SFix2D(copy.exp,copy.bitCount)
+  def apply(exp : Int,bitCount: BitCount) : SFix2D = new SFix2D(exp,bitCount.value)
+  def apply(copy : SFix) : SFix2D = SFix2D(copy.exp,copy.bitCount bit)
+
 }
 
-case class SFix2D(exp : Int,bitCount : Int) extends Bundle{
-  val x = SFix(exp,bitCount)
-  val y = SFix(exp,bitCount)
+@valClone
+class SFix2D(val exp : Int,val bitCount : Int) extends Bundle{
+  val x = SFix(exp,bitCount bit)
+  val y = SFix(exp,bitCount bit)
 }
 
 object FrameTaskSolver {
   class Parameter(val unitCount: Int, val screenResX: Int, val screenResY: Int, val fixExp: Int, val fixWidth: Int) {
-    def fix = SFix(fixExp,fixWidth)
-    def frameTask = FrameTask(4,32)
-
-    def resultBits = UInt(8 bit)
-    def pixelResult = Handshake(resultBits)
-    def PixelTaskStream = Handshake(new PixelTask(this))
+    def fix = SFix(fixExp,fixWidth bit)
   }
 }
 
-case class FrameTask(exp : Int,bitCount : Int) extends Bundle {
-  val start = SFix2D(exp,bitCount)
-  val inc = SFix2D(exp-8,bitCount+8)
+case class FrameTask(p: FrameTaskSolver.Parameter) extends Bundle {
+  val start = SFix2D(p.fixExp,p.fixWidth  bit)
+  val inc = SFix2D(p.fixExp-8,p.fixWidth+8 bit)
 
-  def globalSFix = SFix(exp,bitCount + 16)
+  def fullRangeSFix = SFix(p.fixExp,p.fixWidth + 16 bit)
 }
 
 case class PixelTask(p: FrameTaskSolver.Parameter) extends Bundle {
   val mandelbrotPosition = SFix2D(p.fix)
 }
-
+case class PixelResult(p : FrameTaskSolver.Parameter) extends Bundle{
+  val iteration  = UInt(8 bit)
+}
 class FrameTaskSolver(p: FrameTaskSolver.Parameter) extends Component {
   val io = new Bundle {
-    val frameTask = slave Handshake (p.frameTask)
-    val pixelResult = master(p.pixelResult)
+    val frameTask = slave Handshake FrameTask(p)
+    val pixelResult = master Handshake PixelResult(p)
   }
-
-//  val taskGenerator = new TaskGenerator(p)
-//  val taskDispatcher = new DispatcherInOrder(new Task(p), p.unitCount)
-//  val result_arbiter = HandshakeArbiter.inOrder.build(p.resultBits, p.unitCount)
-//
-//  taskGenerator.io.job << io.job
-//  taskDispatcher.io.input <-/< taskGenerator.io.solverTask
-//  for((taskDispatcherOutput,resultArbiterInput) <- (taskDispatcher.io.output,result_arbiter.io.inputs).zipped){
-//    val solver = new SolverPipelined(p)
-//    solver.io.task <-/< taskDispatcherOutput
-//    solver.io.result >/> resultArbiterInput
-//  }
-//  result_arbiter.io.output >-> io.result
-
   val taskGenerator = new PixelTaskGenerator(p)
   taskGenerator.io.frameTask << io.frameTask
 
@@ -68,7 +56,7 @@ class FrameTaskSolver(p: FrameTaskSolver.Parameter) extends Component {
   val pixelSolver = List.fill(p.unitCount)(new PixelTaskSolver(p))
   (pixelSolver, taskDispatcher.io.outputs).zipped.map(_.io.pixelTask <-/< _)
 
-  val result_arbiter = HandshakeArbiter.inOrder.build(p.resultBits, p.unitCount)
+  val result_arbiter = HandshakeArbiter.inOrder.build(PixelResult(p), p.unitCount)
   (pixelSolver, result_arbiter.io.inputs).zipped.map(_.io.result >/> _)
 
   result_arbiter.io.output >-> io.pixelResult
@@ -77,12 +65,12 @@ class FrameTaskSolver(p: FrameTaskSolver.Parameter) extends Component {
 
 class PixelTaskGenerator(p: FrameTaskSolver.Parameter) extends Component {
   val io = new Bundle {
-    val frameTask = slave Handshake (p.frameTask)
-    val pixelTask = master(p.PixelTaskStream)
+    val frameTask = slave Handshake FrameTask(p)
+    val pixelTask = master Handshake PixelTask(p)
   }
 
   val screenPosition = Reg(UInt2D(11 bit))
-  val mandelbrotPosition = Reg(SFix2D(io.frameTask.data.globalSFix))
+  val mandelbrotPosition = Reg(SFix2D(io.frameTask.data.fullRangeSFix))
   val setup = RegInit(True)
 
   val solverTask = Handshake(PixelTask(p))
@@ -127,8 +115,8 @@ class PixelTaskGenerator(p: FrameTaskSolver.Parameter) extends Component {
 
 class PixelTaskSolver(p: FrameTaskSolver.Parameter) extends Component {
   val io = new Bundle {
-    val pixelTask = slave(p.PixelTaskStream)
-    val result = master(p.pixelResult.asMaster)
+    val pixelTask = slave Handshake PixelTask(p)
+    val result = master Handshake PixelResult(p)
   }
 
   //It's the context definition used by each stage of the pipeline, Each task are translated to context ("thread")
@@ -199,7 +187,7 @@ class PixelTaskSolver(p: FrameTaskSolver.Parameter) extends Component {
   //Hardcoded way to translate the input Task to Context
   val insertTaskBits = new Context(p)
   insertTaskBits.task := io.pixelTask.data
-  insertTaskBits.done := Bool(false)
+  insertTaskBits.done := False
   insertTaskBits.order := insertTaskOrder;
   insertTaskBits.iteration := 0
   insertTaskBits.z := io.pixelTask.data.mandelbrotPosition
@@ -259,9 +247,9 @@ class PixelTaskSolver(p: FrameTaskSolver.Parameter) extends Component {
   //          else put it into the feedback to redo iteration or to waiting
   val readyForresult = stage4.data.done && resultOrder === stage4.data.order
 
-  val result = p.pixelResult
+  val result = Handshake(PixelResult(p))
   result.valid := stage4.valid && readyForresult
-  result.data := stage4.data.iteration
+  result.data.iteration := stage4.data.iteration
 
   when(result.fire) {
     resultOrder := resultOrder + 1

@@ -1,7 +1,14 @@
 
-val x = 1.32e32
-x.toString
-BigDecimal.valueOf(x).toBigInt();
+//val x = 1.32e32
+//x.toString
+//BigDecimal.valueOf(x).toBigInt();
+
+import spinal.core._
+val x  = 4 bit
+
+implicit def aa (bitCount: BitCount) : Int = bitCount.value
+
+(4 bit) + (5 bit) * (x *x )
 
 //
 //

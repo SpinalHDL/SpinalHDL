@@ -11,15 +11,15 @@ import scala.collection.mutable.ArrayBuffer
 
 
 object SFix{
-  def apply(exp : Int,bitCount : Int) : SFix = new SFix(exp,bitCount)
+  def apply(exp : Int,bitCount : BitCount) : SFix = new SFix(exp,bitCount.value)
   def apply(config : (Int,Int)) : SFix = new SFix(config._1,config._2)
-  def apply(config: FixFactory) : SFix = config.SFix
+//  def apply(config: FixFactory) : SFix = config.SFix
 }
 
 
-case class FixFactory(exp : Int,bitCount : Int){
-  def SFix = spinal.core.SFix.apply(exp,bitCount)
-}
+//case class FixFactory(exp : Int,bitCount : Int){
+//  def SFix = spinal.core.SFix.apply(exp,bitCount)
+//}
 
 
 abstract class XFix[T <: XFix[T,R],R <: Data with Num[R]](val exp : Int,val bitCount : Int) extends MultiData {
@@ -93,7 +93,7 @@ abstract class XFix[T <: XFix[T,R],R <: Data with Num[R]](val exp : Int,val bitC
 //Fix autoconnect
 class SFix(exp : Int,bitCount : Int) extends XFix[SFix,SInt](exp,bitCount){
   override def rawFactory(exp: Int, bitCount: Int): SInt = SInt(bitCount bit)
-  override def fixFactory(exp: Int, bitCount: Int): SFix = SFix(exp,bitCount)
+  override def fixFactory(exp: Int, bitCount: Int): SFix = SFix(exp,bitCount bit)
 
   def +(that : SFix) : SFix = doAddSub(that,false)
   def -(that : SFix) : SFix = doAddSub(that,true)

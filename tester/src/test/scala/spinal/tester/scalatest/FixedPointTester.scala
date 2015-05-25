@@ -10,13 +10,13 @@ object FixedPointTester{
     val a = BundleAA(width)
   }
   case class BundleAA(width : Int) extends Bundle{
-    val sfix = SFix(4,width)
+    val sfix = SFix(4,width bit)
   }
 
   class FixedPointTester extends Component {
     val io = new Bundle {
-      val inSFix = in(Vec(Seq(SFix(4,16),SFix(2,12))))
-      val outSFix = out(Vec(Seq(SFix(4,16),SFix(8,24))))
+      val inSFix = in(Vec(Seq(SFix(4,16 bit),SFix(2,12 bit))))
+      val outSFix = out(Vec(Seq(SFix(4,16 bit),SFix(8,24 bit))))
 
       val inBundleA = in(BundleA(8))
       val outBundleA = out(BundleA(6))

@@ -390,25 +390,25 @@ object C10_removed {
 }
 
 object C11 {
-  val cond = Bool
-  val inPort = Handshake(Bits(32 bit))
-  val outPort = Handshake(Bits(32 bit))
-
-  outPort << inPort
-  outPort <-< inPort
-  outPort </< inPort
-  outPort <-/< inPort
-  val haltedPort = inPort.haltWhen(cond)
-  val filteredPort = inPort.throwWhen(inPort.data === 0)
-  val outPortWithMsb = inPort.translateWith(inPort.data.msb)
-
-  val mem = Mem(Bool, 1024)
-  val memReadCmd = Handshake(UInt(10 bit))
-  val memReadPort = mem.handshakeReadSync(memReadCmd, memReadCmd.data)
-  memReadPort.valid //arbitration
-  memReadPort.ready //arbitration
-  memReadPort.data.value //Readed value
-  memReadPort.data.linked //Linked value (memReadCmd.data)
+//  val cond = Bool
+//  val inPort = Handshake(Bits(32 bit))
+//  val outPort = Handshake(Bits(32 bit))
+//
+//  outPort << inPort
+//  outPort <-< inPort
+//  outPort </< inPort
+//  outPort <-/< inPort
+//  val haltedPort = inPort.haltWhen(cond)
+//  val filteredPort = inPort.throwWhen(inPort.data === 0)
+//  val outPortWithMsb = inPort.translateWith(inPort.data.msb)
+//
+//  val mem = Mem(Bool, 1024)
+//  val memReadCmd = Handshake(UInt(10 bit))
+//  val memReadPort = mem.handshakeReadSync(memReadCmd, memReadCmd.data)
+//  memReadPort.valid //arbitration
+//  memReadPort.ready //arbitration
+//  memReadPort.data.value //Readed value
+//  memReadPort.data.linked //Linked value (memReadCmd.data)
 
 
 
@@ -495,13 +495,13 @@ object C14 {
   }
 
   //Create a counter of 10 states (0 to 9)
-  val counter = Counter(10)
-  counter.value     //current value
-  counter.valueNext //Next value
-  counter.reset     //When called it reset the counter. It's not a flag
-  counter.inc       //When called it increment the counter. It's not a flag
-  counter.overflow  //Flag that indicate if the counter overflow this cycle
-  when(counter === 5){ }  //counter is implicitly its value
+//  val counter = Counter(10)
+//  counter.value     //current value
+//  counter.valueNext //Next value
+//  counter.reset     //When called it reset the counter. It's not a flag
+//  counter.inc       //When called it increment the counter. It's not a flag
+//  counter.overflow  //Flag that indicate if the counter overflow this cycle
+//  when(counter === 5){ }  //counter is implicitly its value
   
 
 
