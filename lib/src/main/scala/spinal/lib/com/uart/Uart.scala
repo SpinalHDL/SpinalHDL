@@ -3,7 +3,9 @@ package spinal.lib.com.uart
 import spinal.core._
 import spinal.lib._
 
-
+object Uart{
+  def apply() = new Uart()
+}
 class Uart extends Bundle with IMasterSlave {
   val txd = Bool
   val rxd = Bool

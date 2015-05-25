@@ -118,5 +118,13 @@ class SFix(exp : Int,bitCount : Int) extends XFix[SFix,SInt](exp,bitCount){
     this.raw := S(value)
   }
 
+  //TODO maybe a implicite double to SFix/UFix is better ?
+  def init(that : Double) : this.type = {
+    val initValue = cloneOf(this)
+    initValue := that
+    this init(initValue)
+    this
+  }
+
   override def clone(): this.type = new SFix(exp,bitCount).asInstanceOf[this.type]
 }

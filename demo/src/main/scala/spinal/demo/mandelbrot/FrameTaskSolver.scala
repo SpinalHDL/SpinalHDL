@@ -4,76 +4,40 @@ import spinal.core._
 import spinal.lib._
 
 
-case class UInt2D(bitCount: BitCount) extends Bundle{
-  val x = UInt(bitCount)
-  val y = UInt(bitCount)
-}
 
 
-
-object SFix2D{
-  def apply(exp : Int,bitCount: BitCount) : SFix2D = new SFix2D(exp,bitCount.value)
-  def apply(copy : SFix) : SFix2D = SFix2D(copy.exp,copy.bitCount bit)
-
-}
-
-@valClone
-class SFix2D(val exp : Int,val bitCount : Int) extends Bundle{
-  val x = SFix(exp,bitCount bit)
-  val y = SFix(exp,bitCount bit)
-}
-
-object FrameTaskSolver {
-  class Parameter(val unitCount: Int, val screenResX: Int, val screenResY: Int, val fixExp: Int, val fixWidth: Int) {
-    def fix = SFix(fixExp,fixWidth bit)
-  }
-}
-
-case class FrameTask(p: FrameTaskSolver.Parameter) extends Bundle {
-  val start = SFix2D(p.fixExp,p.fixWidth  bit)
-  val inc = SFix2D(p.fixExp-8,p.fixWidth+8 bit)
-
-  def fullRangeSFix = SFix(p.fixExp,p.fixWidth + 16 bit)
-}
-
-case class PixelTask(p: FrameTaskSolver.Parameter) extends Bundle {
-  val mandelbrotPosition = SFix2D(p.fix)
-}
-case class PixelResult(p : FrameTaskSolver.Parameter) extends Bundle{
-  val iteration  = UInt(8 bit)
-}
-class FrameTaskSolver(p: FrameTaskSolver.Parameter) extends Component {
+class FrameTaskSolver(p: MandelbrotCoreParameters) extends Component {
   val io = new Bundle {
     val frameTask = slave Handshake FrameTask(p)
-    val pixelResult = master Handshake PixelResult(p)
+    val pixelResult = master Handshake Fragment(PixelResult(p))
   }
   val taskGenerator = new PixelTaskGenerator(p)
   taskGenerator.io.frameTask << io.frameTask
 
-  val taskDispatcher = new DispatcherInOrder(new PixelTask(p), p.unitCount)
+  val taskDispatcher = new DispatcherInOrder(Fragment(PixelTask(p)), p.unitCount)
   taskDispatcher.io.input <-/< taskGenerator.io.pixelTask
 
   val pixelSolver = List.fill(p.unitCount)(new PixelTaskSolver(p))
   (pixelSolver, taskDispatcher.io.outputs).zipped.map(_.io.pixelTask <-/< _)
 
-  val result_arbiter = HandshakeArbiter.inOrder.build(PixelResult(p), p.unitCount)
-  (pixelSolver, result_arbiter.io.inputs).zipped.map(_.io.result >/> _)
+  val resultArbiter = HandshakeArbiter.inOrder.build(Fragment(PixelResult(p)), p.unitCount)
+  (pixelSolver, resultArbiter.io.inputs).zipped.map(_.io.result >/> _)
 
-  result_arbiter.io.output >-> io.pixelResult
+  resultArbiter.io.output >-> io.pixelResult
 }
 
 
-class PixelTaskGenerator(p: FrameTaskSolver.Parameter) extends Component {
+class PixelTaskGenerator(p: MandelbrotCoreParameters) extends Component {
   val io = new Bundle {
     val frameTask = slave Handshake FrameTask(p)
-    val pixelTask = master Handshake PixelTask(p)
+    val pixelTask = master Handshake Fragment(PixelTask(p))
   }
 
   val screenPosition = Reg(UInt2D(11 bit))
   val mandelbrotPosition = Reg(SFix2D(io.frameTask.data.fullRangeSFix))
   val setup = RegInit(True)
 
-  val solverTask = Handshake(PixelTask(p))
+  val solverTask = Handshake(Fragment(PixelTask(p)))
 
   io.frameTask.ready := !io.frameTask.valid
 
@@ -107,33 +71,35 @@ class PixelTaskGenerator(p: FrameTaskSolver.Parameter) extends Component {
   }
 
   solverTask.valid := io.frameTask.valid && !setup;
-  solverTask.data.mandelbrotPosition :=  mandelbrotPosition
-
+  solverTask.last := io.frameTask.ready
+  solverTask.fragment.mandelbrotPosition := mandelbrotPosition
   solverTask >-> io.pixelTask
 
 }
 
-class PixelTaskSolver(p: FrameTaskSolver.Parameter) extends Component {
+class PixelTaskSolver(p: MandelbrotCoreParameters) extends Component {
   val io = new Bundle {
-    val pixelTask = slave Handshake PixelTask(p)
-    val result = master Handshake PixelResult(p)
+    val pixelTask = slave Handshake Fragment(PixelTask(p))
+    val result = master Handshake Fragment(PixelResult(p))
   }
 
   //It's the context definition used by each stage of the pipeline, Each task are translated to context ("thread")
-  abstract class ContextBase(p: FrameTaskSolver.Parameter) extends Bundle {
+  abstract class ContextBase(p: MandelbrotCoreParameters) extends Bundle {
     val task = new PixelTask(p)
+    val lastPixel = Bool
     val done = Bool
-    val order = UInt(4 bit)    //Used to reorder result in same oder than input task
-    val iteration = UInt(9 bit)
+    val order = UInt(4 bit)
+    //Used to reorder result in same oder than input task
+    val iteration = UInt(p.iterationWidth bit)
     val z = SFix2D(p.fix)
   }
 
-  case class Context(p: FrameTaskSolver.Parameter) extends ContextBase(p) {
+  case class Context(p: MandelbrotCoreParameters) extends ContextBase(p) {
 
   }
 
   //Extended context with x*x   y*y   x*y result
-  case class Stage3Context(p: FrameTaskSolver.Parameter) extends ContextBase(p) {
+  case class Stage3Context(p: MandelbrotCoreParameters) extends ContextBase(p) {
     val zXzX = p.fix
     val zYzY = p.fix
     val zXzY = p.fix
@@ -141,35 +107,35 @@ class PixelTaskSolver(p: FrameTaskSolver.Parameter) extends Component {
 
 
   //Self pipelined fixed point multiplication, should be better with ip
-//  def fixMul(a: SInt, b: SInt): SInt = {
-//    val width = a.getWidth
-//    if (width <= 18) {
-//      val reg = RegNext(a * b)
-//      val reg2 = RegNext(reg(width * 2 - p.fixExp - 1, width - p.fixExp).toBits.toSInt)
-//      val reg3 = RegNext(reg2)
-//      return reg3
-//    } else {
-//      val lowWidth = 18
-//      val highWidth = width - lowWidth
-//
-//      val step0_a1b0 = RegNext(a(width - 1, lowWidth) * toSInt(False ## b(lowWidth - 1, 0)))
-//      val step0_a0b1 = RegNext(toSInt(False ## a(lowWidth - 1, 0)) * b(width - 1, lowWidth))
-//      val step0_a1b1 = RegNext(a(width - 1, lowWidth) * b(width - 1, lowWidth))
-//
-//
-//      val step1_a1b0 = RegNext(step0_a1b0)
-//      val step1_a0b1 = RegNext(step0_a0b1)
-//      val step1_a1b1 = RegNext(step0_a1b1)
-//
-//      val step2_a0b1_a1b0 = RegNext(step1_a0b1 + step1_a1b0)
-//      val step2_a1b1 = RegNext(step1_a1b1)
-//
-//      val result = ((step2_a0b1_a1b0) << lowWidth) + (step2_a1b1 << (lowWidth * 2))
-//      return result(width * 2 - p.fixExp - 1, width - p.fixExp)
-//    }
-//  }
+  //  def fixMul(a: SInt, b: SInt): SInt = {
+  //    val width = a.getWidth
+  //    if (width <= 18) {
+  //      val reg = RegNext(a * b)
+  //      val reg2 = RegNext(reg(width * 2 - p.fixExp - 1, width - p.fixExp).toBits.toSInt)
+  //      val reg3 = RegNext(reg2)
+  //      return reg3
+  //    } else {
+  //      val lowWidth = 18
+  //      val highWidth = width - lowWidth
+  //
+  //      val step0_a1b0 = RegNext(a(width - 1, lowWidth) * toSInt(False ## b(lowWidth - 1, 0)))
+  //      val step0_a0b1 = RegNext(toSInt(False ## a(lowWidth - 1, 0)) * b(width - 1, lowWidth))
+  //      val step0_a1b1 = RegNext(a(width - 1, lowWidth) * b(width - 1, lowWidth))
+  //
+  //
+  //      val step1_a1b0 = RegNext(step0_a1b0)
+  //      val step1_a0b1 = RegNext(step0_a0b1)
+  //      val step1_a1b1 = RegNext(step0_a1b1)
+  //
+  //      val step2_a0b1_a1b0 = RegNext(step1_a0b1 + step1_a1b0)
+  //      val step2_a1b1 = RegNext(step1_a1b1)
+  //
+  //      val result = ((step2_a0b1_a1b0) << lowWidth) + (step2_a1b1 << (lowWidth * 2))
+  //      return result(width * 2 - p.fixExp - 1, width - p.fixExp)
+  //    }
+  //  }
   def fixMul(a: SFix, b: SFix): SFix = {
-    Delay(a*b,3)
+    Delay(a * b, 3)
   }
 
 
@@ -186,11 +152,12 @@ class PixelTaskSolver(p: FrameTaskSolver.Parameter) extends Component {
 
   //Hardcoded way to translate the input Task to Context
   val insertTaskBits = new Context(p)
-  insertTaskBits.task := io.pixelTask.data
+  insertTaskBits.task := io.pixelTask.fragment
+  insertTaskBits.lastPixel := io.pixelTask.last
   insertTaskBits.done := False
   insertTaskBits.order := insertTaskOrder;
   insertTaskBits.iteration := 0
-  insertTaskBits.z := io.pixelTask.data.mandelbrotPosition
+  insertTaskBits.z := io.pixelTask.fragment.mandelbrotPosition
 
   (io.pixelTask ~ insertTaskBits) >> insertTask
   //((io.task ~ insertTaskBits) & (insertTaskOrder === resultOrder)) >> insertTask //same than precedent line but limit the number of "thread" into the pipeline to one
@@ -239,7 +206,7 @@ class PixelTaskSolver(p: FrameTaskSolver.Parameter) extends Component {
   when(!stage3.data.done) {
     stage4.data.iteration := stage3.data.iteration + 1
   }
-  when(stage3.data.iteration >= 62 | stage3.data.zXzX + stage3.data.zYzY >= 4.0) {
+  when(stage3.data.iteration >= p.iterationLimit | stage3.data.zXzX + stage3.data.zYzY >= 4.0) {
     stage4.data.done := True
   }
 
@@ -247,9 +214,10 @@ class PixelTaskSolver(p: FrameTaskSolver.Parameter) extends Component {
   //          else put it into the feedback to redo iteration or to waiting
   val readyForresult = stage4.data.done && resultOrder === stage4.data.order
 
-  val result = Handshake(PixelResult(p))
+  val result = Handshake(Fragment(PixelResult(p)))
   result.valid := stage4.valid && readyForresult
-  result.data.iteration := stage4.data.iteration
+  result.last := stage4.data.lastPixel
+  result.fragment.iteration := stage4.data.iteration - 1
 
   when(result.fire) {
     resultOrder := resultOrder + 1
@@ -265,7 +233,7 @@ class PixelTaskSolver(p: FrameTaskSolver.Parameter) extends Component {
 
 object Main {
   def main(args: Array[String]) {
-    SpinalVhdl(new FrameTaskSolver(new FrameTaskSolver.Parameter(4, 64, 64, 7, 36)))
+    SpinalVhdl(new FrameTaskSolver(new MandelbrotCoreParameters(256, 4, 64, 64, 7, 36)))
   }
 }
 

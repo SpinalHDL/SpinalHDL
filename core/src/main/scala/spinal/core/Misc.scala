@@ -88,7 +88,7 @@ object Misc {
   addReflectionExclusion(new SpinalEnumCraft(null))
 
 
-
+  //TODO find if there is a solution to keep declaration order in every case, then remove fix from component.nameElements
   def reflect(o: Object, onEach: (String, Object) => Unit,namePrefix :String = ""): Unit = {
     val refs = mutable.Set[Object]()
     explore(o.getClass)

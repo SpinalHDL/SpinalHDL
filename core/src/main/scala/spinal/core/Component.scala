@@ -102,6 +102,7 @@ abstract class Component extends Nameable with GlobalDataUser with ScalaLocated 
   }
 
   def nameElements(): Unit = {
+    this.io.setWeakName("io") //Because Misc.reflect don't keep the declaration order
     Misc.reflect(this, (name, obj) => {
       obj match {
         case component: Component => {

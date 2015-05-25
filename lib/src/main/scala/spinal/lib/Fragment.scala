@@ -49,6 +49,7 @@ class HandshakeFragmentPimped[T <: Data](pimped: Handshake[Fragment[T]]) {
   //  def last : Bool = pimped.last
   //  def fragment : T = pimped.data.fragment
 
+  def toHandshakeOfFragment : Handshake[T] = pimped.translateWith(pimped.fragment)
 
   def insertHeader(header: T): Handshake[Fragment[T]] = {
     val ret = cloneOf(pimped)

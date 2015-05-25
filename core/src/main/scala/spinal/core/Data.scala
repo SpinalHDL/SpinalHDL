@@ -272,16 +272,16 @@ trait Data extends ContextUser with Nameable with Assignable with AttributeReady
             if (bt.isReg)
               bt.inputs(0).asInstanceOf[Reg].setInitialValue(initElement)
             else
-              recursiveSearch(bt)
+              recursiveSearch(ptr.inputs(0))
           }
           case _ => SpinalError(s"Try to set initial value of a data that is not a register ($this)")
         }
       }
 
       //maybe need to restor commented ?
-      if (initElement.inputs(0) != null /* && initElement.inputs(0).inputs(0) != null*/ ) {
-        recursiveSearch(e)
-      }
+      //if (initElement.inputs(0) != null /* && initElement.inputs(0).inputs(0) != null*/ ) {
+      recursiveSearch(e)
+     // }
     }
     this
   }

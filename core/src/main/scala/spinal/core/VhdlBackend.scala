@@ -561,14 +561,9 @@ class VhdlBackend extends Backend with VhdlBase {
     ret ++= s"\nentity ${component.definitionName} is\n"
     ret = builder.newPart(true)
     ret ++= s"  port(\n"
-    component.nodes.foreach(_ match {
-      case baseType: BaseType => {
-        if (baseType.isIo) {
-          ret ++= s"    ${baseType.getName()} : ${emitDirection(baseType)} ${emitDataType(baseType)};\n"
-        }
-      }
-      case _ =>
-    })
+    component.getOrdredNodeIo.foreach(baseType =>
+      ret ++= s"    ${baseType.getName()} : ${emitDirection(baseType)} ${emitDataType(baseType)};\n"
+    )
     /*component.getOrdredNodeIo.foreach(baseType =>
       ret ++= s"    ${baseType.getName()} : ${emitDirection(baseType)} ${emitDataType(baseType)};\n"
     )*/
