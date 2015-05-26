@@ -25,7 +25,7 @@ object SFix{
 abstract class XFix[T <: XFix[T,R],R <: Data with Num[R]](val exp : Int,val bitCount : Int) extends MultiData {
   val raw = rawFactory(exp,bitCount)
 
-  override def elements: ArrayBuffer[(String, Data)] = ArrayBuffer(("raw" -> raw))
+  override def elements: ArrayBuffer[(String, Data)] = ArrayBuffer(("" -> raw))
 
   def rawFactory(exp : Int,bitCount : Int) : R
   def fixFactory(exp : Int,bitCount : Int) : T
@@ -64,7 +64,7 @@ abstract class XFix[T <: XFix[T,R],R <: Data with Num[R]](val exp : Int,val bitC
   }
 
   def doShiftLeft(that : Int) : T = {
-    val ret = fixFactory(exp << 1,bitCount << 1)
+    val ret = fixFactory(exp + 1,bitCount +1)
     ret.raw := this.raw << 1
     ret
   }

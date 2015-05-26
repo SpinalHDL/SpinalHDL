@@ -59,7 +59,7 @@ class PixelTaskGenerator(p: MandelbrotCoreParameters) extends Component {
       }.otherwise {
         screenPosition.x := 0
         mandelbrotPosition.x := io.frameTask.data.start.x
-        when(screenPosition.x !== p.screenResY - 1) {
+        when(screenPosition.y !== p.screenResY - 1) {
           screenPosition.y := screenPosition.y + 1
           mandelbrotPosition.y := mandelbrotPosition.y + io.frameTask.data.inc.y
         }.otherwise {

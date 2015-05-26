@@ -229,7 +229,7 @@ class HandshakeArbiterCore[T <: Data](dataType: T, val portCount: Int)(arbitrati
   var outputValid = False
   var outputData = B(0)
   for ((input, mask) <- (io.inputs, maskRouted).zipped) {
-    outputValid = outputValid | input.valid
+    outputValid = outputValid | (mask & input.valid) //mask & is not mandatory for all kind of arbitration/lock
     outputData = outputData | Mux(mask, input.data.toBits, B(0))
     input.ready := mask & io.output.ready
   }

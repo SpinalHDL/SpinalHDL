@@ -20,22 +20,22 @@ package spinal.core
 
 import scala.collection.mutable.ArrayBuffer
 
-object MultiData{
- // var tab = 0
+object MultiData {
+  // var tab = 0
 }
 abstract class MultiData extends Data with DelayedInit {
   globalData.dataStack.push(this)
   //println("  " * MultiData.tab + "push")
- // MultiData.tab += 1
+  // MultiData.tab += 1
   override def delayedInit(body: => Unit) = {
     body
 
 
-    def getLastBodyClass(clazz : Class[_]) : Class[_] = {
-      val endPoint = "delayedEndpoint$" + clazz.getName.replace(".","$") + "$1"
-      for(m <- clazz.getDeclaredMethods){
-      //  if(m.getName.startsWith("delayedEndpoint$"))
-        if(m.getName == endPoint)
+    def getLastBodyClass(clazz: Class[_]): Class[_] = {
+      val endPoint = "delayedEndpoint$" + clazz.getName.replace(".", "$") + "$1"
+      for (m <- clazz.getDeclaredMethods) {
+        //  if(m.getName.startsWith("delayedEndpoint$"))
+        if (m.getName == endPoint)
           return clazz
       }
       return getLastBodyClass(clazz.getSuperclass)
@@ -43,7 +43,7 @@ abstract class MultiData extends Data with DelayedInit {
     if ((body _).getClass.getDeclaringClass == getLastBodyClass(this.getClass)) {
       //println("  " * MultiData.tab + "-")
       //if (globalData.dataStack.head() == this) {
-      if(globalData.dataStack.head() != this){
+      if (globalData.dataStack.head() != this) {
         SpinalError(
           """
             |*** One of your bundle as a empty body.
@@ -52,11 +52,11 @@ abstract class MultiData extends Data with DelayedInit {
       }
 
       globalData.dataStack.pop(this)
-        //MultiData.tab -= 1
-        //println("  " * MultiData.tab + "pop")
+      //MultiData.tab -= 1
+      //println("  " * MultiData.tab + "pop")
       //}
       //else
-       // println("????")
+      // println("????")
     }
   }
 
@@ -89,14 +89,19 @@ abstract class MultiData extends Data with DelayedInit {
   override def nameChangeEvent(weak: Boolean): Unit = {
     super.nameChangeEvent(weak)
     for ((eName, e) <- elements) e match {
-      case nameable: Nameable => nameable.setName(getName() + "_" + eName, weak)
+      case nameable: Nameable => {
+        if (eName == "")
+          nameable.setName(getName(), weak)
+        else
+          nameable.setName(getName() + "_" + eName, weak)
+      }
     }
   }
 
 
   override def getBitsWidth: Int = {
     var accumulateWidth = 0
-    for ((_,e) <- elements) {
+    for ((_, e) <- elements) {
       val width = e.getBitsWidth
       if (width == -1) SpinalError("Can't return bits width")
       accumulateWidth += width
@@ -126,7 +131,7 @@ abstract class MultiData extends Data with DelayedInit {
 
   override def assignFromBits(bits: Bits): Unit = {
     var offset = 0
-    for ((_,e) <- elements) {
+    for ((_, e) <- elements) {
       val width = e.getBitsWidth
       e.assignFromBits(bits(offset, width bit))
       offset = offset + width
@@ -134,43 +139,41 @@ abstract class MultiData extends Data with DelayedInit {
   }
 
 
-
-
   def isEguals(that: Data): Bool = {
-    that match{
-      case that : MultiData => {
-        zippedMap(that,_ === _).reduce(_ && _)
+    that match {
+      case that: MultiData => {
+        zippedMap(that, _ === _).reduce(_ && _)
       }
       case _ => SpinalError("Can't do that")
     }
   }
 
 
-  def isNotEguals(that: Data): Bool  = {
-    that match{
-      case that : MultiData => {
-        zippedMap(that,_ !== _).reduce(_ || _)
+  def isNotEguals(that: Data): Bool = {
+    that match {
+      case that: MultiData => {
+        zippedMap(that, _ !== _).reduce(_ || _)
       }
       case _ => SpinalError("Can't do that")
     }
   }
 
   override def autoConnect(that: Data): Unit = {
-    that match{
-      case that : MultiData => {
-        zippedMap(that,_ autoConnect _)
+    that match {
+      case that: MultiData => {
+        zippedMap(that, _ autoConnect _)
       }
       case _ => SpinalError("Can't do that")
     }
   }
 
-  def zippedMap[T](that: MultiData,task : (Data,Data) => T) : Seq[T] = {
-    if(that.elements.length != this.elements.length) SpinalError("Can't do that")
+  def zippedMap[T](that: MultiData, task: (Data, Data) => T): Seq[T] = {
+    if (that.elements.length != this.elements.length) SpinalError("Can't do that")
     this.elements.map(x => {
-      val (n,e) = x
+      val (n, e) = x
       val other = that.find(n)
-      if(e == null)  SpinalError("Can't do that")
-      task(e,other)
+      if (e == null) SpinalError("Can't do that")
+      task(e, other)
     })
   }
 }

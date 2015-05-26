@@ -16,12 +16,12 @@ entity FixedPointTester_tb is
 end FixedPointTester_tb;
 
 architecture arch of FixedPointTester_tb is
-  signal io_inSFix_0_raw : signed(15 downto 0);
-  signal io_inSFix_1_raw : signed(11 downto 0);
-  signal io_outSFix_0_raw : signed(15 downto 0);
-  signal io_outSFix_1_raw : signed(23 downto 0);
-  signal io_inBundleA_a_sfix_raw : signed(7 downto 0);
-  signal io_outBundleA_a_sfix_raw : signed(5 downto 0);
+  signal io_inSFix_0 : signed(15 downto 0);
+  signal io_inSFix_1 : signed(11 downto 0);
+  signal io_outSFix_0 : signed(15 downto 0);
+  signal io_outSFix_1 : signed(23 downto 0);
+  signal io_inBundleA_a_sfix : signed(7 downto 0);
+  signal io_outBundleA_a_sfix : signed(5 downto 0);
   -- #spinalBegin userDeclarations
   shared variable done : integer := 0;
   signal clk : std_logic;
@@ -55,9 +55,9 @@ begin
       that <= (to_signed(int_rand, that'LENGTH));
     end random;
   begin
-    random(io_inSFix_0_raw);
-    random(io_inSFix_1_raw);
-    random(io_inBundleA_a_sfix_raw);
+    random(io_inSFix_0);
+    random(io_inSFix_1);
+    random(io_inBundleA_a_sfix);
 
     wait for 1 ns;
 --    asyncProcess <= not asyncProcess;
@@ -65,9 +65,9 @@ begin
     wait until rising_edge(clk);
 
     if testCounter /= 0 then
-      assert io_outSFix_0_raw = io_inSFix_0_raw + ((1 downto 0 => io_inSFix_1_raw(io_inSFix_1_raw'high)) & io_inSFix_1_raw & "00") report "io_outSFix_0_raw fail" severity failure;
-      assert io_outSFix_1_raw <= pkg_resize(pkg_shiftRight((io_inSFix_0_raw * io_inSFix_1_raw),6),24) report "io_outSFix_1_raw fail" severity failure;
-      assert io_outBundleA_a_sfix_raw = io_inBundleA_a_sfix_raw(io_inBundleA_a_sfix_raw'high downto 2) report "io_outBundleA_a_sfix_raw fail" severity failure;
+      assert io_outSFix_0 = io_inSFix_0 + ((1 downto 0 => io_inSFix_1(io_inSFix_1'high)) & io_inSFix_1 & "00") report "io_outSFix_0 fail" severity failure;
+      assert io_outSFix_1 <= pkg_resize(pkg_shiftRight((io_inSFix_0 * io_inSFix_1),6),24) report "io_outSFix_1 fail" severity failure;
+      assert io_outBundleA_a_sfix = io_inBundleA_a_sfix(io_inBundleA_a_sfix'high downto 2) report "io_outBundleA_a_sfix fail" severity failure;
     end if;
 
 
@@ -82,11 +82,11 @@ begin
   -- #spinalEnd userLogics
   uut : entity lib_FixedPointTester.FixedPointTester
     port map (
-      io_inSFix_0_raw =>  io_inSFix_0_raw,
-      io_inSFix_1_raw =>  io_inSFix_1_raw,
-      io_outSFix_0_raw =>  io_outSFix_0_raw,
-      io_outSFix_1_raw =>  io_outSFix_1_raw,
-      io_inBundleA_a_sfix_raw =>  io_inBundleA_a_sfix_raw,
-      io_outBundleA_a_sfix_raw =>  io_outBundleA_a_sfix_raw 
+      io_inSFix_0 =>  io_inSFix_0,
+      io_inSFix_1 =>  io_inSFix_1,
+      io_outSFix_0 =>  io_outSFix_0,
+      io_outSFix_1 =>  io_outSFix_1,
+      io_inBundleA_a_sfix =>  io_inBundleA_a_sfix,
+      io_outBundleA_a_sfix =>  io_outBundleA_a_sfix 
     );
 end arch;

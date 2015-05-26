@@ -52,6 +52,12 @@ class VecFactory{
 
 object SeqMux {
   def apply[T <: Data](elements: Seq[T], address: UInt): T = {
+    if(elements.size == 1) {
+      val ret = elements.head.clone()
+      ret := elements.head
+      return ret
+    }
+
     val addressBools = address.toBools
     val addressWidth = address.getWidth
     def stage(elements: Seq[T], level: Int): T = {
@@ -121,6 +127,10 @@ class Vec[T <: Data](_dataType: T,val vec : Vector[T]) extends MultiData with co
 
 
   def apply(address: UInt): T = {
+//    length match{
+//      case 1 =>
+//      case _ => access(address)
+//    }
     access(address)
   }
 

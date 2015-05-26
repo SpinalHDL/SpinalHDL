@@ -29,3 +29,4 @@ out
 !tester/src/test/resources/*.vhd
 
 /src/
+*.out

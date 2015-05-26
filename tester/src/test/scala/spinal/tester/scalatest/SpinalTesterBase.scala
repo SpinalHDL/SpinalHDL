@@ -57,12 +57,12 @@ abstract class SpinalTesterBase extends FunSuite  {
 
 
   def checkHDL(mustSuccess: Boolean): Unit = {
-    val comp = s"ghdl -a --work=$getLibraryName $getName.vhd tester/src/test/resources/${getName}_tb.vhd"
+    val comp = s"ghdl -a --ieee=synopsys --work=$getLibraryName $getName.vhd tester/src/test/resources/${getName}_tb.vhd"
     println("GHDL compilation " + comp)
     assert(((comp !) == 0) == mustSuccess, if (mustSuccess) "compilation fail" else "Compilation has not fail :(")
 
 
-    val elab = s"ghdl -e --work=$getLibraryName ${getName}_tb"
+    val elab = s"ghdl -e --ieee=synopsys --work=$getLibraryName ${getName}_tb"
     println("GHDL elaborate " + elab)
     assert(((elab !) == 0) == mustSuccess, if (mustSuccess) "compilation fail" else "Compilation has not fail :(")
   }
@@ -75,7 +75,7 @@ abstract class SpinalTesterBase extends FunSuite  {
   def simulateHDLWithFail : Unit= simulateHDL(false)
 
   def simulateHDL(mustSuccess : Boolean): Unit = {
-    val run = s"ghdl -r --work=$getLibraryName ${getName}_tb${if (!withWaveform) "" else s" --vcd=$getName.vcd"}"
+    val run = s"ghdl -r --ieee=synopsys --work=$getLibraryName ${getName}_tb${if (!withWaveform) "" else s" --vcd=$getName.vcd"}"
     println("GHDL run " + run)
     val ret = (run !)
     assert(!mustSuccess || ret == 0,"Simulation fail")

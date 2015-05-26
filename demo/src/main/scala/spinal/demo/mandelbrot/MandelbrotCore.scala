@@ -22,10 +22,11 @@ class FrameTaskFilter(p: MandelbrotCoreParameters) extends Component {
   io.output <-< io.input
 
   //TODO better initial value
-  io.output.data.start.x init (-2.0)
-  io.output.data.start.y init (-2.0)
-  io.output.data.inc.x init (4.0 / p.screenResX)
-  io.output.data.inc.y init (4.0 / p.screenResY)
+  io.output.valid init(True)
+  io.output.data.start.x init (-1.0)
+  io.output.data.start.y init (-1.0)
+  io.output.data.inc.x init (2.0 / p.screenResX)
+  io.output.data.inc.y init (2.0 / p.screenResY)
 }
 
 

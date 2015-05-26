@@ -17,7 +17,6 @@ class MandelbrotDemo (p : MandelbrotCoreParameters) extends Component{
   }
 
   val uart = new Area {
-    io.uart.txd := True
     val ctrl = new UartCtrl()
     ctrl.io.clockDivider := BigInt((50e6 / 57.6e3 / 8).toLong)
     ctrl.io.config.dataLength := 7

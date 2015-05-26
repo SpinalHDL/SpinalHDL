@@ -7,6 +7,10 @@ use lib_MandelbrotDemo.pkg_scala2hdl.all;
 use lib_MandelbrotDemo.pkg_enum.all;
 
 -- #spinalBegin userLibrary
+library STD;
+use STD.textio.all;
+library ieee;
+use IEEE.std_logic_textio.all;
 -- #spinalEnd userLibrary
 
 
@@ -23,9 +27,56 @@ architecture arch of MandelbrotDemo_tb is
   signal clk : std_logic;
   signal reset : std_logic;
   -- #spinalBegin userDeclarations
+  shared variable done : integer := 0;
   -- #spinalEnd userDeclarations
 begin
   -- #spinalBegin userLogics
+
+  process
+  begin
+    clk <= '0';
+    wait for 5 ns;
+    if done = 1 then
+      wait;
+    end if;
+    assert now < 20 ms report "timeout" severity failure;
+    clk <= '1';
+    wait for 5 ns;
+  end process;
+
+
+  process
+  begin
+    reset <= '1';
+    io_memoryWrite_ready <= '1';
+    wait for 100 ns;
+    wait until rising_edge(clk);
+    reset <= '0';
+    wait until rising_edge(clk);
+
+    wait for 10 ms;
+
+  end process;
+
+  -- matlab => M = csvread('E:\FPGA\intelij\spinalModelSIm\mandelbrotDemo.out')
+  process
+    variable VEC_LINE : line;
+    file VEC_FILE : text is out "mandelbrotDemo.out";
+  begin
+    wait until rising_edge(clk) and reset = '0' and io_memoryWrite_valid = '1';
+	write (VEC_LINE, to_integer(unsigned(io_memoryWrite_data_data(23 downto 0))));
+	if io_memoryWrite_data_address(3 downto 0) /= "1111" then
+        write (VEC_LINE, ',');
+	else
+		report("line done");
+		writeline (VEC_FILE, VEC_LINE);
+	end if;
+
+	if io_memoryWrite_data_address = X"000000FF" then
+		done := done + 1;
+	end if;
+  end process;   
+  
   -- #spinalEnd userLogics
   uut : entity lib_MandelbrotDemo.MandelbrotDemo
     port map (
