@@ -3,23 +3,6 @@ package spinal.demo.mandelbrot
 import spinal.core._
 
 
-case class UInt2D(bitCount: BitCount) extends Bundle {
-  val x = UInt(bitCount)
-  val y = UInt(bitCount)
-}
-
-
-object SFix2D {
-  def apply(exp: Int, bitCount: BitCount): SFix2D = new SFix2D(exp, bitCount.value)
-  def apply(copy: SFix): SFix2D = SFix2D(copy.exp, copy.bitCount bit)
-
-}
-
-@valClone
-class SFix2D(val exp: Int, val bitCount: Int) extends Bundle {
-  val x = SFix(exp, bitCount bit)
-  val y = SFix(exp, bitCount bit)
-}
 
 
 case class MandelbrotCoreParameters(iterationLimit: Int, unitCount: Int, screenResX: Int, screenResY: Int, fixExp: Int, fixWidth: Int) {

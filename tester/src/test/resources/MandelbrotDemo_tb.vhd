@@ -58,10 +58,10 @@ begin
 
   end process;
 
-  -- matlab => M = csvread('E:\FPGA\intelij\spinalModelSIm\mandelbrotDemo.out')
+  -- matlab => M = csvread('E:\FPGA\intelij\spinalModelSIm\MandelbrotDemo.out')
   process
     variable VEC_LINE : line;
-    file VEC_FILE : text is out "mandelbrotDemo.out";
+    file VEC_FILE : text is out "MandelbrotDemo.out";
   begin
     wait until rising_edge(clk) and reset = '0' and io_memoryWrite_valid = '1';
 	write (VEC_LINE, to_integer(unsigned(io_memoryWrite_data_data(23 downto 0))));

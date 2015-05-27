@@ -83,3 +83,13 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider {
 
   override def getZero: this.type = U(0).asInstanceOf[this.type]
 }
+
+object UInt2D{
+  def apply(commonBitCount: BitCount) : UInt2D = UInt2D(commonBitCount,commonBitCount)
+}
+
+case class UInt2D(xBitCount: BitCount,yBitCount: BitCount) extends Bundle {
+  val x = UInt(xBitCount)
+  val y = UInt(yBitCount)
+}
+

@@ -32,6 +32,7 @@ abstract class SpinalTesterBase extends FunSuite  {
 
   test(getName) {
     testIt
+    postTest
   }
 
 
@@ -40,6 +41,8 @@ abstract class SpinalTesterBase extends FunSuite  {
     if(!checkHDLMustFail) checkHDL else checkHDLWithFail
     if(!simulateMustFail) simulateHDL else simulateHDLWithFail
   }
+
+  def postTest : Unit = {}
 
   def getLibraryName = "lib_" + getName
   def elaborate: Unit = {

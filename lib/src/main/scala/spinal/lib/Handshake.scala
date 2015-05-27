@@ -580,3 +580,27 @@ class DispatcherInOrder[T <: Data](gen: T, n: Int) extends Component {
     }
   }
 }
+
+object HandshakeFlowArbiter{
+  def apply[T <: Data](inputHandshake : Handshake[T],inputFlow : Flow[T]) : Flow[T] = {
+    val output = cloneOf(inputFlow)
+
+    output.valid := inputFlow.valid || inputHandshake.valid
+    inputHandshake.ready := !inputFlow.valid
+    output.data := Mux(inputFlow.valid, inputFlow.data, inputHandshake.data)
+
+    output
+  }
+}
+
+class HandshakeFlowArbiter[T <: Data](dataType : T) extends Area{
+  val io = new Bundle{
+    val inputFlow = slave Flow(dataType)
+    val inputHandshake = slave Handshake(dataType)
+    val output = master Flow(dataType)
+  }
+  io.output.valid := io.inputFlow.valid || io.inputHandshake.valid
+  io.inputHandshake.ready := !io.inputFlow.valid
+  io.output.data := Mux(io.inputFlow.valid, io.inputFlow.data, io.inputHandshake.data)
+}
+

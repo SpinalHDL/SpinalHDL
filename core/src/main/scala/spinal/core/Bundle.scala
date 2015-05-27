@@ -34,11 +34,14 @@ object Bundle {
 
 class Bundle extends MultiData with Nameable with OverridedEqualsHashCode {
 
-  def assignAllByName(that: Bundle) = {
+  def assignAllByName(that: Bundle) : Unit = {
     for ((name, element) <- elements) {
       val other = that.find(name)
       if (other == null) SpinalError("Bundle assignement is not complet at " + ScalaLocated.getScalaTrace)
-      element := other
+      element match{
+        case b : Bundle => b.assignAllByName(other.asInstanceOf[Bundle])
+        case _ => element := other
+      }
     }
   }
 
@@ -48,7 +51,7 @@ class Bundle extends MultiData with Nameable with OverridedEqualsHashCode {
       if (other != null) {
         element match{
           case b : Bundle => b.assignSomeByName(other.asInstanceOf[Bundle])
-          case _ => element assignFrom(other, false)
+          case _ => element := other
         }
       }
     }
