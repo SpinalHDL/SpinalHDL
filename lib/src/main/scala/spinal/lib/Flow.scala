@@ -28,7 +28,7 @@ class Flow[T <: Data](_dataType: T) extends Bundle with IMasterSlave with DataCa
   override def asSlave: this.type = in(this)
 
 
-  override def freeRun: Unit = {}
+  override def freeRun: this.type = this
 
 
   def toReg : T = toReg(null.asInstanceOf[T])

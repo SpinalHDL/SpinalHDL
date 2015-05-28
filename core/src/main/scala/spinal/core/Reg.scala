@@ -65,6 +65,20 @@ object RegInit {
   def apply[T <: SpinalEnum](init : SpinalEnumElement[T]) : SpinalEnumCraft[T] = apply(init())
 }
 
+
+object BoolReg{
+  def apply(set : Bool,reset : Bool) : Bool = {
+    val r = Reg(Bool)
+    when(set){
+      r := True
+    }
+    when(reset){
+      r := False
+    }
+    r
+  }
+}
+
 object RegS {
   def getDataInputId: Int = 3
   def getInitialValueId: Int = 4

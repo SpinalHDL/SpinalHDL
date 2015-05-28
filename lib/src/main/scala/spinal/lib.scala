@@ -4,7 +4,7 @@ import spinal.core._
 
 package object lib {
   //  def Handshake[T <: Data](that : T) : Handshake[T] = new Handshake[T](that)
-
+//  def mm [T <: Data with IMasterSlave](that : T) = that.asMaster
   type Event = Handshake[NoData]
 
   def Event = new Handshake(NoData)

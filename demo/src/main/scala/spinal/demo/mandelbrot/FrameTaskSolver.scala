@@ -161,17 +161,17 @@ class PixelTaskSolver(p: MandelbrotCoreParameters) extends Component {
   //          else put it into the feedback to redo iteration or to waiting
   val result = Handshake(Fragment(PixelResult(p)))
   val resultOrder = Counter(16,result.fire)
-  val readyForresult = stage3.data.done && resultOrder === stage3.data.order
+  val readyForResult = stage3.data.done && resultOrder === stage3.data.order
 
 
-  result.valid := stage3.valid && readyForresult
+  result.valid := stage3.valid && readyForResult
   result.last := stage3.data.lastPixel
   result.fragment.iteration := stage3.data.iteration - 1
 
 
   result >-> io.result
 
-  loopBack.valid := stage3.valid && ((!readyForresult) || (!result.ready))
+  loopBack.valid := stage3.valid && ((!readyForResult) || (!result.ready))
   loopBack.data := stage3.data
 
 }

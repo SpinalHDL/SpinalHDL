@@ -42,7 +42,10 @@ class Handshake[T <: Data](_dataType: T) extends Bundle with IMasterSlave with D
 
   override def asSlave: this.type = asMaster.flip
 
-  override def freeRun: Unit = ready := True
+  override def freeRun: this.type = {
+    ready := True
+    this
+  }
 
   def toFlow: Flow[T] = {
     freeRun

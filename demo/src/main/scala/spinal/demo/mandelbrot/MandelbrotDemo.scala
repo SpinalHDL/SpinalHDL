@@ -56,8 +56,8 @@ class MandelbrotDemo (p : MandelbrotCoreParameters) extends Component{
 
 
 
-//object MandelbrotDemo{
-//  def main(args: Array[String]) {
-//    SpinalVhdl(new MandelbrotDemo(new MandelbrotCoreParameters(64, 4, 64, 64, 7, 36)))
-//  }
-//}
+object MandelbrotDemo{
+  def main(args: Array[String]) {
+    SpinalVhdl(new MandelbrotDemo(new MandelbrotCoreParameters(64, 4, 64, 64, 7, 36)))
+  }
+}
