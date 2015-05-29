@@ -85,6 +85,8 @@ trait ContextUser extends GlobalDataUser {
   var component = Component.current(globalData)
   var whenScope = globalData.whenStack.head()
   var instanceCounter = globalData.getInstanceCounter
+
+  def isOlderThan(that : ContextUser) : Boolean = this.instanceCounter < that.instanceCounter
 }
 
 trait GlobalDataUser {
@@ -354,7 +356,6 @@ class GlobalData {
   val componentStack = new SafeStack[Component]
   val switchStack = new SafeStack[SwitchStack]
   val whenStack = new SafeStack[when]
-  val dataStack = new SafeStack[Data]
 
   var scalaLocatedEnable = false
   var instanceCounter = 0

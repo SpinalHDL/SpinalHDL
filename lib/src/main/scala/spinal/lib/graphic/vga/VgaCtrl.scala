@@ -2,6 +2,7 @@ package spinal.lib.graphic.vga
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.graphic.Rgb
 
 case class VgaTimingsHV(timingsWidth : Int) extends Bundle{
   val colorStart = UInt(timingsWidth bit)
@@ -53,12 +54,13 @@ class VgaCtrl(rgbType : Rgb,timingsWidth : Int = 12) extends Component{
   val h = HVArea(io.timings.h,True)
   val v = HVArea(io.timings.v,h.syncEnd)
   val colorEn = h.colorEn && v.colorEn
+  io.colorLink.ready := colorEn
 
   io.frameStart := v.syncEnd
 
   io.vga.hSync := h.sync
   io.vga.vSync := v.sync
-  io.vga.color := (io.colorLink & colorEn).toFlow.data
+  io.vga.color := Mux(colorEn,io.colorLink.data,rgbType.getZero)
 }
 
 

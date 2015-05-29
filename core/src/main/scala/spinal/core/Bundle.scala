@@ -81,7 +81,7 @@ class Bundle extends MultiData with Nameable with OverridedEqualsHashCode {
       Misc.reflect(this, (name, obj) => {
         obj match {
           case data: Data => {
-            if (data.parentData == this) { //To avoid bundle argument
+            if (this.isOlderThan(data)) { //To avoid bundle argument
               elementsCache += Tuple2(name, data)
             }
           }

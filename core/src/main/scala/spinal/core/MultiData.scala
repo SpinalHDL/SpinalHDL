@@ -23,42 +23,8 @@ import scala.collection.mutable.ArrayBuffer
 object MultiData {
   // var tab = 0
 }
-abstract class MultiData extends Data with DelayedInit {
-  globalData.dataStack.push(this)
-  //println("  " * MultiData.tab + "push")
-  // MultiData.tab += 1
-  override def delayedInit(body: => Unit) = {
-    body
+abstract class MultiData extends Data {
 
-
-    def getLastBodyClass(clazz: Class[_]): Class[_] = {
-      val endPoint = "delayedEndpoint$" + clazz.getName.replace(".", "$") + "$1"
-      for (m <- clazz.getDeclaredMethods) {
-        //  if(m.getName.startsWith("delayedEndpoint$"))
-        if (m.getName == endPoint)
-          return clazz
-      }
-      return getLastBodyClass(clazz.getSuperclass)
-    }
-    if ((body _).getClass.getDeclaringClass == getLastBodyClass(this.getClass)) {
-      //println("  " * MultiData.tab + "-")
-      //if (globalData.dataStack.head() == this) {
-      if (globalData.dataStack.head() != this) {
-        SpinalError(
-          """
-            |*** One of your bundle as a empty body.
-            |*** It's not allowed for the moment (in scala 2.12 it will be)
-            |*** Please, put a dummy field like "val dummy = 0" into the empty bundle """.stripMargin + globalData.dataStack.head().getScalaLocationString)
-      }
-
-      globalData.dataStack.pop(this)
-      //MultiData.tab -= 1
-      //println("  " * MultiData.tab + "pop")
-      //}
-      //else
-      // println("????")
-    }
-  }
 
 
   def elements: ArrayBuffer[(String, Data)]
@@ -175,5 +141,12 @@ abstract class MultiData extends Data with DelayedInit {
       if (e == null) SpinalError("Can't do that")
       task(e, other)
     })
+  }
+  override def getZero: this.type = {
+    val ret = clone()
+    ret.elements.foreach(e => {
+      e._2 := e._2.getZero
+    })
+    ret
   }
 }

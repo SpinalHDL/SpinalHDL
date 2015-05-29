@@ -155,16 +155,7 @@ trait Data extends ContextUser with Nameable with Assignable with AttributeReady
   }
 
 
-  val parentData = globalData.dataStack.head()
-
-  def getZero: this.type = {
-    val ret = clone()
-    ret.flatten.foreach(t => {
-      t := t.getZero
-    })
-
-    ret
-  }
+  def getZero: this.type
 
   def flatten: Seq[BaseType]
 

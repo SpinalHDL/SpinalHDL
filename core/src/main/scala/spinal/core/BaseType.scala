@@ -153,7 +153,7 @@ abstract class BaseType extends Node with Data with Nameable {
   //  override def :=(bits: this.type): Unit = assignFrom(bits)
 
 
-  override def getZero: this.type
+
 
   def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
     that match {

@@ -84,7 +84,7 @@ class PixelTaskSolver(p: MandelbrotCoreParameters) extends Component {
   }
 
   //It's the context definition used by each stage of the pipeline, Each task are translated to context ("thread")
-  abstract class ContextBase(p: MandelbrotCoreParameters) extends Bundle {
+  class Context extends Bundle {
     val task = PixelTask(p)
     val lastPixel = Bool
     val done = Bool
@@ -92,14 +92,13 @@ class PixelTaskSolver(p: MandelbrotCoreParameters) extends Component {
     val iteration = UInt(p.iterationWidth bit)
     val z = SFix2D(p.fix)
   }
-  case class Context(p: MandelbrotCoreParameters) extends ContextBase(p)
+
   //Extended context with x*x   y*y   x*y result
-  case class Stage2Context(p: MandelbrotCoreParameters) extends ContextBase(p) {
+  class Stage2Context extends Context {
     val zXzX = p.fix
     val zYzY = p.fix
     val zXzY = p.fix
   }
-
 
 
   def fixMul(a: SFix, b: SFix): SFix = {
@@ -110,7 +109,7 @@ class PixelTaskSolver(p: MandelbrotCoreParameters) extends Component {
   val insertTaskOrder = Counter(16,io.pixelTask.fire)
 
   //Task to insert into the pipeline
-  val taskToInsert : Handshake[Context] = io.pixelTask.translateInto(Handshake(Context(p)))((to,from) => {
+  val taskToInsert : Handshake[Context] = io.pixelTask.translateInto(Handshake(new Context))((to,from) => {
     to.task := from.fragment
     to.lastPixel := from.last
     to.done := False
@@ -118,7 +117,7 @@ class PixelTaskSolver(p: MandelbrotCoreParameters) extends Component {
     to.iteration := 0
     to.z := from.fragment.mandelbrotPosition
   })
-  val loopBack = RegFlow(new Context(p)) //Loop back from end of pipeline
+  val loopBack = RegFlow(new Context) //Loop back from end of pipeline
   val stage0 = HandshakeFlowArbiter(taskToInsert,loopBack) //First stage
 
 
@@ -130,7 +129,7 @@ class PixelTaskSolver(p: MandelbrotCoreParameters) extends Component {
 
 
   //Stage2 get multiplication result of x*x  y*y and x*y
-  val stage2 = RegFlow(new Stage2Context(p))
+  val stage2 = RegFlow(new Stage2Context)
   stage2 assignSomeByName Delay(stage1,3)
 
   stage2.data.zXzX := fixMul(stage1.data.z.x, stage1.data.z.x)
@@ -143,7 +142,7 @@ class PixelTaskSolver(p: MandelbrotCoreParameters) extends Component {
   //Stage3 calculate next position of the iteration (zX,zY)
   //       Increment the iteration count if was not done
   //       calculate if the "Thread" has rush a end condition (iteration > N, x*x+y*y + 4)
-  val stage3 = RegFlow(new Context(p))
+  val stage3 = RegFlow(new Context)
   stage3 assignAllByName stage2
 
   stage3.data.z.x := stage2.data.zXzX - stage2.data.zYzY + stage2.data.task.mandelbrotPosition.x

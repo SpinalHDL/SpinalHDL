@@ -2,7 +2,7 @@ package spinal.lib.graphic.vga
 
 import spinal.core._
 import spinal.lib._
-
+import spinal.lib.graphic.Rgb
 
 
 case class Vga (rgbType : Rgb) extends Bundle with IMasterSlave{
@@ -16,8 +16,3 @@ case class Vga (rgbType : Rgb) extends Bundle with IMasterSlave{
 }
 
 
-case class Rgb(rWidth : Int,gWidth : Int,bWidth : Int) extends Bundle{
-  val r = UInt(rWidth bit)
-  val g = UInt(gWidth bit)
-  val b = UInt(bWidth bit)
-}
