@@ -14,13 +14,13 @@ case class AxiLiteSimpleReadDmaCmd(axiLiteConfig: AxiLiteConfig) extends Bundle{
 class AxiLiteSimpleReadDma(axiLiteConfig: AxiLiteConfig) extends Component {
   val io = new Bundle {
     val run = slave Stream (AxiLiteSimpleReadDmaCmd(axiLiteConfig))
-    val axi = AxiLiteReadOnly(axiLiteConfig)
+    val axi = master(AxiLiteReadOnly(axiLiteConfig))
     val read = master Stream (Bits(axiLiteConfig.dataWidth bit))
   }
 
   val active = RegInit(False)
-  val counter = RegNext(UInt(axiLiteConfig.addressWidth bit))
-
+  val counter = Reg(UInt(axiLiteConfig.addressWidth bit))
+  io.run.ready := False
   when(!active) {
     when(io.run.valid) {
       counter := io.run.data.offset
@@ -28,9 +28,10 @@ class AxiLiteSimpleReadDma(axiLiteConfig: AxiLiteConfig) extends Component {
     }
   } otherwise {
     when(io.axi.readCmd.ready) {
-      counter := counter + 1
+      counter := counter + axiLiteConfig.dataByteCount
       when(counter === io.run.data.endAt) {
         active := False
+        io.run.ready := True
       }
     }
   }
@@ -38,7 +39,7 @@ class AxiLiteSimpleReadDma(axiLiteConfig: AxiLiteConfig) extends Component {
   io.axi.readCmd.valid := active
   io.axi.readCmd.data.addr := counter
   io.axi.readCmd.data.setUnprivileged
-  
+
   io.read.translateFrom(io.axi.readData)((to,from) => {
     to := from.data
   })

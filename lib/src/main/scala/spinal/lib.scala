@@ -29,6 +29,8 @@ package object lib {
 
   implicit def memPimped[T <: Data](mem: Mem[T]) = new MemPimped(mem)
 
+  implicit def boolPimped(that : Bool) = new BoolPimped(that)
+
 
   def StreamArbiter = new StreamArbiterCoreFactory()
 

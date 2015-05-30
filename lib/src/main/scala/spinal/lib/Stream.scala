@@ -361,6 +361,15 @@ object StreamFork{
   }
 }
 
+object StreamFork2{
+  def apply[T <: Data](input : Stream[T]): (Stream[T],Stream[T])={
+    val fork = new StreamFork(input.dataType,2)
+    fork.io.input << input
+    return (fork.io.output(0),fork.io.output(1))
+  }
+}
+
+
 //TODOTEST
 class StreamFork[T <: Data](dataType: T, portCount: Int) extends Component {
   val io = new Bundle {

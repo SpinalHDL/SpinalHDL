@@ -1,19 +1,23 @@
 package spinal.demo.mandelbrot
 
 import spinal.core._
-import spinal.lib.com.uart._
 import spinal.lib._
+import spinal.lib.bus.axilite._
+import spinal.lib.com.uart._
+import spinal.lib.graphic.Rgb
+import spinal.lib.graphic.vga._
 
 
-case class SimpleMemoryWrite(addressWidth : Int,dataWidth : Int) extends Bundle{
-  val address = UInt(addressWidth bit) //wordAddress
-  val data = UInt(dataWidth bit)
-}
+class MandelbrotDemo(p: MandelbrotCoreParameters) extends Component {
+  val vgaAxiConfig = AxiLiteConfig(32, 32)
+  val vgaCoreConfig = AxiLiteConfig(32, 32)
+  val rgbType = Rgb(8, 8, 8)
 
-class MandelbrotDemo (p : MandelbrotCoreParameters) extends Component{
-  val io = new Bundle{
+  val io = new Bundle {
     val uart = master(Uart())
-    val memoryWrite = master Stream(SimpleMemoryWrite(32,32))
+    val coreAxi = master(AxiLiteWriteOnly(vgaAxiConfig))
+    val vgaAxi = master(AxiLiteReadOnly(vgaAxiConfig))
+    val vga = master(Vga(rgbType))
   }
 
   val uart = new Area {
@@ -30,33 +34,66 @@ class MandelbrotDemo (p : MandelbrotCoreParameters) extends Component{
     val (flowFragment, softReset) = ctrl.io.read.toFlowFragmentBitsAndReset()
   }
 
-  val core = new Area{
+  val core = new Area {
     val mandelbrot = new MandelbrotCore(p)
     mandelbrot.io.cmdPort << uart.flowFragment
 
-  }
+    //Take mandelbrot pixelResults and translate them into simple memory access
+    val counter = Reg(UInt(32 bit)) init (0)
+    case class AddrData() extends Bundle {
+      val address = UInt(vgaCoreConfig.addressWidth bit)
+      val data = Bits(vgaCoreConfig.dataWidth bit)
+    }
 
-  val memoryWrite = new Area{
-    val pixelResult = core.mandelbrot.io.pixelResult
-    val port = io.memoryWrite
-    val counter = Reg(UInt(32 bit)) init(0)
-    when(port.fire){
+    val addrdata = Stream(AddrData()).translateFrom(mandelbrot.io.pixelResult)((to, from) => {
+      to.address := counter
+      to.data := toBits(from.fragment.iteration)
+    })
+
+    
+    when(addrdata.fire) {
       counter := counter + 1
-      when(pixelResult.last){
+      when(mandelbrot.io.pixelResult.last) {
         counter := 0
       }
     }
 
-    port.translateFrom(pixelResult)((to,from) => {
-      to.address := counter
-      to.data := from.fragment.iteration
+    //Take the simple memory access (view precedent comment) and translate it into AXI-Lite access
+    val (forkedCmd,forkedData) = StreamFork2(addrdata)
+    io.coreAxi.writeCmd.translateFrom(forkedCmd)((to,from) => {
+      to.addr := from.address
+      to.setUnprivileged
+    })
+    io.coreAxi.writeData.translateFrom(forkedData)((to,from) => {
+      to.data := from.data
+      to.setStrb
+    })
+    io.coreAxi.writeRet.freeRun
+  }
+
+  val vga = new Area {
+    //Create VGA controller
+    val ctrl = new VgaCtrl(rgbType, 12)
+    ctrl.io.softReset := False
+    ctrl.io.timings.setAs_h640_v480_r60
+    io.vga := Delay(ctrl.io.vga, 1)
+
+
+    //Create the DMA for this VGA controller
+    val dma = new AxiLiteSimpleReadDma(vgaAxiConfig)
+    dma.io.run.translateFrom(ctrl.io.frameStart.genEvent)((to, from) => {
+      to.offset := 0
+      to.endAt := (p.screenResX * p.screenResY - 1) * vgaAxiConfig.dataByteCount
+    })
+    dma.io.axi >> io.vgaAxi
+    ctrl.io.colorLink.translateFrom(dma.io.read)((to, from) => {
+      to.assignFromBits(from)
     })
   }
 }
 
 
-
-object MandelbrotDemo{
+object MandelbrotDemo {
   def main(args: Array[String]) {
     SpinalVhdl(new MandelbrotDemo(new MandelbrotCoreParameters(64, 4, 64, 64, 7, 36)))
   }

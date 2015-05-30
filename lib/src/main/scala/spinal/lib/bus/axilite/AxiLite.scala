@@ -3,16 +3,22 @@ package spinal.lib.bus.axilite
 import spinal.core._
 import spinal.lib._
 
-case class AxiLiteConfig(addressWidth: Int, dataWidth: Int)
+case class AxiLiteConfig(addressWidth: Int, dataWidth: Int){
+  def dataByteCount = dataWidth/8
+}
 
 case class AxiLiteAw(config: AxiLiteConfig) extends Bundle {
   val addr = UInt(config.addressWidth bit)
   val prot = Bits(3 bit)
+
+  def setUnprivileged : Unit = prot := 0
 }
 
 case class AxiLiteW(config: AxiLiteConfig) extends Bundle {
   val data = Bits(config.dataWidth bit)
   val strb = Bits(config.dataWidth / 8 bit)
+
+  def setStrb : Unit = strb := (1 << widthOf(strb))-1
 }
 
 case class AxiLiteB(config: AxiLiteConfig) extends Bundle {
@@ -49,6 +55,36 @@ case class AxiLiteReadOnly(config: AxiLiteConfig) extends Bundle with IMasterSla
   override def asMaster: this.type = {
     ar.asMaster
     r.asSlave
+    this
+  }
+
+  override def asSlave: this.type = asSlave.flip
+}
+
+case class AxiLiteWriteOnly(config: AxiLiteConfig) extends Bundle with IMasterSlave {
+  val aw = Stream(AxiLiteAw(config))
+  val w = Stream(AxiLiteW(config))
+  val b = Stream(AxiLiteB(config))
+
+  //Because aw w b ar r are ... very lazy
+  def writeCmd = aw
+  def writeData = w
+  def writeRet = b
+
+
+  def >> (that : AxiLiteWriteOnly) : Unit = {
+    assert(that.config == this.config)
+    this.writeCmd >> that.writeCmd
+    this.writeData >> that.writeData
+    this.writeRet << that.writeRet
+  }
+
+  def <<(that : AxiLiteWriteOnly) : Unit = that >> this
+
+  override def asMaster: this.type = {
+    aw.asMaster
+    w.asMaster
+    b.asSlave
     this
   }
 
