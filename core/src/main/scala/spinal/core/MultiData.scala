@@ -149,4 +149,15 @@ abstract class MultiData extends Data {
     })
     ret
   }
+  override def flip: this.type  = {
+    for ((_,e) <- elements) {
+      e.flip
+    }
+    dir match {
+      case `in` => dir = out
+      case `out` => dir = in
+      case _ =>
+    }
+    this
+  }
 }

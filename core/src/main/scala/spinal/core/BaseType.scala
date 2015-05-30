@@ -252,6 +252,10 @@ abstract class BaseType extends Node with Data with Nameable {
   //    val ret = clone()
   //
   //  }
+
+
+
+
   override def toString(): String = s"${getClassIdentifier}(named ${"\"" + getName() + "\""},into ${if (component == null) "null" else component.getClass.getSimpleName})"
 }
 
