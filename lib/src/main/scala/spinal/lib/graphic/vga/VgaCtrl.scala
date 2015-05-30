@@ -19,10 +19,11 @@ case class VgaTimings(timingsWidth : Int) extends Bundle{
 
 class VgaCtrl(rgbType : Rgb,timingsWidth : Int = 12) extends Component{
   val io = new Bundle{
-    val timings = in (VgaTimings(timingsWidth))
     val softReset = in Bool
-    val colorLink = slave Stream(rgbType)
+    val timings = in (VgaTimings(timingsWidth))
+
     val frameStart = out Bool
+    val colorLink = slave Stream(rgbType)
     val vga = master(Vga(rgbType))
   }
 

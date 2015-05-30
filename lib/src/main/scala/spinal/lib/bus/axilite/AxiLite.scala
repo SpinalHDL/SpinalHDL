@@ -7,27 +7,54 @@ case class AxiLiteConfig(addressWidth: Int, dataWidth: Int)
 
 case class AxiLiteAw(config: AxiLiteConfig) extends Bundle {
   val addr = UInt(config.addressWidth bit)
-  val prot = UInt(3 bit)
+  val prot = Bits(3 bit)
 }
 
 case class AxiLiteW(config: AxiLiteConfig) extends Bundle {
-  val data = UInt(config.dataWidth bit)
-  val strb = UInt(config.dataWidth / 8 bit)
+  val data = Bits(config.dataWidth bit)
+  val strb = Bits(config.dataWidth / 8 bit)
 }
 
 case class AxiLiteB(config: AxiLiteConfig) extends Bundle {
-  val resp = UInt(2 bit)
+  val resp = Bits(2 bit)
 }
 
 case class AxiLiteAr(config: AxiLiteConfig) extends Bundle {
   val addr = UInt(config.addressWidth bit)
-  val prot = UInt(3 bit)
+  val prot = Bits(3 bit)
+
+  def setUnprivileged : Unit = prot := 0
 }
 
 case class AxiLiteR(config: AxiLiteConfig) extends Bundle {
-  val data = UInt(config.addressWidth bit)
-  val resp = UInt(2 bit)
+  val data = Bits(config.addressWidth bit)
+  val resp = Bits(2 bit)
 }
+
+case class AxiLiteReadOnly(config: AxiLiteConfig) extends Bundle with IMasterSlave {
+  val ar = Stream(AxiLiteAr(config))
+  val r = Stream(AxiLiteR(config))
+
+  def readCmd = ar
+  def readData = r
+
+  def >> (that : AxiLiteReadOnly) : Unit = {
+    assert(that.config == this.config)
+    this.readCmd >> that.readCmd
+    this.readData << that.readData
+  }
+
+  def <<(that : AxiLiteReadOnly) : Unit = that >> this
+
+  override def asMaster: this.type = {
+    ar.asMaster
+    r.asSlave
+    this
+  }
+
+  override def asSlave: this.type = asSlave.flip
+}
+
 
 case class AxiLite(config: AxiLiteConfig) extends Bundle with IMasterSlave {
   val aw = Stream(AxiLiteAw(config))
