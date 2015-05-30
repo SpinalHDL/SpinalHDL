@@ -3,35 +3,35 @@ package spinal.lib
 import spinal.core._
 
 
-class HandshakeFactory extends MSFactory {
-  object Fragment extends HandshakeFragmentFactory
+class StreamFactory extends MSFactory {
+  object Fragment extends StreamFragmentFactory
 
   def apply[T <: Data](dataType: T) = {
-    val ret = new Handshake(dataType)
+    val ret = new Stream(dataType)
     postApply(ret)
     ret
   }
 }
-object Handshake extends HandshakeFactory
+object Stream extends StreamFactory
 
 
 class EventFactory extends MSFactory {
   def apply = {
-    val ret = new Handshake(new NoData)
+    val ret = new Stream(new NoData)
     postApply(ret)
     ret
   }
 }
 
 
-class Handshake[T <: Data](_dataType: T) extends Bundle with IMasterSlave with DataCarrier[T] {
+class Stream[T <: Data](_dataType: T) extends Bundle with IMasterSlave with DataCarrier[T] {
   val valid = Bool
   val ready = Bool
   val data: T = _dataType.clone()
 
 
   def dataType = cloneOf(_dataType)
-  override def clone: this.type = Handshake(_dataType).asInstanceOf[this.type]
+  override def clone: this.type = Stream(_dataType).asInstanceOf[this.type]
 
   override def asMaster: this.type = {
     out(valid)
@@ -55,79 +55,79 @@ class Handshake[T <: Data](_dataType: T) extends Bundle with IMasterSlave with D
     ret
   }
 
-  def <<(that: Handshake[T]): Handshake[T] = connectFrom(that)
-  //def <<[T2 <: Data](that : Handshake[T2])(dataAssignement : (T,T2) => Unit): Handshake[T2]  = connectFrom(that)(dataAssignement)
+  def <<(that: Stream[T]): Stream[T] = connectFrom(that)
+  //def <<[T2 <: Data](that : Stream[T2])(dataAssignement : (T,T2) => Unit): Stream[T2]  = connectFrom(that)(dataAssignement)
 
-  def >>(into: Handshake[T]): Handshake[T] = {
+  def >>(into: Stream[T]): Stream[T] = {
     into << this;
     into
   }
 
-  def <-<(that: Handshake[T]): Handshake[T] = {
+  def <-<(that: Stream[T]): Stream[T] = {
     this << that.m2sPipe
     that
   }
-  def >->(into: Handshake[T]): Handshake[T] = {
+  def >->(into: Stream[T]): Stream[T] = {
     into <-< this;
     into
   }
 
-  def </<(that: Handshake[T]): Handshake[T] = {
+  def </<(that: Stream[T]): Stream[T] = {
     this << that.s2mPipe
     that
   }
-  def >/>(that: Handshake[T]): Handshake[T] = {
+  def >/>(that: Stream[T]): Stream[T] = {
     that </< this
     that
   }
-  def <-/<(that: Handshake[T]): Handshake[T] = {
+  def <-/<(that: Stream[T]): Stream[T] = {
     this << that.s2mPipe.m2sPipe
     that
   }
-  def >/->(into: Handshake[T]): Handshake[T] = {
+  def >/->(into: Stream[T]): Stream[T] = {
     into <-/< this;
     into
   }
 
-  def &(cond: Bool): Handshake[T] = continueWhen(cond)
-  def ~[T2 <: Data](that: T2): Handshake[T2] = translateWith(that)
-  def ~~[T2 <: Data](translate: (T) => T2): Handshake[T2] = {
+  def &(cond: Bool): Stream[T] = continueWhen(cond)
+  def ~[T2 <: Data](that: T2): Stream[T2] = translateWith(that)
+  def ~~[T2 <: Data](translate: (T) => T2): Stream[T2] = {
     (this ~ translate(this.data))
   }
 
 
-  def queue(size: Int): Handshake[T] = {
-    val fifo = new HandshakeFifo(dataType, size)
+  def queue(size: Int): Stream[T] = {
+    val fifo = new StreamFifo(dataType, size)
     fifo.io.push << this
     return fifo.io.pop
   }
 
   override def fire: Bool = valid & ready
   def isFree: Bool = !valid || ready
-  def connectFrom(that: Handshake[T]): Handshake[T] = {
+  def connectFrom(that: Stream[T]): Stream[T] = {
     this.valid := that.valid
     that.ready := this.ready
     this.data := that.data
     that
   }
 
-  def translateFrom[T2 <: Data](that: Handshake[T2])(dataAssignement: (T, that.data.type) => Unit): Handshake[T] = {
+  def translateFrom[T2 <: Data](that: Stream[T2])(dataAssignement: (T, that.data.type) => Unit): Stream[T] = {
     this.valid := that.valid
     that.ready := this.ready
     dataAssignement(this.data, that.data)
     this
   }
 
-  def translateInto[T2 <: Data](into: Handshake[T2])(dataAssignement: (T2, T) => Unit): Handshake[T2] = {
+  def translateInto[T2 <: Data](into: Stream[T2])(dataAssignement: (T2, T) => Unit): Stream[T2] = {
     into.translateFrom(this)(dataAssignement)
     into
   }
 
-  def m2sPipe: Handshake[T] = m2sPipe(false)
+  def m2sPipe: Stream[T] = m2sPipe(false)
 
 
-  def m2sPipe(crossClockData: Boolean): Handshake[T] = {
-    val ret = Handshake(_dataType)
+  def m2sPipe(crossClockData: Boolean): Stream[T] = {
+    val ret = Stream(_dataType)
 
     val rValid = RegInit(False)
     val rData = Reg(_dataType)
@@ -147,8 +147,8 @@ class Handshake[T <: Data](_dataType: T) extends Bundle with IMasterSlave with D
     ret
   }
 
-  def s2mPipe: Handshake[T] = {
-    val ret = Handshake(_dataType)
+  def s2mPipe: Stream[T] = {
+    val ret = Stream(_dataType)
 
     val rValid = RegInit(False)
     val rBits = Reg(_dataType)
@@ -168,23 +168,23 @@ class Handshake[T <: Data](_dataType: T) extends Bundle with IMasterSlave with D
     ret
   }
 
-  def translateWith[T2 <: Data](that: T2): Handshake[T2] = {
-    val next = new Handshake(that)
+  def translateWith[T2 <: Data](that: T2): Stream[T2] = {
+    val next = new Stream(that)
     next.valid := this.valid
     this.ready := next.ready
     next.data := that
     next
   }
 
-  def continueWhen(cond: Bool): Handshake[T] = {
-    val next = new Handshake(_dataType)
+  def continueWhen(cond: Bool): Stream[T] = {
+    val next = new Stream(_dataType)
     next.valid := this.valid && cond
     this.ready := next.ready && cond
     next.data := this.data
     return next
   }
 
-  def throwWhen(cond: Bool): Handshake[T] = {
+  def throwWhen(cond: Bool): Stream[T] = {
     val next = this.clone
 
     next connectFrom this
@@ -195,22 +195,22 @@ class Handshake[T <: Data](_dataType: T) extends Bundle with IMasterSlave with D
     next
   }
 
-  def haltWhen(cond: Bool): Handshake[T] = continueWhen(!cond)
-  def takeWhen(cond: Bool): Handshake[T] = throwWhen(!cond)
+  def haltWhen(cond: Bool): Stream[T] = continueWhen(!cond)
+  def takeWhen(cond: Bool): Stream[T] = throwWhen(!cond)
 
 
-  def fragmentTransaction(bitsWidth: Int): Handshake[Fragment[Bits]] = {
-    val converter = new HandshakeToHandshakeFragmentBits(data, bitsWidth)
+  def fragmentTransaction(bitsWidth: Int): Stream[Fragment[Bits]] = {
+    val converter = new StreamToStreamFragmentBits(data, bitsWidth)
     converter.io.input << this
     return converter.io.output
   }
 }
 
 
-class HandshakeArbiterCore[T <: Data](dataType: T, val portCount: Int)(arbitrationLogic: (HandshakeArbiterCore[T]) => Area, lockLogic: (HandshakeArbiterCore[T]) => Area) extends Component {
+class StreamArbiterCore[T <: Data](dataType: T, val portCount: Int)(arbitrationLogic: (StreamArbiterCore[T]) => Area, lockLogic: (StreamArbiterCore[T]) => Area) extends Component {
   val io = new Bundle {
-    val inputs = Vec(portCount, slave Handshake (dataType))
-    val output = master Handshake (dataType)
+    val inputs = Vec(portCount, slave Stream (dataType))
+    val output = master Stream (dataType)
     val chosen = out UInt (log2Up(portCount) bit)
   }
 
@@ -243,44 +243,44 @@ class HandshakeArbiterCore[T <: Data](dataType: T, val portCount: Int)(arbitrati
 
 }
 
-class HandshakeArbiterCoreFactory{
-  var arbitrationLogic : (HandshakeArbiterCore[_]) => Area = HandshakeArbiterCore.arbitration_lowIdPortFirst
-  var lockLogic : (HandshakeArbiterCore[_]) => Area = HandshakeArbiterCore.lock_transactionLock
+class StreamArbiterCoreFactory{
+  var arbitrationLogic : (StreamArbiterCore[_]) => Area = StreamArbiterCore.arbitration_lowIdPortFirst
+  var lockLogic : (StreamArbiterCore[_]) => Area = StreamArbiterCore.lock_transactionLock
 
-  def build[T <: Data](dataType: T, portCount : Int) : HandshakeArbiterCore[T] = {
-    new HandshakeArbiterCore(dataType,portCount)(arbitrationLogic,lockLogic)
+  def build[T <: Data](dataType: T, portCount : Int) : StreamArbiterCore[T] = {
+    new StreamArbiterCore(dataType,portCount)(arbitrationLogic,lockLogic)
   }
 
-  def build[T <: Data](input: Seq[Handshake[T]]) : Handshake[T] ={
+  def build[T <: Data](input: Seq[Stream[T]]) : Stream[T] ={
     val arbiter = build(input(0).dataType,input.size)
     (arbiter.io.inputs,input).zipped.foreach(_ << _)
     return arbiter.io.output
   }
 
   def lowIdPortFirst : this.type = {
-    arbitrationLogic = HandshakeArbiterCore.arbitration_lowIdPortFirst
+    arbitrationLogic = StreamArbiterCore.arbitration_lowIdPortFirst
     this
   }
   def inOrder : this.type = {
-    arbitrationLogic = HandshakeArbiterCore.arbitration_InOrder
+    arbitrationLogic = StreamArbiterCore.arbitration_InOrder
     this
   }
   def noLock : this.type = {
-    lockLogic = HandshakeArbiterCore.lock_transactionLock
+    lockLogic = StreamArbiterCore.lock_transactionLock
     this
   }
   def fragmentLock : this.type = {
-    lockLogic = HandshakeArbiterCore.lock_fragmentLock
+    lockLogic = StreamArbiterCore.lock_fragmentLock
     this
   }
   def transactionLock : this.type = {
-    lockLogic = HandshakeArbiterCore.lock_transactionLock
+    lockLogic = StreamArbiterCore.lock_transactionLock
     this
   }
 }
 
-object HandshakeArbiterCore {
-  def arbitration_lowIdPortFirst(core: HandshakeArbiterCore[_]) = new Area {
+object StreamArbiterCore {
+  def arbitration_lowIdPortFirst(core: StreamArbiterCore[_]) = new Area {
     import core._
     var search = True
     for (i <- 0 to portCount - 2) {
@@ -290,7 +290,7 @@ object HandshakeArbiterCore {
     maskProposal(portCount - 1) := search
   }
 
-  def arbitration_InOrder(core: HandshakeArbiterCore[_]) = new Area {
+  def arbitration_InOrder(core: StreamArbiterCore[_]) = new Area {
     import core._
 
     val counter = Counter(core.portCount,io.output.fire)
@@ -302,11 +302,11 @@ object HandshakeArbiterCore {
     maskProposal(counter) := True
   }
 
-  def lock_none(core: HandshakeArbiterCore[_]) = new Area {
+  def lock_none(core: StreamArbiterCore[_]) = new Area {
 
   }
 
-  def lock_transactionLock(core: HandshakeArbiterCore[_]) = new Area {
+  def lock_transactionLock(core: StreamArbiterCore[_]) = new Area {
     import core._
 
     when(io.output.valid) {
@@ -317,8 +317,8 @@ object HandshakeArbiterCore {
     }
   }
 
-  def lock_fragmentLock(core: HandshakeArbiterCore[_]) = new Area {
-    val realCore = core.asInstanceOf[HandshakeArbiterCore[Fragment[_]]]
+  def lock_fragmentLock(core: StreamArbiterCore[_]) = new Area {
+    val realCore = core.asInstanceOf[StreamArbiterCore[Fragment[_]]]
     import realCore._
 
     when(io.output.valid) {
@@ -330,20 +330,20 @@ object HandshakeArbiterCore {
   }
 }
 
-//object HandshakeArbiterPriorityToLow{
-//  def apply[T <: Data](dataType: T, portCount : Int) : HandshakeArbiter[T] ={
-//    new HandshakeArbiter(dataType,portCount)(HandshakeArbiter.arbitration_lowIdPortFirst,HandshakeArbiter.lock_none)
+//object StreamArbiterPriorityToLow{
+//  def apply[T <: Data](dataType: T, portCount : Int) : StreamArbiter[T] ={
+//    new StreamArbiter(dataType,portCount)(StreamArbiter.arbitration_lowIdPortFirst,StreamArbiter.lock_none)
 //  }
 //
-//  def apply[T <: Data](input: Vec[Handshake[T]]) : Handshake[T] ={
-//    val arbiter = new HandshakeArbiter(input(0).dataType,input.size)(HandshakeArbiter.arbitration_lowIdPortFirst,HandshakeArbiter.lock_none)
+//  def apply[T <: Data](input: Vec[Stream[T]]) : Stream[T] ={
+//    val arbiter = new StreamArbiter(input(0).dataType,input.size)(StreamArbiter.arbitration_lowIdPortFirst,StreamArbiter.lock_none)
 //    (arbiter.io.inputs,input).zipped.foreach(_ << _)
 //    return arbiter.io.output
 //  }
 //}
 
 //TODOTEST
-//class HandshakeArbiterPriorityImpl[T <: Data](dataType: T, portCount: Int, allowSwitchWithoutConsumption: Boolean = false) extends HandshakeArbiterCore(dataType, portCount, allowSwitchWithoutConsumption) {
+//class StreamArbiterPriorityImpl[T <: Data](dataType: T, portCount: Int, allowSwitchWithoutConsumption: Boolean = false) extends StreamArbiterCore(dataType, portCount, allowSwitchWithoutConsumption) {
 //  var search = True
 //  for (i <- 0 to portCount - 2) {
 //    maskProposal(i) := search & io.inputs(i).valid
@@ -353,19 +353,19 @@ object HandshakeArbiterCore {
 //}
 
 
-object HandshakeFork{
-  def apply[T <: Data](input : Handshake[T], portCount: Int): Vec[Handshake[T]] ={
-    val fork = new HandshakeFork(input.dataType,portCount)
+object StreamFork{
+  def apply[T <: Data](input : Stream[T], portCount: Int): Vec[Stream[T]] ={
+    val fork = new StreamFork(input.dataType,portCount)
     fork.io.input << input
     return fork.io.output
   }
 }
 
 //TODOTEST
-class HandshakeFork[T <: Data](dataType: T, portCount: Int) extends Component {
+class StreamFork[T <: Data](dataType: T, portCount: Int) extends Component {
   val io = new Bundle {
-    val input = slave Handshake (dataType)
-    val output = Vec(portCount, master Handshake (dataType))
+    val input = slave Stream (dataType)
+    val output = Vec(portCount, master Stream (dataType))
   }
   val linkEnable = Vec(portCount, RegInit(True))
 
@@ -390,11 +390,11 @@ class HandshakeFork[T <: Data](dataType: T, portCount: Int) extends Component {
 }
 
 //TODOTEST
-class HandshakeDemux[T <: Data](dataType: T, portCount: Int) extends Component {
+class StreamDemux[T <: Data](dataType: T, portCount: Int) extends Component {
   val io = new Bundle {
     val sel = in UInt (log2Up(portCount) bit)
-    val input = slave Handshake (dataType)
-    val output = Vec(portCount, master Handshake (dataType))
+    val input = slave Stream (dataType)
+    val output = Vec(portCount, master Stream (dataType))
   }
   io.input.ready := False
   for (i <- 0 to portCount - 1) {
@@ -409,10 +409,10 @@ class HandshakeDemux[T <: Data](dataType: T, portCount: Int) extends Component {
 }
 
 
-class HandshakeFifo[T <: Data](dataType: T, depth: Int) extends Component {
+class StreamFifo[T <: Data](dataType: T, depth: Int) extends Component {
   val io = new Bundle {
-    val push = slave Handshake (dataType)
-    val pop = master Handshake (dataType)
+    val push = slave Stream (dataType)
+    val pop = master Stream (dataType)
     val occupancy = out UInt (log2Up(depth + 1) bit)
   }
 
@@ -456,13 +456,13 @@ class HandshakeFifo[T <: Data](dataType: T, depth: Int) extends Component {
 
 
 
-class HandshakeFifoCC[T <: Data](dataType: T, depth: Int, pushClockDomain: ClockDomain, popClockDomain: ClockDomain) extends Component {
+class StreamFifoCC[T <: Data](dataType: T, depth: Int, pushClockDomain: ClockDomain, popClockDomain: ClockDomain) extends Component {
   assert(isPow2(depth))
   assert(depth >= 2)
 
   val io = new Bundle {
-    val push = slave Handshake (dataType)
-    val pop = master Handshake (dataType)
+    val push = slave Stream (dataType)
+    val pop = master Stream (dataType)
     val pushOccupancy = out UInt (log2Up(depth) + 1 bit)
     val popOccupancy = out UInt (log2Up(depth) + 1 bit)
   }
@@ -510,19 +510,19 @@ class HandshakeFifoCC[T <: Data](dataType: T, depth: Int, pushClockDomain: Clock
   popToPushGray := popCC.popPtrGray
 }
 
-object HandshakeCCByToggle {
-  def apply[T <: Data](input: Handshake[T], clockIn: ClockDomain, clockOut: ClockDomain): Handshake[T] = {
-    val c = new HandshakeCCByToggle[T](input.data, clockIn, clockOut)
+object StreamCCByToggle {
+  def apply[T <: Data](input: Stream[T], clockIn: ClockDomain, clockOut: ClockDomain): Stream[T] = {
+    val c = new StreamCCByToggle[T](input.data, clockIn, clockOut)
     c.io.input connectFrom input
     return c.io.output
   }
 }
 
 
-class HandshakeCCByToggle[T <: Data](dataType: T, clockIn: ClockDomain, clockOut: ClockDomain) extends Component {
+class StreamCCByToggle[T <: Data](dataType: T, clockIn: ClockDomain, clockOut: ClockDomain) extends Component {
   val io = new Bundle {
-    val input = slave Handshake (dataType)
-    val output = master Handshake (dataType)
+    val input = slave Stream (dataType)
+    val output = master Stream (dataType)
   }
 
   val outHitSignal = Bool
@@ -545,16 +545,16 @@ class HandshakeCCByToggle[T <: Data](dataType: T, clockIn: ClockDomain, clockOut
     val hit = RegInit(False)
     outHitSignal := hit
 
-    val handshake = io.input.clone
-    handshake.valid := (target !== hit)
-    handshake.data := inputArea.data
-    handshake.data.addTag(crossClockDomain)
+    val stream = io.input.clone
+    stream.valid := (target !== hit)
+    stream.data := inputArea.data
+    stream.data.addTag(crossClockDomain)
 
-    when(handshake.fire) {
+    when(stream.fire) {
       hit := !hit
     }
 
-    io.output << handshake.m2sPipe
+    io.output << stream.m2sPipe
   }
 }
 
@@ -563,8 +563,8 @@ class HandshakeCCByToggle[T <: Data](dataType: T, clockIn: ClockDomain, clockOut
 
 class DispatcherInOrder[T <: Data](gen: T, n: Int) extends Component {
   val io = new Bundle {
-    val input = slave Handshake(gen)
-    val outputs = Vec(n,master Handshake(gen))
+    val input = slave Stream(gen)
+    val outputs = Vec(n,master Stream(gen))
   }
   val counter = Counter(n,io.input.fire)
 
@@ -584,26 +584,26 @@ class DispatcherInOrder[T <: Data](gen: T, n: Int) extends Component {
   }
 }
 
-object HandshakeFlowArbiter{
-  def apply[T <: Data](inputHandshake : Handshake[T],inputFlow : Flow[T]) : Flow[T] = {
+object StreamFlowArbiter{
+  def apply[T <: Data](inputStream : Stream[T],inputFlow : Flow[T]) : Flow[T] = {
     val output = cloneOf(inputFlow)
 
-    output.valid := inputFlow.valid || inputHandshake.valid
-    inputHandshake.ready := !inputFlow.valid
-    output.data := Mux(inputFlow.valid, inputFlow.data, inputHandshake.data)
+    output.valid := inputFlow.valid || inputStream.valid
+    inputStream.ready := !inputFlow.valid
+    output.data := Mux(inputFlow.valid, inputFlow.data, inputStream.data)
 
     output
   }
 }
 
-class HandshakeFlowArbiter[T <: Data](dataType : T) extends Area{
+class StreamFlowArbiter[T <: Data](dataType : T) extends Area{
   val io = new Bundle{
     val inputFlow = slave Flow(dataType)
-    val inputHandshake = slave Handshake(dataType)
+    val inputStream = slave Stream(dataType)
     val output = master Flow(dataType)
   }
-  io.output.valid := io.inputFlow.valid || io.inputHandshake.valid
-  io.inputHandshake.ready := !io.inputFlow.valid
-  io.output.data := Mux(io.inputFlow.valid, io.inputFlow.data, io.inputHandshake.data)
+  io.output.valid := io.inputFlow.valid || io.inputStream.valid
+  io.inputStream.ready := !io.inputFlow.valid
+  io.output.data := Mux(io.inputFlow.valid, io.inputFlow.data, io.inputStream.data)
 }
 

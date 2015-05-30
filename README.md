@@ -146,10 +146,10 @@ import spinal.core._
 //   utils          : log2up, toGray, fromGray, 
 //                    majority vote, latency analysis (in cycle)
 //   bus            : Flow      (valid, data)
-//                    Handshake (valid, ready, data)
-//                    Flow or Handshake of Fragment  ( .. , last, data),
+//                    Stream (valid, ready, data)
+//                    Flow or Stream of Fragment  ( .. , last, data),
 //   abstraction    : counter, timeout,
-//   implementation : handshake fifo/arbiter/fork, UART controller
+//   implementation : stream fifo/arbiter/fork, UART controller
 import spinal.lib._
 
 //Define custom data types.
@@ -167,18 +167,18 @@ class MultiClockTopLevel extends Component {
     val clkB = in Bool
     val resetB = in Bool
 
-    //Create handshake interface (valid, ready, data) to transport MyDataType data
-    val slaveInteface = slave Handshake(new MyDataType)
-    val masterInterface = master Handshake(new MyDataType)
+    //Create stream interface (valid, ready, data) to transport MyDataType data
+    val slaveInteface = slave Stream(new MyDataType)
+    val masterInterface = master Stream(new MyDataType)
   }
 
   //Create clock domains from inputs clocks and resets
   val clockDomainA = ClockDomain(io.clkA,io.resetA)
   val clockDomainB = ClockDomain(io.clkB,io.resetB)
 
-  //Create a fifo able to cross clock domain a handshake of MyDataType
-  val fifo = new HandshakeFifoCC(new MyDataType,16,clockDomainA,clockDomainB)
-  fifo.io.push << io.slaveInteface    //Easy connection provided by Handshake library
+  //Create a fifo able to cross clock domain a stream of MyDataType
+  val fifo = new StreamFifoCC(new MyDataType,16,clockDomainA,clockDomainB)
+  fifo.io.push << io.slaveInteface    //Easy connection provided by Stream library
   fifo.io.pop >> io.masterInterface
 }
 
@@ -196,13 +196,13 @@ object MultiClockTopLevel {
 import spinal.core._
 import spinal.lib._
 
-class HandshakeFifoCC[T <: Data](dataType: T, depth: Int, pushClockDomain: ClockDomain, popClockDomain: ClockDomain) extends Component {
+class StreamFifoCC[T <: Data](dataType: T, depth: Int, pushClockDomain: ClockDomain, popClockDomain: ClockDomain) extends Component {
   assert(isPow2(depth))
   assert(depth >= 2)
 
   val io = new Bundle {
-    val push = slave Handshake (dataType)
-    val pop = master Handshake (dataType)
+    val push = slave Stream (dataType)
+    val pop = master Stream (dataType)
 	
     val pushOccupancy = out UInt (log2Up(depth) + 1 bit)
     val popOccupancy = out UInt (log2Up(depth) + 1 bit)

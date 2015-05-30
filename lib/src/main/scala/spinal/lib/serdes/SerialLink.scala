@@ -38,8 +38,8 @@ class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) ext
   import SerialLinkTxState._
 
   val io = new Bundle {
-    val input = slave Handshake (Bits(bitsWidth bit))
-    val output = master Handshake Fragment(Bits(bitsWidth bit))
+    val input = slave Stream (Bits(bitsWidth bit))
+    val output = master Stream Fragment(Bits(bitsWidth bit))
 
     val rxToTx = in(new SerialLinkRxToTx)
   }
@@ -73,13 +73,13 @@ class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) ext
 
     val readCmdFlag = False
     //No overflow protection !
-    val readCmd = Handshake(UInt(log2Up(bufferSize) bit))
+    val readCmd = Stream(UInt(log2Up(bufferSize) bit))
     readCmd.valid := readCmdFlag
     readCmd.data := readPtr
     when(readCmd.fire) {
       readPtr ++
     }
-    val readPort = ram.handshakeReadSync(readCmd)
+    val readPort = ram.streamReadSync(readCmd)
 
   }
 
@@ -218,8 +218,8 @@ class SerialLinkRx extends Component {
   import SerialLinkRxState._
 
   val io = new Bundle {
-    val input = slave Handshake Fragment(Bits(bitsWidth bit))
-    val output = master Handshake (Bits(bitsWidth bit))
+    val input = slave Stream Fragment(Bits(bitsWidth bit))
+    val output = master Stream (Bits(bitsWidth bit))
 
     val rxToTx = out(new SerialLinkRxToTx)
   }

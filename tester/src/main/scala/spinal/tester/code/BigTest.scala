@@ -373,13 +373,13 @@ object BigTest {
       val inBundleToBits = in(new BundleAA)
       val outBundleFromBits = out(new BundleAA)
 
-      val slaveHandshakeUInt = slave Handshake UInt(3 bit)
-      val masterHandshakeSInt = master Handshake SInt(3 bit)
+      val slaveStreamUInt = slave Stream UInt(3 bit)
+      val masterStreamSInt = master Stream SInt(3 bit)
 
-      val slaveHandshake = slave Handshake new BundleAA
-      val masterHandshake = master Handshake (new BundleAA)
-      val masterHandshakeThrow = master Handshake (new BundleAA)
-      val masterHandshakeUInt = master Handshake (UInt(4 bit))
+      val slaveStream = slave Stream new BundleAA
+      val masterStream = master Stream (new BundleAA)
+      val masterStreamThrow = master Stream (new BundleAA)
+      val masterStreamUInt = master Stream (UInt(4 bit))
 
       val inType = in SInt (4 bit)
       val outType = out UInt (4 bit)
@@ -431,15 +431,15 @@ object BigTest {
     //  doIt(io.outBundleAA , io.inBundle0) // inBundle0
     io.outBundleAA := io.inBundle0
     io.outBundleA := io.inBundle1
-    // io.masterHandshake :== io.slaveHandshake
+    // io.masterStream :== io.slaveStream
     io.outVecU := io.inVecU
 
-    io.masterHandshakeSInt connectFrom (io.slaveHandshakeUInt translateWith io.slaveHandshakeUInt.toBits.toSInt)
+    io.masterStreamSInt connectFrom (io.slaveStreamUInt translateWith io.slaveStreamUInt.toBits.toSInt)
 
-    io.masterHandshake connectFrom io.slaveHandshake
-    io.masterHandshakeThrow connectFrom (io.slaveHandshake.throwWhen(io.cond1))
-    io.masterHandshakeUInt connectFrom (io.slaveHandshake translateWith U(3))
-    //io.masterHandshakeUInt.bits := UInt(2)
+    io.masterStream connectFrom io.slaveStream
+    io.masterStreamThrow connectFrom (io.slaveStream.throwWhen(io.cond1))
+    io.masterStreamUInt connectFrom (io.slaveStream translateWith U(3))
+    //io.masterStreamUInt.bits := UInt(2)
     //var myInt = WeekDay.c
     // myInt := WeekDay.Mon
     val bitsFromBundle = io.inBundleToBits.toBits

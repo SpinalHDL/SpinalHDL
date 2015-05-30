@@ -3,20 +3,22 @@ package spinal.demo.mandelbrot
 import spinal.core._
 import spinal.lib._
 
+import scala.collection.mutable
+
 class CmdInterface(p: MandelbrotCoreParameters) extends Component {
   val io = new Bundle {
     val cmdPort = slave Flow Fragment(Bits(8 bit))
-    val frameTask = master Handshake FrameTask(p)
+    val frameTask = master Stream FrameTask(p)
   }
 
-  io.frameTask << io.cmdPort.toFlowOf(FrameTask(p)).toHandshake
+  io.frameTask << io.cmdPort.toFlowOf(FrameTask(p)).toStream
 
 }
 
 class FrameTaskFilter(p: MandelbrotCoreParameters) extends Component {
   val io = new Bundle {
-    val input = slave Handshake FrameTask(p)
-    val output = master Handshake FrameTask(p)
+    val input = slave Stream FrameTask(p)
+    val output = master Stream FrameTask(p)
   }
 
   io.output <-< io.input
@@ -33,7 +35,7 @@ class FrameTaskFilter(p: MandelbrotCoreParameters) extends Component {
 class MandelbrotCore(p: MandelbrotCoreParameters) extends Component {
   val io = new Bundle {
     val cmdPort = slave Flow Fragment(Bits(8 bit))
-    val pixelResult = master Handshake Fragment(PixelResult(p))
+    val pixelResult = master Stream Fragment(PixelResult(p))
   }
 
   val cmdInterface = new CmdInterface(p)

@@ -45,13 +45,13 @@ class FlowFragmentPimped[T <: Data](pimped: Flow[Fragment[T]]) {
 }
 
 
-class HandshakeFragmentPimped[T <: Data](pimped: Handshake[Fragment[T]]) {
+class StreamFragmentPimped[T <: Data](pimped: Stream[Fragment[T]]) {
   //  def last : Bool = pimped.last
   //  def fragment : T = pimped.data.fragment
 
-  def toHandshakeOfFragment : Handshake[T] = pimped.translateWith(pimped.fragment)
+  def toStreamOfFragment : Stream[T] = pimped.translateWith(pimped.fragment)
 
-  def insertHeader(header: T): Handshake[Fragment[T]] = {
+  def insertHeader(header: T): Stream[Fragment[T]] = {
     val ret = cloneOf(pimped)
     val waitPacket = RegInit(True)
 
@@ -78,14 +78,14 @@ class HandshakeFragmentPimped[T <: Data](pimped: Handshake[Fragment[T]]) {
   }
 
 
-  def toFragmentBits(bitsWidth: Int): Handshake[Fragment[Bits]] = {
-    val pimpedWidhoutLast = (Handshake(pimped.fragment)).translateFrom(pimped)((to, from) => {
+  def toFragmentBits(bitsWidth: Int): Stream[Fragment[Bits]] = {
+    val pimpedWidhoutLast = (Stream(pimped.fragment)).translateFrom(pimped)((to, from) => {
       to := from.fragment
     })
 
     val fragmented = pimpedWidhoutLast.fragmentTransaction(bitsWidth)
 
-    return (Handshake Fragment (Bits(bitsWidth bit))).translateFrom(fragmented)((to, from) => {
+    return (Stream Fragment (Bits(bitsWidth bit))).translateFrom(fragmented)((to, from) => {
       to.last := from.last && pimped.last
       to.fragment := from.fragment
     })
@@ -152,9 +152,9 @@ object FragmentToBitsStates extends SpinalEnum {
 }
 
 
-class HandshakeBitsPimped(pimped: Handshake[Bits]) {
-  //  def toHandshakeFragmentBits(cMagic: Bits = "x74", cLast: Bits = "x53"): Handshake[Fragment[Bits]] = {
-  //    val ret = Handshake Fragment (pimped.data)
+class StreamBitsPimped(pimped: Stream[Bits]) {
+  //  def toStreamFragmentBits(cMagic: Bits = "x74", cLast: Bits = "x53"): Stream[Fragment[Bits]] = {
+  //    val ret = Stream Fragment (pimped.data)
   //    val inMagic = RegInit(False)
   //    when(pimped.fire){
   //      inMagic := pimped.data === cMagic && !inMagic
@@ -171,10 +171,10 @@ class HandshakeBitsPimped(pimped: Handshake[Bits]) {
   //  }
 }
 
-class HandshakeFragmentBitsPimped(pimped: Handshake[Fragment[Bits]]) {
-  def toHandshakeBits(cMagic: Bits = 0x74, cLast: Bits = 0x53): Handshake[Bits] = {
+class StreamFragmentBitsPimped(pimped: Stream[Fragment[Bits]]) {
+  def toStreamBits(cMagic: Bits = 0x74, cLast: Bits = 0x53): Stream[Bits] = {
     import FragmentToBitsStates._
-    val ret = Handshake(pimped.fragment)
+    val ret = Stream(pimped.fragment)
     val state = RegInit(eDefault)
 
 
@@ -299,9 +299,9 @@ class FlowFragmentFactory extends MSFactory {
   }
 }
 
-class HandshakeFragmentFactory extends MSFactory {
-  def apply[T <: Data](dataType: T): Handshake[Fragment[T]] = {
-    val ret = new Handshake(Fragment(dataType))
+class StreamFragmentFactory extends MSFactory {
+  def apply[T <: Data](dataType: T): Stream[Fragment[T]] = {
+    val ret = new Stream(Fragment(dataType))
     postApply(ret)
     ret
   }
@@ -366,10 +366,10 @@ class FlowFragmentBitsRouter(input: Flow[Fragment[Bits]], allowBroadcast: Boolea
 }
 
 
-class HandshakeToHandshakeFragmentBits[T <: Data](dataType: T, bitsWidth: Int) extends Component {
+class StreamToStreamFragmentBits[T <: Data](dataType: T, bitsWidth: Int) extends Component {
   val io = new Bundle {
-    val input = slave Handshake (dataType)
-    val output = master Handshake Fragment(Bits(bitsWidth bit))
+    val input = slave Stream (dataType)
+    val output = master Stream Fragment(Bits(bitsWidth bit))
   }
   val counter = Counter((widthOf(dataType) - 1) / bitsWidth + 1)
   val inputBits = B(0, bitsWidth bit) ## toBits(io.input.data) //The ## allow to mux inputBits
@@ -385,13 +385,13 @@ class HandshakeToHandshakeFragmentBits[T <: Data](dataType: T, bitsWidth: Int) e
 
 
 
-object HandshakeFragmentGenerator {
-  def apply(event: Event, packetData: Vec[Bits], bitsWidth: Int): Handshake[Fragment[Bits]] = {
+object StreamFragmentGenerator {
+  def apply(event: Event, packetData: Vec[Bits], bitsWidth: Int): Stream[Fragment[Bits]] = {
     apply(event, packetData, Bits(bitsWidth bit))
   }
 
-  def apply[T <: Data](event: Event, packetData: Vec[T], dataType: T): Handshake[Fragment[T]] = {
-    val ret = Handshake Fragment (packetData.dataType)
+  def apply[T <: Data](event: Event, packetData: Vec[T], dataType: T): Stream[Fragment[T]] = {
+    val ret = Stream Fragment (packetData.dataType)
     val counter = Counter(packetData.size)
 
     event.ready := Bool(false)
@@ -412,11 +412,11 @@ object HandshakeFragmentGenerator {
 }
 
 
-object HandshakeFragmentArbiter {
+object StreamFragmentArbiter {
 
-  // def apply[T <: Data](dataType: T,portCount: Int) = new HandshakeArbiterCore(dataType,2)(HandshakeArbiterCore.arbitration_lowIdPortFirst,HandshakeArbiterCore.lock_fragmentLock)
-  def apply[T <: Data](dataType: T)(inputs: Seq[Handshake[Fragment[T]]]): Handshake[Fragment[T]] = {
-    val arbiter = new HandshakeArbiterCore(Fragment(dataType), inputs.size)(HandshakeArbiterCore.arbitration_lowIdPortFirst, HandshakeArbiterCore.lock_fragmentLock)
+  // def apply[T <: Data](dataType: T,portCount: Int) = new StreamArbiterCore(dataType,2)(StreamArbiterCore.arbitration_lowIdPortFirst,StreamArbiterCore.lock_fragmentLock)
+  def apply[T <: Data](dataType: T)(inputs: Seq[Stream[Fragment[T]]]): Stream[Fragment[T]] = {
+    val arbiter = new StreamArbiterCore(Fragment(dataType), inputs.size)(StreamArbiterCore.arbitration_lowIdPortFirst, StreamArbiterCore.lock_fragmentLock)
     (inputs, arbiter.io.inputs).zipped.foreach(_ >> _)
     arbiter.io.output
   }
@@ -424,12 +424,12 @@ object HandshakeFragmentArbiter {
 
 }
 
-object HandshakeFragmentArbiterAndHeaderAdder {
-  def apply[T <: Data](dataType: T)(inputs: Seq[Tuple2[Handshake[Fragment[T]], T]]): Handshake[Fragment[T]] = {
-    val arbiter = new HandshakeArbiterCore(Fragment(dataType), inputs.size)(HandshakeArbiterCore.arbitration_lowIdPortFirst, HandshakeArbiterCore.lock_fragmentLock)
+object StreamFragmentArbiterAndHeaderAdder {
+  def apply[T <: Data](dataType: T)(inputs: Seq[Tuple2[Stream[Fragment[T]], T]]): Stream[Fragment[T]] = {
+    val arbiter = new StreamArbiterCore(Fragment(dataType), inputs.size)(StreamArbiterCore.arbitration_lowIdPortFirst, StreamArbiterCore.lock_fragmentLock)
     (inputs, arbiter.io.inputs).zipped.foreach(_._1 >> _)
 
-    val ret = Handshake Fragment (dataType)
+    val ret = Stream Fragment (dataType)
     def first = ret.first
     ret.valid := arbiter.io.output.valid
     ret.last := arbiter.io.output.last && !first

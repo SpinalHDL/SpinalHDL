@@ -8,8 +8,8 @@ import spinal.lib._
 
 class FrameTaskSolver(p: MandelbrotCoreParameters) extends Component {
   val io = new Bundle {
-    val frameTask = slave Handshake FrameTask(p)
-    val pixelResult = master Handshake Fragment(PixelResult(p))
+    val frameTask = slave Stream FrameTask(p)
+    val pixelResult = master Stream Fragment(PixelResult(p))
   }
   val taskGenerator = new PixelTaskGenerator(p)
   taskGenerator.io.frameTask << io.frameTask
@@ -20,7 +20,7 @@ class FrameTaskSolver(p: MandelbrotCoreParameters) extends Component {
   val pixelSolver = List.fill(p.unitCount)(new PixelTaskSolver(p))
   (pixelSolver, taskDispatcher.io.outputs).zipped.foreach(_.io.pixelTask <-/< _)
 
-  val resultArbiter = HandshakeArbiter.inOrder.build(Fragment(PixelResult(p)), p.unitCount)
+  val resultArbiter = StreamArbiter.inOrder.build(Fragment(PixelResult(p)), p.unitCount)
   (pixelSolver, resultArbiter.io.inputs).zipped.foreach(_.io.result >/> _)
 
   resultArbiter.io.output >-> io.pixelResult
@@ -29,15 +29,15 @@ class FrameTaskSolver(p: MandelbrotCoreParameters) extends Component {
 
 class PixelTaskGenerator(p: MandelbrotCoreParameters) extends Component {
   val io = new Bundle {
-    val frameTask = slave Handshake FrameTask(p)
-    val pixelTask = master Handshake Fragment(PixelTask(p))
+    val frameTask = slave Stream FrameTask(p)
+    val pixelTask = master Stream Fragment(PixelTask(p))
   }
 
   val positionOnScreen = Reg(UInt2D(log2Up(p.screenResX) bit,log2Up(p.screenResY) bit))
   val positionOnMandelbrot = Reg(SFix2D(io.frameTask.data.fullRangeSFix))
   val setup = RegInit(True)
 
-  val solverTask = Handshake(Fragment(PixelTask(p)))
+  val solverTask = Stream(Fragment(PixelTask(p)))
 
   io.frameTask.ready := !io.frameTask.valid
 
@@ -79,8 +79,8 @@ class PixelTaskGenerator(p: MandelbrotCoreParameters) extends Component {
 
 class PixelTaskSolver(p: MandelbrotCoreParameters) extends Component {
   val io = new Bundle {
-    val pixelTask = slave Handshake Fragment(PixelTask(p))
-    val result = master Handshake Fragment(PixelResult(p))
+    val pixelTask = slave Stream Fragment(PixelTask(p))
+    val result = master Stream Fragment(PixelResult(p))
   }
 
   //It's the context definition used by each stage of the pipeline, Each task are translated to context ("thread")
@@ -109,7 +109,7 @@ class PixelTaskSolver(p: MandelbrotCoreParameters) extends Component {
   val insertTaskOrder = Counter(16,io.pixelTask.fire)
 
   //Task to insert into the pipeline
-  val taskToInsert : Handshake[Context] = io.pixelTask.translateInto(Handshake(new Context))((to,from) => {
+  val taskToInsert : Stream[Context] = io.pixelTask.translateInto(Stream(new Context))((to,from) => {
     to.task := from.fragment
     to.lastPixel := from.last
     to.done := False
@@ -118,7 +118,7 @@ class PixelTaskSolver(p: MandelbrotCoreParameters) extends Component {
     to.z := from.fragment.mandelbrotPosition
   })
   val loopBack = RegFlow(new Context) //Loop back from end of pipeline
-  val stage0 = HandshakeFlowArbiter(taskToInsert,loopBack) //First stage
+  val stage0 = StreamFlowArbiter(taskToInsert,loopBack) //First stage
 
 
 
@@ -158,7 +158,7 @@ class PixelTaskSolver(p: MandelbrotCoreParameters) extends Component {
 
   //End Stage put to the output the result if it's finished and in right order
   //          else put it into the feedback to redo iteration or to waiting
-  val result = Handshake(Fragment(PixelResult(p)))
+  val result = Stream(Fragment(PixelResult(p)))
   val resultOrder = Counter(16,result.fire)
   val readyForResult = stage3.data.done && resultOrder === stage3.data.order
 

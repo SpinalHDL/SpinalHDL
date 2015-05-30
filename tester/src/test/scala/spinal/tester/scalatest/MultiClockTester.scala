@@ -11,7 +11,7 @@ object MultiClockTester{
   }
 }
 
-import spinal.tester.scalatest.HandshakeTester._
+import spinal.tester.scalatest.StreamTester._
 
 class MultiClockTester extends Component {
   import MultiClockTester._
@@ -21,8 +21,8 @@ class MultiClockTester extends Component {
     val clkB = in Bool
     val resetB = in Bool
 
-    val slave0 = slave Handshake(new BundleA)
-    val master0 = master Handshake(new BundleA)
+    val slave0 = slave Stream(new BundleA)
+    val master0 = master Stream(new BundleA)
     val fifo0_pushOccupancy = out UInt
     val fifo0_popOccupancy = out UInt
   }
@@ -30,7 +30,7 @@ class MultiClockTester extends Component {
   val clockDomainA = ClockDomain(io.clkA,io.resetA)
   val clockDomainB = ClockDomain(io.clkB,io.resetB)
 
-  val fifo0 = new HandshakeFifoCC(new BundleA,16,clockDomainA,clockDomainB)
+  val fifo0 = new StreamFifoCC(new BundleA,16,clockDomainA,clockDomainB)
   fifo0.io.push << io.slave0
   fifo0.io.pop >> io.master0
   io.fifo0_pushOccupancy := fifo0.io.pushOccupancy

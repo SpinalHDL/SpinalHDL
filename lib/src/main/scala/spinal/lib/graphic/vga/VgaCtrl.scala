@@ -21,7 +21,7 @@ class VgaCtrl(rgbType : Rgb,timingsWidth : Int = 12) extends Component{
   val io = new Bundle{
     val timings = in (VgaTimings(timingsWidth))
     val softReset = in Bool
-    val colorLink = slave Handshake(rgbType)
+    val colorLink = slave Stream(rgbType)
     val frameStart = out Bool
     val vga = master(Vga(rgbType))
   }

@@ -2,9 +2,9 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.all;
 
-library lib_HandshakeTester;
-use lib_HandshakeTester.pkg_scala2hdl.all;
-use lib_HandshakeTester.pkg_enum.all;
+library lib_StreamTester;
+use lib_StreamTester.pkg_scala2hdl.all;
+use lib_StreamTester.pkg_enum.all;
 
 -- #spinalBegin userLibrary
 library IEEE;
@@ -12,10 +12,10 @@ use ieee.math_real.all;
 -- #spinalEnd userLibrary
 
 
-entity HandshakeTester_tb is
-end HandshakeTester_tb;
+entity StreamTester_tb is
+end StreamTester_tb;
 
-architecture arch of HandshakeTester_tb is
+architecture arch of StreamTester_tb is
   signal io_slave0_valid : std_logic;
   signal io_slave0_ready : std_logic;
   signal io_slave0_data_a : unsigned(7 downto 0);
@@ -144,7 +144,7 @@ begin
   end process;
   
   -- #spinalEnd userLogics
-  uut : entity lib_HandshakeTester.HandshakeTester
+  uut : entity lib_StreamTester.StreamTester
     port map (
       io_slave0_valid =>  io_slave0_valid,
       io_slave0_ready =>  io_slave0_ready,

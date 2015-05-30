@@ -13,7 +13,7 @@ case class SimpleMemoryWrite(addressWidth : Int,dataWidth : Int) extends Bundle{
 class MandelbrotDemo (p : MandelbrotCoreParameters) extends Component{
   val io = new Bundle{
     val uart = master(Uart())
-    val memoryWrite = master Handshake(SimpleMemoryWrite(32,32))
+    val memoryWrite = master Stream(SimpleMemoryWrite(32,32))
   }
 
   val uart = new Area {

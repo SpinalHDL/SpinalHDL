@@ -238,7 +238,7 @@ object C10_1 {
     //..
   }
 
-  case class Handshake[T <: Data](dataType: T) extends Bundle {
+  case class Stream[T <: Data](dataType: T) extends Bundle {
     val valid = Bool
     val ready = Bool
     val data: T = cloneOf(dataType)
@@ -253,26 +253,26 @@ object C10_1 {
 }
 
 object C10_2 {
-  class HandshakeFifo[T <: Data](dataType: T, depth: Int) extends Component {
+  class StreamFifo[T <: Data](dataType: T, depth: Int) extends Component {
     val io = new Bundle {
-      val pushPort = slave Handshake (dataType)
-      val popPort = master Handshake (dataType)
+      val pushPort = slave Stream (dataType)
+      val popPort = master Stream (dataType)
       val occupancy = out UInt (log2Up(depth + 1) bit)
     } //...
   }
 
-  class HandshakeArbiter[T <: Data](dataType: T, val portCount: Int) extends Component {
+  class StreamArbiter[T <: Data](dataType: T, val portCount: Int) extends Component {
     val io = new Bundle {
-      val inputs = Vec(portCount, slave Handshake (dataType))
-      val output = master Handshake (dataType)
+      val inputs = Vec(portCount, slave Stream (dataType))
+      val output = master Stream (dataType)
       val chosen = out UInt (log2Up(portCount) bit)
     } //...
   }
 
-  class HandshakeFork[T <: Data](dataType: T, portCount: Int) extends Component {
+  class StreamFork[T <: Data](dataType: T, portCount: Int) extends Component {
     val io = new Bundle {
-      val input = slave Handshake (dataType)
-      val output = Vec(portCount, master Handshake (dataType))
+      val input = slave Stream (dataType)
+      val output = Vec(portCount, master Stream (dataType))
     } //...
   }
 
@@ -309,10 +309,10 @@ object C10_2 {
     val io = new Bundle {
       val run = slave Event
 
-      val memoryReadAddress = master Handshake (Bits(32 bit))
-      val memoryReadData = slave Handshake (Bits(32 bit))
+      val memoryReadAddress = master Stream (Bits(32 bit))
+      val memoryReadData = slave Stream (Bits(32 bit))
 
-      val colorStream = master Handshake (Color(8))
+      val colorStream = master Stream (Color(8))
     }
 
     io.run.ready := False
@@ -347,7 +347,7 @@ object C10_removed {
     override def asSlave: this.type = in(this)
   }
 
-  abstract case class Handshake[T <: Data](dataType: T) extends Bundle with IMasterSlave {
+  abstract case class Stream[T <: Data](dataType: T) extends Bundle with IMasterSlave {
     val valid = Bool
     val ready = Bool
     val data: T = cloneOf(dataType)
@@ -362,15 +362,15 @@ object C10_removed {
 
     //...
 
-    def <<(that: Handshake[T]): Unit = {
+    def <<(that: Stream[T]): Unit = {
       this.valid := that.valid
       that.ready := this.ready
       this.data := that.data
     }
-    def <-<(that: Handshake[T])
-    def </<(that: Handshake[T])
-    def &(cond: Bool): Handshake[T]
-    def queue(size: Int): Handshake[T]
+    def <-<(that: Stream[T])
+    def </<(that: Stream[T])
+    def &(cond: Bool): Stream[T]
+    def queue(size: Int): Stream[T]
     def fire: Bool
     def throwWhen(cond: Bool)
   }
@@ -391,8 +391,8 @@ object C10_removed {
 
 object C11 {
 //  val cond = Bool
-//  val inPort = Handshake(Bits(32 bit))
-//  val outPort = Handshake(Bits(32 bit))
+//  val inPort = Stream(Bits(32 bit))
+//  val outPort = Stream(Bits(32 bit))
 //
 //  outPort << inPort
 //  outPort <-< inPort
@@ -403,8 +403,8 @@ object C11 {
 //  val outPortWithMsb = inPort.translateWith(inPort.data.msb)
 //
 //  val mem = Mem(Bool, 1024)
-//  val memReadCmd = Handshake(UInt(10 bit))
-//  val memReadPort = mem.handshakeReadSync(memReadCmd, memReadCmd.data)
+//  val memReadCmd = Stream(UInt(10 bit))
+//  val memReadPort = mem.streamReadSync(memReadCmd, memReadCmd.data)
 //  memReadPort.valid //arbitration
 //  memReadPort.ready //arbitration
 //  memReadPort.data.value //Readed value
@@ -443,12 +443,12 @@ object C11 {
 object C12 {
   class MyComponentWithLatencyAssert extends Component {
     val io = new Bundle {
-      val slavePort = slave Handshake (UInt(8 bit))
-      val masterPort = master Handshake (UInt(8 bit))
+      val slavePort = slave Stream (UInt(8 bit))
+      val masterPort = master Stream (UInt(8 bit))
     }
 
     //These 3 line are equivalent to io.slavePort.queue(16) >/-> io.masterPort
-    val fifo = new HandshakeFifo((UInt(8 bit)), 16)
+    val fifo = new StreamFifo((UInt(8 bit)), 16)
     fifo.io.push << io.slavePort
     fifo.io.pop >/-> io.masterPort
 

@@ -71,7 +71,7 @@ object DebuggerOnUart {
 
 
       uartFlowFragment >> logicAnalyser.io.slavePort
-      uartCtrl.io.write << logicAnalyser.io.masterPort.toHandshakeBits()
+      uartCtrl.io.write << logicAnalyser.io.masterPort.toStreamBits()
     }
   }
 

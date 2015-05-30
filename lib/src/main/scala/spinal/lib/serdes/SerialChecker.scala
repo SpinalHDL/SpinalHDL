@@ -33,8 +33,8 @@ class SerialCheckerTx(bitsWidth: Int) extends Component {
   import SerialCheckerTxState._
 
   val io = new Bundle {
-    val input = slave Handshake Fragment(Bits(bitsWidth bit))
-    val output = master Handshake (new SerialCheckerPhysical(bitsWidth))
+    val input = slave Stream Fragment(Bits(bitsWidth bit))
+    val output = master Stream (new SerialCheckerPhysical(bitsWidth))
   }
 
   io.output.valid := False
@@ -105,8 +105,8 @@ class SerialCheckerPhysicalToSerial(bitsWidth: Int) extends Component {
   import SerialCheckerConst._
 
   val io = new Bundle {
-    val input = slave Handshake (new SerialCheckerPhysical(bitsWidth))
-    val output = master Handshake (Bits(bitsWidth bit))
+    val input = slave Stream (new SerialCheckerPhysical(bitsWidth))
+    val output = master Stream (Bits(bitsWidth bit))
   }
 
   val inMagic = RegInit(False)
@@ -187,7 +187,7 @@ class SerialCheckerRx(wordCountMax: Int) extends Component {
 
   val io = new Bundle {
     val input = slave Flow (new SerialCheckerPhysical(bitsWidth))
-    val output = master Handshake Fragment(Bits(bitsWidth bit))
+    val output = master Stream Fragment(Bits(bitsWidth bit))
   }
 
   val buffer = new Area {
@@ -232,11 +232,11 @@ class SerialCheckerRx(wordCountMax: Int) extends Component {
 
 
     val readPtr = Counter(wordCountMax)
-    val readCmd = Handshake(UInt(log2Up(wordCountMax) bit))
+    val readCmd = Stream(UInt(log2Up(wordCountMax) bit))
     readCmd.valid := (validPtr !== readPtr)
     readCmd.data := readPtr
     readPtr.increment := readCmd.fire
-    io.output.translateFrom(ram.handshakeReadSync(readCmd))((to, from) => {
+    io.output.translateFrom(ram.streamReadSync(readCmd))((to, from) => {
       to.last := from.msb
       to.fragment := from
     })

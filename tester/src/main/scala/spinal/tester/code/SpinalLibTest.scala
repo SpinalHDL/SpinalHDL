@@ -57,22 +57,22 @@ object SpinalLibTest {
       val slaveFlow = slave(new Flow(new BundleA))
       val masterFlow = master(new Flow(new BundleA))
 
-      val slaveHandshake = slave(new Handshake(new BundleA))
-      val masterHandshake = master(new Handshake(new BundleA))
+      val slaveStream = slave(new Stream(new BundleA))
+      val masterStream = master(new Stream(new BundleA))
 
 
-      val slaveHandshakeClkA = slave(new Handshake(new BundleA))
-      val masterHandshakeClkB = master(new Handshake(new BundleA))
+      val slaveStreamClkA = slave(new Stream(new BundleA))
+      val masterStreamClkB = master(new Stream(new BundleA))
 
-      //val arbiter = new HandshakeArbiterIO(new BundleA,4)
+      //val arbiter = new StreamArbiterIO(new BundleA,4)
 
       val uart = new UartCtrlIo()
       val uartX = new UartCtrlIo()
 
-     // val fifo = new HandshakeFifoIo(Bits(36 bit),256)
+     // val fifo = new StreamFifoIo(Bits(36 bit),256)
     }
 
-    /*val fifo = new HandshakeFifo(Bits(36 bit),256)
+    /*val fifo = new StreamFifo(Bits(36 bit),256)
     fifo.io <> io.fifo*/
 
     val uartCtrl = new UartCtrl()
@@ -86,7 +86,7 @@ object SpinalLibTest {
     val clockB = ClockDomain(io.clkB, io.resetB)
 
 
-//    val arbiter = new HandshakeArbiterPriorityImpl(new BundleA,4,true)
+//    val arbiter = new StreamArbiterPriorityImpl(new BundleA,4,true)
 //    arbiter.io <> io.arbiter
 
     {
@@ -104,15 +104,15 @@ object SpinalLibTest {
 
 
     io.masterFlow <-< io.slaveFlow
-    io.masterHandshake connectFrom io.slaveHandshake
+    io.masterStream connectFrom io.slaveStream
 
 
-//    val crossClockHandshake = new CrossClockStream_HandShake(io.slaveHandshakeClkA.data,clockA,clockB)
-//    crossClockHandshake.io.input << io.slaveHandshakeClkA
-//    io.masterHandshakeClkB << crossClockHandshake.io.output
+//    val crossClockStream = new CrossClockStream_HandShake(io.slaveStreamClkA.data,clockA,clockB)
+//    crossClockStream.io.input << io.slaveStreamClkA
+//    io.masterStreamClkB << crossClockStream.io.output
 
 
-   io.masterHandshakeClkB << HandshakeCCByToggle(io.slaveHandshakeClkA,clockA,clockB)
+   io.masterStreamClkB << StreamCCByToggle(io.slaveStreamClkA,clockA,clockB)
 
   }
 

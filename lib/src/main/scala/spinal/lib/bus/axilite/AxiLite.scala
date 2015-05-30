@@ -30,11 +30,11 @@ case class AxiLiteR(config: AxiLiteConfig) extends Bundle {
 }
 
 case class AxiLite(config: AxiLiteConfig) extends Bundle with IMasterSlave {
-  val aw = Handshake(AxiLiteAw(config))
-  val w = Handshake(AxiLiteW(config))
-  val b = Handshake(AxiLiteB(config))
-  val ar = Handshake(AxiLiteAr(config))
-  val r = Handshake(AxiLiteR(config))
+  val aw = Stream(AxiLiteAw(config))
+  val w = Stream(AxiLiteW(config))
+  val b = Stream(AxiLiteB(config))
+  val ar = Stream(AxiLiteAr(config))
+  val r = Stream(AxiLiteR(config))
 
   //Because aw w b ar r are ... very lazy
   def writeCmd = aw

@@ -67,13 +67,13 @@ object Debug {
 //      val in1 = in (new MyBundle)
 //      val out1 = out (new MyBundle2)
 
-//      val outputVec = Vec(3, master Handshake (new MyBundle))
+//      val outputVec = Vec(3, master Stream (new MyBundle))
 
-      val input = slave Handshake (new MyBundle)
-      val output = master Handshake (new MyBundle)
+      val input = slave Stream (new MyBundle)
+      val output = master Stream (new MyBundle)
 
-//      val romCmd = slave Handshake(UInt(2 bit))
-//      val romRead = master Handshake(RomData())
+//      val romCmd = slave Stream(UInt(2 bit))
+//      val romRead = master Stream(RomData())
 //      val romCmd = in(UInt(2 bit))
 //      val romRead = out(MyData())
       val sin = out SInt(16 bit)
@@ -86,8 +86,8 @@ object Debug {
     val s0Reg = RegNext(MyEnum.s0())
 
 
-    val forks = HandshakeFork(io.input,3)
-    io.output << HandshakeArbiter.lowIdPortFirst.transactionLock.build(forks)
+    val forks = StreamFork(io.input,3)
+    io.output << StreamArbiter.lowIdPortFirst.transactionLock.build(forks)
 
     object MyData{
       def apply(a : Boolean,b : BigInt) : MyData ={

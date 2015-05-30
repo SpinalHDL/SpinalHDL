@@ -13,12 +13,12 @@ object SerdesSerialTester {
 
 }
 
-import spinal.tester.scalatest.HandshakeTester._
+import spinal.tester.scalatest.StreamTester._
 
 class SerdesSerialTester extends Component {
   val io = new Bundle {
     val rx = slave Flow (Bits(8 bit))
-    val tx = master Handshake (Bits(8 bit))
+    val tx = master Stream (Bits(8 bit))
   }
 
   val physicalRx = new SerialCheckerPhysicalfromSerial(8)

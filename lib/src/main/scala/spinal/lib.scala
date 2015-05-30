@@ -3,31 +3,35 @@ package spinal
 import spinal.core._
 
 package object lib {
-  //  def Handshake[T <: Data](that : T) : Handshake[T] = new Handshake[T](that)
+  //  def Stream[T <: Data](that : T) : Stream[T] = new Stream[T](that)
 //  def mm [T <: Data with IMasterSlave](that : T) = that.asMaster
-  type Event = Handshake[NoData]
+  type Event = Stream[NoData]
 
-  def Event = new Handshake(NoData)
+  def Event = new Stream(NoData)
   def NoData = new NoData
+
+
 
   implicit def traversableOncePimped[T](that: TraversableOnce[T]) = new TraversableOncePimped[T](that)
 
   implicit def flowFragmentPimped[T <: Data](that: Flow[Fragment[T]]) = new FlowFragmentPimped[T](that)
-  implicit def handshakeFragmentPimped[T <: Data](that: Handshake[Fragment[T]]) = new HandshakeFragmentPimped[T](that)
+  implicit def streamFragmentPimped[T <: Data](that: Stream[Fragment[T]]) = new StreamFragmentPimped[T](that)
 
-  implicit def handshakeBitsPimped[T <: Data](that: Handshake[Bits]) = new HandshakeBitsPimped(that)
+  implicit def streamBitsPimped[T <: Data](that: Stream[Bits]) = new StreamBitsPimped(that)
   implicit def flowBitsPimped[T <: Data](that: Flow[Bits]) = new FlowBitsPimped(that)
 
 
   implicit def dataCarrierFragmentPimped[T <: Data](that: DataCarrier[Fragment[T]]) = new DataCarrierFragmentPimped[T](that)
   implicit def dataCarrierFragmentBitsPimped(that: DataCarrier[Fragment[Bits]]) = new DataCarrierFragmentBitsPimped(that)
 
-  implicit def handshakeFragmentBitsPimped(that: Handshake[Fragment[Bits]]) = new HandshakeFragmentBitsPimped(that)
+  implicit def streamFragmentBitsPimped(that: Stream[Fragment[Bits]]) = new StreamFragmentBitsPimped(that)
 
 
   implicit def memPimped[T <: Data](mem: Mem[T]) = new MemPimped(mem)
 
 
-  def HandshakeArbiter = new HandshakeArbiterCoreFactory()
+  def StreamArbiter = new StreamArbiterCoreFactory()
 
+  type ScalaStream[T] = collection.immutable.Stream[T]
+  def ScalaStream = collection.immutable.Stream
 }

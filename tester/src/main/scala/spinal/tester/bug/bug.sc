@@ -1,18 +1,18 @@
 class Data{
   override def clone(): this.type = new Data().asInstanceOf[this.type]
 }
-class Handshake[T <: Data](dataType: T){
+class Stream[T <: Data](dataType: T){
   val data = dataType.clone()
 }
 
 object Test{
-  def doit[T <: Data](that : Handshake[T]): Handshake[T] ={
-    val ret = new Handshake(that.data)
+  def doit[T <: Data](that : Stream[T]): Stream[T] ={
+    val ret = new Stream(that.data)
     return ret
   }
 }
 
-Test.doit(new Handshake(new Data))
+Test.doit(new Stream(new Data))
 
 //
 //object Data {

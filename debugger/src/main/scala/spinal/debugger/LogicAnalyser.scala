@@ -241,7 +241,7 @@ class LogicAnalyser(p: LogicAnalyserParameter) extends Component {
   val fragmentWidth = 8
   val io = new Bundle {
     val slavePort = slave Flow Fragment(Bits(fragmentWidth bit))
-    val masterPort = master Handshake Fragment(Bits(fragmentWidth bit))
+    val masterPort = master Stream Fragment(Bits(fragmentWidth bit))
   }
 
   val probes = Cat(p.probes.reverse.map(_.baseType.pull))
@@ -272,7 +272,7 @@ class LogicAnalyser(p: LogicAnalyserParameter) extends Component {
   val logs = logger.io.log.toFragmentBits(fragmentWidth)
 
 
-  io.masterPort << HandshakeFragmentArbiter(Bits(fragmentWidth bit))(Seq(
+  io.masterPort << StreamFragmentArbiter(Bits(fragmentWidth bit))(Seq(
     passport,
     logs
   ))
@@ -297,7 +297,7 @@ class LogicAnalyserLogger(p: LogicAnalyserParameter, probeType: Bits) extends Co
     val trigger = in Bool
     val probe = in cloneOf (probeType)
 
-    val log = master Handshake Fragment(probe)
+    val log = master Stream Fragment(probe)
   }
 
   val mem = Mem(probeType, 1 << p.memAddressWidth)
@@ -329,7 +329,7 @@ class LogicAnalyserLogger(p: LogicAnalyserParameter, probeType: Bits) extends Co
   }
 
 
-  val memReadCmd = Handshake(mem.addressType)
+  val memReadCmd = Stream(mem.addressType)
   val memReadCmdIsLast = False
 
   memReadCmd.valid := False
@@ -367,7 +367,7 @@ class LogicAnalyserLogger(p: LogicAnalyserParameter, probeType: Bits) extends Co
     }
   }
 
-  val memReadPort = mem.handshakeReadSync(memReadCmd, memReadCmdIsLast)
+  val memReadPort = mem.streamReadSync(memReadCmd, memReadCmdIsLast)
   io.log.translateFrom(memReadPort)((to, from) => {
     to.last := from.linked
     to.fragment := from.value

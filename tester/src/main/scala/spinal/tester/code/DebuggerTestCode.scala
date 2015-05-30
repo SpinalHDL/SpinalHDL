@@ -34,7 +34,7 @@ object DebuggerTestCode {
 
 
       val slavePort = slave Flow Fragment(Bits(8 bit))
-      val masterPort = master Handshake Fragment(Bits(8 bit))
+      val masterPort = master Stream Fragment(Bits(8 bit))
       //      val uart = master(new Uart)
     }
 
@@ -64,7 +64,7 @@ object DebuggerTestCode {
     //    uartCtrl.io.config.stop := UartStopType.eStop1bit
     //    uartCtrl.io.uart <> io.uart
     //    uartCtrl.io.read.toFlowFragmentBits() >> logicAnalyser.io.packetSlave
-    //    uartCtrl.io.write << logicAnalyser.io.packetMaster.toHandshakeBits()
+    //    uartCtrl.io.write << logicAnalyser.io.packetMaster.toStreamBits()
   }
 
 

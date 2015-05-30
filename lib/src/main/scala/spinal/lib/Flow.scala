@@ -49,9 +49,9 @@ class Flow[T <: Data](_dataType: T) extends Bundle with IMasterSlave with DataCa
 
   override def fire: Bool = valid
 
-  def toHandshake  : Handshake[T] = toHandshake(null)
-  def toHandshake(overflow : Bool) : Handshake[T] = {
-    val ret = Handshake(dataType)
+  def toStream  : Stream[T] = toStream(null)
+  def toStream(overflow : Bool) : Stream[T] = {
+    val ret = Stream(dataType)
     ret.valid := this.valid
     ret.data := this.data
     if(overflow != null) overflow := ret.valid && !ret.ready

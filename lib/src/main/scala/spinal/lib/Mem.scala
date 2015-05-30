@@ -3,16 +3,16 @@ package spinal.lib
 import spinal.core._
 
 
-class HandshakeReadRetData[T <: Data, T2 <: Data](readType: T, linkedType: T2) extends Bundle {
+class StreamReadRetData[T <: Data, T2 <: Data](readType: T, linkedType: T2) extends Bundle {
   val value = cloneOf(readType)
   val linked = cloneOf(linkedType)
 
-  override def clone(): this.type = new HandshakeReadRetData(readType, linkedType).asInstanceOf[this.type]
+  override def clone(): this.type = new StreamReadRetData(readType, linkedType).asInstanceOf[this.type]
 }
 
 class MemPimped[T <: Data](mem: Mem[T]) {
-  def handshakeReadSync[T2 <: Data](cmd: Handshake[UInt], linkedData: T2) = {
-    val ret = Handshake(new HandshakeReadRetData(mem.wordType, linkedData))
+  def streamReadSync[T2 <: Data](cmd: Stream[UInt], linkedData: T2) = {
+    val ret = Stream(new StreamReadRetData(mem.wordType, linkedData))
 
     val retValid = RegInit(False)
     val retData = mem.readSync(cmd.data, cmd.ready)
@@ -33,8 +33,8 @@ class MemPimped[T <: Data](mem: Mem[T]) {
     ret
   }
 
-  def handshakeReadSync(cmd: Handshake[UInt]) = {
-    val ret = Handshake(mem.wordType)
+  def streamReadSync(cmd: Stream[UInt]) = {
+    val ret = Stream(mem.wordType)
 
     val retValid = RegInit(False)
     val retData = mem.readSync(cmd.data, cmd.ready)

@@ -14,7 +14,7 @@ class UartCtrlConfig(dataWidthMax: Int = 8) extends Bundle {
 class UartCtrlIo(dataWidthMax: Int = 8, clockDividerWidth: Int = 20) extends Bundle {
   val config = in(new UartCtrlConfig(dataWidthMax))
   val clockDivider = in UInt (clockDividerWidth bit)
-  val write = slave Handshake (Bits(dataWidthMax bit))
+  val write = slave Stream (Bits(dataWidthMax bit))
   val read = master Flow (Bits(dataWidthMax bit))
   val uart = master(new Uart)
 }
@@ -48,7 +48,7 @@ class UartCtrlTx(dataWidthMax: Int = 8, clockDividerWidth: Int = 24) extends Com
   val io = new Bundle {
     val config = in(new UartCtrlConfig(dataWidthMax))
     val clockDivider = in UInt (clockDividerWidth bit)
-    val write = slave Handshake (Bits(dataWidthMax bit))
+    val write = slave Stream (Bits(dataWidthMax bit))
     val txd = out Bool
   }
 

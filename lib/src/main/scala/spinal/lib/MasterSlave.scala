@@ -21,7 +21,7 @@ trait MS{
     }
   }
 
-  object Handshake extends HandshakeFactory{
+  object Stream extends StreamFactory{
     override def postApply(interface : IMasterSlave) : Unit = {
       super.postApply(interface)
       MS.this.apply(interface)
