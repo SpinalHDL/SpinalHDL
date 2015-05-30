@@ -58,6 +58,12 @@ class Flow[T <: Data](_dataType: T) extends Bundle with IMasterSlave with DataCa
     ret
   }
 
+  def toStream(overflow : Bool,fifoSize: Int, overflowOccupancyAt : Int) : Stream[T] = {
+    val (ret,occupancy) = this.toStream.queueWithOccupancy(fifoSize)
+    overflow := occupancy >= overflowOccupancyAt
+    ret
+  }
+
   def connectFrom(that: Flow[T]): Flow[T] = {
     valid := that.valid
     data := that.data
@@ -80,6 +86,12 @@ class Flow[T <: Data](_dataType: T) extends Bundle with IMasterSlave with DataCa
     next.valid := this.valid
     next.data := that
     next
+  }
+
+  def translateFrom[T2 <: Data](that: Flow[T2])(dataAssignement: (T, that.data.type) => Unit): Flow[T] = {
+    this.valid := that.valid
+    dataAssignement(this.data, that.data)
+    this
   }
 
   def m2sPipe(): Flow[T] = {

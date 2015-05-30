@@ -8,7 +8,7 @@ import spinal.lib.graphic.Rgb
 import spinal.lib.graphic.vga._
 
 
-class MandelbrotDemo(p: MandelbrotCoreParameters) extends Component {
+class MandelbrotAxiDemo(p: MandelbrotCoreParameters) extends Component {
   val vgaAxiConfig = AxiLiteConfig(32, 32)
   val vgaCoreConfig = AxiLiteConfig(32, 32)
   val rgbType = Rgb(8, 8, 8)
@@ -85,16 +85,17 @@ class MandelbrotDemo(p: MandelbrotCoreParameters) extends Component {
       to.offset := 0
       to.endAt := (p.screenResX * p.screenResY - 1) * vgaAxiConfig.dataByteCount
     })
-    dma.io.axi >> io.vgaAxi
-    ctrl.io.colorLink.translateFrom(dma.io.read)((to, from) => {
+    dma.io.axi >> io.vgaAxi //TODO add a fifo on colorLink and a halt logic on dma axi
+    ctrl.io.colorStream.translateFrom(dma.io.read)((to, from) => {
       to.assignFromBits(from)
     })
   }
 }
 
 
-object MandelbrotDemo {
+object MandelbrotAxiDemo {
   def main(args: Array[String]) {
-    SpinalVhdl(new MandelbrotDemo(new MandelbrotCoreParameters(64, 4, 64, 64, 7, 36)))
+    //Warning implementation not done
+    SpinalVhdl(new MandelbrotAxiDemo(new MandelbrotCoreParameters(64, 4, 64, 64, 7, 36)))
   }
 }

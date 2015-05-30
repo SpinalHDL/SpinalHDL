@@ -33,14 +33,14 @@ object Component {
 
   def push(c: Component): Unit = {
     //  if (when.stack.size() != 0) throw new Exception("Creating a component into hardware conditional expression")
-    c.globalData.componentStack.push(c)
+    GlobalData.get.componentStack.push(c)
   }
 
   def pop(c: Component): Unit = {
     try {
       /* if(lastPoped == c) return;
        lastPoped = c*/
-      c.globalData.componentStack.pop(c)
+      GlobalData.get.componentStack.pop(c)
     } catch {
       case e: Exception => SpinalError(s"You probably forget the 'Component(new ${c.globalData.componentStack.head().getClass.getName})' into ${c.getClass.getName}")
     }

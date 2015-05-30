@@ -102,6 +102,12 @@ class Stream[T <: Data](_dataType: T) extends Bundle with IMasterSlave with Data
     return fifo.io.pop
   }
 
+  def queueWithOccupancy(size: Int): (Stream[T],UInt) = {
+    val fifo = new StreamFifo(dataType, size)
+    fifo.io.push << this
+    return (fifo.io.pop,fifo.io.occupancy)
+  }
+
   override def fire: Bool = valid & ready
   def isFree: Bool = !valid || ready
   def connectFrom(that: Stream[T]): Stream[T] = {

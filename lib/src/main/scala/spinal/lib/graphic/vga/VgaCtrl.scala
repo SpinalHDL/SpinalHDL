@@ -34,7 +34,7 @@ class VgaCtrl(rgbType: Rgb, timingsWidth: Int = 12) extends Component {
     val timings = in(VgaTimings(timingsWidth))
 
     val frameStart = out Bool
-    val colorLink = slave Stream (rgbType)
+    val colorStream = slave Stream (rgbType)
     val vga = master(Vga(rgbType))
   }
 
@@ -66,13 +66,15 @@ class VgaCtrl(rgbType: Rgb, timingsWidth: Int = 12) extends Component {
   val h = HVArea(io.timings.h, True)
   val v = HVArea(io.timings.v, h.syncEnd)
   val colorEn = h.colorEn && v.colorEn
-  io.colorLink.ready := colorEn
+  io.colorStream.ready := colorEn
 
   io.frameStart := v.syncEnd
 
   io.vga.hSync := h.sync
   io.vga.vSync := v.sync
-  io.vga.color := Mux(colorEn, io.colorLink.data, rgbType.getZero)
+  io.vga.colorEn := colorEn
+  io.vga.color := io.colorStream.data
+
 }
 
 

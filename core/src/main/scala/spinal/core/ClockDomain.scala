@@ -73,6 +73,21 @@ object ClockDomain {
 
 }
 
+
+object ExternalClockDomain{
+  //TODO more options
+  def apply(name : String): ClockDomain ={
+    Component.push(null)
+    val clock = in.Bool
+    clock.setName(if(name != "") name + "_clk" else "clk")
+    val reset = in.Bool
+    reset.setName(if(name != "") name + "_reset" else "reset")
+    val clockDomain = ClockDomain(clock, reset)
+    Component.pop(null)
+    clockDomain
+  }
+}
+
 class ClockDomain(val clock: Bool, val edge: EdgeKind, var clockEnable: Bool, var reset: Bool, val resetKind: ResetKind, val resetActiveHigh: Boolean, val clockEnableActiveHigh: Boolean) {
   def hasClockEnable = clockEnable != null
   def hasReset = reset != null
