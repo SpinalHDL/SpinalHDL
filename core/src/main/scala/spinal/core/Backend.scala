@@ -46,7 +46,7 @@ class Backend {
 
 
     //default clockDomain
-    val defaultClockDomain = ExternalClockDomain("")
+    val defaultClockDomain = ClockDomain("")
 
     ClockDomain.push(defaultClockDomain)
     topLevel = gen()

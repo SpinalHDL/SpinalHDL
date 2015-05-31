@@ -5,7 +5,7 @@ import spinal.core._
 
 
 
-case class MandelbrotCoreParameters(iterationLimit: Int, unitCount: Int, screenResX: Int, screenResY: Int, fixExp: Int, fixWidth: Int) {
+case class MandelbrotCoreParameters(iterationLimit: Int, pixelTaskSolverCount: Int, screenResX: Int, screenResY: Int, fixExp: Int, fixWidth: Int) {
   def fix = SFix(fixExp, fixWidth bit)
   def iterationWidth = log2Up(iterationLimit + 1)
 }

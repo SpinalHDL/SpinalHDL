@@ -52,6 +52,32 @@ object ClockDomain {
   def apply(clock: Bool): ClockDomain = {
     new ClockDomain(GlobalData.get.defaultClockConfig, clock, null, null)
   }
+  // To use when you want to define a new ClockDomain that thank signals outside the toplevel.
+  // (it create input clock, reset, clockenable in the top level)
+  def apply(name: String,config: ClockDomainConfig,withReset : Boolean,withClockEnable : Boolean): ClockDomain = {
+    Component.push(null)
+    val clock = Bool
+    clock.setName(if (name != "") name + "_clk" else "clk")
+
+    var reset : Bool = null
+    if(withReset) {
+      reset = Bool
+      reset.setName((if (name != "") name + "_reset" else "reset") + (if (config.resetActiveHigh) "" else "N"))
+    }
+
+    var clockEnable : Bool = null
+    if(withClockEnable) {
+      clockEnable = Bool
+      clockEnable.setName((if (name != "") name + "_clkEn" else "clkEn") + (if (config.resetActiveHigh) "" else "N"))
+    }
+
+    val clockDomain = ClockDomain(config,clock, reset,clockEnable)
+    Component.pop(null)
+    clockDomain
+  }
+  def apply(name: String): ClockDomain = ClockDomain(name, GlobalData.get.defaultClockConfig, true, false)
+
+
   def push(c: ClockDomain): Unit = {
     GlobalData.get.clockDomainStack.push(c)
   }
@@ -70,31 +96,7 @@ object ClockDomain {
   def readClockEnableWire = current.readClockEnableWire
 }
 
-// To use when you want to define a new ClockDomain that thank signals outside the toplevel.
-// (it create input clock, reset, clockenable in the top level)
-object ExternalClockDomain {
-  def apply(name: String,config: ClockDomainConfig = GlobalData.get.defaultClockConfig,withReset : Boolean = true,withClockEnable : Boolean = false): ClockDomain = {
-    Component.push(null)
-    val clock = in.Bool
-    clock.setName(if (name != "") name + "_clk" else "clk")
 
-    var reset : Bool = null
-    if(withReset) {
-      reset = in.Bool
-      reset.setName((if (name != "") name + "_reset" else "reset") + (if (config.resetActiveHigh) "" else "N"))
-    }
-
-    var clockEnable : Bool = null
-    if(withClockEnable) {
-      clockEnable = in.Bool
-      clockEnable.setName((if (name != "") name + "_clkEn" else "clkEn") + (if (config.resetActiveHigh) "" else "N"))
-    }
-
-    val clockDomain = ClockDomain(config,clock, reset,clockEnable)
-    Component.pop(null)
-    clockDomain
-  }
-}
 
 class ClockDomain(val config: ClockDomainConfig, val clock: Bool, val reset: Bool = null, val clockEnable: Bool = null) {
   def hasClockEnable = clockEnable != null

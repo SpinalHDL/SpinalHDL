@@ -119,7 +119,7 @@ object Debug {
 //    io.sin := (lockupTable(counter)*lockupTable(counter)) >> 16
 
 
-    io.sin := Mem(SInt(16 bit),(0 to 1023).map(i => S((Math.pow(Math.sin(i*2*Math.PI*8/1024.0),1)*32767).toInt))).readSync(CounterFreeRun(1024))
+    io.sin := Mem(SInt(16 bit),(0 to 1023).map(i => S((Math.pow(Math.sin(i*2*Math.PI/1024.0),1)*32767).toInt))).readSync(CounterFreeRun(1024))
 
 
     val firLength = 32

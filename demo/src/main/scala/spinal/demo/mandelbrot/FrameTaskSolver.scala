@@ -11,20 +11,36 @@ class FrameTaskSolver(p: MandelbrotCoreParameters) extends Component {
     val frameTask = slave Stream FrameTask(p)
     val pixelResult = master Stream Fragment(PixelResult(p))
   }
-  val taskGenerator = new PixelTaskGenerator(p)
-  taskGenerator.io.frameTask << io.frameTask
 
-  val taskDispatcher = new DispatcherInOrder(Fragment(PixelTask(p)), p.unitCount)
-  taskDispatcher.io.input <-/< taskGenerator.io.pixelTask
+  val pixelTaskGenerator = new PixelTaskGenerator(p)
+  val pixelTaskDispatcher = new DispatcherInOrder(Fragment(PixelTask(p)), p.pixelTaskSolverCount)
+  val pixelTaskSolver = List.fill(p.pixelTaskSolverCount)(new PixelTaskSolver(p))
+  val pixelTaskResultArbiter = StreamArbiter.inOrder.build(Fragment(PixelResult(p)), p.pixelTaskSolverCount)
 
-  val pixelSolver = List.fill(p.unitCount)(new PixelTaskSolver(p))
-  (pixelSolver, taskDispatcher.io.outputs).zipped.foreach(_.io.pixelTask <-/< _)
-
-  val resultArbiter = StreamArbiter.inOrder.build(Fragment(PixelResult(p)), p.unitCount)
-  (pixelSolver, resultArbiter.io.inputs).zipped.foreach(_.io.result >/> _)
-
-  resultArbiter.io.output >-> io.pixelResult
+  pixelTaskGenerator.io.frameTask << io.frameTask
+  pixelTaskDispatcher.io.input <-/< pixelTaskGenerator.io.pixelTask
+  for(solverId <- 0 until p.pixelTaskSolverCount){
+    pixelTaskSolver(solverId).io.pixelTask <-/< pixelTaskDispatcher.io.outputs(solverId)
+    pixelTaskResultArbiter.io.inputs(solverId) </< pixelTaskSolver(solverId).io.result
+  }
+  io.pixelResult <-< pixelTaskResultArbiter.io.output
 }
+
+//  The scala-like way to do the FrameTaskSolver stuff is :
+
+//  val pixelTaskGenerator = new PixelTaskGenerator(p)
+//  pixelTaskGenerator.io.frameTask << io.frameTask
+//
+//  val pixelTaskDispatcher = new DispatcherInOrder(Fragment(PixelTask(p)), p.unitCount)
+//  pixelTaskDispatcher.io.input <-/< pixelTaskGenerator.io.pixelTask
+//
+//  val pixelTaskSolver = List.fill(p.pixelTaskSolverCount)(new PixelTaskSolver(p))
+//  (pixelTaskSolver, pixelTaskDispatcher.io.outputs).zipped.foreach(_.io.pixelTask <-/< _)
+//
+//  val pixelTaskResultArbiter = StreamArbiter.inOrder.build(Fragment(PixelResult(p)), p.unitCount)
+//  (pixelTaskSolver, pixelTaskResultArbiter.io.inputs).zipped.foreach(_.io.result >/> _)
+//
+//  pixelTaskResultArbiter.io.output >-> io.pixelResult
 
 
 class PixelTaskGenerator(p: MandelbrotCoreParameters) extends Component {

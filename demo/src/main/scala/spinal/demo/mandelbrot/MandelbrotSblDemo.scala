@@ -100,8 +100,8 @@ class MandelbrotSblDemo(frameAddressOffset : Int,p: MandelbrotCoreParameters,vga
 object MandelbrotSblDemo {
   def main(args: Array[String]) {
     SpinalVhdl({
-      val vgaClock = ExternalClockDomain("vga")
-      val coreClock = ExternalClockDomain("core")
+      val vgaClock = ClockDomain("vga")
+      val coreClock = ClockDomain("core")
       new MandelbrotSblDemo(0,new MandelbrotCoreParameters(64, 1, 640, 480, 7, 36),vgaClock,coreClock)
     })
   }
