@@ -28,7 +28,7 @@ class MandelbrotSblDemo(frameAddressOffset : Int,p: MandelbrotCoreParameters,vga
   val core = new ClockingArea(coreClk) {
     val uart = new Area {
       val ctrl = new UartCtrl()
-      ctrl.io.clockDivider := BigInt((50e6 / 57.6e3 / 8).toLong)
+      ctrl.io.clockDivider := BigInt((100e6 / 57.6e3 / 8).toLong)
       ctrl.io.config.dataLength := 7
       ctrl.io.config.parity := UartParityType.eParityNone
       ctrl.io.config.stop := UartStopType.eStop1bit
@@ -72,7 +72,7 @@ class MandelbrotSblDemo(frameAddressOffset : Int,p: MandelbrotCoreParameters,vga
     //Take the frameStart pulse from the VGA controller and translate it into a DMA command
     dma.io.cmd.translateFrom(ctrl.io.frameStart.genEvent)((to, from) => {
       to.offset := frameAddressOffset
-      to.endAt := p.screenResX * p.screenResY - 1
+      to.endAt := frameAddressOffset + p.screenResX * p.screenResY - 1
     })
 
     val pendingCmd = Reg(UInt(9 bit)) init(0)

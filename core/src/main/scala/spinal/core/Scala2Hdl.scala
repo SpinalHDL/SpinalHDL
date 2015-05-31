@@ -64,6 +64,10 @@ class SpinalVhdl[T <: Component](gen: => T) {
     report
   }
 
+  def setDefaultClockDomainConfig(clockDomainConfig: ClockDomainConfig): this.type = {
+    backend.globalData.defaultClockConfig = clockDomainConfig
+    this
+  }
 
   def setLibrary(name: String): this.type = {
     backend.library = name

@@ -103,12 +103,12 @@ object SyncNode {
 abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends Node {
   inputs += clockDomain.clock
   inputs += clockDomain.clockEnable
-  inputs += Bool(!clockDomain.resetActiveHigh)
+  inputs += Bool(!clockDomain.config.resetActiveHigh)
 
   final def getLatency = 1 //if not final => update latencyAnalyser
 
-  def getSynchronousInputs = ArrayBuffer[Node](/*getClock, */ getClockEnable) ++= (if (clockDomain.resetKind != ASYNC) getResetStyleInputs else Nil)
-  def getAsynchronousInputs = ArrayBuffer[Node]() ++= (if (clockDomain.resetKind == ASYNC) getResetStyleInputs else Nil)
+  def getSynchronousInputs = ArrayBuffer[Node](/*getClock, */ getClockEnable) ++= (if (clockDomain.config.resetKind != ASYNC) getResetStyleInputs else Nil)
+  def getAsynchronousInputs = ArrayBuffer[Node]() ++= (if (clockDomain.config.resetKind == ASYNC) getResetStyleInputs else Nil)
 
   def getResetStyleInputs = ArrayBuffer[Node](getReset)
 
@@ -292,11 +292,12 @@ class ClockingArea(clockDomain: ClockDomain) extends Area with DelayedInit {
 }
 
 class ClockEnableArea(clockEnable: Bool) extends Area with DelayedInit {
-  val clockDomain = ClockDomain.current.clone()
-  if (clockDomain.clockEnableActiveHigh)
-    clockDomain.clockEnable = clockDomain.readClockEnableWire & clockEnable
+  val newClockEnable : Bool = if (ClockDomain.current.config.clockEnableActiveHigh)
+    ClockDomain.current.readClockEnableWire & clockEnable
   else
-    clockDomain.clockEnable = clockDomain.readClockEnableWire | !clockEnable
+    ClockDomain.current.readClockEnableWire | !clockEnable
+
+  val clockDomain = ClockDomain.current.clone(clockEnable = newClockEnable)
 
   clockDomain.push
 
@@ -311,12 +312,12 @@ class ClockEnableArea(clockEnable: Bool) extends Area with DelayedInit {
 
 
 class ResetArea(reset: Bool, cumulative: Boolean) extends Area with DelayedInit {
-  val clockDomain = ClockDomain.current.clone()
-  if (clockDomain.resetActiveHigh)
-    clockDomain.reset = if (cumulative) clockDomain.readResetWire & reset else reset
-  else
-    clockDomain.reset = if (cumulative) clockDomain.readResetWire | !reset else reset
 
+  val newReset : Bool = if (ClockDomain.current.config.resetActiveHigh)
+    (if (cumulative) (ClockDomain.current.readResetWire & reset) else reset)
+  else
+    (if (cumulative) (ClockDomain.current.readResetWire | !reset) else reset)
+  val clockDomain = ClockDomain.current.clone(reset = newReset)
   clockDomain.push
 
   override def delayedInit(body: => Unit) = {
@@ -349,6 +350,8 @@ object GlobalData {
 //  }
 //}
 class GlobalData {
+  var defaultClockConfig = ClockDomainConfig()
+
   var nodeAreInferringWidth = false
   val nodeGetWidthWalkedSet: mutable.Set[Node] = mutable.Set[Node]()
   // val nodeWidthInferredCheck = ArrayBuffer[() => Unit]()

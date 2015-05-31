@@ -1157,8 +1157,8 @@ class VhdlBackend extends Backend with VhdlBase {
         val clock = component.pulledDataCache.getOrElse(clockDomain.clock, throw new Exception("???")).asInstanceOf[Bool]
         val reset = if (null == clockDomain.reset || !withReset) null else component.pulledDataCache.getOrElse(clockDomain.reset, throw new Exception("???")).asInstanceOf[Bool]
         val clockEnable = if (null == clockDomain.clockEnable) null else component.pulledDataCache.getOrElse(clockDomain.clockEnable, throw new Exception("???")).asInstanceOf[Bool]
-        val asyncReset = (null != reset) && clockDomain.resetKind == ASYNC
-        val syncReset = (null != reset) && clockDomain.resetKind == SYNC
+        val asyncReset = (null != reset) && clockDomain.config.resetKind == ASYNC
+        val syncReset = (null != reset) && clockDomain.config.resetKind == SYNC
         var tabLevel = 1
         def tabStr = "  " * tabLevel
         def inc = {
@@ -1191,22 +1191,22 @@ class VhdlBackend extends Backend with VhdlBase {
         ret ++= s"${tabStr}begin\n"
         inc
         if (asyncReset) {
-          ret ++= s"${tabStr}if ${emitReference(reset)} = \'${if (clockDomain.resetActiveHigh) 1 else 0}\' then\n";
+          ret ++= s"${tabStr}if ${emitReference(reset)} = \'${if (clockDomain.config.resetActiveHigh) 1 else 0}\' then\n";
           inc
           emitRegsInitialValue(initialValueAssignement, tabStr)
           dec
-          ret ++= s"${tabStr}elsif ${emitClockEdge(clock, clockDomain.edge)}"
+          ret ++= s"${tabStr}elsif ${emitClockEdge(clock, clockDomain.config.clockEdge)}"
           inc
         } else {
-          ret ++= s"${tabStr}if ${emitClockEdge(clock, clockDomain.edge)}"
+          ret ++= s"${tabStr}if ${emitClockEdge(clock, clockDomain.config.clockEdge)}"
           inc
         }
         if (clockEnable != null) {
-          ret ++= s"${tabStr}if ${emitReference(clockEnable)} = \'${if (clockDomain.clockEnableActiveHigh) 1 else 0}\' then\n"
+          ret ++= s"${tabStr}if ${emitReference(clockEnable)} = \'${if (clockDomain.config.clockEnableActiveHigh) 1 else 0}\' then\n"
           inc
         }
         if (syncReset) {
-          ret ++= s"${tabStr}if ${emitReference(reset)} = \'${if (clockDomain.resetActiveHigh) 1 else 0}\' then\n"
+          ret ++= s"${tabStr}if ${emitReference(reset)} = \'${if (clockDomain.config.resetActiveHigh) 1 else 0}\' then\n"
           inc
           emitRegsInitialValue(initialValueAssignement, tabStr)
           dec

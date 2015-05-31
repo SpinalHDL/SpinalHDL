@@ -25,35 +25,33 @@ package spinal.core
 trait EdgeKind;
 
 object RISING extends EdgeKind;
-
 object FALLING extends EdgeKind;
 
 trait ResetKind;
 
 object ASYNC extends ResetKind;
-
 object SYNC extends ResetKind;
 
+// Default configuration of clock domain is :
+// Rising edge clock with optional asyncronous reset active high and optional active high clockEnable
+case class ClockDomainConfig(clockEdge: EdgeKind = RISING, resetKind: ResetKind = ASYNC, resetActiveHigh: Boolean = true, clockEnableActiveHigh: Boolean = true) {
 
+}
 
-
+//To use when you want to define a new clock domain by using internal signals
 object ClockDomain {
-  def apply(clock: Bool, reset: Bool = null, resetKind: ResetKind = ASYNC, edge: EdgeKind = RISING, clockEnable: Bool = null, resetActiveHigh: Boolean = true, clockEnableActiveHigh: Boolean = true): ClockDomain = {
-    new ClockDomain(clock, edge, clockEnable, reset, resetKind, resetActiveHigh, clockEnableActiveHigh)
+  def apply(config: ClockDomainConfig, clock: Bool, reset: Bool = null, clockEnable: Bool = null): ClockDomain = {
+    new ClockDomain(config, clock, reset, clockEnable)
   }
-
-
-  //  def apply(clock : Bool,resetKind : ResetKind = SYNC) : ClockDomain = {
-  //    apply(clock,null,resetKind)
-  //  }
-  //  def apply(clock : Bool,reset : Bool,resetKind : ResetKind = SYNC) : ClockDomain = {
-  //    new ClockDomain(clock,RISING,null,reset,resetKind,true)
-  //  }
-  //  def apply(clock : Bool,clockEnable : Bool,reset : Bool,resetKind : ResetKind = SYNC) : ClockDomain = {
-  //    new ClockDomain(clock,RISING,clockEnable,reset,resetKind,true)
-  //  }
-
-
+  def apply(clock: Bool, reset: Bool, clockEnable: Bool): ClockDomain = {
+    new ClockDomain(GlobalData.get.defaultClockConfig, clock, reset, clockEnable)
+  }
+  def apply(clock: Bool, reset: Bool): ClockDomain = {
+    new ClockDomain(GlobalData.get.defaultClockConfig, clock, reset, null)
+  }
+  def apply(clock: Bool): ClockDomain = {
+    new ClockDomain(GlobalData.get.defaultClockConfig, clock, null, null)
+  }
   def push(c: ClockDomain): Unit = {
     GlobalData.get.clockDomainStack.push(c)
   }
@@ -70,37 +68,47 @@ object ClockDomain {
   def readClockWire = current.readClockWire
   def readResetWire = current.readResetWire
   def readClockEnableWire = current.readClockEnableWire
-
 }
 
-
-object ExternalClockDomain{
-  //TODO more options
-  def apply(name : String): ClockDomain ={
+// To use when you want to define a new ClockDomain that thank signals outside the toplevel.
+// (it create input clock, reset, clockenable in the top level)
+object ExternalClockDomain {
+  def apply(name: String,config: ClockDomainConfig = GlobalData.get.defaultClockConfig,withReset : Boolean = true,withClockEnable : Boolean = false): ClockDomain = {
     Component.push(null)
     val clock = in.Bool
-    clock.setName(if(name != "") name + "_clk" else "clk")
-    val reset = in.Bool
-    reset.setName(if(name != "") name + "_reset" else "reset")
-    val clockDomain = ClockDomain(clock, reset)
+    clock.setName(if (name != "") name + "_clk" else "clk")
+
+    var reset : Bool = null
+    if(withReset) {
+      reset = in.Bool
+      reset.setName((if (name != "") name + "_reset" else "reset") + (if (config.resetActiveHigh) "" else "N"))
+    }
+
+    var clockEnable : Bool = null
+    if(withClockEnable) {
+      clockEnable = in.Bool
+      clockEnable.setName((if (name != "") name + "_clkEn" else "clkEn") + (if (config.resetActiveHigh) "" else "N"))
+    }
+
+    val clockDomain = ClockDomain(config,clock, reset,clockEnable)
     Component.pop(null)
     clockDomain
   }
 }
 
-class ClockDomain(val clock: Bool, val edge: EdgeKind, var clockEnable: Bool, var reset: Bool, val resetKind: ResetKind, val resetActiveHigh: Boolean, val clockEnableActiveHigh: Boolean) {
+class ClockDomain(val config: ClockDomainConfig, val clock: Bool, val reset: Bool = null, val clockEnable: Bool = null) {
   def hasClockEnable = clockEnable != null
   def hasReset = reset != null
 
   def push: Unit = ClockDomain.push(this)
   def pop: Unit = ClockDomain.pop(this)
 
-  def isResetActive = if (resetActiveHigh) readResetWire else !readResetWire
-  def isClockEnableActive = if (clockEnableActiveHigh) readClockEnableWire else !readClockEnableWire
+  def isResetActive = if (config.resetActiveHigh) readResetWire else !readResetWire
+  def isClockEnableActive = if (config.clockEnableActiveHigh) readClockEnableWire else !readClockEnableWire
 
-  def readClockWire = if (null == clock) Bool(edge == FALLING) else Data.doPull(clock, Component.current, true, true)
-  def readResetWire = if (null == reset) Bool(!resetActiveHigh) else Data.doPull(reset, Component.current, true, true)
-  def readClockEnableWire = if (null == clockEnable) Bool(clockEnableActiveHigh) else Data.doPull(clockEnable, Component.current, true, true)
+  def readClockWire = if (null == clock) Bool(config.clockEdge == FALLING) else Data.doPull(clock, Component.current, true, true)
+  def readResetWire = if (null == reset) Bool(!config.resetActiveHigh) else Data.doPull(reset, Component.current, true, true)
+  def readClockEnableWire = if (null == clockEnable) Bool(config.clockEnableActiveHigh) else Data.doPull(clockEnable, Component.current, true, true)
 
 
   def apply(block: => Unit): Unit = {
@@ -111,13 +119,13 @@ class ClockDomain(val clock: Bool, val edge: EdgeKind, var clockEnable: Bool, va
 
   def apply[T <: Data](block: => T): T = {
     push
-    val ret : T = block
+    val ret: T = block
     pop
     ret
   }
 
 
-  override def clone() : this.type = new ClockDomain(clock,edge,clockEnable,reset,resetKind,resetActiveHigh,clockEnableActiveHigh).asInstanceOf[this.type]
+  def clone(config: ClockDomainConfig = config, clock: Bool = clock, reset: Bool = reset, clockEnable: Bool = clockEnable): ClockDomain = new ClockDomain(config, clock, reset, clockEnable)
 }
 
 
