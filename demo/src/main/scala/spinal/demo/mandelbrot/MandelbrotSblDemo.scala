@@ -75,8 +75,17 @@ class MandelbrotSblDemo(frameAddressOffset : Int,p: MandelbrotCoreParameters,vga
       to.endAt := p.screenResX * p.screenResY - 1
     })
 
-    val dmaHalt = Bool
-    io.vgaReadCmd << dma.io.sblReadCmd.haltWhen(dmaHalt)
+    val pendingCmd = Reg(UInt(9 bit)) init(0)
+    when(io.vgaReadCmd.fire !== ctrl.io.colorStream.fire){
+      when(io.vgaReadCmd.fire){
+        pendingCmd := pendingCmd + 1
+      } otherwise{
+        pendingCmd := pendingCmd - 1
+      }
+    }
+
+    io.vgaReadCmd << dma.io.sblReadCmd.haltWhen(pendingCmd === 256)
+
 
     //Convert the memory read flow of bits into a flow of Rgb color
     val colorFlow = Flow(rgbType).translateFrom(io.vgaReadRet)((to, from) => {
@@ -84,7 +93,7 @@ class MandelbrotSblDemo(frameAddressOffset : Int,p: MandelbrotCoreParameters,vga
     })
     // Convert this color flow into a stream flow by using a fifo implementation
     // 256 Words, dmaHalt asserted when occupancy is higher than 196
-    ctrl.io.colorStream << colorFlow.toStream(dmaHalt,256,196)
+    ctrl.io.colorStream << colorFlow.toStream.queue(256)
   }
 }
 

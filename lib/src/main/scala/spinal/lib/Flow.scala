@@ -64,6 +64,7 @@ class Flow[T <: Data](_dataType: T) extends Bundle with IMasterSlave with DataCa
     ret
   }
 
+
   def connectFrom(that: Flow[T]): Flow[T] = {
     valid := that.valid
     data := that.data
