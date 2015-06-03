@@ -25,6 +25,16 @@ case class VgaTimings(timingsWidth: Int) extends Bundle {
     v.colorStart := 2 + 10 - 1
     v.colorEnd := 525 - 33 - 1
   }
+  def setAs_h64_v64_r60: Unit = {
+    h.syncStart := 96 - 1
+    h.syncEnd := 800 - 1
+    h.colorStart := 96 + 16 - 1 + 288
+    h.colorEnd := 800 - 48 - 1 - 288
+    v.syncStart := 2 - 1
+    v.syncEnd := 525 - 1
+    v.colorStart := 2 + 10 - 1 + 208
+    v.colorEnd := 525 - 33 - 1 - 208
+  }
 }
 
 
@@ -48,7 +58,7 @@ class VgaCtrl(rgbType: Rgb, timingsWidth: Int = 12) extends Component {
 
     when(enable) {
       counter := counter + 1
-      when(colorEnd) {
+      when(syncEnd) {
         counter := 0
       }
     }
@@ -74,7 +84,6 @@ class VgaCtrl(rgbType: Rgb, timingsWidth: Int = 12) extends Component {
   io.vga.vSync := v.sync
   io.vga.colorEn := colorEn
   io.vga.color := io.colorStream.data
-
 }
 
 

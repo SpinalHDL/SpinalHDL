@@ -10,7 +10,7 @@ import spinal.lib.graphic.vga._
 
 
 class MandelbrotSblDemo(frameAddressOffset : Int,p: MandelbrotCoreParameters,vgaClk : ClockDomain,coreClk : ClockDomain) extends Component {
-  val memoryBusConfig = SblConfig(32, 32)
+  val memoryBusConfig = SblConfig(30, 32)
   val rgbType = Rgb(8, 8, 8)
 
   val io = new Bundle {
@@ -75,7 +75,7 @@ class MandelbrotSblDemo(frameAddressOffset : Int,p: MandelbrotCoreParameters,vga
       to.endAt := frameAddressOffset + p.screenResX * p.screenResY - 1
     })
 
-    val pendingCmd = Reg(UInt(9 bit)) init(0)
+    val pendingCmd = Reg(UInt(10 bit)) init(0)
     when(io.vgaReadCmd.fire !== ctrl.io.colorStream.fire){
       when(io.vgaReadCmd.fire){
         pendingCmd := pendingCmd + 1
@@ -84,7 +84,7 @@ class MandelbrotSblDemo(frameAddressOffset : Int,p: MandelbrotCoreParameters,vga
       }
     }
 
-    io.vgaReadCmd << dma.io.sblReadCmd.haltWhen(pendingCmd === 256)
+    io.vgaReadCmd << dma.io.sblReadCmd.haltWhen(pendingCmd === 512)
 
 
     //Convert the memory read flow of bits into a flow of Rgb color
@@ -93,7 +93,7 @@ class MandelbrotSblDemo(frameAddressOffset : Int,p: MandelbrotCoreParameters,vga
     })
     // Convert this color flow into a stream flow by using a fifo implementation
     // 256 Words, dmaHalt asserted when occupancy is higher than 196
-    ctrl.io.colorStream << colorFlow.toStream.queue(256)
+    ctrl.io.colorStream << colorFlow.toStream.queue(512)
   }
 }
 
@@ -102,7 +102,7 @@ object MandelbrotSblDemo {
     SpinalVhdl({
       val vgaClock = ClockDomain("vga")
       val coreClock = ClockDomain("core")
-      new MandelbrotSblDemo(0,new MandelbrotCoreParameters(64, 1, 640, 480, 7, 36),vgaClock,coreClock)
+      new MandelbrotSblDemo(0,new MandelbrotCoreParameters(255, 1, 640, 480, 7, 36),vgaClock,coreClock)
     })
   }
 }
