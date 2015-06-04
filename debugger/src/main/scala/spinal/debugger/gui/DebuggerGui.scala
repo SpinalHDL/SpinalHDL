@@ -188,42 +188,6 @@ object DebuggerGui extends JFXApp {
     }
   }
 
-  //  stage = new JFXApp.PrimaryStage {
-  //    title = "Button Example"
-  //    scene = new Scene {
-  //      root = new TilePane {
-  //        padding = Insets(10)
-  //        orientation = Orientation.VERTICAL
-  //        hgap = 10
-  //        vgap = 10
-  //        children = List(
-  //          new Button {
-  //            text = "Button 1"
-  //            maxWidth = Double.MaxValue
-  //            onAction = handle  {
-  //              println("asd")
-  //              text = "ad"
-  //            }
-  //
-  //          },
-  //          new Button {
-  //            text = "Default Button - Enter Key"
-  //            defaultButton = true
-  //            maxWidth = Double.MaxValue
-  //          },
-  //          new Button {
-  //            text = "Cancel Button - Esc Key"
-  //            cancelButton = true
-  //            maxWidth = Double.MaxValue
-  //          },
-  //          new Button {
-  //            text = "Disabled Button"
-  //            disable = true
-  //            maxWidth = Double.MaxValue
-  //          })
-  //      }
-  //    }
-  //  }
 }
 
 

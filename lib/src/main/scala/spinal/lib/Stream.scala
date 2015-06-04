@@ -102,10 +102,22 @@ class Stream[T <: Data](_dataType: T) extends Bundle with IMasterSlave with Data
     return fifo.io.pop
   }
 
+  def queue(size: Int,pushClock : ClockDomain,popClock : ClockDomain): Stream[T] = {
+    val fifo = new StreamFifoCC(dataType, size,pushClock,popClock)
+    fifo.io.push << this
+    return fifo.io.pop
+  }
+
   def queueWithOccupancy(size: Int): (Stream[T],UInt) = {
     val fifo = new StreamFifo(dataType, size)
     fifo.io.push << this
     return (fifo.io.pop,fifo.io.occupancy)
+  }
+
+  def queueWithPushOccupancy(size: Int,pushClock : ClockDomain,popClock : ClockDomain): (Stream[T],UInt)  = {
+    val fifo = new StreamFifoCC(dataType, size,pushClock,popClock)
+    fifo.io.push << this
+    return (fifo.io.pop,fifo.io.pushOccupancy)
   }
 
   override def fire: Bool = valid & ready
@@ -471,7 +483,7 @@ class StreamFifo[T <: Data](dataType: T, depth: Int) extends Component {
 
 
 
-class StreamFifoCC[T <: Data](dataType: T, depth: Int, pushClockDomain: ClockDomain, popClockDomain: ClockDomain) extends Component {
+class StreamFifoCC[T <: Data](dataType: T,val depth: Int, pushClockDomain: ClockDomain, popClockDomain: ClockDomain) extends Component {
   assert(isPow2(depth))
   assert(depth >= 2)
 

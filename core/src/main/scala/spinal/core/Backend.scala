@@ -830,16 +830,22 @@ class Backend {
     node.normalizeInputs
   }
 
+
+
   def checkCrossClockDomains: Unit = {
     val errors = mutable.ArrayBuffer[String]()
+
     walkNodes2(node => {
       node match {
         case syncNode: SyncNode => {
           if (!syncNode.hasTag(crossClockDomain)) {
             val consumerCockDomain = syncNode.getClockDomain
             for (syncInput <- syncNode.getSynchronousInputs) {
+              val walked = mutable.Set[Object]() //TODO upgrade it to the check bit by bit
               check(syncInput)
               def check(that: Node): Unit = {
+                if(walked.contains(that)) return;
+                walked += that
                 if (!that.hasTag(crossClockDomain)) {
                   that match {
                     case syncDriver: SyncNode => {
