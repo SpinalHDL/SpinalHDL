@@ -15,10 +15,10 @@ class MandelbrotSblDemo(frameAddressOffset: Int, p: MandelbrotCoreParameters, co
   val io = new Bundle {
     val uart = master(Uart())
 
-    val mandelbrotWriteCmd = master Stream (SblWriteCmd(memoryBusConfig))
+    val mandelbrotWriteCmd = master Stream SblWriteCmd(memoryBusConfig)
 
-    val vgaReadCmd = master Stream (SblReadCmd(memoryBusConfig))
-    val vgaReadRet = slave Flow (SblReadRet(memoryBusConfig))
+    val vgaReadCmd = master Stream SblReadCmd(memoryBusConfig)
+    val vgaReadRet = slave Flow SblReadRet(memoryBusConfig)
 
     val vga = master(Vga(rgbType))
   }
@@ -26,21 +26,24 @@ class MandelbrotSblDemo(frameAddressOffset: Int, p: MandelbrotCoreParameters, co
   val core = new ClockingArea(coreClk) {
     val uart = new Area {
       val ctrl = new UartCtrl()
-      ctrl.io.clockDivider := BigInt((100e6 / 57.6e3 / 8).toLong)
+      ctrl.io.clockDivider := BigInt((50e6 / 57.6e3 / 8).toLong)
       ctrl.io.config.dataLength := 7
       ctrl.io.config.parity := UartParityType.eParityNone
       ctrl.io.config.stop := UartStopType.eStop1bit
       ctrl.io.uart <> io.uart
 
-      ctrl.io.write.valid := False
-      ctrl.io.write.data := 0
-
+//      ctrl.io.write.valid := False
+//      ctrl.io.write.data := 0
+    //TODO use reset generated
       val (flowFragment, _) = ctrl.io.read.toFlowFragmentBitsAndReset()
+
+
     }
 
     val mandelbrot = new Area {
       val core = new MandelbrotCore(p)
       core.io.cmdPort << uart.flowFragment
+      core.io.retPort.toStreamBits() >> uart.ctrl.io.write
 
       //Take mandelbrot pixelResults and translate them into simple memory access
       val counter = Reg(UInt(32 bit)) init (0)

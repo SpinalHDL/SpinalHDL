@@ -5,7 +5,6 @@ import net.liftweb.json.JsonAST.{JString, JValue}
 import spinal.core.SpinalError
 
 import scala.collection.mutable.ArrayBuffer
-
 import scala.language.implicitConversions
 
 object BusManager {
@@ -16,7 +15,8 @@ object BusManager {
 }
 case class UidPeripheral(clazz: String, kind: String, uid: String)
 
-class BusManager(hal: BytePacketHal, guiTreeViewManager: IGuiTreeViewManager, reports: Seq[JValue]) {
+
+class BusManager(hal: BytePacketHal, guiTreeViewManager: IGuiTreeViewManager, reports: Seq[JValue], peripheralManagerFactories: Seq[IPeripheralManagerFactory]) {
   implicit def b(x: Int) = x.toByte
 
   val thread = new Thread with IBytePacketHalObserver {
@@ -35,34 +35,36 @@ class BusManager(hal: BytePacketHal, guiTreeViewManager: IGuiTreeViewManager, re
       for (passport <- passports) {
         implicit val formats = DefaultFormats
         val uidString = BigInt(passport.takeRight(4).reverseIterator.toArray).toString(10)
-        val address = passport.take(passport.length-4)
-        val report = reports.filter(report => {
-          report.\("uid") match{
-            case jString : JString => jString.values == uidString
+        val address = passport.take(passport.length - 4)
+        val report = reports.filter(r => {
+          r.\("uid") match {
+            case jString: JString => jString.values == uidString
             case _ => false
           }
         })
 
 
-        if(report.length > 1) throw SpinalError("Multiple UID with same value ???")
+        if (report.length > 1) throw SpinalError("Multiple UID with same value ???")
 
         report.foreach(r => {
           try {
             val periphReport = r.extract[UidPeripheral]
-            if(periphReport.clazz == "uidPeripheral"){
-              periphReport.kind match{
-                case "logicAnalyser" => {
-                  new LogicAnalyserManager(address,hal,r)
-                  guiTreeViewManager.add(Seq(periphReport.kind,periphReport.uid))
+            if (periphReport.clazz == "uidPeripheral") {
+              var added = false
+              for (factory <- peripheralManagerFactories) {
+                if (!added && factory.getPassportKind() == periphReport.kind) {
+                  factory.newPeripheral(address, hal, r)
+                  guiTreeViewManager.add(Seq(periphReport.kind, periphReport.uid))
+                  added = true
                 }
-                case _ =>{
-                  guiTreeViewManager.add(Seq(periphReport.kind,periphReport.uid))
-                }
+              }
+              if (!added) {
+                guiTreeViewManager.add(Seq(periphReport.kind, periphReport.uid))
               }
 
             }
           } catch {
-            case e : Exception =>
+            case e: Exception =>
           }
         })
 

@@ -19,13 +19,20 @@ import scalafx.scene.control.{MenuItem, _}
 import scalafx.scene.layout._
 import scalafx.stage.Stage
 
+object PeripheralManagerFactoryRegistry{
+  val peripheralManagerFactories = ArrayBuffer[IPeripheralManagerFactory]()
+  peripheralManagerFactories += new IPeripheralManagerFactory {
+    override def newPeripheral(address: Seq[Byte], hal: IBytePacketHal, json: JValue): Unit = new LogicAnalyserManager(address,hal,json)
+    override def getPassportKind(): String = "logicAnalyser"
+  }
+}
 
 object DebuggerGui extends JFXApp {
 
 
+
   var busTree: ObservableBuffer[TreeItem[String]] = null
   var busTreeRoot: TreeItem[String] = null
-
   val reports = ArrayBuffer[JValue]()
 
   def scanFile(file: File): Unit = {
@@ -167,7 +174,7 @@ object DebuggerGui extends JFXApp {
                       periphTree -= key.asInstanceOf[TreeItem[String]]
                       children = periphTree
                     }
-                  },reports)
+                  },reports,PeripheralManagerFactoryRegistry.peripheralManagerFactories)
 
 
                   value = "Serial port " + portNameGui.getValue

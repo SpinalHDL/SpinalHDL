@@ -1,90 +1,127 @@
 package spinal.demo.mandelbrot
 
-import spinal.debugger.gui.BytePacketHal
-import spinal.gui.SerialPortDialog
+import net.liftweb.json.DefaultFormats
+import net.liftweb.json.JsonAST.JValue
+import spinal.debugger.gui._
+import spinal.lib.BitAggregator
 
-
-import scalafx.application.JFXApp
-import scalafx.application.JFXApp.PrimaryStage
-import scalafx.beans.property.DoubleProperty.sfxDoubleProperty2jfx
-import scalafx.event.EventHandler
-import scalafx.scene.Group.sfxGroup2jfx
+import scalafx.Includes._
+import scalafx.application.Platform
 import scalafx.scene.canvas.Canvas
 import scalafx.scene.input.MouseEvent
-import scalafx.scene.paint.Stop.sfxStop2jfx
-import scalafx.scene.paint.Color
-import scalafx.scene.paint.CycleMethod
-import scalafx.scene.paint.LinearGradient
-import scalafx.scene.paint.Stop
-import scalafx.scene.shape.Rectangle
-import scalafx.scene.Group
-import scalafx.scene.Scene
+import scalafx.scene.{Group, Scene}
 import scalafx.stage.Stage
-/**
- * Created by PIC on 04.06.2015.
- */
-import scalafx.application.JFXApp
-import scalafx.scene.Scene
-import scalafx.scene.paint.Color
-import scalafx.Includes._
-import scalafx.scene.canvas.{GraphicsContext, Canvas}
-import scalafx.scene.layout.Pane
-import scalafx.scene.input._
-import scalafx.geometry.Rectangle2D
-import scalafx.scene.transform.Affine
-import scalafx.scene.effect.BlendMode
-object MandelbrotGui extends JFXApp {
-  val canvas = new Canvas(200, 200)
 
-  // Draw background with gradient
-  val rect = new Rectangle {
-    height = 400
-    width = 400
-    fill = new LinearGradient(0, 0, 1, 1, true, CycleMethod.REFLECT, List(Stop(0, Color.RED), Stop(1, Color.YELLOW)))
+
+class MandelbrotManager(address: Seq[Byte], hal: IBytePacketHal, r: JValue) extends PeripheralManager(address, hal) {
+  println("yolo")
+
+  implicit val formats = DefaultFormats // Brings in default date formats etc.
+
+  val p = r.\("p").extract[MandelbrotCoreParameters]
+
+  sendCoord(-1.0, -1.0, 1.0, 1.0)
+
+  openGui
+  //  sendCoord(-1.0,-1.0,0.0,1.0)
+  //  sendCoord(-1.0,-1.0,1.0,1.0)
+
+  def sendCoord(xStart: Double, yStart: Double, xEnd: Double, yEnd: Double) {
+    implicit def easyByte(i: Int) = i.toByte
+    val aggregator = new BitAggregator
+    aggregator.add(0x01, 8)
+    aggregator.add(BigDecimal(xStart * Math.pow(2, p.fixWidth - p.fixExp)).toBigInt(), p.fixWidth)
+    aggregator.add(BigDecimal(yStart * Math.pow(2, p.fixWidth - p.fixExp)).toBigInt(), p.fixWidth)
+    aggregator.add(BigDecimal((xEnd - xStart) / p.screenResX * Math.pow(2, p.fixWidth + 8 - (p.fixExp - 4))).toBigInt(), p.fixWidth + 8)
+    aggregator.add(BigDecimal((yEnd - yStart) / p.screenResY * Math.pow(2, p.fixWidth + 8 - (p.fixExp - 4))).toBigInt(), p.fixWidth + 8)
+    tx(aggregator.toBytes)
   }
 
-  val rootPane = new Group
-  rootPane.children = List(canvas)
+  override def rx(packet: Seq[Byte]): Unit = {
 
-  stage = new PrimaryStage {
-    title = "Canvas Doodle Test"
-    scene = new Scene(400, 400) {
-      root = rootPane
+  }
+
+  var xStart = -1.0
+  var yStart = -1.0
+  var xEnd = 1.0
+  var yEnd = 1.0
+
+  def openGui: Unit = {
+    Platform.runLater {
+      val resX = 200
+      val resY = 200
+      val canvas = new Canvas(resX, resY)
+
+      val rootPane = new Group
+      rootPane.children = List(canvas)
+
+      val gc = canvas.graphicsContext2D
+
+      def drawMandelbrot: Unit = {
+        val w = gc.getPixelWriter
+        val incX = (xEnd - xStart) / resX
+        val incY = (yEnd - yStart) / resY
+        for (y <- 0 until resY) {
+          for (x <- 0 until resX) {
+            val cx = xStart + incX * x
+            val cy = yStart + incY * y
+            def getIterCount: Int = {
+              var mx = 0.0
+              var my = 0.0
+              val iterMax = 255
+              for (i <- 0 until iterMax) {
+                val temp = mx * mx - my * my + cx
+                my = 2.0 * mx * my + cy
+                mx = temp
+                if (mx * mx + my * my > 4) return i
+              }
+              return iterMax
+            }
+            w.setArgb(x, y, getIterCount + (0xFF000000))
+          }
+        }
+      }
+      drawMandelbrot
+
+      var dragStartX = 0.0
+      var dragStartY = 0.0
+      canvas.onMousePressed = (e: MouseEvent) => {
+        dragStartX = e.x
+        dragStartY = e.y
+      }
+      canvas.onMouseReleased = (e: MouseEvent) => {
+        val newXStart = xStart + (xEnd - xStart) * (dragStartX / resX)
+        val newYStart = yStart + (yEnd - yStart) * (dragStartY / resY)
+
+        xEnd = xStart + (xEnd - xStart) * (e.x / resX)
+        yEnd = yStart + (yEnd - yStart) * (e.y / resY)
+
+        xStart = newXStart
+        yStart = newYStart
+
+        drawMandelbrot
+        sendCoord(xStart, yStart, xEnd, yEnd)
+      }
+
+      val stage = new Stage {
+        title = "Mandelbrot"
+        scene = new Scene(resX, resY) {
+          root = rootPane
+        }
+        show()
+      }
     }
   }
-
-  canvas.translateX = 100
-  canvas.translateY = 100
-
-  val gc = canvas.graphicsContext2D
-
-  reset(Color.BLUE)
-
-//  // Clear away portions as the user drags the mouse
-  canvas.onMouseDragged = (e: MouseEvent) => {
-    gc.clearRect(e.x - 2, e.y - 2, 5, 5)
-  }
-
-  // Fill the Canvas with a Blue rectnagle when the user double-clicks
-  canvas.onMouseClicked = (e: MouseEvent) => {
-    if (e.clickCount > 1) {
-      reset(Color.BLUE);
-    }
-  }
-
-  private def reset(color: Color) {
-    gc.fill = color
-    gc.fillRect(0, 0, canvas.width.get, canvas.height.get);
-  }
-
-
-  new SerialPortDialog((streamHal => {
-    stage.show()
-    val packetHal = new BytePacketHal(streamHal)
-    packetHal.open
-
-
-
-  }))
-
 }
+
+object MandelbrotGuiMain {
+  def main(args: Array[String]) {
+    PeripheralManagerFactoryRegistry.peripheralManagerFactories += new IPeripheralManagerFactory {
+      override def newPeripheral(address: Seq[Byte], hal: IBytePacketHal, r: JValue): Unit = new MandelbrotManager(address, hal, r)
+      override def getPassportKind(): String = "mandelbrotCore"
+    }
+
+    DebuggerGui.main(args)
+  }
+}
+

@@ -1,5 +1,9 @@
 package spinal.demo.mandelbrot
 
+import net.liftweb.json.DefaultFormats
+import net.liftweb.json.Extraction._
+import net.liftweb.json.JsonAST._
+import net.liftweb.json.Printer._
 import spinal.core._
 import spinal.lib._
 
@@ -35,11 +39,13 @@ class FrameTaskFilter(p: MandelbrotCoreParameters) extends Component {
 class MandelbrotCore(p: MandelbrotCoreParameters) extends Component {
   val io = new Bundle {
     val cmdPort = slave Flow Fragment(Bits(8 bit))
+    val retPort = master Stream Fragment(Bits(8 bit))
+
     val pixelResult = master Stream Fragment(PixelResult(p))
   }
 
   val cmdInterface = new CmdInterface(p)
-  cmdInterface.io.cmdPort << io.cmdPort
+  cmdInterface.io.cmdPort << io.cmdPort.filterHeader(0x01)
 
   val frameTaskFilter = new FrameTaskFilter(p)
   frameTaskFilter.io.input << cmdInterface.io.frameTask
@@ -48,4 +54,15 @@ class MandelbrotCore(p: MandelbrotCoreParameters) extends Component {
   frameTaskSolver.io.frameTask << frameTaskFilter.io.output
 
   io.pixelResult << frameTaskSolver.io.pixelResult
+
+
+
+  val passportEvent = io.cmdPort eventOn (0xFF)
+  val passport = passportEvent.translateWith(S(p.uid, 32 bit)).fragmentTransaction(8)
+
+  io.retPort << passport
+
+  implicit val formats = DefaultFormats //++ LogicAnalyser.jsonSerDes
+  val json = decompose(MandelbrotJsonReport(p,p.uid.toString))
+  GlobalData.get.addJsonReport(pretty(render(json)))
 }

@@ -3,6 +3,7 @@ package spinal.debugger.gui
 import java.io.{InputStream, OutputStream}
 import scala.language.implicitConversions
 import scala.collection.mutable.ArrayBuffer
+import net.liftweb.json.JsonAST.JValue
 
 trait IByteStreamHal {
   def open: Unit
@@ -125,6 +126,11 @@ abstract class PeripheralManager(address : Seq[Byte],hal: IBytePacketHal) extend
   def tx(packet : Seq[Byte]): Unit ={
     hal.tx(address ++ packet)
   }
+}
+
+trait IPeripheralManagerFactory{
+  def getPassportKind() : String
+  def newPeripheral(address : Seq[Byte],hal: IBytePacketHal,r : JValue)
 }
 
 //class PacketRouter{
