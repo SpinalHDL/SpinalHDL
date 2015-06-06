@@ -1,5 +1,8 @@
 package spinal.demo.mandelbrot
 
+
+import java.awt.Color
+
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.sbl._
@@ -45,17 +48,46 @@ class MandelbrotSblDemo(frameAddressOffset: Int, p: MandelbrotCoreParameters, co
       core.io.cmdPort << uart.flowFragment
       core.io.retPort.toStreamBits() >> uart.ctrl.io.write
 
+      //Mandelbrot iteration to color palette definition
+      val palette = Seq(
+        (0.0 ->Color.black),
+        (0.2 ->Color.red),
+        (0.4 ->Color.blue),
+        (0.6 ->Color.green),
+        (0.8 ->Color.yellow),
+        (1.0 ->Color.white))
+
+      //Create the rom for the mandelbrot iteration count to color transformation
+      val paletteRom = Mem((0 to p.iterationLimit).map(iteration => {
+        val iterationFactor = 1.0*iteration/(p.iterationLimit)
+        val rgb = cloneOf(rgbType)
+        var palletOffset = Math.max(0,palette.indexWhere(_._1 >= iterationFactor)-1)
+        val palletPre = palette(palletOffset)
+        val palletPost = palette(palletOffset+1)
+        val ratio = (iterationFactor-palletPre._1)/(palletPost._1-palletPre._1)
+
+
+        rgb.r := ((palletPre._2.getRed*(1.0-ratio) + palletPost._2.getRed*ratio)/255*((1<<rgb.rWidth)-1)).toInt
+        rgb.g := ((palletPre._2.getGreen*(1.0-ratio) + palletPost._2.getGreen*ratio)/255*((1<<rgb.gWidth)-1)).toInt
+        rgb.b := ((palletPre._2.getBlue*(1.0-ratio) + palletPost._2.getBlue*ratio)/255*((1<<rgb.bWidth)-1)).toInt
+
+        rgb
+      }))
+
+      //Translate the pixelResult stream into a colorResult by using the rom
+      val colorResult  = paletteRom.streamReadSync(core.io.pixelResult.translateWith(core.io.pixelResult.fragment.iteration),core.io.pixelResult.last)
+
       //Take mandelbrot pixelResults and translate them into simple memory access
       val counter = Reg(UInt(32 bit)) init (0)
       when(io.mandelbrotWriteCmd.fire) {
         counter := counter + 1
-        when(core.io.pixelResult.last) {
+        when(colorResult.data.linked) {
           counter := 0
         }
       }
-      io.mandelbrotWriteCmd.translateFrom(core.io.pixelResult)((to, from) => {
+      io.mandelbrotWriteCmd.translateFrom(colorResult)((to, from) => {
         to.address := counter
-        to.data := toBits(from.fragment.iteration)
+        to.data := toBits(from.value)
       })
     }
   }
@@ -114,7 +146,7 @@ object MandelbrotSblDemo {
       val vgaClock = ClockDomain("vga")
       val vgaMemoryClock = ClockDomain("vgaMemory")
       val coreClock = ClockDomain("core")
-      new MandelbrotSblDemo(0, new MandelbrotCoreParameters(255, 1, 640, 480, 7, 36), coreClock, vgaMemoryClock, vgaClock)
+      new MandelbrotSblDemo(0, new MandelbrotCoreParameters(255, 1, 640, 480, 7, 17*3), coreClock, vgaMemoryClock, vgaClock)
     })
   }
 }

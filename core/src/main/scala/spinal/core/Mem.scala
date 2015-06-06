@@ -43,6 +43,7 @@ object dontCare extends MemWriteToReadKind {
 object Mem {
   def apply[T <: Data](wordType: T, wordCount: Int) = new Mem(wordType, wordCount)
   def apply[T <: Data](wordType: T, initialContent: Seq[T]) = new Mem(wordType, initialContent.length) init(initialContent)
+  def apply[T <: Data](initialContent: Seq[T]) = new Mem(initialContent(0), initialContent.length) init(initialContent)
 }
 
 

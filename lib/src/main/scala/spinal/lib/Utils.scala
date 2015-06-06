@@ -78,6 +78,7 @@ class BitAggregator {
   val elements = ArrayBuffer[(BigInt, Int)]()
   def clear = elements.clear()
   def add(valueParam: BigInt, bitCount: Int): Unit = elements += (valueParam -> bitCount)
+  def add(valueParam: Boolean): Unit = if (valueParam) add(1, 1) else add(0, 1)
 
   def getWidth = elements.foldLeft(0)(_ + _._2)
 
@@ -145,11 +146,11 @@ class Counter(val stateCount: BigInt, freeRun: Boolean = false) extends Area {
     increment := True
     valueNext
   }
-  def inc : Unit = {
+  def inc: Unit = {
     increment := True
   }
-  def ===(that : UInt) : Bool = this.value === that
-  def !==(that : UInt) : Bool = this.value !== that
+  def ===(that: UInt): Bool = this.value === that
+  def !==(that: UInt): Bool = this.value !== that
 
   def reset: Unit = res := True
 
@@ -370,45 +371,48 @@ class NoData extends Bundle {
 
 class TraversableOncePimped[T](pimped: TraversableOnce[T]) {
   def reduceBalancedSpinal(op: (T, T) => T): T = {
-    def stage(elements: ArrayBuffer[T]): T = {
-      if(elements.length == 1) return elements.head
+    reduceBalancedSpinal(op, (s,l) => s)
+  }
+  def reduceBalancedSpinal(op: (T, T) => T, levelBridge: (T, Int) => T): T = {
+    def stage(elements: ArrayBuffer[T], level: Int): T = {
+      if (elements.length == 1) return elements.head
       val stageLogic = new ArrayBuffer[T]()
-      val logicCount = (elements.length+1)/2
+      val logicCount = (elements.length + 1) / 2
 
-      for(i <- 0 until logicCount ){
-        if(i*2+1 < elements.length)
-          stageLogic += op(elements(i*2),elements(i*2+1))
+      for (i <- 0 until logicCount) {
+        if (i * 2 + 1 < elements.length)
+          stageLogic += levelBridge(op(elements(i * 2), elements(i * 2 + 1)), level)
         else
-          stageLogic += elements(i*2)
+          stageLogic += levelBridge(elements(i * 2), level)
       }
-      stage(stageLogic)
+      stage(stageLogic, level + 1)
 
     }
     val array = ArrayBuffer[T]() ++ pimped
     assert(array.length >= 1)
-    stage(array)
+    stage(array, 0)
   }
 }
 
 
-object Delay{
-  def apply[T <: Data](that : T,length : Int) : T = {
-    length match{
+object Delay {
+  def apply[T <: Data](that: T, length: Int): T = {
+    length match {
       case 0 => that
-      case _ => Delay(RegNext(that),length -1)
+      case _ => Delay(RegNext(that), length - 1)
     }
   }
 }
 
 
-object Delays{
-  def apply[T <: Data](that : T,length : Int) : Vec[T] = {
-    def builder(that : T,left : Int) : List[T] = {
-      left match{
+object Delays {
+  def apply[T <: Data](that: T, length: Int): Vec[T] = {
+    def builder(that: T, left: Int): List[T] = {
+      left match {
         case 0 => that :: Nil
-        case _ => that :: builder(RegNext(that),left - 1)
+        case _ => that :: builder(RegNext(that), left - 1)
       }
     }
-    Vec(builder(that,length))
+    Vec(builder(that, length))
   }
 }

@@ -78,6 +78,8 @@ object Debug {
 //      val romRead = out(MyData())
       val sin = out SInt(16 bit)
       val fir = out SInt(16 bit)
+
+      val boolToUnsigned = out UInt()
     }
     MyEnum.s1 === MyEnum.s2()
 //    implicit def EnumElementToCraft[T <: SpinalEnum](enumDef : T) : SpinalEnumCraft[T] = enumDef.craft().asInstanceOf[SpinalEnumCraft[T]]
@@ -85,6 +87,7 @@ object Debug {
 //
     val s0Reg = RegNext(MyEnum.s0())
 
+      io.boolToUnsigned := toUInt(True)
 
     val forks = StreamFork(io.input,3)
     io.output << StreamArbiter.lowIdPortFirst.transactionLock.build(forks)
