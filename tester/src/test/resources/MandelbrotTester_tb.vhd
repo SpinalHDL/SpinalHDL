@@ -23,6 +23,10 @@ architecture arch of MandelbrotTester_tb is
   signal io_cmdPort_valid : std_logic;
   signal io_cmdPort_data_last : std_logic;
   signal io_cmdPort_data_fragment : std_logic_vector(7 downto 0);
+  signal io_retPort_valid : std_logic;
+  signal io_retPort_ready : std_logic;
+  signal io_retPort_data_last : std_logic;
+  signal io_retPort_data_fragment : std_logic_vector(7 downto 0);
   signal io_pixelResult_valid : std_logic;
   signal io_pixelResult_ready : std_logic;
   signal io_pixelResult_data_last : std_logic;
@@ -64,6 +68,7 @@ begin
   begin
     reset <= '1';
     io_pixelResult_ready <= '1';
+    io_retPort_ready <= '1';
     wait for 100 ns;
     wait until rising_edge(clk);
     reset <= '0';
@@ -105,6 +110,10 @@ begin
       io_cmdPort_valid =>  io_cmdPort_valid,
       io_cmdPort_data_last =>  io_cmdPort_data_last,
       io_cmdPort_data_fragment =>  io_cmdPort_data_fragment,
+      io_retPort_valid =>  io_retPort_valid,
+      io_retPort_ready =>  io_retPort_ready,
+      io_retPort_data_last =>  io_retPort_data_last,
+      io_retPort_data_fragment =>  io_retPort_data_fragment,
       io_pixelResult_valid =>  io_pixelResult_valid,
       io_pixelResult_ready =>  io_pixelResult_ready,
       io_pixelResult_data_last =>  io_pixelResult_data_last,

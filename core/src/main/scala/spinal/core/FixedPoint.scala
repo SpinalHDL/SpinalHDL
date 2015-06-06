@@ -64,11 +64,15 @@ abstract class XFix[T <: XFix[T,R],R <: Data with Num[R]](val exp : Int,val bitC
   }
 
   def doShiftLeft(that : Int) : T = {
-    val ret = fixFactory(exp + 1,bitCount +1)
-    ret.raw := this.raw << 1
+    val ret = fixFactory(exp + that,bitCount +that)
+    ret.raw := this.raw << that
     ret
   }
-
+  def doShiftRight(that : Int) : T = {
+    val ret = fixFactory(exp - that,bitCount - that)
+    ret.raw := this.raw >> that
+    ret
+  }
   override def autoConnect(that: Data): Unit = autoConnectBaseImpl(that)
 
   override private[spinal] def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
@@ -100,6 +104,7 @@ class SFix(exp : Int,bitCount : Int) extends XFix[SFix,SInt](exp,bitCount){
   def *(that : SFix): SFix = doMul(that)
 
   def << (that : Int) : SFix = doShiftLeft(that)
+  def >> (that : Int) : SFix = doShiftRight(that)
 
   def <(that : SFix): Bool = doSmaller(that)
   def >(that : SFix): Bool = that.doSmaller(this)

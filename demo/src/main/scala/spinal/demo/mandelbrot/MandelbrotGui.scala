@@ -8,13 +8,14 @@ import spinal.lib.BitAggregator
 import scalafx.Includes._
 import scalafx.application.Platform
 import scalafx.scene.canvas.Canvas
+import scalafx.scene.effect.BlendMode
 import scalafx.scene.input.MouseEvent
+import scalafx.scene.paint.Color
 import scalafx.scene.{Group, Scene}
 import scalafx.stage.Stage
 
 
 class MandelbrotManager(address: Seq[Byte], hal: IBytePacketHal, r: JValue) extends PeripheralManager(address, hal) {
-  println("yolo")
 
   implicit val formats = DefaultFormats // Brings in default date formats etc.
 
@@ -50,15 +51,17 @@ class MandelbrotManager(address: Seq[Byte], hal: IBytePacketHal, r: JValue) exte
     Platform.runLater {
       val resX = 200
       val resY = 200
-      val canvas = new Canvas(resX, resY)
+      val canvasBack = new Canvas(resX, resY)
+      val canvasFront = new Canvas(resX, resY)
 
       val rootPane = new Group
-      rootPane.children = List(canvas)
-
-      val gc = canvas.graphicsContext2D
+      rootPane.children = List(canvasBack,canvasFront)
+      canvasFront.toFront()
+      val backGc = canvasBack.graphicsContext2D
+      val frontGc = canvasFront.graphicsContext2D
 
       def drawMandelbrot: Unit = {
-        val w = gc.getPixelWriter
+        val w = backGc.getPixelWriter
         val incX = (xEnd - xStart) / resX
         val incY = (yEnd - yStart) / resY
         for (y <- 0 until resY) {
@@ -85,11 +88,19 @@ class MandelbrotManager(address: Seq[Byte], hal: IBytePacketHal, r: JValue) exte
 
       var dragStartX = 0.0
       var dragStartY = 0.0
-      canvas.onMousePressed = (e: MouseEvent) => {
+      canvasFront.onMousePressed = (e: MouseEvent) => {
         dragStartX = e.x
         dragStartY = e.y
       }
-      canvas.onMouseReleased = (e: MouseEvent) => {
+
+      canvasFront.onMouseDragged  = (e: MouseEvent) => {
+        frontGc.clearRect(0,0,resX,resY)
+        frontGc.setStroke(Color.White);
+        frontGc.strokeRect(dragStartX, dragStartY,-dragStartX +  e.x,-dragStartY + e.y)
+      }
+
+      canvasFront.onMouseReleased = (e: MouseEvent) => {
+        frontGc.clearRect(0,0,resX,resY)
         val newXStart = xStart + (xEnd - xStart) * (dragStartX / resX)
         val newYStart = yStart + (yEnd - yStart) * (dragStartY / resY)
 

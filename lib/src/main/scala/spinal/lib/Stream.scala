@@ -102,22 +102,22 @@ class Stream[T <: Data](_dataType: T) extends Bundle with IMasterSlave with Data
     return fifo.io.pop
   }
 
-  def queue(size: Int,pushClock : ClockDomain,popClock : ClockDomain): Stream[T] = {
-    val fifo = new StreamFifoCC(dataType, size,pushClock,popClock)
+  def queue(size: Int, pushClock: ClockDomain, popClock: ClockDomain): Stream[T] = {
+    val fifo = new StreamFifoCC(dataType, size, pushClock, popClock)
     fifo.io.push << this
     return fifo.io.pop
   }
 
-  def queueWithOccupancy(size: Int): (Stream[T],UInt) = {
+  def queueWithOccupancy(size: Int): (Stream[T], UInt) = {
     val fifo = new StreamFifo(dataType, size)
     fifo.io.push << this
-    return (fifo.io.pop,fifo.io.occupancy)
+    return (fifo.io.pop, fifo.io.occupancy)
   }
 
-  def queueWithPushOccupancy(size: Int,pushClock : ClockDomain,popClock : ClockDomain): (Stream[T],UInt)  = {
-    val fifo = new StreamFifoCC(dataType, size,pushClock,popClock)
+  def queueWithPushOccupancy(size: Int, pushClock: ClockDomain, popClock: ClockDomain): (Stream[T], UInt) = {
+    val fifo = new StreamFifoCC(dataType, size, pushClock, popClock)
     fifo.io.push << this
-    return (fifo.io.pop,fifo.io.pushOccupancy)
+    return (fifo.io.pop, fifo.io.pushOccupancy)
   }
 
   override def fire: Bool = valid & ready
@@ -261,37 +261,37 @@ class StreamArbiterCore[T <: Data](dataType: T, val portCount: Int)(arbitrationL
 
 }
 
-class StreamArbiterCoreFactory{
-  var arbitrationLogic : (StreamArbiterCore[_]) => Area = StreamArbiterCore.arbitration_lowIdPortFirst
-  var lockLogic : (StreamArbiterCore[_]) => Area = StreamArbiterCore.lock_transactionLock
+class StreamArbiterCoreFactory {
+  var arbitrationLogic: (StreamArbiterCore[_]) => Area = StreamArbiterCore.arbitration_lowIdPortFirst
+  var lockLogic: (StreamArbiterCore[_]) => Area = StreamArbiterCore.lock_transactionLock
 
-  def build[T <: Data](dataType: T, portCount : Int) : StreamArbiterCore[T] = {
-    new StreamArbiterCore(dataType,portCount)(arbitrationLogic,lockLogic)
+  def build[T <: Data](dataType: T, portCount: Int): StreamArbiterCore[T] = {
+    new StreamArbiterCore(dataType, portCount)(arbitrationLogic, lockLogic)
   }
 
-  def build[T <: Data](input: Seq[Stream[T]]) : Stream[T] ={
-    val arbiter = build(input(0).dataType,input.size)
-    (arbiter.io.inputs,input).zipped.foreach(_ << _)
+  def build[T <: Data](input: Seq[Stream[T]]): Stream[T] = {
+    val arbiter = build(input(0).dataType, input.size)
+    (arbiter.io.inputs, input).zipped.foreach(_ << _)
     return arbiter.io.output
   }
 
-  def lowIdPortFirst : this.type = {
+  def lowIdPortFirst: this.type = {
     arbitrationLogic = StreamArbiterCore.arbitration_lowIdPortFirst
     this
   }
-  def inOrder : this.type = {
+  def inOrder: this.type = {
     arbitrationLogic = StreamArbiterCore.arbitration_InOrder
     this
   }
-  def noLock : this.type = {
+  def noLock: this.type = {
     lockLogic = StreamArbiterCore.lock_transactionLock
     this
   }
-  def fragmentLock : this.type = {
+  def fragmentLock: this.type = {
     lockLogic = StreamArbiterCore.lock_fragmentLock
     this
   }
-  def transactionLock : this.type = {
+  def transactionLock: this.type = {
     lockLogic = StreamArbiterCore.lock_transactionLock
     this
   }
@@ -299,7 +299,9 @@ class StreamArbiterCoreFactory{
 
 object StreamArbiterCore {
   def arbitration_lowIdPortFirst(core: StreamArbiterCore[_]) = new Area {
+
     import core._
+
     var search = True
     for (i <- 0 to portCount - 2) {
       maskProposal(i) := search & io.inputs(i).valid
@@ -309,9 +311,10 @@ object StreamArbiterCore {
   }
 
   def arbitration_InOrder(core: StreamArbiterCore[_]) = new Area {
+
     import core._
 
-    val counter = Counter(core.portCount,io.output.fire)
+    val counter = Counter(core.portCount, io.output.fire)
 
     for (i <- 0 to core.portCount - 1) {
       maskProposal(i) := False
@@ -325,6 +328,7 @@ object StreamArbiterCore {
   }
 
   def lock_transactionLock(core: StreamArbiterCore[_]) = new Area {
+
     import core._
 
     when(io.output.valid) {
@@ -337,6 +341,7 @@ object StreamArbiterCore {
 
   def lock_fragmentLock(core: StreamArbiterCore[_]) = new Area {
     val realCore = core.asInstanceOf[StreamArbiterCore[Fragment[_]]]
+
     import realCore._
 
     when(io.output.valid) {
@@ -371,19 +376,19 @@ object StreamArbiterCore {
 //}
 
 
-object StreamFork{
-  def apply[T <: Data](input : Stream[T], portCount: Int): Vec[Stream[T]] ={
-    val fork = new StreamFork(input.dataType,portCount)
+object StreamFork {
+  def apply[T <: Data](input: Stream[T], portCount: Int): Vec[Stream[T]] = {
+    val fork = new StreamFork(input.dataType, portCount)
     fork.io.input << input
     return fork.io.output
   }
 }
 
-object StreamFork2{
-  def apply[T <: Data](input : Stream[T]): (Stream[T],Stream[T])={
-    val fork = new StreamFork(input.dataType,2)
+object StreamFork2 {
+  def apply[T <: Data](input: Stream[T]): (Stream[T], Stream[T]) = {
+    val fork = new StreamFork(input.dataType, 2)
     fork.io.input << input
-    return (fork.io.output(0),fork.io.output(1))
+    return (fork.io.output(0), fork.io.output(1))
   }
 }
 
@@ -482,8 +487,7 @@ class StreamFifo[T <: Data](dataType: T, depth: Int) extends Component {
 }
 
 
-
-class StreamFifoCC[T <: Data](dataType: T,val depth: Int, pushClockDomain: ClockDomain, popClockDomain: ClockDomain) extends Component {
+class StreamFifoCC[T <: Data](dataType: T, val depth: Int, pushClockDomain: ClockDomain, popClockDomain: ClockDomain) extends Component {
   assert(isPow2(depth))
   assert(depth >= 2)
 
@@ -586,14 +590,12 @@ class StreamCCByToggle[T <: Data](dataType: T, clockIn: ClockDomain, clockOut: C
 }
 
 
-
-
 class DispatcherInOrder[T <: Data](gen: T, n: Int) extends Component {
   val io = new Bundle {
-    val input = slave Stream(gen)
-    val outputs = Vec(n,master Stream(gen))
+    val input = slave Stream (gen)
+    val outputs = Vec(n, master Stream (gen))
   }
-  val counter = Counter(n,io.input.fire)
+  val counter = Counter(n, io.input.fire)
 
   if (n == 1) {
     io.input >> io.outputs(0)
@@ -611,8 +613,8 @@ class DispatcherInOrder[T <: Data](gen: T, n: Int) extends Component {
   }
 }
 
-object StreamFlowArbiter{
-  def apply[T <: Data](inputStream : Stream[T],inputFlow : Flow[T]) : Flow[T] = {
+object StreamFlowArbiter {
+  def apply[T <: Data](inputStream: Stream[T], inputFlow: Flow[T]): Flow[T] = {
     val output = cloneOf(inputFlow)
 
     output.valid := inputFlow.valid || inputStream.valid
@@ -623,14 +625,33 @@ object StreamFlowArbiter{
   }
 }
 
-class StreamFlowArbiter[T <: Data](dataType : T) extends Area{
-  val io = new Bundle{
-    val inputFlow = slave Flow(dataType)
-    val inputStream = slave Stream(dataType)
-    val output = master Flow(dataType)
+class StreamFlowArbiter[T <: Data](dataType: T) extends Area {
+  val io = new Bundle {
+    val inputFlow = slave Flow (dataType)
+    val inputStream = slave Stream (dataType)
+    val output = master Flow (dataType)
   }
   io.output.valid := io.inputFlow.valid || io.inputStream.valid
   io.inputStream.ready := !io.inputFlow.valid
   io.output.data := Mux(io.inputFlow.valid, io.inputFlow.data, io.inputStream.data)
 }
 
+
+object StreamSelector {
+  def apply[T <: Data](select: UInt, inputs: Seq[Stream[T]]): Stream[T] = {
+    val vec = Vec(inputs)
+    StreamSelector(select, vec)
+  }
+
+  def apply[T <: Data](select: UInt, inputs: Vec[Stream[T]]): Stream[T] = {
+    val ret = cloneOf(inputs(0))
+    ret.valid := inputs(select).valid
+    ret.data := inputs(select).data
+
+    for ((input, index) <- inputs.zipWithIndex) {
+      input.ready := select === index && ret.ready
+    }
+
+    ret
+  }
+}

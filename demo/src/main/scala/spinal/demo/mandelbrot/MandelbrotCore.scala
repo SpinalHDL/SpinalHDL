@@ -22,17 +22,41 @@ class CmdInterface(p: MandelbrotCoreParameters) extends Component {
 class FrameTaskFilter(p: MandelbrotCoreParameters) extends Component {
   val io = new Bundle {
     val input = slave Stream FrameTask(p)
-    val output = master Stream FrameTask(p)
+    val output = master Flow FrameTask(p)
+  }
+  val clkHz = 50e6
+
+  val filterIn = io.input.toFlow.toReg
+  filterIn.start.x init (-1.0)
+  filterIn.start.y init (-1.0)
+  filterIn.inc.x init (2.0 / p.screenResX)
+  filterIn.inc.y init (2.0 / p.screenResY)
+
+  def rcFilter(in : SFix,tao : Double,enable : Bool,enableHz : Double): SFix = {
+    val shiftRight = log2Up(BigDecimal(enableHz*tao).toBigInt())
+    val out = Reg(in) init(0)
+    when(enable) {
+      out := ((in - out) >> shiftRight) + out
+    }
+    out
+  }
+  def rcChainFilter(in : SFix,taos : Seq[Double],enable : Bool,enableHz : Double): SFix ={
+    var ptr = in
+    for(tao <- taos){
+      ptr = rcFilter(ptr,tao,enable,enableHz)
+    }
+    ptr
   }
 
-  io.output <-< io.input
+  val filterTaos = Seq(2.0,2.0)
+  val filterHz = 120.0
+  val filterEnable = RegNext(CounterFreeRun((clkHz/filterHz).toInt).overflow) //TODO periodic pulse lib
 
-  //TODO better initial value
-  io.output.valid init(True)
-  io.output.data.start.x init (-1.0)
-  io.output.data.start.y init (-1.0)
-  io.output.data.inc.x init (2.0 / p.screenResX)
-  io.output.data.inc.y init (2.0 / p.screenResY)
+  io.output.valid := True
+  io.output.data.start.x := rcChainFilter(filterIn.start.x,filterTaos,filterEnable,filterHz)
+  io.output.data.start.y := rcChainFilter(filterIn.start.y,filterTaos,filterEnable,filterHz)
+  io.output.data.inc.x := rcChainFilter(filterIn.inc.x,filterTaos,filterEnable,filterHz)
+  io.output.data.inc.y := rcChainFilter(filterIn.inc.y,filterTaos,filterEnable,filterHz)
 }
 
 
@@ -50,8 +74,15 @@ class MandelbrotCore(p: MandelbrotCoreParameters) extends Component {
   val frameTaskFilter = new FrameTaskFilter(p)
   frameTaskFilter.io.input << cmdInterface.io.frameTask
 
+  val frameTaskFilterBypass = StreamSelector(U(0,1 bit),Seq(cmdInterface.io.frameTask,frameTaskFilter.io.output.toStream))
+
   val frameTaskSolver = new FrameTaskSolver(p)
-  frameTaskSolver.io.frameTask << frameTaskFilter.io.output
+  frameTaskSolver.io.frameTask <-< frameTaskFilterBypass
+  frameTaskSolver.io.frameTask.valid init(True)
+  frameTaskSolver.io.frameTask.data.start.x init (-1.0)  //TODO better initial value
+  frameTaskSolver.io.frameTask.data.start.y init (-1.0)
+  frameTaskSolver.io.frameTask.data.inc.x init (2.0 / p.screenResX)
+  frameTaskSolver.io.frameTask.data.inc.y init (2.0 / p.screenResY)
 
   io.pixelResult << frameTaskSolver.io.pixelResult
 

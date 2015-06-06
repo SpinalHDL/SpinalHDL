@@ -522,15 +522,34 @@ class VhdlBackend extends Backend with VhdlBase {
     ret ++= "    return std_logic_vector(resize(unsigned(that),width));\n"
     ret ++= "  end pkg_resize;\n"
     ret ++= "\n"
-    ret ++= "  function pkg_resize (that : unsigned; width : integer) return unsigned is\n"
-    ret ++= "  begin\n"
-    ret ++= "    return resize(that,width);\n"
-    ret ++= "  end pkg_resize;\n"
-    ret ++= "\n"
-    ret ++= "  function pkg_resize (that : signed; width : integer) return signed is\n"
-    ret ++= "  begin\n"
-    ret ++= "    return resize(that,width);\n"
-    ret ++= "  end pkg_resize;\n"
+    ret ++=
+      """
+        |  function pkg_resize (that : unsigned; width : integer) return unsigned is
+        |	  variable ret : unsigned(width-1 downto 0);
+        |  begin
+        |    if that'length = 0 then
+        |       ret := (others => '0');
+        |    else
+        |       ret := resize(that,width);
+        |    end if;
+        |		return ret;
+        |  end pkg_resize;
+        |""".stripMargin
+
+
+    ret ++=
+      """
+        |  function pkg_resize (that : signed; width : integer) return signed is
+        |	  variable ret : signed(width-1 downto 0);
+        |  begin
+        |    if that'length = 0 then
+        |       ret := (others => '0');
+        |    else
+        |       ret := resize(that,width);
+        |    end if;
+        |		return ret;
+        |  end pkg_resize;
+        |""".stripMargin
     ret ++= s"end $packageName;\n"
     ret ++= "\n"
     ret ++= "\n"
@@ -715,21 +734,21 @@ class VhdlBackend extends Backend with VhdlBase {
             })
 
             var first = true
-            for((e,index) <- mem.initialContant.zipWithIndex){
-              if(!first)
+            for ((e, index) <- mem.initialContant.zipWithIndex) {
+              if (!first)
                 initAssignementBuilder ++= ","
               else
                 first = false
 
-              if((index & 15) == 0){
+              if ((index & 15) == 0) {
                 initAssignementBuilder ++= "\n     "
               }
 
-              val values = (e.flatten,mem._widths).zipped.map((e,width) => {
+              val values = (e.flatten, mem._widths).zipped.map((e, width) => {
                 e.getLiteral.getBitsStringOn(width)
               })
 
-              initAssignementBuilder ++= "\"" + values.reduceLeft((l,r) => r + l) + "\""
+              initAssignementBuilder ++= "\"" + values.reduceLeft((l, r) => r + l) + "\""
             }
 
             initAssignementBuilder ++= ")"
@@ -1107,9 +1126,9 @@ class VhdlBackend extends Backend with VhdlBase {
     case baseType: BaseType => emitReference(baseType)
     case node: Modifier => modifierImplMap.getOrElse(node.opName, throw new Exception("can't find " + node.opName))(node)
     case lit: BitsLiteral => lit.kind match {
-//      case _: Bits => s"pkg_stdLogicVector(X${'\"'}${lit.value.toString(16)}${'\"'},${lit.getWidth})"
-//      case _: UInt => s"pkg_unsigned(X${'\"'}${lit.value.toString(16)}${'\"'},${lit.getWidth})"
-//      case _: SInt => s"pkg_signed(X${'\"'}${if (lit.value >= 0) lit.value.toString(16) else ((BigInt(1) << lit.getWidth) + lit.value).toString(16)}${'\"'},${lit.getWidth})"
+      //      case _: Bits => s"pkg_stdLogicVector(X${'\"'}${lit.value.toString(16)}${'\"'},${lit.getWidth})"
+      //      case _: UInt => s"pkg_unsigned(X${'\"'}${lit.value.toString(16)}${'\"'},${lit.getWidth})"
+      //      case _: SInt => s"pkg_signed(X${'\"'}${if (lit.value >= 0) lit.value.toString(16) else ((BigInt(1) << lit.getWidth) + lit.value).toString(16)}${'\"'},${lit.getWidth})"
       case _: Bits => s"pkg_stdLogicVector(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
       case _: UInt => s"pkg_unsigned(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
       case _: SInt => s"pkg_signed(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"

@@ -255,7 +255,7 @@ trait Data extends ContextUser with Nameable with Assignable with AttributeReady
     regInit := init
     for ((e, initElement) <- (this.flatten, regInit.flatten).zipped) {
       def recursiveSearch(ptr: Node): Unit = {
-        if (ptr.component != init.component) SpinalError(s"Try to set initial value of a data that is not in current component ($this)")
+        //if (ptr.component != init.component) SpinalError(s"Try to set initial value of a data that is not in current component ($this)")
         ptr match {
           case bt: BaseType => {
             if (bt.isReg)

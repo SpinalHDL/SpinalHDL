@@ -134,7 +134,7 @@ class Vec[T <: Data](_dataType: T,val vec : Vector[T]) extends MultiData with co
     access(address)
   }
 
-
+  //TODO manage if addess as not enough bits
   def access(address: UInt): T = {
     val key = (Component.current,address)
     if (accessMap.contains(key)) return accessMap(key)
