@@ -40,21 +40,21 @@ case class ClockDomainConfig(clockEdge: EdgeKind = RISING, resetKind: ResetKind 
 
 //To use when you want to define a new clock domain by using internal signals
 object ClockDomain {
-  def apply(config: ClockDomainConfig, clock: Bool, reset: Bool = null, clockEnable: Bool = null): ClockDomain = {
-    new ClockDomain(config, clock, reset, clockEnable)
+  def apply(config: ClockDomainConfig, clock: Bool, reset: Bool = null, clockEnable: Bool = null,frequency: IClockDomainFrequency = UnknownFrequency()): ClockDomain = {
+    new ClockDomain(config, clock, reset, clockEnable,frequency)
   }
   def apply(clock: Bool, reset: Bool, clockEnable: Bool): ClockDomain = {
-    new ClockDomain(GlobalData.get.defaultClockConfig, clock, reset, clockEnable)
+    new ClockDomain(GlobalData.get.commonClockConfig, clock, reset, clockEnable)
   }
   def apply(clock: Bool, reset: Bool): ClockDomain = {
-    new ClockDomain(GlobalData.get.defaultClockConfig, clock, reset, null)
+    new ClockDomain(GlobalData.get.commonClockConfig, clock, reset, null)
   }
   def apply(clock: Bool): ClockDomain = {
-    new ClockDomain(GlobalData.get.defaultClockConfig, clock, null, null)
+    new ClockDomain(GlobalData.get.commonClockConfig, clock, null, null)
   }
   // To use when you want to define a new ClockDomain that thank signals outside the toplevel.
   // (it create input clock, reset, clockenable in the top level)
-  def apply(name: String,config: ClockDomainConfig,withReset : Boolean,withClockEnable : Boolean): ClockDomain = {
+  def apply(name: String,config: ClockDomainConfig,withReset : Boolean,withClockEnable : Boolean,frequency: IClockDomainFrequency): ClockDomain = {
     Component.push(null)
     val clock = Bool
     clock.setName(if (name != "") name + "_clk" else "clk")
@@ -71,11 +71,12 @@ object ClockDomain {
       clockEnable.setName((if (name != "") name + "_clkEn" else "clkEn") + (if (config.resetActiveHigh) "" else "N"))
     }
 
-    val clockDomain = ClockDomain(config,clock, reset,clockEnable)
+    val clockDomain = ClockDomain(config,clock, reset,clockEnable,frequency)
     Component.pop(null)
     clockDomain
   }
-  def apply(name: String): ClockDomain = ClockDomain(name, GlobalData.get.defaultClockConfig, true, false)
+  def apply(name: String,frequency: IClockDomainFrequency): ClockDomain = ClockDomain(name, GlobalData.get.commonClockConfig, true, false,frequency)
+  def apply(name: String): ClockDomain = ClockDomain(name, GlobalData.get.commonClockConfig, true, false,UnknownFrequency())
 
 
   def push(c: ClockDomain): Unit = {
@@ -98,7 +99,7 @@ object ClockDomain {
 
 
 
-class ClockDomain(val config: ClockDomainConfig, val clock: Bool, val reset: Bool = null, val clockEnable: Bool = null) {
+class ClockDomain(val config: ClockDomainConfig, val clock: Bool, val reset: Bool = null, val clockEnable: Bool = null,val frequancy : IClockDomainFrequency = UnknownFrequency()) {
   def hasClockEnable = clockEnable != null
   def hasReset = reset != null
 
@@ -127,12 +128,23 @@ class ClockDomain(val config: ClockDomainConfig, val clock: Bool, val reset: Boo
   }
 
 
-  def clone(config: ClockDomainConfig = config, clock: Bool = clock, reset: Bool = reset, clockEnable: Bool = clockEnable): ClockDomain = new ClockDomain(config, clock, reset, clockEnable)
+  def clone(config: ClockDomainConfig = config, clock: Bool = clock, reset: Bool = reset, clockEnable: Bool = clockEnable): ClockDomain = new ClockDomain(config, clock, reset, clockEnable,frequancy)
 }
 
+case class UnknownFrequency() extends IClockDomainFrequency{
+  def getValue : Double = ???
+  def getMax : Double = ???
+  def getMin : Double = ???
+}
 
-//abstract class ClockDomainZone(clockDomain: ClockDomain){
-//  clockDomain.push
-//
-//  clockDomain.pop
-//}
+case class FixedFrequency(value : Double) extends  IClockDomainFrequency{
+  def getValue : Double = value
+  def getMax : Double = value
+  def getMin : Double = value
+}
+
+trait IClockDomainFrequency{
+  def getValue : Double
+  def getMax : Double
+  def getMin : Double
+}

@@ -350,7 +350,7 @@ object GlobalData {
 //  }
 //}
 class GlobalData {
-  var defaultClockConfig = ClockDomainConfig()
+  var commonClockConfig = ClockDomainConfig()
 
   var nodeAreInferringWidth = false
   val nodeGetWidthWalkedSet: mutable.Set[Node] = mutable.Set[Node]()

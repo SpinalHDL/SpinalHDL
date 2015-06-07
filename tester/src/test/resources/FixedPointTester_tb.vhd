@@ -51,7 +51,7 @@ begin
       variable int_rand: integer;
     begin
       UNIFORM(seed1, seed2, rand);
-      int_rand := INTEGER(TRUNC(rand*(4.0**that'length)));
+      int_rand := INTEGER(TRUNC(rand*(2.0**that'length)));
       that <= (to_signed(int_rand, that'LENGTH));
     end random;
   begin

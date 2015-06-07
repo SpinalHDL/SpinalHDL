@@ -29,15 +29,15 @@ class MandelbrotSblDemo(frameAddressOffset: Int, p: MandelbrotCoreParameters, co
   val core = new ClockingArea(coreClk) {
     val uart = new Area {
       val ctrl = new UartCtrl()
-      ctrl.io.clockDivider := BigInt((50e6 / 57.6e3 / 8).toLong)
+      ctrl.io.clockDivider := BigInt((coreClk.frequancy.getValue / 57.6e3 / 8).toLong)
       ctrl.io.config.dataLength := 7
       ctrl.io.config.parity := UartParityType.eParityNone
       ctrl.io.config.stop := UartStopType.eStop1bit
       ctrl.io.uart <> io.uart
 
-//      ctrl.io.write.valid := False
-//      ctrl.io.write.data := 0
-    //TODO use reset generated
+      //      ctrl.io.write.valid := False
+      //      ctrl.io.write.data := 0
+      //TODO use reset generated
       val (flowFragment, _) = ctrl.io.read.toFlowFragmentBitsAndReset()
 
 
@@ -50,32 +50,32 @@ class MandelbrotSblDemo(frameAddressOffset: Int, p: MandelbrotCoreParameters, co
 
       //Mandelbrot iteration to color palette definition
       val palette = Seq(
-        (0.0 ->Color.black),
-        (0.2 ->Color.red),
-        (0.4 ->Color.blue),
-        (0.6 ->Color.green),
-        (0.8 ->Color.yellow),
-        (1.0 ->Color.white))
+        (0/255.0 -> new Color(0,0,0)),
+        (64/255.0 -> new Color(128,0,255)),
+        (100/255.0 -> new Color(180,32,0)),
+        (128/255.0 -> new Color(200,64,0)),
+        (150/255.0 -> new Color(220,100,0)),
+        (255/255.0 -> new Color(255,255,0)))
 
       //Create the rom for the mandelbrot iteration count to color transformation
       val paletteRom = Mem((0 to p.iterationLimit).map(iteration => {
-        val iterationFactor = 1.0*iteration/(p.iterationLimit)
+        val iterationFactor = 1.0 * iteration / (p.iterationLimit)
         val rgb = cloneOf(rgbType)
-        var palletOffset = Math.max(0,palette.indexWhere(_._1 >= iterationFactor)-1)
+        var palletOffset = Math.max(0, palette.indexWhere(_._1 >= iterationFactor) - 1)
         val palletPre = palette(palletOffset)
-        val palletPost = palette(palletOffset+1)
-        val ratio = (iterationFactor-palletPre._1)/(palletPost._1-palletPre._1)
+        val palletPost = palette(palletOffset + 1)
+        val ratio = (iterationFactor - palletPre._1) / (palletPost._1 - palletPre._1)
 
 
-        rgb.r := ((palletPre._2.getRed*(1.0-ratio) + palletPost._2.getRed*ratio)/255*((1<<rgb.rWidth)-1)).toInt
-        rgb.g := ((palletPre._2.getGreen*(1.0-ratio) + palletPost._2.getGreen*ratio)/255*((1<<rgb.gWidth)-1)).toInt
-        rgb.b := ((palletPre._2.getBlue*(1.0-ratio) + palletPost._2.getBlue*ratio)/255*((1<<rgb.bWidth)-1)).toInt
+        rgb.r := ((palletPre._2.getRed * (1.0 - ratio) + palletPost._2.getRed * ratio) / 255 * ((1 << rgb.rWidth) - 1)).toInt
+        rgb.g := ((palletPre._2.getGreen * (1.0 - ratio) + palletPost._2.getGreen * ratio) / 255 * ((1 << rgb.gWidth) - 1)).toInt
+        rgb.b := ((palletPre._2.getBlue * (1.0 - ratio) + palletPost._2.getBlue * ratio) / 255 * ((1 << rgb.bWidth) - 1)).toInt
 
         rgb
       }))
 
       //Translate the pixelResult stream into a colorResult by using the rom
-      val colorResult  = paletteRom.streamReadSync(core.io.pixelResult.translateWith(core.io.pixelResult.fragment.iteration),core.io.pixelResult.last)
+      val colorResult = paletteRom.streamReadSync(core.io.pixelResult.translateWith(core.io.pixelResult.fragment.iteration), core.io.pixelResult.last)
 
       //Take mandelbrot pixelResults and translate them into simple memory access
       val counter = Reg(UInt(32 bit)) init (0)
@@ -134,7 +134,7 @@ class MandelbrotSblDemo(frameAddressOffset: Int, p: MandelbrotCoreParameters, co
     val (colorStream, colorStreamOccupancy) = colorFlow.toStream.queueWithPushOccupancy(fifoSize, vgaMemoryClk, vgaClk)
 
     //Halt the vga read cmd stream if there is to mutch pending command or if the fifo is near than full
-    io.vgaReadCmd << dma.io.sblReadCmd.haltWhen(pendingCmd === (1<<widthOf(pendingCmd))-1 || RegNext(colorStreamOccupancy) > fifoSize - 128)
+    io.vgaReadCmd << dma.io.sblReadCmd.haltWhen(pendingCmd === (1 << widthOf(pendingCmd)) - 1 || RegNext(colorStreamOccupancy) > fifoSize - 128)
 
     vga.ctrl.io.colorStream << colorStream
   }
@@ -145,8 +145,8 @@ object MandelbrotSblDemo {
     SpinalVhdl({
       val vgaClock = ClockDomain("vga")
       val vgaMemoryClock = ClockDomain("vgaMemory")
-      val coreClock = ClockDomain("core")
-      new MandelbrotSblDemo(0, new MandelbrotCoreParameters(255, 1, 640, 480, 7, 17*3), coreClock, vgaMemoryClock, vgaClock)
+      val coreClock = ClockDomain("core",FixedFrequency(100e6))
+      new MandelbrotSblDemo(0, new MandelbrotCoreParameters(64, 3, 640, 480, 7, 17 * 4), coreClock, vgaMemoryClock, vgaClock)
     })
   }
 }

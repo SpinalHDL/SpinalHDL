@@ -5,38 +5,17 @@ import spinal.core._
 
 import scala.util.Random
 
-
-case class MandelbrotJsonReport(p : MandelbrotCoreParameters,uid : String,clazz : String = "uidPeripheral",kind : String = "mandelbrotCore")
+//This class is used everywhere into the mandlebrot core as "generic" "construction" parameter
 case class MandelbrotCoreParameters(iterationLimit: Int,
                                     pixelTaskSolverCount: Int,
                                     screenResX: Int,
                                     screenResY: Int,
                                     fixExp: Int,
-                                    fixWidth: Int
-                                    ) {
+                                    fixWidth: Int) {
   def fix = SFix(fixExp, fixWidth bit)
   def iterationWidth = log2Up(iterationLimit + 1)
 
   val uid : Int = Random.nextInt()
-
-
-//  import net.liftweb.json.JsonDSL._
-
-//  def fromJson(json: JValue): Unit = {
-//    name = (json \ "name").extract[String]
-//    scope ++= (json \ "scope").children.map(_.extract[String])
-//    kind = (json \ "kind").extract[String]
-//    width = (json \ "width").extract[Int]
-//  }
-//
-//  def toJson: JValue = {
-//    ("clazz" -> "uidPeripheral") ~
-//      ("kind" -> "MandelbrotCore") ~
-//      ("screenResX" -> screenResX.toString) ~
-//      ("screenResY" -> screenResY.toString) ~
-//      ("fixExp" -> fixExp.toString) ~
-//      ("fixWidth" -> fixWidth.toString)
-//  }
 }
 
 

@@ -36,6 +36,7 @@ class Backend {
   val enums = mutable.Set[SpinalEnum]()
   var forceMemToBlackboxTranslation = false
   var jsonReportPath = ""
+  var defaultClockDomainFrequancy : IClockDomainFrequency = UnknownFrequency()
 
   def addReservedKeyWordToScope(scope: Scope): Unit = {
     reservedKeyWords.foreach(scope.allocateName(_))
@@ -46,7 +47,7 @@ class Backend {
 
 
     //default clockDomain
-    val defaultClockDomain = ClockDomain("")
+    val defaultClockDomain = ClockDomain("",defaultClockDomainFrequancy)
 
     ClockDomain.push(defaultClockDomain)
     topLevel = gen()

@@ -80,7 +80,14 @@ object Debug {
       val fir = out SInt(16 bit)
 
       val boolToUnsigned = out UInt()
+      val tt = out Bool
     }
+
+    val myClockDomain = ClockDomain("ttDomain")
+    val ttArea = new ClockingArea(myClockDomain){
+      io.tt := RegNext(! io.tt)
+    }
+
     MyEnum.s1 === MyEnum.s2()
 //    implicit def EnumElementToCraft[T <: SpinalEnum](enumDef : T) : SpinalEnumCraft[T] = enumDef.craft().asInstanceOf[SpinalEnumCraft[T]]
 //    implicit def EnumElementToCraft2[T <: SpinalEnum](enumDef : SpinalEnumElement[T]) : SpinalEnumCraft[T] = enumDef.craft().asInstanceOf[SpinalEnumCraft[T]]

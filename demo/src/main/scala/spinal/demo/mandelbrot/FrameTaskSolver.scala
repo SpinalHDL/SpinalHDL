@@ -2,8 +2,7 @@ package spinal.demo.mandelbrot
 
 import spinal.core._
 import spinal.lib._
-
-import scala.collection.mutable.ArrayBuffer
+import spinal.lib.math.SIntMath
 
 
 class FrameTaskSolver(p: MandelbrotCoreParameters) extends Component {
@@ -104,7 +103,7 @@ class PixelTaskSolver(p: MandelbrotCoreParameters) extends Component {
     val task = PixelTask(p)
     val lastPixel = Bool
     val done = Bool
-    val order = UInt(4 bit)
+    val order = UInt(5 bit)
     //Used to reorder result in same oder than input task
     val iteration = UInt(p.iterationWidth bit)
     val z = SFix2D(p.fix)
@@ -117,53 +116,7 @@ class PixelTaskSolver(p: MandelbrotCoreParameters) extends Component {
     val zXzY = p.fix
   }
 
-  //TODO move it into libs
-  case class MultTask(aOffset: Int, bOffset: Int, aWidth: Int, bWidth: Int)
-  def sintMul(a: SInt, b: SInt, multOpWidth: Int, keepFrom: Int): SInt = {
-    val multTasks = ArrayBuffer[MultTask]()
-    val aWidth = widthOf(a)
-    val bWidth = widthOf(b)
-    for (aOffset <- Range(0, aWidth, multOpWidth)) {
-      for (bOffset <- Range(0, bWidth, multOpWidth)) {
-        val aPartWidth = Math.min(multOpWidth, aWidth - aOffset)
-        val bPartWidth = Math.min(multOpWidth, bWidth - bOffset)
-        if (aOffset + aPartWidth + bOffset + bPartWidth > keepFrom)
-          multTasks += MultTask(aOffset, bOffset, aPartWidth, bPartWidth)
-      }
-    }
-
-    var ret = SInt(widthOf(a) + widthOf(b) bit)
-    ret := 0
-    //for(task <- multTasks){
-    val xx = multTasks.map(task => {
-      val aPartSigned = task.aOffset + task.aWidth == aWidth
-      val bPartSigned = task.bOffset + task.bWidth == bWidth
-      val aPart = a(task.aOffset, task.aWidth bit)
-      val bPart = b(task.bOffset, task.bWidth bit)
-      val mult = (aPartSigned, bPartSigned) match {
-        case (false, false) => toSInt(False ## (toUInt(aPart) * toUInt(bPart)))
-        case (false, true) => toSInt(False ## aPart) * bPart
-        case (true, false) => aPart * toSInt(False ## bPart)
-        case (true, true) => aPart * bPart
-      }
-      ret = ret + (mult << (task.aOffset + task.bOffset))
-      mult << (task.aOffset + task.bOffset)
-    })
-    //    def reduceIt(l : SInt,r : SInt) : SInt = {
-    //      RegNext(l + r)
-    //    }
-    xx.reduceBalancedSpinal((l, r) => l + r, (s, l) => RegNext(s))
-  }
-
-  def fixMul(a: SFix, b: SFix): SFix = {
-    val ret = SFix(a.exp + b.exp, a.bitCount + b.bitCount bit)
-    ret.raw := sintMul(a.raw, b.raw, 17, p.fixWidth) //p.fixWidth
-    //Delay(ret,3)
-    ret
-  }
-
-
-  val insertTaskOrder = Counter(16, io.pixelTask.fire)
+  val insertTaskOrder = Counter(32, io.pixelTask.fire)
 
   //Task to insert into the pipeline
   val taskToInsert: Stream[Context] = io.pixelTask.translateInto(Stream(new Context))((to, from) => {
@@ -185,6 +138,14 @@ class PixelTaskSolver(p: MandelbrotCoreParameters) extends Component {
 
   //Stage2 get multiplication result of x*x  y*y and x*y
   val stage2 = RegFlow(new Stage2Context)
+
+  def fixMul(a: SFix, b: SFix): SFix = {
+    val ret = SFix(a.exp + b.exp, a.bitCount + b.bitCount bit)
+    // SIntMath.mul is a pipelined implementation of the signed multiplication operator
+    //(leftSigned, rightSigned, number of bit per multiplicator, trunk bits bellow this limit, ...)
+    ret.raw := SIntMath.mul(a.raw, b.raw, 17, p.fixWidth - p.fixExp, 1, (stage, level) => RegNext(stage))
+    ret
+  }
 
   stage2.data.zXzX := fixMul(stage1.data.z.x, stage1.data.z.x)
   stage2.data.zYzY := fixMul(stage1.data.z.y, stage1.data.z.y)
@@ -211,7 +172,7 @@ class PixelTaskSolver(p: MandelbrotCoreParameters) extends Component {
   //End Stage put to the output the result if it's finished and in right order
   //          else put it into the feedback to redo iteration or to waiting
   val result = Stream(Fragment(PixelResult(p)))
-  val resultOrder = Counter(16, result.fire)
+  val resultOrder = Counter(32, result.fire)
   val readyForResult = stage3.data.done && resultOrder === stage3.data.order
 
 
@@ -224,42 +185,4 @@ class PixelTaskSolver(p: MandelbrotCoreParameters) extends Component {
 
   loopBack.valid := stage3.valid && ((!readyForResult) || (!result.ready))
   loopBack.data := stage3.data
-
 }
-
-
-//object Main {
-//  def main(args: Array[String]) {
-//    SpinalVhdl(new FrameTaskSolver(new MandelbrotCoreParameters(256, 4, 64, 64, 7, 36)))
-//  }
-//}
-
-
-//Self pipelined fixed point multiplication, should be better with ip
-//  def fixMul(a: SInt, b: SInt): SInt = {
-//    val width = a.getWidth
-//    if (width <= 18) {
-//      val reg = RegNext(a * b)
-//      val reg2 = RegNext(reg(width * 2 - p.fixExp - 1, width - p.fixExp).toBits.toSInt)
-//      val reg3 = RegNext(reg2)
-//      return reg3
-//    } else {
-//      val lowWidth = 18
-//      val highWidth = width - lowWidth
-//
-//      val step0_a1b0 = RegNext(a(width - 1, lowWidth) * toSInt(False ## b(lowWidth - 1, 0)))
-//      val step0_a0b1 = RegNext(toSInt(False ## a(lowWidth - 1, 0)) * b(width - 1, lowWidth))
-//      val step0_a1b1 = RegNext(a(width - 1, lowWidth) * b(width - 1, lowWidth))
-//
-//
-//      val step1_a1b0 = RegNext(step0_a1b0)
-//      val step1_a0b1 = RegNext(step0_a0b1)
-//      val step1_a1b1 = RegNext(step0_a1b1)
-//
-//      val step2_a0b1_a1b0 = RegNext(step1_a0b1 + step1_a1b0)
-//      val step2_a1b1 = RegNext(step1_a1b1)
-//
-//      val result = ((step2_a0b1_a1b0) << lowWidth) + (step2_a1b1 << (lowWidth * 2))
-//      return result(width * 2 - p.fixExp - 1, width - p.fixExp)
-//    }
-//  }
