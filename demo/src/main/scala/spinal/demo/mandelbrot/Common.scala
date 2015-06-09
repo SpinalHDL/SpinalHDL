@@ -5,7 +5,7 @@ import spinal.core._
 
 import scala.util.Random
 
-//This class is used everywhere into the mandlebrot core as "generic" "construction" parameter
+//This class is used everywhere into the mandelbrot core as "generic" "construction" parameter
 case class MandelbrotCoreParameters(iterationLimit: Int,
                                     pixelTaskSolverCount: Int,
                                     screenResX: Int,

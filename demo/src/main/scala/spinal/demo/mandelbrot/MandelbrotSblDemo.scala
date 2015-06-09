@@ -34,13 +34,8 @@ class MandelbrotSblDemo(frameAddressOffset: Int, p: MandelbrotCoreParameters, co
       ctrl.io.config.parity := UartParityType.eParityNone
       ctrl.io.config.stop := UartStopType.eStop1bit
       ctrl.io.uart <> io.uart
-
-      //      ctrl.io.write.valid := False
-      //      ctrl.io.write.data := 0
-      //TODO use reset generated
+      
       val (flowFragment, _) = ctrl.io.read.toFlowFragmentBitsAndReset()
-
-
     }
 
     val mandelbrot = new Area {
@@ -90,6 +85,7 @@ class MandelbrotSblDemo(frameAddressOffset: Int, p: MandelbrotCoreParameters, co
         to.data := toBits(from.value)
       })
     }
+    
   }
 
   val vga = new ClockingArea(vgaClk) {
