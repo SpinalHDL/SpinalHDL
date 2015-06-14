@@ -360,6 +360,65 @@ class FlowFragmentPimpIt[T <: Data](PimpIt: Flow[Fragment[T]]) {
 }
 ```
 
+
+## Create an custom bus, parametrized RGB data type,+ operator overloading, array of port management
+```scala
+import spinal.core._
+
+//Define a Stream interface that use the AXI-like valid/ready handshake
+//Transaction's data is a parameterizable type
+//This Stream class is already defined into spinal.lib._   It's just to show as a example
+case class Stream[T <: Data](dataType: T) extends Bundle with IMasterSlave {
+  val valid = Bool
+  val ready = Bool
+  val data: T = cloneOf(dataType)
+
+  //Equivalent to SystemVerilog modport
+  override def asMaster: this.type = {
+    out(valid)
+    in(ready)
+    out(data)
+    this
+  }
+
+  override def asSlave: this.type = asMaster.flip //.flip reverse all signal direction
+}
+
+//Define a RGB color data type with parameterizable channel width
+case class RGB(rWidth: Int, gWidth: Int, bWidth: Int) extends Bundle {
+  val r = UInt(rWidth bit)
+  val g = UInt(gWidth bit)
+  val b = UInt(bWidth bit)
+
+  //Define the + operator to allow the summation of 2 RGB
+  def +(that: RGB): RGB = {
+    val result = cloneOf(this)
+    result.r := this.r + that.r
+    result.g := this.g + that.g
+    result.b := this.b + that.b
+    result
+  }
+}
+
+// Define a component that take "srcCount" slave Stream of RGB
+// and product an "sumPort" that is the summation of all "srcPort" with the correct arbitration
+case class StreamRgbAdder(rgbType: RGB, srcCount: Int) extends Component {
+  val io = new Bundle {
+    val srcPort = Vec(srcCount, slave(Stream(rgbType)))
+    val sumPort = master(Stream(rgbType))
+  }
+  val transactionOccure = io.sumPort.valid && io.sumPort.ready
+  io.sumPort.valid := io.srcPort.map(_.valid).reduce(_ && _)   //Take all srcPort.valid bits and "AND" them
+  io.sumPort.data := io.srcPort.map(_.data).reduce(_ + _)      //Take all srcPort.data (RGB) and "SUM" them by using the overloaded + operator from RGB class
+  io.srcPort.foreach(_.ready := transactionOccure)             //For each srcPort.ready assign the transactionOccure
+}
+
+
+def main(args: Array[String]) {
+  SpinalVhdl(StreamRgbAdder(RGB(5, 6, 5), 4)) //Generate the VHDL for a 4 srcPort and a RGB config of 5,6,5 bits
+}
+```
+
 Other consideration
 ===============
 Intellij scala plugin has some syntax highlight bug. Please use scala plugin >= 1.4
