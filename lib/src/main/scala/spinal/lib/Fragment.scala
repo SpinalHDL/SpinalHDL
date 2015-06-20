@@ -27,7 +27,7 @@ class FlowFragmentPimped[T <: Data](pimped: Flow[Fragment[T]]) {
 
   def pulseOn(header: T): Bool = pimped.isFirst && pimped.fragment === header
   def eventOn(header: T): Event = {
-    val ret = slave Event
+    val ret = Event
 
     val state = RegInit(False)
     when(pimped.isFirst && pimped.fragment === header) {

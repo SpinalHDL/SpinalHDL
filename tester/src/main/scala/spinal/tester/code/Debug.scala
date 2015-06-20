@@ -83,6 +83,12 @@ object Debug {
       val tt = out Bool
     }
 
+
+    val newInput = in Bool
+    val newOutput = out Bool
+
+    newOutput := !newInput
+
     val myClockDomain = ClockDomain("ttDomain")
     val ttArea = new ClockingArea(myClockDomain){
       io.tt := RegNext(! io.tt)

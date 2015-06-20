@@ -153,7 +153,17 @@ abstract class BaseType extends Node with Data with Nameable {
   //  override def :=(bits: this.type): Unit = assignFrom(bits)
 
 
+  override def asInput: this.type = {
+    isIo = true
+    component.ioSet += this
+    super.asInput
+  }
 
+  override def asOutput: this.type = {
+    isIo = true
+    component.ioSet += this
+    super.asOutput
+  }
 
   def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
     that match {

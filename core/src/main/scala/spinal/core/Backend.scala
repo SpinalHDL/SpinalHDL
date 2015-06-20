@@ -113,7 +113,7 @@ class Backend {
     SpinalInfoPhase("Transform connection")
     // allowLiteralToCrossHierarchy
     pullClockDomains
-    check_noNull_noCrossHierarchy_noInputRegister
+    check_noNull_noCrossHierarchy_noInputRegister_noDirectionLessIo
 
     addInOutBinding
     allowNodesToReadOutputs
@@ -173,11 +173,13 @@ class Backend {
       nameComponentDeclaration(c)
       c match {
         case bb: BlackBox => {
-          bb.generic.genNames
+          bb.getGeneric.genNames
         }
         case _ =>
       }
     }
+
+
 
   }
 
@@ -471,8 +473,25 @@ class Backend {
     })
   }
 
-  def check_noNull_noCrossHierarchy_noInputRegister: Unit = {
+  def check_noNull_noCrossHierarchy_noInputRegister_noDirectionLessIo: Unit = {
     val errors = mutable.ArrayBuffer[String]()
+
+
+    for(c <- components){
+      try{
+        val io = c.reflectIo
+        for(bt <- io.flatten){
+          if(bt.isDirectionLess){
+            errors += s"Direction less signal into io def ${bt.getScalaLocationString}"
+          }
+        }
+      }catch{
+        case _ : Throwable =>
+      }
+
+    }
+
+
     walkNodes2(node => {
 
       node match {
@@ -542,9 +561,7 @@ class Backend {
 
   }
 
-  /*def configureComponentIo(): Unit = {
-    components.foreach(_.io.flatten.foreach(_._2.isIo = true))
-  }*/
+
 
   def normalizeNodeInputs: Unit = {
     walkNodes(walker_matchWidth)
@@ -554,25 +571,7 @@ class Backend {
     walkNodes(walker_addInOutBinding)
   }
 
-  /*
-      def moveInputRegisterToParent: Unit = {
-        walkNodes2((node) => {
-          node match {
-            case regSignal: BaseType => {
-              if (regSignal.isReg && regSignal.isInput) {
-                val reg = regSignal.inputs(0)
-                val regSignalClone = regSignal.clone
-                reg.component = regSignal.component.parent
-                regSignalClone.inputs(0) = reg
-                regSignalClone.component = reg.component
-                regSignal.inputs(0) = regSignalClone
-              }
-            }
-            case _=>
-          }
-        })
-      }
-  */
+
 
   def pullClockDomains: Unit = {
     walkNodes(walker_pullClockDomains)
@@ -677,7 +676,7 @@ class Backend {
     val nodeStack = mutable.Stack[Node]()
     components.foreach(_ match {
       case blackBox: BlackBox => {
-        blackBox.generic.flatten.foreach(_ match {
+        blackBox.getGeneric.flatten.foreach(_ match {
           case bt: BaseType => nodeStack.push(bt)
           case _ =>
         })
@@ -766,23 +765,7 @@ class Backend {
     })
   }
 
-  //  def simplifyBlackBoxIoNames: Unit = {
-  //    for (c <- components) c match {
-  //      case bb: BlackBox => {
-  //        for ((eName, e) <- bb.io.flatten) {
-  //          if (e.isWeak) {
-  //            e.setWeakName(eName.substring(3, eName.size))
-  //          }
-  //        }
-  //        for ((eName, e) <- bb.generic.flatten) {
-  //          if (e.isWeak && eName != "generic") {
-  //            e.setWeakName(eName.substring(8, eName.size))
-  //          }
-  //        }
-  //      }
-  //      case _ =>
-  //    }
-  //  }
+
 
   def propagateBaseTypeWidth: Unit = {
     walkNodes2(node => {
@@ -1052,7 +1035,7 @@ class Backend {
   def simplifyBlacBoxGenerics: Unit = {
     components.foreach(_ match {
       case blackBox: BlackBox => {
-        blackBox.generic.flatten.foreach(tuple => {
+        blackBox.getGeneric.flatten.foreach(tuple => {
           val signal = tuple
           if (signal.isInstanceOf[BaseType]) {
             val baseType = signal.asInstanceOf[BaseType]

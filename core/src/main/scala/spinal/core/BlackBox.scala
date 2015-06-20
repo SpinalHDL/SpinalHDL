@@ -57,7 +57,17 @@ class Generic {
 
 abstract class BlackBox extends Component {
 
-  def generic: Generic// = new Generic{}
+  //def generic: Generic// = new Generic{}
+  def getGeneric : Generic = {
+    try{
+      val clazz = this.getClass
+      val m = clazz.getMethod("generic")
+      val generic = m.invoke(this).asInstanceOf[Generic]
+      return generic
+    } catch{
+      case _ : Throwable => new Generic
+    }
+  }
 
   def use(clockDomain: ClockDomain, clockIn: Bool, resetIn: Bool = null, clockEnableIn: Bool = null): Unit = {
     Component.push(parent)

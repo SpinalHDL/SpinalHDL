@@ -630,7 +630,7 @@ class VhdlBackend extends Backend with VhdlBase {
 
   def emitBlackBoxComponent(component: BlackBox, ret: StringBuilder): Unit = {
     ret ++= s"\n  component ${component.definitionName} is\n"
-    val genericFlat = component.generic.flatten
+    val genericFlat = component.getGeneric.flatten
     if (genericFlat.size != 0) {
       ret ++= s"    generic(\n"
       for ((name, e) <- genericFlat) {
@@ -1433,7 +1433,7 @@ class VhdlBackend extends Backend with VhdlBase {
       } : $definitionString\n"
       if (kind.isInstanceOf[BlackBox]) {
         val bb = kind.asInstanceOf[BlackBox]
-        val genericFlat = bb.generic.flatten
+        val genericFlat = bb.getGeneric.flatten
         if (genericFlat.size != 0) {
           ret ++= s"    generic map(\n"
 
