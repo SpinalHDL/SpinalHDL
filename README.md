@@ -422,7 +422,7 @@ def main(args: Array[String]) {
 ## Why not Chisel ?
 It's a real question, why SpinalHDL was implemented while there Chisel already existing from 3 years ago.
 Chisel is a big step forward compared to common HDL,
-but when come serious design that mix multiple clock domain, external IP, the pretty Chisel show lot of serious conception issue : 
+but when come serious design that mix multiple clock domain and external IP (blackbox), Chisel show some serious conception issue : 
 
 Multiple clock support is awkward :
 - Working into a single block with multiple clock is difficult, you can't define "ClockingArea", only creating a module allow it
@@ -438,16 +438,18 @@ Black box support is far from good :
 Syntax could be better :
 - Not pretty literal value syntax, No implicit conversion between Scala and Chisel types
 - Not pretty input/output definition
+- Assignment operator is only checked when you generate the code, the IDE can't check it for you. Bundle assignment operator is weak typed.
+- Switch statement doesn't have default case
 - No "Area" notion to give a better structure to the user code
 
 Various issue :
 - You can't define function without argument into Bundles
-- Can't pass a 
 - There is no notion of "Area" 
 - Using when/otherwise is not strict in all case, then it allow you to generate an asynchronous signal that is not assigned in all case.
 - You can't really write a given range of bit into a bit vector.
 - The library that is integrated into Chisel and give you some utils and useful bus definition is a good intention, but could be so better and more complete
 
+For a lot of issue listed here, an issue/pull request was open on github, but doesn't have any following. In addition, if we consider the age (3 years) of Chisel,this is a very serious issue and it's why SpinalHDL was created.
 
 Other consideration
 ===============
