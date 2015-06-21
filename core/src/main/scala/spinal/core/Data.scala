@@ -17,6 +17,7 @@
  */
 
 package spinal.core
+//import scala.reflect.runtime.{universe => ru}
 
 
 object Data {
@@ -327,9 +328,10 @@ trait Data extends ContextUser with Nameable with Assignable with AttributeReady
         }
       }
 
-      if (clazz.getAnnotations.find(_.isInstanceOf[valClone]).isDefined) {
-        return constructorParamsAreVal
-      }
+
+//      if (clazz.getAnnotations.find(_.isInstanceOf[valClone]).isDefined) {
+//        return constructorParamsAreVal
+//      }
 
       needCloneImpl()
 

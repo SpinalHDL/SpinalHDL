@@ -23,7 +23,7 @@ package spinal.core
 import scala.collection.mutable
 import scala.collection.mutable.Stack
 
-
+//case class valClone() extends scala.annotation.StaticAnnotation
 
 //Give number of bit to encode a given number of states
 object log2Up {

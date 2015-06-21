@@ -120,3 +120,19 @@ class IntLiteral(val value: BigInt) extends Literal with MinMaxProvider {
 
   override def getBitsStringOn(bitCount: Int): String = ???
 }
+
+
+
+class STime(value : Double){
+  def decompose: (Double,String) = {
+    if(value > 3600.0) return (value/3600.0,"hr")
+    if(value > 60.0) return (value/60.0,"min")
+    if(value > 1.0) return (value/1.0,"sec")
+    if(value > 1.0e-3) return (value/1.0e-3,"ms")
+    if(value > 1.0e-6) return (value/1.0e-6,"us")
+    if(value > 1.0e-9) return (value/1.0e-9,"ns")
+    if(value > 1.0e-12) return (value/1.0e-12,"ps")
+    (value/1.0e-15,"fs")
+  }
+}
+

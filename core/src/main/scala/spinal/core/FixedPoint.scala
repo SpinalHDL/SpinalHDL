@@ -3,7 +3,7 @@ package spinal.core
 
 
 import scala.collection.mutable.ArrayBuffer
-
+import spinal.core._
 
 /**
  * Created by PIC on 19.05.2015.
@@ -140,8 +140,10 @@ object SFix2D {
 
 }
 
-@valClone
+//@valClone
 class SFix2D(val exp: Int, val bitCount: Int) extends Bundle {
   val x = SFix(exp, bitCount bit)
   val y = SFix(exp, bitCount bit)
+
+  override def clone(): SFix2D.this.type = new SFix2D(exp,bitCount).asInstanceOf[this.type]
 }

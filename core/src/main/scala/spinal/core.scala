@@ -12,6 +12,7 @@ package object core extends BaseTypeFactory with BaseTypeCast{
 
   implicit def IntToBuilder(value: Int) = new IntBuilder(value)
   implicit def BigIntToBuilder(value: BigInt) = new BigIntBuilder(value)
+  implicit def DoubleToBuilder(value: Double) = new DoubleBuilder(value)
 
   //implicit def EnumElementToCraft[T <: SpinalEnum](element : SpinalEnumElement[T]) : SpinalEnumCraft[T] = element()
 //  implicit def EnumElementToCraft[T <: SpinalEnum](enumDef : T) : SpinalEnumCraft[T] = enumDef.craft().asInstanceOf[SpinalEnumCraft[T]]
@@ -19,13 +20,30 @@ package object core extends BaseTypeFactory with BaseTypeCast{
 
   case class IntBuilder(i: Int) {
     def bit = new BitCount(i)
+    def hr = new STime(i * 3600)
+    def min = new STime(i * 60)
+    def sec = new STime(i * 1)
+    def ms = new STime(i * 1e-3)
+    def us = new STime(i * 1e-6)
+    def ns = new STime(i * 1e-9)
+    def ps = new STime(i * 1e-12)
+    def fs = new STime(i * 1e-15)
   }
 
   case class BigIntBuilder(i: BigInt) {
     def bit = new BitCount(i.toInt)
   }
 
-
+  case class DoubleBuilder(d: Double) {
+    def hr = new STime(d * 3600)
+    def min = new STime(d * 60)
+    def sec = new STime(d * 1)
+    def ms = new STime(d * 1e-3)
+    def us = new STime(d * 1e-6)
+    def ns = new STime(d * 1e-9)
+    def ps = new STime(d * 1e-12)
+    def fs = new STime(d * 1e-15)
+  }
 
   def True = Bool(true)
   def False = Bool(false)

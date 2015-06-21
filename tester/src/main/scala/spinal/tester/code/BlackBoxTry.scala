@@ -10,6 +10,8 @@ import spinal.lib._
 case class LamdaBlackBoxA(_bitsWidth : Int) extends BlackBox{
   val generic = new Generic{
     val bitsWidth = _bitsWidth
+    val myTime = 2.3 ns
+    val myTime2 = 42 ms
   }
 
   val io = new Bundle{
@@ -36,6 +38,11 @@ case class LambdaComponent(bitsWidth : Int) extends Component{
   val io = new Bundle{
     val src = slave Stream(Bits(bitsWidth bit))
     val dst = master Stream(Bits(bitsWidth bit))
+
+    val xx = if(true) new Bundle{
+      val a : Bool = in Bool
+      val b : Bool = out Bool
+    } else null
   }
   val blackBoxA = LamdaBlackBoxA(bitsWidth)
   val blackBoxB = LamdaBlackBoxB(bitsWidth)
@@ -46,6 +53,12 @@ case class LambdaComponent(bitsWidth : Int) extends Component{
   componentC.src << blackBoxB.dst
 
   io.dst << componentC.dst
+
+  io.xx.b := io.xx.a
+
+
+  import scala.concurrent.duration._
+  Duration
 }
 
 object BlackBoxTry {

@@ -93,5 +93,14 @@ abstract class BlackBox extends Component {
     use(ClockDomain.current, clockIn, resetIn, clockEnableIn)
   }
 
+
+  override def nameElements(): Unit = {
+    val io = reflectIo
+    if(io != null){
+      io.setWeakName("")
+    }
+    super.nameElements()
+  }
+
   override def isInBlackBoxTree: Boolean = true
 }
