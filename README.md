@@ -419,6 +419,37 @@ def main(args: Array[String]) {
 }
 ```
 
+## Why not Chisel ?
+It's a real question, why SpinalHDL was implemented while there Chisel already existing from 3 years ago.
+Chisel is a big step forward compared to common HDL,
+but when come serious design that mix multiple clock domain, external IP, the pretty Chisel show lot of serious conception issue : 
+
+Multiple clock support is awkward :
+- Working into a single block with multiple clock is difficult, you can't define "ClockingArea", only creating a module allow it
+- Reset wire is not really integrated into the clock domain notion, sub module lose reset of parent and it's really annoying
+- No support of falling edge clock, active low reset
+- No clock enable support
+- Chisel make the assumption that every clock wire come from the top level inputs, you don't have access to clock signal
+
+Black box support is far from good :
+- Generic/Parameter are not really supported
+- Specify clock input for a black box is not supported. You have to use workaround and you don't have any control on clock signal name and change against your will
+
+Syntax could be better :
+- Not pretty literal value syntax, No implicit conversion between Scala and Chisel types
+- Not pretty input/output definition
+- No "Area" notion to give a better structure to the user code
+
+Various issue :
+- You can't define function without argument into Bundles
+- Can't pass a 
+- There is no notion of "Area" 
+- Using when/otherwise is not strict in all case, then it allow you to generate an asynchronous signal that is not assigned in all case.
+- You can't really write a given range of bit into a bit vector.
+- The library that is integrated into Chisel and give you some utils and useful bus definition is a good intention, but could be so better and more complete
+
+
 Other consideration
 ===============
 Intellij scala plugin has some syntax highlight bug. Please use scala plugin >= 1.4
+
