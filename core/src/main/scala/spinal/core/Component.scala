@@ -75,7 +75,7 @@ abstract class Component extends Nameable with GlobalDataUser with ScalaLocated 
   val kindsOutputsToBindings = mutable.Map[BaseType, BaseType]()
   val kindsOutputsBindings = mutable.Set[BaseType]()
   val additionalNodesRoot = mutable.Set[BaseType]()
-  var definitionName = ""
+  var definitionName : String = null
   val level = globalData.componentStack.size()
   val kinds = ArrayBuffer[Component]()
   val parent = Component.current

@@ -55,7 +55,11 @@ class Generic {
   }
 }
 
-abstract class BlackBox extends Component {
+object uLogic extends SpinalTag
+
+
+abstract class BlackBox extends Component with SpinalTagReady {
+
 
   //def generic: Generic// = new Generic{}
   def getGeneric : Generic = {
@@ -103,4 +107,17 @@ abstract class BlackBox extends Component {
   }
 
   override def isInBlackBoxTree: Boolean = true
+
+  def setBlackBoxName(name : String) : this.type ={
+    this.definitionName = name
+    this
+  }
+
+  def isUsingULogic = this.hasTag(uLogic)
+  def remplaceStdLogicByStdULogic = this.addTag(uLogic)
+}
+
+
+abstract class BlackBoxULogic extends BlackBox{
+  remplaceStdLogicByStdULogic
 }

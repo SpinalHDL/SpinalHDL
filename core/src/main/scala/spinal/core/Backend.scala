@@ -618,7 +618,8 @@ class Backend {
   }
 
   def nameComponentDeclaration(c: Component): Unit = {
-    c.definitionName = c.getClass.getSimpleName
+    if(c.definitionName == null)
+      c.definitionName = c.getClass.getSimpleName
   }
 
 

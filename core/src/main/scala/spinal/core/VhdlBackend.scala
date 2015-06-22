@@ -83,13 +83,16 @@ class VhdlBackend extends Backend with VhdlBase {
       parts.foreach(ret ++= _._1)
       ret.result()
     }
+
     var hash: Integer = null
+
     override def hashCode(): Int = {
       if (hash == null) {
         hash = parts.filter(_._2).foldLeft(0)(_ + _._1.result().hashCode())
       }
       hash
     }
+
     override def equals(obj: scala.Any): Boolean = {
       if (this.hashCode() != obj.hashCode()) return false //Colision into hashmap implementation don't check it XD
       obj match {
@@ -534,7 +537,7 @@ class VhdlBackend extends Backend with VhdlBase {
         |    end if;
         |		return ret;
         |  end pkg_resize;
-        |""".stripMargin
+        | """.stripMargin
 
 
     ret ++=
@@ -549,7 +552,7 @@ class VhdlBackend extends Backend with VhdlBase {
         |    end if;
         |		return ret;
         |  end pkg_resize;
-        |""".stripMargin
+        | """.stripMargin
     ret ++= s"end $packageName;\n"
     ret ++= "\n"
     ret ++= "\n"
@@ -561,6 +564,7 @@ class VhdlBackend extends Backend with VhdlBase {
     val ret = builder.newPart(true)
     emitLibrary(ret)
   }
+
   def emitLibrary(ret: StringBuilder): Unit = {
     ret ++= "library ieee;\n"
     ret ++= "use ieee.std_logic_1164.all;\n"
@@ -628,6 +632,13 @@ class VhdlBackend extends Backend with VhdlBase {
     }
   }
 
+  def blackBoxRemplaceULogic(b: BlackBox, str: String): String = {
+    if (b.isUsingULogic)
+      str.replace("std_logic", "std_ulogic")
+    else
+      str
+  }
+
   def emitBlackBoxComponent(component: BlackBox, ret: StringBuilder): Unit = {
     ret ++= s"\n  component ${component.definitionName} is\n"
     val genericFlat = component.getGeneric.flatten
@@ -635,7 +646,7 @@ class VhdlBackend extends Backend with VhdlBase {
       ret ++= s"    generic(\n"
       for ((name, e) <- genericFlat) {
         e match {
-          case baseType: BaseType => ret ++= s"      ${emitReference(baseType)} : ${emitDataType(baseType, false)};\n"
+          case baseType: BaseType => ret ++= s"      ${emitReference(baseType)} : ${blackBoxRemplaceULogic(component, emitDataType(baseType, false))};\n"
           case s: String => ret ++= s"      $name : string;\n"
           case i: Int => ret ++= s"      $name : integer;\n"
           case d: Double => ret ++= s"      $name : real;\n"
@@ -655,7 +666,7 @@ class VhdlBackend extends Backend with VhdlBase {
     component.nodes.foreach(_ match {
       case baseType: BaseType => {
         if (baseType.isIo) {
-          ret ++= s"      ${baseType.getName()} : ${emitDirection(baseType)} ${emitDataType(baseType, false)};\n"
+          ret ++= s"      ${baseType.getName()} : ${emitDirection(baseType)} ${blackBoxRemplaceULogic(component, emitDataType(baseType, false))};\n"
         }
       }
       case _ =>
@@ -798,6 +809,7 @@ class VhdlBackend extends Backend with VhdlBase {
 
     sensitivity
   }
+
   def emitAsyncronous(component: Component, ret: StringBuilder, funcRet: StringBuilder): Unit = {
 
     var processCounter = 0
@@ -1105,6 +1117,7 @@ class VhdlBackend extends Backend with VhdlBase {
     val that = func.asInstanceOf[ExtractBitsVectorFixed]
     s"pkg_extract(${emitLogic(that.getBitVector)},${that.getHi},${that.getLo})"
   }
+
   def extractBitVectorFloating(func: Modifier): String = {
     val that = func.asInstanceOf[ExtractBitsVectorFloating]
     s"pkg_dummy(${emitLogic(that.getBitVector)}(to_integer(${emitLogic(that.getOffset)}) + ${that.getBitCount.value - 1}  downto to_integer(${emitLogic(that.getOffset)})))"
@@ -1425,6 +1438,7 @@ class VhdlBackend extends Backend with VhdlBase {
   def emitComponentInstances(component: Component, ret: StringBuilder): Unit = {
     for (kind <- component.kinds) {
       val isBB = kind.isInstanceOf[BlackBox]
+      val isBBUsingULogic = isBB &&  kind.asInstanceOf[BlackBox].isUsingULogic
       val definitionString = if (isBB) kind.definitionName
       else s"entity $library.${
         emitedComponentRef.getOrElse(kind, kind).definitionName
@@ -1432,31 +1446,50 @@ class VhdlBackend extends Backend with VhdlBase {
       ret ++= s"  ${
         kind.getName()
       } : $definitionString\n"
+
+
+      def addULogicCast(bt : BaseType,io : String,logic : String,dir: IODirection): String = {
+
+        if (isBBUsingULogic)
+          if (dir == in) {
+            bt match {
+              case _: Bool => return s"      $io => std_ulogic($logic),\n"
+              case _: Bits => return s"      $io => std_ulogic_vector($logic),\n"
+              case _ => return s"      $io => $logic,\n"
+            }
+          } else if (dir == spinal.core.out) {
+            bt match {
+              case _: Bool => return s"      std_ulogic($io) => $logic,\n"
+              case _: Bits => return s"      std_ulogic_vector($io) => $logic,\n"
+              case _ => return s"      $io => $logic,\n"
+            }
+          } else SpinalError("???")
+
+        else
+          return s"      $io => $logic,\n"
+      }
+
       if (kind.isInstanceOf[BlackBox]) {
         val bb = kind.asInstanceOf[BlackBox]
         val genericFlat = bb.getGeneric.flatten
+
         if (genericFlat.size != 0) {
           ret ++= s"    generic map(\n"
 
 
           for ((name, e) <- genericFlat) {
             e match {
-              case baseType: BaseType => ret ++= s"      ${emitReference(baseType)} => ${emitLogic(baseType.inputs(0))},\n"
+              case baseType: BaseType => ret ++= addULogicCast(baseType,emitReference(baseType),emitLogic(baseType.inputs(0)),in)
               case s: String => ret ++= s"      ${name} => ${"\""}${s}${"\""},\n"
               case i: Int => ret ++= s"      ${name} => $i,\n"
               case d: Double => ret ++= s"      ${name} => $d,\n"
               case b: Boolean => ret ++= s"      ${name} => $b,\n"
-              case t : STime => {
+              case t: STime => {
                 val d = t.decompose
                 ret ++= s"      ${name} => ${d._1} ${d._2},\n"
               }
             }
           }
-          //          genericFlat.foreach(_._2 match {
-          //            case baseType: BaseType => {
-          //              ret ++= s"      ${emitReference(baseType)} => ${emitLogic(baseType.inputs(0))},\n"
-          //            }
-          //          })
           ret.setCharAt(ret.size - 2, ' ')
           ret ++= s"    )\n"
         }
@@ -1466,19 +1499,11 @@ class VhdlBackend extends Backend with VhdlBase {
         if (data.isOutput) {
           val bind = component.kindsOutputsToBindings.getOrElse(data, null)
           if (bind != null) {
-            ret ++= s"      ${
-              emitReference(data)
-            } => ${
-              emitReference(bind)
-            },\n"
+            ret ++= addULogicCast(data,emitReference(data),emitReference(bind),data.dir)
           }
         }
         else if (data.isInput)
-          ret ++= s"      ${
-            emitReference(data)
-          } => ${
-            emitReference(data.inputs(0))
-          },\n"
+          ret ++= addULogicCast(data,emitReference(data),emitReference(data.inputs(0)),data.dir)
       }
       ret.setCharAt(ret.size - 2, ' ')
 

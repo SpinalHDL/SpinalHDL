@@ -99,7 +99,7 @@ object ClockDomain {
 
 
 
-class ClockDomain(val config: ClockDomainConfig, val clock: Bool, val reset: Bool = null, val clockEnable: Bool = null,val frequancy : IClockDomainFrequency = UnknownFrequency()) {
+class ClockDomain(val config: ClockDomainConfig, val clock: Bool, val reset: Bool = null, val clockEnable: Bool = null,val frequency : IClockDomainFrequency = UnknownFrequency()) {
   def hasClockEnable = clockEnable != null
   def hasReset = reset != null
 
@@ -128,7 +128,7 @@ class ClockDomain(val config: ClockDomainConfig, val clock: Bool, val reset: Boo
   }
 
 
-  def clone(config: ClockDomainConfig = config, clock: Bool = clock, reset: Bool = reset, clockEnable: Bool = clockEnable): ClockDomain = new ClockDomain(config, clock, reset, clockEnable,frequancy)
+  def clone(config: ClockDomainConfig = config, clock: Bool = clock, reset: Bool = reset, clockEnable: Bool = clockEnable): ClockDomain = new ClockDomain(config, clock, reset, clockEnable,frequency)
 }
 
 case class UnknownFrequency() extends IClockDomainFrequency{

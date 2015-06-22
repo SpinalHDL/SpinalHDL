@@ -7,42 +7,45 @@ import spinal.lib._
  * Created by PIC32F_USER on 20/06/2015.
  */
 
-case class LamdaBlackBoxA(_bitsWidth : Int) extends BlackBox{
-  val generic = new Generic{
+case class LamdaBlackBoxA(_bitsWidth: Int) extends BlackBoxULogic {
+  val generic = new Generic {
     val bitsWidth = _bitsWidth
     val myTime = 2.3 ns
     val myTime2 = 42 ms
   }
 
-  val io = new Bundle{
-    val src = slave Stream(Bits(_bitsWidth bit))
-    val dst = master Stream(Bits(_bitsWidth bit))
+  val io = new Bundle {
+    val src = slave Stream (Bits(_bitsWidth bit))
+    val dst = master Stream (Bits(_bitsWidth bit))
   }
+
 }
 
-case class LamdaBlackBoxB(_bitsWidth : Int) extends BlackBox{
-  val src = slave Stream(Bits(_bitsWidth bit))
-  val dst = master Stream(Bits(_bitsWidth bit))
+case class LamdaBlackBoxB(_bitsWidth: Int) extends BlackBox {
+  val src = slave Stream (Bits(_bitsWidth bit))
+  val dst = master Stream (Bits(_bitsWidth bit))
 }
 
-case class LamdaComponentC(_bitsWidth : Int) extends Component{
-  val io = new Bundle{
-    val src = slave Stream(Bits(_bitsWidth bit))
-    val dst = master Stream(Bits(_bitsWidth bit))
+case class LamdaComponentC(_bitsWidth: Int) extends Component {
+  val io = new Bundle {
+    val src = slave Stream (Bits(_bitsWidth bit))
+    val dst = master Stream (Bits(_bitsWidth bit))
   }
 
   io.dst << io.src
 }
 
-case class LambdaComponent(bitsWidth : Int) extends Component{
-  val io = new Bundle{
-    val src = slave Stream(Bits(bitsWidth bit))
-    val dst = master Stream(Bits(bitsWidth bit))
+case class LambdaComponent(bitsWidth: Int) extends Component {
+  val io = new Bundle {
+    val src = slave Stream (Bits(bitsWidth bit))
+    val dst = master Stream (Bits(bitsWidth bit))
 
-    val xx = if(true) new Bundle{
-      val a : Bool = in Bool
-      val b : Bool = out Bool
-    } else null
+    val xx = ifGen(true)(
+      new Bundle {
+        val a: Bool = in Bool
+        val b: Bool = out Bool
+      }
+    )
   }
   val blackBoxA = LamdaBlackBoxA(bitsWidth)
   val blackBoxB = LamdaBlackBoxB(bitsWidth)
@@ -58,11 +61,12 @@ case class LambdaComponent(bitsWidth : Int) extends Component{
 
 
   import scala.concurrent.duration._
+
   Duration
 }
 
 object BlackBoxTry {
   def main(args: Array[String]) {
-    SpinalVhdl(LambdaComponent(8))
+    SpinalVhdl(LambdaComponent(8), _.setDefaultClockFrequency(FixedFrequency(100e6)))
   }
 }

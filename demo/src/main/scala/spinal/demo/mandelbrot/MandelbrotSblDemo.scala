@@ -29,7 +29,7 @@ class MandelbrotSblDemo(frameAddressOffset: Int, p: MandelbrotCoreParameters, co
   val core = new ClockingArea(coreClk) {
     val uart = new Area {
       val ctrl = new UartCtrl()
-      ctrl.io.clockDivider := BigInt((coreClk.frequancy.getValue / 57.6e3 / 8).toLong)
+      ctrl.io.clockDivider := BigInt((coreClk.frequency.getValue / 57.6e3 / 8).toLong)
       ctrl.io.config.dataLength := 7
       ctrl.io.config.parity := UartParityType.eParityNone
       ctrl.io.config.stop := UartStopType.eStop1bit

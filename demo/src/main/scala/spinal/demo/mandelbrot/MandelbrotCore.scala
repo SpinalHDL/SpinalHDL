@@ -55,7 +55,7 @@ class FrameTaskFilter(p: MandelbrotCoreParameters) extends Component {
     ptr
   }
 
-  val clkHz = ClockDomain.current.frequancy.getValue
+  val clkHz = ClockDomain.current.frequency.getValue
   val filterTaos = Seq(1.0, 2.0)
   val filterHz = 120.0
 

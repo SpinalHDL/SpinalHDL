@@ -257,3 +257,12 @@ object SpinalError {
 
   def printError(message: String) = println(s"[Error] $message")
 }
+
+object ifGen{
+  def apply[T](cond : Boolean)(block : => T) : T = {
+    if(cond)
+      return block
+    else
+      return null.asInstanceOf[T]
+  }
+}
