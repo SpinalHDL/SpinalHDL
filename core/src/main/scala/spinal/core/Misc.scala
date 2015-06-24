@@ -89,6 +89,40 @@ object Misc {
 
 
   //TODO find if there is a solution to keep declaration order in every case, then remove fix from component.nameElements
+//  def reflect(o: Object, onEach: (String, Any) => Unit,namePrefix :String = ""): Unit = {
+//    val refs = mutable.Set[Any]()
+//    val ru = scala.reflect.runtime.universe
+//    val runtimeMirror = ru.runtimeMirror(o.getClass.getClassLoader)
+//    val instanceMirror = runtimeMirror.reflect(o)
+//    val symbols = instanceMirror.symbol.typeSignature.members.sorted
+//    for(symbol <- symbols){
+//      if(symbol.isMethod){
+//        val method = symbol.asMethod
+//        if(method.isGetter && method.isPublic){
+//          val fieldRef = instanceMirror.reflectMethod(method.asMethod).apply()
+//          if (fieldRef != null && !refs.contains(fieldRef)) {
+//            val name = namePrefix + method.name
+//            fieldRef match {
+//              case vec: Vec[_] =>
+//              case seq: Seq[_] => {
+//                for ((obj, i) <- seq.zipWithIndex) {
+//                  onEach(name + i, obj.asInstanceOf[Object])
+//                  refs += fieldRef
+//                }
+//              }
+//              case zone : Area => {
+//                reflect(zone,onEach,name + "_")
+//              }
+//              case _ =>
+//            }
+//            onEach(name, fieldRef)
+//            refs += fieldRef
+//          }
+//        }
+//      }
+//    }
+//  }
+
   def reflect(o: Object, onEach: (String, Object) => Unit,namePrefix :String = ""): Unit = {
     val refs = mutable.Set[Object]()
     explore(o.getClass)
@@ -101,10 +135,6 @@ object Misc {
       val fields = c.getDeclaredFields
       def isValDef(m: java.lang.reflect.Method) = fields exists (fd => fd.getName == m.getName && fd.getType == m.getReturnType)
       val methods = c.getDeclaredMethods filter (m => m.getParameterTypes.isEmpty && isValDef(m))
-
-
-
-
 
 
 
@@ -147,7 +177,6 @@ object Misc {
     to.inputs(inputId) = resize
     Component.pop(that.component)
   }
-
 
 }
 

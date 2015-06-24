@@ -95,7 +95,7 @@ abstract class XFix[T <: XFix[T,R],R <: Data with Num[R]](val exp : Int,val bitC
 
 
 //Fix autoconnect
-class SFix(exp : Int,bitCount : Int) extends XFix[SFix,SInt](exp,bitCount){
+class SFix(exp : Int,bitCount : Int) extends XFix[SFix,SInt](exp,bitCount) {
   override def rawFactory(exp: Int, bitCount: Int): SInt = SInt(bitCount bit)
   override def fixFactory(exp: Int, bitCount: Int): SFix = SFix(exp,bitCount bit)
 
@@ -111,8 +111,12 @@ class SFix(exp : Int,bitCount : Int) extends XFix[SFix,SInt](exp,bitCount){
   def <=(that : SFix): Bool = doSmallerEguals(that)
   def >=(that : SFix): Bool = that.doSmallerEguals(this)
 
-  //TODO assert if that is greater or smaller than max/max of this
+
   def >=(that : Double): Bool = {
+    if(that > maxValue){
+      SpinalWarning("Impossible comparaison at " + ScalaLocated.getScalaTrace)
+      return False
+    }
     val other = cloneOf(this)
     other := that
     this >= other
@@ -130,6 +134,11 @@ class SFix(exp : Int,bitCount : Int) extends XFix[SFix,SInt](exp,bitCount){
     this init(initValue)
     this
   }
+
+  def maxValue : Double = {
+    Math.pow(2.0,exp)*(1.0-1.0/(math.pow(2.0,bitCount-1)))
+  }
+  def minValue : Double = -Math.pow(2.0,exp)
 
   override def clone(): this.type = new SFix(exp,bitCount).asInstanceOf[this.type]
 }

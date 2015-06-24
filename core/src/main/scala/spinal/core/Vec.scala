@@ -127,20 +127,16 @@ class Vec[T <: Data](_dataType: T,val vec : Vector[T]) extends MultiData with co
 
 
   def apply(address: UInt): T = {
-//    length match{
-//      case 1 =>
-//      case _ => access(address)
-//    }
     access(address)
   }
 
-  //TODO manage if addess as not enough bits
+
   def access(address: UInt): T = {
     val key = (Component.current,address)
     if (accessMap.contains(key)) return accessMap(key)
 
 
-    val ret = SeqMux(vec, address)
+    val ret = SeqMux(vec.take(Math.min(vec.length,1 << address.getWidth)), address)
     val enables = (U(1) << address).toBools
     for ((accessE, to) <- (ret.flatten, vecTransposed).zipped) {
       accessE.compositeAssign = new VecAccessAssign(enables,to)

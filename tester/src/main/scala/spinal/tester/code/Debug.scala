@@ -61,7 +61,7 @@ object Debug {
   object MyEnum2 extends SpinalEnum{
     val s0,s1,s2 = Value
   }
-  class TopLevel extends Component {
+  class TopLevel(a : Int) extends Component {
 
     val io = new Bundle {
 //      val in1 = in (new MyBundle)
@@ -82,6 +82,9 @@ object Debug {
       val boolToUnsigned = out UInt()
       val tt = out Bool
     }
+    println(io.elements.mkString("\n"))
+    SFix(4,8 bit).maxValue
+    SFix(4,8 bit).minValue
 
 
     val newInput = in Bool
@@ -142,6 +145,8 @@ object Debug {
     val coefs = (0 until firLength).map(i => S(((0.54-0.46*Math.cos(2*Math.PI*i/firLength))*32767/firLength).toInt,16 bit))
     io.fir := (coefs,Delays(io.sin,firLength)).zipped.map((coef,delay) => (coef * delay) >> 15).reduce(_ + _)
 
+    nameElements()
+
   }
 
 
@@ -151,7 +156,7 @@ object Debug {
     val b = new B
     val c = new C(2)
 
-    SpinalVhdl(new TopLevel)
+    SpinalVhdl(new TopLevel(2))
     println("DONE")
   }
 
