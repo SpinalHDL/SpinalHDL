@@ -19,7 +19,6 @@
 package spinal.core
 
 import scala.collection.mutable
-import scala.reflect.macros.blackbox
 
 
 class EnumLiteral[T <: SpinalEnum](val enum: SpinalEnumElement[T]) extends Literal {

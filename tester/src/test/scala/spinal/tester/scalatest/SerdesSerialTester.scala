@@ -2,6 +2,7 @@ package spinal.tester.scalatest
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.serdes.UnderTest._
 import spinal.lib.serdes._
 
 object SerdesSerialTester {
@@ -36,7 +37,6 @@ class SerdesSerialTester extends Component {
 
   val serialCheckerTx = new SerialCheckerTx(8)
   serialCheckerTx.io.input << serialLinkTx.io.output
-  //serialCheckerTx.io.input << serialCheckerRx.io.output
 
   val physicalTx = new SerialCheckerPhysicalToSerial(8)
   physicalTx.io.input << serialCheckerTx.io.output

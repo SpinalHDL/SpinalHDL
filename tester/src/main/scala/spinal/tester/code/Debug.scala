@@ -18,6 +18,8 @@
 
 package spinal.tester.code
 
+
+import spinal.core.MacroTest._
 import spinal.core._
 import spinal.lib._
 
@@ -82,7 +84,7 @@ object Debug {
       val boolToUnsigned = out UInt()
       val tt = out Bool
     }
-    println(io.elements.mkString("\n"))
+//    println(io.elements.mkString("\n"))
     SFix(4,8 bit).maxValue
     SFix(4,8 bit).minValue
 
@@ -147,6 +149,8 @@ object Debug {
 
     nameElements()
 
+
+
   }
 
 
@@ -158,9 +162,15 @@ object Debug {
 
     SpinalVhdl(new TopLevel(2))
     println("DONE")
-  }
 
+
+
+
+  }
+//  createEnum("asd")
 }
 
 
-
+//object MyEnum extends  spinal.core.MacroTest.mkObject("asd")
+//
+//

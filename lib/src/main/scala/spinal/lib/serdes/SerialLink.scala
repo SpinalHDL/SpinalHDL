@@ -5,13 +5,9 @@ import spinal.lib._
 
 object SerialLinkConst {
   def cData = B"01"
-
   def cClose = B"02"
-
   def cOpen = B"03"
-
   def cIsClose = B"04"
-
   def cIsOpen = B"05"
 
   def chunkDataSizeMax = 32
@@ -44,65 +40,69 @@ class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) ext
     val rxToTx = in(new SerialLinkRxToTx)
   }
 
-  val resendTimeout = Timeout(resendTimeoutLimit)
-  val aliveTimeout = Timeout(resendTimeoutLimit) //TODO implement logic
 
+  //Timeouts
+  val resendTimeout = Timeout(resendTimeoutLimit)
+  val aliveTimeout = Timeout(resendTimeoutLimit)
+
+  //tx buffer management
   val buffer = new Area {
     val ram = Mem(Bits(bitsWidth bit), bufferSize)
 
-    val writePtr = Counter(1 << 16)
-    val readPtr = Counter(1 << 16)
-    val syncPtr = Reg(UInt(16 bit))
+    //Ring/Fifo ptr
+    val writePtr = Counter(1 << 17)
+    val readPtr = Counter(1 << 17)
+    val syncPtr = Reg(UInt(17 bit))  //Last RX ack from the remote controller
 
+    when(syncPtr === writePtr){
+      resendTimeout.clear
+    }
 
+    //Capacity flags
     val empty = writePtr(log2Up(bufferSize), 0) === readPtr(log2Up(bufferSize), 0)
     val full = writePtr(log2Up(bufferSize), 0) === (readPtr(log2Up(bufferSize), 0) ^ bufferSize)
 
+    //Fill the buffer from upper layer data
     io.input.ready := !full
     when(io.input.fire) {
       ram.write(writePtr, io.input.data)
       writePtr ++
     }
 
+    //manage syncPtr from rxToTx notification port
     when(io.rxToTx.otherRxPtr.fire) {
-      syncPtr := io.rxToTx.otherRxPtr.data
       when(syncPtr !== io.rxToTx.otherRxPtr.data) {
         resendTimeout.clear
       }
+      syncPtr := io.rxToTx.otherRxPtr.data
     }
 
-    val readCmdFlag = False
-    //No overflow protection !
-    val readCmd = Stream(UInt(log2Up(bufferSize) bit))
-    readCmd.valid := readCmdFlag
-    readCmd.data := readPtr
-    when(readCmd.fire) {
-      readPtr ++
-    }
-    val readPort = ram.streamReadSync(readCmd)
+    //read managment
+    val readFlag = False
+    val readPort = ram.readSync(readPtr,readFlag)
+    readPtr.increment := readFlag
 
   }
 
-  val close = RegInit(True)
-  val open = RegInit(False)
-  when(io.rxToTx.close) {
-    close := True
-  }
-  when(io.rxToTx.open) {
-    open := True
-  }
+  //Close/Open TX flags
+  val sendClosingNotification = RegInit(True)
+  val sendOpeningNotification = RegInit(False)
+  sendClosingNotification := io.rxToTx.close | io.rxToTx.close
+  sendOpeningNotification := io.rxToTx.open | io.rxToTx.open
 
 
+  val otherWindow = 32 //TODO
+
+  //Main state machine, it handle the protocole
   val statemachine = new Area {
     val state = RegInit(eNewFrame)
     val dataBuffer = Reg(Bits(8 bit))
-    val dataCounter = Reg(UInt(log2Up(burstSize) bit))
+    val txDataLeft = Reg(UInt(log2Up(burstSize+1) bit))
+    val txDataLeftIsZero = txDataLeft === 0
     val isLastData = Reg(Bool)
     val isOpen = RegInit(False)
 
-    when(buffer.readCmd.fire) {
-      dataCounter := dataCounter + 1
-    }
+    //State before the connection opening
     when(!isOpen) {
       buffer.writePtr.valueNext := 0
       buffer.readPtr.valueNext := 0
@@ -111,36 +111,41 @@ class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) ext
 
     io.output.valid := False
     io.output.last := False
-    io.output.fragment := buffer.readPort.data
-    buffer.readPort.ready := io.output.ready
+    io.output.fragment := buffer.readPort
 
+    when(buffer.readFlag){
+      txDataLeft := txDataLeft - 1
+    }
+
+    //Statemachine switch case
     switch(state) {
       is(eNewFrame) {
         when(resendTimeout) {
           buffer.readPtr.valueNext := buffer.syncPtr
           resendTimeout.clear
-        }.elsewhen(close) {
+        }.elsewhen(sendClosingNotification) {
           io.output.valid := True
           io.output.last := True
           io.output.fragment := cIsClose
           isOpen := False
           when(io.output.ready) {
-            close := False
+            sendClosingNotification := False
           }
-        }.elsewhen(open) {
+        }.elsewhen(sendOpeningNotification) {
           io.output.valid := True
           io.output.last := True
           io.output.fragment := cIsOpen
           isOpen := True
           when(io.output.ready) {
-            open := False
+            sendOpeningNotification := False
           }
         }.elsewhen(isOpen && (!buffer.empty || aliveTimeout)) {
           io.output.valid := True
           io.output.fragment := cData
           when(io.output.ready) {
             state := eMyPtr0
-            dataCounter := 0
+            val otherRxBufferFreeSpace = otherWindow - (buffer.readPtr - buffer.syncPtr)
+            txDataLeft := Mux(burstSize <  otherRxBufferFreeSpace,burstSize,burstSize)
           }
         }
       }
@@ -177,28 +182,31 @@ class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) ext
         io.output.valid := True
         io.output.fragment := toBits(buffer.readPtr(15, 8))
 
-        when(buffer.empty) {
+        when(buffer.empty || txDataLeftIsZero) {
           io.output.last := True
           when(io.output.ready) {
             state := eNewFrame
           }
         } otherwise {
-          buffer.readCmdFlag := True
           when(io.output.ready) {
             state := eData
+            buffer.readFlag := True
           }
         }
         isLastData := False
       }
       is(eData) {
         io.output.valid := True
-        when((dataCounter !== burstSize - 1) && !buffer.empty && !isLastData) {
-          buffer.readCmdFlag := True
+        when(!txDataLeftIsZero && !buffer.empty && !isLastData) {
+          buffer.readFlag := io.output.ready
         } otherwise {
           isLastData := True
           io.output.last := True
+          io.output.fragment := buffer.readPort
           when(io.output.ready) {
             state := eNewFrame
+            resendTimeout.clear
+            aliveTimeout.clear
           }
         }
       }

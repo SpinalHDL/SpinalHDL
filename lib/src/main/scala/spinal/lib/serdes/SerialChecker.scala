@@ -29,7 +29,6 @@ class SerialCheckerPhysical(bitsWidth: Int) extends Bundle {
 
 class SerialCheckerTx(bitsWidth: Int) extends Component {
 
-  import SerialCheckerConst._
   import SerialCheckerTxState._
 
   val io = new Bundle {
