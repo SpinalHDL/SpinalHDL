@@ -130,6 +130,24 @@ object switch {
 
 object is {
 
+
+  def apply(value: Int)(block: => Unit): Unit = is(value :: Nil)(block)
+  def apply(value: Int, values: Int*)(block: => Unit): Unit = is(value :: values.toList)(block)
+  //def apply(keys : Seq[Int])(block: => Unit): Unit = is(keys.map(BigInt(_)))(block)
+  def apply(keys : Seq[Int])(block: => Unit): Unit = {
+    if (keys.isEmpty) SpinalError("There is no key in 'is' statement")
+    val globalData = GlobalData.get
+    if (globalData.switchStack.isEmpty) SpinalError("Use 'is' statement outside the 'switch'")
+    val value = globalData.switchStack.head().value
+    value match{
+      case x : Bits => is(keys.map(B(_)))(block)
+      case x : UInt => is(keys.map(U(_)))(block)
+      case x : SInt => is(keys.map(S(_)))(block)
+      case _ => SpinalError("The switch is not a Bits, UInt or SInt")
+    }
+  }
+
+
   def apply[T <: Data](value: T)(block: => Unit): Unit = is(value :: Nil)(block)
   def apply[T <: Data](value: T, values: T*)(block: => Unit): Unit = is(value :: values.toList)(block)
 
