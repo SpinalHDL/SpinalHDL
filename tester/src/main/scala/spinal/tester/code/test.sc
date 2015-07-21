@@ -1,7 +1,4 @@
 
-
 import spinal.core._
-val x  = 4 bit
 
-
-
+//10 x UInt(10 bit)

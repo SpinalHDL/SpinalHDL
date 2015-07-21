@@ -239,7 +239,7 @@ class Backend {
 
 
     for ((mem, topo) <- memsTopo.iterator if forceMemToBlackboxTranslation || mem.forceMemToBlackboxTranslation
-                                          if mem.initialContant == null) {
+                                          if mem.initialContent == null) {
 
       if (topo.writes.size == 1 && topo.readsAsync.size == 1 && topo.readsSync.size == 0 && topo.writeReadSync.size == 0 && topo.writeOrReadSync.size == 0) {
         val wr = topo.writes(0)

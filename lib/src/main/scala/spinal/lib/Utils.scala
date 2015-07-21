@@ -32,7 +32,7 @@ object OHToUInt {
     if (boolsSize < 2) return U(0)
 
     val retBitCount = log2Up(bools.size)
-    val ret = Vec(retBitCount, Bool)
+    val ret = Vec(Bool,retBitCount)
 
     for (retBitId <- 0 until retBitCount) {
       var bit: Bool = null

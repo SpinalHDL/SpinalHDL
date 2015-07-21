@@ -11,7 +11,7 @@ object Ipv6RxState extends SpinalEnum {
 
 class Ipv6Rx extends Component {
   val io = new Bundle {
-    val ip = in Vec(16, Bits(8 bit))
+    val ip = in Vec(Bits(8 bit),16)
 
     // IPV6
     val inFrame = slave Stream Fragment(Bits(8 bit))
@@ -39,7 +39,7 @@ class Ipv6Rx extends Component {
     val readPort = ram.readSync(readPtr, readFlag)
     readPtr.increment := readFlag
 
-    //User interfae
+    //User interface
     def writeAt(at: UInt): Unit = {
       writeFlag := True
       writePtr := at
@@ -124,7 +124,7 @@ object Ipv6TxState extends SpinalEnum {
 
 class Ipv6Tx extends Component {
   val io = new Bundle {
-    val ip = in Vec(16, Bits(8 bit))
+    val ip = in Vec(Bits(8 bit),16)
 
     // Next Header / PayloadLength / dst address / Data
     val inFrame = slave Stream Fragment(Bits(8 bit))
@@ -158,7 +158,7 @@ class Ipv6Tx extends Component {
           io.outFrame.valid := True
           io.outFrame.fragment := 0x60
         }
-        is(1,2,3) {
+        is(1, 2, 3) {
           io.outFrame.valid := True
           io.outFrame.fragment := 0x00
         }

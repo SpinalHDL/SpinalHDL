@@ -26,7 +26,60 @@ object MacroTest {
 //  def createEnum(ename: String): Unit = macro createEnumImpl
 
 
+    def createEnumImpl(c: scala.reflect.macros.blackbox.Context)(ename: c.Expr[String]) = {
+      import c.universe._
 
+      val Literal(Constant(s_ename: String)) = ename.tree
+      val oname = TermName(s_ename)
+
+      val barLine = q"val bar: Int = 5"
+      //q"object $oname { $barLine }"
+      barLine
+    }
+
+    def createEnum(ename: String): Unit = macro createEnumImpl
+
+//  def mkObject(param: Any*) = macro mkObjectImpl
+//  def mkObjectImpl(c: scala.reflect.macros.blackbox.Context)(param: c.Expr[Any]*) = {
+//    import c.universe._
+////    reify { object Toto{
+////      def a = println("asd")
+////    } }
+//    //q"val bar: Int = 5"
+//    c.Expr(q"object yolo{}")
+//  }
+
+  import scala.language.experimental.macros
+  import scala.reflect.macros.Context
+
+  /* Make an instance of a structural type with the named member. */
+  def bar(name: String): Any = macro bar_impl
+
+  def bar_impl(c: Context)(name: c.Expr[String]) = {
+    import c.universe._
+    val anon = TypeName(c.freshName)
+    // next week, val q"${s: String}" = name.tree
+    val Literal(Constant(s: String)) = name.tree
+    val A    = TermName(s)
+    val dmmy = TermName(c.freshName)
+    val tree = q"""
+      class $anon {
+        def $A(i: Int): Int = 2 * i
+        def asd = 2
+      }
+      val $dmmy = 0
+      new $anon
+    """
+    // other ploys
+    //(new $anon).asInstanceOf[{ def $A(i: Int): Int }]
+    // reference the member
+    //val res = new $anon
+    //val $dmmy = res.$A _
+    //res
+    // the canonical ploy
+    //new $anon { }  // braces required
+    c.Expr(tree)
+  }
 }
 //  def mkObject(param: Any*) = macro mkObjectImpl
 //  def mkObjectImpl(c: Context)(param: c.Expr[Any]*): c.Expr[Any] = {

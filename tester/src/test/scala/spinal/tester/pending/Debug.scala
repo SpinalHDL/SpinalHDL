@@ -21,16 +21,36 @@ package spinal.tester.pending
 import spinal.core._
 
 
+object MyEnum extends SpinalEnum{
+  val a = fix(2)
+  val b = fix(3)
+  val c = fix(4)
+  val e,f,g = ordered
+}
+
+
+object MyEnum2{
+  def apply() = Bits(3 bit)
+  def a = 1
+  def b = 2
+  def c = 3
+}
+
+
 object Debug {
 
   //Test new WhenNode system
   class TopLevel extends Component {
     val io = new Bundle {
-      val conds = in Vec(8, Bool)
-      val outs = out Vec(6, Bool)
-
-
+      val conds = in Vec(Bool, 8)
+      val outs = out Vec(Bool, 6)
     }
+    val Hello = Vec(Seq('S','Y','S','I','D','0','1',' ').map(c => B(c.toInt,8 bit)))
+    val b = UInt()
+    b := U(3) + 12
+
+    val size = 2
+    val conds = Vec(UInt(10 bit), 10)
 
     val reg0 = Reg(Bool)
 
@@ -61,11 +81,11 @@ object Debug {
       io.outs(3) := False
     }
 
-    var memo : Bool = null
+    var memo: Bool = null
     when(io.conds(6)) {
       memo = Bool
       memo := io.conds(6)
-      when(io.conds(7)){
+      when(io.conds(7)) {
         memo := False
         io.outs(1) := True
         io.outs(2) := True
@@ -81,7 +101,6 @@ object Debug {
     }.otherwise {
       io.outs(4) := True
     }
-
 
 
   }

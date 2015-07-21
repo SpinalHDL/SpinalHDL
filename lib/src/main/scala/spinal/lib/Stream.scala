@@ -227,15 +227,15 @@ class Stream[T <: Data](_dataType: T) extends Bundle with IMasterSlave with Data
 
 class StreamArbiterCore[T <: Data](dataType: T, val portCount: Int)(arbitrationLogic: (StreamArbiterCore[T]) => Area, lockLogic: (StreamArbiterCore[T]) => Area) extends Component {
   val io = new Bundle {
-    val inputs = Vec(portCount, slave Stream (dataType))
+    val inputs = Vec(slave Stream (dataType),portCount)
     val output = master Stream (dataType)
     val chosen = out UInt (log2Up(portCount) bit)
   }
 
   val locked = RegInit(False)
 
-  val maskProposal = Vec(portCount, Bool)
-  val maskLocked = Reg(Vec(portCount, Bool))
+  val maskProposal = Vec(Bool,portCount)
+  val maskLocked = Reg(Vec(Bool,portCount))
   val maskRouted = Mux(locked, maskLocked, maskProposal)
 
 
@@ -397,9 +397,9 @@ object StreamFork2 {
 class StreamFork[T <: Data](dataType: T, portCount: Int) extends Component {
   val io = new Bundle {
     val input = slave Stream (dataType)
-    val output = Vec(portCount, master Stream (dataType))
+    val output = Vec(master Stream (dataType),portCount)
   }
-  val linkEnable = Vec(portCount, RegInit(True))
+  val linkEnable = Vec(RegInit(True),portCount)
 
   io.input.ready := True
   for (i <- 0 until portCount) {
@@ -426,7 +426,7 @@ class StreamDemux[T <: Data](dataType: T, portCount: Int) extends Component {
   val io = new Bundle {
     val sel = in UInt (log2Up(portCount) bit)
     val input = slave Stream (dataType)
-    val output = Vec(portCount, master Stream (dataType))
+    val output = Vec(master Stream (dataType),portCount)
   }
   io.input.ready := False
   for (i <- 0 to portCount - 1) {
@@ -593,7 +593,7 @@ class StreamCCByToggle[T <: Data](dataType: T, clockIn: ClockDomain, clockOut: C
 class DispatcherInOrder[T <: Data](gen: T, n: Int) extends Component {
   val io = new Bundle {
     val input = slave Stream (gen)
-    val outputs = Vec(n, master Stream (gen))
+    val outputs = Vec(master Stream (gen),n)
   }
   val counter = Counter(n, io.input.fire)
 

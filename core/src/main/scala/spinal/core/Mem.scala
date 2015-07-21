@@ -60,11 +60,11 @@ class Mem[T <: Data](val wordType: T, val wordCount: Int) extends Node with Name
     this
   }
 
-  var initialContant : Seq[T] = null
+  var initialContent : Seq[T] = null
 
   def init(initialContant : Seq[T]): this.type ={
     assert(initialContant.length == wordCount,s"The initial content if the rom doesn't fit with it word count, ${initialContant.length} vs $wordCount " + this.getScalaLocationString )
-    this.initialContant = initialContant
+    this.initialContent = initialContant
     this
   }
 

@@ -739,14 +739,14 @@ class VhdlBackend extends Backend with VhdlBase {
           ret ++= s"  type ${emitReference(mem)}_type is array (0 to ${mem.wordCount - 1}) of std_logic_vector(${mem.getWidth - 1} downto 0);\n"
           //ret ++= emitSignal(mem, mem);
           var initAssignementBuilder = new StringBuilder()
-          if (mem.initialContant != null) {
+          if (mem.initialContent != null) {
             initAssignementBuilder ++= " := ("
-            val values = mem.initialContant.map(e => {
+            val values = mem.initialContent.map(e => {
               e.hashCode()
             })
 
             var first = true
-            for ((e, index) <- mem.initialContant.zipWithIndex) {
+            for ((e, index) <- mem.initialContent.zipWithIndex) {
               if (!first)
                 initAssignementBuilder ++= ","
               else

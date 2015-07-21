@@ -157,7 +157,7 @@ import spinal.lib._
 class MyDataType extends Bundle{
   val a = UInt(8 bit)
   val b = Bool
-  val c = Vec(4,Bool) //Create a array of 4 Bool
+  val c = Vec(Bool,4) //Create a array of 4 Bool
 }
 
 class MultiClockTopLevel extends Component {
@@ -404,7 +404,7 @@ case class RGB(rWidth: Int, gWidth: Int, bWidth: Int) extends Bundle {
 // and product an "sumPort" that is the summation of all "srcPort" with the correct arbitration
 case class StreamRgbAdder(rgbType: RGB, srcCount: Int) extends Component {
   val io = new Bundle {
-    val srcPort = Vec(srcCount, slave(Stream(rgbType)))
+    val srcPort = Vec(slave(Stream(rgbType)),srcCount)
     val sumPort = master(Stream(rgbType))
   }
   val transactionOccure = io.sumPort.valid && io.sumPort.ready

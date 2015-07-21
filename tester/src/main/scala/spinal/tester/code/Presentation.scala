@@ -127,7 +127,7 @@ object C5 {
 object C6 {
   class MyComponent extends Component {
     val io = new Bundle {
-      val conds = in Vec(2, Bool)
+      val conds = in Vec(Bool,2)
       val output = out UInt (4 bit)
     }
 
@@ -169,7 +169,7 @@ object C8 {
   class MyColorSelector(sourceCount: Int, channelWidth: Int) extends Component {
     val io = new Bundle {
       val sel = in UInt (log2Up(sourceCount) bit)
-      val sources = in Vec(sourceCount, Color(channelWidth))
+      val sources = in Vec(Color(channelWidth),sourceCount)
       val result = out Bits (3 * channelWidth bit)
     }
     val selectedSource = io.sources(io.sel)
@@ -209,7 +209,7 @@ object C9 {
 
   class MyColorSummer(sourceCount: Int, channelWidth: Int) extends Component {
     val io = new Bundle {
-      val sources = in Vec(sourceCount, Color(channelWidth))
+      val sources = in Vec(Color(channelWidth),sourceCount)
       val result = out(Color(channelWidth))
     }
 
@@ -263,7 +263,7 @@ object C10_2 {
 
   class StreamArbiter[T <: Data](dataType: T, val portCount: Int) extends Component {
     val io = new Bundle {
-      val inputs = Vec(portCount, slave Stream (dataType))
+      val inputs = Vec(slave Stream (dataType),portCount)
       val output = master Stream (dataType)
       val chosen = out UInt (log2Up(portCount) bit)
     } //...
@@ -272,7 +272,7 @@ object C10_2 {
   class StreamFork[T <: Data](dataType: T, portCount: Int) extends Component {
     val io = new Bundle {
       val input = slave Stream (dataType)
-      val output = Vec(portCount, master Stream (dataType))
+      val output = Vec(master Stream (dataType),portCount)
     } //...
   }
 
@@ -551,7 +551,7 @@ object C15 {
   // and product an "sumPort" that is the summation of all "srcPort" with the correct arbitration
   case class StreamRgbAdder(rgbType: RGB, srcCount: Int) extends Component {
     val io = new Bundle {
-      val srcPort = Vec(srcCount, slave(Stream(rgbType)))
+      val srcPort = Vec(slave(Stream(rgbType)),srcCount)
       val sumPort = master(Stream(rgbType))
     }
     val transactionOccure = io.sumPort.valid && io.sumPort.ready

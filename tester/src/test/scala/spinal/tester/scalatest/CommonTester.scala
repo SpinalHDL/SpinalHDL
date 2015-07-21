@@ -40,7 +40,7 @@ object CommonTester {
 
   class CommonTester extends Component {
     val io = new Bundle {
-      val conds = in Vec(8, Bool)
+      val conds = in Vec(Bool,8)
 
       val inUIntA = in UInt (8 bit)
       val inUIntB = in UInt (8 bit)
@@ -55,7 +55,7 @@ object CommonTester {
 
 
       val assign = new Bundle{
-        val sel = in Vec(4,UInt(4 bit))
+        val sel = in Vec(UInt(4 bit),4)
         val bitDemux = out Bits(16 bit)
 
 

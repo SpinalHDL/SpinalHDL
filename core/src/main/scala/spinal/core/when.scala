@@ -19,6 +19,7 @@
 package spinal.core
 
 import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
 
 /**
  * Created by PIC18F on 11.01.2015.
@@ -106,7 +107,7 @@ class when(val cond: Bool) extends GlobalDataUser {
 
 class SwitchStack(val value: Data) {
   var lastWhen: when = null
-  var defaultBlock : () => Unit = null
+  var defaultBlock: () => Unit = null
   val whenStackHead = GlobalData.get.whenStack.head()
 }
 
@@ -116,10 +117,10 @@ object switch {
     val s = new SwitchStack(value)
     value.globalData.switchStack.push(s)
     block
-    if(s.defaultBlock != null){
-      if(s.lastWhen == null){
+    if (s.defaultBlock != null) {
+      if (s.lastWhen == null) {
         block
-      }else{
+      } else {
         s.lastWhen.otherwise(s.defaultBlock())
       }
     }
@@ -129,47 +130,49 @@ object switch {
 
 
 object is {
+  def apply(value: Any*)(block: => Unit): Unit = {
+    val e = ArrayBuffer[Data]()
 
-
-  def apply(value: Int)(block: => Unit): Unit = is(value :: Nil)(block)
-  def apply(value: Int, values: Int*)(block: => Unit): Unit = is(value :: values.toList)(block)
-  //def apply(keys : Seq[Int])(block: => Unit): Unit = is(keys.map(BigInt(_)))(block)
-  def apply(keys : Seq[Int])(block: => Unit): Unit = {
-    if (keys.isEmpty) SpinalError("There is no key in 'is' statement")
-    val globalData = GlobalData.get
-    if (globalData.switchStack.isEmpty) SpinalError("Use 'is' statement outside the 'switch'")
-    val value = globalData.switchStack.head().value
-    value match{
-      case x : Bits => is(keys.map(B(_)))(block)
-      case x : UInt => is(keys.map(U(_)))(block)
-      case x : SInt => is(keys.map(S(_)))(block)
-      case _ => SpinalError("The switch is not a Bits, UInt or SInt")
+    def analyse(key: Any): Unit = {
+      key match {
+        case that: Data => e.+=(that)
+        case that: Seq[_] => that.foreach(analyse(_))
+        case that: Int => {
+          val globalData = GlobalData.get
+          if (globalData.switchStack.isEmpty) SpinalError("Use 'is' statement outside the 'switch'")
+          val value = globalData.switchStack.head().value
+          value match {
+            case x: Bits => e += B(that)
+            case x: UInt => e += U(that)
+            case x: SInt => e += S(that)
+            case _ => SpinalError("The switch is not a Bits, UInt or SInt")
+          }
+        }
+        case that : SpinalEnumElement[_] => e += that()
+      }
     }
+
+    for (v <- value) {
+      analyse(v)
+    }
+    impl(e)(block)
   }
 
-
-  def apply[T <: Data](value: T)(block: => Unit): Unit = is(value :: Nil)(block)
-  def apply[T <: Data](value: T, values: T*)(block: => Unit): Unit = is(value :: values.toList)(block)
-
-  def apply[T <: SpinalEnum](value: SpinalEnumElement[T])(block: => Unit): Unit = is(value() :: Nil)(block)
-  def apply[T <: SpinalEnum](value: SpinalEnumElement[T], values: SpinalEnumElement[T]*)(block: => Unit): Unit = is(value() :: values.map(_()).toList)(block)
-
-
-  def apply[T <: Data](keys: Iterable[T])(block: => Unit): Unit = {
+  def impl(keys: Iterable[Data])(block: => Unit): Unit = {
     if (keys.isEmpty) SpinalError("There is no key in 'is' statement")
     val globalData = keys.head.globalData
     if (globalData.switchStack.isEmpty) SpinalError("Use 'is' statement outside the 'switch'")
 
     val value = globalData.switchStack.head()
-    if(value.whenStackHead != globalData.whenStack.head())
+    if (value.whenStackHead != globalData.whenStack.head())
       SpinalError("'is' statement is not at the top level of the 'switch'")
-//    if(value.defaultBlock != null)
-//      SpinalError("'is' statement must appear before the 'default' statement of the 'switch'")
+    //    if(value.defaultBlock != null)
+    //      SpinalError("'is' statement must appear before the 'default' statement of the 'switch'")
 
     if (value.lastWhen == null) {
-      value.lastWhen = when(keys.map(key => (key.isEguals(value.value))).reduceLeft(_ || _)) (block)
+      value.lastWhen = when(keys.map(key => (key.isEguals(value.value))).reduceLeft(_ || _))(block)
     } else {
-      value.lastWhen = value.lastWhen.elsewhen(keys.map(key => (key.isEguals(value.value))).reduceLeft(_ || _)) (block)
+      value.lastWhen = value.lastWhen.elsewhen(keys.map(key => (key.isEguals(value.value))).reduceLeft(_ || _))(block)
     }
   }
 }
@@ -180,9 +183,11 @@ object default {
     if (globalData.switchStack.isEmpty) SpinalError("Use 'default' statement outside the 'switch'")
     val value = globalData.switchStack.head()
 
-    if(value.whenStackHead != globalData.whenStack.head()) SpinalError("'default' statement is not at the top level of the 'switch'")
-    if(value.defaultBlock != null)SpinalError("'default' statement must appear only one time in the 'switch'")
-    value.defaultBlock = () => {block}
+    if (value.whenStackHead != globalData.whenStack.head()) SpinalError("'default' statement is not at the top level of the 'switch'")
+    if (value.defaultBlock != null) SpinalError("'default' statement must appear only one time in the 'switch'")
+    value.defaultBlock = () => {
+      block
+    }
   }
 }
 
@@ -205,7 +210,9 @@ class WhenNode(val w: when) extends Node {
   override def calcWidth: Int = Math.max(whenTrue.getWidth, whenFalse.getWidth)
 
   def cond = inputs(0)
+
   def whenTrue = inputs(1)
+
   def whenFalse = inputs(2)
 
   override def normalizeInputs: Unit = {

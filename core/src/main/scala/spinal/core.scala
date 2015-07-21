@@ -19,6 +19,9 @@ package object core extends BaseTypeFactory with BaseTypeCast{
 //  implicit def EnumElementToCraft2[T <: SpinalEnum](enumDef : SpinalEnumElement[T]) : SpinalEnumCraft[T] = enumDef.craft().asInstanceOf[SpinalEnumCraft[T]]
 
   case class IntBuilder(i: Int) {
+//    def x[T <: Data](dataType : T) : Vec[T] = Vec(dataType,i)
+
+
     def bit = new BitCount(i)
     def hr = new STime(i * 3600)
     def min = new STime(i * 60)

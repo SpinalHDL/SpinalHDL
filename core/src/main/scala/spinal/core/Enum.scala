@@ -123,7 +123,9 @@ class SpinalEnum extends Nameable {
 
   def values = idMap.values
 
+  @deprecated
   def Value(): SpinalEnumElement[this.type] = Value(getNextInt, null)
+  @deprecated
   def Value(id: BigInt): SpinalEnumElement[this.type] = Value(id, null)
   def Value(name: String): SpinalEnumElement[this.type] = Value(getNextInt, name)
   def Value(id: BigInt, name: String): SpinalEnumElement[this.type] = {
@@ -133,6 +135,9 @@ class SpinalEnum extends Nameable {
     idMap += id -> v
     v
   }
+
+  def ordered() : SpinalEnumElement[this.type] = Value(getNextInt, null)
+  def fix(id : BigInt) : SpinalEnumElement[this.type] = Value(id, null)
 
   /*
     implicit def valueToCraft(x: SpinalEnumElement[this.type]): SpinalEnumCraft[this.type] = {

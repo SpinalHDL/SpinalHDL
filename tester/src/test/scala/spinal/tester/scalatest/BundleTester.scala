@@ -36,10 +36,10 @@ import spinal.tester.scalatest.BundleTester._
 
 class BundleTester extends Component {
   val io = new Bundle {
-    val conds = in Vec(8, Bool)
+    val conds = in Vec(Bool,8)
 
-    val inAA = in Vec(3, new BundleAA)
-    val inA = in Vec(1, new BundleA(False,6))
+    val inAA = in Vec(new BundleAA,3)
+    val inA = in Vec(new BundleA(False,6),1)
 
     val outAA = out(new BundleAA)
   }

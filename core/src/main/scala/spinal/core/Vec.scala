@@ -37,7 +37,12 @@ class VecFactory{
     vec
   }
 
+  def apply[T <: Data](gen : => T,size : Int) : Vec[T] = fill(size)(gen)
+  def apply[T <: Data](gen :(Int) => T,size : Int) : Vec[T] = tabulate(size)(gen)
+
+  @deprecated //swap data and size
   def apply[T <: Data](size : Int,gen : => T) : Vec[T] = fill(size)(gen)
+  @deprecated //swap data and size
   def apply[T <: Data](size : Int,gen :(Int) => T) : Vec[T] = tabulate(size)(gen)
 
   def tabulate[T <: Data](size : Int)(gen : (Int)=> T) : Vec[T] ={

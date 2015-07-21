@@ -26,7 +26,7 @@ class BufferCC[T <: Data](dataType: T, withInit : Boolean, bufferDepth: Int) ext
     val output = out(dataType.clone)
   }
 
-  val buffers = Vec(bufferDepth, Reg(dataType, io.init))
+  val buffers = Vec(Reg(dataType, io.init),bufferDepth)
 
   buffers(0) := io.input
   buffers(0).addTag(crossClockDomain)

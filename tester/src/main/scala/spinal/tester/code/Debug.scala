@@ -44,7 +44,7 @@ object Debug {
   class MyBundle extends Bundle{
     val a = Bool
     val b = Bool
-    val c = Vec(2,new MyBundle2)
+    val c = Vec(new MyBundle2,2)
   }
 
   class MyBundle2 extends Bundle{
@@ -149,7 +149,9 @@ object Debug {
 
     nameElements()
 
-
+    //MacroTest.mkObject("asd")
+    val yolo = bar("asd")
+    println(yolo.asd)
 
   }
 
