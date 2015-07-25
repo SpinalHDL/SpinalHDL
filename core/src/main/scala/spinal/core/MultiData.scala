@@ -77,17 +77,17 @@ abstract class MultiData extends Data {
     accumulateWidth
   }
 
-  override def asInput: this.type = {
-    super.asInput
-    elements.foreach(_._2.asInput);
+  override def asInput(): this.type = {
+    super.asInput()
+    elements.foreach(_._2.asInput());
 
     this
   }
 
 
-  override def asOutput: this.type = {
-    super.asOutput
-    elements.foreach(_._2.asOutput);
+  override def asOutput(): this.type = {
+    super.asOutput()
+    elements.foreach(_._2.asOutput());
     this
   }
 
@@ -151,9 +151,9 @@ abstract class MultiData extends Data {
     })
     ret
   }
-  override def flip: this.type  = {
+  override def flip(): this.type  = {
     for ((_,e) <- elements) {
-      e.flip
+      e.flip()
     }
     dir match {
       case `in` => dir = out

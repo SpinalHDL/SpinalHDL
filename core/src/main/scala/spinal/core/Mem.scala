@@ -86,7 +86,7 @@ class Mem[T <: Data](val wordType: T, val wordCount: Int) extends Node with Name
   def readAsync(address: UInt, writeToReadKind: MemWriteToReadKind = dontCare): T = {
     val readBits = Bits(wordType.getBitsWidth bit)
     val readWord = wordType.clone()
-    val addressBuffer = UInt(addressWidth bit).dontSimplifyIt
+    val addressBuffer = UInt(addressWidth bit).dontSimplifyIt()
     addressBuffer := address
     val readPort = new MemReadAsync(this, addressBuffer, readBits, writeToReadKind)
     readPort.compositeTagReady = readWord
@@ -101,9 +101,9 @@ class Mem[T <: Data](val wordType: T, val wordCount: Int) extends Node with Name
     val readBits = Bits(wordType.getBitsWidth bit)
     val readWord = wordType.clone()
 
-    val addressBuffer = UInt(addressWidth bit).dontSimplifyIt
+    val addressBuffer = UInt(addressWidth bit).dontSimplifyIt()
     addressBuffer := address
-    val readPort = new MemReadSync(this, address, addressBuffer, readBits, enable.dontSimplifyIt, writeToReadKind, ClockDomain.current)
+    val readPort = new MemReadSync(this, address, addressBuffer, readBits, enable.dontSimplifyIt(), writeToReadKind, ClockDomain.current)
     readPort.compositeTagReady = readWord
     if(crossClock)
       readPort.addTag(crossClockDomain)
@@ -119,23 +119,23 @@ class Mem[T <: Data](val wordType: T, val wordCount: Int) extends Node with Name
   }
 
   def write(address: UInt, data: T): Unit = {
-    val addressBuffer = UInt(addressWidth bit).dontSimplifyIt
+    val addressBuffer = UInt(addressWidth bit).dontSimplifyIt()
     addressBuffer := address
-    val dataBuffer = Bits(getWidth bit).dontSimplifyIt
+    val dataBuffer = Bits(getWidth bit).dontSimplifyIt()
     dataBuffer := data.toBits
-    val writePort = new MemWrite(this, address, addressBuffer, dataBuffer, when.getWhensCond(this).dontSimplifyIt, ClockDomain.current)
+    val writePort = new MemWrite(this, address, addressBuffer, dataBuffer, when.getWhensCond(this).dontSimplifyIt(), ClockDomain.current)
     inputs += writePort
   }
 
   //Asic friendly single port ram
   def writeOrReadSync(address: UInt, writeData: T, chipSelect : Bool,writeEnable : Bool, writeToReadKind: MemWriteToReadKind = dontCare,crossClock: Boolean = false): T = {
-    val addressBuffer = UInt(addressWidth bit).dontSimplifyIt
+    val addressBuffer = UInt(addressWidth bit).dontSimplifyIt()
     addressBuffer := address
-    chipSelect.dontSimplifyIt
-    writeEnable.dontSimplifyIt
+    chipSelect.dontSimplifyIt()
+    writeEnable.dontSimplifyIt()
 
 
-    val dataBuffer = Bits(getWidth bit).dontSimplifyIt
+    val dataBuffer = Bits(getWidth bit).dontSimplifyIt()
     dataBuffer := writeData.toBits
     val writePort = new MemWriteOrRead_writePart(this, addressBuffer, dataBuffer, chipSelect,writeEnable, ClockDomain.current)
     inputs += writePort

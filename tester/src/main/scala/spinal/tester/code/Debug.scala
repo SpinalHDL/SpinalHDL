@@ -64,7 +64,8 @@ object Debug {
     val s0,s1,s2 = Value
   }
   class TopLevel(a : Int) extends Component {
-
+    val toto = Bool
+    println("toto : " + toto.getName())
     val io = new Bundle {
 //      val in1 = in (new MyBundle)
 //      val out1 = out (new MyBundle2)

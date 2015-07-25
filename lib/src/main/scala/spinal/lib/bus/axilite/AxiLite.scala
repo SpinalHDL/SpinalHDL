@@ -58,7 +58,7 @@ case class AxiLiteReadOnly(config: AxiLiteConfig) extends Bundle with IMasterSla
     this
   }
 
-  override def asSlave: this.type = asSlave.flip
+  override def asSlave: this.type = asSlave.flip()
 }
 
 case class AxiLiteWriteOnly(config: AxiLiteConfig) extends Bundle with IMasterSlave {
@@ -88,7 +88,7 @@ case class AxiLiteWriteOnly(config: AxiLiteConfig) extends Bundle with IMasterSl
     this
   }
 
-  override def asSlave: this.type = asSlave.flip
+  override def asSlave: this.type = asSlave.flip()
 }
 
 
@@ -127,5 +127,5 @@ case class AxiLite(config: AxiLiteConfig) extends Bundle with IMasterSlave {
     this
   }
 
-  override def asSlave: this.type = asSlave.flip
+  override def asSlave: this.type = asSlave.flip()
 }

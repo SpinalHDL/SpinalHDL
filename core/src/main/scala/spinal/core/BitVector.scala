@@ -96,7 +96,7 @@ abstract class BitVector extends BaseType {
   }
 
   //extract bits     that(8,2)
-  def apply(hi: Int, lo: Int): this.type = {
+  def extract(hi: Int, lo: Int): this.type = {
     if (hi - lo + 1 != 0) {
       val ret = addTypeNodeFrom(new ExtractBitsVectorFixed(s"extract($prefix,i,i)", this, hi, lo))
       ret.compositeAssign = new Assignable {
@@ -110,11 +110,7 @@ abstract class BitVector extends BaseType {
       getZero
   }
 
-
-  //extract bits     that(5,7 bit)
-  def apply(offset: Int, bitCount: BitCount): this.type = this.apply(bitCount.value + offset - 1, offset)
-
-  def apply(offset: UInt, bitCount: BitCount): this.type = {
+  def extract(offset: UInt, bitCount: BitCount): this.type = {
     if (bitCount.value != 0) {
       val ret = addTypeNodeFrom(new ExtractBitsVectorFloating(s"extract($prefix,u,w)", this, offset, bitCount))
 
@@ -129,6 +125,17 @@ abstract class BitVector extends BaseType {
     else
       getZero
   }
+
+  //extract bits     that(5,7 bit)
+//  def apply(offset: Int, bitCount: BitCount): Bits = this.apply(bitCount.value + offset - 1, offset)
+//  def apply(offset: UInt, bitCount: BitCount): Bits =  this.extract(offset,bitCount).toBits
+//  def apply(hi: Int, lo: Int): Bits = this.extract(hi,lo).toBits
+
+  def apply(offset: Int, bitCount: BitCount): this.type = this.apply(bitCount.value + offset - 1, offset)
+  def apply(offset: UInt, bitCount: BitCount): this.type =  this.extract(offset,bitCount)
+  def apply(hi: Int, lo: Int): this.type = this.extract(hi,lo)
+
+
 
 
   override def addTypeNodeFrom(node: Node): this.type = {

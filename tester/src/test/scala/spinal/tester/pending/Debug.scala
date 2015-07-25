@@ -19,6 +19,7 @@
 package spinal.tester.pending
 
 import spinal.core._
+import spinal.lib._
 
 
 object MyEnum extends SpinalEnum{
@@ -39,8 +40,17 @@ object MyEnum2{
 
 object Debug {
 
+  class BB extends Bundle{
+    val a = Bool
+    val data = Bool
+  }
+  val xx = Stream(new BB())
+
+
   //Test new WhenNode system
   class TopLevel extends Component {
+
+
     val io = new Bundle {
       val conds = in Vec(Bool, 8)
       val outs = out Vec(Bool, 6)

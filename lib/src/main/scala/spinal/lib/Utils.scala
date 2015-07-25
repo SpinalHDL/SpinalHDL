@@ -18,7 +18,11 @@
 
 package spinal.lib
 
+import java.io.UTFDataFormatException
+import java.nio.charset.Charset
+
 import spinal.core._
+import sun.text.normalizer.UTF16
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -42,7 +46,7 @@ object OHToUInt {
         else
           bit = bools(boolsBitId)
       }
-      ret(retBitId) := bit.dontSimplifyIt
+      ret(retBitId) := bit.dontSimplifyIt()
     }
 
     ret.toBits.toUInt
@@ -69,7 +73,7 @@ object fromGray {
 object adderAndCarry {
   def apply(left: UInt, right: UInt): (UInt, Bool) = {
     val temp = left.resize(left.getWidth + 1) + right.resize(right.getWidth + 1)
-    return (temp(temp.getWidth - 2, 0), temp.msb)
+    return (temp.resize(temp.getWidth - 1), temp.msb)
   }
 }
 
@@ -414,5 +418,14 @@ object Delays {
       }
     }
     Vec(builder(that, length))
+  }
+}
+
+
+
+
+class StringPimped(pimped : String){
+  def toVecOfByte(encoding : String = "UTF-8") : Vec[Bits] = {
+    Vec(pimped.getBytes(Charset.forName(encoding)).map(b => B(b.toInt, 8 bit)))
   }
 }

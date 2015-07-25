@@ -15,12 +15,12 @@ class Uart extends Bundle with IMasterSlave {
     in(rxd)
     this
   }
-  override def asSlave: this.type = asMaster.flip
+  override def asSlave: this.type = asMaster.flip()
 }
 
 
 object UartStopType extends SpinalEnum {
-  val eStop1bit, eStop2bit = Value
+  val eStop1bit, eStop2bit = ordered()
 
   val toBitCount = SpinalMap(
     (()=> eStop1bit()) -> (() => U(0)),
@@ -29,6 +29,6 @@ object UartStopType extends SpinalEnum {
 }
 
 object UartParityType extends SpinalEnum {
-  val eParityNone, eParityEven, eParityOdd = Value
+  val eParityNone, eParityEven, eParityOdd = ordered()
 }
 

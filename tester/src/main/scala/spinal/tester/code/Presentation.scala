@@ -357,7 +357,7 @@ object C10_removed {
       in(ready)
       this
     }
-    override def asSlave: this.type = asMaster.flip
+    override def asSlave: this.type = asMaster.flip()
 
 
     //...
@@ -528,7 +528,7 @@ object C15 {
       this
     }
 
-    override def asSlave: this.type = asMaster.flip //.flip reverse all signal direction
+    override def asSlave: this.type = asMaster.flip() //.flip reverse all signal direction
   }
 
   //Define a RGB color data type with parameterizable channel width

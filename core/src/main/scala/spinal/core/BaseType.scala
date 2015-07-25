@@ -126,12 +126,12 @@ abstract class BaseType extends Node with Data with Nameable {
 
   private var dontSimplify = false
 
-  override def dontSimplifyIt: this.type = {
+  override def dontSimplifyIt(): this.type = {
     dontSimplify = true;
     this
   }
 
-  override def allowSimplifyIt: this.type = {
+  override def allowSimplifyIt(): this.type = {
     dontSimplify = false;
     this
   }
@@ -153,16 +153,16 @@ abstract class BaseType extends Node with Data with Nameable {
   //  override def :=(bits: this.type): Unit = assignFrom(bits)
 
 
-  override def asInput: this.type = {
+  override def asInput(): this.type = {
     isIo = true
     component.ioSet += this
-    super.asInput
+    super.asInput()
   }
 
-  override def asOutput: this.type = {
+  override def asOutput(): this.type = {
     isIo = true
     component.ioSet += this
-    super.asOutput
+    super.asOutput()
   }
 
   def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
@@ -191,7 +191,7 @@ abstract class BaseType extends Node with Data with Nameable {
 
   override def add(attribute: Attribute): Unit = {
     attributes += attribute
-    dontSimplifyIt
+    dontSimplifyIt()
   }
 
   override def clone: this.type = {

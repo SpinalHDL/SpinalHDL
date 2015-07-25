@@ -28,8 +28,8 @@ object Try5 {
 
   class SubComponent extends Component {
     val io = new Bundle {
-      val in = (Bool.asInput)
-      val out = Bool.asOutput
+      val in = (Bool.asInput())
+      val out = Bool.asOutput()
     }
     io.out := RegNext(io.in)
   }

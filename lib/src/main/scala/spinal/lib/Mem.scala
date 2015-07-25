@@ -3,16 +3,17 @@ package spinal.lib
 import spinal.core._
 
 
-class StreamReadRetData[T <: Data, T2 <: Data](readType: T, linkedType: T2) extends Bundle {
+case class ReadRetLinked[T <: Data, T2 <: Data](readType: T, linkedType: T2) extends Bundle {
   val value = cloneOf(readType)
   val linked = cloneOf(linkedType)
-
-  override def clone(): this.type = new StreamReadRetData(readType, linkedType).asInstanceOf[this.type]
 }
 
 class MemPimped[T <: Data](mem: Mem[T]) {
-  def streamReadSync[T2 <: Data](cmd: Stream[UInt], linkedData: T2) = {
-    val ret = Stream(new StreamReadRetData(mem.wordType, linkedData))
+
+  //def streamReadSync[T2 <: Data](event : Event,address: UInt, linkedData: T2) : (Event,T,T2) = {
+
+  def streamReadSync[T2 <: Data](cmd: Stream[UInt], linkedData: T2) : Stream[ReadRetLinked[T,T2]] = {
+    val ret = Stream(new ReadRetLinked(mem.wordType, linkedData))
 
     val retValid = RegInit(False)
     val retData = mem.readSync(cmd.data, cmd.ready)
@@ -33,7 +34,7 @@ class MemPimped[T <: Data](mem: Mem[T]) {
     ret
   }
 
-  def streamReadSync(cmd: Stream[UInt]) = {
+  def streamReadSync(cmd: Stream[UInt]): Stream[T] = {
     val ret = Stream(mem.wordType)
 
     val retValid = RegInit(False)
@@ -50,6 +51,21 @@ class MemPimped[T <: Data](mem: Mem[T]) {
 
     ret.valid := retValid
     ret.data := retData
+    ret
+  }
+
+  def flowReadSync(cmd : Flow[UInt]) : Flow[T] = {
+    val ret = Flow(mem.wordType)
+    ret.valid := RegNext(cmd.valid)
+    ret.data := mem.readSync(cmd.data)
+    ret
+  }
+
+  def flowReadSync[T2 <: Data](cmd: Flow[UInt], linkedData: T2) : Flow[ReadRetLinked[T,T2]] = {
+    val ret = Flow(ReadRetLinked(mem.wordType, linkedData))
+    ret.valid := RegNext(cmd.valid)
+    ret.data.linked := RegNext(linkedData)
+    ret.data.value := mem.readSync(cmd.data)
     ret
   }
 }

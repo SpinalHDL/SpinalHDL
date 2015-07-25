@@ -245,9 +245,7 @@ class DataCarrierFragmentBitsPimped(pimped: DataCarrier[Fragment[Bits]]) {
       val fromWidth = pimped.fragment.getWidth
       val toWidth = dataType.getBitsWidth
       val missingBitsCount = toWidth - fromWidth
-
       val bufferLowWidth = (missingBitsCount + fromWidth - 1) / fromWidth * fromWidth
-      val bufferHighWidth = toWidth - bufferLowWidth
       val buffer = Reg(Bits(toWidth bit))
 
       when(pimped.fire) {

@@ -47,11 +47,11 @@ trait IODirection extends BaseTypeFactory {
 }
 
 object in extends IODirection {
-  override def applyIt[T <: Data](data: T): T = data.asInput
+  override def applyIt[T <: Data](data: T): T = data.asInput()
 }
 
 object out extends IODirection {
-  override def applyIt[T <: Data](data: T): T = data.asOutput
+  override def applyIt[T <: Data](data: T): T = data.asOutput()
 }
 
 
@@ -82,6 +82,19 @@ trait GlobalDataUser {
   val globalData = GlobalData.get
 }
 
+trait NameableByComponent extends Nameable with GlobalDataUser{
+  override def getName(): String = {
+    if(!globalData.nodeAreNamed) {
+      if (isUnnamed) {
+        val c = getComponent()
+        if(c != null)c.nameElements()
+      }
+    }
+    return super.getName()
+  }
+
+  def getComponent() : Component
+}
 
 object SyncNode {
   def getClockInputId: Int = 0
@@ -129,7 +142,7 @@ trait Nameable {
   private var name: String = ""
   var compositeName: Nameable = null
   def getName(): String = if (compositeName == null) name else compositeName.getName()
-  def isUnnamed: Boolean = name == "" && compositeName == null
+  def isUnnamed: Boolean = name == "" && (compositeName == null || compositeName.isUnnamed)
   def isNamed: Boolean = !isUnnamed
   var isWeak = true
 
@@ -341,6 +354,7 @@ object GlobalData {
 class GlobalData {
   var commonClockConfig = ClockDomainConfig()
 
+  var nodeAreNamed = false
   var nodeAreInferringWidth = false
   val nodeGetWidthWalkedSet: mutable.Set[Node] = mutable.Set[Node]()
   // val nodeWidthInferredCheck = ArrayBuffer[() => Unit]()

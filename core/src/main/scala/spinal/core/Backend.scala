@@ -167,6 +167,7 @@ class Backend {
   }
 
   def nameNodesByReflection(): Unit = {
+    globalData.nodeAreNamed = true
     if (topLevel.getName() == null) topLevel.setWeakName("toplevel")
     for (c <- sortedComponents) {
       c.nameElements()
@@ -251,12 +252,12 @@ class Backend {
         val ram = Component(new Ram_1c_1w_1ra(mem.getWidth, mem.wordCount, rd.writeToReadKind))
         val enable = clockDomain.isClockEnableActive
 
-        ram.io.wr.en := wr.getEnable.allowSimplifyIt && enable
-        ram.io.wr.addr := wr.getAddress.allowSimplifyIt
-        ram.io.wr.data := wr.getData.allowSimplifyIt
+        ram.io.wr.en := wr.getEnable.allowSimplifyIt() && enable
+        ram.io.wr.addr := wr.getAddress.allowSimplifyIt()
+        ram.io.wr.data := wr.getData.allowSimplifyIt()
 
-        ram.io.rd.addr := rd.getAddress.allowSimplifyIt
-        rd.getData.allowSimplifyIt := ram.io.rd.data
+        ram.io.rd.addr := rd.getAddress.allowSimplifyIt()
+        rd.getData.allowSimplifyIt() := ram.io.rd.data
 
         ram.setCompositeName(mem)
         Component.pop(mem.component)
@@ -273,13 +274,13 @@ class Backend {
           val ram = Component(new Ram_1c_1w_1rs(mem.getWidth, mem.wordCount, rd.writeToReadKind))
           val enable = clockDomain.isClockEnableActive
 
-          ram.io.wr.en := wr.getEnable.allowSimplifyIt && enable
-          ram.io.wr.addr := wr.getAddress.allowSimplifyIt
-          ram.io.wr.data := wr.getData.allowSimplifyIt
+          ram.io.wr.en := wr.getEnable.allowSimplifyIt() && enable
+          ram.io.wr.addr := wr.getAddress.allowSimplifyIt()
+          ram.io.wr.data := wr.getData.allowSimplifyIt()
 
-          ram.io.rd.en := rd.getEnable.allowSimplifyIt && enable
-          ram.io.rd.addr := rd.getAddress.allowSimplifyIt
-          rd.getData.allowSimplifyIt := ram.io.rd.data
+          ram.io.rd.en := rd.getEnable.allowSimplifyIt() && enable
+          ram.io.rd.addr := rd.getAddress.allowSimplifyIt()
+          rd.getData.allowSimplifyIt() := ram.io.rd.data
 
           ram.generic.useReadEnable = {
             val lit = ram.io.rd.en.getLiteral[BoolLiteral]
@@ -302,12 +303,12 @@ class Backend {
           val ram = Component(new Ram_1wrs(mem.getWidth, mem.wordCount, rd.writeToReadKind))
           val enable = clockDomain.isClockEnableActive
 
-          ram.io.addr := wr.getAddress.allowSimplifyIt
-          ram.io.wr.en := wr.getEnable.allowSimplifyIt && enable
-          ram.io.wr.data := wr.getData.allowSimplifyIt
+          ram.io.addr := wr.getAddress.allowSimplifyIt()
+          ram.io.wr.en := wr.getEnable.allowSimplifyIt() && enable
+          ram.io.wr.data := wr.getData.allowSimplifyIt()
 
-          ram.io.rd.en := rd.getEnable.allowSimplifyIt && enable
-          rd.getData.allowSimplifyIt := ram.io.rd.data
+          ram.io.rd.en := rd.getEnable.allowSimplifyIt() && enable
+          rd.getData.allowSimplifyIt() := ram.io.rd.data
 
           ram.generic.useReadEnable = {
             val lit = ram.io.rd.en.getLiteral[BoolLiteral]
@@ -330,12 +331,12 @@ class Backend {
           val ram = Component(new Ram_1wors(mem.getWidth, mem.wordCount, rd.writeToReadKind))
           val enable = clockDomain.isClockEnableActive
 
-          ram.io.addr := wr.getAddress.allowSimplifyIt
-          ram.io.cs := wr.getChipSelect.allowSimplifyIt && enable
-          ram.io.we := wr.getWriteEnable.allowSimplifyIt
-          ram.io.wrData := wr.getData.allowSimplifyIt
+          ram.io.addr := wr.getAddress.allowSimplifyIt()
+          ram.io.cs := wr.getChipSelect.allowSimplifyIt() && enable
+          ram.io.we := wr.getWriteEnable.allowSimplifyIt()
+          ram.io.wrData := wr.getData.allowSimplifyIt()
 
-          rd.getData.allowSimplifyIt := ram.io.rdData
+          rd.getData.allowSimplifyIt() := ram.io.rdData
 
           ram.setCompositeName(mem)
           Component.pop(mem.component)
@@ -582,9 +583,9 @@ class Backend {
       node match {
         case baseType: BaseType => {
           baseType.inputs(0) match {
-            case wn: WhenNode => baseType.dontSimplifyIt
-            case an: AssignementNode => baseType.dontSimplifyIt
-            case man: MultipleAssignmentNode => baseType.dontSimplifyIt
+            case wn: WhenNode => baseType.dontSimplifyIt()
+            case an: AssignementNode => baseType.dontSimplifyIt()
+            case man: MultipleAssignmentNode => baseType.dontSimplifyIt()
             case _ =>
           }
         }

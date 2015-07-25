@@ -55,7 +55,7 @@ object signalCache{
 }
 
 object Cat{
-  def apply(data : Data*) : Bits =apply(data.toList)
+  def apply(data : Data*) : Bits =apply(data.toList.reverse)
 
   def apply[T <: Data](data : Iterable[T]) = {
     if(data.isEmpty) B(0,0 bit)
@@ -154,9 +154,6 @@ object Misc {
             case zone : Area => {
               reflect(zone,onEach,name + "_")
             }
-//            case zone : ClockingArea => {
-//              reflect(zone,onEach,name + "_")
-//            }
             case _ =>
           }
           onEach(name, fieldRef)

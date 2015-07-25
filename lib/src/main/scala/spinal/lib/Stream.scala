@@ -40,7 +40,7 @@ class Stream[T <: Data](_dataType: T) extends Bundle with IMasterSlave with Data
     this
   }
 
-  override def asSlave: this.type = asMaster.flip
+  override def asSlave: this.type = asMaster.flip()
 
   override def freeRun: this.type = {
     ready := True

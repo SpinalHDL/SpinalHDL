@@ -49,17 +49,18 @@ object Component {
   //var lastPoped : Component = null
 
   def current: Component = current(GlobalData.get)
+
   def current(globalData: GlobalData): Component = globalData.componentStack.head()
 }
 
 
-abstract class Component extends Nameable with GlobalDataUser with ScalaLocated with DelayedInit {
+abstract class Component extends NameableByComponent with GlobalDataUser with ScalaLocated with DelayedInit {
 
   override def delayedInit(body: => Unit) = {
     body
 
     if ((body _).getClass.getDeclaringClass == this.getClass) {
-     // this.io.flatten.foreach(_.isIo = true)
+      // this.io.flatten.foreach(_.isIo = true)
       Component.pop(this);
       this.userParentCalledDef
     }
@@ -69,20 +70,22 @@ abstract class Component extends Nameable with GlobalDataUser with ScalaLocated 
   //def io: Data
   val ioSet = mutable.Set[BaseType]()
 
-  val userCache = mutable.Map[Object,mutable.Map[Object,Object]]()
+  val userCache = mutable.Map[Object, mutable.Map[Object, Object]]()
   val localScope = new Scope()
   val postCreationTask = mutable.ArrayBuffer[() => Unit]()
   val kindsOutputsToBindings = mutable.Map[BaseType, BaseType]()
   val kindsOutputsBindings = mutable.Set[BaseType]()
   val additionalNodesRoot = mutable.Set[BaseType]()
-  var definitionName : String = null
+  var definitionName: String = null
   val level = globalData.componentStack.size()
   val kinds = ArrayBuffer[Component]()
   val parent = Component.current
   if (parent != null) {
     parent.kinds += this;
   }
+
   def isTopLevel: Boolean = parent == null
+
   val initialWhen = globalData.whenStack.head()
 
   var nodes: ArrayBuffer[Node] = null
@@ -98,31 +101,34 @@ abstract class Component extends Nameable with GlobalDataUser with ScalaLocated 
     if (of.parent == null) return list
     parents(of.parent, of.parent :: list)
   }
-  def reflectIo : Data = {
-    try{
+
+  def reflectIo: Data = {
+    try {
       val clazz = this.getClass
       val m = clazz.getMethod("io")
       m.invoke(this).asInstanceOf[Data]
-    }catch{
-      case _ : Throwable => null
+    } catch {
+      case _: Throwable => null
     }
-
   }
+
   def nameElements(): Unit = {
     //TODO this.io.setWeakName("io") //Because Misc.reflect don't keep the declaration order
     Misc.reflect(this, (name, obj) => {
       obj match {
         case component: Component => {
-          component.setWeakName(name)
+          if (component.parent == this)
+            component.setWeakName(name)
         }
         case namable: Nameable => {
           if (!namable.isInstanceOf[ContextUser])
             namable.setWeakName(name)
-          else if(namable.asInstanceOf[ContextUser].component == this)
+          else if (namable.asInstanceOf[ContextUser].component == this)
             namable.setWeakName(name)
-          else{
-            for(kind <- kinds){ //Allow to name a component by his io reference into the parent component
-              if(kind.reflectIo == namable){
+          else {
+            for (kind <- kinds) {
+              //Allow to name a component by his io reference into the parent component
+              if (kind.reflectIo == namable) {
                 kind.setWeakName(name)
               }
             }
@@ -172,6 +178,7 @@ abstract class Component extends Nameable with GlobalDataUser with ScalaLocated 
     }
 
   }
+
   def getOrdredNodeIo = getNodeIo.toList.sortWith(_.instanceCounter < _.instanceCounter)
 
 
@@ -191,7 +198,7 @@ abstract class Component extends Nameable with GlobalDataUser with ScalaLocated 
 
   def isInBlackBoxTree: Boolean = if (parent == null) false else parent.isInBlackBoxTree
 
-
+  override def getComponent(): Component = parent
 }
 
 

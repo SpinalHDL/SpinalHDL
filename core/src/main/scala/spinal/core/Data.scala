@@ -54,7 +54,7 @@ object Data {
       val from = srcData.clone()
       if (propagateName)
         from.setCompositeName(srcData)
-      from.asInput
+      from.asInput()
       from.isIo = true
       if (nextData != null) nextData := from else ret = from
       Component.pop(componentPtr)
@@ -84,7 +84,7 @@ object Data {
         if (propagateName)
           from.setCompositeName(srcData)
         from.isIo = true
-        from.asOutput
+        from.asOutput()
         Component.pop(fromComponent)
         Component.push(componentPtr)
         if (nextData != null) nextData := from else ret = from
@@ -125,15 +125,15 @@ class DataPimper[T <: Data](pimpIt: T) {
   def init(that: T): T = pimpIt.initImpl(that)
 }
 
-trait Data extends ContextUser with Nameable with Assignable with AttributeReady with SpinalTagReady with GlobalDataUser with ScalaLocated {
+trait Data extends ContextUser with NameableByComponent with Assignable with AttributeReady with SpinalTagReady with GlobalDataUser with ScalaLocated {
   var dir: IODirection = null
   var isIo = false
 
-  def asInput: this.type = {
+  def asInput(): this.type = {
     dir = in;
     this
   }
-  def asOutput: this.type = {
+  def asOutput(): this.type = {
     dir = out;
     this
   }
@@ -144,7 +144,7 @@ trait Data extends ContextUser with Nameable with Assignable with AttributeReady
   def isOutput: Boolean = dir == out && isIo
   def isInput: Boolean = dir == in && isIo
   def isDirectionLess: Boolean = dir == null || !isIo
-  def flip: this.type  = {
+  def flip(): this.type  = {
     dir match {
       case `in` => dir = out
       case `out` => dir = in
@@ -158,7 +158,7 @@ trait Data extends ContextUser with Nameable with Assignable with AttributeReady
 
   def flatten: Seq[BaseType]
 
-  def pull: this.type = Data.doPull(this, Component.current, false, false)
+  def pull(): this.type = Data.doPull(this, Component.current, false, false)
 
   //  def :-(that: => SSelf): this.type = {
   //    val task = () => {
@@ -228,18 +228,18 @@ trait Data extends ContextUser with Nameable with Assignable with AttributeReady
 
   def getBitsWidth: Int
 
-  def keep: this.type = {
+  def keep(): this.type = {
     flatten.foreach(t => t.component.additionalNodesRoot += t);
-    dontSimplifyIt
+    dontSimplifyIt()
     this
   }
 
-  def dontSimplifyIt: this.type = {
-    flatten.foreach(_.dontSimplifyIt)
+  def dontSimplifyIt(): this.type = {
+    flatten.foreach(_.dontSimplifyIt())
     this
   }
-  def allowSimplifyIt: this.type = {
-    flatten.foreach(_.allowSimplifyIt)
+  def allowSimplifyIt(): this.type = {
+    flatten.foreach(_.allowSimplifyIt())
     this
   }
 
@@ -355,6 +355,7 @@ trait Data extends ContextUser with Nameable with Assignable with AttributeReady
     null
   }
 
+  override def getComponent(): Component = component
 }
 
 

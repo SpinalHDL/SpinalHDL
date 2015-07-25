@@ -11,7 +11,7 @@ package object lib {
   def NoData = new NoData
 
 
-
+  //implicit def easyStream[T <: Bundle](that: Stream[T]) = that.data
   implicit def traversableOncePimped[T](that: TraversableOnce[T]) = new TraversableOncePimped[T](that)
 
   implicit def flowFragmentPimped[T <: Data](that: Flow[Fragment[T]]) = new FlowFragmentPimped[T](that)
@@ -25,6 +25,8 @@ package object lib {
   implicit def dataCarrierFragmentBitsPimped(that: DataCarrier[Fragment[Bits]]) = new DataCarrierFragmentBitsPimped(that)
 
   implicit def streamFragmentBitsPimped(that: Stream[Fragment[Bits]]) = new StreamFragmentBitsPimped(that)
+
+  implicit def stringPimped(that: String) = new StringPimped(that)
 
 
   implicit def memPimped[T <: Data](mem: Mem[T]) = new MemPimped(mem)
