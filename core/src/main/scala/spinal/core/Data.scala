@@ -356,6 +356,8 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
   }
 
   override def getComponent(): Component = component
+  def getComponents() : Seq[Component] = (component.parents() ++ Seq(component))
+
 }
 
 

@@ -82,6 +82,8 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
   val parent = Component.current
   if (parent != null) {
     parent.kinds += this;
+  }else{
+    setWeakName("toplevel")
   }
 
   def isTopLevel: Boolean = parent == null

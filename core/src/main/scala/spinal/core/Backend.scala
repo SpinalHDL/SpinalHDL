@@ -51,7 +51,7 @@ class Backend {
 
     ClockDomain.push(defaultClockDomain)
     topLevel = gen()
-    if(topLevel.isUnnamed)topLevel.setWeakName("toplevel")
+//    if(topLevel.isUnnamed)topLevel.setWeakName("toplevel")
     ClockDomain.pop(defaultClockDomain)
 
 

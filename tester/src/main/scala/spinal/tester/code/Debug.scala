@@ -63,9 +63,19 @@ object Debug {
   object MyEnum2 extends SpinalEnum{
     val s0,s1,s2 = Value
   }
+
+  class SubA extends Component{
+    val subB = new SubB()
+  }
+  class SubB extends Component{
+    val titi = Bool
+  }
   class TopLevel(a : Int) extends Component {
     val toto = Bool
     println("toto : " + toto.getName())
+    val subA = new SubA()
+
+    println("TITI " + (subA.subB.titi.getComponents().map(_.getName()) ++ Seq(subA.subB.titi.getName())).reduce(_ + ":" + _))
     val io = new Bundle {
 //      val in1 = in (new MyBundle)
 //      val out1 = out (new MyBundle2)

@@ -14,15 +14,15 @@ class FrameTaskSolver(p: MandelbrotCoreParameters) extends Component {
   val pixelTaskGenerator = new PixelTaskGenerator(p)
   val pixelTaskDispatcher = new DispatcherInOrder(Fragment(PixelTask(p)), p.pixelTaskSolverCount)
   val pixelTaskSolver = List.fill(p.pixelTaskSolverCount)(new PixelTaskSolver(p))
-  val pixelTaskResultArbiter = StreamArbiter.inOrder.build(Fragment(PixelResult(p)), p.pixelTaskSolverCount)
+  val pixelResultArbiter = StreamArbiter.inOrder.build(Fragment(PixelResult(p)), p.pixelTaskSolverCount)
 
   pixelTaskGenerator.io.frameTask << io.frameTask
   pixelTaskDispatcher.io.input <-/< pixelTaskGenerator.io.pixelTask
   for (solverId <- 0 until p.pixelTaskSolverCount) {
     pixelTaskSolver(solverId).io.pixelTask <-/< pixelTaskDispatcher.io.outputs(solverId)
-    pixelTaskResultArbiter.io.inputs(solverId) </< pixelTaskSolver(solverId).io.result
+    pixelResultArbiter.io.inputs(solverId) </< pixelTaskSolver(solverId).io.pixelResult
   }
-  io.pixelResult <-< pixelTaskResultArbiter.io.output
+  io.pixelResult <-< pixelResultArbiter.io.output
 }
 
 //  The scala-like way to do the FrameTaskSolver stuff is :
@@ -95,7 +95,7 @@ class PixelTaskGenerator(p: MandelbrotCoreParameters) extends Component {
 class PixelTaskSolver(p: MandelbrotCoreParameters) extends Component {
   val io = new Bundle {
     val pixelTask = slave Stream Fragment(PixelTask(p))
-    val result = master Stream Fragment(PixelResult(p))
+    val pixelResult = master Stream Fragment(PixelResult(p))
   }
 
   //It's the context definition used by each stage of the pipeline, Each task are translated to context ("thread")
@@ -181,7 +181,7 @@ class PixelTaskSolver(p: MandelbrotCoreParameters) extends Component {
   result.fragment.iteration := stage3.data.iteration - 1
 
 
-  result >-> io.result
+  result >-> io.pixelResult
 
   loopBack.valid := stage3.valid && ((!readyForResult) || (!result.ready))
   loopBack.data := stage3.data
