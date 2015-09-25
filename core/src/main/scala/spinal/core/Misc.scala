@@ -19,7 +19,6 @@
 package spinal.core
 
 
-
 import scala.collection.mutable
 import scala.collection.mutable.Stack
 
@@ -32,39 +31,42 @@ object log2Up {
     (value - 1).bitLength
   }
 }
-object isPow2{
-  def apply(that : BigInt) : Boolean = {
-    if(that < 0) return false
+
+object isPow2 {
+  def apply(that: BigInt): Boolean = {
+    if (that < 0) return false
     return that.bitCount == 1
   }
 }
-object cloneOf{
+
+object cloneOf {
   //Return a new data with the same data structure than the given parameter (including bit width)
-  def apply[T <: Data](that : T) : T = that.clone()
-}
-object widthOf{
-  //Return the number of bit of the given data
-  def apply[T <: Data](that : T): Int = that.getBitsWidth
+  def apply[T <: Data](that: T): T = that.clone()
 }
 
-object signalCache{
-  def apply[T <: Data](key : Object,subKey : Object,factory : () => T): T ={
-    val cache = GlobalData.get.componentStack.head().userCache.getOrElseUpdate(key,scala.collection.mutable.Map[Object,Object]())
-    cache.getOrElseUpdate(subKey,factory()).asInstanceOf[T]
+object widthOf {
+  //Return the number of bit of the given data
+  def apply[T <: Data](that: T): Int = that.getBitsWidth
+}
+
+object signalCache {
+  def apply[T <: Data](key: Object, subKey: Object, factory: () => T): T = {
+    val cache = GlobalData.get.componentStack.head().userCache.getOrElseUpdate(key, scala.collection.mutable.Map[Object, Object]())
+    cache.getOrElseUpdate(subKey, factory()).asInstanceOf[T]
   }
 }
 
-object Cat{
-  def apply(data : Data*) : Bits =apply(data.toList.reverse)
+object Cat {
+  def apply(data: Data*): Bits = apply(data.toList.reverse)
 
-  def apply[T <: Data](data : Iterable[T]) = {
-    if(data.isEmpty) B(0,0 bit)
+  def apply[T <: Data](data: Iterable[T]) = {
+    if (data.isEmpty) B(0, 0 bit)
     else data.map(_.toBits).reduce(_ ## _)
   }
 }
 
 
-object ScalaUniverse{
+object ScalaUniverse {
   def isCaseClass(o: Any): Boolean = {
     val clazz = o.getClass
     clazz.getInterfaces.find(_ == classOf[scala.Product]).isDefined && clazz.getDeclaredMethods.find(_.getName == "copy").isDefined
@@ -74,11 +76,12 @@ object ScalaUniverse{
 object Misc {
 
   def addReflectionExclusion(o: Object) = reflectExclusion += o.getClass
+
   val reflectExclusion = mutable.Set[Class[_]]()
 
 
   addReflectionExclusion(new Bundle())
-  addReflectionExclusion(new Vec(null,null))
+  addReflectionExclusion(new Vec(null, null))
   addReflectionExclusion(new Bool)
   addReflectionExclusion(new Bits)
   addReflectionExclusion(new UInt)
@@ -89,41 +92,41 @@ object Misc {
 
 
   //TODO find if there is a solution to keep declaration order in every case, then remove fix from component.nameElements
-//  def reflect(o: Object, onEach: (String, Any) => Unit,namePrefix :String = ""): Unit = {
-//    val refs = mutable.Set[Any]()
-//    val ru = scala.reflect.runtime.universe
-//    val runtimeMirror = ru.runtimeMirror(o.getClass.getClassLoader)
-//    val instanceMirror = runtimeMirror.reflect(o)
-//    val symbols = instanceMirror.symbol.typeSignature.members.sorted
-//    for(symbol <- symbols){
-//      if(symbol.isMethod){
-//        val method = symbol.asMethod
-//        if(method.isGetter && method.isPublic){
-//          val fieldRef = instanceMirror.reflectMethod(method.asMethod).apply()
-//          if (fieldRef != null && !refs.contains(fieldRef)) {
-//            val name = namePrefix + method.name
-//            fieldRef match {
-//              case vec: Vec[_] =>
-//              case seq: Seq[_] => {
-//                for ((obj, i) <- seq.zipWithIndex) {
-//                  onEach(name + i, obj.asInstanceOf[Object])
-//                  refs += fieldRef
-//                }
-//              }
-//              case zone : Area => {
-//                reflect(zone,onEach,name + "_")
-//              }
-//              case _ =>
-//            }
-//            onEach(name, fieldRef)
-//            refs += fieldRef
-//          }
-//        }
-//      }
-//    }
-//  }
+  //  def reflect(o: Object, onEach: (String, Any) => Unit,namePrefix :String = ""): Unit = {
+  //    val refs = mutable.Set[Any]()
+  //    val ru = scala.reflect.runtime.universe
+  //    val runtimeMirror = ru.runtimeMirror(o.getClass.getClassLoader)
+  //    val instanceMirror = runtimeMirror.reflect(o)
+  //    val symbols = instanceMirror.symbol.typeSignature.members.sorted
+  //    for(symbol <- symbols){
+  //      if(symbol.isMethod){
+  //        val method = symbol.asMethod
+  //        if(method.isGetter && method.isPublic){
+  //          val fieldRef = instanceMirror.reflectMethod(method.asMethod).apply()
+  //          if (fieldRef != null && !refs.contains(fieldRef)) {
+  //            val name = namePrefix + method.name
+  //            fieldRef match {
+  //              case vec: Vec[_] =>
+  //              case seq: Seq[_] => {
+  //                for ((obj, i) <- seq.zipWithIndex) {
+  //                  onEach(name + i, obj.asInstanceOf[Object])
+  //                  refs += fieldRef
+  //                }
+  //              }
+  //              case zone : Area => {
+  //                reflect(zone,onEach,name + "_")
+  //              }
+  //              case _ =>
+  //            }
+  //            onEach(name, fieldRef)
+  //            refs += fieldRef
+  //          }
+  //        }
+  //      }
+  //    }
+  //  }
 
-  def reflect(o: Object, onEach: (String, Object) => Unit,namePrefix :String = ""): Unit = {
+  def reflect(o: Object, onEach: (String, Object) => Unit, namePrefix: String = ""): Unit = {
     val refs = mutable.Set[Object]()
     explore(o.getClass)
     def explore(c: Class[_]): Unit = {
@@ -138,7 +141,7 @@ object Misc {
 
 
 
-      for(method <- methods){
+      for (method <- methods) {
         method.setAccessible(true)
         val fieldRef = method.invoke(o)
         if (fieldRef != null && !refs.contains(fieldRef)) {
@@ -151,21 +154,21 @@ object Misc {
                 refs += fieldRef
               }
             }
-            case zone : Area => {
-              reflect(zone,onEach,name + "_")
+            case zone: Area => {
+              reflect(zone, onEach, name + "_")
             }
             case _ =>
           }
           onEach(name, fieldRef)
           refs += fieldRef
         }
-       }
+      }
     }
   }
 
   def normalizeResize(to: Node, inputId: Integer, width: Int) {
     val input = to.inputs(inputId)
-    if (input == null  || input.getWidth == width || input.isInstanceOf[NoneNode]) return;
+    if (input == null || input.getWidth == width || input.isInstanceOf[NoneNode]) return;
 
     val that = input.asInstanceOf[BitVector]
     Component.push(that.component)
@@ -173,6 +176,10 @@ object Misc {
     resize.inferredWidth = width
     to.inputs(inputId) = resize
     Component.pop(that.component)
+//    if (input.isInstanceOf[BaseType] && input.asInstanceOf[BaseType].getLiteral[Literal] == null)
+//      println("asd")
+//    else
+//      SpinalWarning("Automatic resize on " + to.toString)
   }
 
 }
@@ -232,9 +239,13 @@ class SafeStack[T] {
   }
 
   def head() = stack.headOption.getOrElse(null.asInstanceOf[T])
+
   def oldest() = stack.lastOption.getOrElse(null.asInstanceOf[T])
+
   def isEmpty: Boolean = stack.isEmpty
+
   def size() = stack.size
+
   def reset = stack.clear()
 }
 
@@ -252,6 +263,7 @@ object SpinalInfoPhase {
 object SpinalInfo {
   def apply(message: String) = println(s"[Info] $message")
 }
+
 object SpinalWarning {
   def apply(message: String) = println(s"[Warning] $message")
 }
@@ -277,6 +289,7 @@ object SpinalError {
   def apply(message: String) = {
     SpinalExit(message)
   }
+
   def apply(messages: Seq[String]) = {
     SpinalExit(messages.reduceLeft(_ + "\n" + _))
   }
@@ -284,9 +297,9 @@ object SpinalError {
   def printError(message: String) = println(s"[Error] $message")
 }
 
-object ifGen{
-  def apply[T](cond : Boolean)(block : => T) : T = {
-    if(cond)
+object ifGen {
+  def apply[T](cond: Boolean)(block: => T): T = {
+    if (cond)
       return block
     else
       return null.asInstanceOf[T]

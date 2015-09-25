@@ -1,18 +1,6 @@
-class Data{
-  override def clone(): this.type = new Data().asInstanceOf[this.type]
-}
-class Stream[T <: Data](dataType: T){
-  val data = dataType.clone()
-}
+import org.scalatest.enablers.Definition
 
-object Test{
-  def doit[T <: Data](that : Stream[T]): Stream[T] ={
-    val ret = new Stream(that.data)
-    return ret
-  }
-}
-
-Test.doit(new Stream(new Data))
+val a = 'dummy
 
 //
 //object Data {

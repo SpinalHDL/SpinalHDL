@@ -105,11 +105,15 @@ object Data {
   }
 }
 
-class DataPimper[T <: Data](pimpIt: T) {
+class DataPimper[T <: Data](val pimpIt: T) extends AnyVal{
   def ===(that: T): Bool = pimpIt.isEguals(that)
   def !==(that: T): Bool = pimpIt.isNotEguals(that)
 
   def := (that: T): Unit = pimpIt assignFrom(that, false)
+  def :< (that: T): Unit = pimpIt assignFrom(that, false)
+  def :> (that: T): Unit = pimpIt assignFrom(that, false)
+  def :~ (that: T): Unit = pimpIt assignFrom(that, false)
+
 //  def := [T2 <: T](that: T2): Unit = pimpIt assignFrom(that, false)
 
   //Use as \= to have the same behavioral than VHDL variable
