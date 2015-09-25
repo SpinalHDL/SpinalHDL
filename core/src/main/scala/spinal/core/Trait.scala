@@ -362,6 +362,7 @@ class GlobalData {
   val componentStack = new SafeStack[Component]
   val switchStack = new SafeStack[SwitchStack]
   val whenStack = new SafeStack[when]
+  val widthCheckers = new ArrayBuffer[WidthChecker]()
 
   var scalaLocatedEnable = false
   var instanceCounter = 0

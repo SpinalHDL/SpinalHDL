@@ -38,10 +38,10 @@ class Play1 extends Component{
   })
 
 
-  val mySignal = UInt(3 bit)
-  val myCounter = UInt(4 bit)
+  val mySignal : Data = in UInt(5 bit)
+  val myCounter : Data = out UInt(4 bit)
 
-  myCounter :> mySignal
+  myCounter := mySignal
 
 
 }

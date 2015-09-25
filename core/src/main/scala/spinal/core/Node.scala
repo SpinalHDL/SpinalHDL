@@ -386,3 +386,17 @@ object NoneNode {
 class NoneNode extends Node {
   override def calcWidth: Int = 0
 }
+
+
+
+
+//abstract class WidthAssemptionNode(provider : Node) extends Node{
+//  inputs += provider
+//  override def calcWidth: Int = inputs(0).getWidth
+//  def check(consumer : Node) : Boolean
+//
+//}
+//
+//class WidthAssemptionReduce(provider : Node) extends WidthAssemptionNode(provider){
+//  override def check(consumer: Node): Boolean = consumer.getWidth < inputs(0).getWidth
+//}

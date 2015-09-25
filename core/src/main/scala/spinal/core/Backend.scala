@@ -630,6 +630,11 @@ class Backend {
       val error = node.checkInferedWidth
       if (error != null) errors += error
     })
+
+    for(checker <- globalData.widthCheckers){
+      val error = checker.check()
+      if(error != null) errors += error + s", ${checker.consumer.getWidth} bit assigned by ${checker.provider.getWidth} bit\n  consumer at\n${checker.consumer.getScalaTraceString}\n  provider at\n${checker.provider.getScalaTraceString}"
+    }
     if (!errors.isEmpty)
       SpinalError(errors)
   }

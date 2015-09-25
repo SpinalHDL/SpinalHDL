@@ -23,32 +23,32 @@ object SpinalVhdl {
 
   def apply[T <: Component](gen: => T, config: SpinalVhdl[_] => Unit): BackendReport[T] = {
     def doIt(tryCounter: Int = 0): BackendReport[T] = {
-//      try {
+      try {
         val factory = new SpinalVhdl(gen)
         config(factory)
         if (tryCounter != 0) GlobalData.get.scalaLocatedEnable = true
         return factory.elaborate
-//      } catch {
-//        case e: Throwable => {
-//          tryCounter match {
-//            case 0 => {
-//              println("\n**********************************************************************************************")
-//              SpinalInfo("Elaboration fail !!! Spinal restart it with scala trace to help you to find the problem")
-//              println("**********************************************************************************************\n")
-//              Thread.sleep(10);
-//              return doIt(1)
-//            }
-//            case 1 => {
-//              println("\n**********************************************************************************************")
-//              SpinalInfo("Elaboration fail !!!")
-//              println("**********************************************************************************************")
-//              Thread.sleep(10);
-//              throw e
-//            }
-//          }
-//        }
-//      }
-//      throw new Exception
+      } catch {
+        case e: Throwable => {
+          tryCounter match {
+            case 0 => {
+              println("\n**********************************************************************************************")
+              SpinalInfo("Elaboration fail !!! Spinal restart it with scala trace to help you to find the problem")
+              println("**********************************************************************************************\n")
+              Thread.sleep(10);
+              return doIt(1)
+            }
+            case 1 => {
+              println("\n**********************************************************************************************")
+              SpinalInfo("Elaboration fail !!!")
+              println("**********************************************************************************************")
+              Thread.sleep(10);
+              throw e
+            }
+          }
+        }
+      }
+      throw new Exception
     }
     return doIt()
   }
