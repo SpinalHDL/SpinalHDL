@@ -164,7 +164,7 @@ class Counter(val stateCount: BigInt, freeRun: Boolean = false) extends Area {
   val overflow = overflowIfInc && increment
 
   if (isPow2(stateCount)) {
-    valueNext := value + toUInt(increment)
+    valueNext :~= value + toUInt(increment)
     when(value === stateCount - 1) {
       overflowIfInc := True
     }

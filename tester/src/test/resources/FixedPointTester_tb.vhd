@@ -66,7 +66,7 @@ begin
 
     if testCounter /= 0 then
       assert io_outSFix_0 = io_inSFix_0 + ((1 downto 0 => io_inSFix_1(io_inSFix_1'high)) & io_inSFix_1 & "00") report "io_outSFix_0 fail" severity failure;
-      assert io_outSFix_1 <= pkg_resize(pkg_shiftRight((io_inSFix_0 * io_inSFix_1),6),24) report "io_outSFix_1 fail" severity failure;
+      assert io_outSFix_1 <= pkg_resize(pkg_shiftRight((io_inSFix_0 * io_inSFix_1),6-1),24) report "io_outSFix_1 fail" severity failure;
       assert io_outBundleA_a_sfix = io_inBundleA_a_sfix(io_inBundleA_a_sfix'high downto 2) report "io_outBundleA_a_sfix fail" severity failure;
     end if;
 

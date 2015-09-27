@@ -73,7 +73,7 @@ class MandelbrotSblDemo(frameAddressOffset: Int, p: MandelbrotCoreParameters, co
       val colorResult = paletteRom.streamReadSync(core.io.pixelResult.translateWith(core.io.pixelResult.fragment.iteration), core.io.pixelResult.last)
 
       //Take mandelbrot pixelResults and translate them into simple memory access
-      val counter = Reg(UInt(32 bit)) init (0)
+      val counter = Reg(UInt(memoryBusConfig.addressWidth bit)) init (0)
       when(io.mandelbrotWriteCmd.fire) {
         counter := counter + 1
         when(colorResult.data.linked) {
@@ -82,7 +82,7 @@ class MandelbrotSblDemo(frameAddressOffset: Int, p: MandelbrotCoreParameters, co
       }
       io.mandelbrotWriteCmd.translateFrom(colorResult)((to, from) => {
         to.address := counter
-        to.data := toBits(from.value)
+        to.data :>= toBits(from.value)
       })
     }
     
@@ -138,11 +138,13 @@ class MandelbrotSblDemo(frameAddressOffset: Int, p: MandelbrotCoreParameters, co
 
 object MandelbrotSblDemo {
   def main(args: Array[String]) {
-    SpinalVhdl({
-      val vgaClock = ClockDomain("vga")
-      val vgaMemoryClock = ClockDomain("vgaMemory")
-      val coreClock = ClockDomain("core",FixedFrequency(100e6))
-      new MandelbrotSblDemo(0, new MandelbrotCoreParameters(256, 6, 640, 480, 7, 17 * 3), coreClock, vgaMemoryClock, vgaClock)
-    })
+    for(i <- 0 until 1){
+      SpinalVhdl({
+        val vgaClock = ClockDomain("vga")
+        val vgaMemoryClock = ClockDomain("vgaMemory")
+        val coreClock = ClockDomain("core",FixedFrequency(100e6))
+        new MandelbrotSblDemo(0, new MandelbrotCoreParameters(256, 6, 640, 480, 7, 17 * 3), coreClock, vgaMemoryClock, vgaClock)
+      })
+    }
   }
 }

@@ -169,6 +169,10 @@ class StreamBitsPimped(pimped: Stream[Bits]) {
   //
   //    ret
   //  }
+
+
+
+
 }
 
 class StreamFragmentBitsPimped(pimped: Stream[Fragment[Bits]]) {
@@ -220,6 +224,32 @@ class StreamFragmentBitsPimped(pimped: Stream[Fragment[Bits]]) {
       state := eFinish0
     }
 
+    ret
+  }
+
+
+  //Little endian, not tested
+  def toStreamOf[T <: Data](toDataType: T): Stream[T] = {
+    val fromWidth = pimped.fragment.getWidth
+    val toWidth = toDataType.getBitsWidth
+    val ret = Stream(toDataType)
+
+    if (toWidth <= fromWidth) {
+      ret.valid := pimped.fire && pimped.last
+      ret.data.assignFromBits(pimped.fragment)
+      pimped.ready := ret.ready
+    } else {
+      val missingBitsCount = toWidth - fromWidth
+
+      val buffer = Reg(Bits((missingBitsCount + fromWidth - 1) / fromWidth * fromWidth bit))
+      when(pimped.fire) {
+        buffer := pimped.fragment ## (buffer >> fromWidth)
+      }
+
+      ret.valid := pimped.isLast
+      pimped.ready := ret.ready || ! pimped.isLast
+      ret.data.assignFromBits(pimped.fragment ## buffer)
+    }
     ret
   }
 }

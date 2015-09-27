@@ -222,6 +222,14 @@ class Stream[T <: Data](_dataType: T) extends Bundle with IMasterSlave with Data
     converter.io.input << this
     return converter.io.output
   }
+  def addFragmentLast(last : Bool) : Stream[Fragment[T]] = {
+    val ret = Stream(Fragment(dataType))
+    ret.valid := this.valid
+    this.ready := ret.ready
+    ret.last := last
+    ret.fragment := this.data
+    return ret
+  }
 }
 
 
@@ -515,7 +523,7 @@ class StreamFifoCC[T <: Data](dataType: T, val depth: Int, pushClockDomain: Cloc
 
     io.push.ready := !full
     when(io.push.fire) {
-      ram(pushPtr) := io.push.data
+      ram(pushPtr.autoResize()) := io.push.data
       pushPtr ++
     }
 
@@ -529,7 +537,7 @@ class StreamFifoCC[T <: Data](dataType: T, val depth: Int, pushClockDomain: Cloc
     val empty = isEmpty(popPtrGray, pushPtrGray)
 
     io.pop.valid := !empty
-    io.pop.data := ram.readSyncCC(popPtr.valueNext)
+    io.pop.data := ram.readSyncCC(popPtr.valueNext.autoResize())
     when(io.pop.fire) {
       popPtr ++
     }

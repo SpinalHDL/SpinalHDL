@@ -23,6 +23,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 case class BitCount(val value: Int) {}
+case class ExpCount(val value: Int) {}
 
 case class LiteralInt(val value: BigInt) {}
 
@@ -221,6 +222,15 @@ trait ScalaLocated extends GlobalDataUser {
     })
     temp
   }
+  def getScalaTraceComplet = {
+    val temp = scalaTrace.getStackTrace
+    temp
+  }
+  def getScalaTraceCompletString(tab: String): String = {
+    if (scalaTrace == null) return ""
+    (getScalaTraceComplet.map(tab + _.toString) reduceLeft (_ + "\n" + _)) + "\n\n"
+  }
+  def getScalaTraceCompletString: String = getScalaTraceCompletString("    ")
 
   def getScalaTraceString(tab: String): String = {
     if (scalaTrace == null) return ""
@@ -262,6 +272,7 @@ object crossClockBuffer extends SpinalTag
 
 object randomBoot extends SpinalTag
 
+object tagAutoResize extends SpinalTag
 
 trait Area {
 

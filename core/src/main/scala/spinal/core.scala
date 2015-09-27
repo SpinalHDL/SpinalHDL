@@ -23,6 +23,8 @@ package object core extends BaseTypeFactory with BaseTypeCast{
 
 
     def bit = new BitCount(i)
+    def exp = new ExpCount(i)
+
     def hr = new STime(i * 3600)
     def min = new STime(i * 60)
     def sec = new STime(i * 1)
@@ -35,6 +37,7 @@ package object core extends BaseTypeFactory with BaseTypeCast{
 
   case class BigIntBuilder(i: BigInt) {
     def bit = new BitCount(i.toInt)
+    def exp = new ExpCount(i.toInt)
   }
 
   case class DoubleBuilder(d: Double) {

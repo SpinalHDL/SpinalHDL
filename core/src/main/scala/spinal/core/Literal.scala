@@ -59,16 +59,16 @@ object BitsLiteral {
     } else {
       bitCount = valueBitCount
     }
-    on.inputs(0) = new BitsLiteral(value, bitCount, on)
+    on.inputs(0) = new BitsLiteral(value, bitCount,specifiedBitCount != -1, on)
     on
   }
 }
 
-class BitsLiteral(val value: BigInt, val bitCount: Integer, val kind: Node) extends Literal {
+class BitsLiteral(val value: BigInt, val bitCount: Integer,val hasSpecifiedBitCount : Boolean, val kind: Node) extends Literal {
   def calcWidth: Int = bitCount
   if(globalData.nodeAreInferringWidth) inferredWidth = bitCount
 
-  override def clone(): this.type = new BitsLiteral(value, bitCount, kind).asInstanceOf[this.type]
+  override def clone(): this.type = new BitsLiteral(value, bitCount,hasSpecifiedBitCount, kind).asInstanceOf[this.type]
   override def getBitsStringOn(bitCount: Int): String = {
     def makeIt(fillWidth : Boolean) : String = {
       val str = (if(value > 0) value else ((BigInt(1) << bitCount) + value)).toString(2)

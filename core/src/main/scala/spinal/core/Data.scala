@@ -132,11 +132,20 @@ class DataPimper[T <: Data](val pimpIt: T) extends AnyVal{
   def init(that: T): T = pimpIt.initImpl(that)
 }
 
-abstract class WidthChecker(val consumer : Node,val provider : Node){
+abstract class WidthChecker(val consumer : Node,val provider : Node) {
   consumer.globalData.widthCheckers += this
 
   def check() : String = {
     if(consumer.inferredWidth == -1 || provider.inferredWidth == -1) return null
+    def isLiteralBitWidthUnspecified(n : Node) : Boolean = {
+      n match{
+        case n : BitsLiteral => return ! n.hasSpecifiedBitCount
+        case n : BitVector => return if(n.isFixedWidth) false else isLiteralBitWidthUnspecified(n.inputs(0))
+        case _ => return false
+      }
+    }
+    if(isLiteralBitWidthUnspecified(provider)) return null
+    if(provider.hasTag(tagAutoResize)) return null
     return checkImpl()
   }
   def checkImpl() : String
@@ -165,17 +174,17 @@ class BitVectorPimper[T <: BitVector](val pimpIt: T) extends AnyVal {
     new WidthCheckerEguals(pimpIt,that)
     pimpIt assignFrom(that, false)
   }
-  def :<(that: T): Unit = {
+  def :<=(that: T): Unit = {
     new WidthCheckerReduce(pimpIt,that)
     pimpIt assignFrom(that, false)
   }
 
-  def :>(that: T): Unit = {
+  def :>=(that: T): Unit = {
     new WidthCheckerAugment(pimpIt,that)
     pimpIt assignFrom(that, false)
   }
 
-  def :~(that: T): Unit = pimpIt assignFrom(that, false)
+  def :~=(that: T): Unit = pimpIt assignFrom(that, false)
 }
 
 trait Data extends ContextUser with NameableByComponent with Assignable with AttributeReady with SpinalTagReady with GlobalDataUser with ScalaLocated {
@@ -230,6 +239,13 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
 
   def isEguals(that: Data): Bool// = (this.flatten, that.flatten).zipped.map((a, b) => a.isEguals(b)).reduceLeft(_ && _)
   def isNotEguals(that: Data): Bool// = (this.flatten, that.flatten).zipped.map((a, b) => a.isNotEguals(b)).reduceLeft(_ || _)
+  def autoResize() : this.type ={
+    val ret = this.clone
+    ret.assignFrom(this,false)
+    ret.addTag(tagAutoResize)
+    return ret
+  }
+
   def autoConnect(that: Data): Unit// = (this.flatten, that.flatten).zipped.foreach(_ autoConnect _)
   def autoConnectBaseImpl(that: Data): Unit = {
     if (this.component == that.component) {

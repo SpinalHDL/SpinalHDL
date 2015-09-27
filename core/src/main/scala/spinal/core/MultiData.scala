@@ -97,6 +97,8 @@ abstract class MultiData extends Data {
   }
 
 
+  // = (this.flatten, that.flatten).zipped.map((a, b) => a.isNotEguals(b)).reduceLeft(_ || _)
+
   override def assignFromBits(bits: Bits): Unit = {
     var offset = 0
     for ((_, e) <- elements) {

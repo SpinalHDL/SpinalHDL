@@ -178,7 +178,7 @@ class UartCtrlRx(dataWidthMax: Int = 8, clockDividerWidth: Int = 21, preSampling
     val frontBuffer = BufferCC(io.rxd)
     val samples = RegInit(BitsSet(samplingSize bit))
     when(clockDivider.tick) {
-      samples := samples ## frontBuffer
+      samples :<= samples ## frontBuffer
     }
     val value = RegNext(MajorityVote(samples))
     val event = RegNext(clockDivider.tick)

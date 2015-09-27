@@ -99,9 +99,11 @@ object Debug {
       val tt = out Bool
     }
     //    println(io.elements.mkString("\n"))
-    SFix(4, 8 bit).maxValue
-    SFix(4, 8 bit).minValue
+    SFix(4 exp, 8 bit).maxValue
+    SFix(4 exp, 8 bit).minValue
 
+    SFix(4 exp, 8 bit)
+    SFix(4 exp, 8 exp)
 
     val newInput = in Bool
     val newOutput = out Bool

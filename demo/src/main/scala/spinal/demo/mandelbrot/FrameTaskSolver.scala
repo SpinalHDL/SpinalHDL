@@ -140,11 +140,13 @@ class PixelTaskSolver(p: MandelbrotCoreParameters) extends Component {
   val stage2 = RegFlow(new Stage2Context)
 
   def fixMul(a: SFix, b: SFix): SFix = {
-    val ret = SFix(a.exp + b.exp, a.bitCount + b.bitCount bit)
+    val ret = SFix(a.maxExp + b.maxExp + 1 exp, a.bitCount + b.bitCount bit)
     // SIntMath.mul is a pipelined implementation of the signed multiplication operator
     //(leftSigned, rightSigned, number of bit per multiplicator, trunk bits bellow this limit, ...)
     ret.raw := SIntMath.mul(a.raw, b.raw, 17, p.fixWidth - p.fixExp, 1, (stage, level) => RegNext(stage))
     ret
+
+   // return a*b
   }
 
   stage2.data.zXzX := fixMul(stage1.data.z.x, stage1.data.z.x)

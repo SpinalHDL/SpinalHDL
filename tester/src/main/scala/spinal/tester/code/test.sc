@@ -1,5 +1,7 @@
 
 
+def <° : Int = 3
+
 //10 x UInt(10 bit)
 
 class C1{
