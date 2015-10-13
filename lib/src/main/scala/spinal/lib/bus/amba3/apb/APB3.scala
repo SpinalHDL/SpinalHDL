@@ -6,13 +6,13 @@ import spinal.lib._
 class Apb3Config(val addressWidth: Int, val dataWidth: Int)
 
 class Apb3Slave(val p: Apb3Config) extends Bundle with IMasterSlave {
-  val PADDR = UInt(p.addressWidth bit)
-  val PSEL = Bool
+  val PADDR    = UInt(p.addressWidth bit)
+  val PSEL    = Bool
   val PENABLE = Bool
-  val PREADY = Bool
-  val PWRITE = Bool
-  val PWDATA = Bits(p.dataWidth bit)
-  val PRDATA = Bits(p.dataWidth bit)
+  val PREADY  = Bool
+  val PWRITE  = Bool
+  val PWDATA  = Bits(p.dataWidth bit)
+  val PRDATA  = Bits(p.dataWidth bit)
 
   override def asMaster: Apb3Slave.this.type = {
     out(PADDR)
@@ -60,23 +60,23 @@ class Apb3SlaveController(bus: Apb3Slave) {
     }
   }
 
-  def writeOnlyReg[T <: Data](dataType: T, baseAddress: BigInt): T = {
-    val reg = Reg(Bits(widthOf(dataType) bit))
+  def writeOnlyReg[T <: Data](that: T, baseAddress: BigInt): Unit = {
+    val reg = Reg(Bits(widthOf(that) bit))
     writeRegister(reg,baseAddress)
-    return reg.toDataType(dataType)
+    that.assignFromBits(reg)
   }
 
 
-  def writeReadReg[T <: Data](dataType: T, baseAddress: BigInt): T = {
-    val reg = Reg(Bits(widthOf(dataType) bit))
+  def writeReadReg[T <: Data](that: T, baseAddress: BigInt): Unit = {
+    val reg = Reg(Bits(widthOf(that) bit))
     writeRegister(reg,baseAddress)
     readSignal(reg,baseAddress)
-    return reg.toDataType(dataType)
+    return that.assignFromBits(reg)
   }
 
 
 
-  def pushStream(baseAddress: BigInt): Stream[Bits] = {
+  def writeStream(baseAddress: BigInt): Stream[Bits] = {
     val ret = Stream(bus.PWDATA)
     ret.valid := False
     ret.data := bus.PWDATA
@@ -91,16 +91,19 @@ class Apb3SlaveController(bus: Apb3Slave) {
   }
 
 
-  def pushStream[T <: Data](dataType: T, baseAddress: BigInt): Stream[T] = {
+
+  def writeStreamOf[T <: Data](dataType: T, baseAddress: BigInt): Stream[T] = {
     val wordCount = (widthOf(dataType) - 1) / bus.p.dataWidth + 1
-    val stream = pushStream(baseAddress)
+    val stream = writeStream(baseAddress)
     val streamFragment = stream.addFragmentLast(Counter(wordCount,stream.fire) === wordCount-1)
     return streamFragment.toStreamOf(dataType)
   }
 
+  def writeStream[T <: Data](that: Stream[T], baseAddress: BigInt) : Unit = {
+    that << writeStreamOf(that.dataType,baseAddress)
+  }
 
-
-  def popStream[T <: Data](transactionStream : Stream[T],baseAddress: BigInt): Unit = {
+  def readStream[T <: Data](transactionStream : Stream[T],baseAddress: BigInt): Unit = {
     val fragmentStream = transactionStream.fragmentTransaction(bus.p.dataWidth)
     fragmentStream.ready := False
 
@@ -111,5 +114,11 @@ class Apb3SlaveController(bus: Apb3Slave) {
         bus.PREADY := fragmentStream.valid
       }
     }
+  }
+
+  def readStreamOf[T <: Data](dataType : T,baseAddress: BigInt): Stream[T] = {
+    val stream = Stream(dataType)
+    readStream(stream,baseAddress)
+    return stream
   }
 }

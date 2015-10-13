@@ -25,7 +25,6 @@ class MandelbrotSblDemo(frameAddressOffset: Int, p: MandelbrotCoreParameters, co
 
     val vga = master(Vga(rgbType))
   }
-
   val core = new ClockingArea(coreClk) {
     val uart = new Area {
       val ctrl = new UartCtrl()
@@ -37,7 +36,6 @@ class MandelbrotSblDemo(frameAddressOffset: Int, p: MandelbrotCoreParameters, co
       
       val (flowFragment, _) = ctrl.io.read.toFlowFragmentBitsAndReset()
     }
-
     val mandelbrot = new Area {
       val core = new MandelbrotCore(p)
       core.io.cmdPort << uart.flowFragment
@@ -85,9 +83,7 @@ class MandelbrotSblDemo(frameAddressOffset: Int, p: MandelbrotCoreParameters, co
         to.data :>= toBits(from.value)
       })
     }
-    
   }
-
   val vga = new ClockingArea(vgaClk) {
     //Create VGA controller
     val ctrl = new VgaCtrl(rgbType, 12)
@@ -97,7 +93,6 @@ class MandelbrotSblDemo(frameAddressOffset: Int, p: MandelbrotCoreParameters, co
 
     val newFrameEvent = ctrl.io.frameStart.genEvent
   }
-
   val vgaMemory = new ClockingArea(vgaMemoryClk) {
     //Create the DMA for this VGA controller
     val dma = new SblReadDma(memoryBusConfig)
@@ -105,10 +100,15 @@ class MandelbrotSblDemo(frameAddressOffset: Int, p: MandelbrotCoreParameters, co
     //Syncronise the frameStart event from the VGA to the current clock domain
     val frameStart = StreamCCByToggle(vga.newFrameEvent, vgaClk, vgaMemoryClk)
     //Translate it into a DMA command and send it into the DMA
-    dma.io.cmd.translateFrom(frameStart)((to, from) => {
-      to.offset := frameAddressOffset
-      to.endAt := frameAddressOffset + p.screenResX * p.screenResY - 1
-    })
+//    dma.io.cmd.translateFrom(frameStart)((to, from) => {
+//      to.offset := frameAddressOffset
+//      to.endAt := frameAddressOffset + p.screenResX * p.screenResY - 1
+//    })
+
+    dma.io.cmd.arbitrationFrom(frameStart)
+    dma.io.cmd.data.offset := frameAddressOffset
+    dma.io.cmd.data.endAt := frameAddressOffset + p.screenResX * p.screenResY - 1
+
 
     //Count pendings command on the vgaRead bus
     val pendingCmd = Reg(UInt(6 bit)) init (0)
@@ -121,20 +121,25 @@ class MandelbrotSblDemo(frameAddressOffset: Int, p: MandelbrotCoreParameters, co
     }
 
     //Translate bus memory bus read Flow into a color read flow
-    val colorFlow = Flow(rgbType).translateFrom(io.vgaReadRet)((to, from) => {
-      to.assignFromBits(from.data)
-    })
+//    val colorFlow = Flow(rgbType).translateFrom(io.vgaReadRet)((to, from) => {
+//      to.assignFromBits(from.data)
+//    })
+
+    val colorFlow = Flow(rgbType)
+    colorFlow.valid := io.vgaReadRet.valid
+    colorFlow.data.assignFromBits(io.vgaReadRet.data.data)
 
     //Translate the color Flow ino a Stream and syncronise/bufferise to the VgaClk by using a cross clock fifo
     val fifoSize = 512
     val (colorStream, colorStreamOccupancy) = colorFlow.toStream.queueWithPushOccupancy(fifoSize, vgaMemoryClk, vgaClk)
+    vga.ctrl.io.colorStream << colorStream
 
     //Halt the vga read cmd stream if there is to mutch pending command or if the fifo is near than full
-    io.vgaReadCmd << dma.io.sblReadCmd.haltWhen(pendingCmd === (1 << widthOf(pendingCmd)) - 1 || RegNext(colorStreamOccupancy) > fifoSize - 128)
+    io.vgaReadCmd << dma.io.sblReadCmd.haltWhen(pendingCmd === pendingCmd.maxValue || RegNext(colorStreamOccupancy) > fifoSize - 128)
 
-    vga.ctrl.io.colorStream << colorStream
   }
 }
+
 
 object MandelbrotSblDemo {
   def main(args: Array[String]) {

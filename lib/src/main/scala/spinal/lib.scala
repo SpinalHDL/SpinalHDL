@@ -12,7 +12,7 @@ package object lib {
 
 
   //implicit def easyStream[T <: Bundle](that: Stream[T]) = that.data
-  implicit def traversableOncePimped[T](that: TraversableOnce[T]) = new TraversableOncePimped[T](that)
+  implicit def traversableOncePimped[T <: Data](that: scala.collection.Iterable[T]) = new TraversableOncePimped[T](that)
 
   implicit def flowFragmentPimped[T <: Data](that: Flow[Fragment[T]]) = new FlowFragmentPimped[T](that)
   implicit def streamFragmentPimped[T <: Data](that: Stream[Fragment[T]]) = new StreamFragmentPimped[T](that)

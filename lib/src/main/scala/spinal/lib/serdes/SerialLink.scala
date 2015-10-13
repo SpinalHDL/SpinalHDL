@@ -55,7 +55,7 @@ class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) ext
     val syncPtr = Reg(UInt(17 bit))  //Last RX ack from the remote controller
 
     when(syncPtr === writePtr){
-      resendTimeout.clear
+      resendTimeout.clear()
     }
 
     //Capacity flags
@@ -66,13 +66,13 @@ class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) ext
     io.input.ready := !full
     when(io.input.fire) {
       ram.write(writePtr, io.input.data)
-      writePtr ++
+      writePtr.increment()
     }
 
     //manage syncPtr from rxToTx notification port
     when(io.rxToTx.otherRxPtr.fire) {
       when(syncPtr !== io.rxToTx.otherRxPtr.data) {
-        resendTimeout.clear
+        resendTimeout.clear()
       }
       syncPtr := io.rxToTx.otherRxPtr.data
     }
@@ -80,7 +80,7 @@ class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) ext
     //read managment
     val readFlag = False
     val readPort = ram.readSync(readPtr,readFlag)
-    readPtr.increment := readFlag
+    readPtr.willIncrement := readFlag
 
   }
 
@@ -122,7 +122,7 @@ class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) ext
       is(eNewFrame) {
         when(resendTimeout) {
           buffer.readPtr.valueNext := buffer.syncPtr
-          resendTimeout.clear
+          resendTimeout.clear()
         }.elsewhen(sendClosingNotification) {
           io.output.valid := True
           io.output.last := True
@@ -205,8 +205,8 @@ class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) ext
           io.output.fragment := buffer.readPort
           when(io.output.ready) {
             state := eNewFrame
-            resendTimeout.clear
-            aliveTimeout.clear
+            resendTimeout.clear()
+            aliveTimeout.clear()
           }
         }
       }

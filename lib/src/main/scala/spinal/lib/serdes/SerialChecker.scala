@@ -207,7 +207,7 @@ class SerialCheckerRx(wordCountMax: Int) extends Component {
 
     when(pushFlag) {
       checksum := checksum + toUInt(io.input.data.bits) //TODO better checksum
-      writePtr ++
+      writePtr.increment()
     }
     when(flushFlag) {
       validPtr := writePtr
@@ -234,7 +234,7 @@ class SerialCheckerRx(wordCountMax: Int) extends Component {
     val readCmd = Stream(UInt(log2Up(wordCountMax) bit))
     readCmd.valid := (validPtr !== readPtr)
     readCmd.data := readPtr
-    readPtr.increment := readCmd.fire
+    readPtr.willIncrement := readCmd.fire
     io.output.translateFrom(ram.streamReadSync(readCmd))((to, from) => {
       to.last := from.msb
       to.fragment := from

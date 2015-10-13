@@ -172,7 +172,7 @@ object Debug {
 
     //MacroTest.mkObject("asd")
     val yolo = bar("asd")
-    println(yolo.asd)
+
 
   }
 
