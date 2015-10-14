@@ -90,6 +90,7 @@ object DebuggerOnUart {
     io.output := internalA
   }
 
+  //TODO will generate a warning that is not nice in therm of lisibility
   def main(args: Array[String]) {
     println("START")
     SpinalVhdl(new DebuggerOnUart)

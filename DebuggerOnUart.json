@@ -3,7 +3,7 @@
   {
     "clazz":"uidPeripheral",
     "kind":"logicAnalyser",
-    "uid":"2108985191",
+    "uid":"460030633",
     "memAddressWidth":8,
     "zeroSampleLeftAfterTriggerWindow":2,
     "probes":[{

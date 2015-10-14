@@ -1,11 +1,17 @@
 package spinal.tester.code
 
+import net.liftweb.json.DefaultFormats
+import net.liftweb.json.Extraction._
+import net.liftweb.json.JsonAST._
+import net.liftweb.json.Printer._
 import spinal.core._
 import spinal.debugger.LogicAnalyserBuilder
 import spinal.demo.mandelbrot._
 import spinal.lib._
 import spinal.lib.bus.amba3.apb.{Apb3SlaveController, Apb3Slave, Apb3Config}
 import spinal.lib.com.uart.{UartCtrlConfig, Uart, UartCtrl, UartCtrlTx}
+
+import scala.util.Random
 
 object C0 {
 
@@ -936,20 +942,20 @@ object t13 {
   val toto = normalVec.map(_ === 3)
 
 
-  val addressTarget = UInt(32 bit)
+  val targetAddress = UInt(32 bit)
 
 
   class LineTag extends Bundle {
     val valid = Bool
     val address = UInt(32 bit)
     val dirty = Bool
+
+    def hit(targetAddress : UInt) : Bool = valid && address === targetAddress
   }
 
   val lineTags = Vec(new LineTag, 8)
-  val lineHits = lineTags.map(
-    lineTag => lineTag.valid === True && lineTag.address === addressTarget
-  )
-  val lineHitValid = lineHits.reduce(_ || _)
+  val lineHits = lineTags.map(lineTag => lineTag.hit(targetAddress))
+  val lineHitValid = lineHits.reduce((a,b) => a || b)
   val lineHitIndex = OHToUInt(lineHits)
 
 }
@@ -958,7 +964,27 @@ object t13 {
 
 
 
+object t14{
 
+  case class MandelbrotCoreParameters(iterationLimit: Int,
+                                      pixelTaskSolverCount: Int,
+                                      screenResX: Int,
+                                      screenResY: Int,
+                                      fixExp: Int,
+                                      fixWidth: Int) {
+    val uid : Int = Random.nextInt()
+  }
+  case class MandelbrotJsonReport(p : MandelbrotCoreParameters,
+                                  uid : String,
+                                  clazz : String = "uidPeripheral",
+                                  kind : String = "mandelbrotCore")
+  class MandelbrotCore(p: MandelbrotCoreParameters) extends Component {
+    // some logic
+    val json = decompose(MandelbrotJsonReport(p, p.uid.toString))(DefaultFormats)
+    GlobalData.get.addJsonReport(pretty(render(json)))
+  }
+
+}
 
 
 
