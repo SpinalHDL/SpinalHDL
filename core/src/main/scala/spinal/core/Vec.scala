@@ -21,32 +21,39 @@ package spinal.core
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-object Vec extends VecFactory{
+//object Vec extends VecFactory{
+//
+//}
 
-}
-
-class VecFactory{
-  def apply[T <: Data](elements : Iterable[T]) : Vec[T] = {
-    val vecType = elements.reduce((a,b) => {
+trait VecFactory{
+  def Vec[T <: Data](elements : TraversableOnce[T]) : Vec[T] = {
+    val vector = elements.toVector
+    val vecType = vector.reduce((a,b) => {
       if (a.getClass.isAssignableFrom(b.getClass)) a
       else if (b.getClass.isAssignableFrom(a.getClass)) b
       else throw new Exception("can't mux that")
     }).clone()
 
-    val vec = new Vec(vecType,elements.toVector)
+    val vec = new Vec(vecType,vector)
     vec
   }
 
-  def apply[T <: Data](gen : => T,size : Int) : Vec[T] = fill(size)(gen)
-  def apply[T <: Data](gen :(Int) => T,size : Int) : Vec[T] = tabulate(size)(gen)
+
+  def Vec[T <: Data](gen : => T,size : Int) : Vec[T] = fill(size)(gen)
+ // def apply[T <: Data](gen :(Int) => T,size : Int) : Vec[T] = tabulate(size)(gen)
+
+  //def apply[T <: Data](gen : => Vec[T],size : Int) : Vec[Vec[T]] = fill(size)(gen)
+
 
   @deprecated //swap data and size
-  def apply[T <: Data](size : Int,gen : => T) : Vec[T] = fill(size)(gen)
+  def Vec[T <: Data](size : Int,gen : => T) : Vec[T] = fill(size)(gen)
   @deprecated //swap data and size
-  def apply[T <: Data](size : Int,gen :(Int) => T) : Vec[T] = tabulate(size)(gen)
+  def Vec[T <: Data](size : Int,gen :(Int) => T) : Vec[T] = tabulate(size)(gen)
+
+  def Vec[T <: Data](firstElement: T, followingElements: T*): Vec[T] = Vec(List(firstElement) ++ followingElements)
 
   def tabulate[T <: Data](size : Int)(gen : (Int)=> T) : Vec[T] ={
-    this((0 until size).map(gen(_)))
+    Vec((0 until size).map(gen(_)))
   }
 
   def fill[T <: Data](size : Int)(gen : => T) : Vec[T] ={
@@ -183,3 +190,4 @@ class Vec[T <: Data](_dataType: T,val vec : Vector[T]) extends MultiData with co
     new Vec[T](dataType,vec.map(_.clone())).asInstanceOf[this.type]
   }
 }
+

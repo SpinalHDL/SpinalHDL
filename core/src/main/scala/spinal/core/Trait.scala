@@ -38,11 +38,12 @@ trait IODirection extends BaseTypeFactory {
   override def Bits = applyIt(super.Bits)
   override def UInt = applyIt(super.UInt)
   override def SInt = applyIt(super.SInt)
+  override def Vec[T <: Data](elements: TraversableOnce[T]): Vec[T] = applyIt(super.Vec(elements))
 
 
-  object Vec extends VecFactory {
-    override def apply[T <: Data](elements: Iterable[T]): Vec[T] = applyIt(super.apply(elements))
-  }
+//  object Vec extends VecFactory {
+//    override def apply[T <: Data](elements: TraversableOnce[T]): Vec[T] = applyIt(super.apply(elements))
+//  }
 
 
 }

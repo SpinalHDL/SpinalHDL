@@ -5,7 +5,7 @@ import UartStopType._
 import spinal.core._
 import spinal.lib._
 
-class UartCtrlConfig(dataWidthMax: Int = 8) extends Bundle {
+case class UartCtrlConfig(dataWidthMax: Int = 8) extends Bundle {
   val dataLength = UInt(log2Up(dataWidthMax) bit)
   val stop = UartStopType()
   val parity = UartParityType()
@@ -53,7 +53,7 @@ class UartCtrlTx(dataWidthMax: Int = 8, clockDividerWidth: Int = 24) extends Com
   }
 
   val timer = new Area {
-    val counter = Reg(io.clockDivider);
+    val counter = Reg(io.clockDivider)
     val reset = Bool
     val tick = counter === 0
 
@@ -64,8 +64,8 @@ class UartCtrlTx(dataWidthMax: Int = 8, clockDividerWidth: Int = 24) extends Com
   }
 
   val tickCounter = new Area {
-    val value = Reg(UInt(Math.max(dataWidthMax, 2) bit));
-    val reset = Bool
+    val value = Reg(UInt(Math.max(dataWidthMax, 2) bit))
+    val reset = False
 
     when(timer.tick) {
       value := value + 1
@@ -91,7 +91,6 @@ class UartCtrlTx(dataWidthMax: Int = 8, clockDividerWidth: Int = 24) extends Com
     }
 
     lookingForJob := False
-    tickCounter.reset := False
     timer.reset := False
     txd := True
     switch(state) {

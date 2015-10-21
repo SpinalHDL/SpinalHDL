@@ -59,7 +59,7 @@ class FrameTaskFilter(p: MandelbrotCoreParameters) extends Component {
   val filterTaos = Seq(1.0, 2.0)
   val filterHz = 120.0
 
-  val filterEnable = RegNext(CounterFreeRun((clkHz / filterHz).toInt).overflow) //TODO periodic pulse lib
+  val filterEnable = RegNext(CounterFreeRun((clkHz / filterHz).toInt).willOverflow) //TODO periodic pulse lib
 
   io.output.valid := True
   io.output.data.start.x := rcChainFilter(filterIn.start.x, filterTaos, filterEnable, filterHz)
@@ -109,4 +109,7 @@ class MandelbrotCore(p: MandelbrotCoreParameters) extends Component {
   val json = decompose(MandelbrotJsonReport(p, p.uid.toString))
   GlobalData.get.addJsonReport(pretty(render(json)))
 }
-case class MandelbrotJsonReport(p : MandelbrotCoreParameters,uid : String,clazz : String = "uidPeripheral",kind : String = "mandelbrotCore")
+case class MandelbrotJsonReport(p : MandelbrotCoreParameters,
+                                uid : String,
+                                clazz : String = "uidPeripheral",
+                                kind : String = "mandelbrotCore")

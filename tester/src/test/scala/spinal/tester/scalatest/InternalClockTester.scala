@@ -36,7 +36,7 @@ object InternalClockTester{
       val counter = out UInt(8 bit)
     }
     val counter = Counter(256)
-    counter ++;
+    counter.increment()
     io.counter := counter
   }
 

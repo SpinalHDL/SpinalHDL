@@ -402,12 +402,12 @@ class StreamToStreamFragmentBits[T <: Data](dataType: T, bitsWidth: Int) extends
   val counter = Counter((widthOf(dataType) - 1) / bitsWidth + 1)
   val inputBits = B(0, bitsWidth bit) ## toBits(io.input.data) //The ## allow to mux inputBits
 
-  io.input.ready := counter.overflow
-  io.output.last := counter.overflowIfInc
+  io.input.ready := counter.willOverflow
+  io.output.last := counter.willOverflowIfInc
   io.output.valid := io.input.valid
   io.output.fragment := inputBits(counter * U(bitsWidth), bitsWidth bit)
   when(io.output.fire) {
-    counter ++
+    counter.increment()
   }
 }
 
@@ -424,13 +424,13 @@ object StreamFragmentGenerator {
 
     event.ready := Bool(false)
     ret.valid := event.valid
-    ret.last := counter.overflowIfInc
+    ret.last := counter.willOverflowIfInc
     ret.fragment := packetData(counter)
     when(ret.fire) {
-      counter ++
+      counter.increment()
     }
 
-    when(counter.overflow) {
+    when(counter.willOverflow) {
       event.ready := Bool(true)
     }
 

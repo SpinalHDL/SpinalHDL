@@ -37,7 +37,7 @@ class Ipv6Rx extends Component {
     }
 
     val readPort = ram.readSync(readPtr, readFlag)
-    readPtr.increment := readFlag
+    readPtr.willIncrement := readFlag
 
     //User interface
     def writeAt(at: UInt): Unit = {

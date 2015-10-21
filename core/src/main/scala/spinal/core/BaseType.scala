@@ -24,7 +24,7 @@ import scala.collection.mutable.ArrayBuffer
  * Created by PIC18F on 21.08.2014.
  */
 
-trait BaseTypeFactory extends BoolFactory with BitsFactory with UIntFactory with SIntFactory
+trait BaseTypeFactory extends BoolFactory with BitsFactory with UIntFactory with SIntFactory with VecFactory
 
 trait BaseTypeCast extends BoolCast with UIntCast with SIntCast with BitsCast
 

@@ -1,10 +1,20 @@
 package spinal.tester.code
 
+import net.liftweb.json.DefaultFormats
+import net.liftweb.json.Extraction._
+import net.liftweb.json.JsonAST._
+import net.liftweb.json.Printer._
 import spinal.core._
 import spinal.debugger.LogicAnalyserBuilder
+import spinal.demo.mandelbrot._
 import spinal.lib._
+import spinal.lib.bus.amba3.apb.{Apb3SlaveController, Apb3Slave, Apb3Config}
+import spinal.lib.com.uart.{UartCtrlConfig, Uart, UartCtrl, UartCtrlTx}
+
+import scala.util.Random
 
 object C0 {
+
   class MyComponent extends Component {
     val io = new Bundle {
       val a = in Bool
@@ -13,9 +23,11 @@ object C0 {
 
     io.output := io.a
   }
+
 }
 
 object C1 {
+
   class MyComponent extends Component {
     val io = new Bundle {
       val a = in Bool
@@ -26,8 +38,11 @@ object C1 {
 
     io.output := (io.a & io.b) | (!io.c)
   }
+
 }
+
 object C2 {
+
   class MyComponent extends Component {
     val io = new Bundle {
       val a = in Bool
@@ -38,8 +53,11 @@ object C2 {
 
     io.output := (io.a & io.b) | (!io.c)
   }
+
 }
+
 object C3 {
+
   class MyComponent extends Component {
     val io = new Bundle {
       val a = in Bool
@@ -61,6 +79,7 @@ object C3 {
 }
 
 object C4 {
+
   class MyComponent extends Component {
     val io = new Bundle {
       val a = in Bool
@@ -101,6 +120,7 @@ object C4 {
 }
 
 object C5 {
+
   class MySubComponent extends Component {
     val io = new Bundle {
       val subIn = in Bool
@@ -121,13 +141,15 @@ object C5 {
     compInstance.io.subIn := io.a
     io.output := compInstance.io.subOut | io.b
   }
+
 }
 
 
 object C6 {
+
   class MyComponent extends Component {
     val io = new Bundle {
-      val conds = in Vec(Bool,2)
+      val conds = in Vec(Bool, 2)
       val output = out UInt (4 bit)
     }
 
@@ -140,8 +162,11 @@ object C6 {
       io.output := 0
     }
   }
+
 }
+
 object C7 {
+
   class CarryAdder(size: Int) extends Component {
     val io = new Bundle {
       val a = in UInt (size bit)
@@ -158,18 +183,21 @@ object C7 {
       c = (a & b) | (a & c) | (b & c);
     }
   }
+
 }
 
 object C8 {
+
   case class Color(channelWidth: Int) extends Bundle {
     val r = UInt(channelWidth bit)
     val g = UInt(channelWidth bit)
     val b = UInt(channelWidth bit)
   }
+
   class MyColorSelector(sourceCount: Int, channelWidth: Int) extends Component {
     val io = new Bundle {
       val sel = in UInt (log2Up(sourceCount) bit)
-      val sources = in Vec(Color(channelWidth),sourceCount)
+      val sources = in Vec(Color(channelWidth), sourceCount)
       val result = out Bits (3 * channelWidth bit)
     }
     val selectedSource = io.sources(io.sel)
@@ -185,6 +213,7 @@ object C8 {
 }
 
 object C9 {
+
   case class Color(channelWidth: Int) extends Bundle {
     val r = UInt(channelWidth bit)
     val g = UInt(channelWidth bit)
@@ -209,7 +238,7 @@ object C9 {
 
   class MyColorSummer(sourceCount: Int, channelWidth: Int) extends Component {
     val io = new Bundle {
-      val sources = in Vec(Color(channelWidth),sourceCount)
+      val sources = in Vec(Color(channelWidth), sourceCount)
       val result = out(Color(channelWidth))
     }
 
@@ -232,6 +261,7 @@ object C9 {
 }
 
 object C10_1 {
+
   case class Flow[T <: Data](dataType: T) extends Bundle {
     val valid = Bool
     val data: T = cloneOf(dataType)
@@ -250,9 +280,11 @@ object C10_1 {
     val data: T = cloneOf(dataType)
     //..
   }
+
 }
 
 object C10_2 {
+
   class StreamFifo[T <: Data](dataType: T, depth: Int) extends Component {
     val io = new Bundle {
       val pushPort = slave Stream (dataType)
@@ -263,7 +295,7 @@ object C10_2 {
 
   class StreamArbiter[T <: Data](dataType: T, val portCount: Int) extends Component {
     val io = new Bundle {
-      val inputs = Vec(slave Stream (dataType),portCount)
+      val inputs = Vec(slave Stream (dataType), portCount)
       val output = master Stream (dataType)
       val chosen = out UInt (log2Up(portCount) bit)
     } //...
@@ -272,7 +304,7 @@ object C10_2 {
   class StreamFork[T <: Data](dataType: T, portCount: Int) extends Component {
     val io = new Bundle {
       val input = slave Stream (dataType)
-      val output = Vec(master Stream (dataType),portCount)
+      val output = Vec(master Stream (dataType), portCount)
     } //...
   }
 
@@ -339,11 +371,13 @@ object C10_2 {
 }
 
 object C10_removed {
+
   case class Flow[T <: Data](dataType: T) extends Bundle with IMasterSlave {
     val valid = Bool
     val data: T = cloneOf(dataType)
 
     override def asMaster: this.type = out(this)
+
     override def asSlave: this.type = in(this)
   }
 
@@ -357,6 +391,7 @@ object C10_removed {
       in(ready)
       this
     }
+
     override def asSlave: this.type = asMaster.flip()
 
 
@@ -367,14 +402,19 @@ object C10_removed {
       that.ready := this.ready
       this.data := that.data
     }
+
     def <-<(that: Stream[T])
+
     def </<(that: Stream[T])
+
     def &(cond: Bool): Stream[T]
+
     def queue(size: Int): Stream[T]
+
     def fire: Bool
+
     def throwWhen(cond: Bool)
   }
-
 
 
   //Memory of 1024 Bool
@@ -390,38 +430,38 @@ object C10_removed {
 }
 
 object C11 {
-//  val cond = Bool
-//  val inPort = Stream(Bits(32 bit))
-//  val outPort = Stream(Bits(32 bit))
-//
-//  outPort << inPort
-//  outPort <-< inPort
-//  outPort </< inPort
-//  outPort <-/< inPort
-//  val haltedPort = inPort.haltWhen(cond)
-//  val filteredPort = inPort.throwWhen(inPort.data === 0)
-//  val outPortWithMsb = inPort.translateWith(inPort.data.msb)
-//
-//  val mem = Mem(Bool, 1024)
-//  val memReadCmd = Stream(UInt(10 bit))
-//  val memReadPort = mem.streamReadSync(memReadCmd, memReadCmd.data)
-//  memReadPort.valid //arbitration
-//  memReadPort.ready //arbitration
-//  memReadPort.data.value //Readed value
-//  memReadPort.data.linked //Linked value (memReadCmd.data)
 
-
-
-
+  //  val cond = Bool
+  //  val inPort = Stream(Bits(32 bit))
+  //  val outPort = Stream(Bits(32 bit))
+  //
+  //  outPort << inPort
+  //  outPort <-< inPort
+  //  outPort </< inPort
+  //  outPort <-/< inPort
+  //  val haltedPort = inPort.haltWhen(cond)
+  //  val filteredPort = inPort.throwWhen(inPort.data === 0)
+  //  val outPortWithMsb = inPort.translateWith(inPort.data.msb)
+  //
+  //  val mem = Mem(Bool, 1024)
+  //  val memReadCmd = Stream(UInt(10 bit))
+  //  val memReadPort = mem.streamReadSync(memReadCmd, memReadCmd.data)
+  //  memReadPort.valid //arbitration
+  //  memReadPort.ready //arbitration
+  //  memReadPort.data.value //Readed value
+  //  memReadPort.data.linked //Linked value (memReadCmd.data)
 
 
   object somewhere {
+
     object inThe {
+
       object hierarchy {
         val trigger = True
         val signalA = True
         val signalB = True
       }
+
     }
 
     val signalC = True
@@ -435,12 +475,13 @@ object C11 {
     .probe(somewhere.signalC)
     .build
 
-  //  val uartCtrl = new UartCtrl()
-  //  uartCtrl.read >> logicAnalyser.io.slavePort
-  //  uartCtrl.write << logicAnalyser.io.masterPort
+//    val uartCtrl = new UartCtrl()
+//    uartCtrl.io.read >> logicAnalyser.io.slavePort
+//    uartCtrl.io.write << logicAnalyser.io.masterPort
 }
 
 object C12 {
+
   class MyComponentWithLatencyAssert extends Component {
     val io = new Bundle {
       val slavePort = slave Stream (UInt(8 bit))
@@ -455,6 +496,7 @@ object C12 {
     assert(3 == latencyAnalysis(io.slavePort.data, io.masterPort.data))
     assert(2 == latencyAnalysis(io.masterPort.ready, io.slavePort.ready))
   }
+
 }
 
 
@@ -463,13 +505,14 @@ object C13 {
   object MyEnum extends SpinalEnum {
     val state0, state1, anotherState = Value
   }
-  
+
   abstract class MyComponent extends Component {
     val logicOfA = new Area {
       val flag = Bool
       val logic = Bool
     }
     val fsm = new Area {
+
       import MyEnum._
 
       val state = Reg(MyEnum()) init (state0)
@@ -484,25 +527,26 @@ object C13 {
       }
     }
   }
+
 }
 
 object C14 {
   //Create a timeout, he become asserted if the function clear
   //was not called in the last 1000 cycles
   val timeout = Timeout(1000)
-  when(timeout){ //implicit conversion to Bool
-    timeout.clear //Clear the flag and the internal counter
+  when(timeout) {
+    //implicit conversion to Bool
+    timeout.clear() //Clear the flag and the internal counter
   }
 
   //Create a counter of 10 states (0 to 9)
-//  val counter = Counter(10)
-//  counter.value     //current value
-//  counter.valueNext //Next value
-//  counter.reset     //When called it reset the counter. It's not a flag
-//  counter.inc       //When called it increment the counter. It's not a flag
-//  counter.overflow  //Flag that indicate if the counter overflow this cycle
-//  when(counter === 5){ }  //counter is implicitly its value
-  
+  //  val counter = Counter(10)
+  //  counter.value     //current value
+  //  counter.valueNext //Next value
+  //  counter.reset     //When called it reset the counter. It's not a flag
+  //  counter.inc       //When called it increment the counter. It's not a flag
+  //  counter.overflow  //Flag that indicate if the counter overflow this cycle
+  //  when(counter === 5){ }  //counter is implicitly its value
 
 
 }
@@ -551,7 +595,7 @@ object C15 {
   // and product an "sumPort" that is the summation of all "srcPort" with the correct arbitration
   case class StreamRgbAdder(rgbType: RGB, srcCount: Int) extends Component {
     val io = new Bundle {
-      val srcPort = Vec(slave(Stream(rgbType)),srcCount)
+      val srcPort = Vec(slave(Stream(rgbType)), srcCount)
       val sumPort = master(Stream(rgbType))
     }
     val transactionOccure = io.sumPort.valid && io.sumPort.ready
@@ -566,3 +610,437 @@ object C15 {
   }
 
 }
+
+
+object T1 {
+  val mySignal = Bool
+  val myRegister = Reg(UInt(4 bit))
+  val myRegisterWithInit = Reg(UInt(4 bit)) init (3)
+
+  mySignal := False
+  when(???) {
+    mySignal := True
+    myRegister := myRegister + 1
+  }
+}
+
+
+object T2 {
+
+  val valid = Bool
+  val regA = Reg(UInt(4 bit))
+
+  def doSomething(value: Int) = {
+    valid := True
+    regA := value
+  }
+
+  when(???) {
+    doSomething(4)
+  }
+}
+
+object T3a {
+
+  case class Color(channelWidth: Int) extends Bundle {
+    val red = UInt(channelWidth bit)
+    val green = UInt(channelWidth bit)
+    val blue = UInt(channelWidth bit)
+  }
+
+  case class Stream[T <: Data](dataType: T) extends Bundle {
+    val valid = Bool
+    val ready = Bool
+    val data: T = cloneOf(dataType)
+  }
+
+  val myStreamOfColor = Stream(Color(8))
+}
+
+object T3b {
+
+  case class Stream[T <: Data](dataType: T) extends Bundle {
+    val valid = Bool
+    val ready = Bool
+    val data: T = cloneOf(dataType)
+
+    def transferOccure: Bool = valid & ready
+
+    def connectFrom(that: Stream[T]) = {
+      this.valid := that.valid
+      that.ready := this.ready
+      this.data := that.data
+    }
+
+    def <<(that: Stream[T]) = connectFrom(that)
+  }
+
+  val myStreamA, myStreamB = Stream(UInt(8 bit))
+  myStreamA << myStreamB
+  when(myStreamA.transferOccure) {
+    ???
+  }
+
+}
+
+object T3c {
+
+  case class Stream[T <: Data](dataType: T) extends Bundle {
+    // ...
+    def connectFrom(that: Stream[T]) = {
+      // some connections
+    }
+
+    def m2sPipe(): Stream[T] = {
+      val outputStage = cloneOf(this)
+      val validReg = RegInit(False)
+      val dataReg = Reg(dataType)
+      // some logic
+      return outputStage
+    }
+
+    def <<(that: Stream[T]) = this.connectFrom(that)
+
+    def <-<(that: Stream[T]) = this << that.m2sPipe()
+  }
+
+  val myStreamA, myStreamB = Stream(UInt(8 bit))
+  myStreamA <-< myStreamB
+}
+
+object T4 {
+
+
+  case class Stream[T <: Data](dataType: T) extends Bundle with IMasterSlave {
+    val valid = Bool
+    val ready = Bool
+    val data: T = cloneOf(dataType)
+
+    override def asMaster: this.type = {
+      out(valid)
+      in(ready)
+      out(data)
+      this
+    }
+
+    override def asSlave: this.type = asMaster.flip()
+  }
+
+  class Fifo[T <: Data](dataType: T, depth: Int) extends Component {
+    val io = new Bundle {
+      val pushPort = slave Stream (dataType)
+      val popPort = master Stream (dataType)
+      val occupancy = out UInt (log2Up(depth + 1) bit)
+    } //...
+  }
+
+  class Arbiter[T <: Data](dataType: T, portCount: Int) extends Component {
+    val io = new Bundle {
+      val inputs = Vec(slave(Stream(dataType)), portCount)
+      val output = master(Stream(dataType))
+    }
+    //...
+  }
+
+}
+
+
+object T5 {
+
+
+  class SubComponent extends Component {
+    val condA, condB = in Bool
+    val result = out Bool
+    // ...
+  }
+
+  class TopComponent extends Component {
+    // ...
+    val subA = new SubComponent
+    val subB = new SubComponent
+    subB.condA := subA.result
+    // ...
+  }
+
+}
+
+
+object t6 {
+
+  class UartCtrlTx extends Component {
+    val io = new Bundle {
+      // io definition
+    }
+    val timer = new Area {
+      // emit a pulse that is used as time reference
+    }
+    val stateMachine = new Area {
+      // some logic
+    }
+  }
+
+}
+
+object t7 {
+  val timer = new Area {
+    val counter = Reg(UInt(8 bit))
+    val reset = False
+    val tick = counter === 192
+
+    counter := counter + 1
+    when(tick || reset) {
+      counter := 0
+    }
+  }
+
+  val stateMachine = new Area {
+    // some logic
+    when(timer.tick) {
+      // do something
+    }
+  }
+
+}
+
+
+object t8_a {
+
+  class UartCtrlConfig extends Bundle {
+    val clockDivider = UInt(16 bit)
+    val parityKind = Bits(2 bit)
+    val stopBitKind = Bits(2 bit)
+  }
+
+  class ApbUartCtrl(apbConfig: Apb3Config) extends Component {
+    val io = new Bundle {
+      val bus = slave(new Apb3Slave(apbConfig))
+    }
+    val busCtrl = new Apb3SlaveController(io.bus)
+
+    val config = busCtrl.writeOnlyReg(new UartCtrlConfig, 0x10)
+    val writeStream = busCtrl.writeStreamOf(Bits(8 bit), 0x20)
+    val readStream = busCtrl.readStreamOf(Bits(8 bit), 0x30)
+
+    // Logic that will use these 3 objects
+    val uartCtrl = new UartCtrl()
+    uartCtrl.io.write << writeStream
+    uartCtrl.io.read.toStream.queue(16) >> readStream
+  }
+
+}
+
+object t8_B {
+
+  class UartCtrl extends Component {
+    val io = new Bundle {
+      val config = in(UartCtrlConfig())
+      val write = slave Stream (Bits(8 bit))
+      val read = master Flow (Bits(8 bit))
+      val uart = master(Uart())
+    }
+    //....
+  }
+
+}
+
+object t8_B2 {
+
+  class ApbUartCtrl(apbConfig: Apb3Config) extends Component {
+    val io = new Bundle {
+      val apb = slave(new Apb3Slave(apbConfig))
+      val uart = master(Uart())
+    }
+    val uartCtrl = new UartCtrl()
+    uartCtrl.io.uart <> io.uart
+
+    val busCtrl = new Apb3SlaveController(io.apb)
+    busCtrl.writeOnlyReg(uartCtrl.io.config, 0x10)
+    busCtrl.writeStream(uartCtrl.io.write, 0x20)
+    busCtrl.readStream(uartCtrl.io.read.toStream.queue(16), 0x30)
+  }
+
+}
+
+
+object t9 {
+
+  class FrameTaskSolver(p: MandelbrotCoreParameters) extends Component {
+    val io = new Bundle {
+      val frameTask = slave Stream FrameTask(p)
+      val pixelResult = master Stream Fragment(PixelResult(p))
+    }
+
+    val pixelTaskGenerator = new PixelTaskGenerator(p)
+    val pixelTaskDispatcher = new DispatcherInOrder(Fragment(PixelTask(p)), p.pixelTaskSolverCount)
+    val pixelTaskSolver = for (i <- 0 until p.pixelTaskSolverCount) yield new PixelTaskSolver(p)
+    val pixelResultArbiter = StreamArbiter.inOrder.build(Fragment(PixelResult(p)), p.pixelTaskSolverCount)
+
+    pixelTaskGenerator.io.frameTask << io.frameTask
+    pixelTaskDispatcher.io.input <-/< pixelTaskGenerator.io.pixelTask
+    for (solverId <- 0 until p.pixelTaskSolverCount) {
+      pixelTaskSolver(solverId).io.pixelTask <-/< pixelTaskDispatcher.io.outputs(solverId)
+      pixelResultArbiter.io.inputs(solverId) </< pixelTaskSolver(solverId).io.pixelResult
+    }
+    io.pixelResult <-< pixelResultArbiter.io.output
+  }
+
+}
+
+
+object t10 {
+
+  val arrayOfBool = Vec(Bool, 5)
+  val orOfBool = arrayOfBool.reduce(_ || _)
+
+
+  val arrayOfUInt = Vec(UInt(5 bit), 16)
+  val sumOfUInt = arrayOfUInt.fold(U(0, 9 bit))(_ + _)
+
+  val arrayOfStreamA = Vec(Stream(Bool), 10)
+  val arrayOfStreamB = Vec(Stream(Bool), 10)
+  (arrayOfStreamA, arrayOfStreamB).zipped.foreach(_ >> _)
+
+  for (i <- 0 to 10) {
+    arrayOfStreamA(i) >> arrayOfStreamB(i)
+  }
+
+
+  //  val arrayOfArrayOfBool = Vec(Vec(Bool, 5), 10)
+  //  val orReduce2D = arrayOfArrayOfBool.map(_.reduce(_ || _)).reduce(_ || _)
+
+
+}
+
+
+object t11 {
+  val waveform = for (i <- 0 to 1023) yield S((Math.pow(Math.sin(i * 2 * Math.PI / 1024.0), 1) * 32767).toInt)
+  val rom = Mem(SInt(16 bit), waveform)
+  val animatedWaveform = rom.readSync(CounterFreeRun(1024))
+}
+
+
+object t12 {
+
+  val coreClk = in Bool
+  val coreReset = in Bool
+  val coreClockDomain = ClockDomain(coreClk, coreReset)
+
+  val coreClockedArea = new ClockingArea(coreClockDomain) {
+    val counter = Reg(UInt(8 bit))
+
+  }
+}
+
+
+object t13 {
+  val normalVec = Vec(UInt(4 bit), 10)
+  val variableVec = Vec(UInt(5 bit), UInt(9 bit), UInt(16 bit))
+
+  val containZero = normalVec.sContains(0)
+  val existOne = normalVec.sExists(_ === 1)
+  val (firstTwoValid, firstTwoIndex) = normalVec.sFindFirst(_ === 2)
+  val toto = normalVec.map(_ === 3)
+
+
+  val targetAddress = UInt(32 bit)
+
+
+  class LineTag extends Bundle {
+    val valid = Bool
+    val address = UInt(32 bit)
+    val dirty = Bool
+
+    def hit(targetAddress : UInt) : Bool = valid && address === targetAddress
+  }
+
+  val lineTags = Vec(new LineTag, 8)
+  val lineHits = lineTags.map(lineTag => lineTag.hit(targetAddress))
+  val lineHitValid = lineHits.reduce((a,b) => a || b)
+  val lineHitIndex = OHToUInt(lineHits)
+
+}
+
+
+
+
+
+object t14{
+
+  case class MandelbrotCoreParameters(iterationLimit: Int,
+                                      pixelTaskSolverCount: Int,
+                                      screenResX: Int,
+                                      screenResY: Int,
+                                      fixExp: Int,
+                                      fixWidth: Int) {
+    val uid : Int = Random.nextInt()
+  }
+  case class MandelbrotJsonReport(p : MandelbrotCoreParameters,
+                                  uid : String,
+                                  clazz : String = "uidPeripheral",
+                                  kind : String = "mandelbrotCore")
+  class MandelbrotCore(p: MandelbrotCoreParameters) extends Component {
+    // some logic
+    val json = decompose(MandelbrotJsonReport(p, p.uid.toString))(DefaultFormats)
+    GlobalData.get.addJsonReport(pretty(render(json)))
+  }
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

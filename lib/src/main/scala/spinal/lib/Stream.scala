@@ -129,12 +129,19 @@ class Stream[T <: Data](_dataType: T) extends Bundle with IMasterSlave with Data
     that
   }
 
+  def arbitrationFrom[T2 <: Data](that : Stream[T2]) : Unit = {
+    this.valid := that.valid
+    that.ready := this.ready
+  }
+
   def translateFrom[T2 <: Data](that: Stream[T2])(dataAssignement: (T, that.data.type) => Unit): Stream[T] = {
     this.valid := that.valid
     that.ready := this.ready
     dataAssignement(this.data, that.data)
     this
   }
+
+
 
   def translateInto[T2 <: Data](into: Stream[T2])(dataAssignement: (T2, T) => Unit): Stream[T2] = {
     into.translateFrom(this)(dataAssignement)
@@ -476,10 +483,10 @@ class StreamFifo[T <: Data](dataType: T, depth: Int) extends Component {
   }
   when(pushing) {
     ram(pushPtr.value) := io.push.data
-    pushPtr ++
+    pushPtr.increment()
   }
   when(popping) {
-    popPtr ++
+    popPtr.increment()
   }
 
   val ptrDif = pushPtr - popPtr
@@ -524,7 +531,7 @@ class StreamFifoCC[T <: Data](dataType: T, val depth: Int, pushClockDomain: Cloc
     io.push.ready := !full
     when(io.push.fire) {
       ram(pushPtr.autoResize()) := io.push.data
-      pushPtr ++
+      pushPtr.increment()
     }
 
     io.pushOccupancy := pushPtr - fromGray(popPtrGray)
@@ -539,7 +546,7 @@ class StreamFifoCC[T <: Data](dataType: T, val depth: Int, pushClockDomain: Cloc
     io.pop.valid := !empty
     io.pop.data := ram.readSyncCC(popPtr.valueNext.autoResize())
     when(io.pop.fire) {
-      popPtr ++
+      popPtr.increment()
     }
 
     io.popOccupancy := fromGray(pushPtrGray) - popPtr

@@ -127,7 +127,9 @@ class BitAggregator {
 
 object CounterFreeRun {
   def apply(stateCount: BigInt): Counter = {
-    new Counter(stateCount, true)
+    val c = new Counter(stateCount)
+    c.increment()
+    c
   }
 }
 
@@ -136,45 +138,34 @@ object Counter {
   def apply(stateCount: BigInt, inc: Bool): Counter = {
     val counter = Counter(stateCount)
     when(inc) {
-      counter ++;
+      counter.increment()
     }
     counter
   }
-  implicit def implicitValue(c: Counter) = c.value
+//  implicit def implicitValue(c: Counter) = c.value
 }
 
-class Counter(val stateCount: BigInt, freeRun: Boolean = false) extends Area {
-  val increment = Bool(freeRun)
-  val res = False
-  def ++ : UInt = {
-    increment := True
-    valueNext
-  }
-  def inc: Unit = {
-    increment := True
-  }
+class Counter(val stateCount: BigInt) extends ImplicitArea[UInt] {
+  val willIncrement = False
+  val willClear = False
+
+  def clear(): Unit = willClear := True
+  def increment(): Unit = willIncrement := True
+
   def ===(that: UInt): Bool = this.value === that
   def !==(that: UInt): Bool = this.value !== that
 
-  def reset: Unit = res := True
-
   val valueNext = UInt(log2Up(stateCount) bit)
-  val value = RegNext(valueNext, U(0))
-  val overflowIfInc = False
-  val overflow = overflowIfInc && increment
+  val value = RegNext(valueNext) init(0)
+  val willOverflowIfInc = value === stateCount - 1
+  val willOverflow = willOverflowIfInc && willIncrement
 
   if (isPow2(stateCount)) {
-    valueNext :~= value + toUInt(increment)
-    when(value === stateCount - 1) {
-      overflowIfInc := True
-    }
+    valueNext :~= value + toUInt(willIncrement)
   }
   else {
-    when(value === U(stateCount - 1)) {
-      overflowIfInc := True
-    }
-    when(increment) {
-      when(overflowIfInc) {
+    when(willIncrement) {
+      when(willOverflowIfInc) {
         valueNext := U(0)
       } otherwise {
         valueNext := value + U(1)
@@ -183,9 +174,11 @@ class Counter(val stateCount: BigInt, freeRun: Boolean = false) extends Area {
       valueNext := value
     }
   }
-  when(res) {
+  when(willClear) {
     valueNext := 0
   }
+
+  override def implicitValue: UInt = this.value
 }
 
 
@@ -200,13 +193,13 @@ class Timeout(val limit: BigInt) extends ImplicitArea[Bool] {
   val stateRise = False
 
   val counter = CounterFreeRun(limit)
-  when(counter.overflow) {
+  when(counter.willOverflow) {
     state := True
-    stateRise := True && !state
+    stateRise := !state
   }
 
-  def clear: Unit = {
-    counter.reset
+  def clear() : Unit = {
+    counter.clear()
     state := False
     stateRise := False
   }
@@ -324,18 +317,18 @@ object DelayEvent {
     val run = RegInit(False)
     val counter = Counter(cycle)
 
-    counter ++
+    counter.increment()
 
-    when(counter.overflow) {
+    when(counter.willOverflow) {
       run := False
     }
 
     when(event) {
       run := True
-      counter.reset
+      counter.clear()
     }
 
-    return run && counter.overflow
+    return run && counter.willOverflow
   }
 
   def apply(event: Bool, cycle: UInt): Bool = {
@@ -373,7 +366,7 @@ class NoData extends Bundle {
 }
 
 
-class TraversableOncePimped[T](pimped: TraversableOnce[T]) {
+class TraversableOncePimped[T <: Data](pimped: scala.collection.Iterable[T]) {
   def reduceBalancedSpinal(op: (T, T) => T): T = {
     reduceBalancedSpinal(op, (s,l) => s)
   }
@@ -395,6 +388,29 @@ class TraversableOncePimped[T](pimped: TraversableOnce[T]) {
     val array = ArrayBuffer[T]() ++ pimped
     assert(array.length >= 1)
     stage(array, 0)
+  }
+
+
+  def read(idx: UInt): T = {
+    Vec(pimped)(idx)
+  }
+  def write(index: UInt, data: T): Unit = {
+    read(index) := data
+  }
+  def apply(index: UInt): T = read(index)
+
+  def sExists(condition: T => Bool): Bool = (pimped map condition).fold(False)(_ || _)
+  def sContains(value: T) : Bool = sExists(_ === value)
+
+  def sCount(condition: T => Bool): UInt = SetCount((pimped.map(condition)))
+  def sCount(value: T ): UInt = sCount(_ === value)
+
+  def sFindFirst(condition: T => Bool) : (Bool,UInt) = {
+    val size = pimped.size
+    val hits = pimped.map(condition(_))
+    val hitValid = hits.reduceLeft(_ || _)
+    val hitValue = PriorityMux(hits,(0 until size).map(U(_,log2Up(size) bit)))
+    (hitValid,hitValue)
   }
 }
 
@@ -422,10 +438,40 @@ object Delays {
 }
 
 
+object SetCount
+{
+  def apply(in: Iterable[Bool]): UInt = {
+    if (in.size == 0) {
+      U(0)
+    } else if (in.size == 1) {
+      in.head.toUInt
+    } else {
+      (U(0,1 bit) ## apply(in.slice(0, in.size/2))).toUInt + apply(in.slice(in.size/2, in.size))
+    }
+  }
+  def apply(in: Bits): UInt = apply((0 until in.getWidth).map(in(_)))
+}
 
+object ClearCount{
+  def apply(in: Iterable[Bool]): UInt = SetCount(in.map(!_))
+  def apply(in: Bits) : UInt = SetCount(~in)
+}
 
 class StringPimped(pimped : String){
   def toVecOfByte(encoding : String = "UTF-8") : Vec[Bits] = {
     Vec(pimped.getBytes(Charset.forName(encoding)).map(b => B(b.toInt, 8 bit)))
   }
+}
+
+
+object PriorityMux{
+  def apply[T <: Data](in: Iterable[(Bool, T)]): T = {
+    if (in.size == 1) {
+      in.head._2
+    } else {
+      Mux(in.head._1, in.head._2, apply(in.tail)) //Inttelij right code marked red
+    }
+  }
+  def apply[T <: Data](sel: Iterable[Bool], in: Iterable[T]): T = apply(sel zip in)
+  def apply[T <: Data](sel: Bits, in: Iterable[T]): T = apply(sel.toBools.zip(in))
 }
