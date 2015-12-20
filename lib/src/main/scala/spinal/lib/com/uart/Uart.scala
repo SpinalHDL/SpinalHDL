@@ -10,12 +10,12 @@ class Uart extends Bundle with IMasterSlave {
   val txd = Bool
   val rxd = Bool
 
-  override def asMaster: this.type = {
+  override def asMaster(): this.type = {
     out(txd)
     in(rxd)
     this
   }
-  override def asSlave: this.type = asMaster.flip()
+  override def asSlave(): this.type = asMaster().flip()
 }
 
 

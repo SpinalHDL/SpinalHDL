@@ -26,6 +26,8 @@ class BackendReport[T <: Component](val topLevel: T) {
 
 }
 
+
+
 class Backend {
   var globalData = GlobalData.reset
   val components = ArrayBuffer[Component]()
@@ -89,6 +91,7 @@ class Backend {
   }
 
   //TODO
+  //TODO switch case nodes in replacement of when emulation
   //TODO Union support
   //TODO 1 bit * 3 bit => 3 bit in place of 4 bit ?
   //TODO function to check if 2 clocks are drived from same signal and apply it to mem blackbox inference and cross clock checker(rd.getClockDomain.clock == wr.getClockDomain.clock)

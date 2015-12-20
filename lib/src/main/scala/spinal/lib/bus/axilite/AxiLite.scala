@@ -52,13 +52,13 @@ case class AxiLiteReadOnly(config: AxiLiteConfig) extends Bundle with IMasterSla
 
   def <<(that : AxiLiteReadOnly) : Unit = that >> this
 
-  override def asMaster: this.type = {
-    ar.asMaster
-    r.asSlave
+  override def asMaster(): this.type = {
+    ar.asMaster()
+    r.asSlave()
     this
   }
 
-  override def asSlave: this.type = asSlave.flip()
+  override def asSlave(): this.type = asSlave().flip()
 }
 
 case class AxiLiteWriteOnly(config: AxiLiteConfig) extends Bundle with IMasterSlave {
@@ -81,14 +81,14 @@ case class AxiLiteWriteOnly(config: AxiLiteConfig) extends Bundle with IMasterSl
 
   def <<(that : AxiLiteWriteOnly) : Unit = that >> this
 
-  override def asMaster: this.type = {
-    aw.asMaster
-    w.asMaster
-    b.asSlave
+  override def asMaster(): this.type = {
+    aw.asMaster()
+    w.asMaster()
+    b.asSlave()
     this
   }
 
-  override def asSlave: this.type = asSlave.flip()
+  override def asSlave(): this.type = asSlave().flip()
 }
 
 
@@ -118,14 +118,14 @@ case class AxiLite(config: AxiLiteConfig) extends Bundle with IMasterSlave {
 
   def <<(that : AxiLite) : Unit = that >> this
 
-  override def asMaster: this.type = {
-    aw.asMaster
-    w.asMaster
-    b.asSlave
-    ar.asMaster
-    r.asSlave
+  override def asMaster(): this.type = {
+    aw.asMaster()
+    w.asMaster()
+    b.asSlave()
+    ar.asMaster()
+    r.asSlave()
     this
   }
 
-  override def asSlave: this.type = asSlave.flip()
+  override def asSlave(): this.type = asSlave().flip()
 }

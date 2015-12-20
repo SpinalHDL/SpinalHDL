@@ -71,7 +71,7 @@ class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) ext
 
     //manage syncPtr from rxToTx notification port
     when(io.rxToTx.otherRxPtr.fire) {
-      when(syncPtr !== io.rxToTx.otherRxPtr.data) {
+      when(syncPtr =/= io.rxToTx.otherRxPtr.data) {
         resendTimeout.clear()
       }
       syncPtr := io.rxToTx.otherRxPtr.data
@@ -279,7 +279,7 @@ class SerialLinkRx extends Component {
         state := eMessagePtr0
       }
       is(eMessagePtr0) {
-        when(rxPtr(7, 0) !== toUInt(data)) {
+        when(rxPtr(7, 0) =/= toUInt(data)) {
           keepData := False
           io.rxToTx.miss := True
         }
@@ -287,7 +287,7 @@ class SerialLinkRx extends Component {
         io.input.ready := True
       }
       is(eMessagePtr1) {
-        when(rxPtr(15, 8) !== toUInt(data)) {
+        when(rxPtr(15, 8) =/= toUInt(data)) {
           keepData := False
           io.rxToTx.miss := keepData
         }

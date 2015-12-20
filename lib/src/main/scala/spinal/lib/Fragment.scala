@@ -296,7 +296,7 @@ class DataCarrierFragmentBitsPimped(pimped: DataCarrier[Fragment[Bits]]) {
     val toWidth = toDataType.getBitsWidth
     val ret = Flow(toDataType)
 
-    pimped.freeRun
+    pimped.freeRun()
 
     if (toWidth <= fromWidth) {
       ret.valid := pimped.fire && pimped.last

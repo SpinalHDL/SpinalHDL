@@ -374,14 +374,14 @@ case class Stream[T <: Data](dataType: T) extends Bundle with IMasterSlave {
   val data: T = cloneOf(dataType)
 
   //Equivalent to SystemVerilog modport
-  override def asMaster: this.type = {
+  override def asMaster(): this.type = {
     out(valid)
     in(ready)
     out(data)
     this
   }
 
-  override def asSlave: this.type = asMaster.flip //.flip reverse all signal direction
+  override def asSlave(): this.type = asMaster().flip //.flip reverse all signal direction
 }
 
 //Define a RGB color data type with parameterizable channel width

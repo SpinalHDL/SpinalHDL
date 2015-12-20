@@ -182,7 +182,7 @@ private[spinal] object Multiplex {
   }
 
   def baseType[T <: BaseType](sel: Bool, whenTrue: T, whenFalse: T): Multiplexer = {
-    whenTrue.newMultiplexor(sel, whenTrue, whenFalse)
+    whenTrue.newMultiplexer(sel, whenTrue, whenFalse)
   }
 
 

@@ -153,7 +153,7 @@ class Counter(val stateCount: BigInt) extends ImplicitArea[UInt] {
   def increment(): Unit = willIncrement := True
 
   def ===(that: UInt): Bool = this.value === that
-  def !==(that: UInt): Bool = this.value !== that
+  def !==(that: UInt): Bool = this.value =/= that
 
   val valueNext = UInt(log2Up(stateCount) bit)
   val value = RegNext(valueNext) init(0)
@@ -303,7 +303,7 @@ trait DataCarrier[T <: Data] {
   def fire: Bool
   def valid: Bool
   def data: T
-  def freeRun: this.type
+  def freeRun(): this.type
 }
 
 

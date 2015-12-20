@@ -261,7 +261,7 @@ class UartCtrlRx(dataWidthMax: Int = 8, clockDividerWidth: Int = 21, preSampling
         when(baud.tick) {
           state := sStop
           baudCounter.reset
-          when(paritySum !== baud.value) {
+          when(paritySum =/= baud.value) {
             state := sIdle
           }
         }

@@ -33,22 +33,22 @@ class Stream[T <: Data](_dataType: T) extends Bundle with IMasterSlave with Data
   def dataType = cloneOf(_dataType)
   override def clone: this.type = Stream(_dataType).asInstanceOf[this.type]
 
-  override def asMaster: this.type = {
+  override def asMaster(): this.type = {
     out(valid)
     in(ready)
     out(data)
     this
   }
 
-  override def asSlave: this.type = asMaster.flip()
+  override def asSlave(): this.type = asMaster().flip()
 
-  override def freeRun: this.type = {
+  override def freeRun(): this.type = {
     ready := True
     this
   }
 
   def toFlow: Flow[T] = {
-    freeRun
+    freeRun()
     val ret = Flow(_dataType)
     ret.valid := this.valid
     ret.data := this.data
@@ -64,7 +64,7 @@ class Stream[T <: Data](_dataType: T) extends Bundle with IMasterSlave with Data
   }
 
   def <-<(that: Stream[T]): Stream[T] = {
-    this << that.m2sPipe
+    this << that.m2sPipe()
     that
   }
   def >->(into: Stream[T]): Stream[T] = {
@@ -81,7 +81,7 @@ class Stream[T <: Data](_dataType: T) extends Bundle with IMasterSlave with Data
     that
   }
   def <-/<(that: Stream[T]): Stream[T] = {
-    this << that.s2mPipe.m2sPipe
+    this << that.s2mPipe.m2sPipe()
     that
   }
   def >/->(into: Stream[T]): Stream[T] = {
@@ -148,10 +148,8 @@ class Stream[T <: Data](_dataType: T) extends Bundle with IMasterSlave with Data
     into
   }
 
-  def m2sPipe: Stream[T] = m2sPipe(false)
 
-
-  def m2sPipe(crossClockData: Boolean): Stream[T] = {
+  def m2sPipe(crossClockData: Boolean = false): Stream[T] = {
     val ret = Stream(_dataType)
 
     val rValid = RegInit(False)
@@ -172,7 +170,7 @@ class Stream[T <: Data](_dataType: T) extends Bundle with IMasterSlave with Data
     ret
   }
 
-  def s2mPipe: Stream[T] = {
+  def s2mPipe(): Stream[T] = {
     val ret = Stream(_dataType)
 
     val rValid = RegInit(False)
@@ -446,7 +444,7 @@ class StreamDemux[T <: Data](dataType: T, portCount: Int) extends Component {
   io.input.ready := False
   for (i <- 0 to portCount - 1) {
     io.output(i).data := io.input.data
-    when(U(i) !== io.sel) {
+    when(U(i) =/= io.sel) {
       io.output(i).valid := False
     } otherwise {
       io.output(i).valid := io.input.valid
@@ -478,7 +476,7 @@ class StreamFifo[T <: Data](dataType: T, depth: Int) extends Component {
   io.pop.valid := !empty & !(RegNext(popPtr.valueNext === pushPtr, False) & !full) //mem write to read propagation
   io.pop.data := ram.readSync(popPtr.valueNext)
 
-  when(pushing !== popping) {
+  when(pushing =/= popping) {
     risingOccupancy := pushing
   }
   when(pushing) {
@@ -592,7 +590,7 @@ class StreamCCByToggle[T <: Data](dataType: T, clockIn: ClockDomain, clockOut: C
     outHitSignal := hit
 
     val stream = io.input.clone
-    stream.valid := (target !== hit)
+    stream.valid := (target =/= hit)
     stream.data := inputArea.data
     stream.data.addTag(crossClockDomain)
 
@@ -600,7 +598,7 @@ class StreamCCByToggle[T <: Data](dataType: T, clockIn: ClockDomain, clockOut: C
       hit := !hit
     }
 
-    io.output << stream.m2sPipe
+    io.output << stream.m2sPipe()
   }
 }
 

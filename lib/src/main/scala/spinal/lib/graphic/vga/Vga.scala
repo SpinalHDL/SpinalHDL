@@ -12,8 +12,8 @@ case class Vga (rgbType : Rgb) extends Bundle with IMasterSlave{
   val colorEn = Bool
   val color = cloneOf(rgbType)
 
-  override def asMaster = asOutput()
-  override def asSlave = asInput()
+  override def asMaster() = asOutput()
+  override def asSlave() = asInput()
 }
 
 

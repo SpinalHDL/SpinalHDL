@@ -376,9 +376,9 @@ object C10_removed {
     val valid = Bool
     val data: T = cloneOf(dataType)
 
-    override def asMaster: this.type = out(this)
+    override def asMaster(): this.type = out(this)
 
-    override def asSlave: this.type = in(this)
+    override def asSlave(): this.type = in(this)
   }
 
   abstract case class Stream[T <: Data](dataType: T) extends Bundle with IMasterSlave {
@@ -386,13 +386,13 @@ object C10_removed {
     val ready = Bool
     val data: T = cloneOf(dataType)
 
-    override def asMaster: this.type = {
+    override def asMaster(): this.type = {
       out(valid, data)
       in(ready)
       this
     }
 
-    override def asSlave: this.type = asMaster.flip()
+    override def asSlave(): this.type = asMaster().flip()
 
 
     //...
@@ -565,14 +565,14 @@ object C15 {
     val data: T = cloneOf(dataType)
 
     //Equivalent to SystemVerilog modport
-    override def asMaster: this.type = {
+    override def asMaster(): this.type = {
       out(valid)
       in(ready)
       out(data)
       this
     }
 
-    override def asSlave: this.type = asMaster.flip() //.flip reverse all signal direction
+    override def asSlave(): this.type = asMaster().flip() //.flip reverse all signal direction
   }
 
   //Define a RGB color data type with parameterizable channel width
@@ -716,14 +716,14 @@ object T4 {
     val ready = Bool
     val data: T = cloneOf(dataType)
 
-    override def asMaster: this.type = {
+    override def asMaster(): this.type = {
       out(valid)
       in(ready)
       out(data)
       this
     }
 
-    override def asSlave: this.type = asMaster.flip()
+    override def asSlave(): this.type = asMaster().flip()
   }
 
   class Fifo[T <: Data](dataType: T, depth: Int) extends Component {

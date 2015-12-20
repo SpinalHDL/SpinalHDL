@@ -3,8 +3,8 @@ package spinal.lib
 import spinal.core.Data
 
 trait IMasterSlave {
-  def asMaster: this.type
-  def asSlave: this.type
+  def asMaster(): this.type
+  def asSlave(): this.type
 }
 
 trait MSFactory{
@@ -44,14 +44,14 @@ trait MS{
 
 object master extends MS{
   override def apply[T <: IMasterSlave](i: T) = {
-    i.asMaster;
+    i.asMaster();
     i
   }
 }
 
 object slave extends MS {
   def apply[T <: IMasterSlave](i: T) = {
-    i.asSlave;
+    i.asSlave();
     i
   }
 }

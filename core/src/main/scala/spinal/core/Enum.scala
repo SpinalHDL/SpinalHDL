@@ -40,7 +40,9 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T) extends BaseType {
 
   def :=(that: SpinalEnumElement[T]): Unit = new DataPimper(this) := that.craft()
   def ===(that: SpinalEnumElement[T]): Bool = this === (that.craft())
-  def !==(that: SpinalEnumElement[T]): Bool = this !== (that.craft())
+  def =/=(that: SpinalEnumElement[T]): Bool = this =/= (that.craft())
+  @deprecated
+  def !==(that: SpinalEnumElement[T]): Bool = this =/= that
 
 
   override def isEguals(that: Data): Bool = {
@@ -56,7 +58,7 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T) extends BaseType {
     }
   }
 
-  override def newMultiplexor(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,e,e)", sel, whenTrue, whenFalse)
+  override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,e,e)", sel, whenTrue, whenFalse)
   override def toBits: Bits = new Bits().castFrom("e->b", this)
   override def assignFromBits(bits: Bits): Unit = enumCastFrom("b->e", bits, (node) => this.getWidth)
   override def calcWidth: Int = blueprint.getWidth

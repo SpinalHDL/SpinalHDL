@@ -14,7 +14,7 @@ class Apb3Slave(val p: Apb3Config) extends Bundle with IMasterSlave {
   val PWDATA  = Bits(p.dataWidth bit)
   val PRDATA  = Bits(p.dataWidth bit)
 
-  override def asMaster: Apb3Slave.this.type = {
+  override def asMaster(): Apb3Slave.this.type = {
     out(PADDR)
     out(PSEL)
     out(PENABLE)
@@ -27,7 +27,7 @@ class Apb3Slave(val p: Apb3Config) extends Bundle with IMasterSlave {
 
   def fire : Bool = PSEL && PENABLE && PREADY
 
-  override def asSlave: Apb3Slave.this.type = asMaster.flip
+  override def asSlave(): Apb3Slave.this.type = asMaster().flip
 }
 
 

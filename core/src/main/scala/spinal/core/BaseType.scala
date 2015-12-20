@@ -201,7 +201,7 @@ abstract class BaseType extends Node with Data with Nameable {
   }
 
 
-  def newMultiplexor(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer
+  def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer
 
 
   def newLogicalOperator(opName: String, right: Node, normalizeInputsImpl: (Node) => Unit, simplifyNodeImpl: (Node) => Unit): Bool = {

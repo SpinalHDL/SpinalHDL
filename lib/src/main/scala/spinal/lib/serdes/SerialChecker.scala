@@ -232,7 +232,7 @@ class SerialCheckerRx(wordCountMax: Int) extends Component {
 
     val readPtr = Counter(wordCountMax)
     val readCmd = Stream(UInt(log2Up(wordCountMax) bit))
-    readCmd.valid := (validPtr !== readPtr)
+    readCmd.valid := (validPtr =/= readPtr)
     readCmd.data := readPtr
     readPtr.willIncrement := readCmd.fire
     io.output.translateFrom(ram.streamReadSync(readCmd))((to, from) => {

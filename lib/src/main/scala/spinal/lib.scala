@@ -4,7 +4,7 @@ import spinal.core._
 
 package object lib {
   //  def Stream[T <: Data](that : T) : Stream[T] = new Stream[T](that)
-//  def mm [T <: Data with IMasterSlave](that : T) = that.asMaster
+//  def mm [T <: Data with IMasterSlave](that : T) = that.asMaster()
   type Event = Stream[NoData]
 
   def Event = new Stream(NoData)

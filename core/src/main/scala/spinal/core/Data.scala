@@ -107,7 +107,11 @@ object Data {
 
 class DataPimper[T <: Data](val pimpIt: T) extends AnyVal{
   def ===(that: T): Bool = pimpIt.isEguals(that)
-  def !==(that: T): Bool = pimpIt.isNotEguals(that)
+  def =/=(that: T): Bool = pimpIt.isNotEguals(that)
+  @deprecated //Use =/= instead
+  def !==(that: T): Bool = this =/= that
+
+
 
   def := (that: T): Unit = {
     if(that.isInstanceOf[BitVector])
@@ -391,10 +395,14 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
 
       //Inner class with no user parameters
       if (constrParamCount == 1) {
-        val outer = clazz.getFields.find(_.getName == "$outer")
-        if (outer.isDefined) {
-          return constructor.newInstance(outer.get.get(this)).asInstanceOf[this.type]
+        var outerField = clazz.getFields.find(_.getName == "$outer")
+        if(!outerField.isDefined) outerField = clazz.getDeclaredFields.find(_.getName == "$outer")
+        if(outerField.isDefined){
+          val outer = outerField.get
+          outer.setAccessible(true)
+          return constructor.newInstance(outer.get(this)).asInstanceOf[this.type]
         }
+        return constructor.newInstance(clazz.getMethod("getComponent").invoke(this)).asInstanceOf[this.type]
       }
 
 
@@ -413,8 +421,8 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
 
     def needCloneImpl(): this.type = {
       SpinalError(
-        """
-          |*** Spinal can't clone one of your datatype
+        s"""
+          |*** Spinal can't clone ${this.getClass} datatype
           |*** You have two way to solve that :
           |*** In place to declare a "class Bundle(args){}", create a "case class Bundle(args){}"
           |*** Or override by your self the bundle clone function

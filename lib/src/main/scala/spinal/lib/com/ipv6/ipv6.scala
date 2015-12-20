@@ -76,8 +76,8 @@ class Ipv6Rx extends Component {
           when(headerByteCounter >= 8 && headerByteCounter < 24)(headerBuffer.writeAt(headerByteCounter - 8 + 3))
 
           val keepPacketNext = keepPacket
-          when(headerByteCounter === 0 && ((io.inFrame.fragment >> 4) !== 0x6)
-            || headerByteCounter >= 24 && (io.inFrame.fragment !== io.ip(headerByteCounter(3, 0) ^ 8))) {
+          when(headerByteCounter === 0 && ((io.inFrame.fragment >> 4) =/= 0x6)
+            || headerByteCounter >= 24 && (io.inFrame.fragment =/= io.ip(headerByteCounter(3, 0) ^ 8))) {
             keepPacketNext := False
           }
           keepPacket := keepPacketNext

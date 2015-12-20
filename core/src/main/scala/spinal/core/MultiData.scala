@@ -122,7 +122,7 @@ abstract class MultiData extends Data {
   def isNotEguals(that: Data): Bool = {
     that match {
       case that: MultiData => {
-        zippedMap(that, _ !== _).reduce(_ || _)
+        zippedMap(that, _ =/= _).reduce(_ || _)
       }
       case _ => SpinalError("Can't do that")
     }

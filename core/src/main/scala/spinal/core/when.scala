@@ -24,6 +24,9 @@ import scala.collection.mutable.ArrayBuffer
 /**
  * Created by PIC18F on 11.01.2015.
  */
+
+
+
 object when {
 
 
@@ -39,7 +42,7 @@ object when {
     doWhen(new when(cond), true)(block)
   }
 
-
+  //Allow the user to get a Bool that represent the  aggregation of all condition to the current context
   def getWhensCond(that: ContextUser): Bool = {
     val whenScope = if (that == null) null else that.whenScope
 
@@ -219,4 +222,40 @@ class WhenNode(val w: when) extends Node {
     Misc.normalizeResize(this, 1, this.getWidth)
     Misc.normalizeResize(this, 2, this.getWidth)
   }
+}
+
+
+
+object switch2 {
+
+  def apply[T <: Data](value: T)(block: => Unit): Unit = {
+    val s = new SwitchStack(value)
+    value.globalData.switchStack.push(s)
+    block
+    if (s.defaultBlock != null) {
+      if (s.lastWhen == null) {
+        block
+      } else {
+        s.lastWhen.otherwise(s.defaultBlock())
+      }
+    }
+    value.globalData.switchStack.pop(s)
+  }
+}
+
+class Switch2[T <: BaseType](value : T){
+  val keys = new ArrayBuffer[T]
+}
+
+class Switch2Node() extends Node{
+  def cond = inputs(0)
+  def values = inputs.iterator.drop(1)
+
+  override def normalizeInputs: Unit = {
+    for((input,i)  <- inputs.zipWithIndex){
+      Misc.normalizeResize(this, i, this.getWidth)
+    }
+  }
+
+  override def calcWidth: Int = values.foldLeft(-1)((a,b) => Math.max(a,b.getWidth))
 }
