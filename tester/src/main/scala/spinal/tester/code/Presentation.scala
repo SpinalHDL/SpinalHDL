@@ -831,7 +831,7 @@ object t8_a {
     }
     val busCtrl = new Apb3SlaveController(io.bus) //This is a APB3 slave controller builder tool
 
-    val config = busCtrl.writeOnlyRegOf(UartCtrlConfig(), 0x10)
+    val config = busCtrl.writeOnlyRegOf(UartCtrlConfig(), 0x10) //Create a write only configuration register at address 0x10
     val writeStream = busCtrl.writeStreamOf(Bits(8 bit), 0x20)
     val readStream = busCtrl.readStreamOf(Bits(8 bit), 0x30)
 
