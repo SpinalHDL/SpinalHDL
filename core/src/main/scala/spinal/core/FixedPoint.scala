@@ -18,21 +18,21 @@ object SFix{
 }
 
 object UFix{
-  def apply(expMax : Int,bitCount : BitCount) : UFix = new UFix(expMax,bitCount.value)
+  def apply(expMax : ExpCount,bitCount : BitCount) : UFix = new UFix(expMax.value,bitCount.value)
   def apply(expMax : ExpCount,expMin : ExpCount) : UFix = new UFix(expMax.value, expMax.value - expMin.value)
   //def apply(config : (Int,Int)) : UFix = new UFix(config._1,config._2)
   //  def apply(config: FixFactory) : UFix = config.UFix
 }
 
 object SFix2D {
-  def apply(maxExp: Int, bitCount: BitCount): SFix2D = new SFix2D(maxExp, bitCount.value)
-  def apply(copy: SFix): SFix2D = SFix2D(copy.maxExp, copy.bitCount bit)
+  def apply(maxExp: ExpCount, bitCount: BitCount): SFix2D = new SFix2D(maxExp.value, bitCount.value)
+  def apply(copy: SFix): SFix2D = SFix2D(copy.maxExp exp, copy.bitCount bit)
 
 }
 
 object UFix2D {
-  def apply(maxExp: Int, bitCount: BitCount): UFix2D = new UFix2D(maxExp, bitCount.value)
-  def apply(copy: UFix): UFix2D = UFix2D(copy.maxExp, copy.bitCount bit)
+  def apply(maxExp: ExpCount, bitCount: BitCount): UFix2D = new UFix2D(maxExp.value, bitCount.value)
+  def apply(copy: UFix): UFix2D = UFix2D(copy.maxExp exp, copy.bitCount bit)
 }
 
 
@@ -186,7 +186,7 @@ class SFix2D(val maxExp: Int, val bitCount: Int) extends Bundle {
 
 class UFix(maxExp : Int,bitCount : Int) extends XFix[UFix,UInt](maxExp,bitCount) {
   override def rawFactory(maxExp: Int, bitCount: Int): UInt = UInt(bitCount bit)
-  override def fixFactory(maxExp: Int, bitCount: Int): UFix = UFix(maxExp,bitCount bit)
+  override def fixFactory(maxExp: Int, bitCount: Int): UFix = UFix(maxExp exp,bitCount bit)
   override def expMin : Int = maxExp-bitCount
 
   def +(that : UFix) : UFix = doAddSub(that,false)
@@ -239,7 +239,7 @@ class UFix(maxExp : Int,bitCount : Int) extends XFix[UFix,UInt](maxExp,bitCount)
 
   def fractionalPart : UFix = {
     assert(this.bitCount-this.maxExp > 0)
-    val ret = UFix(0,this.bitCount-this.maxExp bit)
+    val ret = UFix(0 exp,this.bitCount-this.maxExp bit)
     ret := this
     ret
   }
@@ -256,8 +256,8 @@ class UFix(maxExp : Int,bitCount : Int) extends XFix[UFix,UInt](maxExp,bitCount)
 
 //@valClone
 class UFix2D(val maxExp: Int, val bitCount: Int) extends Bundle {
-  val x = UFix(maxExp, bitCount bit)
-  val y = UFix(maxExp, bitCount bit)
+  val x = UFix(maxExp exp, bitCount bit)
+  val y = UFix(maxExp exp, bitCount bit)
 
   override def clone(): UFix2D.this.type = new UFix2D(maxExp,bitCount).asInstanceOf[this.type]
 }

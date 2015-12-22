@@ -61,7 +61,7 @@ object Cat {
 
   def apply[T <: Data](data: Iterable[T]) = {
     if (data.isEmpty) B(0, 0 bit)
-    else data.map(_.toBits).reduce(_ ## _)
+    else data.map(_.toBits).reduce((a,b) => b ## a)
   }
 }
 

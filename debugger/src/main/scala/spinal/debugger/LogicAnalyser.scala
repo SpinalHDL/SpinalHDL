@@ -244,7 +244,7 @@ class LogicAnalyser(p: LogicAnalyserParameter) extends Component {
     val masterPort = master Stream Fragment(Bits(fragmentWidth bit))
   }
 
-  val probes = Cat(p.probes.reverse.map(_.baseType.pull()))
+  val probes = Cat(p.probes.map(_.baseType.pull()))
   val exTriggers = p.exTriggers.reverse.map(_.trigger.pull())
 
 

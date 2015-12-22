@@ -12,7 +12,6 @@ class FlowFactory extends MSFactory{
     ret
   }
 
-
 }
 
 object Flow extends FlowFactory

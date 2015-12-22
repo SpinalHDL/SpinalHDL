@@ -7,6 +7,8 @@ package object lib {
 //  def mm [T <: Data with IMasterSlave](that : T) = that.asMaster()
   type Event = Stream[NoData]
 
+
+
   def Event = new Stream(NoData)
   def NoData = new NoData
 

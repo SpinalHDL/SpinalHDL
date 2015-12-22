@@ -108,7 +108,7 @@ object Data {
 class DataPimper[T <: Data](val pimpIt: T) extends AnyVal{
   def ===(that: T): Bool = pimpIt.isEguals(that)
   def =/=(that: T): Bool = pimpIt.isNotEguals(that)
-  @deprecated //Use =/= instead
+  @deprecated("Use =/= instead")
   def !==(that: T): Bool = this =/= that
 
 
@@ -124,6 +124,7 @@ class DataPimper[T <: Data](val pimpIt: T) extends AnyVal{
 //  def := [T2 <: T](that: T2): Unit = pimpIt assignFrom(that, false)
 
   //Use as \= to have the same behavioral than VHDL variable
+  //TODO bundle compatible
   def \(that: T) : T = {
     val ret = cloneOf(that)
     ret := pimpIt

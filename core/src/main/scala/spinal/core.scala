@@ -117,7 +117,7 @@ package object core extends BaseTypeFactory with BaseTypeCast{
 
     split.size match {
       case 1 => {
-        val value = BigInt(split(0))
+        val value = BigInt((if(split(0) != "") split(0) else "0"))
         return builder(value)
       }
       case 2 => {

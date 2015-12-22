@@ -316,3 +316,81 @@ object Play5 {
     SpinalVhdl(new Play5(5))
   }
 }
+
+
+
+
+object Play6 {
+
+
+  import spinal._
+  class Comp extends Component {
+    val io = new Bundle() {
+      val cond = in Bool
+      val input = in UInt(4 bit)
+      val output = out Bool
+    }
+
+    var carry = Bool(false)
+    for(bit <- io.input.toBools){
+      when(io.cond) {
+        carry \= carry & bit
+      }
+    }
+    io.output := carry
+
+  }
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new Comp)
+  }
+}
+
+
+object Play7 {
+
+
+  def grayCounter(n : Int, enable : Bool) : UInt = {
+    val gray    = RegInit(U(0,n bit))
+    var even    = RegInit(True)
+    val word    = Cat(True,gray(n-3,0),even)
+    when(enable){
+      var found = False
+      for(i <- 0 until n){
+        when(word(i) && !found){
+          gray(i) := ! gray(i)
+          found \= True
+        }
+      }
+      even := !even
+    }
+    return gray
+  }
+
+
+  class GrayCounter(n : Int) extends Component{
+    val enable = in Bool
+    val gray  = out UInt(n bit)
+
+    gray := grayCounter(n,enable)
+/*
+    val grayReg = Reg(UInt(n bit)) init(0)
+    var even = RegInit(True)
+    val word = Cat(True,grayReg(n-3,0).toBools,even)
+    var found = False
+    when(enable){
+      for(i <- 0 until n){
+        when(word(i) && !found){
+          grayReg(i) := ! grayReg(i)
+          found \= True
+        }
+      }
+      even := !even
+    }
+
+    gray := grayReg*/
+  }
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new GrayCounter(4))
+  }
+}
+

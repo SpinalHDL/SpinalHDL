@@ -41,7 +41,7 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T) extends BaseType {
   def :=(that: SpinalEnumElement[T]): Unit = new DataPimper(this) := that.craft()
   def ===(that: SpinalEnumElement[T]): Bool = this === (that.craft())
   def =/=(that: SpinalEnumElement[T]): Bool = this =/= (that.craft())
-  @deprecated
+  @deprecated("Use =/= instead")
   def !==(that: SpinalEnumElement[T]): Bool = this =/= that
 
 

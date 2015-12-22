@@ -20,8 +20,8 @@ case class MandelbrotCoreParameters(iterationLimit: Int,
 
 
 case class FrameTask(p: MandelbrotCoreParameters) extends Bundle {
-  val start = SFix2D(p.fixExp, p.fixWidth bit)
-  val inc = SFix2D(p.fixExp - 4, p.fixWidth + 8 bit)
+  val start = SFix2D(p.fixExp exp, p.fixWidth bit)
+  val inc = SFix2D(p.fixExp - 4 exp, p.fixWidth + 8 bit)
 
   def fullRangeSFix = SFix(p.fixExp exp, p.fixWidth + 12 bit)
 }
