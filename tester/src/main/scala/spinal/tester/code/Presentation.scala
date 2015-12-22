@@ -805,31 +805,11 @@ object t7 {
 
 object t8_a {
 
-  class UartCtrlConfig extends Bundle {
+  case class UartCtrlConfig() extends Bundle {
     val clockDivider = UInt(16 bit)
     val parityKind = Bits(2 bit)
     val stopBitKind = Bits(2 bit)
   }
-
-  class ApbUartCtrl(apbConfig: Apb3Config) extends Component {
-    val io = new Bundle {
-      val bus = slave(new Apb3Slave(apbConfig))
-    }
-    val busCtrl = new Apb3SlaveController(io.bus)
-
-    val config = busCtrl.writeOnlyReg(new UartCtrlConfig, 0x10)
-    val writeStream = busCtrl.writeStreamOf(Bits(8 bit), 0x20)
-    val readStream = busCtrl.readStreamOf(Bits(8 bit), 0x30)
-
-    // Logic that will use these 3 objects
-    val uartCtrl = new UartCtrl()
-    uartCtrl.io.write << writeStream
-    uartCtrl.io.read.toStream.queue(16) >> readStream
-  }
-
-}
-
-object t8_B {
 
   class UartCtrl extends Component {
     val io = new Bundle {
@@ -838,10 +818,28 @@ object t8_B {
       val read = master Flow (Bits(8 bit))
       val uart = master(Uart())
     }
-    //....
+    // some logic ..
   }
 
+  class ApbUartCtrl(apbConfig: Apb3Config) extends Component {
+    val io = new Bundle {
+      val bus = slave(new Apb3Slave(apbConfig))
+      val uart = master(Uart())
+    }
+    val busCtrl = new Apb3SlaveController(io.bus) //This is a APB3 slave controller builder tool
+
+    val config = busCtrl.writeOnlyRegOf(UartCtrlConfig(), 0x10)
+    val writeStream = busCtrl.writeStreamOf(Bits(8 bit), 0x20)
+    val readStream = busCtrl.readStreamOf(Bits(8 bit), 0x30)
+
+    val uartCtrl = new UartCtrl()
+    uartCtrl.io.config := config
+    uartCtrl.io.write <-< writeStream //Pipelined connection
+    uartCtrl.io.read.toStream.queue(16) >> readStream  //Queued connection
+    uartCtrl.io.uart <> io.uart
+  }
 }
+
 
 object t8_B2 {
 

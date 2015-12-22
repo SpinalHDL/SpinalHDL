@@ -347,7 +347,14 @@ object Play6 {
 
 
 object Play7 {
+  class A{
+    def  ♪(y : A) : A = y
+    def  ::(y : A) : A = y
+  }
 
+  var x = new A
+  x ♪= new A
+  x ::= new A
 
   def grayCounter(n : Int, enable : Bool) : UInt = {
     val gray    = RegInit(U(0,n bit))
@@ -365,6 +372,7 @@ object Play7 {
     }
     return gray
   }
+
 
 
   class GrayCounter(n : Int) extends Component{

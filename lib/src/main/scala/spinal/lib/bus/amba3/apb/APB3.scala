@@ -65,7 +65,11 @@ class Apb3SlaveController(bus: Apb3Slave) {
     writeRegister(reg,baseAddress)
     that.assignFromBits(reg)
   }
-
+  def writeOnlyRegOf[T <: Data](dataType: T, baseAddress: BigInt): T = {
+    val ret = dataType.clone()
+    writeOnlyReg(ret,baseAddress)
+    ret
+  }
 
   def writeReadReg[T <: Data](that: T, baseAddress: BigInt): Unit = {
     val reg = Reg(Bits(widthOf(that) bit))
