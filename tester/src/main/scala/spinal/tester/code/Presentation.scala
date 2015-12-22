@@ -804,6 +804,9 @@ object t7 {
 
 
 object t8_a {
+  //Stream => valid, ready, data
+  //Flow   => valid, data
+  //APB    => Advanced Peripheral Bus from arm
 
   case class UartCtrlConfig() extends Bundle {
     val clockDivider = UInt(16 bit)
