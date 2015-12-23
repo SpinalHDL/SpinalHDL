@@ -26,7 +26,7 @@ import scala.collection.mutable.ArrayBuffer
 
 trait BaseTypeFactory extends BoolFactory with BitsFactory with UIntFactory with SIntFactory with VecFactory
 
-trait BaseTypeCast extends BoolCast with UIntCast with SIntCast with BitsCast
+trait BaseTypeCast extends BoolCast with UIntCast with SIntCast with BitsCast with SFixCast with UFixCast
 
 object BaseType {
   def walkWhenNodes(baseType: BaseType, initialConsumer: Node, initialConsumerInputId: Int, conservative: Boolean = false) = {

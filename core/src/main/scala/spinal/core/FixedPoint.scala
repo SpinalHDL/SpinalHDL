@@ -24,6 +24,15 @@ object UFix{
   //  def apply(config: FixFactory) : UFix = config.UFix
 }
 
+
+trait SFixCast{
+  def toSFix(sint : SInt) = sint.toSFix
+}
+
+trait UFixCast{
+  def toUFix(uint : UInt) : UFix = uint.toUFix
+}
+
 object SFix2D {
   def apply(maxExp: ExpCount, bitCount: BitCount): SFix2D = new SFix2D(maxExp.value, bitCount.value)
   def apply(copy: SFix): SFix2D = SFix2D(copy.maxExp exp, copy.bitCount bit)
@@ -34,6 +43,8 @@ object UFix2D {
   def apply(maxExp: ExpCount, bitCount: BitCount): UFix2D = new UFix2D(maxExp.value, bitCount.value)
   def apply(copy: UFix): UFix2D = UFix2D(copy.maxExp exp, copy.bitCount bit)
 }
+
+
 
 
 abstract class XFix[T <: XFix[T,R],R <: BitVector with Num[R]](val maxExp : Int,val bitCount : Int) extends MultiData {
@@ -162,6 +173,22 @@ class SFix(maxExp : Int,bitCount : Int) extends XFix[SFix,SInt](maxExp,bitCount)
     this
   }
 
+
+
+  //Rounded down
+  def toSInt : SInt = {
+    if(maxExp < 0)
+      return S(0)
+    else {
+      if(expMin == 0)
+        return raw
+      else if(expMin > 0)
+        return raw << expMin
+      else
+        return raw >> (-expMin)
+    }
+  }
+
   def maxValue : Double = {
     Math.pow(2.0,maxExp)*(1.0-1.0/(math.pow(2.0,bitCount-1)))
   }
@@ -237,12 +264,27 @@ class UFix(maxExp : Int,bitCount : Int) extends XFix[UFix,UInt](maxExp,bitCount)
     this
   }
 
+  //Rounded down
+  def toUInt : UInt = {
+    if(maxExp < 0)
+      return U(0)
+    else {
+      if(expMin == 0)
+        return raw
+      else if(expMin > 0)
+        return raw << expMin
+      else
+        return raw >> (-expMin)
+    }
+  }
+
   def fractionalPart : UFix = {
     assert(this.bitCount-this.maxExp > 0)
-    val ret = UFix(0 exp,this.bitCount-this.maxExp bit)
-    ret := this
+    val ret = UFix(0 exp,-expMin bit)
+    ret := this.autoResize()
     ret
   }
+
 
   def maxValue : Double = {
     Math.pow(2.0,maxExp)*(1.0-1.0/(math.pow(2.0,bitCount-1)))

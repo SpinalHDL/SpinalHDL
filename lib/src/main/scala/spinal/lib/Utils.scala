@@ -154,6 +154,7 @@ class Counter(val stateCount: BigInt) extends ImplicitArea[UInt] {
 
   def ===(that: UInt): Bool = this.value === that
   def !==(that: UInt): Bool = this.value =/= that
+  def =/=(that: UInt): Bool = this.value =/= that
 
   val valueNext = UInt(log2Up(stateCount) bit)
   val value = RegNext(valueNext) init(0)

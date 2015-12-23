@@ -22,6 +22,7 @@ trait UIntCast{
   def toUInt(that : Bool) : UInt = that.toUInt
   def toUInt(that : Bits) : UInt = that.toUInt
   def toUInt(that : SInt) : UInt = that.toUInt
+  def toUInt(that : UFix) : UInt = that.toUInt
 }
 
 trait UIntFactory{

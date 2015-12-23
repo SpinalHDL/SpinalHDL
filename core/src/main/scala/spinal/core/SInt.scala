@@ -26,6 +26,7 @@ trait SIntCast{
   def toSInt(that : Bool) : SInt = that.toSInt
   def toSInt(that : Bits) : SInt = that.toSInt
   def toSInt(that : UInt) : SInt = that.toSInt
+  def toSInt(that : SFix) : SInt = that.toSInt
 }
 
 trait SIntFactory{
@@ -39,7 +40,7 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider {
   override def +(that: SInt): SInt = newBinaryOperator("s+s", that, WidthInfer.inputMaxWidth,InputNormalize.nodeWidth,ZeroWidth.binaryTakeOther);
   override def -(that: SInt): SInt = newBinaryOperator("s-s", that, WidthInfer.inputMaxWidth,InputNormalize.nodeWidth,ZeroWidth.binaryMinus(S.apply));
   override def *(that: SInt): SInt = newBinaryOperator("s*s", that, WidthInfer.cumulateInputWidth,InputNormalize.none,ZeroWidth.binaryInductZeroWithOtherWidth(S.apply));
-
+  def abs: UInt = Mux(this < 0, (-this).resize(getWidth-1), this.resize(getWidth-1)).toUInt
 
 
   def |(that: SInt): SInt = newBinaryOperator("s|s", that, WidthInfer.inputMaxWidth,InputNormalize.nodeWidth,ZeroWidth.binaryTakeOther);

@@ -244,7 +244,9 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
 
   def isEguals(that: Data): Bool// = (this.flatten, that.flatten).zipped.map((a, b) => a.isEguals(b)).reduceLeft(_ && _)
   def isNotEguals(that: Data): Bool// = (this.flatten, that.flatten).zipped.map((a, b) => a.isNotEguals(b)).reduceLeft(_ || _)
-  def autoResize() : this.type ={
+  @deprecated("Use resized instead")
+  def autoResize() : this.type = this.resized
+  def resized : this.type ={
     val ret = this.clone
     ret.assignFrom(this,false)
     ret.addTag(tagAutoResize)

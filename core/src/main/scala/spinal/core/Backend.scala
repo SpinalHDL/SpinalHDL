@@ -90,7 +90,10 @@ class Backend {
     ret
   }
 
-  //TODO
+  //TODO bundle element disable method
+  //TODO General cleaning
+  //TODO better VHDL package, less function
+  //TODO SyncNodes could return a latency per input ?
   //TODO switch case nodes in replacement of when emulation
   //TODO Union support
   //TODO 1 bit * 3 bit => 3 bit in place of 4 bit ?

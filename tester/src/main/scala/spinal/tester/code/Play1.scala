@@ -347,14 +347,6 @@ object Play6 {
 
 
 object Play7 {
-  class A{
-    def  ♪(y : A) : A = y
-    def  ::(y : A) : A = y
-  }
-
-  var x = new A
-  x ♪= new A
-  x ::= new A
 
   def grayCounter(n : Int, enable : Bool) : UInt = {
     val gray    = RegInit(U(0,n bit))
@@ -401,4 +393,36 @@ object Play7 {
     SpinalVhdl(new GrayCounter(4))
   }
 }
+
+
+
+
+object PlayFix{
+  class TopLevel extends Component{
+    val ufix = UFix(8 exp,12 bit)
+    val uint = UInt(3 bit)
+    ufix := toUFix(uint)
+    val uintBack = toUInt(ufix)
+
+    val sfix = SFix(7 exp,12 bit)
+    val sint = SInt(3 bit)
+    sfix := toSFix(sint)
+    val sintBack = toSInt(sfix)
+
+
+    in(uint)
+    out(ufix)
+    out(uintBack)
+
+    in(sint)
+    out(sfix)
+    out(sintBack)
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
 

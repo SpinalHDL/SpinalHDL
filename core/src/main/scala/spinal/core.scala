@@ -174,4 +174,23 @@ package object core extends BaseTypeFactory with BaseTypeCast{
 //  implicit def autoCast[T <: Data](that: T): T#SSelf = that.asInstanceOf[T#SSelf]
 
 
+
+  implicit class SIntPimper(pimped: SInt) {
+    def toSFix: SFix = {
+      val width = pimped.getWidth
+      val fix = SFix(width - 1 exp, width bit)
+      fix.raw := pimped
+      fix
+    }
+  }
+
+  implicit class UIntPimper(pimped: UInt) {
+    def toUFix : UFix = {
+      val width = pimped.getWidth
+      val fix = UFix(width exp, width bit)
+      fix.raw := pimped
+      fix
+    }
+  }
+
 }
