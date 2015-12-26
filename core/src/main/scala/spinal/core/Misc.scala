@@ -254,32 +254,24 @@ object SpinalExit {
     throw new SpinalExit("\n" + message)
   }
 }
-
+object SpinalLog{
+  def tag(name: String, color: String): String =
+    s"[${color}${name}${Console.RESET}]"
+}
 
 object SpinalInfoPhase {
-  def apply(message: String) = println(s"[Progress] at ${f"${Driver.executionTime}%1.3f"} : $message")
+  def apply(message: String) = println(s"${SpinalLog.tag("Progress", Console.BLUE)} at ${f"${Driver.executionTime}%1.3f"} : $message")
 }
 
 object SpinalInfo {
-  def apply(message: String) = println(s"[Info] $message")
+  def apply(message: String) = println(s"${SpinalLog.tag("Info", Console.BLUE)} $message")
 }
 
 object SpinalWarning {
-  def apply(message: String) = println(s"[Warning] $message")
+  def apply(message: String) = println(s"${SpinalLog.tag("Warning", Console.YELLOW)} $message")
 }
 
 class SpinalExit(message: String) extends Exception(message);
-
-//class SpinalCantInferredWidth extends Exception;
-
-/*
-object SpinalCantInferredWidth{
-  def apply(node : Node): Unit = {
-    SpinalError.printError(s"Can't infer width on $node because of unspecified width")
-    throw new SpinalCantInferredWidth
-  }
-}*/
-
 
 object SpinalError {
   def apply() = {
@@ -294,8 +286,10 @@ object SpinalError {
     SpinalExit(messages.reduceLeft(_ + "\n" + _))
   }
 
-  def printError(message: String) = println(s"[Error] $message")
+  def printError(message: String) = println(s"${SpinalLog.tag("Progress", Console.RED)} $message")
 }
+
+
 
 object ifGen {
   def apply[T](cond: Boolean)(block: => T): T = {

@@ -27,20 +27,22 @@ object SpinalVhdl {
         val factory = new SpinalVhdl(gen)
         config(factory)
         if (tryCounter != 0) GlobalData.get.scalaLocatedEnable = true
-        return factory.elaborate
+        val ret =  factory.elaborate
+        println({SpinalLog.tag("Done", Console.GREEN)})
+        return ret
       } catch {
         case e: Throwable => {
           tryCounter match {
             case 0 => {
               println("\n**********************************************************************************************")
-              SpinalInfo("Elaboration fail !!! Spinal restart it with scala trace to help you to find the problem")
+              SpinalWarning("Elaboration fail !!! Spinal restart it with scala trace to help you to find the problem")
               println("**********************************************************************************************\n")
               Thread.sleep(10);
               return doIt(1)
             }
             case 1 => {
               println("\n**********************************************************************************************")
-              SpinalInfo("Elaboration fail !!!")
+              SpinalWarning("Elaboration fail !!!")
               println("**********************************************************************************************")
               Thread.sleep(10);
               throw e

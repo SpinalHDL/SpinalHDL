@@ -57,6 +57,7 @@ object out extends IODirection {
 }
 
 
+
 //object IntBuilder {
 //  implicit def IntToBuilder(value: Int) = new IntBuilder(value)
 //}
@@ -74,10 +75,10 @@ trait MinMaxProvider {
 
 trait ContextUser extends GlobalDataUser {
   var component = Component.current(globalData)
-  var whenScope = globalData.whenStack.head()
-  var instanceCounter = globalData.getInstanceCounter
+  private[core] var whenScope = globalData.whenStack.head()
+  private[core] var instanceCounter = globalData.getInstanceCounter
 
-  def isOlderThan(that : ContextUser) : Boolean = this.instanceCounter < that.instanceCounter
+  private[core] def isOlderThan(that : ContextUser) : Boolean = this.instanceCounter < that.instanceCounter
 }
 
 trait GlobalDataUser {
@@ -95,7 +96,7 @@ trait NameableByComponent extends Nameable with GlobalDataUser{
     return super.getName()
   }
 
-  def getComponent() : Component
+  private[core] def getComponent() : Component
 }
 
 object SyncNode {
@@ -126,9 +127,9 @@ abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends 
 }
 
 trait Assignable {
-  var compositeAssign: Assignable = null
+  private[core] var compositeAssign: Assignable = null
 
-  final def assignFrom(that: AnyRef, conservative: Boolean): Unit = {
+  private[core] final def assignFrom(that: AnyRef, conservative: Boolean): Unit = {
     if (compositeAssign != null) {
       compositeAssign.assignFrom(that, conservative)
     } else {
@@ -136,7 +137,7 @@ trait Assignable {
     }
   }
 
-  private[spinal] def assignFromImpl(that: AnyRef, conservative: Boolean): Unit
+  private[core] def assignFromImpl(that: AnyRef, conservative: Boolean): Unit
 }
 
 
@@ -248,8 +249,8 @@ trait ScalaLocated extends GlobalDataUser {
 
 
 trait SpinalTagReady {
-  val spinalTags = mutable.Set[SpinalTag]()
-  var compositeTagReady: SpinalTagReady = null
+  private[core] val spinalTags = mutable.Set[SpinalTag]()
+  private[core] var compositeTagReady: SpinalTagReady = null
 
   def addTag(spinalTag: SpinalTag): this.type = {
     spinalTags += spinalTag
@@ -268,11 +269,8 @@ trait SpinalTag {
 }
 
 object crossClockDomain extends SpinalTag
-
 object crossClockBuffer extends SpinalTag
-
 object randomBoot extends SpinalTag
-
 object tagAutoResize extends SpinalTag
 
 trait Area {
@@ -364,6 +362,8 @@ object GlobalData {
 //  }
 //}
 class GlobalData {
+  var algoId = 1
+
   var commonClockConfig = ClockDomainConfig()
 
   var nodeAreNamed = false

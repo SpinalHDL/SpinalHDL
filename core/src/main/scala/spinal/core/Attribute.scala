@@ -24,7 +24,7 @@ import scala.collection.mutable.ArrayBuffer
  * Created by PIC18F on 09.02.2015.
  */
 trait AttributeReady{
-  val attributes = ArrayBuffer[Attribute]()
+  private[core] val attributes = ArrayBuffer[Attribute]()
   def add(attribute: Attribute): Unit
 }
 

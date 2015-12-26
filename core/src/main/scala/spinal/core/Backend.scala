@@ -26,7 +26,16 @@ class BackendReport[T <: Component](val topLevel: T) {
 
 }
 
+trait Phase{
+  def run
+}
 
+class MultiPhase extends Phase{
+  val phases = ArrayBuffer[Phase]()
+  override def run: Unit = {
+    phases.foreach(_.run)
+  }
+}
 
 class Backend {
   var globalData = GlobalData.reset
@@ -90,13 +99,14 @@ class Backend {
     ret
   }
 
+  //TODO provide a way to give a default value to components imputs
+  //TODO implicit area base class for each base type that implement operator
   //TODO bundle element disable method
   //TODO General cleaning
   //TODO better VHDL package, less function
   //TODO SyncNodes could return a latency per input ?
   //TODO switch case nodes in replacement of when emulation
   //TODO Union support
-  //TODO 1 bit * 3 bit => 3 bit in place of 4 bit ?
   //TODO function to check if 2 clocks are drived from same signal and apply it to mem blackbox inference and cross clock checker(rd.getClockDomain.clock == wr.getClockDomain.clock)
   protected def elaborate[T <: Component](topLevel: T): BackendReport[T] = {
     SpinalInfoPhase("Start analysis and transform")
@@ -204,7 +214,7 @@ class Backend {
 
     def topoOf(mem: Mem[_]) = memsTopo.getOrElseUpdate(mem, new MemTopo(mem))
 
-    walkNodes2(node => node match {
+    Node.walk(walkNodesDefautStack,node => node match {
       case write: MemWrite => {
         val memTopo = topoOf(write.getMem)
         val readSync = memTopo.readsSync.find(readSync => readSync.originalAddress == write.originalAddress).getOrElse(null)
@@ -354,7 +364,7 @@ class Backend {
 
   def printStates: Unit = {
     var counter = 0
-    walkNodes2(_ => counter = counter + 1)
+    Node.walk(walkNodesDefautStack,_ => counter = counter + 1)
     SpinalInfo(s"Graph has $counter nodes")
   }
 
@@ -368,7 +378,7 @@ class Backend {
       }
     }
 
-    walkNodes2(node => node match {
+    Node.walk(walkNodesDefautStack,node => node match {
       case node: BaseType => {
         if (node.isInput && node.inputs(0) != null && node.inputs(0).isInstanceOf[Nameable]) {
           val nameable = node.inputs(0).asInstanceOf[Nameable]
@@ -383,7 +393,7 @@ class Backend {
 
 
   def collectAndNameEnum: Unit = {
-    walkNodes2(node => {
+    Node.walk(walkNodesDefautStack,node => {
       node match {
         case enum: SpinalEnumCraft[_] => enums += enum.blueprint
         case _ =>
@@ -417,7 +427,7 @@ class Backend {
 
     val errors = mutable.ArrayBuffer[String]()
 
-    walkNodes2(node => node match {
+    Node.walk(walkNodesDefautStack,node => node match {
       case signal: BaseType if !signal.isDelay => {
 
         val signalRange = new AssignedRange(signal.getWidth - 1, 0)
@@ -445,7 +455,7 @@ class Backend {
         unassignedBits.add(signalRange)
         unassignedBits.remove(assignedBits)
         if (!unassignedBits.isEmpty)
-          errors += s"Incomplet assignment is detected on $signal, unassigned bit mask is ${unassignedBits.value.toString(2)}}, declared at ${signal.getScalaLocationString}"
+          errors += s"Incomplet assignment is detected on $signal, unassigned bit mask is ${unassignedBits.value.toString(2)}, declared at ${signal.getScalaLocationString}"
 
 
       }
@@ -458,7 +468,7 @@ class Backend {
 
   //clone is to week, lose tag and don't symplify :(
   def allowLiteralToCrossHierarchy: Unit = {
-    walkNodes2(consumer => {
+    Node.walk(walkNodesDefautStack,consumer => {
       for (consumerInputId <- 0 until consumer.inputs.size) {
         val consumerInput = consumer.inputs(consumerInputId)
         consumerInput match {
@@ -499,7 +509,7 @@ class Backend {
     }
 
 
-    walkNodes2(node => {
+    Node.walk(walkNodesDefautStack,node => {
 
       node match {
         case node: BaseType => {
@@ -571,21 +581,72 @@ class Backend {
 
 
   def normalizeNodeInputs: Unit = {
-    walkNodes(walker_matchWidth)
+    Node.walk(walkNodesDefautStack,(node,push) => {
+      node.inputs.foreach(push(_))
+      node.normalizeInputs
+    })
   }
 
   def addInOutBinding: Unit = {
-    walkNodes(walker_addInOutBinding)
+    Node.walk(walkNodesDefautStack,(node,push) => {
+      if (node.isInstanceOf[BaseType] && node.component.parent != null) {
+        val baseType = node.asInstanceOf[BaseType]
+        if (baseType.isInput) {
+          val inBinding = baseType.clone //To be sure that there is no need of resize between it and node
+          inBinding.inputs(0) = baseType.inputs(0)
+          baseType.inputs(0) = inBinding
+          inBinding.component = node.component.parent
+        }
+      }
+
+      node.inputs.foreach(push(_))
+
+      for (i <- 0 until node.inputs.size) {
+        val nodeInput = node.inputs(i)
+        nodeInput match {
+          case nodeInput: BaseType => {
+            if (nodeInput.isOutput && (nodeInput.component.parent == node.component || (nodeInput.component.parent == node.component.parent && nodeInput.component != node.component))) {
+              val into = nodeInput.component.parent
+              val bind = into.kindsOutputsToBindings.getOrElseUpdate(nodeInput, {
+                val bind = nodeInput.clone
+                into.kindsOutputsToBindings.put(nodeInput, bind)
+                into.kindsOutputsBindings += bind
+                bind.component = into
+                bind.inputs(0) = nodeInput
+                bind
+              })
+
+              node.inputs(i) = bind
+            }
+          }
+          case _ =>
+        }
+      }
+
+    })
   }
 
 
 
   def pullClockDomains: Unit = {
-    walkNodes(walker_pullClockDomains)
+    Node.walk(walkNodesDefautStack,(node, push) =>  {
+      node match {
+        case delay: SyncNode => {
+          Component.push(delay.component)
+          delay.inputs(SyncNode.getClockInputId) = delay.getClockDomain.readClockWire
+          if (delay.isUsingReset)
+            delay.inputs(SyncNode.getClockResetId) = delay.getClockDomain.readResetWire
+          delay.inputs(SyncNode.getClockEnableId) = delay.getClockDomain.readClockEnableWire
+          Component.pop(delay.component)
+        }
+        case _ =>
+      }
+      node.inputs.foreach(push(_))
+    })
   }
 
   def dontSymplifyBasetypeWithComplexAssignement: Unit = {
-    walkNodes2(node => {
+    Node.walk(walkNodesDefautStack,node => {
       node match {
         case baseType: BaseType => {
           baseType.inputs(0) match {
@@ -601,7 +662,42 @@ class Backend {
   }
 
   def deleteUselessBaseTypes: Unit = {
-    walkNodes(walker_deleteUselessBaseTypes)
+    Node.walk(walkNodesDefautStack,(node, push) => {
+      node match {
+        case node: BaseType => {
+          if (node.isUnnamed && !node.isIo && node.consumers.size == 1 && node.canSymplifyIt) {
+            val consumer = node.consumers(0)
+            val input = node.inputs(0)
+            if (!node.isDelay || consumer.isInstanceOf[BaseType]) {
+              // don't allow to put a non base type on component inputs
+              if (input.isInstanceOf[BaseType] || !consumer.isInstanceOf[BaseType] || !consumer.asInstanceOf[BaseType].isInput) {
+                //don't allow to jump from kind to kind
+                val isKindOutputBinding = node.component.kindsOutputsBindings.contains(node)
+                if (!(isKindOutputBinding && (!consumer.isInstanceOf[BaseType] || node.component == consumer.component.parent))) {
+                  val consumerInputs = consumer.inputs
+                  val inputConsumer = input.consumers
+
+                  if (isKindOutputBinding) {
+                    val newBind = consumer.asInstanceOf[BaseType]
+                    node.component.kindsOutputsBindings += newBind
+                    node.component.kindsOutputsToBindings += (input.asInstanceOf[BaseType] -> newBind)
+                  }
+
+                  for (i <- 0 until consumerInputs.size)
+                    if (consumerInputs(i) == node)
+                      consumerInputs(i) = input
+                  inputConsumer -= node
+                  inputConsumer += consumer
+                }
+              }
+            }
+          }
+        }
+
+        case _ =>
+      }
+      node.inputs.foreach(push(_))
+    })
   }
 
   def removeComponentThatNeedNoHdlEmit = {
@@ -621,7 +717,11 @@ class Backend {
   }
 
   def fillNodeConsumer: Unit = {
-    walkNodes(walker_nodeConsumer)
+    Node.walk(walkNodesDefautStack,(node)=>{
+      for(input <- node.inputs){
+        if (input != null) input.consumers += node
+      }
+    })
   }
 
   def nameComponentDeclaration(c: Component): Unit = {
@@ -632,7 +732,7 @@ class Backend {
 
   def checkInferedWidth: Unit = {
     val errors = mutable.ArrayBuffer[String]()
-    walkNodes2(node => {
+    Node.walk(walkNodesDefautStack,node => {
       val error = node.checkInferedWidth
       if (error != null) errors += error
     })
@@ -660,30 +760,6 @@ class Backend {
     nodeStack
   }
 
-  def walkNodes(walker: (Node, mutable.Stack[Node]) => Unit, nodeStack: mutable.Stack[Node] = walkNodesDefautStack): Unit = {
-    val walkedNodes = mutable.Set[Node]()
-
-
-    while (!nodeStack.isEmpty) {
-      val pop = nodeStack.pop()
-      if (pop != null && walkedNodes.contains(pop) == false && pop.component != null) {
-        walker(pop, nodeStack)
-        walkedNodes += pop
-      }
-
-    }
-
-    def addNodeToStack(node: Node): Unit = {
-      nodeStack.push(node)
-    }
-  }
-
-  def walkNodes2(walker: (Node) => Unit, nodeStack: mutable.Stack[Node] = walkNodesDefautStack): Unit = {
-    walkNodes((node, stack) => {
-      walker(node)
-      node.inputs.foreach(stack.push(_))
-    }, nodeStack)
-  }
 
   def walkNodesBlackBoxGenerics = {
     val nodeStack = mutable.Stack[Node]()
@@ -703,7 +779,7 @@ class Backend {
   def inferWidth: Unit = {
     globalData.nodeAreInferringWidth = true
     val nodes = ArrayBuffer[Node]()
-    walkNodes2(nodes += _, walkNodesDefautStack ++ walkNodesBlackBoxGenerics)
+    Node.walk(walkNodesDefautStack ++ walkNodesBlackBoxGenerics,nodes += _)
 
 
     def checkAll: Unit = {
@@ -741,7 +817,7 @@ class Backend {
 
   def allowNodesToReadOutputs: Unit = {
     val outputsBuffers = mutable.Map[BaseType, BaseType]()
-    walkNodes2(node => {
+    Node.walk(walkNodesDefautStack,node => {
       for (i <- 0 until node.inputs.size) {
         node.inputs(i) match {
           case baseTypeInput: BaseType => {
@@ -763,7 +839,7 @@ class Backend {
   }
 
   def allowNodesToReadInputOfKindComponent = {
-    walkNodes2(node => {
+    Node.walk(walkNodesDefautStack,node => {
       for (i <- 0 until node.inputs.size) {
         val input = node.inputs(i)
         input match {
@@ -781,7 +857,7 @@ class Backend {
 
 
   def propagateBaseTypeWidth: Unit = {
-    walkNodes2(node => {
+    Node.walk(walkNodesDefautStack,node => {
       node match {
         case node: BaseType => {
           val width = node.getWidth
@@ -822,17 +898,13 @@ class Backend {
     })
   }
 
-  def walker_matchWidth(node: Node, stack: mutable.Stack[Node]): Unit = {
-    node.inputs.foreach(stack.push(_))
-    node.normalizeInputs
-  }
 
 
 
   def checkCrossClockDomains: Unit = {
     val errors = mutable.ArrayBuffer[String]()
 
-    walkNodes2(node => {
+    Node.walk(walkNodesDefautStack,node => {
       node match {
         case syncNode: SyncNode => {
           if (!syncNode.hasTag(crossClockDomain)) {
@@ -976,73 +1048,17 @@ class Backend {
   }
 
 
-  def walker_pullClockDomains(node: Node, stack: mutable.Stack[Node]): Unit = {
-    //  if (!node.isInBlackBoxTree) {
-    node match {
-      case delay: SyncNode => {
-        Component.push(delay.component)
-        delay.inputs(SyncNode.getClockInputId) = delay.getClockDomain.readClockWire
-        if (delay.isUsingReset)
-          delay.inputs(SyncNode.getClockResetId) = delay.getClockDomain.readResetWire
-        delay.inputs(SyncNode.getClockEnableId) = delay.getClockDomain.readClockEnableWire
-        Component.pop(delay.component)
-      }
-      case _ =>
-    }
-    //  }
-    node.inputs.foreach(stack.push(_))
-  }
 
-  def walker_nodeConsumer(node: Node, stack: mutable.Stack[Node]): Unit = {
-    node.inputs.foreach(n => if (n != null) n.consumers += node)
-    node.inputs.foreach(stack.push(_))
-  }
 
-  def walker_deleteUselessBaseTypes(node: Node, stack: mutable.Stack[Node]): Unit = {
-    node match {
-      case node: BaseType => {
-        if (node.isUnnamed && !node.isIo && node.consumers.size == 1 && node.canSymplifyIt) {
-          val consumer = node.consumers(0)
-          val input = node.inputs(0)
-          if (!node.isDelay || consumer.isInstanceOf[BaseType]) {
-            // don't allow to put a non base type on component inputs
-            if (input.isInstanceOf[BaseType] || !consumer.isInstanceOf[BaseType] || !consumer.asInstanceOf[BaseType].isInput) {
-              //don't allow to jump from kind to kind
-              val isKindOutputBinding = node.component.kindsOutputsBindings.contains(node)
-              if (!(isKindOutputBinding && (!consumer.isInstanceOf[BaseType] || node.component == consumer.component.parent))) {
-                val consumerInputs = consumer.inputs
-                val inputConsumer = input.consumers
-
-                if (isKindOutputBinding) {
-                  val newBind = consumer.asInstanceOf[BaseType]
-                  node.component.kindsOutputsBindings += newBind
-                  node.component.kindsOutputsToBindings += (input.asInstanceOf[BaseType] -> newBind)
-                }
-
-                for (i <- 0 until consumerInputs.size)
-                  if (consumerInputs(i) == node)
-                    consumerInputs(i) = input
-                inputConsumer -= node
-                inputConsumer += consumer
-              }
-            }
-          }
-        }
-      }
-
-      case _ =>
-    }
-    node.inputs.foreach(stack.push(_))
-  }
 
   def simplifyNodes: Unit = {
     fillNodeConsumer
-    walkNodes2(_.simplifyNode)
+    Node.walk(walkNodesDefautStack,_.simplifyNode)
     removeNodeConsumer
   }
 
   def removeNodeConsumer : Unit = {
-    walkNodes2(_.consumers.clear())
+    Node.walk(walkNodesDefautStack,_.consumers.clear())
   }
 
   def simplifyBlacBoxGenerics: Unit = {
@@ -1092,52 +1108,16 @@ class Backend {
   //  }
 
 
-  def walker_addInOutBinding(node: Node, stack: mutable.Stack[Node]): Unit = {
-    if (node.isInstanceOf[BaseType] && node.component.parent != null) {
-      val baseType = node.asInstanceOf[BaseType]
-      if (baseType.isInput) {
-        val inBinding = baseType.clone //To be sure that there is no need of resize between it and node
-        inBinding.inputs(0) = baseType.inputs(0)
-        baseType.inputs(0) = inBinding
-        inBinding.component = node.component.parent
-      }
-    }
-
-    node.inputs.foreach(stack.push(_))
-
-    for (i <- 0 until node.inputs.size) {
-      val nodeInput = node.inputs(i)
-      nodeInput match {
-        case nodeInput: BaseType => {
-          if (nodeInput.isIo && nodeInput.isOutput && (nodeInput.component.parent == node.component || (nodeInput.component.parent == node.component.parent && nodeInput.component != node.component))) {
-            val into = nodeInput.component.parent
-            val bind = into.kindsOutputsToBindings.getOrElseUpdate(nodeInput, {
-              val bind = nodeInput.clone
-              into.kindsOutputsToBindings.put(nodeInput, bind)
-              into.kindsOutputsBindings += bind
-              bind.component = into
-              bind.inputs(0) = nodeInput
-              bind
-            })
-
-            node.inputs(i) = bind
-          }
-        }
-        case _ =>
-      }
-    }
-
-  }
 
   def addNodesIntoComponent: Unit = {
-    walkNodes2(node => {
-      node.component.nodes += node
-    }, {
+    Node.walk({
       val stack = walkNodesDefautStack
       for (c <- components) {
         c.nodes = ArrayBuffer[Node]()
       }
       stack
+    },node => {
+      node.component.nodes += node
     })
   }
 

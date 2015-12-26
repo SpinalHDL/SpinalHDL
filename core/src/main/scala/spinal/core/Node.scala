@@ -18,6 +18,7 @@
 
 package spinal.core
 
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 
@@ -294,13 +295,41 @@ object WidthInfer {
 
 }
 
+object Node{
 
+    def walk(starts: Seq[Node],walker: (Node, (Node) => Unit) => Unit): Unit = {
+    val targetAlgoId = GlobalData.get.algoId
+    val pendingNodes = mutable.Stack[Node]()
+
+    def addNodeToStack(node: Node): Unit = {
+      if(node != null && node.component != null && node.algoId != targetAlgoId) {
+        pendingNodes.push(node)
+        node.algoId = targetAlgoId
+      }
+    }
+
+    starts.foreach(addNodeToStack(_))
+    while (!pendingNodes.isEmpty) {
+      walker(pendingNodes.pop, addNodeToStack)
+    }
+
+    GlobalData.get.algoId += 1
+  }
+
+
+  def walk(starts: Seq[Node],walker: (Node) => Unit): Unit = {
+    walk(starts,(node,push) => {
+      walker(node)
+      node.inputs.foreach(push(_))
+    })
+  }
+}
 abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady with GlobalDataUser {
   val consumers = new ArrayBuffer[Node]
   val inputs = new ArrayBuffer[Node]
 
-
-  var widthWhenNotInferred = -1
+  private[core] var algoId = 0
+  private[core] var widthWhenNotInferred = -1
 
   def getWidth: Int = {
     if (globalData.nodeAreInferringWidth) {
@@ -339,10 +368,10 @@ abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady wi
     }
   }
 
-  def calcWidth: Int
+  private[core] def calcWidth: Int
 
 
-  def inferWidth: Boolean = {
+  private[core] def inferWidth: Boolean = {
     val newWidth: Int = calcWidth
     if (newWidth == -1) {
       return true
@@ -355,26 +384,24 @@ abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady wi
   }
 
 
-  var inferredWidth = -1
+  private[core] var inferredWidth = -1
 
-  def checkInferedWidth: String = null
+  private[core] def checkInferedWidth: String = null
 
-  def normalizeInputs: Unit = {
-
-  }
+  private[core] def normalizeInputs: Unit = {}
 
   def simplifyNode: Unit = {}
 
-  def setInput(node: Node): Unit = {
+  private[core] def setInput(node: Node): Unit = {
     inputs(0) = node
   }
 
 
-  def getClassIdentifier: String = this.getClass.getSimpleName
+  private[core] def getClassIdentifier: String = this.getClass.getSimpleName
 
-  def isInBlackBoxTree = component.isInBlackBoxTree
+  private[core] def isInBlackBoxTree = component.isInBlackBoxTree
 
-  def nonRecursiveToString(): String = {
+  private[core] def nonRecursiveToString(): String = {
     toString()
   }
 }

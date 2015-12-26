@@ -12,11 +12,11 @@ case class UartCtrlConfig(dataWidthMax: Int = 8) extends Bundle {
 }
 
 class UartCtrlIo(dataWidthMax: Int = 8, clockDividerWidth: Int = 20) extends Bundle {
-  val config = in(new UartCtrlConfig(dataWidthMax))
+  val config = in(UartCtrlConfig(dataWidthMax))
   val clockDivider = in UInt (clockDividerWidth bit)
   val write = slave Stream (Bits(dataWidthMax bit))
   val read = master Flow (Bits(dataWidthMax bit))
-  val uart = master(new Uart)
+  val uart = master(Uart())
 }
 
 class UartCtrl(dataWidthMax: Int = 8, clockDividerWidth: Int = 20, preSamplingSize: Int = 1, samplingSize: Int = 5, postSamplingSize: Int = 2) extends Component {

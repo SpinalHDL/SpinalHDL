@@ -5,8 +5,13 @@ package spinal.tester.code
  */
 
 import spinal.core._
+import spinal.demo.mandelbrot.{MandelbrotSblDemo, MandelbrotCoreParameters}
 import spinal.lib._
 import spinal.lib.bus.amba3.apb.{Apb3SlaveController, Apb3Config, Apb3Slave}
+import spinal.lib.bus.sbl.{SblConfig, SblReadRet, SblReadCmd, SblWriteCmd}
+import spinal.lib.com.uart._
+import spinal.lib.graphic.Rgb
+import spinal.lib.graphic.vga.Vga
 
 trait BundleA extends Bundle {
   val a = Bool
@@ -33,6 +38,8 @@ class Play1 extends Component {
     val input = slave Stream (new Stage0)
     val output = master Stream (new Stage1)
   }
+
+
 
 
   io.input.translateInto(io.output)((to, from) => {
@@ -398,6 +405,8 @@ object Play7 {
 
 
 object PlayFix{
+
+
   class TopLevel extends Component{
     val ufix = UFix(8 exp,12 bit)
     val uint = UInt(3 bit)
@@ -426,3 +435,78 @@ object PlayFix{
 
 
 
+object ApbUartPlay{
+  class ApbUartCtrl(apbConfig: Apb3Config) extends Component {
+    val io = new Bundle {
+      val bus = slave(new Apb3Slave(apbConfig))
+      val uart = master(Uart())
+    }
+    val busCtrl = new Apb3SlaveController(io.bus) //This is a APB3 slave controller builder tool
+
+    val config = busCtrl.writeOnlyRegOf(UartCtrlConfig(), 0x00) //Create a write only configuration register at address 0x00
+    val clockDivider = busCtrl.writeOnlyRegOf(UInt(20 bit), 0x10)
+    val writeStream = busCtrl.writeStreamOf(Bits(8 bit), 0x20)
+    val readStream = busCtrl.readStreamOf(Bits(8 bit), 0x30)
+
+    val uartCtrl = new UartCtrl(8,20)
+    uartCtrl.io.config := config
+    uartCtrl.io.clockDivider := clockDivider
+    uartCtrl.io.write <-< writeStream //Pipelined connection
+    uartCtrl.io.read.toStream.queue(16) >> readStream  //Queued connection
+    uartCtrl.io.uart <> io.uart
+  }
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new ApbUartCtrl(new Apb3Config(16,32)))
+  }
+}
+object OverloadPlay{
+
+  class OverloadPlay(frameAddressOffset: Int, p: MandelbrotCoreParameters, coreClk: ClockDomain, vgaMemoryClk: ClockDomain, vgaClk: ClockDomain) extends Component {
+    for(i <- 0 until 20){
+      val memoryBusConfig = SblConfig(30, 32)
+      val rgbType = Rgb(8, 8, 8)
+
+      val i =  new MandelbrotSblDemo(frameAddressOffset, p, coreClk, vgaMemoryClk, vgaClk)
+      val uart = master(Uart())
+
+      val mandelbrotWriteCmd = master Stream SblWriteCmd(memoryBusConfig)
+
+      val vgaReadCmd = master Stream SblReadCmd(memoryBusConfig)
+      val vgaReadRet = slave Flow SblReadRet(memoryBusConfig)
+
+      val vga = master(Vga(rgbType))
+
+      i.io.uart <> uart
+      i.io.mandelbrotWriteCmd <> mandelbrotWriteCmd
+      i.io.vgaReadCmd <> vgaReadCmd
+      i.io.vgaReadRet <> vgaReadRet
+      i.io.uart <> uart
+      i.io.vga <> vga
+
+    }
+  }
+  def main(args: Array[String]): Unit = {
+    for(i <- 0 until 1){
+      SpinalVhdl({
+        val vgaClock = ClockDomain("vga")
+        val vgaMemoryClock = ClockDomain("vgaMemory")
+        val coreClock = ClockDomain("core",FixedFrequency(100e6))
+        new OverloadPlay(0, new MandelbrotCoreParameters(256, 64, 640, 480, 7, 17 * 3), coreClock, vgaMemoryClock, vgaClock)
+      })
+    }
+  }
+}
+
+
+object MessagingPlay{
+  class TopLevel extends Component {
+    val o = out(Bool)
+    when(True){
+      o := True
+    }
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}

@@ -236,7 +236,7 @@ class StreamFragmentBitsPimped(pimped: Stream[Fragment[Bits]]) {
 
     if (toWidth <= fromWidth) {
       ret.valid := pimped.fire && pimped.last
-      ret.data.assignFromBits(pimped.fragment)
+      ret.data.assignFromBits(pimped.fragment.resize(ret.data.getBitsWidth))
       pimped.ready := ret.ready
     } else {
       val missingBitsCount = toWidth - fromWidth

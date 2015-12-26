@@ -64,7 +64,7 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T) extends BaseType {
   override def calcWidth: Int = blueprint.getWidth
   override def clone: this.type = {
     val res = new SpinalEnumCraft(blueprint).asInstanceOf[this.type]
-    res.dir = this.dir
+   // res.dir = this.dir
     res
   }
 

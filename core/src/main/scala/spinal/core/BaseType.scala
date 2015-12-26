@@ -150,17 +150,12 @@ abstract class BaseType extends Node with Data with Nameable {
 
   def isDelay = inputs(0).isInstanceOf[SyncNode]
 
-  //  override def :=(bits: this.type): Unit = assignFrom(bits)
-
-
   override def asInput(): this.type = {
-    isIo = true
     component.ioSet += this
     super.asInput()
   }
 
   override def asOutput(): this.type = {
-    isIo = true
     component.ioSet += this
     super.asOutput()
   }
@@ -196,7 +191,7 @@ abstract class BaseType extends Node with Data with Nameable {
 
   override def clone: this.type = {
     val res = this.getClass.newInstance.asInstanceOf[this.type];
-    res.dir = this.dir
+    //res.dir = this.dir
     res
   }
 

@@ -23,7 +23,7 @@ class Ram_1c_1w_1ra(wordWidth: Int, wordCount: Int, writeToReadKind: MemWriteToR
     }
   }
 
-  useCurrentClockDomain(io.clk)
+  mapCurrentClockDomain(io.clk)
 
   //Following is not obligatory, just to describe blackbox logic
   val mem = Mem(io.wr.data, wordCount)
@@ -56,7 +56,7 @@ class Ram_1c_1w_1rs(wordWidth: Int, wordCount: Int, writeToReadKind: MemWriteToR
     }
   }
 
-  useCurrentClockDomain(io.clk)
+  mapCurrentClockDomain(io.clk)
 
   def useReadEnable = io.rd.en.getLiteral[BoolLiteral]
 
@@ -93,7 +93,7 @@ class Ram_1wrs(wordWidth: Int, wordCount: Int, writeToReadKind: MemWriteToReadKi
     }
   }
 
-  useCurrentClockDomain(io.clk)
+  mapCurrentClockDomain(io.clk)
 
   def useReadEnable = io.rd.en.getLiteral[BoolLiteral]
 
@@ -126,7 +126,7 @@ class Ram_1wors(wordWidth: Int, wordCount: Int, writeToReadKind: MemWriteToReadK
     val rdData = out Bits (wordWidth bit)
   }
 
-  useCurrentClockDomain(io.clk)
+  mapCurrentClockDomain(io.clk)
 
   //Following is not obligatory, just to describe blackbox logic
   val mem = Mem(io.wrData, wordCount)

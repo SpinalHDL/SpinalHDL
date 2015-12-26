@@ -55,7 +55,6 @@ object Data {
       if (propagateName)
         from.setCompositeName(srcData)
       from.asInput()
-      from.isIo = true
       if (nextData != null) nextData := from else ret = from
       Component.pop(componentPtr)
 
@@ -83,7 +82,6 @@ object Data {
         val from = srcData.clone()
         if (propagateName)
           from.setCompositeName(srcData)
-        from.isIo = true
         from.asOutput()
         Component.pop(fromComponent)
         Component.push(componentPtr)
@@ -193,8 +191,8 @@ class BitVectorPimper[T <: BitVector](val pimpIt: T) extends AnyVal {
 }
 
 trait Data extends ContextUser with NameableByComponent with Assignable with AttributeReady with SpinalTagReady with GlobalDataUser with ScalaLocated {
-  var dir: IODirection = null
-  var isIo = false
+  private[core] var dir: IODirection = null
+  private[core] def isIo = dir != null
 
   def asInput(): this.type = {
     dir = in;
@@ -205,12 +203,10 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
     this
   }
 
-  def isOutputDir: Boolean = dir == out
-  def isInputDir: Boolean = dir == in
 
-  def isOutput: Boolean = dir == out && isIo
-  def isInput: Boolean = dir == in && isIo
-  def isDirectionLess: Boolean = dir == null || !isIo
+  def isOutput: Boolean = dir == out
+  def isInput: Boolean = dir == in
+  def isDirectionLess: Boolean = dir == null
   def flip(): this.type  = {
     dir match {
       case `in` => dir = out
@@ -277,9 +273,9 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
       } else SpinalError("Bad input output specification for autoconnect")
     }
     def sameFromInside: Unit = {
-      if (that.isOutputDir && this.isInputDir) {
+      if (that.isOutput && this.isInput) {
         that := this
-      } else if (that.isInputDir && this.isOutputDir) {
+      } else if (that.isInput && this.isOutput) {
         this assignFrom (that,false)
       } else SpinalError("Bad input output specification for autoconnect")
     }
@@ -300,7 +296,6 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
       } else SpinalError("Bad input output specification for autoconnect")
     }
   }
-
 
   def getBitsWidth: Int
 

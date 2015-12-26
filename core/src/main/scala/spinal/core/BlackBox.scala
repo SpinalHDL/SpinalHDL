@@ -73,28 +73,29 @@ abstract class BlackBox extends Component with SpinalTagReady {
     }
   }
 
-  def use(clockDomain: ClockDomain, clockIn: Bool, resetIn: Bool = null, clockEnableIn: Bool = null): Unit = {
+  //
+  def mapClockDomain(clockDomain: ClockDomain = ClockDomain.current, clock: Bool = null, reset: Bool = null, enable: Bool = null): Unit = {
     Component.push(parent)
-    if (clockDomain.hasClockEnable && clockEnableIn == null) SpinalError(s"Clock domain has clock enable, but blackbox is not compatible $this")
-    if (clockEnableIn != null) {
-      pulledDataCache += (clockDomain.clockEnable -> clockEnableIn)
-      clockEnableIn := ClockDomain.current.readClockEnableWire
+    if (clockDomain.hasClockEnable && enable == null) SpinalError(s"Clock domain has clock enable, but blackbox is not compatible $this")
+    if (enable != null) {
+      pulledDataCache += (clockDomain.clockEnable -> enable)
+      enable := ClockDomain.current.readClockEnableWire
     }
 
-    if (resetIn != null) {
+    if (reset != null) {
       if (!clockDomain.hasReset) SpinalError(s"Clock domain has no reset, but blackbox need it $this")
-      pulledDataCache += (clockDomain.reset -> resetIn)
-      resetIn := ClockDomain.current.readResetWire
+      pulledDataCache += (clockDomain.reset -> reset)
+      reset := ClockDomain.current.readResetWire
     }
-    pulledDataCache += (clockDomain.clock -> clockIn)
-    clockIn := ClockDomain.current.readClockWire
+    pulledDataCache += (clockDomain.clock -> clock)
+    clock := ClockDomain.current.readClockWire
 
     Component.pop(parent)
   }
 
 
-  def useCurrentClockDomain(clockIn: Bool, resetIn: Bool = null, clockEnableIn: Bool = null): Unit = {
-    use(ClockDomain.current, clockIn, resetIn, clockEnableIn)
+  def mapCurrentClockDomain(clock: Bool, reset: Bool = null, enable: Bool = null): Unit = {
+    mapClockDomain(ClockDomain.current, clock, reset, enable)
   }
 
 
