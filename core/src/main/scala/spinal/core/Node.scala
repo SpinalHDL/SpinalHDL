@@ -297,7 +297,7 @@ object WidthInfer {
 
 object Node{
 
-    def walk(starts: Seq[Node],walker: (Node, (Node) => Unit) => Unit): Unit = {
+  def walk(starts: Seq[Node],walker: (Node, (Node) => Unit) => Unit): Unit = {
     val targetAlgoId = GlobalData.get.algoId
     val pendingNodes = mutable.Stack[Node]()
 

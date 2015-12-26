@@ -24,9 +24,9 @@ import scala.collection.mutable
 class EnumLiteral[T <: SpinalEnum](val enum: SpinalEnumElement[T]) extends Literal {
   override def calcWidth: Int = enum.parent.getWidth
 
-  override def clone() : this.type = new EnumLiteral(enum).asInstanceOf[this.type]
+  override def clone : this.type = new EnumLiteral(enum).asInstanceOf[this.type]
 
-  override def getBitsStringOn(bitCount: Int): String = {
+  private[core] override def getBitsStringOn(bitCount: Int): String = {
     assert(bitCount == enum.parent.getWidth)
     val str = enum.id.toString(2)
     return "0" * (bitCount - str.length) + str
@@ -35,7 +35,7 @@ class EnumLiteral[T <: SpinalEnum](val enum: SpinalEnumElement[T]) extends Liter
 
 class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T) extends BaseType {
 
-  def assertSameType(than: SpinalEnumCraft[_]): Unit = if (blueprint != than.blueprint) SpinalError("Enum is assigned by a incompatible enum")
+  private[core] def assertSameType(than: SpinalEnumCraft[_]): Unit = if (blueprint != than.blueprint) SpinalError("Enum is assigned by a incompatible enum")
 
 
   def :=(that: SpinalEnumElement[T]): Unit = new DataPimper(this) := that.craft()
@@ -58,7 +58,7 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T) extends BaseType {
     }
   }
 
-  override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,e,e)", sel, whenTrue, whenFalse)
+  private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,e,e)", sel, whenTrue, whenFalse)
   override def toBits: Bits = new Bits().castFrom("e->b", this)
   override def assignFromBits(bits: Bits): Unit = enumCastFrom("b->e", bits, (node) => this.getWidth)
   override def calcWidth: Int = blueprint.getWidth
@@ -72,7 +72,7 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T) extends BaseType {
     this.initImpl(enumElement())
   }
 
-  def getParentName = blueprint.getName()
+  private[core] def getParentName = blueprint.getName()
 
 
   override def getZero: this.type = {
@@ -80,7 +80,7 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T) extends BaseType {
     ret.assignFromBits(B(0))
     ret
   }
-  override def weakClone: this.type = new SpinalEnumCraft(blueprint).asInstanceOf[this.type]
+  private[core] override def weakClone: this.type = new SpinalEnumCraft(blueprint).asInstanceOf[this.type]
 }
 
 
@@ -113,11 +113,11 @@ class SpinalEnumElement[T <: SpinalEnum](val parent: T, val id: BigInt) extends 
 class SpinalEnum extends Nameable {
   def apply() = craft
 
-  private val idMap = new mutable.HashMap[BigInt, SpinalEnumElement[this.type]]()
+  private[core]  val idMap = new mutable.HashMap[BigInt, SpinalEnumElement[this.type]]()
 
 
-  var nextInt: BigInt = 0
-  def getNextInt: BigInt = {
+  private[core] var nextInt: BigInt = 0
+  private[core] def getNextInt: BigInt = {
     val i = nextInt
     nextInt = nextInt + 1
     if (idMap.contains(nextInt)) getNextInt else i

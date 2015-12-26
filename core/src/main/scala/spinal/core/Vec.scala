@@ -108,10 +108,10 @@ class Vec[T <: Data](_dataType: T,val vec : Vector[T]) extends MultiData with co
   }
   override def hashCode(): Int = instanceCounter
 
-  val accessMap = mutable.Map[(Component,UInt), T]()
-  var vecTransposedCache: ArrayBuffer[ArrayBuffer[BaseType]] = null
+  private[core] val accessMap = mutable.Map[(Component,UInt), T]()
+  private[core] var vecTransposedCache: ArrayBuffer[ArrayBuffer[BaseType]] = null
 
-  def vecTransposed: ArrayBuffer[ArrayBuffer[BaseType]] = {
+  private[core] def vecTransposed: ArrayBuffer[ArrayBuffer[BaseType]] = {
     if (vecTransposedCache == null) {
       vecTransposedCache = new ArrayBuffer[ArrayBuffer[BaseType]]()
       val size = dataType.flatten.size
@@ -158,7 +158,7 @@ class Vec[T <: Data](_dataType: T,val vec : Vector[T]) extends MultiData with co
     ret
   }
 
-  override def assignFromImpl(that: AnyRef,conservative : Boolean): Unit = {
+  private[core] override def assignFromImpl(that: AnyRef,conservative : Boolean): Unit = {
     assert(!conservative)
     that match {
       case that: Vec[T] => {
@@ -186,7 +186,7 @@ class Vec[T <: Data](_dataType: T,val vec : Vector[T]) extends MultiData with co
     elementsCache
   }
 
-  override def clone(): this.type = {
+  override def clone : this.type = {
     new Vec[T](dataType,vec.map(_.clone())).asInstanceOf[this.type]
   }
 }

@@ -57,7 +57,7 @@ class Bundle extends MultiData with Nameable with OverridedEqualsHashCode {
     }
   }
 
-  override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
+  private[core] override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
     assert(!conservative)
     that match {
       case that: Bundle => {

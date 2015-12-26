@@ -43,7 +43,7 @@ object S extends BitVectorLiteralFactory[SInt] {
 
 trait Literal extends Node {
   override def clone: this.type = ???
-  def getBitsStringOn(bitCount : Int) : String
+  private[core] def getBitsStringOn(bitCount : Int) : String
 
 
 }

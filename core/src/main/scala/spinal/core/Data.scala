@@ -238,8 +238,8 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
   def assignFromBits(bits: Bits): Unit
 
 
-  def isEguals(that: Data): Bool// = (this.flatten, that.flatten).zipped.map((a, b) => a.isEguals(b)).reduceLeft(_ && _)
-  def isNotEguals(that: Data): Bool// = (this.flatten, that.flatten).zipped.map((a, b) => a.isNotEguals(b)).reduceLeft(_ || _)
+  private[core] def isEguals(that: Data): Bool// = (this.flatten, that.flatten).zipped.map((a, b) => a.isEguals(b)).reduceLeft(_ && _)
+  private[core] def isNotEguals(that: Data): Bool// = (this.flatten, that.flatten).zipped.map((a, b) => a.isNotEguals(b)).reduceLeft(_ || _)
   @deprecated("Use resized instead")
   def autoResize() : this.type = this.resized
   def resized : this.type ={
@@ -249,8 +249,8 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
     return ret
   }
 
-  def autoConnect(that: Data): Unit// = (this.flatten, that.flatten).zipped.foreach(_ autoConnect _)
-  def autoConnectBaseImpl(that: Data): Unit = {
+  private[core] def autoConnect(that: Data): Unit// = (this.flatten, that.flatten).zipped.foreach(_ autoConnect _)
+  private[core] def autoConnectBaseImpl(that: Data): Unit = {
     if (this.component == that.component) {
       if (this.component == Component.current) {
         sameFromInside
@@ -321,7 +321,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
   def isReg: Boolean = flatten.foldLeft(true)(_ && _.isReg)
 
   /*private[core] */
-  def initImpl(init: Data): this.type = {
+  private[core] def initImpl(init: Data): this.type = {
     // if (!isReg) SpinalError(s"Try to set initial value of a data that is not a register ($this)")
     val regInit = clone()
     regInit := init
@@ -354,14 +354,14 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
   //    this
   //  }
 
-
+  //Usefull for register that doesn't need a reset value in RTL, but need a randome value for simulation (avoid x-propagation)
   def randBoot(): this.type = {
     flatten.foreach(_.addTag(spinal.core.randomBoot))
     this
   }
 
 
-  override def clone(): this.type = {
+  override def clone: this.type = {
     try {
       val clazz = this.getClass
       val constructor = clazz.getConstructors.head

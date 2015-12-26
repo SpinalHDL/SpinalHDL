@@ -143,16 +143,16 @@ trait Assignable {
 
 trait Nameable {
   private var name: String = ""
-  var compositeName: Nameable = null
+  private[core] var compositeName: Nameable = null
   def getName(): String = if (compositeName == null) name else compositeName.getName()
   def isUnnamed: Boolean = name == "" && (compositeName == null || compositeName.isUnnamed)
   def isNamed: Boolean = !isUnnamed
-  var isWeak = true
+  private[core] var isWeak = true
 
 
   override def toString(): String = name
 
-  def getNameElseThrow: String = name
+  private[core] def getNameElseThrow: String = name
   def setCompositeName(nameable: Nameable) = {
     compositeName = nameable
     name == ""
@@ -210,12 +210,12 @@ object ScalaLocated {
 
 
 trait ScalaLocated extends GlobalDataUser {
-  val scalaTrace = if (!globalData.scalaLocatedEnable) null else new Throwable()
+  private[core] val scalaTrace = if (!globalData.scalaLocatedEnable) null else new Throwable()
 
-  def getScalaTrace = {
+  private[core] def getScalaTrace = {
     scalaTrace
   }
-  def getScalaTraceSmart = {
+  private[core] def getScalaTraceSmart = {
     val temp = scalaTrace.getStackTrace.filter(trace => {
       val className = trace.getClassName
       //    !((className.startsWith("scala.") || className.startsWith("spinal.")) && !ScalaLocated.unfiltredPackages.map(className.startsWith(_)).reduceLeft(_ || _)) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
@@ -224,24 +224,24 @@ trait ScalaLocated extends GlobalDataUser {
     })
     temp
   }
-  def getScalaTraceComplet = {
+  private[core] def getScalaTraceComplet = {
     val temp = scalaTrace.getStackTrace
     temp
   }
-  def getScalaTraceCompletString(tab: String): String = {
+  private[core] def getScalaTraceCompletString(tab: String): String = {
     if (scalaTrace == null) return ""
     (getScalaTraceComplet.map(tab + _.toString) reduceLeft (_ + "\n" + _)) + "\n\n"
   }
-  def getScalaTraceCompletString: String = getScalaTraceCompletString("    ")
+  private[core] def getScalaTraceCompletString: String = getScalaTraceCompletString("    ")
 
-  def getScalaTraceString(tab: String): String = {
+  private[core] def getScalaTraceString(tab: String): String = {
     if (scalaTrace == null) return ""
     (getScalaTraceSmart.map(tab + _.toString) reduceLeft (_ + "\n" + _)) + "\n\n"
   }
-  def getScalaTraceString: String = getScalaTraceString("    ")
+  private[core] def getScalaTraceString: String = getScalaTraceString("    ")
 
-  def getScalaLocationString: String = this.toString + " at\n" + getScalaTraceString
-  def getScalaLocationStringShort: String = {
+  private[core] def getScalaLocationString: String = this.toString + " at\n" + getScalaTraceString
+  private[core] def getScalaLocationStringShort: String = {
     if (scalaTrace == null) return ""
     this.toString + s" at ${getScalaTraceSmart.apply(0).toString}"
   }

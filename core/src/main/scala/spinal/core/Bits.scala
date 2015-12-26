@@ -36,7 +36,7 @@ trait BitsFactory{
 }
 
 class Bits extends BitVector {
-  def prefix: String = "b"
+  private[core] def prefix: String = "b"
 
   def ##(right: Bits): Bits = newBinaryOperator("b##b", right, WidthInfer.cumulateInputWidth, InputNormalize.none,ZeroWidth.binaryTakeOther)
 
@@ -51,7 +51,7 @@ class Bits extends BitVector {
   def <<(that: UInt): Bits = newBinaryOperator("b<<u", that, WidthInfer.shiftLeftWidth, InputNormalize.none,ZeroWidth.shiftLeftImpl(B.apply));
 
 
-  override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,b,b)", sel, whenTrue, whenFalse)
+  private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,b,b)", sel, whenTrue, whenFalse)
 
   override def resize(width: Int): this.type = newResize("resize(b,i)", this :: new IntLiteral(width) :: Nil, WidthInfer.intLit1Width,ZeroWidth.resizeImpl(B.apply))
 
@@ -65,13 +65,13 @@ class Bits extends BitVector {
   }
   override def assignFromBits(bits: Bits): Unit = this := bits
 
-  override def isEguals(that: Data): Bool = {
+  private[core] override def isEguals(that: Data): Bool = {
     that match {
       case that: Bits => newLogicalOperator("b==b", that, InputNormalize.inputWidthMax,ZeroWidth.binaryThatIfBoth(True));
       case _ => SpinalError(s"Don't know how compare $this with $that"); null
     }
   }
-  override def isNotEguals(that: Data): Bool = {
+  private[core] override def isNotEguals(that: Data): Bool = {
     that match {
       case that: Bits => newLogicalOperator("b!=b", that, InputNormalize.inputWidthMax,ZeroWidth.binaryThatIfBoth(False));
       case _ => SpinalError(s"Don't know how compare $this with $that"); null

@@ -22,7 +22,7 @@ import scala.collection.mutable.ArrayBuffer
 
 
 abstract class BitVector extends BaseType {
-  var fixedWidth = -1
+  private[core] var fixedWidth = -1
 
   def high = getWidth - 1
   def msb = this(high)
@@ -31,7 +31,7 @@ abstract class BitVector extends BaseType {
   def andR = this.toBits === (BigInt(1) << getWidth - 1)
   def xorR = this.toBools.reduce(_ ^ _)
 
-  def isFixedWidth = fixedWidth != -1
+  private[core] def isFixedWidth = fixedWidth != -1
 
 
   def setWidth(width: Int): this.type = {
@@ -46,13 +46,13 @@ abstract class BitVector extends BaseType {
     res
   }
 
-  override def normalizeInputs: Unit = {
+  private[core] override def normalizeInputs: Unit = {
     InputNormalize.nodeWidth(this)
   }
 
   def resize(width: Int): this.type
 
-  override def calcWidth: Int = {
+  private[core] override def calcWidth: Int = {
     if (isFixedWidth) return fixedWidth
     if (inputs(0) == null) return -1
     return inputs(0).getWidth
@@ -130,10 +130,6 @@ abstract class BitVector extends BaseType {
   }
 
   //extract bits     that(5,7 bit)
-//  def apply(offset: Int, bitCount: BitCount): Bits = this.apply(bitCount.value + offset - 1, offset)
-//  def apply(offset: UInt, bitCount: BitCount): Bits =  this.extract(offset,bitCount).toBits
-//  def apply(hi: Int, lo: Int): Bits = this.extract(hi,lo).toBits
-
   def apply(offset: Int, bitCount: BitCount): this.type = this.apply(bitCount.value + offset - 1, offset)
   def apply(offset: UInt, bitCount: BitCount): this.type =  this.extract(offset,bitCount)
   def apply(hi: Int, lo: Int): this.type = this.extract(hi,lo)
@@ -141,14 +137,14 @@ abstract class BitVector extends BaseType {
 
 
 
-  override def addTypeNodeFrom(node: Node): this.type = {
+  private[core] override def addTypeNodeFrom(node: Node): this.type = {
     val typeNode = super.addTypeNodeFrom(node)
     typeNode.fixedWidth = -1
     typeNode
   }
 
 
-  def prefix: String
+  private[core] def prefix: String
 
 
 }

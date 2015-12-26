@@ -40,8 +40,6 @@ class Play1 extends Component {
   }
 
 
-
-
   io.input.translateInto(io.output)((to, from) => {
     to.assignSomeByName(from)
     to.d := False
@@ -462,7 +460,7 @@ object ApbUartPlay{
 object OverloadPlay{
 
   class OverloadPlay(frameAddressOffset: Int, p: MandelbrotCoreParameters, coreClk: ClockDomain, vgaMemoryClk: ClockDomain, vgaClk: ClockDomain) extends Component {
-    for(i <- 0 until 20){
+    for(i <- 0 until 10){
       val memoryBusConfig = SblConfig(30, 32)
       val rgbType = Rgb(8, 8, 8)
 
@@ -486,13 +484,20 @@ object OverloadPlay{
     }
   }
   def main(args: Array[String]): Unit = {
+    //Console.in.read
+
     for(i <- 0 until 1){
-      SpinalVhdl({
+      val report = SpinalVhdl({
         val vgaClock = ClockDomain("vga")
         val vgaMemoryClock = ClockDomain("vgaMemory")
         val coreClock = ClockDomain("core",FixedFrequency(100e6))
         new OverloadPlay(0, new MandelbrotCoreParameters(256, 64, 640, 480, 7, 17 * 3), coreClock, vgaMemoryClock, vgaClock)
       })
+
+      /*while(true){
+        Thread.sleep(1000)
+        println(report.topLevel )
+      }*/
     }
   }
 }
@@ -508,5 +513,6 @@ object MessagingPlay{
 
   def main(args: Array[String]): Unit = {
     SpinalVhdl(new TopLevel)
+
   }
 }

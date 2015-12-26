@@ -122,9 +122,9 @@ object BaseType {
 abstract class BaseType extends Node with Data with Nameable {
   inputs += null
 
-  def canSymplifyIt = !dontSimplify && attributes.isEmpty
+  private[core] def canSymplifyIt = !dontSimplify && attributes.isEmpty
 
-  private var dontSimplify = false
+  private[core] var dontSimplify = false
 
   override def dontSimplifyIt(): this.type = {
     dontSimplify = true;
@@ -137,7 +137,7 @@ abstract class BaseType extends Node with Data with Nameable {
   }
 
 
-  def getLiteral[T <: Literal]: T = inputs(0) match {
+  private[core] def getLiteral[T <: Literal]: T = inputs(0) match {
     case lit: Literal => lit.asInstanceOf[T]
     case bt: BaseType => bt.getLiteral[T]
     case _ => null.asInstanceOf[T]
@@ -160,7 +160,7 @@ abstract class BaseType extends Node with Data with Nameable {
     super.asOutput()
   }
 
-  def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
+  private[core] def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
     that match {
       case that: BaseType => {
         val (consumer, inputId) = BaseType.walkWhenNodes(this, this, 0, conservative)
@@ -181,7 +181,7 @@ abstract class BaseType extends Node with Data with Nameable {
 
 
   // = (this.flatten, that.flatten).zipped.map((a, b) => a.isNotEguals(b)).reduceLeft(_ || _)
-  override def autoConnect(that: Data): Unit = autoConnectBaseImpl(that)
+  private[core] override def autoConnect(that: Data): Unit = autoConnectBaseImpl(that)
   override def flatten: Seq[BaseType] = Seq(this);
 
   override def add(attribute: Attribute): Unit = {
@@ -196,17 +196,17 @@ abstract class BaseType extends Node with Data with Nameable {
   }
 
 
-  def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer
+  private[core] def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer
 
 
-  def newLogicalOperator(opName: String, right: Node, normalizeInputsImpl: (Node) => Unit, simplifyNodeImpl: (Node) => Unit): Bool = {
+  private[core] def newLogicalOperator(opName: String, right: Node, normalizeInputsImpl: (Node) => Unit, simplifyNodeImpl: (Node) => Unit): Bool = {
     val op = BinaryOperator(opName, this, right, WidthInfer.oneWidth, normalizeInputsImpl, simplifyNodeImpl)
     val typeNode = new Bool
     typeNode.inputs(0) = op
     typeNode
   }
 
-  def newBinaryOperator(opName: String, right: Node, getWidthImpl: (Node) => Int, normalizeInputsImpl: (Node) => Unit, simplifyNodeImpl: (Node) => Unit): this.type = {
+  private[core] def newBinaryOperator(opName: String, right: Node, getWidthImpl: (Node) => Int, normalizeInputsImpl: (Node) => Unit, simplifyNodeImpl: (Node) => Unit): this.type = {
     val op = BinaryOperator(opName, this, right, getWidthImpl, normalizeInputsImpl, simplifyNodeImpl)
     val typeNode = addTypeNodeFrom(op)
     typeNode
@@ -214,45 +214,45 @@ abstract class BaseType extends Node with Data with Nameable {
 
   //def newUnaryOperator(opName: String, simplifyNodeImpl: (Node) => Unit = ZeroWidth.none): this.type = newUnaryOperator(opName, WidthInfer.inputMaxWidth, simplifyNodeImpl)
 
-  def newUnaryOperator(opName: String, getWidthImpl: (Node) => Int = WidthInfer.inputMaxWidth, simplifyNodeImpl: (Node) => Unit): this.type = {
+  private[core] def newUnaryOperator(opName: String, getWidthImpl: (Node) => Int = WidthInfer.inputMaxWidth, simplifyNodeImpl: (Node) => Unit): this.type = {
     val op = UnaryOperator(opName, this, getWidthImpl, InputNormalize.none, simplifyNodeImpl)
     val typeNode = addTypeNodeFrom(op)
     typeNode
   }
 
-  def castFrom(opName: String, that: Node, getWidthImpl: (Node) => Int = WidthInfer.inputMaxWidth): this.type = {
+  private[core] def castFrom(opName: String, that: Node, getWidthImpl: (Node) => Int = WidthInfer.inputMaxWidth): this.type = {
     val op = Cast(opName, that, getWidthImpl)
     this.setInput(op)
     this
   }
 
-  def enumCastFrom(opName: String, that: Node, getWidthImpl: (Node) => Int = WidthInfer.inputMaxWidth): this.type = {
+  private[core] def enumCastFrom(opName: String, that: Node, getWidthImpl: (Node) => Int = WidthInfer.inputMaxWidth): this.type = {
     val op = EnumCast(this.asInstanceOf[SpinalEnumCraft[_]], opName, that, getWidthImpl)
     this.setInput(op)
     this
   }
 
-  def newFunction(opName: String, args: List[Node], getWidthImpl: (Node) => Int = WidthInfer.inputMaxWidth, simplifyNodeImpl: (Node) => Unit): this.type = {
+  private[core] def newFunction(opName: String, args: List[Node], getWidthImpl: (Node) => Int = WidthInfer.inputMaxWidth, simplifyNodeImpl: (Node) => Unit): this.type = {
     val op = Function(opName, args, getWidthImpl,simplifyNodeImpl)
     val typeNode = addTypeNodeFrom(op)
     typeNode
   }
 
-  def newResize(opName: String, args: List[Node], getWidthImpl: (Node) => Int = WidthInfer.inputMaxWidth, simplifyNodeImpl: (Node) => Unit): this.type = {
+  private[core] def newResize(opName: String, args: List[Node], getWidthImpl: (Node) => Int = WidthInfer.inputMaxWidth, simplifyNodeImpl: (Node) => Unit): this.type = {
     val op = Resize(opName, args, getWidthImpl, simplifyNodeImpl)
     val typeNode = addTypeNodeFrom(op)
     typeNode
   }
 
 
-  def addTypeNodeFrom(node: Node): this.type = {
+  private[core] def addTypeNodeFrom(node: Node): this.type = {
     val typeNode = weakClone
     typeNode.setInput(node)
     typeNode
   }
 
 
-  def weakClone: this.type = this.getClass.newInstance().asInstanceOf[this.type]
+  private[core] def weakClone: this.type = this.getClass.newInstance().asInstanceOf[this.type]
   //  def strongClone : this.type = {
   //    val ret = clone()
   //

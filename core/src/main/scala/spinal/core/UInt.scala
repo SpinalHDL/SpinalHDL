@@ -32,7 +32,7 @@ trait UIntFactory{
 }
 
 class UInt extends BitVector with Num[UInt] with MinMaxProvider {
-  def prefix : String = "u"
+  private[core] def prefix : String = "u"
 
   override def +(that: UInt): UInt = newBinaryOperator("u+u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,ZeroWidth.binaryTakeOther);
   override def -(that: UInt): UInt = newBinaryOperator("u-u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,ZeroWidth.binaryMinus(U.apply));
@@ -55,14 +55,14 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider {
   def >>(that: UInt): UInt = newBinaryOperator("u>>u", that, WidthInfer.shiftRightWidth, InputNormalize.none,ZeroWidth.shiftRightImpl);
   def <<(that: UInt): UInt = newBinaryOperator("u<<u", that, WidthInfer.shiftLeftWidth, InputNormalize.none,ZeroWidth.shiftLeftImpl(U.apply));
 
-  override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,u,u)", sel, whenTrue, whenFalse)
-  override def isEguals(that: Data): Bool = {
+  private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,u,u)", sel, whenTrue, whenFalse)
+  private[core] override def isEguals(that: Data): Bool = {
     that match {
       case that: UInt => newLogicalOperator("u==u", that, InputNormalize.inputWidthMax,ZeroWidth.binaryThatIfBoth(True));
       case _ => SpinalError(s"Don't know how compare $this with $that"); null
     }
   }
-  override def isNotEguals(that: Data): Bool = {
+  private[core] override def isNotEguals(that: Data): Bool = {
     that match {
       case that: UInt => newLogicalOperator("u!=u", that, InputNormalize.inputWidthMax,ZeroWidth.binaryThatIfBoth(False));
       case _ => SpinalError(s"Don't know how compare $this with $that"); null

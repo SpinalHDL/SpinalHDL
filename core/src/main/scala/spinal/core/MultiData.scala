@@ -52,7 +52,7 @@ abstract class MultiData extends Data {
     ret
   }
 
-  override def nameChangeEvent(weak: Boolean): Unit = {
+  protected override def nameChangeEvent(weak: Boolean): Unit = {
     super.nameChangeEvent(weak)
     for ((eName, e) <- elements) e match {
       case nameable: Nameable => {
@@ -109,7 +109,7 @@ abstract class MultiData extends Data {
   }
 
 
-  def isEguals(that: Data): Bool = {
+  private[core] def isEguals(that: Data): Bool = {
     that match {
       case that: MultiData => {
         zippedMap(that, _ === _).reduce(_ && _)
@@ -119,7 +119,7 @@ abstract class MultiData extends Data {
   }
 
 
-  def isNotEguals(that: Data): Bool = {
+  private[core] def isNotEguals(that: Data): Bool = {
     that match {
       case that: MultiData => {
         zippedMap(that, _ =/= _).reduce(_ || _)
@@ -128,7 +128,7 @@ abstract class MultiData extends Data {
     }
   }
 
-  override def autoConnect(that: Data): Unit = {
+  private[core] override def autoConnect(that: Data): Unit = {
     that match {
       case that: MultiData => {
         zippedMap(that, _ autoConnect _)
@@ -137,7 +137,7 @@ abstract class MultiData extends Data {
     }
   }
 
-  def zippedMap[T](that: MultiData, task: (Data, Data) => T): Seq[T] = {
+  private[core] def zippedMap[T](that: MultiData, task: (Data, Data) => T): Seq[T] = {
     if (that.elements.length != this.elements.length) SpinalError("Can't do that")
     this.elements.map(x => {
       val (n, e) = x

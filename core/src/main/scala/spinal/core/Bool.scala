@@ -32,7 +32,7 @@ trait BoolFactory {
 
 
 class Bool extends BaseType {
-  override def calcWidth : Int = 1
+  private[core] override def calcWidth : Int = 1
 
 
 
@@ -48,15 +48,15 @@ class Bool extends BaseType {
   def set() = this := True
   def clear() = this := False
 
-  override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,B,B)",sel,whenTrue,whenFalse)
+  private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,B,B)",sel,whenTrue,whenFalse)
 
-  override def isEguals(that: Data): Bool = {
+  private[core] override def isEguals(that: Data): Bool = {
     that match{
       case that : Bool => newLogicalOperator("B==B", that, InputNormalize.none,ZeroWidth.none);
       case _ => SpinalError(s"Don't know how compare $this with $that"); null
     }
   }
-  override def isNotEguals(that: Data): Bool = {
+  private[core] override def isNotEguals(that: Data): Bool = {
     that match{
       case that : Bool => newLogicalOperator("B!=B", that, InputNormalize.none,ZeroWidth.none);
       case _ => SpinalError(s"Don't know how compare $this with $that"); null

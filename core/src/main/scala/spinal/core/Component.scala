@@ -68,16 +68,16 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
 
 
   //def io: Data
-  val ioSet = mutable.Set[BaseType]()
+  private[core] val ioSet = mutable.Set[BaseType]()
 
   val userCache = mutable.Map[Object, mutable.Map[Object, Object]]()
-  val localScope = new Scope()
-  val postCreationTask = mutable.ArrayBuffer[() => Unit]()
-  val kindsOutputsToBindings = mutable.Map[BaseType, BaseType]()
-  val kindsOutputsBindings = mutable.Set[BaseType]()
-  val additionalNodesRoot = mutable.Set[BaseType]()
+  private[core] val localScope = new Scope()
+  private[core] val postCreationTask = mutable.ArrayBuffer[() => Unit]()
+  private[core] val kindsOutputsToBindings = mutable.Map[BaseType, BaseType]()
+  private[core] val kindsOutputsBindings = mutable.Set[BaseType]()
+  private[core] val additionalNodesRoot = mutable.Set[BaseType]()
   var definitionName: String = null
-  val level = globalData.componentStack.size()
+  private[core] val level = globalData.componentStack.size()
   val kinds = ArrayBuffer[Component]()
   val parent = Component.current
   if (parent != null) {
@@ -86,14 +86,14 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
     setWeakName("toplevel")
   }
 
-  def isTopLevel: Boolean = parent == null
+  private[core] def isTopLevel: Boolean = parent == null
 
-  val initialWhen = globalData.whenStack.head()
+  private[core] val initialWhen = globalData.whenStack.head()
 
   var nodes: ArrayBuffer[Node] = null
 
 
-  var pulledDataCache = mutable.Map[Data, Data]()
+  private[core] var pulledDataCache = mutable.Map[Data, Data]()
 
 
   Component.push(this)
@@ -104,7 +104,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
     parents(of.parent, of.parent :: list)
   }
 
-  def reflectIo: Data = {
+  private[core] def reflectIo: Data = {
     try {
       val clazz = this.getClass
       val m = clazz.getMethod("io")
@@ -141,7 +141,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
     })
   }
 
-  def allocateNames(): Unit = {
+  private[core] def allocateNames(): Unit = {
     localScope.allocateName("zz")
     for (node <- nodes) node match {
       case nameable: Nameable => {
@@ -166,7 +166,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
   }
 
 
-  def getNodeIo = {
+  private[core] def getNodeIo = {
 
     if (nodes == null) {
       ioSet
@@ -181,10 +181,10 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
 
   }
 
-  def getOrdredNodeIo = getNodeIo.toList.sortWith(_.instanceCounter < _.instanceCounter)
+  private[core] def getOrdredNodeIo = getNodeIo.toList.sortWith(_.instanceCounter < _.instanceCounter)
 
 
-  def getDelays = {
+  private[core] def getDelays = {
     val delays = new ArrayBuffer[SyncNode]()
     nodes.foreach(node => node match {
       case delay: SyncNode => delays += delay
@@ -194,13 +194,13 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
   }
 
 
-  def userParentCalledDef: Unit = {
+  private[core] def userParentCalledDef: Unit = {
 
   }
 
-  def isInBlackBoxTree: Boolean = if (parent == null) false else parent.isInBlackBoxTree
+  private[core] def isInBlackBoxTree: Boolean = if (parent == null) false else parent.isInBlackBoxTree
 
-  override def getComponent(): Component = parent
+  private[core] override def getComponent(): Component = parent
 }
 
 
