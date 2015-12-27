@@ -143,6 +143,7 @@ abstract class BaseType extends Node with Data with Nameable {
     case _ => null.asInstanceOf[T]
   }
 
+  var defaultValue : BaseType = null
 
   override def getBitsWidth: Int = getWidth
 

@@ -111,6 +111,8 @@ class Backend {
   protected def elaborate[T <: Component](topLevel: T): BackendReport[T] = {
     SpinalInfoPhase("Start analysis and transform")
 
+    applyComponentIoDefaults
+    walkNodesBlackBoxGenerics
     remplaceMemByBlackBox_simplifyWriteReadWithSameAddress
 
     addReservedKeyWordToScope(globalScope)
@@ -760,6 +762,26 @@ class Backend {
     nodeStack
   }
 
+  def applyComponentIoDefaults = {
+    Node.walk(walkNodesDefautStack,node => {
+      node match{
+        case node : BaseType => {
+          val parent = node.component.parent
+          if(parent != null && node.inputs(0) == null && node.defaultValue != null){
+            val c = if(node.dir == in)
+              node.component
+            else
+              node.component.parent
+            Component.push(c)
+            node.assignFrom(node.defaultValue,false)
+            Component.pop(c)
+          }
+        }
+        case _ =>
+      }
+
+    })
+  }
 
   def walkNodesBlackBoxGenerics = {
     val nodeStack = mutable.Stack[Node]()

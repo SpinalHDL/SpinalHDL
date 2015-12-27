@@ -1,9 +1,13 @@
 package spinal.tester.code
 
 /**
- * Created by PIC32F_USER on 20/09/2015.
- */
+  * Created by PIC32F_USER on 20/09/2015.
+  */
 
+import java.io.InputStream
+import java.util.concurrent.CyclicBarrier
+
+import _root_.com.sun.xml.internal.messaging.saaj.util.{ByteOutputStream, ByteInputStream}
 import spinal.core._
 import spinal.demo.mandelbrot.{MandelbrotSblDemo, MandelbrotCoreParameters}
 import spinal.lib._
@@ -12,6 +16,7 @@ import spinal.lib.bus.sbl.{SblConfig, SblReadRet, SblReadCmd, SblWriteCmd}
 import spinal.lib.com.uart._
 import spinal.lib.graphic.Rgb
 import spinal.lib.graphic.vga.Vga
+
 
 trait BundleA extends Bundle {
   val a = Bool
@@ -193,7 +198,7 @@ object ImplicitTest extends App {
 class Titi[A <: Int]() {
   val s: Symbol = 'x
 
-  val v = Vec(True,True,True)
+  val v = Vec(True, True, True)
   val b = Bool
   b := v.reduceBalancedSpinal(_ | _)
 
@@ -226,7 +231,7 @@ object Yolo {
 
 object Yolo2 {
 
-  class PassedImplicits{
+  class PassedImplicits {
     val a = "a"
     val b = "b"
   }
@@ -236,9 +241,7 @@ object Yolo2 {
   }
 
 
-
-
-  def f1(str1 : String)(implicit str2 : String): Unit = {
+  def f1(str1: String)(implicit str2: String): Unit = {
     println(str1 + str2)
   }
 
@@ -247,18 +250,18 @@ object Yolo2 {
     implicit val str2 = "asd"
     f1("a ")
 
-    execute{ impl =>
+    execute { impl =>
       import impl._
-      println(a+b)
+      println(a + b)
     }
 
-    val list = Seq(1,2,3,4,5,6,7,8,9)
-    def sum(list : Seq[Int]) : Int = {
-      list.size match{
+    val list = Seq(1, 2, 3, 4, 5, 6, 7, 8, 9)
+    def sum(list: Seq[Int]): Int = {
+      list.size match {
         case 0 => return 0
         case 1 => return list.head
         case _ => {
-          val (a,b) = list.splitAt(list.size/2)
+          val (a, b) = list.splitAt(list.size / 2)
           println(a.mkString(",") + " + " + b.mkString(","))
           return sum(a) + sum(b)
         }
@@ -268,25 +271,27 @@ object Yolo2 {
   }
 }
 
-class BundleBase{
+class BundleBase {
 
 }
 
-class Play5(p : Int) extends Component {
+class Play5(p: Int) extends Component {
   var cnt = 0
-  val stream = new Bundle{ outer =>
+  val stream = new Bundle {
+    outer =>
     val a = UInt(p bit)
     //def b = print(Play5.this)
-    val c = new BundleBase with Cloneable{
+    val c = new BundleBase with Cloneable {
       val e = UInt()
       val f = cnt
       cnt += 1
-     // def b = print(Play5.this)
+
+      // def b = print(Play5.this)
       override def clone(): AnyRef = super.clone()
-      def clone2() : this.type = clone().asInstanceOf[this.type]
+
+      def clone2(): this.type = clone().asInstanceOf[this.type]
     }
   }
-
 
 
   //val stream = new Bundle{ val a = UInt()}
@@ -298,10 +303,11 @@ class Play5(p : Int) extends Component {
   println(cnt)
 
 
-  def toto: Bundle ={
+  def toto: Bundle = {
     val x = "yolo"
-    val y = new Bundle{
+    val y = new Bundle {
       val a = Bits()
+
       def pp = x + Math.sin(2.0)
     }
     return y
@@ -323,21 +329,20 @@ object Play5 {
 }
 
 
-
-
 object Play6 {
 
 
   import spinal._
+
   class Comp extends Component {
     val io = new Bundle() {
       val cond = in Bool
-      val input = in UInt(4 bit)
+      val input = in UInt (4 bit)
       val output = out Bool
     }
 
     var carry = Bool(false)
-    for(bit <- io.input.toBools){
+    for (bit <- io.input.toBools) {
       when(io.cond) {
         carry \= carry & bit
       }
@@ -345,6 +350,7 @@ object Play6 {
     io.output := carry
 
   }
+
   def main(args: Array[String]): Unit = {
     SpinalVhdl(new Comp)
   }
@@ -353,15 +359,15 @@ object Play6 {
 
 object Play7 {
 
-  def grayCounter(n : Int, enable : Bool) : UInt = {
-    val gray    = RegInit(U(0,n bit))
-    var even    = RegInit(True)
-    val word    = Cat(True,gray(n-3,0),even)
-    when(enable){
+  def grayCounter(n: Int, enable: Bool): UInt = {
+    val gray = RegInit(U(0, n bit))
+    var even = RegInit(True)
+    val word = Cat(True, gray(n - 3, 0), even)
+    when(enable) {
       var found = False
-      for(i <- 0 until n){
-        when(word(i) && !found){
-          gray(i) := ! gray(i)
+      for (i <- 0 until n) {
+        when(word(i) && !found) {
+          gray(i) := !gray(i)
           found \= True
         }
       }
@@ -371,47 +377,45 @@ object Play7 {
   }
 
 
-
-  class GrayCounter(n : Int) extends Component{
+  class GrayCounter(n: Int) extends Component {
     val enable = in Bool
-    val gray  = out UInt(n bit)
+    val gray = out UInt (n bit)
 
-    gray := grayCounter(n,enable)
-/*
-    val grayReg = Reg(UInt(n bit)) init(0)
-    var even = RegInit(True)
-    val word = Cat(True,grayReg(n-3,0).toBools,even)
-    var found = False
-    when(enable){
-      for(i <- 0 until n){
-        when(word(i) && !found){
-          grayReg(i) := ! grayReg(i)
-          found \= True
+    gray := grayCounter(n, enable)
+    /*
+        val grayReg = Reg(UInt(n bit)) init(0)
+        var even = RegInit(True)
+        val word = Cat(True,grayReg(n-3,0).toBools,even)
+        var found = False
+        when(enable){
+          for(i <- 0 until n){
+            when(word(i) && !found){
+              grayReg(i) := ! grayReg(i)
+              found \= True
+            }
+          }
+          even := !even
         }
-      }
-      even := !even
-    }
 
-    gray := grayReg*/
+        gray := grayReg*/
   }
+
   def main(args: Array[String]): Unit = {
     SpinalVhdl(new GrayCounter(4))
   }
 }
 
 
+object PlayFix {
 
 
-object PlayFix{
-
-
-  class TopLevel extends Component{
-    val ufix = UFix(8 exp,12 bit)
+  class TopLevel extends Component {
+    val ufix = UFix(8 exp, 12 bit)
     val uint = UInt(3 bit)
     ufix := toUFix(uint)
     val uintBack = toUInt(ufix)
 
-    val sfix = SFix(7 exp,12 bit)
+    val sfix = SFix(7 exp, 12 bit)
     val sint = SInt(3 bit)
     sfix := toSFix(sint)
     val sintBack = toSInt(sfix)
@@ -432,8 +436,28 @@ object PlayFix{
 }
 
 
+object PlayDefault {
 
-object ApbUartPlay{
+  class SubLevel extends Component{
+    val input = in(Bool) default(False)
+    val output = out(Bool)
+    val internal = Bool default(True)
+    output := input && internal
+  }
+  class TopLevel extends Component {
+    val sub = new SubLevel
+
+    val output = out(Bool)
+    output := sub.output
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+object ApbUartPlay {
+
   class ApbUartCtrl(apbConfig: Apb3Config) extends Component {
     val io = new Bundle {
       val bus = slave(new Apb3Slave(apbConfig))
@@ -441,30 +465,33 @@ object ApbUartPlay{
     }
     val busCtrl = new Apb3SlaveController(io.bus) //This is a APB3 slave controller builder tool
 
-    val config = busCtrl.writeOnlyRegOf(UartCtrlConfig(), 0x00) //Create a write only configuration register at address 0x00
+    val config = busCtrl.writeOnlyRegOf(UartCtrlConfig(), 0x00)
+    //Create a write only configuration register at address 0x00
     val clockDivider = busCtrl.writeOnlyRegOf(UInt(20 bit), 0x10)
     val writeStream = busCtrl.writeStreamOf(Bits(8 bit), 0x20)
     val readStream = busCtrl.readStreamOf(Bits(8 bit), 0x30)
 
-    val uartCtrl = new UartCtrl(8,20)
+    val uartCtrl = new UartCtrl(8, 20)
     uartCtrl.io.config := config
     uartCtrl.io.clockDivider := clockDivider
     uartCtrl.io.write <-< writeStream //Pipelined connection
-    uartCtrl.io.read.toStream.queue(16) >> readStream  //Queued connection
+    uartCtrl.io.read.toStream.queue(16) >> readStream //Queued connection
     uartCtrl.io.uart <> io.uart
   }
+
   def main(args: Array[String]): Unit = {
-    SpinalVhdl(new ApbUartCtrl(new Apb3Config(16,32)))
+    SpinalVhdl(new ApbUartCtrl(new Apb3Config(16, 32)))
   }
 }
-object OverloadPlay{
+
+object OverloadPlay {
 
   class OverloadPlay(frameAddressOffset: Int, p: MandelbrotCoreParameters, coreClk: ClockDomain, vgaMemoryClk: ClockDomain, vgaClk: ClockDomain) extends Component {
-    for(i <- 0 until 10){
+    for (i <- 0 until 10) {
       val memoryBusConfig = SblConfig(30, 32)
       val rgbType = Rgb(8, 8, 8)
 
-      val i =  new MandelbrotSblDemo(frameAddressOffset, p, coreClk, vgaMemoryClk, vgaClk)
+      val i = new MandelbrotSblDemo(frameAddressOffset, p, coreClk, vgaMemoryClk, vgaClk)
       val uart = master(Uart())
 
       val mandelbrotWriteCmd = master Stream SblWriteCmd(memoryBusConfig)
@@ -483,14 +510,15 @@ object OverloadPlay{
 
     }
   }
+
   def main(args: Array[String]): Unit = {
     //Console.in.read
 
-    for(i <- 0 until 1){
+    for (i <- 0 until 1) {
       val report = SpinalVhdl({
         val vgaClock = ClockDomain("vga")
         val vgaMemoryClock = ClockDomain("vgaMemory")
-        val coreClock = ClockDomain("core",FixedFrequency(100e6))
+        val coreClock = ClockDomain("core", FixedFrequency(100e6))
         new OverloadPlay(0, new MandelbrotCoreParameters(256, 64, 640, 480, 7, 17 * 3), coreClock, vgaMemoryClock, vgaClock)
       })
 
@@ -503,10 +531,11 @@ object OverloadPlay{
 }
 
 
-object MessagingPlay{
+object MessagingPlay {
+
   class TopLevel extends Component {
     val o = out(Bool)
-    when(True){
+    when(True) {
       o := True
     }
   }
@@ -514,5 +543,282 @@ object MessagingPlay{
   def main(args: Array[String]): Unit = {
     SpinalVhdl(new TopLevel)
 
+  }
+}
+
+
+
+object vhd_dirext_play {
+  def main(args: Array[String]) {
+    import scala.sys.process._
+    import java.io._
+
+
+    val writer = new PrintWriter(new File("in.txt" ))
+    for(i <- 0 until 1000000) {
+      writer.write(i + "\n")
+    }
+    writer.flush()
+    writer.close()
+    println("start")
+
+//    (s"ghdl -a --ieee=synopsys vhdl_direct.vhd" !)
+//    (s"ghdl -e --ieee=synopsys vhdl_direct" !)
+//    (s"ghdl -r --ieee=synopsys vhdl_direct" !)
+
+    (s"vlib vhdl_direct" !)
+    (s"vcom vhdl_direct.vhd" !)
+    ("vsim -c -do \"run 1 ms\" work.vhdl_direct" !)
+
+    print("DONE")
+  }
+
+}
+
+
+object vhd_stdio_play {
+  def main(args: Array[String]) {
+    import scala.sys.process._
+    import java.io.File
+    // ("ghdl" #> new File("test.txt") !)
+    val in = new ByteOutputStream()
+    val out = new ByteInputStream()
+    val err = new ByteInputStream()
+    //scala.concurrent.SyncVar[java.io.OutputStream];
+    val stopAt = 1000 * 1000
+
+    val array = new Array[Byte](1000)
+    val barrier = new CyclicBarrier(2)
+    //    val io = new ProcessIO(in, out, err)
+    //    //  cmd.write("asd")
+    (s"ghdl -a --ieee=synopsys vhdl_file.vhd" !)
+    (s"ghdl -e --ieee=synopsys vhdl_file" !)
+    val process = Process("ghdl -r --ieee=synopsys vhdl_file")
+    val io = new ProcessIO(
+      in => {
+        for (i <- 0 until stopAt) {
+          // while(cnt != i){}
+          //println("a")
+          in.write(i + "\n" getBytes "UTF-8")
+          in.flush()
+          barrier.await()
+          //Thread.sleep(500)
+
+        }
+        in.close()
+        println("finish")
+      }
+
+
+      ,
+      out => {
+        var cnt = 0
+        var bufferIndex = 0
+        var lastTime = System.nanoTime()
+        while (cnt != stopAt) {
+          if (out.available() != 0) {
+            bufferIndex += out.read(array, bufferIndex, out.available())
+            if (array.slice(0, bufferIndex).contains('\n')) {
+              bufferIndex = 0
+
+              val i = new String(array, "UTF-8").substring(0, array.indexOf('\r')).toInt
+              assert(i == cnt)
+              barrier.await()
+              cnt += 1
+              if (i % 10000 == 0) {
+                println(10000.0 / (System.nanoTime() - lastTime) / 1e-9)
+                lastTime = System.nanoTime()
+              }
+            }
+          }
+        }
+        out.close()
+        //scala.io.Source.fromInputStream(out).getLines.foreach(println)
+      },
+      err => {
+        scala.io.Source.fromInputStream(err).getLines.foreach(println)
+      })
+    process.run(io)
+    //    val p = Process("ghdl -r --ieee=synopsys vhdl_file")
+    //    p.run(io)
+    //    p.run()
+    //    // (s"ghdl -r --ieee=synopsys vhdl_file" #> cmd !)
+    print("DONE")
+  }
+
+}
+
+
+object vhd_stdio_play2 {
+  def main(args: Array[String]) {
+    import scala.sys.process._
+    import java.io.File
+    // ("ghdl" #> new File("test.txt") !)
+    var in: java.io.OutputStream = null
+    var out: java.io.InputStream = null
+    var err: java.io.InputStream = null
+    //scala.concurrent.SyncVar[java.io.OutputStream];
+
+    val array = new Array[Byte](1000)
+    val barrier = new CyclicBarrier(4)
+    //    val io = new ProcessIO(in, out, err)
+    //    //  cmd.write("asd")
+    (s"ghdl -a --ieee=synopsys vhdl_file.vhd" !)
+    (s"ghdl -e --ieee=synopsys vhdl_file" !)
+    val process = Process("ghdl -r --ieee=synopsys vhdl_file")
+//
+//    (s"vlib work" !)
+//    (s"vcom -check_synthesis vhdl_file.vhd" !)
+//    val process = Process("vsim -c work.vhdl_file")
+    val io = new ProcessIO(
+      inX => {
+        in = inX
+        barrier.await()
+        barrier.await()
+        inX.close()
+        println("finish")
+      }
+      ,
+      outX => {
+        out = outX
+        barrier.await()
+        barrier.await()
+        outX.close()
+        println("finish")
+      },
+      errX => {
+        err = errX
+        barrier.await()
+        barrier.await()
+        errX.close()
+        println("finish")
+      })
+    process.run(io)
+    barrier.await()
+    var cnt = 0
+    var bufferIndex = 0
+    var lastTime = System.nanoTime()
+    for (i <- 0 until 100*1000) {
+      in.write(i + "\n" getBytes "UTF-8")
+      in.flush()
+      var done = false
+      while (!done) {
+        if (out.available() != 0) {
+          bufferIndex += out.read(array, bufferIndex, out.available())
+          if (array.slice(0, bufferIndex).contains('\n')) {
+            bufferIndex = 0
+
+            val i = new String(array, "UTF-8").substring(0, array.indexOf('\r')).toInt
+            assert(i == cnt)
+            cnt += 1
+            if (i % 10000 == 0) {
+              println(10000.0 / (System.nanoTime() - lastTime) / 1e-9)
+              lastTime = System.nanoTime()
+            }
+            done = true
+          }
+        }
+      }
+    }
+
+
+    barrier.await()
+
+    //    val p = Process("ghdl -r --ieee=synopsys vhdl_file")
+    //    p.run(io)
+    //    p.run()
+    //    // (s"ghdl -r --ieee=synopsys vhdl_file" #> cmd !)
+    print("DONE")
+  }
+
+}
+
+
+
+
+object vhd_stdio_play3 {
+  def main(args: Array[String]) {
+    import scala.sys.process._
+    import java.io.File
+    // ("ghdl" #> new File("test.txt") !)
+    var in: java.io.OutputStream = null
+    var out: java.io.InputStream = null
+    var err: java.io.InputStream = null
+    //scala.concurrent.SyncVar[java.io.OutputStream];
+
+    val array = new Array[Byte](100000)
+    val barrier = new CyclicBarrier(4)
+    //    val io = new ProcessIO(in, out, err)
+    //    //  cmd.write("asd")
+    //    (s"ghdl -a --ieee=synopsys vhdl_file.vhd" !)
+    //    (s"ghdl -e --ieee=synopsys vhdl_file" !)
+    //    val process = Process("ghdl -r --ieee=synopsys vhdl_file")
+    //
+    (s"vlib work" !)
+    (s"vcom vhdl_file.vhd" !)
+    val process = Process("vsim -c work.vhdl_file")
+    val io = new ProcessIO(
+      inX => {
+        in = inX
+        barrier.await()
+        barrier.await()
+        inX.close()
+        println("finish")
+      }
+      ,
+      outX => {
+        out = outX
+        barrier.await()
+        barrier.await()
+        outX.close()
+        println("finish")
+      },
+      errX => {
+        err = errX
+        barrier.await()
+        barrier.await()
+        errX.close()
+        println("finish")
+      })
+    process.run(io)
+    barrier.await()
+    var cnt = 0
+    var bufferIndex = 0
+    var lastTime = System.nanoTime()
+    Thread.sleep(2000)
+    in.write("run 1 ms\n" getBytes "UTF-8")
+    in.flush()
+    Thread.sleep(2000)
+    for (i <- 0 until 100 * 1000) {
+      in.write(i + "\n" getBytes "UTF-8")
+      in.flush()
+      var done = false
+     //  while (!done) {
+        // if (out.available() != 0) {
+           bufferIndex += out.read(array, bufferIndex, out.available())
+           if (array.slice(0, bufferIndex).contains('\n')) {
+             bufferIndex = 0
+              print(new String(array, "UTF-8"))
+            // val i = new String(array, "UTF-8").substring(0, array.indexOf('\r')).toInt
+           //  assert(i == cnt)
+             cnt += 1
+             if (cnt % 10000 == 0) {
+               println(10000.0 / (System.nanoTime() - lastTime) / 1e-9)
+               lastTime = System.nanoTime()
+             }
+             done = true
+           }
+    //     }
+      // }
+    }
+
+
+    barrier.await()
+
+    //    val p = Process("ghdl -r --ieee=synopsys vhdl_file")
+    //    p.run(io)
+    //    p.run()
+    //    // (s"ghdl -r --ieee=synopsys vhdl_file" #> cmd !)
+    print("DONE")
   }
 }

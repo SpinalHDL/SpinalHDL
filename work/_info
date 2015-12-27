@@ -1,0 +1,71 @@
+m255
+K3
+13
+cModel Technology
+Z0 dD:\pro\hdl\spinalHDL\spinalHDL
+Evhdl_direct
+Z1 w1451204772
+Z2 DPx3 std 6 textio 0 22 5>J:;AW>W0[[dW0I6EN1Q0
+Z3 dD:\pro\hdl\spinalHDL\spinalHDL
+Z4 8vhdl_direct.vhd
+Z5 Fvhdl_direct.vhd
+l0
+L6
+VL67baR_gQXU?;TbD02J:Y2
+Z6 OV;C;10.1d;51
+32
+Z7 !s108 1451204792.040000
+Z8 !s90 vhdl_direct.vhd|
+Z9 !s107 vhdl_direct.vhd|
+o-O0
+Z10 tExplicit 1
+!s100 a2EnINNJffmU`VeLkQAeg2
+!i10b 1
+Abehavioral
+R2
+DEx4 work 11 vhdl_direct 0 22 L67baR_gQXU?;TbD02J:Y2
+l20
+L10
+VDLXkU6Yg^j@zITXNU3SZf3
+!s100 R0C@8i^1_LiodmiS@^H9]2
+R6
+32
+R7
+R8
+R9
+o-O0
+R10
+!i10b 1
+Evhdl_file
+Z11 w1451206246
+R2
+R3
+Z12 8vhdl_file.vhd
+Z13 Fvhdl_file.vhd
+l0
+L6
+V4JdEdoeHU[SENG6XHe<b30
+!s100 NHoM@RU>9?53>CDz4@Z3c2
+R6
+32
+!i10b 1
+Z14 !s108 1451206251.512000
+Z15 !s90 vhdl_file.vhd|
+Z16 !s107 vhdl_file.vhd|
+o-O0
+R10
+Abehavioral
+R2
+Z17 DEx4 work 9 vhdl_file 0 22 4JdEdoeHU[SENG6XHe<b30
+l20
+L10
+V2Y?UA^@@4YbG9zEe;zoAX1
+!s100 nBOPk]jAh0=<PNH=D[z8f3
+R6
+32
+!i10b 1
+R14
+R15
+R16
+o-O0
+R10

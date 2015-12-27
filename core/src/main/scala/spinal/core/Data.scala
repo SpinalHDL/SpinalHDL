@@ -133,6 +133,17 @@ class DataPimper[T <: Data](val pimpIt: T) extends AnyVal{
 
   def <>(that: T): Unit = pimpIt autoConnect that
   def init(that: T): T = pimpIt.initImpl(that)
+  def default(that : => T) : T ={
+    val c = if(pimpIt.dir == in)
+      Component.current.parent
+    else
+      Component.current
+
+    Component.push(c)
+    pimpIt.defaultImpl(that)
+    Component.pop(c)
+    pimpIt
+  }
 }
 
 abstract class WidthChecker(val consumer : Node,val provider : Node) {
@@ -236,6 +247,8 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
 
   def toBits: Bits
   def assignFromBits(bits: Bits): Unit
+
+
 
 
   private[core] def isEguals(that: Data): Bool// = (this.flatten, that.flatten).zipped.map((a, b) => a.isEguals(b)).reduceLeft(_ && _)
@@ -343,6 +356,16 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
       //if (initElement.inputs(0) != null /* && initElement.inputs(0).inputs(0) != null*/ ) {
       recursiveSearch(e)
      // }
+    }
+    this
+  }
+
+  private[core] def defaultImpl(init: Data): this.type = {
+    // if (!isReg) SpinalError(s"Try to set initial value of a data that is not a register ($this)")
+    val regInit = clone()
+    regInit := init
+    for ((e, initElement) <- (this.flatten, regInit.flatten).zipped) {
+      e.defaultValue = initElement
     }
     this
   }
