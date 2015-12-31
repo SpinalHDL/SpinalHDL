@@ -72,7 +72,7 @@ class Play2 extends Component {
   val controller = new Apb3SlaveController(bus)
 
   val myReadSignal = in(new ComplexBundle);
-  controller.readSignal(myReadSignal, 0x10)
+  controller.read(myReadSignal, 0x10)
   //  val myWriteOnlyReg = out(controller.writeOnlyReg(new ComplexBundle,0x20))
   //  val myWriteReadReg = out(controller.writeReadReg(new ComplexBundle,0x30))
   val myPushStreamBits = master(controller.writeStream(0x40))
@@ -436,14 +436,62 @@ object PlayFix {
 }
 
 
+object PlayMux {
+
+  //  class TopLevel extends Component {
+  //    val sel = in UInt(3 bit)
+  //    val input = in Vec (UInt(8 bit),8)
+  //    val output = out UInt(8 bit)
+  //
+  //    output := input(sel)
+  //  }
+
+  class TopLevel extends Component {
+    val sel = in UInt (3 bit)
+    val input = in Vec(UInt(8 bit), 8)
+    val output = out UInt (8 bit)
+
+    output := input(0)
+    for (i <- output.range) {
+      if (i != 0) {
+        when(sel === i) {
+          output := input(i)
+        }
+      }
+    }
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+object PlayApb {
+
+
+  class TopLevel extends Component {
+    val apbConfig = new Apb3Config(16,32)
+    val bus = slave(new Apb3Slave(apbConfig))
+    val busCtrl = new Apb3SlaveController(bus) //This is a APB3 slave controller builder tool
+
+    val outputs = Vec(i => out(busCtrl.writeReadReg(UInt(32 bit),i*4)) init(i),8)
+
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
 object PlayDefault {
 
-  class SubLevel extends Component{
-    val input = in(Bool) default(False)
+  class SubLevel extends Component {
+    val input = in(Bool) default (False)
     val output = out(Bool)
-    val internal = Bool default(True)
+    val internal = Bool default (True)
     output := input && internal
   }
+
   class TopLevel extends Component {
     val sub = new SubLevel
 
@@ -455,6 +503,122 @@ object PlayDefault {
     SpinalVhdl(new TopLevel)
   }
 }
+
+object PlayFsm {
+
+  class FSM {
+    def entry(state: State): Unit = {
+
+    }
+  }
+
+  class State {
+    def onEntry = {}
+
+    def onRun = {}
+
+    def onExit = {}
+
+    //    val onEntry = False
+    //    val onRun = False
+    //    val onExit = False
+  }
+
+  class TopLevel extends Component {
+    val fsm = new FSM {
+      val stateA = new State {
+        override def onRun = {
+          entry(stateB)
+        }
+      }
+
+      val stateB = new State {
+
+      }
+    }
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+object PlayFsm2 {
+
+  class FSM {
+    def entry(state: State): Unit = {
+
+    }
+  }
+
+  class State {
+    val onEntry = False
+    val onRun = False
+    val onExit = False
+  }
+
+  class TopLevel extends Component {
+    val fsm = new FSM {
+      val stateA, stateB = new State
+      //when(stateA.)
+
+    }
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+object PlayFsmRef {
+
+  class TopLevel extends Component {
+    val input = master Stream (UInt(8 bit))
+    val output0 = master Stream (UInt(8 bit))
+    val output1 = master Stream (UInt(8 bit))
+
+    object State extends SpinalEnum {
+      val s0, s1 = ordered()
+    }
+
+    val fsm = new Area {
+
+      import State._
+
+      val stateNext = State()
+      val state = RegNext(stateNext) init (s0)
+
+      output0.valid := False
+      output1.valid := False
+      stateNext := state
+      switch(state) {
+        is(s0) {
+          output0.valid := input.valid
+          output0.data := input.data
+          input.ready := output0.ready
+          when(input.valid && output0.ready) {
+            stateNext := s1
+          }
+        }
+        default {
+          //is(s1){
+          output1.valid := input.valid
+          output1.data := input.data
+          input.ready := output1.ready
+          when(input.valid && output1.ready) {
+            stateNext := s0
+          }
+        }
+      }
+
+    }
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
 
 object ApbUartPlay {
 
@@ -547,24 +711,23 @@ object MessagingPlay {
 }
 
 
-
 object vhd_dirext_play {
   def main(args: Array[String]) {
     import scala.sys.process._
     import java.io._
 
 
-    val writer = new PrintWriter(new File("in.txt" ))
-    for(i <- 0 until 1000000) {
+    val writer = new PrintWriter(new File("in.txt"))
+    for (i <- 0 until 1000000) {
       writer.write(i + "\n")
     }
     writer.flush()
     writer.close()
     println("start")
 
-//    (s"ghdl -a --ieee=synopsys vhdl_direct.vhd" !)
-//    (s"ghdl -e --ieee=synopsys vhdl_direct" !)
-//    (s"ghdl -r --ieee=synopsys vhdl_direct" !)
+    //    (s"ghdl -a --ieee=synopsys vhdl_direct.vhd" !)
+    //    (s"ghdl -e --ieee=synopsys vhdl_direct" !)
+    //    (s"ghdl -r --ieee=synopsys vhdl_direct" !)
 
     (s"vlib vhdl_direct" !)
     (s"vcom vhdl_direct.vhd" !)
@@ -666,10 +829,10 @@ object vhd_stdio_play2 {
     (s"ghdl -a --ieee=synopsys vhdl_file.vhd" !)
     (s"ghdl -e --ieee=synopsys vhdl_file" !)
     val process = Process("ghdl -r --ieee=synopsys vhdl_file")
-//
-//    (s"vlib work" !)
-//    (s"vcom -check_synthesis vhdl_file.vhd" !)
-//    val process = Process("vsim -c work.vhdl_file")
+    //
+    //    (s"vlib work" !)
+    //    (s"vcom -check_synthesis vhdl_file.vhd" !)
+    //    val process = Process("vsim -c work.vhdl_file")
     val io = new ProcessIO(
       inX => {
         in = inX
@@ -698,7 +861,7 @@ object vhd_stdio_play2 {
     var cnt = 0
     var bufferIndex = 0
     var lastTime = System.nanoTime()
-    for (i <- 0 until 100*1000) {
+    for (i <- 0 until 100 * 1000) {
       in.write(i + "\n" getBytes "UTF-8")
       in.flush()
       var done = false
@@ -732,8 +895,6 @@ object vhd_stdio_play2 {
   }
 
 }
-
-
 
 
 object vhd_stdio_play3 {
@@ -793,22 +954,22 @@ object vhd_stdio_play3 {
       in.write(i + "\n" getBytes "UTF-8")
       in.flush()
       var done = false
-     //  while (!done) {
-        // if (out.available() != 0) {
-           bufferIndex += out.read(array, bufferIndex, out.available())
-           if (array.slice(0, bufferIndex).contains('\n')) {
-             bufferIndex = 0
-              print(new String(array, "UTF-8"))
-            // val i = new String(array, "UTF-8").substring(0, array.indexOf('\r')).toInt
-           //  assert(i == cnt)
-             cnt += 1
-             if (cnt % 10000 == 0) {
-               println(10000.0 / (System.nanoTime() - lastTime) / 1e-9)
-               lastTime = System.nanoTime()
-             }
-             done = true
-           }
-    //     }
+      //  while (!done) {
+      // if (out.available() != 0) {
+      bufferIndex += out.read(array, bufferIndex, out.available())
+      if (array.slice(0, bufferIndex).contains('\n')) {
+        bufferIndex = 0
+        print(new String(array, "UTF-8"))
+        // val i = new String(array, "UTF-8").substring(0, array.indexOf('\r')).toInt
+        //  assert(i == cnt)
+        cnt += 1
+        if (cnt % 10000 == 0) {
+          println(10000.0 / (System.nanoTime() - lastTime) / 1e-9)
+          lastTime = System.nanoTime()
+        }
+        done = true
+      }
+      //     }
       // }
     }
 

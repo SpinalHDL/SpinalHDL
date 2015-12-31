@@ -1,4 +1,4 @@
-package spinal.lib.bus.axilite
+package spinal.lib.bus.amba4.axilite
 
 import spinal.core._
 import spinal.lib._

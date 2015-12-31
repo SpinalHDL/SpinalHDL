@@ -40,7 +40,7 @@ trait VecFactory{
 
 
   def Vec[T <: Data](gen : => T,size : Int) : Vec[T] = fill(size)(gen)
- // def apply[T <: Data](gen :(Int) => T,size : Int) : Vec[T] = tabulate(size)(gen)
+  def Vec[T <: Data](gen :(Int) => T,size : Int) : Vec[T] = tabulate(size)(gen)
 
   //def apply[T <: Data](gen : => Vec[T],size : Int) : Vec[Vec[T]] = fill(size)(gen)
 
@@ -101,7 +101,7 @@ class Vec[T <: Data](_dataType: T,val vec : Vector[T]) extends MultiData with co
 
   def dataType = cloneOf(_dataType)
 
-
+  def range = 0 until vec.length
   override def equals(that : Any) : Boolean = that match{
     case that : Vec[_] => instanceCounter == that.instanceCounter
     case _ => false

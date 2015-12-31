@@ -36,25 +36,31 @@ class Apb3SlaveController(bus: Apb3Slave) {
   bus.PREADY := True
   bus.PRDATA := 0
 
-  def readSignal[T <: Data](value: T, baseAddress: BigInt): Unit = {
-    val wordCount = (widthOf(value) - 1) / bus.p.dataWidth + 1
-    val valueBits = value.toBits.resize(wordCount*bus.p.dataWidth)
+  private val writeAccess = bus.PSEL && bus.PENABLE && bus.PWRITE
+  private val readAccess = bus.PSEL && bus.PENABLE && !bus.PWRITE
+  private val addressAccess = scala.collection.mutable.Map[BigInt,Bool]()
+
+  def isAccessing(address : BigInt): Bool = addressAccess.getOrElseUpdate(address,bus.PADDR === address)
+
+  def read[T <: Data](that: T, baseAddress: BigInt): Unit = {
+    val wordCount = (widthOf(that) - 1) / bus.p.dataWidth + 1
+    val valueBits = that.toBits.resize(wordCount*bus.p.dataWidth)
     val words = (0 until wordCount).map(id => valueBits(id * bus.p.dataWidth , bus.p.dataWidth bit))
 
     for (wordId <- (0 until wordCount)) {
-      when(bus.PADDR === baseAddress + wordId*bus.p.dataWidth/8) {
-        bus.PRDATA  := words(wordId).autoResize()
+      when(isAccessing(baseAddress + wordId*bus.p.dataWidth/8)) {
+        bus.PRDATA  := words(wordId).resized
       }
     }
   }
 
-  def writeRegister(reg: Bits, baseAddress: BigInt): Unit = {
-    assert(reg.isReg,"reg argument must be a Reg")
-    val wordCount = (widthOf(reg) - 1) / bus.p.dataWidth + 1
+  def write(that: Bits, baseAddress: BigInt): Unit = {
+    assert(that.isReg,"reg argument must be a Reg")
+    val wordCount = (widthOf(that) - 1) / bus.p.dataWidth + 1
     for (wordId <- (0 until wordCount)) {
-      when(bus.PADDR === baseAddress + wordId * bus.p.dataWidth / 8) {
-        when(bus.PSEL && bus.PENABLE && bus.PWRITE) {
-          reg(wordId * bus.p.dataWidth, Math.min(bus.p.dataWidth, widthOf(reg) - wordId * bus.p.dataWidth) bit) := bus.PWDATA.autoResize()
+      when(isAccessing(baseAddress + wordId * bus.p.dataWidth / 8)) {
+        when(writeAccess) {
+          that(wordId * bus.p.dataWidth, Math.min(bus.p.dataWidth, widthOf(that) - wordId * bus.p.dataWidth) bit) := bus.PWDATA.autoResize()
         }
       }
     }
@@ -62,7 +68,7 @@ class Apb3SlaveController(bus: Apb3Slave) {
 
   def writeOnlyReg[T <: Data](that: T, baseAddress: BigInt): Unit = {
     val reg = Reg(Bits(widthOf(that) bit))
-    writeRegister(reg,baseAddress)
+    write(reg,baseAddress)
     that.assignFromBits(reg)
   }
   def writeOnlyRegOf[T <: Data](dataType: T, baseAddress: BigInt): T = {
@@ -71,11 +77,12 @@ class Apb3SlaveController(bus: Apb3Slave) {
     ret
   }
 
-  def writeReadReg[T <: Data](that: T, baseAddress: BigInt): Unit = {
+  def writeReadReg[T <: Data](that: T, baseAddress: BigInt): T = {
     val reg = Reg(Bits(widthOf(that) bit))
-    writeRegister(reg,baseAddress)
-    readSignal(reg,baseAddress)
-    return that.assignFromBits(reg)
+    write(reg,baseAddress)
+    read(reg,baseAddress)
+    that.assignFromBits(reg)
+    that
   }
 
 
@@ -85,8 +92,8 @@ class Apb3SlaveController(bus: Apb3Slave) {
     ret.valid := False
     ret.data := bus.PWDATA
 
-    when(bus.PADDR === baseAddress) {
-      when(bus.PSEL && bus.PENABLE && bus.PWRITE) {
+    when(isAccessing(baseAddress)) {
+      when(writeAccess) {
         ret.valid := True
         bus.PREADY := ret.ready
       }
@@ -111,9 +118,9 @@ class Apb3SlaveController(bus: Apb3Slave) {
     val fragmentStream = transactionStream.fragmentTransaction(bus.p.dataWidth)
     fragmentStream.ready := False
 
-    when(bus.PADDR === baseAddress) {
+    when(isAccessing(baseAddress)) {
       bus.PRDATA := fragmentStream.fragment
-      when(bus.PSEL && bus.PENABLE && ! bus.PWRITE) {
+      when(readAccess) {
         fragmentStream.ready := True
         bus.PREADY := fragmentStream.valid
       }
