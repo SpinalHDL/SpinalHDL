@@ -65,6 +65,11 @@ class Bool extends BaseType {
 
   override def toBits : Bits = new Bits().castFrom("B->b",this)
   override def assignFromBits(bits: Bits) : Unit = this := bits(0)
+  override def assignFromBits(bits: Bits,hi : Int,low : Int): Unit = {
+    assert(hi == 0,"assignFromBits hi != 0")
+    assert(low == 0,"assignFromBits low != 0")
+    assignFromBits(bits)
+  }
 
   def toUInt : UInt = toBits.toUInt
   def toSInt : SInt = toBits.toSInt

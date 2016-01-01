@@ -247,7 +247,8 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
 
   def toBits: Bits
   def assignFromBits(bits: Bits): Unit
-
+  def assignFromBits(bits: Bits,hi : Int,low : Int): Unit
+  def assignFromBits(bits: Bits,offset: Int, bitCount: BitCount): Unit = this.assignFromBits(bits,offset + bitCount.value -1,offset)
 
 
 

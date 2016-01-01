@@ -54,13 +54,13 @@ class Apb3SlaveController(bus: Apb3Slave) {
     }
   }
 
-  def write(that: Bits, baseAddress: BigInt): Unit = {
+  def write[T <: Data](that: T, baseAddress: BigInt): Unit = {
     assert(that.isReg,"reg argument must be a Reg")
     val wordCount = (widthOf(that) - 1) / bus.p.dataWidth + 1
     for (wordId <- (0 until wordCount)) {
       when(isAccessing(baseAddress + wordId * bus.p.dataWidth / 8)) {
         when(writeAccess) {
-          that(wordId * bus.p.dataWidth, Math.min(bus.p.dataWidth, widthOf(that) - wordId * bus.p.dataWidth) bit) := bus.PWDATA.autoResize()
+          that.assignFromBits(bus.PWDATA.resized,wordId * bus.p.dataWidth, Math.min(bus.p.dataWidth, widthOf(that) - wordId * bus.p.dataWidth) bit)
         }
       }
     }

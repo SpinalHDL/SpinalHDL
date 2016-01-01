@@ -80,7 +80,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider {
   def toSInt: SInt = new SInt().castFrom("u->s", this)
   override def toBits: Bits = new Bits().castFrom("u->b", this)
   override def assignFromBits(bits: Bits): Unit = this := bits.toUInt
-
+  override def assignFromBits(bits: Bits,hi : Int,lo : Int): Unit = this(hi,lo).assignFromBits(bits)
 
   override def getZero: this.type = U(0).asInstanceOf[this.type]
 }

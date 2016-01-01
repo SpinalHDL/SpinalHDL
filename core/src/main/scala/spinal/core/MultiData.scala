@@ -108,6 +108,17 @@ abstract class MultiData extends Data {
     }
   }
 
+  override def assignFromBits(bits: Bits,hi : Int,lo : Int): Unit = {
+    var offset = 0
+    for ((_, e) <- elements) {
+      val width = e.getBitsWidth
+      if (lo >= offset && hi < offset + width) {
+        e.assignFromBits(bits, Math.min(hi-offset,width-1),Math.max(lo-offset,0))
+      }
+      offset = offset + width
+    }
+
+  }
 
   private[core] def isEguals(that: Data): Bool = {
     that match {
