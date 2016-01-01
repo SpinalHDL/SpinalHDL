@@ -474,13 +474,15 @@ object PlayApb {
     val bus = slave(new Apb3Slave(apbConfig))
     val busCtrl = new Apb3SlaveController(bus) //This is a APB3 slave controller builder tool
 
-    val outputs = Vec(i => out(busCtrl.writeReadReg(UInt(32 bit),i*4)),8)
+    val outputs = Vec(i => out(busCtrl.writeReadReg(UInt(32 bit),i*4)) init(i),8)
 
     val b = out(new Bundle{
+      val v = Vec(Bool,10)
       val a,b,c,d = Bool
       val e = Bool
     })
-    b.assignFromBits(B"b000000000")
+    b.assignFromBits(B(0,15 bit))
+    b.assignFromBits(B"b11",10,9)
 
   }
 

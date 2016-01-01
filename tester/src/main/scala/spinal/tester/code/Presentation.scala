@@ -855,7 +855,7 @@ object t8_B2 {
     uartCtrl.io.uart <> io.uart
 
     val busCtrl = new Apb3SlaveController(io.apb)
-    busCtrl.writeOnlyReg(uartCtrl.io.config, 0x10)
+    busCtrl.writeOnlyRegOf(uartCtrl.io.config, 0x10)
     busCtrl.writeStream(uartCtrl.io.write, 0x20)
     busCtrl.readStream(uartCtrl.io.read.toStream.queue(16), 0x30)
   }

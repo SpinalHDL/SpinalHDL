@@ -177,10 +177,13 @@ class Vec[T <: Data](_dataType: T,val vec : Vector[T]) extends MultiData with co
   def elements = {
     if (elementsCache == null) {
       elementsCache = ArrayBuffer[(String, Data)]()
-      var i = vec.size -1
-      while(i >= 0) {
-        elementsCache += Tuple2(i.toString, vec(i))
-        i = i - 1
+//      var i = vec.size -1
+//      while(i >= 0) {
+//        elementsCache += Tuple2(i.toString, vec(i))
+//        i = i - 1
+//      }
+      for((e,i) <- vec.zipWithIndex) {
+        elementsCache += Tuple2(i.toString, e)
       }
     }
     elementsCache

@@ -112,7 +112,7 @@ abstract class MultiData extends Data {
     var offset = 0
     for ((_, e) <- elements) {
       val width = e.getBitsWidth
-      if (lo >= offset && hi < offset + width) {
+      if (hi >= offset && lo < offset + width) {
         e.assignFromBits(bits, Math.min(hi-offset,width-1),Math.max(lo-offset,0))
       }
       offset = offset + width

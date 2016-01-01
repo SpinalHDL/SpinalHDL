@@ -62,8 +62,8 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T) extends BaseType {
   override def toBits: Bits = new Bits().castFrom("e->b", this)
   override def assignFromBits(bits: Bits): Unit = enumCastFrom("b->e", bits, (node) => this.getWidth)
   override def assignFromBits(bits: Bits,hi : Int,lo : Int): Unit = {
-    assert(lo == 0)
-    assert(hi == getWidth-1)
+    assert(lo == 0,"Enumeration can't be partialy assigned")
+    assert(hi == getWidth-1,"Enumeration can't be partialy assigned")
     assignFromBits(bits)
   }
 
