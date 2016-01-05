@@ -101,13 +101,14 @@ class Backend {
 
   //TODO provide a way to give a default value to components imputs
   //TODO implicit area base class for each base type that implement operator
-  //TODO bundle element disable method
   //TODO General cleaning
   //TODO better VHDL package, less function
   //TODO SyncNodes could return a latency per input ?
   //TODO switch case nodes in replacement of when emulation
   //TODO Union support
   //TODO function to check if 2 clocks are drived from same signal and apply it to mem blackbox inference and cross clock checker(rd.getClockDomain.clock == wr.getClockDomain.clock)
+  //TODO better Mem support (bitmask, user specifyed blackbox)
+  //TODO Mux node with n inputs instead of fixed 2
   protected def elaborate[T <: Component](topLevel: T): BackendReport[T] = {
     SpinalInfoPhase("Start analysis and transform")
 
@@ -124,60 +125,60 @@ class Backend {
     //notifyNodes(StartPhase)
 
     SpinalInfoPhase("Get names from reflection")
-    nameNodesByReflection
-    collectAndNameEnum
+    nameNodesByReflection()
+    collectAndNameEnum()
 
     //Component connection
     SpinalInfoPhase("Transform connection")
     // allowLiteralToCrossHierarchy
-    pullClockDomains
-    check_noNull_noCrossHierarchy_noInputRegister_noDirectionLessIo
+    pullClockDomains()
+    check_noNull_noCrossHierarchy_noInputRegister_noDirectionLessIo()
 
-    addInOutBinding
-    allowNodesToReadOutputs
-    allowNodesToReadInputOfKindComponent
+    addInOutBinding()
+    allowNodesToReadOutputs()
+    allowNodesToReadInputOfKindComponent()
 
 
     //Node width
     SpinalInfoPhase("Infer nodes's bit width")
-    inferWidth
-    simplifyNodes
-    propagateBaseTypeWidth
-    normalizeNodeInputs
-    checkInferedWidth
+    inferWidth()
+    simplifyNodes()
+    propagateBaseTypeWidth()
+    normalizeNodeInputs()
+    checkInferedWidth()
 
 
     //Check
     SpinalInfoPhase("Check combinational loops")
-    checkCombinationalLoops
+    checkCombinationalLoops()
     SpinalInfoPhase("Check that there is no incomplet assignement")
-    check_noAsyncNodeWithIncompletAssignment
+    check_noAsyncNodeWithIncompletAssignment()
     SpinalInfoPhase("Check cross clock domains")
-    checkCrossClockDomains
+    checkCrossClockDomains()
 
 
     //Simplify nodes
     SpinalInfoPhase("Simplify graph's nodes")
-    fillNodeConsumer
-    dontSymplifyBasetypeWithComplexAssignement
-    deleteUselessBaseTypes
-    simplifyBlacBoxGenerics
+    fillNodeConsumer()
+    dontSymplifyBasetypeWithComplexAssignement()
+    deleteUselessBaseTypes()
+    simplifyBlacBoxGenerics()
 
 
     SpinalInfoPhase("Finalise")
 
     //Name patch
-    nameBinding
+    nameBinding()
     //simplifyBlackBoxIoNames
 
     //Finalise
-    addNodesIntoComponent
-    orderComponentsNodes
-    allocateNames
-    removeComponentThatNeedNoHdlEmit
+    addNodesIntoComponent()
+    orderComponentsNodes()
+    allocateNames()
+    removeComponentThatNeedNoHdlEmit()
 
 
-    printStates
+    printStates()
 
 
     new BackendReport(topLevel)
@@ -204,7 +205,7 @@ class Backend {
 
 
   //TODO  more
-  def remplaceMemByBlackBox_simplifyWriteReadWithSameAddress: Unit = {
+  def remplaceMemByBlackBox_simplifyWriteReadWithSameAddress(): Unit = {
     class MemTopo(val mem: Mem[_]) {
       val writes = ArrayBuffer[MemWrite]()
       val readsAsync = ArrayBuffer[MemReadAsync]()
@@ -364,14 +365,14 @@ class Backend {
     }
   }
 
-  def printStates: Unit = {
+  def printStates(): Unit = {
     var counter = 0
     Node.walk(walkNodesDefautStack,_ => counter = counter + 1)
     SpinalInfo(s"Graph has $counter nodes")
   }
 
 
-  def nameBinding: Unit = {
+  def nameBinding(): Unit = {
     for (c <- components) {
       for ((bindedOut, bind) <- c.kindsOutputsToBindings) {
         if (bind.isUnnamed && bindedOut.component.isNamed && bindedOut.isNamed) {
@@ -394,7 +395,7 @@ class Backend {
   }
 
 
-  def collectAndNameEnum: Unit = {
+  def collectAndNameEnum(): Unit = {
     Node.walk(walkNodesDefautStack,node => {
       node match {
         case enum: SpinalEnumCraft[_] => enums += enum.blueprint
@@ -424,7 +425,7 @@ class Backend {
   }
 
 
-  def check_noAsyncNodeWithIncompletAssignment: Unit = {
+  def check_noAsyncNodeWithIncompletAssignment(): Unit = {
 
 
     val errors = mutable.ArrayBuffer[String]()
@@ -469,7 +470,7 @@ class Backend {
   }
 
   //clone is to week, lose tag and don't symplify :(
-  def allowLiteralToCrossHierarchy: Unit = {
+  def allowLiteralToCrossHierarchy(): Unit = {
     Node.walk(walkNodesDefautStack,consumer => {
       for (consumerInputId <- 0 until consumer.inputs.size) {
         val consumerInput = consumer.inputs(consumerInputId)
@@ -492,7 +493,7 @@ class Backend {
     })
   }
 
-  def check_noNull_noCrossHierarchy_noInputRegister_noDirectionLessIo: Unit = {
+  def check_noNull_noCrossHierarchy_noInputRegister_noDirectionLessIo(): Unit = {
     val errors = mutable.ArrayBuffer[String]()
 
 
@@ -560,7 +561,7 @@ class Backend {
       SpinalError(errors)
   }
 
-  def allocateNames = {
+  def allocateNames() = {
     for (enumDef <- enums) {
       if (enumDef.isWeak)
         enumDef.setName(globalScope.allocateName(enumDef.getName()));
@@ -582,14 +583,14 @@ class Backend {
 
 
 
-  def normalizeNodeInputs: Unit = {
+  def normalizeNodeInputs(): Unit = {
     Node.walk(walkNodesDefautStack,(node,push) => {
       node.inputs.foreach(push(_))
       node.normalizeInputs
     })
   }
 
-  def addInOutBinding: Unit = {
+  def addInOutBinding(): Unit = {
     Node.walk(walkNodesDefautStack,(node,push) => {
       if (node.isInstanceOf[BaseType] && node.component.parent != null) {
         val baseType = node.asInstanceOf[BaseType]
@@ -630,7 +631,7 @@ class Backend {
 
 
 
-  def pullClockDomains: Unit = {
+  def pullClockDomains(): Unit = {
     Node.walk(walkNodesDefautStack,(node, push) =>  {
       node match {
         case delay: SyncNode => {
@@ -647,7 +648,7 @@ class Backend {
     })
   }
 
-  def dontSymplifyBasetypeWithComplexAssignement: Unit = {
+  def dontSymplifyBasetypeWithComplexAssignement(): Unit = {
     Node.walk(walkNodesDefautStack,node => {
       node match {
         case baseType: BaseType => {
@@ -663,7 +664,7 @@ class Backend {
     })
   }
 
-  def deleteUselessBaseTypes: Unit = {
+  def deleteUselessBaseTypes(): Unit = {
     Node.walk(walkNodesDefautStack,(node, push) => {
       node match {
         case node: BaseType => {
@@ -702,7 +703,7 @@ class Backend {
     })
   }
 
-  def removeComponentThatNeedNoHdlEmit = {
+  def removeComponentThatNeedNoHdlEmit() = {
 
     sortedComponents = sortedComponents.filter(c => {
       if (c.isInBlackBoxTree) {
@@ -718,7 +719,7 @@ class Backend {
     components ++= sortedComponents
   }
 
-  def fillNodeConsumer: Unit = {
+  def fillNodeConsumer(): Unit = {
     Node.walk(walkNodesDefautStack,(node)=>{
       for(input <- node.inputs){
         if (input != null) input.consumers += node
@@ -732,7 +733,7 @@ class Backend {
   }
 
 
-  def checkInferedWidth: Unit = {
+  def checkInferedWidth(): Unit = {
     val errors = mutable.ArrayBuffer[String]()
     Node.walk(walkNodesDefautStack,node => {
       val error = node.checkInferedWidth
@@ -762,7 +763,7 @@ class Backend {
     nodeStack
   }
 
-  def applyComponentIoDefaults = {
+  def applyComponentIoDefaults() = {
     Node.walk(walkNodesDefautStack,node => {
       node match{
         case node : BaseType => {
@@ -783,7 +784,7 @@ class Backend {
     })
   }
 
-  def walkNodesBlackBoxGenerics = {
+  def walkNodesBlackBoxGenerics() = {
     val nodeStack = mutable.Stack[Node]()
     components.foreach(_ match {
       case blackBox: BlackBox => {
@@ -798,13 +799,13 @@ class Backend {
   }
 
 
-  def inferWidth: Unit = {
+  def inferWidth(): Unit = {
     globalData.nodeAreInferringWidth = true
     val nodes = ArrayBuffer[Node]()
     Node.walk(walkNodesDefautStack ++ walkNodesBlackBoxGenerics,nodes += _)
 
 
-    def checkAll: Unit = {
+    def checkAll(): Unit = {
       val errors = mutable.ArrayBuffer[String]()
       for (node <- nodes) {
         if (node.inferWidth && !node.isInstanceOf[Reg]) {
@@ -837,7 +838,7 @@ class Backend {
   }
 
 
-  def allowNodesToReadOutputs: Unit = {
+  def allowNodesToReadOutputs(): Unit = {
     val outputsBuffers = mutable.Map[BaseType, BaseType]()
     Node.walk(walkNodesDefautStack,node => {
       for (i <- 0 until node.inputs.size) {
@@ -860,7 +861,7 @@ class Backend {
     })
   }
 
-  def allowNodesToReadInputOfKindComponent = {
+  def allowNodesToReadInputOfKindComponent() = {
     Node.walk(walkNodesDefautStack,node => {
       for (i <- 0 until node.inputs.size) {
         val input = node.inputs(i)
@@ -878,7 +879,7 @@ class Backend {
 
 
 
-  def propagateBaseTypeWidth: Unit = {
+  def propagateBaseTypeWidth(): Unit = {
     Node.walk(walkNodesDefautStack,node => {
       node match {
         case node: BaseType => {
@@ -923,7 +924,7 @@ class Backend {
 
 
 
-  def checkCrossClockDomains: Unit = {
+  def checkCrossClockDomains(): Unit = {
     val errors = mutable.ArrayBuffer[String]()
 
     Node.walk(walkNodesDefautStack,node => {
@@ -937,10 +938,16 @@ class Backend {
               def check(that: Node): Unit = {
                 if(walked.contains(that)) return;
                 walked += that
+                if(that == null){
+                  println(":(")
+                }
                 if (!that.hasTag(crossClockDomain)) {
                   that match {
                     case syncDriver: SyncNode => {
-                      if (syncDriver.getClockDomain.clock != consumerCockDomain.clock) {
+                      val driverClockDomain = syncDriver.getClockDomain
+                      if (//syncDriver.getClockDomain.clock != consumerCockDomain.clock &&
+                          driverClockDomain != consumerCockDomain &&
+                          ! driverClockDomain.isSyncronousWith(consumerCockDomain)) {
                         errors += s"Synchronous element ${syncNode.getScalaLocationStringShort} is drived by ${syncDriver.getScalaLocationStringShort} but they don't have the same clock domain. Register declaration at\n${syncNode.getScalaTraceString}"
                       }
                     }
@@ -960,7 +967,7 @@ class Backend {
   }
 
 
-  def checkCombinationalLoops: Unit = {
+  def checkCombinationalLoops(): Unit = {
     val errors = mutable.ArrayBuffer[String]()
     val pendingNodes: mutable.Stack[Node] = walkNodesDefautStack
     val walkedNodes = mutable.Set[Node]()
@@ -1073,17 +1080,17 @@ class Backend {
 
 
 
-  def simplifyNodes: Unit = {
+  def simplifyNodes(): Unit = {
     fillNodeConsumer
     Node.walk(walkNodesDefautStack,_.simplifyNode)
     removeNodeConsumer
   }
 
-  def removeNodeConsumer : Unit = {
+  def removeNodeConsumer() : Unit = {
     Node.walk(walkNodesDefautStack,_.consumers.clear())
   }
 
-  def simplifyBlacBoxGenerics: Unit = {
+  def simplifyBlacBoxGenerics(): Unit = {
     components.foreach(_ match {
       case blackBox: BlackBox => {
         blackBox.getGeneric.flatten.foreach(tuple => {
@@ -1131,7 +1138,7 @@ class Backend {
 
 
 
-  def addNodesIntoComponent: Unit = {
+  def addNodesIntoComponent(): Unit = {
     Node.walk({
       val stack = walkNodesDefautStack
       for (c <- components) {
@@ -1144,7 +1151,7 @@ class Backend {
   }
 
 
-  def orderComponentsNodes: Unit = {
+  def orderComponentsNodes(): Unit = {
     for (c <- components) {
       c.nodes = c.nodes.sortWith(_.instanceCounter < _.instanceCounter)
     }

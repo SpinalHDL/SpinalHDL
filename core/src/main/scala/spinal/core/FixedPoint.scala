@@ -281,7 +281,7 @@ class UFix(maxExp : Int,bitCount : Int) extends XFix[UFix,UInt](maxExp,bitCount)
   def fractionalPart : UFix = {
     assert(this.bitCount-this.maxExp > 0)
     val ret = UFix(0 exp,-expMin bit)
-    ret := this.autoResize()
+    ret := this.resized
     ret
   }
 

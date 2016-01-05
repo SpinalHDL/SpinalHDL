@@ -470,19 +470,46 @@ object PlayApb {
 
 
   class TopLevel extends Component {
-    val apbConfig = new Apb3Config(16,32)
+    val apbConfig = new Apb3Config(16,8)
     val bus = slave(new Apb3Slave(apbConfig))
     val busCtrl = new Apb3SlaveController(bus) //This is a APB3 slave controller builder tool
 
     val outputs = Vec(i => out(busCtrl.writeReadReg(UInt(32 bit),i*4)) init(i),8)
-
+    val bundleComplex = (busCtrl.writeReadReg(new Bundle{
+      val v = Vec(Bool,10)
+      val a,b,c,d = Bool
+      val e = Bool
+    },0x1000))
     val b = out(new Bundle{
       val v = Vec(Bool,10)
       val a,b,c,d = Bool
       val e = Bool
     })
+
+    val bundleOut = out(bundleComplex.clone)
+    bundleOut := bundleComplex
     b.assignFromBits(B(0,15 bit))
-    b.assignFromBits(B"b11",10,9)
+    b.assignFromBits(B"11",10,9)
+
+  }
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+object PlayEnum {
+
+
+  class TopLevel extends Component {
+    object MyEnum extends SpinalEnum{
+      val s0,s1,s2,s3,s4,s5,s6,s7,s8,s9 = ordered()
+    }
+
+    val input = in(MyEnum())
+    val output = out(MyEnum())
+    val tmp = input.toBits
+    output := Delay(input,10)
+  //  output.assignFromBits(tmp)
 
   }
 
@@ -490,6 +517,7 @@ object PlayApb {
     SpinalVhdl(new TopLevel)
   }
 }
+
 
 object PlayDefault {
 
@@ -715,6 +743,18 @@ object MessagingPlay {
   def main(args: Array[String]): Unit = {
     SpinalVhdl(new TopLevel)
 
+  }
+}
+
+object LIntPlay {
+
+  class TopLevel extends Component {
+    val a,b = in(LInt(max=15,min=(-2)))
+    val c = out(a+b)
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
   }
 }
 
@@ -989,5 +1029,25 @@ object vhd_stdio_play3 {
     //    p.run()
     //    // (s"ghdl -r --ieee=synopsys vhdl_file" #> cmd !)
     print("DONE")
+  }
+}
+
+
+object PlayMacro{
+  import spinal.core.MacroTest._
+  def main(args: Array[String]) {
+    //createEnum("asd")
+    //val a = bar("toto")
+    //println(a.asd
+    println("Done")
+  }
+}
+
+
+object PlayScala{
+  def main(args: Array[String]): Unit = {
+    def doit(value : Option[Int]) = println(value.get)
+
+    doit(Option(2))
   }
 }

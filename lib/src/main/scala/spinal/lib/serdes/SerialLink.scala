@@ -4,11 +4,11 @@ import spinal.core._
 import spinal.lib._
 
 object SerialLinkConst {
-  def cData = B"01"
-  def cClose = B"02"
-  def cOpen = B"03"
-  def cIsClose = B"04"
-  def cIsOpen = B"05"
+  def cData = B"d01"
+  def cClose = B"d02"
+  def cOpen = B"d03"
+  def cIsClose = B"d04"
+  def cIsOpen = B"d05"
 
   def chunkDataSizeMax = 32
 

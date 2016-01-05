@@ -1,0 +1,6 @@
+object State extends Enum(sequancial){
+    val s0,s1,s2 = elements
+}
+
+val state = RegInit(State.s1(oneHot))
+

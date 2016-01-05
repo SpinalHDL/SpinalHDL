@@ -118,12 +118,22 @@ class Mem[T <: Data](val wordType: T, val wordCount: Int) extends Node with Name
     readSync(address, enable, writeToReadKind, true)
   }
 
-  def write(address: UInt, data: T): Unit = {
+  def write(address: UInt, data: T,mask : Bits = null): Unit = {
+    assert(mask == null,"Mem write mask curently not implemented by spinal, You can create a blackbox or instanciate multiple memory instead")
     val addressBuffer = UInt(addressWidth bit).dontSimplifyIt()
     addressBuffer := address
     val dataBuffer = Bits(getWidth bit).dontSimplifyIt()
     dataBuffer := data.toBits
-    val writePort = new MemWrite(this, address, addressBuffer, dataBuffer, when.getWhensCond(this).dontSimplifyIt(), ClockDomain.current)
+
+    val maskBuffer = if(mask != null){
+      val ret = Bits().dontSimplifyIt()
+      ret := mask
+      ret
+    }else{
+      null
+    }
+
+    val writePort = new MemWrite(this, address, addressBuffer, dataBuffer,maskBuffer, when.getWhensCond(this).dontSimplifyIt(), ClockDomain.current)
     inputs += writePort
   }
 
@@ -212,21 +222,30 @@ class MemReadSync(mem: Mem[_], val originalAddress: UInt, address: UInt, data: B
 object MemWrite {
   def getAddressId: Int = 3
   def getDataId: Int = 4
-  def getEnableId: Int = 5
+  def getMaskId: Int = 5
+  def getEnableId: Int = 6
 }
 
-class MemWrite(mem: Mem[_], val originalAddress: UInt, address: UInt, data: Bits, enable: Bool, clockDomain: ClockDomain) extends SyncNode(clockDomain) {
+class MemWrite(mem: Mem[_], val originalAddress: UInt, address: UInt, data: Bits,mask :Bits, enable: Bool, clockDomain: ClockDomain) extends SyncNode(clockDomain) {
   inputs += address
   inputs += data
+  inputs += (if(mask != null) mask else NoneNode())
   inputs += enable
 
 
-  override def getSynchronousInputs: ArrayBuffer[Node] = super.getSynchronousInputs ++= getAddress :: getData :: getEnable :: Nil
+  override def getSynchronousInputs: ArrayBuffer[Node] = super.getSynchronousInputs ++= getAddress :: getData :: getEnable :: inputs(MemWrite.getMaskId) :: Nil
   override def isUsingReset: Boolean = false
 
   def getMem = mem
   def getAddress = inputs(MemWrite.getAddressId).asInstanceOf[UInt]
   def getData = inputs(MemWrite.getDataId).asInstanceOf[Bits]
+  def getMask : Bits = {
+    val maskNode = inputs(MemWrite.getMaskId)
+    if(maskNode.isInstanceOf[Bits])
+      return maskNode.asInstanceOf[Bits]
+    else
+      return null
+  }
   def getEnable = inputs(MemWrite.getEnableId).asInstanceOf[Bool]
 
   override def calcWidth: Int = getMem.calcWidth

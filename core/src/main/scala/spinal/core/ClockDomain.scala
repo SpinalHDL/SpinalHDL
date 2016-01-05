@@ -18,6 +18,8 @@
 
 package spinal.core
 
+import scala.collection.mutable.ArrayBuffer
+
 /**
  * Created by PIC18F on 21.08.2014.
  */
@@ -113,6 +115,13 @@ class ClockDomain(val config: ClockDomainConfig, val clock: Bool, val reset: Boo
   def readResetWire = if (null == reset) Bool(!config.resetActiveHigh) else Data.doPull(reset, Component.current, true, true)
   def readClockEnableWire = if (null == clockEnable) Bool(config.clockEnableActiveHigh) else Data.doPull(clockEnable, Component.current, true, true)
 
+
+  val syncroneWith = ArrayBuffer[ClockDomain]()
+  def isSyncronousWith(that : ClockDomain) = syncroneWith.contains(that)
+  def setSyncronousWith(that : ClockDomain) = {
+    this.syncroneWith += that
+    that.syncroneWith += this
+  }
 
   def apply(block: => Unit): Unit = {
     push

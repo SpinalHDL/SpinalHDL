@@ -252,12 +252,8 @@ abstract class BaseType extends Node with Data with Nameable {
     typeNode
   }
 
-
+  //Create a new instance of the same datatype without any configuration (width, direction)
   private[core] def weakClone: this.type = this.getClass.newInstance().asInstanceOf[this.type]
-  //  def strongClone : this.type = {
-  //    val ret = clone()
-  //
-  //  }
 
 
 

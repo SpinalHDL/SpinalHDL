@@ -72,7 +72,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
 
   val userCache = mutable.Map[Object, mutable.Map[Object, Object]]()
   private[core] val localScope = new Scope()
-  private[core] val postCreationTask = mutable.ArrayBuffer[() => Unit]()
+  //private[core] val postCreationTask = mutable.ArrayBuffer[() => Unit]()
   private[core] val kindsOutputsToBindings = mutable.Map[BaseType, BaseType]()
   private[core] val kindsOutputsBindings = mutable.Set[BaseType]()
   private[core] val additionalNodesRoot = mutable.Set[BaseType]()

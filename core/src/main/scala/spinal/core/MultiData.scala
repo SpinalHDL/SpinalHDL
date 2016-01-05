@@ -110,10 +110,15 @@ abstract class MultiData extends Data {
 
   override def assignFromBits(bits: Bits,hi : Int,lo : Int): Unit = {
     var offset = 0
+    var bitsOffset = 0
     for ((_, e) <- elements) {
       val width = e.getBitsWidth
       if (hi >= offset && lo < offset + width) {
-        e.assignFromBits(bits, Math.min(hi-offset,width-1),Math.max(lo-offset,0))
+        val high = Math.min(hi-offset,width-1)
+        val low = Math.max(lo-offset,0)
+        val bitUsage = high - low + 1
+        e.assignFromBits(bits(bitsOffset,bitUsage bit), high,low)
+        bitsOffset += bitUsage
       }
       offset = offset + width
     }

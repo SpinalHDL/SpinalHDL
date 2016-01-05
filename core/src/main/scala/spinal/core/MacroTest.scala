@@ -55,7 +55,7 @@ object MacroTest {
   /* Make an instance of a structural type with the named member. */
   def bar(name: String): Any = macro bar_impl
 
-  def bar_impl(c: Context)(name: c.Expr[String]) = {
+  def bar_impl(c: scala.reflect.macros.whitebox.Context)(name: c.Expr[String]) = {
     import c.universe._
     val anon = TypeName(c.freshName)
     // next week, val q"${s: String}" = name.tree

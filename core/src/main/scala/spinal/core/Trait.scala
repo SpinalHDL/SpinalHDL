@@ -371,7 +371,15 @@ class GlobalData {
   val nodeGetWidthWalkedSet: mutable.Set[Node] = mutable.Set[Node]()
   // val nodeWidthInferredCheck = ArrayBuffer[() => Unit]()
   val clockDomainStack = new SafeStack[ClockDomain]
-  val componentStack = new SafeStack[Component]
+  val componentStack = new SafeStack[Component]{
+//    override def pop(e: Component): Unit = {
+//      for(task <- e.postCreationTask){
+//        task()
+//      }
+//      e.postCreationTask.clear()
+//      super.pop(e)
+//    }
+  }
   val switchStack = new SafeStack[SwitchStack]
   val whenStack = new SafeStack[when]
   val widthCheckers = new ArrayBuffer[WidthChecker]()

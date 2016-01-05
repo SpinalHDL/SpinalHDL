@@ -523,12 +523,12 @@ class StreamFifoCC[T <: Data](dataType: T, val depth: Int, pushClockDomain: Cloc
   val pushCC = new ClockingArea(pushClockDomain) {
     val pushPtr = Counter(depth << 1)
     val pushPtrGray = RegNext(toGray(pushPtr.valueNext))
-    val popPtrGray = BufferCC(popToPushGray, B"0")
+    val popPtrGray = BufferCC(popToPushGray, B(0,ptrWidth bit))
     val full = isFull(pushPtrGray, popPtrGray)
 
     io.push.ready := !full
     when(io.push.fire) {
-      ram(pushPtr.autoResize()) := io.push.data
+      ram(pushPtr.resized) := io.push.data
       pushPtr.increment()
     }
 
@@ -538,11 +538,11 @@ class StreamFifoCC[T <: Data](dataType: T, val depth: Int, pushClockDomain: Cloc
   val popCC = new ClockingArea(popClockDomain) {
     val popPtr = Counter(depth << 1)
     val popPtrGray = RegNext(toGray(popPtr.valueNext))
-    val pushPtrGray = BufferCC(pushToPopGray, B"0")
+    val pushPtrGray = BufferCC(pushToPopGray, B(0,ptrWidth bit))
     val empty = isEmpty(popPtrGray, pushPtrGray)
 
     io.pop.valid := !empty
-    io.pop.data := ram.readSyncCC(popPtr.valueNext.autoResize())
+    io.pop.data := ram.readSyncCC(popPtr.valueNext.resized)
     when(io.pop.fire) {
       popPtr.increment()
     }
