@@ -208,17 +208,7 @@ class VhdlBackend extends Backend with VhdlBase {
         ret.result()
       })
     }
-    //    def pkgExtractOffsetedBitCound(kind: String): Tuple2[String, String] = {
-    //      val ret = new StringBuilder();
-    //      (s"function pkg_extract (that : $kind;offset : unsigned; bitCount : natural) return $kind", {
-    //        ret ++= s"    variable temp : $kind(bitCount-1 downto 0);\n"
-    //        ret ++= "  begin\n"
-    //        ret ++= "    temp := pkg_resize(pkg_shiftRight(that,offset),bitCount);\n"
-    //        ret ++= "    return temp;\n"
-    //        ret ++= "  end pkg_extract;\n\n"
-    //        ret.result()
-    //      })
-    //    }
+
     def pkgCat(kind: String): Tuple2[String, String] = {
       val ret = new StringBuilder();
       (s"function pkg_cat (a : $kind; b : $kind) return $kind", {
@@ -256,14 +246,7 @@ class VhdlBackend extends Backend with VhdlBase {
         ret.result()
       })
     }
-    /*def pkgResize(kind: String): Tuple2[String, String] = {
-      (s"function pkg_extract (that : $kind; width : integer) return std_logic",
-        s"""|  begin
-            |    return that(bitId);
-            |  end pkg_extract;
-            |  """.stripMargin)
-    }
-*/
+
     val vectorTypes = "std_logic_vector" :: "unsigned" :: "signed" :: Nil
     val funcs = ArrayBuffer[Tuple2[String, String]]()
     vectorTypes.foreach(kind => {
@@ -340,16 +323,6 @@ class VhdlBackend extends Backend with VhdlBase {
     ret ++= "    end if;\n"
     ret ++= "  end pkg_rand;\n"
     ret ++= "\n"
-    //    ret ++= "  impure function pkg_rand (bitCount : integer) return std_logic_vector is\n"
-    //    ret ++= "    variable ret : std_logic_vector(bitCount -1 downto 0);\n"
-    //    ret ++= "  begin\n"
-    //    ret ++= "    for i in ret'range loop\n"
-    //    ret ++= "      ret(i) := pkg_rand;\n"
-    //    ret ++= "    end loop;\n"
-    //    ret ++= "    return ret;\n"
-    //    ret ++= "  end pkg_rand;\n"
-
-    //    ret ++= "\n"
     ret ++= "  -- unsigned shifts\n"
     ret ++= "  function pkg_shiftRight (that : unsigned; size : natural) return unsigned is\n"
     ret ++= "  begin\n"
@@ -667,10 +640,6 @@ class VhdlBackend extends Backend with VhdlBase {
         }
       }
 
-      //      genericFlat.foreach(_._2 match {
-      //        case baseType: BaseType => ret ++= s"      ${baseType.getName()} : ${emitDataType(baseType, false)};\n"
-      //        case string : String =>ret ++= s"      ${string.getName()} : ${emitDataType(baseType, false)};\n"
-      //      })
       ret.setCharAt(ret.size - 2, ' ')
       ret ++= s"    );\n"
     }
@@ -743,10 +712,7 @@ class VhdlBackend extends Backend with VhdlBase {
 
           emitAttributes(signal, "signal", ret)
         }
-        //        case outBinding: OutBinding => {
-        //          ret ++= emitSignal(outBinding, outBinding.out);
-        //          emitAttributes(outBinding, "signal", ret)
-        //        }
+
         case mem: Mem[_] => {
           ret ++= s"  type ${emitReference(mem)}_type is array (0 to ${mem.wordCount - 1}) of std_logic_vector(${mem.getWidth - 1} downto 0);\n"
           //ret ++= emitSignal(mem, mem);
@@ -1152,13 +1118,9 @@ class VhdlBackend extends Backend with VhdlBase {
     case baseType: BaseType => emitReference(baseType)
     case node: Modifier => modifierImplMap.getOrElse(node.opName, throw new Exception("can't find " + node.opName))(node)
     case lit: BitsLiteral => lit.kind match {
-      //      case _: Bits => s"pkg_stdLogicVector(X${'\"'}${lit.value.toString(16)}${'\"'},${lit.getWidth})"
-      //      case _: UInt => s"pkg_unsigned(X${'\"'}${lit.value.toString(16)}${'\"'},${lit.getWidth})"
-      //      case _: SInt => s"pkg_signed(X${'\"'}${if (lit.value >= 0) lit.value.toString(16) else ((BigInt(1) << lit.getWidth) + lit.value).toString(16)}${'\"'},${lit.getWidth})"
       case _: Bits => s"pkg_stdLogicVector(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
       case _: UInt => s"pkg_unsigned(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
       case _: SInt => s"pkg_signed(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
-
     }
     case lit: IntLiteral => lit.value.toString(10)
     case lit: BoolLiteral => s"pkg_toStdLogic(${lit.value})"
@@ -1173,8 +1135,6 @@ class VhdlBackend extends Backend with VhdlBase {
 
 
   def emitSyncronous(component: Component, ret: StringBuilder): Unit = {
-    // ret ++= "  -- synchronous\n"
-
     val syncNodes = component.getDelays
 
     val clockDomainMap = mutable.Map[ClockDomain, ArrayBuffer[SyncNode]]()
@@ -1524,38 +1484,3 @@ class VhdlBackend extends Backend with VhdlBase {
     }
   }
 }
-
-//if (asyncReset) {
-//ret ++= s"${tabStr}if ${emitReference(reset)} = \'${if (clockDomain.resetActiveHigh) 1 else 0}\' then\n";
-//inc
-//emitRegsInitialValue(tabStr)
-//dec
-//ret ++= s"${tabStr}elsif ${emitClockEdge(clock, clockDomain.edge)}"
-//inc
-//} else {
-//ret ++= s"${tabStr}if ${emitClockEdge(clock, clockDomain.edge)}"
-//inc
-//}
-//if (syncReset) {
-//ret ++= s"${tabStr}if ${emitReference(reset)} = \'${if (clockDomain.resetActiveHigh) 1 else 0}\' then\n"
-//inc
-//emitRegsInitialValue(tabStr)
-//dec
-//ret ++= s"${tabStr}else\n"
-//inc
-//}
-//if (clockEnable != null) {
-//ret ++= s"${tabStr}if ${emitReference(clockEnable)} = \'${if (clockDomain.clockEnableActiveHigh) 1 else 0}\' then\n"
-//inc
-//emitRegsLogic(tabStr)
-//}else{
-//emitRegsLogic(tabStr)
-//}
-//
-//while (tabLevel != 2) {
-//dec
-//ret ++= s"${tabStr}end if;\n"
-//}
-//ret ++= s"${tabStr}end process;\n"
-//dec
-//ret ++= s"${tabStr}\n"

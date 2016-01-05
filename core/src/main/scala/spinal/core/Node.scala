@@ -325,8 +325,8 @@ object Node{
   }
 }
 abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady with GlobalDataUser {
-  val consumers = new ArrayBuffer[Node]
-  val inputs = new ArrayBuffer[Node]
+  val consumers = new ArrayBuffer[Node](4)
+  val inputs = new ArrayBuffer[Node](3)
 
   private[core] var algoId = 0
   private[core] var widthWhenNotInferred = -1

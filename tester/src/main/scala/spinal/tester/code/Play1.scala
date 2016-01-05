@@ -734,10 +734,23 @@ object OverloadPlay {
 object MessagingPlay {
 
   class TopLevel extends Component {
-    val o = out(Bool)
+    val o = out(True)
     when(True) {
       o := True
     }
+
+    val exeption = new Throwable()
+    var str = exeption.getLocalizedMessage
+    println(str)
+    str = exeption.getMessage
+    println(str)
+    //exeption.printStackTrace()
+    println(exeption.getStackTrace().apply(0).toString)
+    println("spinal.tester.code.MessagingPlay$TopLevel.delayedEndpoint$spinal$tester$code$MessagingPlay$TopLevel$1(Play1.scala:74)")
+    println("spinal.tester.code.MessagingPlay$TopLevel(Play1.scala:742)")
+    println("spinal.tester.code.MessagingPlay$TopLevel(Play1.scala:742)")
+    println("spinal.tester(Play1.scala:742)")
+    println("spinal.tester.code.MessagingPlay(Play1.scala:742)")
   }
 
   def main(args: Array[String]): Unit = {

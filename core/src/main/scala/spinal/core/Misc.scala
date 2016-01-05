@@ -91,7 +91,8 @@ object Misc {
   addReflectionExclusion(new SpinalEnumCraft(null))
 
 
-  //TODO find if there is a solution to keep declaration order in every case, then remove fix from component.nameElements
+  //XXXX find if there is a solution to keep declaration order in every case, then remove fix from component.nameElements
+  // It look like Java8 keep order
   //  def reflect(o: Object, onEach: (String, Any) => Unit,namePrefix :String = ""): Unit = {
   //    val refs = mutable.Set[Any]()
   //    val ru = scala.reflect.runtime.universe

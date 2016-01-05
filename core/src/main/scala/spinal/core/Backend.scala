@@ -99,7 +99,6 @@ class Backend {
     ret
   }
 
-  //TODO provide a way to give a default value to components imputs
   //TODO implicit area base class for each base type that implement operator
   //TODO General cleaning
   //TODO better VHDL package, less function
@@ -204,7 +203,6 @@ class Backend {
   }
 
 
-  //TODO  more
   def remplaceMemByBlackBox_simplifyWriteReadWithSameAddress(): Unit = {
     class MemTopo(val mem: Mem[_]) {
       val writes = ArrayBuffer[MemWrite]()
@@ -1114,28 +1112,6 @@ class Backend {
       case _ =>
     })
   }
-
-  //  def simplifyBlacBoxGenerics: Unit = {
-  //    components.foreach(_ match {
-  //      case blackBox: BlackBox => {
-  //        blackBox.generic.flatten.foreach(tuple => {
-  //          val signal = tuple._2
-  //          walk(signal, signal)
-  //          def walk(node: Node, first: Node): Unit = node match {
-  //            case node: BaseType => {
-  //              first.inputs(0) = node.inputs(0)
-  //              first.inputs(0).inferredWidth = first.inferredWidth
-  //              walk(node.inputs(0), first)
-  //            }
-  //            case lit: Literal =>
-  //            case _ => throw new Exception("BlackBox generic can be literal")
-  //          }
-  //        })
-  //      }
-  //      case _ =>
-  //    })
-  //  }
-
 
 
   def addNodesIntoComponent(): Unit = {

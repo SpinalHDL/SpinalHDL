@@ -122,11 +122,10 @@ class DataPimper[T <: Data](val pimpIt: T) extends AnyVal{
 //  def := [T2 <: T](that: T2): Unit = pimpIt assignFrom(that, false)
 
   //Use as \= to have the same behavioral than VHDL variable
-  //TODO bundle compatible
   def \(that: T) : T = {
     val ret = cloneOf(that)
     ret := pimpIt
-    ret.whenScope = pimpIt.whenScope
+    ret.flatten.foreach(_.whenScope = pimpIt.whenScope)
     ret := that
     ret
   }

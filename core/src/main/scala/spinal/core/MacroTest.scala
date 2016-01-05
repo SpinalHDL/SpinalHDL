@@ -122,7 +122,7 @@ object MacroTest {
 ////import language.experimental.macros
 ////import scala.reflect.macros.Context
 ////
-////// TODO Error handling (i.e. when parsing fail)
+
 //////
 ////object scalax {
 ////  trait Enumerable {
@@ -186,7 +186,7 @@ object MacroTest {
 ////      val tpe = c.weakTypeOf[TC[_]]
 ////
 ////      val generatedCode = instances.collect {
-////        // TODO Support package prefix for types
+////        //
 ////        case Apply(Ident(TermName(typeName)), List(Block(Tuple2(defs, _)))) => typeName -> defs
 ////      } map {
 ////        case (typeName, defs) =>

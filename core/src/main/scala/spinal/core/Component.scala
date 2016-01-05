@@ -115,7 +115,6 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
   }
 
   def nameElements(): Unit = {
-    //TODO this.io.setWeakName("io") //Because Misc.reflect don't keep the declaration order
     Misc.reflect(this, (name, obj) => {
       obj match {
         case component: Component => {
