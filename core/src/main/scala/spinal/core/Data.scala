@@ -230,6 +230,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
   def getZero: this.type
 
   def flatten: Seq[BaseType]
+  def flattenLocalName: Seq[String]
 
   def pull(): this.type = Data.doPull(this, Component.current, false, false)
 

@@ -95,6 +95,13 @@ abstract class MultiData extends Data {
   override def flatten: Seq[BaseType] = {
     elements.map(_._2.flatten).foldLeft(List[BaseType]())(_ ++ _)
   }
+  override def flattenLocalName: Seq[String] = {
+    val result = ArrayBuffer[String]()
+    for((localName,e) <- elements){
+      result ++= e.flattenLocalName.map(name => if(name == "") localName else localName + "_" + name)
+    }
+    result // for fun elements.map{case (localName,e) => e.flattenLocalName.map(name => if(name == "") localName else localName + "_" + name)}.reduce(_ ++: _)
+  }
 
 
   // = (this.flatten, that.flatten).zipped.map((a, b) => a.isNotEguals(b)).reduceLeft(_ || _)

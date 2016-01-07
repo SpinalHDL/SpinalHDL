@@ -184,6 +184,7 @@ abstract class BaseType extends Node with Data with Nameable {
   // = (this.flatten, that.flatten).zipped.map((a, b) => a.isNotEguals(b)).reduceLeft(_ || _)
   private[core] override def autoConnect(that: Data): Unit = autoConnectBaseImpl(that)
   override def flatten: Seq[BaseType] = Seq(this);
+  override def flattenLocalName: Seq[String] = Seq("")
 
   override def add(attribute: Attribute): Unit = {
     attributes += attribute

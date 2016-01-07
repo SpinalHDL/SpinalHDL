@@ -43,7 +43,21 @@ class Play1 extends Component {
     val input = slave Stream (new Stage0)
     val output = master Stream (new Stage1)
   }
+  val b = new Bundle{
+    val a = Bool
+    val b = Bool
+    val c = new Bundle{
+      val d = Vec((0 until 3).map(c => Bool))
+      val e = new Bundle{
+        val f = Vec(Bool,4)
+        val g = Bool
+      }
+    }
+    val h = Bool
+  }
 
+  val fName = b.flattenLocalName
+  println(fName)
 
   io.input.translateInto(io.output)((to, from) => {
     to.assignSomeByName(from)
@@ -1061,6 +1075,8 @@ object PlayScala{
   def main(args: Array[String]): Unit = {
     def doit(value : Option[Int]) = println(value.get)
 
-    doit(Option(2))
+   // doit(Option(2))
+
+
   }
 }
