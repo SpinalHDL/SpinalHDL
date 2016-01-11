@@ -43,6 +43,17 @@ class Play1 extends Component {
     val input = slave Stream (new Stage0)
     val output = master Stream (new Stage1)
   }
+//  import scala.language.dynamics;
+//  class Dyna extends Dynamic{
+//    def applyDynamic(name: String)(args: Any*) ={
+//     println(name)
+//    }
+//    def selectDynamic(name: String) = println(name)
+//  }
+//
+//  val dyna = new Dyna
+//  dyna.a__fafafs_asdda__fafaf
+
   val b = new Bundle{
     val a = Bool
     val b = Bool
@@ -58,6 +69,10 @@ class Play1 extends Component {
 
   val fName = b.flattenLocalName
   println(fName)
+
+  for((e,name) <- (b.flatten,b.flattenLocalName).zipped){
+    println(name)
+  }
 
   io.input.translateInto(io.output)((to, from) => {
     to.assignSomeByName(from)

@@ -25,7 +25,7 @@ trait BoolCast{
 }
 
 trait BoolFactory {
-  def Bool : Bool = new Bool
+  def Bool() : Bool = new Bool
   def Bool(value : Boolean) : Bool = BoolLiteral(value,Bool)
 }
 

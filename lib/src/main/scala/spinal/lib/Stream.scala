@@ -453,14 +453,13 @@ class StreamDemux[T <: Data](dataType: T, portCount: Int) extends Component {
   }
 }
 
-
 class StreamFifo[T <: Data](dataType: T, depth: Int) extends Component {
   val io = new Bundle {
     val push = slave Stream (dataType)
     val pop = master Stream (dataType)
+    val flush = in Bool() default(False)
     val occupancy = out UInt (log2Up(depth + 1) bit)
   }
-
   val ram = Mem(dataType, depth)
 
   val pushPtr = Counter(depth)
@@ -496,6 +495,12 @@ class StreamFifo[T <: Data](dataType: T, depth: Int) extends Component {
     } otherwise {
       io.occupancy := Mux(pushPtr > popPtr, ptrDif, U(depth) + ptrDif)
     }
+  }
+
+  when(io.flush){
+    pushPtr.clear()
+    popPtr.clear()
+    risingOccupancy := False
   }
 }
 
