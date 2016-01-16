@@ -300,3 +300,11 @@ object ifGen {
       return null.asInstanceOf[T]
   }
 }
+
+
+class MaskedLiteral(value : BigInt,mask : BigInt){
+  def ===(that : BitVector) : Bool = {
+    return (that.toBits & mask) === value
+  }
+  def =/=(that : BitVector) : Bool = !(this === that)
+}

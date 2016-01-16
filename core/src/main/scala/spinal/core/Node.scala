@@ -415,6 +415,13 @@ class NoneNode extends Node {
 }
 
 
+object dontCare {
+  def apply() = new DontCare
+}
+
+class DontCare extends Node {
+  override def calcWidth: Int = 0
+}
 
 
 //abstract class WidthAssemptionNode(provider : Node) extends Node{

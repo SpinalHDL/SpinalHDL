@@ -76,6 +76,8 @@ package object core extends BaseTypeFactory with BaseTypeCast{
     def B(args: Any*): Bits = parser(spinal.core.B, getString(args))
     def U(args: Any*): UInt = parser(spinal.core.U, getString(args))
     def S(args: Any*): SInt = parser(spinal.core.S, getString(args))
+    //def M(args: Any*): Bits = parser(spinal.core.B, getString(args))
+
 
     def Bits(args: Any*): Bits = B(args)
     def UInt(args: Any*): UInt = U(args)

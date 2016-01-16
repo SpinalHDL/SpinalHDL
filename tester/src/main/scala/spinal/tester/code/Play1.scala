@@ -17,6 +17,8 @@ import spinal.lib.com.uart._
 import spinal.lib.graphic.Rgb
 import spinal.lib.graphic.vga.Vga
 
+import scala.collection.immutable.HashSet
+
 
 trait BundleA extends Bundle {
   val a = Bool
@@ -466,15 +468,6 @@ object PlayFix {
 
 
 object PlayMux {
-
-  //  class TopLevel extends Component {
-  //    val sel = in UInt(3 bit)
-  //    val input = in Vec (UInt(8 bit),8)
-  //    val output = out UInt(8 bit)
-  //
-  //    output := input(sel)
-  //  }
-
   class TopLevel extends Component {
     val sel = in UInt (3 bit)
     val input = in Vec(UInt(8 bit), 8)
@@ -494,6 +487,42 @@ object PlayMux {
     SpinalVhdl(new TopLevel)
   }
 }
+
+object PlayLoop {
+  class TopLevel extends Component {
+//      val io = new Bundle() {
+//        val input = in UInt(4 bit)
+//        val output = out UInt(4 bit)
+//      }
+//      val tmp =  UInt(4 bit)
+//      tmp(0) := io.input(0)
+//      tmp(1) := io.input(1) || tmp(0)
+//      tmp(2) := io.input(2) || tmp(3)
+//      tmp(3) := io.input(3) || tmp(2)
+//      io.output := tmp
+    val io = new Bundle() {
+      val input = in UInt(2 bit)
+      val output = out UInt(2 bit)
+    }
+//    val tmp =  UInt(2 bit)
+//    tmp(0) := tmp(1)
+//    tmp(1) := tmp(0)
+//    io.output := tmp
+      val tmp =  Vec(Bool,Bool)
+      tmp(0) := tmp(1)
+      tmp(1) := tmp(0)
+      io.output := tmp.toBits.toUInt
+    }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
+
+
+
 
 object PlayApb {
 
@@ -741,9 +770,9 @@ object OverloadPlay {
   }
 
   def main(args: Array[String]): Unit = {
-    //Console.in.read
+    Console.in.read
 
-    for (i <- 0 until 1) {
+    //for (i <- 0 until 1) {
       val report = SpinalVhdl({
         val vgaClock = ClockDomain("vga")
         val vgaMemoryClock = ClockDomain("vgaMemory")
@@ -751,11 +780,11 @@ object OverloadPlay {
         new OverloadPlay(0, new MandelbrotCoreParameters(256, 64, 640, 480, 7, 17 * 3), coreClock, vgaMemoryClock, vgaClock)
       })
 
-      /*while(true){
+      while(true){
         Thread.sleep(1000)
         println(report.topLevel )
-      }*/
-    }
+      }
+  //  }
   }
 }
 
@@ -1087,11 +1116,34 @@ object PlayMacro{
 
 
 object PlayScala{
+  class Entry(val value : Int = (Math.random()*100000).toInt);
   def main(args: Array[String]): Unit = {
-    def doit(value : Option[Int]) = println(value.get)
+    for (i <- 0 until 10) {
+      var startTime = 0l
+      var size = 10;
+      def start() : Unit = startTime = System.nanoTime()
+      def end(message : String) : Unit = println((System.nanoTime() - startTime)*1e-6 + " ms " + message);
+      val set = scala.collection.mutable.HashSet[Entry]()
+      val dummy = new Entry()
 
-   // doit(Option(2))
+      for (i <- 0 until 10) {
+        set += new Entry()
+      }
+      for(i <- 0 until 20) {
+        var idx: Int = 0
+        start()
+        idx = 0;
+        while (idx != 100000) {
+          idx += 1
+          set.contains(dummy)
+        }
+        end(" with " + size)
+        for (i <- size until size * 2) {
+          set += new Entry()
+        }
+        size *= 2
 
-
+      }
+    }
   }
 }
