@@ -212,10 +212,11 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
     this
   }
   def asOutput(): this.type = {
-    dir = out;    
+    dir = out;
     this
   }
 
+ // def assignDontCare() : Unit = ???
 
   def isOutput: Boolean = dir == out
   def isInput: Boolean = dir == in

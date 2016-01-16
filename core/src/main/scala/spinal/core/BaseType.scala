@@ -162,16 +162,11 @@ abstract class BaseType extends Node with Data with Nameable {
   }
 
   private[core] def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
-    that match {
-      case that: BaseType => {
-        val (consumer, inputId) = BaseType.walkWhenNodes(this, this, 0, conservative)
-        consumer.inputs(inputId) = that
-      }
-      case that: AssignementNode => {
-        val (consumer, inputId) = BaseType.walkWhenNodes(this, this, 0, conservative)
-        consumer.inputs(inputId) = that
-      }
-      case _ => throw new Exception("Undefined assignement")
+    if(that.isInstanceOf[BaseType] || that.isInstanceOf[AssignementNode] || that.isInstanceOf[DontCareNode] ) {
+      val (consumer, inputId) = BaseType.walkWhenNodes(this, this, 0, conservative)
+      consumer.inputs(inputId) = that.asInstanceOf[Node]
+    }else{
+      throw new Exception("Undefined assignement")
     }
   }
 
@@ -180,6 +175,8 @@ abstract class BaseType extends Node with Data with Nameable {
 
   // def castThatInSame(that: BaseType): this.type = throw new Exception("Not defined")
 
+
+//  override def assignDontCare(): Unit = this.assignFromImpl(new DontCareNode(this),false)
 
   // = (this.flatten, that.flatten).zipped.map((a, b) => a.isNotEguals(b)).reduceLeft(_ || _)
   private[core] override def autoConnect(that: Data): Unit = autoConnectBaseImpl(that)

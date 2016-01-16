@@ -415,12 +415,9 @@ class NoneNode extends Node {
 }
 
 
-object dontCare {
-  def apply() = new DontCare
-}
 
-class DontCare extends Node {
-  override def calcWidth: Int = 0
+class DontCareNode(val target : Node) extends Node {
+  override def calcWidth: Int = target.getWidth
 }
 
 

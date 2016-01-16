@@ -110,16 +110,16 @@ class Backend {
   //TODO Mux node with n inputs instead of fixed 2
   protected def elaborate[T <: Component](topLevel: T): BackendReport[T] = {
     SpinalInfoPhase("Start analysis and transform")
-
-    applyComponentIoDefaults
-    walkNodesBlackBoxGenerics
-    remplaceMemByBlackBox_simplifyWriteReadWithSameAddress
-
     addReservedKeyWordToScope(globalScope)
+
+    applyComponentIoDefaults()
+    walkNodesBlackBoxGenerics()
+    remplaceMemByBlackBox_simplifyWriteReadWithSameAddress()
+
     addComponent(topLevel)
     sortedComponents = components.sortWith(_.level > _.level)
 
-
+    //trickDontCares()
 
     //notifyNodes(StartPhase)
 
@@ -836,6 +836,19 @@ class Backend {
   }
 
 
+
+  def trickDontCares(): Unit ={
+    Node.walk(walkNodesDefautStack,node => {
+      node match{
+        case baseType : BaseType =>{
+
+
+        }
+        case _ =>
+      }
+    })
+  }
+
   def allowNodesToReadOutputs(): Unit = {
     val outputsBuffers = mutable.Map[BaseType, BaseType]()
     Node.walk(walkNodesDefautStack,node => {
@@ -909,6 +922,9 @@ class Backend {
               for (node <- that.inputs) {
                 walk(node)
               }
+            }
+            case dontCare : DontCareNode =>{
+              dontCare.inferredWidth = width
             }
             case _ =>
           }

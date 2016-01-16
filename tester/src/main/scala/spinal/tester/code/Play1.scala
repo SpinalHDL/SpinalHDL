@@ -488,6 +488,88 @@ object PlayMux {
   }
 }
 
+object PlayDontCare {
+  class TopLevel extends Component {
+    val a,b = in UInt(4 bit)
+    val result = out UInt(4 bit)
+
+    //result.assignDontCare()
+    when(a > 2){
+      result := b
+    }
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+object PlayIf {
+  class TopLevel extends Component {
+    val a,b = in UInt(4 bit)
+    val result = out UInt(4 bit)
+
+    result := 1
+    when(a > 2){
+      result := 2
+    }.elsewhen(a > 3){
+      result(0) := True
+      when(a > 50){
+        result := 5
+      }
+      result(2) := False
+    }.otherwise{
+      result := 4
+    }
+/*
+    result := 1
+    when(a > 2){
+      result := 2
+    }
+    result(3) := False
+    result(2) := False
+    result(3) := False
+    result(2) := False
+
+    when(a > 2){
+      result := 2
+    }
+    result(1) := False*/
+
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+object PlaySwitch {
+  class TopLevel extends Component {
+    val a,b = in UInt(4 bit)
+    val result = out UInt(4 bit)
+    result := 1
+    switch(a){
+      is(1){
+
+      }
+      is(2){
+
+      }
+      is(3){
+
+      }
+      is(4){
+        result := 2
+      }
+    }
+
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
 object PlayLoop {
   class TopLevel extends Component {
 //      val io = new Bundle() {

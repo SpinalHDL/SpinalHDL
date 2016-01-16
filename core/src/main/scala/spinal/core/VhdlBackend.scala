@@ -1130,6 +1130,13 @@ class VhdlBackend extends Backend with VhdlBase {
       s"${emitReference(memRead.getMem)}(to_integer(${emitReference(memRead.getAddress)}))"
     }
     case whenNode: WhenNode => s"pkg_mux(${whenNode.inputs.map(emitLogic(_)).reduce(_ + "," + _)})" //Exeptional case with asyncrouns of literal
+    case dontcare: DontCareNode => {
+        dontcare.target match {
+        case to : Bool => s"'-'"
+        case to : BitVector => s"(${'"'}${"-" * to.getWidth}${'"'})"
+      }
+    }
+
     case o => throw new Exception("Don't know how emit logic of " + o.getClass.getSimpleName)
   }
 
@@ -1333,6 +1340,7 @@ class VhdlBackend extends Backend with VhdlBase {
   }
 
   class AssignementLevel {
+    //map of preceding when , assignements
     val logicChunk = mutable.Map[WhenTree, ArrayBuffer[(Node, Node)]]()
     val when = mutable.Map[when, WhenTree]()
 
@@ -1372,7 +1380,7 @@ class VhdlBackend extends Backend with VhdlBase {
     }
 
 
-    def emitContext(ret: mutable.StringBuilder, tab: String, assignementKind: String): Unit = {
+    def emitContext(ret: mutable.StringBuilder, tab: String, assignementKind: String,isElseIf : Boolean = false): Unit = {
       def emitLogicChunk(key: WhenTree): Unit = {
         if (this.logicChunk.contains(key)) {
           for ((to, from) <- this.logicChunk.get(key).get) {
@@ -1380,6 +1388,7 @@ class VhdlBackend extends Backend with VhdlBase {
           }
         }
       }
+      val firstTab = if(isElseIf) "" else tab
 
       emitLogicChunk(null)
 
@@ -1387,20 +1396,26 @@ class VhdlBackend extends Backend with VhdlBase {
         def doTrue = when.whenTrue.isNotEmpty
         def doFalse = when.whenFalse.isNotEmpty
 
-        if (!doTrue && doFalse) {
-          ret ++= s"${tab}if ${emitLogic(when.cond)} = '0'  then\n"
+        /*if (!doTrue && doFalse) {
+          ret ++= s"${firstTab}if ${emitLogic(when.cond)} = '0'  then\n"
           when.whenFalse.emitContext(ret, tab + "  ", assignementKind)
           ret ++= s"${tab}end if;\n"
+
         } else if (doTrue && !doFalse) {
-          ret ++= s"${tab}if ${emitLogic(when.cond)} = '1' then\n"
+          ret ++= s"${firstTab}if ${emitLogic(when.cond)} = '1' then\n"
           when.whenTrue.emitContext(ret, tab + "  ", assignementKind)
           ret ++= s"${tab}end if;\n"
-        } else if (doTrue && doFalse) {
-          ret ++= s"${tab}if ${emitLogic(when.cond)} = '1' then\n"
+        } else if (doTrue && doFalse)*/ {
+          ret ++= s"${firstTab}if ${emitLogic(when.cond)} = '1' then\n"
           when.whenTrue.emitContext(ret, tab + "  ", assignementKind)
-          ret ++= s"${tab}else\n"
-          when.whenFalse.emitContext(ret, tab + "  ", assignementKind)
-          ret ++= s"${tab}end if;\n"
+          if(when.whenFalse.logicChunk.isEmpty && when.whenFalse.when.size == 1 && when.whenFalse.when.head._1.parentElseWhen != null){
+            ret ++= s"${tab}els"
+            when.whenFalse.emitContext(ret, tab, assignementKind,true)
+          }else{
+            ret ++= s"${tab}else\n"
+            when.whenFalse.emitContext(ret, tab + "  ", assignementKind)
+            ret ++= s"${tab}end if;\n"
+          }
         }
         emitLogicChunk(when)
       }
