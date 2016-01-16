@@ -262,6 +262,7 @@ class ExtractBitsVectorFloating(opName: String, bitVector: BitVector, offset: UI
 
   inputs += bitVector
   inputs += offset
+  inputs += IntLiteral(bitCount.value)
 
   def getBitVector = inputs(0)
   def getOffset = inputs(1)

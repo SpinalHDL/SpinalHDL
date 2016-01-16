@@ -208,6 +208,22 @@ class VhdlBackend extends Backend with VhdlBase {
         ret.result()
       })
     }
+    def pkgExtract(kind: String): Tuple2[String, String] = {
+      val ret = new StringBuilder();
+      (s"function pkg_extract (that : $kind; base : unsigned; size : integer) return $kind", {
+        ret ++= "   constant elementCount : integer := that'length/size;\n"
+        ret ++=s"   type tableType is array (0 to elementCount-1) of $kind(size-1 downto 0);\n"
+        ret ++= "   variable table : tableType;\n"
+        ret ++= "  begin\n"
+        ret ++= "    for i in 0 to elementCount-1 loop\n"
+        ret ++= "      table(i) := that((i+1)*size-1 downto i*size);\n"
+        ret ++= "    end loop;\n"
+        ret ++= "    return table(to_integer(base));\n"
+        ret ++= "  end pkg_extract;\n\n"
+        ret.result()
+      })
+    }
+
 
     def pkgCat(kind: String): Tuple2[String, String] = {
       val ret = new StringBuilder();
@@ -221,39 +237,13 @@ class VhdlBackend extends Backend with VhdlBase {
       })
     }
 
-    def pkgDummy(kind: String): Tuple2[String, String] = {
-      val ret = new StringBuilder();
-      (s"function pkg_dummy (that : $kind) return $kind", {
-        ret ++= s"    variable dummy : $kind(that'length-1 downto 0);\n"
-        ret ++= s"  begin\n"
-        ret ++= s"    dummy := that;\n"
-        ret ++= s"    return dummy;\n"
-        ret ++= s"  end pkg_dummy;\n\n"
-        ret.result()
-      })
-    }
-
-    def pkgRand(kind: String): Tuple2[String, String] = {
-      val ret = new StringBuilder();
-      (s"impure function pkg_rand (bitCount : integer) return $kind", {
-        ret ++= s"    variable ret : $kind(bitCount-1 downto 0);\n"
-        ret ++= s"  begin\n"
-        ret ++= s"    for i in ret'range loop\n"
-        ret ++= s"      ret(i) := pkg_rand;\n"
-        ret ++= s"    end loop;\n"
-        ret ++= s"    return ret;\n"
-        ret ++= s"  end pkg_rand;\n\n"
-        ret.result()
-      })
-    }
 
     val vectorTypes = "std_logic_vector" :: "unsigned" :: "signed" :: Nil
     val funcs = ArrayBuffer[Tuple2[String, String]]()
     vectorTypes.foreach(kind => {
       funcs += pkgExtractBool(kind)
-      funcs += pkgDummy(kind)
+      funcs += pkgExtract(kind)
       funcs += pkgCat(kind)
-      funcs += pkgRand(kind)
     })
 
 
@@ -272,9 +262,6 @@ class VhdlBackend extends Backend with VhdlBase {
     ret ++= "  function pkg_mux (sel : std_logic;one : unsigned;zero : unsigned) return unsigned;\n"
     ret ++= "  function pkg_mux (sel : std_logic;one : signed;zero : signed) return signed;\n"
     ret ++= s"\n"
-    ret ++= "  shared variable randSeed0, randSeed1: positive;\n"
-    ret ++= "  impure function pkg_rand return std_logic;\n"
-    //ret ++= "  impure function pkg_rand (bitCount : integer) return std_logic_vector;\n"
     ret ++= s"\n"
     ret ++= "  function pkg_toStdLogic (value : boolean) return std_logic;\n"
     ret ++= "  function pkg_toStdLogicVector (value : std_logic) return std_logic_vector;\n"
@@ -310,18 +297,6 @@ class VhdlBackend extends Backend with VhdlBase {
     ret ++= "\n"
     ret ++= s"package body $packageName is\n"
     ret ++= s"${funcs.map(f => "  " + f._1 + " is\n" + f._2 + "\n").reduce(_ + _)}"
-    ret ++= "\n"
-
-    ret ++= "  impure function pkg_rand return std_logic is\n"
-    ret ++= "    variable rand: real;\n"
-    ret ++= "  begin\n"
-    ret ++= "    UNIFORM(randSeed0, randSeed1, rand);\n"
-    ret ++= "    if rand >= 0.5 then\n"
-    ret ++= "      return '1';\n"
-    ret ++= "    else\n"
-    ret ++= "      return '0';\n"
-    ret ++= "    end if;\n"
-    ret ++= "  end pkg_rand;\n"
     ret ++= "\n"
     ret ++= "  -- unsigned shifts\n"
     ret ++= "  function pkg_shiftRight (that : unsigned; size : natural) return unsigned is\n"
@@ -1076,9 +1051,9 @@ class VhdlBackend extends Backend with VhdlBase {
   modifierImplMap.put("extract(u,i,i)", extractBitVectorFixed)
   modifierImplMap.put("extract(s,i,i)", extractBitVectorFixed)
 
-  modifierImplMap.put("extract(b,u,w)", extractBitVectorFloating)
-  modifierImplMap.put("extract(u,u,w)", extractBitVectorFloating)
-  modifierImplMap.put("extract(s,u,w)", extractBitVectorFloating)
+  modifierImplMap.put("extract(b,u,w)", operatorImplAsFunction("pkg_extract"))
+  modifierImplMap.put("extract(u,u,w)", operatorImplAsFunction("pkg_extract"))
+  modifierImplMap.put("extract(s,u,w)", operatorImplAsFunction("pkg_extract"))
 
 
   def extractBoolFixed(func: Modifier): String = {
@@ -1096,10 +1071,10 @@ class VhdlBackend extends Backend with VhdlBase {
     s"pkg_extract(${emitLogic(that.getBitVector)},${that.getHi},${that.getLo})"
   }
 
-  def extractBitVectorFloating(func: Modifier): String = {
-    val that = func.asInstanceOf[ExtractBitsVectorFloating]
-    s"pkg_dummy(${emitLogic(that.getBitVector)}(to_integer(${emitLogic(that.getOffset)}) + ${that.getBitCount.value - 1}  downto to_integer(${emitLogic(that.getOffset)})))"
-  }
+//  def extractBitVectorFloating(func: Modifier): String = {
+//    val that = func.asInstanceOf[ExtractBitsVectorFloating]
+//    s"pkg_dummy(${emitLogic(that.getBitVector)}(to_integer(${emitLogic(that.getOffset)}) + ${that.getBitCount.value - 1}  downto to_integer(${emitLogic(that.getOffset)})))"
+//  }
 
 
   def opThatNeedBoolCastGen(a: String, b: String): List[String] = {
