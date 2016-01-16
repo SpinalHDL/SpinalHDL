@@ -55,7 +55,7 @@ class Backend {
 
 
   def elaborate[T <: Component](gen: () => T): BackendReport[T] = {
-
+    SpinalInfoPhase("Start elaboration")
 
     //default clockDomain
     val defaultClockDomain = ClockDomain("",defaultClockDomainFrequancy)
@@ -750,10 +750,10 @@ class Backend {
   def walkNodesDefautStack = {
     val nodeStack = mutable.Stack[Node]()
 
-    topLevel.getNodeIo.foreach(nodeStack.push(_))
+    topLevel.getAllIo.foreach(nodeStack.push(_))
     components.foreach(c => {
       c match {
-        case blackBox: BlackBox => blackBox.getNodeIo.filter(_.isInput).foreach(nodeStack.push(_))
+        case blackBox: BlackBox => blackBox.getAllIo.filter(_.isInput).foreach(nodeStack.push(_))
         case _ =>
       }
       c.additionalNodesRoot.foreach(nodeStack.push(_))

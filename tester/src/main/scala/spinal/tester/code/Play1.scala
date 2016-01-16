@@ -18,6 +18,7 @@ import spinal.lib.graphic.Rgb
 import spinal.lib.graphic.vga.Vga
 
 import scala.collection.immutable.HashSet
+import scala.collection.mutable.ArrayBuffer
 
 
 trait BundleA extends Bundle {
@@ -637,6 +638,41 @@ object PlayApb {
   }
 }
 
+//
+//import org.scalameter.api._
+//
+//object RangeBenchmark extends Bench.LocalTime {
+////  val time = measure {
+////    for (i <- 0 until 100000) yield i
+////  }
+////  println(s"Total time: $time")
+////  MandelbrotSblDemo.main(null)
+////  val sizes = Gen.range("size")(300000, 1500000, 300000)
+////
+////  val ranges = for {
+////    size <- sizes
+////  } yield 0 until size
+////
+////  performance of "Range" in {
+////    measure method "map" in {
+////      using(ranges) in {
+////        r => r.map(_ + 1)
+////      }
+////    }
+////  }
+//}
+//object PlayBench {
+//
+//
+//  def main(args: Array[String]): Unit = {
+//    import org.scalameter._
+//    val time = measure {
+//      for (i <- 0 until 100000) yield i
+//    }
+//    println(s"Total time: $time")
+//  }
+//}
+
 object PlayEnum {
 
 
@@ -827,7 +863,7 @@ object ApbUartPlay {
 object OverloadPlay {
 
   class OverloadPlay(frameAddressOffset: Int, p: MandelbrotCoreParameters, coreClk: ClockDomain, vgaMemoryClk: ClockDomain, vgaClk: ClockDomain) extends Component {
-    for (i <- 0 until 10) {
+    for (i <- 0 until 1) {
       val memoryBusConfig = SblConfig(30, 32)
       val rgbType = Rgb(8, 8, 8)
 
@@ -852,7 +888,7 @@ object OverloadPlay {
   }
 
   def main(args: Array[String]): Unit = {
-    Console.in.read
+//    Console.in.read
 
     //for (i <- 0 until 1) {
       val report = SpinalVhdl({
@@ -861,12 +897,30 @@ object OverloadPlay {
         val coreClock = ClockDomain("core", FixedFrequency(100e6))
         new OverloadPlay(0, new MandelbrotCoreParameters(256, 64, 640, 480, 7, 17 * 3), coreClock, vgaMemoryClock, vgaClock)
       })
+   // Console.in.read
+    println(report.topLevel )
+    var entries = 0
+    var allocatedEntries = 0
+    val c = ArrayBuffer().getClass()
+    val f = c.getDeclaredField("array")
+    f.setAccessible(true)
+    Node.walk(report.topLevel.getAllIo.toSeq,node => {
+      entries += node.inputs.length
+      allocatedEntries += f.get(node.inputs).asInstanceOf[Array[AnyRef]].length
 
-      while(true){
-        Thread.sleep(1000)
-        println(report.topLevel )
-      }
-  //  }
+      entries += node.consumers.length
+      allocatedEntries += f.get(node.consumers).asInstanceOf[Array[AnyRef]].length
+//      for(input <- f.get(node.inputs).asInstanceOf[Array[AnyRef]])
+//        if(input != null)
+//          allocatedEntries += 1
+    })
+    println(allocatedEntries)
+    println(entries)
+//      while(true){
+//        Thread.sleep(1000)
+//        println(report.topLevel )
+//      }
+
   }
 }
 

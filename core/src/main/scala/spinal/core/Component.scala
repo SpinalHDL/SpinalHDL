@@ -165,7 +165,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
   }
 
 
-  private[core] def getNodeIo = {
+  def getAllIo : mutable.Set[BaseType] = {
 
     if (nodes == null) {
       ioSet
@@ -180,7 +180,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
 
   }
 
-  private[core] def getOrdredNodeIo = getNodeIo.toList.sortWith(_.instanceCounter < _.instanceCounter)
+  private[core] def getOrdredNodeIo = getAllIo.toList.sortWith(_.instanceCounter < _.instanceCounter)
 
 
   private[core] def getDelays = {

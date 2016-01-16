@@ -1393,10 +1393,12 @@ class VhdlBackend extends Backend with VhdlBase {
       emitLogicChunk(null)
 
       for (when <- this.when.values.toList.sortWith(_.instanceCounter < _.instanceCounter)) {
+        //Uncomment this block if you want minimalisting and no empty if condition
+        /*
         def doTrue = when.whenTrue.isNotEmpty
         def doFalse = when.whenFalse.isNotEmpty
 
-        /*if (!doTrue && doFalse) {
+        if (!doTrue && doFalse) {
           ret ++= s"${firstTab}if ${emitLogic(when.cond)} = '0'  then\n"
           when.whenFalse.emitContext(ret, tab + "  ", assignementKind)
           ret ++= s"${tab}end if;\n"

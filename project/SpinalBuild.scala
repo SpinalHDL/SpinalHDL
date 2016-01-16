@@ -66,6 +66,7 @@ object SpinalBuild extends Build {
       name := "SpinalHDL tester",
       version := SpinalVersion.tester,
       libraryDependencies += "org.scalatest" % "scalatest_2.11" % "2.2.1",
+      //libraryDependencies += "com.storm-enroute" %% "scalameter" % "latest.release",
       publishTo := None
     )
   ) dependsOn(core, lib, debugger,demo)
