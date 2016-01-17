@@ -1242,10 +1242,37 @@ object vhd_stdio_play3 {
 
 object PlayMacro{
   import spinal.core.MacroTest._
+  object TopLevel{
+    
+  }
+  /**
+   * asd
+   */
+  class TopLevel extends Component{
+    val e = enum('s1,'s2,'s3)
+    import e._
+    val e2 = enum('s1,'s2,'s3)
+    import e2._
+    
+
+    println("ASD3")
+    out(True)
+    
+    val s = e()
+    s := e.s1
+    out(s)
+    val s2 = e2()
+    s2 := e2.s1
+    out(s2)
+  }
+  
   def main(args: Array[String]) {
     //createEnum("asd")
-    //val a = bar("toto")
-    //println(a.asd
+    val a = bar("toto")
+    println(a.asd)
+  //  bar2()
+
+    SpinalVhdl(new TopLevel)
     println("Done")
   }
 }

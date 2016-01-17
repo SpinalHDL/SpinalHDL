@@ -147,21 +147,6 @@ class SpinalEnum extends Nameable {
   def ordered() : SpinalEnumElement[this.type] = Value(getNextInt, null)
   def fix(id : BigInt) : SpinalEnumElement[this.type] = Value(id, null)
 
-  /*
-    implicit def valueToCraft(x: SpinalEnumElement[this.type]): SpinalEnumCraft[this.type] = {
-      val ret = craft()
-      ret.inputs(0) = new EnumLiteral(this, x.id)
-      ret
-    }*/
-
   def getWidth = log2Up(values.foldLeft(BigInt(0))((v, n) => v.max(n.id)) + 1)
   def craft(): SpinalEnumCraft[this.type] = new SpinalEnumCraft[this.type](this)
-
-  //type SpinalEnum = Val
-
-  /* class Val(i: Int, name: String) extends Val(i, name) {
-     def ===(that: this.type) = "hallo3"
-   }*/
-
-
 }

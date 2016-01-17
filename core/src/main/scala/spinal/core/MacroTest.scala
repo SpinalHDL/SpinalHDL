@@ -53,13 +53,13 @@ object MacroTest {
   import scala.reflect.macros.Context
 
   /* Make an instance of a structural type with the named member. */
-  def bar(name: String): Any = macro bar_impl
+  def bar(name: String*): Any = macro bar_impl
 
-  def bar_impl(c: scala.reflect.macros.whitebox.Context)(name: c.Expr[String]) = {
+  def bar_impl(c: scala.reflect.macros.whitebox.Context)(name: c.Expr[String]*) = {
     import c.universe._
     val anon = TypeName(c.freshName)
     // next week, val q"${s: String}" = name.tree
-    val Literal(Constant(s: String)) = name.tree
+    val Literal(Constant(s: String)) = name(0).tree
     val A    = TermName(s)
     val dmmy = TermName(c.freshName)
     val tree = q"""
@@ -80,6 +80,132 @@ object MacroTest {
     //new $anon { }  // braces required
     c.Expr(tree)
   }
+    
+      /* Make an instance of a structural type with the named member. */
+  def bar2[a]()= macro bar2_impl[a]
+
+  def bar2_impl[ a : c.WeakTypeTag ](c: scala.reflect.macros.whitebox.Context)() = {
+    import c.universe._
+
+      import Flag._
+//    val tree = c.Expr[Unit](
+//      q"val a = 2"
+//    )
+//    tree
+      c.Expr[Unit](
+        ValDef(
+          Modifiers(IMPLICIT), 
+          newTermName("derivedShowableInstance"), 
+          TypeTree(), 
+          q"1"
+        )
+      )
+  }
+    
+  
+  
+  /* Make an instance of a structural type with the named member. */
+  def MyEnum(): Any = macro MyEnum_impl
+
+  def MyEnum_impl(c: scala.reflect.macros.whitebox.Context)() = {
+    import c.universe._
+    val anon = TypeName(c.freshName)
+    // next week, val q"${s: String}" = name.tree
+    
+    val dmmy = TermName(c.freshName)
+    val tree = q"""
+      class $anon extends SpinalEnum{
+        val s0,s1,s2 = ordered
+      }
+      val $dmmy = 0
+      new $anon
+    """
+    // other ploys
+    //(new $anon).asInstanceOf[{ def $A(i: Int): Int }]
+    // reference the member
+    //val res = new $anon
+    //val $dmmy = res.$A _
+    //res
+    // the canonical ploy
+    //new $anon { }  // braces required
+    c.Expr(tree)
+  }    
+    
+  
+  
+    /* Make an instance of a structural type with the named member. */
+  def enum(param: Symbol*): Any = macro enum_impl
+
+  def enum_impl(c: scala.reflect.macros.whitebox.Context)(param: c.Expr[Symbol]*) = {
+    import c.universe._
+    val states = param.toList map { sym =>       //println(showRaw(sym.tree))
+      sym.tree match {
+        case Apply(_, List(Literal(Constant(name: String)))) => TermName(name)
+        case _ =>
+          throw new Exception("Expected list of symbols")
+      }
+    }  
+
+    val enumName = TypeName(c.freshName)
+    val objectName = TermName(c.freshName)
+    val cleanObjectName = TermName(c.freshName)
+    val tree = q"""
+      object $objectName extends SpinalEnum{
+        ..${states.map(s => q"val $s = ordered")}
+      }
+
+      object $cleanObjectName{
+        def enumType = $objectName
+        def apply() = enumType()
+        ..${states.map(s => q"def $s = $objectName.$s")}
+      }
+      $cleanObjectName
+    """
+//    val tree2 = q"""
+//      class $enumName extends SpinalEnum{
+//        ..${states.map(s => q"val $s = ordered")}
+//      }
+//      object $cleanObjectName{
+//        def enumType = new $enumName()
+//        def apply() = enumType.craft()
+//        ..${states.map(s => q"def $s = enumType.$s")}
+//      }
+//      $cleanObjectName
+//    """
+    c.Expr(tree)
+  }    
+    
+     def enum2(param: Symbol*): Any = macro enum2_impl
+
+  def enum2_impl(c: scala.reflect.macros.whitebox.Context)(param: c.Expr[Symbol]*) = {
+    import c.universe._
+    val symboles = param.toList map { sym =>       //println(showRaw(sym.tree))
+      sym.tree match {
+        case Apply(_, List(Literal(Constant(name: String)))) => TermName(name)
+        case _ =>
+          throw new Exception("Expected list of symbols")
+      }
+    }  
+    val objectName = symboles.head
+    val states = symboles.tail
+
+    val enumName = TypeName(c.freshName)
+  //  val objectName = TermName(c.freshName)
+    val cleanObjectName = TermName(c.freshName)
+    val tree = q"""
+      object $objectName extends SpinalEnum{
+        ..${states.map(s => q"val $s = ordered")}
+      }
+      object $cleanObjectName{
+        def enumType = $objectName
+        def apply() = enumType()
+        ..${states.map(s => q"def $s = $objectName.$s")}
+      }
+      $cleanObjectName
+    """
+    c.Expr(tree)
+  }    
+    
 }
 //  def mkObject(param: Any*) = macro mkObjectImpl
 //  def mkObjectImpl(c: Context)(param: c.Expr[Any]*): c.Expr[Any] = {
