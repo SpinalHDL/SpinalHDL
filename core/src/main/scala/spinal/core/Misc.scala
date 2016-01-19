@@ -301,7 +301,9 @@ object ifGen {
   }
 }
 
-
+object MaskedLiteral{
+  
+}
 class MaskedLiteral(value : BigInt,mask : BigInt){
   def ===(that : BitVector) : Bool = {
     return (that.toBits & mask) === value

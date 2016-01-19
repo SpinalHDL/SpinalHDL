@@ -116,7 +116,11 @@ class SpinalEnumElement[T <: SpinalEnum](val parent: T, val id: BigInt) extends 
   def getWidth = parent.getWidth
 }
 
-class SpinalEnum extends Nameable {
+trait SpinalEnumEncoding{
+  
+}
+
+class SpinalEnum(defaultEncoding : SpinalEnumEncoding = null) extends Nameable {
   def apply() = craft
 
   private[core]  val idMap = new mutable.HashMap[BigInt, SpinalEnumElement[this.type]]()

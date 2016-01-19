@@ -5,11 +5,11 @@ import scala.collection.mutable.ArrayBuffer
 /**
   * Created by PIC32F_USER on 05/01/2016.
   */
-object LInt{
-  def apply(max : BigInt,min : BigInt): LInt = new LInt(max,min)
+object RInt{
+  def apply(max : BigInt,min : BigInt): RInt = new RInt(max,min)
 }
 
-class LInt(val max : BigInt,val min : BigInt) extends MultiData with Num[LInt]{
+class RInt(val max : BigInt,val min : BigInt) extends MultiData with Num[RInt]{
   assert(max >= min)
   def  isSigned = min < 0
   def peak = max.abs.max(min.abs)
@@ -26,8 +26,8 @@ class LInt(val max : BigInt,val min : BigInt) extends MultiData with Num[LInt]{
 
 
 
-  override def +(right: LInt): LInt = {
-    val result = LInt(this.max + right.max,this.min+right.min)
+  override def +(right: RInt): RInt = {
+    val result = RInt(this.max + right.max,this.min+right.min)
     val resultWidth = result.raw.getWidth
     (this.isSigned,right.isSigned) match{
       case (false,false) => result.raw := (this.raw.toUInt.resize(resultWidth) + right.raw.toUInt.resize(resultWidth)).toBits
@@ -36,20 +36,20 @@ class LInt(val max : BigInt,val min : BigInt) extends MultiData with Num[LInt]{
     result
   }
 
-  override def >(right: LInt): Bool = ???
+  override def >(right: RInt): Bool = ???
 
-  override def >>(shift: Int): LInt = ???
+  override def >>(shift: Int): RInt = ???
 
-  override def <=(right: LInt): Bool = ???
+  override def <=(right: RInt): Bool = ???
 
-  override def <(right: LInt): Bool = ???
+  override def <(right: RInt): Bool = ???
 
-  override def <<(shift: Int): LInt = ???
+  override def <<(shift: Int): RInt = ???
 
-  override def -(right: LInt): LInt = ???
+  override def -(right: RInt): RInt = ???
 
-  override def >=(right: LInt): Bool = ???
+  override def >=(right: RInt): Bool = ???
 
-  override def *(right: LInt): LInt = ???
+  override def *(right: RInt): RInt = ???
 
 }

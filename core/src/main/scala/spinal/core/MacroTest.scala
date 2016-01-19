@@ -82,25 +82,30 @@ object MacroTest {
   }
     
       /* Make an instance of a structural type with the named member. */
-  def bar2[a]()= macro bar2_impl[a]
-
-  def bar2_impl[ a : c.WeakTypeTag ](c: scala.reflect.macros.whitebox.Context)() = {
-    import c.universe._
-
-      import Flag._
-//    val tree = c.Expr[Unit](
-//      q"val a = 2"
-//    )
-//    tree
-      c.Expr[Unit](
-        ValDef(
-          Modifiers(IMPLICIT), 
-          newTermName("derivedShowableInstance"), 
-          TypeTree(), 
-          q"1"
-        )
-      )
-  }
+//  def bar2[a]()= macro bar2_impl[a]()
+//
+//  def bar2_impl[ a : c.WeakTypeTag ](c: scala.reflect.macros.whitebox.Context)() = {
+//    import c.universe._
+//
+//      import Flag._
+////    val tree = c.Expr[Unit](
+////      q"val a = 2"
+////    )
+////    tree
+//      //val cc = reflect.runtime.universe.reify(for (i <- 1 to 10) yield i * 2).tree
+//      import scala.reflect.runtime.{universe => ru}
+//      ru.showRaw{ru.reify{val x = 5}}
+//      c.Expr[Unit](
+//        ValDef(
+//          Modifiers(IMPLICIT), 
+//          newTermName("derivedShowableInstance"), 
+//          TypeTree(), 
+//          c.universe.reify(2).tree
+//        )
+//      )
+//      ru.reify{val x = 5}
+//      
+//  }
     
   
   
@@ -131,7 +136,19 @@ object MacroTest {
     c.Expr(tree)
   }    
     
-  
+  /*def macroFile: Any = macro macroFile_impl
+
+  def macroFile_impl(c: scala.reflect.macros.whitebox.Context) = {
+    import c.universe._
+    val str = "toto"
+    c.Expr(q"""
+
+      object $str{
+
+      }
+      $str
+    """)
+  }  */  
   
     /* Make an instance of a structural type with the named member. */
   def enum(param: Symbol*): Any = macro enum_impl
@@ -174,8 +191,8 @@ object MacroTest {
 //    """
     c.Expr(tree)
   }    
-    
-     def enum2(param: Symbol*): Any = macro enum2_impl
+  
+  def enum2(param: Symbol*): Any = macro enum2_impl
 
   def enum2_impl(c: scala.reflect.macros.whitebox.Context)(param: c.Expr[Symbol]*) = {
     import c.universe._

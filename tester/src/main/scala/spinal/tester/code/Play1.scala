@@ -953,10 +953,10 @@ object MessagingPlay {
   }
 }
 
-object LIntPlay {
+object RIntPlay {
 
   class TopLevel extends Component {
-    val a,b = in(LInt(max=15,min=(-2)))
+    val a,b = in(RInt(max=15,min=(-2)))
     val c = out(a+b)
   }
 
@@ -1270,13 +1270,26 @@ object PlayMacro{
     //createEnum("asd")
     val a = bar("toto")
     println(a.asd)
-  //  bar2()
+    
 
     SpinalVhdl(new TopLevel)
     println("Done")
   }
 }
 
+
+
+object PlayMaskedLiteral{
+  class TopLevel extends Component{
+    val input = in UInt(4 bit)
+    val output = out(new MaskedLiteral(0xF,0xE) === input)
+  }
+  
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+    println("Done")
+  }
+}
 
 object PlayScala{
   class Entry(val value : Int = (Math.random()*100000).toInt);
