@@ -117,7 +117,13 @@ class ClockDomain(val config: ClockDomainConfig, val clock: Bool, val reset: Boo
 
 
   val syncroneWith = ArrayBuffer[ClockDomain]()
-  def isSyncronousWith(that : ClockDomain) = syncroneWith.contains(that)
+  def isSyncronousWith(that : ClockDomain) : Boolean = {
+    if(this == that) return true
+    if(this.clock == that.clock) return true
+    if(syncroneWith.contains(that)) return true
+
+    return false
+  }
   def setSyncronousWith(that : ClockDomain) = {
     this.syncroneWith += that
     that.syncroneWith += this

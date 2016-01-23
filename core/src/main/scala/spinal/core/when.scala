@@ -133,37 +133,50 @@ object switch {
 
 
 object is {
-  def apply(value: Any*)(block: => Unit): Unit = {
-    val e = ArrayBuffer[Data]()
+  def apply(values: Any*)(block: => Unit): Unit = {
+    val globalData = GlobalData.get
+    if (globalData.switchStack.isEmpty) SpinalError("Use 'is' statement outside the 'switch'")
 
-    def analyse(key: Any): Unit = {
+    val value = globalData.switchStack.head()
+    if (value.whenStackHead != globalData.whenStack.head())
+      SpinalError("'is' statement is not at the top level of the 'switch'")
+    val e = ArrayBuffer[Bool]()
+    val switchValue = value.value
+
+    def analyse(key: Any): Bool = {
       key match {
-        case that: Data => e.+=(that)
-        case that: Seq[_] => that.foreach(analyse(_))
-        case that: Int => {
-          val globalData = GlobalData.get
-          if (globalData.switchStack.isEmpty) SpinalError("Use 'is' statement outside the 'switch'")
-          val value = globalData.switchStack.head().value
-          value match {
-            case x: Bits => e += B(that)
-            case x: UInt => e += U(that)
-            case x: SInt => e += S(that)
+        case key: Data => switchValue.isEguals(key)
+        case key: Seq[_] => key.map(d => analyse(d)).reduce(_ || _)
+        case key: Int => {
+          switchValue match {
+            case switchValue: Bits => switchValue === B(key)
+            case switchValue: UInt => switchValue === U(key)
+            case switchValue: SInt => switchValue === S(key)
             case _ => SpinalError("The switch is not a Bits, UInt or SInt")
           }
         }
-        case that : SpinalEnumElement[_] => e += that()
+        case that : SpinalEnumElement[_] => switchValue.isEguals(that())
+        case key : MaskedLiteral => switchValue match {
+          case switchValue: Bits => switchValue === key
+          case switchValue: UInt => switchValue === key
+          case switchValue: SInt => switchValue === key
+          case _ => SpinalError("The switch is not a Bits, UInt or SInt")
+        }
       }
     }
 
-    for (v <- value) {
-      analyse(v)
+
+    val cond = values.map(analyse(_)).reduce(_ || _)
+    if (value.lastWhen == null) {
+      value.lastWhen = when(cond)(block)
+    } else {
+      value.lastWhen = value.lastWhen.elsewhen(cond)(block)
     }
-    impl(e)(block)
   }
 
-  def impl(keys: Iterable[Data])(block: => Unit): Unit = {
-    if (keys.isEmpty) SpinalError("There is no key in 'is' statement")
-    val globalData = keys.head.globalData
+
+  def impl(cond : Bool)(block: => Unit): Unit = {
+    val globalData = cond.globalData
     if (globalData.switchStack.isEmpty) SpinalError("Use 'is' statement outside the 'switch'")
 
     val value = globalData.switchStack.head()
@@ -173,9 +186,9 @@ object is {
     //      SpinalError("'is' statement must appear before the 'default' statement of the 'switch'")
 
     if (value.lastWhen == null) {
-      value.lastWhen = when(keys.map(key => (key.isEguals(value.value))).reduceLeft(_ || _))(block)
+      value.lastWhen = when(cond)(block)
     } else {
-      value.lastWhen = value.lastWhen.elsewhen(keys.map(key => (key.isEguals(value.value))).reduceLeft(_ || _))(block)
+      value.lastWhen = value.lastWhen.elsewhen(cond)(block)
     }
   }
 }

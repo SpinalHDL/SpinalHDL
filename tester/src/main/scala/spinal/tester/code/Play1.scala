@@ -1282,7 +1282,30 @@ object PlayMacro{
 object PlayMaskedLiteral{
   class TopLevel extends Component{
     val input = in UInt(4 bit)
-    val output = out(new MaskedLiteral(0xF,0xE) === input)
+    val a,b,c = in UInt(4 bit)
+
+
+   // val output2 = out(U"0000")
+   // output2 := input
+  //  output2 assignMask M"10--"
+//    val output3 = out(M"10--" === input)
+
+
+    val output4 = out(UInt(4 bit))
+
+    output4.assignDontCare()
+    when(input(0)){
+      output4 := a
+    }
+    when(input(1)){
+      output4 := b
+    }
+//    switch(input){
+//      is(M"00--") {output4 assignMask M"1111"}
+//      is(M"01--") {output4 assignMask M"0101"}
+//      is(M"10--") {output4 assignMask M"0011"}
+//      is(M"11--") {output4 assignMask M"0001"}
+//    }
   }
   
   def main(args: Array[String]) {
@@ -1291,6 +1314,23 @@ object PlayMaskedLiteral{
   }
 }
 
+
+
+object PlayLiteral{
+  class TopLevel extends Component{
+    val output = out(Vec(
+      B"0000_1100",
+      B"h0C",
+      B"8'hC",
+      B"8'd12"
+    ))
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+    println("Done")
+  }
+}
 object PlayScala{
   class Entry(val value : Int = (Math.random()*100000).toInt);
   def main(args: Array[String]): Unit = {

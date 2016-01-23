@@ -183,9 +183,6 @@ class WidthCheckerEguals(consumer : Node,provider : Node) extends WidthChecker(c
 }
 
 class BitVectorPimper[T <: BitVector](val pimpIt: T) extends AnyVal {
-//  def ===(that : MaskedLiteral) : Bool = that === pimpIt
-//  def =/=(that : MaskedLiteral) : Bool = that =/= pimpIt
-
   def :=(that: T): Unit ={
     new WidthCheckerEguals(pimpIt,that)
     pimpIt assignFrom(that, false)

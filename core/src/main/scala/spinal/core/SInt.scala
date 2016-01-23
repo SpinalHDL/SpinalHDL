@@ -37,6 +37,11 @@ trait SIntFactory{
 class SInt extends BitVector with Num[SInt] with MinMaxProvider {
   private[core] def prefix : String = "s"
 
+  def ===(that : SInt) : Bool = this.isEguals(that)
+  def =/=(that : SInt) : Bool = this.isNotEguals(that)
+  def ===(that : MaskedLiteral) : Bool = that === this
+  def =/=(that : MaskedLiteral) : Bool = that =/= this
+
   override def +(that: SInt): SInt = newBinaryOperator("s+s", that, WidthInfer.inputMaxWidth,InputNormalize.nodeWidth,ZeroWidth.binaryTakeOther);
   override def -(that: SInt): SInt = newBinaryOperator("s-s", that, WidthInfer.inputMaxWidth,InputNormalize.nodeWidth,ZeroWidth.binaryMinus(S.apply));
   override def *(that: SInt): SInt = newBinaryOperator("s*s", that, WidthInfer.cumulateInputWidth,InputNormalize.none,ZeroWidth.binaryInductZeroWithOtherWidth(S.apply));

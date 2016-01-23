@@ -302,11 +302,17 @@ object ifGen {
 }
 
 object MaskedLiteral{
-  
+
+  def apply(str : String) : MaskedLiteral = {
+    val careAbout = str.map(c => if(c == '-') '0' else '1')
+    val value = str.map(c => if(c == '-') '0' else c)
+    new MaskedLiteral(BigInt(value,2),BigInt(careAbout,2),str.length())
+  }
 }
-class MaskedLiteral(value : BigInt,mask : BigInt){
+
+class MaskedLiteral(val value : BigInt,val careAbout : BigInt,val width : Int){
   def ===(that : BitVector) : Bool = {
-    return (that.toBits & mask) === value
+    return (that.toBits & careAbout) === value
   }
   def =/=(that : BitVector) : Bool = !(this === that)
 }

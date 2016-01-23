@@ -76,13 +76,15 @@ abstract class BitVector extends BaseType {
     bool.setInput(extract)
 
     bool.compositeAssign = new Assignable {
-      override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
-        BitVector.this.assignFrom(new BitAssignmentFixed(BitVector.this, that.asInstanceOf[Bool], bitId), true)
+      override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = that match{
+        case that : Bool => BitVector.this.assignFrom(new BitAssignmentFixed(BitVector.this, that, bitId), true)
+        case that : DontCareNode => BitVector.this.assignFrom(new BitAssignmentFixed(BitVector.this, new DontCareNodeFixed(Bool(),1), bitId), true)
       }
     }
 
     bool
   }
+
 
   //extract bit
   def apply(bitId: UInt): Bool = {
@@ -91,8 +93,9 @@ abstract class BitVector extends BaseType {
     bool.setInput(extract)
 
     bool.compositeAssign = new Assignable {
-      override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
-        BitVector.this.assignFrom(new BitAssignmentFloating(BitVector.this, that.asInstanceOf[Bool], bitId), true)
+      override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = that match{
+        case that : Bool => BitVector.this.assignFrom(new BitAssignmentFloating(BitVector.this, that, bitId), true)
+        case that : DontCareNode => BitVector.this.assignFrom(new BitAssignmentFloating(BitVector.this, new DontCareNodeFixed(Bool(),1), bitId), true)
       }
     }
 
@@ -104,8 +107,9 @@ abstract class BitVector extends BaseType {
     if (hi - lo + 1 != 0) {
       val ret = addTypeNodeFrom(new ExtractBitsVectorFixed(s"extract($prefix,i,i)", this, hi, lo))
       ret.compositeAssign = new Assignable {
-        override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
-          BitVector.this.assignFrom(new RangedAssignmentFixed(BitVector.this, that.asInstanceOf[BitVector], hi, lo), true)
+        override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = that match{
+          case that : BitVector => BitVector.this.assignFrom(new RangedAssignmentFixed(BitVector.this, that, hi, lo), true)
+          case that : DontCareNode => BitVector.this.assignFrom(new RangedAssignmentFixed(BitVector.this, new DontCareNodeFixed(BitVector.this,hi-lo+1), hi, lo), true)
         }
       }
       ret
@@ -118,9 +122,10 @@ abstract class BitVector extends BaseType {
     if (bitCount.value != 0) {
       val ret = addTypeNodeFrom(new ExtractBitsVectorFloating(s"extract($prefix,u,w)", this, offset, bitCount))
 
-      ret.compositeAssign = new Assignable {
-        override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
-          BitVector.this.assignFrom(new RangedAssignmentFloating(BitVector.this, that.asInstanceOf[BitVector], offset, bitCount), true)
+      ret.compositeAssign =  new Assignable {
+        override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = that match{
+          case that : BitVector => BitVector.this.assignFrom(new RangedAssignmentFloating(BitVector.this, that, offset, bitCount), true)
+          case that : DontCareNode => BitVector.this.assignFrom(new RangedAssignmentFloating(BitVector.this, new DontCareNodeFixed(BitVector.this,bitCount.value), offset, bitCount), true)
         }
       }
 

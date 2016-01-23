@@ -34,6 +34,31 @@ trait UIntFactory{
 class UInt extends BitVector with Num[UInt] with MinMaxProvider {
   private[core] def prefix : String = "u"
 
+  //TODO width assert
+  def assignMask(maskedLiteral: MaskedLiteral): Unit ={
+    var (literal,careAbout) = (maskedLiteral.value,maskedLiteral.careAbout)
+    var offset = 0
+    var value = careAbout.testBit(0)
+    while(offset != maskedLiteral.width){
+      var bitCount = 0
+      while(offset + bitCount != maskedLiteral.width && careAbout.testBit(offset + bitCount) == value){
+        bitCount += 1
+      }
+      if(value){
+        this(offset,bitCount bit) := U((literal >> offset) & ((BigInt(1)<<bitCount)-1))
+      }else{
+        this(offset,bitCount bit).assignDontCare()
+      }
+      value = !value
+      offset += bitCount
+    }
+  }
+
+  def ===(that : UInt) : Bool = this.isEguals(that)
+  def =/=(that : UInt) : Bool = this.isNotEguals(that)
+  def ===(that : MaskedLiteral) : Bool = that === this
+  def =/=(that : MaskedLiteral) : Bool = that =/= this
+
   override def +(that: UInt): UInt = newBinaryOperator("u+u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,ZeroWidth.binaryTakeOther);
   override def -(that: UInt): UInt = newBinaryOperator("u-u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,ZeroWidth.binaryMinus(U.apply));
   override def *(that: UInt): UInt = newBinaryOperator("u*u", that, WidthInfer.cumulateInputWidth, InputNormalize.none,ZeroWidth.binaryInductZeroWithOtherWidth(U.apply));

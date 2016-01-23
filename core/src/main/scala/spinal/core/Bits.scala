@@ -38,6 +38,11 @@ trait BitsFactory{
 class Bits extends BitVector {
   private[core] def prefix: String = "b"
 
+  def ===(that : Bits) : Bool = this.isEguals(that)
+  def =/=(that : Bits) : Bool = this.isNotEguals(that)
+  def ===(that : MaskedLiteral) : Bool = that === this
+  def =/=(that : MaskedLiteral) : Bool = that =/= this
+
   def ##(right: Bits): Bits = newBinaryOperator("b##b", right, WidthInfer.cumulateInputWidth, InputNormalize.none,ZeroWidth.binaryTakeOther)
 
   def |(that: Bits): Bits = newBinaryOperator("b|b", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,ZeroWidth.binaryTakeOther);

@@ -19,6 +19,8 @@
 
 package spinal.core
 
+import java.util
+
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
@@ -369,6 +371,7 @@ class GlobalData {
   var nodeAreNamed = false
   var nodeAreInferringWidth = false
   val nodeGetWidthWalkedSet: mutable.Set[Node] = mutable.Set[Node]()
+  val clockSyncronous = mutable.HashMap[Bool,ArrayBuffer[Bool]]()
   // val nodeWidthInferredCheck = ArrayBuffer[() => Unit]()
   val clockDomainStack = new SafeStack[ClockDomain]
   val componentStack = new SafeStack[Component]{

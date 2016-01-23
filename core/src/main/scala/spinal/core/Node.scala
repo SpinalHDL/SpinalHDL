@@ -416,8 +416,16 @@ class NoneNode extends Node {
 
 
 
-class DontCareNode(val target : Node) extends Node {
+abstract class DontCareNode extends Node{
+  def getBaseType : BaseType
+}
+class DontCareNodeInfered(target : BaseType) extends DontCareNode {
   override def calcWidth: Int = target.getWidth
+  override def getBaseType: BaseType = target
+}
+class DontCareNodeFixed(target : BaseType,fixedWidth : Int) extends DontCareNode {
+  override def calcWidth: Int = fixedWidth
+  override def getBaseType: BaseType = target
 }
 
 

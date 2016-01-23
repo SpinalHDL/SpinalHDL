@@ -960,7 +960,6 @@ class Backend {
                     case syncDriver: SyncNode => {
                       val driverClockDomain = syncDriver.getClockDomain
                       if (//syncDriver.getClockDomain.clock != consumerCockDomain.clock &&
-                          driverClockDomain != consumerCockDomain &&
                           ! driverClockDomain.isSyncronousWith(consumerCockDomain)) {
                         errors += s"Synchronous element ${syncNode.getScalaLocationStringShort} is drived by ${syncDriver.getScalaLocationStringShort} but they don't have the same clock domain. Register declaration at\n${syncNode.getScalaTraceString}"
                       }

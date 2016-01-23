@@ -1105,10 +1105,10 @@ class VhdlBackend extends Backend with VhdlBase {
       s"${emitReference(memRead.getMem)}(to_integer(${emitReference(memRead.getAddress)}))"
     }
     case whenNode: WhenNode => s"pkg_mux(${whenNode.inputs.map(emitLogic(_)).reduce(_ + "," + _)})" //Exeptional case with asyncrouns of literal
-    case dontcare: DontCareNode => {
-        dontcare.target match {
+    case dc: DontCareNode => {
+        dc.getBaseType match {
         case to : Bool => s"'-'"
-        case to : BitVector => s"(${'"'}${"-" * to.getWidth}${'"'})"
+        case to : BitVector => s"(${'"'}${"-" * dc.getWidth}${'"'})"
       }
     }
 
