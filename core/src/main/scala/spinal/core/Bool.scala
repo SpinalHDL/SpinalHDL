@@ -50,13 +50,13 @@ class Bool extends BaseType {
 
   private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,B,B)",sel,whenTrue,whenFalse)
 
-  private[core] override def isEguals(that: Data): Bool = {
+  private[core] override def isEguals(that: Any): Bool = {
     that match{
       case that : Bool => newLogicalOperator("B==B", that, InputNormalize.none,ZeroWidth.none);
       case _ => SpinalError(s"Don't know how compare $this with $that"); null
     }
   }
-  private[core] override def isNotEguals(that: Data): Bool = {
+  private[core] override def isNotEguals(that: Any): Bool = {
     that match{
       case that : Bool => newLogicalOperator("B!=B", that, InputNormalize.none,ZeroWidth.none);
       case _ => SpinalError(s"Don't know how compare $this with $that"); null

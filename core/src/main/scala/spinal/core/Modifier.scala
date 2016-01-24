@@ -133,6 +133,35 @@ object Mux {
   def apply[T <: Data](sel: Bool, whenTrue: T, whenFalse: T): T = {
     Multiplex.complexData(sel, whenTrue, whenFalse)
   }
+
+}
+
+object Sel{
+  def apply[T <: Data](default : T,mappings : (Bool,T)*) :T = seq(default,mappings)
+  def seq[T <: Data](default : T,mappings : Seq[(Bool,T)]): T ={
+    val result = default.clone
+    result := default
+    for((cond,value) <- mappings.reverseIterator){
+      when(cond){
+        result := value
+      }
+    }
+    result
+  }
+}
+
+object SpinalMap {
+  def apply[K <: Data, T <: Data](addr: K, default: T, mappings: (Any, T)*): T = list(addr,default,mappings)
+  def list[K <: Data, T <: Data](addr: K, default: T, mappings: Seq[(Any, T)]): T = {
+    val result = default.clone
+    result := default
+    for ((cond, value) <- mappings) {
+      when(addr.isEguals(cond)) {
+        result := value
+      }
+    }
+    result
+  }
 }
 
 
@@ -427,3 +456,5 @@ class MultipleAssignmentNode extends Node {
       Misc.normalizeResize(this, i, this.getWidth)
   }
 }
+
+

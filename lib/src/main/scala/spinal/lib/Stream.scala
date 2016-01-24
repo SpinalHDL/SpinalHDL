@@ -12,7 +12,9 @@ class StreamFactory extends MSFactory {
     ret
   }
 }
-object Stream extends StreamFactory
+object Stream extends StreamFactory{
+  implicit def toImplicit[T <: Data](stream: Stream[T]): T = stream.data
+}
 
 
 class EventFactory extends MSFactory {

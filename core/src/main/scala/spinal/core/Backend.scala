@@ -101,11 +101,8 @@ class Backend {
 
   //TODO implicit area base class for each base type that implement operator
   //TODO General cleaning
-  //TODO better VHDL package, less function
-  //TODO SyncNodes could return a latency per input ?
   //TODO switch case nodes in replacement of when emulation
   //TODO Union support
-  //TODO function to check if 2 clocks are drived from same signal and apply it to mem blackbox inference and cross clock checker(rd.getClockDomain.clock == wr.getClockDomain.clock)
   //TODO better Mem support (bitmask, user specifyed blackbox)
   //TODO Mux node with n inputs instead of fixed 2
   protected def elaborate[T <: Component](topLevel: T): BackendReport[T] = {

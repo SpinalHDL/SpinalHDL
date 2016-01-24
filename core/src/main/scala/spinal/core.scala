@@ -1,7 +1,8 @@
 package spinal
 
+import scala.collection.immutable.Range
 import scala.collection.mutable.ArrayBuffer
-
+import scala.language.experimental.macros
 
 package object core extends BaseTypeFactory with BaseTypeCast{
   import languageFeature._
@@ -14,13 +15,18 @@ package object core extends BaseTypeFactory with BaseTypeCast{
   implicit def BigIntToBuilder(value: BigInt) = new BigIntBuilder(value)
   implicit def DoubleToBuilder(value: Double) = new DoubleBuilder(value)
 
+  //def enum(param: Symbol*) = MacroTest.enum(param)
+  def enum(param: Symbol*): Any = macro MacroTest.enum_impl
+
+
   //implicit def EnumElementToCraft[T <: SpinalEnum](element : SpinalEnumElement[T]) : SpinalEnumCraft[T] = element()
 //  implicit def EnumElementToCraft[T <: SpinalEnum](enumDef : T) : SpinalEnumCraft[T] = enumDef.craft().asInstanceOf[SpinalEnumCraft[T]]
 //  implicit def EnumElementToCraft2[T <: SpinalEnum](enumDef : SpinalEnumElement[T]) : SpinalEnumCraft[T] = enumDef.craft().asInstanceOf[SpinalEnumCraft[T]]
 
-  case class IntBuilder(i: Int) {
+  class IntBuilder(val i: Int) extends AnyVal{
 //    def x[T <: Data](dataType : T) : Vec[T] = Vec(dataType,i)
 
+    def downto(start: Int): Range.Inclusive = Range.inclusive(start, i)
 
     def bit = new BitCount(i)
     def exp = new ExpCount(i)

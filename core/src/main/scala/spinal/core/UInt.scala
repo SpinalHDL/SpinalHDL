@@ -28,7 +28,7 @@ trait UIntCast{
 trait UIntFactory{
   def UInt() = new UInt()
 //  def UInt(width : Int): UInt = UInt.setWidth(width)
-  def UInt(width: BitCount): UInt = UInt.setWidth(width.value)
+  def UInt(width: BitCount): UInt = UInt().setWidth(width.value)
 }
 
 class UInt extends BitVector with Num[UInt] with MinMaxProvider {
@@ -56,8 +56,8 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider {
 
   def ===(that : UInt) : Bool = this.isEguals(that)
   def =/=(that : UInt) : Bool = this.isNotEguals(that)
-  def ===(that : MaskedLiteral) : Bool = that === this
-  def =/=(that : MaskedLiteral) : Bool = that =/= this
+  def ===(that : MaskedLiteral) : Bool = this.isEguals(that)
+  def =/=(that : MaskedLiteral) : Bool = this.isNotEguals(that)
 
   override def +(that: UInt): UInt = newBinaryOperator("u+u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,ZeroWidth.binaryTakeOther);
   override def -(that: UInt): UInt = newBinaryOperator("u-u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,ZeroWidth.binaryMinus(U.apply));
@@ -80,15 +80,17 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider {
   def <<(that: UInt): UInt = newBinaryOperator("u<<u", that, WidthInfer.shiftLeftWidth, InputNormalize.none,ZeroWidth.shiftLeftImpl(U.apply));
 
   private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,u,u)", sel, whenTrue, whenFalse)
-  private[core] override def isEguals(that: Data): Bool = {
+  private[core] override def isEguals(that: Any): Bool = {
     that match {
       case that: UInt => newLogicalOperator("u==u", that, InputNormalize.inputWidthMax,ZeroWidth.binaryThatIfBoth(True));
+      case that : MaskedLiteral => that === this
       case _ => SpinalError(s"Don't know how compare $this with $that"); null
     }
   }
-  private[core] override def isNotEguals(that: Data): Bool = {
+  private[core] override def isNotEguals(that: Any): Bool = {
     that match {
       case that: UInt => newLogicalOperator("u!=u", that, InputNormalize.inputWidthMax,ZeroWidth.binaryThatIfBoth(False));
+      case that : MaskedLiteral => that === this
       case _ => SpinalError(s"Don't know how compare $this with $that"); null
     }
   }

@@ -45,15 +45,17 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T) extends BaseType {
   def !==(that: SpinalEnumElement[T]): Bool = this =/= that
 
 
-  override def isEguals(that: Data): Bool = {
+  override def isEguals(that: Any): Bool = {
     that match{
       case that : SpinalEnumCraft[_] if that.blueprint == blueprint =>  newLogicalOperator("e==e", that, InputNormalize.none,ZeroWidth.none);
+      case that : SpinalEnumElement[_] if that.parent == blueprint =>  newLogicalOperator("e==e", that(), InputNormalize.none,ZeroWidth.none);
       case _ => SpinalError("Uncompatible test")
     }
   }
-  override def isNotEguals(that: Data): Bool = {
+  override def isNotEguals(that: Any): Bool = {
     that match{
       case that : SpinalEnumCraft[_] if that.blueprint == blueprint =>  newLogicalOperator("e!=e", that, InputNormalize.none,ZeroWidth.none);
+      case that :SpinalEnumElement[_] if that.parent == blueprint => newLogicalOperator("e!=e", that(), InputNormalize.none,ZeroWidth.none);
       case _ => SpinalError("Uncompatible test")
     }
   }
@@ -101,8 +103,8 @@ class SpinalEnumElement[T <: SpinalEnum](val parent: T, val id: BigInt) extends 
   def ===(that: SpinalEnumCraft[T]): Bool = {
     that === this
   }
-  def !=(that: SpinalEnumCraft[T]): Bool = {
-    that !== this
+  def =/=(that: SpinalEnumCraft[T]): Bool = {
+    that =/= this
   }
 
   def apply() : SpinalEnumCraft[T] = craft()
@@ -119,6 +121,9 @@ class SpinalEnumElement[T <: SpinalEnum](val parent: T, val id: BigInt) extends 
 trait SpinalEnumEncoding{
   
 }
+
+object oneHot extends SpinalEnumEncoding
+object sequancial extends SpinalEnumEncoding
 
 class SpinalEnum(defaultEncoding : SpinalEnumEncoding = null) extends Nameable {
   def apply() = craft

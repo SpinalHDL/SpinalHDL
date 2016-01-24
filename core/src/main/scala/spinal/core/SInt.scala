@@ -39,8 +39,8 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider {
 
   def ===(that : SInt) : Bool = this.isEguals(that)
   def =/=(that : SInt) : Bool = this.isNotEguals(that)
-  def ===(that : MaskedLiteral) : Bool = that === this
-  def =/=(that : MaskedLiteral) : Bool = that =/= this
+  def ===(that : MaskedLiteral) : Bool = this.isEguals(that)
+  def =/=(that : MaskedLiteral) : Bool = this.isNotEguals(that)
 
   override def +(that: SInt): SInt = newBinaryOperator("s+s", that, WidthInfer.inputMaxWidth,InputNormalize.nodeWidth,ZeroWidth.binaryTakeOther);
   override def -(that: SInt): SInt = newBinaryOperator("s-s", that, WidthInfer.inputMaxWidth,InputNormalize.nodeWidth,ZeroWidth.binaryMinus(S.apply));
@@ -67,15 +67,17 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider {
 
 
   private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,s,s)",sel,whenTrue,whenFalse)
-  private[core] override def isEguals(that: Data): Bool = {
+  private[core] override def isEguals(that: Any): Bool = {
     that match {
       case that: UInt => newLogicalOperator("s==s", that, InputNormalize.inputWidthMax,ZeroWidth.binaryThatIfBoth(True));
+      case that : MaskedLiteral => that === this
       case _ => SpinalError(s"Don't know how compare $this with $that"); null
     }
   }
-  private[core] override def isNotEguals(that: Data): Bool = {
+  private[core] override def isNotEguals(that: Any): Bool = {
     that match {
       case that: UInt => newLogicalOperator("s!=s", that, InputNormalize.inputWidthMax,ZeroWidth.binaryThatIfBoth(False));
+      case that : MaskedLiteral => that =/= this
       case _ => SpinalError(s"Don't know how compare $this with $that"); null
     }
   }

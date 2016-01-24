@@ -139,6 +139,7 @@ abstract class BitVector extends BaseType {
   def apply(offset: Int, bitCount: BitCount): this.type = this.apply(bitCount.value + offset - 1, offset)
   def apply(offset: UInt, bitCount: BitCount): this.type =  this.extract(offset,bitCount)
   def apply(hi: Int, lo: Int): this.type = this.extract(hi,lo)
+  def apply(range: Range): this.type = this.extract(range.last,range.head)
 
 
 

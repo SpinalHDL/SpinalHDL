@@ -157,7 +157,7 @@ trait Nameable {
   private[core] def getNameElseThrow: String = name
   def setCompositeName(nameable: Nameable) = {
     compositeName = nameable
-    name == ""
+    name = ""
     isWeak = true
   }
   def setWeakName(name: String) = setName(name, true)

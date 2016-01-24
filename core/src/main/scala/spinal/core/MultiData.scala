@@ -132,7 +132,7 @@ abstract class MultiData extends Data {
 
   }
 
-  private[core] def isEguals(that: Data): Bool = {
+  private[core] def isEguals(that: Any): Bool = {
     that match {
       case that: MultiData => {
         zippedMap(that, _ === _).reduce(_ && _)
@@ -142,7 +142,7 @@ abstract class MultiData extends Data {
   }
 
 
-  private[core] def isNotEguals(that: Data): Bool = {
+  private[core] def isNotEguals(that: Any): Bool = {
     that match {
       case that: MultiData => {
         zippedMap(that, _ =/= _).reduce(_ || _)

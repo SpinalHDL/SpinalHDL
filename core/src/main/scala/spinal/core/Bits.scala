@@ -40,8 +40,8 @@ class Bits extends BitVector {
 
   def ===(that : Bits) : Bool = this.isEguals(that)
   def =/=(that : Bits) : Bool = this.isNotEguals(that)
-  def ===(that : MaskedLiteral) : Bool = that === this
-  def =/=(that : MaskedLiteral) : Bool = that =/= this
+  def ===(that : MaskedLiteral) : Bool = this.isEguals(that)
+  def =/=(that : MaskedLiteral) : Bool = this.isNotEguals(that)
 
   def ##(right: Bits): Bits = newBinaryOperator("b##b", right, WidthInfer.cumulateInputWidth, InputNormalize.none,ZeroWidth.binaryTakeOther)
 
@@ -71,15 +71,17 @@ class Bits extends BitVector {
   override def assignFromBits(bits: Bits): Unit = this := bits
   override def assignFromBits(bits: Bits,hi : Int,lo : Int): Unit = this(hi,lo).assignFromBits(bits)
 
-  private[core] override def isEguals(that: Data): Bool = {
+  private[core] override def isEguals(that: Any): Bool = {
     that match {
       case that: Bits => newLogicalOperator("b==b", that, InputNormalize.inputWidthMax,ZeroWidth.binaryThatIfBoth(True));
+      case that : MaskedLiteral => that === this
       case _ => SpinalError(s"Don't know how compare $this with $that"); null
     }
   }
-  private[core] override def isNotEguals(that: Data): Bool = {
+  private[core] override def isNotEguals(that: Any): Bool = {
     that match {
       case that: Bits => newLogicalOperator("b!=b", that, InputNormalize.inputWidthMax,ZeroWidth.binaryThatIfBoth(False));
+      case that : MaskedLiteral => that === this
       case _ => SpinalError(s"Don't know how compare $this with $that"); null
     }
   }

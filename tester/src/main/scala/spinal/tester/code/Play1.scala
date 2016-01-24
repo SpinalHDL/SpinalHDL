@@ -674,7 +674,9 @@ object PlayApb {
 //}
 
 object PlayEnum {
-
+  object MyEnum extends SpinalEnum  {
+    val s0,s1,s2,s3,s4,s5,s6,s7,s8,s9 = ordered()
+  }
 
   class TopLevel extends Component {
     object MyEnum extends SpinalEnum{
@@ -1324,6 +1326,9 @@ object PlayLiteral{
       B"8'hC",
       B"8'd12"
     ))
+
+    val output2 = out(U(1 -> True,0 -> False,(1 to 3) -> U"00"))
+    //  output2(1,0) := U"00"
   }
 
   def main(args: Array[String]) {
@@ -1331,6 +1336,77 @@ object PlayLiteral{
     println("Done")
   }
 }
+
+
+object PlaySel{
+  class TopLevel extends Component{
+    val a,b,c = in(UInt(4 bit))
+
+    val output = out(Sel(U"0000",
+      (a > U"1000") -> a,
+      (a > U"1100") -> b,
+      (a > U"1010") -> c)
+    )
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+    println("Done")
+  }
+}
+
+object PlayArea{
+  class TopLevel extends Component{
+
+    val outputX = out(new UInt with Area{
+      val tmp = B"11"
+      this.assignFromBits(tmp)
+      this + U"11"
+    })
+//
+//    val output2 = U"00"
+//    output2 := output + 1
+
+    val outputLogic = new Area{
+      val tmp = U"11"
+      implicit def transform = tmp
+    }
+
+    val output2 = U"00"
+    output2 := outputLogic.tmp + U(12)
+
+
+
+    val a = Counter(2)
+    val b = a.value + U(2)
+    val c = a === 2
+//    val out2 = out(U"11")
+//    out2 := output
+//    def logicDef() = {
+//      val ret = U"10"
+//      val logic = new Nameable {
+//          val tmp = U"00"
+//          this.setCompositeName(ret)
+//        }
+//      ret := logic.tmp
+//      ret
+//    }
+//    val logic = new Nameable {
+//      val tmp = U"00"
+//  tmp.setCompositeName(this)
+//    }
+//    val logic = logicDef()
+//    val output = U"11".asOutput()
+//    output := logic
+  }
+
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+    println("Done")
+  }
+}
+
 object PlayScala{
   class Entry(val value : Int = (Math.random()*100000).toInt);
   def main(args: Array[String]): Unit = {
