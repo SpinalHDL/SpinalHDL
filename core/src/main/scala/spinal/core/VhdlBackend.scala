@@ -1369,20 +1369,20 @@ class VhdlBackend extends Backend with VhdlBase {
 
       for (when <- this.when.values.toList.sortWith(_.instanceCounter < _.instanceCounter)) {
         //Uncomment this block if you want minimalisting and no empty if condition
-        /*
+
         def doTrue = when.whenTrue.isNotEmpty
         def doFalse = when.whenFalse.isNotEmpty
 
-        if (!doTrue && doFalse) {
+        /*if (!doTrue && doFalse) {
           ret ++= s"${firstTab}if ${emitLogic(when.cond)} = '0'  then\n"
           when.whenFalse.emitContext(ret, tab + "  ", assignementKind)
           ret ++= s"${tab}end if;\n"
 
-        } else if (doTrue && !doFalse) {
+        } else */if (doTrue && !doFalse) {
           ret ++= s"${firstTab}if ${emitLogic(when.cond)} = '1' then\n"
           when.whenTrue.emitContext(ret, tab + "  ", assignementKind)
           ret ++= s"${tab}end if;\n"
-        } else if (doTrue && doFalse)*/ {
+        } else /*if (doTrue && doFalse)*/ {
           ret ++= s"${firstTab}if ${emitLogic(when.cond)} = '1' then\n"
           when.whenTrue.emitContext(ret, tab + "  ", assignementKind)
           if(when.whenFalse.logicChunk.isEmpty && when.whenFalse.when.size == 1 && when.whenFalse.when.head._1.parentElseWhen != null){
