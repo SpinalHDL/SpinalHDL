@@ -407,7 +407,7 @@ class Backend {
       })
       for (e <- enumDef.values) {
         if (e.isUnnamed) {
-          e.setWeakName("s" + e.id)
+          e.setWeakName("s" + e.position)
         }
       }
       if (enumDef.isWeak) {

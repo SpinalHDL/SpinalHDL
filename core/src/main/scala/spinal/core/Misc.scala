@@ -88,7 +88,7 @@ object Misc {
   addReflectionExclusion(new SInt)
   addReflectionExclusion(new Generic)
   addReflectionExclusion(new SpinalEnum)
-  addReflectionExclusion(new SpinalEnumCraft(null))
+  addReflectionExclusion(new SpinalEnumCraft(null,null))
 
 
   //XXXX find if there is a solution to keep declaration order in every case, then remove fix from component.nameElements

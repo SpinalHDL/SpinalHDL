@@ -19,21 +19,23 @@
 package spinal.core
 
 import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
 
 
 class EnumLiteral[T <: SpinalEnum](val enum: SpinalEnumElement[T]) extends Literal {
-  override def calcWidth: Int = enum.parent.getWidth
+  override def calcWidth: Int = ??? //TODO
 
   override def clone : this.type = new EnumLiteral(enum).asInstanceOf[this.type]
 
   private[core] override def getBitsStringOn(bitCount: Int): String = {
-    assert(bitCount == enum.parent.getWidth)
-    val str = enum.id.toString(2)
-    return "0" * (bitCount - str.length) + str
+    ???
+//    assert(bitCount == enum.parent.getWidth)
+//    val str = enum.id.toString(2)
+//    return "0" * (bitCount - str.length) + str
   }
 }
 
-class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T) extends BaseType {
+class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T,encoding: SpinalEnumEncoding) extends BaseType {
 
   private[core] def assertSameType(than: SpinalEnumCraft[_]): Unit = if (blueprint != than.blueprint) SpinalError("Enum is assigned by a incompatible enum")
 
@@ -69,9 +71,9 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T) extends BaseType {
     assignFromBits(bits)
   }
 
-  override def calcWidth: Int = blueprint.getWidth
+  override def calcWidth: Int = encoding.getWidth(blueprint)
   override def clone: this.type = {
-    val res = new SpinalEnumCraft(blueprint).asInstanceOf[this.type]
+    val res = new SpinalEnumCraft(blueprint,encoding).asInstanceOf[this.type]
    // res.dir = this.dir
     res
   }
@@ -88,18 +90,11 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T) extends BaseType {
     ret.assignFromBits(B(0))
     ret
   }
-  private[core] override def weakClone: this.type = new SpinalEnumCraft(blueprint).asInstanceOf[this.type]
+  private[core] override def weakClone: this.type = new SpinalEnumCraft(blueprint,encoding).asInstanceOf[this.type]
 }
 
 
-//object SpinalEnumElement{
-//  implicit def EnumElementToCraft[T <: SpinalEnum](element : SpinalEnumElement[T]) : SpinalEnumCraft[T] = element()
-//}
-
-class SpinalEnumElement[T <: SpinalEnum](val parent: T, val id: BigInt) extends Nameable {
-
-
-
+class SpinalEnumElement[T <: SpinalEnum](val parent: T, val position: Int) extends Nameable {
   def ===(that: SpinalEnumCraft[T]): Bool = {
     that === this
   }
@@ -115,47 +110,42 @@ class SpinalEnumElement[T <: SpinalEnum](val parent: T, val id: BigInt) extends 
   }
 
   def toBits: Bits = new Bits().castFrom("e->b", craft)
-  def getWidth = parent.getWidth
 }
 
 trait SpinalEnumEncoding{
-  
+  def getWidth(enum : SpinalEnum) : Int
+  def getValue(element: SpinalEnumElement) : BigInt
+}
+0
+object sequancial extends SpinalEnumEncoding{
+  override def getWidth(enum: SpinalEnum): Int = enum.values.length
+  def getValue(element: SpinalEnumElement) : BigInt = {
+    return element.position
+  }
 }
 
-object oneHot extends SpinalEnumEncoding
-object sequancial extends SpinalEnumEncoding
+object oneHot extends SpinalEnumEncoding{
+  override def getWidth(enum: SpinalEnum): Int = enum.values.length
+  def getValue(element: SpinalEnumElement) : BigInt = {
+    return BigInt(1) << element.position
+  }
+}
+
 
 class SpinalEnum(defaultEncoding : SpinalEnumEncoding = null) extends Nameable {
   def apply() = craft
 
-  private[core]  val idMap = new mutable.HashMap[BigInt, SpinalEnumElement[this.type]]()
 
+  def values = ArrayBuffer[SpinalEnumElement[this.type]]()
 
-  private[core] var nextInt: BigInt = 0
-  private[core] def getNextInt: BigInt = {
-    val i = nextInt
-    nextInt = nextInt + 1
-    if (idMap.contains(nextInt)) getNextInt else i
-  }
-
-  def values = idMap.values
-
-  @deprecated
-  def Value(): SpinalEnumElement[this.type] = Value(getNextInt, null)
-  @deprecated
-  def Value(id: BigInt): SpinalEnumElement[this.type] = Value(id, null)
-  def Value(name: String): SpinalEnumElement[this.type] = Value(getNextInt, name)
-  def Value(id: BigInt, name: String): SpinalEnumElement[this.type] = {
-    if (idMap.contains(id)) SpinalError("Spinal enumeration already contain this unique id")
-    val v = new SpinalEnumElement(this, id).asInstanceOf[SpinalEnumElement[this.type]]
+  def Value(name: String): SpinalEnumElement[this.type] = {
+    val v = new SpinalEnumElement(this,values.size).asInstanceOf[SpinalEnumElement[this.type]]
     if (name != null) v.setName(name)
-    idMap += id -> v
+    values += v
     v
   }
 
-  def ordered() : SpinalEnumElement[this.type] = Value(getNextInt, null)
-  def fix(id : BigInt) : SpinalEnumElement[this.type] = Value(id, null)
+  def ordered() : SpinalEnumElement[this.type] = Value(null)
 
-  def getWidth = log2Up(values.foldLeft(BigInt(0))((v, n) => v.max(n.id)) + 1)
-  def craft(): SpinalEnumCraft[this.type] = new SpinalEnumCraft[this.type](this)
+  def craft(): SpinalEnumCraft[this.type] = new SpinalEnumCraft[this.type](this,defaultEncoding)
 }
