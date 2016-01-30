@@ -44,7 +44,7 @@ class Backend {
   val globalScope = new Scope()
   val reservedKeyWords = mutable.Set[String]()
   var topLevel: Component = null
-  val enums = mutable.Set[SpinalEnum]()
+  val enums = mutable.Map[SpinalEnum,mutable.Set[SpinalEnumEncoding]]()
   var forceMemToBlackboxTranslation = false
   var jsonReportPath = ""
   var defaultClockDomainFrequancy : IClockDomainFrequency = UnknownFrequency()
@@ -393,12 +393,12 @@ class Backend {
   def collectAndNameEnum(): Unit = {
     Node.walk(walkNodesDefautStack,node => {
       node match {
-        case enum: SpinalEnumCraft[_] => enums += enum.blueprint
+        case enum: SpinalEnumCraft[_] => enums.getOrElseUpdate(enum.blueprint,mutable.Set[SpinalEnumEncoding]()).add(enum.encoding)
         case _ =>
       }
     })
 
-    for (enumDef <- enums) {
+    for (enumDef <- enums.keys) {
       Misc.reflect(enumDef, (name, obj) => {
         obj match {
           case obj: Nameable => obj.setWeakName(name)
@@ -557,7 +557,7 @@ class Backend {
   }
 
   def allocateNames() = {
-    for (enumDef <- enums) {
+    for (enumDef <- enums.keys) {
       if (enumDef.isWeak)
         enumDef.setName(globalScope.allocateName(enumDef.getName()));
       else

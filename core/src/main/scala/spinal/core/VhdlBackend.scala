@@ -129,7 +129,17 @@ class VhdlBackend extends Backend with VhdlBase {
     }
   }
 
+  def getReEncodingFuntion(spinalEnum: SpinalEnum,source : SpinalEnumEncoding,target : SpinalEnumEncoding): String ={
+    s"${spinalEnum.getName()}_${source.getName()}_to_${target.getName()}"
+  }
+  def getEnumToDebugFuntion(spinalEnum: SpinalEnum,source : SpinalEnumEncoding): String ={
+    s"${spinalEnum.getName()}_${source.getName()}_to_debug"
+  }
 
+  def getEnumDebugType(spinalEnum: SpinalEnum): String ={
+    s"${spinalEnum.getName()}_debug"
+  }
+  //TODO enum
   def emitEnumPackage(out: java.io.FileWriter): Unit = {
     val ret = new StringBuilder();
     ret ++= s"""library IEEE;
@@ -139,21 +149,46 @@ class VhdlBackend extends Backend with VhdlBase {
                |
                |package $enumPackageName is
                                           |""".stripMargin
-    for (enumDef <- enums) {
-      ret ++= s"  type ${enumDef.getName()} is (${enumDef.values.toList.sortWith(_.id < _.id).map(_.getName()).reduceLeft(_ + "," + _)});\n"
+    for (enumDef <- enums.keys) {
+      ret ++= s"  type ${enumDef.getName()} is (${enumDef.values.map(_.getName()).reduce(_ + "," + _)});\n"
+      ret ++= s"  type ${getEnumDebugType(enumDef)} is (${enumDef.values.foldLeft("XXX")((str,e) => str + "," + e.getName())});\n"
     }
 
-    for (enumDef <- enums) {
+    ret ++= "\n"
+    for ((enumDef,encodings) <- enums) {
       val enumName = enumDef.getName()
       ret ++= s"  function pkg_mux (sel : std_logic;one : $enumName;zero : $enumName) return $enumName;\n"
-      ret ++= s"  function pkg_toStdLogicVector (value : $enumName) return std_logic_vector;\n"
-      ret ++= s"  function pkg_to$enumName (value : std_logic_vector) return $enumName;\n"
+      //ret ++= s"  function pkg_toStdLogicVector (value : $enumName) return std_logic_vector;\n"
+      //ret ++= s"  function pkg_to$enumName (value : std_logic_vector) return $enumName;\n"
+      for(encoding <- encodings) {
+        val encodingName = encoding.getName()
+        val bitCount = encoding.getWidth(enumDef)
+        val vhdlEnumType = emitEnumType(enumDef,encoding)
+        ret ++= s"  subtype $vhdlEnumType is std_logic_vector(${bitCount-1} downto 0);\n"
+        for(element <- enumDef.values) {
+          ret ++= s"  constant ${emitEnumLiteral(element,encoding)} : $vhdlEnumType := ${idToBits(element,encoding)};\n"
+        }
+        ret ++= "\n"
+        //ret ++= s"  function pkg_to${enumName}_debug (value : std_logic_vector) return $enumName;\n"
+      }
+      for(encoding <- encodings) {
+        ret ++= s"  function ${getEnumToDebugFuntion(enumDef,encoding)} (that : ${emitEnumType(enumDef,encoding)}) return ${getEnumDebugType(enumDef)};\n"
+
+        for(targetEncoding <- encodings if targetEncoding != encoding) {
+          ret ++= s"  function ${getReEncodingFuntion(enumDef,encoding,targetEncoding)} (that : ${emitEnumType(enumDef,encoding)}) return ${emitEnumType(enumDef,targetEncoding)};\n"
+        }
+      }
+    }
+
+    def idToBits[T <: SpinalEnum](enum: SpinalEnumElement[T],encoding: SpinalEnumEncoding): String = {
+      val str = encoding.getValue(enum).toString(2)
+      "\"" + ("0" * (encoding.getWidth(enum.parent) - str.length)) + str + "\""
     }
 
     ret ++= s"end $enumPackageName;\n\n"
     if (enums.size != 0) {
       ret ++= s"package body $enumPackageName is\n"
-      for (enumDef <- enums) {
+      for ((enumDef,encodings) <- enums) {
         val enumName = enumDef.getName()
         ret ++= s"  function pkg_mux (sel : std_logic;one : $enumName;zero : $enumName) return $enumName is\n"
         ret ++= "  begin\n"
@@ -164,7 +199,7 @@ class VhdlBackend extends Backend with VhdlBase {
         ret ++= "    end if;\n"
         ret ++= "  end pkg_mux;\n\n"
 
-
+/*
         ret ++= s"  function pkg_toStdLogicVector (value : $enumName) return std_logic_vector is\n"
         ret ++= "  begin\n"
         ret ++= "    case value is \n"
@@ -185,11 +220,32 @@ class VhdlBackend extends Backend with VhdlBase {
         ret ++= "    end case;\n"
         ret ++= s"  end pkg_to$enumName;\n\n"
 
+*/
+        for(encoding <- encodings) {
 
-        def idToBits(enum: SpinalEnumElement[_]): String = {
-          val str = enum.id.toString(2)
-          "\"" + ("0" * (enum.getWidth - str.length)) + str + "\""
+          ret ++=
+            s"""  function ${getEnumToDebugFuntion(enumDef,encoding)} (that : ${emitEnumType(enumDef,encoding)}) return ${getEnumDebugType(enumDef)} is
+               |  begin
+               |    case that is
+               |${{for (e <- enumDef.values) yield s"      when ${emitEnumLiteral(e,encoding)} => return ${e.getName()};"}.reduce(_ + "\n" + _)}
+               |      when others => return XXX;
+               |    end case;
+               |  end;
+             """.stripMargin
 
+
+
+          for (targetEncoding <- encodings if targetEncoding != encoding) {
+            ret ++= s"  function ${getReEncodingFuntion(enumDef, encoding, targetEncoding)} (that : ${emitEnumType(enumDef, encoding)}) return ${emitEnumType(enumDef, targetEncoding)} is\n"
+            ret ++= "  begin\n"
+            ret ++= "    case that is \n"
+            for (e <- enumDef.values) {
+              ret ++= s"      when ${emitEnumLiteral(e,encoding)} => return ${emitEnumLiteral(e,targetEncoding)};\n"
+            }
+            ret ++= s"      when others => return ${emitEnumLiteral(enumDef.values.head,targetEncoding)};\n"
+            ret ++= "    end case;\n"
+            ret ++= "  end;\n\n"
+          }
         }
       }
       ret ++= s"end $enumPackageName;\n\n\n"
@@ -565,12 +621,14 @@ class VhdlBackend extends Backend with VhdlBase {
     ret = builder.newPart(true)
     emitBlackBoxComponents(component, ret)
     emitAttributesDef(component, ret)
-    emitSignals(component, ret)
+    val enumDebugSignals = ArrayBuffer[SpinalEnumCraft[_]]()
+    emitSignals(component, ret,enumDebugSignals)
     val retTemp = new StringBuilder
     retTemp ++= s"begin\n"
     emitComponentInstances(component, retTemp)
     emitAsyncronous(component, retTemp, ret)
     emitSyncronous(component, retTemp)
+    emitDebug(component,retTemp,enumDebugSignals)
     retTemp ++= s"end arch;\n"
     retTemp ++= s"\n"
 
@@ -659,7 +717,9 @@ class VhdlBackend extends Backend with VhdlBase {
     ret ++= "\n"
   }
 
-  def emitSignals(component: Component, ret: StringBuilder): Unit = {
+  def toSpinalEnumCraft[T <: SpinalEnum](that : Any) = that.asInstanceOf[SpinalEnumCraft[T]]
+
+  def emitSignals(component: Component, ret: StringBuilder,enumDebugSignals : ArrayBuffer[SpinalEnumCraft[_]]): Unit = {
     for (node <- component.nodes) {
       node match {
         case signal: BaseType => {
@@ -677,11 +737,15 @@ class VhdlBackend extends Backend with VhdlBase {
                 case e: SpinalEnumCraft[_] => {
                   val vec = e.blueprint.values.toVector
                   val rand = vec(Random.nextInt(vec.size))
-                  ret ++= " := " + rand.getName()
+                  ret ++= " := " + emitEnumLiteral(rand,e.encoding)
                 }
               }
             }
             ret ++= ";\n"
+            if(signal.isInstanceOf[SpinalEnumCraft[_]]){
+              ret ++= s"  signal ${emitReference(signal)}_debug : ${getEnumDebugType(toSpinalEnumCraft(signal).blueprint)};\n"
+              enumDebugSignals += toSpinalEnumCraft(signal)
+            }
           }
 
 
@@ -924,9 +988,30 @@ class VhdlBackend extends Backend with VhdlBase {
     s"$vhd(${func.inputs.map(emitLogic(_)).reduce(_ + "," + _)})"
   }
 
+  def enumEgualsImpl(eguals : Boolean)(op: Modifier): String = {
+    val (enumDef,encoding) = op.inputs(0) match{
+      case craft : SpinalEnumCraft[_] => (craft.blueprint,craft.encoding)
+      case literal : EnumLiteral[_]  => (literal.enum.parent,literal.encoding)
+    }
+    encoding match {
+      case `oneHot` => s"pkg_toStdLogic((${emitLogic(op.inputs(0))} and ${emitLogic(op.inputs(1))}) ${if(eguals) "=" else "/="} ${'"' + "0" * op.inputs(0).getWidth + '"'})"
+      case _ => s"pkg_toStdLogic(${emitLogic(op.inputs(0))} ${if(eguals) "=" else "/="} ${emitLogic(op.inputs(1))})"
+    }
+  }
+
+  //TODO enum
   def operatorImplAsBitsToEnum(func: Modifier): String = {
     val enumCast = func.asInstanceOf[EnumCast]
+//    val (enumDef,encoding) = enumCast.inputs(0) match{
+//      case craft : SpinalEnumCraft[_] => (craft.blueprint,craft.encoding)
+//      case literal : EnumLiteral[_]  => (literal.enum.parent,literal.encoding)
+//    }
+
     s"pkg_to${enumCast.enum.getParentName}(${func.inputs.map(emitLogic(_)).reduce(_ + "," + _)})"
+  }
+  def operatorImplAsEnumToEnum(func: Modifier): String = {
+    val enumCast = func.asInstanceOf[EnumCast]
+    s"${getReEncodingFuntion(enumCast.enum.blueprint.asInstanceOf[SpinalEnum], enumCast.inputs(0).asInstanceOf[SpinalEnumCraft[_]].encoding, enumCast.enum.encoding)}(${func.inputs.map(emitLogic(_)).reduce(_ + "," + _)})"
   }
 
   val modifierImplMap = mutable.Map[String, Modifier => String]()
@@ -1009,8 +1094,8 @@ class VhdlBackend extends Backend with VhdlBase {
 
 
   //enum
-  modifierImplMap.put("e==e", operatorImplAsOperator("="))
-  modifierImplMap.put("e!=e", operatorImplAsOperator("/="))
+  modifierImplMap.put("e==e", enumEgualsImpl(true))
+  modifierImplMap.put("e!=e", enumEgualsImpl(false))
 
   //cast
   modifierImplMap.put("s->b", operatorImplAsFunction("std_logic_vector"))
@@ -1025,6 +1110,7 @@ class VhdlBackend extends Backend with VhdlBase {
   modifierImplMap.put("s->u", operatorImplAsFunction("unsigned"))
 
   modifierImplMap.put("b->e", operatorImplAsBitsToEnum)
+  modifierImplMap.put("e->e", operatorImplAsEnumToEnum)
 
 
   //misc
@@ -1099,7 +1185,7 @@ class VhdlBackend extends Backend with VhdlBase {
     }
     case lit: IntLiteral => lit.value.toString(10)
     case lit: BoolLiteral => s"pkg_toStdLogic(${lit.value})"
-    case lit: EnumLiteral[_] => lit.enum.getName()
+    case lit: EnumLiteral[_] => emitEnumLiteral(lit.enum,lit.encoding)
     case memRead: MemReadAsync => {
       if (memRead.writeToReadKind == dontCare) SpinalWarning(s"memReadAsync with dontCare is as writeFirst into VHDL")
       s"${emitReference(memRead.getMem)}(to_integer(${emitReference(memRead.getAddress)}))"
@@ -1115,6 +1201,11 @@ class VhdlBackend extends Backend with VhdlBase {
     case o => throw new Exception("Don't know how emit logic of " + o.getClass.getSimpleName)
   }
 
+  def emitDebug(component: Component, ret: StringBuilder,enumDebugSignals : ArrayBuffer[SpinalEnumCraft[_]]): Unit = {
+    for(signal <- enumDebugSignals){
+      ret ++= s"  ${emitReference(signal)}_debug <= ${getEnumToDebugFuntion(toSpinalEnumCraft(signal).blueprint,signal.encoding)}(${emitReference(signal)});\n"
+    }
+  }
 
   def emitSyncronous(component: Component, ret: StringBuilder): Unit = {
     val syncNodes = component.getDelays

@@ -679,16 +679,30 @@ object PlayEnum {
   }
 
   class TopLevel extends Component {
-    object MyEnum extends SpinalEnum{
+    object MyEnum extends SpinalEnum(oneHot){
       val s0,s1,s2,s3,s4,s5,s6,s7,s8,s9 = ordered()
     }
 
+//    val input = in(MyEnum())
+//    val output = out(MyEnum(oneHot))
+//    val tmp = MyEnum()
+//    tmp := MyEnum.s3
+//    when(input === MyEnum.s4){
+//      tmp := MyEnum.s7
+//    }
+//    output := tmp
+    val cond = in Bool()
     val input = in(MyEnum())
-    val output = out(MyEnum())
-    val tmp = input.toBits
-    output := Delay(input,10)
-  //  output.assignFromBits(tmp)
-
+    val output = out(MyEnum(sequancial))
+    val tmp = MyEnum()
+    tmp := MyEnum.s3
+    when(input === MyEnum.s4){
+      tmp := MyEnum.s7
+    }
+    when(input === MyEnum.s5){
+      tmp := Mux(cond,MyEnum.s6(),MyEnum.s8())
+    }
+    output := tmp
   }
 
   def main(args: Array[String]): Unit = {
@@ -696,6 +710,22 @@ object PlayEnum {
   }
 }
 
+
+object PlayStream {
+
+  case class Struct() extends Bundle{
+    val data = UInt(5 bit)
+  }
+  class TopLevel extends Component {
+    val cmd = master Stream(Struct())
+    cmd.valid := True
+    cmd.data.data := 1
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
 
 object PlayDefault {
 
@@ -1329,6 +1359,20 @@ object PlayLiteral{
 
     val output2 = out(U(1 -> True,0 -> False,(1 to 3) -> U"00"))
     //  output2(1,0) := U"00"
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+    println("Done")
+  }
+}
+
+object PlayMaskAssign{
+  class TopLevel extends Component{
+    val input = in(UInt(4 bit))
+    val output = out(UInt(4 bit))
+    output(3,2) := input(1,0)
+    output(1,0) := input(3,2)
   }
 
   def main(args: Array[String]) {
