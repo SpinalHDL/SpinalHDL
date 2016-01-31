@@ -129,8 +129,16 @@ trait SpinalEnumEncoding extends Nameable{
   def getWidth(enum : SpinalEnum) : Int
   def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]) : BigInt
 }
-trait NativeEnumEncoding extends SpinalEnumEncoding
-
+//trait NativeEnumEncoding extends SpinalEnumEncoding
+//object native extends NativeEnumEncoding{
+//  override def getWidth(enum: SpinalEnum): Int = log2Up(enum.values.length)
+//  def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]) : BigInt = {
+//    return element.position
+//  }
+//
+//  setWeakName("native")
+//}
+//
 object sequancial extends SpinalEnumEncoding{
   override def getWidth(enum: SpinalEnum): Int = log2Up(enum.values.length)
   def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]) : BigInt = {
@@ -140,14 +148,6 @@ object sequancial extends SpinalEnumEncoding{
   setWeakName("sequancial")
 }
 
-object native extends NativeEnumEncoding{
-  override def getWidth(enum: SpinalEnum): Int = log2Up(enum.values.length)
-  def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]) : BigInt = {
-    return element.position
-  }
-
-  setWeakName("native")
-}
 
 
 object oneHot extends SpinalEnumEncoding{
@@ -160,22 +160,21 @@ object oneHot extends SpinalEnumEncoding{
 }
 
 
-class SpinalEnum(val defaultEncoding : SpinalEnumEncoding = native) extends Nameable {
+
+class SpinalEnum(val defaultEncoding : SpinalEnumEncoding = oneHot) extends Nameable {
   def apply() = craft
   def apply(encoding: SpinalEnumEncoding) = craft(encoding)
 
 
   val values = ArrayBuffer[SpinalEnumElement[this.type]]()
 
-  def Value() : SpinalEnumElement[this.type] = Value(null)
-  def Value(name: String): SpinalEnumElement[this.type] = {
+  def newElement() : SpinalEnumElement[this.type] = newElement(null)
+  def newElement(name: String): SpinalEnumElement[this.type] = {
     val v = new SpinalEnumElement(this,values.size).asInstanceOf[SpinalEnumElement[this.type]]
     if (name != null) v.setName(name)
     values += v
     v
   }
-
-  def ordered() : SpinalEnumElement[this.type] = Value(null)
 
   def craft(enumEncoding: SpinalEnumEncoding): SpinalEnumCraft[this.type] = new SpinalEnumCraft[this.type](this,enumEncoding)
   def craft(): SpinalEnumCraft[this.type] = craft(defaultEncoding)

@@ -13,7 +13,7 @@ object SerialCheckerConst {
 }
 
 object SerialCheckerTxState extends SpinalEnum {
-  val eStart, eData, eEnd, eCheck0, eCheck1 = Value()
+  val eStart, eData, eEnd, eCheck0, eCheck1 = newElement()
 }
 
 
@@ -95,7 +95,7 @@ class SerialCheckerTx(bitsWidth: Int) extends Component {
 
 
 object SerialCheckerRxState extends SpinalEnum {
-  val eIdle, eData, eCheck0, eCheck1 = Value
+  val eIdle, eData, eCheck0, eCheck1 = newElement()
 }
 
 

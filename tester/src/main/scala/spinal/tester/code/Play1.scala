@@ -675,12 +675,12 @@ object PlayApb {
 
 object PlayEnum {
   object MyEnum extends SpinalEnum  {
-    val s0,s1,s2,s3,s4,s5,s6,s7,s8,s9 = ordered()
+    val s0,s1,s2,s3,s4,s5,s6,s7,s8,s9 = newElement()
   }
 
   class TopLevel extends Component {
     object MyEnum extends SpinalEnum(oneHot){
-      val s0,s1,s2,s3,s4,s5,s6,s7,s8,s9 = ordered()
+      val s0,s1,s2,s3,s4,s5,s6,s7,s8,s9 = newElement()
     }
 
 //    val input = in(MyEnum())
@@ -694,7 +694,7 @@ object PlayEnum {
     val cond = in Bool()
     val input = in(MyEnum())
     val output = out(MyEnum(sequancial))
-    val tmp = MyEnum()
+    val tmp = Reg(MyEnum())
     tmp := MyEnum.s3
     when(input === MyEnum.s4){
       tmp := MyEnum.s7
@@ -703,6 +703,19 @@ object PlayEnum {
       tmp := Mux(cond,MyEnum.s6(),MyEnum.s8())
     }
     output := tmp
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
+object PlayShift {
+  class TopLevel extends Component {
+    val input = in Bits(8 bit)
+    val sel = in UInt(1 bit)
+    val output = out(input(sel*4,4 bit))
   }
 
   def main(args: Array[String]): Unit = {
@@ -822,7 +835,7 @@ object PlayFsmRef {
     val output1 = master Stream (UInt(8 bit))
 
     object State extends SpinalEnum {
-      val s0, s1 = ordered()
+      val s0, s1 = newElement()
     }
 
     val fsm = new Area {

@@ -267,12 +267,12 @@ class VhdlBackend extends Backend with VhdlBase {
     def pkgExtract(kind: String): Tuple2[String, String] = {
       val ret = new StringBuilder();
       (s"function pkg_extract (that : $kind; base : unsigned; size : integer) return $kind", {
-        ret ++= "   constant elementCount : integer := that'length/size;\n"
+        ret ++= "   constant elementCount : integer := (that'length-size)+1;\n"
         ret ++=s"   type tableType is array (0 to elementCount-1) of $kind(size-1 downto 0);\n"
         ret ++= "   variable table : tableType;\n"
         ret ++= "  begin\n"
         ret ++= "    for i in 0 to elementCount-1 loop\n"
-        ret ++= "      table(i) := that((i+1)*size-1 downto i*size);\n"
+        ret ++= "      table(i) := that(i + size - 1 downto i);\n"
         ret ++= "    end loop;\n"
         ret ++= "    return table(to_integer(base));\n"
         ret ++= "  end pkg_extract;\n\n"
@@ -994,7 +994,7 @@ class VhdlBackend extends Backend with VhdlBase {
       case literal : EnumLiteral[_]  => (literal.enum.parent,literal.encoding)
     }
     encoding match {
-      case `oneHot` => s"pkg_toStdLogic((${emitLogic(op.inputs(0))} and ${emitLogic(op.inputs(1))}) ${if(eguals) "=" else "/="} ${'"' + "0" * op.inputs(0).getWidth + '"'})"
+      case `oneHot` => s"pkg_toStdLogic((${emitLogic(op.inputs(0))} and ${emitLogic(op.inputs(1))}) ${if(eguals) "/=" else "="} ${'"' + "0" * op.inputs(0).getWidth + '"'})"
       case _ => s"pkg_toStdLogic(${emitLogic(op.inputs(0))} ${if(eguals) "=" else "/="} ${emitLogic(op.inputs(1))})"
     }
   }

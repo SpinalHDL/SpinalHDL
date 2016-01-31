@@ -24,7 +24,7 @@ class SerialLinkRxToTx extends Bundle {
 }
 
 object SerialLinkTxState extends SpinalEnum {
-  val eNewFrame, eMyPtr0, eMyPtr1, eMessagePtr0, eMessagePtr1, eData = Value
+  val eNewFrame, eMyPtr0, eMyPtr1, eMessagePtr0, eMessagePtr1, eData = newElement()
 }
 
 class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) extends Component {
@@ -216,7 +216,7 @@ class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) ext
 
 
 object SerialLinkRxState extends SpinalEnum {
-  val eType, eOtherPtr0, eOtherPtr1, eMessagePtr0, eMessagePtr1, eData = Value
+  val eType, eOtherPtr0, eOtherPtr1, eMessagePtr0, eMessagePtr1, eData = newElement()
 }
 
 

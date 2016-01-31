@@ -1,6 +1,6 @@
-library IEEE;
-use IEEE.STD_LOGIC_1164.ALL;
-use IEEE.NUMERIC_STD.all;
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
 library lib_UartTester;
 use lib_UartTester.pkg_scala2hdl.all;
@@ -15,8 +15,8 @@ end UartTester_tb;
 
 architecture arch of UartTester_tb is
   signal io_uart_config_dataLength : unsigned(2 downto 0);
-  signal io_uart_config_stop : UartStopType;
-  signal io_uart_config_parity : UartParityType;
+  signal io_uart_config_stop : UartStopType_sequancial_type;
+  signal io_uart_config_parity : UartParityType_sequancial_type;
   signal io_uart_clockDivider : unsigned(19 downto 0);
   signal io_uart_write_valid : std_logic;
   signal io_uart_write_ready : std_logic;
@@ -62,8 +62,8 @@ begin
   begin
     reset <= '1';
     io_uart_config_dataLength <= "111";
-    io_uart_config_stop <= eStop1bit;
-    io_uart_config_parity <= eParityEven; 
+    io_uart_config_stop <= UartStopType_sequancial_eStop1bit;
+    io_uart_config_parity <= UartParityType_sequancial_eParityEven;
     io_uart_clockDivider <= to_unsigned(clockDivider,20);
 
     io_uart_write_valid <= '0';
@@ -97,13 +97,13 @@ begin
       variable parity : std_logic;
       variable stopTime : time;
     begin
-        if io_uart_config_parity = eParityEven then
+        if io_uart_config_parity = UartParityType_sequancial_eParityEven then
           parity := '0';
         else
           parity := '1';
         end if;
         
-        if io_uart_config_stop = eStop1bit then
+        if io_uart_config_stop = UartStopType_sequancial_eStop1bit then
           stopTime := baudPeriod;
         else
           stopTime := 2 * baudPeriod;
@@ -125,7 +125,7 @@ begin
         checkBit(parity);
         
         checkBit('1');
-        if io_uart_config_stop = eStop2bit then
+        if io_uart_config_stop = UartStopType_sequancial_eStop2bit then
          checkBit('1');       
         end if;
     end checkTx;

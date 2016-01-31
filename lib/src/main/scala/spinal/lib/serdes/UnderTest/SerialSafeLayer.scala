@@ -8,7 +8,7 @@ case class SerialSafeLayerParam(bitWidth: Int = 8,
 
 
 object SerialSafeLayerRxState extends SpinalEnum {
-  val eIdle,eData = Value
+  val eIdle,eData = newElement()
 }
 
 class SerialSafelLayerRx(p: SerialSafeLayerParam) extends Component {
