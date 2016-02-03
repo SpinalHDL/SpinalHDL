@@ -70,7 +70,7 @@ class Backend {
       if (!GlobalData.get.clockDomainStack.isEmpty) SpinalWarning("clockDomain stack is not empty :(")
       if (!GlobalData.get.componentStack.isEmpty) SpinalWarning("componentStack stack is not empty :(")
       if (!GlobalData.get.switchStack.isEmpty) SpinalWarning("switchStack stack is not empty :(")
-      if (!GlobalData.get.whenStack.isEmpty) SpinalWarning("whenStack stack is not empty :(")
+      if (!GlobalData.get.conditionalAssignStack.isEmpty) SpinalWarning("conditionalAssignStack stack is not empty :(")
     }
     checkGlobalData
     val ret = elaborate(topLevel.asInstanceOf[T])
@@ -904,7 +904,7 @@ class Backend {
           walk(node.inputs(0))
 
           def walk(that: Node): Unit = that match {
-            case that: Multiplexer => {
+            case that: Multiplexer => { //TODO probably useless
               that.inferredWidth = width
               walk(that.inputs(1))
               walk(that.inputs(2))
@@ -915,6 +915,18 @@ class Backend {
               walk(that.whenFalse)
             }
             case that: MultipleAssignmentNode => {
+              that.inferredWidth = width
+              for (node <- that.inputs) {
+                walk(node)
+              }
+            }
+            case that: Case2Node => {
+              that.inferredWidth = width
+              for (node <- that.inputs) {
+                walk(node)
+              }
+            }
+            case that: Switch2Node => {
               that.inferredWidth = width
               for (node <- that.inputs) {
                 walk(node)

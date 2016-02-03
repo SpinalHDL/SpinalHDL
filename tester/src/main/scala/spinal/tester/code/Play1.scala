@@ -1380,6 +1380,33 @@ object PlayLiteral{
   }
 }
 
+
+object PlaySwitch2{
+  class TopLevel extends Component{
+    val cond = in Bool()
+    val sel = in UInt(4 bit)
+    val result = out UInt(4 bit)
+
+//    result := 0
+//    when(cond){
+//      result := 1
+//    }
+
+
+    result := "0000"
+    switch2(sel){
+      is2(1){
+        result := "0001"  //TODO switch with resize
+      }
+    }
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+    println("Done")
+  }
+}
+
 object PlayMaskAssign{
   class TopLevel extends Component{
     val input = in(UInt(4 bit))
