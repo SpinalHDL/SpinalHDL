@@ -1380,7 +1380,7 @@ object PlayLiteral{
   }
 }
 
-
+//TODO switch test comb loop
 object PlaySwitch2{
   class TopLevel extends Component{
     val cond = in Bool()
@@ -1393,10 +1393,13 @@ object PlaySwitch2{
 //    }
 
 
-    result := "0000"
+    result := U"0000"
     switch2(sel){
-      is2(1){
-        result := "0001"  //TODO switch with resize
+      is2(U"1001"){
+        result := U"0001"  //TODO switch with resize
+      }
+      is2(U"1010"){
+        result := U"0010"  //TODO switch with resize
       }
     }
   }

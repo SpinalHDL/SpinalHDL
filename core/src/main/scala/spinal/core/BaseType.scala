@@ -93,7 +93,7 @@ object BaseType {
               }
               case man: MultipleAssignmentNode => {
                 man.inputs.last match {
-                  case whenNode: WhenNode if whenNode.w == when => consumer = whenNode
+                  case currentContext: Switch2Node if currentContext.context == context => consumer = currentContext
                   case _ => {
                     val switchNode = new Switch2Node(context)
                     man.inputs += switchNode
@@ -101,7 +101,7 @@ object BaseType {
                   }
                 }
               }
-              case whenNode: WhenNode if whenNode.w == when => consumer = whenNode
+              case currentContext: Switch2Node if currentContext.context == context => consumer = currentContext
               case that => {
                 val man = new MultipleAssignmentNode
                 val switchNode = new Switch2Node(context)
