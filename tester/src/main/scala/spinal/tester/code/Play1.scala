@@ -1394,6 +1394,41 @@ object PlayMaskAssign{
   }
 }
 
+object PlayExtract{
+  class TopLevel extends Component{
+    val input = in(UInt(8 bit))
+    val output = out(UInt(4 bit))
+    output := input(7 downto 1)(4 downto 1)
+    output(3 downto 1):= 0
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+    println("Done")
+  }
+}
+
+
+object PlayCase{
+  class TopLevel extends Component{
+    val input = in(UInt(4 bit))
+    val output = out(UInt(4 bit))
+
+    switch(input){
+      is(1){
+        output := 0
+      }
+      default{
+        output := 2
+      }
+    }
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+    println("Done")
+  }
+}
 
 object PlaySel{
   class TopLevel extends Component{

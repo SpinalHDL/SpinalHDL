@@ -109,9 +109,9 @@ class when(val cond: Bool) extends GlobalDataUser {
 }
 
 class SwitchStack(val value: Data) {
-  var lastWhen: when = null
-  var defaultBlock: () => Unit = null
+  var defaultBlockPresent = false
   val whenStackHead = GlobalData.get.whenStack.head()
+  val defaultCond = True
 }
 
 object switch {
@@ -120,13 +120,6 @@ object switch {
     val s = new SwitchStack(value)
     value.globalData.switchStack.push(s)
     block
-    if (s.defaultBlock != null) {
-      if (s.lastWhen == null) {
-        block
-      } else {
-        s.lastWhen.otherwise(s.defaultBlock())
-      }
-    }
     value.globalData.switchStack.pop(s)
   }
 }
@@ -167,11 +160,10 @@ object is {
 
 
     val cond = values.map(analyse(_)).reduce(_ || _)
-    if (value.lastWhen == null) {
-      value.lastWhen = when(cond)(block)
-    } else {
-      value.lastWhen = value.lastWhen.elsewhen(cond)(block)
-    }
+    when(cond)({
+      value.defaultCond := False
+      block
+    })
   }
 
 
@@ -185,11 +177,6 @@ object is {
     //    if(value.defaultBlock != null)
     //      SpinalError("'is' statement must appear before the 'default' statement of the 'switch'")
 
-    if (value.lastWhen == null) {
-      value.lastWhen = when(cond)(block)
-    } else {
-      value.lastWhen = value.lastWhen.elsewhen(cond)(block)
-    }
   }
 }
 
@@ -200,10 +187,9 @@ object default {
     val value = globalData.switchStack.head()
 
     if (value.whenStackHead != globalData.whenStack.head()) SpinalError("'default' statement is not at the top level of the 'switch'")
-    if (value.defaultBlock != null) SpinalError("'default' statement must appear only one time in the 'switch'")
-    value.defaultBlock = () => {
-      block
-    }
+    if (value.defaultBlockPresent) SpinalError("'default' statement must appear only one time in the 'switch'")
+    value.defaultBlockPresent = true
+    when(value.defaultCond)(block)
   }
 }
 
@@ -239,36 +225,36 @@ class WhenNode(val w: when) extends Node {
 
 
 
-object switch2 {
-
-  def apply[T <: Data](value: T)(block: => Unit): Unit = {
-    val s = new SwitchStack(value)
-    value.globalData.switchStack.push(s)
-    block
-    if (s.defaultBlock != null) {
-      if (s.lastWhen == null) {
-        block
-      } else {
-        s.lastWhen.otherwise(s.defaultBlock())
-      }
-    }
-    value.globalData.switchStack.pop(s)
-  }
-}
-
-class Switch2[T <: BaseType](value : T){
-  val keys = new ArrayBuffer[T]
-}
-
-class Switch2Node() extends Node{
-  def cond = inputs(0)
-  def values = inputs.iterator.drop(1)
-
-  override def normalizeInputs: Unit = {
-    for((input,i)  <- inputs.zipWithIndex){
-      Misc.normalizeResize(this, i, this.getWidth)
-    }
-  }
-
-  override def calcWidth: Int = values.foldLeft(-1)((a,b) => Math.max(a,b.getWidth))
-}
+//object switch2 {
+//
+//  def apply[T <: Data](value: T)(block: => Unit): Unit = {
+//    val s = new SwitchStack(value)
+//    value.globalData.switchStack.push(s)
+//    block
+//    if (s.defaultBlock != null) {
+//      if (s.lastWhen == null) {
+//        block
+//      } else {
+//        s.lastWhen.otherwise(s.defaultBlock())
+//      }
+//    }
+//    value.globalData.switchStack.pop(s)
+//  }
+//}
+//
+//class Switch2[T <: BaseType](value : T){
+//  val keys = new ArrayBuffer[T]
+//}
+//
+//class Switch2Node() extends Node{
+//  def cond = inputs(0)
+//  def values = inputs.iterator.drop(1)
+//
+//  override def normalizeInputs: Unit = {
+//    for((input,i)  <- inputs.zipWithIndex){
+//      Misc.normalizeResize(this, i, this.getWidth)
+//    }
+//  }
+//
+//  override def calcWidth: Int = values.foldLeft(-1)((a,b) => Math.max(a,b.getWidth))
+//}
