@@ -114,10 +114,19 @@ object BaseType {
           }
 
           case context: CaseContext => {
-            if(consumer.inputs.isEmpty || consumer.inputs.last.asInstanceOf[Case2Node].context != context){
+            if(consumer.inputs.isEmpty){
               val caseNode = new Case2Node(context)
               consumer.inputs += caseNode
               consumer = caseNode
+            }else{
+              val last = consumer.inputs.last.asInstanceOf[Case2Node]
+              if(last.context != context){
+                val caseNode = new Case2Node(context)
+                consumer.inputs += caseNode
+                consumer = caseNode
+              }else{
+                consumer = last
+              }
             }
             consumerInputId = 1
           }

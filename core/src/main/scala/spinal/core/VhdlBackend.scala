@@ -833,7 +833,7 @@ class VhdlBackend extends Backend with VhdlBase {
     class Process(val order: Int) {
       var sensitivity: mutable.Set[Node] = null
       val nodes = ArrayBuffer[Node]()
-      val whens = ArrayBuffer[when]()
+      val whens = ArrayBuffer[ConditionalContext]()
       var hasMultipleAssignment = false
 
       def genSensitivity: Unit = sensitivity = getSensitivity(nodes, false)
@@ -858,7 +858,7 @@ class VhdlBackend extends Backend with VhdlBase {
     }
 
     val processSet = mutable.Set[Process]()
-    val whenToProcess = mutable.Map[when, Process]()
+    val whenToProcess = mutable.Map[ConditionalContext, Process]()
 
     def move(to: Process, from: Process): Unit = {
       to.nodes ++= from.nodes
@@ -902,6 +902,29 @@ class VhdlBackend extends Backend with VhdlBase {
 
             walk(wn.whenTrue)
             walk(wn.whenFalse)
+          }
+          case switchNode: Switch2Node => {
+            if (whenToProcess.contains(switchNode.context)) {
+              val otherProcess = whenToProcess.get(switchNode.context).get
+              if (process == null) {
+                process = otherProcess
+                otherProcess.nodes += signal
+              } else if (process != otherProcess) {
+                move(otherProcess, process)
+                process = otherProcess
+              }
+            } else {
+              if (process == null) {
+                process = new Process(processCounter);
+                processCounter += 1
+                process.nodes += signal
+                processSet += process
+              }
+              process.whens += switchNode.context
+              whenToProcess += (switchNode.context -> process)
+            }
+
+            switchNode.cases.foreach(n => walk(n.asInstanceOf[Case2Node].assignement))
           }
           case man: MultipleAssignmentNode => {
             man.inputs.foreach(walk(_))
@@ -1398,19 +1421,23 @@ class VhdlBackend extends Backend with VhdlBase {
       case _ => ret ++= s"$tab${emitReference(to)} ${assignementKind} ${emitLogic(from)};\n"
     }
   }
+  class ConditionalTree(val instanceCounter: Int)
 
-
-  class WhenTree(val cond: Node, val instanceCounter: Int) {
+  class WhenTree(val cond: Node, instanceCounter: Int) extends ConditionalTree(instanceCounter){
     var whenTrue: AssignementLevel = new AssignementLevel
     var whenFalse: AssignementLevel = new AssignementLevel
   }
 
+  class SwitchTree(instanceCounter: Int,context : SwitchContext) extends ConditionalTree(instanceCounter){
+    val cases = new Array[(Node,AssignementLevel)](context.caseCount)
+  }
+//TODO switch make switchNode in the same process, like for when
   class AssignementLevel {
-    //map of preceding when , assignements
-    val logicChunk = mutable.Map[WhenTree, ArrayBuffer[(Node, Node)]]()
-    val when = mutable.Map[when, WhenTree]()
+    //map of precedent ConditionalTree , assignements      if no precedent ConditionalTree simple assignememnt => null
+    val logicChunk = mutable.Map[ConditionalTree, ArrayBuffer[(Node, Node)]]()
+    val conditionalTrees = mutable.Map[ConditionalContext, ConditionalTree]()
 
-    def isEmpty = logicChunk.isEmpty && when.isEmpty
+    def isEmpty = logicChunk.isEmpty && conditionalTrees.isEmpty
 
     def isNotEmpty = !isEmpty
 
@@ -1424,23 +1451,37 @@ class VhdlBackend extends Backend with VhdlBase {
         }
       }
 
-      var lastWhenTree: WhenTree = null
+      var lastConditionalTree: ConditionalTree = null
       for (node <- getElements) {
         node match {
           case whenNode: WhenNode => {
             if (!whenNode.whenTrue.isInstanceOf[NoneNode]) {
-              val when = this.when.getOrElseUpdate(whenNode.w, new WhenTree(whenNode.cond, node.instanceCounter))
-              lastWhenTree = when
-              when.whenTrue.walkWhenTree(root, whenNode.whenTrue)
+              val whenTree = this.conditionalTrees.getOrElseUpdate(whenNode.w, new WhenTree(whenNode.cond, node.instanceCounter)).asInstanceOf[WhenTree]
+              lastConditionalTree = whenTree
+              whenTree.whenTrue.walkWhenTree(root, whenNode.whenTrue)
             }
             if (!whenNode.whenFalse.isInstanceOf[NoneNode]) {
-              val when = this.when.getOrElseUpdate(whenNode.w, new WhenTree(whenNode.cond, node.instanceCounter))
-              lastWhenTree = when
-              when.whenFalse.walkWhenTree(root, whenNode.whenFalse)
+              val whenTree = this.conditionalTrees.getOrElseUpdate(whenNode.w, new WhenTree(whenNode.cond, node.instanceCounter)).asInstanceOf[WhenTree]
+              lastConditionalTree = whenTree
+              whenTree.whenFalse.walkWhenTree(root, whenNode.whenFalse)
+            }
+          }
+          case switchNode : Switch2Node => {
+            val switchTree = this.conditionalTrees.getOrElseUpdate(switchNode.context, new SwitchTree(node.instanceCounter,switchNode.context)).asInstanceOf[SwitchTree]
+            lastConditionalTree = switchTree
+            for(input <- switchNode.inputs){
+              val caseNode = input.asInstanceOf[Case2Node]
+              val tmp = switchTree.cases(caseNode.context.id)
+              var caseElement = if(tmp != null) tmp else {
+                val tmp = (caseNode.cond -> new AssignementLevel)
+                switchTree.cases(caseNode.context.id) = tmp
+                tmp
+              }
+              caseElement._2.walkWhenTree(root, caseNode.assignement)
             }
           }
           case reg: Reg =>
-          case _ => this.logicChunk.getOrElseUpdate(lastWhenTree, new ArrayBuffer[(Node, Node)]) += new Tuple2(root, node)
+          case _ => this.logicChunk.getOrElseUpdate(lastConditionalTree, new ArrayBuffer[(Node, Node)]) += new Tuple2(root, node)
         }
       }
     }
@@ -1457,35 +1498,44 @@ class VhdlBackend extends Backend with VhdlBase {
       val firstTab = if(isElseIf) "" else tab
 
       emitLogicChunk(null)
+      //OPT tolist.sort
+      for (conditionalTree <- this.conditionalTrees.values.toList.sortWith(_.instanceCounter < _.instanceCounter)) conditionalTree match {
+        case when : WhenTree => {
+          def doTrue = when.whenTrue.isNotEmpty
+          def doFalse = when.whenFalse.isNotEmpty
 
-      for (when <- this.when.values.toList.sortWith(_.instanceCounter < _.instanceCounter)) {
-        //Uncomment this block if you want minimalisting and no empty if condition
-
-        def doTrue = when.whenTrue.isNotEmpty
-        def doFalse = when.whenFalse.isNotEmpty
-
-        /*if (!doTrue && doFalse) {
-          ret ++= s"${firstTab}if ${emitLogic(when.cond)} = '0'  then\n"
-          when.whenFalse.emitContext(ret, tab + "  ", assignementKind)
-          ret ++= s"${tab}end if;\n"
-
-        } else */if (doTrue && !doFalse) {
-          ret ++= s"${firstTab}if ${emitLogic(when.cond)} = '1' then\n"
-          when.whenTrue.emitContext(ret, tab + "  ", assignementKind)
-          ret ++= s"${tab}end if;\n"
-        } else /*if (doTrue && doFalse)*/ {
-          ret ++= s"${firstTab}if ${emitLogic(when.cond)} = '1' then\n"
-          when.whenTrue.emitContext(ret, tab + "  ", assignementKind)
-          if(when.whenFalse.logicChunk.isEmpty && when.whenFalse.when.size == 1 && when.whenFalse.when.head._1.parentElseWhen != null){
-            ret ++= s"${tab}els"
-            when.whenFalse.emitContext(ret, tab, assignementKind,true)
-          }else{
-            ret ++= s"${tab}else\n"
+          if (!doTrue && doFalse) {
+            ret ++= s"${firstTab}if ${emitLogic(when.cond)} = '0'  then\n"
             when.whenFalse.emitContext(ret, tab + "  ", assignementKind)
+            ret ++= s"${tab}end if;\n"
+
+          } else if (doTrue && !doFalse) {
+            ret ++= s"${firstTab}if ${emitLogic(when.cond)} = '1' then\n"
+            when.whenTrue.emitContext(ret, tab + "  ", assignementKind)
+            ret ++= s"${tab}end if;\n"
+          } else /*if (doTrue && doFalse)*/ {
+            ret ++= s"${firstTab}if ${emitLogic(when.cond)} = '1' then\n"
+            when.whenTrue.emitContext(ret, tab + "  ", assignementKind)
+            //TODO restore me
+//            if (when.whenFalse.logicChunk.isEmpty && when.whenFalse.conditionalTrees.size == 1 && when.whenFalse.conditionalTrees.head._1.parentElseWhen != null) {
+//              ret ++= s"${tab}els"
+//              when.whenFalse.emitContext(ret, tab, assignementKind, true)
+//            } else {
+              ret ++= s"${tab}else\n"
+              when.whenFalse.emitContext(ret, tab + "  ", assignementKind)
+              ret ++= s"${tab}end if;\n"
+//            }
+          }
+          emitLogicChunk(when)
+        }
+        case switchTree : SwitchTree => {
+          for(caseElement <- switchTree.cases if caseElement != null){
+            val (cond,level) = caseElement
+            ret ++= s"${tab}if ${emitLogic(cond)} = '1'  then\n"
+            level.emitContext(ret, tab + "  ", assignementKind)
             ret ++= s"${tab}end if;\n"
           }
         }
-        emitLogicChunk(when)
       }
     }
   }

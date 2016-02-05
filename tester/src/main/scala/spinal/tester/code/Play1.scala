@@ -1380,12 +1380,13 @@ object PlayLiteral{
   }
 }
 
-//TODO switch test comb loop
+//TODO switch test comb loop and uncomplet assignement, maybe switchnode should extend multiple assignement node ?
 object PlaySwitch2{
   class TopLevel extends Component{
     val cond = in Bool()
     val sel = in UInt(4 bit)
     val result = out UInt(4 bit)
+    val result2 = out UInt(4 bit)
 
 //    result := 0
 //    when(cond){
@@ -1394,12 +1395,25 @@ object PlaySwitch2{
 
 
     result := U"0000"
-    switch2(sel){
-      is2(U"1001"){
+    result2 := 1
+    when(sel === U"1000"){
+      result := 0
+    }
+    switch(sel){
+      is(U"1001"){
         result := U"0001"  //TODO switch with resize
+        result(1) := False
+
+        result2 := 2
+        when(sel === U"1000"){
+          result2 := 0
+        }
       }
-      is2(U"1010"){
-        result := U"0010"  //TODO switch with resize
+      is(U"1010"){
+        result := U"0010"
+      }
+      default {
+        result := U"0011"
       }
     }
   }

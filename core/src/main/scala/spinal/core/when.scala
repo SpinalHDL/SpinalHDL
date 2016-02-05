@@ -78,7 +78,7 @@ object when {
   }
 }
 
-class when(val cond: Bool) extends ConditionalContext with GlobalDataUser {
+class when(val cond: Bool) extends ConditionalContext {
   var isTrue: Boolean = true;
   var parentElseWhen: when = null
 
@@ -121,81 +121,81 @@ class SwitchStack(val value: Data) {
   val defaultCond = True
 }
 
-object switch {
-
-  def apply[T <: Data](value: T)(block: => Unit): Unit = {
-    val s = new SwitchStack(value)
-    value.globalData.switchStack.push(s)
-    block
-    value.globalData.switchStack.pop(s)
-  }
-}
-
-
-object is {
-  def apply(values: Any*)(block: => Unit): Unit = {
-    val globalData = GlobalData.get
-    if (globalData.switchStack.isEmpty) SpinalError("Use 'is' statement outside the 'switch'")
-
-    val value = globalData.switchStack.head()
-    if (value.conditionalAssignStackHead != globalData.conditionalAssignStack.head())
-      SpinalError("'is' statement is not at the top level of the 'switch'")
-    val e = ArrayBuffer[Bool]()
-    val switchValue = value.value
-
-    def analyse(key: Any): Bool = {
-      key match {
-        case key: Data => switchValue.isEguals(key)
-        case key: Seq[_] => key.map(d => analyse(d)).reduce(_ || _)
-        case key: Int => {
-          switchValue match {
-            case switchValue: Bits => switchValue === B(key)
-            case switchValue: UInt => switchValue === U(key)
-            case switchValue: SInt => switchValue === S(key)
-            case _ => SpinalError("The switch is not a Bits, UInt or SInt")
-          }
-        }
-        case that : SpinalEnumElement[_] => switchValue.isEguals(that())
-        case key : MaskedLiteral => switchValue match {
-          case switchValue: Bits => switchValue === key
-          case switchValue: UInt => switchValue === key
-          case switchValue: SInt => switchValue === key
-          case _ => SpinalError("The switch is not a Bits, UInt or SInt")
-        }
-      }
-    }
-
-
-    val cond = values.map(analyse(_)).reduce(_ || _)
-    when(cond)({
-      value.defaultCond := False
-      block
-    })
-  }
-
-
-  def impl(cond : Bool)(block: => Unit): Unit = {
-    val globalData = cond.globalData
-    if (globalData.switchStack.isEmpty) SpinalError("Use 'is' statement outside the 'switch'")
-
-    val value = globalData.switchStack.head()
-    if (value.conditionalAssignStackHead != globalData.conditionalAssignStack.head())
-      SpinalError("'is' statement is not at the top level of the 'switch'")
-  }
-}
-
-object default {
-  def apply(block: => Unit): Unit = {
-    val globalData = GlobalData.get
-    if (globalData.switchStack.isEmpty) SpinalError("Use 'default' statement outside the 'switch'")
-    val value = globalData.switchStack.head()
-
-    if (value.conditionalAssignStackHead != globalData.conditionalAssignStack.head()) SpinalError("'default' statement is not at the top level of the 'switch'")
-    if (value.defaultBlockPresent) SpinalError("'default' statement must appear only one time in the 'switch'")
-    value.defaultBlockPresent = true
-    when(value.defaultCond)(block)
-  }
-}
+//object switch {
+//
+//  def apply[T <: Data](value: T)(block: => Unit): Unit = {
+//    val s = new SwitchStack(value)
+//    value.globalData.switchStack.push(s)
+//    block
+//    value.globalData.switchStack.pop(s)
+//  }
+//}
+//
+//
+//object is {
+//  def apply(values: Any*)(block: => Unit): Unit = {
+//    val globalData = GlobalData.get
+//    if (globalData.switchStack.isEmpty) SpinalError("Use 'is' statement outside the 'switch'")
+//
+//    val value = globalData.switchStack.head()
+//    if (value.conditionalAssignStackHead != globalData.conditionalAssignStack.head())
+//      SpinalError("'is' statement is not at the top level of the 'switch'")
+//    val e = ArrayBuffer[Bool]()
+//    val switchValue = value.value
+//
+//    def analyse(key: Any): Bool = {
+//      key match {
+//        case key: Data => switchValue.isEguals(key)
+//        case key: Seq[_] => key.map(d => analyse(d)).reduce(_ || _)
+//        case key: Int => {
+//          switchValue match {
+//            case switchValue: Bits => switchValue === B(key)
+//            case switchValue: UInt => switchValue === U(key)
+//            case switchValue: SInt => switchValue === S(key)
+//            case _ => SpinalError("The switch is not a Bits, UInt or SInt")
+//          }
+//        }
+//        case that : SpinalEnumElement[_] => switchValue.isEguals(that())
+//        case key : MaskedLiteral => switchValue match {
+//          case switchValue: Bits => switchValue === key
+//          case switchValue: UInt => switchValue === key
+//          case switchValue: SInt => switchValue === key
+//          case _ => SpinalError("The switch is not a Bits, UInt or SInt")
+//        }
+//      }
+//    }
+//
+//
+//    val cond = values.map(analyse(_)).reduce(_ || _)
+//    when(cond)({
+//      value.defaultCond := False
+//      block
+//    })
+//  }
+//
+//
+//  def impl(cond : Bool)(block: => Unit): Unit = {
+//    val globalData = cond.globalData
+//    if (globalData.switchStack.isEmpty) SpinalError("Use 'is' statement outside the 'switch'")
+//
+//    val value = globalData.switchStack.head()
+//    if (value.conditionalAssignStackHead != globalData.conditionalAssignStack.head())
+//      SpinalError("'is' statement is not at the top level of the 'switch'")
+//  }
+//}
+//
+//object default {
+//  def apply(block: => Unit): Unit = {
+//    val globalData = GlobalData.get
+//    if (globalData.switchStack.isEmpty) SpinalError("Use 'default' statement outside the 'switch'")
+//    val value = globalData.switchStack.head()
+//
+//    if (value.conditionalAssignStackHead != globalData.conditionalAssignStack.head()) SpinalError("'default' statement is not at the top level of the 'switch'")
+//    if (value.defaultBlockPresent) SpinalError("'default' statement must appear only one time in the 'switch'")
+//    value.defaultBlockPresent = true
+//    when(value.defaultCond)(block)
+//  }
+//}
 
 object WhenNode {
 
@@ -230,13 +230,15 @@ class SwitchContext(val value: Data) extends ConditionalContext{
   var defaultBlockPresent = false
   val conditionalAssignStackHead = GlobalData.get.conditionalAssignStack.head()
   val defaultCond = True
+  var caseCount = 0
 }
 
 class CaseContext(val switchContext: SwitchContext,val cond : Bool) extends ConditionalContext{
-
+  val id = switchContext.caseCount
+  switchContext.caseCount += 1
 }
 
-object switch2 {
+object switch {
 
   def apply[T <: Data](value: T)(block: => Unit): Unit = {
     val s = new SwitchContext(value)
@@ -247,7 +249,7 @@ object switch2 {
 }
 
 
-object is2 {
+object is {
   def apply(values: Any*)(block: => Unit): Unit = {
     val globalData = GlobalData.get
     if (globalData.conditionalAssignStack.isEmpty) SpinalError("Use 'is' statement outside the 'switch'")
@@ -291,6 +293,26 @@ object is2 {
   }
 }
 
+//TODO make a proper implementation
+object default {
+  def apply(block: => Unit): Unit = {
+    val globalData = GlobalData.get
+    val switchContext : SwitchContext = globalData.conditionalAssignStack.head() match{
+      case switchContext : SwitchContext => switchContext
+      case _ => SpinalError("'is' statement is not at the top level of the 'switch'")
+    }
+
+    if (switchContext.defaultBlockPresent) SpinalError("'default' statement must appear only one time in the 'switch'")
+    switchContext.defaultBlockPresent = true
+
+
+    val cond = switchContext.defaultCond
+    val caseContext = new CaseContext(switchContext,cond)
+    caseContext.push
+    block
+    caseContext.pop
+  }
+}
 
 class Case2Node(val context: CaseContext) extends Node{
   inputs += context.cond
