@@ -147,8 +147,6 @@ class Backend {
     //Check
     SpinalInfoPhase("Check combinational loops")
     checkCombinationalLoops()
-    SpinalInfoPhase("Check that there is no incomplet assignement")
-    check_noAsyncNodeWithIncompletAssignment()
     SpinalInfoPhase("Check cross clock domains")
     checkCrossClockDomains()
 
@@ -158,6 +156,9 @@ class Backend {
     fillNodeConsumer()
     dontSymplifyBasetypeWithComplexAssignement()
     deleteUselessBaseTypes()
+    convertWhenToDefault()
+    SpinalInfoPhase("Check that there is no incomplet assignement")
+    check_noAsyncNodeWithIncompletAssignment()
     simplifyBlacBoxGenerics()
 
 
@@ -194,9 +195,6 @@ class Backend {
         case _ =>
       }
     }
-
-
-
   }
 
 
@@ -418,8 +416,12 @@ class Backend {
       }
     }
   }
-
-
+  def convertWhenToDefault() : Unit = {
+//    val when
+//    Node.walk(walkNodesDefautStack,node => node match {
+//
+//    }
+  }
   def check_noAsyncNodeWithIncompletAssignment(): Unit = {
 
 
@@ -920,13 +922,13 @@ class Backend {
                 walk(node)
               }
             }
-            case that: Case2Node => {
+            case that: CaseNode => {
               that.inferredWidth = width
               for (node <- that.inputs) {
                 walk(node)
               }
             }
-            case that: Switch2Node => {
+            case that: SwitchNode => {
               that.inferredWidth = width
               for (node <- that.inputs) {
                 walk(node)

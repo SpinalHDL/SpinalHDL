@@ -903,7 +903,7 @@ class VhdlBackend extends Backend with VhdlBase {
             walk(wn.whenTrue)
             walk(wn.whenFalse)
           }
-          case switchNode: Switch2Node => {
+          case switchNode: SwitchNode => {
             if (whenToProcess.contains(switchNode.context)) {
               val otherProcess = whenToProcess.get(switchNode.context).get
               if (process == null) {
@@ -924,7 +924,7 @@ class VhdlBackend extends Backend with VhdlBase {
               whenToProcess += (switchNode.context -> process)
             }
 
-            switchNode.cases.foreach(n => walk(n.asInstanceOf[Case2Node].assignement))
+            switchNode.cases.foreach(n => walk(n.asInstanceOf[CaseNode].assignement))
           }
           case man: MultipleAssignmentNode => {
             man.inputs.foreach(walk(_))
@@ -1431,7 +1431,7 @@ class VhdlBackend extends Backend with VhdlBase {
   class SwitchTree(instanceCounter: Int,context : SwitchContext) extends ConditionalTree(instanceCounter){
     val cases = new Array[(Node,AssignementLevel)](context.caseCount)
   }
-//TODO switch make switchNode in the same process, like for when
+
   class AssignementLevel {
     //map of precedent ConditionalTree , assignements      if no precedent ConditionalTree simple assignememnt => null
     val logicChunk = mutable.Map[ConditionalTree, ArrayBuffer[(Node, Node)]]()
@@ -1466,11 +1466,11 @@ class VhdlBackend extends Backend with VhdlBase {
               whenTree.whenFalse.walkWhenTree(root, whenNode.whenFalse)
             }
           }
-          case switchNode : Switch2Node => {
+          case switchNode : SwitchNode => {
             val switchTree = this.conditionalTrees.getOrElseUpdate(switchNode.context, new SwitchTree(node.instanceCounter,switchNode.context)).asInstanceOf[SwitchTree]
             lastConditionalTree = switchTree
             for(input <- switchNode.inputs){
-              val caseNode = input.asInstanceOf[Case2Node]
+              val caseNode = input.asInstanceOf[CaseNode]
               val tmp = switchTree.cases(caseNode.context.id)
               var caseElement = if(tmp != null) tmp else {
                 val tmp = (caseNode.cond -> new AssignementLevel)
@@ -1504,27 +1504,27 @@ class VhdlBackend extends Backend with VhdlBase {
           def doTrue = when.whenTrue.isNotEmpty
           def doFalse = when.whenFalse.isNotEmpty
 
-          if (!doTrue && doFalse) {
+        /*  if (!doTrue && doFalse) {
             ret ++= s"${firstTab}if ${emitLogic(when.cond)} = '0'  then\n"
             when.whenFalse.emitContext(ret, tab + "  ", assignementKind)
             ret ++= s"${tab}end if;\n"
 
-          } else if (doTrue && !doFalse) {
+          } else*/if (doTrue && !doFalse) {
             ret ++= s"${firstTab}if ${emitLogic(when.cond)} = '1' then\n"
             when.whenTrue.emitContext(ret, tab + "  ", assignementKind)
             ret ++= s"${tab}end if;\n"
           } else /*if (doTrue && doFalse)*/ {
             ret ++= s"${firstTab}if ${emitLogic(when.cond)} = '1' then\n"
             when.whenTrue.emitContext(ret, tab + "  ", assignementKind)
-            //TODO restore me
-//            if (when.whenFalse.logicChunk.isEmpty && when.whenFalse.conditionalTrees.size == 1 && when.whenFalse.conditionalTrees.head._1.parentElseWhen != null) {
-//              ret ++= s"${tab}els"
-//              when.whenFalse.emitContext(ret, tab, assignementKind, true)
-//            } else {
+            val falseHead = if(when.whenFalse.logicChunk.isEmpty && when.whenFalse.conditionalTrees.size == 1) when.whenFalse.conditionalTrees.head._1 else null
+            if (falseHead != null && falseHead.isInstanceOf[when] && falseHead.asInstanceOf[when].parentElseWhen != null) {
+              ret ++= s"${tab}els"
+              when.whenFalse.emitContext(ret, tab, assignementKind, true)
+            } else {
               ret ++= s"${tab}else\n"
               when.whenFalse.emitContext(ret, tab + "  ", assignementKind)
               ret ++= s"${tab}end if;\n"
-//            }
+            }
           }
           emitLogicChunk(when)
         }

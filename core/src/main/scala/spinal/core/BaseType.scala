@@ -87,24 +87,24 @@ object BaseType {
           case context: SwitchContext => {
             consumer.inputs(consumerInputId) match {
               case nothing @ (null | _:NoneNode) => {
-                val switchNode = new Switch2Node(context)
+                val switchNode = new SwitchNode(context)
                 consumer.inputs(consumerInputId) = switchNode
                 consumer = switchNode
               }
               case man: MultipleAssignmentNode => {
                 man.inputs.last match {
-                  case currentContext: Switch2Node if currentContext.context == context => consumer = currentContext
+                  case currentContext: SwitchNode if currentContext.context == context => consumer = currentContext
                   case _ => {
-                    val switchNode = new Switch2Node(context)
+                    val switchNode = new SwitchNode(context)
                     man.inputs += switchNode
                     consumer = switchNode
                   }
                 }
               }
-              case currentContext: Switch2Node if currentContext.context == context => consumer = currentContext
+              case currentContext: SwitchNode if currentContext.context == context => consumer = currentContext
               case that => {
                 val man = new MultipleAssignmentNode
-                val switchNode = new Switch2Node(context)
+                val switchNode = new SwitchNode(context)
                 initMan(man, that)
                 man.inputs += switchNode
                 consumer.inputs(consumerInputId) = man
@@ -115,13 +115,13 @@ object BaseType {
 
           case context: CaseContext => {
             if(consumer.inputs.isEmpty){
-              val caseNode = new Case2Node(context)
+              val caseNode = new CaseNode(context)
               consumer.inputs += caseNode
               consumer = caseNode
             }else{
-              val last = consumer.inputs.last.asInstanceOf[Case2Node]
+              val last = consumer.inputs.last.asInstanceOf[CaseNode]
               if(last.context != context){
-                val caseNode = new Case2Node(context)
+                val caseNode = new CaseNode(context)
                 consumer.inputs += caseNode
                 consumer = caseNode
               }else{
