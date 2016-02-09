@@ -1517,7 +1517,7 @@ class VhdlBackend extends Backend with VhdlBase {
             ret ++= s"${firstTab}if ${emitLogic(when.cond)} = '1' then\n"
             when.whenTrue.emitContext(ret, tab + "  ", assignementKind)
             val falseHead = if(when.whenFalse.logicChunk.isEmpty && when.whenFalse.conditionalTrees.size == 1) when.whenFalse.conditionalTrees.head._1 else null
-            if (falseHead != null && falseHead.isInstanceOf[when] && falseHead.asInstanceOf[when].parentElseWhen != null) {
+            if (falseHead != null && falseHead.isInstanceOf[WhenContext] && falseHead.asInstanceOf[WhenContext].parentElseWhen != null) {
               ret ++= s"${tab}els"
               when.whenFalse.emitContext(ret, tab, assignementKind, true)
             } else {

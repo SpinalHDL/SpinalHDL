@@ -18,7 +18,7 @@
 
 package spinal.core
 
-import spinal.core.WhenNode
+
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -53,7 +53,7 @@ object BaseType {
         if (conditionalAssign == baseType.conditionalAssignScope) initialConditionalAssignHit = true
       } else {
         conditionalAssign match {
-          case when: when => {
+          case when: WhenContext => {
             consumer.inputs(consumerInputId) match {
               case nothing @ (null | _:NoneNode) => {
                 val whenNode = WhenNode(when)

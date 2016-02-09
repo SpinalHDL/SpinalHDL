@@ -41,7 +41,7 @@ trait ConditionalContext extends GlobalDataUser{
 object when {
 
 
-  def doWhen(w: when, isTrue: Boolean)(block: => Unit): when = {
+  def doWhen(w: WhenContext, isTrue: Boolean)(block: => Unit): WhenContext = {
     w.isTrue = isTrue
     w.push
     block
@@ -49,8 +49,8 @@ object when {
     w
   }
 
-  def apply(cond: Bool)(block: => Unit): when = {
-    doWhen(new when(cond), true)(block)
+  def apply(cond: Bool)(block: => Unit): WhenContext = {
+    doWhen(new WhenContext(cond), true)(block)
   }
 
   //Allow the user to get a Bool that represent the  aggregation of all condition to the current context
@@ -59,7 +59,7 @@ object when {
 
     var ret: Bool = null
     for (conditionalAssign <- that.globalData.conditionalAssignStack.stack) conditionalAssign match {
-      case w : when => {
+      case w : WhenContext => {
         if (w == whenScope) return returnFunc
         val newCond = if (w.isTrue) w.cond else !w.cond
         if (ret == null) {
@@ -78,10 +78,10 @@ object when {
   }
 }
 
-class when(val cond: Bool) extends ConditionalContext {
+class WhenContext(val cond: Bool) extends ConditionalContext {
   var isTrue: Boolean = true;
-  var parentElseWhen: when = null
-  var childElseWhen: when = null
+  var parentElseWhen: WhenContext = null
+  var childElseWhen: WhenContext = null
 
   def otherwise(block: => Unit): Unit = {
     restackElseWhen
@@ -89,8 +89,8 @@ class when(val cond: Bool) extends ConditionalContext {
     destackElseWhen
   }
 
-  def elsewhen(cond: Bool)(block: => Unit): when = {
-    var w: when = null
+  def elsewhen(cond: Bool)(block: => Unit) : WhenContext = {
+    var w : WhenContext = null
     otherwise({
       w = when(cond) {
         block
@@ -118,7 +118,7 @@ class when(val cond: Bool) extends ConditionalContext {
 }
 
 class SwitchStack(val value: Data) {
-  var lastWhen: when = null
+  var lastWhen: WhenContext = null
   var defaultBlock: () => Unit = null
   val whenStackHead = GlobalData.get.conditionalAssignStack.head()
 }
@@ -126,11 +126,11 @@ class SwitchStack(val value: Data) {
 
 object WhenNode {
 
-  def apply(w: when): WhenNode = {
+  def apply(w: WhenContext): WhenNode = {
     apply(w, w.cond, NoneNode(), NoneNode())
   }
 
-  def apply(w: when, cond: Bool, whenTrue: Node, whenFalse: Node): WhenNode = {
+  def apply(w: WhenContext, cond: Bool, whenTrue: Node, whenFalse: Node): WhenNode = {
     val ret = new WhenNode(w)
     ret.inputs += cond
     ret.inputs += whenTrue
@@ -139,7 +139,7 @@ object WhenNode {
   }
 }
 
-class WhenNode(val w: when) extends Node {
+class WhenNode(val w: WhenContext) extends Node {
   override def calcWidth: Int = Math.max(whenTrue.getWidth, whenFalse.getWidth)
 
   def cond = inputs(0)

@@ -733,12 +733,18 @@ object PlayStream {
 
   case class Struct() extends Bundle {
     val data = UInt(5 bit)
+    val c = Bool()
   }
 
   class TopLevel extends Component {
     val cmd = master Stream (Struct())
     cmd.valid := True
     cmd.data.data := 1
+    cmd.c
+
+
+    val cmd2 = master Stream (UInt(4 bit))
+    cmd2.valid := True
   }
 
   def main(args: Array[String]): Unit = {
@@ -1537,7 +1543,7 @@ object PlayCase {
       is(1) {
         output := 1
       }
-      default {
+      is(2) {
         output := 2
       }
     }

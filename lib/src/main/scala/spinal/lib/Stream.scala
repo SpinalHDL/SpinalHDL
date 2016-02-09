@@ -13,7 +13,7 @@ class StreamFactory extends MSFactory {
   }
 }
 object Stream extends StreamFactory{
-  implicit def toImplicit[T <: Data](stream: Stream[T]): T = stream.data
+  implicit def toImplicit[T <: Bundle](stream: Stream[T]): T = stream.data
 }
 
 

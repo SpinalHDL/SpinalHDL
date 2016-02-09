@@ -156,7 +156,7 @@ class Backend {
     fillNodeConsumer()
     dontSymplifyBasetypeWithComplexAssignement()
     deleteUselessBaseTypes()
-    convertWhenToDefault()
+   // convertWhenToDefault()
     SpinalInfoPhase("Check that there is no incomplet assignement")
     check_noAsyncNodeWithIncompletAssignment()
     simplifyBlacBoxGenerics()
@@ -417,10 +417,27 @@ class Backend {
     }
   }
   def convertWhenToDefault() : Unit = {
-//    val when
-//    Node.walk(walkNodesDefautStack,node => node match {
-//
-//    }
+    val startContext = mutable.Set[WhenContext]()
+    Node.walk(walkNodesDefautStack,node => node match {
+      case whenNode : WhenNode => {
+        val whenContext = whenNode.w
+        if(whenContext.parentElseWhen == null && whenContext.childElseWhen != null) startContext.add(whenContext)
+      }
+      case _ =>
+    })
+    val symplifyThem = mutable.Set[WhenContext]()
+    for(startContext <- startContext){
+      //TODO
+//      var ptr = startContext
+//      while(ptr.childElseWhen != null){
+//        ptr = ptr.childElseWhen
+//      }
+//      symplifyThem.add(ptr.parentElseWhen)
+    }
+//    Node.walk(walkNodesDefautStack,node => node match { Patch me, should update consumers ref
+//      case whenNode : WhenNode if(symplifyThem.contains(whenNode.w)) => whenNode.inputs(2) = whenNode.inputs(2).inputs(1)
+//      case _ =>
+//    })
   }
   def check_noAsyncNodeWithIncompletAssignment(): Unit = {
 
