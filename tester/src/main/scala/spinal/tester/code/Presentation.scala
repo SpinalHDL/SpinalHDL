@@ -503,7 +503,7 @@ object C12 {
 object C13 {
 
   object MyEnum extends SpinalEnum {
-    val state0, state1, anotherState = Value
+    val state0, state1, anotherState = newElement()
   }
 
   abstract class MyComponent extends Component {

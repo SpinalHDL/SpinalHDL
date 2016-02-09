@@ -148,7 +148,7 @@ class FlowBitsPimped(pimped: Flow[Bits]) {
 
 
 object FragmentToBitsStates extends SpinalEnum {
-  val eDefault, eFinish0, eFinish1, eMagicData = Value
+  val eDefault, eFinish0, eFinish1, eMagicData = newElement()
 }
 
 

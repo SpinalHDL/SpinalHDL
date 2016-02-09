@@ -22,13 +22,6 @@ import spinal.core._
 import spinal.lib._
 
 
-object MyEnum extends SpinalEnum{
-  val a = fix(2)
-  val b = fix(3)
-  val c = fix(4)
-  val e,f,g = ordered
-}
-
 
 object MyEnum2{
   def apply() = Bits(3 bit)

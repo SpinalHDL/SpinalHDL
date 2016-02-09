@@ -107,9 +107,10 @@ class Cast(opName: String, widthImpl: (Node) => Int = WidthInfer.inputMaxWidth) 
 
 }
 
+
 class EnumCast(val enum: SpinalEnumCraft[_], opName: String, widthImpl: (Node) => Int = WidthInfer.inputMaxWidth) extends Modifier(opName, widthImpl) {
   override def normalizeInputs: Unit = {
-    Misc.normalizeResize(this, 0, this.getWidth)
+//    Misc.normalizeResize(this, 0, this.getWidth)
   }
 }
 

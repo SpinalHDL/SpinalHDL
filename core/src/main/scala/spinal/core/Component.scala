@@ -88,7 +88,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
 
   private[core] def isTopLevel: Boolean = parent == null
 
-  private[core] val initialWhen = globalData.whenStack.head()
+  private[core] val initialAssignementCondition = globalData.conditionalAssignStack.head()
 
   var nodes: ArrayBuffer[Node] = null
 

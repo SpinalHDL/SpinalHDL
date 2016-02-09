@@ -77,7 +77,7 @@ trait MinMaxProvider {
 
 trait ContextUser extends GlobalDataUser {
   var component = Component.current(globalData)
-  private[core] var whenScope = globalData.whenStack.head()
+  private[core] var conditionalAssignScope = globalData.conditionalAssignStack.head()
   private[core] var instanceCounter = globalData.getInstanceCounter
 
   private[core] def isOlderThan(that : ContextUser) : Boolean = this.instanceCounter < that.instanceCounter
@@ -383,8 +383,8 @@ class GlobalData {
 //      super.pop(e)
 //    }
   }
-  val switchStack = new SafeStack[SwitchStack]
-  val whenStack = new SafeStack[when]
+  val switchStack = new SafeStack[SwitchStack] //TODO switch
+  val conditionalAssignStack = new SafeStack[ConditionalContext]
   val widthCheckers = new ArrayBuffer[WidthChecker]()
 
   var scalaLocatedEnable = false

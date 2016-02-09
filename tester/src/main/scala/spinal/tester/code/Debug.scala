@@ -58,11 +58,11 @@ object Debug {
   }
 
   object MyEnum extends SpinalEnum {
-    val s0, s1, s2 = Value
+    val s0, s1, s2 = newElement()
   }
 
   object MyEnum2 extends SpinalEnum {
-    val s0, s1, s2 = Value
+    val s0, s1, s2 = newElement()
   }
 
   class SubA extends Component {

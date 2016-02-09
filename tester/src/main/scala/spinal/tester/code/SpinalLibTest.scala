@@ -36,11 +36,11 @@ object SpinalLibTest {
   }
 
   object MyEnum extends SpinalEnum {
-    val s0, s1, s2 = Value
+    val s0, s1, s2 = newElement()
   }
 
   object MyEnum2 extends SpinalEnum {
-    val e0, e1, e2 = Value
+    val e0, e1, e2 = newElement()
   }
 
   class TopLevel extends Component {

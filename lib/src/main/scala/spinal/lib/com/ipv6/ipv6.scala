@@ -6,7 +6,7 @@ import spinal.lib._
 
 //https://en.wikipedia.org/wiki/IPv6_packet
 object Ipv6RxState extends SpinalEnum {
-  val eFilter, eHeader, eData = Value
+  val eFilter, eHeader, eData = newElement()
 }
 
 class Ipv6Rx extends Component {
@@ -119,7 +119,7 @@ class Ipv6Rx extends Component {
 }
 
 object Ipv6TxState extends SpinalEnum {
-  val ePopNextHeader, eHeader, eData = Value
+  val ePopNextHeader, eHeader, eData = newElement()
 }
 
 class Ipv6Tx extends Component {

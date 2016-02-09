@@ -45,13 +45,24 @@ trait VhdlBase {
   }
 
 
+  def emitEnumLiteral[T <: SpinalEnum](enum : SpinalEnumElement[T],encoding: SpinalEnumEncoding) : String = {
+    return enum.parent.getName() + "_" + encoding.getName() + "_" + enum.getName()
+  }
+
+  def emitEnumType[T <: SpinalEnum](enum : SpinalEnumCraft[T]) : String = {
+    return enum.blueprint.getName() + "_" + enum.encoding.getName() + "_type"
+  }
+  def emitEnumType(enum : SpinalEnum,encoding: SpinalEnumEncoding) : String = {
+    return enum.getName() + "_" + encoding.getName() + "_type"
+  }
+
   def emitDataType(node: Node, constrained: Boolean = true) = node match {
     case bool: Bool => "std_logic"
     case uint: UInt => s"unsigned${if (constrained) emitRange(uint) else ""}"
     case sint: SInt => s"signed${if (constrained) emitRange(sint) else ""}"
     case bits: Bits => s"std_logic_vector${if (constrained) emitRange(bits) else ""}"
     case mem: Mem[_] => s"${emitReference(mem)}_type"
-    case enum: SpinalEnumCraft[_] => enum.blueprint.getName()
+    case enum: SpinalEnumCraft[_] => emitEnumType(enum)
     case _ => throw new Exception("Unknown datatype"); ""
   }
 
