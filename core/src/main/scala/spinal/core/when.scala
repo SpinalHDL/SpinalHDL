@@ -26,11 +26,22 @@ import scala.collection.mutable.ArrayBuffer
  */
 
 
+trait ConditionalContext extends GlobalDataUser{
+
+  def push: Unit = {
+    globalData.conditionalAssignStack.push(this)
+  }
+
+  def pop: Unit = {
+    globalData.conditionalAssignStack.pop(this)
+  }
+}
+
 
 object when {
 
 
-  def doWhen(w: when, isTrue: Boolean)(block: => Unit): when = {
+  def doWhen(w: WhenContext, isTrue: Boolean)(block: => Unit): WhenContext = {
     w.isTrue = isTrue
     w.push
     block
@@ -38,23 +49,26 @@ object when {
     w
   }
 
-  def apply(cond: Bool)(block: => Unit): when = {
-    doWhen(new when(cond), true)(block)
+  def apply(cond: Bool)(block: => Unit): WhenContext = {
+    doWhen(new WhenContext(cond), true)(block)
   }
 
   //Allow the user to get a Bool that represent the  aggregation of all condition to the current context
   def getWhensCond(that: ContextUser): Bool = {
-    val whenScope = if (that == null) null else that.whenScope
+    val whenScope = if (that == null) null else that.conditionalAssignScope
 
     var ret: Bool = null
-    for (w <- that.globalData.whenStack.stack) {
-      if (w == whenScope) return returnFunc
-      val newCond = (if (w.isTrue) w.cond else !w.cond)
-      if (ret == null) {
-        ret = newCond
-      } else {
-        ret = ret && newCond
+    for (conditionalAssign <- that.globalData.conditionalAssignStack.stack) conditionalAssign match {
+      case w : WhenContext => {
+        if (w == whenScope) return returnFunc
+        val newCond = if (w.isTrue) w.cond else !w.cond
+        if (ret == null) {
+          ret = newCond
+        } else {
+          ret = ret && newCond
+        }
       }
+      case s : SwitchNode => ??? //TODO switch
     }
 
 
@@ -64,9 +78,10 @@ object when {
   }
 }
 
-class when(val cond: Bool) extends GlobalDataUser {
+class WhenContext(val cond: Bool) extends ConditionalContext {
   var isTrue: Boolean = true;
-  var parentElseWhen: when = null
+  var parentElseWhen: WhenContext = null
+  var childElseWhen: WhenContext = null
 
   def otherwise(block: => Unit): Unit = {
     restackElseWhen
@@ -74,13 +89,14 @@ class when(val cond: Bool) extends GlobalDataUser {
     destackElseWhen
   }
 
-  def elsewhen(cond: Bool)(block: => Unit): when = {
-    var w: when = null
+  def elsewhen(cond: Bool)(block: => Unit) : WhenContext = {
+    var w : WhenContext = null
     otherwise({
       w = when(cond) {
         block
       }
       w.parentElseWhen = this
+      this.childElseWhen = w
     })
     w
   }
@@ -98,21 +114,59 @@ class when(val cond: Bool) extends GlobalDataUser {
   }
 
 
-  def push: Unit = {
-    globalData.whenStack.push(this)
-  }
-
-  def pop: Unit = {
-    globalData.whenStack.pop(this)
-  }
 
 }
 
 class SwitchStack(val value: Data) {
-  var defaultBlockPresent = false
-  val whenStackHead = GlobalData.get.whenStack.head()
-  val defaultCond = True
+  var lastWhen: WhenContext = null
+  var defaultBlock: () => Unit = null
+  val whenStackHead = GlobalData.get.conditionalAssignStack.head()
 }
+
+
+object WhenNode {
+
+  def apply(w: WhenContext): WhenNode = {
+    apply(w, w.cond, NoneNode(), NoneNode())
+  }
+
+  def apply(w: WhenContext, cond: Bool, whenTrue: Node, whenFalse: Node): WhenNode = {
+    val ret = new WhenNode(w)
+    ret.inputs += cond
+    ret.inputs += whenTrue
+    ret.inputs += whenFalse
+    ret
+  }
+}
+
+class WhenNode(val w: WhenContext) extends Node {
+  override def calcWidth: Int = Math.max(whenTrue.getWidth, whenFalse.getWidth)
+
+  def cond = inputs(0)
+  def whenTrue = inputs(1)
+  def whenFalse = inputs(2)
+
+  override def normalizeInputs: Unit = {
+    Misc.normalizeResize(this, 1, this.getWidth)
+    Misc.normalizeResize(this, 2, this.getWidth)
+  }
+}
+
+
+class SwitchContext(val value: Data) extends ConditionalContext{
+  var defaultBlockPresent = false
+  val conditionalAssignStackHead = GlobalData.get.conditionalAssignStack.head()
+  val defaultCond = True
+  var caseCount = 0
+  var defaultContext : CaseContext = null
+}
+
+class CaseContext(val switchContext: SwitchContext,val cond : Bool) extends ConditionalContext{
+  val id = switchContext.caseCount
+  switchContext.caseCount += 1
+}
+
+
 
 object switch {
 
@@ -120,6 +174,13 @@ object switch {
     val s = new SwitchStack(value)
     value.globalData.switchStack.push(s)
     block
+    if (s.defaultBlock != null) {
+      if (s.lastWhen == null) {
+        block
+      } else {
+        s.lastWhen.otherwise(s.defaultBlock())
+      }
+    }
     value.globalData.switchStack.pop(s)
   }
 }
@@ -131,7 +192,7 @@ object is {
     if (globalData.switchStack.isEmpty) SpinalError("Use 'is' statement outside the 'switch'")
 
     val value = globalData.switchStack.head()
-    if (value.whenStackHead != globalData.whenStack.head())
+    if (value.whenStackHead != globalData.conditionalAssignStack.head())
       SpinalError("'is' statement is not at the top level of the 'switch'")
     val e = ArrayBuffer[Bool]()
     val switchValue = value.value
@@ -160,23 +221,11 @@ object is {
 
 
     val cond = values.map(analyse(_)).reduce(_ || _)
-    when(cond)({
-      value.defaultCond := False
-      block
-    })
-  }
-
-
-  def impl(cond : Bool)(block: => Unit): Unit = {
-    val globalData = cond.globalData
-    if (globalData.switchStack.isEmpty) SpinalError("Use 'is' statement outside the 'switch'")
-
-    val value = globalData.switchStack.head()
-    if (value.whenStackHead != globalData.whenStack.head())
-      SpinalError("'is' statement is not at the top level of the 'switch'")
-    //    if(value.defaultBlock != null)
-    //      SpinalError("'is' statement must appear before the 'default' statement of the 'switch'")
-
+    if (value.lastWhen == null) {
+      value.lastWhen = when(cond)(block)
+    } else {
+      value.lastWhen = value.lastWhen.elsewhen(cond)(block)
+    }
   }
 }
 
@@ -186,75 +235,109 @@ object default {
     if (globalData.switchStack.isEmpty) SpinalError("Use 'default' statement outside the 'switch'")
     val value = globalData.switchStack.head()
 
-    if (value.whenStackHead != globalData.whenStack.head()) SpinalError("'default' statement is not at the top level of the 'switch'")
-    if (value.defaultBlockPresent) SpinalError("'default' statement must appear only one time in the 'switch'")
-    value.defaultBlockPresent = true
-    when(value.defaultCond)(block)
+    if (value.whenStackHead != globalData.conditionalAssignStack.head()) SpinalError("'default' statement is not at the top level of the 'switch'")
+    if (value.defaultBlock != null) SpinalError("'default' statement must appear only one time in the 'switch'")
+    value.defaultBlock = () => {
+      block
+    }
   }
 }
 
-object WhenNode {
 
-  def apply(w: when): WhenNode = {
-    apply(w, w.cond, NoneNode(), NoneNode())
-  }
+object switch2 {
 
-  def apply(w: when, cond: Bool, whenTrue: Node, whenFalse: Node): WhenNode = {
-    val ret = new WhenNode(w)
-    ret.inputs += cond
-    ret.inputs += whenTrue
-    ret.inputs += whenFalse
-    ret
+  def apply[T <: Data](value: T)(block: => Unit): Unit = {
+    val s = new SwitchContext(value)
+    value.globalData.conditionalAssignStack.push(s)
+    block
+    value.globalData.conditionalAssignStack.pop(s)
   }
 }
 
-class WhenNode(val w: when) extends Node {
-  override def calcWidth: Int = Math.max(whenTrue.getWidth, whenFalse.getWidth)
 
+object is2 {
+  def apply(values: Any*)(block: => Unit): Unit = {
+    val globalData = GlobalData.get
+    if (globalData.conditionalAssignStack.isEmpty) SpinalError("Use 'is' statement outside the 'switch'")
+
+    val switchContext : SwitchContext = globalData.conditionalAssignStack.head() match{
+      case switchContext : SwitchContext => switchContext
+      case _ => SpinalError("'is' statement is not at the top level of the 'switch'")
+    }
+    val e = ArrayBuffer[Bool]()
+    val switchValue = switchContext.value
+
+    def analyse(key: Any): Bool = {
+      key match {
+        case key: Data => switchValue.isEguals(key)
+        case key: Seq[_] => key.map(d => analyse(d)).reduce(_ || _)
+        case key: Int => {
+          switchValue match {
+            case switchValue: Bits => switchValue === B(key)
+            case switchValue: UInt => switchValue === U(key)
+            case switchValue: SInt => switchValue === S(key)
+            case _ => SpinalError("The switch is not a Bits, UInt or SInt")
+          }
+        }
+        case that : SpinalEnumElement[_] => switchValue.isEguals(that())
+        case key : MaskedLiteral => switchValue match {
+          case switchValue: Bits => switchValue === key
+          case switchValue: UInt => switchValue === key
+          case switchValue: SInt => switchValue === key
+          case _ => SpinalError("The switch is not a Bits, UInt or SInt")
+        }
+      }
+    }
+
+
+    val cond = values.map(analyse(_)).reduce(_ || _)
+    val caseContext = new CaseContext(switchContext,cond)
+    caseContext.push
+    switchContext.defaultCond := False
+    block
+    caseContext.pop
+  }
+}
+
+//TODO switch make a proper implementation/check
+object default2 {
+  def apply(block: => Unit): Unit = {
+    val globalData = GlobalData.get
+    val switchContext : SwitchContext = globalData.conditionalAssignStack.head() match{
+      case switchContext : SwitchContext => switchContext
+      case _ => SpinalError("'is' statement is not at the top level of the 'switch'")
+    }
+
+    if (switchContext.defaultBlockPresent) SpinalError("'default' statement must appear only one time in the 'switch'")
+    switchContext.defaultBlockPresent = true
+
+
+    val cond = switchContext.defaultCond
+    val caseContext = new CaseContext(switchContext,cond)
+    switchContext.defaultContext = caseContext
+    caseContext.push
+    block
+    caseContext.pop
+  }
+}
+
+class CaseNode(val context: CaseContext) extends Node{
+  inputs += context.cond
+  inputs += null
   def cond = inputs(0)
+  def assignement = inputs(1)
 
-  def whenTrue = inputs(1)
+  override private[core] def calcWidth: Int = assignement.getWidth
+}
 
-  def whenFalse = inputs(2)
+class SwitchNode(val context: SwitchContext) extends Node{
+  def cases = inputs
 
   override def normalizeInputs: Unit = {
-    Misc.normalizeResize(this, 1, this.getWidth)
-    Misc.normalizeResize(this, 2, this.getWidth)
+    for((input,i)  <- inputs.zipWithIndex){
+      Misc.normalizeResize(this, i, this.getWidth)
+    }
   }
+
+  override def calcWidth: Int = cases.foldLeft(-1)((a,b) => Math.max(a,b.getWidth))
 }
-
-
-
-//object switch2 {
-//
-//  def apply[T <: Data](value: T)(block: => Unit): Unit = {
-//    val s = new SwitchStack(value)
-//    value.globalData.switchStack.push(s)
-//    block
-//    if (s.defaultBlock != null) {
-//      if (s.lastWhen == null) {
-//        block
-//      } else {
-//        s.lastWhen.otherwise(s.defaultBlock())
-//      }
-//    }
-//    value.globalData.switchStack.pop(s)
-//  }
-//}
-//
-//class Switch2[T <: BaseType](value : T){
-//  val keys = new ArrayBuffer[T]
-//}
-//
-//class Switch2Node() extends Node{
-//  def cond = inputs(0)
-//  def values = inputs.iterator.drop(1)
-//
-//  override def normalizeInputs: Unit = {
-//    for((input,i)  <- inputs.zipWithIndex){
-//      Misc.normalizeResize(this, i, this.getWidth)
-//    }
-//  }
-//
-//  override def calcWidth: Int = values.foldLeft(-1)((a,b) => Math.max(a,b.getWidth))
-//}

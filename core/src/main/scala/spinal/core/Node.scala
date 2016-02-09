@@ -247,6 +247,19 @@ object InputNormalize {
     Misc.normalizeResize(node, MemWrite.getAddressId, node.asInstanceOf[Mem[_]].addressWidth)
   }
 
+  def enumImpl[T <: SpinalEnum](node : Node) : Unit = {
+    val left = node.inputs(0).asInstanceOf[SpinalEnumCraft[T]]
+    val right = node.inputs(1).asInstanceOf[SpinalEnumCraft[T]]
+    if(left.encoding != right.encoding){
+      val (that,ref,thatId) = if(left.getWidth > right.getWidth) (left,right,0) else  (right,left,1)
+      Component.push(that.component)
+      val newOne = ref.clone.asInstanceOf[SpinalEnumCraft[T]]
+      newOne.assignFromAnotherEncoding(that)
+      node.inputs(thatId) = newOne
+      Component.pop(that.component)
+    }
+  }
+
   def nodeWidth(node: Node): Unit = {
     val targetWidth = node.getWidth
     for (i <- 0 until node.inputs.size)

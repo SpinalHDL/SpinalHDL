@@ -19,8 +19,8 @@ class Uart extends Bundle with IMasterSlave {
 }
 
 
-object UartStopType extends SpinalEnum {
-  val eStop1bit, eStop2bit = ordered()
+object UartStopType extends SpinalEnum(sequancial) {
+  val eStop1bit, eStop2bit = newElement()
 
   def toBitCount(that : SpinalEnumCraft[UartStopType.type]) = SpinalMap(that,U"0",eStop1bit -> U"0",eStop2bit -> U"1")
 //  val toBitCount = SpinalMap(
@@ -29,7 +29,7 @@ object UartStopType extends SpinalEnum {
 //  )
 }
 
-object UartParityType extends SpinalEnum {
-  val eParityNone, eParityEven, eParityOdd = ordered()
+object UartParityType extends SpinalEnum(sequancial) {
+  val eParityNone, eParityEven, eParityOdd = newElement()
 }
 

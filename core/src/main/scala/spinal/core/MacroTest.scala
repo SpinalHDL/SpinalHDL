@@ -168,7 +168,7 @@ object MacroTest {
     val cleanObjectName = TermName(c.freshName)
     val tree = q"""
       object $objectName extends SpinalEnum{
-        ..${states.map(s => q"val $s = ordered")}
+        ..${states.map(s => q"val $s = newElement()")}
       }
 
       object $cleanObjectName{

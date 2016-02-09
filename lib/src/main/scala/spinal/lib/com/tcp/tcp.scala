@@ -5,7 +5,7 @@ import spinal.lib._
 
 //https://en.wikipedia.org/wiki/Transmission_Control_Protocol#/media/File:Tcp_state_diagram_fixed_new.svg
 object TcpServerState extends SpinalEnum {
-  val eClosed, eListen, eSynReceived, eEtablished, eCloseWait, eLastAck = Value
+  val eClosed, eListen, eSynReceived, eEtablished, eCloseWait, eLastAck = newElement()
 }
 
 

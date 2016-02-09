@@ -284,7 +284,7 @@ class LogicAnalyser(p: LogicAnalyserParameter) extends Component {
 
 
 object LogicAnalyserLoggerState extends SpinalEnum {
-  val sWaitTrigger, sSample, sPush = Value
+  val sWaitTrigger, sSample, sPush = newElement()
 }
 
 class LogicAnalyserLogger(p: LogicAnalyserParameter, probeType: Bits) extends Component {

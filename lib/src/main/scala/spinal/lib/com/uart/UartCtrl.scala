@@ -3,6 +3,7 @@ package spinal.lib.com.uart
 import UartParityType._
 import UartStopType._
 import spinal.core._
+import spinal.lib.FragmentToBitsStates._
 import spinal.lib._
 
 case class UartCtrlConfig(dataWidthMax: Int = 8) extends Bundle {
@@ -41,7 +42,7 @@ class UartCtrl(dataWidthMax: Int = 8, clockDividerWidth: Int = 20, preSamplingSi
 }
 
 object UartCtrlTxState extends SpinalEnum {
-  val sIdle, sStart, sData, sParity, sStop = Value
+  val sIdle, sStart, sData, sParity, sStop = newElement()
 }
 
 class UartCtrlTx(dataWidthMax: Int = 8, clockDividerWidth: Int = 24) extends Component {
@@ -80,7 +81,7 @@ class UartCtrlTx(dataWidthMax: Int = 8, clockDividerWidth: Int = 24) extends Com
     import UartCtrlTxState._
 
     val state = RegInit(sIdle())
-    val paritySum = Reg(Bool);
+    val paritySum = Reg(Bool)
     val dataBuffer = Reg(io.write.data)
 
     val lookingForJob = Bool
@@ -149,7 +150,7 @@ class UartCtrlTx(dataWidthMax: Int = 8, clockDividerWidth: Int = 24) extends Com
 }
 
 object UartCtrlRxState extends SpinalEnum {
-  val sIdle, sStart, sData, sParity, sStop = Value
+  val sIdle, sStart, sData, sParity, sStop = newElement()
 }
 
 class UartCtrlRx(dataWidthMax: Int = 8, clockDividerWidth: Int = 21, preSamplingSize: Int = 1, samplingSize: Int = 5, postSamplingSize: Int = 2) extends Component {

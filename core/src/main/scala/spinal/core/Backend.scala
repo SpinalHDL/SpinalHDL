@@ -44,7 +44,7 @@ class Backend {
   val globalScope = new Scope()
   val reservedKeyWords = mutable.Set[String]()
   var topLevel: Component = null
-  val enums = mutable.Set[SpinalEnum]()
+  val enums = mutable.Map[SpinalEnum,mutable.Set[SpinalEnumEncoding]]()
   var forceMemToBlackboxTranslation = false
   var jsonReportPath = ""
   var defaultClockDomainFrequancy : IClockDomainFrequency = UnknownFrequency()
@@ -70,7 +70,7 @@ class Backend {
       if (!GlobalData.get.clockDomainStack.isEmpty) SpinalWarning("clockDomain stack is not empty :(")
       if (!GlobalData.get.componentStack.isEmpty) SpinalWarning("componentStack stack is not empty :(")
       if (!GlobalData.get.switchStack.isEmpty) SpinalWarning("switchStack stack is not empty :(")
-      if (!GlobalData.get.whenStack.isEmpty) SpinalWarning("whenStack stack is not empty :(")
+      if (!GlobalData.get.conditionalAssignStack.isEmpty) SpinalWarning("conditionalAssignStack stack is not empty :(")
     }
     checkGlobalData
     val ret = elaborate(topLevel.asInstanceOf[T])
@@ -147,8 +147,6 @@ class Backend {
     //Check
     SpinalInfoPhase("Check combinational loops")
     checkCombinationalLoops()
-    SpinalInfoPhase("Check that there is no incomplet assignement")
-    check_noAsyncNodeWithIncompletAssignment()
     SpinalInfoPhase("Check cross clock domains")
     checkCrossClockDomains()
 
@@ -158,6 +156,9 @@ class Backend {
     fillNodeConsumer()
     dontSymplifyBasetypeWithComplexAssignement()
     deleteUselessBaseTypes()
+   // convertWhenToDefault()
+    SpinalInfoPhase("Check that there is no incomplet assignement")
+    check_noAsyncNodeWithIncompletAssignment()
     simplifyBlacBoxGenerics()
 
 
@@ -194,9 +195,6 @@ class Backend {
         case _ =>
       }
     }
-
-
-
   }
 
 
@@ -393,12 +391,12 @@ class Backend {
   def collectAndNameEnum(): Unit = {
     Node.walk(walkNodesDefautStack,node => {
       node match {
-        case enum: SpinalEnumCraft[_] => enums += enum.blueprint
+        case enum: SpinalEnumCraft[_] => enums.getOrElseUpdate(enum.blueprint,mutable.Set[SpinalEnumEncoding]()).add(enum.encoding)
         case _ =>
       }
     })
 
-    for (enumDef <- enums) {
+    for (enumDef <- enums.keys) {
       Misc.reflect(enumDef, (name, obj) => {
         obj match {
           case obj: Nameable => obj.setWeakName(name)
@@ -407,7 +405,7 @@ class Backend {
       })
       for (e <- enumDef.values) {
         if (e.isUnnamed) {
-          e.setWeakName("s" + e.id)
+          e.setWeakName("s" + e.position)
         }
       }
       if (enumDef.isWeak) {
@@ -418,8 +416,29 @@ class Backend {
       }
     }
   }
-
-
+  def convertWhenToDefault() : Unit = {
+    val startContext = mutable.Set[WhenContext]()
+    Node.walk(walkNodesDefautStack,node => node match {
+      case whenNode : WhenNode => {
+        val whenContext = whenNode.w
+        if(whenContext.parentElseWhen == null && whenContext.childElseWhen != null) startContext.add(whenContext)
+      }
+      case _ =>
+    })
+    val symplifyThem = mutable.Set[WhenContext]()
+    for(startContext <- startContext){
+      //TODO
+//      var ptr = startContext
+//      while(ptr.childElseWhen != null){
+//        ptr = ptr.childElseWhen
+//      }
+//      symplifyThem.add(ptr.parentElseWhen)
+    }
+//    Node.walk(walkNodesDefautStack,node => node match { Patch me, should update consumers ref
+//      case whenNode : WhenNode if(symplifyThem.contains(whenNode.w)) => whenNode.inputs(2) = whenNode.inputs(2).inputs(1)
+//      case _ =>
+//    })
+  }
   def check_noAsyncNodeWithIncompletAssignment(): Unit = {
 
 
@@ -557,7 +576,7 @@ class Backend {
   }
 
   def allocateNames() = {
-    for (enumDef <- enums) {
+    for (enumDef <- enums.keys) {
       if (enumDef.isWeak)
         enumDef.setName(globalScope.allocateName(enumDef.getName()));
       else
@@ -904,7 +923,7 @@ class Backend {
           walk(node.inputs(0))
 
           def walk(that: Node): Unit = that match {
-            case that: Multiplexer => {
+            case that: Multiplexer => { //TODO probably useless
               that.inferredWidth = width
               walk(that.inputs(1))
               walk(that.inputs(2))
@@ -915,6 +934,18 @@ class Backend {
               walk(that.whenFalse)
             }
             case that: MultipleAssignmentNode => {
+              that.inferredWidth = width
+              for (node <- that.inputs) {
+                walk(node)
+              }
+            }
+            case that: CaseNode => {
+              that.inferredWidth = width
+              for (node <- that.inputs) {
+                walk(node)
+              }
+            }
+            case that: SwitchNode => {
               that.inferredWidth = width
               for (node <- that.inputs) {
                 walk(node)

@@ -125,7 +125,7 @@ class DataPimper[T <: Data](val pimpIt: T) extends AnyVal{
   def \(that: T) : T = {
     val ret = cloneOf(that)
     ret := pimpIt
-    ret.flatten.foreach(_.whenScope = pimpIt.whenScope)
+    ret.flatten.foreach(_.conditionalAssignScope = pimpIt.conditionalAssignScope)
     ret := that
     ret
   }
