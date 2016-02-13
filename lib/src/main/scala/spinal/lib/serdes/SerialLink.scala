@@ -65,16 +65,16 @@ class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) ext
     //Fill the buffer from upper layer data
     io.input.ready := !full
     when(io.input.fire) {
-      ram.write(writePtr, io.input.data)
+      ram.write(writePtr, io.input.payload)
       writePtr.increment()
     }
 
     //manage syncPtr from rxToTx notification port
     when(io.rxToTx.otherRxPtr.fire) {
-      when(syncPtr =/= io.rxToTx.otherRxPtr.data) {
+      when(syncPtr =/= io.rxToTx.otherRxPtr.payload) {
         resendTimeout.clear()
       }
-      syncPtr := io.rxToTx.otherRxPtr.data
+      syncPtr := io.rxToTx.otherRxPtr.payload
     }
 
     //read managment
@@ -246,7 +246,7 @@ class SerialLinkRx extends Component {
   io.rxToTx.otherRxPtr.default(0)
 
   io.output.valid := False
-  io.output.data := io.input.fragment
+  io.output.payload := io.input.fragment
   io.input.ready := False
   when(io.input.valid) {
     switch(state) {

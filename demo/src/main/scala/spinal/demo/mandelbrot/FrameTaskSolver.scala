@@ -49,7 +49,7 @@ class PixelTaskGenerator(p: MandelbrotCoreParameters) extends Component {
   }
 
   val positionOnScreen = Reg(UInt2D(log2Up(p.screenResX) bit, log2Up(p.screenResY) bit))
-  val positionOnMandelbrot = Reg(SFix2D(io.frameTask.data.fullRangeSFix))
+  val positionOnMandelbrot = Reg(SFix2D(io.frameTask.payload.fullRangeSFix))
   val setup = RegInit(True)
 
   val solverTask = Stream(Fragment(PixelTask(p)))
@@ -66,19 +66,19 @@ class PixelTaskGenerator(p: MandelbrotCoreParameters) extends Component {
       setup := False
       positionOnScreen.x := 0
       positionOnScreen.y := 0
-      positionOnMandelbrot := io.frameTask.data.start
+      positionOnMandelbrot := io.frameTask.payload.start
     }.otherwise {
       when(positionOnScreen.x =/= p.screenResX - 1) {
         positionOnScreen.x := positionOnScreen.x + 1
-        positionOnMandelbrot.x := positionOnMandelbrot.x + io.frameTask.data.inc.x
+        positionOnMandelbrot.x := positionOnMandelbrot.x + io.frameTask.payload.inc.x
       }.otherwise {
         positionOnScreen.x := 0
-        positionOnMandelbrot.x := io.frameTask.data.start.x
+        positionOnMandelbrot.x := io.frameTask.payload.start.x
         when(positionOnScreen.y =/= p.screenResY - 1) {
           positionOnScreen.y := positionOnScreen.y + 1
-          positionOnMandelbrot.y := positionOnMandelbrot.y + io.frameTask.data.inc.y
+          positionOnMandelbrot.y := positionOnMandelbrot.y + io.frameTask.payload.inc.y
         }.otherwise {
-          positionOnMandelbrot.y := io.frameTask.data.start.y
+          positionOnMandelbrot.y := io.frameTask.payload.start.y
           io.frameTask.ready := True //Asyncronous acknoledge into syncronous space <3
         }
       }
@@ -149,10 +149,10 @@ class PixelTaskSolver(p: MandelbrotCoreParameters) extends Component {
    // return a*b
   }
 
-  stage2.data.zXzX := fixMul(stage1.data.z.x, stage1.data.z.x)
-  stage2.data.zYzY := fixMul(stage1.data.z.y, stage1.data.z.y)
-  stage2.data.zXzY := fixMul(stage1.data.z.x, stage1.data.z.y)
-  stage2 assignSomeByName Delay(stage1, latencyAnalysis(stage1.data.z.x.raw, stage2.data.zXzX.raw) - 1)
+  stage2.payload.zXzX := fixMul(stage1.payload.z.x, stage1.payload.z.x)
+  stage2.payload.zYzY := fixMul(stage1.payload.z.y, stage1.payload.z.y)
+  stage2.payload.zXzY := fixMul(stage1.payload.z.x, stage1.payload.z.y)
+  stage2 assignSomeByName Delay(stage1, latencyAnalysis(stage1.payload.z.x.raw, stage2.payload.zXzX.raw) - 1)
 
 
   //Stage3 calculate next position of the iteration (zX,zY)
@@ -161,13 +161,13 @@ class PixelTaskSolver(p: MandelbrotCoreParameters) extends Component {
   val stage3 = RegFlow(new Context)
   stage3 assignAllByName stage2
 
-  stage3.data.z.x := stage2.data.zXzX - stage2.data.zYzY + stage2.data.task.mandelbrotPosition.x
-  stage3.data.z.y := (stage2.data.zXzY << 1) + stage2.data.task.mandelbrotPosition.y
-  when(!stage2.data.done) {
-    stage3.data.iteration := stage2.data.iteration + 1
+  stage3.payload.z.x := stage2.payload.zXzX - stage2.payload.zYzY + stage2.payload.task.mandelbrotPosition.x
+  stage3.payload.z.y := (stage2.payload.zXzY << 1) + stage2.payload.task.mandelbrotPosition.y
+  when(!stage2.payload.done) {
+    stage3.payload.iteration := stage2.payload.iteration + 1
   }
-  when(stage2.data.iteration >= p.iterationLimit | stage2.data.zXzX + stage2.data.zYzY >= 4.0) {
-    stage3.data.done := True
+  when(stage2.payload.iteration >= p.iterationLimit | stage2.payload.zXzX + stage2.payload.zYzY >= 4.0) {
+    stage3.payload.done := True
   }
 
 
@@ -175,16 +175,16 @@ class PixelTaskSolver(p: MandelbrotCoreParameters) extends Component {
   //          else put it into the feedback to redo iteration or to waiting
   val result = Stream(Fragment(PixelResult(p)))
   val resultOrder = Counter(32, result.fire)
-  val readyForResult = stage3.data.done && resultOrder === stage3.data.order
+  val readyForResult = stage3.payload.done && resultOrder === stage3.payload.order
 
 
   result.valid := stage3.valid && readyForResult
-  result.last := stage3.data.lastPixel
-  result.fragment.iteration := stage3.data.iteration - 1
+  result.last := stage3.payload.lastPixel
+  result.fragment.iteration := stage3.payload.iteration - 1
 
 
   result >-> io.pixelResult
 
   loopBack.valid := stage3.valid && ((!readyForResult) || (!result.ready))
-  loopBack.data := stage3.data
+  loopBack.payload := stage3.payload
 }

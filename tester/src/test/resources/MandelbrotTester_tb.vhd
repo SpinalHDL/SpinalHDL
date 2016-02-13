@@ -21,16 +21,16 @@ end MandelbrotTester_tb;
 
 architecture arch of MandelbrotTester_tb is
   signal io_cmdPort_valid : std_logic;
-  signal io_cmdPort_data_last : std_logic;
-  signal io_cmdPort_data_fragment : std_logic_vector(7 downto 0);
+  signal io_cmdPort_payload_last : std_logic;
+  signal io_cmdPort_payload_fragment : std_logic_vector(7 downto 0);
   signal io_retPort_valid : std_logic;
   signal io_retPort_ready : std_logic;
-  signal io_retPort_data_last : std_logic;
-  signal io_retPort_data_fragment : std_logic_vector(7 downto 0);
+  signal io_retPort_payload_last : std_logic;
+  signal io_retPort_payload_fragment : std_logic_vector(7 downto 0);
   signal io_pixelResult_valid : std_logic;
   signal io_pixelResult_ready : std_logic;
-  signal io_pixelResult_data_last : std_logic;
-  signal io_pixelResult_data_fragment_iteration : unsigned(4 downto 0);
+  signal io_pixelResult_payload_last : std_logic;
+  signal io_pixelResult_payload_fragment_iteration : unsigned(4 downto 0);
   signal clk : std_logic;
   signal reset : std_logic;
   -- #spinalBegin userDeclarations
@@ -89,7 +89,7 @@ begin
     variable hCounter : integer := 0;
   begin
     wait until rising_edge(clk) and reset = '0' and io_pixelResult_valid = '1' and io_pixelResult_ready = '1';
-	write (VEC_LINE, to_integer(unsigned(io_pixelResult_data_fragment_iteration)));
+	write (VEC_LINE, to_integer(unsigned(io_pixelResult_payload_fragment_iteration)));
 	hCounter := hCounter + 1;
 	if hCounter /= 16 then
         write (VEC_LINE, ',');
@@ -99,7 +99,7 @@ begin
 		writeline (VEC_FILE, VEC_LINE);
 	end if;
 
-	if io_pixelResult_data_last = '1' then
+	if io_pixelResult_payload_last = '1' then
 		done := done + 1;
 	end if;
   end process;   
@@ -108,16 +108,16 @@ begin
   uut : entity lib_MandelbrotTester.MandelbrotTester
     port map (
       io_cmdPort_valid =>  io_cmdPort_valid,
-      io_cmdPort_data_last =>  io_cmdPort_data_last,
-      io_cmdPort_data_fragment =>  io_cmdPort_data_fragment,
+      io_cmdPort_payload_last =>  io_cmdPort_payload_last,
+      io_cmdPort_payload_fragment =>  io_cmdPort_payload_fragment,
       io_retPort_valid =>  io_retPort_valid,
       io_retPort_ready =>  io_retPort_ready,
-      io_retPort_data_last =>  io_retPort_data_last,
-      io_retPort_data_fragment =>  io_retPort_data_fragment,
+      io_retPort_payload_last =>  io_retPort_payload_last,
+      io_retPort_payload_fragment =>  io_retPort_payload_fragment,
       io_pixelResult_valid =>  io_pixelResult_valid,
       io_pixelResult_ready =>  io_pixelResult_ready,
-      io_pixelResult_data_last =>  io_pixelResult_data_last,
-      io_pixelResult_data_fragment_iteration =>  io_pixelResult_data_fragment_iteration,
+      io_pixelResult_payload_last =>  io_pixelResult_payload_last,
+      io_pixelResult_payload_fragment_iteration =>  io_pixelResult_payload_fragment_iteration,
       clk =>  clk,
       reset =>  reset 
     );

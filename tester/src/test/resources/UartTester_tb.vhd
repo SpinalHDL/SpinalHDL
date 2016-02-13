@@ -20,9 +20,9 @@ architecture arch of UartTester_tb is
   signal io_uart_clockDivider : unsigned(19 downto 0);
   signal io_uart_write_valid : std_logic;
   signal io_uart_write_ready : std_logic;
-  signal io_uart_write_data : std_logic_vector(7 downto 0);
+  signal io_uart_write_payload : std_logic_vector(7 downto 0);
   signal io_uart_read_valid : std_logic;
-  signal io_uart_read_data : std_logic_vector(7 downto 0);
+  signal io_uart_read_payload : std_logic_vector(7 downto 0);
   signal io_uart_uart_txd : std_logic;
   signal io_uart_uart_rxd : std_logic;
   signal clk : std_logic;
@@ -53,10 +53,10 @@ begin
     procedure uartCtrlWrite(that:  std_logic_vector(7 downto 0)) is            
     begin
       io_uart_write_valid <= '1';
-      io_uart_write_data <= that;
+      io_uart_write_payload <= that;
       wait until rising_edge(clk) and io_uart_write_ready = '1';
       io_uart_write_valid <= '0';
-      io_uart_write_data <= (others => 'U');
+      io_uart_write_payload <= (others => 'U');
     end uartCtrlWrite;
 
   begin
@@ -146,7 +146,7 @@ begin
     procedure checkRx(that:  std_logic_vector(7 downto 0)) is
     begin
       wait until rising_edge(clk) and io_uart_read_valid = '1';
-      assert io_uart_read_data = that report "io_uart_read_data fail" severity failure;
+      assert io_uart_read_payload = that report "io_uart_read_payload fail" severity failure;
     end checkRx;
   begin
     wait until rising_edge(clk) and reset = '0';
@@ -172,9 +172,9 @@ begin
       io_uart_clockDivider =>  io_uart_clockDivider,
       io_uart_write_valid =>  io_uart_write_valid,
       io_uart_write_ready =>  io_uart_write_ready,
-      io_uart_write_data =>  io_uart_write_data,
+      io_uart_write_payload =>  io_uart_write_payload,
       io_uart_read_valid =>  io_uart_read_valid,
-      io_uart_read_data =>  io_uart_read_data,
+      io_uart_read_payload =>  io_uart_read_payload,
       io_uart_uart_txd =>  io_uart_uart_txd,
       io_uart_uart_rxd =>  io_uart_uart_rxd,
       clk =>  clk,

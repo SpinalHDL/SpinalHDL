@@ -89,7 +89,7 @@ class Apb3SlaveController(bus: Apb3Slave) {
   def writeStream(baseAddress: BigInt): Stream[Bits] = {
     val ret = Stream(bus.PWDATA)
     ret.valid := False
-    ret.data := bus.PWDATA
+    ret.payload := bus.PWDATA
 
     when(isAccessing(baseAddress)) {
       when(writeAccess) {

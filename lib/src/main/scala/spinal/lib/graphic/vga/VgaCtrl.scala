@@ -83,7 +83,7 @@ class VgaCtrl(rgbType: Rgb, timingsWidth: Int = 12) extends Component {
   io.vga.hSync := h.sync
   io.vga.vSync := v.sync
   io.vga.colorEn := colorEn
-  io.vga.color := io.colorStream.data
+  io.vga.color := io.colorStream.payload
 }
 
 

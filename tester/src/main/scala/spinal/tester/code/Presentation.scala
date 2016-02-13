@@ -358,7 +358,7 @@ object C10_2 {
     }
 
     io.memoryReadAddress.valid := io.run.valid
-    io.memoryReadAddress.data := toBits(addressCounter)
+    io.memoryReadAddress.payload := toBits(addressCounter)
 
     io.colorStream.translateFrom(io.memoryReadData)(_.assignFromBits(_))
   }
@@ -493,7 +493,7 @@ object C12 {
     fifo.io.push << io.slavePort
     fifo.io.pop >/-> io.masterPort
 
-    assert(3 == latencyAnalysis(io.slavePort.data, io.masterPort.data))
+    assert(3 == latencyAnalysis(io.slavePort.payload, io.masterPort.payload))
     assert(2 == latencyAnalysis(io.masterPort.ready, io.slavePort.ready))
   }
 

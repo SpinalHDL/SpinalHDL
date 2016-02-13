@@ -81,6 +81,7 @@ class Play1 extends Component {
     to.assignSomeByName(from)
     to.d := False
   })
+  io.output.a := False
 }
 
 object Play1 {
@@ -739,7 +740,7 @@ object PlayStream {
   class TopLevel extends Component {
     val cmd = master Stream (Struct())
     cmd.valid := True
-    cmd.data.data := 1
+    cmd.payload.data := 1
     cmd.c === 2
 
 
@@ -878,7 +879,7 @@ object PlayFsmRef {
       switch(state) {
         is(s0) {
           output0.valid := input.valid
-          output0.data := input.data
+          output0.payload := input.payload
           input.ready := output0.ready
           when(input.valid && output0.ready) {
             stateNext := s1
@@ -887,7 +888,7 @@ object PlayFsmRef {
         default {
           //is(s1){
           output1.valid := input.valid
-          output1.data := input.data
+          output1.payload := input.payload
           input.ready := output1.ready
           when(input.valid && output1.ready) {
             stateNext := s0
@@ -1048,9 +1049,9 @@ object BlueVgaPlay {
     vgaCtrl.io.timings.setAs_h640_v480_r60 //Static timing for 640*480 pixel at 60HZ
     vgaCtrl.io.vga <> io.vga
     vgaCtrl.io.colorStream.valid := True
-    vgaCtrl.io.colorStream.data.r := 255
-    vgaCtrl.io.colorStream.data.g := 0
-    vgaCtrl.io.colorStream.data.b := 0
+    vgaCtrl.io.colorStream.payload.r := 255
+    vgaCtrl.io.colorStream.payload.g := 0
+    vgaCtrl.io.colorStream.payload.b := 0
   }
 
   def main(args: Array[String]): Unit = {

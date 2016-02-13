@@ -82,7 +82,7 @@ class UartCtrlTx(dataWidthMax: Int = 8, clockDividerWidth: Int = 24) extends Com
 
     val state = RegInit(sIdle())
     val paritySum = Reg(Bool)
-    val dataBuffer = Reg(io.write.data)
+    val dataBuffer = Reg(io.write.payload)
 
     val lookingForJob = Bool
     val txd = Bool
@@ -140,7 +140,7 @@ class UartCtrlTx(dataWidthMax: Int = 8, clockDividerWidth: Int = 24) extends Com
     when(lookingForJob && io.write.valid) {
       io.write.ready := True
       timer.reset := True
-      dataBuffer := io.write.data
+      dataBuffer := io.write.payload
       state := sStart
     }
   }
@@ -221,7 +221,7 @@ class UartCtrlRx(dataWidthMax: Int = 8, clockDividerWidth: Int = 21, preSampling
 
     val state = RegInit(sIdle())
     val paritySum = Reg(Bool)
-    val dataBuffer = Reg(io.read.data)
+    val dataBuffer = Reg(io.read.payload)
 
     when(baud.tick) {
       paritySum := paritySum ^ baud.value
@@ -279,5 +279,5 @@ class UartCtrlRx(dataWidthMax: Int = 8, clockDividerWidth: Int = 21, preSampling
       }
     }
   }
-  io.read.data := stateMachine.dataBuffer
+  io.read.payload := stateMachine.dataBuffer
 }

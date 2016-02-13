@@ -18,12 +18,12 @@ end StreamTester_tb;
 architecture arch of StreamTester_tb is
   signal io_slave0_valid : std_logic;
   signal io_slave0_ready : std_logic;
-  signal io_slave0_data_a : unsigned(7 downto 0);
-  signal io_slave0_data_b : std_logic;
+  signal io_slave0_payload_a : unsigned(7 downto 0);
+  signal io_slave0_payload_b : std_logic;
   signal io_master0_valid : std_logic;
   signal io_master0_ready : std_logic;
-  signal io_master0_data_a : unsigned(7 downto 0);
-  signal io_master0_data_b : std_logic;
+  signal io_master0_payload_a : unsigned(7 downto 0);
+  signal io_master0_payload_b : std_logic;
   signal io_fifo0_occupancy : unsigned(4 downto 0);
   signal clk : std_logic;
   signal reset : std_logic;
@@ -61,13 +61,13 @@ begin
     procedure slave0_push is
     begin
       io_slave0_valid <= '1';
-      io_slave0_data_a <= slave0_counter;
-      io_slave0_data_b <= slave0_counter(2) xor slave0_counter(0);
+      io_slave0_payload_a <= slave0_counter;
+      io_slave0_payload_b <= slave0_counter(2) xor slave0_counter(0);
       slave0_counter <= slave0_counter + X"01";
       wait until rising_edge(clk) and io_slave0_ready = '1';
       io_slave0_valid <= '0';
-      io_slave0_data_a <= (others => 'X');
-      io_slave0_data_b <= 'X';
+      io_slave0_payload_a <= (others => 'X');
+      io_slave0_payload_b <= 'X';
     end slave0_push;
     
     
@@ -107,7 +107,7 @@ begin
     procedure master0_pop is
     begin
       wait until rising_edge(clk) and io_master0_valid = '1' and io_master0_ready = '1';
-      assert (io_master0_data_a = master0_counter and (io_master0_data_b = (master0_counter(2) xor master0_counter(0)))) report "master0_pop fail" severity failure;
+      assert (io_master0_payload_a = master0_counter and (io_master0_payload_b = (master0_counter(2) xor master0_counter(0)))) report "master0_pop fail" severity failure;
       master0_counter <= master0_counter + X"01";
     end master0_pop;
  
@@ -148,12 +148,12 @@ begin
     port map (
       io_slave0_valid =>  io_slave0_valid,
       io_slave0_ready =>  io_slave0_ready,
-      io_slave0_data_a =>  io_slave0_data_a,
-      io_slave0_data_b =>  io_slave0_data_b,
+      io_slave0_payload_a =>  io_slave0_payload_a,
+      io_slave0_payload_b =>  io_slave0_payload_b,
       io_master0_valid =>  io_master0_valid,
       io_master0_ready =>  io_master0_ready,
-      io_master0_data_a =>  io_master0_data_a,
-      io_master0_data_b =>  io_master0_data_b,
+      io_master0_payload_a =>  io_master0_payload_a,
+      io_master0_payload_b =>  io_master0_payload_b,
       io_fifo0_occupancy =>  io_fifo0_occupancy,
       clk =>  clk,
       reset =>  reset 

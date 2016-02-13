@@ -18,7 +18,7 @@ object Flow extends FlowFactory
 
 class Flow[T <: Data](_dataType: T) extends Bundle with IMasterSlave with DataCarrier[T]{
   val valid = Bool
-  val data : T = _dataType.clone()
+  val payload : T = _dataType.clone()
 
   def dataType = cloneOf(_dataType)
   override def clone: this.type = Flow(_dataType).asInstanceOf[this.type]
@@ -31,7 +31,7 @@ class Flow[T <: Data](_dataType: T) extends Bundle with IMasterSlave with DataCa
 
 
   def toReg : T = toReg(null.asInstanceOf[T])
-  def toReg(init: T): T = RegNextWhen(this.data,this.fire,init)
+  def toReg(init: T): T = RegNextWhen(this.payload,this.fire,init)
 
 
   def <<(that: Flow[T]): Flow[T] = this connectFrom that
@@ -52,7 +52,7 @@ class Flow[T <: Data](_dataType: T) extends Bundle with IMasterSlave with DataCa
   def toStream(overflow : Bool) : Stream[T] = {
     val ret = Stream(dataType)
     ret.valid := this.valid
-    ret.data := this.data
+    ret.payload := this.payload
     if(overflow != null) overflow := ret.valid && !ret.ready
     ret
   }
@@ -66,14 +66,14 @@ class Flow[T <: Data](_dataType: T) extends Bundle with IMasterSlave with DataCa
 
   def connectFrom(that: Flow[T]): Flow[T] = {
     valid := that.valid
-    data := that.data
+    payload := that.payload
     that
   }
 
   def takeWhen(cond: Bool): Flow[T] = {
     val next = new Flow(_dataType)
     next.valid := this.valid && cond
-    next.data := this.data
+    next.payload := this.payload
     return next
   }
 
@@ -84,13 +84,13 @@ class Flow[T <: Data](_dataType: T) extends Bundle with IMasterSlave with DataCa
   def translateWith[T2 <: Data](that: T2): Flow[T2] = {
     val next = new Flow(that)
     next.valid := this.valid
-    next.data := that
+    next.payload := that
     next
   }
 
-  def translateFrom[T2 <: Data](that: Flow[T2])(dataAssignement: (T, that.data.type) => Unit): Flow[T] = {
+  def translateFrom[T2 <: Data](that: Flow[T2])(dataAssignement: (T, that.payload.type) => Unit): Flow[T] = {
     this.valid := that.valid
-    dataAssignement(this.data, that.data)
+    dataAssignement(this.payload, that.payload)
     this
   }
 
@@ -103,12 +103,12 @@ class Flow[T <: Data](_dataType: T) extends Bundle with IMasterSlave with DataCa
 
   def push(that : T): Unit ={
     valid := True
-    data := that
+    payload := that
   }
 
   def default(that : T): Unit ={
     valid := False
-    data := that
+    payload := that
   }
 }
 

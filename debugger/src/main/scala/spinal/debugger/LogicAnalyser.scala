@@ -333,7 +333,7 @@ class LogicAnalyserLogger(p: LogicAnalyserParameter, probeType: Bits) extends Co
   val memReadCmdIsLast = False
 
   memReadCmd.valid := False
-  memReadCmd.data := memReadAddress
+  memReadCmd.payload := memReadAddress
 
 
 

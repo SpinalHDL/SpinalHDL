@@ -30,11 +30,11 @@ class Core(implicit p : CoreParm) extends Component{
     val pcNext = pc + 1
     val pcLoad = Flow(pc)
     when(pcLoad.valid){
-      pcNext := pcLoad.data
+      pcNext := pcLoad.payload
     }
 
     io.iCmd.valid := True
-    io.iCmd.data := pcNext.toBits
+    io.iCmd.payload := pcNext.toBits
     when(io.iCmd.fire){
       pc := pcNext
     }
@@ -47,7 +47,7 @@ class Core(implicit p : CoreParm) extends Component{
     })
     outInst.valid := io.dRsp.valid
     outInst.pc := fetch.pc
-    outInst.instruction := io.iRsp.data
+    outInst.instruction := io.iRsp.payload
     val reg0 = regFile.readSync(outInst.instruction(19 downto 15).toUInt,outInst.fire)
     val reg1 = regFile.readSync(outInst.instruction(24 downto 20).toUInt,outInst.fire)
 
@@ -79,7 +79,7 @@ class Core(implicit p : CoreParm) extends Component{
     }
 
     fetch.pcLoad.valid := False
-    fetch.pcLoad.data.assignDontCare()
+    fetch.pcLoad.payload.assignDontCare()
 
     io.dCmd.valid := False
     io.dCmd.address := alu.result

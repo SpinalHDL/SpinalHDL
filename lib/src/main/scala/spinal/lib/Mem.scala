@@ -16,7 +16,7 @@ class MemPimped[T <: Data](mem: Mem[T]) {
     val ret = Stream(new ReadRetLinked(mem.wordType, linkedData))
 
     val retValid = RegInit(False)
-    val retData = mem.readSync(cmd.data, cmd.ready)
+    val retData = mem.readSync(cmd.payload, cmd.ready)
     val retLinked = RegNextWhen(linkedData, cmd.ready)
 
     when(ret.ready) {
@@ -29,8 +29,8 @@ class MemPimped[T <: Data](mem: Mem[T]) {
     cmd.ready := ret.isFree
 
     ret.valid := retValid
-    ret.data.value := retData
-    ret.data.linked := retLinked
+    ret.payload.value := retData
+    ret.payload.linked := retLinked
     ret
   }
 
@@ -38,7 +38,7 @@ class MemPimped[T <: Data](mem: Mem[T]) {
     val ret = Stream(mem.wordType)
 
     val retValid = RegInit(False)
-    val retData = mem.readSync(cmd.data, cmd.ready)
+    val retData = mem.readSync(cmd.payload, cmd.ready)
 
     when(ret.ready) {
       retValid := Bool(false)
@@ -50,22 +50,22 @@ class MemPimped[T <: Data](mem: Mem[T]) {
     cmd.ready := ret.isFree
 
     ret.valid := retValid
-    ret.data := retData
+    ret.payload := retData
     ret
   }
 
   def flowReadSync(cmd : Flow[UInt]) : Flow[T] = {
     val ret = Flow(mem.wordType)
     ret.valid := RegNext(cmd.valid)
-    ret.data := mem.readSync(cmd.data)
+    ret.payload := mem.readSync(cmd.payload)
     ret
   }
 
   def flowReadSync[T2 <: Data](cmd: Flow[UInt], linkedData: T2) : Flow[ReadRetLinked[T,T2]] = {
     val ret = Flow(ReadRetLinked(mem.wordType, linkedData))
     ret.valid := RegNext(cmd.valid)
-    ret.data.linked := RegNext(linkedData)
-    ret.data.value := mem.readSync(cmd.data)
+    ret.payload.linked := RegNext(linkedData)
+    ret.payload.value := mem.readSync(cmd.payload)
     ret
   }
 }
