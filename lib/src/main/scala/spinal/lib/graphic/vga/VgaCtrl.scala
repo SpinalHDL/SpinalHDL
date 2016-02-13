@@ -40,7 +40,7 @@ case class VgaTimings(timingsWidth: Int) extends Bundle {
 
 class VgaCtrl(rgbType: Rgb, timingsWidth: Int = 12) extends Component {
   val io = new Bundle {
-    val softReset = in Bool
+    val softReset = in Bool() default(False)
     val timings = in(VgaTimings(timingsWidth))
 
     val frameStart = out Bool

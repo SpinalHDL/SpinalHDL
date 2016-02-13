@@ -15,7 +15,7 @@ import spinal.lib.bus.amba3.apb.{Apb3SlaveController, Apb3Config, Apb3Slave}
 import spinal.lib.bus.sbl.{SblConfig, SblReadRet, SblReadCmd, SblWriteCmd}
 import spinal.lib.com.uart._
 import spinal.lib.graphic.Rgb
-import spinal.lib.graphic.vga.Vga
+import spinal.lib.graphic.vga.{VgaCtrl, Vga}
 
 import scala.collection.immutable.HashSet
 import scala.collection.mutable.ArrayBuffer
@@ -733,18 +733,33 @@ object PlayStream {
 
   case class Struct() extends Bundle {
     val data = UInt(5 bit)
-    val c = Bool()
+    val c = UInt(5 bit)
   }
 
   class TopLevel extends Component {
     val cmd = master Stream (Struct())
     cmd.valid := True
     cmd.data.data := 1
-    cmd.c
+    cmd.c === 2
 
 
     val cmd2 = master Stream (UInt(4 bit))
     cmd2.valid := True
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
+object PlayBlink {
+  class TopLevel extends Component {
+    val io = new Bundle{
+      val led = out Bool()
+    }
+    val counter = Reg(UInt(24 bit)) init(0)
+    counter := counter + 1
+
+    io.led := counter.msb
   }
 
   def main(args: Array[String]): Unit = {
@@ -1022,6 +1037,62 @@ object RIntPlay {
   }
 }
 
+object BlueVgaPlay {
+  class TopLevel extends Component {
+    val io = new Bundle{
+      val vga = master(Vga(Rgb(8, 8, 8)))
+    }
+
+    val vgaCtrl = new VgaCtrl(io.vga.color, 12)
+    vgaCtrl.io.softReset := False
+    vgaCtrl.io.timings.setAs_h640_v480_r60 //Static timing for 640*480 pixel at 60HZ
+    vgaCtrl.io.vga <> io.vga
+    vgaCtrl.io.colorStream.valid := True
+    vgaCtrl.io.colorStream.data.r := 255
+    vgaCtrl.io.colorStream.data.g := 0
+    vgaCtrl.io.colorStream.data.b := 0
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+object PerfPlay {
+  class TopLevel extends Component {
+    val inputs = in Vec(UInt(32 bit), 5000)
+    val outputs = out Vec(UInt(32 bit), 5000)
+    val cond = in Bool()
+    for ((output, input) <- (outputs, inputs).zipped) {
+      output := input
+      when(cond) {
+        output := input
+        when(cond) {
+          output := input
+        }
+      }
+    }
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
+
+//object VecBaseTypePlay {
+//
+//  class TopLevel extends Component {
+//    val inputs = in Vec(UInt(4 bit))
+//    val output = out(new VecNode)
+//    output.inputs ++= inputs
+//  }
+//
+//  def main(args: Array[String]): Unit = {
+//    SpinalVhdl(new TopLevel)
+//  }
+//}
 
 object vhd_dirext_play {
   def main(args: Array[String]) {
@@ -1052,6 +1123,7 @@ object vhd_dirext_play {
 
 
 object vhd_stdio_play {
+
   def main(args: Array[String]) {
     import scala.sys.process._
     import java.io.File

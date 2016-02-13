@@ -28,7 +28,7 @@ object SpinalVhdl {
         config(factory)
         if (tryCounter != 0) GlobalData.get.scalaLocatedEnable = true
         val ret =  factory.elaborate
-        println({SpinalLog.tag("Done", Console.GREEN)})
+        println({SpinalLog.tag("Done", Console.GREEN)} + s" at ${f"${Driver.executionTime}%1.3f"}")
         return ret
       } catch {
         case e: Throwable => {
