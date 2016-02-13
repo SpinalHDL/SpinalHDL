@@ -23,13 +23,13 @@ class AxiLiteSimpleReadDma(axiLiteConfig: AxiLiteConfig) extends Component {
   io.run.ready := False
   when(!active) {
     when(io.run.valid) {
-      counter := io.run.payload.offset
+      counter := io.run.offset
       active := True
     }
   } otherwise {
     when(io.axi.readCmd.ready) {
       counter := counter + axiLiteConfig.dataByteCount
-      when(counter === io.run.payload.endAt) {
+      when(counter === io.run.endAt) {
         active := False
         io.run.ready := True
       }
@@ -37,8 +37,8 @@ class AxiLiteSimpleReadDma(axiLiteConfig: AxiLiteConfig) extends Component {
   }
 
   io.axi.readCmd.valid := active
-  io.axi.readCmd.payload.addr := counter
-  io.axi.readCmd.payload.setUnprivileged
+  io.axi.readCmd.addr := counter
+  io.axi.readCmd.setUnprivileged
 
   io.read.translateFrom(io.axi.readData)((to,from) => {
     to := from.data

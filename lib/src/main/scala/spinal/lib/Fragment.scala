@@ -255,10 +255,8 @@ class StreamFragmentBitsPimped(pimped: Stream[Fragment[Bits]]) {
 }
 
 class DataCarrierFragmentPimped[T <: Data](pimped: DataCarrier[Fragment[T]]) {
-  def fragment: T = pimped.payload.fragment
   def first: Bool = signalCache(pimped, "first", () => RegNextWhen(pimped.last, pimped.fire, True))
   def tail: Bool = !first
-  def last: Bool = pimped.payload.last
   def isFirst: Bool = pimped.valid && first
   def isLast: Bool = pimped.valid && pimped.last
 }

@@ -37,9 +37,9 @@ class SerialCheckerTx(bitsWidth: Int) extends Component {
   }
 
   io.output.valid := False
-  io.output.payload.bits := io.input.fragment
-  io.output.payload.isStart := False
-  io.output.payload.isEnd := False
+  io.output.bits := io.input.fragment
+  io.output.isStart := False
+  io.output.isEnd := False
   io.input.ready := False
 
   val stateMachine = new Area {
@@ -50,7 +50,7 @@ class SerialCheckerTx(bitsWidth: Int) extends Component {
       is(eStart) {
         when(io.input.valid) {
           io.output.valid := True
-          io.output.payload.isStart := True
+          io.output.isStart := True
           when(io.output.ready) {
             state := eData
           }
@@ -59,7 +59,7 @@ class SerialCheckerTx(bitsWidth: Int) extends Component {
       }
       is(eData) {
         io.output.valid := io.input.valid
-        io.output.payload.bits := io.input.fragment
+        io.output.bits := io.input.fragment
         io.input.ready := io.output.ready
         when(io.output.fire) {
           checksum := checksum + toUInt(io.input.fragment)
@@ -70,21 +70,21 @@ class SerialCheckerTx(bitsWidth: Int) extends Component {
       }
       is(eEnd) {
         io.output.valid := True
-        io.output.payload.isEnd := True
+        io.output.isEnd := True
         when(io.output.ready) {
           state := eCheck0
         }
       }
       is(eCheck0) {
         io.output.valid := True
-        io.output.payload.bits := toBits(checksum(7, 0))
+        io.output.bits := toBits(checksum(7, 0))
         when(io.output.ready) {
           state := eCheck1
         }
       }
       is(eCheck1) {
         io.output.valid := True
-        io.output.payload.bits := toBits(checksum(15, 8))
+        io.output.bits := toBits(checksum(15, 8))
         when(io.output.ready) {
           state := eStart
         }
@@ -111,21 +111,21 @@ class SerialCheckerPhysicalToSerial(bitsWidth: Int) extends Component {
   val inMagic = RegInit(False)
 
   io.output.valid := io.input.valid
-  io.output.payload := io.input.payload.bits
+  io.output.payload := io.input.bits
   io.input.ready := io.output.ready
 
   when(inMagic) {
-    when(io.input.payload.isStart) {
+    when(io.input.isStart) {
       io.output.payload := cStart
     }
-    when(io.input.payload.isEnd) {
+    when(io.input.isEnd) {
       io.output.payload := cEnd
     }
     when(io.output.fire) {
       inMagic := False
     }
   } otherwise {
-    when(!io.input.payload.isBits || io.input.payload.bits === cMagic) {
+    when(!io.input.isBits || io.input.bits === cMagic) {
       io.input.ready := False
       io.output.payload := cMagic
       when(io.output.fire) {
@@ -147,20 +147,20 @@ class SerialCheckerPhysicalfromSerial(bitsWidth: Int) extends Component {
   val inMagic = RegInit(False)
 
   io.output.valid := False
-  io.output.payload.bits := io.input.payload
-  io.output.payload.isStart := False
-  io.output.payload.isEnd := False
+  io.output.bits := io.input.payload
+  io.output.isStart := False
+  io.output.isEnd := False
 
   when(io.input.fire) {
     when(inMagic) {
       switch(io.input.payload) {
         is(cStart) {
           io.output.valid := True
-          io.output.payload.isStart := True
+          io.output.isStart := True
         }
         is(cEnd) {
           io.output.valid := True
-          io.output.payload.isEnd := True
+          io.output.isEnd := True
         }
         is(cMagic) {
           io.output.valid := True
@@ -199,14 +199,14 @@ class SerialCheckerRx(wordCountMax: Int) extends Component {
     val pushFlag = False
     val flushFlag = False
 
-    val lastWriteData = RegNextWhen(io.input.payload.bits(bitsWidth - 1, 0), pushFlag)
+    val lastWriteData = RegNextWhen(io.input.bits(bitsWidth - 1, 0), pushFlag)
 
     when(pushFlag || flushFlag) {
-      ram(writePtr - toUInt(flushFlag)) := Mux(pushFlag, io.input.payload.bits, True ## lastWriteData)
+      ram(writePtr - toUInt(flushFlag)) := Mux(pushFlag, io.input.bits, True ## lastWriteData)
     }
 
     when(pushFlag) {
-      checksum := checksum + toUInt(io.input.payload.bits) //TODO better checksum
+      checksum := checksum + toUInt(io.input.bits) //TODO better checksum
       writePtr.increment()
     }
     when(flushFlag) {
@@ -247,32 +247,32 @@ class SerialCheckerRx(wordCountMax: Int) extends Component {
     val state = RegInit(eIdle)
     val overflow = Reg(Bool)
     when(io.input.fire) {
-      when(io.input.payload.isBits) {
+      when(io.input.isBits) {
         switch(state) {
           is(eData) {
             overflow := overflow | !buffer.push
           }
           is(eCheck0) {
-            when(io.input.payload.bits === toBits(buffer.checksum(7, 0))) {
+            when(io.input.bits === toBits(buffer.checksum(7, 0))) {
               state := eCheck1
             } otherwise {
               state := eIdle
             }
           }
           is(eCheck1) {
-            when(!overflow && io.input.payload.bits === toBits(buffer.checksum(15, 8))) {
+            when(!overflow && io.input.bits === toBits(buffer.checksum(15, 8))) {
               buffer.flush
             }
             state := eIdle
           }
         }
       }
-      when(io.input.payload.isStart) {
+      when(io.input.isStart) {
         state := eData
         overflow := False
         buffer.writeStart
       }
-      when(io.input.payload.isEnd) {
+      when(io.input.isEnd) {
         state := eCheck0
       }
     }

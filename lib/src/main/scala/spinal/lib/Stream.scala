@@ -12,10 +12,7 @@ class StreamFactory extends MSFactory {
     ret
   }
 }
-object Stream extends StreamFactory{
-  implicit def toImplicit[T <: Bundle](stream: Stream[T]): T = stream.payload
-}
-
+object Stream extends StreamFactory
 
 class EventFactory extends MSFactory {
   def apply = {
@@ -362,7 +359,7 @@ object StreamArbiterCore {
     when(io.output.valid) {
       locked := True
     }
-    when(io.output.ready && io.output.payload.last) {
+    when(io.output.ready && io.output.last) {
       locked := False
     }
   }

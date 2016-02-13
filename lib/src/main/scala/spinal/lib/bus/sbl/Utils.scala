@@ -21,13 +21,13 @@ class SblReadDma(hblConfig: SblConfig) extends Component {
   io.cmd.ready := False
   when(!active) {
     when(io.cmd.valid) {
-      counter := io.cmd.payload.offset
+      counter := io.cmd.offset
       active := True
     }
   } otherwise {
     when(io.sblReadCmd.ready) {
       counter := counter + 1
-      when(counter === io.cmd.payload.endAt) {
+      when(counter === io.cmd.endAt) {
         active := False
         io.cmd.ready := True
       }
@@ -35,5 +35,5 @@ class SblReadDma(hblConfig: SblConfig) extends Component {
   }
 
   io.sblReadCmd.valid := active
-  io.sblReadCmd.payload.address := counter
+  io.sblReadCmd.address := counter
 }

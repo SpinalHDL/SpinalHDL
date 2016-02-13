@@ -62,10 +62,10 @@ class FrameTaskFilter(p: MandelbrotCoreParameters) extends Component {
   val filterEnable = RegNext(CounterFreeRun((clkHz / filterHz).toInt).willOverflow) //TODO periodic pulse lib
 
   io.output.valid := True
-  io.output.payload.start.x := rcChainFilter(filterIn.start.x, filterTaos, filterEnable, filterHz)
-  io.output.payload.start.y := rcChainFilter(filterIn.start.y, filterTaos, filterEnable, filterHz)
-  io.output.payload.inc.x := rcChainFilter(filterIn.inc.x, filterTaos, filterEnable, filterHz)
-  io.output.payload.inc.y := rcChainFilter(filterIn.inc.y, filterTaos, filterEnable, filterHz)
+  io.output.start.x := rcChainFilter(filterIn.start.x, filterTaos, filterEnable, filterHz)
+  io.output.start.y := rcChainFilter(filterIn.start.y, filterTaos, filterEnable, filterHz)
+  io.output.inc.x := rcChainFilter(filterIn.inc.x, filterTaos, filterEnable, filterHz)
+  io.output.inc.y := rcChainFilter(filterIn.inc.y, filterTaos, filterEnable, filterHz)
 }
 
 
@@ -96,10 +96,10 @@ class MandelbrotCore(p: MandelbrotCoreParameters) extends Component {
   // Force a initial frametask into the system.
   // By this way, when the system is reseted, it draw directly something
   frameTaskSolver.io.frameTask.valid init (True)
-  frameTaskSolver.io.frameTask.payload.start.x init (-1.0)
-  frameTaskSolver.io.frameTask.payload.start.y init (-1.0)
-  frameTaskSolver.io.frameTask.payload.inc.x init (2.0 / p.screenResX)
-  frameTaskSolver.io.frameTask.payload.inc.y init (2.0 / p.screenResY)
+  frameTaskSolver.io.frameTask.start.x init (-1.0)
+  frameTaskSolver.io.frameTask.start.y init (-1.0)
+  frameTaskSolver.io.frameTask.inc.x init (2.0 / p.screenResX)
+  frameTaskSolver.io.frameTask.inc.y init (2.0 / p.screenResY)
 
   io.pixelResult << frameTaskSolver.io.pixelResult
 

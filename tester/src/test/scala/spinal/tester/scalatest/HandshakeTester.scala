@@ -25,7 +25,7 @@ class StreamTester extends Component {
   fifo0.io.pop >/-> io.master0
   io.fifo0_occupancy := fifo0.io.occupancy
 
-  assert(3 == latencyAnalysis(io.slave0.payload.a,io.master0.payload.a))
+  assert(3 == latencyAnalysis(io.slave0.a,io.master0.a))
   assert(2 == latencyAnalysis(io.master0.ready,io.slave0.ready))
 }
 

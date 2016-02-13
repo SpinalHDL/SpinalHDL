@@ -299,6 +299,9 @@ object latencyAnalysis {
   }
 }
 
+object DataCarrier{
+  implicit def toImplicit[T <: Bundle](dataCarrier: DataCarrier[T]): T = dataCarrier.payload
+}
 
 trait DataCarrier[T <: Data] {
   def fire: Bool

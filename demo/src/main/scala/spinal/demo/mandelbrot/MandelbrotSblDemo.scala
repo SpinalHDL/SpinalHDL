@@ -74,7 +74,7 @@ class MandelbrotSblDemo(frameAddressOffset: Int, p: MandelbrotCoreParameters, co
       val counter = Reg(UInt(memoryBusConfig.addressWidth bit)) init (0)
       when(io.mandelbrotWriteCmd.fire) {
         counter := counter + 1
-        when(colorResult.payload.linked) {
+        when(colorResult.linked) {
           counter := 0
         }
       }
@@ -106,8 +106,8 @@ class MandelbrotSblDemo(frameAddressOffset: Int, p: MandelbrotCoreParameters, co
 //    })
 
     dma.io.cmd.arbitrationFrom(frameStart)
-    dma.io.cmd.payload.offset := frameAddressOffset
-    dma.io.cmd.payload.endAt := frameAddressOffset + p.screenResX * p.screenResY - 1
+    dma.io.cmd.offset := frameAddressOffset
+    dma.io.cmd.endAt := frameAddressOffset + p.screenResX * p.screenResY - 1
 
 
     //Count pendings command on the vgaRead bus

@@ -29,8 +29,8 @@ class MemPimped[T <: Data](mem: Mem[T]) {
     cmd.ready := ret.isFree
 
     ret.valid := retValid
-    ret.payload.value := retData
-    ret.payload.linked := retLinked
+    ret.value := retData
+    ret.linked := retLinked
     ret
   }
 
@@ -64,8 +64,8 @@ class MemPimped[T <: Data](mem: Mem[T]) {
   def flowReadSync[T2 <: Data](cmd: Flow[UInt], linkedData: T2) : Flow[ReadRetLinked[T,T2]] = {
     val ret = Flow(ReadRetLinked(mem.wordType, linkedData))
     ret.valid := RegNext(cmd.valid)
-    ret.payload.linked := RegNext(linkedData)
-    ret.payload.value := mem.readSync(cmd.payload)
+    ret.linked := RegNext(linkedData)
+    ret.value := mem.readSync(cmd.payload)
     ret
   }
 }
