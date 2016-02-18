@@ -684,7 +684,7 @@ object PlayEnum {
 
   class TopLevel extends Component {
 
-    object MyEnum extends SpinalEnum(oneHot) {
+    object MyEnum extends SpinalEnum(native) {
       val s0, s1, s2, s3, s4, s5, s6, s7, s8, s9 = newElement()
     }
 
@@ -698,8 +698,11 @@ object PlayEnum {
     //    output := tmp
     val cond = in Bool()
     val input = in(MyEnum())
-    val output = out(MyEnum(sequancial))
-    val tmp = Reg(MyEnum())
+    val output = out(MyEnum())
+
+    val tmp = Reg(MyEnum(sequancial))
+    out(tmp.toBits)
+    out(input.toBits)
     tmp := MyEnum.s3
     when(input === MyEnum.s4) {
       tmp := MyEnum.s7
@@ -936,7 +939,7 @@ object ApbUartPlay {
 object OverloadPlay {
 
   class OverloadPlay(frameAddressOffset: Int, p: MandelbrotCoreParameters, coreClk: ClockDomain, vgaMemoryClk: ClockDomain, vgaClk: ClockDomain) extends Component {
-    for (i <- 0 until 1) {
+    for (i <- 0 until 10) {
       val memoryBusConfig = SblConfig(30, 32)
       val rgbType = Rgb(8, 8, 8)
 
@@ -1371,16 +1374,8 @@ object vhd_stdio_play3 {
 
 
 object PlayMacro {
-
   import spinal.core.MacroTest._
 
-  object TopLevel {
-
-  }
-
-  /**
-   * asd
-   */
   class TopLevel extends Component {
     val e = enum('s1, 's2, 's3)
 
@@ -1413,6 +1408,27 @@ object PlayMacro {
   }
 }
 
+object PlayMacroLib {
+  import spinal.core.MacroTest._
+
+  class TopLevel extends Component {
+   
+  }
+
+  def main(args: Array[String]) {
+    var titi = 2
+    val a = new MacrosClass
+    val x = a.doit("asd")
+    print(x(2))
+    
+    val y = a.doit2((x : Int) => x + 1) 
+    print(y(2))
+   
+    val z = a.doit3((x : Int) => x + 1) 
+    print(z(2))
+   
+  }
+}
 
 object PlayMaskedLiteral {
 
@@ -1548,7 +1564,7 @@ object PlayExtract {
 
 object PlayFsm3 {
 
-  object StateEnum extends SpinalEnum(oneHot) {
+  object StateEnum extends SpinalEnum() {
     val sStart, sData, sParity, sStop = newElement()
   }
 
@@ -1561,7 +1577,7 @@ object PlayFsm3 {
     val valid = in Bool()
     val ready = out(Reg(Bool()))
     val data = in Bool()
-    val tx = out(Bool())
+    val tx = out(Reg(Bool()))
 
 
     val stateNext = StateEnum()
@@ -1569,13 +1585,14 @@ object PlayFsm3 {
 
     stateNext := state
     state := stateNext
+    ready := False
     switch(state) {
       is(sStart) {
         tx := True
         when(valid) {
           tx := False
+          stateNext := sData
         }
-        stateNext := sData
       }
       is(sData) {
         tx := data
@@ -1589,7 +1606,7 @@ object PlayFsm3 {
       }
       is(sStop) {
         tx := True
-        when(endData) {
+        when(endStop) {
           stateNext := sStart
         }
         ready := True

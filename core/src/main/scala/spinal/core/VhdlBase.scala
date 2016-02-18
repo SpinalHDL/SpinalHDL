@@ -46,14 +46,19 @@ trait VhdlBase {
 
 
   def emitEnumLiteral[T <: SpinalEnum](enum : SpinalEnumElement[T],encoding: SpinalEnumEncoding) : String = {
-    return enum.parent.getName() + "_" + encoding.getName() + "_" + enum.getName()
+    if(encoding.isNative)
+      return enum.getName()
+    else
+      return enum.parent.getName() + "_" + encoding.getName() + "_" + enum.getName()
   }
 
-  def emitEnumType[T <: SpinalEnum](enum : SpinalEnumCraft[T]) : String = {
-    return enum.blueprint.getName() + "_" + enum.encoding.getName() + "_type"
-  }
+  def emitEnumType[T <: SpinalEnum](enum : SpinalEnumCraft[T]) : String = emitEnumType(enum.blueprint,enum.encoding)
+
   def emitEnumType(enum : SpinalEnum,encoding: SpinalEnumEncoding) : String = {
-    return enum.getName() + "_" + encoding.getName() + "_type"
+    if(encoding.isNative)
+      return enum.getName()
+    else
+      return enum.getName() + "_" + encoding.getName() + "_type"
   }
 
   def emitDataType(node: Node, constrained: Boolean = true) = node match {

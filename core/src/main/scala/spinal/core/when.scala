@@ -78,7 +78,7 @@ object when {
   }
 }
 
-class WhenContext(val cond: Bool) extends ConditionalContext {
+class WhenContext(val cond: Bool) extends Node with ConditionalContext {
   var isTrue: Boolean = true;
   var parentElseWhen: WhenContext = null
   var childElseWhen: WhenContext = null
@@ -113,8 +113,7 @@ class WhenContext(val cond: Bool) extends ConditionalContext {
     parentElseWhen.destackElseWhen
   }
 
-
-
+  override private[core] def calcWidth: Int = 1
 }
 
 class SwitchStack(val value: Data) {

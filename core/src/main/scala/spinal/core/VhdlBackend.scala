@@ -129,10 +129,11 @@ class VhdlBackend extends Backend with VhdlBase {
     }
   }
 
-  def getReEncodingFuntion(spinalEnum: SpinalEnum,source : SpinalEnumEncoding,target : SpinalEnumEncoding): String ={
+  def getReEncodingFuntion(spinalEnum: SpinalEnum,source : SpinalEnumEncoding,target : SpinalEnumEncoding): String = {
     s"${spinalEnum.getName()}_${source.getName()}_to_${target.getName()}"
   }
   def getEnumToDebugFuntion(spinalEnum: SpinalEnum,source : SpinalEnumEncoding): String ={
+    assert(!source.isNative)
     s"${spinalEnum.getName()}_${source.getName()}_to_debug"
   }
 
@@ -158,9 +159,9 @@ class VhdlBackend extends Backend with VhdlBase {
     for ((enumDef,encodings) <- enums) {
       val enumName = enumDef.getName()
       ret ++= s"  function pkg_mux (sel : std_logic;one : $enumName;zero : $enumName) return $enumName;\n"
-      //ret ++= s"  function pkg_toStdLogicVector (value : $enumName) return std_logic_vector;\n"
-      //ret ++= s"  function pkg_to$enumName (value : std_logic_vector) return $enumName;\n"
-      for(encoding <- encodings) {
+
+
+      for(encoding <- encodings if !encoding.isNative) {
         val encodingName = encoding.getName()
         val bitCount = encoding.getWidth(enumDef)
         val vhdlEnumType = emitEnumType(enumDef,encoding)
@@ -172,9 +173,14 @@ class VhdlBackend extends Backend with VhdlBase {
         //ret ++= s"  function pkg_to${enumName}_debug (value : std_logic_vector) return $enumName;\n"
       }
       for(encoding <- encodings) {
-        ret ++= s"  function ${getEnumToDebugFuntion(enumDef,encoding)} (that : ${emitEnumType(enumDef,encoding)}) return ${getEnumDebugType(enumDef)};\n"
+        if(!encoding.isNative)
+          ret ++= s"  function ${getEnumToDebugFuntion(enumDef,encoding)} (value : ${emitEnumType(enumDef,encoding)}) return ${getEnumDebugType(enumDef)};\n"
+        else{
+          ret ++= s"  function pkg_toStdLogicVector_${encoding.getName()} (value : $enumName) return std_logic_vector;\n"
+          ret ++= s"  function pkg_to${enumName}_${encoding.getName()} (value : std_logic_vector(${encoding.getWidth(enumDef)-1} downto 0)) return $enumName;\n"
+        }
 
-        for(targetEncoding <- encodings if targetEncoding != encoding) {
+        for(targetEncoding <- encodings if targetEncoding != encoding && !(targetEncoding.isNative && encoding.isNative)) {
           ret ++= s"  function ${getReEncodingFuntion(enumDef,encoding,targetEncoding)} (that : ${emitEnumType(enumDef,encoding)}) return ${emitEnumType(enumDef,targetEncoding)};\n"
         }
       }
@@ -199,39 +205,58 @@ class VhdlBackend extends Backend with VhdlBase {
         ret ++= "    end if;\n"
         ret ++= "  end pkg_mux;\n\n"
 
-/*
-        ret ++= s"  function pkg_toStdLogicVector (value : $enumName) return std_logic_vector is\n"
-        ret ++= "  begin\n"
-        ret ++= "    case value is \n"
-        for (e <- enumDef.values) {
-          ret ++= s"      when ${e.getName()} => return ${idToBits(e)};\n"
-        }
-        ret ++= s"      when others => return ${idToBits(enumDef.values.head)};\n"
-        ret ++= "    end case;\n"
-        ret ++= "  end pkg_toStdLogicVector;\n\n"
 
-        ret ++= s"  function pkg_to$enumName (value : std_logic_vector) return $enumName is\n"
-        ret ++= "  begin\n"
-        ret ++= "    case to_integer(unsigned(value)) is \n"
-        for (e <- enumDef.values) {
-          ret ++= s"      when ${e.id} => return ${e.getName()};\n"
-        }
-        ret ++= s"      when others => return ${enumDef.values.head.getName()};\n"
-        ret ++= "    end case;\n"
-        ret ++= s"  end pkg_to$enumName;\n\n"
+//        ret ++= s"  function pkg_toStdLogicVector (value : $enumName) return std_logic_vector is\n"
+//        ret ++= "  begin\n"
+//        ret ++= "    case value is \n"
+//        for (e <- enumDef.values) {
+//          ret ++= s"      when ${e.getName()} => return ${idToBits(e.position)};\n"
+//        }
+//        ret ++= s"      when others => return ${idToBits(enumDef.values.head)};\n"
+//        ret ++= "    end case;\n"
+//        ret ++= "  end pkg_toStdLogicVector;\n\n"
+//
+//        ret ++= s"  function pkg_to$enumName (value : std_logic_vector) return $enumName is\n"
+//        ret ++= "  begin\n"
+//        ret ++= "    case to_integer(unsigned(value)) is \n"
+//        for (e <- enumDef.values) {
+//          ret ++= s"      when ${e.id} => return ${e.getName()};\n"
+//        }
+//        ret ++= s"      when others => return ${enumDef.values.head.getName()};\n"
+//        ret ++= "    end case;\n"
+//        ret ++= s"  end pkg_to$enumName;\n\n"
 
-*/
+
         for(encoding <- encodings) {
+          if(!encoding.isNative)
+            ret ++=
+              s"""  function ${getEnumToDebugFuntion(enumDef,encoding)} (value : ${emitEnumType(enumDef,encoding)}) return ${getEnumDebugType(enumDef)} is
+                 |  begin
+                 |    case value is
+                 |${{for (e <- enumDef.values) yield s"      when ${emitEnumLiteral(e,encoding)} => return ${e.getName()};"}.reduce(_ + "\n" + _)}
+                 |      when others => return XXX;
+                 |    end case;
+                 |  end;
+                 |""".stripMargin
+          else{
+            ret ++= s"""  function pkg_to${enumName}_${encoding.getName()} (value : std_logic_vector(${encoding.getWidth(enumDef)-1} downto 0)) return $enumName is
+                |  begin
+                |    case value is
+                |${{for (e <- enumDef.values) yield s"      when ${idToBits(e,encoding)} => return ${e.getName()};"}.reduce(_ + "\n" + _)}
+                |      when others => return ${enumDef.values.head.getName()};
+                |    end case;
+                |  end;
+                |""".stripMargin
 
-          ret ++=
-            s"""  function ${getEnumToDebugFuntion(enumDef,encoding)} (that : ${emitEnumType(enumDef,encoding)}) return ${getEnumDebugType(enumDef)} is
-               |  begin
-               |    case that is
-               |${{for (e <- enumDef.values) yield s"      when ${emitEnumLiteral(e,encoding)} => return ${e.getName()};"}.reduce(_ + "\n" + _)}
-               |      when others => return XXX;
-               |    end case;
-               |  end;
-             """.stripMargin
+            ret ++= s"""  function pkg_toStdLogicVector_${encoding.getName()} (value : $enumName) return std_logic_vector is
+                |  begin
+                |    case value is
+                |${{for (e <- enumDef.values) yield s"      when ${e.getName()} => return ${idToBits(e,encoding)};"}.reduce(_ + "\n" + _)}
+                |      when others => return ${idToBits(enumDef.values.head,encoding)};
+                |    end case;
+                |  end;
+                |""".stripMargin
+          }
 
 
 
@@ -743,8 +768,11 @@ class VhdlBackend extends Backend with VhdlBase {
             }
             ret ++= ";\n"
             if(signal.isInstanceOf[SpinalEnumCraft[_]]){
-              ret ++= s"  signal ${emitReference(signal)}_debug : ${getEnumDebugType(toSpinalEnumCraft(signal).blueprint)};\n"
-              enumDebugSignals += toSpinalEnumCraft(signal)
+              val craft = toSpinalEnumCraft(signal)
+              if(!craft.encoding.isNative) {
+                ret ++= s"  signal ${emitReference(signal)}_debug : ${getEnumDebugType(craft.blueprint)};\n"
+                enumDebugSignals += toSpinalEnumCraft(signal)
+              }
             }
           }
 
@@ -1024,17 +1052,40 @@ class VhdlBackend extends Backend with VhdlBase {
 
   //TODO enum
   def operatorImplAsBitsToEnum(func: Modifier): String = {
-    val enumCast = func.asInstanceOf[EnumCast]
-//    val (enumDef,encoding) = enumCast.inputs(0) match{
-//      case craft : SpinalEnumCraft[_] => (craft.blueprint,craft.encoding)
-//      case literal : EnumLiteral[_]  => (literal.enum.parent,literal.encoding)
-//    }
-
-    s"pkg_to${enumCast.enum.getParentName}(${func.inputs.map(emitLogic(_)).reduce(_ + "," + _)})"
+    val (enumDef,encoding) = func.inputs(0) match{
+      case craft : SpinalEnumCraft[_] => (craft.blueprint,craft.encoding)
+      case literal : EnumLiteral[_]  => (literal.enum.parent,literal.encoding)
+    }
+    if(!encoding.isNative){
+      emitLogic(func.inputs(0))
+    }else{
+      s"pkg_to${enumDef.getName()}_${encoding.getName()}(${(emitLogic(func.inputs(0)))})"
+    }
+  }
+  def operatorImplAsEnumToBits(func: Modifier): String = {
+    val (enumDef,encoding) = func.inputs(0) match{
+      case craft : SpinalEnumCraft[_] => (craft.blueprint,craft.encoding)
+      case literal : EnumLiteral[_]  => (literal.enum.parent,literal.encoding)
+    }
+    if(!encoding.isNative){
+      emitLogic(func.inputs(0))
+    }else{
+      s"pkg_toStdLogicVector_${encoding.getName()}(${(emitLogic(func.inputs(0)))})"
+    }
   }
   def operatorImplAsEnumToEnum(func: Modifier): String = {
+    val (enumDefSrc,encodingSrc) = func.inputs(0) match{
+      case craft : SpinalEnumCraft[_] => (craft.blueprint,craft.encoding)
+      case literal : EnumLiteral[_]  => (literal.enum.parent,literal.encoding)
+    }
     val enumCast = func.asInstanceOf[EnumCast]
-    s"${getReEncodingFuntion(enumCast.enum.blueprint.asInstanceOf[SpinalEnum], enumCast.inputs(0).asInstanceOf[SpinalEnumCraft[_]].encoding, enumCast.enum.encoding)}(${func.inputs.map(emitLogic(_)).reduce(_ + "," + _)})"
+    val (enumDefDst,encodingDst) = enumCast.enum match{
+      case craft : SpinalEnumCraft[_] => (craft.blueprint,craft.encoding)
+    }
+    if(encodingDst.isNative && encodingSrc.isNative)
+      emitLogic(func.inputs(0))
+    else
+      s"${getReEncodingFuntion(enumCast.enum.blueprint.asInstanceOf[SpinalEnum], enumCast.inputs(0).asInstanceOf[SpinalEnumCraft[_]].encoding, enumCast.enum.encoding)}(${func.inputs.map(emitLogic(_)).reduce(_ + "," + _)})"
   }
 
   val modifierImplMap = mutable.Map[String, Modifier => String]()
@@ -1124,7 +1175,7 @@ class VhdlBackend extends Backend with VhdlBase {
   modifierImplMap.put("s->b", operatorImplAsFunction("std_logic_vector"))
   modifierImplMap.put("u->b", operatorImplAsFunction("std_logic_vector"))
   modifierImplMap.put("B->b", operatorImplAsFunction("pkg_toStdLogicVector"))
-  modifierImplMap.put("e->b", operatorImplAsFunction("pkg_toStdLogicVector"))
+  modifierImplMap.put("e->b", operatorImplAsEnumToBits)
 
   modifierImplMap.put("b->s", operatorImplAsFunction("signed"))
   modifierImplMap.put("u->s", operatorImplAsFunction("signed"))

@@ -128,17 +128,20 @@ class SpinalEnumElement[T <: SpinalEnum](val parent: T, val position: Int) exten
 trait SpinalEnumEncoding extends Nameable{
   def getWidth(enum : SpinalEnum) : Int
   def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]) : BigInt
+  def isNative = false
 }
-//trait NativeEnumEncoding extends SpinalEnumEncoding
-//object native extends NativeEnumEncoding{
-//  override def getWidth(enum: SpinalEnum): Int = log2Up(enum.values.length)
-//  def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]) : BigInt = {
-//    return element.position
-//  }
-//
-//  setWeakName("native")
-//}
-//
+trait NativeEnumEncoding extends SpinalEnumEncoding{
+  override def isNative = true
+}
+object native extends NativeEnumEncoding{
+  override def getWidth(enum: SpinalEnum): Int = log2Up(enum.values.length)
+  def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]) : BigInt = {
+    return element.position
+  }
+
+  setWeakName("native")
+}
+
 object sequancial extends SpinalEnumEncoding{
   override def getWidth(enum: SpinalEnum): Int = log2Up(enum.values.length)
   def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]) : BigInt = {
@@ -161,7 +164,7 @@ object oneHot extends SpinalEnumEncoding{
 
 
 
-class SpinalEnum(val defaultEncoding : SpinalEnumEncoding = oneHot) extends Nameable {
+class SpinalEnum(val defaultEncoding : SpinalEnumEncoding = native) extends Nameable {
   def apply() = craft
   def apply(encoding: SpinalEnumEncoding) = craft(encoding)
 
