@@ -80,14 +80,25 @@ object BoolReg{
 }
 
 object RegS {
-  def getDataInputId: Int = 3
-  def getInitialValueId: Int = 4
+  val getDataInputId: Int = 3
+  val getInitialValueId: Int = 4
 }
 
 class Reg(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) extends SyncNode(clockDomain) with Assignable {
   inputs += this
   inputs += new NoneNode
 
+  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
+    case RegS.getDataInputId => (outHi,outLo)
+    case RegS.getInitialValueId => (outHi,outLo)
+    case _ => super.getOutToInUsage(inputId,outHi,outLo)
+  }
+
+  object SyncNode {
+    def getClockInputId: Int = 0
+    def getClockEnableId: Int = 1
+    def getClockResetId: Int = 2
+  }
 
   override def isUsingReset: Boolean = !getInitialValue.isInstanceOf[NoneNode]
   override def getSynchronousInputs: ArrayBuffer[Node] = super.getSynchronousInputs += getDataInput
@@ -127,5 +138,6 @@ class Reg(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) ext
       case _ => throw new Exception("Undefined assignement")
     }
   }
+
   override def toString: String = "Reg of " + outType.toString()
 }

@@ -128,17 +128,15 @@ class SpinalEnumElement[T <: SpinalEnum](val parent: T, val position: Int) exten
 trait SpinalEnumEncoding extends Nameable{
   def getWidth(enum : SpinalEnum) : Int
   def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]) : BigInt
-  def isNative = false
+  def isNative : Boolean
 }
-trait NativeEnumEncoding extends SpinalEnumEncoding{
-  override def isNative = true
-}
-object native extends NativeEnumEncoding{
+
+object native extends SpinalEnumEncoding{
   override def getWidth(enum: SpinalEnum): Int = log2Up(enum.values.length)
   def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]) : BigInt = {
     return element.position
   }
-
+  override def isNative = true
   setWeakName("native")
 }
 
@@ -148,6 +146,7 @@ object sequancial extends SpinalEnumEncoding{
     return element.position
   }
 
+  override def isNative = false
   setWeakName("sequancial")
 }
 
@@ -158,7 +157,7 @@ object oneHot extends SpinalEnumEncoding{
   def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]) : BigInt = {
     return BigInt(1) << element.position
   }
-
+  override def isNative = true
   setWeakName("one_hot")
 }
 

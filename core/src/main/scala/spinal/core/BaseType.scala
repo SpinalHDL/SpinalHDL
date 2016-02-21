@@ -295,6 +295,8 @@ abstract class BaseType extends Node with Data with Nameable {
     typeNode
   }
 
+  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = (outHi,outLo)
+
   //Create a new instance of the same datatype without any configuration (width, direction)
   private[core] def weakClone: this.type = this.getClass.newInstance().asInstanceOf[this.type]
 

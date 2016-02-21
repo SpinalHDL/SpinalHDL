@@ -210,9 +210,11 @@ private[spinal] object Multiplex {
   }
 }
 abstract class Extract(opName: String) extends Modifier(opName, null){
-  def getScopeBits: AssignedBits
   def getBitVector: Node
   def getParameterNodes: List[Node]
+  def getInputData: Node
+
+
 }
 
 class ExtractBoolFixed(opName: String, bitVector: BitVector, bitId: Int) extends Extract(opName) {
@@ -229,8 +231,16 @@ class ExtractBoolFixed(opName: String, bitVector: BitVector, bitId: Int) extends
     }
     return null
   }
+
+  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
+    case 0 =>
+      if(outHi >= 0 && outLo == 0)
+        (bitId, bitId)
+      else
+        (-1,0)
+  }
   def getParameterNodes: List[Node] = Nil
-  def getScopeBits: AssignedBits = AssignedBits(bitId)
+  def getInputData: Node = getBitVector
 }
 
 class ExtractBoolFloating(opName: String, bitVector: BitVector, bitId: UInt) extends Extract(opName) {
@@ -242,24 +252,21 @@ class ExtractBoolFloating(opName: String, bitVector: BitVector, bitId: UInt) ext
   def getBitId = inputs(1)
 
   def getParameterNodes: List[Node] = inputs(1) :: Nil
-  def getScopeBits: AssignedBits = AssignedBits(Math.min(getBitVector.getWidth-1,(1 << Math.min(20,bitId.getWidth)) - 1), 0)
-}
+  def getInputData: Node = getBitVector
 
-//object ExtractBitsVectorFixed {
-//  def apply(bitVector: BitVector, bitIdHi: Int, bitIdLow: Int): ExtractBitsVectorFixed = {
-//    val op = new ExtractBitsVectorFixed(bitIdHi, bitIdLow)
-//    op.inputs += bitVector
-//    op
-//  }
-//
-//
-//  def apply(bitVector: BitVector, bitIdHi: UInt, bitIdLow: UInt): Bits = {
-//    val sr = bitVector.toBits >> bitIdLow
-//    val mask = (UInt(1) << bitIdLow) - UInt(1)
-//    val ret = sr & mask.toBits;
-//    ret
-//  }
-//}
+  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
+    case 0 =>
+      if(outHi >= 0 && outLo == 0)
+        (Math.min(getBitVector.getWidth-1,(1 << Math.min(20,bitId.getWidth)) - 1), 0)
+      else
+        (-1,0)
+    case 1 =>
+      if(outHi >= 0 && outLo == 0)
+        (getBitId.getWidth-1,0)
+      else
+        (-1,0)
+  }
+}
 
 class ExtractBitsVectorFixed(opName: String, bitVector: BitVector, hi: Int, lo: Int) extends Extract(opName) {
   if (hi - lo < -1) SpinalError(s"Static bits extraction with a negative size ($hi downto $lo)")
@@ -281,7 +288,10 @@ class ExtractBitsVectorFixed(opName: String, bitVector: BitVector, hi: Int, lo: 
   }
 
   def getParameterNodes: List[Node] =  Nil
-  def getScopeBits: AssignedBits = AssignedBits(hi,lo)
+  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
+    case 0 => (lo+outHi, lo+outLo)
+  }
+  def getInputData: Node = getBitVector
 }
 
 
@@ -299,24 +309,68 @@ class ExtractBitsVectorFloating(opName: String, bitVector: BitVector, offset: UI
   def getBitCount = bitCount
 
   def getParameterNodes: List[Node] = inputs(1) :: Nil
-  def getScopeBits: AssignedBits = AssignedBits(Math.min(getBitVector.getWidth-1,(1 << Math.min(20,offset.getWidth))+ bitCount.value - 1), 0)
+  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
+    case 0 =>
+      if(outHi >= outLo) //Not exact
+        (Math.min(getBitVector.getWidth-1,(1 << Math.min(20,offset.getWidth))+ bitCount.value - 1), 0)
+      else
+        (-1,0)
+    case 1 =>
+      if(outHi >= outLo) //Not exact
+        super.getOutToInUsage(inputId,outHi,outLo)
+      else
+        (-1,0)
+    case 2 => (-1,0)
+  }
+  def getInputData: Node = getBitVector
 }
 
-object AssignedBits {
-  def apply() = new AssignedBits
-  def apply(bitId: Int): AssignedBits = {
-    val ab = new AssignedBits
-    ab.add(new AssignedRange(bitId, bitId))
-    ab
-  }
-  def apply(hi: Int, lo: Int): AssignedBits = {
-    val ab = new AssignedBits
-    ab.add(new AssignedRange(hi, lo))
-    ab
-  }
 
+//object AssignedBits {
+//  def apply() = new AssignedBits
+//  def apply(bitId: Int): AssignedBits = {
+//    val ab = new AssignedBits
+//    ab.add(new AssignedRange(bitId, bitId))
+//    ab
+//  }
+//  def apply(hi: Int, lo: Int): AssignedBits = {
+//    val ab = new AssignedBits
+//    ab.add(new AssignedRange(hi, lo))
+//    ab
+//  }
+//
+//  def union(a: AssignedBits, b: AssignedBits): AssignedBits = {
+//    val ret = AssignedBits()
+//
+//    ret.add(a)
+//    ret.add(b)
+//
+//    ret
+//  }
+//
+//
+//  def intersect(a: AssignedBits, b: AssignedBits): AssignedBits = {
+//    val ret = AssignedBits()
+//    ret.value = a.value & b.value
+//    ret
+//  }
+//
+//
+//}
+
+object AssignedBits {
+  //  def apply(bitId: Int): AssignedBits = {
+  //    val ab = new AssignedBits
+  //    ab.add(new AssignedRange(bitId, bitId))
+  //    ab
+  //  }
+  //  def apply(hi: Int, lo: Int): AssignedBits = {
+  //    val ab = new AssignedBits
+  //    ab.add(new AssignedRange(hi, lo))
+  //    ab
+  //  }
   def union(a: AssignedBits, b: AssignedBits): AssignedBits = {
-    val ret = AssignedBits()
+    val ret = new AssignedBits(a.width)
 
     ret.add(a)
     ret.add(b)
@@ -326,43 +380,180 @@ object AssignedBits {
 
 
   def intersect(a: AssignedBits, b: AssignedBits): AssignedBits = {
-    val ret = AssignedBits()
-    ret.value = a.value & b.value
+    val ret = a.clone()
+    ret.intersect(b)
     ret
   }
 
 
+  def intersect(a: AssignedRange, b: AssignedBits): AssignedBits = {
+    val ret = b.clone()
+    ret.intersect(a)
+    ret
+  }
+  def intersect(a: AssignedBits, b: AssignedRange): AssignedBits = intersect(b,a)
+
+
+
+}
+
+object AssignedRange{
+  def apply(hi : Int,lo : Int) = new AssignedRange(hi,lo)
+  def apply(bit : Int) = new AssignedRange(bit,bit)
+  def apply() = new AssignedRange(-1,-1)
 }
 
 class AssignedRange(val hi: Int, val lo: Int) {
   def toBigInt = ((BigInt(1) << (hi + 1 - lo)) - 1) << lo
-
+  def toAssignedBits = {
+    val ret = new AssignedBits(hi + 1)
+    ret.add(this)
+    ret
+  }
 }
+//
+//class AssignedBits(val width : Int) {
+//  var value: BigInt = 0
+//  override def clone() : AssignedBits = {
+//    val ret = new AssignedBits(width)
+//    ret.value = value
+//    ret
+//  }
+//  def intersect(range: AssignedRange): Unit = {
+//    value = value & range.toBigInt
+//  }
+//  def intersect(range: AssignedBits): Unit = {
+//    value = value & range.value
+//  }
+//  def add(range: AssignedRange): Unit = {
+//    value = value | range.toBigInt
+//  }
+//  def add(range: AssignedBits): Unit = {
+//    value = value | range.value
+//  }
+//  def remove(range: AssignedRange): Unit = {
+//    value = value &~ range.toBigInt
+//  }
+//  def remove(range: AssignedBits): Unit = {
+//    value = value &~ range.value
+//  }
+//
+//  def isEmpty = value == 0
+//  def toBinaryString : String = value.toString(2)
+//}
+//
+class AssignedBits(val width : Int) {
+  def bitPerIndex = 32
+  var value = new Array[Int]((width+bitPerIndex-1)/bitPerIndex)
 
-class AssignedBits {
-  var value: BigInt = 0
-
-
-  def add(range: AssignedRange): Unit = {
-    value = value | range.toBigInt
+  override def clone() : AssignedBits = {
+    val ret = new AssignedBits(width)
+    var idx = value.length
+    while(idx != 0){
+      idx -= 1
+      ret.value(idx) = this.value(idx)
+    }
+    ret
   }
+
+  def isIntersecting(range: AssignedRange): Boolean = {
+    if(range.hi >= width)
+      assert(false)
+    var idx = value.length
+    while(idx != 0){
+      idx -= 1
+      val hi = Math.min(range.hi - idx*bitPerIndex,bitPerIndex-1)
+      val lo = Math.max(range.lo - idx*bitPerIndex,0)
+      if(hi >= lo) {
+        if((this.value(idx) & (((1l << (hi + 1)) - 1) - ((1l << lo) - 1)).toInt) != 0) {
+          return true
+        }
+      }
+    }
+    return false
+  }
+
+
+
+  def + (that : AssignedRange) : AssignedBits = {
+    val ret = clone()
+    ret.add(that)
+    ret
+  }
+
+  def intersect(range: AssignedBits): Unit = {
+    assert(range.width == this.width)
+    var idx = Math.min(value.length,range.value.length)
+    while(idx != 0){
+      idx -= 1
+      this.value(idx) &= range.value(idx)
+    }
+  }
+
   def add(range: AssignedBits): Unit = {
-    value = value | range.value
-  }
-  def remove(range: AssignedRange): Unit = {
-    value = value &~ range.toBigInt
+    assert(range.width == this.width)
+    var idx = Math.min(value.length,range.value.length)
+    while(idx != 0){
+      idx -= 1
+      this.value(idx) |= range.value(idx)
+    }
   }
   def remove(range: AssignedBits): Unit = {
-    value = value &~ range.value
+    assert(range.width == this.width)
+    var idx = Math.min(value.length,range.value.length)
+    while(idx != 0){
+      idx -= 1
+      this.value(idx) &= ~range.value(idx)
+    }
+  }
+  def intersect(range: AssignedRange): Unit = {
+    assert(range.hi < width)
+    var idx = value.length
+    while(idx != 0){
+      idx -= 1
+      val hi = Math.min(range.hi - idx*bitPerIndex,bitPerIndex-1)
+      val lo = Math.max(range.lo - idx*bitPerIndex,0)
+      if(hi >= lo)
+        this.value(idx) &= (((1l << (hi+1))-1)-((1l << lo)-1)).toInt
+    }
+  }
+  def add(range: AssignedRange): Unit = {
+    assert(range.hi < width)
+    var idx = value.length
+    while(idx != 0){
+      idx -= 1
+      val hi = Math.min(range.hi - idx*bitPerIndex,bitPerIndex-1)
+      val lo = Math.max(range.lo - idx*bitPerIndex,0)
+      if(hi >= lo)
+        this.value(idx) |= (((1l << (hi+1))-1)-((1l << lo)-1)).toInt
+    }
+  }
+  def remove(range: AssignedRange): Unit = {
+    assert(range.hi < width)
+    var idx = value.length
+    while(idx != 0){
+      idx -= 1
+      val hi = Math.min(range.hi - idx*bitPerIndex,bitPerIndex-1)
+      val lo = Math.max(range.lo - idx*bitPerIndex,0)
+      if(hi >= lo)
+        this.value(idx) &= ~(((1l << (hi+1))-1)-((1l << lo)-1)).toInt
+    }
   }
 
-  def isEmpty = value == 0
+  def toBinaryString : String = {
+    val strs = for((e,idx) <- value.zipWithIndex.reverseIterator) yield {
+      val str = e.toBinaryString
+      val eWidth = if(idx == value.length-1) width-idx*bitPerIndex else 32
+
+      "0"*(eWidth-str.length) + str
+    }
+    strs.reduce(_ + "_" + _)
+  }
+  def isEmpty = value.foldLeft(true)((c,e) => c && (e == 0))
 }
-
-
 trait AssignementNode extends Node {
-  def getAssignedBits: AssignedBits
-  def getScopeBits: AssignedBits
+  def getAssignedBits: AssignedRange
+  def getScopeBits: AssignedRange
   def getOutBaseType: BaseType
 }
 
@@ -381,24 +572,18 @@ class BitAssignmentFixed(out: BitVector, in: Node, bitId: Int) extends Assigneme
     return null
   }
 
-  def getAssignedBits: AssignedBits = AssignedBits(bitId)
-  def getScopeBits: AssignedBits = getAssignedBits
+  def getAssignedBits: AssignedRange = AssignedRange(bitId)
+  def getScopeBits: AssignedRange = getAssignedBits
+  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = {
+    if(outHi >= bitId && bitId >= outLo)
+      (0,0)
+    else
+      (-1,0)
+  }
   def getOutBaseType: BaseType = out
 }
 
-class BitAssignmentFloating(out: BitVector, in: Node, bitId: UInt) extends AssignementNode {
-  inputs += in
-  inputs += bitId
 
-  def getInput = inputs(0)
-  def getBitId = inputs(1)
-
-  override def calcWidth: Int = out.getWidth
-
-  def getAssignedBits: AssignedBits = AssignedBits()
-  def getScopeBits: AssignedBits = AssignedBits(Math.min(out.getWidth-1,(1 << Math.min(20,bitId.getWidth)) - 1), 0)
-  def getOutBaseType: BaseType = out
-}
 
 
 class RangedAssignmentFixed(out: BitVector, in: Node, hi: Int, lo: Int) extends AssignementNode {
@@ -423,10 +608,46 @@ class RangedAssignmentFixed(out: BitVector, in: Node, hi: Int, lo: Int) extends 
   }
 
 
-  def getAssignedBits: AssignedBits = AssignedBits(hi, lo)
-  def getScopeBits: AssignedBits = getAssignedBits
+  def getAssignedBits: AssignedRange = AssignedRange(hi, lo)
+  def getScopeBits: AssignedRange = getAssignedBits
+  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = {
+    val relativeLo = outLo-lo
+    val relativeHi = outHi-lo
+    if(relativeHi >= 0 && hi-lo >= relativeLo)
+      super.getOutToInUsage(inputId,Math.min(relativeHi,hi-lo),Math.max(relativeLo,0))
+    else
+      (-1,0)
+  }
   def getOutBaseType: BaseType = out
 
+}
+
+
+class BitAssignmentFloating(out: BitVector, in: Node, bitId: UInt) extends AssignementNode {
+  inputs += in
+  inputs += bitId
+
+  def getInput = inputs(0)
+  def getBitId = inputs(1)
+
+  override def calcWidth: Int = out.getWidth
+
+  def getAssignedBits: AssignedRange = AssignedRange()
+  def getScopeBits: AssignedRange = AssignedRange(Math.min(out.getWidth-1,(1 << Math.min(20,getBitId.getWidth)) - 1), 0)
+
+  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
+    case 0 =>
+      if(outHi >= 0 && ((1 << Math.min(20,getBitId.getWidth)) - 1) >= outLo)
+        (0,0)
+      else
+        (-1,0)
+    case 1 =>
+      if(outHi >= 0 && ((1 << Math.min(20,getBitId.getWidth)) - 1) >= outLo)
+        super.getOutToInUsage(inputId,outHi,outLo)
+      else
+        (-1,0)
+  }
+  def getOutBaseType: BaseType = out
 }
 
 class RangedAssignmentFloating(out: BitVector, in: Node, offset: UInt, bitCount: BitCount) extends AssignementNode {
@@ -444,8 +665,9 @@ class RangedAssignmentFloating(out: BitVector, in: Node, offset: UInt, bitCount:
     Misc.normalizeResize(this, 0, bitCount.value)
   }
 
-  def getAssignedBits: AssignedBits = AssignedBits()
-  def getScopeBits: AssignedBits = AssignedBits(Math.min(out.getWidth-1,(1 << Math.min(20,offset.getWidth))+ bitCount.value - 1), 0)
+  def getAssignedBits: AssignedRange = AssignedRange()
+  def getScopeBits: AssignedRange = AssignedRange(Math.min(out.getWidth-1,(1 << Math.min(20,offset.getWidth))+ bitCount.value - 1), 0)
+  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = super.getOutToInUsage(inputId,outHi,outLo) //TODO
   def getOutBaseType: BaseType = out
 }
 
@@ -456,6 +678,7 @@ class MultipleAssignmentNode extends Node {
     for (i <- 0 until inputs.size)
       Misc.normalizeResize(this, i, this.getWidth)
   }
+  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = (outHi,outLo)
 }
 
 

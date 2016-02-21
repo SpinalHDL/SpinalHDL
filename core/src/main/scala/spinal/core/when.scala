@@ -149,6 +149,10 @@ class WhenNode(val w: WhenContext) extends Node {
     Misc.normalizeResize(this, 1, this.getWidth)
     Misc.normalizeResize(this, 2, this.getWidth)
   }
+  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
+    case 0 => (0, 0)
+    case _ => (outHi,outLo)
+  }
 }
 
 

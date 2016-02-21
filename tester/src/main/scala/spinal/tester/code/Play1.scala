@@ -966,37 +966,37 @@ object OverloadPlay {
   def main(args: Array[String]): Unit = {
     //    Console.in.read
 
-    //for (i <- 0 until 1) {
-    val report = SpinalVhdl({
-      val vgaClock = ClockDomain("vga")
-      val vgaMemoryClock = ClockDomain("vgaMemory")
-      val coreClock = ClockDomain("core", FixedFrequency(100e6))
-      new OverloadPlay(0, new MandelbrotCoreParameters(256, 64, 640, 480, 7, 17 * 3), coreClock, vgaMemoryClock, vgaClock)
-    })
-    // Console.in.read
-    println(report.topLevel)
-    var entries = 0
-    var allocatedEntries = 0
-    val c = ArrayBuffer().getClass()
-    val f = c.getDeclaredField("array")
-    f.setAccessible(true)
-    Node.walk(report.topLevel.getAllIo.toSeq, node => {
-      entries += node.inputs.length
-      allocatedEntries += f.get(node.inputs).asInstanceOf[Array[AnyRef]].length
+    for (i <- 0 until 1) {
+      val report = SpinalVhdl({
+        val vgaClock = ClockDomain("vga")
+        val vgaMemoryClock = ClockDomain("vgaMemory")
+        val coreClock = ClockDomain("core", FixedFrequency(100e6))
+        new OverloadPlay(0, new MandelbrotCoreParameters(256, 64, 640, 480, 7, 17 * 3), coreClock, vgaMemoryClock, vgaClock)
+      })
+      // Console.in.read
+      println(report.topLevel)
+      var entries = 0
+      var allocatedEntries = 0
+      val c = ArrayBuffer().getClass()
+      val f = c.getDeclaredField("array")
+      f.setAccessible(true)
+      Node.walk(report.topLevel.getAllIo.toSeq, node => {
+        entries += node.inputs.length
+        allocatedEntries += f.get(node.inputs).asInstanceOf[Array[AnyRef]].length
 
-      entries += node.consumers.length
-      allocatedEntries += f.get(node.consumers).asInstanceOf[Array[AnyRef]].length
-      //      for(input <- f.get(node.inputs).asInstanceOf[Array[AnyRef]])
-      //        if(input != null)
-      //          allocatedEntries += 1
-    })
-    println(allocatedEntries)
-    println(entries)
-    //      while(true){
-    //        Thread.sleep(1000)
-    //        println(report.topLevel )
-    //      }
-
+        entries += node.consumers.length
+        allocatedEntries += f.get(node.consumers).asInstanceOf[Array[AnyRef]].length
+        //      for(input <- f.get(node.inputs).asInstanceOf[Array[AnyRef]])
+        //        if(input != null)
+        //          allocatedEntries += 1
+      })
+      println(allocatedEntries)
+      println(entries)
+      //      while(true){
+      //        Thread.sleep(1000)
+      //        println(report.topLevel )
+      //      }
+    }
   }
 }
 
@@ -1466,6 +1466,68 @@ object PlayMaskedLiteral {
   }
 }
 
+object PlayCombLoop {
+
+  class TopLevel extends Component {
+    val input = in Bits(4 bit)
+    val output = out Bits(4 bit)
+    val tmp,tmp2,tmp3,tmp4= Bits(4 bit)
+    val tmps = Bits(2 bit)
+//    output := "0000"
+//    when(input === "0011"){
+//      output := "0001"
+//    }
+//    tmp := input
+//    tmp(3 downto 2) := tmp2(3 downto 2)
+//    tmp2(1 downto 0) := tmp(1 downto 0)
+//    tmp2(3 downto 2) := tmp(1 downto 0)
+//    output := 0
+//    output(0) := tmp2(0)
+
+//
+//      tmp(1 downto 0) := input(1 downto 0)
+//      tmp(3 downto 2) := tmps
+//      tmps := tmp(1 downto 0)
+//      output(3 downto 2) := tmp(3 downto 2)
+//      output(1 downto 0) := tmps
+
+
+
+      val inputStream = slave Stream Bits(4 bit)
+      val outputStream = master Stream Bits(4 bit)
+      outputStream << inputStream.haltWhen(outputStream.ready)
+//  tmp2 := 0
+//    tmp := 0
+//    tmp2(3 downto 2) := tmp(2 downto 1)
+//    tmp(2 downto 1):= tmp2(1 downto 0)
+//    output := tmp
+//    tmp2 := input & tmp4
+//    tmp3 := input & tmp2
+//    tmp4 := tmp3
+//    tmp := tmp2 & tmp3
+//    output := tmp
+
+      tmp := 0
+      tmp(1) := tmp(2)
+      tmp(2) := tmp(1)
+      output := tmp
+
+//    val input = in UInt(80 bit)
+//    val output = out UInt(80 bit)
+//    val tmp = UInt(80 bit)
+//
+//
+//    tmp(0) := True
+//    tmp(48) := True
+//    tmp(77) := True
+//    tmp(78) := True
+//    output := tmp
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
 
 object PlayLiteral {
 
@@ -1499,8 +1561,8 @@ object PlaySwitch2 {
     //    result := 0
     //    when(cond){
     //      result := 1
-    //    }
 
+    //    }
 
     result := U"0000"
     result2 := 1

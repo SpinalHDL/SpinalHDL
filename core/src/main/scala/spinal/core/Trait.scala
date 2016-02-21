@@ -102,15 +102,21 @@ trait NameableByComponent extends Nameable with GlobalDataUser{
 }
 
 object SyncNode {
-  def getClockInputId: Int = 0
-  def getClockEnableId: Int = 1
-  def getClockResetId: Int = 2
+  val getClockInputId: Int = 0
+  val getClockEnableId: Int = 1
+  val getClockResetId: Int = 2
 }
 
 abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends Node {
   inputs += clockDomain.clock
   inputs += clockDomain.clockEnable
   inputs += Bool(!clockDomain.config.resetActiveHigh)
+
+  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
+    case SyncNode.getClockInputId => (0,0)
+    case SyncNode.getClockEnableId => (0,0)
+    case SyncNode.getClockResetId => (0,0)
+  }
 
   final def getLatency = 1 //if not final => update latencyAnalyser
 

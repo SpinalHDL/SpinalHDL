@@ -336,6 +336,7 @@ object Node{
       node.inputs.foreach(push(_))
     })
   }
+
 }
 abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady with GlobalDataUser {
   val consumers = new ArrayBuffer[Node](4)
@@ -409,7 +410,7 @@ abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady wi
     inputs(0) = node
   }
 
-
+  private[core] def getOutToInUsage(inputId : Int,outHi : Int, outLo : Int) : (Int,Int)= (inputs(inputId).getWidth-1,0)
   private[core] def getClassIdentifier: String = this.getClass.getSimpleName
 
   private[core] def isInBlackBoxTree = component.isInBlackBoxTree
@@ -425,6 +426,8 @@ object NoneNode {
 
 class NoneNode extends Node {
   override def calcWidth: Int = 0
+
+  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = (-1,0)
 }
 
 

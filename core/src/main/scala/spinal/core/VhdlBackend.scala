@@ -871,7 +871,7 @@ class VhdlBackend extends Backend with VhdlBase {
         if (!whens.isEmpty || nodes.size > 1) return true
         if (hasMultipleAssignment) {
           val ma: MultipleAssignmentNode = nodes(0).inputs(0).asInstanceOf[MultipleAssignmentNode]
-          val assignedBits = AssignedBits()
+          val assignedBits = new AssignedBits(nodes(0).getWidth)
           for (input <- ma.inputs) input match {
             case assign: AssignementNode => {
               val scope = assign.getScopeBits

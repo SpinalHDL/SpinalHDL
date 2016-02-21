@@ -17,7 +17,6 @@
  */
 
 package spinal.core
-
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
@@ -146,7 +145,7 @@ class Backend {
 
     //Check
     SpinalInfoPhase("Check combinational loops")
-    checkCombinationalLoops()
+    checkCombinationalLoops2()
     SpinalInfoPhase("Check cross clock domains")
     checkCrossClockDomains()
 
@@ -450,7 +449,7 @@ class Backend {
         val signalRange = new AssignedRange(signal.getWidth - 1, 0)
 
         def walk(nodes: ArrayBuffer[Node]): AssignedBits = {
-          val assignedBits = new AssignedBits
+          val assignedBits = new AssignedBits(signal.getBitsWidth)
 
           for (node <- nodes) node match {
             case wn: WhenNode => {
@@ -468,11 +467,11 @@ class Backend {
 
         val assignedBits = walk(signal.inputs)
 
-        val unassignedBits = AssignedBits()
+        val unassignedBits = new AssignedBits(signal.getBitsWidth)
         unassignedBits.add(signalRange)
         unassignedBits.remove(assignedBits)
         if (!unassignedBits.isEmpty)
-          errors += s"Incomplet assignment is detected on $signal, unassigned bit mask is ${unassignedBits.value.toString(2)}, declared at ${signal.getScalaLocationString}"
+          errors += s"Incomplet assignment is detected on $signal, unassigned bit mask is ${unassignedBits.toBinaryString}, declared at ${signal.getScalaLocationString}"
 
 
       }
@@ -1007,114 +1006,208 @@ class Backend {
       SpinalError(errors)
   }
 
-
-  def checkCombinationalLoops(): Unit = {
+  def checkCombinationalLoops2(): Unit = {
+    val targetAlgoId = GlobalData.get.algoId
+    GlobalData.get.algoId += 1
     val errors = mutable.ArrayBuffer[String]()
-    val pendingNodes: mutable.Stack[Node] = walkNodesDefautStack
-    val walkedNodes = mutable.Set[Node]()
-    val localNodes = mutable.Set[Node]()
-    val stack = mutable.Stack[Node]()
-    val partialAssignements = mutable.Map[Node, AssignedBits]() //Case where extract than assign different bits of the same signal
-    val extractAssignements = mutable.Map[Node, AssignedBits]()
+    val pendingNodes = mutable.Stack[Node]()
+    pendingNodes.pushAll(walkNodesDefautStack)
+
+    def nodeIsCompleted(node: Node) = node.algoId = targetAlgoId
+    def isNodeCompleted(node : Node) = node.algoId == targetAlgoId
+
     while (!pendingNodes.isEmpty) {
       val pop = pendingNodes.pop()
-      if (pop != null && !walkedNodes.contains(pop)) {
-        localNodes.clear()
-        partialAssignements.clear()
-        walk(pop)
-      }
+      walk(scala.collection.immutable.HashMap[Node, AssignedBits](),Nil,pop,pop.getWidth-1,0)
     }
-
     if (!errors.isEmpty)
       SpinalError(errors)
 
-    def addPendingNode(node: Node) = {
-      if (!walkedNodes.contains(node)) pendingNodes.push(node)
-    }
 
+    def walk(consumers :  scala.collection.immutable.HashMap[Node, AssignedBits],stack : List[(Node,Int,Int)],
+             node: Node,
+              outHi : Int, outLo : Int): Unit = {
+      if (node == null || node.component == null || node.isInstanceOf[NoneNode]) {
 
-    def walk(node: Node): Unit = {
-      if (node == null) return
-      if (node.isInstanceOf[SyncNode]) {
-        //End of comb path
-        val syncNode = node.asInstanceOf[SyncNode]
-        walkedNodes += node
+      }else {
+        val newStack = Tuple3(node,outHi,outLo) :: stack
+        var bitsAlreadyUsed = consumers.getOrElse(node, new AssignedBits(node.getWidth))
+        if (bitsAlreadyUsed.isIntersecting(AssignedRange(outHi, outLo))) {
+          val ordred = newStack.reverseIterator
+          val filtred = ordred.dropWhile((e) => (e._1 != node || e._2 < outLo || e._3 > outHi)).drop(1).toArray
+         // val filtredNode = filtred.map(_._1)
 
-        syncNode.getSynchronousInputs.foreach(addPendingNode(_))
-        syncNode.getAsynchronousInputs.foreach(walk(_))
-      } else if (localNodes.contains(node)) {
-        //there is a loop !
-        val it = stack.iterator
-        val loopStack = mutable.Stack[Node](node)
-        var v: Node = null
-        do {
-          v = it.next
-          loopStack.push(v)
-        } while (v != node)
-        val wellNameLoop = loopStack.reverseIterator.filter(n => n.isInstanceOf[Nameable] && n.asInstanceOf[Nameable].isNamed).map(that => that.component.getClass.getSimpleName + "." + that.asInstanceOf[Nameable].getName()).foldLeft("")(_ + _ + " -> ")
-        val multiLineLoop = loopStack.reverseIterator.map(n => "      " + n.toString).reduceLeft(_ + "\n" + _)
-        errors += s"  Combinational loop ! ${wellNameLoop}\n${multiLineLoop}"
-      } else if (!walkedNodes.contains(node)) {
-        //Not already walked
-        walkedNodes += node
-        localNodes += node
-        node match {
-          case an: AssignementNode => {
-            val bv = an.getOutBaseType
-            val pa = partialAssignements.getOrElseUpdate(bv, AssignedBits())
-            val ab = an.getScopeBits
-            pa.add(ab)
-
-
-            if (extractAssignements.contains(bv)) {
-              val notAllowedBits = extractAssignements.get(bv).get
-              if (!AssignedBits.intersect(notAllowedBits, ab).isEmpty) {
-                continueLocalWith(node.inputs) //Continue => errors come at next iteration (wanted)
-              } else {
-                //Nothing to do, extract node inputs already walked
-              }
-            } else {
-              continueLocalWith(node.inputs)
+          val wellNameLoop = filtred.reverseIterator.filter{case (n,hi,lo) => n.isInstanceOf[Nameable] && n.asInstanceOf[Nameable].isNamed}.map{case (n,hi,lo)  => n.component.getClass.getSimpleName + "." + n.asInstanceOf[Nameable].getName() + s"($hi:$lo)"}.foldLeft("")(_ + _ + " -> ")
+          val multiLineLoop = filtred.reverseIterator.map(n => "      " + n.toString).reduceLeft(_ + "\n" + _)
+          errors += s"  Combinational loop ! ${wellNameLoop}\n${multiLineLoop}"
+        }else if (!isNodeCompleted(node)) {
+          node match {
+            case syncNode: SyncNode => {
+              nodeIsCompleted(node)
+              val newConsumers = consumers + (node -> bitsAlreadyUsed.+(AssignedRange(outHi, outLo)))
+              val syncNode = node.asInstanceOf[SyncNode]
+              syncNode.getSynchronousInputs.foreach(addPendingNode(_))
+              syncNode.getAsynchronousInputs.foreach(i => walk(newConsumers,newStack, i, i.getWidth - 1, 0)) //TODO make it true
             }
-
-            pa.remove(ab)
-            if (pa.isEmpty) partialAssignements.remove(bv)
-          }
-          case extract: Extract => {
-            val bv = extract.getBitVector
-            val ea = extractAssignements.getOrElseUpdate(bv, AssignedBits())
-            val ab = extract.getScopeBits
-            ea.add(ab)
-
-
-            if (partialAssignements.contains(bv)) {
-              val notAllowedBits = partialAssignements.get(bv).get
-              if (!AssignedBits.intersect(notAllowedBits, ab).isEmpty) {
-                continueLocalWith(node.inputs) //Continue => errors come at next iteration (wanted)
-              } else {
-                continueLocalWith(extract.getParameterNodes)
+            case baseType: BaseType => {
+              val consumersPlusFull = consumers + (baseType -> bitsAlreadyUsed.+(AssignedRange(node.getWidth - 1, 0)))
+              def walkBaseType(node: Node): Unit = {
+                if (node != null) {
+                  node match {
+                    case node: MultipleAssignmentNode => for (input <- node.inputs) walkBaseType(input)
+                    case node: WhenNode => {
+                      walk(consumersPlusFull,newStack, node.cond, 0, 0) //Todo, to pessimistic !
+                      walkBaseType(node.whenTrue)
+                      walkBaseType(node.whenFalse)
+                    }
+                    case node: AssignementNode => {
+                      val newConsumers = consumers + (baseType -> bitsAlreadyUsed.+(node.getScopeBits))
+                      var idx = node.inputs.length
+                      while (idx != 0) {
+                        idx -= 1
+                        val input = node.inputs(idx)
+                        val (inHi, inLo) = node.getOutToInUsage(idx, outHi, outLo)
+                        if (inHi >= inLo) walk(newConsumers,newStack, input, inHi, inLo)
+                      }
+                    }
+                    case _ => {
+                      walk(consumersPlusFull,newStack, node, outHi, outLo)
+                    }
+                  }
+                }
               }
-            } else {
-              continueLocalWith(node.inputs)
+
+              walkBaseType(node.inputs(0))
             }
-
-            ea.remove(ab)
-            if (ea.isEmpty) extractAssignements.remove(bv)
+            case _ => {
+              val newConsumers = consumers + (node -> bitsAlreadyUsed.+(AssignedRange(outHi, outLo)))
+              var idx = node.inputs.length
+              while (idx != 0) {
+                idx -= 1
+                val input = node.inputs(idx)
+                if (input != null) {
+                  val (inHi, inLo) = node.getOutToInUsage(idx, outHi, outLo)
+                  if (inHi >= inLo) walk(newConsumers,newStack, input, inHi, inLo)
+                }
+              }
+            }
           }
-          case _ => continueLocalWith(node.inputs)
+          if (outHi == node.getWidth - 1 && outLo == 0) nodeIsCompleted(node)
         }
-
-        def continueLocalWith(inputs: Iterable[Node]): Unit = {
-          stack.push(node)
-          for (in <- inputs) {
-            walk(in)
-          }
-          stack.pop()
-        }
-
-        localNodes -= node
       }
     }
+    def addPendingNode(node: Node) = {
+      if (node != null && ! isNodeCompleted(node)) pendingNodes.push(node)
+    }
+  }
+
+  def checkCombinationalLoops(): Unit = {
+//    val errors = mutable.ArrayBuffer[String]()
+//    val pendingNodes: mutable.Stack[Node] = walkNodesDefautStack
+//    val walkedNodes = mutable.Set[Node]()
+//    val localNodes = mutable.Set[Node]()
+//    val stack = mutable.Stack[Node]()
+//    val partialAssignements = mutable.Map[Node, AssignedBits]() //Case where extract than assign different bits of the same signal
+//    val extractAssignements = mutable.Map[Node, AssignedBits]()
+//    while (!pendingNodes.isEmpty) {
+//      val pop = pendingNodes.pop()
+//      if (pop != null && !walkedNodes.contains(pop)) {
+//        localNodes.clear()
+//        partialAssignements.clear()
+//        walk(pop)
+//      }
+//    }
+//
+//    if (!errors.isEmpty)
+//      SpinalError(errors)
+//
+//    def addPendingNode(node: Node) = {
+//      if (!walkedNodes.contains(node)) pendingNodes.push(node)
+//    }
+//
+//
+//    def walk(node: Node): Unit = {
+//      if (node == null) return
+//      if (node.isInstanceOf[SyncNode]) {
+//        //End of comb path
+//        val syncNode = node.asInstanceOf[SyncNode]
+//        walkedNodes += node
+//
+//        syncNode.getSynchronousInputs.foreach(addPendingNode(_))
+//        syncNode.getAsynchronousInputs.foreach(walk(_))
+//      } else if (localNodes.contains(node)) {
+//        //there is a loop !
+//        val it = stack.iterator
+//        val loopStack = mutable.Stack[Node](node)
+//        var v: Node = null
+//        do {
+//          v = it.next
+//          loopStack.push(v)
+//        } while (v != node)
+//        val wellNameLoop = loopStack.reverseIterator.filter(n => n.isInstanceOf[Nameable] && n.asInstanceOf[Nameable].isNamed).map(that => that.component.getClass.getSimpleName + "." + that.asInstanceOf[Nameable].getName()).foldLeft("")(_ + _ + " -> ")
+//        val multiLineLoop = loopStack.reverseIterator.map(n => "      " + n.toString).reduceLeft(_ + "\n" + _)
+//        errors += s"  Combinational loop ! ${wellNameLoop}\n${multiLineLoop}"
+//      } else if (!walkedNodes.contains(node)) {
+//        //Not already walked
+//        walkedNodes += node
+//        localNodes += node
+//        node match {
+//          case an: AssignementNode => {
+//            val bv = an.getOutBaseType
+//            val pa = partialAssignements.getOrElseUpdate(bv, new AssignedBits(bv.getWidth))
+//            val ab = an.getScopeBits
+//            pa.add(ab)
+//
+//
+//            if (extractAssignements.contains(bv)) {
+//              val notAllowedBits = extractAssignements.get(bv).get
+//              if (!AssignedBits.intersect(notAllowedBits, ab).isEmpty) {
+//                continueLocalWith(node.inputs) //Continue => errors come at next iteration (wanted)
+//              } else {
+//                //Nothing to do, extract node inputs already walked
+//              }
+//            } else {
+//              continueLocalWith(node.inputs)
+//            }
+//
+//            pa.remove(ab)
+//            if (pa.isEmpty) partialAssignements.remove(bv)
+//          }
+//          case extract: Extract => {
+//            val bv = extract.getBitVector
+//            val ea = extractAssignements.getOrElseUpdate(bv, new AssignedBits(bv.getWidth))
+//            val ab = extract.getScopeBits
+//            ea.add(ab)
+//
+//
+//            if (partialAssignements.contains(bv)) {
+//              val notAllowedBits = partialAssignements.get(bv).get
+//              if (!AssignedBits.intersect(notAllowedBits, ab).isEmpty) {
+//                continueLocalWith(node.inputs) //Continue => errors come at next iteration (wanted)
+//              } else {
+//                continueLocalWith(extract.getParameterNodes)
+//              }
+//            } else {
+//              continueLocalWith(node.inputs)
+//            }
+//
+//            ea.remove(ab)
+//            if (ea.isEmpty) extractAssignements.remove(bv)
+//          }
+//          case _ => continueLocalWith(node.inputs)
+//        }
+//
+//        def continueLocalWith(inputs: Iterable[Node]): Unit = {
+//          stack.push(node)
+//          for (in <- inputs) {
+//            walk(in)
+//          }
+//          stack.pop()
+//        }
+//
+//        localNodes -= node
+//      }
+//    }
   }
 
 
