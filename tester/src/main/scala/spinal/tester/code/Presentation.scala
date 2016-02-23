@@ -935,7 +935,7 @@ object t12 {
 
 object t13 {
   val normalVec = Vec(UInt(4 bit), 10)
-  val variableVec = Vec(UInt(5 bit), UInt(9 bit), UInt(16 bit))
+//  val variableVec = Vec(UInt(5 bit), UInt(9 bit), UInt(16 bit))
 
   val containZero = normalVec.sContains(0)
   val existOne = normalVec.sExists(_ === 1)

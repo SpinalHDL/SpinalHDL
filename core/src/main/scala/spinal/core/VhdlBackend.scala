@@ -140,7 +140,7 @@ class VhdlBackend extends Backend with VhdlBase {
   def getEnumDebugType(spinalEnum: SpinalEnum): String ={
     s"${spinalEnum.getName()}_debug"
   }
-  //TODO enum
+
   def emitEnumPackage(out: java.io.FileWriter): Unit = {
     val ret = new StringBuilder();
     ret ++= s"""library IEEE;
@@ -190,6 +190,25 @@ class VhdlBackend extends Backend with VhdlBase {
       val str = encoding.getValue(enum).toString(2)
       "\"" + ("0" * (encoding.getWidth(enum.parent) - str.length)) + str + "\""
     }
+
+//    val vecTypes = mutable.Set[Seq[Int]]()
+//    Node.walk(walkNodesDefautStack,node => node match{
+//      case node : VecBaseType[_] => {
+//        if(!vecTypes.contains(node.dims.toSeq)){
+//          var dimsVar = Seq[Int]()
+//          for(dim <- node.dims.reverseIterator){
+//            dimsVar = dim +: dimsVar
+//            if(!vecTypes.contains(dimsVar)){
+//              ret ++= s"  type ${emitVecType(node.baseType,dimsVar  )}} is array (3 downto 0) of std_ulogic;"
+//            }
+//          }
+//          ret ++= "asd\n"
+//          vecTypes += node.dims.toSeq
+//        }
+//      }
+//      case _ =>
+//    })
+
 
     ret ++= s"end $enumPackageName;\n\n"
     if (enums.size != 0) {
@@ -1050,7 +1069,7 @@ class VhdlBackend extends Backend with VhdlBase {
     }
   }
 
-  //TODO enum
+
   def operatorImplAsBitsToEnum(func: Modifier): String = {
     val (enumDef,encoding) = func.inputs(0) match{
       case craft : SpinalEnumCraft[_] => (craft.blueprint,craft.encoding)

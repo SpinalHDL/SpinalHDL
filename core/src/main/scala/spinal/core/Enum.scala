@@ -162,6 +162,8 @@ object oneHot extends SpinalEnumEncoding{
 }
 
 
+class EnumFsm(defaultEncoding : SpinalEnumEncoding = native) extends SpinalEnum
+class EnumData(defaultEncoding : SpinalEnumEncoding = sequancial) extends SpinalEnum
 
 class SpinalEnum(val defaultEncoding : SpinalEnumEncoding = native) extends Nameable {
   def apply() = craft

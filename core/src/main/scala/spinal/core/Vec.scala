@@ -39,7 +39,8 @@ trait VecFactory{
   }
 
 
-  def Vec[T <: Data](gen : => T,size : Int) : Vec[T] = fill(size)(gen)
+  def Vec[T <: Data](gen :  => T,size : Int) : Vec[T] = fill(size)(gen)
+  def Vec[T <: Data](gen : Vec[T],size : Int) : Vec[Vec[T]] = fill(size)(gen.clone)
   def Vec[T <: Data](gen :(Int) => T,size : Int) : Vec[T] = tabulate(size)(gen)
 
   //def apply[T <: Data](gen : => Vec[T],size : Int) : Vec[Vec[T]] = fill(size)(gen)
@@ -50,7 +51,7 @@ trait VecFactory{
   @deprecated //swap data and size
   def Vec[T <: Data](size : Int,gen :(Int) => T) : Vec[T] = tabulate(size)(gen)
 
-  def Vec[T <: Data](firstElement: T, followingElements: T*): Vec[T] = Vec(List(firstElement) ++ followingElements)
+//  def Vec[T <: Data](firstElement: T, followingElements: T*): Vec[T] = Vec(List(firstElement) ++ followingElements)
 
   def tabulate[T <: Data](size : Int)(gen : (Int)=> T) : Vec[T] ={
     Vec((0 until size).map(gen(_)))
@@ -155,6 +156,29 @@ class Vec[T <: Data](_dataType: T,val vec : Vector[T]) extends MultiData with co
     }
 
     accessMap += (key -> ret)
+    ret
+  }
+
+  //TODO sub element composit assignement, aswell for indexed access (std)
+  def oneHotAccess(oneHot : Bits): T ={
+    val ret = dataType.clone
+    ret := ret.getZero
+    for((e,idx) <- vec.zipWithIndex){
+      when(oneHot(idx)){
+        ret := e
+      }
+    }
+    ret.compositeAssign = new Assignable {
+      override private[core] def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
+        assert(!conservative)
+        for((e,idx) <- vec.zipWithIndex){
+          when(oneHot(idx)){
+            e := that.asInstanceOf[T]
+          }
+        }
+      }
+    }
+
     ret
   }
 

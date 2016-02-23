@@ -1047,7 +1047,7 @@ class Backend {
               val newConsumers = consumers + (node -> bitsAlreadyUsed.+(AssignedRange(outHi, outLo)))
               val syncNode = node.asInstanceOf[SyncNode]
               syncNode.getSynchronousInputs.foreach(addPendingNode(_))
-              syncNode.getAsynchronousInputs.foreach(i => walk(newConsumers,newStack, i, i.getWidth - 1, 0)) //TODO make it true
+              syncNode.getAsynchronousInputs.foreach(i => walk(newConsumers,newStack, i, i.getWidth - 1, 0)) //TODO, pessimistic
             }
             case baseType: BaseType => {
               val consumersPlusFull = consumers + (baseType -> bitsAlreadyUsed.+(AssignedRange(node.getWidth - 1, 0)))

@@ -248,6 +248,7 @@ class SpinalMap[Key <: Data, Value <: Data](pairs: Iterable[(() => Key, () => Va
 }
 
 
+
 object latencyAnalysis {
   //Don't care about clock domain
   def apply(paths: Node*): Integer = {

@@ -231,10 +231,6 @@ object ImplicitTest extends App {
 class Titi[A <: Int]() {
   val s: Symbol = 'x
 
-  val v = Vec(True, True, True)
-  val b = Bool
-  b := v.reduceBalancedSpinal(_ | _)
-
 
 }
 
@@ -548,6 +544,54 @@ object PlayIf {
   }
 }
 
+object PlayVecBaseType {
+
+  class TopLevel extends Component {
+
+    val tmp = new VecBaseType(UInt(4 bit),Seq(4).toArray)
+    val output = out UInt(4 bit)
+
+
+    for(idx <- 0 to 3){
+      tmp.write(idx*2,Seq(idx))
+    }
+    var sum = UInt(4 bit)
+    sum := 0
+    for(idx <- 0 to 3){
+      sum = sum + tmp.read(Seq(idx))
+    }
+    output := sum
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+object PlayVec {
+
+  class TopLevel extends Component {
+//    val sel = in UInt(2 bit)
+//    val vecIn = in Vec(UInt(4 bit),4)
+//    val vecOut = out Vec(UInt(4 bit),4)
+//
+//    vecOut := vecIn
+//    vecOut(sel)(2 downto 0) := 0
+
+    val n = 9
+    val pow = 1<<n
+    val sel,sel2 = in UInt(n bit)
+    val vecIn = in Vec(Vec(UInt(4 bit),pow),pow)
+    val vecOut = out Vec(Vec(UInt(4 bit),pow),pow)
+
+    vecOut := vecIn
+    vecOut(sel)(sel2) := 0
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
 object PlaySwitch {
 
   class TopLevel extends Component {
@@ -579,28 +623,25 @@ object PlaySwitch {
 object PlayLoop {
 
   class TopLevel extends Component {
-    //      val io = new Bundle() {
-    //        val input = in UInt(4 bit)
-    //        val output = out UInt(4 bit)
-    //      }
-    //      val tmp =  UInt(4 bit)
-    //      tmp(0) := io.input(0)
-    //      tmp(1) := io.input(1) || tmp(0)
-    //      tmp(2) := io.input(2) || tmp(3)
-    //      tmp(3) := io.input(3) || tmp(2)
-    //      io.output := tmp
-    val io = new Bundle() {
-      val input = in UInt (2 bit)
-      val output = out UInt (2 bit)
-    }
+          val io = new Bundle() {
+            val input = in UInt(4 bit)
+            val output = out UInt(4 bit)
+          }
+          val tmp =  UInt(4 bit)
+          tmp(0) := io.input(0)
+          tmp(1) := io.input(1) || tmp(0)
+          tmp(2) := io.input(2) || tmp(1)
+          tmp(3) := io.input(3) || tmp(2)
+          io.output := tmp
+//    val io = new Bundle() {
+//      val input = in UInt (2 bit)
+//      val output = out UInt (2 bit)
+//    }
     //    val tmp =  UInt(2 bit)
     //    tmp(0) := tmp(1)
     //    tmp(1) := tmp(0)
     //    io.output := tmp
-    val tmp = Vec(Bool, Bool)
-    tmp(0) := tmp(1)
-    tmp(1) := tmp(0)
-    io.output := tmp.toBits.toUInt
+
   }
 
   def main(args: Array[String]): Unit = {
@@ -1532,14 +1573,14 @@ object PlayCombLoop {
 object PlayLiteral {
 
   class TopLevel extends Component {
-    val output = out(Vec(
-      B"0000_1100",
-      B"h0C",
-      B"8'hC",
-      B"8'd12"
-    ))
+//    val output = out(Vec(
+//      B"0000_1100",
+//      B"h0C",
+//      B"8'hC",
+//      B"8'd12"
+//    ))
 
-    val output2 = out(U(1 -> True, 0 -> False, (1 to 3) -> U"00"))
+//    val output2 = out(U(1 -> True, 0 -> False, (1 to 3) -> U"00"))
     //  output2(1,0) := U"00"
   }
 
@@ -1593,6 +1634,26 @@ object PlaySwitch2 {
     println("Done")
   }
 }
+
+object PlayRecAssign {
+
+  class TopLevel extends Component {
+    val sel = in UInt(4 bit)
+    val output = out UInt(16 bit)
+    output := 0
+    output(8 downto 4) := 1
+    output(8 downto 4)(2) := True
+    output(8 downto 4)(2 downto 1) := 2
+    output(8 downto 4)(2 downto 1)(1) := False
+    output(8 downto 4)(sel) := True
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+    println("Done")
+  }
+}
+
 
 object PlayMaskAssign {
 

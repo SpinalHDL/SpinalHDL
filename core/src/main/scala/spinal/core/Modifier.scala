@@ -552,8 +552,8 @@ class AssignedBits(val width : Int) {
   def isEmpty = value.foldLeft(true)((c,e) => c && (e == 0))
 }
 trait AssignementNode extends Node {
-  def getAssignedBits: AssignedRange
-  def getScopeBits: AssignedRange
+  def getAssignedBits: AssignedRange //Bit that are allwas assigned
+  def getScopeBits: AssignedRange //Bit tht could be assigned
   def getOutBaseType: BaseType
 }
 
