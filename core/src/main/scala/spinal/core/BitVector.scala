@@ -130,6 +130,10 @@ abstract class BitVector extends BaseType {
         override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = that match{
           case that : BitVector => BitVector.this.assignFrom(new RangedAssignmentFloating(BitVector.this, that, offset, bitCount), true)
           case that : DontCareNode => BitVector.this.assignFrom(new RangedAssignmentFloating(BitVector.this, new DontCareNodeFixed(BitVector.this,bitCount.value), offset, bitCount), true)
+          case that : BitAssignmentFixed => BitVector.this.apply(offset + that.getBitId).assignFrom(that.getInput,true)
+          case that : BitAssignmentFloating => BitVector.this.apply(offset + that.getBitId.asInstanceOf[UInt]).assignFrom(that.getInput,true)
+          case that : RangedAssignmentFixed => BitVector.this.apply(offset + that.getLo,that.getHi-that.getLo + 1 bit).assignFrom(that.getInput,true)
+          case that : RangedAssignmentFloating => BitVector.this.apply(offset + that.getOffset.asInstanceOf[UInt],that.getBitCount).assignFrom(that.getInput,true)
         }
       }
 

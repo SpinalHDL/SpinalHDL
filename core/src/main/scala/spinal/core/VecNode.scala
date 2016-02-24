@@ -77,7 +77,7 @@ class VecBaseTypeAssignFixed(val vec : VecBaseType[_],val sels : Seq[Int]) exten
   def getData = inputs(0)
 
 
-  override private[core] def calcWidth: Int = vec.getWidth
+  //override private[core] def calcWidth: Int = vec.getWidth
 
   override def getAssignedBits: AssignedRange = {//TODO
     AssignedRange(vec.getWidth-1,0)
@@ -86,4 +86,7 @@ class VecBaseTypeAssignFixed(val vec : VecBaseType[_],val sels : Seq[Int]) exten
   override def getOutBaseType: BaseType = vec
 
   override def getScopeBits: AssignedRange = getAssignedBits //TODO
+  override def clone(out: Node): VecBaseTypeAssignFixed.this.type = ???
+
+  override private[core] def calcWidth: Int = ???
 }

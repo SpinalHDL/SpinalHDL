@@ -89,10 +89,13 @@ object SeqMux {
 
 class VecAccessAssign[T <: BaseType](enables: Seq[Bool], tos: Seq[T]) extends Assignable {
   override def assignFromImpl(that: AnyRef,conservative : Boolean): Unit = {
-    assert(!conservative)
     for ((enable, to) <- (enables, tos).zipped) {
       when(enable) {
-        to := that.asInstanceOf[T]
+        val thatSafe = that match{
+          case that : AssignementNode => that.clone(to)
+          case _ => that
+        }
+        to.assignFrom(thatSafe,conservative)
       }
     }
   }

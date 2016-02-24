@@ -1646,6 +1646,12 @@ object PlayRecAssign {
     output(8 downto 4)(2 downto 1) := 2
     output(8 downto 4)(2 downto 1)(1) := False
     output(8 downto 4)(sel) := True
+
+    val outputVec = out Vec(UInt(16 bit),4)
+    outputVec := outputVec.getZero
+    outputVec(2)(8 downto 4) := 3
+    outputVec(sel)(8 downto 4) := 4
+    outputVec(sel)(8 downto 4)(2) := False
   }
 
   def main(args: Array[String]) {

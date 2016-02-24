@@ -750,12 +750,14 @@ class Backend {
     val errors = mutable.ArrayBuffer[String]()
     Node.walk(walkNodesDefautStack,node => {
       val error = node.checkInferedWidth
-      if (error != null) errors += error
+      if (error != null)
+        errors += error
     })
 
     for(checker <- globalData.widthCheckers){
       val error = checker.check()
-      if(error != null) errors += error + s", ${checker.consumer.getWidth} bit assigned by ${checker.provider.getWidth} bit\n  consumer is ${checker.consumer.getScalaLocationString}\n  provider is ${checker.provider.getScalaLocationString}"
+      if(error != null)
+        errors += error + s", ${checker.consumer.getWidth} bit assigned by ${checker.provider.getWidth} bit\n  consumer is ${checker.consumer.getScalaLocationString}\n  provider is ${checker.provider.getScalaLocationString}"
     }
     if (!errors.isEmpty)
       SpinalError(errors)
@@ -938,6 +940,7 @@ class Backend {
                 walk(node)
               }
             }
+            case that : AssignementNode => that.inferredWidth = width
             case that: CaseNode => {
               that.inferredWidth = width
               for (node <- that.inputs) {

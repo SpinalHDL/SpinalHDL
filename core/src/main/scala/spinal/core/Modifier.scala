@@ -555,6 +555,8 @@ trait AssignementNode extends Node {
   def getAssignedBits: AssignedRange //Bit that are allwas assigned
   def getScopeBits: AssignedRange //Bit tht could be assigned
   def getOutBaseType: BaseType
+
+  def clone(out : Node) : this.type
 }
 
 
@@ -581,6 +583,8 @@ class BitAssignmentFixed(out: BitVector, in: Node, bitId: Int) extends Assigneme
       (-1,0)
   }
   def getOutBaseType: BaseType = out
+
+  override def clone(out: Node): this.type = new BitAssignmentFixed(out.asInstanceOf[BitVector],in,bitId).asInstanceOf[this.type]
 }
 
 
@@ -619,6 +623,7 @@ class RangedAssignmentFixed(out: BitVector, in: Node, hi: Int, lo: Int) extends 
       (-1,0)
   }
   def getOutBaseType: BaseType = out
+  override def clone(out: Node): this.type = new RangedAssignmentFixed(out.asInstanceOf[BitVector],in,hi,lo).asInstanceOf[this.type]
 
 }
 
@@ -648,6 +653,7 @@ class BitAssignmentFloating(out: BitVector, in: Node, bitId: UInt) extends Assig
         (-1,0)
   }
   def getOutBaseType: BaseType = out
+  override def clone(out: Node): this.type = new BitAssignmentFloating(out.asInstanceOf[BitVector],in,bitId).asInstanceOf[this.type]
 }
 
 class RangedAssignmentFloating(out: BitVector, in: Node, offset: UInt, bitCount: BitCount) extends AssignementNode {
@@ -669,6 +675,7 @@ class RangedAssignmentFloating(out: BitVector, in: Node, offset: UInt, bitCount:
   def getScopeBits: AssignedRange = AssignedRange(Math.min(out.getWidth-1,(1 << Math.min(20,offset.getWidth))+ bitCount.value - 1), 0)
   override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = super.getOutToInUsage(inputId,outHi,outLo) //TODO
   def getOutBaseType: BaseType = out
+  override def clone(out: Node): this.type = new RangedAssignmentFloating(out.asInstanceOf[BitVector],in,offset,bitCount).asInstanceOf[this.type]
 }
 
 
