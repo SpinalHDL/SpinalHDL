@@ -74,14 +74,14 @@ package object core extends BaseTypeFactory with BaseTypeCast{
   implicit def BigIntToBits(that: BigInt) = B(that)
 
 
-  implicit def StringToBits(that: String) = parser(spinal.core.B, that)
-  implicit def StringToUInt(that: String) = parser(spinal.core.U, that)
-  implicit def StringToSInt(that: String) = parser(spinal.core.S, that)
+  implicit def StringToBits(that: String) = bitVectorStringParser(spinal.core.B, that)
+  implicit def StringToUInt(that: String) = bitVectorStringParser(spinal.core.U, that)
+  implicit def StringToSInt(that: String) = bitVectorStringParser(spinal.core.S, that)
 
   implicit class LiteralBuilder(private val sc: StringContext) extends AnyVal {
-    def B(args: Any*): Bits = parser(spinal.core.B, getString(args))
-    def U(args: Any*): UInt = parser(spinal.core.U, getString(args))
-    def S(args: Any*): SInt = parser(spinal.core.S, getString(args))
+    def B(args: Any*): Bits = bitVectorStringParser(spinal.core.B, getString(args))
+    def U(args: Any*): UInt = bitVectorStringParser(spinal.core.U, getString(args))
+    def S(args: Any*): SInt = bitVectorStringParser(spinal.core.S, getString(args))
     def M(args: Any*): MaskedLiteral = MaskedLiteral(sc.parts(0))
 
 
@@ -107,7 +107,7 @@ package object core extends BaseTypeFactory with BaseTypeCast{
   }
 
 
-  private def parser[T <: BitVector](builder: BitVectorLiteralFactory[T], arg: String): T = {
+  private[core] def bitVectorStringParser[T <: BitVector](builder: BitVectorLiteralFactory[T], arg: String): T = {
     var last = 0;
     var idx = 0
     val cleanedArg = arg.replace("_", "")

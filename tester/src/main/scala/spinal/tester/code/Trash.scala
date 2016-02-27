@@ -121,3 +121,37 @@ object MyMain {
     SpinalVhdl(new MyTopLevel)
   }
 }
+
+
+
+class Ram_1w_1r(_wordWidth: Int, _wordCount: Int) extends BlackBox {
+  val generic = new Generic {
+    val wordCount = _wordCount
+    val wordWidth = _wordWidth
+  }
+
+  val io = new Bundle {
+    val clk = in Bool
+
+    val wr = new Bundle {
+      val en = in Bool
+      val addr = in UInt (log2Up(_wordCount) bit)
+      val data = in Bits (_wordWidth bit)
+    }
+    val rd = new Bundle {
+      val en = in Bool
+      val addr = in UInt (log2Up(_wordCount) bit)
+      val data = out Bits (_wordWidth bit)
+    }
+  }
+
+  mapClockDomain(clock=io.clk)
+}
+
+import spinal.lib._
+object test{
+  val a = in UInt(3 bit)
+  val str = Stream(Bool)
+  str <-/< str
+a.pull()
+}

@@ -46,6 +46,10 @@ object Mem {
   def apply[T <: Data](initialContent: Seq[T]) = new Mem(initialContent(0), initialContent.length) init(initialContent)
 }
 
+class MemWritePayload[T <: Data](dataType: T, addressWidth: Int) extends Bundle{
+  val data = dataType.clone
+  val address = UInt(addressWidth bit)
+}
 
 class Mem[T <: Data](val wordType: T, val wordCount: Int) extends Node with Nameable {
   var forceMemToBlackboxTranslation = false
@@ -132,6 +136,7 @@ class Mem[T <: Data](val wordType: T, val wordCount: Int) extends Node with Name
     }else{
       null
     }
+
 
     val writePort = new MemWrite(this, address, addressBuffer, dataBuffer,maskBuffer, when.getWhensCond(this).dontSimplifyIt(), ClockDomain.current)
     inputs += writePort

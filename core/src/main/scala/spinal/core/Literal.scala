@@ -26,26 +26,44 @@ abstract class BitVectorLiteralFactory[T <: BitVector] {
   def apply(): T
   def apply(value: BigInt): T = BitsLiteral(value, -1, this())
   def apply(value: BigInt, width: BitCount): T = BitsLiteral(value, width.value, this().setWidth(width.value))
+  def apply(value: String): T = bitVectorStringParser(this,value)
 
 
   def apply(rangesValues: Tuple2[Any,Any]*) : T = {
     val ret : T = this.apply()
-    var hig = 0
-//    for((range,value) <- rangesValues) (range,value)match{
-//      case (Int,Bool) => range + range
-//    }
-
-
+    var hig = -1
 
     rangesValues.foreach(_ match{
-      case (pos : Int,value : Bool) => {
-        ret(pos) := value
+      case (pos : Int,_) => {
         hig = Math.max(hig,pos)
       }
-      case (range : Range,value : T) => {
-        ret(range) := value
+      case (range : Range,_) => {
         hig = Math.max(hig,range.last)
       }
+      case _ =>
+    })
+
+    rangesValues.foreach(_ match{
+      case (`default`,value : Boolean) =>  ret := apply(if(! value) BigInt(0) else (BigInt(1) << (hig+1))-1)
+      case (`default`,value : Bool) =>{
+        for(i <- 0 until hig)
+          ret(i) := value
+      }
+      case _ =>
+    })
+
+    rangesValues.foreach(_ match{
+      case (pos : Int,value : Boolean) => ret(pos) := Bool(value)
+      case (pos : Int,value : Bool) => ret(pos) := value //literal extraction
+      case (range : Range,value : Bool) => {
+        for(i <- range)
+          ret(i) := value
+      }
+      case (range : Range,value : Boolean) => ret(range) := apply(if(! value) BigInt(0) else (BigInt(1) << range.size)-1)
+      case (range : Range,value : String) => ret(range) := apply(value)
+      case (range : Range,value : T) => ret(range) := value
+      case (`default`,value : Boolean) =>
+      case (`default`,value : Bool) =>
     })
     ret.setWidth(hig + 1)
     ret
