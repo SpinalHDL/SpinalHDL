@@ -57,6 +57,7 @@ class Play1 extends Component {
   //  val dyna = new Dyna
   //  dyna.a__fafafs_asdda__fafaf
 
+  S(2).asUInt
   val b = new Bundle {
     val a = Bool
     val b = Bool
@@ -371,7 +372,7 @@ object Play6 {
     }
 
     var carry = Bool(false)
-    for (bit <- io.input.toBools) {
+    for (bit <- io.input.asBools) {
       when(io.cond) {
         carry \= carry & bit
       }
@@ -436,7 +437,6 @@ object Play7 {
 
 
 object PlayFix {
-
 
   class TopLevel extends Component {
     val ufix = UFix(8 exp, 12 bit)
@@ -578,7 +578,7 @@ object PlayVec {
 //    vecOut := vecIn
 //    vecOut(sel)(2 downto 0) := 0
 
-    val n = 9
+    val n = 5
     val pow = 1<<n
     val sel,sel2 = in UInt(n bit)
     val vecIn = in Vec(Vec(UInt(4 bit),pow),pow)
@@ -742,8 +742,8 @@ object PlayEnum {
     val output = out(MyEnum())
 
     val tmp = Reg(MyEnum(sequancial))
-    out(tmp.toBits)
-    out(input.toBits)
+    out(tmp.asBits)
+    out(input.asBits)
     tmp := MyEnum.s3
     when(input === MyEnum.s4) {
       tmp := MyEnum.s7
@@ -1640,6 +1640,11 @@ object PlayRecAssign {
   class TopLevel extends Component {
     val sel = in UInt(4 bit)
     val output = out UInt(16 bit)
+
+    val tmp = UInt()
+    tmp := 0
+    tmp(4) := True
+    output := tmp.resized
     output := 0
     output(8 downto 4) := 1
     output(8 downto 4)(2) := True
@@ -1675,6 +1680,26 @@ object PlayMaskAssign {
     println("Done")
   }
 }
+
+
+
+object PlayClockDomain {
+
+  class TopLevel extends Component {
+    val coreClock = Bool
+    val coreReset = Bool
+    val coreClockDomain = ClockDomain(coreClock,coreReset)
+    val coreArea = new ClockingArea(coreClockDomain){
+      val coreClockedRegister = Reg(UInt(4 bit))
+    }
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+    println("Done")
+  }
+}
+
 
 object PlayExtract {
 

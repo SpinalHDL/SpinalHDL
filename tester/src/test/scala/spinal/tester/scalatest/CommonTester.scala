@@ -84,7 +84,7 @@ object CommonTester {
     val noData = NoData
 
     io.outAA.assignFromBits(io.inAABits)
-    io.outAABits := io.inAA.toBits
+    io.outAABits := io.inAA.asBits
 
     io.complexLiteral(15,4) := 0x70
     io.complexLiteral(15,12) := U(2) + U(1)

@@ -121,7 +121,7 @@ object Debug {
     //
     val s0Reg = RegNext(MyEnum.s0())
 
-    io.boolToUnsigned := toUInt(True)
+    io.boolToUnsigned := asUInt(True)
 
     val forks = StreamFork(io.input, 3)
     io.output << StreamArbiter.lowIdPortFirst.transactionLock.build(forks)

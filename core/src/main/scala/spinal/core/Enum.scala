@@ -76,7 +76,7 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T,val encoding: SpinalEnum
   }
 
   private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,e,e)", sel, whenTrue, whenFalse)
-  override def toBits: Bits = new Bits().castFrom("e->b", this)
+  override def asBits: Bits = new Bits().castFrom("e->b", this)
   override def assignFromBits(bits: Bits): Unit = enumCastFrom("b->e", bits, (node) => this.getWidth)
   override def assignFromBits(bits: Bits,hi : Int,lo : Int): Unit = {
     assert(lo == 0,"Enumeration can't be partialy assigned")

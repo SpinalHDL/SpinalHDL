@@ -201,7 +201,7 @@ object C8 {
       val result = out Bits (3 * channelWidth bit)
     }
     val selectedSource = io.sources(io.sel)
-    io.result := toBits(selectedSource)
+    io.result := asBits(selectedSource)
   }
 
 
@@ -358,7 +358,7 @@ object C10_2 {
     }
 
     io.memoryReadAddress.valid := io.run.valid
-    io.memoryReadAddress.payload := toBits(addressCounter)
+    io.memoryReadAddress.payload := asBits(addressCounter)
 
     io.colorStream.translateFrom(io.memoryReadData)(_.assignFromBits(_))
   }

@@ -418,6 +418,7 @@ abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady wi
   private[core] def nonRecursiveToString(): String = {
     toString()
   }
+
 }
 
 object NoneNode {

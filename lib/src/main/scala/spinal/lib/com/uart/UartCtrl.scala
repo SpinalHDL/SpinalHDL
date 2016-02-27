@@ -31,7 +31,7 @@ class UartCtrl(dataWidthMax: Int = 8, clockDividerWidth: Int = 20, preSamplingSi
   tx.io.config := io.config
   rx.io.config := io.config
 
-  tx.io.clockDivider := (io.clockDivider ## BitsSet(log2Up(txToRxClockDividerFactor) bit)).toUInt
+  tx.io.clockDivider := (io.clockDivider ## BitsSet(log2Up(txToRxClockDividerFactor) bit)).asUInt
   rx.io.clockDivider := io.clockDivider
 
   tx.io.write << io.write

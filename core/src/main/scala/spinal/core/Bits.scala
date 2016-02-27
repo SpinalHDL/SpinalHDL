@@ -23,7 +23,7 @@ package spinal.core
  */
 
 trait BitsCast{
-  def toBits(that : Data) : Bits = that.toBits
+  def asBits(that : Data) : Bits = that.asBits
 }
 
 object BitsSet{
@@ -60,10 +60,10 @@ class Bits extends BitVector {
 
   override def resize(width: Int): this.type = newResize("resize(b,i)", this :: new IntLiteral(width) :: Nil, WidthInfer.intLit1Width,ZeroWidth.resizeImpl(B.apply))
 
-  def toSInt: SInt = new SInt().castFrom("b->s", this)
-  def toUInt: UInt = new UInt().castFrom("b->u", this)
+  def asSInt: SInt = new SInt().castFrom("b->s", this)
+  def asUInt: UInt = new UInt().castFrom("b->u", this)
 
-  override def toBits: Bits = {
+  override def asBits: Bits = {
     val ret = new Bits()
     ret := this
     ret

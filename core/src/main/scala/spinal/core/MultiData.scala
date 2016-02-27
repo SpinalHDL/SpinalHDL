@@ -42,11 +42,11 @@ abstract class MultiData extends Data {
     temp._2
   }
 
-  override def toBits: Bits = {
+  override def asBits: Bits = {
     var ret: Bits = null
     for ((eName, e) <- elements) {
-      if (ret == null.asInstanceOf[Object]) ret = e.toBits
-      else ret = e.toBits ## ret
+      if (ret == null.asInstanceOf[Object]) ret = e.asBits
+      else ret = e.asBits ## ret
     }
     if (ret.asInstanceOf[Object] == null) ret = Bits(0 bit)
     ret

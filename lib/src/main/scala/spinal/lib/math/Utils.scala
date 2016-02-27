@@ -30,9 +30,9 @@ object SIntMath {
       val aPart = a(task.aOffset, task.aWidth bit)
       val bPart = b(task.bOffset, task.bWidth bit)
       val mult = (aPartSigned, bPartSigned) match {
-        case (false, false) => toSInt(False ## (toUInt(aPart) * toUInt(bPart)))
-        case (false, true) => toSInt(False ## aPart) * bPart
-        case (true, false) => aPart * toSInt(False ## bPart)
+        case (false, false) => asSInt(False ## (asUInt(aPart) * asUInt(bPart)))
+        case (false, true) => asSInt(False ## aPart) * bPart
+        case (true, false) => aPart * asSInt(False ## bPart)
         case (true, true) => aPart * bPart
       }
       //ret = ret + (mult << (task.aOffset + task.bOffset))

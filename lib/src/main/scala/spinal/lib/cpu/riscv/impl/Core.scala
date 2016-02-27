@@ -34,7 +34,7 @@ class Core(implicit p : CoreParm) extends Component{
     }
 
     io.iCmd.valid := True
-    io.iCmd.payload := pcNext.toBits
+    io.iCmd.payload := pcNext.asBits
     when(io.iCmd.fire){
       pc := pcNext
     }
@@ -48,8 +48,8 @@ class Core(implicit p : CoreParm) extends Component{
     outInst.valid := io.dRsp.valid
     outInst.pc := fetch.pc
     outInst.instruction := io.iRsp.payload
-    val reg0 = regFile.readSync(outInst.instruction(19 downto 15).toUInt,outInst.fire)
-    val reg1 = regFile.readSync(outInst.instruction(24 downto 20).toUInt,outInst.fire)
+    val reg0 = regFile.readSync(outInst.instruction(19 downto 15).asUInt,outInst.fire)
+    val reg1 = regFile.readSync(outInst.instruction(24 downto 20).asUInt,outInst.fire)
 
   }
 

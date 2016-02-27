@@ -263,7 +263,7 @@ class StreamArbiterCore[T <: Data](dataType: T, val portCount: Int)(arbitrationL
   var outputData = B(0)
   for ((input, mask) <- (io.inputs, maskRouted).zipped) {
     outputValid = outputValid | (mask & input.valid) //mask & is not mandatory for all kind of arbitration/lock
-    outputData = outputData | Mux(mask, input.payload.toBits, B(0))
+    outputData = outputData | Mux(mask, input.payload.asBits, B(0))
     input.ready := mask & io.output.ready
   }
   io.output.valid := outputValid
@@ -487,7 +487,7 @@ class StreamFifo[T <: Data](dataType: T, depth: Int) extends Component {
 
   val ptrDif = pushPtr - popPtr
   if (isPow2(depth))
-    io.occupancy := ((risingOccupancy && ptrMatch) ## ptrDif).toUInt
+    io.occupancy := ((risingOccupancy && ptrMatch) ## ptrDif).asUInt
   else {
     when(ptrMatch) {
       io.occupancy := Mux(risingOccupancy, U(depth), U(0))

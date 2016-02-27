@@ -23,9 +23,9 @@ package spinal.core
  */
 
 trait SIntCast{
-  def toSInt(that : Bool) : SInt = that.toSInt
-  def toSInt(that : Bits) : SInt = that.toSInt
-  def toSInt(that : UInt) : SInt = that.toSInt
+  def asSInt(that : Bool) : SInt = that.asSInt
+  def asSInt(that : Bits) : SInt = that.asSInt
+  def asSInt(that : UInt) : SInt = that.asSInt
   def toSInt(that : SFix) : SInt = that.toSInt
 }
 
@@ -45,7 +45,7 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider {
   override def +(that: SInt): SInt = newBinaryOperator("s+s", that, WidthInfer.inputMaxWidth,InputNormalize.nodeWidth,ZeroWidth.binaryTakeOther);
   override def -(that: SInt): SInt = newBinaryOperator("s-s", that, WidthInfer.inputMaxWidth,InputNormalize.nodeWidth,ZeroWidth.binaryMinus(S.apply));
   override def *(that: SInt): SInt = newBinaryOperator("s*s", that, WidthInfer.cumulateInputWidth,InputNormalize.none,ZeroWidth.binaryInductZeroWithOtherWidth(S.apply));
-  def abs: UInt = Mux(this < 0, (-this).resize(getWidth-1), this.resize(getWidth-1)).toUInt
+  def abs: UInt = Mux(this < 0, (-this).resize(getWidth-1), this.resize(getWidth-1)).asUInt
 
 
   def |(that: SInt): SInt = newBinaryOperator("s|s", that, WidthInfer.inputMaxWidth,InputNormalize.nodeWidth,ZeroWidth.binaryTakeOther);
@@ -82,11 +82,11 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider {
     }
   }
 
-  override def toBits: Bits = new Bits().castFrom("s->b", this)
-  override def assignFromBits(bits: Bits) : Unit = this := bits.toSInt
+  override def asBits: Bits = new Bits().castFrom("s->b", this)
+  override def assignFromBits(bits: Bits) : Unit = this := bits.asSInt
   override def assignFromBits(bits: Bits,hi : Int,lo : Int): Unit = this(hi,lo).assignFromBits(bits)
 
-  def toUInt: UInt = new UInt().castFrom("s->u", this)
+  def asUInt: UInt = new UInt().castFrom("s->u", this)
 
 
   override def resize(width: Int): this.type = newResize("resize(s,i)", this :: new IntLiteral(width) :: Nil, WidthInfer.intLit1Width,ZeroWidth.resizeImpl(S.apply))

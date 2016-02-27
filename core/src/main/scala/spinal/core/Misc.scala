@@ -61,7 +61,7 @@ object Cat {
 
   def apply[T <: Data](data: Iterable[T]) = {
     if (data.isEmpty) B(0, 0 bit)
-    else data.map(_.toBits).reduce((a,b) => b ## a)
+    else data.map(_.asBits).reduce((a,b) => b ## a)
   }
 }
 
@@ -312,7 +312,7 @@ object MaskedLiteral{
 
 class MaskedLiteral(val value : BigInt,val careAbout : BigInt,val width : Int){
   def ===(that : BitVector) : Bool = {
-    return (that.toBits & careAbout) === value
+    return (that.asBits & careAbout) === value
   }
   def =/=(that : BitVector) : Bool = !(this === that)
 }

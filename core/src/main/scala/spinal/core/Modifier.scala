@@ -565,7 +565,7 @@ class BitAssignmentFixed(out: BitVector, in: Node, bitId: Int) extends Assigneme
 
   def getInput = inputs(0)
   def getBitId = bitId
-  override def calcWidth: Int = out.getWidth
+  override def calcWidth: Int = bitId + 1
 
   override def checkInferedWidth: String = {
     if (bitId < 0 || bitId >= out.getWidth) {
@@ -597,7 +597,7 @@ class RangedAssignmentFixed(out: BitVector, in: Node, hi: Int, lo: Int) extends 
   def getHi = hi
   def getLo = lo
 
-  override def calcWidth: Int = out.getWidth
+  override def calcWidth: Int = hi + 1
 
   override def checkInferedWidth: String = {
     val width = out.getWidth
@@ -635,7 +635,7 @@ class BitAssignmentFloating(out: BitVector, in: Node, bitId: UInt) extends Assig
   def getInput = inputs(0)
   def getBitId = inputs(1)
 
-  override def calcWidth: Int = out.getWidth
+  override def calcWidth: Int = 1 << Math.min(20,getBitId.getWidth)
 
   def getAssignedBits: AssignedRange = AssignedRange()
   def getScopeBits: AssignedRange = AssignedRange(Math.min(out.getWidth-1,(1 << Math.min(20,getBitId.getWidth)) - 1), 0)
@@ -664,7 +664,7 @@ class RangedAssignmentFloating(out: BitVector, in: Node, offset: UInt, bitCount:
   def getOffset = inputs(1)
   def getBitCount = bitCount
 
-  override def calcWidth: Int = out.getWidth
+  override def calcWidth: Int = 1 << Math.min(20,offset.getWidth) + bitCount.value
 
 
   override def normalizeInputs: Unit = {

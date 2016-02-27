@@ -373,7 +373,7 @@ class GlobalData {
   var algoId = 1
 
   var commonClockConfig = ClockDomainConfig()
-
+  var overridingAssignementWarnings = true
   var nodeAreNamed = false
   var nodeAreInferringWidth = false
   val nodeGetWidthWalkedSet: mutable.Set[Node] = mutable.Set[Node]()

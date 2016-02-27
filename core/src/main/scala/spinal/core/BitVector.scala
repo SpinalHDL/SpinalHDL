@@ -28,9 +28,9 @@ abstract class BitVector extends BaseType {
   def msb = this(high)
   def lsb = this(0)
   def range = 0 until getWidth
-  def orR = this.toBits =/= 0
-  def andR = this.toBits === (BigInt(1) << getWidth - 1)
-  def xorR = this.toBools.reduce(_ ^ _)
+  def orR = this.asBits =/= 0
+  def andR = this.asBits === (BigInt(1) << getWidth - 1)
+  def xorR = this.asBools.reduce(_ ^ _)
 
   private[core] def isFixedWidth = fixedWidth != -1
 
@@ -60,7 +60,7 @@ abstract class BitVector extends BaseType {
   }
 
 
-  def toBools: Vec[Bool] = {
+  def asBools: Vec[Bool] = {
     val vec = ArrayBuffer[Bool]()
     val bitCount = getWidth
     if (bitCount == -1) SpinalError("Can't convert to bools a Bits that has unspecified width value")

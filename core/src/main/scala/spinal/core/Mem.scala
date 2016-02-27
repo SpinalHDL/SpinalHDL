@@ -123,7 +123,7 @@ class Mem[T <: Data](val wordType: T, val wordCount: Int) extends Node with Name
     val addressBuffer = UInt(addressWidth bit).dontSimplifyIt()
     addressBuffer := address
     val dataBuffer = Bits(getWidth bit).dontSimplifyIt()
-    dataBuffer := data.toBits
+    dataBuffer := data.asBits
 
     val maskBuffer = if(mask != null){
       val ret = Bits().dontSimplifyIt()
@@ -146,7 +146,7 @@ class Mem[T <: Data](val wordType: T, val wordCount: Int) extends Node with Name
 
 
     val dataBuffer = Bits(getWidth bit).dontSimplifyIt()
-    dataBuffer := writeData.toBits
+    dataBuffer := writeData.asBits
     val writePort = new MemWriteOrRead_writePart(this, addressBuffer, dataBuffer, chipSelect,writeEnable, ClockDomain.current)
     inputs += writePort
 

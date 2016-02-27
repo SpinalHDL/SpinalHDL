@@ -51,7 +51,7 @@ trait VecFactory{
   @deprecated //swap data and size
   def Vec[T <: Data](size : Int,gen :(Int) => T) : Vec[T] = tabulate(size)(gen)
 
-//  def Vec[T <: Data](firstElement: T, followingElements: T*): Vec[T] = Vec(List(firstElement) ++ followingElements)
+  def Vec[T <: Data](firstElement: T, followingElements: T*): Vec[T] = Vec(List(firstElement) ++ followingElements)
 
   def tabulate[T <: Data](size : Int)(gen : (Int)=> T) : Vec[T] ={
     Vec((0 until size).map(gen(_)))
@@ -71,7 +71,7 @@ object SeqMux {
       return ret
     }
 
-    val addressBools = address.toBools
+    val addressBools = address.asBools
     val addressWidth = address.getWidth
     def stage(elements: Seq[T], level: Int): T = {
       elements.size match {
@@ -153,7 +153,7 @@ class Vec[T <: Data](_dataType: T,val vec : Vector[T]) extends MultiData with co
 
 
     val ret = SeqMux(vec.take(Math.min(vec.length,1 << address.getWidth)), address)
-    val enables = (U(1) << address).toBools
+    val enables = (U(1) << address).asBools
     for ((accessE, to) <- (ret.flatten, vecTransposed).zipped) {
       accessE.compositeAssign = new VecAccessAssign(enables,to)
     }

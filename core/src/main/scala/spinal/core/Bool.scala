@@ -19,9 +19,9 @@
 package spinal.core
 
 trait BoolCast{
-  def toBool(that : Bits) : Bool = that(0)
-  def toBool(that : UInt) : Bool = that(0)
-  def toBool(that : SInt) : Bool = that(0)
+  def asBool(that : Bits) : Bool = that(0)
+  def asBool(that : UInt) : Bool = that(0)
+  def asBool(that : SInt) : Bool = that(0)
 }
 
 trait BoolFactory {
@@ -63,7 +63,7 @@ class Bool extends BaseType {
     }
   }
 
-  override def toBits : Bits = new Bits().castFrom("B->b",this)
+  override def asBits : Bits = new Bits().castFrom("B->b",this)
   override def assignFromBits(bits: Bits) : Unit = this := bits(0)
   override def assignFromBits(bits: Bits,hi : Int,low : Int): Unit = {
     assert(hi == 0,"assignFromBits hi != 0")
@@ -71,8 +71,8 @@ class Bool extends BaseType {
     assignFromBits(bits)
   }
 
-  def toUInt : UInt = toBits.toUInt
-  def toSInt : SInt = toBits.toSInt
+  def asUInt : UInt = asBits.asUInt
+  def asSInt : SInt = asBits.asSInt
 
 
   override def getZero: this.type = False.asInstanceOf[this.type]

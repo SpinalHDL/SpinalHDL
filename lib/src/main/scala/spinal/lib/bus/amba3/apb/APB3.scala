@@ -44,7 +44,7 @@ class Apb3SlaveController(bus: Apb3Slave) {
 
   def read[T <: Data](that: T, baseAddress: BigInt): Unit = {
     val wordCount = (widthOf(that) - 1) / bus.p.dataWidth + 1
-    val valueBits = that.toBits.resize(wordCount*bus.p.dataWidth)
+    val valueBits = that.asBits.resize(wordCount*bus.p.dataWidth)
     val words = (0 until wordCount).map(id => valueBits(id * bus.p.dataWidth , bus.p.dataWidth bit))
 
     for (wordId <- (0 until wordCount)) {

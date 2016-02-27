@@ -19,9 +19,9 @@
 package spinal.core
 
 trait UIntCast{
-  def toUInt(that : Bool) : UInt = that.toUInt
-  def toUInt(that : Bits) : UInt = that.toUInt
-  def toUInt(that : SInt) : UInt = that.toUInt
+  def asUInt(that : Bool) : UInt = that.asUInt
+  def asUInt(that : Bits) : UInt = that.asUInt
+  def asUInt(that : SInt) : UInt = that.asUInt
   def toUInt(that : UFix) : UInt = that.toUInt
 }
 
@@ -103,9 +103,9 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider {
 
 
 
-  def toSInt: SInt = new SInt().castFrom("u->s", this)
-  override def toBits: Bits = new Bits().castFrom("u->b", this)
-  override def assignFromBits(bits: Bits): Unit = this := bits.toUInt
+  def asSInt: SInt = new SInt().castFrom("u->s", this)
+  override def asBits: Bits = new Bits().castFrom("u->b", this)
+  override def assignFromBits(bits: Bits): Unit = this := bits.asUInt
   override def assignFromBits(bits: Bits,hi : Int,lo : Int): Unit = this(hi,lo).assignFromBits(bits)
 
   override def getZero: this.type = U(0).asInstanceOf[this.type]

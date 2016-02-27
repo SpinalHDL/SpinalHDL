@@ -21,7 +21,7 @@ class VecBaseType[T <: BaseType](val baseType : T,val dims : IndexedSeq[Int]) ex
 
   override def assignFromBits(bits: Bits, hi: Int, low: Int): Unit = ???
 
-  override def toBits: Bits = ???
+  override def asBits: Bits = ???
 
   override def getZero: VecBaseType.this.type = ???
 

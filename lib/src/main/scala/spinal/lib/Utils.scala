@@ -29,7 +29,7 @@ import scala.collection.mutable.ArrayBuffer
 
 
 object OHToUInt {
-  def apply(bitVector: BitVector): UInt = apply(bitVector.toBools)
+  def apply(bitVector: BitVector): UInt = apply(bitVector.asBools)
 
   def apply(bools: collection.IndexedSeq[Bool]): UInt = {
     val boolsSize = bools.size
@@ -49,13 +49,13 @@ object OHToUInt {
       ret(retBitId) := bit.dontSimplifyIt()
     }
 
-    ret.toBits.toUInt
+    ret.asBits.asUInt
   }
 }
 
 object toGray {
   def apply(uint: UInt): Bits = {
-    toBits((uint >> U(1)) ^ uint)
+    asBits((uint >> U(1)) ^ uint)
   }
 }
 
@@ -162,7 +162,7 @@ class Counter(val stateCount: BigInt) extends ImplicitArea[UInt] {
   val willOverflow = willOverflowIfInc && willIncrement
 
   if (isPow2(stateCount)) {
-    valueNext :~= value + toUInt(willIncrement)
+    valueNext :~= value + asUInt(willIncrement)
   }
   else {
     when(willIncrement) {
@@ -209,7 +209,7 @@ class Timeout(val limit: BigInt) extends ImplicitArea[Bool] {
 }
 
 object MajorityVote {
-  def apply(that: BitVector): Bool = apply(that.toBools)
+  def apply(that: BitVector): Bool = apply(that.asBools)
   def apply(that: collection.IndexedSeq[Bool]): Bool = {
     val size = that.size
     val trigger = that.size / 2 + 1
@@ -451,9 +451,9 @@ object SetCount
     if (in.size == 0) {
       U(0)
     } else if (in.size == 1) {
-      in.head.toUInt
+      in.head.asUInt
     } else {
-      (U(0,1 bit) ## apply(in.slice(0, in.size/2))).toUInt + apply(in.slice(in.size/2, in.size))
+      (U(0,1 bit) ## apply(in.slice(0, in.size/2))).asUInt + apply(in.slice(in.size/2, in.size))
     }
   }
   def apply(in: Bits): UInt = apply((0 until in.getWidth).map(in(_)))
@@ -480,5 +480,5 @@ object PriorityMux{
     }
   }
   def apply[T <: Data](sel: Iterable[Bool], in: Iterable[T]): T = apply(sel zip in)
-  def apply[T <: Data](sel: Bits, in: Iterable[T]): T = apply(sel.toBools.zip(in))
+  def apply[T <: Data](sel: Bits, in: Iterable[T]): T = apply(sel.asBools.zip(in))
 }

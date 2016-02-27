@@ -30,8 +30,8 @@ class RInt(val max : BigInt,val min : BigInt) extends MultiData with Num[RInt]{
     val result = RInt(this.max + right.max,this.min+right.min)
     val resultWidth = result.raw.getWidth
     (this.isSigned,right.isSigned) match{
-      case (false,false) => result.raw := (this.raw.toUInt.resize(resultWidth) + right.raw.toUInt.resize(resultWidth)).toBits
-      case (_,_) => result.raw := (this.raw.toSInt.resize(resultWidth) + right.raw.toSInt.resize(resultWidth)).toBits
+      case (false,false) => result.raw := (this.raw.asUInt.resize(resultWidth) + right.raw.asUInt.resize(resultWidth)).asBits
+      case (_,_) => result.raw := (this.raw.asSInt.resize(resultWidth) + right.raw.asSInt.resize(resultWidth)).asBits
     }
     result
   }
