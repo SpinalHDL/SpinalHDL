@@ -145,13 +145,25 @@ class WhenNode(val w: WhenContext) extends Node {
   def whenTrue = inputs(1)
   def whenFalse = inputs(2)
 
-  override def normalizeInputs: Unit = {
-    Misc.normalizeResize(this, 1, this.getWidth)
-    Misc.normalizeResize(this, 2, this.getWidth)
-  }
+
   override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
     case 0 => (0, 0)
     case _ => (outHi,outLo)
+  }
+
+  override def normalizeInputs: Unit = {
+    InputNormalize.bitVectoreAssignement(this,1,this.getWidth)
+    InputNormalize.bitVectoreAssignement(this,2,this.getWidth)
+  }
+
+  override private[core] def checkInferedWidth: String = {
+    for(i <- 1 to 2){
+      val input = this.inputs(i)
+      if (input != null && input.component != null && !input.isInstanceOf[NoneNode] && this.getWidth !=input.getWidth) {
+        return s"Assignement bit count missmatch. ${this} := ${input}} at\n${getScalaTraceString}"
+      }
+    }
+    return null
   }
 }
 

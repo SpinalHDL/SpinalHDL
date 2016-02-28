@@ -600,6 +600,11 @@ class RangedAssignmentFixed(out: BitVector, in: Node, hi: Int, lo: Int) extends 
   override def calcWidth: Int = hi + 1
 
   override def checkInferedWidth: String = {
+    val input = getInput
+    if (input.component != null && hi + 1 - lo != input.getWidth) {
+      return s"Assignement bit count missmatch. ${this} := ${input}} at\n${getScalaTraceString}"
+    }
+
     val width = out.getWidth
     if (hi >= width || lo < 0) {
       return s"Static bits assignement ($hi downto $lo) is outside the range (${width - 1} downto 0) of ${out} at\n${getScalaTraceString}"
@@ -608,8 +613,9 @@ class RangedAssignmentFixed(out: BitVector, in: Node, hi: Int, lo: Int) extends 
   }
 
   override def normalizeInputs: Unit = {
-    Misc.normalizeResize(this, 0, hi + 1 - lo)
+    InputNormalize.bitVectoreAssignement(this,0,hi + 1 - lo)
   }
+
 
 
   def getAssignedBits: AssignedRange = AssignedRange(hi, lo)
@@ -667,9 +673,21 @@ class RangedAssignmentFloating(out: BitVector, in: Node, offset: UInt, bitCount:
   override def calcWidth: Int = 1 << Math.min(20,offset.getWidth) + bitCount.value
 
 
-  override def normalizeInputs: Unit = {
-    Misc.normalizeResize(this, 0, bitCount.value)
+
+  override def checkInferedWidth: String = {
+    val input = getInput
+    if (input.component != null && bitCount.value != input.getWidth) {
+      return s"Assignement bit count missmatch. ${this} := ${input}} at\n${getScalaTraceString}"
+    }
+
+    return null
   }
+
+  override def normalizeInputs: Unit = {
+    InputNormalize.bitVectoreAssignement(this,0,bitCount.value)
+  }
+
+
 
   def getAssignedBits: AssignedRange = AssignedRange()
   def getScopeBits: AssignedRange = AssignedRange(Math.min(out.getWidth-1,(1 << Math.min(20,offset.getWidth))+ bitCount.value - 1), 0)
@@ -681,11 +699,22 @@ class RangedAssignmentFloating(out: BitVector, in: Node, offset: UInt, bitCount:
 
 class MultipleAssignmentNode extends Node {
   override def calcWidth: Int = WidthInfer.inputMaxWidth(this)
+  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = (outHi,outLo)
+
   override def normalizeInputs: Unit = {
     for (i <- 0 until inputs.size)
-      Misc.normalizeResize(this, i, this.getWidth)
+      InputNormalize.bitVectoreAssignement(this,i,this.getWidth)
   }
-  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = (outHi,outLo)
+
+  override private[core] def checkInferedWidth: String = {
+    for (i <- 0 until inputs.size){
+      val input = this.inputs(i)
+      if (input != null && input.component != null && this.getWidth !=input.getWidth) {
+        return s"Assignement bit count missmatch. ${this} := ${input}} at\n${getScalaTraceString}"
+      }
+    }
+    return null
+  }
 }
 
 

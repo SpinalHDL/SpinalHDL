@@ -231,6 +231,22 @@ object InputNormalize {
 
   }
 
+  def bitVectoreAssignement(parent : Node,inputId : Int,targetWidth : Int): Unit ={
+    val input = parent.inputs(inputId)
+    if(input == null) return
+      input match{
+      case bitVector : BitVector => {
+        bitVector.inputs(0) match{
+          case lit : BitsLiteral if ! lit.hasSpecifiedBitCount => Misc.normalizeResize(parent, inputId, targetWidth) //Allow resize on direct literal with unfixed values
+          case _ =>
+            if(input.hasTag(tagAutoResize))
+              Misc.normalizeResize(parent, inputId, targetWidth)
+        }
+      }
+      case _ =>
+    }
+  }
+
   def regImpl(node: Node): Unit = {
     val targetWidth = node.getWidth
     Misc.normalizeResize(node, RegS.getDataInputId, targetWidth)

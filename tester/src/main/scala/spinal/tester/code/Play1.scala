@@ -1574,14 +1574,29 @@ object PlayLiteral {
 
   class TopLevel extends Component {
 
+//
+//    val out1 = out (U((7 downto 0) -> False))
+//    val out2 = out (U((7 downto 0) -> true))
+//    val out3 = out (U((7 downto 0) -> "00001111"))
+//    val out4 = out (U(1 -> false,default -> true))
+//    val out5 = out (U(1 -> False,default -> True))
 
-    val out1 = out (U((7 downto 0) -> False))
-    val out2 = out (U((7 downto 0) -> true))
-    val out3 = out (U((7 downto 0) -> "00001111"))
-    val out4 = out (U(1 -> false,default -> true))
-    val out5 = out (U(1 -> False,default -> True))
+
+//    val cond = in Bool
+//    val out8bit = out UInt(8 bit)
+//    out8bit := U(0)
+//    when(cond){
+//      out8bit := 1
+//    }otherwise{
+//      out8bit := 2
+//    }
+
     val myUInt = out UInt(8 bit)
-    myUInt := U(7 -> true,(3 downto 0) -> true,default -> false)
+   // myUInt := U(6 -> true,(3 downto 0) -> true,default -> false)
+    myUInt := U(default -> false)
+
+
+
 //    val output = out(Vec(
 //      B"0000_1100",
 //      B"h0C",

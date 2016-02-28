@@ -155,3 +155,86 @@ object test{
   str <-/< str
 a.pull()
 }
+
+object Trash{
+
+  val asynchronousSignal = UInt(8 bit)
+
+  val buffer0 = Reg(UInt(8 bit)) addTag(crossClockDomain)
+  val buffer1 = Reg(UInt(8 bit))
+
+  buffer0 := asynchronousSignal
+  buffer1 := buffer0
+
+
+  case class RGB(channelWidth : Int) extends Bundle{
+    val red   = UInt(channelWidth bit)
+    val green = UInt(channelWidth bit)
+    val blue  = UInt(channelWidth bit)
+
+    def isBlack : Bool = red === 0 && green === 0 && blue === 0
+    def isWhite : Bool = {
+      val max = U((channelWidth-1 downto 0) -> True)
+      return red === max && green === max && blue === max
+    }
+  }
+
+  case class VGA(channelWidth : Int) extends Bundle{
+    val hsync = Bool
+    val vsync = Bool
+    val color = RGB(channelWidth)
+  }
+
+  val vgaIn  = VGA(8)         //Create a RGB instance
+  val vgaOut = VGA(8)
+  vgaOut := vgaIn            //Assign the whole bundle
+  vgaOut.color.green := 0    //Fix the green to zero
+
+  val myVecOfSInt = Vec(SInt(8 bit),2)
+  myVecOfSInt(0) := 2
+  myVecOfSInt(1) := myVecOfSInt(0) + 3
+
+  val myVecOfMixedUInt = Vec(UInt(3 bit), UInt(5 bit), UInt(8 bit))
+
+  val x,y,z = UInt(8 bit)
+  val myVecOf_xyz_ref = Vec(x,y,z)
+  for(element <- myVecOf_xyz_ref){
+    element := 0   //Assign x,y,z with the value 0
+  }
+  myVecOf_xyz_ref(1) := 3    //Assign y with the value 3
+
+  val myBool = Bool()
+  myBool := False         // := is the assignment operator
+  myBool := Bool(false)   // Use a Scala Boolean to create a literal
+
+  val myUInt = UInt(8 bit)
+  myUInt := U(2,8 bit)
+  myUInt := U(2)
+  myUInt := U"0000_0101"  // Base per default is binary => 5
+  myUInt := U"h1A"        // Base could be x (base 16)
+  //               h (base 16)
+  //               d (base 10)
+  //               o (base 8)
+  //               b (base 2)
+  myUInt := U"8h1A"
+  myUInt := 2             // You can use scala Int as literal value
+}
+
+object TrashTopLevel {
+  class TopLevel extends Component {
+    val x,y,z = out(UInt(8 bit))
+    val myVecOf_xyz_ref = Vec(x,y,z)
+    for(element <- myVecOf_xyz_ref){
+      element := 0   //Assign x,y,z with the value 0
+    }
+    myVecOf_xyz_ref(1) := 3    //Assign y with the value 3
+    myVecOf_xyz_ref(in(UInt(2 bit))) := 4    //Assign y with the value 3
+  }
+
+
+  //object Main {
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel())
+  }
+  // }
+}

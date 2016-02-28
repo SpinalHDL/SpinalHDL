@@ -234,6 +234,15 @@ abstract class BaseType extends Node with Data with Nameable {
     dontSimplifyIt()
   }
 
+
+  override private[core] def checkInferedWidth: String = {
+    val input = this.inputs(0)
+    if (input != null && input.component != null && this.getWidth !=input.getWidth) {
+      return s"Assignement bit count missmatch. ${this} := ${input}} at\n${getScalaTraceString}"
+    }
+    return null
+  }
+
   override def clone: this.type = {
     val res = this.getClass.newInstance.asInstanceOf[this.type];
     //res.dir = this.dir

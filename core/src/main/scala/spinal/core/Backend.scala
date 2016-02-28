@@ -916,47 +916,81 @@ class Backend {
           node.inputs(0) match {
             case that: Reg => {
               that.inferredWidth = width
-              walk(that.getInitialValue)
-              walk(that.getDataInput)
+              walk(that,RegS.getInitialValueId)
+              walk(that,RegS.getDataInputId)
             }
-            case _ => walk(node.inputs(0))
+            case _ => walk(node,0)
           }
-          walk(node.inputs(0))
+          walk(node,0)
 
-          def walk(that: Node): Unit = that match {
-            case that: Multiplexer => { //TODO probably useless
-              that.inferredWidth = width
-              walk(that.inputs(1))
-              walk(that.inputs(2))
-            }
-            case that: WhenNode => {
-              that.inferredWidth = width
-              walk(that.whenTrue)
-              walk(that.whenFalse)
-            }
-            case that: MultipleAssignmentNode => {
-              that.inferredWidth = width
-              for (node <- that.inputs) {
-                walk(node)
+          def walk(parent: Node,inputId : Int): Unit = {
+            val that = parent.inputs(inputId)
+            def walkChildren() : Unit = {
+              var i = that.inputs.length
+              while(i != 0){
+                i -= 1
+                walk(that,i)
               }
             }
-            case that : AssignementNode => that.inferredWidth = width
-            case that: CaseNode => {
-              that.inferredWidth = width
-              for (node <- that.inputs) {
-                walk(node)
+            that match {
+              case that: Multiplexer => { //TODO probably useless
+                that.inferredWidth = width
+                walk(that,1)
+                walk(that,2)
               }
-            }
-            case that: SwitchNode => {
-              that.inferredWidth = width
-              for (node <- that.inputs) {
-                walk(node)
+              case that: WhenNode => {
+                that.inferredWidth = width
+                walk(that,1)
+                walk(that,2)
               }
+              case that: MultipleAssignmentNode => {
+                that.inferredWidth = width
+                walkChildren()
+              }
+              case that : AssignementNode => that.inferredWidth = width
+              case that: CaseNode => {
+                that.inferredWidth = width
+                walkChildren()
+              }
+              case that: SwitchNode => {
+                that.inferredWidth = width
+                walkChildren()
+              }
+              case dontCare : DontCareNode =>{
+                dontCare.inferredWidth = width
+              }
+              // case lit : BitsAllToLiteral => lit.inferredWidth = width
+              case bitVector : BitVector  => {
+                if(bitVector.getWidth < width  && ! bitVector.isReg) {
+                  val default = bitVector.spinalTags.find(_.isInstanceOf[TagDefault]).getOrElse(null).asInstanceOf[TagDefault]
+
+                  if (default != null) {
+                    val addedBitCount = width - bitVector.getWidth
+                    Component.push(bitVector.component)
+                    val newOne = bitVector.weakClone
+                    newOne.inferredWidth = width
+                    if(bitVector.getWidth > 0)
+                      newOne(bitVector.getWidth-1,0) := bitVector
+                    default.default match {
+                      case (_,value : Boolean) =>  {
+                        val lit = default.litFacto(if(value) (BigInt(1) << addedBitCount)-1 else 0,addedBitCount)
+                        newOne(width-1,bitVector.getWidth).assignFrom(lit,false)
+                      }
+                      case (_,value : Bool) =>{
+                        for(i <- bitVector.getWidth until width)
+                          newOne(i) := value
+                      }
+                    }
+
+                //    newOne.inputs(0).inferredWidth = width
+                    parent.inputs(inputId) = newOne
+                    Component.pop(bitVector.component)
+                  }
+                }
+
+              }
+              case _ =>
             }
-            case dontCare : DontCareNode =>{
-              dontCare.inferredWidth = width
-            }
-            case _ =>
           }
 
         }

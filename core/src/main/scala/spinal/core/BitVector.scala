@@ -47,9 +47,7 @@ abstract class BitVector extends BaseType {
     res
   }
 
-  private[core] override def normalizeInputs: Unit = {
-    InputNormalize.nodeWidth(this)
-  }
+  private[core] override def normalizeInputs: Unit = InputNormalize.bitVectoreAssignement(this,0,this.getWidth)
 
   def resize(width: Int): this.type
 
@@ -149,8 +147,13 @@ abstract class BitVector extends BaseType {
   def apply(hi: Int, lo: Int): this.type = this.extract(hi,lo)
   def apply(range: Range): this.type = this.extract(range.last,range.head)
 
-
-
+  def setAllTo(value : Boolean) = {
+    val litBt = weakClone
+    litBt.inputs(0) = new BitsAllToLiteral(this,value)
+    this := litBt
+  }
+  def setAll() = setAllTo(true)
+  def clearAll() = setAllTo(false)
 
   private[core] override def addTypeNodeFrom(node: Node): this.type = {
     val typeNode = super.addTypeNodeFrom(node)

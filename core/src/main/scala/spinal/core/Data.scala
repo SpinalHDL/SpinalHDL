@@ -163,43 +163,43 @@ abstract class WidthChecker(val consumer : Node,val provider : Node) {
     if(provider.hasTag(tagAutoResize)) return null
     return checkImpl()
   }
-  def checkImpl() : String
+  def checkImpl() : String = null
 }
 class WidthCheckerReduce(consumer : Node,provider : Node) extends WidthChecker(consumer,provider){
-  def checkImpl() : String = {
-    if( consumer.getWidth <= provider.getWidth ) return null
-    return ":< assignement error ! Bit width assemption is wrong"
-  }
+//  def checkImpl() : String = {
+//    if( consumer.getWidth <= provider.getWidth ) return null
+//    return ":< assignement error ! Bit width assemption is wrong"
+//  }
 }
 class WidthCheckerAugment(consumer : Node,provider : Node) extends WidthChecker(consumer,provider){
-  def checkImpl() : String = {
-    if( consumer.getWidth >= provider.getWidth ) return null
-    return ":> assignement error ! Bit width assemption is wrong"
-  }
+//  def checkImpl() : String = {
+//    if( consumer.getWidth >= provider.getWidth ) return null
+//    return ":> assignement error ! Bit width assemption is wrong"
+//  }
 }
 class WidthCheckerEguals(consumer : Node,provider : Node) extends WidthChecker(consumer,provider){
-  def checkImpl() : String = {
-    if( consumer.getWidth == provider.getWidth ) return null
-    return " := assignement error ! Bit width assemption is wrong"
-  }
+//  def checkImpl() : String = {
+//    if( consumer.getWidth == provider.getWidth ) return null
+//    return " := assignement error ! Bit width assemption is wrong"
+//  }
 }
 
 class BitVectorPimper[T <: BitVector](val pimpIt: T) extends AnyVal {
   def :=(that: T): Unit ={
-    new WidthCheckerEguals(pimpIt,that)
+  //  new WidthCheckerEguals(pimpIt,that)
     pimpIt assignFrom(that, false)
   }
   def :<=(that: T): Unit = {
-    new WidthCheckerReduce(pimpIt,that)
-    pimpIt assignFrom(that, false)
+  //  new WidthCheckerReduce(pimpIt,that)
+    pimpIt assignFrom(that.resized, false)
   }
 
   def :>=(that: T): Unit = {
-    new WidthCheckerAugment(pimpIt,that)
-    pimpIt assignFrom(that, false)
+  //  new WidthCheckerAugment(pimpIt,that)
+    pimpIt assignFrom(that.resized, false)
   }
 
-  def :~=(that: T): Unit = pimpIt assignFrom(that, false)
+  def :~=(that: T): Unit = pimpIt assignFrom(that.resized, false)
 }
 
 trait Data extends ContextUser with NameableByComponent with Assignable with AttributeReady with SpinalTagReady with GlobalDataUser with ScalaLocated {

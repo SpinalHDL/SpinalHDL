@@ -87,7 +87,7 @@ object CommonTester {
     io.outAABits := io.inAA.asBits
 
     io.complexLiteral(15,4) := 0x70
-    io.complexLiteral(15,12) := U(2) + U(1)
+    io.complexLiteral(15,12) := (U(2) + U(1)).resized
     io.complexLiteral(6) := True
     io.complexLiteral(3) := True
     io.complexLiteral(5) := True
