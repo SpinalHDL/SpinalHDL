@@ -28,6 +28,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 
+
 object OHToUInt {
   def apply(bitVector: BitVector): UInt = apply(bitVector.asBools)
 
@@ -70,6 +71,16 @@ object fromGray {
   }
 }
 
+
+object Reverse{
+  def apply[T <: BitVector](that : T) : T = {
+    val ret = that.clone
+    for(i <- that.range){
+      ret(i) := that(that.getWidth-1-i)
+    }
+    ret
+  }
+}
 object adderAndCarry {
   def apply(left: UInt, right: UInt): (UInt, Bool) = {
     val temp = left.resize(left.getWidth + 1) + right.resize(right.getWidth + 1)
@@ -232,8 +243,8 @@ object MajorityVote {
 //    new SpinalMap(elems)
 //  }
 //}
-
-class SpinalMap[Key <: Data, Value <: Data](pairs: Iterable[(() => Key, () => Value)]) {
+@deprecated
+class SpinalMapOld[Key <: Data, Value <: Data](pairs: Iterable[(() => Key, () => Value)]) {
   def apply(key: Key): Value = {
     val ret: Value = pairs.head._2()
 

@@ -237,4 +237,18 @@ object TrashTopLevel {
     SpinalVhdl(new TopLevel())
   }
   // }
+
+
+  case class RGB(channelWidth : Int) extends Bundle{
+    val red   = UInt(channelWidth bit)
+    val green = UInt(channelWidth bit)
+    val blue  = UInt(channelWidth bit)
+
+    def isBlack : Bool = red === 0 && green === 0 && blue === 0
+  }
+
+  val source = Stream(RGB(8))
+  val sink   = Stream(RGB(8))
+  sink <-< source.throwWhen(source.isBlack)
+
 }

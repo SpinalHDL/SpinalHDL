@@ -33,6 +33,13 @@ object Bundle {
 
 
 class Bundle extends MultiData with Nameable with OverridedEqualsHashCode {
+  var cloneFunc : () => Object = null
+
+
+  override def clone: this.type = {
+    if(cloneFunc != null) return cloneFunc().asInstanceOf[this.type]
+    super.clone
+  }
 
   def assignAllByName(that: Bundle) : Unit = {
     for ((name, element) <- elements) {
@@ -81,7 +88,7 @@ class Bundle extends MultiData with Nameable with OverridedEqualsHashCode {
       Misc.reflect(this, (name, obj) => {
         obj match {
           case data: Data => {
-            if (this.isOlderThan(data)) { //To avoid bundle argument
+            if (!rejectOlder || this.isOlderThan(data)) { //To avoid bundle argument
               elementsCache += Tuple2(name, data)
             }
           }
@@ -92,4 +99,9 @@ class Bundle extends MultiData with Nameable with OverridedEqualsHashCode {
     }
     elementsCache
   }
+
+  private[core] def rejectOlder = true
+}
+class BundleCase extends Bundle{
+  private[core] override def rejectOlder = false
 }

@@ -145,6 +145,13 @@ class DataPimper[T <: Data](val pimpIt: T) extends AnyVal{
     Component.pop(c)
     pimpIt
   }
+
+  def mapList[T <: Data](mappings: Seq[(Any, T)]): T = {
+    SpinalMap.list(pimpIt,mappings)
+  }
+  def map[T <: Data](mappings: (Any, T)*): T = {
+    SpinalMap.list(pimpIt,mappings)
+  }
 }
 
 abstract class WidthChecker(val consumer : Node,val provider : Node) {
@@ -337,6 +344,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
 
   def isReg: Boolean = flatten.foldLeft(true)(_ && _.isReg)
 
+
   /*private[core] */
   private[core] def initImpl(init: Data): this.type = {
     // if (!isReg) SpinalError(s"Try to set initial value of a data that is not a register ($this)")
@@ -404,7 +412,12 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
         val arguments = (0 until argumentCount) map { i =>
           val fieldName = fields(i).getName
           val getter = clazz.getMethod(fieldName)
-          getter.invoke(this)
+          val arg = getter.invoke(this)
+          if(arg.isInstanceOf[Data]){
+            arg.asInstanceOf[Data].clone
+          } else{
+            arg
+          }
         }
         if (outer.isEmpty)
           return constructor.newInstance(arguments: _*).asInstanceOf[this.type]
@@ -427,7 +440,15 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
           outer.setAccessible(true)
           return constructor.newInstance(outer.get(this)).asInstanceOf[this.type]
         }
-        return constructor.newInstance(clazz.getMethod("getComponent").invoke(this)).asInstanceOf[this.type]
+        val c = clazz.getMethod("getComponent").invoke(this).asInstanceOf[Component]
+        val pt = constructor.getParameterTypes.apply(0)
+        if(Component.getClass.isAssignableFrom(pt)){
+          return constructor.newInstance(c).asInstanceOf[this.type]
+        }
+//        val a = c.areaClassSet.get(pt)
+//        if(a.isDefined && a.get != null){
+//          return constructor.newInstance(a.get).asInstanceOf[this.type]
+//        }
       }
 
 

@@ -6,7 +6,7 @@ import spinal.core._
 class StreamFactory extends MSFactory {
   object Fragment extends StreamFragmentFactory
 
-  def apply[T <: Data](dataType: T) = {
+  def apply[T <: Data](dataType:  T) = {
     val ret = new Stream(dataType)
     postApply(ret)
     ret
@@ -23,13 +23,13 @@ class EventFactory extends MSFactory {
 }
 
 
-class Stream[T <: Data](_dataType: T) extends Bundle with IMasterSlave with DataCarrier[T] {
+class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with DataCarrier[T] {
   val valid = Bool
   val ready = Bool
-  val payload: T = _dataType.clone()
+  val payload: T = _dataType.clone
 
 
-  def dataType = cloneOf(_dataType)
+  def dataType : T  = _dataType
   override def clone: this.type = Stream(_dataType).asInstanceOf[this.type]
 
   override def asMaster(): this.type = {
@@ -119,6 +119,7 @@ class Stream[T <: Data](_dataType: T) extends Bundle with IMasterSlave with Data
     return (fifo.io.pop, fifo.io.pushOccupancy)
   }
 
+  def isStall : Bool = valid && !ready
   override def fire: Bool = valid & ready
   def isFree: Bool = !valid || ready
   def connectFrom(that: Stream[T]): Stream[T] = {

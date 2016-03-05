@@ -69,7 +69,27 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
 
   //def io: Data
   private[core] val ioSet = mutable.Set[BaseType]()
-
+//  private[core] lazy val areaClassSet = {
+//    val ret = mutable.Map[Object,Object]()
+//
+//    def walk(that : Object) : Unit = {
+//      Misc.reflect(that, (name, obj) => {
+//        obj match {
+//          case obj : Area => {
+//            val req = ret.get(obj.getClass)
+//            if(req.isDefined){
+//              ret.put(obj.getClass , null)
+//            }else{
+//              ret.put(obj.getClass, obj)
+//            }
+//            walk(obj)
+//          }
+//        }
+//      })
+//    }
+//    walk(this)
+//    ret
+//  }
   val userCache = mutable.Map[Object, mutable.Map[Object, Object]]()
   private[core] val localScope = new Scope()
   //private[core] val postCreationTask = mutable.ArrayBuffer[() => Unit]()
@@ -86,6 +106,13 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
     setWeakName("toplevel")
   }
 
+
+
+
+  def setDefinitionName(name : String) : this.type = {
+    definitionName = name
+    this
+  }
   private[core] def isTopLevel: Boolean = parent == null
 
   private[core] val initialAssignementCondition = globalData.conditionalAssignStack.head()

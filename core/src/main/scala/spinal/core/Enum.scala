@@ -166,6 +166,7 @@ class EnumFsm(defaultEncoding : SpinalEnumEncoding = native) extends SpinalEnum
 class EnumData(defaultEncoding : SpinalEnumEncoding = sequancial) extends SpinalEnum
 
 class SpinalEnum(val defaultEncoding : SpinalEnumEncoding = native) extends Nameable {
+  type T = SpinalEnumCraft[this.type]
   def apply() = craft
   def apply(encoding: SpinalEnumEncoding) = craft(encoding)
 

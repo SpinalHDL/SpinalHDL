@@ -472,14 +472,15 @@ object PlayMux {
     val input = in Vec(UInt(8 bit), 8)
     val output = out UInt (8 bit)
 
-    output := input(0)
-    for (i <- output.range) {
-      if (i != 0) {
-        when(sel === i) {
-          output := input(i)
-        }
-      }
-    }
+    output := Mux(sel === 0,U(0,3 bit),U(0,7 bit))
+//    output := input(0)
+//    for (i <- output.range) {
+//      if (i != 0) {
+//        when(sel === i) {
+//          output := input(i)
+//        }
+//      }
+//    }
   }
 
   def main(args: Array[String]): Unit = {
@@ -782,14 +783,24 @@ object PlayStream {
   }
 
   class TopLevel extends Component {
-    val cmd = master Stream (Struct())
-    cmd.valid := True
-    cmd.payload.data := 1
-    cmd.c === 2
+//    val cmd = master Stream (Struct())
+//    cmd.valid := True
+//    cmd.payload.data := 1
+//    cmd.c === 2
+//
+//
+//    val cmd2 = master Stream (UInt(4 bit))
+//    cmd2.valid := True
+    val decode = new Area{
 
 
-    val cmd2 = master Stream (UInt(4 bit))
-    cmd2.valid := True
+        val source = slave Stream (wrap(new Bundle{
+          val a = Bool
+        }))
+        val sink = master (source.clone)
+
+        source >> sink
+    }
   }
 
   def main(args: Array[String]): Unit = {

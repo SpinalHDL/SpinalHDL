@@ -74,6 +74,8 @@ class Bool extends BaseType {
   def asUInt : UInt = asBits.asUInt
   def asSInt : SInt = asBits.asSInt
 
+  def asUInt(bitCount: BitCount) : UInt = asBits.asUInt.resize(bitCount.value)
+
 
   override def getZero: this.type = False.asInstanceOf[this.type]
 }

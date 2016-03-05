@@ -134,7 +134,15 @@ object Mux {
   def apply[T <: Data](sel: Bool, whenTrue: T, whenFalse: T): T = {
     Multiplex.complexData(sel, whenTrue, whenFalse)
   }
-
+  def apply[T <: SpinalEnum](sel: Bool, whenTrue: SpinalEnumElement[T], whenFalse: SpinalEnumElement[T]): SpinalEnumCraft[T] = {
+    Multiplex.complexData(sel, whenTrue(), whenFalse())
+  }
+  def apply[T <: SpinalEnum](sel: Bool, whenTrue: SpinalEnumCraft[T], whenFalse: SpinalEnumElement[T]): SpinalEnumCraft[T] = {
+    Multiplex.complexData(sel, whenTrue, whenFalse())
+  }
+  def apply[T <: SpinalEnum](sel: Bool, whenTrue: SpinalEnumElement[T], whenFalse: SpinalEnumCraft[T]): SpinalEnumCraft[T] = {
+    Multiplex.complexData(sel, whenTrue(), whenFalse)
+  }
 }
 
 object Sel{
@@ -153,6 +161,8 @@ object Sel{
 
 object SpinalMap {
   def apply[K <: Data, T <: Data](addr: K, default: T, mappings: (Any, T)*): T = list(addr,default,mappings)
+  def apply[K <: Data, T <: Data](addr: K, mappings: (Any, T)*): T = list(addr,mappings)
+
   def list[K <: Data, T <: Data](addr: K, default: T, mappings: Seq[(Any, T)]): T = {
     val result = default.clone
     result := default
@@ -162,6 +172,12 @@ object SpinalMap {
       }
     }
     result
+  }
+
+  def list[K <: Data, T <: Data](addr: K, mappings: Seq[(Any, T)]): T = {
+    val defaultValue = mappings.find(_._1 == default)
+    if(!defaultValue.isDefined) new Exception("No default element in SpinalMap (default -> xxx)")
+    list(addr,defaultValue.get._2,mappings.filter(_._1 != default))
   }
 }
 
