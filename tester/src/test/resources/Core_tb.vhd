@@ -7,6 +7,10 @@ use riscv.pkg_scala2hdl.all;
 use riscv.pkg_enum.all;
 
 -- #spinalBegin userLibrary
+library STD;
+use STD.textio.all;
+library ieee;
+use IEEE.std_logic_textio.all;
 -- #spinalEnd userLibrary
 
 
@@ -31,13 +35,105 @@ architecture arch of Core_tb is
   signal clk : std_logic;
   signal reset : std_logic;
   -- #spinalBegin userDeclarations
+  
+  component CoreCH 
+    port (
+     clk                                  : in   std_logic;
+     reset                                : in   std_logic;
+     io_host_reset                        : in   std_logic;
+     io_host_debug_stats_csr              : out  std_logic;
+     io_host_id                           : in   std_logic;
+     io_host_csr_req_ready                : out  std_logic;
+     io_host_csr_req_valid                : in   std_logic;
+     io_host_csr_req_bits_rw              : in   std_logic;
+     io_host_csr_req_bits_addr            : in   std_logic_vector(11 downto 0);
+     io_host_csr_req_bits_data            : in   std_logic_vector(63 downto 0);
+     io_host_csr_rep_ready                : in   std_logic;
+     io_host_csr_rep_valid                : out  std_logic;
+     io_host_csr_rep_bits                 : out  std_logic_vector(63 downto 0);
+     io_host_ipi_req_ready                : in   std_logic;
+     io_host_ipi_req_valid                : out  std_logic;
+     io_host_ipi_req_bits                 : out  std_logic;
+     io_host_ipi_rep_ready                : out  std_logic;
+     io_host_ipi_rep_valid                : in   std_logic;
+     io_host_ipi_rep_bits                 : in   std_logic;
+     io_host_mem_req_valid                : in   std_logic;
+     io_host_mem_req_bits_rw              : in   std_logic;
+     io_host_mem_req_bits_addr            : in   std_logic_vector(63 downto 0);
+     io_host_mem_req_bits_data            : in   std_logic_vector(63 downto 0);
+     io_imem_req_ready                    : in   std_logic;
+     io_imem_req_valid                    : out  std_logic;
+     io_imem_req_bits_addr                : out  std_logic_vector(31 downto 0);
+     io_imem_req_bits_fcn                 : out  std_logic;
+     io_imem_req_bits_typ                 : out  std_logic_vector(2 downto 0);
+     io_imem_resp_valid                   : in   std_logic;
+     io_imem_resp_bits_data               : in   std_logic_vector(31 downto 0);
+     io_dmem_req_ready                    : in   std_logic;
+     io_dmem_req_valid                    : out  std_logic;
+     io_dmem_req_bits_addr                : out  std_logic_vector(31 downto 0);
+     io_dmem_req_bits_data                : out  std_logic_vector(31 downto 0);
+     io_dmem_req_bits_fcn                 : out  std_logic;
+     io_dmem_req_bits_typ                 : out  std_logic_vector(2 downto 0);
+     io_dmem_resp_valid                   : in   std_logic;
+     io_dmem_resp_bits_data               : in   std_logic_vector(31 downto 0)
+     );
+   end component;
+  
+  signal io_host_reset                        : std_logic;
+  signal io_host_debug_stats_csr              : std_logic;
+  signal io_host_id                           : std_logic;
+  signal io_host_csr_req_ready                : std_logic;
+  signal io_host_csr_req_valid                : std_logic;
+  signal io_host_csr_req_bits_rw              : std_logic;
+  signal io_host_csr_req_bits_addr            : std_logic_vector(11 downto 0);
+  signal io_host_csr_req_bits_data            : std_logic_vector(63 downto 0);
+  signal io_host_csr_rep_ready                : std_logic;
+  signal io_host_csr_rep_valid                : std_logic;
+  signal io_host_csr_rep_bits                 : std_logic_vector(63 downto 0);
+  signal io_host_ipi_req_ready                : std_logic;
+  signal io_host_ipi_req_valid                : std_logic;
+  signal io_host_ipi_req_bits                 : std_logic;
+  signal io_host_ipi_rep_ready                : std_logic;
+  signal io_host_ipi_rep_valid                : std_logic;
+  signal io_host_ipi_rep_bits                 : std_logic;
+  signal io_host_mem_req_valid                : std_logic;
+  signal io_host_mem_req_bits_rw              : std_logic;
+  signal io_host_mem_req_bits_addr            : std_logic_vector(63 downto 0);
+  signal io_host_mem_req_bits_data            : std_logic_vector(63 downto 0);
+  signal io_imem_req_ready                    : std_logic;
+  signal io_imem_req_valid                    : std_logic;
+  signal io_imem_req_bits_addr                : std_logic_vector(31 downto 0);
+  signal io_imem_req_bits_fcn                 : std_logic;
+  signal io_imem_req_bits_typ                 : std_logic_vector(2 downto 0);
+  signal io_imem_resp_valid                   : std_logic;
+  signal io_imem_resp_bits_data               : std_logic_vector(31 downto 0);
+  signal io_dmem_req_ready                    : std_logic;
+  signal io_dmem_req_valid                    : std_logic;
+  signal io_dmem_req_bits_addr                : std_logic_vector(31 downto 0);
+  signal io_dmem_req_bits_data                : std_logic_vector(31 downto 0);
+  signal io_dmem_req_bits_fcn                 : std_logic;
+  signal io_dmem_req_bits_typ                 : std_logic_vector(2 downto 0);
+  signal io_dmem_resp_valid                   : std_logic;
+  signal io_dmem_resp_bits_data               : std_logic_vector(31 downto 0);
+  
   shared variable done : integer := 0;
-  constant memSize : integer := 1024*128;
+  constant memSize : integer := 1024*256;
   type memType is array (0 to memSize-1) of std_logic_vector(7 downto 0);
   shared variable mem : memType;
+  shared variable mem_ref : memType;
   
+  signal match_icmd_addr : std_logic;
+  signal match_dcmd_addr : std_logic;
+  signal match_dcmd_data : std_logic;
+  signal match_irsp_data : std_logic;
+  signal match_drsp_data : std_logic;
   
-  
+  signal exp0 : std_logic;
+  signal exp1 : std_logic;
+  signal exp2 : std_logic;
+  signal exp3 : std_logic;
+
+  signal counter : unsigned(31 downto 0);
   function Load_Data return memType is
     use std.textio.all;
     use ieee.std_logic_textio.all;
@@ -81,7 +177,36 @@ architecture arch of Core_tb is
     return NewROM;
   end;
   
+  function type_size(that : std_logic_vector(2 downto 0)) return integer is 
+  begin
+    case to_integer(unsigned(that)) is
+      when 0 =>  return 1;
+      when 1 =>  return 1;
+      when 2 =>  return 2;
+      when 3 =>  return 4;
+      when 4 =>  return 8;
+      when 5 =>  return 1;
+      when 6 =>  return 2;
+      when 7 =>  return 4;
+      when others => 
+    end case;
+  end function;
   
+  function type_signed(that : std_logic_vector(2 downto 0)) return Boolean is 
+  begin
+    case to_integer(unsigned(that)) is
+      when 0 =>  return true;
+      when 1 =>  return true;
+      when 2 =>  return true;
+      when 3 =>  return true;
+      when 4 =>  return true;
+      when 5 =>  return false;
+      when 6 =>  return false;
+      when 7 =>  return false;
+      when others => 
+    end case;
+  end function;
+    
   -- #spinalEnd userDeclarations
 begin
   -- #spinalBegin userLogics
@@ -111,15 +236,28 @@ begin
     wait;
   end process;
 
+  exp0 <= '1' when  io_dCmd_payload_address = X"00028230" and io_dCmd_valid = '1' else '0';
+  exp1 <= '1' when  io_dCmd_payload_address = X"000224c4" and io_dCmd_valid = '1' else '0';
+  match_icmd_addr <= '1' when io_iCmd_payload_address  = unsigned(io_imem_req_bits_addr) else not (io_iCmd_valid or io_imem_req_valid) ;
+  match_irsp_data <= '1' when io_iRsp_payload          = io_imem_resp_bits_data else  not (io_irsp_valid or io_imem_resp_valid) ;
+  match_dcmd_addr <= '1' when io_dCmd_payload_address  = unsigned(io_dmem_req_bits_addr) else  not (io_dCmd_valid or io_dmem_req_valid) ;
+  match_dcmd_data <= '1' when io_dCmd_payload_data     = io_dmem_req_bits_data else  not (io_dCmd_valid or io_dmem_req_valid) ;
+  match_drsp_data <= '1' when io_dRsp_payload          = io_dmem_resp_bits_data else  not (io_irsp_valid or io_dmem_resp_valid) ;
+  
   io_iCmd_ready <= not io_iRsp_valid or io_iRsp_ready;
   io_dCmd_ready <= '1';
   process(clk,reset)
+    variable char : Character;
+    file log : text is out "E:/vm/share/log.txt";
+    variable logLine : line;
   begin
     if reset = '1' then
       io_iRsp_valid <= '0';
       io_dRsp_valid <= '0';
       mem := Load_Data;
+      counter <= (others => '0');
     elsif rising_edge(clk) then
+      counter <= counter + 1;
       if io_iRsp_ready = '1' then
         io_iRsp_valid <= '0';
         io_iRsp_payload <= (others => 'X');
@@ -135,18 +273,170 @@ begin
       io_dRsp_payload <= (others => 'X');
       if io_dCmd_valid = '1' then
         if io_dCmd_payload_wr = '1' then
-          for i in 0 to (2 ** to_integer(io_dCmd_payload_size))-1 loop
-            mem(to_integer(unsigned(io_dCmd_payload_address)) + i) := io_dCmd_payload_data(i*8+7 downto i*8);
-          end loop;
+          if io_dCmd_payload_address = X"10000000" then
+            char := character'val(to_integer(unsigned(io_dCmd_payload_data(7 downto 0))));
+            if char /= LF then
+              write (logLine, char);
+            else
+              writeline (log, logLine);
+              file_close(log); 
+              file_open(log, "E:/vm/share/log.txt", append_mode); 
+            end if;
+          else
+            for i in 0 to (2 ** to_integer(io_dCmd_payload_size))-1 loop
+              mem(to_integer(unsigned(io_dCmd_payload_address)) + i) := io_dCmd_payload_data(i*8+7 downto i*8);
+            end loop;
+          end if;
         else
           io_dRsp_valid <= '1';
-          for i in 0 to 3 loop
-          io_dRsp_payload(i*8+7 downto i*8) <= mem(to_integer(unsigned(io_dCmd_payload_address)) + i);
-          end loop;        
+          if io_dCmd_payload_address = X"10000004" then
+            io_dRsp_payload <= std_logic_vector(counter);
+          else
+            for i in 0 to 3 loop
+              io_dRsp_payload(i*8+7 downto i*8) <= mem(to_integer(unsigned(io_dCmd_payload_address)) + i);
+            end loop;        
+          end if;
         end if;
       end if;
     end if;
   end process;
+
+  io_host_reset                    <= reset;
+  io_host_id                       <= '0';
+  io_host_csr_req_valid            <= '0';
+  io_host_csr_req_bits_rw          <= '0';
+  io_host_csr_rep_ready             <= '0';
+  io_host_ipi_req_ready              <= '0';
+  io_host_ipi_rep_valid                <= '0';
+  io_host_mem_req_valid            <= '0';
+  io_host_mem_req_bits_rw           <= '0';
+  
+  
+  io_imem_req_ready <= '1';
+  io_dmem_req_ready <= '1';
+  process(clk,reset)
+    variable char : Character;
+    file log : text is out "E:/vm/share/log_ref.txt";
+    variable logLine : line;
+  begin
+    if reset = '1' then
+      io_imem_resp_valid <= '0';
+      io_dmem_resp_valid <= '0';
+      mem_ref := Load_Data;
+    elsif rising_edge(clk) then
+     -- if io_imem_resp_ready = '1' then
+        io_imem_resp_valid <= '0';
+        io_imem_resp_bits_data <= (others => 'X');
+        if io_imem_req_valid = '1' then -- io_imem_req_bits_addr = std_logic_vector(io_iCmd_payload_address) 
+          io_imem_resp_valid <= '1';
+          for i in 0 to 3 loop
+            io_imem_resp_bits_data(i*8+7 downto i*8) <= mem_ref(to_integer(unsigned(io_imem_req_bits_addr)) + i);
+          end loop;
+        end if;
+    --  end if;
+      
+      io_dmem_resp_valid <= '0';
+      io_dmem_resp_bits_data <= (others => 'X');
+      if io_dmem_req_valid = '1' then
+        if io_dmem_req_bits_fcn = '1' then
+          if io_dmem_req_bits_addr = X"10000000" then
+            char := character'val(to_integer(unsigned(io_dmem_req_bits_data(7 downto 0))));
+            if char /= LF then
+              write (logLine, char);
+            else
+              writeline (log, logLine);
+              file_close(log); 
+              file_open(log, "E:/vm/share/log_ref.txt", append_mode); 
+            end if;
+          else
+            for i in 0 to type_size(io_dmem_req_bits_typ)-1 loop
+              mem_ref(to_integer(unsigned(io_dmem_req_bits_addr)) + i) := io_dmem_req_bits_data(i*8+7 downto i*8);
+            end loop;
+          end if;
+        else
+          io_dmem_resp_valid <= '1';
+          if io_dmem_req_bits_addr = X"10000004" then
+            io_dmem_resp_bits_data <= std_logic_vector(counter);
+          else
+            if type_signed(io_dmem_req_bits_typ) then
+              case type_size(io_dmem_req_bits_typ) is
+                when 1 => io_dmem_resp_bits_data <= (others => mem_ref(to_integer(unsigned(io_dmem_req_bits_addr)))(7));
+                when 2 => io_dmem_resp_bits_data <= (others => mem_ref(to_integer(unsigned(io_dmem_req_bits_addr))+1)(7));
+                when 4 => 
+                when others => report "???" severity error;
+              end case;
+            else
+              io_dmem_resp_bits_data <= (others => '0');
+            end if;
+
+            for i in 0 to type_size(io_dmem_req_bits_typ)-1 loop
+              if to_integer(unsigned(io_dmem_req_bits_addr)) +  i >= mem_ref'low and to_integer(unsigned(io_dmem_req_bits_addr)) +  i <= mem_ref'high then
+                io_dmem_resp_bits_data(i*8+7 downto i*8) <= mem_ref(to_integer(unsigned(io_dmem_req_bits_addr)) + i);
+              end if;
+            end loop;        
+          end if;
+        end if;
+      end if;
+    end if;
+  end process;  
+  
+  -- io_imem_req_ready                    : in   std_logic;
+  -- io_imem_req_valid                    : out  std_logic;
+  -- io_imem_req_bits_addr                : out  std_logic_vector(31 downto 0);
+  -- io_imem_req_bits_fcn                 : out  std_logic;
+  -- io_imem_req_bits_typ                 : out  std_logic_vector(2 downto 0);
+  -- io_imem_resp_valid                   : in   std_logic;
+  -- io_imem_resp_bits_data               : in   std_logic_vector(31 downto 0);
+  -- io_dmem_req_ready                    : in   std_logic;
+  -- io_dmem_req_valid                    : out  std_logic;
+  -- io_dmem_req_bits_addr                : out  std_logic_vector(31 downto 0);
+  -- io_dmem_req_bits_data                : out  std_logic_vector(31 downto 0);
+  -- io_dmem_req_bits_fcn                 : out  std_logic;
+  -- io_dmem_req_bits_typ                 : out  std_logic_vector(2 downto 0);
+  -- io_dmem_resp_valid                   : in   std_logic;
+  -- io_dmem_resp_bits_data               : in   std_logic_vector(31 downto 0)
+
+  ref : CoreCH  
+    port map(
+     clk                            => clk                             ,
+     reset                          => reset                           ,
+     io_host_reset                  => io_host_reset                   ,
+     io_host_debug_stats_csr        => io_host_debug_stats_csr         ,
+     io_host_id                     => io_host_id                      ,
+     io_host_csr_req_ready          => io_host_csr_req_ready           ,
+     io_host_csr_req_valid          => io_host_csr_req_valid           ,
+     io_host_csr_req_bits_rw        => io_host_csr_req_bits_rw         ,
+     io_host_csr_req_bits_addr      => io_host_csr_req_bits_addr       ,
+     io_host_csr_req_bits_data      => io_host_csr_req_bits_data       ,
+     io_host_csr_rep_ready          => io_host_csr_rep_ready           ,
+     io_host_csr_rep_valid          => io_host_csr_rep_valid           ,
+     io_host_csr_rep_bits           => io_host_csr_rep_bits            ,
+     io_host_ipi_req_ready          => io_host_ipi_req_ready           ,
+     io_host_ipi_req_valid          => io_host_ipi_req_valid           ,
+     io_host_ipi_req_bits           => io_host_ipi_req_bits            ,
+     io_host_ipi_rep_ready          => io_host_ipi_rep_ready           ,
+     io_host_ipi_rep_valid          => io_host_ipi_rep_valid           ,
+     io_host_ipi_rep_bits           => io_host_ipi_rep_bits            ,
+     io_host_mem_req_valid          => io_host_mem_req_valid           ,
+     io_host_mem_req_bits_rw        => io_host_mem_req_bits_rw         ,
+     io_host_mem_req_bits_addr      => io_host_mem_req_bits_addr       ,
+     io_host_mem_req_bits_data      => io_host_mem_req_bits_data       ,
+     io_imem_req_ready              => io_imem_req_ready               ,
+     io_imem_req_valid              => io_imem_req_valid               ,
+     io_imem_req_bits_addr          => io_imem_req_bits_addr           ,
+     io_imem_req_bits_fcn           => io_imem_req_bits_fcn            ,
+     io_imem_req_bits_typ           => io_imem_req_bits_typ            ,
+     io_imem_resp_valid             => io_imem_resp_valid              ,
+     io_imem_resp_bits_data         => io_imem_resp_bits_data          ,
+     io_dmem_req_ready              => io_dmem_req_ready               ,
+     io_dmem_req_valid              => io_dmem_req_valid               ,
+     io_dmem_req_bits_addr          => io_dmem_req_bits_addr           ,
+     io_dmem_req_bits_data          => io_dmem_req_bits_data           ,
+     io_dmem_req_bits_fcn           => io_dmem_req_bits_fcn            ,
+     io_dmem_req_bits_typ           => io_dmem_req_bits_typ            ,
+     io_dmem_resp_valid             => io_dmem_resp_valid              ,
+     io_dmem_resp_bits_data         => io_dmem_resp_bits_data      
+     );
 
   -- #spinalEnd userLogics
   uut : entity riscv.Core

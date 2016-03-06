@@ -505,6 +505,39 @@ object PlayDontCare {
   }
 }
 
+
+object PlayOpt {
+
+  class TopLevel extends Component {
+    val src0, src1 = in Bits (32 bit)
+    val br_eq  = in Bool
+    val br_signed  = in Bool
+    val br_result = out Bool
+
+
+
+  //  br_result := Mux(br_eq,(src0 === src1),Mux(br_signed,(src0.asSInt < src1.asSInt),(src0.asUInt < src1.asUInt)))
+
+
+    val br_src0 = (src0.msb && br_signed) ## src0
+    val br_src1 = (src1.msb && br_signed) ## src1
+    br_result :=  Mux(br_eq,(src0 === src1),(br_src0.asUInt-br_src1.asUInt).msb)
+//    val src0, src1 = in Bits (32 bit)
+//    //val br_eq  = out Bool
+//    val br_signed  = in Bool
+//    val br_result  = out Bool
+//
+//
+//
+
+
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
 object PlayIf {
 
   class TopLevel extends Component {
