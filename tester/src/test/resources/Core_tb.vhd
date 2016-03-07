@@ -235,6 +235,7 @@ begin
       wait for 1 us;
       wait until rising_edge(clk);
       mem := loadHex(path);
+      mem_ref := loadHex(path);
       wait until rising_edge(clk);
       reset <= '0';
       while True loop
@@ -258,7 +259,7 @@ begin
     reset <= '1';
 
     wait for 100 ns;
-     --doTest("E:/vm/share/a.hex",1024*1024*1024);
+    -- doTest("E:/vm/share/a.hex",1024*1024*1024);
     
      --doTest("E:/vm/share/isa/rv32si-p-csr.hex");
      --doTest("E:/vm/share/isa/rv32si-p-illegal.hex");   
@@ -266,7 +267,7 @@ begin
      --doTest("E:/vm/share/isa/rv32si-p-ma_fetch.hex");   
      --doTest("E:/vm/share/isa/rv32si-p-sbreak.hex");   
      --doTest("E:/vm/share/isa/rv32si-p-scall.hex");   
-     doTest("E:/vm/share/isa/rv32si-p-shamt.hex");   
+     --doTest("E:/vm/share/isa/rv32si-p-shamt.hex");   
      doTest("E:/vm/share/isa/rv32ui-p-add.hex");   
      doTest("E:/vm/share/isa/rv32ui-p-addi.hex");   
      --doTest("E:/vm/share/isa/rv32ui-p-amoadd_w.hex");   
@@ -419,7 +420,7 @@ begin
   io_dmem_req_ready <= '1';
   process(clk,reset)
     variable char : Character;
-    file log : text is out "E:/vm/share/isa/";
+    file log : text is out "E:/vm/share/log_ref.txt";
     variable logLine : line;
   begin
     if reset = '1' then
@@ -428,7 +429,7 @@ begin
     elsif rising_edge(clk) then
      -- if io_imem_resp_ready = '1' then
         io_imem_resp_valid <= '0';
-        io_imem_resp_bits_data <= (others => 'X');
+        --io_imem_resp_bits_data <= (others => 'X');
         if io_imem_req_valid = '1' then -- io_imem_req_bits_addr = std_logic_vector(io_iCmd_payload_address) 
           io_imem_resp_valid <= '1';
           for i in 0 to 3 loop
@@ -501,7 +502,7 @@ begin
   ref : CoreCH  
     port map(
      clk                            => clk                             ,
-     reset                          => '0'                           ,
+     reset                          => '1'                           ,
      io_host_reset                  => io_host_reset                   ,
      io_host_debug_stats_csr        => io_host_debug_stats_csr         ,
      io_host_id                     => io_host_id                      ,

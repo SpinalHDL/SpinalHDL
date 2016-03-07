@@ -463,7 +463,7 @@ object Utils{
       SRL     -> InstructionCtrl(True , BR.N  , False, OP1.RS1, OP2.RS2 , ALU.SRL1 , WB.ALU1, True, True , False, M.X  , MSK.X,  CSR.N, MFS.N),
 
       JAL     -> InstructionCtrl(True , BR.J  , True , OP1.X  , OP2.X   , ALU.X   , WB.PC4, True, True , False, M.X  , MSK.X,  CSR.N, MFS.N),
-      JALR    -> InstructionCtrl(True , BR.JR , True , OP1.RS1, OP2.IMI , ALU.X   , WB.PC4, True, False, False, M.X  , MSK.X,  CSR.N, MFS.N),
+      JALR    -> InstructionCtrl(True , BR.JR , True , OP1.RS1, OP2.IMI , ALU.ADD , WB.PC4, True, False, False, M.X  , MSK.X,  CSR.N, MFS.N),
       BEQ     -> InstructionCtrl(True , BR.EQ , False, OP1.X  , OP2.X   , ALU.X   , WB.X  , False, False, False, M.X  , MSK.X,  CSR.N, MFS.N),
       BNE     -> InstructionCtrl(True , BR.NE , False, OP1.X  , OP2.X   , ALU.X   , WB.X  , False, False, False, M.X  , MSK.X,  CSR.N, MFS.N),
       BGE     -> InstructionCtrl(True , BR.GE , False, OP1.X  , OP2.X   , ALU.X   , WB.X  , False, False, False, M.X  , MSK.X,  CSR.N, MFS.N),

@@ -101,12 +101,12 @@ class Core(implicit p : CoreParm) extends Component{
 
     val alu = new Alu
     alu.io.fn := ctrl.alu
-    alu.io.in1 := alu_op1.asUInt
-    alu.io.in2 := alu_op2.asUInt
+    alu.io.in1 := alu_op1
+    alu.io.in2 := alu_op2
     
     io.dCmd.valid := inInst.fire && ctrl.men
     io.dCmd.wr := ctrl.m === M.XWR
-    io.dCmd.address := alu.io.result
+    io.dCmd.address := alu.io.result.asUInt
     io.dCmd.payload.data := src1
     io.dCmd.size := ctrl.msk.map(
       default -> U(2), //W
