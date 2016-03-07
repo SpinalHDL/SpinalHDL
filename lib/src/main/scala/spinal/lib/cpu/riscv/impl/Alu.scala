@@ -6,105 +6,48 @@ import spinal.lib.Reverse
 
 class Alu extends Component{
   val io = new Bundle{
-    val fn = in(ALU)
-    val in2 = in Bits(32 bit)
-    val in1 = in Bits(32 bit)
+    val func = in(ALU)
+    val src0 = in Bits(32 bit)
+    val src1 = in Bits(32 bit)
     val result = out Bits(32 bit)
-    val adder_out = out UInt(32 bit)
+    val adder = out UInt(32 bit)
   }
 
+  val msb = 31
 
-  // ALU
-  //  val alu_shamt     = io.in2(4,0)
-  //  val exe_adder_out = (io.in1 + io.in2)(31,0)
-  //
-  //  //   exe_alu_out := MuxCase(UInt(0), Array(
-  //  //only for debug purposes right now until debug() works
-  //  io.result := io.fn.map(
-  //    default -> exe_adder_out,
-  //    ALU.SUB1  -> (io.in1 - io.in2),
-  //    ALU.AND1  -> (io.in1 & io.in2),
-  //    ALU.OR1   -> (io.in1 | io.in2),
-  //    ALU.XOR1  -> (io.in1 ^ io.in2),
-  //    ALU.SLT -> (io.in1.asSInt < io.in2.asSInt).asUInt.resized,
-  //    ALU.SLTU -> (io.in1 < io.in2).asUInt.resized,
-  //    ALU.SLL1  -> ((io.in1 << alu_shamt)(31, 0)),
-  //    ALU.SRA1  -> (io.in1.asSInt >> alu_shamt).asUInt,
-  //    ALU.SRL1  -> (io.in1 >> alu_shamt),
-  //    ALU.COPY1 -> io.in1
-  //  ).resized
-  //
-  //  io.adder_out := exe_adder_out
+  // ADD, SUB
+  val addSub = (io.src1.asSInt + Mux(io.func === ALU.ADD, io.src0.asSInt, (-io.src0.asSInt))).asBits
 
-  // ALU
-  val alu_shamt     = io.in2(4,0).asUInt
-  val exe_adder_out = (io.in1.asUInt + io.in2.asUInt)(31,0)
+  // AND, OR, XOR, COPY1
+  val bitwise = io.func.map(
+    ALU.AND1 -> (io.src1 & io.src0),
+    ALU.OR1 ->  (io.src1 | io.src0),
+    ALU.XOR1 -> (io.src1 ^ io.src0),
+    default -> io.src1
+  )
+  // SLT, SLTU
+  val less  = Mux(io.src1(msb) === io.src0(msb), addSub(msb),
+    Mux(io.func === ALU.SLTU, io.src0(msb), io.src1(msb)))
 
-  //   exe_alu_out := MuxCase(UInt(0), Array(
-  //only for debug purposes right now until debug() works
-  io.result := io.fn.map(
-    default -> exe_adder_out.asBits,
-    ALU.SUB1  -> (io.in1.asUInt - io.in2.asUInt).asBits,
-    ALU.AND1  -> (io.in1 & io.in2),
-    ALU.OR1   -> (io.in1 | io.in2),
-    ALU.XOR1  -> (io.in1 ^ io.in2),
-    ALU.SLT -> (io.in1.asSInt < io.in2.asSInt).asBits.resized,
-    ALU.SLTU -> (io.in1.asUInt < io.in2.asUInt).asBits.resized,
-    ALU.SLL1  -> ((io.in1 << alu_shamt)(31, 0)),
-    ALU.SRA1  -> (io.in1.asSInt >> alu_shamt).asBits,
-    ALU.SRL1  -> (io.in1 >> alu_shamt),
-    ALU.COPY1 -> io.in1
-  ).resized
+  // SLL, SRL, SRA
+  val shifter = new Area{
+    val amplitude = io.src0(4 downto 0).asUInt
+    val reversed = Mux(io.func === ALU.SLL1 , Reverse(io.src1), io.src1)
+    val shiftRight = (Cat(io.func === ALU.SRA1 & reversed(msb), reversed).asSInt >> amplitude)(msb downto 0).asBits
+    val shiftLeft = Reverse(shiftRight).asBits
+  }
 
-  io.adder_out := exe_adder_out
+  // mux results
+  io.result := io.func.map(
+    (ALU.SLL1) -> shifter.shiftLeft,
+    (ALU.SRL1,ALU.SRA1) -> shifter.shiftRight,
+    (ALU.SLT,ALU.SLTU) -> less.asBits(32 bit),
+    (ALU.ADD,ALU.SUB1) -> addSub,
+    default  -> bitwise
+  )
 
-
-
-
-
-
-
-//    val msb = 31
-//
-//  // ADD, SUB
-//  val sum = io.in1 + Mux(io.fn === ALU.SUB1, (-io.in2.asSInt).asUInt, io.in2)
-//
-//  // SLT, SLTU
-//  val less  = Mux(io.in1(msb) === io.in2(msb), sum(msb),
-//    Mux(io.fn === ALU.SLTU, io.in2(msb), io.in1(msb)))
-//
-//  // SLL, SRL, SRA
-//  //  val shamt = Cat(io.in2(5) & (io.dw === DW_64), io.in2(4,0)).toUInt
-//  //  val shin_hi_32 = Mux(isSub(io.fn), Fill(32, io.in1(31)), UInt(0,32))
-//  //  val shin_hi = Mux(io.dw === DW_64, io.in1(63,32), shin_hi_32)
-//  //  val shin_hi = shin_hi_32
-//  //  val shin_r = Cat(shin_hi, io.in1(31,0))
-//  val shamt = io.in2(4 downto 0)
-//  val shin_r = io.in1(31 downto 0)
-//  val shin = Mux(io.fn === ALU.SRL1  || io.fn === ALU.SRA1, shin_r, Reverse(shin_r))
-//  val shout_r = (Cat(io.fn === ALU.SUB1 & shin(msb), shin).asSInt >> shamt)(msb,0)
-//  val shout_l = Reverse(shout_r)
-//
-//  val bitwise_logic =
-//    Mux(io.fn === ALU.AND1, io.in1 & io.in2,
-//      Mux(io.fn === ALU.OR1,  io.in1 | io.in2,
-//        Mux(io.fn === ALU.XOR1, io.in1 ^ io.in2,
-//          io.in1))) // ALU_COPY1
-//
-//  //  val out64 =
-//  val out_xpr_length =
-//    Mux(io.fn === ALU.ADD || io.fn === ALU.SUB1,  sum,
-//      Mux(io.fn === ALU.SLT || io.fn === ALU.SLTU, less.asUInt(32 bit),
-//        Mux(io.fn === ALU.SRL1 || io.fn === ALU.SRA1,  shout_r.asUInt,
-//          Mux(io.fn === ALU.SLL1,                       shout_l.asUInt,
-//            bitwise_logic))))
-//
-//  //  val out_hi = Mux(io.dw === DW_64, out64(63,32), Fill(32, out64(31)))
-//  //  io.out := Cat(out_hi, out64(31,0)).toUInt
-//  io.result := out_xpr_length(31 downto 0)
-//  io.adder_out := sum
+  io.adder := addSub.asUInt
 }
-
 
 object AluMain{
   def main(args: Array[String]) {
@@ -113,19 +56,22 @@ object AluMain{
 }
 
 
-object AluBench{
-  class AddSub extends Component{
-    val a,b = in UInt(32 bit)
-    val result = out UInt(32 bit)
-    val sel = in Bool
+//Simple model =>
+//    alu_shamt     = io.in2(4,0).asUInt
+//    adder_out = (io.in1.asUInt + io.in2.asUInt)(31,0)
+//    
+//    ALU.ADD   -> exe_adder_out.asBits,
+//    ALU.SUB1  -> (io.in1.asUInt - io.in2.asUInt).asBits,
+//    ALU.AND1  -> (io.in1 & io.in2),
+//    ALU.OR1   -> (io.in1 | io.in2),
+//    ALU.XOR1  -> (io.in1 ^ io.in2),
+//    ALU.SLT  -> (io.in1.asSInt < io.in2.asSInt).asBits.resized,
+//    ALU.SLTU  -> (io.in1.asUInt < io.in2.asUInt).asBits.resized,
+//    ALU.SLL1  -> ((io.in1 << alu_shamt)(31, 0)),
+//    ALU.SRA1  -> (io.in1.asSInt >> alu_shamt).asBits,
+//    ALU.SRL1  -> (io.in1 >> alu_shamt),
+//    ALU.COPY1 -> io.in1
 
-    result :=sel.map(
-      default -> (a + b),
-      False -> (a - b)
 
-    )
-  }
-  def main(args: Array[String]) {
-    SpinalVhdl(new AddSub().setDefinitionName("TopLevel"))
-  }
-}
+
+

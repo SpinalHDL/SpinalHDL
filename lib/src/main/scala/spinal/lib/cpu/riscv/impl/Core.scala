@@ -100,9 +100,9 @@ class Core(implicit p : CoreParm) extends Component{
     )
 
     val alu = new Alu
-    alu.io.fn := ctrl.alu
-    alu.io.in1 := alu_op1
-    alu.io.in2 := alu_op2
+    alu.io.func := ctrl.alu
+    alu.io.src1 := alu_op1
+    alu.io.src0 := alu_op2
     
     io.dCmd.valid := inInst.fire && ctrl.men
     io.dCmd.wr := ctrl.m === M.XWR
@@ -146,7 +146,7 @@ class Core(implicit p : CoreParm) extends Component{
     fetch.pcLoad.payload := ctrl_pc_sel.map(
       default -> brJumpPc,
       PC.EXC -> U(startAddress),
-      PC.JR ->  alu.io.adder_out
+      PC.JR ->  alu.io.adder
     )
 
     val outInst = Stream(wrap(new Bundle{

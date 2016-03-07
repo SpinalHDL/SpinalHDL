@@ -167,9 +167,22 @@ object SpinalMap {
     val result = default.clone
     result := default
     for ((cond, value) <- mappings) {
-      when(addr.isEguals(cond)) {
-        result := value
+      cond match {
+        case product : Product => {
+          for(cond <- product.productIterator){
+            when(addr.isEguals(cond)) {
+              result := value
+            }
+          }
+        }
+        case _ => {
+          when(addr.isEguals(cond)) {
+            result := value
+          }
+        }
       }
+
+
     }
     result
   }

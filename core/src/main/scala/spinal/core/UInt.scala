@@ -84,6 +84,8 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider {
     that match {
       case that: UInt => newLogicalOperator("u==u", that, InputNormalize.inputWidthMax,ZeroWidth.binaryThatIfBoth(True));
       case that : MaskedLiteral => that === this
+      case that : Int => this === that
+      case that : BigInt => this === that
       case _ => SpinalError(s"Don't know how compare $this with $that"); null
     }
   }

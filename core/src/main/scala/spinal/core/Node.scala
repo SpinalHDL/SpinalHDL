@@ -192,6 +192,21 @@ object ZeroWidth {
     }
   }
 
+  def rotateImpl(zeroFactory: (BigInt, BitCount) => Node)(node: Node): Unit = {
+    val w0 = node.inputs(0).getWidth
+    val w1 = node.inputs(1).getWidth
+    if (w0 == 0) {
+      Component.push(node.component)
+      replaceNode(node, zeroFactory(0, node.getWidth bit))
+      Component.pop(node.component)
+    } else if (w1 == 0) {
+      Component.push(node.component)
+      replaceNode(node, 0)
+      Component.pop(node.component)
+    }
+  }
+
+
   def multiplexerImpl(node: Node): Unit = {
     val w0 = node.inputs(1).getWidth
     val w1 = node.inputs(2).getWidth

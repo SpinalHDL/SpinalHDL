@@ -393,6 +393,8 @@ class VhdlBackend extends Backend with VhdlBase {
     ret ++= "  function pkg_shiftRight (that : signed; size : unsigned) return signed;\n"
     ret ++= "  function pkg_shiftLeft (that : signed; size : natural) return signed;\n"
     ret ++= "  function pkg_shiftLeft (that : signed; size : unsigned) return signed;\n"
+    ret ++= "\n"
+    ret ++= "  function pkg_rotateLeft (that : std_logic_vector; size : unsigned) return std_logic_vector;\n"
     ret ++= s"end  $packageName;\n"
     ret ++= "\n"
     ret ++= s"package body $packageName is\n"
@@ -465,6 +467,11 @@ class VhdlBackend extends Backend with VhdlBase {
     ret ++= "  begin\n"
     ret ++= "    return signed(pkg_shiftLeft(unsigned(that),size));\n"
     ret ++= "  end pkg_shiftLeft;\n"
+    ret ++= "\n"
+    ret ++= "  function pkg_rotateLeft (that : std_logic_vector; size : unsigned) return std_logic_vector is\n"
+    ret ++= "  begin\n"
+    ret ++= "    return std_logic_vector(rotate_left(unsigned(that),to_integer(size)));\n"
+    ret ++= "  end pkg_rotateLeft;\n"
     ret ++= "\n"
     ret ++= "  function pkg_extract (that : std_logic_vector; high : integer; low : integer) return std_logic_vector is\n"
     ret ++= "    variable temp : std_logic_vector(high-low downto 0);\n"
@@ -1171,7 +1178,7 @@ class VhdlBackend extends Backend with VhdlBase {
   modifierImplMap.put("b<<i", operatorImplAsFunction("pkg_shiftLeft"))
   modifierImplMap.put("b>>u", operatorImplAsFunction("pkg_shiftRight"))
   modifierImplMap.put("b<<u", operatorImplAsFunction("pkg_shiftLeft"))
-
+  modifierImplMap.put("brotlu", operatorImplAsFunction("pkg_rotateLeft"))
 
 
 
