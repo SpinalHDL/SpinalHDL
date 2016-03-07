@@ -16,23 +16,23 @@ class Alu extends Component{
   val msb = 31
 
   // ADD, SUB
-  val addSub = (io.src1.asSInt + Mux(io.func === ALU.ADD, io.src0.asSInt, (-io.src0.asSInt))).asBits
+  val addSub = (io.src0.asSInt + Mux(io.func === ALU.ADD, io.src1.asSInt, (-io.src1.asSInt))).asBits
 
-  // AND, OR, XOR, COPY1
+  // AND, OR, XOR, COPY0
   val bitwise = io.func.map(
-    ALU.AND1 -> (io.src1 & io.src0),
-    ALU.OR1 ->  (io.src1 | io.src0),
-    ALU.XOR1 -> (io.src1 ^ io.src0),
-    default -> io.src1
+    ALU.AND1 -> (io.src0 & io.src1),
+    ALU.OR1 ->  (io.src0 | io.src1),
+    ALU.XOR1 -> (io.src0 ^ io.src1),
+    default -> io.src0
   )
   // SLT, SLTU
-  val less  = Mux(io.src1(msb) === io.src0(msb), addSub(msb),
-    Mux(io.func === ALU.SLTU, io.src0(msb), io.src1(msb)))
+  val less  = Mux(io.src0(msb) === io.src1(msb), addSub(msb),
+    Mux(io.func === ALU.SLTU, io.src1(msb), io.src0(msb)))
 
   // SLL, SRL, SRA
   val shifter = new Area{
-    val amplitude = io.src0(4 downto 0).asUInt
-    val reversed = Mux(io.func === ALU.SLL1 , Reverse(io.src1), io.src1)
+    val amplitude = io.src1(4 downto 0).asUInt
+    val reversed = Mux(io.func === ALU.SLL1 , Reverse(io.src0), io.src0)
     val shiftRight = (Cat(io.func === ALU.SRA1 & reversed(msb), reversed).asSInt >> amplitude)(msb downto 0).asBits
     val shiftLeft = Reverse(shiftRight).asBits
   }
@@ -59,7 +59,7 @@ object AluMain{
 //Simple model =>
 //    alu_shamt     = io.in2(4,0).asUInt
 //    adder_out = (io.in1.asUInt + io.in2.asUInt)(31,0)
-//    
+//
 //    ALU.ADD   -> exe_adder_out.asBits,
 //    ALU.SUB1  -> (io.in1.asUInt - io.in2.asUInt).asBits,
 //    ALU.AND1  -> (io.in1 & io.in2),

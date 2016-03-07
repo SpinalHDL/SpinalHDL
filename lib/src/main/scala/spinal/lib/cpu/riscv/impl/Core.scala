@@ -101,8 +101,8 @@ class Core(implicit p : CoreParm) extends Component{
 
     val alu = new Alu
     alu.io.func := ctrl.alu
-    alu.io.src1 := alu_op1
-    alu.io.src0 := alu_op2
+    alu.io.src0 := alu_op1
+    alu.io.src1 := alu_op2
     
     io.dCmd.valid := inInst.fire && ctrl.men
     io.dCmd.wr := ctrl.m === M.XWR
