@@ -223,7 +223,7 @@ class Core(implicit p : CoreParm) extends Component{
 
 object CoreMain{
   def main(args: Array[String]) {
-    implicit val p = CoreParm(32,32,1024*64)
+    implicit val p = CoreParm(32,32,0x200)
     SpinalVhdl(new Core(),_.setLibrary("riscv"))
   }
 }
