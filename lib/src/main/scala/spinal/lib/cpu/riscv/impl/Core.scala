@@ -8,8 +8,13 @@ import spinal.lib.cpu.riscv.impl.Utils._
 case class CoreParm(val pcWidth : Int = 32,val addrWidth : Int = 32,val startAddress : Int = 0)
 
 case class CoreInstCmd(implicit p : CoreParm) extends Bundle{
-  val address = UInt(p.addrWidth bit)
+  val pc = UInt(p.addrWidth bit)
 }
+case class CoreInstRsp(implicit p : CoreParm) extends Bundle{
+  val pc = UInt(p.pcWidth bit)
+  val instruction = Bits(32 bit)
+}
+
 
 case class CoreDataCmd(implicit p : CoreParm) extends Bundle{
   val wr = Bool
@@ -18,51 +23,62 @@ case class CoreDataCmd(implicit p : CoreParm) extends Bundle{
   val size = UInt(2 bit)
 }
 
+
 // assert(latencyAnalysis(io.iCmd.data,io.iRsp.data) == 1)
 class Core(implicit p : CoreParm) extends Component{
   import p._
   val io = new Bundle{
-    val iCmd = master Stream(CoreInstCmd())
-    val iRsp = slave Stream(Bits(32 bit))
-
-    val dCmd = master Stream(CoreDataCmd())
-    val dRsp = slave Flow(Bits(32 bit))
+    val i = new Bundle {
+      val flush = out Bool
+      val cmd = master Stream (CoreInstCmd())
+      val rsp = slave Stream (CoreInstRsp())
+    }
+    val d = new Bundle {
+      val cmd = master Stream (CoreDataCmd())
+      val rsp = slave Flow (Bits(32 bit))
+    }
   }
 
   val regFile = Mem(Bits(32 bit),32)
 
   val fetch = new Area {
-    val pc = Reg(UInt(pcWidth bit)) init(U(startAddress,pcWidth bit)-4)
-    val pcNext = pc + 4
+    val pc = Reg(UInt(pcWidth bit)) init(U(startAddress,pcWidth bit))
+    val inc = RegInit(False)
+    val pcNext = pc + Mux(inc,U(4),U(0))
     val pcLoad = Flow(pc)
+
     when(pcLoad.valid){
       pcNext := pcLoad.payload
     }
 
-    io.iCmd.valid := True
-    io.iCmd.address := pcNext
-    when(io.iCmd.fire){
+    io.i.cmd.valid := True
+    io.i.cmd.pc := pcNext
+    when(io.i.cmd.fire || pcLoad.fire){
       pc := pcNext
+    }
+
+    when(io.i.cmd.fire){
+      inc := True
+    }.elsewhen(pcLoad.valid){
+      inc := False
     }
   }
 
   val decode = new Area{
-    val drop = Bool
-
     val outInst = Stream(wrap(new Bundle{
       val pc = UInt(pcWidth bit)
       val instruction = Bits(32 bit)
     }))
 
-    outInst.arbitrationFrom(io.iRsp.throwWhen(drop))
-    outInst.pc := fetch.pc
-    outInst.instruction := io.iRsp.payload
+    outInst.arbitrationFrom(io.i.rsp)
+    outInst.pc := io.i.rsp.pc
+    outInst.instruction := io.i.rsp.instruction
   }
 
 
   val execute = new Area{
     val hazard = False
-    val inInst = decode.outInst.m2sPipe()
+    val inInst = decode.outInst.throwWhen(io.i.flush).m2sPipe()
     val ctrl = InstructionCtrl(inInst.instruction)
     val addr0 = inInst.instruction(19 downto 15).asUInt
     val addr1 = inInst.instruction(24 downto 20).asUInt
@@ -81,8 +97,8 @@ class Core(implicit p : CoreParm) extends Component{
     val imm_b_sext = B((18 downto 0) -> imm_b(11)) ## imm_b ## False
     val imm_j_sext = B((10 downto 0) -> imm_j(19)) ## imm_j ## False
 
-    val bypassSrc0 = regFile.readSync(Mux(inInst.isStall,addr0,io.iRsp.payload(19 downto 15).asUInt))  //Overridden by the write back stage
-    val bypassSrc1 = regFile.readSync(Mux(inInst.isStall,addr1,io.iRsp.payload(24 downto 20).asUInt))
+    val bypassSrc0 = regFile.readSync(Mux(!inInst.ready,addr0,decode.outInst.instruction(19 downto 15).asUInt))  //Overridden by the write back stage
+    val bypassSrc1 = regFile.readSync(Mux(!inInst.ready,addr1,decode.outInst.instruction(24 downto 20).asUInt))
 
     val src0 = Mux(addr0 =/= 0, bypassSrc0, B(0, 32 bit))
     val src1 = Mux(addr1 =/= 0, bypassSrc1, B(0, 32 bit))
@@ -104,11 +120,11 @@ class Core(implicit p : CoreParm) extends Component{
     alu.io.src0 := alu_op1
     alu.io.src1 := alu_op2
     
-    io.dCmd.valid := inInst.fire && ctrl.men
-    io.dCmd.wr := ctrl.m === M.XWR
-    io.dCmd.address := alu.io.result.asUInt
-    io.dCmd.payload.data := src1
-    io.dCmd.size := ctrl.msk.map(
+    io.d.cmd.valid := inInst.fire && ctrl.men
+    io.d.cmd.wr := ctrl.m === M.XWR
+    io.d.cmd.address := alu.io.result.asUInt
+    io.d.cmd.payload.data := src1
+    io.d.cmd.size := ctrl.msk.map(
       default -> U(2), //W
       MSK.B -> U(0),
       MSK.BU -> U(0),
@@ -140,9 +156,9 @@ class Core(implicit p : CoreParm) extends Component{
       ctrl_pc_sel := PC.EXC
     }
 
-    decode.drop := ctrl_pc_sel =/= PC.INC && inInst.fire //Throw decoded instruction if PC is not incremental
+    io.i.flush := ctrl_pc_sel =/= PC.INC && inInst.fire //Throw fetched/decoded instruction if PC is not incremental
 
-    fetch.pcLoad.valid := inInst.valid && !(ctrl_pc_sel === PC.INC) && ctrl.instVal
+    fetch.pcLoad.valid := inInst.fire && !(ctrl_pc_sel === PC.INC) && ctrl.instVal
     fetch.pcLoad.payload := ctrl_pc_sel.map(
       default -> brJumpPc,
       PC.EXC -> U(startAddress),
@@ -155,8 +171,8 @@ class Core(implicit p : CoreParm) extends Component{
       val regFileAddress = UInt(5 bit)
       val ctrl = InstructionCtrl()
     }))
-    outInst.arbitrationFrom(inInst.haltWhen((inInst.valid && ctrl.men && !io.dCmd.ready) || hazard))
-    outInst.pc := fetch.pc
+    outInst.arbitrationFrom(inInst.haltWhen((inInst.valid && ctrl.men && !io.d.cmd.ready) || hazard))
+    outInst.pc := inInst.pc
     outInst.alu := alu.io.result.asBits
     outInst.regFileAddress := inInst.instruction(11 downto 7).asUInt
     outInst.ctrl := ctrl
@@ -166,18 +182,18 @@ class Core(implicit p : CoreParm) extends Component{
     val inInst = execute.outInst.m2sPipe()
 
     val dRspRfmt = inInst.ctrl.msk.map(
-      default -> io.dRsp.payload, //W
-      MSK.B   -> B(default -> io.dRsp.payload(7),(7 downto 0) -> io.dRsp.payload(7 downto 0)),
-      MSK.BU  -> B(default -> false,(7 downto 0) -> io.dRsp.payload(7 downto 0)),
-      MSK.H   -> B(default -> io.dRsp.payload(15),(15 downto 0) -> io.dRsp.payload(15 downto 0)),
-      MSK.HU  -> B(default -> false,(15 downto 0) -> io.dRsp.payload(15 downto 0))
+      default -> io.d.rsp.payload, //W
+      MSK.B   -> B(default -> io.d.rsp.payload(7),(7 downto 0) -> io.d.rsp.payload(7 downto 0)),
+      MSK.BU  -> B(default -> false,(7 downto 0) -> io.d.rsp.payload(7 downto 0)),
+      MSK.H   -> B(default -> io.d.rsp.payload(15),(15 downto 0) -> io.d.rsp.payload(15 downto 0)),
+      MSK.HU  -> B(default -> false,(15 downto 0) -> io.d.rsp.payload(15 downto 0))
     )
 
     val regFileData = inInst.ctrl.wb.map (
       default -> B(0,32 bit), //CSR1
       WB.ALU1 -> inInst.alu,
       WB.MEM  -> dRspRfmt,
-      WB.PC4  -> inInst.pc.asBits.resized
+      WB.PC4  -> (inInst.pc + 4).asBits.resized
     )
 
     val regFileBypass = new Area{
@@ -193,7 +209,7 @@ class Core(implicit p : CoreParm) extends Component{
         execute.hazard := True
       }
     }
-    inInst.ready := inInst.ctrl.wb =/= WB.MEM || inInst.ctrl.m =/= M.XRD || io.dRsp.valid
+    inInst.ready := inInst.ctrl.wb =/= WB.MEM || inInst.ctrl.m =/= M.XRD || io.d.rsp.valid
 
     //Reg file read after write bypass
     when(regFileBypass.valid){

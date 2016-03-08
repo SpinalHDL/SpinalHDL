@@ -208,13 +208,13 @@ object ZeroWidth {
 
 
   def multiplexerImpl(node: Node): Unit = {
-    val w0 = node.inputs(1).getWidth
-    val w1 = node.inputs(2).getWidth
-    if (w0 == 0) {
-      replaceNode(node, 2)
-    } else if (w1 == 0) {
-      replaceNode(node, 1)
-    }
+//    val w0 = node.inputs(1).getWidth
+//    val w1 = node.inputs(2).getWidth
+//    if (w0 == 0) {
+//      replaceNode(node, 2)
+//    } else if (w1 == 0) {
+//      replaceNode(node, 1)
+//    }
   }
 
 

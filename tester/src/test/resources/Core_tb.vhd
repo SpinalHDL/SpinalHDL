@@ -8,9 +8,11 @@ use riscv.pkg_enum.all;
 
 -- #spinalBegin userLibrary
 library STD;
-use STD.textio.all;
+use std.textio.all;
 library ieee;
 use IEEE.std_logic_textio.all;
+library IEEE;
+use ieee.math_real.all;
 -- #spinalEnd userLibrary
 
 
@@ -18,20 +20,21 @@ entity Core_tb is
 end Core_tb;
 
 architecture arch of Core_tb is
-  signal io_iCmd_valid : std_logic;
-  signal io_iCmd_ready : std_logic;
-  signal io_iCmd_payload_address : unsigned(31 downto 0);
-  signal io_iRsp_valid : std_logic;
-  signal io_iRsp_ready : std_logic;
-  signal io_iRsp_payload : std_logic_vector(31 downto 0);
-  signal io_dCmd_valid : std_logic;
-  signal io_dCmd_ready : std_logic;
-  signal io_dCmd_payload_wr : std_logic;
-  signal io_dCmd_payload_address : unsigned(31 downto 0);
-  signal io_dCmd_payload_data : std_logic_vector(31 downto 0);
-  signal io_dCmd_payload_size : unsigned(1 downto 0);
-  signal io_dRsp_valid : std_logic;
-  signal io_dRsp_payload : std_logic_vector(31 downto 0);
+  signal io_i_cmd_valid : std_logic;
+  signal io_i_cmd_ready : std_logic;
+  signal io_i_cmd_payload_pc : unsigned(31 downto 0);
+  signal io_i_rsp_valid : std_logic;
+  signal io_i_rsp_ready : std_logic;
+  signal io_i_rsp_payload_pc : unsigned(31 downto 0);
+  signal io_i_rsp_payload_instruction : std_logic_vector(31 downto 0);
+  signal io_d_cmd_valid : std_logic;
+  signal io_d_cmd_ready : std_logic;
+  signal io_d_cmd_payload_wr : std_logic;
+  signal io_d_cmd_payload_address : unsigned(31 downto 0);
+  signal io_d_cmd_payload_data : std_logic_vector(31 downto 0);
+  signal io_d_cmd_payload_size : unsigned(1 downto 0);
+  signal io_d_rsp_valid : std_logic;
+  signal io_d_rsp_payload : std_logic_vector(31 downto 0);
   signal clk : std_logic;
   signal reset : std_logic;
   -- #spinalBegin userDeclarations
@@ -116,17 +119,19 @@ architecture arch of Core_tb is
   signal io_dmem_resp_valid                   : std_logic;
   signal io_dmem_resp_bits_data               : std_logic_vector(31 downto 0);
   
+  signal io_i_cmd_ready_rand : std_logic;
+  
   shared variable done : integer := 0;
   constant memSize : integer := 1024*256;
   type memType is array (0 to memSize-1) of std_logic_vector(7 downto 0);
   shared variable mem : memType;
   shared variable mem_ref : memType;
   
-  signal match_icmd_addr : std_logic;
-  signal match_dcmd_addr : std_logic;
-  signal match_dcmd_data : std_logic;
-  signal match_irsp_data : std_logic;
-  signal match_drsp_data : std_logic;
+  signal match_i_cmd_addr : std_logic;
+  signal match_d_cmd_addr : std_logic;
+  signal match_d_cmd_data : std_logic;
+  signal match_i_rsp_data : std_logic;
+  signal match_d_rsp_data : std_logic;
   
   signal exp0 : std_logic;
   signal exp1 : std_logic;
@@ -208,6 +213,19 @@ architecture arch of Core_tb is
     end case;
   end function;
     
+    
+    
+  shared variable seed1, seed2: positive;
+  impure function randomStdLogic(prob : real) return std_logic is
+    variable rand: real;
+  begin
+    UNIFORM(seed1, seed2, rand);
+    if rand < prob then
+      return '1';
+    else
+      return '0';
+    end if;
+  end randomStdLogic;    
   -- #spinalEnd userDeclarations
 begin
   -- #spinalBegin userLogics
@@ -218,7 +236,7 @@ begin
     if done = 1 then
       wait;
     end if;
-    assert now < 20 ms report "timeout" severity failure;
+    assert now < 200 ms report "timeout" severity failure;
     clk <= '1';
     wait for 5 ns;
   end process;
@@ -244,8 +262,8 @@ begin
           report "Test fail ! : " & path severity error;  
           exit;
         end if;
-        if io_dCmd_valid = '1' and io_dCmd_payload_address = X"00000000" then
-          if io_dCmd_payload_data /= X"00000001" then
+        if io_d_cmd_valid = '1' and io_d_cmd_payload_address = X"00000000" then
+          if io_d_cmd_payload_data /= X"00000001" then
             errorCount := errorCount + 1;
             report "Test fail ! : " & path severity error;
           end if;
@@ -259,73 +277,76 @@ begin
     reset <= '1';
 
     wait for 100 ns;
-    -- doTest("E:/vm/share/a.hex",1024*1024*1024);
+
+     for i in 0 to 100 loop
+       --doTest("E:/vm/share/isa/rv32si-p-csr.hex");
+       --doTest("E:/vm/share/isa/rv32si-p-illegal.hex");   
+       --doTest("E:/vm/share/isa/rv32si-p-ma_addr.hex");   
+       --doTest("E:/vm/share/isa/rv32si-p-ma_fetch.hex");   
+       --doTest("E:/vm/share/isa/rv32si-p-sbreak.hex");   
+       --doTest("E:/vm/share/isa/rv32si-p-scall.hex");   
+       --doTest("E:/vm/share/isa/rv32si-p-shamt.hex");   
+       doTest("E:/vm/share/isa/rv32ui-p-add.hex");   
+       doTest("E:/vm/share/isa/rv32ui-p-addi.hex");   
+       --doTest("E:/vm/share/isa/rv32ui-p-amoadd_w.hex");   
+       --doTest("E:/vm/share/isa/rv32ui-p-amoand_w.hex");   
+       --doTest("E:/vm/share/isa/rv32ui-p-amomaxu_w.hex");   
+       --doTest("E:/vm/share/isa/rv32ui-p-amomax_w.hex");   
+       --doTest("E:/vm/share/isa/rv32ui-p-amominu_w.hex");   
+       --doTest("E:/vm/share/isa/rv32ui-p-amomin_w.hex");   
+       --doTest("E:/vm/share/isa/rv32ui-p-amoor_w.hex");   
+       --doTest("E:/vm/share/isa/rv32ui-p-amoswap_w.hex");   
+       doTest("E:/vm/share/isa/rv32ui-p-and.hex");   
+       doTest("E:/vm/share/isa/rv32ui-p-andi.hex");   
+       doTest("E:/vm/share/isa/rv32ui-p-auipc.hex");   
+       doTest("E:/vm/share/isa/rv32ui-p-beq.hex");   
+       doTest("E:/vm/share/isa/rv32ui-p-bge.hex");   
+       doTest("E:/vm/share/isa/rv32ui-p-bgeu.hex");   
+       doTest("E:/vm/share/isa/rv32ui-p-blt.hex");   
+       doTest("E:/vm/share/isa/rv32ui-p-bltu.hex");   
+       doTest("E:/vm/share/isa/rv32ui-p-bne.hex");   
+      --doTest("E:/vm/share/isa/rv32ui-p-div.hex");   
+      --doTest("E:/vm/share/isa/rv32ui-p-divu.hex");   
+      --doTest("E:/vm/share/isa/rv32ui-p-fence_i.hex");   !!! 
+       doTest("E:/vm/share/isa/rv32ui-p-j.hex");   
+       doTest("E:/vm/share/isa/rv32ui-p-jal.hex");   
+       doTest("E:/vm/share/isa/rv32ui-p-jalr.hex");   
+       doTest("E:/vm/share/isa/rv32ui-p-lb.hex");   
+       doTest("E:/vm/share/isa/rv32ui-p-lbu.hex");   
+       doTest("E:/vm/share/isa/rv32ui-p-lh.hex");   
+       doTest("E:/vm/share/isa/rv32ui-p-lhu.hex");   
+       doTest("E:/vm/share/isa/rv32ui-p-lui.hex");   
+       doTest("E:/vm/share/isa/rv32ui-p-lw.hex");   
+     --  doTest("E:/vm/share/isa/rv32ui-p-mul.hex");   
+     --  doTest("E:/vm/share/isa/rv32ui-p-mulh.hex");   
+     --  doTest("E:/vm/share/isa/rv32ui-p-mulhsu.hex");   
+     --  doTest("E:/vm/share/isa/rv32ui-p-mulhu.hex");   
+       doTest("E:/vm/share/isa/rv32ui-p-or.hex");   
+       doTest("E:/vm/share/isa/rv32ui-p-ori.hex");   
+       --doTest("E:/vm/share/isa/rv32ui-p-rem.hex");   
+       --doTest("E:/vm/share/isa/rv32ui-p-remu.hex");   
+       doTest("E:/vm/share/isa/rv32ui-p-sb.hex");   
+       doTest("E:/vm/share/isa/rv32ui-p-sh.hex");   
+       doTest("E:/vm/share/isa/rv32ui-p-simple.hex");   
+       doTest("E:/vm/share/isa/rv32ui-p-sll.hex");   
+       doTest("E:/vm/share/isa/rv32ui-p-slli.hex");   
+       doTest("E:/vm/share/isa/rv32ui-p-slt.hex");   
+       doTest("E:/vm/share/isa/rv32ui-p-slti.hex");   
+       doTest("E:/vm/share/isa/rv32ui-p-sra.hex");   
+       doTest("E:/vm/share/isa/rv32ui-p-srai.hex");   
+       doTest("E:/vm/share/isa/rv32ui-p-srl.hex");   
+       doTest("E:/vm/share/isa/rv32ui-p-srli.hex");   
+       doTest("E:/vm/share/isa/rv32ui-p-sub.hex");   
+       doTest("E:/vm/share/isa/rv32ui-p-sw.hex");   
+       doTest("E:/vm/share/isa/rv32ui-p-xor.hex");   
+       doTest("E:/vm/share/isa/rv32ui-p-xori.hex");   
+       wait for 1 us;
+       report integer'image(testCount - errorCount) & "/" & integer'image(testCount) & " -> "  & integer'image(errorCount) & " error";
+     end loop;
+     wait for 1 us;
+     doTest("E:/vm/share/a.hex",1024*1024*1024);
     
-     --doTest("E:/vm/share/isa/rv32si-p-csr.hex");
-     --doTest("E:/vm/share/isa/rv32si-p-illegal.hex");   
-     --doTest("E:/vm/share/isa/rv32si-p-ma_addr.hex");   
-     --doTest("E:/vm/share/isa/rv32si-p-ma_fetch.hex");   
-     --doTest("E:/vm/share/isa/rv32si-p-sbreak.hex");   
-     --doTest("E:/vm/share/isa/rv32si-p-scall.hex");   
-     --doTest("E:/vm/share/isa/rv32si-p-shamt.hex");   
-     doTest("E:/vm/share/isa/rv32ui-p-add.hex");   
-     doTest("E:/vm/share/isa/rv32ui-p-addi.hex");   
-     --doTest("E:/vm/share/isa/rv32ui-p-amoadd_w.hex");   
-     --doTest("E:/vm/share/isa/rv32ui-p-amoand_w.hex");   
-     --doTest("E:/vm/share/isa/rv32ui-p-amomaxu_w.hex");   
-     --doTest("E:/vm/share/isa/rv32ui-p-amomax_w.hex");   
-     --doTest("E:/vm/share/isa/rv32ui-p-amominu_w.hex");   
-     --doTest("E:/vm/share/isa/rv32ui-p-amomin_w.hex");   
-     --doTest("E:/vm/share/isa/rv32ui-p-amoor_w.hex");   
-     --doTest("E:/vm/share/isa/rv32ui-p-amoswap_w.hex");   
-     doTest("E:/vm/share/isa/rv32ui-p-and.hex");   
-     doTest("E:/vm/share/isa/rv32ui-p-andi.hex");   
-     doTest("E:/vm/share/isa/rv32ui-p-auipc.hex");   
-     doTest("E:/vm/share/isa/rv32ui-p-beq.hex");   
-     doTest("E:/vm/share/isa/rv32ui-p-bge.hex");   
-     doTest("E:/vm/share/isa/rv32ui-p-bgeu.hex");   
-     doTest("E:/vm/share/isa/rv32ui-p-blt.hex");   
-     doTest("E:/vm/share/isa/rv32ui-p-bltu.hex");   
-     doTest("E:/vm/share/isa/rv32ui-p-bne.hex");   
-    --doTest("E:/vm/share/isa/rv32ui-p-div.hex");   
-    --doTest("E:/vm/share/isa/rv32ui-p-divu.hex");   
-    --doTest("E:/vm/share/isa/rv32ui-p-fence_i.hex");   
-     doTest("E:/vm/share/isa/rv32ui-p-j.hex");   
-     doTest("E:/vm/share/isa/rv32ui-p-jal.hex");   
-     doTest("E:/vm/share/isa/rv32ui-p-jalr.hex");   
-     doTest("E:/vm/share/isa/rv32ui-p-lb.hex");   
-     doTest("E:/vm/share/isa/rv32ui-p-lbu.hex");   
-     doTest("E:/vm/share/isa/rv32ui-p-lh.hex");   
-     doTest("E:/vm/share/isa/rv32ui-p-lhu.hex");   
-     doTest("E:/vm/share/isa/rv32ui-p-lui.hex");   
-     doTest("E:/vm/share/isa/rv32ui-p-lw.hex");   
-   --  doTest("E:/vm/share/isa/rv32ui-p-mul.hex");   
-   --  doTest("E:/vm/share/isa/rv32ui-p-mulh.hex");   
-   --  doTest("E:/vm/share/isa/rv32ui-p-mulhsu.hex");   
-   --  doTest("E:/vm/share/isa/rv32ui-p-mulhu.hex");   
-     doTest("E:/vm/share/isa/rv32ui-p-or.hex");   
-     doTest("E:/vm/share/isa/rv32ui-p-ori.hex");   
-     --doTest("E:/vm/share/isa/rv32ui-p-rem.hex");   
-     --doTest("E:/vm/share/isa/rv32ui-p-remu.hex");   
-     doTest("E:/vm/share/isa/rv32ui-p-sb.hex");   
-     doTest("E:/vm/share/isa/rv32ui-p-sh.hex");   
-     doTest("E:/vm/share/isa/rv32ui-p-simple.hex");   
-     doTest("E:/vm/share/isa/rv32ui-p-sll.hex");   
-     doTest("E:/vm/share/isa/rv32ui-p-slli.hex");   
-     doTest("E:/vm/share/isa/rv32ui-p-slt.hex");   
-     doTest("E:/vm/share/isa/rv32ui-p-slti.hex");   
-     doTest("E:/vm/share/isa/rv32ui-p-sra.hex");   
-     doTest("E:/vm/share/isa/rv32ui-p-srai.hex");   
-     doTest("E:/vm/share/isa/rv32ui-p-srl.hex");   
-     doTest("E:/vm/share/isa/rv32ui-p-srli.hex");   
-     doTest("E:/vm/share/isa/rv32ui-p-sub.hex");   
-     doTest("E:/vm/share/isa/rv32ui-p-sw.hex");   
-     doTest("E:/vm/share/isa/rv32ui-p-xor.hex");   
-     doTest("E:/vm/share/isa/rv32ui-p-xori.hex");   
-    
-    
-    
-    
+
 
     done := done + 1;
     wait for 1 us;
@@ -333,16 +354,24 @@ begin
     wait;
   end process;
 
-  exp0 <= '1' when  io_dCmd_payload_address = X"00028230" and io_dCmd_valid = '1' else '0';
-  exp1 <= '1' when  io_dCmd_payload_address = X"000224c4" and io_dCmd_valid = '1' else '0';
-  match_icmd_addr <= '1' when io_iCmd_payload_address  = unsigned(io_imem_req_bits_addr) else not (io_iCmd_valid or io_imem_req_valid) ;
-  match_irsp_data <= '1' when io_iRsp_payload          = io_imem_resp_bits_data else  not (io_irsp_valid or io_imem_resp_valid) ;
-  match_dcmd_addr <= '1' when io_dCmd_payload_address  = unsigned(io_dmem_req_bits_addr) else  not (io_dCmd_valid or io_dmem_req_valid) ;
-  match_dcmd_data <= '1' when io_dCmd_payload_data     = io_dmem_req_bits_data else  not (io_dCmd_valid or io_dmem_req_valid) ;
-  match_drsp_data <= '1' when io_dRsp_payload          = io_dmem_resp_bits_data else  not (io_irsp_valid or io_dmem_resp_valid) ;
+  -- exp0 <= '1' when  io_d_cmd_payload_address = X"00028230" and io_d_cmd_valid = '1' else '0';
+  -- exp1 <= '1' when  io_d_cmd_payload_address = X"000224c4" and io_d_cmd_valid = '1' else '0';
+  -- match_i_cmd_addr <= '1' when io_i_cmd_payload_address  = unsigned(io_imem_req_bits_addr) else not (io_i_cmd_valid or io_imem_req_valid) ;
+  -- match_i_rsp_data <= '1' when io_i_rsp_payload          = io_imem_resp_bits_data else  not (io_i_rsp_valid or io_imem_resp_valid) ;
+  -- match_d_cmd_addr <= '1' when io_d_cmd_payload_address  = unsigned(io_dmem_req_bits_addr) else  not (io_d_cmd_valid or io_dmem_req_valid) ;
+  -- match_d_cmd_data <= '1' when io_d_cmd_payload_data     = io_dmem_req_bits_data else  not (io_d_cmd_valid or io_dmem_req_valid) ;
+  -- match_d_rsp_data <= '1' when io_d_rsp_payload          = io_dmem_resp_bits_data else  not (io_i_rsp_valid or io_dmem_resp_valid) ;
   
-  io_iCmd_ready <= not io_iRsp_valid or io_iRsp_ready;
-  io_dCmd_ready <= '1';
+  process(clk)
+  begin
+    if rising_edge(clk) then
+      io_d_cmd_ready <= randomStdLogic(0.75);
+      io_i_cmd_ready_rand <= randomStdLogic(0.75);
+    end if;
+  end process;
+  
+  io_i_cmd_ready <= (not io_i_rsp_valid or io_i_rsp_ready) and io_i_cmd_ready_rand;
+
   process(clk,reset)
     variable char : Character;
     file log : text is out "E:/vm/share/log.txt";
@@ -350,35 +379,38 @@ begin
     variable data : std_logic_vector(31 downto 0);
   begin
     if reset = '1' then
-      io_iRsp_valid <= '0';
-      io_dRsp_valid <= '0';
+      io_i_rsp_valid <= '0';
+      io_d_rsp_valid <= '0';
       counter <= (others => '0');
     elsif rising_edge(clk) then
       counter <= counter + 1;
-      if io_iRsp_ready = '1' then
-        io_iRsp_valid <= '0';
-        io_iRsp_payload <= (others => 'X');
-        if io_iCmd_valid = '1' then
-          io_iRsp_valid <= '1';
-          for i in 0 to 3 loop
-            data(i*8+7 downto i*8) := mem(to_integer(unsigned(io_iCmd_payload_address)) + i);
-          end loop;
-          if data = X"00000073" then
-            io_iRsp_payload <= X"01c02023";
-          elsif data = X"0FF0000F" then
-            io_iRsp_payload <= X"00000013"; --TODO remove me
-          else
-            io_iRsp_payload <= data;
-          end if;
+      if io_i_rsp_ready = '1' then
+        io_i_rsp_valid <= '0';
+        io_i_rsp_payload_pc <= (others => 'X');
+        io_i_rsp_payload_instruction <= (others => 'X');
+      end if;
+      if io_i_cmd_valid = '1' and io_i_cmd_ready = '1' then
+        io_i_rsp_valid <= '1';
+        for i in 0 to 3 loop
+          data(i*8+7 downto i*8) := mem(to_integer(unsigned(io_i_cmd_payload_pc)) + i);
+        end loop;
+        io_i_rsp_payload_pc <= io_i_cmd_payload_pc;
+        if data = X"00000073" then
+          io_i_rsp_payload_instruction <= X"01c02023";
+        elsif data = X"0FF0000F" then
+          io_i_rsp_payload_instruction <= X"00000013"; --TODO remove me
+        else
+          io_i_rsp_payload_instruction <= data;
         end if;
       end if;
+
       
-      io_dRsp_valid <= '0';
-      io_dRsp_payload <= (others => 'X');
-      if io_dCmd_valid = '1' then
-        if io_dCmd_payload_wr = '1' then
-          if io_dCmd_payload_address = X"10000000" then
-            char := character'val(to_integer(unsigned(io_dCmd_payload_data(7 downto 0))));
+      io_d_rsp_valid <= '0';
+      io_d_rsp_payload <= (others => 'X');
+      if io_d_cmd_valid = '1' and  io_d_cmd_ready = '1' then
+        if io_d_cmd_payload_wr = '1' then
+          if io_d_cmd_payload_address = X"10000000" then
+            char := character'val(to_integer(unsigned(io_d_cmd_payload_data(7 downto 0))));
             if char /= LF then
               write (logLine, char);
             else
@@ -387,17 +419,17 @@ begin
               file_open(log, "E:/vm/share/log.txt", append_mode); 
             end if;
           else
-            for i in 0 to (2 ** to_integer(io_dCmd_payload_size))-1 loop
-              mem(to_integer(unsigned(io_dCmd_payload_address)) + i) := io_dCmd_payload_data(i*8+7 downto i*8);
+            for i in 0 to (2 ** to_integer(io_d_cmd_payload_size))-1 loop
+              mem(to_integer(unsigned(io_d_cmd_payload_address)) + i) := io_d_cmd_payload_data(i*8+7 downto i*8);
             end loop;
           end if;
         else
-          io_dRsp_valid <= '1';
-          if io_dCmd_payload_address = X"10000004" then
-            io_dRsp_payload <= std_logic_vector(counter);
+          io_d_rsp_valid <= '1';
+          if io_d_cmd_payload_address = X"10000004" then
+            io_d_rsp_payload <= std_logic_vector(counter);
           else
             for i in 0 to 3 loop
-              io_dRsp_payload(i*8+7 downto i*8) <= mem(to_integer(unsigned(io_dCmd_payload_address)) + i);
+              io_d_rsp_payload(i*8+7 downto i*8) <= mem(to_integer(unsigned(io_d_cmd_payload_address)) + i);
             end loop;        
           end if;
         end if;
@@ -429,8 +461,8 @@ begin
     elsif rising_edge(clk) then
      -- if io_imem_resp_ready = '1' then
         io_imem_resp_valid <= '0';
-        --io_imem_resp_bits_data <= (others => 'X');
-        if io_imem_req_valid = '1' then -- io_imem_req_bits_addr = std_logic_vector(io_iCmd_payload_address) 
+        io_imem_resp_bits_data <= (others => 'X');
+        if io_imem_req_valid = '1' and io_imem_req_ready = '1' then -- io_imem_req_bits_addr = std_logic_vector(io_i_cmd_payload_address) 
           io_imem_resp_valid <= '1';
           for i in 0 to 3 loop
             io_imem_resp_bits_data(i*8+7 downto i*8) <= mem_ref(to_integer(unsigned(io_imem_req_bits_addr)) + i);
@@ -501,8 +533,8 @@ begin
 
   ref : CoreCH  
     port map(
-     clk                            => clk                             ,
-     reset                          => '1'                           ,
+     clk                            => '0'                             ,
+     reset                          => '0'                           ,
      io_host_reset                  => io_host_reset                   ,
      io_host_debug_stats_csr        => io_host_debug_stats_csr         ,
      io_host_id                     => io_host_id                      ,
@@ -544,20 +576,21 @@ begin
   -- #spinalEnd userLogics
   uut : entity riscv.Core
     port map (
-      io_iCmd_valid =>  io_iCmd_valid,
-      io_iCmd_ready =>  io_iCmd_ready,
-      io_iCmd_payload_address =>  io_iCmd_payload_address,
-      io_iRsp_valid =>  io_iRsp_valid,
-      io_iRsp_ready =>  io_iRsp_ready,
-      io_iRsp_payload =>  io_iRsp_payload,
-      io_dCmd_valid =>  io_dCmd_valid,
-      io_dCmd_ready =>  io_dCmd_ready,
-      io_dCmd_payload_wr =>  io_dCmd_payload_wr,
-      io_dCmd_payload_address =>  io_dCmd_payload_address,
-      io_dCmd_payload_data =>  io_dCmd_payload_data,
-      io_dCmd_payload_size =>  io_dCmd_payload_size,
-      io_dRsp_valid =>  io_dRsp_valid,
-      io_dRsp_payload =>  io_dRsp_payload,
+      io_i_cmd_valid =>  io_i_cmd_valid,
+      io_i_cmd_ready =>  io_i_cmd_ready,
+      io_i_cmd_payload_pc =>  io_i_cmd_payload_pc,
+      io_i_rsp_valid =>  io_i_rsp_valid,
+      io_i_rsp_ready =>  io_i_rsp_ready,
+      io_i_rsp_payload_pc =>  io_i_rsp_payload_pc,
+      io_i_rsp_payload_instruction =>  io_i_rsp_payload_instruction,
+      io_d_cmd_valid =>  io_d_cmd_valid,
+      io_d_cmd_ready =>  io_d_cmd_ready,
+      io_d_cmd_payload_wr =>  io_d_cmd_payload_wr,
+      io_d_cmd_payload_address =>  io_d_cmd_payload_address,
+      io_d_cmd_payload_data =>  io_d_cmd_payload_data,
+      io_d_cmd_payload_size =>  io_d_cmd_payload_size,
+      io_d_rsp_valid =>  io_d_rsp_valid,
+      io_d_rsp_payload =>  io_d_rsp_payload,
       clk =>  clk,
       reset =>  reset 
     );

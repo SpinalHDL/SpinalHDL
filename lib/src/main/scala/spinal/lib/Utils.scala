@@ -320,7 +320,7 @@ trait DataCarrier[T <: Data] {
   def valid: Bool
   def payload: T
   @deprecated("Shoud use payload instead of data. Or directly myStream.myBundleElement in place of myStream.data.myBundleElement")
-  def data : T = payload
+  //def data : T = payload
   def freeRun(): this.type
 }
 
