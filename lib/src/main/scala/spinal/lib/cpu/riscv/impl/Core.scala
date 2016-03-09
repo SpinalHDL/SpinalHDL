@@ -65,21 +65,36 @@ class Core(implicit p : CoreParm) extends Component{
   }
 
   val decode = new Area{
+    val hazard = False
+    val inInst = io.i.rsp.throwWhen(io.i.flush).m2sPipe().throwWhen(io.i.flush)
+
+    val addr0 = inInst.instruction(src0Range).asUInt
+    val addr1 = inInst.instruction(src1Range).asUInt
+
+    val srcInstruction = Mux(inInst.isStall,inInst.instruction,io.i.rsp.instruction)
+    val src0 = regFile.readSync(srcInstruction(src0Range).asUInt)  //Overridden by the write back stage
+    val src1 = regFile.readSync(srcInstruction(src1Range).asUInt)
+
     val outInst = Stream(wrap(new Bundle{
       val pc = UInt(pcWidth bit)
       val instruction = Bits(32 bit)
+      val ctrl = InstructionCtrl()
+      val src0 = Bits(32 bit)
+      val src1 = Bits(32 bit)
     }))
 
-    outInst.arbitrationFrom(io.i.rsp)
-    outInst.pc := io.i.rsp.pc
-    outInst.instruction := io.i.rsp.instruction
+    outInst.arbitrationFrom(inInst.haltWhen(hazard))
+    outInst.pc := inInst.pc
+    outInst.instruction := inInst.instruction
+    outInst.ctrl := InstructionCtrl(inInst.instruction)
+    outInst.src0 := src0
+    outInst.src1 := src1
   }
 
 
   val execute = new Area{
-    val hazard = False
-    val inInst = decode.outInst.throwWhen(io.i.flush).m2sPipe()
-    val ctrl = InstructionCtrl(inInst.instruction)
+    val inInst = decode.outInst.m2sPipe()
+    val ctrl = inInst.ctrl
     val addr0 = inInst.instruction(19 downto 15).asUInt
     val addr1 = inInst.instruction(24 downto 20).asUInt
 
@@ -96,12 +111,9 @@ class Core(implicit p : CoreParm) extends Component{
     val imm_s_sext = B((19 downto 0) -> imm_s(11)) ## imm_s
     val imm_b_sext = B((18 downto 0) -> imm_b(11)) ## imm_b ## False
     val imm_j_sext = B((10 downto 0) -> imm_j(19)) ## imm_j ## False
-
-    val bypassSrc0 = regFile.readSync(Mux(!inInst.ready,addr0,decode.outInst.instruction(19 downto 15).asUInt))  //Overridden by the write back stage
-    val bypassSrc1 = regFile.readSync(Mux(!inInst.ready,addr1,decode.outInst.instruction(24 downto 20).asUInt))
-
-    val src0 = Mux(addr0 =/= 0, bypassSrc0, B(0, 32 bit))
-    val src1 = Mux(addr1 =/= 0, bypassSrc1, B(0, 32 bit))
+    
+    val src0 = Mux(addr0 =/= 0, inInst.src0, B(0, 32 bit))
+    val src1 = Mux(addr1 =/= 0, inInst.src1, B(0, 32 bit))
 
     val alu_op1 = ctrl.op1.map(
       default -> src0,
@@ -132,9 +144,12 @@ class Core(implicit p : CoreParm) extends Component{
       MSK.HU -> U(1)
     )
 
-    val br_eq  = (src0 === src1)
-    val br_lt  = (src0.asSInt < src1.asSInt) //TODO opt
-    val br_ltu = (src0.asUInt < src1.asUInt)
+    val br = new Area{
+      val eq  = (src0 === src1)
+      val lt  = (src0.asSInt < src1.asSInt) //TODO opt
+      val ltu = (src0.asUInt < src1.asUInt)
+
+    }
 
     val brjmpImm = Mux(ctrl.jmp, imm_j_sext, imm_b_sext)
     val brJumpPc = inInst.pc + brjmpImm.asUInt
@@ -142,12 +157,12 @@ class Core(implicit p : CoreParm) extends Component{
 
     val ctrl_pc_sel = ctrl.br.map[PC.T](
       default -> PC.INC,
-      BR.NE   -> Mux(!br_eq,  PC.BR1, PC.INC),
-      BR.EQ   -> Mux( br_eq,  PC.BR1, PC.INC),
-      BR.GE   -> Mux(!br_lt,  PC.BR1, PC.INC),
-      BR.GEU  -> Mux(!br_ltu, PC.BR1, PC.INC),
-      BR.LT   -> Mux( br_lt,  PC.BR1, PC.INC),
-      BR.LTU  -> Mux( br_ltu, PC.BR1, PC.INC),
+      BR.NE   -> Mux(!br.eq,  PC.BR1, PC.INC),
+      BR.EQ   -> Mux( br.eq,  PC.BR1, PC.INC),
+      BR.GE   -> Mux(!br.lt,  PC.BR1, PC.INC),
+      BR.GEU  -> Mux(!br.ltu, PC.BR1, PC.INC),
+      BR.LT   -> Mux( br.lt,  PC.BR1, PC.INC),
+      BR.LTU  -> Mux( br.ltu, PC.BR1, PC.INC),
       BR.J    -> PC.J,
       BR.JR   -> PC.JR
     )
@@ -171,7 +186,7 @@ class Core(implicit p : CoreParm) extends Component{
       val regFileAddress = UInt(5 bit)
       val ctrl = InstructionCtrl()
     }))
-    outInst.arbitrationFrom(inInst.haltWhen((inInst.valid && ctrl.men && !io.d.cmd.ready) || hazard))
+    outInst.arbitrationFrom(inInst.haltWhen((inInst.valid && ctrl.men && !io.d.cmd.ready)))
     outInst.pc := inInst.pc
     outInst.alu := alu.io.result.asBits
     outInst.regFileAddress := inInst.instruction(11 downto 7).asUInt
@@ -196,42 +211,99 @@ class Core(implicit p : CoreParm) extends Component{
       WB.PC4  -> (inInst.pc + 4).asBits.resized
     )
 
-    val regFileBypass = new Area{
+    val regFileWriteBack = new Area{
       val valid = RegNext(False)
       val addr = RegNext(inInst.regFileAddress)
-      val data = RegNext(regFileData)
     }
 
-    when(inInst.fire && inInst.ctrl.ren) {
-      regFileBypass.valid := True
+    when(inInst.fire && inInst.ctrl.rfen) {
+      regFileWriteBack.valid := True
       regFile(inInst.regFileAddress) := regFileData
-      when(!inInst.ctrl.bypassable && inInst.regFileAddress =/= 0 && (inInst.regFileAddress === execute.addr0 || inInst.regFileAddress === execute.addr1)){//TODO redondoent logic with alu result bypass
-        execute.hazard := True
-      }
     }
     inInst.ready := inInst.ctrl.wb =/= WB.MEM || inInst.ctrl.m =/= M.XRD || io.d.rsp.valid
 
-    //Reg file read after write bypass
-    when(regFileBypass.valid){
-      when(regFileBypass.addr === execute.addr0) {
-        execute.bypassSrc0 := regFileBypass.data
-      }
-      when(regFileBypass.addr === execute.addr1) {
-        execute.bypassSrc1 := regFileBypass.data
-      }
-    }
 
-    //ALU result bypass
-    when(inInst.valid && inInst.ctrl.ren && inInst.ctrl.bypassable){ //TODO bypassable is maybe not usefull
-      when(inInst.regFileAddress === execute.addr0) {
-        execute.bypassSrc0 := inInst.alu
-      }
-      when(inInst.regFileAddress === execute.addr1) {
-        execute.bypassSrc1 := inInst.alu
-      }
-    }
+
+//
+//    //Reg file read after write bypass
+//    when(regFileWriteBack.valid){
+//      when(regFileWriteBack.addr === execute.addr0) {
+//        execute.inInst.src0 := regFileWriteBack.data
+//      }
+//      when(regFileWriteBack.addr === execute.addr1) {
+//        execute.inInst.src1 := regFileWriteBack.data
+//      }
+//    }
+//
+//    //ALU result bypass
+//    when(inInst.valid && inInst.ctrl.ren && inInst.ctrl.bypassable){ //TODO bypassable is maybe not usefull
+//      when(inInst.regFileAddress === execute.addr0) {
+//        execute.inInst.src0 := inInst.alu
+//      }
+//      when(inInst.regFileAddress === execute.addr1) {
+//        execute.inInst.src1 := inInst.alu
+//      }
+//    }
+
+
+//    val regFileBypass = new Area{
+//      val valid = RegNext(False)
+//      val addr = RegNext(inInst.regFileAddress)
+//      val data = RegNext(regFileData)
+//    }
+//
+//    when(inInst.fire && inInst.ctrl.ren) {
+//      regFileBypass.valid := True
+//      regFile(inInst.regFileAddress) := regFileData
+//      when(!inInst.ctrl.bypassable && inInst.regFileAddress =/= 0 && (inInst.regFileAddress === execute.addr0 || inInst.regFileAddress === execute.addr1)){//TODO redondoent logic with alu result bypass
+//        execute.hazard := True
+//      }
+//    }
+//    inInst.ready := inInst.ctrl.wb =/= WB.MEM || inInst.ctrl.m =/= M.XRD || io.d.rsp.valid
+//
+//    //Reg file read after write bypass
+//    when(regFileBypass.valid){
+//      when(regFileBypass.addr === execute.addr0) {
+//        execute.inInst.src0 := regFileBypass.data
+//      }
+//      when(regFileBypass.addr === execute.addr1) {
+//        execute.inInst.src1 := regFileBypass.data
+//      }
+//    }
+//
+//    //ALU result bypass
+//    when(inInst.valid && inInst.ctrl.ren && inInst.ctrl.bypassable){ //TODO bypassable is maybe not usefull
+//      when(inInst.regFileAddress === execute.addr0) {
+//        execute.inInst.src0 := inInst.alu
+//      }
+//      when(inInst.regFileAddress === execute.addr1) {
+//        execute.inInst.src1 := inInst.alu
+//      }
+//    }
   }
 
+  val hazardTracker = new  Area{
+    val checkAddr0 = decode.addr0 =/= 0
+    val checkAddr1 = decode.addr1 =/= 0
+    when(checkAddr0 && execute.inInst.valid && decode.addr0 === execute.outInst.regFileAddress && execute.inInst.ctrl.rfen){
+      decode.hazard := True
+    }
+    when(checkAddr1 && execute.inInst.valid && decode.addr1 === execute.outInst.regFileAddress && execute.inInst.ctrl.rfen){
+      decode.hazard := True
+    }
+    when(checkAddr0 && writeBack.inInst.valid && decode.addr0 === writeBack.inInst.regFileAddress && writeBack.inInst.ctrl.rfen){
+      decode.hazard := True
+    }
+    when(checkAddr1 && writeBack.inInst.valid && decode.addr1 === writeBack.inInst.regFileAddress && writeBack.inInst.ctrl.rfen){
+      decode.hazard := True
+    }
+    when(checkAddr0 && writeBack.regFileWriteBack.valid && decode.addr0 === writeBack.regFileWriteBack.addr ){
+      decode.hazard := True
+    }
+    when(checkAddr1 && writeBack.regFileWriteBack.valid && decode.addr1 === writeBack.regFileWriteBack.addr ){
+      decode.hazard := True
+    }
+  }
 }
 
 

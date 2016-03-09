@@ -416,7 +416,7 @@ object Utils{
       op2 : OP2.T = OP2(),
       alu : ALU.T = ALU(),
       wb : WB.T = WB(),
-      ren : Bool = Bool,
+      rfen : Bool = Bool,
       bypassable : Bool = Bool,
       men : Bool = Bool,
       m : M.T = M(),
@@ -486,11 +486,13 @@ object Utils{
 
       FENCE_I -> InstructionCtrl(True , BR.N  , False, OP1.X  , OP2.X   , ALU.X   , WB.X  , False, False, False, M.X  , MSK.X,  CSR.N, MFS.SI),
       FENCE   -> InstructionCtrl(True , BR.N  , False, OP1.X  , OP2.X   , ALU.X   , WB.X  , False, False, True, M.X  , MSK.X,  CSR.N, MFS.SD)
-    
-    
-    
     )
+
   }
+
+  def src0Range = 19 downto 15
+  def src1Range = 24 downto 20
+
 //  SpinalMap
 //                             //
 //                             //   inst val-                                                                                mem flush/sync

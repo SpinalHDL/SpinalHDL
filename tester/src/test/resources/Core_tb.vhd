@@ -20,6 +20,7 @@ entity Core_tb is
 end Core_tb;
 
 architecture arch of Core_tb is
+  signal io_i_flush : std_logic;
   signal io_i_cmd_valid : std_logic;
   signal io_i_cmd_ready : std_logic;
   signal io_i_cmd_payload_pc : unsigned(31 downto 0);
@@ -278,7 +279,7 @@ begin
 
     wait for 100 ns;
 
-     for i in 0 to 100 loop
+     for i in 0 to 0 loop
        --doTest("E:/vm/share/isa/rv32si-p-csr.hex");
        --doTest("E:/vm/share/isa/rv32si-p-illegal.hex");   
        --doTest("E:/vm/share/isa/rv32si-p-ma_addr.hex");   
@@ -384,7 +385,7 @@ begin
       counter <= (others => '0');
     elsif rising_edge(clk) then
       counter <= counter + 1;
-      if io_i_rsp_ready = '1' then
+      if io_i_rsp_ready = '1' or io_i_flush = '1' then
         io_i_rsp_valid <= '0';
         io_i_rsp_payload_pc <= (others => 'X');
         io_i_rsp_payload_instruction <= (others => 'X');
@@ -576,6 +577,7 @@ begin
   -- #spinalEnd userLogics
   uut : entity riscv.Core
     port map (
+      io_i_flush =>  io_i_flush,
       io_i_cmd_valid =>  io_i_cmd_valid,
       io_i_cmd_ready =>  io_i_cmd_ready,
       io_i_cmd_payload_pc =>  io_i_cmd_payload_pc,
