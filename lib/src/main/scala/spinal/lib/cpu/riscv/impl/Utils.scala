@@ -492,6 +492,7 @@ object Utils{
 
   def src0Range = 19 downto 15
   def src1Range = 24 downto 20
+  def regFileRange = 11 downto 7
 
 //  SpinalMap
 //                             //

@@ -279,7 +279,7 @@ begin
 
     wait for 100 ns;
 
-     for i in 0 to 0 loop
+     for i in 0 to 1 loop
        --doTest("E:/vm/share/isa/rv32si-p-csr.hex");
        --doTest("E:/vm/share/isa/rv32si-p-illegal.hex");   
        --doTest("E:/vm/share/isa/rv32si-p-ma_addr.hex");   
@@ -366,8 +366,8 @@ begin
   process(clk)
   begin
     if rising_edge(clk) then
-      io_d_cmd_ready <= randomStdLogic(0.75);
-      io_i_cmd_ready_rand <= randomStdLogic(0.75);
+      io_d_cmd_ready <= randomStdLogic(1.75);
+      io_i_cmd_ready_rand <= randomStdLogic(1.75);
     end if;
   end process;
   
