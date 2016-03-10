@@ -276,15 +276,11 @@ abstract class BaseType extends Node with Data with Nameable {
 
   private[core] def castFrom(opName: String, that: Node, getWidthImpl: (Node) => Int = WidthInfer.inputMaxWidth): this.type = {
     val op = Cast(opName, that, getWidthImpl)
-    this.setInput(op)
+    this.setInput(op)//TODO Should use assignement
     this
   }
 
-  private[core] def enumCastFrom(opName: String, that: Node, getWidthImpl: (Node) => Int = WidthInfer.inputMaxWidth): this.type = {
-    val op = EnumCast(this.asInstanceOf[SpinalEnumCraft[_]], opName, that, getWidthImpl)
-    this.setInput(op)
-    this
-  }
+
 
   private[core] def newFunction(opName: String, args: List[Node], getWidthImpl: (Node) => Int = WidthInfer.inputMaxWidth, simplifyNodeImpl: (Node) => Unit): this.type = {
     val op = Function(opName, args, getWidthImpl, simplifyNodeImpl)

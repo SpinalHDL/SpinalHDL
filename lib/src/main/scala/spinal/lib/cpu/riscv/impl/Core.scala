@@ -48,9 +48,10 @@ class Core(implicit p : CoreParm) extends Component{
   val fetch = new Area {
     val pc = Reg(UInt(pcWidth bit)) init(U(startAddress,pcWidth bit))
     val inc = RegInit(False)
- //   val pcNext = pc + Mux(inc,U(4),U(0))
-    val pcPredict = UInt(32 bit)
-    val pcNext = Mux(inc,pcPredict,pc)
+    val pcNext = pc + Mux(inc,U(4),U(0))
+    //val pcPredict = UInt(32 bit)
+ //   val pcNext = Mux(inc,pcPredict,pc)
+   // val pcNext = UInt(32 bit)
     val pcLoad = Flow(pc)
     io.i.flush := pcLoad.valid
     when(pcLoad.valid){
@@ -87,7 +88,23 @@ class Core(implicit p : CoreParm) extends Component{
       val ctrl = InstructionCtrl()
       val src0 = Bits(32 bit)
       val src1 = Bits(32 bit)
+      val alu_op0 = Bits(32 bit)
+      val alu_op1 = Bits(32 bit)
     }))
+
+    // immediates
+    val imm_i = inInst.instruction(31 downto 20)
+    val imm_s = inInst.instruction(31, 25) ## inInst.instruction(11, 7)
+    val imm_b = inInst.instruction(31) ## inInst.instruction(7) ## inInst.instruction(30 downto 25) ## inInst.instruction(11 downto 8)
+    val imm_u = inInst.instruction(31 downto 12) ## U"x000"
+    val imm_j = inInst.instruction(31) ## inInst.instruction(19 downto 12) ## inInst.instruction(20) ## inInst.instruction(30 downto 21)
+    val imm_z = inInst.instruction(19 downto 15)
+
+    // sign-extend immediates
+    val imm_i_sext = B((19 downto 0) -> imm_i(11)) ## imm_i
+    val imm_s_sext = B((19 downto 0) -> imm_s(11)) ## imm_s
+    val imm_b_sext = B((18 downto 0) -> imm_b(11)) ## imm_b ## False
+    val imm_j_sext = B((10 downto 0) -> imm_j(19)) ## imm_j ## False
 
     outInst.arbitrationFrom(inInst.haltWhen(hazard))
     outInst.pc := inInst.pc
@@ -95,6 +112,17 @@ class Core(implicit p : CoreParm) extends Component{
     outInst.ctrl := InstructionCtrl(inInst.instruction)
     outInst.src0 := Mux(addr0 =/= 0, src0, B(0, 32 bit))
     outInst.src1 := Mux(addr1 =/= 0, src1, B(0, 32 bit))
+    outInst.alu_op0 := outInst.ctrl.op1.map(
+      default -> outInst.src0,
+      OP1.IMU -> imm_u.resized,
+      OP1.IMZ -> imm_z.resized
+    )
+    outInst.alu_op1 := outInst.ctrl.op2.map(
+      default -> outInst.src1,
+      OP2.IMI -> imm_i_sext.resized,
+      OP2.IMS -> imm_s_sext.resized,
+      OP2.PC1 -> inInst.pc.asBits.resized
+    )
   }
 
 
@@ -124,17 +152,7 @@ class Core(implicit p : CoreParm) extends Component{
       val ltu = (inInst.src0.asUInt < inInst.src1.asUInt)
     }
 
-    val alu_op0 = ctrl.op1.map(
-      default -> inInst.src0,
-      OP1.IMU -> imm_u.resized,
-      OP1.IMZ -> imm_z.resized
-    )
-    val alu_op1 = ctrl.op2.map(
-      default -> inInst.src1,
-      OP2.IMI -> imm_i_sext.resized,
-      OP2.IMS -> imm_s_sext.resized,
-      OP2.PC1 -> inInst.pc.asBits.resized
-    )
+
 
     val brjmpImm = Mux(ctrl.jmp, imm_j_sext, imm_b_sext)
     val brJumpPc = inInst.pc + brjmpImm.asUInt
@@ -157,8 +175,8 @@ class Core(implicit p : CoreParm) extends Component{
     outInst.br.eq := br.eq
     outInst.br.lt := br.lt
     outInst.br.ltu := br.ltu
-    outInst.alu_op0 := alu_op0
-    outInst.alu_op1 := alu_op1
+    outInst.alu_op0 := inInst.alu_op0
+    outInst.alu_op1 := inInst.alu_op1
     outInst.src1 := inInst.src1
     outInst.brJumpPc := brJumpPc
     outInst.instruction := inInst.instruction
@@ -192,9 +210,7 @@ class Core(implicit p : CoreParm) extends Component{
     io.d.cmd.size := inInst.ctrl.msk.map(
       default -> U(2), //W
       MSK.B -> U(0),
-      MSK.BU -> U(0),
-      MSK.H -> U(1),
-      MSK.HU -> U(1)
+      MSK.H -> U(1)
     )
 
     val take_evec = False //TODO
@@ -229,12 +245,14 @@ class Core(implicit p : CoreParm) extends Component{
       val alu = Bits(32 bit)
       val regFileAddress = UInt(5 bit)
       val ctrl = InstructionCtrl()
+      val instruction = Bits(32 bit)
     }))
     outInst.arbitrationFrom(inInst.haltWhen((inInst.valid && inInst.ctrl.men && !io.d.cmd.ready)))
     outInst.pc := inInst.pc
     outInst.alu := alu.io.result.asBits
     outInst.regFileAddress := inInst.instruction(regFileRange).asUInt
     outInst.ctrl := inInst.ctrl
+    outInst.instruction := inInst.instruction
   }
 
   val writeBack = new Area{
@@ -242,10 +260,8 @@ class Core(implicit p : CoreParm) extends Component{
 
     val dRspRfmt = inInst.ctrl.msk.map(
       default -> io.d.rsp.payload, //W
-      MSK.B   -> B(default -> io.d.rsp.payload(7),(7 downto 0) -> io.d.rsp.payload(7 downto 0)),
-      MSK.BU  -> B(default -> false,(7 downto 0) -> io.d.rsp.payload(7 downto 0)),
-      MSK.H   -> B(default -> io.d.rsp.payload(15),(15 downto 0) -> io.d.rsp.payload(15 downto 0)),
-      MSK.HU  -> B(default -> false,(15 downto 0) -> io.d.rsp.payload(15 downto 0))
+      MSK.B   -> B(default -> (io.d.rsp.payload(7) && ! inInst.instruction(14)),(7 downto 0) -> io.d.rsp.payload(7 downto 0)),
+      MSK.H   -> B(default -> (io.d.rsp.payload(15) && ! inInst.instruction(14)),(15 downto 0) -> io.d.rsp.payload(15 downto 0))
     )
 
     val regFileData = inInst.ctrl.wb.map (
@@ -267,64 +283,73 @@ class Core(implicit p : CoreParm) extends Component{
     inInst.ready := inInst.ctrl.wb =/= WB.MEM || inInst.ctrl.m =/= M.XRD || io.d.rsp.valid
   }
 
-  val branchPredictor = new Area{
-    val branchPredictorSize = 1<<branchPredictorSizeLog2
-    val cache = Mem(BranchPredictorLine(),branchPredictorSize)
-
-    val line = cache.readSync(fetch.pcNext(branchPredictorSizeLog2-1 downto 0),io.i.cmd.fire  || fetch.pcLoad.fire,writeToReadKind = readFirst)
-    when(line.valid && line.pc === fetch.pc(pcWidth-1 downto branchPredictorSizeLog2)){
-      fetch.pcPredict := line.jump
-    }otherwise{
-      fetch.pcPredict := fetch.pc + 4
-    }
-
-    val write = Flow(wrap(new Bundle{
-      val addr = UInt(branchPredictorSizeLog2 bit)
-      val line = BranchPredictorLine()
-    }))
-
-    when(write.valid){
-      cache(write.addr) := write.line
-    }
-
-    val nextPc = UInt(pcWidth bit)
-    val nextPcReg =  RegNext(nextPc) init(U(startAddress,pcWidth bit))
-    nextPc := nextPcReg
-    when(execute1.inInst.fire){
-      when(execute1.pcLoad.valid){
-        nextPc := execute1.pcLoad.payload
-      }otherwise{
-        nextPc := execute1.inInst.pc + 4
-      }
-    }
-
-
-
-    fetch.pcLoad.valid := execute0.outInst.valid && execute0.outInst.pc =/= nextPc
-    fetch.pcLoad.payload := nextPc
-    //    fetch.pcLoad.valid := execute1.pcLoad.valid
-    //    fetch.pcLoad.payload := execute1.pcLoad.payload
-
-    write.valid := execute1.inInst.fire
-    write.addr := execute1.inInst.pc(branchPredictorSizeLog2-1 downto 0)
-    write.line.valid := True
-    write.line.pc := execute1.inInst.pc(pcWidth-1 downto branchPredictorSizeLog2)
-    write.line.jump := nextPc
-
-
-    val initCounter = RegInit(U(0,branchPredictorSizeLog2+1 bit))
-    val ready = initCounter.msb
-    when(!ready){
-      initCounter := initCounter + 1
-      write.valid := True
-      write.addr := initCounter.resized
-      write.line.valid := False
-      decode.hazard := True
-    }
+  val noBranchPredictor = new Area{
+    fetch.pcLoad.valid := execute1.pcLoad.valid
+    fetch.pcLoad.payload := execute1.pcLoad.payload
+//    fetch.pcNext := fetch.pc + Mux(fetch.inc,U(4),U(0))
 
     val loadCounter = Counter(1<<30,execute1.pcLoad.valid).value.keep()
     val flushCounter = Counter(1<<30,io.i.flush).value.keep()
   }
+
+//  val branchPredictor = new Area{
+//    val branchPredictorSize = 1<<branchPredictorSizeLog2
+//    val cache = Mem(BranchPredictorLine(),branchPredictorSize)
+//
+//    val line = cache.readSync(fetch.pcNext(branchPredictorSizeLog2-1 downto 0),io.i.cmd.fire  || fetch.pcLoad.fire,writeToReadKind = readFirst)
+//    when(line.valid && line.pc === fetch.pc(pcWidth-1 downto branchPredictorSizeLog2)){
+//      fetch.pcPredict := line.jump
+//    }otherwise{
+//      fetch.pcPredict := fetch.pc + 4
+//    }
+//
+//    val write = Flow(wrap(new Bundle{
+//      val addr = UInt(branchPredictorSizeLog2 bit)
+//      val line = BranchPredictorLine()
+//    }))
+//
+//    when(write.valid){
+//      cache(write.addr) := write.line
+//    }
+//
+//    val nextPc = UInt(pcWidth bit)
+//    val nextPcReg =  RegNext(nextPc) init(U(startAddress,pcWidth bit))
+//    nextPc := nextPcReg
+//    when(execute1.inInst.fire){
+//      when(execute1.pcLoad.valid){
+//        nextPc := execute1.pcLoad.payload
+//      }otherwise{
+//        nextPc := execute1.inInst.pc + 4
+//      }
+//    }
+//
+//
+//
+//    fetch.pcLoad.valid := execute0.outInst.valid && execute0.outInst.pc =/= nextPc
+//    fetch.pcLoad.payload := nextPc
+//    //    fetch.pcLoad.valid := execute1.pcLoad.valid
+//    //    fetch.pcLoad.payload := execute1.pcLoad.payload
+//
+//    write.valid := execute1.inInst.fire
+//    write.addr := execute1.inInst.pc(branchPredictorSizeLog2-1 downto 0)
+//    write.line.valid := True
+//    write.line.pc := execute1.inInst.pc(pcWidth-1 downto branchPredictorSizeLog2)
+//    write.line.jump := nextPc
+//
+//
+//    val initCounter = RegInit(U(0,branchPredictorSizeLog2+1 bit))
+//    val ready = initCounter.msb
+//    when(!ready){
+//      initCounter := initCounter + 1
+//      write.valid := True
+//      write.addr := initCounter.resized
+//      write.line.valid := False
+//      decode.hazard := True
+//    }
+//
+//    val loadCounter = Counter(1<<30,execute1.pcLoad.valid).value.keep()
+//    val flushCounter = Counter(1<<30,io.i.flush).value.keep()
+//  }
 
   val hazardTracker = new  Area{
     val checkAddr0 = decode.addr0 =/= 0
