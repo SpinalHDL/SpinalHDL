@@ -5,7 +5,7 @@ import spinal.lib._
 import spinal.lib.cpu.riscv.impl.Utils._
 
 
-case class CoreParm(val pcWidth : Int = 32,val addrWidth : Int = 32,val startAddress : Int = 0)
+case class CoreParm(val pcWidth : Int = 32,val addrWidth : Int = 32,val startAddress : Int = 0,val branchPredictorSizeLog2 : Int = 4)
 
 case class CoreInstCmd(implicit p : CoreParm) extends Bundle{
   val pc = UInt(p.addrWidth bit)
@@ -23,7 +23,11 @@ case class CoreDataCmd(implicit p : CoreParm) extends Bundle{
   val size = UInt(2 bit)
 }
 
-
+case class BranchPredictorLine(implicit p : CoreParm)  extends Bundle{
+  val valid = Bool
+  val pc = UInt(p.pcWidth-p.branchPredictorSizeLog2 bit)
+  val jump = UInt(p.pcWidth bit)
+}
 // assert(latencyAnalysis(io.iCmd.data,io.iRsp.data) == 1)
 class Core(implicit p : CoreParm) extends Component{
   import p._
@@ -44,9 +48,11 @@ class Core(implicit p : CoreParm) extends Component{
   val fetch = new Area {
     val pc = Reg(UInt(pcWidth bit)) init(U(startAddress,pcWidth bit))
     val inc = RegInit(False)
-    val pcNext = pc + Mux(inc,U(4),U(0))
+ //   val pcNext = pc + Mux(inc,U(4),U(0))
+    val pcPredict = UInt(32 bit)
+    val pcNext = Mux(inc,pcPredict,pc)
     val pcLoad = Flow(pc)
-
+    io.i.flush := pcLoad.valid
     when(pcLoad.valid){
       pcNext := pcLoad.payload
     }
@@ -93,7 +99,7 @@ class Core(implicit p : CoreParm) extends Component{
 
 
   val execute0 = new Area {
-    val inInst = decode.outInst.throwWhen(io.i.flush).m2sPipe().throwWhen(io.i.flush)
+    val inInst = decode.outInst.throwWhen(io.i.flush).m2sPipe()
     val ctrl = inInst.ctrl
     val addr0 = inInst.instruction(19 downto 15).asUInt
     val addr1 = inInst.instruction(24 downto 20).asUInt
@@ -159,13 +165,26 @@ class Core(implicit p : CoreParm) extends Component{
   }
 
   val execute1 = new Area{
-    val inInst = execute0.outInst.m2sPipe()
+    val inInst = execute0.outInst.clone()
+    val rValid = RegInit(False)
+    val rData = Reg(execute0.outInst.dataType)
+    execute0.outInst.ready := (!inInst.valid) || inInst.ready
+
+    when(execute0.outInst.ready) {
+      rValid := execute0.outInst.valid
+      rData := execute0.outInst.payload
+    }
+    when(io.i.flush){
+      rValid := False
+    }
+    inInst.valid := rValid
+    inInst.payload := rData
 
     val alu = new Alu
     alu.io.func := inInst.ctrl.alu
     alu.io.src0 := inInst.alu_op0
     alu.io.src1 := inInst.alu_op1
-    
+
     io.d.cmd.valid := inInst.fire && inInst.ctrl.men
     io.d.cmd.wr := inInst.ctrl.m === M.XWR
     io.d.cmd.address := alu.io.result.asUInt
@@ -178,30 +197,28 @@ class Core(implicit p : CoreParm) extends Component{
       MSK.HU -> U(1)
     )
 
-
-
     val take_evec = False //TODO
-
     val ctrl_pc_sel = inInst.ctrl.br.map[PC.T](
-      default -> PC.INC,
-      BR.NE   -> Mux(!inInst.br.eq,  PC.BR1, PC.INC),
-      BR.EQ   -> Mux( inInst.br.eq,  PC.BR1, PC.INC),
-      BR.GE   -> Mux(!inInst.br.lt,  PC.BR1, PC.INC),
-      BR.GEU  -> Mux(!inInst.br.ltu, PC.BR1, PC.INC),
-      BR.LT   -> Mux( inInst.br.lt,  PC.BR1, PC.INC),
-      BR.LTU  -> Mux( inInst.br.ltu, PC.BR1, PC.INC),
-      BR.J    -> PC.J,
-      BR.JR   -> PC.JR
-    )
+        default -> PC.INC,
+        BR.NE   -> Mux(!inInst.br.eq,  PC.BR1, PC.INC),
+        BR.EQ   -> Mux( inInst.br.eq,  PC.BR1, PC.INC),
+        BR.GE   -> Mux(!inInst.br.lt,  PC.BR1, PC.INC),
+        BR.GEU  -> Mux(!inInst.br.ltu, PC.BR1, PC.INC),
+        BR.LT   -> Mux( inInst.br.lt,  PC.BR1, PC.INC),
+        BR.LTU  -> Mux( inInst.br.ltu, PC.BR1, PC.INC),
+        BR.J    -> PC.J,
+        BR.JR   -> PC.JR
+      )
 
     when(take_evec){
       ctrl_pc_sel := PC.EXC
     }
 
-    io.i.flush := ctrl_pc_sel =/= PC.INC && inInst.fire //Throw fetched/decoded instruction if PC is not incremental
+    //    io.i.flush := ctrl_pc_sel =/= PC.INC && inInst.fire //Throw fetched/decoded instruction if PC is not incremental
 
-    fetch.pcLoad.valid := inInst.fire && !(ctrl_pc_sel === PC.INC) && inInst.ctrl.instVal
-    fetch.pcLoad.payload := ctrl_pc_sel.map(
+    val pcLoad = Flow(UInt(pcWidth bit))
+    pcLoad.valid := inInst.fire && !(ctrl_pc_sel === PC.INC) && inInst.ctrl.instVal
+    pcLoad.payload := ctrl_pc_sel.map(
       default -> inInst.brJumpPc,
       PC.EXC -> U(startAddress),
       PC.JR ->  alu.io.adder
@@ -250,6 +267,65 @@ class Core(implicit p : CoreParm) extends Component{
     inInst.ready := inInst.ctrl.wb =/= WB.MEM || inInst.ctrl.m =/= M.XRD || io.d.rsp.valid
   }
 
+  val branchPredictor = new Area{
+    val branchPredictorSize = 1<<branchPredictorSizeLog2
+    val cache = Mem(BranchPredictorLine(),branchPredictorSize)
+
+    val line = cache.readSync(fetch.pcNext(branchPredictorSizeLog2-1 downto 0),io.i.cmd.fire  || fetch.pcLoad.fire,writeToReadKind = readFirst)
+    when(line.valid && line.pc === fetch.pc(pcWidth-1 downto branchPredictorSizeLog2)){
+      fetch.pcPredict := line.jump
+    }otherwise{
+      fetch.pcPredict := fetch.pc + 4
+    }
+
+    val write = Flow(wrap(new Bundle{
+      val addr = UInt(branchPredictorSizeLog2 bit)
+      val line = BranchPredictorLine()
+    }))
+
+    when(write.valid){
+      cache(write.addr) := write.line
+    }
+
+    val nextPc = UInt(pcWidth bit)
+    val nextPcReg =  RegNext(nextPc) init(U(startAddress,pcWidth bit))
+    nextPc := nextPcReg
+    when(execute1.inInst.fire){
+      when(execute1.pcLoad.valid){
+        nextPc := execute1.pcLoad.payload
+      }otherwise{
+        nextPc := execute1.inInst.pc + 4
+      }
+    }
+
+
+
+    fetch.pcLoad.valid := execute0.outInst.valid && execute0.outInst.pc =/= nextPc
+    fetch.pcLoad.payload := nextPc
+    //    fetch.pcLoad.valid := execute1.pcLoad.valid
+    //    fetch.pcLoad.payload := execute1.pcLoad.payload
+
+    write.valid := execute1.inInst.fire
+    write.addr := execute1.inInst.pc(branchPredictorSizeLog2-1 downto 0)
+    write.line.valid := True
+    write.line.pc := execute1.inInst.pc(pcWidth-1 downto branchPredictorSizeLog2)
+    write.line.jump := nextPc
+
+
+    val initCounter = RegInit(U(0,branchPredictorSizeLog2+1 bit))
+    val ready = initCounter.msb
+    when(!ready){
+      initCounter := initCounter + 1
+      write.valid := True
+      write.addr := initCounter.resized
+      write.line.valid := False
+      decode.hazard := True
+    }
+
+    val loadCounter = Counter(1<<30,execute1.pcLoad.valid).value.keep()
+    val flushCounter = Counter(1<<30,io.i.flush).value.keep()
+  }
+
   val hazardTracker = new  Area{
     val checkAddr0 = decode.addr0 =/= 0
     val checkAddr1 = decode.addr1 =/= 0
@@ -285,10 +361,27 @@ class Core(implicit p : CoreParm) extends Component{
 
 object CoreMain{
   def main(args: Array[String]) {
-    implicit val p = CoreParm(32,32,0x200)
+    implicit val p = CoreParm(32,32,0x200,7)
     SpinalVhdl(new Core(),_.setLibrary("riscv"))
   }
 }
+
+
+//    val hit = new Area{
+//      val line = cache(execute1.inInst.pc(branchPredictorSizeLog2-1 downto 0)) //TODO OPT
+//      val valid = line.valid && line.pc === execute1.inInst.pc(pcWidth-1 downto branchPredictorSizeLog2)
+//    }
+//    when(execute1.inInst.fire){
+//      when(execute1.pcLoad.valid){
+//        write.valid := hit.valid
+//        write.line.valid := True
+//      }otherwise{
+//        when(hit.valid){
+//          write.valid := True
+//          write.line.valid := False
+//        }
+//      }
+//    }
 
 
 //val br_src0 = (src0.msb && br_signed) ## src0

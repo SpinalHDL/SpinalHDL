@@ -279,7 +279,7 @@ begin
 
     wait for 100 ns;
 
-     for i in 0 to 1 loop
+     for i in 0 to 0 loop
        --doTest("E:/vm/share/isa/rv32si-p-csr.hex");
        --doTest("E:/vm/share/isa/rv32si-p-illegal.hex");   
        --doTest("E:/vm/share/isa/rv32si-p-ma_addr.hex");   
