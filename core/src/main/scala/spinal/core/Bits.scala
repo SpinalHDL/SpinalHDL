@@ -82,7 +82,7 @@ class Bits extends BitVector {
   private[core] override def isNotEguals(that: Any): Bool = {
     that match {
       case that: Bits => newLogicalOperator("b!=b", that, InputNormalize.inputWidthMax,ZeroWidth.binaryThatIfBoth(False));
-      case that : MaskedLiteral => that === this
+      case that : MaskedLiteral => that =/= this
       case _ => SpinalError(s"Don't know how compare $this with $that"); null
     }
   }

@@ -39,7 +39,11 @@ architecture arch of Core_tb is
   signal clk : std_logic;
   signal reset : std_logic;
   -- #spinalBegin userDeclarations
+  constant doBench : Boolean := true;
+  constant doTestWithStall : Boolean := true;
   
+  
+  signal inBench : Boolean := false;
   component CoreCH 
     port (
      clk                                  : in   std_logic;
@@ -279,7 +283,7 @@ begin
 
     wait for 100 ns;
 
-     for i in 0 to 0 loop
+     for i in 0 to 100 loop
        --doTest("E:/vm/share/isa/rv32si-p-csr.hex");
        --doTest("E:/vm/share/isa/rv32si-p-illegal.hex");   
        --doTest("E:/vm/share/isa/rv32si-p-ma_addr.hex");   
@@ -343,7 +347,11 @@ begin
        doTest("E:/vm/share/isa/rv32ui-p-xori.hex");   
        wait for 1 us;
        report integer'image(testCount - errorCount) & "/" & integer'image(testCount) & " -> "  & integer'image(errorCount) & " error";
+       if doBench then
+        exit;
+       end if;
      end loop;
+     inBench <= true;
      wait for 1 us;
      doTest("E:/vm/share/a.hex",1024*1024*1024);
     
@@ -366,8 +374,13 @@ begin
   process(clk)
   begin
     if rising_edge(clk) then
-      io_d_cmd_ready <= randomStdLogic(1.75);
-      io_i_cmd_ready_rand <= randomStdLogic(1.75);
+      if inBench or not doTestWithStall then
+        io_d_cmd_ready <= '1';
+        io_i_cmd_ready_rand <= '1';
+      else
+        io_d_cmd_ready <= randomStdLogic(0.75);
+        io_i_cmd_ready_rand <= randomStdLogic(0.75);
+      end if;
     end if;
   end process;
   

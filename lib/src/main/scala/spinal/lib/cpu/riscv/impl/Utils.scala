@@ -114,6 +114,8 @@ object Utils{
       SRA1 -> (8+5)
     )
     def X = ADD
+    def isSltX(that : T) =  that.asBits === M"-01-"
+    def isAddSub(that : T) =  that.asBits === M"-000"
   }
   def apply(x : Int) = 2
 
@@ -134,7 +136,7 @@ object Utils{
       val alu = ALU()
       val wb  = WB()
       val rfen = Bool
-      val bypassable  = Bool
+      val aluBypass  = Bool
       val men  = Bool
       val m  = M()
       val msk = MSK()
@@ -150,6 +152,7 @@ object Utils{
   def BASE_LUI             = M"-------------------------01101--"
   def BASE_OPX             = M"-------------------------0-100--"
   def BASE_OPX_I           = M"--------------------------0-----"
+  def BASE_OPX_SHIFT       = M"------------------01------------"
   def BASE_JALR            = M"-------------------------11001--"
   def BASE_JAL             = M"-------------------------11011--"
   def BASE_B               = M"-------------------------11000--"
@@ -172,7 +175,7 @@ object Utils{
       ctrl.alu := ALU.ADD
       ctrl.wb := WB.X
       ctrl.rfen := False
-      ctrl.bypassable  := False
+      ctrl.aluBypass  := False
       ctrl.men := False
       ctrl.m := M.XRD
       ctrl.msk.assignFromBits(instruction(13,12))
@@ -202,7 +205,7 @@ object Utils{
           ctrl.alu := ALU.ADD
           ctrl.wb  := WB.ALU1
           ctrl.rfen := True
-          ctrl.bypassable := True
+          ctrl.aluBypass := True
         }
         when(instruction === BASE_LUI){
           ctrl.instVal := True
@@ -210,7 +213,7 @@ object Utils{
           ctrl.alu := ALU.COPY1
           ctrl.wb  := WB.ALU1
           ctrl.rfen := True
-          ctrl.bypassable := True
+          ctrl.aluBypass := True
         }
         when(instruction === BASE_OPX){
           ctrl.instVal := True
@@ -228,7 +231,7 @@ object Utils{
           ctrl.alu.assignFromBits(extra ## instruction(14 downto 12))
           ctrl.wb  := WB.ALU1
           ctrl.rfen := True
-          ctrl.bypassable := True
+          ctrl.aluBypass := instruction =/= BASE_OPX_SHIFT
         }
         when(instruction === BASE_JAL){
           ctrl.instVal := True
@@ -236,7 +239,7 @@ object Utils{
           ctrl.jmp := True
           ctrl.wb := WB.PC4
           ctrl.rfen := True
-          ctrl.bypassable := True
+          ctrl.aluBypass := False //TODO
         }
         when(instruction === BASE_JALR){
           ctrl.instVal := True
@@ -269,9 +272,27 @@ object Utils{
     }
   }
 
+
+
+  case class IMM(instruction  : Bits) extends Area{
+    // immediates
+    def i = instruction(31 downto 20)
+    def s = instruction(31, 25) ## instruction(11, 7)
+    def b = instruction(31) ## instruction(7) ## instruction(30 downto 25) ## instruction(11 downto 8)
+    def u = instruction(31 downto 12) ## U"x000"
+    def j = instruction(31) ## instruction(19 downto 12) ## instruction(20) ## instruction(30 downto 21)
+    def z = instruction(19 downto 15)
+
+    // sign-extend immediates
+    def i_sext = B((19 downto 0) -> i(11)) ## i
+    def s_sext = B((19 downto 0) -> s(11)) ## s
+    def b_sext = B((18 downto 0) -> b(11)) ## b ## False
+    def j_sext = B((10 downto 0) -> j(19)) ## j ## False
+  }
+
   def src0Range = 19 downto 15
   def src1Range = 24 downto 20
-  def regFileRange = 11 downto 7
+  def dstRange = 11 downto 7
 }
 
 

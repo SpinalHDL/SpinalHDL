@@ -7,6 +7,7 @@ import spinal.lib.Reverse
 class Alu extends Component{
   val io = new Bundle{
     val func = in(ALU)
+    val doSub = in Bool
     val src0 = in Bits(32 bit)
     val src1 = in Bits(32 bit)
     val result = out Bits(32 bit)
@@ -16,7 +17,7 @@ class Alu extends Component{
   val msb = 31
 
   // ADD, SUB
-  val addSub = (io.src0.asSInt + Mux(io.func === ALU.ADD, io.src1.asSInt, (-io.src1.asSInt))).asBits
+  val addSub = (io.src0.asSInt + Mux(io.doSub, ~io.src1, io.src1).asSInt + Mux(io.doSub,S(1),S(0))).asBits
 
   // AND, OR, XOR, COPY0
   val bitwise = io.func.map(
@@ -44,8 +45,19 @@ class Alu extends Component{
     (ALU.SLT,ALU.SLTU) -> less.asBits(32 bit),
     (ALU.ADD,ALU.SUB1) -> addSub,
     default  -> bitwise
+//    (ALU.SLT,ALU.SLTU) -> less.asBits(32 bit),
+//    (ALU.AND1,ALU.OR1,ALU.XOR1,ALU.COPY1) -> bitwise,
+//    default  -> addSub
   )
 
+//  io.result := bitwise
+//  when(ALU.isSltX(io.func)){
+//    io.result := less.asBits(32 bit)
+//  }
+//  when(ALU.isAddSub(io.func)){
+//    io.result := addSub
+//  }
+//
   io.adder := addSub.asUInt
 }
 

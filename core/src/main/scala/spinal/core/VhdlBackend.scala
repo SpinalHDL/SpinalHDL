@@ -1109,9 +1109,14 @@ class VhdlBackend extends Backend with VhdlBase {
     }
     if(encodingDst.isNative && encodingSrc.isNative)
       emitLogic(func.inputs(0))
-    else
-      s"${getReEncodingFuntion(enumCast.enum.blueprint.asInstanceOf[SpinalEnum], enumCast.inputs(0).asInstanceOf[SpinalEnumCraft[_]].encoding, enumCast.enum.encoding)}(${func.inputs.map(emitLogic(_)).reduce(_ + "," + _)})"
-  }
+    else{
+      val encoding = enumCast.inputs(0) match{
+        case input : SpinalEnumCraft[_] => input.encoding
+        case input : EnumLiteral[_] => input.encoding
+      }
+      s"${getReEncodingFuntion(enumCast.enum.blueprint.asInstanceOf[SpinalEnum], encoding, enumCast.enum.encoding)}(${func.inputs.map(emitLogic(_)).reduce(_ + "," + _)})"
+    }
+ }
 
   val modifierImplMap = mutable.Map[String, Modifier => String]()
 
