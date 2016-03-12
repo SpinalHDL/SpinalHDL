@@ -5,13 +5,22 @@ import spinal.lib._
 import spinal.lib.cpu.riscv.impl.Utils._
 
 
-case class CoreParm(val pcWidth : Int = 32,val addrWidth : Int = 32,val startAddress : Int = 0,val branchPredictorSizeLog2 : Int = 4)
+case class CoreParm(val pcWidth : Int = 32,
+                    val addrWidth : Int = 32,
+                    val startAddress : Int = 0,
+                    val bypassExecute0 : Boolean = true,
+                    val bypassExecute1 : Boolean = true,
+                    val bypassWriteBack : Boolean = true,
+                    val pendingI : Int = 1,
+                    val enableDynamicBranchPrediction : Boolean = false,
+                    val branchPredictorSizeLog2 : Int = 4,
+                    val branchPredictorHistoryWidth : Int = 2
+                     )
 
 case class CoreInstCmd(implicit p : CoreParm) extends Bundle{
   val pc = UInt(p.addrWidth bit)
 }
 case class CoreInstRsp(implicit p : CoreParm) extends Bundle{
-  val pc = UInt(p.pcWidth bit)
   val instruction = Bits(32 bit)
 }
 
@@ -25,12 +34,13 @@ case class CoreDataCmd(implicit p : CoreParm) extends Bundle{
 
 case class BranchPredictorLine(implicit p : CoreParm)  extends Bundle{
   val valid = Bool
-  val pc = UInt(p.pcWidth-p.branchPredictorSizeLog2 bit)
-  val jump = UInt(p.pcWidth bit)
+  val pc = UInt(p.pcWidth-p.branchPredictorSizeLog2-2 bit)
+  val history = SInt(2 bit)
 }
 // assert(latencyAnalysis(io.iCmd.data,io.iRsp.data) == 1)
 class Core(implicit p : CoreParm) extends Component{
   import p._
+  assert(pendingI == 1)
   val io = new Bundle{
     val i = new Bundle {
       val flush = out Bool
@@ -44,8 +54,9 @@ class Core(implicit p : CoreParm) extends Component{
   }
   io.i.flush := False
   val regFile = Mem(Bits(32 bit),32)
+  val brancheCache = Mem(BranchPredictorLine(), 1<<branchPredictorSizeLog2) // TODO init it + manage valid
 
-  val fetch = new Area {
+  val fetchCmd = new Area {
     val pc = Reg(UInt(pcWidth bit)) init(U(startAddress,pcWidth bit))
     val inc = RegInit(False)
     val pcNext = pc + Mux(inc,U(4),U(0))
@@ -65,17 +76,37 @@ class Core(implicit p : CoreParm) extends Component{
     }.elsewhen(pcLoad.valid){
       inc := False
     }
+
+    val outInst = Stream(wrap(new Bundle{
+      val pc = UInt(pcWidth bit)
+    }))
+    outInst.valid := io.i.cmd.fire
+    outInst.pc := pcNext
   }
+  val fetch = new Area {
+    val inContext = fetchCmd.outInst.throwWhen(io.i.flush).m2sPipe()
+    inContext.ready := io.i.rsp.ready
 
+    val outInst = Stream(wrap(new Bundle {
+      val pc = UInt(pcWidth bit)
+      val instruction = Bits(32 bit)
+      val branchCacheLine = BranchPredictorLine()
+    }))
+    outInst.arbitrationFrom(io.i.rsp)
+    outInst.pc := inContext.pc
+    outInst.instruction := io.i.rsp.instruction
+    outInst.branchCacheLine := brancheCache.readSync(Mux(inContext.isStall,inContext.pc,fetchCmd.outInst.pc)(2, branchPredictorSizeLog2 bit))
+  }
   val decode = new Area{
-    val hazard = False
-    val inInst = io.i.rsp.throwWhen(io.i.flush).m2sPipe()
+    
+    val inInst = fetch.outInst.throwWhen(io.i.flush).m2sPipe()
     val ctrl = InstructionCtrl(inInst.instruction)
-
+    val hazard = False
+    
     val addr0 = inInst.instruction(src0Range).asUInt
     val addr1 = inInst.instruction(src1Range).asUInt
 
-    val srcInstruction = Mux(inInst.isStall,inInst.instruction,io.i.rsp.instruction)
+    val srcInstruction = Mux(inInst.isStall,inInst.instruction,fetch.outInst.instruction)
     val src0 = regFile.readSync(srcInstruction(src0Range).asUInt)  //Overridden by the write back stage
     val src1 = regFile.readSync(srcInstruction(src1Range).asUInt)
 
@@ -89,15 +120,26 @@ class Core(implicit p : CoreParm) extends Component{
       val alu_op1 = Bits(32 bit)
       val doSub = Bool
       val predictorHasBranch = Bool
+      val branchHistory = Flow(SInt(branchPredictorHistoryWidth bit))
     }))
 
     val imm = IMM(inInst.instruction)
 
+    val branchCacheHit = inInst.branchCacheLine.pc === inInst.pc(pcWidth-1 downto 2 + branchPredictorSizeLog2)
+
     val brjmpImm = Mux(ctrl.jmp, imm.j_sext, imm.b_sext)
     val brJumpPc = inInst.pc + brjmpImm.asUInt
+    val staticBranchPrediction = brjmpImm.msb || ctrl.br === BR.J
+    val shouldTakeBranch = Bool
+    shouldTakeBranch := staticBranchPrediction
+    if(enableDynamicBranchPrediction) {
+      when(branchCacheHit) {
+        shouldTakeBranch := inInst.branchCacheLine.history.msb
+      }
+    }
 
     val pcLoad = Flow(UInt(pcWidth bit))  //give token to pcload.valid and remove hazard flag
-    pcLoad.valid := inInst.valid && !hazard && outInst.ready && (ctrl.br =/= BR.JR && ctrl.br =/= BR.N) && ctrl.instVal && (brjmpImm.msb || ctrl.br === BR.J)
+    pcLoad.valid := inInst.valid && !hazard && outInst.ready && (ctrl.br =/= BR.JR && ctrl.br =/= BR.N) && ctrl.instVal && shouldTakeBranch
     pcLoad.payload := brJumpPc
 
     outInst.arbitrationFrom(inInst.haltWhen(hazard))
@@ -119,6 +161,8 @@ class Core(implicit p : CoreParm) extends Component{
       OP2.PC1 -> inInst.pc.asBits.resized
     )
     outInst.predictorHasBranch := pcLoad.valid
+    outInst.branchHistory.valid := branchCacheHit
+    outInst.branchHistory.payload := inInst.branchCacheLine.history
 
     val flush = False
     when(flush){
@@ -164,7 +208,9 @@ class Core(implicit p : CoreParm) extends Component{
       val instruction = Bits(32 bit)
       val alu = Bits(32 bit)
       val adder = UInt(32 bit)
+      val shift = Bits(32 bit)
       val predictorHasBranch = Bool
+      val branchHistory = Flow(SInt(branchPredictorHistoryWidth bit))
       val pcPlus4 = UInt(32 bit)
     }))
     outInst.arbitrationFrom(inInst)
@@ -178,7 +224,10 @@ class Core(implicit p : CoreParm) extends Component{
     outInst.instruction := inInst.instruction
     outInst.alu := alu.io.result
     outInst.adder := alu.io.adder
+    outInst.shift := alu.io.shift
     outInst.predictorHasBranch := inInst.predictorHasBranch
+    outInst.branchHistory.valid   := inInst.branchHistory.valid
+    outInst.branchHistory.payload := inInst.branchHistory.payload
     outInst.pcPlus4 := inInst.pc + 4
 
 
@@ -245,6 +294,21 @@ class Core(implicit p : CoreParm) extends Component{
       PC.INC -> inInst.pcPlus4
     )
 
+    when(inInst.fire && inInst.ctrl.br =/= BR.JR && inInst.ctrl.br =/= BR.N && inInst.ctrl.br =/= BR.J){
+      val line = BranchPredictorLine()
+      val newHistory = inInst.branchHistory.payload.resize(branchPredictorHistoryWidth + 1) + Mux(ctrl_pc_sel === PC.INC,S(1),S(-1))
+      line.pc := inInst.pc(pcWidth-1 downto 2 + branchPredictorSizeLog2)
+      when(inInst.branchHistory.valid){
+        line.history := newHistory.resized
+      }otherwise {
+        line.history := (ctrl_pc_sel =/= PC.INC).asSInt.resized
+      }
+      line.valid := True
+      when(newHistory(newHistory.high downto newHistory.high - 1) =/= S"10") { //no history overflow
+        brancheCache(inInst.pc(2, branchPredictorSizeLog2 bit)) := line
+      }
+    }
+
     val outInst = Stream(wrap(new Bundle {
       val pc = UInt(pcWidth bit)
       val alu = Bits(32 bit)
@@ -255,7 +319,11 @@ class Core(implicit p : CoreParm) extends Component{
     }))
     outInst.arbitrationFrom(inInst.haltWhen((inInst.valid && inInst.ctrl.men && !io.d.cmd.ready)))
     outInst.pc := inInst.pc
-    outInst.alu := inInst.alu
+    outInst.alu := inInst.ctrl.alu.map(
+      (ALU.SLL1) -> Reverse(inInst.shift),
+      (ALU.SRL1,ALU.SRA1) -> inInst.shift,
+      default -> inInst.alu
+    )
     outInst.regFileAddress := inInst.instruction(dstRange).asUInt
     outInst.ctrl := inInst.ctrl
     outInst.instruction := inInst.instruction
@@ -323,17 +391,16 @@ class Core(implicit p : CoreParm) extends Component{
 
 
   val branchArbiter = new Area {
-      fetch.pcLoad.valid := decode.pcLoad.valid
-      fetch.pcLoad.payload := decode.pcLoad.payload
+      fetchCmd.pcLoad.valid := decode.pcLoad.valid
+      fetchCmd.pcLoad.payload := decode.pcLoad.payload
       when(decode.pcLoad.valid){
         decode.flush := True
       }
       when(execute1.pcLoad.valid){
         execute0.flush :=  True
-        fetch.pcLoad.valid := True
-        fetch.pcLoad.payload := execute1.pcLoad.payload
+        fetchCmd.pcLoad.valid := True
+        fetchCmd.pcLoad.payload := execute1.pcLoad.payload
       }
-    
 
     val loadCounter = Counter(1<<30,execute1.pcLoad.valid).value.keep()
     val flushCounter = Counter(1<<30,io.i.flush).value.keep()
@@ -341,22 +408,33 @@ class Core(implicit p : CoreParm) extends Component{
 
 
   val hazardTracker = new  Area {
-    writeBack.doBypass()
-    execute1.doBypass()
-    execute0.doBypass()
-
-
     val checkAddr0 = decode.addr0 =/= 0
     val checkAddr1 = decode.addr1 =/= 0
-    when(execute0.inInst.valid && execute0.inInst.ctrl.rfen && !execute0.inInst.ctrl.aluBypass){
-      when(checkAddr0 && decode.addr0 === execute0.outInst.instruction(dstRange).asUInt) {
-        decode.hazard := True
+
+    if(bypassWriteBack) {
+      writeBack.doBypass()
+    }else{
+      when(writeBack.inInst.valid && writeBack.inInst.ctrl.rfen) {
+        when(checkAddr0 && decode.addr0 === writeBack.inInst.regFileAddress) {
+          decode.hazard := True
+        }
+        when(checkAddr1 && writeBack.inInst.valid && decode.addr1 === writeBack.inInst.regFileAddress && writeBack.inInst.ctrl.rfen) {
+          decode.hazard := True
+        }
       }
-      when(checkAddr1 && decode.addr1 === execute0.outInst.instruction(dstRange).asUInt) {
-        decode.hazard := True
+      when(writeBack.regFileWriteBack.valid) {
+        when(checkAddr0 && decode.addr0 === writeBack.regFileWriteBack.addr) {
+          decode.hazard := True
+        }
+        when(checkAddr1 && decode.addr1 === writeBack.regFileWriteBack.addr) {
+          decode.hazard := True
+        }
       }
     }
-    when(execute1.inInst.valid && execute1.inInst.ctrl.rfen && !execute1.inInst.ctrl.aluBypass) {
+    if(bypassExecute1) {
+      execute1.doBypass()
+    }
+    when(execute1.inInst.valid && execute1.inInst.ctrl.rfen && (Bool(!bypassExecute1) || !execute1.inInst.ctrl.aluBypass)) { //TODO alu execute 1 by pass != aluBypass
       when(checkAddr0 && decode.addr0 === execute1.outInst.regFileAddress) {
         decode.hazard := True
       }
@@ -364,20 +442,16 @@ class Core(implicit p : CoreParm) extends Component{
         decode.hazard := True
       }
     }
-    when(writeBack.inInst.valid && writeBack.inInst.ctrl.rfen ) {
-      when(checkAddr0 && decode.addr0 === writeBack.inInst.regFileAddress) {
-//        decode.hazard := True
-      }
-      when(checkAddr1 && writeBack.inInst.valid && decode.addr1 === writeBack.inInst.regFileAddress && writeBack.inInst.ctrl.rfen) {
-//        decode.hazard := True
-      }
+
+    if(bypassExecute0) {
+      execute0.doBypass()
     }
-    when(writeBack.regFileWriteBack.valid) {
-      when(checkAddr0 && decode.addr0 === writeBack.regFileWriteBack.addr) {
-//        decode.hazard := True
+    when(execute0.inInst.valid && execute0.inInst.ctrl.rfen && (Bool(!bypassExecute0) || !execute0.inInst.ctrl.aluBypass)){
+      when(checkAddr0 && decode.addr0 === execute0.outInst.instruction(dstRange).asUInt) {
+        decode.hazard := True
       }
-      when(checkAddr1 && decode.addr1 === writeBack.regFileWriteBack.addr) {
-//        decode.hazard := True
+      when(checkAddr1 && decode.addr1 === execute0.outInst.instruction(dstRange).asUInt) {
+        decode.hazard := True
       }
     }
   }
@@ -388,90 +462,22 @@ class Core(implicit p : CoreParm) extends Component{
 
 object CoreMain{
   def main(args: Array[String]) {
-    implicit val p = CoreParm(32,32,0x200,7)
+    implicit val p = CoreParm(
+      pcWidth = 32,
+      addrWidth = 32,
+      enableDynamicBranchPrediction = false,
+      bypassExecute0 = false,
+      bypassExecute1 = false,
+      bypassWriteBack = false,
+      startAddress = 0x200,
+      branchPredictorSizeLog2 = 7)
     SpinalVhdl(new Core(),_.setLibrary("riscv"))
   }
 }
 
-
-//    val hit = new Area{
-//      val line = cache(execute1.inInst.pc(branchPredictorSizeLog2-1 downto 0)) //TODO OPT
-//      val valid = line.valid && line.pc === execute1.inInst.pc(pcWidth-1 downto branchPredictorSizeLog2)
-//    }
-//    when(execute1.inInst.fire){
-//      when(execute1.pcLoad.valid){
-//        write.valid := hit.valid
-//        write.line.valid := True
-//      }otherwise{
-//        when(hit.valid){
-//          write.valid := True
-//          write.line.valid := False
-//        }
-//      }
-//    }
 
 
 //val br_src0 = (src0.msb && br_signed) ## src0
 //val br_src1 = (src1.msb && br_signed) ## src1
 //br_result :=  Mux(br_eq,(src0 === src1),(br_src0.asUInt-br_src1.asUInt).msb)
 
-
-
-
-
-//
-//    //Reg file read after write bypass
-//    when(regFileWriteBack.valid){
-//      when(regFileWriteBack.addr === execute.addr0) {
-//        execute.inInst.src0 := regFileWriteBack.data
-//      }
-//      when(regFileWriteBack.addr === execute.addr1) {
-//        execute.inInst.src1 := regFileWriteBack.data
-//      }
-//    }
-//
-//    //ALU result bypass
-//    when(inInst.valid && inInst.ctrl.ren && inInst.ctrl.bypassable){ //TODO bypassable is maybe not usefull
-//      when(inInst.regFileAddress === execute.addr0) {
-//        execute.inInst.src0 := inInst.alu
-//      }
-//      when(inInst.regFileAddress === execute.addr1) {
-//        execute.inInst.src1 := inInst.alu
-//      }
-//    }
-
-
-//    val regFileBypass = new Area{
-//      val valid = RegNext(False)
-//      val addr = RegNext(inInst.regFileAddress)
-//      val data = RegNext(regFileData)
-//    }
-//
-//    when(inInst.fire && inInst.ctrl.ren) {
-//      regFileBypass.valid := True
-//      regFile(inInst.regFileAddress) := regFileData
-//      when(!inInst.ctrl.bypassable && inInst.regFileAddress =/= 0 && (inInst.regFileAddress === execute.addr0 || inInst.regFileAddress === execute.addr1)){//TODO redondoent logic with alu result bypass
-//        execute.hazard := True
-//      }
-//    }
-//    inInst.ready := inInst.ctrl.wb =/= WB.MEM || inInst.ctrl.m =/= M.XRD || io.d.rsp.valid
-//
-//    //Reg file read after write bypass
-//    when(regFileBypass.valid){
-//      when(regFileBypass.addr === execute.addr0) {
-//        execute.inInst.src0 := regFileBypass.data
-//      }
-//      when(regFileBypass.addr === execute.addr1) {
-//        execute.inInst.src1 := regFileBypass.data
-//      }
-//    }
-//
-//    //ALU result bypass
-//    when(inInst.valid && inInst.ctrl.ren && inInst.ctrl.bypassable){ //TODO bypassable is maybe not usefull
-//      when(inInst.regFileAddress === execute.addr0) {
-//        execute.inInst.src0 := inInst.alu
-//      }
-//      when(inInst.regFileAddress === execute.addr1) {
-//        execute.inInst.src1 := inInst.alu
-//      }
-//    }

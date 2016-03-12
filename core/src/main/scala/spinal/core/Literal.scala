@@ -28,7 +28,8 @@ abstract class BitVectorLiteralFactory[T <: BitVector] {
   def apply(): T
   def apply(value: BigInt): T = BitsLiteral(value, -1, this())
   def apply(value: BigInt, width: BitCount): T = BitsLiteral(value, width.value, this().setWidth(width.value))
-  def apply(value: String): T = bitVectorStringParser(this,value)
+  def apply(value: String): T = bitVectorStringParser(this,value,isSigned)
+  def isSigned : Boolean
 
   private[core] def newInstance(bitCount : BitCount) : T
   def apply(bitCount : BitCount,rangesValue : Tuple2[Any,Any], _rangesValues: Tuple2[Any,Any]*) : T = this.aggregate(bitCount,rangesValue +: _rangesValues)
@@ -85,16 +86,20 @@ abstract class BitVectorLiteralFactory[T <: BitVector] {
 object B extends BitVectorLiteralFactory[Bits] {
   def apply() : Bits = new Bits()
   override private[core] def newInstance(bitCount: BitCount): Bits = Bits(bitCount)
+
+  override def isSigned: Boolean = false
 }
 
 object U extends BitVectorLiteralFactory[UInt] {
   def apply() : UInt = new UInt()
   override private[core] def newInstance(bitCount: BitCount): UInt = UInt(bitCount)
+  override def isSigned: Boolean = false
 }
 
 object S extends BitVectorLiteralFactory[SInt] {
   def apply() : SInt = new SInt()
   override private[core] def newInstance(bitCount: BitCount): SInt = SInt(bitCount)
+  override def isSigned: Boolean = true
 }
 
 
@@ -112,7 +117,7 @@ object BitsLiteral {
     var bitCount = specifiedBitCount
     if (!on.isInstanceOf[SInt] && value < 0) throw new Exception("literal value is negative and can be represented")
     if (bitCount != -1) {
-      if (valueBitCount > bitCount) throw new Exception("literal width specification is to little")
+      if (valueBitCount > bitCount) throw new Exception("literal width specification is to small")
     } else {
       bitCount = valueBitCount
     }

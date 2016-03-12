@@ -74,14 +74,14 @@ package object core extends BaseTypeFactory with BaseTypeCast{
   implicit def BigIntToBits(that: BigInt) = B(that)
 
 
-  implicit def StringToBits(that: String) = bitVectorStringParser(spinal.core.B, that)
-  implicit def StringToUInt(that: String) = bitVectorStringParser(spinal.core.U, that)
-  implicit def StringToSInt(that: String) = bitVectorStringParser(spinal.core.S, that)
+  implicit def StringToBits(that: String) = bitVectorStringParser(spinal.core.B, that,false)
+  implicit def StringToUInt(that: String) = bitVectorStringParser(spinal.core.U, that,false)
+  implicit def StringToSInt(that: String) = bitVectorStringParser(spinal.core.S, that,true)
 
   implicit class LiteralBuilder(private val sc: StringContext) extends AnyVal {
-    def B(args: Any*): Bits = bitVectorStringParser(spinal.core.B, getString(args))
-    def U(args: Any*): UInt = bitVectorStringParser(spinal.core.U, getString(args))
-    def S(args: Any*): SInt = bitVectorStringParser(spinal.core.S, getString(args))
+    def B(args: Any*): Bits = bitVectorStringParser(spinal.core.B, getString(args),false)
+    def U(args: Any*): UInt = bitVectorStringParser(spinal.core.U, getString(args),false)
+    def S(args: Any*): SInt = bitVectorStringParser(spinal.core.S, getString(args),true)
     def M(args: Any*): MaskedLiteral = MaskedLiteral(sc.parts(0))
 
 
@@ -107,7 +107,7 @@ package object core extends BaseTypeFactory with BaseTypeCast{
   }
 
 
-  private[core] def bitVectorStringParser[T <: BitVector](builder: BitVectorLiteralFactory[T], arg: String): T = {
+  private[core] def bitVectorStringParser[T <: BitVector](builder: BitVectorLiteralFactory[T], arg: String,signed : Boolean): T = {
     var last = 0;
     var idx = 0
     val cleanedArg = arg.replace("_", "")
@@ -132,7 +132,13 @@ package object core extends BaseTypeFactory with BaseTypeCast{
       val value = BigInt(cleanedArg.substring(tildPos + 2,cleanedArgSize), radix)
       return builder(value, new BitCount(bitCount))
     }else if("01".contains(cleanedArg.charAt(0))){
-      val value = if(cleanedArg != "") BigInt(cleanedArg,2) else BigInt(0)
+      val value = if(cleanedArg != "") {
+        if(signed && cleanedArg.head == '1')
+          BigInt(cleanedArg,2)-(BigInt(1) << cleanedArgSize)
+        else
+          BigInt(cleanedArg,2)
+      } else
+        BigInt(0)
       return builder(value,cleanedArgSize bit)
     }
 

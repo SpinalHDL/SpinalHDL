@@ -12,6 +12,7 @@ class Alu extends Component{
     val src1 = in Bits(32 bit)
     val result = out Bits(32 bit)
     val adder = out UInt(32 bit)
+    val shift = out Bits(32 bit)
   }
 
   val msb = 31
@@ -40,8 +41,8 @@ class Alu extends Component{
 
   // mux results
   io.result := io.func.map(
-    (ALU.SLL1) -> shifter.shiftLeft,
-    (ALU.SRL1,ALU.SRA1) -> shifter.shiftRight,
+//    (ALU.SLL1) -> shifter.shiftLeft,
+//    (ALU.SRL1,ALU.SRA1) -> shifter.shiftRight,
     (ALU.SLT,ALU.SLTU) -> less.asBits(32 bit),
     (ALU.ADD,ALU.SUB1) -> addSub,
     default  -> bitwise
@@ -59,6 +60,7 @@ class Alu extends Component{
 //  }
 //
   io.adder := addSub.asUInt
+  io.shift := shifter.shiftRight
 }
 
 object AluMain{

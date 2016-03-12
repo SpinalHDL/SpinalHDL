@@ -26,7 +26,6 @@ architecture arch of Core_tb is
   signal io_i_cmd_payload_pc : unsigned(31 downto 0);
   signal io_i_rsp_valid : std_logic;
   signal io_i_rsp_ready : std_logic;
-  signal io_i_rsp_payload_pc : unsigned(31 downto 0);
   signal io_i_rsp_payload_instruction : std_logic_vector(31 downto 0);
   signal io_d_cmd_valid : std_logic;
   signal io_d_cmd_ready : std_logic;
@@ -44,6 +43,7 @@ architecture arch of Core_tb is
   
   
   signal inBench : Boolean := false;
+  signal timingRead : std_logic;
   component CoreCH 
     port (
      clk                                  : in   std_logic;
@@ -396,11 +396,12 @@ begin
       io_i_rsp_valid <= '0';
       io_d_rsp_valid <= '0';
       counter <= (others => '0');
+      timingRead <= '0';
     elsif rising_edge(clk) then
+      timingRead <= '0';
       counter <= counter + 1;
       if io_i_rsp_ready = '1' or io_i_flush = '1' then
         io_i_rsp_valid <= '0';
-        io_i_rsp_payload_pc <= (others => 'X');
         io_i_rsp_payload_instruction <= (others => 'X');
       end if;
       if io_i_cmd_valid = '1' and io_i_cmd_ready = '1' then
@@ -408,7 +409,6 @@ begin
         for i in 0 to 3 loop
           data(i*8+7 downto i*8) := mem(to_integer(unsigned(io_i_cmd_payload_pc)) + i);
         end loop;
-        io_i_rsp_payload_pc <= io_i_cmd_payload_pc;
         if data = X"00000073" then
           io_i_rsp_payload_instruction <= X"01c02023";
         elsif data = X"0FF0000F" then
@@ -441,6 +441,7 @@ begin
           io_d_rsp_valid <= '1';
           if io_d_cmd_payload_address = X"10000004" then
             io_d_rsp_payload <= std_logic_vector(counter);
+            timingRead <= '1';
           else
             for i in 0 to 3 loop
               io_d_rsp_payload(i*8+7 downto i*8) <= mem(to_integer(unsigned(io_d_cmd_payload_address)) + i);
@@ -596,7 +597,6 @@ begin
       io_i_cmd_payload_pc =>  io_i_cmd_payload_pc,
       io_i_rsp_valid =>  io_i_rsp_valid,
       io_i_rsp_ready =>  io_i_rsp_ready,
-      io_i_rsp_payload_pc =>  io_i_rsp_payload_pc,
       io_i_rsp_payload_instruction =>  io_i_rsp_payload_instruction,
       io_d_cmd_valid =>  io_d_cmd_valid,
       io_d_cmd_ready =>  io_d_cmd_ready,
