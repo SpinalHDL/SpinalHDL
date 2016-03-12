@@ -148,11 +148,17 @@ object Misc {
         if (fieldRef != null && !refs.contains(fieldRef)) {
           val name = namePrefix + method.getName
           fieldRef match {
+            case range : Range =>
             case vec: Vec[_] =>
             case seq: Seq[_] => {
               for ((obj, i) <- seq.zipWithIndex) {
                 onEach(name + i, obj.asInstanceOf[Object])
                 refs += fieldRef
+              }
+            }
+            case seq: Array[_] => {
+              for ((obj, i) <- seq.zipWithIndex) {
+                reflect(obj.asInstanceOf[Object], onEach, name  + "_" + i + "_"  )
               }
             }
             case zone: Area => {

@@ -28,12 +28,15 @@ object Utils{
       GEU -> 7,
       N -> 8
     )
+
+    def isSignedComp(that : T) = !that.asBits(1)
   }
 
   object OP1 extends SpinalEnum(sequancial){
     val RS1,
     IMU,
-    IMZ = newElement()
+    IMZ,
+    IMJB = newElement()
     def X = RS1
   }
 
@@ -136,7 +139,8 @@ object Utils{
       val alu = ALU()
       val wb  = WB()
       val rfen = Bool
-      val aluBypass  = Bool
+      val execute0AluBypass  = Bool
+      val execute1AluBypass  = Bool
       val men  = Bool
       val m  = M()
       val msk = MSK()
@@ -175,7 +179,8 @@ object Utils{
       ctrl.alu := ALU.ADD
       ctrl.wb := WB.X
       ctrl.rfen := False
-      ctrl.aluBypass  := False
+      ctrl.execute0AluBypass  := False
+      ctrl.execute1AluBypass := False
       ctrl.men := False
       ctrl.m := M.XRD
       ctrl.msk.assignFromBits(instruction(13,12))
@@ -205,7 +210,8 @@ object Utils{
           ctrl.alu := ALU.ADD
           ctrl.wb  := WB.ALU1
           ctrl.rfen := True
-          ctrl.aluBypass := True
+          ctrl.execute0AluBypass := True
+          ctrl.execute1AluBypass := True
         }
         when(instruction === BASE_LUI){
           ctrl.instVal := True
@@ -213,7 +219,8 @@ object Utils{
           ctrl.alu := ALU.COPY1
           ctrl.wb  := WB.ALU1
           ctrl.rfen := True
-          ctrl.aluBypass := True
+          ctrl.execute0AluBypass := True
+          ctrl.execute1AluBypass := True
         }
         when(instruction === BASE_OPX){
           ctrl.instVal := True
@@ -231,15 +238,18 @@ object Utils{
           ctrl.alu.assignFromBits(extra ## instruction(14 downto 12))
           ctrl.wb  := WB.ALU1
           ctrl.rfen := True
-          ctrl.aluBypass := instruction =/= BASE_OPX_SHIFT
+          ctrl.execute0AluBypass := instruction =/= BASE_OPX_SHIFT
+          ctrl.execute1AluBypass := True
         }
         when(instruction === BASE_JAL){
           ctrl.instVal := True
           ctrl.br := BR.J
+          ctrl.alu := ALU.ADD
+          ctrl.op1 := OP1.IMJB
+          ctrl.op2 := OP2.PC1
           ctrl.jmp := True
           ctrl.wb := WB.PC4
           ctrl.rfen := True
-          ctrl.aluBypass := False //TODO
         }
         when(instruction === BASE_JALR){
           ctrl.instVal := True
@@ -253,6 +263,9 @@ object Utils{
         }
         when(instruction === BASE_B){
           ctrl.instVal := True
+          ctrl.alu := ALU.ADD
+          ctrl.op1 := OP1.IMJB
+          ctrl.op2 := OP2.PC1
           ctrl.br.assignFromBits(False ## instruction(14 downto 12))
         }
         when(instruction === BASE_CSR){

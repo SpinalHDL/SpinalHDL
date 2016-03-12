@@ -796,6 +796,16 @@ object PlayEnum {
     SpinalVhdl(new TopLevel)
   }
 }
+object PlayMul {
+
+  class TopLevel extends Component {
+    out(RegNext(RegNext(in(SInt(32 bit)))*RegNext(in(SInt(32 bit)))))
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
 
 
 object PlayShift {

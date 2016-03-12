@@ -18,6 +18,7 @@
 
 package spinal.core
 
+import scala.collection.Searching.search
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
