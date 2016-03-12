@@ -7,15 +7,7 @@ object Utils{
     val INC,BR1,J,JR,EXC = newElement()
   }
   object BR extends SpinalEnum{
-    val N,
-    NE,
-    EQ,
-    GE,
-    GEU,
-    LT,
-    LTU,
-    J,
-    JR = newElement()
+    val N, NE, EQ, GE, GEU, LT, LTU, J, JR = newElement()
 
     defaultEncoding = Encoding("opt")(
       EQ -> 0,
@@ -33,37 +25,25 @@ object Utils{
   }
 
   object OP1 extends SpinalEnum(sequancial){
-    val RS1,
-    IMU,
-    IMZ,
-    IMJB = newElement()
+    val RS1, IMU, IMZ, IMJB = newElement()
     def X = RS1
   }
 
 
   object OP2 extends SpinalEnum(sequancial){
-    val RS2,
-    IMI,
-    IMS,
-    PC1 = newElement()
+    val RS2, IMI, IMS, PC1 = newElement()
 
     def X = RS2
   }
 
   object WB extends SpinalEnum(sequancial){
-    val ALU1,
-    MEM,
-    PC4,
-    CSR1 = newElement()
+    val ALU1, MEM, PC4, CSR1 = newElement()
 
     def X = ALU1
   }
 
   object MWR extends SpinalEnum(sequancial){
-    val R,
-    W,
-    F
-   = newElement()
+    val R, W, F = newElement()
   }
 
 
@@ -75,33 +55,18 @@ object Utils{
 
 
   object MFS extends SpinalEnum{
-    val N,
-    SI,
-    SD,
-    FA,
-    FD = newElement()
+    val N, SI, SD, FA, FD = newElement()
   }
 
 
   object M extends SpinalEnum(sequancial){
-    val XRD,
-    XWR = newElement()
+    val XRD, XWR = newElement()
 
     def X = XRD
   }
 
   object ALU extends SpinalEnum{
-    val ADD,
-    SLL1,
-    SLT,
-    SLTU,
-    XOR1,
-    SRL1,
-    OR1,
-    AND1,
-    SUB1,
-    COPY1,
-    SRA1 = newElement()
+    val ADD, SLL1, SLT, SLTU, XOR1, SRL1, OR1, AND1, SUB1, COPY1, SRA1 = newElement()
 
     defaultEncoding = Encoding("opt")(
       ADD -> 0,
@@ -123,10 +88,7 @@ object Utils{
   def apply(x : Int) = 2
 
   object CSR extends SpinalEnum(sequancial){
-    val N,
-    W,
-    S,
-    C = newElement()
+    val N, W, S, C = newElement()
   }
 
 
@@ -321,70 +283,3 @@ object UtilsTest{
     SpinalVhdl(new TopLevel())
   }
 }
-
-
-//
-//    def raw(instruction : Bits) : InstructionCtrl = {
-//      val ctrl = instruction.map(
-//        default -> InstructionCtrl(False,  BR.N  , False, OP1.IMU ,OP2.IMI, ALU.ADD , WB.ALU1, False,False, False, M.X  , MSK.B,  CSR.C, MFS.N),
-//        LW      -> InstructionCtrl(True , BR.N  , False, OP1.RS1, OP2.IMI , ALU.ADD , WB.MEM, True , False, True, M.XRD, MSK.W,  CSR.N, MFS.N),
-//        LB      -> InstructionCtrl(True , BR.N  , False, OP1.RS1, OP2.IMI , ALU.ADD , WB.MEM, True , False, True, M.XRD, MSK.B,  CSR.N, MFS.N),
-//        LBU     -> InstructionCtrl(True , BR.N  , False, OP1.RS1, OP2.IMI , ALU.ADD , WB.MEM, True , False, True, M.XRD, MSK.B, CSR.N, MFS.N),
-//        LH      -> InstructionCtrl(True , BR.N  , False, OP1.RS1, OP2.IMI , ALU.ADD , WB.MEM, True , False, True, M.XRD, MSK.H,  CSR.N, MFS.N),
-//        LHU     -> InstructionCtrl(True , BR.N  , False, OP1.RS1, OP2.IMI , ALU.ADD , WB.MEM, True , False, True, M.XRD, MSK.H, CSR.N, MFS.N),
-//        SW      -> InstructionCtrl(True , BR.N  , False, OP1.RS1, OP2.IMS , ALU.ADD , WB.X  , False, False, True, M.XWR, MSK.W,  CSR.N, MFS.N),
-//        SB      -> InstructionCtrl(True , BR.N  , False, OP1.RS1, OP2.IMS , ALU.ADD , WB.X  , False, False, True, M.XWR, MSK.B,  CSR.N, MFS.N),
-//        SH      -> InstructionCtrl(True , BR.N  , False, OP1.RS1, OP2.IMS , ALU.ADD , WB.X  , False, False, True, M.XWR, MSK.H,  CSR.N, MFS.N),
-//
-//        AUIPC   -> InstructionCtrl(True , BR.N  , False, OP1.IMU, OP2.PC1  , ALU.ADD  ,WB.ALU1, True, True , False, M.X ,  MSK.X,  CSR.N, MFS.N),
-//        LUI     -> InstructionCtrl(True , BR.N  , False, OP1.IMU, OP2.X    , ALU.COPY1,WB.ALU1, True, True , False, M.X ,  MSK.X,  CSR.N, MFS.N),
-//
-//        ADDI    -> InstructionCtrl(True , BR.N  , False, OP1.RS1, OP2.IMI , ALU.ADD , WB.ALU1, True, True , False, M.X  , MSK.X,  CSR.N, MFS.N),
-//        ANDI    -> InstructionCtrl(True , BR.N  , False, OP1.RS1, OP2.IMI , ALU.AND1 , WB.ALU1, True, True , False, M.X  , MSK.X,  CSR.N, MFS.N),
-//        ORI     -> InstructionCtrl(True , BR.N  , False, OP1.RS1, OP2.IMI , ALU.OR1  , WB.ALU1, True, True , False, M.X  , MSK.X,  CSR.N, MFS.N),
-//        XORI    -> InstructionCtrl(True , BR.N  , False, OP1.RS1, OP2.IMI , ALU.XOR1 , WB.ALU1, True, True , False, M.X  , MSK.X,  CSR.N, MFS.N),
-//        SLTI    -> InstructionCtrl(True , BR.N  , False, OP1.RS1, OP2.IMI , ALU.SLT , WB.ALU1, True, True , False, M.X  , MSK.X,  CSR.N, MFS.N),
-//        SLTIU   -> InstructionCtrl(True , BR.N  , False, OP1.RS1, OP2.IMI , ALU.SLTU, WB.ALU1, True, True , False, M.X  , MSK.X,  CSR.N, MFS.N),
-//        SLLI    -> InstructionCtrl(True , BR.N  , False, OP1.RS1, OP2.IMI , ALU.SLL1 , WB.ALU1, True, True , False, M.X  , MSK.X,  CSR.N, MFS.N),
-//        SRAI    -> InstructionCtrl(True , BR.N  , False, OP1.RS1, OP2.IMI , ALU.SRA1 , WB.ALU1, True, True , False, M.X  , MSK.X,  CSR.N, MFS.N),
-//        SRLI    -> InstructionCtrl(True , BR.N  , False, OP1.RS1, OP2.IMI , ALU.SRL1 , WB.ALU1, True, True , False, M.X  , MSK.X,  CSR.N, MFS.N),
-//
-//        SLL     -> InstructionCtrl(True , BR.N  , False, OP1.RS1, OP2.RS2 , ALU.SLL1 , WB.ALU1, True, True , False, M.X  , MSK.X,  CSR.N, MFS.N),
-//        ADD     -> InstructionCtrl(True , BR.N  , False, OP1.RS1, OP2.RS2 , ALU.ADD , WB.ALU1, True, True , False, M.X  , MSK.X,  CSR.N, MFS.N),
-//        SUB     -> InstructionCtrl(True , BR.N  , False, OP1.RS1, OP2.RS2 , ALU.SUB1 , WB.ALU1, True, True , False, M.X  , MSK.X,  CSR.N, MFS.N),
-//        SLT     -> InstructionCtrl(True , BR.N  , False, OP1.RS1, OP2.RS2 , ALU.SLT , WB.ALU1, True, True , False, M.X  , MSK.X,  CSR.N, MFS.N),
-//        SLTU    -> InstructionCtrl(True , BR.N  , False, OP1.RS1, OP2.RS2 , ALU.SLTU, WB.ALU1, True, True , False, M.X  , MSK.X,  CSR.N, MFS.N),
-//        AND     -> InstructionCtrl(True , BR.N  , False, OP1.RS1, OP2.RS2 , ALU.AND1 , WB.ALU1, True, True , False, M.X  , MSK.X,  CSR.N, MFS.N),
-//        OR      -> InstructionCtrl(True , BR.N  , False, OP1.RS1, OP2.RS2 , ALU.OR1  , WB.ALU1, True, True , False, M.X  , MSK.X,  CSR.N, MFS.N),
-//        XOR     -> InstructionCtrl(True , BR.N  , False, OP1.RS1, OP2.RS2 , ALU.XOR1 , WB.ALU1, True, True , False, M.X  , MSK.X,  CSR.N, MFS.N),
-//        SRA     -> InstructionCtrl(True , BR.N  , False, OP1.RS1, OP2.RS2 , ALU.SRA1 , WB.ALU1, True, True , False, M.X  , MSK.X,  CSR.N, MFS.N),
-//        SRL     -> InstructionCtrl(True , BR.N  , False, OP1.RS1, OP2.RS2 , ALU.SRL1 , WB.ALU1, True, True , False, M.X  , MSK.X,  CSR.N, MFS.N),
-//
-//        JAL     -> InstructionCtrl(True , BR.J  , True , OP1.X  , OP2.X   , ALU.X   , WB.PC4, True, True , False, M.X  , MSK.X,  CSR.N, MFS.N),
-//        JALR    -> InstructionCtrl(True , BR.JR , True , OP1.RS1, OP2.IMI , ALU.ADD , WB.PC4, True, False, False, M.X  , MSK.X,  CSR.N, MFS.N),
-//        BEQ     -> InstructionCtrl(True , BR.EQ , False, OP1.X  , OP2.X   , ALU.X   , WB.X  , False, False, False, M.X  , MSK.X,  CSR.N, MFS.N),
-//        BNE     -> InstructionCtrl(True , BR.NE , False, OP1.X  , OP2.X   , ALU.X   , WB.X  , False, False, False, M.X  , MSK.X,  CSR.N, MFS.N),
-//        BGE     -> InstructionCtrl(True , BR.GE , False, OP1.X  , OP2.X   , ALU.X   , WB.X  , False, False, False, M.X  , MSK.X,  CSR.N, MFS.N),
-//        BGEU    -> InstructionCtrl(True , BR.GEU, False, OP1.X  , OP2.X   , ALU.X   , WB.X  , False, False, False, M.X  , MSK.X,  CSR.N, MFS.N),
-//        BLT     -> InstructionCtrl(True , BR.LT , False, OP1.X  , OP2.X   , ALU.X   , WB.X  , False, False, False, M.X  , MSK.X,  CSR.N, MFS.N),
-//        BLTU    -> InstructionCtrl(True , BR.LTU, False, OP1.X  , OP2.X   , ALU.X   , WB.X  , False, False, False, M.X  , MSK.X,  CSR.N, MFS.N),
-//
-//        CSRRWI  -> InstructionCtrl(True , BR.N  , False, OP1.IMZ, OP2.X   , ALU.COPY1,WB.CSR1, True, False, False, M.X ,  MSK.X,  CSR.W, MFS.N),
-//        CSRRSI  -> InstructionCtrl(True , BR.N  , False, OP1.IMZ, OP2.X   , ALU.COPY1,WB.CSR1, True, False, False, M.X ,  MSK.X,  CSR.S, MFS.N),
-//        CSRRW   -> InstructionCtrl(True , BR.N  , False, OP1.RS1, OP2.X   , ALU.COPY1,WB.CSR1, True, False, False, M.X ,  MSK.X,  CSR.W, MFS.N),
-//        CSRRS   -> InstructionCtrl(True , BR.N  , False, OP1.RS1, OP2.X   , ALU.COPY1,WB.CSR1, True, False, False, M.X ,  MSK.X,  CSR.S, MFS.N),
-//        CSRRC   -> InstructionCtrl(True , BR.N  , False, OP1.RS1, OP2.X   , ALU.COPY1,WB.CSR1, True, False, False, M.X ,  MSK.X,  CSR.C, MFS.N),
-//        CSRRCI  -> InstructionCtrl(True , BR.N  , False, OP1.IMZ, OP2.X   , ALU.COPY1,WB.CSR1, True, False, False, M.X ,  MSK.X,  CSR.C, MFS.N),
-//        // TODO:
-//        SCALL   -> InstructionCtrl(True , BR.N  , False, OP1.X  , OP2.X   , ALU.X   , WB.X  , False, False, False, M.X  , MSK.X,  CSR.I, MFS.FD), // don't think I actually
-//        SRET    -> InstructionCtrl(True , BR.N  , False, OP1.X  , OP2.X   , ALU.X   , WB.X  , False, False, False, M.X  , MSK.X,  CSR.I, MFS.FD), // need to flush memory here
-//        MRTS    -> InstructionCtrl(True , BR.N  , False, OP1.X  , OP2.X   , ALU.X   , WB.X  , False, False, False, M.X  , MSK.X,  CSR.I, MFS.FD),
-//        SBREAK  -> InstructionCtrl(True , BR.N  , False, OP1.X  , OP2.X   , ALU.X   , WB.X  , False, False, False, M.X  , MSK.X,  CSR.I, MFS.FD),
-//        WFI     -> InstructionCtrl(True , BR.N  , False, OP1.X  , OP2.X   , ALU.X   , WB.X  , False, False, False, M.X  , MSK.X,  CSR.I, MFS.FD),
-//
-//        FENCE_I -> InstructionCtrl(True , BR.N  , False, OP1.X  , OP2.X   , ALU.X   , WB.X  , False, False, False, M.X  , MSK.X,  CSR.N, MFS.SI),
-//        FENCE   -> InstructionCtrl(True , BR.N  , False, OP1.X  , OP2.X   , ALU.X   , WB.X  , False, False, True, M.X  , MSK.X,  CSR.N, MFS.SD)
-//      )
-//      //ctrl.msk.assignFromBits(instruction(13,12))
-//      ctrl
-//    }
