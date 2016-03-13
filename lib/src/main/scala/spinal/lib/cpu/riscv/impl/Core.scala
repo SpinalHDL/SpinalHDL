@@ -113,6 +113,7 @@ class Core(implicit p : CoreParm) extends Component{
     outInst.branchCacheLine := brancheCache.readSync(Mux(inContext.isStall,inContext.pc,fetchCmd.outInst.pc)(2, branchPredictorSizeLog2 bit))
 //    outInst.ctrl := getInstructionCtrl(outInst.outInst.instruction)
   }
+
   val decode = new Area{
     val inInst = fetch.outInst.throwWhen(io.i.flush).m2sPipe()
     val ctrl = getInstructionCtrl(inInst.instruction)
@@ -196,7 +197,6 @@ class Core(implicit p : CoreParm) extends Component{
       inInst.ready := True
     }
   }
-
 
   val execute0 = new Area {
     val inInst = decode.outInst.m2sPipe()
@@ -361,7 +361,6 @@ class Core(implicit p : CoreParm) extends Component{
     }
     inInst.ready := inInst.ctrl.wb =/= WB.MEM || inInst.ctrl.m =/= M.XRD || io.d.rsp.valid
   }
-
 
   // apply decode/execute1 pcLoad interfaces to fetchCmd.pcLoad
   val branchArbiter = new Area {
@@ -537,10 +536,10 @@ object CoreMain{
       pcWidth = 32,
       addrWidth = 32,
       startAddress = 0x200,
-      branchPrediction = disable,
-      bypassExecute0 = false,
-      bypassExecute1 = false,
-      bypassWriteBack = false,
+      branchPrediction = dynamic,
+      bypassExecute0 = true,
+      bypassExecute1 = true,
+      bypassWriteBack = true,
       branchPredictorSizeLog2 = 7
     )
     p.add(new MulDivExtension)

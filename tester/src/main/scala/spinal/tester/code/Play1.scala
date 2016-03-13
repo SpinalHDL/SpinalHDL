@@ -832,6 +832,25 @@ object PlayMul {
   }
 }
 
+object PlayAdd {
+
+  class TopLevel extends Component {
+    //out(RegNext(RegNext(RegNext(in(UInt(32 bit)))*RegNext(in(UInt(32 bit))))))
+
+
+    val width = 48
+    val a,b = in UInt(width bit)
+    val result = out UInt(width bit)
+    result := RegNext(RegNext(a) + RegNext(b))
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
+
 
 object PlayShift {
 
