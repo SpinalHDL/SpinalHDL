@@ -160,6 +160,20 @@ object ZeroWidth {
     }
   }
 
+
+  def unsignedDivImpl(node: Node) : Unit = {
+    //TODO
+  }
+  def unsignedModImpl(node: Node) : Unit = {
+    //TODO
+  }
+  def signedDivImpl(node: Node) : Unit = {
+    //TODO
+  }
+  def signedModImpl(node: Node) : Unit = {
+    //TODO
+  }
+
   def resizeImpl(zeroFactory: (BigInt, BitCount) => Node)(node: Node): Unit = {
     val w0 = node.inputs(0).getWidth
     if (w0 == 0) {

@@ -4,6 +4,8 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.cpu.riscv.impl.Utils._
 
+import scala.collection.mutable.ArrayBuffer
+
 trait BranchPrediction
 object disable extends BranchPrediction
 object static extends BranchPrediction
@@ -19,7 +21,13 @@ case class CoreParm(val pcWidth : Int = 32,
                     val branchPrediction : BranchPrediction = static,
                     val branchPredictorSizeLog2 : Int = 4,
                     val branchPredictorHistoryWidth : Int = 2
-                     )
+                     ) {
+  val extensions = ArrayBuffer[CoreExtension]()
+  def add(that : CoreExtension) : this.type = {
+    extensions += that
+    this
+  }
+}
 
 case class CoreInstCmd(implicit p : CoreParm) extends Bundle{
   val pc = UInt(p.addrWidth bit)
@@ -96,18 +104,18 @@ class Core(implicit p : CoreParm) extends Component{
     val outInst = Stream(wrap(new Bundle {
       val pc = UInt(pcWidth bit)
       val instruction = Bits(32 bit)
-      val ctrl = InstructionCtrl()
+//      val ctrl = InstructionCtrl()
       val branchCacheLine = BranchPredictorLine()
     }))
     outInst.arbitrationFrom(io.i.rsp)
     outInst.pc := inContext.pc
     outInst.instruction := io.i.rsp.instruction
     outInst.branchCacheLine := brancheCache.readSync(Mux(inContext.isStall,inContext.pc,fetchCmd.outInst.pc)(2, branchPredictorSizeLog2 bit))
-    outInst.ctrl := InstructionCtrl(outInst.instruction)
+//    outInst.ctrl := getInstructionCtrl(outInst.outInst.instruction)
   }
   val decode = new Area{
     val inInst = fetch.outInst.throwWhen(io.i.flush).m2sPipe()
-    val ctrl = inInst.ctrl
+    val ctrl = getInstructionCtrl(inInst.instruction)
     val hazard = Bool //Used to stall decode phase because of register file hazard
     
     val addr0 = inInst.instruction(src0Range).asUInt
@@ -260,7 +268,7 @@ class Core(implicit p : CoreParm) extends Component{
     // Send memory read/write requests
     io.d.cmd.valid := inInst.fire && inInst.ctrl.men
     io.d.cmd.wr := inInst.ctrl.m === M.XWR
-    io.d.cmd.address := inInst.alu.asUInt
+    io.d.cmd.address := inInst.adder
     io.d.cmd.payload.data := inInst.src1
     io.d.cmd.size := inInst.ctrl.msk.map(
       default -> U(2), //W
@@ -484,6 +492,44 @@ class Core(implicit p : CoreParm) extends Component{
       }
     }
   }
+
+
+  for(extension <- extensions){
+    extension.applyIt(this)
+  }
+  def getInstructionCtrl(instruction : Bits) = {
+    applyExtensionTags
+    val ctrl = InstructionCtrl(instruction)
+    for(extension <- extensions){
+      extension.instructionCtrlExtension(instruction,ctrl)
+    }
+    ctrl
+  }
+  lazy val applyExtensionTags ={
+    var tagCounter = 0
+    for(extension <- extensions){
+      if(extension.needTag){
+        tagCounter += 1
+        extension.tag = tagCounter
+      }
+    }
+  }
+}
+
+abstract class CoreExtension {
+  def applyIt(core : Core) : Area
+  def instructionCtrlExtension(instruction : Bits,instructionCtrl: InstructionCtrl) : Unit
+
+  var tag : Int = -1
+  def needTag : Boolean
+  def applyTag(instructionCtrl: InstructionCtrl) : Unit = {
+    assert(tag != -1," You need to override needTag with true")
+    instructionCtrl.extensionTag := tag
+  }
+  def isMyTag(ctrl: InstructionCtrl) = {
+    assert(tag != -1," You need to override needTag with true")
+    ctrl.extensionTag === tag
+  }
 }
 
 
@@ -499,7 +545,8 @@ object CoreMain{
       bypassExecute0 = true,
       bypassExecute1 = true,
       bypassWriteBack = true,
-      branchPredictorSizeLog2 = 7)
+      branchPredictorSizeLog2 = 7
+    ).add(new MulDivExtension)
     SpinalVhdl(new Core(),_.setLibrary("riscv"))
   }
 }

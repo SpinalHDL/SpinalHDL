@@ -421,6 +421,8 @@ abstract trait Num[T <: Data] {
   def +  (right: T): T
   def -  (right: T): T
   def *  (right: T): T
+  def /  (right: T): T
+  def %  (right: T): T
 
   def <  (right: T): Bool
   def <= (right: T): Bool

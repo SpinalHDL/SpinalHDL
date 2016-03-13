@@ -1,6 +1,7 @@
 package spinal.lib.cpu.riscv.impl
 
 import spinal.core._
+import spinal.lib.IMasterSlave
 
 object Utils{
   object PC extends SpinalEnum(sequancial){
@@ -108,6 +109,8 @@ object Utils{
       val msk = MSK()
       val csr = CSR()
       val mfs = MFS()
+      val extensionTag = Bits()
+      val extensionData = Bits()
   }
 
   def BASE                 = M"------------------------------11"
@@ -132,7 +135,6 @@ object Utils{
   object InstructionCtrl{
     def apply(instruction : Bits) : InstructionCtrl = {
       val ctrl = InstructionCtrl()
-
       ctrl.instVal := False
       ctrl.br := BR.N
       ctrl.jmp := False
@@ -148,6 +150,8 @@ object Utils{
       ctrl.msk.assignFromBits(instruction(13,12))
       ctrl.csr := CSR.N
       ctrl.mfs := MFS.N
+      ctrl.extensionTag := 0
+      ctrl.extensionData := 0
 
       when(instruction === BASE){
         when(instruction === BASE_MEM){
@@ -185,23 +189,49 @@ object Utils{
           ctrl.execute1AluBypass := True
         }
         when(instruction === BASE_OPX){
-          ctrl.instVal := True
-          ctrl.op1 := OP1.RS1
-          val extra = False
+          val isShift = instruction === BASE_OPX_SHIFT
           when(instruction === BASE_OPX_I) {
-            ctrl.op2 := OP2.IMI
-            when(instruction(13 downto 12) === B"01" ) {
-              extra := instruction(30)
+            when(!isShift || (instruction === M"0-00000-------------------------" && !(instruction(30) && !instruction(14)))) {
+              ctrl.instVal := True
+              ctrl.op1 := OP1.RS1
+              ctrl.op2 := OP2.IMI
+              ctrl.alu.assignFromBits((isShift && instruction(30)) ## instruction(14 downto 12))
+              ctrl.wb  := WB.ALU1
+              ctrl.rfen := True
+              ctrl.execute0AluBypass := !isShift
+              ctrl.execute1AluBypass := True
             }
           }otherwise{
-            ctrl.op2 := OP2.RS2
-            extra := instruction(30)
+            when(instruction === M"0-00000-------------------------"){
+              when(instruction(30) === False || instruction(14 downto 12) === B"000" || instruction(14 downto 12) === "101"){
+                ctrl.instVal := True
+                ctrl.op1 := OP1.RS1
+                ctrl.op2 := OP2.RS2
+                ctrl.alu.assignFromBits(instruction(30) ## instruction(14 downto 12))
+                ctrl.wb  := WB.ALU1
+                ctrl.rfen := True
+                ctrl.execute0AluBypass := !isShift
+                ctrl.execute1AluBypass := True
+              }
+            }
           }
-          ctrl.alu.assignFromBits(extra ## instruction(14 downto 12))
-          ctrl.wb  := WB.ALU1
-          ctrl.rfen := True
-          ctrl.execute0AluBypass := instruction =/= BASE_OPX_SHIFT
-          ctrl.execute1AluBypass := True
+//          ctrl.instVal := True
+//          ctrl.op1 := OP1.RS1
+//          val extra = False
+//          when(instruction === BASE_OPX_I) {
+//            ctrl.op2 := OP2.IMI
+//            when(instruction(13 downto 12) === B"01" ) {
+//              extra := instruction(30)
+//            }
+//          }otherwise{
+//            ctrl.op2 := OP2.RS2
+//            extra := instruction(30)
+//          }
+//          ctrl.alu.assignFromBits(extra ## instruction(14 downto 12))
+//          ctrl.wb  := WB.ALU1
+//          ctrl.rfen := True
+//          ctrl.execute0AluBypass := instruction =/= BASE_OPX_SHIFT
+//          ctrl.execute1AluBypass := True
         }
         when(instruction === BASE_JAL){
           ctrl.instVal := True
@@ -270,8 +300,26 @@ object Utils{
   def dstRange = 11 downto 7
 }
 
-
-
+//import Utils._
+//import spinal.lib._
+//class CustomAluIO(implicit p : CoreParm) extends Bundle with IMasterSlave{
+//  val cmd = Stream(wrap(new Bundle{
+//    val instruction = Bits(32 bit)
+//    val func = ALU()
+//    val src0 = Bits(32 bit)
+//    val src1 = Bits(32 bit)
+//  }))
+//  val rsp = Stream(wrap(new Bundle{
+//    val result = Bits(32 bit)
+//  }))
+//
+//  override def asMaster(): CustomAluIO.this.type = {
+//    slave(cmd)
+//    master(rsp)
+//    this
+//  }
+//  override def asSlave(): CustomAluIO.this.type = asMaster.flip
+//}
 
 object UtilsTest{
   class TopLevel extends Component{

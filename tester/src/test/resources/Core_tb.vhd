@@ -160,7 +160,7 @@ architecture arch of Core_tb is
     offset := 0;
     while (valid) loop
         readline(ROMFILE, newline);
-        read(newline,newchar,valid);                      --ERROR HERE!!!
+        read(newline,newchar,valid);                    
         if (newchar = ':') and (valid = True) then
           hread(newline,newbyte);
           ByteCount := to_integer(unsigned(newbyte));
@@ -284,6 +284,16 @@ begin
     wait for 100 ns;
 
      for i in 0 to 100 loop
+     
+      doTest("E:/vm/share/isa/rv32ui-p-mul.hex");   
+      doTest("E:/vm/share/isa/rv32ui-p-mulh.hex");   
+      doTest("E:/vm/share/isa/rv32ui-p-mulhsu.hex");   
+      doTest("E:/vm/share/isa/rv32ui-p-mulhu.hex");   
+      -- doTest("E:/vm/share/isa/rv32ui-p-div.hex");   
+      -- doTest("E:/vm/share/isa/rv32ui-p-divu.hex");   
+      -- doTest("E:/vm/share/isa/rv32ui-p-rem.hex");   
+      -- doTest("E:/vm/share/isa/rv32ui-p-remu.hex");
+
        --doTest("E:/vm/share/isa/rv32si-p-csr.hex");
        --doTest("E:/vm/share/isa/rv32si-p-illegal.hex");   
        --doTest("E:/vm/share/isa/rv32si-p-ma_addr.hex");   
@@ -310,8 +320,6 @@ begin
        doTest("E:/vm/share/isa/rv32ui-p-blt.hex");   
        doTest("E:/vm/share/isa/rv32ui-p-bltu.hex");   
        doTest("E:/vm/share/isa/rv32ui-p-bne.hex");   
-      --doTest("E:/vm/share/isa/rv32ui-p-div.hex");   
-      --doTest("E:/vm/share/isa/rv32ui-p-divu.hex");   
       --doTest("E:/vm/share/isa/rv32ui-p-fence_i.hex");   !!! 
        doTest("E:/vm/share/isa/rv32ui-p-j.hex");   
        doTest("E:/vm/share/isa/rv32ui-p-jal.hex");   
@@ -321,15 +329,9 @@ begin
        doTest("E:/vm/share/isa/rv32ui-p-lh.hex");   
        doTest("E:/vm/share/isa/rv32ui-p-lhu.hex");   
        doTest("E:/vm/share/isa/rv32ui-p-lui.hex");   
-       doTest("E:/vm/share/isa/rv32ui-p-lw.hex");   
-     --  doTest("E:/vm/share/isa/rv32ui-p-mul.hex");   
-     --  doTest("E:/vm/share/isa/rv32ui-p-mulh.hex");   
-     --  doTest("E:/vm/share/isa/rv32ui-p-mulhsu.hex");   
-     --  doTest("E:/vm/share/isa/rv32ui-p-mulhu.hex");   
+       doTest("E:/vm/share/isa/rv32ui-p-lw.hex");     
        doTest("E:/vm/share/isa/rv32ui-p-or.hex");   
-       doTest("E:/vm/share/isa/rv32ui-p-ori.hex");   
-       --doTest("E:/vm/share/isa/rv32ui-p-rem.hex");   
-       --doTest("E:/vm/share/isa/rv32ui-p-remu.hex");   
+       doTest("E:/vm/share/isa/rv32ui-p-ori.hex");    
        doTest("E:/vm/share/isa/rv32ui-p-sb.hex");   
        doTest("E:/vm/share/isa/rv32ui-p-sh.hex");   
        doTest("E:/vm/share/isa/rv32ui-p-simple.hex");   

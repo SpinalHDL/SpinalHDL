@@ -799,7 +799,32 @@ object PlayEnum {
 object PlayMul {
 
   class TopLevel extends Component {
-    out(RegNext(RegNext(in(SInt(32 bit)))*RegNext(in(SInt(32 bit)))))
+    //out(RegNext(RegNext(RegNext(in(UInt(32 bit)))*RegNext(in(UInt(32 bit))))))
+
+
+    val aSigned,bSigned = in Bool
+    val a,b = in Bits(32 bit)
+    val outLow = out Bits(32 bit)
+    val outHigh = out Bits(32 bit)
+
+    val aULow = RegNext(a)(15 downto 0).asUInt
+    val bULow = RegNext(b)(15 downto 0).asUInt
+    val aLow = RegNext(False ## a)(15 downto 0).asSInt
+    val bLow = RegNext(False ## b)(15 downto 0).asSInt
+    val aHigh = RegNext(((aSigned && a.msb) ## a(31 downto 16))).asSInt
+    val bHigh = RegNext(((bSigned && b.msb) ## b(31 downto 16))).asSInt
+
+    val mul_ll = RegNext(aULow*bULow)
+    val mul_lh = aLow * bHigh
+    val mul_hl = aHigh * bLow
+    val mul_hh = RegNext(aHigh*bHigh)
+    val mul_mm = RegNext(mul_lh + mul_hl)
+
+    val resultLow = mul_ll.asSInt + ((False ## mul_mm).asSInt << 16)
+    val resultHigh = RegNext(resultLow) + RegNext((mul_hh << 32))
+
+    outLow := RegNext(resultLow(31 downto 0).asBits)
+    outHigh := RegNext(resultHigh(63 downto 32).asBits)
   }
 
   def main(args: Array[String]): Unit = {
@@ -820,6 +845,34 @@ object PlayShift {
     SpinalVhdl(new TopLevel)
   }
 }
+
+object PlaySimplif {
+
+  class TopLevel extends Component {
+    val input = in Bits (32 bit)
+    val output = out Bits(2 bit)
+
+
+    when(input === M"00001111----------------0000----"){
+      output := 0
+    }.elsewhen(input === M"00001111----------------0001----"){
+      output := 1
+    }
+      .elsewhen(input === M"00001111----------------0010----"){
+      output := 2
+    }
+      .elsewhen(input === M"00001111----------------0011----"){
+      output := 3
+    }otherwise{
+      output.assignDontCare()
+    }
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
 
 
 object PlayStream {

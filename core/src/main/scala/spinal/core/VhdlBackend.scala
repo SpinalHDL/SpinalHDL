@@ -1125,6 +1125,8 @@ class VhdlBackend extends Backend with VhdlBase {
   modifierImplMap.put("u+u", operatorImplAsOperator("+"))
   modifierImplMap.put("u-u", operatorImplAsOperator("-"))
   modifierImplMap.put("u*u", operatorImplAsOperator("*"))
+  modifierImplMap.put("u/u", operatorImplAsOperator("/"))
+  modifierImplMap.put("u%u", operatorImplAsOperator("rem"))
 
   modifierImplMap.put("u|u", operatorImplAsOperator("or"))
   modifierImplMap.put("u&u", operatorImplAsOperator("and"))
@@ -1147,6 +1149,8 @@ class VhdlBackend extends Backend with VhdlBase {
   modifierImplMap.put("s+s", operatorImplAsOperator("+"))
   modifierImplMap.put("s-s", operatorImplAsOperator("-"))
   modifierImplMap.put("s*s", operatorImplAsOperator("*"))
+  modifierImplMap.put("s/s", operatorImplAsOperator("/"))
+  modifierImplMap.put("s%s", operatorImplAsOperator("rem"))
 
   modifierImplMap.put("s|s", operatorImplAsOperator("or"))
   modifierImplMap.put("s&s", operatorImplAsOperator("and"))

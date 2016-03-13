@@ -324,6 +324,7 @@ object MaskedLiteral{
 
 class MaskedLiteral(val value : BigInt,val careAbout : BigInt,val width : Int){
   def ===(that : BitVector) : Bool = {
+    assert(that.getWidth == width)
     return (that.asBits & careAbout) === value
   }
   def =/=(that : BitVector) : Bool = !(this === that)

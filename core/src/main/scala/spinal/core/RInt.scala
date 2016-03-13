@@ -52,4 +52,7 @@ class RInt(val max : BigInt,val min : BigInt) extends MultiData with Num[RInt]{
 
   override def *(right: RInt): RInt = ???
 
+  override def %(right: RInt): RInt = ???
+
+  override def /(right: RInt): RInt = ???
 }
