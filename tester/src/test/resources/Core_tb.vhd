@@ -38,7 +38,7 @@ architecture arch of Core_tb is
   signal clk : std_logic;
   signal reset : std_logic;
   -- #spinalBegin userDeclarations
-  constant doBench : Boolean := true;
+  constant doBench : Boolean := false;
   constant doTestWithStall : Boolean := true;
   
   

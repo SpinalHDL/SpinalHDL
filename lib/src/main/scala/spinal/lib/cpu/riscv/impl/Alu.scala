@@ -12,7 +12,6 @@ class Alu extends Component{
     val src1 = in Bits(32 bit)
     val result = out Bits(32 bit)
     val adder = out UInt(32 bit)
-    val shift = out Bits(32 bit)
   }
 
   // ADD, SUB
@@ -29,13 +28,6 @@ class Alu extends Component{
   val less  = Mux(io.src0.msb === io.src1.msb, addSub.msb,
     Mux(io.func === ALU.SLTU, io.src1.msb, io.src0.msb))
 
-  // SLL, SRL, SRA
-  val shifter = new Area{
-    val amplitude = io.src1(4 downto 0).asUInt
-    val reversed = Mux(io.func === ALU.SLL1 , Reverse(io.src0), io.src0)
-    val shiftRight = (Cat(io.func === ALU.SRA1 & reversed.msb, reversed).asSInt >> amplitude)(31 downto 0).asBits
-  }
-
   // mux results
   io.result := io.func.map(
     (ALU.SLT,ALU.SLTU) -> less.asBits(32 bit),
@@ -44,7 +36,6 @@ class Alu extends Component{
   )
 
   io.adder := addSub.asUInt
-  io.shift := shifter.shiftRight
 }
 
 

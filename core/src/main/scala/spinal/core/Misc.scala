@@ -89,7 +89,7 @@ object Misc {
   addReflectionExclusion(new Generic)
   addReflectionExclusion(new SpinalEnum)
   addReflectionExclusion(new SpinalEnumCraft(null,null))
-
+  addReflectionExclusion(new Area{})
 
   //XXXX find if there is a solution to keep declaration order in every case, then remove fix from component.nameElements
   // It look like Java8 keep order
@@ -146,7 +146,13 @@ object Misc {
         method.setAccessible(true)
         val fieldRef = method.invoke(o)
         if (fieldRef != null && !refs.contains(fieldRef)) {
-          val name = namePrefix + method.getName
+          val methodName = method.getName
+          val firstCharIndex = methodName.lastIndexOf('$')
+          val postFix = if(firstCharIndex == -1)
+            methodName
+          else
+            methodName.substring(firstCharIndex+1)
+          val name = namePrefix + postFix
           fieldRef match {
             case range : Range =>
             case vec: Vec[_] =>
@@ -158,12 +164,16 @@ object Misc {
             }
             case seq: Array[_] => {
               for ((obj, i) <- seq.zipWithIndex) {
-                reflect(obj.asInstanceOf[Object], onEach, name  + "_" + i + "_"  )
+                onEach(name + i, obj.asInstanceOf[Object])
+                refs += fieldRef
               }
+//              for ((obj, i) <- seq.zipWithIndex) {
+//                reflect(obj.asInstanceOf[Object], onEach, name  + "_" + i + "_"  )
+//              }
             }
-            case zone: Area => {
-              reflect(zone, onEach, name + "_")
-            }
+//            case zone: Area => {
+//              reflect(zone, onEach, name + "_")
+//            }
             case _ =>
           }
           onEach(name, fieldRef)

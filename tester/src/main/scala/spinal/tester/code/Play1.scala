@@ -1955,47 +1955,16 @@ object PlaySel {
 object PlayArea {
 
   class TopLevel extends Component {
-
-    val outputX = out(new UInt with Area {
-      val tmp = B"11"
-      this.assignFromBits(tmp)
-      this + U"11"
-    })
-    //
-    //    val output2 = U"00"
-    //    output2 := output + 1
-
-    val outputLogic = new Area {
-      val tmp = U"11"
-
-      implicit def transform = tmp
+    val myArea = new Area{
+      val cmd = slave Stream(wrap(new Bundle{
+        val aaa = Bool
+        val xxx = new Bundle{
+          val yyy = UInt(3 bit)
+        }
+      }))
+      val tmp = cmd.m2sPipe()
+      val rsp = master(tmp.m2sPipe())
     }
-
-    val output2 = U"00"
-    output2 := outputLogic.tmp + U(12)
-
-
-    val a = Counter(2)
-    val b = a.value + U(2)
-    val c = a === 2
-    //    val out2 = out(U"11")
-    //    out2 := output
-    //    def logicDef() = {
-    //      val ret = U"10"
-    //      val logic = new Nameable {
-    //          val tmp = U"00"
-    //          this.setCompositeName(ret)
-    //        }
-    //      ret := logic.tmp
-    //      ret
-    //    }
-    //    val logic = new Nameable {
-    //      val tmp = U"00"
-    //  tmp.setCompositeName(this)
-    //    }
-    //    val logic = logicDef()
-    //    val output = U"11".asOutput()
-    //    output := logic
   }
 
 

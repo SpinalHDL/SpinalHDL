@@ -281,8 +281,32 @@ object crossClockBuffer extends SpinalTag
 object randomBoot extends SpinalTag
 object tagAutoResize extends SpinalTag
 
-trait Area {
-
+trait Area extends Nameable with ContextUser{
+  override protected def nameChangeEvent(weak: Boolean): Unit = {
+    Misc.reflect(this, (name, obj) => {
+      obj match {
+        case component: Component => {
+          if (component.parent == this.component)
+            component.setWeakName(this.getName() + "_" + name)
+        }
+        case namable: Nameable => {
+          if (!namable.isInstanceOf[ContextUser])
+            namable.setWeakName(this.getName() + "_" + name)
+          else if (namable.asInstanceOf[ContextUser].component == component)
+            namable.setWeakName(this.getName() + "_" + name)
+          else {
+            for (kind <- component.kinds) {
+              //Allow to name a component by his io reference into the parent component
+              if (kind.reflectIo == namable) {
+                kind.setWeakName(this.getName() + "_" + name)
+              }
+            }
+          }
+        }
+        case _ =>
+      }
+    })
+  }
 }
 
 object ImplicitArea{

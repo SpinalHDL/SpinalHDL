@@ -727,7 +727,7 @@ class RangedAssignmentFloating(out: BitVector, in: Node, offset: UInt, bitCount:
 
 
 class MultipleAssignmentNode extends Node {
-  override def calcWidth: Int = WidthInfer.inputMaxWidth(this)
+  override def calcWidth: Int = WidthInfer.multipleAssignmentNodeWidth(this)
   override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = (outHi,outLo)
 
   override def normalizeInputs: Unit = {

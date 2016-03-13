@@ -231,7 +231,6 @@ class Core(implicit p : CoreParm) extends Component{
       val instruction = Bits(32 bit)
       val alu = Bits(32 bit)
       val adder = UInt(32 bit)
-      val shift = Bits(32 bit)
       val predictorHasBranch = Bool
       val branchHistory = Flow(SInt(branchPredictorHistoryWidth bit))
       val pcPlus4 = UInt(32 bit)
@@ -248,7 +247,6 @@ class Core(implicit p : CoreParm) extends Component{
     outInst.src1 := inInst.src1
     outInst.alu := alu.io.result
     outInst.adder := alu.io.adder
-    outInst.shift := alu.io.shift
     outInst.pcPlus4 := inInst.pc + 4
 
 
@@ -326,11 +324,7 @@ class Core(implicit p : CoreParm) extends Component{
     }))
     outInst.arbitrationFrom(inInst.haltWhen((inInst.valid && inInst.ctrl.men && !io.d.cmd.ready)))
     outInst.pc := inInst.pc
-    outInst.alu := inInst.ctrl.alu.map(
-      (ALU.SLL1) -> Reverse(inInst.shift),
-      (ALU.SRL1,ALU.SRA1) -> inInst.shift,
-      default -> inInst.alu
-    )
+    outInst.alu := inInst.alu
     outInst.regFileAddress := inInst.instruction(dstRange).asUInt
     outInst.ctrl := inInst.ctrl
     outInst.instruction := inInst.instruction
@@ -495,7 +489,8 @@ class Core(implicit p : CoreParm) extends Component{
 
 
   for(extension <- extensions){
-    extension.applyIt(this)
+    val area = extension.applyIt(this)
+    area.setName(extension.getName)
   }
   def getInstructionCtrl(instruction : Bits) = {
     applyExtensionTags
@@ -517,6 +512,7 @@ class Core(implicit p : CoreParm) extends Component{
 }
 
 abstract class CoreExtension {
+  def getName : String
   def applyIt(core : Core) : Area
   def instructionCtrlExtension(instruction : Bits,instructionCtrl: InstructionCtrl) : Unit
 
@@ -541,12 +537,14 @@ object CoreMain{
       pcWidth = 32,
       addrWidth = 32,
       startAddress = 0x200,
-      branchPrediction = dynamic,
-      bypassExecute0 = true,
-      bypassExecute1 = true,
-      bypassWriteBack = true,
+      branchPrediction = disable,
+      bypassExecute0 = false,
+      bypassExecute1 = false,
+      bypassWriteBack = false,
       branchPredictorSizeLog2 = 7
-    ).add(new MulDivExtension)
+    )
+    p.add(new MulDivExtension)
+    p.add(new BarrelShifterFullExtension)
     SpinalVhdl(new Core(),_.setLibrary("riscv"))
   }
 }
