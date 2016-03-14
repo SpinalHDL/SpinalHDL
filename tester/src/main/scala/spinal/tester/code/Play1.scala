@@ -19,6 +19,7 @@ import spinal.lib.graphic.vga.{VgaCtrl, Vga}
 
 import scala.collection.immutable.HashSet
 import scala.collection.mutable.ArrayBuffer
+import scala.util.Random
 
 
 trait BundleA extends Bundle {
@@ -862,6 +863,174 @@ object PlayShift {
 
   def main(args: Array[String]): Unit = {
     SpinalVhdl(new TopLevel)
+  }
+}
+
+object PlayDivide {
+  case class DividerCmd(nWidth : Int, dWidth : Int) extends Bundle{
+    val numerator = UInt(nWidth bit)
+    val denominator = UInt(dWidth bit)
+  }
+  case class DividerRsp(nWidth : Int, dWidth : Int) extends Bundle{
+    val quotient = UInt(nWidth bit)
+    val remainder = UInt(dWidth bit)
+    val error = Bool
+  }
+
+  class Divider(nWidth : Int, dWidth : Int) extends Component{
+    val io = new Bundle{
+      val cmd = slave Stream(DividerCmd(nWidth,dWidth))
+      val rsp = master Stream(DividerRsp(nWidth,dWidth))
+    }
+    val done = RegInit(True)
+    val waitRsp = RegInit(False)
+    val counter = Counter(nWidth)
+    val numerator = Reg(UInt(nWidth bit))
+    //  val quotient = Reg(UInt(nWidth bit))
+    val remainder = Reg(UInt(dWidth bit))
+    val remainderShifted = (remainder ## numerator.msb).asUInt
+    val remainderMinusDenominator = remainderShifted - io.cmd.denominator
+
+    io.cmd.ready := False
+    io.rsp.valid := False
+    io.rsp.quotient := numerator
+    io.rsp.remainder := remainder
+    io.rsp.error := False
+
+    when(done){
+      when(io.cmd.valid && (!waitRsp || io.rsp.ready)){
+        counter.clear()
+        //      quotient := 0
+        remainder := 0
+        numerator := io.cmd.numerator
+        when(io.cmd.denominator === 0) {
+          io.rsp.error := True
+          io.rsp.valid := True
+          io.cmd.ready := io.rsp.ready
+        }otherwise{
+          done := False
+        }
+      }
+
+      when(io.rsp.ready){
+        waitRsp := False
+      }
+
+    }.otherwise{
+      counter.increment()
+      remainder := remainderShifted.resized
+      numerator := (numerator ## !remainderMinusDenominator.msb).asUInt.resized
+      //    quotient := (quotient ## !remainderMinusDenominator.msb).asUInt.resized
+      when(!remainderMinusDenominator.msb){
+        remainder := remainderMinusDenominator.resized
+      }
+      when(counter.willOverflowIfInc){
+        done := True
+        waitRsp := True
+        io.cmd.ready := True
+      }
+    }
+  }
+  //    var Q = 0
+  //    var R = 0
+  //    for(i <- n-1 to 0 by -1){
+  //      R = R << 1
+  //      R = R | ((N >> i)&1)
+  //      if(R >= D){
+  //        R = R-D
+  //        Q = Q | (1 << i)
+  //      }
+  //    }
+  class TopLevel extends Component {
+
+    val a = in SInt(32 bit)
+    out(Mux(a.msb,~a,a) + (False ## a.msb).asSInt)
+//    val start = in Bool
+//    val signed = in Bool
+//    val numerator,denominator = in Bits (32 bit)
+//    val quotient,remainder = out Bits(32 bit)
+//
+//
+//    val rem = Reg(Bits(32 bit))
+//    when(start){
+//      //rem := dividend
+//    }otherwise{
+//
+//    }
+  }
+
+  def main(args: Array[String]): Unit = {
+//
+//
+  SpinalVhdl(new Divider(32,32).setDefinitionName("TopLevel"))
+//    def div(N : Int,D_ : Long) : (Int,Int) = {
+//
+//   val n = 32
+//
+////   println(10 % 3)
+////   println(10 % -3)
+////   println(-10 % 3)
+////   println(-10 % -3)
+//
+//   var Q = 0
+//   var P: Long = N
+//   val D = D_ << n
+//   for (i <- n - 1 to 0 by -1) {
+//     if (P >= 0) {
+//       Q = Q | (1 << i)
+//       P = (P << 1) - D
+//     } else {
+//       P = (P << 1) + D
+//     }
+//   }
+//
+//   Q = Q - (~Q)
+//   if (P < 0) {
+//     Q = Q - 1
+//     P = P + D
+//   }
+//   P >>= n
+//   return (Q,P.toInt)
+// }
+//
+//
+//    println(div(82,-7))
+//    for(i <- 0 to 1000){
+//      val a,b = Random.nextInt()
+//      if(b != 0  && b > 0){
+//        val (q,r) = div(a,b)
+//        assert(q == a/b)
+//        assert(r == a % b)
+//      }
+//    }
+
+   // println(Q + " " + P)
+
+
+//    var Q = 0
+//    var R = 0
+//    for(i <- n-1 to 0 by -1){
+//      R = R << 1
+//      R = R | ((N >> i)&1)
+//      if(R >= D){
+//        R = R-D
+//        Q = Q | (1 << i)
+//      }
+//    }
+//    var P = N
+//    var D := D << n              * P and D need twice the word width of N and Q
+//    for i = n-1..0 do        * for example 31..0 for 32 bits
+//    if P >= 0 then
+//      q[i] := +1
+//    P := 2*P - D
+//    else
+//    q[i] := -1
+//    P := 2*P + D
+//    end if
+//      end
+
+
+
   }
 }
 

@@ -38,7 +38,7 @@ architecture arch of Core_tb is
   signal clk : std_logic;
   signal reset : std_logic;
   -- #spinalBegin userDeclarations
-  constant doBench : Boolean := false;
+  constant doBench : Boolean := true;
   constant doTestWithStall : Boolean := true;
   
   
@@ -290,7 +290,7 @@ begin
       doTest("E:/vm/share/isa/rv32ui-p-mulhsu.hex");   
       doTest("E:/vm/share/isa/rv32ui-p-mulhu.hex");   
       -- doTest("E:/vm/share/isa/rv32ui-p-div.hex");   
-      -- doTest("E:/vm/share/isa/rv32ui-p-divu.hex");   
+      doTest("E:/vm/share/isa/rv32ui-p-divu.hex");   
       -- doTest("E:/vm/share/isa/rv32ui-p-rem.hex");   
       -- doTest("E:/vm/share/isa/rv32ui-p-remu.hex");
 

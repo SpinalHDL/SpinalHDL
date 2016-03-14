@@ -1,12 +1,74 @@
 package spinal.lib.cpu.riscv.impl
 
 import spinal.core._
-import spinal.lib.Reverse
+import spinal.lib._
 import spinal.lib.cpu.riscv.impl.Utils._
 
 /**
  * Created by PIC32F_USER on 12/03/2016.
  */
+
+case class DividerCmd(nWidth : Int, dWidth : Int) extends Bundle{
+  val numerator = UInt(nWidth bit)
+  val denominator = UInt(dWidth bit)
+}
+case class DividerRsp(nWidth : Int, dWidth : Int) extends Bundle{
+  val quotient = UInt(nWidth bit)
+  val remainder = UInt(dWidth bit)
+  val error = Bool
+}
+
+
+class UnsignedDivider(nWidth : Int, dWidth : Int) extends Component{
+  val io = new Bundle{
+    val cmd = slave Stream(DividerCmd(nWidth,dWidth))
+    val rsp = master Stream(DividerRsp(nWidth,dWidth))
+  }
+  val done = RegInit(True)
+  val waitRsp = RegInit(False)
+  val counter = Counter(nWidth)
+  val numerator = Reg(UInt(nWidth bit))
+  val remainder = Reg(UInt(dWidth bit))
+  val remainderShifted = (remainder ## numerator.msb).asUInt
+  val remainderMinusDenominator = remainderShifted - io.cmd.denominator
+
+  io.cmd.ready := False
+  io.rsp.valid := False
+  io.rsp.quotient := numerator
+  io.rsp.remainder := remainder
+  io.rsp.error := False
+
+  when(done){
+    when(io.cmd.valid && (!waitRsp || io.rsp.ready)){
+      counter.clear()
+      remainder := 0
+      numerator := io.cmd.numerator
+      when(io.cmd.denominator === 0) {
+        io.rsp.error := True
+        io.rsp.valid := True
+        io.cmd.ready := io.rsp.ready
+      }otherwise{
+        done := False
+      }
+    }
+    when(io.rsp.ready){
+      waitRsp := False
+    }
+  }.otherwise{
+    counter.increment()
+    remainder := remainderShifted.resized
+    numerator := (numerator ## !remainderMinusDenominator.msb).asUInt.resized
+    when(!remainderMinusDenominator.msb){
+      remainder := remainderMinusDenominator.resized
+    }
+    when(counter.willOverflowIfInc){
+      done := True
+      waitRsp := True
+      io.cmd.ready := True
+    }
+  }
+}
+
 class MulDivExtension extends CoreExtension{
   override def needTag: Boolean = true
   override def getName: String = "mulDiv"
@@ -71,6 +133,21 @@ class MulDivExtension extends CoreExtension{
       val result = RegPip(s3.result)
     }
 
+
+    val divider = new UnsignedDivider(32,32)
+    divider.io.cmd.valid := False  //TODO comment it to create bad report
+    divider.io.cmd.numerator := execute0.inInst.alu_op0.asUInt
+    divider.io.cmd.denominator := execute0.inInst.alu_op1.asUInt
+    divider.io.rsp.ready := True
+    when(isMyTag(execute0.inInst.ctrl)) {
+      switch(execute0.inInst.instruction(14)) {
+        is(True) {
+          divider.io.cmd.valid := execute0.inInst.valid
+          execute0.inInst.ready := divider.io.cmd.ready
+          execute0.outInst.alu := divider.io.rsp.quotient.asBits
+        }
+      }
+    }
     //pipeline insertion logic
     when(isMyTag(writeBack.inInst.ctrl)){
       switch(writeBack.inInst.instruction(14 downto 12)){
