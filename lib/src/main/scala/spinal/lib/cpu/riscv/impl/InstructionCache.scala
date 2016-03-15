@@ -61,9 +61,7 @@ class InstructionCache(cacheSize : Int,bytePerLine : Int,wayCount : Int,cpuConfi
 
   })
 
-  io.cpu.rsp <-< rsp.m2sPipe()
-  io.cpu.cmd.ready := False
-  val ctrl = out(RegNext(InstructionCtrl(rsp.data)))
+
 }
 
 object InstructionCacheMain{

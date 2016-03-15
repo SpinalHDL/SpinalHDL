@@ -149,14 +149,14 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
   }
 
 
-  def m2sPipe(crossClockData: Boolean = false): Stream[T] = {
+  def m2sPipe(collapsBubble : Boolean = true,crossClockData: Boolean = false): Stream[T] = {
     val ret = Stream(_dataType)
 
     val rValid = RegInit(False)
     val rData = Reg(_dataType)
     if (crossClockData) rData.addTag(crossClockDomain)
 
-    this.ready := (!ret.valid) || ret.ready
+    this.ready := (Bool(collapsBubble) && !ret.valid) || ret.ready
 
     when(this.ready) {
       rValid := this.valid

@@ -97,7 +97,6 @@ class Flow[T <: Data](_dataType: T) extends Bundle with IMasterSlave with DataCa
   def m2sPipe(): Flow[T] = {
     val ret = RegNext(this)
     ret.valid.init(False)
-    ret connectFrom this
     ret
   }
 

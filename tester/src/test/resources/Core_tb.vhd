@@ -34,6 +34,7 @@ architecture arch of Core_tb is
   signal io_d_cmd_payload_data : std_logic_vector(31 downto 0);
   signal io_d_cmd_payload_size : unsigned(1 downto 0);
   signal io_d_rsp_valid : std_logic;
+  signal io_d_rsp_ready : std_logic;
   signal io_d_rsp_payload : std_logic_vector(31 downto 0);
   signal clk : std_logic;
   signal reset : std_logic;
@@ -124,7 +125,13 @@ architecture arch of Core_tb is
   signal io_dmem_resp_valid                   : std_logic;
   signal io_dmem_resp_bits_data               : std_logic_vector(31 downto 0);
   
+  signal io_d_rsp_buff_valid : std_logic;
+  signal io_d_rsp_buff_ready : std_logic;
+  signal io_d_rsp_buff_payload : std_logic_vector(31 downto 0);
+  
   signal io_i_cmd_ready_rand : std_logic;
+  signal io_d_cmd_ready_rand : std_logic;
+  signal io_d_rsp_buff_ready_rand : std_logic;
   
   shared variable done : integer := 0;
   constant memSize : integer := 1024*256;
@@ -377,16 +384,19 @@ begin
   begin
     if rising_edge(clk) then
       if inBench or not doTestWithStall then
-        io_d_cmd_ready <= '1';
+        io_d_cmd_ready_rand <= '1';
         io_i_cmd_ready_rand <= '1';
+        io_d_rsp_buff_ready_rand <= '1';
       else
-        io_d_cmd_ready <= randomStdLogic(0.75);
+        io_d_cmd_ready_rand <= randomStdLogic(0.85);
+        io_d_rsp_buff_ready_rand <= randomStdLogic(0.85);
         io_i_cmd_ready_rand <= randomStdLogic(0.75);
       end if;
     end if;
   end process;
   
   io_i_cmd_ready <= (not io_i_rsp_valid or io_i_rsp_ready) and io_i_cmd_ready_rand;
+  io_d_cmd_ready <= (not io_d_rsp_buff_valid or io_d_rsp_buff_ready) and io_d_cmd_ready_rand;
 
   process(clk,reset)
     variable char : Character;
@@ -396,7 +406,7 @@ begin
   begin
     if reset = '1' then
       io_i_rsp_valid <= '0';
-      io_d_rsp_valid <= '0';
+      io_d_rsp_buff_valid <= '0';
       counter <= (others => '0');
       timingRead <= '0';
     elsif rising_edge(clk) then
@@ -420,9 +430,10 @@ begin
         end if;
       end if;
 
-      
-      io_d_rsp_valid <= '0';
-      io_d_rsp_payload <= (others => 'X');
+      if io_d_rsp_buff_ready = '1' then
+        io_d_rsp_buff_valid <= '0';
+        io_d_rsp_buff_payload <= (others => 'X');
+      end if;
       if io_d_cmd_valid = '1' and  io_d_cmd_ready = '1' then
         if io_d_cmd_payload_wr = '1' then
           if io_d_cmd_payload_address = X"10000000" then
@@ -440,19 +451,38 @@ begin
             end loop;
           end if;
         else
-          io_d_rsp_valid <= '1';
+          io_d_rsp_buff_valid <= '1';
           if io_d_cmd_payload_address = X"10000004" then
-            io_d_rsp_payload <= std_logic_vector(counter);
+            io_d_rsp_buff_payload <= std_logic_vector(counter);
             timingRead <= '1';
           else
             for i in 0 to 3 loop
-              io_d_rsp_payload(i*8+7 downto i*8) <= mem(to_integer(unsigned(io_d_cmd_payload_address)) + i);
+              io_d_rsp_buff_payload(i*8+7 downto i*8) <= mem(to_integer(unsigned(io_d_cmd_payload_address)) + i);
             end loop;        
           end if;
         end if;
       end if;
     end if;
   end process;
+  
+
+  io_d_rsp_buff_ready <= (not io_d_rsp_valid or io_d_rsp_ready) and io_d_rsp_buff_ready_rand;
+  process(reset,clk)
+  begin
+    if reset = '1' then
+      io_d_rsp_valid <= '0';
+    elsif rising_edge(clk) then
+      if io_d_rsp_ready = '1' then
+        io_d_rsp_valid <= '0';
+        io_d_rsp_payload <= (others => 'X');
+      end if;
+      if io_d_rsp_buff_valid = '1' and  io_d_rsp_buff_ready = '1' then
+        io_d_rsp_valid <= '1';
+        io_d_rsp_payload <= io_d_rsp_buff_payload;
+      end if;
+    end if;
+  end process;
+  
 
   io_host_reset                    <= reset;
   io_host_id                       <= '0';
@@ -607,6 +637,7 @@ begin
       io_d_cmd_payload_data =>  io_d_cmd_payload_data,
       io_d_cmd_payload_size =>  io_d_cmd_payload_size,
       io_d_rsp_valid =>  io_d_rsp_valid,
+      io_d_rsp_ready =>  io_d_rsp_ready,
       io_d_rsp_payload =>  io_d_rsp_payload,
       clk =>  clk,
       reset =>  reset 

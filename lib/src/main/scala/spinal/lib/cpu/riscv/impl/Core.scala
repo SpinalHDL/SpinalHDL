@@ -11,15 +11,22 @@ object disable extends BranchPrediction
 object static extends BranchPrediction
 object dynamic extends BranchPrediction
 
+trait RegFileReadKind
+object async extends RegFileReadKind
+object sync extends RegFileReadKind
+
 case class CoreParm(val pcWidth : Int = 32,
                     val addrWidth : Int = 32,
                     val startAddress : Int = 0,
                     val bypassExecute0 : Boolean = true,
                     val bypassExecute1 : Boolean = true,
+                    val bypassAccess : Boolean = true,
                     val bypassWriteBack : Boolean = true,
+                    val collapseBubble : Boolean = true,
+                    val regFileReadyKind : RegFileReadKind = sync,
                     val pendingI : Int = 1,
                     val branchPrediction : BranchPrediction = static,
-                    val branchPredictorSizeLog2 : Int = 4,
+                    val dynamicBranchPredictorCacheSizeLog2 : Int = 4,
                     val branchPredictorHistoryWidth : Int = 2
                      ) {
   val extensions = ArrayBuffer[CoreExtension]()
@@ -45,7 +52,7 @@ case class CoreDataCmd(implicit p : CoreParm) extends Bundle{
 }
 
 case class BranchPredictorLine(implicit p : CoreParm)  extends Bundle{
-  val pc = UInt(p.pcWidth-p.branchPredictorSizeLog2-2 bit)
+  val pc = UInt(p.pcWidth-p.dynamicBranchPredictorCacheSizeLog2-2 bit)
   val history = SInt(2 bit)
 }
 // assert(latencyAnalysis(io.iCmd.data,io.iRsp.data) == 1)
@@ -60,12 +67,12 @@ class Core(implicit p : CoreParm) extends Component{
     }
     val d = new Bundle {
       val cmd = master Stream (CoreDataCmd())
-      val rsp = slave Flow (Bits(32 bit))
+      val rsp = slave Stream (Bits(32 bit))
     }
   }
   io.i.flush := False
   val regFile = Mem(Bits(32 bit),32)
-  val brancheCache = Mem(BranchPredictorLine(), 1<<branchPredictorSizeLog2)
+  val brancheCache = Mem(BranchPredictorLine(), 1<<dynamicBranchPredictorCacheSizeLog2)
 
   //Send instruction request to io.i.cmd
   val fetchCmd = new Area {
@@ -110,12 +117,12 @@ class Core(implicit p : CoreParm) extends Component{
     outInst.arbitrationFrom(io.i.rsp)
     outInst.pc := inContext.pc
     outInst.instruction := io.i.rsp.instruction
-    outInst.branchCacheLine := brancheCache.readSync(Mux(inContext.isStall,inContext.pc,fetchCmd.outInst.pc)(2, branchPredictorSizeLog2 bit))
+    outInst.branchCacheLine := brancheCache.readSync(Mux(inContext.isStall,inContext.pc,fetchCmd.outInst.pc)(2, dynamicBranchPredictorCacheSizeLog2 bit))
 //    outInst.ctrl := getInstructionCtrl(outInst.outInst.instruction)
   }
 
   val decode = new Area{
-    val inInst = fetch.outInst.throwWhen(io.i.flush).m2sPipe()
+    val inInst = fetch.outInst.throwWhen(io.i.flush).m2sPipe(collapseBubble)
     val ctrl = getInstructionCtrl(inInst.instruction)
     val hazard = Bool //Used to stall decode phase because of register file hazard
     
@@ -123,9 +130,13 @@ class Core(implicit p : CoreParm) extends Component{
     val addr1 = inInst.instruction(src1Range).asUInt
 
     //read register file
-    val srcInstruction = Mux(inInst.isStall,inInst.instruction,fetch.outInst.instruction)
-    val src0 = regFile.readSync(srcInstruction(src0Range).asUInt)
-    val src1 = regFile.readSync(srcInstruction(src1Range).asUInt)
+    val (src0,src1) = regFileReadyKind match{
+      case `async` => (regFile.readAsync(inInst.instruction(src0Range).asUInt),regFile.readAsync(inInst.instruction(src1Range).asUInt))
+      case `sync` =>  {
+        val srcInstruction = Mux(inInst.isStall,inInst.instruction,fetch.outInst.instruction)
+        (regFile.readSync(srcInstruction(src0Range).asUInt),regFile.readSync(srcInstruction(src1Range).asUInt))
+      }
+    }
 
     val outInst = Stream(wrap(new Bundle{
       val pc = UInt(pcWidth bit)
@@ -147,7 +158,7 @@ class Core(implicit p : CoreParm) extends Component{
     val brJumpPc = inInst.pc + brjmpImm.asUInt
 
     // branch prediction
-    val branchCacheHit = inInst.branchCacheLine.pc === inInst.pc(pcWidth-1 downto 2 + branchPredictorSizeLog2)
+    val branchCacheHit = inInst.branchCacheLine.pc === inInst.pc(pcWidth-1 downto 2 + dynamicBranchPredictorCacheSizeLog2)
     val staticBranchPrediction = brjmpImm.msb || ctrl.br === BR.J
     val shouldTakeBranch = Bool
     branchPrediction match{
@@ -199,7 +210,7 @@ class Core(implicit p : CoreParm) extends Component{
   }
 
   val execute0 = new Area {
-    val inInst = decode.outInst.m2sPipe()
+    val inInst = decode.outInst.m2sPipe(collapseBubble)
     val ctrl = inInst.ctrl
     val addr0 = inInst.instruction(19 downto 15).asUInt
     val addr1 = inInst.instruction(24 downto 20).asUInt
@@ -213,6 +224,19 @@ class Core(implicit p : CoreParm) extends Component{
       val src1Ext = (inInst.src1.msb && signed) ## inInst.src1
       val ltx =  (src0Ext.asUInt-src1Ext.asUInt).msb
       val eq = inInst.src0 === inInst.src1
+
+
+
+      val pc_sel = inInst.ctrl.br.map[PC.T](
+        default -> PC.INC,
+        BR.NE -> Mux(!eq, PC.BR1, PC.INC),
+        BR.EQ -> Mux(eq, PC.BR1, PC.INC),
+        (BR.GE , BR.GEU) -> Mux(!ltx, PC.BR1, PC.INC),
+        (BR.LT , BR.LTU)  -> Mux(ltx, PC.BR1, PC.INC),
+        BR.J -> PC.J,
+        BR.JR -> PC.JR
+      )
+
     }
 
     val alu = new Alu
@@ -234,8 +258,9 @@ class Core(implicit p : CoreParm) extends Component{
       val predictorHasBranch = Bool
       val branchHistory = Flow(SInt(branchPredictorHistoryWidth bit))
       val pcPlus4 = UInt(32 bit)
+      val pc_sel = PC()
     }))
-    val halt = False
+    val halt = inInst.valid && inInst.ctrl.men && !io.d.cmd.ready
     outInst.arbitrationFrom(inInst.haltWhen(halt))
     outInst.pc := inInst.pc
     outInst.instruction := inInst.instruction
@@ -245,11 +270,22 @@ class Core(implicit p : CoreParm) extends Component{
     outInst.ctrl := ctrl
     outInst.br.eq := br.eq
     outInst.br.ltx := br.ltx
+    outInst.pc_sel := br.pc_sel
     outInst.src1 := inInst.src1
     outInst.alu := alu.io.result
     outInst.adder := alu.io.adder
     outInst.pcPlus4 := inInst.pc + 4
 
+    // Send memory read/write requests
+    io.d.cmd.valid := outInst.fire && inInst.ctrl.men
+    io.d.cmd.wr := inInst.ctrl.m === M.XWR
+    io.d.cmd.address := outInst.adder
+    io.d.cmd.payload.data := inInst.src1
+    io.d.cmd.size := inInst.ctrl.msk.map(
+      default -> U(2), //W
+      MSK.B -> U(0),
+      MSK.H -> U(1)
+    )
 
     val flush = False
     when(flush){
@@ -262,31 +298,10 @@ class Core(implicit p : CoreParm) extends Component{
   }
 
   val execute1 = new Area {
-    val inInst = execute0.outInst.m2sPipe()
-
-    // Send memory read/write requests
-    io.d.cmd.valid := inInst.fire && inInst.ctrl.men
-    io.d.cmd.wr := inInst.ctrl.m === M.XWR
-    io.d.cmd.address := inInst.adder
-    io.d.cmd.payload.data := inInst.src1
-    io.d.cmd.size := inInst.ctrl.msk.map(
-      default -> U(2), //W
-      MSK.B -> U(0),
-      MSK.H -> U(1)
-    )
-
+    val inInst = execute0.outInst.m2sPipe(collapseBubble)
     //branch calculation
     val take_evec = False
-    val ctrl_pc_sel = inInst.ctrl.br.map[PC.T](
-      default -> PC.INC,
-      BR.NE -> Mux(!inInst.br.eq, PC.BR1, PC.INC),
-      BR.EQ -> Mux(inInst.br.eq, PC.BR1, PC.INC),
-      (BR.GE , BR.GEU) -> Mux(!inInst.br.ltx, PC.BR1, PC.INC),
-      (BR.LT , BR.LTU)  -> Mux(inInst.br.ltx, PC.BR1, PC.INC),
-      BR.J -> PC.J,
-      BR.JR -> PC.JR
-    )
-
+    val ctrl_pc_sel = inInst.pc_sel
     when(take_evec) {
       ctrl_pc_sel := PC.EXC
     }
@@ -304,16 +319,20 @@ class Core(implicit p : CoreParm) extends Component{
     when(inInst.fire && inInst.ctrl.br =/= BR.JR && inInst.ctrl.br =/= BR.N && inInst.ctrl.br =/= BR.J){
       val line = BranchPredictorLine()
       val newHistory = inInst.branchHistory.payload.resize(branchPredictorHistoryWidth + 1) + Mux(ctrl_pc_sel === PC.INC,S(1),S(-1))
-      line.pc := inInst.pc(pcWidth-1 downto 2 + branchPredictorSizeLog2)
+      line.pc := inInst.pc(pcWidth-1 downto 2 + dynamicBranchPredictorCacheSizeLog2)
       when(inInst.branchHistory.valid){
         line.history := newHistory.resized
       }otherwise {
         line.history := (ctrl_pc_sel =/= PC.INC).asSInt.resized
       }
       when(newHistory(newHistory.high downto newHistory.high - 1) =/= S"10") { //no history overflow
-        brancheCache(inInst.pc(2, branchPredictorSizeLog2 bit)) := line
+        brancheCache(inInst.pc(2, dynamicBranchPredictorCacheSizeLog2 bit)) := line
       }
     }
+
+    // SLT, SLTU
+//    val less  = Mux(io.src0.msb === io.src1.msb, addSub.msb,
+//    Mux(io.func === ALU.SLTU, io.src1.msb, io.src0.msb))
 
     val outInst = Stream(wrap(new Bundle {
       val pc = UInt(pcWidth bit)
@@ -323,7 +342,7 @@ class Core(implicit p : CoreParm) extends Component{
       val instruction = Bits(32 bit)
       val pcPlus4 = UInt(32 bit)
     }))
-    val halt = inInst.valid && inInst.ctrl.men && !io.d.cmd.ready
+    val halt = False
     outInst.arbitrationFrom(inInst.haltWhen(halt))
     outInst.pc := inInst.pc
     outInst.alu := inInst.alu
@@ -334,8 +353,11 @@ class Core(implicit p : CoreParm) extends Component{
 
   }
 
-  val writeBack = new Area{
-    val inInst = execute1.outInst.m2sPipe()
+  val access = new Area{
+    val inInst = execute1.outInst.m2sPipe(collapseBubble)
+    val halt = inInst.valid && inInst.ctrl.wb === WB.MEM && inInst.ctrl.m === M.XRD && !io.d.rsp.valid
+    inInst.ready := ! halt
+    io.d.rsp.ready := ! halt
 
     val dataRspFormated = inInst.ctrl.msk.map(
       default -> io.d.rsp.payload, //W
@@ -350,19 +372,27 @@ class Core(implicit p : CoreParm) extends Component{
       WB.PC4  -> (inInst.pcPlus4).asBits.resized
     )
 
-    //Keep the last cycle register file write (for hazard tracking/bypassing)
-    val regFileWriteBack = new Area{
-      val valid = RegNext(False)
-      val addr = RegNext(inInst.regFileAddress)
-      val data = RegNext(regFileData)
-    }
 
-    when(inInst.fire && inInst.ctrl.rfen) {
-      regFileWriteBack.valid := True
-      regFile(inInst.regFileAddress) := regFileData
+
+    val outInst = Flow(wrap(new Bundle{
+      val addr = UInt(5 bit)
+      val data = Bits(32 bit)
+    }))
+
+    outInst.valid := inInst.fire && inInst.ctrl.rfen
+    outInst.addr := inInst.regFileAddress
+    outInst.data := regFileData
+
+    when(outInst.valid) {
+      regFile(outInst.addr) := regFileData
     }
-    inInst.ready := inInst.ctrl.wb =/= WB.MEM || inInst.ctrl.m =/= M.XRD || io.d.rsp.valid
   }
+
+  val writeBack = new Area{
+    val inInst = access.outInst.m2sPipe()
+  }
+
+
 
   // apply decode/execute1 pcLoad interfaces to fetchCmd.pcLoad
   val branchArbiter = new Area {
@@ -390,6 +420,8 @@ class Core(implicit p : CoreParm) extends Component{
     val flushCounter = Counter(1<<30,io.i.flush).value.keep()
   }
 
+
+
   // Check hazard and apply bypass logic
   val hazardTracker = new  Area {
     val addr0Check = decode.addr0 =/= 0
@@ -400,36 +432,46 @@ class Core(implicit p : CoreParm) extends Component{
 
     // write back bypass and hazard
     if(bypassWriteBack) {
-      when(writeBack.regFileWriteBack.valid) {
-        when(writeBack.regFileWriteBack.addr === decode.addr0) {
-          decode.src0 := writeBack.regFileWriteBack.data
+      when(writeBack.inInst.valid) {
+        when(writeBack.inInst.addr === decode.addr0) {
+          decode.src0 := writeBack.inInst.data
         }
-        when(writeBack.regFileWriteBack.addr === decode.addr1) {
-          decode.src1 := writeBack.regFileWriteBack.data
-        }
-      }
-      when(writeBack.inInst.ctrl.rfen && writeBack.inInst.valid) { //TODO hazard if not fired
-        when(writeBack.inInst.regFileAddress === decode.addr0) {
-          decode.src0 := writeBack.regFileData
-        }
-        when(writeBack.inInst.regFileAddress === decode.addr1) {
-          decode.src1 := writeBack.regFileData
+        when(writeBack.inInst.addr === decode.addr1) {
+          decode.src1 := writeBack.inInst.data
         }
       }
     }else{
-      when(writeBack.regFileWriteBack.valid) {
-        when(addr0Check && decode.addr0 === writeBack.regFileWriteBack.addr) {
+      when(writeBack.inInst.valid) {
+        when(addr0Check && decode.addr0 === writeBack.inInst.addr) {
           src0Hazard := True
         }
-        when(addr1Check && decode.addr1 === writeBack.regFileWriteBack.addr) {
+        when(addr1Check && decode.addr1 === writeBack.inInst.addr) {
           src1Hazard := True
         }
       }
-      when(writeBack.inInst.valid && writeBack.inInst.ctrl.rfen) {
-        when(addr0Check && decode.addr0 === writeBack.inInst.regFileAddress) {
+    }
+
+    // memory access bypass and hazard
+    val A = new Area{
+      val addr0Match = access.outInst.addr === decode.addr0
+      val addr1Match = access.outInst.addr === decode.addr1
+      if(bypassAccess) {
+        when(access.outInst.valid) {
+          when(addr0Match) {
+            decode.src0 := access.regFileData
+            src0Hazard := False
+          }
+          when(addr1Match) {
+            decode.src1 := access.regFileData
+            src1Hazard := False
+          }
+        }
+      }
+      when(access.inInst.valid && access.inInst.ctrl.rfen && (Bool(!bypassAccess) || !access.outInst.valid)) {
+        when(addr0Check && addr0Match) {
           src0Hazard := True
         }
-        when(addr1Check && writeBack.inInst.valid && decode.addr1 === writeBack.inInst.regFileAddress && writeBack.inInst.ctrl.rfen) {
+        when(addr1Check && addr1Match) {
           src1Hazard := True
         }
       }
@@ -538,11 +580,14 @@ object CoreMain{
       pcWidth = 32,
       addrWidth = 32,
       startAddress = 0x200,
+      regFileReadyKind = sync,
       branchPrediction = dynamic,
       bypassExecute0 = true,
       bypassExecute1 = true,
+      bypassAccess = true,
       bypassWriteBack = true,
-      branchPredictorSizeLog2 = 7
+      collapseBubble = true,
+      dynamicBranchPredictorCacheSizeLog2 = 7
     )
     p.add(new MulExtension)
     p.add(new DivExtension)

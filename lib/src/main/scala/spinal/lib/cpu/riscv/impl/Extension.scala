@@ -195,13 +195,13 @@ class MulExtension extends CoreExtension{
     }
 
     //pipeline insertion logic
-    when(isMyTag(writeBack.inInst.ctrl)){
-      switch(writeBack.inInst.instruction(13 downto 12)){
+    when(isMyTag(access.inInst.ctrl)){
+      switch(access.inInst.instruction(13 downto 12)){
         is(B"00"){
-          writeBack.inInst.alu := s3.low(31 downto 0).asBits
+          access.inInst.alu := s3.low(31 downto 0).asBits
         }
         is(B"01",B"10",B"11"){
-          writeBack.inInst.alu := s3.result(63 downto 32).asBits
+          access.inInst.alu := s3.result(63 downto 32).asBits
         }
       }
     }
@@ -236,6 +236,9 @@ class DivExtension extends CoreExtension{
     divider.io.cmd.numerator := execute0.inInst.alu_op0
     divider.io.cmd.denominator := execute0.inInst.alu_op1
     divider.io.cmd.signed := !execute0.inInst.instruction(12)
+
+    val rspReady = RegInit(False)
+    val rsp = RegNext(Mux(execute1.inInst.instruction(13), divider.io.rsp.remainder, divider.io.rsp.quotient).asBits)
     divider.io.rsp.ready := False
 
     when(isMyTag(execute0.inInst.ctrl)) {
@@ -246,12 +249,13 @@ class DivExtension extends CoreExtension{
     }
 
     when(isMyTag(execute1.inInst.ctrl)) {
-      divider.io.rsp.ready := execute1.inInst.ready
-      when(!divider.io.rsp.valid){
+      divider.io.rsp.ready := execute1.inInst.ready && rspReady
+      rspReady := divider.io.rsp.valid && !execute1.inInst.ready
+      when(!rspReady){
         execute1.halt := True
       }
 
-      execute1.outInst.alu := Mux(execute1.inInst.instruction(13), divider.io.rsp.remainder, divider.io.rsp.quotient).asBits
+      execute1.outInst.alu := rsp
     }
   }
 
