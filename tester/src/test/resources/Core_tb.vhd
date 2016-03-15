@@ -289,10 +289,10 @@ begin
       doTest("E:/vm/share/isa/rv32ui-p-mulh.hex");   
       doTest("E:/vm/share/isa/rv32ui-p-mulhsu.hex");   
       doTest("E:/vm/share/isa/rv32ui-p-mulhu.hex");   
-      -- doTest("E:/vm/share/isa/rv32ui-p-div.hex");   
+      doTest("E:/vm/share/isa/rv32ui-p-div.hex");   
       doTest("E:/vm/share/isa/rv32ui-p-divu.hex");   
-      -- doTest("E:/vm/share/isa/rv32ui-p-rem.hex");   
-      -- doTest("E:/vm/share/isa/rv32ui-p-remu.hex");
+       doTest("E:/vm/share/isa/rv32ui-p-rem.hex");   
+       doTest("E:/vm/share/isa/rv32ui-p-remu.hex");
 
        --doTest("E:/vm/share/isa/rv32si-p-csr.hex");
        --doTest("E:/vm/share/isa/rv32si-p-illegal.hex");   

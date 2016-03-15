@@ -235,7 +235,8 @@ class Core(implicit p : CoreParm) extends Component{
       val branchHistory = Flow(SInt(branchPredictorHistoryWidth bit))
       val pcPlus4 = UInt(32 bit)
     }))
-    outInst.arbitrationFrom(inInst)
+    val halt = False
+    outInst.arbitrationFrom(inInst.haltWhen(halt))
     outInst.pc := inInst.pc
     outInst.instruction := inInst.instruction
     outInst.predictorHasBranch := inInst.predictorHasBranch
@@ -322,7 +323,8 @@ class Core(implicit p : CoreParm) extends Component{
       val instruction = Bits(32 bit)
       val pcPlus4 = UInt(32 bit)
     }))
-    outInst.arbitrationFrom(inInst.haltWhen((inInst.valid && inInst.ctrl.men && !io.d.cmd.ready)))
+    val halt = inInst.valid && inInst.ctrl.men && !io.d.cmd.ready
+    outInst.arbitrationFrom(inInst.haltWhen(halt))
     outInst.pc := inInst.pc
     outInst.alu := inInst.alu
     outInst.regFileAddress := inInst.instruction(dstRange).asUInt
@@ -406,7 +408,7 @@ class Core(implicit p : CoreParm) extends Component{
           decode.src1 := writeBack.regFileWriteBack.data
         }
       }
-      when(writeBack.inInst.ctrl.rfen && writeBack.inInst.valid) {
+      when(writeBack.inInst.ctrl.rfen && writeBack.inInst.valid) { //TODO hazard if not fired
         when(writeBack.inInst.regFileAddress === decode.addr0) {
           decode.src0 := writeBack.regFileData
         }
@@ -438,7 +440,7 @@ class Core(implicit p : CoreParm) extends Component{
       val addr0Match = execute1.outInst.instruction(dstRange).asUInt === decode.addr0
       val addr1Match = execute1.outInst.instruction(dstRange).asUInt === decode.addr1
       if(bypassExecute1) {
-        when(execute1.outInst.ctrl.execute1AluBypass && execute1.outInst.ctrl.rfen && execute1.inInst.valid) {
+        when(execute1.outInst.ctrl.execute1AluBypass && execute1.outInst.ctrl.rfen && execute1.outInst.valid) {
           when(addr0Match) {
             decode.src0 := execute1.outInst.alu
             src0Hazard := False
@@ -449,7 +451,7 @@ class Core(implicit p : CoreParm) extends Component{
           }
         }
       }
-      when(execute1.inInst.valid && execute1.inInst.ctrl.rfen && (Bool(!bypassExecute1) || !execute1.inInst.ctrl.execute1AluBypass)) {
+      when(execute1.inInst.valid && execute1.inInst.ctrl.rfen && (Bool(!bypassExecute1) || !execute1.inInst.ctrl.execute1AluBypass || !execute1.outInst.valid)) {
         when(addr0Check && addr0Match) {
           src0Hazard := True
         }
@@ -464,7 +466,7 @@ class Core(implicit p : CoreParm) extends Component{
       val addr0Match = execute0.outInst.instruction(dstRange).asUInt === decode.addr0
       val addr1Match = execute0.outInst.instruction(dstRange).asUInt === decode.addr1
       if (bypassExecute0) {
-        when(execute0.outInst.ctrl.execute0AluBypass && execute0.outInst.ctrl.rfen && execute0.inInst.valid) {
+        when(execute0.outInst.ctrl.execute0AluBypass && execute0.outInst.ctrl.rfen && execute0.outInst.valid) {
           when(addr0Match) {
             decode.src0 := execute0.outInst.alu
             src0Hazard := False
@@ -475,7 +477,7 @@ class Core(implicit p : CoreParm) extends Component{
           }
         }
       }
-      when(execute0.inInst.valid && execute0.inInst.ctrl.rfen && (Bool(!bypassExecute0) || !execute0.inInst.ctrl.execute0AluBypass)) {
+      when(execute0.inInst.valid && execute0.inInst.ctrl.rfen && (Bool(!bypassExecute0) || !execute0.inInst.ctrl.execute0AluBypass || !execute0.outInst.valid)) {
         when(addr0Check && addr0Match) {
           src0Hazard := True
         }
@@ -542,7 +544,8 @@ object CoreMain{
       bypassWriteBack = true,
       branchPredictorSizeLog2 = 7
     )
-    p.add(new MulDivExtension)
+    p.add(new MulExtension)
+    p.add(new DivExtension)
     p.add(new BarrelShifterFullExtension)
     SpinalVhdl(new Core(),_.setLibrary("riscv"))
   }

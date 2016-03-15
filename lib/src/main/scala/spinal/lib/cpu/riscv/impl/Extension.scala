@@ -8,52 +8,116 @@ import spinal.lib.cpu.riscv.impl.Utils._
  * Created by PIC32F_USER on 12/03/2016.
  */
 
-case class DividerCmd(nWidth : Int, dWidth : Int) extends Bundle{
+case class SignedDividerCmd(nWidth : Int, dWidth : Int) extends Bundle{
+  val numerator = SInt(nWidth bit)
+  val denominator = SInt(dWidth bit)
+}
+case class SignedDividerRsp(nWidth : Int, dWidth : Int) extends Bundle{
+  val quotient = SInt(nWidth bit)
+  val remainder = SInt(dWidth bit)
+  val error = Bool
+}
+class SignedDivider(nWidth : Int, dWidth : Int,storeDenominator : Boolean) extends Component{
+  val io = new Bundle{
+    val cmd = slave Stream(SignedDividerCmd(nWidth,dWidth))
+    val rsp = master Stream(SignedDividerRsp(nWidth,dWidth))
+  }
+  val divider = new UnsignedDivider(nWidth,dWidth,storeDenominator,Bits(2 bit))
+  divider.io.cmd.arbitrationFrom(io.cmd)
+  divider.io.cmd.numerator := io.cmd.numerator.abs
+  divider.io.cmd.denominator := io.cmd.denominator.abs
+  divider.io.cmd.context(0) := (io.cmd.numerator.msb ^ io.cmd.denominator.msb)
+  divider.io.cmd.context(1) := io.cmd.numerator.msb
+
+  io.rsp.arbitrationFrom(divider.io.rsp)
+  io.rsp.quotient := divider.io.rsp.quotient.twoComplement(divider.io.rsp.context(0))
+  io.rsp.remainder := divider.io.rsp.remainder.twoComplement(divider.io.rsp.context(1))
+}
+
+
+case class MixedDividerCmd(nWidth : Int, dWidth : Int) extends Bundle{
+  val numerator = Bits(nWidth bit)
+  val denominator = Bits(dWidth bit)
+  val signed = Bool
+}
+case class MixedDividerRsp(nWidth : Int, dWidth : Int) extends Bundle{
+  val quotient = Bits(nWidth bit)
+  val remainder = Bits(dWidth bit)
+  val error = Bool
+}
+class MixedDivider(nWidth : Int, dWidth : Int,storeDenominator : Boolean) extends Component{
+  val io = new Bundle{
+    val cmd = slave Stream(MixedDividerCmd(nWidth,dWidth))
+    val rsp = master Stream(MixedDividerRsp(nWidth,dWidth))
+  }
+  val divider = new UnsignedDivider(nWidth,dWidth,storeDenominator,Bits(2 bit))
+  divider.io.cmd.arbitrationFrom(io.cmd)
+  divider.io.cmd.numerator := io.cmd.numerator.asSInt.abs(io.cmd.signed)
+  divider.io.cmd.denominator := io.cmd.denominator.asSInt.abs(io.cmd.signed)
+  divider.io.cmd.context(0) := io.cmd.signed && (io.cmd.numerator.msb ^ io.cmd.denominator.msb)
+  divider.io.cmd.context(1) := io.cmd.signed && io.cmd.numerator.msb
+
+  io.rsp.arbitrationFrom(divider.io.rsp)
+  io.rsp.quotient := divider.io.rsp.quotient.twoComplement(divider.io.rsp.context(0)).asBits.resized
+  io.rsp.remainder := divider.io.rsp.remainder.twoComplement(divider.io.rsp.context(1)).asBits.resized
+}
+
+
+
+case class UnsignedDividerCmd[T <: Data](nWidth : Int, dWidth : Int,contextType : T) extends Bundle{
   val numerator = UInt(nWidth bit)
   val denominator = UInt(dWidth bit)
+  val context = contextType.clone
 }
-case class DividerRsp(nWidth : Int, dWidth : Int) extends Bundle{
+case class UnsignedDividerRsp[T <: Data](nWidth : Int, dWidth : Int,contextType : T)extends Bundle{
   val quotient = UInt(nWidth bit)
   val remainder = UInt(dWidth bit)
   val error = Bool
+  val context = contextType.clone
 }
 
 
-class UnsignedDivider(nWidth : Int, dWidth : Int) extends Component{
+class UnsignedDivider[T <: Data](nWidth : Int, dWidth : Int,storeDenominator : Boolean,contextType : T = NoData) extends Component{
   val io = new Bundle{
-    val cmd = slave Stream(DividerCmd(nWidth,dWidth))
-    val rsp = master Stream(DividerRsp(nWidth,dWidth))
+    val cmd = slave Stream(UnsignedDividerCmd(nWidth,dWidth,contextType))
+    val rsp = master Stream(UnsignedDividerRsp(nWidth,dWidth,contextType))
   }
   val done = RegInit(True)
   val waitRsp = RegInit(False)
   val counter = Counter(nWidth)
   val numerator = Reg(UInt(nWidth bit))
+  val denominator = if(storeDenominator) Reg(UInt(dWidth bit)) else io.cmd.denominator
+  val context = if(storeDenominator) Reg(contextType) else io.cmd.context
   val remainder = Reg(UInt(dWidth bit))
   val remainderShifted = (remainder ## numerator.msb).asUInt
-  val remainderMinusDenominator = remainderShifted - io.cmd.denominator
+  val remainderMinusDenominator = remainderShifted - denominator
 
   io.cmd.ready := False
-  io.rsp.valid := False
+  io.rsp.valid := waitRsp
   io.rsp.quotient := numerator
   io.rsp.remainder := remainder
-  io.rsp.error := False
+  io.rsp.context := context
 
+  when(io.rsp.ready){
+    waitRsp := False
+  }
+  io.rsp.error := denominator === 0
   when(done){
-    when(io.cmd.valid && (!waitRsp || io.rsp.ready)){
+    when(!waitRsp || io.rsp.ready){ //ready for new command
       counter.clear()
       remainder := 0
       numerator := io.cmd.numerator
-      when(io.cmd.denominator === 0) {
-        io.rsp.error := True
-        io.rsp.valid := True
-        io.cmd.ready := io.rsp.ready
-      }otherwise{
-        done := False
+      if(storeDenominator){
+        denominator := io.cmd.denominator
+        context := io.cmd.context
+      }
+
+      done := !io.cmd.valid
+      if(storeDenominator) {
+        io.cmd.ready := True
       }
     }
-    when(io.rsp.ready){
-      waitRsp := False
-    }
+
   }.otherwise{
     counter.increment()
     remainder := remainderShifted.resized
@@ -64,12 +128,15 @@ class UnsignedDivider(nWidth : Int, dWidth : Int) extends Component{
     when(counter.willOverflowIfInc){
       done := True
       waitRsp := True
-      io.cmd.ready := True
+      if(storeDenominator) {
+        io.cmd.ready := True
+      }
     }
   }
+
 }
 
-class MulDivExtension extends CoreExtension{
+class MulExtension extends CoreExtension{
   override def needTag: Boolean = true
   override def getName: String = "mulDiv"
   override def applyIt(core: Core): Area = new Area{
@@ -127,58 +194,21 @@ class MulDivExtension extends CoreExtension{
       val result = low + (mul_hh << 32)
     }
 
-    val s4 = new Area {
-      val mulhReady = RegInit(False)
-      sample = !mulhReady
-      val result = RegPip(s3.result)
-    }
-
-
-    val divider = new UnsignedDivider(32,32)
-    divider.io.cmd.valid := False  //TODO comment it to create bad report
-    divider.io.cmd.numerator := execute0.inInst.alu_op0.asUInt
-    divider.io.cmd.denominator := execute0.inInst.alu_op1.asUInt
-    divider.io.rsp.ready := True
-    when(isMyTag(execute0.inInst.ctrl)) {
-      switch(execute0.inInst.instruction(14)) {
-        is(True) {
-          divider.io.cmd.valid := execute0.inInst.valid
-          execute0.inInst.ready := divider.io.cmd.ready
-          execute0.outInst.alu := divider.io.rsp.quotient.asBits
-        }
-      }
-    }
     //pipeline insertion logic
     when(isMyTag(writeBack.inInst.ctrl)){
-      switch(writeBack.inInst.instruction(14 downto 12)){
-        is(B"000"){
+      switch(writeBack.inInst.instruction(13 downto 12)){
+        is(B"00"){
           writeBack.inInst.alu := s3.low(31 downto 0).asBits
         }
-        is(B"001",B"010",B"011"){
+        is(B"01",B"10",B"11"){
           writeBack.inInst.alu := s3.result(63 downto 32).asBits
-          when(!s4.mulhReady){
-            s4.mulhReady := writeBack.inInst.valid
-          }otherwise{
-            s4.mulhReady := !writeBack.inInst.fire
-          }
         }
-//        is(B"100"){
-//          execute0.outInst.alu := (execute0.inInst.alu_op0.asSInt / execute0.inInst.alu_op1.asSInt).asBits
-//        }
-//        is(B"101"){
-//          execute0.outInst.alu :=  (execute0.inInst.alu_op0.asUInt / execute0.inInst.alu_op1.asUInt).asBits
-//        }
-//        is(B"110"){
-//          execute0.outInst.alu := (execute0.inInst.alu_op0.asSInt % execute0.inInst.alu_op1.asSInt).asBits
-//        }
-//        is(B"111"){
-//          execute0.outInst.alu :=  (execute0.inInst.alu_op0.asUInt % execute0.inInst.alu_op1.asUInt).asBits
-//        }
       }
     }
+    sample = null
   }
 
-  def MULX       = M"0000001------------------0110011"
+  def MULX       = M"0000001----------0-------0110011"
   override def instructionCtrlExtension(instruction: Bits, ctrl: InstructionCtrl): Unit = {
     when(instruction === MULX){
       applyTag(ctrl)
@@ -189,6 +219,53 @@ class MulDivExtension extends CoreExtension{
       ctrl.rfen := True
       ctrl.execute0AluBypass := False
       ctrl.execute1AluBypass := False //instruction(14 downto 12) === B"000"
+    }
+  }
+}
+
+
+
+class DivExtension extends CoreExtension{
+  override def needTag: Boolean = true
+  override def getName: String = "mulDiv"
+  override def applyIt(core: Core): Area = new Area{
+    import core._
+
+    val divider = new MixedDivider(32,32,true)
+    divider.io.cmd.valid := False  //TODO comment it to create bad report
+    divider.io.cmd.numerator := execute0.inInst.alu_op0
+    divider.io.cmd.denominator := execute0.inInst.alu_op1
+    divider.io.cmd.signed := !execute0.inInst.instruction(12)
+    divider.io.rsp.ready := False
+
+    when(isMyTag(execute0.inInst.ctrl)) {
+      divider.io.cmd.valid := execute0.outInst.valid
+      when(!divider.io.cmd.ready) {
+        execute0.halt := True
+      }
+    }
+
+    when(isMyTag(execute1.inInst.ctrl)) {
+      divider.io.rsp.ready := execute1.inInst.ready
+      when(!divider.io.rsp.valid){
+        execute1.halt := True
+      }
+
+      execute1.outInst.alu := Mux(execute1.inInst.instruction(13), divider.io.rsp.remainder, divider.io.rsp.quotient).asBits
+    }
+  }
+
+  def DIVX       = M"0000001----------1-------0110011"
+  override def instructionCtrlExtension(instruction: Bits, ctrl: InstructionCtrl): Unit = {
+    when(instruction === DIVX){
+      applyTag(ctrl)
+      ctrl.instVal := True
+      ctrl.op1 := OP1.RS1
+      ctrl.op2 := OP2.RS2
+      ctrl.wb  := WB.ALU1
+      ctrl.rfen := True
+      ctrl.execute0AluBypass := False
+      ctrl.execute1AluBypass := True
     }
   }
 }
@@ -221,9 +298,23 @@ class BarrelShifterFullExtension extends CoreExtension{
         }
       }
     }
-
+    sample = null
   }
 
   override def instructionCtrlExtension(instruction: Bits, ctrl: InstructionCtrl): Unit = { }
 }
 
+
+
+
+//    val s4 = new Area {
+//      val mulhReady = RegInit(False)
+//      sample = !mulhReady
+//      val result = RegPip(s3.result)
+//    }
+//          writeBack.inInst.ready := s4.mulhReady
+//          when(!s4.mulhReady){
+//            s4.mulhReady := writeBack.inInst.valid
+//          }otherwise{
+//            s4.mulhReady := !writeBack.inInst.fire
+//          }

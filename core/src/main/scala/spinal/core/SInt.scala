@@ -48,6 +48,7 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider {
   override def /(that: SInt): SInt = newBinaryOperator("s/s", that, WidthInfer.input0Width, InputNormalize.none,ZeroWidth.signedDivImpl);
   override def %(that: SInt): SInt = newBinaryOperator("s%s", that, WidthInfer.input0Width, InputNormalize.none,ZeroWidth.signedModImpl);
   def abs: UInt = Mux(this.msb,~this,this).asUInt + this.msb.asUInt
+  def abs(enable : Bool): UInt = Mux(this.msb && enable,~this,this).asUInt + (this.msb && enable).asUInt
 
 
   def |(that: SInt): SInt = newBinaryOperator("s|s", that, WidthInfer.inputMaxWidth,InputNormalize.nodeWidth,ZeroWidth.binaryTakeOther);

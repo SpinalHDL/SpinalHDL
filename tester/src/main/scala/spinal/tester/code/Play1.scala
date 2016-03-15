@@ -966,12 +966,12 @@ object PlayDivide {
 //    def div(N : Int,D_ : Long) : (Int,Int) = {
 //
 //   val n = 32
-//
-////   println(10 % 3)
-////   println(10 % -3)
-////   println(-10 % 3)
-////   println(-10 % -3)
-//
+
+   println(10 % 3)
+   println(10 % -3)
+   println(-10 % 3)
+   println(-10 % -3)
+
 //   var Q = 0
 //   var P: Long = N
 //   val D = D_ << n
