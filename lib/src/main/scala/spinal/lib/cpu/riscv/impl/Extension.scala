@@ -371,16 +371,16 @@ class SimpleInterruptExtension(exceptionVector : Int,interrupt : Bool) extends C
         inIrq := True
       }
     }otherwise{
-      when(execute1.inInst.fire) {
+      when(execute1.inInst.valid) {
         when(isMyTag(execute1.inInst.ctrl)) {
-          inIrq := False
           execute1.pc_sel := PC.J
           execute1.inInst.adder := exceptionPc
+          when(execute1.outInst.fire){
+            inIrq := False
+          }
         }
       }
     }
-
-
   }
 
   override def needTag: Boolean = true

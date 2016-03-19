@@ -101,11 +101,19 @@ class Core(implicit p : CoreParm) extends Component{
     }))
     outInst.valid := io.i.cmd.fire
     outInst.pc := pcNext
+
+//    val throwIt = False
+//    when(throwIt){
+//      outInst.valid :=
+//    }
   }
 
   //Join fetchCmd.outInst with io.i.rsp
   val fetch = new Area {
     val inContext = fetchCmd.outInst.throwWhen(io.i.flush).m2sPipe()
+    val throwIt = False
+    val halt = False
+
     inContext.ready := io.i.rsp.ready
 
     val outInst = Stream(wrap(new Bundle {
@@ -114,18 +122,31 @@ class Core(implicit p : CoreParm) extends Component{
 //      val ctrl = InstructionCtrl()
       val branchCacheLine = BranchPredictorLine()
     }))
-    outInst.arbitrationFrom(io.i.rsp)
+
+
+    outInst.arbitrationFrom(io.i.rsp.throwWhen(throwIt).haltWhen(halt))
     outInst.pc := inContext.pc
     outInst.instruction := io.i.rsp.instruction
     outInst.branchCacheLine := brancheCache.readSync(Mux(inContext.isStall,inContext.pc,fetchCmd.outInst.pc)(2, dynamicBranchPredictorCacheSizeLog2 bit))
 //    outInst.ctrl := getInstructionCtrl(outInst.outInst.instruction)
+
+
+    val flush = False
+    when(flush){
+      throwIt := True
+      io.i.flush := True
+    }
   }
 
   val decode = new Area{
     val inInst = fetch.outInst.throwWhen(io.i.flush).m2sPipe()
     val ctrl = getInstructionCtrl(inInst.instruction)
     val hazard = Bool //Used to stall decode phase because of register file hazard
-    
+    val throwIt = False
+    val halt = False
+    when(hazard){
+      halt := True
+    }
     val addr0 = inInst.instruction(src0Range).asUInt
     val addr1 = inInst.instruction(src1Range).asUInt
 
@@ -177,9 +198,10 @@ class Core(implicit p : CoreParm) extends Component{
     val pcLoad = Flow(UInt(pcWidth bit))
     pcLoad.valid := inInst.valid && !hazard && outInst.ready && (ctrl.br =/= BR.JR && ctrl.br =/= BR.N) && ctrl.instVal && shouldTakeBranch
     pcLoad.payload := brJumpPc
-    
 
-    outInst.arbitrationFrom(inInst.haltWhen(hazard))
+
+
+    outInst.arbitrationFrom(inInst.throwWhen(throwIt).haltWhen(halt))
     outInst.pc := inInst.pc
     outInst.instruction := inInst.instruction
     outInst.ctrl := ctrl
@@ -202,15 +224,19 @@ class Core(implicit p : CoreParm) extends Component{
     outInst.branchHistory.valid := branchCacheHit
     outInst.branchHistory.payload := inInst.branchCacheLine.history
 
+
     val flush = False
     when(flush){
-      io.i.flush := True
-      inInst.ready := True
+      fetch.throwIt := True
+      throwIt := True
     }
   }
 
   val execute0 = new Area {
     val inInst = decode.outInst.m2sPipe(collapseBubble)
+    val throwIt = False
+    val halt = inInst.valid && inInst.ctrl.men && !io.d.cmd.ready
+
     val ctrl = inInst.ctrl
     val addr0 = inInst.instruction(19 downto 15).asUInt
     val addr1 = inInst.instruction(24 downto 20).asUInt
@@ -260,8 +286,9 @@ class Core(implicit p : CoreParm) extends Component{
       val pcPlus4 = UInt(32 bit)
       val pc_sel = PC()
     }))
-    val halt = inInst.valid && inInst.ctrl.men && !io.d.cmd.ready
-    outInst.arbitrationFrom(inInst.haltWhen(halt))
+
+
+    outInst.arbitrationFrom(inInst.throwWhen(throwIt).haltWhen(halt))
     outInst.pc := inInst.pc
     outInst.instruction := inInst.instruction
     outInst.predictorHasBranch := inInst.predictorHasBranch
@@ -289,17 +316,17 @@ class Core(implicit p : CoreParm) extends Component{
 
     val flush = False
     when(flush){
-      io.i.flush := True
-      decode.inInst.ready := True
-      decode.outInst.valid := False
-      inInst.ready := True
-      outInst.valid := False
+      fetch.throwIt := True
+      decode.throwIt := True
+      throwIt := True
     }
   }
 
   val execute1 = new Area {
     val inInst = execute0.outInst.m2sPipe(collapseBubble)
-    //branch calculation
+    val halt = False
+    val throwIt = False
+
     val pc_sel = inInst.pc_sel
 
     val exception = Bool()
@@ -340,8 +367,8 @@ class Core(implicit p : CoreParm) extends Component{
       val instruction = Bits(32 bit)
       val pcPlus4 = UInt(32 bit)
     }))
-    val halt = False
-    val throwIt = False
+
+
     outInst.arbitrationFrom(inInst.throwWhen(throwIt).haltWhen(halt))
     outInst.pc := inInst.pc
     outInst.alu := inInst.alu
@@ -354,10 +381,19 @@ class Core(implicit p : CoreParm) extends Component{
 
   val access = new Area{
     val inInst = execute1.outInst.m2sPipe(collapseBubble)
+    val throwIt = !inInst.ctrl.rfen
     val halt = False
+
+
     val needMemoryResponse = inInst.ctrl.wb === WB.MEM && inInst.ctrl.m === M.XRD
-    inInst.ready := !halt && !(inInst.valid && needMemoryResponse && !io.d.rsp.valid)
-    io.d.rsp.ready := inInst.valid && needMemoryResponse && !halt
+    io.d.rsp.ready := False
+    when(inInst.valid && needMemoryResponse){
+      when(!io.d.rsp.valid) {
+        halt := True
+      }
+      io.d.rsp.ready := !halt
+    }
+
 
     val dataRspFormated = inInst.ctrl.msk.map(
       default -> io.d.rsp.payload, //W
@@ -373,23 +409,26 @@ class Core(implicit p : CoreParm) extends Component{
     )
 
 
-
-    val outInst = Flow(wrap(new Bundle{
+    val outInst = Stream(wrap(new Bundle{
       val addr = UInt(5 bit)
       val data = Bits(32 bit)
     }))
 
-    outInst.valid := inInst.fire && inInst.ctrl.rfen
+
+    outInst.arbitrationFrom(inInst.throwWhen(throwIt).haltWhen(halt))
     outInst.addr := inInst.regFileAddress
     outInst.data := regFileData
 
-    when(outInst.valid) {
+    when(outInst.fire) {
       regFile(outInst.addr) := regFileData
     }
+
+
   }
 
   val writeBack = new Area{
-    val inInst = access.outInst.m2sPipe()
+    val inInst = access.outInst.m2sPipe(collapseBubble)
+    inInst.ready := True
   }
 
 
@@ -407,7 +446,7 @@ class Core(implicit p : CoreParm) extends Component{
         fetchCmd.pcLoad.valid := decode.pcLoad.valid
         fetchCmd.pcLoad.payload := decode.pcLoad.payload
         when(decode.pcLoad.valid){
-          decode.flush := True
+          fetch.flush := True
         }
         when(execute1.pcLoad.valid){
           execute0.flush :=  True
@@ -415,6 +454,12 @@ class Core(implicit p : CoreParm) extends Component{
           fetchCmd.pcLoad.payload := execute1.pcLoad.payload
         }
     }
+
+//    when(execute0.pcLoad.valid){
+//      decode.flush :=  True
+//      fetchCmd.pcLoad.valid := True
+//      fetchCmd.pcLoad.payload := execute0.pcLoad.payload
+//    }
 
     val loadCounter = Counter(1<<30,execute1.pcLoad.valid).value.keep()
     val flushCounter = Counter(1<<30,io.i.flush).value.keep()
@@ -433,19 +478,19 @@ class Core(implicit p : CoreParm) extends Component{
     // write back bypass and hazard
     if(bypassWriteBack) {
       when(writeBack.inInst.valid) {
-        when(writeBack.inInst.addr === decode.addr0) {
+        when(addr0Check && writeBack.inInst.addr === decode.addr0) {
           decode.src0 := writeBack.inInst.data
         }
-        when(writeBack.inInst.addr === decode.addr1) {
+        when(addr1Check && writeBack.inInst.addr === decode.addr1) {
           decode.src1 := writeBack.inInst.data
         }
       }
     }else{
       when(writeBack.inInst.valid) {
-        when(addr0Check && decode.addr0 === writeBack.inInst.addr) {
+        when(decode.addr0 === writeBack.inInst.addr) {
           src0Hazard := True
         }
-        when(addr1Check && decode.addr1 === writeBack.inInst.addr) {
+        when(decode.addr1 === writeBack.inInst.addr) {
           src1Hazard := True
         }
       }
@@ -457,21 +502,19 @@ class Core(implicit p : CoreParm) extends Component{
       val addr1Match = access.outInst.addr === decode.addr1
       if(bypassAccess) {
         when(access.outInst.valid) {
-          when(addr0Match) {
+          when(addr0Check && addr0Match) {
             decode.src0 := access.regFileData
-//            src0Hazard := False
           }
-          when(addr1Match) {
+          when(addr1Check && addr1Match) {
             decode.src1 := access.regFileData
-//            src1Hazard := False
           }
         }
       }
       when(access.inInst.valid && access.inInst.ctrl.rfen && (Bool(!bypassAccess) || !access.outInst.valid)) {
-        when(addr0Check && addr0Match) {
+        when(addr0Match) {
           src0Hazard := True
         }
-        when(addr1Check && addr1Match) {
+        when(addr1Match) {
           src1Hazard := True
         }
       }
@@ -483,21 +526,19 @@ class Core(implicit p : CoreParm) extends Component{
       val addr1Match = execute1.outInst.instruction(dstRange).asUInt === decode.addr1
       if(bypassExecute1) {
         when(execute1.outInst.ctrl.execute1AluBypass && execute1.outInst.ctrl.rfen && execute1.outInst.valid) {
-          when(addr0Match) {
+          when(addr0Check && addr0Match) {
             decode.src0 := execute1.outInst.alu
-//            src0Hazard := False
           }
-          when(addr1Match) {
+          when(addr1Check && addr1Match) {
             decode.src1 := execute1.outInst.alu
-//            src1Hazard := False
           }
         }
       }
       when(execute1.inInst.valid && execute1.inInst.ctrl.rfen && (Bool(!bypassExecute1) || !execute1.inInst.ctrl.execute1AluBypass || !execute1.outInst.valid)) {
-        when(addr0Check && addr0Match) {
+        when(addr0Match) {
           src0Hazard := True
         }
-        when(addr1Check && addr1Match) {
+        when(addr1Match) {
           src1Hazard := True
         }
       }
@@ -509,24 +550,29 @@ class Core(implicit p : CoreParm) extends Component{
       val addr1Match = execute0.outInst.instruction(dstRange).asUInt === decode.addr1
       if (bypassExecute0) {
         when(execute0.outInst.ctrl.execute0AluBypass && execute0.outInst.ctrl.rfen && execute0.outInst.valid) {
-          when(addr0Match) {
+          when(addr0Check && addr0Match) {
             decode.src0 := execute0.outInst.alu
-//            src0Hazard := False
           }
-          when(addr1Match) {
+          when(addr1Check && addr1Match) {
             decode.src1 := execute0.outInst.alu
-//            src1Hazard := False
           }
         }
       }
       when(execute0.inInst.valid && execute0.inInst.ctrl.rfen && (Bool(!bypassExecute0) || !execute0.inInst.ctrl.execute0AluBypass || !execute0.outInst.valid)) {
-        when(addr0Check && addr0Match) {
+        when(addr0Match) {
           src0Hazard := True
         }
-        when(addr1Check && addr1Match) {
+        when(addr1Match) {
           src1Hazard := True
         }
       }
+    }
+
+    when(!addr0Check){
+      src0Hazard := False
+    }
+    when(!addr1Check){
+      src1Hazard := False
     }
   }
 
@@ -571,7 +617,25 @@ abstract class CoreExtension {
   }
 }
 
-
+//case class StageInstruction(implicit p : CoreParm)  extends Bundle{
+//  val pc = UInt(p.pcWidth bit)
+//  val instruction = Bits(32 bit)
+//  val ctrl = InstructionCtrl()
+//}
+//class Stage(previousStage : Stage)(implicit p : CoreParm) extends Area{
+//  val inInst = previousStage.outInst.m2sPipe(p.collapseBubble)
+//
+//
+//  val alu = Bits(32 bit)
+//
+//  val halt = False
+//  val throwIt = False
+//  val outInst = Stream(StageInstruction())
+//  outInst.arbitrationFrom(inInst.throwWhen(throwIt).haltWhen(halt))
+//  outInst.payload := inInst.payload
+//
+//  def StageReg[T <: Data](that : T) = RegNextWhen(that,previousStage.outInst.ready)
+//}
 
 
 object CoreMain{
@@ -582,20 +646,20 @@ object CoreMain{
         addrWidth = 32,
         startAddress = 0x200,
         regFileReadyKind = sync,
-        branchPrediction = disable,
-        bypassExecute0 = false,
-        bypassExecute1 = false,
-        bypassAccess = false,
-        bypassWriteBack = false,
-        collapseBubble = false,
+        branchPrediction = static,
+        bypassExecute0 = true,
+        bypassExecute1 = true,
+        bypassAccess = true,
+        bypassWriteBack = true,
+        collapseBubble = true,
         dynamicBranchPredictorCacheSizeLog2 = 7
       )
-//      p.add(new MulExtension)
-      //p.add(new DivExtension)
-//      p.add(new BarrelShifterFullExtension)
+      p.add(new MulExtension)
+      p.add(new DivExtension)
+      p.add(new BarrelShifterFullExtension)
       val interrupt = Bool.setName("io_interrupt")
-      p.add(new SimpleInterruptExtension(0x000,interrupt))
-      p.add(new BarrelShifterLightExtension)
+      p.add(new SimpleInterruptExtension(0x0,interrupt))
+     // p.add(new BarrelShifterLightExtension)
       new Core()
       }
     ,_.setLibrary("riscv"))
