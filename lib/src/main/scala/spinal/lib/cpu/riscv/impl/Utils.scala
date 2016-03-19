@@ -5,7 +5,7 @@ import spinal.lib.IMasterSlave
 
 object Utils{
   object PC extends SpinalEnum(sequancial){
-    val INC,BR1,J,JR,EXC = newElement()
+    val INC,BR1,J,JR = newElement()
   }
   object BR extends SpinalEnum{
     val N, NE, EQ, GE, GEU, LT, LTU, J, JR = newElement()
@@ -215,23 +215,6 @@ object Utils{
               }
             }
           }
-//          ctrl.instVal := True
-//          ctrl.op1 := OP1.RS1
-//          val extra = False
-//          when(instruction === BASE_OPX_I) {
-//            ctrl.op2 := OP2.IMI
-//            when(instruction(13 downto 12) === B"01" ) {
-//              extra := instruction(30)
-//            }
-//          }otherwise{
-//            ctrl.op2 := OP2.RS2
-//            extra := instruction(30)
-//          }
-//          ctrl.alu.assignFromBits(extra ## instruction(14 downto 12))
-//          ctrl.wb  := WB.ALU1
-//          ctrl.rfen := True
-//          ctrl.execute0AluBypass := instruction =/= BASE_OPX_SHIFT
-//          ctrl.execute1AluBypass := True
         }
         when(instruction === BASE_JAL){
           ctrl.instVal := True

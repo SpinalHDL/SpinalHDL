@@ -15,7 +15,7 @@ class Alu extends Component{
   }
 
   // ADD, SUB
-  val addSub = ((io.src0.msb ## io.src0).asSInt + Mux(io.doSub, ~io.src1, io.src1).asSInt + Mux(io.doSub,S(1),S(0))).asBits
+  val addSub = (io.src0.asSInt + Mux(io.doSub, ~io.src1, io.src1).asSInt + Mux(io.doSub,S(1),S(0))).asBits
 
   // AND, OR, XOR, COPY0
   val bitwise = io.func.map(
@@ -25,10 +25,15 @@ class Alu extends Component{
     default -> io.src0
   )
 
+  // SLT, SLTU
+  val less  = Mux(io.src0.msb === io.src1.msb, addSub.msb,
+    Mux(io.func === ALU.SLTU, io.src1.msb, io.src0.msb))
+
+
   // mux results
   io.result := io.func.map(
-    (ALU.SLT,ALU.SLTU) -> addSub.msb.asBits(32 bit),
-    (ALU.ADD,ALU.SUB1) -> addSub.resize(32),
+    (ALU.SLT,ALU.SLTU) -> less.asBits(32 bit),
+    (ALU.ADD,ALU.SUB1) -> addSub,
     default  -> bitwise
   )
 

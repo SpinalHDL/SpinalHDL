@@ -122,7 +122,7 @@ class Core(implicit p : CoreParm) extends Component{
   }
 
   val decode = new Area{
-    val inInst = fetch.outInst.throwWhen(io.i.flush).m2sPipe(collapseBubble)
+    val inInst = fetch.outInst.throwWhen(io.i.flush).m2sPipe()
     val ctrl = getInstructionCtrl(inInst.instruction)
     val hazard = Bool //Used to stall decode phase because of register file hazard
     
@@ -300,39 +300,37 @@ class Core(implicit p : CoreParm) extends Component{
   val execute1 = new Area {
     val inInst = execute0.outInst.m2sPipe(collapseBubble)
     //branch calculation
-    val take_evec = False
-    val ctrl_pc_sel = inInst.pc_sel
-    when(take_evec) {
-      ctrl_pc_sel := PC.EXC
-    }
+    val pc_sel = inInst.pc_sel
+
+    val exception = Bool()
+    val exceptionTarget = UInt(32 bit)
 
     // branche interface
     val pcLoad = Flow(UInt(pcWidth bit))
-    pcLoad.valid := inInst.fire && inInst.ctrl.instVal && ((ctrl_pc_sel =/= PC.INC) =/= inInst.predictorHasBranch)
-    pcLoad.payload := ctrl_pc_sel.map(
-      default -> inInst.adder,
-      PC.EXC -> U(startAddress),
-      PC.INC -> inInst.pcPlus4
+    pcLoad.valid := inInst.fire && pc_sel.map(
+      PC.INC -> inInst.predictorHasBranch,
+      default -> !inInst.predictorHasBranch
+    )
+
+    pcLoad.payload := pc_sel.map(
+      PC.INC -> inInst.pcPlus4,
+      default -> inInst.adder
     )
     
     // dynamic branch predictor history update
     when(inInst.fire && inInst.ctrl.br =/= BR.JR && inInst.ctrl.br =/= BR.N && inInst.ctrl.br =/= BR.J){
       val line = BranchPredictorLine()
-      val newHistory = inInst.branchHistory.payload.resize(branchPredictorHistoryWidth + 1) + Mux(ctrl_pc_sel === PC.INC,S(1),S(-1))
+      val newHistory = inInst.branchHistory.payload.resize(branchPredictorHistoryWidth + 1) + Mux(pc_sel === PC.INC,S(1),S(-1))
       line.pc := inInst.pc(pcWidth-1 downto 2 + dynamicBranchPredictorCacheSizeLog2)
       when(inInst.branchHistory.valid){
         line.history := newHistory.resized
       }otherwise {
-        line.history := (ctrl_pc_sel =/= PC.INC).asSInt.resized
+        line.history := (pc_sel =/= PC.INC).asSInt.resized
       }
       when(newHistory(newHistory.high downto newHistory.high - 1) =/= S"10") { //no history overflow
         brancheCache(inInst.pc(2, dynamicBranchPredictorCacheSizeLog2 bit)) := line
       }
     }
-
-    // SLT, SLTU
-//    val less  = Mux(io.src0.msb === io.src1.msb, addSub.msb,
-//    Mux(io.func === ALU.SLTU, io.src1.msb, io.src0.msb))
 
     val outInst = Stream(wrap(new Bundle {
       val pc = UInt(pcWidth bit)
@@ -343,7 +341,8 @@ class Core(implicit p : CoreParm) extends Component{
       val pcPlus4 = UInt(32 bit)
     }))
     val halt = False
-    outInst.arbitrationFrom(inInst.haltWhen(halt))
+    val throwIt = False
+    outInst.arbitrationFrom(inInst.throwWhen(throwIt).haltWhen(halt))
     outInst.pc := inInst.pc
     outInst.alu := inInst.alu
     outInst.regFileAddress := inInst.instruction(dstRange).asUInt
@@ -355,9 +354,10 @@ class Core(implicit p : CoreParm) extends Component{
 
   val access = new Area{
     val inInst = execute1.outInst.m2sPipe(collapseBubble)
-    val halt = inInst.valid && inInst.ctrl.wb === WB.MEM && inInst.ctrl.m === M.XRD && !io.d.rsp.valid
-    inInst.ready := ! halt
-    io.d.rsp.ready := ! halt
+    val halt = False
+    val needMemoryResponse = inInst.ctrl.wb === WB.MEM && inInst.ctrl.m === M.XRD
+    inInst.ready := !halt && !(inInst.valid && needMemoryResponse && !io.d.rsp.valid)
+    io.d.rsp.ready := inInst.valid && needMemoryResponse && !halt
 
     val dataRspFormated = inInst.ctrl.msk.map(
       default -> io.d.rsp.payload, //W
@@ -424,7 +424,7 @@ class Core(implicit p : CoreParm) extends Component{
 
   // Check hazard and apply bypass logic
   val hazardTracker = new  Area {
-    val addr0Check = decode.addr0 =/= 0
+    val addr0Check = decode.addr0 =/= 0 //TODO apply them everywhere
     val addr1Check = decode.addr1 =/= 0
     val src0Hazard = False
     val src1Hazard = False
@@ -459,11 +459,11 @@ class Core(implicit p : CoreParm) extends Component{
         when(access.outInst.valid) {
           when(addr0Match) {
             decode.src0 := access.regFileData
-            src0Hazard := False
+//            src0Hazard := False
           }
           when(addr1Match) {
             decode.src1 := access.regFileData
-            src1Hazard := False
+//            src1Hazard := False
           }
         }
       }
@@ -485,11 +485,11 @@ class Core(implicit p : CoreParm) extends Component{
         when(execute1.outInst.ctrl.execute1AluBypass && execute1.outInst.ctrl.rfen && execute1.outInst.valid) {
           when(addr0Match) {
             decode.src0 := execute1.outInst.alu
-            src0Hazard := False
+//            src0Hazard := False
           }
           when(addr1Match) {
             decode.src1 := execute1.outInst.alu
-            src1Hazard := False
+//            src1Hazard := False
           }
         }
       }
@@ -511,11 +511,11 @@ class Core(implicit p : CoreParm) extends Component{
         when(execute0.outInst.ctrl.execute0AluBypass && execute0.outInst.ctrl.rfen && execute0.outInst.valid) {
           when(addr0Match) {
             decode.src0 := execute0.outInst.alu
-            src0Hazard := False
+//            src0Hazard := False
           }
           when(addr1Match) {
             decode.src1 := execute0.outInst.alu
-            src1Hazard := False
+//            src1Hazard := False
           }
         }
       }
@@ -557,7 +557,7 @@ class Core(implicit p : CoreParm) extends Component{
 abstract class CoreExtension {
   def getName : String
   def applyIt(core : Core) : Area
-  def instructionCtrlExtension(instruction : Bits,instructionCtrl: InstructionCtrl) : Unit
+  def instructionCtrlExtension(instruction : Bits,ctrl: InstructionCtrl) : Unit
 
   var tag : Int = -1
   def needTag : Boolean
@@ -576,23 +576,29 @@ abstract class CoreExtension {
 
 object CoreMain{
   def main(args: Array[String]) {
-    implicit val p = CoreParm(
-      pcWidth = 32,
-      addrWidth = 32,
-      startAddress = 0x200,
-      regFileReadyKind = sync,
-      branchPrediction = dynamic,
-      bypassExecute0 = true,
-      bypassExecute1 = true,
-      bypassAccess = true,
-      bypassWriteBack = true,
-      collapseBubble = true,
-      dynamicBranchPredictorCacheSizeLog2 = 7
-    )
-    p.add(new MulExtension)
-    p.add(new DivExtension)
-    p.add(new BarrelShifterFullExtension)
-    SpinalVhdl(new Core(),_.setLibrary("riscv"))
+    SpinalVhdl({
+      implicit val p = CoreParm(
+        pcWidth = 32,
+        addrWidth = 32,
+        startAddress = 0x200,
+        regFileReadyKind = sync,
+        branchPrediction = disable,
+        bypassExecute0 = false,
+        bypassExecute1 = false,
+        bypassAccess = false,
+        bypassWriteBack = false,
+        collapseBubble = false,
+        dynamicBranchPredictorCacheSizeLog2 = 7
+      )
+//      p.add(new MulExtension)
+      //p.add(new DivExtension)
+//      p.add(new BarrelShifterFullExtension)
+      val interrupt = Bool.setName("io_interrupt")
+      p.add(new SimpleInterruptExtension(0x000,interrupt))
+      p.add(new BarrelShifterLightExtension)
+      new Core()
+      }
+    ,_.setLibrary("riscv"))
   }
 }
 

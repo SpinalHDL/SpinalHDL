@@ -36,11 +36,13 @@ architecture arch of Core_tb is
   signal io_d_rsp_valid : std_logic;
   signal io_d_rsp_ready : std_logic;
   signal io_d_rsp_payload : std_logic_vector(31 downto 0);
+  signal io_interrupt : std_logic;
   signal clk : std_logic;
   signal reset : std_logic;
   -- #spinalBegin userDeclarations
   constant doBench : Boolean := true;
   constant doTestWithStall : Boolean := true;
+  constant doBenchtWithStall : Boolean := false;
   
   
   signal inBench : Boolean := false;
@@ -132,6 +134,8 @@ architecture arch of Core_tb is
   signal io_i_cmd_ready_rand : std_logic;
   signal io_d_cmd_ready_rand : std_logic;
   signal io_d_rsp_buff_ready_rand : std_logic;
+
+  signal interrupt : std_logic;
   
   shared variable done : integer := 0;
   constant memSize : integer := 1024*256;
@@ -290,7 +294,7 @@ begin
 
     wait for 100 ns;
 
-     for i in 0 to 100 loop
+     for i in 0 to 1000 loop
      
       doTest("E:/vm/share/isa/rv32ui-p-mul.hex");   
       doTest("E:/vm/share/isa/rv32ui-p-mulh.hex");   
@@ -298,8 +302,8 @@ begin
       doTest("E:/vm/share/isa/rv32ui-p-mulhu.hex");   
       doTest("E:/vm/share/isa/rv32ui-p-div.hex");   
       doTest("E:/vm/share/isa/rv32ui-p-divu.hex");   
-       doTest("E:/vm/share/isa/rv32ui-p-rem.hex");   
-       doTest("E:/vm/share/isa/rv32ui-p-remu.hex");
+      doTest("E:/vm/share/isa/rv32ui-p-rem.hex");   
+      doTest("E:/vm/share/isa/rv32ui-p-remu.hex");
 
        --doTest("E:/vm/share/isa/rv32si-p-csr.hex");
        --doTest("E:/vm/share/isa/rv32si-p-illegal.hex");   
@@ -383,7 +387,7 @@ begin
   process(clk)
   begin
     if rising_edge(clk) then
-      if inBench or not doTestWithStall then
+      if (inBench and not doBenchtWithStall) or (not inBench and not doTestWithStall) then
         io_d_cmd_ready_rand <= '1';
         io_i_cmd_ready_rand <= '1';
         io_d_rsp_buff_ready_rand <= '1';
@@ -397,7 +401,7 @@ begin
   
   io_i_cmd_ready <= (not io_i_rsp_valid or io_i_rsp_ready) and io_i_cmd_ready_rand;
   io_d_cmd_ready <= (not io_d_rsp_buff_valid or io_d_rsp_buff_ready) and io_d_cmd_ready_rand;
-
+  io_interrupt <= interrupt;
   process(clk,reset)
     variable char : Character;
     file log : text is out "E:/vm/share/log.txt";
@@ -409,7 +413,13 @@ begin
       io_d_rsp_buff_valid <= '0';
       counter <= (others => '0');
       timingRead <= '0';
+      interrupt <= '0';
     elsif rising_edge(clk) then
+      if inBench then
+        interrupt <= randomStdLogic(0.001);
+      else
+        interrupt <= '0';
+      end if;
       timingRead <= '0';
       counter <= counter + 1;
       if io_i_rsp_ready = '1' or io_i_flush = '1' then
@@ -421,7 +431,9 @@ begin
         for i in 0 to 3 loop
           data(i*8+7 downto i*8) := mem(to_integer(unsigned(io_i_cmd_payload_pc)) + i);
         end loop;
-        if data = X"00000073" then
+        if not inBench and io_i_cmd_payload_pc = (31 downto 0 => '0') then
+          io_i_rsp_payload_instruction <= X"01c02023";
+        elsif data = X"00000073" then
           io_i_rsp_payload_instruction <= X"01c02023";
         elsif data = X"0FF0000F" then
           io_i_rsp_payload_instruction <= X"00000013"; --TODO remove me
@@ -445,6 +457,8 @@ begin
               file_close(log); 
               file_open(log, "E:/vm/share/log.txt", append_mode); 
             end if;
+          elsif io_d_cmd_payload_address = X"10000008" then
+          --  interrupt <= io_d_cmd_payload_data(0);
           else
             for i in 0 to (2 ** to_integer(io_d_cmd_payload_size))-1 loop
               mem(to_integer(unsigned(io_d_cmd_payload_address)) + i) := io_d_cmd_payload_data(i*8+7 downto i*8);
@@ -639,6 +653,7 @@ begin
       io_d_rsp_valid =>  io_d_rsp_valid,
       io_d_rsp_ready =>  io_d_rsp_ready,
       io_d_rsp_payload =>  io_d_rsp_payload,
+      io_interrupt =>  io_interrupt,
       clk =>  clk,
       reset =>  reset 
     );

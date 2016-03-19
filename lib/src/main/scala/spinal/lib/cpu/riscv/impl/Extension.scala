@@ -241,14 +241,14 @@ class DivExtension extends CoreExtension{
     val rsp = RegNext(Mux(execute1.inInst.instruction(13), divider.io.rsp.remainder, divider.io.rsp.quotient).asBits)
     divider.io.rsp.ready := False
 
-    when(isMyTag(execute0.inInst.ctrl)) {
+    when(execute0.inInst.valid && isMyTag(execute0.inInst.ctrl)) {
       divider.io.cmd.valid := execute0.outInst.valid
       when(!divider.io.cmd.ready) {
         execute0.halt := True
       }
     }
 
-    when(isMyTag(execute1.inInst.ctrl)) {
+    when(execute1.inInst.valid && isMyTag(execute1.inInst.ctrl)) {
       divider.io.rsp.ready := execute1.inInst.ready && rspReady
       rspReady := divider.io.rsp.valid && !execute1.inInst.ready
       when(!rspReady){
@@ -309,6 +309,91 @@ class BarrelShifterFullExtension extends CoreExtension{
 }
 
 
+class BarrelShifterLightExtension extends CoreExtension{
+  override def needTag: Boolean = false
+  override def getName: String = "barrelShifterLight"
+  override def applyIt(core: Core): Area = new Area{
+    import core._
+
+    var sample : Bool = null
+    def RegPip [T<:Data] (that : T) = spinal.core.RegNextWhen(that,sample)
+
+    //first stage
+    val s1 = new Area {
+      val amplitude = execute0.inInst.alu_op1(4 downto 0).asUInt
+      val isShift = execute0.inInst.ctrl.alu === ALU.SLL1 || execute0.inInst.ctrl.alu === ALU.SRL1 || execute0.inInst.ctrl.alu === ALU.SRA1
+      when(execute0.inInst.valid && isShift){
+        execute0.outInst.alu := execute0.inInst.alu_op0
+        when(amplitude =/= 0){
+          execute0.halt := True
+          execute0.inInst.alu_op1.inputs(0).asInstanceOf[Bits](4 downto 0) := (execute0.inInst.alu_op1(4 downto 0).asUInt - 1).asBits
+          switch(execute0.inInst.ctrl.alu){
+            is(ALU.SLL1){
+              execute0.inInst.alu_op0.inputs(0).asInstanceOf[Bits] := (execute0.inInst.alu_op0 << 1).resized
+            }
+            is(ALU.SRL1,ALU.SRA1){
+              execute0.inInst.alu_op0.inputs(0).asInstanceOf[Bits] := (((execute0.inInst.ctrl.alu === ALU.SRA1 && execute0.inInst.alu_op0.msb) ## execute0.inInst.alu_op0).asSInt >> 1).asBits
+            }
+          }
+        }
+      }
+    }
+
+
+    sample = null
+  }
+
+  override def instructionCtrlExtension(instruction: Bits, ctrl: InstructionCtrl): Unit = { }
+}
+
+
+
+class SimpleInterruptExtension(exceptionVector : Int,interrupt : Bool) extends CoreExtension{
+  override def applyIt(core: Core): Area = new Area {
+
+    import core._
+
+    val interrupt = SimpleInterruptExtension.this.interrupt.pull().setName("io_interrupt")
+    val inIrq = RegInit(False)
+    val exceptionPc = Reg(UInt(32 bit))
+
+    execute1.exception := execute1.inInst.valid && !execute1.inInst.ctrl.instVal
+    execute1.exceptionTarget := U(exceptionVector, 32 bit)
+    when(interrupt) {
+      execute1.exception := True
+    }
+    when(!inIrq) {
+      when(execute1.exception && execute1.inInst.valid && !(execute1.inInst.valid && execute1.inInst.ctrl.men)) {
+        execute1.throwIt := True
+        execute1.pcLoad.valid := True
+        execute1.pcLoad.payload := execute1.exceptionTarget
+        exceptionPc := execute1.inInst.pc
+        inIrq := True
+      }
+    }otherwise{
+      when(execute1.inInst.fire) {
+        when(isMyTag(execute1.inInst.ctrl)) {
+          inIrq := False
+          execute1.pc_sel := PC.J
+          execute1.inInst.adder := exceptionPc
+        }
+      }
+    }
+
+
+  }
+
+  override def needTag: Boolean = true
+
+  override def getName: String = "SimpleInterrupExtension"
+
+  override def instructionCtrlExtension(instruction: Bits, ctrl: InstructionCtrl): Unit = {
+    when(instruction === M"-----------------000-----0001011"){
+      ctrl.instVal := True
+      applyTag(ctrl)
+    }
+  }
+}
 
 
 //    val s4 = new Area {
