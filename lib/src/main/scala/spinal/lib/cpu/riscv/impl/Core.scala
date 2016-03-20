@@ -4,6 +4,7 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.cpu.riscv.impl.Utils._
 
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 trait BranchPrediction
@@ -28,7 +29,9 @@ case class CoreParm(val pcWidth : Int = 32,
                     val pendingD : Int = 3,
                     val branchPrediction : BranchPrediction = static,
                     val dynamicBranchPredictorCacheSizeLog2 : Int = 4,
-                    val branchPredictorHistoryWidth : Int = 2
+                    val branchPredictorHistoryWidth : Int = 2,
+                    val invalidInstructionIrqId : Int = 0,
+                    val unalignedMemoryAccessIrqId : Int = 1
                      ) {
   val extensions = ArrayBuffer[CoreExtension]()
   def add(that : CoreExtension) : this.type = {
@@ -71,7 +74,16 @@ class Core(implicit p : CoreParm) extends Component{
       val rsp = slave Stream (Bits(32 bit))
     }
   }
-  io.i.flush := False
+  val irqUsages = mutable.HashMap[Int,IrqUsage]()
+  if(invalidInstructionIrqId != 0) irqUsages(invalidInstructionIrqId) = IrqUsage(true)
+  if(unalignedMemoryAccessIrqId != 0) irqUsages(unalignedMemoryAccessIrqId) = IrqUsage(true)
+  for(extension <- extensions){
+    for((id,usage) <- extension.getIrqUsage){
+      irqUsages(id) = usage
+    }
+  }
+  val irqWidth = irqUsages.foldLeft(0)((max,e) => Math.max(max,e._1)) + 1
+  val irqExceptionMask = irqUsages.foldLeft(0)((mask,e) => if(e._2.isException) mask + 1 << e._1 else mask)
   val regFile = Mem(Bits(32 bit),32)
   val brancheCache = Mem(BranchPredictorLine(), 1<<dynamicBranchPredictorCacheSizeLog2)
 
@@ -135,8 +147,8 @@ class Core(implicit p : CoreParm) extends Component{
     val flush = False
     when(flush){
       throwIt := True
-      io.i.flush := True
     }
+    io.i.flush := throwIt
   }
 
   val decode = new Area{
@@ -411,19 +423,24 @@ class Core(implicit p : CoreParm) extends Component{
     val throwIt = !inInst.ctrl.rfen
     val halt = False
 
-    val exception = new Area {
-      val trigger = False
-
-      val invalidInstruction = RegInit(False)
-      val unalignedMemoryAccess = RegInit(False)
+    val irq = new Area {
+      val sources = B(0,irqWidth bit)
+      val mask = Reg(Bits(irqWidth bit)) init(0)
+      val masked = sources & mask
+      when(((sources & ~mask) & irqExceptionMask) =/= 0){
+        halt := True
+      }
 
       when(inInst.valid) {
-        when(! inInst.ctrl.instVal) {
-          trigger := True
-          invalidInstruction := True
-        }.elsewhen(inInst.unalignedMemoryAccessException) {
-          trigger := True
-          unalignedMemoryAccess := True
+        if(invalidInstructionIrqId != -1){
+          when(!inInst.ctrl.instVal) {
+            sources(invalidInstructionIrqId) := True
+          }
+        }
+        if(unalignedMemoryAccessIrqId != -1){
+          when(inInst.unalignedMemoryAccessException) {
+            sources(unalignedMemoryAccessIrqId) := True
+          }
         }
       }
     }
@@ -655,6 +672,8 @@ class Core(implicit p : CoreParm) extends Component{
   }
 }
 
+case class IrqUsage(isException : Boolean)
+
 abstract class CoreExtension {
   def getName : String
   def applyIt(core : Core) : Area
@@ -670,6 +689,7 @@ abstract class CoreExtension {
     assert(tag != -1," You need to override needTag with true")
     ctrl.extensionTag === tag
   }
+  def getIrqUsage : Seq[(Int,IrqUsage)] = Nil
 }
 
 //case class StageInstruction(implicit p : CoreParm)  extends Bundle{
@@ -712,8 +732,8 @@ object CoreMain{
       p.add(new MulExtension)
       p.add(new DivExtension)
       p.add(new BarrelShifterFullExtension)
-      val interrupt = Bool.setName("io_interrupt")
-      p.add(new SimpleInterruptExtension(0x0,interrupt))
+      val interrupt = Bool
+      p.add(new SimpleInterruptExtension(0x0).addIrq(4,interrupt,IrqUsage(false),"io_interrupt"))
      // p.add(new BarrelShifterLightExtension)
       new Core()
       }

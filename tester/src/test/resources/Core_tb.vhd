@@ -40,9 +40,10 @@ architecture arch of Core_tb is
   signal clk : std_logic;
   signal reset : std_logic;
   -- #spinalBegin userDeclarations
-  constant doBench : Boolean := true;
   constant doTestWithStall : Boolean := true;
-  constant doBenchtWithStall : Boolean := true;
+  constant doBench : Boolean := true;
+  constant doBenchtWithStall : Boolean := false;
+  constant doBenchtWithInterrupt : Boolean := false;
   
   
   signal inBench : Boolean := false;
@@ -416,7 +417,7 @@ begin
       interrupt <= '0';
     elsif rising_edge(clk) then
       if inBench then
-        if interrupt = '0' then
+        if interrupt = '0' and doBenchtWithInterrupt then
           interrupt <= randomStdLogic(0.001);
         else
         --  interrupt <= not randomStdLogic(0.1);
