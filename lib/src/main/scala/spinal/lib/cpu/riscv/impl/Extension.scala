@@ -19,10 +19,12 @@ case class SignedDividerRsp(nWidth : Int, dWidth : Int) extends Bundle{
 }
 class SignedDivider(nWidth : Int, dWidth : Int,storeDenominator : Boolean) extends Component{
   val io = new Bundle{
+    val flush = in Bool
     val cmd = slave Stream(SignedDividerCmd(nWidth,dWidth))
     val rsp = master Stream(SignedDividerRsp(nWidth,dWidth))
   }
   val divider = new UnsignedDivider(nWidth,dWidth,storeDenominator,Bits(2 bit))
+  divider.io.flush := io.flush
   divider.io.cmd.arbitrationFrom(io.cmd)
   divider.io.cmd.numerator := io.cmd.numerator.abs
   divider.io.cmd.denominator := io.cmd.denominator.abs
@@ -47,10 +49,13 @@ case class MixedDividerRsp(nWidth : Int, dWidth : Int) extends Bundle{
 }
 class MixedDivider(nWidth : Int, dWidth : Int,storeDenominator : Boolean) extends Component{
   val io = new Bundle{
+    val flush = in Bool
     val cmd = slave Stream(MixedDividerCmd(nWidth,dWidth))
     val rsp = master Stream(MixedDividerRsp(nWidth,dWidth))
   }
   val divider = new UnsignedDivider(nWidth,dWidth,storeDenominator,Bits(2 bit))
+
+  divider.io.flush := io.flush
   divider.io.cmd.arbitrationFrom(io.cmd)
   divider.io.cmd.numerator := io.cmd.numerator.asSInt.abs(io.cmd.signed)
   divider.io.cmd.denominator := io.cmd.denominator.asSInt.abs(io.cmd.signed)
@@ -79,6 +84,7 @@ case class UnsignedDividerRsp[T <: Data](nWidth : Int, dWidth : Int,contextType 
 
 class UnsignedDivider[T <: Data](nWidth : Int, dWidth : Int,storeDenominator : Boolean,contextType : T = NoData) extends Component{
   val io = new Bundle{
+    val flush = in Bool
     val cmd = slave Stream(UnsignedDividerCmd(nWidth,dWidth,contextType))
     val rsp = master Stream(UnsignedDividerRsp(nWidth,dWidth,contextType))
   }
@@ -132,6 +138,11 @@ class UnsignedDivider[T <: Data](nWidth : Int, dWidth : Int,storeDenominator : B
         io.cmd.ready := True
       }
     }
+  }
+
+  when(io.flush){
+    done := True
+    waitRsp := False
   }
 
 }
@@ -232,7 +243,8 @@ class DivExtension extends CoreExtension{
     import core._
 
     val divider = new MixedDivider(32,32,true)
-    divider.io.cmd.valid := False  //TODO comment it to create bad report
+    divider.io.flush := execute1.throwIt
+    divider.io.cmd.valid := False
     divider.io.cmd.numerator := execute0.inInst.alu_op0
     divider.io.cmd.denominator := execute0.inInst.alu_op1
     divider.io.cmd.signed := !execute0.inInst.instruction(12)
@@ -256,6 +268,10 @@ class DivExtension extends CoreExtension{
       }
 
       execute1.outInst.alu := rsp
+    }
+
+    when(execute1.throwIt){
+      rspReady := False
     }
   }
 
@@ -357,26 +373,38 @@ class SimpleInterruptExtension(exceptionVector : Int,interrupt : Bool) extends C
     val inIrq = RegInit(False)
     val exceptionPc = Reg(UInt(32 bit))
 
-    execute1.exception := execute1.inInst.valid && !execute1.inInst.ctrl.instVal
-    execute1.exceptionTarget := U(exceptionVector, 32 bit)
-    when(interrupt) {
-      execute1.exception := True
-    }
     when(!inIrq) {
-      when(execute1.exception && execute1.inInst.valid && !(execute1.inInst.valid && execute1.inInst.ctrl.men)) {
-        execute1.throwIt := True
-        execute1.pcLoad.valid := True
-        execute1.pcLoad.payload := execute1.exceptionTarget
-        exceptionPc := execute1.inInst.pc
+      when(interrupt){
+        decode.halt := True
+      }
+      when(access.exception.trigger) {
+        access.throwIt := True
+        access.flushMemoryResponse := True
+        access.pcLoad.valid := True
+        access.pcLoad.payload := exceptionVector
+        exceptionPc := access.inInst.pc
+        inIrq := True
+      }.elsewhen(interrupt && decode.inInst.valid &&  !execute0.inInst.valid && !execute1.inInst.valid && !access.inInst.valid){
+        access.pcLoad.valid := True
+        access.pcLoad.payload := exceptionVector
+        exceptionPc := decode.inInst.pc
         inIrq := True
       }
     }otherwise{
       when(execute1.inInst.valid) {
         when(isMyTag(execute1.inInst.ctrl)) {
-          execute1.pc_sel := PC.J
-          execute1.inInst.adder := exceptionPc
-          when(execute1.outInst.fire){
-            inIrq := False
+          execute1.inInst.alu := Cat(
+            interrupt,
+            access.exception.unalignedMemoryAccess,
+            access.exception.invalidInstruction
+          ).resized
+
+          when(!execute1.inInst.instruction(25)) {
+            execute1.pc_sel := PC.J
+            execute1.inInst.adder := exceptionPc
+            when(execute1.outInst.fire) {
+              inIrq := False
+            }
           }
         }
       }
@@ -388,9 +416,13 @@ class SimpleInterruptExtension(exceptionVector : Int,interrupt : Bool) extends C
   override def getName: String = "SimpleInterrupExtension"
 
   override def instructionCtrlExtension(instruction: Bits, ctrl: InstructionCtrl): Unit = {
-    when(instruction === M"-----------------000-----0001011"){
-      ctrl.instVal := True
+    when(instruction === M"000000-------------------0001011"){
       applyTag(ctrl)
+      ctrl.instVal := True
+      ctrl.wb := WB.ALU1
+      when(instruction(25)){
+        ctrl.rfen := True
+      }
     }
   }
 }

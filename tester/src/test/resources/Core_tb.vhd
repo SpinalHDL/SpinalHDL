@@ -42,7 +42,7 @@ architecture arch of Core_tb is
   -- #spinalBegin userDeclarations
   constant doBench : Boolean := true;
   constant doTestWithStall : Boolean := true;
-  constant doBenchtWithStall : Boolean := false;
+  constant doBenchtWithStall : Boolean := true;
   
   
   signal inBench : Boolean := false;
@@ -416,7 +416,11 @@ begin
       interrupt <= '0';
     elsif rising_edge(clk) then
       if inBench then
-        interrupt <= randomStdLogic(0.001);
+        if interrupt = '0' then
+          interrupt <= randomStdLogic(0.001);
+        else
+        --  interrupt <= not randomStdLogic(0.1);
+        end if;
       else
         interrupt <= '0';
       end if;
@@ -458,7 +462,7 @@ begin
               file_open(log, "E:/vm/share/log.txt", append_mode); 
             end if;
           elsif io_d_cmd_payload_address = X"10000008" then
-          --  interrupt <= io_d_cmd_payload_data(0);
+            interrupt <= io_d_cmd_payload_data(0);
           else
             for i in 0 to (2 ** to_integer(io_d_cmd_payload_size))-1 loop
               mem(to_integer(unsigned(io_d_cmd_payload_address)) + i) := io_d_cmd_payload_data(i*8+7 downto i*8);

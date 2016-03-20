@@ -54,6 +54,19 @@ object OHToUInt {
   }
 }
 
+object CountOne{
+  def apply(thats : Bool*) : UInt = list(thats)
+  def list(thats : Seq[Bool]) : UInt = {
+    var ret = UInt(log2Up(thats.length+1) bit)
+    for(e <- thats){
+      when(e){
+        ret \= ret + 1
+      }
+    }
+    ret
+  }
+}
+
 object toGray {
   def apply(uint: UInt): Bits = {
     asBits((uint >> U(1)) ^ uint)

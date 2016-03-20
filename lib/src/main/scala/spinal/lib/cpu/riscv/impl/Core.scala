@@ -25,6 +25,7 @@ case class CoreParm(val pcWidth : Int = 32,
                     val collapseBubble : Boolean = true,
                     val regFileReadyKind : RegFileReadKind = sync,
                     val pendingI : Int = 1,
+                    val pendingD : Int = 3,
                     val branchPrediction : BranchPrediction = static,
                     val dynamicBranchPredictorCacheSizeLog2 : Int = 4,
                     val branchPredictorHistoryWidth : Int = 2
@@ -285,7 +286,8 @@ class Core(implicit p : CoreParm) extends Component{
       val branchHistory = Flow(SInt(branchPredictorHistoryWidth bit))
       val pcPlus4 = UInt(32 bit)
       val pc_sel = PC()
-    }))
+      val unalignedMemoryAccessException = Bool
+  }))
 
 
     outInst.arbitrationFrom(inInst.throwWhen(throwIt).haltWhen(halt))
@@ -304,7 +306,13 @@ class Core(implicit p : CoreParm) extends Component{
     outInst.pcPlus4 := inInst.pc + 4
 
     // Send memory read/write requests
-    io.d.cmd.valid := outInst.fire && inInst.ctrl.men
+    outInst.unalignedMemoryAccessException := inInst.ctrl.men && outInst.ctrl.msk.map(
+      default-> False,
+      MSK.H -> io.d.cmd.address(0),
+      MSK.W -> (io.d.cmd.address(0) || io.d.cmd.address(1))
+    )
+
+    io.d.cmd.valid := outInst.fire && inInst.ctrl.men && !outInst.unalignedMemoryAccessException
     io.d.cmd.wr := inInst.ctrl.m === M.XWR
     io.d.cmd.address := outInst.adder
     io.d.cmd.payload.data := inInst.src1
@@ -313,6 +321,18 @@ class Core(implicit p : CoreParm) extends Component{
       MSK.B -> U(0),
       MSK.H -> U(1)
     )
+    val pendingDataCmd = new Area{
+      val readCount = Reg(UInt(log2Up(pendingD) bit)) init(0)
+      val readCountInc = io.d.cmd.fire && !io.d.cmd.wr
+      val readCountDec = io.d.rsp.fire
+
+      when(readCountInc =/= readCountDec){
+        readCount := readCount + Mux(readCountInc,U(1),U(readCount.maxValue))
+      }
+      when(inInst.valid && inInst.ctrl.men && inInst.ctrl.m === M.XRD && readCount === pendingD){
+        halt := True
+      }
+    }
 
     val flush = False
     when(flush){
@@ -329,8 +349,6 @@ class Core(implicit p : CoreParm) extends Component{
 
     val pc_sel = inInst.pc_sel
 
-    val exception = Bool()
-    val exceptionTarget = UInt(32 bit)
 
     // branche interface
     val pcLoad = Flow(UInt(pcWidth bit))
@@ -366,6 +384,7 @@ class Core(implicit p : CoreParm) extends Component{
       val ctrl = InstructionCtrl()
       val instruction = Bits(32 bit)
       val pcPlus4 = UInt(32 bit)
+      val unalignedMemoryAccessException = Bool
     }))
 
 
@@ -376,7 +395,15 @@ class Core(implicit p : CoreParm) extends Component{
     outInst.ctrl := inInst.ctrl
     outInst.instruction := inInst.instruction
     outInst.pcPlus4 := inInst.pcPlus4
+    outInst.unalignedMemoryAccessException := inInst.unalignedMemoryAccessException
 
+    val flush = False
+    when(flush){
+      fetch.throwIt := True
+      decode.throwIt := True
+      execute0.throwIt := True
+      throwIt := True
+    }
   }
 
   val access = new Area{
@@ -384,8 +411,30 @@ class Core(implicit p : CoreParm) extends Component{
     val throwIt = !inInst.ctrl.rfen
     val halt = False
 
+    val exception = new Area {
+      val trigger = False
+
+      val invalidInstruction = RegInit(False)
+      val unalignedMemoryAccess = RegInit(False)
+
+      when(inInst.valid) {
+        when(! inInst.ctrl.instVal) {
+          trigger := True
+          invalidInstruction := True
+        }.elsewhen(inInst.unalignedMemoryAccessException) {
+          trigger := True
+          unalignedMemoryAccess := True
+        }
+      }
+    }
+
+
+    val pcLoad = Flow(UInt(pcWidth bit))
+    pcLoad.valid := False
+    pcLoad.payload.assignDontCare()
 
     val needMemoryResponse = inInst.ctrl.wb === WB.MEM && inInst.ctrl.m === M.XRD
+    val flushMemoryResponse = RegInit(False)
     io.d.rsp.ready := False
     when(inInst.valid && needMemoryResponse){
       when(!io.d.rsp.valid) {
@@ -394,6 +443,13 @@ class Core(implicit p : CoreParm) extends Component{
       io.d.rsp.ready := !halt
     }
 
+    when(execute0.pendingDataCmd.readCount === 0){
+      flushMemoryResponse := False
+    }
+    when(flushMemoryResponse){
+      io.d.rsp.ready := True
+      halt := True
+    }
 
     val dataRspFormated = inInst.ctrl.msk.map(
       default -> io.d.rsp.payload, //W
@@ -422,7 +478,6 @@ class Core(implicit p : CoreParm) extends Component{
     when(outInst.fire) {
       regFile(outInst.addr) := regFileData
     }
-
 
   }
 
@@ -455,11 +510,11 @@ class Core(implicit p : CoreParm) extends Component{
         }
     }
 
-//    when(execute0.pcLoad.valid){
-//      decode.flush :=  True
-//      fetchCmd.pcLoad.valid := True
-//      fetchCmd.pcLoad.payload := execute0.pcLoad.payload
-//    }
+    when(access.pcLoad.valid){
+      execute1.flush :=  True
+      fetchCmd.pcLoad.valid := True
+      fetchCmd.pcLoad.payload := access.pcLoad.payload
+    }
 
     val loadCounter = Counter(1<<30,execute1.pcLoad.valid).value.keep()
     val flushCounter = Counter(1<<30,io.i.flush).value.keep()
