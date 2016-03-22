@@ -648,7 +648,7 @@ class Backend {
     Node.walk(walkNodesDefautStack,(node, push) =>  {
       node match {
         case delay: SyncNode => {
-          if(delay.isUsingReset && !delay.getClockDomain.hasReset) SpinalError(s"Clockdomain without reset contain ${delay.toString} which need one\n ${delay.getScalaLocationString}")
+          if(delay.isUsingReset && !delay.getClockDomain.hasReset) SpinalError(s"Clockdomain without reset contain a register which need one\n ${delay.getScalaLocationString}")
           Component.push(delay.component)
           delay.inputs(SyncNode.getClockInputId) = delay.getClockDomain.readClockWire
           if (delay.isUsingReset)

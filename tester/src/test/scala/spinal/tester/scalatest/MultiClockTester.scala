@@ -43,4 +43,5 @@ class MultiClockTester extends Component {
 class MultiClockTesterBoot extends SpinalTesterBase {
   override def getName: String = "MultiClockTester"
   override def createToplevel: Component = new MultiClockTester
+
 }

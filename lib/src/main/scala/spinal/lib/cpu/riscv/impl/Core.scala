@@ -40,6 +40,21 @@ case class CoreParm(val pcWidth : Int = 32,
   }
 }
 
+case class CoreInstBus(implicit p : CoreParm) extends Bundle with IMasterSlave{
+  val flush = Bool
+  val cmd = Stream (CoreInstCmd())
+  val rsp = Stream (CoreInstRsp())
+
+  override def asMaster(): CoreInstBus.this.type = {
+    out(flush)
+    master(cmd)
+    slave(rsp)
+    this
+  }
+
+  override def asSlave(): CoreInstBus.this.type = asMaster.flip()
+}
+
 case class CoreInstCmd(implicit p : CoreParm) extends Bundle{
   val pc = UInt(p.addrWidth bit)
 }
@@ -47,7 +62,19 @@ case class CoreInstRsp(implicit p : CoreParm) extends Bundle{
   val instruction = Bits(32 bit)
 }
 
+case class CoreDataBus(implicit p : CoreParm) extends Bundle with IMasterSlave{
 
+  val cmd = Stream (CoreDataCmd())
+  val rsp = Stream (Bits(32 bit))
+
+  override def asMaster(): this.type = {
+    master(cmd)
+    slave(rsp)
+    this
+  }
+
+  override def asSlave(): this.type = asMaster.flip()
+}
 case class CoreDataCmd(implicit p : CoreParm) extends Bundle{
   val wr = Bool
   val address = UInt(p.addrWidth bit)
@@ -64,15 +91,8 @@ class Core(implicit p : CoreParm) extends Component{
   import p._
   assert(pendingI == 1)
   val io = new Bundle{
-    val i = new Bundle {
-      val flush = out Bool
-      val cmd = master Stream (CoreInstCmd())
-      val rsp = slave Stream (CoreInstRsp())
-    }
-    val d = new Bundle {
-      val cmd = master Stream (CoreDataCmd())
-      val rsp = slave Stream (Bits(32 bit))
-    }
+    val i = master(CoreInstBus())
+    val d = master(CoreDataBus())
   }
   val irqUsages = mutable.HashMap[Int,IrqUsage]()
   if(invalidInstructionIrqId != 0) irqUsages(invalidInstructionIrqId) = IrqUsage(true)
@@ -716,6 +736,8 @@ abstract class CoreExtension {
 object CoreMain{
   def main(args: Array[String]) {
     SpinalVhdl({
+      val interrupt = Bool
+
       implicit val p = CoreParm(
         pcWidth = 32,
         addrWidth = 32,
@@ -732,7 +754,6 @@ object CoreMain{
       p.add(new MulExtension)
       p.add(new DivExtension)
       p.add(new BarrelShifterFullExtension)
-      val interrupt = Bool
       p.add(new SimpleInterruptExtension(0x0).addIrq(4,interrupt,IrqUsage(false),"io_interrupt"))
      // p.add(new BarrelShifterLightExtension)
       new Core()

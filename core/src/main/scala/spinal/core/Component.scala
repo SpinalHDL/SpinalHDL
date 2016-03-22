@@ -228,6 +228,9 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
   private[core] def isInBlackBoxTree: Boolean = if (parent == null) false else parent.isInBlackBoxTree
 
   private[core] override def getComponent(): Component = parent
+
+  def getParentsPath(sep : String = "/") : String = if(parent == null) "" else parents().map(_.getDisplayName()).reduce(_+ sep + _)
+  def getPath(sep : String = "/") : String = (if(parent == null) "" else (getParentsPath(sep) + sep)) + this.getDisplayName()
 }
 
 

@@ -126,7 +126,9 @@ abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends 
   def getResetStyleInputs = ArrayBuffer[Node](getReset)
 
   def isUsingReset: Boolean
-  def setUseReset = inputs(SyncNode.getClockResetId) = clockDomain.reset
+  def setUseReset = {
+    inputs(SyncNode.getClockResetId) = clockDomain.reset
+  }
   def getClockDomain: ClockDomain = clockDomain
 
   def getClock: Bool = inputs(SyncNode.getClockInputId).asInstanceOf[Bool]
@@ -153,6 +155,7 @@ trait Nameable {
   private var name: String = ""
   private[core] var compositeName: Nameable = null
   def getName(): String = if (compositeName == null) name else compositeName.getName()
+  def getDisplayName() : String = if(isNamed) getName() else "???"
   def isUnnamed: Boolean = name == "" && (compositeName == null || compositeName.isUnnamed)
   def isNamed: Boolean = !isUnnamed
   private[core] var isWeak = true
