@@ -22,7 +22,7 @@ class SimpleInterruptExtension(exceptionVector : Int) extends CoreExtension{
     }
 
     val inIrq = RegInit(False)
-    val exceptionPc = Reg(UInt(32 bit))
+    val exitPc = Reg(UInt(32 bit))
     val irqValue = B(0,irqWidth bit)
     for((id,usage) <- irqUsages){
       if(usage.isException)
@@ -36,14 +36,14 @@ class SimpleInterruptExtension(exceptionVector : Int) extends CoreExtension{
         access.flushMemoryResponse := True
         access.pcLoad.valid := True
         access.pcLoad.payload := exceptionVector
-        exceptionPc := access.inInst.pc
+        exitPc := access.inInst.pc
         inIrq := True
       }.elsewhen((access.irq.masked & ~B(irqExceptionMask,irqWidth bit)) =/= 0){
         decode.halt := True
         when(decode.inInst.valid &&  !execute0.inInst.valid && !execute1.inInst.valid && !access.inInst.valid) {
           access.pcLoad.valid := True
           access.pcLoad.payload := exceptionVector
-          exceptionPc := decode.inInst.pc
+          exitPc := decode.inInst.pc
           inIrq := True
         }
       }
@@ -53,7 +53,7 @@ class SimpleInterruptExtension(exceptionVector : Int) extends CoreExtension{
         switch(execute1.inInst.instruction(26 downto 25)){
           is(B"00"){ // return from interrupt
             execute1.pc_sel := PC.J
-            execute1.inInst.adder := exceptionPc
+            execute1.inInst.adder := exitPc
             when(execute1.outInst.fire) {
               inIrq := False
             }
