@@ -12,10 +12,6 @@ class BarrelShifterLightExtension extends CoreExtension{
   override def applyIt(core: Core): Area = new Area{
     import core._
 
-    var sample : Bool = null
-    def RegPip [T<:Data] (that : T) = spinal.core.RegNextWhen(that,sample)
-
-    //first stage
     val s1 = new Area {
       val amplitude = execute0.inInst.alu_op1(4 downto 0).asUInt
       val isShift = execute0.inInst.ctrl.alu === ALU.SLL1 || execute0.inInst.ctrl.alu === ALU.SRL1 || execute0.inInst.ctrl.alu === ALU.SRA1
@@ -35,9 +31,6 @@ class BarrelShifterLightExtension extends CoreExtension{
         }
       }
     }
-
-
-    sample = null
   }
 
   override def instructionCtrlExtension(instruction: Bits, ctrl: InstructionCtrl): Unit = { }
