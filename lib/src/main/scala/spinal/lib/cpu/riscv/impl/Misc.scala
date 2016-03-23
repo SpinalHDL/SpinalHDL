@@ -2,6 +2,11 @@ package spinal.lib.cpu.riscv.impl
 
 import spinal.core._
 import spinal.lib.IMasterSlave
+import spinal.lib.cpu.riscv.impl.Utils.InstructionCtrl
+
+
+case class IrqUsage(isException : Boolean)
+
 
 object Utils{
   object PC extends SpinalEnum(sequancial){

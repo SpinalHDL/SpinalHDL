@@ -61,12 +61,12 @@ case class AxiReadOnly(config: AxiReadConfig) extends Bundle with IMasterSlave {
   val r = Stream(AxiR(config))
 
   def readCmd = ar
-  def readData = r
+  def readRsp = r
 
   def >> (that : AxiReadOnly) : Unit = {
     assert(that.config == this.config)
     this.readCmd >> that.readCmd
-    this.readData << that.readData
+    this.readRsp << that.readRsp
   }
 
   def <<(that : AxiReadOnly) : Unit = that >> this
@@ -77,7 +77,7 @@ case class AxiReadOnly(config: AxiReadConfig) extends Bundle with IMasterSlave {
     this
   }
 
-  override def asSlave(): this.type = asSlave().flip()
+  override def asSlave(): this.type = asMaster().flip()
 }
 
 

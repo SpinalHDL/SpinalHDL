@@ -158,7 +158,7 @@ object BaseType {
       val overrided = consumer.inputs(consumerInputId)
       if (overrided != null && !overrided.isInstanceOf[NoneNode] && !overrided.isInstanceOf[Reg])
         if(consumer.globalData.overridingAssignementWarnings)
-        SpinalWarning(s"Value of $baseType is overridden at ${ScalaLocated.getScalaTraceSmart}")
+        SpinalWarning(s"$baseType is overridden at ${ScalaLocated.getScalaTraceSmart}")
     }
     (consumer, consumerInputId)
   }
@@ -307,6 +307,6 @@ abstract class BaseType extends Node with Data with Nameable {
   private[core] def weakClone: this.type = this.getClass.newInstance().asInstanceOf[this.type]
 
 
-  override def toString(): String = s"${getClassIdentifier}[$getWidth bit](named ${"\"" + component.getPath() + "/" + this.getDisplayName() + "\""},into ${if (component == null) "null" else component.getClass.getSimpleName})"
+  override def toString(): String = s"${component.getPath() + "/" + this.getDisplayName()} : ${getClassIdentifier}[$getWidth bit]"
 }
 

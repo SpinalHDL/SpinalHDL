@@ -3,6 +3,7 @@ package spinal.lib.cpu.riscv.impl
 import spinal.core._
 import spinal.lib._
 import spinal.lib.cpu.riscv.impl.Utils._
+import spinal.lib.cpu.riscv.impl.extension.CoreExtension
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -40,30 +41,29 @@ case class CoreParm(val pcWidth : Int = 32,
   }
 }
 
-case class CoreInstBus(implicit p : CoreParm) extends Bundle with IMasterSlave{
+case class CoreInstructionBus(implicit p : CoreParm) extends Bundle with IMasterSlave{
   val flush = Bool
-  val cmd = Stream (CoreInstCmd())
-  val rsp = Stream (CoreInstRsp())
+  val cmd = Stream (CoreInstructionCmd())
+  val rsp = Stream (CoreInstructionRsp())
 
-  override def asMaster(): CoreInstBus.this.type = {
+  override def asMaster(): CoreInstructionBus.this.type = {
     out(flush)
     master(cmd)
     slave(rsp)
     this
   }
 
-  override def asSlave(): CoreInstBus.this.type = asMaster.flip()
+  override def asSlave(): CoreInstructionBus.this.type = asMaster.flip()
 }
 
-case class CoreInstCmd(implicit p : CoreParm) extends Bundle{
+case class CoreInstructionCmd(implicit p : CoreParm) extends Bundle{
   val pc = UInt(p.addrWidth bit)
 }
-case class CoreInstRsp(implicit p : CoreParm) extends Bundle{
+case class CoreInstructionRsp(implicit p : CoreParm) extends Bundle{
   val instruction = Bits(32 bit)
 }
 
 case class CoreDataBus(implicit p : CoreParm) extends Bundle with IMasterSlave{
-
   val cmd = Stream (CoreDataCmd())
   val rsp = Stream (Bits(32 bit))
 
@@ -86,12 +86,12 @@ case class BranchPredictorLine(implicit p : CoreParm)  extends Bundle{
   val pc = UInt(p.pcWidth-p.dynamicBranchPredictorCacheSizeLog2-2 bit)
   val history = SInt(2 bit)
 }
-// assert(latencyAnalysis(io.iCmd.data,io.iRsp.data) == 1)
+
 class Core(implicit p : CoreParm) extends Component{
   import p._
   assert(pendingI == 1)
   val io = new Bundle{
-    val i = master(CoreInstBus())
+    val i = master(CoreInstructionBus())
     val d = master(CoreDataBus())
   }
   val irqUsages = mutable.HashMap[Int,IrqUsage]()
@@ -134,11 +134,6 @@ class Core(implicit p : CoreParm) extends Component{
     }))
     outInst.valid := io.i.cmd.fire
     outInst.pc := pcNext
-
-//    val throwIt = False
-//    when(throwIt){
-//      outInst.valid :=
-//    }
   }
 
   //Join fetchCmd.outInst with io.i.rsp
@@ -152,7 +147,6 @@ class Core(implicit p : CoreParm) extends Component{
     val outInst = Stream(wrap(new Bundle {
       val pc = UInt(pcWidth bit)
       val instruction = Bits(32 bit)
-//      val ctrl = InstructionCtrl()
       val branchCacheLine = BranchPredictorLine()
     }))
 
@@ -161,8 +155,6 @@ class Core(implicit p : CoreParm) extends Component{
     outInst.pc := inContext.pc
     outInst.instruction := io.i.rsp.instruction
     outInst.branchCacheLine := brancheCache.readSync(Mux(inContext.isStall,inContext.pc,fetchCmd.outInst.pc)(2, dynamicBranchPredictorCacheSizeLog2 bit))
-//    outInst.ctrl := getInstructionCtrl(outInst.outInst.instruction)
-
 
     val flush = False
     when(flush){
@@ -172,7 +164,7 @@ class Core(implicit p : CoreParm) extends Component{
   }
 
   val decode = new Area{
-    val inInst = fetch.outInst.throwWhen(io.i.flush).m2sPipe()
+    val inInst = fetch.outInst.m2sPipe()
     val ctrl = getInstructionCtrl(inInst.instruction)
     val hazard = Bool //Used to stall decode phase because of register file hazard
     val throwIt = False
@@ -283,8 +275,7 @@ class Core(implicit p : CoreParm) extends Component{
       val src1Ext = (inInst.src1.msb && signed) ## inInst.src1
       val ltx =  (src0Ext.asUInt-src1Ext.asUInt).msb
       val eq = inInst.src0 === inInst.src1
-
-
+      
 
       val pc_sel = inInst.ctrl.br.map[PC.T](
         default -> PC.INC,
@@ -295,7 +286,6 @@ class Core(implicit p : CoreParm) extends Component{
         BR.J -> PC.J,
         BR.JR -> PC.JR
       )
-
     }
 
     val alu = new Alu
@@ -312,7 +302,7 @@ class Core(implicit p : CoreParm) extends Component{
       }
       val src1 = Bits(32 bit)
       val instruction = Bits(32 bit)
-      val alu = Bits(32 bit)
+      val result = Bits(32 bit)
       val adder = UInt(32 bit)
       val predictorHasBranch = Bool
       val branchHistory = Flow(SInt(branchPredictorHistoryWidth bit))
@@ -333,7 +323,7 @@ class Core(implicit p : CoreParm) extends Component{
     outInst.br.ltx := br.ltx
     outInst.pc_sel := br.pc_sel
     outInst.src1 := inInst.src1
-    outInst.alu := alu.io.result
+    outInst.result := alu.io.result
     outInst.adder := alu.io.adder
     outInst.pcPlus4 := inInst.pc + 4
 
@@ -411,7 +401,7 @@ class Core(implicit p : CoreParm) extends Component{
 
     val outInst = Stream(wrap(new Bundle {
       val pc = UInt(pcWidth bit)
-      val alu = Bits(32 bit)
+      val result = Bits(32 bit)
       val regFileAddress = UInt(5 bit)
       val ctrl = InstructionCtrl()
       val instruction = Bits(32 bit)
@@ -422,7 +412,7 @@ class Core(implicit p : CoreParm) extends Component{
 
     outInst.arbitrationFrom(inInst.throwWhen(throwIt).haltWhen(halt))
     outInst.pc := inInst.pc
-    outInst.alu := inInst.alu
+    outInst.result := inInst.result
     outInst.regFileAddress := inInst.instruction(dstRange).asUInt
     outInst.ctrl := inInst.ctrl
     outInst.instruction := inInst.instruction
@@ -496,7 +486,7 @@ class Core(implicit p : CoreParm) extends Component{
 
     val regFileData = inInst.ctrl.wb.map (
       default -> B(0,32 bit), //CSR1
-      WB.ALU1 -> inInst.alu,
+      WB.ALU1 -> inInst.result,
       WB.MEM  -> dataRspFormated,
       WB.PC4  -> (inInst.pcPlus4).asBits.resized
     )
@@ -619,10 +609,10 @@ class Core(implicit p : CoreParm) extends Component{
       if(bypassExecute1) {
         when(execute1.outInst.ctrl.execute1AluBypass && execute1.outInst.ctrl.rfen && execute1.outInst.valid) {
           when(addr0Check && addr0Match) {
-            decode.src0 := execute1.outInst.alu
+            decode.src0 := execute1.outInst.result
           }
           when(addr1Check && addr1Match) {
-            decode.src1 := execute1.outInst.alu
+            decode.src1 := execute1.outInst.result
           }
         }
       }
@@ -643,10 +633,10 @@ class Core(implicit p : CoreParm) extends Component{
       if (bypassExecute0) {
         when(execute0.outInst.ctrl.execute0AluBypass && execute0.outInst.ctrl.rfen && execute0.outInst.valid) {
           when(addr0Check && addr0Match) {
-            decode.src0 := execute0.outInst.alu
+            decode.src0 := execute0.outInst.result
           }
           when(addr1Check && addr1Match) {
-            decode.src1 := execute0.outInst.alu
+            decode.src1 := execute0.outInst.result
           }
         }
       }
@@ -692,48 +682,12 @@ class Core(implicit p : CoreParm) extends Component{
   }
 }
 
-case class IrqUsage(isException : Boolean)
 
-abstract class CoreExtension {
-  def getName : String
-  def applyIt(core : Core) : Area
-  def instructionCtrlExtension(instruction : Bits,ctrl: InstructionCtrl) : Unit
 
-  var tag : Int = -1
-  def needTag : Boolean
-  def applyTag(instructionCtrl: InstructionCtrl) : Unit = {
-    assert(tag != -1," You need to override needTag with true")
-    instructionCtrl.extensionTag := tag
-  }
-  def isMyTag(ctrl: InstructionCtrl) = {
-    assert(tag != -1," You need to override needTag with true")
-    ctrl.extensionTag === tag
-  }
-  def getIrqUsage : Seq[(Int,IrqUsage)] = Nil
-}
-
-//case class StageInstruction(implicit p : CoreParm)  extends Bundle{
-//  val pc = UInt(p.pcWidth bit)
-//  val instruction = Bits(32 bit)
-//  val ctrl = InstructionCtrl()
-//}
-//class Stage(previousStage : Stage)(implicit p : CoreParm) extends Area{
-//  val inInst = previousStage.outInst.m2sPipe(p.collapseBubble)
-//
-//
-//  val alu = Bits(32 bit)
-//
-//  val halt = False
-//  val throwIt = False
-//  val outInst = Stream(StageInstruction())
-//  outInst.arbitrationFrom(inInst.throwWhen(throwIt).haltWhen(halt))
-//  outInst.payload := inInst.payload
-//
-//  def StageReg[T <: Data](that : T) = RegNextWhen(that,previousStage.outInst.ready)
-//}
 
 
 object CoreMain{
+  import extension._
   def main(args: Array[String]) {
     SpinalVhdl({
       val interrupt = Bool
@@ -754,11 +708,36 @@ object CoreMain{
       p.add(new MulExtension)
       p.add(new DivExtension)
       p.add(new BarrelShifterFullExtension)
-      p.add(new SimpleInterruptExtension(0x0).addIrq(4,interrupt,IrqUsage(false),"io_interrupt"))
+      p.add(new SimpleInterruptExtension(exceptionVector=0x0).addIrq(id=4,pin=interrupt,IrqUsage(isException=false),name="io_interrupt"))
      // p.add(new BarrelShifterLightExtension)
-      new Core()
+      new Core()(p)
       }
     ,_.setLibrary("riscv"))
   }
 }
 
+
+
+
+
+
+
+//case class StageInstruction(implicit p : CoreParm)  extends Bundle{
+//  val pc = UInt(p.pcWidth bit)
+//  val instruction = Bits(32 bit)
+//  val ctrl = InstructionCtrl()
+//}
+//class Stage(previousStage : Stage)(implicit p : CoreParm) extends Area{
+//  val inInst = previousStage.outInst.m2sPipe(p.collapseBubble)
+//
+//
+//  val alu = Bits(32 bit)
+//
+//  val halt = False
+//  val throwIt = False
+//  val outInst = Stream(StageInstruction())
+//  outInst.arbitrationFrom(inInst.throwWhen(throwIt).haltWhen(halt))
+//  outInst.payload := inInst.payload
+//
+//  def StageReg[T <: Data](that : T) = RegNextWhen(that,previousStage.outInst.ready)
+//}

@@ -229,6 +229,9 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
 
   private[core] override def getComponent(): Component = parent
 
+
+  override def getDisplayName(): String = if(isNamed) super.getDisplayName() else "[" + getClass.getSimpleName + "]"
+
   def getParentsPath(sep : String = "/") : String = if(parent == null) "" else parents().map(_.getDisplayName()).reduce(_+ sep + _)
   def getPath(sep : String = "/") : String = (if(parent == null) "" else (getParentsPath(sep) + sep)) + this.getDisplayName()
 }
