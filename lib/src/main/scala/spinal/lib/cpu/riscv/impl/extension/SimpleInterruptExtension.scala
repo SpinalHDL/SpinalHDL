@@ -18,7 +18,7 @@ class SimpleInterruptExtension(exceptionVector : Int) extends CoreExtension{
 
     import core._
     for((id,(pin,name,exeption)) <- interruptUsage){
-      access.irq.sources(id) := pin.pull().setName(name)
+      writeBack0.irq.sources(id) := pin.pull().setName(name)
     }
 
     val inIrq = RegInit(False)
@@ -26,23 +26,23 @@ class SimpleInterruptExtension(exceptionVector : Int) extends CoreExtension{
     val irqValue = B(0,irqWidth bit)
     for((id,usage) <- irqUsages){
       if(usage.isException)
-        irqValue(id) := RegNextWhen(access.irq.masked(id),!inIrq)
+        irqValue(id) := RegNextWhen(writeBack0.irq.masked(id),!inIrq)
       else
-        irqValue(id) := access.irq.masked(id)
+        irqValue(id) := writeBack0.irq.masked(id)
     }
     when(!inIrq) {
-      when((access.irq.masked & irqExceptionMask) =/= 0) {
-        access.throwIt := True
-        access.flushMemoryResponse := True
-        access.pcLoad.valid := True
-        access.pcLoad.payload := exceptionVector
-        exitPc := access.inInst.pc
+      when((writeBack0.irq.masked & irqExceptionMask) =/= 0) {
+        writeBack0.throwIt := True
+        writeBack0.flushMemoryResponse := True
+        writeBack0.pcLoad.valid := True
+        writeBack0.pcLoad.payload := exceptionVector
+        exitPc := writeBack0.inInst.pc
         inIrq := True
-      }.elsewhen((access.irq.masked & ~B(irqExceptionMask,irqWidth bit)) =/= 0){
+      }.elsewhen((writeBack0.irq.masked & ~B(irqExceptionMask,irqWidth bit)) =/= 0){
         decode.halt := True
-        when(decode.inInst.valid &&  !execute0.inInst.valid && !execute1.inInst.valid && !access.inInst.valid) {
-          access.pcLoad.valid := True
-          access.pcLoad.payload := exceptionVector
+        when(decode.inInst.valid &&  !execute0.inInst.valid && !execute1.inInst.valid && !writeBack0.inInst.valid) {
+          writeBack0.pcLoad.valid := True
+          writeBack0.pcLoad.payload := exceptionVector
           exitPc := decode.inInst.pc
           inIrq := True
         }
@@ -62,10 +62,10 @@ class SimpleInterruptExtension(exceptionVector : Int) extends CoreExtension{
             execute1.outInst.result := irqValue.resized
           }
           is(B"10"){ //read irq mask
-            access.irq.mask := execute1.inInst.result.resized
+            writeBack0.irq.mask := execute1.inInst.result.resized
           }
           is(B"11"){ //write irq mask
-            execute1.outInst.result := access.irq.mask.resized
+            execute1.outInst.result := writeBack0.irq.mask.resized
           }
         }
       }

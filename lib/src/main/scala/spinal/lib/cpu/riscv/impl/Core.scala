@@ -22,8 +22,8 @@ case class CoreParm(val pcWidth : Int = 32,
                     val startAddress : Int = 0,
                     val bypassExecute0 : Boolean = true,
                     val bypassExecute1 : Boolean = true,
-                    val bypassAccess : Boolean = true,
-                    val bypassWriteBack : Boolean = true,
+                    val bypassWriteBack0 : Boolean = true,
+                    val bypassWriteBack1 : Boolean = true,
                     val collapseBubble : Boolean = true,
                     val regFileReadyKind : RegFileReadKind = sync,
                     val pendingI : Int = 1,
@@ -428,7 +428,7 @@ class Core(implicit p : CoreParm) extends Component{
     }
   }
 
-  val access = new Area{
+  val writeBack0 = new Area{
     val inInst = execute1.outInst.m2sPipe(collapseBubble)
     val throwIt = !inInst.ctrl.rfen
     val halt = False
@@ -508,8 +508,9 @@ class Core(implicit p : CoreParm) extends Component{
 
   }
 
-  val writeBack = new Area{
-    val inInst = access.outInst.m2sPipe(collapseBubble)
+  //This stage is only about keep a trace of last writeBack0, trace used later to avoid read during write hazard on register file
+  val writeBack1 = new Area{
+    val inInst = writeBack0.outInst.m2sPipe(collapseBubble)
     inInst.ready := True
   }
 
@@ -537,10 +538,10 @@ class Core(implicit p : CoreParm) extends Component{
         }
     }
 
-    when(access.pcLoad.valid){
+    when(writeBack0.pcLoad.valid){
       execute1.flush :=  True
       fetchCmd.pcLoad.valid := True
-      fetchCmd.pcLoad.payload := access.pcLoad.payload
+      fetchCmd.pcLoad.payload := writeBack0.pcLoad.payload
     }
 
     val loadCounter = Counter(1<<30,execute1.pcLoad.valid).value.keep()
@@ -558,21 +559,21 @@ class Core(implicit p : CoreParm) extends Component{
     decode.hazard := src0Hazard || src1Hazard
 
     // write back bypass and hazard
-    if(bypassWriteBack) {
-      when(writeBack.inInst.valid) {
-        when(addr0Check && writeBack.inInst.addr === decode.addr0) {
-          decode.src0 := writeBack.inInst.data
+    if(bypassWriteBack1) {
+      when(writeBack1.inInst.valid) {
+        when(addr0Check && writeBack1.inInst.addr === decode.addr0) {
+          decode.src0 := writeBack1.inInst.data
         }
-        when(addr1Check && writeBack.inInst.addr === decode.addr1) {
-          decode.src1 := writeBack.inInst.data
+        when(addr1Check && writeBack1.inInst.addr === decode.addr1) {
+          decode.src1 := writeBack1.inInst.data
         }
       }
     }else{
-      when(writeBack.inInst.valid) {
-        when(decode.addr0 === writeBack.inInst.addr) {
+      when(writeBack1.inInst.valid) {
+        when(decode.addr0 === writeBack1.inInst.addr) {
           src0Hazard := True
         }
-        when(decode.addr1 === writeBack.inInst.addr) {
+        when(decode.addr1 === writeBack1.inInst.addr) {
           src1Hazard := True
         }
       }
@@ -580,19 +581,19 @@ class Core(implicit p : CoreParm) extends Component{
 
     // memory access bypass and hazard
     val A = new Area{
-      val addr0Match = access.outInst.addr === decode.addr0
-      val addr1Match = access.outInst.addr === decode.addr1
-      if(bypassAccess) {
-        when(access.outInst.valid) {
+      val addr0Match = writeBack0.outInst.addr === decode.addr0
+      val addr1Match = writeBack0.outInst.addr === decode.addr1
+      if(bypassWriteBack0) {
+        when(writeBack0.outInst.valid) {
           when(addr0Check && addr0Match) {
-            decode.src0 := access.regFileData
+            decode.src0 := writeBack0.regFileData
           }
           when(addr1Check && addr1Match) {
-            decode.src1 := access.regFileData
+            decode.src1 := writeBack0.regFileData
           }
         }
       }
-      when(access.inInst.valid && access.inInst.ctrl.rfen && (Bool(!bypassAccess) || !access.outInst.valid)) {
+      when(writeBack0.inInst.valid && writeBack0.inInst.ctrl.rfen && (Bool(!bypassWriteBack0) || !writeBack0.outInst.valid)) {
         when(addr0Match) {
           src0Hazard := True
         }
@@ -692,7 +693,7 @@ object CoreMain{
     SpinalVhdl({
       val interrupt = Bool
 
-      implicit val p = CoreParm(
+      val p = CoreParm(
         pcWidth = 32,
         addrWidth = 32,
         startAddress = 0x200,
@@ -700,8 +701,8 @@ object CoreMain{
         branchPrediction = static,
         bypassExecute0 = true,
         bypassExecute1 = true,
-        bypassAccess = true,
-        bypassWriteBack = true,
+        bypassWriteBack0 = true,
+        bypassWriteBack1 = true,
         collapseBubble = true,
         dynamicBranchPredictorCacheSizeLog2 = 7
       )

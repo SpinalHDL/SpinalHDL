@@ -70,13 +70,13 @@ class MulExtension extends CoreExtension{
     }
 
     //pipeline insertion logic
-    when(isMyTag(access.inInst.ctrl)){
-      switch(access.inInst.instruction(13 downto 12)){
+    when(isMyTag(writeBack0.inInst.ctrl)){
+      switch(writeBack0.inInst.instruction(13 downto 12)){
         is(B"00"){
-          access.inInst.result := s3.low(31 downto 0).asBits
+          writeBack0.inInst.result := s3.low(31 downto 0).asBits
         }
         is(B"01",B"10",B"11"){
-          access.inInst.result := s3.result(63 downto 32).asBits
+          writeBack0.inInst.result := s3.result(63 downto 32).asBits
         }
       }
     }
