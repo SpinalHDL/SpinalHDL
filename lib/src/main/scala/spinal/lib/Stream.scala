@@ -505,6 +505,16 @@ class StreamFifo[T <: Data](dataType: T, depth: Int) extends Component {
 }
 
 
+
+//class StreamFifoBackup[T <: Data](dataType: T, depth: Int) extends Component {
+//  val io = new Bundle {
+//    val incoming = slave Event
+//    val push = slave Flow (dataType)
+//    val pop = master Stream (dataType)
+//  }
+//}
+
+
 class StreamFifoCC[T <: Data](dataType: T, val depth: Int, pushClockDomain: ClockDomain, popClockDomain: ClockDomain) extends Component {
   assert(isPow2(depth))
   assert(depth >= 2)
@@ -673,3 +683,4 @@ object StreamSelector {
     ret
   }
 }
+

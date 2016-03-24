@@ -109,6 +109,7 @@ object Utils{
       val rfen = Bool
       val execute0AluBypass  = Bool
       val execute1AluBypass  = Bool
+      val canInternalyStallWriteBack0 = Bool
       val men  = Bool
       val m  = M()
       val msk = MSK()
@@ -150,6 +151,7 @@ object Utils{
       ctrl.rfen := False
       ctrl.execute0AluBypass  := False
       ctrl.execute1AluBypass := False
+      ctrl.canInternalyStallWriteBack0 := False
       ctrl.men := False
       ctrl.m := M.XRD
       ctrl.msk.assignFromBits(instruction(13,12))

@@ -338,8 +338,9 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
     this
   }
 
-  override def add(attribute: Attribute): Unit = {
+  override def add(attribute: Attribute): this.type = {
     flatten.foreach(_.add(attribute))
+    this
   }
 
   def isReg: Boolean = flatten.foldLeft(true)(_ && _.isReg)

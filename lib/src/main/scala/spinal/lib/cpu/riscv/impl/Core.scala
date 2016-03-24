@@ -26,10 +26,13 @@ case class CoreParm(val pcWidth : Int = 32,
                     val bypassWriteBack0 : Boolean = true,
                     val bypassWriteBack1 : Boolean = true,
                     val collapseBubble : Boolean = true,
+                    val branchPrediction : BranchPrediction = static,
                     val regFileReadyKind : RegFileReadKind = sync,
+                    val fastFetchCmdPcCalculation : Boolean = true,
+                    val singleCycleAndThrowableInstructionCmd : Boolean = false, //Usefull for fast and light cache design
+                    val noDataRspStall : Boolean = false, //TODO
                     val pendingI : Int = 1,
                     val pendingD : Int = 3,
-                    val branchPrediction : BranchPrediction = static,
                     val dynamicBranchPredictorCacheSizeLog2 : Int = 4,
                     val branchPredictorHistoryWidth : Int = 2,
                     val invalidInstructionIrqId : Int = 0,
@@ -42,13 +45,19 @@ case class CoreParm(val pcWidth : Int = 32,
   }
 }
 
+case class CoreInstructionCmd(implicit p : CoreParm) extends Bundle{
+  val pc = UInt(p.addrWidth bit)
+}
+
+case class CoreInstructionRsp(implicit p : CoreParm) extends Bundle{
+  val instruction = Bits(32 bit)
+}
+
 case class CoreInstructionBus(implicit p : CoreParm) extends Bundle with IMasterSlave{
-  val flush = Bool
   val cmd = Stream (CoreInstructionCmd())
   val rsp = Stream (CoreInstructionRsp())
 
   override def asMaster(): CoreInstructionBus.this.type = {
-    out(flush)
     master(cmd)
     slave(rsp)
     this
@@ -56,8 +65,8 @@ case class CoreInstructionBus(implicit p : CoreParm) extends Bundle with IMaster
 
   override def asSlave(): CoreInstructionBus.this.type = asMaster.flip()
 
-  def toAxi(): AxiReadOnly ={
-    val axiParameters = AxiReadConfig(
+  def toAxiRead(): AxiReadOnly ={
+    val axiParameters = AxiConfig(
       addressWidth = 32,
       dataWidth = 32
     )
@@ -75,12 +84,7 @@ case class CoreInstructionBus(implicit p : CoreParm) extends Bundle with IMaster
   }
 }
 
-case class CoreInstructionCmd(implicit p : CoreParm) extends Bundle{
-  val pc = UInt(p.addrWidth bit)
-}
-case class CoreInstructionRsp(implicit p : CoreParm) extends Bundle{
-  val instruction = Bits(32 bit)
-}
+
 
 case class CoreDataBus(implicit p : CoreParm) extends Bundle with IMasterSlave{
   val cmd = Stream (CoreDataCmd())
@@ -94,23 +98,23 @@ case class CoreDataBus(implicit p : CoreParm) extends Bundle with IMasterSlave{
 
   override def asSlave(): this.type = asMaster.flip()
 
-  def toAxi(): AxiReadOnly ={
-    val axiParameters = AxiReadConfig(
-      addressWidth = 32,
-      dataWidth = 32
-    )
-    val axi = new AxiReadOnly(axiParameters)
-
-//    axi.readCmd.translateFrom(cmd)((to,from) => {
-//      to.addr := from.pc
-//      to.prot := 0
-//    })
-//    rsp.translateFrom(axi.readRsp)((to,from) => {
-//      to.instruction := from.data
-//    })
-
-    axi
-  }
+//  def toAxi(): AxiBus ={
+//    val axiParameters = AxiConfig(
+//      addressWidth = 32,
+//      dataWidth = 32
+//    )
+//    val axi = new AxiBus(axiParameters)
+//
+////    axi.readCmd.translateFrom(cmd)((to,from) => {
+////      to.addr := from.pc
+////      to.prot := 0
+////    })
+////    rsp.translateFrom(axi.readRsp)((to,from) => {
+////      to.instruction := from.data
+////    })
+//
+//    axi
+//  }
 }
 
 case class CoreDataCmd(implicit p : CoreParm) extends Bundle{
@@ -128,8 +132,6 @@ case class BranchPredictorLine(implicit p : CoreParm)  extends Bundle{
 case class CoreFetchCmdOutput(implicit p : CoreParm) extends Bundle{
   val pc = UInt(p.pcWidth bit)
 }
-
-
 
 case class CoreFetchOutput(implicit p : CoreParm) extends Bundle{
   val pc = UInt(p.pcWidth bit)
@@ -206,7 +208,13 @@ class Core(implicit p : CoreParm) extends Component{
   val fetchCmd = new Area {
     val pc = Reg(UInt(pcWidth bit)) init(U(startAddress,pcWidth bit))
     val inc = RegInit(False) //when io.i.cmd is stalled, it's used as a token to continue the request the next cycle
-    val pcNext = pc + Mux(inc,U(4),U(0))
+    val redo = False
+    val pcNext = if(fastFetchCmdPcCalculation){
+      val pcPlus4 = (pc + U(4)).add(new AttributeFlag("keep"))
+      Mux(inc && !redo,pcPlus4,pc)
+    }else{
+      pc + Mux(inc && !redo,U(4),U(0))
+    }
     val pcLoad = Flow(pc)
     when(pcLoad.valid){
       pcNext := pcLoad.payload
@@ -220,8 +228,16 @@ class Core(implicit p : CoreParm) extends Component{
 
     when(io.i.cmd.fire){
       inc := True
-    }.elsewhen(pcLoad.valid){
+    }.elsewhen(pcLoad.valid || redo){
       inc := False
+    }
+
+    val pendingInstructionCmd = new Area{
+      val inc = io.i.cmd.fire && !io.d.cmd.wr
+      val dec = io.i.rsp.fire
+      val countNext = UInt(log2Up(pendingI) bit)
+      val count = RegNext(countNext) init(0)
+      countNext := count + Mux(inc === dec,U(0),Mux(inc,U(1),U(count.maxValue)))
     }
 
     val outInst = Stream(CoreFetchCmdOutput())
@@ -231,25 +247,39 @@ class Core(implicit p : CoreParm) extends Component{
 
   //Join fetchCmd.outInst with io.i.rsp
   val fetch = new Area {
-    val inContext = fetchCmd.outInst.throwWhen(io.i.flush).m2sPipe()
-    val throwIt = False
-    val halt = False
-
-    inContext.ready := io.i.rsp.ready
-
+    val inContext = fetchCmd.outInst.m2sPipe()
     val outInst = Stream(CoreFetchOutput())
-
-
-    outInst.arbitrationFrom(io.i.rsp.throwWhen(throwIt).haltWhen(halt))
-    outInst.pc := inContext.pc
-    outInst.instruction := io.i.rsp.instruction
-    outInst.branchCacheLine := brancheCache.readSync(Mux(inContext.isStall,inContext.pc,fetchCmd.outInst.pc)(2, dynamicBranchPredictorCacheSizeLog2 bit))
-
+    val throwIt = False
     val flush = False
     when(flush){
       throwIt := True
     }
-    io.i.flush := throwIt
+
+    if(!singleCycleAndThrowableInstructionCmd) {
+      val throwNextIRsp = RegInit(False)
+      when(throwIt && inContext.valid && !io.i.rsp.valid){
+        throwNextIRsp := True
+      }
+      when(throwNextIRsp && io.i.rsp.valid){
+        throwNextIRsp := False
+      }
+
+      inContext.ready := outInst.fire || throwIt
+      outInst.arbitrationFrom(io.i.rsp.throwWhen(throwIt || throwNextIRsp))
+      outInst.pc := inContext.pc
+      outInst.instruction := io.i.rsp.instruction
+      outInst.branchCacheLine := brancheCache.readSync(Mux(inContext.isStall, inContext.pc, fetchCmd.outInst.pc)(2, dynamicBranchPredictorCacheSizeLog2 bit))
+    }else{
+      inContext.ready := True
+      io.i.rsp.ready := True
+      when(inContext.valid && (!io.i.rsp.valid || !outInst.ready)){
+        fetchCmd.redo := True
+      }
+      outInst.valid := io.i.rsp.valid && !throwIt
+      outInst.pc := inContext.pc
+      outInst.instruction := io.i.rsp.instruction
+      outInst.branchCacheLine := brancheCache.readSync(fetchCmd.outInst.pc(2, dynamicBranchPredictorCacheSizeLog2 bit))
+    }
   }
 
   val decode = new Area{
@@ -302,8 +332,6 @@ class Core(implicit p : CoreParm) extends Component{
     pcLoad.valid := inInst.valid && !hazard && outInst.ready && (ctrl.br =/= BR.JR && ctrl.br =/= BR.N) && ctrl.instVal && shouldTakeBranch
     pcLoad.payload := brJumpPc
 
-
-
     outInst.arbitrationFrom(inInst.throwWhen(throwIt).haltWhen(halt))
     outInst.pc := inInst.pc
     outInst.instruction := inInst.instruction
@@ -353,7 +381,7 @@ class Core(implicit p : CoreParm) extends Component{
       val src1Ext = (inInst.src1.msb && signed) ## inInst.src1
       val ltx =  (src0Ext.asUInt-src1Ext.asUInt).msb
       val eq = inInst.src0 === inInst.src1
-      
+
 
       val pc_sel = inInst.ctrl.br.map[PC.T](
         default -> PC.INC,
@@ -444,7 +472,7 @@ class Core(implicit p : CoreParm) extends Component{
       PC.INC -> inInst.pcPlus4,
       default -> inInst.adder
     )
-    
+
     // dynamic branch predictor history update
     when(inInst.fire && inInst.ctrl.br =/= BR.JR && inInst.ctrl.br =/= BR.N && inInst.ctrl.br =/= BR.J){
       val line = BranchPredictorLine()
@@ -591,7 +619,7 @@ class Core(implicit p : CoreParm) extends Component{
     }
 
     val loadCounter = Counter(1<<30,execute1.pcLoad.valid).value.keep()
-    val flushCounter = Counter(1<<30,io.i.flush).value.keep()
+    //val flushCounter = Counter(1<<30,io.fetch.).value.keep()
   }
 
 
@@ -711,6 +739,17 @@ class Core(implicit p : CoreParm) extends Component{
     }
   }
 
+  val noDataRspStallLogic = if(noDataRspStall) new Area{
+    when(io.d.cmd.valid && !io.d.cmd.wr){
+      when(execute1.inInst.valid && execute1.inInst.ctrl.canInternalyStallWriteBack0){
+        execute0.halt := True
+      }
+      when(writeBack0.inInst.isStall && writeBack0.inInst.ctrl.canInternalyStallWriteBack0){
+        execute0.halt := True
+      }
+    }
+  } else null
+
 
   for(extension <- extensions){
     val area = extension.applyIt(this)
@@ -756,6 +795,9 @@ object CoreMain{
         bypassWriteBack0 = true,
         bypassWriteBack1 = true,
         collapseBubble = true,
+        noDataRspStall = false,
+        singleCycleAndThrowableInstructionCmd = true,
+        fastFetchCmdPcCalculation = true,
         dynamicBranchPredictorCacheSizeLog2 = 7
       )
       p.add(new MulExtension)

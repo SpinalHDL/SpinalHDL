@@ -5,30 +5,70 @@ import spinal.lib._
 import spinal.lib.bus.amba4.axi._
 
 
-case class AxiReadOnlyCacheParameters( cacheSize : Int,
+case class InstructionCacheParameters( cacheSize : Int,
                                        bytePerLine : Int,
                                        wayCount : Int,
-                                       cmdParameters : AxiReadConfig,
+                                       wrappedMemAccess : Boolean,
+                                       addressWidth : Int,
+                                       cpuDataWidth : Int,
                                        memDataWidth : Int){
-  val memParameters = AxiReadConfig(
-    addressWidth = cmdParameters.addressWidth,
-    dataWidth = memDataWidth,
-    useBurst = true,
-    useLen = true,
-    lenWidth = log2Up(bytePerLine/(memDataWidth/8))
-  )
+
 }
 
-class AxiReadOnlyCache(p : AxiReadOnlyCacheParameters) extends Component{
+
+case class InstructionCacheCpuCmd(implicit p : InstructionCacheParameters) extends Bundle{
+  val address = UInt(p.addressWidth bit)
+}
+case class InstructionCacheCpuRsp(implicit p : InstructionCacheParameters) extends Bundle{
+  val data = Bits(32 bit)
+}
+
+case class InstructionCacheCpuBus(implicit p : InstructionCacheParameters) extends Bundle with IMasterSlave{
+  val cmd = Flow (InstructionCacheCpuCmd())
+  val rsp = Flow (InstructionCacheCpuRsp())
+
+  override def asMaster(): this.type = {
+    master(cmd)
+    slave(rsp)
+    this
+  }
+
+  override def asSlave(): this.type = asMaster.flip()
+}
+
+
+case class InstructionCacheMemCmd(implicit p : InstructionCacheParameters) extends Bundle{
+  val address = UInt(p.addressWidth bit)
+}
+case class InstructionCacheMemRsp(implicit p : InstructionCacheParameters) extends Bundle{
+  val data = Bits(32 bit)
+}
+
+case class InstructionCacheMemBus(implicit p : InstructionCacheParameters) extends Bundle with IMasterSlave{
+  val cmd = Stream (InstructionCacheMemCmd())
+  val rsp = Flow (InstructionCacheMemRsp())
+
+  override def asMaster(): this.type = {
+    master(cmd)
+    slave(rsp)
+    this
+  }
+
+  override def asSlave(): this.type = asMaster.flip()
+}
+
+class InstructionCache(implicit p : InstructionCacheParameters) extends Component{
   import p._
+  assert(wayCount == 1)
+  assert(cpuDataWidth == memDataWidth)
   val io = new Bundle{
-    val cpu = slave(AxiReadOnly(cmdParameters))
-    val mem = master(AxiReadOnly(memParameters))
+    val cpu = slave(InstructionCacheCpuBus())
+    val mem = master(InstructionCacheMemBus())
   }
   val haltCpu = False
   val lineWidth = bytePerLine*8
   val lineCount = cacheSize/bytePerLine
-  val wordWidth = Math.max(memDataWidth,cmdParameters.dataWidth)
+  val wordWidth = Math.max(memDataWidth,32)
   val wordWidthLog2 = log2Up(wordWidth)
   val wordPerLine = lineWidth/wordWidth
   val bytePerWord = wordWidth/8
@@ -36,7 +76,7 @@ class AxiReadOnlyCache(p : AxiReadOnlyCacheParameters) extends Component{
   val wayLineLog2 = log2Up(wayLineCount)
   val wayWordCount = wayLineCount * wordPerLine
 
-  val tagRange = cmdParameters.addressWidth-1 downto log2Up(wayLineCount*bytePerLine)
+  val tagRange = addressWidth-1 downto log2Up(wayLineCount*bytePerLine)
   val lineRange = tagRange.low-1 downto log2Up(bytePerLine)
   val wordRange = log2Up(bytePerLine)-1 downto log2Up(bytePerWord)
 
@@ -52,16 +92,14 @@ class AxiReadOnlyCache(p : AxiReadOnlyCacheParameters) extends Component{
 
   val loader = new Area{
     val requestIn = Stream(wrap(new Bundle{
-      val addr = UInt(cmdParameters.addressWidth bit)
+      val addr = UInt(addressWidth bit)
     }))
 
-    io.mem.readCmd.valid := requestIn.fire
-    io.mem.readCmd.len := wordPerLine-1
-    io.mem.readCmd.addr := requestIn.addr(tagRange.high downto wordRange.low) @@ U(0,wordRange.low bit)
-    io.mem.readCmd.burst := AxiBurst.WRAP
-    io.mem.readCmd.prot := 0
-
-    io.mem.readRsp.ready := True
+    io.mem.cmd.valid := requestIn.fire
+    if(wrappedMemAccess)
+      io.mem.cmd.address := requestIn.addr(tagRange.high downto wordRange.low) @@ U(0,wordRange.low bit)
+    else
+      io.mem.cmd.address := requestIn.addr(tagRange.high downto lineRange.low) @@ U(0,lineRange.low bit)
 
 
     val initCounter = Reg(UInt(log2Up(wayLineCount) + 1 bit)) init(0)
@@ -79,16 +117,16 @@ class AxiReadOnlyCache(p : AxiReadOnlyCacheParameters) extends Component{
     }
 
 
-    val request = requestIn.haltWhen(!io.mem.readCmd.ready).m2sPipe()
+    val request = requestIn.haltWhen(!io.mem.cmd.ready).m2sPipe()
     val wordIndex = Reg(UInt(log2Up(wordPerLine) bit))
     val loadedWordsNext = Bits(wordPerLine bit)
     val loadedWords = RegNext(loadedWordsNext)
     val loadedWordsReadable = RegNext(loadedWords)
     loadedWordsNext := loadedWords
-    when(io.mem.readRsp.fire){
+    when(io.mem.rsp.fire){
       wordIndex := wordIndex + 1
       loadedWordsNext(wordIndex) := True
-      ways(0).datas(request.addr(lineRange) @@ wordIndex) := io.mem.readRsp.data   //TODO
+      ways(0).datas(request.addr(lineRange) @@ wordIndex) := io.mem.rsp.data   //TODO
     }
 
     val readyDelay = Reg(UInt(1 bit))
@@ -98,7 +136,7 @@ class AxiReadOnlyCache(p : AxiReadOnlyCacheParameters) extends Component{
     request.ready := readyDelay === 1
 
     when(requestIn.ready){
-      wordIndex := io.mem.readCmd.addr(wordRange)
+      wordIndex := io.mem.cmd.address(wordRange)
       loadedWords := 0
       loadedWordsReadable := 0
       readyDelay := 0
@@ -106,52 +144,63 @@ class AxiReadOnlyCache(p : AxiReadOnlyCacheParameters) extends Component{
   }
 
   val task = new Area{
-    val request = io.cpu.readCmd.haltWhen(haltCpu).m2sPipe()
+    val request = RegNext(io.cpu.cmd)
     val waysHitValid = False
     val waysHitWord = Bits(wordWidth bit)
     waysHitWord.assignDontCare()
 
-    val memoryAddress = Mux(request.isStall,request.addr,io.cpu.readCmd.addr)
     val waysRead = for(way <- ways) yield new Area{
-      val tag = way.tags.readSync(memoryAddress(lineRange))
-      val data = way.datas.readSync(memoryAddress(lineRange.high downto wordRange.low))
-      when(tag.valid && tag.address === request.addr(tagRange)){
+      val tag = way.tags.readSync(io.cpu.cmd.address(lineRange))
+      val data = way.datas.readSync(io.cpu.cmd.address(lineRange.high downto wordRange.low))
+      when(tag.valid && tag.address === request.address(tagRange)){
         waysHitValid := True
         waysHitWord := data
       }
     }
 
-    val loaderHitValid = loader.request.valid && loader.request.addr(tagRange) === request.addr(tagRange)
-    val loaderHitReady = loader.loadedWordsReadable(request.addr(wordRange))
+    val loaderHitValid = loader.request.valid && loader.request.addr(tagRange) === request.address(tagRange)
+    val loaderHitReady = loader.loadedWordsReadable(request.address(wordRange))
 
-    request.ready := False
-    io.cpu.readRsp.valid := False
-    io.cpu.readRsp.data := waysHitWord //TODO
+
+    io.cpu.rsp.valid := False
+    io.cpu.rsp.data := waysHitWord //TODO
     loader.requestIn.valid := False
-    loader.requestIn.addr := request.addr
+    loader.requestIn.addr := request.address
     when(request.valid) {
       when(waysHitValid) {
         when(!(loaderHitValid && !loaderHitReady)) {
-          request.ready := io.cpu.readRsp.ready
-          io.cpu.readRsp.valid := True
+          io.cpu.rsp.valid := True
         }
       } otherwise{
         loader.requestIn.valid := True
       }
     }
   }
-
-
 }
 
-object AxiReadOnlyCacheMain{
-  def main(args: Array[String]) {
-    val p = AxiReadOnlyCacheParameters(
+object InstructionCacheMain{
+  class TopLevel extends Component{
+    implicit val p = InstructionCacheParameters(
       cacheSize =4096,
       bytePerLine =32,
       wayCount = 1,
-      cmdParameters = AxiReadConfig(32,32),
+      wrappedMemAccess = true,
+      addressWidth = 32,
+      cpuDataWidth = 32,
       memDataWidth = 32)
-    SpinalVhdl(new AxiReadOnlyCache(p),_.setLibrary("lib_AxiReadOnlyCache"))
+    val io = new Bundle{
+      val cpu = slave(InstructionCacheCpuBus())
+      val mem = master(InstructionCacheMemBus())
+    }
+    val cache = new InstructionCache()(p)
+
+    cache.io.cpu.cmd <-< io.cpu.cmd
+    cache.io.mem.cmd >-> io.mem.cmd
+    cache.io.mem.rsp <-< io.mem.rsp
+    cache.io.cpu.rsp >-> io.cpu.rsp
+  }
+  def main(args: Array[String]) {
+
+    SpinalVhdl(new TopLevel)
   }
 }

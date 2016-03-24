@@ -25,7 +25,7 @@ import scala.collection.mutable.ArrayBuffer
  */
 trait AttributeReady{
   private[core] val attributes = ArrayBuffer[Attribute]()
-  def add(attribute: Attribute): Unit
+  def add(attribute: Attribute): this.type
 }
 
 trait Attribute {

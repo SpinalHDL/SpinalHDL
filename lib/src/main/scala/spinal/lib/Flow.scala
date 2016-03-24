@@ -45,6 +45,7 @@ class Flow[T <: Data](_dataType: T) extends Bundle with IMasterSlave with DataCa
     this << that.m2sPipe
     that
   }
+  def >->(that: Flow[T]): Flow[T] = that <-< this
 
   override def fire: Bool = valid
 
