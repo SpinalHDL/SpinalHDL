@@ -5,7 +5,11 @@ import spinal.lib._
 /**
  * Created by PIC32F_USER on 25/03/2016.
  */
-trait AddressUnits
+trait ScalaEnumeration{
+  def getName = this.getClass.getName.split("[.]").last.split("\\$").last
+}
+
+trait AddressUnits extends ScalaEnumeration
 object words extends AddressUnits
 object symbols extends AddressUnits
 
@@ -36,7 +40,7 @@ case class AvalonMMConfig( addressWidth : Int,
                            writeWaitTime : Int = 0
                            ) {
   val dataByteCount = dataWidth/8
-  val getReadOnlyConfig = copy(
+  def getReadOnlyConfig = copy(
     useWrite = false,
     useByteEnable = false
   )
@@ -83,7 +87,8 @@ case class AvalonMMBus(c : AvalonMMConfig) extends Bundle with IMasterSlave{
   val readDataValid = if(useReadDataValid) Bool else null
   val readData = if(useRead) Bits(dataWidth bit) else null
   override def asMaster(): AvalonMMBus.this.type = {
-
+    outWithNull(read,write,lock,debugAccess,address,burstCount,byteEnable,writeData)
+    inWithNull(waitRequestn,response,readDataValid,readData)
     this
   }
 }

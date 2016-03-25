@@ -63,6 +63,13 @@ case class CoreInstructionRsp(implicit p : CoreParm) extends Bundle{
   val instruction = Bits(32 bit)
 }
 
+
+object CoreInstructionBus{
+  def getAvalonConfig(p : CoreParm) = AvalonMMConfig.pipelined(
+    addressWidth = p.addrWidth,
+    dataWidth = 32).getReadOnlyConfig
+}
+
 case class CoreInstructionBus(implicit p : CoreParm) extends Bundle with IMasterSlave{
   val cmd = Stream (CoreInstructionCmd())
   val rsp = Stream (CoreInstructionRsp())
@@ -95,20 +102,24 @@ case class CoreInstructionBus(implicit p : CoreParm) extends Bundle with IMaster
 
   def toAvalon(): AvalonMMBus = {
     assert(p.instructionBusKind == cmdStream_rspFlow)
-    val avalonConfig = AvalonMMConfig.pipelined(
-      addressWidth = 32,
-      dataWidth = 32).getReadOnlyConfig
+    val avalonConfig = CoreInstructionBus.getAvalonConfig(p)
     val mm = AvalonMMBus(avalonConfig)
     mm.read := cmd.valid
-    mm.waitRequestn := cmd.ready
     mm.address := cmd.pc
-    mm.readDataValid := rsp.valid
-    mm.readData := rsp.instruction
+    cmd.ready := mm.waitRequestn
+    rsp.valid := mm.readDataValid
+    rsp.instruction := mm.readData
     mm
   }
 }
 
-
+object CoreDataBus{
+  def getAvalonConfig(p : CoreParm) = AvalonMMConfig.pipelined(
+    addressWidth = 32,
+    dataWidth = 32).copy(
+      maximumPendingReadTransactions = 2
+    )
+}
 
 case class CoreDataBus(implicit p : CoreParm) extends Bundle with IMasterSlave{
   val cmd = Stream (CoreDataCmd())
@@ -124,17 +135,24 @@ case class CoreDataBus(implicit p : CoreParm) extends Bundle with IMasterSlave{
 
   def toAvalon(): AvalonMMBus = {
     assert(p.dataBusKind == cmdStream_rspFlow)
-    val avalonConfig = AvalonMMConfig.pipelined(
-      addressWidth = 32,
-      dataWidth = 32).copy(
-      maximumPendingReadTransactions = 2
-      )
+    val avalonConfig = CoreDataBus.getAvalonConfig(p)
     val mm = AvalonMMBus(avalonConfig)
-    mm.read := cmd.valid
-    mm.waitRequestn := cmd.ready
+    mm.read := cmd.valid && !cmd.wr
+    mm.write := cmd.valid && cmd.wr
     mm.address := cmd.address
-    mm.readDataValid := rsp.valid
-    mm.readData := rsp.payload
+    mm.writeData := cmd.size.map (
+      U(0) -> cmd.data(7 downto 0) ## cmd.data(7 downto 0) ## cmd.data(7 downto 0) ## cmd.data(7 downto 0),
+      U(1) -> cmd.data(15 downto 0) ## cmd.data(15 downto 0),
+      default -> cmd.data(31 downto 0)
+    )
+    mm.byteEnable := (cmd.size.map (
+      U(0) -> B"0001",
+      U(1) -> B"0011",
+      default -> B"1111"
+    ) << mm.address(1 downto 0)).resized
+    cmd.ready := mm.waitRequestn
+    rsp.valid := mm.readDataValid
+    rsp.payload := mm.readData
     mm
   }
 }
@@ -811,35 +829,3 @@ class Core(implicit p : CoreParm) extends Component{
 
 
 
-object CoreMain{
-  import extension._
-  def main(args: Array[String]) {
-    SpinalVhdl({
-      val interrupt = Bool
-
-      val p = CoreParm(
-        pcWidth = 32,
-        addrWidth = 32,
-        startAddress = 0x200,
-        regFileReadyKind = sync,
-        branchPrediction = dynamic,
-        bypassExecute0 = true,
-        bypassExecute1 = true,
-        bypassWriteBack0 = true,
-        bypassWriteBack1 = true,
-        collapseBubble = true,
-        instructionBusKind = cmdStream_rspFlow,
-        dataBusKind = cmdStream_rspFlow,
-        fastFetchCmdPcCalculation = true,
-        dynamicBranchPredictorCacheSizeLog2 = 7
-      )
-      p.add(new MulExtension)
-      p.add(new DivExtension)
-      p.add(new BarrelShifterFullExtension)
-      p.add(new SimpleInterruptExtension(exceptionVector=0x0).addIrq(id=4,pin=interrupt,IrqUsage(isException=false),name="io_interrupt"))
-//      p.add(new BarrelShifterLightExtension)
-      new Core()(p)
-      }
-    ,_.setLibrary("riscv"))
-  }
-}

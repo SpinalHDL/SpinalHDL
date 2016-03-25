@@ -90,6 +90,7 @@ class Bundle extends MultiData with Nameable with OverridedEqualsHashCode {
           case data: Data => {
             if (!rejectOlder || this.isOlderThan(data)) { //To avoid bundle argument
               elementsCache += Tuple2(name, data)
+              data.parent = this
             }
           }
           case _ =>
@@ -101,6 +102,9 @@ class Bundle extends MultiData with Nameable with OverridedEqualsHashCode {
   }
 
   private[core] def rejectOlder = true
+
+
+  override def toString(): String = s"${component.getPath() + "/" + this.getDisplayName()} : ${getClass.getSimpleName}"
 }
 class BundleCase extends Bundle{
   private[core] override def rejectOlder = false

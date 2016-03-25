@@ -213,6 +213,9 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
   private[core] var dir: IODirection = null
   private[core] def isIo = dir != null
 
+  var parent : Data = null
+  def getRootParent : Data = if(parent == null) this else parent.getRootParent
+
   def asInput(): this.type = {
     dir = in;
     this
@@ -275,41 +278,47 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
 
   private[core] def autoConnect(that: Data): Unit// = (this.flatten, that.flatten).zipped.foreach(_ autoConnect _)
   private[core] def autoConnectBaseImpl(that: Data): Unit = {
+    def error(message : String) = SpinalError(message + "\n" + this + "\n" + that)
     if (this.component == that.component) {
       if (this.component == Component.current) {
         sameFromInside
       } else if (this.component.parent == Component.current) {
         sameFromOutside
-      } else SpinalError("You cant autoconnect from here")
+      } else error("You cant autoconnect from here")
     } else if (this.component.parent == that.component.parent) {
       kindAndKind
     } else if (this.component == that.component.parent) {
       parentAndKind(this, that)
     } else if (this.component.parent == that.component) {
       parentAndKind(that, this)
-    } else SpinalError("Don't know how autoconnect")
+    } else error("Don't know how autoconnect")
+
 
     def sameFromOutside: Unit = {
       if (this.isOutput && that.isInput) {
         that := this
       } else if (this.isInput && that.isOutput) {
-        this assignFrom (that,false)
-      } else SpinalError("Bad input output specification for autoconnect")
+        this := that
+      } else error("Bad input output specification for autoconnect")
     }
     def sameFromInside: Unit = {
-      if (that.isOutput && this.isInput) {
-        that := this
-      } else if (that.isInput && this.isOutput) {
-        this assignFrom (that,false)
-      } else SpinalError("Bad input output specification for autoconnect")
+      (this.dir,that.dir) match {
+        case (`out`,`in`) => this := that
+        case (`out`,null) => this := that
+        case (null,`in`) => this := that
+        case (`in`,`out`) => that := this
+        case (`in`,null) => that := this
+        case (null,`out`) => that := this
+        case _ =>  error("Bad input output specification for autoconnect")
+      }
     }
 
     def kindAndKind: Unit = {
       if (this.isOutput && that.isInput) {
         that := this
       } else if (this.isInput && that.isOutput) {
-        this assignFrom (that,false)
-      } else SpinalError("Bad input output specification for autoconnect")
+        this := that
+      } else error("Bad input output specification for autoconnect")
     }
 
     def parentAndKind(p: Data, k: Data): Unit = {
@@ -317,7 +326,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
         p := k
       } else if (k.isInput) {
         k := p
-      } else SpinalError("Bad input output specification for autoconnect")
+      } else error("Bad input output specification for autoconnect")
     }
   }
 

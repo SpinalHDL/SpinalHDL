@@ -32,6 +32,7 @@ out
 *.vhd
 *.cf
 *.json
+*.tcl
 *.vcd
 !tester/src/test/resources/*.vhd
 

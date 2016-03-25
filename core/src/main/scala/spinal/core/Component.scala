@@ -234,6 +234,16 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
 
   def getParentsPath(sep : String = "/") : String = if(parent == null) "" else parents().map(_.getDisplayName()).reduce(_+ sep + _)
   def getPath(sep : String = "/") : String = (if(parent == null) "" else (getParentsPath(sep) + sep)) + this.getDisplayName()
+
+  def getGroupedIO(ioBundleBypass : Boolean) : Seq[Data] = {
+    val ret = mutable.Set[Data]()
+    val ioBundle = if(ioBundleBypass) reflectIo else null
+    def getRootParent(that : Data) : Data = if(that.parent == null || that.parent == ioBundle) that else getRootParent(that.parent)
+    for(e <- getAllIo){
+      ret += getRootParent(e)
+    }
+    ret.toSeq.sortBy(_.instanceCounter)
+  }
 }
 
 
