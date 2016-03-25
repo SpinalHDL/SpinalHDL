@@ -4,7 +4,7 @@ import spinal.core.Data
 
 trait IMasterSlave {
   def asMaster(): this.type
-  def asSlave(): this.type
+  def asSlave(): this.type = asMaster.asInstanceOf[Data].flip.asInstanceOf[this.type]
 }
 
 trait MSFactory{

@@ -111,8 +111,6 @@ case class AxiBus(config: AxiConfig) extends Bundle with IMasterSlave {
     this.writeCmd >> that.writeCmd
     this.writeData >> that.writeData
     this.writeRsp << that.writeRsp
-    this.readCmd >> that.readCmd
-    this.readRsp << that.readRsp
   }
 
   def <<(that : AxiBus) : Unit = that >> this
@@ -121,8 +119,6 @@ case class AxiBus(config: AxiConfig) extends Bundle with IMasterSlave {
     aw.asMaster()
     w.asMaster()
     b.asSlave()
-    ar.asMaster()
-    r.asSlave()
     this
   }
 

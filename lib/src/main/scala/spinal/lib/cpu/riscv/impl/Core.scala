@@ -2,12 +2,16 @@ package spinal.lib.cpu.riscv.impl
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.bus.avalon.mm._
+import spinal.lib.bus.avalon._
 import spinal.lib.bus.amba4.axi._
 import spinal.lib.cpu.riscv.impl.Utils._
 import spinal.lib.cpu.riscv.impl.extension.CoreExtension
-
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
+
+
+
 
 trait BranchPrediction
 object disable extends BranchPrediction
@@ -88,6 +92,20 @@ case class CoreInstructionBus(implicit p : CoreParm) extends Bundle with IMaster
 
     axi
   }
+
+  def toAvalon(): AvalonMMBus = {
+    assert(p.instructionBusKind == cmdStream_rspFlow)
+    val avalonConfig = AvalonMMConfig.pipelined(
+      addressWidth = 32,
+      dataWidth = 32).getReadOnlyConfig
+    val mm = AvalonMMBus(avalonConfig)
+    mm.read := cmd.valid
+    mm.waitRequestn := cmd.ready
+    mm.address := cmd.pc
+    mm.readDataValid := rsp.valid
+    mm.readData := rsp.instruction
+    mm
+  }
 }
 
 
@@ -104,23 +122,21 @@ case class CoreDataBus(implicit p : CoreParm) extends Bundle with IMasterSlave{
 
   override def asSlave(): this.type = asMaster.flip()
 
-//  def toAxi(): AxiBus ={
-//    val axiParameters = AxiConfig(
-//      addressWidth = 32,
-//      dataWidth = 32
-//    )
-//    val axi = new AxiBus(axiParameters)
-//
-////    axi.readCmd.translateFrom(cmd)((to,from) => {
-////      to.addr := from.pc
-////      to.prot := 0
-////    })
-////    rsp.translateFrom(axi.readRsp)((to,from) => {
-////      to.instruction := from.data
-////    })
-//
-//    axi
-//  }
+  def toAvalon(): AvalonMMBus = {
+    assert(p.dataBusKind == cmdStream_rspFlow)
+    val avalonConfig = AvalonMMConfig.pipelined(
+      addressWidth = 32,
+      dataWidth = 32).copy(
+      maximumPendingReadTransactions = 2
+      )
+    val mm = AvalonMMBus(avalonConfig)
+    mm.read := cmd.valid
+    mm.waitRequestn := cmd.ready
+    mm.address := cmd.address
+    mm.readDataValid := rsp.valid
+    mm.readData := rsp.payload
+    mm
+  }
 }
 
 case class CoreDataCmd(implicit p : CoreParm) extends Bundle{
