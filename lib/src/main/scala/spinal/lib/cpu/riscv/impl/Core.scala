@@ -18,6 +18,14 @@ trait RegFileReadKind
 object async extends RegFileReadKind
 object sync extends RegFileReadKind
 
+trait InstructionBusKind
+trait DataBusKind
+object cmdStream_rspStream extends InstructionBusKind with DataBusKind
+object cmdStream_rspFlow extends InstructionBusKind with DataBusKind
+object cmdStream_rspFlow_oneCycle extends InstructionBusKind  //Usefull for fast and light cache design
+
+
+
 case class CoreParm(val pcWidth : Int = 32,
                     val addrWidth : Int = 32,
                     val startAddress : Int = 0,
@@ -29,10 +37,8 @@ case class CoreParm(val pcWidth : Int = 32,
                     val branchPrediction : BranchPrediction = static,
                     val regFileReadyKind : RegFileReadKind = sync,
                     val fastFetchCmdPcCalculation : Boolean = true,
-                    val singleCycleAndThrowableInstructionCmd : Boolean = false, //Usefull for fast and light cache design
-                    val noDataRspStall : Boolean = false, //TODO
-                    val pendingI : Int = 1,
-                    val pendingD : Int = 3,
+                    val instructionBusKind : InstructionBusKind = cmdStream_rspFlow,
+                    val dataBusKind : DataBusKind = cmdStream_rspFlow,
                     val dynamicBranchPredictorCacheSizeLog2 : Int = 4,
                     val branchPredictorHistoryWidth : Int = 2,
                     val invalidInstructionIrqId : Int = 0,
@@ -186,7 +192,6 @@ case class CoreWriteBack0Output(implicit p : CoreParm) extends Bundle{
 
 class Core(implicit p : CoreParm) extends Component{
   import p._
-  assert(pendingI == 1)
   val io = new Bundle{
     val i = master(CoreInstructionBus())
     val d = master(CoreDataBus())
@@ -220,7 +225,14 @@ class Core(implicit p : CoreParm) extends Component{
       pcNext := pcLoad.payload
     }
 
-    io.i.cmd.valid := True
+    val outInst = Stream(CoreFetchCmdOutput())
+
+    instructionBusKind match {
+      case `cmdStream_rspFlow` =>
+        io.i.cmd.valid := outInst.ready
+      case _ =>
+        io.i.cmd.valid := True
+    }
     io.i.cmd.pc := pcNext
     when(io.i.cmd.fire || pcLoad.fire){
       pc := pcNext
@@ -232,15 +244,6 @@ class Core(implicit p : CoreParm) extends Component{
       inc := False
     }
 
-    val pendingInstructionCmd = new Area{
-      val inc = io.i.cmd.fire && !io.d.cmd.wr
-      val dec = io.i.rsp.fire
-      val countNext = UInt(log2Up(pendingI) bit)
-      val count = RegNext(countNext) init(0)
-      countNext := count + Mux(inc === dec,U(0),Mux(inc,U(1),U(count.maxValue)))
-    }
-
-    val outInst = Stream(CoreFetchCmdOutput())
     outInst.valid := io.i.cmd.fire
     outInst.pc := pcNext
   }
@@ -255,30 +258,43 @@ class Core(implicit p : CoreParm) extends Component{
       throwIt := True
     }
 
-    if(!singleCycleAndThrowableInstructionCmd) {
-      val throwNextIRsp = RegInit(False)
-      when(throwIt && inContext.valid && !io.i.rsp.valid){
-        throwNextIRsp := True
+    instructionBusKind match {
+      case `cmdStream_rspFlow_oneCycle` => {
+        inContext.ready := True
+        io.i.rsp.ready := True
+        when(inContext.valid && (!io.i.rsp.valid || !outInst.ready)) {
+          fetchCmd.redo := True
+        }
+        outInst.valid := io.i.rsp.valid && !throwIt
+        outInst.pc := inContext.pc
+        outInst.instruction := io.i.rsp.instruction
+        outInst.branchCacheLine := brancheCache.readSync(fetchCmd.outInst.pc(2, dynamicBranchPredictorCacheSizeLog2 bit))
       }
-      when(throwNextIRsp && io.i.rsp.valid){
-        throwNextIRsp := False
-      }
+      case _ => {
+        val iRsp = if (instructionBusKind == cmdStream_rspFlow) {
+          val backupFifoIn = Stream(CoreInstructionRsp())
+          backupFifoIn.valid := io.i.rsp.valid
+          backupFifoIn.payload := io.i.rsp.payload
+          backupFifoIn.s2mPipe() //1 depth of backup fifo, zero latency
+        } else {
+          io.i.rsp
+        }
 
-      inContext.ready := outInst.fire || throwIt
-      outInst.arbitrationFrom(io.i.rsp.throwWhen(throwIt || throwNextIRsp))
-      outInst.pc := inContext.pc
-      outInst.instruction := io.i.rsp.instruction
-      outInst.branchCacheLine := brancheCache.readSync(Mux(inContext.isStall, inContext.pc, fetchCmd.outInst.pc)(2, dynamicBranchPredictorCacheSizeLog2 bit))
-    }else{
-      inContext.ready := True
-      io.i.rsp.ready := True
-      when(inContext.valid && (!io.i.rsp.valid || !outInst.ready)){
-        fetchCmd.redo := True
+        val throwNextIRsp = RegInit(False)
+        when(throwIt && inContext.valid && !iRsp.valid) {
+          throwNextIRsp := True
+        }
+        when(throwNextIRsp && iRsp.valid) {
+          throwNextIRsp := False
+        }
+
+        inContext.ready := outInst.fire || throwIt
+        io.i.rsp.ready := True
+        outInst.arbitrationFrom(iRsp.throwWhen(throwIt || throwNextIRsp))
+        outInst.pc := inContext.pc
+        outInst.instruction := iRsp.instruction
+        outInst.branchCacheLine := brancheCache.readSync(Mux(inContext.isStall, inContext.pc, fetchCmd.outInst.pc)(2, dynamicBranchPredictorCacheSizeLog2 bit))
       }
-      outInst.valid := io.i.rsp.valid && !throwIt
-      outInst.pc := inContext.pc
-      outInst.instruction := io.i.rsp.instruction
-      outInst.branchCacheLine := brancheCache.readSync(fetchCmd.outInst.pc(2, dynamicBranchPredictorCacheSizeLog2 bit))
     }
   }
 
@@ -433,14 +449,15 @@ class Core(implicit p : CoreParm) extends Component{
       MSK.H -> U(1)
     )
     val pendingDataCmd = new Area{
-      val readCount = Reg(UInt(log2Up(pendingD) bit)) init(0)
+      val pendingDataMax = 2
+      val readCount = Reg(UInt(log2Up(pendingDataMax) bit)) init(0)
       val readCountInc = io.d.cmd.fire && !io.d.cmd.wr
       val readCountDec = io.d.rsp.fire
 
       when(readCountInc =/= readCountDec){
         readCount := readCount + Mux(readCountInc,U(1),U(readCount.maxValue))
       }
-      when(inInst.valid && inInst.ctrl.men && inInst.ctrl.m === M.XRD && readCount === pendingD){
+      when(inInst.valid && inInst.ctrl.men && inInst.ctrl.m === M.XRD && readCount === pendingDataMax){
         halt := True
       }
     }
@@ -739,8 +756,8 @@ class Core(implicit p : CoreParm) extends Component{
     }
   }
 
-  val noDataRspStallLogic = if(noDataRspStall) new Area{
-    when(io.d.cmd.valid && !io.d.cmd.wr){
+  val noDataRspStallLogic = if(dataBusKind == cmdStream_rspFlow) new Area{
+    when(execute0.inInst.valid && execute0.inInst.ctrl.men && execute0.inInst.ctrl.m === M.XRD){
       when(execute1.inInst.valid && execute1.inInst.ctrl.canInternalyStallWriteBack0){
         execute0.halt := True
       }
@@ -789,14 +806,14 @@ object CoreMain{
         addrWidth = 32,
         startAddress = 0x200,
         regFileReadyKind = sync,
-        branchPrediction = static,
+        branchPrediction = dynamic,
         bypassExecute0 = true,
         bypassExecute1 = true,
         bypassWriteBack0 = true,
         bypassWriteBack1 = true,
         collapseBubble = true,
-        noDataRspStall = false,
-        singleCycleAndThrowableInstructionCmd = true,
+        instructionBusKind = cmdStream_rspFlow,
+        dataBusKind = cmdStream_rspFlow,
         fastFetchCmdPcCalculation = true,
         dynamicBranchPredictorCacheSizeLog2 = 7
       )
@@ -804,7 +821,7 @@ object CoreMain{
       p.add(new DivExtension)
       p.add(new BarrelShifterFullExtension)
       p.add(new SimpleInterruptExtension(exceptionVector=0x0).addIrq(id=4,pin=interrupt,IrqUsage(isException=false),name="io_interrupt"))
-     // p.add(new BarrelShifterLightExtension)
+//      p.add(new BarrelShifterLightExtension)
       new Core()(p)
       }
     ,_.setLibrary("riscv"))
