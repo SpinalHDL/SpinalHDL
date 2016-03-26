@@ -25,14 +25,18 @@ import scala.collection.mutable.ArrayBuffer
  */
 
 trait EdgeKind;
-
 object RISING extends EdgeKind;
 object FALLING extends EdgeKind;
 
 trait ResetKind;
-
 object ASYNC extends ResetKind;
 object SYNC extends ResetKind;
+
+//trait ClockDomainBoolFunction
+//object FUNCTION_CLOCK extends ClockDomainBoolFunction
+//object FUNCTION_RESET extends ClockDomainBoolFunction
+//object FUNCTION_ENABLE extends ClockDomainBoolFunction
+//object FUNCTION_NONE extends ClockDomainBoolFunction
 
 // Default configuration of clock domain is :
 // Rising edge clock with optional asyncronous reset active high and optional active high clockEnable
@@ -97,11 +101,42 @@ object ClockDomain {
   def readClockWire = current.readClockWire
   def readResetWire = current.readResetWire
   def readClockEnableWire = current.readClockEnableWire
+
+  def getClockDomainDriver(that : Bool): Bool = {
+    if(that.spinalTags.exists(_.isInstanceOf[ClockDomainBoolTag])){
+      that
+    }else{
+      that.inputs(0) match{
+        case input : Bool => getClockDomainDriver(input)
+        case _ => null
+      }
+    }
+  }
+
+  def getClockDomainTag(that : Bool) : ClockDomainBoolTag = {
+    val driver = getClockDomainDriver(that)
+    if(driver == null){
+      null
+    }else{
+      driver.spinalTags.find(_.isInstanceOf[ClockDomainBoolTag]).get.asInstanceOf[ClockDomainBoolTag]
+    }
+  }
 }
 
+case class ClockDomainTag(clockDomain : ClockDomain) extends SpinalTag
 
+trait ClockDomainBoolTag extends SpinalTag
+case class ClockTag(val clockDomain : ClockDomain) extends ClockDomainBoolTag
+case class ResetTag(val clockDomain : ClockDomain) extends ClockDomainBoolTag
+case class ClockEnableTag(val clockDomain : ClockDomain) extends ClockDomainBoolTag
 
 class ClockDomain(val config: ClockDomainConfig, val clock: Bool, val reset: Bool = null, val clockEnable: Bool = null,val frequency : IClockDomainFrequency = UnknownFrequency()) {
+
+  clock.addTag(ClockTag((this)))
+  if(reset != null)reset.addTag(ResetTag((this)))
+  if(clockEnable != null)clockEnable.addTag(ClockEnableTag((this)))
+
+
   def hasClockEnable = clockEnable != null
   def hasReset = reset != null
 

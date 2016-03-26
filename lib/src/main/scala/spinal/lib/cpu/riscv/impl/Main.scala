@@ -63,11 +63,15 @@ object QSysAvalonCore{
     )
 
     val io = new Bundle{
-      val i = master(AvalonMMBus(CoreInstructionBus.getAvalonConfig(p)))
-      val d = master(AvalonMMBus(CoreDataBus.getAvalonConfig(p)))
+      val i = master(AvalonMMBus(CoreInstructionBus.getAvalonConfig(p))) addTag(ClockDomainTag(ClockDomain.current))
+      val d = master(AvalonMMBus(CoreDataBus.getAvalonConfig(p))) addTag(ClockDomainTag(ClockDomain.current))
+      val pins = new Bundle{
+        val a = in UInt( 8 bit)
+        val b = out SInt(16 bit)
+      }
     }
     val interrupt = False
-
+    io.pins.b := io.pins.a.asSInt.resized
     p.add(new MulExtension)
     p.add(new DivExtension)
     p.add(new BarrelShifterFullExtension)
