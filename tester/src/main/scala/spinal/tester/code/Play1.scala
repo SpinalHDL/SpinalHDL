@@ -1890,12 +1890,21 @@ object PlayLiteral {
 //      out8bit := 2
 //    }
 
-    val myUInt = out UInt(8 bit)
-   // myUInt := U(6 -> true,(3 downto 0) -> true,default -> false)
-    myUInt := U(default -> false)
 
 
+    val mySInt =  out(S"x8000")
+    val mySInt2 = out(S"16'x8000")
+    val mySInt3 = out(S"d-32768")
+    val mySInt4 = out(S"x7FFF")
+    val mySInt5 = out(S"16'x7FFF")
+    val mySInt6 = out(S"d32767")
 
+    val myUInt =  out(U"x8000")
+    val myUInt2 = out(U"16'x8000")
+    val myUInt3 = out(U"16'd65535")
+    val myUInt4 = out(U"x7FFF")
+    val myUInt5 = out(U"16'x7FFF")
+    val myUInt6 = out(U"16'd32767")
 //    val output = out(Vec(
 //      B"0000_1100",
 //      B"h0C",

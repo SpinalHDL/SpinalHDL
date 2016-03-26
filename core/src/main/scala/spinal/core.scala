@@ -108,52 +108,67 @@ package object core extends BaseTypeFactory with BaseTypeCast{
 
 
   private[core] def bitVectorStringParser[T <: BitVector](builder: BitVectorLiteralFactory[T], arg: String,signed : Boolean): T = {
-    var last = 0;
-    var idx = 0
-    val cleanedArg = arg.replace("_", "")
-    val cleanedArgSize = cleanedArg.size
-    if (cleanedArg.charAt(0).isLetter) {
-      val tail = cleanedArg.tail
-      val radix = getRadix(cleanedArg.charAt(0))
-      val value = BigInt(tail, radix)
-      val minus = tail.charAt(0) == '-'
-      val digitCount = tail.size - (if (minus) 1 else 0)
-      radix match {
-        case 16 => return builder(value, digitCount * 4 bit)
-        case 10 => return builder(value)
-        case 8 => return builder(value, digitCount * 3 bit)
-        case 2 => return builder(value, digitCount bit)
+    def error() = SpinalError(s"$arg literal is not well formed [bitCount'][radix]value")
+
+    def strBinToInt(valueStr : String,radix : Int,bitCount : Int) = if(!signed){
+      BigInt(valueStr, radix)
+    }else{
+      val v = BigInt(valueStr, radix)
+      val bitCountPow2 = BigInt(1) << bitCount
+      if(v >= bitCountPow2)  SpinalError("Value is bigger than bit count")
+      if(!v.testBit(bitCount-1)) v else  -bitCountPow2+ v
+    }
+
+    var str = arg.replace("_", "").toLowerCase
+    if(str == "") return builder(0,0 bit)
+
+    var bitCount = -1
+    if(str.contains(''')){
+      val split = str.split(''')
+      bitCount = split(0).toInt
+      str = split(1)
+    }
+    var radix = -1
+    if("01".contains(str.charAt(0))){
+      radix = 2
+    }else{
+      radix = str.charAt(0) match {
+        case 'x' => 16
+        case 'h' => 16
+        case 'd' => 10
+        case 'o' => 8
+        case 'b' => 2
+        case c => SpinalError(s"$c is not a valid radix specification. x-d-o-b are allowed")
       }
-      return ???
-    }else if(cleanedArg.contains(''')){
-      val tildPos = cleanedArg.indexOf(''')
-      val bitCount = cleanedArg.substring(0,tildPos).toInt
-      val radix = getRadix(cleanedArg.charAt(tildPos+1))
-      val value = BigInt(cleanedArg.substring(tildPos + 2,cleanedArgSize), radix)
-      return builder(value, new BitCount(bitCount))
-    }else if("01".contains(cleanedArg.charAt(0))){
-      val value = if(cleanedArg != "") {
-        if(signed && cleanedArg.head == '1')
-          BigInt(cleanedArg,2)-(BigInt(1) << cleanedArgSize)
-        else
-          BigInt(cleanedArg,2)
-      } else
-        BigInt(0)
-      return builder(value,cleanedArgSize bit)
+      str = str.tail
     }
 
-
-    def getRadix(that: Char): Int = that match {
-      case 'x' => 16
-      case 'h' => 16
-      case 'd' => 10
-      case 'o' => 8
-      case 'b' => 2
-      case _ => SpinalError(s"$that is not a valid radix specification. x-d-o-b are allowed")
+    val minus = if(str.charAt(0) == '-'){
+      str = str.tail
+      if(radix != 10) SpinalError("Can't have minus on non decimal values")
+     true
+    }else{
+      false
     }
 
+    val digitCount = str.length
+    if(bitCount == -1) bitCount = radix match {
+      case 16 =>  digitCount * 4
+      case 8 =>  digitCount * 3
+      case 2 =>  digitCount
+      case _ => -1
+    }
 
-    return SpinalError(s"$arg literal is not well formed [bitCount'][radix]value")
+    val value = radix match {
+      case 10 => if(minus) - BigInt(str, radix) else BigInt(str, radix)
+      case _ =>  strBinToInt(str,radix,bitCount)
+    }
+
+    if(bitCount == -1){
+      builder(value)
+    }else{
+      builder(value,bitCount bit)
+    }
   }
 
   //implicit def UIntToLitBuilder(sc: StringContext) = new UIntLitBuilder(sc)
