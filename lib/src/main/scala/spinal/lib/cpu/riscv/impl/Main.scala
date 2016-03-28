@@ -3,7 +3,7 @@ package spinal.lib.cpu.riscv.impl
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.avalon.mm._
-import spinal.lib.tool.QSysify
+import spinal.lib.tool.{InterruptReceiverTag, QSysify}
 
 object CoreMain{
   import extension._
@@ -44,17 +44,17 @@ object CoreMain{
 object QSysAvalonCore{
   import extension._
 
-  class AvalonCore extends Component{
+  class RiscvAvalon extends Component{
     lazy val p = CoreParm(
       pcWidth = 32,
       addrWidth = 32,
       startAddress = 0x200,
       regFileReadyKind = sync,
-      branchPrediction = dynamic,
-      bypassExecute0 = true,
-      bypassExecute1 = true,
-      bypassWriteBack0 = true,
-      bypassWriteBack1 = true,
+      branchPrediction = disable,
+      bypassExecute0 = false,
+      bypassExecute1 = false,
+      bypassWriteBack0 = false,
+      bypassWriteBack1 = false,
       collapseBubble = true,
       instructionBusKind = cmdStream_rspFlow,
       dataBusKind = cmdStream_rspFlow,
@@ -63,15 +63,11 @@ object QSysAvalonCore{
     )
 
     val io = new Bundle{
-      val i = master(AvalonMMBus(CoreInstructionBus.getAvalonConfig(p))) addTag(ClockDomainTag(ClockDomain.current))
-      val d = master(AvalonMMBus(CoreDataBus.getAvalonConfig(p))) addTag(ClockDomainTag(ClockDomain.current))
-      val pins = new Bundle{
-        val a = in UInt( 8 bit)
-        val b = out SInt(16 bit)
-      }
+      val i = master(AvalonMMBus(CoreInstructionBus.getAvalonConfig(p)))
+      val d = master(AvalonMMBus(CoreDataBus.getAvalonConfig(p)))
+      val interrupt = in(Bool)
     }
     val interrupt = False
-    io.pins.b := io.pins.a.asSInt.resized
     p.add(new MulExtension)
     p.add(new DivExtension)
     p.add(new BarrelShifterFullExtension)
@@ -83,7 +79,13 @@ object QSysAvalonCore{
   }
 
   def main(args: Array[String]) {
-    val report = SpinalVhdl(new AvalonCore(),_.setLibrary("riscvAvalon"))
+    //val report = SpinalVhdl(new RiscvAvalon(),_.setLibrary("lib_riscvAvalon"))
+    val report = SpinalVhdl(new RiscvAvalon(),_.setLibrary("qsys").onlyStdLogicVectorTopLevelIo)
+    //val report = SpinalVhdl(new RiscvAvalon())
+
+    report.topLevel.io.i addTag(ClockDomainTag(report.topLevel.clockDomain))
+    report.topLevel.io.d addTag(ClockDomainTag(report.topLevel.clockDomain))
+    report.topLevel.io.interrupt addTag(InterruptReceiverTag(report.topLevel.io.i,report.topLevel.clockDomain))
     QSysify(report.topLevel)
   }
 }

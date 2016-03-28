@@ -91,4 +91,45 @@ case class AvalonMMBus(c : AvalonMMConfig) extends Bundle with IMasterSlave{
     inWithNull(waitRequestn,response,readDataValid,readData)
     this
   }
+
+//  def toStd : AvalonMMBusStd = {
+//    val std = AvalonMMBusStd(c)
+//    if(useRead) std.read := this.read
+//    if(useWrite) std.write := this.write
+//    if(useWaitRequestn) std.read := this.read
+//    if(useRead) std.read := this.read
+//    if(useRead) std.read := this.read
+//    if(useRead) std.read := this.read
+//    if(useRead) std.read := this.read
+//    if(useRead) std.read := this.read
+//    if(useRead) std.read := this.read
+//    if(useRead) std.read := this.read
+//
+//  }
 }
+
+//
+//case class AvalonMMBusStd(c : AvalonMMConfig) extends Bundle with IMasterSlave{
+//  import c._
+//  val read = if(useRead) Bool else null
+//  val write = if(useWrite) Bool else null
+//  val waitRequestn = if(useWaitRequestn) Bool else null
+//  val lock = if(useLock) Bool else null
+//  val debugAccess = if(useDebugAccess) Bool else null
+//  val address = SInt(addressWidth bit)
+//  val burstCount = if(useBurstCount) Bits(burstCountWidth bit) else null
+//  val byteEnable = if(useByteEnable) Bits(dataByteCount bit) else null
+//  val writeData = if(useWrite) Bits(dataWidth bit) else null
+//  val response = if(useResponse) AvalonResponse() else null
+//
+//  val readDataValid = if(useReadDataValid) Bool else null
+//  val readData = if(useRead) Bits(dataWidth bit) else null
+//  override def asMaster(): AvalonMMBusStd.this.type = {
+//    outWithNull(read,write,lock,debugAccess,address,burstCount,byteEnable,writeData)
+//    inWithNull(waitRequestn,response,readDataValid,readData)
+//    this
+//  }
+//}
+//
+//
+

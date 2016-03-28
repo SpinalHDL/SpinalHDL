@@ -12,6 +12,7 @@ object QSysify{
     val tool = new QSysify
     tool.interfaceEmiters += new AvalonEmitter()
     tool.interfaceEmiters += new ClockDomainEmitter()
+    tool.interfaceEmiters += new InterruptReceiverEmitter()
     tool.interfaceEmiters += new ConduitEmitter()
 
     tool.emit(that)
@@ -30,12 +31,8 @@ class QSysify{
     out = new java.io.FileWriter(name + "_hw.tcl")
     val builder = new StringBuilder()
 
-
-
-
     genHeader()
     genInterfaces()
-
 
     out.write(builder.toString())
     out.flush();
@@ -70,6 +67,12 @@ class QSysify{
   |set_fileset_property QUARTUS_SYNTH TOP_LEVEL $name
   |set_fileset_property QUARTUS_SYNTH ENABLE_RELATIVE_INCLUDE_PATHS false
   |#add_fileset_file ${name}.vhd VHDL PATH ${name}.vhd TOP_LEVEL_FILE
+  |
+  |add_fileset SIM_VHDL SIM_VHDL "" ""
+  |set_fileset_property SIM_VHDL TOP_LEVEL $name
+  |set_fileset_property SIM_VHDL ENABLE_RELATIVE_INCLUDE_PATHS false
+  |#add_fileset_file $name.vhd VHDL PATH $name.vhd
+  |
   |""".stripMargin
     }
     def genInterfaces() = {
@@ -93,6 +96,7 @@ class ClockDomainEmitter extends QSysifyInterfaceEmiter {
     case i : Bool =>{
       val driver = ClockDomain.getClockDomainDriver(i)
       val tag = ClockDomain.getClockDomainTag(i)
+      if(driver == null) return false
       val name = driver.getName()
       val interfaceName = name
       tag match{
@@ -230,3 +234,36 @@ class ConduitEmitter extends QSysifyInterfaceEmiter{
     true
   }
 }
+
+case class InterruptReceiverTag(addressablePoint : Data,clockDomain : ClockDomain) extends SpinalTag
+
+class InterruptReceiverEmitter extends QSysifyInterfaceEmiter{
+  override def emit(i: Data, builder: scala.StringBuilder): Boolean = {
+    val tag = i.getTag[InterruptReceiverTag]
+    if(tag.isEmpty) return false
+    val interfaceName = i.getName()
+    val name = i.getName()
+
+    builder ++=
+      s"""
+|#
+|# connection point $interfaceName
+|#
+|add_interface $interfaceName interrupt start
+|set_interface_property $interfaceName associatedAddressablePoint ${tag.get.addressablePoint.getName}
+|set_interface_property $interfaceName associatedClock ${tag.get.clockDomain.clock.getName}
+|set_interface_property $interfaceName associatedReset ${tag.get.clockDomain.reset.getName}
+|set_interface_property $interfaceName irqScheme INDIVIDUAL_REQUESTS
+|set_interface_property $interfaceName ENABLED true
+|set_interface_property $interfaceName EXPORT_OF ""
+|set_interface_property $interfaceName PORT_NAME_MAP ""
+|set_interface_property $interfaceName SVD_ADDRESS_GROUP ""
+|
+|add_interface_port $interfaceName $name irq Input ${i.getBitsWidth}
+|""".stripMargin
+    true
+  }
+}
+
+
+

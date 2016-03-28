@@ -108,7 +108,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
   }
 
 
-
+  val clockDomain = ClockDomain.current
 
   def setDefinitionName(name : String) : this.type = {
     definitionName = name

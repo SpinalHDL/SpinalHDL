@@ -89,7 +89,10 @@ class SpinalVhdl[T <: Component](gen: => T) {
     backend.enumPackageName = name
     this
   }
-
+  def onlyStdLogicVectorTopLevelIo : this.type = {
+    backend.onlyStdLogicVectorTopLevelIo = true
+    this
+  }
   def setOutputFile(name: String): this.type = {
     backend.outputFile = name
     this

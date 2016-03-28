@@ -19,7 +19,7 @@
 package spinal.core
 
 import scala.collection.mutable
-import scala.collection.mutable.{ArrayBuffer, StringBuilder}
+import scala.collection.mutable.{ArrayBuffer, StringBuilder,HashMap}
 import scala.util.Random
 
 
@@ -32,6 +32,7 @@ class VhdlBackend extends Backend with VhdlBase {
   var enumPackageName = "pkg_enum"
   var packageName = "pkg_scala2hdl"
   var outputFile: String = null
+  var onlyStdLogicVectorTopLevelIo = false
 
   val emitedComponent = mutable.Map[ComponentBuilder, ComponentBuilder]()
   val emitedComponentRef = mutable.Map[Component, Component]()
@@ -54,6 +55,7 @@ class VhdlBackend extends Backend with VhdlBase {
       SpinalInfoPhase(s"${"  " * (1 + c.level)}emit ${c.definitionName}")
       compile(c)
     }
+
 
     out.flush();
     out.close();
@@ -108,6 +110,28 @@ class VhdlBackend extends Backend with VhdlBase {
         }
         case _ => return ???
       }
+    }
+  }
+
+  case class WrappedStuff(originalName : String,newName : String)
+  def ioStdLogicVectorWrapNames() : HashMap[BaseType,WrappedStuff] = {
+    val map = HashMap[BaseType,WrappedStuff]()
+    def wrap(that : BaseType) : Unit = {
+      val newName = that.getName() + "_wrappedName"
+      map(that) = WrappedStuff(that.getName,newName)
+      that.setName(newName)
+    }
+    for(e <- topLevel.getAllIo) e match {
+      case e : UInt => wrap(e)
+      case e : SInt => wrap(e)
+      case _ =>
+    }
+    map
+  }
+
+  def ioStdLogicVectorRestoreNames(map : HashMap[BaseType,WrappedStuff]) : Unit = {
+    if(map != null){
+      for((e,w) <- map) e.setName(w.originalName)
     }
   }
 
@@ -651,9 +675,18 @@ class VhdlBackend extends Backend with VhdlBase {
     ret ++= s"\nentity ${component.definitionName} is\n"
     ret = builder.newPart(true)
     ret ++= s"  port(\n"
-    component.getOrdredNodeIo.foreach(baseType =>
-      ret ++= s"    ${baseType.getName()} : ${emitDirection(baseType)} ${emitDataType(baseType)};\n"
-    )
+    if(!(onlyStdLogicVectorTopLevelIo && component == topLevel)) {
+      component.getOrdredNodeIo.foreach(baseType =>
+        ret ++= s"    ${baseType.getName()} : ${emitDirection(baseType)} ${emitDataType(baseType)};\n"
+      )
+    }else{
+      component.getOrdredNodeIo.foreach(baseType => {
+        val originalType = emitDataType(baseType)
+        val correctedType = originalType.replace("unsigned","std_logic_vector").replace("signed","std_logic_vector")
+        ret ++= s"    ${baseType.getName()} : ${emitDirection(baseType)} ${correctedType};\n"
+        }
+      )
+    }
     /*component.getOrdredNodeIo.foreach(baseType =>
       ret ++= s"    ${baseType.getName()} : ${emitDirection(baseType)} ${emitDataType(baseType)};\n"
     )*/
@@ -668,24 +701,43 @@ class VhdlBackend extends Backend with VhdlBase {
 
   def emitArchitecture(component: Component, builder: ComponentBuilder): Unit = {
     var ret = builder.newPart(false)
+    val wrappedIo = if(onlyStdLogicVectorTopLevelIo && component == topLevel) ioStdLogicVectorWrapNames() else HashMap[BaseType,WrappedStuff]()
     ret ++= s"architecture arch of ${component.definitionName} is\n"
     ret = builder.newPart(true)
     emitBlackBoxComponents(component, ret)
     emitAttributesDef(component, ret)
     val enumDebugSignals = ArrayBuffer[SpinalEnumCraft[_]]()
     emitSignals(component, ret,enumDebugSignals)
+    emitWrappedIoSignals(ret,wrappedIo)
     val retTemp = new StringBuilder
     retTemp ++= s"begin\n"
     emitComponentInstances(component, retTemp)
     emitAsyncronous(component, retTemp, ret)
     emitSyncronous(component, retTemp)
+    emitWrappedIoConnection(retTemp,wrappedIo)
     emitDebug(component,retTemp,enumDebugSignals)
     retTemp ++= s"end arch;\n"
     retTemp ++= s"\n"
 
+    ioStdLogicVectorRestoreNames(wrappedIo)
 
     ret ++= retTemp
 
+  }
+
+  def emitWrappedIoSignals(buff : StringBuilder,map : HashMap[BaseType,WrappedStuff]) : Unit = {
+    for((e,w) <- map){
+      buff ++= s"  signal ${w.newName} : ${emitDataType(e)};\n"
+    }
+  }
+  def emitWrappedIoConnection(buff : StringBuilder,map : HashMap[BaseType,WrappedStuff]) : Unit = {
+    for((e,w) <- map) e.dir match{
+      case spinal.core.in => e match{
+        case e : UInt => buff ++= s"  ${w.newName} <= unsigned(${w.originalName});\n"
+        case e : SInt => buff ++= s"  ${w.newName} <= signed(${w.originalName});\n"
+      }
+      case spinal.core.out => buff ++= s"  ${w.originalName} <= std_logic_vector(${w.newName});\n"
+    }
   }
 
   def emitBlackBoxComponents(component: Component, ret: StringBuilder): Unit = {

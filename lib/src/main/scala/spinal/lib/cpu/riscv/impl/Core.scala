@@ -67,7 +67,9 @@ case class CoreInstructionRsp(implicit p : CoreParm) extends Bundle{
 object CoreInstructionBus{
   def getAvalonConfig(p : CoreParm) = AvalonMMConfig.pipelined(
     addressWidth = p.addrWidth,
-    dataWidth = 32).getReadOnlyConfig
+    dataWidth = 32).getReadOnlyConfig.copy(
+      maximumPendingReadTransactions = 2
+    )
 }
 
 case class CoreInstructionBus(implicit p : CoreParm) extends Bundle with IMasterSlave{
@@ -150,9 +152,17 @@ case class CoreDataBus(implicit p : CoreParm) extends Bundle with IMasterSlave{
       U(1) -> B"0011",
       default -> B"1111"
     ) << mm.address(1 downto 0)).resized
+
+    val contextIn = Stream(UInt(2 bit))
+    contextIn.valid := cmd.fire && !cmd.wr
+    contextIn.payload := cmd.address(1 downto 0)
+
+    val contextOut = contextIn.m2sPipe().m2sPipe()
+    contextOut.ready := rsp.fire
+
     cmd.ready := mm.waitRequestn
     rsp.valid := mm.readDataValid
-    rsp.payload := mm.readData
+    rsp.payload := mm.readData >> (contextOut.payload*8)
     mm
   }
 }
@@ -260,12 +270,12 @@ class Core(implicit p : CoreParm) extends Component{
     }
 
     val outInst = Stream(CoreFetchCmdOutput())
-
+    val resetDone = RegNext(True) init(False) //Used to not send request while reset is active
     instructionBusKind match {
       case `cmdStream_rspFlow` =>
-        io.i.cmd.valid := outInst.ready
+        io.i.cmd.valid := outInst.ready && resetDone
       case _ =>
-        io.i.cmd.valid := True
+        io.i.cmd.valid := resetDone
     }
     io.i.cmd.pc := pcNext
     when(io.i.cmd.fire || pcLoad.fire){
@@ -292,8 +302,8 @@ class Core(implicit p : CoreParm) extends Component{
       throwIt := True
     }
 
-    instructionBusKind match {
-      case `cmdStream_rspFlow_oneCycle` => {
+    val arbitration = instructionBusKind match {
+      case `cmdStream_rspFlow_oneCycle` => new Area{
         inContext.ready := True
         io.i.rsp.ready := True
         when(inContext.valid && (!io.i.rsp.valid || !outInst.ready)) {
@@ -304,8 +314,9 @@ class Core(implicit p : CoreParm) extends Component{
         outInst.instruction := io.i.rsp.instruction
         outInst.branchCacheLine := brancheCache.readSync(fetchCmd.outInst.pc(2, dynamicBranchPredictorCacheSizeLog2 bit))
       }
-      case _ => {
+      case _ => new Area{
         val iRsp = if (instructionBusKind == cmdStream_rspFlow) {
+          io.i.rsp.ready := True
           val backupFifoIn = Stream(CoreInstructionRsp())
           backupFifoIn.valid := io.i.rsp.valid
           backupFifoIn.payload := io.i.rsp.payload
@@ -314,16 +325,16 @@ class Core(implicit p : CoreParm) extends Component{
           io.i.rsp
         }
 
-        val throwNextIRsp = RegInit(False)
-        when(throwIt && inContext.valid && !iRsp.valid) {
-          throwNextIRsp := True
-        }
-        when(throwNextIRsp && iRsp.valid) {
-          throwNextIRsp := False
+        val throwNextIRspCounter = Reg(UInt(2 bit)) init(0)
+        val throwNextIRsp = throwNextIRspCounter =/= 0
+        val throwNextIRspInc = throwIt && inContext.valid && (throwNextIRsp || !iRsp.valid)
+        val throwNextIRspDec = throwNextIRsp && iRsp.valid
+        when(throwNextIRspInc =/= throwNextIRspDec){
+          throwNextIRspCounter := throwNextIRspCounter + Mux(throwNextIRspInc,U(1),U(throwNextIRspCounter.maxValue))
         }
 
+
         inContext.ready := outInst.fire || throwIt
-        io.i.rsp.ready := True
         outInst.arbitrationFrom(iRsp.throwWhen(throwIt || throwNextIRsp))
         outInst.pc := inContext.pc
         outInst.instruction := iRsp.instruction
@@ -416,7 +427,8 @@ class Core(implicit p : CoreParm) extends Component{
   val execute0 = new Area {
     val inInst = decode.outInst.m2sPipe(collapseBubble)
     val throwIt = False
-    val halt = inInst.valid && inInst.ctrl.men && !io.d.cmd.ready
+    val halt = False
+    val haltFromDataRequest = inInst.valid && inInst.ctrl.men && !io.d.cmd.ready
 
     val ctrl = inInst.ctrl
     val addr0 = inInst.instruction(19 downto 15).asUInt
@@ -451,7 +463,7 @@ class Core(implicit p : CoreParm) extends Component{
     alu.io.src1 := inInst.alu_op1
 
     val outInst = Stream(CoreExecute0Output())
-    outInst.arbitrationFrom(inInst.throwWhen(throwIt).haltWhen(halt))
+    outInst.arbitrationFrom(inInst.throwWhen(throwIt).haltWhen(halt || haltFromDataRequest))
     outInst.pc := inInst.pc
     outInst.instruction := inInst.instruction
     outInst.predictorHasBranch := inInst.predictorHasBranch
@@ -473,7 +485,7 @@ class Core(implicit p : CoreParm) extends Component{
       MSK.W -> (io.d.cmd.address(0) || io.d.cmd.address(1))
     )
 
-    io.d.cmd.valid := outInst.fire && inInst.ctrl.men && !outInst.unalignedMemoryAccessException
+    io.d.cmd.valid := inInst.valid && inInst.ctrl.men && !outInst.unalignedMemoryAccessException && !halt && !throwIt
     io.d.cmd.wr := inInst.ctrl.m === M.XWR
     io.d.cmd.address := outInst.adder
     io.d.cmd.payload.data := inInst.src1

@@ -41,8 +41,8 @@ architecture arch of Core_tb is
   -- #spinalBegin userDeclarations
   constant doTestWithStall : Boolean := true;
   constant doBench : Boolean := true;
-  constant doBenchtWithStall : Boolean := false;
-  constant doBenchtWithInterrupt : Boolean := false;
+  constant doBenchtWithStall : Boolean := true;
+  constant doBenchtWithInterrupt : Boolean := true;
   
   
   signal inBench : Boolean := false;
@@ -131,10 +131,18 @@ architecture arch of Core_tb is
   signal io_d_rsp_buff_ready : std_logic;
   signal io_d_rsp_buff_payload : std_logic_vector(31 downto 0);
   
+  
+  
   signal io_i_cmd_ready_rand : std_logic;
   signal io_d_cmd_ready_rand : std_logic;
   signal io_d_rsp_buff_ready_rand : std_logic;
+  signal io_i_rsp_buff_ready_rand : std_logic;
 
+  
+  signal io_i_rsp_buff_valid : std_logic;
+  signal io_i_rsp_buff_ready : std_logic;
+  signal io_i_rsp_buff_payload_instruction : std_logic_vector(31 downto 0);
+  
   signal interrupt : std_logic;
   
   shared variable done : integer := 0;
@@ -391,15 +399,17 @@ begin
         io_d_cmd_ready_rand <= '1';
         io_i_cmd_ready_rand <= '1';
         io_d_rsp_buff_ready_rand <= '1';
+        io_i_rsp_buff_ready_rand <= '1';
       else
         io_d_cmd_ready_rand <= randomStdLogic(0.85);
         io_d_rsp_buff_ready_rand <= randomStdLogic(0.85);
         io_i_cmd_ready_rand <= randomStdLogic(0.75);
+        io_i_rsp_buff_ready_rand <=  randomStdLogic(0.75);
       end if;
     end if;
   end process;
   
-  io_i_cmd_ready <= (not io_i_rsp_valid or io_i_rsp_ready) and io_i_cmd_ready_rand;
+  io_i_cmd_ready <= (not io_i_rsp_buff_valid or io_i_rsp_buff_ready) and io_i_cmd_ready_rand;
   io_d_cmd_ready <= (not io_d_rsp_buff_valid or io_d_rsp_buff_ready) and io_d_cmd_ready_rand;
   io_interrupt <= interrupt;
   process(clk,reset)
@@ -409,7 +419,7 @@ begin
     variable data : std_logic_vector(31 downto 0);
   begin
     if reset = '1' then
-      io_i_rsp_valid <= '0';
+      io_i_rsp_buff_valid <= '0';
       io_d_rsp_buff_valid <= '0';
       counter <= (others => '0');
       timingRead <= '0';
@@ -426,25 +436,26 @@ begin
       end if;
       timingRead <= '0';
       counter <= counter + 1;
-      if io_i_rsp_ready = '1' then
-        io_i_rsp_valid <= '0';
-        io_i_rsp_payload_instruction <= (others => 'X');
+      if io_i_rsp_buff_ready = '1' then
+        io_i_rsp_buff_valid <= '0';
+        io_i_rsp_buff_payload_instruction <= (others => 'X');
       end if;
       if io_i_cmd_valid = '1' and io_i_cmd_ready = '1' then
-        io_i_rsp_valid <= '1';
+        io_i_rsp_buff_valid <= '1';
         for i in 0 to 3 loop
           data(i*8+7 downto i*8) := mem(to_integer(unsigned(io_i_cmd_payload_pc)) + i);
         end loop;
         if not inBench and io_i_cmd_payload_pc = (31 downto 0 => '0') then
-          io_i_rsp_payload_instruction <= X"01c02023";
+          io_i_rsp_buff_payload_instruction <= X"01c02023";
         elsif data = X"00000073" then
-          io_i_rsp_payload_instruction <= X"01c02023";
+          io_i_rsp_buff_payload_instruction <= X"01c02023";
         elsif data = X"0FF0000F" then
-          io_i_rsp_payload_instruction <= X"00000013"; --TODO remove me
+          io_i_rsp_buff_payload_instruction <= X"00000013"; --TODO remove me
         else
-          io_i_rsp_payload_instruction <= data;
+          io_i_rsp_buff_payload_instruction <= data;
         end if;
       end if;
+      
 
       if io_d_rsp_buff_ready = '1' then
         io_d_rsp_buff_valid <= '0';
@@ -484,6 +495,28 @@ begin
   end process;
   
 
+  io_i_rsp_buff_ready <= (not io_i_rsp_valid or io_i_rsp_ready) and io_i_rsp_buff_ready_rand;
+  process(reset,clk)
+  begin
+    if reset = '1' then
+      io_i_rsp_valid <= '0';
+    elsif rising_edge(clk) then
+      if io_i_rsp_ready = '1' then
+        io_i_rsp_valid <= '0';
+        io_i_rsp_payload_instruction <= (others => 'X');
+      end if;
+      if io_i_rsp_buff_valid = '1' and  io_i_rsp_buff_ready = '1' then
+        io_i_rsp_valid <= '1';
+        io_i_rsp_payload_instruction <= io_i_rsp_buff_payload_instruction;
+      end if;
+    end if;
+  end process;
+  
+  -- io_i_rsp_valid <= io_i_rsp_buff_valid;
+  -- io_i_rsp_payload_instruction <= io_i_rsp_buff_payload_instruction;
+  -- io_i_rsp_buff_ready <=io_i_rsp_ready;
+
+  
   io_d_rsp_buff_ready <= (not io_d_rsp_valid or io_d_rsp_ready) and io_d_rsp_buff_ready_rand;
   process(reset,clk)
   begin
