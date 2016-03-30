@@ -271,12 +271,7 @@ class Core(implicit p : CoreParm) extends Component{
 
     val outInst = Stream(CoreFetchCmdOutput())
     val resetDone = RegNext(True) init(False) //Used to not send request while reset is active
-    instructionBusKind match {
-      case `cmdStream_rspFlow` =>
-        io.i.cmd.valid := outInst.ready && resetDone
-      case _ =>
-        io.i.cmd.valid := resetDone
-    }
+    io.i.cmd.valid := outInst.ready && resetDone
     io.i.cmd.pc := pcNext
     when(io.i.cmd.fire || pcLoad.fire){
       pc := pcNext
@@ -485,7 +480,7 @@ class Core(implicit p : CoreParm) extends Component{
       MSK.W -> (io.d.cmd.address(0) || io.d.cmd.address(1))
     )
 
-    io.d.cmd.valid := inInst.valid && inInst.ctrl.men && !outInst.unalignedMemoryAccessException && !halt && !throwIt
+    io.d.cmd.valid := inInst.valid && inInst.ctrl.men && !outInst.unalignedMemoryAccessException && !halt && !throwIt && outInst.ready
     io.d.cmd.wr := inInst.ctrl.m === M.XWR
     io.d.cmd.address := outInst.adder
     io.d.cmd.payload.data := inInst.src1
@@ -604,12 +599,15 @@ class Core(implicit p : CoreParm) extends Component{
 
     val needMemoryResponse = inInst.ctrl.wb === WB.MEM && inInst.ctrl.m === M.XRD
     val flushMemoryResponse = RegInit(False)
-    io.d.rsp.ready := False
+    io.d.rsp.ready := (dataBusKind match{
+      case `cmdStream_rspStream` => False
+      case `cmdStream_rspFlow` => True
+    })
     when(inInst.valid && needMemoryResponse){
       when(!io.d.rsp.valid) {
         halt := True
       }
-      io.d.rsp.ready := !halt
+      if(dataBusKind == cmdStream_rspStream) io.d.rsp.ready := !halt
     }
 
     when(execute0.pendingDataCmd.readCount === 0){
