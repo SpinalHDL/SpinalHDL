@@ -48,8 +48,7 @@ case class AvalonMMConfig( addressWidth : Int,
 
 object AvalonMMConfig{
   def pipelined(addressWidth : Int,
-                dataWidth : Int) = {
-    AvalonMMConfig(
+                dataWidth : Int) = AvalonMMConfig(
       addressWidth=addressWidth,
       dataWidth=dataWidth,
       burstCountWidth = -1,
@@ -63,7 +62,24 @@ object AvalonMMConfig{
       useReadDataValid = true,
       useBurstCount = false
     )
-  }
+
+
+  def bursted(addressWidth : Int,
+              dataWidth : Int,
+              burstCountWidth : Int) = AvalonMMConfig(
+      addressWidth=addressWidth,
+      dataWidth=dataWidth,
+      burstCountWidth = burstCountWidth,
+      useByteEnable = true,
+      useDebugAccess = false,
+      useRead = true,
+      useWrite = true,
+      useResponse = false,
+      useLock = false,
+      useWaitRequestn = true,
+      useReadDataValid = true,
+      useBurstCount = true
+    )
 }
 
 

@@ -3,6 +3,7 @@ package spinal.lib.cpu.riscv.impl
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba4.axi._
+import spinal.lib.bus.avalon.mm.{AvalonMMBus, AvalonMMConfig}
 
 
 case class InstructionCacheParameters( cacheSize : Int,
@@ -11,8 +12,16 @@ case class InstructionCacheParameters( cacheSize : Int,
                                        wrappedMemAccess : Boolean,
                                        addressWidth : Int,
                                        cpuDataWidth : Int,
-                                       memDataWidth : Int){
-
+                                       memDataWidth : Int,
+                                       stableMemCmd : Boolean = true){
+  def burstSize = bytePerLine*8/memDataWidth
+  def getAvalonConfig() = AvalonMMConfig.bursted(
+    addressWidth = addressWidth,
+    dataWidth = memDataWidth,
+    burstCountWidth = log2Up(burstSize + 1)).getReadOnlyConfig.copy(
+    linewrapBursts = wrappedMemAccess,
+    constantBurstBehavior = true
+    )
 }
 
 
@@ -55,6 +64,18 @@ case class InstructionCacheMemBus(implicit p : InstructionCacheParameters) exten
   }
 
   override def asSlave(): this.type = asMaster.flip()
+
+  def toAvalon(): AvalonMMBus = {
+    val avalonConfig = p.getAvalonConfig()
+    val mm = AvalonMMBus(avalonConfig)
+    mm.read := cmd.valid
+    mm.burstCount := U(p.burstSize)
+    mm.address := cmd.address
+    cmd.ready := mm.waitRequestn
+    rsp.valid := mm.readDataValid
+    rsp.data := mm.readData
+    mm
+  }
 }
 
 class InstructionCache(implicit p : InstructionCacheParameters) extends Component{
@@ -80,6 +101,12 @@ class InstructionCache(implicit p : InstructionCacheParameters) extends Componen
   val lineRange = tagRange.low-1 downto log2Up(bytePerLine)
   val wordRange = log2Up(bytePerLine)-1 downto log2Up(bytePerWord)
 
+  val mem_cmd = Stream (InstructionCacheMemCmd())
+  if(stableMemCmd)
+    io.mem.cmd <-< mem_cmd
+  else
+    io.mem.cmd << mem_cmd
+
   class LineInfo() extends Bundle{
     val valid = Bool
     val address = UInt(tagRange.length bit)
@@ -95,17 +122,20 @@ class InstructionCache(implicit p : InstructionCacheParameters) extends Componen
       val addr = UInt(addressWidth bit)
     }))
 
-    io.mem.cmd.valid := requestIn.fire
+
     if(wrappedMemAccess)
-      io.mem.cmd.address := requestIn.addr(tagRange.high downto wordRange.low) @@ U(0,wordRange.low bit)
+      mem_cmd.address := requestIn.addr(tagRange.high downto wordRange.low) @@ U(0,wordRange.low bit)
     else
-      io.mem.cmd.address := requestIn.addr(tagRange.high downto lineRange.low) @@ U(0,lineRange.low bit)
+      mem_cmd.address := requestIn.addr(tagRange.high downto lineRange.low) @@ U(0,lineRange.low bit)
 
 
     val initCounter = Reg(UInt(log2Up(wayLineCount) + 1 bit)) init(0)
     when(!initCounter.msb){
       haltCpu := True
       initCounter := initCounter + 1
+    }
+    when(RegNext(!initCounter.msb)){
+      haltCpu := True
     }
 
     val lineInfoWrite = new LineInfo()
@@ -117,7 +147,8 @@ class InstructionCache(implicit p : InstructionCacheParameters) extends Componen
     }
 
 
-    val request = requestIn.haltWhen(!io.mem.cmd.ready).m2sPipe()
+    val request = requestIn.haltWhen(!mem_cmd.ready).m2sPipe()
+    mem_cmd.valid := requestIn.valid && !request.isStall
     val wordIndex = Reg(UInt(log2Up(wordPerLine) bit))
     val loadedWordsNext = Bits(wordPerLine bit)
     val loadedWords = RegNext(loadedWordsNext)
@@ -136,7 +167,7 @@ class InstructionCache(implicit p : InstructionCacheParameters) extends Componen
     request.ready := readyDelay === 1
 
     when(requestIn.ready){
-      wordIndex := io.mem.cmd.address(wordRange)
+      wordIndex := mem_cmd.address(wordRange)
       loadedWords := 0
       loadedWordsReadable := 0
       readyDelay := 0
@@ -152,9 +183,11 @@ class InstructionCache(implicit p : InstructionCacheParameters) extends Componen
     val waysRead = for(way <- ways) yield new Area{
       val tag = way.tags.readSync(io.cpu.cmd.address(lineRange))
       val data = way.datas.readSync(io.cpu.cmd.address(lineRange.high downto wordRange.low))
-      when(tag.valid && tag.address === request.address(tagRange)){
-        waysHitValid := True
-        waysHitWord := data
+      when(!haltCpu) {
+        when(tag.valid && tag.address === request.address(tagRange)) {
+          waysHitValid := True
+          waysHitWord := data
+        }
       }
     }
 
@@ -172,7 +205,7 @@ class InstructionCache(implicit p : InstructionCacheParameters) extends Componen
           io.cpu.rsp.valid := True
         }
       } otherwise{
-        loader.requestIn.valid := True
+        loader.requestIn.valid := !haltCpu
       }
     }
   }
