@@ -185,6 +185,9 @@ object QSysAvalonCore{
       io.i <>core.io.i.toAvalon()
     }
 
+
+    val coreD = core.io.d.clone
+    coreD.cmd <-< core.io.d.cmd
     io.d <> core.io.d.toAvalon()
 
   }

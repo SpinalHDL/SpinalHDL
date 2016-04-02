@@ -45,9 +45,10 @@ architecture arch of CoreWrapper_tb is
   -- #spinalBegin userDeclarations
   constant doTestWithStall : Boolean := true;
   constant doBench : Boolean := true;
-  constant doBenchtWithStall : Boolean := false;
+  constant doBenchtWithStall : Boolean := true;
   constant doBenchtWithInterrupt : Boolean := true;
-  
+  constant allowRomWriteWhenBench : Boolean := false;
+ 
   
   signal inBench : Boolean := false;
   signal timingRead : std_logic;
@@ -297,8 +298,8 @@ begin
         exit;
        end if;
      end loop;
-     inBench <= true;
      wait for 1 us;
+     inBench <= true;
      doTest("E:/vm/share/a.hex",1024*1024*1024);
     
 
@@ -406,6 +407,7 @@ begin
               file_close(log); 
               file_open(log, "E:/vm/share/log.txt", append_mode); 
             end if;
+          elsif io_d_cmd_payload_address = X"F0000004" then
           elsif io_d_cmd_payload_address = X"10000008" then
             interrupt <= io_d_cmd_payload_data(0);
           elsif io_d_cmd_payload_address = X"F0000010" then
@@ -413,6 +415,7 @@ begin
           elsif io_d_cmd_payload_address = X"F0000044" then
             
           elsif io_d_cmd_payload_address <= X"03FFFFFF" then
+            assert(not inBench or allowRomWriteWhenBench) report "Rom is written :(" severity failure;
             for i in 0 to (2 ** to_integer(io_d_cmd_payload_size))-1 loop
               rom(to_integer(unsigned(io_d_cmd_payload_address)) + i) := io_d_cmd_payload_data(i*8+7 downto i*8);
             end loop;
@@ -430,8 +433,10 @@ begin
             timingRead <= '1';
           elsif io_d_cmd_payload_address = X"F0000020" then
             io_d_rsp_buff_payload <= (others => '0');
+          elsif io_d_cmd_payload_address = X"F0000000" then
+            io_d_rsp_buff_payload <= (others => '0');
           elsif io_d_cmd_payload_address = X"F0000004" then
-            io_d_rsp_buff_payload <= (others => '1');
+            io_d_rsp_buff_payload <= X"FFFF0000";
           elsif io_d_cmd_payload_address <= X"03FFFFFF" then
             for i in 0 to 3 loop
               io_d_rsp_buff_payload(i*8+7 downto i*8) <= rom(to_integer(unsigned(io_d_cmd_payload_address)) + i);
