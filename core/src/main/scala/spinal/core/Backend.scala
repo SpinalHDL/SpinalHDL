@@ -139,6 +139,7 @@ class Backend {
     SpinalInfoPhase("Infer nodes's bit width")
     inferWidth()
     simplifyNodes()
+    inferWidth()
     propagateBaseTypeWidth()
     normalizeNodeInputs()
     checkInferedWidth()
