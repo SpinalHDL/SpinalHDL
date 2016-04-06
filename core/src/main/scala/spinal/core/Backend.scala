@@ -108,11 +108,12 @@ class Backend {
     SpinalInfoPhase("Start analysis and transform")
     addReservedKeyWordToScope(globalScope)
 
+    buildComponentsList(topLevel)
     applyComponentIoDefaults()
     walkNodesBlackBoxGenerics()
     remplaceMemByBlackBox_simplifyWriteReadWithSameAddress()
 
-    addComponent(topLevel)
+
     sortedComponents = components.sortWith(_.level > _.level)
 
     //trickDontCares()
@@ -355,6 +356,8 @@ class Backend {
         }
       }
     }
+    components.clear()
+    buildComponentsList(topLevel)
   }
 
   def printStates(): Unit = {
@@ -783,15 +786,20 @@ class Backend {
     Node.walk(walkNodesDefautStack,node => {
       node match{
         case node : BaseType => {
-          val parent = node.component.parent
-          if(parent != null && node.inputs(0) == null && node.defaultValue != null){
-            val c = if(node.dir == in)
-              node.component
-            else
-              node.component.parent
-            Component.push(c)
-            node.assignFrom(node.defaultValue,false)
-            Component.pop(c)
+          if(node.inputs(0) == null && node.defaultValue != null){
+            val c = node.dir match {
+              case `in` => node.component
+              case `out` => if(node.component.parent != null)
+                  node.component.parent
+                else
+                  null
+              case _ => node.component
+            }
+            if(c != null) {
+              Component.push(c)
+              node.assignFrom(node.defaultValue, false)
+              Component.pop(c)
+            }
           }
         }
         case _ =>
@@ -1308,9 +1316,9 @@ class Backend {
   }
 
 
-  def addComponent(c: Component): Unit = {
+  def buildComponentsList(c: Component): Unit = {
     components += c
-    c.kinds.foreach(addComponent(_))
+    c.kinds.foreach(buildComponentsList(_))
   }
 
 }
