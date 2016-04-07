@@ -307,7 +307,6 @@ abstract class BaseType extends Node with Data with Nameable {
   //Create a new instance of the same datatype without any configuration (width, direction)
   private[core] def weakClone: this.type = this.getClass.newInstance().asInstanceOf[this.type]
 
-
-  override def toString(): String = s"${component.getPath() + "/" + this.getDisplayName()} : ${getClassIdentifier}[$getWidth bit]"
+  override def toString(): String = s"${component.getPath() + "/" + this.getDisplayName()} : ${getClassIdentifier}"
 }
 

@@ -164,5 +164,17 @@ abstract class BitVector extends BaseType {
 
   private[core] def prefix: String
 
+  def getWidthNoInferation: Int = {
+    if (inferredWidth != -1)
+      inferredWidth
+    else
+      fixedWidth
+  }
+  def getWidthStringNoInferation : String = {
+    val width = getWidthNoInferation
+    if(width == -1) return "?"
+    else width.toString
+  }
+  override def toString(): String = s"${component.getPath() + "/" + this.getDisplayName()} : ${getClassIdentifier}[${getWidthStringNoInferation}} bit]"
 
 }
