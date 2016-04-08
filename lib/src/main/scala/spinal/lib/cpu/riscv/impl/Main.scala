@@ -24,24 +24,24 @@ object CoreMain{
       addrWidth = 32,
       startAddress = 0x200,
       regFileReadyKind = sync,
-      branchPrediction = dynamic,
-      bypassExecute0 = true,
-      bypassExecute1 = true,
-      bypassWriteBack0 = true,
-      bypassWriteBack1 = true,
+      branchPrediction = disable,
+      bypassExecute0 = false,
+      bypassExecute1 = false,
+      bypassWriteBack0 = false,
+      bypassWriteBack1 = false,
       collapseBubble = true,
       instructionBusKind = cmdStream_rspFlow_oneCycle,
       dataBusKind = cmdStream_rspFlow,
-      fastFetchCmdPcCalculation = true,
+      fastFetchCmdPcCalculation = false,
       dynamicBranchPredictorCacheSizeLog2 = 7
     )
 
     if(cached) assert(p.instructionBusKind == cmdStream_rspFlow_oneCycle)
-    p.add(new MulExtension)
-    p.add(new DivExtension)
-    p.add(new BarrelShifterFullExtension)
-    p.add(new SimpleInterruptExtension(exceptionVector=0x0).addIrq(id=4,pin=io_interrupt,IrqUsage(isException=false),name="io_interrupt"))
-    //      p.add(new BarrelShifterLightExtension)
+   // p.add(new MulExtension)
+  //  p.add(new DivExtension)
+    //p.add(new BarrelShifterFullExtension)
+    //p.add(new SimpleInterruptExtension(exceptionVector=0x0).addIrq(id=4,pin=io_interrupt,IrqUsage(isException=false),name="io_interrupt"))
+    p.add(new BarrelShifterLightExtension)
     val io = new Bundle{
       val i = master(CoreInstructionBus())
       val d = master(CoreDataBus())
@@ -142,15 +142,15 @@ object QSysAvalonCore{
       addrWidth = 32,
       startAddress = 0x200,
       regFileReadyKind = sync,
-      branchPrediction = dynamic,
-      bypassExecute0 = true,
-      bypassExecute1 = true,
-      bypassWriteBack0 = true,
-      bypassWriteBack1 = true,
+      branchPrediction = disable,
+      bypassExecute0 = false,
+      bypassExecute1 = false,
+      bypassWriteBack0 = false,
+      bypassWriteBack1 = false,
       collapseBubble = true,
       instructionBusKind = cmdStream_rspFlow_oneCycle,
       dataBusKind = cmdStream_rspFlow,
-      fastFetchCmdPcCalculation = true,
+      fastFetchCmdPcCalculation = false,
       dynamicBranchPredictorCacheSizeLog2 = 7
     )
 
@@ -166,11 +166,11 @@ object QSysAvalonCore{
       val interrupt = in(Bool)
     }
 
-    p.add(new MulExtension)
-    p.add(new DivExtension)
-    p.add(new BarrelShifterFullExtension)
-    p.add(new SimpleInterruptExtension(exceptionVector=0x0).addIrq(id=4,pin=io.interrupt,IrqUsage(isException=false),name="io_interrupt"))
-    //      p.add(new BarrelShifterLightExtension)
+   // p.add(new MulExtension)
+   // p.add(new DivExtension)
+   // p.add(new BarrelShifterFullExtension)
+   // p.add(new SimpleInterruptExtension(exceptionVector=0x0).addIrq(id=4,pin=io.interrupt,IrqUsage(isException=false),name="io_interrupt"))
+    p.add(new BarrelShifterLightExtension)
     val core = new Core()(p)
 
     val cache = new InstructionCache()(cacheParam)

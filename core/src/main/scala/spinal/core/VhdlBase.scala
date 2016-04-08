@@ -47,7 +47,7 @@ trait VhdlBase {
 
   def emitEnumLiteral[T <: SpinalEnum](enum : SpinalEnumElement[T],encoding: SpinalEnumEncoding) : String = {
     if(encoding.isNative)
-      return enum.getName()
+      return "pkg_enum." + enum.getName()
     else
       return enum.parent.getName() + "_" + encoding.getName() + "_" + enum.getName()
   }

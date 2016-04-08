@@ -663,6 +663,7 @@ class VhdlBackend extends Backend with VhdlBase {
     ret ++= "\n"
     ret ++= s"library $library;\n"
     ret ++= s"use $library.$packageName.all;\n"
+    ret ++= s"use $library.all;\n"
     ret ++= s"use $library.$enumPackageName.all;\n\n"
   }
 

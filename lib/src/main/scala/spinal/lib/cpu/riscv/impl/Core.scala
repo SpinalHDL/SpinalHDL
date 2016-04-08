@@ -442,10 +442,10 @@ class Core(implicit p : CoreParm) extends Component{
 
       val pc_sel = inInst.ctrl.br.map[PC.T](
         default -> PC.INC,
-        BR.NE -> Mux(!eq, PC.BR1, PC.INC),
-        BR.EQ -> Mux(eq, PC.BR1, PC.INC),
-        (BR.GE , BR.GEU) -> Mux(!ltx, PC.BR1, PC.INC),
-        (BR.LT , BR.LTU)  -> Mux(ltx, PC.BR1, PC.INC),
+        BR.NE -> Mux(!eq, PC.BRA, PC.INC),
+        BR.EQ -> Mux(eq, PC.BRA, PC.INC),
+        (BR.GE , BR.GEU) -> Mux(!ltx, PC.BRA, PC.INC),
+        (BR.LT , BR.LTU)  -> Mux(ltx, PC.BRA, PC.INC),
         BR.J -> PC.J,
         BR.JR -> PC.JR
       )

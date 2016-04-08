@@ -606,7 +606,17 @@ object PlayVecBaseType {
     SpinalVhdl(new TopLevel)
   }
 }
+object PlayZeroWidth {
 
+  class TopLevel extends Component {
+    out(in(Bits(0 bit)) === 0)
+//    out(in(UInt(0 bit)) + in(UInt(0 bit)))
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
 object PlayVec {
 
   class TopLevel extends Component {
@@ -622,7 +632,7 @@ object PlayVec {
     val sel,sel2 = in UInt(n bit)
     val vecIn = in Vec(Vec(UInt(4 bit),pow),pow)
     val vecOut = out Vec(Vec(UInt(4 bit),pow),pow)
-
+    U(2).toString
     vecOut := vecIn
     vecOut(sel)(sel2) := 0
   }
