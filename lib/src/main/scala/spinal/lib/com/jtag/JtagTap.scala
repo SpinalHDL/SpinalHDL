@@ -3,6 +3,9 @@ package spinal.lib.com.jtag
 import spinal.core._
 import spinal.lib._
 
+import scala.collection.immutable.HashMap
+import scala.collection.mutable.ArrayBuffer
+
 /**
  * Created by PIC32F_USER on 05/04/2016.
  */
@@ -67,80 +70,125 @@ class JtagFsm(jtag : Jtag) extends Area {
 }
 
 
-class JtagCtrl(instructionWidth : Int)extends Component{
-  val io = new Bundle{
-    val jtag = slave(Jtag())
-    val value = out Bits(8 bit)
+class JtagInstruction(val instructionId : Bits)(implicit tap : JtagTap) extends Area{
+  def doCapture() : Unit = {}
+  def doShift() : Unit  = {}
+  def doUpdate() : Unit  = {}
+  def doReset() : Unit = {}
+
+  val instructionHit = tap.instruction === instructionId
+
+  def calls() : Unit = {
+    when(instructionHit) {
+      when(tap.fsm.state === JtagState.DR_CAPTURE) {
+        doCapture()
+      }
+      when(tap.fsm.state === JtagState.DR_SHIFT) {
+        doShift()
+      }
+      when(tap.fsm.state === JtagState.DR_UPDATE) {
+        doUpdate()
+      }
+    }
+    when(tap.fsm.state === JtagState.RESET) {
+      doReset()
+    }
+  }
+}
+
+class JtagInstructionWrite[T <: Data](data : T, instructionId : Bits,cleanUpdate : Boolean = true,readable : Boolean = true)(implicit tap : JtagTap) extends JtagInstruction(instructionId){
+  val shifter = Reg(Bits(data.getBitsWidth bit))
+  val dataReg : T = if(cleanUpdate) Reg(data) else null.asInstanceOf[T]
+  if(!cleanUpdate)
+    data.assignFromBits(shifter)
+  else
+    data := dataReg
+
+  override def doShift(): Unit = {
+    shifter := (tap.jtag.tdi ## shifter) >> 1
+    if(readable) tap.jtag.tdo := shifter.lsb
   }
 
-  val fsm = new JtagFsm(io.jtag)
+  override def doUpdate(): Unit = {
+    if(cleanUpdate) dataReg.assignFromBits(shifter)
+  }
+
+  calls()
+}
+
+class JtagInstructionRead[T <: Data](data : T, instructionId : Bits)(implicit tap : JtagTap) extends JtagInstruction(instructionId){
+  val shifter = Reg(Bits(data.getBitsWidth bit))
+
+
+  override def doCapture(): Unit = {
+    shifter := data.asBits
+  }
+
+  override def doShift(): Unit = {
+    shifter := (tap.jtag.tdi ## shifter) >> 1
+    tap.jtag.tdo := shifter.lsb
+  }
+
+  calls()
+}
+
+
+class JtagInstructionIdcode[T <: Data](value : Bits, instructionId : Bits)(implicit tap : JtagTap) extends JtagInstruction(instructionId){
+  val shifter = Reg(Bits(32 bit))
+
+  override def doShift(): Unit = {
+    shifter := (tap.jtag.tdi ## shifter) >> 1
+    tap.jtag.tdo := shifter.lsb
+  }
+
+  override def doReset(): Unit = {
+    shifter := value
+    tap.instruction := instructionId
+  }
+
+  calls()
+}
+
+
+
+class JtagTap(val jtag : Jtag,instructionWidth : Int) extends Area{
+  val fsm = new JtagFsm(jtag)
   val instruction = Reg(Bits(instructionWidth bit))
   val instructionShift = Reg(Bits(instructionWidth bit))
-  val idcode = Reg(Bits(32 bit))
   val bypass = Reg(Bool)
-  when(fsm.state === JtagState.RESET){
-    idcode := B"x87654321"
-    instruction := 16
-  }
 
-  val value = Reg(Bits(8 bit))
-  io.value := value
-  io.jtag.tdo := False
+  jtag.tdo := bypass
+
   switch(fsm.state){
     is(JtagState.IR_CAPTURE){
       instructionShift := instruction
     }
     is(JtagState.IR_SHIFT){
-      instructionShift := (io.jtag.tdi ## instructionShift) >> 1
-      io.jtag.tdo := instructionShift(0)
+      instructionShift := (jtag.tdi ## instructionShift) >> 1
+      jtag.tdo := instructionShift.lsb
     }
     is(JtagState.IR_UPDATE){
       instruction := instructionShift
     }
-
-    is(JtagState.DR_CAPTURE){
-
-    }
     is(JtagState.DR_SHIFT){
-      instructionShift := (io.jtag.tdi ## instructionShift) >> 1
-      switch(instruction){
-        is(16){
-          idcode := (io.jtag.tdi ## idcode) >> 1
-          io.jtag.tdo := idcode(0)
-        }
-        is(17){
-          value := (io.jtag.tdi ## value) >> 1
-          io.jtag.tdo := value(0)
-        }
-        default {
-          bypass := io.jtag.tdi
-          io.jtag.tdo := bypass
-        }
-      }
-    }
-    is(JtagState.DR_UPDATE){
+      bypass := jtag.tdi
     }
   }
 }
 
-object TapCtrl{
-  def main(args: Array[String]) {
-    SpinalVhdl(new JtagCtrl(10).setDefinitionName("TopLevel"))
-  }
-}
 
 
 class SimpleTap extends Component{
   val io = new Bundle{
     val jtag = slave(Jtag())
-    val value = out Bits(8 bit)
+    val switchs = in Bits(8 bit)
+    val leds = out Bits(8 bit)
   }
 
-  val jtagCtrl = new JtagCtrl(8)
-  jtagCtrl.io.jtag <> io.jtag
-
-
-  io.value := jtagCtrl.io.value
+  implicit val tap = new JtagTap(io.jtag,8)
+  val idcodeArea = new JtagInstructionIdcode(B"x87654321",16)
+  val switchsArea = new JtagInstructionRead(io.switchs,18)
+  val ledsArea = new JtagInstructionWrite(io.leds,17,cleanUpdate = false,readable = false)
 }
 
 
