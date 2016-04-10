@@ -39,6 +39,12 @@ object isPow2 {
   }
 }
 
+object roundUp {
+  def apply(that: BigInt, by : BigInt): BigInt = {
+    return (that / by) * by + (if(that % by != 0) by else 0)
+  }
+}
+
 object cloneOf {
   //Return a new data with the same data structure than the given parameter (including bit width)
   def apply[T <: Data](that: T): T = that.clone()

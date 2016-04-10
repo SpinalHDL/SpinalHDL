@@ -110,7 +110,7 @@ object Debug {
 
     newOutput := !newInput
 
-    val myClockDomain = ClockDomain("ttDomain")
+    val myClockDomain = ClockDomain.external("ttDomain")
     val ttArea = new ClockingArea(myClockDomain) {
       io.tt := RegNext(!io.tt)
     }

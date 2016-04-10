@@ -1318,9 +1318,9 @@ object OverloadPlay {
 
     for (i <- 0 until 1) {
       val report = SpinalVhdl({
-        val vgaClock = ClockDomain("vga")
-        val vgaMemoryClock = ClockDomain("vgaMemory")
-        val coreClock = ClockDomain("core", FixedFrequency(100e6))
+        val vgaClock = ClockDomain.external("vga")
+        val vgaMemoryClock = ClockDomain.external("vgaMemory")
+        val coreClock = ClockDomain.external("core",frequency = FixedFrequency(100e6))
         new OverloadPlay(0, new MandelbrotCoreParameters(256, 64, 640, 480, 7, 17 * 3), coreClock, vgaMemoryClock, vgaClock)
       })
       // Console.in.read

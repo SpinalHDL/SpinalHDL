@@ -2,6 +2,8 @@ package spinal.lib
 
 import spinal.core._
 
+import scala.collection.mutable.ArrayBuffer
+
 class FragmentFactory {
   def apply[T <: Data](dataType: T): Fragment[T] = new Fragment(dataType)
 }
@@ -253,6 +255,72 @@ class StreamFragmentBitsPimped(pimped: Stream[Fragment[Bits]]) {
     ret
   }
 }
+
+case class StreamFragmentBitsDispatcherElement(sink : Stream[Bits],header : Int)
+
+class StreamFragmentBitsDispatcher(cmd : Stream[Fragment[Bits]],headerWidth : Int){
+  val ports = ArrayBuffer[StreamFragmentBitsDispatcherElement]()
+
+  def add[T <: Data](port : Stream[T],header : Int): this.type ={
+    val streamBits = Stream(Bits(port.payload.getBitsWidth bit))
+    port.translateFrom(streamBits)((to,from) => {
+      to.assignFromBits(from)
+    })
+    ports += StreamFragmentBitsDispatcherElement(streamBits,header)
+    this
+  }
+
+
+  def build() : Unit = {
+    val sourceWidth = cmd.fragment.getWidth
+    val dataMaxWidth = ports.map(_.sink.payload.getWidth).reduce(Math.max(_,_))
+    val dataWidth =  roundUp(dataMaxWidth,by=sourceWidth).toInt
+    val dataPacketCount = dataWidth / sourceWidth
+    val dataShifter = Reg(Bits(dataWidth bit))
+    val dataLoaded = RegInit(False)
+
+    val headerShifter = Reg(Bits(roundUp(headerWidth,by=sourceWidth) bit))
+    val headerPacketCount = headerShifter.getWidth / sourceWidth
+    val header = headerShifter(headerWidth-1 downto 0)
+    val headerLoaded = RegInit(False)
+
+    val counter = Reg(UInt(log2Up(headerPacketCount) bit)) init(0)
+
+    when(cmd.valid) {
+      when(headerLoaded === False) {
+        headerShifter := (cmd.fragment ## headerShifter) >> sourceWidth
+        counter := counter + 1
+        when(counter === headerPacketCount-1){
+          headerLoaded := True
+        }
+      }otherwise{
+        dataShifter := (cmd.fragment ## dataShifter) >> sourceWidth
+      }
+
+      when(cmd.last){
+        headerLoaded := True
+        dataLoaded := True
+        counter := 0
+      }
+    }
+
+    cmd.ready := !dataLoaded
+
+    for(port <- ports){
+      val sinkWidth = port.sink.payload.getWidth
+      val offset = dataWidth - roundUp(sinkWidth,by=sourceWidth).toInt
+      port.sink.payload := dataShifter(offset,sinkWidth bit)
+      port.sink.valid := dataLoaded && header === port.header
+    }
+
+    when(ports.map(_.sink.fire).reduce(_ || _)){
+      headerLoaded := False
+      dataLoaded := False
+    }
+  }
+}
+
+
 
 class DataCarrierFragmentPimped[T <: Data](pimped: DataCarrier[Fragment[T]]) {
   def first: Bool = signalCache(pimped, "first", () => RegNextWhen(pimped.last, pimped.fire, True))

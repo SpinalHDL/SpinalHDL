@@ -57,7 +57,7 @@ class Backend {
     SpinalInfoPhase("Start elaboration")
 
     //default clockDomain
-    val defaultClockDomain = ClockDomain("",defaultClockDomainFrequancy)
+    val defaultClockDomain = ClockDomain.external("",frequency = defaultClockDomainFrequancy)
 
     ClockDomain.push(defaultClockDomain)
     topLevel = gen()
@@ -1035,7 +1035,7 @@ class Backend {
                       val driverClockDomain = syncDriver.getClockDomain
                       if (//syncDriver.getClockDomain.clock != consumerCockDomain.clock &&
                           ! driverClockDomain.isSyncronousWith(consumerCockDomain)) {
-                        errors += s"Synchronous element ${syncNode.getScalaLocationStringShort} is drived by ${syncDriver.getScalaLocationStringShort} but they don't have the same clock domain. Register declaration at\n${syncNode.getScalaTraceString}"
+                        errors += s"Synchronous element ${syncNode.getScalaLocationStringShort} is drived by ${syncDriver.getScalaLocationStringShort} but they don't have the same clock domain. Register declaration at\n${syncNode.getScalaTraceString} Source declaration at\n${syncDriver.getScalaTraceString}"
                       }
                     }
                     case _ => that.inputs.foreach(input => if (input != null) check(input))

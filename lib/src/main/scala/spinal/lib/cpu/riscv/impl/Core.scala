@@ -141,7 +141,7 @@ case class CoreDataBus(implicit p : CoreParm) extends Bundle with IMasterSlave{
     val mm = AvalonMMBus(avalonConfig)
     mm.read := cmd.valid && !cmd.wr
     mm.write := cmd.valid && cmd.wr
-    mm.address := cmd.address
+    mm.address := cmd.address(cmd.address.high downto 2) @@ U"00"
     mm.writeData := cmd.size.map (
       U(0) -> cmd.data(7 downto 0) ## cmd.data(7 downto 0) ## cmd.data(7 downto 0) ## cmd.data(7 downto 0),
       U(1) -> cmd.data(15 downto 0) ## cmd.data(15 downto 0),
