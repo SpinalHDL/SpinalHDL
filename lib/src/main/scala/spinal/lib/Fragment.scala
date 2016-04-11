@@ -258,65 +258,51 @@ class StreamFragmentBitsPimped(pimped: Stream[Fragment[Bits]]) {
 
 case class StreamFragmentBitsDispatcherElement(sink : Stream[Bits],header : Int)
 
-class StreamFragmentBitsDispatcher(cmd : Stream[Fragment[Bits]],headerWidth : Int){
-  val ports = ArrayBuffer[StreamFragmentBitsDispatcherElement]()
+class StreamFragmentBitsDispatcher(headerWidth : Int,input : Stream[Fragment[Bits]],outputs : Seq[(Int,Stream[Data])]) extends Area{
+  val sourceWidth = input.fragment.getWidth
+  val dataMaxWidth = outputs.map(_._2.payload.getBitsWidth).reduce(Math.max(_,_))
+  val dataWidth =  roundUp(dataMaxWidth,by=sourceWidth).toInt
+  val dataPacketCount = dataWidth / sourceWidth
+  val dataShifter = Reg(Bits(dataWidth bit))
+  val dataLoaded = RegInit(False)
 
-  def add[T <: Data](port : Stream[T],header : Int): this.type ={
-    val streamBits = Stream(Bits(port.payload.getBitsWidth bit))
-    port.translateFrom(streamBits)((to,from) => {
-      to.assignFromBits(from)
-    })
-    ports += StreamFragmentBitsDispatcherElement(streamBits,header)
-    this
+  val headerShifter = Reg(Bits(roundUp(headerWidth,by=sourceWidth) bit))
+  val headerPacketCount = headerShifter.getWidth / sourceWidth
+  val header = headerShifter(headerWidth-1 downto 0)
+  val headerLoaded = RegInit(False)
+
+  val counter = Reg(UInt(log2Up(headerPacketCount) bit)) init(0)
+
+  when(input.valid) {
+    when(headerLoaded === False) {
+      headerShifter := (input.fragment ## headerShifter) >> sourceWidth
+      counter := counter + 1
+      when(counter === headerPacketCount-1){
+        headerLoaded := True
+      }
+    }otherwise{
+      dataShifter := (input.fragment ## dataShifter) >> sourceWidth
+    }
+
+    when(input.last){
+      headerLoaded := True
+      dataLoaded := True
+      counter := 0
+    }
   }
 
+  input.ready := !dataLoaded
 
-  def build() : Unit = {
-    val sourceWidth = cmd.fragment.getWidth
-    val dataMaxWidth = ports.map(_.sink.payload.getWidth).reduce(Math.max(_,_))
-    val dataWidth =  roundUp(dataMaxWidth,by=sourceWidth).toInt
-    val dataPacketCount = dataWidth / sourceWidth
-    val dataShifter = Reg(Bits(dataWidth bit))
-    val dataLoaded = RegInit(False)
+  for((portHeader,port) <- outputs){
+    val sinkWidth = port.payload.getBitsWidth
+    val offset = dataWidth - roundUp(sinkWidth,by=sourceWidth).toInt
+    port.payload.assignFromBits(dataShifter(offset,sinkWidth bit))
+    port.valid := dataLoaded && header === portHeader
+  }
 
-    val headerShifter = Reg(Bits(roundUp(headerWidth,by=sourceWidth) bit))
-    val headerPacketCount = headerShifter.getWidth / sourceWidth
-    val header = headerShifter(headerWidth-1 downto 0)
-    val headerLoaded = RegInit(False)
-
-    val counter = Reg(UInt(log2Up(headerPacketCount) bit)) init(0)
-
-    when(cmd.valid) {
-      when(headerLoaded === False) {
-        headerShifter := (cmd.fragment ## headerShifter) >> sourceWidth
-        counter := counter + 1
-        when(counter === headerPacketCount-1){
-          headerLoaded := True
-        }
-      }otherwise{
-        dataShifter := (cmd.fragment ## dataShifter) >> sourceWidth
-      }
-
-      when(cmd.last){
-        headerLoaded := True
-        dataLoaded := True
-        counter := 0
-      }
-    }
-
-    cmd.ready := !dataLoaded
-
-    for(port <- ports){
-      val sinkWidth = port.sink.payload.getWidth
-      val offset = dataWidth - roundUp(sinkWidth,by=sourceWidth).toInt
-      port.sink.payload := dataShifter(offset,sinkWidth bit)
-      port.sink.valid := dataLoaded && header === port.header
-    }
-
-    when(ports.map(_.sink.fire).reduce(_ || _)){
-      headerLoaded := False
-      dataLoaded := False
-    }
+  when(outputs.map(_._2.fire).reduce(_ || _)){
+    headerLoaded := False
+    dataLoaded := False
   }
 }
 

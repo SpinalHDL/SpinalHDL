@@ -26,9 +26,9 @@ architecture arch of JtagAvalonDebugger_tb is
   signal io_mem_writeData : std_logic_vector(31 downto 0);
   signal io_mem_readDataValid : std_logic;
   signal io_mem_readData : std_logic_vector(31 downto 0);
-  signal system_clk : std_logic;
+  signal clk : std_logic;
   signal tck : std_logic;
-  signal system_reset : std_logic;
+  signal reset : std_logic;
   -- #spinalBegin userDeclarations
   shared variable done : integer := 0;
   -- #spinalEnd userDeclarations
@@ -37,13 +37,13 @@ begin
   
   process
   begin
-    system_clk <= '0';
+    clk <= '0';
     wait for 5 ns;
     if done = 1 then
       wait;
     end if;
     assert now < 10 ms report "timeout" severity failure;
-    system_clk <= '1';
+    clk <= '1';
     wait for 5 ns;
   end process;
   
@@ -107,14 +107,14 @@ begin
     end procedure;
     
   begin
-    system_reset <= '1';
+    reset <= '1';
     io_mem_waitRequestn <= '0';
     io_mem_readDataValid <= '0';
-    wait until rising_edge(system_clk);
-    wait until rising_edge(system_clk);
-    wait until rising_edge(system_clk);
-    system_reset <= '0';
-    wait until rising_edge(system_clk);
+    wait until rising_edge(clk);
+    wait until rising_edge(clk);
+    wait until rising_edge(clk);
+    reset <= '0';
+    wait until rising_edge(clk);
     jtagInit;
     
     jtagInst(X"2");
@@ -126,17 +126,17 @@ begin
     jtagDrOut("10");  
     
     wait for 200 ns;
-    wait until rising_edge(system_clk);
+    wait until rising_edge(clk);
     io_mem_waitRequestn <= '1';
-    wait until rising_edge(system_clk);
+    wait until rising_edge(clk);
     io_mem_waitRequestn <= '0';
     io_mem_readDataValid <= '1';
     io_mem_readData <= X"EEAA1234";
-    wait until rising_edge(system_clk);
+    wait until rising_edge(clk);
     io_mem_readDataValid <= '0';
     
     wait for 200 ns;
-    wait until rising_edge(system_clk); 
+    wait until rising_edge(clk); 
     
 
     jtagDrIn;
@@ -147,13 +147,13 @@ begin
     jtagDrOut("10");  
     
     wait for 200 ns;
-    wait until rising_edge(system_clk);
+    wait until rising_edge(clk);
     io_mem_waitRequestn <= '1';
-    wait until rising_edge(system_clk);
+    wait until rising_edge(clk);
     io_mem_waitRequestn <= '0';
     io_mem_readDataValid <= '1';
     io_mem_readData <= X"EE551234";
-    wait until rising_edge(system_clk);
+    wait until rising_edge(clk);
     io_mem_readDataValid <= '0';
     
     wait for 1000 ns;
@@ -174,8 +174,8 @@ begin
       io_mem_writeData =>  io_mem_writeData,
       io_mem_readDataValid =>  io_mem_readDataValid,
       io_mem_readData =>  io_mem_readData,
-      system_clk =>  system_clk,
+      clk =>  clk,
       tck =>  tck,
-      system_reset =>  system_reset 
+      reset =>  reset 
     );
 end arch;
