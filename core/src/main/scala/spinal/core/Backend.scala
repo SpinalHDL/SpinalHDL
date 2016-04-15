@@ -46,7 +46,7 @@ class Backend {
   val enums = mutable.Map[SpinalEnum,mutable.Set[SpinalEnumEncoding]]()
   var forceMemToBlackboxTranslation = false
   var jsonReportPath = ""
-  var defaultClockDomainFrequancy : IClockDomainFrequency = UnknownFrequency()
+  var defaultClockDomainFrequency : IClockDomainFrequency = UnknownFrequency()
 
   def addReservedKeyWordToScope(scope: Scope): Unit = {
     reservedKeyWords.foreach(scope.allocateName(_))
@@ -57,7 +57,7 @@ class Backend {
     SpinalInfoPhase("Start elaboration")
 
     //default clockDomain
-    val defaultClockDomain = ClockDomain.external("",frequency = defaultClockDomainFrequancy)
+    val defaultClockDomain = ClockDomain.external("",frequency = defaultClockDomainFrequency)
 
     ClockDomain.push(defaultClockDomain)
     topLevel = gen()
@@ -136,7 +136,7 @@ class Backend {
 
 
     //Node width
-    SpinalInfoPhase("Infer nodes's bit width")
+    SpinalInfoPhase("Infer nodes bit width")
     inferWidth()
     simplifyNodes()
     inferWidth()
@@ -146,24 +146,24 @@ class Backend {
 
 
     //Check
-    SpinalInfoPhase("Check combinational loops")
+    SpinalInfoPhase("Check combinatorial loops")
     checkCombinationalLoops2()
-    SpinalInfoPhase("Check cross clock domains")
+    SpinalInfoPhase("Check cross-clock domains")
     checkCrossClockDomains()
 
 
     //Simplify nodes
-    SpinalInfoPhase("Simplify graph's nodes")
+    SpinalInfoPhase("Simplify nodes graph")
     fillNodeConsumer()
     dontSymplifyBasetypeWithComplexAssignement()
     deleteUselessBaseTypes()
    // convertWhenToDefault()
-    SpinalInfoPhase("Check that there is no incomplet assignement")
+    SpinalInfoPhase("Check for incomplete assignment")
     check_noAsyncNodeWithIncompletAssignment()
-    simplifyBlacBoxGenerics()
+    simplifyBlackBoxGenerics()
 
 
-    SpinalInfoPhase("Finalise")
+    SpinalInfoPhase("Finalize")
 
     //Name patch
     nameBinding()
@@ -475,7 +475,7 @@ class Backend {
         unassignedBits.add(signalRange)
         unassignedBits.remove(assignedBits)
         if (!unassignedBits.isEmpty)
-          errors += s"Incomplet assignment is detected on $signal, unassigned bit mask is ${unassignedBits.toBinaryString}, declared at ${signal.getScalaLocationString}"
+          errors += s"Incomplete assignment detected on $signal, unassigned bit mask is ${unassignedBits.toBinaryString}, declared at ${signal.getScalaLocationString}"
 
 
       }
@@ -519,7 +519,7 @@ class Backend {
         val io = c.reflectIo
         for(bt <- io.flatten){
           if(bt.isDirectionLess){
-            errors += s"Direction less signal into io def ${bt.getScalaLocationString}"
+            errors += s"Directionless signal into io def ${bt.getScalaLocationString}"
           }
         }
       }catch{
@@ -536,7 +536,7 @@ class Backend {
           val in = node.inputs(0)
           if (in != null) {
             if (node.isInput && in.isInstanceOf[Reg] && in.component == node.component) {
-              errors += s"Input register are not allowed ${node.getScalaLocationString}"
+              errors += s"Input registers are not allowed ${node.getScalaLocationString}"
             } else {
               val inIsIo = in.isInstanceOf[BaseType] && in.asInstanceOf[BaseType].isIo
               if (node.isIo) {
@@ -545,11 +545,11 @@ class Backend {
                     if (in.component == node.component)
                       errors += s"Input $node can't be assigned from inside at ${node.getScalaTraceString}"
                     else
-                      errors += s"Input $node is not assigned by parent component but an other at ${node.getScalaTraceString}"
+                      errors += s"Input $node not assigned by parent component but elsewhere at ${node.getScalaTraceString}"
                   }
                 } else if (node.isOutput) {
                   if (in.component != node.component && !(inIsIo && node.component == in.component.parent))
-                    errors += s"Output $node is not assigned by his component but an other at ${node.getScalaTraceString}"
+                    errors += s"Output $node not assigned by its component but elsewhere at ${node.getScalaTraceString}"
                 } else
                   errors += s"No direction specified on IO ${node.getScalaLocationString}"
               } else {
@@ -568,7 +568,7 @@ class Backend {
               errors += s"No driver on ${node.getScalaLocationString}"
             } else {
               if (in.component != node.component && !(in.isInstanceOf[BaseType] && in.asInstanceOf[BaseType].isIo && node.component == in.component.parent))
-                errors += s"Node is drived outside his component ${node.getScalaLocationString}"
+                errors += s"Node is driven outside its component ${node.getScalaLocationString}"
             }
           }
         }
@@ -762,7 +762,7 @@ class Backend {
     for(checker <- globalData.widthCheckers){
       val error = checker.check()
       if(error != null)
-        errors += error + s", ${checker.consumer.getWidth} bit assigned by ${checker.provider.getWidth} bit\n  consumer is ${checker.consumer.getScalaLocationString}\n  provider is ${checker.provider.getScalaLocationString}"
+        errors += error + s", ${checker.consumer.getWidth} bit assigned by ${checker.provider.getWidth} bit\n  Consumer: ${checker.consumer.getScalaLocationString}\n  Provider: ${checker.provider.getScalaLocationString}"
     }
     if (!errors.isEmpty)
       SpinalError(errors)
@@ -838,7 +838,7 @@ class Backend {
           errors += s"Can't infer width on ${node.getScalaLocationString}"
         }
         if (node.widthWhenNotInferred != -1 && node.widthWhenNotInferred != node.getWidth) {
-          errors += s"getWidth call result during elaboration differ from inferred width on ${node.getScalaLocationString}"
+          errors += s"getWidth call result during elaboration differs from inferred width on ${node.getScalaLocationString}"
         }
       }
       if (!errors.isEmpty)
@@ -1035,7 +1035,7 @@ class Backend {
                       val driverClockDomain = syncDriver.getClockDomain
                       if (//syncDriver.getClockDomain.clock != consumerCockDomain.clock &&
                           ! driverClockDomain.isSyncronousWith(consumerCockDomain)) {
-                        errors += s"Synchronous element ${syncNode.getScalaLocationStringShort} is drived by ${syncDriver.getScalaLocationStringShort} but they don't have the same clock domain. Register declaration at\n${syncNode.getScalaTraceString} Source declaration at\n${syncDriver.getScalaTraceString}"
+                        errors += s"Synchronous element ${syncNode.getScalaLocationStringShort} is driven by ${syncDriver.getScalaLocationStringShort} but they don't have the same clock domain. Register declaration at\n${syncNode.getScalaTraceString} Source declaration at\n${syncDriver.getScalaTraceString}"
                       }
                     }
                     case _ => that.inputs.foreach(input => if (input != null) check(input))
@@ -1271,7 +1271,7 @@ class Backend {
     Node.walk(walkNodesDefautStack,_.consumers.clear())
   }
 
-  def simplifyBlacBoxGenerics(): Unit = {
+  def simplifyBlackBoxGenerics(): Unit = {
     components.foreach(_ match {
       case blackBox: BlackBox => {
         blackBox.getGeneric.flatten.foreach(tuple => {
