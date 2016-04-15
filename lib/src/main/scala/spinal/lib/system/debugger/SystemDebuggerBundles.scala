@@ -10,11 +10,11 @@ case class SystemDebuggerRsp(c : SystemDebuggerConfig) extends Bundle{
   val data = Bits(c.memDataWidth bit)
 }
 
-case class SystemDebuggerRemote(c : SystemDebuggerConfig) extends Bundle with IMasterSlave{
+case class SystemDebuggerRemoteBus(c : SystemDebuggerConfig) extends Bundle with IMasterSlave{
   val cmd = Stream Fragment(Bits(c.remoteCmdWidth bit))
   val rsp = Stream (SystemDebuggerRsp(c))
 
-  override def asMaster(): SystemDebuggerRemote.this.type = {
+  override def asMaster(): SystemDebuggerRemoteBus.this.type = {
     master(cmd)
     slave(rsp)
     this

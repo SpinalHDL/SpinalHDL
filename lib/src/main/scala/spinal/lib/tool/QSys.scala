@@ -147,6 +147,8 @@ class AvalonEmitter extends QSysifyInterfaceEmiter{
   override def emit(i: Data,builder : StringBuilder): Boolean = i match {
     case e: AvalonMMBus =>{
       import e.c._
+      val isMaster = e.address.isOutput
+      val (masterPinDir,slavePinDir,startEnd) = if(isMaster) ("Output", "Input","start") else ("Input","Output","end")
       val name = e.getName()
       val clockDomainTag = e.getTag[ClockDomainTag]
       if(clockDomainTag.isEmpty) SpinalError(s"Clock domain of ${i} is not defined, You shoud apply the ClockDomainTag to the inferface\nyourBus.addTag(ClockDomainTag(ClockDomain.current))")
@@ -156,7 +158,7 @@ class AvalonEmitter extends QSysifyInterfaceEmiter{
 |#
 |# connection point $name
 |#
-|add_interface $name avalon start
+|add_interface $name avalon $startEnd
 |set_interface_property $name addressUnits ${addressUnits.getName.toUpperCase}
 |set_interface_property $name burstcountUnits ${burstCountUnits.getName.toUpperCase}
 |set_interface_property $name burstOnBurstBoundariesOnly ${burstOnBurstBoundariesOnly}
@@ -174,8 +176,6 @@ class AvalonEmitter extends QSysifyInterfaceEmiter{
 |set_interface_property $name associatedClock $clockName
 |set_interface_property $name associatedReset $resetName
 |set_interface_property $name bitsPerSymbol 8
-|set_interface_property $name doStreamReads false
-|set_interface_property $name doStreamWrites false
 |
 |set_interface_property $name timingUnits Cycles
 |set_interface_property $name ENABLED true
@@ -185,7 +185,11 @@ class AvalonEmitter extends QSysifyInterfaceEmiter{
 |
 """.stripMargin
 
-      val (masterPinDir,slavePinDir) = if(e.address.isOutput) ("Output", "Input") else ("Input","Output")
+      if(isMaster){
+        builder ++= s"set_interface_property $name doStreamReads false\n"
+        builder ++= s"set_interface_property $name doStreamWrites false\n"
+      }
+
       builder ++= s"add_interface_port $name ${e.address.getName} address ${masterPinDir} ${addressWidth}\n"
       if(useRead) builder ++= s"add_interface_port $name ${e.read.getName} read ${masterPinDir} 1\n"
       if(useWrite) builder ++= s"add_interface_port $name ${e.write.getName} write ${masterPinDir} 1\n"

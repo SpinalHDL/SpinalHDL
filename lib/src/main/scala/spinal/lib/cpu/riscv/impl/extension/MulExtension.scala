@@ -2,6 +2,7 @@ package spinal.lib.cpu.riscv.impl.extension
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.bus.avalon.mm.{AvalonMMBus, AvalonMMConfig}
 import spinal.lib.cpu.riscv.impl._
 import spinal.lib.cpu.riscv.impl.Utils._
 

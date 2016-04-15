@@ -26,7 +26,7 @@ case class SystemDebuggerConfig(cpuDataWidth : Int = 32,
 class JtagBridge(c: SystemDebuggerConfig) extends Component{
   val io = new Bundle {
     val jtag = slave(Jtag())
-    val remote = master(SystemDebuggerRemote(c))
+    val remote = master(SystemDebuggerRemoteBus(c))
   }
 
   val system = new Area{
@@ -34,11 +34,9 @@ class JtagBridge(c: SystemDebuggerConfig) extends Component{
     io.remote.cmd << cmd.toStream
 
     val rsp = Reg(Flow(SystemDebuggerRsp(c)))
-
     when(io.remote.cmd.valid){
       rsp.valid := False
     }
-
     when(io.remote.rsp.fire){
       rsp.valid := True
       rsp.payload := io.remote.rsp.payload
@@ -73,7 +71,7 @@ class JtagAvalonDebugger(val c: SystemDebuggerConfig) extends Component {
 
 class SystemDebugger(c : SystemDebuggerConfig) extends Component{
   val io = new Bundle{
-    val remote = slave(SystemDebuggerRemote(c))
+    val remote = slave(SystemDebuggerRemoteBus(c))
     val mem = master(SystemDebuggerMemBus(c))
   }
 

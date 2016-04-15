@@ -15,3 +15,4 @@ class BoolPimped(pimped : Bool){
     e
   }
 }
+
