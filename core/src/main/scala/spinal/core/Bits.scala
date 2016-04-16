@@ -94,5 +94,7 @@ class Bits extends BitVector {
     ret
   }
 
+
+
   override def getZero: this.type = B(0).asInstanceOf[this.type]
 }

@@ -122,3 +122,49 @@ object RegFlow{
   }
 }
 
+object FlowCCByToggle {
+  def apply[T <: Data](input: Flow[T], clockIn: ClockDomain = ClockDomain.current, clockOut: ClockDomain = ClockDomain.current): Flow[T] = {
+    val c = new FlowCCByToggle[T](input.payload, clockIn, clockOut)
+    c.io.input connectFrom input
+    return c.io.output
+  }
+}
+
+
+class FlowCCByToggle[T <: Data](dataType: T, clockIn: ClockDomain, clockOut: ClockDomain) extends Component {
+  val io = new Bundle {
+    val input = slave Flow (dataType)
+    val output = master Flow (dataType)
+  }
+
+  val outHitSignal = Bool
+
+  val inputArea = new ClockingArea(clockIn) {
+    val target = Reg(Bool)
+    val data = Reg(io.input.payload)
+    when(io.input.valid) {
+      target := !target
+      data := io.input.payload
+    }
+  }
+
+
+  val outputArea = new ClockingArea(clockOut) {
+    val target = BufferCC(inputArea.target, if(clockIn.hasReset) False else null)
+    val hit = RegNext(target)
+
+    val flow = io.input.clone
+    flow.valid := (target =/= hit)
+    flow.payload := inputArea.data
+    flow.payload.addTag(crossClockDomain)
+
+    io.output <-< flow
+  }
+
+  if(clockIn.hasReset){
+    inputArea.target init(False)
+    outputArea.hit init(False)
+  }else{
+    inputArea.target.randBoot()
+  }
+}

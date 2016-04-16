@@ -10,7 +10,7 @@ case class IrqUsage(isException : Boolean)
 
 object Utils{
   object PC extends SpinalEnum(sequancial){
-    val INC,BR1,J,JR = newElement()
+    val INC,BRA,J,JR = newElement()
   }
   object BR extends SpinalEnum{
     val N, NE, EQ, GE, GEU, LT, LTU, J, JR = newElement()
@@ -31,15 +31,15 @@ object Utils{
   }
 
   object OP1 extends SpinalEnum(sequancial){
-    val RS1, IMU, IMZ, IMJB = newElement()
-    def X = RS1
+    val RS, IMU, IMZ, IMJB = newElement()
+    def X = RS
   }
 
 
   object OP2 extends SpinalEnum(sequancial){
-    val RS2, IMI, IMS, PC1 = newElement()
+    val RS, IMI, IMS, PC1 = newElement()
 
-    def X = RS2
+    def X = RS
   }
 
   object WB extends SpinalEnum(sequancial){
@@ -163,7 +163,7 @@ object Utils{
       when(instruction === BASE){
         when(instruction === BASE_MEM){
           ctrl.instVal := True
-          ctrl.op1 := OP1.RS1
+          ctrl.op1 := OP1.RS
           ctrl.alu := ALU.ADD
           ctrl.men := True
           when(instruction === BASE_MEM_L){
@@ -200,7 +200,7 @@ object Utils{
           when(instruction === BASE_OPX_I) {
             when(!isShift || (instruction === M"0-00000-------------------------" && !(instruction(30) && !instruction(14)))) {
               ctrl.instVal := True
-              ctrl.op1 := OP1.RS1
+              ctrl.op1 := OP1.RS
               ctrl.op2 := OP2.IMI
               ctrl.alu.assignFromBits((isShift && instruction(30)) ## instruction(14 downto 12))
               ctrl.wb  := WB.ALU1
@@ -212,8 +212,8 @@ object Utils{
             when(instruction === M"0-00000-------------------------"){
               when(instruction(30) === False || instruction(14 downto 12) === B"000" || instruction(14 downto 12) === "101"){
                 ctrl.instVal := True
-                ctrl.op1 := OP1.RS1
-                ctrl.op2 := OP2.RS2
+                ctrl.op1 := OP1.RS
+                ctrl.op2 := OP2.RS
                 ctrl.alu.assignFromBits(instruction(30) ## instruction(14 downto 12))
                 ctrl.wb  := WB.ALU1
                 ctrl.rfen := True
@@ -237,7 +237,7 @@ object Utils{
           ctrl.instVal := True
           ctrl.br := BR.JR
           ctrl.jmp := True
-          ctrl.op1 := OP1.RS1
+          ctrl.op1 := OP1.RS
           ctrl.op2 := OP2.IMI
           ctrl.alu := ALU.ADD
           ctrl.wb := WB.PC4
@@ -255,7 +255,7 @@ object Utils{
           when(instruction === BASE_CSR_I){
             ctrl.op1 := OP1.IMZ
           }otherwise {
-            ctrl.op1 := OP1.RS1
+            ctrl.op1 := OP1.RS
           }
           ctrl.alu := ALU.COPY1
           ctrl.wb := WB.CSR1

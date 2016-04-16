@@ -35,14 +35,14 @@ object SpinalVhdl {
           tryCounter match {
             case 0 => {
               println("\n**********************************************************************************************")
-              SpinalWarning("Elaboration fail !!! Spinal restart it with scala trace to help you to find the problem")
+              SpinalWarning("Elaboration failed !!! Spinal will restart with scala trace to help you to find the problem")
               println("**********************************************************************************************\n")
               Thread.sleep(10);
               return doIt(1)
             }
             case 1 => {
               println("\n**********************************************************************************************")
-              SpinalWarning("Elaboration fail !!!")
+              SpinalWarning("Elaboration failed !!!")
               println("**********************************************************************************************")
               Thread.sleep(10);
               throw e
@@ -72,7 +72,7 @@ class SpinalVhdl[T <: Component](gen: => T) {
   }
 
   def setDefaultClockFrequency(f : IClockDomainFrequency): Unit ={
-    backend.defaultClockDomainFrequancy = f
+    backend.defaultClockDomainFrequency = f
   }
 
   def setLibrary(name: String): this.type = {

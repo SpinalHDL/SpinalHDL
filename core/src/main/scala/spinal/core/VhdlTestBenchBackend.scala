@@ -106,7 +106,12 @@ class VhdlTestBenchBackend() extends VhdlBase {
 
   def emitSignals(c: Component, ret: StringBuilder): Unit = {
     for (io <- c.getOrdredNodeIo) {
-      ret ++= emitSignal(io, io);
+      val str = emitSignal(io, io)
+
+      ret ++= {if(backend.onlyStdLogicVectorTopLevelIo)
+        str.replace("unsigned","std_logic_vector").replace("signed","std_logic_vector")
+      else
+        str}
     }
   }
 

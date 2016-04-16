@@ -239,7 +239,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
     this
   }
 
-
+  def asData = this.asInstanceOf[Data]
   def getZero: this.type
 
   def flatten: Seq[BaseType]

@@ -606,7 +606,17 @@ object PlayVecBaseType {
     SpinalVhdl(new TopLevel)
   }
 }
+object PlayZeroWidth {
 
+  class TopLevel extends Component {
+    out(in(Bits(0 bit)) === 0)
+//    out(in(UInt(0 bit)) + in(UInt(0 bit)))
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
 object PlayVec {
 
   class TopLevel extends Component {
@@ -622,7 +632,7 @@ object PlayVec {
     val sel,sel2 = in UInt(n bit)
     val vecIn = in Vec(Vec(UInt(4 bit),pow),pow)
     val vecOut = out Vec(Vec(UInt(4 bit),pow),pow)
-
+    U(2).toString
     vecOut := vecIn
     vecOut(sel)(sel2) := 0
   }
@@ -1308,9 +1318,9 @@ object OverloadPlay {
 
     for (i <- 0 until 1) {
       val report = SpinalVhdl({
-        val vgaClock = ClockDomain("vga")
-        val vgaMemoryClock = ClockDomain("vgaMemory")
-        val coreClock = ClockDomain("core", FixedFrequency(100e6))
+        val vgaClock = ClockDomain.external("vga")
+        val vgaMemoryClock = ClockDomain.external("vgaMemory")
+        val coreClock = ClockDomain.external("core",frequency = FixedFrequency(100e6))
         new OverloadPlay(0, new MandelbrotCoreParameters(256, 64, 640, 480, 7, 17 * 3), coreClock, vgaMemoryClock, vgaClock)
       })
       // Console.in.read

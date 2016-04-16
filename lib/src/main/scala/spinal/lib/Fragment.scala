@@ -2,6 +2,8 @@ package spinal.lib
 
 import spinal.core._
 
+import scala.collection.mutable.ArrayBuffer
+
 class FragmentFactory {
   def apply[T <: Data](dataType: T): Fragment[T] = new Fragment(dataType)
 }
@@ -253,6 +255,58 @@ class StreamFragmentBitsPimped(pimped: Stream[Fragment[Bits]]) {
     ret
   }
 }
+
+case class StreamFragmentBitsDispatcherElement(sink : Stream[Bits],header : Int)
+
+class StreamFragmentBitsDispatcher(headerWidth : Int,input : Stream[Fragment[Bits]],outputs : Seq[(Int,Stream[Data])]) extends Area{
+  val sourceWidth = input.fragment.getWidth
+  val dataMaxWidth = outputs.map(_._2.payload.getBitsWidth).reduce(Math.max(_,_))
+  val dataWidth =  roundUp(dataMaxWidth,by=sourceWidth).toInt
+  val dataPacketCount = dataWidth / sourceWidth
+  val dataShifter = Reg(Bits(dataWidth bit))
+  val dataLoaded = RegInit(False)
+
+  val headerShifter = Reg(Bits(roundUp(headerWidth,by=sourceWidth) bit))
+  val headerPacketCount = headerShifter.getWidth / sourceWidth
+  val header = headerShifter(headerWidth-1 downto 0)
+  val headerLoaded = RegInit(False)
+
+  val counter = Reg(UInt(log2Up(headerPacketCount) bit)) init(0)
+
+  when(input.valid) {
+    when(headerLoaded === False) {
+      headerShifter := (input.fragment ## headerShifter) >> sourceWidth
+      counter := counter + 1
+      when(counter === headerPacketCount-1){
+        headerLoaded := True
+      }
+    }otherwise{
+      dataShifter := (input.fragment ## dataShifter) >> sourceWidth
+    }
+
+    when(input.last){
+      headerLoaded := True
+      dataLoaded := True
+      counter := 0
+    }
+  }
+
+  input.ready := !dataLoaded
+
+  for((portHeader,port) <- outputs){
+    val sinkWidth = port.payload.getBitsWidth
+    val offset = dataWidth - roundUp(sinkWidth,by=sourceWidth).toInt
+    port.payload.assignFromBits(dataShifter(offset,sinkWidth bit))
+    port.valid := dataLoaded && header === portHeader
+  }
+
+  when(outputs.map(_._2.fire).reduce(_ || _)){
+    headerLoaded := False
+    dataLoaded := False
+  }
+}
+
+
 
 class DataCarrierFragmentPimped[T <: Data](pimped: DataCarrier[Fragment[T]]) {
   def first: Bool = signalCache(pimped, "first", () => RegNextWhen(pimped.last, pimped.fire, True))
