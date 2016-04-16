@@ -506,6 +506,19 @@ object PlayDontCare {
   }
 }
 
+object PlayBug {
+
+  class TopLevel extends Component {
+    val a, b = in UInt (4 bit)
+    val result = out UInt (4 bit)
+    result := RegNext(a) + b
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
 
 object PlayOpt {
 

@@ -76,32 +76,21 @@ class DebugExtension extends CoreExtension{
     val readRegFileReg = RegNext(False)
     val resetIt = RegInit(False)
     val haltIt = RegInit(False)
-    val inBreakpoint = False
+    val isRunning = True
     when(io.bus.cmd.valid) {
-      when(io.bus.cmd.address.msb){
+      when(io.bus.cmd.address.msb){//access special register else regfile
         switch(io.bus.cmd.address(io.bus.cmd.address.high-1 downto 0)) {
           is(0){
             when(io.bus.cmd.wr){
-              resetIt := io.bus.cmd.data.lsb
+              resetIt := io.bus.cmd.data(0)
+              haltIt := io.bus.cmd.data(1)
             } otherwise{
               busReadDataReg(0) := resetIt
+              busReadDataReg(1) := haltIt
+              busReadDataReg(2) := isRunning
             }
           }
           is(1){
-            when(io.bus.cmd.wr){
-              haltIt := io.bus.cmd.data.lsb
-            } otherwise{
-              busReadDataReg(0) := haltIt //TODO add check value
-            }
-          }
-          is(2){
-            when(io.bus.cmd.wr){
-
-            } otherwise{
-              busReadDataReg(0) := inBreakpoint
-            }
-          }
-          is(3){
             when(io.bus.cmd.wr){
               core.fetchCmd.pc := io.bus.cmd.data.asUInt
               core.fetchCmd.inc := False
@@ -131,11 +120,21 @@ class DebugExtension extends CoreExtension{
         core.fetchCmd.halt := True
       }
     }
+
+
+    //Keep the execution pipeline empty after break instruction
+    when(isMyTag(core.writeBack0.inInst.ctrl) || isMyTag(core.execute1.inInst.ctrl)){
+      core.execute0.halt := True
+    }
   }
 
-  override def needTag: Boolean = false
+  override def needTag: Boolean = true
 
   override def getName: String = "DebugExtension"
 
-  override def instructionCtrlExtension(instruction: Bits, ctrl: InstructionCtrl): Unit = {}
+  override def instructionCtrlExtension(instruction: Bits, ctrl: InstructionCtrl): Unit = {
+    when(instruction === 0x00100073){
+      applyTag(ctrl)
+    }
+  }
 }
