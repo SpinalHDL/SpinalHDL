@@ -6,7 +6,6 @@ import scala.language.experimental.macros
 package object core extends BaseTypeFactory with BaseTypeCast {
 
   import languageFeature.implicitConversions
-  import languageFeature.postfixOps
 
   implicit lazy val implicitConversions = scala.language.implicitConversions
   implicit lazy val reflectiveCalls = scala.language.reflectiveCalls

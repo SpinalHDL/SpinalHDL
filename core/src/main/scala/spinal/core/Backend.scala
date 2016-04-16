@@ -47,7 +47,7 @@ class Backend {
   val enums = mutable.Map[SpinalEnum,mutable.Set[SpinalEnumEncoding]]()
   var forceMemToBlackboxTranslation = false
   var jsonReportPath = ""
-  var defaultClockDomainFrequancy : IClockDomainFrequency = UnknownFrequency()
+  var defaultClockDomainFrequency : IClockDomainFrequency = UnknownFrequency()
 
   def addReservedKeyWordToScope(scope: Scope): Unit = {
     reservedKeyWords.foreach(scope.allocateName(_))
@@ -57,7 +57,7 @@ class Backend {
     SpinalInfoPhase("Start elaboration")
 
     //default clockDomain
-    val defaultClockDomain = ClockDomain("",defaultClockDomainFrequancy)
+    val defaultClockDomain = ClockDomain("",defaultClockDomainFrequency)
 
     ClockDomain.push(defaultClockDomain)
     topLevel = gen()
@@ -89,8 +89,8 @@ class Backend {
     builder ++= "}\n"
     val out = new java.io.FileWriter(jsonReportPath + ".json")
     out.write(builder.toString())
-    out.flush();
-    out.close();
+    out.flush()
+    out.close()
 
     ret
   }
@@ -107,7 +107,7 @@ class Backend {
 
     applyComponentIoDefaults()
     walkNodesBlackBoxGenerics()
-    remplaceMemByBlackBox_simplifyWriteReadWithSameAddress()
+    replaceMemByBlackBox_simplifyWriteReadWithSameAddress()
 
     addComponent(topLevel)
     sortedComponents = components.sortWith(_.level > _.level)
@@ -137,7 +137,7 @@ class Backend {
     simplifyNodes()
     propagateBaseTypeWidth()
     normalizeNodeInputs()
-    checkInferedWidth()
+    checkInferredWidth()
 
     //Check
     SpinalInfoPhase("Check combinatorial loops")
@@ -188,8 +188,7 @@ class Backend {
     }
   }
 
-
-  def remplaceMemByBlackBox_simplifyWriteReadWithSameAddress(): Unit = {
+  def replaceMemByBlackBox_simplifyWriteReadWithSameAddress(): Unit = {
     class MemTopo(val mem: Mem[_]) {
       val writes = ArrayBuffer[MemWrite]()
       val readsAsync = ArrayBuffer[MemReadAsync]()
@@ -204,7 +203,7 @@ class Backend {
     Node.walk(walkNodesDefautStack,node => node match {
       case write: MemWrite => {
         val memTopo = topoOf(write.getMem)
-        val readSync = memTopo.readsSync.find(readSync => readSync.originalAddress == write.originalAddress).getOrElse(null)
+        val readSync = memTopo.readsSync.find(readSync => readSync.originalAddress == write.originalAddress).orNull
         if (readSync == null) {
           memTopo.writes += write
         } else {
@@ -216,7 +215,7 @@ class Backend {
       case readAsync: MemReadAsync => topoOf(readAsync.getMem).readsAsync += readAsync
       case readSync: MemReadSync => {
         val memTopo = topoOf(readSync.getMem)
-        val write = memTopo.writes.find(write => readSync.originalAddress == write.originalAddress).getOrElse(null)
+        val write = memTopo.writes.find(write => readSync.originalAddress == write.originalAddress).orNull
         if (write == null) {
           memTopo.readsSync += readSync
         } else {
@@ -245,11 +244,11 @@ class Backend {
     for ((mem, topo) <- memsTopo.iterator if forceMemToBlackboxTranslation || mem.forceMemToBlackboxTranslation
                                           if mem.initialContent == null) {
 
-      if (topo.writes.size == 1 && topo.readsAsync.size == 1 && topo.readsSync.size == 0 && topo.writeReadSync.size == 0 && topo.writeOrReadSync.size == 0) {
+      if (topo.writes.size == 1 && topo.readsAsync.size == 1 && topo.readsSync.isEmpty && topo.writeReadSync.isEmpty && topo.writeOrReadSync.isEmpty) {
         val wr = topo.writes(0)
         val rd = topo.readsAsync(0)
         val clockDomain = wr.getClockDomain
-        clockDomain.push
+        clockDomain.push()
         Component.push(mem.component)
 
         val ram = Component(new Ram_1c_1w_1ra(mem.getWidth, mem.wordCount, rd.writeToReadKind))
@@ -264,14 +263,14 @@ class Backend {
 
         ram.setCompositeName(mem)
         Component.pop(mem.component)
-        clockDomain.pop
-      } else if (topo.writes.size == 1 && topo.readsAsync.size == 0 && topo.readsSync.size == 1 && topo.writeReadSync.size == 0 && topo.writeOrReadSync.size == 0) {
+        clockDomain.pop()
+      } else if (topo.writes.size == 1 && topo.readsAsync.isEmpty && topo.readsSync.size == 1 && topo.writeReadSync.isEmpty && topo.writeOrReadSync.isEmpty) {
         val wr = topo.writes(0)
         val rd = topo.readsSync(0)
         if (rd.getClockDomain.clock == wr.getClockDomain.clock) {
           val clockDomain = wr.getClockDomain
 
-          clockDomain.push
+          clockDomain.push()
           Component.push(mem.component)
 
           val ram = Component(new Ram_1c_1w_1rs(mem.getWidth, mem.wordCount, rd.writeToReadKind))
@@ -292,15 +291,15 @@ class Backend {
 
           ram.setCompositeName(mem)
           Component.pop(mem.component)
-          clockDomain.pop
+          clockDomain.pop()
         }
-      } else if (topo.writes.size == 0 && topo.readsAsync.size == 0 && topo.readsSync.size == 0 && topo.writeReadSync.size == 1 && topo.writeOrReadSync.size == 0) {
+      } else if (topo.writes.isEmpty && topo.readsAsync.isEmpty && topo.readsSync.isEmpty && topo.writeReadSync.size == 1 && topo.writeOrReadSync.isEmpty) {
         val wr = topo.writeReadSync(0)._1
         val rd = topo.writeReadSync(0)._2
         if (rd.getClockDomain.clock == wr.getClockDomain.clock) {
           val clockDomain = wr.getClockDomain
 
-          clockDomain.push
+          clockDomain.push()
           Component.push(mem.component)
 
           val ram = Component(new Ram_1wrs(mem.getWidth, mem.wordCount, rd.writeToReadKind))
@@ -320,15 +319,15 @@ class Backend {
 
           ram.setCompositeName(mem)
           Component.pop(mem.component)
-          clockDomain.pop
+          clockDomain.pop()
         }
-      } else if (topo.writes.size == 0 && topo.readsAsync.size == 0 && topo.readsSync.size == 0 && topo.writeReadSync.size == 0 && topo.writeOrReadSync.size == 1) {
+      } else if (topo.writes.isEmpty && topo.readsAsync.isEmpty && topo.readsSync.isEmpty && topo.writeReadSync.isEmpty && topo.writeOrReadSync.size == 1) {
         val wr = topo.writeOrReadSync(0)._1
         val rd = topo.writeOrReadSync(0)._2
         if (rd.getClockDomain.clock == wr.getClockDomain.clock) {
           val clockDomain = wr.getClockDomain
 
-          clockDomain.push
+          clockDomain.push()
           Component.push(mem.component)
 
           val ram = Component(new Ram_1wors(mem.getWidth, mem.wordCount, rd.writeToReadKind))
@@ -343,7 +342,7 @@ class Backend {
 
           ram.setCompositeName(mem)
           Component.pop(mem.component)
-          clockDomain.pop
+          clockDomain.pop()
         }
       }
     }
@@ -468,7 +467,7 @@ class Backend {
       case _ =>
     })
 
-    if (!errors.isEmpty)
+    if (errors.nonEmpty)
       SpinalError(errors)
   }
 
@@ -734,7 +733,7 @@ class Backend {
   }
 
 
-  def checkInferedWidth(): Unit = {
+  def checkInferredWidth(): Unit = {
     val errors = mutable.ArrayBuffer[String]()
     Node.walk(walkNodesDefautStack,node => {
       val error = node.checkInferedWidth
@@ -747,7 +746,7 @@ class Backend {
       if(error != null)
         errors += error + s", ${checker.consumer.getWidth} bit assigned by ${checker.provider.getWidth} bit\n  consumer is ${checker.consumer.getScalaLocationString}\n  provider is ${checker.provider.getScalaLocationString}"
     }
-    if (!errors.isEmpty)
+    if (errors.nonEmpty)
       SpinalError(errors)
   }
 
@@ -819,7 +818,7 @@ class Backend {
           errors += s"getWidth call result during elaboration differ from inferred width on ${node.getScalaLocationString}"
         }
       }
-      if (!errors.isEmpty)
+      if (errors.nonEmpty)
         SpinalError(errors)
     }
 
@@ -834,7 +833,7 @@ class Backend {
       }
 
       if (!somethingChange || iterationCounter == nodes.size) {
-        checkAll
+        checkAll()
         return
       }
     }

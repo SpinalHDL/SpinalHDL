@@ -25,39 +25,40 @@ import scala.collection.mutable.ArrayBuffer
 //
 //}
 
-trait VecFactory{
-  def Vec[T <: Data](elements : TraversableOnce[T]) : Vec[T] = {
+trait VecFactory {
+  def Vec[T <: Data](elements: TraversableOnce[T]): Vec[T] = {
     val vector = elements.toVector
-    val vecType = vector.reduce((a,b) => {
+    val vecType = vector.reduce((a, b) => {
       if (a.getClass.isAssignableFrom(b.getClass)) a
       else if (b.getClass.isAssignableFrom(a.getClass)) b
       else throw new Exception("can't mux that")
     }).clone()
 
-    val vec = new Vec(vecType,vector)
+    val vec = new Vec(vecType, vector)
     vec
   }
 
+  def Vec[T <: Data](gen: => T, size: Int): Vec[T] = fill(size)(gen)
 
-  def Vec[T <: Data](gen :  => T,size : Int) : Vec[T] = fill(size)(gen)
-  def Vec[T <: Data](gen : Vec[T],size : Int) : Vec[Vec[T]] = fill(size)(gen.clone)
-  def Vec[T <: Data](gen :(Int) => T,size : Int) : Vec[T] = tabulate(size)(gen)
+  def Vec[T <: Data](gen: Vec[T], size: Int): Vec[Vec[T]] = fill(size)(gen.clone)
+
+  def Vec[T <: Data](gen: (Int) => T, size: Int): Vec[T] = tabulate(size)(gen)
 
   //def apply[T <: Data](gen : => Vec[T],size : Int) : Vec[Vec[T]] = fill(size)(gen)
 
+  @deprecated //swap data and size
+  def Vec[T <: Data](size: Int, gen: => T): Vec[T] = fill(size)(gen)
 
   @deprecated //swap data and size
-  def Vec[T <: Data](size : Int,gen : => T) : Vec[T] = fill(size)(gen)
-  @deprecated //swap data and size
-  def Vec[T <: Data](size : Int,gen :(Int) => T) : Vec[T] = tabulate(size)(gen)
+  def Vec[T <: Data](size: Int, gen: (Int) => T): Vec[T] = tabulate(size)(gen)
 
   def Vec[T <: Data](firstElement: T, followingElements: T*): Vec[T] = Vec(List(firstElement) ++ followingElements)
 
-  def tabulate[T <: Data](size : Int)(gen : (Int)=> T) : Vec[T] ={
+  def tabulate[T <: Data](size: Int)(gen: (Int) => T): Vec[T] = {
     Vec((0 until size).map(gen(_)))
   }
 
-  def fill[T <: Data](size : Int)(gen : => T) : Vec[T] ={
+  def fill[T <: Data](size: Int)(gen: => T): Vec[T] = {
     tabulate(size)(_ => gen)
   }
 }
@@ -65,7 +66,7 @@ trait VecFactory{
 
 object SeqMux {
   def apply[T <: Data](elements: Seq[T], address: UInt): T = {
-    if(elements.size == 1) {
+    if (elements.size == 1) {
       val ret = elements.head.clone()
       ret := elements.head
       return ret
@@ -79,7 +80,7 @@ object SeqMux {
         case 1 => elements(0)
         case _ => {
           val split = elements.grouped((elements.size + 1) / 2).toList
-          Mux(addressBools(addressWidth-level-1), stage(split(1), level + 1), stage(split(0), level + 1))
+          Mux(addressBools(addressWidth - level - 1), stage(split(1), level + 1), stage(split(0), level + 1))
         }
       }
     }
@@ -88,31 +89,33 @@ object SeqMux {
 }
 
 class VecAccessAssign[T <: BaseType](enables: Seq[Bool], tos: Seq[T]) extends Assignable {
-  override def assignFromImpl(that: AnyRef,conservative : Boolean): Unit = {
+  override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
     for ((enable, to) <- (enables, tos).zipped) {
       when(enable) {
-        val thatSafe = that match{
-          case that : AssignementNode => that.clone(to)
+        val thatSafe = that match {
+          case that: AssignementNode => that.clone(to)
           case _ => that
         }
-        to.assignFrom(thatSafe,conservative)
+        to.assignFrom(thatSafe, conservative)
       }
     }
   }
 }
 
-class Vec[T <: Data](_dataType: T,val vec : Vector[T]) extends MultiData with collection.IndexedSeq[T]{
+class Vec[T <: Data](_dataType: T, val vec: Vector[T]) extends MultiData with collection.IndexedSeq[T] {
 
   def dataType = cloneOf(_dataType)
 
   def range = 0 until vec.length
-  override def equals(that : Any) : Boolean = that match{
-    case that : Vec[_] => instanceCounter == that.instanceCounter
+
+  override def equals(that: Any): Boolean = that match {
+    case that: Vec[_] => instanceCounter == that.instanceCounter
     case _ => false
   }
+
   override def hashCode(): Int = instanceCounter
 
-  private[core] val accessMap = mutable.Map[(Component,UInt), T]()
+  private[core] val accessMap = mutable.Map[(Component, UInt), T]()
   private[core] var vecTransposedCache: ArrayBuffer[ArrayBuffer[BaseType]] = null
 
   private[core] def vecTransposed: ArrayBuffer[ArrayBuffer[BaseType]] = {
@@ -135,11 +138,9 @@ class Vec[T <: Data](_dataType: T,val vec : Vector[T]) extends MultiData with co
 
 
   def apply(idx: Int): T = {
-    if(idx < 0 || idx >= vec.size) SpinalError(s"Static Vec($idx) is outside the range (${vec.size - 1} downto 0) of ${this}")
+    if (idx < 0 || idx >= vec.size) SpinalError(s"Static Vec($idx) is outside the range (${vec.size - 1} downto 0) of ${this}")
     vec(idx)
   }
-
-
 
 
   def apply(address: UInt): T = {
@@ -148,34 +149,34 @@ class Vec[T <: Data](_dataType: T,val vec : Vector[T]) extends MultiData with co
 
 
   def access(address: UInt): T = {
-    val key = (Component.current,address)
+    val key = (Component.current, address)
     if (accessMap.contains(key)) return accessMap(key)
 
 
-    val ret = SeqMux(vec.take(Math.min(vec.length,1 << address.getWidth)), address)
+    val ret = SeqMux(vec.take(Math.min(vec.length, 1 << address.getWidth)), address)
     val enables = (U(1) << address).asBools
     for ((accessE, to) <- (ret.flatten, vecTransposed).zipped) {
-      accessE.compositeAssign = new VecAccessAssign(enables,to)
+      accessE.compositeAssign = new VecAccessAssign(enables, to)
     }
 
     accessMap += (key -> ret)
     ret
   }
 
-  //TODO sub element composit assignement, aswell for indexed access (std)
-  def oneHotAccess(oneHot : Bits): T ={
+  //TODO sub element composite assignement, as well for indexed access (std)
+  def oneHotAccess(oneHot: Bits): T = {
     val ret = dataType.clone
     ret := ret.getZero
-    for((e,idx) <- vec.zipWithIndex){
-      when(oneHot(idx)){
+    for ((e, idx) <- vec.zipWithIndex) {
+      when(oneHot(idx)) {
         ret := e
       }
     }
     ret.compositeAssign = new Assignable {
       override private[core] def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
         assert(!conservative)
-        for((e,idx) <- vec.zipWithIndex){
-          when(oneHot(idx)){
+        for ((e, idx) <- vec.zipWithIndex) {
+          when(oneHot(idx)) {
             e := that.asInstanceOf[T]
           }
         }
@@ -185,7 +186,7 @@ class Vec[T <: Data](_dataType: T,val vec : Vector[T]) extends MultiData with co
     ret
   }
 
-  private[core] override def assignFromImpl(that: AnyRef,conservative : Boolean): Unit = {
+  private[core] override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
     assert(!conservative)
     that match {
       case that: Vec[T] => {
@@ -194,7 +195,7 @@ class Vec[T <: Data](_dataType: T,val vec : Vector[T]) extends MultiData with co
           to.:=(from)
         }
       }
-      case _ => throw new Exception("Undefined assignement")
+      case _ => throw new Exception("Undefined assignment")
     }
   }
 
@@ -204,20 +205,20 @@ class Vec[T <: Data](_dataType: T,val vec : Vector[T]) extends MultiData with co
   def elements = {
     if (elementsCache == null) {
       elementsCache = ArrayBuffer[(String, Data)]()
-//      var i = vec.size -1
-//      while(i >= 0) {
-//        elementsCache += Tuple2(i.toString, vec(i))
-//        i = i - 1
-//      }
-      for((e,i) <- vec.zipWithIndex) {
+      //      var i = vec.size -1
+      //      while(i >= 0) {
+      //        elementsCache += Tuple2(i.toString, vec(i))
+      //        i = i - 1
+      //      }
+      for ((e, i) <- vec.zipWithIndex) {
         elementsCache += Tuple2(i.toString, e)
       }
     }
     elementsCache
   }
 
-  override def clone : this.type = {
-    new Vec[T](dataType,vec.map(_.clone())).asInstanceOf[this.type]
+  override def clone: this.type = {
+    new Vec[T](dataType, vec.map(_.clone())).asInstanceOf[this.type]
   }
 }
 
