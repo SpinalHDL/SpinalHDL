@@ -51,11 +51,11 @@ class MemWritePayload[T <: Data](dataType: T, addressWidth: Int) extends Bundle{
   val address = UInt(addressWidth bit)
 }
 
-class Mem[T <: Data](val wordType: T, val wordCount: Int) extends Node with Nameable {
+class Mem[T <: Data](_wordType: T, val wordCount: Int) extends Node with Nameable {
   var forceMemToBlackboxTranslation = false
   val _widths = wordType.flatten.map(t => t.getWidth).toVector //Force to fix width of each wire
 
-
+  def wordType : T = _wordType.clone
   override def calcWidth: Int = wordType.flatten.map(_.calcWidth).reduceLeft(_ + _)
   def addressWidth = log2Up(wordCount)
 

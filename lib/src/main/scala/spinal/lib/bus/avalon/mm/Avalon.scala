@@ -47,6 +47,24 @@ case class AvalonMMConfig( addressWidth : Int,
 }
 
 object AvalonMMConfig{
+  def fixed(addressWidth : Int,
+                dataWidth : Int) = AvalonMMConfig(
+    addressWidth=addressWidth,
+    dataWidth=dataWidth,
+    burstCountWidth = -1,
+    useByteEnable = true,
+    useDebugAccess = false,
+    useRead = true,
+    useWrite = true,
+    useResponse = false,
+    useLock = false,
+    useWaitRequestn = true,
+    useReadDataValid = false,
+    useBurstCount = false
+  )
+
+
+
   def pipelined(addressWidth : Int,
                 dataWidth : Int) = AvalonMMConfig(
       addressWidth=addressWidth,

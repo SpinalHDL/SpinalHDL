@@ -68,4 +68,19 @@ class MemPimped[T <: Data](mem: Mem[T]) {
     ret.value := mem.readSync(cmd.payload)
     ret
   }
+
+
+  def writePort : Flow[MemWriteCmd[T]] = {
+    val ret = Flow(MemWriteCmd(mem))
+    when(ret.valid){
+      mem.write(ret.address,ret.data)
+    }
+    ret
+  }
+}
+
+
+case class MemWriteCmd[T <: Data](mem : Mem[T]) extends Bundle{
+  val address = mem.addressType
+  val data = mem.wordType
 }

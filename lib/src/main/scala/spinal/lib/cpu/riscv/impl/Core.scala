@@ -30,7 +30,7 @@ object cmdStream_rspFlow_oneCycle extends InstructionBusKind  //Usefull for fast
 
 
 
-case class CoreParm(val pcWidth : Int = 32,
+case class CoreConfig(val pcWidth : Int = 32,
                     val addrWidth : Int = 32,
                     val startAddress : Int = 0,
                     val bypassExecute0 : Boolean = true,
@@ -55,24 +55,24 @@ case class CoreParm(val pcWidth : Int = 32,
   }
 }
 
-case class CoreInstructionCmd(implicit p : CoreParm) extends Bundle{
+case class CoreInstructionCmd(implicit p : CoreConfig) extends Bundle{
   val pc = UInt(p.addrWidth bit)
 }
 
-case class CoreInstructionRsp(implicit p : CoreParm) extends Bundle{
+case class CoreInstructionRsp(implicit p : CoreConfig) extends Bundle{
   val instruction = Bits(32 bit)
 }
 
 
 object CoreInstructionBus{
-  def getAvalonConfig(p : CoreParm) = AvalonMMConfig.pipelined(
+  def getAvalonConfig(p : CoreConfig) = AvalonMMConfig.pipelined(
     addressWidth = p.addrWidth,
     dataWidth = 32).getReadOnlyConfig.copy(
       maximumPendingReadTransactions = 2
     )
 }
 
-case class CoreInstructionBus(implicit p : CoreParm) extends Bundle with IMasterSlave{
+case class CoreInstructionBus(implicit p : CoreConfig) extends Bundle with IMasterSlave{
   val cmd = Stream (CoreInstructionCmd())
   val rsp = Stream (CoreInstructionRsp())
 
@@ -116,14 +116,14 @@ case class CoreInstructionBus(implicit p : CoreParm) extends Bundle with IMaster
 }
 
 object CoreDataBus{
-  def getAvalonConfig(p : CoreParm) = AvalonMMConfig.pipelined(
+  def getAvalonConfig(p : CoreConfig) = AvalonMMConfig.pipelined(
     addressWidth = 32,
     dataWidth = 32).copy(
       maximumPendingReadTransactions = 2
     )
 }
 
-case class CoreDataBus(implicit p : CoreParm) extends Bundle with IMasterSlave{
+case class CoreDataBus(implicit p : CoreConfig) extends Bundle with IMasterSlave{
   val cmd = Stream (CoreDataCmd())
   val rsp = Stream (Bits(32 bit))
 
@@ -151,7 +151,7 @@ case class CoreDataBus(implicit p : CoreParm) extends Bundle with IMasterSlave{
       U(0) -> B"0001",
       U(1) -> B"0011",
       default -> B"1111"
-    ) << mm.address(1 downto 0)).resized
+    ) << cmd.address(1 downto 0)).resized
 
     val contextIn = Stream(UInt(2 bit))
     contextIn.valid := cmd.fire && !cmd.wr
@@ -167,29 +167,29 @@ case class CoreDataBus(implicit p : CoreParm) extends Bundle with IMasterSlave{
   }
 }
 
-case class CoreDataCmd(implicit p : CoreParm) extends Bundle{
+case class CoreDataCmd(implicit p : CoreConfig) extends Bundle{
   val wr = Bool
   val address = UInt(p.addrWidth bit)
   val data = Bits(32 bit)
   val size = UInt(2 bit)
 }
 
-case class BranchPredictorLine(implicit p : CoreParm)  extends Bundle{
+case class BranchPredictorLine(implicit p : CoreConfig)  extends Bundle{
   val pc = UInt(p.pcWidth-p.dynamicBranchPredictorCacheSizeLog2-2 bit)
   val history = SInt(2 bit)
 }
 
-case class CoreFetchCmdOutput(implicit p : CoreParm) extends Bundle{
+case class CoreFetchCmdOutput(implicit p : CoreConfig) extends Bundle{
   val pc = UInt(p.pcWidth bit)
 }
 
-case class CoreFetchOutput(implicit p : CoreParm) extends Bundle{
+case class CoreFetchOutput(implicit p : CoreConfig) extends Bundle{
   val pc = UInt(p.pcWidth bit)
   val instruction = Bits(32 bit)
   val branchCacheLine = BranchPredictorLine()
 }
 
-case class CoreDecodeOutput(implicit p : CoreParm) extends Bundle{
+case class CoreDecodeOutput(implicit p : CoreConfig) extends Bundle{
   val pc = UInt(p.pcWidth bit)
   val instruction = Bits(32 bit)
   val ctrl = InstructionCtrl()
@@ -202,7 +202,7 @@ case class CoreDecodeOutput(implicit p : CoreParm) extends Bundle{
   val branchHistory = Flow(SInt(p.branchPredictorHistoryWidth bit))
 }
 
-case class CoreExecute0Output(implicit p : CoreParm) extends Bundle{
+case class CoreExecute0Output(implicit p : CoreConfig) extends Bundle{
   val pc = UInt(p.pcWidth bit)
   val instruction = Bits(32 bit)
   val ctrl = InstructionCtrl()
@@ -219,7 +219,7 @@ case class CoreExecute0Output(implicit p : CoreParm) extends Bundle{
   val unalignedMemoryAccessException = Bool
 }
 
-case class CoreExecute1Output(implicit p : CoreParm) extends Bundle{
+case class CoreExecute1Output(implicit p : CoreConfig) extends Bundle{
   val pc = UInt(p.pcWidth bit)
   val instruction = Bits(32 bit)
   val ctrl = InstructionCtrl()
@@ -229,13 +229,13 @@ case class CoreExecute1Output(implicit p : CoreParm) extends Bundle{
   val unalignedMemoryAccessException = Bool
 }
 
-case class CoreWriteBack0Output(implicit p : CoreParm) extends Bundle{
+case class CoreWriteBack0Output(implicit p : CoreConfig) extends Bundle{
   val addr = UInt(5 bit)
   val data = Bits(32 bit)
 }
 
-class Core(implicit p : CoreParm) extends Component{
-  import p._
+class Core(implicit val c : CoreConfig) extends Component{
+  import c._
   val io = new Bundle{
     val i = master(CoreInstructionBus())
     val d = master(CoreDataBus())
@@ -255,6 +255,7 @@ class Core(implicit p : CoreParm) extends Component{
 
   //Send instruction request to io.i.cmd
   val fetchCmd = new Area {
+    val halt = False
     val pc = Reg(UInt(pcWidth bit)) init(U(startAddress,pcWidth bit))
     val inc = RegInit(False) //when io.i.cmd is stalled, it's used as a token to continue the request the next cycle
     val redo = False
@@ -271,7 +272,7 @@ class Core(implicit p : CoreParm) extends Component{
 
     val outInst = Stream(CoreFetchCmdOutput())
     val resetDone = RegNext(True) init(False) //Used to not send request while reset is active
-    io.i.cmd.valid := outInst.ready && resetDone
+    io.i.cmd.valid := outInst.ready && resetDone  && !halt
     io.i.cmd.pc := pcNext
     when(io.i.cmd.fire || pcLoad.fire){
       pc := pcNext
@@ -351,13 +352,19 @@ class Core(implicit p : CoreParm) extends Component{
     val addr1 = inInst.instruction(src1Range).asUInt
 
     //read register file
-    val (src0,src1) = regFileReadyKind match{
-      case `async` => (regFile.readAsync(inInst.instruction(src0Range).asUInt),regFile.readAsync(inInst.instruction(src1Range).asUInt))
-      case `sync` =>  {
-        val srcInstruction = Mux(inInst.isStall,inInst.instruction,fetch.outInst.instruction)
-        (regFile.readSync(srcInstruction(src0Range).asUInt),regFile.readSync(srcInstruction(src1Range).asUInt))
-      }
+    val srcInstruction = regFileReadyKind match{
+      case `async` => inInst.instruction
+      case `sync` =>  Mux(inInst.isStall,inInst.instruction,fetch.outInst.instruction)
     }
+
+    val regFileReadAddress0 = srcInstruction(src0Range).asUInt
+    val regFileReadAddress1 = srcInstruction(src1Range).asUInt
+
+    val (src0,src1) = regFileReadyKind match{
+      case `async` => (regFile.readAsync(regFileReadAddress0),regFile.readAsync(regFileReadAddress1))
+      case `sync` =>  (regFile.readSync(regFileReadAddress0),regFile.readSync(regFileReadAddress1))
+    }
+
     val imm = IMM(inInst.instruction)
 
     // calculate branch target
@@ -637,10 +644,10 @@ class Core(implicit p : CoreParm) extends Component{
     outInst.addr := inInst.regFileAddress
     outInst.data := regFileData
 
-    when(outInst.fire) {
-      regFile(outInst.addr) := regFileData
-    }
-
+    val regFileWrite = regFile.writePort
+    regFileWrite.valid := outInst.fire
+    regFileWrite.address := outInst.addr
+    regFileWrite.data := regFileData
   }
 
   //This stage is only about keep a trace of last writeBack0, trace used later to avoid read during write hazard on register file

@@ -19,7 +19,7 @@ object CoreMain{
       cpuDataWidth = 32,
       memDataWidth = 32)
 
-    implicit val p = CoreParm(
+    implicit val p = CoreConfig(
       pcWidth = 32,
       addrWidth = 32,
       startAddress = 0x200,
@@ -129,6 +129,7 @@ object QSysAvalonCore{
 
   class RiscvAvalon extends Component{
     val cached = true
+    val debug = true
     val cacheParam = InstructionCacheParameters(  cacheSize =4096,
       bytePerLine =32,
       wayCount = 1,
@@ -137,7 +138,7 @@ object QSysAvalonCore{
       cpuDataWidth = 32,
       memDataWidth = 32)
 
-    lazy val p = CoreParm(
+    lazy val p = CoreConfig(
       pcWidth = 32,
       addrWidth = 32,
       startAddress = 0x200,
@@ -171,7 +172,20 @@ object QSysAvalonCore{
    // p.add(new BarrelShifterFullExtension)
    // p.add(new SimpleInterruptExtension(exceptionVector=0x0).addIrq(id=4,pin=io.interrupt,IrqUsage(isException=false),name="io_interrupt"))
     p.add(new BarrelShifterLightExtension)
+
+    val debugExtension = if(debug) {
+      val extension = new DebugExtension()
+      p.add(extension)
+      extension
+    } else null
+
     val core = new Core()(p)
+
+    val io_debugBus = if(debug) {
+      val avalon = slave(AvalonMMBus(DebugExtension.getAvalonMMConfig))
+      DebugExtension.avalonToDebugBus(avalon,debugExtension.io.bus)
+      avalon
+    }else null
 
     val cache = new InstructionCache()(cacheParam)
     if(cached){
@@ -200,6 +214,7 @@ object QSysAvalonCore{
     report.topLevel.io.i addTag(ClockDomainTag(report.topLevel.clockDomain))
     report.topLevel.io.d addTag(ClockDomainTag(report.topLevel.clockDomain))
     report.topLevel.io.interrupt addTag(InterruptReceiverTag(report.topLevel.io.i,report.topLevel.clockDomain))
+    if(report.topLevel.debug) report.topLevel.io_debugBus addTag(ClockDomainTag(report.topLevel.clockDomain))
     QSysify(report.topLevel)
   }
 }
