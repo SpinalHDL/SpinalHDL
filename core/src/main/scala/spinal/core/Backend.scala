@@ -17,21 +17,22 @@
  */
 
 package spinal.core
+
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
-
 
 class BackendReport[T <: Component](val topLevel: T) {
 
 }
 
 trait Phase{
-  def run
+  def run()
 }
 
 class MultiPhase extends Phase{
   val phases = ArrayBuffer[Phase]()
-  override def run: Unit = {
+
+  override def run(): Unit = {
     phases.foreach(_.run)
   }
 }
@@ -52,7 +53,6 @@ class Backend {
     reservedKeyWords.foreach(scope.allocateName(_))
   }
 
-
   def elaborate[T <: Component](gen: () => T): BackendReport[T] = {
     SpinalInfoPhase("Start elaboration")
 
@@ -64,21 +64,19 @@ class Backend {
 //    if(topLevel.isUnnamed)topLevel.setWeakName("toplevel")
     ClockDomain.pop(defaultClockDomain)
 
-
-    def checkGlobalData: Unit = {
+    def checkGlobalData() : Unit = {
       if (!GlobalData.get.clockDomainStack.isEmpty) SpinalWarning("clockDomain stack is not empty :(")
       if (!GlobalData.get.componentStack.isEmpty) SpinalWarning("componentStack stack is not empty :(")
       if (!GlobalData.get.switchStack.isEmpty) SpinalWarning("switchStack stack is not empty :(")
       if (!GlobalData.get.conditionalAssignStack.isEmpty) SpinalWarning("conditionalAssignStack stack is not empty :(")
     }
+
     checkGlobalData
     val ret = elaborate(topLevel.asInstanceOf[T])
     checkGlobalData
 
-
     globalData.postBackendTask.foreach(_())
     val reports = globalData.jsonReports
-
 
     val builder = new mutable.StringBuilder
     builder ++= "{\n"
@@ -93,7 +91,6 @@ class Backend {
     out.write(builder.toString())
     out.flush();
     out.close();
-
 
     ret
   }
@@ -124,7 +121,7 @@ class Backend {
     collectAndNameEnum()
 
     //Component connection
-    SpinalInfoPhase("Transform connection")
+    SpinalInfoPhase("Transform connections")
     // allowLiteralToCrossHierarchy
     pullClockDomains()
     check_noNull_noCrossHierarchy_noInputRegister_noDirectionLessIo()
@@ -142,9 +139,8 @@ class Backend {
     normalizeNodeInputs()
     checkInferedWidth()
 
-
     //Check
-    SpinalInfoPhase("Check combinational loops")
+    SpinalInfoPhase("Check combinatorial loops")
     checkCombinationalLoops2()
     SpinalInfoPhase("Check cross clock domains")
     checkCrossClockDomains()
@@ -156,10 +152,9 @@ class Backend {
     dontSymplifyBasetypeWithComplexAssignement()
     deleteUselessBaseTypes()
    // convertWhenToDefault()
-    SpinalInfoPhase("Check that there is no incomplet assignement")
-    check_noAsyncNodeWithIncompletAssignment()
+    SpinalInfoPhase("Check that there is no incomplete assignment")
+    check_noAsyncNodeWithIncompleteAssignment()
     simplifyBlacBoxGenerics()
-
 
     SpinalInfoPhase("Finalise")
 
@@ -173,12 +168,9 @@ class Backend {
     allocateNames()
     removeComponentThatNeedNoHdlEmit()
 
-
     printStates()
 
-
     new BackendReport(topLevel)
-
   }
 
   def nameNodesByReflection(): Unit = {
@@ -438,9 +430,8 @@ class Backend {
 //      case _ =>
 //    })
   }
-  def check_noAsyncNodeWithIncompletAssignment(): Unit = {
 
-
+  def check_noAsyncNodeWithIncompleteAssignment(): Unit = {
     val errors = mutable.ArrayBuffer[String]()
 
     Node.walk(walkNodesDefautStack,node => node match {
@@ -471,9 +462,8 @@ class Backend {
         unassignedBits.add(signalRange)
         unassignedBits.remove(assignedBits)
         if (!unassignedBits.isEmpty)
-          errors += s"Incomplet assignment is detected on $signal, unassigned bit mask is ${unassignedBits.toBinaryString}, declared at ${signal.getScalaLocationString}"
-
-
+          errors += s"Incomplete assignment is detected on $signal, unassigned bit mask " +
+                    s"is ${unassignedBits.toBinaryString}, declared at ${signal.getScalaLocationString}"
       }
       case _ =>
     })
@@ -482,7 +472,7 @@ class Backend {
       SpinalError(errors)
   }
 
-  //clone is to week, lose tag and don't symplify :(
+  // Clone is to weak, loses tag and don't symplify :(
   def allowLiteralToCrossHierarchy(): Unit = {
     Node.walk(walkNodesDefautStack,consumer => {
       for (consumerInputId <- 0 until consumer.inputs.size) {
@@ -509,7 +499,6 @@ class Backend {
   def check_noNull_noCrossHierarchy_noInputRegister_noDirectionLessIo(): Unit = {
     val errors = mutable.ArrayBuffer[String]()
 
-
     for(c <- components){
       try{
         val io = c.reflectIo
@@ -524,9 +513,7 @@ class Backend {
 
     }
 
-
     Node.walk(walkNodesDefautStack,node => {
-
       node match {
         case node: BaseType => {
           val in = node.inputs(0)
@@ -564,7 +551,7 @@ class Backend {
               errors += s"No driver on ${node.getScalaLocationString}"
             } else {
               if (in.component != node.component && !(in.isInstanceOf[BaseType] && in.asInstanceOf[BaseType].isIo && node.component == in.component.parent))
-                errors += s"Node is drived outside his component ${node.getScalaLocationString}"
+                errors += s"Node is driven outside his component ${node.getScalaLocationString}"
             }
           }
         }
@@ -593,8 +580,6 @@ class Backend {
 
 
   }
-
-
 
   def normalizeNodeInputs(): Unit = {
     Node.walk(walkNodesDefautStack,(node,push) => {
@@ -642,17 +627,19 @@ class Backend {
     })
   }
 
-
-
   def pullClockDomains(): Unit = {
     Node.walk(walkNodesDefautStack,(node, push) =>  {
       node match {
         case delay: SyncNode => {
-          if(delay.isUsingReset && !delay.getClockDomain.hasReset) SpinalError(s"Clockdomain without reset contain a register which need one\n ${delay.getScalaLocationString}")
+          if(delay.isUsingReset && !delay.getClockDomain.hasReset)
+              SpinalError(s"Clock domain without reset contain a register which needs one\n ${delay.getScalaLocationString}")
+
           Component.push(delay.component)
           delay.inputs(SyncNode.getClockInputId) = delay.getClockDomain.readClockWire
+
           if (delay.isUsingReset)
             delay.inputs(SyncNode.getClockResetId) = delay.getClockDomain.readResetWire
+
           delay.inputs(SyncNode.getClockEnableId) = delay.getClockDomain.readClockEnableWire
           Component.pop(delay.component)
         }
@@ -790,7 +777,7 @@ class Backend {
             else
               node.component.parent
             Component.push(c)
-            node.assignFrom(node.defaultValue,false)
+            node.assignFrom(node.defaultValue, conservative = false)
             Component.pop(c)
           }
         }
@@ -859,7 +846,6 @@ class Backend {
     Node.walk(walkNodesDefautStack,node => {
       node match{
         case baseType : BaseType =>{
-
 
         }
         case _ =>
@@ -1000,9 +986,6 @@ class Backend {
     })
   }
 
-
-
-
   def checkCrossClockDomains(): Unit = {
     val errors = mutable.ArrayBuffer[String]()
 
@@ -1026,7 +1009,9 @@ class Backend {
                       val driverClockDomain = syncDriver.getClockDomain
                       if (//syncDriver.getClockDomain.clock != consumerCockDomain.clock &&
                           ! driverClockDomain.isSyncronousWith(consumerCockDomain)) {
-                        errors += s"Synchronous element ${syncNode.getScalaLocationStringShort} is drived by ${syncDriver.getScalaLocationStringShort} but they don't have the same clock domain. Register declaration at\n${syncNode.getScalaTraceString}"
+                        errors += s"Synchronous element ${syncNode.getScalaLocationStringShort} is driven " +
+                          s"by ${syncDriver.getScalaLocationStringShort} but they don't have the same clock domain. " +
+                          s"Register declaration at \n${syncNode.getScalaTraceString}"
                       }
                     }
                     case _ => that.inputs.foreach(input => if (input != null) check(input))
@@ -1047,6 +1032,7 @@ class Backend {
   def checkCombinationalLoops2(): Unit = {
     val targetAlgoId = GlobalData.get.algoId
     GlobalData.get.algoId += 1
+
     val errors = mutable.ArrayBuffer[String]()
     val pendingNodes = mutable.Stack[Node]()
     pendingNodes.pushAll(walkNodesDefautStack)
@@ -1058,9 +1044,9 @@ class Backend {
       val pop = pendingNodes.pop()
       walk(scala.collection.immutable.HashMap[Node, AssignedBits](),Nil,pop,pop.getWidth-1,0)
     }
+
     if (!errors.isEmpty)
       SpinalError(errors)
-
 
     def walk(consumers :  scala.collection.immutable.HashMap[Node, AssignedBits],stack : List[(Node,Int,Int)],
              node: Node,
@@ -1077,7 +1063,7 @@ class Backend {
 
           val wellNameLoop = filtred.reverseIterator.filter{case (n,hi,lo) => n.isInstanceOf[Nameable] && n.asInstanceOf[Nameable].isNamed}.map{case (n,hi,lo)  => n.component.getClass.getSimpleName + "." + n.asInstanceOf[Nameable].getName() + s"($hi:$lo)"}.foldLeft("")(_ + _ + " -> ")
           val multiLineLoop = filtred.reverseIterator.map(n => "      " + n.toString).reduceLeft(_ + "\n" + _)
-          errors += s"  Combinational loop ! ${wellNameLoop}\n${multiLineLoop}"
+          errors += s"  Combinatorial loop ! ${wellNameLoop}\n${multiLineLoop}"
         }else if (!isNodeCompleted(node)) {
           node match {
             case syncNode: SyncNode => {
@@ -1287,7 +1273,6 @@ class Backend {
     })
   }
 
-
   def addNodesIntoComponent(): Unit = {
     Node.walk({
       val stack = walkNodesDefautStack
@@ -1300,13 +1285,11 @@ class Backend {
     })
   }
 
-
   def orderComponentsNodes(): Unit = {
     for (c <- components) {
       c.nodes = c.nodes.sortWith(_.instanceCounter < _.instanceCounter)
     }
   }
-
 
   def addComponent(c: Component): Unit = {
     components += c

@@ -631,12 +631,12 @@ class RangedAssignmentFixed(out: BitVector, in: Node, hi: Int, lo: Int) extends 
   override def checkInferedWidth: String = {
     val input = getInput
     if (input.component != null && hi + 1 - lo != input.getWidth) {
-      return s"Assignement bit count missmatch. ${this} := ${input}} at\n${getScalaTraceString}"
+      return s"Assignment bit count mismatch. ${this} := ${input}} at\n${getScalaTraceString}"
     }
 
     val width = out.getWidth
     if (hi >= width || lo < 0) {
-      return s"Static bits assignement ($hi downto $lo) is outside the range (${width - 1} downto 0) of ${out} at\n${getScalaTraceString}"
+      return s"Static bits assignment ($hi downto $lo) is outside the range (${width - 1} downto 0) of ${out} at\n${getScalaTraceString}"
     }
     return null
   }
