@@ -18,13 +18,9 @@
 
 package spinal.core
 
-
-
-import scala.collection.mutable.ArrayBuffer
-
 /**
- * Created by PIC18F on 21.08.2014.
- */
+  * Created by PIC18F on 21.08.2014.
+  */
 
 trait BaseTypeFactory extends BoolFactory with BitsFactory with UIntFactory with SIntFactory with VecFactory
 
@@ -34,7 +30,8 @@ object BaseType {
   def walkWhenNodes(baseType: BaseType, initialConsumer: Node, initialConsumerInputId: Int, conservative: Boolean = false) = {
     def initMan(man: MultipleAssignmentNode, that: Node): Unit = {
       //To be sure that there is basetype to bufferise (for future resize)
-      if (that.isInstanceOf[WhenNode] || that.isInstanceOf[BaseType] || that.isInstanceOf[AssignementNode] || that.isInstanceOf[MultipleAssignmentNode] || that.isInstanceOf[Reg]) {
+      if (that.isInstanceOf[WhenNode] || that.isInstanceOf[BaseType] || that.isInstanceOf[AssignementNode] ||
+          that.isInstanceOf[MultipleAssignmentNode] || that.isInstanceOf[Reg]) {
         man.inputs += that
       } else {
         val bt = baseType.weakClone
@@ -55,7 +52,7 @@ object BaseType {
         conditionalAssign match {
           case when: WhenContext => {
             consumer.inputs(consumerInputId) match {
-              case nothing @ (null | _:NoneNode) => {
+              case nothing@(null | _: NoneNode) => {
                 val whenNode = WhenNode(when)
                 consumer.inputs(consumerInputId) = whenNode
                 consumer = whenNode
@@ -86,7 +83,7 @@ object BaseType {
           //TODO switch
           case context: SwitchContext => {
             consumer.inputs(consumerInputId) match {
-              case nothing @ (null | _:NoneNode) => {
+              case nothing@(null | _: NoneNode) => {
                 val switchNode = new SwitchNode(context)
                 consumer.inputs(consumerInputId) = switchNode
                 consumer = switchNode
@@ -114,17 +111,17 @@ object BaseType {
           }
 
           case context: CaseContext => {
-            if(consumer.inputs.isEmpty){
+            if (consumer.inputs.isEmpty) {
               val caseNode = new CaseNode(context)
               consumer.inputs += caseNode
               consumer = caseNode
-            }else{
+            } else {
               val last = consumer.inputs.last.asInstanceOf[CaseNode]
-              if(last.context != context){
+              if (last.context != context) {
                 val caseNode = new CaseNode(context)
                 consumer.inputs += caseNode
                 consumer = caseNode
-              }else{
+              } else {
                 consumer = last
               }
             }
@@ -157,8 +154,8 @@ object BaseType {
     } else {
       val overrided = consumer.inputs(consumerInputId)
       if (overrided != null && !overrided.isInstanceOf[NoneNode] && !overrided.isInstanceOf[Reg])
-        if(consumer.globalData.overridingAssignementWarnings)
-        SpinalWarning(s"$baseType is overridden at ${ScalaLocated.getScalaTraceSmart}")
+        if (consumer.globalData.overridingAssignementWarnings)
+          SpinalWarning(s"$baseType is overridden at ${ScalaLocated.getScalaTraceSmart}")
     }
     (consumer, consumerInputId)
   }
@@ -181,7 +178,6 @@ abstract class BaseType extends Node with Data with Nameable {
     dontSimplify = false;
     this
   }
-
 
   private[core] def getLiteral[T <: Literal]: T = inputs(0) match {
     case lit: Literal => lit.asInstanceOf[T]
@@ -212,13 +208,11 @@ abstract class BaseType extends Node with Data with Nameable {
       val (consumer, inputId) = BaseType.walkWhenNodes(this, this, 0, conservative)
       consumer.inputs(inputId) = that.asInstanceOf[Node]
     } else {
-      throw new Exception("Undefined assignement")
+      throw new Exception("Undefined assignment")
     }
   }
 
-
   // def castThatInSame(that: BaseType): this.type = throw new Exception("Not defined")
-
 
   def assignDontCare(): Unit = this.assignFrom(new DontCareNodeInfered(this), false)
 
@@ -235,11 +229,10 @@ abstract class BaseType extends Node with Data with Nameable {
     this
   }
 
-
   override private[core] def checkInferedWidth: String = {
     val input = this.inputs(0)
-    if (input != null && input.component != null && this.getWidth !=input.getWidth) {
-      return s"Assignement bit count missmatch. ${this} := ${input}} at\n${getScalaTraceString}"
+    if (input != null && input.component != null && this.getWidth != input.getWidth) {
+      return s"Assignment bit count mismatch. ${this} := ${input}} at\n${getScalaTraceString}"
     }
     return null
   }
@@ -250,9 +243,7 @@ abstract class BaseType extends Node with Data with Nameable {
     res
   }
 
-
   private[core] def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer
-
 
   private[core] def newLogicalOperator(opName: String, right: Node, normalizeInputsImpl: (Node) => Unit, simplifyNodeImpl: (Node) => Unit): Bool = {
     val op = BinaryOperator(opName, this, right, WidthInfer.oneWidth, normalizeInputsImpl, simplifyNodeImpl)
@@ -277,11 +268,9 @@ abstract class BaseType extends Node with Data with Nameable {
 
   private[core] def castFrom(opName: String, that: Node, getWidthImpl: (Node) => Int = WidthInfer.inputMaxWidth): this.type = {
     val op = Cast(opName, that, getWidthImpl)
-    this.setInput(op)//TODO Should use assignement
+    this.setInput(op) //TODO Should use assignement
     this
   }
-
-
 
   private[core] def newFunction(opName: String, args: List[Node], getWidthImpl: (Node) => Int = WidthInfer.inputMaxWidth, simplifyNodeImpl: (Node) => Unit): this.type = {
     val op = Function(opName, args, getWidthImpl, simplifyNodeImpl)
@@ -295,18 +284,16 @@ abstract class BaseType extends Node with Data with Nameable {
     typeNode
   }
 
-
   private[core] def addTypeNodeFrom(node: Node): this.type = {
     val typeNode = weakClone
     typeNode.setInput(node)
     typeNode
   }
 
-  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = (outHi,outLo)
+  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = (outHi, outLo)
 
   //Create a new instance of the same datatype without any configuration (width, direction)
   private[core] def weakClone: this.type = this.getClass.newInstance().asInstanceOf[this.type]
 
-  override def toString(): String = s"${component.getPath() + "/" + this.getDisplayName()} : ${getClassIdentifier}"
+  override def toString(): String = s"${component.getPath() + "/" + this.getDisplayName()} : ${getClassIdentifier}[$getWidth bit]"
 }
-

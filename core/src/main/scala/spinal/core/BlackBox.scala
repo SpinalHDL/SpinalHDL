@@ -21,18 +21,17 @@ package spinal.core
 import scala.collection.mutable.ArrayBuffer
 
 /**
- * Created by PIC18F on 24.01.2015.
- */
+  * Created by PIC18F on 24.01.2015.
+  */
 
 
 class Generic {
   var flattenCache: ArrayBuffer[Any] = null
 
-
-  def genNames: Unit ={
+  def genNames: Unit = {
     Misc.reflect(this, (name, obj) => {
-      obj match{
-        case obj : Nameable =>
+      obj match {
+        case obj: Nameable =>
           obj.setWeakName(name)
         case _ =>
       }
@@ -43,8 +42,8 @@ class Generic {
     if (flattenCache == null) {
       flattenCache = ArrayBuffer[Any]()
       Misc.reflect(this, (name, obj) => {
-        obj match{
-          case obj : Data =>
+        obj match {
+          case obj: Data =>
             flattenCache ++= obj.flatten
           case _ =>
             flattenCache += Tuple2(name, obj)
@@ -62,14 +61,14 @@ abstract class BlackBox extends Component with SpinalTagReady {
 
 
   //def generic: Generic// = new Generic{}
-  def getGeneric : Generic = {
-    try{
+  def getGeneric: Generic = {
+    try {
       val clazz = this.getClass
       val m = clazz.getMethod("generic")
       val generic = m.invoke(this).asInstanceOf[Generic]
       return generic
-    } catch{
-      case _ : Throwable => new Generic
+    } catch {
+      case _: Throwable => new Generic
     }
   }
 
@@ -101,7 +100,7 @@ abstract class BlackBox extends Component with SpinalTagReady {
 
   override def nameElements(): Unit = {
     val io = reflectIo
-    if(io != null){
+    if (io != null) {
       io.setWeakName("")
     }
     super.nameElements()
@@ -109,16 +108,17 @@ abstract class BlackBox extends Component with SpinalTagReady {
 
   override def isInBlackBoxTree: Boolean = true
 
-  def setBlackBoxName(name : String) : this.type ={
+  def setBlackBoxName(name: String): this.type = {
     this.definitionName = name
     this
   }
 
   def isUsingULogic = this.hasTag(uLogic)
+
   def remplaceStdLogicByStdULogic = this.addTag(uLogic)
 }
 
 
-abstract class BlackBoxULogic extends BlackBox{
+abstract class BlackBoxULogic extends BlackBox {
   remplaceStdLogicByStdULogic
 }

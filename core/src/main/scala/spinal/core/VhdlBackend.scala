@@ -19,13 +19,13 @@
 package spinal.core
 
 import scala.collection.mutable
-import scala.collection.mutable.{ArrayBuffer, StringBuilder,HashMap}
+import scala.collection.mutable.{ArrayBuffer, StringBuilder, HashMap}
 import scala.util.Random
 
 
 /**
- * Created by PIC18F on 07.01.2015.
- */
+  * Created by PIC18F on 07.01.2015.
+  */
 class VhdlBackend extends Backend with VhdlBase {
   var out: java.io.FileWriter = null
   var library = "work"
@@ -38,7 +38,6 @@ class VhdlBackend extends Backend with VhdlBase {
   val emitedComponentRef = mutable.Map[Component, Component]()
 
   reservedKeyWords ++= vhdlKeyWords
-
 
   override protected def elaborate[T <: Component](topLevel: T): BackendReport[T] = {
     val report = super.elaborate(topLevel)
@@ -55,7 +54,6 @@ class VhdlBackend extends Backend with VhdlBase {
       SpinalInfoPhase(s"${"  " * (1 + c.level)}emit ${c.definitionName}")
       compile(c)
     }
-
 
     out.flush();
     out.close();
@@ -113,25 +111,26 @@ class VhdlBackend extends Backend with VhdlBase {
     }
   }
 
-  case class WrappedStuff(originalName : String,newName : String)
-  def ioStdLogicVectorWrapNames() : HashMap[BaseType,WrappedStuff] = {
-    val map = HashMap[BaseType,WrappedStuff]()
-    def wrap(that : BaseType) : Unit = {
+  case class WrappedStuff(originalName: String, newName: String)
+
+  def ioStdLogicVectorWrapNames(): HashMap[BaseType, WrappedStuff] = {
+    val map = HashMap[BaseType, WrappedStuff]()
+    def wrap(that: BaseType): Unit = {
       val newName = that.getName() + "_wrappedName"
-      map(that) = WrappedStuff(that.getName,newName)
+      map(that) = WrappedStuff(that.getName, newName)
       that.setName(newName)
     }
-    for(e <- topLevel.getAllIo) e match {
-      case e : UInt => wrap(e)
-      case e : SInt => wrap(e)
+    for (e <- topLevel.getAllIo) e match {
+      case e: UInt => wrap(e)
+      case e: SInt => wrap(e)
       case _ =>
     }
     map
   }
 
-  def ioStdLogicVectorRestoreNames(map : HashMap[BaseType,WrappedStuff]) : Unit = {
-    if(map != null){
-      for((e,w) <- map) e.setName(w.originalName)
+  def ioStdLogicVectorRestoreNames(map: HashMap[BaseType, WrappedStuff]): Unit = {
+    if (map != null) {
+      for ((e, w) <- map) e.setName(w.originalName)
     }
   }
 
@@ -153,91 +152,93 @@ class VhdlBackend extends Backend with VhdlBase {
     }
   }
 
-  def getReEncodingFuntion(spinalEnum: SpinalEnum,source : SpinalEnumEncoding,target : SpinalEnumEncoding): String = {
+  def getReEncodingFuntion(spinalEnum: SpinalEnum, source: SpinalEnumEncoding, target: SpinalEnumEncoding): String = {
     s"${spinalEnum.getName()}_${source.getName()}_to_${target.getName()}"
   }
-  def getEnumToDebugFuntion(spinalEnum: SpinalEnum,source : SpinalEnumEncoding): String ={
+
+  def getEnumToDebugFuntion(spinalEnum: SpinalEnum, source: SpinalEnumEncoding): String = {
     assert(!source.isNative)
     s"${spinalEnum.getName()}_${source.getName()}_to_debug"
   }
 
-  def getEnumDebugType(spinalEnum: SpinalEnum): String ={
+  def getEnumDebugType(spinalEnum: SpinalEnum): String = {
     s"${spinalEnum.getName()}_debug"
   }
 
   def emitEnumPackage(out: java.io.FileWriter): Unit = {
     val ret = new StringBuilder();
-    ret ++= s"""library IEEE;
-               |use IEEE.STD_LOGIC_1164.ALL;
-               |use IEEE.NUMERIC_STD.all;
-               |use ieee.math_real.all;
-               |
+    ret ++=
+      s"""library IEEE;
+          |use IEEE.STD_LOGIC_1164.ALL;
+          |use IEEE.NUMERIC_STD.all;
+          |use ieee.math_real.all;
+          |
                |package $enumPackageName is
-                                          |""".stripMargin
+          |""".stripMargin
     for (enumDef <- enums.keys) {
       ret ++= s"  type ${enumDef.getName()} is (${enumDef.values.map(_.getName()).reduce(_ + "," + _)});\n"
-      ret ++= s"  type ${getEnumDebugType(enumDef)} is (${enumDef.values.foldLeft("XXX")((str,e) => str + "," + e.getName())});\n"
+      ret ++= s"  type ${getEnumDebugType(enumDef)} is (${enumDef.values.foldLeft("XXX")((str, e) => str + "," + e.getName())});\n"
     }
 
     ret ++= "\n"
-    for ((enumDef,encodings) <- enums) {
+    for ((enumDef, encodings) <- enums) {
       val enumName = enumDef.getName()
       ret ++= s"  function pkg_mux (sel : std_logic;one : $enumName;zero : $enumName) return $enumName;\n"
 
 
-      for(encoding <- encodings if !encoding.isNative) {
+      for (encoding <- encodings if !encoding.isNative) {
         val encodingName = encoding.getName()
         val bitCount = encoding.getWidth(enumDef)
-        val vhdlEnumType = emitEnumType(enumDef,encoding)
-        ret ++= s"  subtype $vhdlEnumType is std_logic_vector(${bitCount-1} downto 0);\n"
-        for(element <- enumDef.values) {
-          ret ++= s"  constant ${emitEnumLiteral(element,encoding)} : $vhdlEnumType := ${idToBits(element,encoding)};\n"
+        val vhdlEnumType = emitEnumType(enumDef, encoding)
+        ret ++= s"  subtype $vhdlEnumType is std_logic_vector(${bitCount - 1} downto 0);\n"
+        for (element <- enumDef.values) {
+          ret ++= s"  constant ${emitEnumLiteral(element, encoding)} : $vhdlEnumType := ${idToBits(element, encoding)};\n"
         }
         ret ++= "\n"
         //ret ++= s"  function pkg_to${enumName}_debug (value : std_logic_vector) return $enumName;\n"
       }
-      for(encoding <- encodings) {
-        if(!encoding.isNative)
-          ret ++= s"  function ${getEnumToDebugFuntion(enumDef,encoding)} (value : ${emitEnumType(enumDef,encoding)}) return ${getEnumDebugType(enumDef)};\n"
-        else{
+      for (encoding <- encodings) {
+        if (!encoding.isNative)
+          ret ++= s"  function ${getEnumToDebugFuntion(enumDef, encoding)} (value : ${emitEnumType(enumDef, encoding)}) return ${getEnumDebugType(enumDef)};\n"
+        else {
           ret ++= s"  function pkg_toStdLogicVector_${encoding.getName()} (value : $enumName) return std_logic_vector;\n"
-          ret ++= s"  function pkg_to${enumName}_${encoding.getName()} (value : std_logic_vector(${encoding.getWidth(enumDef)-1} downto 0)) return $enumName;\n"
+          ret ++= s"  function pkg_to${enumName}_${encoding.getName()} (value : std_logic_vector(${encoding.getWidth(enumDef) - 1} downto 0)) return $enumName;\n"
         }
 
-        for(targetEncoding <- encodings if targetEncoding != encoding && !(targetEncoding.isNative && encoding.isNative)) {
-          ret ++= s"  function ${getReEncodingFuntion(enumDef,encoding,targetEncoding)} (that : ${emitEnumType(enumDef,encoding)}) return ${emitEnumType(enumDef,targetEncoding)};\n"
+        for (targetEncoding <- encodings if targetEncoding != encoding && !(targetEncoding.isNative && encoding.isNative)) {
+          ret ++= s"  function ${getReEncodingFuntion(enumDef, encoding, targetEncoding)} (that : ${emitEnumType(enumDef, encoding)}) return ${emitEnumType(enumDef, targetEncoding)};\n"
         }
       }
     }
 
-    def idToBits[T <: SpinalEnum](enum: SpinalEnumElement[T],encoding: SpinalEnumEncoding): String = {
+    def idToBits[T <: SpinalEnum](enum: SpinalEnumElement[T], encoding: SpinalEnumEncoding): String = {
       val str = encoding.getValue(enum).toString(2)
       "\"" + ("0" * (encoding.getWidth(enum.parent) - str.length)) + str + "\""
     }
 
-//    val vecTypes = mutable.Set[Seq[Int]]()
-//    Node.walk(walkNodesDefautStack,node => node match{
-//      case node : VecBaseType[_] => {
-//        if(!vecTypes.contains(node.dims.toSeq)){
-//          var dimsVar = Seq[Int]()
-//          for(dim <- node.dims.reverseIterator){
-//            dimsVar = dim +: dimsVar
-//            if(!vecTypes.contains(dimsVar)){
-//              ret ++= s"  type ${emitVecType(node.baseType,dimsVar  )}} is array (3 downto 0) of std_ulogic;"
-//            }
-//          }
-//          ret ++= "asd\n"
-//          vecTypes += node.dims.toSeq
-//        }
-//      }
-//      case _ =>
-//    })
+    //    val vecTypes = mutable.Set[Seq[Int]]()
+    //    Node.walk(walkNodesDefautStack,node => node match{
+    //      case node : VecBaseType[_] => {
+    //        if(!vecTypes.contains(node.dims.toSeq)){
+    //          var dimsVar = Seq[Int]()
+    //          for(dim <- node.dims.reverseIterator){
+    //            dimsVar = dim +: dimsVar
+    //            if(!vecTypes.contains(dimsVar)){
+    //              ret ++= s"  type ${emitVecType(node.baseType,dimsVar  )}} is array (3 downto 0) of std_ulogic;"
+    //            }
+    //          }
+    //          ret ++= "asd\n"
+    //          vecTypes += node.dims.toSeq
+    //        }
+    //      }
+    //      case _ =>
+    //    })
 
 
     ret ++= s"end $enumPackageName;\n\n"
     if (enums.size != 0) {
       ret ++= s"package body $enumPackageName is\n"
-      for ((enumDef,encodings) <- enums) {
+      for ((enumDef, encodings) <- enums) {
         val enumName = enumDef.getName()
         ret ++= s"  function pkg_mux (sel : std_logic;one : $enumName;zero : $enumName) return $enumName is\n"
         ret ++= "  begin\n"
@@ -249,56 +250,70 @@ class VhdlBackend extends Backend with VhdlBase {
         ret ++= "  end pkg_mux;\n\n"
 
 
-//        ret ++= s"  function pkg_toStdLogicVector (value : $enumName) return std_logic_vector is\n"
-//        ret ++= "  begin\n"
-//        ret ++= "    case value is \n"
-//        for (e <- enumDef.values) {
-//          ret ++= s"      when ${e.getName()} => return ${idToBits(e.position)};\n"
-//        }
-//        ret ++= s"      when others => return ${idToBits(enumDef.values.head)};\n"
-//        ret ++= "    end case;\n"
-//        ret ++= "  end pkg_toStdLogicVector;\n\n"
-//
-//        ret ++= s"  function pkg_to$enumName (value : std_logic_vector) return $enumName is\n"
-//        ret ++= "  begin\n"
-//        ret ++= "    case to_integer(unsigned(value)) is \n"
-//        for (e <- enumDef.values) {
-//          ret ++= s"      when ${e.id} => return ${e.getName()};\n"
-//        }
-//        ret ++= s"      when others => return ${enumDef.values.head.getName()};\n"
-//        ret ++= "    end case;\n"
-//        ret ++= s"  end pkg_to$enumName;\n\n"
+        //        ret ++= s"  function pkg_toStdLogicVector (value : $enumName) return std_logic_vector is\n"
+        //        ret ++= "  begin\n"
+        //        ret ++= "    case value is \n"
+        //        for (e <- enumDef.values) {
+        //          ret ++= s"      when ${e.getName()} => return ${idToBits(e.position)};\n"
+        //        }
+        //        ret ++= s"      when others => return ${idToBits(enumDef.values.head)};\n"
+        //        ret ++= "    end case;\n"
+        //        ret ++= "  end pkg_toStdLogicVector;\n\n"
+        //
+        //        ret ++= s"  function pkg_to$enumName (value : std_logic_vector) return $enumName is\n"
+        //        ret ++= "  begin\n"
+        //        ret ++= "    case to_integer(unsigned(value)) is \n"
+        //        for (e <- enumDef.values) {
+        //          ret ++= s"      when ${e.id} => return ${e.getName()};\n"
+        //        }
+        //        ret ++= s"      when others => return ${enumDef.values.head.getName()};\n"
+        //        ret ++= "    end case;\n"
+        //        ret ++= s"  end pkg_to$enumName;\n\n"
 
 
-        for(encoding <- encodings) {
-          if(!encoding.isNative)
+        for (encoding <- encodings) {
+          if (!encoding.isNative)
             ret ++=
-              s"""  function ${getEnumToDebugFuntion(enumDef,encoding)} (value : ${emitEnumType(enumDef,encoding)}) return ${getEnumDebugType(enumDef)} is
-                 |  begin
-                 |    case value is
-                 |${{for (e <- enumDef.values) yield s"      when ${emitEnumLiteral(e,encoding)} => return ${e.getName()};"}.reduce(_ + "\n" + _)}
-                 |      when others => return XXX;
-                 |    end case;
-                 |  end;
-                 |""".stripMargin
-          else{
-            ret ++= s"""  function pkg_to${enumName}_${encoding.getName()} (value : std_logic_vector(${encoding.getWidth(enumDef)-1} downto 0)) return $enumName is
-                |  begin
-                |    case value is
-                |${{for (e <- enumDef.values) yield s"      when ${idToBits(e,encoding)} => return ${e.getName()};"}.reduce(_ + "\n" + _)}
-                |      when others => return ${enumDef.values.head.getName()};
-                |    end case;
-                |  end;
-                |""".stripMargin
+              s"""  function ${getEnumToDebugFuntion(enumDef, encoding)} (value : ${emitEnumType(enumDef, encoding)}) return ${getEnumDebugType(enumDef)} is
+                  |  begin
+                  |    case value is
+                  |${
+                {
+                  for (e <- enumDef.values) yield s"      when ${emitEnumLiteral(e, encoding)} => return ${e.getName()};"
+                }.reduce(_ + "\n" + _)
+              }
+                  |      when others => return XXX;
+                  |    end case;
+                  |  end;
+                  |""".stripMargin
+          else {
+            ret ++=
+              s"""  function pkg_to${enumName}_${encoding.getName()} (value : std_logic_vector(${encoding.getWidth(enumDef) - 1} downto 0)) return $enumName is
+                  |  begin
+                  |    case value is
+                  |${
+                {
+                  for (e <- enumDef.values) yield s"      when ${idToBits(e, encoding)} => return ${e.getName()};"
+                }.reduce(_ + "\n" + _)
+              }
+                  |      when others => return ${enumDef.values.head.getName()};
+                  |    end case;
+                  |  end;
+                  |""".stripMargin
 
-            ret ++= s"""  function pkg_toStdLogicVector_${encoding.getName()} (value : $enumName) return std_logic_vector is
-                |  begin
-                |    case value is
-                |${{for (e <- enumDef.values) yield s"      when ${e.getName()} => return ${idToBits(e,encoding)};"}.reduce(_ + "\n" + _)}
-                |      when others => return ${idToBits(enumDef.values.head,encoding)};
-                |    end case;
-                |  end;
-                |""".stripMargin
+            ret ++=
+              s"""  function pkg_toStdLogicVector_${encoding.getName()} (value : $enumName) return std_logic_vector is
+                  |  begin
+                  |    case value is
+                  |${
+                {
+                  for (e <- enumDef.values) yield s"      when ${e.getName()} => return ${idToBits(e, encoding)};"
+                }.reduce(_ + "\n" + _)
+              }
+                  |      when others => return ${idToBits(enumDef.values.head, encoding)};
+                  |    end case;
+                  |  end;
+                  |""".stripMargin
           }
 
 
@@ -308,9 +323,9 @@ class VhdlBackend extends Backend with VhdlBase {
             ret ++= "  begin\n"
             ret ++= "    case that is \n"
             for (e <- enumDef.values) {
-              ret ++= s"      when ${emitEnumLiteral(e,encoding)} => return ${emitEnumLiteral(e,targetEncoding)};\n"
+              ret ++= s"      when ${emitEnumLiteral(e, encoding)} => return ${emitEnumLiteral(e, targetEncoding)};\n"
             }
-            ret ++= s"      when others => return ${emitEnumLiteral(enumDef.values.head,targetEncoding)};\n"
+            ret ++= s"      when others => return ${emitEnumLiteral(enumDef.values.head, targetEncoding)};\n"
             ret ++= "    end case;\n"
             ret ++= "  end;\n\n"
           }
@@ -336,7 +351,7 @@ class VhdlBackend extends Backend with VhdlBase {
       val ret = new StringBuilder();
       (s"function pkg_extract (that : $kind; base : unsigned; size : integer) return $kind", {
         ret ++= "   constant elementCount : integer := (that'length-size)+1;\n"
-        ret ++=s"   type tableType is array (0 to elementCount-1) of $kind(size-1 downto 0);\n"
+        ret ++= s"   type tableType is array (0 to elementCount-1) of $kind(size-1 downto 0);\n"
         ret ++= "   variable table : tableType;\n"
         ret ++= "  begin\n"
         ret ++= "    for i in 0 to elementCount-1 loop\n"
@@ -676,16 +691,16 @@ class VhdlBackend extends Backend with VhdlBase {
     ret ++= s"\nentity ${component.definitionName} is\n"
     ret = builder.newPart(true)
     ret ++= s"  port(\n"
-    if(!(onlyStdLogicVectorTopLevelIo && component == topLevel)) {
+    if (!(onlyStdLogicVectorTopLevelIo && component == topLevel)) {
       component.getOrdredNodeIo.foreach(baseType =>
         ret ++= s"    ${baseType.getName()} : ${emitDirection(baseType)} ${emitDataType(baseType)};\n"
       )
-    }else{
+    } else {
       component.getOrdredNodeIo.foreach(baseType => {
         val originalType = emitDataType(baseType)
-        val correctedType = originalType.replace("unsigned","std_logic_vector").replace("signed","std_logic_vector")
+        val correctedType = originalType.replace("unsigned", "std_logic_vector").replace("signed", "std_logic_vector")
         ret ++= s"    ${baseType.getName()} : ${emitDirection(baseType)} ${correctedType};\n"
-        }
+      }
       )
     }
     /*component.getOrdredNodeIo.foreach(baseType =>
@@ -702,21 +717,21 @@ class VhdlBackend extends Backend with VhdlBase {
 
   def emitArchitecture(component: Component, builder: ComponentBuilder): Unit = {
     var ret = builder.newPart(false)
-    val wrappedIo = if(onlyStdLogicVectorTopLevelIo && component == topLevel) ioStdLogicVectorWrapNames() else HashMap[BaseType,WrappedStuff]()
+    val wrappedIo = if (onlyStdLogicVectorTopLevelIo && component == topLevel) ioStdLogicVectorWrapNames() else HashMap[BaseType, WrappedStuff]()
     ret ++= s"architecture arch of ${component.definitionName} is\n"
     ret = builder.newPart(true)
     emitBlackBoxComponents(component, ret)
     emitAttributesDef(component, ret)
     val enumDebugSignals = ArrayBuffer[SpinalEnumCraft[_]]()
-    emitSignals(component, ret,enumDebugSignals)
-    emitWrappedIoSignals(ret,wrappedIo)
+    emitSignals(component, ret, enumDebugSignals)
+    emitWrappedIoSignals(ret, wrappedIo)
     val retTemp = new StringBuilder
     retTemp ++= s"begin\n"
     emitComponentInstances(component, retTemp)
     emitAsyncronous(component, retTemp, ret)
     emitSyncronous(component, retTemp)
-    emitWrappedIoConnection(retTemp,wrappedIo)
-    emitDebug(component,retTemp,enumDebugSignals)
+    emitWrappedIoConnection(retTemp, wrappedIo)
+    emitDebug(component, retTemp, enumDebugSignals)
     retTemp ++= s"end arch;\n"
     retTemp ++= s"\n"
 
@@ -726,16 +741,17 @@ class VhdlBackend extends Backend with VhdlBase {
 
   }
 
-  def emitWrappedIoSignals(buff : StringBuilder,map : HashMap[BaseType,WrappedStuff]) : Unit = {
-    for((e,w) <- map){
+  def emitWrappedIoSignals(buff: StringBuilder, map: HashMap[BaseType, WrappedStuff]): Unit = {
+    for ((e, w) <- map) {
       buff ++= s"  signal ${w.newName} : ${emitDataType(e)};\n"
     }
   }
-  def emitWrappedIoConnection(buff : StringBuilder,map : HashMap[BaseType,WrappedStuff]) : Unit = {
-    for((e,w) <- map) e.dir match{
-      case spinal.core.in => e match{
-        case e : UInt => buff ++= s"  ${w.newName} <= unsigned(${w.originalName});\n"
-        case e : SInt => buff ++= s"  ${w.newName} <= signed(${w.originalName});\n"
+
+  def emitWrappedIoConnection(buff: StringBuilder, map: HashMap[BaseType, WrappedStuff]): Unit = {
+    for ((e, w) <- map) e.dir match {
+      case spinal.core.in => e match {
+        case e: UInt => buff ++= s"  ${w.newName} <= unsigned(${w.originalName});\n"
+        case e: SInt => buff ++= s"  ${w.newName} <= signed(${w.originalName});\n"
       }
       case spinal.core.out => buff ++= s"  ${w.originalName} <= std_logic_vector(${w.newName});\n"
     }
@@ -821,9 +837,9 @@ class VhdlBackend extends Backend with VhdlBase {
     ret ++= "\n"
   }
 
-  def toSpinalEnumCraft[T <: SpinalEnum](that : Any) = that.asInstanceOf[SpinalEnumCraft[T]]
+  def toSpinalEnumCraft[T <: SpinalEnum](that: Any) = that.asInstanceOf[SpinalEnumCraft[T]]
 
-  def emitSignals(component: Component, ret: StringBuilder,enumDebugSignals : ArrayBuffer[SpinalEnumCraft[_]]): Unit = {
+  def emitSignals(component: Component, ret: StringBuilder, enumDebugSignals: ArrayBuffer[SpinalEnumCraft[_]]): Unit = {
     for (node <- component.nodes) {
       node match {
         case signal: BaseType => {
@@ -841,14 +857,14 @@ class VhdlBackend extends Backend with VhdlBase {
                 case e: SpinalEnumCraft[_] => {
                   val vec = e.blueprint.values.toVector
                   val rand = vec(Random.nextInt(vec.size))
-                  ret ++= " := " + emitEnumLiteral(rand,e.encoding)
+                  ret ++= " := " + emitEnumLiteral(rand, e.encoding)
                 }
               }
             }
             ret ++= ";\n"
-            if(signal.isInstanceOf[SpinalEnumCraft[_]]){
+            if (signal.isInstanceOf[SpinalEnumCraft[_]]) {
               val craft = toSpinalEnumCraft(signal)
-              if(!craft.encoding.isNative) {
+              if (!craft.encoding.isNative) {
                 ret ++= s"  signal ${emitReference(signal)}_debug : ${getEnumDebugType(craft.blueprint)};\n"
                 enumDebugSignals += toSpinalEnumCraft(signal)
               }
@@ -1118,58 +1134,60 @@ class VhdlBackend extends Backend with VhdlBase {
     s"$vhd(${func.inputs.map(emitLogic(_)).reduce(_ + "," + _)})"
   }
 
-  def enumEgualsImpl(eguals : Boolean)(op: Modifier): String = {
-    val (enumDef,encoding) = op.inputs(0) match{
-      case craft : SpinalEnumCraft[_] => (craft.blueprint,craft.encoding)
-      case literal : EnumLiteral[_]  => (literal.enum.parent,literal.encoding)
+  def enumEgualsImpl(eguals: Boolean)(op: Modifier): String = {
+    val (enumDef, encoding) = op.inputs(0) match {
+      case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.encoding)
+      case literal: EnumLiteral[_] => (literal.enum.parent, literal.encoding)
     }
     encoding match {
-      case `oneHot` => s"pkg_toStdLogic((${emitLogic(op.inputs(0))} and ${emitLogic(op.inputs(1))}) ${if(eguals) "/=" else "="} ${'"' + "0" * op.inputs(0).getWidth + '"'})"
-      case _ => s"pkg_toStdLogic(${emitLogic(op.inputs(0))} ${if(eguals) "=" else "/="} ${emitLogic(op.inputs(1))})"
+      case `oneHot` => s"pkg_toStdLogic((${emitLogic(op.inputs(0))} and ${emitLogic(op.inputs(1))}) ${if (eguals) "/=" else "="} ${'"' + "0" * op.inputs(0).getWidth + '"'})"
+      case _ => s"pkg_toStdLogic(${emitLogic(op.inputs(0))} ${if (eguals) "=" else "/="} ${emitLogic(op.inputs(1))})"
     }
   }
 
 
   def operatorImplAsBitsToEnum(func: Modifier): String = {
-    val (enumDef : SpinalEnum,encoding) = func.asInstanceOf[EnumCast].enum match{
-      case craft : SpinalEnumCraft[_] => (craft.blueprint,craft.encoding)
+    val (enumDef: SpinalEnum, encoding) = func.asInstanceOf[EnumCast].enum match {
+      case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.encoding)
     }
-    if(!encoding.isNative){
+    if (!encoding.isNative) {
       emitLogic(func.inputs(0))
-    }else{
+    } else {
       s"pkg_to${enumDef.getName()}_${encoding.getName()}(${(emitLogic(func.inputs(0)))})"
     }
   }
+
   def operatorImplAsEnumToBits(func: Modifier): String = {
-    val (enumDef,encoding) = func.inputs(0) match{
-      case craft : SpinalEnumCraft[_] => (craft.blueprint,craft.encoding)
-      case literal : EnumLiteral[_]  => (literal.enum.parent,literal.encoding)
+    val (enumDef, encoding) = func.inputs(0) match {
+      case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.encoding)
+      case literal: EnumLiteral[_] => (literal.enum.parent, literal.encoding)
     }
-    if(!encoding.isNative){
+    if (!encoding.isNative) {
       emitLogic(func.inputs(0))
-    }else{
+    } else {
       s"pkg_toStdLogicVector_${encoding.getName()}(${(emitLogic(func.inputs(0)))})"
     }
   }
+
   def operatorImplAsEnumToEnum(func: Modifier): String = {
-    val (enumDefSrc,encodingSrc) = func.inputs(0) match{
-      case craft : SpinalEnumCraft[_] => (craft.blueprint,craft.encoding)
-      case literal : EnumLiteral[_]  => (literal.enum.parent,literal.encoding)
+    val (enumDefSrc, encodingSrc) = func.inputs(0) match {
+      case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.encoding)
+      case literal: EnumLiteral[_] => (literal.enum.parent, literal.encoding)
     }
     val enumCast = func.asInstanceOf[EnumCast]
-    val (enumDefDst,encodingDst) = enumCast.enum match{
-      case craft : SpinalEnumCraft[_] => (craft.blueprint,craft.encoding)
+    val (enumDefDst, encodingDst) = enumCast.enum match {
+      case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.encoding)
     }
-    if(encodingDst.isNative && encodingSrc.isNative)
+    if (encodingDst.isNative && encodingSrc.isNative)
       emitLogic(func.inputs(0))
-    else{
-      val encoding = enumCast.inputs(0) match{
-        case input : SpinalEnumCraft[_] => input.encoding
-        case input : EnumLiteral[_] => input.encoding
+    else {
+      val encoding = enumCast.inputs(0) match {
+        case input: SpinalEnumCraft[_] => input.encoding
+        case input: EnumLiteral[_] => input.encoding
       }
       s"${getReEncodingFuntion(enumCast.enum.blueprint.asInstanceOf[SpinalEnum], encoding, enumCast.enum.encoding)}(${func.inputs.map(emitLogic(_)).reduce(_ + "," + _)})"
     }
- }
+  }
 
   val modifierImplMap = mutable.Map[String, Modifier => String]()
 
@@ -1318,10 +1336,10 @@ class VhdlBackend extends Backend with VhdlBase {
     s"pkg_extract(${emitLogic(that.getBitVector)},${that.getHi},${that.getLo})"
   }
 
-//  def extractBitVectorFloating(func: Modifier): String = {
-//    val that = func.asInstanceOf[ExtractBitsVectorFloating]
-//    s"pkg_dummy(${emitLogic(that.getBitVector)}(to_integer(${emitLogic(that.getOffset)}) + ${that.getBitCount.value - 1}  downto to_integer(${emitLogic(that.getOffset)})))"
-//  }
+  //  def extractBitVectorFloating(func: Modifier): String = {
+  //    val that = func.asInstanceOf[ExtractBitsVectorFloating]
+  //    s"pkg_dummy(${emitLogic(that.getBitVector)}(to_integer(${emitLogic(that.getOffset)}) + ${that.getBitCount.value - 1}  downto to_integer(${emitLogic(that.getOffset)})))"
+  //  }
 
 
   def opThatNeedBoolCastGen(a: String, b: String): List[String] = {
@@ -1351,25 +1369,25 @@ class VhdlBackend extends Backend with VhdlBase {
     }
     case lit: IntLiteral => lit.value.toString(10)
     case lit: BoolLiteral => s"pkg_toStdLogic(${lit.value})"
-    case lit: EnumLiteral[_] => emitEnumLiteral(lit.enum,lit.encoding)
+    case lit: EnumLiteral[_] => emitEnumLiteral(lit.enum, lit.encoding)
     case memRead: MemReadAsync => {
       if (memRead.writeToReadKind == dontCare) SpinalWarning(s"memReadAsync with dontCare is as writeFirst into VHDL")
       s"${emitReference(memRead.getMem)}(to_integer(${emitReference(memRead.getAddress)}))"
     }
     case whenNode: WhenNode => s"pkg_mux(${whenNode.inputs.map(emitLogic(_)).reduce(_ + "," + _)})" //Exeptional case with asyncrouns of literal
     case dc: DontCareNode => {
-        dc.getBaseType match {
-        case to : Bool => s"'-'"
-        case to : BitVector => s"(${'"'}${"-" * dc.getWidth}${'"'})"
+      dc.getBaseType match {
+        case to: Bool => s"'-'"
+        case to: BitVector => s"(${'"'}${"-" * dc.getWidth}${'"'})"
       }
     }
 
     case o => throw new Exception("Don't know how emit logic of " + o.getClass.getSimpleName)
   }
 
-  def emitDebug(component: Component, ret: StringBuilder,enumDebugSignals : ArrayBuffer[SpinalEnumCraft[_]]): Unit = {
-    for(signal <- enumDebugSignals){
-      ret ++= s"  ${emitReference(signal)}_debug <= ${getEnumToDebugFuntion(toSpinalEnumCraft(signal).blueprint,signal.encoding)}(${emitReference(signal)});\n"
+  def emitDebug(component: Component, ret: StringBuilder, enumDebugSignals: ArrayBuffer[SpinalEnumCraft[_]]): Unit = {
+    for (signal <- enumDebugSignals) {
+      ret ++= s"  ${emitReference(signal)}_debug <= ${getEnumToDebugFuntion(toSpinalEnumCraft(signal).blueprint, signal.encoding)}(${emitReference(signal)});\n"
     }
   }
 
@@ -1564,15 +1582,16 @@ class VhdlBackend extends Backend with VhdlBase {
       case _ => ret ++= s"$tab${emitReference(to)} ${assignementKind} ${emitLogic(from)};\n"
     }
   }
+
   class ConditionalTree(val instanceCounter: Int)
 
-  class WhenTree(val cond: Node, instanceCounter: Int) extends ConditionalTree(instanceCounter){
+  class WhenTree(val cond: Node, instanceCounter: Int) extends ConditionalTree(instanceCounter) {
     var whenTrue: AssignementLevel = new AssignementLevel
     var whenFalse: AssignementLevel = new AssignementLevel
   }
 
-  class SwitchTree(instanceCounter: Int,context : SwitchContext) extends ConditionalTree(instanceCounter){
-    val cases = new Array[(Node,AssignementLevel)](context.caseCount)
+  class SwitchTree(instanceCounter: Int, context: SwitchContext) extends ConditionalTree(instanceCounter) {
+    val cases = new Array[(Node, AssignementLevel)](context.caseCount)
   }
 
   class AssignementLevel {
@@ -1609,13 +1628,14 @@ class VhdlBackend extends Backend with VhdlBase {
               whenTree.whenFalse.walkWhenTree(root, whenNode.whenFalse)
             }
           }
-          case switchNode : SwitchNode => {
-            val switchTree = this.conditionalTrees.getOrElseUpdate(switchNode.context, new SwitchTree(node.instanceCounter,switchNode.context)).asInstanceOf[SwitchTree]
+          case switchNode: SwitchNode => {
+            val switchTree = this.conditionalTrees.getOrElseUpdate(switchNode.context, new SwitchTree(node.instanceCounter, switchNode.context)).asInstanceOf[SwitchTree]
             lastConditionalTree = switchTree
-            for(input <- switchNode.inputs){
+            for (input <- switchNode.inputs) {
               val caseNode = input.asInstanceOf[CaseNode]
               val tmp = switchTree.cases(caseNode.context.id)
-              var caseElement = if(tmp != null) tmp else {
+              var caseElement = if (tmp != null) tmp
+              else {
                 val tmp = (caseNode.cond -> new AssignementLevel)
                 switchTree.cases(caseNode.context.id) = tmp
                 tmp
@@ -1630,7 +1650,7 @@ class VhdlBackend extends Backend with VhdlBase {
     }
 
 
-    def emitContext(ret: mutable.StringBuilder, tab: String, assignementKind: String,isElseIf : Boolean = false): Unit = {
+    def emitContext(ret: mutable.StringBuilder, tab: String, assignementKind: String, isElseIf: Boolean = false): Unit = {
       def emitLogicChunk(key: WhenTree): Unit = {
         if (this.logicChunk.contains(key)) {
           for ((to, from) <- this.logicChunk.get(key).get) {
@@ -1638,28 +1658,28 @@ class VhdlBackend extends Backend with VhdlBase {
           }
         }
       }
-      val firstTab = if(isElseIf) "" else tab
+      val firstTab = if (isElseIf) "" else tab
 
       emitLogicChunk(null)
       //OPT tolist.sort
       for (conditionalTree <- this.conditionalTrees.values.toList.sortWith(_.instanceCounter < _.instanceCounter)) conditionalTree match {
-        case when : WhenTree => {
+        case when: WhenTree => {
           def doTrue = when.whenTrue.isNotEmpty
           def doFalse = when.whenFalse.isNotEmpty
 
-        /*  if (!doTrue && doFalse) {
-            ret ++= s"${firstTab}if ${emitLogic(when.cond)} = '0'  then\n"
-            when.whenFalse.emitContext(ret, tab + "  ", assignementKind)
-            ret ++= s"${tab}end if;\n"
+          /*  if (!doTrue && doFalse) {
+              ret ++= s"${firstTab}if ${emitLogic(when.cond)} = '0'  then\n"
+              when.whenFalse.emitContext(ret, tab + "  ", assignementKind)
+              ret ++= s"${tab}end if;\n"
 
-          } else*/if (doTrue && !doFalse) {
+            } else*/ if (doTrue && !doFalse) {
             ret ++= s"${firstTab}if ${emitLogic(when.cond)} = '1' then\n"
             when.whenTrue.emitContext(ret, tab + "  ", assignementKind)
             ret ++= s"${tab}end if;\n"
           } else /*if (doTrue && doFalse)*/ {
             ret ++= s"${firstTab}if ${emitLogic(when.cond)} = '1' then\n"
             when.whenTrue.emitContext(ret, tab + "  ", assignementKind)
-            val falseHead = if(when.whenFalse.logicChunk.isEmpty && when.whenFalse.conditionalTrees.size == 1) when.whenFalse.conditionalTrees.head._1 else null
+            val falseHead = if (when.whenFalse.logicChunk.isEmpty && when.whenFalse.conditionalTrees.size == 1) when.whenFalse.conditionalTrees.head._1 else null
             if (falseHead != null && falseHead.isInstanceOf[WhenContext] && falseHead.asInstanceOf[WhenContext].parentElseWhen != null) {
               ret ++= s"${tab}els"
               when.whenFalse.emitContext(ret, tab, assignementKind, true)
@@ -1671,9 +1691,9 @@ class VhdlBackend extends Backend with VhdlBase {
           }
           emitLogicChunk(when)
         }
-        case switchTree : SwitchTree => {
-          for(caseElement <- switchTree.cases if caseElement != null){
-            val (cond,level) = caseElement
+        case switchTree: SwitchTree => {
+          for (caseElement <- switchTree.cases if caseElement != null) {
+            val (cond, level) = caseElement
             ret ++= s"${tab}if ${emitLogic(cond)} = '1'  then\n"
             level.emitContext(ret, tab + "  ", assignementKind)
             ret ++= s"${tab}end if;\n"
@@ -1686,7 +1706,7 @@ class VhdlBackend extends Backend with VhdlBase {
   def emitComponentInstances(component: Component, ret: StringBuilder): Unit = {
     for (kind <- component.kinds) {
       val isBB = kind.isInstanceOf[BlackBox]
-      val isBBUsingULogic = isBB &&  kind.asInstanceOf[BlackBox].isUsingULogic
+      val isBBUsingULogic = isBB && kind.asInstanceOf[BlackBox].isUsingULogic
       val definitionString = if (isBB) kind.definitionName
       else s"entity $library.${
         emitedComponentRef.getOrElse(kind, kind).definitionName
@@ -1696,7 +1716,7 @@ class VhdlBackend extends Backend with VhdlBase {
       } : $definitionString\n"
 
 
-      def addULogicCast(bt : BaseType,io : String,logic : String,dir: IODirection): String = {
+      def addULogicCast(bt: BaseType, io: String, logic: String, dir: IODirection): String = {
 
         if (isBBUsingULogic)
           if (dir == in) {
@@ -1727,7 +1747,7 @@ class VhdlBackend extends Backend with VhdlBase {
 
           for ((name, e) <- genericFlat) {
             e match {
-              case baseType: BaseType => ret ++= addULogicCast(baseType,emitReference(baseType),emitLogic(baseType.inputs(0)),in)
+              case baseType: BaseType => ret ++= addULogicCast(baseType, emitReference(baseType), emitLogic(baseType.inputs(0)), in)
               case s: String => ret ++= s"      ${name} => ${"\""}${s}${"\""},\n"
               case i: Int => ret ++= s"      ${name} => $i,\n"
               case d: Double => ret ++= s"      ${name} => $d,\n"
@@ -1747,11 +1767,11 @@ class VhdlBackend extends Backend with VhdlBase {
         if (data.isOutput) {
           val bind = component.kindsOutputsToBindings.getOrElse(data, null)
           if (bind != null) {
-            ret ++= addULogicCast(data,emitReference(data),emitReference(bind),data.dir)
+            ret ++= addULogicCast(data, emitReference(data), emitReference(bind), data.dir)
           }
         }
         else if (data.isInput)
-          ret ++= addULogicCast(data,emitReference(data),emitReference(data.inputs(0)),data.dir)
+          ret ++= addULogicCast(data, emitReference(data), emitReference(data.inputs(0)), data.dir)
       }
       ret.setCharAt(ret.size - 2, ' ')
 
