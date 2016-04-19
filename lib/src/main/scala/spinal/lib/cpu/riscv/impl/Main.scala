@@ -3,14 +3,14 @@ package spinal.lib.cpu.riscv.impl
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.avalon.mm._
-import spinal.lib.tool.{InterruptReceiverTag, QSysify}
+import spinal.lib.tool.{ResetEmitterTag, InterruptReceiverTag, QSysify}
 
 object CoreMain{
   import extension._
 
   class TopLevel extends Component{
     val io_interrupt = in Bool
-    val cached = true
+    val cached = false
     val cacheParam = InstructionCacheParameters(  cacheSize =4096,
       bytePerLine =32,
       wayCount = 1,
@@ -30,7 +30,7 @@ object CoreMain{
       bypassWriteBack0 = false,
       bypassWriteBack1 = false,
       collapseBubble = true,
-      instructionBusKind = cmdStream_rspFlow_oneCycle,
+      instructionBusKind = cmdStream_rspFlow,
       dataBusKind = cmdStream_rspFlow,
       fastFetchCmdPcCalculation = false,
       dynamicBranchPredictorCacheSizeLog2 = 7
@@ -128,7 +128,7 @@ object QSysAvalonCore{
   import extension._
 
   class RiscvAvalon extends Component{
-    val cached = true
+    val cached = false
     val debug = true
     val cacheParam = InstructionCacheParameters(  cacheSize =4096,
       bytePerLine =32,
@@ -149,11 +149,12 @@ object QSysAvalonCore{
       bypassWriteBack0 = false,
       bypassWriteBack1 = false,
       collapseBubble = true,
-      instructionBusKind = cmdStream_rspFlow_oneCycle,
+      instructionBusKind = cmdStream_rspFlow,
       dataBusKind = cmdStream_rspFlow,
       fastFetchCmdPcCalculation = false,
       dynamicBranchPredictorCacheSizeLog2 = 7
     )
+
 
     if(cached) assert(p.instructionBusKind == cmdStream_rspFlow_oneCycle)
     val iConfig = if(cached){
@@ -161,10 +162,14 @@ object QSysAvalonCore{
     }else{
       CoreInstructionBus.getAvalonConfig(p)
     }
+
     val io = new Bundle{
       val i = master(AvalonMMBus(iConfig))
       val d = master(AvalonMMBus(CoreDataBus.getAvalonConfig(p)))
       val interrupt = in(Bool)
+      val debugResetIn = if(debug) in Bool else null
+      val debugResetOut = if(debug) out Bool else null
+      val debugBus = if(debug) slave(AvalonMMBus(DebugExtension.getAvalonMMConfig)) else null
     }
 
    // p.add(new MulExtension)
@@ -174,18 +179,18 @@ object QSysAvalonCore{
     p.add(new BarrelShifterLightExtension)
 
     val debugExtension = if(debug) {
-      val extension = new DebugExtension()
+      val clockDomain = ClockDomain.current.clone(reset = io.debugResetIn)
+      val extension = new DebugExtension(clockDomain)
       p.add(extension)
       extension
     } else null
 
     val core = new Core()(p)
 
-    val io_debugBus = if(debug) {
-      val avalon = slave(AvalonMMBus(DebugExtension.getAvalonMMConfig))
-      DebugExtension.avalonToDebugBus(avalon,debugExtension.io.bus)
-      avalon
-    }else null
+    if(debug) {
+      DebugExtension.avalonToDebugBus(io.debugBus,debugExtension.io.bus)
+      io.debugResetOut := debugExtension.io.resetOut
+    }
 
     val cache = new InstructionCache()(cacheParam)
     if(cached){
@@ -202,8 +207,8 @@ object QSysAvalonCore{
 
     val coreD = core.io.d.clone
     coreD.cmd <-< core.io.d.cmd
-    io.d <> core.io.d.toAvalon()
-
+    coreD.rsp >> core.io.d.rsp
+    io.d <> coreD.toAvalon()
   }
 
   def main(args: Array[String]) {
@@ -214,7 +219,10 @@ object QSysAvalonCore{
     report.topLevel.io.i addTag(ClockDomainTag(report.topLevel.clockDomain))
     report.topLevel.io.d addTag(ClockDomainTag(report.topLevel.clockDomain))
     report.topLevel.io.interrupt addTag(InterruptReceiverTag(report.topLevel.io.i,report.topLevel.clockDomain))
-    if(report.topLevel.debug) report.topLevel.io_debugBus addTag(ClockDomainTag(report.topLevel.clockDomain))
+    if(report.topLevel.debug) {
+      report.topLevel.io.debugBus addTag(ClockDomainTag(report.topLevel.debugExtension.clockDomain))
+      report.topLevel.io.debugResetOut.addTag(ResetEmitterTag(report.topLevel.debugExtension.clockDomain))
+    }
     QSysify(report.topLevel)
   }
 }

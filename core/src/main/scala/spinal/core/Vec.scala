@@ -65,7 +65,18 @@ trait VecFactory {
 
 
 object SeqMux {
-  def apply[T <: Data](elements: Seq[T], address: UInt): T = {
+  def apply[T <: Data](elements: Seq[T], _address: UInt): T = {
+    var address = _address
+    val bitNeeded = log2Up(elements.size)
+    if(bitNeeded < address.getWidth){
+      if(address.hasTag(tagAutoResize)){
+        address = _address.resize(bitNeeded)
+      }else {
+        SpinalError(s"To many bit to address the vector (${address.getWidth} in place of ${bitNeeded})\n at ${ScalaLocated.getScalaTrace}")
+      }
+    }
+
+
     if (elements.size == 1) {
       val ret = elements.head.clone()
       ret := elements.head
@@ -165,6 +176,9 @@ class Vec[T <: Data](_dataType: T, val vec: Vector[T]) extends MultiData with co
 
   //TODO sub element composite assignement, as well for indexed access (std)
   def oneHotAccess(oneHot: Bits): T = {
+    if(elements.size == oneHot.getWidth){
+      SpinalError(s"To many bit to address the vector (${oneHot.getWidth} in place of ${elements.size})\n at ${ScalaLocated.getScalaTrace}")
+    }
     val ret = dataType.clone
     ret := ret.getZero
     for ((e, idx) <- vec.zipWithIndex) {

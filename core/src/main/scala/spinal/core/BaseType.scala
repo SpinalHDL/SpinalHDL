@@ -232,7 +232,7 @@ abstract class BaseType extends Node with Data with Nameable {
   override private[core] def checkInferedWidth: String = {
     val input = this.inputs(0)
     if (input != null && input.component != null && this.getWidth != input.getWidth) {
-      return s"Assignment bit count mismatch. ${this} := ${input}} at\n${getScalaTraceString}"
+      return s"Assignment bit count mismatch. ${this} := ${input}} on \n${getScalaTraceString} by \n${input.getScalaTraceString}"
     }
     return null
   }

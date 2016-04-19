@@ -12,6 +12,7 @@ object QSysify{
     val tool = new QSysify
     tool.interfaceEmiters += new AvalonEmitter()
     tool.interfaceEmiters += new ClockDomainEmitter()
+    tool.interfaceEmiters += new ResetEmitterEmitter()
     tool.interfaceEmiters += new InterruptReceiverEmitter()
     tool.interfaceEmiters += new ConduitEmitter()
 
@@ -150,7 +151,7 @@ class AvalonEmitter extends QSysifyInterfaceEmiter{
       val isMaster = e.address.isOutput
       val (masterPinDir,slavePinDir,startEnd) = if(isMaster) ("Output", "Input","start") else ("Input","Output","end")
       val name = e.getName()
-      val clockDomainTag = e.getTag[ClockDomainTag]
+      val clockDomainTag = e.getTag(classOf[ClockDomainTag])
       if(clockDomainTag.isEmpty) SpinalError(s"Clock domain of ${i} is not defined, You shoud apply the ClockDomainTag to the inferface\nyourBus.addTag(ClockDomainTag(ClockDomain.current))")
       val clockName = clockDomainTag.get.clockDomain.clock.getName()
       val resetName = clockDomainTag.get.clockDomain.reset.getName()
@@ -243,7 +244,7 @@ case class InterruptReceiverTag(addressablePoint : Data,clockDomain : ClockDomai
 
 class InterruptReceiverEmitter extends QSysifyInterfaceEmiter{
   override def emit(i: Data, builder: scala.StringBuilder): Boolean = {
-    val tag = i.getTag[InterruptReceiverTag]
+    val tag = i.getTag(classOf[InterruptReceiverTag])
     if(tag.isEmpty) return false
     val interfaceName = i.getName()
     val name = i.getName()
@@ -269,5 +270,34 @@ class InterruptReceiverEmitter extends QSysifyInterfaceEmiter{
   }
 }
 
+case class ResetEmitterTag(associatedClock : ClockDomain) extends SpinalTag
+
+class ResetEmitterEmitter extends QSysifyInterfaceEmiter{
+  override def emit(i: Data, builder: scala.StringBuilder): Boolean = {
+    val tag = i.getTag(classOf[ResetEmitterTag])
+    if(tag.isEmpty) return false
+    val interfaceName = i.getName()
+    val name = i.getName()
+
+    builder ++=
+      s"""
+         |#
+         |# connection point $interfaceName
+         |#
+         |add_interface $interfaceName reset start
+         |set_interface_property $interfaceName associatedClock ${tag.get.associatedClock.clock.getName()}
+         |set_interface_property $interfaceName associatedDirectReset ""
+         |set_interface_property $interfaceName associatedResetSinks ""
+         |set_interface_property $interfaceName synchronousEdges DEASSERT
+         |set_interface_property $interfaceName ENABLED true
+         |set_interface_property $interfaceName EXPORT_OF ""
+         |set_interface_property $interfaceName PORT_NAME_MAP ""
+         |set_interface_property $interfaceName SVD_ADDRESS_GROUP ""
+         |
+         |add_interface_port $interfaceName $name reset Output 1
+          |""".stripMargin
+    true
+  }
+}
 
 

@@ -266,7 +266,8 @@ object InputNormalize {
       input match{
       case bitVector : BitVector => {
         bitVector.inputs(0) match{
-          case lit : BitsLiteral if ! lit.hasSpecifiedBitCount => Misc.normalizeResize(parent, inputId, targetWidth) //Allow resize on direct literal with unfixed values
+          case lit : BitsLiteral if (! lit.hasSpecifiedBitCount) =>
+            Misc.normalizeResize(parent, inputId, Math.max(lit.minimalValueBitWidth,targetWidth)) //Allow resize on direct literal with unfixed values
           case _ =>
             if(input.hasTag(tagAutoResize))
               Misc.normalizeResize(parent, inputId, targetWidth)

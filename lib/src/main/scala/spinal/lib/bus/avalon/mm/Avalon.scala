@@ -60,7 +60,10 @@ object AvalonMMConfig{
     useLock = false,
     useWaitRequestn = true,
     useReadDataValid = false,
-    useBurstCount = false
+    useBurstCount = false,
+
+    maximumPendingReadTransactions = 0,
+    readLatency = 1
   )
 
 

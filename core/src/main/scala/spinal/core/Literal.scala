@@ -144,6 +144,17 @@ class BitsLiteral(val value: BigInt, val bitCount: Integer,val hasSpecifiedBitCo
       case s : SInt => makeIt(value < 0)
     }
   }
+
+  override private[core] def checkInferedWidth: String = {
+    println("asd")
+    null
+  }
+  
+  def minimalValueBitWidth : Int = {
+    value.bitLength + (if(isSignedKind) 1 else 0)
+  }
+
+  def isSignedKind = kind.isInstanceOf[SInt]
 }
 
 class BitsAllToLiteral(val theConsumer : Node,val value: Boolean) extends Literal {

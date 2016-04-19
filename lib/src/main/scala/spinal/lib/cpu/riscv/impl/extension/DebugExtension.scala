@@ -53,30 +53,32 @@ case class DebugExtensionBus() extends Bundle with IMasterSlave{
 
 case class DebugExtensionIo() extends Bundle with IMasterSlave{
   val bus = DebugExtensionBus()
-  val reset = Bool
+  val resetOut = Bool
   
   override def asMaster(): this.type = {
     master(bus)
-    in(reset)
+    in(resetOut)
     this
   }
 }
 
-class DebugExtension extends CoreExtension{
+class DebugExtension(val clockDomain: ClockDomain) extends CoreExtension{
   var io : DebugExtensionIo = null
-  override def applyIt(core: Core): Area = new Area{
+  override def applyIt(core: Core): Area = new Area{ //Can't use Clocking area because of scala error
+    clockDomain.push()
     io = slave(DebugExtensionIo())
-    
+
     val busReadDataReg = Reg(Bits(32 bit))
     io.bus.cmd.ready := True
     io.bus.rsp.data := busReadDataReg
-    
-//    io.bus.rsp.valid := RegNext(io.bus.cmd.valid) init(False)
-//    io.bus.rsp.data := RegNext(core.fetchCmd.pc.asBits)
+
     val readRegFileReg = RegNext(False)
     val resetIt = RegInit(False)
     val haltIt = RegInit(False)
-    val isRunning = True
+    val flushIt = RegNext(False)
+    val stepIt = RegInit(False)
+    val isPipEmpty = RegNext(core.fetch.inContext.valid ||  core.decode.inInst.valid ||  core.execute0.inInst.valid ||  core.execute1.inInst.valid || core.writeBack0.inInst.valid)
+    val isInBreakpoint = core.writeBack0.inInst.valid && isMyTag(core.writeBack0.inInst.ctrl)
     when(io.bus.cmd.valid) {
       when(io.bus.cmd.address.msb){//access special register else regfile
         switch(io.bus.cmd.address(io.bus.cmd.address.high-1 downto 0)) {
@@ -84,10 +86,15 @@ class DebugExtension extends CoreExtension{
             when(io.bus.cmd.wr){
               resetIt := io.bus.cmd.data(0)
               haltIt := io.bus.cmd.data(1)
+              flushIt := io.bus.cmd.data(2)
+              stepIt := io.bus.cmd.data(4)
             } otherwise{
               busReadDataReg(0) := resetIt
               busReadDataReg(1) := haltIt
-              busReadDataReg(2) := isRunning
+              busReadDataReg(2) := isPipEmpty
+              busReadDataReg(3) := isInBreakpoint
+              busReadDataReg(4) := stepIt
+              busReadDataReg(5) := core.fetchCmd.inc
             }
           }
           is(1){
@@ -95,7 +102,11 @@ class DebugExtension extends CoreExtension{
               core.fetchCmd.pc := io.bus.cmd.data.asUInt
               core.fetchCmd.inc := False
             } otherwise{
-              busReadDataReg := core.fetchCmd.pc.asBits
+              when(isInBreakpoint){
+                busReadDataReg := core.writeBack0.inInst.pc.asBits
+              } otherwise{
+                busReadDataReg := core.fetchCmd.pc.asBits
+              }
             }
           }
         }
@@ -112,20 +123,36 @@ class DebugExtension extends CoreExtension{
           }
         }
       }
-      when(readRegFileReg){
-        io.bus.rsp.data := core.decode.src0
-      }
-      io.reset := RegNext(resetIt) init(False)
-      when(haltIt){
-        core.fetchCmd.halt := True
-      }
     }
-
 
     //Keep the execution pipeline empty after break instruction
-    when(isMyTag(core.writeBack0.inInst.ctrl) || isMyTag(core.execute1.inInst.ctrl)){
+    when(core.execute1.inInst.valid && isMyTag(core.execute1.inInst.ctrl)){
       core.execute0.halt := True
     }
+    when(isInBreakpoint){
+      core.execute0.halt := True
+      core.writeBack0.halt := True
+    }
+    when(flushIt) {
+      core.writeBack0.flush := True
+    }
+
+    when(readRegFileReg){
+      io.bus.rsp.data := core.decode.src0
+    }
+
+    when(haltIt){
+      core.fetchCmd.halt := True
+    }
+
+    when(stepIt && core.fetchCmd.outInst.fire){
+      haltIt := True
+    }
+
+
+    io.resetOut := RegNext(resetIt)
+
+    clockDomain.pop()
   }
 
   override def needTag: Boolean = true

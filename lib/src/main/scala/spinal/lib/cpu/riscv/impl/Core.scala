@@ -648,6 +648,16 @@ class Core(implicit val c : CoreConfig) extends Component{
     regFileWrite.valid := outInst.fire
     regFileWrite.address := outInst.addr
     regFileWrite.data := regFileData
+
+
+    val flush = False
+    when(flush){
+      fetch.throwIt := True
+      decode.throwIt := True
+      execute0.throwIt := True
+      execute1.throwIt := True
+      throwIt := True
+    }
   }
 
   //This stage is only about keep a trace of last writeBack0, trace used later to avoid read during write hazard on register file

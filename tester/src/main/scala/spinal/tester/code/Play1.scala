@@ -2194,6 +2194,35 @@ object PlayArea {
   }
 }
 
+
+object PlayMux2 {
+  class TopLevel extends Component {
+    val inputs = in Vec(Bool,8)
+    val select = in UInt(8 bit)
+    val output = out(inputs(select))
+  }
+
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+    println("Done")
+  }
+}
+
+object PlayBitWidth {
+  class TopLevel extends Component {
+    val output = out SInt(5 bit)
+    output := 8
+  }
+
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+    println("Done")
+  }
+}
+
+
 object PlayScala {
 
   class Entry(val value: Int = (Math.random() * 100000).toInt);
@@ -2228,3 +2257,88 @@ object PlayScala {
     }
   }
 }
+
+
+
+//  abstract class Component protected () extends Registered {
+//    registerComponent(this) // Call this for each child that is registered
+//    def someCommonMethod() // A method that every child should override
+//  }
+//
+//  object Component {
+//    import scala.collection.mutable.MutableList
+//
+//    // Store all the existing components that are automatically registered
+//    var componentLists: MutableList[Component] = MutableList[Component]()
+//  }
+//
+//  trait Registered {
+//    protected def registerComponent(c: Component) = {
+//      import Component._
+//      componentLists += c
+//      println("ADD")
+//    }
+//  }
+//
+//  class FIFO(val p: Int) extends Component {
+//    println("CONST")
+//    override def someCommonMethod() = println("I am a FIFO")
+//  }
+//
+//  class RAM(val p: Int) extends Component {
+//    println("CONST")
+//    override def someCommonMethod() = println("I am a RAM")
+//  }
+//
+//  def main(args: Array[String]) {
+//    val f = new FIFO(3)
+//    val p = new RAM(3)
+//    println(Component.componentLists.mkString(","))
+//    Component.componentLists.foreach { x ⇒ x.someCommonMethod() }
+//  }
+/*
+  abstract class CC protected () extends Registered {
+    println("Component constructor")
+    registerComponent(this) // Call this for each child that is registered
+
+    def someCommonMethod() // A method that every child should override
+  }
+
+  object CC {
+    import scala.collection.mutable.MutableList
+
+    // Store all the existing components that are automatically registered
+    var componentLists: MutableList[CC] = MutableList[CC]()
+  }
+
+  trait Registered {
+    protected def registerComponent(c: CC) = {
+      import CC._
+      componentLists += c
+      println(s"Something was done after object $c construction" )
+    }
+  }
+
+  class FIFO(val p: Int) extends CC {
+    println("FIFO constructor")
+    override def someCommonMethod() = println("I am a FIFO")
+  }
+
+  class RAM(val p: Int) extends CC {
+    println("RAM constructor")
+    override def someCommonMethod() = println("I am a RAM")
+  }
+
+  object AutoRegister extends App {
+    println("1")
+    val f = new FIFO(3)
+    println("2")
+    val p = new RAM(3)
+    println("3")
+
+    // Objects are registered
+    println(CC.componentLists.mkString(","))
+    // And are from correct type
+    CC.componentLists.foreach { x ⇒ x.someCommonMethod() }
+  }
+*/

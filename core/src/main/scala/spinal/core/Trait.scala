@@ -279,10 +279,12 @@ trait SpinalTagReady {
     if (compositeTagReady != null && compositeTagReady.hasTag(spinalTag)) return true
     return false
   }
-  def getTag[T <: SpinalTag] : Option[T] = {
-    val tag = spinalTags.find(_.isInstanceOf[T])
+
+  //Feed it with classOf[?] to avoid intermodule problems
+  def getTag[T <: SpinalTag](clazz : Class[T]) : Option[T] = {
+    val tag = spinalTags.find(_.getClass == clazz)
     if(tag.isDefined) return Option(tag.get.asInstanceOf[T])
-    if (compositeTagReady != null) compositeTagReady.getTag[T]
+    if (compositeTagReady != null) compositeTagReady.getTag[T](clazz)
     None
   }
 }
