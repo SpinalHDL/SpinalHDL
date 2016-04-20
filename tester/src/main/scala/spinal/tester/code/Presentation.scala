@@ -1045,3 +1045,38 @@ object t14{
 
 
 
+object RgbToGray{
+  class RgbToGray extends Component{
+    val io = new Bundle{
+      val clear = in Bool
+      val r,g,b = in UInt(8 bits)
+
+      val wr = out Bool
+      val address = out UInt(16 bits)
+      val data = out UInt(8 bits)
+    }
+
+    val address = CounterFreeRun(stateCount = 1 << 16)
+    io.address := address
+
+    def coef(value : UInt,by : Float) : UInt = (value * U((255*by).toInt,8 bits) >> 8)
+
+    val gray = RegNext(coef(io.r,0.3f) + coef(io.g,0.4f) + coef(io.b,0.3f))
+
+    io.wr := True
+    io.data := gray
+
+    // When clear occurs, both async reset of wr and sync reset of address, gray
+    when(io.clear){
+      gray := 0
+      address.clear()
+      io.wr := False
+    }
+
+  }
+
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new RgbToGray)
+  }
+}

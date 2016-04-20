@@ -30,6 +30,7 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     def downto(start: Int): Range.Inclusive = Range.inclusive(start, i)
 
     def bit = new BitCount(i)
+    def bits = new BitCount(i)
     def exp = new ExpCount(i)
     def hr = new STime(i * 3600)
     def min = new STime(i * 60)
