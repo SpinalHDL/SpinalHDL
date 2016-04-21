@@ -2154,6 +2154,19 @@ object PlayCase {
   }
 }
 
+object PlayMux2 {
+
+  class TopLevel extends Component {
+    val output = out(Mux(in(Bool.setName("sel")),in(SInt(2 bit)),S(0)))
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+    println("Done")
+  }
+}
+
+
 object PlaySel {
 
   class TopLevel extends Component {
@@ -2195,7 +2208,7 @@ object PlayArea {
 }
 
 
-object PlayMux2 {
+object PlayMux4 {
   class TopLevel extends Component {
     val inputs = in Vec(Bool,8)
     val select = in UInt(8 bit)

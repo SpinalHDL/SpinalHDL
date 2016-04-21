@@ -1056,13 +1056,15 @@ object RgbToGray{
       val data = out UInt(8 bits)
     }
 
+    def coef(value : UInt,by : Float) : UInt = (value * U((255*by).toInt,8 bits) >> 8)
+    val gray = RegNext(
+      coef(io.r,0.3f) +
+      coef(io.g,0.4f) +
+      coef(io.b,0.3f)
+    )
+
     val address = CounterFreeRun(stateCount = 1 << 16)
     io.address := address
-
-    def coef(value : UInt,by : Float) : UInt = (value * U((255*by).toInt,8 bits) >> 8)
-
-    val gray = RegNext(coef(io.r,0.3f) + coef(io.g,0.4f) + coef(io.b,0.3f))
-
     io.wr := True
     io.data := gray
 
@@ -1072,7 +1074,6 @@ object RgbToGray{
       address.clear()
       io.wr := False
     }
-
   }
 
 

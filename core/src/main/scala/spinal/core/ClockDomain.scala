@@ -175,13 +175,7 @@ class ClockDomain(val config: ClockDomainConfig, val clock: Bool, val reset: Boo
     that.syncroneWith += this
   }
 
-  def apply(block: => Unit): Unit = {
-    push
-    block
-    pop
-  }
-
-  def apply[T <: Data](block: => T): T = {
+  def apply[T](block: => T): T = {
     push
     val ret: T = block
     pop

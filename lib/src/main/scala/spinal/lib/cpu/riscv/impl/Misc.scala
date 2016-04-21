@@ -38,13 +38,11 @@ object Utils{
 
   object OP2 extends SpinalEnum(sequancial){
     val RS, IMI, IMS, PC1 = newElement()
-
     def X = RS
   }
 
   object WB extends SpinalEnum(sequancial){
     val ALU1, MEM, PC4, CSR1 = newElement()
-
     def X = ALU1
   }
 
@@ -55,7 +53,6 @@ object Utils{
 
   object MSK extends SpinalEnum(sequancial){
     val B,H,W = newElement()
-
     def X = B
   }
 
@@ -67,7 +64,6 @@ object Utils{
 
   object M extends SpinalEnum(sequancial){
     val XRD, XWR = newElement()
-
     def X = XRD
   }
 
@@ -289,27 +285,6 @@ object Utils{
   def src1Range = 24 downto 20
   def dstRange = 11 downto 7
 }
-
-//import Utils._
-//import spinal.lib._
-//class CustomAluIO(implicit p : CoreParm) extends Bundle with IMasterSlave{
-//  val cmd = Stream(wrap(new Bundle{
-//    val instruction = Bits(32 bit)
-//    val func = ALU()
-//    val src0 = Bits(32 bit)
-//    val src1 = Bits(32 bit)
-//  }))
-//  val rsp = Stream(wrap(new Bundle{
-//    val result = Bits(32 bit)
-//  }))
-//
-//  override def asMaster(): CustomAluIO.this.type = {
-//    slave(cmd)
-//    master(rsp)
-//    this
-//  }
-//  override def asSlave(): CustomAluIO.this.type = asMaster.flip
-//}
 
 object UtilsTest{
   class TopLevel extends Component{

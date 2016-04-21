@@ -147,7 +147,7 @@ class BitsLiteral(val value: BigInt, val bitCount: Integer,val hasSpecifiedBitCo
   
   
   def minimalValueBitWidth : Int = {
-    value.bitLength + (if(isSignedKind) 1 else 0)
+    value.bitLength + (if(isSignedKind && value != 0) 1 else 0)
   }
 
   def isSignedKind = kind.isInstanceOf[SInt]
