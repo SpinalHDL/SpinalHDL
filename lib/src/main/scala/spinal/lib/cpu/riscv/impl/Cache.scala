@@ -78,11 +78,23 @@ case class InstructionCacheMemBus(implicit p : InstructionCacheParameters) exten
   }
 }
 
+case class InstructionCacheFlushBus() extends Bundle with IMasterSlave{
+  val cmd = Event
+  val rsp = Bool
+
+  override def asMaster(): InstructionCacheFlushBus.this.type = {
+    master(cmd)
+    in(rsp)
+    this
+  }
+}
+
 class InstructionCache(implicit p : InstructionCacheParameters) extends Component{
   import p._
   assert(wayCount == 1)
   assert(cpuDataWidth == memDataWidth)
   val io = new Bundle{
+    val flush = slave(InstructionCacheFlushBus())
     val cpu = slave(InstructionCacheCpuBus())
     val mem = master(InstructionCacheMemBus())
   }
@@ -112,6 +124,7 @@ class InstructionCache(implicit p : InstructionCacheParameters) extends Componen
     val datas = Mem(Bits(wordWidth bit),wayWordCount)
   })
 
+
   val loader = new Area{
     val requestIn = Stream(wrap(new Bundle{
       val addr = UInt(addressWidth bit)
@@ -124,20 +137,30 @@ class InstructionCache(implicit p : InstructionCacheParameters) extends Componen
       io.mem.cmd.address := requestIn.addr(tagRange.high downto lineRange.low) @@ U(0,lineRange.low bit)
 
 
-    val initCounter = Reg(UInt(log2Up(wayLineCount) + 1 bit)) init(0)
-    when(!initCounter.msb){
+    val flushCounter = Reg(UInt(log2Up(wayLineCount) + 1 bit)) init(0)
+    when(!flushCounter.msb){
       haltCpu := True
-      initCounter := initCounter + 1
+      flushCounter := flushCounter + 1
     }
-    when(RegNext(!initCounter.msb)){
+    when(!RegNext(flushCounter.msb)){
       haltCpu := True
+    }
+    val flushFromInterface = RegInit(False)
+    when(io.flush.cmd.valid){
+      haltCpu := True
+      when(io.flush.cmd.ready){
+        flushCounter := 0
+        flushFromInterface := True
+      }
     }
 
+    io.flush.rsp := flushCounter.msb.rise && flushFromInterface
+
     val lineInfoWrite = new LineInfo()
-    lineInfoWrite.valid := initCounter.msb
+    lineInfoWrite.valid := flushCounter.msb
     lineInfoWrite.address := requestIn.addr(tagRange)
-    when(requestIn.fire || !initCounter.msb){
-      val tagsAddress = Mux(initCounter.msb,requestIn.addr(lineRange),initCounter(initCounter.high-1 downto 0))
+    when(requestIn.fire || !flushCounter.msb){
+      val tagsAddress = Mux(flushCounter.msb,requestIn.addr(lineRange),flushCounter(flushCounter.high-1 downto 0))
       ways(0).tags(tagsAddress) := lineInfoWrite  //TODO
     }
 
@@ -170,7 +193,7 @@ class InstructionCache(implicit p : InstructionCacheParameters) extends Componen
   }
 
   val task = new Area{
-    val request = io.cpu.cmd.m2sPipe()
+    val request = io.cpu.cmd.haltWhen(haltCpu).m2sPipe()
     request.ready := io.cpu.rsp.fire
     val waysHitValid = False
     val waysHitWord = Bits(wordWidth bit)
@@ -180,11 +203,9 @@ class InstructionCache(implicit p : InstructionCacheParameters) extends Componen
       val readAddress = Mux(request.isStall,request.address,io.cpu.cmd.address)
       val tag = way.tags.readSync(readAddress(lineRange))
       val data = way.datas.readSync(readAddress(lineRange.high downto wordRange.low))
-      when(!haltCpu) {
-        when(tag.valid && tag.address === request.address(tagRange)) {
-          waysHitValid := True
-          waysHitWord := data
-        }
+      when(tag.valid && tag.address === request.address(tagRange)) {
+        waysHitValid := True
+        waysHitWord := data
       }
     }
 
@@ -202,10 +223,12 @@ class InstructionCache(implicit p : InstructionCacheParameters) extends Componen
           io.cpu.rsp.valid := True
         }
       } otherwise{
-        loader.requestIn.valid := !haltCpu
+        loader.requestIn.valid := True
       }
     }
   }
+
+  io.flush.cmd.ready := !(loader.request.valid || task.request.valid)
 }
 
 object InstructionCacheMain{

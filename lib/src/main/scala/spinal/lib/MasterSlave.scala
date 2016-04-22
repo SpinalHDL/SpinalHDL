@@ -13,6 +13,11 @@ trait MSFactory{
 
 trait MS{
   def apply[T <: IMasterSlave](i: T) : T
+  def apply(a: IMasterSlave,b: IMasterSlave,c: IMasterSlave*) : Unit = {
+    apply(a)
+    apply(b)
+    for(e <- c) apply(e)
+  }
 
   object Flow extends FlowFactory{
     override def postApply(interface : IMasterSlave) : Unit = {
@@ -37,7 +42,7 @@ trait MS{
 
   def Event : Event = {
     val ret = spinal.lib.Event
-    MS.this.apply(ret)
+    this.apply(ret)
     ret
   }
 }

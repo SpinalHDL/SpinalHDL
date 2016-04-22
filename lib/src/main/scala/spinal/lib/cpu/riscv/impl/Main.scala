@@ -101,6 +101,7 @@ object CoreMain{
       }
       cache.io.mem.rsp.valid <> i.rsp.valid
       cache.io.mem.rsp.data <> i.rsp.instruction
+      cache.io.flush.cmd.valid := False
     }else {
 
       p.instructionBusKind match {
@@ -211,6 +212,19 @@ object QSysAvalonCore{
       io.i <>core.io.i.toAvalon()
     }
 
+    (debug,cached) match{
+      case (false,false) =>
+      case (false,true) =>{
+        cache.io.flush.cmd.valid := False
+      }
+      case (true,false) =>{
+        debugExtension.io.iCacheFlush.cmd.ready := True
+        debugExtension.io.iCacheFlush.rsp := False
+      }
+      case (true,true) => {
+        debugExtension.io.iCacheFlush <> cache.io.flush
+      }
+    }
 
     val coreD = core.io.d.clone
     coreD.cmd <-< core.io.d.cmd

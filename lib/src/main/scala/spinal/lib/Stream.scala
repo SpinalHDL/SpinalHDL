@@ -685,3 +685,15 @@ object StreamSelector {
   }
 }
 
+
+case class EventEmitter(on : Event){
+  val reg = RegInit(False)
+  when(on.ready){
+    reg := False
+  }
+  on.valid := reg
+
+  def emit(): Unit ={
+    reg := True
+  }
+}

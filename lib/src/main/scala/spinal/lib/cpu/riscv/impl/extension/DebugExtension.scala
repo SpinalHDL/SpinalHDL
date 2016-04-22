@@ -54,9 +54,11 @@ case class DebugExtensionBus() extends Bundle with IMasterSlave{
 case class DebugExtensionIo() extends Bundle with IMasterSlave{
   val bus = DebugExtensionBus()
   val resetOut = Bool
+  val iCacheFlush = InstructionCacheFlushBus()
   
   override def asMaster(): this.type = {
     master(bus)
+    slave(iCacheFlush)
     in(resetOut)
     this
   }
@@ -76,8 +78,11 @@ class DebugExtension(val clockDomain: ClockDomain) extends CoreExtension{
     val haltIt = RegInit(False)
     val flushIt = RegNext(False)
     val stepIt = RegInit(False)
+    val iCacheflushEmitter = EventEmitter(on=io.iCacheFlush.cmd)
+    
     val isPipEmpty = RegNext(core.fetch.inContext.valid ||  core.decode.inInst.valid ||  core.execute0.inInst.valid ||  core.execute1.inInst.valid || core.writeBack.inInst.valid)
     val isInBreakpoint = core.writeBack.inInst.valid && isMyTag(core.writeBack.inInst.ctrl)
+    val iCacheFlushDone = RegInit(False)
     when(io.bus.cmd.valid) {
       when(io.bus.cmd.address.msb){//access special register else regfile
         switch(io.bus.cmd.address(io.bus.cmd.address.high-1 downto 0)) {
@@ -87,6 +92,9 @@ class DebugExtension(val clockDomain: ClockDomain) extends CoreExtension{
               haltIt := io.bus.cmd.data(1)
               flushIt := io.bus.cmd.data(2)
               stepIt := io.bus.cmd.data(4)
+              when(io.bus.cmd.data(8)){
+                iCacheflushEmitter.emit()
+              }
             } otherwise{
               busReadDataReg(0) := resetIt
               busReadDataReg(1) := haltIt
@@ -94,6 +102,8 @@ class DebugExtension(val clockDomain: ClockDomain) extends CoreExtension{
               busReadDataReg(3) := isInBreakpoint
               busReadDataReg(4) := stepIt
               busReadDataReg(5) := core.fetchCmd.inc
+              busReadDataReg(8) := iCacheFlushDone
+              iCacheFlushDone.clear()
             }
           }
           is(1){
@@ -128,10 +138,12 @@ class DebugExtension(val clockDomain: ClockDomain) extends CoreExtension{
     when(core.execute1.inInst.valid && isMyTag(core.execute1.inInst.ctrl)){
       core.execute0.halt := True
     }
+    
     when(isInBreakpoint){
       core.execute0.halt := True
       core.writeBack.halt := True
     }
+
     when(flushIt) {
       core.writeBack.flush := True
     }
@@ -146,6 +158,10 @@ class DebugExtension(val clockDomain: ClockDomain) extends CoreExtension{
 
     when(stepIt && core.fetchCmd.outInst.fire){
       haltIt := True
+    }
+
+    when(io.iCacheFlush.rsp){
+      iCacheFlushDone.set()
     }
 
     io.resetOut := RegNext(resetIt)
