@@ -11,7 +11,7 @@ object CoreMain{
   class TopLevel extends Component{
     val io_interrupt = in Bool
     val cached = true
-    val cacheParam = InstructionCacheParameters(  cacheSize = 8196,
+    val cacheParam = InstructionCacheParameters(  cacheSize = 4096,
       bytePerLine =32,
       wayCount = 1,
       wrappedMemAccess = true,
@@ -24,7 +24,7 @@ object CoreMain{
       addrWidth = 32,
       startAddress = 0x200,
       regFileReadyKind = sync,
-      branchPrediction = dynamic,
+      branchPrediction = static,
       bypassExecute0 = true,
       bypassExecute1 = true,
       bypassWriteBack = true,
@@ -53,6 +53,7 @@ object CoreMain{
       val iRspDrive = in Bool
       val dCmdDrive = in Bool
       val dRspDrive = in Bool
+      val doCacheFlush = in Bool
     }
     def StreamDelay[T <: Data](that : Stream[T]) = that.s2mPipe().s2mPipe().s2mPipe().s2mPipe().s2mPipe().s2mPipe()
     val core = new Core
@@ -101,7 +102,11 @@ object CoreMain{
       }
       cache.io.mem.rsp.valid <> i.rsp.valid
       cache.io.mem.rsp.data <> i.rsp.instruction
-      cache.io.flush.cmd.valid := False
+      val flushEmitter = EventEmitter(cache.io.flush.cmd)
+      when(io.doCacheFlush){
+        flushEmitter.emit()
+      }
+
     }else {
 
       p.instructionBusKind match {
@@ -150,15 +155,15 @@ object QSysAvalonCore{
       addrWidth = 32,
       startAddress = 0x200,
       regFileReadyKind = sync,
-      branchPrediction = static,
-      bypassExecute0 = true,
-      bypassExecute1 = true,
-      bypassWriteBack = true,
-      bypassWriteBackBuffer = true,
+      branchPrediction = disable,
+      bypassExecute0 = false,
+      bypassExecute1 = false,
+      bypassWriteBack = false,
+      bypassWriteBackBuffer = false,
       collapseBubble = true,
       instructionBusKind = cmdStream_rspStream,
       dataBusKind = cmdStream_rspFlow,
-      fastFetchCmdPcCalculation = true,
+      fastFetchCmdPcCalculation = false,
       dynamicBranchPredictorCacheSizeLog2 = 7
     )
 

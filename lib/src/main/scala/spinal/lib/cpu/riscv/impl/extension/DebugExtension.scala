@@ -138,7 +138,7 @@ class DebugExtension(val clockDomain: ClockDomain) extends CoreExtension{
     when(core.execute1.inInst.valid && isMyTag(core.execute1.inInst.ctrl)){
       core.execute0.halt := True
     }
-    
+
     when(isInBreakpoint){
       core.execute0.halt := True
       core.writeBack.halt := True

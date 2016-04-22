@@ -44,13 +44,14 @@ architecture arch of CoreWrapper_tb is
   signal io_iRspDrive : std_logic;
   signal io_dCmdDrive : std_logic;
   signal io_dRspDrive : std_logic;
+  signal io_doCacheFlush : std_logic;
   signal clk : std_logic;
   signal reset : std_logic;
   -- #spinalBegin userDeclarations
   constant doTestWithStall : Boolean := true;
   constant doBench : Boolean := true;
-  constant doBenchtWithStall : Boolean := true;
-  constant doBenchtWithInterrupt : Boolean := true;
+  constant doBenchtWithStall : Boolean := false;
+  constant doBenchtWithInterrupt : Boolean := false;
   
   
   constant allowRomWriteWhenBench : Boolean := false;
@@ -332,11 +333,13 @@ begin
         io_iRspDrive <= '1';
         io_dCmdDrive <= '1';
         io_dRspDrive <= '1';
+        io_doCacheFlush <= '0';
       else
         io_iCmdDrive <= randomStdLogic(0.5);
         io_iRspDrive <= randomStdLogic(0.3);
         io_dCmdDrive <= randomStdLogic(0.5);
         io_dRspDrive <= randomStdLogic(0.5);
+        io_doCacheFlush <= randomStdLogic(0.0003);
       end if;
     end if;
   end process;
@@ -540,6 +543,7 @@ begin
       io_iRspDrive =>  io_iRspDrive,
       io_dCmdDrive =>  io_dCmdDrive,
       io_dRspDrive =>  io_dRspDrive,
+      io_doCacheFlush =>  io_doCacheFlush,
       clk =>  clk,
       reset =>  reset 
     );
