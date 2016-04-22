@@ -76,8 +76,8 @@ class DebugExtension(val clockDomain: ClockDomain) extends CoreExtension{
     val haltIt = RegInit(False)
     val flushIt = RegNext(False)
     val stepIt = RegInit(False)
-    val isPipEmpty = RegNext(core.fetch.inContext.valid ||  core.decode.inInst.valid ||  core.execute0.inInst.valid ||  core.execute1.inInst.valid || core.writeBack0.inInst.valid)
-    val isInBreakpoint = core.writeBack0.inInst.valid && isMyTag(core.writeBack0.inInst.ctrl)
+    val isPipEmpty = RegNext(core.fetch.inContext.valid ||  core.decode.inInst.valid ||  core.execute0.inInst.valid ||  core.execute1.inInst.valid || core.writeBack.inInst.valid)
+    val isInBreakpoint = core.writeBack.inInst.valid && isMyTag(core.writeBack.inInst.ctrl)
     when(io.bus.cmd.valid) {
       when(io.bus.cmd.address.msb){//access special register else regfile
         switch(io.bus.cmd.address(io.bus.cmd.address.high-1 downto 0)) {
@@ -102,7 +102,7 @@ class DebugExtension(val clockDomain: ClockDomain) extends CoreExtension{
               core.fetchCmd.inc := False
             } otherwise{
               when(isInBreakpoint){
-                busReadDataReg := core.writeBack0.inInst.pc.asBits
+                busReadDataReg := core.writeBack.inInst.pc.asBits
               } otherwise{
                 busReadDataReg := core.fetchCmd.pc.asBits
               }
@@ -111,11 +111,11 @@ class DebugExtension(val clockDomain: ClockDomain) extends CoreExtension{
         }
       } otherwise{
         when(io.bus.cmd.wr){
-          core.writeBack0.regFileWrite.valid := True
-          core.writeBack0.regFileWrite.address := io.bus.cmd.address(core.writeBack0.regFileWrite.address.range)
-          core.writeBack0.regFileWrite.data := io.bus.cmd.data
+          core.writeBack.regFileWrite.valid := True
+          core.writeBack.regFileWrite.address := io.bus.cmd.address(core.writeBack.regFileWrite.address.range)
+          core.writeBack.regFileWrite.data := io.bus.cmd.data
         } otherwise {
-          core.decode.regFileReadAddress0 := io.bus.cmd.address(core.writeBack0.regFileWrite.address.range)
+          core.decode.regFileReadAddress0 := io.bus.cmd.address(core.writeBack.regFileWrite.address.range)
           core.c.regFileReadyKind match{
             case `async` => busReadDataReg := core.decode.src0
             case `sync` => readRegFileReg := True
@@ -130,10 +130,10 @@ class DebugExtension(val clockDomain: ClockDomain) extends CoreExtension{
     }
     when(isInBreakpoint){
       core.execute0.halt := True
-      core.writeBack0.halt := True
+      core.writeBack.halt := True
     }
     when(flushIt) {
-      core.writeBack0.flush := True
+      core.writeBack.flush := True
     }
 
     when(readRegFileReg){

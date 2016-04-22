@@ -4,6 +4,7 @@ use ieee.numeric_std.all;
 
 library riscv;
 use riscv.pkg_scala2hdl.all;
+use riscv.all;
 use riscv.pkg_enum.all;
 
 -- #spinalBegin userLibrary
@@ -36,6 +37,9 @@ architecture arch of CoreWrapper_tb is
   signal io_d_rsp_valid : std_logic;
   signal io_d_rsp_ready : std_logic;
   signal io_d_rsp_payload : std_logic_vector(31 downto 0);
+  signal io_iCheck_valid : std_logic;
+  signal io_iCheck_payload_address : unsigned(31 downto 0);
+  signal io_iCheck_payload_data : std_logic_vector(31 downto 0);
   signal io_iCmdDrive : std_logic;
   signal io_iRspDrive : std_logic;
   signal io_dCmdDrive : std_logic;
@@ -45,8 +49,8 @@ architecture arch of CoreWrapper_tb is
   -- #spinalBegin userDeclarations
   constant doTestWithStall : Boolean := true;
   constant doBench : Boolean := true;
-  constant doBenchtWithStall : Boolean := true;
-  constant doBenchtWithInterrupt : Boolean := true;
+  constant doBenchtWithStall : Boolean := false;
+  constant doBenchtWithInterrupt : Boolean := false;
   constant allowRomWriteWhenBench : Boolean := false;
  
   
@@ -450,6 +454,15 @@ begin
           end if;  
         end if;
       end if;
+      
+      if io_iCheck_valid = '1' then
+        assert(io_iCheck_payload_address(1 downto 0) = "00");
+        if io_iCheck_payload_data /= X"00000013" and io_iCheck_payload_data /= X"01c02023" then
+          for i in 0 to 3 loop
+            assert(rom(to_integer(io_iCheck_payload_address)+i) = io_iCheck_payload_data(i*8+7 downto i*8));
+          end loop;
+        end if;
+      end if;
     end if;
   end process;
   
@@ -518,6 +531,9 @@ begin
       io_d_rsp_valid =>  io_d_rsp_valid,
       io_d_rsp_ready =>  io_d_rsp_ready,
       io_d_rsp_payload =>  io_d_rsp_payload,
+      io_iCheck_valid =>  io_iCheck_valid,
+      io_iCheck_payload_address =>  io_iCheck_payload_address,
+      io_iCheck_payload_data =>  io_iCheck_payload_data,
       io_iCmdDrive =>  io_iCmdDrive,
       io_iRspDrive =>  io_iRspDrive,
       io_dCmdDrive =>  io_dCmdDrive,

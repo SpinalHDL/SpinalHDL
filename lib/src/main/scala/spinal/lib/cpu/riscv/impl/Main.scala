@@ -10,8 +10,8 @@ object CoreMain{
 
   class TopLevel extends Component{
     val io_interrupt = in Bool
-    val cached = false
-    val cacheParam = InstructionCacheParameters(  cacheSize =4096,
+    val cached = true
+    val cacheParam = InstructionCacheParameters(  cacheSize = 8196,
       bytePerLine =32,
       wayCount = 1,
       wrappedMemAccess = true,
@@ -24,27 +24,31 @@ object CoreMain{
       addrWidth = 32,
       startAddress = 0x200,
       regFileReadyKind = sync,
-      branchPrediction = disable,
-      bypassExecute0 = false,
-      bypassExecute1 = false,
-      bypassWriteBack0 = false,
-      bypassWriteBack1 = false,
+      branchPrediction = dynamic,
+      bypassExecute0 = true,
+      bypassExecute1 = true,
+      bypassWriteBack = true,
+      bypassWriteBackBuffer = true,
       collapseBubble = true,
-      instructionBusKind = cmdStream_rspFlow,
+      instructionBusKind = cmdStream_rspStream,
       dataBusKind = cmdStream_rspFlow,
-      fastFetchCmdPcCalculation = false,
+      fastFetchCmdPcCalculation = true,
       dynamicBranchPredictorCacheSizeLog2 = 7
     )
 
-    if(cached) assert(p.instructionBusKind == cmdStream_rspFlow_oneCycle)
-   // p.add(new MulExtension)
-  //  p.add(new DivExtension)
-    //p.add(new BarrelShifterFullExtension)
+    if(cached) assert(p.instructionBusKind == cmdStream_rspStream)
+    p.add(new MulExtension)
+    p.add(new DivExtension)
+    p.add(new BarrelShifterFullExtension)
     //p.add(new SimpleInterruptExtension(exceptionVector=0x0).addIrq(id=4,pin=io_interrupt,IrqUsage(isException=false),name="io_interrupt"))
-    p.add(new BarrelShifterLightExtension)
+//    p.add(new BarrelShifterLightExtension)
     val io = new Bundle{
       val i = master(CoreInstructionBus())
       val d = master(CoreDataBus())
+      val iCheck = master(Flow(wrap(new Bundle{
+        val address = UInt(p.addrWidth bit)
+        val data = Bits(32 bit)
+      })))
       val iCmdDrive = in Bool
       val iRspDrive = in Bool
       val dCmdDrive = in Bool
@@ -61,7 +65,8 @@ object CoreMain{
       io.i.cmd << StreamDelay(i.cmd.continueWhen(io.iCmdDrive))
       i.rsp << StreamDelay(io.i.rsp).continueWhen(io.iRspDrive)
 
-      core.io.i.cmd.ready := True
+      cache.io.cpu.rsp.ready := core.io.i.rsp.ready
+      core.io.i.cmd.ready := cache.io.cpu.cmd.ready
       i.rsp.ready := True
       cache.io.cpu.cmd.valid := core.io.i.cmd.valid
       cache.io.cpu.cmd.address := core.io.i.cmd.pc
@@ -110,14 +115,15 @@ object CoreMain{
     io.d.cmd << StreamDelay(core.io.d.cmd.continueWhen(io.dCmdDrive))
     core.io.d.rsp << StreamDelay(io.d.rsp.m2sPipe()).continueWhen(io.dRspDrive)
 
+    io.iCheck.valid := core.execute0.outInst.valid.pull
+    io.iCheck.address := core.execute0.outInst.pc.pull
+    io.iCheck.data := core.execute0.outInst.instruction.pull
   }
 
   def main(args: Array[String]) {
-    SpinalVhdl({
-
-      new TopLevel().setDefinitionName("CoreWrapper")
-    }
+    SpinalVhdl({ new TopLevel().setDefinitionName("CoreWrapper")}
     ,_.setLibrary("riscv"))
+    SpinalVhdl({ new TopLevel()})
   }
 }
 
@@ -128,7 +134,7 @@ object QSysAvalonCore{
   import extension._
 
   class RiscvAvalon extends Component{
-    val cached = false
+    val cached = true
     val debug = true
     val cacheParam = InstructionCacheParameters(  cacheSize =4096,
       bytePerLine =32,
@@ -143,20 +149,20 @@ object QSysAvalonCore{
       addrWidth = 32,
       startAddress = 0x200,
       regFileReadyKind = sync,
-      branchPrediction = disable,
-      bypassExecute0 = false,
-      bypassExecute1 = false,
-      bypassWriteBack0 = false,
-      bypassWriteBack1 = false,
+      branchPrediction = static,
+      bypassExecute0 = true,
+      bypassExecute1 = true,
+      bypassWriteBack = true,
+      bypassWriteBackBuffer = true,
       collapseBubble = true,
-      instructionBusKind = cmdStream_rspFlow,
+      instructionBusKind = cmdStream_rspStream,
       dataBusKind = cmdStream_rspFlow,
-      fastFetchCmdPcCalculation = false,
+      fastFetchCmdPcCalculation = true,
       dynamicBranchPredictorCacheSizeLog2 = 7
     )
 
 
-    if(cached) assert(p.instructionBusKind == cmdStream_rspFlow_oneCycle)
+    if(cached) assert(p.instructionBusKind == cmdStream_rspStream)
     val iConfig = if(cached){
       cacheParam.getAvalonConfig()
     }else{
@@ -194,7 +200,8 @@ object QSysAvalonCore{
 
     val cache = new InstructionCache()(cacheParam)
     if(cached){
-      core.io.i.cmd.ready := True
+      cache.io.cpu.rsp.ready := core.io.i.rsp.ready
+      core.io.i.cmd.ready := cache.io.cpu.cmd.ready
       cache.io.cpu.cmd.valid := core.io.i.cmd.valid
       cache.io.cpu.cmd.address := core.io.i.cmd.pc
       core.io.i.rsp.valid := cache.io.cpu.rsp.valid

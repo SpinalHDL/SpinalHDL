@@ -35,8 +35,8 @@ case class CoreConfig(val pcWidth : Int = 32,
                     val startAddress : Int = 0,
                     val bypassExecute0 : Boolean = true,
                     val bypassExecute1 : Boolean = true,
-                    val bypassWriteBack0 : Boolean = true,
-                    val bypassWriteBack1 : Boolean = true,
+                    val bypassWriteBack : Boolean = true,
+                    val bypassWriteBackBuffer : Boolean = true,
                     val collapseBubble : Boolean = true,
                     val branchPrediction : BranchPrediction = static,
                     val regFileReadyKind : RegFileReadKind = sync,
@@ -572,7 +572,7 @@ class Core(implicit val c : CoreConfig) extends Component{
     }
   }
 
-  val writeBack0 = new Area{
+  val writeBack = new Area{
     val inInst = execute1.outInst.m2sPipe(collapseBubble)
     val throwIt = !inInst.ctrl.rfen
     val halt = False
@@ -660,9 +660,9 @@ class Core(implicit val c : CoreConfig) extends Component{
     }
   }
 
-  //This stage is only about keep a trace of last writeBack0, trace used later to avoid read during write hazard on register file
-  val writeBack1 = new Area{
-    val inInst = writeBack0.outInst.m2sPipe(collapseBubble)
+  //This stage is only about keep a trace of last writeBack, trace used later to avoid read during write hazard on register file
+  val writeBackBuffer = new Area{
+    val inInst = writeBack.outInst.m2sPipe(collapseBubble)
     inInst.ready := True
   }
 
@@ -690,10 +690,10 @@ class Core(implicit val c : CoreConfig) extends Component{
         }
     }
 
-    when(writeBack0.pcLoad.valid){
+    when(writeBack.pcLoad.valid){
       execute1.flush :=  True
       fetchCmd.pcLoad.valid := True
-      fetchCmd.pcLoad.payload := writeBack0.pcLoad.payload
+      fetchCmd.pcLoad.payload := writeBack.pcLoad.payload
     }
 
     val loadCounter = Counter(1<<30,execute1.pcLoad.valid).value.keep()
@@ -711,21 +711,21 @@ class Core(implicit val c : CoreConfig) extends Component{
     decode.hazard := src0Hazard || src1Hazard
 
     // write back bypass and hazard
-    if(bypassWriteBack1) {
-      when(writeBack1.inInst.valid) {
-        when(addr0Check && writeBack1.inInst.addr === decode.addr0) {
-          decode.src0 := writeBack1.inInst.data
+    if(bypassWriteBackBuffer) {
+      when(writeBackBuffer.inInst.valid) {
+        when(addr0Check && writeBackBuffer.inInst.addr === decode.addr0) {
+          decode.src0 := writeBackBuffer.inInst.data
         }
-        when(addr1Check && writeBack1.inInst.addr === decode.addr1) {
-          decode.src1 := writeBack1.inInst.data
+        when(addr1Check && writeBackBuffer.inInst.addr === decode.addr1) {
+          decode.src1 := writeBackBuffer.inInst.data
         }
       }
     }else{
-      when(writeBack1.inInst.valid) {
-        when(decode.addr0 === writeBack1.inInst.addr) {
+      when(writeBackBuffer.inInst.valid) {
+        when(decode.addr0 === writeBackBuffer.inInst.addr) {
           src0Hazard := True
         }
-        when(decode.addr1 === writeBack1.inInst.addr) {
+        when(decode.addr1 === writeBackBuffer.inInst.addr) {
           src1Hazard := True
         }
       }
@@ -733,20 +733,20 @@ class Core(implicit val c : CoreConfig) extends Component{
 
     // memory access bypass and hazard
     val A = new Area{
-      val addr0Match = writeBack0.outInst.addr === decode.addr0
-      val addr1Match = writeBack0.outInst.addr === decode.addr1
-      when(writeBack0.inInst.ctrl.rfen){
-        if(bypassWriteBack0) {
-          when(writeBack0.outInst.valid) {
+      val addr0Match = writeBack.outInst.addr === decode.addr0
+      val addr1Match = writeBack.outInst.addr === decode.addr1
+      when(writeBack.inInst.ctrl.rfen){
+        if(bypassWriteBack) {
+          when(writeBack.outInst.valid) {
             when(addr0Check && addr0Match) {
-              decode.src0 := writeBack0.regFileData
+              decode.src0 := writeBack.regFileData
             }
             when(addr1Check && addr1Match) {
-              decode.src1 := writeBack0.regFileData
+              decode.src1 := writeBack.regFileData
             }
           }
         }
-        when(writeBack0.inInst.valid && writeBack0.inInst.ctrl.rfen && (Bool(!bypassWriteBack0) || !writeBack0.outInst.valid)) {
+        when(writeBack.inInst.valid && writeBack.inInst.ctrl.rfen && (Bool(!bypassWriteBack) || !writeBack.outInst.valid)) {
           when(addr0Match) {
             src0Hazard := True
           }
@@ -822,7 +822,7 @@ class Core(implicit val c : CoreConfig) extends Component{
       when(execute1.inInst.valid && execute1.inInst.ctrl.canInternalyStallWriteBack0){
         execute0.halt := True
       }
-      when(writeBack0.inInst.isStall && writeBack0.inInst.ctrl.canInternalyStallWriteBack0){
+      when(writeBack.inInst.isStall && writeBack.inInst.ctrl.canInternalyStallWriteBack0){
         execute0.halt := True
       }
     }

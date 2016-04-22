@@ -2185,6 +2185,24 @@ object PlaySel {
   }
 }
 
+object PlayRam {
+
+  class TopLevel extends Component {
+    val mem = Mem(Bits(32 bit),128)
+
+    val wr = in(mem.writePort)
+
+    val addr = RegNextWhen(in(mem.addressType),in Bool)
+    val data = out (mem(addr))
+
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+    println("Done")
+  }
+}
+
 object PlayArea {
 
   class TopLevel extends Component {

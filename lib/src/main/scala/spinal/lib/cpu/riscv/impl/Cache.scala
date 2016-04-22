@@ -33,8 +33,8 @@ case class InstructionCacheCpuRsp(implicit p : InstructionCacheParameters) exten
 }
 
 case class InstructionCacheCpuBus(implicit p : InstructionCacheParameters) extends Bundle with IMasterSlave{
-  val cmd = Flow (InstructionCacheCpuCmd())
-  val rsp = Flow (InstructionCacheCpuRsp())
+  val cmd = Stream (InstructionCacheCpuCmd())
+  val rsp = Stream (InstructionCacheCpuRsp())
 
   override def asMaster(): this.type = {
     master(cmd)
@@ -101,11 +101,6 @@ class InstructionCache(implicit p : InstructionCacheParameters) extends Componen
   val lineRange = tagRange.low-1 downto log2Up(bytePerLine)
   val wordRange = log2Up(bytePerLine)-1 downto log2Up(bytePerWord)
 
-  val mem_cmd = Stream (InstructionCacheMemCmd())
-  if(stableMemCmd)
-    io.mem.cmd <-< mem_cmd
-  else
-    io.mem.cmd << mem_cmd
 
   class LineInfo() extends Bundle{
     val valid = Bool
@@ -124,9 +119,9 @@ class InstructionCache(implicit p : InstructionCacheParameters) extends Componen
 
 
     if(wrappedMemAccess)
-      mem_cmd.address := requestIn.addr(tagRange.high downto wordRange.low) @@ U(0,wordRange.low bit)
+      io.mem.cmd.address := requestIn.addr(tagRange.high downto wordRange.low) @@ U(0,wordRange.low bit)
     else
-      mem_cmd.address := requestIn.addr(tagRange.high downto lineRange.low) @@ U(0,lineRange.low bit)
+      io.mem.cmd.address := requestIn.addr(tagRange.high downto lineRange.low) @@ U(0,lineRange.low bit)
 
 
     val initCounter = Reg(UInt(log2Up(wayLineCount) + 1 bit)) init(0)
@@ -147,8 +142,8 @@ class InstructionCache(implicit p : InstructionCacheParameters) extends Componen
     }
 
 
-    val request = requestIn.haltWhen(!mem_cmd.ready).m2sPipe()
-    mem_cmd.valid := requestIn.valid && !request.isStall
+    val request = requestIn.haltWhen(!io.mem.cmd.ready).m2sPipe()
+    io.mem.cmd.valid := requestIn.valid && !request.isStall
     val wordIndex = Reg(UInt(log2Up(wordPerLine) bit))
     val loadedWordsNext = Bits(wordPerLine bit)
     val loadedWords = RegNext(loadedWordsNext)
@@ -167,7 +162,7 @@ class InstructionCache(implicit p : InstructionCacheParameters) extends Componen
     request.ready := readyDelay === 1
 
     when(requestIn.ready){
-      wordIndex := mem_cmd.address(wordRange)
+      wordIndex := io.mem.cmd.address(wordRange)
       loadedWords := 0
       loadedWordsReadable := 0
       readyDelay := 0
@@ -175,14 +170,16 @@ class InstructionCache(implicit p : InstructionCacheParameters) extends Componen
   }
 
   val task = new Area{
-    val request = RegNext(io.cpu.cmd)
+    val request = io.cpu.cmd.m2sPipe()
+    request.ready := io.cpu.rsp.fire
     val waysHitValid = False
     val waysHitWord = Bits(wordWidth bit)
     waysHitWord.assignDontCare()
 
     val waysRead = for(way <- ways) yield new Area{
-      val tag = way.tags.readSync(io.cpu.cmd.address(lineRange))
-      val data = way.datas.readSync(io.cpu.cmd.address(lineRange.high downto wordRange.low))
+      val readAddress = Mux(request.isStall,request.address,io.cpu.cmd.address)
+      val tag = way.tags.readSync(readAddress(lineRange))
+      val data = way.datas.readSync(readAddress(lineRange.high downto wordRange.low))
       when(!haltCpu) {
         when(tag.valid && tag.address === request.address(tagRange)) {
           waysHitValid := True
@@ -231,6 +228,10 @@ object InstructionCacheMain{
     cache.io.mem.cmd >-> io.mem.cmd
     cache.io.mem.rsp <-< io.mem.rsp
     cache.io.cpu.rsp >-> io.cpu.rsp
+//    when(cache.io.cpu.rsp.valid){
+//      cache.io.cpu.cmd.valid := RegNext(cache.io.cpu.cmd.valid)
+//      cache.io.cpu.cmd.address := RegNext(cache.io.cpu.cmd.address)
+//    }
   }
   def main(args: Array[String]) {
 
