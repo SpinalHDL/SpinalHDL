@@ -2,7 +2,7 @@ package spinal.lib.cpu.riscv.impl
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.avalon.mm._
+import spinal.lib.bus.avalon._
 import spinal.lib.tool.{ResetEmitterTag, InterruptReceiverTag, QSysify}
 
 object CoreMain{
@@ -178,7 +178,7 @@ object QSysAvalonCore{
     val io = new Bundle{
       val i = master(AvalonMMBus(iConfig))
       val d = master(AvalonMMBus(CoreDataBus.getAvalonConfig(p)))
-      val interrupt = in(Bool)
+      val interrupt = in(Bits(4 bit))
       val debugResetIn = if(debug) in Bool else null
       val debugResetOut = if(debug) out Bool else null
       val debugBus = if(debug) slave(AvalonMMBus(DebugExtension.getAvalonMMConfig)) else null
@@ -187,7 +187,7 @@ object QSysAvalonCore{
    // p.add(new MulExtension)
    // p.add(new DivExtension)
    // p.add(new BarrelShifterFullExtension)
-   // p.add(new SimpleInterruptExtension(exceptionVector=0x0).addIrq(id=4,pin=io.interrupt,IrqUsage(isException=false),name="io_interrupt"))
+    p.add(new SimpleInterruptExtension(exceptionVector=0x0).addIrq(id=4,pins=io.interrupt,IrqUsage(isException=false),name="io_interrupt"))
     p.add(new BarrelShifterLightExtension)
 
     val debugExtension = if(debug) {

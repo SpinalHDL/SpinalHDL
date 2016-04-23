@@ -251,6 +251,76 @@ object MajorityVote {
   }
 }
 
+
+object CounterUpDown {
+  def apply(stateCount: BigInt): CounterUpDown = new CounterUpDown(stateCount)
+  def apply(stateCount: BigInt, incWhen: Bool,decWhen : Bool): CounterUpDown = {
+    val counter = CounterUpDown(stateCount)
+    when(incWhen) {
+      counter.increment()
+    }
+    when(decWhen) {
+      counter.decrement()
+    }
+    counter
+  }
+  //  implicit def implicitValue(c: Counter) = c.value
+}
+
+class CounterUpDown(val stateCount: BigInt) extends ImplicitArea[UInt] {
+  val incrementIt = False
+  val decrementIt = False
+
+  def increment(): Unit = incrementIt := True
+  def decrement(): Unit = decrementIt := True
+
+  def ===(that: UInt): Bool = this.value === that
+  def !==(that: UInt): Bool = this.value =/= that
+  def =/=(that: UInt): Bool = this.value =/= that
+
+  val valueNext = UInt(log2Up(stateCount) bit)
+  val value = RegNext(valueNext) init(0)
+  val willOverflowIfInc = value === stateCount - 1 && !decrementIt
+  val willOverflow = willOverflowIfInc && incrementIt
+
+  val finalIncrement = UInt(log2Up(stateCount) bit)
+  when(incrementIt && !decrementIt){
+    finalIncrement := 1
+  }.elsewhen(!incrementIt && decrementIt){
+    finalIncrement := finalIncrement.maxValue
+  }otherwise{
+    finalIncrement := 0
+  }
+
+  if (isPow2(stateCount)) {
+    valueNext :~= value + finalIncrement
+  }
+  else {
+    assert(false,"TODO")
+  }
+
+
+  override def implicitValue: UInt = this.value
+}
+
+
+object CounterMultiRequest {
+  def apply(width: Int, requests : (Bool,(UInt) => UInt)*): UInt = {
+    val counter = Reg(UInt(width bit)) init(0)
+    var counterNext = counter.clone
+    counterNext := counter
+    for((cond,func) <- requests){
+      when(cond){
+        counterNext \= func(counterNext)
+      }
+    }
+    counter := counterNext
+    counter
+  }
+}
+
+
+
 //object SpinalMap {
 //  def apply[Key <: Data, Value <: Data](elems: Tuple2[() => Key, () => Value]*): SpinalMap[Key, Value] = {
 //    new SpinalMap(elems)

@@ -1,7 +1,8 @@
 package spinal.lib.system.debugger
 
 import spinal.core._
-import spinal.lib.bus.avalon.mm._
+import spinal.lib.bus.avalon.{AvalonMMBus, AvalonMMConfig}
+import spinal.lib.bus.avalon._
 import spinal.lib.com.jtag._
 import spinal.lib._
 import spinal.lib.tool.QSysify

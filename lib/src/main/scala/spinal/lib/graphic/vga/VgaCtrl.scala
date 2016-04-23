@@ -2,7 +2,9 @@ package spinal.lib.graphic.vga
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.graphic.Rgb
+import spinal.lib.bus.neutral.NeutralStreamDma
+import spinal.lib.graphic.{RgbConfig, Rgb}
+import spinal.lib.tool.QSysify
 
 case class VgaTimingsHV(timingsWidth: Int) extends Bundle {
   val colorStart = UInt(timingsWidth bit)
@@ -38,14 +40,16 @@ case class VgaTimings(timingsWidth: Int) extends Bundle {
 }
 
 
-class VgaCtrl(rgbType: Rgb, timingsWidth: Int = 12) extends Component {
+class VgaCtrl(rgbConfig: RgbConfig, timingsWidth: Int = 12) extends Component {
   val io = new Bundle {
     val softReset = in Bool() default(False)
     val timings = in(VgaTimings(timingsWidth))
 
     val frameStart = out Bool
-    val colorStream = slave Stream (rgbType)
-    val vga = master(Vga(rgbType))
+    val colorStream = slave Stream (Rgb(rgbConfig))
+    val vga = master(Vga(rgbConfig))
+
+    val error = out Bool
   }
 
   case class HVArea(timingsHV: VgaTimingsHV, enable: Bool) extends Area {
@@ -77,6 +81,7 @@ class VgaCtrl(rgbType: Rgb, timingsWidth: Int = 12) extends Component {
   val v = HVArea(io.timings.v, h.syncEnd)
   val colorEn = h.colorEn && v.colorEn
   io.colorStream.ready := colorEn
+  io.error := colorEn && ! io.colorStream.valid
 
   io.frameStart := v.syncEnd
 
@@ -84,11 +89,60 @@ class VgaCtrl(rgbType: Rgb, timingsWidth: Int = 12) extends Component {
   io.vga.vSync := v.sync
   io.vga.colorEn := colorEn
   io.vga.color := io.colorStream.payload
+
+
+  //Can be called by parent component to make the VgaCtrl autonom by using a Stream of fragment to feed it.
+  def feedWith(that : Stream[Fragment[Rgb]]): Unit ={
+    io.colorStream << that.toStreamOfFragment
+
+    val error = RegInit(False)
+    when(io.error){
+      error := True
+    }
+    when(that.isLast){
+      error := False
+    }
+
+    io.softReset := error
+    when(error){
+      that.ready := True
+    }
+  }
 }
 
 
 object VgaCtrl {
   def main(args: Array[String]) {
-    SpinalVhdl(new VgaCtrl(Rgb(8, 8, 8)))
+    SpinalVhdl(new VgaCtrl(RgbConfig(8, 8, 8)))
+  }
+}
+
+
+class QsysVgaCtrl(rgbConfig: RgbConfig) extends Component{
+  val io = new Bundle{
+    val pixel = slave Stream Fragment(Bits(rgbConfig.getWidth bits))
+    val vga = master(Vga(rgbConfig))
+  }
+
+  val pixel = Stream Fragment(Rgb(rgbConfig))
+  pixel.arbitrationFrom(io.pixel)
+  pixel.last := io.pixel.last
+  pixel.fragment.assignFromBits(io.pixel.fragment)
+
+  val burstSize = 8;
+//  val dma = new NeutralBasicReadDma(burstSize)
+//  dma.io.
+//
+//  val ctrl = new VgaCtrl(rgbConfig)
+//  ctrl.feedWith(pixel)
+
+
+}
+
+object QsysVgaCtrl {
+  def main(args: Array[String]) {
+    val toplevel = SpinalVhdl(new QsysVgaCtrl(RgbConfig(8, 8, 8))).topLevel
+    toplevel.io.pixel.addTag(ClockDomainTag(toplevel.clockDomain))
+    QSysify(toplevel)
   }
 }

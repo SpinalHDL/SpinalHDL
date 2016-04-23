@@ -2,7 +2,7 @@ package spinal.lib.cpu.riscv.impl
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.avalon.mm._
+import spinal.lib.bus.avalon._
 import spinal.lib.bus.avalon._
 import spinal.lib.bus.amba4.axi._
 import spinal.lib.cpu.riscv.impl.Utils._

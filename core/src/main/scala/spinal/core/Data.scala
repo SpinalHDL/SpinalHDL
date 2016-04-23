@@ -263,8 +263,6 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
   def assignFromBits(bits: Bits,hi : Int,low : Int): Unit
   def assignFromBits(bits: Bits,offset: Int, bitCount: BitCount): Unit = this.assignFromBits(bits,offset + bitCount.value -1,offset)
 
-
-
   private[core] def isEguals(that: Any): Bool// = (this.flatten, that.flatten).zipped.map((a, b) => a.isEguals(b)).reduceLeft(_ && _)
   private[core] def isNotEguals(that: Any): Bool// = (this.flatten, that.flatten).zipped.map((a, b) => a.isNotEguals(b)).reduceLeft(_ || _)
   @deprecated("Use resized instead")

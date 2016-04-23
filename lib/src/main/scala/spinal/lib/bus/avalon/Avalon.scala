@@ -1,4 +1,4 @@
-package spinal.lib.bus.avalon.mm
+package spinal.lib.bus.avalon
 
 import spinal.core._
 import spinal.lib._
@@ -43,6 +43,10 @@ case class AvalonMMConfig( addressWidth : Int,
   def getReadOnlyConfig = copy(
     useWrite = false,
     useByteEnable = false
+  )
+  def getWriteOnlyConfig = copy(
+    useRead = false,
+    useReadDataValid = false
   )
 }
 
@@ -123,10 +127,19 @@ case class AvalonMMBus(c : AvalonMMConfig) extends Bundle with IMasterSlave{
 
   val readDataValid = if(useReadDataValid) Bool else null
   val readData = if(useRead) Bits(dataWidth bit) else null
+
+  def isValid = (if(useRead) read else False) || (if(useWrite) write else False)
+  def isReady = (if(useWaitRequestn) waitRequestn else True)
+  def fire = isValid && isReady
+
+
   override def asMaster(): AvalonMMBus.this.type = {
     outWithNull(read,write,lock,debugAccess,address,burstCount,byteEnable,writeData)
     inWithNull(waitRequestn,response,readDataValid,readData)
     this
   }
 }
+
+
+
 

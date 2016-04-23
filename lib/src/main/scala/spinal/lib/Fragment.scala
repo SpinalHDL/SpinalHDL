@@ -12,6 +12,9 @@ object Fragment extends FragmentFactory
 
 
 class FlowFragmentPimped[T <: Data](pimped: Flow[Fragment[T]]) {
+  def toFlowOfFragment : Flow[T] = pimped.translateWith(pimped.fragment)
+
+
   def filterHeader(header: T): Flow[Fragment[T]] = {
     val takeIt = RegInit(False)
 

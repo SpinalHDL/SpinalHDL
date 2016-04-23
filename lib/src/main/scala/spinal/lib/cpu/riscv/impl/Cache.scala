@@ -3,7 +3,8 @@ package spinal.lib.cpu.riscv.impl
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba4.axi._
-import spinal.lib.bus.avalon.mm.{AvalonMMBus, AvalonMMConfig}
+import spinal.lib.bus.avalon.{AvalonMMBus, AvalonMMConfig}
+import spinal.lib.bus.avalon.AvalonMMBus
 
 
 case class InstructionCacheParameters( cacheSize : Int,

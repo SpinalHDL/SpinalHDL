@@ -4,7 +4,7 @@ import spinal.core._
 import spinal.lib.cpu.riscv.impl._
 import spinal.lib.cpu.riscv.impl.Utils._
 import spinal.lib._
-import spinal.lib.bus.avalon.mm._
+import spinal.lib.bus.avalon._
 
 /**
  * Created by PIC32F_USER on 12/04/2016.

@@ -14,7 +14,7 @@ import spinal.lib._
 import spinal.lib.bus.amba3.apb.{Apb3SlaveController, Apb3Config, Apb3Slave}
 import spinal.lib.bus.sbl.{SblConfig, SblReadRet, SblReadCmd, SblWriteCmd}
 import spinal.lib.com.uart._
-import spinal.lib.graphic.Rgb
+import spinal.lib.graphic.{RgbConfig, Rgb}
 import spinal.lib.graphic.vga.{VgaCtrl, Vga}
 
 import scala.collection.immutable.HashSet
@@ -1304,7 +1304,7 @@ object OverloadPlay {
   class OverloadPlay(frameAddressOffset: Int, p: MandelbrotCoreParameters, coreClk: ClockDomain, vgaMemoryClk: ClockDomain, vgaClk: ClockDomain) extends Component {
     for (i <- 0 until 10) {
       val memoryBusConfig = SblConfig(30, 32)
-      val rgbType = Rgb(8, 8, 8)
+      val rgbType = RgbConfig(8, 8, 8)
 
       val i = new MandelbrotSblDemo(frameAddressOffset, p, coreClk, vgaMemoryClk, vgaClk)
       val uart = master(Uart())
@@ -1407,10 +1407,10 @@ object RIntPlay {
 object BlueVgaPlay {
   class TopLevel extends Component {
     val io = new Bundle{
-      val vga = master(Vga(Rgb(8, 8, 8)))
+      val vga = master(Vga(RgbConfig(8, 8, 8)))
     }
 
-    val vgaCtrl = new VgaCtrl(io.vga.color, 12)
+    val vgaCtrl = new VgaCtrl(io.vga.color.c, 12)
     vgaCtrl.io.softReset := False
     vgaCtrl.io.timings.setAs_h640_v480_r60 //Static timing for 640*480 pixel at 60HZ
     vgaCtrl.io.vga <> io.vga

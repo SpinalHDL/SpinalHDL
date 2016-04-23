@@ -13,7 +13,12 @@ class SimpleInterruptExtension(exceptionVector : Int) extends CoreExtension{
     interruptUsage(id) = Tuple3(pin,name, irqUsage)
     this
   }
-
+  def addIrq(id : Int,pins : Bits,irqUsage: IrqUsage,name : String): this.type = {
+    for(i <- pins.range){
+      interruptUsage(i + id) = Tuple3(pins(i),name + "_" + i, irqUsage)
+    }
+    this
+  }
   override def applyIt(core: Core): Area = new Area {
 
     import core._
