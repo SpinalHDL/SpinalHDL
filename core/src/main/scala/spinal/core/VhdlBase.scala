@@ -23,7 +23,7 @@ package spinal.core
  */
 trait VhdlBase {
 
-  val vhdlKeyWords = Set[String]("in", "out", "buffer", "inout", "entity", "component", "architecture","type","open")
+  val vhdlKeyWords = Set[String]("in", "out", "buffer", "inout", "entity", "component", "architecture","type","open","block")
 
 //  override def getReservedKeyword(): Iterable[String] = {
 //    return reservedKeyWords

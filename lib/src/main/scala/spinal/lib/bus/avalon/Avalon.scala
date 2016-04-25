@@ -25,6 +25,7 @@ case class AvalonMMConfig( addressWidth : Int,
                            useWaitRequestn : Boolean,
                            useReadDataValid : Boolean,
                            useBurstCount : Boolean,
+                           //useEndOfPacket : Boolean,
 
                            addressUnits : AddressUnits = symbols,
                            burstCountUnits : AddressUnits = words,
@@ -65,6 +66,7 @@ object AvalonMMConfig{
     useWaitRequestn = true,
     useReadDataValid = false,
     useBurstCount = false,
+  //  useEndOfPacket = false,
 
     maximumPendingReadTransactions = 0,
     readLatency = 1
@@ -86,6 +88,7 @@ object AvalonMMConfig{
       useWaitRequestn = true,
       useReadDataValid = true,
       useBurstCount = false
+  //  useEndOfPacket = false
     )
 
 
@@ -104,6 +107,7 @@ object AvalonMMConfig{
       useWaitRequestn = true,
       useReadDataValid = true,
       useBurstCount = true
+    //  useEndOfPacket = false
     )
 }
 
@@ -121,6 +125,7 @@ case class AvalonMMBus(c : AvalonMMConfig) extends Bundle with IMasterSlave{
   val debugAccess = if(useDebugAccess) Bool else null
   val address = UInt(addressWidth bit)
   val burstCount = if(useBurstCount) UInt(burstCountWidth bit) else null
+ // val endOfPacket = if(useEndOfPacket) Bool else null
   val byteEnable = if(useByteEnable) Bits(dataByteCount bit) else null
   val writeData = if(useWrite) Bits(dataWidth bit) else null
   val response = if(useResponse) AvalonResponse() else null
@@ -135,7 +140,7 @@ case class AvalonMMBus(c : AvalonMMConfig) extends Bundle with IMasterSlave{
 
   override def asMaster(): AvalonMMBus.this.type = {
     outWithNull(read,write,lock,debugAccess,address,burstCount,byteEnable,writeData)
-    inWithNull(waitRequestn,response,readDataValid,readData)
+    inWithNull(waitRequestn,response,readDataValid,readData/*,endOfPacket*/)
     this
   }
 }

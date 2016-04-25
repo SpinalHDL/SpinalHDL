@@ -53,7 +53,7 @@ class VgaCtrl(rgbConfig: RgbConfig, timingsWidth: Int = 12) extends Component {
   }
 
   case class HVArea(timingsHV: VgaTimingsHV, enable: Bool) extends Area {
-    val counter = Reg(UInt(timingsWidth bit))
+    val counter = Reg(UInt(timingsWidth bit)) init(0)
 
     val syncStart = counter === timingsHV.syncStart
     val syncEnd = counter === timingsHV.syncEnd
@@ -67,8 +67,8 @@ class VgaCtrl(rgbConfig: RgbConfig, timingsWidth: Int = 12) extends Component {
       }
     }
 
-    val sync = BoolReg(syncStart, syncEnd)
-    val colorEn = BoolReg(colorStart, colorEnd)
+    val sync = BoolReg(syncStart, syncEnd) init(False)
+    val colorEn = BoolReg(colorStart, colorEnd) init(False)
 
     when(io.softReset) {
       counter := 0
@@ -141,7 +141,7 @@ class QsysVgaCtrl(rgbConfig: RgbConfig) extends Component{
 
 object QsysVgaCtrl {
   def main(args: Array[String]) {
-    val toplevel = SpinalVhdl(new QsysVgaCtrl(RgbConfig(8, 8, 8))).topLevel
+    val toplevel = SpinalVhdl(new QsysVgaCtrl(RgbConfig(8, 8, 8))).toplevel
     toplevel.io.pixel.addTag(ClockDomainTag(toplevel.clockDomain))
     QSysify(toplevel)
   }

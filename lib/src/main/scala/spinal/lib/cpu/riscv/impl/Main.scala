@@ -40,7 +40,7 @@ object CoreMain{
     p.add(new MulExtension)
     p.add(new DivExtension)
     p.add(new BarrelShifterFullExtension)
-    //p.add(new SimpleInterruptExtension(exceptionVector=0x0).addIrq(id=4,pin=io_interrupt,IrqUsage(isException=false),name="io_interrupt"))
+    p.add(new SimpleInterruptExtension(exceptionVector=0x0).addIrq(id=4,pin=io_interrupt,IrqUsage(isException=false),name="io_interrupt"))
 //    p.add(new BarrelShifterLightExtension)
     val io = new Bundle{
       val i = master(CoreInstructionBus())
@@ -155,11 +155,11 @@ object QSysAvalonCore{
       addrWidth = 32,
       startAddress = 0x200,
       regFileReadyKind = sync,
-      branchPrediction = disable,
-      bypassExecute0 = false,
-      bypassExecute1 = false,
-      bypassWriteBack = false,
-      bypassWriteBackBuffer = false,
+      branchPrediction = dynamic,
+      bypassExecute0 = true,
+      bypassExecute1 = true,
+      bypassWriteBack = true,
+      bypassWriteBackBuffer = true,
       collapseBubble = true,
       instructionBusKind = cmdStream_rspStream,
       dataBusKind = cmdStream_rspFlow,
@@ -184,11 +184,11 @@ object QSysAvalonCore{
       val debugBus = if(debug) slave(AvalonMMBus(DebugExtension.getAvalonMMConfig)) else null
     }
 
-   // p.add(new MulExtension)
-   // p.add(new DivExtension)
-   // p.add(new BarrelShifterFullExtension)
-    p.add(new SimpleInterruptExtension(exceptionVector=0x0).addIrq(id=4,pins=io.interrupt,IrqUsage(isException=false),name="io_interrupt"))
-    p.add(new BarrelShifterLightExtension)
+    p.add(new MulExtension)
+    p.add(new DivExtension)
+    p.add(new BarrelShifterFullExtension)
+    //p.add(new SimpleInterruptExtension(exceptionVector=0x0).addIrq(id=4,pins=io.interrupt,IrqUsage(isException=false),name="io_interrupt"))
+   // p.add(new BarrelShifterLightExtension)
 
     val debugExtension = if(debug) {
       val clockDomain = ClockDomain.current.clone(reset = io.debugResetIn)
@@ -214,7 +214,11 @@ object QSysAvalonCore{
       core.io.i.rsp.instruction := cache.io.cpu.rsp.data
       io.i <> cache.io.mem.toAvalon()
     }else{
-      io.i <>core.io.i.toAvalon()
+      val coreI = core.io.i.clone
+      coreI.cmd <-< core.io.i.cmd
+      coreI.rsp >> core.io.i.rsp
+      io.i <> coreI.toAvalon()
+      //io.i <>core.io.i.toAvalon()
     }
 
     (debug,cached) match{
@@ -242,13 +246,13 @@ object QSysAvalonCore{
     val report = SpinalVhdl(new RiscvAvalon(),_.setLibrary("qsys").onlyStdLogicVectorTopLevelIo)
     //val report = SpinalVhdl(new RiscvAvalon())
 
-    report.topLevel.io.i addTag(ClockDomainTag(report.topLevel.clockDomain))
-    report.topLevel.io.d addTag(ClockDomainTag(report.topLevel.clockDomain))
-    report.topLevel.io.interrupt addTag(InterruptReceiverTag(report.topLevel.io.i,report.topLevel.clockDomain))
-    if(report.topLevel.debug) {
-      report.topLevel.io.debugBus addTag(ClockDomainTag(report.topLevel.debugExtension.clockDomain))
-      report.topLevel.io.debugResetOut.addTag(ResetEmitterTag(report.topLevel.debugExtension.clockDomain))
+    report.toplevel.io.i addTag(ClockDomainTag(report.toplevel.clockDomain))
+    report.toplevel.io.d addTag(ClockDomainTag(report.toplevel.clockDomain))
+    report.toplevel.io.interrupt addTag(InterruptReceiverTag(report.toplevel.io.i,report.toplevel.clockDomain))
+    if(report.toplevel.debug) {
+      report.toplevel.io.debugBus addTag(ClockDomainTag(report.toplevel.debugExtension.clockDomain))
+      report.toplevel.io.debugResetOut.addTag(ResetEmitterTag(report.toplevel.debugExtension.clockDomain))
     }
-    QSysify(report.topLevel)
+    QSysify(report.toplevel)
   }
 }

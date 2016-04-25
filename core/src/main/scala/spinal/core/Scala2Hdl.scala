@@ -62,7 +62,7 @@ class SpinalVhdl[T <: Component](gen: => T) {
 
   def elaborate = {
     val report = backend.elaborate(() => gen)
-    tbGen.elaborate(backend, report.topLevel)
+    tbGen.elaborate(backend, report.toplevel)
     report
   }
 

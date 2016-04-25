@@ -79,8 +79,10 @@ class DebugExtension(val clockDomain: ClockDomain) extends CoreExtension{
     val flushIt = RegNext(False)
     val stepIt = RegInit(False)
     val iCacheflushEmitter = EventEmitter(on=io.iCacheFlush.cmd)
-    
-    val isPipEmpty = RegNext(core.fetch.inContext.valid ||  core.decode.inInst.valid ||  core.execute0.inInst.valid ||  core.execute1.inInst.valid || core.writeBack.inInst.valid)
+
+
+    val isPipActive = RegNext(RegNext(core.io.i.cmd.valid) || core.fetch.inContext.valid ||  core.decode.inInst.valid ||  core.execute0.inInst.valid ||  core.execute1.inInst.valid || core.writeBack.inInst.valid)
+    val isPipBusy = isPipActive || RegNext(isPipActive)
     val isInBreakpoint = core.writeBack.inInst.valid && isMyTag(core.writeBack.inInst.ctrl)
     val iCacheFlushDone = RegInit(False)
     when(io.bus.cmd.valid) {
@@ -98,7 +100,7 @@ class DebugExtension(val clockDomain: ClockDomain) extends CoreExtension{
             } otherwise{
               busReadDataReg(0) := resetIt
               busReadDataReg(1) := haltIt
-              busReadDataReg(2) := isPipEmpty
+              busReadDataReg(2) := isPipBusy
               busReadDataReg(3) := isInBreakpoint
               busReadDataReg(4) := stepIt
               busReadDataReg(5) := core.fetchCmd.inc

@@ -1337,13 +1337,13 @@ object OverloadPlay {
         new OverloadPlay(0, new MandelbrotCoreParameters(256, 64, 640, 480, 7, 17 * 3), coreClock, vgaMemoryClock, vgaClock)
       })
       // Console.in.read
-      println(report.topLevel)
+      println(report.toplevel)
       var entries = 0
       var allocatedEntries = 0
       val c = ArrayBuffer().getClass()
       val f = c.getDeclaredField("array")
       f.setAccessible(true)
-      Node.walk(report.topLevel.getAllIo.toSeq, node => {
+      Node.walk(report.toplevel.getAllIo.toSeq, node => {
         entries += node.inputs.length
         allocatedEntries += f.get(node.inputs).asInstanceOf[Array[AnyRef]].length
 

@@ -21,7 +21,7 @@ package spinal.core
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-class BackendReport[T <: Component](val topLevel: T) {
+class BackendReport[T <: Component](val toplevel: T) {
 
 }
 

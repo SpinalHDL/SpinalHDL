@@ -2,6 +2,7 @@ package spinal.lib.bus.neutral
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.bus.avalon._
 
 /**
  * Created by PIC32F_USER on 23/04/2016.
@@ -16,6 +17,15 @@ object NeutralStreamDma {
                      ctrlRspClock : ClockDomain = null){
     val burstWidth = log2Up(burstLengthMax+1)
     val memCmdCountWidth = log2Up(memCmdCountMax+1)
+
+    def getAvalonConfig = AvalonMMConfig.bursted(
+      addressWidth = addressWidth,
+      dataWidth = dataWidth,
+      burstCountWidth = burstWidth
+    ).getReadOnlyConfig.copy(
+      addressUnits = words,
+      maximumPendingReadTransactions = pendingRequetMax
+    )
   }
 
   case class CtrlCmd(c: Config) extends Bundle {
@@ -48,9 +58,32 @@ object NeutralStreamDma {
       slave(rsp)
       this
     }
+
+    def toAvalon = {
+      val ret = AvalonMMBus(c.getAvalonConfig)
+      ret.read := cmd.valid
+      ret.address := cmd.address
+      ret.burstCount := cmd.length
+      cmd.ready := ret.waitRequestn
+
+
+      rsp.valid := ret.readDataValid
+      rsp.last := False
+      rsp.fragment := ret.readData
+      val rspCounter = Reg(UInt(c.burstWidth bits)) init(1)
+      when(rsp.valid){
+        rspCounter := rspCounter + 1
+        when(rspCounter === cmd.length){
+          rspCounter := 1
+          rsp.last := True
+        }
+      }
+
+      ret
+    }
   }
 
-  class Dma(c: Config) extends Component {
+  class Block(c: Config) extends Component {
     val io = new Bundle {
       val ctrl = slave(Ctrl(c))
       val mem = master(Mem(c))
@@ -92,7 +125,7 @@ object NeutralStreamDma {
     }
 
     when(io.mem.cmd.fire) {
-      addressCounter := addressCounter + 1
+      addressCounter := addressCounter + io.ctrl.cmd.burstLength
       memCmdCounter := memCmdCounter - 1
     }
 
@@ -116,10 +149,10 @@ object NeutralStreamDma {
       fifo.io.push << memRsp.toStream
       fifo.io.pop >> io.ctrl.rsp
 
-      toManyPendingRsp := RegNext(fifo.io.pushOccupancy + pendingMemRsp > c.fifoSize-io.ctrl.cmd.burstLength)
+      toManyPendingRsp := fifo.io.pushOccupancy + pendingMemRsp > c.fifoSize-io.ctrl.cmd.burstLength
     }
 
-    when(toManyPendingCmd || !toManyPendingRsp) {
+    when(toManyPendingCmd || toManyPendingRsp) {
       io.mem.cmd.valid := False
     }
     io.mem.cmd.address := addressCounter
@@ -130,7 +163,7 @@ object NeutralStreamDma {
   def main(args: Array[String]) {
     SpinalVhdl({
       val rspClock = null //ClockDomain.external("rspClock")
-      new Dma(Config(
+      new Block(Config(
         addressWidth = 32,
         dataWidth = 32,
         memCmdCountMax = 1<<24,

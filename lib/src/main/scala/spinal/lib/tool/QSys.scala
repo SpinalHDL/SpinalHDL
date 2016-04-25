@@ -201,6 +201,7 @@ class AvalonEmitter extends QSysifyInterfaceEmiter{
       if(useWrite) builder ++= s"add_interface_port $name ${e.writeData.getName} writedata ${masterPinDir} ${dataWidth}\n"
       if(useResponse) builder ++= s"add_interface_port $name ${e.response.getName} response ${slavePinDir} 2\n"
       if(useReadDataValid) builder ++= s"add_interface_port $name ${e.readDataValid.getName} readdatavalid ${slavePinDir} 1\n"
+    //  if(useEndOfPacket) builder ++= s"add_interface_port $name ${e.endOfPacket.getName} endofpacket ${slavePinDir} 1\n"
       if(useRead) builder ++= s"add_interface_port $name ${e.readData.getName} readdata ${slavePinDir} ${dataWidth}\n"
       if(useDebugAccess)
         ???
