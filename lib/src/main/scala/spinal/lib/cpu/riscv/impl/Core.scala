@@ -392,7 +392,7 @@ class Core(implicit val c : CoreConfig) extends Component{
 
     // branch interface
     val pcLoad = Flow(UInt(pcWidth bit))
-    pcLoad.valid := inInst.valid && !hazard && outInst.ready && (ctrl.br =/= BR.JR && ctrl.br =/= BR.N) && ctrl.instVal && shouldTakeBranch
+    pcLoad.valid := inInst.valid && !throwIt && !hazard && outInst.ready && (ctrl.br =/= BR.JR && ctrl.br =/= BR.N) && ctrl.instVal && shouldTakeBranch
     pcLoad.payload := brJumpPc
 
     outInst.arbitrationFrom(inInst.throwWhen(throwIt).haltWhen(halt))
@@ -528,7 +528,7 @@ class Core(implicit val c : CoreConfig) extends Component{
 
     // branche interface
     val pcLoad = Flow(UInt(pcWidth bit))
-    pcLoad.valid := inInst.fire && pc_sel.map(
+    pcLoad.valid := !throwIt && inInst.fire && pc_sel.map(
       PC.INC -> inInst.predictorHasBranch,
       default -> !inInst.predictorHasBranch
     )

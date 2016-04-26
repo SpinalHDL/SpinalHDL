@@ -90,12 +90,22 @@ class DebugExtension(val clockDomain: ClockDomain) extends CoreExtension{
         switch(io.bus.cmd.address(io.bus.cmd.address.high-1 downto 0)) {
           is(0){
             when(io.bus.cmd.wr){
-              resetIt := io.bus.cmd.data(0)
-              haltIt := io.bus.cmd.data(1)
               flushIt := io.bus.cmd.data(2)
               stepIt := io.bus.cmd.data(4)
               when(io.bus.cmd.data(8)){
                 iCacheflushEmitter.emit()
+              }
+              when(io.bus.cmd.data(16)){
+                resetIt := True
+              }
+              when(io.bus.cmd.data(17)){
+                haltIt := True
+              }
+              when(io.bus.cmd.data(24)){
+                resetIt := False
+              }
+              when(io.bus.cmd.data(25)){
+                haltIt := False
               }
             } otherwise{
               busReadDataReg(0) := resetIt
