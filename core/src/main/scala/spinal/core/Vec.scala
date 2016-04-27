@@ -90,8 +90,8 @@ object SeqMux {
         case 0 => throw new Exception("Can't mux a Vec of size zero")
         case 1 => elements(0)
         case _ => {
-          val split = elements.grouped((elements.size + 1) / 2).toList
-          Mux(addressBools(addressWidth - level - 1), stage(split(1), level + 1), stage(split(0), level + 1))
+          val muxs = (0 until elements.length/2).map(i => Mux(address(level), elements(2*i + 1), elements(2*i)))
+          stage(muxs ++ elements.slice(elements.length/2*2, elements.length), level + 1)
         }
       }
     }

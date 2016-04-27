@@ -470,10 +470,10 @@ object PlayMux {
 
   class TopLevel extends Component {
     val sel = in UInt (3 bit)
-    val input = in Vec(UInt(8 bit), 8)
+    val input = in Vec(UInt(8 bit), 7)
     val output = out UInt (8 bit)
 
-    output := Mux(sel === 0,U(0,3 bit),U(0,7 bit))
+    output := input(sel)
 //    output := input(0)
 //    for (i <- output.range) {
 //      if (i != 0) {
