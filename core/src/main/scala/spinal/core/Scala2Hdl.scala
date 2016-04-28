@@ -24,6 +24,8 @@ object SpinalVhdl {
   def apply[T <: Component](gen: => T, config: SpinalVhdl[_] => Unit): BackendReport[T] = {
     def doIt(tryCounter: Int = 0): BackendReport[T] = {
       try {
+        val runtime = Runtime.getRuntime
+        println({SpinalLog.tag("Runtime", Console.YELLOW)} + s" JVM max memory : ${f"${(runtime.maxMemory()).toFloat/1048576f}%1.1f"}MiB")
         val factory = new SpinalVhdl(gen)
         config(factory)
         if (tryCounter != 0) GlobalData.get.scalaLocatedEnable = true
