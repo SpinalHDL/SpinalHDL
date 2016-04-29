@@ -10,7 +10,7 @@ object CoreMain{
 
   class TopLevel extends Component{
     val io_interrupt = in Bool
-    val cached = true
+    val cached = false
     val cacheParam = InstructionCacheParameters(  cacheSize = 4096,
       bytePerLine =32,
       wayCount = 1,
@@ -24,11 +24,11 @@ object CoreMain{
       addrWidth = 32,
       startAddress = 0x200,
       regFileReadyKind = sync,
-      branchPrediction = static,
-      bypassExecute0 = true,
-      bypassExecute1 = true,
-      bypassWriteBack = true,
-      bypassWriteBackBuffer = true,
+      branchPrediction = disable,
+      bypassExecute0 = false,
+      bypassExecute1 = false,
+      bypassWriteBack = false,
+      bypassWriteBackBuffer = false,
       collapseBubble = true,
       instructionBusKind = cmdStream_rspStream,
       dataBusKind = cmdStream_rspFlow,

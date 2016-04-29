@@ -31,23 +31,23 @@ object cmdStream_rspFlow_oneCycle extends InstructionBusKind  //Usefull for fast
 
 
 case class CoreConfig(val pcWidth : Int = 32,
-                    val addrWidth : Int = 32,
-                    val startAddress : Int = 0,
-                    val bypassExecute0 : Boolean = true,
-                    val bypassExecute1 : Boolean = true,
-                    val bypassWriteBack : Boolean = true,
-                    val bypassWriteBackBuffer : Boolean = true,
-                    val collapseBubble : Boolean = true,
-                    val branchPrediction : BranchPrediction = static,
-                    val regFileReadyKind : RegFileReadKind = sync,
-                    val fastFetchCmdPcCalculation : Boolean = true,
-                    val instructionBusKind : InstructionBusKind = cmdStream_rspFlow,
-                    val dataBusKind : DataBusKind = cmdStream_rspFlow,
-                    val dynamicBranchPredictorCacheSizeLog2 : Int = 4,
-                    val branchPredictorHistoryWidth : Int = 2,
-                    val invalidInstructionIrqId : Int = 0,
-                    val unalignedMemoryAccessIrqId : Int = 1
-                     ) {
+                      val addrWidth : Int = 32,
+                      val startAddress : Int = 0,
+                      val bypassExecute0 : Boolean = true,
+                      val bypassExecute1 : Boolean = true,
+                      val bypassWriteBack : Boolean = true,
+                      val bypassWriteBackBuffer : Boolean = true,
+                      val collapseBubble : Boolean = true,
+                      val branchPrediction : BranchPrediction = static,
+                      val regFileReadyKind : RegFileReadKind = sync,
+                      val fastFetchCmdPcCalculation : Boolean = true,
+                      val instructionBusKind : InstructionBusKind = cmdStream_rspFlow,
+                      val dataBusKind : DataBusKind = cmdStream_rspFlow,
+                      val dynamicBranchPredictorCacheSizeLog2 : Int = 4,
+                      val branchPredictorHistoryWidth : Int = 2,
+                      val invalidInstructionIrqId : Int = 0,
+                      val unalignedMemoryAccessIrqId : Int = 1
+                       ) {
   val extensions = ArrayBuffer[CoreExtension]()
   def add(that : CoreExtension) : this.type = {
     extensions += that
@@ -350,6 +350,8 @@ class Core(implicit val c : CoreConfig) extends Component{
     }
     val addr0 = inInst.instruction(src0Range).asUInt
     val addr1 = inInst.instruction(src1Range).asUInt
+    val addr0IsZero = addr0 === 0
+    val addr1IsZero = addr1 === 0
 
     //read register file
     val srcInstruction = regFileReadyKind match{
@@ -400,8 +402,8 @@ class Core(implicit val c : CoreConfig) extends Component{
     outInst.instruction := inInst.instruction
     outInst.ctrl := ctrl
     outInst.doSub := outInst.ctrl.alu =/= ALU.ADD
-    outInst.src0 := Mux(addr0 =/= 0, src0, B(0, 32 bit))
-    outInst.src1 := Mux(addr1 =/= 0, src1, B(0, 32 bit))
+    outInst.src0 := Mux(!addr0IsZero, src0, B(0, 32 bit))
+    outInst.src1 := Mux(!addr1IsZero, src1, B(0, 32 bit))
     outInst.alu_op0 := outInst.ctrl.op1.map(
       default -> outInst.src0,
       OP1.IMU -> imm.u.resized,
@@ -695,58 +697,54 @@ class Core(implicit val c : CoreConfig) extends Component{
       fetchCmd.pcLoad.valid := True
       fetchCmd.pcLoad.payload := writeBack.pcLoad.payload
     }
-
-    val loadCounter = Counter(1<<30,execute1.pcLoad.valid).value.keep()
-    //val flushCounter = Counter(1<<30,io.fetch.).value.keep()
   }
 
 
 
   // Check hazard and apply bypass logic
   val hazardTracker = new  Area {
-    val addr0Check = decode.addr0 =/= 0
-    val addr1Check = decode.addr1 =/= 0
     val src0Hazard = False
     val src1Hazard = False
     decode.hazard := src0Hazard || src1Hazard
 
     // write back bypass and hazard
-    if(bypassWriteBackBuffer) {
+    val W2R = new Area {
+      val addr0Match = writeBackBuffer.inInst.addr === decode.addr0
+      val addr1Match = writeBackBuffer.inInst.addr === decode.addr1
       when(writeBackBuffer.inInst.valid) {
-        when(addr0Check && writeBackBuffer.inInst.addr === decode.addr0) {
-          decode.src0 := writeBackBuffer.inInst.data
-        }
-        when(addr1Check && writeBackBuffer.inInst.addr === decode.addr1) {
-          decode.src1 := writeBackBuffer.inInst.data
-        }
-      }
-    }else{
-      when(writeBackBuffer.inInst.valid) {
-        when(decode.addr0 === writeBackBuffer.inInst.addr) {
-          src0Hazard := True
-        }
-        when(decode.addr1 === writeBackBuffer.inInst.addr) {
-          src1Hazard := True
+        if (bypassWriteBackBuffer) {
+          when(addr0Match) {
+            decode.src0 := writeBackBuffer.inInst.data
+          }
+          when(addr1Match) {
+            decode.src1 := writeBackBuffer.inInst.data
+          }
+        } else {
+          when(addr0Match) {
+            src0Hazard := True
+          }
+          when(addr1Match) {
+            src1Hazard := True
+          }
         }
       }
     }
+
 
     // memory access bypass and hazard
     val A = new Area{
       val addr0Match = writeBack.outInst.addr === decode.addr0
       val addr1Match = writeBack.outInst.addr === decode.addr1
-      when(writeBack.inInst.ctrl.rfen){
+      when(writeBack.inInst.valid && writeBack.inInst.ctrl.rfen){
         if(bypassWriteBack) {
-          when(writeBack.outInst.valid) {
-            when(addr0Check && addr0Match) {
-              decode.src0 := writeBack.regFileData
-            }
-            when(addr1Check && addr1Match) {
-              decode.src1 := writeBack.regFileData
-            }
+          when(addr0Match) {
+            decode.src0 := writeBack.regFileData
+          }
+          when(addr1Match) {
+            decode.src1 := writeBack.regFileData
           }
         }
-        when(writeBack.inInst.valid && writeBack.inInst.ctrl.rfen && (Bool(!bypassWriteBack) || !writeBack.outInst.valid)) {
+        when((Bool(!bypassWriteBack) || !writeBack.outInst.valid)) {
           when(addr0Match) {
             src0Hazard := True
           }
@@ -761,18 +759,18 @@ class Core(implicit val c : CoreConfig) extends Component{
     val E1 = new Area{
       val addr0Match = execute1.outInst.instruction(dstRange).asUInt === decode.addr0
       val addr1Match = execute1.outInst.instruction(dstRange).asUInt === decode.addr1
-      when(execute1.outInst.ctrl.rfen) {
+      when(execute1.inInst.valid && execute1.outInst.ctrl.rfen) {
         if (bypassExecute1) {
-          when(execute1.outInst.ctrl.execute1AluBypass && execute1.outInst.ctrl.rfen && execute1.outInst.valid) {
-            when(addr0Check && addr0Match) {
+          when(execute1.outInst.ctrl.execute1AluBypass) {
+            when(addr0Match) {
               decode.src0 := execute1.outInst.result
             }
-            when(addr1Check && addr1Match) {
+            when(addr1Match) {
               decode.src1 := execute1.outInst.result
             }
           }
         }
-        when(execute1.inInst.valid && execute1.inInst.ctrl.rfen && (Bool(!bypassExecute1) || !execute1.inInst.ctrl.execute1AluBypass || !execute1.outInst.valid)) {
+        when((Bool(!bypassExecute1) || !execute1.inInst.ctrl.execute1AluBypass || !execute1.outInst.valid)) {
           when(addr0Match) {
             src0Hazard := True
           }
@@ -787,18 +785,18 @@ class Core(implicit val c : CoreConfig) extends Component{
     val E0 = new Area {
       val addr0Match = execute0.outInst.instruction(dstRange).asUInt === decode.addr0
       val addr1Match = execute0.outInst.instruction(dstRange).asUInt === decode.addr1
-      when(execute0.outInst.ctrl.rfen) {
+      when(execute0.inInst.valid && execute0.outInst.ctrl.rfen) {
         if (bypassExecute0) {
-          when(execute0.outInst.ctrl.execute0AluBypass && execute0.outInst.ctrl.rfen && execute0.outInst.valid) {
-            when(addr0Check && addr0Match) {
+          when(execute0.outInst.ctrl.execute0AluBypass) {
+            when(addr0Match) {
               decode.src0 := execute0.outInst.result
             }
-            when(addr1Check && addr1Match) {
+            when(addr1Match) {
               decode.src1 := execute0.outInst.result
             }
           }
         }
-        when(execute0.inInst.valid && execute0.inInst.ctrl.rfen && (Bool(!bypassExecute0) || !execute0.inInst.ctrl.execute0AluBypass || !execute0.outInst.valid)) {
+        when((Bool(!bypassExecute0) || !execute0.inInst.ctrl.execute0AluBypass || !execute0.outInst.valid)) {
           when(addr0Match) {
             src0Hazard := True
           }
@@ -809,12 +807,23 @@ class Core(implicit val c : CoreConfig) extends Component{
       }
     }
 
-    when(!addr0Check){
+    when(decode.addr0IsZero){
       src0Hazard := False
     }
-    when(!addr1Check){
+    when(decode.addr1IsZero){
       src1Hazard := False
     }
+  }
+
+
+  val performance = new Area{
+    val decode_pcLoad = Counter(1<<30,decode.pcLoad.valid).value.keep()
+    val execute1_pcLoad = Counter(1<<30,execute1.pcLoad.valid).value.keep()
+
+    val decode_halt = Counter(1<<30,decode.halt && decode.inInst.valid).value.keep()
+    val execute0_halt = Counter(1<<30,execute0.halt && execute0.inInst.valid).value.keep()
+    val execute1_halt = Counter(1<<30,execute1.halt && execute1.inInst.valid).value.keep()
+    val writeBack_halt = Counter(1<<30,writeBack.halt && writeBack.inInst.valid).value.keep()
   }
 
   val noDataRspStallLogic = if(dataBusKind == cmdStream_rspFlow) new Area{

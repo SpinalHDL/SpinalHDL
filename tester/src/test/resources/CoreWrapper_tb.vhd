@@ -50,8 +50,8 @@ architecture arch of CoreWrapper_tb is
   -- #spinalBegin userDeclarations
   constant doTestWithStall : Boolean := true;
   constant doBench : Boolean := true;
-  constant doBenchtWithStall : Boolean := true;
-  constant doBenchtWithInterrupt : Boolean := true;
+  constant doBenchtWithStall : Boolean := false;
+  constant doBenchtWithInterrupt : Boolean := false;
   
   
   constant allowRomWriteWhenBench : Boolean := false;
