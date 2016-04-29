@@ -10,7 +10,7 @@ object CoreMain{
 
   class TopLevel extends Component{
     val io_interrupt = in Bool
-    val cached = false
+    val cached = true
     val cacheParam = InstructionCacheParameters(  cacheSize = 4096,
       bytePerLine =32,
       wayCount = 1,
@@ -24,16 +24,17 @@ object CoreMain{
       addrWidth = 32,
       startAddress = 0x200,
       regFileReadyKind = sync,
-      branchPrediction = disable,
-      bypassExecute0 = false,
-      bypassExecute1 = false,
-      bypassWriteBack = false,
-      bypassWriteBackBuffer = false,
-      collapseBubble = true,
+      branchPrediction = dynamic,
+      bypassExecute0 = true,
+      bypassExecute1 = true,
+      bypassWriteBack = true,
+      bypassWriteBackBuffer = true,
+      collapseBubble = false,
       instructionBusKind = cmdStream_rspStream,
       dataBusKind = cmdStream_rspFlow,
       fastFetchCmdPcCalculation = true,
-      dynamicBranchPredictorCacheSizeLog2 = 7
+      dynamicBranchPredictorCacheSizeLog2 = 16,
+      branchPredictorHistoryWidth = 2
     )
 
     if(cached) assert(p.instructionBusKind == cmdStream_rspStream)
@@ -108,15 +109,8 @@ object CoreMain{
       }
 
     }else {
-
-      p.instructionBusKind match {
-        case `cmdStream_rspFlow_oneCycle` =>
-          io.i.cmd << core.io.i.cmd
-          core.io.i.rsp << io.i.rsp
-        case _ =>
-          io.i.cmd << StreamDelay(core.io.i.cmd.continueWhen(io.iCmdDrive))
-          core.io.i.rsp << StreamDelay(io.i.rsp).continueWhen(io.iRspDrive)
-      }
+      io.i.cmd << StreamDelay(core.io.i.cmd.continueWhen(io.iCmdDrive))
+      core.io.i.rsp << StreamDelay(io.i.rsp).continueWhen(io.iRspDrive)
     }
     io.d.cmd << StreamDelay(core.io.d.cmd.continueWhen(io.dCmdDrive))
     core.io.d.rsp << StreamDelay(io.d.rsp.m2sPipe()).continueWhen(io.dRspDrive)
@@ -160,7 +154,7 @@ object QSysAvalonCore{
       bypassExecute1 = true,
       bypassWriteBack = true,
       bypassWriteBackBuffer = true,
-      collapseBubble = true,
+      collapseBubble = false,
       instructionBusKind = cmdStream_rspStream,
       dataBusKind = cmdStream_rspFlow,
       fastFetchCmdPcCalculation = true,
@@ -212,11 +206,15 @@ object QSysAvalonCore{
       cache.io.cpu.cmd.address := core.io.i.cmd.pc
       core.io.i.rsp.valid := cache.io.cpu.rsp.valid
       core.io.i.rsp.instruction := cache.io.cpu.rsp.data
-      io.i <> cache.io.mem.toAvalon()
+
+      val memI = cache.io.mem.clone
+      memI.cmd <-< cache.io.mem.cmd
+      memI.rsp >->cache.io.mem.rsp
+      io.i <> memI.toAvalon()
     }else{
       val coreI = core.io.i.clone
       coreI.cmd <-< core.io.i.cmd
-      coreI.rsp >> core.io.i.rsp
+      coreI.rsp >-> core.io.i.rsp
       io.i <> coreI.toAvalon()
       //io.i <>core.io.i.toAvalon()
     }
@@ -236,8 +234,8 @@ object QSysAvalonCore{
     }
 
     val coreD = core.io.d.clone
-    coreD.cmd <-< core.io.d.cmd
-    coreD.rsp >> core.io.d.rsp
+    coreD.cmd <-/< core.io.d.cmd
+    coreD.rsp >-> core.io.d.rsp
     io.d <> coreD.toAvalon()
   }
 

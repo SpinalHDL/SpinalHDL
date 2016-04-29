@@ -27,12 +27,11 @@ class AvalonVgaCtrl(cDma : NeutralStreamDma.Config,cColor : RgbConfig) extends C
   dma.io.ctrl.cmd.startAt := 0x100000/4
   dma.io.ctrl.cmd.memCmdCount := 640*480/8
   dma.io.ctrl.cmd.burstLength := 8
-  dma.io.mem.toAvalon <> io.mem
 
-//  val bufferedDmaMem = dma.io.mem.clone
-//  dma.io.mem.cmd.m2sPipe().m2sPipe().m2sPipe().m2sPipe().m2sPipe().m2sPipe() >> bufferedDmaMem.cmd
-//  dma.io.mem.rsp << bufferedDmaMem.rsp
-//  bufferedDmaMem.toAvalon <> io.mem
+  val dmaMem = dma.io.mem.clone
+  dmaMem.cmd <-< dma.io.mem.cmd
+  dmaMem.rsp >> dma.io.mem.rsp
+  dmaMem.toAvalon <> io.mem
 
   val vga = new ClockingArea(if(cDma.ctrlRspClock != null) cDma.ctrlRspClock else ClockDomain.current) {
     val ctrl = new VgaCtrl(cColor)

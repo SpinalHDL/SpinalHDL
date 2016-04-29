@@ -1,10 +1,11 @@
 package spinal.lib.cpu.riscv.impl
 
+import java.text.AttributedString
+
+
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.amba4.axi._
 import spinal.lib.bus.avalon.{AvalonMMBus, AvalonMMConfig}
-import spinal.lib.bus.avalon.AvalonMMBus
 
 
 case class InstructionCacheParameters( cacheSize : Int,
@@ -204,6 +205,11 @@ class InstructionCache(implicit p : InstructionCacheParameters) extends Componen
       val readAddress = Mux(request.isStall,request.address,io.cpu.cmd.address)
       val tag = way.tags.readSync(readAddress(lineRange))
       val data = way.datas.readSync(readAddress(lineRange.high downto wordRange.low))
+//      val readAddress = request.address
+//      val tag = way.tags.readAsync(readAddress(lineRange))
+//      val data = way.datas.readAsync(readAddress(lineRange.high downto wordRange.low))
+//      way.tags.add(new AttributeString("ramstyle","no_rw_check"))
+//      way.datas.add(new AttributeString("ramstyle","no_rw_check"))
       when(tag.valid && tag.address === request.address(tagRange)) {
         waysHitValid := True
         waysHitWord := data

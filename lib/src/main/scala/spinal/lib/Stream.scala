@@ -149,7 +149,7 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
     into
   }
 
-
+  //! if collapsBubble is enable then ready is not "don't care" during valid low !
   def m2sPipe(collapsBubble : Boolean = true,crossClockData: Boolean = false): Stream[T] = {
     val ret = Stream(_dataType)
 

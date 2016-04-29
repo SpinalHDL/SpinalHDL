@@ -26,8 +26,6 @@ trait InstructionBusKind
 trait DataBusKind
 object cmdStream_rspStream extends InstructionBusKind with DataBusKind
 object cmdStream_rspFlow extends InstructionBusKind with DataBusKind
-object cmdStream_rspFlow_oneCycle extends InstructionBusKind  //Usefull for fast and light cache design
-
 
 
 case class CoreConfig(val pcWidth : Int = 32,
@@ -176,7 +174,7 @@ case class CoreDataCmd(implicit p : CoreConfig) extends Bundle{
 
 case class BranchPredictorLine(implicit p : CoreConfig)  extends Bundle{
   val pc = UInt(p.pcWidth-p.dynamicBranchPredictorCacheSizeLog2-2 bit)
-  val history = SInt(2 bit)
+  val history = SInt(p.branchPredictorHistoryWidth bit)
 }
 
 case class CoreFetchCmdOutput(implicit p : CoreConfig) extends Bundle{
@@ -298,44 +296,31 @@ class Core(implicit val c : CoreConfig) extends Component{
       throwIt := True
     }
 
-    val arbitration = instructionBusKind match {
-      case `cmdStream_rspFlow_oneCycle` => new Area{
-        inContext.ready := True
+    val arbitration = new Area{
+      val iRsp = if (instructionBusKind == cmdStream_rspFlow) {
         io.i.rsp.ready := True
-        when(inContext.valid && (!io.i.rsp.valid || !outInst.ready)) {
-          fetchCmd.redo := True
-        }
-        outInst.valid := io.i.rsp.valid && !throwIt
-        outInst.pc := inContext.pc
-        outInst.instruction := io.i.rsp.instruction
-        outInst.branchCacheLine := brancheCache.readSync(fetchCmd.outInst.pc(2, dynamicBranchPredictorCacheSizeLog2 bit))
+        val backupFifoIn = Stream(CoreInstructionRsp())
+        backupFifoIn.valid := io.i.rsp.valid
+        backupFifoIn.payload := io.i.rsp.payload
+        backupFifoIn.s2mPipe() //1 depth of backup fifo, zero latency
+      } else {
+        io.i.rsp
       }
-      case _ => new Area{
-        val iRsp = if (instructionBusKind == cmdStream_rspFlow) {
-          io.i.rsp.ready := True
-          val backupFifoIn = Stream(CoreInstructionRsp())
-          backupFifoIn.valid := io.i.rsp.valid
-          backupFifoIn.payload := io.i.rsp.payload
-          backupFifoIn.s2mPipe() //1 depth of backup fifo, zero latency
-        } else {
-          io.i.rsp
-        }
 
-        val throwNextIRspCounter = Reg(UInt(2 bit)) init(0)
-        val throwNextIRsp = throwNextIRspCounter =/= 0
-        val throwNextIRspInc = throwIt && inContext.valid && (throwNextIRsp || !iRsp.valid)
-        val throwNextIRspDec = throwNextIRsp && iRsp.valid
-        when(throwNextIRspInc =/= throwNextIRspDec){
-          throwNextIRspCounter := throwNextIRspCounter + Mux(throwNextIRspInc,U(1),U(throwNextIRspCounter.maxValue))
-        }
-
-
-        inContext.ready := outInst.fire || throwIt
-        outInst.arbitrationFrom(iRsp.throwWhen(throwIt || throwNextIRsp))
-        outInst.pc := inContext.pc
-        outInst.instruction := iRsp.instruction
-        outInst.branchCacheLine := brancheCache.readSync(Mux(inContext.isStall, inContext.pc, fetchCmd.outInst.pc)(2, dynamicBranchPredictorCacheSizeLog2 bit))
+      val throwNextIRspCounter = Reg(UInt(2 bit)) init(0)
+      val throwNextIRsp = throwNextIRspCounter =/= 0
+      val throwNextIRspInc = throwIt && inContext.valid && (throwNextIRsp || !iRsp.valid)
+      val throwNextIRspDec = throwNextIRsp && iRsp.valid
+      when(throwNextIRspInc =/= throwNextIRspDec){
+        throwNextIRspCounter := throwNextIRspCounter + Mux(throwNextIRspInc,U(1),U(throwNextIRspCounter.maxValue))
       }
+
+
+      inContext.ready := outInst.fire || throwIt
+      outInst.arbitrationFrom(iRsp.throwWhen(throwIt || throwNextIRsp))
+      outInst.pc := inContext.pc
+      outInst.instruction := iRsp.instruction
+      outInst.branchCacheLine := brancheCache.readSync(Mux(inContext.isStall, inContext.pc, fetchCmd.outInst.pc)(2, dynamicBranchPredictorCacheSizeLog2 bit))
     }
   }
 
@@ -371,7 +356,7 @@ class Core(implicit val c : CoreConfig) extends Component{
 
     // calculate branch target
     val brjmpImm = Mux(ctrl.jmp, imm.j_sext, imm.b_sext)
-    val brJumpPc = inInst.pc + brjmpImm.asUInt
+    val brJumpPc = (inInst.pc + brjmpImm.asUInt).resize(c.pcWidth)
 
     // branch prediction
     val branchCacheHit = inInst.branchCacheLine.pc === inInst.pc(pcWidth-1 downto 2 + dynamicBranchPredictorCacheSizeLog2)
@@ -404,13 +389,13 @@ class Core(implicit val c : CoreConfig) extends Component{
     outInst.doSub := outInst.ctrl.alu =/= ALU.ADD
     outInst.src0 := Mux(!addr0IsZero, src0, B(0, 32 bit))
     outInst.src1 := Mux(!addr1IsZero, src1, B(0, 32 bit))
-    outInst.alu_op0 := outInst.ctrl.op1.map(
+    outInst.alu_op0 := outInst.ctrl.op0.map(
       default -> outInst.src0,
       OP1.IMU -> imm.u.resized,
       OP1.IMZ -> imm.z.resized,
-      OP1.IMJB -> Mux(ctrl.jmp, imm.j_sext, imm.b_sext).resized
+      OP1.IMJB -> brjmpImm
     )
-    outInst.alu_op1 := outInst.ctrl.op2.map(
+    outInst.alu_op1 := outInst.ctrl.op1.map(
       default -> outInst.src1,
       OP2.IMI -> imm.i_sext.resized,
       OP2.IMS -> imm.s_sext.resized,
@@ -807,24 +792,15 @@ class Core(implicit val c : CoreConfig) extends Component{
       }
     }
 
-    when(decode.addr0IsZero){
+    when(decode.addr0IsZero || !decode.ctrl.useSrc0){
       src0Hazard := False
     }
-    when(decode.addr1IsZero){
+    when(decode.addr1IsZero || !decode.ctrl.useSrc1){
       src1Hazard := False
     }
   }
 
-
-  val performance = new Area{
-    val decode_pcLoad = Counter(1<<30,decode.pcLoad.valid).value.keep()
-    val execute1_pcLoad = Counter(1<<30,execute1.pcLoad.valid).value.keep()
-
-    val decode_halt = Counter(1<<30,decode.halt && decode.inInst.valid).value.keep()
-    val execute0_halt = Counter(1<<30,execute0.halt && execute0.inInst.valid).value.keep()
-    val execute1_halt = Counter(1<<30,execute1.halt && execute1.inInst.valid).value.keep()
-    val writeBack_halt = Counter(1<<30,writeBack.halt && writeBack.inInst.valid).value.keep()
-  }
+  
 
   val noDataRspStallLogic = if(dataBusKind == cmdStream_rspFlow) new Area{
     when(execute0.inInst.valid && execute0.inInst.ctrl.men && execute0.inInst.ctrl.m === M.XRD){
@@ -835,9 +811,10 @@ class Core(implicit val c : CoreConfig) extends Component{
         execute0.halt := True
       }
     }
-  } else null
+  }
 
-
+  
+  //Apply core extensions
   for(extension <- extensions){
     val area = extension.applyIt(this)
     area.setName(extension.getName)
@@ -859,6 +836,18 @@ class Core(implicit val c : CoreConfig) extends Component{
       }
     }
   }
+
+  // profiling/debug counters
+  val performanceCounters = new Area{
+    val decode_pcLoad = Counter(1<<30,decode.pcLoad.valid).value.keep()
+    val execute1_pcLoad = Counter(1<<30,execute1.pcLoad.valid).value.keep()
+
+    val decode_halt = Counter(1<<30,decode.halt && decode.inInst.valid).value.keep()
+    val execute0_halt = Counter(1<<30,execute0.halt && execute0.inInst.valid).value.keep()
+    val execute1_halt = Counter(1<<30,execute1.halt && execute1.inInst.valid).value.keep()
+    val writeBack_halt = Counter(1<<30,writeBack.halt && writeBack.inInst.valid).value.keep()
+  }
+
 }
 
 
