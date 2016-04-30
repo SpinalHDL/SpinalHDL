@@ -506,6 +506,31 @@ object PlayDontCare {
   }
 }
 
+object PlaySymplify {
+
+  class TopLevel extends Component {
+    val flush = in Vec(Bool,4)
+    val readyParalel = out Vec(False,4)
+    val readySerial = out Vec(False,4)
+
+    for(i <- 0 to 3){
+      if(i != 3)
+        readySerial(i) := readySerial(i + 1)
+      when(flush(i)){
+        readySerial(i) := True
+        for(i2 <- 0 to i){
+          readyParalel(i2) := True
+        }
+      }
+    }
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
 object PlayBug {
 
   class TopLevel extends Component {

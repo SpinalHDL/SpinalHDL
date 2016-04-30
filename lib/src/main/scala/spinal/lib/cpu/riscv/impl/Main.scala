@@ -24,25 +24,25 @@ object CoreMain{
       addrWidth = 32,
       startAddress = 0x200,
       regFileReadyKind = sync,
-      branchPrediction = dynamic,
-      bypassExecute0 = true,
-      bypassExecute1 = true,
-      bypassWriteBack = true,
-      bypassWriteBackBuffer = true,
+      branchPrediction = disable,
+      bypassExecute0 = false,
+      bypassExecute1 = false,
+      bypassWriteBack = false,
+      bypassWriteBackBuffer = false,
       collapseBubble = false,
       instructionBusKind = cmdStream_rspStream,
       dataBusKind = cmdStream_rspFlow,
-      fastFetchCmdPcCalculation = true,
+      fastFetchCmdPcCalculation = false,
       dynamicBranchPredictorCacheSizeLog2 = 16,
       branchPredictorHistoryWidth = 2
     )
 
     if(cached) assert(p.instructionBusKind == cmdStream_rspStream)
-    p.add(new MulExtension)
-    p.add(new DivExtension)
-    p.add(new BarrelShifterFullExtension)
-    p.add(new SimpleInterruptExtension(exceptionVector=0x0).addIrq(id=4,pin=io_interrupt,IrqUsage(isException=false),name="io_interrupt"))
-//    p.add(new BarrelShifterLightExtension)
+    //p.add(new MulExtension)
+   // p.add(new DivExtension)
+    //p.add(new BarrelShifterFullExtension)
+   // p.add(new SimpleInterruptExtension(exceptionVector=0x0).addIrq(id=4,pin=io_interrupt,IrqUsage(isException=false),name="io_interrupt"))
+    p.add(new BarrelShifterLightExtension)
     val io = new Bundle{
       val i = master(CoreInstructionBus())
       val d = master(CoreDataBus())
@@ -136,6 +136,8 @@ object QSysAvalonCore{
   class RiscvAvalon extends Component{
     val cached = true
     val debug = true
+
+    val instructionKind = if(cached) cmdStream_rspStream else cmdStream_rspFlow
     val cacheParam = InstructionCacheParameters(  cacheSize =4096,
       bytePerLine =32,
       wayCount = 1,
@@ -149,15 +151,15 @@ object QSysAvalonCore{
       addrWidth = 32,
       startAddress = 0x200,
       regFileReadyKind = sync,
-      branchPrediction = dynamic,
-      bypassExecute0 = true,
-      bypassExecute1 = true,
-      bypassWriteBack = true,
-      bypassWriteBackBuffer = true,
+      branchPrediction = disable,
+      bypassExecute0 = false,
+      bypassExecute1 = false,
+      bypassWriteBack = false,
+      bypassWriteBackBuffer = false,
       collapseBubble = false,
-      instructionBusKind = cmdStream_rspStream,
+      instructionBusKind = instructionKind,
       dataBusKind = cmdStream_rspFlow,
-      fastFetchCmdPcCalculation = true,
+      fastFetchCmdPcCalculation = false,
       dynamicBranchPredictorCacheSizeLog2 = 7
     )
 
@@ -178,11 +180,11 @@ object QSysAvalonCore{
       val debugBus = if(debug) slave(AvalonMMBus(DebugExtension.getAvalonMMConfig)) else null
     }
 
-    p.add(new MulExtension)
-    p.add(new DivExtension)
-    p.add(new BarrelShifterFullExtension)
-    p.add(new SimpleInterruptExtension(exceptionVector=0x0).addIrq(id=4,pins=io.interrupt,IrqUsage(isException=false),name="io_interrupt"))
-   // p.add(new BarrelShifterLightExtension)
+   // p.add(new MulExtension)
+   // p.add(new DivExtension)
+   // p.add(new BarrelShifterFullExtension)
+    //p.add(new SimpleInterruptExtension(exceptionVector=0x0).addIrq(id=4,pins=io.interrupt,IrqUsage(isException=false),name="io_interrupt"))
+    p.add(new BarrelShifterLightExtension)
 
     val debugExtension = if(debug) {
       val clockDomain = ClockDomain.current.clone(reset = io.debugResetIn)
@@ -200,12 +202,17 @@ object QSysAvalonCore{
 
     val cache = new InstructionCache()(cacheParam)
     if(cached){
-      cache.io.cpu.rsp.ready := core.io.i.rsp.ready
-      core.io.i.cmd.ready := cache.io.cpu.cmd.ready
-      cache.io.cpu.cmd.valid := core.io.i.cmd.valid
-      cache.io.cpu.cmd.address := core.io.i.cmd.pc
-      core.io.i.rsp.valid := cache.io.cpu.rsp.valid
-      core.io.i.rsp.instruction := cache.io.cpu.rsp.data
+      val cpuICache = cache.io.cpu.clone
+      cpuICache.cmd.valid := core.io.i.cmd.valid
+      cpuICache.cmd.address := core.io.i.cmd.pc
+      core.io.i.cmd.ready := cpuICache.cmd.ready
+      
+      core.io.i.rsp.valid := cpuICache.rsp.valid
+      core.io.i.rsp.instruction := cpuICache.rsp.data
+      cpuICache.rsp.ready := core.io.i.rsp.ready
+
+      cpuICache.cmd >> cache.io.cpu.cmd
+      cpuICache.rsp << cache.io.cpu.rsp
 
       val memI = cache.io.mem.clone
       memI.cmd <-< cache.io.mem.cmd
