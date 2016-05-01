@@ -138,7 +138,7 @@ object QSysAvalonCore{
     val debug = true
 
     val instructionKind = if(cached) cmdStream_rspStream else cmdStream_rspFlow
-    val cacheParam = InstructionCacheParameters(  cacheSize =4096,
+    val cacheParam = InstructionCacheParameters(  cacheSize =512,
       bytePerLine =32,
       wayCount = 1,
       wrappedMemAccess = true,
@@ -151,15 +151,15 @@ object QSysAvalonCore{
       addrWidth = 32,
       startAddress = 0x200,
       regFileReadyKind = sync,
-      branchPrediction = disable,
-      bypassExecute0 = false,
-      bypassExecute1 = false,
-      bypassWriteBack = false,
-      bypassWriteBackBuffer = false,
-      collapseBubble = false,
+      branchPrediction = static,
+      bypassExecute0 = true,
+      bypassExecute1 = true,
+      bypassWriteBack = true,
+      bypassWriteBackBuffer = true,
+      collapseBubble = true,
       instructionBusKind = instructionKind,
       dataBusKind = cmdStream_rspFlow,
-      fastFetchCmdPcCalculation = false,
+      fastFetchCmdPcCalculation = true,
       dynamicBranchPredictorCacheSizeLog2 = 7
     )
 
@@ -182,9 +182,9 @@ object QSysAvalonCore{
 
    // p.add(new MulExtension)
    // p.add(new DivExtension)
-   // p.add(new BarrelShifterFullExtension)
-    //p.add(new SimpleInterruptExtension(exceptionVector=0x0).addIrq(id=4,pins=io.interrupt,IrqUsage(isException=false),name="io_interrupt"))
-    p.add(new BarrelShifterLightExtension)
+    p.add(new BarrelShifterFullExtension)
+    p.add(new SimpleInterruptExtension(exceptionVector=0x0).addIrq(id=4,pins=io.interrupt,IrqUsage(isException=false),name="io_interrupt"))
+   // p.add(new BarrelShifterLightExtension)
 
     val debugExtension = if(debug) {
       val clockDomain = ClockDomain.current.clone(reset = io.debugResetIn)
