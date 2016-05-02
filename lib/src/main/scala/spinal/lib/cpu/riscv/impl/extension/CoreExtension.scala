@@ -7,10 +7,10 @@ import spinal.lib.cpu.riscv.impl.Utils._
 abstract class CoreExtension {
   def getName : String
   def applyIt(core : Core) : Area
-  def instructionCtrlExtension(instruction : Bits,ctrl: InstructionCtrl) : Unit
+  def instructionCtrlExtension(instruction : Bits,ctrl: InstructionCtrl) : Unit = {}
 
   var tag : Int = -1
-  def needTag : Boolean
+  def needTag : Boolean = false
   def applyTag(instructionCtrl: InstructionCtrl) : Unit = {
     assert(tag != -1," You need to override needTag with true")
     instructionCtrl.extensionTag := tag

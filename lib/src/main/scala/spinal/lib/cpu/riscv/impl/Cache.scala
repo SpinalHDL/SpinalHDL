@@ -8,7 +8,7 @@ import spinal.lib._
 import spinal.lib.bus.avalon.{AvalonMMBus, AvalonMMConfig}
 
 
-case class InstructionCacheParameters( cacheSize : Int,
+case class InstructionCacheConfig( cacheSize : Int,
                                        bytePerLine : Int,
                                        wayCount : Int,
                                        wrappedMemAccess : Boolean,
@@ -27,14 +27,15 @@ case class InstructionCacheParameters( cacheSize : Int,
 }
 
 
-case class InstructionCacheCpuCmd(implicit p : InstructionCacheParameters) extends Bundle{
+case class InstructionCacheCpuCmd(implicit p : InstructionCacheConfig) extends Bundle{
   val address = UInt(p.addressWidth bit)
 }
-case class InstructionCacheCpuRsp(implicit p : InstructionCacheParameters) extends Bundle{
+case class InstructionCacheCpuRsp(implicit p : InstructionCacheConfig) extends Bundle{
+  val address = UInt(p.addressWidth bit)
   val data = Bits(32 bit)
 }
 
-case class InstructionCacheCpuBus(implicit p : InstructionCacheParameters) extends Bundle with IMasterSlave{
+case class InstructionCacheCpuBus(implicit p : InstructionCacheConfig) extends Bundle with IMasterSlave{
   val cmd = Stream (InstructionCacheCpuCmd())
   val rsp = Stream (InstructionCacheCpuRsp())
 
@@ -48,14 +49,14 @@ case class InstructionCacheCpuBus(implicit p : InstructionCacheParameters) exten
 }
 
 
-case class InstructionCacheMemCmd(implicit p : InstructionCacheParameters) extends Bundle{
+case class InstructionCacheMemCmd(implicit p : InstructionCacheConfig) extends Bundle{
   val address = UInt(p.addressWidth bit)
 }
-case class InstructionCacheMemRsp(implicit p : InstructionCacheParameters) extends Bundle{
+case class InstructionCacheMemRsp(implicit p : InstructionCacheConfig) extends Bundle{
   val data = Bits(32 bit)
 }
 
-case class InstructionCacheMemBus(implicit p : InstructionCacheParameters) extends Bundle with IMasterSlave{
+case class InstructionCacheMemBus(implicit p : InstructionCacheConfig) extends Bundle with IMasterSlave{
   val cmd = Stream (InstructionCacheMemCmd())
   val rsp = Flow (InstructionCacheMemRsp())
 
@@ -91,7 +92,7 @@ case class InstructionCacheFlushBus() extends Bundle with IMasterSlave{
   }
 }
 
-class InstructionCache(implicit p : InstructionCacheParameters) extends Component{
+class InstructionCache(implicit p : InstructionCacheConfig) extends Component{
   import p._
   assert(wayCount == 1)
   assert(cpuDataWidth == memDataWidth)
@@ -127,7 +128,7 @@ class InstructionCache(implicit p : InstructionCacheParameters) extends Componen
   })
 
 
-  val loader = new Area{
+  val lineLoader = new Area{
     val requestIn = Stream(wrap(new Bundle{
       val addr = UInt(addressWidth bit)
     }))
@@ -202,45 +203,46 @@ class InstructionCache(implicit p : InstructionCacheParameters) extends Componen
     waysHitWord.assignDontCare()
 
     val waysRead = for(way <- ways) yield new Area{
-      val readAddress = Mux(request.isStall,request.address,io.cpu.cmd.address)
-      val tag = way.tags.readSync(readAddress(lineRange))
-      val data = way.datas.readSync(readAddress(lineRange.high downto wordRange.low))
-//      val readAddress = request.address
-//      val tag = way.tags.readAsync(readAddress(lineRange))
-//      val data = way.datas.readAsync(readAddress(lineRange.high downto wordRange.low))
-//      way.tags.add(new AttributeString("ramstyle","no_rw_check"))
-//      way.datas.add(new AttributeString("ramstyle","no_rw_check"))
+//      val readAddress = Mux(request.isStall,request.address,io.cpu.cmd.address)
+//      val tag = way.tags.readSync(readAddress(lineRange))
+//      val data = way.datas.readSync(readAddress(lineRange.high downto wordRange.low))
+      val readAddress = request.address
+      val tag = way.tags.readAsync(readAddress(lineRange))
+      val data = way.datas.readAsync(readAddress(lineRange.high downto wordRange.low))
+      way.tags.add(new AttributeString("ramstyle","no_rw_check"))
+      way.datas.add(new AttributeString("ramstyle","no_rw_check"))
       when(tag.valid && tag.address === request.address(tagRange)) {
         waysHitValid := True
         waysHitWord := data
       }
     }
 
-    val loaderHitValid = loader.request.valid && loader.request.addr(tagRange) === request.address(tagRange)
-    val loaderHitReady = loader.loadedWordsReadable(request.address(wordRange))
+    val loaderHitValid = lineLoader.request.valid && lineLoader.request.addr(tagRange) === request.address(tagRange)
+    val loaderHitReady = lineLoader.loadedWordsReadable(request.address(wordRange))
 
 
     io.cpu.rsp.valid := False
     io.cpu.rsp.data := waysHitWord //TODO
-    loader.requestIn.valid := False
-    loader.requestIn.addr := request.address
+    io.cpu.rsp.address := request.address
+    lineLoader.requestIn.valid := False
+    lineLoader.requestIn.addr := request.address
     when(request.valid) {
       when(waysHitValid) {
         when(!(loaderHitValid && !loaderHitReady)) {
           io.cpu.rsp.valid := True
         }
       } otherwise{
-        loader.requestIn.valid := True
+        lineLoader.requestIn.valid := True
       }
     }
   }
 
-  io.flush.cmd.ready := !(loader.request.valid || task.request.valid)
+  io.flush.cmd.ready := !(lineLoader.request.valid || task.request.valid)
 }
 
 object InstructionCacheMain{
   class TopLevel extends Component{
-    implicit val p = InstructionCacheParameters(
+    implicit val p = InstructionCacheConfig(
       cacheSize =4096,
       bytePerLine =32,
       wayCount = 1,

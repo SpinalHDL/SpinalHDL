@@ -60,3 +60,10 @@ object slave extends MS {
     i
   }
 }
+
+object slaveWithNull extends MS {
+  override def apply[T <: IMasterSlave](that: T): T = if(that != null) that.asSlave() else that
+}
+object masterWithNull extends MS {
+  override def apply[T <: IMasterSlave](that: T): T = if(that != null) that.asMaster() else that
+}

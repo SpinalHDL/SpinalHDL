@@ -33,7 +33,11 @@ class Bundle extends MultiData with Nameable with OverridedEqualsHashCode {
 
 
   override def clone: this.type = {
-    if (cloneFunc != null) return cloneFunc().asInstanceOf[this.type]
+    if (cloneFunc != null) {
+      val ret = cloneFunc().asInstanceOf[this.type]
+      ret.cloneFunc = cloneFunc
+      return ret
+    }
     super.clone
   }
 

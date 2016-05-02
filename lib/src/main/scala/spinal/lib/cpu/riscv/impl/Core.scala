@@ -39,7 +39,7 @@ case class CoreConfig(val pcWidth : Int = 32,
                       val branchPrediction : BranchPrediction = static,
                       val regFileReadyKind : RegFileReadKind = sync,
                       val fastFetchCmdPcCalculation : Boolean = true,
-                      val instructionBusKind : InstructionBusKind = cmdStream_rspFlow,
+                    //  val instructionBusKind : InstructionBusKind = cmdStream_rspFlow,
                       val dataBusKind : DataBusKind = cmdStream_rspFlow,
                       val dynamicBranchPredictorCacheSizeLog2 : Int = 4,
                       val branchPredictorHistoryWidth : Int = 2,
@@ -47,9 +47,9 @@ case class CoreConfig(val pcWidth : Int = 32,
                       val unalignedMemoryAccessIrqId : Int = 1
                        ) {
   val extensions = ArrayBuffer[CoreExtension]()
-  def add(that : CoreExtension) : this.type = {
+  def add[T <: CoreExtension](that : T) : T= {
     extensions += that
-    this
+    that
   }
 }
 
@@ -59,23 +59,28 @@ case class CoreInstructionCmd(implicit p : CoreConfig) extends Bundle{
 
 case class CoreInstructionRsp(implicit p : CoreConfig) extends Bundle{
   val instruction = Bits(32 bit)
+  val pc = UInt(p.addrWidth bit)
+  val branchCacheLine = if(p.branchPrediction == dynamic) BranchPredictorLine() else null
 }
 
 
 object CoreInstructionBus{
   def getAvalonConfig(p : CoreConfig) = AvalonMMConfig.pipelined(
     addressWidth = p.addrWidth,
-    dataWidth = 32).getReadOnlyConfig.copy(
-      maximumPendingReadTransactions = 2
-    )
+    dataWidth = 32
+  ).getReadOnlyConfig.copy(
+    maximumPendingReadTransactions = 1
+  )
 }
 
-case class CoreInstructionBus(implicit p : CoreConfig) extends Bundle with IMasterSlave{
+case class CoreInstructionBus(implicit val p : CoreConfig) extends Bundle with IMasterSlave{
   val cmd = Stream (CoreInstructionCmd())
+  val branchCachePort = if(p.branchPrediction == dynamic) MemReadPort(BranchPredictorLine(),p.dynamicBranchPredictorCacheSizeLog2) else null
   val rsp = Stream (CoreInstructionRsp())
 
   override def asMaster(): CoreInstructionBus.this.type = {
     master(cmd)
+    slaveWithNull(branchCachePort)
     slave(rsp)
     this
   }
@@ -101,14 +106,29 @@ case class CoreInstructionBus(implicit p : CoreConfig) extends Bundle with IMast
   }
 
   def toAvalon(): AvalonMMBus = {
-    assert(p.instructionBusKind == cmdStream_rspFlow)
     val avalonConfig = CoreInstructionBus.getAvalonConfig(p)
     val mm = AvalonMMBus(avalonConfig)
-    mm.read := cmd.valid
+    val pendingCmd = RegInit(False)
+    pendingCmd := (pendingCmd && !mm.readDataValid) || mm.fire
+    val haltCmd = rsp.isStall || (pendingCmd && !mm.readDataValid) // Don't overflow the backupFifo and don't have more than one pending cmd
+
+    mm.read := cmd.valid && !haltCmd
     mm.address := cmd.pc
-    cmd.ready := mm.waitRequestn
-    rsp.valid := mm.readDataValid
-    rsp.instruction := mm.readData
+    cmd.ready := mm.waitRequestn && !haltCmd
+
+    val backupFifoIn = Stream(CoreInstructionRsp())
+    backupFifoIn.valid := mm.readDataValid
+    backupFifoIn.instruction := mm.readData
+    backupFifoIn.pc := RegNextWhen(cmd.pc,cmd.ready)
+
+    rsp </< backupFifoIn //1 depth of backup fifo, zero latency
+
+    if(p.branchPrediction == dynamic) {
+      branchCachePort.cmd.valid := cmd.fire
+      branchCachePort.cmd.payload := (cmd.pc >> 2).resized
+      backupFifoIn.branchCacheLine := branchCachePort.rsp
+    }
+
     mm
   }
 }
@@ -177,10 +197,6 @@ case class BranchPredictorLine(implicit p : CoreConfig)  extends Bundle{
   val history = SInt(p.branchPredictorHistoryWidth bit)
 }
 
-case class CoreFetchCmdOutput(implicit p : CoreConfig) extends Bundle{
-  val pc = UInt(p.pcWidth bit)
-}
-
 case class CoreFetchOutput(implicit p : CoreConfig) extends Bundle{
   val pc = UInt(p.pcWidth bit)
   val instruction = Bits(32 bit)
@@ -215,6 +231,7 @@ case class CoreExecute0Output(implicit p : CoreConfig) extends Bundle{
   val pcPlus4 = UInt(32 bit)
   val pc_sel = PC()
   val unalignedMemoryAccessException = Bool
+  val needMemRsp = Bool
 }
 
 case class CoreExecute1Output(implicit p : CoreConfig) extends Bundle{
@@ -225,6 +242,7 @@ case class CoreExecute1Output(implicit p : CoreConfig) extends Bundle{
   val regFileAddress = UInt(5 bit)
   val pcPlus4 = UInt(32 bit)
   val unalignedMemoryAccessException = Bool
+  val needMemRsp = Bool
 }
 
 case class CoreWriteBack0Output(implicit p : CoreConfig) extends Bundle{
@@ -235,7 +253,7 @@ case class CoreWriteBack0Output(implicit p : CoreConfig) extends Bundle{
 class Core(implicit val c : CoreConfig) extends Component{
   import c._
   val io = new Bundle{
-    val i = master(CoreInstructionBus())
+    //val i = master(CoreInstructionBus())
     val d = master(CoreDataBus())
   }
   val irqUsages = mutable.HashMap[Int,IrqUsage]()
@@ -252,7 +270,7 @@ class Core(implicit val c : CoreConfig) extends Component{
   val brancheCache = Mem(BranchPredictorLine(), 1<<dynamicBranchPredictorCacheSizeLog2)
 
   //Send instruction request to io.i.cmd
-  val fetchCmd = new Area {
+  val prefetch = new Area {
     val halt = False
     val pc = Reg(UInt(pcWidth bit)) init(U(startAddress,pcWidth bit))
     val inc = RegInit(False) //when io.i.cmd is stalled, it's used as a token to continue the request the next cycle
@@ -268,27 +286,28 @@ class Core(implicit val c : CoreConfig) extends Component{
       pcNext := pcLoad.payload
     }
 
-    val outInst = Stream(CoreFetchCmdOutput())
     val resetDone = RegNext(True) init(False) //Used to not send request while reset is active
-    io.i.cmd.valid := outInst.ready && resetDone  && !halt
-    io.i.cmd.pc := pcNext
-    when(io.i.cmd.fire || pcLoad.fire){
+    val iCmd = Stream(CoreInstructionCmd())
+    iCmd.valid := resetDone  && !halt
+    iCmd.pc := pcNext
+    //if(branchPrediction == dynamic) io.i.branchCacheLine := brancheCache.readSync(iCmd.pc(2, dynamicBranchPredictorCacheSizeLog2 bit),iCmd.ready)
+    when(iCmd.fire || pcLoad.fire){
       pc := pcNext
     }
 
-    when(io.i.cmd.fire){
+    when(iCmd.fire){
       inc := True
     }.elsewhen(pcLoad.valid || redo){
       inc := False
     }
 
-    outInst.valid := io.i.cmd.fire
-    outInst.pc := pcNext
+    val iCacheFlush = InstructionCacheFlushBus()
+    iCacheFlush.cmd.valid.default(False)
   }
 
   //Join fetchCmd.outInst with io.i.rsp
   val fetch = new Area {
-    val inContext = fetchCmd.outInst.m2sPipe()
+    val iRsp = Stream(CoreInstructionRsp())
     val outInst = Stream(CoreFetchOutput())
     val throwIt = False
     val flush = False
@@ -296,33 +315,31 @@ class Core(implicit val c : CoreConfig) extends Component{
       throwIt := True
     }
 
-    val arbitration = new Area{
-      val iRsp = if (instructionBusKind == cmdStream_rspFlow) {
-        io.i.rsp.ready := True
-        val backupFifoIn = Stream(CoreInstructionRsp())
-        backupFifoIn.valid := io.i.rsp.valid
-        backupFifoIn.payload := io.i.rsp.payload
-        backupFifoIn.s2mPipe() //1 depth of backup fifo, zero latency
-      } else {
-        io.i.rsp
-      }
 
-      val throwNextIRspCounter = Reg(UInt(2 bit)) init(0)
-      val throwNextIRsp = throwNextIRspCounter =/= 0
-      val throwNextIRspInc = throwIt && inContext.valid && (throwNextIRsp || !iRsp.valid)
-      val throwNextIRspDec = throwNextIRsp && iRsp.valid
-      when(throwNextIRspInc =/= throwNextIRspDec){
-        throwNextIRspCounter := throwNextIRspCounter + Mux(throwNextIRspInc,U(1),U(throwNextIRspCounter.maxValue))
-      }
-
-
-      inContext.ready := outInst.fire || throwIt
-      outInst.arbitrationFrom(iRsp.throwWhen(throwIt || throwNextIRsp))
-      outInst.pc := inContext.pc
-      outInst.instruction := iRsp.instruction
-      outInst.branchCacheLine := brancheCache.readSync(Mux(inContext.isStall, inContext.pc, fetchCmd.outInst.pc)(2, dynamicBranchPredictorCacheSizeLog2 bit))
+    val pendingPrefetch = CounterUpDown(stateCount = 4,incWhen = prefetch.iCmd.fire,decWhen = iRsp.fire)
+    when(pendingPrefetch === 3){
+      prefetch.iCmd.valid := False
     }
+
+    val throwRemaining = Reg(UInt(2 bit)) init(0)
+    val throwNextIRsp = throwRemaining =/= 0
+    when(throwNextIRsp && iRsp.fire){
+      throwRemaining := throwRemaining - 1
+    }
+    when(throwIt){
+      throwRemaining := pendingPrefetch - iRsp.valid.asUInt
+    }
+
+
+    outInst.arbitrationFrom(iRsp.throwWhen(throwIt || throwNextIRsp))
+    outInst.pc := iRsp.pc
+    outInst.instruction := iRsp.instruction
+    if(branchPrediction == dynamic)
+      outInst.branchCacheLine := iRsp.branchCacheLine
+    else
+      outInst.branchCacheLine := outInst.branchCacheLine.getZero //don't care
   }
+
 
   val decode = new Area{
     val inInst = fetch.outInst.m2sPipe()
@@ -466,6 +483,7 @@ class Core(implicit val c : CoreConfig) extends Component{
     outInst.result := alu.io.result
     outInst.adder := alu.io.adder
     outInst.pcPlus4 := inInst.pc + 4
+    outInst.needMemRsp := inInst.ctrl.men && inInst.ctrl.m === M.XRD
 
     // Send memory read/write requests
     outInst.unalignedMemoryAccessException := inInst.ctrl.men && outInst.ctrl.msk.map(
@@ -549,6 +567,7 @@ class Core(implicit val c : CoreConfig) extends Component{
     outInst.instruction := inInst.instruction
     outInst.pcPlus4 := inInst.pcPlus4
     outInst.unalignedMemoryAccessException := inInst.unalignedMemoryAccessException
+    outInst.needMemRsp := inInst.needMemRsp
 
     val flush = False
     when(flush){
@@ -591,7 +610,7 @@ class Core(implicit val c : CoreConfig) extends Component{
     pcLoad.valid := False
     pcLoad.payload.assignDontCare()
 
-    val needMemoryResponse = inInst.ctrl.wb === WB.MEM && inInst.ctrl.m === M.XRD
+    val needMemoryResponse = inInst.needMemRsp
     val flushMemoryResponse = RegInit(False)
     io.d.rsp.ready := (dataBusKind match{
       case `cmdStream_rspStream` => False
@@ -659,28 +678,28 @@ class Core(implicit val c : CoreConfig) extends Component{
   val branchArbiter = new Area {
     branchPrediction match{
       case `disable` =>
-        fetchCmd.pcLoad.valid := execute1.pcLoad.valid
-        fetchCmd.pcLoad.payload := execute1.pcLoad.payload
+        prefetch.pcLoad.valid := execute1.pcLoad.valid
+        prefetch.pcLoad.payload := execute1.pcLoad.payload
         when(execute1.pcLoad.valid) {
           execute0.flush := True
         }
       case `static` | `dynamic` =>
-        fetchCmd.pcLoad.valid := decode.pcLoad.valid
-        fetchCmd.pcLoad.payload := decode.pcLoad.payload
+        prefetch.pcLoad.valid := decode.pcLoad.valid
+        prefetch.pcLoad.payload := decode.pcLoad.payload
         when(decode.pcLoad.valid){
           fetch.flush := True
         }
         when(execute1.pcLoad.valid){
           execute0.flush :=  True
-          fetchCmd.pcLoad.valid := True
-          fetchCmd.pcLoad.payload := execute1.pcLoad.payload
+          prefetch.pcLoad.valid := True
+          prefetch.pcLoad.payload := execute1.pcLoad.payload
         }
     }
 
     when(writeBack.pcLoad.valid){
       execute1.flush :=  True
-      fetchCmd.pcLoad.valid := True
-      fetchCmd.pcLoad.payload := writeBack.pcLoad.payload
+      prefetch.pcLoad.valid := True
+      prefetch.pcLoad.payload := writeBack.pcLoad.payload
     }
   }
 

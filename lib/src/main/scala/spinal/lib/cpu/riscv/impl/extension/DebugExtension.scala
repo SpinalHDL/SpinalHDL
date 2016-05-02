@@ -54,11 +54,9 @@ case class DebugExtensionBus() extends Bundle with IMasterSlave{
 case class DebugExtensionIo() extends Bundle with IMasterSlave{
   val bus = DebugExtensionBus()
   val resetOut = Bool
-  val iCacheFlush = InstructionCacheFlushBus()
   
   override def asMaster(): this.type = {
     master(bus)
-    slave(iCacheFlush)
     in(resetOut)
     this
   }
@@ -78,13 +76,12 @@ class DebugExtension(val clockDomain: ClockDomain) extends CoreExtension{
     val haltIt = RegInit(False)
     val flushIt = RegNext(False)
     val stepIt = RegInit(False)
-    val iCacheflushEmitter = EventEmitter(on=io.iCacheFlush.cmd)
+    val iCacheflushEmitter = EventEmitter(on=core.prefetch.iCacheFlush.cmd)
 
 
-    val isPipActive = RegNext(RegNext(core.io.i.cmd.valid) || core.fetch.inContext.valid ||  core.decode.inInst.valid ||  core.execute0.inInst.valid ||  core.execute1.inInst.valid || core.writeBack.inInst.valid)
+    val isPipActive = RegNext(RegNext(core.prefetch.iCmd.valid) || (core.fetch.pendingPrefetch =/= 0) ||  core.decode.inInst.valid ||  core.execute0.inInst.valid ||  core.execute1.inInst.valid || core.writeBack.inInst.valid)
     val isPipBusy = isPipActive || RegNext(isPipActive)
     val isInBreakpoint = core.writeBack.inInst.valid && isMyTag(core.writeBack.inInst.ctrl)
-    val iCacheFlushDone = RegInit(False)
     when(io.bus.cmd.valid) {
       when(io.bus.cmd.address.msb){//access special register else regfile
         switch(io.bus.cmd.address(io.bus.cmd.address.high-1 downto 0)) {
@@ -113,20 +110,18 @@ class DebugExtension(val clockDomain: ClockDomain) extends CoreExtension{
               busReadDataReg(2) := isPipBusy
               busReadDataReg(3) := isInBreakpoint
               busReadDataReg(4) := stepIt
-              busReadDataReg(5) := core.fetchCmd.inc
-              busReadDataReg(8) := iCacheFlushDone
-              iCacheFlushDone.clear()
+              busReadDataReg(5) := core.prefetch.inc
             }
           }
           is(1){
             when(io.bus.cmd.wr){
-              core.fetchCmd.pc := io.bus.cmd.data.asUInt
-              core.fetchCmd.inc := False
+              core.prefetch.pc := io.bus.cmd.data.asUInt
+              core.prefetch.inc := False
             } otherwise{
               when(isInBreakpoint){
                 busReadDataReg := core.writeBack.inInst.pc.asBits
               } otherwise{
-                busReadDataReg := core.fetchCmd.pc.asBits
+                busReadDataReg := core.prefetch.pc.asBits
               }
             }
           }
@@ -165,15 +160,11 @@ class DebugExtension(val clockDomain: ClockDomain) extends CoreExtension{
     }
 
     when(haltIt){
-      core.fetchCmd.halt := True
+      core.prefetch.halt := True
     }
 
-    when(stepIt && core.fetchCmd.outInst.fire){
+    when(stepIt && core.prefetch.iCmd.fire){
       haltIt := True
-    }
-
-    when(io.iCacheFlush.rsp){
-      iCacheFlushDone.set()
     }
 
     io.resetOut := RegNext(resetIt)
