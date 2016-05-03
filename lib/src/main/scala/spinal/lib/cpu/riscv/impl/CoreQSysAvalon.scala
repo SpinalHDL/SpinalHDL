@@ -12,7 +12,7 @@ object CoreQSysAvalon{
   import extension._
 
   class RiscvAvalon extends Component{
-    val iCached = false
+    val iCached = true
     val dCached = false
     val debug = true
 
@@ -30,14 +30,14 @@ object CoreQSysAvalon{
       addrWidth = 32,
       startAddress = 0x200,
       regFileReadyKind = sync,
-      branchPrediction = disable,
-      bypassExecute0 = false,
-      bypassExecute1 = false,
-      bypassWriteBack = false,
-      bypassWriteBackBuffer = false,
+      branchPrediction = static,
+      bypassExecute0 = true,
+      bypassExecute1 = true,
+      bypassWriteBack = true,
+      bypassWriteBackBuffer = true,
       collapseBubble = false,
       dataBusKind = cmdStream_rspFlow,
-      fastFetchCmdPcCalculation = false,
+      fastFetchCmdPcCalculation = true,
       dynamicBranchPredictorCacheSizeLog2 = 7
     )
 
@@ -57,11 +57,11 @@ object CoreQSysAvalon{
       val debugBus = if(debug) slave(AvalonMMBus(DebugExtension.getAvalonMMConfig)) else null
     }
 
-    //p.add(new MulExtension)
-    //p.add(new DivExtension)
-   // p.add(new BarrelShifterFullExtension)
-   // p.add(new SimpleInterruptExtension(exceptionVector=0x0).addIrq(id=4,pins=io.interrupt,IrqUsage(isException=false),name="io_interrupt"))
-    p.add(new BarrelShifterLightExtension)
+    p.add(new MulExtension)
+    p.add(new DivExtension)
+    p.add(new BarrelShifterFullExtension)
+    p.add(new SimpleInterruptExtension(exceptionVector=0x0).addIrq(id=4,pins=io.interrupt,IrqUsage(isException=false),name="io_interrupt"))
+//    p.add(new BarrelShifterLightExtension)
     val nativeInstructionBusExtension = if(!iCached)p.add(new NativeInstructionBusExtension)  else null
     val cachedInstructionBusExtension = if(iCached)p.add(new CachedInstructionBusExtension(cacheParam,false,true))  else null
     val nativeDataBusExtension = if(!dCached) p.add(new NativeDataBusExtension) else null

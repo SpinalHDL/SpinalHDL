@@ -252,10 +252,18 @@ case class CoreWriteBack0Output(implicit p : CoreConfig) extends Bundle{
 
 class Core(implicit val c : CoreConfig) extends Component{
   import c._
-  val io = new Bundle{
-    //val i = master(CoreInstructionBus())   Provided by InstructionBusExtensions
-    //val d = master(CoreDataBus())          Provided by DataBusExtensions
-  }
+
+  //Instruction bus
+  val iCmd = Stream(CoreInstructionCmd())
+  val iRsp = Stream(CoreInstructionRsp())
+  val iCacheFlush = InstructionCacheFlushBus()
+  iCacheFlush.cmd.valid.default(False)
+
+  //Data bus
+  val dCmd = Stream(CoreDataCmd())
+  val dRsp = Stream(Bits(32 bits))
+
+  //IRQ
   val irqUsages = mutable.HashMap[Int,IrqUsage]()
   if(invalidInstructionIrqId != 0) irqUsages(invalidInstructionIrqId) = IrqUsage(true)
   if(unalignedMemoryAccessIrqId != 0) irqUsages(unalignedMemoryAccessIrqId) = IrqUsage(true)
@@ -266,17 +274,14 @@ class Core(implicit val c : CoreConfig) extends Component{
   }
   val irqWidth = irqUsages.foldLeft(0)((max,e) => Math.max(max,e._1)) + 1
   val irqExceptionMask = irqUsages.foldLeft(0)((mask,e) => if(e._2.isException) mask + 1 << e._1 else mask)
+
+  //Memories
   val regFile = Mem(Bits(32 bit),32)
   val brancheCache = Mem(BranchPredictorLine(), 1<<dynamicBranchPredictorCacheSizeLog2)
 
-  val iCacheFlush = InstructionCacheFlushBus()
-  val iCmd = Stream(CoreInstructionCmd())
-  val iRsp = Stream(CoreInstructionRsp())
-  val dCmd = Stream(CoreDataCmd())
-  val dRsp = Stream(Bits(32 bits))
 
 
-  iCacheFlush.cmd.valid.default(False)
+
 
   //Send instruction request to io.i.cmd
   val prefetch = new Area {

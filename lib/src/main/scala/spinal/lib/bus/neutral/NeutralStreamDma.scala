@@ -149,7 +149,7 @@ object NeutralStreamDma {
       fifo.io.push << memRsp.toStream
       fifo.io.pop >> io.ctrl.rsp
 
-      toManyPendingRsp := fifo.io.pushOccupancy + pendingMemRsp > c.fifoSize-io.ctrl.cmd.burstLength
+      toManyPendingRsp := RegNext(fifo.io.pushOccupancy) + pendingMemRsp > c.fifoSize-io.ctrl.cmd.burstLength-1    //-1 because of regnext fifo occupancy
     }
 
     when(toManyPendingCmd || toManyPendingRsp) {
