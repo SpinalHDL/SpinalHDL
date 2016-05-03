@@ -1,8 +1,10 @@
 package spinal.lib.cpu.riscv.impl
 
 import spinal.core._
+import spinal.lib.WrapWithReg.Wrapper
 import spinal.lib._
 import spinal.lib.bus.avalon._
+import spinal.lib.cpu.riscv.impl.CoreQSysAvalon.RiscvAvalon
 import spinal.lib.tool.{ResetEmitterTag, InterruptReceiverTag, QSysify}
 
 
@@ -10,12 +12,12 @@ object CoreQSysAvalon{
   import extension._
 
   class RiscvAvalon extends Component{
-    val cached = true
+    val iCached = false
+    val dCached = false
     val debug = true
 
-    val instructionKind = if(cached) cmdStream_rspStream else cmdStream_rspFlow
     val cacheParam = InstructionCacheConfig(
-      cacheSize =512,
+      cacheSize =4096,
       bytePerLine =32,
       wayCount = 1,
       wrappedMemAccess = true,
@@ -28,19 +30,19 @@ object CoreQSysAvalon{
       addrWidth = 32,
       startAddress = 0x200,
       regFileReadyKind = sync,
-      branchPrediction = static,
-      bypassExecute0 = true,
-      bypassExecute1 = true,
-      bypassWriteBack = true,
-      bypassWriteBackBuffer = true,
-      collapseBubble = true,
+      branchPrediction = disable,
+      bypassExecute0 = false,
+      bypassExecute1 = false,
+      bypassWriteBack = false,
+      bypassWriteBackBuffer = false,
+      collapseBubble = false,
       dataBusKind = cmdStream_rspFlow,
-      fastFetchCmdPcCalculation = true,
+      fastFetchCmdPcCalculation = false,
       dynamicBranchPredictorCacheSizeLog2 = 7
     )
 
 
-    val iConfig = if(cached){
+    val iConfig = if(iCached){
       cacheParam.getAvalonConfig()
     }else{
       CoreInstructionBus.getAvalonConfig(p)
@@ -55,13 +57,14 @@ object CoreQSysAvalon{
       val debugBus = if(debug) slave(AvalonMMBus(DebugExtension.getAvalonMMConfig)) else null
     }
 
-   // p.add(new MulExtension)
-   // p.add(new DivExtension)
-    p.add(new BarrelShifterFullExtension)
-    p.add(new SimpleInterruptExtension(exceptionVector=0x0).addIrq(id=4,pins=io.interrupt,IrqUsage(isException=false),name="io_interrupt"))
-   // p.add(new BarrelShifterLightExtension)
-    val nativeInstructionBusExtension = if(!cached)p.add(new NativeInstructionBusExtension)  else null
-    val cachedInstructionBusExtension = if(cached)p.add(new CachedInstructionBusExtension(cacheParam))  else null
+    //p.add(new MulExtension)
+    //p.add(new DivExtension)
+   // p.add(new BarrelShifterFullExtension)
+   // p.add(new SimpleInterruptExtension(exceptionVector=0x0).addIrq(id=4,pins=io.interrupt,IrqUsage(isException=false),name="io_interrupt"))
+    p.add(new BarrelShifterLightExtension)
+    val nativeInstructionBusExtension = if(!iCached)p.add(new NativeInstructionBusExtension)  else null
+    val cachedInstructionBusExtension = if(iCached)p.add(new CachedInstructionBusExtension(cacheParam,false,true))  else null
+    val nativeDataBusExtension = if(!dCached) p.add(new NativeDataBusExtension) else null
 
 
     val debugExtension = if(debug) {
@@ -78,7 +81,7 @@ object CoreQSysAvalon{
       io.debugResetOut := debugExtension.io.resetOut
     }
 
-    if(cached){
+    if(iCached){
       val memCache = cachedInstructionBusExtension.memBus
       val memI = memCache.clone
       memI.cmd <-< memCache.cmd
@@ -95,11 +98,16 @@ object CoreQSysAvalon{
         coreI.branchCachePort <> memCpu.branchCachePort
       }
     }
+    if(dCached){
+      ???
+    }else{
+      val memCpu = nativeDataBusExtension.memBus
+      val coreD = memCpu.clone
+      coreD.cmd <-/< memCpu.cmd
+      coreD.rsp >-> memCpu.rsp
+      io.d <> coreD.toAvalon()
+    }
 
-    val coreD = core.io.d.clone
-    coreD.cmd <-/< core.io.d.cmd
-    coreD.rsp >-> core.io.d.rsp
-    io.d <> coreD.toAvalon()
   }
 
   def main(args: Array[String]) {
@@ -117,3 +125,11 @@ object CoreQSysAvalon{
     QSysify(report.toplevel)
   }
 }
+
+
+object CoreFMaxBench{
+  def main(args: Array[String]) {
+    SpinalVhdl(new WrapWithReg.Wrapper(new RiscvAvalon).setDefinitionName("TopLevel"))
+  }
+}
+

@@ -253,8 +253,8 @@ case class CoreWriteBack0Output(implicit p : CoreConfig) extends Bundle{
 class Core(implicit val c : CoreConfig) extends Component{
   import c._
   val io = new Bundle{
-    //val i = master(CoreInstructionBus())
-    val d = master(CoreDataBus())
+    //val i = master(CoreInstructionBus())   Provided by InstructionBusExtensions
+    //val d = master(CoreDataBus())          Provided by DataBusExtensions
   }
   val irqUsages = mutable.HashMap[Int,IrqUsage]()
   if(invalidInstructionIrqId != 0) irqUsages(invalidInstructionIrqId) = IrqUsage(true)
@@ -268,6 +268,15 @@ class Core(implicit val c : CoreConfig) extends Component{
   val irqExceptionMask = irqUsages.foldLeft(0)((mask,e) => if(e._2.isException) mask + 1 << e._1 else mask)
   val regFile = Mem(Bits(32 bit),32)
   val brancheCache = Mem(BranchPredictorLine(), 1<<dynamicBranchPredictorCacheSizeLog2)
+
+  val iCacheFlush = InstructionCacheFlushBus()
+  val iCmd = Stream(CoreInstructionCmd())
+  val iRsp = Stream(CoreInstructionRsp())
+  val dCmd = Stream(CoreDataCmd())
+  val dRsp = Stream(Bits(32 bits))
+
+
+  iCacheFlush.cmd.valid.default(False)
 
   //Send instruction request to io.i.cmd
   val prefetch = new Area {
@@ -287,7 +296,6 @@ class Core(implicit val c : CoreConfig) extends Component{
     }
 
     val resetDone = RegNext(True) init(False) //Used to not send request while reset is active
-    val iCmd = Stream(CoreInstructionCmd())
     iCmd.valid := resetDone  && !halt
     iCmd.pc := pcNext
     //if(branchPrediction == dynamic) io.i.branchCacheLine := brancheCache.readSync(iCmd.pc(2, dynamicBranchPredictorCacheSizeLog2 bit),iCmd.ready)
@@ -300,14 +308,10 @@ class Core(implicit val c : CoreConfig) extends Component{
     }.elsewhen(pcLoad.valid || redo){
       inc := False
     }
-
-    val iCacheFlush = InstructionCacheFlushBus()
-    iCacheFlush.cmd.valid.default(False)
   }
 
   //Join fetchCmd.outInst with io.i.rsp
   val fetch = new Area {
-    val iRsp = Stream(CoreInstructionRsp())
     val outInst = Stream(CoreFetchOutput())
     val throwIt = False
     val flush = False
@@ -316,9 +320,9 @@ class Core(implicit val c : CoreConfig) extends Component{
     }
 
 
-    val pendingPrefetch = CounterUpDown(stateCount = 4,incWhen = prefetch.iCmd.fire,decWhen = iRsp.fire)
+    val pendingPrefetch = CounterUpDown(stateCount = 4,incWhen = iCmd.fire,decWhen = iRsp.fire)
     when(pendingPrefetch === 3){
-      prefetch.iCmd.valid := False
+      iCmd.valid := False
     }
 
     val throwRemaining = Reg(UInt(2 bit)) init(0)
@@ -434,7 +438,7 @@ class Core(implicit val c : CoreConfig) extends Component{
     val inInst = decode.outInst.m2sPipe(collapseBubble)
     val throwIt = False
     val halt = False
-    val haltFromDataRequest = inInst.valid && inInst.ctrl.men && !io.d.cmd.ready
+    val haltFromDataRequest = inInst.valid && inInst.ctrl.men && !dCmd.ready
 
     val ctrl = inInst.ctrl
     val addr0 = inInst.instruction(19 downto 15).asUInt
@@ -488,15 +492,16 @@ class Core(implicit val c : CoreConfig) extends Component{
     // Send memory read/write requests
     outInst.unalignedMemoryAccessException := inInst.ctrl.men && outInst.ctrl.msk.map(
       default-> False,
-      MSK.H -> io.d.cmd.address(0),
-      MSK.W -> (io.d.cmd.address(0) || io.d.cmd.address(1))
+      MSK.H -> dCmd.address(0),
+      MSK.W -> (dCmd.address(0) || dCmd.address(1))
     )
 
-    io.d.cmd.valid := inInst.valid && inInst.ctrl.men && !outInst.unalignedMemoryAccessException && !halt && !throwIt && outInst.ready
-    io.d.cmd.wr := inInst.ctrl.m === M.XWR
-    io.d.cmd.address := outInst.adder
-    io.d.cmd.payload.data := inInst.src1
-    io.d.cmd.size := inInst.ctrl.msk.map(
+
+    dCmd.valid := inInst.valid && inInst.ctrl.men && !outInst.unalignedMemoryAccessException && !halt && !throwIt && outInst.ready
+    dCmd.wr := inInst.ctrl.m === M.XWR
+    dCmd.address := outInst.adder
+    dCmd.payload.data := inInst.src1
+    dCmd.size := inInst.ctrl.msk.map(
       default -> U(2), //W
       MSK.B -> U(0),
       MSK.H -> U(1)
@@ -504,8 +509,8 @@ class Core(implicit val c : CoreConfig) extends Component{
     val pendingDataCmd = new Area{
       val pendingDataMax = 2
       val readCount = Reg(UInt(log2Up(pendingDataMax) bit)) init(0)
-      val readCountInc = io.d.cmd.fire && !io.d.cmd.wr
-      val readCountDec = io.d.rsp.fire
+      val readCountInc = dCmd.fire && !dCmd.wr
+      val readCountDec = dRsp.fire
 
       when(readCountInc =/= readCountDec){
         readCount := readCount + Mux(readCountInc,U(1),U(readCount.maxValue))
@@ -612,29 +617,29 @@ class Core(implicit val c : CoreConfig) extends Component{
 
     val needMemoryResponse = inInst.needMemRsp
     val flushMemoryResponse = RegInit(False)
-    io.d.rsp.ready := (dataBusKind match{
+    dRsp.ready := (dataBusKind match{
       case `cmdStream_rspStream` => False
       case `cmdStream_rspFlow` => True
     })
     when(inInst.valid && needMemoryResponse){
-      when(!io.d.rsp.valid) {
+      when(!dRsp.valid) {
         halt := True
       }
-      if(dataBusKind == cmdStream_rspStream) io.d.rsp.ready := !halt
+      if(dataBusKind == cmdStream_rspStream) dRsp.ready := !halt
     }
 
     when(execute0.pendingDataCmd.readCount === 0){
       flushMemoryResponse := False
     }
     when(flushMemoryResponse){
-      io.d.rsp.ready := True
+      dRsp.ready := True
       halt := True
     }
 
     val dataRspFormated = inInst.ctrl.msk.map(
-      default -> io.d.rsp.payload, //W
-      MSK.B   -> B(default -> (io.d.rsp.payload(7) && ! inInst.instruction(14)),(7 downto 0) -> io.d.rsp.payload(7 downto 0)),
-      MSK.H   -> B(default -> (io.d.rsp.payload(15) && ! inInst.instruction(14)),(15 downto 0) -> io.d.rsp.payload(15 downto 0))
+      default -> dRsp.payload, //W
+      MSK.B   -> B(default -> (dRsp.payload(7) && ! inInst.instruction(14)),(7 downto 0) -> dRsp.payload(7 downto 0)),
+      MSK.H   -> B(default -> (dRsp.payload(15) && ! inInst.instruction(14)),(15 downto 0) -> dRsp.payload(15 downto 0))
     )
 
     val regFileData = inInst.ctrl.wb.map (

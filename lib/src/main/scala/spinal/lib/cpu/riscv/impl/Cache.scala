@@ -221,20 +221,11 @@ class InstructionCache(implicit p : InstructionCacheConfig) extends Component{
     val loaderHitReady = lineLoader.loadedWordsReadable(request.address(wordRange))
 
 
-    io.cpu.rsp.valid := False
+    io.cpu.rsp.valid := request.valid && waysHitValid && !(loaderHitValid && !loaderHitReady)
     io.cpu.rsp.data := waysHitWord //TODO
     io.cpu.rsp.address := request.address
-    lineLoader.requestIn.valid := False
+    lineLoader.requestIn.valid := request.valid && ! waysHitValid
     lineLoader.requestIn.addr := request.address
-    when(request.valid) {
-      when(waysHitValid) {
-        when(!(loaderHitValid && !loaderHitReady)) {
-          io.cpu.rsp.valid := True
-        }
-      } otherwise{
-        lineLoader.requestIn.valid := True
-      }
-    }
   }
 
   io.flush.cmd.ready := !(lineLoader.request.valid || task.request.valid)

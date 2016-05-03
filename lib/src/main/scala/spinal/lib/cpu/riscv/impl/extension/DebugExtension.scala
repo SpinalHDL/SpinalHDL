@@ -76,10 +76,10 @@ class DebugExtension(val clockDomain: ClockDomain) extends CoreExtension{
     val haltIt = RegInit(False)
     val flushIt = RegNext(False)
     val stepIt = RegInit(False)
-    val iCacheflushEmitter = EventEmitter(on=core.prefetch.iCacheFlush.cmd)
+    val iCacheflushEmitter = EventEmitter(on=core.iCacheFlush.cmd)
 
 
-    val isPipActive = RegNext(RegNext(core.prefetch.iCmd.valid) || (core.fetch.pendingPrefetch =/= 0) ||  core.decode.inInst.valid ||  core.execute0.inInst.valid ||  core.execute1.inInst.valid || core.writeBack.inInst.valid)
+    val isPipActive = RegNext(RegNext(core.iCmd.valid) || (core.fetch.pendingPrefetch =/= 0) ||  core.decode.inInst.valid ||  core.execute0.inInst.valid ||  core.execute1.inInst.valid || core.writeBack.inInst.valid)
     val isPipBusy = isPipActive || RegNext(isPipActive)
     val isInBreakpoint = core.writeBack.inInst.valid && isMyTag(core.writeBack.inInst.ctrl)
     when(io.bus.cmd.valid) {
@@ -163,7 +163,7 @@ class DebugExtension(val clockDomain: ClockDomain) extends CoreExtension{
       core.prefetch.halt := True
     }
 
-    when(stepIt && core.prefetch.iCmd.fire){
+    when(stepIt && core.iCmd.fire){
       haltIt := True
     }
 

@@ -5,13 +5,14 @@ import spinal.lib._
 import spinal.lib.bus.avalon._
 import spinal.lib.tool.{ResetEmitterTag, InterruptReceiverTag, QSysify}
 
-object CoreMain{
+object CoreUut{
   import extension._
 
   class TopLevel extends Component{
     val io_interrupt = in Bool
     val oneCycleInstrPip = true
-    val cached = true
+    val iCached = true
+    val dCached = false
     val cacheParam = InstructionCacheConfig(  cacheSize = 4096,
       bytePerLine =32,
       wayCount = 1,
@@ -42,8 +43,9 @@ object CoreMain{
     p.add(new BarrelShifterFullExtension)
     p.add(new SimpleInterruptExtension(exceptionVector=0x0).addIrq(id=4,pin=io_interrupt,IrqUsage(isException=false),name="io_interrupt"))
     // p.add(new BarrelShifterLightExtension)
-    val nativeInstructionBusExtension = if(!cached)p.add(new NativeInstructionBusExtension)  else null
-    val cachedInstructionBusExtension = if(cached)p.add(new CachedInstructionBusExtension(cacheParam))  else null
+    val nativeInstructionBusExtension = if(!iCached)p.add(new NativeInstructionBusExtension)  else null
+    val cachedInstructionBusExtension = if(iCached)p.add(new CachedInstructionBusExtension(cacheParam,false,true))  else null
+    val nativeDataBusExtension = if(!dCached) p.add(new NativeDataBusExtension) else null
 
 
     val io = new Bundle{
@@ -69,7 +71,7 @@ object CoreMain{
 
 
 
-    val iLogic = if(cached) new Area{
+    val iLogic = if(iCached) new Area{
       val i_cmd = io.i_cmd.clone
       val i_rsp = io.i_rsp.clone
       io.i_cmd << StreamDelay(i_cmd.continueWhen(io.iCmdDrive))
@@ -109,8 +111,9 @@ object CoreMain{
       memBus.rsp.valid <> i_rsp.valid
       memBus.rsp.data <> i_rsp.instruction
 
+      //Emit ramdom instruction cache flush
       Component.push(core)
-      val flushEmitter = EventEmitter(core.prefetch.iCacheFlush.cmd)
+      val flushEmitter = EventEmitter(core.iCacheFlush.cmd)
       when(io.doCacheFlush.pull){
         flushEmitter.emit()
       }
@@ -131,8 +134,15 @@ object CoreMain{
         rsp.branchCacheLine := coreIBus.branchCachePort.rsp
       }
     }
-    io.d.cmd << StreamDelay(core.io.d.cmd.continueWhen(io.dCmdDrive))
-    core.io.d.rsp << StreamDelay(io.d.rsp.m2sPipe()).continueWhen(io.dRspDrive)
+    if(dCached){
+      ???
+    }else{
+      val memCpu = nativeDataBusExtension.memBus
+      io.d.cmd << StreamDelay(memCpu.cmd.continueWhen(io.dCmdDrive))
+      memCpu.rsp << StreamDelay(io.d.rsp.m2sPipe()).continueWhen(io.dRspDrive)
+
+    }
+
 
     io.iCheck.valid := core.execute0.outInst.valid.pull
     io.iCheck.address := core.execute0.outInst.pc.pull
@@ -145,3 +155,4 @@ object CoreMain{
     SpinalVhdl({ new TopLevel()})
   }
 }
+

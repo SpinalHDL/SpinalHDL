@@ -576,3 +576,23 @@ object PriorityMux{
   def apply[T <: Data](sel: Iterable[Bool], in: Iterable[T]): T = apply(sel zip in)
   def apply[T <: Data](sel: Bits, in: Iterable[T]): T = apply(sel.asBools.zip(in))
 }
+
+
+
+object WrapWithReg{
+  def on(c : Component): Unit = {
+    c.nameElements()
+    for(e <- c.getAllIo){
+      if(e.isInput){
+        e := RegNext(RegNext(in(e.clone.setName(e.getName))))
+      }else{
+        out(e.clone.setName(e.getName)) := RegNext(RegNext(e))
+      }
+    }
+  }
+
+  class Wrapper(c :  => Component) extends Component{
+    val comp = c
+    on(comp)
+  }
+}
