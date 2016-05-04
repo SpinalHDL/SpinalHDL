@@ -214,7 +214,10 @@ abstract class BaseType extends Node with Data with Nameable {
 
   // def castThatInSame(that: BaseType): this.type = throw new Exception("Not defined")
 
-  def assignDontCare(): Unit = this.assignFrom(new DontCareNodeInfered(this), false)
+  def assignDontCare(): this.type = {
+    this.assignFrom(new DontCareNodeInfered(this), false)
+    this
+  }
 
   // = (this.flatten, that.flatten).zipped.map((a, b) => a.isNotEguals(b)).reduceLeft(_ || _)
   private[core] override def autoConnect(that: Data): Unit = autoConnectBaseImpl(that)

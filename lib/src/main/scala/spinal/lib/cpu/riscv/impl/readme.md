@@ -10,12 +10,10 @@ Extension :
 - Single cycle shifter
 - Interruption controller
 - Debugging module (with JTAG bridge, openOCD port and GDB)
-
-External modules
-- instruction cache with wrapped burst memory interface
+- Instruction cache with wrapped burst memory interface
 
 Performance/Area (on cyclone II)
 - small core with debug -> 1050 LE, 0.6 DMIPS/Mhz
-- big core with everythings -> 2200 LE, 1.15 DMIPS/Mhz, 100 Mhz
+- big core with everythings -> 2200 LE, 1.15 DMIPS/Mhz, at least 100 Mhz (with default synthesis option)
 
 Contact spinalhdl@gmail.com for more information

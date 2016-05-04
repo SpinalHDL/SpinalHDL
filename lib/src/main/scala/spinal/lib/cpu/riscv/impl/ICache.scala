@@ -14,8 +14,7 @@ case class InstructionCacheConfig( cacheSize : Int,
                                        wrappedMemAccess : Boolean,
                                        addressWidth : Int,
                                        cpuDataWidth : Int,
-                                       memDataWidth : Int,
-                                       stableMemCmd : Boolean = true){
+                                       memDataWidth : Int){
   def burstSize = bytePerLine*8/memDataWidth
   def getAvalonConfig() = AvalonMMConfig.bursted(
     addressWidth = addressWidth,
@@ -203,14 +202,14 @@ class InstructionCache(implicit p : InstructionCacheConfig) extends Component{
     waysHitWord.assignDontCare()
 
     val waysRead = for(way <- ways) yield new Area{
-//      val readAddress = Mux(request.isStall,request.address,io.cpu.cmd.address)
-//      val tag = way.tags.readSync(readAddress(lineRange))
-//      val data = way.datas.readSync(readAddress(lineRange.high downto wordRange.low))
-      val readAddress = request.address
-      val tag = way.tags.readAsync(readAddress(lineRange))
-      val data = way.datas.readAsync(readAddress(lineRange.high downto wordRange.low))
-      way.tags.add(new AttributeString("ramstyle","no_rw_check"))
-      way.datas.add(new AttributeString("ramstyle","no_rw_check"))
+      val readAddress = Mux(request.isStall,request.address,io.cpu.cmd.address)
+      val tag = way.tags.readSync(readAddress(lineRange))
+      val data = way.datas.readSync(readAddress(lineRange.high downto wordRange.low))
+//      val readAddress = request.address
+//      val tag = way.tags.readAsync(readAddress(lineRange))
+//      val data = way.datas.readAsync(readAddress(lineRange.high downto wordRange.low))
+//      way.tags.add(new AttributeString("ramstyle","no_rw_check"))
+//      way.datas.add(new AttributeString("ramstyle","no_rw_check"))
       when(tag.valid && tag.address === request.address(tagRange)) {
         waysHitValid := True
         waysHitWord := data
