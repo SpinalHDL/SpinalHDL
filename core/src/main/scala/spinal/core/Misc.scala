@@ -206,6 +206,7 @@ object Misc {
 
 }
 
+@deprecated("Use cloneable instead")
 object wrap{
   def apply[T <: Bundle](that : => T) : T = {
     val ret : T = that
@@ -213,6 +214,14 @@ object wrap{
     ret
   }
 }
+object cloneable{
+  def apply[T <: Bundle](that : => T) : T = {
+    val ret : T = that
+    ret.cloneFunc = (() => that)
+    ret
+  }
+}
+
 class Scope {
   val map = mutable.Map[String, Int]()
 

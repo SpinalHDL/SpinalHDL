@@ -207,6 +207,8 @@ class Counter(val stateCount: BigInt) extends ImplicitArea[UInt] {
 }
 
 
+
+
 object Timeout {
   def apply(limit: BigInt) = new Timeout(limit)
 }

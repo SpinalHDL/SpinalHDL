@@ -214,7 +214,7 @@ abstract class BaseType extends Node with Data with Nameable {
 
   // def castThatInSame(that: BaseType): this.type = throw new Exception("Not defined")
 
-  def assignDontCare(): this.type = {
+  override def assignDontCare(): this.type = {
     this.assignFrom(new DontCareNodeInfered(this), false)
     this
   }

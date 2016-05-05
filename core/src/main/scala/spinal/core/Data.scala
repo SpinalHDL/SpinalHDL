@@ -262,6 +262,10 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
   def assignFromBits(bits: Bits): Unit
   def assignFromBits(bits: Bits,hi : Int,low : Int): Unit
   def assignFromBits(bits: Bits,offset: Int, bitCount: BitCount): Unit = this.assignFromBits(bits,offset + bitCount.value -1,offset)
+  def assignDontCare() : this.type = {
+    flatten.foreach(_.assignDontCare())
+    this
+  }
 
   private[core] def isEguals(that: Any): Bool// = (this.flatten, that.flatten).zipped.map((a, b) => a.isEguals(b)).reduceLeft(_ && _)
   private[core] def isNotEguals(that: Any): Bool// = (this.flatten, that.flatten).zipped.map((a, b) => a.isNotEguals(b)).reduceLeft(_ || _)
@@ -450,7 +454,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
         }
         val c = clazz.getMethod("getComponent").invoke(this).asInstanceOf[Component]
         val pt = constructor.getParameterTypes.apply(0)
-        if(Component.getClass.isAssignableFrom(pt)){
+        if(c.getClass.isAssignableFrom(pt)){
           return constructor.newInstance(c).asInstanceOf[this.type]
         }
 //        val a = c.areaClassSet.get(pt)

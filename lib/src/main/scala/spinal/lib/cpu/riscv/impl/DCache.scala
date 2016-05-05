@@ -32,6 +32,7 @@ case class DataCacheCpuCmd(implicit p : DataCacheConfig) extends Bundle{
   val data = Bits(p.cpuDataWidth bit)
   val mask = Bits(p.cpuDataWidth/8 bit)
   val bypass = Bool
+  val keepMemUpdated = Bool //TODO
 }
 case class DataCacheCpuRsp(implicit p : DataCacheConfig) extends Bundle{
   val data = Bits(p.cpuDataWidth bit)
@@ -117,6 +118,7 @@ class DataCache(implicit p : DataCacheConfig) extends Component{
   val wayLineCount = lineCount/wayCount
   val wayLineLog2 = log2Up(wayLineCount)
   val wayWordCount = wayLineCount * wordPerLine
+  val memTransactionPerLine = p.bytePerLine / (p.memDataWidth/8)
 
   val tagRange = addressWidth-1 downto log2Up(wayLineCount*bytePerLine)
   val lineRange = tagRange.low-1 downto log2Up(bytePerLine)
@@ -129,44 +131,147 @@ class DataCache(implicit p : DataCacheConfig) extends Component{
     val address = UInt(tagRange.length bit)
   }
 
-  val ways = Vec(new Bundle{
+
+  val tagsWriteCmd = Flow(new Bundle{
+    val way = UInt(log2Up(wayCount) bits)
+    val address = UInt(log2Up(wayLineCount) bits)
+    val data = new LineInfo()
+  })
+  val tagsWriteLastCmd = RegNext(tagsWriteCmd)
+
+  val dataReadCmd =  UInt(log2Up(wayWordCount) bits)
+  val dataWriteCmd = Flow(new Bundle{
+    val way = UInt(log2Up(wayCount) bits)
+    val address = UInt(log2Up(wayWordCount) bits)
+    val data = Bits(wordWidth bits)
+  })
+
+  tagsWriteCmd.valid := False
+  tagsWriteCmd.payload.assignDontCare()
+  dataWriteCmd.valid := False
+  dataWriteCmd.payload.assignDontCare()
+  io.mem.cmd.valid := False
+  io.mem.cmd.payload.assignDontCare()
+
+
+
+
+  val ways = Array.tabulate(wayCount)(id => new Area{
     val tags = Mem(new LineInfo(),wayLineCount)
-    val tagsWrite = tags.writePort
-
     val data = Mem(Bits(wordWidth bit),wayWordCount) //TODO write mask
-    val dataWrite = data.writePort
-    val dataRead = data.readSyncPort
-    val dataReadRsp = RegNext(dataRead.rsp)
-  },wayCount)
 
+    when(tagsWriteCmd.valid && tagsWriteCmd.way === id){
+      tags(tagsWriteCmd.address) := tagsWriteCmd.data
+    }
+    when(dataWriteCmd.valid && dataWriteCmd.way === id){
+      data(dataWriteCmd.address) := dataWriteCmd.data
+    }
+    val dataReadRsp = data.readSync(dataReadCmd)
+  })
+
+  val dataReadedValue = Vec(id => RegNext(ways(id).dataReadRsp),ways.length)
+
+  
+  
+
+  val victim = new Area{
+    val requestIn = Stream(cloneable(new Bundle{
+      val way = UInt(log2Up(wayCount) bits)
+      val address = UInt(p.addressWidth bits)
+    }))
+    requestIn.valid := False
+    requestIn.payload.assignDontCare()
+
+    val request = requestIn.stage()
+    request.ready := False
+
+    val buffer = Mem(Bits(p.memDataWidth bits),memTransactionPerLine).add(new AttributeString("ramstyle","M4K"))
+
+    //Send line read commands to fill the buffer
+    val readLineCmdCounter = Reg(UInt(log2Up(memTransactionPerLine + 1) bits)) init(0)
+    val dataReadCmdOccure = False
+    when(request.valid && !readLineCmdCounter.msb){
+      readLineCmdCounter := readLineCmdCounter + 1
+      //dataReadCmd := request.address(lineRange.high downto wordRange.low)   Done in the manager
+      dataReadCmdOccure := True
+    }
+
+    //Fill the buffer with line read responses
+    val readLineRspCounter = Reg(UInt(log2Up(memTransactionPerLine + 1) bits)) init(0)
+    when(readLineCmdCounter >= 2 && !readLineRspCounter.msb && Delay(dataReadCmdOccure,2)){
+      buffer(readLineRspCounter.resized) := dataReadedValue(request.way)
+      readLineRspCounter := readLineRspCounter + 1
+    }
+
+    //Send buffer read commands
+    val bufferReadCounter = Reg(UInt(log2Up(memTransactionPerLine + 1) bits)) init(0)
+    val bufferReadStream = Stream(buffer.addressType)
+    bufferReadStream.valid := readLineRspCounter > bufferReadCounter
+    bufferReadStream.payload := bufferReadCounter.resized
+    when(bufferReadStream.fire){
+      bufferReadCounter := bufferReadCounter + 1
+    }
+    val bufferReaded = buffer.streamReadSync(bufferReadStream).stage
+    bufferReaded.ready := False
+
+    //Send memory writes from bufffer read responses
+    val bufferReadedCounter = Reg(UInt(log2Up(memTransactionPerLine) bits)) init(0)
+    val memCmdAlreadyUsed = False
+    when(bufferReaded.valid) {
+      io.mem.cmd.valid := True
+      io.mem.cmd.wr := True
+      io.mem.cmd.address := request.address(tagRange.high downto lineRange.low) @@ U(0,lineRange.low bit)
+      io.mem.cmd.length := p.burstLength
+      io.mem.cmd.data := bufferReaded.payload
+
+      when(!memCmdAlreadyUsed && io.mem.cmd.ready){
+        bufferReaded.ready := True
+        bufferReadedCounter := bufferReadedCounter + 1
+        when(bufferReadedCounter === bufferReadedCounter.maxValue){
+          request.ready := True
+        }
+      }
+    }
+
+
+    val counter = Counter(memTransactionPerLine)
+    when(request.ready){
+      readLineCmdCounter.msb := False
+      readLineRspCounter.msb := False
+    }
+  }
 
   val manager = new Area {
-    val request = io.cpu.cmd.haltWhen(haltCpu).m2sPipe()
+    val request = io.cpu.cmd.haltWhen(haltCpu).stage()
     request.ready := True
 
     val waysHitValid = False
     val waysHitOneHot = Bits(wayCount bits)
     val waysHitId = OHToUInt(waysHitOneHot)
-    val waysHitDirty = Bool.assignDontCare()
-    val waysHitWord = Bits(wordWidth bit).assignDontCare()
+    val waysHitInfo = new LineInfo().assignDontCare()
 
-    val doWaysRead = !request.isStall
-    val waysRead = Vec(for ((way,id) <- ways.zipWithIndex) yield new Bundle { //Trololol
-      val readAddress = Mux(doWaysRead, request.address, io.cpu.cmd.address)
-      val tag = way.tags.readSync(readAddress,doWaysRead) //TODO write first
+   // val doWaysRead = !request.isStall
+    val waysRead = for ((way,id) <- ways.zipWithIndex) yield new Area {
+      val readAddress = Mux(/*!doWaysRead*/request.isStall, request.address, io.cpu.cmd.address)
+      val tag = way.tags.readSync(readAddress(lineRange)/*,doWaysRead*/)
+      //Write first
+      when(tagsWriteLastCmd.valid && tagsWriteLastCmd.way === id && tagsWriteLastCmd.address === RegNext(readAddress(lineRange))){
+        tag := tagsWriteLastCmd.data
+      }
       waysHitOneHot(id) := tag.used && tag.address === request.address(tagRange)
-      way.dataRead.cmd.valid := doWaysRead
-      way.dataRead.cmd.payload := readAddress(lineRange.high downto wordRange.low)
+      dataReadCmd := readAddress(lineRange.high downto wordRange.low)
+      when(victim.dataReadCmdOccure){
+        dataReadCmd := victim.request.address(lineRange) @@ victim.readLineCmdCounter(victim.readLineCmdCounter.high-1 downto 0)
+      }
       when(waysHitOneHot(id)) {
         waysHitValid := True
-        waysHitDirty := tag.dirty
-        waysHitWord := way.dataRead.rsp
+        waysHitInfo := tag
       }
-    })
+    }
 
 
     val realocatedWayId = U(0)
-    val realocatedWay = waysRead(realocatedWayId)
+    val realocatedWayInfo = Vec(waysRead.map(_.tag))(realocatedWayId)
 
     val cpuRspIn = Stream(wrap(new Bundle{
       val fromBypass = Bool
@@ -182,58 +287,71 @@ class DataCache(implicit p : DataCacheConfig) extends Component{
     val loaderReady = False
     val loadingDone = RegNext(loaderValid && loaderReady) init(False)
 
+    val victimSent = RegNext(victim.requestIn.fire && request.isStall)
+
     when(request.valid) {
       when(request.bypass){
-        io.mem.cmd.valid := !(!request.wr && !cpuRspIn.ready)
-        io.mem.cmd.wr := request.wr
-        io.mem.cmd.address := request.address
-        io.mem.cmd.mask := request.mask
-        io.mem.cmd.length := 1
+        when(!victim.request.valid) { //Can't insert mem cmd into a victim write burst
+          io.mem.cmd.valid := !(!request.wr && !cpuRspIn.ready)
+          io.mem.cmd.wr := request.wr
+          io.mem.cmd.address := request.address
+          io.mem.cmd.mask := request.mask
+          io.mem.cmd.data := request.data
+          io.mem.cmd.length := 1
 
-        cpuRspIn.valid := request.wr && io.mem.cmd.fire
-        cpuRspIn.fromBypass := True
+          cpuRspIn.valid := !request.wr && io.mem.cmd.fire
+          cpuRspIn.fromBypass := True
 
-        request.ready := io.mem.cmd.fire
+          request.ready := io.mem.cmd.fire
+        } otherwise{
+          request.ready := False
+        }
       } otherwise {
-        when(waysHitValid){
+        when(waysHitValid && !loadingDone){ // !loadingDone => don't solve the request directly after loader (data write to read latency)
           when(request.wr){
-            for ((way,id) <- ways.zipWithIndex){
-              way.dataWrite.valid := waysHitOneHot(id)
-              way.dataWrite.address := request.address(lineRange.high downto wordRange.low)
-              way.dataWrite.data := request.data
-              
-              way.tagsWrite.valid := waysHitOneHot(id)
-              way.tagsWrite.address := request.address(lineRange.high downto wordRange.low)
-              way.tagsWrite.data.used := True
-              way.tagsWrite.data.dirty := True
-              way.tagsWrite.data.address := waysRead(id).tag.address
-            }
+            dataWriteCmd.valid := True
+            dataWriteCmd.way := waysHitId
+            dataWriteCmd.address := request.address(lineRange.high downto wordRange.low)
+            dataWriteCmd.data := request.data
+
+            tagsWriteCmd.valid := True
+            tagsWriteCmd.way := waysHitId
+            tagsWriteCmd.address := request.address(lineRange)
+            tagsWriteCmd.data.used := True
+            tagsWriteCmd.data.dirty := True
+            tagsWriteCmd.data.address := waysHitInfo.address
           }otherwise{
             cpuRspIn.valid := True
             request.ready := cpuRspIn.ready
           }
         } otherwise{
-          loaderValid := !loadingDone
-          doWaysRead := loadingDone
-          request.ready := False
-          when(realocatedWay.tag.used && realocatedWay.tag.dirty){
+          request.ready := False //Exit this state automaticly (tags read port write first logic)
+          loaderValid := !loadingDone && !(!victimSent && victim.request.isStall) //Wait previous victim request to be completed
+          when(realocatedWayInfo.used && realocatedWayInfo.dirty){
+            victim.requestIn.valid := !victimSent
+            victim.requestIn.way := realocatedWayId
+            victim.requestIn.address := realocatedWayInfo.address @@ request.address(lineRange) @@ U((lineRange.low-1 downto 0) -> false)
 
+           // doWaysRead := loadingDone && victimSent
+          } otherwise{
+           // doWaysRead := loadingDone
           }
         }
       }
     }
 
+
     val cpuRsp = cpuRspIn.m2sPipe()
     val cpuRspIsWaitingMemRsp = cpuRsp.valid && io.mem.rsp.valid
     io.cpu.rsp.valid := cpuRsp.fire
-    io.cpu.rsp.data := Mux(cpuRsp.fromBypass,io.mem.rsp.data,ways(cpuRsp.wayId).dataReadRsp)
+    io.cpu.rsp.data := Mux(cpuRsp.fromBypass,io.mem.rsp.data,dataReadedValue(cpuRsp.wayId))
     cpuRsp.ready := !(cpuRsp.fromBypass && !io.mem.rsp.valid)
   }
 
+  //The whole life of a loading task, the corresponding manager request is present
   val loader = new Area{
     val valid = RegNext(manager.loaderValid)
     val wayId = RegNext(manager.realocatedWayId)
-    val way = ways(wayId)
     val baseAddress =  manager.request.address
 
     val memCmdSent = RegInit(False)
@@ -244,59 +362,67 @@ class DataCache(implicit p : DataCacheConfig) extends Component{
       io.mem.cmd.length := p.burstLength
     }
 
-    when(io.mem.cmd.fire){
+    when(valid && io.mem.cmd.ready){
       memCmdSent := True
     }
 
-    val counter = Counter(p.bytePerLine / (p.memDataWidth/8))
+    when(valid && !memCmdSent) {
+      victim.memCmdAlreadyUsed := True
+    }
+
+    val counter = Counter(memTransactionPerLine)
     when(io.mem.rsp.valid && !manager.cpuRspIsWaitingMemRsp){ //TODO all way assignement opt
-      way.dataWrite.valid := True
-      way.dataWrite.address := baseAddress(lineRange) @@ counter
-      way.dataWrite.data := io.mem.rsp.data
+      dataWriteCmd.valid := True
+      dataWriteCmd.way := wayId
+      dataWriteCmd.address := baseAddress(lineRange) @@ counter
+      dataWriteCmd.data := io.mem.rsp.data
       counter.increment()
     }
 
     when(counter.willOverflow){
       memCmdSent := False
       valid := False
-      way.tagsWrite.valid := True
-      way.tagsWrite.address := baseAddress(lineRange)
-      way.tagsWrite.data.used := True
-      way.tagsWrite.data.dirty := False
-      way.tagsWrite.data.address := baseAddress(tagRange)
+      tagsWriteCmd.valid := True
+      tagsWriteCmd.way := wayId
+      tagsWriteCmd.address := baseAddress(lineRange)
+      tagsWriteCmd.data.used := True
+      tagsWriteCmd.data.dirty := False
+      tagsWriteCmd.data.address := baseAddress(tagRange)
       manager.loaderReady := True
     }
   }
 
+  //Avoid read after write data hazard
+  when(io.cpu.cmd.address === manager.request.address && manager.request.valid && io.cpu.cmd.valid){
+    haltCpu := True
+  }
+
   io.flush.cmd.ready := False  // TODO
+  io.flush.rsp := False
 }
 
 object DataCacheMain{
-  class TopLevel extends Component{
-    implicit val p = DataCacheConfig(
-      cacheSize =4096,
-      bytePerLine =32,
-      wayCount = 1,
-      addressWidth = 32,
-      cpuDataWidth = 32,
-      memDataWidth = 32)
-    val io = new Bundle{
-      val cpu = slave(DataCacheCpuBus())
-      val mem = master(DataCacheMemBus())
-    }
-    val cache = new DataCache()(p)
-
-    cache.io.cpu.cmd <-< io.cpu.cmd
-    cache.io.mem.cmd >-> io.mem.cmd
-    cache.io.mem.rsp <-< io.mem.rsp
-    cache.io.cpu.rsp >-> io.cpu.rsp
-//    when(cache.io.cpu.rsp.valid){
-//      cache.io.cpu.cmd.valid := RegNext(cache.io.cpu.cmd.valid)
-//      cache.io.cpu.cmd.address := RegNext(cache.io.cpu.cmd.address)
-//    }
-  }
   def main(args: Array[String]) {
 
-    SpinalVhdl(new TopLevel)
+    SpinalVhdl({
+      implicit val p = DataCacheConfig(
+        cacheSize =4096,
+        bytePerLine =32,
+        wayCount = 1,
+        addressWidth = 32,
+        cpuDataWidth = 32,
+        memDataWidth = 32)
+      new WrapWithReg.Wrapper(new DataCache()(p)).setDefinitionName("TopLevel")
+    })
+    SpinalVhdl({
+      implicit val p = DataCacheConfig(
+        cacheSize =4096,
+        bytePerLine =32,
+        wayCount = 1,
+        addressWidth = 32,
+        cpuDataWidth = 32,
+        memDataWidth = 32)
+      new DataCache()(p)
+    },_.setLibrary("lib_DataCache"))
   }
 }

@@ -32,7 +32,7 @@ trait VecFactory {
       if (a.getClass.isAssignableFrom(b.getClass)) a
       else if (b.getClass.isAssignableFrom(a.getClass)) b
       else throw new Exception("can't mux that")
-    }).clone()
+    })
 
     val vec = new Vec(vecType, vector)
     vec
