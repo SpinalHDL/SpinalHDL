@@ -23,35 +23,41 @@ architecture arch of DataCache_tb is
   signal io_cpu_cmd_valid : std_logic;
   signal io_cpu_cmd_ready : std_logic;
   signal io_cpu_cmd_payload_wr : std_logic;
-  signal io_cpu_cmd_payload_address : unsigned(31 downto 0);
-  signal io_cpu_cmd_payload_data : std_logic_vector(31 downto 0);
-  signal io_cpu_cmd_payload_mask : std_logic_vector(3 downto 0);
+  signal io_cpu_cmd_payload_address : unsigned(11 downto 0);
+  signal io_cpu_cmd_payload_data : std_logic_vector(15 downto 0);
+  signal io_cpu_cmd_payload_mask : std_logic_vector(1 downto 0);
   signal io_cpu_cmd_payload_bypass : std_logic;
   signal io_cpu_cmd_payload_keepMemUpdated : std_logic;
   signal io_cpu_rsp_valid : std_logic;
-  signal io_cpu_rsp_payload_data : std_logic_vector(31 downto 0);
+  signal io_cpu_rsp_payload_data : std_logic_vector(15 downto 0);
   signal io_mem_cmd_valid : std_logic;
   signal io_mem_cmd_ready : std_logic;
   signal io_mem_cmd_payload_wr : std_logic;
-  signal io_mem_cmd_payload_address : unsigned(31 downto 0);
-  signal io_mem_cmd_payload_data : std_logic_vector(31 downto 0);
-  signal io_mem_cmd_payload_mask : std_logic_vector(3 downto 0);
+  signal io_mem_cmd_payload_address : unsigned(11 downto 0);
+  signal io_mem_cmd_payload_data : std_logic_vector(15 downto 0);
+  signal io_mem_cmd_payload_mask : std_logic_vector(1 downto 0);
   signal io_mem_cmd_payload_length : unsigned(3 downto 0);
   signal io_mem_rsp_valid : std_logic;
-  signal io_mem_rsp_payload_data : std_logic_vector(31 downto 0);
+  signal io_mem_rsp_payload_data : std_logic_vector(15 downto 0);
   signal clk : std_logic;
   signal reset : std_logic;
   -- #spinalBegin userDeclarations
   shared variable done : integer := 0;
   
-  constant memSize : integer := 1024*1024;
-  type memType is array (0 to memSize-1) of std_logic_vector(31 downto 0);
+  constant memSize : integer := 2**io_cpu_cmd_payload_address'length;
+  type memType is array (0 to memSize-1) of std_logic_vector(15 downto 0);
   shared variable ram : memType;  
+  shared variable ramCpu : memType;  
   
-
-  shared variable do_mem_cmd_payload_address  : unsigned(31 downto 0);
+  constant cpuPendingRspSize : integer := 16; 
+  type cpuPendingRspType is array (0 to cpuPendingRspSize-1) of std_logic_vector(15 downto 0);
+  shared variable cpuPendingRsp : cpuPendingRspType;  
+  shared variable cpuPendingRspHit,cpuPendingRspTarget : integer := 0;
+ 
+  shared variable do_mem_cmd_payload_address  : unsigned(11 downto 0);
   shared variable do_mem_cmd_payload_length   : unsigned(3 downto 0) := (others => '0');
 
+  signal cpuRspcounter : integer := 0;
   
   shared variable seed1, seed2: positive;
   impure function randomStdLogic(prob : real) return std_logic is
@@ -64,14 +70,15 @@ architecture arch of DataCache_tb is
       return '0';
     end if;
   end randomStdLogic;  
-  impure function random(size : integer) return std_logic_vector is
+  
+  impure function randomStdLogicVector(size : integer) return std_logic_vector is
     variable rand: real;
     variable int_rand: integer;
   begin
     UNIFORM(seed1, seed2, rand);
     int_rand := INTEGER((rand*(2.0**size)));
     return (std_logic_vector(to_unsigned(int_rand, size)));
-  end random;
+  end randomStdLogicVector;
   
   procedure waitRandom(prob : real)  is
     variable rand: real;
@@ -116,7 +123,7 @@ begin
       do_mem_cmd_payload_length    := io_mem_cmd_payload_length ;
     else
       for i in 0 to to_integer(io_mem_cmd_payload_length)-1 loop
-        ram(to_integer(io_mem_cmd_payload_address)/4 + i) := io_mem_cmd_payload_data;
+        ram(to_integer(io_mem_cmd_payload_address)/2 + i) := io_mem_cmd_payload_data;
         if i /= to_integer(io_mem_cmd_payload_length)-1 then
           wait until rising_edge(clk) and io_mem_cmd_valid = '1' and io_mem_cmd_ready = '1';
         end if;
@@ -131,9 +138,9 @@ begin
     if do_mem_cmd_payload_length /= 0 then      
       waitRandom(0.3);
       io_mem_rsp_valid <= '1';
-      io_mem_rsp_payload_data <= ram(to_integer(do_mem_cmd_payload_address));
+      io_mem_rsp_payload_data <= ram(to_integer(do_mem_cmd_payload_address)/2);
       do_mem_cmd_payload_length := do_mem_cmd_payload_length - 1;
-      do_mem_cmd_payload_address := do_mem_cmd_payload_address + 4;
+      do_mem_cmd_payload_address := do_mem_cmd_payload_address + 2;
     end if;
   end process;
     
@@ -143,11 +150,14 @@ begin
     begin
       io_cpu_cmd_valid <= '1';
       io_cpu_cmd_payload_wr <= '0';
-      io_cpu_cmd_payload_address <= address;
+      io_cpu_cmd_payload_address <= address and X"FFE";
       io_cpu_cmd_payload_data <= (others => 'X');
       io_cpu_cmd_payload_mask <= (others => 'X');
       io_cpu_cmd_payload_bypass <= bypass;
       io_cpu_cmd_payload_keepMemUpdated <= '1';
+      cpuPendingRsp(cpuPendingRspTarget) := ramCpu(to_integer(address)/2);
+      cpuPendingRspTarget := (cpuPendingRspTarget + 1) mod cpuPendingRspSize;
+      assert(cpuPendingRspTarget /= cpuPendingRspHit) severity failure;
       wait until rising_edge(clk) and io_cpu_cmd_ready = '1';
       io_cpu_cmd_valid <= '0';
       io_cpu_cmd_payload_wr <= 'X';
@@ -161,11 +171,12 @@ begin
     begin
       io_cpu_cmd_valid <= '1';
       io_cpu_cmd_payload_wr <= '1';
-      io_cpu_cmd_payload_address <= address;
+      io_cpu_cmd_payload_address <= address and X"FFE";
       io_cpu_cmd_payload_data <= data;
       io_cpu_cmd_payload_mask <= (others => '1');
       io_cpu_cmd_payload_bypass <= bypass;
       io_cpu_cmd_payload_keepMemUpdated <= '1';
+      ramCpu(to_integer(address)/2) := data;
       wait until rising_edge(clk) and io_cpu_cmd_ready = '1';
       io_cpu_cmd_valid <= '0';
       io_cpu_cmd_payload_wr <= 'X';
@@ -179,26 +190,30 @@ begin
     reset <= '1';
     io_cpu_cmd_valid <= '0';
     for i in ram'range loop
-      ram(i) := std_logic_vector(to_unsigned(i,32));
+      ram(i) := std_logic_vector(to_unsigned(i*2,16));
+      ramCpu(i) := ram(i);
     end loop;
     wait for 100 ns;
     wait until rising_edge(clk);
     reset <= '0';
     wait until rising_edge(clk);
-    cpuReadCmd( X"00000000",'1');
-    cpuReadCmd( X"00000004",'1');
-    cpuWriteCmd(X"00000000",X"000000AA",'1');
-    cpuReadCmd( X"00000000",'1');
-    wait for 200 ns;
-    cpuReadCmd( X"00000000",'0');
-    cpuReadCmd( X"00000004",'0');
-    cpuWriteCmd(X"00000000",X"000000EE",'0');
-    cpuReadCmd( X"00000000",'0');
-    
-    cpuReadCmd( X"00001000",'0');
-    cpuReadCmd( X"00001004",'0');
-    cpuWriteCmd(X"00001000",X"00000055",'0');
-    cpuReadCmd( X"00001000",'0');
+      while true loop
+        waitRandom(0.3);
+        if randomStdLogic(0.5) = '1' then
+          if randomStdLogic(0.5) = '1' then
+            cpuWriteCmd( unsigned(randomStdLogicVector(12)) and X"7FF",randomStdLogicVector(16),'0');     
+          else
+            cpuReadCmd( unsigned(randomStdLogicVector(12)) and X"7FF",'0');
+         end if;  
+        else
+          if randomStdLogic(0.5) = '1' then
+            cpuWriteCmd( unsigned(randomStdLogicVector(12)) or X"800",randomStdLogicVector(16),'1');     
+          else
+            cpuReadCmd( unsigned(randomStdLogicVector(12)) or X"800",'1');
+          end if;  
+        end if;
+
+      end loop;
     wait;
   end process;
   
@@ -209,26 +224,22 @@ begin
       wait until rising_edge(clk) and io_cpu_rsp_valid = '1';
       assert io_cpu_rsp_payload_data = data report "read missmatch" severity failure;
     end procedure;
+    variable counter : integer := 0;
   begin
     reset <= '1';
     wait for 100 ns;
     wait until rising_edge(clk);
     reset <= '0';
     wait until rising_edge(clk);
-    cpuReadRsp(X"00000000");
-    cpuReadRsp(X"00000004");
-    cpuReadRsp(X"000000AA");
     
-    cpuReadRsp(X"000000AA");
-    cpuReadRsp(X"00000004");
-    cpuReadRsp(X"000000EE");
-    
-    cpuReadRsp(X"00001000");
-    cpuReadRsp(X"00001004");
-    cpuReadRsp(X"00000055");
-    
-    
-    wait for 300 ns;
+    while cpuRspcounter < 10000 loop
+      wait until rising_edge(clk) and io_cpu_rsp_valid = '1';
+      assert(cpuPendingRspTarget /= cpuPendingRspHit) severity failure;
+      assert io_cpu_rsp_payload_data = cpuPendingRsp(cpuPendingRspHit) report "read missmatch" severity error;
+      cpuPendingRspHit := (cpuPendingRspHit + 1) mod cpuPendingRspSize;
+      cpuRspcounter <= cpuRspcounter + 1;
+    end loop;
+    wait for 100 ns;
     done := done + 1;
     wait;
   end process;
@@ -256,7 +267,7 @@ begin
       io_mem_cmd_payload_data =>  io_mem_cmd_payload_data,
       io_mem_cmd_payload_mask =>  io_mem_cmd_payload_mask,
       io_mem_cmd_payload_length =>  io_mem_cmd_payload_length,
-      io_mem_rsp_valid  =>  io_mem_rsp_valid,
+      io_mem_rsp_valid =>  io_mem_rsp_valid,
       io_mem_rsp_payload_data =>  io_mem_rsp_payload_data,
       clk =>  clk,
       reset =>  reset 

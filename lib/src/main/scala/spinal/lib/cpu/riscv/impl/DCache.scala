@@ -238,6 +238,7 @@ class DataCache(implicit p : DataCacheConfig) extends Component{
     when(request.ready){
       readLineCmdCounter.msb := False
       readLineRspCounter.msb := False
+      bufferReadCounter.msb := False
     }
   }
 
@@ -285,9 +286,10 @@ class DataCache(implicit p : DataCacheConfig) extends Component{
     //Loader interface
     val loaderValid = False
     val loaderReady = False
-    val loadingDone = RegNext(loaderValid && loaderReady) init(False)
+    val loadingDone = RegNext(loaderValid && loaderReady) init(False) //one cycle pulse
 
-    val victimSent = RegNext(victim.requestIn.fire && request.isStall)
+    val victimSent = RegInit(False)
+    victimSent := (victimSent || victim.requestIn.fire) && !request.ready
 
     when(request.valid) {
       when(request.bypass){
@@ -404,24 +406,24 @@ class DataCache(implicit p : DataCacheConfig) extends Component{
 object DataCacheMain{
   def main(args: Array[String]) {
 
+//    SpinalVhdl({
+//      implicit val p = DataCacheConfig(
+//        cacheSize =4096,
+//        bytePerLine =32,
+//        wayCount = 1,
+//        addressWidth = 32,
+//        cpuDataWidth = 32,
+//        memDataWidth = 32)
+//      new WrapWithReg.Wrapper(new DataCache()(p)).setDefinitionName("TopLevel")
+//    })
     SpinalVhdl({
       implicit val p = DataCacheConfig(
-        cacheSize =4096,
-        bytePerLine =32,
+        cacheSize =512,
+        bytePerLine =16,
         wayCount = 1,
-        addressWidth = 32,
-        cpuDataWidth = 32,
-        memDataWidth = 32)
-      new WrapWithReg.Wrapper(new DataCache()(p)).setDefinitionName("TopLevel")
-    })
-    SpinalVhdl({
-      implicit val p = DataCacheConfig(
-        cacheSize =4096,
-        bytePerLine =32,
-        wayCount = 1,
-        addressWidth = 32,
-        cpuDataWidth = 32,
-        memDataWidth = 32)
+        addressWidth = 12,
+        cpuDataWidth = 16,
+        memDataWidth = 16)
       new DataCache()(p)
     },_.setLibrary("lib_DataCache"))
   }
