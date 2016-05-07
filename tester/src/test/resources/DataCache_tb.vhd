@@ -22,12 +22,14 @@ architecture arch of DataCache_tb is
   signal io_flush_rsp : std_logic;
   signal io_cpu_cmd_valid : std_logic;
   signal io_cpu_cmd_ready : std_logic;
+  signal io_cpu_cmd_payload_kind : DataCacheCpuCmdKind;
   signal io_cpu_cmd_payload_wr : std_logic;
   signal io_cpu_cmd_payload_address : unsigned(11 downto 0);
   signal io_cpu_cmd_payload_data : std_logic_vector(15 downto 0);
   signal io_cpu_cmd_payload_mask : std_logic_vector(1 downto 0);
   signal io_cpu_cmd_payload_bypass : std_logic;
-  signal io_cpu_cmd_payload_keepMemUpdated : std_logic;
+  signal io_cpu_cmd_payload_writeThrough : std_logic;
+  signal io_cpu_cmd_payload_all : std_logic;
   signal io_cpu_rsp_valid : std_logic;
   signal io_cpu_rsp_payload_data : std_logic_vector(15 downto 0);
   signal io_mem_cmd_valid : std_logic;
@@ -149,12 +151,13 @@ begin
     procedure cpuReadCmd(address : unsigned;bypass : std_logic) is
     begin
       io_cpu_cmd_valid <= '1';
+      io_cpu_cmd_payload_kind <= MEMORY;
       io_cpu_cmd_payload_wr <= '0';
       io_cpu_cmd_payload_address <= address and X"FFE";
       io_cpu_cmd_payload_data <= (others => 'X');
       io_cpu_cmd_payload_mask <= (others => 'X');
       io_cpu_cmd_payload_bypass <= bypass;
-      io_cpu_cmd_payload_keepMemUpdated <= '1';
+      io_cpu_cmd_payload_writeThrough <= 'X';
       cpuPendingRsp(cpuPendingRspTarget) := ramCpu(to_integer(address)/2);
       cpuPendingRspTarget := (cpuPendingRspTarget + 1) mod cpuPendingRspSize;
       assert(cpuPendingRspTarget /= cpuPendingRspHit) severity failure;
@@ -165,17 +168,17 @@ begin
       io_cpu_cmd_payload_data <= (others => 'X');
       io_cpu_cmd_payload_mask <= (others => 'X');
       io_cpu_cmd_payload_bypass <= 'X';
-      io_cpu_cmd_payload_keepMemUpdated <= 'X';
     end procedure;
     procedure cpuWriteCmd(address : unsigned;data : std_logic_vector;bypass : std_logic) is
     begin
       io_cpu_cmd_valid <= '1';
+      io_cpu_cmd_payload_kind <= MEMORY;
       io_cpu_cmd_payload_wr <= '1';
       io_cpu_cmd_payload_address <= address and X"FFE";
       io_cpu_cmd_payload_data <= data;
       io_cpu_cmd_payload_mask <= (others => '1');
       io_cpu_cmd_payload_bypass <= bypass;
-      io_cpu_cmd_payload_keepMemUpdated <= '1';
+      io_cpu_cmd_payload_writeThrough <= '0';
       ramCpu(to_integer(address)/2) := data;
       wait until rising_edge(clk) and io_cpu_cmd_ready = '1';
       io_cpu_cmd_valid <= '0';
@@ -184,7 +187,7 @@ begin
       io_cpu_cmd_payload_data <= (others => 'X');
       io_cpu_cmd_payload_mask <= (others => 'X');
       io_cpu_cmd_payload_bypass <= 'X';
-      io_cpu_cmd_payload_keepMemUpdated <= 'X';
+      io_cpu_cmd_payload_writeThrough <= 'X';
     end procedure;
   begin
     reset <= '1';
@@ -212,7 +215,6 @@ begin
             cpuReadCmd( unsigned(randomStdLogicVector(12)) or X"800",'1');
           end if;  
         end if;
-
       end loop;
     wait;
   end process;
@@ -252,12 +254,14 @@ begin
       io_flush_rsp =>  io_flush_rsp,
       io_cpu_cmd_valid =>  io_cpu_cmd_valid,
       io_cpu_cmd_ready =>  io_cpu_cmd_ready,
+      io_cpu_cmd_payload_kind =>  io_cpu_cmd_payload_kind,
       io_cpu_cmd_payload_wr =>  io_cpu_cmd_payload_wr,
       io_cpu_cmd_payload_address =>  io_cpu_cmd_payload_address,
       io_cpu_cmd_payload_data =>  io_cpu_cmd_payload_data,
       io_cpu_cmd_payload_mask =>  io_cpu_cmd_payload_mask,
       io_cpu_cmd_payload_bypass =>  io_cpu_cmd_payload_bypass,
-      io_cpu_cmd_payload_keepMemUpdated =>  io_cpu_cmd_payload_keepMemUpdated,
+      io_cpu_cmd_payload_writeThrough =>  io_cpu_cmd_payload_writeThrough,
+      io_cpu_cmd_payload_all =>  io_cpu_cmd_payload_all,
       io_cpu_rsp_valid =>  io_cpu_rsp_valid,
       io_cpu_rsp_payload_data =>  io_cpu_rsp_payload_data,
       io_mem_cmd_valid =>  io_mem_cmd_valid,

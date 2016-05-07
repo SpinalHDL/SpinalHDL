@@ -25,14 +25,20 @@ case class DataCacheConfig( cacheSize : Int,
   val burstLength = bytePerLine/(memDataWidth/8)
 }
 
+object DataCacheCpuCmdKind extends SpinalEnum{
+  val MEMORY,FLUSH,EVICT = newElement()
+}
 
 case class DataCacheCpuCmd(implicit p : DataCacheConfig) extends Bundle{
+  val kind = DataCacheCpuCmdKind()
   val wr = Bool
   val address = UInt(p.addressWidth bit)
   val data = Bits(p.cpuDataWidth bit)
   val mask = Bits(p.cpuDataWidth/8 bit)
   val bypass = Bool
-  val keepMemUpdated = Bool //TODO
+  val writeThrough = Bool
+  val all = Bool                      //Address should be zero when "all" is used
+
 }
 case class DataCacheCpuRsp(implicit p : DataCacheConfig) extends Bundle{
   val data = Bits(p.cpuDataWidth bit)
@@ -131,13 +137,12 @@ class DataCache(implicit p : DataCacheConfig) extends Component{
     val address = UInt(tagRange.length bit)
   }
 
-
+  val tagsReadCmd =  UInt(log2Up(wayLineCount) bits)
   val tagsWriteCmd = Flow(new Bundle{
     val way = UInt(log2Up(wayCount) bits)
     val address = UInt(log2Up(wayLineCount) bits)
     val data = new LineInfo()
   })
-  val tagsWriteLastCmd = RegNext(tagsWriteCmd)
 
   val dataReadCmd =  UInt(log2Up(wayWordCount) bits)
   val dataWriteCmd = Flow(new Bundle{
@@ -244,26 +249,27 @@ class DataCache(implicit p : DataCacheConfig) extends Component{
 
   val manager = new Area {
     val request = io.cpu.cmd.haltWhen(haltCpu).stage()
-    request.ready := True
+    request.ready := !request.valid
 
     val waysHitValid = False
     val waysHitOneHot = Bits(wayCount bits)
     val waysHitId = OHToUInt(waysHitOneHot)
     val waysHitInfo = new LineInfo().assignDontCare()
 
-   // val doWaysRead = !request.isStall
+    //delayedXX are used to relax logic timings in flush and evict modes
+    val delayedValid = RegNext(request.isStall) init(False)
+    val delayedWaysHitValid = RegNext(waysHitValid)
+    val delayedWaysHitId = RegNext(waysHitId)
+
+    val waysReadAddress = Mux(request.isStall, request.address, io.cpu.cmd.address)
+    tagsReadCmd := waysReadAddress(lineRange)
+    dataReadCmd := waysReadAddress(lineRange.high downto wordRange.low)
+    when(victim.dataReadCmdOccure){
+      dataReadCmd := victim.request.address(lineRange) @@ victim.readLineCmdCounter(victim.readLineCmdCounter.high-1 downto 0)
+    }
     val waysRead = for ((way,id) <- ways.zipWithIndex) yield new Area {
-      val readAddress = Mux(/*!doWaysRead*/request.isStall, request.address, io.cpu.cmd.address)
-      val tag = way.tags.readSync(readAddress(lineRange)/*,doWaysRead*/)
-      //Write first
-      when(tagsWriteLastCmd.valid && tagsWriteLastCmd.way === id && tagsWriteLastCmd.address === RegNext(readAddress(lineRange))){
-        tag := tagsWriteLastCmd.data
-      }
+      val tag = way.tags.readSync(tagsReadCmd,writeToReadKind = readFirst)
       waysHitOneHot(id) := tag.used && tag.address === request.address(tagRange)
-      dataReadCmd := readAddress(lineRange.high downto wordRange.low)
-      when(victim.dataReadCmdOccure){
-        dataReadCmd := victim.request.address(lineRange) @@ victim.readLineCmdCounter(victim.readLineCmdCounter.high-1 downto 0)
-      }
       when(waysHitOneHot(id)) {
         waysHitValid := True
         waysHitInfo := tag
@@ -271,8 +277,8 @@ class DataCache(implicit p : DataCacheConfig) extends Component{
     }
 
 
-    val realocatedWayId = U(0)
-    val realocatedWayInfo = Vec(waysRead.map(_.tag))(realocatedWayId)
+    val writebackWayId = U(0) //Only one way compatible
+    val writebackWayInfo = Vec(waysRead.map(_.tag))(writebackWayId)
 
     val cpuRspIn = Stream(wrap(new Bundle{
       val fromBypass = Bool
@@ -291,52 +297,120 @@ class DataCache(implicit p : DataCacheConfig) extends Component{
     val victimSent = RegInit(False)
     victimSent := (victimSent || victim.requestIn.fire) && !request.ready
 
+    val flushAllState = RegInit(False) //Used to keep logic timings fast
+    val flushAllDone = RegNext(False) init(False)
     when(request.valid) {
-      when(request.bypass){
-        when(!victim.request.valid) { //Can't insert mem cmd into a victim write burst
-          io.mem.cmd.valid := !(!request.wr && !cpuRspIn.ready)
-          io.mem.cmd.wr := request.wr
-          io.mem.cmd.address := request.address
-          io.mem.cmd.mask := request.mask
-          io.mem.cmd.data := request.data
-          io.mem.cmd.length := 1
-
-          cpuRspIn.valid := !request.wr && io.mem.cmd.fire
-          cpuRspIn.fromBypass := True
-
-          request.ready := io.mem.cmd.fire
-        } otherwise{
-          request.ready := False
-        }
-      } otherwise {
-        when(waysHitValid && !loadingDone){ // !loadingDone => don't solve the request directly after loader (data write to read latency)
-          when(request.wr){
-            dataWriteCmd.valid := True
-            dataWriteCmd.way := waysHitId
-            dataWriteCmd.address := request.address(lineRange.high downto wordRange.low)
-            dataWriteCmd.data := request.data
-
+      switch(request.kind) {
+        import DataCacheCpuCmdKind._
+        is(EVICT){
+          when(request.all){
             tagsWriteCmd.valid := True
-            tagsWriteCmd.way := waysHitId
+            tagsWriteCmd.way := 0
             tagsWriteCmd.address := request.address(lineRange)
-            tagsWriteCmd.data.used := True
-            tagsWriteCmd.data.dirty := True
-            tagsWriteCmd.data.address := waysHitInfo.address
+            tagsWriteCmd.data.used := False
+            request.address.getDrivingReg(lineRange) := request.address(lineRange) + 1
+            request.ready := request.address(lineRange) === request.address(lineRange)-1
           }otherwise{
-            cpuRspIn.valid := True
-            request.ready := cpuRspIn.ready
+            when(delayedValid) {
+              when(delayedWaysHitValid) {
+                tagsWriteCmd.valid := True
+                tagsWriteCmd.way := delayedWaysHitId
+                tagsWriteCmd.address := request.address(lineRange)
+                tagsWriteCmd.data.used := False
+              }
+              request.ready := True
+            }
           }
-        } otherwise{
-          request.ready := False //Exit this state automaticly (tags read port write first logic)
-          loaderValid := !loadingDone && !(!victimSent && victim.request.isStall) //Wait previous victim request to be completed
-          when(realocatedWayInfo.used && realocatedWayInfo.dirty){
-            victim.requestIn.valid := !victimSent
-            victim.requestIn.way := realocatedWayId
-            victim.requestIn.address := realocatedWayInfo.address @@ request.address(lineRange) @@ U((lineRange.low-1 downto 0) -> false)
+        }
+        is(FLUSH) {
+          when(request.all) {
+            when(!flushAllState){
+              victim.requestIn.valid := waysRead(0).tag.used && waysRead(0).tag.dirty
+              victim.requestIn.way := writebackWayId
+              victim.requestIn.address := writebackWayInfo.address @@ request.address(lineRange) @@ U((lineRange.low - 1 downto 0) -> false)
 
-           // doWaysRead := loadingDone && victimSent
-          } otherwise{
-           // doWaysRead := loadingDone
+              tagsWriteCmd.valid := True
+              tagsWriteCmd.way := writebackWayId
+              tagsWriteCmd.address := request.address(lineRange)
+              tagsWriteCmd.data.used := False
+
+
+              when(!victim.requestIn.isStall) {
+                request.address.getDrivingReg(lineRange) := request.address(lineRange) + 1
+                flushAllDone :=  request.address(lineRange) === lineCount-1
+                flushAllState := True
+              }otherwise{
+                request.ready := flushAllDone
+              }
+            } otherwise{
+              //Wait tag read
+              flushAllState := False
+            }
+          } otherwise {
+            when(delayedValid) {
+              when(delayedWaysHitValid) {
+                request.ready := victim.requestIn.ready
+
+                victim.requestIn.valid := True
+                victim.requestIn.way := writebackWayId
+                victim.requestIn.address := writebackWayInfo.address @@ request.address(lineRange) @@ U((lineRange.low - 1 downto 0) -> false)
+
+                tagsWriteCmd.valid := True
+                tagsWriteCmd.way := delayedWaysHitId
+                tagsWriteCmd.address := request.address(lineRange)
+                tagsWriteCmd.data.used := False
+              } otherwise{
+                request.ready := True
+              }
+            }
+          }
+        }
+        is(MEMORY) {
+          when(request.bypass) {
+            when(!victim.request.valid) {
+              //Can't insert mem cmd into a victim write burst
+              io.mem.cmd.valid := !(!request.wr && !cpuRspIn.ready)
+              io.mem.cmd.wr := request.wr
+              io.mem.cmd.address := request.address
+              io.mem.cmd.mask := request.mask
+              io.mem.cmd.data := request.data
+              io.mem.cmd.length := 1
+
+              cpuRspIn.valid := !request.wr && io.mem.cmd.fire
+              cpuRspIn.fromBypass := True
+
+              request.ready := io.mem.cmd.fire
+            } otherwise {
+              request.ready := False
+            }
+          } otherwise {
+            when(waysHitValid) {
+              when(request.wr) {
+                dataWriteCmd.valid := True
+                dataWriteCmd.way := waysHitId
+                dataWriteCmd.address := request.address(lineRange.high downto wordRange.low)
+                dataWriteCmd.data := request.data
+
+                tagsWriteCmd.valid := True
+                tagsWriteCmd.way := waysHitId
+                tagsWriteCmd.address := request.address(lineRange)
+                tagsWriteCmd.data.used := True
+                tagsWriteCmd.data.dirty := True
+                tagsWriteCmd.data.address := waysHitInfo.address
+                request.ready := True
+              } otherwise {
+                cpuRspIn.valid := True
+                request.ready := cpuRspIn.ready
+              }
+            } otherwise {
+              request.ready := False //Exit this state automaticly (tags read port write first logic)
+              loaderValid := !loadingDone && !(!victimSent && victim.request.isStall) //Wait previous victim request to be completed
+              when(writebackWayInfo.used && writebackWayInfo.dirty) {
+                victim.requestIn.valid := !victimSent
+                victim.requestIn.way := writebackWayId
+                victim.requestIn.address := writebackWayInfo.address @@ request.address(lineRange) @@ U((lineRange.low - 1 downto 0) -> false)
+              }
+            }
           }
         }
       }
@@ -353,7 +427,7 @@ class DataCache(implicit p : DataCacheConfig) extends Component{
   //The whole life of a loading task, the corresponding manager request is present
   val loader = new Area{
     val valid = RegNext(manager.loaderValid)
-    val wayId = RegNext(manager.realocatedWayId)
+    val wayId = RegNext(manager.writebackWayId)
     val baseAddress =  manager.request.address
 
     val memCmdSent = RegInit(False)
@@ -406,16 +480,16 @@ class DataCache(implicit p : DataCacheConfig) extends Component{
 object DataCacheMain{
   def main(args: Array[String]) {
 
-//    SpinalVhdl({
-//      implicit val p = DataCacheConfig(
-//        cacheSize =4096,
-//        bytePerLine =32,
-//        wayCount = 1,
-//        addressWidth = 32,
-//        cpuDataWidth = 32,
-//        memDataWidth = 32)
-//      new WrapWithReg.Wrapper(new DataCache()(p)).setDefinitionName("TopLevel")
-//    })
+    SpinalVhdl({
+      implicit val p = DataCacheConfig(
+        cacheSize =4096,
+        bytePerLine =32,
+        wayCount = 1,
+        addressWidth = 32,
+        cpuDataWidth = 32,
+        memDataWidth = 32)
+      new WrapWithReg.Wrapper(new DataCache()(p)).setDefinitionName("TopLevel")
+    })
     SpinalVhdl({
       implicit val p = DataCacheConfig(
         cacheSize =512,

@@ -19,13 +19,13 @@ class BarrelShifterLightExtension extends CoreExtension{
         execute0.outInst.result := execute0.inInst.alu_op0
         when(amplitude =/= 0){
           execute0.halt := True
-          execute0.inInst.alu_op1.inputs(0).asInstanceOf[Bits](4 downto 0) := (execute0.inInst.alu_op1(4 downto 0).asUInt - 1).asBits
+          execute0.inInst.alu_op1.getDrivingReg(4 downto 0) := (execute0.inInst.alu_op1(4 downto 0).asUInt - 1).asBits
           switch(execute0.inInst.ctrl.alu){
             is(ALU.SLL1){
-              execute0.inInst.alu_op0.inputs(0).asInstanceOf[Bits] := (execute0.inInst.alu_op0 << 1).resized
+              execute0.inInst.alu_op0.getDrivingReg := (execute0.inInst.alu_op0 << 1).resized
             }
             is(ALU.SRL1,ALU.SRA1){
-              execute0.inInst.alu_op0.inputs(0).asInstanceOf[Bits] := (((execute0.inInst.ctrl.alu === ALU.SRA1 && execute0.inInst.alu_op0.msb) ## execute0.inInst.alu_op0).asSInt >> 1).asBits
+              execute0.inInst.alu_op0.getDrivingReg := (((execute0.inInst.ctrl.alu === ALU.SRA1 && execute0.inInst.alu_op0.msb) ## execute0.inInst.alu_op0).asSInt >> 1).asBits
             }
           }
         }

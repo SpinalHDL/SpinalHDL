@@ -190,6 +190,11 @@ abstract class BaseType extends Node with Data with Nameable {
   override def getBitsWidth: Int = getWidth
 
   override def isReg = inputs(0).isInstanceOf[Reg]
+  def getDrivingReg : this.type = inputs(0) match{
+    case reg : Reg => this
+    case bt : BaseType => bt.getDrivingReg.asInstanceOf[this.type]
+    case _ => SpinalError("Driver is not a register")
+  }
 
   def isDelay = inputs(0).isInstanceOf[SyncNode]
 
