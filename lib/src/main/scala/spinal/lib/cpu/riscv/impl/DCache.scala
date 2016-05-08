@@ -94,23 +94,12 @@ case class DataCacheMemBus(implicit p : DataCacheConfig) extends Bundle with IMa
   }*/
 }
 
-case class DataCacheFlushBus() extends Bundle with IMasterSlave{
-  val cmd = Event
-  val rsp = Bool
-
-  override def asMaster(): DataCacheFlushBus.this.type = {
-    master(cmd)
-    in(rsp)
-    this
-  }
-}
 
 class DataCache(implicit p : DataCacheConfig) extends Component{
   import p._
   assert(wayCount == 1)
   assert(cpuDataWidth == memDataWidth)
   val io = new Bundle{
-    val flush = slave(DataCacheFlushBus())
     val cpu = slave(DataCacheCpuBus())
     val mem = master(DataCacheMemBus())
   }
@@ -143,6 +132,8 @@ class DataCache(implicit p : DataCacheConfig) extends Component{
     val address = UInt(log2Up(wayLineCount) bits)
     val data = new LineInfo()
   })
+
+  val tagsWriteLastCmd = RegNext(tagsWriteCmd)
 
   val dataReadCmd =  UInt(log2Up(wayWordCount) bits)
   val dataWriteCmd = Flow(new Bundle{
@@ -195,6 +186,8 @@ class DataCache(implicit p : DataCacheConfig) extends Component{
     //Send line read commands to fill the buffer
     val readLineCmdCounter = Reg(UInt(log2Up(memTransactionPerLine + 1) bits)) init(0)
     val dataReadCmdOccure = False
+    val dataReadCmdOccureLast = RegNext(dataReadCmdOccure)
+
     when(request.valid && !readLineCmdCounter.msb){
       readLineCmdCounter := readLineCmdCounter + 1
       //dataReadCmd := request.address(lineRange.high downto wordRange.low)   Done in the manager
@@ -250,6 +243,11 @@ class DataCache(implicit p : DataCacheConfig) extends Component{
   val manager = new Area {
     val request = io.cpu.cmd.haltWhen(haltCpu).stage()
     request.ready := !request.valid
+    //Evict the cache after reset
+    request.valid.getDrivingReg.init(True)
+    request.kind.getDrivingReg.init(DataCacheCpuCmdKind.EVICT)
+    request.all.getDrivingReg.init(True)
+    request.address.getDrivingReg.init(0)
 
     val waysHitValid = False
     val waysHitOneHot = Bits(wayCount bits)
@@ -268,7 +266,11 @@ class DataCache(implicit p : DataCacheConfig) extends Component{
       dataReadCmd := victim.request.address(lineRange) @@ victim.readLineCmdCounter(victim.readLineCmdCounter.high-1 downto 0)
     }
     val waysRead = for ((way,id) <- ways.zipWithIndex) yield new Area {
-      val tag = way.tags.readSync(tagsReadCmd,writeToReadKind = readFirst)
+      val tag = way.tags.readSync(tagsReadCmd)
+      //Write first
+      when(tagsWriteLastCmd.valid && tagsWriteLastCmd.way === id && tagsWriteLastCmd.address === RegNext(waysReadAddress(lineRange))){
+        tag := tagsWriteLastCmd.data
+      }
       waysHitOneHot(id) := tag.used && tag.address === request.address(tagRange)
       when(waysHitOneHot(id)) {
         waysHitValid := True
@@ -308,8 +310,11 @@ class DataCache(implicit p : DataCacheConfig) extends Component{
             tagsWriteCmd.way := 0
             tagsWriteCmd.address := request.address(lineRange)
             tagsWriteCmd.data.used := False
-            request.address.getDrivingReg(lineRange) := request.address(lineRange) + 1
-            request.ready := request.address(lineRange) === request.address(lineRange)-1
+            when(request.address(lineRange) =/= lineCount-1){
+              request.address.getDrivingReg(lineRange) := request.address(lineRange) + 1
+            }otherwise{
+              request.ready := True
+            }
           }otherwise{
             when(delayedValid) {
               when(delayedWaysHitValid) {
@@ -329,22 +334,20 @@ class DataCache(implicit p : DataCacheConfig) extends Component{
               victim.requestIn.way := writebackWayId
               victim.requestIn.address := writebackWayInfo.address @@ request.address(lineRange) @@ U((lineRange.low - 1 downto 0) -> false)
 
-              tagsWriteCmd.valid := True
               tagsWriteCmd.way := writebackWayId
               tagsWriteCmd.address := request.address(lineRange)
               tagsWriteCmd.data.used := False
-
 
               when(!victim.requestIn.isStall) {
                 request.address.getDrivingReg(lineRange) := request.address(lineRange) + 1
                 flushAllDone :=  request.address(lineRange) === lineCount-1
                 flushAllState := True
-              }otherwise{
-                request.ready := flushAllDone
+                tagsWriteCmd.valid := True
               }
             } otherwise{
               //Wait tag read
               flushAllState := False
+              request.ready := flushAllDone
             }
           } otherwise {
             when(delayedValid) {
@@ -355,8 +358,8 @@ class DataCache(implicit p : DataCacheConfig) extends Component{
                 victim.requestIn.way := writebackWayId
                 victim.requestIn.address := writebackWayInfo.address @@ request.address(lineRange) @@ U((lineRange.low - 1 downto 0) -> false)
 
-                tagsWriteCmd.valid := True
-                tagsWriteCmd.way := delayedWaysHitId
+                tagsWriteCmd.valid := victim.requestIn.ready
+                tagsWriteCmd.way := writebackWayId
                 tagsWriteCmd.address := request.address(lineRange)
                 tagsWriteCmd.data.used := False
               } otherwise{
@@ -384,7 +387,7 @@ class DataCache(implicit p : DataCacheConfig) extends Component{
               request.ready := False
             }
           } otherwise {
-            when(waysHitValid) {
+            when(waysHitValid && !loadingDone) { // !loadingDone => don't solve the request directly after loader (data write to read latency)
               when(request.wr) {
                 dataWriteCmd.valid := True
                 dataWriteCmd.way := waysHitId
@@ -396,11 +399,11 @@ class DataCache(implicit p : DataCacheConfig) extends Component{
                 tagsWriteCmd.address := request.address(lineRange)
                 tagsWriteCmd.data.used := True
                 tagsWriteCmd.data.dirty := True
-                tagsWriteCmd.data.address := waysHitInfo.address
+                tagsWriteCmd.data.address := request.address(tagRange)
                 request.ready := True
               } otherwise {
-                cpuRspIn.valid := True
-                request.ready := cpuRspIn.ready
+                cpuRspIn.valid := !victim.dataReadCmdOccureLast
+                request.ready := cpuRspIn.ready && !victim.dataReadCmdOccureLast //dataReadCmdOccure to avoid the case where flush,then read will victim use data read
               }
             } otherwise {
               request.ready := False //Exit this state automaticly (tags read port write first logic)
@@ -447,7 +450,7 @@ class DataCache(implicit p : DataCacheConfig) extends Component{
     }
 
     val counter = Counter(memTransactionPerLine)
-    when(io.mem.rsp.valid && !manager.cpuRspIsWaitingMemRsp){ //TODO all way assignement opt
+    when(io.mem.rsp.valid && !manager.cpuRspIsWaitingMemRsp){
       dataWriteCmd.valid := True
       dataWriteCmd.way := wayId
       dataWriteCmd.address := baseAddress(lineRange) @@ counter
@@ -472,9 +475,6 @@ class DataCache(implicit p : DataCacheConfig) extends Component{
   when(io.cpu.cmd.address === manager.request.address && manager.request.valid && io.cpu.cmd.valid){
     haltCpu := True
   }
-
-  io.flush.cmd.ready := False  // TODO
-  io.flush.rsp := False
 }
 
 object DataCacheMain{

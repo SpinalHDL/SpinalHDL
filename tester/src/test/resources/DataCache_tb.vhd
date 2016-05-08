@@ -17,9 +17,6 @@ entity DataCache_tb is
 end DataCache_tb;
 
 architecture arch of DataCache_tb is
-  signal io_flush_cmd_valid : std_logic;
-  signal io_flush_cmd_ready : std_logic;
-  signal io_flush_rsp : std_logic;
   signal io_cpu_cmd_valid : std_logic;
   signal io_cpu_cmd_ready : std_logic;
   signal io_cpu_cmd_payload_kind : DataCacheCpuCmdKind;
@@ -148,6 +145,7 @@ begin
     
   
   process
+    variable v_address : unsigned(11 downto 0);
     procedure cpuReadCmd(address : unsigned;bypass : std_logic) is
     begin
       io_cpu_cmd_valid <= '1';
@@ -202,18 +200,54 @@ begin
     wait until rising_edge(clk);
       while true loop
         waitRandom(0.3);
-        if randomStdLogic(0.5) = '1' then
-          if randomStdLogic(0.5) = '1' then
-            cpuWriteCmd( unsigned(randomStdLogicVector(12)) and X"7FF",randomStdLogicVector(16),'0');     
+        if randomStdLogic(0.95) = '1' then --MEMORY access
+          if randomStdLogic(0.5) = '1' then --Cached
+            if randomStdLogic(0.5) = '1' then --write
+              cpuWriteCmd( unsigned(randomStdLogicVector(12)) and X"7FF",randomStdLogicVector(16),'0');     
+            else --read
+              cpuReadCmd( unsigned(randomStdLogicVector(12)) and X"7FF",'0');
+           end if;  
+          else --not cached
+            if randomStdLogic(0.5) = '1' then --write
+              cpuWriteCmd( unsigned(randomStdLogicVector(12)) or X"800",randomStdLogicVector(16),'1');     
+            else --read
+              cpuReadCmd( unsigned(randomStdLogicVector(12)) or X"800",'1');
+            end if;  
+          end if;
+        else --evict/flush
+          v_address :=  unsigned(randomStdLogicVector(12)) and X"7FE";
+          if randomStdLogic(0.5) = '1' then --evict
+            wait until rising_edge(clk) and io_cpu_cmd_ready = '1';
+            wait until rising_edge(clk);
+            wait until rising_edge(clk);
+            wait until rising_edge(clk);
+            wait until rising_edge(clk) and io_cpu_cmd_ready = '1' and io_mem_cmd_valid = '0'; --wait victim buffer cleaning
+            io_cpu_cmd_valid <= '1';
+            io_cpu_cmd_payload_kind <= EVICT;
+            if randomStdLogic(0.9) = '1' then --line
+              io_cpu_cmd_payload_address <= v_address;
+              io_cpu_cmd_payload_all <= '0';
+              for i in to_integer(v_address and X"FF0")/2 to to_integer(v_address and X"FF0")/2 + 7 loop
+                ramCpu(i) := ram(i);
+              end loop;
+            else
+              io_cpu_cmd_payload_address <= (others => '0');
+              io_cpu_cmd_payload_all <= '1';
+              ramCpu := ram;
+            end if;
           else
-            cpuReadCmd( unsigned(randomStdLogicVector(12)) and X"7FF",'0');
-         end if;  
-        else
-          if randomStdLogic(0.5) = '1' then
-            cpuWriteCmd( unsigned(randomStdLogicVector(12)) or X"800",randomStdLogicVector(16),'1');     
-          else
-            cpuReadCmd( unsigned(randomStdLogicVector(12)) or X"800",'1');
-          end if;  
+            io_cpu_cmd_valid <= '1';
+            io_cpu_cmd_payload_kind <= FLUSH;
+            if randomStdLogic(0.9) = '1' then --line
+              io_cpu_cmd_payload_address <= v_address;
+              io_cpu_cmd_payload_all <= '0';
+            else
+              io_cpu_cmd_payload_address <= (others => '0');
+              io_cpu_cmd_payload_all <= '1';
+            end if;
+          end if;
+          wait until rising_edge(clk) and io_cpu_cmd_ready = '1';
+          io_cpu_cmd_valid <= '0';
         end if;
       end loop;
     wait;
@@ -234,7 +268,7 @@ begin
     reset <= '0';
     wait until rising_edge(clk);
     
-    while cpuRspcounter < 10000 loop
+    while cpuRspcounter < 100000 loop
       wait until rising_edge(clk) and io_cpu_rsp_valid = '1';
       assert(cpuPendingRspTarget /= cpuPendingRspHit) severity failure;
       assert io_cpu_rsp_payload_data = cpuPendingRsp(cpuPendingRspHit) report "read missmatch" severity error;
@@ -249,9 +283,6 @@ begin
   -- #spinalEnd userLogics
   uut : entity lib_DataCache.DataCache
     port map (
-      io_flush_cmd_valid =>  io_flush_cmd_valid,
-      io_flush_cmd_ready =>  io_flush_cmd_ready,
-      io_flush_rsp =>  io_flush_rsp,
       io_cpu_cmd_valid =>  io_cpu_cmd_valid,
       io_cpu_cmd_ready =>  io_cpu_cmd_ready,
       io_cpu_cmd_payload_kind =>  io_cpu_cmd_payload_kind,
