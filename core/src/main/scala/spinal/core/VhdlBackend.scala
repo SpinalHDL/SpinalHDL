@@ -1520,7 +1520,20 @@ class VhdlBackend extends Backend with VhdlBase {
                 emitWrite(tab)
               }
 
-              def emitWrite(tab: String) = ret ++= s"$tab${emitReference(memWrite.getMem)}(to_integer(${emitReference(memWrite.getAddress)})) <= ${emitReference(memWrite.getData)};\n"
+              def emitWrite(tab: String) = {
+                if(memWrite.getMask == null) {
+                  ret ++= s"$tab${emitReference(memWrite.getMem)}(to_integer(${emitReference(memWrite.getAddress)})) <= ${emitReference(memWrite.getData)};\n"
+                }else{
+                  val maskCount = memWrite.getMask.getWidth
+                  val bitPerSymbole = memWrite.getData.getWidth/maskCount
+                  for(i <- 0 until maskCount){
+                    val range = s"(${(i+1)*bitPerSymbole-1} downto ${i*bitPerSymbole})"
+                    ret ++= s"${tab}if ${emitReference(memWrite.getMask)}($i) = '1' then\n"
+                    ret ++= s"$tab  ${emitReference(memWrite.getMem)}(to_integer(${emitReference(memWrite.getAddress)}))$range <= ${emitReference(memWrite.getData)}$range;\n"
+                    ret ++= s"${tab}end if;\n"
+                  }
+                }
+              }
             }
             case memReadSync: MemReadSync => {
               //readFirst

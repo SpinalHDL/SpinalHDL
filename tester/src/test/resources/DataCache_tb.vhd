@@ -25,7 +25,6 @@ architecture arch of DataCache_tb is
   signal io_cpu_cmd_payload_data : std_logic_vector(15 downto 0);
   signal io_cpu_cmd_payload_mask : std_logic_vector(1 downto 0);
   signal io_cpu_cmd_payload_bypass : std_logic;
-  signal io_cpu_cmd_payload_writeThrough : std_logic;
   signal io_cpu_cmd_payload_all : std_logic;
   signal io_cpu_rsp_valid : std_logic;
   signal io_cpu_rsp_payload_data : std_logic_vector(15 downto 0);
@@ -122,7 +121,11 @@ begin
       do_mem_cmd_payload_length    := io_mem_cmd_payload_length ;
     else
       for i in 0 to to_integer(io_mem_cmd_payload_length)-1 loop
-        ram(to_integer(io_mem_cmd_payload_address)/2 + i) := io_mem_cmd_payload_data;
+        for i2 in 0 to 1 loop
+          if io_mem_cmd_payload_mask(i2) = '1' then
+            ram(to_integer(io_mem_cmd_payload_address)/2 + i)(i2*8+7 downto i2*8) := io_mem_cmd_payload_data(i2*8+7 downto i2*8);
+          end if;
+        end loop;
         if i /= to_integer(io_mem_cmd_payload_length)-1 then
           wait until rising_edge(clk) and io_mem_cmd_valid = '1' and io_mem_cmd_ready = '1';
         end if;
@@ -153,9 +156,8 @@ begin
       io_cpu_cmd_payload_wr <= '0';
       io_cpu_cmd_payload_address <= address and X"FFE";
       io_cpu_cmd_payload_data <= (others => 'X');
-      io_cpu_cmd_payload_mask <= (others => 'X');
+      io_cpu_cmd_payload_mask <= randomStdLogicVector(2);
       io_cpu_cmd_payload_bypass <= bypass;
-      io_cpu_cmd_payload_writeThrough <= 'X';
       cpuPendingRsp(cpuPendingRspTarget) := ramCpu(to_integer(address)/2);
       cpuPendingRspTarget := (cpuPendingRspTarget + 1) mod cpuPendingRspSize;
       assert(cpuPendingRspTarget /= cpuPendingRspHit) severity failure;
@@ -168,16 +170,21 @@ begin
       io_cpu_cmd_payload_bypass <= 'X';
     end procedure;
     procedure cpuWriteCmd(address : unsigned;data : std_logic_vector;bypass : std_logic) is
+      variable mask : std_logic_vector(1 downto 0);
     begin
+      mask := randomStdLogicVector(2);
       io_cpu_cmd_valid <= '1';
       io_cpu_cmd_payload_kind <= MEMORY;
       io_cpu_cmd_payload_wr <= '1';
       io_cpu_cmd_payload_address <= address and X"FFE";
       io_cpu_cmd_payload_data <= data;
-      io_cpu_cmd_payload_mask <= (others => '1');
+      io_cpu_cmd_payload_mask <= mask;
       io_cpu_cmd_payload_bypass <= bypass;
-      io_cpu_cmd_payload_writeThrough <= '0';
-      ramCpu(to_integer(address)/2) := data;
+      for i in 0 to 1 loop
+        if mask(i) = '1' then
+          ramCpu(to_integer(address)/2)(i*8+7 downto i*8) := data(i*8+7 downto i*8);
+        end if;
+      end loop;
       wait until rising_edge(clk) and io_cpu_cmd_ready = '1';
       io_cpu_cmd_valid <= '0';
       io_cpu_cmd_payload_wr <= 'X';
@@ -185,7 +192,6 @@ begin
       io_cpu_cmd_payload_data <= (others => 'X');
       io_cpu_cmd_payload_mask <= (others => 'X');
       io_cpu_cmd_payload_bypass <= 'X';
-      io_cpu_cmd_payload_writeThrough <= 'X';
     end procedure;
   begin
     reset <= '1';
@@ -291,7 +297,6 @@ begin
       io_cpu_cmd_payload_data =>  io_cpu_cmd_payload_data,
       io_cpu_cmd_payload_mask =>  io_cpu_cmd_payload_mask,
       io_cpu_cmd_payload_bypass =>  io_cpu_cmd_payload_bypass,
-      io_cpu_cmd_payload_writeThrough =>  io_cpu_cmd_payload_writeThrough,
       io_cpu_cmd_payload_all =>  io_cpu_cmd_payload_all,
       io_cpu_rsp_valid =>  io_cpu_rsp_valid,
       io_cpu_rsp_payload_data =>  io_cpu_rsp_payload_data,

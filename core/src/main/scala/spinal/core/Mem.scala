@@ -125,8 +125,8 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends Node  with Attrib
   }
 
   def write(address: UInt, data: T, mask: Bits = null): Unit = {
-    assert(mask == null, "Mem write mask currently not implemented by Spinal. You can either create a blackbox " +
-      "or instantiate multiple memory instead")
+    /*assert(mask == null, "Mem write mask currently not implemented by Spinal. You can either create a blackbox " +
+      "or instantiate multiple memory instead")*/
     val addressBuffer = UInt(addressWidth bit).dontSimplifyIt()
     addressBuffer := address
     val dataBuffer = Bits(getWidth bit).dontSimplifyIt()
@@ -271,6 +271,13 @@ class MemWrite(mem: Mem[_], val originalAddress: UInt, address: UInt, data: Bits
   def useWriteEnable: Boolean = {
     val lit = getEnable.getLiteral[BoolLiteral]
     return lit == null || lit.value == false
+  }
+
+  override private[core] def checkInferedWidth: String = {
+    if(getMask != null && getData.getWidth % getMask.getWidth != 0)
+      return s"Memory write_data_width % write_data_mask_width != 0 at ${this.getScalaLocationString}"
+    else
+      null
   }
 }
 

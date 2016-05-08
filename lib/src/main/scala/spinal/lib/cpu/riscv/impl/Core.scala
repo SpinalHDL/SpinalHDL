@@ -232,6 +232,7 @@ case class CoreExecute0Output(implicit p : CoreConfig) extends Bundle{
   val pc_sel = PC()
   val unalignedMemoryAccessException = Bool
   val needMemRsp = Bool
+  val dCmdAddress = UInt(p.addrWidth bits)
 }
 
 case class CoreExecute1Output(implicit p : CoreConfig) extends Bundle{
@@ -243,6 +244,7 @@ case class CoreExecute1Output(implicit p : CoreConfig) extends Bundle{
   val pcPlus4 = UInt(32 bit)
   val unalignedMemoryAccessException = Bool
   val needMemRsp = Bool
+  val dCmdAddress = UInt(p.addrWidth bits)
 }
 
 case class CoreWriteBack0Output(implicit p : CoreConfig) extends Bundle{
@@ -493,6 +495,7 @@ class Core(implicit val c : CoreConfig) extends Component{
     outInst.adder := alu.io.adder
     outInst.pcPlus4 := inInst.pc + 4
     outInst.needMemRsp := inInst.ctrl.men && inInst.ctrl.m === M.XRD
+    outInst.dCmdAddress := dCmd.address
 
     // Send memory read/write requests
     outInst.unalignedMemoryAccessException := inInst.ctrl.men && outInst.ctrl.msk.map(
@@ -578,7 +581,7 @@ class Core(implicit val c : CoreConfig) extends Component{
     outInst.pcPlus4 := inInst.pcPlus4
     outInst.unalignedMemoryAccessException := inInst.unalignedMemoryAccessException
     outInst.needMemRsp := inInst.needMemRsp
-
+    outInst.dCmdAddress := inInst.dCmdAddress
     val flush = False
     when(flush){
       fetch.throwIt := True

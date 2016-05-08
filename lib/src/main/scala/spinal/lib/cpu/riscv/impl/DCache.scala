@@ -36,7 +36,6 @@ case class DataCacheCpuCmd(implicit p : DataCacheConfig) extends Bundle{
   val data = Bits(p.cpuDataWidth bit)
   val mask = Bits(p.cpuDataWidth/8 bit)
   val bypass = Bool
-  val writeThrough = Bool
   val all = Bool                      //Address should be zero when "all" is used
 
 }
@@ -81,17 +80,21 @@ case class DataCacheMemBus(implicit p : DataCacheConfig) extends Bundle with IMa
 
   override def asSlave(): this.type = asMaster.flip()
 
- /* def toAvalon(): AvalonMMBus = {
+  def toAvalon(): AvalonMMBus = {
     val avalonConfig = p.getAvalonConfig()
     val mm = AvalonMMBus(avalonConfig)
-    mm.read := cmd.valid
-    mm.burstCount := U(p.burstSize)
+    mm.read := cmd.valid && !cmd.wr
+    mm.write := cmd.valid && cmd.wr
     mm.address := cmd.address
+    mm.burstCount := U(p.burstSize)
+    mm.byteEnable := cmd.mask
+    mm.writeData := cmd.data
+
     cmd.ready := mm.waitRequestn
     rsp.valid := mm.readDataValid
     rsp.data := mm.readData
     mm
-  }*/
+  }
 }
 
 
@@ -140,6 +143,7 @@ class DataCache(implicit p : DataCacheConfig) extends Component{
     val way = UInt(log2Up(wayCount) bits)
     val address = UInt(log2Up(wayWordCount) bits)
     val data = Bits(wordWidth bits)
+    val mask = Bits(wordWidth/8 bits)
   })
 
   tagsWriteCmd.valid := False
@@ -160,7 +164,7 @@ class DataCache(implicit p : DataCacheConfig) extends Component{
       tags(tagsWriteCmd.address) := tagsWriteCmd.data
     }
     when(dataWriteCmd.valid && dataWriteCmd.way === id){
-      data(dataWriteCmd.address) := dataWriteCmd.data
+      data.write(dataWriteCmd.address,dataWriteCmd.data,dataWriteCmd.mask)
     }
     val dataReadRsp = data.readSync(dataReadCmd)
   })
@@ -221,6 +225,7 @@ class DataCache(implicit p : DataCacheConfig) extends Component{
       io.mem.cmd.address := request.address(tagRange.high downto lineRange.low) @@ U(0,lineRange.low bit)
       io.mem.cmd.length := p.burstLength
       io.mem.cmd.data := bufferReaded.payload
+      io.mem.cmd.mask := (1<<(wordWidth/8))-1
 
       when(!memCmdAlreadyUsed && io.mem.cmd.ready){
         bufferReaded.ready := True
@@ -393,6 +398,7 @@ class DataCache(implicit p : DataCacheConfig) extends Component{
                 dataWriteCmd.way := waysHitId
                 dataWriteCmd.address := request.address(lineRange.high downto wordRange.low)
                 dataWriteCmd.data := request.data
+                dataWriteCmd.mask := request.mask
 
                 tagsWriteCmd.valid := True
                 tagsWriteCmd.way := waysHitId
@@ -455,6 +461,7 @@ class DataCache(implicit p : DataCacheConfig) extends Component{
       dataWriteCmd.way := wayId
       dataWriteCmd.address := baseAddress(lineRange) @@ counter
       dataWriteCmd.data := io.mem.rsp.data
+      dataWriteCmd.mask := (1<<(wordWidth/8))-1
       counter.increment()
     }
 
