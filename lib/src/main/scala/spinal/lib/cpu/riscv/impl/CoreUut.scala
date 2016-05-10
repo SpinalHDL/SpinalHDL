@@ -12,14 +12,25 @@ object CoreUut{
     val io_interrupt = in Bool
     val oneCycleInstrPip = true
     val iCached = true
-    val dCached = false
-    val cacheParam = InstructionCacheConfig(  cacheSize = 4096,
+    val dCached = true
+    val iCacheConfig = InstructionCacheConfig(
+      cacheSize = 4096,
       bytePerLine =32,
       wayCount = 1,
       wrappedMemAccess = true,
       addressWidth = 32,
       cpuDataWidth = 32,
-      memDataWidth = 32)
+      memDataWidth = 32
+    )
+
+    val dCacheConfig = DataCacheConfig(
+      cacheSize = 4096,
+      bytePerLine =32,
+      wayCount = 1,
+      addressWidth = 32,
+      cpuDataWidth = 32,
+      memDataWidth = 32
+    )
 
     implicit val p = CoreConfig(
       pcWidth = 32,
@@ -44,8 +55,9 @@ object CoreUut{
     p.add(new SimpleInterruptExtension(exceptionVector=0x0).addIrq(id=4,pin=io_interrupt,IrqUsage(isException=false),name="io_interrupt"))
     // p.add(new BarrelShifterLightExtension)
     val nativeInstructionBusExtension = if(!iCached)p.add(new NativeInstructionBusExtension)  else null
-    val cachedInstructionBusExtension = if(iCached)p.add(new CachedInstructionBusExtension(cacheParam,false,true))  else null
+    val cachedInstructionBusExtension = if(iCached)p.add(new CachedInstructionBusExtension(iCacheConfig,false,false))  else null
     val nativeDataBusExtension = if(!dCached) p.add(new NativeDataBusExtension) else null
+    val cachedDataBusExtension = if(dCached) p.add(new CachedDataBusExtension(dCacheConfig,false,false)) else null
 
 
     val io = new Bundle{
@@ -64,6 +76,10 @@ object CoreUut{
       val dCmdDrive = in Bool
       val dRspDrive = in Bool
       val doCacheFlush = in Bool
+
+      //debug purposes
+      val cpuCmdLog = master Flow(CoreDataCmd())
+      val cpuRspLog = master Flow(Bits(32 bits))
     }
     def StreamDelay[T <: Data](that : Stream[T]) = that.s2mPipe().s2mPipe().s2mPipe().s2mPipe().s2mPipe().s2mPipe()
     def InstStreamDelay[T <: Data](that : Stream[T]) = if(oneCycleInstrPip) that else that.s2mPipe().s2mPipe().s2mPipe().s2mPipe().s2mPipe().s2mPipe()
@@ -83,8 +99,8 @@ object CoreUut{
 
 
       val busy = RegInit(False)
-      val burstCounter = Reg(UInt(log2Up(cacheParam.bytePerLine/4) bit))
-      val wrapCounter = Reg(UInt(log2Up(cacheParam.bytePerLine/4) bit))
+      val burstCounter = Reg(UInt(log2Up(iCacheConfig.bytePerLine/4) bit))
+      val wrapCounter = Reg(UInt(log2Up(iCacheConfig.bytePerLine/4) bit))
       val address = Reg(memBus.cmd.address)
 
       memBus.cmd.ready := False
@@ -134,19 +150,90 @@ object CoreUut{
         rsp.branchCacheLine := coreIBus.branchCachePort.rsp
       }
     }
-    if(dCached){
-      ???
-    }else{
+    val dLogic = if(dCached) new Area{
+      val d_cmd = io.d.cmd.clone
+      val d_rsp = io.d.rsp.clone
+      io.d.cmd << StreamDelay(d_cmd.continueWhen(io.dCmdDrive))
+      d_rsp << StreamDelay(io.d.rsp).continueWhen(io.dRspDrive)
+
+      val memBus = cachedDataBusExtension.memBus
+
+      d_rsp.ready := True
+
+
+      val busy = RegInit(False)
+      val burstCounter = Reg(UInt(log2Up(dCacheConfig.bytePerLine/4 + 1) bit))
+      val burstWriteLeft = Reg(UInt(log2Up(dCacheConfig.bytePerLine/4 + 1) bit)) init(0)
+      val burstLength = Reg(UInt(log2Up(dCacheConfig.bytePerLine/4 + 1) bit)) init(0)
+      val address = Reg(memBus.cmd.address)
+
+      memBus.cmd.ready := False
+      d_cmd.valid := False
+      d_cmd.payload.assignDontCare()
+
+
+      when(!busy){
+        when(memBus.cmd.valid && io.iCmdDrive){
+          when(!memBus.cmd.wr) {
+            memBus.cmd.ready := True
+            busy := True
+            address := memBus.cmd.address
+            burstCounter := 0
+            burstLength := memBus.cmd.length
+          } otherwise {
+            d_cmd.valid := True
+            d_cmd.size := CountOne(memBus.cmd.mask.asBits).map(
+              1 -> U(0),
+              2 -> U(1),
+              4 -> U(2),
+              default -> U(0)
+            )
+            d_cmd.data := memBus.cmd.data
+            d_cmd.wr := True
+            when(d_cmd.ready) {
+              memBus.cmd.ready := True
+              when(burstWriteLeft === 0) {
+                burstWriteLeft := memBus.cmd.length - 1
+                d_cmd.address := memBus.cmd.address + LeastSignificantBitSet(memBus.cmd.mask)
+                burstCounter := 1
+              } otherwise {
+                burstWriteLeft := burstWriteLeft - 1
+                d_cmd.address := memBus.cmd.address + (burstCounter << 2)
+                burstCounter := burstCounter + 1
+              }
+            }
+          }
+        }
+      }otherwise{
+        d_cmd.valid := True
+        d_cmd.address := address + (burstCounter << 2)
+        d_cmd.size := 2
+        d_cmd.wr := False
+        when(d_cmd.ready){
+          burstCounter := burstCounter + 1
+          when(burstCounter === burstLength-1){
+            busy := False
+          }
+        }
+      }
+      memBus.rsp.valid <> d_rsp.valid
+      memBus.rsp.data <> d_rsp.payload
+    }else new Area{
       val memCpu = nativeDataBusExtension.memBus
       io.d.cmd << StreamDelay(memCpu.cmd.continueWhen(io.dCmdDrive))
       memCpu.rsp << StreamDelay(io.d.rsp.m2sPipe()).continueWhen(io.dRspDrive)
-
     }
 
 
     io.iCheck.valid := core.execute0.outInst.valid.pull
     io.iCheck.address := core.execute0.outInst.pc.pull
     io.iCheck.data := core.execute0.outInst.instruction.pull
+
+    io.cpuCmdLog.valid := core.dCmd.valid.pull && core.dCmd.ready.pull
+    io.cpuCmdLog.payload := core.dCmd.payload.pull
+
+    io.cpuRspLog.valid := core.dRsp.valid.pull
+    io.cpuRspLog.payload := core.writeBack.dataRspFormated.pull
   }
 
   def main(args: Array[String]) {

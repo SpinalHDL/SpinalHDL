@@ -13,10 +13,10 @@ object CoreQSysAvalon{
 
   class RiscvAvalon extends Component{
     val iCached = true
-    val dCached = false
+    val dCached = true
     val debug = true
 
-    val cacheParam = InstructionCacheConfig(
+    val iCacheConfig = InstructionCacheConfig(
       cacheSize =4096,
       bytePerLine =32,
       wayCount = 1,
@@ -24,6 +24,15 @@ object CoreQSysAvalon{
       addressWidth = 32,
       cpuDataWidth = 32,
       memDataWidth = 32)
+
+    val dCacheConfig = DataCacheConfig(
+      cacheSize = 4096,
+      bytePerLine =32,
+      wayCount = 1,
+      addressWidth = 32,
+      cpuDataWidth = 32,
+      memDataWidth = 32
+    )
 
     lazy val p = CoreConfig(
       pcWidth = 32,
@@ -43,14 +52,20 @@ object CoreQSysAvalon{
 
 
     val iConfig = if(iCached){
-      cacheParam.getAvalonConfig()
+      iCacheConfig.getAvalonConfig()
     }else{
       CoreInstructionBus.getAvalonConfig(p)
     }
 
+    val dConfig = if(dCached){
+      dCacheConfig.getAvalonConfig()
+    }else{
+      CoreDataBus.getAvalonConfig(p)
+    }
+
     val io = new Bundle{
       val i = master(AvalonMMBus(iConfig))
-      val d = master(AvalonMMBus(CoreDataBus.getAvalonConfig(p)))
+      val d = master(AvalonMMBus(dConfig))
       val interrupt = in(Bits(4 bit))
       val debugResetIn = if(debug) in Bool else null
       val debugResetOut = if(debug) out Bool else null
@@ -63,8 +78,10 @@ object CoreQSysAvalon{
     p.add(new SimpleInterruptExtension(exceptionVector=0x0).addIrq(id=4,pins=io.interrupt,IrqUsage(isException=false),name="io_interrupt"))
 //    p.add(new BarrelShifterLightExtension)
     val nativeInstructionBusExtension = if(!iCached)p.add(new NativeInstructionBusExtension)  else null
-    val cachedInstructionBusExtension = if(iCached)p.add(new CachedInstructionBusExtension(cacheParam,false,true))  else null
+    val cachedInstructionBusExtension = if(iCached)p.add(new CachedInstructionBusExtension(iCacheConfig,false,true))  else null
     val nativeDataBusExtension = if(!dCached) p.add(new NativeDataBusExtension) else null
+    val cachedDataBusExtension = if(dCached) p.add(new CachedDataBusExtension(dCacheConfig,false,false)) else null
+
 
 
     val debugExtension = if(debug) {
@@ -99,7 +116,11 @@ object CoreQSysAvalon{
       }
     }
     if(dCached){
-      ???
+      val memCache = cachedDataBusExtension.memBus
+      val memD = memCache.clone
+      memD.cmd <-/< memCache.cmd
+      memD.rsp >-> memCache.rsp
+      io.d <> memD.toAvalon()
     }else{
       val memCpu = nativeDataBusExtension.memBus
       val coreD = memCpu.clone

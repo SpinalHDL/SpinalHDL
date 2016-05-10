@@ -30,7 +30,8 @@ class CachedDataBusExtension(c : DataCacheConfig,cutCpuCmdReady : Boolean = fals
 
     val cache = new DataCache()(c)
     cache.io.cpu.cmd.valid := coreDCmd.valid
-    cache.io.cpu.cmd.address := coreDCmd.address
+    cache.io.cpu.cmd.wr := coreDCmd.wr
+    cache.io.cpu.cmd.address := coreDCmd.address(coreDCmd.address.high downto 2) @@ U"00"
     cache.io.cpu.cmd.data := coreDCmd.size.map (
       U(0) -> coreDCmd.data(7 downto 0) ## coreDCmd.data(7 downto 0) ## coreDCmd.data(7 downto 0) ## coreDCmd.data(7 downto 0),
       U(1) -> coreDCmd.data(15 downto 0) ## coreDCmd.data(15 downto 0),
@@ -42,10 +43,17 @@ class CachedDataBusExtension(c : DataCacheConfig,cutCpuCmdReady : Boolean = fals
       default -> B"1111"
     ) << coreDCmd.address(1 downto 0)).resized
     cache.io.cpu.cmd.bypass := coreDCmd.address.msb
+    cache.io.cpu.cmd.all := False
+    cache.io.cpu.cmd.kind := DataCacheCpuCmdKind.MEMORY
     coreDCmd.ready := cache.io.cpu.cmd.ready
 
     coreDRsp.valid := cache.io.cpu.rsp.valid
-    coreDRsp.payload :=  cache.io.cpu.rsp.data >> (core.writeBack.inInst.dCmdAddress(1 downto 0)*8)
+    coreDRsp.payload := cache.io.cpu.rsp.data
+    switch(core.writeBack.inInst.dCmdAddress(1 downto 0)){
+      is(1){coreDRsp.payload(7 downto 0) := cache.io.cpu.rsp.data(15 downto 8)}
+      is(2){coreDRsp.payload(15 downto 0) := cache.io.cpu.rsp.data(31 downto 16)}
+      is(3){coreDRsp.payload(7 downto 0) := cache.io.cpu.rsp.data(31 downto 24)}
+    }
 
     memBus = master(DataCacheMemBus()(c)).setName("io_d")
     memBus <> cache.io.mem

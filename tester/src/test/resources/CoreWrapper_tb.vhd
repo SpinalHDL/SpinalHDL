@@ -46,12 +46,21 @@ architecture arch of CoreWrapper_tb is
   signal io_dCmdDrive : std_logic;
   signal io_dRspDrive : std_logic;
   signal io_doCacheFlush : std_logic;
+  signal io_cpuCmdLog_valid : std_logic;
+  signal io_cpuCmdLog_payload_wr : std_logic;
+  signal io_cpuCmdLog_payload_address : unsigned(31 downto 0);
+  signal io_cpuCmdLog_payload_data : std_logic_vector(31 downto 0);
+  signal io_cpuCmdLog_payload_size : unsigned(1 downto 0);
+  signal io_cpuRspLog_valid : std_logic;
+  signal io_cpuRspLog_payload : std_logic_vector(31 downto 0);
   signal clk : std_logic;
   signal reset : std_logic;
   -- #spinalBegin userDeclarations
   constant doTestWithStall : Boolean := true;
+  constant doTestWithFlush : Boolean := true;
   constant doBench : Boolean := true;
-  constant doBenchtWithStall : Boolean := false;
+  constant doBenchtWithStall : Boolean := true;
+  constant doBenchtWithFlush : Boolean := false;
   constant doBenchtWithInterrupt : Boolean := false;
   
   
@@ -217,7 +226,7 @@ begin
           report "Test fail ! : " & path severity error;  
           exit;
         end if;
-        if io_d_cmd_valid = '1' and io_d_cmd_payload_address = X"00000000" then
+        if io_d_cmd_valid = '1' and io_d_cmd_payload_address = X"FFFFFFFC" then
           if io_d_cmd_payload_data /= X"00000001" then
             errorCount := errorCount + 1;
             report "Test fail ! : " & path severity error;
@@ -234,7 +243,7 @@ begin
     wait for 100 ns;
 
      for i in 0 to 1000 loop
-     
+      exit;
       doTest("E:/vm/share/isa/rv32ui-p-mul.hex");   
       doTest("E:/vm/share/isa/rv32ui-p-mulh.hex");   
       doTest("E:/vm/share/isa/rv32ui-p-mulhsu.hex");   
@@ -331,14 +340,18 @@ begin
         io_iRspDrive <= '1';
         io_dCmdDrive <= '1';
         io_dRspDrive <= '1';
-        io_doCacheFlush <= '0';
       else
         io_iCmdDrive <= randomStdLogic(0.5);
         io_iRspDrive <= randomStdLogic(0.3);
         io_dCmdDrive <= randomStdLogic(0.5);
         io_dRspDrive <= randomStdLogic(0.5);
-        io_doCacheFlush <= randomStdLogic(0.0003);
       end if;
+      
+      if (inBench and not doBenchtWithFlush) or (not inBench and not doTestWithFlush) then
+        io_doCacheFlush <= '0';
+      else
+        io_doCacheFlush <= randomStdLogic(0.0003);
+      end if;      
     end if;
   end process;
   
@@ -388,9 +401,9 @@ begin
           report ":(" severity failure;
         end if;
         if not inBench and io_i_cmd_payload_pc = (31 downto 0 => '0') then
-          io_i_rsp_payload_instruction <= X"01c02023";
+          io_i_rsp_payload_instruction <= X"ffc02e23"; --01c02023   ffc02e23
         elsif data = X"00000073" then
-          io_i_rsp_payload_instruction <= X"01c02023";
+          io_i_rsp_payload_instruction <= X"ffc02e23";
         elsif data = X"0FF0000F" then
           io_i_rsp_payload_instruction <= X"00000013"; --TODO remove me
         else
@@ -415,12 +428,13 @@ begin
               file_open(log, "E:/vm/share/log.txt", append_mode); 
             end if;
           elsif io_d_cmd_payload_address = X"F0000004" then
-          elsif io_d_cmd_payload_address = X"10000008" then
+          elsif io_d_cmd_payload_address = X"FFFFFFF8" then
             interrupt <= io_d_cmd_payload_data(0);
           elsif io_d_cmd_payload_address = X"F0000010" then
             
           elsif io_d_cmd_payload_address = X"F0000044" then
-            
+          elsif io_d_cmd_payload_address = X"FFFFFFFC" then
+                        
           elsif io_d_cmd_payload_address <= X"03FFFFFF" then
             assert(not inBench or allowRomWriteWhenBench) report "Rom is written :(" severity failure;
             for i in 0 to (2 ** to_integer(io_d_cmd_payload_size))-1 loop
@@ -460,7 +474,7 @@ begin
       
       if io_iCheck_valid = '1' then
         assert(io_iCheck_payload_address(1 downto 0) = "00");
-        if io_iCheck_payload_data /= X"00000013" and io_iCheck_payload_data /= X"01c02023" then
+        if io_iCheck_payload_data /= X"00000013" and io_iCheck_payload_data /= X"01c02023" and io_iCheck_payload_data /= X"ffc02e23" then
           for i in 0 to 3 loop
             assert(rom(to_integer(io_iCheck_payload_address)+i) = io_iCheck_payload_data(i*8+7 downto i*8));
           end loop;
@@ -510,9 +524,48 @@ begin
 --    end if;
 --  end process;
   
+  process
+    variable lineBuilder : line;
+    file log : text is out "E:/vm/share/dCmd.txt";
+  begin
+    wait until rising_edge(clk);
+    if io_cpuCmdLog_valid = '1' then
+      if io_cpuCmdLog_payload_wr = '1' then
+        write (lineBuilder,string'("WR "));
+      else
+        write (lineBuilder,string'("RD "));
+      end if;
+        
+      if io_cpuCmdLog_payload_address(io_cpuCmdLog_payload_address'high) = '1' then 
+        write (lineBuilder,string'("PER "));
+      else
+        write (lineBuilder,string'("MEM "));
+      end if;
+      write (lineBuilder, integer'image(to_integer(io_cpuCmdLog_payload_address and X"7FFFFFFF")) & string'(" ")); 
+      
+      write (lineBuilder,integer'image(to_integer(io_cpuCmdLog_payload_size)) & string'(" "));
+      if io_cpuCmdLog_payload_wr = '1' then
+        write (lineBuilder,integer'image(to_integer(signed(io_cpuCmdLog_payload_data))) & string'(" "));
+      end if;
+      
+      writeline (log, lineBuilder);
+      file_close(log); 
+      file_open(log, "E:/vm/share/dCmd.txt", append_mode);
+    end if;
+	end process;
 
+  process
+    variable lineBuilder : line;
+    file log : text is out "E:/vm/share/dRsp.txt";
+  begin
+    wait until rising_edge(clk) and reset = '0' and io_cpuRspLog_valid = '1';
+    write (lineBuilder,integer'image(to_integer(signed(io_cpuRspLog_payload))) & string'(" "));
 
-
+		writeline (log, lineBuilder);
+    file_close(log); 
+    file_open(log, "E:/vm/share/dRsp.txt", append_mode); 
+	end process;
+  
   -- #spinalEnd userLogics
   uut : entity riscv.CoreWrapper
     port map (
@@ -523,7 +576,7 @@ begin
       io_i_rsp_valid =>  io_i_rsp_valid,
       io_i_rsp_ready =>  io_i_rsp_ready,
       io_i_rsp_payload_instruction =>  io_i_rsp_payload_instruction,
-      io_i_rsp_payload_pc => io_i_rsp_payload_pc,
+      io_i_rsp_payload_pc =>  io_i_rsp_payload_pc,
       io_d_cmd_valid =>  io_d_cmd_valid,
       io_d_cmd_ready =>  io_d_cmd_ready,
       io_d_cmd_payload_wr =>  io_d_cmd_payload_wr,
@@ -541,6 +594,13 @@ begin
       io_dCmdDrive =>  io_dCmdDrive,
       io_dRspDrive =>  io_dRspDrive,
       io_doCacheFlush =>  io_doCacheFlush,
+      io_cpuCmdLog_valid =>  io_cpuCmdLog_valid,
+      io_cpuCmdLog_payload_wr =>  io_cpuCmdLog_payload_wr,
+      io_cpuCmdLog_payload_address =>  io_cpuCmdLog_payload_address,
+      io_cpuCmdLog_payload_data =>  io_cpuCmdLog_payload_data,
+      io_cpuCmdLog_payload_size =>  io_cpuCmdLog_payload_size,
+      io_cpuRspLog_valid =>  io_cpuRspLog_valid,
+      io_cpuRspLog_payload =>  io_cpuRspLog_payload,
       clk =>  clk,
       reset =>  reset 
     );

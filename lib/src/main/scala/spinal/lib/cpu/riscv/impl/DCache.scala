@@ -18,9 +18,10 @@ case class DataCacheConfig( cacheSize : Int,
   def getAvalonConfig() = AvalonMMConfig.bursted(
       addressWidth = addressWidth,
       dataWidth = memDataWidth,
-    burstCountWidth = log2Up(burstSize + 1)).getReadOnlyConfig.copy(
-      constantBurstBehavior = true,
-      burstOnBurstBoundariesOnly = true
+    burstCountWidth = log2Up(burstSize + 1)).copy(
+      constantBurstBehavior = false,
+      burstOnBurstBoundariesOnly = false,
+      maximumPendingReadTransactions = 4
     )
   val burstLength = bytePerLine/(memDataWidth/8)
 }
@@ -85,8 +86,8 @@ case class DataCacheMemBus(implicit p : DataCacheConfig) extends Bundle with IMa
     val mm = AvalonMMBus(avalonConfig)
     mm.read := cmd.valid && !cmd.wr
     mm.write := cmd.valid && cmd.wr
-    mm.address := cmd.address
-    mm.burstCount := U(p.burstSize)
+    mm.address := cmd.address(cmd.address.high downto log2Up(p.memDataWidth/8)) @@ U(0,log2Up(p.memDataWidth/8) bits)
+    mm.burstCount := cmd.length
     mm.byteEnable := cmd.mask
     mm.writeData := cmd.data
 
@@ -185,7 +186,7 @@ class DataCache(implicit p : DataCacheConfig) extends Component{
     val request = requestIn.stage()
     request.ready := False
 
-    val buffer = Mem(Bits(p.memDataWidth bits),memTransactionPerLine).add(new AttributeString("ramstyle","M4K"))
+    val buffer = Mem(Bits(p.memDataWidth bits),memTransactionPerLine << 1)  // << 1 because of cyclone II issue, should be removed //.add(new AttributeString("ramstyle","M4K"))
 
     //Send line read commands to fill the buffer
     val readLineCmdCounter = Reg(UInt(log2Up(memTransactionPerLine + 1) bits)) init(0)
@@ -379,7 +380,7 @@ class DataCache(implicit p : DataCacheConfig) extends Component{
               //Can't insert mem cmd into a victim write burst
               io.mem.cmd.valid := !(!request.wr && !cpuRspIn.ready)
               io.mem.cmd.wr := request.wr
-              io.mem.cmd.address := request.address
+              io.mem.cmd.address := request.address(tagRange.high downto wordRange.low) @@ U(0,wordRange.low bit)
               io.mem.cmd.mask := request.mask
               io.mem.cmd.data := request.data
               io.mem.cmd.length := 1

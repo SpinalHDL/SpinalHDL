@@ -56,8 +56,10 @@ object OHToUInt {
 
 object CountOne{
   def apply(thats : Bool*) : UInt = list(thats)
+  def apply(thats : Bits) : UInt = list(thats.asBools)
   def list(thats : Seq[Bool]) : UInt = {
     var ret = UInt(log2Up(thats.length+1) bit)
+    ret := 0
     for(e <- thats){
       when(e){
         ret \= ret + 1
@@ -66,6 +68,22 @@ object CountOne{
     ret
   }
 }
+
+object LeastSignificantBitSet{
+  def apply(thats : Bool*) : UInt = list(thats)
+  def apply(thats : Bits) : UInt = list(thats.asBools)
+  def list(thats : Seq[Bool]) : UInt = {
+    var ret = UInt(log2Up(thats.length+1) bit)
+    ret.assignDontCare()
+    for((e,id) <- thats.zipWithIndex.reverse){
+      when(e){
+        ret := id
+      }
+    }
+    ret
+  }
+}
+
 
 object toGray {
   def apply(uint: UInt): Bits = {

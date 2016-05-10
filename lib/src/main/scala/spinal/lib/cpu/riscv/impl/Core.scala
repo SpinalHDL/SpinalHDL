@@ -1,5 +1,7 @@
 package spinal.lib.cpu.riscv.impl
 
+import java.text.AttributedString
+
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.avalon._
@@ -180,7 +182,14 @@ case class CoreDataBus(implicit p : CoreConfig) extends Bundle with IMasterSlave
 
     cmd.ready := mm.waitRequestn
     rsp.valid := mm.readDataValid
-    rsp.payload := mm.readData >> (contextOut.payload*8)
+    //rsp.payload := mm.readData >> (contextOut.payload*8)
+    rsp.payload := mm.readData
+    switch(contextOut.payload){
+      is(1){rsp.payload(7 downto 0)  := mm.readData(15 downto 8)}
+      is(2){rsp.payload(15 downto 0) := mm.readData(31 downto 16)}
+      is(3){rsp.payload(7 downto 0)  := mm.readData(31 downto 24)}
+    }
+
     mm
   }
 }

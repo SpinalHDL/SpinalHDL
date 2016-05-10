@@ -99,7 +99,7 @@ class Backend {
   //TODO General cleaning
   //TODO switch case nodes in replacement of when emulation
   //TODO Union support
-  //TODO better Mem support (bitmask, user specifyed blackbox)
+  //TODO better Mem support (user specifyed blackbox)
   //TODO Mux node with n inputs instead of fixed 2
   protected def elaborate[T <: Component](topLevel: T): BackendReport[T] = {
     SpinalInfoPhase("Start analysis and transform")
