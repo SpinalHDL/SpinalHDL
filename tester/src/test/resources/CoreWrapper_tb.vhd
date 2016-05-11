@@ -60,13 +60,13 @@ architecture arch of CoreWrapper_tb is
   constant doTestWithFlush : Boolean := true;
   constant doBench : Boolean := true;
   constant doBenchtWithStall : Boolean := true;
-  constant doBenchtWithFlush : Boolean := false;
-  constant doBenchtWithInterrupt : Boolean := false;
+  constant doBenchtWithFlush : Boolean := true;
+  constant doBenchtWithInterrupt : Boolean := true;
   
   
-  constant allowRomWriteWhenBench : Boolean := false;
+  constant allowRomWriteWhenBench : Boolean := true;
  
-  
+  signal checkInst : boolean := true;
   signal inBench : Boolean := false;
   signal timingRead : std_logic;
 
@@ -243,7 +243,6 @@ begin
     wait for 100 ns;
 
      for i in 0 to 1000 loop
-      exit;
       doTest("E:/vm/share/isa/rv32ui-p-mul.hex");   
       doTest("E:/vm/share/isa/rv32ui-p-mulh.hex");   
       doTest("E:/vm/share/isa/rv32ui-p-mulhsu.hex");   
@@ -279,7 +278,9 @@ begin
        doTest("E:/vm/share/isa/rv32ui-p-blt.hex");   
        doTest("E:/vm/share/isa/rv32ui-p-bltu.hex");   
        doTest("E:/vm/share/isa/rv32ui-p-bne.hex");   
-      --doTest("E:/vm/share/isa/rv32ui-p-fence_i.hex");   !!! 
+       checkInst <= false;
+      -- doTest("E:/vm/share/isa/rv32ui-p-fence_i.hex"); 
+       checkInst <= true;
        doTest("E:/vm/share/isa/rv32ui-p-j.hex");   
        doTest("E:/vm/share/isa/rv32ui-p-jal.hex");   
        doTest("E:/vm/share/isa/rv32ui-p-jalr.hex");   
@@ -347,7 +348,7 @@ begin
         io_dRspDrive <= randomStdLogic(0.5);
       end if;
       
-      if (inBench and not doBenchtWithFlush) or (not inBench and not doTestWithFlush) then
+      if (inBench and not doBenchtWithFlush) or (not inBench and not doTestWithFlush) or not checkInst then
         io_doCacheFlush <= '0';
       else
         io_doCacheFlush <= randomStdLogic(0.0003);
@@ -472,11 +473,11 @@ begin
         end if;
       end if;
       
-      if io_iCheck_valid = '1' then
+      if io_iCheck_valid = '1' and checkInst then
         assert(io_iCheck_payload_address(1 downto 0) = "00");
         if io_iCheck_payload_data /= X"00000013" and io_iCheck_payload_data /= X"01c02023" and io_iCheck_payload_data /= X"ffc02e23" then
           for i in 0 to 3 loop
-            assert(rom(to_integer(io_iCheck_payload_address)+i) = io_iCheck_payload_data(i*8+7 downto i*8));
+            assert(rom(to_integer(io_iCheck_payload_address)+i) = io_iCheck_payload_data(i*8+7 downto i*8)) report "instruction missmatch";
           end loop;
         end if;
       end if;

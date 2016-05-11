@@ -76,12 +76,12 @@ class DebugExtension(val clockDomain: ClockDomain) extends CoreExtension{
     val haltIt = RegInit(False)
     val flushIt = RegNext(False)
     val stepIt = RegInit(False)
-    val iCacheflushEmitter = EventEmitter(on=core.iCacheFlush.cmd)
-
 
     val isPipActive = RegNext(RegNext(core.iCmd.valid) || (core.fetch.pendingPrefetch =/= 0) ||  core.decode.inInst.valid ||  core.execute0.inInst.valid ||  core.execute1.inInst.valid || core.writeBack.inInst.valid)
     val isPipBusy = isPipActive || RegNext(isPipActive)
     val isInBreakpoint = core.writeBack.inInst.valid && isMyTag(core.writeBack.inInst.ctrl)
+
+
     when(io.bus.cmd.valid) {
       when(io.bus.cmd.address.msb){//access special register else regfile
         switch(io.bus.cmd.address(io.bus.cmd.address.high-1 downto 0)) {
@@ -89,9 +89,6 @@ class DebugExtension(val clockDomain: ClockDomain) extends CoreExtension{
             when(io.bus.cmd.wr){
               flushIt := io.bus.cmd.data(2)
               stepIt := io.bus.cmd.data(4)
-              when(io.bus.cmd.data(8)){
-                iCacheflushEmitter.emit()
-              }
               when(io.bus.cmd.data(16)){
                 resetIt := True
               }
@@ -123,6 +120,14 @@ class DebugExtension(val clockDomain: ClockDomain) extends CoreExtension{
               } otherwise{
                 busReadDataReg := core.prefetch.pc.asBits
               }
+            }
+          }
+          is(2){
+            when(io.bus.cmd.wr){
+              val injectedInstructionSent = RegNext(core.decode.inInst.fire) init(False)
+              core.decode.inInst.valid.getDrivingReg := !injectedInstructionSent
+              core.decode.inInst.instruction.getDrivingReg := io.bus.cmd.data
+              io.bus.cmd.ready := injectedInstructionSent
             }
           }
         }

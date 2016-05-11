@@ -80,7 +80,7 @@ object CoreQSysAvalon{
     val nativeInstructionBusExtension = if(!iCached)p.add(new NativeInstructionBusExtension)  else null
     val cachedInstructionBusExtension = if(iCached)p.add(new CachedInstructionBusExtension(iCacheConfig,false,true))  else null
     val nativeDataBusExtension = if(!dCached) p.add(new NativeDataBusExtension) else null
-    val cachedDataBusExtension = if(dCached) p.add(new CachedDataBusExtension(dCacheConfig,false,false)) else null
+    val cachedDataBusExtension = if(dCached) p.add(new CachedDataBusExtension(dCacheConfig,true)) else null
 
 
 

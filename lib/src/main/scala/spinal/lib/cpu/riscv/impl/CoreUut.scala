@@ -57,7 +57,7 @@ object CoreUut{
     val nativeInstructionBusExtension = if(!iCached)p.add(new NativeInstructionBusExtension)  else null
     val cachedInstructionBusExtension = if(iCached)p.add(new CachedInstructionBusExtension(iCacheConfig,false,false))  else null
     val nativeDataBusExtension = if(!dCached) p.add(new NativeDataBusExtension) else null
-    val cachedDataBusExtension = if(dCached) p.add(new CachedDataBusExtension(dCacheConfig,false,false)) else null
+    val cachedDataBusExtension = if(dCached) p.add(new CachedDataBusExtension(dCacheConfig,true)) else null
 
 
     val io = new Bundle{
@@ -128,12 +128,12 @@ object CoreUut{
       memBus.rsp.data <> i_rsp.instruction
 
       //Emit ramdom instruction cache flush
-      Component.push(core)
+    /* Component.push(core)
       val flushEmitter = EventEmitter(core.iCacheFlush.cmd)
       when(io.doCacheFlush.pull){
         flushEmitter.emit()
       }
-      Component.pop(core)
+      Component.pop(core)*/
     }else {
       val coreIBus = nativeInstructionBusExtension.memBus
       io.i_cmd << InstStreamDelay(coreIBus.cmd.continueWhen(io.iCmdDrive))

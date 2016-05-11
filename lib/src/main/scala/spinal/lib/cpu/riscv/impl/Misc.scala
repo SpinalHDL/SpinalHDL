@@ -30,13 +30,13 @@ object Utils{
     def isSignedComp(that : T) = !that.asBits(1)
   }
 
-  object OP1 extends SpinalEnum(sequancial){
+  object OP0 extends SpinalEnum(sequancial){
     val RS, IMU, IMZ, IMJB = newElement()
     def X = RS
   }
 
 
-  object OP2 extends SpinalEnum(sequancial){
+  object OP1 extends SpinalEnum(sequancial){
     val RS, IMI, IMS, PC1 = newElement()
     def X = RS
   }
@@ -98,8 +98,8 @@ object Utils{
       val instVal = Bool()
       val br = BR()
       val jmp = Bool()
-      val op0 = OP1()
-      val op1 = OP2()
+      val op0 = OP0()
+      val op1 = OP1()
       val alu = ALU()
       val wb  = WB()
       val rfen = Bool
@@ -115,6 +115,7 @@ object Utils{
       val useSrc1 = Bool
       val extensionTag = Bits()
       val extensionData = Bits()
+      val fencei  = Bool
   }
 
   def BASE                 = M"------------------------------11"
@@ -134,6 +135,7 @@ object Utils{
   def BASE_CSR_S           = M"------------------10------------"
   def BASE_CSR_C           = M"------------------11------------"
   def BASE_CSR_I           = M"-----------------1--------------"
+  def BASE_FENCEI          = M"000000000000000000010000000011--"
 
 
   object InstructionCtrl{
@@ -142,8 +144,8 @@ object Utils{
       ctrl.instVal := False
       ctrl.br := BR.N
       ctrl.jmp := False
-      ctrl.op0 := OP1.X
-      ctrl.op1 := OP2.X
+      ctrl.op0 := OP0.X
+      ctrl.op1 := OP1.X
       ctrl.alu := ALU.ADD
       ctrl.wb := WB.X
       ctrl.rfen := False
@@ -159,29 +161,31 @@ object Utils{
       ctrl.useSrc1 := False
       ctrl.extensionTag := 0
       ctrl.extensionData := 0
+      ctrl.fencei := False
 
       when(instruction === BASE){
+        ctrl.fencei := instruction === BASE_FENCEI
         when(instruction === BASE_MEM){
           ctrl.instVal := True
-          ctrl.op0 := OP1.RS
+          ctrl.op0 := OP0.RS
           ctrl.alu := ALU.ADD
           ctrl.men := True
           ctrl.useSrc0 := True
           when(instruction === BASE_MEM_L){
-            ctrl.op1 := OP2.IMI
+            ctrl.op1 := OP1.IMI
             ctrl.wb := WB.MEM
             ctrl.rfen := True
             ctrl.m := M.XRD
           }otherwise{
-            ctrl.op1 := OP2.IMS
+            ctrl.op1 := OP1.IMS
             ctrl.m := M.XWR
             ctrl.useSrc1 := True
           }
         }
         when(instruction === BASE_AUIPC){
           ctrl.instVal := True
-          ctrl.op0 := OP1.IMU
-          ctrl.op1 := OP2.PC1
+          ctrl.op0 := OP0.IMU
+          ctrl.op1 := OP1.PC1
           ctrl.alu := ALU.ADD
           ctrl.wb  := WB.ALU1
           ctrl.rfen := True
@@ -190,7 +194,7 @@ object Utils{
         }
         when(instruction === BASE_LUI){
           ctrl.instVal := True
-          ctrl.op0 := OP1.IMU
+          ctrl.op0 := OP0.IMU
           ctrl.alu := ALU.COPY1
           ctrl.wb  := WB.ALU1
           ctrl.rfen := True
@@ -202,8 +206,8 @@ object Utils{
           when(instruction === BASE_OPX_I) {
             when(!isShift || (instruction === M"0-00000-------------------------" && !(instruction(30) && !instruction(14)))) {
               ctrl.instVal := True
-              ctrl.op0 := OP1.RS
-              ctrl.op1 := OP2.IMI
+              ctrl.op0 := OP0.RS
+              ctrl.op1 := OP1.IMI
               ctrl.alu.assignFromBits((isShift && instruction(30)) ## instruction(14 downto 12))
               ctrl.wb  := WB.ALU1
               ctrl.rfen := True
@@ -215,8 +219,8 @@ object Utils{
             when(instruction === M"0-00000-------------------------"){
               when(instruction(30) === False || instruction(14 downto 12) === B"000" || instruction(14 downto 12) === "101"){
                 ctrl.instVal := True
-                ctrl.op0 := OP1.RS
-                ctrl.op1 := OP2.RS
+                ctrl.op0 := OP0.RS
+                ctrl.op1 := OP1.RS
                 ctrl.alu.assignFromBits(instruction(30) ## instruction(14 downto 12))
                 ctrl.wb  := WB.ALU1
                 ctrl.rfen := True
@@ -232,8 +236,8 @@ object Utils{
           ctrl.instVal := True
           ctrl.br := BR.J
           ctrl.alu := ALU.ADD
-          ctrl.op0 := OP1.IMJB
-          ctrl.op1 := OP2.PC1
+          ctrl.op0 := OP0.IMJB
+          ctrl.op1 := OP1.PC1
           ctrl.jmp := True
           ctrl.wb := WB.PC4
           ctrl.rfen := True
@@ -242,8 +246,8 @@ object Utils{
           ctrl.instVal := True
           ctrl.br := BR.JR
           ctrl.jmp := True
-          ctrl.op0 := OP1.RS
-          ctrl.op1 := OP2.IMI
+          ctrl.op0 := OP0.RS
+          ctrl.op1 := OP1.IMI
           ctrl.alu := ALU.ADD
           ctrl.wb := WB.PC4
           ctrl.rfen := True
@@ -252,8 +256,8 @@ object Utils{
         when(instruction === BASE_B){
           ctrl.instVal := True
           ctrl.alu := ALU.ADD
-          ctrl.op0 := OP1.IMJB
-          ctrl.op1 := OP2.PC1
+          ctrl.op0 := OP0.IMJB
+          ctrl.op1 := OP1.PC1
           ctrl.br.assignFromBits(False ## instruction(14 downto 12))
           ctrl.useSrc0 := True
           ctrl.useSrc1 := True
@@ -261,9 +265,9 @@ object Utils{
         when(instruction === BASE_CSR){
           ctrl.instVal := True
           when(instruction === BASE_CSR_I){
-            ctrl.op0 := OP1.IMZ
+            ctrl.op0 := OP0.IMZ
           }otherwise {
-            ctrl.op0 := OP1.RS
+            ctrl.op0 := OP0.RS
           }
           ctrl.alu := ALU.COPY1
           ctrl.wb := WB.CSR1

@@ -3,6 +3,7 @@ package spinal.lib.cpu.riscv.impl.extension
 
 import spinal.core._
 import spinal.lib.bus.avalon.{AvalonMMBus, AvalonMMConfig}
+import spinal.lib.cpu.riscv.impl.Utils._
 import spinal.lib.cpu.riscv.impl._
 import spinal.lib._
 
@@ -20,32 +21,37 @@ class NativeDataBusExtension extends CoreExtension with AvalonProvider{
 }
 
 
-class CachedDataBusExtension(c : DataCacheConfig,cutCpuCmdReady : Boolean = false,cutCpuRspReady : Boolean = false) extends CoreExtension with AvalonProvider{
+class CachedDataBusExtension(c : DataCacheConfig,cutCpuCmdReady : Boolean = false) extends CoreExtension with AvalonProvider{
   override def getName: String = "CachedDataBus"
   var memBus : DataCacheMemBus = null
   override def applyIt(core: Core): Area = new Area{
-    val coreDCmd = if(cutCpuCmdReady) core.dCmd.s2mPipe() else core.dCmd
-    val coreDRsp = core.dRsp.clone
-    if(cutCpuRspReady) coreDRsp >/> core.dRsp else coreDRsp >> core.dRsp
-
     val cache = new DataCache()(c)
-    cache.io.cpu.cmd.valid := coreDCmd.valid
-    cache.io.cpu.cmd.wr := coreDCmd.wr
-    cache.io.cpu.cmd.address := coreDCmd.address(coreDCmd.address.high downto 2) @@ U"00"
-    cache.io.cpu.cmd.data := coreDCmd.size.map (
-      U(0) -> coreDCmd.data(7 downto 0) ## coreDCmd.data(7 downto 0) ## coreDCmd.data(7 downto 0) ## coreDCmd.data(7 downto 0),
-      U(1) -> coreDCmd.data(15 downto 0) ## coreDCmd.data(15 downto 0),
-      default -> coreDCmd.data(31 downto 0)
+    val cacheDCmd = cache.io.cpu.cmd.clone
+    val coreDRsp = core.dRsp.clone
+    cache.io.cpu.cmd << (if(cutCpuCmdReady) cacheDCmd.s2mPipe() else cacheDCmd)
+    coreDRsp >> core.dRsp
+
+    cacheDCmd.valid := core.dCmd.valid
+    cacheDCmd.wr := core.dCmd.wr
+    cacheDCmd.address := core.dCmd.address(core.dCmd.address.high downto 2) @@ U"00"
+    cacheDCmd.data := core.dCmd.size.map (
+      U(0) -> core.dCmd.data(7 downto 0) ## core.dCmd.data(7 downto 0) ## core.dCmd.data(7 downto 0) ## core.dCmd.data(7 downto 0),
+      U(1) -> core.dCmd.data(15 downto 0) ## core.dCmd.data(15 downto 0),
+      default -> core.dCmd.data(31 downto 0)
     )
-    cache.io.cpu.cmd.mask := (coreDCmd.size.map (
+    cacheDCmd.mask := (core.dCmd.size.map (
       U(0) -> B"0001",
       U(1) -> B"0011",
       default -> B"1111"
-    ) << coreDCmd.address(1 downto 0)).resized
-    cache.io.cpu.cmd.bypass := coreDCmd.address.msb
-    cache.io.cpu.cmd.all := False
-    cache.io.cpu.cmd.kind := DataCacheCpuCmdKind.MEMORY
-    coreDCmd.ready := cache.io.cpu.cmd.ready
+    ) << core.dCmd.address(1 downto 0)).resized
+    cacheDCmd.bypass := core.dCmd.address.msb
+    cacheDCmd.all := !core.execute0.inInst.instruction(lineBit)
+    when(!isMyTag(core.execute0.inInst.ctrl)) {
+      cacheDCmd.kind := DataCacheCpuCmdKind.MEMORY
+    }otherwise{
+      cacheDCmd.kind := Mux(core.execute0.inInst.instruction(evictBit),DataCacheCpuCmdKind.EVICT,DataCacheCpuCmdKind.FLUSH)
+    }
+    core.dCmd.ready := cacheDCmd.ready
 
     coreDRsp.valid := cache.io.cpu.rsp.valid
     coreDRsp.payload := cache.io.cpu.rsp.data
@@ -57,6 +63,28 @@ class CachedDataBusExtension(c : DataCacheConfig,cutCpuCmdReady : Boolean = fals
 
     memBus = master(DataCacheMemBus()(c)).setName("io_d")
     memBus <> cache.io.mem
+
+    val flushHappend = RegInit(False) //TODO if cpu to cache cmd are buffered, it could not work  if two flush
+    flushHappend := (flushHappend || cache.io.flushDone) && !core.execute1.inInst.ready
+    when(core.execute1.inInst.valid && core.execute1.inInst.ctrl.fencei){
+      core.execute1.halt := !flushHappend
+    }
+  }
+  val evictBit = 26
+  val lineBit = 25
+
+
+  override def needTag: Boolean = true
+  override def instructionCtrlExtension(instruction: Bits, ctrl: InstructionCtrl): Unit = {
+    when(instruction === M"00001--------------------0001011" || ctrl.fencei){
+      applyTag(ctrl)
+      ctrl.instVal := True
+      ctrl.op1 := OP1.RS
+      ctrl.alu := ALU.COPY1
+      ctrl.men := True
+      ctrl.useSrc1 := True
+      ctrl.m := M.XWR
+    }
   }
 
   override def getAvalon(): AvalonMMBus = memBus.toAvalon()

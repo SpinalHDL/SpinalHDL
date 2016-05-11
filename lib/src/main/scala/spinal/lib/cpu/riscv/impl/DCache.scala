@@ -106,6 +106,7 @@ class DataCache(implicit p : DataCacheConfig) extends Component{
   val io = new Bundle{
     val cpu = slave(DataCacheCpuBus())
     val mem = master(DataCacheMemBus())
+    val flushDone = out Bool //It pulse at the same time than the manager.request.fire
   }
   val haltCpu = False
   val lineWidth = bytePerLine*8
@@ -172,8 +173,8 @@ class DataCache(implicit p : DataCacheConfig) extends Component{
 
   val dataReadedValue = Vec(id => RegNext(ways(id).dataReadRsp),ways.length)
 
-  
-  
+
+
 
   val victim = new Area{
     val requestIn = Stream(cloneable(new Bundle{
@@ -247,6 +248,8 @@ class DataCache(implicit p : DataCacheConfig) extends Component{
   }
 
   val manager = new Area {
+    io.flushDone := False
+
     val request = io.cpu.cmd.haltWhen(haltCpu).stage()
     request.ready := !request.valid
     //Evict the cache after reset
@@ -354,6 +357,7 @@ class DataCache(implicit p : DataCacheConfig) extends Component{
               //Wait tag read
               flushAllState := False
               request.ready := flushAllDone
+              io.flushDone := flushAllDone
             }
           } otherwise {
             when(delayedValid) {
@@ -370,6 +374,7 @@ class DataCache(implicit p : DataCacheConfig) extends Component{
                 tagsWriteCmd.data.used := False
               } otherwise{
                 request.ready := True
+                io.flushDone := True
               }
             }
           }

@@ -19,8 +19,8 @@ class NativeInstructionBusExtension extends CoreExtension with AvalonProvider{
     memBus.rsp >> core.iRsp
     if(memBus.branchCachePort != null) memBus.branchCachePort <> core.brancheCache.readSyncPort
 
-    core.iCacheFlush.cmd.ready := True
-    core.iCacheFlush.rsp := core.iCacheFlush.cmd.valid
+//    core.iCacheFlush.cmd.ready := True
+//    core.iCacheFlush.rsp := core.iCacheFlush.cmd.valid
   }
 
   override def getAvalon(): AvalonMMBus = memBus.toAvalon()
@@ -54,7 +54,15 @@ class CachedInstructionBusExtension(c : InstructionCacheConfig,cutCpuCmdReady : 
     memBus = master(InstructionCacheMemBus()(c)).setName("io_i")
     memBus <> cache.io.mem
 
-    cache.io.flush <> core.iCacheFlush
+    val iCacheflushEmitter = EventEmitter(on=cache.io.flush.cmd)
+
+    when(core.execute1.inInst.valid && core.execute1.inInst.ctrl.fencei){
+      //core.prefetch.halt := True
+      when(core.execute1.inInst.ready) {
+        //core.execute0.flush := True
+        iCacheflushEmitter.emit()
+      }
+    }
   }
 
   override def getAvalon(): AvalonMMBus = memBus.toAvalon()

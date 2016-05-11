@@ -267,8 +267,6 @@ class Core(implicit val c : CoreConfig) extends Component{
   //Instruction bus
   val iCmd = Stream(CoreInstructionCmd())
   val iRsp = Stream(CoreInstructionRsp())
-  val iCacheFlush = InstructionCacheFlushBus()
-  iCacheFlush.cmd.valid.default(False)
 
   //Data bus
   val dCmd = Stream(CoreDataCmd())
@@ -428,15 +426,15 @@ class Core(implicit val c : CoreConfig) extends Component{
     outInst.src1 := Mux(!addr1IsZero, src1, B(0, 32 bit))
     outInst.alu_op0 := outInst.ctrl.op0.map(
       default -> outInst.src0,
-      OP1.IMU -> imm.u.resized,
-      OP1.IMZ -> imm.z.resized,
-      OP1.IMJB -> brjmpImm
+      OP0.IMU -> imm.u.resized,
+      OP0.IMZ -> imm.z.resized,
+      OP0.IMJB -> brjmpImm
     )
     outInst.alu_op1 := outInst.ctrl.op1.map(
       default -> outInst.src1,
-      OP2.IMI -> imm.i_sext.resized,
-      OP2.IMS -> imm.s_sext.resized,
-      OP2.PC1 -> inInst.pc.asBits
+      OP1.IMI -> imm.i_sext.resized,
+      OP1.IMS -> imm.s_sext.resized,
+      OP1.PC1 -> inInst.pc.asBits
     )
     outInst.predictorHasBranch := pcLoad.valid
     outInst.branchHistory.valid := branchCacheHit
@@ -502,7 +500,7 @@ class Core(implicit val c : CoreConfig) extends Component{
     outInst.src1 := inInst.src1
     outInst.result := alu.io.result
     outInst.adder := alu.io.adder
-    outInst.pcPlus4 := inInst.pc + 4
+    outInst.pcPlus4 := inInst.pc + 4 //TODO move to next stage if there is no branch prediction
     outInst.needMemRsp := inInst.ctrl.men && inInst.ctrl.m === M.XRD
     outInst.dCmdAddress := dCmd.address
 

@@ -89,8 +89,8 @@ class MulExtension extends CoreExtension{
     when(instruction === MULX){
       applyTag(ctrl)
       ctrl.instVal := True
-      ctrl.op0 := OP1.RS
-      ctrl.op1 := OP2.RS
+      ctrl.op0 := OP0.RS
+      ctrl.op1 := OP1.RS
       ctrl.wb  := WB.ALU1
       ctrl.rfen := True
       ctrl.execute0AluBypass := False
