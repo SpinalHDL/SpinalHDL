@@ -37,7 +37,7 @@ object CoreUut{
       addrWidth = 32,
       startAddress = 0x200,
       regFileReadyKind = sync,
-      branchPrediction = dynamic,
+      branchPrediction = disable,
       bypassExecute0 = true,
       bypassExecute1 = true,
       bypassWriteBack = true,

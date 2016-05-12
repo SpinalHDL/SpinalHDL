@@ -59,9 +59,9 @@ architecture arch of CoreWrapper_tb is
   constant doTestWithStall : Boolean := true;
   constant doTestWithFlush : Boolean := true;
   constant doBench : Boolean := true;
-  constant doBenchtWithStall : Boolean := true;
-  constant doBenchtWithFlush : Boolean := true;
-  constant doBenchtWithInterrupt : Boolean := true;
+  constant doBenchtWithStall : Boolean := false;
+  constant doBenchtWithFlush : Boolean := false;
+  constant doBenchtWithInterrupt : Boolean := false;
   
   
   constant allowRomWriteWhenBench : Boolean := true;

@@ -132,7 +132,7 @@ class MandelbrotSblDemo(frameAddressOffset: Int, p: MandelbrotCoreParameters, co
     //Translate the color Flow ino a Stream and syncronise/bufferise to the VgaClk by using a cross clock fifo
     val fifoSize = 512
     val (colorStream, colorStreamOccupancy) = colorFlow.toStream.queueWithPushOccupancy(fifoSize, vgaMemoryClk, vgaClk)
-    vga.ctrl.io.colorStream << colorStream
+    vga.ctrl.io.pixels << colorStream
 
     //Halt the vga read cmd stream if there is to mutch pending command or if the fifo is near than full
     io.vgaReadCmd << dma.io.sblReadCmd.haltWhen(pendingCmd === pendingCmd.maxValue || RegNext(colorStreamOccupancy) > fifoSize - 128)

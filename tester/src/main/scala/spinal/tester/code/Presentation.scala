@@ -243,8 +243,8 @@ object C9 {
     }
 
     var sum = io.sources(0)
-    for (i <- 1 until sourceCount) {
-      sum = sum + io.sources(i)
+    for (i <- 0 until sourceCount) {
+      sum \= sum + io.sources(i)
     }
     io.result := sum
 
@@ -1068,7 +1068,6 @@ object RgbToGray{
     io.wr := True
     io.data := gray
 
-    // When clear occurs, both async reset of wr and sync reset of address, gray
     when(io.clear){
       gray := 0
       address.clear()

@@ -53,6 +53,8 @@ case class CoreConfig(val pcWidth : Int = 32,
     extensions += that
     that
   }
+
+  def needExecute0PcPlus4 = true //branchPrediction != disable
 }
 
 case class CoreInstructionCmd(implicit p : CoreConfig) extends Bundle{
@@ -237,7 +239,7 @@ case class CoreExecute0Output(implicit p : CoreConfig) extends Bundle{
   val adder = UInt(32 bit)
   val predictorHasBranch = Bool
   val branchHistory = Flow(SInt(p.branchPredictorHistoryWidth bit))
-  val pcPlus4 = UInt(32 bit)
+  val pcPlus4 = if(p.needExecute0PcPlus4) UInt(32 bit) else null
   val pc_sel = PC()
   val unalignedMemoryAccessException = Bool
   val needMemRsp = Bool
@@ -500,7 +502,7 @@ class Core(implicit val c : CoreConfig) extends Component{
     outInst.src1 := inInst.src1
     outInst.result := alu.io.result
     outInst.adder := alu.io.adder
-    outInst.pcPlus4 := inInst.pc + 4 //TODO move to next stage if there is no branch prediction
+    if(c.needExecute0PcPlus4) outInst.pcPlus4 := inInst.pc + 4
     outInst.needMemRsp := inInst.ctrl.men && inInst.ctrl.m === M.XRD
     outInst.dCmdAddress := dCmd.address
 
@@ -558,10 +560,13 @@ class Core(implicit val c : CoreConfig) extends Component{
       default -> !inInst.predictorHasBranch
     )
 
-    pcLoad.payload := pc_sel.map(
-      PC.INC -> inInst.pcPlus4,
-      default -> inInst.adder
-    )
+    pcLoad.payload := (c.branchPrediction match {
+      case `disable` => inInst.adder
+      case _ => pc_sel.map(
+        PC.INC -> inInst.pcPlus4,
+        default -> inInst.adder
+      )
+    })
 
     // dynamic branch predictor history update
     when(inInst.fire && inInst.ctrl.br =/= BR.JR && inInst.ctrl.br =/= BR.N && inInst.ctrl.br =/= BR.J){
@@ -585,7 +590,7 @@ class Core(implicit val c : CoreConfig) extends Component{
     outInst.regFileAddress := inInst.instruction(dstRange).asUInt
     outInst.ctrl := inInst.ctrl
     outInst.instruction := inInst.instruction
-    outInst.pcPlus4 := inInst.pcPlus4
+    outInst.pcPlus4 := (if(c.needExecute0PcPlus4) inInst.pcPlus4 else inInst.pc + 4)
     outInst.unalignedMemoryAccessException := inInst.unalignedMemoryAccessException
     outInst.needMemRsp := inInst.needMemRsp
     outInst.dCmdAddress := inInst.dCmdAddress

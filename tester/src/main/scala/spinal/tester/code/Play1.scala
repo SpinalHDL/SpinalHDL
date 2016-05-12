@@ -1439,10 +1439,10 @@ object BlueVgaPlay {
     vgaCtrl.io.softReset := False
     vgaCtrl.io.timings.setAs_h640_v480_r60 //Static timing for 640*480 pixel at 60HZ
     vgaCtrl.io.vga <> io.vga
-    vgaCtrl.io.colorStream.valid := True
-    vgaCtrl.io.colorStream.r := 255
-    vgaCtrl.io.colorStream.g := 0
-    vgaCtrl.io.colorStream.b := 0
+    vgaCtrl.io.pixels.valid := True
+    vgaCtrl.io.pixels.r := 255
+    vgaCtrl.io.pixels.g := 0
+    vgaCtrl.io.pixels.b := 0
   }
 
   def main(args: Array[String]): Unit = {

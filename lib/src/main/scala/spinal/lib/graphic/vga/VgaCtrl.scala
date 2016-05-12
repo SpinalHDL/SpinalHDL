@@ -6,6 +6,7 @@ import spinal.lib.bus.neutral.NeutralStreamDma
 import spinal.lib.graphic.{RgbConfig, Rgb}
 import spinal.lib.tool.QSysify
 
+
 case class VgaTimingsHV(timingsWidth: Int) extends Bundle {
   val colorStart = UInt(timingsWidth bit)
   val colorEnd = UInt(timingsWidth bit)
@@ -46,7 +47,7 @@ class VgaCtrl(rgbConfig: RgbConfig, timingsWidth: Int = 12) extends Component {
     val timings = in(VgaTimings(timingsWidth))
 
     val frameStart = out Bool
-    val colorStream = slave Stream (Rgb(rgbConfig))
+    val pixels = slave Stream (Rgb(rgbConfig))
     val vga = master(Vga(rgbConfig))
 
     val error = out Bool
@@ -80,20 +81,20 @@ class VgaCtrl(rgbConfig: RgbConfig, timingsWidth: Int = 12) extends Component {
   val h = HVArea(io.timings.h, True)
   val v = HVArea(io.timings.v, h.syncEnd)
   val colorEn = h.colorEn && v.colorEn
-  io.colorStream.ready := colorEn
-  io.error := colorEn && ! io.colorStream.valid
+  io.pixels.ready := colorEn
+  io.error := colorEn && ! io.pixels.valid
 
   io.frameStart := v.syncEnd
 
   io.vga.hSync := h.sync
   io.vga.vSync := v.sync
   io.vga.colorEn := colorEn
-  io.vga.color := io.colorStream.payload
+  io.vga.color := io.pixels.payload
 
 
   //Can be called by parent component to make the VgaCtrl autonom by using a Stream of fragment to feed it.
   def feedWith(that : Stream[Fragment[Rgb]]): Unit ={
-    io.colorStream << that.toStreamOfFragment
+    io.pixels << that.toStreamOfFragment
 
     val error = RegInit(False)
     when(io.error){
