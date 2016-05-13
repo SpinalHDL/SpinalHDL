@@ -1038,10 +1038,83 @@ object t14{
 
 
 
+import spinal.core._
+
+class AND_Gate extends Component {
+
+  /**
+   * This is the component definition that corresponds to
+   * the VHDL entity of the component
+   */
+  val io = new Bundle {
+    val a = in Bool
+    val b = in Bool
+    val c = out Bool
+  }
+
+  // Here we define some asynchronous logic
+  io.c := io.a & io.b
+}
+
+object AND_Gate {
+  // Let's go
+  def main(args: Array[String]) {
+    SpinalVhdl(new AND_Gate)
+  }
+}
 
 
 
+class CustomClockExample extends Component {
+  val io = new Bundle {
+    val clk = in Bool
+    val resetn = in Bool
+    val result = out UInt (4 bits)
+  }
 
+  val myClockDomainConfig = ClockDomainConfig(
+    clockEdge = RISING,
+    resetKind = ASYNC,
+    resetActiveLevel = LOW
+  )
+  val myClockDomain = ClockDomain(io.clk,io.resetn,config = myClockDomainConfig)
+
+  val myArea = new ClockingArea(myClockDomain){
+    val myReg = Reg(UInt(4 bits)) init(7)
+    myReg := myReg + 1
+
+    io.result := myReg
+  }
+}
+
+
+object CustomClockExample{
+  def main(args: Array[String]) {
+    SpinalVhdl(new CustomClockExample)
+  }
+}
+
+
+
+class ExternalClockExample extends Component {
+  val io = new Bundle {
+    val result = out UInt (4 bits)
+  }
+  val myClockDomain = ClockDomain.external("myClockName")
+  val myArea = new ClockingArea(myClockDomain){
+    val myReg = Reg(UInt(4 bits)) init(7)
+    myReg := myReg + 1
+
+    io.result := myReg
+  }
+}
+
+
+object ExternalClockExample{
+  def main(args: Array[String]) {
+    SpinalVhdl(new ExternalClockExample)
+  }
+}
 
 
 

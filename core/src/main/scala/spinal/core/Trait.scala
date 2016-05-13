@@ -116,7 +116,7 @@ object SyncNode {
 abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends Node {
   inputs += clockDomain.clock
   inputs += clockDomain.clockEnable
-  inputs += Bool(!clockDomain.config.resetActiveHigh)
+  inputs += Bool(clockDomain.config.resetActiveLevel == LOW)
 
   override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
     case SyncNode.getClockInputId => (0,0)
@@ -353,7 +353,7 @@ class ClockingArea(clockDomain: ClockDomain) extends Area with DelayedInit {
 }
 
 class ClockEnableArea(clockEnable: Bool) extends Area with DelayedInit {
-  val newClockEnable : Bool = if (ClockDomain.current.config.clockEnableActiveHigh)
+  val newClockEnable : Bool = if (ClockDomain.current.config.clockEnableActiveLevel == HIGH)
     ClockDomain.current.readClockEnableWire & clockEnable
   else
     ClockDomain.current.readClockEnableWire | !clockEnable
@@ -374,7 +374,7 @@ class ClockEnableArea(clockEnable: Bool) extends Area with DelayedInit {
 
 class ResetArea(reset: Bool, cumulative: Boolean) extends Area with DelayedInit {
 
-  val newReset : Bool = if (ClockDomain.current.config.resetActiveHigh)
+  val newReset : Bool = if (ClockDomain.current.config.resetActiveLevel == HIGH)
     (if (cumulative) (ClockDomain.current.readResetWire & reset) else reset)
   else
     (if (cumulative) (ClockDomain.current.readResetWire | !reset) else reset)

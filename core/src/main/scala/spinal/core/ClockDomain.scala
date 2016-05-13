@@ -36,6 +36,13 @@ object ASYNC extends ResetKind
 
 object SYNC extends ResetKind
 
+trait ActiveKind
+
+object HIGH extends ActiveKind
+
+object LOW extends ActiveKind
+
+
 //trait ClockDomainBoolFunction
 //object FUNCTION_CLOCK extends ClockDomainBoolFunction
 //object FUNCTION_RESET extends ClockDomainBoolFunction
@@ -44,7 +51,7 @@ object SYNC extends ResetKind
 
 // Default configuration of clock domain is :
 // Rising edge clock with optional asyncronous reset active high and optional active high clockEnable
-case class ClockDomainConfig(clockEdge: EdgeKind = RISING, resetKind: ResetKind = ASYNC, resetActiveHigh: Boolean = true, clockEnableActiveHigh: Boolean = true) {
+case class ClockDomainConfig(clockEdge: EdgeKind = RISING, resetKind: ResetKind = ASYNC, resetActiveLevel: ActiveKind = HIGH, clockEnableActiveLevel: ActiveKind = HIGH) {
 
 }
 
@@ -76,13 +83,13 @@ object ClockDomain {
     var reset: Bool = null
     if (withReset) {
       reset = Bool()
-      reset.setName((if (name != "") name + "_reset" else "reset") + (if (config.resetActiveHigh) "" else "N"))
+      reset.setName((if (name != "") name + "_reset" else "reset") + (if (config.resetActiveLevel == HIGH) "" else "N"))
     }
 
     var clockEnable: Bool = null
     if (withClockEnable) {
       clockEnable = Bool()
-      clockEnable.setName((if (name != "") name + "_clkEn" else "clkEn") + (if (config.resetActiveHigh) "" else "N"))
+      clockEnable.setName((if (name != "") name + "_clkEn" else "clkEn") + (if (config.resetActiveLevel == HIGH) "" else "N"))
     }
 
     val clockDomain = ClockDomain(clock, reset, clockEnable, frequency,config)
@@ -155,11 +162,11 @@ class ClockDomain(val config: ClockDomainConfig, val clock: Bool, val reset: Boo
   def hasReset = reset != null
   def push() : Unit = ClockDomain.push(this)
   def pop(): Unit = ClockDomain.pop(this)
-  def isResetActive = if (config.resetActiveHigh) readResetWire else !readResetWire
-  def isClockEnableActive = if (config.clockEnableActiveHigh) readClockEnableWire else !readClockEnableWire
+  def isResetActive = if (config.resetActiveLevel == HIGH) readResetWire else !readResetWire
+  def isClockEnableActive = if (config.clockEnableActiveLevel == HIGH) readClockEnableWire else !readClockEnableWire
   def readClockWire = if (null == clock) Bool(config.clockEdge == FALLING) else Data.doPull(clock, Component.current, true, true)
-  def readResetWire = if (null == reset) Bool(!config.resetActiveHigh) else Data.doPull(reset, Component.current, true, true)
-  def readClockEnableWire = if (null == clockEnable) Bool(config.clockEnableActiveHigh) else Data.doPull(clockEnable, Component.current, true, true)
+  def readResetWire = if (null == reset) Bool(config.resetActiveLevel == LOW) else Data.doPull(reset, Component.current, true, true)
+  def readClockEnableWire = if (null == clockEnable) Bool(config.clockEnableActiveLevel == HIGH) else Data.doPull(clockEnable, Component.current, true, true)
 
   val syncroneWith = ArrayBuffer[ClockDomain]()
 

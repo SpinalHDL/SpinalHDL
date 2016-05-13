@@ -1453,7 +1453,7 @@ class VhdlBackend extends Backend with VhdlBase {
         ret ++= s"${tabStr}begin\n"
         inc
         if (asyncReset) {
-          ret ++= s"${tabStr}if ${emitReference(reset)} = \'${if (clockDomain.config.resetActiveHigh) 1 else 0}\' then\n";
+          ret ++= s"${tabStr}if ${emitReference(reset)} = \'${if (clockDomain.config.resetActiveLevel == HIGH) 1 else 0}\' then\n";
           inc
           emitRegsInitialValue(initialValueAssignement, tabStr)
           dec
@@ -1464,11 +1464,11 @@ class VhdlBackend extends Backend with VhdlBase {
           inc
         }
         if (clockEnable != null) {
-          ret ++= s"${tabStr}if ${emitReference(clockEnable)} = \'${if (clockDomain.config.clockEnableActiveHigh) 1 else 0}\' then\n"
+          ret ++= s"${tabStr}if ${emitReference(clockEnable)} = \'${if (clockDomain.config.clockEnableActiveLevel == HIGH) 1 else 0}\' then\n"
           inc
         }
         if (syncReset) {
-          ret ++= s"${tabStr}if ${emitReference(reset)} = \'${if (clockDomain.config.resetActiveHigh) 1 else 0}\' then\n"
+          ret ++= s"${tabStr}if ${emitReference(reset)} = \'${if (clockDomain.config.resetActiveLevel == HIGH) 1 else 0}\' then\n"
           inc
           emitRegsInitialValue(initialValueAssignement, tabStr)
           dec
