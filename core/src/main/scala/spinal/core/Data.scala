@@ -103,7 +103,8 @@ object Data {
   }
 }
 
-class DataPimper[T <: Data](val pimpIt: T) extends AnyVal{
+//Should not extends AnyVal, Because it create kind of strange call stack move that make error reporting miss accurate
+class DataPimper[T <: Data](val pimpIt: T){
   def ===(that: T): Bool = pimpIt.isEguals(that)
   def =/=(that: T): Bool = pimpIt.isNotEguals(that)
   @deprecated("Use =/= instead")
@@ -191,16 +192,20 @@ class WidthCheckerEguals(consumer : Node,provider : Node) extends WidthChecker(c
 //  }
 }
 
-class BitVectorPimper[T <: BitVector](val pimpIt: T) extends AnyVal {
+//Should not extends AnyVal, Because it create kind of strange call stack move that make error reporting miss accurate
+class BitVectorPimper[T <: BitVector](val pimpIt: T)  {
   def :=(that: T): Unit ={
   //  new WidthCheckerEguals(pimpIt,that)
     pimpIt assignFrom(that, false)
   }
+
+  @deprecated
   def :<=(that: T): Unit = {
   //  new WidthCheckerReduce(pimpIt,that)
     pimpIt assignFrom(that.resized, false)
   }
 
+  @deprecated
   def :>=(that: T): Unit = {
   //  new WidthCheckerAugment(pimpIt,that)
     pimpIt assignFrom(that.resized, false)

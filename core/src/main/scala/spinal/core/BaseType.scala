@@ -154,8 +154,13 @@ object BaseType {
     } else {
       val overrided = consumer.inputs(consumerInputId)
       if (overrided != null && !overrided.isInstanceOf[NoneNode] && !overrided.isInstanceOf[Reg])
-        if (consumer.globalData.overridingAssignementWarnings)
-          SpinalWarning(s"$baseType is overridden at ${ScalaLocated.getScalaTraceSmart}")
+        if (consumer.globalData.overridingAssignementWarnings) {
+          val exept = new Throwable()
+          val trace = ScalaLocated.getScalaTraceSmart
+          Component.current.popTasks += (() => {
+            SpinalWarning(s"$baseType is overridden at ${trace}")
+          })
+        }
     }
     (consumer, consumerInputId)
   }

@@ -466,6 +466,29 @@ object PlayFix {
 }
 
 
+
+
+object PlayOverride {
+
+  class TopLevel extends Component {
+    val cmd = in UInt(4 bits)
+    val rsp = out UInt(4 bits)
+
+    val myArea = new Area{
+      val toto = RegNext(cmd)
+      toto := cmd
+    }
+    rsp := 0
+    rsp := cmd
+    True := False
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
 object PlayMux {
 
   class TopLevel extends Component {

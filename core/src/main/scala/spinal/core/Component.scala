@@ -53,14 +53,15 @@ object Component {
 }
 
 
-// TODO Delayed init is deprecated, should be replaced by the App trait
-abstract class Component extends NameableByComponent with GlobalDataUser with ScalaLocated with DelayedInit {
+// TODO Delayed init is deprecated
+abstract class Component extends NameableByComponent with GlobalDataUser with ScalaLocated with DelayedInit with Stackable{
 
   override def delayedInit(body: => Unit) = {
     body
 
     if ((body _).getClass.getDeclaringClass == this.getClass) {
       // this.io.flatten.foreach(_.isIo = true)
+      this.nameElements()
       Component.pop(this)
       this.userParentCalledDef
     }
@@ -93,7 +94,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
 
   val userCache = mutable.Map[Object, mutable.Map[Object, Object]]()
   private[core] val localScope = new Scope()
-  //private[core] val postCreationTask = mutable.ArrayBuffer[() => Unit]()
+  private[core] val popTasks = mutable.ArrayBuffer[() => Unit]()
   private[core] val kindsOutputsToBindings = mutable.Map[BaseType, BaseType]()
   private[core] val kindsOutputsBindings = mutable.Set[BaseType]()
   private[core] val additionalNodesRoot = mutable.Set[BaseType]()
@@ -238,6 +239,13 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
       ret += getRootParent(e)
     }
     ret.toSeq.sortBy(_.instanceCounter)
+  }
+
+  override def popedEvent(): Unit = {
+    for(t <- popTasks){
+      t()
+    }
+    popTasks.clear()
   }
 }
 

@@ -421,7 +421,7 @@ class GlobalData {
   val clockSyncronous = mutable.HashMap[Bool,ArrayBuffer[Bool]]()
   // val nodeWidthInferredCheck = ArrayBuffer[() => Unit]()
   val clockDomainStack = new SafeStack[ClockDomain]
-  val componentStack = new SafeStack[Component]{
+  val componentStack = new SafeStackWithStackable[Component]{
 //    override def pop(e: Component): Unit = {
 //      for(task <- e.postCreationTask){
 //        task()

@@ -72,7 +72,7 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   implicit def StringToUInt(that: String) : UInt = bitVectorStringParser(spinal.core.U, that, signed = false)
   implicit def StringToSInt(that: String) : SInt = bitVectorStringParser(spinal.core.S, that, signed = true)
 
-  implicit class LiteralBuilder(private val sc: StringContext) extends AnyVal {
+  implicit class LiteralBuilder(private val sc: StringContext) {
     def B(args: Any*): Bits = bitVectorStringParser(spinal.core.B, getString(args), signed = false)
     def U(args: Any*): UInt = bitVectorStringParser(spinal.core.U, getString(args), signed = false)
     def S(args: Any*): SInt = bitVectorStringParser(spinal.core.S, getString(args), signed = true)
