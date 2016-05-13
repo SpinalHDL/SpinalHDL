@@ -41,8 +41,13 @@ class Bool extends BaseType {
   def |(b: Bool): Bool = this || b
   def set() = this := True
   def clear() = this := False
+  def setWhen(cond : Bool) : Bool = {when(cond){this := True} ; this}
+  def clearWhen(cond : Bool): Bool = {when(cond){this := False} ; this}
+
   def rise() = this && ! RegNext(this)
   def fall() = ! this && RegNext(this)
+  def rise(initAt : Bool) = this && ! RegNext(this).init(initAt)
+  def fall(initAt : Bool) = ! this && RegNext(this).init(initAt)
 
   private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,B,B)", sel, whenTrue, whenFalse)
 

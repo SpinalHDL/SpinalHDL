@@ -68,8 +68,8 @@ class VgaCtrl(rgbConfig: RgbConfig, timingsWidth: Int = 12) extends Component {
       }
     }
 
-    val sync = BoolReg(syncStart, syncEnd) init(False)
-    val colorEn = BoolReg(colorStart, colorEnd) init(False)
+    val sync = RegInit(False) setWhen(syncStart) clearWhen(syncEnd)
+    val colorEn = RegInit(False) setWhen(colorStart) clearWhen(colorEnd)
 
     when(io.softReset) {
       counter := 0
