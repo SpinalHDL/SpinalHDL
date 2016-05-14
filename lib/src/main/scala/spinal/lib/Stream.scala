@@ -194,6 +194,25 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
     ret
   }
 
+  //Not tested, cut all path, but divide the bandwidth by 2, 1 cycle latency
+  def halfPipe(): Stream[T] = {
+    val ret = Stream(_dataType)
+
+    val rValid = RegInit(False)
+    val rReady = RegInit(True)
+    val rPayload = Reg(dataType)
+
+    when(!rValid){
+      rValid := this.valid
+      rReady := !this.valid
+      rPayload := this.payload
+    } otherwise {
+      rValid := !ret.ready
+    }
+
+    ret
+  }
+
   def translateWith[T2 <: Data](that: T2): Stream[T2] = {
     val next = new Stream(that)
     next.valid := this.valid
@@ -518,15 +537,15 @@ class StreamFifo[T <: Data](dataType: T, depth: Int) extends Component {
 //}
 
 
-class StreamFifoCC[T <: Data](dataType: T, val depth: Int, pushClockDomain: ClockDomain, popClockDomain: ClockDomain) extends Component {
+class StreamFifoCC[T <: Data](dataType: T, val depth: Int, pushClock: ClockDomain, popClock: ClockDomain) extends Component {
   assert(isPow2(depth))
   assert(depth >= 2)
 
   val io = new Bundle {
     val push = slave Stream (dataType)
     val pop = master Stream (dataType)
-    val pushOccupancy = out UInt (log2Up(depth) + 1 bit)
-    val popOccupancy = out UInt (log2Up(depth) + 1 bit)
+    val pushOccupancy = out UInt (log2Up(depth+1)  bit)
+    val popOccupancy = out UInt (log2Up(depth+1) bit)
   }
 
   val ptrWidth = log2Up(depth) + 1
@@ -538,7 +557,7 @@ class StreamFifoCC[T <: Data](dataType: T, val depth: Int, pushClockDomain: Cloc
   val popToPushGray = Bits(ptrWidth bit)
   val pushToPopGray = Bits(ptrWidth bit)
 
-  val pushCC = new ClockingArea(pushClockDomain) {
+  val pushCC = new ClockingArea(pushClock) {
     val pushPtr = Counter(depth << 1)
     val pushPtrGray = RegNext(toGray(pushPtr.valueNext))
     val popPtrGray = BufferCC(popToPushGray, B(0,ptrWidth bit))
@@ -550,10 +569,10 @@ class StreamFifoCC[T <: Data](dataType: T, val depth: Int, pushClockDomain: Cloc
       pushPtr.increment()
     }
 
-    io.pushOccupancy := pushPtr - fromGray(popPtrGray)
+    io.pushOccupancy := (pushPtr - fromGray(popPtrGray)).resized
   }
 
-  val popCC = new ClockingArea(popClockDomain) {
+  val popCC = new ClockingArea(popClock) {
     val popPtr = Counter(depth << 1)
     val popPtrGray = RegNext(toGray(popPtr.valueNext))
     val pushPtrGray = BufferCC(pushToPopGray, B(0,ptrWidth bit))
@@ -565,7 +584,7 @@ class StreamFifoCC[T <: Data](dataType: T, val depth: Int, pushClockDomain: Cloc
       popPtr.increment()
     }
 
-    io.popOccupancy := fromGray(pushPtrGray) - popPtr
+    io.popOccupancy := (fromGray(pushPtrGray) - popPtr).resized
   }
 
   pushToPopGray := pushCC.pushPtrGray
@@ -573,41 +592,41 @@ class StreamFifoCC[T <: Data](dataType: T, val depth: Int, pushClockDomain: Cloc
 }
 
 object StreamCCByToggle {
-  def apply[T <: Data](input: Stream[T], clockIn: ClockDomain, clockOut: ClockDomain): Stream[T] = {
-    val c = new StreamCCByToggle[T](input.payload, clockIn, clockOut)
-    c.io.input connectFrom input
-    return c.io.output
+    def apply[T <: Data](push: Stream[T], pushClock: ClockDomain, popClock: ClockDomain): Stream[T] = {
+    val c = new StreamCCByToggle[T](push.payload, pushClock, popClock)
+    c.io.push << push
+    return c.io.pop
   }
 }
 
 
-class StreamCCByToggle[T <: Data](dataType: T, clockIn: ClockDomain, clockOut: ClockDomain) extends Component {
+class StreamCCByToggle[T <: Data](dataType: T, pushClock: ClockDomain, popClock: ClockDomain) extends Component {
   val io = new Bundle {
-    val input = slave Stream (dataType)
-    val output = master Stream (dataType)
+    val push = slave Stream (dataType)
+    val pop = master Stream (dataType)
   }
 
   val outHitSignal = Bool
 
-  val inputArea = new ClockingArea(clockIn) {
+  val inputArea = new ClockingArea(pushClock) {
     val hit = BufferCC(outHitSignal, False)
     val target = RegInit(False)
-    val data = Reg(io.input.payload)
-    io.input.ready := False
-    when(io.input.valid && hit === target) {
+    val data = Reg(io.push.payload)
+    io.push.ready := False
+    when(io.push.valid && hit === target) {
       target := !target
-      data := io.input.payload
-      io.input.ready := True
+      data := io.push.payload
+      io.push.ready := True
     }
   }
 
 
-  val outputArea = new ClockingArea(clockOut) {
+  val outputArea = new ClockingArea(popClock) {
     val target = BufferCC(inputArea.target, False)
     val hit = RegInit(False)
     outHitSignal := hit
 
-    val stream = io.input.clone
+    val stream = io.push.clone
     stream.valid := (target =/= hit)
     stream.payload := inputArea.data
     stream.payload.addTag(crossClockDomain)
@@ -616,7 +635,7 @@ class StreamCCByToggle[T <: Data](dataType: T, clockIn: ClockDomain, clockOut: C
       hit := !hit
     }
 
-    io.output << stream.m2sPipe()
+    io.pop << stream.m2sPipe()
   }
 }
 

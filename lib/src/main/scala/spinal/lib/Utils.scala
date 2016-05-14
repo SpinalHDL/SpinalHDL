@@ -31,7 +31,6 @@ import scala.collection.mutable.ArrayBuffer
 
 object OHToUInt {
   def apply(bitVector: BitVector): UInt = apply(bitVector.asBools)
-
   def apply(bools: collection.IndexedSeq[Bool]): UInt = {
     val boolsSize = bools.size
     if (boolsSize < 2) return U(0)
@@ -55,9 +54,9 @@ object OHToUInt {
 }
 
 object CountOne{
-  def apply(thats : Bool*) : UInt = list(thats)
-  def apply(thats : Bits) : UInt = list(thats.asBools)
-  def list(thats : Seq[Bool]) : UInt = {
+  def args(thats : Bool*) : UInt = apply(thats)
+  def apply(thats : BitVector) : UInt = apply(thats.asBools)
+  def apply(thats : Seq[Bool]) : UInt = {
     var ret = UInt(log2Up(thats.length+1) bit)
     ret := 0
     for(e <- thats){
@@ -363,9 +362,11 @@ class SpinalMapOld[Key <: Data, Value <: Data](pairs: Iterable[(() => Key, () =>
 
 
 
-object latencyAnalysis {
+object LatencyAnalysis {
   //Don't care about clock domain
-  def apply(paths: Node*): Integer = {
+  def apply(paths: Node*): Integer = list(paths)
+
+  def list(paths: Seq[Node]): Integer = {
     var stack = 0;
     for (i <- (0 to paths.size - 2)) {
       stack = stack + impl(paths(i), paths(i + 1))
@@ -537,24 +538,24 @@ class TraversableOncePimped[T <: Data](pimped: scala.collection.Iterable[T]) {
 
 
 object Delay {
-  def apply[T <: Data](that: T, length: Int): T = {
-    length match {
+  def apply[T <: Data](that: T, cycleCount: Int): T = {
+    cycleCount match {
       case 0 => that
-      case _ => Delay(RegNext(that), length - 1)
+      case _ => Delay(RegNext(that), cycleCount - 1)
     }
   }
 }
 
 
 object Delays {
-  def apply[T <: Data](that: T, length: Int): Vec[T] = {
+  def apply[T <: Data](that: T, delayMax: Int): Vec[T] = {
     def builder(that: T, left: Int): List[T] = {
       left match {
         case 0 => that :: Nil
         case _ => that :: builder(RegNext(that), left - 1)
       }
     }
-    Vec(builder(that, length))
+    Vec(builder(that, delayMax))
   }
 }
 

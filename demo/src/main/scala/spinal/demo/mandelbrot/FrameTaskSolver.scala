@@ -152,7 +152,7 @@ class PixelTaskSolver(p: MandelbrotCoreParameters) extends Component {
   stage2.zXzX := fixMul(stage1.z.x, stage1.z.x)
   stage2.zYzY := fixMul(stage1.z.y, stage1.z.y)
   stage2.zXzY := fixMul(stage1.z.x, stage1.z.y)
-  stage2 assignSomeByName Delay(stage1, latencyAnalysis(stage1.z.x.raw, stage2.zXzX.raw) - 1)
+  stage2 assignSomeByName Delay(stage1, LatencyAnalysis(stage1.z.x.raw, stage2.zXzX.raw) - 1)
 
 
   //Stage3 calculate next position of the iteration (zX,zY)

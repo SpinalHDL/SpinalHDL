@@ -505,6 +505,9 @@ object PlayMux {
 //        }
 //      }
 //    }
+    //CountOne(Seq(True,True))
+    //CountOne(True,True)
+
   }
 
   def main(args: Array[String]): Unit = {

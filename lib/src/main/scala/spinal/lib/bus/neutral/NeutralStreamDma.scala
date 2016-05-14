@@ -145,7 +145,7 @@ object NeutralStreamDma {
       toManyPendingRsp := pendingMemToFifo > c.fifoSize-io.ctrl.cmd.burstLength
       io.ctrl.rsp << memRsp.toStream.queue(c.fifoSize)
     } else new Area{
-      val fifo = new StreamFifoCC(Fragment(Bits(c.dataWidth bit)),c.fifoSize,pushClockDomain = ClockDomain.current,popClockDomain = c.ctrlRspClock)
+      val fifo = new StreamFifoCC(Fragment(Bits(c.dataWidth bit)),c.fifoSize,pushClock = ClockDomain.current,popClock = c.ctrlRspClock)
       fifo.io.push << memRsp.toStream
       fifo.io.pop >> io.ctrl.rsp
 
