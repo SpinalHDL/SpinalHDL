@@ -35,7 +35,7 @@ class JtagFsm(jtag: Jtag) extends Area {
 
   val stateNext = JtagState()
   val state = RegNext(stateNext) randBoot()
-  stateNext := state.map(
+  stateNext := state.mux(
     default -> //reset
       Mux(jtag.tms, RESET, IDLE),
     IDLE ->
@@ -72,7 +72,7 @@ class JtagFsm(jtag: Jtag) extends Area {
 }
 
 
-class JtagTap(val jtag: Jtag, instructionWidth: Int) extends Area {
+class JtagTap(val jtag: Jtag, instructionWidth: Int) extends Area with JtagTapAccess{
   val fsm = new JtagFsm(jtag)
   val instruction = Reg(Bits(instructionWidth bit))
   val instructionShift = Reg(Bits(instructionWidth bit))
@@ -95,6 +95,24 @@ class JtagTap(val jtag: Jtag, instructionWidth: Int) extends Area {
       bypass := jtag.tdi
     }
   }
+
+  //JtagTapAccess impl
+  override def getInstruction(): Bits = instruction
+  override def setInstruction(value: Bits): Unit = instruction := value
+  override def state: JtagState.T = fsm.state
+
+  //Instruction wrappers
+  def idcode(value: Bits)(instructionId: Bits) =
+    new JtagInstructionIdcode(value)(this,instructionId)
+
+  def read[T <: Data](data: T)(instructionId: Bits)   =
+    new JtagInstructionRead(data)(this,instructionId)
+
+  def write[T <: Data](data: T,  cleanUpdate: Boolean = true, readable: Boolean = true)(instructionId: Bits) =
+    new JtagInstructionWrite[T](data,cleanUpdate,readable)(this,instructionId)
+
+  def flowFragmentPush[T <: Data](sink : Flow[Fragment[Bits]],sinkClockDomain : ClockDomain)(instructionId: Bits) =
+    new JtagInstructionFlowFragmentPush(sink,sinkClockDomain)(this,instructionId)
 }
 
 
@@ -106,10 +124,11 @@ class SimpleTap extends Component {
   }
 
   implicit val tap = new JtagTap(io.jtag, 8)
-  val idcodeArea = new JtagInstructionIdcode(B"x87654321", 16)
-  val switchsArea = new JtagInstructionRead(io.switchs, 18)
-  val ledsArea = new JtagInstructionWrite(io.leds, 17, cleanUpdate = false, readable = false)
+  val idcodeArea = tap.idcode(B"x87654321")(16)
+  val switchsArea =tap.read(io.switchs)(18)
+  val ledsArea = tap.write(io.leds)(17)
 }
+
 
 
 object SimpleTap {

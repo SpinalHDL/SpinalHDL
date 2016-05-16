@@ -1069,7 +1069,7 @@ class Backend {
           val filtred = ordred.dropWhile((e) => (e._1 != node || e._2 < outLo || e._3 > outHi)).drop(1).toArray
          // val filtredNode = filtred.map(_._1)
 
-          val wellNameLoop = filtred.reverseIterator.filter{case (n,hi,lo) => n.isInstanceOf[Nameable] && n.asInstanceOf[Nameable].isNamed}.map{case (n,hi,lo)  => n.component.getClass.getSimpleName + "." + n.asInstanceOf[Nameable].getName() + s"($hi:$lo)"}.foldLeft("")(_ + _ + " -> ")
+          val wellNameLoop = filtred.reverseIterator.filter{case (n,hi,lo) => n.isInstanceOf[Nameable] && n.asInstanceOf[Nameable].isNamed}.map{case (n,hi,lo)  => n.component.getClass.getSimpleName + "." + n.asInstanceOf[Nameable].getName() + s"[$hi:$lo]"}.foldLeft("")(_ + _ + " -> ")
           val multiLineLoop = filtred.reverseIterator.map(n => "      " + n.toString).reduceLeft(_ + "\n" + _)
           errors += s"  Combinatorial loop ! ${wellNameLoop}\n${multiLineLoop}"
         }else if (!isNodeCompleted(node)) {

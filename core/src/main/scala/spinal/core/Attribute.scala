@@ -26,7 +26,9 @@ import scala.collection.mutable.ArrayBuffer
 trait AttributeReady {
   private[core] val attributes = ArrayBuffer[Attribute]()
 
-  def add(attribute: Attribute): this.type
+  def addAttribute(attribute: Attribute): this.type
+  def addAttribute(name: String): this.type = addAttribute(new AttributeFlag(name))
+  def addAttribute(name: String,value : String): this.type = addAttribute(new AttributeString(name,value))
 }
 
 trait Attribute {

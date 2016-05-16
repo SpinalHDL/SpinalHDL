@@ -7,33 +7,40 @@ import spinal.lib._
  * Created by PIC32F_USER on 09/04/2016.
  */
 
-class JtagInstruction(val instructionId: Bits)(implicit tap: JtagTap) extends Area {
+trait JtagTapAccess {
+  def jtag : Jtag
+  def state : JtagState.T
+  def getInstruction() : Bits
+  def setInstruction(value : Bits) : Unit
+}
+
+class JtagInstruction(tap: JtagTapAccess,val instructionId: Bits) extends Area {
   def doCapture(): Unit = {}
   def doShift(): Unit = {}
   def doUpdate(): Unit = {}
   def doReset(): Unit = {}
 
-  val instructionHit = tap.instruction === instructionId
+  val instructionHit = tap.getInstruction === instructionId
 
   def calls(): Unit = {
     when(instructionHit) {
-      when(tap.fsm.state === JtagState.DR_CAPTURE) {
+      when(tap.state === JtagState.DR_CAPTURE) {
         doCapture()
       }
-      when(tap.fsm.state === JtagState.DR_SHIFT) {
+      when(tap.state === JtagState.DR_SHIFT) {
         doShift()
       }
-      when(tap.fsm.state === JtagState.DR_UPDATE) {
+      when(tap.state === JtagState.DR_UPDATE) {
         doUpdate()
       }
     }
-    when(tap.fsm.state === JtagState.RESET) {
+    when(tap.state === JtagState.RESET) {
       doReset()
     }
   }
 }
 
-class JtagInstructionWrite[T <: Data](data: T, instructionId: Bits, cleanUpdate: Boolean = true, readable: Boolean = true)(implicit tap: JtagTap) extends JtagInstruction(instructionId) {
+class JtagInstructionWrite[T <: Data](data: T,  cleanUpdate: Boolean = true, readable: Boolean = true) (tap: JtagTapAccess,instructionId: Bits) extends JtagInstruction(tap,instructionId) {
   val shifter = Reg(Bits(data.getBitsWidth bit))
   val dataReg: T = if (cleanUpdate) Reg(data) else null.asInstanceOf[T]
   if (!cleanUpdate)
@@ -53,7 +60,7 @@ class JtagInstructionWrite[T <: Data](data: T, instructionId: Bits, cleanUpdate:
   calls()
 }
 
-class JtagInstructionRead[T <: Data](data: T, instructionId: Bits)(implicit tap: JtagTap) extends JtagInstruction(instructionId) {
+class JtagInstructionRead[T <: Data](data: T) (tap: JtagTapAccess,instructionId: Bits)extends JtagInstruction(tap,instructionId) {
   val shifter = Reg(Bits(data.getBitsWidth bit))
 
 
@@ -70,7 +77,7 @@ class JtagInstructionRead[T <: Data](data: T, instructionId: Bits)(implicit tap:
 }
 
 
-class JtagInstructionIdcode[T <: Data](value: Bits, instructionId: Bits)(implicit tap: JtagTap) extends JtagInstruction(instructionId) {
+class JtagInstructionIdcode[T <: Data](value: Bits)(tap: JtagTapAccess, instructionId: Bits)extends JtagInstruction(tap,instructionId) {
   val shifter = Reg(Bits(32 bit))
 
   override def doShift(): Unit = {
@@ -80,13 +87,13 @@ class JtagInstructionIdcode[T <: Data](value: Bits, instructionId: Bits)(implici
 
   override def doReset(): Unit = {
     shifter := value
-    tap.instruction := instructionId
+    tap.setInstruction(instructionId)
   }
 
   calls()
 }
 
-class JtagInstructionFlowFragmentPush(sink : Flow[Fragment[Bits]],sinkClockDomain : ClockDomain,instructionId: Bits)(implicit tap: JtagTap) extends JtagInstruction(instructionId){
+class JtagInstructionFlowFragmentPush(sink : Flow[Fragment[Bits]],sinkClockDomain : ClockDomain)(tap: JtagTapAccess,instructionId: Bits) extends JtagInstruction(tap,instructionId){
   val source = Flow Fragment(Bits(1 bit))
   source.valid := False
   source.last := tap.jtag.tms

@@ -34,12 +34,12 @@ class CachedDataBusExtension(c : DataCacheConfig,cutCpuCmdReady : Boolean = fals
     cacheDCmd.valid := core.dCmd.valid
     cacheDCmd.wr := core.dCmd.wr
     cacheDCmd.address := core.dCmd.address(core.dCmd.address.high downto 2) @@ U"00"
-    cacheDCmd.data := core.dCmd.size.map (
+    cacheDCmd.data := core.dCmd.size.mux (
       U(0) -> core.dCmd.data(7 downto 0) ## core.dCmd.data(7 downto 0) ## core.dCmd.data(7 downto 0) ## core.dCmd.data(7 downto 0),
       U(1) -> core.dCmd.data(15 downto 0) ## core.dCmd.data(15 downto 0),
       default -> core.dCmd.data(31 downto 0)
     )
-    cacheDCmd.mask := (core.dCmd.size.map (
+    cacheDCmd.mask := (core.dCmd.size.mux (
       U(0) -> B"0001",
       U(1) -> B"0011",
       default -> B"1111"

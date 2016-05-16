@@ -236,7 +236,7 @@ abstract class BaseType extends Node with Data with Nameable {
 
   override def flattenLocalName: Seq[String] = Seq("")
 
-  override def add(attribute: Attribute): this.type = {
+  override def addAttribute(attribute: Attribute): this.type = {
     attributes += attribute
     dontSimplifyIt()
     this

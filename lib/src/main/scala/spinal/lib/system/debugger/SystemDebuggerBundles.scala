@@ -50,7 +50,7 @@ case class SystemDebuggerMemBus(c: SystemDebuggerConfig) extends Bundle with IMa
     mm.write := cmd.valid && cmd.wr
     mm.address := cmd.address(cmd.address.high downto 2) @@ U"00"
     mm.writeData := cmd.data //No allignment needed, done by remote
-    mm.byteEnable := (cmd.size.map (
+    mm.byteEnable := (cmd.size.mux (
       U(0) -> B"0001",
       U(1) -> B"0011",
       default -> B"1111"

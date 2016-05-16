@@ -175,7 +175,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends Node  with Attrib
     readWord
   }
 
-  override def add(attribute: Attribute): this.type = {
+  override def addAttribute(attribute: Attribute): this.type = {
     attributes += attribute
     this
   }

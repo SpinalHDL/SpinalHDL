@@ -77,7 +77,7 @@ class DebugExtension(val clockDomain: ClockDomain) extends CoreExtension{
     val flushIt = RegNext(False)
     val stepIt = RegInit(False)
 
-    val isPipActive = RegNext(RegNext(core.iCmd.valid) || (core.fetch.pendingPrefetch =/= 0) ||  core.decode.inInst.valid ||  core.execute0.inInst.valid ||  core.execute1.inInst.valid || core.writeBack.inInst.valid)
+      val isPipActive = RegNext(RegNext(core.iCmd.valid) || (core.fetch.pendingPrefetch =/= 0) ||  core.decode.inInst.valid ||  core.execute0.inInst.valid ||  core.execute1.inInst.valid || core.writeBack.inInst.valid)
     val isPipBusy = isPipActive || RegNext(isPipActive)
     val isInBreakpoint = core.writeBack.inInst.valid && isMyTag(core.writeBack.inInst.ctrl)
 

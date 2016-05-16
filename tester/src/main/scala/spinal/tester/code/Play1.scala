@@ -1943,6 +1943,31 @@ object PlayCombLoop {
   }
 }
 
+
+
+object PlayCombLoop2 {
+
+  class TopLevel extends Component {
+
+    val toto = Bool
+    val titi = UInt(8 bits)
+    val tata = UInt(4 bits)
+
+
+    toto := tata(2)
+    titi := toto.asUInt + U"xFF"
+    tata := titi(3 downto 0)
+
+
+    out(RegNext(tata))
+
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
 object PlayLiteral {
 
   class TopLevel extends Component {
@@ -2180,8 +2205,8 @@ object PlayFsm3 {
   }
 }
 
-object PlayCase {
 
+object PlayCase {
   class TopLevel extends Component {
     val input = in(UInt(4 bit))
     val output = out(UInt(4 bit))
@@ -2216,6 +2241,32 @@ object PlayMux2 {
     println("Done")
   }
 }
+
+object PlayAttributes {
+
+  class SubComponent extends Component {
+    val output = out(True).addAttribute("Yolo")
+    val output2 = out(True).addAttribute("Yolo")
+  }
+  class TopLevel extends Component {
+    val output = out(True).addAttribute("Yolo")
+    val output2 = out(True).addAttribute("Yolo")
+
+    val sub = new SubComponent()
+    val subX = out Bool
+    val suby = out Bool
+
+    subX := sub.output
+    suby := sub.output2
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+    println("Done")
+  }
+}
+
+
 
 
 object PlaySel {

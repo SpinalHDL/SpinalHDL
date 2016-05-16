@@ -182,7 +182,7 @@ object CoreUut{
             burstLength := memBus.cmd.length
           } otherwise {
             d_cmd.valid := True
-            d_cmd.size := CountOne(memBus.cmd.mask.asBits).map(
+            d_cmd.size := CountOne(memBus.cmd.mask.asBits).mux(
               1 -> U(0),
               2 -> U(1),
               4 -> U(2),

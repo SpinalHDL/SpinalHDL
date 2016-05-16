@@ -147,9 +147,13 @@ class DataPimper[T <: Data](val pimpIt: T){
     pimpIt
   }
 
-  def mapList[T <: Data](mappings: Seq[(Any, T)]): T = {
+  def muxList[T <: Data](mappings: Seq[(Any, T)]): T = {
     SpinalMap.list(pimpIt,mappings)
   }
+  def mux[T <: Data](mappings: (Any, T)*): T = {
+    SpinalMap.list(pimpIt,mappings)
+  }
+  @deprecated("Use mux instead")
   def map[T <: Data](mappings: (Any, T)*): T = {
     SpinalMap.list(pimpIt,mappings)
   }
@@ -354,8 +358,8 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
     this
   }
 
-  override def add(attribute: Attribute): this.type = {
-    flatten.foreach(_.add(attribute))
+  override def addAttribute(attribute: Attribute): this.type = {
+    flatten.foreach(_.addAttribute(attribute))
     this
   }
 

@@ -164,12 +164,12 @@ case class CoreDataBus(implicit p : CoreConfig) extends Bundle with IMasterSlave
     mm.read := cmd.valid && !cmd.wr
     mm.write := cmd.valid && cmd.wr
     mm.address := cmd.address(cmd.address.high downto 2) @@ U"00"
-    mm.writeData := cmd.size.map (
+    mm.writeData := cmd.size.mux (
       U(0) -> cmd.data(7 downto 0) ## cmd.data(7 downto 0) ## cmd.data(7 downto 0) ## cmd.data(7 downto 0),
       U(1) -> cmd.data(15 downto 0) ## cmd.data(15 downto 0),
       default -> cmd.data(31 downto 0)
     )
-    mm.byteEnable := (cmd.size.map (
+    mm.byteEnable := (cmd.size.mux (
       U(0) -> B"0001",
       U(1) -> B"0011",
       default -> B"1111"
@@ -301,7 +301,8 @@ class Core(implicit val c : CoreConfig) extends Component{
     val inc = RegInit(False) //when io.i.cmd is stalled, it's used as a token to continue the request the next cycle
     val redo = False
     val pcNext = if(fastFetchCmdPcCalculation){
-      val pcPlus4 = (pc + U(4)).add(new AttributeFlag("keep"))
+      val pcPlus4 = pc + U(4)
+      pcPlus4.addAttribute("keep")
       Mux(inc && !redo,pcPlus4,pc)
     }else{
       pc + Mux(inc && !redo,U(4),U(0))
@@ -426,13 +427,13 @@ class Core(implicit val c : CoreConfig) extends Component{
     outInst.doSub := outInst.ctrl.alu =/= ALU.ADD
     outInst.src0 := Mux(!addr0IsZero, src0, B(0, 32 bit))
     outInst.src1 := Mux(!addr1IsZero, src1, B(0, 32 bit))
-    outInst.alu_op0 := outInst.ctrl.op0.map(
+    outInst.alu_op0 := outInst.ctrl.op0.mux(
       default -> outInst.src0,
       OP0.IMU -> imm.u.resized,
       OP0.IMZ -> imm.z.resized,
       OP0.IMJB -> brjmpImm
     )
-    outInst.alu_op1 := outInst.ctrl.op1.map(
+    outInst.alu_op1 := outInst.ctrl.op1.mux(
       default -> outInst.src1,
       OP1.IMI -> imm.i_sext.resized,
       OP1.IMS -> imm.s_sext.resized,
@@ -471,7 +472,7 @@ class Core(implicit val c : CoreConfig) extends Component{
       val eq = inInst.src0 === inInst.src1
 
 
-      val pc_sel = inInst.ctrl.br.map[PC.T](
+      val pc_sel = inInst.ctrl.br.mux[PC.T](
         default -> PC.INC,
         BR.NE -> Mux(!eq, PC.BRA, PC.INC),
         BR.EQ -> Mux(eq, PC.BRA, PC.INC),
@@ -507,7 +508,7 @@ class Core(implicit val c : CoreConfig) extends Component{
     outInst.dCmdAddress := dCmd.address
 
     // Send memory read/write requests
-    outInst.unalignedMemoryAccessException := inInst.ctrl.men && outInst.ctrl.msk.map(
+    outInst.unalignedMemoryAccessException := inInst.ctrl.men && outInst.ctrl.msk.mux(
       default-> False,
       MSK.H -> dCmd.address(0),
       MSK.W -> (dCmd.address(0) || dCmd.address(1))
@@ -518,7 +519,7 @@ class Core(implicit val c : CoreConfig) extends Component{
     dCmd.wr := inInst.ctrl.m === M.XWR
     dCmd.address := outInst.adder
     dCmd.payload.data := inInst.src1
-    dCmd.size := inInst.ctrl.msk.map(
+    dCmd.size := inInst.ctrl.msk.mux(
       default -> U(2), //W
       MSK.B -> U(0),
       MSK.H -> U(1)
@@ -555,14 +556,14 @@ class Core(implicit val c : CoreConfig) extends Component{
 
     // branche interface
     val pcLoad = Flow(UInt(pcWidth bit))
-    pcLoad.valid := !throwIt && inInst.fire && pc_sel.map(
+    pcLoad.valid := !throwIt && inInst.fire && pc_sel.mux(
       PC.INC -> inInst.predictorHasBranch,
       default -> !inInst.predictorHasBranch
     )
 
     pcLoad.payload := (c.branchPrediction match {
       case `disable` => inInst.adder
-      case _ => pc_sel.map(
+      case _ => pc_sel.mux(
         PC.INC -> inInst.pcPlus4,
         default -> inInst.adder
       )
@@ -656,13 +657,13 @@ class Core(implicit val c : CoreConfig) extends Component{
       halt := True
     }
 
-    val dataRspFormated = inInst.ctrl.msk.map(
+    val dataRspFormated = inInst.ctrl.msk.mux(
       default -> dRsp.payload, //W
       MSK.B   -> B(default -> (dRsp.payload(7) && ! inInst.instruction(14)),(7 downto 0) -> dRsp.payload(7 downto 0)),
       MSK.H   -> B(default -> (dRsp.payload(15) && ! inInst.instruction(14)),(15 downto 0) -> dRsp.payload(15 downto 0))
     )
 
-    val regFileData = inInst.ctrl.wb.map (
+    val regFileData = inInst.ctrl.wb.mux (
       default -> B(0,32 bit), //CSR1
       WB.ALU1 -> inInst.result,
       WB.MEM  -> dataRspFormated,
