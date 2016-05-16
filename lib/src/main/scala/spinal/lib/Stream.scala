@@ -208,8 +208,12 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
       rPayload := this.payload
     } otherwise {
       rValid := !ret.ready
+      rReady := ret.ready
     }
 
+    ret.valid := rValid
+    ret.payload := rPayload
+    this.ready := rReady
     ret
   }
 
