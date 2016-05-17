@@ -515,6 +515,8 @@ class Backend {
       }
 
     }
+    if(!errors.isEmpty)
+      SpinalError(errors)
 
     Node.walk(walkNodesDefautStack,node => {
       node match {

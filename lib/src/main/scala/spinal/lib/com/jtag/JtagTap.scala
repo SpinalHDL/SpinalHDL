@@ -116,23 +116,25 @@ class JtagTap(val jtag: Jtag, instructionWidth: Int) extends Area with JtagTapAc
 }
 
 
-class SimpleTap extends Component {
+class SimpleJtagTap extends Component {
   val io = new Bundle {
-    val jtag = slave(Jtag())
-    val switchs = in Bits (8 bit)
-    val leds = out Bits (8 bit)
+    val jtag    = slave(Jtag())
+    val switchs = in  Bits(8 bit)
+    val keys    = in  Bits(4 bit)
+    val leds    = out Bits(8 bit)
   }
 
-  implicit val tap = new JtagTap(io.jtag, 8)
-  val idcodeArea = tap.idcode(B"x87654321")(16)
-  val switchsArea =tap.read(io.switchs)(18)
-  val ledsArea = tap.write(io.leds)(17)
+  val tap = new JtagTap(io.jtag, 8)
+  val idcodeArea  = tap.idcode(B"x87654321")(4)
+  val switchsArea = tap.read(io.switchs)(5)
+  val keysArea = tap.read(io.switchs)(6)
+  val ledsArea    = tap.write(io.leds)(7)
 }
 
 
 
-object SimpleTap {
+object SimpleJtagTap {
   def main(args: Array[String]) {
-    SpinalVhdl(new SimpleTap(), _.setLibrary("SimpleTap_lib"))
+    SpinalVhdl(new SimpleJtagTap(), _.setLibrary("SimpleTap_lib"))
   }
 }

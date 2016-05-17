@@ -65,6 +65,9 @@ class CachedInstructionBusExtension(c : InstructionCacheConfig,cutCpuCmdReady : 
     }
   }
 
+
+  override def needFlowDRsp: Boolean = true
+
   override def getAvalon(): AvalonMMBus = memBus.toAvalon()
   override def getConfig(): AvalonMMConfig = c.getAvalonConfig()
 }

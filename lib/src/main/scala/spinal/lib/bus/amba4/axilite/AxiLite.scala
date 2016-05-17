@@ -3,7 +3,24 @@ package spinal.lib.bus.amba4.axilite
 import spinal.core._
 import spinal.lib._
 
-case class AxiLiteConfig(addressWidth: Int, dataWidth: Int){
+trait AxiLiteMode{
+  def write = false
+  def read = false
+}
+object WRITE_ONLY extends AxiLiteMode{
+  override def write = true
+}
+object READ_ONLY extends AxiLiteMode{
+  override def read = true
+}
+object READ_WRITE extends AxiLiteMode{
+  override def write = true
+  override def read = true
+}
+
+case class AxiLiteConfig(addressWidth: Int,
+                         dataWidth: Int,
+                         mode : AxiLiteMode = READ_WRITE){
   def dataByteCount = dataWidth/8
 }
 
@@ -37,67 +54,12 @@ case class AxiLiteR(config: AxiLiteConfig) extends Bundle {
   val resp = Bits(2 bit)
 }
 
-case class AxiLiteReadOnly(config: AxiLiteConfig) extends Bundle with IMasterSlave {
-  val ar = Stream(AxiLiteAr(config))
-  val r = Stream(AxiLiteR(config))
-
-  def readCmd = ar
-  def readData = r
-
-  def >> (that : AxiLiteReadOnly) : Unit = {
-    assert(that.config == this.config)
-    this.readCmd >> that.readCmd
-    this.readData << that.readData
-  }
-
-  def <<(that : AxiLiteReadOnly) : Unit = that >> this
-
-  override def asMaster(): this.type = {
-    ar.asMaster()
-    r.asSlave()
-    this
-  }
-
-  override def asSlave(): this.type = asSlave().flip()
-}
-
-case class AxiLiteWriteOnly(config: AxiLiteConfig) extends Bundle with IMasterSlave {
-  val aw = Stream(AxiLiteAw(config))
-  val w = Stream(AxiLiteW(config))
-  val b = Stream(AxiLiteB(config))
-
-  //Because aw w b ar r are ... very lazy
-  def writeCmd = aw
-  def writeData = w
-  def writeRet = b
-
-
-  def >> (that : AxiLiteWriteOnly) : Unit = {
-    assert(that.config == this.config)
-    this.writeCmd >> that.writeCmd
-    this.writeData >> that.writeData
-    this.writeRet << that.writeRet
-  }
-
-  def <<(that : AxiLiteWriteOnly) : Unit = that >> this
-
-  override def asMaster(): this.type = {
-    aw.asMaster()
-    w.asMaster()
-    b.asSlave()
-    this
-  }
-
-  override def asSlave(): this.type = asSlave().flip()
-}
-
-
 case class AxiLite(config: AxiLiteConfig) extends Bundle with IMasterSlave {
-  val aw = Stream(AxiLiteAw(config))
-  val w = Stream(AxiLiteW(config))
-  val b = Stream(AxiLiteB(config))
-  val ar = Stream(AxiLiteAr(config))
-  val r = Stream(AxiLiteR(config))
+  val aw = if(config.mode.write) Stream(AxiLiteAw(config)) else null
+  val w = if(config.mode.write)  Stream(AxiLiteW(config)) else null
+  val b = if(config.mode.write)  Stream(AxiLiteB(config)) else null
+  val ar = if(config.mode.read)  Stream(AxiLiteAr(config)) else null
+  val r = if(config.mode.read)   Stream(AxiLiteR(config)) else null
 
   //Because aw w b ar r are ... very lazy
   def writeCmd = aw
@@ -109,23 +71,30 @@ case class AxiLite(config: AxiLiteConfig) extends Bundle with IMasterSlave {
 
   def >> (that : AxiLite) : Unit = {
     assert(that.config == this.config)
-    this.writeCmd >> that.writeCmd
-    this.writeData >> that.writeData
-    this.writeRet << that.writeRet
-    this.readCmd >> that.readCmd
-    this.readData << that.readData
+
+    if(config.mode.write){
+      this.writeCmd >> that.writeCmd
+      this.writeData >> that.writeData
+      this.writeRet << that.writeRet
+    }
+
+    if(config.mode.read) {
+      this.readCmd >> that.readCmd
+      this.readData << that.readData
+    }
   }
 
   def <<(that : AxiLite) : Unit = that >> this
 
   override def asMaster(): this.type = {
-    aw.asMaster()
-    w.asMaster()
-    b.asSlave()
-    ar.asMaster()
-    r.asSlave()
+    if(config.mode.write){
+      master(aw,w)
+      slave(b)
+    }
+    if(config.mode.read) {
+      master(ar)
+      slave(r)
+    }
     this
   }
-
-  override def asSlave(): this.type = asSlave().flip()
 }

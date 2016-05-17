@@ -2267,6 +2267,44 @@ object PlayAttributes {
 }
 
 
+object PlaySimplify {
+
+  class TopLevel extends Component {
+    val o1 = out UInt(4 bits)
+    o1 := 0
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+    println("Done")
+  }
+}
+
+object PlayError8{
+
+  class Sub extends Component {
+    val io = new Bundle{
+      val toto = Bool
+      val toto2 = Bool
+    }
+    io.toto2 := io.toto
+  }
+
+
+  class TopLevel extends Component {
+    val io = new Bundle{
+      val toto = out Bool
+    }
+    val sub = new Sub
+
+    io.toto := sub.io.toto2
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+    println("Done")
+  }
+}
 
 
 object PlaySel {

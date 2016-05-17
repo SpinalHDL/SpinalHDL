@@ -1134,6 +1134,27 @@ class VhdlBackend extends Backend with VhdlBase {
     s"$vhd(${func.inputs.map(emitLogic(_)).reduce(_ + "," + _)})"
   }
 
+  //TODO should be move to operatorImplAsFunction in long therm
+  def resizeFunction(func: Modifier): String = {
+    func.inputs(0).getWidth match{
+      case 0 => {
+        func.inputs(0) match {
+          case lit: BitsLiteral => {
+            val bitString =  '"' + "0" * func.getWidth + '"'
+            lit.kind match {
+              case _: Bits => s"pkg_stdLogicVector($bitString)"
+              case _: UInt => s"pkg_unsigned($bitString)"
+              case _: SInt => s"pkg_signed($bitString)"
+            }
+          }
+          case _ => s"pkg_resize(${func.inputs.map(emitLogic(_)).reduce(_ + "," + _)})"
+        }
+      }
+      case _ => s"pkg_resize(${func.inputs.map(emitLogic(_)).reduce(_ + "," + _)})"
+    }
+  }
+
+
   def enumEgualsImpl(eguals: Boolean)(op: Modifier): String = {
     val (enumDef, encoding) = op.inputs(0) match {
       case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.encoding)
@@ -1293,9 +1314,9 @@ class VhdlBackend extends Backend with VhdlBase {
 
 
   //misc
-  modifierImplMap.put("resize(s,i)", operatorImplAsFunction("pkg_resize"))
-  modifierImplMap.put("resize(u,i)", operatorImplAsFunction("pkg_resize"))
-  modifierImplMap.put("resize(b,i)", operatorImplAsFunction("pkg_resize"))
+  modifierImplMap.put("resize(s,i)", resizeFunction)
+  modifierImplMap.put("resize(u,i)", resizeFunction)
+  modifierImplMap.put("resize(b,i)", resizeFunction)
 
   //Memo whenNode hardcode emitlogic
   modifierImplMap.put("mux(B,B,B)", operatorImplAsFunction("pkg_mux"))

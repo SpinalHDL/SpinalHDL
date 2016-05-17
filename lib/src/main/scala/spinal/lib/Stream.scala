@@ -194,7 +194,7 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
     ret
   }
 
-  //Not tested, cut all path, but divide the bandwidth by 2, 1 cycle latency
+  // cut all path, but divide the bandwidth by 2, 1 cycle latency
   def halfPipe(): Stream[T] = {
     val ret = Stream(_dataType)
 

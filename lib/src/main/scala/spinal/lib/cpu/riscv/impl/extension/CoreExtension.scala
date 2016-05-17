@@ -20,4 +20,6 @@ abstract class CoreExtension {
     ctrl.extensionTag === tag
   }
   def getIrqUsage : Seq[(Int,IrqUsage)] = Nil
+
+  def needFlowDRsp = false
 }
