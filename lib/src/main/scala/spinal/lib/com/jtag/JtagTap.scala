@@ -54,7 +54,7 @@ class JtagFsm(jtag: Jtag) extends Area {
 }
 
 
-class JtagTap(val jtag: Jtag, instructionWidth: Int) extends Area with JtagTapAccess{
+class JtagTap(jtag: Jtag, instructionWidth: Int) extends Area with JtagTapAccess{
   val fsm = new JtagFsm(jtag)
   val instruction = Reg(Bits(instructionWidth bit))
   val instructionShift = Reg(Bits(instructionWidth bit))
@@ -81,7 +81,10 @@ class JtagTap(val jtag: Jtag, instructionWidth: Int) extends Area with JtagTapAc
   //JtagTapAccess impl
   override def getInstruction(): Bits = instruction
   override def setInstruction(value: Bits): Unit = instruction := value
-  override def state: JtagState.T = fsm.state
+  override def getState: JtagState.T = fsm.state
+  override def getTdi: Bool = jtag.tdi
+  override def setTdo(value: Bool): Unit = jtag.tdo := value
+  override def getTms: Bool = jtag.tms
 
   //Instruction wrappers
   def idcode(value: Bits)(instructionId: Bits) =

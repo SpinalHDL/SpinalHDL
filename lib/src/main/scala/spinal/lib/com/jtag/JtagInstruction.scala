@@ -8,8 +8,11 @@ import spinal.lib._
  */
 
 trait JtagTapAccess {
-  def jtag : Jtag
-  def state : JtagState.T
+  def getTdi : Bool
+  def getTms : Bool
+  def setTdo(value : Bool) : Unit
+
+  def getState : JtagState.T
   def getInstruction() : Bits
   def setInstruction(value : Bits) : Unit
 }
@@ -24,17 +27,17 @@ class JtagInstruction(tap: JtagTapAccess,val instructionId: Bits) extends Area {
 
   Component.current.addPrePopTask(() => {
     when(instructionHit) {
-      when(tap.state === JtagState.DR_CAPTURE) {
+      when(tap.getState === JtagState.DR_CAPTURE) {
         doCapture()
       }
-      when(tap.state === JtagState.DR_SHIFT) {
+      when(tap.getState === JtagState.DR_SHIFT) {
         doShift()
       }
-      when(tap.state === JtagState.DR_UPDATE) {
+      when(tap.getState === JtagState.DR_UPDATE) {
         doUpdate()
       }
     }
-    when(tap.state === JtagState.RESET) {
+    when(tap.getState === JtagState.RESET) {
       doReset()
     }
   })
@@ -48,8 +51,8 @@ class JtagInstructionWrite[T <: Data](data: T,  cleanUpdate: Boolean = true, rea
   }
 
   override def doShift(): Unit = {
-    shifter := (tap.jtag.tdi ## shifter) >> 1
-    if (readable) tap.jtag.tdo := shifter.lsb
+    shifter := (tap.getTdi ## shifter) >> 1
+    if (readable) tap.setTdo(shifter.lsb)
   }
 
   override def doUpdate(): Unit = {
@@ -65,14 +68,13 @@ class JtagInstructionWrite[T <: Data](data: T,  cleanUpdate: Boolean = true, rea
 class JtagInstructionRead[T <: Data](data: T) (tap: JtagTapAccess,instructionId: Bits)extends JtagInstruction(tap,instructionId) {
   val shifter = Reg(Bits(data.getBitsWidth bit))
 
-
   override def doCapture(): Unit = {
     shifter := data.asBits
   }
 
   override def doShift(): Unit = {
-    shifter := (tap.jtag.tdi ## shifter) >> 1
-    tap.jtag.tdo := shifter.lsb
+    shifter := (tap.getTdi ## shifter) >> 1
+    tap.setTdo(shifter.lsb)
   }
 }
 
@@ -83,8 +85,8 @@ class JtagInstructionWriteSimpleExample[T <: Data](data: T) (tap: JtagTapAccess,
     shifter := store
   }
   override def doShift(): Unit = {
-    shifter := (tap.jtag.tdi ## shifter) >> 1
-    tap.jtag.tdo := shifter.lsb
+    shifter := (tap.getTdi ## shifter) >> 1
+    tap.setTdo(shifter.lsb)
   }
   override def doUpdate(): Unit = {
     store := shifter
@@ -98,8 +100,8 @@ class JtagInstructionIdcode[T <: Data](value: Bits)(tap: JtagTapAccess, instruct
   val shifter = Reg(Bits(32 bit))
 
   override def doShift(): Unit = {
-    shifter := (tap.jtag.tdi ## shifter) >> 1
-    tap.jtag.tdo := shifter.lsb
+    shifter := (tap.getTdi ## shifter) >> 1
+    tap.setTdo(shifter.lsb)
   }
 
   override def doReset(): Unit = {
@@ -111,8 +113,8 @@ class JtagInstructionIdcode[T <: Data](value: Bits)(tap: JtagTapAccess, instruct
 class JtagInstructionFlowFragmentPush(sink : Flow[Fragment[Bits]],sinkClockDomain : ClockDomain)(tap: JtagTapAccess,instructionId: Bits) extends JtagInstruction(tap,instructionId){
   val source = Flow Fragment(Bits(1 bit))
   source.valid := False
-  source.last := tap.jtag.tms
-  source.fragment.lsb := tap.jtag.tdi
+  source.last := tap.getTms
+  source.fragment.lsb := tap.getTdi
 
   sink << FlowCCByToggle(source,clockOut = sinkClockDomain)
 
