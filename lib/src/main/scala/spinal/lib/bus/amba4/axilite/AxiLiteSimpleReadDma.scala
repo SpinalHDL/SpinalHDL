@@ -14,7 +14,7 @@ case class AxiLiteSimpleReadDmaCmd(axiLiteConfig: AxiLiteConfig) extends Bundle{
 class AxiLiteSimpleReadDma(axiLiteConfig: AxiLiteConfig) extends Component {
   val io = new Bundle {
     val run = slave Stream (AxiLiteSimpleReadDmaCmd(axiLiteConfig))
-    val axi = master(AxiLiteReadOnly(axiLiteConfig))
+    val axi = master(AxiLite(axiLiteConfig))
     val read = master Stream (Bits(axiLiteConfig.dataWidth bit))
   }
 
