@@ -24,50 +24,32 @@ case class Jtag() extends Bundle with IMasterSlave {
 }
 
 object JtagState extends SpinalEnum {
-  val RESET, IDLE = newElement()
-  val IR_SELECT, IR_CAPTURE, IR_SHIFT, IR_EXIT1, IR_PAUSE, IR_EXIT2, IR_UPDATE = newElement()
-  val DR_SELECT, DR_CAPTURE, DR_SHIFT, DR_EXIT1, DR_PAUSE, DR_EXIT2, DR_UPDATE = newElement()
+  val RESET, IDLE,
+      IR_SELECT, IR_CAPTURE, IR_SHIFT, IR_EXIT1, IR_PAUSE, IR_EXIT2, IR_UPDATE,
+      DR_SELECT, DR_CAPTURE, DR_SHIFT, DR_EXIT1, DR_PAUSE, DR_EXIT2, DR_UPDATE = newElement()
 }
 
 class JtagFsm(jtag: Jtag) extends Area {
-
   import JtagState._
-
   val stateNext = JtagState()
   val state = RegNext(stateNext) randBoot()
   stateNext := state.mux(
-    default -> //reset
-      Mux(jtag.tms, RESET, IDLE),
-    IDLE ->
-      Mux(jtag.tms, DR_SELECT, IDLE),
-    IR_SELECT ->
-      Mux(jtag.tms, RESET, IR_CAPTURE),
-    IR_CAPTURE ->
-      Mux(jtag.tms, IR_EXIT1, IR_SHIFT),
-    IR_SHIFT ->
-      Mux(jtag.tms, IR_EXIT1, IR_SHIFT),
-    IR_EXIT1 ->
-      Mux(jtag.tms, IR_UPDATE, IR_PAUSE),
-    IR_PAUSE ->
-      Mux(jtag.tms, IR_EXIT2, IR_PAUSE),
-    IR_EXIT2 ->
-      Mux(jtag.tms, IR_UPDATE, IR_SHIFT),
-    IR_UPDATE ->
-      Mux(jtag.tms, DR_SELECT, IDLE),
-    DR_SELECT ->
-      Mux(jtag.tms, IR_SELECT, DR_CAPTURE),
-    DR_CAPTURE ->
-      Mux(jtag.tms, DR_EXIT1, DR_SHIFT),
-    DR_SHIFT ->
-      Mux(jtag.tms, DR_EXIT1, DR_SHIFT),
-    DR_EXIT1 ->
-      Mux(jtag.tms, DR_UPDATE, DR_PAUSE),
-    DR_PAUSE ->
-      Mux(jtag.tms, DR_EXIT2, DR_PAUSE),
-    DR_EXIT2 ->
-      Mux(jtag.tms, DR_UPDATE, DR_SHIFT),
-    DR_UPDATE ->
-      Mux(jtag.tms, DR_SELECT, IDLE)
+    default    -> (jtag.tms ? RESET     | IDLE),           //RESET
+    IDLE       -> (jtag.tms ? DR_SELECT | IDLE),
+    IR_SELECT  -> (jtag.tms ? RESET     | IR_CAPTURE),
+    IR_CAPTURE -> (jtag.tms ? IR_EXIT1  | IR_SHIFT),
+    IR_SHIFT   -> (jtag.tms ? IR_EXIT1  | IR_SHIFT),
+    IR_EXIT1   -> (jtag.tms ? IR_UPDATE | IR_PAUSE),
+    IR_PAUSE   -> (jtag.tms ? IR_EXIT2  | IR_PAUSE),
+    IR_EXIT2   -> (jtag.tms ? IR_UPDATE | IR_SHIFT),
+    IR_UPDATE  -> (jtag.tms ? DR_SELECT | IDLE),
+    DR_SELECT  -> (jtag.tms ? IR_SELECT | DR_CAPTURE),
+    DR_CAPTURE -> (jtag.tms ? DR_EXIT1  | DR_SHIFT),
+    DR_SHIFT   -> (jtag.tms ? DR_EXIT1  | DR_SHIFT),
+    DR_EXIT1   -> (jtag.tms ? DR_UPDATE | DR_PAUSE),
+    DR_PAUSE   -> (jtag.tms ? DR_EXIT2  | DR_PAUSE),
+    DR_EXIT2   -> (jtag.tms ? DR_UPDATE | DR_SHIFT),
+    DR_UPDATE  -> (jtag.tms ? DR_SELECT | IDLE)
   )
 }
 
@@ -125,10 +107,10 @@ class SimpleJtagTap extends Component {
   }
 
   val tap = new JtagTap(io.jtag, 8)
-  val idcodeArea  = tap.idcode(B"x87654321")(4)
-  val switchsArea = tap.read(io.switchs)(5)
-  val keysArea = tap.read(io.switchs)(6)
-  val ledsArea    = tap.write(io.leds)(7)
+  val idcodeArea  = tap.idcode(B"x87654321")(instructionId=4)
+  val switchsArea = tap.read(io.switchs)(instructionId=5)
+  val keysArea    = tap.read(io.switchs)(instructionId=6)
+  val ledsArea    = tap.write(io.leds)(instructionId=7)
 }
 
 

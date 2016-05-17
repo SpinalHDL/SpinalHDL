@@ -263,19 +263,21 @@ class UniqueNameAllocator {
 }*/
 
 trait Stackable{
-  def pushedEvent() = {}
-  def popedEvent() = {}
+  def postPushEvent() = {}
+  def postPopEvent() = {}
+  def prePopEvent() = {}
 }
 
 class SafeStackWithStackable[T <: Stackable] extends SafeStack[T]{
   override def push(e: T): Unit = {
     super.push(e)
-    if(e != null) e.pushedEvent()
+    if(e != null) e.postPopEvent()
   }
 
   override def pop(e: T): Unit = {
+    if(e != null) e.prePopEvent()
     super.pop(e)
-    if(e != null) e.popedEvent()
+    if(e != null) e.postPopEvent()
   }
 }
 

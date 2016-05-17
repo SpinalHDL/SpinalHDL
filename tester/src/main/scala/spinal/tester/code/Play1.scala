@@ -12,7 +12,7 @@ import spinal.core._
 import spinal.demo.mandelbrot.{MandelbrotSblDemo, MandelbrotCoreParameters}
 import spinal.lib._
 import spinal.lib.bus.amba3.apb.{Apb3SlaveController, Apb3Config, Apb3Slave}
-import spinal.lib.bus.amba4.axilite.{AxiLiteConfig, AxiLite}
+import spinal.lib.bus.amba4.axilite._
 import spinal.lib.bus.sbl.{SblConfig, SblReadRet, SblReadCmd, SblWriteCmd}
 import spinal.lib.com.uart._
 import spinal.lib.graphic.{RgbConfig, Rgb}
@@ -2395,7 +2395,24 @@ object PlayMux4 {
   }
 }
 
+object PlayFunyMux {
 
+
+  class TopLevel extends Component {
+
+
+    val sel = in Bool
+    val a = in UInt (2 bit)
+    val b = in UInt (2 bit)
+    val result = sel ? a | b
+    out(result)
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+    println("Done")
+  }
+}
 
 
 object PlayVec8 {

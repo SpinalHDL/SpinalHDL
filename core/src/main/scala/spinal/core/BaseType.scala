@@ -157,7 +157,7 @@ object BaseType {
         if (consumer.globalData.overridingAssignementWarnings) {
           val exept = new Throwable()
           val trace = ScalaLocated.getScalaTraceSmart
-          Component.current.popTasks += (() => {
+          Component.current.prePopTasks += (() => {
             SpinalWarning(s"$baseType is overridden at ${trace}")
           })
         }

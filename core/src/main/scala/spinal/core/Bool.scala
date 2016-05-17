@@ -51,6 +51,19 @@ class Bool extends BaseType {
 
   private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,B,B)", sel, whenTrue, whenFalse)
 
+  //cond ? a | b syntax
+  case class MuxBuilder[T <: Data](whenTrue : T){
+    def |(whenFalse : T) : T = Mux(Bool.this,whenTrue,whenFalse)
+  }
+  def ?[T <: Data](whenTrue : T) = MuxBuilder(whenTrue)
+
+  case class MuxBuilderEnum[T <: SpinalEnum](whenTrue : SpinalEnumCraft[T]){
+    def |(whenFalse : SpinalEnumCraft[T]) : SpinalEnumCraft[T] = Mux(Bool.this,whenTrue,whenFalse)
+    def |(whenFalse : SpinalEnumElement[T]) : SpinalEnumCraft[T] = Mux(Bool.this,whenTrue,whenFalse())
+  }
+  def ?[T <: SpinalEnum](whenTrue : SpinalEnumElement[T]) = MuxBuilderEnum(whenTrue())
+  def ?[T <: SpinalEnum](whenTrue : SpinalEnumCraft[T])   = MuxBuilderEnum(whenTrue)
+
   private[core] override def isEguals(that: Any): Bool = {
     that match {
       case that: Bool => newLogicalOperator("B==B", that, InputNormalize.none, ZeroWidth.none);
