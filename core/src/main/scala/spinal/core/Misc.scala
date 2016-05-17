@@ -328,19 +328,29 @@ object SpinalWarning {
 class SpinalExit(message: String) extends Exception(message);
 
 object SpinalError {
+  private var errCount:Int = 0
+
   def apply() = {
     SpinalExit()
   }
 
   def apply(message: String) = {
+    errCount += 1
     SpinalExit(message)
   }
 
   def apply(messages: Seq[String]) = {
+    errCount += messages.length
     SpinalExit(messages.reduceLeft(_ + "\n" + _))
   }
 
   def printError(message: String) = println(s"${SpinalLog.tag("Progress", Console.RED)} $message")
+
+  def getErrorCount():Int = {
+    val ret = errCount
+    errCount = 0
+    return ret
+  }
 }
 
 

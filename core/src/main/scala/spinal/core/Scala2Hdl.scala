@@ -19,13 +19,15 @@
 package spinal.core
 
 object SpinalVhdl {
+
+  val runtime = Runtime.getRuntime
+  println({SpinalLog.tag("Runtime", Console.YELLOW)} + s" JVM max memory : ${f"${(runtime.maxMemory()).toFloat/1048576f}%1.1f"}MiB")
+
   def apply[T <: Component](gen: => T): BackendReport[T] = apply(gen, _.nothing)
 
   def apply[T <: Component](gen: => T, config: SpinalVhdl[_] => Unit): BackendReport[T] = {
     def doIt(tryCounter: Int = 0): BackendReport[T] = {
       try {
-        val runtime = Runtime.getRuntime
-        println({SpinalLog.tag("Runtime", Console.YELLOW)} + s" JVM max memory : ${f"${(runtime.maxMemory()).toFloat/1048576f}%1.1f"}MiB")
         val factory = new SpinalVhdl(gen)
         config(factory)
         if (tryCounter != 0) GlobalData.get.scalaLocatedEnable = true
@@ -37,14 +39,17 @@ object SpinalVhdl {
           tryCounter match {
             case 0 => {
               println("\n**********************************************************************************************")
-              SpinalWarning("Elaboration failed !!! Spinal will restart with scala trace to help you to find the problem")
+              val errCnt = SpinalError.getErrorCount()
+              SpinalWarning(s"Elaboration failed (${errCnt} error" + (if(errCnt > 1){s"s"} else {s""}) + s").\n" +
+                            s"          Spinal will restart with scala trace to help you to find the problem.")
               println("**********************************************************************************************\n")
               Thread.sleep(10);
               return doIt(1)
             }
             case 1 => {
               println("\n**********************************************************************************************")
-              SpinalWarning("Elaboration failed !!!")
+              val errCnt = SpinalError.getErrorCount()
+              SpinalWarning(s"Elaboration failed (${errCnt} error" + (if(errCnt > 1){s"s"} else {s""}) + ").")
               println("**********************************************************************************************")
               Thread.sleep(10);
               throw e
