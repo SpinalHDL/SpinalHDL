@@ -12,6 +12,7 @@ import spinal.core._
 import spinal.demo.mandelbrot.{MandelbrotSblDemo, MandelbrotCoreParameters}
 import spinal.lib._
 import spinal.lib.bus.amba3.apb.{Apb3SlaveController, Apb3Config, Apb3Slave}
+import spinal.lib.bus.amba4.axilite.{AxiLiteConfig, AxiLite}
 import spinal.lib.bus.sbl.{SblConfig, SblReadRet, SblReadCmd, SblWriteCmd}
 import spinal.lib.com.uart._
 import spinal.lib.graphic.{RgbConfig, Rgb}
@@ -2325,6 +2326,20 @@ object PlaySel {
   }
 }
 
+object PlayAxiLite {
+  class TopLevel extends Component {
+    val axiLiteConfig = AxiLiteConfig(32, 32)
+    val peon   = slave(AxiLite(axiLiteConfig))
+    val maitre = master(AxiLite(axiLiteConfig))
+    peon >> maitre
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
 object PlayRam {
 
   class TopLevel extends Component {
@@ -2371,6 +2386,35 @@ object PlayMux4 {
     val inputs = in Vec(Bool,8)
     val select = in UInt(8 bit)
     val output = out(inputs(select))
+  }
+
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+    println("Done")
+  }
+}
+
+
+
+
+object PlayVec8 {
+  class TopLevel extends Component {
+    val inputs = List.fill(4)(List.fill(4)(wrap(new Bundle{
+      val a = in Bool
+      val b = wrap(new Bundle{
+        val c = in(Vec(wrap(new Bundle{
+          val d = in Bool
+        }),4))
+      })
+    })))
+    val select0 = in UInt(2 bit)
+    val select1 = in UInt(2 bit)
+    val select2 = in UInt(2 bit)
+    val vec = Vec(inputs.map(a => Vec(a.map(b => b.b))))
+
+    val output = out Bool()
+    output := vec(select0)(select1).c(select2).d
   }
 
 

@@ -127,6 +127,7 @@ class Vec[T <: Data](_dataType: T, val vec: Vector[T]) extends MultiData with co
   override def hashCode(): Int = instanceCounter
 
   private[core] val accessMap = mutable.Map[(Component, UInt), T]()
+  private[core] val readMap = mutable.Map[(Component, UInt), T]()
   private[core] var vecTransposedCache: ArrayBuffer[ArrayBuffer[BaseType]] = null
 
   private[core] def vecTransposed: ArrayBuffer[ArrayBuffer[BaseType]] = {
@@ -158,6 +159,16 @@ class Vec[T <: Data](_dataType: T, val vec: Vector[T]) extends MultiData with co
     access(address)
   }
 
+  def read(address: UInt): T = {
+    val key = (Component.current, address)
+    if (readMap.contains(key)) return accessMap(key)
+
+
+    val ret = SeqMux(vec.take(Math.min(vec.length, 1 << address.getWidth)), address)
+
+    readMap += (key -> ret)
+    ret
+  }
 
   def access(address: UInt): T = {
     val key = (Component.current, address)

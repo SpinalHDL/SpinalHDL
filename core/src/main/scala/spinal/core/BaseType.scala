@@ -213,6 +213,13 @@ abstract class BaseType extends Node with Data with Nameable {
     super.asOutput()
   }
 
+
+  override def asDirectionLess(): BaseType.this.type = {
+    if(dir == null) return this
+    component.ioSet -= this
+    super.asDirectionLess()
+  }
+
   private[core] def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
     if (that.isInstanceOf[BaseType] || that.isInstanceOf[AssignementNode] || that.isInstanceOf[DontCareNode]) {
       val (consumer, inputId) = BaseType.walkWhenNodes(this, this, 0, conservative)
@@ -251,7 +258,7 @@ abstract class BaseType extends Node with Data with Nameable {
   }
 
   override def clone: this.type = {
-    val res = this.getClass.newInstance.asInstanceOf[this.type];
+    val res = this.getClass.newInstance.asInstanceOf[this.type]
     //res.dir = this.dir
     res
   }

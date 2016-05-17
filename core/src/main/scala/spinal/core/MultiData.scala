@@ -92,6 +92,12 @@ abstract class MultiData extends Data {
   }
 
 
+  override def asDirectionLess: this.type = {
+    super.asDirectionLess()
+    elements.foreach(_._2.asDirectionLess());
+    this
+  }
+
   override def flatten: Seq[BaseType] = {
     elements.map(_._2.flatten).foldLeft(List[BaseType]())(_ ++ _)
   }

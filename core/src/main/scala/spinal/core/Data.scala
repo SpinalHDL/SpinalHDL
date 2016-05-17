@@ -226,11 +226,16 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
   def getRootParent : Data = if(parent == null) this else parent.getRootParent
 
   def asInput(): this.type = {
-    dir = in;
+    dir = in
     this
   }
   def asOutput(): this.type = {
-    dir = out;
+    dir = out
+    this
+  }
+
+  def asDirectionLess() : this.type = {
+    dir = null
     this
   }
 
@@ -425,6 +430,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
       //No param =>
       if (constrParamCount == 0) return constructor.newInstance().asInstanceOf[this.type]
 
+
       def constructorParamsAreVal: this.type = {
         val outer = clazz.getFields.find(_.getName == "$outer")
         val constructor = clazz.getDeclaredConstructors.head
@@ -441,15 +447,15 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
           }
         }
         if (outer.isEmpty)
-          return constructor.newInstance(arguments: _*).asInstanceOf[this.type]
+          return constructor.newInstance(arguments: _*).asInstanceOf[this.type].asDirectionLess()
         else {
           val args = (outer.get.get(this) :: Nil) ++ arguments
-          return constructor.newInstance(args: _*).asInstanceOf[this.type]
+          return constructor.newInstance(args: _*).asInstanceOf[this.type].asDirectionLess()
         }
       }
       //Case class =>
       if (ScalaUniverse.isCaseClass(this)) {
-        return constructorParamsAreVal
+        return constructorParamsAreVal.asDirectionLess()
       }
 
       //Inner class with no user parameters
@@ -459,12 +465,12 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
         if(outerField.isDefined){
           val outer = outerField.get
           outer.setAccessible(true)
-          return constructor.newInstance(outer.get(this)).asInstanceOf[this.type]
+          return constructor.newInstance(outer.get(this)).asInstanceOf[this.type].asDirectionLess()
         }
         val c = clazz.getMethod("getComponent").invoke(this).asInstanceOf[Component]
         val pt = constructor.getParameterTypes.apply(0)
         if(c.getClass.isAssignableFrom(pt)){
-          return constructor.newInstance(c).asInstanceOf[this.type]
+          return constructor.newInstance(c).asInstanceOf[this.type].asDirectionLess()
         }
 //        val a = c.areaClassSet.get(pt)
 //        if(a.isDefined && a.get != null){

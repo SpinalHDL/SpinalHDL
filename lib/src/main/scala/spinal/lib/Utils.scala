@@ -514,12 +514,12 @@ class TraversableOncePimped[T <: Data](pimped: scala.collection.Iterable[T]) {
 
 
   def read(idx: UInt): T = {
-    Vec(pimped)(idx)
+    Vec(pimped).read(idx)
   }
   def write(index: UInt, data: T): Unit = {
     read(index) := data
   }
-  def apply(index: UInt): T = read(index)
+  def apply(index: UInt): T = Vec(pimped)(index)
 
   def sExists(condition: T => Bool): Bool = (pimped map condition).fold(False)(_ || _)
   def sContains(value: T) : Bool = sExists(_ === value)

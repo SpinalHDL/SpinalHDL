@@ -12,7 +12,7 @@ import spinal.lib.tool.{ResetEmitterTag, InterruptReceiverTag, QSysify}
 object CoreQSysAvalon{
   import extension._
 
-  class RiscvAvalon(coreConfig : CoreConfig,iCacheConfig : InstructionCacheConfig, dCacheConfig : DataCacheConfig,debug : Boolean) extends Component{
+  class RiscvAvalon(coreConfig : CoreConfig,iCacheConfig : InstructionCacheConfig, dCacheConfig : DataCacheConfig,debug : Boolean,interruptCount : Int) extends Component{
     val iCached = iCacheConfig != null
     val dCached = dCacheConfig != null
 
@@ -31,15 +31,15 @@ object CoreQSysAvalon{
     val io = new Bundle{
       val i = master(AvalonMMBus(iConfig))
       val d = master(AvalonMMBus(dConfig))
-      val interrupt = in(Bits(4 bit))
+      val interrupt = if(interruptCount != 0) in(Bits(4 bit)) else null
       val debugResetIn = if(debug) in Bool else null
       val debugResetOut = if(debug) out Bool else null
       val debugBus = if(debug) slave(AvalonMMBus(DebugExtension.getAvalonMMConfig)) else null
     }
 
 
-
-    coreConfig.add(new SimpleInterruptExtension(exceptionVector=0x0).addIrq(id=4,pins=io.interrupt,IrqUsage(isException=false),name="io_interrupt"))
+    if(interruptCount != 0)
+      coreConfig.add(new SimpleInterruptExtension(exceptionVector=0x0).addIrq(id=4,pins=io.interrupt,IrqUsage(isException=false),name="io_interrupt"))
     val nativeInstructionBusExtension = if(!iCached)coreConfig.add(new NativeInstructionBusExtension)  else null
     val cachedInstructionBusExtension = if(iCached)coreConfig.add(new CachedInstructionBusExtension(iCacheConfig,false,true))  else null
     val nativeDataBusExtension = if(!dCached) coreConfig.add(new NativeDataBusExtension) else null
@@ -96,6 +96,7 @@ object CoreQSysAvalon{
 
   def main(args: Array[String]) {
     val debug = true
+    val interruptCount = 4
 
     //replace wit null to disable instruction cache
     val iCacheConfig = InstructionCacheConfig(
@@ -109,14 +110,14 @@ object CoreQSysAvalon{
     )
 
     //replace wit null to disable data cache
-    val dCacheConfig = DataCacheConfig(
+    val dCacheConfig = null /*DataCacheConfig(
       cacheSize = 4096,
       bytePerLine =32,
       wayCount = 1,
       addressWidth = 32,
       cpuDataWidth = 32,
       memDataWidth = 32
-    )
+    )*/
 
     val coreConfig = CoreConfig(
       pcWidth = 32,
@@ -139,12 +140,13 @@ object CoreQSysAvalon{
     //  p.add(new BarrelShifterLightExtension)
 
     val report = SpinalVhdl({
-      new RiscvAvalon(coreConfig,iCacheConfig,dCacheConfig,debug)
+      new RiscvAvalon(coreConfig,iCacheConfig,dCacheConfig,debug,interruptCount)
     },_.setLibrary("qsys").onlyStdLogicVectorTopLevelIo)
 
     report.toplevel.io.i addTag(ClockDomainTag(report.toplevel.clockDomain))
     report.toplevel.io.d addTag(ClockDomainTag(report.toplevel.clockDomain))
-    report.toplevel.io.interrupt addTag(InterruptReceiverTag(report.toplevel.io.i,report.toplevel.clockDomain))
+    if(interruptCount != 0)
+      report.toplevel.io.interrupt addTag(InterruptReceiverTag(report.toplevel.io.i,report.toplevel.clockDomain))
     if(debug) {
       report.toplevel.io.debugBus addTag(ClockDomainTag(report.toplevel.debugExtension.clockDomain))
       report.toplevel.io.debugResetOut.addTag(ResetEmitterTag(report.toplevel.debugExtension.clockDomain))
@@ -154,9 +156,14 @@ object CoreQSysAvalon{
 }
 
 
+
+
+
+//Only used to check FMAX
 object CoreFMaxBench{
   def main(args: Array[String]) {
     val debug = true
+    val interruptCount = 4
 
     val iCacheConfig = InstructionCacheConfig(
       cacheSize =4096,
@@ -196,7 +203,7 @@ object CoreFMaxBench{
     coreConfig.add(new DivExtension)
     coreConfig.add(new BarrelShifterFullExtension)
   //  p.add(new BarrelShifterLightExtension)
-    SpinalVhdl(new WrapWithReg.Wrapper(new RiscvAvalon(coreConfig,iCacheConfig,dCacheConfig,debug)).setDefinitionName("TopLevel"))
+    SpinalVhdl(new WrapWithReg.Wrapper(new RiscvAvalon(coreConfig,iCacheConfig,dCacheConfig,debug,interruptCount)).setDefinitionName("TopLevel"))
   }
 }
 
