@@ -41,8 +41,6 @@ case class CoreConfig(val pcWidth : Int = 32,
                       val branchPrediction : BranchPrediction = static,
                       val regFileReadyKind : RegFileReadKind = sync,
                       val fastFetchCmdPcCalculation : Boolean = true,
-                    //  val instructionBusKind : InstructionBusKind = cmdStream_rspFlow,
-                      val dataBusKind : DataBusKind = cmdStream_rspFlow,
                       val dynamicBranchPredictorCacheSizeLog2 : Int = 4,
                       val branchPredictorHistoryWidth : Int = 2,
                       val invalidInstructionIrqId : Int = 0,
@@ -158,7 +156,6 @@ case class CoreDataBus(implicit p : CoreConfig) extends Bundle with IMasterSlave
   override def asSlave(): this.type = asMaster.flip()
 
   def toAvalon(): AvalonMMBus = {
-    assert(p.dataBusKind == cmdStream_rspFlow)
     val avalonConfig = CoreDataBus.getAvalonConfig(p)
     val mm = AvalonMMBus(avalonConfig)
     mm.read := cmd.valid && !cmd.wr
@@ -273,6 +270,12 @@ class Core(implicit val c : CoreConfig) extends Component{
   //Data bus
   val dCmd = Stream(CoreDataCmd())
   val dRsp = Stream(Bits(32 bits))
+  val dataBusKind : DataBusKind = if(c.extensions.foldLeft(false)(_ || _.needFlowDRsp))
+    cmdStream_rspFlow
+  else
+    cmdStream_rspStream
+
+
 
   //IRQ
   val irqUsages = mutable.HashMap[Int,IrqUsage]()
@@ -289,9 +292,6 @@ class Core(implicit val c : CoreConfig) extends Component{
   //Memories
   val regFile = Mem(Bits(32 bit),32)
   val brancheCache = Mem(BranchPredictorLine(), 1<<dynamicBranchPredictorCacheSizeLog2)
-
-
-
 
 
   //Send instruction request to io.i.cmd

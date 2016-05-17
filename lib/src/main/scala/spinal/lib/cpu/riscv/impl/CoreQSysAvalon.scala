@@ -64,8 +64,8 @@ object CoreQSysAvalon{
     if(iCached){
       val memCache = cachedInstructionBusExtension.memBus
       val memI = memCache.clone
-      memI.cmd <-< memCache.cmd
-      memI.rsp >-> memCache.rsp
+      memI.cmd << memCache.cmd.halfPipe()
+      memI.rsp >> memCache.rsp
       io.i <> memI.toAvalon()
     }else{
       val memCpu = nativeInstructionBusExtension.memBus
@@ -81,7 +81,7 @@ object CoreQSysAvalon{
     if(dCached){
       val memCache = cachedDataBusExtension.memBus
       val memD = memCache.clone
-      memD.cmd <-/< memCache.cmd
+      memD.cmd << memCache.cmd.halfPipe()
       memD.rsp >-> memCache.rsp
       io.d <> memD.toAvalon()
     }else{
@@ -129,7 +129,6 @@ object CoreQSysAvalon{
       bypassWriteBack = true,
       bypassWriteBackBuffer = true,
       collapseBubble = false,
-      dataBusKind = cmdStream_rspFlow,
       fastFetchCmdPcCalculation = true,
       dynamicBranchPredictorCacheSizeLog2 = 7
     )
@@ -189,7 +188,6 @@ object CoreFMaxBench{
       bypassWriteBack = true,
       bypassWriteBackBuffer = true,
       collapseBubble = false,
-      dataBusKind = cmdStream_rspFlow,
       fastFetchCmdPcCalculation = true,
       dynamicBranchPredictorCacheSizeLog2 = 7
     )
