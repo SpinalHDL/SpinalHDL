@@ -202,7 +202,9 @@ object switch {
 
 
 object is {
-  def apply(values: Any*)(block: => Unit): Unit = {
+  def apply(values: Any*)(block: => Unit): Unit = list(values.iterator)(block)
+
+  def list(values: Iterator[Any])(block: => Unit): Unit = {
     val globalData = GlobalData.get
     if (globalData.switchStack.isEmpty) SpinalError("Use 'is' statement outside the 'switch'")
 

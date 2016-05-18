@@ -85,19 +85,6 @@ class JtagTap(jtag: Jtag, instructionWidth: Int) extends Area with JtagTapAccess
   override def getTdi: Bool = jtag.tdi
   override def setTdo(value: Bool): Unit = jtag.tdo := value
   override def getTms: Bool = jtag.tms
-
-  //Instruction wrappers
-  def idcode(value: Bits)(instructionId: Bits) =
-    new JtagInstructionIdcode(value)(this,instructionId)
-
-  def read[T <: Data](data: T)(instructionId: Bits)   =
-    new JtagInstructionRead(data)(this,instructionId)
-
-  def write[T <: Data](data: T,  cleanUpdate: Boolean = true, readable: Boolean = true)(instructionId: Bits) =
-    new JtagInstructionWrite[T](data,cleanUpdate,readable)(this,instructionId)
-
-  def flowFragmentPush[T <: Data](sink : Flow[Fragment[Bits]],sinkClockDomain : ClockDomain)(instructionId: Bits) =
-    new JtagInstructionFlowFragmentPush(sink,sinkClockDomain)(this,instructionId)
 }
 
 

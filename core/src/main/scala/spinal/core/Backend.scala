@@ -102,6 +102,7 @@ class Backend {
   //TODO better Mem support (user specifyed blackbox)
   //TODO Mux node with n inputs instead of fixed 2
   //TODO better assignement error localisation   (when  otherwise)
+  //TODO non bundle that should be bundle into a bundle shoud be warned
   protected def elaborate[T <: Component](topLevel: T): BackendReport[T] = {
     SpinalInfoPhase("Start analysis and transform")
     addReservedKeyWordToScope(globalScope)

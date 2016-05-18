@@ -1,12 +1,11 @@
-package spinal.lib.cpu.riscv.impl
+package spinal.lib.cpu.riscv.impl.bench
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.avalon._
-import spinal.lib.tool.{ResetEmitterTag, InterruptReceiverTag, QSysify}
+import spinal.lib.cpu.riscv.impl._
 
 object CoreUut{
-  import extension._
+  import spinal.lib.cpu.riscv.impl.extension._
 
   class TopLevel extends Component{
     val io_interrupt = in Bool

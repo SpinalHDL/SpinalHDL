@@ -163,26 +163,29 @@ object SpinalMap {
   def apply[K <: Data, T <: Data](addr: K, default: T, mappings: (Any, T)*): T = list(addr,default,mappings)
   def apply[K <: Data, T <: Data](addr: K, mappings: (Any, T)*): T = list(addr,mappings)
 
-  def list[K <: Data, T <: Data](addr: K, default: T, mappings: Seq[(Any, T)]): T = {
-    val result = default.clone
-    result := default
-    for ((cond, value) <- mappings) {
-      cond match {
-        case product : Product => {
-          for(cond <- product.productIterator){
-            when(addr.isEguals(cond)) {
+  def list[K <: Data, T <: Data](addr: K, defaultValue: T, mappings: Seq[(Any, T)]): T = {
+    val result : T = defaultValue.clone
+
+    switch(addr){
+      for ((cond, value) <- mappings) {
+        cond match {
+          case product : Product => {
+          //  for(cond <- product.productIterator){
+              is.list(product.productIterator) {
+                result := value
+              }
+         //   }
+          }
+          case _ => {
+            is(cond) {
               result := value
             }
           }
         }
-        case _ => {
-          when(addr.isEguals(cond)) {
-            result := value
-          }
-        }
       }
-
-
+      default{
+        result := defaultValue
+      }
     }
     result
   }
