@@ -384,7 +384,7 @@ object PlayBetterError {
     val e = in UInt(7 bits)
     val f = in UInt(8 bits)
     val result = out UInt(4 bits)
-
+    val reg = Reg(UInt(4 bits))
     //Case 1
 //    result := c
 
@@ -452,7 +452,27 @@ object PlayBetterError {
 //      result := sub.output
 
 
+      //Case 8
+//      val sub = new Component{
+//        val input = in UInt(4 bits)
+//        val output = out UInt(4 bits)
+//        val tmp = UInt(4 bits)
+//        tmp := 3
+//        output := tmp
+//      }
+//      sub.input := a
+//      when(cond){
+//        sub.tmp := 3
+//      }
+//      result := sub.output
 
+
+    //Case 9
+    reg := c
+    when(cond){
+      reg := d
+    }
+    result := reg
   }
   def main(args: Array[String]): Unit = {
 

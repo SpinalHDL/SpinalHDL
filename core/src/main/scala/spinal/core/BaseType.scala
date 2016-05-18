@@ -50,6 +50,15 @@ object BaseType {
     }
 
 
+    baseType.dir match{
+      case null => if(globalData.componentStack.head() != baseType.component)
+        SpinalError(s"Signal $baseType can't be assigned outside his component => \n${ScalaLocated.long}")
+      case `in` => if(globalData.componentStack.head() != baseType.component.parent)
+        SpinalError(s"Input signal $baseType can't be assigned from there => \n${ScalaLocated.long}")
+      case `out` => if(globalData.componentStack.head() != baseType.component)
+        SpinalError(s"Output signal $baseType can't be assigned from there => \n${ScalaLocated.long}")
+    }
+
     for (conditionalAssign <- globalData.conditionalAssignStack.stack.reverseIterator) {
       if (!initialConditionalAssignHit) {
         if (conditionalAssign == baseType.conditionalAssignScope) initialConditionalAssignHit = true

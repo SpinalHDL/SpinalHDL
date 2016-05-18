@@ -95,9 +95,19 @@ object Data {
       risePath = risePath.tail
     }
 
-    Component.push(nextData.component)
-    nextData := srcData
-    Component.pop(nextData.component)
+    nextData.dir match{
+      case `in`=> {
+        Component.push(srcData.component)
+        nextData := srcData
+        Component.pop(srcData.component)
+      }
+      case _ => {
+        Component.push(nextData.component)
+        nextData := srcData
+        Component.pop(nextData.component)
+      }
+    }
+
 
     ret
   }

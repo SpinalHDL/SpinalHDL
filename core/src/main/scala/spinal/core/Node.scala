@@ -279,8 +279,9 @@ object InputNormalize {
 
   def regImpl(node: Node): Unit = {
     val targetWidth = node.getWidth
-    Misc.normalizeResize(node, RegS.getDataInputId, targetWidth)
-    if (node.asInstanceOf[Reg].isUsingReset) Misc.normalizeResize(node, RegS.getInitialValueId, targetWidth)
+    InputNormalize.bitVectoreAssignement(node, RegS.getDataInputId, targetWidth)
+    //Misc.normalizeResize(node, RegS.getDataInputId, targetWidth)
+    if (node.asInstanceOf[Reg].isUsingReset) InputNormalize.bitVectoreAssignement(node, RegS.getInitialValueId, targetWidth)
   }
 
   def memReadImpl(node: Node): Unit = {

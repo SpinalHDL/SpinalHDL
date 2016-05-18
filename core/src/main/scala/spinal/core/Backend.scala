@@ -792,9 +792,18 @@ class Backend {
               case _ => node.component
             }
             if(c != null) {
-              Component.push(c)
-              node.assignFrom(node.defaultValue, false)
-              Component.pop(c)
+              node.dir match{
+                case `in` =>  {
+                  Component.push(c.parent)
+                  node.assignFrom(node.defaultValue, false)
+                  Component.pop(c.parent)
+                }
+                case _ => {
+                  Component.push(c)
+                  node.assignFrom(node.defaultValue, false)
+                  Component.pop(c)
+                }
+              }
             }
           }
         }

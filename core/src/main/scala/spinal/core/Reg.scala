@@ -84,7 +84,7 @@ object RegS {
   val getInitialValueId: Int = 4
 }
 
-class Reg(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) extends SyncNode(clockDomain) with Assignable {
+class Reg(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) extends SyncNode(clockDomain) with Assignable with AssignementTreePart {
   inputs += this
   inputs += new NoneNode
 
@@ -116,10 +116,29 @@ class Reg(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) ext
 
   def calcWidth = WidthInfer.regImpl(this)
 
-  override def normalizeInputs: Unit = {
-    InputNormalize.regImpl(this)
+  override def normalizeInputs: Unit = InputNormalize.regImpl(this)
+  override private[core] def checkInferedWidth: String = {
+    val dataInput = this.inputs(RegS.getDataInputId)
+    if (dataInput != null && dataInput.component != null && this.getWidth != dataInput.getWidth) {
+      return s"Assignment bit count mismatch. ${this} := ${dataInput}} at \n${ScalaLocated.long(getAssignementContext(RegS.getDataInputId))}"
+    }
+    if (isUsingReset) {
+      val resetDataInput = this.inputs(RegS.getInitialValueId)
+      if (resetDataInput != null && resetDataInput.component != null && this.getWidth != resetDataInput.getWidth) {
+        return s"Assignment bit count mismatch. ${this} := ${resetDataInput}} at \n${ScalaLocated.long(getAssignementContext(RegS.getDataInputId))}"
+      }
+    }
+    return null
   }
 
+  override def getAssignementContext(id: Int): Throwable = id match {
+    case RegS.getDataInputId => outType.getAssignementContext(0)
+    case _ => null
+  }
+  override def setAssignementContext(id: Int, that: Throwable): Unit = id match {
+    case RegS.getDataInputId => outType.setAssignementContext(0,that)
+    case _ => null
+  }
   def hasInitialValue = getInitialValue != null
 
   def getOutputByConsumers = consumers.find(_.isInstanceOf[BaseType]).get.asInstanceOf[BaseType]
