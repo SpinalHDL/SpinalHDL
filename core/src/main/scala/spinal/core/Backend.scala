@@ -523,28 +523,28 @@ class Backend {
     Node.walk(walkNodesDefautStack,node => {
       node match {
         case node: BaseType => {
-          val in = node.inputs(0)
-          if (in != null) {
-            if (node.isInput && in.isInstanceOf[Reg] && in.component == node.component) {
-              errors += s"Input register are not allowed ${node.getScalaLocationLong}"
+          val nodeInput0 = node.inputs(0)
+          if (nodeInput0 != null) {
+            if (node.isInput && nodeInput0.isInstanceOf[Reg] && nodeInput0.component == node.component) {
+              errors += s"Input register are not allowed \n${node.getScalaLocationLong}"
             } else {
-              val inIsIo = in.isInstanceOf[BaseType] && in.asInstanceOf[BaseType].isIo
+              val nodeInput0IsIo = nodeInput0.isInstanceOf[BaseType] && nodeInput0.asInstanceOf[BaseType].isIo
               if (node.isIo) {
                 if (node.isInput) {
-                  if (in.component != node.component.parent && !(!in.component.isTopLevel && inIsIo && in.component.parent == node.component.parent)) {
-                    if (in.component == node.component)
-                      errors += s"Input $node can't be assigned from inside at\n${node.getScalaLocationLong}"
+                  if (nodeInput0.component != node.component.parent && !(!nodeInput0.component.isTopLevel && nodeInput0IsIo && nodeInput0.component.parent == node.component.parent)) {
+                    if (nodeInput0.component == node.component)
+                      errors += s"Input $node can't be assigned from inside at\n${ScalaLocated.long(node.assignementThrowable)}"
                     else
-                      errors += s"Input $node is not assigned by parent component but an other at\n${node.getScalaLocationLong}"
+                      errors += s"Input $node is not assigned by parent component but another at\n${ScalaLocated.long(node.assignementThrowable)}"
                   }
                 } else if (node.isOutput) {
-                  if (in.component != node.component && !(inIsIo && node.component == in.component.parent))
-                    errors += s"Output $node is not assigned by his component but an other at\n${node.getScalaLocationLong}"
+                  if (nodeInput0.component != node.component && !(nodeInput0IsIo && node.component == nodeInput0.component.parent))
+                    errors += s"Output $node is not assigned by his component but an other at\n${ScalaLocated.long(node.assignementThrowable)}"
                 } else
-                  errors += s"No direction specified on IO ${node.getScalaLocationLong}"
+                  errors += s"No direction specified on IO \n${node.getScalaLocationLong}"
               } else {
-                if (in.component != node.component && !(inIsIo && node.component == in.component.parent))
-                  errors += s"Node $node is assigned outside his component at\n${node.getScalaLocationLong}"
+                if (nodeInput0.component != node.component && !(nodeInput0IsIo && node.component == nodeInput0.component.parent))
+                  errors += s"Node $node is assigned outside his component at\n${ScalaLocated.long(node.assignementThrowable)}"
               }
             }
           } else {
@@ -553,12 +553,17 @@ class Backend {
           }
         }
         case _ => {
-          for (in <- node.inputs) {
+          for ((in,idx) <- node.inputs.zipWithIndex) {
             if (in == null) {
               errors += s"No driver on ${node.getScalaLocationLong}"
             } else {
-              if (in.component != node.component && !(in.isInstanceOf[BaseType] && in.asInstanceOf[BaseType].isIo && node.component == in.component.parent))
-                errors += s"Node is driven outside his component ${node.getScalaLocationLong}"
+              if (in.component != node.component && !(in.isInstanceOf[BaseType] && in.asInstanceOf[BaseType].isIo && node.component == in.component.parent)) {
+                val throwable = node match{
+                  case node : AssignementTreePart => node.getAssignementContext(idx)
+                  case _ => node.scalaTrace
+                }
+                errors += s"Node is driven outside his component \n${ScalaLocated.long(throwable)}"
+              }
             }
           }
         }

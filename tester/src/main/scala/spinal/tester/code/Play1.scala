@@ -374,6 +374,8 @@ object PlayFifo {
 
 
 object PlayBetterError {
+
+
   class TopLevel extends Component{
     val cond = in Bool
     val a,b = in UInt(4 bits)
@@ -391,17 +393,63 @@ object PlayBetterError {
 //    result(1 downto 0) := b.resize(2)
 
     //Case 3
-    when(cond){
-      result := c
-    }.elsewhen(cond){
-      when(cond){
-        result := a
-      }otherwise{
-        result := e
-      }
-    }.otherwise{
-      result := f
-    }
+//    when(cond){
+//      result := c
+//    }.elsewhen(cond){
+//      when(cond){
+//        result := a
+//      }otherwise{
+//        result := e
+//      }
+//    }.otherwise{
+//      result := f
+//    }
+
+    //Case 4
+//    val sub = new  Component{
+//      val input = in UInt(4 bits)
+//      val output = out UInt(4 bits)
+//      val toto = U(0,4 bits)
+//      input := toto
+//      output := input
+//    }
+//    result := sub.output
+
+    //Case 5
+//    val sub = new Component{
+//      val input = in UInt(4 bits)
+//      val output = out UInt(4 bits)
+//    }
+//    sub.input := a
+//    sub.output := a
+//    result := sub.output
+
+    //Case 6
+//    val sub = new Component{
+//      val input = in UInt(4 bits)
+//      val output = out UInt(4 bits)
+//      val tmp = UInt(4 bits)
+//      output := tmp
+//    }
+//    sub.input := a
+//    sub.tmp := 3
+//    result := sub.output
+
+
+    //Case 7
+//      val sub = new Component{
+//        val input = in UInt(4 bits)
+//        val output = out UInt(4 bits)
+//        val tmp = UInt(4 bits)
+//        output := tmp
+//      }
+//      sub.input := a
+//      when(cond){
+//        sub.tmp := 3
+//      }otherwise{
+//        sub.tmp := 4
+//      }
+//      result := sub.output
 
 
 

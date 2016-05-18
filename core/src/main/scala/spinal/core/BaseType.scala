@@ -36,7 +36,7 @@ object BaseType {
 
     def initMan(man: MultipleAssignmentNode, that: Node): Unit = {
       if(consumer.isInstanceOf[AssignementTreePart]){
-        man.setAssignementContext(0,consumer.asInstanceOf[AssignementTreePart].getAssignementContext(consumerInputId)) //TODO
+        man.setAssignementContext(0,consumer.asInstanceOf[AssignementTreePart].getAssignementContext(consumerInputId))
       }
       //To be sure that there is basetype to bufferise (for future resize)
       if (that.isInstanceOf[WhenNode] || that.isInstanceOf[BaseType] || that.isInstanceOf[AssignementNode] ||
@@ -59,6 +59,9 @@ object BaseType {
             consumer.inputs(consumerInputId) match {
               case nothing@(null | _: NoneNode) => {
                 val whenNode = WhenNode(when)
+                if(consumer.isInstanceOf[AssignementTreePart]){
+                  consumer.asInstanceOf[AssignementTreePart].setAssignementContext(consumerInputId,globalData.getThrowable())
+                }
                 consumer.inputs(consumerInputId) = whenNode
                 consumer = whenNode
               }
