@@ -142,7 +142,7 @@ class SFix(maxExp: Int, bitCount: Int) extends XFix[SFix, SInt](maxExp, bitCount
   def >=(that: SFix): Bool = that.doSmallerEguals(this)
   def >=(that: Double): Bool = {
     if (that > maxValue) {
-      SpinalWarning("Impossible comparison at " + ScalaLocated.getScalaTrace)
+      SpinalWarning("Impossible comparison at " + ScalaLocated.long)
       return False
     }
     val other = cloneOf(this)
@@ -226,7 +226,7 @@ class UFix(maxExp: Int, bitCount: Int) extends XFix[UFix, UInt](maxExp, bitCount
 
   def >=(that: Double): Bool = {
     if (that > maxValue) {
-      SpinalWarning("Impossible comparison at " + ScalaLocated.getScalaTrace)
+      SpinalWarning("Impossible comparison at " + ScalaLocated.long)
       return False
     }
     val other = cloneOf(this)

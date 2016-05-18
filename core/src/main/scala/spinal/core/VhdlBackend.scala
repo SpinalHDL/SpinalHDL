@@ -825,7 +825,7 @@ class VhdlBackend extends Backend with VhdlBase {
         case attributeReady: AttributeReady => {
           for (attribute <- attributeReady.attributes) {
             val mAttribute = map.getOrElseUpdate(attribute.getName, attribute)
-            if (!mAttribute.sameType(attribute)) SpinalError(s"There is some attributes with different nature (${attribute} and ${mAttribute} at ${node.component}})")
+            if (!mAttribute.sameType(attribute)) SpinalError(s"There is some attributes with different nature (${attribute} and ${mAttribute} at\n${node.component}})")
           }
         }
         case _ =>

@@ -18,6 +18,7 @@
 
 package spinal.core
 
+import scala.collection.mutable.ArrayBuffer
 
 
 object EnumCast {
@@ -259,7 +260,7 @@ class ExtractBoolFixed(opName: String, bitVector: BitVector, bitId: Int) extends
 
   override def checkInferedWidth: String = {
     if (bitId < 0 || bitId >= getBitVector.getWidth) {
-      return s"Static bool extraction (bit ${bitId}) is outside the range (${getBitVector.getWidth - 1} downto 0) of ${getBitVector} at\n${getScalaTraceString}"
+      return s"Static bool extraction (bit ${bitId}) is outside the range (${getBitVector.getWidth - 1} downto 0) of ${getBitVector} at\n${getScalaLocationLong}"
     }
     return null
   }
@@ -314,7 +315,7 @@ class ExtractBitsVectorFixed(opName: String, bitVector: BitVector, hi: Int, lo: 
   override def checkInferedWidth: String = {
     val width = getBitVector.getWidth
     if (hi >= width || lo < 0) {
-      return s"Static bits extraction ($hi downto $lo) is outside the range (${width - 1} downto 0) of ${getBitVector} at\n${getScalaTraceString}"
+      return s"Static bits extraction ($hi downto $lo) is outside the range (${width - 1} downto 0) of ${getBitVector} at\n${getScalaLocationLong}"
     }
     return null
   }
@@ -601,7 +602,7 @@ class BitAssignmentFixed(out: BitVector, in: Node, bitId: Int) extends Assigneme
 
   override def checkInferedWidth: String = {
     if (bitId < 0 || bitId >= out.getWidth) {
-      return s"Static bool extraction (bit ${bitId}) is outside the range (${out.getWidth - 1} downto 0) of ${out} at\n${getScalaTraceString}"
+      return s"Static bool extraction (bit ${bitId}) is outside the range (${out.getWidth - 1} downto 0) of ${out} at\n${getScalaLocationLong}"
     }
     return null
   }
@@ -634,12 +635,12 @@ class RangedAssignmentFixed(out: BitVector, in: Node, hi: Int, lo: Int) extends 
   override def checkInferedWidth: String = {
     val input = getInput
     if (input.component != null && hi + 1 - lo != input.getWidth) {
-      return s"Assignment bit count mismatch. ${this} := ${input}} at\n${getScalaTraceString}"
+      return s"Assignment bit count mismatch. ${this} := ${input}} at\n${getScalaLocationLong}"
     }
 
     val width = out.getWidth
     if (hi >= width || lo < 0) {
-      return s"Static bits assignment ($hi downto $lo) is outside the range (${width - 1} downto 0) of ${out} at\n${getScalaTraceString}"
+      return s"Static bits assignment ($hi downto $lo) is outside the range (${width - 1} downto 0) of ${out} at\n${getScalaLocationLong}"
     }
     return null
   }
@@ -663,6 +664,7 @@ class RangedAssignmentFixed(out: BitVector, in: Node, hi: Int, lo: Int) extends 
   def getOutBaseType: BaseType = out
   override def clone(out: Node): this.type = new RangedAssignmentFixed(out.asInstanceOf[BitVector],in,hi,lo).asInstanceOf[this.type]
 
+  override def toString(): String = s"${out.toString()}[$hi downto $lo]"
 }
 
 
@@ -709,7 +711,7 @@ class RangedAssignmentFloating(out: BitVector, in: Node, offset: UInt, bitCount:
   override def checkInferedWidth: String = {
     val input = getInput
     if (input.component != null && bitCount.value != input.getWidth) {
-      return s"Assignement bit count missmatch. ${this} := ${input}} at\n${getScalaTraceString}"
+      return s"Assignement bit count missmatch. ${this} := ${input}} at\n${getScalaLocationLong}"
     }
 
     return null
@@ -729,7 +731,7 @@ class RangedAssignmentFloating(out: BitVector, in: Node, offset: UInt, bitCount:
 }
 
 
-class MultipleAssignmentNode extends Node {
+class MultipleAssignmentNode extends Node with AssignementTreePart{
   override def calcWidth: Int = WidthInfer.multipleAssignmentNodeWidth(this)
   override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = (outHi,outLo)
 
@@ -742,11 +744,20 @@ class MultipleAssignmentNode extends Node {
     for (i <- 0 until inputs.size){
       val input = this.inputs(i)
       if (input != null && input.component != null && this.getWidth !=input.getWidth) {
-        return s"Assignement bit count missmatch. ${this} := ${input}} at\n${getScalaTraceString}"
+        return s"Assignement bit count missmatch. ${this} := ${input}} at\n${ScalaLocated.long(getAssignementContext(i))}"
       }
     }
     return null
   }
+
+
+  var inputsThrowable : Array[Throwable] = null
+  override def getAssignementContext(id: Int): Throwable =
+    ArrayManager.getElseNull(inputsThrowable,id)
+  override def setAssignementContext(id: Int,that : Throwable = globalData.getThrowable()): Unit =
+    inputsThrowable = ArrayManager.setAllocate(inputsThrowable,id,that)
+
+
 }
 
 

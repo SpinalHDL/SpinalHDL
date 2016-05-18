@@ -19,6 +19,7 @@ import spinal.lib.graphic.{RgbConfig, Rgb}
 import spinal.lib.graphic.vga.{VgaCtrl, Vga}
 
 import scala.collection.immutable.HashSet
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
@@ -366,6 +367,47 @@ object PlayFifo {
     fifo.io.clone.clone
   }
   def main(args: Array[String]): Unit = {
+
+    SpinalVhdl(new TopLevel())
+  }
+}
+
+
+object PlayBetterError {
+  class TopLevel extends Component{
+    val cond = in Bool
+    val a,b = in UInt(4 bits)
+    val c = in UInt(5 bits)
+    val d = in UInt(6 bits)
+    val e = in UInt(7 bits)
+    val f = in UInt(8 bits)
+    val result = out UInt(4 bits)
+
+    //Case 1
+//    result := c
+
+    //Case 2
+//    result := c
+//    result(1 downto 0) := b.resize(2)
+
+    //Case 3
+    when(cond){
+      result := c
+    }.elsewhen(cond){
+      when(cond){
+        result := a
+      }otherwise{
+        result := e
+      }
+    }.otherwise{
+      result := f
+    }
+
+
+
+  }
+  def main(args: Array[String]): Unit = {
+
 
     SpinalVhdl(new TopLevel())
   }

@@ -28,7 +28,16 @@ trait BaseTypeCast extends BoolCast with UIntCast with SIntCast with BitsCast wi
 
 object BaseType {
   def walkWhenNodes(baseType: BaseType, initialConsumer: Node, initialConsumerInputId: Int, conservative: Boolean = false) = {
+
+    var consumer = initialConsumer
+    var consumerInputId: Int = initialConsumerInputId
+    val globalData = baseType.globalData
+    var initialConditionalAssignHit = baseType.conditionalAssignScope == null
+
     def initMan(man: MultipleAssignmentNode, that: Node): Unit = {
+      if(consumer.isInstanceOf[AssignementTreePart]){
+        man.setAssignementContext(0,consumer.asInstanceOf[AssignementTreePart].getAssignementContext(consumerInputId)) //TODO
+      }
       //To be sure that there is basetype to bufferise (for future resize)
       if (that.isInstanceOf[WhenNode] || that.isInstanceOf[BaseType] || that.isInstanceOf[AssignementNode] ||
           that.isInstanceOf[MultipleAssignmentNode] || that.isInstanceOf[Reg]) {
@@ -40,10 +49,6 @@ object BaseType {
       }
     }
 
-    val globalData = baseType.globalData
-    var consumer = initialConsumer
-    var consumerInputId: Int = initialConsumerInputId
-    var initialConditionalAssignHit = baseType.conditionalAssignScope == null
 
     for (conditionalAssign <- globalData.conditionalAssignStack.stack.reverseIterator) {
       if (!initialConditionalAssignHit) {
@@ -156,18 +161,23 @@ object BaseType {
       if (overrided != null && !overrided.isInstanceOf[NoneNode] && !overrided.isInstanceOf[Reg])
         if (consumer.globalData.overridingAssignementWarnings) {
           val exept = new Throwable()
-          val trace = ScalaLocated.getScalaTraceSmart
+          val trace = ScalaLocated.short
           Component.current.prePopTasks += (() => {
             SpinalWarning(s"$baseType is overridden at ${trace}")
           })
         }
+    }
+
+    consumer match {
+      case consumer : AssignementTreePart => consumer.setAssignementContext(consumerInputId,consumer.globalData.getThrowable())
+      case _ =>
     }
     (consumer, consumerInputId)
   }
 }
 
 
-abstract class BaseType extends Node with Data with Nameable {
+abstract class BaseType extends Node with Data with Nameable with AssignementTreePart{
   inputs += null
 
   private[core] def canSymplifyIt = !dontSimplify && attributes.isEmpty
@@ -252,7 +262,7 @@ abstract class BaseType extends Node with Data with Nameable {
   override private[core] def checkInferedWidth: String = {
     val input = this.inputs(0)
     if (input != null && input.component != null && this.getWidth != input.getWidth) {
-      return s"Assignment bit count mismatch. ${this} := ${input}} on \n${getScalaTraceString} by \n${input.getScalaTraceString}"
+      return s"Assignment bit count mismatch. ${this} := ${input}} at \n${ScalaLocated.long(getAssignementContext(0))}"
     }
     return null
   }
@@ -316,4 +326,17 @@ abstract class BaseType extends Node with Data with Nameable {
   private[core] def weakClone: this.type = this.getClass.newInstance().asInstanceOf[this.type]
 
   override def toString(): String = s"${component.getPath() + "/" + this.getDisplayName()} : ${getClassIdentifier}"
+
+
+
+  var assignementThrowable : Throwable = null
+
+  override def getAssignementContext(id: Int): Throwable = {
+    assert(id == 0)
+    assignementThrowable
+  }
+  override def setAssignementContext(id: Int,that : Throwable): Unit =  {
+    assert(id == 0)
+    assignementThrowable =that
+  }
 }

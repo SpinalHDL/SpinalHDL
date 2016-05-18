@@ -68,7 +68,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends Node  with Attrib
   var initialContent: Seq[T] = null
 
   def init(initialContant: Seq[T]): this.type = {
-    assert(initialContant.length == wordCount, s"The initial content if the rom doesn't fit with it word count, ${initialContant.length} vs $wordCount " + this.getScalaLocationString)
+    assert(initialContant.length == wordCount, s"The initial content if the rom doesn't fit with it word count, ${initialContant.length} vs $wordCount " + this.getScalaLocationLong)
     this.initialContent = initialContant
     this
   }
@@ -189,7 +189,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends Node  with Attrib
         if(port.getMask != null){
           val portSymbolWidth = getWidth/port.getMask.getWidth
           if(symbolWidthSet){
-            if(symbolWidth != portSymbolWidth) SpinalError(s"Mem with different asspect ratio at ${this.getScalaLocationString}")
+            if(symbolWidth != portSymbolWidth) SpinalError(s"Mem with different asspect ratio at\n${this.getScalaLocationLong}")
           }else{
             symbolWidth = portSymbolWidth
             symbolWidthSet = true
@@ -297,7 +297,7 @@ class MemWrite(mem: Mem[_], val originalAddress: UInt, address: UInt, data: Bits
 
   override private[core] def checkInferedWidth: String = {
     if(getMask != null && getData.getWidth % getMask.getWidth != 0)
-      return s"Memory write_data_width % write_data_mask_width != 0 at ${this.getScalaLocationString}"
+      return s"Memory write_data_width % write_data_mask_width != 0 at\n${this.getScalaLocationLong}"
     else
       null
   }

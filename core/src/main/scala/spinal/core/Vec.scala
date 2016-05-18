@@ -72,7 +72,7 @@ object SeqMux {
       if(address.hasTag(tagAutoResize)){
         address = _address.resize(bitNeeded)
       }else {
-        SpinalError(s"To many bit to address the vector (${address.getWidth} in place of ${bitNeeded})\n at ${ScalaLocated.getScalaTrace}")
+        SpinalError(s"To many bit to address the vector (${address.getWidth} in place of ${bitNeeded})\n at\n${ScalaLocated.long}")
       }
     }
 
@@ -188,7 +188,7 @@ class Vec[T <: Data](_dataType: T, val vec: Vector[T]) extends MultiData with co
   //TODO sub element composite assignement, as well for indexed access (std)
   def oneHotAccess(oneHot: Bits): T = {
     if(elements.size == oneHot.getWidth){
-      SpinalError(s"To many bit to address the vector (${oneHot.getWidth} in place of ${elements.size})\n at ${ScalaLocated.getScalaTrace}")
+      SpinalError(s"To many bit to address the vector (${oneHot.getWidth} in place of ${elements.size})\n at\n${ScalaLocated.long}")
     }
     val ret = dataType.clone
     ret := ret.getZero

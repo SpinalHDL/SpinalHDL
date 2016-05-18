@@ -138,13 +138,24 @@ object WhenNode {
   }
 }
 
-class WhenNode(val w: WhenContext) extends Node {
+class WhenNode(val w: WhenContext) extends Node with AssignementTreePart {
   override def calcWidth: Int = Math.max(whenTrue.getWidth, whenFalse.getWidth)
 
   def cond = inputs(0)
   def whenTrue = inputs(1)
   def whenFalse = inputs(2)
 
+  var whenTrueThrowable : Throwable = null
+  var whenFalseThrowable : Throwable = null
+
+  override def getAssignementContext(id: Int): Throwable = id match{
+    case 1 => whenTrueThrowable
+    case 2 => whenFalseThrowable
+  }
+  override def setAssignementContext(id: Int,that : Throwable = globalData.getThrowable()): Unit =  id match{
+    case 1 => whenTrueThrowable  = that
+    case 2 => whenFalseThrowable = that
+  }
 
   override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
     case 0 => (0, 0)
@@ -160,7 +171,7 @@ class WhenNode(val w: WhenContext) extends Node {
     for(i <- 1 to 2){
       val input = this.inputs(i)
       if (input != null && input.component != null && !input.isInstanceOf[NoneNode] && this.getWidth !=input.getWidth) {
-        return s"Assignement bit count missmatch. ${this} := ${input}} at\n${getScalaTraceString}"
+        return s"Assignement bit count missmatch. ${this} := ${input}} at\n${ScalaLocated.long(getAssignementContext(i))}"
       }
     }
     return null

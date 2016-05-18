@@ -155,7 +155,7 @@ object UartCtrlRxState extends SpinalEnum {
 
 class UartCtrlRx(dataWidthMax: Int = 8, clockDividerWidth: Int = 21, preSamplingSize: Int = 1, samplingSize: Int = 5, postSamplingSize: Int = 2) extends Component {
   if ((samplingSize & 1) != 1)
-    SpinalWarning(s"It's not nice to have a even samplingSize value at ${ScalaLocated.getScalaTraceSmart}")
+    SpinalWarning(s"It's not nice to have a even samplingSize value at ${ScalaLocated.short}")
 
   val io = new Bundle {
     val config = in(new UartCtrlConfig(dataWidthMax))

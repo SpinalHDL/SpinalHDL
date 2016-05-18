@@ -21,6 +21,7 @@ package spinal.core
 
 import scala.collection.mutable
 import scala.collection.mutable.Stack
+import scala.reflect.ClassTag
 
 //case class valClone() extends scala.annotation.StaticAnnotation
 
@@ -343,7 +344,7 @@ object SpinalError {
 
   def apply(messages: Seq[String]) = {
     errCount += messages.length
-    SpinalExit(messages.reduceLeft(_ + "\n" + _))
+    SpinalExit(messages.reduceLeft(_ + "\n\n" + _))
   }
 
   def printError(message: String) = println(s"${SpinalLog.tag("Progress", Console.RED)} $message")
@@ -382,3 +383,24 @@ class MaskedLiteral(val value : BigInt,val careAbout : BigInt,val width : Int){
   }
   def =/=(that : BitVector) : Bool = !(this === that)
 }
+
+object ArrayManager{
+  def setAllocate[T](array : Array[T],idx : Int,value : T,initialSize : Int = 4)(implicit m: ClassTag[T]) : Array[T] = {
+    var ret = array
+    if(ret == null) ret = new Array[T](initialSize)
+    if(ret.length <= idx){
+      val cpy = new Array[T](idx << 1)
+      ret.copyToArray(cpy)
+      ret = cpy
+    }
+    ret(idx) = value
+    ret
+  }
+
+  def getElseNull[T](array : Array[T],idx : Int)(implicit m: ClassTag[T]) : T = {
+    if(array == null) return null.asInstanceOf[T]
+    if(array.length <= idx) return null.asInstanceOf[T]
+    return array(idx)
+  }
+}
+

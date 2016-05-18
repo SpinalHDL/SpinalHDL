@@ -204,64 +204,36 @@ object ScalaLocated {
   var filtredFiles = mutable.Set[String]()
   //var unfiltredPackages = mutable.Set("spinal.code.","spinal.bug.","spinal.scalaTest.")
 
-  def getScalaTraceSmart: String = {
-    val scalaTrace = new Throwable()
-    val temp = scalaTrace.getStackTrace.filter(trace => {
-      val className = trace.getClassName
-      //  !((className.startsWith("scala.") || className.startsWith("spinal.")) && !ScalaLocated.unfiltredPackages.map(className.startsWith(_)).reduceLeft(_ || _)) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
-      !(className.startsWith("scala.") || className.startsWith("spinal.core")) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
-    })
-    temp.apply(0).toString
+  def filterStackTrace(that : Array[StackTraceElement]) = that.filter(trace => {
+    val className = trace.getClassName
+    !(className.startsWith("scala.") || className.startsWith("spinal.core")) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
+  })
+  def short(scalaTrace : Throwable) : String = {
+    if(scalaTrace == null) return "???"
+    filterStackTrace(scalaTrace.getStackTrace)(0).toString
   }
 
-  def getScalaTrace: String = {
-    val scalaTrace = new Throwable()
-    val temp = scalaTrace.getStackTrace.filter(trace => {
-      val className = trace.getClassName
-      //  !((className.startsWith("scala.") || className.startsWith("spinal.")) && !ScalaLocated.unfiltredPackages.map(className.startsWith(_)).reduceLeft(_ || _)) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
-      !(className.startsWith("scala.") || className.startsWith("spinal.core")) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
-    })
-    temp.map(_.toString).mkString("\n")
+  def long(scalaTrace : Throwable,tab : String = "    "): String = {
+    if(scalaTrace == null) return "???"
+    filterStackTrace(scalaTrace.getStackTrace).map(tab + _.toString).mkString("\n") + "\n\n"
   }
+
+  def short: String = short(new Throwable())
+  def long: String = long(new Throwable())
 }
 
+
+//class SpinalMessage{
+//  private val nodes = ArrayBuffer[Node]()
+//  private val components = ArrayBuffer[Component]()
+//  private var message : String = null
+//}
 
 trait ScalaLocated extends GlobalDataUser {
   private[core] val scalaTrace = if (!globalData.scalaLocatedEnable) null else new Throwable()
 
-  private[core] def getScalaTrace = {
-    scalaTrace
-  }
-  private[core] def getScalaTraceSmart = {
-    val temp = scalaTrace.getStackTrace.filter(trace => {
-      val className = trace.getClassName
-      //    !((className.startsWith("scala.") || className.startsWith("spinal.")) && !ScalaLocated.unfiltredPackages.map(className.startsWith(_)).reduceLeft(_ || _)) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
-      !(className.startsWith("scala.") || className.startsWith("spinal.core") || ScalaLocated.filtredFiles.contains(trace.getFileName)) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
-
-    })
-    temp
-  }
-  private[core] def getScalaTraceComplet = {
-    val temp = scalaTrace.getStackTrace
-    temp
-  }
-  private[core] def getScalaTraceCompletString(tab: String): String = {
-    if (scalaTrace == null) return ""
-    (getScalaTraceComplet.map(tab + _.toString) reduceLeft (_ + "\n" + _)) + "\n\n"
-  }
-  private[core] def getScalaTraceCompletString: String = getScalaTraceCompletString("    ")
-
-  private[core] def getScalaTraceString(tab: String): String = {
-    if (scalaTrace == null) return ""
-    (getScalaTraceSmart.map(tab + _.toString) reduceLeft (_ + "\n" + _)) + "\n\n"
-  }
-  private[core] def getScalaTraceString: String = getScalaTraceString("    ")
-
-  private[core] def getScalaLocationString: String = this.toString + " at\n" + getScalaTraceString
-  private[core] def getScalaLocationStringShort: String = {
-    if (scalaTrace == null) return ""
-    this.toString + s" at ${getScalaTraceSmart.apply(0).toString}"
-  }
+  private[core] def getScalaLocationLong: String = ScalaLocated.long(scalaTrace)
+  private[core] def getScalaLocationShort: String = ScalaLocated.short(scalaTrace)
 }
 
 
@@ -432,7 +404,7 @@ class GlobalData {
   }
   val switchStack = new SafeStack[SwitchStack] //TODO switch
   val conditionalAssignStack = new SafeStack[ConditionalContext]
-  val widthCheckers = new ArrayBuffer[WidthChecker]()
+ // val widthCheckers = new ArrayBuffer[WidthChecker]()
 
   var scalaLocatedEnable = false
   var instanceCounter = 0
@@ -446,6 +418,7 @@ class GlobalData {
     temp
   }
 
+  def getThrowable() = if(scalaLocatedEnable) new Throwable else null
 
   def addPostBackendTask(task :  => Unit) : Unit = postBackendTask += (() => task)
   def addJsonReport(report : String) : Unit = jsonReports += report

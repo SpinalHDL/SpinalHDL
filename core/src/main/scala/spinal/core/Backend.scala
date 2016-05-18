@@ -468,7 +468,7 @@ class Backend {
         unassignedBits.remove(assignedBits)
         if (!unassignedBits.isEmpty)
           errors += s"Incomplete assignment is detected on $signal, unassigned bit mask " +
-                    s"is ${unassignedBits.toBinaryString}, declared at ${signal.getScalaLocationString}"
+                    s"is ${unassignedBits.toBinaryString}, declared at\n${signal.getScalaLocationLong}"
       }
       case _ =>
     })
@@ -509,7 +509,7 @@ class Backend {
         val io = c.reflectIo
         for(bt <- io.flatten){
           if(bt.isDirectionLess){
-            errors += s"Direction less signal into io def ${bt.getScalaLocationString}"
+            errors += s"Direction less signal into io def ${bt.getScalaLocationLong}"
           }
         }
       }catch{
@@ -526,39 +526,39 @@ class Backend {
           val in = node.inputs(0)
           if (in != null) {
             if (node.isInput && in.isInstanceOf[Reg] && in.component == node.component) {
-              errors += s"Input register are not allowed ${node.getScalaLocationString}"
+              errors += s"Input register are not allowed ${node.getScalaLocationLong}"
             } else {
               val inIsIo = in.isInstanceOf[BaseType] && in.asInstanceOf[BaseType].isIo
               if (node.isIo) {
                 if (node.isInput) {
                   if (in.component != node.component.parent && !(!in.component.isTopLevel && inIsIo && in.component.parent == node.component.parent)) {
                     if (in.component == node.component)
-                      errors += s"Input $node can't be assigned from inside at ${node.getScalaTraceString}"
+                      errors += s"Input $node can't be assigned from inside at\n${node.getScalaLocationLong}"
                     else
-                      errors += s"Input $node is not assigned by parent component but an other at ${node.getScalaTraceString}"
+                      errors += s"Input $node is not assigned by parent component but an other at\n${node.getScalaLocationLong}"
                   }
                 } else if (node.isOutput) {
                   if (in.component != node.component && !(inIsIo && node.component == in.component.parent))
-                    errors += s"Output $node is not assigned by his component but an other at ${node.getScalaTraceString}"
+                    errors += s"Output $node is not assigned by his component but an other at\n${node.getScalaLocationLong}"
                 } else
-                  errors += s"No direction specified on IO ${node.getScalaLocationString}"
+                  errors += s"No direction specified on IO ${node.getScalaLocationLong}"
               } else {
                 if (in.component != node.component && !(inIsIo && node.component == in.component.parent))
-                  errors += s"Node $node is assigned outside his component at ${node.getScalaTraceString}"
+                  errors += s"Node $node is assigned outside his component at\n${node.getScalaLocationLong}"
               }
             }
           } else {
             if (!(node.isInput && node.component.isTopLevel) && !(node.isOutput && node.component.isInstanceOf[BlackBox]))
-              errors += s"No driver on ${node.getScalaLocationString}"
+              errors += s"No driver on ${node.getScalaLocationLong}"
           }
         }
         case _ => {
           for (in <- node.inputs) {
             if (in == null) {
-              errors += s"No driver on ${node.getScalaLocationString}"
+              errors += s"No driver on ${node.getScalaLocationLong}"
             } else {
               if (in.component != node.component && !(in.isInstanceOf[BaseType] && in.asInstanceOf[BaseType].isIo && node.component == in.component.parent))
-                errors += s"Node is driven outside his component ${node.getScalaLocationString}"
+                errors += s"Node is driven outside his component ${node.getScalaLocationLong}"
             }
           }
         }
@@ -639,7 +639,7 @@ class Backend {
       node match {
         case delay: SyncNode => {
           if(delay.isUsingReset && !delay.getClockDomain.hasReset)
-              SpinalError(s"Clock domain without reset contain a register which needs one\n ${delay.getScalaLocationString}")
+              SpinalError(s"Clock domain without reset contain a register which needs one\n ${delay.getScalaLocationLong}")
 
           Component.push(delay.component)
           delay.inputs(SyncNode.getClockInputId) = delay.getClockDomain.readClockWire
@@ -749,11 +749,11 @@ class Backend {
         errors += error
     })
 
-    for(checker <- globalData.widthCheckers){
-      val error = checker.check()
-      if(error != null)
-        errors += error + s", ${checker.consumer.getWidth} bit assigned by ${checker.provider.getWidth} bit\n  consumer is ${checker.consumer.getScalaLocationString}\n  provider is ${checker.provider.getScalaLocationString}"
-    }
+//    for(checker <- globalData.widthCheckers){
+//      val error = checker.check()
+//      if(error != null)
+//        errors += error + s", ${checker.consumer.getWidth} bits assigned by ${checker.provider.getWidth} bits\n  consumer is ${checker.consumer.getScalaLocationString}\n  provider is ${checker.provider.getScalaLocationString}"
+//    }
     if (errors.nonEmpty)
       SpinalError(errors)
   }
@@ -825,10 +825,10 @@ class Backend {
       for (node <- nodes) {
         if (node.inferWidth && !node.isInstanceOf[Reg]) {
           //Don't care about Reg width inference
-          errors += s"Can't infer width on ${node.getScalaLocationString}"
+          errors += s"Can't infer width on ${node.getScalaLocationLong}"
         }
         if (node.widthWhenNotInferred != -1 && node.widthWhenNotInferred != node.getWidth) {
-          errors += s"getWidth call result during elaboration differ from inferred width on ${node.getScalaLocationString}"
+          errors += s"getWidth call result during elaboration differ from inferred width on ${node.getScalaLocationLong}"
         }
       }
       if (errors.nonEmpty)
@@ -1021,9 +1021,9 @@ class Backend {
                       val driverClockDomain = syncDriver.getClockDomain
                       if (//syncDriver.getClockDomain.clock != consumerCockDomain.clock &&
                           ! driverClockDomain.isSyncronousWith(consumerCockDomain)) {
-                        errors += s"Synchronous element ${syncNode.getScalaLocationStringShort} is driven " +
-                          s"by ${syncDriver.getScalaLocationStringShort} but they don't have the same clock domain. " +
-                          s"Register declaration at \n${syncNode.getScalaTraceString}"
+                        errors += s"Synchronous element ${syncNode.getScalaLocationShort} is driven " +
+                          s"by ${syncDriver.getScalaLocationShort} but they don't have the same clock domain. " +
+                          s"Register declaration at \n${syncNode.getScalaLocationLong}"
                       }
                     }
                     case _ => that.inputs.foreach(input => if (input != null) check(input))

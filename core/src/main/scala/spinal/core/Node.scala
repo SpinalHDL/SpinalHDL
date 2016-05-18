@@ -421,13 +421,13 @@ abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady wi
 
       if (temp == -1) {
         globalData.nodeGetWidthWalkedSet.clear()
-        SpinalError(s"Can't infer width because of unspecified width on ${this.getScalaLocationString}")
+        SpinalError(s"Can't infer width because of unspecified width on ${this.getScalaLocationLong}")
       }
 
       globalData.nodeGetWidthWalkedSet -= this
 
       if (isFirst) globalData.nodeGetWidthWalkedSet.clear()
-      if (widthWhenNotInferred != -1 && widthWhenNotInferred != temp) SpinalError(s"getWidth result differ from last call $getScalaLocationString")
+      if (widthWhenNotInferred != -1 && widthWhenNotInferred != temp) SpinalError(s"getWidth result differ from last call $getScalaLocationLong")
       widthWhenNotInferred = temp
       temp
     }
@@ -508,3 +508,8 @@ class DontCareNodeFixed(target : BaseType,fixedWidth : Int) extends DontCareNode
 //class WidthAssemptionReduce(provider : Node) extends WidthAssemptionNode(provider){
 //  override def check(consumer: Node): Boolean = consumer.getWidth < inputs(0).getWidth
 //}
+
+trait AssignementTreePart{
+  def setAssignementContext(id : Int,that : Throwable) : Unit
+  def getAssignementContext(id : Int) : Throwable
+}
