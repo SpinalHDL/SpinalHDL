@@ -360,6 +360,17 @@ object Play5 {
   }
 }
 
+object PlayFifo {
+  class TopLevel extends Component{
+    val fifo = new StreamFifo(Bool,8)
+    fifo.io.clone.clone
+  }
+  def main(args: Array[String]): Unit = {
+
+    SpinalVhdl(new TopLevel())
+  }
+}
+
 
 object Play6 {
 

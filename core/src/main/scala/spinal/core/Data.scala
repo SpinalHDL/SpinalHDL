@@ -470,7 +470,10 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
         val c = clazz.getMethod("getComponent").invoke(this).asInstanceOf[Component]
         val pt = constructor.getParameterTypes.apply(0)
         if(c.getClass.isAssignableFrom(pt)){
-          return constructor.newInstance(c).asInstanceOf[this.type].asDirectionLess()
+          val copy =  constructor.newInstance(c).asInstanceOf[this.type].asDirectionLess()
+          if(copy.isInstanceOf[Bundle])
+            copy.asInstanceOf[Bundle].cloneFunc = (() => constructor.newInstance(c).asInstanceOf[this.type].asDirectionLess())
+          return copy
         }
 //        val a = c.areaClassSet.get(pt)
 //        if(a.isDefined && a.get != null){
