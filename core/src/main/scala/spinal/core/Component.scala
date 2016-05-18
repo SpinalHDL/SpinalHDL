@@ -244,7 +244,11 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
     ret.toSeq.sortBy(_.instanceCounter)
   }
 
+  override def postPushEvent(): Unit = {
+  //  println("push " + this.getClass.getSimpleName)
+  }
   override def prePopEvent(): Unit = {
+   // println("pop " + this.getClass.getSimpleName)
     for(t <- prePopTasks){
       t()
     }

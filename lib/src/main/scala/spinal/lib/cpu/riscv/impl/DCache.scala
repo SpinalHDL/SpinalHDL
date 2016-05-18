@@ -19,9 +19,9 @@ case class DataCacheConfig( cacheSize : Int,
       addressWidth = addressWidth,
       dataWidth = memDataWidth,
     burstCountWidth = log2Up(burstSize + 1)).copy(
-      constantBurstBehavior = false,
-      burstOnBurstBoundariesOnly = false,
-      maximumPendingReadTransactions = 4
+      constantBurstBehavior = true,
+      burstOnBurstBoundariesOnly = true,
+      maximumPendingReadTransactions = 2
     )
   val burstLength = bytePerLine/(memDataWidth/8)
 }

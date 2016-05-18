@@ -26,6 +26,11 @@ import scala.util.Random
 /**
   * Created by PIC18F on 07.01.2015.
   */
+
+trait MemBitsMaskKind
+object MULTIPLE_RAM extends MemBitsMaskKind
+object SINGLE_RAM extends MemBitsMaskKind
+
 class VhdlBackend extends Backend with VhdlBase {
   var out: java.io.FileWriter = null
   var library = "work"
@@ -33,6 +38,7 @@ class VhdlBackend extends Backend with VhdlBase {
   var packageName = "pkg_scala2hdl"
   var outputFile: String = null
   var onlyStdLogicVectorTopLevelIo = false
+  var memBitsMaskKind : MemBitsMaskKind = MULTIPLE_RAM
 
   val emitedComponent = mutable.Map[ComponentBuilder, ComponentBuilder]()
   val emitedComponentRef = mutable.Map[Component, Component]()
@@ -876,7 +882,6 @@ class VhdlBackend extends Backend with VhdlBase {
         }
 
         case mem: Mem[_] => {
-          ret ++= s"  type ${emitReference(mem)}_type is array (0 to ${mem.wordCount - 1}) of std_logic_vector(${mem.getWidth - 1} downto 0);\n"
           //ret ++= emitSignal(mem, mem);
           var initAssignementBuilder = new StringBuilder()
           if (mem.initialContent != null) {
@@ -906,8 +911,23 @@ class VhdlBackend extends Backend with VhdlBase {
             initAssignementBuilder ++= ")"
           }
 
-          ret ++= s"  signal ${emitReference(mem)} : ${emitDataType(mem)}${initAssignementBuilder.toString()};\n"
-          emitAttributes(mem, "signal", ret)
+          val symbolWidth = mem.getMemSymbolWidth()
+          val symbolCount = mem.getMemSymbolCount
+
+          if(memBitsMaskKind == MULTIPLE_RAM && symbolCount != 1) {
+            if(mem.initialContent != null) SpinalError("Memory with multiple symbol per line + initial contant are not suported currently")
+
+            ret ++= s"  type ${emitReference(mem)}_type is array (0 to ${mem.wordCount - 1}) of std_logic_vector(${symbolWidth - 1} downto 0);\n"
+            for(i <- 0 until symbolCount) {
+              val postfix = "_symbol" + i
+              ret ++= s"  signal ${emitReference(mem)}$postfix : ${emitDataType(mem)};\n"
+              emitAttributes(mem, "signal", ret,postfix = postfix)
+            }
+          }else{
+            ret ++= s"  type ${emitReference(mem)}_type is array (0 to ${mem.wordCount - 1}) of std_logic_vector(${mem.getWidth - 1} downto 0);\n"
+            ret ++= s"  signal ${emitReference(mem)} : ${emitDataType(mem)}${initAssignementBuilder.toString()};\n"
+            emitAttributes(mem, "signal", ret)
+          }
         }
         case _ =>
       }
@@ -917,7 +937,8 @@ class VhdlBackend extends Backend with VhdlBase {
   }
 
 
-  def emitAttributes(node: Node, vhdlType: String, ret: StringBuilder): Unit = {
+
+  def emitAttributes(node: Node, vhdlType: String, ret: StringBuilder,postfix : String = ""): Unit = {
     if (!node.isInstanceOf[AttributeReady]) return
     val attributeReady = node.asInstanceOf[AttributeReady]
 
@@ -1393,7 +1414,11 @@ class VhdlBackend extends Backend with VhdlBase {
     case lit: EnumLiteral[_] => emitEnumLiteral(lit.enum, lit.encoding)
     case memRead: MemReadAsync => {
       if (memRead.writeToReadKind == dontCare) SpinalWarning(s"memReadAsync with dontCare is as writeFirst into VHDL")
-      s"${emitReference(memRead.getMem)}(to_integer(${emitReference(memRead.getAddress)}))"
+      val symbolCount = memRead.getMem.getMemSymbolCount
+      if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
+        s"${emitReference(memRead.getMem)}(to_integer(${emitReference(memRead.getAddress)}))"
+      else
+        (0 until symbolCount).reverse.map(i => (s"${emitReference(memRead.getMem)}_symbol$i(to_integer(${emitReference(memRead.getAddress)}))")).reduce(_ + " & " + _)
     }
     case whenNode: WhenNode => s"pkg_mux(${whenNode.inputs.map(emitLogic(_)).reduce(_ + "," + _)})" //Exeptional case with asyncrouns of literal
     case dc: DontCareNode => {
@@ -1542,15 +1567,28 @@ class VhdlBackend extends Backend with VhdlBase {
               }
 
               def emitWrite(tab: String) = {
+                val symbolCount = memWrite.getMem.getMemSymbolCount
+                val bitPerSymbole = memWrite.getMem.getMemSymbolWidth()
+
                 if(memWrite.getMask == null) {
-                  ret ++= s"$tab${emitReference(memWrite.getMem)}(to_integer(${emitReference(memWrite.getAddress)})) <= ${emitReference(memWrite.getData)};\n"
+                  if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
+                    ret ++= s"$tab${emitReference(memWrite.getMem)}(to_integer(${emitReference(memWrite.getAddress)})) <= ${emitReference(memWrite.getData)};\n"
+                  else
+                    for(i <- 0 until symbolCount) {
+                      val range = s"(${(i + 1) * bitPerSymbole - 1} downto ${i * bitPerSymbole})"
+                      ret ++= s"$tab  ${emitReference(memWrite.getMem)}_symbol${i}(to_integer(${emitReference(memWrite.getAddress)})) <= ${emitReference(memWrite.getData)}$range;\n"
+                    }
                 }else{
+
                   val maskCount = memWrite.getMask.getWidth
-                  val bitPerSymbole = memWrite.getData.getWidth/maskCount
                   for(i <- 0 until maskCount){
                     val range = s"(${(i+1)*bitPerSymbole-1} downto ${i*bitPerSymbole})"
                     ret ++= s"${tab}if ${emitReference(memWrite.getMask)}($i) = '1' then\n"
-                    ret ++= s"$tab  ${emitReference(memWrite.getMem)}(to_integer(${emitReference(memWrite.getAddress)}))$range <= ${emitReference(memWrite.getData)}$range;\n"
+                    if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
+                      ret ++= s"$tab  ${emitReference(memWrite.getMem)}(to_integer(${emitReference(memWrite.getAddress)}))$range <= ${emitReference(memWrite.getData)}$range;\n"
+                    else
+                      ret ++= s"$tab  ${emitReference(memWrite.getMem)}_symbol${i}(to_integer(${emitReference(memWrite.getAddress)})) <= ${emitReference(memWrite.getData)}$range;\n"
+
                     ret ++= s"${tab}end if;\n"
                   }
                 }
@@ -1567,7 +1605,14 @@ class VhdlBackend extends Backend with VhdlBase {
               } else {
                 emitRead(tab)
               }
-              def emitRead(tab: String) = ret ++= s"$tab${emitReference(memReadSync.consumers(0))} <= ${emitReference(memReadSync.getMem)}(to_integer(${emitReference(memReadSync.getAddress)}));\n"
+              def emitRamRead() = {
+                val symbolCount = memReadSync.getMem.getMemSymbolCount
+                if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
+                  s"${emitReference(memReadSync.getMem)}(to_integer(${emitReference(memReadSync.getAddress)}))"
+                else
+                  (0 until symbolCount).reverse.map(i => (s"${emitReference(memReadSync.getMem)}_symbol$i(to_integer(${emitReference(memReadSync.getAddress)}))")).reduce(_ + " & " + _)
+              }
+              def emitRead(tab: String) = ret ++= s"$tab${emitReference(memReadSync.consumers(0))} <= ${emitRamRead()};\n"
 
             }
 

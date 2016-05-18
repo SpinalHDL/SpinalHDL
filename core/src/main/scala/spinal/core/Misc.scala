@@ -271,7 +271,7 @@ trait Stackable{
 class SafeStackWithStackable[T <: Stackable] extends SafeStack[T]{
   override def push(e: T): Unit = {
     super.push(e)
-    if(e != null) e.postPopEvent()
+    if(e != null) e.postPushEvent()
   }
 
   override def pop(e: T): Unit = {

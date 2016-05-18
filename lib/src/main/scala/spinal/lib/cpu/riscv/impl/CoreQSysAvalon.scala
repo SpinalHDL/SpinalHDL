@@ -98,48 +98,50 @@ object CoreQSysAvalon{
     val debug = true
     val interruptCount = 4
 
-    //replace wit null to disable instruction cache
-    val iCacheConfig = InstructionCacheConfig(
-      cacheSize =4096,
-      bytePerLine =32,
-      wayCount = 1,
-      wrappedMemAccess = true,
-      addressWidth = 32,
-      cpuDataWidth = 32,
-      memDataWidth = 32
-    )
+    val report = SpinalVhdl({
 
-    //replace wit null to disable data cache
-    val dCacheConfig = null /*DataCacheConfig(
+      //replace wit null to disable instruction cache
+      val iCacheConfig = InstructionCacheConfig(
+        cacheSize =4096,
+        bytePerLine =32,
+        wayCount = 1,
+        wrappedMemAccess = true,
+        addressWidth = 32,
+        cpuDataWidth = 32,
+        memDataWidth = 32
+      )
+
+      //replace wit null to disable data cache
+      val dCacheConfig = DataCacheConfig(
       cacheSize = 4096,
       bytePerLine =32,
       wayCount = 1,
       addressWidth = 32,
       cpuDataWidth = 32,
       memDataWidth = 32
-    )*/
-
-    val coreConfig = CoreConfig(
-      pcWidth = 32,
-      addrWidth = 32,
-      startAddress = 0x200,
-      regFileReadyKind = sync,
-      branchPrediction = dynamic,
-      bypassExecute0 = true,
-      bypassExecute1 = true,
-      bypassWriteBack = true,
-      bypassWriteBackBuffer = true,
-      collapseBubble = false,
-      fastFetchCmdPcCalculation = true,
-      dynamicBranchPredictorCacheSizeLog2 = 7
     )
 
-    coreConfig.add(new MulExtension)
-    coreConfig.add(new DivExtension)
-    coreConfig.add(new BarrelShifterFullExtension)
-    //  p.add(new BarrelShifterLightExtension)
+      val coreConfig = CoreConfig(
+        pcWidth = 32,
+        addrWidth = 32,
+        startAddress = 0x200,
+        regFileReadyKind = sync,
+        branchPrediction = dynamic,
+        bypassExecute0 = true,
+        bypassExecute1 = true,
+        bypassWriteBack = true,
+        bypassWriteBackBuffer = true,
+        collapseBubble = false,
+        fastFetchCmdPcCalculation = true,
+        dynamicBranchPredictorCacheSizeLog2 = 7
+      )
 
-    val report = SpinalVhdl({
+      coreConfig.add(new MulExtension)
+      coreConfig.add(new DivExtension)
+      coreConfig.add(new BarrelShifterFullExtension)
+      //  p.add(new BarrelShifterLightExtension)
+
+
       new RiscvAvalon(coreConfig,iCacheConfig,dCacheConfig,debug,interruptCount)
     },_.setLibrary("qsys").onlyStdLogicVectorTopLevelIo)
 
@@ -165,45 +167,50 @@ object CoreFMaxBench{
     val debug = true
     val interruptCount = 4
 
-    val iCacheConfig = InstructionCacheConfig(
-      cacheSize =4096,
-      bytePerLine =32,
-      wayCount = 1,
-      wrappedMemAccess = true,
-      addressWidth = 32,
-      cpuDataWidth = 32,
-      memDataWidth = 32
-    )
+    SpinalVhdl({
 
-    val dCacheConfig = DataCacheConfig(
-      cacheSize = 4096,
-      bytePerLine =32,
-      wayCount = 1,
-      addressWidth = 32,
-      cpuDataWidth = 32,
-      memDataWidth = 32
-    )
+      val iCacheConfig = InstructionCacheConfig(
+        cacheSize =4096,
+        bytePerLine =32,
+        wayCount = 1,
+        wrappedMemAccess = true,
+        addressWidth = 32,
+        cpuDataWidth = 32,
+        memDataWidth = 32
+      )
 
-    val coreConfig = CoreConfig(
-      pcWidth = 32,
-      addrWidth = 32,
-      startAddress = 0x200,
-      regFileReadyKind = sync,
-      branchPrediction = dynamic,
-      bypassExecute0 = true,
-      bypassExecute1 = true,
-      bypassWriteBack = true,
-      bypassWriteBackBuffer = true,
-      collapseBubble = false,
-      fastFetchCmdPcCalculation = true,
-      dynamicBranchPredictorCacheSizeLog2 = 7
-    )
+      val dCacheConfig = DataCacheConfig(
+        cacheSize = 4096,
+        bytePerLine =32,
+        wayCount = 1,
+        addressWidth = 32,
+        cpuDataWidth = 32,
+        memDataWidth = 32
+      )
 
-    coreConfig.add(new MulExtension)
-    coreConfig.add(new DivExtension)
-    coreConfig.add(new BarrelShifterFullExtension)
-  //  p.add(new BarrelShifterLightExtension)
-    SpinalVhdl(new WrapWithReg.Wrapper(new RiscvAvalon(coreConfig,iCacheConfig,dCacheConfig,debug,interruptCount)).setDefinitionName("TopLevel"))
+      val coreConfig = CoreConfig(
+        pcWidth = 32,
+        addrWidth = 32,
+        startAddress = 0x200,
+        regFileReadyKind = sync,
+        branchPrediction = dynamic,
+        bypassExecute0 = true,
+        bypassExecute1 = true,
+        bypassWriteBack = true,
+        bypassWriteBackBuffer = true,
+        collapseBubble = false,
+        fastFetchCmdPcCalculation = true,
+        dynamicBranchPredictorCacheSizeLog2 = 7
+      )
+
+      coreConfig.add(new MulExtension)
+      coreConfig.add(new DivExtension)
+      coreConfig.add(new BarrelShifterFullExtension)
+      //  p.add(new BarrelShifterLightExtension)
+
+
+      new WrapWithReg.Wrapper(new RiscvAvalon(coreConfig,iCacheConfig,dCacheConfig,debug,interruptCount)).setDefinitionName("TopLevel")
+    })
   }
 }
 
