@@ -102,10 +102,12 @@ class Backend {
   //TODO better Mem support (user specifyed blackbox)
   //TODO Mux node with n inputs instead of fixed 2
   //TODO better assignement error localisation   (when  otherwise)
-  //TODO non bundle that should be bundle into a bundle shoud be warned
+  //TODO non bundle that should be bundle into a bundle should be warned
   protected def elaborate[T <: Component](topLevel: T): BackendReport[T] = {
     SpinalInfoPhase("Start analysis and transform")
     addReservedKeyWordToScope(globalScope)
+
+
 
     buildComponentsList(topLevel)
     applyComponentIoDefaults()
@@ -136,6 +138,7 @@ class Backend {
 
     //Node width
     SpinalInfoPhase("Infer nodes's bit width")
+    postWidthInferationChecks()
     inferWidth()
     simplifyNodes()
     inferWidth()
@@ -606,6 +609,7 @@ class Backend {
         val baseType = node.asInstanceOf[BaseType]
         if (baseType.isInput) {
           val inBinding = baseType.clone //To be sure that there is no need of resize between it and node
+          inBinding.scalaTrace = baseType.scalaTrace
           inBinding.inputs(0) = baseType.inputs(0)
           baseType.inputs(0) = inBinding
           inBinding.component = node.component.parent
@@ -622,6 +626,7 @@ class Backend {
               val into = nodeInput.component.parent
               val bind = into.kindsOutputsToBindings.getOrElseUpdate(nodeInput, {
                 val bind = nodeInput.clone
+                bind.scalaTrace = nodeInput.scalaTrace
                 into.kindsOutputsToBindings.put(nodeInput, bind)
                 into.kindsOutputsBindings += bind
                 bind.component = into
@@ -828,6 +833,20 @@ class Backend {
   }
 
 
+  def postWidthInferationChecks() : Unit = {
+    val errors = mutable.ArrayBuffer[String]()
+    Node.walk(walkNodesDefautStack ++ walkNodesBlackBoxGenerics,_ match {
+      case node : Reg =>{
+        if(!node.isUsingReset && node.inputs(RegS.getDataInputId) == node){
+          errors += s"$node has no assignement value and no reset value at\n ${node.getScalaLocationLong}"
+        }
+      }
+      case _ =>
+    })
+    if(!errors.isEmpty)
+      SpinalError(errors)
+  }
+
   def inferWidth(): Unit = {
     globalData.nodeAreInferringWidth = true
     val nodes = ArrayBuffer[Node]()
@@ -855,7 +874,6 @@ class Backend {
       var somethingChange = false
       for (node <- nodes) {
         val hasChange = node.inferWidth
-
         somethingChange = somethingChange || hasChange
       }
 

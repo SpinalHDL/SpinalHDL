@@ -56,7 +56,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends Node  with Attrib
 
   def wordType: T = _wordType.clone
 
-  override def calcWidth: Int = wordType.flatten.map(_.calcWidth).reduceLeft(_ + _)
+  override def calcWidth: Int = _wordType.flatten.map(_.calcWidth).reduceLeft(_ + _)
 
   def addressWidth = log2Up(wordCount)
 

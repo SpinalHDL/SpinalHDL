@@ -25,7 +25,7 @@ object SpinalVhdl {
 
   val runtime = Runtime.getRuntime
   println({SpinalLog.tag("Runtime", Console.YELLOW)} + s" JVM max memory : ${f"${(runtime.maxMemory()).toFloat/1048576f}%1.1f"}MiB")
-  
+
   val curDate:Date = new Date()
   val dateFmt:SimpleDateFormat = new SimpleDateFormat ("yyyy.MM.dd HH:mm:ss")
   println({SpinalLog.tag("Runtime", Console.YELLOW)} + s" Current date : ${dateFmt.format(curDate)}")
