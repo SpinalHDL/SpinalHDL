@@ -132,6 +132,7 @@ class Backend {
     check_noNull_noCrossHierarchy_noInputRegister_noDirectionLessIo()
 
     addInOutBinding()
+    nameBinding()
     allowNodesToReadOutputs()
     allowNodesToReadInputOfKindComponent()
 
@@ -605,10 +606,12 @@ class Backend {
 
   def addInOutBinding(): Unit = {
     Node.walk(walkNodesDefautStack,(node,push) => {
+      //Create inputs bindings
       if (node.isInstanceOf[BaseType] && node.component.parent != null) {
         val baseType = node.asInstanceOf[BaseType]
         if (baseType.isInput) {
           val inBinding = baseType.clone //To be sure that there is no need of resize between it and node
+          inBinding.assignementThrowable = baseType.assignementThrowable
           inBinding.scalaTrace = baseType.scalaTrace
           inBinding.inputs(0) = baseType.inputs(0)
           baseType.inputs(0) = inBinding
@@ -618,6 +621,7 @@ class Backend {
 
       node.inputs.foreach(push(_))
 
+      //Create outputs bindings
       for (i <- 0 until node.inputs.size) {
         val nodeInput = node.inputs(i)
         nodeInput match {
@@ -627,6 +631,7 @@ class Backend {
               val bind = into.kindsOutputsToBindings.getOrElseUpdate(nodeInput, {
                 val bind = nodeInput.clone
                 bind.scalaTrace = nodeInput.scalaTrace
+                bind.assignementThrowable = nodeInput.assignementThrowable
                 into.kindsOutputsToBindings.put(nodeInput, bind)
                 into.kindsOutputsBindings += bind
                 bind.component = into
