@@ -98,7 +98,7 @@ trait NameableByComponent extends Nameable with GlobalDataUser{
     if(!globalData.nodeAreNamed) {
       if (isUnnamed) {
         val c = getComponent()
-        if(c != null)c.nameElements()
+        //if(c != null)c.nameElements() //TODO Think about that...
       }
     }
     return super.getName()
