@@ -15,10 +15,9 @@ SpinalHDL is a scala library that allows the user to describe his digital hardwa
 Getting started
 ===============
 ## Links
+- Documentation                  <br> http://spinalhdl.github.io/SpinalDoc/
 - SBT base project               <br> https://github.com/SpinalHDL/SpinalBaseProject
 - Presentation of the language   <br> https://github.com/SpinalHDL/SpinalDoc/tree/master/presentation/en (pptx has comments)
-- Documentation                  <br> http://spinalhdl.github.io/SpinalDoc/
-- Small paper about it           <br> https://github.com/SpinalHDL/SpinalDoc/tree/master/paper/en
 
 ## Basics
 - VHDL backend : The digital hardware description is flushed into a synthesizable VHDL file

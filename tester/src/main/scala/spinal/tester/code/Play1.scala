@@ -372,6 +372,27 @@ object PlayFifo {
   }
 }
 
+object PlayCheckBundles {
+  class TopLevel extends Component{
+    case class A() extends Bundle{
+      val a = Bool
+    }
+
+    case class B() extends Bundle{
+      val b = Bool
+    }
+
+
+    val sA = Stream(new A)
+    val sB = Stream(new A)
+    sA.payload := sB
+  }
+  def main(args: Array[String]): Unit = {
+
+    SpinalVhdl(new TopLevel())
+  }
+}
+
 
 object PlayBetterError {
 
