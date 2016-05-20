@@ -1,5 +1,7 @@
 About SpinalHDL
 ============
+
+[![Join the chat at https://gitter.im/SpinalHDL/SpinalHDL](https://badges.gitter.im/SpinalHDL/SpinalHDL.svg)](https://gitter.im/SpinalHDL/SpinalHDL?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 SpinalHDL is a scala library that allows the user to describe his digital hardware and then generate the corresponding VHDL file.
 ## Advantages over VHDL/Verilog
 - No restriction to the genericity of your hardware description by using Scala constructs
