@@ -1,7 +1,5 @@
 About SpinalHDL
 ============
-
-[![Join the chat at https://gitter.im/SpinalHDL/SpinalHDL](https://badges.gitter.im/SpinalHDL/SpinalHDL.svg)](https://gitter.im/SpinalHDL/SpinalHDL?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 SpinalHDL is a scala library that allows the user to describe his digital hardware and then generate the corresponding VHDL file.
 ## Advantages over VHDL/Verilog
 - No restriction to the genericity of your hardware description by using Scala constructs
@@ -20,6 +18,8 @@ Getting started
 - Documentation                  <br> http://spinalhdl.github.io/SpinalDoc/
 - SBT base project               <br> https://github.com/SpinalHDL/SpinalBaseProject
 - Presentation of the language   <br> https://github.com/SpinalHDL/SpinalDoc/tree/master/presentation/en (pptx has comments)
+
+[![Join the chat at https://gitter.im/SpinalHDL/SpinalHDL](https://badges.gitter.im/SpinalHDL/SpinalHDL.svg)](https://gitter.im/SpinalHDL/SpinalHDL?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 ## Basics
 - VHDL backend : The digital hardware description is flushed into a synthesizable VHDL file
