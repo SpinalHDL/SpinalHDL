@@ -400,9 +400,9 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
   /*private[core] */
   private[core] def initImpl(init: Data): this.type = {
     // if (!isReg) SpinalError(s"Try to set initial value of a data that is not a register ($this)")
-    val regInit = clone()
-    regInit := init
-    for ((e, initElement) <- (this.flatten, regInit.flatten).zipped) {
+   // val regInit = clone()
+    //regInit := init
+    for ((e, initElement) <- (this.flatten, init.flatten).zipped) {
       def recursiveSearch(ptr: Node): Unit = {
         //if (ptr.component != init.component) SpinalError(s"Try to set initial value of a data that is not in current component ($this)")
         ptr match {

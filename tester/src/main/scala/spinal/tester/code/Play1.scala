@@ -528,18 +528,18 @@ object PlayBetterError {
 //    result := sub.output
 
     //Case13
-    val sub = new Component{
-      val output = (U"0010")
-
-    }
-
-    val sub2 = new Component{
-      val output = out UInt(4 bits)
-      output :=sub.output.pull()
-
-    }
-
-    result := sub2.output.pull()
+//    val sub = new Component{
+//      val output = (U"0010")
+//
+//    }
+//
+//    val sub2 = new Component{
+//      val output = out UInt(4 bits)
+//      output :=sub.output.pull()
+//
+//    }
+//
+//    result := sub2.output.pull()
 
     //Case 14
 //    val sub = new Component{
@@ -609,6 +609,14 @@ object PlayBetterError {
 //      result := z
 //    }
 //    doIt
+    
+    
+    //Case 18
+   // val bits = B"0011"
+    val bits = a.asBits
+    val myReg = RegNext(bits)init(0)
+    result := myReg.asUInt
+
   }
   class Sub12(val depth : Int) extends Component{
     val output = out UInt(4 bits)
