@@ -157,6 +157,7 @@ trait Assignable {
 }
 
 
+
 trait Nameable {
   private var name: String = ""
   private[core] var compositeName: Nameable = null

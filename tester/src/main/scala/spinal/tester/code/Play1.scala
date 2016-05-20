@@ -506,7 +506,7 @@ object PlayBetterError {
 //      val output = out UInt(4 bits)
 //      output := input
 //    }
-//    subA.input := (a << 1) >> 1
+//    subA.input := (a << 1)
 //    subB.input := (subA.output << 1) >> 1
 //    result := subB.output
 //
@@ -542,28 +542,28 @@ object PlayBetterError {
 //    result := sub2.output.pull()
 
     //Case 14
-    val sub = new Component{
-      val sub = new Component{
-        val sub = new Component{
-          val sub = new Component{
-            val output = out( U"0010")
-          }
-        }
-      }
-    }
-
-    val sub2 = new Component{
-      val sub2 = new Component{
-        val sub2 = new Component{
-          val sub2 = new Component{
-            val output = UInt(4 bits).keep()
-            output := sub.sub.sub.sub.output.pull()
-          }
-        }
-      }
-    }
-
-    result := sub2.sub2.sub2.sub2.output.pull()
+//    val sub = new Component{
+//      val sub = new Component{
+//        val sub = new Component{
+//          val sub = new Component{
+//            val output = out( U"0010")
+//          }
+//        }
+//      }
+//    }
+//
+//    val sub2 = new Component{
+//      val sub2 = new Component{
+//        val sub2 = new Component{
+//          val sub2 = new Component{
+//            val output = UInt(4 bits).keep()
+//            output := sub.sub.sub.sub.output.pull()
+//          }
+//        }
+//      }
+//    }
+//
+//    result := sub2.sub2.sub2.sub2.output.pull()
 
     //Case 15
 //    val sub = new Component{
@@ -585,6 +585,30 @@ object PlayBetterError {
 //      }
 //    }
 //    result := 0
+
+
+    //Case16
+//    val sub = new Component{
+//      val input = in UInt(4 bits)
+//      val output = out UInt(4 bits)
+//      output := input
+//    }
+//    when(cond) {
+//      sub.input := a
+//    }otherwise{
+//      sub.input := b
+//    }
+//    result := sub.output
+
+    //Case 17
+//    def doIt: Unit ={
+//      val x,y,z = UInt(4 bits)
+//      x := a
+//      y := x
+//      z := y
+//      result := z
+//    }
+//    doIt
   }
   class Sub12(val depth : Int) extends Component{
     val output = out UInt(4 bits)

@@ -45,6 +45,7 @@ object SpinalVhdl {
         case e: Throwable => {
           tryCounter match {
             case 0 => {
+              Thread.sleep(10);
               println("\n**********************************************************************************************")
               val errCnt = SpinalError.getErrorCount()
               SpinalWarning(s"Elaboration failed (${errCnt} error" + (if(errCnt > 1){s"s"} else {s""}) + s").\n" +
@@ -54,6 +55,7 @@ object SpinalVhdl {
               return doIt(1)
             }
             case 1 => {
+              Thread.sleep(10);
               println("\n**********************************************************************************************")
               val errCnt = SpinalError.getErrorCount()
               SpinalWarning(s"Elaboration failed (${errCnt} error" + (if(errCnt > 1){s"s"} else {s""}) + ").")

@@ -197,9 +197,11 @@ object BaseType {
 abstract class BaseType extends Node with Data with Nameable with AssignementTreePart{
   inputs += null
 
+
   private[core] def canSymplifyIt = !dontSimplify && attributes.isEmpty
 
   private[core] var dontSimplify = false
+  private[core] var dontCareAboutNameForSymplify = false
 
   override def dontSimplifyIt(): this.type = {
     dontSimplify = true;

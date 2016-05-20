@@ -132,7 +132,7 @@ class Backend {
     check_noNull_noCrossHierarchy_noInputRegister_noDirectionLessIo()
 
     addInOutBinding()
-   // nameBinding() TODO
+    nameBinding()
     allowNodesToReadOutputs()
     allowNodesToReadInputOfKindComponent()
 
@@ -167,7 +167,7 @@ class Backend {
     SpinalInfoPhase("Finalise")
 
     //Name patch
-    nameBinding()
+    //nameBinding()
     //simplifyBlackBoxIoNames
 
     //Finalise
@@ -606,7 +606,7 @@ class Backend {
 
   def addInOutBinding(): Unit = {
     Node.walk(walkNodesDefautStack,(node,push) => {
-      //Create inputs bindings
+      //Create inputs bindings, usefull if the node is driven by when statments
       if (node.isInstanceOf[BaseType] && node.component.parent != null) {
         val baseType = node.asInstanceOf[BaseType]
         if (baseType.isInput) {
@@ -616,6 +616,7 @@ class Backend {
           inBinding.inputs(0) = baseType.inputs(0)
           baseType.inputs(0) = inBinding
           inBinding.component = node.component.parent
+          inBinding.dontCareAboutNameForSymplify = true
         }
       }
 
@@ -636,6 +637,7 @@ class Backend {
                 into.kindsOutputsBindings += bind
                 bind.component = into
                 bind.inputs(0) = nodeInput
+                bind.dontCareAboutNameForSymplify = true
                 bind
               })
 
@@ -691,7 +693,7 @@ class Backend {
     Node.walk(walkNodesDefautStack,(node, push) => {
       node match {
         case node: BaseType => {
-          if (node.isUnnamed && !node.isIo && node.consumers.size == 1 && node.canSymplifyIt) {
+          if ((node.isUnnamed || node.dontCareAboutNameForSymplify) && !node.isIo && node.consumers.size == 1 && node.canSymplifyIt) {
             val consumer = node.consumers(0)
             val input = node.inputs(0)
             if (!node.isDelay || consumer.isInstanceOf[BaseType]) {
@@ -1173,116 +1175,6 @@ class Backend {
       if (node != null && ! isNodeCompleted(node)) pendingNodes.push(node)
     }
   }
-
-  def checkCombinationalLoops(): Unit = {
-//    val errors = mutable.ArrayBuffer[String]()
-//    val pendingNodes: mutable.Stack[Node] = walkNodesDefautStack
-//    val walkedNodes = mutable.Set[Node]()
-//    val localNodes = mutable.Set[Node]()
-//    val stack = mutable.Stack[Node]()
-//    val partialAssignements = mutable.Map[Node, AssignedBits]() //Case where extract than assign different bits of the same signal
-//    val extractAssignements = mutable.Map[Node, AssignedBits]()
-//    while (!pendingNodes.isEmpty) {
-//      val pop = pendingNodes.pop()
-//      if (pop != null && !walkedNodes.contains(pop)) {
-//        localNodes.clear()
-//        partialAssignements.clear()
-//        walk(pop)
-//      }
-//    }
-//
-//    if (!errors.isEmpty)
-//      SpinalError(errors)
-//
-//    def addPendingNode(node: Node) = {
-//      if (!walkedNodes.contains(node)) pendingNodes.push(node)
-//    }
-//
-//
-//    def walk(node: Node): Unit = {
-//      if (node == null) return
-//      if (node.isInstanceOf[SyncNode]) {
-//        //End of comb path
-//        val syncNode = node.asInstanceOf[SyncNode]
-//        walkedNodes += node
-//
-//        syncNode.getSynchronousInputs.foreach(addPendingNode(_))
-//        syncNode.getAsynchronousInputs.foreach(walk(_))
-//      } else if (localNodes.contains(node)) {
-//        //there is a loop !
-//        val it = stack.iterator
-//        val loopStack = mutable.Stack[Node](node)
-//        var v: Node = null
-//        do {
-//          v = it.next
-//          loopStack.push(v)
-//        } while (v != node)
-//        val wellNameLoop = loopStack.reverseIterator.filter(n => n.isInstanceOf[Nameable] && n.asInstanceOf[Nameable].isNamed).map(that => that.component.getClass.getSimpleName + "." + that.asInstanceOf[Nameable].getName()).foldLeft("")(_ + _ + " -> ")
-//        val multiLineLoop = loopStack.reverseIterator.map(n => "      " + n.toString).reduceLeft(_ + "\n" + _)
-//        errors += s"  Combinational loop ! ${wellNameLoop}\n${multiLineLoop}"
-//      } else if (!walkedNodes.contains(node)) {
-//        //Not already walked
-//        walkedNodes += node
-//        localNodes += node
-//        node match {
-//          case an: AssignementNode => {
-//            val bv = an.getOutBaseType
-//            val pa = partialAssignements.getOrElseUpdate(bv, new AssignedBits(bv.getWidth))
-//            val ab = an.getScopeBits
-//            pa.add(ab)
-//
-//
-//            if (extractAssignements.contains(bv)) {
-//              val notAllowedBits = extractAssignements.get(bv).get
-//              if (!AssignedBits.intersect(notAllowedBits, ab).isEmpty) {
-//                continueLocalWith(node.inputs) //Continue => errors come at next iteration (wanted)
-//              } else {
-//                //Nothing to do, extract node inputs already walked
-//              }
-//            } else {
-//              continueLocalWith(node.inputs)
-//            }
-//
-//            pa.remove(ab)
-//            if (pa.isEmpty) partialAssignements.remove(bv)
-//          }
-//          case extract: Extract => {
-//            val bv = extract.getBitVector
-//            val ea = extractAssignements.getOrElseUpdate(bv, new AssignedBits(bv.getWidth))
-//            val ab = extract.getScopeBits
-//            ea.add(ab)
-//
-//
-//            if (partialAssignements.contains(bv)) {
-//              val notAllowedBits = partialAssignements.get(bv).get
-//              if (!AssignedBits.intersect(notAllowedBits, ab).isEmpty) {
-//                continueLocalWith(node.inputs) //Continue => errors come at next iteration (wanted)
-//              } else {
-//                continueLocalWith(extract.getParameterNodes)
-//              }
-//            } else {
-//              continueLocalWith(node.inputs)
-//            }
-//
-//            ea.remove(ab)
-//            if (ea.isEmpty) extractAssignements.remove(bv)
-//          }
-//          case _ => continueLocalWith(node.inputs)
-//        }
-//
-//        def continueLocalWith(inputs: Iterable[Node]): Unit = {
-//          stack.push(node)
-//          for (in <- inputs) {
-//            walk(in)
-//          }
-//          stack.pop()
-//        }
-//
-//        localNodes -= node
-//      }
-//    }
-  }
-
 
 
 
