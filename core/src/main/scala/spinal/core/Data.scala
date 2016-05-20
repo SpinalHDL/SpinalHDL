@@ -26,7 +26,8 @@ object Data {
     val startComponent = srcData.component
     if (useCache) {
       val finalComponentCacheState = finalComponent.pulledDataCache.getOrElse(srcData, null)
-      if (finalComponentCacheState != null) return finalComponentCacheState.asInstanceOf[srcData.type]
+      if (finalComponentCacheState != null)
+        return finalComponentCacheState.asInstanceOf[srcData.type]
     }
 
     if (startComponent == finalComponent || (startComponent != null && finalComponent == startComponent.parent && srcData.isIo)) {
@@ -34,82 +35,97 @@ object Data {
       return srcData
     }
 
-    val startComponentStack = if (startComponent == null) List[Component](null) else startComponent.parents() :+ startComponent
-    var componentPtr = finalComponent
-    var nextData: srcData.type = null.asInstanceOf[srcData.type]
-    var ret: srcData.type = null.asInstanceOf[srcData.type]
 
-    //pull from final component to lower component (fall)
-    while (!startComponentStack.contains(componentPtr)) {
-      if (useCache) {
-        val cacheState = componentPtr.pulledDataCache.getOrElse(srcData, null)
-        if (cacheState != null) {
-          Component.push(componentPtr)
-          nextData assignFrom(cacheState, false)
-          Component.pop(componentPtr)
-          return ret
-        }
-      }
-      Component.push(componentPtr)
-      val from = srcData.clone()
+    //val targetPath = finalComponent.parents()
+    var finalData : T = null.asInstanceOf[T]
+    val srcPath = null +: srcData.getComponents()
+    var currentData : T = null.asInstanceOf[T]
+    var currentComponent = finalComponent
+
+    //Rise path
+    if(!srcPath.contains(currentComponent)){
+      Component.push(finalComponent)
+      finalData = srcData.clone
       if (propagateName)
-        from.setCompositeName(srcData)
-      from.asInput()
-      if (nextData != null) nextData := from else ret = from
-      Component.pop(componentPtr)
+        finalData.setCompositeName(srcData)
+      finalData.asInput()
+      if (useCache) currentComponent.pulledDataCache.put(srcData, finalData)
+      Component.pop(finalComponent)
 
-      if (useCache) componentPtr.pulledDataCache.put(srcData, from)
-      nextData = from
-      componentPtr = componentPtr.parent
-    }
+      currentComponent = currentComponent.parent
+      currentData = finalData
 
-    val lowerComponent = componentPtr
-    var risePath = if (lowerComponent == null) List[Component]() else startComponentStack.takeRight(startComponentStack.size - 1 - componentPtr.parents().size)
-    //pull from lower component to start component (rise)
-    while (!risePath.isEmpty) {
-      if (useCache) {
-        val cacheState = componentPtr.pulledDataCache.getOrElse(srcData, null)
-        if (cacheState != null) {
-          Component.push(componentPtr)
-          nextData assignFrom(cacheState, false)
-          Component.pop(componentPtr)
-          return ret
+      while(!srcPath.contains(currentComponent)){
+        if (useCache && currentComponent.pulledDataCache.contains(srcData)) {
+          val cachedNode = currentComponent.pulledDataCache.get(srcData).get
+          Component.push(currentComponent)
+          currentData.assignFrom(cachedNode,false)
+          Component.pop(currentComponent)
+          return finalData
+        }else{
+          Component.push(currentComponent)
+          val copy = srcData.clone
+          if (propagateName)
+            copy.setCompositeName(srcData)
+          copy.asInput()
+          currentData.assignFrom(copy,false)
+          Component.pop(currentComponent)
+          if (useCache) currentComponent.pulledDataCache.put(srcData, copy)
+
+          currentData = copy
+          currentComponent = currentComponent.parent
         }
       }
-      val fromComponent = risePath.head
-      if (fromComponent != startComponent || srcData.isIo == false) {
-        Component.push(fromComponent)
-        val from = srcData.clone()
-        if (propagateName)
-          from.setCompositeName(srcData)
-        from.asOutput()
-        Component.pop(fromComponent)
-        Component.push(componentPtr)
-        if (nextData != null) nextData := from else ret = from
-        Component.pop(componentPtr)
-
-        if (useCache) componentPtr.pulledDataCache.put(srcData, from)
-        nextData = from
-        componentPtr = fromComponent
-      }
-      risePath = risePath.tail
     }
 
-    nextData.dir match{
+    //fall path
+    var fallPath = srcPath.drop(srcPath.indexOf(currentComponent) + 1)
+    if(!fallPath.isEmpty && srcData.isOutput) fallPath = fallPath.dropRight(1)
+    while(!fallPath.isEmpty){
+      if (useCache && currentComponent.pulledDataCache.contains(srcData)) {
+        val cachedNode = currentComponent.pulledDataCache.get(srcData).get
+        Component.push(currentComponent)
+        currentData.assignFrom(cachedNode,false)
+        Component.pop(currentComponent)
+        return finalData
+      }else{
+        Component.push(fallPath.head)
+        val copy = srcData.clone
+        if (propagateName)
+          copy.setCompositeName(srcData)
+        copy.asOutput()
+        Component.pop(fallPath.head)
+
+        if(currentData != null) {
+          Component.push(currentComponent)
+          currentData.assignFrom(copy, false)
+          Component.pop(currentComponent)
+        }else{
+          finalData = copy
+        }
+        if (useCache) currentComponent.pulledDataCache.put(srcData, copy)
+
+        currentData = copy
+      }
+
+      currentComponent = fallPath.head
+      fallPath = fallPath.tail
+    }
+
+    srcData.dir match{
       case `in`=> {
         Component.push(srcData.component)
-        nextData := srcData
+        currentData := srcData
         Component.pop(srcData.component)
       }
       case _ => {
-        Component.push(nextData.component)
-        nextData := srcData
-        Component.pop(nextData.component)
+        Component.push(currentData.component)
+        currentData := srcData
+        Component.pop(currentData.component)
       }
     }
 
-
-    ret
+    finalData
   }
 }
 
@@ -519,7 +535,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
   }
 
   override def getComponent(): Component = component
-  def getComponents() : Seq[Component] = (component.parents() ++ Seq(component))
+  def getComponents() : Seq[Component] = if(component == null) Nil else (component.parents() ++ Seq(component))
 
 }
 

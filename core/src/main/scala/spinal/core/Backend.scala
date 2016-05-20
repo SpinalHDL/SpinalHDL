@@ -132,7 +132,7 @@ class Backend {
     check_noNull_noCrossHierarchy_noInputRegister_noDirectionLessIo()
 
     addInOutBinding()
-    nameBinding()
+   // nameBinding() TODO
     allowNodesToReadOutputs()
     allowNodesToReadInputOfKindComponent()
 
@@ -553,7 +553,7 @@ class Backend {
             }
           } else {
             if (!(node.isInput && node.component.isTopLevel) && !(node.isOutput && node.component.isInstanceOf[BlackBox]))
-              errors += s"No driver on ${node.getScalaLocationLong}"
+              errors += s"No driver on $node at \n${node.getScalaLocationLong}"
           }
         }
         case _ => {

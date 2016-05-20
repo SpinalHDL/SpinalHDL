@@ -147,10 +147,12 @@ class Reg(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) ext
   override def assignFromImpl(that: AnyRef,conservative : Boolean): Unit = {
     that match {
       case that: BaseType => {
+        BaseType.checkAssignability(outType,that.asInstanceOf[Node])
         val (consumer,inputId) = BaseType.walkWhenNodes(outType, this, RegS.getDataInputId,conservative)
         consumer.inputs(inputId) = that
       }
       case that : AssignementNode => {
+        BaseType.checkAssignability(outType,that.asInstanceOf[Node])
         val (consumer,inputId) = BaseType.walkWhenNodes(outType, this, RegS.getDataInputId,conservative)
         consumer.inputs(inputId) = that
       }

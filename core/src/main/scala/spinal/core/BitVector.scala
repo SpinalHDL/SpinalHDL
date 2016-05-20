@@ -28,7 +28,7 @@ abstract class BitVector extends BaseType {
   def lsb = this (0)
   def range = 0 until getWidth
   def orR = this.asBits =/= 0
-  def andR = this.asBits === (BigInt(1) << getWidth - 1)
+  def andR = this.asBits === ((BigInt(1) << getWidth) - 1)
   def xorR = this.asBools.reduce(_ ^ _)
 
   private[core] def isFixedWidth = fixedWidth != -1

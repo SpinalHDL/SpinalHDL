@@ -155,7 +155,7 @@ class BitsLiteral(val value: BigInt, val bitCount: Integer,val hasSpecifiedBitCo
 
 class BitsAllToLiteral(val theConsumer : Node,val value: Boolean) extends Literal {
   def calcWidth: Int = theConsumer.getWidth
-  override def getBitsStringOn(bitCount: Int): String = (if(value) "0" else "1" ) * getWidth
+  override def getBitsStringOn(bitCount: Int): String = (if(value) "1" else "0" ) * getWidth
 }
 
 object BoolLiteral {

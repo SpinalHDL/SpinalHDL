@@ -496,25 +496,107 @@ object PlayBetterError {
 //    result := reg
 
     //Case 10
-    val subA = new Component{
-      val input = in UInt(4 bits)
-      val output = out UInt(4 bits)
-      output := input
-    }
-    val subB = new Component{
-      val input = in UInt(4 bits)
-      val output = out UInt(4 bits)
-      output := input
-    }
-    subA.input := (a << 1) >> 1
-    subB.input := (subA.output << 1) >> 1
-    result := subB.output
+//    val subA = new Component{
+//      val input = in UInt(4 bits)
+//      val output = out UInt(4 bits)
+//      output := input
+//    }
+//    val subB = new Component{
+//      val input = in UInt(4 bits)
+//      val output = out UInt(4 bits)
+//      output := input
+//    }
+//    subA.input := (a << 1) >> 1
+//    subB.input := (subA.output << 1) >> 1
+//    result := subB.output
+//
 
 
+    //Case 11
+//    val sub = new Component{
+//      val input = in UInt(4 bits)
+//      val output = out UInt(4 bits)
+//      val tmp = UInt(4 bits)
+//      output := tmp << 1
+//    }
+//    sub.input := a
+//    //    sub.tmp := 3
+//    result := sub.output
+
+    //Case 12
+//    val sub = new Sub12(4)
+//    result := sub.output
+
+    //Case13
+//    val sub = new Component{
+//      val output = out(U"0010")
+//
+//    }
+//
+//    val sub2 = new Component{
+//      val output = out UInt(4 bits)
+//      output :=sub.output.pull()
+//
+//    }
+//
+//    result := sub2.output.pull()
+
+    //Case 14
+    val sub = new Component{
+      val sub = new Component{
+        val sub = new Component{
+          val sub = new Component{
+            val output = out( U"0010")
+          }
+        }
+      }
+    }
+
+    val sub2 = new Component{
+      val sub2 = new Component{
+        val sub2 = new Component{
+          val sub2 = new Component{
+            val output = UInt(4 bits).keep()
+            output := sub.sub.sub.sub.output.pull()
+          }
+        }
+      }
+    }
+
+    result := sub2.sub2.sub2.sub2.output.pull()
+
+    //Case 15
+//    val sub = new Component{
+//      val sub = new Component{
+//        val sub = new Component{
+//          val sub = new Component{
+//            val output = RegNext(U"0010").keep()
+//          }
+//        }
+//      }
+//    }
+//    val sub2 = new Component{
+//      val sub = new Component{
+//        val sub = new Component{
+//          val sub = new Component{
+//            val output = RegNext(U"0010").keep()
+//          }
+//        }
+//      }
+//    }
+//    result := 0
+  }
+  class Sub12(val depth : Int) extends Component{
+    val output = out UInt(4 bits)
+    depth match{
+      case 0 => output := 3
+      case _ => {
+        val sub = new Sub12(depth-1)
+        output := sub.output
+      }
+    }
   }
   def main(args: Array[String]): Unit = {
-
-
     SpinalVhdl(new TopLevel())
   }
 }

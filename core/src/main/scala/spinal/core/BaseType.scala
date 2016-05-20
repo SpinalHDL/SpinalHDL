@@ -27,6 +27,18 @@ trait BaseTypeFactory extends BoolFactory with BitsFactory with UIntFactory with
 trait BaseTypeCast extends BoolCast with UIntCast with SIntCast with BitsCast with SFixCast with UFixCast
 
 object BaseType {
+  def checkAssignability(dst : BaseType,src : Node) : Unit = {
+    val globalData = dst.globalData
+    dst.dir match{
+      case null => if(globalData.componentStack.head() != dst.component)
+        SpinalError(s"Signal $dst can't be assigned outside his component => \n${ScalaLocated.long}")
+      case `in` => if(!(src.component == dst.component.parent || (dst.component.parent == src.component.parent && src.isInstanceOf[BaseType] && src.asInstanceOf[BaseType].isOutput)))
+        SpinalError(s"Input signal $dst can't be assigned from there => \n${ScalaLocated.long}")
+      case `out` => if(globalData.componentStack.head() != dst.component)
+        SpinalError(s"Output signal $dst can't be assigned from there => \n${ScalaLocated.long}")
+    }
+  }
+
   def walkWhenNodes(baseType: BaseType, initialConsumer: Node, initialConsumerInputId: Int, conservative: Boolean = false) = {
 
     var consumer = initialConsumer
@@ -50,14 +62,7 @@ object BaseType {
     }
 
 
-    baseType.dir match{
-      case null => if(globalData.componentStack.head() != baseType.component)
-        SpinalError(s"Signal $baseType can't be assigned outside his component => \n${ScalaLocated.long}")
-      case `in` => if(globalData.componentStack.head() != baseType.component.parent)
-        SpinalError(s"Input signal $baseType can't be assigned from there => \n${ScalaLocated.long}")
-      case `out` => if(globalData.componentStack.head() != baseType.component)
-        SpinalError(s"Output signal $baseType can't be assigned from there => \n${ScalaLocated.long}")
-    }
+
 
     for (conditionalAssign <- globalData.conditionalAssignStack.stack.reverseIterator) {
       if (!initialConditionalAssignHit) {
@@ -244,6 +249,7 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
 
   private[core] def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
     if (that.isInstanceOf[BaseType] || that.isInstanceOf[AssignementNode] || that.isInstanceOf[DontCareNode]) {
+      BaseType.checkAssignability(this,that.asInstanceOf[Node])
       val (consumer, inputId) = BaseType.walkWhenNodes(this, this, 0, conservative)
       consumer.inputs(inputId) = that.asInstanceOf[Node]
     } else {
