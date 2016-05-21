@@ -48,10 +48,10 @@ class VhdlBackend extends Backend with VhdlBase {
     val report = super.elaborate(topLevel)
     SpinalInfoPhase("Write VHDL")
 
-    if (outputFilePath == null) outputFilePath = topLevel.definitionName
+    if (outputFilePath == null) outputFilePath = topLevel.definitionName + ".vhd"
     if (jsonReportPath == "") jsonReportPath = outputFilePath.replace(".vhd",".json")
 
-    out = new java.io.FileWriter(outputFilePath + ".vhd")
+    out = new java.io.FileWriter(outputFilePath)
     emitEnumPackage(out)
     emitPackage(out)
 

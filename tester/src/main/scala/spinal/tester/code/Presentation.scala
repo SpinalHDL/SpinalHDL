@@ -1153,3 +1153,58 @@ object RgbToGray{
     SpinalVhdl(new RgbToGray)
   }
 }
+
+
+object CombinatorialLogic {
+
+  class TopLevel extends Component {
+    val io = new Bundle {
+      val cond   = in Bool
+      val value      = in UInt (4 bit)
+      val withoutProcess = out UInt(4 bits)
+      val withProcess = out UInt(4 bits)
+    }
+
+    io.withProcess := io.value
+
+    io.withoutProcess := 0
+    when(io.cond){
+      io.withoutProcess := io.value
+    }
+  }
+
+  def main(args: Array[String]): Unit = {
+    //SpinalVhdl(new TopLevel)
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
+object FlipFlop {
+  class TopLevel extends Component {
+    val io = new Bundle {
+      val cond   = in Bool
+      val value  = in UInt (4 bit)
+      val resultA = out UInt(4 bit)
+      val resultB = out UInt(4 bit)
+    }
+
+    val regWithReset = Reg(UInt(4 bits)) init(0)
+    val regWithoutReset = Reg(UInt(4 bits))
+
+    regWithReset := io.value
+
+    regWithoutReset := 0
+    when(io.cond){
+      regWithoutReset := io.value
+    }
+
+    io.resultA := regWithReset
+    io.resultB := regWithoutReset
+  }
+
+  def main(args: Array[String]): Unit = {
+    //SpinalVhdl(new TopLevel)
+    SpinalVhdl(new TopLevel)
+  }
+}

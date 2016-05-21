@@ -43,11 +43,6 @@ object HIGH extends ActiveKind
 object LOW extends ActiveKind
 
 
-//trait ClockDomainBoolFunction
-//object FUNCTION_CLOCK extends ClockDomainBoolFunction
-//object FUNCTION_RESET extends ClockDomainBoolFunction
-//object FUNCTION_ENABLE extends ClockDomainBoolFunction
-//object FUNCTION_NONE extends ClockDomainBoolFunction
 
 // Default configuration of clock domain is :
 // Rising edge clock with optional asyncronous reset active high and optional active high clockEnable
@@ -60,18 +55,6 @@ object ClockDomain {
   def apply(clock: Bool, reset: Bool = null, clockEnable: Bool = null, frequency: IClockDomainFrequency = UnknownFrequency(),config: ClockDomainConfig = GlobalData.get.commonClockConfig): ClockDomain = {
     new ClockDomain(config, clock, reset, clockEnable, frequency)
   }
-
-//  def apply(clock: Bool, reset: Bool, clockEnable: Bool): ClockDomain = {
-//    new ClockDomain(GlobalData.get.commonClockConfig, clock, reset, clockEnable)
-//  }
-//
-//  def apply(clock: Bool, reset: Bool): ClockDomain = {
-//    new ClockDomain(GlobalData.get.commonClockConfig, clock, reset, null)
-//  }
-//
-//  def apply(clock: Bool): ClockDomain = {
-//    new ClockDomain(GlobalData.get.commonClockConfig, clock, null, null)
-//  }
 
   // To use when you want to define a new ClockDomain that thank signals outside the toplevel.
   // (it create input clock, reset, clockenable in the top level)
@@ -97,11 +80,6 @@ object ClockDomain {
     clockDomain
   }
 
-//  def apply(name: String, frequency: IClockDomainFrequency): ClockDomain = ClockDomain(name,
-//            GlobalData.get.commonClockConfig, true, false, frequency)
-//
-//  def apply(name: String): ClockDomain = ClockDomain(name, GlobalData.get.commonClockConfig, true, false, UnknownFrequency())
-//
 
   def push(c: ClockDomain): Unit = {
     GlobalData.get.clockDomainStack.push(c)
@@ -114,13 +92,10 @@ object ClockDomain {
   def current = GlobalData.get.clockDomainStack.head()
 
   def isResetActive = current.isResetActive
-
   def isClockEnableActive = current.isClockEnableActive
 
   def readClockWire = current.readClockWire
-
   def readResetWire = current.readResetWire
-
   def readClockEnableWire = current.readClockEnableWire
 
   def getClockDomainDriver(that: Bool): Bool = {
