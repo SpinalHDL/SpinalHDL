@@ -38,11 +38,11 @@ class VhdlTestBenchBackend() extends VhdlBase {
     this.topLevel = topLevel
     this.backend = backend
 
-    if (outputFile == null) outputFile = backend.outputFile + "_tb"
+    if (outputFile == null) outputFile = backend.outputFilePath.replace(".vhd","_tb.vhd")
     if (tbName == null) tbName = topLevel.definitionName + "_tb"
     extractUserCodes
 
-    val tbFile = new java.io.FileWriter(outputFile + ".vhd")
+    val tbFile = new java.io.FileWriter(outputFile)
 
     val ret = new StringBuilder()
 
@@ -116,7 +116,7 @@ class VhdlTestBenchBackend() extends VhdlBase {
   }
 
   def emitComponentInstance(c: Component, ret: StringBuilder): Unit = {
-    val definitionString = s"entity ${backend.library}.${c.definitionName}"
+    val definitionString = s"entity work.${c.definitionName}"
     ret ++= s"  uut : $definitionString\n"
     ret ++= s"    port map (\n"
     for (data <- c.getOrdredNodeIo) {

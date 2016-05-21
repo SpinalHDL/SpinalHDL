@@ -1,0 +1,32 @@
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+library work;
+use work.pkg_scala2hdl.all;
+use work.all;
+use work.pkg_enum.all;
+
+-- #spinalBegin userLibrary
+-- #spinalEnd userLibrary
+
+
+entity InternalClockTester_tb is
+end InternalClockTester_tb;
+
+architecture arch of InternalClockTester_tb is
+  signal io_internalClkCounter : unsigned(7 downto 0);
+  signal clk : std_logic;
+  signal reset : std_logic;
+  -- #spinalBegin userDeclarations
+  -- #spinalEnd userDeclarations
+begin
+  -- #spinalBegin userLogics
+  -- #spinalEnd userLogics
+  uut : entity work.InternalClockTester
+    port map (
+      io_internalClkCounter =>  io_internalClkCounter,
+      clk =>  clk,
+      reset =>  reset 
+    );
+end arch;

@@ -613,9 +613,60 @@ object PlayBetterError {
     
     //Case 18
    // val bits = B"0011"
-    val bits = a.asBits
-    val myReg = RegNext(bits)init(0)
-    result := myReg.asUInt
+//    val bits = a.asBits
+//    val myReg = RegNext(bits)init(0)
+//    result := myReg.asUInt
+
+    //Case 19
+//    val subA = new Component{
+//      val io = new Bundle {
+//        val xx = new Bundle {
+//          val input = in UInt (4 bits)
+//          val output = out UInt (5 bits)
+//        }
+//      }
+//      io.xx.output := io.xx.input << 1
+//    }
+//    val subB = new Component{
+//      val input = in UInt(4 bits)
+//      val output = out UInt(4 bits)
+//      output := input
+//    }
+//    subA.io.xx.input := a
+//    subB.input := subA.io.xx.output
+//    result := subB.output
+
+
+    //Case 20
+    val subA = new Component{
+      val input = in UInt (4 bits)
+      val output = out UInt (4 bits)
+    }
+    val subB = new Component{
+      val input = in UInt(4 bits)
+      val output = out UInt(4 bits)
+      output := input
+    }
+    val tmp = UInt(4 bits)
+
+    subA.input <> tmp
+    subA.input <> subB.output
+    subA.input <> a
+
+    subA.output <> tmp
+    subA.output <> subB.input
+    subA.output <> result
+
+    a <> tmp
+    a <> subA.input
+    a <> result
+
+    result <> a
+    result <> subA.output
+    result <> tmp
+
+    result := 0
+
 
   }
   class Sub12(val depth : Int) extends Component{
@@ -660,6 +711,8 @@ object Play6 {
     SpinalVhdl(new Comp)
   }
 }
+
+
 
 
 object Play7 {

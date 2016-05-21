@@ -1,0 +1,48 @@
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+library work;
+use work.pkg_scala2hdl.all;
+use work.all;
+use work.pkg_enum.all;
+
+-- #spinalBegin userLibrary
+-- #spinalEnd userLibrary
+
+
+entity StreamTester_tb is
+end StreamTester_tb;
+
+architecture arch of StreamTester_tb is
+  signal io_slave0_valid : std_logic;
+  signal io_slave0_ready : std_logic;
+  signal io_slave0_payload_a : unsigned(7 downto 0);
+  signal io_slave0_payload_b : std_logic;
+  signal io_master0_valid : std_logic;
+  signal io_master0_ready : std_logic;
+  signal io_master0_payload_a : unsigned(7 downto 0);
+  signal io_master0_payload_b : std_logic;
+  signal io_fifo0_occupancy : unsigned(4 downto 0);
+  signal clk : std_logic;
+  signal reset : std_logic;
+  -- #spinalBegin userDeclarations
+  -- #spinalEnd userDeclarations
+begin
+  -- #spinalBegin userLogics
+  -- #spinalEnd userLogics
+  uut : entity work.StreamTester
+    port map (
+      io_slave0_valid =>  io_slave0_valid,
+      io_slave0_ready =>  io_slave0_ready,
+      io_slave0_payload_a =>  io_slave0_payload_a,
+      io_slave0_payload_b =>  io_slave0_payload_b,
+      io_master0_valid =>  io_master0_valid,
+      io_master0_ready =>  io_master0_ready,
+      io_master0_payload_a =>  io_master0_payload_a,
+      io_master0_payload_b =>  io_master0_payload_b,
+      io_fifo0_occupancy =>  io_fifo0_occupancy,
+      clk =>  clk,
+      reset =>  reset 
+    );
+end arch;

@@ -512,6 +512,6 @@ object DataCacheMain{
         cpuDataWidth = 16,
         memDataWidth = 16)
       new DataCache()(p)
-    },_.setLibrary("lib_DataCache"))
+    })
   }
 }

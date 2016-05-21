@@ -107,6 +107,6 @@ class SimpleJtagTap extends Component {
 
 object SimpleJtagTap {
   def main(args: Array[String]) {
-    SpinalVhdl(new SimpleJtagTap(), _.setLibrary("SimpleTap_lib"))
+    SpinalVhdl(new SimpleJtagTap())
   }
 }

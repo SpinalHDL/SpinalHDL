@@ -328,11 +328,11 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
         sameFromOutside
       } else error("You cant autoconnect from here")
     } else if (this.component.parent == that.component.parent) {
-      kindAndKind
+      childAndChild
     } else if (this.component == that.component.parent) {
-      parentAndKind(this, that)
+      parentAndChild(this, that)
     } else if (this.component.parent == that.component) {
-      parentAndKind(that, this)
+      parentAndChild(that, this)
     } else error("Don't know how autoconnect")
 
 
@@ -355,7 +355,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
       }
     }
 
-    def kindAndKind: Unit = {
+    def childAndChild: Unit = {
       if (this.isOutput && that.isInput) {
         that := this
       } else if (this.isInput && that.isOutput) {
@@ -363,7 +363,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
       } else error("Bad input output specification for autoconnect")
     }
 
-    def parentAndKind(p: Data, k: Data): Unit = {
+    def parentAndChild(p: Data, k: Data): Unit = {
       if (k.isOutput) {
         p := k
       } else if (k.isInput) {

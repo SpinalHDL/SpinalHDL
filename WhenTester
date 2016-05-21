@@ -1,0 +1,74 @@
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+library work;
+use work.pkg_scala2hdl.all;
+use work.all;
+use work.pkg_enum.all;
+
+-- #spinalBegin userLibrary
+-- #spinalEnd userLibrary
+
+
+entity WhenTester_tb is
+end WhenTester_tb;
+
+architecture arch of WhenTester_tb is
+  signal io_conds_0 : std_logic;
+  signal io_conds_1 : std_logic;
+  signal io_conds_2 : std_logic;
+  signal io_conds_3 : std_logic;
+  signal io_conds_4 : std_logic;
+  signal io_conds_5 : std_logic;
+  signal io_conds_6 : std_logic;
+  signal io_conds_7 : std_logic;
+  signal io_data_0 : unsigned(7 downto 0);
+  signal io_data_1 : unsigned(7 downto 0);
+  signal io_data_2 : unsigned(7 downto 0);
+  signal io_data_3 : unsigned(7 downto 0);
+  signal io_data_4 : unsigned(7 downto 0);
+  signal io_data_5 : unsigned(7 downto 0);
+  signal io_data_6 : unsigned(7 downto 0);
+  signal io_data_7 : unsigned(7 downto 0);
+  signal io_data_8 : unsigned(7 downto 0);
+  signal io_data_9 : unsigned(7 downto 0);
+  signal io_data_10 : unsigned(7 downto 0);
+  signal io_data_11 : unsigned(7 downto 0);
+  signal io_outDefault : unsigned(7 downto 0);
+  signal io_outComplex : unsigned(7 downto 0);
+  signal io_outRegComplex : unsigned(7 downto 0);
+  signal clk : std_logic;
+  -- #spinalBegin userDeclarations
+  -- #spinalEnd userDeclarations
+begin
+  -- #spinalBegin userLogics
+  -- #spinalEnd userLogics
+  uut : entity work.WhenTester
+    port map (
+      io_conds_0 =>  io_conds_0,
+      io_conds_1 =>  io_conds_1,
+      io_conds_2 =>  io_conds_2,
+      io_conds_3 =>  io_conds_3,
+      io_conds_4 =>  io_conds_4,
+      io_conds_5 =>  io_conds_5,
+      io_conds_6 =>  io_conds_6,
+      io_conds_7 =>  io_conds_7,
+      io_data_0 =>  io_data_0,
+      io_data_1 =>  io_data_1,
+      io_data_2 =>  io_data_2,
+      io_data_3 =>  io_data_3,
+      io_data_4 =>  io_data_4,
+      io_data_5 =>  io_data_5,
+      io_data_6 =>  io_data_6,
+      io_data_7 =>  io_data_7,
+      io_data_8 =>  io_data_8,
+      io_data_9 =>  io_data_9,
+      io_data_10 =>  io_data_10,
+      io_data_11 =>  io_data_11,
+      io_outDefault =>  io_outDefault,
+      io_outComplex =>  io_outComplex,
+      io_outRegComplex =>  io_outRegComplex,
+      clk =>  clk 
+    );
+end arch;

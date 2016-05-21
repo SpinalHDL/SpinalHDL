@@ -143,7 +143,7 @@ object CoreQSysAvalon{
 
 
       new RiscvAvalon(coreConfig,iCacheConfig,dCacheConfig,debug,interruptCount)
-    },_.setLibrary("qsys").onlyStdLogicVectorTopLevelIo)
+    },_.onlyStdLogicVectorAtTopLevelIo)
 
     report.toplevel.io.i addTag(ClockDomainTag(report.toplevel.clockDomain))
     report.toplevel.io.d addTag(ClockDomainTag(report.toplevel.clockDomain))

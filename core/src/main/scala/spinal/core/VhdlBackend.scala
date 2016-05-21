@@ -33,10 +33,9 @@ object SINGLE_RAM extends MemBitsMaskKind
 
 class VhdlBackend extends Backend with VhdlBase {
   var out: java.io.FileWriter = null
-  var library = "work"
   var enumPackageName = "pkg_enum"
   var packageName = "pkg_scala2hdl"
-  var outputFile: String = null
+  var outputFilePath: String = null
   var onlyStdLogicVectorTopLevelIo = false
   var memBitsMaskKind : MemBitsMaskKind = MULTIPLE_RAM
 
@@ -49,10 +48,10 @@ class VhdlBackend extends Backend with VhdlBase {
     val report = super.elaborate(topLevel)
     SpinalInfoPhase("Write VHDL")
 
-    if (outputFile == null) outputFile = topLevel.definitionName
-    if (jsonReportPath == "") jsonReportPath = outputFile
+    if (outputFilePath == null) outputFilePath = topLevel.definitionName
+    if (jsonReportPath == "") jsonReportPath = outputFilePath.replace(".vhd",".json")
 
-    out = new java.io.FileWriter(outputFile + ".vhd")
+    out = new java.io.FileWriter(outputFilePath + ".vhd")
     emitEnumPackage(out)
     emitPackage(out)
 
@@ -682,10 +681,10 @@ class VhdlBackend extends Backend with VhdlBase {
     ret ++= "use ieee.std_logic_1164.all;\n"
     ret ++= "use ieee.numeric_std.all;\n"
     ret ++= "\n"
-    ret ++= s"library $library;\n"
-    ret ++= s"use $library.$packageName.all;\n"
-    ret ++= s"use $library.all;\n"
-    ret ++= s"use $library.$enumPackageName.all;\n\n"
+    ret ++= s"library work;\n"
+    ret ++= s"use work.$packageName.all;\n"
+    ret ++= s"use work.all;\n"
+    ret ++= s"use work.$enumPackageName.all;\n\n"
   }
 
   def emitEntityName(component: Component): Unit = {
@@ -1787,7 +1786,7 @@ class VhdlBackend extends Backend with VhdlBase {
       val isBB = kind.isInstanceOf[BlackBox]
       val isBBUsingULogic = isBB && kind.asInstanceOf[BlackBox].isUsingULogic
       val definitionString = if (isBB) kind.definitionName
-      else s"entity $library.${
+      else s"entity work.${
         emitedComponentRef.getOrElse(kind, kind).definitionName
       }"
       ret ++= s"  ${

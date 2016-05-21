@@ -49,8 +49,8 @@ abstract class SpinalTesterBase extends FunSuite  {
     SpinalVhdl(createToplevel,(config) => backendConfig(config))
   }
 
-  def backendConfig(config: SpinalVhdl[_]) : Unit = {
-    config.setLibrary(getLibraryName)
+  def backendConfig(config: SpinalVhdlBuilder[_]) : Unit = {
+    config
   }
 
   def elaborateWithFail: Unit = {

@@ -96,7 +96,7 @@ object JtagAvalonDebuggerMain{
         jtagClockDomain = jtagClock
       )
       new JtagAvalonDebugger(c)
-    },_.onlyStdLogicVectorTopLevelIo.setLibrary("lib_JtagAvalonDebugger")).toplevel
+    },_.onlyStdLogicVectorAtTopLevelIo).toplevel
 
     toplevel.io.mem addTag(ClockDomainTag(toplevel.clockDomain))
     QSysify(toplevel)

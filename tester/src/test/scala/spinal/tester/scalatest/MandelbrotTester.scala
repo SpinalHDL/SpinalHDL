@@ -11,7 +11,7 @@ class MandelbrotTester(p : MandelbrotCoreParameters ) extends MandelbrotCore(p){
 class MandelbrotTesterBoot extends SpinalTesterBase {
   override def getName: String = "MandelbrotTester"
   override def createToplevel: Component = new MandelbrotTester(MandelbrotCoreParameters(16, 8, 16, 16, 7, 34))
-  override def backendConfig(config: SpinalVhdl[_]) : Unit = {
+  override def backendConfig(config: SpinalVhdlBuilder[_]) : Unit = {
     super.backendConfig(config)
     config.setDefaultClockFrequency(FixedFrequency(100e6))
   }

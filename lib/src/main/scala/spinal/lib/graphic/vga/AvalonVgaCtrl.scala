@@ -107,7 +107,7 @@ object AvalonVgaCtrl{
       )
       val colorConfig = RgbConfig(8,8,8)
       new AvalonVgaCtrl(dmaConfig,colorConfig)
-    },_.setLibrary("lib_AvalonVgaCtrl")).toplevel
+    }).toplevel
 
     toplevel.io.mem.addTag(ClockDomainTag(toplevel.clockDomain))
     QSysify(toplevel)

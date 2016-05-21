@@ -235,8 +235,7 @@ object CoreUut{
   }
 
   def main(args: Array[String]) {
-    SpinalVhdl({ new TopLevel().setDefinitionName("CoreWrapper")}
-    ,_.setLibrary("riscv"))
+    SpinalVhdl({ new TopLevel().setDefinitionName("CoreWrapper")})
     SpinalVhdl({ new TopLevel()})
   }
 }

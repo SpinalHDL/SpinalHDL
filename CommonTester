@@ -1,0 +1,88 @@
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+library work;
+use work.pkg_scala2hdl.all;
+use work.all;
+use work.pkg_enum.all;
+
+-- #spinalBegin userLibrary
+-- #spinalEnd userLibrary
+
+
+entity CommonTester_tb is
+end CommonTester_tb;
+
+architecture arch of CommonTester_tb is
+  signal io_conds_0 : std_logic;
+  signal io_conds_1 : std_logic;
+  signal io_conds_2 : std_logic;
+  signal io_conds_3 : std_logic;
+  signal io_conds_4 : std_logic;
+  signal io_conds_5 : std_logic;
+  signal io_conds_6 : std_logic;
+  signal io_conds_7 : std_logic;
+  signal io_inUIntA : unsigned(7 downto 0);
+  signal io_inUIntB : unsigned(7 downto 0);
+  signal io_outUIntAdder : unsigned(7 downto 0);
+  signal io_inAA_bod_gggg : std_logic;
+  signal io_inAA_bod_aosi : unsigned(2 downto 0);
+  signal io_inAA_ahe : std_logic;
+  signal io_inAA_zwg : std_logic;
+  signal io_inAA_vsw : std_logic;
+  signal io_inAA_lwee : unsigned(4 downto 0);
+  signal io_inAABits : std_logic_vector(11 downto 0);
+  signal io_outAA_bod_gggg : std_logic;
+  signal io_outAA_bod_aosi : unsigned(2 downto 0);
+  signal io_outAA_ahe : std_logic;
+  signal io_outAA_zwg : std_logic;
+  signal io_outAA_vsw : std_logic;
+  signal io_outAA_lwee : unsigned(4 downto 0);
+  signal io_outAABits : std_logic_vector(11 downto 0);
+  signal io_complexLiteral : unsigned(15 downto 0);
+  signal io_assign_sel_0 : unsigned(3 downto 0);
+  signal io_assign_sel_1 : unsigned(3 downto 0);
+  signal io_assign_sel_2 : unsigned(3 downto 0);
+  signal io_assign_sel_3 : unsigned(3 downto 0);
+  signal io_assign_bitDemux : std_logic_vector(15 downto 0);
+  -- #spinalBegin userDeclarations
+  -- #spinalEnd userDeclarations
+begin
+  -- #spinalBegin userLogics
+  -- #spinalEnd userLogics
+  uut : entity work.CommonTester
+    port map (
+      io_conds_0 =>  io_conds_0,
+      io_conds_1 =>  io_conds_1,
+      io_conds_2 =>  io_conds_2,
+      io_conds_3 =>  io_conds_3,
+      io_conds_4 =>  io_conds_4,
+      io_conds_5 =>  io_conds_5,
+      io_conds_6 =>  io_conds_6,
+      io_conds_7 =>  io_conds_7,
+      io_inUIntA =>  io_inUIntA,
+      io_inUIntB =>  io_inUIntB,
+      io_outUIntAdder =>  io_outUIntAdder,
+      io_inAA_bod_gggg =>  io_inAA_bod_gggg,
+      io_inAA_bod_aosi =>  io_inAA_bod_aosi,
+      io_inAA_ahe =>  io_inAA_ahe,
+      io_inAA_zwg =>  io_inAA_zwg,
+      io_inAA_vsw =>  io_inAA_vsw,
+      io_inAA_lwee =>  io_inAA_lwee,
+      io_inAABits =>  io_inAABits,
+      io_outAA_bod_gggg =>  io_outAA_bod_gggg,
+      io_outAA_bod_aosi =>  io_outAA_bod_aosi,
+      io_outAA_ahe =>  io_outAA_ahe,
+      io_outAA_zwg =>  io_outAA_zwg,
+      io_outAA_vsw =>  io_outAA_vsw,
+      io_outAA_lwee =>  io_outAA_lwee,
+      io_outAABits =>  io_outAABits,
+      io_complexLiteral =>  io_complexLiteral,
+      io_assign_sel_0 =>  io_assign_sel_0,
+      io_assign_sel_1 =>  io_assign_sel_1,
+      io_assign_sel_2 =>  io_assign_sel_2,
+      io_assign_sel_3 =>  io_assign_sel_3,
+      io_assign_bitDemux =>  io_assign_bitDemux 
+    );
+end arch;
