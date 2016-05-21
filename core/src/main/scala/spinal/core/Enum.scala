@@ -70,15 +70,15 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T,val encoding: SpinalEnum
 
   override def isEguals(that: Any): Bool = {
     that match{
-      case that : SpinalEnumCraft[_] if that.blueprint == blueprint =>  newLogicalOperator("e==e", that, InputNormalize.enumImpl,ZeroWidth.none);
-      case that : SpinalEnumElement[_] if that.parent == blueprint =>  newLogicalOperator("e==e", that(), InputNormalize.enumImpl,ZeroWidth.none);
+      case that : SpinalEnumCraft[_] if that.blueprint == blueprint =>  newLogicalOperator("e==e", that, InputNormalize.enumImpl,SymplifyNode.none);
+      case that : SpinalEnumElement[_] if that.parent == blueprint =>  newLogicalOperator("e==e", that(), InputNormalize.enumImpl,SymplifyNode.none);
       case _ => SpinalError("Incompatible test")
     }
   }
   override def isNotEguals(that: Any): Bool = {
     that match{
-      case that : SpinalEnumCraft[_] if that.blueprint == blueprint =>  newLogicalOperator("e!=e", that, InputNormalize.enumImpl,ZeroWidth.none);
-      case that :SpinalEnumElement[_] if that.parent == blueprint => newLogicalOperator("e!=e", that(), InputNormalize.enumImpl,ZeroWidth.none);
+      case that : SpinalEnumCraft[_] if that.blueprint == blueprint =>  newLogicalOperator("e!=e", that, InputNormalize.enumImpl,SymplifyNode.none);
+      case that :SpinalEnumElement[_] if that.parent == blueprint => newLogicalOperator("e!=e", that(), InputNormalize.enumImpl,SymplifyNode.none);
       case _ => SpinalError("Incompatible test")
     }
   }

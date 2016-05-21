@@ -1745,17 +1745,19 @@ class VhdlBackend extends Backend with VhdlBase {
           def doTrue = when.whenTrue.isNotEmpty
           def doFalse = when.whenFalse.isNotEmpty
 
-          /*  if (!doTrue && doFalse) {
-              ret ++= s"${firstTab}if ${emitLogic(when.cond)} = '0'  then\n"
-              when.whenFalse.emitContext(ret, tab + "  ", assignementKind)
-              ret ++= s"${tab}end if;\n"
+//          def isCondSwitchReady : Boolean = {
+//            true
+//          }
 
-            } else*/ if (doTrue && !doFalse) {
-            ret ++= s"${firstTab}if ${emitLogic(when.cond)} = '1' then\n"
+          val condLogic = emitLogic(when.cond)
+          val condLogicCleaned = if(condLogic.startsWith("pkg_toStdLogic(")) condLogic.substring("pkg_toStdLogic(".length,condLogic.length-1) else condLogic + " = '1'"
+
+          if (doTrue && !doFalse) {
+            ret ++= s"${firstTab}if $condLogicCleaned then\n"
             when.whenTrue.emitContext(ret, tab + "  ", assignementKind)
             ret ++= s"${tab}end if;\n"
           } else /*if (doTrue && doFalse)*/ {
-            ret ++= s"${firstTab}if ${emitLogic(when.cond)} = '1' then\n"
+            ret ++= s"${firstTab}if $condLogicCleaned then\n"
             when.whenTrue.emitContext(ret, tab + "  ", assignementKind)
             val falseHead = if (when.whenFalse.logicChunk.isEmpty && when.whenFalse.conditionalTrees.size == 1) when.whenFalse.conditionalTrees.head._1 else null
             if (falseHead != null && falseHead.isInstanceOf[WhenContext] && falseHead.asInstanceOf[WhenContext].parentElseWhen != null) {

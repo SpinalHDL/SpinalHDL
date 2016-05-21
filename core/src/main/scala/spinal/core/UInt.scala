@@ -64,32 +64,32 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider {
 
   def twoComplement(enable : Bool): SInt = ((False ## Mux(enable,~this,this)).asUInt + enable.asUInt).asSInt
 
-  override def +(that: UInt): UInt = newBinaryOperator("u+u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,ZeroWidth.binaryTakeOther);
-  override def -(that: UInt): UInt = newBinaryOperator("u-u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,ZeroWidth.binaryMinus(U.apply));
-  override def *(that: UInt): UInt = newBinaryOperator("u*u", that, WidthInfer.cumulateInputWidth, InputNormalize.none,ZeroWidth.binaryInductZeroWithOtherWidth(U.apply));
-  override def /(that: UInt): UInt = newBinaryOperator("u/u", that, WidthInfer.input0Width, InputNormalize.none,ZeroWidth.unsignedDivImpl);
-  override def %(that: UInt): UInt = newBinaryOperator("u%u", that, WidthInfer.input0Width, InputNormalize.none,ZeroWidth.unsignedModImpl);
+  override def +(that: UInt): UInt = newBinaryOperator("u+u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,SymplifyNode.binaryTakeOther);
+  override def -(that: UInt): UInt = newBinaryOperator("u-u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,SymplifyNode.binaryMinus(U.apply));
+  override def *(that: UInt): UInt = newBinaryOperator("u*u", that, WidthInfer.cumulateInputWidth, InputNormalize.none,SymplifyNode.binaryInductZeroWithOtherWidth(U.apply));
+  override def /(that: UInt): UInt = newBinaryOperator("u/u", that, WidthInfer.input0Width, InputNormalize.none,SymplifyNode.unsignedDivImpl);
+  override def %(that: UInt): UInt = newBinaryOperator("u%u", that, WidthInfer.input0Width, InputNormalize.none,SymplifyNode.unsignedModImpl);
 
-  def |(that: UInt): UInt = newBinaryOperator("u|u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,ZeroWidth.binaryTakeOther);
-  def &(that: UInt): UInt = newBinaryOperator("u&u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,ZeroWidth.binaryInductZeroWithOtherWidth(U.apply));
-  def ^(that: UInt): UInt = newBinaryOperator("u^u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,ZeroWidth.binaryTakeOther);
-  def unary_~(): UInt = newUnaryOperator("~u",WidthInfer.inputMaxWidth,ZeroWidth.unaryZero);
+  def |(that: UInt): UInt = newBinaryOperator("u|u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,SymplifyNode.binaryTakeOther);
+  def &(that: UInt): UInt = newBinaryOperator("u&u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,SymplifyNode.binaryInductZeroWithOtherWidth(U.apply));
+  def ^(that: UInt): UInt = newBinaryOperator("u^u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,SymplifyNode.binaryTakeOther);
+  def unary_~(): UInt = newUnaryOperator("~u",WidthInfer.inputMaxWidth,SymplifyNode.unaryZero);
 
-  override def <(that: UInt): Bool = newLogicalOperator("u<u", that, InputNormalize.inputWidthMax,ZeroWidth.binaryUIntSmaller);
+  override def <(that: UInt): Bool = newLogicalOperator("u<u", that, InputNormalize.inputWidthMax,SymplifyNode.binaryUIntSmaller);
   override def >(that: UInt): Bool = that < this
-  override def <=(that: UInt): Bool = newLogicalOperator("u<=u", that, InputNormalize.inputWidthMax,ZeroWidth.binaryUIntSmallerOrEgual);
+  override def <=(that: UInt): Bool = newLogicalOperator("u<=u", that, InputNormalize.inputWidthMax,SymplifyNode.binaryUIntSmallerOrEgual);
   override def >=(that: UInt): Bool = that <= this
 
 
-  override def >>(that: Int): UInt = newBinaryOperator("u>>i", IntLiteral(that), WidthInfer.shiftRightWidth, InputNormalize.none,ZeroWidth.shiftRightImpl);
-  override def <<(that: Int): UInt = newBinaryOperator("u<<i", IntLiteral(that), WidthInfer.shiftLeftWidth, InputNormalize.none,ZeroWidth.shiftLeftImpl(U.apply));
-  def >>(that: UInt): UInt = newBinaryOperator("u>>u", that, WidthInfer.shiftRightWidth, InputNormalize.none,ZeroWidth.shiftRightImpl);
-  def <<(that: UInt): UInt = newBinaryOperator("u<<u", that, WidthInfer.shiftLeftWidth, InputNormalize.none,ZeroWidth.shiftLeftImpl(U.apply));
+  override def >>(that: Int): UInt = newBinaryOperator("u>>i", IntLiteral(that), WidthInfer.shiftRightWidth, InputNormalize.none,SymplifyNode.shiftRightImpl);
+  override def <<(that: Int): UInt = newBinaryOperator("u<<i", IntLiteral(that), WidthInfer.shiftLeftWidth, InputNormalize.none,SymplifyNode.shiftLeftImpl(U.apply));
+  def >>(that: UInt): UInt = newBinaryOperator("u>>u", that, WidthInfer.shiftRightWidth, InputNormalize.none,SymplifyNode.shiftRightImpl);
+  def <<(that: UInt): UInt = newBinaryOperator("u<<u", that, WidthInfer.shiftLeftWidth, InputNormalize.none,SymplifyNode.shiftLeftImpl(U.apply));
 
   private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,u,u)", sel, whenTrue, whenFalse)
   private[core] override def isEguals(that: Any): Bool = {
     that match {
-      case that: UInt => newLogicalOperator("u==u", that, InputNormalize.inputWidthMax,ZeroWidth.binaryThatIfBoth(True));
+      case that: UInt => newLogicalOperator("u==u", that, InputNormalize.inputWidthMax,SymplifyNode.binaryThatIfBoth(True));
       case that : MaskedLiteral => that === this
       case that : Int => this === that
       case that : BigInt => this === that
@@ -98,7 +98,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider {
   }
   private[core] override def isNotEguals(that: Any): Bool = {
     that match {
-      case that: UInt => newLogicalOperator("u!=u", that, InputNormalize.inputWidthMax,ZeroWidth.binaryThatIfBoth(False));
+      case that: UInt => newLogicalOperator("u!=u", that, InputNormalize.inputWidthMax,SymplifyNode.binaryThatIfBoth(False));
       case that : MaskedLiteral => that === this
       case _ => SpinalError(s"Don't know how compare $this with $that"); null
     }
@@ -108,7 +108,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider {
   override def maxValue: BigInt = (BigInt(1) << getWidth) - 1
 
 
-  override def resize(width: Int): this.type = newResize("resize(u,i)", this :: new IntLiteral(width) :: Nil, WidthInfer.intLit1Width,ZeroWidth.resizeImpl(U.apply))
+  override def resize(width: Int): this.type = newResize("resize(u,i)", this :: new IntLiteral(width) :: Nil, WidthInfer.intLit1Width,SymplifyNode.resizeImpl(U.apply))
 
 
 

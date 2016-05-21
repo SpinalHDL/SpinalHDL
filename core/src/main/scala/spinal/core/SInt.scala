@@ -42,44 +42,44 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider {
   def ===(that : MaskedLiteral) : Bool = this.isEguals(that)
   def =/=(that : MaskedLiteral) : Bool = this.isNotEguals(that)
 
-  override def +(that: SInt): SInt = newBinaryOperator("s+s", that, WidthInfer.inputMaxWidth,InputNormalize.nodeWidth,ZeroWidth.binaryTakeOther);
-  override def -(that: SInt): SInt = newBinaryOperator("s-s", that, WidthInfer.inputMaxWidth,InputNormalize.nodeWidth,ZeroWidth.binaryMinus(S.apply));
-  override def *(that: SInt): SInt = newBinaryOperator("s*s", that, WidthInfer.cumulateInputWidth,InputNormalize.none,ZeroWidth.binaryInductZeroWithOtherWidth(S.apply));
-  override def /(that: SInt): SInt = newBinaryOperator("s/s", that, WidthInfer.input0Width, InputNormalize.none,ZeroWidth.signedDivImpl);
-  override def %(that: SInt): SInt = newBinaryOperator("s%s", that, WidthInfer.input0Width, InputNormalize.none,ZeroWidth.signedModImpl);
+  override def +(that: SInt): SInt = newBinaryOperator("s+s", that, WidthInfer.inputMaxWidth,InputNormalize.nodeWidth,SymplifyNode.binaryTakeOther);
+  override def -(that: SInt): SInt = newBinaryOperator("s-s", that, WidthInfer.inputMaxWidth,InputNormalize.nodeWidth,SymplifyNode.binaryMinus(S.apply));
+  override def *(that: SInt): SInt = newBinaryOperator("s*s", that, WidthInfer.cumulateInputWidth,InputNormalize.none,SymplifyNode.binaryInductZeroWithOtherWidth(S.apply));
+  override def /(that: SInt): SInt = newBinaryOperator("s/s", that, WidthInfer.input0Width, InputNormalize.none,SymplifyNode.signedDivImpl);
+  override def %(that: SInt): SInt = newBinaryOperator("s%s", that, WidthInfer.input0Width, InputNormalize.none,SymplifyNode.signedModImpl);
   def abs: UInt = Mux(this.msb,~this,this).asUInt + this.msb.asUInt
   def abs(enable : Bool): UInt = Mux(this.msb && enable,~this,this).asUInt + (this.msb && enable).asUInt
 
 
-  def |(that: SInt): SInt = newBinaryOperator("s|s", that, WidthInfer.inputMaxWidth,InputNormalize.nodeWidth,ZeroWidth.binaryTakeOther);
-  def &(that: SInt): SInt = newBinaryOperator("s&s", that, WidthInfer.inputMaxWidth,InputNormalize.nodeWidth,ZeroWidth.binaryInductZeroWithOtherWidth(S.apply));
-  def ^(that: SInt): SInt = newBinaryOperator("s^s", that, WidthInfer.inputMaxWidth,InputNormalize.nodeWidth,ZeroWidth.binaryTakeOther);
-  def unary_~(): SInt = newUnaryOperator("~s",WidthInfer.inputMaxWidth,ZeroWidth.unaryZero);
-  def unary_-(): SInt = newUnaryOperator("-s",WidthInfer.inputMaxWidth,ZeroWidth.unaryZero);
+  def |(that: SInt): SInt = newBinaryOperator("s|s", that, WidthInfer.inputMaxWidth,InputNormalize.nodeWidth,SymplifyNode.binaryTakeOther);
+  def &(that: SInt): SInt = newBinaryOperator("s&s", that, WidthInfer.inputMaxWidth,InputNormalize.nodeWidth,SymplifyNode.binaryInductZeroWithOtherWidth(S.apply));
+  def ^(that: SInt): SInt = newBinaryOperator("s^s", that, WidthInfer.inputMaxWidth,InputNormalize.nodeWidth,SymplifyNode.binaryTakeOther);
+  def unary_~(): SInt = newUnaryOperator("~s",WidthInfer.inputMaxWidth,SymplifyNode.unaryZero);
+  def unary_-(): SInt = newUnaryOperator("-s",WidthInfer.inputMaxWidth,SymplifyNode.unaryZero);
 
 
-  override def <(that: SInt): Bool = newLogicalOperator("s<s", that,InputNormalize.inputWidthMax,ZeroWidth.binarySIntSmaller);
+  override def <(that: SInt): Bool = newLogicalOperator("s<s", that,InputNormalize.inputWidthMax,SymplifyNode.binarySIntSmaller);
   override def >(that: SInt): Bool = that < this
-  override def <=(that: SInt): Bool = newLogicalOperator("s<=s", that,InputNormalize.inputWidthMax,ZeroWidth.binarySIntSmallerOrEgual);
+  override def <=(that: SInt): Bool = newLogicalOperator("s<=s", that,InputNormalize.inputWidthMax,SymplifyNode.binarySIntSmallerOrEgual);
   override def >=(that: SInt): Bool = that <= this
 
-  override def >>(that: Int): SInt = newBinaryOperator("s>>i", IntLiteral(that), WidthInfer.shiftRightWidth,InputNormalize.none,ZeroWidth.shiftRightImpl);
-  override def <<(that: Int): SInt = newBinaryOperator("s<<i", IntLiteral(that), WidthInfer.shiftLeftWidth,InputNormalize.none,ZeroWidth.shiftLeftImpl(S.apply));
-  def >>(that: UInt): SInt = newBinaryOperator("s>>u", that, WidthInfer.shiftRightWidth,InputNormalize.none,ZeroWidth.shiftRightImpl);
-  def <<(that: UInt): SInt = newBinaryOperator("s<<u", that, WidthInfer.shiftLeftWidth,InputNormalize.none,ZeroWidth.shiftLeftImpl(S.apply));
+  override def >>(that: Int): SInt = newBinaryOperator("s>>i", IntLiteral(that), WidthInfer.shiftRightWidth,InputNormalize.none,SymplifyNode.shiftRightImpl);
+  override def <<(that: Int): SInt = newBinaryOperator("s<<i", IntLiteral(that), WidthInfer.shiftLeftWidth,InputNormalize.none,SymplifyNode.shiftLeftImpl(S.apply));
+  def >>(that: UInt): SInt = newBinaryOperator("s>>u", that, WidthInfer.shiftRightWidth,InputNormalize.none,SymplifyNode.shiftRightImpl);
+  def <<(that: UInt): SInt = newBinaryOperator("s<<u", that, WidthInfer.shiftLeftWidth,InputNormalize.none,SymplifyNode.shiftLeftImpl(S.apply));
 
 
   private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,s,s)",sel,whenTrue,whenFalse)
   private[core] override def isEguals(that: Any): Bool = {
     that match {
-      case that: SInt => newLogicalOperator("s==s", that, InputNormalize.inputWidthMax,ZeroWidth.binaryThatIfBoth(True));
+      case that: SInt => newLogicalOperator("s==s", that, InputNormalize.inputWidthMax,SymplifyNode.binaryThatIfBoth(True));
       case that : MaskedLiteral => that === this
       case _ => SpinalError(s"Don't know how compare $this with $that"); null
     }
   }
   private[core] override def isNotEguals(that: Any): Bool = {
     that match {
-      case that: SInt => newLogicalOperator("s!=s", that, InputNormalize.inputWidthMax,ZeroWidth.binaryThatIfBoth(False));
+      case that: SInt => newLogicalOperator("s!=s", that, InputNormalize.inputWidthMax,SymplifyNode.binaryThatIfBoth(False));
       case that : MaskedLiteral => that =/= this
       case _ => SpinalError(s"Don't know how compare $this with $that"); null
     }
@@ -92,7 +92,7 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider {
   def asUInt: UInt = new UInt().castFrom("s->u", this)
 
 
-  override def resize(width: Int): this.type = newResize("resize(s,i)", this :: new IntLiteral(width) :: Nil, WidthInfer.intLit1Width,ZeroWidth.resizeImpl(S.apply))
+  override def resize(width: Int): this.type = newResize("resize(s,i)", this :: new IntLiteral(width) :: Nil, WidthInfer.intLit1Width,SymplifyNode.resizeImpl(S.apply))
 
 
   override def minValue: BigInt = -(BigInt(1) << (getWidth - 1))

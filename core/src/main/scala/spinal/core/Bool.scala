@@ -33,10 +33,10 @@ trait BoolFactory {
 class Bool extends BaseType {
   private[core] override def calcWidth: Int = 1
 
-  def ^(b: Bool): Bool = newLogicalOperator("B^B", b, InputNormalize.none, ZeroWidth.none)
-  def &&(b: Bool): Bool = newLogicalOperator("&&", b, InputNormalize.none, ZeroWidth.none)
-  def ||(b: Bool): Bool = newLogicalOperator("||", b, InputNormalize.none, ZeroWidth.none)
-  def unary_!(): Bool = newUnaryOperator("!", WidthInfer.inputMaxWidth, ZeroWidth.none)
+  def ^(b: Bool): Bool = newLogicalOperator("B^B", b, InputNormalize.none, SymplifyNode.none)
+  def &&(b: Bool): Bool = newLogicalOperator("&&", b, InputNormalize.none, SymplifyNode.none)
+  def ||(b: Bool): Bool = newLogicalOperator("||", b, InputNormalize.none, SymplifyNode.none)
+  def unary_!(): Bool = newUnaryOperator("!", WidthInfer.inputMaxWidth, SymplifyNode.none)
   def &(b: Bool): Bool = this && b
   def |(b: Bool): Bool = this || b
   def set() = this := True
@@ -66,14 +66,14 @@ class Bool extends BaseType {
 
   private[core] override def isEguals(that: Any): Bool = {
     that match {
-      case that: Bool => newLogicalOperator("B==B", that, InputNormalize.none, ZeroWidth.none);
+      case that: Bool => newLogicalOperator("B==B", that, InputNormalize.none, SymplifyNode.none);
       case _ => SpinalError(s"Don't know how compare $this with $that"); null
     }
   }
 
   private[core] override def isNotEguals(that: Any): Bool = {
     that match {
-      case that: Bool => newLogicalOperator("B!=B", that, InputNormalize.none, ZeroWidth.none);
+      case that: Bool => newLogicalOperator("B!=B", that, InputNormalize.none, SymplifyNode.none);
       case _ => SpinalError(s"Don't know how compare $this with $that"); null
     }
   }

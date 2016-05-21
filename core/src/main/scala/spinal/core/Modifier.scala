@@ -47,7 +47,6 @@ object Resize {
     op.inferredWidth = widthImpl(op)
     op
   }
-
 }
 
 object Function {
@@ -128,7 +127,7 @@ class Multiplexer(opName: String) extends Modifier(opName, WidthInfer.multiplexI
     Misc.normalizeResize(this, 2, this.getWidth)
   }
 
-  override def simplifyNode: Unit = ZeroWidth.multiplexerImpl(this)
+  override def simplifyNode: Unit = SymplifyNode.multiplexerImpl(this)
 }
 
 object Mux {

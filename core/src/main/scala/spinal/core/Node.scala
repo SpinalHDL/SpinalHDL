@@ -22,7 +22,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 
-object ZeroWidth {
+object SymplifyNode {
   def replaceNode(it: Node, by: Node): Unit = {
     for (consumer <- it.consumers) {
       for (i <- 0 until consumer.inputs.size) {

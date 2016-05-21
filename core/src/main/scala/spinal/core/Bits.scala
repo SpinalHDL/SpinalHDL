@@ -43,20 +43,20 @@ class Bits extends BitVector {
   def =/=(that: Bits): Bool = this.isNotEguals(that)
   def ===(that: MaskedLiteral): Bool = this.isEguals(that)
   def =/=(that: MaskedLiteral): Bool = this.isNotEguals(that)
-  def ##(right: Bits): Bits = newBinaryOperator("b##b", right, WidthInfer.cumulateInputWidth, InputNormalize.none, ZeroWidth.binaryTakeOther)
-  def |(that: Bits): Bits = newBinaryOperator("b|b", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth, ZeroWidth.binaryTakeOther)
-  def &(that: Bits): Bits = newBinaryOperator("b&b", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth, ZeroWidth.binaryInductZeroWithOtherWidth(B.apply))
-  def ^(that: Bits): Bits = newBinaryOperator("b^b", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth, ZeroWidth.binaryTakeOther)
-  def unary_~(): Bits = newUnaryOperator("~b", WidthInfer.inputMaxWidth, ZeroWidth.unaryZero)
-  def >>(that: Int): Bits = newBinaryOperator("b>>i", IntLiteral(that), WidthInfer.shiftRightWidth, InputNormalize.none, ZeroWidth.shiftRightImpl)
-  def <<(that: Int): Bits = newBinaryOperator("b<<i", IntLiteral(that), WidthInfer.shiftLeftWidth, InputNormalize.none, ZeroWidth.shiftLeftImpl(B.apply))
-  def >>(that: UInt): Bits = newBinaryOperator("b>>u", that, WidthInfer.shiftRightWidth, InputNormalize.none, ZeroWidth.shiftRightImpl)
-  def <<(that: UInt): Bits = newBinaryOperator("b<<u", that, WidthInfer.shiftLeftWidth, InputNormalize.none, ZeroWidth.shiftLeftImpl(B.apply))
-  def rotateLeft(that: UInt): Bits = newBinaryOperator("brotlu", that, WidthInfer.input0Width, InputNormalize.none, ZeroWidth.rotateImpl(B.apply))
+  def ##(right: Bits): Bits = newBinaryOperator("b##b", right, WidthInfer.cumulateInputWidth, InputNormalize.none, SymplifyNode.binaryTakeOther)
+  def |(that: Bits): Bits = newBinaryOperator("b|b", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth, SymplifyNode.binaryTakeOther)
+  def &(that: Bits): Bits = newBinaryOperator("b&b", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth, SymplifyNode.binaryInductZeroWithOtherWidth(B.apply))
+  def ^(that: Bits): Bits = newBinaryOperator("b^b", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth, SymplifyNode.binaryTakeOther)
+  def unary_~(): Bits = newUnaryOperator("~b", WidthInfer.inputMaxWidth, SymplifyNode.unaryZero)
+  def >>(that: Int): Bits = newBinaryOperator("b>>i", IntLiteral(that), WidthInfer.shiftRightWidth, InputNormalize.none, SymplifyNode.shiftRightImpl)
+  def <<(that: Int): Bits = newBinaryOperator("b<<i", IntLiteral(that), WidthInfer.shiftLeftWidth, InputNormalize.none, SymplifyNode.shiftLeftImpl(B.apply))
+  def >>(that: UInt): Bits = newBinaryOperator("b>>u", that, WidthInfer.shiftRightWidth, InputNormalize.none, SymplifyNode.shiftRightImpl)
+  def <<(that: UInt): Bits = newBinaryOperator("b<<u", that, WidthInfer.shiftLeftWidth, InputNormalize.none, SymplifyNode.shiftLeftImpl(B.apply))
+  def rotateLeft(that: UInt): Bits = newBinaryOperator("brotlu", that, WidthInfer.input0Width, InputNormalize.none, SymplifyNode.rotateImpl(B.apply))
 
   private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,b,b)", sel, whenTrue, whenFalse)
 
-  override def resize(width: Int): this.type = newResize("resize(b,i)", this :: new IntLiteral(width) :: Nil, WidthInfer.intLit1Width, ZeroWidth.resizeImpl(B.apply))
+  override def resize(width: Int): this.type = newResize("resize(b,i)", this :: new IntLiteral(width) :: Nil, WidthInfer.intLit1Width, SymplifyNode.resizeImpl(B.apply))
 
   def asSInt: SInt = new SInt().castFrom("b->s", this)
 
@@ -74,7 +74,7 @@ class Bits extends BitVector {
 
   private[core] override def isEguals(that: Any): Bool = {
     that match {
-      case that: Bits => newLogicalOperator("b==b", that, InputNormalize.inputWidthMax, ZeroWidth.binaryThatIfBoth(True));
+      case that: Bits => newLogicalOperator("b==b", that, InputNormalize.inputWidthMax, SymplifyNode.binaryThatIfBoth(True));
       case that: MaskedLiteral => that === this
       case _ => SpinalError(s"Don't know how to compare $this with $that"); null
     }
@@ -82,7 +82,7 @@ class Bits extends BitVector {
 
   private[core] override def isNotEguals(that: Any): Bool = {
     that match {
-      case that: Bits => newLogicalOperator("b!=b", that, InputNormalize.inputWidthMax, ZeroWidth.binaryThatIfBoth(False));
+      case that: Bits => newLogicalOperator("b!=b", that, InputNormalize.inputWidthMax, SymplifyNode.binaryThatIfBoth(False));
       case that: MaskedLiteral => that =/= this
       case _ => SpinalError(s"Don't know how to compare $this with $that"); null
     }

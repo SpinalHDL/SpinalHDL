@@ -1164,12 +1164,20 @@ object CombinatorialLogic {
       val withoutProcess = out UInt(4 bits)
       val withProcess = out UInt(4 bits)
     }
-
     io.withProcess := io.value
-
     io.withoutProcess := 0
     when(io.cond){
-      io.withoutProcess := io.value
+      switch(io.value){
+        is(U"0000"){
+          io.withoutProcess := 8
+        }
+        is(U"0001"){
+          io.withoutProcess := 9
+        }
+        default{
+          io.withoutProcess := io.value+1
+        }
+      }
     }
   }
 

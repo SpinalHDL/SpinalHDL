@@ -31,3 +31,34 @@ object PlayB1 {
   }
 }
 
+object PlayB2 {
+
+  class TopLevel extends Component {
+    val io = new Bundle() {
+      val input = in UInt (4 bit)
+      val output = out UInt(4 bits)
+    }
+
+    switch(io.input){
+      is(0){
+        io.output := 0
+      }
+      is(1){
+        io.output := 1
+      }
+      is(2){
+        io.output := 2
+      }
+      default{
+        io.output := 3
+      }
+    }
+  }
+
+  def main(args: Array[String]): Unit = {
+    //SpinalVhdl(new TopLevel)
+    SpinalVhdlBuilder(new TopLevel)
+      .elaborate()
+  }
+}
+
