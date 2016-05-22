@@ -100,6 +100,11 @@ class Bits extends BitVector {
   }
 
 
+  def apply(bitId: Int) : Bool = newExtract(bitId,new ExtractBoolFixedFromBits)
+  def apply(bitId: UInt): Bool = newExtract(bitId,new ExtractBoolFloatingFromBits)
+  def apply(offset: Int, bitCount: BitCount): this.type  = newExtract(offset+bitCount.value-1,offset,new ExtractBitsVectorFixedFromBits)
+  def apply(offset: UInt, bitCount: BitCount): this.type = newExtract(offset,bitCount.value,new ExtractBitsVectorFloatingFromBits)
+
 
   override def getZero: this.type = B(0).asInstanceOf[this.type]
 }

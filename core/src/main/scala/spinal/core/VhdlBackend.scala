@@ -1381,7 +1381,7 @@ class VhdlBackend extends Backend with VhdlBase {
 
   def extractBitVectorFloating(func: Modifier): String = {
     val that = func.asInstanceOf[ExtractBitsVectorFloating]
-    s"pkg_extract(${emitLogic(that.getBitVector)},${emitLogic(that.getOffset)},${that.getBitCount.value})"
+    s"pkg_extract(${emitLogic(that.getBitVector)},${emitLogic(that.getOffset)},${that.getBitCount})"
   }
 
 

@@ -362,16 +362,15 @@ private[spinal] object Multiplex {
     muxOut
   }
 }
-abstract class Extract(opName: String) extends Modifier(opName, null){
+abstract class Extract extends Modifier(null, null){
   def getBitVector: Node
   def getParameterNodes: List[Node]
   def getInputData: Node
-
-
 }
 
-class ExtractBoolFixed(opName: String, bitVector_ : BitVector, bitId: Int) extends Extract(opName) {
-  var input : Node = bitVector_
+abstract class ExtractBoolFixed extends Extract{
+  var input : Node = null
+  var bitId : Int = -1
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = doThat(input,0)
   override def onEachInput(doThat: (Node) => Unit): Unit = doThat(input)
   override def setInput(id: Int, node: Node): Unit = {assert(id == 0); this.input = node}
@@ -402,11 +401,19 @@ class ExtractBoolFixed(opName: String, bitVector_ : BitVector, bitId: Int) exten
   def getInputData: Node = getBitVector
 }
 
-class ExtractBoolFloating(opName: String, bitVector_ : BitVector, bitId_ : UInt) extends Extract(opName) {
-  override def calcWidth: Int = 1
+class ExtractBoolFixedFromBits extends ExtractBoolFixed{
+  override def opName: String = "extract(b,i)"
+}
+class ExtractBoolFixedFromUInt extends ExtractBoolFixed{
+  override def opName: String = "extract(u,i)"
+}
+class ExtractBoolFixedFromSInt extends ExtractBoolFixed{
+  override def opName: String = "extract(s,i)"
+}
 
-  var input  : Node = bitVector_
-  var bitId  : Node = bitId_
+class ExtractBoolFloating extends Extract {
+  var input  : Node = null
+  var bitId  : Node = null
 
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
     doThat(input,0)
@@ -429,14 +436,13 @@ class ExtractBoolFloating(opName: String, bitVector_ : BitVector, bitId_ : UInt)
     case 1 => bitId
   }
 
-
-
   def getBitVector = getInput(0)
   def getBitId = getInput(1)
 
+  override def calcWidth: Int = 1
+
   def getParameterNodes: List[Node] = getInput(1) :: Nil
   def getInputData: Node = getBitVector
-
   override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
     case 0 =>
       if(outHi >= 0 && outLo == 0)
@@ -451,10 +457,23 @@ class ExtractBoolFloating(opName: String, bitVector_ : BitVector, bitId_ : UInt)
   }
 }
 
-class ExtractBitsVectorFixed(opName: String, bitVector_ : BitVector, hi: Int, lo: Int) extends Extract(opName) {
-  if (hi - lo < -1) SpinalError(s"Static bits extraction with a negative size ($hi downto $lo)")
+class ExtractBoolFloatingFromBits extends ExtractBoolFloating{
+  override def opName: String = "extract(b,u)"
+}
+class ExtractBoolFloatingFromUInt extends ExtractBoolFloating{
+  override def opName: String = "extract(u,u)"
+}
+class ExtractBoolFloatingFromSInt extends ExtractBoolFloating{
+  override def opName: String = "extract(s,u)"
+}
 
-  var input : Node = bitVector_
+
+class ExtractBitsVectorFixed extends Extract {
+  def checkHiLo : Unit = if (hi - lo < -1)
+    SpinalError(s"Static bits extraction with a negative size ($hi downto $lo)")
+
+  var hi,lo : Int = -1
+  var input : Node = null
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = doThat(input,0)
   override def onEachInput(doThat: (Node) => Unit): Unit = doThat(input)
   override def setInput(id: Int, node: Node): Unit = {assert(id == 0); this.input = node}
@@ -485,10 +504,21 @@ class ExtractBitsVectorFixed(opName: String, bitVector_ : BitVector, hi: Int, lo
   def getInputData: Node = getBitVector
 }
 
+class ExtractBitsVectorFixedFromBits extends ExtractBitsVectorFixed{
+  override def opName: String = "extract(b,i,i)"
+}
+class ExtractBitsVectorFixedFromUInt extends ExtractBitsVectorFixed{
+  override def opName: String = "extract(u,i,i)"
+}
+class ExtractBitsVectorFixedFromSInt extends ExtractBitsVectorFixed{
+  override def opName: String = "extract(s,i,i)"
+}
 
-class ExtractBitsVectorFloating(opName: String, bitVector_ : BitVector, offset_ : UInt, bitCount: BitCount) extends Extract(opName) {
-  var input  : Node = bitVector_
-  var offset  : UInt = offset_
+//WHen used offset.dontSimplifyIt() Because it can appear at multipe location (o+bc-1 downto o)
+class ExtractBitsVectorFloating extends Extract {
+  var size    : Int = -1
+  var input   : Node = null
+  var offset  : UInt = null
 
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
     doThat(input,0)
@@ -511,22 +541,17 @@ class ExtractBitsVectorFloating(opName: String, bitVector_ : BitVector, offset_ 
     case 1 => offset
   }
 
-
-
-  override def calcWidth: Int = bitCount.value
-
-  offset.dontSimplifyIt() //Because it can appear at multipe location (o+bc-1 downto o)
-
+  override def calcWidth: Int = size
 
   def getBitVector = getInput(0)
   def getOffset = getInput(1)
-  def getBitCount = bitCount
+  def getBitCount = size
 
   def getParameterNodes: List[Node] = getInput(1) :: Nil
   override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
     case 0 =>
       if(outHi >= outLo) //Not exact
-        (Math.min(getBitVector.getWidth-1,(1 << Math.min(20,offset.getWidth))+ bitCount.value - 1), 0)
+        (Math.min(getBitVector.getWidth-1,(1 << Math.min(20,offset.getWidth))+ size - 1), 0)
       else
         (-1,0)
     case 1 =>
@@ -539,6 +564,15 @@ class ExtractBitsVectorFloating(opName: String, bitVector_ : BitVector, offset_ 
   def getInputData: Node = getBitVector
 }
 
+class ExtractBitsVectorFloatingFromBits extends ExtractBitsVectorFloating{
+  override def opName: String = "extract(b,u,w)"
+}
+class ExtractBitsVectorFloatingFromUInt extends ExtractBitsVectorFloating{
+  override def opName: String = "extract(u,u,w)"
+}
+class ExtractBitsVectorFloatingFromSInt extends ExtractBitsVectorFloating{
+  override def opName: String = "extract(s,u,w)"
+}
 
 //object AssignedBits {
 //  def apply() = new AssignedBits

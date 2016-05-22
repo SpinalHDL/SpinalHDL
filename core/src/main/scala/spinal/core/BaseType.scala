@@ -332,7 +332,7 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
 
   private[core] def addTypeNodeFrom(node: Node): this.type = {
     val typeNode = weakClone
-    typeNode.setInputWrap(0) = node
+    typeNode.input = node
     typeNode
   }
 

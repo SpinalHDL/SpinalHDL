@@ -122,6 +122,12 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider {
   override def assignFromBits(bits: Bits): Unit = this := bits.asUInt
   override def assignFromBits(bits: Bits,hi : Int,lo : Int): Unit = this(hi,lo).assignFromBits(bits)
 
+  def apply(bitId: Int) : Bool = newExtract(bitId,new ExtractBoolFixedFromUInt)
+  def apply(bitId: UInt): Bool = newExtract(bitId,new ExtractBoolFloatingFromUInt)
+  def apply(offset: Int, bitCount: BitCount): this.type  = newExtract(offset+bitCount.value-1,offset,new ExtractBitsVectorFixedFromUInt)
+  def apply(offset: UInt, bitCount: BitCount): this.type = newExtract(offset,bitCount.value,new ExtractBitsVectorFloatingFromUInt)
+
+
   override def getZero: this.type = U(0).asInstanceOf[this.type]
 }
 

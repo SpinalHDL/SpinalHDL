@@ -104,5 +104,11 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider {
   override def maxValue: BigInt = (BigInt(1) << (getWidth - 1)) - 1
 
 
+  def apply(bitId: Int) : Bool = newExtract(bitId,new ExtractBoolFixedFromSInt)
+  def apply(bitId: UInt): Bool = newExtract(bitId,new ExtractBoolFloatingFromSInt)
+  def apply(offset: Int, bitCount: BitCount): this.type  = newExtract(offset+bitCount.value-1,offset,new ExtractBitsVectorFixedFromSInt)
+  def apply(offset: UInt, bitCount: BitCount): this.type = newExtract(offset,bitCount.value,new ExtractBitsVectorFloatingFromSInt)
+
+
   override def getZero: this.type = S(0).asInstanceOf[this.type]
 }
