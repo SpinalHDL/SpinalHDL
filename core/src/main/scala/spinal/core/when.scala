@@ -131,19 +131,46 @@ object WhenNode {
 
   def apply(w: WhenContext, cond: Bool, whenTrue: Node, whenFalse: Node): WhenNode = {
     val ret = new WhenNode(w)
-    ret.inputs += cond
-    ret.inputs += whenTrue
-    ret.inputs += whenFalse
+    ret.cond = cond
+    ret.whenTrue = whenTrue
+    ret.whenFalse = whenFalse
     ret
   }
 }
 
-class WhenNode(val w: WhenContext) extends NodeWithInputsImpl with AssignementTreePart {
+class WhenNode(val w: WhenContext) extends Node with AssignementTreePart {
+  var cond      : Node = null
+  var whenTrue  : Node = null
+  var whenFalse : Node = null
+
+  override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
+    doThat(cond,0)
+    doThat(whenTrue,1)
+    doThat(whenFalse,2)
+  }
+  override def onEachInput(doThat: (Node) => Unit): Unit = {
+    doThat(cond)
+    doThat(whenTrue)
+    doThat(whenFalse)
+  }
+
+  override def setInput(id: Int, node: Node): Unit = id match{
+    case 0 => cond = node
+    case 1 => whenTrue = node
+    case 2 => whenFalse = node
+  }
+
+  override def getInputsCount: Int = 3
+  override def getInputs: Iterator[Node] = Iterator(cond,whenTrue,whenFalse)
+  override def getInput(id: Int): Node = id match{
+    case 0 => cond
+    case 1 => whenTrue
+    case 2 => whenFalse
+  }
+
   override def calcWidth: Int = Math.max(whenTrue.getWidth, whenFalse.getWidth)
 
-  def cond = getInput(0)
-  def whenTrue = getInput(1)
-  def whenFalse = getInput(2)
+
 
   var whenTrueThrowable : Throwable = null
   var whenFalseThrowable : Throwable = null
