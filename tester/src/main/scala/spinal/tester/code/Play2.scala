@@ -62,7 +62,29 @@ object PlayB2 {
       .elaborate()
   }
 }
+object PlayB3 {
 
+  class TopLevel extends Component {
+
+    val input = in UInt (4 bit)
+    val output = out UInt(4 bits)
+    switch(input){
+      is(0){
+        output := 0
+      }
+      is(1){
+        output := 1
+      }
+      is(2){
+        output := 2
+      }
+    }
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
 
 object PlayPerf {
 

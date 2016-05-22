@@ -184,7 +184,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends Node  with Attrib
   private[core] def getMemSymbolWidth() : Int = {
     var symbolWidth = getWidth
     var symbolWidthSet = false
-    for(port <- inputs) port match{
+    this.onEachInput(_ match{
       case port : MemWrite => {
         if(port.getMask != null){
           val portSymbolWidth = getWidth/port.getMask.getWidth
@@ -197,7 +197,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends Node  with Attrib
         }
       }
       case _ =>
-    }
+    })
     symbolWidth
   }
   private[core] def getMemSymbolCount() : Int = getWidth/getMemSymbolWidth

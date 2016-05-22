@@ -447,24 +447,24 @@ class Backend {
 
         val signalRange = new AssignedRange(signal.getWidth - 1, 0)
 
-        def walk(nodes: ArrayBuffer[Node]): AssignedBits = {
+        def walk(nodes: Iterator[Node]): AssignedBits = {
           val assignedBits = new AssignedBits(signal.getBitsWidth)
 
           for (node <- nodes) node match {
             case wn: WhenNode => {
-              assignedBits.add(AssignedBits.intersect(walk(ArrayBuffer(wn.whenTrue)), walk(ArrayBuffer(wn.whenFalse))))
+              assignedBits.add(AssignedBits.intersect(walk(Iterator(wn.whenTrue)), walk(Iterator(wn.whenFalse))))
             }
             case an: AssignementNode => {
               assignedBits.add(an.getAssignedBits)
             }
-            case man: MultipleAssignmentNode => return walk(man.inputs)
+            case man: MultipleAssignmentNode => return walk(man.getInputs)
             case nothing: NoneNode =>
             case _ => assignedBits.add(signalRange)
           }
           assignedBits
         }
 
-        val assignedBits = walk(signal.inputs)
+        val assignedBits = walk(signal.getInputs)
 
         val unassignedBits = new AssignedBits(signal.getBitsWidth)
         unassignedBits.add(signalRange)
@@ -701,7 +701,7 @@ class Backend {
                 //don't allow to jump from kind to kind
                 val isKindOutputBinding = node.component.kindsOutputsBindings.contains(node)
                 if (!(isKindOutputBinding && (!consumer.isInstanceOf[BaseType] || node.component == consumer.component.parent))) {
-                  val consumerInputs = consumer.inputs
+
                   val inputConsumer = input.consumers
 
                   if (isKindOutputBinding) {
@@ -709,10 +709,10 @@ class Backend {
                     node.component.kindsOutputsBindings += newBind
                     node.component.kindsOutputsToBindings += (input.asInstanceOf[BaseType] -> newBind)
                   }
-
-                  for (i <- 0 until consumerInputs.size)
-                    if (consumerInputs(i) == node)
-                      consumerInputs(i) = input
+                  consumer.onEachInput((consumerInput,idx) => {
+                    if (consumerInput == node)
+                      consumer.setInput(idx) = input
+                  })
                   inputConsumer -= node
                   inputConsumer += consumer
                 }

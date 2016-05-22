@@ -362,9 +362,9 @@ class SwitchNode(val context: SwitchContext) extends Node{
   def cases = inputs
 
   override def normalizeInputs: Unit = {
-    for((input,i)  <- inputs.zipWithIndex){
+    this.onEachInput((input,i) => {
       Misc.normalizeResize(this, i, this.getWidth)
-    }
+    })
   }
 
   override def calcWidth: Int = cases.foldLeft(-1)((a,b) => Math.max(a,b.getWidth))

@@ -987,14 +987,14 @@ class VhdlBackend extends Backend with VhdlBase {
         if (hasMultipleAssignment) {
           val ma: MultipleAssignmentNode = nodes(0).getInput(0).asInstanceOf[MultipleAssignmentNode]
           val assignedBits = new AssignedBits(nodes(0).getWidth)
-          for (input <- ma.inputs) input match {
+          ma.onEachInput(_ match {
             case assign: AssignementNode => {
               val scope = assign.getScopeBits
               if (!AssignedBits.intersect(scope, assignedBits).isEmpty) return true
               assignedBits.add(scope)
             }
             case _ => return true
-          }
+          })
         }
         return false
       }
@@ -1151,7 +1151,7 @@ class VhdlBackend extends Backend with VhdlBase {
   }
 
   def operatorImplAsFunction(vhd: String)(func: Modifier): String = {
-    s"$vhd(${func.inputs.map(emitLogic(_)).reduce(_ + "," + _)})"
+    s"$vhd(${func.getInputs.map(emitLogic(_)).reduce(_ + "," + _)})"
   }
 
   //TODO should be move to operatorImplAsFunction in long therm
@@ -1167,10 +1167,10 @@ class VhdlBackend extends Backend with VhdlBase {
               case _: SInt => s"pkg_signed($bitString)"
             }
           }
-          case _ => s"pkg_resize(${func.inputs.map(emitLogic(_)).reduce(_ + "," + _)})"
+          case _ => s"pkg_resize(${func.getInputs.map(emitLogic(_)).reduce(_ + "," + _)})"
         }
       }
-      case _ => s"pkg_resize(${func.inputs.map(emitLogic(_)).reduce(_ + "," + _)})"
+      case _ => s"pkg_resize(${func.getInputs.map(emitLogic(_)).reduce(_ + "," + _)})"
     }
   }
 
@@ -1226,7 +1226,7 @@ class VhdlBackend extends Backend with VhdlBase {
         case input: SpinalEnumCraft[_] => input.encoding
         case input: EnumLiteral[_] => input.encoding
       }
-      s"${getReEncodingFuntion(enumCast.enum.blueprint.asInstanceOf[SpinalEnum], encoding, enumCast.enum.encoding)}(${func.inputs.map(emitLogic(_)).reduce(_ + "," + _)})"
+      s"${getReEncodingFuntion(enumCast.enum.blueprint.asInstanceOf[SpinalEnum], encoding, enumCast.enum.encoding)}(${func.getInputs.map(emitLogic(_)).reduce(_ + "," + _)})"
     }
   }
 
@@ -1420,7 +1420,7 @@ class VhdlBackend extends Backend with VhdlBase {
       else
         (0 until symbolCount).reverse.map(i => (s"${emitReference(memRead.getMem)}_symbol$i(to_integer(${emitReference(memRead.getAddress)}))")).reduce(_ + " & " + _)
     }
-    case whenNode: WhenNode => s"pkg_mux(${whenNode.inputs.map(emitLogic(_)).reduce(_ + "," + _)})" //Exeptional case with asyncrouns of literal
+    case whenNode: WhenNode => s"pkg_mux(${whenNode.getInputs.map(emitLogic(_)).reduce(_ + "," + _)})" //Exeptional case with asyncrouns of literal
     case dc: DontCareNode => {
       dc.getBaseType match {
         case to: Bool => s"'-'"
@@ -1654,9 +1654,9 @@ class VhdlBackend extends Backend with VhdlBase {
       }
       case man: MultipleAssignmentNode => {
         //For some case with asyncronous partial assignement
-        for (assign <- man.inputs) {
+        man.onEachInput(assign => {
           emitAssignement(to, assign, ret, tab, assignementKind)
-        }
+        })
       }
       case _ => ret ++= s"$tab${emitReference(to)} ${assignementKind} ${emitLogic(from)};\n"
     }
@@ -1684,11 +1684,11 @@ class VhdlBackend extends Backend with VhdlBase {
 
 
     def walkWhenTree(root: Node, that: Node): Unit = {
-      def getElements: ArrayBuffer[Node] = {
+      def getElements: Iterator[Node] = {
         if (that.isInstanceOf[MultipleAssignmentNode]) {
-          return that.inputs
+          return that.getInputs
         } else {
-          return ArrayBuffer(that)
+          return Iterator(that)
         }
       }
 
@@ -1710,7 +1710,7 @@ class VhdlBackend extends Backend with VhdlBase {
           case switchNode: SwitchNode => {
             val switchTree = this.conditionalTrees.getOrElseUpdate(switchNode.context, new SwitchTree(node.instanceCounter, switchNode.context)).asInstanceOf[SwitchTree]
             lastConditionalTree = switchTree
-            for (input <- switchNode.inputs) {
+            switchNode.onEachInput(input => {
               val caseNode = input.asInstanceOf[CaseNode]
               val tmp = switchTree.cases(caseNode.context.id)
               var caseElement = if (tmp != null) tmp
@@ -1720,7 +1720,7 @@ class VhdlBackend extends Backend with VhdlBase {
                 tmp
               }
               caseElement._2.walkWhenTree(root, caseNode.assignement)
-            }
+            })
           }
           case reg: Reg =>
           case _ => this.logicChunk.getOrElseUpdate(lastConditionalTree, new ArrayBuffer[(Node, Node)]) += new Tuple2(root, node)

@@ -133,7 +133,7 @@ object BaseType {
           }
 
           case context: CaseContext => {
-            if (consumer.inputs.isEmpty) {
+            if (consumer.getInputsCount == 0) {
               val caseNode = new CaseNode(context)
               consumer.inputs += caseNode
               consumer = caseNode

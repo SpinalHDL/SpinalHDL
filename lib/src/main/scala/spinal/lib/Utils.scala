@@ -402,9 +402,9 @@ object LatencyAnalysis {
           pendingStack ++= delay.getSynchronousInputs
         }
         case _ => {
-          for (input <- that.inputs) {
+          that.onEachInput(input =>  {
             if (walk(input)) return true
-          }
+          })
         }
       }
       false

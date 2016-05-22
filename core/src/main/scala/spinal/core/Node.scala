@@ -322,11 +322,11 @@ object InputNormalize {
 
 object WidthInfer {
   def multipleAssignmentNodeWidth(node: Node): Int = {
-    node.inputs.foldLeft(-1)((best, n) => Math.max(best, if (n != null && !n.isInstanceOf[Reg]) n.getWidth else -1))
+    node.getInputs.foldLeft(-1)((best, n) => Math.max(best, if (n != null && !n.isInstanceOf[Reg]) n.getWidth else -1))
   }
 
   def inputMaxWidth(node: Node): Int = {
-    node.inputs.foldLeft(-1)((best, n) => Math.max(best, if (n != null) n.getWidth else -1))
+    node.getInputs.foldLeft(-1)((best, n) => Math.max(best, if (n != null) n.getWidth else -1))
   }
 
   def multiplexImpl(node: Node): Int = {
@@ -341,7 +341,7 @@ object WidthInfer {
   }
 
   def cumulateInputWidth(node: Node): Int = {
-    node.inputs.foldLeft(0)((old, n) => old + Math.max(0, n.getWidth))
+    node.getInputs.foldLeft(0)((old, n) => old + Math.max(0, n.getWidth))
   }
 
   def intLit1Width(node: Node): Int = {
@@ -402,6 +402,8 @@ abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady wi
   class Wrapper {
     def update(idx : Int,node : Node) : Unit = setInput(idx,node)
   }
+
+  def getInputs : Iterator[Node] = inputs.iterator
 
   def onEachInput(doThat : (Node,Int) => Unit) : Unit = {
     var idx = getInputsCount
