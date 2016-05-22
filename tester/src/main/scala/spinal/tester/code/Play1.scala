@@ -1723,7 +1723,7 @@ object OverloadPlay {
       f.setAccessible(true)
       Node.walk(report.toplevel.getAllIo.toSeq, node => {
         entries += node.getInputsCount
-        allocatedEntries += f.get(node.inputs).asInstanceOf[Array[AnyRef]].length
+        allocatedEntries += f.get(node.getInputs).asInstanceOf[Array[AnyRef]].length
 
         entries += node.consumers.length
         allocatedEntries += f.get(node.consumers).asInstanceOf[Array[AnyRef]].length

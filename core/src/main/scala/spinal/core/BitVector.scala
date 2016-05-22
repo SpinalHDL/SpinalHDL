@@ -67,7 +67,7 @@ abstract class BitVector extends BaseType {
   def apply(bitId: Int): Bool = {
     val extract = new ExtractBoolFixed(s"extract($prefix,i)", this, bitId)
     val bool = new Bool
-    bool.setInput(extract)
+    bool.setInputWrap(0) = extract
 
     bool.compositeAssign = new Assignable {
       override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = that match {
@@ -84,7 +84,7 @@ abstract class BitVector extends BaseType {
   def apply(bitId: UInt): Bool = {
     val extract = new ExtractBoolFloating(s"extract($prefix,u)", this, bitId)
     val bool = new Bool
-    bool.setInput(extract)
+    bool.setInputWrap(0) = extract
 
     bool.compositeAssign = new Assignable {
       override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = that match {
@@ -148,7 +148,7 @@ abstract class BitVector extends BaseType {
 
   def setAllTo(value: Boolean) = {
     val litBt = weakClone
-    litBt.setInput(0) = new BitsAllToLiteral(this, value)
+    litBt.setInputWrap(0) = new BitsAllToLiteral(this, value)
     this := litBt
   }
 

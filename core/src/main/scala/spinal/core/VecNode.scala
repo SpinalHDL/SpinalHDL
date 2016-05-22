@@ -42,15 +42,15 @@ class VecBaseType[T <: BaseType](val baseType : T,val dims : IndexedSeq[Int]) ex
 
   def write(data : T,sels : Seq[Int]) : Unit = {
     val assign = new VecBaseTypeAssignFixed(this,sels)
-    assign.setInput(0) = data
+    assign.setInputWrap(0) = data
     this.assignFrom(assign,true)
   }
 
   def read(sels : Seq[Int]) : T = {
     val ret = baseType.clone
     val extract = new VecBaseTypeExtractFixed(sels)
-    extract.setInput(0) = this
-    ret.setInput(0) = extract
+    extract.setInputWrap(0) = this
+    ret.setInputWrap(0) = extract
     ret
   }
 
@@ -62,7 +62,7 @@ class VecBaseType[T <: BaseType](val baseType : T,val dims : IndexedSeq[Int]) ex
 
 
 //TODO outToIn for all
-class VecBaseTypeExtractFixed(val sels : Seq[Int]) extends Node{
+class VecBaseTypeExtractFixed(val sels : Seq[Int]) extends NodeWithInputsImpl{
   inputs += null
   def getVec = getInput(0).asInstanceOf[VecBaseType[_]]
 

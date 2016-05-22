@@ -113,7 +113,7 @@ object SyncNode {
   val getClockResetId: Int = 2
 }
 
-abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends Node {
+abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends NodeWithInputsImpl {
   inputs += clockDomain.clock
   inputs += clockDomain.clockEnable
   inputs += Bool(clockDomain.config.resetActiveLevel == LOW)
@@ -133,7 +133,7 @@ abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends 
 
   def isUsingReset: Boolean
   def setUseReset = {
-    setInput(SyncNode.getClockResetId) = clockDomain.reset
+    setInputWrap(SyncNode.getClockResetId) = clockDomain.reset
   }
   def getClockDomain: ClockDomain = clockDomain
 

@@ -51,7 +51,7 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T,val encoding: SpinalEnum
   WidthInfer.inputMaxWidth): this.type = {
     val ret = clone
     val op = EnumCast(this.asInstanceOf[SpinalEnumCraft[_]], opName, that, getWidthImpl)
-    ret.setInput(op)
+    ret.setInputWrap(0) = op
     ret
   }
 
@@ -129,7 +129,7 @@ class SpinalEnumElement[T <: SpinalEnum](val parent: T, val position: Int) exten
   def apply() : SpinalEnumCraft[T] = craft()
   def craft(): SpinalEnumCraft[T] = {
     val ret = parent.craft().asInstanceOf[SpinalEnumCraft[T]]
-    ret.setInput(0) = new EnumLiteral(this,this.parent.defaultEncoding)
+    ret.setInputWrap(0) = new EnumLiteral(this,this.parent.defaultEncoding)
     ret
   }
 

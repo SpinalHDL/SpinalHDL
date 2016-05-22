@@ -197,7 +197,7 @@ object Misc {
     Component.push(that.component)
     val resize = that.resize(width)
     resize.inferredWidth = width
-    to.setInput(inputId) = resize
+    to.setInputWrap(inputId) = resize
     Component.pop(that.component)
 //    if (input.isInstanceOf[BaseType] && input.asInstanceOf[BaseType].getLiteral[Literal] == null)
 //      println("asd")

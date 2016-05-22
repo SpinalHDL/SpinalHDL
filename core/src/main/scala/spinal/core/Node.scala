@@ -27,7 +27,7 @@ object SymplifyNode {
     for (consumer <- it.consumers) {
       for (i <- 0 until consumer.getInputsCount) {
         if (consumer.getInput(i) == it) {
-          consumer.setInput(i) = by
+          consumer.setInputWrap(i) = by
           by.consumers += consumer
         }
       }
@@ -36,7 +36,7 @@ object SymplifyNode {
 
   def replaceNodeInput(it: Node,inId : Int,by : Node): Unit ={
     it.getInput(inId).consumers -= it
-    it.setInput(inId) = by
+    it.setInputWrap(inId) = by
     by.consumers += it
   }
 
@@ -302,7 +302,7 @@ object InputNormalize {
       Component.push(that.component)
       val newOne = ref.clone.asInstanceOf[SpinalEnumCraft[T]]
       newOne.assignFromAnotherEncoding(that)
-      node.setInput(thatId) = newOne
+      node.setInputWrap(thatId) = newOne
       Component.pop(that.component)
     }
   }
@@ -388,24 +388,18 @@ object Node{
       node.onEachInput(push(_))
     })
   }
-
 }
-abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady with GlobalDataUser {
-  val consumers = new ArrayBuffer[Node](4)
+
+abstract class NodeWithInputsImpl extends Node {
   val inputs = new ArrayBuffer[Node](3)
 
-  def getInputsCount = inputs.length
-  def getInput(id : Int) : Node = inputs(id)
-  def setInput(id : Int,node : Node) : Unit = inputs(id) = node
-  //TODO remove me
-  def setInput : Wrapper = new Wrapper
-  class Wrapper {
-    def update(idx : Int,node : Node) : Unit = setInput(idx,node)
-  }
+  override def getInputsCount = inputs.length
+  override def getInput(id : Int) : Node = inputs(id)
+  override def setInput(id : Int,node : Node) : Unit = inputs(id) = node
 
-  def getInputs : Iterator[Node] = inputs.iterator
+  override def getInputs : Iterator[Node] = inputs.iterator
 
-  def onEachInput(doThat : (Node,Int) => Unit) : Unit = {
+  override def onEachInput(doThat : (Node,Int) => Unit) : Unit = {
     var idx = getInputsCount
     while(idx != 0){
       idx -= 1
@@ -413,13 +407,30 @@ abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady wi
     }
   }
 
-  def onEachInput(doThat : (Node) => Unit) : Unit = {
+  override def onEachInput(doThat : (Node) => Unit) : Unit = {
     var idx = getInputsCount
     while(idx != 0){
       idx -= 1
       doThat(getInput(idx))
     }
   }
+}
+
+abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady with GlobalDataUser {
+  val consumers = new ArrayBuffer[Node](4)
+
+  def getInputsCount : Int
+  def getInput(id : Int) : Node
+  def setInput(id : Int,node : Node) : Unit
+  //TODO remove me
+  def setInputWrap : Wrapper = new Wrapper
+  class Wrapper {
+    def update(idx : Int,node : Node) : Unit = setInput(idx,node)
+  }
+
+  def getInputs : Iterator[Node]
+  def onEachInput(doThat : (Node,Int) => Unit) : Unit
+  def onEachInput(doThat : (Node) => Unit) : Unit
 
   private[core] var algoId = 0
   private[core] var widthWhenNotInferred = -1
@@ -485,9 +496,7 @@ abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady wi
 
   def simplifyNode: Unit = {}
 
-  private[core] def setInput(node: Node): Unit = {
-    setInput(0) = node
-  }
+
 
   private[core] def getOutToInUsage(inputId : Int,outHi : Int, outLo : Int) : (Int,Int)= (getInput(inputId).getWidth-1,0)
   private[core] def getClassIdentifier: String = this.getClass.getSimpleName
@@ -505,7 +514,7 @@ object NoneNode {
   def apply() = new NoneNode
 }
 
-class NoneNode extends Node {
+class NoneNode extends NodeWithInputsImpl {
   override def calcWidth: Int = 0
 
   override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = (-1,0)
@@ -513,7 +522,7 @@ class NoneNode extends Node {
 
 
 
-abstract class DontCareNode extends Node{
+abstract class DontCareNode extends NodeWithInputsImpl{
   def getBaseType : BaseType
 }
 class DontCareNodeInfered(target : BaseType) extends DontCareNode {
@@ -526,7 +535,7 @@ class DontCareNodeFixed(target : BaseType,fixedWidth : Int) extends DontCareNode
 }
 
 
-//abstract class WidthAssemptionNode(provider : Node) extends Node{
+//abstract class WidthAssemptionNode(provider : Node) extends NodeWithInputsImpl{
 //  inputs += provider
 //  override def calcWidth: Int = getInput(0).getWidth
 //  def check(consumer : Node) : Boolean

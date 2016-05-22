@@ -29,7 +29,7 @@ object Reg {
     for ( e <- regOut.flatten) {
       val reg = new Reg(e)
       reg.compositeTagReady = e
-      e.setInput(0) = reg;
+      e.setInputWrap(0) = reg;
       e.compositeAssign = reg
     }
 
@@ -107,9 +107,9 @@ class Reg(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) ext
   def getDataInput: Node = getInput(RegS.getDataInputId)
   def getInitialValue: Node = getInput(RegS.getInitialValueId)
 
-  def setDataInput(that: Node): Unit = setInput(RegS.getDataInputId) = that
+  def setDataInput(that: Node): Unit = setInputWrap(RegS.getDataInputId) = that
   def setInitialValue(that: Node): Unit = {
-    setInput(RegS.getInitialValueId) = that
+    setInputWrap(RegS.getInitialValueId) = that
     setUseReset
   }
 
@@ -149,12 +149,12 @@ class Reg(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) ext
       case that: BaseType => {
         BaseType.checkAssignability(outType,that.asInstanceOf[Node])
         val (consumer,inputId) = BaseType.walkWhenNodes(outType, this, RegS.getDataInputId,conservative)
-        consumer.setInput(inputId) = that
+        consumer.setInputWrap(inputId) = that
       }
       case that : AssignementNode => {
         BaseType.checkAssignability(outType,that.asInstanceOf[Node])
         val (consumer,inputId) = BaseType.walkWhenNodes(outType, this, RegS.getDataInputId,conservative)
-        consumer.setInput(inputId) = that
+        consumer.setInputWrap(inputId) = that
       }
       case _ => throw new Exception("Undefined assignement")
     }

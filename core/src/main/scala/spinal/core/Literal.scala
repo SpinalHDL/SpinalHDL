@@ -103,7 +103,7 @@ object S extends BitVectorLiteralFactory[SInt] {
 }
 
 
-trait Literal extends Node {
+trait Literal extends NodeWithInputsImpl {
   override def clone: this.type = ???
   private[core] def getBitsStringOn(bitCount : Int) : String
 
@@ -121,7 +121,7 @@ object BitsLiteral {
     } else {
       bitCount = valueBitCount
     }
-    on.setInput(0) = new BitsLiteral(value, bitCount,specifiedBitCount != -1, on)
+    on.setInputWrap(0) = new BitsLiteral(value, bitCount,specifiedBitCount != -1, on)
     on
   }
 }
@@ -160,7 +160,7 @@ class BitsAllToLiteral(val theConsumer : Node,val value: Boolean) extends Litera
 
 object BoolLiteral {
   def apply(value: Boolean, on: Bool): Bool = {
-    on.setInput(0) = new BoolLiteral(value)
+    on.setInputWrap(0) = new BoolLiteral(value)
     on
   }
 }

@@ -78,7 +78,7 @@ object when {
   }
 }
 
-class WhenContext(val cond: Bool) extends Node with ConditionalContext {
+class WhenContext(val cond: Bool) extends NodeWithInputsImpl with ConditionalContext {
   var isTrue: Boolean = true;
   var parentElseWhen: WhenContext = null
   var childElseWhen: WhenContext = null
@@ -138,7 +138,7 @@ object WhenNode {
   }
 }
 
-class WhenNode(val w: WhenContext) extends Node with AssignementTreePart {
+class WhenNode(val w: WhenContext) extends NodeWithInputsImpl with AssignementTreePart {
   override def calcWidth: Int = Math.max(whenTrue.getWidth, whenFalse.getWidth)
 
   def cond = getInput(0)
@@ -349,7 +349,7 @@ object default2 {
   }
 }
 
-class CaseNode(val context: CaseContext) extends Node{
+class CaseNode(val context: CaseContext) extends NodeWithInputsImpl{
   inputs += context.cond
   inputs += null
   def cond = getInput(0)
@@ -358,7 +358,7 @@ class CaseNode(val context: CaseContext) extends Node{
   override private[core] def calcWidth: Int = assignement.getWidth
 }
 
-class SwitchNode(val context: SwitchContext) extends Node{
+class SwitchNode(val context: SwitchContext) extends NodeWithInputsImpl{
   def cases = inputs
 
   override def normalizeInputs: Unit = {

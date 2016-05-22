@@ -84,7 +84,7 @@ class Operator(opName: String, widthImpl: (Node) => Int, val normalizeInputsImpl
   }
 }
 
-class Modifier(val opName: String, widthImpl: (Node) => Int) extends Node {
+class Modifier(val opName: String, widthImpl: (Node) => Int) extends NodeWithInputsImpl {
   override def calcWidth(): Int = {
     widthImpl(this)
   }
@@ -236,7 +236,7 @@ private[spinal] object Multiplex {
       if (t == null) SpinalError("Create a mux with incompatible true input type")
       if (f == null) SpinalError("Create a mux with incompatible false input type")
 
-      out.setInput(Multiplex.baseType(sel, t, f))
+      out.setInputWrap(0) = Multiplex.baseType(sel, t, f)
     }
     muxOut
   }
@@ -583,7 +583,7 @@ class AssignedBits(val width : Int) {
   }
   def isEmpty = value.foldLeft(true)((c,e) => c && (e == 0))
 }
-trait AssignementNode extends Node {
+trait AssignementNode extends NodeWithInputsImpl {
   def getAssignedBits: AssignedRange //Bit that are allwas assigned
   def getScopeBits: AssignedRange //Bit tht could be assigned
   def getOutBaseType: BaseType
@@ -730,7 +730,7 @@ class RangedAssignmentFloating(out: BitVector, in: Node, offset: UInt, bitCount:
 }
 
 
-class MultipleAssignmentNode extends Node with AssignementTreePart{
+class MultipleAssignmentNode extends NodeWithInputsImpl with AssignementTreePart{
   override def calcWidth: Int = WidthInfer.multipleAssignmentNodeWidth(this)
   override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = (outHi,outLo)
 

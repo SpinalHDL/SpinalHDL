@@ -50,7 +50,7 @@ class MemWritePayload[T <: Data](dataType: T, addressWidth: Int) extends Bundle 
   val address = UInt(addressWidth bit)
 }
 
-class Mem[T <: Data](_wordType: T, val wordCount: Int) extends Node  with AttributeReady with Nameable {
+class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithInputsImpl  with AttributeReady with Nameable {
   var forceMemToBlackboxTranslation = false
   val _widths = wordType.flatten.map(t => t.getWidth).toVector //Force to fix width of each wire
 
@@ -97,7 +97,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends Node  with Attrib
     val readPort = new MemReadAsync(this, addressBuffer, readBits, writeToReadKind)
     readPort.compositeTagReady = readWord
 
-    readBits.setInput(0) = readPort
+    readBits.setInputWrap(0) = readPort
     readWord.assignFromBits(readBits)
 
     readWord
@@ -114,7 +114,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends Node  with Attrib
     if (crossClock)
       readPort.addTag(crossClockDomain)
 
-    readBits.setInput(0) = readPort
+    readBits.setInputWrap(0) = readPort
     readWord.assignFromBits(readBits)
 
     readWord
@@ -163,7 +163,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends Node  with Attrib
     val readWord = wordType.clone()
     val readPort = new MemWriteOrRead_readPart(this, addressBuffer, readBits, chipSelect, writeEnable, writeToReadKind, ClockDomain.current)
     readPort.compositeTagReady = readWord
-    readBits.setInput(0) = readPort
+    readBits.setInputWrap(0) = readPort
     readWord.assignFromBits(readBits)
     if (crossClock)
       readPort.addTag(crossClockDomain)
@@ -203,7 +203,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends Node  with Attrib
   private[core] def getMemSymbolCount() : Int = getWidth/getMemSymbolWidth
 }
 
-class MemReadAsync(mem: Mem[_], address: UInt, data: Bits, val writeToReadKind: MemWriteToReadKind) extends Node {
+class MemReadAsync(mem: Mem[_], address: UInt, data: Bits, val writeToReadKind: MemWriteToReadKind) extends NodeWithInputsImpl {
   if (writeToReadKind == readFirst) SpinalError("readFirst mode for asynchronous read is not allowed")
 
   inputs += address
@@ -247,7 +247,7 @@ class MemReadSync(mem: Mem[_], val originalAddress: UInt, address: UInt, data: B
 
   def sameAddressThan(write: MemWrite): Unit = {
     //Used by backed to symplify
-    setInput(MemReadSync.getAddressId) = write.getAddress
+    setInputWrap(MemReadSync.getAddressId) = write.getAddress
   }
 
   //  override def normalizeInputs: Unit = {
