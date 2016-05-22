@@ -203,11 +203,33 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
   private[core] def getMemSymbolCount() : Int = getWidth/getMemSymbolWidth
 }
 
-class MemReadAsync(mem: Mem[_], address: UInt, data: Bits, val writeToReadKind: MemWriteToReadKind) extends NodeWithInputsImpl {
+class MemReadAsync(mem_ : Mem[_], address_ : UInt, data: Bits, val writeToReadKind: MemWriteToReadKind) extends Node {
   if (writeToReadKind == readFirst) SpinalError("readFirst mode for asynchronous read is not allowed")
 
-  inputs += address
-  inputs += mem
+  var address : Node = address_
+  var mem     : Mem[_] = mem_
+
+  override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
+    doThat(address,0)
+    doThat(mem,1)
+  }
+  override def onEachInput(doThat: (Node) => Unit): Unit = {
+    doThat(address)
+    doThat(mem)
+  }
+
+  override def setInput(id: Int, node: Node): Unit = id match{
+    case 0 => address = node
+    case 1 => mem = node.asInstanceOf[Mem[_]]
+  }
+
+  override def getInputsCount: Int = 2
+  override def getInputs: Iterator[Node] = Iterator(address,mem)
+  override def getInput(id: Int): Node = id match{
+    case 0 => address
+    case 1 => mem
+  }
+
 
   def getData = data
   def getAddress = getInput(0).asInstanceOf[UInt]

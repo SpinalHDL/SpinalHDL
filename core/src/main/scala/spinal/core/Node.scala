@@ -443,6 +443,15 @@ abstract class NodeWithInputsImpl extends Node {
   }
 }
 
+abstract class NodeWithoutInputs extends Node{
+  override def getInput(id: Int): Node = ???
+  override def getInputs: Iterator[Node] = Iterator()
+  override def getInputsCount: Int = 0
+  override def onEachInput(doThat: (Node) => Unit): Unit = {}
+  override def onEachInput(doThat: (Node, Int) => Unit): Unit = {}
+  override def setInput(id: Int, node: Node): Unit = ???
+}
+
 abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady with GlobalDataUser {
   val consumers = new ArrayBuffer[Node](4)
 
@@ -541,7 +550,7 @@ object NoneNode {
   def apply() = new NoneNode
 }
 
-class NoneNode extends NodeWithInputsImpl {
+class NoneNode extends NodeWithoutInputs {
   override def calcWidth: Int = 0
 
   override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = (-1,0)
@@ -549,9 +558,10 @@ class NoneNode extends NodeWithInputsImpl {
 
 
 
-abstract class DontCareNode extends NodeWithInputsImpl{
+abstract class DontCareNode extends NodeWithoutInputs{
   def getBaseType : BaseType
 }
+
 class DontCareNodeInfered(target : BaseType) extends DontCareNode {
   override def calcWidth: Int = target.getWidth
   override def getBaseType: BaseType = target
@@ -562,16 +572,6 @@ class DontCareNodeFixed(target : BaseType,fixedWidth : Int) extends DontCareNode
 }
 
 
-//abstract class WidthAssemptionNode(provider : Node) extends NodeWithInputsImpl{
-//  inputs += provider
-//  override def calcWidth: Int = getInput(0).getWidth
-//  def check(consumer : Node) : Boolean
-//
-//}
-//
-//class WidthAssemptionReduce(provider : Node) extends WidthAssemptionNode(provider){
-//  override def check(consumer: Node): Boolean = consumer.getWidth < getInput(0).getWidth
-//}
 
 trait AssignementTreePart{
   def setAssignementContext(id : Int,that : Throwable) : Unit
