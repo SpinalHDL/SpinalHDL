@@ -21,31 +21,9 @@ package spinal.core
 import scala.collection.mutable.ArrayBuffer
 
 
-object EnumCast {
-  def apply(enum: SpinalEnumCraft[_], opName: String, that: Node, widthImpl: (Node) => Int = WidthInfer.inputMaxWidth): Modifier = {
-    val op = new EnumCast(enum, opName, widthImpl)
-    op.input = that
-    op
-  }
-}
 
 
-object Cast {
-  def apply(opName: String, that: Node, widthImpl: (Node) => Int = WidthInfer.inputMaxWidth): Modifier = {
-    val op = new Cast(opName, widthImpl)
-    op.input = that
-    op
-  }
-}
 
-object Resize {
-  def apply(opName: String, args: List[Node], widthImpl: (Node) => Int = WidthInfer.inputMaxWidth,simplifyNodeImpl: (Node) => Unit): Modifier = {
-    val op = new FunctionImpl(opName, widthImpl,simplifyNodeImpl)
-    op.inputs ++= args
-    op.inferredWidth = widthImpl(op)
-    op
-  }
-}
 
 
 abstract class Resize extends Modifier(null,null){
@@ -185,18 +163,7 @@ abstract class Function(opName: String, widthImpl: (Node) => Int,simplifyNodeImp
   }
 }
 
-class Cast(opName: String, widthImpl: (Node) => Int = WidthInfer.inputMaxWidth) extends Modifier(opName, widthImpl) {
-  var input : Node = null
-  override def onEachInput(doThat: (Node, Int) => Unit): Unit = doThat(input,0)
-  override def onEachInput(doThat: (Node) => Unit): Unit = doThat(input)
-  override def setInput(id: Int, node: Node): Unit = {assert(id == 0); this.input = node}
-  override def getInputsCount: Int = 1
-  override def getInputs: Iterator[Node] = Iterator(input)
-  override def getInput(id: Int): Node = {assert(id == 0); input}
-}
-
-
-class EnumCast(val enum: SpinalEnumCraft[_], opName: String, widthImpl: (Node) => Int = WidthInfer.inputMaxWidth) extends Modifier(opName, widthImpl) {
+abstract class Cast extends Modifier(null, null) {
   var input : Node = null
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = doThat(input,0)
   override def onEachInput(doThat: (Node) => Unit): Unit = doThat(input)
@@ -205,10 +172,40 @@ class EnumCast(val enum: SpinalEnumCraft[_], opName: String, widthImpl: (Node) =
   override def getInputs: Iterator[Node] = Iterator(input)
   override def getInput(id: Int): Node = {assert(id == 0); input}
 
-  override def normalizeInputs: Unit = {
-    //    Misc.normalizeResize(this, 0, this.getWidth)
-  }
+  override def calcWidth(): Int = input.getWidth
 }
+
+class CastSIntToBits extends Cast{
+  override def opName: String = "s->b"
+}
+class CastUIntToBits extends Cast{
+  override def opName: String = "u->b"
+}
+class CastBitsToUInt extends Cast{
+  override def opName: String = "b->u"
+}
+class CastSIntToUInt extends Cast{
+  override def opName: String = "s->u"
+}
+class CastBitsToSInt extends Cast{
+  override def opName: String = "b->s"
+}
+class CastUIntToSInt extends Cast{
+  override def opName: String = "u->s"
+}
+class CastBoolToBits extends Cast{
+  override def opName: String = "B->b"
+}
+class CastEnumToBits extends Cast{
+  override def opName: String = "e->b"
+}
+class CastBitsToEnum(val enum: SpinalEnumCraft[_]) extends Cast {
+  override def opName: String = "b->e"
+}
+class CastEnumToEnum(val enum: SpinalEnumCraft[_]) extends Cast {
+  override def opName: String = "e->e"
+}
+
 
 
 class Multiplexer(opName: String) extends Modifier(opName, WidthInfer.multiplexImpl) {

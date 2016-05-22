@@ -1189,7 +1189,7 @@ class VhdlBackend extends Backend with VhdlBase {
 
 
   def operatorImplAsBitsToEnum(func: Modifier): String = {
-    val (enumDef: SpinalEnum, encoding) = func.asInstanceOf[EnumCast].enum match {
+    val (enumDef: SpinalEnum, encoding) = func.asInstanceOf[CastBitsToEnum].enum match {
       case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.encoding)
     }
     if (!encoding.isNative) {
@@ -1216,7 +1216,7 @@ class VhdlBackend extends Backend with VhdlBase {
       case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.encoding)
       case literal: EnumLiteral[_] => (literal.enum.parent, literal.encoding)
     }
-    val enumCast = func.asInstanceOf[EnumCast]
+    val enumCast = func.asInstanceOf[CastBitsToEnum]
     val (enumDefDst, encodingDst) = enumCast.enum match {
       case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.encoding)
     }

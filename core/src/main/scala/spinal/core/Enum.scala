@@ -44,16 +44,13 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T,val encoding: SpinalEnum
   def !==(that: SpinalEnumElement[T]): Bool = this =/= that
 
   def assignFromAnotherEncoding(spinalEnumCraft: SpinalEnumCraft[T]) = {
-    this := enumCastFrom("e->e", spinalEnumCraft, (node) => this.getWidth)
+    val c = this.clone
+    val cast = new CastEnumToEnum(c)
+    cast.input = spinalEnumCraft
+    c.input = cast
+    this := c
   }
 
-  private[core] def enumCastFrom(opName: String, that: Node, getWidthImpl: (Node) => Int =
-  WidthInfer.inputMaxWidth): this.type = {
-    val ret = clone
-    val op = EnumCast(this.asInstanceOf[SpinalEnumCraft[_]], opName, that, getWidthImpl)
-    ret.setInputWrap(0) = op
-    ret
-  }
 
   override private[core] def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = that match{
     case that : SpinalEnumCraft[T] => {
@@ -84,10 +81,14 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T,val encoding: SpinalEnum
   }
 
   private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,e,e)", sel, whenTrue, whenFalse)
-  override def asBits: Bits = new Bits().castFrom("e->b", this)
+  override def asBits: Bits = newCast(Bits(),new CastEnumToBits)
 
   override def assignFromBits(bits: Bits): Unit = {
-    this := enumCastFrom("b->e", bits, (node) => this.getWidth)
+    val c = this.clone
+    val cast = new CastBitsToEnum(c)
+    cast.input = bits
+    c.input = cast
+    this := c
   }
 
   override def assignFromBits(bits: Bits,hi : Int,lo : Int): Unit = {
@@ -133,7 +134,7 @@ class SpinalEnumElement[T <: SpinalEnum](val parent: T, val position: Int) exten
     ret
   }
 
-  def toBits: Bits = new Bits().castFrom("e->b", craft)
+  def toBits: Bits = craft().asBits
 }
 
 trait SpinalEnumEncoding extends Nameable{

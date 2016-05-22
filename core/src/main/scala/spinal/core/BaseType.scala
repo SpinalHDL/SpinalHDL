@@ -321,11 +321,6 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
     typeNode
   }
 
-  private[core] def castFrom(opName: String, that: Node, getWidthImpl: (Node) => Int = WidthInfer.inputMaxWidth): this.type = {
-    val op = Cast(opName, that, getWidthImpl)
-    this.setInputWrap(0) = op //TODO Should use assignement
-    this
-  }
 
   private[core] def newFunction(opName: String, args: List[Node], getWidthImpl: (Node) => Int = WidthInfer.inputMaxWidth, simplifyNodeImpl: (Node) => Unit): this.type = {
     val op = Function(opName, args, getWidthImpl, simplifyNodeImpl)
@@ -333,16 +328,18 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
     typeNode
   }
   //Remove all of them
-  private[core] def newResize(opName: String, args: List[Node], getWidthImpl: (Node) => Int = WidthInfer.inputMaxWidth, simplifyNodeImpl: (Node) => Unit): this.type = {
-    val op = Resize(opName, args, getWidthImpl, simplifyNodeImpl)
-    val typeNode = addTypeNodeFrom(op)
-    typeNode
-  }
+
 
   private[core] def addTypeNodeFrom(node: Node): this.type = {
     val typeNode = weakClone
     typeNode.setInputWrap(0) = node
     typeNode
+  }
+
+  def newCast[T <: BaseType](result : T,node : Cast) : T = {
+    node.input = this
+    result.input = node
+    result
   }
 
   override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = (outHi, outLo)

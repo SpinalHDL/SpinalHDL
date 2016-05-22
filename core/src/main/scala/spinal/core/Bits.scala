@@ -63,9 +63,9 @@ class Bits extends BitVector {
     node.size = width
     node
   })
-  def asSInt: SInt = new SInt().castFrom("b->s", this)
 
-  def asUInt: UInt = new UInt().castFrom("b->u", this)
+  def asSInt: SInt = newCast(SInt(),new CastBitsToSInt)
+  def asUInt: UInt = newCast(UInt(),new CastBitsToUInt)
 
   override def asBits: Bits = {
     val ret = new Bits()

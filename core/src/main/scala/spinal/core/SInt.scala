@@ -85,11 +85,11 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider {
     }
   }
 
-  override def asBits: Bits = new Bits().castFrom("s->b", this)
+  override def asBits: Bits = newCast(Bits(),new CastSIntToBits)
   override def assignFromBits(bits: Bits) : Unit = this := bits.asSInt
   override def assignFromBits(bits: Bits,hi : Int,lo : Int): Unit = this(hi,lo).assignFromBits(bits)
 
-  def asUInt: UInt = new UInt().castFrom("s->u", this)
+  def asUInt: UInt = newCast(UInt(),new CastSIntToUInt)
 
 
   //override def resize(width: Int): this.type = newResize("resize(s,i)", this :: new IntLiteral(width) :: Nil, WidthInfer.intLit1Width,SymplifyNode.resizeImpl(S.apply))
