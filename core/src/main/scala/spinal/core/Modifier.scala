@@ -24,25 +24,23 @@ import scala.collection.mutable.ArrayBuffer
 object EnumCast {
   def apply(enum: SpinalEnumCraft[_], opName: String, that: Node, widthImpl: (Node) => Int = WidthInfer.inputMaxWidth): Modifier = {
     val op = new EnumCast(enum, opName, widthImpl)
-    op.inputs += that
+    op.input = that
     op
   }
-
-
 }
 
 
 object Cast {
   def apply(opName: String, that: Node, widthImpl: (Node) => Int = WidthInfer.inputMaxWidth): Modifier = {
     val op = new Cast(opName, widthImpl)
-    op.inputs += that
+    op.input = that
     op
   }
 }
 
 object Resize {
   def apply(opName: String, args: List[Node], widthImpl: (Node) => Int = WidthInfer.inputMaxWidth,simplifyNodeImpl: (Node) => Unit): Modifier = {
-    val op = new Function(opName, widthImpl,simplifyNodeImpl)
+    val op = new FunctionImpl(opName, widthImpl,simplifyNodeImpl)
     op.inputs ++= args
     op.inferredWidth = widthImpl(op)
     op
@@ -51,7 +49,7 @@ object Resize {
 
 object Function {
   def apply(opName: String, args: List[Node], widthImpl: (Node) => Int = WidthInfer.inputMaxWidth,simplifyNodeImpl : (Node) => Unit): Modifier = {
-    val op = new Function(opName, widthImpl,simplifyNodeImpl)
+    val op = new FunctionImpl(opName, widthImpl,simplifyNodeImpl)
     op.inputs ++= args
     op
   }
@@ -74,7 +72,7 @@ object BinaryOperator {
   }
 }
 
-class Operator(opName: String, widthImpl: (Node) => Int, val normalizeInputsImpl: (Node) => Unit,simplifyNodeImpl : (Node) => Unit) extends Modifier(opName, widthImpl) {
+class Operator(opName: String, widthImpl: (Node) => Int, val normalizeInputsImpl: (Node) => Unit,simplifyNodeImpl : (Node) => Unit) extends ModifierImpl(opName, widthImpl) {
   override def normalizeInputs: Unit = {
     normalizeInputsImpl(this)
   }
@@ -84,7 +82,62 @@ class Operator(opName: String, widthImpl: (Node) => Int, val normalizeInputsImpl
   }
 }
 
-class Modifier(val opName: String, widthImpl: (Node) => Int) extends NodeWithInputsImpl {
+
+//TODO remove me
+abstract class ModifierImpl(opName: String, widthImpl: (Node) => Int) extends Modifier(opName,widthImpl) {
+  val inputs = new ArrayBuffer[Node](3)
+
+  override def getInputsCount = inputs.length
+  override def getInput(id : Int) : Node = inputs(id)
+  override def setInput(id : Int,node : Node) : Unit = inputs(id) = node
+
+  override def getInputs : Iterator[Node] = inputs.iterator
+
+  override def onEachInput(doThat : (Node,Int) => Unit) : Unit = {
+    var idx = getInputsCount
+    while(idx != 0){
+      idx -= 1
+      doThat(getInput(idx),idx)
+    }
+  }
+
+  override def onEachInput(doThat : (Node) => Unit) : Unit = {
+    var idx = getInputsCount
+    while(idx != 0){
+      idx -= 1
+      doThat(getInput(idx))
+    }
+  }
+}
+
+//TODO remove me
+class FunctionImpl(opName: String, widthImpl: (Node) => Int,simplifyNodeImpl : (Node) => Unit) extends Function(opName, widthImpl,simplifyNodeImpl) {
+  val inputs = new ArrayBuffer[Node](3)
+
+  override def getInputsCount = inputs.length
+  override def getInput(id : Int) : Node = inputs(id)
+  override def setInput(id : Int,node : Node) : Unit = inputs(id) = node
+
+  override def getInputs : Iterator[Node] = inputs.iterator
+
+  override def onEachInput(doThat : (Node,Int) => Unit) : Unit = {
+    var idx = getInputsCount
+    while(idx != 0){
+      idx -= 1
+      doThat(getInput(idx),idx)
+    }
+  }
+
+  override def onEachInput(doThat : (Node) => Unit) : Unit = {
+    var idx = getInputsCount
+    while(idx != 0){
+      idx -= 1
+      doThat(getInput(idx))
+    }
+  }
+}
+
+abstract class Modifier(val opName: String, widthImpl: (Node) => Int) extends Node {
   override def calcWidth(): Int = {
     widthImpl(this)
   }
@@ -97,18 +150,32 @@ class Modifier(val opName: String, widthImpl: (Node) => Int) extends NodeWithInp
   override def nonRecursiveToString(): String = opName
 }
 
-class Function(opName: String, widthImpl: (Node) => Int,simplifyNodeImpl : (Node) => Unit) extends Modifier(opName, widthImpl) {
+abstract class Function(opName: String, widthImpl: (Node) => Int,simplifyNodeImpl : (Node) => Unit) extends Modifier(opName, widthImpl) {
   override def simplifyNode: Unit = {
     simplifyNodeImpl(this)
   }
 }
 
 class Cast(opName: String, widthImpl: (Node) => Int = WidthInfer.inputMaxWidth) extends Modifier(opName, widthImpl) {
-
+  var input : Node = null
+  override def onEachInput(doThat: (Node, Int) => Unit): Unit = doThat(input,0)
+  override def onEachInput(doThat: (Node) => Unit): Unit = doThat(input)
+  override def setInput(id: Int, node: Node): Unit = {assert(id == 0); this.input = node}
+  override def getInputsCount: Int = 1
+  override def getInputs: Iterator[Node] = Iterator(input)
+  override def getInput(id: Int): Node = {assert(id == 0); input}
 }
 
 
 class EnumCast(val enum: SpinalEnumCraft[_], opName: String, widthImpl: (Node) => Int = WidthInfer.inputMaxWidth) extends Modifier(opName, widthImpl) {
+  var input : Node = null
+  override def onEachInput(doThat: (Node, Int) => Unit): Unit = doThat(input,0)
+  override def onEachInput(doThat: (Node) => Unit): Unit = doThat(input)
+  override def setInput(id: Int, node: Node): Unit = {assert(id == 0); this.input = node}
+  override def getInputsCount: Int = 1
+  override def getInputs: Iterator[Node] = Iterator(input)
+  override def getInput(id: Int): Node = {assert(id == 0); input}
+
   override def normalizeInputs: Unit = {
     //    Misc.normalizeResize(this, 0, this.getWidth)
   }
@@ -116,11 +183,39 @@ class EnumCast(val enum: SpinalEnumCraft[_], opName: String, widthImpl: (Node) =
 
 
 class Multiplexer(opName: String) extends Modifier(opName, WidthInfer.multiplexImpl) {
-  def cond = getInput(0)
+  var cond      : Node = null
+  var whenTrue  : Node = null
+  var whenFalse : Node = null
 
-  def whenTrue = getInput(1)
+  override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
+    doThat(cond,0)
+    doThat(whenTrue,1)
+    doThat(whenFalse,2)
+  }
+  override def onEachInput(doThat: (Node) => Unit): Unit = {
+    doThat(cond)
+    doThat(whenTrue)
+    doThat(whenFalse)
+  }
 
-  def whenFalse = getInput(2)
+  override def setInput(id: Int, node: Node): Unit = id match{
+    case 0 => cond = node
+    case 1 => whenTrue = node
+    case 2 => whenFalse = node
+  }
+
+  override def getInputsCount: Int = 3
+  override def getInputs: Iterator[Node] = Iterator(cond,whenTrue,whenFalse)
+  override def getInput(id: Int): Node = id match{
+    case 0 => cond
+    case 1 => whenTrue
+    case 2 => whenFalse
+  }
+
+  override def calcWidth: Int = Math.max(whenTrue.getWidth, whenFalse.getWidth)
+
+
+
 
   override def normalizeInputs: Unit = {
     Misc.normalizeResize(this, 1, this.getWidth)
@@ -202,9 +297,9 @@ private[spinal] object Multiplex {
   def apply(opName: String, sel: Bool, one: Node, zero: Node): Multiplexer = {
 
     val op = new Multiplexer(opName)
-    op.inputs += sel
-    op.inputs += one
-    op.inputs += zero
+    op.cond = sel
+    op.whenTrue = one
+    op.whenFalse = zero
     op
   }
 
@@ -249,8 +344,14 @@ abstract class Extract(opName: String) extends Modifier(opName, null){
 
 }
 
-class ExtractBoolFixed(opName: String, bitVector: BitVector, bitId: Int) extends Extract(opName) {
-  inputs += bitVector
+class ExtractBoolFixed(opName: String, bitVector_ : BitVector, bitId: Int) extends Extract(opName) {
+  var input : Node = bitVector_
+  override def onEachInput(doThat: (Node, Int) => Unit): Unit = doThat(input,0)
+  override def onEachInput(doThat: (Node) => Unit): Unit = doThat(input)
+  override def setInput(id: Int, node: Node): Unit = {assert(id == 0); this.input = node}
+  override def getInputsCount: Int = 1
+  override def getInputs: Iterator[Node] = Iterator(input)
+  override def getInput(id: Int): Node = {assert(id == 0); input}
 
   def getBitVector = getInput(0)
   def getBitId = bitId
@@ -275,10 +376,34 @@ class ExtractBoolFixed(opName: String, bitVector: BitVector, bitId: Int) extends
   def getInputData: Node = getBitVector
 }
 
-class ExtractBoolFloating(opName: String, bitVector: BitVector, bitId: UInt) extends Extract(opName) {
+class ExtractBoolFloating(opName: String, bitVector_ : BitVector, bitId_ : UInt) extends Extract(opName) {
   override def calcWidth: Int = 1
-  inputs += bitVector
-  inputs += bitId
+
+  var input  : Node = bitVector_
+  var bitId  : Node = bitId_
+
+  override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
+    doThat(input,0)
+    doThat(bitId,1)
+  }
+  override def onEachInput(doThat: (Node) => Unit): Unit = {
+    doThat(input)
+    doThat(bitId)
+  }
+
+  override def setInput(id: Int, node: Node): Unit = id match{
+    case 0 => input = node
+    case 1 => bitId = node
+  }
+
+  override def getInputsCount: Int = 2
+  override def getInputs: Iterator[Node] = Iterator(input,bitId)
+  override def getInput(id: Int): Node = id match{
+    case 0 => input
+    case 1 => bitId
+  }
+
+
 
   def getBitVector = getInput(0)
   def getBitId = getInput(1)
@@ -300,16 +425,24 @@ class ExtractBoolFloating(opName: String, bitVector: BitVector, bitId: UInt) ext
   }
 }
 
-class ExtractBitsVectorFixed(opName: String, bitVector: BitVector, hi: Int, lo: Int) extends Extract(opName) {
+class ExtractBitsVectorFixed(opName: String, bitVector_ : BitVector, hi: Int, lo: Int) extends Extract(opName) {
   if (hi - lo < -1) SpinalError(s"Static bits extraction with a negative size ($hi downto $lo)")
 
-  override def calcWidth: Int = hi - lo + 1
+  var input : Node = bitVector_
+  override def onEachInput(doThat: (Node, Int) => Unit): Unit = doThat(input,0)
+  override def onEachInput(doThat: (Node) => Unit): Unit = doThat(input)
+  override def setInput(id: Int, node: Node): Unit = {assert(id == 0); this.input = node}
+  override def getInputsCount: Int = 1
+  override def getInputs: Iterator[Node] = Iterator(input)
+  override def getInput(id: Int): Node = {assert(id == 0); input}
 
-  inputs += bitVector
+
+
   def getBitVector = getInput(0)
   def getHi = hi
   def getLo = lo
 
+  override def calcWidth: Int = hi - lo + 1
 
   override def checkInferedWidth: String = {
     val width = getBitVector.getWidth
@@ -327,14 +460,37 @@ class ExtractBitsVectorFixed(opName: String, bitVector: BitVector, hi: Int, lo: 
 }
 
 
-class ExtractBitsVectorFloating(opName: String, bitVector: BitVector, offset: UInt, bitCount: BitCount) extends Extract(opName) {
+class ExtractBitsVectorFloating(opName: String, bitVector_ : BitVector, offset_ : UInt, bitCount: BitCount) extends Extract(opName) {
+  var input  : Node = bitVector_
+  var offset  : UInt = offset_
+
+  override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
+    doThat(input,0)
+    doThat(offset,1)
+  }
+  override def onEachInput(doThat: (Node) => Unit): Unit = {
+    doThat(input)
+    doThat(offset)
+  }
+
+  override def setInput(id: Int, node: Node): Unit = id match{
+    case 0 => input = node
+    case 1 => offset = node.asInstanceOf[UInt]
+  }
+
+  override def getInputsCount: Int = 2
+  override def getInputs: Iterator[Node] = Iterator(input,offset)
+  override def getInput(id: Int): Node = id match{
+    case 0 => input
+    case 1 => offset
+  }
+
+
+
   override def calcWidth: Int = bitCount.value
 
   offset.dontSimplifyIt() //Because it can appear at multipe location (o+bc-1 downto o)
 
-  inputs += bitVector
-  inputs += offset
-  inputs += IntLiteral(bitCount.value)
 
   def getBitVector = getInput(0)
   def getOffset = getInput(1)

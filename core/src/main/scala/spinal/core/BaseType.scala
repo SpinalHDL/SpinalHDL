@@ -196,20 +196,12 @@ object BaseType {
 
 abstract class BaseType extends Node with Data with Nameable with AssignementTreePart{
   var input : Node = null
-
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = doThat(input,0)
   override def onEachInput(doThat: (Node) => Unit): Unit = doThat(input)
-
-  override def setInput(id: Int, node: Node): Unit = {
-    assert(id == 0)
-    this.input = node
-  }
+  override def setInput(id: Int, node: Node): Unit = {assert(id == 0); this.input = node}
   override def getInputsCount: Int = 1
   override def getInputs: Iterator[Node] = Iterator(input)
-  override def getInput(id: Int): Node = {
-    assert(id == 0)
-    input
-  }
+  override def getInput(id: Int): Node = {assert(id == 0); input}
 
   private[core] def canSymplifyIt = !dontSimplify && attributes.isEmpty
 

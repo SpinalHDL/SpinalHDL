@@ -1357,9 +1357,9 @@ class VhdlBackend extends Backend with VhdlBase {
   modifierImplMap.put("extract(u,i,i)", extractBitVectorFixed)
   modifierImplMap.put("extract(s,i,i)", extractBitVectorFixed)
 
-  modifierImplMap.put("extract(b,u,w)", operatorImplAsFunction("pkg_extract"))
-  modifierImplMap.put("extract(u,u,w)", operatorImplAsFunction("pkg_extract"))
-  modifierImplMap.put("extract(s,u,w)", operatorImplAsFunction("pkg_extract"))
+  modifierImplMap.put("extract(b,u,w)", extractBitVectorFloating)
+  modifierImplMap.put("extract(u,u,w)", extractBitVectorFloating)
+  modifierImplMap.put("extract(s,u,w)", extractBitVectorFloating)
 
 
   def extractBoolFixed(func: Modifier): String = {
@@ -1377,10 +1377,10 @@ class VhdlBackend extends Backend with VhdlBase {
     s"pkg_extract(${emitLogic(that.getBitVector)},${that.getHi},${that.getLo})"
   }
 
-  //  def extractBitVectorFloating(func: Modifier): String = {
-  //    val that = func.asInstanceOf[ExtractBitsVectorFloating]
-  //    s"pkg_dummy(${emitLogic(that.getBitVector)}(to_integer(${emitLogic(that.getOffset)}) + ${that.getBitCount.value - 1}  downto to_integer(${emitLogic(that.getOffset)})))"
-  //  }
+  def extractBitVectorFloating(func: Modifier): String = {
+    val that = func.asInstanceOf[ExtractBitsVectorFloating]
+    s"pkg_extract(${emitLogic(that.getBitVector)},${emitLogic(that.getOffset)},${that.getBitCount.value})"
+  }
 
 
   def opThatNeedBoolCastGen(a: String, b: String): List[String] = {
