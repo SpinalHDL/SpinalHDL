@@ -37,10 +37,39 @@ object SpinalVhdl {
   def apply[T <: Component](gen: => T,
                             defaultConfigForClockDomains: ClockDomainConfig = ClockDomainConfig(),
                             onlyStdLogicVectorAtTopLevelIo : Boolean = false): BackendReport[T] = {
-    val builder = SpinalVhdlBuilder(gen)
-    builder.setDefaultConfigForClockDomains(defaultConfigForClockDomains)
-    if(onlyStdLogicVectorAtTopLevelIo) builder.onlyStdLogicVectorAtTopLevelIo()
-    builder.elaborate()
+
+    def doit(debug : Boolean = false) : BackendReport[T] = {
+      try {
+        val builder = SpinalVhdlBuilder(gen)
+        builder.setDefaultConfigForClockDomains(defaultConfigForClockDomains)
+        if(onlyStdLogicVectorAtTopLevelIo) builder.onlyStdLogicVectorAtTopLevelIo()
+        GlobalData.get.scalaLocatedEnable = debug
+        builder.elaborate()
+      } catch {
+        case e: Throwable => {
+          if(!debug){
+            Thread.sleep(10);
+            println("\n**********************************************************************************************")
+            val errCnt = SpinalError.getErrorCount()
+            SpinalWarning(s"Elaboration failed (${errCnt} error" + (if(errCnt > 1){s"s"} else {s""}) + s").\n" +
+              s"          Spinal will restart with scala trace to help you to find the problem.")
+            println("**********************************************************************************************\n")
+            Thread.sleep(10);
+            return doit(debug = true)
+          }else{
+            Thread.sleep(10);
+            println("\n**********************************************************************************************")
+            val errCnt = SpinalError.getErrorCount()
+            SpinalWarning(s"Elaboration failed (${errCnt} error" + (if(errCnt > 1){s"s"} else {s""}) + ").")
+            println("**********************************************************************************************")
+            Thread.sleep(10);
+            throw e
+          }
+        }
+      }
+    }
+
+    doit()
   }
 
   //Depreciated
@@ -62,34 +91,10 @@ class SpinalVhdlBuilder[T <: Component](gen: => T) {
   val tbGen = new VhdlTestBenchBackend()
 
   def elaborate() : BackendReport[T]= {
-    try {
-      val report = backend.elaborate(() => gen)
-      tbGen.elaborate(backend, report.toplevel)
-      println({SpinalLog.tag("Done", Console.GREEN)} + s" at ${f"${Driver.executionTime}%1.3f"}")
-      return report
-    } catch {
-      case e: Throwable => {
-        if(!GlobalData.get.scalaLocatedEnable){
-          Thread.sleep(10);
-          println("\n**********************************************************************************************")
-          val errCnt = SpinalError.getErrorCount()
-          SpinalWarning(s"Elaboration failed (${errCnt} error" + (if(errCnt > 1){s"s"} else {s""}) + s").\n" +
-            s"          Spinal will restart with scala trace to help you to find the problem.")
-          println("**********************************************************************************************\n")
-          Thread.sleep(10);
-          GlobalData.get.scalaLocatedEnable = true
-          return elaborate()
-        }else{
-          Thread.sleep(10);
-          println("\n**********************************************************************************************")
-          val errCnt = SpinalError.getErrorCount()
-          SpinalWarning(s"Elaboration failed (${errCnt} error" + (if(errCnt > 1){s"s"} else {s""}) + ").")
-          println("**********************************************************************************************")
-          Thread.sleep(10);
-          throw e
-        }
-      }
-    }
+    val report = backend.elaborate(() => gen)
+    tbGen.elaborate(backend, report.toplevel)
+    println({SpinalLog.tag("Done", Console.GREEN)} + s" at ${f"${Driver.executionTime}%1.3f"}")
+    return report
   }
 
 
