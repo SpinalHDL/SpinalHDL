@@ -68,12 +68,12 @@ object PlayPerf {
 
   def timeOf(that : => Unit,message : String) : Unit = {
     for(i <- 0 until 10){
+      val start = System.nanoTime()
       that
+      val end = System.nanoTime()
+      println(message + " " + (end-start)*1e-9)
     }
-    val start = System.nanoTime()
-    that
-    val end = System.nanoTime()
-    println(message + " " + (end-start)*1e-9)
+
   }
 
   def main(args: Array[String]): Unit = {
@@ -139,6 +139,101 @@ object PlayPerf {
       }
       total += sum
     },"while doit")
+
+
+    abstract class AbstractWorker{
+      def doIt(dx : Int) : Unit
+    }
+
+    var sum = 0
+    class WorkerA extends AbstractWorker{
+      override def doIt(idx : Int) : Unit = sum += idx
+    }
+    class WorkerB extends AbstractWorker{
+      override def doIt(idx : Int) : Unit = print(idx)
+    }
+
+    val arrayWorkerA = Array.tabulate(1000*1000*10)(i => new WorkerA)
+    timeOf({
+      sum = 0
+      var idx = array.length
+      while(idx != 0){
+        idx -= 1
+        arrayWorkerA(idx).doIt(idx)
+      }
+      total += sum
+    },"while WorkerA")
+
+    class NodeArrayBuffer(val inputs : ArrayBuffer[Int]){
+
+    }
+
+    abstract class NodeAbstract{
+      def onEachInput(doThat : (Int,Int) => Unit) : Unit
+    }
+
+    class Function(a : Int,b : Int) extends NodeAbstract{
+      override def onEachInput(doThat: (Int, Int) => Unit): Unit = {
+        doThat(a,0)
+        doThat(b,1)
+      }
+    }
+    class Operator(a : Int,b : Int) extends NodeAbstract{
+      override def onEachInput(doThat: (Int, Int) => Unit): Unit = {
+        doThat(a,0)
+        doThat(b,1)
+      }
+    }
+
+    val arrayNodeArrayBuffer = Array.tabulate(1000*1000)(i => new NodeArrayBuffer(ArrayBuffer(i*2,i*3)))
+    val arrayNodeAbstract = Array.tabulate(1000*1000)(i => if(i % 2 == 0) new Function(i*2,i*3) else new Operator(i*2,i*3))
+
+    timeOf({
+      sum = 0
+      var idx = arrayNodeArrayBuffer.length
+      while(idx != 0){
+        idx -= 1
+        arrayNodeArrayBuffer(idx).inputs.foreach(sum += _)
+      }
+      total += sum
+    },"while NodeArrayBuffer foreach")
+
+    timeOf({
+      sum = 0
+      var idx = arrayNodeArrayBuffer.length
+      while(idx != 0){
+        idx -= 1
+        for(e <- arrayNodeArrayBuffer(idx).inputs)
+          sum += e
+      }
+      total += sum
+    },"while NodeArrayBuffer for")
+
+    timeOf({
+      sum = 0
+      var idx = arrayNodeArrayBuffer.length
+      while(idx != 0){
+        idx -= 1
+        val inputs = arrayNodeArrayBuffer(idx).inputs
+        var idx2 = inputs.length
+        while(idx2 != 0){
+          idx2 -= 1
+          sum += inputs(idx2)
+        }
+      }
+      total += sum
+    },"while NodeArrayBuffer while")
+
+
+    timeOf({
+      sum = 0
+      var idx = arrayNodeAbstract.length
+      while(idx != 0){
+        idx -= 1
+        arrayNodeAbstract(idx).onEachInput((e,i) => sum += e)
+      }
+      total += sum
+    },"while NodeAbstract")
 
 
     println(total)
