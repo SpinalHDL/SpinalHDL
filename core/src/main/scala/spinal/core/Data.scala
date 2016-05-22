@@ -399,9 +399,6 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
 
   /*private[core] */
   private[core] def initImpl(init: Data): this.type = {
-    // if (!isReg) SpinalError(s"Try to set initial value of a data that is not a register ($this)")
-   // val regInit = clone()
-    //regInit := init
     for ((e, initElement) <- (this.flatten, init.flatten).zipped) {
       def recursiveSearch(ptr: Node): Unit = {
         //if (ptr.component != init.component) SpinalError(s"Try to set initial value of a data that is not in current component ($this)")
@@ -423,6 +420,17 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
     }
     this
   }
+
+//  private[core] def initImpl(init: Data): this.type = {
+//    if (!isReg) SpinalError(s"Try to set initial value of a data that is not a register ($this)")
+//    for ((e, initElement) <- (this.flatten, init.flatten).zipped) {
+//      e match {
+//        case bt: BaseType => bt.inputs(0).asInstanceOf[Reg].setInitialValue(initElement)
+//        case _ => SpinalError(s"???")
+//      }
+//    }
+//    this
+//  }
 
   private[core] def defaultImpl(init: Data): this.type = {
     // if (!isReg) SpinalError(s"Try to set initial value of a data that is not a register ($this)")

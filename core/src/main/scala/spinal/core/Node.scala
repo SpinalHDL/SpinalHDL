@@ -394,6 +394,10 @@ abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady wi
   val consumers = new ArrayBuffer[Node](4)
   val inputs = new ArrayBuffer[Node](3)
 
+//  def getInput(id : Int) : Node
+//  def setInput(id : Int,node : Node) : Unit
+//  def onEachInput(dothat : (Node) => Unit)
+
   private[core] var algoId = 0
   private[core] var widthWhenNotInferred = -1
 
