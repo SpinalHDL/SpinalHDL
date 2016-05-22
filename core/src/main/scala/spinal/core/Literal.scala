@@ -103,11 +103,16 @@ object S extends BitVectorLiteralFactory[SInt] {
 }
 
 
-trait Literal extends NodeWithInputsImpl {
+trait Literal extends Node {
   override def clone: this.type = ???
   private[core] def getBitsStringOn(bitCount : Int) : String
 
-
+  override def getInput(id: Int): Node = ???
+  override def getInputs: Iterator[Node] = Iterator()
+  override def getInputsCount: Int = 0
+  override def onEachInput(doThat: (Node) => Unit): Unit = {}
+  override def onEachInput(doThat: (Node, Int) => Unit): Unit = {}
+  override def setInput(id: Int, node: Node): Unit = ???
 }
 
 object BitsLiteral {

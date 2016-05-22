@@ -78,7 +78,7 @@ object when {
   }
 }
 
-class WhenContext(val cond: Bool) extends NodeWithInputsImpl with ConditionalContext {
+class WhenContext(val cond: Bool) extends ConditionalContext {
   var isTrue: Boolean = true;
   var parentElseWhen: WhenContext = null
   var childElseWhen: WhenContext = null
@@ -113,7 +113,6 @@ class WhenContext(val cond: Bool) extends NodeWithInputsImpl with ConditionalCon
     parentElseWhen.destackElseWhen
   }
 
-  override private[core] def calcWidth: Int = 1
 }
 
 class SwitchStack(val value: Data) {
@@ -376,7 +375,7 @@ object default2 {
   }
 }
 
-class CaseNode(val context: CaseContext) extends NodeWithInputsImpl{
+class CaseNode(val context: CaseContext) extends NodeWithVariableInputsCount{
   inputs += context.cond
   inputs += null
   def cond = getInput(0)
@@ -385,7 +384,7 @@ class CaseNode(val context: CaseContext) extends NodeWithInputsImpl{
   override private[core] def calcWidth: Int = assignement.getWidth
 }
 
-class SwitchNode(val context: SwitchContext) extends NodeWithInputsImpl{
+class SwitchNode(val context: SwitchContext) extends NodeWithVariableInputsCount{
   def cases = inputs
 
   override def normalizeInputs: Unit = {

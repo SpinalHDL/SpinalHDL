@@ -113,15 +113,42 @@ object SyncNode {
   val getClockResetId: Int = 2
 }
 
-abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends NodeWithInputsImpl {
-  inputs += clockDomain.clock
-  inputs += clockDomain.clockEnable
-  inputs += Bool(clockDomain.config.resetActiveLevel == LOW)
+abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends Node {
+  var clock  : Node = clockDomain.clock
+  var enable : Node = clockDomain.clockEnable
+  var reset  : Node = Bool(clockDomain.config.resetActiveLevel == LOW) //TODO ?????
+
+
+  override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
+    doThat(clock,0)
+    doThat(enable,1)
+    doThat(reset,2)
+  }
+  override def onEachInput(doThat: (Node) => Unit): Unit = {
+    doThat(clock)
+    doThat(enable)
+    doThat(reset)
+  }
+
+  override def setInput(id: Int, node: Node): Unit = id match{
+    case 0 => clock = node
+    case 1 => enable = node
+    case 2 => reset = node
+  }
+
+  override def getInputsCount: Int = 3
+  override def getInputs: Iterator[Node] = Iterator(clock,enable,reset)
+  override def getInput(id: Int): Node = id match{
+    case 0 => clock
+    case 1 => enable
+    case 2 => reset
+  }
+
 
   override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
-    case SyncNode.getClockInputId => (0,0)
+    case SyncNode.getClockInputId =>  (0,0)
     case SyncNode.getClockEnableId => (0,0)
-    case SyncNode.getClockResetId => (0,0)
+    case SyncNode.getClockResetId =>  (0,0)
   }
 
   final def getLatency = 1 //if not final => update latencyAnalyser

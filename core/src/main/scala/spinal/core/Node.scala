@@ -390,6 +390,33 @@ object Node{
   }
 }
 
+
+abstract class NodeWithVariableInputsCount extends Node{
+  val inputs = new ArrayBuffer[Node](4)
+
+  override def getInputsCount = inputs.length
+  override def getInput(id : Int) : Node = inputs(id)
+  override def setInput(id : Int,node : Node) : Unit = inputs(id) = node
+
+  override def getInputs : Iterator[Node] = inputs.iterator
+
+  override def onEachInput(doThat : (Node,Int) => Unit) : Unit = {
+    var idx = getInputsCount
+    while(idx != 0){
+      idx -= 1
+      doThat(getInput(idx),idx)
+    }
+  }
+
+  override def onEachInput(doThat : (Node) => Unit) : Unit = {
+    var idx = getInputsCount
+    while(idx != 0){
+      idx -= 1
+      doThat(getInput(idx))
+    }
+  }
+}
+
 abstract class NodeWithInputsImpl extends Node {
   val inputs = new ArrayBuffer[Node](3)
 

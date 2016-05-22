@@ -85,8 +85,44 @@ object RegS {
 }
 
 class Reg(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) extends SyncNode(clockDomain) with Assignable with AssignementTreePart {
-  inputs += this
-  inputs += new NoneNode
+  var dataInput     : Node = this
+  var initialValue  : Node = new NoneNode
+
+  override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
+    doThat(clock,0)
+    doThat(enable,1)
+    doThat(reset,2)
+    doThat(dataInput,3)
+    doThat(initialValue,4)
+  }
+  override def onEachInput(doThat: (Node) => Unit): Unit = {
+    doThat(clock)
+    doThat(enable)
+    doThat(reset)
+    doThat(dataInput)
+    doThat(initialValue)
+  }
+
+  override def setInput(id: Int, node: Node): Unit = id match{
+    case 0 => clock = node
+    case 1 => enable = node
+    case 2 => reset = node
+    case 3 => dataInput = node
+    case 4 => initialValue = node
+  }
+
+  override def getInputsCount: Int = 5
+  override def getInputs: Iterator[Node] = Iterator(clock,enable,reset,dataInput,initialValue)
+  override def getInput(id: Int): Node = id match{
+    case 0 => clock
+    case 1 => enable
+    case 2 => reset
+    case 3 => dataInput
+    case 4 => initialValue
+  }
+
+
+
 
   override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
     case RegS.getDataInputId => (outHi,outLo)
