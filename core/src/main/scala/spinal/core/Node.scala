@@ -385,7 +385,7 @@ object Node{
   def walk(starts: Seq[Node],walker: (Node) => Unit): Unit = {
     walk(starts,(node,push) => {
       walker(node)
-      node.inputs.foreach(push(_))
+      node.onEachInput(push(_))
     })
   }
 

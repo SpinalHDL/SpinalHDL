@@ -958,13 +958,13 @@ class VhdlBackend extends Backend with VhdlBase {
     if (includeNodes)
       nodes.foreach(walk(_))
     else
-      nodes.foreach(_.inputs.foreach(walk(_)))
+      nodes.foreach(_.onEachInput(walk(_)))
 
     def walk(node: Node): Unit = {
       if (isReferenceable(node))
         sensitivity += node
       else
-        node.inputs.foreach(walk(_))
+        node.onEachInput(walk(_))
     }
 
     sensitivity
@@ -1070,7 +1070,7 @@ class VhdlBackend extends Backend with VhdlBase {
             switchNode.cases.foreach(n => walk(n.asInstanceOf[CaseNode].assignement))
           }
           case man: MultipleAssignmentNode => {
-            man.inputs.foreach(walk(_))
+            man.onEachInput(walk(_))
             hasMultipleAssignment = true
           }
           case that => {

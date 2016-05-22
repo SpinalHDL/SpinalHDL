@@ -598,7 +598,7 @@ class Backend {
 
   def normalizeNodeInputs(): Unit = {
     Node.walk(walkNodesDefautStack,(node,push) => {
-      node.inputs.foreach(push(_))
+      node.onEachInput(push(_))
       node.normalizeInputs
     })
   }
@@ -619,7 +619,7 @@ class Backend {
         }
       }
 
-      node.inputs.foreach(push(_))
+      node.onEachInput(push(_))
 
       //Create outputs bindings
       for (i <- 0 until node.inputs.size) {
@@ -668,7 +668,7 @@ class Backend {
         }
         case _ =>
       }
-      node.inputs.foreach(push(_))
+      node.onEachInput(push(_))
     })
   }
 
@@ -723,7 +723,7 @@ class Backend {
 
         case _ =>
       }
-      node.inputs.foreach(push(_))
+      node.onEachInput(push(_))
     })
   }
 
@@ -1064,7 +1064,7 @@ class Backend {
                           s"Register declaration at \n${syncNode.getScalaLocationLong}"
                       }
                     }
-                    case _ => that.inputs.foreach(input => if (input != null) check(input))
+                    case _ => that.onEachInput(input => if (input != null) check(input))
                   }
                 }
               }
