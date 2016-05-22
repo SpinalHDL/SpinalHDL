@@ -309,7 +309,7 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
 
   private[core] def newBinaryOperator(opName: String, right: Node, getWidthImpl: (Node) => Int, normalizeInputsImpl: (Node) => Unit, simplifyNodeImpl: (Node) => Unit): this.type = {
     val op = BinaryOperator(opName, this, right, getWidthImpl, normalizeInputsImpl, simplifyNodeImpl)
-    val typeNode = addTypeNodeFrom(op)
+    val typeNode = wrapWithWeakClone(op)
     typeNode
   }
 
@@ -319,7 +319,7 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
   //Remove all of them
 
 
-  private[core] def addTypeNodeFrom(node: Node): this.type = {
+  private[core] def wrapWithWeakClone(node: Node): this.type = {
     val typeNode = weakClone
     typeNode.input = node
     typeNode
@@ -333,9 +333,20 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
 
   private[core] def newUnaryOperator(op : UnaryOperator): this.type = {
     op.input = this
-    addTypeNodeFrom(op)
+    wrapWithWeakClone(op)
   }
-
+  private[core] def newBinaryOperator(right : Node,op : BinaryOperator): this.type = {
+    op.left = this
+    op.right = right
+    wrapWithWeakClone(op)
+  }
+  private[core] def newLogicalOperator(right : Node,op : BinaryOperator):  Bool = {
+    op.left = this
+    op.right = right
+    val ret = new Bool
+    ret.input = op
+    ret
+  }
 
   override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = (outHi, outLo)
 

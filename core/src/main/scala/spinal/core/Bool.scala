@@ -33,9 +33,9 @@ trait BoolFactory {
 class Bool extends BaseType {
   private[core] override def calcWidth: Int = 1
 
-  def ^(b: Bool): Bool = newLogicalOperator("B^B", b, InputNormalize.none, SymplifyNode.none)
-  def &&(b: Bool): Bool = newLogicalOperator("&&", b, InputNormalize.none, SymplifyNode.none)
-  def ||(b: Bool): Bool = newLogicalOperator("||", b, InputNormalize.none, SymplifyNode.none)
+  def &&(b: Bool): Bool = newLogicalOperator(b,new OperatorBoolAnd)
+  def ||(b: Bool): Bool = newLogicalOperator(b,new OperatorBoolOr)
+  def ^(b: Bool): Bool  = newLogicalOperator(b,new OperatorBoolXor)
   def unary_!(): Bool = newUnaryOperator(new OperatorBoolNot)
   def &(b: Bool): Bool = this && b
   def |(b: Bool): Bool = this || b

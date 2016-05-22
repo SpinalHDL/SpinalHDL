@@ -105,7 +105,7 @@ abstract class BitVector extends BaseType {
       extract.hi = hi
       extract.lo = lo
       extract.checkHiLo
-      val ret = addTypeNodeFrom(extract)
+      val ret = wrapWithWeakClone(extract)
       ret.compositeAssign = new Assignable {
         override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = that match {
           case that: BitVector => BitVector.this.assignFrom(new RangedAssignmentFixed(BitVector.this, that, hi, lo), true)
@@ -128,7 +128,7 @@ abstract class BitVector extends BaseType {
       extract.size = size
       extract.offset = offset
       offset.dontSimplifyIt()
-      val ret = addTypeNodeFrom(extract)
+      val ret = wrapWithWeakClone(extract)
       ret.compositeAssign = new Assignable {
         override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = that match {
           case that: BitVector => BitVector.this.assignFrom(new RangedAssignmentFloating(BitVector.this, that, offset, size bit), true)
@@ -163,8 +163,8 @@ abstract class BitVector extends BaseType {
 
   def clearAll() = setAllTo(false)
 
-  private[core] override def addTypeNodeFrom(node: Node): this.type = {
-    val typeNode = super.addTypeNodeFrom(node)
+  private[core] override def wrapWithWeakClone(node: Node): this.type = {
+    val typeNode = super.wrapWithWeakClone(node)
     typeNode
   }
 

@@ -155,6 +155,32 @@ class BinaryOperator extends Operator(null,null,null,null){
 }
 
 
+
+
+
+class OperatorBoolAnd extends BinaryOperator{
+  override def opName: String = "&&"
+  override def calcWidth(): Int = 1
+  override def normalizeInputs: Unit = {}
+  override def simplifyNode: Unit = {}
+}
+
+class OperatorBoolOr extends BinaryOperator{
+  override def opName: String = "||"
+  override def calcWidth(): Int = 1
+  override def normalizeInputs: Unit = {}
+  override def simplifyNode: Unit = {}
+}
+
+class OperatorBoolXor extends BinaryOperator{
+  override def opName: String = "B^B"
+  override def calcWidth(): Int = 1
+  override def normalizeInputs: Unit = {}
+  override def simplifyNode: Unit = {}
+}
+
+
+
 //TODO remove me
 abstract class ModifierImpl(opName: String, widthImpl: (Node) => Int) extends Modifier(opName,widthImpl) {
   val inputs = new ArrayBuffer[Node](3)

@@ -93,7 +93,7 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider {
 
 
   //override def resize(width: Int): this.type = newResize("resize(s,i)", this :: new IntLiteral(width) :: Nil, WidthInfer.intLit1Width,SymplifyNode.resizeImpl(S.apply))
-  override def resize(width: Int): this.type = addTypeNodeFrom({
+  override def resize(width: Int): this.type = wrapWithWeakClone({
     val node = new ResizeSInt
     node.input = this
     node.size = width

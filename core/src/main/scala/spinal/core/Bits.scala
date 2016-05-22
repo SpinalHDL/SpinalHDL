@@ -57,7 +57,7 @@ class Bits extends BitVector {
   private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,b,b)", sel, whenTrue, whenFalse)
 
 //  override def resize(width: Int): this.type = newResize("resize(b,i)", this :: new IntLiteral(width) :: Nil, WidthInfer.intLit1Width, SymplifyNode.resizeImpl(B.apply))
-  override def resize(width: Int): this.type = addTypeNodeFrom({
+  override def resize(width: Int): this.type = wrapWithWeakClone({
     val node = new ResizeBits
     node.input = this
     node.size = width
