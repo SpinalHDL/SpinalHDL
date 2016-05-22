@@ -182,7 +182,14 @@ object SymplifyNode {
       Component.pop(node.component)
     }
   }
-
+  def resizeImpl2(zeroFactory: (BigInt, BitCount) => Node,node: Node): Unit = {
+    val w0 = node.getInput(0).getWidth
+    if (w0 == 0) {
+      Component.push(node.component)
+      replaceNode(node, zeroFactory(0, node.getWidth bit))
+      Component.pop(node.component)
+    }
+  }
   def shiftRightImpl(node: Node): Unit = {
     val w1 = node.getInput(1).getWidth
     if (w1 == 0) {

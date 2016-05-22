@@ -890,8 +890,6 @@ class Backend {
     }
   }
 
-
-
   def trickDontCares(): Unit ={
     Node.walk(walkNodesDefautStack,node => {
       node match{

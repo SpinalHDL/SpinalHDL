@@ -76,6 +76,7 @@ object SpinalVhdl {
   def apply[T <: Component](gen: => T, config: SpinalVhdlBuilder[_] => Unit): BackendReport[T] = {
     val factory = new SpinalVhdlBuilder(gen)
     config(factory)
+    factory.backend.globalData.scalaLocatedEnable = true
     factory.elaborate()
   }
 

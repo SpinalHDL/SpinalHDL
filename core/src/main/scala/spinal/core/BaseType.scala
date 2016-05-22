@@ -332,7 +332,7 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
     val typeNode = addTypeNodeFrom(op)
     typeNode
   }
-
+  //Remove all of them
   private[core] def newResize(opName: String, args: List[Node], getWidthImpl: (Node) => Int = WidthInfer.inputMaxWidth, simplifyNodeImpl: (Node) => Unit): this.type = {
     val op = Resize(opName, args, getWidthImpl, simplifyNodeImpl)
     val typeNode = addTypeNodeFrom(op)

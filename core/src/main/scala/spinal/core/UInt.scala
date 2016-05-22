@@ -108,8 +108,13 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider {
   override def maxValue: BigInt = (BigInt(1) << getWidth) - 1
 
 
-  override def resize(width: Int): this.type = newResize("resize(u,i)", this :: new IntLiteral(width) :: Nil, WidthInfer.intLit1Width,SymplifyNode.resizeImpl(U.apply))
-
+  //override def resize(width: Int): this.type = newResize("resize(u,i)", this :: new IntLiteral(width) :: Nil, WidthInfer.intLit1Width,SymplifyNode.resizeImpl(U.apply))
+  override def resize(width: Int): this.type = addTypeNodeFrom({
+    val node = new ResizeUInt
+    node.input = this
+    node.size = width
+    node
+  })
 
 
   def asSInt: SInt = new SInt().castFrom("u->s", this)

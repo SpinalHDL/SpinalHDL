@@ -68,18 +68,8 @@ object PlayB3 {
 
     val input = in UInt (4 bit)
     val output = out UInt(4 bits)
-    output := input
-//    switch(input){
-//      is(0){
-//        output := 0
-//      }
-//      is(1){
-//        output := 1
-//      }
-//      is(2){
-//        output := 2
-//      }
-//    }
+    output := 1
+
   }
 
   def main(args: Array[String]): Unit = {

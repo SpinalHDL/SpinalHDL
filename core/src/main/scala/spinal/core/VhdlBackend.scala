@@ -1154,8 +1154,9 @@ class VhdlBackend extends Backend with VhdlBase {
     s"$vhd(${func.getInputs.map(emitLogic(_)).reduce(_ + "," + _)})"
   }
 
-  //TODO should be move to operatorImplAsFunction in long therm
-  def resizeFunction(func: Modifier): String = {
+
+  def resizeFunction(vhdlFunc : String)(func: Modifier): String = {
+    val resize = func.asInstanceOf[Resize]
     func.getInput(0).getWidth match{
       case 0 => {
         func.getInput(0) match {
@@ -1167,10 +1168,10 @@ class VhdlBackend extends Backend with VhdlBase {
               case _: SInt => s"pkg_signed($bitString)"
             }
           }
-          case _ => s"pkg_resize(${func.getInputs.map(emitLogic(_)).reduce(_ + "," + _)})"
+          case _ => s"pkg_resize(${emitLogic(resize.input)},${resize.size})"
         }
       }
-      case _ => s"pkg_resize(${func.getInputs.map(emitLogic(_)).reduce(_ + "," + _)})"
+      case _ => s"pkg_resize(${emitLogic(resize.input)},${resize.size})"
     }
   }
 
@@ -1334,9 +1335,10 @@ class VhdlBackend extends Backend with VhdlBase {
 
 
   //misc
-  modifierImplMap.put("resize(s,i)", resizeFunction)
-  modifierImplMap.put("resize(u,i)", resizeFunction)
-  modifierImplMap.put("resize(b,i)", resizeFunction)
+
+  modifierImplMap.put("resize(s,i)", resizeFunction("pkg_signed"))
+  modifierImplMap.put("resize(u,i)", resizeFunction("pkg_unsigned"))
+  modifierImplMap.put("resize(b,i)", resizeFunction("pkg_stdLogicVector"))
 
   //Memo whenNode hardcode emitlogic
   modifierImplMap.put("mux(B,B,B)", operatorImplAsFunction("pkg_mux"))

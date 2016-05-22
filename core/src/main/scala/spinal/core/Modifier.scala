@@ -47,6 +47,34 @@ object Resize {
   }
 }
 
+
+abstract class Resize extends Modifier(null,null){
+  var size : Int = -1
+  var input : Node = null
+  override def onEachInput(doThat: (Node, Int) => Unit): Unit = doThat(input,0)
+  override def onEachInput(doThat: (Node) => Unit): Unit = doThat(input)
+  override def setInput(id: Int, node: Node): Unit = {assert(id == 0); this.input = node}
+  override def getInputsCount: Int = 1
+  override def getInputs: Iterator[Node] = Iterator(input)
+  override def getInput(id: Int): Node = {assert(id == 0); input}
+
+  override def calcWidth(): Int = size
+}
+
+class ResizeBits extends Resize{
+  override def opName: String = "resize(b,i)"
+  override def simplifyNode: Unit = SymplifyNode.resizeImpl2(B.apply,this)
+}
+class ResizeUInt extends Resize{
+  override def opName: String = "resize(u,i)"
+  override def simplifyNode: Unit = SymplifyNode.resizeImpl2(U.apply,this)
+}
+class ResizeSInt extends Resize{
+  override def opName: String = "resize(s,i)"
+  override def simplifyNode: Unit = SymplifyNode.resizeImpl2(S.apply,this)
+}
+
+
 object Function {
   def apply(opName: String, args: List[Node], widthImpl: (Node) => Int = WidthInfer.inputMaxWidth,simplifyNodeImpl : (Node) => Unit): Modifier = {
     val op = new FunctionImpl(opName, widthImpl,simplifyNodeImpl)
@@ -137,11 +165,12 @@ class FunctionImpl(opName: String, widthImpl: (Node) => Int,simplifyNodeImpl : (
   }
 }
 
-abstract class Modifier(val opName: String, widthImpl: (Node) => Int) extends Node {
+abstract class Modifier(opName_ : String, widthImpl: (Node) => Int) extends Node {
   override def calcWidth(): Int = {
     widthImpl(this)
   }
 
+  def opName = opName_
 
   override def toString(): String = {
     s"($opName ${this.getInputs.map(in => if (in == null) "null" else in.nonRecursiveToString()).reduceLeft(_ + " " + _)})"
