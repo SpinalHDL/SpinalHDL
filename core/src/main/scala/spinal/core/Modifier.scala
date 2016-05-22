@@ -116,11 +116,11 @@ class EnumCast(val enum: SpinalEnumCraft[_], opName: String, widthImpl: (Node) =
 
 
 class Multiplexer(opName: String) extends Modifier(opName, WidthInfer.multiplexImpl) {
-  def cond = inputs(0)
+  def cond = getInput(0)
 
-  def whenTrue = inputs(1)
+  def whenTrue = getInput(1)
 
-  def whenFalse = inputs(2)
+  def whenFalse = getInput(2)
 
   override def normalizeInputs: Unit = {
     Misc.normalizeResize(this, 1, this.getWidth)
@@ -252,7 +252,7 @@ abstract class Extract(opName: String) extends Modifier(opName, null){
 class ExtractBoolFixed(opName: String, bitVector: BitVector, bitId: Int) extends Extract(opName) {
   inputs += bitVector
 
-  def getBitVector = inputs(0)
+  def getBitVector = getInput(0)
   def getBitId = bitId
 
   override def calcWidth: Int = 1
@@ -280,10 +280,10 @@ class ExtractBoolFloating(opName: String, bitVector: BitVector, bitId: UInt) ext
   inputs += bitVector
   inputs += bitId
 
-  def getBitVector = inputs(0)
-  def getBitId = inputs(1)
+  def getBitVector = getInput(0)
+  def getBitId = getInput(1)
 
-  def getParameterNodes: List[Node] = inputs(1) :: Nil
+  def getParameterNodes: List[Node] = getInput(1) :: Nil
   def getInputData: Node = getBitVector
 
   override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
@@ -306,7 +306,7 @@ class ExtractBitsVectorFixed(opName: String, bitVector: BitVector, hi: Int, lo: 
   override def calcWidth: Int = hi - lo + 1
 
   inputs += bitVector
-  def getBitVector = inputs(0)
+  def getBitVector = getInput(0)
   def getHi = hi
   def getLo = lo
 
@@ -336,11 +336,11 @@ class ExtractBitsVectorFloating(opName: String, bitVector: BitVector, offset: UI
   inputs += offset
   inputs += IntLiteral(bitCount.value)
 
-  def getBitVector = inputs(0)
-  def getOffset = inputs(1)
+  def getBitVector = getInput(0)
+  def getOffset = getInput(1)
   def getBitCount = bitCount
 
-  def getParameterNodes: List[Node] = inputs(1) :: Nil
+  def getParameterNodes: List[Node] = getInput(1) :: Nil
   override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
     case 0 =>
       if(outHi >= outLo) //Not exact
@@ -595,7 +595,7 @@ trait AssignementNode extends Node {
 class BitAssignmentFixed(out: BitVector, in: Node, bitId: Int) extends AssignementNode {
   inputs += in
 
-  def getInput = inputs(0)
+  def getInput : Node = getInput(0)
   def getBitId = bitId
   override def calcWidth: Int = bitId + 1
 
@@ -625,7 +625,7 @@ class BitAssignmentFixed(out: BitVector, in: Node, bitId: Int) extends Assigneme
 class RangedAssignmentFixed(out: BitVector, in: Node, hi: Int, lo: Int) extends AssignementNode {
   inputs += in
 
-  def getInput = inputs(0)
+  def getInput : Node = getInput(0)
   def getHi = hi
   def getLo = lo
 
@@ -671,8 +671,8 @@ class BitAssignmentFloating(out: BitVector, in: Node, bitId: UInt) extends Assig
   inputs += in
   inputs += bitId
 
-  def getInput = inputs(0)
-  def getBitId = inputs(1)
+  def getInput  : Node = getInput(0)
+  def getBitId  : Node = getInput(1)
 
   override def calcWidth: Int = 1 << Math.min(20,getBitId.getWidth)
 
@@ -699,8 +699,8 @@ class RangedAssignmentFloating(out: BitVector, in: Node, offset: UInt, bitCount:
   inputs += in
   inputs += offset
 
-  def getInput = inputs(0)
-  def getOffset = inputs(1)
+  def getInput : Node = getInput(0)
+  def getOffset = getInput(1)
   def getBitCount = bitCount
 
   override def calcWidth: Int = 1 << Math.min(20,offset.getWidth) + bitCount.value
@@ -741,7 +741,7 @@ class MultipleAssignmentNode extends Node with AssignementTreePart{
 
   override private[core] def checkInferedWidth: String = {
     for (i <- 0 until inputs.size){
-      val input = this.inputs(i)
+      val input = this.getInput(i)
       if (input != null && input.component != null && this.getWidth !=input.getWidth) {
         return s"Assignement bit count missmatch. ${this} := ${input}} at\n${ScalaLocated.long(getAssignementContext(i))}"
       }

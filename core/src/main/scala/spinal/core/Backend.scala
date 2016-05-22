@@ -375,8 +375,8 @@ class Backend {
 
     Node.walk(walkNodesDefautStack,node => node match {
       case node: BaseType => {
-        if (node.isInput && node.inputs(0) != null && node.inputs(0).isInstanceOf[Nameable]) {
-          val nameable = node.inputs(0).asInstanceOf[Nameable]
+        if (node.isInput && node.getInput(0) != null && node.getInput(0).isInstanceOf[Nameable]) {
+          val nameable = node.getInput(0).asInstanceOf[Nameable]
           if (nameable.isUnnamed && node.component.isNamed && node.isNamed) {
             nameable.setWeakName(node.component.getName() + "_" + node.getName())
           }
@@ -434,7 +434,7 @@ class Backend {
 //      symplifyThem.add(ptr.parentElseWhen)
     }
 //    Node.walk(walkNodesDefautStack,node => node match { Patch me, should update consumers ref
-//      case whenNode : WhenNode if(symplifyThem.contains(whenNode.w)) => whenNode.inputs(2) = whenNode.inputs(2).inputs(1)
+//      case whenNode : WhenNode if(symplifyThem.contains(whenNode.w)) => whenNode.setInput(2) = whenNode.getInput(2).getInput(1)
 //      case _ =>
 //    })
   }
@@ -484,17 +484,17 @@ class Backend {
   def allowLiteralToCrossHierarchy(): Unit = {
     Node.walk(walkNodesDefautStack,consumer => {
       for (consumerInputId <- 0 until consumer.inputs.size) {
-        val consumerInput = consumer.inputs(consumerInputId)
+        val consumerInput = consumer.getInput(consumerInputId)
         consumerInput match {
-          case litBaseType: BaseType if litBaseType.inputs(0).isInstanceOf[Literal] => {
-            val lit: Literal = litBaseType.inputs(0).asInstanceOf[Literal]
+          case litBaseType: BaseType if litBaseType.getInput(0).isInstanceOf[Literal] => {
+            val lit: Literal = litBaseType.getInput(0).asInstanceOf[Literal]
             val c = if (consumer.isInstanceOf[BaseType] && consumer.asInstanceOf[BaseType].isInput) consumer.component.parent else consumer.component
             Component.push(c)
             val newBt = litBaseType.clone()
             val newLit: Literal = lit.clone()
 
-            newBt.inputs(0) = newLit
-            consumer.inputs(consumerInputId) = newBt
+            newBt.setInput(0,newLit)
+            consumer.setInput(consumerInputId) = newBt
             Component.pop(c)
 
           }
@@ -526,7 +526,7 @@ class Backend {
     Node.walk(walkNodesDefautStack,node => {
       node match {
         case node: BaseType => {
-          val nodeInput0 = node.inputs(0)
+          val nodeInput0 = node.getInput(0)
           if (nodeInput0 != null) {
             if (node.isInput && nodeInput0.isInstanceOf[Reg] && nodeInput0.component == node.component) {
               errors += s"Input register are not allowed \n${node.getScalaLocationLong}"
@@ -612,8 +612,8 @@ class Backend {
           val inBinding = baseType.clone //To be sure that there is no need of resize between it and node
           inBinding.assignementThrowable = baseType.assignementThrowable
           inBinding.scalaTrace = baseType.scalaTrace
-          inBinding.inputs(0) = baseType.inputs(0)
-          baseType.inputs(0) = inBinding
+          inBinding.setInput(0) = baseType.getInput(0)
+          baseType.setInput(0) = inBinding
           inBinding.component = node.component.parent
           inBinding.dontCareAboutNameForSymplify = true
         }
@@ -623,7 +623,7 @@ class Backend {
 
       //Create outputs bindings
       for (i <- 0 until node.inputs.size) {
-        val nodeInput = node.inputs(i)
+        val nodeInput = node.getInput(i)
         nodeInput match {
           case nodeInput: BaseType => {
             if (nodeInput.isOutput && (nodeInput.component.parent == node.component || (nodeInput.component.parent == node.component.parent && nodeInput.component != node.component))) {
@@ -635,12 +635,12 @@ class Backend {
                 into.kindsOutputsToBindings.put(nodeInput, bind)
                 into.kindsOutputsBindings += bind
                 bind.component = into
-                bind.inputs(0) = nodeInput
+                bind.setInput(0) = nodeInput
                 bind.dontCareAboutNameForSymplify = true
                 bind
               })
 
-              node.inputs(i) = bind
+              node.setInput(i) = bind
             }
           }
           case _ =>
@@ -658,12 +658,12 @@ class Backend {
               SpinalError(s"Clock domain without reset contain a register which needs one\n ${delay.getScalaLocationLong}")
 
           Component.push(delay.component)
-          delay.inputs(SyncNode.getClockInputId) = delay.getClockDomain.readClockWire
+          delay.setInput(SyncNode.getClockInputId) = delay.getClockDomain.readClockWire
 
           if (delay.isUsingReset)
-            delay.inputs(SyncNode.getClockResetId) = delay.getClockDomain.readResetWire
+            delay.setInput(SyncNode.getClockResetId) = delay.getClockDomain.readResetWire
 
-          delay.inputs(SyncNode.getClockEnableId) = delay.getClockDomain.readClockEnableWire
+          delay.setInput(SyncNode.getClockEnableId) = delay.getClockDomain.readClockEnableWire
           Component.pop(delay.component)
         }
         case _ =>
@@ -676,7 +676,7 @@ class Backend {
     Node.walk(walkNodesDefautStack,node => {
       node match {
         case baseType: BaseType => {
-          baseType.inputs(0) match {
+          baseType.getInput(0) match {
             case wn: WhenNode => baseType.dontSimplifyIt()
             case an: AssignementNode => baseType.dontSimplifyIt()
             case man: MultipleAssignmentNode => baseType.dontSimplifyIt()
@@ -694,7 +694,7 @@ class Backend {
         case node: BaseType => {
           if ((node.isUnnamed || node.dontCareAboutNameForSymplify) && !node.isIo && node.consumers.size == 1 && node.canSymplifyIt) {
             val consumer = node.consumers(0)
-            val input = node.inputs(0)
+            val input = node.getInput(0)
             if (!node.isDelay || consumer.isInstanceOf[BaseType]) {
               // don't allow to put a non base type on component inputs
               if (input.isInstanceOf[BaseType] || !consumer.isInstanceOf[BaseType] || !consumer.asInstanceOf[BaseType].isInput) {
@@ -793,7 +793,7 @@ class Backend {
     Node.walk(walkNodesDefautStack,node => {
       node match{
         case node : BaseType => {
-          if(node.inputs(0) == null && node.defaultValue != null){
+          if(node.getInput(0) == null && node.defaultValue != null){
             val c = node.dir match {
               case `in` => node.component
               case `out` => if(node.component.parent != null)
@@ -843,7 +843,7 @@ class Backend {
     val errors = mutable.ArrayBuffer[String]()
     Node.walk(walkNodesDefautStack ++ walkNodesBlackBoxGenerics,_ match {
       case node : Reg =>{
-        if(!node.isUsingReset && node.inputs(RegS.getDataInputId) == node){
+        if(!node.isUsingReset && node.getInput(RegS.getDataInputId) == node){
           errors += s"$node has no assignement value and no reset value at\n ${node.getScalaLocationLong}"
         }
       }
@@ -907,17 +907,17 @@ class Backend {
     val outputsBuffers = mutable.Map[BaseType, BaseType]()
     Node.walk(walkNodesDefautStack,node => {
       for (i <- 0 until node.inputs.size) {
-        node.inputs(i) match {
+        node.getInput(i) match {
           case baseTypeInput: BaseType => {
             if (baseTypeInput.isOutput && baseTypeInput.component.parent != node.component) {
               val buffer = outputsBuffers.getOrElseUpdate(baseTypeInput, {
                 val buffer = baseTypeInput.clone()
-                buffer.inputs(0) = baseTypeInput.inputs(0)
-                baseTypeInput.inputs(0) = buffer
+                buffer.setInput(0) = baseTypeInput.getInput(0)
+                baseTypeInput.setInput(0) = buffer
                 buffer.component = baseTypeInput.component
                 buffer
               })
-              node.inputs(i) = buffer
+              node.setInput(i) = buffer
             }
           }
           case _ =>
@@ -929,11 +929,11 @@ class Backend {
   def allowNodesToReadInputOfKindComponent() = {
     Node.walk(walkNodesDefautStack,node => {
       for (i <- 0 until node.inputs.size) {
-        val input = node.inputs(i)
+        val input = node.getInput(i)
         input match {
           case baseTypeInput: BaseType => {
             if (baseTypeInput.isInput && baseTypeInput.component.parent == node.component) {
-              node.inputs(i) = baseTypeInput.inputs(0)
+              node.setInput(i) = baseTypeInput.getInput(0)
             }
           }
           case _ =>
@@ -950,7 +950,7 @@ class Backend {
         case node: BaseType => {
           val width = node.getWidth
 
-          node.inputs(0) match {
+          node.getInput(0) match {
             case that: Reg => {
               that.inferredWidth = width
               walk(that,RegS.getInitialValueId)
@@ -961,7 +961,7 @@ class Backend {
           walk(node,0)
 
           def walk(parent: Node,inputId : Int): Unit = {
-            val that = parent.inputs(inputId)
+            val that = parent.getInput(inputId)
             def walkChildren() : Unit = {
               var i = that.inputs.length
               while(i != 0){
@@ -1019,8 +1019,8 @@ class Backend {
                       }
                     }
 
-                //    newOne.inputs(0).inferredWidth = width
-                    parent.inputs(inputId) = newOne
+                //    newOne.setInput(0).inferredWidth = width
+                    parent.setInput(inputId) = newOne
                     Component.pop(bitVector.component)
                   }
                 }
@@ -1139,7 +1139,7 @@ class Backend {
                       var idx = node.inputs.length
                       while (idx != 0) {
                         idx -= 1
-                        val input = node.inputs(idx)
+                        val input = node.getInput(idx)
                         val (inHi, inLo) = node.getOutToInUsage(idx, outHi, outLo)
                         if (inHi >= inLo) walk(newConsumers,newStack, input, inHi, inLo)
                       }
@@ -1151,14 +1151,14 @@ class Backend {
                 }
               }
 
-              walkBaseType(node.inputs(0))
+              walkBaseType(node.getInput(0))
             }
             case _ => {
               val newConsumers = consumers + (node -> bitsAlreadyUsed.+(AssignedRange(outHi, outLo)))
               var idx = node.inputs.length
               while (idx != 0) {
                 idx -= 1
-                val input = node.inputs(idx)
+                val input = node.getInput(idx)
                 if (input != null) {
                   val (inHi, inLo) = node.getOutToInUsage(idx, outHi, outLo)
                   if (inHi >= inLo) walk(newConsumers,newStack, input, inHi, inLo)
@@ -1198,9 +1198,9 @@ class Backend {
             walk(baseType, baseType)
             def walk(node: Node, first: Node): Unit = node match {
               case node: BaseType => {
-                first.inputs(0) = node.inputs(0)
-                first.inputs(0).inferredWidth = first.inferredWidth
-                walk(node.inputs(0), first)
+                first.setInput(0) = node.getInput(0)
+                first.getInput(0).inferredWidth = first.inferredWidth
+                walk(node.getInput(0), first)
               }
               case lit: Literal =>
               case _ => throw new Exception("BlackBox generic must be literal")

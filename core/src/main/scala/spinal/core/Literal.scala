@@ -121,7 +121,7 @@ object BitsLiteral {
     } else {
       bitCount = valueBitCount
     }
-    on.inputs(0) = new BitsLiteral(value, bitCount,specifiedBitCount != -1, on)
+    on.setInput(0) = new BitsLiteral(value, bitCount,specifiedBitCount != -1, on)
     on
   }
 }
@@ -160,7 +160,7 @@ class BitsAllToLiteral(val theConsumer : Node,val value: Boolean) extends Litera
 
 object BoolLiteral {
   def apply(value: Boolean, on: Bool): Bool = {
-    on.inputs(0) = new BoolLiteral(value)
+    on.setInput(0) = new BoolLiteral(value)
     on
   }
 }

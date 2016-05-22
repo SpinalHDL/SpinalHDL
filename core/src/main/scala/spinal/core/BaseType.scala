@@ -56,7 +56,7 @@ object BaseType {
         man.inputs += that
       } else {
         val bt = baseType.weakClone
-        bt.inputs(0) = that
+        bt.setInput(0) = that
         man.inputs += bt
       }
     }
@@ -70,13 +70,13 @@ object BaseType {
       } else {
         conditionalAssign match {
           case when: WhenContext => {
-            consumer.inputs(consumerInputId) match {
+            consumer.getInput(consumerInputId) match {
               case nothing@(null | _: NoneNode) => {
                 val whenNode = WhenNode(when)
                 if(consumer.isInstanceOf[AssignementTreePart]){
                   consumer.asInstanceOf[AssignementTreePart].setAssignementContext(consumerInputId,globalData.getThrowable())
                 }
-                consumer.inputs(consumerInputId) = whenNode
+                consumer.setInput(consumerInputId) = whenNode
                 consumer = whenNode
               }
               case man: MultipleAssignmentNode => {
@@ -95,7 +95,7 @@ object BaseType {
                 val whenNode = WhenNode(when)
                 initMan(man, that)
                 man.inputs += whenNode
-                consumer.inputs(consumerInputId) = man
+                consumer.setInput(consumerInputId) = man
                 consumer = whenNode
               }
             }
@@ -104,10 +104,10 @@ object BaseType {
           }
           //TODO switch
           case context: SwitchContext => {
-            consumer.inputs(consumerInputId) match {
+            consumer.getInput(consumerInputId) match {
               case nothing@(null | _: NoneNode) => {
                 val switchNode = new SwitchNode(context)
-                consumer.inputs(consumerInputId) = switchNode
+                consumer.setInput(consumerInputId) = switchNode
                 consumer = switchNode
               }
               case man: MultipleAssignmentNode => {
@@ -126,7 +126,7 @@ object BaseType {
                 val switchNode = new SwitchNode(context)
                 initMan(man, that)
                 man.inputs += switchNode
-                consumer.inputs(consumerInputId) = man
+                consumer.setInput(consumerInputId) = man
                 consumer = switchNode
               }
             }
@@ -156,11 +156,11 @@ object BaseType {
       throw new Exception("Basetype is affected outside his scope")
 
     if (conservative) {
-      consumer.inputs(consumerInputId) match {
+      consumer.getInput(consumerInputId) match {
         case that: NoneNode =>
         case null =>
         case man: MultipleAssignmentNode => {
-          consumer = consumer.inputs(consumerInputId)
+          consumer = consumer.getInput(consumerInputId)
           consumerInputId = consumer.inputs.size;
           consumer.inputs += null
         }
@@ -168,13 +168,13 @@ object BaseType {
           val man = new MultipleAssignmentNode
           initMan(man, that)
           man.inputs += null
-          consumer.inputs(consumerInputId) = man
+          consumer.setInput(consumerInputId) = man
           consumerInputId = 1
           consumer = man
         }
       }
     } else {
-      val overrided = consumer.inputs(consumerInputId)
+      val overrided = consumer.getInput(consumerInputId)
       if (overrided != null && !overrided.isInstanceOf[NoneNode] && !overrided.isInstanceOf[Reg])
         if (consumer.globalData.overridingAssignementWarnings) {
           val exept = new Throwable()
@@ -213,7 +213,7 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
     this
   }
 
-  private[core] def getLiteral[T <: Literal]: T = inputs(0) match {
+  private[core] def getLiteral[T <: Literal]: T = getInput(0) match {
     case lit: Literal => lit.asInstanceOf[T]
     case bt: BaseType => bt.getLiteral[T]
     case _ => null.asInstanceOf[T]
@@ -223,14 +223,14 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
 
   override def getBitsWidth: Int = getWidth
 
-  override def isReg = inputs(0).isInstanceOf[Reg]
-  def getDrivingReg : this.type = inputs(0) match{
+  override def isReg = getInput(0).isInstanceOf[Reg]
+  def getDrivingReg : this.type = getInput(0) match{
     case reg : Reg => this
     case bt : BaseType => bt.getDrivingReg.asInstanceOf[this.type]
     case _ => SpinalError("Driver is not a register")
   }
 
-  def isDelay = inputs(0).isInstanceOf[SyncNode]
+  def isDelay = getInput(0).isInstanceOf[SyncNode]
 
   override def asInput(): this.type = {
     component.ioSet += this
@@ -253,7 +253,7 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
     if (that.isInstanceOf[BaseType] || that.isInstanceOf[AssignementNode] || that.isInstanceOf[DontCareNode]) {
       BaseType.checkAssignability(this,that.asInstanceOf[Node])
       val (consumer, inputId) = BaseType.walkWhenNodes(this, this, 0, conservative)
-      consumer.inputs(inputId) = that.asInstanceOf[Node]
+      consumer.setInput(inputId) = that.asInstanceOf[Node]
     } else {
       throw new Exception("Undefined assignment")
     }
@@ -280,7 +280,7 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
   }
 
   override private[core] def checkInferedWidth: String = {
-    val input = this.inputs(0)
+    val input = this.getInput(0)
     if (input != null && input.component != null && this.getWidth != input.getWidth) {
       return s"Assignment bit count mismatch. ${this} := ${input}} at \n${ScalaLocated.long(getAssignementContext(0))}"
     }
@@ -298,7 +298,7 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
   private[core] def newLogicalOperator(opName: String, right: Node, normalizeInputsImpl: (Node) => Unit, simplifyNodeImpl: (Node) => Unit): Bool = {
     val op = BinaryOperator(opName, this, right, WidthInfer.oneWidth, normalizeInputsImpl, simplifyNodeImpl)
     val typeNode = new Bool
-    typeNode.inputs(0) = op
+    typeNode.setInput(0) = op
     typeNode
   }
 

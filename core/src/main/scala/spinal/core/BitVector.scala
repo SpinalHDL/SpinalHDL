@@ -51,8 +51,8 @@ abstract class BitVector extends BaseType {
 
   private[core] override def calcWidth: Int = {
     if (isFixedWidth) return fixedWidth
-    if (inputs(0) == null) return -1
-    return inputs(0).getWidth
+    if (getInput(0) == null) return -1
+    return getInput(0).getWidth
   }
 
   def asBools: Vec[Bool] = {
@@ -148,7 +148,7 @@ abstract class BitVector extends BaseType {
 
   def setAllTo(value: Boolean) = {
     val litBt = weakClone
-    litBt.inputs(0) = new BitsAllToLiteral(this, value)
+    litBt.setInput(0) = new BitsAllToLiteral(this, value)
     this := litBt
   }
 

@@ -133,13 +133,13 @@ abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends 
 
   def isUsingReset: Boolean
   def setUseReset = {
-    inputs(SyncNode.getClockResetId) = clockDomain.reset
+    setInput(SyncNode.getClockResetId) = clockDomain.reset
   }
   def getClockDomain: ClockDomain = clockDomain
 
-  def getClock: Bool = inputs(SyncNode.getClockInputId).asInstanceOf[Bool]
-  def getClockEnable: Bool = inputs(SyncNode.getClockEnableId).asInstanceOf[Bool]
-  def getReset: Bool = inputs(SyncNode.getClockResetId).asInstanceOf[Bool]
+  def getClock: Bool = getInput(SyncNode.getClockInputId).asInstanceOf[Bool]
+  def getClockEnable: Bool = getInput(SyncNode.getClockEnableId).asInstanceOf[Bool]
+  def getReset: Bool = getInput(SyncNode.getClockResetId).asInstanceOf[Bool]
 }
 
 trait Assignable {

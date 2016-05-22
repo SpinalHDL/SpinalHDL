@@ -97,7 +97,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends Node  with Attrib
     val readPort = new MemReadAsync(this, addressBuffer, readBits, writeToReadKind)
     readPort.compositeTagReady = readWord
 
-    readBits.inputs(0) = readPort
+    readBits.setInput(0) = readPort
     readWord.assignFromBits(readBits)
 
     readWord
@@ -114,7 +114,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends Node  with Attrib
     if (crossClock)
       readPort.addTag(crossClockDomain)
 
-    readBits.inputs(0) = readPort
+    readBits.setInput(0) = readPort
     readWord.assignFromBits(readBits)
 
     readWord
@@ -163,7 +163,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends Node  with Attrib
     val readWord = wordType.clone()
     val readPort = new MemWriteOrRead_readPart(this, addressBuffer, readBits, chipSelect, writeEnable, writeToReadKind, ClockDomain.current)
     readPort.compositeTagReady = readWord
-    readBits.inputs(0) = readPort
+    readBits.setInput(0) = readPort
     readWord.assignFromBits(readBits)
     if (crossClock)
       readPort.addTag(crossClockDomain)
@@ -210,8 +210,8 @@ class MemReadAsync(mem: Mem[_], address: UInt, data: Bits, val writeToReadKind: 
   inputs += mem
 
   def getData = data
-  def getAddress = inputs(0).asInstanceOf[UInt]
-  def getMem = inputs(1).asInstanceOf[Mem[_]]
+  def getAddress = getInput(0).asInstanceOf[UInt]
+  def getMem = getInput(1).asInstanceOf[Mem[_]]
   override def calcWidth: Int = getMem.getWidth
 }
 
@@ -234,9 +234,9 @@ class MemReadSync(mem: Mem[_], val originalAddress: UInt, address: UInt, data: B
 
   def getMem = mem
 
-  def getAddress = inputs(MemReadSync.getAddressId).asInstanceOf[UInt]
+  def getAddress = getInput(MemReadSync.getAddressId).asInstanceOf[UInt]
 
-  def getEnable = inputs(MemReadSync.getEnableId).asInstanceOf[Bool]
+  def getEnable = getInput(MemReadSync.getEnableId).asInstanceOf[Bool]
 
   override def calcWidth: Int = getMem.calcWidth
 
@@ -247,7 +247,7 @@ class MemReadSync(mem: Mem[_], val originalAddress: UInt, address: UInt, data: B
 
   def sameAddressThan(write: MemWrite): Unit = {
     //Used by backed to symplify
-    inputs(MemReadSync.getAddressId) = write.getAddress
+    setInput(MemReadSync.getAddressId) = write.getAddress
   }
 
   //  override def normalizeInputs: Unit = {
@@ -270,23 +270,23 @@ class MemWrite(mem: Mem[_], val originalAddress: UInt, address: UInt, data: Bits
   inputs += (if (mask != null) mask else NoneNode())
   inputs += enable
 
-  override def getSynchronousInputs: ArrayBuffer[Node] = super.getSynchronousInputs ++= getAddress :: getData :: getEnable :: inputs(MemWrite.getMaskId) :: Nil
+  override def getSynchronousInputs: ArrayBuffer[Node] = super.getSynchronousInputs ++= getAddress :: getData :: getEnable :: getInput(MemWrite.getMaskId) :: Nil
 
   override def isUsingReset: Boolean = false
 
   def getMem = mem
-  def getAddress = inputs(MemWrite.getAddressId).asInstanceOf[UInt]
-  def getData = inputs(MemWrite.getDataId).asInstanceOf[Bits]
+  def getAddress = getInput(MemWrite.getAddressId).asInstanceOf[UInt]
+  def getData = getInput(MemWrite.getDataId).asInstanceOf[Bits]
 
   def getMask: Bits = {
-    val maskNode = inputs(MemWrite.getMaskId)
+    val maskNode = getInput(MemWrite.getMaskId)
     if (maskNode.isInstanceOf[Bits])
       maskNode.asInstanceOf[Bits]
     else
       null
   }
 
-  def getEnable = inputs(MemWrite.getEnableId).asInstanceOf[Bool]
+  def getEnable = getInput(MemWrite.getEnableId).asInstanceOf[Bool]
 
   override def calcWidth: Int = getMem.calcWidth
 
@@ -326,10 +326,10 @@ class MemWriteOrRead_writePart(mem: Mem[_], address: UInt, data: Bits, chipSelec
   override def isUsingReset: Boolean = false
 
   def getMem = mem
-  def getAddress = inputs(MemWriteOrRead_writePart.getAddressId).asInstanceOf[UInt]
-  def getData = inputs(MemWriteOrRead_writePart.getDataId).asInstanceOf[Bits]
-  def getChipSelect = inputs(MemWriteOrRead_writePart.getChipSelectId).asInstanceOf[Bool]
-  def getWriteEnable = inputs(MemWriteOrRead_writePart.getWriteEnableId).asInstanceOf[Bool]
+  def getAddress = getInput(MemWriteOrRead_writePart.getAddressId).asInstanceOf[UInt]
+  def getData = getInput(MemWriteOrRead_writePart.getDataId).asInstanceOf[Bits]
+  def getChipSelect = getInput(MemWriteOrRead_writePart.getChipSelectId).asInstanceOf[Bool]
+  def getWriteEnable = getInput(MemWriteOrRead_writePart.getWriteEnableId).asInstanceOf[Bool]
   override def calcWidth: Int = getMem.calcWidth
 
   //  def useWriteEnable: Boolean = {
@@ -363,11 +363,11 @@ class MemWriteOrRead_readPart(mem: Mem[_], address: UInt, data: Bits, chipSelect
 
   def getMem = mem
 
-  def getAddress = inputs(MemWriteOrRead_readPart.getAddressId).asInstanceOf[UInt]
+  def getAddress = getInput(MemWriteOrRead_readPart.getAddressId).asInstanceOf[UInt]
 
-  def getChipSelect = inputs(MemWriteOrRead_readPart.getChipSelectId).asInstanceOf[Bool]
+  def getChipSelect = getInput(MemWriteOrRead_readPart.getChipSelectId).asInstanceOf[Bool]
 
-  def getWriteEnable = inputs(MemWriteOrRead_readPart.getWriteEnableId).asInstanceOf[Bool]
+  def getWriteEnable = getInput(MemWriteOrRead_readPart.getWriteEnableId).asInstanceOf[Bool]
 
   override def calcWidth: Int = getMem.calcWidth
 
@@ -398,10 +398,10 @@ class MemWriteOrRead_readPart(mem: Mem[_], address: UInt, data: Bits, chipSelect
 //  override def isUsingReset: Boolean = false
 //
 //  def getMem = mem
-//  def getAddress = inputs(MemReadOrWrite.getAddressId).asInstanceOf[UInt]
-//  def getWriteData = inputs(MemReadOrWrite.getWriteDataId).asInstanceOf[Bits]
-//  def getEnable = inputs(MemReadOrWrite.getEnableId).asInstanceOf[Bool]
-//  def getWriteOrRead = inputs(MemReadOrWrite.getWriteElseReadId).asInstanceOf[Bool]
+//  def getAddress = getInput(MemReadOrWrite.getAddressId).asInstanceOf[UInt]
+//  def getWriteData = getInput(MemReadOrWrite.getWriteDataId).asInstanceOf[Bits]
+//  def getEnable = getInput(MemReadOrWrite.getEnableId).asInstanceOf[Bool]
+//  def getWriteOrRead = getInput(MemReadOrWrite.getWriteElseReadId).asInstanceOf[Bool]
 //
 //  override def calcWidth: Int = getMem.calcWidth
 //

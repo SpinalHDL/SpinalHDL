@@ -985,7 +985,7 @@ class VhdlBackend extends Backend with VhdlBase {
       def needProcessDef: Boolean = {
         if (!whens.isEmpty || nodes.size > 1) return true
         if (hasMultipleAssignment) {
-          val ma: MultipleAssignmentNode = nodes(0).inputs(0).asInstanceOf[MultipleAssignmentNode]
+          val ma: MultipleAssignmentNode = nodes(0).getInput(0).asInstanceOf[MultipleAssignmentNode]
           val assignedBits = new AssignedBits(nodes(0).getWidth)
           for (input <- ma.inputs) input match {
             case assign: AssignementNode => {
@@ -1019,7 +1019,7 @@ class VhdlBackend extends Backend with VhdlBase {
     for (signal <- asyncSignals) {
       var process: Process = null
       var hasMultipleAssignment = false
-      walk(signal.inputs(0))
+      walk(signal.getInput(0))
       def walk(that: Node): Unit = {
         that match {
           case wn: WhenNode => {
@@ -1092,8 +1092,8 @@ class VhdlBackend extends Backend with VhdlBase {
 
     for (process <- processList if !process.needProcessDef) {
       for (node <- process.nodes) {
-        emitAssignement(node, node.inputs(0), ret, "  ", "<=")
-        //ret ++= s"  ${emitReference(node)} <= ${emitLogic(node.inputs(0))};\n"
+        emitAssignement(node, node.getInput(0), ret, "  ", "<=")
+        //ret ++= s"  ${emitReference(node)} <= ${emitLogic(node.getInput(0))};\n"
       }
     }
 
@@ -1102,7 +1102,7 @@ class VhdlBackend extends Backend with VhdlBase {
 
       val context = new AssignementLevel
       for (node <- process.nodes) {
-        context.walkWhenTree(node, node.inputs(0))
+        context.walkWhenTree(node, node.getInput(0))
       }
 
       if (process.sensitivity.size != 0) {
@@ -1118,7 +1118,7 @@ class VhdlBackend extends Backend with VhdlBase {
           val funcName = "zz_" + emitReference(node)
           funcRet ++= emitFuncDef(funcName, node, context)
           ret ++= s"  ${emitReference(node)} <= ${funcName};\n"
-          //          ret ++= s"  ${emitReference(node)} <= ${emitLogic(node.inputs(0))};\n"
+          //          ret ++= s"  ${emitReference(node)} <= ${emitLogic(node.getInput(0))};\n"
         }
       }
     }
@@ -1139,9 +1139,9 @@ class VhdlBackend extends Backend with VhdlBase {
 
   def operatorImplAsOperator(vhd: String)(op: Modifier): String = {
     op.inputs.size match {
-      case 1 => s"($vhd ${emitLogic(op.inputs(0))})"
+      case 1 => s"($vhd ${emitLogic(op.getInput(0))})"
       case 2 => {
-        val temp = s"(${emitLogic(op.inputs(0))} $vhd ${emitLogic(op.inputs(1))})"
+        val temp = s"(${emitLogic(op.getInput(0))} $vhd ${emitLogic(op.getInput(1))})"
         if (opThatNeedBoolCast.contains(op.opName))
           return s"pkg_toStdLogic$temp"
         else
@@ -1156,9 +1156,9 @@ class VhdlBackend extends Backend with VhdlBase {
 
   //TODO should be move to operatorImplAsFunction in long therm
   def resizeFunction(func: Modifier): String = {
-    func.inputs(0).getWidth match{
+    func.getInput(0).getWidth match{
       case 0 => {
-        func.inputs(0) match {
+        func.getInput(0) match {
           case lit: BitsLiteral => {
             val bitString =  '"' + "0" * func.getWidth + '"'
             lit.kind match {
@@ -1176,13 +1176,13 @@ class VhdlBackend extends Backend with VhdlBase {
 
 
   def enumEgualsImpl(eguals: Boolean)(op: Modifier): String = {
-    val (enumDef, encoding) = op.inputs(0) match {
+    val (enumDef, encoding) = op.getInput(0) match {
       case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.encoding)
       case literal: EnumLiteral[_] => (literal.enum.parent, literal.encoding)
     }
     encoding match {
-      case `oneHot` => s"pkg_toStdLogic((${emitLogic(op.inputs(0))} and ${emitLogic(op.inputs(1))}) ${if (eguals) "/=" else "="} ${'"' + "0" * op.inputs(0).getWidth + '"'})"
-      case _ => s"pkg_toStdLogic(${emitLogic(op.inputs(0))} ${if (eguals) "=" else "/="} ${emitLogic(op.inputs(1))})"
+      case `oneHot` => s"pkg_toStdLogic((${emitLogic(op.getInput(0))} and ${emitLogic(op.getInput(1))}) ${if (eguals) "/=" else "="} ${'"' + "0" * op.getInput(0).getWidth + '"'})"
+      case _ => s"pkg_toStdLogic(${emitLogic(op.getInput(0))} ${if (eguals) "=" else "/="} ${emitLogic(op.getInput(1))})"
     }
   }
 
@@ -1192,26 +1192,26 @@ class VhdlBackend extends Backend with VhdlBase {
       case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.encoding)
     }
     if (!encoding.isNative) {
-      emitLogic(func.inputs(0))
+      emitLogic(func.getInput(0))
     } else {
-      s"pkg_to${enumDef.getName()}_${encoding.getName()}(${(emitLogic(func.inputs(0)))})"
+      s"pkg_to${enumDef.getName()}_${encoding.getName()}(${(emitLogic(func.getInput(0)))})"
     }
   }
 
   def operatorImplAsEnumToBits(func: Modifier): String = {
-    val (enumDef, encoding) = func.inputs(0) match {
+    val (enumDef, encoding) = func.getInput(0) match {
       case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.encoding)
       case literal: EnumLiteral[_] => (literal.enum.parent, literal.encoding)
     }
     if (!encoding.isNative) {
-      emitLogic(func.inputs(0))
+      emitLogic(func.getInput(0))
     } else {
-      s"pkg_toStdLogicVector_${encoding.getName()}(${(emitLogic(func.inputs(0)))})"
+      s"pkg_toStdLogicVector_${encoding.getName()}(${(emitLogic(func.getInput(0)))})"
     }
   }
 
   def operatorImplAsEnumToEnum(func: Modifier): String = {
-    val (enumDefSrc, encodingSrc) = func.inputs(0) match {
+    val (enumDefSrc, encodingSrc) = func.getInput(0) match {
       case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.encoding)
       case literal: EnumLiteral[_] => (literal.enum.parent, literal.encoding)
     }
@@ -1220,9 +1220,9 @@ class VhdlBackend extends Backend with VhdlBase {
       case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.encoding)
     }
     if (encodingDst.isNative && encodingSrc.isNative)
-      emitLogic(func.inputs(0))
+      emitLogic(func.getInput(0))
     else {
-      val encoding = enumCast.inputs(0) match {
+      val encoding = enumCast.getInput(0) match {
         case input: SpinalEnumCraft[_] => input.encoding
         case input: EnumLiteral[_] => input.encoding
       }
@@ -1828,7 +1828,7 @@ class VhdlBackend extends Backend with VhdlBase {
 
           for ((name, e) <- genericFlat) {
             e match {
-              case baseType: BaseType => ret ++= addULogicCast(baseType, emitReference(baseType), emitLogic(baseType.inputs(0)), in)
+              case baseType: BaseType => ret ++= addULogicCast(baseType, emitReference(baseType), emitLogic(baseType.getInput(0)), in)
               case s: String => ret ++= s"      ${name} => ${"\""}${s}${"\""},\n"
               case i: Int => ret ++= s"      ${name} => $i,\n"
               case d: Double => ret ++= s"      ${name} => $d,\n"
@@ -1852,7 +1852,7 @@ class VhdlBackend extends Backend with VhdlBase {
           }
         }
         else if (data.isInput)
-          ret ++= addULogicCast(data, emitReference(data), emitReference(data.inputs(0)), data.dir)
+          ret ++= addULogicCast(data, emitReference(data), emitReference(data.getInput(0)), data.dir)
       }
       ret.setCharAt(ret.size - 2, ' ')
 

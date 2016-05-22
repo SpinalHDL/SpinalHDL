@@ -129,7 +129,7 @@ class SpinalEnumElement[T <: SpinalEnum](val parent: T, val position: Int) exten
   def apply() : SpinalEnumCraft[T] = craft()
   def craft(): SpinalEnumCraft[T] = {
     val ret = parent.craft().asInstanceOf[SpinalEnumCraft[T]]
-    ret.inputs(0) = new EnumLiteral(this,this.parent.defaultEncoding)
+    ret.setInput(0) = new EnumLiteral(this,this.parent.defaultEncoding)
     ret
   }
 
