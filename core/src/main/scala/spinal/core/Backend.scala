@@ -556,7 +556,7 @@ class Backend {
           }
         }
         case _ => {
-          for ((in,idx) <- node.inputs.zipWithIndex) {
+          node.onEachInput((in,idx) => {
             if (in == null) {
               errors += s"No driver on ${node.getScalaLocationLong}"
             } else {
@@ -568,7 +568,7 @@ class Backend {
                 errors += s"Node is driven outside his component \n${ScalaLocated.long(throwable)}"
               }
             }
-          }
+          })
         }
       }
     })
@@ -605,7 +605,7 @@ class Backend {
 
   def addInOutBinding(): Unit = {
     Node.walk(walkNodesDefautStack,(node,push) => {
-      //Create inputs bindings, usefull if the node is driven by when statments
+      //Create inputss bindings, usefull if the node is driven by when statments
       if (node.isInstanceOf[BaseType] && node.component.parent != null) {
         val baseType = node.asInstanceOf[BaseType]
         if (baseType.isInput) {
@@ -696,7 +696,7 @@ class Backend {
             val consumer = node.consumers(0)
             val input = node.getInput(0)
             if (!node.isDelay || consumer.isInstanceOf[BaseType]) {
-              // don't allow to put a non base type on component inputs
+              // don't allow to put a non base type on component inputss
               if (input.isInstanceOf[BaseType] || !consumer.isInstanceOf[BaseType] || !consumer.asInstanceOf[BaseType].isInput) {
                 //don't allow to jump from kind to kind
                 val isKindOutputBinding = node.component.kindsOutputsBindings.contains(node)
@@ -745,9 +745,9 @@ class Backend {
 
   def fillNodeConsumer(): Unit = {
     Node.walk(walkNodesDefautStack,(node)=>{
-      for(input <- node.inputs){
+      node.onEachInput(input => {
         if (input != null) input.consumers += node
-      }
+      })
     })
   }
 
@@ -1128,7 +1128,7 @@ class Backend {
               def walkBaseType(node: Node): Unit = {
                 if (node != null) {
                   node match {
-                    case node: MultipleAssignmentNode => for (input <- node.inputs) walkBaseType(input)
+                    case node: MultipleAssignmentNode => node.onEachInput(input => walkBaseType(input))
                     case node: WhenNode => {
                       walk(consumersPlusFull,newStack, node.cond, 0, 0) //Todo, to pessimistic !
                       walkBaseType(node.whenTrue)
