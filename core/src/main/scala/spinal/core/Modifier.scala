@@ -110,7 +110,7 @@ class Cast(opName: String, widthImpl: (Node) => Int = WidthInfer.inputMaxWidth) 
 
 class EnumCast(val enum: SpinalEnumCraft[_], opName: String, widthImpl: (Node) => Int = WidthInfer.inputMaxWidth) extends Modifier(opName, widthImpl) {
   override def normalizeInputs: Unit = {
-//    Misc.normalizeResize(this, 0, this.getWidth)
+    //    Misc.normalizeResize(this, 0, this.getWidth)
   }
 }
 
@@ -170,11 +170,11 @@ object SpinalMap {
       for ((cond, value) <- mappings) {
         cond match {
           case product : Product => {
-          //  for(cond <- product.productIterator){
-              is.list(product.productIterator) {
-                result := value
-              }
-         //   }
+            //  for(cond <- product.productIterator){
+            is.list(product.productIterator) {
+              result := value
+            }
+            //   }
           }
           case _ => {
             is(cond) {
@@ -583,7 +583,8 @@ class AssignedBits(val width : Int) {
   }
   def isEmpty = value.foldLeft(true)((c,e) => c && (e == 0))
 }
-trait AssignementNode extends NodeWithInputsImpl {
+
+abstract class AssignementNode extends Node {
   def getAssignedBits: AssignedRange //Bit that are allwas assigned
   def getScopeBits: AssignedRange //Bit tht could be assigned
   def getOutBaseType: BaseType
