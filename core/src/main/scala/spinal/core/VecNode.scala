@@ -8,7 +8,7 @@ package spinal.core
 
 class VecBaseType[T <: BaseType](val baseType : T,val dims : IndexedSeq[Int]) extends BaseType{
 
-  //override private[core] def calcWidth: Int = WidthInfer.inputMaxWidth(this)*inputs.length
+  //override private[core] def calcWidth: Int = WidthInfer.inputMaxWidth(this)*getInputsCount
   override private[core] def calcWidth: Int = elementWidth*dims.reduce(_*_)
   def elementWidth = baseType.calcWidth
 

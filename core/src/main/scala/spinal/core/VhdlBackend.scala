@@ -1138,7 +1138,7 @@ class VhdlBackend extends Backend with VhdlBase {
   }
 
   def operatorImplAsOperator(vhd: String)(op: Modifier): String = {
-    op.inputs.size match {
+    op.getInputsCount match {
       case 1 => s"($vhd ${emitLogic(op.getInput(0))})"
       case 2 => {
         val temp = s"(${emitLogic(op.getInput(0))} $vhd ${emitLogic(op.getInput(1))})"

@@ -161,7 +161,7 @@ object BaseType {
         case null =>
         case man: MultipleAssignmentNode => {
           consumer = consumer.getInput(consumerInputId)
-          consumerInputId = consumer.inputs.size;
+          consumerInputId = consumer.getInputsCount;
           consumer.inputs += null
         }
         case that => {

@@ -25,7 +25,7 @@ import scala.collection.mutable.ArrayBuffer
 object SymplifyNode {
   def replaceNode(it: Node, by: Node): Unit = {
     for (consumer <- it.consumers) {
-      for (i <- 0 until consumer.inputs.size) {
+      for (i <- 0 until consumer.getInputsCount) {
         if (consumer.getInput(i) == it) {
           consumer.setInput(i) = by
           by.consumers += consumer
@@ -309,13 +309,13 @@ object InputNormalize {
 
   def nodeWidth(node: Node): Unit = {
     val targetWidth = node.getWidth
-    for (i <- 0 until node.inputs.size)
+    for (i <- 0 until node.getInputsCount)
       Misc.normalizeResize(node, i, targetWidth)
   }
 
   def inputWidthMax(node: Node): Unit = {
     val targetWidth = Math.max(node.getInput(0).getWidth, node.getInput(1).getWidth)
-    for (i <- 0 until node.inputs.size)
+    for (i <- 0 until node.getInputsCount)
       Misc.normalizeResize(node, i, targetWidth)
   }
 }
@@ -394,6 +394,7 @@ abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady wi
   val consumers = new ArrayBuffer[Node](4)
   val inputs = new ArrayBuffer[Node](3)
 
+  def getInputsCount = inputs.length
   def getInput(id : Int) : Node = inputs(id)
   def setInput(id : Int,node : Node) : Unit = inputs(id) = node
   //TODO remove me
@@ -403,7 +404,7 @@ abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady wi
   }
 
   def onEachInput(doThat : (Node,Int) => Unit) : Unit = {
-    var idx = inputs.length
+    var idx = getInputsCount
     while(idx != 0){
       idx -= 1
       doThat(getInput(idx),idx)
@@ -411,7 +412,7 @@ abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady wi
   }
 
   def onEachInput(doThat : (Node) => Unit) : Unit = {
-    var idx = inputs.length
+    var idx = getInputsCount
     while(idx != 0){
       idx -= 1
       doThat(getInput(idx))

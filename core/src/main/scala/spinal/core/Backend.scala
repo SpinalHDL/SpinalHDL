@@ -100,7 +100,7 @@ class Backend {
   //TODO switch case nodes in replacement of when emulation
   //TODO Union support
   //TODO better Mem support (user specifyed blackbox)
-  //TODO Mux node with n inputs instead of fixed 2
+  //TODO Mux node with n inputss instead of fixed 2
   //TODO non bundle that should be bundle into a bundle should be warned
   protected def elaborate[T <: Component](topLevel: T): BackendReport[T] = {
     SpinalInfoPhase("Start analysis and transform")
@@ -483,7 +483,7 @@ class Backend {
   // Clone is to weak, loses tag and don't symplify :(
   def allowLiteralToCrossHierarchy(): Unit = {
     Node.walk(walkNodesDefautStack,consumer => {
-      for (consumerInputId <- 0 until consumer.inputs.size) {
+      for (consumerInputId <- 0 until consumer.getInputsCount) {
         val consumerInput = consumer.getInput(consumerInputId)
         consumerInput match {
           case litBaseType: BaseType if litBaseType.getInput(0).isInstanceOf[Literal] => {
@@ -622,7 +622,7 @@ class Backend {
       node.onEachInput(push(_))
 
       //Create outputs bindings
-      for (i <- 0 until node.inputs.size) {
+      for (i <- 0 until node.getInputsCount) {
         val nodeInput = node.getInput(i)
         nodeInput match {
           case nodeInput: BaseType => {
@@ -906,7 +906,7 @@ class Backend {
   def allowNodesToReadOutputs(): Unit = {
     val outputsBuffers = mutable.Map[BaseType, BaseType]()
     Node.walk(walkNodesDefautStack,node => {
-      for (i <- 0 until node.inputs.size) {
+      for (i <- 0 until node.getInputsCount) {
         node.getInput(i) match {
           case baseTypeInput: BaseType => {
             if (baseTypeInput.isOutput && baseTypeInput.component.parent != node.component) {
@@ -928,7 +928,7 @@ class Backend {
 
   def allowNodesToReadInputOfKindComponent() = {
     Node.walk(walkNodesDefautStack,node => {
-      for (i <- 0 until node.inputs.size) {
+      for (i <- 0 until node.getInputsCount) {
         val input = node.getInput(i)
         input match {
           case baseTypeInput: BaseType => {
@@ -963,7 +963,7 @@ class Backend {
           def walk(parent: Node,inputId : Int): Unit = {
             val that = parent.getInput(inputId)
             def walkChildren() : Unit = {
-              var i = that.inputs.length
+              var i = that.getInputsCount
               while(i != 0){
                 i -= 1
                 walk(that,i)
@@ -1136,7 +1136,7 @@ class Backend {
                     }
                     case node: AssignementNode => {
                       val newConsumers = consumers + (baseType -> bitsAlreadyUsed.+(node.getScopeBits))
-                      var idx = node.inputs.length
+                      var idx = node.getInputsCount
                       while (idx != 0) {
                         idx -= 1
                         val input = node.getInput(idx)
@@ -1155,7 +1155,7 @@ class Backend {
             }
             case _ => {
               val newConsumers = consumers + (node -> bitsAlreadyUsed.+(AssignedRange(outHi, outLo)))
-              var idx = node.inputs.length
+              var idx = node.getInputsCount
               while (idx != 0) {
                 idx -= 1
                 val input = node.getInput(idx)
