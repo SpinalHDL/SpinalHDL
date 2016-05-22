@@ -73,7 +73,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider {
   def |(that: UInt): UInt = newBinaryOperator("u|u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,SymplifyNode.binaryTakeOther);
   def &(that: UInt): UInt = newBinaryOperator("u&u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,SymplifyNode.binaryInductZeroWithOtherWidth(U.apply));
   def ^(that: UInt): UInt = newBinaryOperator("u^u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,SymplifyNode.binaryTakeOther);
-  def unary_~(): UInt = newUnaryOperator("~u",WidthInfer.inputMaxWidth,SymplifyNode.unaryZero);
+  def unary_~(): UInt = newUnaryOperator(new OperatorUIntNot);
 
   override def <(that: UInt): Bool = newLogicalOperator("u<u", that, InputNormalize.inputWidthMax,SymplifyNode.binaryUIntSmaller);
   override def >(that: UInt): Bool = that < this
@@ -127,7 +127,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider {
   def apply(offset: Int, bitCount: BitCount): this.type  = newExtract(offset+bitCount.value-1,offset,new ExtractBitsVectorFixedFromUInt)
   def apply(offset: UInt, bitCount: BitCount): this.type = newExtract(offset,bitCount.value,new ExtractBitsVectorFloatingFromUInt)
 
-
+  override private[core] def weakClone: this.type = new UInt().asInstanceOf[this.type]
   override def getZero: this.type = U(0).asInstanceOf[this.type]
 }
 

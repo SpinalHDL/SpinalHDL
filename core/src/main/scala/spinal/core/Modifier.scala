@@ -53,13 +53,6 @@ class ResizeSInt extends Resize{
 }
 
 
-object Function {
-  def apply(opName: String, args: List[Node], widthImpl: (Node) => Int = WidthInfer.inputMaxWidth,simplifyNodeImpl : (Node) => Unit): Modifier = {
-    val op = new FunctionImpl(opName, widthImpl,simplifyNodeImpl)
-    op.inputs ++= args
-    op
-  }
-}
 
 object UnaryOperator {
   def apply(opName: String, right: Node, widthImpl: (Node) => Int, normalizeInputsImpl: (Node) => Unit,simplifyNodeImpl : (Node) => Unit): Modifier = {
@@ -85,6 +78,79 @@ class Operator(opName: String, widthImpl: (Node) => Int, val normalizeInputsImpl
 
   override def simplifyNode: Unit = {
     simplifyNodeImpl(this)
+  }
+}
+
+class UnaryOperator extends Operator(null,null,null,null){
+  var input : Node = null
+  override def onEachInput(doThat: (Node, Int) => Unit): Unit = doThat(input,0)
+  override def onEachInput(doThat: (Node) => Unit): Unit = doThat(input)
+  override def setInput(id: Int, node: Node): Unit = {assert(id == 0); this.input = node}
+  override def getInputsCount: Int = 1
+  override def getInputs: Iterator[Node] = Iterator(input)
+  override def getInput(id: Int): Node = {assert(id == 0); input}
+}
+
+class OperatorBoolNot extends UnaryOperator{
+  override def opName: String = "!"
+  override def calcWidth(): Int = input.getWidth
+  override def normalizeInputs: Unit = {}
+  override def simplifyNode: Unit = {}
+}
+
+class OperatorBitsNot extends UnaryOperator{
+  override def opName: String = "~b"
+  override def calcWidth(): Int = input.getWidth
+  override def normalizeInputs: Unit = {}
+  override def simplifyNode: Unit = {SymplifyNode.unaryZero(this)}
+}
+
+class OperatorUIntNot extends UnaryOperator{
+  override def opName: String = "~u"
+  override def calcWidth(): Int = input.getWidth
+  override def normalizeInputs: Unit = {}
+  override def simplifyNode: Unit = {SymplifyNode.unaryZero(this)}
+}
+
+class OperatorSIntNot extends UnaryOperator{
+  override def opName: String = "~s"
+  override def calcWidth(): Int = input.getWidth
+  override def normalizeInputs: Unit = {}
+  override def simplifyNode: Unit = {SymplifyNode.unaryZero(this)}
+}
+
+class OperatorSIntMinus extends UnaryOperator{
+  override def opName: String = "-s"
+  override def calcWidth(): Int = input.getWidth
+  override def normalizeInputs: Unit = {}
+  override def simplifyNode: Unit = {SymplifyNode.unaryZero(this)}
+}
+
+
+
+
+class BinaryOperator extends Operator(null,null,null,null){
+  var left,right  : Node = null
+
+  override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
+    doThat(left,0)
+    doThat(right,1)
+  }
+  override def onEachInput(doThat: (Node) => Unit): Unit = {
+    doThat(left)
+    doThat(right)
+  }
+
+  override def setInput(id: Int, node: Node): Unit = id match{
+    case 0 => left = node
+    case 1 => right = node
+  }
+
+  override def getInputsCount: Int = 2
+  override def getInputs: Iterator[Node] = Iterator(left,right)
+  override def getInput(id: Int): Node = id match{
+    case 0 => left
+    case 1 => right
   }
 }
 
@@ -116,32 +182,6 @@ abstract class ModifierImpl(opName: String, widthImpl: (Node) => Int) extends Mo
   }
 }
 
-//TODO remove me
-class FunctionImpl(opName: String, widthImpl: (Node) => Int,simplifyNodeImpl : (Node) => Unit) extends Function(opName, widthImpl,simplifyNodeImpl) {
-  val inputs = new ArrayBuffer[Node](3)
-
-  override def getInputsCount = inputs.length
-  override def getInput(id : Int) : Node = inputs(id)
-  override def setInput(id : Int,node : Node) : Unit = inputs(id) = node
-
-  override def getInputs : Iterator[Node] = inputs.iterator
-
-  override def onEachInput(doThat : (Node,Int) => Unit) : Unit = {
-    var idx = getInputsCount
-    while(idx != 0){
-      idx -= 1
-      doThat(getInput(idx),idx)
-    }
-  }
-
-  override def onEachInput(doThat : (Node) => Unit) : Unit = {
-    var idx = getInputsCount
-    while(idx != 0){
-      idx -= 1
-      doThat(getInput(idx))
-    }
-  }
-}
 
 abstract class Modifier(opName_ : String, widthImpl: (Node) => Int) extends Node {
   override def calcWidth(): Int = {

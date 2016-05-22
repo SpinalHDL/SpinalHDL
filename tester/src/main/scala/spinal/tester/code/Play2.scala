@@ -185,13 +185,13 @@ object PlayPerf {
       def onEachInput(doThat : (Int,Int) => Unit) : Unit
     }
 
-    class Function(a : Int,b : Int) extends NodeAbstract{
+    class FuncCtion(a : Int,b : Int) extends NodeAbstract{
       override def onEachInput(doThat: (Int, Int) => Unit): Unit = {
         doThat(a,0)
         doThat(b,1)
       }
     }
-    class Operator(a : Int,b : Int) extends NodeAbstract{
+    class OperRator(a : Int,b : Int) extends NodeAbstract{
       override def onEachInput(doThat: (Int, Int) => Unit): Unit = {
         doThat(a,0)
         doThat(b,1)
@@ -199,7 +199,7 @@ object PlayPerf {
     }
 
     val arrayNodeArrayBuffer = Array.tabulate(1000*1000)(i => new NodeArrayBuffer(ArrayBuffer(i*2,i*3)))
-    val arrayNodeAbstract = Array.tabulate(1000*1000)(i => if(i % 2 == 0) new Function(i*2,i*3) else new Operator(i*2,i*3))
+    val arrayNodeAbstract = Array.tabulate(1000*1000)(i => if(i % 2 == 0) new FuncCtion(i*2,i*3) else new OperRator(i*2,i*3))
 
     timeOf({
       sum = 0
@@ -247,6 +247,30 @@ object PlayPerf {
       }
       total += sum
     },"while NodeAbstract")
+
+    class Toto{
+      var i = 5
+    }
+    val toto = new Toto
+    timeOf({
+      sum = 0
+      var idx = arrayNodeAbstract.length
+      while(idx != 0){
+        idx -= 1
+        new Toto
+      }
+      total += sum
+    },"while new")
+
+    timeOf({
+      sum = 0
+      var idx = arrayNodeAbstract.length
+      while(idx != 0){
+        idx -= 1
+        toto.getClass().newInstance()
+      }
+      total += sum
+    },"while new")
 
 
     println(total)

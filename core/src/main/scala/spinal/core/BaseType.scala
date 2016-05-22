@@ -313,20 +313,9 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
     typeNode
   }
 
-  //def newUnaryOperator(opName: String, simplifyNodeImpl: (Node) => Unit = ZeroWidth.none): this.type = newUnaryOperator(opName, WidthInfer.inputMaxWidth, simplifyNodeImpl)
-
-  private[core] def newUnaryOperator(opName: String, getWidthImpl: (Node) => Int = WidthInfer.inputMaxWidth, simplifyNodeImpl: (Node) => Unit): this.type = {
-    val op = UnaryOperator(opName, this, getWidthImpl, InputNormalize.none, simplifyNodeImpl)
-    val typeNode = addTypeNodeFrom(op)
-    typeNode
-  }
 
 
-  private[core] def newFunction(opName: String, args: List[Node], getWidthImpl: (Node) => Int = WidthInfer.inputMaxWidth, simplifyNodeImpl: (Node) => Unit): this.type = {
-    val op = Function(opName, args, getWidthImpl, simplifyNodeImpl)
-    val typeNode = addTypeNodeFrom(op)
-    typeNode
-  }
+
   //Remove all of them
 
 
@@ -342,10 +331,16 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
     result
   }
 
+  private[core] def newUnaryOperator(op : UnaryOperator): this.type = {
+    op.input = this
+    addTypeNodeFrom(op)
+  }
+
+
   override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = (outHi, outLo)
 
   //Create a new instance of the same datatype without any configuration (width, direction)
-  private[core] def weakClone: this.type = this.getClass.newInstance().asInstanceOf[this.type]
+  private[core] def weakClone: this.type
 
   override def toString(): String = s"${component.getPath() + "/" + this.getDisplayName()} : ${getClassIdentifier}"
 

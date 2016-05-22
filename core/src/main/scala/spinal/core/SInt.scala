@@ -54,8 +54,8 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider {
   def |(that: SInt): SInt = newBinaryOperator("s|s", that, WidthInfer.inputMaxWidth,InputNormalize.nodeWidth,SymplifyNode.binaryTakeOther);
   def &(that: SInt): SInt = newBinaryOperator("s&s", that, WidthInfer.inputMaxWidth,InputNormalize.nodeWidth,SymplifyNode.binaryInductZeroWithOtherWidth(S.apply));
   def ^(that: SInt): SInt = newBinaryOperator("s^s", that, WidthInfer.inputMaxWidth,InputNormalize.nodeWidth,SymplifyNode.binaryTakeOther);
-  def unary_~(): SInt = newUnaryOperator("~s",WidthInfer.inputMaxWidth,SymplifyNode.unaryZero);
-  def unary_-(): SInt = newUnaryOperator("-s",WidthInfer.inputMaxWidth,SymplifyNode.unaryZero);
+  def unary_~(): SInt = newUnaryOperator(new OperatorSIntNot);
+  def unary_-(): SInt = newUnaryOperator(new OperatorSIntMinus);
 
 
   override def <(that: SInt): Bool = newLogicalOperator("s<s", that,InputNormalize.inputWidthMax,SymplifyNode.binarySIntSmaller);
@@ -109,6 +109,6 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider {
   def apply(offset: Int, bitCount: BitCount): this.type  = newExtract(offset+bitCount.value-1,offset,new ExtractBitsVectorFixedFromSInt)
   def apply(offset: UInt, bitCount: BitCount): this.type = newExtract(offset,bitCount.value,new ExtractBitsVectorFloatingFromSInt)
 
-
+  override private[core] def weakClone: this.type = new SInt().asInstanceOf[this.type]
   override def getZero: this.type = S(0).asInstanceOf[this.type]
 }

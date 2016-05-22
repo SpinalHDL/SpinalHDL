@@ -36,7 +36,7 @@ class Bool extends BaseType {
   def ^(b: Bool): Bool = newLogicalOperator("B^B", b, InputNormalize.none, SymplifyNode.none)
   def &&(b: Bool): Bool = newLogicalOperator("&&", b, InputNormalize.none, SymplifyNode.none)
   def ||(b: Bool): Bool = newLogicalOperator("||", b, InputNormalize.none, SymplifyNode.none)
-  def unary_!(): Bool = newUnaryOperator("!", WidthInfer.inputMaxWidth, SymplifyNode.none)
+  def unary_!(): Bool = newUnaryOperator(new OperatorBoolNot)
   def &(b: Bool): Bool = this && b
   def |(b: Bool): Bool = this || b
   def set() = this := True
@@ -96,6 +96,9 @@ class Bool extends BaseType {
 
   def asBits(bitCount: BitCount): Bits = asBits.resize(bitCount.value)
 
+
+  //Create a new instance of the same datatype without any configuration (width, direction)
+  override private[core] def weakClone: this.type = new Bool().asInstanceOf[this.type]
 
   override def getZero: this.type = False.asInstanceOf[this.type]
 }

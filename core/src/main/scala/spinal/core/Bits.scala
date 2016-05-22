@@ -47,7 +47,7 @@ class Bits extends BitVector {
   def |(that: Bits): Bits = newBinaryOperator("b|b", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth, SymplifyNode.binaryTakeOther)
   def &(that: Bits): Bits = newBinaryOperator("b&b", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth, SymplifyNode.binaryInductZeroWithOtherWidth(B.apply))
   def ^(that: Bits): Bits = newBinaryOperator("b^b", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth, SymplifyNode.binaryTakeOther)
-  def unary_~(): Bits = newUnaryOperator("~b", WidthInfer.inputMaxWidth, SymplifyNode.unaryZero)
+  def unary_~(): Bits = newUnaryOperator(new OperatorBitsNot)
   def >>(that: Int): Bits = newBinaryOperator("b>>i", IntLiteral(that), WidthInfer.shiftRightWidth, InputNormalize.none, SymplifyNode.shiftRightImpl)
   def <<(that: Int): Bits = newBinaryOperator("b<<i", IntLiteral(that), WidthInfer.shiftLeftWidth, InputNormalize.none, SymplifyNode.shiftLeftImpl(B.apply))
   def >>(that: UInt): Bits = newBinaryOperator("b>>u", that, WidthInfer.shiftRightWidth, InputNormalize.none, SymplifyNode.shiftRightImpl)
@@ -105,6 +105,6 @@ class Bits extends BitVector {
   def apply(offset: Int, bitCount: BitCount): this.type  = newExtract(offset+bitCount.value-1,offset,new ExtractBitsVectorFixedFromBits)
   def apply(offset: UInt, bitCount: BitCount): this.type = newExtract(offset,bitCount.value,new ExtractBitsVectorFloatingFromBits)
 
-
+  override private[core] def weakClone: this.type = new Bits().asInstanceOf[this.type]
   override def getZero: this.type = B(0).asInstanceOf[this.type]
 }
