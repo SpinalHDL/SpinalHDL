@@ -593,7 +593,22 @@ trait AssignementNode extends NodeWithInputsImpl {
 
 
 class BitAssignmentFixed(out: BitVector, in: Node, bitId: Int) extends AssignementNode {
-  inputs += in
+  var input : Node = in
+
+  override def onEachInput(doThat: (Node, Int) => Unit): Unit = doThat(input,0)
+  override def onEachInput(doThat: (Node) => Unit): Unit = doThat(input)
+
+  override def setInput(id: Int, node: Node): Unit = {
+    assert(id == 0)
+    this.input = node
+  }
+  override def getInputsCount: Int = 1
+  override def getInputs: Iterator[Node] = Iterator(input)
+  override def getInput(id: Int): Node = {
+    assert(id == 0)
+    input
+  }
+
 
   def getInput : Node = getInput(0)
   def getBitId = bitId
@@ -623,7 +638,21 @@ class BitAssignmentFixed(out: BitVector, in: Node, bitId: Int) extends Assigneme
 
 
 class RangedAssignmentFixed(out: BitVector, in: Node, hi: Int, lo: Int) extends AssignementNode {
-  inputs += in
+  var input : Node = in
+
+  override def onEachInput(doThat: (Node, Int) => Unit): Unit = doThat(input,0)
+  override def onEachInput(doThat: (Node) => Unit): Unit = doThat(input)
+
+  override def setInput(id: Int, node: Node): Unit = {
+    assert(id == 0)
+    this.input = node
+  }
+  override def getInputsCount: Int = 1
+  override def getInputs: Iterator[Node] = Iterator(input)
+  override def getInput(id: Int): Node = {
+    assert(id == 0)
+    input
+  }
 
   def getInput : Node = getInput(0)
   def getHi = hi
@@ -667,9 +696,31 @@ class RangedAssignmentFixed(out: BitVector, in: Node, hi: Int, lo: Int) extends 
 }
 
 
-class BitAssignmentFloating(out: BitVector, in: Node, bitId: UInt) extends AssignementNode {
-  inputs += in
-  inputs += bitId
+class BitAssignmentFloating(out: BitVector, in_ : Node, bitId_ : Node) extends AssignementNode {
+  var input  : Node = in_
+  var bitId  : Node = bitId_
+
+  override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
+    doThat(input,0)
+    doThat(bitId,1)
+  }
+  override def onEachInput(doThat: (Node) => Unit): Unit = {
+    doThat(input)
+    doThat(bitId)
+  }
+
+  override def setInput(id: Int, node: Node): Unit = id match{
+    case 0 => input = node
+    case 1 => bitId = node
+  }
+
+  override def getInputsCount: Int = 2
+  override def getInputs: Iterator[Node] = Iterator(input,bitId)
+  override def getInput(id: Int): Node = id match{
+    case 0 => input
+    case 1 => bitId
+  }
+
 
   def getInput  : Node = getInput(0)
   def getBitId  : Node = getInput(1)
@@ -692,18 +743,40 @@ class BitAssignmentFloating(out: BitVector, in: Node, bitId: UInt) extends Assig
         (-1,0)
   }
   def getOutBaseType: BaseType = out
-  override def clone(out: Node): this.type = new BitAssignmentFloating(out.asInstanceOf[BitVector],in,bitId).asInstanceOf[this.type]
+  override def clone(out: Node): this.type = new BitAssignmentFloating(out.asInstanceOf[BitVector],in_,bitId_).asInstanceOf[this.type]
 }
 
-class RangedAssignmentFloating(out: BitVector, in: Node, offset: UInt, bitCount: BitCount) extends AssignementNode {
-  inputs += in
-  inputs += offset
+class RangedAssignmentFloating(out: BitVector, in_ : Node, offset_ : Node, bitCount: BitCount) extends AssignementNode {
+  var input  : Node = in_
+  var offset  : Node = offset_
+
+  override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
+    doThat(input,0)
+    doThat(offset,1)
+  }
+  override def onEachInput(doThat: (Node) => Unit): Unit = {
+    doThat(input)
+    doThat(offset)
+  }
+
+  override def setInput(id: Int, node: Node): Unit = id match{
+    case 0 => input = node
+    case 1 => offset = node
+  }
+
+  override def getInputsCount: Int = 2
+  override def getInputs: Iterator[Node] = Iterator(input,offset)
+  override def getInput(id: Int): Node = id match{
+    case 0 => input
+    case 1 => offset
+  }
+
 
   def getInput : Node = getInput(0)
   def getOffset = getInput(1)
   def getBitCount = bitCount
 
-  override def calcWidth: Int = 1 << Math.min(20,offset.getWidth) + bitCount.value
+  override def calcWidth: Int = 1 << Math.min(20,offset_.getWidth) + bitCount.value
 
 
 
@@ -723,10 +796,10 @@ class RangedAssignmentFloating(out: BitVector, in: Node, offset: UInt, bitCount:
 
 
   def getAssignedBits: AssignedRange = AssignedRange()
-  def getScopeBits: AssignedRange = AssignedRange(Math.min(out.getWidth-1,(1 << Math.min(20,offset.getWidth))+ bitCount.value - 1), 0)
+  def getScopeBits: AssignedRange = AssignedRange(Math.min(out.getWidth-1,(1 << Math.min(20,offset_.getWidth))+ bitCount.value - 1), 0) //TODO dirty offset_
   override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = super.getOutToInUsage(inputId,outHi,outLo) //TODO
   def getOutBaseType: BaseType = out
-  override def clone(out: Node): this.type = new RangedAssignmentFloating(out.asInstanceOf[BitVector],in,offset,bitCount).asInstanceOf[this.type]
+  override def clone(out: Node): this.type = new RangedAssignmentFloating(out.asInstanceOf[BitVector],in_,offset_,bitCount).asInstanceOf[this.type]
 }
 
 
