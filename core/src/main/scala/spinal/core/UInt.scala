@@ -70,10 +70,10 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider {
   override def /(that: UInt): UInt = newBinaryOperator("u/u", that, WidthInfer.input0Width, InputNormalize.none,SymplifyNode.unsignedDivImpl);
   override def %(that: UInt): UInt = newBinaryOperator("u%u", that, WidthInfer.input0Width, InputNormalize.none,SymplifyNode.unsignedModImpl);
 
-  def |(that: UInt): UInt = newBinaryOperator("u|u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,SymplifyNode.binaryTakeOther);
-  def &(that: UInt): UInt = newBinaryOperator("u&u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,SymplifyNode.binaryInductZeroWithOtherWidth(U.apply));
-  def ^(that: UInt): UInt = newBinaryOperator("u^u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,SymplifyNode.binaryTakeOther);
-  def unary_~(): UInt = newUnaryOperator(new OperatorUIntNot);
+  def |(right: UInt): UInt = newBinaryOperator(right,new Operator.UInt.Or)
+  def &(right: UInt): UInt = newBinaryOperator(right,new Operator.UInt.And)
+  def ^(right: UInt): UInt = newBinaryOperator(right,new Operator.UInt.Xor)
+  def unary_~(): UInt = newUnaryOperator(new Operator.UInt.Not);
 
   override def <(that: UInt): Bool = newLogicalOperator("u<u", that, InputNormalize.inputWidthMax,SymplifyNode.binaryUIntSmaller);
   override def >(that: UInt): Bool = that < this

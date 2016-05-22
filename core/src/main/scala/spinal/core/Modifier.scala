@@ -91,40 +91,6 @@ class UnaryOperator extends Operator(null,null,null,null){
   override def getInput(id: Int): Node = {assert(id == 0); input}
 }
 
-class OperatorBoolNot extends UnaryOperator{
-  override def opName: String = "!"
-  override def calcWidth(): Int = input.getWidth
-  override def normalizeInputs: Unit = {}
-  override def simplifyNode: Unit = {}
-}
-
-class OperatorBitsNot extends UnaryOperator{
-  override def opName: String = "~b"
-  override def calcWidth(): Int = input.getWidth
-  override def normalizeInputs: Unit = {}
-  override def simplifyNode: Unit = {SymplifyNode.unaryZero(this)}
-}
-
-class OperatorUIntNot extends UnaryOperator{
-  override def opName: String = "~u"
-  override def calcWidth(): Int = input.getWidth
-  override def normalizeInputs: Unit = {}
-  override def simplifyNode: Unit = {SymplifyNode.unaryZero(this)}
-}
-
-class OperatorSIntNot extends UnaryOperator{
-  override def opName: String = "~s"
-  override def calcWidth(): Int = input.getWidth
-  override def normalizeInputs: Unit = {}
-  override def simplifyNode: Unit = {SymplifyNode.unaryZero(this)}
-}
-
-class OperatorSIntMinus extends UnaryOperator{
-  override def opName: String = "-s"
-  override def calcWidth(): Int = input.getWidth
-  override def normalizeInputs: Unit = {}
-  override def simplifyNode: Unit = {SymplifyNode.unaryZero(this)}
-}
 
 
 
@@ -155,29 +121,155 @@ class BinaryOperator extends Operator(null,null,null,null){
 }
 
 
+object Operator{
+  object Bool{
+    class And extends BinaryOperator{
+      override def opName: String = "&&"
+      override def calcWidth(): Int = 1
+      override def normalizeInputs: Unit = {}
+      override def simplifyNode: Unit = {}
+    }
+
+    class Or extends BinaryOperator{
+      override def opName: String = "||"
+      override def calcWidth(): Int = 1
+      override def normalizeInputs: Unit = {}
+      override def simplifyNode: Unit = {}
+    }
+
+    class Xor extends BinaryOperator{
+      override def opName: String = "B^B"
+      override def calcWidth(): Int = 1
+      override def normalizeInputs: Unit = {}
+      override def simplifyNode: Unit = {}
+    }
+
+    class Not extends UnaryOperator{
+      override def opName: String = "!"
+      override def calcWidth(): Int = input.getWidth
+      override def normalizeInputs: Unit = {}
+      override def simplifyNode: Unit = {}
+    }
+  }
+
+  object BitVector{
+    abstract class And extends BinaryOperator{
+      override def calcWidth(): Int = Math.max(left.getWidth,right.getWidth)
+      override def normalizeInputs: Unit = {InputNormalize.nodeWidth(this)}
+      override def simplifyNode: Unit = {SymplifyNode.binaryInductZeroWithOtherWidth(getLiteralFactory)(this)}
+      def getLiteralFactory : (BigInt, BitCount) => Node
+    }
+
+    abstract class Or extends BinaryOperator{
+      override def calcWidth(): Int = Math.max(left.getWidth,right.getWidth)
+      override def normalizeInputs: Unit = {InputNormalize.nodeWidth(this)}
+      override def simplifyNode: Unit = {SymplifyNode.binaryTakeOther(this)}
+    }
+    abstract class Xor extends BinaryOperator{
+      override def calcWidth(): Int = Math.max(left.getWidth,right.getWidth)
+      override def normalizeInputs: Unit = {InputNormalize.nodeWidth(this)}
+      override def simplifyNode: Unit = {SymplifyNode.binaryTakeOther(this)}
+    }
+  }
+
+  object Bits{
+    class Cat extends BinaryOperator{
+      override def opName: String = "b##b"
+      override def calcWidth(): Int = left.getWidth + right.getWidth
+      override def normalizeInputs: Unit = {}
+      override def simplifyNode: Unit = {SymplifyNode.binaryTakeOther(this)}
+    }
+
+    class Not extends UnaryOperator{
+      override def opName: String = "~b"
+      override def calcWidth(): Int = input.getWidth
+      override def normalizeInputs: Unit = {}
+      override def simplifyNode: Unit = {SymplifyNode.unaryZero(this)}
+    }
+
+    class And extends BitVector.And{
+      override def opName: String = "b&b"
+      override def getLiteralFactory: (BigInt, BitCount) => Node = B.apply
+    }
+
+    class Or extends BitVector.Or{
+      override def opName: String = "b|b"
+    }
+
+    class Xor extends BitVector.Xor{
+      override def opName: String = "b^b"
+    }
+  }
 
 
+  object UInt{
+    class Not extends UnaryOperator{
+      override def opName: String = "~u"
+      override def calcWidth(): Int = input.getWidth
+      override def normalizeInputs: Unit = {}
+      override def simplifyNode: Unit = {SymplifyNode.unaryZero(this)}
+    }
 
-class OperatorBoolAnd extends BinaryOperator{
-  override def opName: String = "&&"
-  override def calcWidth(): Int = 1
-  override def normalizeInputs: Unit = {}
-  override def simplifyNode: Unit = {}
+    class And extends BitVector.And{
+      override def opName: String = "u&u"
+      override def getLiteralFactory: (BigInt, BitCount) => Node = U.apply
+    }
+
+    class Or extends BitVector.Or{
+      override def opName: String = "u|u"
+    }
+
+    class Xor extends BitVector.Xor{
+      override def opName: String = "u^u"
+    }
+  }
+
+  object SInt{
+    class Not extends UnaryOperator{
+      override def opName: String = "~s"
+      override def calcWidth(): Int = input.getWidth
+      override def normalizeInputs: Unit = {}
+      override def simplifyNode: Unit = {SymplifyNode.unaryZero(this)}
+    }
+
+    class Minus extends UnaryOperator{
+      override def opName: String = "-s"
+      override def calcWidth(): Int = input.getWidth
+      override def normalizeInputs: Unit = {}
+      override def simplifyNode: Unit = {SymplifyNode.unaryZero(this)}
+    }
+
+    class And extends BitVector.And{
+      override def opName: String = "s&s"
+      override def getLiteralFactory: (BigInt, BitCount) => Node = S.apply
+    }
+
+    class Or extends BitVector.Or{
+      override def opName: String = "s|s"
+    }
+
+    class Xor extends BitVector.Xor{
+      override def opName: String = "s^s"
+    }
+  }
 }
 
-class OperatorBoolOr extends BinaryOperator{
-  override def opName: String = "||"
-  override def calcWidth(): Int = 1
-  override def normalizeInputs: Unit = {}
-  override def simplifyNode: Unit = {}
-}
 
-class OperatorBoolXor extends BinaryOperator{
-  override def opName: String = "B^B"
-  override def calcWidth(): Int = 1
-  override def normalizeInputs: Unit = {}
-  override def simplifyNode: Unit = {}
-}
+
+
+/*
+def ##(right: Bits): Bits = newBinaryOperator("b##b", right, WidthInfer.cumulateInputWidth, InputNormalize.none, SymplifyNode.binaryTakeOther)
+def |(that: Bits): Bits = newBinaryOperator("b|b", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth, SymplifyNode.binaryTakeOther)
+def &(that: Bits): Bits = newBinaryOperator("b&b", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth, SymplifyNode.binaryInductZeroWithOtherWidth(B.apply))
+def ^(that: Bits): Bits = newBinaryOperator("b^b", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth, SymplifyNode.binaryTakeOther)
+def unary_~(): Bits = newUnaryOperator(new OperatorBitsNot)
+def >>(that: Int): Bits = newBinaryOperator("b>>i", IntLiteral(that), WidthInfer.shiftRightWidth, InputNormalize.none, SymplifyNode.shiftRightImpl)
+def <<(that: Int): Bits = newBinaryOperator("b<<i", IntLiteral(that), WidthInfer.shiftLeftWidth, InputNormalize.none, SymplifyNode.shiftLeftImpl(B.apply))
+def >>(that: UInt): Bits = newBinaryOperator("b>>u", that, WidthInfer.shiftRightWidth, InputNormalize.none, SymplifyNode.shiftRightImpl)
+def <<(that: UInt): Bits = newBinaryOperator("b<<u", that, WidthInfer.shiftLeftWidth, InputNormalize.none, SymplifyNode.shiftLeftImpl(B.apply))
+def rotateLeft(that: UInt): Bits = newBinaryOperator("brotlu", that, WidthInfer.input0Width, InputNormalize.none, SymplifyNode.rotateImpl(B.apply))
+
+*/
 
 
 

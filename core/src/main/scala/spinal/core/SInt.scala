@@ -51,11 +51,11 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider {
   def abs(enable : Bool): UInt = Mux(this.msb && enable,~this,this).asUInt + (this.msb && enable).asUInt
 
 
-  def |(that: SInt): SInt = newBinaryOperator("s|s", that, WidthInfer.inputMaxWidth,InputNormalize.nodeWidth,SymplifyNode.binaryTakeOther);
-  def &(that: SInt): SInt = newBinaryOperator("s&s", that, WidthInfer.inputMaxWidth,InputNormalize.nodeWidth,SymplifyNode.binaryInductZeroWithOtherWidth(S.apply));
-  def ^(that: SInt): SInt = newBinaryOperator("s^s", that, WidthInfer.inputMaxWidth,InputNormalize.nodeWidth,SymplifyNode.binaryTakeOther);
-  def unary_~(): SInt = newUnaryOperator(new OperatorSIntNot);
-  def unary_-(): SInt = newUnaryOperator(new OperatorSIntMinus);
+  def |(right: SInt): SInt = newBinaryOperator(right,new Operator.SInt.Or)
+  def &(right: SInt): SInt = newBinaryOperator(right,new Operator.SInt.And)
+  def ^(right: SInt): SInt = newBinaryOperator(right,new Operator.SInt.Xor)
+  def unary_~(): SInt = newUnaryOperator(new Operator.SInt.Not);
+  def unary_-(): SInt = newUnaryOperator(new Operator.SInt.Minus);
 
 
   override def <(that: SInt): Bool = newLogicalOperator("s<s", that,InputNormalize.inputWidthMax,SymplifyNode.binarySIntSmaller);
