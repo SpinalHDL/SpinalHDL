@@ -1419,7 +1419,6 @@ class VhdlBackend extends Backend with VhdlBase {
       case _: UInt => s"pkg_unsigned(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
       case _: SInt => s"pkg_signed(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
     }
-    case lit: IntLiteral => lit.value.toString(10)
     case lit: BoolLiteral => s"pkg_toStdLogic(${lit.value})"
   //  case lit: BoolLiteral => if(lit.value) "'1'" else "'0'" //Invalid VHDL when '1' = '1'
     case lit: EnumLiteral[_] => emitEnumLiteral(lit.enum, lit.encoding)

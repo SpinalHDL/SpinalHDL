@@ -509,42 +509,6 @@ object Operator{
   }
 }
 
-/*
-def >>(that: Int): Bits = wrapBinaryOperator("b>>i", IntLiteral(that), WidthInfer.shiftRightWidth, InputNormalize.none, SymplifyNode.shiftRightImpl)
-def <<(that: Int): Bits = wrapBinaryOperator("b<<i", IntLiteral(that), WidthInfer.shiftLeftWidth, InputNormalize.none, SymplifyNode.shiftLeftImpl(B.apply))
-def >>(that: UInt): Bits = wrapBinaryOperator("b>>u", that, WidthInfer.shiftRightWidth, InputNormalize.none, SymplifyNode.shiftRightImpl)
-def <<(that: UInt): Bits = wrapBinaryOperator("b<<u", that, WidthInfer.shiftLeftWidth, InputNormalize.none, SymplifyNode.shiftLeftImpl(B.apply))
-def rotateLeft(that: UInt): Bits = wrapBinaryOperator("brotlu", that, WidthInfer.input0Width, InputNormalize.none, SymplifyNode.rotateImpl(B.apply))
-
-
-  override def >>(that: Int): SInt = wrapBinaryOperator("s>>i", IntLiteral(that), WidthInfer.shiftRightWidth,InputNormalize.none,SymplifyNode.shiftRightImpl);
-  override def <<(that: Int): SInt = wrapBinaryOperator("s<<i", IntLiteral(that), WidthInfer.shiftLeftWidth,InputNormalize.none,SymplifyNode.shiftLeftImpl(S.apply));
-  def >>(that: UInt): SInt = wrapBinaryOperator("s>>u", that, WidthInfer.shiftRightWidth,InputNormalize.none,SymplifyNode.shiftRightImpl);
-  def <<(that: UInt): SInt = wrapBinaryOperator("s<<u", that, WidthInfer.shiftLeftWidth,InputNormalize.none,SymplifyNode.shiftLeftImpl(S.apply));
-
-  override def >>(that: Int): UInt = wrapBinaryOperator("u>>i", IntLiteral(that), WidthInfer.shiftRightWidth, InputNormalize.none,SymplifyNode.shiftRightImpl);
-  override def <<(that: Int): UInt = wrapBinaryOperator("u<<i", IntLiteral(that), WidthInfer.shiftLeftWidth, InputNormalize.none,SymplifyNode.shiftLeftImpl(U.apply));
-  def >>(that: UInt): UInt = wrapBinaryOperator("u>>u", that, WidthInfer.shiftRightWidth, InputNormalize.none,SymplifyNode.shiftRightImpl);
-  def <<(that: UInt): UInt = wrapBinaryOperator("u<<u", that, WidthInfer.shiftLeftWidth, InputNormalize.none,SymplifyNode.shiftLeftImpl(U.apply));
-
-
-
-
-
-def ##(right: Bits): Bits = newBinaryOperator("b##b", right, WidthInfer.cumulateInputWidth, InputNormalize.none, SymplifyNode.binaryTakeOther)
-def |(that: Bits): Bits = newBinaryOperator("b|b", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth, SymplifyNode.binaryTakeOther)
-def &(that: Bits): Bits = newBinaryOperator("b&b", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth, SymplifyNode.binaryInductZeroWithOtherWidth(B.apply))
-def ^(that: Bits): Bits = newBinaryOperator("b^b", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth, SymplifyNode.binaryTakeOther)
-def unary_~(): Bits = newUnaryOperator(new OperatorBitsNot)
-def >>(that: Int): Bits = newBinaryOperator("b>>i", IntLiteral(that), WidthInfer.shiftRightWidth, InputNormalize.none, SymplifyNode.shiftRightImpl)
-def <<(that: Int): Bits = newBinaryOperator("b<<i", IntLiteral(that), WidthInfer.shiftLeftWidth, InputNormalize.none, SymplifyNode.shiftLeftImpl(B.apply))
-def >>(that: UInt): Bits = newBinaryOperator("b>>u", that, WidthInfer.shiftRightWidth, InputNormalize.none, SymplifyNode.shiftRightImpl)
-def <<(that: UInt): Bits = newBinaryOperator("b<<u", that, WidthInfer.shiftLeftWidth, InputNormalize.none, SymplifyNode.shiftLeftImpl(B.apply))
-def rotateLeft(that: UInt): Bits = newBinaryOperator("brotlu", that, WidthInfer.input0Width, InputNormalize.none, SymplifyNode.rotateImpl(B.apply))
-
-*/
-
-
 
 
 abstract class Modifier extends Node {

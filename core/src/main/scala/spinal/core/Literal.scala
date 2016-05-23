@@ -180,25 +180,6 @@ class BoolLiteral(val value: Boolean) extends Literal {
 }
 
 
-object IntLiteral {
-  def apply(value: BigInt): IntLiteral = {
-    return new IntLiteral(value)
-  }
-}
-
-class IntLiteral(val value: BigInt) extends Literal with MinMaxProvider {
-  def calcWidth: Int = value.bitLength + (if (value < 0) 1 else 0)
-
-  def minValue: BigInt = value
-  def maxValue: BigInt = value
-
-
-
-  override def clone(): this.type = new IntLiteral(value).asInstanceOf[this.type]
-
-  override def getBitsStringOn(bitCount: Int): String = ???
-}
-
 
 
 class STime(value : Double){

@@ -364,9 +364,6 @@ object WidthInfer {
     node.getInputs.foldLeft(0)((old, n) => old + Math.max(0, n.getWidth))
   }
 
-  def intLit1Width(node: Node): Int = {
-    node.getInput(1).asInstanceOf[IntLiteral].value.toInt
-  }
 
   def input0Width(node: Node): Int = {
     node.getInput(0).getWidth
