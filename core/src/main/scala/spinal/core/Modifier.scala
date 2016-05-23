@@ -26,7 +26,7 @@ import scala.collection.mutable.ArrayBuffer
 
 
 
-abstract class Resize extends Modifier(null,null){
+abstract class Resize extends Modifier{
   var size : Int = -1
   var input : Node = null
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = doThat(input,0)
@@ -55,17 +55,9 @@ class ResizeSInt extends Resize{
 
 
 
-class Operator(opName: String, widthImpl: (Node) => Int, val normalizeInputsImpl: (Node) => Unit,simplifyNodeImpl : (Node) => Unit) extends ModifierImpl(opName, widthImpl) {
-  override def normalizeInputs: Unit = {
-    normalizeInputsImpl(this)
-  }
+abstract class Operator extends Modifier
 
-  override def simplifyNode: Unit = {
-    simplifyNodeImpl(this)
-  }
-}
-
-class UnaryOperator extends Operator(null,null,null,null){
+abstract class UnaryOperator extends Operator{
   var input : Node = null
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = doThat(input,0)
   override def onEachInput(doThat: (Node) => Unit): Unit = doThat(input)
@@ -75,7 +67,7 @@ class UnaryOperator extends Operator(null,null,null,null){
   override def getInput(id: Int): Node = {assert(id == 0); input}
 }
 
-class ConstantOperator extends Operator(null,null,null,null){
+abstract class ConstantOperator extends Operator{
   var input : Node = null
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = doThat(input,0)
   override def onEachInput(doThat: (Node) => Unit): Unit = doThat(input)
@@ -90,7 +82,7 @@ class ConstantOperator extends Operator(null,null,null,null){
 
 
 
-class BinaryOperator extends Operator(null,null,null,null){
+abstract class BinaryOperator extends Operator{
   var left,right  : Node = null
 
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
@@ -554,40 +546,9 @@ def rotateLeft(that: UInt): Bits = newBinaryOperator("brotlu", that, WidthInfer.
 
 
 
-//TODO remove me
-abstract class ModifierImpl(opName: String, widthImpl: (Node) => Int) extends Modifier(opName,widthImpl) {
-  val inputs = new ArrayBuffer[Node](3)
 
-  override def getInputsCount = inputs.length
-  override def getInput(id : Int) : Node = inputs(id)
-  override def setInput(id : Int,node : Node) : Unit = inputs(id) = node
-
-  override def getInputs : Iterator[Node] = inputs.iterator
-
-  override def onEachInput(doThat : (Node,Int) => Unit) : Unit = {
-    var idx = getInputsCount
-    while(idx != 0){
-      idx -= 1
-      doThat(getInput(idx),idx)
-    }
-  }
-
-  override def onEachInput(doThat : (Node) => Unit) : Unit = {
-    var idx = getInputsCount
-    while(idx != 0){
-      idx -= 1
-      doThat(getInput(idx))
-    }
-  }
-}
-
-
-abstract class Modifier(opName_ : String, widthImpl: (Node) => Int) extends Node {
-  override def calcWidth(): Int = {
-    widthImpl(this)
-  }
-
-  def opName = opName_
+abstract class Modifier extends Node {
+  def opName : String
 
   override def toString(): String = {
     s"($opName ${this.getInputs.map(in => if (in == null) "null" else in.nonRecursiveToString()).reduceLeft(_ + " " + _)})"
@@ -596,13 +557,8 @@ abstract class Modifier(opName_ : String, widthImpl: (Node) => Int) extends Node
   override def nonRecursiveToString(): String = opName
 }
 
-abstract class Function(opName: String, widthImpl: (Node) => Int,simplifyNodeImpl : (Node) => Unit) extends Modifier(opName, widthImpl) {
-  override def simplifyNode: Unit = {
-    simplifyNodeImpl(this)
-  }
-}
 
-abstract class Cast extends Modifier(null, null) {
+abstract class Cast extends Modifier {
   var input : Node = null
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = doThat(input,0)
   override def onEachInput(doThat: (Node) => Unit): Unit = doThat(input)
@@ -647,7 +603,7 @@ class CastEnumToEnum(val enum: SpinalEnumCraft[_]) extends Cast {
 
 
 
-class Multiplexer extends Modifier(null, null) {
+abstract class Multiplexer extends Modifier {
   var cond      : Node = null
   var whenTrue  : Node = null
   var whenFalse : Node = null
@@ -806,7 +762,7 @@ private[spinal] object Multiplex {
     muxOut
   }
 }
-abstract class Extract extends Modifier(null, null){
+abstract class Extract extends Modifier{
   def getBitVector: Node
   def getParameterNodes: List[Node]
   def getInputData: Node
@@ -855,7 +811,7 @@ class ExtractBoolFixedFromSInt extends ExtractBoolFixed{
   override def opName: String = "extract(s,i)"
 }
 
-class ExtractBoolFloating extends Extract {
+abstract class ExtractBoolFloating extends Extract {
   var input  : Node = null
   var bitId  : Node = null
 
@@ -912,7 +868,7 @@ class ExtractBoolFloatingFromSInt extends ExtractBoolFloating{
 }
 
 
-class ExtractBitsVectorFixed extends Extract {
+abstract class ExtractBitsVectorFixed extends Extract {
   def checkHiLo : Unit = if (hi - lo < -1)
     SpinalError(s"Static bits extraction with a negative size ($hi downto $lo)")
 
@@ -959,7 +915,7 @@ class ExtractBitsVectorFixedFromSInt extends ExtractBitsVectorFixed{
 }
 
 //WHen used offset.dontSimplifyIt() Because it can appear at multipe location (o+bc-1 downto o)
-class ExtractBitsVectorFloating extends Extract {
+abstract class ExtractBitsVectorFloating extends Extract {
   var size    : Int = -1
   var input   : Node = null
   var offset  : UInt = null
