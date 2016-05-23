@@ -155,7 +155,7 @@ abstract class BitVector extends BaseType {
 
   def setAllTo(value: Boolean) = {
     val litBt = weakClone
-    litBt.setInputWrap(0) = new BitsAllToLiteral(this, value)
+    litBt.input = new BitsAllToLiteral(this, value)
     this := litBt
   }
 

@@ -160,7 +160,7 @@ abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends 
 
   def isUsingReset: Boolean
   def setUseReset = {
-    setInputWrap(SyncNode.getClockResetId) = clockDomain.reset
+    reset = clockDomain.reset
   }
   def getClockDomain: ClockDomain = clockDomain
 

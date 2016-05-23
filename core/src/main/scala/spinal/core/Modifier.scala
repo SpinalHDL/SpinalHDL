@@ -721,7 +721,7 @@ private[spinal] object Multiplex {
       if (t == null) SpinalError("Create a mux with incompatible true input type")
       if (f == null) SpinalError("Create a mux with incompatible false input type")
 
-      out.setInputWrap(0) = Multiplex.baseType(sel, t, f)
+      out.input = Multiplex.baseType(sel, t, f)
     }
     muxOut
   }

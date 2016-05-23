@@ -42,15 +42,15 @@ package spinal.core
 //
 //  def write(data : T,sels : Seq[Int]) : Unit = {
 //    val assign = new VecBaseTypeAssignFixed(this,sels)
-//    assign.setInputWrap(0) = data
+//    assign.setIn3putWrap(0) = data
 //    this.assignFrom(assign,true)
 //  }
 //
 //  def read(sels : Seq[Int]) : T = {
 //    val ret = baseType.clone
 //    val extract = new VecBaseTypeExtractFixed(sels)
-//    extract.setInputWrap(0) = this
-//    ret.setInputWrap(0) = extract
+//    extract.setInp3utWrap(0) = this
+//    ret.setInpu3tWrap(0) = extract
 //    ret
 //  }
 //

@@ -29,7 +29,7 @@ object SymplifyNode {
     for (consumer <- it.consumers) {
       for (i <- 0 until consumer.getInputsCount) {
         if (consumer.getInput(i) == it) {
-          consumer.setInputWrap(i) = by
+          consumer.setInput(i,by)
           by.consumers += consumer
         }
       }
@@ -38,7 +38,7 @@ object SymplifyNode {
 
   def replaceNodeInput(it: Node,inId : Int,by : Node): Unit ={
     it.getInput(inId).consumers -= it
-    it.setInputWrap(inId) = by
+    it.setInput(inId,by)
     by.consumers += it
   }
 
@@ -322,7 +322,7 @@ object InputNormalize {
       Component.push(that.component)
       val newOne = ref.clone.asInstanceOf[SpinalEnumCraft[T]]
       newOne.assignFromAnotherEncoding(that)
-      node.setInputWrap(thatId) = newOne
+      node.setInput(thatId,newOne)
       Component.pop(that.component)
     }
   }
@@ -449,11 +449,6 @@ abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady wi
   def getInputsCount : Int
   def getInput(id : Int) : Node
   def setInput(id : Int,node : Node) : Unit
-  //TODO remove me
-  def setInputWrap : Wrapper = new Wrapper
-  class Wrapper {
-    def update(idx : Int,node : Node) : Unit = setInput(idx,node)
-  }
 
   def getInputs : Iterator[Node]
   def onEachInput(doThat : (Node,Int) => Unit) : Unit

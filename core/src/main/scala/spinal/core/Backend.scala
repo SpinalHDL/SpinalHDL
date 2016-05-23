@@ -375,7 +375,7 @@ class Backend {
 
     Node.walk(walkNodesDefautStack,node => node match {
       case node: BaseType => {
-        if (node.isInput && node.getInput(0) != null && node.getInput(0).isInstanceOf[Nameable]) {
+        if (node.isInput && node.input != null && node.getInput(0).isInstanceOf[Nameable]) {
           val nameable = node.getInput(0).asInstanceOf[Nameable]
           if (nameable.isUnnamed && node.component.isNamed && node.isNamed) {
             nameable.setWeakName(node.component.getName() + "_" + node.getName())
@@ -434,7 +434,7 @@ class Backend {
 //      symplifyThem.add(ptr.parentElseWhen)
     }
 //    Node.walk(walkNodesDefautStack,node => node match { Patch me, should update consumers ref
-//      case whenNode : WhenNode if(symplifyThem.contains(whenNode.w)) => whenNode.setInputWrap(2) = whenNode.getInput(2).getInput(1)
+//      case whenNode : WhenNode if(symplifyThem.contains(whenNode.w)) => whenNode.setInpXutWrap(2) = whenNode.getInput(2).getInput(1)
 //      case _ =>
 //    })
   }
@@ -493,8 +493,8 @@ class Backend {
             val newBt = litBaseType.clone()
             val newLit: Literal = lit.clone()
 
-            newBt.setInputWrap(0) = newLit
-            consumer.setInputWrap(consumerInputId) = newBt
+            newBt.input = newLit
+            consumer.setInput(consumerInputId,newBt)
             Component.pop(c)
 
           }
@@ -612,8 +612,8 @@ class Backend {
           val inBinding = baseType.clone //To be sure that there is no need of resize between it and node
           inBinding.assignementThrowable = baseType.assignementThrowable
           inBinding.scalaTrace = baseType.scalaTrace
-          inBinding.setInputWrap(0) = baseType.getInput(0)
-          baseType.setInputWrap(0) = inBinding
+          inBinding.input = baseType.input
+          baseType.input = inBinding
           inBinding.component = node.component.parent
           inBinding.dontCareAboutNameForSymplify = true
         }
@@ -635,12 +635,12 @@ class Backend {
                 into.kindsOutputsToBindings.put(nodeInput, bind)
                 into.kindsOutputsBindings += bind
                 bind.component = into
-                bind.setInputWrap(0) = nodeInput
+                bind.input = nodeInput
                 bind.dontCareAboutNameForSymplify = true
                 bind
               })
 
-              node.setInputWrap(i) = bind
+              node.setInput(i,bind)
             }
           }
           case _ =>
@@ -658,12 +658,12 @@ class Backend {
               SpinalError(s"Clock domain without reset contain a register which needs one\n ${delay.getScalaLocationLong}")
 
           Component.push(delay.component)
-          delay.setInputWrap(SyncNode.getClockInputId) = delay.getClockDomain.readClockWire
+          delay.setInput(SyncNode.getClockInputId,delay.getClockDomain.readClockWire)
 
           if (delay.isUsingReset)
-            delay.setInputWrap(SyncNode.getClockResetId) = delay.getClockDomain.readResetWire
+            delay.setInput(SyncNode.getClockResetId,delay.getClockDomain.readResetWire)
 
-          delay.setInputWrap(SyncNode.getClockEnableId) = delay.getClockDomain.readClockEnableWire
+          delay.setInput(SyncNode.getClockEnableId,delay.getClockDomain.readClockEnableWire)
           Component.pop(delay.component)
         }
         case _ =>
@@ -711,7 +711,7 @@ class Backend {
                   }
                   consumer.onEachInput((consumerInput,idx) => {
                     if (consumerInput == node)
-                      consumer.setInputWrap(idx) = input
+                      consumer.setInput(idx,input)
                   })
                   inputConsumer -= node
                   inputConsumer += consumer
@@ -910,12 +910,12 @@ class Backend {
             if (baseTypeInput.isOutput && baseTypeInput.component.parent != node.component) {
               val buffer = outputsBuffers.getOrElseUpdate(baseTypeInput, {
                 val buffer = baseTypeInput.clone()
-                buffer.setInputWrap(0) = baseTypeInput.getInput(0)
-                baseTypeInput.setInputWrap(0) = buffer
+                buffer.input = baseTypeInput.input
+                baseTypeInput.input = buffer
                 buffer.component = baseTypeInput.component
                 buffer
               })
-              node.setInputWrap(i) = buffer
+              node.setInput(i,buffer)
             }
           }
           case _ =>
@@ -931,7 +931,7 @@ class Backend {
         input match {
           case baseTypeInput: BaseType => {
             if (baseTypeInput.isInput && baseTypeInput.component.parent == node.component) {
-              node.setInputWrap(i) = baseTypeInput.getInput(0)
+              node.setInput(i,baseTypeInput.input)
             }
           }
           case _ =>
@@ -1017,8 +1017,7 @@ class Backend {
                       }
                     }
 
-                //    newOne.setInputWrap(0).inferredWidth = width
-                    parent.setInputWrap(inputId) = newOne
+                    parent.setInput(inputId,newOne)
                     Component.pop(bitVector.component)
                   }
                 }
@@ -1196,7 +1195,7 @@ class Backend {
             walk(baseType, baseType)
             def walk(node: Node, first: Node): Unit = node match {
               case node: BaseType => {
-                first.setInputWrap(0) = node.getInput(0)
+                first.setInput(0,node.input)
                 first.getInput(0).inferredWidth = first.inferredWidth
                 walk(node.getInput(0), first)
               }

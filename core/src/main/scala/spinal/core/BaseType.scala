@@ -56,7 +56,7 @@ object BaseType {
         man.inputs += that
       } else {
         val bt = baseType.weakClone
-        bt.setInputWrap(0) = that
+        bt.input = that
         man.inputs += bt
       }
     }
@@ -76,7 +76,7 @@ object BaseType {
                 if(consumer.isInstanceOf[AssignementTreePart]){
                   consumer.asInstanceOf[AssignementTreePart].setAssignementContext(consumerInputId,globalData.getThrowable())
                 }
-                consumer.setInputWrap(consumerInputId) = whenNode
+                consumer.setInput(consumerInputId,whenNode)
                 consumer = whenNode
               }
               case man: MultipleAssignmentNode => {
@@ -95,7 +95,7 @@ object BaseType {
                 val whenNode = WhenNode(when)
                 initMan(man, that)
                 man.inputs += whenNode
-                consumer.setInputWrap(consumerInputId) = man
+                consumer.setInput(consumerInputId, man)
                 consumer = whenNode
               }
             }
@@ -107,7 +107,7 @@ object BaseType {
 //            consumer.getInput(consumerInputId) match {
 //              case nothing@(null | _: NoneNode) => {
 //                val switchNode = new SwitchNode(context)
-//                consumer.setInputWrap(consumerInputId) = switchNode
+//                consumer.setInpu3tWrap(consumerInputId) = switchNode
 //                consumer = switchNode
 //              }
 //              case man: MultipleAssignmentNode => {
@@ -126,7 +126,7 @@ object BaseType {
 //                val switchNode = new SwitchNode(context)
 //                initMan(man, that)
 //                man.inputs += switchNode
-//                consumer.setInputWrap(consumerInputId) = man
+//                consumer.setIn3putWrap(consumerInputId) = man
 //                consumer = switchNode
 //              }
 //            }
@@ -168,7 +168,7 @@ object BaseType {
           val man = new MultipleAssignmentNode
           initMan(man, that)
           man.inputs += null
-          consumer.setInputWrap(consumerInputId) = man
+          consumer.setInput(consumerInputId,man)
           consumerInputId = 1
           consumer = man
         }
@@ -258,7 +258,7 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
     if (that.isInstanceOf[BaseType] || that.isInstanceOf[AssignementNode] || that.isInstanceOf[DontCareNode]) {
       BaseType.checkAssignability(this,that.asInstanceOf[Node])
       val (consumer, inputId) = BaseType.walkWhenNodes(this, this, 0, conservative)
-      consumer.setInputWrap(inputId) = that.asInstanceOf[Node]
+      consumer.setInput(inputId,that.asInstanceOf[Node])
     } else {
       throw new Exception("Undefined assignment")
     }

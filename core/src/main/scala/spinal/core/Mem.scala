@@ -97,7 +97,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
     val readPort = new MemReadAsync(this, addressBuffer, readBits, writeToReadKind)
     readPort.compositeTagReady = readWord
 
-    readBits.setInputWrap(0) = readPort
+    readBits.input = readPort
     readWord.assignFromBits(readBits)
 
     readWord
@@ -114,7 +114,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
     if (crossClock)
       readPort.addTag(crossClockDomain)
 
-    readBits.setInputWrap(0) = readPort
+    readBits.input = readPort
     readWord.assignFromBits(readBits)
 
     readWord
@@ -163,7 +163,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
     val readWord = wordType.clone()
     val readPort = new MemWriteOrRead_readPart(this, addressBuffer, readBits, chipSelect, writeEnable, writeToReadKind, ClockDomain.current)
     readPort.compositeTagReady = readWord
-    readBits.setInputWrap(0) = readPort
+    readBits.input = readPort
     readWord.assignFromBits(readBits)
     if (crossClock)
       readPort.addTag(crossClockDomain)
@@ -308,7 +308,7 @@ class MemReadSync(mem_ : Mem[_], val originalAddress: UInt, address_ : UInt, dat
 
   def sameAddressThan(write: MemWrite): Unit = {
     //Used by backed to symplify
-    setInputWrap(MemReadSync.getAddressId) = write.getAddress
+    this.setInput(MemReadSync.getAddressId,write.getAddress)
   }
 
   //  override def normalizeInputs: Unit = {

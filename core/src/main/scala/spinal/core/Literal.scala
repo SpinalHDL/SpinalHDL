@@ -117,7 +117,7 @@ trait Literal extends Node {
 
 object BitsLiteral {
 
-  def apply[T <: Node](value: BigInt, specifiedBitCount: Int, on: T): T = {
+  def apply[T <: BaseType](value: BigInt, specifiedBitCount: Int, on: T): T = {
     val valueBitCount = value.bitLength + (if (on.isInstanceOf[SInt] && value != 0) 1 else 0)
     var bitCount = specifiedBitCount
     if (!on.isInstanceOf[SInt] && value < 0) throw new Exception("literal value is negative and can be represented")
@@ -126,7 +126,7 @@ object BitsLiteral {
     } else {
       bitCount = valueBitCount
     }
-    on.setInputWrap(0) = new BitsLiteral(value, bitCount,specifiedBitCount != -1, on)
+    on.input = new BitsLiteral(value, bitCount,specifiedBitCount != -1, on)
     on
   }
 }
@@ -165,7 +165,7 @@ class BitsAllToLiteral(val theConsumer : Node,val value: Boolean) extends Litera
 
 object BoolLiteral {
   def apply(value: Boolean, on: Bool): Bool = {
-    on.setInputWrap(0) = new BoolLiteral(value)
+    on.input = new BoolLiteral(value)
     on
   }
 }
