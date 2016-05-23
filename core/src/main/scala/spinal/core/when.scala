@@ -78,7 +78,7 @@ object when {
   }
 }
 
-class WhenContext(val cond: Bool) extends Node with ConditionalContext {
+class WhenContext(val cond: Bool) extends ConditionalContext {
   var isTrue: Boolean = true;
   var parentElseWhen: WhenContext = null
   var childElseWhen: WhenContext = null
@@ -113,7 +113,6 @@ class WhenContext(val cond: Bool) extends Node with ConditionalContext {
     parentElseWhen.destackElseWhen
   }
 
-  override private[core] def calcWidth: Int = 1
 }
 
 class SwitchStack(val value: Data) {
@@ -131,19 +130,46 @@ object WhenNode {
 
   def apply(w: WhenContext, cond: Bool, whenTrue: Node, whenFalse: Node): WhenNode = {
     val ret = new WhenNode(w)
-    ret.inputs += cond
-    ret.inputs += whenTrue
-    ret.inputs += whenFalse
+    ret.cond = cond
+    ret.whenTrue = whenTrue
+    ret.whenFalse = whenFalse
     ret
   }
 }
 
 class WhenNode(val w: WhenContext) extends Node with AssignementTreePart {
+  var cond      : Node = null
+  var whenTrue  : Node = null
+  var whenFalse : Node = null
+
+  override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
+    doThat(cond,0)
+    doThat(whenTrue,1)
+    doThat(whenFalse,2)
+  }
+  override def onEachInput(doThat: (Node) => Unit): Unit = {
+    doThat(cond)
+    doThat(whenTrue)
+    doThat(whenFalse)
+  }
+
+  override def setInput(id: Int, node: Node): Unit = id match{
+    case 0 => cond = node
+    case 1 => whenTrue = node
+    case 2 => whenFalse = node
+  }
+
+  override def getInputsCount: Int = 3
+  override def getInputs: Iterator[Node] = Iterator(cond,whenTrue,whenFalse)
+  override def getInput(id: Int): Node = id match{
+    case 0 => cond
+    case 1 => whenTrue
+    case 2 => whenFalse
+  }
+
   override def calcWidth: Int = Math.max(whenTrue.getWidth, whenFalse.getWidth)
 
-  def cond = inputs(0)
-  def whenTrue = inputs(1)
-  def whenFalse = inputs(2)
+
 
   var whenTrueThrowable : Throwable = null
   var whenFalseThrowable : Throwable = null
@@ -169,7 +195,7 @@ class WhenNode(val w: WhenContext) extends Node with AssignementTreePart {
 
   override private[core] def checkInferedWidth: String = {
     for(i <- 1 to 2){
-      val input = this.inputs(i)
+      val input = this.getInput(i)
       if (input != null && input.component != null && !input.isInstanceOf[NoneNode] && this.getWidth !=input.getWidth) {
         return s"Assignement bit count missmatch. ${this} := ${input}} at\n${ScalaLocated.long(getAssignementContext(i))}"
       }
@@ -349,22 +375,22 @@ object default2 {
   }
 }
 
-class CaseNode(val context: CaseContext) extends Node{
+class CaseNode(val context: CaseContext) extends NodeWithVariableInputsCount{
   inputs += context.cond
   inputs += null
-  def cond = inputs(0)
-  def assignement = inputs(1)
+  def cond = getInput(0)
+  def assignement = getInput(1)
 
   override private[core] def calcWidth: Int = assignement.getWidth
 }
 
-class SwitchNode(val context: SwitchContext) extends Node{
+class SwitchNode(val context: SwitchContext) extends NodeWithVariableInputsCount{
   def cases = inputs
 
   override def normalizeInputs: Unit = {
-    for((input,i)  <- inputs.zipWithIndex){
+    this.onEachInput((input,i) => {
       Misc.normalizeResize(this, i, this.getWidth)
-    }
+    })
   }
 
   override def calcWidth: Int = cases.foldLeft(-1)((a,b) => Math.max(a,b.getWidth))

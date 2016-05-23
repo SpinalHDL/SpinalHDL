@@ -118,20 +118,19 @@ object AvalonResponse extends SpinalEnum(sequancial){
 
 case class AvalonMMBus(c : AvalonMMConfig) extends Bundle with IMasterSlave{
   import c._
-  val read = if(useRead) Bool else null
-  val write = if(useWrite) Bool else null
-  val waitRequestn = if(useWaitRequestn) Bool else null
-  val lock = if(useLock) Bool else null
-  val debugAccess = if(useDebugAccess) Bool else null
-  val address = UInt(addressWidth bit)
-  val burstCount = if(useBurstCount) UInt(burstCountWidth bit) else null
- // val endOfPacket = if(useEndOfPacket) Bool else null
-  val byteEnable = if(useByteEnable) Bits(dataByteCount bit) else null
-  val writeData = if(useWrite) Bits(dataWidth bit) else null
-  val response = if(useResponse) AvalonResponse() else null
+  val read          = if(useRead)          Bool else null
+  val write         = if(useWrite)         Bool else null
+  val waitRequestn  = if(useWaitRequestn)  Bool else null
+  val lock          = if(useLock)          Bool else null
+  val debugAccess   = if(useDebugAccess)   Bool else null
+  val address       =                      UInt(addressWidth bit)
+  val burstCount    = if(useBurstCount)    UInt(burstCountWidth bit) else null
+  val byteEnable    = if(useByteEnable)    Bits(dataByteCount bit) else null
+  val writeData     = if(useWrite)         Bits(dataWidth bit) else null
+  val response      = if(useResponse)      AvalonResponse() else null
 
   val readDataValid = if(useReadDataValid) Bool else null
-  val readData = if(useRead) Bits(dataWidth bit) else null
+  val readData      = if(useRead)          Bits(dataWidth bit) else null
 
   def isValid = (if(useRead) read else False) || (if(useWrite) write else False)
   def isReady = (if(useWaitRequestn) waitRequestn else True)

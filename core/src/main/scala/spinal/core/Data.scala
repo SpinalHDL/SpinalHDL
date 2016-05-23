@@ -193,7 +193,7 @@ class DataPimper[T <: Data](val pimpIt: T){
 //    def isLiteralBitWidthUnspecified(n : Node) : Boolean = {
 //      n match{
 //        case n : BitsLiteral => return ! n.hasSpecifiedBitCount
-//        case n : BitVector => return if(n.isFixedWidth) false else isLiteralBitWidthUnspecified(n.inputs(0))
+//        case n : BitVector => return if(n.isFixedWidth) false else isLiteralBitWidthUnspecified(n.input)
 //        case _ => return false
 //      }
 //    }
@@ -405,16 +405,16 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
         ptr match {
           case bt: BaseType => {
             if (bt.isReg)
-              bt.inputs(0).asInstanceOf[Reg].setInitialValue(initElement)
+              bt.input.asInstanceOf[Reg].setInitialValue(initElement)
             else
-              recursiveSearch(ptr.inputs(0))
+              recursiveSearch(bt.input)
           }
           case _ => SpinalError(s"Try to set initial value of a data that is not a register ($this)")
         }
       }
 
       //maybe need to restor commented ?
-      //if (initElement.inputs(0) != null /* && initElement.inputs(0).inputs(0) != null*/ ) {
+      //if (initElement.getInput(0) != null /* && initElement.getInput(0).getInput(0) != null*/ ) {
       recursiveSearch(e)
      // }
     }
@@ -425,7 +425,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
 //    if (!isReg) SpinalError(s"Try to set initial value of a data that is not a register ($this)")
 //    for ((e, initElement) <- (this.flatten, init.flatten).zipped) {
 //      e match {
-//        case bt: BaseType => bt.inputs(0).asInstanceOf[Reg].setInitialValue(initElement)
+//        case bt: BaseType => bt.getInput(0).asInstanceOf[Reg].setInitialValue(initElement)
 //        case _ => SpinalError(s"???")
 //      }
 //    }

@@ -107,12 +107,17 @@ trait Literal extends Node {
   override def clone: this.type = ???
   private[core] def getBitsStringOn(bitCount : Int) : String
 
-
+  override def getInput(id: Int): Node = ???
+  override def getInputs: Iterator[Node] = Iterator()
+  override def getInputsCount: Int = 0
+  override def onEachInput(doThat: (Node) => Unit): Unit = {}
+  override def onEachInput(doThat: (Node, Int) => Unit): Unit = {}
+  override def setInput(id: Int, node: Node): Unit = ???
 }
 
 object BitsLiteral {
 
-  def apply[T <: Node](value: BigInt, specifiedBitCount: Int, on: T): T = {
+  def apply[T <: BaseType](value: BigInt, specifiedBitCount: Int, on: T): T = {
     val valueBitCount = value.bitLength + (if (on.isInstanceOf[SInt] && value != 0) 1 else 0)
     var bitCount = specifiedBitCount
     if (!on.isInstanceOf[SInt] && value < 0) throw new Exception("literal value is negative and can be represented")
@@ -121,7 +126,7 @@ object BitsLiteral {
     } else {
       bitCount = valueBitCount
     }
-    on.inputs(0) = new BitsLiteral(value, bitCount,specifiedBitCount != -1, on)
+    on.input = new BitsLiteral(value, bitCount,specifiedBitCount != -1, on)
     on
   }
 }
@@ -160,7 +165,7 @@ class BitsAllToLiteral(val theConsumer : Node,val value: Boolean) extends Litera
 
 object BoolLiteral {
   def apply(value: Boolean, on: Bool): Bool = {
-    on.inputs(0) = new BoolLiteral(value)
+    on.input = new BoolLiteral(value)
     on
   }
 }
@@ -174,25 +179,6 @@ class BoolLiteral(val value: Boolean) extends Literal {
   }
 }
 
-
-object IntLiteral {
-  def apply(value: BigInt): IntLiteral = {
-    return new IntLiteral(value)
-  }
-}
-
-class IntLiteral(val value: BigInt) extends Literal with MinMaxProvider {
-  def calcWidth: Int = value.bitLength + (if (value < 0) 1 else 0)
-
-  def minValue: BigInt = value
-  def maxValue: BigInt = value
-
-
-
-  override def clone(): this.type = new IntLiteral(value).asInstanceOf[this.type]
-
-  override def getBitsStringOn(bitCount: Int): String = ???
-}
 
 
 

@@ -62,6 +62,40 @@ object PlayB2 {
       .elaborate()
   }
 }
+object PlayB3 {
+
+  class TopLevel extends Component {
+
+    val input = in UInt (4 bit)
+    val output = out UInt(4 bits)
+    output := 1
+
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+object PlayB4 {
+
+  class TopLevel extends Component {
+    val address = in UInt(4 bits)
+    val writeData = in Bits(8 bits)
+    val chipSelect = in Bool
+    val writeEnable = in Bool
+    val readData = out Bits(8 bits)
+
+    val mem = Mem(Bits(8 bits),16)
+
+    readData := mem.writeOrReadSync(address,writeData,chipSelect,writeEnable)
+  }
+
+  def main(args: Array[String]): Unit = {
+    //SpinalVhdl(new TopLevel)
+    SpinalVhdl(new TopLevel)
+  }
+}
 
 
 object PlayPerf {
@@ -172,13 +206,13 @@ object PlayPerf {
       def onEachInput(doThat : (Int,Int) => Unit) : Unit
     }
 
-    class Function(a : Int,b : Int) extends NodeAbstract{
+    class FuncCtion(a : Int,b : Int) extends NodeAbstract{
       override def onEachInput(doThat: (Int, Int) => Unit): Unit = {
         doThat(a,0)
         doThat(b,1)
       }
     }
-    class Operator(a : Int,b : Int) extends NodeAbstract{
+    class OperRator(a : Int,b : Int) extends NodeAbstract{
       override def onEachInput(doThat: (Int, Int) => Unit): Unit = {
         doThat(a,0)
         doThat(b,1)
@@ -186,7 +220,7 @@ object PlayPerf {
     }
 
     val arrayNodeArrayBuffer = Array.tabulate(1000*1000)(i => new NodeArrayBuffer(ArrayBuffer(i*2,i*3)))
-    val arrayNodeAbstract = Array.tabulate(1000*1000)(i => if(i % 2 == 0) new Function(i*2,i*3) else new Operator(i*2,i*3))
+    val arrayNodeAbstract = Array.tabulate(1000*1000)(i => if(i % 2 == 0) new FuncCtion(i*2,i*3) else new OperRator(i*2,i*3))
 
     timeOf({
       sum = 0
@@ -234,6 +268,30 @@ object PlayPerf {
       }
       total += sum
     },"while NodeAbstract")
+
+    class Toto{
+      var i = 5
+    }
+    val toto = new Toto
+    timeOf({
+      sum = 0
+      var idx = arrayNodeAbstract.length
+      while(idx != 0){
+        idx -= 1
+        new Toto
+      }
+      total += sum
+    },"while new")
+
+    timeOf({
+      sum = 0
+      var idx = arrayNodeAbstract.length
+      while(idx != 0){
+        idx -= 1
+        toto.getClass().newInstance()
+      }
+      total += sum
+    },"while new")
 
 
     println(total)

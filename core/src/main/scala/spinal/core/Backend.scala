@@ -100,7 +100,7 @@ class Backend {
   //TODO switch case nodes in replacement of when emulation
   //TODO Union support
   //TODO better Mem support (user specifyed blackbox)
-  //TODO Mux node with n inputs instead of fixed 2
+  //TODO Mux node with n inputss instead of fixed 2
   //TODO non bundle that should be bundle into a bundle should be warned
   protected def elaborate[T <: Component](topLevel: T): BackendReport[T] = {
     SpinalInfoPhase("Start analysis and transform")
@@ -375,8 +375,8 @@ class Backend {
 
     Node.walk(walkNodesDefautStack,node => node match {
       case node: BaseType => {
-        if (node.isInput && node.inputs(0) != null && node.inputs(0).isInstanceOf[Nameable]) {
-          val nameable = node.inputs(0).asInstanceOf[Nameable]
+        if (node.isInput && node.input != null && node.input.isInstanceOf[Nameable]) {
+          val nameable = node.input.asInstanceOf[Nameable]
           if (nameable.isUnnamed && node.component.isNamed && node.isNamed) {
             nameable.setWeakName(node.component.getName() + "_" + node.getName())
           }
@@ -434,7 +434,7 @@ class Backend {
 //      symplifyThem.add(ptr.parentElseWhen)
     }
 //    Node.walk(walkNodesDefautStack,node => node match { Patch me, should update consumers ref
-//      case whenNode : WhenNode if(symplifyThem.contains(whenNode.w)) => whenNode.inputs(2) = whenNode.inputs(2).inputs(1)
+//      case whenNode : WhenNode if(symplifyThem.contains(whenNode.w)) => whenNode.setInpXutWrap(2) = whenNode.getInput(2).getInput(1)
 //      case _ =>
 //    })
   }
@@ -447,24 +447,24 @@ class Backend {
 
         val signalRange = new AssignedRange(signal.getWidth - 1, 0)
 
-        def walk(nodes: ArrayBuffer[Node]): AssignedBits = {
+        def walk(nodes: Iterator[Node]): AssignedBits = {
           val assignedBits = new AssignedBits(signal.getBitsWidth)
 
           for (node <- nodes) node match {
             case wn: WhenNode => {
-              assignedBits.add(AssignedBits.intersect(walk(ArrayBuffer(wn.whenTrue)), walk(ArrayBuffer(wn.whenFalse))))
+              assignedBits.add(AssignedBits.intersect(walk(Iterator(wn.whenTrue)), walk(Iterator(wn.whenFalse))))
             }
             case an: AssignementNode => {
               assignedBits.add(an.getAssignedBits)
             }
-            case man: MultipleAssignmentNode => return walk(man.inputs)
+            case man: MultipleAssignmentNode => return walk(man.getInputs)
             case nothing: NoneNode =>
             case _ => assignedBits.add(signalRange)
           }
           assignedBits
         }
 
-        val assignedBits = walk(signal.inputs)
+        val assignedBits = walk(signal.getInputs)
 
         val unassignedBits = new AssignedBits(signal.getBitsWidth)
         unassignedBits.add(signalRange)
@@ -483,18 +483,18 @@ class Backend {
   // Clone is to weak, loses tag and don't symplify :(
   def allowLiteralToCrossHierarchy(): Unit = {
     Node.walk(walkNodesDefautStack,consumer => {
-      for (consumerInputId <- 0 until consumer.inputs.size) {
-        val consumerInput = consumer.inputs(consumerInputId)
+      for (consumerInputId <- 0 until consumer.getInputsCount) {
+        val consumerInput = consumer.getInput(consumerInputId)
         consumerInput match {
-          case litBaseType: BaseType if litBaseType.inputs(0).isInstanceOf[Literal] => {
-            val lit: Literal = litBaseType.inputs(0).asInstanceOf[Literal]
+          case litBaseType: BaseType if litBaseType.input.isInstanceOf[Literal] => {
+            val lit: Literal = litBaseType.input.asInstanceOf[Literal]
             val c = if (consumer.isInstanceOf[BaseType] && consumer.asInstanceOf[BaseType].isInput) consumer.component.parent else consumer.component
             Component.push(c)
             val newBt = litBaseType.clone()
             val newLit: Literal = lit.clone()
 
-            newBt.inputs(0) = newLit
-            consumer.inputs(consumerInputId) = newBt
+            newBt.input = newLit
+            consumer.setInput(consumerInputId,newBt)
             Component.pop(c)
 
           }
@@ -526,7 +526,7 @@ class Backend {
     Node.walk(walkNodesDefautStack,node => {
       node match {
         case node: BaseType => {
-          val nodeInput0 = node.inputs(0)
+          val nodeInput0 = node.input
           if (nodeInput0 != null) {
             if (node.isInput && nodeInput0.isInstanceOf[Reg] && nodeInput0.component == node.component) {
               errors += s"Input register are not allowed \n${node.getScalaLocationLong}"
@@ -556,7 +556,7 @@ class Backend {
           }
         }
         case _ => {
-          for ((in,idx) <- node.inputs.zipWithIndex) {
+          node.onEachInput((in,idx) => {
             if (in == null) {
               errors += s"No driver on ${node.getScalaLocationLong}"
             } else {
@@ -568,7 +568,7 @@ class Backend {
                 errors += s"Node is driven outside his component \n${ScalaLocated.long(throwable)}"
               }
             }
-          }
+          })
         }
       }
     })
@@ -598,32 +598,32 @@ class Backend {
 
   def normalizeNodeInputs(): Unit = {
     Node.walk(walkNodesDefautStack,(node,push) => {
-      node.inputs.foreach(push(_))
+      node.onEachInput(push(_))
       node.normalizeInputs
     })
   }
 
   def addInOutBinding(): Unit = {
     Node.walk(walkNodesDefautStack,(node,push) => {
-      //Create inputs bindings, usefull if the node is driven by when statments
+      //Create inputss bindings, usefull if the node is driven by when statments
       if (node.isInstanceOf[BaseType] && node.component.parent != null) {
         val baseType = node.asInstanceOf[BaseType]
         if (baseType.isInput) {
           val inBinding = baseType.clone //To be sure that there is no need of resize between it and node
           inBinding.assignementThrowable = baseType.assignementThrowable
           inBinding.scalaTrace = baseType.scalaTrace
-          inBinding.inputs(0) = baseType.inputs(0)
-          baseType.inputs(0) = inBinding
+          inBinding.input = baseType.input
+          baseType.input = inBinding
           inBinding.component = node.component.parent
           inBinding.dontCareAboutNameForSymplify = true
         }
       }
 
-      node.inputs.foreach(push(_))
+      node.onEachInput(push(_))
 
       //Create outputs bindings
-      for (i <- 0 until node.inputs.size) {
-        val nodeInput = node.inputs(i)
+      for (i <- 0 until node.getInputsCount) {
+        val nodeInput = node.getInput(i)
         nodeInput match {
           case nodeInput: BaseType => {
             if (nodeInput.isOutput && (nodeInput.component.parent == node.component || (nodeInput.component.parent == node.component.parent && nodeInput.component != node.component))) {
@@ -635,12 +635,12 @@ class Backend {
                 into.kindsOutputsToBindings.put(nodeInput, bind)
                 into.kindsOutputsBindings += bind
                 bind.component = into
-                bind.inputs(0) = nodeInput
+                bind.input = nodeInput
                 bind.dontCareAboutNameForSymplify = true
                 bind
               })
 
-              node.inputs(i) = bind
+              node.setInput(i,bind)
             }
           }
           case _ =>
@@ -658,17 +658,17 @@ class Backend {
               SpinalError(s"Clock domain without reset contain a register which needs one\n ${delay.getScalaLocationLong}")
 
           Component.push(delay.component)
-          delay.inputs(SyncNode.getClockInputId) = delay.getClockDomain.readClockWire
+          delay.setInput(SyncNode.getClockInputId,delay.getClockDomain.readClockWire)
 
           if (delay.isUsingReset)
-            delay.inputs(SyncNode.getClockResetId) = delay.getClockDomain.readResetWire
+            delay.setInput(SyncNode.getClockResetId,delay.getClockDomain.readResetWire)
 
-          delay.inputs(SyncNode.getClockEnableId) = delay.getClockDomain.readClockEnableWire
+          delay.setInput(SyncNode.getClockEnableId,delay.getClockDomain.readClockEnableWire)
           Component.pop(delay.component)
         }
         case _ =>
       }
-      node.inputs.foreach(push(_))
+      node.onEachInput(push(_))
     })
   }
 
@@ -676,7 +676,7 @@ class Backend {
     Node.walk(walkNodesDefautStack,node => {
       node match {
         case baseType: BaseType => {
-          baseType.inputs(0) match {
+          baseType.input match {
             case wn: WhenNode => baseType.dontSimplifyIt()
             case an: AssignementNode => baseType.dontSimplifyIt()
             case man: MultipleAssignmentNode => baseType.dontSimplifyIt()
@@ -694,14 +694,14 @@ class Backend {
         case node: BaseType => {
           if ((node.isUnnamed || node.dontCareAboutNameForSymplify) && !node.isIo && node.consumers.size == 1 && node.canSymplifyIt) {
             val consumer = node.consumers(0)
-            val input = node.inputs(0)
+            val input = node.input
             if (!node.isDelay || consumer.isInstanceOf[BaseType]) {
-              // don't allow to put a non base type on component inputs
+              // don't allow to put a non base type on component inputss
               if (input.isInstanceOf[BaseType] || !consumer.isInstanceOf[BaseType] || !consumer.asInstanceOf[BaseType].isInput) {
                 //don't allow to jump from kind to kind
                 val isKindOutputBinding = node.component.kindsOutputsBindings.contains(node)
                 if (!(isKindOutputBinding && (!consumer.isInstanceOf[BaseType] || node.component == consumer.component.parent))) {
-                  val consumerInputs = consumer.inputs
+
                   val inputConsumer = input.consumers
 
                   if (isKindOutputBinding) {
@@ -709,10 +709,10 @@ class Backend {
                     node.component.kindsOutputsBindings += newBind
                     node.component.kindsOutputsToBindings += (input.asInstanceOf[BaseType] -> newBind)
                   }
-
-                  for (i <- 0 until consumerInputs.size)
-                    if (consumerInputs(i) == node)
-                      consumerInputs(i) = input
+                  consumer.onEachInput((consumerInput,idx) => {
+                    if (consumerInput == node)
+                      consumer.setInput(idx,input)
+                  })
                   inputConsumer -= node
                   inputConsumer += consumer
                 }
@@ -723,7 +723,7 @@ class Backend {
 
         case _ =>
       }
-      node.inputs.foreach(push(_))
+      node.onEachInput(push(_))
     })
   }
 
@@ -745,9 +745,9 @@ class Backend {
 
   def fillNodeConsumer(): Unit = {
     Node.walk(walkNodesDefautStack,(node)=>{
-      for(input <- node.inputs){
+      node.onEachInput(input => {
         if (input != null) input.consumers += node
-      }
+      })
     })
   }
 
@@ -793,7 +793,7 @@ class Backend {
     Node.walk(walkNodesDefautStack,node => {
       node match{
         case node : BaseType => {
-          if(node.inputs(0) == null && node.defaultValue != null){
+          if(node.input == null && node.defaultValue != null){
             val c = node.dir match {
               case `in` => node.component
               case `out` => if(node.component.parent != null)
@@ -843,7 +843,7 @@ class Backend {
     val errors = mutable.ArrayBuffer[String]()
     Node.walk(walkNodesDefautStack ++ walkNodesBlackBoxGenerics,_ match {
       case node : Reg =>{
-        if(!node.isUsingReset && node.inputs(RegS.getDataInputId) == node){
+        if(!node.isUsingReset && node.getInput(RegS.getDataInputId) == node){
           errors += s"$node has no assignement value and no reset value at\n ${node.getScalaLocationLong}"
         }
       }
@@ -890,8 +890,6 @@ class Backend {
     }
   }
 
-
-
   def trickDontCares(): Unit ={
     Node.walk(walkNodesDefautStack,node => {
       node match{
@@ -906,18 +904,18 @@ class Backend {
   def allowNodesToReadOutputs(): Unit = {
     val outputsBuffers = mutable.Map[BaseType, BaseType]()
     Node.walk(walkNodesDefautStack,node => {
-      for (i <- 0 until node.inputs.size) {
-        node.inputs(i) match {
+      for (i <- 0 until node.getInputsCount) {
+        node.getInput(i) match {
           case baseTypeInput: BaseType => {
             if (baseTypeInput.isOutput && baseTypeInput.component.parent != node.component) {
               val buffer = outputsBuffers.getOrElseUpdate(baseTypeInput, {
                 val buffer = baseTypeInput.clone()
-                buffer.inputs(0) = baseTypeInput.inputs(0)
-                baseTypeInput.inputs(0) = buffer
+                buffer.input = baseTypeInput.input
+                baseTypeInput.input = buffer
                 buffer.component = baseTypeInput.component
                 buffer
               })
-              node.inputs(i) = buffer
+              node.setInput(i,buffer)
             }
           }
           case _ =>
@@ -928,12 +926,12 @@ class Backend {
 
   def allowNodesToReadInputOfKindComponent() = {
     Node.walk(walkNodesDefautStack,node => {
-      for (i <- 0 until node.inputs.size) {
-        val input = node.inputs(i)
+      for (i <- 0 until node.getInputsCount) {
+        val input = node.getInput(i)
         input match {
           case baseTypeInput: BaseType => {
             if (baseTypeInput.isInput && baseTypeInput.component.parent == node.component) {
-              node.inputs(i) = baseTypeInput.inputs(0)
+              node.setInput(i,baseTypeInput.input)
             }
           }
           case _ =>
@@ -950,7 +948,7 @@ class Backend {
         case node: BaseType => {
           val width = node.getWidth
 
-          node.inputs(0) match {
+          node.input match {
             case that: Reg => {
               that.inferredWidth = width
               walk(that,RegS.getInitialValueId)
@@ -961,9 +959,9 @@ class Backend {
           walk(node,0)
 
           def walk(parent: Node,inputId : Int): Unit = {
-            val that = parent.inputs(inputId)
+            val that = parent.getInput(inputId)
             def walkChildren() : Unit = {
-              var i = that.inputs.length
+              var i = that.getInputsCount
               while(i != 0){
                 i -= 1
                 walk(that,i)
@@ -1019,8 +1017,7 @@ class Backend {
                       }
                     }
 
-                //    newOne.inputs(0).inferredWidth = width
-                    parent.inputs(inputId) = newOne
+                    parent.setInput(inputId,newOne)
                     Component.pop(bitVector.component)
                   }
                 }
@@ -1064,7 +1061,7 @@ class Backend {
                           s"Register declaration at \n${syncNode.getScalaLocationLong}"
                       }
                     }
-                    case _ => that.inputs.foreach(input => if (input != null) check(input))
+                    case _ => that.onEachInput(input => if (input != null) check(input))
                   }
                 }
               }
@@ -1128,7 +1125,7 @@ class Backend {
               def walkBaseType(node: Node): Unit = {
                 if (node != null) {
                   node match {
-                    case node: MultipleAssignmentNode => for (input <- node.inputs) walkBaseType(input)
+                    case node: MultipleAssignmentNode => node.onEachInput(input => walkBaseType(input))
                     case node: WhenNode => {
                       walk(consumersPlusFull,newStack, node.cond, 0, 0) //Todo, to pessimistic !
                       walkBaseType(node.whenTrue)
@@ -1136,10 +1133,10 @@ class Backend {
                     }
                     case node: AssignementNode => {
                       val newConsumers = consumers + (baseType -> bitsAlreadyUsed.+(node.getScopeBits))
-                      var idx = node.inputs.length
+                      var idx = node.getInputsCount
                       while (idx != 0) {
                         idx -= 1
-                        val input = node.inputs(idx)
+                        val input = node.getInput(idx)
                         val (inHi, inLo) = node.getOutToInUsage(idx, outHi, outLo)
                         if (inHi >= inLo) walk(newConsumers,newStack, input, inHi, inLo)
                       }
@@ -1151,14 +1148,14 @@ class Backend {
                 }
               }
 
-              walkBaseType(node.inputs(0))
+              walkBaseType(baseType.input)
             }
             case _ => {
               val newConsumers = consumers + (node -> bitsAlreadyUsed.+(AssignedRange(outHi, outLo)))
-              var idx = node.inputs.length
+              var idx = node.getInputsCount
               while (idx != 0) {
                 idx -= 1
-                val input = node.inputs(idx)
+                val input = node.getInput(idx)
                 if (input != null) {
                   val (inHi, inLo) = node.getOutToInUsage(idx, outHi, outLo)
                   if (inHi >= inLo) walk(newConsumers,newStack, input, inHi, inLo)
@@ -1198,9 +1195,9 @@ class Backend {
             walk(baseType, baseType)
             def walk(node: Node, first: Node): Unit = node match {
               case node: BaseType => {
-                first.inputs(0) = node.inputs(0)
-                first.inputs(0).inferredWidth = first.inferredWidth
-                walk(node.inputs(0), first)
+                first.setInput(0,node.input)
+                first.getInput(0).inferredWidth = first.inferredWidth
+                walk(node.input, first)
               }
               case lit: Literal =>
               case _ => throw new Exception("BlackBox generic must be literal")

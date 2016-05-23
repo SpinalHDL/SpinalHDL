@@ -974,29 +974,29 @@ object PlayIf {
   }
 }
 
-object PlayVecBaseType {
-
-  class TopLevel extends Component {
-
-    val tmp = new VecBaseType(UInt(4 bit),Seq(4).toArray)
-    val output = out UInt(4 bit)
-
-
-    for(idx <- 0 to 3){
-      tmp.write(idx*2,Seq(idx))
-    }
-    var sum = UInt(4 bit)
-    sum := 0
-    for(idx <- 0 to 3){
-      sum = sum + tmp.read(Seq(idx))
-    }
-    output := sum
-  }
-
-  def main(args: Array[String]): Unit = {
-    SpinalVhdl(new TopLevel)
-  }
-}
+//object PlayVecBaseType {
+//
+//  class TopLevel extends Component {
+//
+//    val tmp = new VecBaseType(UInt(4 bit),Seq(4).toArray)
+//    val output = out UInt(4 bit)
+//
+//
+//    for(idx <- 0 to 3){
+//      tmp.write(idx*2,Seq(idx))
+//    }
+//    var sum = UInt(4 bit)
+//    sum := 0
+//    for(idx <- 0 to 3){
+//      sum = sum + tmp.read(Seq(idx))
+//    }
+//    output := sum
+//  }
+//
+//  def main(args: Array[String]): Unit = {
+//    SpinalVhdl(new TopLevel)
+//  }
+//}
 object PlayZeroWidth {
 
   class TopLevel extends Component {
@@ -1722,8 +1722,8 @@ object OverloadPlay {
       val f = c.getDeclaredField("array")
       f.setAccessible(true)
       Node.walk(report.toplevel.getAllIo.toSeq, node => {
-        entries += node.inputs.length
-        allocatedEntries += f.get(node.inputs).asInstanceOf[Array[AnyRef]].length
+        entries += node.getInputsCount
+        allocatedEntries += node.getInputsCount
 
         entries += node.consumers.length
         allocatedEntries += f.get(node.consumers).asInstanceOf[Array[AnyRef]].length

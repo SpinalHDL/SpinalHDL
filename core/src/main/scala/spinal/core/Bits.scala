@@ -18,6 +18,8 @@
 
 package spinal.core
 
+import spinal.core.Operator.Bits.RotateLeftByUInt
+
 /**
   * Created by PIC18F on 16.01.2015.
   */
@@ -43,24 +45,28 @@ class Bits extends BitVector {
   def =/=(that: Bits): Bool = this.isNotEguals(that)
   def ===(that: MaskedLiteral): Bool = this.isEguals(that)
   def =/=(that: MaskedLiteral): Bool = this.isNotEguals(that)
-  def ##(right: Bits): Bits = newBinaryOperator("b##b", right, WidthInfer.cumulateInputWidth, InputNormalize.none, SymplifyNode.binaryTakeOther)
-  def |(that: Bits): Bits = newBinaryOperator("b|b", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth, SymplifyNode.binaryTakeOther)
-  def &(that: Bits): Bits = newBinaryOperator("b&b", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth, SymplifyNode.binaryInductZeroWithOtherWidth(B.apply))
-  def ^(that: Bits): Bits = newBinaryOperator("b^b", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth, SymplifyNode.binaryTakeOther)
-  def unary_~(): Bits = newUnaryOperator("~b", WidthInfer.inputMaxWidth, SymplifyNode.unaryZero)
-  def >>(that: Int): Bits = newBinaryOperator("b>>i", IntLiteral(that), WidthInfer.shiftRightWidth, InputNormalize.none, SymplifyNode.shiftRightImpl)
-  def <<(that: Int): Bits = newBinaryOperator("b<<i", IntLiteral(that), WidthInfer.shiftLeftWidth, InputNormalize.none, SymplifyNode.shiftLeftImpl(B.apply))
-  def >>(that: UInt): Bits = newBinaryOperator("b>>u", that, WidthInfer.shiftRightWidth, InputNormalize.none, SymplifyNode.shiftRightImpl)
-  def <<(that: UInt): Bits = newBinaryOperator("b<<u", that, WidthInfer.shiftLeftWidth, InputNormalize.none, SymplifyNode.shiftLeftImpl(B.apply))
-  def rotateLeft(that: UInt): Bits = newBinaryOperator("brotlu", that, WidthInfer.input0Width, InputNormalize.none, SymplifyNode.rotateImpl(B.apply))
+  def ##(right: Bits): Bits = wrapBinaryOperator(right,new Operator.Bits.Cat)
+  def |(right: Bits) : Bits = wrapBinaryOperator(right,new Operator.Bits.Or)
+  def &(right: Bits) : Bits = wrapBinaryOperator(right,new Operator.Bits.And)
+  def ^(right: Bits) : Bits = wrapBinaryOperator(right,new Operator.Bits.Xor)
+  def unary_~(): Bits = wrapUnaryOperator(new Operator.Bits.Not)
+  def >>(that: Int): Bits  = wrapConstantOperator(new Operator.Bits.ShiftRightByInt(that))
+  def <<(that: Int): Bits  = wrapConstantOperator(new Operator.Bits.ShiftLeftByInt(that))
+  def >>(that: UInt): Bits = wrapBinaryOperator(that,new Operator.Bits.ShiftRightByUInt)
+  def <<(that: UInt): Bits = wrapBinaryOperator(that,new Operator.Bits.ShiftLeftByUInt)
+  def rotateLeft(that: UInt): Bits = wrapBinaryOperator(that,new RotateLeftByUInt)
 
-  private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,b,b)", sel, whenTrue, whenFalse)
+  private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse,new MultiplexerBits)
 
-  override def resize(width: Int): this.type = newResize("resize(b,i)", this :: new IntLiteral(width) :: Nil, WidthInfer.intLit1Width, SymplifyNode.resizeImpl(B.apply))
+  override def resize(width: Int): this.type = wrapWithWeakClone({
+    val node = new ResizeBits
+    node.input = this
+    node.size = width
+    node
+  })
 
-  def asSInt: SInt = new SInt().castFrom("b->s", this)
-
-  def asUInt: UInt = new UInt().castFrom("b->u", this)
+  def asSInt: SInt = wrapCast(SInt(),new CastBitsToSInt)
+  def asUInt: UInt = wrapCast(UInt(),new CastBitsToUInt)
 
   override def asBits: Bits = {
     val ret = new Bits()
@@ -74,7 +80,7 @@ class Bits extends BitVector {
 
   private[core] override def isEguals(that: Any): Bool = {
     that match {
-      case that: Bits => newLogicalOperator("b==b", that, InputNormalize.inputWidthMax, SymplifyNode.binaryThatIfBoth(True));
+      case that: Bits => wrapLogicalOperator(that,new Operator.Bits.Equal)
       case that: MaskedLiteral => that === this
       case _ => SpinalError(s"Don't know how to compare $this with $that"); null
     }
@@ -82,7 +88,7 @@ class Bits extends BitVector {
 
   private[core] override def isNotEguals(that: Any): Bool = {
     that match {
-      case that: Bits => newLogicalOperator("b!=b", that, InputNormalize.inputWidthMax, SymplifyNode.binaryThatIfBoth(False));
+      case that: Bits => wrapLogicalOperator(that,new Operator.Bits.NotEqual)
       case that: MaskedLiteral => that =/= this
       case _ => SpinalError(s"Don't know how to compare $this with $that"); null
     }
@@ -95,6 +101,11 @@ class Bits extends BitVector {
   }
 
 
+  def apply(bitId: Int) : Bool = newExtract(bitId,new ExtractBoolFixedFromBits)
+  def apply(bitId: UInt): Bool = newExtract(bitId,new ExtractBoolFloatingFromBits)
+  def apply(offset: Int, bitCount: BitCount): this.type  = newExtract(offset+bitCount.value-1,offset,new ExtractBitsVectorFixedFromBits)
+  def apply(offset: UInt, bitCount: BitCount): this.type = newExtract(offset,bitCount.value,new ExtractBitsVectorFloatingFromBits)
 
+  override private[core] def weakClone: this.type = new Bits().asInstanceOf[this.type]
   override def getZero: this.type = B(0).asInstanceOf[this.type]
 }

@@ -102,7 +102,7 @@ object ClockDomain {
     if (that.spinalTags.exists(_.isInstanceOf[ClockDomainBoolTag])) {
       that
     } else {
-      that.inputs(0) match {
+      that.input match {
         case input: Bool => getClockDomainDriver(input)
         case _ => null
       }

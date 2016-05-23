@@ -44,16 +44,13 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T,val encoding: SpinalEnum
   def !==(that: SpinalEnumElement[T]): Bool = this =/= that
 
   def assignFromAnotherEncoding(spinalEnumCraft: SpinalEnumCraft[T]) = {
-    this := enumCastFrom("e->e", spinalEnumCraft, (node) => this.getWidth)
+    val c = this.clone
+    val cast = new CastEnumToEnum(c)
+    cast.input = spinalEnumCraft
+    c.input = cast
+    this := c
   }
 
-  private[core] def enumCastFrom(opName: String, that: Node, getWidthImpl: (Node) => Int =
-  WidthInfer.inputMaxWidth): this.type = {
-    val ret = clone
-    val op = EnumCast(this.asInstanceOf[SpinalEnumCraft[_]], opName, that, getWidthImpl)
-    ret.setInput(op)
-    ret
-  }
 
   override private[core] def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = that match{
     case that : SpinalEnumCraft[T] => {
@@ -70,24 +67,28 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T,val encoding: SpinalEnum
 
   override def isEguals(that: Any): Bool = {
     that match{
-      case that : SpinalEnumCraft[_] if that.blueprint == blueprint =>  newLogicalOperator("e==e", that, InputNormalize.enumImpl,SymplifyNode.none);
-      case that : SpinalEnumElement[_] if that.parent == blueprint =>  newLogicalOperator("e==e", that(), InputNormalize.enumImpl,SymplifyNode.none);
+      case that : SpinalEnumCraft[_] if that.blueprint == blueprint =>  wrapLogicalOperator(that,new Operator.Enum.Equal);
+      case that : SpinalEnumElement[_] if that.parent == blueprint =>  wrapLogicalOperator(that(),new Operator.Enum.Equal);
       case _ => SpinalError("Incompatible test")
     }
   }
   override def isNotEguals(that: Any): Bool = {
     that match{
-      case that : SpinalEnumCraft[_] if that.blueprint == blueprint =>  newLogicalOperator("e!=e", that, InputNormalize.enumImpl,SymplifyNode.none);
-      case that :SpinalEnumElement[_] if that.parent == blueprint => newLogicalOperator("e!=e", that(), InputNormalize.enumImpl,SymplifyNode.none);
+      case that : SpinalEnumCraft[_] if that.blueprint == blueprint =>  wrapLogicalOperator(that,new Operator.Enum.NotEqual);
+      case that :SpinalEnumElement[_] if that.parent == blueprint => wrapLogicalOperator(that(),new Operator.Enum.NotEqual);
       case _ => SpinalError("Incompatible test")
     }
   }
 
-  private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,e,e)", sel, whenTrue, whenFalse)
-  override def asBits: Bits = new Bits().castFrom("e->b", this)
+  private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse,new MultiplexerEnum)
+  override def asBits: Bits = wrapCast(Bits(),new CastEnumToBits)
 
   override def assignFromBits(bits: Bits): Unit = {
-    this := enumCastFrom("b->e", bits, (node) => this.getWidth)
+    val c = this.clone
+    val cast = new CastBitsToEnum(c)
+    cast.input = bits
+    c.input = cast
+    this := c
   }
 
   override def assignFromBits(bits: Bits,hi : Int,lo : Int): Unit = {
@@ -129,11 +130,11 @@ class SpinalEnumElement[T <: SpinalEnum](val parent: T, val position: Int) exten
   def apply() : SpinalEnumCraft[T] = craft()
   def craft(): SpinalEnumCraft[T] = {
     val ret = parent.craft().asInstanceOf[SpinalEnumCraft[T]]
-    ret.inputs(0) = new EnumLiteral(this,this.parent.defaultEncoding)
+    ret.input = new EnumLiteral(this,this.parent.defaultEncoding)
     ret
   }
 
-  def toBits: Bits = new Bits().castFrom("e->b", craft)
+  def toBits: Bits = craft().asBits
 }
 
 trait SpinalEnumEncoding extends Nameable{

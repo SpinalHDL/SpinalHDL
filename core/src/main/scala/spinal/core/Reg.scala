@@ -29,7 +29,7 @@ object Reg {
     for ( e <- regOut.flatten) {
       val reg = new Reg(e)
       reg.compositeTagReady = e
-      e.inputs(0) = reg;
+      e.input = reg;
       e.compositeAssign = reg
     }
 
@@ -85,8 +85,44 @@ object RegS {
 }
 
 class Reg(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) extends SyncNode(clockDomain) with Assignable with AssignementTreePart {
-  inputs += this
-  inputs += new NoneNode
+  var dataInput     : Node = this
+  var initialValue  : Node = new NoneNode
+
+  override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
+    doThat(clock,0)
+    doThat(enable,1)
+    doThat(reset,2)
+    doThat(dataInput,3)
+    doThat(initialValue,4)
+  }
+  override def onEachInput(doThat: (Node) => Unit): Unit = {
+    doThat(clock)
+    doThat(enable)
+    doThat(reset)
+    doThat(dataInput)
+    doThat(initialValue)
+  }
+
+  override def setInput(id: Int, node: Node): Unit = id match{
+    case 0 => clock = node
+    case 1 => enable = node
+    case 2 => reset = node
+    case 3 => dataInput = node
+    case 4 => initialValue = node
+  }
+
+  override def getInputsCount: Int = 5
+  override def getInputs: Iterator[Node] = Iterator(clock,enable,reset,dataInput,initialValue)
+  override def getInput(id: Int): Node = id match{
+    case 0 => clock
+    case 1 => enable
+    case 2 => reset
+    case 3 => dataInput
+    case 4 => initialValue
+  }
+
+
+
 
   override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
     case RegS.getDataInputId => (outHi,outLo)
@@ -104,12 +140,12 @@ class Reg(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) ext
   override def getSynchronousInputs: ArrayBuffer[Node] = super.getSynchronousInputs += getDataInput
   override def getResetStyleInputs: ArrayBuffer[Node] = super.getResetStyleInputs += getInitialValue
 
-  def getDataInput: Node = inputs(RegS.getDataInputId)
-  def getInitialValue: Node = inputs(RegS.getInitialValueId)
+  def getDataInput: Node = getInput(RegS.getDataInputId)
+  def getInitialValue: Node = getInput(RegS.getInitialValueId)
 
-  def setDataInput(that: Node): Unit = inputs(RegS.getDataInputId) = that
+  def setDataInput(that: Node): Unit = dataInput = that
   def setInitialValue(that: Node): Unit = {
-    inputs(RegS.getInitialValueId) = that
+    initialValue = that
     setUseReset
   }
 
@@ -118,12 +154,12 @@ class Reg(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) ext
 
   override def normalizeInputs: Unit = InputNormalize.regImpl(this)
   override private[core] def checkInferedWidth: String = {
-    val dataInput = this.inputs(RegS.getDataInputId)
+    val dataInput = this.getInput(RegS.getDataInputId)
     if (dataInput != null && dataInput.component != null && this.getWidth != dataInput.getWidth) {
       return s"Assignment bit count mismatch. ${this} := ${dataInput}} at \n${ScalaLocated.long(getAssignementContext(RegS.getDataInputId))}"
     }
     if (isUsingReset) {
-      val resetDataInput = this.inputs(RegS.getInitialValueId)
+      val resetDataInput = this.getInput(RegS.getInitialValueId)
       if (resetDataInput != null && resetDataInput.component != null && this.getWidth != resetDataInput.getWidth) {
         return s"Assignment bit count mismatch. ${this} := ${resetDataInput}} at \n${ScalaLocated.long(getAssignementContext(RegS.getDataInputId))}"
       }
@@ -149,12 +185,12 @@ class Reg(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) ext
       case that: BaseType => {
         BaseType.checkAssignability(outType,that.asInstanceOf[Node])
         val (consumer,inputId) = BaseType.walkWhenNodes(outType, this, RegS.getDataInputId,conservative)
-        consumer.inputs(inputId) = that
+        consumer.setInput(inputId, that)
       }
       case that : AssignementNode => {
         BaseType.checkAssignability(outType,that.asInstanceOf[Node])
         val (consumer,inputId) = BaseType.walkWhenNodes(outType, this, RegS.getDataInputId,conservative)
-        consumer.inputs(inputId) = that
+        consumer.setInput(inputId,that)
       }
       case _ => throw new Exception("Undefined assignement")
     }

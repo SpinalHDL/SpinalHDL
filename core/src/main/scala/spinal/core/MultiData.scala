@@ -71,7 +71,8 @@ abstract class MultiData extends Data {
     var accumulateWidth = 0
     for ((_, e) <- elements) {
       val width = e.getBitsWidth
-      if (width == -1) SpinalError("Can't return bits width")
+      if (width == -1)
+        SpinalError("Can't return bits width")
       accumulateWidth += width
     }
     accumulateWidth

@@ -56,7 +56,7 @@ object BaseType {
         man.inputs += that
       } else {
         val bt = baseType.weakClone
-        bt.inputs(0) = that
+        bt.input = that
         man.inputs += bt
       }
     }
@@ -70,13 +70,13 @@ object BaseType {
       } else {
         conditionalAssign match {
           case when: WhenContext => {
-            consumer.inputs(consumerInputId) match {
+            consumer.getInput(consumerInputId) match {
               case nothing@(null | _: NoneNode) => {
                 val whenNode = WhenNode(when)
                 if(consumer.isInstanceOf[AssignementTreePart]){
                   consumer.asInstanceOf[AssignementTreePart].setAssignementContext(consumerInputId,globalData.getThrowable())
                 }
-                consumer.inputs(consumerInputId) = whenNode
+                consumer.setInput(consumerInputId,whenNode)
                 consumer = whenNode
               }
               case man: MultipleAssignmentNode => {
@@ -95,60 +95,60 @@ object BaseType {
                 val whenNode = WhenNode(when)
                 initMan(man, that)
                 man.inputs += whenNode
-                consumer.inputs(consumerInputId) = man
+                consumer.setInput(consumerInputId, man)
                 consumer = whenNode
               }
             }
 
             consumerInputId = if (when.isTrue) 1 else 2
           }
-          //TODO switch
-          case context: SwitchContext => {
-            consumer.inputs(consumerInputId) match {
-              case nothing@(null | _: NoneNode) => {
-                val switchNode = new SwitchNode(context)
-                consumer.inputs(consumerInputId) = switchNode
-                consumer = switchNode
-              }
-              case man: MultipleAssignmentNode => {
-                man.inputs.last match {
-                  case currentContext: SwitchNode if currentContext.context == context => consumer = currentContext
-                  case _ => {
-                    val switchNode = new SwitchNode(context)
-                    man.inputs += switchNode
-                    consumer = switchNode
-                  }
-                }
-              }
-              case currentContext: SwitchNode if currentContext.context == context => consumer = currentContext
-              case that => {
-                val man = new MultipleAssignmentNode
-                val switchNode = new SwitchNode(context)
-                initMan(man, that)
-                man.inputs += switchNode
-                consumer.inputs(consumerInputId) = man
-                consumer = switchNode
-              }
-            }
-          }
 
-          case context: CaseContext => {
-            if (consumer.inputs.isEmpty) {
-              val caseNode = new CaseNode(context)
-              consumer.inputs += caseNode
-              consumer = caseNode
-            } else {
-              val last = consumer.inputs.last.asInstanceOf[CaseNode]
-              if (last.context != context) {
-                val caseNode = new CaseNode(context)
-                consumer.inputs += caseNode
-                consumer = caseNode
-              } else {
-                consumer = last
-              }
-            }
-            consumerInputId = 1
-          }
+//          case context: SwitchContext => {
+//            consumer.getInput(consumerInputId) match {
+//              case nothing@(null | _: NoneNode) => {
+//                val switchNode = new SwitchNode(context)
+//                consumer.setInpu3tWrap(consumerInputId) = switchNode
+//                consumer = switchNode
+//              }
+//              case man: MultipleAssignmentNode => {
+//                man.inputs.last match {
+//                  case currentContext: SwitchNode if currentContext.context == context => consumer = currentContext
+//                  case _ => {
+//                    val switchNode = new SwitchNode(context)
+//                    man.inputs += switchNode
+//                    consumer = switchNode
+//                  }
+//                }
+//              }
+//              case currentContext: SwitchNode if currentContext.context == context => consumer = currentContext
+//              case that => {
+//                val man = new MultipleAssignmentNode
+//                val switchNode = new SwitchNode(context)
+//                initMan(man, that)
+//                man.inputs += switchNode
+//                consumer.setIn3putWrap(consumerInputId) = man
+//                consumer = switchNode
+//              }
+//            }
+//          }
+
+//          case context: CaseContext => {
+//            if (consumer.getInputsCount == 0) {
+//              val caseNode = new CaseNode(context)
+//              consumer.inputs += caseNode
+//              consumer = caseNode
+//            } else {
+//              val last = consumer.inputs.last.asInstanceOf[CaseNode]
+//              if (last.context != context) {
+//                val caseNode = new CaseNode(context)
+//                consumer.inputs += caseNode
+//                consumer = caseNode
+//              } else {
+//                consumer = last
+//              }
+//            }
+//            consumerInputId = 1
+//          }
         }
       }
     }
@@ -156,25 +156,25 @@ object BaseType {
       throw new Exception("Basetype is affected outside his scope")
 
     if (conservative) {
-      consumer.inputs(consumerInputId) match {
+      consumer.getInput(consumerInputId) match {
         case that: NoneNode =>
         case null =>
         case man: MultipleAssignmentNode => {
-          consumer = consumer.inputs(consumerInputId)
-          consumerInputId = consumer.inputs.size;
-          consumer.inputs += null
+          consumer = man
+          consumerInputId = man.getInputsCount;
+          man.inputs += null
         }
         case that => {
           val man = new MultipleAssignmentNode
           initMan(man, that)
           man.inputs += null
-          consumer.inputs(consumerInputId) = man
+          consumer.setInput(consumerInputId,man)
           consumerInputId = 1
           consumer = man
         }
       }
     } else {
-      val overrided = consumer.inputs(consumerInputId)
+      val overrided = consumer.getInput(consumerInputId)
       if (overrided != null && !overrided.isInstanceOf[NoneNode] && !overrided.isInstanceOf[Reg])
         if (consumer.globalData.overridingAssignementWarnings) {
           val exept = new Throwable()
@@ -195,8 +195,13 @@ object BaseType {
 
 
 abstract class BaseType extends Node with Data with Nameable with AssignementTreePart{
-  inputs += null
-
+  var input : Node = null
+  override def onEachInput(doThat: (Node, Int) => Unit): Unit = doThat(input,0)
+  override def onEachInput(doThat: (Node) => Unit): Unit = doThat(input)
+  override def setInput(id: Int, node: Node): Unit = {assert(id == 0); this.input = node}
+  override def getInputsCount: Int = 1
+  override def getInputs: Iterator[Node] = Iterator(input)
+  override def getInput(id: Int): Node = {assert(id == 0); input}
 
   private[core] def canSymplifyIt = !dontSimplify && attributes.isEmpty
 
@@ -213,7 +218,7 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
     this
   }
 
-  private[core] def getLiteral[T <: Literal]: T = inputs(0) match {
+  private[core] def getLiteral[T <: Literal]: T = input match {
     case lit: Literal => lit.asInstanceOf[T]
     case bt: BaseType => bt.getLiteral[T]
     case _ => null.asInstanceOf[T]
@@ -223,14 +228,14 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
 
   override def getBitsWidth: Int = getWidth
 
-  override def isReg = inputs(0).isInstanceOf[Reg]
-  def getDrivingReg : this.type = inputs(0) match{
+  override def isReg = input.isInstanceOf[Reg]
+  def getDrivingReg : this.type = input match{
     case reg : Reg => this
     case bt : BaseType => bt.getDrivingReg.asInstanceOf[this.type]
     case _ => SpinalError("Driver is not a register")
   }
 
-  def isDelay = inputs(0).isInstanceOf[SyncNode]
+  def isDelay = input.isInstanceOf[SyncNode]
 
   override def asInput(): this.type = {
     component.ioSet += this
@@ -253,7 +258,7 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
     if (that.isInstanceOf[BaseType] || that.isInstanceOf[AssignementNode] || that.isInstanceOf[DontCareNode]) {
       BaseType.checkAssignability(this,that.asInstanceOf[Node])
       val (consumer, inputId) = BaseType.walkWhenNodes(this, this, 0, conservative)
-      consumer.inputs(inputId) = that.asInstanceOf[Node]
+      consumer.setInput(inputId,that.asInstanceOf[Node])
     } else {
       throw new Exception("Undefined assignment")
     }
@@ -280,7 +285,7 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
   }
 
   override private[core] def checkInferedWidth: String = {
-    val input = this.inputs(0)
+    val input = this.input
     if (input != null && input.component != null && this.getWidth != input.getWidth) {
       return s"Assignment bit count mismatch. ${this} := ${input}} at \n${ScalaLocated.long(getAssignementContext(0))}"
     }
@@ -294,56 +299,58 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
   }
 
   private[core] def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer
-
-  private[core] def newLogicalOperator(opName: String, right: Node, normalizeInputsImpl: (Node) => Unit, simplifyNodeImpl: (Node) => Unit): Bool = {
-    val op = BinaryOperator(opName, this, right, WidthInfer.oneWidth, normalizeInputsImpl, simplifyNodeImpl)
-    val typeNode = new Bool
-    typeNode.inputs(0) = op
-    typeNode
+  private[core] def newMultiplexer(cond : Node,whenTrue : Node,whenFalse : Node,mux : Multiplexer): Multiplexer = {
+    mux.cond      = cond
+    mux.whenTrue  = whenTrue
+    mux.whenFalse = whenFalse
+    mux
   }
 
-  private[core] def newBinaryOperator(opName: String, right: Node, getWidthImpl: (Node) => Int, normalizeInputsImpl: (Node) => Unit, simplifyNodeImpl: (Node) => Unit): this.type = {
-    val op = BinaryOperator(opName, this, right, getWidthImpl, normalizeInputsImpl, simplifyNodeImpl)
-    val typeNode = addTypeNodeFrom(op)
-    typeNode
-  }
 
-  //def newUnaryOperator(opName: String, simplifyNodeImpl: (Node) => Unit = ZeroWidth.none): this.type = newUnaryOperator(opName, WidthInfer.inputMaxWidth, simplifyNodeImpl)
-
-  private[core] def newUnaryOperator(opName: String, getWidthImpl: (Node) => Int = WidthInfer.inputMaxWidth, simplifyNodeImpl: (Node) => Unit): this.type = {
-    val op = UnaryOperator(opName, this, getWidthImpl, InputNormalize.none, simplifyNodeImpl)
-    val typeNode = addTypeNodeFrom(op)
-    typeNode
-  }
-
-  private[core] def castFrom(opName: String, that: Node, getWidthImpl: (Node) => Int = WidthInfer.inputMaxWidth): this.type = {
-    val op = Cast(opName, that, getWidthImpl)
-    this.setInput(op) //TODO Should use assignement
-    this
-  }
-
-  private[core] def newFunction(opName: String, args: List[Node], getWidthImpl: (Node) => Int = WidthInfer.inputMaxWidth, simplifyNodeImpl: (Node) => Unit): this.type = {
-    val op = Function(opName, args, getWidthImpl, simplifyNodeImpl)
-    val typeNode = addTypeNodeFrom(op)
-    typeNode
-  }
-
-  private[core] def newResize(opName: String, args: List[Node], getWidthImpl: (Node) => Int = WidthInfer.inputMaxWidth, simplifyNodeImpl: (Node) => Unit): this.type = {
-    val op = Resize(opName, args, getWidthImpl, simplifyNodeImpl)
-    val typeNode = addTypeNodeFrom(op)
-    typeNode
-  }
-
-  private[core] def addTypeNodeFrom(node: Node): this.type = {
+  private[core] def wrapWithWeakClone(node: Node): this.type = {
     val typeNode = weakClone
-    typeNode.setInput(node)
+    typeNode.input = node
     typeNode
   }
+
+  def wrapCast[T <: BaseType](result : T,node : Cast) : T = {
+    node.input = this
+    result.input = node
+    result
+  }
+
+  private[core] def wrapConstantOperator(op : ConstantOperator): this.type = {
+    op.input = this
+    wrapWithWeakClone(op)
+  }
+  private[core] def wrapUnaryOperator(op : UnaryOperator): this.type = {
+    op.input = this
+    wrapWithWeakClone(op)
+  }
+  private[core] def wrapBinaryOperator(right : Node,op : BinaryOperator): this.type = {
+    op.left = this
+    op.right = right
+    wrapWithWeakClone(op)
+  }
+  private[core] def wrapLogicalOperator(right : Node,op : BinaryOperator):  Bool = {
+    op.left = this
+    op.right = right
+    val ret = new Bool
+    ret.input = op
+    ret
+  }
+  private[core] def wrapMultiplexer(cond : Node,whenTrue : Node,whenFalse : Node,mux : Multiplexer): this.type = {
+    mux.cond      = cond
+    mux.whenTrue  = whenTrue
+    mux.whenFalse = whenFalse
+    wrapWithWeakClone(mux)
+  }
+
 
   override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = (outHi, outLo)
 
   //Create a new instance of the same datatype without any configuration (width, direction)
-  private[core] def weakClone: this.type = this.getClass.newInstance().asInstanceOf[this.type]
+  private[core] def weakClone: this.type
 
   override def toString(): String = s"${component.getPath() + "/" + this.getDisplayName()} : ${getClassIdentifier}"
 

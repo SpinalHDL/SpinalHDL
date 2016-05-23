@@ -33,10 +33,10 @@ trait BoolFactory {
 class Bool extends BaseType {
   private[core] override def calcWidth: Int = 1
 
-  def ^(b: Bool): Bool = newLogicalOperator("B^B", b, InputNormalize.none, SymplifyNode.none)
-  def &&(b: Bool): Bool = newLogicalOperator("&&", b, InputNormalize.none, SymplifyNode.none)
-  def ||(b: Bool): Bool = newLogicalOperator("||", b, InputNormalize.none, SymplifyNode.none)
-  def unary_!(): Bool = newUnaryOperator("!", WidthInfer.inputMaxWidth, SymplifyNode.none)
+  def &&(b: Bool): Bool = wrapLogicalOperator(b,new Operator.Bool.And)
+  def ||(b: Bool): Bool = wrapLogicalOperator(b,new Operator.Bool.Or)
+  def ^(b: Bool): Bool  = wrapLogicalOperator(b,new Operator.Bool.Xor)
+  def unary_!(): Bool = wrapUnaryOperator(new Operator.Bool.Not)
   def &(b: Bool): Bool = this && b
   def |(b: Bool): Bool = this || b
   def set() = this := True
@@ -49,7 +49,7 @@ class Bool extends BaseType {
   def rise(initAt : Bool) = this && ! RegNext(this).init(initAt)
   def fall(initAt : Bool) = ! this && RegNext(this).init(initAt)
 
-  private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,B,B)", sel, whenTrue, whenFalse)
+  private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse,new MultiplexerBool)
 
   //cond ? a | b syntax
   case class MuxBuilder[T <: Data](whenTrue : T){
@@ -66,19 +66,19 @@ class Bool extends BaseType {
 
   private[core] override def isEguals(that: Any): Bool = {
     that match {
-      case that: Bool => newLogicalOperator("B==B", that, InputNormalize.none, SymplifyNode.none);
+      case that: Bool => wrapLogicalOperator(that,new Operator.Bool.Equal);
       case _ => SpinalError(s"Don't know how compare $this with $that"); null
     }
   }
 
   private[core] override def isNotEguals(that: Any): Bool = {
     that match {
-      case that: Bool => newLogicalOperator("B!=B", that, InputNormalize.none, SymplifyNode.none);
+      case that: Bool => wrapLogicalOperator(that,new Operator.Bool.NotEqual);
       case _ => SpinalError(s"Don't know how compare $this with $that"); null
     }
   }
 
-  override def asBits: Bits = new Bits().castFrom("B->b", this)
+  override def asBits: Bits = wrapCast(Bits(),new CastBoolToBits)
 
   override def assignFromBits(bits: Bits): Unit = this := bits(0)
 
@@ -96,6 +96,9 @@ class Bool extends BaseType {
 
   def asBits(bitCount: BitCount): Bits = asBits.resize(bitCount.value)
 
+
+  //Create a new instance of the same datatype without any configuration (width, direction)
+  override private[core] def weakClone: this.type = new Bool().asInstanceOf[this.type]
 
   override def getZero: this.type = False.asInstanceOf[this.type]
 }

@@ -114,14 +114,41 @@ object SyncNode {
 }
 
 abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends Node {
-  inputs += clockDomain.clock
-  inputs += clockDomain.clockEnable
-  inputs += Bool(clockDomain.config.resetActiveLevel == LOW)
+  var clock  : Node = clockDomain.clock
+  var enable : Node = clockDomain.clockEnable
+  var reset  : Node = Bool(clockDomain.config.resetActiveLevel == LOW) //TODO ?????
+
+
+  override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
+    doThat(clock,0)
+    doThat(enable,1)
+    doThat(reset,2)
+  }
+  override def onEachInput(doThat: (Node) => Unit): Unit = {
+    doThat(clock)
+    doThat(enable)
+    doThat(reset)
+  }
+
+  override def setInput(id: Int, node: Node): Unit = id match{
+    case 0 => clock = node
+    case 1 => enable = node
+    case 2 => reset = node
+  }
+
+  override def getInputsCount: Int = 3
+  override def getInputs: Iterator[Node] = Iterator(clock,enable,reset)
+  override def getInput(id: Int): Node = id match{
+    case 0 => clock
+    case 1 => enable
+    case 2 => reset
+  }
+
 
   override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
-    case SyncNode.getClockInputId => (0,0)
+    case SyncNode.getClockInputId =>  (0,0)
     case SyncNode.getClockEnableId => (0,0)
-    case SyncNode.getClockResetId => (0,0)
+    case SyncNode.getClockResetId =>  (0,0)
   }
 
   final def getLatency = 1 //if not final => update latencyAnalyser
@@ -133,13 +160,13 @@ abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends 
 
   def isUsingReset: Boolean
   def setUseReset = {
-    inputs(SyncNode.getClockResetId) = clockDomain.reset
+    reset = clockDomain.reset
   }
   def getClockDomain: ClockDomain = clockDomain
 
-  def getClock: Bool = inputs(SyncNode.getClockInputId).asInstanceOf[Bool]
-  def getClockEnable: Bool = inputs(SyncNode.getClockEnableId).asInstanceOf[Bool]
-  def getReset: Bool = inputs(SyncNode.getClockResetId).asInstanceOf[Bool]
+  def getClock: Bool = getInput(SyncNode.getClockInputId).asInstanceOf[Bool]
+  def getClockEnable: Bool = getInput(SyncNode.getClockEnableId).asInstanceOf[Bool]
+  def getReset: Bool = getInput(SyncNode.getClockResetId).asInstanceOf[Bool]
 }
 
 trait Assignable {

@@ -190,14 +190,15 @@ object Misc {
   }
 
   def normalizeResize(to: Node, inputId: Integer, width: Int) {
-    val input = to.inputs(inputId)
+    val input = to.getInput(inputId)
     if (input == null || input.getWidth == width || input.isInstanceOf[NoneNode]) return;
 
     val that = input.asInstanceOf[BitVector]
     Component.push(that.component)
     val resize = that.resize(width)
     resize.inferredWidth = width
-    to.inputs(inputId) = resize
+    resize.input.inferredWidth = width
+    to.setInput(inputId,resize)
     Component.pop(that.component)
 //    if (input.isInstanceOf[BaseType] && input.asInstanceOf[BaseType].getLiteral[Literal] == null)
 //      println("asd")
