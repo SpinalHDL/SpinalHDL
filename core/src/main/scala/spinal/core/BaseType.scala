@@ -218,7 +218,7 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
     this
   }
 
-  private[core] def getLiteral[T <: Literal]: T = getInput(0) match {
+  private[core] def getLiteral[T <: Literal]: T = input match {
     case lit: Literal => lit.asInstanceOf[T]
     case bt: BaseType => bt.getLiteral[T]
     case _ => null.asInstanceOf[T]
@@ -228,14 +228,14 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
 
   override def getBitsWidth: Int = getWidth
 
-  override def isReg = getInput(0).isInstanceOf[Reg]
-  def getDrivingReg : this.type = getInput(0) match{
+  override def isReg = input.isInstanceOf[Reg]
+  def getDrivingReg : this.type = input match{
     case reg : Reg => this
     case bt : BaseType => bt.getDrivingReg.asInstanceOf[this.type]
     case _ => SpinalError("Driver is not a register")
   }
 
-  def isDelay = getInput(0).isInstanceOf[SyncNode]
+  def isDelay = input.isInstanceOf[SyncNode]
 
   override def asInput(): this.type = {
     component.ioSet += this
@@ -285,7 +285,7 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
   }
 
   override private[core] def checkInferedWidth: String = {
-    val input = this.getInput(0)
+    val input = this.input
     if (input != null && input.component != null && this.getWidth != input.getWidth) {
       return s"Assignment bit count mismatch. ${this} := ${input}} at \n${ScalaLocated.long(getAssignementContext(0))}"
     }

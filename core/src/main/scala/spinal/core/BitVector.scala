@@ -51,8 +51,8 @@ abstract class BitVector extends BaseType {
 
   private[core] override def calcWidth: Int = {
     if (isFixedWidth) return fixedWidth
-    if (getInput(0) == null) return -1
-    return getInput(0).getWidth
+    if (input == null) return -1
+    return input.getWidth
   }
 
   def asBools: Vec[Bool] = {

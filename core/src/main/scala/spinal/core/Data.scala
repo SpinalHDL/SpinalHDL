@@ -193,7 +193,7 @@ class DataPimper[T <: Data](val pimpIt: T){
 //    def isLiteralBitWidthUnspecified(n : Node) : Boolean = {
 //      n match{
 //        case n : BitsLiteral => return ! n.hasSpecifiedBitCount
-//        case n : BitVector => return if(n.isFixedWidth) false else isLiteralBitWidthUnspecified(n.getInput(0))
+//        case n : BitVector => return if(n.isFixedWidth) false else isLiteralBitWidthUnspecified(n.input)
 //        case _ => return false
 //      }
 //    }
@@ -405,9 +405,9 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
         ptr match {
           case bt: BaseType => {
             if (bt.isReg)
-              bt.getInput(0).asInstanceOf[Reg].setInitialValue(initElement)
+              bt.input.asInstanceOf[Reg].setInitialValue(initElement)
             else
-              recursiveSearch(ptr.getInput(0))
+              recursiveSearch(bt.input)
           }
           case _ => SpinalError(s"Try to set initial value of a data that is not a register ($this)")
         }

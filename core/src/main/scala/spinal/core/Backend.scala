@@ -375,8 +375,8 @@ class Backend {
 
     Node.walk(walkNodesDefautStack,node => node match {
       case node: BaseType => {
-        if (node.isInput && node.input != null && node.getInput(0).isInstanceOf[Nameable]) {
-          val nameable = node.getInput(0).asInstanceOf[Nameable]
+        if (node.isInput && node.input != null && node.input.isInstanceOf[Nameable]) {
+          val nameable = node.input.asInstanceOf[Nameable]
           if (nameable.isUnnamed && node.component.isNamed && node.isNamed) {
             nameable.setWeakName(node.component.getName() + "_" + node.getName())
           }
@@ -486,8 +486,8 @@ class Backend {
       for (consumerInputId <- 0 until consumer.getInputsCount) {
         val consumerInput = consumer.getInput(consumerInputId)
         consumerInput match {
-          case litBaseType: BaseType if litBaseType.getInput(0).isInstanceOf[Literal] => {
-            val lit: Literal = litBaseType.getInput(0).asInstanceOf[Literal]
+          case litBaseType: BaseType if litBaseType.input.isInstanceOf[Literal] => {
+            val lit: Literal = litBaseType.input.asInstanceOf[Literal]
             val c = if (consumer.isInstanceOf[BaseType] && consumer.asInstanceOf[BaseType].isInput) consumer.component.parent else consumer.component
             Component.push(c)
             val newBt = litBaseType.clone()
@@ -526,7 +526,7 @@ class Backend {
     Node.walk(walkNodesDefautStack,node => {
       node match {
         case node: BaseType => {
-          val nodeInput0 = node.getInput(0)
+          val nodeInput0 = node.input
           if (nodeInput0 != null) {
             if (node.isInput && nodeInput0.isInstanceOf[Reg] && nodeInput0.component == node.component) {
               errors += s"Input register are not allowed \n${node.getScalaLocationLong}"
@@ -676,7 +676,7 @@ class Backend {
     Node.walk(walkNodesDefautStack,node => {
       node match {
         case baseType: BaseType => {
-          baseType.getInput(0) match {
+          baseType.input match {
             case wn: WhenNode => baseType.dontSimplifyIt()
             case an: AssignementNode => baseType.dontSimplifyIt()
             case man: MultipleAssignmentNode => baseType.dontSimplifyIt()
@@ -694,7 +694,7 @@ class Backend {
         case node: BaseType => {
           if ((node.isUnnamed || node.dontCareAboutNameForSymplify) && !node.isIo && node.consumers.size == 1 && node.canSymplifyIt) {
             val consumer = node.consumers(0)
-            val input = node.getInput(0)
+            val input = node.input
             if (!node.isDelay || consumer.isInstanceOf[BaseType]) {
               // don't allow to put a non base type on component inputss
               if (input.isInstanceOf[BaseType] || !consumer.isInstanceOf[BaseType] || !consumer.asInstanceOf[BaseType].isInput) {
@@ -793,7 +793,7 @@ class Backend {
     Node.walk(walkNodesDefautStack,node => {
       node match{
         case node : BaseType => {
-          if(node.getInput(0) == null && node.defaultValue != null){
+          if(node.input == null && node.defaultValue != null){
             val c = node.dir match {
               case `in` => node.component
               case `out` => if(node.component.parent != null)
@@ -948,7 +948,7 @@ class Backend {
         case node: BaseType => {
           val width = node.getWidth
 
-          node.getInput(0) match {
+          node.input match {
             case that: Reg => {
               that.inferredWidth = width
               walk(that,RegS.getInitialValueId)
@@ -1148,7 +1148,7 @@ class Backend {
                 }
               }
 
-              walkBaseType(node.getInput(0))
+              walkBaseType(baseType.input)
             }
             case _ => {
               val newConsumers = consumers + (node -> bitsAlreadyUsed.+(AssignedRange(outHi, outLo)))
@@ -1197,7 +1197,7 @@ class Backend {
               case node: BaseType => {
                 first.setInput(0,node.input)
                 first.getInput(0).inferredWidth = first.inferredWidth
-                walk(node.getInput(0), first)
+                walk(node.input, first)
               }
               case lit: Literal =>
               case _ => throw new Exception("BlackBox generic must be literal")

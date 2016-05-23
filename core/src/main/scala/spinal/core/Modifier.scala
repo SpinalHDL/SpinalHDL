@@ -742,7 +742,7 @@ abstract class ExtractBoolFixed extends Extract{
   override def getInputs: Iterator[Node] = Iterator(input)
   override def getInput(id: Int): Node = {assert(id == 0); input}
 
-  def getBitVector = getInput(0)
+  def getBitVector = input
   def getBitId = bitId
 
   override def calcWidth: Int = 1
@@ -800,8 +800,8 @@ abstract class ExtractBoolFloating extends Extract {
     case 1 => bitId
   }
 
-  def getBitVector = getInput(0)
-  def getBitId = getInput(1)
+  def getBitVector = input
+  def getBitId = bitId
 
   override def calcWidth: Int = 1
 
@@ -847,7 +847,7 @@ abstract class ExtractBitsVectorFixed extends Extract {
 
 
 
-  def getBitVector = getInput(0)
+  def getBitVector = input
   def getHi = hi
   def getLo = lo
 
@@ -907,8 +907,8 @@ abstract class ExtractBitsVectorFloating extends Extract {
 
   override def calcWidth: Int = size
 
-  def getBitVector = getInput(0)
-  def getOffset = getInput(1)
+  def getBitVector = input
+  def getOffset = offset
   def getBitCount = size
 
   def getParameterNodes: List[Node] = getInput(1) :: Nil
@@ -1191,7 +1191,7 @@ class BitAssignmentFixed(out: BitVector, in: Node, bitId: Int) extends Assigneme
   }
 
 
-  def getInput : Node = getInput(0)
+  def getInput : Node = input
   def getBitId = bitId
   override def calcWidth: Int = bitId + 1
 
@@ -1235,7 +1235,7 @@ class RangedAssignmentFixed(out: BitVector, in: Node, hi: Int, lo: Int) extends 
     input
   }
 
-  def getInput : Node = getInput(0)
+  def getInput : Node = input
   def getHi = hi
   def getLo = lo
 
@@ -1303,8 +1303,8 @@ class BitAssignmentFloating(out: BitVector, in_ : Node, bitId_ : Node) extends A
   }
 
 
-  def getInput  : Node = getInput(0)
-  def getBitId  : Node = getInput(1)
+  def getInput  : Node = input
+  def getBitId  : Node = bitId
 
   override def calcWidth: Int = 1 << Math.min(20,getBitId.getWidth)
 
@@ -1353,8 +1353,8 @@ class RangedAssignmentFloating(out: BitVector, in_ : Node, offset_ : Node, bitCo
   }
 
 
-  def getInput : Node = getInput(0)
-  def getOffset = getInput(1)
+  def getInput : Node = input
+  def getOffset = offset
   def getBitCount = bitCount
 
   override def calcWidth: Int = 1 << Math.min(20,offset_.getWidth) + bitCount.value
