@@ -410,8 +410,8 @@ object PlayBetterError {
 //    result := c
 
     //Case 2
-    result := c
-    result(1 downto 0) := b.resize(4)
+//    result := c
+//    result(1 downto 0) := b.resize(4)
 
     //Case 3
 //    when(cond){
@@ -1733,10 +1733,10 @@ object OverloadPlay {
       })
       println(allocatedEntries)
       println(entries)
-      //      while(true){
-      //        Thread.sleep(1000)
-      //        println(report.topLevel )
-      //      }
+            while(true){
+              Thread.sleep(1000)
+              println(report.toplevel )
+            }
     }
   }
 }

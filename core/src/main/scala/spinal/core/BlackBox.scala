@@ -100,9 +100,9 @@ abstract class BlackBox extends Component with SpinalTagReady {
 
   override def nameElements(): Unit = {
     val io = reflectIo
-    if (io != null) {
-      io.setWeakName("")
-    }
+//    if (io != null) {
+//      io.setWeakName("")
+//    }
     super.nameElements()
   }
 

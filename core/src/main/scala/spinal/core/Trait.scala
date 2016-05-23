@@ -98,7 +98,7 @@ trait NameableByComponent extends Nameable with GlobalDataUser{
     if(!globalData.nodeAreNamed) {
       if (isUnnamed) {
         val c = getComponent()
-        //if(c != null)c.nameElements() //TODO Think about that...
+        if(c != null)c.nameElements()
       }
     }
     return super.getName()
@@ -189,7 +189,14 @@ trait Nameable {
   private var name: String = ""
   private[core] var compositeName: Nameable = null
   def getName(): String = if (compositeName == null) name else compositeName.getName()
-  def getDisplayName() : String = if(isNamed) getName() else "???"
+  //def getDisplayName() : String = if(isNamed) getName() else "???"
+  def getDisplayName() : String = {
+    val name = getName()
+    if(name.length == 0)
+      "???"
+    else
+      name
+  }
   def isUnnamed: Boolean = name == "" && (compositeName == null || compositeName.isUnnamed)
   def isNamed: Boolean = !isUnnamed
   private[core] var isWeak = true

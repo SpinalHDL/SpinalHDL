@@ -2,6 +2,7 @@ package spinal.tester.code
 
 import spinal.core._
 
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 /**
@@ -87,8 +88,10 @@ object PlayB4 {
     val readData = out Bits(8 bits)
 
     val mem = Mem(Bits(8 bits),16)
-
     readData := mem.writeOrReadSync(address,writeData,chipSelect,writeEnable)
+
+
+    address := 0
   }
 
   def main(args: Array[String]): Unit = {
