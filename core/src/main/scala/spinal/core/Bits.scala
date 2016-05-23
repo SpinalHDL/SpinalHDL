@@ -79,7 +79,7 @@ class Bits extends BitVector {
 
   private[core] override def isEguals(that: Any): Bool = {
     that match {
-      case that: Bits => newLogicalOperator("b==b", that, InputNormalize.inputWidthMax, SymplifyNode.binaryThatIfBoth(True));
+      case that: Bits => wrapLogicalOperator("b==b", that, InputNormalize.inputWidthMax, SymplifyNode.binaryThatIfBoth(True));
       case that: MaskedLiteral => that === this
       case _ => SpinalError(s"Don't know how to compare $this with $that"); null
     }
@@ -87,7 +87,7 @@ class Bits extends BitVector {
 
   private[core] override def isNotEguals(that: Any): Bool = {
     that match {
-      case that: Bits => newLogicalOperator("b!=b", that, InputNormalize.inputWidthMax, SymplifyNode.binaryThatIfBoth(False));
+      case that: Bits => wrapLogicalOperator("b!=b", that, InputNormalize.inputWidthMax, SymplifyNode.binaryThatIfBoth(False));
       case that: MaskedLiteral => that =/= this
       case _ => SpinalError(s"Don't know how to compare $this with $that"); null
     }

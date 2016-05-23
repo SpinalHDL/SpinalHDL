@@ -75,10 +75,10 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider {
   def ^(right: UInt): UInt = wrapBinaryOperator(right,new Operator.UInt.Xor)
   def unary_~(): UInt = wrapUnaryOperator(new Operator.UInt.Not);
 
-  override def <(that: UInt): Bool = newLogicalOperator("u<u", that, InputNormalize.inputWidthMax,SymplifyNode.binaryUIntSmaller);
-  override def >(that: UInt): Bool = that < this
-  override def <=(that: UInt): Bool = newLogicalOperator("u<=u", that, InputNormalize.inputWidthMax,SymplifyNode.binaryUIntSmallerOrEgual);
-  override def >=(that: UInt): Bool = that <= this
+  override def < (right: UInt): Bool = wrapLogicalOperator(right,new Operator.UInt.Smaller)
+  override def > (right: UInt): Bool = right < this
+  override def <=(right: UInt): Bool = wrapLogicalOperator(right,new Operator.UInt.SmallerOrEqual)
+  override def >=(right: UInt): Bool = right <= this
 
 
   override def >>(that: Int): UInt = wrapBinaryOperator("u>>i", IntLiteral(that), WidthInfer.shiftRightWidth, InputNormalize.none,SymplifyNode.shiftRightImpl);
@@ -89,7 +89,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider {
   private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,u,u)", sel, whenTrue, whenFalse)
   private[core] override def isEguals(that: Any): Bool = {
     that match {
-      case that: UInt => newLogicalOperator("u==u", that, InputNormalize.inputWidthMax,SymplifyNode.binaryThatIfBoth(True));
+      case that: UInt => wrapLogicalOperator("u==u", that, InputNormalize.inputWidthMax,SymplifyNode.binaryThatIfBoth(True));
       case that : MaskedLiteral => that === this
       case that : Int => this === that
       case that : BigInt => this === that
@@ -98,7 +98,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider {
   }
   private[core] override def isNotEguals(that: Any): Bool = {
     that match {
-      case that: UInt => newLogicalOperator("u!=u", that, InputNormalize.inputWidthMax,SymplifyNode.binaryThatIfBoth(False));
+      case that: UInt => wrapLogicalOperator("u!=u", that, InputNormalize.inputWidthMax,SymplifyNode.binaryThatIfBoth(False));
       case that : MaskedLiteral => that === this
       case _ => SpinalError(s"Don't know how compare $this with $that"); null
     }

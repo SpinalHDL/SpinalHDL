@@ -58,10 +58,10 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider {
   def unary_-(): SInt = wrapUnaryOperator(new Operator.SInt.Minus);
 
 
-  override def <(that: SInt): Bool = newLogicalOperator("s<s", that,InputNormalize.inputWidthMax,SymplifyNode.binarySIntSmaller);
-  override def >(that: SInt): Bool = that < this
-  override def <=(that: SInt): Bool = newLogicalOperator("s<=s", that,InputNormalize.inputWidthMax,SymplifyNode.binarySIntSmallerOrEgual);
-  override def >=(that: SInt): Bool = that <= this
+  override def < (right : SInt): Bool = wrapLogicalOperator(right,new Operator.SInt.Smaller)
+  override def > (right : SInt): Bool = right < this
+  override def <=(right : SInt): Bool = wrapLogicalOperator(right,new Operator.SInt.SmallerOrEqual)
+  override def >=(right : SInt): Bool = right <= this
 
   override def >>(that: Int): SInt = wrapBinaryOperator("s>>i", IntLiteral(that), WidthInfer.shiftRightWidth,InputNormalize.none,SymplifyNode.shiftRightImpl);
   override def <<(that: Int): SInt = wrapBinaryOperator("s<<i", IntLiteral(that), WidthInfer.shiftLeftWidth,InputNormalize.none,SymplifyNode.shiftLeftImpl(S.apply));
@@ -72,14 +72,14 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider {
   private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,s,s)",sel,whenTrue,whenFalse)
   private[core] override def isEguals(that: Any): Bool = {
     that match {
-      case that: SInt => newLogicalOperator("s==s", that, InputNormalize.inputWidthMax,SymplifyNode.binaryThatIfBoth(True));
+      case that: SInt => wrapLogicalOperator("s==s", that, InputNormalize.inputWidthMax,SymplifyNode.binaryThatIfBoth(True));
       case that : MaskedLiteral => that === this
       case _ => SpinalError(s"Don't know how compare $this with $that"); null
     }
   }
   private[core] override def isNotEguals(that: Any): Bool = {
     that match {
-      case that: SInt => newLogicalOperator("s!=s", that, InputNormalize.inputWidthMax,SymplifyNode.binaryThatIfBoth(False));
+      case that: SInt => wrapLogicalOperator("s!=s", that, InputNormalize.inputWidthMax,SymplifyNode.binaryThatIfBoth(False));
       case that : MaskedLiteral => that =/= this
       case _ => SpinalError(s"Don't know how compare $this with $that"); null
     }

@@ -203,6 +203,18 @@ object Operator{
       override def normalizeInputs: Unit = {}
       override def simplifyNode: Unit = {SymplifyNode.unsignedModImpl(this)}
     }
+
+    abstract class Equal extends BinaryOperator{
+      override def calcWidth(): Int = 1
+      override def normalizeInputs: Unit = {InputNormalize.inputWidthMax(this)}
+      override def simplifyNode: Unit = {SymplifyNode.binaryThatIfBoth(True)(this)}
+    }
+
+    abstract class NotEqual extends BinaryOperator{
+      override def calcWidth(): Int = 1
+      override def normalizeInputs: Unit = {InputNormalize.inputWidthMax(this)}
+      override def simplifyNode: Unit = {SymplifyNode.binaryThatIfBoth(False)(this)}
+    }
   }
 
   object Bits{
@@ -231,6 +243,14 @@ object Operator{
 
     class Xor extends BitVector.Xor{
       override def opName: String = "b^b"
+    }
+
+    class Equal extends BitVector.Equal{
+      override def opName: String = "b==b"
+    }
+
+    class NotEgual extends BitVector.NotEqual{
+      override def opName: String = "b!=b"
     }
   }
 
@@ -276,6 +296,28 @@ object Operator{
 
     class Mod extends BitVector.Mod{
       override def opName: String = "u%u"
+    }
+
+    class Smaller extends BinaryOperator{
+      override def opName: String = "u<u"
+      override def calcWidth(): Int = 1
+      override def normalizeInputs: Unit = {InputNormalize.inputWidthMax(this)}
+      override def simplifyNode: Unit = {SymplifyNode.binaryUIntSmaller(this)}
+    }
+
+    class SmallerOrEqual extends BinaryOperator{
+      override def opName: String = "u<=u"
+      override def calcWidth(): Int = 1
+      override def normalizeInputs: Unit = {InputNormalize.inputWidthMax(this)}
+      override def simplifyNode: Unit = {SymplifyNode.binaryUIntSmallerOrEgual(this)}
+    }
+
+    class Equal extends BitVector.Equal{
+      override def opName: String = "u==u"
+    }
+
+    class NotEgual extends BitVector.NotEqual{
+      override def opName: String = "u!=u"
     }
   }
 
@@ -327,6 +369,28 @@ object Operator{
 
     class Mod extends BitVector.Mod{
       override def opName: String = "s%s"
+    }
+
+    class Smaller extends BinaryOperator{
+      override def opName: String = "s<s"
+      override def calcWidth(): Int = 1
+      override def normalizeInputs: Unit = {InputNormalize.inputWidthMax(this)}
+      override def simplifyNode: Unit = {SymplifyNode.binarySIntSmaller(this)}
+    }
+
+    class SmallerOrEqual extends BinaryOperator{
+      override def opName: String = "s<=s"
+      override def calcWidth(): Int = 1
+      override def normalizeInputs: Unit = {InputNormalize.inputWidthMax(this)}
+      override def simplifyNode: Unit = {SymplifyNode.binarySIntSmallerOrEgual(this)}
+    }
+
+    class Equal extends BitVector.Equal{
+      override def opName: String = "s==s"
+    }
+
+    class NotEgual extends BitVector.NotEqual{
+      override def opName: String = "s!=s"
     }
   }
 }

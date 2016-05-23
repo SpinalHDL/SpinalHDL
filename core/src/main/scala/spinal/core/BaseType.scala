@@ -300,7 +300,7 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
 
   private[core] def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer
 
-  private[core] def newLogicalOperator(opName: String, right: Node, normalizeInputsImpl: (Node) => Unit, simplifyNodeImpl: (Node) => Unit): Bool = {
+  private[core] def wrapLogicalOperator(opName: String, right: Node, normalizeInputsImpl: (Node) => Unit, simplifyNodeImpl: (Node) => Unit): Bool = {
     val op = BinaryOperator(opName, this, right, WidthInfer.oneWidth, normalizeInputsImpl, simplifyNodeImpl)
     val typeNode = new Bool
     typeNode.setInputWrap(0) = op
@@ -340,7 +340,7 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
     op.right = right
     wrapWithWeakClone(op)
   }
-  private[core] def newLogicalOperator(right : Node,op : BinaryOperator):  Bool = {
+  private[core] def wrapLogicalOperator(right : Node,op : BinaryOperator):  Bool = {
     op.left = this
     op.right = right
     val ret = new Bool

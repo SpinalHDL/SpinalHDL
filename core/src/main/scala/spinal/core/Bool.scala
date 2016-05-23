@@ -33,9 +33,9 @@ trait BoolFactory {
 class Bool extends BaseType {
   private[core] override def calcWidth: Int = 1
 
-  def &&(b: Bool): Bool = newLogicalOperator(b,new Operator.Bool.And)
-  def ||(b: Bool): Bool = newLogicalOperator(b,new Operator.Bool.Or)
-  def ^(b: Bool): Bool  = newLogicalOperator(b,new Operator.Bool.Xor)
+  def &&(b: Bool): Bool = wrapLogicalOperator(b,new Operator.Bool.And)
+  def ||(b: Bool): Bool = wrapLogicalOperator(b,new Operator.Bool.Or)
+  def ^(b: Bool): Bool  = wrapLogicalOperator(b,new Operator.Bool.Xor)
   def unary_!(): Bool = wrapUnaryOperator(new Operator.Bool.Not)
   def &(b: Bool): Bool = this && b
   def |(b: Bool): Bool = this || b
@@ -66,14 +66,14 @@ class Bool extends BaseType {
 
   private[core] override def isEguals(that: Any): Bool = {
     that match {
-      case that: Bool => newLogicalOperator("B==B", that, InputNormalize.none, SymplifyNode.none);
+      case that: Bool => wrapLogicalOperator("B==B", that, InputNormalize.none, SymplifyNode.none);
       case _ => SpinalError(s"Don't know how compare $this with $that"); null
     }
   }
 
   private[core] override def isNotEguals(that: Any): Bool = {
     that match {
-      case that: Bool => newLogicalOperator("B!=B", that, InputNormalize.none, SymplifyNode.none);
+      case that: Bool => wrapLogicalOperator("B!=B", that, InputNormalize.none, SymplifyNode.none);
       case _ => SpinalError(s"Don't know how compare $this with $that"); null
     }
   }
