@@ -74,10 +74,39 @@ object SpinalVhdl {
 
   //Depreciated
   def apply[T <: Component](gen: => T, config: SpinalVhdlBuilder[_] => Unit): BackendReport[T] = {
-    val factory = new SpinalVhdlBuilder(gen)
-    config(factory)
-    factory.backend.globalData.scalaLocatedEnable = true
-    factory.elaborate()
+
+    def doit(debug : Boolean = false) : BackendReport[T] = {
+      try {
+        val factory = new SpinalVhdlBuilder(gen)
+        config(factory)
+        GlobalData.get.scalaLocatedEnable = debug
+        factory.elaborate()
+      } catch {
+        case e: Throwable => {
+          if(!debug){
+            Thread.sleep(10);
+            println("\n**********************************************************************************************")
+            val errCnt = SpinalError.getErrorCount()
+            SpinalWarning(s"Elaboration failed (${errCnt} error" + (if(errCnt > 1){s"s"} else {s""}) + s").\n" +
+              s"          Spinal will restart with scala trace to help you to find the problem.")
+            println("**********************************************************************************************\n")
+            Thread.sleep(10);
+            return doit(debug = true)
+          }else{
+            Thread.sleep(10);
+            println("\n**********************************************************************************************")
+            val errCnt = SpinalError.getErrorCount()
+            SpinalWarning(s"Elaboration failed (${errCnt} error" + (if(errCnt > 1){s"s"} else {s""}) + ").")
+            println("**********************************************************************************************")
+            Thread.sleep(10);
+            throw e
+          }
+        }
+      }
+    }
+
+    doit()
+
   }
 
 }

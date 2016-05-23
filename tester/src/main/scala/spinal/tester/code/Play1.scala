@@ -680,7 +680,7 @@ object PlayBetterError {
     }
   }
   def main(args: Array[String]): Unit = {
-    SpinalVhdl(new TopLevel())
+    SpinalVhdl(new TopLevel(),_.nothing)
   }
 }
 
