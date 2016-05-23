@@ -299,24 +299,12 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
   }
 
   private[core] def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer
-
-  private[core] def wrapLogicalOperator(opName: String, right: Node, normalizeInputsImpl: (Node) => Unit, simplifyNodeImpl: (Node) => Unit): Bool = {
-    val op = BinaryOperator(opName, this, right, WidthInfer.oneWidth, normalizeInputsImpl, simplifyNodeImpl)
-    val typeNode = new Bool
-    typeNode.setInputWrap(0) = op
-    typeNode
+  private[core] def newMultiplexer(cond : Node,whenTrue : Node,whenFalse : Node,mux : Multiplexer): Multiplexer = {
+    mux.cond      = cond
+    mux.whenTrue  = whenTrue
+    mux.whenFalse = whenFalse
+    mux
   }
-
-  private[core] def wrapBinaryOperator(opName: String, right: Node, getWidthImpl: (Node) => Int, normalizeInputsImpl: (Node) => Unit, simplifyNodeImpl: (Node) => Unit): this.type = {
-    val op = BinaryOperator(opName, this, right, getWidthImpl, normalizeInputsImpl, simplifyNodeImpl)
-    val typeNode = wrapWithWeakClone(op)
-    typeNode
-  }
-
-
-
-
-  //Remove all of them
 
 
   private[core] def wrapWithWeakClone(node: Node): this.type = {
@@ -351,6 +339,13 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
     ret.input = op
     ret
   }
+  private[core] def wrapMultiplexer(cond : Node,whenTrue : Node,whenFalse : Node,mux : Multiplexer): this.type = {
+    mux.cond      = cond
+    mux.whenTrue  = whenTrue
+    mux.whenFalse = whenFalse
+    wrapWithWeakClone(mux)
+  }
+
 
   override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = (outHi, outLo)
 

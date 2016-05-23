@@ -49,7 +49,7 @@ class Bool extends BaseType {
   def rise(initAt : Bool) = this && ! RegNext(this).init(initAt)
   def fall(initAt : Bool) = ! this && RegNext(this).init(initAt)
 
-  private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,B,B)", sel, whenTrue, whenFalse)
+  private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse,new MultiplexerBool)
 
   //cond ? a | b syntax
   case class MuxBuilder[T <: Data](whenTrue : T){

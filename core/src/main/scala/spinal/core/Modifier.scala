@@ -54,22 +54,6 @@ class ResizeSInt extends Resize{
 
 
 
-object UnaryOperator {
-  def apply(opName: String, right: Node, widthImpl: (Node) => Int, normalizeInputsImpl: (Node) => Unit,simplifyNodeImpl : (Node) => Unit): Modifier = {
-    val op = new Operator(opName, widthImpl, normalizeInputsImpl,simplifyNodeImpl)
-    op.inputs += right
-    op
-  }
-}
-
-object BinaryOperator {
-  def apply(opName: String, left: Node, right: Node, widthImpl: (Node) => Int, normalizeInputsImpl: (Node) => Unit,simplifyNodeImpl : (Node) => Unit): Modifier = {
-    val op = new Operator(opName, widthImpl, normalizeInputsImpl,simplifyNodeImpl)
-    op.inputs += left
-    op.inputs += right
-    op
-  }
-}
 
 class Operator(opName: String, widthImpl: (Node) => Int, val normalizeInputsImpl: (Node) => Unit,simplifyNodeImpl : (Node) => Unit) extends ModifierImpl(opName, widthImpl) {
   override def normalizeInputs: Unit = {
@@ -514,6 +498,23 @@ object Operator{
       override def getLiteralFactory: (BigInt, BitCount) => Node = S.apply
     }
   }
+
+  object Enum{
+    class Equal extends BinaryOperator{
+      override def opName: String = "e==e"
+      override def calcWidth(): Int = 1
+      override def normalizeInputs: Unit = {InputNormalize.enumImpl(this)}
+      override def simplifyNode: Unit = {}
+    }
+
+    class NotEqual extends BinaryOperator{
+      override def opName: String = "e!=e"
+      override def calcWidth(): Int = 1
+      override def normalizeInputs: Unit = {InputNormalize.enumImpl(this)}
+      override def simplifyNode: Unit = {}
+    }
+
+  }
 }
 
 /*
@@ -646,7 +647,7 @@ class CastEnumToEnum(val enum: SpinalEnumCraft[_]) extends Cast {
 
 
 
-class Multiplexer(opName: String) extends Modifier(opName, WidthInfer.multiplexImpl) {
+class Multiplexer extends Modifier(null, null) {
   var cond      : Node = null
   var whenTrue  : Node = null
   var whenFalse : Node = null
@@ -678,15 +679,28 @@ class Multiplexer(opName: String) extends Modifier(opName, WidthInfer.multiplexI
 
   override def calcWidth: Int = Math.max(whenTrue.getWidth, whenFalse.getWidth)
 
-
-
-
   override def normalizeInputs: Unit = {
     Misc.normalizeResize(this, 1, this.getWidth)
     Misc.normalizeResize(this, 2, this.getWidth)
   }
 
   override def simplifyNode: Unit = SymplifyNode.multiplexerImpl(this)
+}
+
+class MultiplexerBool extends Multiplexer{
+  override def opName: String = "mux(B,B,B)"
+}
+class MultiplexerBits extends Multiplexer{
+  override def opName: String = "mux(B,b,b)"
+}
+class MultiplexerUInt extends Multiplexer{
+  override def opName: String = "mux(B,u,u)"
+}
+class MultiplexerSInt extends Multiplexer{
+  override def opName: String = "mux(B,s,s)"
+}
+class MultiplexerEnum extends Multiplexer{
+  override def opName: String = "mux(B,e,e)"
 }
 
 object Mux {
@@ -758,14 +772,6 @@ object SpinalMap {
 
 
 private[spinal] object Multiplex {
-  def apply(opName: String, sel: Bool, one: Node, zero: Node): Multiplexer = {
-
-    val op = new Multiplexer(opName)
-    op.cond = sel
-    op.whenTrue = one
-    op.whenFalse = zero
-    op
-  }
 
   def baseType[T <: BaseType](sel: Bool, whenTrue: T, whenFalse: T): Multiplexer = {
     whenTrue.newMultiplexer(sel, whenTrue, whenFalse)

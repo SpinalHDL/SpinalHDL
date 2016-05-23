@@ -69,7 +69,7 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider {
   def <<(that: UInt): SInt         = wrapBinaryOperator(that,new Operator.SInt.ShiftLeftByUInt)
 
 
-  private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,s,s)",sel,whenTrue,whenFalse)
+  private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse,new MultiplexerSInt)
   private[core] override def isEguals(that: Any): Bool = {
     that match {
       case that: SInt =>  wrapLogicalOperator(that,new Operator.SInt.Equal)

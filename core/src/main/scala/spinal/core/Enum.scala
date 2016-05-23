@@ -67,20 +67,20 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T,val encoding: SpinalEnum
 
   override def isEguals(that: Any): Bool = {
     that match{
-      case that : SpinalEnumCraft[_] if that.blueprint == blueprint =>  wrapLogicalOperator("e==e", that, InputNormalize.enumImpl,SymplifyNode.none);
-      case that : SpinalEnumElement[_] if that.parent == blueprint =>  wrapLogicalOperator("e==e", that(), InputNormalize.enumImpl,SymplifyNode.none);
+      case that : SpinalEnumCraft[_] if that.blueprint == blueprint =>  wrapLogicalOperator(that,new Operator.Enum.Equal);
+      case that : SpinalEnumElement[_] if that.parent == blueprint =>  wrapLogicalOperator(that(),new Operator.Enum.Equal);
       case _ => SpinalError("Incompatible test")
     }
   }
   override def isNotEguals(that: Any): Bool = {
     that match{
-      case that : SpinalEnumCraft[_] if that.blueprint == blueprint =>  wrapLogicalOperator("e!=e", that, InputNormalize.enumImpl,SymplifyNode.none);
-      case that :SpinalEnumElement[_] if that.parent == blueprint => wrapLogicalOperator("e!=e", that(), InputNormalize.enumImpl,SymplifyNode.none);
+      case that : SpinalEnumCraft[_] if that.blueprint == blueprint =>  wrapLogicalOperator(that,new Operator.Enum.NotEqual);
+      case that :SpinalEnumElement[_] if that.parent == blueprint => wrapLogicalOperator(that(),new Operator.Enum.NotEqual);
       case _ => SpinalError("Incompatible test")
     }
   }
 
-  private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,e,e)", sel, whenTrue, whenFalse)
+  private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse,new MultiplexerEnum)
   override def asBits: Bits = wrapCast(Bits(),new CastEnumToBits)
 
   override def assignFromBits(bits: Bits): Unit = {
