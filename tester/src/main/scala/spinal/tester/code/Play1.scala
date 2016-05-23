@@ -410,8 +410,8 @@ object PlayBetterError {
 //    result := c
 
     //Case 2
-//    result := c
-//    result(1 downto 0) := b.resize(2)
+    result := c
+    result(1 downto 0) := b.resize(4)
 
     //Case 3
 //    when(cond){
@@ -638,34 +638,34 @@ object PlayBetterError {
 
 
     //Case 20
-    val subA = new Component{
-      val input = in UInt (4 bits)
-      val output = out UInt (4 bits)
-    }
-    val subB = new Component{
-      val input = in UInt(4 bits)
-      val output = out UInt(4 bits)
-      output := input
-    }
-    val tmp = UInt(4 bits)
-
-    subA.input <> tmp
-    subA.input <> subB.output
-    subA.input <> a
-
-    subA.output <> tmp
-    subA.output <> subB.input
-    subA.output <> result
-
-    a <> tmp
-    a <> subA.input
-    a <> result
-
-    result <> a
-    result <> subA.output
-    result <> tmp
-
-    result := 0
+//    val subA = new Component{
+//      val input = in UInt (4 bits)
+//      val output = out UInt (4 bits)
+//    }
+//    val subB = new Component{
+//      val input = in UInt(4 bits)
+//      val output = out UInt(4 bits)
+//      output := input
+//    }
+//    val tmp = UInt(4 bits)
+//
+//    subA.input <> tmp
+//    subA.input <> subB.output
+//    subA.input <> a
+//
+//    subA.output <> tmp
+//    subA.output <> subB.input
+//    subA.output <> result
+//
+//    a <> tmp
+//    a <> subA.input
+//    a <> result
+//
+//    result <> a
+//    result <> subA.output
+//    result <> tmp
+//
+//    result := 0
 
 
   }
@@ -680,7 +680,7 @@ object PlayBetterError {
     }
   }
   def main(args: Array[String]): Unit = {
-    SpinalVhdl(new TopLevel())
+    SpinalVhdl(new TopLevel(),_.nothing)
   }
 }
 
