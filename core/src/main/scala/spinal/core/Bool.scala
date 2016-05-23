@@ -66,14 +66,14 @@ class Bool extends BaseType {
 
   private[core] override def isEguals(that: Any): Bool = {
     that match {
-      case that: Bool => wrapLogicalOperator("B==B", that, InputNormalize.none, SymplifyNode.none);
+      case that: Bool => wrapLogicalOperator(that,new Operator.Bool.Equal);
       case _ => SpinalError(s"Don't know how compare $this with $that"); null
     }
   }
 
   private[core] override def isNotEguals(that: Any): Bool = {
     that match {
-      case that: Bool => wrapLogicalOperator("B!=B", that, InputNormalize.none, SymplifyNode.none);
+      case that: Bool => wrapLogicalOperator(that,new Operator.Bool.NotEqual);
       case _ => SpinalError(s"Don't know how compare $this with $that"); null
     }
   }

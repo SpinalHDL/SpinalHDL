@@ -1154,6 +1154,15 @@ class VhdlBackend extends Backend with VhdlBase {
     s"$vhd(${func.getInputs.map(emitLogic(_)).reduce(_ + "," + _)})"
   }
 
+  def shiftRightByIntImpl(func: Modifier): String = {
+    val node = func.asInstanceOf[Operator.BitVector.ShiftRightByInt]
+    s"pkg_shiftRight(${emitLogic(node.input)},${node.shift})"
+  }
+
+  def shiftLeftByIntImpl(func: Modifier): String = {
+    val node = func.asInstanceOf[Operator.BitVector.ShiftLeftByInt]
+    s"pkg_shiftLeft(${emitLogic(node.input)},${node.shift})"
+  }
 
   def resizeFunction(vhdlFunc : String)(func: Modifier): String = {
     val resize = func.asInstanceOf[Resize]
@@ -1252,8 +1261,8 @@ class VhdlBackend extends Backend with VhdlBase {
   modifierImplMap.put("u<=u", operatorImplAsOperator("<="))
 
 
-  modifierImplMap.put("u>>i", operatorImplAsFunction("pkg_shiftRight"))
-  modifierImplMap.put("u<<i", operatorImplAsFunction("pkg_shiftLeft"))
+  modifierImplMap.put("u>>i", shiftRightByIntImpl)
+  modifierImplMap.put("u<<i", shiftLeftByIntImpl)
   modifierImplMap.put("u>>u", operatorImplAsFunction("pkg_shiftRight"))
   modifierImplMap.put("u<<u", operatorImplAsFunction("pkg_shiftLeft"))
 
@@ -1277,8 +1286,8 @@ class VhdlBackend extends Backend with VhdlBase {
   modifierImplMap.put("s<=s", operatorImplAsOperator("<="))
 
 
-  modifierImplMap.put("s>>i", operatorImplAsFunction("pkg_shiftRight"))
-  modifierImplMap.put("s<<i", operatorImplAsFunction("pkg_shiftLeft"))
+  modifierImplMap.put("s>>i", shiftRightByIntImpl)
+  modifierImplMap.put("s<<i", shiftLeftByIntImpl)
   modifierImplMap.put("s>>u", operatorImplAsFunction("pkg_shiftRight"))
   modifierImplMap.put("s<<u", operatorImplAsFunction("pkg_shiftLeft"))
 
@@ -1295,8 +1304,8 @@ class VhdlBackend extends Backend with VhdlBase {
   modifierImplMap.put("b==b", operatorImplAsOperator("="))
   modifierImplMap.put("b!=b", operatorImplAsOperator("/="))
 
-  modifierImplMap.put("b>>i", operatorImplAsFunction("pkg_shiftRight"))
-  modifierImplMap.put("b<<i", operatorImplAsFunction("pkg_shiftLeft"))
+  modifierImplMap.put("b>>i", shiftRightByIntImpl)
+  modifierImplMap.put("b<<i", shiftLeftByIntImpl)
   modifierImplMap.put("b>>u", operatorImplAsFunction("pkg_shiftRight"))
   modifierImplMap.put("b<<u", operatorImplAsFunction("pkg_shiftLeft"))
   modifierImplMap.put("brotlu", operatorImplAsFunction("pkg_rotateLeft"))

@@ -91,6 +91,17 @@ class UnaryOperator extends Operator(null,null,null,null){
   override def getInput(id: Int): Node = {assert(id == 0); input}
 }
 
+class ConstantOperator extends Operator(null,null,null,null){
+  var input : Node = null
+  override def onEachInput(doThat: (Node, Int) => Unit): Unit = doThat(input,0)
+  override def onEachInput(doThat: (Node) => Unit): Unit = doThat(input)
+  override def setInput(id: Int, node: Node): Unit = {assert(id == 0); this.input = node}
+  override def getInputsCount: Int = 1
+  override def getInputs: Iterator[Node] = Iterator(input)
+  override def getInput(id: Int): Node = {assert(id == 0); input}
+}
+
+
 
 
 
@@ -147,6 +158,20 @@ object Operator{
     class Not extends UnaryOperator{
       override def opName: String = "!"
       override def calcWidth(): Int = input.getWidth
+      override def normalizeInputs: Unit = {}
+      override def simplifyNode: Unit = {}
+    }
+
+    class Equal extends BinaryOperator{
+      override def opName: String = "B==B"
+      override def calcWidth(): Int = 1
+      override def normalizeInputs: Unit = {}
+      override def simplifyNode: Unit = {}
+    }
+
+    class NotEqual extends BinaryOperator{
+      override def opName: String = "B!=B"
+      override def calcWidth(): Int = 1
       override def normalizeInputs: Unit = {}
       override def simplifyNode: Unit = {}
     }
@@ -215,6 +240,42 @@ object Operator{
       override def normalizeInputs: Unit = {InputNormalize.inputWidthMax(this)}
       override def simplifyNode: Unit = {SymplifyNode.binaryThatIfBoth(False)(this)}
     }
+
+    abstract class ShiftRightByInt(val shift : Int) extends ConstantOperator{
+      assert(shift >= 0)
+      override def calcWidth(): Int = Math.max(0, input.getWidth - shift)
+      override def normalizeInputs: Unit = {}
+      override def simplifyNode: Unit = {SymplifyNode.shiftRightImpl(this)}
+    }
+
+    abstract class ShiftRightByUInt extends BinaryOperator{
+      override def calcWidth(): Int = left.getWidth
+      override def normalizeInputs: Unit = {}
+      override def simplifyNode: Unit = {SymplifyNode.shiftRightImpl(this)}
+    }
+
+    abstract class ShiftLeftByInt(val shift : Int) extends ConstantOperator{
+      assert(shift >= 0)
+      override def calcWidth(): Int = input.getWidth + shift
+      override def normalizeInputs: Unit = {}
+      override def simplifyNode: Unit = {SymplifyNode.shiftLeftImpl(getLiteralFactory,this)}
+      def getLiteralFactory : (BigInt, BitCount) => Node
+    }
+
+    abstract class ShiftLeftByUInt extends BinaryOperator{
+      override def calcWidth(): Int = left.getWidth + (1 << right.getWidth) - 1
+      override def normalizeInputs: Unit = {}
+      override def simplifyNode: Unit = {SymplifyNode.shiftLeftImpl(getLiteralFactory,this)}
+      def getLiteralFactory : (BigInt, BitCount) => Node
+    }
+
+
+    abstract class RotateLeftByUInt extends BinaryOperator{
+      override def calcWidth(): Int = left.getWidth
+      override def normalizeInputs: Unit = {}
+      override def simplifyNode: Unit = {SymplifyNode.rotateImpl(getLiteralFactory,this)}
+      def getLiteralFactory : (BigInt, BitCount) => Node
+    }
   }
 
   object Bits{
@@ -249,9 +310,33 @@ object Operator{
       override def opName: String = "b==b"
     }
 
-    class NotEgual extends BitVector.NotEqual{
+    class NotEqual extends BitVector.NotEqual{
       override def opName: String = "b!=b"
     }
+
+    class ShiftRightByInt(shift : Int) extends BitVector.ShiftRightByInt(shift){
+      override def opName: String = "b>>i"
+    }
+
+    class ShiftRightByUInt extends BitVector.ShiftRightByUInt{
+      override def opName: String = "b>>u"
+    }
+
+    class ShiftLeftByInt(shift : Int) extends BitVector.ShiftLeftByInt(shift){
+      override def opName: String = "b<<i"
+      override def getLiteralFactory: (BigInt, BitCount) => Node = B.apply
+    }
+
+    class ShiftLeftByUInt extends BitVector.ShiftLeftByUInt{
+      override def opName: String = "b<<u"
+      override def getLiteralFactory: (BigInt, BitCount) => Node = B.apply
+    }
+
+    class RotateLeftByUInt extends BitVector.RotateLeftByUInt{
+      override def opName: String = "brotlu"
+      def getLiteralFactory : (BigInt, BitCount) => Node = B.apply
+    }
+
   }
 
 
@@ -316,8 +401,26 @@ object Operator{
       override def opName: String = "u==u"
     }
 
-    class NotEgual extends BitVector.NotEqual{
+    class NotEqual extends BitVector.NotEqual{
       override def opName: String = "u!=u"
+    }
+
+    class ShiftRightByInt(shift : Int) extends BitVector.ShiftRightByInt(shift){
+      override def opName: String = "u>>i"
+    }
+
+    class ShiftRightByUInt extends BitVector.ShiftRightByUInt{
+      override def opName: String = "u>>u"
+    }
+
+    class ShiftLeftByInt(shift : Int) extends BitVector.ShiftLeftByInt(shift){
+      override def opName: String = "u<<i"
+      override def getLiteralFactory: (BigInt, BitCount) => Node = U.apply
+    }
+
+    class ShiftLeftByUInt extends BitVector.ShiftLeftByUInt{
+      override def opName: String = "u<<u"
+      override def getLiteralFactory: (BigInt, BitCount) => Node = U.apply
     }
   }
 
@@ -389,16 +492,52 @@ object Operator{
       override def opName: String = "s==s"
     }
 
-    class NotEgual extends BitVector.NotEqual{
+    class NotEqual extends BitVector.NotEqual{
       override def opName: String = "s!=s"
+    }
+
+    class ShiftRightByInt(shift : Int) extends BitVector.ShiftRightByInt(shift){
+      override def opName: String = "s>>i"
+    }
+
+    class ShiftRightByUInt extends BitVector.ShiftRightByUInt{
+      override def opName: String = "s>>u"
+    }
+
+    class ShiftLeftByInt(shift : Int) extends BitVector.ShiftLeftByInt(shift){
+      override def opName: String = "s<<i"
+      override def getLiteralFactory: (BigInt, BitCount) => Node = S.apply
+    }
+
+    class ShiftLeftByUInt extends BitVector.ShiftLeftByUInt{
+      override def opName: String = "s<<u"
+      override def getLiteralFactory: (BigInt, BitCount) => Node = S.apply
     }
   }
 }
 
-
-
-
 /*
+def >>(that: Int): Bits = wrapBinaryOperator("b>>i", IntLiteral(that), WidthInfer.shiftRightWidth, InputNormalize.none, SymplifyNode.shiftRightImpl)
+def <<(that: Int): Bits = wrapBinaryOperator("b<<i", IntLiteral(that), WidthInfer.shiftLeftWidth, InputNormalize.none, SymplifyNode.shiftLeftImpl(B.apply))
+def >>(that: UInt): Bits = wrapBinaryOperator("b>>u", that, WidthInfer.shiftRightWidth, InputNormalize.none, SymplifyNode.shiftRightImpl)
+def <<(that: UInt): Bits = wrapBinaryOperator("b<<u", that, WidthInfer.shiftLeftWidth, InputNormalize.none, SymplifyNode.shiftLeftImpl(B.apply))
+def rotateLeft(that: UInt): Bits = wrapBinaryOperator("brotlu", that, WidthInfer.input0Width, InputNormalize.none, SymplifyNode.rotateImpl(B.apply))
+
+
+  override def >>(that: Int): SInt = wrapBinaryOperator("s>>i", IntLiteral(that), WidthInfer.shiftRightWidth,InputNormalize.none,SymplifyNode.shiftRightImpl);
+  override def <<(that: Int): SInt = wrapBinaryOperator("s<<i", IntLiteral(that), WidthInfer.shiftLeftWidth,InputNormalize.none,SymplifyNode.shiftLeftImpl(S.apply));
+  def >>(that: UInt): SInt = wrapBinaryOperator("s>>u", that, WidthInfer.shiftRightWidth,InputNormalize.none,SymplifyNode.shiftRightImpl);
+  def <<(that: UInt): SInt = wrapBinaryOperator("s<<u", that, WidthInfer.shiftLeftWidth,InputNormalize.none,SymplifyNode.shiftLeftImpl(S.apply));
+
+  override def >>(that: Int): UInt = wrapBinaryOperator("u>>i", IntLiteral(that), WidthInfer.shiftRightWidth, InputNormalize.none,SymplifyNode.shiftRightImpl);
+  override def <<(that: Int): UInt = wrapBinaryOperator("u<<i", IntLiteral(that), WidthInfer.shiftLeftWidth, InputNormalize.none,SymplifyNode.shiftLeftImpl(U.apply));
+  def >>(that: UInt): UInt = wrapBinaryOperator("u>>u", that, WidthInfer.shiftRightWidth, InputNormalize.none,SymplifyNode.shiftRightImpl);
+  def <<(that: UInt): UInt = wrapBinaryOperator("u<<u", that, WidthInfer.shiftLeftWidth, InputNormalize.none,SymplifyNode.shiftLeftImpl(U.apply));
+
+
+
+
+
 def ##(right: Bits): Bits = newBinaryOperator("b##b", right, WidthInfer.cumulateInputWidth, InputNormalize.none, SymplifyNode.binaryTakeOther)
 def |(that: Bits): Bits = newBinaryOperator("b|b", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth, SymplifyNode.binaryTakeOther)
 def &(that: Bits): Bits = newBinaryOperator("b&b", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth, SymplifyNode.binaryInductZeroWithOtherWidth(B.apply))

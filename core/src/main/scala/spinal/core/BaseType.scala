@@ -331,6 +331,10 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
     result
   }
 
+  private[core] def wrapConstantOperator(op : ConstantOperator): this.type = {
+    op.input = this
+    wrapWithWeakClone(op)
+  }
   private[core] def wrapUnaryOperator(op : UnaryOperator): this.type = {
     op.input = this
     wrapWithWeakClone(op)

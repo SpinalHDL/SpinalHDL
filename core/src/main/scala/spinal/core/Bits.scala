@@ -18,6 +18,8 @@
 
 package spinal.core
 
+import spinal.core.Operator.Bits.RotateLeftByUInt
+
 /**
   * Created by PIC18F on 16.01.2015.
   */
@@ -48,11 +50,11 @@ class Bits extends BitVector {
   def &(right: Bits) : Bits = wrapBinaryOperator(right,new Operator.Bits.And)
   def ^(right: Bits) : Bits = wrapBinaryOperator(right,new Operator.Bits.Xor)
   def unary_~(): Bits = wrapUnaryOperator(new Operator.Bits.Not)
-  def >>(that: Int): Bits = wrapBinaryOperator("b>>i", IntLiteral(that), WidthInfer.shiftRightWidth, InputNormalize.none, SymplifyNode.shiftRightImpl)
-  def <<(that: Int): Bits = wrapBinaryOperator("b<<i", IntLiteral(that), WidthInfer.shiftLeftWidth, InputNormalize.none, SymplifyNode.shiftLeftImpl(B.apply))
-  def >>(that: UInt): Bits = wrapBinaryOperator("b>>u", that, WidthInfer.shiftRightWidth, InputNormalize.none, SymplifyNode.shiftRightImpl)
-  def <<(that: UInt): Bits = wrapBinaryOperator("b<<u", that, WidthInfer.shiftLeftWidth, InputNormalize.none, SymplifyNode.shiftLeftImpl(B.apply))
-  def rotateLeft(that: UInt): Bits = wrapBinaryOperator("brotlu", that, WidthInfer.input0Width, InputNormalize.none, SymplifyNode.rotateImpl(B.apply))
+  def >>(that: Int): Bits  = wrapConstantOperator(new Operator.Bits.ShiftRightByInt(that))
+  def <<(that: Int): Bits  = wrapConstantOperator(new Operator.Bits.ShiftLeftByInt(that))
+  def >>(that: UInt): Bits = wrapBinaryOperator(that,new Operator.Bits.ShiftRightByUInt)
+  def <<(that: UInt): Bits = wrapBinaryOperator(that,new Operator.Bits.ShiftLeftByUInt)
+  def rotateLeft(that: UInt): Bits = wrapBinaryOperator(that,new RotateLeftByUInt)
 
   private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,b,b)", sel, whenTrue, whenFalse)
 
@@ -79,7 +81,7 @@ class Bits extends BitVector {
 
   private[core] override def isEguals(that: Any): Bool = {
     that match {
-      case that: Bits => wrapLogicalOperator("b==b", that, InputNormalize.inputWidthMax, SymplifyNode.binaryThatIfBoth(True));
+      case that: Bits => wrapLogicalOperator(that,new Operator.Bits.Equal)
       case that: MaskedLiteral => that === this
       case _ => SpinalError(s"Don't know how to compare $this with $that"); null
     }
@@ -87,7 +89,7 @@ class Bits extends BitVector {
 
   private[core] override def isNotEguals(that: Any): Bool = {
     that match {
-      case that: Bits => wrapLogicalOperator("b!=b", that, InputNormalize.inputWidthMax, SymplifyNode.binaryThatIfBoth(False));
+      case that: Bits => wrapLogicalOperator(that,new Operator.Bits.NotEqual)
       case that: MaskedLiteral => that =/= this
       case _ => SpinalError(s"Don't know how to compare $this with $that"); null
     }

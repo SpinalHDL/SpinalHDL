@@ -63,23 +63,23 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider {
   override def <=(right : SInt): Bool = wrapLogicalOperator(right,new Operator.SInt.SmallerOrEqual)
   override def >=(right : SInt): Bool = right <= this
 
-  override def >>(that: Int): SInt = wrapBinaryOperator("s>>i", IntLiteral(that), WidthInfer.shiftRightWidth,InputNormalize.none,SymplifyNode.shiftRightImpl);
-  override def <<(that: Int): SInt = wrapBinaryOperator("s<<i", IntLiteral(that), WidthInfer.shiftLeftWidth,InputNormalize.none,SymplifyNode.shiftLeftImpl(S.apply));
-  def >>(that: UInt): SInt = wrapBinaryOperator("s>>u", that, WidthInfer.shiftRightWidth,InputNormalize.none,SymplifyNode.shiftRightImpl);
-  def <<(that: UInt): SInt = wrapBinaryOperator("s<<u", that, WidthInfer.shiftLeftWidth,InputNormalize.none,SymplifyNode.shiftLeftImpl(S.apply));
+  override def >>(that: Int): SInt = wrapConstantOperator(new Operator.SInt.ShiftRightByInt(that))
+  override def <<(that: Int): SInt = wrapConstantOperator(new Operator.SInt.ShiftLeftByInt(that))
+  def >>(that: UInt): SInt         = wrapBinaryOperator(that,new Operator.SInt.ShiftRightByUInt)
+  def <<(that: UInt): SInt         = wrapBinaryOperator(that,new Operator.SInt.ShiftLeftByUInt)
 
 
   private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,s,s)",sel,whenTrue,whenFalse)
   private[core] override def isEguals(that: Any): Bool = {
     that match {
-      case that: SInt => wrapLogicalOperator("s==s", that, InputNormalize.inputWidthMax,SymplifyNode.binaryThatIfBoth(True));
+      case that: SInt =>  wrapLogicalOperator(that,new Operator.SInt.Equal)
       case that : MaskedLiteral => that === this
       case _ => SpinalError(s"Don't know how compare $this with $that"); null
     }
   }
   private[core] override def isNotEguals(that: Any): Bool = {
     that match {
-      case that: SInt => wrapLogicalOperator("s!=s", that, InputNormalize.inputWidthMax,SymplifyNode.binaryThatIfBoth(False));
+      case that: SInt =>  wrapLogicalOperator(that,new Operator.SInt.NotEqual)
       case that : MaskedLiteral => that =/= this
       case _ => SpinalError(s"Don't know how compare $this with $that"); null
     }

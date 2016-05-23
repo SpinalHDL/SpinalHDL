@@ -18,6 +18,8 @@
 
 package spinal.core
 
+import spinal.core.Operator.BitVector.{ShiftLeftByUInt, ShiftLeftByInt, ShiftRightByUInt, ShiftRightByInt}
+
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
@@ -174,14 +176,7 @@ object SymplifyNode {
     //TODO
   }
 
-  def resizeImpl(zeroFactory: (BigInt, BitCount) => Node)(node: Node): Unit = {
-    val w0 = node.getInput(0).getWidth
-    if (w0 == 0) {
-      Component.push(node.component)
-      replaceNode(node, zeroFactory(0, node.getWidth bit))
-      Component.pop(node.component)
-    }
-  }
+
   def resizeImpl2(zeroFactory: (BigInt, BitCount) => Node,node: Node): Unit = {
     val w0 = node.getInput(0).getWidth
     if (w0 == 0) {
@@ -190,30 +185,48 @@ object SymplifyNode {
       Component.pop(node.component)
     }
   }
-  def shiftRightImpl(node: Node): Unit = {
-    val w1 = node.getInput(1).getWidth
-    if (w1 == 0) {
-      Component.push(node.component)
-      replaceNode(node, 0)
-      Component.pop(node.component)
-    }
-  }
-  S
-  def shiftLeftImpl(zeroFactory: (BigInt, BitCount) => Node)(node: Node): Unit = {
-    val w0 = node.getInput(0).getWidth
-    val w1 = node.getInput(1).getWidth
-    if (w0 == 0) {
-      Component.push(node.component)
-      replaceNode(node, zeroFactory(0, node.getWidth bit))
-      Component.pop(node.component)
-    } else if (w1 == 0) {
+
+  def shiftRightImpl(node: ShiftRightByUInt): Unit = {
+    if (node.right.getWidth == 0) {
       Component.push(node.component)
       replaceNode(node, 0)
       Component.pop(node.component)
     }
   }
 
-  def rotateImpl(zeroFactory: (BigInt, BitCount) => Node)(node: Node): Unit = {
+  def shiftRightImpl(node: ShiftRightByInt): Unit = {
+    if (node.shift == 0) {
+      Component.push(node.component)
+      replaceNode(node, 0)
+      Component.pop(node.component)
+    }
+  }
+
+  def shiftLeftImpl(zeroFactory: (BigInt, BitCount) => Node,node: ShiftLeftByUInt): Unit = {
+    if (node.left.getWidth == 0) {
+      Component.push(node.component)
+      replaceNode(node, zeroFactory(0, node.getWidth bit))
+      Component.pop(node.component)
+    } else if (node.right.getWidth == 0) {
+      Component.push(node.component)
+      replaceNode(node, 0)
+      Component.pop(node.component)
+    }
+  }
+
+  def shiftLeftImpl(zeroFactory: (BigInt, BitCount) => Node,node: ShiftLeftByInt): Unit = {
+    if (node.input.getWidth == 0) {
+      Component.push(node.component)
+      replaceNode(node, zeroFactory(0, node.getWidth bit))
+      Component.pop(node.component)
+    } else if (node.shift == 0) {
+      Component.push(node.component)
+      replaceNode(node, 0)
+      Component.pop(node.component)
+    }
+  }
+
+  def rotateImpl(zeroFactory: (BigInt, BitCount) => Node,node: Node): Unit = {
     val w0 = node.getInput(0).getWidth
     val w1 = node.getInput(1).getWidth
     if (w0 == 0) {
