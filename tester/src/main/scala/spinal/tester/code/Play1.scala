@@ -466,12 +466,12 @@ object PlayBetterError {
 //      }
 //      sub.input := a
 //      when(cond){
-//        sub.tmp := 3
+//        sub.tmp := b
 //      }otherwise{
 //        sub.tmp := 4
 //      }
 //      result := sub.output
-
+//
 
       //Case 8
 //      val sub = new Component{
@@ -496,20 +496,20 @@ object PlayBetterError {
 //    result := reg
 
     //Case 10
-//    val subA = new Component{
-//      val input = in UInt(4 bits)
-//      val output = out UInt(4 bits)
-//      output := input
-//    }
-//    val subB = new Component{
-//      val input = in UInt(4 bits)
-//      val output = out UInt(4 bits)
-//      output := input
-//    }
-//    subA.input := (a << 1)
-//    subB.input := (subA.output << 1) >> 1
-//    result := subB.output
-//
+    val subA = new Component{
+      val input = in UInt(4 bits)
+      val output = out UInt(4 bits)
+      output := input
+    }
+    val subB = new Component{
+      val input = in UInt(4 bits)
+      val output = out UInt(4 bits)
+      output := input
+    }
+    subA.input := (a << 1)
+    subB.input := (subA.output << 1)
+    result := subB.output
+
 
 
     //Case 11

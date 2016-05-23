@@ -30,12 +30,18 @@ object BaseType {
   def checkAssignability(dst : BaseType,src : Node) : Unit = {
     val globalData = dst.globalData
     dst.dir match{
-      case null => if(globalData.componentStack.head() != dst.component)
-        SpinalError(s"Signal $dst can't be assigned outside his component => \n${ScalaLocated.long}")
-      case `in` => if(!(src.component == dst.component.parent || (dst.component.parent == src.component.parent && src.isInstanceOf[BaseType] && src.asInstanceOf[BaseType].isOutput)))
-        SpinalError(s"Input signal $dst can't be assigned from there => \n${ScalaLocated.long}")
-      case `out` => if(globalData.componentStack.head() != dst.component)
-        SpinalError(s"Output signal $dst can't be assigned from there => \n${ScalaLocated.long}")
+      case null => if(globalData.componentStack.head() != dst.component) {
+        val trace = ScalaLocated.long
+        globalData.pendingErrors += (() => (s"Signal $dst can't be assigned by $src\n$trace"))
+      }
+      case `in` => if(!(src.component == dst.component.parent || (dst.component.parent == src.component.parent && src.isInstanceOf[BaseType] && src.asInstanceOf[BaseType].isOutput))){
+        val trace = ScalaLocated.long
+        globalData.pendingErrors += (() => (s"Input signal $dst can't be assigned by $src\n$trace"))
+      }
+      case `out` => if(globalData.componentStack.head() != dst.component){
+        val trace = ScalaLocated.long
+        globalData.pendingErrors += (() => (s"Output signal $dst can't be assigned by $src\n$trace"))
+      }
     }
   }
 

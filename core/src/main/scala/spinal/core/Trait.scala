@@ -443,6 +443,7 @@ class GlobalData {
 
   var scalaLocatedEnable = false
   var instanceCounter = 0
+  val pendingErrors = mutable.ArrayBuffer[() => String]()
   val postBackendTask = mutable.ArrayBuffer[() => Unit]()
 
   val jsonReports = ArrayBuffer[String]()

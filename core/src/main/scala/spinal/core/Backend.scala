@@ -123,6 +123,7 @@ class Backend {
     SpinalInfoPhase("Get names from reflection")
     nameNodesByReflection()
     collectAndNameEnum()
+    if(!globalData.pendingErrors.isEmpty) SpinalError()
 
     //Component connection
     SpinalInfoPhase("Transform connections")
