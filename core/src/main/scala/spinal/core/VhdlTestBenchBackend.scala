@@ -73,8 +73,8 @@ class VhdlTestBenchBackend() extends VhdlBase {
 
 
   def extractUserCodes: Unit = {
-    if (!Files.exists(Paths.get(outputFile + ".vhd"))) return
-    val iterator = Source.fromFile(outputFile + ".vhd").getLines()
+    if (!Files.exists(Paths.get(outputFile))) return
+    val iterator = Source.fromFile(outputFile).getLines()
     val begin = "#spinalBegin"
     val end = "#spinalEnd"
     while (iterator.hasNext) {
