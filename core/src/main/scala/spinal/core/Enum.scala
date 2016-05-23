@@ -81,7 +81,7 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T,val encoding: SpinalEnum
   }
 
   private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,e,e)", sel, whenTrue, whenFalse)
-  override def asBits: Bits = newCast(Bits(),new CastEnumToBits)
+  override def asBits: Bits = wrapCast(Bits(),new CastEnumToBits)
 
   override def assignFromBits(bits: Bits): Unit = {
     val c = this.clone

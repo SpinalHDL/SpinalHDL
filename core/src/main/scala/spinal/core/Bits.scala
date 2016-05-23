@@ -43,16 +43,16 @@ class Bits extends BitVector {
   def =/=(that: Bits): Bool = this.isNotEguals(that)
   def ===(that: MaskedLiteral): Bool = this.isEguals(that)
   def =/=(that: MaskedLiteral): Bool = this.isNotEguals(that)
-  def ##(right: Bits): Bits = newBinaryOperator(right,new Operator.Bits.Cat)
-  def |(right: Bits) : Bits = newBinaryOperator(right,new Operator.Bits.Or)
-  def &(right: Bits) : Bits = newBinaryOperator(right,new Operator.Bits.And)
-  def ^(right: Bits) : Bits = newBinaryOperator(right,new Operator.Bits.Xor)
-  def unary_~(): Bits = newUnaryOperator(new Operator.Bits.Not)
-  def >>(that: Int): Bits = newBinaryOperator("b>>i", IntLiteral(that), WidthInfer.shiftRightWidth, InputNormalize.none, SymplifyNode.shiftRightImpl)
-  def <<(that: Int): Bits = newBinaryOperator("b<<i", IntLiteral(that), WidthInfer.shiftLeftWidth, InputNormalize.none, SymplifyNode.shiftLeftImpl(B.apply))
-  def >>(that: UInt): Bits = newBinaryOperator("b>>u", that, WidthInfer.shiftRightWidth, InputNormalize.none, SymplifyNode.shiftRightImpl)
-  def <<(that: UInt): Bits = newBinaryOperator("b<<u", that, WidthInfer.shiftLeftWidth, InputNormalize.none, SymplifyNode.shiftLeftImpl(B.apply))
-  def rotateLeft(that: UInt): Bits = newBinaryOperator("brotlu", that, WidthInfer.input0Width, InputNormalize.none, SymplifyNode.rotateImpl(B.apply))
+  def ##(right: Bits): Bits = wrapBinaryOperator(right,new Operator.Bits.Cat)
+  def |(right: Bits) : Bits = wrapBinaryOperator(right,new Operator.Bits.Or)
+  def &(right: Bits) : Bits = wrapBinaryOperator(right,new Operator.Bits.And)
+  def ^(right: Bits) : Bits = wrapBinaryOperator(right,new Operator.Bits.Xor)
+  def unary_~(): Bits = wrapUnaryOperator(new Operator.Bits.Not)
+  def >>(that: Int): Bits = wrapBinaryOperator("b>>i", IntLiteral(that), WidthInfer.shiftRightWidth, InputNormalize.none, SymplifyNode.shiftRightImpl)
+  def <<(that: Int): Bits = wrapBinaryOperator("b<<i", IntLiteral(that), WidthInfer.shiftLeftWidth, InputNormalize.none, SymplifyNode.shiftLeftImpl(B.apply))
+  def >>(that: UInt): Bits = wrapBinaryOperator("b>>u", that, WidthInfer.shiftRightWidth, InputNormalize.none, SymplifyNode.shiftRightImpl)
+  def <<(that: UInt): Bits = wrapBinaryOperator("b<<u", that, WidthInfer.shiftLeftWidth, InputNormalize.none, SymplifyNode.shiftLeftImpl(B.apply))
+  def rotateLeft(that: UInt): Bits = wrapBinaryOperator("brotlu", that, WidthInfer.input0Width, InputNormalize.none, SymplifyNode.rotateImpl(B.apply))
 
   private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,b,b)", sel, whenTrue, whenFalse)
 
@@ -64,8 +64,8 @@ class Bits extends BitVector {
     node
   })
 
-  def asSInt: SInt = newCast(SInt(),new CastBitsToSInt)
-  def asUInt: UInt = newCast(UInt(),new CastBitsToUInt)
+  def asSInt: SInt = wrapCast(SInt(),new CastBitsToSInt)
+  def asUInt: UInt = wrapCast(UInt(),new CastBitsToUInt)
 
   override def asBits: Bits = {
     val ret = new Bits()

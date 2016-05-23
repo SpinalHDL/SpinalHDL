@@ -64,16 +64,16 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider {
 
   def twoComplement(enable : Bool): SInt = ((False ## Mux(enable,~this,this)).asUInt + enable.asUInt).asSInt
 
-  override def +(that: UInt): UInt = newBinaryOperator("u+u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,SymplifyNode.binaryTakeOther);
-  override def -(that: UInt): UInt = newBinaryOperator("u-u", that, WidthInfer.inputMaxWidth, InputNormalize.nodeWidth,SymplifyNode.binaryMinus(U.apply));
-  override def *(that: UInt): UInt = newBinaryOperator("u*u", that, WidthInfer.cumulateInputWidth, InputNormalize.none,SymplifyNode.binaryInductZeroWithOtherWidth(U.apply));
-  override def /(that: UInt): UInt = newBinaryOperator("u/u", that, WidthInfer.input0Width, InputNormalize.none,SymplifyNode.unsignedDivImpl);
-  override def %(that: UInt): UInt = newBinaryOperator("u%u", that, WidthInfer.input0Width, InputNormalize.none,SymplifyNode.unsignedModImpl);
+  override def +(right: UInt): UInt = wrapBinaryOperator(right,new Operator.UInt.Add)
+  override def -(right: UInt): UInt = wrapBinaryOperator(right,new Operator.UInt.Sub)
+  override def *(right: UInt): UInt = wrapBinaryOperator(right,new Operator.UInt.Mul)
+  override def /(right: UInt): UInt = wrapBinaryOperator(right,new Operator.UInt.Div)
+  override def %(right: UInt): UInt = wrapBinaryOperator(right,new Operator.UInt.Mod)
 
-  def |(right: UInt): UInt = newBinaryOperator(right,new Operator.UInt.Or)
-  def &(right: UInt): UInt = newBinaryOperator(right,new Operator.UInt.And)
-  def ^(right: UInt): UInt = newBinaryOperator(right,new Operator.UInt.Xor)
-  def unary_~(): UInt = newUnaryOperator(new Operator.UInt.Not);
+  def |(right: UInt): UInt = wrapBinaryOperator(right,new Operator.UInt.Or)
+  def &(right: UInt): UInt = wrapBinaryOperator(right,new Operator.UInt.And)
+  def ^(right: UInt): UInt = wrapBinaryOperator(right,new Operator.UInt.Xor)
+  def unary_~(): UInt = wrapUnaryOperator(new Operator.UInt.Not);
 
   override def <(that: UInt): Bool = newLogicalOperator("u<u", that, InputNormalize.inputWidthMax,SymplifyNode.binaryUIntSmaller);
   override def >(that: UInt): Bool = that < this
@@ -81,10 +81,10 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider {
   override def >=(that: UInt): Bool = that <= this
 
 
-  override def >>(that: Int): UInt = newBinaryOperator("u>>i", IntLiteral(that), WidthInfer.shiftRightWidth, InputNormalize.none,SymplifyNode.shiftRightImpl);
-  override def <<(that: Int): UInt = newBinaryOperator("u<<i", IntLiteral(that), WidthInfer.shiftLeftWidth, InputNormalize.none,SymplifyNode.shiftLeftImpl(U.apply));
-  def >>(that: UInt): UInt = newBinaryOperator("u>>u", that, WidthInfer.shiftRightWidth, InputNormalize.none,SymplifyNode.shiftRightImpl);
-  def <<(that: UInt): UInt = newBinaryOperator("u<<u", that, WidthInfer.shiftLeftWidth, InputNormalize.none,SymplifyNode.shiftLeftImpl(U.apply));
+  override def >>(that: Int): UInt = wrapBinaryOperator("u>>i", IntLiteral(that), WidthInfer.shiftRightWidth, InputNormalize.none,SymplifyNode.shiftRightImpl);
+  override def <<(that: Int): UInt = wrapBinaryOperator("u<<i", IntLiteral(that), WidthInfer.shiftLeftWidth, InputNormalize.none,SymplifyNode.shiftLeftImpl(U.apply));
+  def >>(that: UInt): UInt = wrapBinaryOperator("u>>u", that, WidthInfer.shiftRightWidth, InputNormalize.none,SymplifyNode.shiftRightImpl);
+  def <<(that: UInt): UInt = wrapBinaryOperator("u<<u", that, WidthInfer.shiftLeftWidth, InputNormalize.none,SymplifyNode.shiftLeftImpl(U.apply));
 
   private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = Multiplex("mux(B,u,u)", sel, whenTrue, whenFalse)
   private[core] override def isEguals(that: Any): Bool = {
@@ -117,8 +117,8 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider {
   })
 
 
-  def asSInt: SInt = newCast(SInt(),new CastUIntToSInt)
-  override def asBits: Bits = newCast(Bits(),new CastUIntToBits)
+  def asSInt: SInt = wrapCast(SInt(),new CastUIntToSInt)
+  override def asBits: Bits = wrapCast(Bits(),new CastUIntToBits)
   override def assignFromBits(bits: Bits): Unit = this := bits.asUInt
   override def assignFromBits(bits: Bits,hi : Int,lo : Int): Unit = this(hi,lo).assignFromBits(bits)
 

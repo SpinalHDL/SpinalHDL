@@ -165,10 +165,43 @@ object Operator{
       override def normalizeInputs: Unit = {InputNormalize.nodeWidth(this)}
       override def simplifyNode: Unit = {SymplifyNode.binaryTakeOther(this)}
     }
+
     abstract class Xor extends BinaryOperator{
       override def calcWidth(): Int = Math.max(left.getWidth,right.getWidth)
       override def normalizeInputs: Unit = {InputNormalize.nodeWidth(this)}
       override def simplifyNode: Unit = {SymplifyNode.binaryTakeOther(this)}
+    }
+
+    abstract class Add extends BinaryOperator{
+      override def calcWidth(): Int = Math.max(left.getWidth,right.getWidth)
+      override def normalizeInputs: Unit = {InputNormalize.nodeWidth(this)}
+      override def simplifyNode: Unit = {SymplifyNode.binaryTakeOther(this)}
+    }
+
+    abstract class Sub extends BinaryOperator{
+      override def calcWidth(): Int = Math.max(left.getWidth,right.getWidth)
+      override def normalizeInputs: Unit = {InputNormalize.nodeWidth(this)}
+      override def simplifyNode: Unit = {SymplifyNode.binaryMinus(getLiteralFactory)(this)}
+      def getLiteralFactory : (BigInt, BitCount) => Node
+    }
+
+    abstract class Mul extends BinaryOperator{
+      override def calcWidth(): Int = left.getWidth + right.getWidth
+      override def normalizeInputs: Unit = {}
+      override def simplifyNode: Unit = {SymplifyNode.binaryInductZeroWithOtherWidth(getLiteralFactory)(this)}
+      def getLiteralFactory : (BigInt, BitCount) => Node
+    }
+
+    abstract class Div extends BinaryOperator{
+      override def calcWidth(): Int = left.getWidth
+      override def normalizeInputs: Unit = {}
+      override def simplifyNode: Unit = {SymplifyNode.unsignedDivImpl(this)}
+    }
+
+    abstract class Mod extends BinaryOperator{
+      override def calcWidth(): Int = left.getWidth
+      override def normalizeInputs: Unit = {}
+      override def simplifyNode: Unit = {SymplifyNode.unsignedModImpl(this)}
     }
   }
 
@@ -222,6 +255,28 @@ object Operator{
     class Xor extends BitVector.Xor{
       override def opName: String = "u^u"
     }
+
+    class Add extends BitVector.Add{
+      override def opName: String = "u+u"
+    }
+
+    class Sub extends BitVector.Sub{
+      override def opName: String = "u-u"
+      override def getLiteralFactory: (BigInt, BitCount) => Node = U.apply
+    }
+
+    class Mul extends BitVector.Mul{
+      override def opName: String = "u*u"
+      override def getLiteralFactory: (BigInt, BitCount) => Node = U.apply
+    }
+
+    class Div extends BitVector.Div{
+      override def opName: String = "u/u"
+    }
+
+    class Mod extends BitVector.Mod{
+      override def opName: String = "u%u"
+    }
   }
 
   object SInt{
@@ -250,6 +305,28 @@ object Operator{
 
     class Xor extends BitVector.Xor{
       override def opName: String = "s^s"
+    }
+
+    class Add extends BitVector.Add{
+      override def opName: String = "s+s"
+    }
+
+    class Sub extends BitVector.Sub{
+      override def opName: String = "s-s"
+      override def getLiteralFactory: (BigInt, BitCount) => Node = U.apply
+    }
+
+    class Mul extends BitVector.Mul{
+      override def opName: String = "s*s"
+      override def getLiteralFactory: (BigInt, BitCount) => Node = U.apply
+    }
+
+    class Div extends BitVector.Div{
+      override def opName: String = "s/s"
+    }
+
+    class Mod extends BitVector.Mod{
+      override def opName: String = "s%s"
     }
   }
 }

@@ -36,7 +36,7 @@ class Bool extends BaseType {
   def &&(b: Bool): Bool = newLogicalOperator(b,new Operator.Bool.And)
   def ||(b: Bool): Bool = newLogicalOperator(b,new Operator.Bool.Or)
   def ^(b: Bool): Bool  = newLogicalOperator(b,new Operator.Bool.Xor)
-  def unary_!(): Bool = newUnaryOperator(new Operator.Bool.Not)
+  def unary_!(): Bool = wrapUnaryOperator(new Operator.Bool.Not)
   def &(b: Bool): Bool = this && b
   def |(b: Bool): Bool = this || b
   def set() = this := True
@@ -78,7 +78,7 @@ class Bool extends BaseType {
     }
   }
 
-  override def asBits: Bits = newCast(Bits(),new CastBoolToBits)
+  override def asBits: Bits = wrapCast(Bits(),new CastBoolToBits)
 
   override def assignFromBits(bits: Bits): Unit = this := bits(0)
 

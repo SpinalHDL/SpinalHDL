@@ -307,7 +307,7 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
     typeNode
   }
 
-  private[core] def newBinaryOperator(opName: String, right: Node, getWidthImpl: (Node) => Int, normalizeInputsImpl: (Node) => Unit, simplifyNodeImpl: (Node) => Unit): this.type = {
+  private[core] def wrapBinaryOperator(opName: String, right: Node, getWidthImpl: (Node) => Int, normalizeInputsImpl: (Node) => Unit, simplifyNodeImpl: (Node) => Unit): this.type = {
     val op = BinaryOperator(opName, this, right, getWidthImpl, normalizeInputsImpl, simplifyNodeImpl)
     val typeNode = wrapWithWeakClone(op)
     typeNode
@@ -325,17 +325,17 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
     typeNode
   }
 
-  def newCast[T <: BaseType](result : T,node : Cast) : T = {
+  def wrapCast[T <: BaseType](result : T,node : Cast) : T = {
     node.input = this
     result.input = node
     result
   }
 
-  private[core] def newUnaryOperator(op : UnaryOperator): this.type = {
+  private[core] def wrapUnaryOperator(op : UnaryOperator): this.type = {
     op.input = this
     wrapWithWeakClone(op)
   }
-  private[core] def newBinaryOperator(right : Node,op : BinaryOperator): this.type = {
+  private[core] def wrapBinaryOperator(right : Node,op : BinaryOperator): this.type = {
     op.left = this
     op.right = right
     wrapWithWeakClone(op)
