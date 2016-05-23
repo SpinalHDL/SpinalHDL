@@ -77,6 +77,27 @@ object PlayB3 {
   }
 }
 
+object PlayB4 {
+
+  class TopLevel extends Component {
+    val address = in UInt(4 bits)
+    val writeData = in Bits(8 bits)
+    val chipSelect = in Bool
+    val writeEnable = in Bool
+    val readData = out Bits(8 bits)
+
+    val mem = Mem(Bits(8 bits),16)
+
+    readData := mem.writeOrReadSync(address,writeData,chipSelect,writeEnable)
+  }
+
+  def main(args: Array[String]): Unit = {
+    //SpinalVhdl(new TopLevel)
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
 object PlayPerf {
 
   def timeOf(that : => Unit,message : String) : Unit = {

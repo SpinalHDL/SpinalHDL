@@ -419,7 +419,7 @@ object MemWriteOrRead_writePart {
 class MemWriteOrRead_writePart(mem: Mem[_], address_ : UInt, data_ : Bits, chipSelect_ : Bool, writeEnable_ : Bool, clockDomain: ClockDomain) extends SyncNode(clockDomain) {
   var address : Node  = address_
   var data     : Node = data_
-  var chipSelect   : Node = chipSelect
+  var chipSelect   : Node = chipSelect_
   var writeEnable  : Node  = writeEnable_
 
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
