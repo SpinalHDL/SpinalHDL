@@ -97,7 +97,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
   private[core] val prePopTasks = mutable.ArrayBuffer[() => Unit]()
   private[core] val kindsOutputsToBindings = mutable.Map[BaseType, BaseType]()
   private[core] val kindsOutputsBindings = mutable.Set[BaseType]()
-  private[core] val additionalNodesRoot = mutable.Set[BaseType]()
+  private[core] val additionalNodesRoot = mutable.Set[Node]()
   var definitionName: String = null
   private[core] val level = globalData.componentStack.size()
   val kinds = ArrayBuffer[Component]()

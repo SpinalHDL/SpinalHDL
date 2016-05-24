@@ -24,7 +24,7 @@ package spinal.core
 
 trait BaseTypeFactory extends BoolFactory with BitsFactory with UIntFactory with SIntFactory with VecFactory
 
-trait BaseTypeCast extends BoolCast with UIntCast with SIntCast with BitsCast with SFixCast with UFixCast
+trait BaseTypeCast extends UIntCast with SIntCast with BitsCast with SFixCast with UFixCast
 
 object BaseType {
   def checkAssignability(dst : BaseType,src : Node) : Unit = {

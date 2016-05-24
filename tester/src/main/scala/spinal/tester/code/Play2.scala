@@ -91,7 +91,24 @@ object PlayB4 {
     readData := mem.writeOrReadSync(address,writeData,chipSelect,writeEnable)
 
 
+
+
     address := 0
+  }
+
+  def main(args: Array[String]): Unit = {
+    //SpinalVhdl(new TopLevel)
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
+object PlayAssert {
+
+  class TopLevel extends Component {
+    val a,b = in UInt(4 bits)
+    val tmp = a + 2
+    assert(tmp === 8,"Yolo",NOTE)
   }
 
   def main(args: Array[String]): Unit = {

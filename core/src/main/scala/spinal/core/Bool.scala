@@ -18,11 +18,6 @@
 
 package spinal.core
 
-trait BoolCast {
-  def asBool(that: Bits): Bool = that(0)
-  def asBool(that: UInt): Bool = that(0)
-  def asBool(that: SInt): Bool = that(0)
-}
 
 trait BoolFactory {
   def Bool(): Bool = new Bool

@@ -1409,8 +1409,61 @@ class MultipleAssignmentNode extends NodeWithVariableInputsCount with Assignemen
     ArrayManager.getElseNull(inputsThrowable,id)
   override def setAssignementContext(id: Int,that : Throwable = globalData.getThrowable()): Unit =
     inputsThrowable = ArrayManager.setAllocate(inputsThrowable,id,that)
-
-
 }
 
 
+object AssertNode{
+  def apply(cond : Bool,message : String,severity: AssertNodeSeverity) : Unit = {
+    val node = new AssertNode
+    node.cond = cond
+    node.message = message
+    node.severity = severity
+    node.component.additionalNodesRoot += node
+  }
+}
+
+trait AssertNodeSeverity
+object NOTE     extends AssertNodeSeverity
+object WARNING  extends AssertNodeSeverity
+object ERROR    extends AssertNodeSeverity
+object FAILURE  extends AssertNodeSeverity
+
+class AssertNode extends SyncNode(){
+  var cond : Node = null
+  var message : String = null
+  var severity : AssertNodeSeverity = null
+
+  override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
+    doThat(clock,0)
+    doThat(enable,1)
+    doThat(reset,2)
+    doThat(cond,3)
+  }
+  override def onEachInput(doThat: (Node) => Unit): Unit = {
+    doThat(clock)
+    doThat(enable)
+    doThat(reset)
+    doThat(cond)
+  }
+
+  override def setInput(id: Int, node: Node): Unit = id match{
+    case 0 => clock = node
+    case 1 => enable = node
+    case 2 => reset = node
+    case 3 => cond = node
+  }
+
+  override def getInputsCount: Int = 4
+  override def getInputs: Iterator[Node] = Iterator(clock,enable,reset,cond)
+  override def getInput(id: Int): Node = id match{
+    case 0 => clock
+    case 1 => enable
+    case 2 => reset
+    case 3 => cond
+  }
+
+
+  override private[core] def calcWidth: Int = 1
+
+  override def isUsingReset: Boolean = false
+}

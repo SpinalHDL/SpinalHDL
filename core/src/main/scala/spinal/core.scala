@@ -1,5 +1,7 @@
 package spinal
 
+import scala.annotation.elidable
+import scala.annotation.elidable._
 import scala.collection.immutable.Range
 import scala.language.experimental.macros
 
@@ -195,4 +197,19 @@ package object core extends BaseTypeFactory with BaseTypeCast {
       fix
     }
   }
+
+
+
+
+  @elidable(ASSERTION)
+  def assert(assertion: Boolean) = scala.Predef.assert(assertion)
+
+  @elidable(ASSERTION) @inline
+  final def assert(assertion: Boolean, message: => Any) = scala.Predef.assert(assertion,message)
+
+  def assert(assertion: Bool) = AssertNode(assertion,"",ERROR)
+  def assert(assertion: Bool,message : String) = AssertNode(assertion,message,ERROR)
+  def assert(assertion: Bool,severity: AssertNodeSeverity) = AssertNode(assertion,"",severity)
+  def assert(assertion: Bool,message : String,severity: AssertNodeSeverity) = AssertNode(assertion,message,severity)
+
 }

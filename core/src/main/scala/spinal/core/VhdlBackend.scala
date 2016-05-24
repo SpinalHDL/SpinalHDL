@@ -1645,6 +1645,17 @@ class VhdlBackend extends Backend with VhdlBase {
             case memWriteRead_readPart: MemWriteOrRead_readPart => {
 
             }
+            case assertNode : AssertNode => {
+              val cond = emitLogic(assertNode.cond)
+              val message = if(assertNode.message != null) s"""report "${assertNode.message}" """ else ""
+              val severity = "severity " +  (assertNode.severity match{
+                case `NOTE`     => "NOTE"
+                case `WARNING`  => "WARNING"
+                case `ERROR`    => "ERROR"
+                case `FAILURE`  => "FAILURE"
+              })
+              ret ++= s"${tab}assert $cond = '1' $message $severity;\n"
+            }
           }
           rootContext.emitContext(ret, tab, "<=")
         }
