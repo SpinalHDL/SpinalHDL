@@ -108,7 +108,37 @@ object PlayAssert {
   class TopLevel extends Component {
     val a,b = in UInt(4 bits)
     val tmp = a + 2
-    assert(tmp === 8,"Yolo",NOTE)
+    when(a.lsb) {
+      when(a.msb) {
+        assert(tmp === 8, "Yolo", NOTE)
+      }
+    }
+  }
+
+  def main(args: Array[String]): Unit = {
+    //SpinalVhdl(new TopLevel)
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
+
+object PlayAssert2 {
+
+  class TopLevel extends Component {
+    val valid = RegInit(False)
+    val ready = in Bool
+
+    when(ready){
+      valid := False
+    }
+    // some logic
+
+    assert(
+      assertion = !(valid.fall && !ready),
+      message   = "Valid drop when ready was low",
+      severity  = ERROR
+    )
   }
 
   def main(args: Array[String]): Unit = {

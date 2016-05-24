@@ -34,7 +34,6 @@ class WhenTester extends Component {
   }
 
 
-  assert(io.outComplex =/= 8,"Yolo",NOTE)
   complexOn(io.outComplex)
   complexOn(io.outRegComplex)
 

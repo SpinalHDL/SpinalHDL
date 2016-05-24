@@ -1415,7 +1415,7 @@ class MultipleAssignmentNode extends NodeWithVariableInputsCount with Assignemen
 object AssertNode{
   def apply(cond : Bool,message : String,severity: AssertNodeSeverity) : Unit = {
     val node = new AssertNode
-    node.cond = cond
+    node.cond = cond || ! when.getWhensCond(node.component.initialAssignementCondition)
     node.message = message
     node.severity = severity
     node.component.additionalNodesRoot += node
@@ -1461,7 +1461,6 @@ class AssertNode extends SyncNode(){
     case 2 => reset
     case 3 => cond
   }
-
 
   override private[core] def calcWidth: Int = 1
 

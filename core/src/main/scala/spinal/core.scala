@@ -207,9 +207,10 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   @elidable(ASSERTION) @inline
   final def assert(assertion: Boolean, message: => Any) = scala.Predef.assert(assertion,message)
 
-  def assert(assertion: Bool) = AssertNode(assertion,"",ERROR)
+  def assert(assertion: Bool) = AssertNode(assertion,null,ERROR)
   def assert(assertion: Bool,message : String) = AssertNode(assertion,message,ERROR)
-  def assert(assertion: Bool,severity: AssertNodeSeverity) = AssertNode(assertion,"",severity)
+  def assert(assertion: Bool,severity: AssertNodeSeverity) = AssertNode(assertion,null,severity)
   def assert(assertion: Bool,message : String,severity: AssertNodeSeverity) = AssertNode(assertion,message,severity)
+  def report(message : String,severity: AssertNodeSeverity=NOTE) = assert(True,message,severity)
 
 }

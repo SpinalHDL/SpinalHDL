@@ -54,13 +54,14 @@ object when {
   }
 
   //Allow the user to get a Bool that represent the  aggregation of all condition to the current context
-  def getWhensCond(that: ContextUser): Bool = {
-    val whenScope = if (that == null) null else that.conditionalAssignScope
+  def getWhensCond(that: ContextUser): Bool = getWhensCond(if (that == null) null else that.conditionalAssignScope)
 
+
+  def getWhensCond(scope: ConditionalContext): Bool = {
     var ret: Bool = null
-    for (conditionalAssign <- that.globalData.conditionalAssignStack.stack) conditionalAssign match {
+    for (conditionalAssign <- GlobalData.get.conditionalAssignStack.stack) conditionalAssign match {
       case w : WhenContext => {
-        if (w == whenScope) return returnFunc
+        if (w == scope) return returnFunc
         val newCond = if (w.isTrue) w.cond else !w.cond
         if (ret == null) {
           ret = newCond
