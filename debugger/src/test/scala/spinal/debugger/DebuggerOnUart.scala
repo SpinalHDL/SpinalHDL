@@ -48,10 +48,10 @@ object DebuggerOnUart {
     val counter = CounterFreeRun(1024)
 
     val uartCtrl = new UartCtrl()
-    uartCtrl.io.clockDivider := BigInt((50e6 / 57.6e3 / 8).toLong)
-    uartCtrl.io.config.dataLength := 7
-    uartCtrl.io.config.parity := UartParityType.eParityNone
-    uartCtrl.io.config.stop := UartStopType.eStop1bit
+    uartCtrl.io.config.clockDivider := BigInt((50e6 / 57.6e3 / 8).toLong)
+    uartCtrl.io.config.frame.dataLength := 7
+    uartCtrl.io.config.frame.parity := UartParityType.eParityNone
+    uartCtrl.io.config.frame.stop := UartStopType.eStop1bit
     uartCtrl.io.uart <> io.uart
 
     val (uartFlowFragment, uartSoftReset) = uartCtrl.io.read.toFlowFragmentBitsAndReset()

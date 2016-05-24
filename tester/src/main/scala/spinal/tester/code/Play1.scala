@@ -1651,29 +1651,28 @@ object PlayFsmRef {
 
 object ApbUartPlay {
 
-  class ApbUartCtrl(apbConfig: Apb3Config) extends Component {
+  class ApbUartCtrl(apbConfig: Apb3Config,uartCtrlGeneric : UartCtrlGenerics) extends Component {
     val io = new Bundle {
       val bus = slave(new Apb3Slave(apbConfig))
       val uart = master(Uart())
     }
     val busCtrl = new Apb3SlaveController(io.bus) //This is a APB3 slave controller builder tool
 
-    val config = busCtrl.writeOnlyRegOf(UartCtrlConfig(), 0x00)
+    val config = busCtrl.writeOnlyRegOf(UartCtrlConfig(uartCtrlGeneric), 0x00)
     //Create a write only configuration register at address 0x00
     val clockDivider = busCtrl.writeOnlyRegOf(UInt(20 bit), 0x10)
     val writeStream = busCtrl.writeStreamOf(Bits(8 bit), 0x20)
     val readStream = busCtrl.readStreamOf(Bits(8 bit), 0x30)
 
-    val uartCtrl = new UartCtrl(8, 20)
+    val uartCtrl = new UartCtrl(uartCtrlGeneric)
     uartCtrl.io.config := config
-    uartCtrl.io.clockDivider := clockDivider
     uartCtrl.io.write <-< writeStream //Pipelined connection
     uartCtrl.io.read.toStream.queue(16) >> readStream //Queued connection
     uartCtrl.io.uart <> io.uart
   }
 
   def main(args: Array[String]): Unit = {
-    SpinalVhdl(new ApbUartCtrl(new Apb3Config(16, 32)))
+    SpinalVhdl(new ApbUartCtrl(new Apb3Config(16, 32),UartCtrlGenerics()))
   }
 }
 

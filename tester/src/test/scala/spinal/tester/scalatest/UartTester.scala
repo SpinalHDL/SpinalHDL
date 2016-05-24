@@ -5,9 +5,9 @@ import spinal.lib.com.uart._
 
 class UartTester extends Component {
   val io = new Bundle {
-    val uart = new UartCtrlIo()
+    val uart = new UartCtrlIo(UartCtrlGenerics())
   }
-  val uartCtrl = new UartCtrl()
+  val uartCtrl = new UartCtrl(UartCtrlGenerics())
   io.uart <> uartCtrl.io
 }
 

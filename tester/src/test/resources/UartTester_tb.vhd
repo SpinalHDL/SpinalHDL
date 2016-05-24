@@ -14,10 +14,10 @@ entity UartTester_tb is
 end UartTester_tb;
 
 architecture arch of UartTester_tb is
-  signal io_uart_config_dataLength : unsigned(2 downto 0);
-  signal io_uart_config_stop : UartStopType_sequancial_type;
-  signal io_uart_config_parity : UartParityType_sequancial_type;
-  signal io_uart_clockDivider : unsigned(19 downto 0);
+  signal io_uart_config_frame_dataLength : unsigned(2 downto 0);
+  signal io_uart_config_frame_stop : UartStopType_sequancial_type;
+  signal io_uart_config_frame_parity : UartParityType_sequancial_type;
+  signal io_uart_config_clockDivider : unsigned(19 downto 0);
   signal io_uart_write_valid : std_logic;
   signal io_uart_write_ready : std_logic;
   signal io_uart_write_payload : std_logic_vector(7 downto 0);
@@ -61,10 +61,10 @@ begin
 
   begin
     reset <= '1';
-    io_uart_config_dataLength <= "111";
-    io_uart_config_stop <= UartStopType_sequancial_eStop1bit;
-    io_uart_config_parity <= UartParityType_sequancial_eParityEven;
-    io_uart_clockDivider <= to_unsigned(clockDivider,20);
+    io_uart_config_frame_dataLength <= "111";
+    io_uart_config_frame_stop <= UartStopType_sequancial_eStop1bit;
+    io_uart_config_frame_parity <= UartParityType_sequancial_eParityEven;
+    io_uart_config_clockDivider <= to_unsigned(clockDivider,20);
 
     io_uart_write_valid <= '0';
     
@@ -97,13 +97,13 @@ begin
       variable parity : std_logic;
       variable stopTime : time;
     begin
-        if io_uart_config_parity = UartParityType_sequancial_eParityEven then
+        if io_uart_config_frame_parity = UartParityType_sequancial_eParityEven then
           parity := '0';
         else
           parity := '1';
         end if;
         
-        if io_uart_config_stop = UartStopType_sequancial_eStop1bit then
+        if io_uart_config_frame_stop = UartStopType_sequancial_eStop1bit then
           stopTime := baudPeriod;
         else
           stopTime := 2 * baudPeriod;
@@ -125,7 +125,7 @@ begin
         checkBit(parity);
         
         checkBit('1');
-        if io_uart_config_stop = UartStopType_sequancial_eStop2bit then
+        if io_uart_config_frame_stop = UartStopType_sequancial_eStop2bit then
          checkBit('1');       
         end if;
     end checkTx;
@@ -166,10 +166,10 @@ begin
   -- #spinalEnd userLogics
   uut : entity lib_UartTester.UartTester
     port map (
-      io_uart_config_dataLength =>  io_uart_config_dataLength,
-      io_uart_config_stop =>  io_uart_config_stop,
-      io_uart_config_parity =>  io_uart_config_parity,
-      io_uart_clockDivider =>  io_uart_clockDivider,
+      io_uart_config_frame_dataLength =>  io_uart_config_frame_dataLength,
+      io_uart_config_frame_stop =>  io_uart_config_frame_stop,
+      io_uart_config_frame_parity =>  io_uart_config_frame_parity,
+      io_uart_config_clockDivider =>  io_uart_config_clockDivider,
       io_uart_write_valid =>  io_uart_write_valid,
       io_uart_write_ready =>  io_uart_write_ready,
       io_uart_write_payload =>  io_uart_write_payload,
