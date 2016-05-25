@@ -154,6 +154,7 @@ object CoreQSysAvalon{
       report.toplevel.io.debugResetOut.addTag(ResetEmitterTag(report.toplevel.debugExtension.clockDomain))
     }
     QSysify(report.toplevel)
+    report.printPruned()
   }
 }
 

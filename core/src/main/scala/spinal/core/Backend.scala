@@ -22,7 +22,11 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 class BackendReport[T <: Component](val toplevel: T) {
+  val prunedSignals = mutable.Set[BaseType]()
 
+  def printPruned() = {
+    prunedSignals.foreach(bt => SpinalWarning(s"Unused wire detected : $bt"))
+  }
 }
 
 trait Phase{
@@ -103,6 +107,8 @@ class Backend {
   //TODO Mux node with n inputss instead of fixed 2
   //TODO non bundle that should be bundle into a bundle should be warned
   protected def elaborate[T <: Component](topLevel: T): BackendReport[T] = {
+    val backendReport = new BackendReport(topLevel)
+
     SpinalInfoPhase("Start analysis and transform")
     addReservedKeyWordToScope(globalScope)
 
@@ -164,8 +170,8 @@ class Backend {
     check_noAsyncNodeWithIncompleteAssignment()
     simplifyBlacBoxGenerics()
 
-    SpinalInfoPhase("Print signals not used in the graph")
-    printUnUsedSignals()
+    SpinalInfoPhase("Collect signals not used in the graph")
+    printUnUsedSignals(backendReport)
 
     SpinalInfoPhase("Finalise")
 
@@ -181,7 +187,7 @@ class Backend {
 
     printStates()
 
-    new BackendReport(topLevel)
+    backendReport
   }
 
   def nameNodesByReflection(): Unit = {
@@ -1213,7 +1219,7 @@ class Backend {
     })
   }
 
-  def printUnUsedSignals() : Unit = {
+  def printUnUsedSignals[T <: Component](report : BackendReport[T]) : Unit = {
     //val warnings = mutable.ArrayBuffer[String]()
     val targetAlgoId = GlobalData.get.algoId
     Node.walk(walkNodesDefautStack,node => {})
@@ -1226,7 +1232,7 @@ class Backend {
         case data : Data =>  {
           data.flatten.foreach(bt => {
             if(bt.algoId != targetAlgoId && bt.getWidth != 0 && !bt.hasTag(unusedTag)){
-              SpinalWarning(s"Unused wire detected : $bt")
+              report.prunedSignals += bt
             }
           })
         }
@@ -1234,6 +1240,9 @@ class Backend {
       }
 
       c.forEachNameables(obj => checkNameable(obj))
+    }
+    if(!report.prunedSignals.isEmpty){
+      SpinalWarning(s"${report.prunedSignals.size} signals were pruned. You can call printPruned on the backend report to get more informations.")
     }
   }
 
