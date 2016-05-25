@@ -299,13 +299,12 @@ class Core(implicit val c : CoreConfig) extends Component{
     val halt = False
     val pc = Reg(UInt(pcWidth bit)) init(U(startAddress,pcWidth bit))
     val inc = RegInit(False) //when io.i.cmd is stalled, it's used as a token to continue the request the next cycle
-    val redo = False
     val pcNext = if(fastFetchCmdPcCalculation){
       val pcPlus4 = pc + U(4)
       pcPlus4.addAttribute("keep")
-      Mux(inc && !redo,pcPlus4,pc)
+      Mux(inc,pcPlus4,pc)
     }else{
-      pc + Mux(inc && !redo,U(4),U(0))
+      pc + Mux(inc,U(4),U(0))
     }
     val pcLoad = Flow(pc)
     when(pcLoad.valid){
@@ -315,14 +314,14 @@ class Core(implicit val c : CoreConfig) extends Component{
     val resetDone = RegNext(True) init(False) //Used to not send request while reset is active
     iCmd.valid := resetDone  && !halt
     iCmd.pc := pcNext
-    //if(branchPrediction == dynamic) io.i.branchCacheLine := brancheCache.readSync(iCmd.pc(2, dynamicBranchPredictorCacheSizeLog2 bit),iCmd.ready)
+
     when(iCmd.fire || pcLoad.fire){
       pc := pcNext
     }
 
     when(iCmd.fire){
       inc := True
-    }.elsewhen(pcLoad.valid || redo){
+    }.elsewhen(pcLoad.valid){
       inc := False
     }
   }
