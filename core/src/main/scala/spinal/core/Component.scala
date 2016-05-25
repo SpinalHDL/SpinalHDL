@@ -208,6 +208,8 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
 
   }
 
+
+
   private[core] def getOrdredNodeIo = getAllIo.toList.sortWith(_.instanceCounter < _.instanceCounter)
 
   private[core] def getDelays = {
@@ -254,6 +256,9 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
     }
     prePopTasks.clear()
   }
+
+
+
 }
 
 

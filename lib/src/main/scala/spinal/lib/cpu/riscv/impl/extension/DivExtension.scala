@@ -43,6 +43,8 @@ class DivExtension extends CoreExtension{
     when(execute1.throwIt){
       rspReady := False
     }
+
+    divider.io.rsp.payload.error.unused
   }
 
   def DIVX       = M"0000001----------1-------0110011"

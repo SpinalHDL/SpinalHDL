@@ -220,6 +220,9 @@ class Counter(val stateCount: BigInt) extends ImplicitArea[UInt] {
     valueNext := 0
   }
 
+  willOverflowIfInc.unused
+  willOverflow.unused
+
   override def implicitValue: UInt = this.value
 }
 

@@ -380,7 +380,7 @@ object WidthInfer {
 object Node{
 
   def walk(starts: Seq[Node],walker: (Node, (Node) => Unit) => Unit): Unit = {
-    val targetAlgoId = GlobalData.get.algoId
+    val targetAlgoId = GlobalData.get.allocateAlgoId()
     val pendingNodes = mutable.Stack[Node]()
 
     def addNodeToStack(node: Node): Unit = {
@@ -395,7 +395,6 @@ object Node{
       walker(pendingNodes.pop, addNodeToStack)
     }
 
-    GlobalData.get.algoId += 1
   }
 
 

@@ -164,6 +164,9 @@ class Backend {
     check_noAsyncNodeWithIncompleteAssignment()
     simplifyBlacBoxGenerics()
 
+    SpinalInfoPhase("Print signals not used in the graph")
+    printUnUsedSignals()
+
     SpinalInfoPhase("Finalise")
 
     //Name patch
@@ -1078,8 +1081,7 @@ class Backend {
   }
 
   def checkCombinationalLoops2(): Unit = {
-    val targetAlgoId = GlobalData.get.algoId
-    GlobalData.get.algoId += 1
+    val targetAlgoId = GlobalData.get.allocateAlgoId()
 
     val errors = mutable.ArrayBuffer[String]()
     val pendingNodes = mutable.Stack[Node]()
@@ -1209,6 +1211,30 @@ class Backend {
       }
       case _ =>
     })
+  }
+
+  def printUnUsedSignals() : Unit = {
+    //val warnings = mutable.ArrayBuffer[String]()
+    val targetAlgoId = GlobalData.get.algoId
+    Node.walk(walkNodesDefautStack,node => {})
+
+    for(c <- components){
+      def checkNameable(that : Any) : Unit = that match {
+        case area : Area => {
+          area.forEachNameables(obj => checkNameable(obj))
+        }
+        case data : Data =>  {
+          data.flatten.foreach(bt => {
+            if(bt.algoId != targetAlgoId && bt.getWidth != 0 && !bt.hasTag(unusedTag)){
+              SpinalWarning(s"Unused wire detected : $bt")
+            }
+          })
+        }
+        case _ => {}
+      }
+
+      c.forEachNameables(obj => checkNameable(obj))
+    }
   }
 
   def addNodesIntoComponent(): Unit = {

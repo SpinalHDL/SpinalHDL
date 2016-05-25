@@ -458,8 +458,6 @@ class Core(implicit val c : CoreConfig) extends Component{
     val haltFromDataRequest = inInst.valid && inInst.ctrl.men && !dCmd.ready
 
     val ctrl = inInst.ctrl
-    val addr0 = inInst.instruction(19 downto 15).asUInt
-    val addr1 = inInst.instruction(24 downto 20).asUInt
 
     val imm = IMM(inInst.instruction)
 
@@ -892,6 +890,17 @@ class Core(implicit val c : CoreConfig) extends Component{
     val execute1_halt = Counter(1<<30,execute1.halt && execute1.inInst.valid).value.keep()
     val writeBack_halt = Counter(1<<30,writeBack.halt && writeBack.inInst.valid).value.keep()
   }
+
+
+  decode.outInst.ctrl.unused
+  execute0.inInst.ctrl.unused
+  execute0.outInst.ctrl.unused
+  execute1.inInst.ctrl.unused
+  execute1.outInst.ctrl.unused
+  writeBack.inInst.ctrl.unused
+
+  decode.ctrl.extensionData.unused
+
 
 }
 

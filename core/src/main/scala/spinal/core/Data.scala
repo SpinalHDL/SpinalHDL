@@ -454,6 +454,10 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
     flatten.foreach(_.addTag(spinal.core.randomBoot))
     this
   }
+  
+  def unused = {
+    flatten.foreach(_.addTag(unusedTag))
+  }
 
 
   override def clone: this.type = {

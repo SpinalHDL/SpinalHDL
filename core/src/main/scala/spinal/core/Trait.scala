@@ -232,6 +232,12 @@ trait Nameable {
   }
 
   protected def nameChangeEvent(weak: Boolean): Unit = {}
+
+  def forEachNameables(doThat : (Any) => Unit) : Unit = {
+    Misc.reflect(this, (name, obj) => {
+      doThat(obj)
+    })
+  }
 }
 
 object ScalaLocated {
@@ -300,6 +306,7 @@ trait SpinalTag {
   def isAssignedTo(that: SpinalTagReady) = that.hasTag(this)
 }
 
+object unusedTag extends SpinalTag
 object crossClockDomain extends SpinalTag
 object crossClockBuffer extends SpinalTag
 object randomBoot extends SpinalTag
@@ -419,7 +426,7 @@ object GlobalData {
 //}
 class GlobalData {
   var algoId = 1
-
+  def allocateAlgoId() : Int = {algoId += 1; return algoId-1}
   var commonClockConfig = ClockDomainConfig()
   var overridingAssignementWarnings = true
   var nodeAreNamed = false
