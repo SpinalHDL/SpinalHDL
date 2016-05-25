@@ -24,8 +24,14 @@ import scala.collection.mutable.ArrayBuffer
 class BackendReport[T <: Component](val toplevel: T) {
   val prunedSignals = mutable.Set[BaseType]()
 
-  def printPruned() = {
+  def printPruned() : this.type = {
     prunedSignals.foreach(bt => SpinalWarning(s"Unused wire detected : $bt"))
+    this
+  }
+
+  def printPrunedIo() : this.type = {
+    prunedSignals.filter(_.dir != null).foreach(bt => SpinalWarning(s"Unused wire detected : $bt"))
+    this
   }
 }
 
