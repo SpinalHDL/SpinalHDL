@@ -8,6 +8,28 @@ import scala.collection.mutable.ArrayBuffer
 /**
  * Created by PIC32F_USER on 21/05/2016.
  */
+
+
+
+object PlayB5 {
+
+  class TopLevel extends Component {
+    val myClock = in Bool
+
+    val myClockDomain = ClockDomain(myClock, True)
+
+    val area = new ClockingArea(myClockDomain) {
+      val result = out(RegNext(in(Bool)) init (True))
+    }
+
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
 object PlayB1 {
 
   class TopLevel extends Component {

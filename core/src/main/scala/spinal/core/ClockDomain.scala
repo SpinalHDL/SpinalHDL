@@ -127,6 +127,9 @@ case class ResetTag(clockDomain: ClockDomain) extends ClockDomainBoolTag
 case class ClockEnableTag(clockDomain: ClockDomain) extends ClockDomainBoolTag
 
 class ClockDomain(val config: ClockDomainConfig, val clock: Bool, val reset: Bool = null, val clockEnable: Bool = null, val frequency: IClockDomainFrequency = UnknownFrequency()) {
+  clock.dontSimplifyIt()
+  if(reset != null)reset.dontSimplifyIt()
+  if(clockEnable != null)clockEnable.dontSimplifyIt()
 
   clock.addTag(ClockTag(this))
   if (reset != null) reset.addTag(ResetTag(this))

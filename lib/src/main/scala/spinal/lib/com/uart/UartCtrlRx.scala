@@ -45,8 +45,6 @@ class UartCtrlRx(g : UartCtrlGenerics) extends Component {
         tick := True
       }
     }
-
-
   }
 
   //Count bitTimer.tick
