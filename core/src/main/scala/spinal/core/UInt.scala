@@ -126,7 +126,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider {
   def apply(offset: UInt, bitCount: BitCount): this.type = newExtract(offset,bitCount.value,new ExtractBitsVectorFloatingFromUInt)
 
   override private[core] def weakClone: this.type = new UInt().asInstanceOf[this.type]
-  override def getZero: this.type = U(0).asInstanceOf[this.type]
+  override def getZero: this.type = U(0,this.getWidth bits).asInstanceOf[this.type]
 }
 
 object UInt2D{

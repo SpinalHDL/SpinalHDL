@@ -183,5 +183,4 @@ abstract class BitVector extends BaseType {
     else width.toString
   }
   override def toString(): String = s"${component.getPath() + "/" + this.getDisplayName()} : ${getClassIdentifier}[${getWidthStringNoInferation} bit]"
-
 }

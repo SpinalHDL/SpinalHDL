@@ -9,6 +9,24 @@ import scala.collection.mutable.ArrayBuffer
  * Created by PIC32F_USER on 21/05/2016.
  */
 
+
+object PlayB7 {
+
+  class TopLevel extends Component {
+
+    val io = new Bundle {
+      val x = in  UInt( 4 bits )
+      val z = out UInt( 4 bits )
+    }
+    val tmp = U(0)
+    io.z := tmp
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
 object PlayB6 {
 
   class TopLevel extends Component {

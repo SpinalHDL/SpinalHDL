@@ -107,5 +107,5 @@ class Bits extends BitVector {
   def apply(offset: UInt, bitCount: BitCount): this.type = newExtract(offset,bitCount.value,new ExtractBitsVectorFloatingFromBits)
 
   override private[core] def weakClone: this.type = new Bits().asInstanceOf[this.type]
-  override def getZero: this.type = B(0).asInstanceOf[this.type]
+  override def getZero: this.type = B(0,this.getWidth bits).asInstanceOf[this.type]
 }
