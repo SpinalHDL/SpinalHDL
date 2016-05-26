@@ -16,17 +16,12 @@ case class Uart() extends Bundle with IMasterSlave {
 }
 
 
-object UartStopType extends SpinalEnum(sequancial) {
-  val eStop1bit, eStop2bit = newElement()
-
-  def toBitCount(that : SpinalEnumCraft[UartStopType.type]) = that.mux(
-    eStop1bit -> U"0",
-    eStop2bit -> U"1",
-    default   -> U"0"
-  )
-}
-
 object UartParityType extends SpinalEnum(sequancial) {
-  val eParityNone, eParityEven, eParityOdd = newElement()
+  val NONE, EVEN, ODD = newElement()
 }
 
+
+object UartStopType extends SpinalEnum(sequancial) {
+  val ONE, TWO = newElement()
+  def toBitCount(that : T) : UInt = (that === ONE) ? U"0" | U"1"
+}

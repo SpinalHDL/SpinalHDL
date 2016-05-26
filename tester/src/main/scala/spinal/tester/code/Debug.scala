@@ -166,7 +166,7 @@ object Debug {
 
     val firLength = 32
     val coefs = (0 until firLength).map(i => S(((0.54 - 0.46 * Math.cos(2 * Math.PI * i / firLength)) * 32767 / firLength).toInt, 16 bit))
-    io.fir := (coefs, Delays(io.sin, firLength)).zipped.map((coef, delay) => (coef * delay) >> 15).reduce(_ + _)
+    io.fir := (coefs, History(io.sin, firLength)).zipped.map((coef, delay) => (coef * delay) >> 15).reduce(_ + _)
 
     nameElements()
 

@@ -172,9 +172,9 @@ class ClockDomain(val config: ClockDomainConfig, val clock: Bool, val reset: Boo
 }
 
 case class UnknownFrequency() extends IClockDomainFrequency {
-  def getValue: Double = ???
-  def getMax: Double = ???
-  def getMin: Double = ???
+  def getValue: Double = SpinalError("You are trying to get the frequency of a ClockDomain that didn't know it")
+  def getMax: Double = SpinalError("You are trying to get the frequency of a ClockDomain that didn't know it")
+  def getMin: Double = SpinalError("You are trying to get the frequency of a ClockDomain that didn't know it")
 }
 
 case class FixedFrequency(value: Double) extends IClockDomainFrequency {

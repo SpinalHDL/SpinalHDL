@@ -62,8 +62,8 @@ begin
   begin
     reset <= '1';
     io_uart_config_frame_dataLength <= "111";
-    io_uart_config_frame_stop <= UartStopType_sequancial_eStop1bit;
-    io_uart_config_frame_parity <= UartParityType_sequancial_eParityEven;
+    io_uart_config_frame_stop <= UartStopType_sequancial_ONE;
+    io_uart_config_frame_parity <= UartParityType_sequancial_EVEN;
     io_uart_config_clockDivider <= to_unsigned(clockDivider,20);
 
     io_uart_write_valid <= '0';
@@ -97,13 +97,13 @@ begin
       variable parity : std_logic;
       variable stopTime : time;
     begin
-        if io_uart_config_frame_parity = UartParityType_sequancial_eParityEven then
+        if io_uart_config_frame_parity = UartParityType_sequancial_EVEN then
           parity := '0';
         else
           parity := '1';
         end if;
         
-        if io_uart_config_frame_stop = UartStopType_sequancial_eStop1bit then
+        if io_uart_config_frame_stop = UartStopType_sequancial_ONE then
           stopTime := baudPeriod;
         else
           stopTime := 2 * baudPeriod;
@@ -125,7 +125,7 @@ begin
         checkBit(parity);
         
         checkBit('1');
-        if io_uart_config_frame_stop = UartStopType_sequancial_eStop2bit then
+        if io_uart_config_frame_stop = UartStopType_sequancial_TWO then
          checkBit('1');       
         end if;
     end checkTx;

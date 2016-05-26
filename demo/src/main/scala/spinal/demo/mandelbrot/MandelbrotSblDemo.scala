@@ -30,8 +30,8 @@ class MandelbrotSblDemo(frameAddressOffset: Int, p: MandelbrotCoreParameters, co
       val ctrl = new UartCtrl()
       ctrl.io.config.clockDivider := BigInt((coreClk.frequency.getValue / 57.6e3 / 8).toLong)
       ctrl.io.config.frame.dataLength := 7
-      ctrl.io.config.frame.parity := UartParityType.eParityNone
-      ctrl.io.config.frame.stop := UartStopType.eStop1bit
+      ctrl.io.config.frame.parity := UartParityType.NONE
+      ctrl.io.config.frame.stop := UartStopType.ONE
       ctrl.io.uart <> io.uart
       
       val (flowFragment, _) = ctrl.io.read.toFlowFragmentBitsAndReset()

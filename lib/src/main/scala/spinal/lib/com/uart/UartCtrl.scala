@@ -13,6 +13,7 @@ case class UartCtrlGenerics( dataWidthMax: Int = 8,
                              samplingSize: Int = 5,
                              postSamplingSize: Int = 2) {
   val rxSamplePerBit = preSamplingSize + samplingSize + postSamplingSize
+
   assert(isPow2(rxSamplePerBit))
   if ((samplingSize % 2) == 0)
     SpinalWarning(s"It's not nice to have a odd samplingSize value at ${ScalaLocated.short} (because of the majority vote)")
@@ -28,6 +29,10 @@ case class UartCtrlFrameConfig(g: UartCtrlGenerics) extends Bundle {
 case class UartCtrlConfig(g: UartCtrlGenerics) extends Bundle {
   val frame        = UartCtrlFrameConfig(g)
   val clockDivider = UInt (g.clockDividerWidth bit) //see UartCtrlGenerics.clockDividerWidth for calculation
+
+  def setClockDivider(baudrate : Double,clkFrequency : Double = ClockDomain.current.frequency.getValue) : Unit = {
+    clockDivider := (clkFrequency / baudrate / g.rxSamplePerBit).toInt
+  }
 }
 
 class UartCtrlIo(g : UartCtrlGenerics) extends Bundle {
@@ -43,6 +48,7 @@ class UartCtrl(g : UartCtrlGenerics = UartCtrlGenerics()) extends Component {
   val tx = new UartCtrlTx(g)
   val rx = new UartCtrlRx(g)
 
+  //Clock divider used by RX and TX
   val clockDivider = new Area {
     val counter = Reg(UInt(g.clockDividerWidth bits)) init(0)
     val tick = counter === 0
@@ -62,8 +68,40 @@ class UartCtrl(g : UartCtrlGenerics = UartCtrlGenerics()) extends Component {
   tx.io.write << io.write
   rx.io.read >> io.read
 
-  io.uart.txd := tx.io.txd
-  rx.io.rxd := io.uart.rxd
+  io.uart.txd <> tx.io.txd
+  io.uart.rxd <> rx.io.rxd
 }
 
 
+
+
+class UartCtrlUsageExample extends Component{
+  val io = new Bundle{
+    val uart = master(Uart())
+    val switchs = in Bits(8 bits)
+    val leds = out Bits(8 bits)
+  }
+
+  val uartCtrl = new UartCtrl()
+  uartCtrl.io.config.setClockDivider(921600)
+  uartCtrl.io.config.frame.dataLength := 7  //8 bits
+  uartCtrl.io.config.frame.parity := UartParityType.NONE
+  uartCtrl.io.config.frame.stop := UartStopType.ONE
+  uartCtrl.io.uart <> io.uart
+
+  //Assign io.led with a register loaded each time a byte is received
+  io.leds := uartCtrl.io.read.toReg()
+
+  //Write the value of switch on the uart each 2000 cycles
+  val write = Stream(Bits(8 bits))
+  write.valid := CounterFreeRun(2000).willOverflow
+  write.payload := io.switchs
+  write >-> uartCtrl.io.write
+}
+
+
+object UartCtrlUsageExample{
+  def main(args: Array[String]) {
+    SpinalVhdl(new UartCtrlUsageExample,defaultClockDomainFrequency=FixedFrequency(50e6))
+  }
+}

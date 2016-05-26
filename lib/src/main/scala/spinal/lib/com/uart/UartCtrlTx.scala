@@ -4,13 +4,8 @@ import spinal.core._
 import spinal.lib.com.uart.UartStopType._
 import spinal.lib.slave
 
-/**
- * Created by PIC32F_USER on 24/05/2016.
- */
-
-
 object UartCtrlTxState extends SpinalEnum {
-  val sIdle,sStart, sData, sParity, sStop = newElement()
+  val IDLE, START, DATA, PARITY, STOP = newElement()
 }
 
 class UartCtrlTx(g : UartCtrlGenerics) extends Component {
@@ -23,7 +18,8 @@ class UartCtrlTx(g : UartCtrlGenerics) extends Component {
     val txd = out Bool
   }
 
-  // Provide one tick each rxSamplePerBit io.samplingTick
+  // Provide one clockDivider.tick each rxSamplePerBit pulse of io.samplingTick
+  // Used by the stateMachine as a baud rate time reference
   val clockDivider = new Area {
     val counter = Reg(UInt(log2Up(rxSamplePerBit) bits)) init(0)
     val tick = False
@@ -33,23 +29,20 @@ class UartCtrlTx(g : UartCtrlGenerics) extends Component {
     }
   }
 
-  //Count up each tick
+  // Count up each clockDivider.tick, used by the state machine to count up data bits and stop bits
   val tickCounter = new Area {
     val value = Reg(UInt(Math.max(dataWidthMax, 2) bit))
-    val reset = False
+    def reset() = value := 0
 
     when(clockDivider.tick) {
       value := value + 1
-    }
-    when(reset) {
-      value := 0
     }
   }
 
   val stateMachine = new Area {
     import UartCtrlTxState._
 
-    val state = RegInit(sIdle())
+    val state = RegInit(IDLE)
     val parity = Reg(Bool)
     val txd = True
 
@@ -59,44 +52,44 @@ class UartCtrlTx(g : UartCtrlGenerics) extends Component {
 
     io.write.ready := False
     switch(state) {
-      is(sIdle){
+      is(IDLE){
         when(io.write.valid && clockDivider.tick){
-          state := sStart
+          state := START
         }
       }
-      is(sStart) {
+      is(START) {
         txd := False
         when(clockDivider.tick) {
-          state := sData
-          parity := io.configFrame.parity === UartParityType.eParityOdd
-          tickCounter.reset := True
+          state := DATA
+          parity := io.configFrame.parity === UartParityType.ODD
+          tickCounter.reset()
         }
       }
-      is(sData) {
+      is(DATA) {
         txd := io.write.payload(tickCounter.value)
         when(clockDivider.tick) {
           when(tickCounter.value === io.configFrame.dataLength) {
             io.write.ready := True
-            tickCounter.reset := True
-            when(io.configFrame.parity === UartParityType.eParityNone) {
-              state := sStop
+            tickCounter.reset()
+            when(io.configFrame.parity === UartParityType.NONE) {
+              state := STOP
             } otherwise {
-              state := sParity
+              state := PARITY
             }
           }
         }
       }
-      is(sParity) {
+      is(PARITY) {
         txd := parity
         when(clockDivider.tick) {
-          state := sStop
-          tickCounter.reset := True
+          state := STOP
+          tickCounter.reset()
         }
       }
-      is(sStop) {
+      is(STOP) {
         when(clockDivider.tick) {
           when(tickCounter.value === toBitCount(io.configFrame.stop)) {
-            state := io.write.valid ? sStart | sIdle
+            state := io.write.valid ? START | IDLE
           }
         }
       }
