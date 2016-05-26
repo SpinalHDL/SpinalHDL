@@ -112,6 +112,7 @@ class Backend {
   //TODO better Mem support (user specifyed blackbox)
   //TODO Mux node with n inputss instead of fixed 2
   //TODO non bundle that should be bundle into a bundle should be warned
+  //TODO move nodes nomalisation before node symplification   (normalisation create resizes that could be then symplified)
   protected def elaborate[T <: Component](topLevel: T): BackendReport[T] = {
     val backendReport = new BackendReport(topLevel)
 
