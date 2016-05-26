@@ -21,7 +21,7 @@ class UartCtrlRx(g : UartCtrlGenerics) extends Component {
   // Provide a new sampler.value each time sampler.tick is high
   val sampler = new Area {
     val syncroniser = BufferCC(io.rxd)
-    val samples     = History(that=syncroniser,length=samplingSize)
+    val samples     = History(that=syncroniser,when=io.samplingTick,length=samplingSize)
     val value       = RegNext(MajorityVote(samples))
     val tick        = RegNext(io.samplingTick)
   }

@@ -551,11 +551,11 @@ object Delay {
 
 
 object History {
-  def apply[T <: Data](that: T, length: Int,initValue : T = null): Vec[T] = {
+  def apply[T <: Data](that: T, length: Int,when : Bool = True,initValue : T = null): Vec[T] = {
     def builder(that: T, left: Int): List[T] = {
       left match {
         case 0 => that :: Nil
-        case _ => that :: builder(RegNext(next=that,init=initValue), left - 1)
+        case _ => that :: builder(RegNextWhen(that,when,init=initValue), left - 1)
       }
     }
     Vec(builder(that, length-1))
