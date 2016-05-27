@@ -17,6 +17,17 @@ class AxiLiteSlaveFactory(bus : AxiLite) extends Area{
 
   def read(that : Data,address : BigInt) : Unit  = elements += AxiLiteSlaveFactoryRead(that,address)
   def write(that : Data,address : BigInt) : Unit = elements += AxiLiteSlaveFactoryWrite(that,address)
+  def writeOnlyRegOf[T <: Data](dataType: T, baseAddress: BigInt): T = {
+    val ret = Reg(dataType)
+    write(ret,baseAddress)
+    ret
+  }
+  def writeReadRegOf[T <: Data](that: T, baseAddress: BigInt): T = {
+    val reg = Reg(that)
+    write(reg,baseAddress)
+    read(reg,baseAddress)
+    reg
+  }
 
   val writeJoinEvent = StreamJoin(bus.writeCmd,bus.writeData)
   val writeRsp = AxiLiteB(bus.config)
