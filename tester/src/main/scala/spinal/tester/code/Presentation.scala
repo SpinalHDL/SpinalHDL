@@ -1216,3 +1216,55 @@ object FlipFlop {
     SpinalVhdl(new TopLevel)
   }
 }
+
+
+object SinFir {
+  class TopLevel(resolutionWidth : Int,sampleCount : Int,firLength : Int) extends Component {
+    val io = new Bundle {
+      val sin = out SInt(resolutionWidth bit)
+      val sinFir = out SInt(resolutionWidth bit)
+
+      val square = out SInt(resolutionWidth bit)
+      val squareFir = out SInt(resolutionWidth bit)
+    }
+
+    def sinTable = (0 until sampleCount).map(sampleIndex => {
+      val sinValue = Math.sin(2 * Math.PI * sampleIndex / sampleCount)
+      S((sinValue * ((1<<resolutionWidth)/2-1)).toInt,resolutionWidth bits)
+    })
+
+    val rom =  Mem(SInt(resolutionWidth bit),initialContent = sinTable)
+    val phase = CounterFreeRun(sampleCount)
+    val sin = rom.readSync(phase)
+    val square =  S(resolutionWidth-1 -> ! phase.msb, default -> phase.msb)
+
+    val firCoefs = (0 until firLength).map(i => {
+      val coefValue = 0.54 - 0.46 * Math.cos(2 * Math.PI * i / firLength)
+      S((coefValue * ((1<<resolutionWidth)/2-1)).toInt,resolutionWidth bits)
+    })
+
+    def applyFirTo(that : SInt) : SInt = {
+      val firMul = for((coef,value) <- (firCoefs, History(that, firLength-1)).zipped) yield {
+        (coef * value) >> resolutionWidth
+      }
+      firMul.foldLeft(S(0,resolutionWidth + log2Up(firLength) bits))(_ + _)
+    }
+
+    io.sin := sin
+    io.sinFir := applyFirTo(sin) >> log2Up(firLength)
+
+    io.square := square
+    io.squareFir := applyFirTo(square) >> log2Up(firLength)
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel(
+      resolutionWidth=16,
+      sampleCount=64,
+      firLength=16
+    ))
+  }
+}
+
+
+

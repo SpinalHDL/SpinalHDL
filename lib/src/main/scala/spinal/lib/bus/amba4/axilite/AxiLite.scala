@@ -54,7 +54,7 @@ case class AxiLiteR(config: AxiLiteConfig) extends Bundle {
   val resp = Bits(2 bit)
 }
 
-case class AxiLite(config: AxiLiteConfig) extends Bundle with IMasterSlave {
+case class AxiLite(val config: AxiLiteConfig) extends Bundle with IMasterSlave {
   val aw = if(config.mode.write) Stream(AxiLiteAw(config)) else null
   val w = if(config.mode.write)  Stream(AxiLiteW(config)) else null
   val b = if(config.mode.write)  Stream(AxiLiteB(config)) else null

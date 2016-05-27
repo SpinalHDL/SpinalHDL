@@ -21,7 +21,7 @@ object PlayB7 {
       val z = out UInt( 4 bits )
     }
     val a = Stream(Fragment(UInt(4 bits)))
-    a.insertHeader()
+
   }
 
   def main(args: Array[String]): Unit = {

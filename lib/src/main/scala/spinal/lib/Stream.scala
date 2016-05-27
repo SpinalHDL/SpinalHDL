@@ -722,3 +722,13 @@ case class EventEmitter(on : Event){
     reg := True
   }
 }
+
+object StreamJoin{
+  def apply(sources : Stream[_]*) : Event = {
+    val event = Event
+    val eventFire = event.fire
+    event.valid := sources.map(_.valid).reduce(_ && _)
+    sources.foreach(_.ready := eventFire)
+    event
+  }
+}
