@@ -37,7 +37,8 @@ object SpinalVhdl {
   def apply[T <: Component](gen: => T,
                             defaultConfigForClockDomains: ClockDomainConfig = ClockDomainConfig(),
                             onlyStdLogicVectorAtTopLevelIo : Boolean = false,
-                            defaultClockDomainFrequency : IClockDomainFrequency = UnknownFrequency()): BackendReport[T] = {
+                            defaultClockDomainFrequency : IClockDomainFrequency = UnknownFrequency(),
+                            vhdPath : String = null): BackendReport[T] = {
 
     def doit(debug : Boolean = false) : BackendReport[T] = {
       try {
@@ -45,6 +46,7 @@ object SpinalVhdl {
         builder.setDefaultConfigForClockDomains(defaultConfigForClockDomains)
         if(onlyStdLogicVectorAtTopLevelIo) builder.onlyStdLogicVectorAtTopLevelIo()
         builder.setDefaultClockFrequency(defaultClockDomainFrequency)
+        if(vhdPath != null) builder.setOutputFile(vhdPath)
         GlobalData.get.scalaLocatedEnable = debug
         builder.elaborate()
       } catch {

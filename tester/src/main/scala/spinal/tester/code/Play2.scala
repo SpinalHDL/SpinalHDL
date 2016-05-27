@@ -1,6 +1,8 @@
 package spinal.tester.code
 
 import spinal.core._
+import spinal.lib._
+import spinal.lib.com.uart.UartCtrl
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -23,7 +25,7 @@ object PlayB7 {
   }
 
   def main(args: Array[String]): Unit = {
-    SpinalVhdl(new TopLevel)
+    SpinalVhdl(new TopLevel,vhdPath="C:/tmp/toto.vhd")
   }
 }
 
@@ -31,6 +33,11 @@ object PlayB6 {
 
   class TopLevel extends Component {
     val notUsed = False
+
+
+    val uartCtrl = new UartCtrl()
+    val writeCmd = Stream(Bits(8 bits))
+    writeCmd.queue(16).haltWhen(True) >> uartCtrl.io.write
 
     val result = out(True)
   }
