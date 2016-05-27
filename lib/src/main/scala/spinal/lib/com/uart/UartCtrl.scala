@@ -92,11 +92,18 @@ class UartCtrlUsageExample extends Component{
   //Assign io.led with a register loaded each time a byte is received
   io.leds := uartCtrl.io.read.toReg()
 
-  //Write the value of switch on the uart each 2000 cycles
+  //Write the value of switch on the uart each 4000 cycles
   val write = Stream(Bits(8 bits))
   write.valid := CounterFreeRun(2000).willOverflow
   write.payload := io.switchs
   write >-> uartCtrl.io.write
+
+  //Write the 0x55 and then the value of switch on the uart each 4000 cycles
+//  val write = Stream(Fragment(Bits(8 bits)))
+//  write.valid := CounterFreeRun(4000).willOverflow
+//  write.fragment := io.switchs
+//  write.last := True
+//  write.m2sPipe().insertHeader(0x55).toStreamOfFragment >> uartCtrl.io.write
 }
 
 

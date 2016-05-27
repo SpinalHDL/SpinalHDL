@@ -315,6 +315,7 @@ class DataCarrierFragmentPimped[T <: Data](pimped: DataCarrier[Fragment[T]]) {
   def first: Bool = signalCache(pimped, "first", () => RegNextWhen(pimped.last, pimped.fire, True))
   def tail: Bool = !first
   def isFirst: Bool = pimped.valid && first
+  def isTail : Bool = pimped.valid && tail
   def isLast: Bool = pimped.valid && pimped.last
 }
 

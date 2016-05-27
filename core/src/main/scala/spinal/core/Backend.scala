@@ -106,8 +106,6 @@ class Backend {
   }
 
   //TODO implicit area base class for each base type that implement operator
-  //TODO General cleaning
-  //TODO switch case nodes in replacement of when emulation
   //TODO Union support
   //TODO better Mem support (user specifyed blackbox)
   //TODO Mux node with n inputss instead of fixed 2

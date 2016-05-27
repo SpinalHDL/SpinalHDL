@@ -34,7 +34,7 @@ begin
     wait until rising_edge(clk);
     reset <= '0';
     while true loop
-      wait for 100 us;
+      wait for 300 us;
       io_switchs <= std_logic_vector(unsigned(io_switchs) + 1);
     end loop;
   end process;

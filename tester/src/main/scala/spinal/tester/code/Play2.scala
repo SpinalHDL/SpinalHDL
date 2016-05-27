@@ -20,8 +20,8 @@ object PlayB7 {
       val x = in  UInt( 4 bits )
       val z = out UInt( 4 bits )
     }
-    val tmp = U(0)
-    io.z := tmp
+    val a = Stream(Fragment(UInt(4 bits)))
+    a.insertHeader()
   }
 
   def main(args: Array[String]): Unit = {
