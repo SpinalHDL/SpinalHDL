@@ -7,16 +7,28 @@ import scala.collection.mutable.ArrayBuffer
 
 trait AxiLiteSlaveFactoryElement
 
-case class AxiLiteSlaveFactoryRead(that : Data,base : BigInt) extends AxiLiteSlaveFactoryElement
-case class AxiLiteSlaveFactoryWrite(that : Data,base : BigInt) extends AxiLiteSlaveFactoryElement
+case class AxiLiteSlaveFactoryRead(that : Data,
+                                   base : BigInt,
+                                   onRsp :  (BigInt) => Unit) extends AxiLiteSlaveFactoryElement
+case class AxiLiteSlaveFactoryWrite(that : Data,
+                                    base : BigInt,
+                                    onCmd : (BigInt) => Unit) extends AxiLiteSlaveFactoryElement
 
 
 
 class AxiLiteSlaveFactory(bus : AxiLite) extends Area{
   val elements = ArrayBuffer[AxiLiteSlaveFactoryElement]()
 
-  def read(that : Data,address : BigInt) : Unit  = elements += AxiLiteSlaveFactoryRead(that,address)
-  def write(that : Data,address : BigInt) : Unit = elements += AxiLiteSlaveFactoryWrite(that,address)
+  def read(that : Data,
+           address : BigInt,
+           onRsp :  (BigInt) => Unit = (x) => {}) : Unit  = {
+    elements += AxiLiteSlaveFactoryRead(that,address,onRsp)
+  }
+  def write(that : Data,
+            address : BigInt,
+            onCmd : (BigInt) => Unit = (xy) => {}) : Unit  = {
+    elements += AxiLiteSlaveFactoryWrite(that,address,onCmd)
+  }
   def writeOnlyRegOf[T <: Data](dataType: T, baseAddress: BigInt): T = {
     val ret = Reg(dataType)
     write(ret,baseAddress)
@@ -27,6 +39,14 @@ class AxiLiteSlaveFactory(bus : AxiLite) extends Area{
     write(reg,baseAddress)
     read(reg,baseAddress)
     reg
+  }
+  def bitsCumulateAndClearOnRead(that : Bits,base : BigInt): Unit ={
+    assert(that.getWidth <= bus.config.dataWidth)
+    val reg = Reg(that.clone)
+    reg := reg | that
+    read(reg,base,(address) => {
+      reg := that
+    })
   }
 
   val writeJoinEvent = StreamJoin(bus.writeCmd,bus.writeData)
@@ -44,11 +64,12 @@ class AxiLiteSlaveFactory(bus : AxiLite) extends Area{
     when(writeJoinEvent.valid){
       for(e <- elements) e match{
         case e : AxiLiteSlaveFactoryWrite => {
-          assert(e.that.isReg,"reg argument must be a Reg")
+          assert(e.that.isReg,"Should be a Reg")
           val wordCount = (widthOf(e.that) - 1) / bus.config.dataWidth + 1
           for (wordId <- (0 until wordCount)) {
             when(bus.writeCmd.addr === e.base + wordId * bus.config.dataWidth / 8) {
               e.that.assignFromBits(bus.writeData.data.resized,wordId * bus.config.dataWidth, Math.min(bus.config.dataWidth, widthOf(e.that) - wordId * bus.config.dataWidth) bit)
+              e.onCmd(wordId)
             }
           }
         }
@@ -66,6 +87,7 @@ class AxiLiteSlaveFactory(bus : AxiLite) extends Area{
         for (wordId <- (0 until wordCount)) {
           when(readDataStage.addr === e.base + wordId*bus.config.dataWidth/8) {
             readRsp.data  := words(wordId).resized
+            e.onRsp(wordId)
           }
         }
       }

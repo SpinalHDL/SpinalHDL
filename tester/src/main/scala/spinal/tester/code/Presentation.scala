@@ -945,20 +945,20 @@ object t13 {
 
   val targetAddress = UInt(32 bit)
 
+  val lines = new Area {
+    class tag extends Bundle {
+      val valid = Bool
+      val address = UInt(32 bit)
+      val dirty = Bool
 
-  class LineTag extends Bundle {
-    val valid = Bool
-    val address = UInt(32 bit)
-    val dirty = Bool
+      def hit(targetAddress: UInt): Bool = valid && address === targetAddress
+    }
 
-    def hit(targetAddress : UInt) : Bool = valid && address === targetAddress
+    val tags = Vec(new tag, 8)
+    val hits = tags.map(tag => tag.hit(targetAddress))
+    val hitValid = hits.reduce((a, b) => a || b)
+    val hitIndex = OHToUInt(hits)
   }
-
-  val lineTags = Vec(new LineTag, 8)
-  val lineHits = lineTags.map(lineTag => lineTag.hit(targetAddress))
-  val lineHitValid = lineHits.reduce((a,b) => a || b)
-  val lineHitIndex = OHToUInt(lineHits)
-
 }
 
 
