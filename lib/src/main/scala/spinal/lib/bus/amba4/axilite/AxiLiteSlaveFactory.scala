@@ -51,11 +51,14 @@ class AxiLiteSlaveFactory(bus : AxiLite) extends Area{
     for (wordId <- (0 until wordCount)) {
       write(
         that = new DataWrapper{
-          override def assignFromBits(bits: Bits): Unit = {
+          override def getBitsWidth: Int =
+            Math.min(bus.config.dataWidth, widthOf(that) - wordId * bus.config.dataWidth)
+
+          override def assignFromBits(value : Bits): Unit = {
             that.assignFromBits(
-              bits     = bus.writeData.data.resized,
+              bits     = value.resized,
               offset   = wordId * bus.config.dataWidth,
-              bitCount = Math.min(bus.config.dataWidth, widthOf(that) - wordId * bus.config.dataWidth) bits)
+              bitCount = getBitsWidth bits)
           }
         },
         address = address + wordId * bus.config.dataWidth / 8,0,
