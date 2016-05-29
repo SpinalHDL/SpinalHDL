@@ -551,6 +551,19 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
 
 }
 
+trait DataWrapper extends Data{
+  override def asBits: Bits = ???
+  override def flatten: Seq[BaseType] = ???
+  override def getBitsWidth: Int = ???
+  override private[core] def isEguals(that: Any): Bool = ???
+  override private[core] def autoConnect(that: Data): Unit = ???
+  override def assignFromBits(bits: Bits): Unit = ???
+  override def assignFromBits(bits: Bits, hi: Int, low: Int): Unit = ???
+  override def getZero: DataWrapper.this.type = ???
+  override private[core] def isNotEguals(that: Any): Bool = ???
+  override def flattenLocalName: Seq[String] = ???
+  override private[core] def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = ???
+}
 
 //
 //abstract class CustomData extends Data{
