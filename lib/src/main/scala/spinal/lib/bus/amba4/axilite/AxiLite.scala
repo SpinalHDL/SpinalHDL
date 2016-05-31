@@ -12,23 +12,23 @@ object AxiLiteCst {
   /**
     * Read Write response
     */
-  object rest{
-    val OKAY   = B"2'b00" // Normal access success
-    val EXOKAY = B"2'b01" // Exclusive access okay
-    val SLVERR = B"2'b10" // Slave error
-    val DECERR = B"2'b11" // Decode error
+  object resp{
+    val OKAY   = B"00" // Normal access success
+    val EXOKAY = B"01" // Exclusive access okay
+    val SLVERR = B"10" // Slave error
+    val DECERR = B"11" // Decode error
   }
 
   /**
     * Access permissions
     */
   object prot{
-    val UNPRIVILEGED_ACCESS = B"3'b000"
-    val PRIVILEGED_ACCESS   = B"3'b001"
-    val SECURE_ACCESS       = B"3'b000"
-    val NON_SECURE_ACCESS   = B"3'b010"
-    val DATA_ACCESS         = B"3'b000"
-    val INSTRUCTION_ACCESS  = B"3'b100"
+    val UNPRIVILEGED_ACCESS = B"000"
+    val PRIVILEGED_ACCESS   = B"001"
+    val SECURE_ACCESS       = B"000"
+    val NON_SECURE_ACCESS   = B"010"
+    val DATA_ACCESS         = B"000"
+    val INSTRUCTION_ACCESS  = B"100"
   }
 }
 
@@ -102,7 +102,7 @@ case class AxiLiteW(config: AxiLiteConfig) extends Bundle {
 case class AxiLiteB(config: AxiLiteConfig) extends Bundle {
   val resp = Bits(2 bit)
 
-  import AxiLiteCst.rest._
+  import AxiLiteCst.resp._
 
   def setOKAY()   : Unit = resp := OKAY
   def setEXOKAY() : Unit = resp := EXOKAY
@@ -120,7 +120,7 @@ case class AxiLiteR(config: AxiLiteConfig) extends Bundle {
   val data = Bits(config.addressWidth bit)
   val resp = Bits(2 bit)
 
-  import AxiLiteCst.rest._
+  import AxiLiteCst.resp._
 
   def setOKAY()   : Unit = resp := OKAY
   def setEXOKAY() : Unit = resp := EXOKAY
@@ -144,9 +144,9 @@ case class AxiLite(val config: AxiLiteConfig) extends Bundle with IMasterSlave {
   //Because aw w b ar r are ... very lazy
   def writeCmd  = aw
   def writeData = w
-  def writeRet  = b
+  def writeRsp  = b
   def readCmd   = ar
-  def readData  = r
+  def readRsp   = r
 
 
   def >> (that : AxiLite) : Unit = {
@@ -155,12 +155,12 @@ case class AxiLite(val config: AxiLiteConfig) extends Bundle with IMasterSlave {
     if(config.mode.write){
       this.writeCmd  >> that.writeCmd
       this.writeData >> that.writeData
-      this.writeRet  << that.writeRet
+      this.writeRsp  << that.writeRsp
     }
 
     if(config.mode.read) {
       this.readCmd  >> that.readCmd
-      this.readData << that.readData
+      this.readRsp << that.readRsp
     }
   }
 
