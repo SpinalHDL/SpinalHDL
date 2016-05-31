@@ -102,7 +102,7 @@ class AxiLiteSlaveFactory(bus : AxiLite) extends Area{
       for(e <- elements) e match{
         case e : AxiLiteSlaveFactoryWrite => {
           assert(e.bitOffset + e.that.getBitsWidth <= bus.config.dataWidth)
-          when(bus.writeCmd.addr === e.address) {
+          when(bus.writeCmd.addr === U(e.address, bus.config.addressWidth bits )) {
             e.that.assignFromBits(bus.writeData.data(e.bitOffset,e.that.getBitsWidth bits))
             when(writeJoinEvent.ready) {
               e.onCmd()
@@ -118,7 +118,7 @@ class AxiLiteSlaveFactory(bus : AxiLite) extends Area{
     for(e <- elements) e match{
       case e : AxiLiteSlaveFactoryRead => {
         assert(e.bitOffset + e.that.getBitsWidth <= bus.config.dataWidth)
-        when(readDataStage.addr === e.address) {
+        when(readDataStage.addr === U(e.address, bus.config.addressWidth bits )) {
           readRsp.data(e.bitOffset,e.that.getBitsWidth bits) := e.that.asBits
           when(bus.readData.fire) {
             e.onRsp()
