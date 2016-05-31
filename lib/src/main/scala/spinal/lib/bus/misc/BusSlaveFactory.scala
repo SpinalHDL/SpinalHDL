@@ -94,6 +94,15 @@ trait BusSlaveFactory  extends Area{
     that := reg
   }
 
+  def driveAndRead(that : Data,
+            address : BigInt,
+            bitOffset : Int = 0) : Unit = {
+    val reg = Reg(that)
+    write(reg,address,bitOffset)
+    read(reg,address,bitOffset)
+    that := reg
+  }
+
   def driveFlow[T <: Data](that : Flow[T],
                            baseAddress: BigInt,
                            bitOffset : Int = 0) : Unit = {

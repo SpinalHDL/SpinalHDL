@@ -113,13 +113,13 @@ object CoreQSysAvalon{
 
       //replace wit null to disable data cache
       val dCacheConfig = DataCacheConfig(
-      cacheSize = 4096,
-      bytePerLine =32,
-      wayCount = 1,
-      addressWidth = 32,
-      cpuDataWidth = 32,
-      memDataWidth = 32
-    )
+        cacheSize = 4096,
+        bytePerLine =32,
+        wayCount = 1,
+        addressWidth = 32,
+        cpuDataWidth = 32,
+        memDataWidth = 32
+      )
 
       val coreConfig = CoreConfig(
         pcWidth = 32,
