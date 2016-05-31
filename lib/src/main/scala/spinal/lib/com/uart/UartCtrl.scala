@@ -73,12 +73,12 @@ class UartCtrl(g : UartCtrlGenerics = UartCtrlGenerics()) extends Component {
   io.uart.rxd <> rx.io.rxd
 
 
-  def driveFrom(busCtrl : BusSlaveFactory) : Unit = {
+  def driveFrom(busCtrl : BusSlaveFactory,rxFifoDepth : Int) : Unit = {
     busCtrl.driveAndRead(io.config.clockDivider,address = 0)
     busCtrl.driveAndRead(io.config.frame,address = 4)
     busCtrl.createFlow(Bits(g.dataWidthMax bits),8).toStream >-> io.write
     busCtrl.read(io.write.valid,8)
-    busCtrl.readStreamNonBlocking(io.read.toStream.queue(64),12)
+    busCtrl.readStreamNonBlocking(io.read.toStream.queue(rxFifoDepth),12)
   }
 }
 
