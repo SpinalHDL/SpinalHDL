@@ -21,7 +21,7 @@ object PlayB7 {
       val z = out UInt( 4 bits )
     }
     val a = Stream(Fragment(UInt(4 bits)))
-
+    val b = StreamArbiterCore().inOrder.noLock.build(a,10)
   }
 
   def main(args: Array[String]): Unit = {
@@ -58,6 +58,89 @@ object PlayB5 {
     val area = new ClockingArea(myClockDomain) {
       val result = out(RegNext(in(Bool)) init (True))
     }
+
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+object PlayFixedPoint {
+
+  class TopLevel extends Component {
+    val i16_m2 = in.SFix(16 exp,-2 exp)
+    val i16_0 = in SFix(16 exp,0 exp)
+    val i8_m2 = in SFix(8 exp,-2 exp)
+    val o16_m2 = out SFix(16 exp,-2 exp)
+    val o16_m0 = out SFix(16 exp,0 exp)
+    val o14_m2 = out SFix(14 exp,-2 exp)
+
+
+    o16_m2 := i16_m2
+    o16_m0 := i16_m2.truncated
+    o14_m2 := i16_m2.truncated
+    o16_m0 := i16_m2.truncated
+    o14_m2 := i16_m2.truncated
+
+    val o4_m2 = out(SFix(4 exp,-2 exp))
+    o4_m2 := 1.25    //Will load 5 in i4_m2.raw
+    val oo4_m2 = out(SFix(4 exp,-2 exp))
+    oo4_m2 := 4       //Will load 16 in i4_m2.raw
+
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+object PlayBlackBox3 {
+  class Ram_1w_1r(_wordWidth: Int, _wordCount: Int) extends BlackBox {
+    val generic = new Generic {
+      val wordCount = _wordCount
+      val wordWidth = _wordWidth
+    }
+
+    val io = new Bundle {
+      val clk = in Bool
+
+      val wr = new Bundle {
+        val en = in Bool
+        val addr = in UInt (log2Up(_wordCount) bit)
+        val data = in Bits (_wordWidth bit)
+      }
+      val rd = new Bundle {
+        val en = in Bool
+        val addr = in UInt (log2Up(_wordCount) bit)
+        val data = out Bits (_wordWidth bit)
+      }
+    }
+
+    mapClockDomain(clock=io.clk)
+  }
+
+  class TopLevel extends Component {
+    val io = new Bundle {
+      val wr = new Bundle {
+        val en = in Bool
+        val addr = in UInt (log2Up(16) bit)
+        val data = in Bits (8 bit)
+      }
+      val rd = new Bundle {
+        val en = in Bool
+        val addr = in UInt (log2Up(16) bit)
+        val data = out Bits (8 bit)
+      }
+    }
+    val ram = new Ram_1w_1r(8,16)
+
+    io.wr.en <> ram.io.wr.en
+    io.wr.addr <> ram.io.wr.addr
+    io.wr.data <> ram.io.wr.data
+    io.rd.en   <> ram.io.rd.en
+    io.rd.addr <> ram.io.rd.addr
+    io.rd.data <> ram.io.rd.data
 
   }
 
@@ -407,3 +490,93 @@ object PlayPerf {
   }
 }
 
+
+
+
+object PlayBug43{
+
+  /* Bus configuration  */
+  case class SimpleBusConfig(val dataWidth:Int=32, val addrWidth:Int=32)
+
+  /* Bus definition */
+  case class SimpleBus(val config:SimpleBusConfig) extends Bundle with IMasterSlave {
+    val cs   = Bool
+    val rwn  = Bool
+    val dIn  = Bits(config.dataWidth bits)
+    val addr = Bits(config.addrWidth bits)
+    val dOut = Bits(config.dataWidth bits)
+
+    override def asMaster(): this.type = {
+      out(cs)
+      out(rwn)
+      out(dIn)
+      out(addr)
+      in(dOut)
+      this
+    }
+  }
+
+
+  /* Factory */
+  trait SimpleBusSlaveFactoryElement
+
+  case class SimpleBusSlaveFactoryRead(that : Data, address : BigInt) extends SimpleBusSlaveFactoryElement
+  case class SimpleBusSlaveFactoryWrite(that : Data, address : BigInt) extends SimpleBusSlaveFactoryElement
+
+  class SimpleBusSlaveFactory(bus : SimpleBus) extends Area {
+
+    val elements = ArrayBuffer[SimpleBusSlaveFactoryElement]()
+
+    def read(that : Data, address : BigInt ): Unit = elements += SimpleBusSlaveFactoryRead(that, address)
+    def write(that: Data, address : BigInt ): Unit = elements += SimpleBusSlaveFactoryWrite(that, address)
+
+    component.addPrePopTask(() =>{
+
+      bus.dOut := 0
+      when(bus.cs){
+        when(bus.rwn){
+
+          for (e <- elements ; if e.isInstanceOf[SimpleBusSlaveFactoryWrite]){
+            val w = e.asInstanceOf[SimpleBusSlaveFactoryWrite]
+            when(w.address === bus.addr){
+              w.that := bus.dIn
+            }
+          }
+
+        } otherwise {
+
+          for (e <- elements ; if e.isInstanceOf[SimpleBusSlaveFactoryRead]){
+            val w = e.asInstanceOf[SimpleBusSlaveFactoryRead]
+            when(w.address === bus.addr){
+              bus.dOut := w.that.asBits
+            }
+          }
+
+        }
+      }
+    })
+
+  }
+
+  /* Top Level */
+  class PlaySimpleBus(dataWidth : Int, addrWidth:Int ) extends Component{
+
+    val io = new Bundle{
+      val bus    = slave(SimpleBus(SimpleBusConfig(dataWidth,addrWidth)))
+      val reg1   = out Bits(dataWidth bits)
+    }
+
+    val factory = new SimpleBusSlaveFactory(io.bus)
+    val reg1 = Reg(Bits( dataWidth bits )) init(0)
+
+    factory.read(reg1, 0x00112233l)
+    factory.write(reg1, 0xdeadbeefl)
+    io.reg1 := reg1
+
+  }
+  def main(args: Array[String]) {
+    SpinalVhdl(new PlaySimpleBus(32,32))
+  }
+
+
+}

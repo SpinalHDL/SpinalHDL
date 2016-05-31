@@ -329,7 +329,7 @@ object SpinalWarning {
   def apply(message: String) = println(s"${SpinalLog.tag("Warning", Console.YELLOW)} $message")
 }
 
-class SpinalExit(message: String) extends Exception((GlobalData.get.pendingErrors.map(_.apply()) ++ Seq(message)).reduceLeft(_ + "\n\n" + _));
+class SpinalExit(message: String) extends Exception("\n\n" + (GlobalData.get.pendingErrors.map(_.apply()) ++ Seq(message)).reduceLeft(_ + "\n\n" + _));
 
 object SpinalError {
   private var errCount:Int = 0

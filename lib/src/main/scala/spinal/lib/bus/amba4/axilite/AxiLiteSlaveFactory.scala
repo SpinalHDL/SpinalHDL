@@ -34,8 +34,8 @@ class AxiLiteSlaveFactory(bus : AxiLite) extends Area{
 
 
   def multiRead(that : Data,
-           address : BigInt,
-           onRsp :  (BigInt) => Unit = (x) => {}) : Unit  = {
+                address : BigInt,
+                onRsp :  (BigInt) => Unit = (x) => {}) : Unit  = {
     val wordCount = (widthOf(that) - 1) / bus.config.dataWidth + 1
     val valueBits = that.asBits.resize(wordCount*bus.config.dataWidth)
     val words = (0 until wordCount).map(id => valueBits(id * bus.config.dataWidth , bus.config.dataWidth bit))

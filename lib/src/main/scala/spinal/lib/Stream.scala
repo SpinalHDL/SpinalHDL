@@ -337,6 +337,8 @@ class StreamArbiterCoreFactory {
 }
 
 object StreamArbiterCore {
+  def apply() = new StreamArbiterCoreFactory
+
   def arbitration_lowIdPortFirst(core: StreamArbiterCore[_]) = new Area {
 
     import core._

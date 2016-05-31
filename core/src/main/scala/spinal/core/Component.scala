@@ -36,13 +36,7 @@ object Component {
   }
 
   def pop(c: Component): Unit = {
-    try {
-      /* if(lastPoped == c) return;
-       lastPoped = c*/
-      GlobalData.get.componentStack.pop(c)
-    } catch {
-      case e: Exception => SpinalError(s"You probably forget the 'Component(new ${c.globalData.componentStack.head().getClass.getName})' into ${c.getClass.getName}")
-    }
+    GlobalData.get.componentStack.pop(c)
   }
 
   //var lastPoped : Component = null

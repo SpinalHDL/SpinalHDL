@@ -96,5 +96,5 @@ class UartCtrlTx(g : UartCtrlGenerics) extends Component {
     }
   }
 
-  io.txd := RegNext(stateMachine.txd, True)
+  io.txd := RegNext(stateMachine.txd) init(True)
 }

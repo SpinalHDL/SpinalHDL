@@ -22,7 +22,11 @@ package spinal.core
   * Created by PIC18F on 21.08.2014.
   */
 
-trait BaseTypeFactory extends BoolFactory with BitsFactory with UIntFactory with SIntFactory with VecFactory
+trait TypeFactory{
+  def postTypeFactory[T <: Data] (that : T) = that
+}
+
+trait BaseTypeFactory extends BoolFactory with BitsFactory with UIntFactory with SIntFactory with VecFactory with SFixFactory with UFixFactory
 
 trait BaseTypeCast extends UIntCast with SIntCast with BitsCast with SFixCast with UFixCast
 

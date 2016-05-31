@@ -87,7 +87,7 @@ class PixelTaskGenerator(p: MandelbrotCoreParameters) extends Component {
 
   solverTask.valid := io.frameTask.valid && !setup;
   solverTask.last := io.frameTask.ready
-  solverTask.fragment.mandelbrotPosition := positionOnMandelbrot
+  solverTask.fragment.mandelbrotPosition := positionOnMandelbrot.truncated
   solverTask >-> io.pixelTask
 
 }
@@ -149,9 +149,9 @@ class PixelTaskSolver(p: MandelbrotCoreParameters) extends Component {
    // return a*b
   }
 
-  stage2.zXzX := fixMul(stage1.z.x, stage1.z.x)
-  stage2.zYzY := fixMul(stage1.z.y, stage1.z.y)
-  stage2.zXzY := fixMul(stage1.z.x, stage1.z.y)
+  stage2.zXzX := fixMul(stage1.z.x, stage1.z.x).truncated
+  stage2.zYzY := fixMul(stage1.z.y, stage1.z.y).truncated
+  stage2.zXzY := fixMul(stage1.z.x, stage1.z.y).truncated
   stage2 assignSomeByName Delay(stage1, LatencyAnalysis(stage1.z.x.raw, stage2.zXzX.raw) - 1)
 
 
@@ -162,7 +162,7 @@ class PixelTaskSolver(p: MandelbrotCoreParameters) extends Component {
   stage3 assignAllByName stage2
 
   stage3.z.x := stage2.zXzX - stage2.zYzY + stage2.task.mandelbrotPosition.x
-  stage3.z.y := (stage2.zXzY << 1) + stage2.task.mandelbrotPosition.y
+  stage3.z.y := ((stage2.zXzY << 1) + stage2.task.mandelbrotPosition.y).truncated
   when(!stage2.done) {
     stage3.iteration := stage2.iteration + 1
   }

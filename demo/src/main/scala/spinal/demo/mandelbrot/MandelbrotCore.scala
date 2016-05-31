@@ -43,7 +43,7 @@ class FrameTaskFilter(p: MandelbrotCoreParameters) extends Component {
     val shiftRight = log2Up(BigDecimal(enableHz * tao).toBigInt())
     val out = Reg(in) init (0)
     when(enable) {
-      out := RegNext(((in - out) >> shiftRight)) + out
+      out := RegNext(((in - out) >>| shiftRight)) + out
     }
     out
   }

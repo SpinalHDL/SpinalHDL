@@ -25,7 +25,8 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 case class BitCount(val value: Int) {}
-case class ExpCount(val value: Int) {}
+case class ExpNumber(val value: Int) {}
+case class PosCount(val value: Int) {}
 
 case class LiteralInt(val value: BigInt) {}
 
@@ -43,11 +44,11 @@ trait IODirection extends BaseTypeFactory {
   override def Vec[T <: Data](elements: TraversableOnce[T]): Vec[T] = applyIt(super.Vec(elements))
 
 
+
 //  object Vec extends VecFactory {
 //    override def apply[T <: Data](elements: TraversableOnce[T]): Vec[T] = applyIt(super.apply(elements))
 //  }
-
-
+  override def postTypeFactory[T <: Data](that: T): T = applyIt(that)
 }
 
 object in extends IODirection {
@@ -311,6 +312,7 @@ object crossClockDomain extends SpinalTag
 object crossClockBuffer extends SpinalTag
 object randomBoot extends SpinalTag
 object tagAutoResize extends SpinalTag
+object tagTruncated extends SpinalTag
 
 trait Area extends Nameable with ContextUser{
   override protected def nameChangeEvent(weak: Boolean): Unit = {
