@@ -101,6 +101,8 @@ class Flow[T <: Data](_dataType: T) extends Bundle with IMasterSlave with DataCa
     ret
   }
 
+  def stage() : Flow[T] = this.m2sPipe()
+
   def push(that : T): Unit ={
     valid := True
     payload := that

@@ -99,7 +99,8 @@ object PlayFixedPoint {
 object PlayBug75 {
   class TopLevel extends Component {
     val toto = in Bits(8 bits)
-    val titi = out(toto(-1 downto 0))
+    val titi = out(Bits(8 bits))
+    titi := 0
     print("done")
   }
 
