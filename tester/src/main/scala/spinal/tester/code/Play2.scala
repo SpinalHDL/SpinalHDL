@@ -95,6 +95,19 @@ object PlayFixedPoint {
   }
 }
 
+
+object PlayBug75 {
+  class TopLevel extends Component {
+    val toto = in Bits(8 bits)
+    val titi = out(toto(-1 downto 0))
+    print("done")
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
 object PlayBlackBox3 {
   class Ram_1w_1r(_wordWidth: Int, _wordCount: Int) extends BlackBox {
     val generic = new Generic {

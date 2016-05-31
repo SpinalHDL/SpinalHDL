@@ -308,7 +308,7 @@ class SafeStack[T] {
 }
 
 object SpinalExit {
-  def apply(message: String = "Unspecified exit") = {
+  def apply(message: String = "") = {
     throw new SpinalExit("\n" + message)
   }
 }
@@ -351,7 +351,7 @@ object SpinalError {
   def printError(message: String) = println(s"${SpinalLog.tag("Progress", Console.RED)} $message")
 
   def getErrorCount():Int = {
-    val ret = errCount
+    val ret = errCount + GlobalData.get.pendingErrors.length
     errCount = 0
     return ret
   }

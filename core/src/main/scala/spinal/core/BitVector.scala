@@ -119,7 +119,7 @@ abstract class BitVector extends BaseType {
       ret
     }
     else
-      getZero
+      getZeroUnconstrained
   }
 
   def newExtract(offset: UInt, size: Int,extract : ExtractBitsVectorFloating): this.type = {
@@ -142,8 +142,10 @@ abstract class BitVector extends BaseType {
       ret
     }
     else
-      getZero
+      getZeroUnconstrained
   }
+
+  def getZeroUnconstrained() : this.type 
 
   def apply(bitId: Int) : Bool
   def apply(bitId: UInt): Bool
@@ -151,7 +153,7 @@ abstract class BitVector extends BaseType {
   def apply(offset: UInt, bitCount: BitCount): this.type
 
   def apply(hi: Int, lo: Int): this.type = this.apply(lo, hi-lo+1 bit)
-  def apply(range: Range): this.type = this.apply(range.last, range.head)
+  def apply(range: Range): this.type = this.apply(range.end, range.start)
 
   def setAllTo(value: Boolean) = {
     val litBt = weakClone

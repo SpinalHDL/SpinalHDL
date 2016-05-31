@@ -110,4 +110,5 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider {
 
   override private[core] def weakClone: this.type = new SInt().asInstanceOf[this.type]
   override def getZero: this.type = S(0,this.getWidth bits).asInstanceOf[this.type]
+  override def getZeroUnconstrained: this.type = S(0).asInstanceOf[this.type]
 }

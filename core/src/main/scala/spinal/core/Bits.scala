@@ -108,4 +108,5 @@ class Bits extends BitVector {
 
   override private[core] def weakClone: this.type = new Bits().asInstanceOf[this.type]
   override def getZero: this.type = B(0,this.getWidth bits).asInstanceOf[this.type]
+  override def getZeroUnconstrained: this.type = B(0).asInstanceOf[this.type]
 }
