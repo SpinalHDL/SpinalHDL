@@ -25,11 +25,8 @@ class AvalonUart(uartCtrlConfig : UartCtrlGenerics, rxFifoDepth : Int) extends C
   val uartCtrl = new UartCtrl()
   io.uart <> uartCtrl.io.uart
 
-  val busCtrl = new AvalonMMSlaveFactory(io.bus)
-  uartCtrl.driveFrom(
-    busCtrl = busCtrl,
-    rxFifoDepth = rxFifoDepth
-  )
+  val busCtrl = AvalonMMSlaveFactory(io.bus)
+  uartCtrl.driveFrom(busCtrl,rxFifoDepth)
 }
 
 

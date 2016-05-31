@@ -15,6 +15,8 @@ object AvalonMMSlaveFactory{
       useWaitRequestn = false
     )
   }
+
+  def apply(bus : AvalonMMBus) = new AvalonMMSlaveFactory(bus)
 }
 
 class AvalonMMSlaveFactory(bus : AvalonMMBus) extends BusSlaveFactoryDelayed{
