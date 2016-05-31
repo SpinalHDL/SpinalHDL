@@ -58,29 +58,29 @@ trait BusSlaveFactory  extends Area{
   }
 
   def writeOnlyRegOf[T <: Data](dataType: T,
-                                baseAddress: BigInt,
+                                address: BigInt,
                                 bitOffset : Int = 0): T = {
     val ret = Reg(dataType)
-    write(ret,baseAddress,bitOffset)
+    write(ret,address,bitOffset)
     ret
   }
   def writeReadRegOf[T <: Data](that: T,
-                                baseAddress: BigInt,
+                                address: BigInt,
                                 bitOffset : Int = 0): T = {
     val reg = Reg(that)
-    write(reg,baseAddress,bitOffset)
-    read(reg,baseAddress,bitOffset)
+    write(reg,address,bitOffset)
+    read(reg,address,bitOffset)
     reg
   }
 
   def cumulateBitsAndClearOnRead(that : Bits,
-                                 base : BigInt,
+                                 address : BigInt,
                                  bitOffset : Int = 0): Unit ={
     assert(that.getWidth <= busDataWidth)
     val reg = Reg(that.clone)
     reg := reg | that
-    read(reg,base,bitOffset)
-    onRead(base){
+    read(reg,address,bitOffset)
+    onRead(address){
       reg := that
     }
   }
@@ -104,35 +104,35 @@ trait BusSlaveFactory  extends Area{
   }
 
   def driveFlow[T <: Data](that : Flow[T],
-                           baseAddress: BigInt,
+                           address: BigInt,
                            bitOffset : Int = 0) : Unit = {
     that.valid := False
-    onWrite(baseAddress){
+    onWrite(address){
       that.valid := True
     }
-    nonStopWrite(that.payload,baseAddress,bitOffset)
+    nonStopWrite(that.payload,address,bitOffset)
   }
 
 
   def createFlow[T <: Data](dataType : T,
-                            baseAddress: BigInt,
+                            address: BigInt,
                             bitOffset : Int = 0) : Flow[T] = {
     val flow = Flow(dataType)
-    driveFlow(flow,baseAddress,bitOffset)
+    driveFlow(flow,address,bitOffset)
     flow
   }
 
   def readStreamNonBlocking[T <: Data] (that : Stream[T],
-                                        baseAddress: BigInt,
+                                        address: BigInt,
                                         bitOffset : Int = 0) : Unit = {
     val flow = Flow(that.dataType)
     flow.valid := that.valid
     flow.payload := that.payload
     that.ready := False
-    onRead(baseAddress){
+    onRead(address){
       that.ready := True
     }
-    read(flow,baseAddress,bitOffset)
+    read(flow,address,bitOffset)
   }
 }
 

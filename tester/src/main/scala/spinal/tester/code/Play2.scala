@@ -97,11 +97,15 @@ object PlayFixedPoint {
 
 
 object PlayBug75 {
+  implicit class StreamPimped(pimped : Stream[UInt]){
+    def asStreamSInt() : Stream[SInt] = pimped.translateWith(pimped.payload.asSInt)
+  }
+
   class TopLevel extends Component {
-    val toto = in Bits(8 bits)
-    val titi = out(Bits(8 bits))
-    titi := 0
-    print("done")
+    val src = slave Stream(UInt(4 bits))
+    val sink = master Stream(SInt(4 bits))
+
+    sink << src.asStreamSInt()
   }
 
   def main(args: Array[String]): Unit = {
