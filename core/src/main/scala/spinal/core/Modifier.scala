@@ -1463,5 +1463,5 @@ class AssertNode extends SyncNode(){
 
   override private[core] def calcWidth: Int = 1
 
-  override def isUsingReset: Boolean = false
+  override def isUsingResetSignal: Boolean = false
 }

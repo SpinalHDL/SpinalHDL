@@ -1461,7 +1461,7 @@ class VhdlBackend extends Backend with VhdlBase {
       val arrayWithoutReset = ArrayBuffer[SyncNode]()
 
       for (syncNode <- array) {
-        if (syncNode.isUsingReset) arrayWithReset += syncNode else arrayWithoutReset += syncNode
+        if (syncNode.isUsingResetSignal) arrayWithReset += syncNode else arrayWithoutReset += syncNode
       }
 
       emitClockDomain(true)

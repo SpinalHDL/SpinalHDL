@@ -136,9 +136,9 @@ class Reg(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) ext
     def getClockResetId: Int = 2
   }
 
-  override def isUsingReset: Boolean = clockDomain.config.resetKind != BOOT && initialValue != null
+  override def isUsingResetSignal: Boolean = clockDomain.config.resetKind != BOOT && initialValue != null
   override def getSynchronousInputs: List[Node] = getDataInput :: super.getSynchronousInputs
-  override def getResetStyleInputs: List[Node] = getInitialValue :: super.getResetStyleInputs
+  override def getResetStyleInputs: List[Node] = getInitialValue :: super.getResetStyleInputs  //TODO BOOT not clear about usage with getAsyncrounusInputs. What if reset kind is BOOT ?
 
   def getDataInput: Node = dataInput
   def getInitialValue: Node = initialValue
@@ -152,17 +152,19 @@ class Reg(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) ext
 
   def calcWidth = math.max(if (dataInput != this) dataInput.getWidth else -1, if (initialValue != null) initialValue.getWidth else -1)
 
-  override def normalizeInputs: Unit = InputNormalize.regImpl(this)
+  override def normalizeInputs: Unit = {
+    val width = this.getWidth
+    InputNormalize.bitVectoreAssignement(this, RegS.getDataInputId, width)
+    if (this.initialValue != null) InputNormalize.bitVectoreAssignement(this, RegS.getInitialValueId, width)
+  }
+
   override private[core] def checkInferedWidth: String = {
     val dataInput = this.getInput(RegS.getDataInputId)
     if (dataInput != null && dataInput.component != null && this.getWidth != dataInput.getWidth) {
       return s"Assignment bit count mismatch. ${this} := ${dataInput}} at \n${ScalaLocated.long(getAssignementContext(RegS.getDataInputId))}"
     }
-    if (isUsingReset) {
-      val resetDataInput = initialValue
-      if (resetDataInput != null && resetDataInput.component != null && this.getWidth != resetDataInput.getWidth) {
-        return s"Assignment bit count mismatch. ${this} := ${resetDataInput}} at \n${ScalaLocated.long(getAssignementContext(RegS.getDataInputId))}"
-      }
+    if (initialValue != null && initialValue.component != null && this.getWidth != initialValue.getWidth) {
+      return s"Assignment bit count mismatch. ${this} := ${initialValue}} at \n${ScalaLocated.long(getAssignementContext(RegS.getDataInputId))}"
     }
     return null
   }

@@ -667,13 +667,13 @@ class Backend {
     Node.walk(walkNodesDefautStack,(node, push) =>  {
       node match {
         case delay: SyncNode => {
-          if(delay.isUsingReset && !delay.getClockDomain.hasReset)
+          if(delay.isUsingResetSignal && !delay.getClockDomain.hasResetSignal)
               SpinalError(s"Clock domain without reset contain a register which needs one\n ${delay.getScalaLocationLong}")
 
           Component.push(delay.component)
           delay.setInput(SyncNode.getClockInputId,delay.getClockDomain.readClockWire)
 
-          if (delay.isUsingReset)
+          if (delay.isUsingResetSignal)
             delay.setInput(SyncNode.getClockResetId,delay.getClockDomain.readResetWire)
 
           delay.setInput(SyncNode.getClockEnableId,delay.getClockDomain.readClockEnableWire)
@@ -856,7 +856,7 @@ class Backend {
     val errors = mutable.ArrayBuffer[String]()
     Node.walk(walkNodesDefautStack ++ walkNodesBlackBoxGenerics,_ match {
       case node : Reg =>{
-        if(!node.isUsingReset && node.getInput(RegS.getDataInputId) == node){
+        if(node.initialValue == null && node.dataInput == node){
           errors += s"$node has no assignement value and no reset value at\n ${node.getScalaLocationLong}"
         }
       }

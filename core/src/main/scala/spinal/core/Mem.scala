@@ -289,7 +289,7 @@ class MemReadSync(mem_ : Mem[_], val originalAddress: UInt, address_ : UInt, dat
 
   override def getSynchronousInputs: List[Node] = getMem :: getAddress :: getEnable :: super.getSynchronousInputs
 
-  override def isUsingReset: Boolean = false
+  override def isUsingResetSignal: Boolean = false
 
   def getData = data
 
@@ -376,7 +376,7 @@ class MemWrite(mem: Mem[_], val originalAddress: UInt, address_ : UInt, data_ : 
 
   override def getSynchronousInputs: List[Node] = getAddress :: getData :: getEnable :: getInput(MemWrite.getMaskId) :: super.getSynchronousInputs
 
-  override def isUsingReset: Boolean = false
+  override def isUsingResetSignal: Boolean = false
 
   def getMem = mem
   def getAddress = address.asInstanceOf[UInt]
@@ -468,7 +468,7 @@ class MemWriteOrRead_writePart(mem: Mem[_], address_ : UInt, data_ : Bits, chipS
 
   override def getSynchronousInputs: List[Node] = getAddress :: getData :: getChipSelect :: getWriteEnable :: super.getSynchronousInputs
 
-  override def isUsingReset: Boolean = false
+  override def isUsingResetSignal: Boolean = false
 
   def getMem = mem
   def getAddress = address.asInstanceOf[UInt]
@@ -547,7 +547,7 @@ class MemWriteOrRead_readPart(mem_ : Mem[_], address_ : UInt, data_ : Bits, chip
 
   override def getSynchronousInputs: List[Node] = getMem :: getAddress :: getChipSelect :: getWriteEnable :: super.getSynchronousInputs
 
-  override def isUsingReset: Boolean = false
+  override def isUsingResetSignal: Boolean = false
 
   def getData = data_
 
