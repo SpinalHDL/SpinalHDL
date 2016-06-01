@@ -355,12 +355,7 @@ object WidthInfer {
     Math.max(node.getInput(1).getWidth, node.getInput(2).getWidth)
   }
 
-  def regImpl(node: Node): Int = {
-    val dataIn = node.getInput(RegS.getDataInputId)
-    val init = node.getInput(RegS.getInitialValueId)
 
-    math.max(if (dataIn != node) dataIn.getWidth else -1, if (node.asInstanceOf[Reg].isUsingReset) init.getWidth else -1)
-  }
 
   def cumulateInputWidth(node: Node): Int = {
     node.getInputs.foldLeft(0)((old, n) => old + Math.max(0, n.getWidth))
@@ -447,7 +442,7 @@ abstract class NodeWithoutInputs extends Node{
 abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady with GlobalDataUser {
   val consumers = new ArrayBuffer[Node](4)
 
-  def getInputsCount : Int
+  def getInputsCount : Int = getInputs.size
   def getInput(id : Int) : Node
   def setInput(id : Int,node : Node) : Unit
 

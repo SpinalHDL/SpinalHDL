@@ -120,30 +120,30 @@ abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends 
   var reset  : Node = Bool(clockDomain.config.resetActiveLevel == LOW) //TODO ?????
 
 
-//  override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
-//    doThat(clock,0)
-//    doThat(enable,1)
-//    doThat(reset,2)
-//  }
-//  override def onEachInput(doThat: (Node) => Unit): Unit = {
-//    doThat(clock)
-//    doThat(enable)
-//    doThat(reset)
-//  }
-//
-//  override def setInput(id: Int, node: Node): Unit = id match{
-//    case 0 => clock = node
-//    case 1 => enable = node
-//    case 2 => reset = node
-//  }
-//
-//  override def getInputsCount: Int = 3
-//  override def getInputs: Iterator[Node] = Iterator(clock,enable,reset)
-//  override def getInput(id: Int): Node = id match{
-//    case 0 => clock
-//    case 1 => enable
-//    case 2 => reset
-//  }
+  override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
+    doThat(clock,0)
+    doThat(enable,1)
+    doThat(reset,2)
+  }
+  override def onEachInput(doThat: (Node) => Unit): Unit = {
+    doThat(clock)
+    doThat(enable)
+    doThat(reset)
+  }
+
+  override def setInput(id: Int, node: Node): Unit = id match{
+    case 0 => clock = node
+    case 1 => enable = node
+    case 2 => reset = node
+  }
+
+  override def getInputsCount: Int = 3
+  override def getInputs: Iterator[Node] = Iterator(clock,enable,reset)
+  override def getInput(id: Int): Node = id match{
+    case 0 => clock
+    case 1 => enable
+    case 2 => reset
+  }
 
 
   override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
@@ -164,7 +164,8 @@ abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends 
 
   def getResetStyleInputs = List[Node](getReset)
 
-  def isUsingReset: Boolean
+  def isUsingReset: Boolean //TODO BOOT could be mixed between having a initial value or using the reset pin
+  def isUsingEnable: Boolean = clockDomain.clockEnable != null
   def setUseReset = {
     reset = clockDomain.reset
   }

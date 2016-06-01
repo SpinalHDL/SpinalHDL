@@ -86,21 +86,21 @@ object RegS {
 
 class Reg(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) extends SyncNode(clockDomain) with Assignable with AssignementTreePart {
   var dataInput     : Node = this
-  var initialValue  : Node = new NoneNode
+  var initialValue  : Node = null
 
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
     doThat(clock,0)
     doThat(enable,1)
     doThat(reset,2)
     doThat(dataInput,3)
-    doThat(initialValue,4)
+    if(initialValue != null) doThat(initialValue,4)
   }
   override def onEachInput(doThat: (Node) => Unit): Unit = {
     doThat(clock)
     doThat(enable)
     doThat(reset)
     doThat(dataInput)
-    doThat(initialValue)
+    if(initialValue != null) doThat(initialValue)
   }
 
   override def setInput(id: Int, node: Node): Unit = id match{
@@ -108,17 +108,17 @@ class Reg(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) ext
     case 1 => enable = node
     case 2 => reset = node
     case 3 => dataInput = node
-    case 4 => initialValue = node
+    case 4 if initialValue != null => initialValue = node
   }
 
-  override def getInputsCount: Int = 5
-  override def getInputs: Iterator[Node] = Iterator(clock,enable,reset,dataInput,initialValue)
+  override def getInputsCount: Int = if(initialValue != null) 5 else 4
+  override def getInputs: Iterator[Node] = if(initialValue != null) Iterator(clock,enable,reset,dataInput,initialValue) else  Iterator(clock,enable,reset,dataInput)
   override def getInput(id: Int): Node = id match{
     case 0 => clock
     case 1 => enable
     case 2 => reset
     case 3 => dataInput
-    case 4 => initialValue
+    case 4 if initialValue != null=> initialValue
   }
 
 
@@ -136,12 +136,12 @@ class Reg(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) ext
     def getClockResetId: Int = 2
   }
 
-  override def isUsingReset: Boolean = clockDomain.config.resetKind != BOOT && !getInitialValue.isInstanceOf[NoneNode]
+  override def isUsingReset: Boolean = clockDomain.config.resetKind != BOOT && initialValue != null
   override def getSynchronousInputs: List[Node] = getDataInput :: super.getSynchronousInputs
   override def getResetStyleInputs: List[Node] = getInitialValue :: super.getResetStyleInputs
 
-  def getDataInput: Node = getInput(RegS.getDataInputId)
-  def getInitialValue: Node = getInput(RegS.getInitialValueId)
+  def getDataInput: Node = dataInput
+  def getInitialValue: Node = initialValue
 
   def setDataInput(that: Node): Unit = dataInput = that
   def setInitialValue(that: Node): Unit = {
@@ -150,7 +150,7 @@ class Reg(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) ext
   }
 
 
-  def calcWidth = WidthInfer.regImpl(this)
+  def calcWidth = math.max(if (dataInput != this) dataInput.getWidth else -1, if (initialValue != null) initialValue.getWidth else -1)
 
   override def normalizeInputs: Unit = InputNormalize.regImpl(this)
   override private[core] def checkInferedWidth: String = {
@@ -159,7 +159,7 @@ class Reg(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) ext
       return s"Assignment bit count mismatch. ${this} := ${dataInput}} at \n${ScalaLocated.long(getAssignementContext(RegS.getDataInputId))}"
     }
     if (isUsingReset) {
-      val resetDataInput = this.getInput(RegS.getInitialValueId)
+      val resetDataInput = initialValue
       if (resetDataInput != null && resetDataInput.component != null && this.getWidth != resetDataInput.getWidth) {
         return s"Assignment bit count mismatch. ${this} := ${resetDataInput}} at \n${ScalaLocated.long(getAssignementContext(RegS.getDataInputId))}"
       }

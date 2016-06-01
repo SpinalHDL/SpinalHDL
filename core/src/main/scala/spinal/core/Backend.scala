@@ -963,7 +963,7 @@ class Backend {
           node.input match {
             case that: Reg => {
               that.inferredWidth = width
-              walk(that,RegS.getInitialValueId)
+              if(that.initialValue != null) walk(that,RegS.getInitialValueId)
               walk(that,RegS.getDataInputId)
             }
             case _ => walk(node,0)
