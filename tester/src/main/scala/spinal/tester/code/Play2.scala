@@ -133,7 +133,7 @@ object PlayBlackBox3 {
         val addr = in UInt (log2Up(_wordCount) bit)
         val data = out Bits (_wordWidth bit)
       }
-    }
+    }.setName("")
 
     mapClockDomain(clock=io.clk)
   }
