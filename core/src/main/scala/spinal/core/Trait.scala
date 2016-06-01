@@ -117,7 +117,7 @@ object SyncNode {
 abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends Node {
   var clock  : Node = clockDomain.clock
   var enable : Node = clockDomain.clockEnable
-  var reset  : Node = Bool(clockDomain.config.resetActiveLevel == LOW) //TODO ?????
+  var reset  : Node = clockDomain.reset
 
 
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
@@ -162,8 +162,8 @@ abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends 
 
   def getSynchronousInputs = {
     var ret : List[Node] = Nil
-    if (clockDomain.config.resetKind == SYNC  && isUsingResetSignal) ret = getResetStyleInputs ++ ret
-    ret = getClockEnable :: ret
+    if(clockDomain.config.resetKind == SYNC  && isUsingResetSignal) ret = getResetStyleInputs ++ ret
+    if(isUsingEnableSignal) ret = getClockEnable :: ret
     ret
   }
 

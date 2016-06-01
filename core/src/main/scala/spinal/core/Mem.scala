@@ -249,45 +249,37 @@ class MemReadSync(mem_ : Mem[_], val originalAddress: UInt, address_ : UInt, dat
   var mem     : Mem[_] = mem_
 
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
-    doThat(clock,0)
-    doThat(enable,1)
-    doThat(reset,2)
+    super.onEachInput(doThat)
     doThat(address,3)
     doThat(readEnable,4)
     doThat(mem,5)
   }
   override def onEachInput(doThat: (Node) => Unit): Unit = {
-    doThat(clock)
-    doThat(enable)
-    doThat(reset)
+    super.onEachInput(doThat)
     doThat(address)
     doThat(readEnable)
     doThat(mem)
   }
 
   override def setInput(id: Int, node: Node): Unit = id match{
-    case 0 => clock = node
-    case 1 => enable = node
-    case 2 => reset = node
     case 3 => address = node
     case 4 => readEnable = node
     case 5 => mem = node.asInstanceOf[Mem[_]]
+    case _ => super.setInput(id,node)
   }
 
-  override def getInputsCount: Int = 6
-  override def getInputs: Iterator[Node] = Iterator(clock,enable,reset,address,readEnable,mem)
+  override def getInputsCount: Int = super.getInputsCount + 3
+  override def getInputs: Iterator[Node] = super.getInputs ++ Iterator(address,readEnable,mem)
   override def getInput(id: Int): Node = id match{
-    case 0 => clock
-    case 1 => enable
-    case 2 => reset
     case 3 => address
     case 4 => readEnable
     case 5 => mem
+    case _ => super.getInput(id)
   }
 
 
 
-  override def getSynchronousInputs: List[Node] = getMem :: getAddress :: getEnable :: super.getSynchronousInputs
+  override def getSynchronousInputs: List[Node] = getMem :: getAddress :: getReadEnable :: super.getSynchronousInputs
 
   override def isUsingResetSignal: Boolean = false
 
@@ -296,12 +288,12 @@ class MemReadSync(mem_ : Mem[_], val originalAddress: UInt, address_ : UInt, dat
   def getMem = mem
 
   def getAddress = address.asInstanceOf[UInt]
-  def getEnable = readEnable.asInstanceOf[Bool]
+  def getReadEnable = readEnable.asInstanceOf[Bool]
 
   override def calcWidth: Int = getMem.calcWidth
 
   def useReadEnable: Boolean = {
-    val lit = getEnable.getLiteral[BoolLiteral]
+    val lit = getReadEnable.getLiteral[BoolLiteral]
     return lit == null || lit.value == false
   }
 
@@ -331,9 +323,7 @@ class MemWrite(mem: Mem[_], val originalAddress: UInt, address_ : UInt, data_ : 
   var writeEnable  : Node  = enable_
 
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
-    doThat(clock,0)
-    doThat(enable,1)
-    doThat(reset,2)
+    super.onEachInput(doThat)
     doThat(address,3)
     doThat(data,4)
     doThat(mask,5)
@@ -341,9 +331,7 @@ class MemWrite(mem: Mem[_], val originalAddress: UInt, address_ : UInt, data_ : 
   }
 
   override def onEachInput(doThat: (Node) => Unit): Unit = {
-    doThat(clock)
-    doThat(enable)
-    doThat(reset)
+    super.onEachInput(doThat)
     doThat(address)
     doThat(data)
     doThat(mask)
@@ -351,25 +339,21 @@ class MemWrite(mem: Mem[_], val originalAddress: UInt, address_ : UInt, data_ : 
   }
 
   override def setInput(id: Int, node: Node): Unit = id match{
-    case 0 => clock = node
-    case 1 => enable = node
-    case 2 => reset = node
     case 3 => address = node
     case 4 => data = node
     case 5 => mask = node
     case 6 => writeEnable = node
+    case _ => super.setInput(id,node)
   }
 
-  override def getInputsCount: Int = 7
-  override def getInputs: Iterator[Node] = Iterator(clock,enable,reset,address,data,mask,writeEnable)
+  override def getInputsCount: Int = super.getInputsCount + 4
+  override def getInputs: Iterator[Node] = super.getInputs ++ Iterator(address,data,mask,writeEnable)
   override def getInput(id: Int): Node = id match{
-    case 0 => clock
-    case 1 => enable
-    case 2 => reset
     case 3 => address
     case 4 => data
     case 5 => mask
     case 6 => writeEnable
+    case _ => super.getInput(id)
   }
 
 
@@ -423,9 +407,7 @@ class MemWriteOrRead_writePart(mem: Mem[_], address_ : UInt, data_ : Bits, chipS
   var writeEnable  : Node  = writeEnable_
 
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
-    doThat(clock,0)
-    doThat(enable,1)
-    doThat(reset,2)
+    super.onEachInput(doThat)
     doThat(address,3)
     doThat(data,4)
     doThat(chipSelect,5)
@@ -433,9 +415,7 @@ class MemWriteOrRead_writePart(mem: Mem[_], address_ : UInt, data_ : Bits, chipS
   }
 
   override def onEachInput(doThat: (Node) => Unit): Unit = {
-    doThat(clock)
-    doThat(enable)
-    doThat(reset)
+    super.onEachInput(doThat)
     doThat(address)
     doThat(data)
     doThat(chipSelect)
@@ -443,25 +423,21 @@ class MemWriteOrRead_writePart(mem: Mem[_], address_ : UInt, data_ : Bits, chipS
   }
 
   override def setInput(id: Int, node: Node): Unit = id match{
-    case 0 => clock = node
-    case 1 => enable = node
-    case 2 => reset = node
     case 3 => address = node
     case 4 => data = node
     case 5 => chipSelect = node
     case 6 => writeEnable = node
+    case _ => super.setInput(id,node)
   }
 
-  override def getInputsCount: Int = 7
-  override def getInputs: Iterator[Node] = Iterator(clock,enable,reset,address,data,chipSelect,writeEnable)
+  override def getInputsCount: Int = super.getInputsCount + 4
+  override def getInputs: Iterator[Node] = super.getInputs ++ Iterator(address,data,chipSelect,writeEnable)
   override def getInput(id: Int): Node = id match{
-    case 0 => clock
-    case 1 => enable
-    case 2 => reset
     case 3 => address
     case 4 => data
     case 5 => chipSelect
     case 6 => writeEnable
+    case _ => super.getInput(id)
   }
 
   var readPart: MemWriteOrRead_readPart = null
@@ -500,9 +476,7 @@ class MemWriteOrRead_readPart(mem_ : Mem[_], address_ : UInt, data_ : Bits, chip
   var mem  : Mem[_]  = mem_
 
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
-    doThat(clock,0)
-    doThat(enable,1)
-    doThat(reset,2)
+    super.onEachInput(doThat)
     doThat(address,3)
     doThat(chipSelect,4)
     doThat(writeEnable,5)
@@ -510,9 +484,7 @@ class MemWriteOrRead_readPart(mem_ : Mem[_], address_ : UInt, data_ : Bits, chip
   }
 
   override def onEachInput(doThat: (Node) => Unit): Unit = {
-    doThat(clock)
-    doThat(enable)
-    doThat(reset)
+    super.onEachInput(doThat)
     doThat(address)
     doThat(chipSelect)
     doThat(writeEnable)
@@ -520,25 +492,21 @@ class MemWriteOrRead_readPart(mem_ : Mem[_], address_ : UInt, data_ : Bits, chip
   }
 
   override def setInput(id: Int, node: Node): Unit = id match{
-    case 0 => clock = node
-    case 1 => enable = node
-    case 2 => reset = node
     case 3 => address = node
     case 4 => chipSelect = node
     case 5 => writeEnable = node
     case 6 => mem = node.asInstanceOf[Mem[_]]
+    case _ => super.setInput(id,node)
   }
 
-  override def getInputsCount: Int = 7
-  override def getInputs: Iterator[Node] = Iterator(clock,enable,reset,address,chipSelect,writeEnable,mem)
+  override def getInputsCount: Int = super.getInputsCount + 4
+  override def getInputs: Iterator[Node] = super.getInputs ++ Iterator(address,chipSelect,writeEnable,mem)
   override def getInput(id: Int): Node = id match{
-    case 0 => clock
-    case 1 => enable
-    case 2 => reset
     case 3 => address
     case 4 => chipSelect
     case 5 => writeEnable
     case 6 => mem
+    case _ => super.getInput(id)
   }
 
 

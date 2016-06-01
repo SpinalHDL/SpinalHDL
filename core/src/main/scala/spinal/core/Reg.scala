@@ -89,36 +89,28 @@ class Reg(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) ext
   var initialValue  : Node = null
 
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
-    doThat(clock,0)
-    doThat(enable,1)
-    doThat(reset,2)
+    super.onEachInput(doThat)
     doThat(dataInput,3)
     if(initialValue != null) doThat(initialValue,4)
   }
   override def onEachInput(doThat: (Node) => Unit): Unit = {
-    doThat(clock)
-    doThat(enable)
-    doThat(reset)
+    super.onEachInput(doThat)
     doThat(dataInput)
     if(initialValue != null) doThat(initialValue)
   }
 
   override def setInput(id: Int, node: Node): Unit = id match{
-    case 0 => clock = node
-    case 1 => enable = node
-    case 2 => reset = node
     case 3 => dataInput = node
     case 4 if initialValue != null => initialValue = node
+    case _ => super.setInput(id,node)
   }
 
-  override def getInputsCount: Int = if(initialValue != null) 5 else 4
-  override def getInputs: Iterator[Node] = if(initialValue != null) Iterator(clock,enable,reset,dataInput,initialValue) else  Iterator(clock,enable,reset,dataInput)
+  override def getInputsCount: Int = super.getInputsCount + (if(initialValue != null) 2 else 1)
+  override def getInputs: Iterator[Node] = super.getInputs ++ (if(initialValue != null) Iterator(dataInput,initialValue) else  Iterator(dataInput))
   override def getInput(id: Int): Node = id match{
-    case 0 => clock
-    case 1 => enable
-    case 2 => reset
     case 3 => dataInput
     case 4 if initialValue != null=> initialValue
+    case _ => super.getInput(id)
   }
 
 
@@ -138,7 +130,7 @@ class Reg(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) ext
 
   override def isUsingResetSignal: Boolean = clockDomain.config.resetKind != BOOT && initialValue != null
   override def getSynchronousInputs: List[Node] = getDataInput :: super.getSynchronousInputs
-  override def getResetStyleInputs: List[Node] = getInitialValue :: super.getResetStyleInputs  //TODO BOOT not clear about usage with getAsyncrounusInputs. What if reset kind is BOOT ?
+  override def getResetStyleInputs: List[Node] = getInitialValue :: super.getResetStyleInputs
 
   def getDataInput: Node = dataInput
   def getInitialValue: Node = initialValue

@@ -302,7 +302,7 @@ class Backend {
           ram.io.wr.addr := wr.getAddress.allowSimplifyIt()
           ram.io.wr.data := wr.getData.allowSimplifyIt()
 
-          ram.io.rd.en := rd.getEnable.allowSimplifyIt() && enable
+          ram.io.rd.en := rd.getReadEnable.allowSimplifyIt() && enable
           ram.io.rd.addr := rd.getAddress.allowSimplifyIt()
           rd.getData.allowSimplifyIt() := ram.io.rd.data
 
@@ -331,7 +331,7 @@ class Backend {
           ram.io.wr.en := wr.getEnable.allowSimplifyIt() && enable
           ram.io.wr.data := wr.getData.allowSimplifyIt()
 
-          ram.io.rd.en := rd.getEnable.allowSimplifyIt() && enable
+          ram.io.rd.en := rd.getReadEnable.allowSimplifyIt() && enable
           rd.getData.allowSimplifyIt() := ram.io.rd.data
 
           ram.generic.useReadEnable = {
@@ -673,10 +673,8 @@ class Backend {
           Component.push(delay.component)
           delay.setInput(SyncNode.getClockInputId,delay.getClockDomain.readClockWire)
 
-          if (delay.isUsingResetSignal)
-            delay.setInput(SyncNode.getClockResetId,delay.getClockDomain.readResetWire)
-
-          delay.setInput(SyncNode.getClockEnableId,delay.getClockDomain.readClockEnableWire)
+          if(delay.isUsingResetSignal)  delay.setInput(SyncNode.getClockResetId,delay.getClockDomain.readResetWire)
+          if(delay.isUsingEnableSignal) delay.setInput(SyncNode.getClockEnableId,delay.getClockDomain.readClockEnableWire)
           Component.pop(delay.component)
         }
         case _ =>

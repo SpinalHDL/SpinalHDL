@@ -1609,7 +1609,7 @@ class VhdlBackend extends Backend with VhdlBase {
               if (memReadSync.writeToReadKind == writeFirst) SpinalError(s"Can't translate a memReadSync with writeFirst into VHDL $memReadSync")
               if (memReadSync.writeToReadKind == dontCare) SpinalWarning(s"memReadSync with dontCare is as readFirst into VHDL $memReadSync")
               if (memReadSync.useReadEnable) {
-                ret ++= s"${tab}if ${emitReference(memReadSync.getEnable)} = '1' then\n"
+                ret ++= s"${tab}if ${emitReference(memReadSync.getReadEnable)} = '1' then\n"
                 emitRead(tab + "  ")
                 ret ++= s"${tab}end if;\n"
               } else {
