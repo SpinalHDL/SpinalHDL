@@ -314,7 +314,10 @@ object SpinalExit {
 }
 object SpinalLog{
   def tag(name: String, color: String): String =
-    s"[${color}${name}${Console.RESET}]"
+    if (System.console != null)
+      s"[${color}${name}${Console.RESET}]"
+    else
+      s"[${name}]"
 }
 
 object SpinalInfoPhase {
