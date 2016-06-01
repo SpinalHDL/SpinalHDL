@@ -73,7 +73,7 @@ trait BusSlaveFactory  extends Area{
     reg
   }
 
-  def createWriteFlow[T <: Data](dataType : T,
+  def createAndDriveFlow[T <: Data](dataType : T,
                                  address: BigInt,
                                  bitOffset : Int = 0) : Flow[T] = {
     val flow = Flow(dataType)
