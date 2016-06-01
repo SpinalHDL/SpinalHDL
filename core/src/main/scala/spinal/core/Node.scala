@@ -27,12 +27,12 @@ import scala.collection.mutable.ArrayBuffer
 object SymplifyNode {
   def replaceNode(it: Node, by: Node): Unit = {
     for (consumer <- it.consumers) {
-      for (i <- 0 until consumer.getInputsCount) {
-        if (consumer.getInput(i) == it) {
+      consumer.onEachInput((input,i) => {
+        if (input == it) {
           consumer.setInput(i,by)
           by.consumers += consumer
         }
-      }
+      })
     }
   }
 
@@ -329,14 +329,16 @@ object InputNormalize {
 
   def nodeWidth(node: Node): Unit = {
     val targetWidth = node.getWidth
-    for (i <- 0 until node.getInputsCount)
+    node.onEachInput((input,i) => {
       Misc.normalizeResize(node, i, targetWidth)
+    })
   }
 
   def inputWidthMax(node: Node): Unit = {
     val targetWidth = Math.max(node.getInput(0).getWidth, node.getInput(1).getWidth)
-    for (i <- 0 until node.getInputsCount)
+    node.onEachInput((input,i) => {
       Misc.normalizeResize(node, i, targetWidth)
+    })
   }
 }
 
@@ -417,7 +419,7 @@ abstract class NodeWithVariableInputsCount extends Node{
   override def getInputs : Iterator[Node] = inputs.iterator
 
   override def onEachInput(doThat : (Node,Int) => Unit) : Unit = {
-    var idx = getInputsCount
+    var idx = inputs.length
     while(idx != 0){
       idx -= 1
       doThat(getInput(idx),idx)
@@ -425,7 +427,7 @@ abstract class NodeWithVariableInputsCount extends Node{
   }
 
   override def onEachInput(doThat : (Node) => Unit) : Unit = {
-    var idx = getInputsCount
+    var idx = inputs.length
     while(idx != 0){
       idx -= 1
       doThat(getInput(idx))

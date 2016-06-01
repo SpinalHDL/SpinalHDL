@@ -498,8 +498,7 @@ class Backend {
   // Clone is to weak, loses tag and don't symplify :(
   def allowLiteralToCrossHierarchy(): Unit = {
     Node.walk(walkNodesDefautStack,consumer => {
-      for (consumerInputId <- 0 until consumer.getInputsCount) {
-        val consumerInput = consumer.getInput(consumerInputId)
+      consumer.onEachInput((consumerInput,consumerInputId) => {
         consumerInput match {
           case litBaseType: BaseType if litBaseType.input.isInstanceOf[Literal] => {
             val lit: Literal = litBaseType.input.asInstanceOf[Literal]
@@ -515,7 +514,7 @@ class Backend {
           }
           case _ =>
         }
-      }
+      })
     })
   }
 
@@ -637,7 +636,7 @@ class Backend {
       node.onEachInput(push(_))
 
       //Create outputs bindings
-      for (i <- 0 until node.getInputsCount) {
+      node.onEachInput((nodeInput,i) => {
         val nodeInput = node.getInput(i)
         nodeInput match {
           case nodeInput: BaseType => {
@@ -660,8 +659,7 @@ class Backend {
           }
           case _ =>
         }
-      }
-
+      })
     })
   }
 
@@ -919,8 +917,8 @@ class Backend {
   def allowNodesToReadOutputs(): Unit = {
     val outputsBuffers = mutable.Map[BaseType, BaseType]()
     Node.walk(walkNodesDefautStack,node => {
-      for (i <- 0 until node.getInputsCount) {
-        node.getInput(i) match {
+      node.onEachInput((nodeInput,i) => {
+        nodeInput match {
           case baseTypeInput: BaseType => {
             if (baseTypeInput.isOutput && baseTypeInput.component.parent != node.component) {
               val buffer = outputsBuffers.getOrElseUpdate(baseTypeInput, {
@@ -935,14 +933,13 @@ class Backend {
           }
           case _ =>
         }
-      }
+      })
     })
   }
 
   def allowNodesToReadInputOfKindComponent() = {
     Node.walk(walkNodesDefautStack,node => {
-      for (i <- 0 until node.getInputsCount) {
-        val input = node.getInput(i)
+      node.onEachInput((input,i) => {
         input match {
           case baseTypeInput: BaseType => {
             if (baseTypeInput.isInput && baseTypeInput.component.parent == node.component) {
@@ -951,7 +948,7 @@ class Backend {
           }
           case _ =>
         }
-      }
+      })
     })
   }
 
@@ -975,13 +972,8 @@ class Backend {
 
           def walk(parent: Node,inputId : Int): Unit = {
             val that = parent.getInput(inputId)
-            def walkChildren() : Unit = {
-              var i = that.getInputsCount
-              while(i != 0){
-                i -= 1
-                walk(that,i)
-              }
-            }
+            def walkChildren() : Unit = that.onEachInput((input,id) => walk(that,id))
+
             that match {
               case that: Multiplexer => { //TODO probably useless
                 that.inferredWidth = width
@@ -1147,13 +1139,10 @@ class Backend {
                     }
                     case node: AssignementNode => {
                       val newConsumers = consumers + (baseType -> bitsAlreadyUsed.+(node.getScopeBits))
-                      var idx = node.getInputsCount
-                      while (idx != 0) {
-                        idx -= 1
-                        val input = node.getInput(idx)
+                      node.onEachInput((input,idx) => {
                         val (inHi, inLo) = node.getOutToInUsage(idx, outHi, outLo)
                         if (inHi >= inLo) walk(newConsumers,newStack, input, inHi, inLo)
-                      }
+                      })
                     }
                     case _ => {
                       walk(consumersPlusFull,newStack, node, outHi, outLo)
@@ -1166,15 +1155,12 @@ class Backend {
             }
             case _ => {
               val newConsumers = consumers + (node -> bitsAlreadyUsed.+(AssignedRange(outHi, outLo)))
-              var idx = node.getInputsCount
-              while (idx != 0) {
-                idx -= 1
-                val input = node.getInput(idx)
+              node.onEachInput((input,idx) => {
                 if (input != null) {
                   val (inHi, inLo) = node.getOutToInUsage(idx, outHi, outLo)
                   if (inHi >= inLo) walk(newConsumers,newStack, input, inHi, inLo)
                 }
-              }
+              })
             }
           }
           if (outHi == node.getWidth - 1 && outLo == 0) nodeIsCompleted(node)

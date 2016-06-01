@@ -598,3 +598,23 @@ object PlayBug43{
 
 
 }
+
+
+object PlayBootReset {
+
+  class TopLevel extends Component {
+    val coreClk = in Bool
+    val coreClockDomain = ClockDomain(coreClk,config = ClockDomainConfig(resetKind = BOOT))
+    val core = new ClockingArea(coreClockDomain){
+      val input = in UInt (4 bit)
+      val output = out UInt(4 bits)
+      output := RegNext(output) init(0)
+
+    }
+
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}

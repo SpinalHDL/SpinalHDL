@@ -1721,8 +1721,8 @@ object OverloadPlay {
       val f = c.getDeclaredField("array")
       f.setAccessible(true)
       Node.walk(report.toplevel.getAllIo.toSeq, node => {
-        entries += node.getInputsCount
-        allocatedEntries += node.getInputsCount
+        entries += node.getInputs.size
+        allocatedEntries += node.getInputs.size
 
         entries += node.consumers.length
         allocatedEntries += f.get(node.consumers).asInstanceOf[Array[AnyRef]].length

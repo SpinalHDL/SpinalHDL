@@ -1137,17 +1137,17 @@ class VhdlBackend extends Backend with VhdlBase {
     ret ++= s"  end function;\n"
   }
 
-  def operatorImplAsOperator(vhd: String)(op: Modifier): String = {
-    op.getInputsCount match {
-      case 1 => s"($vhd ${emitLogic(op.getInput(0))})"
-      case 2 => {
-        val temp = s"(${emitLogic(op.getInput(0))} $vhd ${emitLogic(op.getInput(1))})"
-        if (opThatNeedBoolCast.contains(op.opName))
-          return s"pkg_toStdLogic$temp"
-        else
-          return temp
-      }
-    }
+
+  def operatorImplAsBinaryOperator(vhd: String)(op: Modifier): String = {
+    val temp = s"(${emitLogic(op.getInput(0))} $vhd ${emitLogic(op.getInput(1))})"
+    if (opThatNeedBoolCast.contains(op.opName))
+      return s"pkg_toStdLogic$temp"
+    else
+      return temp
+  }
+
+  def operatorImplAsUnaryOperator(vhd: String)(op: Modifier): String = {
+     s"($vhd ${emitLogic(op.getInput(0))})"
   }
 
   def operatorImplAsFunction(vhd: String)(func: Modifier): String = {
@@ -1244,21 +1244,21 @@ class VhdlBackend extends Backend with VhdlBase {
 
 
   //unsigned
-  modifierImplMap.put("u+u", operatorImplAsOperator("+"))
-  modifierImplMap.put("u-u", operatorImplAsOperator("-"))
-  modifierImplMap.put("u*u", operatorImplAsOperator("*"))
-  modifierImplMap.put("u/u", operatorImplAsOperator("/"))
-  modifierImplMap.put("u%u", operatorImplAsOperator("rem"))
+  modifierImplMap.put("u+u", operatorImplAsBinaryOperator("+"))
+  modifierImplMap.put("u-u", operatorImplAsBinaryOperator("-"))
+  modifierImplMap.put("u*u", operatorImplAsBinaryOperator("*"))
+  modifierImplMap.put("u/u", operatorImplAsBinaryOperator("/"))
+  modifierImplMap.put("u%u", operatorImplAsBinaryOperator("rem"))
 
-  modifierImplMap.put("u|u", operatorImplAsOperator("or"))
-  modifierImplMap.put("u&u", operatorImplAsOperator("and"))
-  modifierImplMap.put("u^u", operatorImplAsOperator("xor"))
-  modifierImplMap.put("~u", operatorImplAsOperator("not"))
+  modifierImplMap.put("u|u", operatorImplAsBinaryOperator("or"))
+  modifierImplMap.put("u&u", operatorImplAsBinaryOperator("and"))
+  modifierImplMap.put("u^u", operatorImplAsBinaryOperator("xor"))
+  modifierImplMap.put("~u",  operatorImplAsUnaryOperator("not"))
 
-  modifierImplMap.put("u==u", operatorImplAsOperator("="))
-  modifierImplMap.put("u!=u", operatorImplAsOperator("/="))
-  modifierImplMap.put("u<u", operatorImplAsOperator("<"))
-  modifierImplMap.put("u<=u", operatorImplAsOperator("<="))
+  modifierImplMap.put("u==u", operatorImplAsBinaryOperator("="))
+  modifierImplMap.put("u!=u", operatorImplAsBinaryOperator("/="))
+  modifierImplMap.put("u<u",  operatorImplAsBinaryOperator("<"))
+  modifierImplMap.put("u<=u", operatorImplAsBinaryOperator("<="))
 
 
   modifierImplMap.put("u>>i", shiftRightByIntImpl)
@@ -1268,22 +1268,22 @@ class VhdlBackend extends Backend with VhdlBase {
 
 
   //signed
-  modifierImplMap.put("s+s", operatorImplAsOperator("+"))
-  modifierImplMap.put("s-s", operatorImplAsOperator("-"))
-  modifierImplMap.put("s*s", operatorImplAsOperator("*"))
-  modifierImplMap.put("s/s", operatorImplAsOperator("/"))
-  modifierImplMap.put("s%s", operatorImplAsOperator("rem"))
+  modifierImplMap.put("s+s", operatorImplAsBinaryOperator("+"))
+  modifierImplMap.put("s-s", operatorImplAsBinaryOperator("-"))
+  modifierImplMap.put("s*s", operatorImplAsBinaryOperator("*"))
+  modifierImplMap.put("s/s", operatorImplAsBinaryOperator("/"))
+  modifierImplMap.put("s%s", operatorImplAsBinaryOperator("rem"))
 
-  modifierImplMap.put("s|s", operatorImplAsOperator("or"))
-  modifierImplMap.put("s&s", operatorImplAsOperator("and"))
-  modifierImplMap.put("s^s", operatorImplAsOperator("xor"))
-  modifierImplMap.put("~s", operatorImplAsOperator("not"))
-  modifierImplMap.put("-s", operatorImplAsOperator("-"))
+  modifierImplMap.put("s|s", operatorImplAsBinaryOperator("or"))
+  modifierImplMap.put("s&s", operatorImplAsBinaryOperator("and"))
+  modifierImplMap.put("s^s", operatorImplAsBinaryOperator("xor"))
+  modifierImplMap.put("~s", operatorImplAsUnaryOperator("not"))
+  modifierImplMap.put("-s", operatorImplAsUnaryOperator("-"))
 
-  modifierImplMap.put("s==s", operatorImplAsOperator("="))
-  modifierImplMap.put("s!=s", operatorImplAsOperator("/="))
-  modifierImplMap.put("s<s", operatorImplAsOperator("<"))
-  modifierImplMap.put("s<=s", operatorImplAsOperator("<="))
+  modifierImplMap.put("s==s", operatorImplAsBinaryOperator("="))
+  modifierImplMap.put("s!=s", operatorImplAsBinaryOperator("/="))
+  modifierImplMap.put("s<s", operatorImplAsBinaryOperator("<"))
+  modifierImplMap.put("s<=s", operatorImplAsBinaryOperator("<="))
 
 
   modifierImplMap.put("s>>i", shiftRightByIntImpl)
@@ -1296,13 +1296,13 @@ class VhdlBackend extends Backend with VhdlBase {
   //bits
   modifierImplMap.put("b##b", operatorImplAsFunction("pkg_cat"))
 
-  modifierImplMap.put("b|b", operatorImplAsOperator("or"))
-  modifierImplMap.put("b&b", operatorImplAsOperator("and"))
-  modifierImplMap.put("b^b", operatorImplAsOperator("xor"))
-  modifierImplMap.put("~b", operatorImplAsOperator("not"))
+  modifierImplMap.put("b|b", operatorImplAsBinaryOperator("or"))
+  modifierImplMap.put("b&b", operatorImplAsBinaryOperator("and"))
+  modifierImplMap.put("b^b", operatorImplAsBinaryOperator("xor"))
+  modifierImplMap.put("~b",  operatorImplAsUnaryOperator("not"))
 
-  modifierImplMap.put("b==b", operatorImplAsOperator("="))
-  modifierImplMap.put("b!=b", operatorImplAsOperator("/="))
+  modifierImplMap.put("b==b", operatorImplAsBinaryOperator("="))
+  modifierImplMap.put("b!=b", operatorImplAsBinaryOperator("/="))
 
   modifierImplMap.put("b>>i", shiftRightByIntImpl)
   modifierImplMap.put("b<<i", shiftLeftByIntImpl)
@@ -1313,14 +1313,14 @@ class VhdlBackend extends Backend with VhdlBase {
 
 
   //bool
-  modifierImplMap.put("B==B", operatorImplAsOperator("="))
-  modifierImplMap.put("B!=B", operatorImplAsOperator("/="))
+  modifierImplMap.put("B==B", operatorImplAsBinaryOperator("="))
+  modifierImplMap.put("B!=B", operatorImplAsBinaryOperator("/="))
 
 
-  modifierImplMap.put("!", operatorImplAsOperator("not"))
-  modifierImplMap.put("&&", operatorImplAsOperator("and"))
-  modifierImplMap.put("||", operatorImplAsOperator("or"))
-  modifierImplMap.put("B^B", operatorImplAsOperator("xor"))
+  modifierImplMap.put("!", operatorImplAsUnaryOperator("not"))
+  modifierImplMap.put("&&", operatorImplAsBinaryOperator("and"))
+  modifierImplMap.put("||", operatorImplAsBinaryOperator("or"))
+  modifierImplMap.put("B^B", operatorImplAsBinaryOperator("xor"))
 
 
   //enum

@@ -287,7 +287,7 @@ class MemReadSync(mem_ : Mem[_], val originalAddress: UInt, address_ : UInt, dat
 
 
 
-  override def getSynchronousInputs: ArrayBuffer[Node] = super.getSynchronousInputs ++= getMem :: getAddress :: getEnable :: Nil
+  override def getSynchronousInputs: List[Node] = getMem :: getAddress :: getEnable :: super.getSynchronousInputs
 
   override def isUsingReset: Boolean = false
 
@@ -374,7 +374,7 @@ class MemWrite(mem: Mem[_], val originalAddress: UInt, address_ : UInt, data_ : 
 
 
 
-  override def getSynchronousInputs: ArrayBuffer[Node] = super.getSynchronousInputs ++= getAddress :: getData :: getEnable :: getInput(MemWrite.getMaskId) :: Nil
+  override def getSynchronousInputs: List[Node] = getAddress :: getData :: getEnable :: getInput(MemWrite.getMaskId) :: super.getSynchronousInputs
 
   override def isUsingReset: Boolean = false
 
@@ -466,7 +466,7 @@ class MemWriteOrRead_writePart(mem: Mem[_], address_ : UInt, data_ : Bits, chipS
 
   var readPart: MemWriteOrRead_readPart = null
 
-  override def getSynchronousInputs: ArrayBuffer[Node] = super.getSynchronousInputs ++= getAddress :: getData :: getChipSelect :: getWriteEnable :: Nil
+  override def getSynchronousInputs: List[Node] = getAddress :: getData :: getChipSelect :: getWriteEnable :: super.getSynchronousInputs
 
   override def isUsingReset: Boolean = false
 
@@ -545,7 +545,7 @@ class MemWriteOrRead_readPart(mem_ : Mem[_], address_ : UInt, data_ : Bits, chip
 
   var writePart: MemWriteOrRead_writePart = null
 
-  override def getSynchronousInputs: ArrayBuffer[Node] = super.getSynchronousInputs ++= getMem :: getAddress :: getChipSelect :: getWriteEnable :: Nil
+  override def getSynchronousInputs: List[Node] = getMem :: getAddress :: getChipSelect :: getWriteEnable :: super.getSynchronousInputs
 
   override def isUsingReset: Boolean = false
 
