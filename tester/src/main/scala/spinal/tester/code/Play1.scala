@@ -11,7 +11,7 @@ import _root_.com.sun.xml.internal.messaging.saaj.util.{ByteOutputStream, ByteIn
 import spinal.core._
 import spinal.demo.mandelbrot.{MandelbrotSblDemo, MandelbrotCoreParameters}
 import spinal.lib._
-import spinal.lib.bus.amba3.apb.{Apb3SlaveController, Apb3Config, Apb3Slave}
+import spinal.lib.bus.amba3.apb.{ Apb3Config, Apb3}
 import spinal.lib.bus.amba4.axilite._
 import spinal.lib.bus.sbl.{SblConfig, SblReadRet, SblReadCmd, SblWriteCmd}
 import spinal.lib.com.uart._
@@ -103,27 +103,6 @@ class ComplexBundle extends Bundle {
 }
 
 
-class Play2 extends Component {
-  val busConfig = new Apb3Config(16, 32)
-  val bus = slave(new Apb3Slave(busConfig))
-  val controller = new Apb3SlaveController(bus)
-
-  val myReadSignal = in(new ComplexBundle);
-  controller.read(myReadSignal, 0x10)
-  //  val myWriteOnlyReg = out(controller.writeOnlyReg(new ComplexBundle,0x20))
-  //  val myWriteReadReg = out(controller.writeReadReg(new ComplexBundle,0x30))
-  val myPushStreamBits = master(controller.writeStream(0x40))
-  val myPushStreamComplex = master(controller.writeStreamOf(new ComplexBundle, 0x50))
-  val myPopStreamComplex = slave(Stream(new ComplexBundle));
-  controller.readStream(myPopStreamComplex, 0x60)
-
-}
-
-object Play2 {
-  def main(args: Array[String]): Unit = {
-    SpinalVhdl(new Play2)
-  }
-}
 
 
 class Play3 extends Component {
@@ -1090,38 +1069,6 @@ object PlayLoop {
 }
 
 
-object PlayApb {
-
-
-  class TopLevel extends Component {
-    val apbConfig = new Apb3Config(16, 8)
-    val bus = slave(new Apb3Slave(apbConfig))
-    val busCtrl = new Apb3SlaveController(bus) //This is a APB3 slave controller builder tool
-
-    val outputs = Vec(i => out(busCtrl.writeReadReg(UInt(32 bit), i * 4)) init (i), 8)
-    val bundleComplex = (busCtrl.writeReadReg(new Bundle {
-      val v = Vec(Bool, 10)
-      val a, b, c, d = Bool
-      val e = Bool
-    }, 0x1000))
-    val b = out(new Bundle {
-      val v = Vec(Bool, 10)
-      val a, b, c, d = Bool
-      val e = Bool
-    })
-
-    val bundleOut = out(bundleComplex.clone)
-    bundleOut := bundleComplex
-    b.assignFromBits(B(0, 15 bit))
-    b.assignFromBits(B"11", 10, 9)
-
-  }
-
-  def main(args: Array[String]): Unit = {
-    SpinalVhdl(new TopLevel)
-  }
-}
-
 //
 //import org.scalameter.api._
 //
@@ -1648,33 +1595,6 @@ object PlayFsmRef {
   }
 }
 
-
-object ApbUartPlay {
-
-  class ApbUartCtrl(apbConfig: Apb3Config,uartCtrlGeneric : UartCtrlGenerics) extends Component {
-    val io = new Bundle {
-      val bus = slave(new Apb3Slave(apbConfig))
-      val uart = master(Uart())
-    }
-    val busCtrl = new Apb3SlaveController(io.bus) //This is a APB3 slave controller builder tool
-
-    val config = busCtrl.writeOnlyRegOf(UartCtrlConfig(uartCtrlGeneric), 0x00)
-    //Create a write only configuration register at address 0x00
-    val clockDivider = busCtrl.writeOnlyRegOf(UInt(20 bit), 0x10)
-    val writeStream = busCtrl.writeStreamOf(Bits(8 bit), 0x20)
-    val readStream = busCtrl.readStreamOf(Bits(8 bit), 0x30)
-
-    val uartCtrl = new UartCtrl(uartCtrlGeneric)
-    uartCtrl.io.config := config
-    uartCtrl.io.write <-< writeStream //Pipelined connection
-    uartCtrl.io.read.toStream.queue(16) >> readStream //Queued connection
-    uartCtrl.io.uart <> io.uart
-  }
-
-  def main(args: Array[String]): Unit = {
-    SpinalVhdl(new ApbUartCtrl(new Apb3Config(16, 32),UartCtrlGenerics()))
-  }
-}
 
 object OverloadPlay {
 
