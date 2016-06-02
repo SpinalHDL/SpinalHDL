@@ -19,7 +19,7 @@ jdk:
 before_install:
   - sudo add-apt-repository ppa:pgavin/ghdl -y
   - sudo apt-get update
-  - sudo apt-get install ghdl
+  - sudo apt-get install ghdl -y
 
 # after_success:
 # Push to sonatype ?
