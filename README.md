@@ -387,3 +387,5 @@ Other consideration
 ===============
 Intellij scala plugin has some syntax highlight bug. As far i know, Intellij 14.1 is the best version. 
 
+
+<img src="https://travis-ci.org/SpinalHDL/SpinalHDL.svg?branch=master"/>
