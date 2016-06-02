@@ -14,7 +14,12 @@ script:
    - sbt ++$TRAVIS_SCALA_VERSION -jvm-opts  test
 
 jdk:
-  - openjdk7
+  - openjdk8
+
+before_install:
+  - sudo add-apt-repository ppa:pgavin/ghdl
+  - sudo apt-get update
+  - sudo apt-get install ghdl
 
 # after_success:
 # Push to sonatype ?
