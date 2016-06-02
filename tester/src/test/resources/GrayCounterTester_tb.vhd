@@ -275,7 +275,7 @@ begin
 
     for i in 0 to 1000 loop
       random(enable);
-      assert gray /= gray_ref report "Gray fail" severity failure;
+      assert gray = gray_ref report "Gray fail" severity failure;
       --report integer'image(to_integer(gray)) & "  " & integer'image(to_integer(gray_ref));
       wait until rising_edge(clk);
     end loop;
