@@ -40,7 +40,7 @@ class AxiLiteSimpleReadDma(axiLiteConfig: AxiLiteConfig) extends Component {
   io.axi.readCmd.addr := counter
   io.axi.readCmd.setUnprivileged
 
-  io.read.translateFrom(io.axi.readData)((to,from) => {
+  io.read.translateFrom(io.axi.readRsp)((to,from) => {
     to := from.data
   })
 }

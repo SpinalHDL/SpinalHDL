@@ -25,21 +25,16 @@ import scala.collection.mutable.ArrayBuffer
   */
 
 trait EdgeKind
-
 object RISING extends EdgeKind
-
 object FALLING extends EdgeKind
 
 trait ResetKind
-
 object ASYNC extends ResetKind
-
 object SYNC extends ResetKind
+object BOOT extends ResetKind
 
 trait ActiveKind
-
 object HIGH extends ActiveKind
-
 object LOW extends ActiveKind
 
 

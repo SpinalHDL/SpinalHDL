@@ -97,11 +97,15 @@ object PlayFixedPoint {
 
 
 object PlayBug75 {
+  implicit class StreamPimped(pimped : Stream[UInt]){
+    def asStreamSInt() : Stream[SInt] = pimped.translateWith(pimped.payload.asSInt)
+  }
+
   class TopLevel extends Component {
-    val toto = in Bits(8 bits)
-    val titi = out(Bits(8 bits))
-    titi := 0
-    print("done")
+    val src = slave Stream(UInt(4 bits))
+    val sink = master Stream(SInt(4 bits))
+
+    sink << src.asStreamSInt()
   }
 
   def main(args: Array[String]): Unit = {
@@ -129,7 +133,7 @@ object PlayBlackBox3 {
         val addr = in UInt (log2Up(_wordCount) bit)
         val data = out Bits (_wordWidth bit)
       }
-    }
+    }.setName("")
 
     mapClockDomain(clock=io.clk)
   }
@@ -593,4 +597,24 @@ object PlayBug43{
   }
 
 
+}
+
+
+object PlayBootReset {
+
+  class TopLevel extends Component {
+    val coreClk = in Bool
+    val coreClockDomain = ClockDomain(coreClk,config = ClockDomainConfig(resetKind = BOOT))
+    val core = new ClockingArea(coreClockDomain){
+      val input = in UInt (4 bit)
+      val output = out UInt(4 bits)
+      output := RegNext(output) init(0)
+
+    }
+
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
 }

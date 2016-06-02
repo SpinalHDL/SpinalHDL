@@ -22,12 +22,10 @@ trait BusSlaveFactory  extends Area{
   def onRead (address : BigInt)(doThat : => Unit) : Unit
 
   def nonStopWrite( that : Data,
-                    address : BigInt,
                     bitOffset : Int = 0) : Unit
 
-  def multiRead(that : Data,
-                address : BigInt,
-                onRsp :  (BigInt) => Unit = (x) => {}) : Unit  = {
+  def readMultiWord(that : Data,
+                address : BigInt) : Unit  = {
     val wordCount = (widthOf(that) - 1) / busDataWidth + 1
     val valueBits = that.asBits.resize(wordCount*busDataWidth)
     val words = (0 until wordCount).map(id => valueBits(id * busDataWidth , busDataWidth bit))
@@ -36,9 +34,8 @@ trait BusSlaveFactory  extends Area{
     }
   }
 
-  def multiWrite(that : Data,
-                 address : BigInt,
-                 onCmd : (BigInt) => Unit = (x) => {}) : Unit  = {
+  def writeMultiWord(that : Data,
+                 address : BigInt) : Unit  = {
     val wordCount = (widthOf(that) - 1) / busDataWidth + 1
     for (wordId <- (0 until wordCount)) {
       write(
@@ -53,34 +50,45 @@ trait BusSlaveFactory  extends Area{
               bitCount = getBitsWidth bits)
           }
         },
-        address = address + wordId * busDataWidth / 8,0)
+        address = address + wordId * busDataWidth / 8,0
+      )
     }
   }
 
-  def writeOnlyRegOf[T <: Data](dataType: T,
-                                baseAddress: BigInt,
-                                bitOffset : Int = 0): T = {
+
+  def createWriteOnly[T <: Data](dataType: T,
+                                 address: BigInt,
+                                 bitOffset : Int = 0): T = {
     val ret = Reg(dataType)
-    write(ret,baseAddress,bitOffset)
+    write(ret,address,bitOffset)
     ret
   }
-  def writeReadRegOf[T <: Data](that: T,
-                                baseAddress: BigInt,
-                                bitOffset : Int = 0): T = {
-    val reg = Reg(that)
-    write(reg,baseAddress,bitOffset)
-    read(reg,baseAddress,bitOffset)
+
+  def createReadWrite[T <: Data](dataType: T,
+                                 address: BigInt,
+                                 bitOffset : Int = 0): T = {
+    val reg = Reg(dataType)
+    write(reg,address,bitOffset)
+    read(reg,address,bitOffset)
     reg
   }
 
-  def cumulateBitsAndClearOnRead(that : Bits,
-                                 base : BigInt,
-                                 bitOffset : Int = 0): Unit ={
+  def createAndDriveFlow[T <: Data](dataType : T,
+                                 address: BigInt,
+                                 bitOffset : Int = 0) : Flow[T] = {
+    val flow = Flow(dataType)
+    driveFlow(flow,address,bitOffset)
+    flow
+  }
+
+  def doBitsAccumulationAndClearOnRead(   that : Bits,
+                                          address : BigInt,
+                                          bitOffset : Int = 0): Unit = {
     assert(that.getWidth <= busDataWidth)
     val reg = Reg(that.clone)
     reg := reg | that
-    read(reg,base,bitOffset)
-    onRead(base){
+    read(reg,address,bitOffset)
+    onRead(address){
       reg := that
     }
   }
@@ -94,36 +102,37 @@ trait BusSlaveFactory  extends Area{
     that := reg
   }
 
+  def driveAndRead(that : Data,
+                   address : BigInt,
+                   bitOffset : Int = 0) : Unit = {
+    val reg = Reg(that)
+    write(reg,address,bitOffset)
+    read(reg,address,bitOffset)
+    that := reg
+  }
+
   def driveFlow[T <: Data](that : Flow[T],
-                           baseAddress: BigInt,
+                           address: BigInt,
                            bitOffset : Int = 0) : Unit = {
     that.valid := False
-    onWrite(baseAddress){
+    onWrite(address){
       that.valid := True
     }
-    nonStopWrite(that.payload,baseAddress,bitOffset)
+    nonStopWrite(that.payload,bitOffset)
   }
 
-
-  def createFlow[T <: Data](dataType : T,
-                            baseAddress: BigInt,
-                            bitOffset : Int = 0) : Flow[T] = {
-    val flow = Flow(dataType)
-    driveFlow(flow,baseAddress,bitOffset)
-    flow
-  }
-
+  
   def readStreamNonBlocking[T <: Data] (that : Stream[T],
-                                        baseAddress: BigInt,
+                                        address: BigInt,
                                         bitOffset : Int = 0) : Unit = {
     val flow = Flow(that.dataType)
     flow.valid := that.valid
     flow.payload := that.payload
     that.ready := False
-    onRead(baseAddress){
+    onRead(address){
       that.ready := True
     }
-    read(flow,baseAddress,bitOffset)
+    read(flow,address,bitOffset)
   }
 }
 
@@ -146,52 +155,45 @@ case class BusSlaveFactoryOnRead( address : BigInt,
                                   doThat : () => Unit) extends BusSlaveFactoryElement
 
 case class BusSlaveFactoryNonStopWrite(that : Data,
-                                address : BigInt,
-                                bitOffset : Int) extends BusSlaveFactoryElement
+                                       bitOffset : Int) extends BusSlaveFactoryElement
 
 
 trait BusSlaveFactoryDelayed extends BusSlaveFactory{
   val elements = ArrayBuffer[BusSlaveFactoryElement]()
   val elementsPerAddress = collection.mutable.HashMap[BigInt,ArrayBuffer[BusSlaveFactoryElement]]()
+  private def addAddressableElement(e : BusSlaveFactoryElement,address : BigInt) = {
+    elements += e
+    elementsPerAddress.getOrElseUpdate(address, ArrayBuffer[BusSlaveFactoryElement]()) += e
+  }
+
   override def read(that : Data,
            address : BigInt,
            bitOffset : Int = 0) : Unit  = {
     assert(bitOffset + that.getBitsWidth <= busDataWidth)
-    val e = BusSlaveFactoryRead(that,address,bitOffset)
-    elements += e
-    elementsPerAddress.getOrElseUpdate(address,ArrayBuffer[BusSlaveFactoryElement]()) += e
+    addAddressableElement(BusSlaveFactoryRead(that,address,bitOffset),address)
   }
 
   override def write(that : Data,
             address : BigInt,
             bitOffset : Int = 0) : Unit  = {
     assert(bitOffset + that.getBitsWidth <= busDataWidth)
-    val e = BusSlaveFactoryWrite(that,address,bitOffset)
-    elements += e
-    elementsPerAddress.getOrElseUpdate(address,ArrayBuffer[BusSlaveFactoryElement]()) += e
+    addAddressableElement(BusSlaveFactoryWrite(that,address,bitOffset),address)
   }
 
   def onWrite(address : BigInt)(doThat : => Unit) : Unit = {
-    val e = BusSlaveFactoryOnWrite(address,() => doThat)
-    elements += e
-    elementsPerAddress.getOrElseUpdate(address,ArrayBuffer[BusSlaveFactoryElement]()) += e
+    addAddressableElement(BusSlaveFactoryOnWrite(address,() => doThat),address)
   }
   def onRead (address : BigInt)(doThat : => Unit) : Unit = {
-    val e = BusSlaveFactoryOnRead(address,() => doThat)
-    elements += e
-    elementsPerAddress.getOrElseUpdate(address,ArrayBuffer[BusSlaveFactoryElement]()) += e
+    addAddressableElement(BusSlaveFactoryOnRead(address,() => doThat),address)
   }
 
   def nonStopWrite( that : Data,
-                    address : BigInt,
                     bitOffset : Int = 0) : Unit = {
     assert(bitOffset + that.getBitsWidth <= busDataWidth)
-    val e = BusSlaveFactoryNonStopWrite(that,address,bitOffset)
-    elements += e
-    elementsPerAddress.getOrElseUpdate(address,ArrayBuffer[BusSlaveFactoryElement]()) += e
+    elements += BusSlaveFactoryNonStopWrite(that,bitOffset)
   }
 
-
+  //This is the only thing that should be implement by class that extends BusSlaveFactoryDelayed
   def build() : Unit
 
   component.addPrePopTask(() => build())

@@ -1389,17 +1389,16 @@ class MultipleAssignmentNode extends NodeWithVariableInputsCount with Assignemen
   override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = (outHi,outLo)
 
   override def normalizeInputs: Unit = {
-    for (i <- 0 until getInputsCount)
+    for (i <- 0 until inputs.length)
       InputNormalize.bitVectoreAssignement(this,i,this.getWidth)
   }
 
   override private[core] def checkInferedWidth: String = {
-    for (i <- 0 until getInputsCount){
-      val input = this.getInput(i)
+    this.onEachInput((input,i) => {
       if (input != null && input.component != null && this.getWidth !=input.getWidth) {
         return s"Assignement bit count missmatch. ${this} := ${input}} at\n${ScalaLocated.long(getAssignementContext(i))}"
       }
-    }
+    })
     return null
   }
 

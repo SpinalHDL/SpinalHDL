@@ -136,9 +136,9 @@ class Reg(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) ext
     def getClockResetId: Int = 2
   }
 
-  override def isUsingReset: Boolean = !getInitialValue.isInstanceOf[NoneNode]
-  override def getSynchronousInputs: ArrayBuffer[Node] = super.getSynchronousInputs += getDataInput
-  override def getResetStyleInputs: ArrayBuffer[Node] = super.getResetStyleInputs += getInitialValue
+  override def isUsingReset: Boolean = clockDomain.config.resetKind != BOOT && !getInitialValue.isInstanceOf[NoneNode]
+  override def getSynchronousInputs: List[Node] = getDataInput :: super.getSynchronousInputs
+  override def getResetStyleInputs: List[Node] = getInitialValue :: super.getResetStyleInputs
 
   def getDataInput: Node = getInput(RegS.getDataInputId)
   def getInitialValue: Node = getInput(RegS.getInitialValueId)

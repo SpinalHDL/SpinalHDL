@@ -9,11 +9,11 @@ import scala.collection.mutable.ArrayBuffer
 class AxiLiteSlaveFactory(bus : AxiLite) extends BusSlaveFactoryDelayed{
   val writeJoinEvent = StreamJoin(bus.writeCmd,bus.writeData)
   val writeRsp = AxiLiteB(bus.config)
-  bus.writeRet <-< writeJoinEvent.translateWith(writeRsp)
+  bus.writeRsp <-< writeJoinEvent.translateWith(writeRsp)
 
   val readDataStage = bus.readCmd.stage()
   val readRsp = AxiLiteR(bus.config)
-  bus.readData << readDataStage.translateWith(readRsp)
+  bus.readRsp << readDataStage.translateWith(readRsp)
 
   override def build(): Unit = {
     //writes

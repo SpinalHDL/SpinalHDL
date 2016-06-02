@@ -36,7 +36,7 @@ case class AvalonMMConfig( addressWidth : Int,
                            maximumPendingReadTransactions : Int = 1,
                            maximumPendingWriteTransactions : Int = 0, // unlimited
                            readLatency : Int = 0,
-                           readWaitTime : Int = 1,
+                           readWaitTime : Int = 0,
                            setupTime : Int = 0,
                            writeWaitTime : Int = 0
                            ) {
