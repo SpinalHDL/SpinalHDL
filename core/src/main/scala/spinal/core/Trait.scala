@@ -117,33 +117,39 @@ object SyncNode {
 abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends Node {
   var clock  : Node = clockDomain.clock
   var enable : Node = clockDomain.clockEnable
-  var reset  : Node = Bool(clockDomain.config.resetActiveLevel == LOW) //TODO ?????
+  var reset  : Node = clockDomain.reset
 
 
-//  override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
-//    doThat(clock,0)
-//    doThat(enable,1)
-//    doThat(reset,2)
-//  }
-//  override def onEachInput(doThat: (Node) => Unit): Unit = {
-//    doThat(clock)
-//    doThat(enable)
-//    doThat(reset)
-//  }
-//
-//  override def setInput(id: Int, node: Node): Unit = id match{
-//    case 0 => clock = node
-//    case 1 => enable = node
-//    case 2 => reset = node
-//  }
-//
-//  override def getInputsCount: Int = 3
-//  override def getInputs: Iterator[Node] = Iterator(clock,enable,reset)
-//  override def getInput(id: Int): Node = id match{
-//    case 0 => clock
-//    case 1 => enable
-//    case 2 => reset
-//  }
+  override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
+    doThat(clock,0)
+    if(isUsingEnableSignal)doThat(enable,1)
+    if(isUsingResetSignal) doThat(reset,2)
+  }
+  override def onEachInput(doThat: (Node) => Unit): Unit = {
+    doThat(clock)
+    if(isUsingEnableSignal)doThat(enable)
+    if(isUsingResetSignal) doThat(reset)
+  }
+
+  override def setInput(id: Int, node: Node): Unit = id match{
+    case 0 => clock = node
+    case 1 if(isUsingEnableSignal) => enable = node
+    case 2 if(isUsingResetSignal)  => reset = node
+  }
+
+  override def getInputsCount: Int = 1 + (if(isUsingEnableSignal) 1 else 0) + (if(isUsingResetSignal) 1 else 0)
+  override def getInputs: Iterator[Node] = (isUsingEnableSignal,isUsingResetSignal) match{
+    case (false,false) => Iterator(clock             )
+    case (false,true)  => Iterator(clock,       reset)
+    case (true,false)  => Iterator(clock,enable      )
+    case (true,true)   => Iterator(clock,enable,reset)
+  }
+
+  override def getInput(id: Int): Node = id match{
+    case 0 => clock
+    case 1 if(isUsingEnableSignal) => enable
+    case 2 if(isUsingResetSignal)  => reset
+  }
 
 
   override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
@@ -156,15 +162,17 @@ abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends 
 
   def getSynchronousInputs = {
     var ret : List[Node] = Nil
-    if (clockDomain.config.resetKind == SYNC  && isUsingReset) ret = getResetStyleInputs ++ ret
-    ret = getClockEnable :: ret
+    if(clockDomain.config.resetKind == SYNC  && isUsingResetSignal) ret = getResetStyleInputs ++ ret
+    if(isUsingEnableSignal) ret = getClockEnable :: ret
     ret
   }
-  def getAsynchronousInputs : List[Node] = (if (clockDomain.config.resetKind == ASYNC && isUsingReset) getResetStyleInputs else Nil)
+
+  def getAsynchronousInputs : List[Node] = (if (clockDomain.config.resetKind == ASYNC && isUsingResetSignal) getResetStyleInputs else Nil)
 
   def getResetStyleInputs = List[Node](getReset)
 
-  def isUsingReset: Boolean
+  def isUsingResetSignal: Boolean //TODO BOOT could be mixed between having a initial value or using the reset pin
+  def isUsingEnableSignal: Boolean = enable != null
   def setUseReset = {
     reset = clockDomain.reset
   }

@@ -131,8 +131,8 @@ class ClockDomain(val config: ClockDomainConfig, val clock: Bool, val reset: Boo
   if (clockEnable != null) clockEnable.addTag(ClockEnableTag(this))
 
 
-  def hasClockEnable = clockEnable != null
-  def hasReset = reset != null
+  def hasClockEnableSignal = clockEnable != null
+  def hasResetSignal = reset != null
   def push() : Unit = ClockDomain.push(this)
   def pop(): Unit = ClockDomain.pop(this)
   def isResetActive = if (config.resetActiveLevel == HIGH) readResetWire else !readResetWire

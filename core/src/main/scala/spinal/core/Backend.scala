@@ -302,7 +302,7 @@ class Backend {
           ram.io.wr.addr := wr.getAddress.allowSimplifyIt()
           ram.io.wr.data := wr.getData.allowSimplifyIt()
 
-          ram.io.rd.en := rd.getEnable.allowSimplifyIt() && enable
+          ram.io.rd.en := rd.getReadEnable.allowSimplifyIt() && enable
           ram.io.rd.addr := rd.getAddress.allowSimplifyIt()
           rd.getData.allowSimplifyIt() := ram.io.rd.data
 
@@ -331,7 +331,7 @@ class Backend {
           ram.io.wr.en := wr.getEnable.allowSimplifyIt() && enable
           ram.io.wr.data := wr.getData.allowSimplifyIt()
 
-          ram.io.rd.en := rd.getEnable.allowSimplifyIt() && enable
+          ram.io.rd.en := rd.getReadEnable.allowSimplifyIt() && enable
           rd.getData.allowSimplifyIt() := ram.io.rd.data
 
           ram.generic.useReadEnable = {
@@ -667,16 +667,14 @@ class Backend {
     Node.walk(walkNodesDefautStack,(node, push) =>  {
       node match {
         case delay: SyncNode => {
-          if(delay.isUsingReset && !delay.getClockDomain.hasReset)
+          if(delay.isUsingResetSignal && !delay.getClockDomain.hasResetSignal)
               SpinalError(s"Clock domain without reset contain a register which needs one\n ${delay.getScalaLocationLong}")
 
           Component.push(delay.component)
           delay.setInput(SyncNode.getClockInputId,delay.getClockDomain.readClockWire)
 
-          if (delay.isUsingReset)
-            delay.setInput(SyncNode.getClockResetId,delay.getClockDomain.readResetWire)
-
-          delay.setInput(SyncNode.getClockEnableId,delay.getClockDomain.readClockEnableWire)
+          if(delay.isUsingResetSignal)  delay.setInput(SyncNode.getClockResetId,delay.getClockDomain.readResetWire)
+          if(delay.isUsingEnableSignal) delay.setInput(SyncNode.getClockEnableId,delay.getClockDomain.readClockEnableWire)
           Component.pop(delay.component)
         }
         case _ =>
@@ -856,7 +854,7 @@ class Backend {
     val errors = mutable.ArrayBuffer[String]()
     Node.walk(walkNodesDefautStack ++ walkNodesBlackBoxGenerics,_ match {
       case node : Reg =>{
-        if(!node.isUsingReset && node.getInput(RegS.getDataInputId) == node){
+        if(node.initialValue == null && node.dataInput == node){
           errors += s"$node has no assignement value and no reset value at\n ${node.getScalaLocationLong}"
         }
       }
@@ -963,7 +961,7 @@ class Backend {
           node.input match {
             case that: Reg => {
               that.inferredWidth = width
-              walk(that,RegS.getInitialValueId)
+              if(that.initialValue != null) walk(that,RegS.getInitialValueId)
               walk(that,RegS.getDataInputId)
             }
             case _ => walk(node,0)
