@@ -14,7 +14,7 @@ script:
    - sbt ++$TRAVIS_SCALA_VERSION -jvm-opts  test
 
 jdk:
-  - openjdk7
+  - oraclejdk8
 
 before_install:
   - sudo add-apt-repository ppa:pgavin/ghdl -y
