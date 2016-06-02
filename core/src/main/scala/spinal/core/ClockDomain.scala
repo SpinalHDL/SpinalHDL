@@ -32,6 +32,7 @@ trait ResetKind
 object ASYNC extends ResetKind
 object SYNC extends ResetKind
 object BOOT extends ResetKind
+object NONE extends ResetKind
 
 trait ActiveKind
 object HIGH extends ActiveKind

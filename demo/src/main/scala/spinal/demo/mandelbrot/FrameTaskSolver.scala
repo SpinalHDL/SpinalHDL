@@ -19,8 +19,8 @@ class FrameTaskSolver(p: MandelbrotCoreParameters) extends Component {
   pixelTaskGenerator.io.frameTask << io.frameTask
   pixelTaskDispatcher.io.input <-/< pixelTaskGenerator.io.pixelTask
   for (solverId <- 0 until p.pixelTaskSolverCount) {
-    pixelTaskSolver(solverId).io.pixelTask <-/< pixelTaskDispatcher.io.outputs(solverId)
-    pixelResultArbiter.io.inputs(solverId) </< pixelTaskSolver(solverId).io.pixelResult
+    pixelTaskSolver(solverId).io.pixelTask << pixelTaskDispatcher.io.outputs(solverId)
+    pixelResultArbiter.io.inputs(solverId) << pixelTaskSolver(solverId).io.pixelResult
   }
   io.pixelResult <-< pixelResultArbiter.io.output
 }
@@ -123,7 +123,7 @@ class PixelTaskSolver(p: MandelbrotCoreParameters) extends Component {
     to.task := from.fragment
     to.lastPixel := from.last
     to.done := False
-    to.order := insertTaskOrder;
+    to.order := insertTaskOrder
     to.iteration := 0
     to.z := from.fragment.mandelbrotPosition
   })
@@ -133,7 +133,8 @@ class PixelTaskSolver(p: MandelbrotCoreParameters) extends Component {
 
 
   //Stage1 is a routing stage
-  val stage1 = Delay(stage0, 2)
+  val stage1 = DelayWithInit(stage0, 2)((reg) => reg.valid.init(False))
+
 
 
   //Stage2 get multiplication result of x*x  y*y and x*y
@@ -149,11 +150,12 @@ class PixelTaskSolver(p: MandelbrotCoreParameters) extends Component {
    // return a*b
   }
 
+
   stage2.zXzX := fixMul(stage1.z.x, stage1.z.x).truncated
   stage2.zYzY := fixMul(stage1.z.y, stage1.z.y).truncated
   stage2.zXzY := fixMul(stage1.z.x, stage1.z.y).truncated
-  stage2 assignSomeByName Delay(stage1, LatencyAnalysis(stage1.z.x.raw, stage2.zXzX.raw) - 1)
-
+  val stage1ToStage2Latency = LatencyAnalysis(stage1.z.x.raw, stage2.zXzX.raw) - 1
+  stage2 assignSomeByName DelayWithInit(stage1, stage1ToStage2Latency)((reg) => reg.valid.init(False))
 
   //Stage3 calculate next position of the iteration (zX,zY)
   //       Increment the iteration count if was not done

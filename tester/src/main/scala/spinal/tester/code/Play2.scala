@@ -600,6 +600,36 @@ object PlayBug43{
 }
 
 
+object PlayUnconstrained {
+  class Counter extends Component{
+    val io = new Bundle{
+      val load = slave  Flow(UInt)
+      val value = out UInt
+    }
+    val register = Reg(UInt()) init(0)
+    register := register + 1
+    when(io.load.valid){
+      register := io.load.payload
+    }
+    io.value := register
+  }
+
+  class TopLevel extends Component {
+    val io = new Bundle{
+      val load = slave Flow(UInt(8 bits))
+      val value = out UInt
+    }
+
+    val counter = new Counter
+    counter.io.load <> io.load
+    counter.io.value <> io.value
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
 object PlayBootReset {
 
   class TopLevel extends Component {
@@ -612,6 +642,23 @@ object PlayBootReset {
 
     }
 
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
+
+object PlayWidthChanger {
+  case class RGB() extends Bundle{
+    val r,g,b = UInt(8 bits)
+  }
+  
+  class TopLevel extends Component {
+    val cmd = slave (Stream Fragment Bits(8 bits))
+    val rsp = master(cmd.toStreamOf(RGB()))
   }
 
   def main(args: Array[String]): Unit = {

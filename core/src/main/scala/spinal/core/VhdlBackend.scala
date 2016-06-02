@@ -850,7 +850,13 @@ class VhdlBackend extends Backend with VhdlBase {
         case signal: BaseType => {
           if (!signal.isIo) {
             ret ++= s"  signal ${emitReference(signal)} : ${emitDataType(signal)}"
-            if (signal.hasTag(randomBoot)) {
+            val reg = if(signal.isReg) signal.input.asInstanceOf[Reg] else null
+            if(reg != null && reg.initialValue != null && reg.getClockDomain.config.resetKind == BOOT) {
+              ret ++= " := " + (reg.initialValue match {
+                case init : BaseType => emitLogic(init.getLiteral)
+                case init =>  emitLogic(init)
+              })
+            }else if (signal.hasTag(randomBoot)) {
               signal match {
                 case b: Bool => ret ++= " := " + {
                   if (Random.nextBoolean()) "'1'" else "'0'"
