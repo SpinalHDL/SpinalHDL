@@ -101,6 +101,27 @@ object fromGray {
   }
 }
 
+/**
+  * Big-Endian <-> Little-Endian
+  */
+object Endianness{
+  def apply[T <: BitVector](that : T, base:BitCount = 8 bits) : T = {
+
+    val nbrBase = that.getWidth / base.value
+    val ret = that.clone
+
+    assert(nbrBase * base.value == that.getWidth, "Endianness Error : Width's input is not a multiple of " + base.value)
+
+    for(i <- (0 until nbrBase)){
+      val rangeIn  = (i * base.value + base.value - 1)    downto (i * base.value)
+      val rangeOut = (that.getWidth - 1 - i * base.value) downto (that.getWidth - i * base.value - base.value)
+
+      ret(rangeOut) := that(rangeIn)
+    }
+    ret
+  }
+}
+
 
 object Reverse{
   def apply[T <: BitVector](that : T) : T = {
