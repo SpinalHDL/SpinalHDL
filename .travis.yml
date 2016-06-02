@@ -11,7 +11,8 @@ scala:
 sbt_args: -no-colors -J-Xss2m
 
 script:
-   - sbt ++$TRAVIS_SCALA_VERSION -jvm-opts  test
+  - sbt -jvm-opts travis/jvmopts.compile ... compile
+  - sbt -jvm-opts travis/jvmopts.test ... test
 
 jdk:
   - oraclejdk8
