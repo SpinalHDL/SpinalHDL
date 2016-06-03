@@ -570,6 +570,18 @@ object Delay {
   }
 }
 
+object DelayWithInit {
+  def apply[T <: Data](that: T, cycleCount: Int)(onEachReg : (T) => Unit = null): T = {
+    cycleCount match {
+      case 0 => that
+      case _ => {
+        val reg = RegNext(that)
+        if(onEachReg != null) onEachReg(reg)
+        DelayWithInit(reg, cycleCount - 1)(onEachReg)
+      }
+    }
+  }
+}
 
 object History {
   def apply[T <: Data](that: T, length: Int,when : Bool = True,initValue : T = null): Vec[T] = {

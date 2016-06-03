@@ -11,10 +11,16 @@ scala:
 sbt_args: -no-colors -J-Xss2m
 
 script:
-   - sbt ++$TRAVIS_SCALA_VERSION -jvm-opts  test
+  - sbt -jvm-opts travis/jvmopts.compile compile
+  - sbt -jvm-opts travis/jvmopts.test test
 
 jdk:
-  - openjdk7
+  - oraclejdk8
+
+before_install:
+  - sudo add-apt-repository ppa:pgavin/ghdl -y
+  - sudo apt-get update
+  - sudo apt-get install ghdl -y
 
 # after_success:
 # Push to sonatype ?

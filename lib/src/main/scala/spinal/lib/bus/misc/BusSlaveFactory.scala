@@ -24,7 +24,7 @@ trait BusSlaveFactory  extends Area{
   def nonStopWrite( that : Data,
                     bitOffset : Int = 0) : Unit
                     
-  def writeAndRead(that : Data,
+  def readAndWrite(that : Data,
                    address: BigInt,
                    bitOffset : Int = 0): Unit = {
     write(that,address,bitOffset)

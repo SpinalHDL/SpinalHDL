@@ -1433,35 +1433,27 @@ class AssertNode extends SyncNode(){
   var severity : AssertNodeSeverity = null
 
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
-    doThat(clock,0)
-    doThat(enable,1)
-    doThat(reset,2)
+    super.onEachInput(doThat)
     doThat(cond,3)
   }
   override def onEachInput(doThat: (Node) => Unit): Unit = {
-    doThat(clock)
-    doThat(enable)
-    doThat(reset)
+    super.onEachInput(doThat)
     doThat(cond)
   }
 
   override def setInput(id: Int, node: Node): Unit = id match{
-    case 0 => clock = node
-    case 1 => enable = node
-    case 2 => reset = node
     case 3 => cond = node
+    case _ => super.setInput(id,node)
   }
 
-  override def getInputsCount: Int = 4
-  override def getInputs: Iterator[Node] = Iterator(clock,enable,reset,cond)
+  override def getInputsCount: Int = 1 + super.getInputsCount
+  override def getInputs: Iterator[Node] = super.getInputs ++ Iterator(cond)
   override def getInput(id: Int): Node = id match{
-    case 0 => clock
-    case 1 => enable
-    case 2 => reset
     case 3 => cond
+    case _ => getInput(id)
   }
 
   override private[core] def calcWidth: Int = 1
 
-  override def isUsingReset: Boolean = false
+  override def isUsingResetSignal: Boolean = false
 }

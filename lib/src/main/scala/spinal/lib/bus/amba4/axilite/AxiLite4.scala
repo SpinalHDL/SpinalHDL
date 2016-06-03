@@ -7,28 +7,28 @@ import spinal.lib._
 /**
   * Definition of the constants used by the AXI Lite bus
   */
-object AxiLiteCst {
+object AxiLite4 {
 
   /**
     * Read Write response
     */
   object resp{
-    val OKAY   = B"00" // Normal access success
-    val EXOKAY = B"01" // Exclusive access okay
-    val SLVERR = B"10" // Slave error
-    val DECERR = B"11" // Decode error
+    def OKAY   = B"00" // Normal access success
+    def EXOKAY = B"01" // Exclusive access okay
+    def SLVERR = B"10" // Slave error
+    def DECERR = B"11" // Decode error
   }
 
   /**
     * Access permissions
     */
   object prot{
-    val UNPRIVILEGED_ACCESS = B"000"
-    val PRIVILEGED_ACCESS   = B"001"
-    val SECURE_ACCESS       = B"000"
-    val NON_SECURE_ACCESS   = B"010"
-    val DATA_ACCESS         = B"000"
-    val INSTRUCTION_ACCESS  = B"100"
+    def UNPRIVILEGED_ACCESS = B"000"
+    def PRIVILEGED_ACCESS   = B"001"
+    def SECURE_ACCESS       = B"000"
+    def NON_SECURE_ACCESS   = B"010"
+    def DATA_ACCESS         = B"000"
+    def INSTRUCTION_ACCESS  = B"100"
   }
 }
 
@@ -36,17 +36,17 @@ object AxiLiteCst {
 /**
   * Define all access modes
   */
-trait AxiLiteMode{
+trait AxiLite4Mode{
   def write = false
   def read = false
 }
-object WRITE_ONLY extends AxiLiteMode{
+object WRITE_ONLY extends AxiLite4Mode{
   override def write = true
 }
-object READ_ONLY extends AxiLiteMode{
+object READ_ONLY extends AxiLite4Mode{
   override def read = true
 }
-object READ_WRITE extends AxiLiteMode{
+object READ_WRITE extends AxiLite4Mode{
   override def write = true
   override def read = true
 }
@@ -58,9 +58,9 @@ object READ_WRITE extends AxiLiteMode{
   * @param dataWidth    Width of the data bus
   * @param mode         Access mode : WRITE_ONLY, READ_ONLY, READ_WRITE
   */
-case class AxiLiteConfig(addressWidth: Int,
+case class AxiLite4Config(addressWidth: Int,
                          dataWidth: Int,
-                         mode : AxiLiteMode = READ_WRITE){
+                         mode : AxiLite4Mode = READ_WRITE){
   def dataByteCount = dataWidth/8
 }
 
@@ -69,13 +69,13 @@ case class AxiLiteConfig(addressWidth: Int,
   * Definition of the Write/Read address channel
   * @param config Axi Lite configuration class
   */
-case class AxiLiteAx(config: AxiLiteConfig) extends Bundle {
+case class AxiLite4Ax(config: AxiLite4Config) extends Bundle {
 
   val addr = UInt(config.addressWidth bit)
   val prot = Bits(3 bit)
 
 
-  import AxiLiteCst.prot._
+  import AxiLite4.prot._
 
   def setUnprivileged : Unit = prot := UNPRIVILEGED_ACCESS | SECURE_ACCESS | DATA_ACCESS
   def setPermissions ( permission : Bits ) : Unit = prot := permission
@@ -86,7 +86,7 @@ case class AxiLiteAx(config: AxiLiteConfig) extends Bundle {
   * Definition of the Write data channel
   * @param config Axi Lite configuration class
   */
-case class AxiLiteW(config: AxiLiteConfig) extends Bundle {
+case class AxiLite4W(config: AxiLite4Config) extends Bundle {
   val data = Bits(config.dataWidth bit)
   val strb = Bits(config.dataWidth / 8 bit)
 
@@ -99,10 +99,10 @@ case class AxiLiteW(config: AxiLiteConfig) extends Bundle {
   * Definition of the Write response channel
   * @param config Axi Lite configuration class
   */
-case class AxiLiteB(config: AxiLiteConfig) extends Bundle {
+case class AxiLite4B(config: AxiLite4Config) extends Bundle {
   val resp = Bits(2 bit)
 
-  import AxiLiteCst.resp._
+  import AxiLite4.resp._
 
   def setOKAY()   : Unit = resp := OKAY
   def setEXOKAY() : Unit = resp := EXOKAY
@@ -116,11 +116,11 @@ case class AxiLiteB(config: AxiLiteConfig) extends Bundle {
   * Definition of the Read data channel
   * @param config Axi Lite configuration class
   */
-case class AxiLiteR(config: AxiLiteConfig) extends Bundle {
+case class AxiLite4R(config: AxiLite4Config) extends Bundle {
   val data = Bits(config.addressWidth bit)
   val resp = Bits(2 bit)
 
-  import AxiLiteCst.resp._
+  import AxiLite4.resp._
 
   def setOKAY()   : Unit = resp := OKAY
   def setEXOKAY() : Unit = resp := EXOKAY
@@ -133,13 +133,13 @@ case class AxiLiteR(config: AxiLiteConfig) extends Bundle {
   * Axi Lite interface definition
   * @param config Axi Lite configuration class
   */
-case class AxiLite(val config: AxiLiteConfig) extends Bundle with IMasterSlave {
+case class AxiLite4(val config: AxiLite4Config) extends Bundle with IMasterSlave {
 
-  val aw = if(config.mode.write)  Stream(AxiLiteAx(config)) else null
-  val w  = if(config.mode.write)  Stream(AxiLiteW(config))  else null
-  val b  = if(config.mode.write)  Stream(AxiLiteB(config))  else null
-  val ar = if(config.mode.read)   Stream(AxiLiteAx(config)) else null
-  val r  = if(config.mode.read)   Stream(AxiLiteR(config))  else null
+  val aw = if(config.mode.write)  Stream(AxiLite4Ax(config)) else null
+  val w  = if(config.mode.write)  Stream(AxiLite4W(config))  else null
+  val b  = if(config.mode.write)  Stream(AxiLite4B(config))  else null
+  val ar = if(config.mode.read)   Stream(AxiLite4Ax(config)) else null
+  val r  = if(config.mode.read)   Stream(AxiLite4R(config))  else null
 
   //Because aw w b ar r are ... very lazy
   def writeCmd  = aw
@@ -149,7 +149,7 @@ case class AxiLite(val config: AxiLiteConfig) extends Bundle with IMasterSlave {
   def readRsp   = r
 
 
-  def >> (that : AxiLite) : Unit = {
+  def >> (that : AxiLite4) : Unit = {
     assert(that.config == this.config)
 
     if(config.mode.write){
@@ -164,7 +164,7 @@ case class AxiLite(val config: AxiLiteConfig) extends Bundle with IMasterSlave {
     }
   }
 
-  def <<(that : AxiLite) : Unit = that >> this
+  def <<(that : AxiLite4) : Unit = that >> this
 
   override def asMaster(): this.type = {
     if(config.mode.write){

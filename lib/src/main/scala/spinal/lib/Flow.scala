@@ -152,7 +152,7 @@ class FlowCCByToggle[T <: Data](dataType: T, clockIn: ClockDomain, clockOut: Clo
 
 
   val outputArea = new ClockingArea(clockOut) {
-    val target = BufferCC(inputArea.target, if(clockIn.hasReset) False else null)
+    val target = BufferCC(inputArea.target, if(clockIn.hasResetSignal) False else null)
     val hit = RegNext(target)
 
     val flow = io.input.clone
@@ -163,7 +163,7 @@ class FlowCCByToggle[T <: Data](dataType: T, clockIn: ClockDomain, clockOut: Clo
     io.output <-< flow
   }
 
-  if(clockIn.hasReset){
+  if(clockIn.hasResetSignal){
     inputArea.target init(False)
     outputArea.hit init(False)
   }else{

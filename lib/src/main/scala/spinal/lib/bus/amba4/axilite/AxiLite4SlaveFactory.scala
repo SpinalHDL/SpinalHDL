@@ -6,13 +6,13 @@ import spinal.lib.bus.misc.{BusSlaveFactoryDelayed, BusSlaveFactoryRead, BusSlav
 import scala.collection.mutable.ArrayBuffer
 
 
-class AxiLiteSlaveFactory(bus : AxiLite) extends BusSlaveFactoryDelayed{
+class AxiLite4SlaveFactory(bus : AxiLite4) extends BusSlaveFactoryDelayed{
   val writeJoinEvent = StreamJoin(bus.writeCmd,bus.writeData)
-  val writeRsp = AxiLiteB(bus.config)
+  val writeRsp = AxiLite4B(bus.config)
   bus.writeRsp <-< writeJoinEvent.translateWith(writeRsp)
 
   val readDataStage = bus.readCmd.stage()
-  val readRsp = AxiLiteR(bus.config)
+  val readRsp = AxiLite4R(bus.config)
   bus.readRsp << readDataStage.translateWith(readRsp)
 
   override def build(): Unit = {

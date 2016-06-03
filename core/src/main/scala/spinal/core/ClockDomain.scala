@@ -42,7 +42,10 @@ object LOW extends ActiveKind
 // Default configuration of clock domain is :
 // Rising edge clock with optional asyncronous reset active high and optional active high clockEnable
 case class ClockDomainConfig(clockEdge: EdgeKind = RISING, resetKind: ResetKind = ASYNC, resetActiveLevel: ActiveKind = HIGH, clockEnableActiveLevel: ActiveKind = HIGH) {
-
+  val useResetPin = resetKind match{
+    case `ASYNC` | `SYNC` => true
+    case _ => false
+  }
 }
 
 //To use when you want to define a new clock domain by using internal signals
@@ -131,12 +134,22 @@ class ClockDomain(val config: ClockDomainConfig, val clock: Bool, val reset: Boo
   if (clockEnable != null) clockEnable.addTag(ClockEnableTag(this))
 
 
-  def hasClockEnable = clockEnable != null
-  def hasReset = reset != null
+  def hasClockEnableSignal = clockEnable != null
+  def hasResetSignal = reset != null
   def push() : Unit = ClockDomain.push(this)
   def pop(): Unit = ClockDomain.pop(this)
-  def isResetActive = if (config.resetActiveLevel == HIGH) readResetWire else !readResetWire
-  def isClockEnableActive = if (config.clockEnableActiveLevel == HIGH) readClockEnableWire else !readClockEnableWire
+  def isResetActive = {
+    if(config.useResetPin && reset != null)
+      if (config.resetActiveLevel == HIGH) readResetWire else !readResetWire
+    else
+      False
+  }
+  def isClockEnableActive = {
+    if(clockEnable != null)
+      if (config.clockEnableActiveLevel == HIGH) readClockEnableWire else !readClockEnableWire
+    else
+      True
+  }
   def readClockWire = if (null == clock) Bool(config.clockEdge == FALLING) else Data.doPull(clock, Component.current, true, true)
   def readResetWire = if (null == reset) Bool(config.resetActiveLevel == LOW) else Data.doPull(reset, Component.current, true, true)
   def readClockEnableWire = if (null == clockEnable) Bool(config.clockEnableActiveLevel == HIGH) else Data.doPull(clockEnable, Component.current, true, true)

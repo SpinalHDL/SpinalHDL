@@ -850,7 +850,13 @@ class VhdlBackend extends Backend with VhdlBase {
         case signal: BaseType => {
           if (!signal.isIo) {
             ret ++= s"  signal ${emitReference(signal)} : ${emitDataType(signal)}"
-            if (signal.hasTag(randomBoot)) {
+            val reg = if(signal.isReg) signal.input.asInstanceOf[Reg] else null
+            if(reg != null && reg.initialValue != null && reg.getClockDomain.config.resetKind == BOOT) {
+              ret ++= " := " + (reg.initialValue match {
+                case init : BaseType => emitLogic(init.getLiteral)
+                case init =>  emitLogic(init)
+              })
+            }else if (signal.hasTag(randomBoot)) {
               signal match {
                 case b: Bool => ret ++= " := " + {
                   if (Random.nextBoolean()) "'1'" else "'0'"
@@ -1461,7 +1467,7 @@ class VhdlBackend extends Backend with VhdlBase {
       val arrayWithoutReset = ArrayBuffer[SyncNode]()
 
       for (syncNode <- array) {
-        if (syncNode.isUsingReset) arrayWithReset += syncNode else arrayWithoutReset += syncNode
+        if (syncNode.isUsingResetSignal) arrayWithReset += syncNode else arrayWithoutReset += syncNode
       }
 
       emitClockDomain(true)
@@ -1609,7 +1615,7 @@ class VhdlBackend extends Backend with VhdlBase {
               if (memReadSync.writeToReadKind == writeFirst) SpinalError(s"Can't translate a memReadSync with writeFirst into VHDL $memReadSync")
               if (memReadSync.writeToReadKind == dontCare) SpinalWarning(s"memReadSync with dontCare is as readFirst into VHDL $memReadSync")
               if (memReadSync.useReadEnable) {
-                ret ++= s"${tab}if ${emitReference(memReadSync.getEnable)} = '1' then\n"
+                ret ++= s"${tab}if ${emitReference(memReadSync.getReadEnable)} = '1' then\n"
                 emitRead(tab + "  ")
                 ret ++= s"${tab}end if;\n"
               } else {
