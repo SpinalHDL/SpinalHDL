@@ -20,9 +20,9 @@ object AvalonMMSlaveFactory{
 }
 
 class AvalonMMSlaveFactory(bus : AvalonMM) extends BusSlaveFactoryDelayed{
-  assert(bus.c == AvalonMMSlaveFactory.getAvalonConfig(bus.c.addressWidth,bus.c.dataWidth))
+  assert(bus.config == AvalonMMSlaveFactory.getAvalonConfig(bus.config.addressWidth,bus.config.dataWidth))
 
-  val readAtCmd = Flow(Bits(bus.c.dataWidth bits))
+  val readAtCmd = Flow(Bits(bus.config.dataWidth bits))
   val readAtRsp = readAtCmd.stage()
 
   bus.readDataValid := readAtRsp.valid
@@ -62,5 +62,5 @@ class AvalonMMSlaveFactory(bus : AvalonMM) extends BusSlaveFactoryDelayed{
     }
   }
 
-  override def busDataWidth: Int = bus.c.dataWidth
+  override def busDataWidth: Int = bus.config.dataWidth
 }

@@ -116,8 +116,8 @@ object AvalonResponse extends SpinalEnum(sequancial){
   val OKAY,RESERVED,SLAVEERROR,DECODEERROR = newElement()
 }
 
-case class AvalonMM(c : AvalonMMConfig) extends Bundle with IMasterSlave{
-  import c._
+case class AvalonMM(config : AvalonMMConfig) extends Bundle with IMasterSlave{
+  import config._
   val read          = if(useRead)          Bool else null
   val write         = if(useWrite)         Bool else null
   val waitRequestn  = if(useWaitRequestn)  Bool else null

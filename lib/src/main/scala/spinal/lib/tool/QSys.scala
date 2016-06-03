@@ -147,7 +147,7 @@ class ClockDomainEmitter extends QSysifyInterfaceEmiter {
 class AvalonEmitter extends QSysifyInterfaceEmiter{
   override def emit(i: Data,builder : StringBuilder): Boolean = i match {
     case e: AvalonMM =>{
-      import e.c._
+      import e.config._
       val isMaster = e.address.isOutput
       val (masterPinDir,slavePinDir,startEnd) = if(isMaster) ("Output", "Input","start") else ("Input","Output","end")
       val name = e.getName()

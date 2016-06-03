@@ -41,7 +41,7 @@ class AvalonReadDma[T <: Data](dataType : T,c: AvalonReadDmaConfig) extends Comp
     }
   } otherwise {
     when(io.mem.fire) {
-      counter := counter + io.cmd.burstSize * io.mem.c.dataByteCount
+      counter := counter + io.cmd.burstSize * io.mem.config.dataByteCount
       when(counter === io.cmd.endAt) {
         active := False
         io.cmd.ready := True

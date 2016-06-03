@@ -20,7 +20,7 @@ object DebugExtension{
     )
 
   def avalonToDebugBus(avalon: AvalonMM,debug : DebugExtensionBus): Unit ={
-    assert(avalon.c == getAvalonMMConfig)
+    assert(avalon.config == getAvalonMMConfig)
     debug.cmd.valid := avalon.read || avalon.write
     debug.cmd.wr := avalon.write
     debug.cmd.address := avalon.address
