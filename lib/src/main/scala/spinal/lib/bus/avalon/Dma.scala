@@ -27,7 +27,7 @@ case class AvalonReadDmaConfig( addressWidth : Int,
 class AvalonReadDma[T <: Data](dataType : T,c: AvalonReadDmaConfig) extends Component {
   val io = new Bundle {
     val cmd = slave Stream (AvalonReadDmaCmd(c))
-    val mem = master(AvalonMMBus(c.getAvalonConfig))
+    val mem = master(AvalonMM(c.getAvalonConfig))
     val rsp = master Stream(dataType)
   }
 

@@ -18,7 +18,7 @@ object AvalonUartCtrl{
 
 class AvalonUartCtrl(uartCtrlConfig : UartCtrlGenerics, rxFifoDepth : Int) extends Component{
   val io = new Bundle{
-    val bus =  slave(AvalonMMBus(AvalonUartCtrl.getAvalonMMConfig))
+    val bus =  slave(AvalonMM(AvalonUartCtrl.getAvalonMMConfig))
     val uart = master(Uart())
   }
 

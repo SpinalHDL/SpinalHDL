@@ -29,12 +29,12 @@ object CoreQSysAvalon{
     }
 
     val io = new Bundle{
-      val i = master(AvalonMMBus(iConfig))
-      val d = master(AvalonMMBus(dConfig))
+      val i = master(AvalonMM(iConfig))
+      val d = master(AvalonMM(dConfig))
       val interrupt = if(interruptCount != 0) in(Bits(4 bit)) else null
       val debugResetIn = if(debug) in Bool else null
       val debugResetOut = if(debug) out Bool else null
-      val debugBus = if(debug) slave(AvalonMMBus(DebugExtension.getAvalonMMConfig)) else null
+      val debugBus = if(debug) slave(AvalonMM(DebugExtension.getAvalonMMConfig)) else null
     }
 
 

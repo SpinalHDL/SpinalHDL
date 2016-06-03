@@ -1,7 +1,7 @@
 package spinal.lib.system.debugger
 
 import spinal.core._
-import spinal.lib.bus.avalon.AvalonMMBus
+import spinal.lib.bus.avalon.AvalonMM
 import spinal.lib.bus.avalon._
 import spinal.lib._
 
@@ -42,10 +42,10 @@ case class SystemDebuggerMemBus(c: SystemDebuggerConfig) extends Bundle with IMa
 
   override def asSlave(): this.type = asMaster.flip()
 
-  def toAvalon(): AvalonMMBus = {
+  def toAvalon(): AvalonMM = {
     assert(c.memDataWidth == 32)
     val avalonConfig = c.getMemAvalonConfig
-    val mm = AvalonMMBus(avalonConfig)
+    val mm = AvalonMM(avalonConfig)
     mm.read := cmd.valid && !cmd.wr
     mm.write := cmd.valid && cmd.wr
     mm.address := cmd.address(cmd.address.high downto 2) @@ U"00"

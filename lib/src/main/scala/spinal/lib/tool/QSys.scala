@@ -2,7 +2,7 @@ package spinal.lib.tool
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.avalon.AvalonMMBus
+import spinal.lib.bus.avalon.AvalonMM
 
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, StringBuilder}
@@ -146,7 +146,7 @@ class ClockDomainEmitter extends QSysifyInterfaceEmiter {
 
 class AvalonEmitter extends QSysifyInterfaceEmiter{
   override def emit(i: Data,builder : StringBuilder): Boolean = i match {
-    case e: AvalonMMBus =>{
+    case e: AvalonMM =>{
       import e.c._
       val isMaster = e.address.isOutput
       val (masterPinDir,slavePinDir,startEnd) = if(isMaster) ("Output", "Input","start") else ("Input","Output","end")

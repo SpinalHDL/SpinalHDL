@@ -17,7 +17,7 @@ import scala.collection.mutable.ArrayBuffer
 
 trait BranchPrediction
 object disable extends BranchPrediction
-object static extends BranchPrediction
+object static  extends BranchPrediction
 object dynamic extends BranchPrediction
 
 trait RegFileReadKind
@@ -71,6 +71,7 @@ object CoreInstructionBus{
     addressWidth = p.addrWidth,
     dataWidth = 32
   ).getReadOnlyConfig.copy(
+    useByteEnable = true,
     maximumPendingReadTransactions = 1
   )
 }
@@ -108,9 +109,9 @@ case class CoreInstructionBus(implicit val p : CoreConfig) extends Bundle with I
 //    axi
 //  }
 
-  def toAvalon(): AvalonMMBus = {
+  def toAvalon(): AvalonMM = {
     val avalonConfig = CoreInstructionBus.getAvalonConfig(p)
-    val mm = AvalonMMBus(avalonConfig)
+    val mm = AvalonMM(avalonConfig)
     val pendingCmd = RegInit(False)
     pendingCmd := (pendingCmd && !mm.readDataValid) || mm.fire
     val haltCmd = rsp.isStall || (pendingCmd && !mm.readDataValid) // Don't overflow the backupFifo and don't have more than one pending cmd
@@ -156,9 +157,9 @@ case class CoreDataBus(implicit p : CoreConfig) extends Bundle with IMasterSlave
 
   override def asSlave(): this.type = asMaster.flip()
 
-  def toAvalon(): AvalonMMBus = {
+  def toAvalon(): AvalonMM = {
     val avalonConfig = CoreDataBus.getAvalonConfig(p)
-    val mm = AvalonMMBus(avalonConfig)
+    val mm = AvalonMM(avalonConfig)
     mm.read := cmd.valid && !cmd.wr
     mm.write := cmd.valid && cmd.wr
     mm.address := cmd.address(cmd.address.high downto 2) @@ U"00"

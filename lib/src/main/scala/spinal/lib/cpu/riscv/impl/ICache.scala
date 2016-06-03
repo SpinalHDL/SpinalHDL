@@ -5,7 +5,7 @@ import java.text.AttributedString
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.avalon.{AvalonMMBus, AvalonMMConfig}
+import spinal.lib.bus.avalon.{AvalonMM, AvalonMMConfig}
 
 
 case class InstructionCacheConfig( cacheSize : Int,
@@ -67,9 +67,9 @@ case class InstructionCacheMemBus(implicit p : InstructionCacheConfig) extends B
 
   override def asSlave(): this.type = asMaster.flip()
 
-  def toAvalon(): AvalonMMBus = {
+  def toAvalon(): AvalonMM = {
     val avalonConfig = p.getAvalonConfig()
-    val mm = AvalonMMBus(avalonConfig)
+    val mm = AvalonMM(avalonConfig)
     mm.read := cmd.valid
     mm.burstCount := U(p.burstSize)
     mm.address := cmd.address

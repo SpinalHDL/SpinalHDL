@@ -3,7 +3,7 @@ package spinal.lib.graphic.vga
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.avalon.{AvalonMMBus, AvalonMMConfig}
+import spinal.lib.bus.avalon.{AvalonMM, AvalonMMConfig}
 import spinal.lib.bus.neutral.NeutralStreamDma
 import spinal.lib.graphic._
 import spinal.lib.tool.QSysify
@@ -16,7 +16,7 @@ case class AvalonVgaConfig(rgbConfig : RgbConfig){
 class AvalonVgaCtrl(cDma : NeutralStreamDma.Config,cColor : RgbConfig) extends Component{
   val io = new Bundle{
 //    val control = slave (AvalonMMBus(c.getControlConfig))
-    val mem = master (AvalonMMBus(cDma.getAvalonConfig))
+    val mem = master (AvalonMM(cDma.getAvalonConfig))
     val vga = master(Vga(cColor))
   }
 

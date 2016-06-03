@@ -16,10 +16,10 @@ object AvalonMMSlaveFactory{
     )
   }
 
-  def apply(bus : AvalonMMBus) = new AvalonMMSlaveFactory(bus)
+  def apply(bus : AvalonMM) = new AvalonMMSlaveFactory(bus)
 }
 
-class AvalonMMSlaveFactory(bus : AvalonMMBus) extends BusSlaveFactoryDelayed{
+class AvalonMMSlaveFactory(bus : AvalonMM) extends BusSlaveFactoryDelayed{
   assert(bus.c == AvalonMMSlaveFactory.getAvalonConfig(bus.c.addressWidth,bus.c.dataWidth))
 
   val readAtCmd = Flow(Bits(bus.c.dataWidth bits))
