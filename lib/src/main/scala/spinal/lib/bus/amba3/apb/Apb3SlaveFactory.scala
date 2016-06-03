@@ -11,6 +11,7 @@ object Apb3SlaveFactory {
 class Apb3SlaveFactory(bus : Apb3,selId : Int) extends BusSlaveFactoryDelayed{
   bus.PREADY := True
   bus.PRDATA := 0
+  if(bus.config.useSlaveError) bus.PSLVERROR := False
 
   val doWrite = bus.PSEL(selId) && bus.PENABLE &&  bus.PWRITE
   val doRead  = bus.PSEL(selId) && bus.PENABLE && !bus.PWRITE
@@ -46,5 +47,5 @@ class Apb3SlaveFactory(bus : Apb3,selId : Int) extends BusSlaveFactoryDelayed{
     }
   }
 
-  override def busDataWidth: Int = bus.c.dataWidth
+  override def busDataWidth: Int = bus.config.dataWidth
 }
