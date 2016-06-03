@@ -35,6 +35,7 @@ import spinal.lib._
   */
 object Axi4{
   object size{
+    def apply() = Bits(3 bits)
     def BYTE_1   = B"000"
     def BYTE_2   = B"001"
     def BYTE_4   = B"010"
@@ -46,6 +47,7 @@ object Axi4{
   }
 
   object awcache{
+    def apply() = Bits(4 bits)
     def OTHER      = B"1000"
     def ALLOCATE   = B"0100"
     def MODIFIABLE = B"0010"
@@ -53,6 +55,7 @@ object Axi4{
   }
 
   object arcache{
+    def apply() = Bits(4 bits)
     def ALLOCATE   = B"1000"
     def OTHER      = B"0100"
     def MODIFIABLE = B"0010"
@@ -60,6 +63,7 @@ object Axi4{
   }
 
   object burst{
+    def apply() = Bits(2 bits)
     def FIXED    = B"00"
     def INCR     = B"01"
     def WRAP     = B"10"
@@ -67,6 +71,7 @@ object Axi4{
   }
 
   object lock{
+    def apply() = Bits(2 bits)
     def NORMAL    = B"00"
     def EXCLUSIVE = B"01"
     def LOCKED    = B"10"
@@ -74,6 +79,7 @@ object Axi4{
   }
 
   object resp{
+    def apply() = Bits(2 bits)
     def OKAY   = B"00" // Normal access success
     def EXOKAY = B"01" // Exclusive access okay
     def SLVERR = B"10" // Slave error
@@ -196,9 +202,17 @@ class Axi4B(config: Axi4Config) extends Bundle {
   * Definition of the Read Data channel
   * @param config Axi4 configuration class
   */
-class Axi4R(config: Axi4Config) extends Axi4B(config) {
+class Axi4R(config: Axi4Config) extends Bundle {
   val data = Bits(config.addressWidth bits)
-  val last = if(config.useLen)  Bool  else null
+  val resp = if(config.useResp) Bits(2 bits)               else null
+  val last = if(config.useLen)  Bool                       else null
+
+  import Axi4.resp._
+
+  def setOKAY()   : Unit = resp := OKAY
+  def setEXOKAY() : Unit = resp := EXOKAY
+  def setSLVERR() : Unit = resp := SLVERR
+  def setDECERR() : Unit = resp := DECERR
 }
 
 
