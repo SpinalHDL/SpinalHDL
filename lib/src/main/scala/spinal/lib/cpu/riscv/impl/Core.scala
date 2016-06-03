@@ -89,12 +89,13 @@ case class CoreInstructionBus(implicit val p : CoreConfig) extends Bundle with I
 
   override def asSlave(): CoreInstructionBus.this.type = asMaster.flip()
 
-  def toAxiRead(): AxiReadOnly ={
+  def toAxiRead(): AxiBus ={
     val axiParameters = AxiConfig(
       addressWidth = 32,
-      dataWidth = 32
+      dataWidth = 32,
+      mode = READ_ONLY
     )
-    val axi = new AxiReadOnly(axiParameters)
+    val axi = new AxiBus(axiParameters)
 
     axi.readCmd.translateFrom(cmd)((to,from) => {
       to.addr := from.pc

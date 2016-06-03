@@ -1,178 +1,260 @@
+/******************************************************************************
+  *  This file describes the AXI4 interface
+  *
+  *   _________________________________________________________________________
+  *  | Global | Write Data | Write Addr | Write Resp | Read Data  | Read Addr  |
+  *  |   -    |    w       |    aw      |      b     |     r      |     ar     |
+  *  |-------------------------------------------------------------------------|
+  *  |  aclk  |  wid       |  *awid     |  *bid      |  *arid     |  rid       |
+  *  |  arstn |  wdata     |  awaddr    |  *bresp    |  araddr    |  rdata     |
+  *  |        |  *wstrb    |  *awlen    |  buser     |  *arlen    |  rresp     |
+  *  |        |  wlast     |  *awsize   |  bvalid    |  *arsize   |  rlast     |
+  *  |        |  *wuser    |  *awburst  |  bready    |  *arburst  |  *ruser    |
+  *  |        |  wvalid    |  *awlock   |            |  *arlock   |  rvalid    |
+  *  |        |  wready    |  *awcache  |            |  *arcache  |  rready    |
+  *  |        |            |  awprot    |            |  arprot    |            |
+  *  |        |            |  *awqos    |            |  *arqos    |            |
+  *  |        |            |  *awregion |            |  *arregion |            |
+  *  |        |            |  *awuser   |            |  *aruser   |            |
+  *  |        |            |  awvalid   |            |  arvalid   |            |
+  *  |        |            |  awready   |            |  arready   |            |
+  *  |________|____________|____________|____________|____________|____________|
+  *   * Optional signal
+  * @TODO add signals for the low power ???
+  */
+
+
 package spinal.lib.bus.amba4.axi
 
 import spinal.core._
 import spinal.lib._
+
+
 /**
- * Created by PIC32F_USER on 21/03/2016.
- */
+  * Definition of the constants used by the AXI4 bus
+  */
+object AxiCst{
 
-object AxiBurst extends SpinalEnum(sequancial){
-  val FIXED,INCR,WRAP = newElement()
-}
-object AxiLock extends SpinalEnum(sequancial){
-  val NORMAL,EXCLUSIVE,LOCKED = newElement()
-}
-object AxiResp extends SpinalEnum(sequancial){
-  val OKAY,EXOKAY,SLVERR,DECERR = newElement()
+  object size{
+    val BYTE_1   = B"000"
+    val BYTE_2   = B"001"
+    val BYTE_4   = B"010"
+    val BYTE_8   = B"011"
+    val BYTE_16  = B"100"
+    val BYTE_32  = B"101"
+    val BYTE_64  = B"110"
+    val BYTE_128 = B"111"
+  }
+
+  object awcache{
+    val OTHER      = B"1000"
+    val ALLOCATE   = B"0100"
+    val MODIFIABLE = B"0010"
+    val BUFFERABLE = B"0001"
+  }
+
+  object arcache{
+    val ALLOCATE   = B"1000"
+    val OTHER      = B"0100"
+    val MODIFIABLE = B"0010"
+    val BUFFERABLE = B"0001"
+  }
+
+  object burst{
+    val FIXED    = B"00"
+    val INCR     = B"01"
+    val WRAP     = B"10"
+    val RESERVED = B"11"
+  }
+
+  object lock{
+    val NORMAL    = B"00"
+    val EXCLUSIVE = B"01"
+    val LOCKED    = B"10"
+    val RESERVED  = B"11"
+  }
+
+  object resp{
+    val OKAY   = B"00" // Normal access success
+    val EXOKAY = B"01" // Exclusive access okay
+    val SLVERR = B"10" // Slave error
+    val DECERR = B"11" // Decode error
+  }
 }
 
-case class AxiConfig( addressWidth: Int,
-                      dataWidth: Int,
-                      useId : Boolean = false,
-                      useRegion : Boolean = false,
-                      useBurst : Boolean = false,
-                      useLock : Boolean = false,
-                      useCache : Boolean = false,
-                      useSize : Boolean = false,
-                      useQos : Boolean = false,
-                      useLen : Boolean = false,
-                      useResp : Boolean = false,
-                      useUser : Boolean = false,
-                      useStrb : Boolean = false,
-                      lenWidth : Int = -1 ,
-                      idWidth : Int = -1,
-                      userWidth : Int = -1 ) {
+
+
+/**
+  * Define all access modes
+  */
+trait AxiMode{
+  def write = false
+  def read = false
+}
+object WRITE_ONLY extends AxiMode{
+  override def write = true
+}
+object READ_ONLY extends AxiMode{
+  override def read = true
+}
+object READ_WRITE extends AxiMode{
+  override def write = true
+  override def read = true
+}
+
+/**
+  * Configuration class for the AXI4 bus
+  */
+case class AxiConfig( addressWidth : Int,
+                      dataWidth    : Int,
+                      useId        : Boolean = false,
+                      useRegion    : Boolean = false,
+                      useBurst     : Boolean = false,
+                      useLock      : Boolean = false,
+                      useCache     : Boolean = false,
+                      useSize      : Boolean = false,
+                      useQos       : Boolean = false,
+                      useLen       : Boolean = false,
+                      useResp      : Boolean = false,
+                      useUser      : Boolean = false,
+                      useStrb      : Boolean = false,
+                      lenWidth     : Int = -1 ,
+                      idWidth      : Int = -1,
+                      userWidth    : Int = -1 ,
+                      mode         : AxiMode = READ_WRITE ) {
+
   def dataByteCount = dataWidth/8
-  val sizeWidth = if(useSize) log2Up(log2Up(dataByteCount)) else 0
-}
 
-case class AxiAw(p: AxiConfig) extends Bundle {
-  val id = if(p.useId) UInt(p.idWidth bit) else null
-  val addr = UInt(p.addressWidth bit)
-  val region = if(p.useRegion)Bits(4 bit) else null
-  val len = if(p.useLen) UInt(p.lenWidth bit) else null
-  val size = if(p.useSize) UInt(p.sizeWidth bit) else null
-  val burst = if(p.useBurst) AxiBurst() else null
-  val lock = if(p.useLock) AxiLock() else null
-  val cache = if(p.useCache) Bits(4 bit) else null
-  val qos = if(p.useQos) UInt(4 bit) else null
-  val user = if(p.useUser) UInt(p.userWidth bit) else null
-  val prot = Bits(3 bit)
-}
-
-case class AxiW(p: AxiConfig) extends Bundle {
-  val data = Bits(p.addressWidth bit)
-  val strb = if(p.useStrb) UInt(p.dataByteCount bit) else null
-  val user = if(p.useUser) UInt(p.userWidth bit) else null
-  val last = if(p.useLen) Bool else null
 }
 
 
-case class AxiAr(p: AxiConfig) extends Bundle {
-  val id = if(p.useId) UInt(p.idWidth bit) else null
-  val addr = UInt(p.addressWidth bit)
-  val region = if(p.useRegion)Bits(4 bit) else null
-  val len = if(p.useLen) UInt(p.lenWidth bit) else null
-  val size = if(p.useSize) UInt(p.sizeWidth bit) else null
-  val burst = if(p.useBurst) AxiBurst() else null
-  val lock = if(p.useLock) AxiLock() else null
-  val cache = if(p.useCache) Bits(4 bit) else null
-  val qos = if(p.useQos) UInt(4 bit) else null
-  val user = if(p.useUser) UInt(p.userWidth bit) else null
-  val prot = Bits(3 bit)
+/**
+  * Definition of the Write/Read address channel
+  * @param config AXI4 configuration class
+  */
+case class AxiAx(config: AxiConfig) extends Bundle {
+
+  val addr   = UInt(config.addressWidth bits)
+  val id     = if(config.useId)     UInt(config.idWidth bits)   else null
+  val region = if(config.useRegion) Bits(4 bits)                else null
+  val len    = if(config.useLen)    UInt(config.lenWidth bits)  else null
+  val size   = if(config.useSize)   Bits(3 bits)                else null
+  val burst  = if(config.useBurst)  Bits(2 bits)                else null
+  val lock   = if(config.useLock)   Bits(2 bits)                else null
+  val cache  = if(config.useCache)  Bits(4 bits)                else null
+  val qos    = if(config.useQos)    Bits(4 bits)                else null
+  val user   = if(config.useUser)   Bits(config.userWidth bits) else null
+  val prot   = Bits(3 bits)
+
+  import AxiCst.burst._
+
+  def setBurstFIXED(): Unit = if(config.useBurst) burst := FIXED
+  def setBurstWRAP() : Unit = if(config.useBurst) burst := WRAP
+  def setBurstINCR() : Unit = if(config.useBurst) burst := INCR
+
+  def setSize(sizeBurst :Bits) : Unit = if(config.useBurst) size := sizeBurst
+
+  def setLock(lockType :Bits) : Unit = if(config.useLock) lock := lockType
+
+  def setCache(cacheType : Bits) : Unit = if (config.useCache ) cache := cacheType
+
 }
 
-case class AxiR(p: AxiConfig) extends Bundle {
-  val id = if(p.useId) UInt(p.idWidth bit) else null
-  val data = Bits(p.addressWidth bit)
-  val resp = if(p.useResp) AxiResp() else null
-  val user = if(p.useUser) UInt(p.userWidth bit) else null
-  val last = if(p.useLen) Bool else null
+
+/**
+  * Definition of the Write data channel
+  * @param config AXI4 configuration class
+  */
+case class AxiW(config: AxiConfig) extends Bundle {
+
+  val data = Bits(config.addressWidth bits)
+  val strb = if(config.useStrb) Bits(config.dataByteCount bits) else null
+  val user = if(config.useUser) Bits(config.userWidth bits)     else null
+  val last = if(config.useLen)  Bool                            else null
+
+  def setStrb : Unit = if(config.useStrb) strb := (1 << widthOf(strb))-1
+  def setStrb(bytesLane : Bits) : Unit = if(config.useStrb) strb := bytesLane
 }
 
 
+/**
+  * Definition of the Write response channel
+  * @param config AXI4 configuration class
+  */
+class AxiB(config: AxiConfig) extends Bundle {
 
+  val id   = if(config.useId)   UInt(config.idWidth bits)   else null
+  val resp = if(config.useResp) Bits(2 bits)                else null
+  val user = if(config.useUser) UInt(config.userWidth bits) else null
 
+  import AxiCst.resp._
 
-case class AxiB(p: AxiConfig) extends Bundle {
-  val id = if(p.useId) UInt(p.idWidth bit) else null
-  val resp = if(p.useResp) AxiResp() else null
-  val user = if(p.useUser) UInt(p.userWidth bit) else null
+  def setOKAY()   : Unit = resp := OKAY
+  def setEXOKAY() : Unit = resp := EXOKAY
+  def setSLVERR() : Unit = resp := SLVERR
+  def setDECERR() : Unit = resp := DECERR
 }
 
 
+/**
+  * Definition of the Read Data channel
+  * @param config AXI4 configuration class
+  */
+class AxiR(config: AxiConfig) extends AxiB(config) {
+
+  val data = Bits(config.addressWidth bits)
+  val last = if(config.useLen)  Bool  else null
+}
 
 
+/**
+  * AXI4 interface definition
+  * @param config AXI4 configuration class
+  */
 case class AxiBus(config: AxiConfig) extends Bundle with IMasterSlave {
-  val aw = Stream(AxiAw(config))
-  val w = Stream(AxiW(config))
-  val b = Stream(AxiB(config))
-  val ar = Stream(AxiAr(config))
-  val r = Stream(AxiR(config))
 
-  def writeCmd = aw
+  val aw = if(config.mode.write) Stream(AxiAx(config))     else null
+  val w  = if(config.mode.write) Stream(AxiW(config))      else null
+  val b  = if(config.mode.write) Stream(new AxiB(config))  else null
+  val ar = if(config.mode.read)  Stream(AxiAx(config))     else null
+  val r  = if(config.mode.read)  Stream(new AxiR(config))  else null
+
+  def writeCmd  = aw
   def writeData = w
-  def writeRsp = b
-  def readCmd = ar
-  def readRsp = r
+  def writeRsp  = b
+  def readCmd   = ar
+  def readRsp   = r
 
   def >> (that : AxiBus) : Unit = {
     assert(that.config == this.config)
-    this.writeCmd >> that.writeCmd
-    this.writeData >> that.writeData
-    this.writeRsp << that.writeRsp
+
+    if(config.mode.write){
+      this.writeCmd  >> that.writeCmd
+      this.writeData >> that.writeData
+      this.writeRsp  << that.writeRsp
+    }
+
+    if(config.mode.read) {
+      this.readCmd  >> that.readCmd
+      this.readRsp  << that.readRsp
+    }
+
   }
 
   def <<(that : AxiBus) : Unit = that >> this
 
   override def asMaster(): this.type = {
-    aw.asMaster()
-    w.asMaster()
-    b.asSlave()
+
+    if(config.mode.write){
+      master(aw,w)
+      slave(b)
+    }
+    if(config.mode.read) {
+      master(ar)
+      slave(r)
+    }
     this
   }
 
-  override def asSlave(): this.type = asMaster().flip()
 }
 
-case class AxiWriteOnly(config: AxiConfig) extends Bundle with IMasterSlave {
-  val aw = Stream(AxiAw(config))
-  val w = Stream(AxiW(config))
-  val b = Stream(AxiB(config))
-
-  def writeCmd = aw
-  def writeData = w
-  def writeRsp = b
-
-  def >> (that : AxiWriteOnly) : Unit = {
-    assert(that.config == this.config)
-    this.writeCmd >> that.writeCmd
-    this.writeData >> that.writeData
-    this.writeRsp << that.writeRsp
-  }
-
-  def <<(that : AxiWriteOnly) : Unit = that >> this
-
-  override def asMaster(): this.type = {
-    aw.asMaster()
-    w.asMaster()
-    b.asSlave()
-    this
-  }
-
-  override def asSlave(): this.type = asMaster().flip()
-}
-
-case class AxiReadOnly(config: AxiConfig) extends Bundle with IMasterSlave {
-  val ar = Stream(AxiAr(config))
-  val r = Stream(AxiR(config))
-
-  def readCmd = ar
-  def readRsp = r
-
-  def >> (that : AxiReadOnly) : Unit = {
-    assert(that.config == this.config)
-    this.readCmd >> that.readCmd
-    this.readRsp << that.readRsp
-  }
-
-  def <<(that : AxiReadOnly) : Unit = that >> this
-
-  override def asMaster(): this.type = {
-    ar.asMaster()
-    r.asSlave()
-    this
-  }
-
-  override def asSlave(): this.type = asMaster().flip()
-}
