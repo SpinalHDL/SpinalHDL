@@ -110,7 +110,7 @@ object READ_WRITE extends Axi4Mode{
 /**
   * Configuration class for the Axi4 bus
   */
-case class Axi4Config( addressWidth : Int,
+case class Axi4Config(addressWidth : Int,
                       dataWidth    : Int,
                       useId        : Boolean = false,
                       useRegion    : Boolean = false,
@@ -184,7 +184,7 @@ case class Axi4W(config: Axi4Config) extends Bundle {
   * Definition of the Write response channel
   * @param config Axi4 configuration class
   */
-class Axi4B(config: Axi4Config) extends Bundle {
+case class Axi4B(config: Axi4Config) extends Bundle {
   val id   = if(config.useId)   UInt(config.idWidth bits)   else null
   val resp = if(config.useResp) Bits(2 bits)                else null
   val user = if(config.useUser) UInt(config.userWidth bits) else null
@@ -202,7 +202,7 @@ class Axi4B(config: Axi4Config) extends Bundle {
   * Definition of the Read Data channel
   * @param config Axi4 configuration class
   */
-class Axi4R(config: Axi4Config) extends Bundle {
+case class Axi4R(config: Axi4Config) extends Bundle {
   val data = Bits(config.addressWidth bits)
   val resp = if(config.useResp) Bits(2 bits)               else null
   val last = if(config.useLen)  Bool                       else null
@@ -221,11 +221,12 @@ class Axi4R(config: Axi4Config) extends Bundle {
   * @param config Axi4 configuration class
   */
 case class Axi4(config: Axi4Config) extends Bundle with IMasterSlave {
+
   val aw = if(config.mode.write) Stream(Axi4Ax(config))     else null
   val w  = if(config.mode.write) Stream(Axi4W(config))      else null
-  val b  = if(config.mode.write) Stream(new Axi4B(config))  else null
+  val b  = if(config.mode.write) Stream(Axi4B(config))      else null
   val ar = if(config.mode.read)  Stream(Axi4Ax(config))     else null
-  val r  = if(config.mode.read)  Stream(new Axi4R(config))  else null
+  val r  = if(config.mode.read)  Stream(Axi4R(config))      else null
 
   def writeCmd  = aw
   def writeData = w
