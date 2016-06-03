@@ -89,24 +89,24 @@ case class CoreInstructionBus(implicit val p : CoreConfig) extends Bundle with I
 
   override def asSlave(): CoreInstructionBus.this.type = asMaster.flip()
 
-  def toAxiRead(): AxiBus ={
-    val axiParameters = AxiConfig(
-      addressWidth = 32,
-      dataWidth = 32,
-      mode = READ_ONLY
-    )
-    val axi = new AxiBus(axiParameters)
-
-    axi.readCmd.translateFrom(cmd)((to,from) => {
-      to.addr := from.pc
-      to.prot := 0
-    })
-    rsp.translateFrom(axi.readRsp)((to,from) => {
-      to.instruction := from.data
-    })
-
-    axi
-  }
+//  def toAxiRead(): AxiBus ={
+//    val axiParameters = Axi4Config(
+//      addressWidth = 32,
+//      dataWidth = 32,
+//      mode = READ_ONLY
+//    )
+//    val axi = new AxiBus(axiParameters)
+//
+//    axi.readCmd.translateFrom(cmd)((to,from) => {
+//      to.addr := from.pc
+//      to.prot := 0
+//    })
+//    rsp.translateFrom(axi.readRsp)((to,from) => {
+//      to.instruction := from.data
+//    })
+//
+//    axi
+//  }
 
   def toAvalon(): AvalonMMBus = {
     val avalonConfig = CoreInstructionBus.getAvalonConfig(p)

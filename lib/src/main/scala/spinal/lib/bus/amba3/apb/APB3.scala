@@ -10,7 +10,7 @@ case class Apb3Config(
   useSlaveError : Boolean
 )
 
-class Apb3(val c: Apb3Config) extends Bundle with IMasterSlave {
+case class Apb3(val c: Apb3Config) extends Bundle with IMasterSlave {
   val PADDR    = UInt(c.addressWidth bit)
   val PSEL    = Bits(c.selWidth bits)
   val PENABLE = Bool

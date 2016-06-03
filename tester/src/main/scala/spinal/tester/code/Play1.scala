@@ -2571,11 +2571,11 @@ object PlaySel {
   }
 }
 
-object PlayAxiLite {
+object PlayAxiLite4 {
   class TopLevel extends Component {
-    val axiLiteConfig = AxiLiteConfig(32, 32)
-    val peon   = slave(AxiLite(axiLiteConfig))
-    val maitre = master(AxiLite(axiLiteConfig))
+    val axiLiteConfig = AxiLite4Config(32, 32)
+    val peon   = slave(AxiLite4(axiLiteConfig))
+    val maitre = master(AxiLite4(axiLiteConfig))
     peon >> maitre
   }
 

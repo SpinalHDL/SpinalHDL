@@ -1,5 +1,5 @@
 /******************************************************************************
-  *  This file describes the AXI4 interface
+  *  This file describes the Axi4 interface
   *
   *   _________________________________________________________________________
   *  | Global | Write Data | Write Addr | Write Resp | Read Data  | Read Addr  |
@@ -31,54 +31,53 @@ import spinal.lib._
 
 
 /**
-  * Definition of the constants used by the AXI4 bus
+  * Definition of the constants used by the Axi4 bus
   */
-object AxiCst{
-
+object Axi4{
   object size{
-    val BYTE_1   = B"000"
-    val BYTE_2   = B"001"
-    val BYTE_4   = B"010"
-    val BYTE_8   = B"011"
-    val BYTE_16  = B"100"
-    val BYTE_32  = B"101"
-    val BYTE_64  = B"110"
-    val BYTE_128 = B"111"
+    def BYTE_1   = B"000"
+    def BYTE_2   = B"001"
+    def BYTE_4   = B"010"
+    def BYTE_8   = B"011"
+    def BYTE_16  = B"100"
+    def BYTE_32  = B"101"
+    def BYTE_64  = B"110"
+    def BYTE_128 = B"111"
   }
 
   object awcache{
-    val OTHER      = B"1000"
-    val ALLOCATE   = B"0100"
-    val MODIFIABLE = B"0010"
-    val BUFFERABLE = B"0001"
+    def OTHER      = B"1000"
+    def ALLOCATE   = B"0100"
+    def MODIFIABLE = B"0010"
+    def BUFFERABLE = B"0001"
   }
 
   object arcache{
-    val ALLOCATE   = B"1000"
-    val OTHER      = B"0100"
-    val MODIFIABLE = B"0010"
-    val BUFFERABLE = B"0001"
+    def ALLOCATE   = B"1000"
+    def OTHER      = B"0100"
+    def MODIFIABLE = B"0010"
+    def BUFFERABLE = B"0001"
   }
 
   object burst{
-    val FIXED    = B"00"
-    val INCR     = B"01"
-    val WRAP     = B"10"
-    val RESERVED = B"11"
+    def FIXED    = B"00"
+    def INCR     = B"01"
+    def WRAP     = B"10"
+    def RESERVED = B"11"
   }
 
   object lock{
-    val NORMAL    = B"00"
-    val EXCLUSIVE = B"01"
-    val LOCKED    = B"10"
-    val RESERVED  = B"11"
+    def NORMAL    = B"00"
+    def EXCLUSIVE = B"01"
+    def LOCKED    = B"10"
+    def RESERVED  = B"11"
   }
 
   object resp{
-    val OKAY   = B"00" // Normal access success
-    val EXOKAY = B"01" // Exclusive access okay
-    val SLVERR = B"10" // Slave error
-    val DECERR = B"11" // Decode error
+    def OKAY   = B"00" // Normal access success
+    def EXOKAY = B"01" // Exclusive access okay
+    def SLVERR = B"10" // Slave error
+    def DECERR = B"11" // Decode error
   }
 }
 
@@ -87,25 +86,25 @@ object AxiCst{
 /**
   * Define all access modes
   */
-trait AxiMode{
+trait Axi4Mode{
   def write = false
   def read = false
 }
-object WRITE_ONLY extends AxiMode{
+object WRITE_ONLY extends Axi4Mode{
   override def write = true
 }
-object READ_ONLY extends AxiMode{
+object READ_ONLY extends Axi4Mode{
   override def read = true
 }
-object READ_WRITE extends AxiMode{
+object READ_WRITE extends Axi4Mode{
   override def write = true
   override def read = true
 }
 
 /**
-  * Configuration class for the AXI4 bus
+  * Configuration class for the Axi4 bus
   */
-case class AxiConfig( addressWidth : Int,
+case class Axi4Config( addressWidth : Int,
                       dataWidth    : Int,
                       useId        : Boolean = false,
                       useRegion    : Boolean = false,
@@ -121,7 +120,7 @@ case class AxiConfig( addressWidth : Int,
                       lenWidth     : Int = -1 ,
                       idWidth      : Int = -1,
                       userWidth    : Int = -1 ,
-                      mode         : AxiMode = READ_WRITE ) {
+                      mode         : Axi4Mode = READ_WRITE ) {
 
   def dataByteCount = dataWidth/8
 
@@ -130,10 +129,9 @@ case class AxiConfig( addressWidth : Int,
 
 /**
   * Definition of the Write/Read address channel
-  * @param config AXI4 configuration class
+  * @param config Axi4 configuration class
   */
-case class AxiAx(config: AxiConfig) extends Bundle {
-
+case class Axi4Ax(config: Axi4Config) extends Bundle {
   val addr   = UInt(config.addressWidth bits)
   val id     = if(config.useId)     UInt(config.idWidth bits)   else null
   val region = if(config.useRegion) Bits(4 bits)                else null
@@ -146,7 +144,7 @@ case class AxiAx(config: AxiConfig) extends Bundle {
   val user   = if(config.useUser)   Bits(config.userWidth bits) else null
   val prot   = Bits(3 bits)
 
-  import AxiCst.burst._
+  import Axi4.burst._
 
   def setBurstFIXED(): Unit = if(config.useBurst) burst := FIXED
   def setBurstWRAP() : Unit = if(config.useBurst) burst := WRAP
@@ -163,10 +161,9 @@ case class AxiAx(config: AxiConfig) extends Bundle {
 
 /**
   * Definition of the Write data channel
-  * @param config AXI4 configuration class
+  * @param config Axi4 configuration class
   */
-case class AxiW(config: AxiConfig) extends Bundle {
-
+case class Axi4W(config: Axi4Config) extends Bundle {
   val data = Bits(config.addressWidth bits)
   val strb = if(config.useStrb) Bits(config.dataByteCount bits) else null
   val user = if(config.useUser) Bits(config.userWidth bits)     else null
@@ -179,15 +176,14 @@ case class AxiW(config: AxiConfig) extends Bundle {
 
 /**
   * Definition of the Write response channel
-  * @param config AXI4 configuration class
+  * @param config Axi4 configuration class
   */
-class AxiB(config: AxiConfig) extends Bundle {
-
+class Axi4B(config: Axi4Config) extends Bundle {
   val id   = if(config.useId)   UInt(config.idWidth bits)   else null
   val resp = if(config.useResp) Bits(2 bits)                else null
   val user = if(config.useUser) UInt(config.userWidth bits) else null
 
-  import AxiCst.resp._
+  import Axi4.resp._
 
   def setOKAY()   : Unit = resp := OKAY
   def setEXOKAY() : Unit = resp := EXOKAY
@@ -198,26 +194,24 @@ class AxiB(config: AxiConfig) extends Bundle {
 
 /**
   * Definition of the Read Data channel
-  * @param config AXI4 configuration class
+  * @param config Axi4 configuration class
   */
-class AxiR(config: AxiConfig) extends AxiB(config) {
-
+class Axi4R(config: Axi4Config) extends Axi4B(config) {
   val data = Bits(config.addressWidth bits)
   val last = if(config.useLen)  Bool  else null
 }
 
 
 /**
-  * AXI4 interface definition
-  * @param config AXI4 configuration class
+  * Axi4 interface definition
+  * @param config Axi4 configuration class
   */
-case class AxiBus(config: AxiConfig) extends Bundle with IMasterSlave {
-
-  val aw = if(config.mode.write) Stream(AxiAx(config))     else null
-  val w  = if(config.mode.write) Stream(AxiW(config))      else null
-  val b  = if(config.mode.write) Stream(new AxiB(config))  else null
-  val ar = if(config.mode.read)  Stream(AxiAx(config))     else null
-  val r  = if(config.mode.read)  Stream(new AxiR(config))  else null
+case class Axi4(config: Axi4Config) extends Bundle with IMasterSlave {
+  val aw = if(config.mode.write) Stream(Axi4Ax(config))     else null
+  val w  = if(config.mode.write) Stream(Axi4W(config))      else null
+  val b  = if(config.mode.write) Stream(new Axi4B(config))  else null
+  val ar = if(config.mode.read)  Stream(Axi4Ax(config))     else null
+  val r  = if(config.mode.read)  Stream(new Axi4R(config))  else null
 
   def writeCmd  = aw
   def writeData = w
@@ -225,7 +219,7 @@ case class AxiBus(config: AxiConfig) extends Bundle with IMasterSlave {
   def readCmd   = ar
   def readRsp   = r
 
-  def >> (that : AxiBus) : Unit = {
+  def >> (that : Axi4) : Unit = {
     assert(that.config == this.config)
 
     if(config.mode.write){
@@ -241,10 +235,9 @@ case class AxiBus(config: AxiConfig) extends Bundle with IMasterSlave {
 
   }
 
-  def <<(that : AxiBus) : Unit = that >> this
+  def <<(that : Axi4) : Unit = that >> this
 
   override def asMaster(): this.type = {
-
     if(config.mode.write){
       master(aw,w)
       slave(b)
