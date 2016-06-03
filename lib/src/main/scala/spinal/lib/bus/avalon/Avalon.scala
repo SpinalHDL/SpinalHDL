@@ -53,9 +53,11 @@ case class AvalonMMConfig( addressWidth : Int,
 
 object AvalonMMConfig{
   def fixed(addressWidth : Int,
-                dataWidth : Int) = AvalonMMConfig(
+            dataWidth : Int,
+            readLatency : Int) = AvalonMMConfig(
     addressWidth=addressWidth,
     dataWidth=dataWidth,
+    readLatency = readLatency,
     burstCountWidth = -1,
     useByteEnable = false,
     useDebugAccess = false,
@@ -66,10 +68,8 @@ object AvalonMMConfig{
     useWaitRequestn = true,
     useReadDataValid = false,
     useBurstCount = false,
-  //  useEndOfPacket = false,
 
-    maximumPendingReadTransactions = 0,
-    readLatency = 1
+    maximumPendingReadTransactions = 0
   )
 
 
@@ -88,7 +88,6 @@ object AvalonMMConfig{
       useWaitRequestn = true,
       useReadDataValid = true,
       useBurstCount = false
-  //  useEndOfPacket = false
     )
 
 
@@ -107,7 +106,6 @@ object AvalonMMConfig{
       useWaitRequestn = true,
       useReadDataValid = true,
       useBurstCount = true
-    //  useEndOfPacket = false
     )
 }
 
@@ -139,7 +137,7 @@ case class AvalonMM(config : AvalonMMConfig) extends Bundle with IMasterSlave{
 
   override def asMaster(): this.type = {
     outWithNull(read,write,lock,debugAccess,address,burstCount,byteEnable,writeData)
-    inWithNull(waitRequestn,response,readDataValid,readData/*,endOfPacket*/)
+    inWithNull(waitRequestn,response,readDataValid,readData)
     this
   }
 }

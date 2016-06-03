@@ -14,10 +14,12 @@ import spinal.lib.bus.avalon._
 object DebugExtension{
   def getAvalonMMConfig = AvalonMMConfig.fixed(
     addressWidth = 8,
-    dataWidth = 32).copy(
-      useByteEnable = false,
-      addressUnits = words
-    )
+    dataWidth = 32,
+    readLatency = 1
+  ).copy(
+    useByteEnable = false,
+    addressUnits = words
+  )
 
   def avalonToDebugBus(avalon: AvalonMM,debug : DebugExtensionBus): Unit ={
     assert(avalon.config == getAvalonMMConfig)
