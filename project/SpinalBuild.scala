@@ -41,7 +41,7 @@ object SpinalBuild extends Build {
       name := "SpinalHDL Debugger",
       version := SpinalVersion.debugger,
       resolvers += "sparetimelabs" at "http://www.sparetimelabs.com/maven2/",
-      libraryDependencies += "org.scalafx" %% "scalafx" % "8.0.40-R8",
+      //libraryDependencies += "org.scalafx" %% "scalafx" % "8.0.40-R8",
       libraryDependencies += "com.sparetimelabs" % "purejavacomm" % "0.0.22",
       libraryDependencies += "net.liftweb" %% "lift-json" % "latest.release",
       publishTo := None
