@@ -1,5 +1,7 @@
 package spinal.lib.cpu.riscv.impl.bench
 
+import java.util.concurrent.ForkJoinPool
+
 import spinal.core.SpinalVhdl
 import spinal.lib.WrapWithReg
 import spinal.lib.cpu.riscv.impl.CoreQSysAvalon.RiscvAvalon
@@ -19,9 +21,11 @@ import scala.concurrent.{Await, Future}
 object CoreFMaxQuartusBench {
   def main(args: Array[String]) {
     import scala.concurrent.ExecutionContext
-    import java.util.concurrent.Executors
-    implicit val ec = ExecutionContext.fromExecutorService(Executors.newWorkStealingPool(6))
-
+    //import java.util.concurrent.Executors
+    //implicit val ec = ExecutionContext.fromExecutorService(Executors.newWorkStealingPool(6))
+    implicit val ec = ExecutionContext.fromExecutorService(
+      new ForkJoinPool(6, ForkJoinPool.defaultForkJoinWorkerThreadFactory, null, true)
+    )
 
     val quartus15Path = "D:/altera_lite/15.1/quartus/bin64"
     val quartus13Path = "D:/altera/13.0sp1/quartus/bin64"

@@ -16,8 +16,14 @@ script:
 
 jdk:
   - oraclejdk8
+  - oraclejdk7
+  - openjdk7
 
 before_install:
+  - cat /etc/hosts # optionally check the content *before*
+  - sudo hostname "$(hostname | cut -c1-63)"
+  - sed -e "s/^\\(127\\.0\\.0\\.1.*\\)/\\1 $(hostname | cut -c1-63)/" /etc/hosts | sudo tee /etc/hosts
+  - cat /etc/hosts # optionally check the content *after*
   - sudo add-apt-repository ppa:pgavin/ghdl -y
   - sudo apt-get update
   - sudo apt-get install ghdl -y
