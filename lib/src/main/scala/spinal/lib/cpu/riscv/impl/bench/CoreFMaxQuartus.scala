@@ -21,7 +21,7 @@ import scala.concurrent.{Await, Future}
 object CoreFMaxQuartusBench {
   def main(args: Array[String]) {
     import scala.concurrent.ExecutionContext
-    import java.util.concurrent.Executors
+    //import java.util.concurrent.Executors
     //implicit val ec = ExecutionContext.fromExecutorService(Executors.newWorkStealingPool(6))
     implicit val ec = ExecutionContext.fromExecutorService(
       new ForkJoinPool(6, ForkJoinPool.defaultForkJoinWorkerThreadFactory, null, true)
