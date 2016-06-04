@@ -16,11 +16,14 @@ script:
 
 jdk:
   - oraclejdk8
+  - oraclejdk7
+  - openjdk7
 
 before_install:
   - sudo add-apt-repository ppa:pgavin/ghdl -y
   - sudo apt-get update
   - sudo apt-get install ghdl -y
+  - sudo apt-get install openjfx
 
 # after_success:
 # Push to sonatype ?
