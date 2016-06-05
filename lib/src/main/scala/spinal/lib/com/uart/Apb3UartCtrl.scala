@@ -1,8 +1,8 @@
-package spinal.lib.bus.amba3.apb
+package spinal.lib.com.uart
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.com.uart._
+import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config, Apb3SlaveFactory}
 import spinal.lib.tool.QSysify
 
 object Apb3UartCtrl{

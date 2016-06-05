@@ -32,7 +32,7 @@ object MULTIPLE_RAM extends MemBitsMaskKind
 object SINGLE_RAM extends MemBitsMaskKind
 
 class VhdlBackend extends Backend with VhdlBase {
-  var out: java.io.FileWriter = null
+  var outFile: java.io.FileWriter = null
   var enumPackageName = "pkg_enum"
   var packageName = "pkg_scala2hdl"
   var outputFilePath: String = null
@@ -51,17 +51,17 @@ class VhdlBackend extends Backend with VhdlBase {
     if (outputFilePath == null) outputFilePath = topLevel.definitionName + ".vhd"
     if (jsonReportPath == "") jsonReportPath = outputFilePath.replace(".vhd",".json")
 
-    out = new java.io.FileWriter(outputFilePath)
-    emitEnumPackage(out)
-    emitPackage(out)
+    outFile = new java.io.FileWriter(outputFilePath)
+    emitEnumPackage(outFile)
+    emitPackage(outFile)
 
     for (c <- sortedComponents) {
       SpinalInfoPhase(s"${"  " * (1 + c.level)}emit ${c.definitionName}")
       compile(c)
     }
 
-    out.flush();
-    out.close();
+    outFile.flush();
+    outFile.close();
 
     //  emitTestBench(topLevel :: Nil,topLevel.definitionName + "_tb")
 
@@ -71,50 +71,10 @@ class VhdlBackend extends Backend with VhdlBase {
 
   def compile(component: Component): Unit = {
     val text = emit(component)
-    out.write(text)
+    outFile.write(text)
   }
 
-  class ComponentBuilder(val component: Component) {
-    val parts = ArrayBuffer[(StringBuilder, Boolean)]()
 
-    def newPart(mustMatch: Boolean): StringBuilder = {
-      val builder = new mutable.StringBuilder
-      parts += (builder -> mustMatch)
-      builder
-    }
-
-    def result: String = {
-      val ret = new mutable.StringBuilder
-      parts.foreach(ret ++= _._1)
-      ret.result()
-    }
-
-    var hash: Integer = null
-
-    override def hashCode(): Int = {
-      if (hash == null) {
-        hash = parts.filter(_._2).foldLeft(0)(_ + _._1.result().hashCode())
-      }
-      hash
-    }
-
-    override def equals(obj: scala.Any): Boolean = {
-      if (this.hashCode() != obj.hashCode()) return false //Colision into hashmap implementation don't check it XD
-      obj match {
-        case cb: ComponentBuilder => {
-          for ((a, b) <- (parts, cb.parts).zipped) {
-            if (a._2 || b._2) {
-              if (a._1.result() != b._1.result()) {
-                return false
-              }
-            }
-          }
-          return true;
-        }
-        case _ => return ???
-      }
-    }
-  }
 
   case class WrappedStuff(originalName: String, newName: String)
 
@@ -977,7 +937,6 @@ class VhdlBackend extends Backend with VhdlBase {
   }
 
   def emitAsyncronous(component: Component, ret: StringBuilder, funcRet: StringBuilder): Unit = {
-
     var processCounter = 0
     class Process(val order: Int) {
       var sensitivity: mutable.Set[Node] = null
@@ -1115,7 +1074,7 @@ class VhdlBackend extends Backend with VhdlBase {
 
         ret ++= s"  process(${process.sensitivity.toList.sortWith(_.instanceCounter < _.instanceCounter).map(emitReference(_)).reduceLeft(_ + "," + _)})\n"
         ret ++= "  begin\n"
-        context.emitContext(ret, "    ", "<=")
+        emitAssignementLevel(context,ret, "    ", "<=")
         ret ++= "  end process;\n\n"
       } else {
         //emit func as logic
@@ -1138,7 +1097,7 @@ class VhdlBackend extends Backend with VhdlBase {
     ret ++= s"  function $funcName return ${emitDataType(node, false)} is\n"
     ret ++= s"    variable ${emitReference(node)} : ${emitDataType(node, true)};\n"
     ret ++= s"  begin\n"
-    context.emitContext(ret, "    ", ":=")
+    emitAssignementLevel(context,ret, "    ", ":=")
     ret ++= s"    return ${emitReference(node)};\n"
     ret ++= s"  end function;\n"
   }
@@ -1555,7 +1514,7 @@ class VhdlBackend extends Backend with VhdlBase {
 
 
         def emitRegsInitialValue(assignementLevel: AssignementLevel, tab: String): Unit = {
-          assignementLevel.emitContext(ret, tab, "<=")
+          emitAssignementLevel(assignementLevel,ret, tab, "<=")
         }
 
 
@@ -1663,7 +1622,7 @@ class VhdlBackend extends Backend with VhdlBase {
               ret ++= s"${tab}assert $cond = '1' $message $severity;\n"
             }
           }
-          rootContext.emitContext(ret, tab, "<=")
+          emitAssignementLevel(rootContext,ret, tab, "<=")
         }
       }
     }
@@ -1689,123 +1648,55 @@ class VhdlBackend extends Backend with VhdlBase {
     }
   }
 
-  class ConditionalTree(val instanceCounter: Int)
-
-  class WhenTree(val cond: Node, instanceCounter: Int) extends ConditionalTree(instanceCounter) {
-    var whenTrue: AssignementLevel = new AssignementLevel
-    var whenFalse: AssignementLevel = new AssignementLevel
-  }
-
-  class SwitchTree(instanceCounter: Int, context: SwitchContext) extends ConditionalTree(instanceCounter) {
-    val cases = new Array[(Node, AssignementLevel)](context.caseCount)
-  }
-
-  class AssignementLevel {
-    //map of precedent ConditionalTree , assignements      if no precedent ConditionalTree simple assignememnt => null
-    val logicChunk = mutable.Map[ConditionalTree, ArrayBuffer[(Node, Node)]]()
-    val conditionalTrees = mutable.Map[ConditionalContext, ConditionalTree]()
-
-    def isEmpty = logicChunk.isEmpty && conditionalTrees.isEmpty
-
-    def isNotEmpty = !isEmpty
-
-
-    def walkWhenTree(root: Node, that: Node): Unit = {
-      def getElements: Iterator[Node] = {
-        if (that.isInstanceOf[MultipleAssignmentNode]) {
-          return that.getInputs
-        } else {
-          return Iterator(that)
-        }
-      }
-
-      var lastConditionalTree: ConditionalTree = null
-      for (node <- getElements) {
-        node match {
-          case whenNode: WhenNode => {
-            if (!whenNode.whenTrue.isInstanceOf[NoneNode]) {
-              val whenTree = this.conditionalTrees.getOrElseUpdate(whenNode.w, new WhenTree(whenNode.cond, node.instanceCounter)).asInstanceOf[WhenTree]
-              lastConditionalTree = whenTree
-              whenTree.whenTrue.walkWhenTree(root, whenNode.whenTrue)
-            }
-            if (!whenNode.whenFalse.isInstanceOf[NoneNode]) {
-              val whenTree = this.conditionalTrees.getOrElseUpdate(whenNode.w, new WhenTree(whenNode.cond, node.instanceCounter)).asInstanceOf[WhenTree]
-              lastConditionalTree = whenTree
-              whenTree.whenFalse.walkWhenTree(root, whenNode.whenFalse)
-            }
-          }
-          case switchNode: SwitchNode => {
-            val switchTree = this.conditionalTrees.getOrElseUpdate(switchNode.context, new SwitchTree(node.instanceCounter, switchNode.context)).asInstanceOf[SwitchTree]
-            lastConditionalTree = switchTree
-            switchNode.onEachInput(input => {
-              val caseNode = input.asInstanceOf[CaseNode]
-              val tmp = switchTree.cases(caseNode.context.id)
-              var caseElement = if (tmp != null) tmp
-              else {
-                val tmp = (caseNode.cond -> new AssignementLevel)
-                switchTree.cases(caseNode.context.id) = tmp
-                tmp
-              }
-              caseElement._2.walkWhenTree(root, caseNode.assignement)
-            })
-          }
-          case reg: Reg =>
-          case _ => this.logicChunk.getOrElseUpdate(lastConditionalTree, new ArrayBuffer[(Node, Node)]) += new Tuple2(root, node)
+  def emitAssignementLevel(context : AssignementLevel,ret: mutable.StringBuilder, tab: String, assignementKind: String, isElseIf: Boolean = false): Unit = {
+    def emitLogicChunk(key: WhenTree): Unit = {
+      if (context.logicChunk.contains(key)) {
+        for ((to, from) <- context.logicChunk.get(key).get) {
+          emitAssignement(to, from, ret, tab, assignementKind)
         }
       }
     }
+    val firstTab = if (isElseIf) "" else tab
 
+    emitLogicChunk(null)
+    //OPT tolist.sort
+    for (conditionalTree <- context.conditionalTrees.values.toList.sortWith(_.instanceCounter < _.instanceCounter)) conditionalTree match {
+      case when: WhenTree => {
+        def doTrue = when.whenTrue.isNotEmpty
+        def doFalse = when.whenFalse.isNotEmpty
 
-    def emitContext(ret: mutable.StringBuilder, tab: String, assignementKind: String, isElseIf: Boolean = false): Unit = {
-      def emitLogicChunk(key: WhenTree): Unit = {
-        if (this.logicChunk.contains(key)) {
-          for ((to, from) <- this.logicChunk.get(key).get) {
-            emitAssignement(to, from, ret, tab, assignementKind)
+        //          def isCondSwitchReady : Boolean = {
+        //            true
+        //          }
+
+        val condLogic = emitLogic(when.cond)
+        val condLogicCleaned = if(condLogic.startsWith("pkg_toStdLogic(")) condLogic.substring("pkg_toStdLogic(".length,condLogic.length-1) else condLogic + " = '1'"
+
+        if (doTrue && !doFalse) {
+          ret ++= s"${firstTab}if $condLogicCleaned then\n"
+          emitAssignementLevel(when.whenTrue,ret, tab + "  ", assignementKind)
+          ret ++= s"${tab}end if;\n"
+        } else /*if (doTrue && doFalse)*/ {
+          ret ++= s"${firstTab}if $condLogicCleaned then\n"
+          emitAssignementLevel(when.whenTrue,ret, tab + "  ", assignementKind)
+          val falseHead = if (when.whenFalse.logicChunk.isEmpty && when.whenFalse.conditionalTrees.size == 1) when.whenFalse.conditionalTrees.head._1 else null
+          if (falseHead != null && falseHead.isInstanceOf[WhenContext] && falseHead.asInstanceOf[WhenContext].parentElseWhen != null) {
+            ret ++= s"${tab}els"
+            emitAssignementLevel(when.whenFalse,ret, tab, assignementKind, true)
+          } else {
+            ret ++= s"${tab}else\n"
+            emitAssignementLevel(when.whenFalse,ret, tab + "  ", assignementKind)
+            ret ++= s"${tab}end if;\n"
           }
         }
+        emitLogicChunk(when)
       }
-      val firstTab = if (isElseIf) "" else tab
-
-      emitLogicChunk(null)
-      //OPT tolist.sort
-      for (conditionalTree <- this.conditionalTrees.values.toList.sortWith(_.instanceCounter < _.instanceCounter)) conditionalTree match {
-        case when: WhenTree => {
-          def doTrue = when.whenTrue.isNotEmpty
-          def doFalse = when.whenFalse.isNotEmpty
-
-//          def isCondSwitchReady : Boolean = {
-//            true
-//          }
-
-          val condLogic = emitLogic(when.cond)
-          val condLogicCleaned = if(condLogic.startsWith("pkg_toStdLogic(")) condLogic.substring("pkg_toStdLogic(".length,condLogic.length-1) else condLogic + " = '1'"
-
-          if (doTrue && !doFalse) {
-            ret ++= s"${firstTab}if $condLogicCleaned then\n"
-            when.whenTrue.emitContext(ret, tab + "  ", assignementKind)
-            ret ++= s"${tab}end if;\n"
-          } else /*if (doTrue && doFalse)*/ {
-            ret ++= s"${firstTab}if $condLogicCleaned then\n"
-            when.whenTrue.emitContext(ret, tab + "  ", assignementKind)
-            val falseHead = if (when.whenFalse.logicChunk.isEmpty && when.whenFalse.conditionalTrees.size == 1) when.whenFalse.conditionalTrees.head._1 else null
-            if (falseHead != null && falseHead.isInstanceOf[WhenContext] && falseHead.asInstanceOf[WhenContext].parentElseWhen != null) {
-              ret ++= s"${tab}els"
-              when.whenFalse.emitContext(ret, tab, assignementKind, true)
-            } else {
-              ret ++= s"${tab}else\n"
-              when.whenFalse.emitContext(ret, tab + "  ", assignementKind)
-              ret ++= s"${tab}end if;\n"
-            }
-          }
-          emitLogicChunk(when)
-        }
-        case switchTree: SwitchTree => {
-          for (caseElement <- switchTree.cases if caseElement != null) {
-            val (cond, level) = caseElement
-            ret ++= s"${tab}if ${emitLogic(cond)} = '1'  then\n"
-            level.emitContext(ret, tab + "  ", assignementKind)
-            ret ++= s"${tab}end if;\n"
-          }
+      case switchTree: SwitchTree => {
+        for (caseElement <- switchTree.cases if caseElement != null) {
+          val (cond, level) = caseElement
+          ret ++= s"${tab}if ${emitLogic(cond)} = '1'  then\n"
+          emitAssignementLevel(level,ret, tab + "  ", assignementKind)
+          ret ++= s"${tab}end if;\n"
         }
       }
     }

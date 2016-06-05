@@ -12,6 +12,7 @@ import spinal.core._
 import spinal.demo.mandelbrot.{MandelbrotSblDemo, MandelbrotCoreParameters}
 import spinal.lib._
 import spinal.lib.bus.amba3.apb.{ Apb3Config, Apb3}
+import spinal.lib.bus.amba4.axilite.AxiLite4.prot
 import spinal.lib.bus.amba4.axilite._
 import spinal.lib.bus.sbl.{SblConfig, SblReadRet, SblReadCmd, SblWriteCmd}
 import spinal.lib.com.uart._
