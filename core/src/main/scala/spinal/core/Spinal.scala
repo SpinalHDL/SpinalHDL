@@ -42,11 +42,11 @@ case class SpinalConfig(
 }
 
 object SpinalConfig{
-  def shell[T <: Component](args : Seq[String]): Unit = {
+  def shell[T <: Component](args : Seq[String]): SpinalConfig = {
     val parser = new scopt.OptionParser[SpinalConfig]("SpinalCore") {
-      head("Spinal core")
-      opt[Unit]("vhdl") action { (_, c) => c.copy(mode = VHDL) }text("Set the VHDL mode")
-      opt[Unit]('d', "debug") action { (_, c) => c.copy(debug = true) } text("Enable debug mode directly")
+      opt[Unit]("vhdl") action { (_, c) => c.copy(mode = VHDL) }text("Select the VHDL mode")
+      opt[Unit]('d', "debug") action { (_, c) => c.copy(debug = true) } text("Enter in debug mode directly")
+      opt[String]('o', "targetDirectory") action { (v, c) => c.copy(targetDirectory = v) } text("Set the target directory")
     }
 
     parser.parse(args, SpinalConfig()) match {
@@ -89,10 +89,10 @@ object Spinal{
   }
 
 
-  def apply[T <: Component](args : String*)(gen : => T) : Unit = seq(args)(gen)
-  def seq[T <: Component](args : Seq[String])(gen : => T) : Unit = {
-
-  }
+//  def apply[T <: Component](args : String*)(gen : => T) : Unit = seq(args)(gen)
+//  def seq[T <: Component](args : Seq[String])(gen : => T) : Unit = {
+//
+//  }
 }
 
 object SpinalVhdl {
