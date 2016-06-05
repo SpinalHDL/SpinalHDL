@@ -918,147 +918,13 @@ class VhdlBackend extends Backend with VhdlBase {
   }
 
 
-  def getSensitivity(nodes: Iterable[Node], includeNodes: Boolean): mutable.Set[Node] = {
-    val sensitivity = mutable.Set[Node]()
-
-    if (includeNodes)
-      nodes.foreach(walk(_))
-    else
-      nodes.foreach(_.onEachInput(walk(_)))
-
-    def walk(node: Node): Unit = {
-      if (isReferenceable(node))
-        sensitivity += node
-      else
-        node.onEachInput(walk(_))
-    }
-
-    sensitivity
-  }
 
   def emitAsyncronous(component: Component, ret: StringBuilder, funcRet: StringBuilder): Unit = {
-    var processCounter = 0
-    class Process(val order: Int) {
-      var sensitivity: mutable.Set[Node] = null
-      val nodes = ArrayBuffer[Node]()
-      val whens = ArrayBuffer[ConditionalContext]()
-      var hasMultipleAssignment = false
-
-      def genSensitivity: Unit = sensitivity = getSensitivity(nodes, false)
-
-
-      def needProcessDef: Boolean = {
-        if (!whens.isEmpty || nodes.size > 1) return true
-        if (hasMultipleAssignment) {
-          val ma: MultipleAssignmentNode = nodes(0).getInput(0).asInstanceOf[MultipleAssignmentNode]
-          val assignedBits = new AssignedBits(nodes(0).getWidth)
-          ma.onEachInput(_ match {
-            case assign: AssignementNode => {
-              val scope = assign.getScopeBits
-              if (!AssignedBits.intersect(scope, assignedBits).isEmpty) return true
-              assignedBits.add(scope)
-            }
-            case _ => return true
-          })
-        }
-        return false
-      }
-    }
-
-    val processSet = mutable.Set[Process]()
-    val whenToProcess = mutable.Map[ConditionalContext, Process]()
-
-    def move(to: Process, from: Process): Unit = {
-      to.nodes ++= from.nodes
-      to.whens ++= from.whens
-      to.hasMultipleAssignment |= from.hasMultipleAssignment
-      from.whens.foreach(whenToProcess(_) = to)
-      processSet.remove(from)
-    }
-
-    val asyncSignals = component.nodes.filter(_ match {
-      case signal: BaseType => (!signal.isDelay) && (!((signal.isIo && signal.isInput) || component.kindsOutputsBindings.contains(signal)))
-      case _ => false
-    })
-
-    for (signal <- asyncSignals) {
-      var process: Process = null
-      var hasMultipleAssignment = false
-      walk(signal.getInput(0))
-      def walk(that: Node): Unit = {
-        that match {
-          case wn: WhenNode => {
-            if (whenToProcess.contains(wn.w)) {
-              val otherProcess = whenToProcess.get(wn.w).get
-              if (process == null) {
-                process = otherProcess
-                otherProcess.nodes += signal
-              } else if (process != otherProcess) {
-                move(otherProcess, process)
-                process = otherProcess
-              }
-            } else {
-              if (process == null) {
-                process = new Process(processCounter);
-                processCounter += 1
-                process.nodes += signal
-                processSet += process
-              }
-              process.whens += wn.w
-              whenToProcess += (wn.w -> process)
-            }
-
-            walk(wn.whenTrue)
-            walk(wn.whenFalse)
-          }
-          case switchNode: SwitchNode => {
-            if (whenToProcess.contains(switchNode.context)) {
-              val otherProcess = whenToProcess.get(switchNode.context).get
-              if (process == null) {
-                process = otherProcess
-                otherProcess.nodes += signal
-              } else if (process != otherProcess) {
-                move(otherProcess, process)
-                process = otherProcess
-              }
-            } else {
-              if (process == null) {
-                process = new Process(processCounter);
-                processCounter += 1
-                process.nodes += signal
-                processSet += process
-              }
-              process.whens += switchNode.context
-              whenToProcess += (switchNode.context -> process)
-            }
-
-            switchNode.cases.foreach(n => walk(n.asInstanceOf[CaseNode].assignement))
-          }
-          case man: MultipleAssignmentNode => {
-            man.onEachInput(walk(_))
-            hasMultipleAssignment = true
-          }
-          case that => {
-            if (process == null) {
-              process = new Process(processCounter);
-              processCounter += 1
-              process.nodes += signal
-              processSet += process
-            }
-          }
-        }
-      }
-
-      process.hasMultipleAssignment |= hasMultipleAssignment
-    }
-
-    val processList = processSet.toList.sortWith(_.order < _.order)
-
+    val processList = getAsyncProcesses(component)
 
     for (process <- processList if !process.needProcessDef) {
       for (node <- process.nodes) {
         emitAssignement(node, node.getInput(0), ret, "  ", "<=")
-        //ret ++= s"  ${emitReference(node)} <= ${emitLogic(node.getInput(0))};\n"
       }
     }
 
@@ -1664,11 +1530,6 @@ class VhdlBackend extends Backend with VhdlBase {
       case when: WhenTree => {
         def doTrue = when.whenTrue.isNotEmpty
         def doFalse = when.whenFalse.isNotEmpty
-
-        //          def isCondSwitchReady : Boolean = {
-        //            true
-        //          }
-
         val condLogic = emitLogic(when.cond)
         val condLogicCleaned = if(condLogic.startsWith("pkg_toStdLogic(")) condLogic.substring("pkg_toStdLogic(".length,condLogic.length-1) else condLogic + " = '1'"
 
