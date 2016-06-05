@@ -167,7 +167,7 @@ class Reg(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) ext
   }
   override def setAssignementContext(id: Int, that: Throwable): Unit = id match {
     case RegS.getDataInputId => outType.setAssignementContext(0,that)
-    case _ => null
+    case _ =>
   }
   def hasInitialValue = getInitialValue != null
 

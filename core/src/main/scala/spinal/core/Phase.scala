@@ -7,7 +7,7 @@ import scala.collection.mutable.ArrayBuffer
  * Created by PIC32F_USER on 05/06/2016.
  */
 
-class PhaseContext{
+class PhaseContext(val config : SpinalConfig){
   var globalData = GlobalData.reset
   val components = ArrayBuffer[Component]()
   val globalScope = new Scope()
@@ -99,41 +99,39 @@ class PhaseFillComponentList(pc: PhaseContext) extends Phase{
 
 class PhaseApplyIoDefault(pc: PhaseContext) extends Phase{
   override def impl(): Unit = {
-
-    def applyComponentIoDefaults() = {
-      Node.walk(pc.walkNodesDefautStack,node => {
-        node match{
-          case node : BaseType => {
-            if(node.input == null && node.defaultValue != null){
-              val c = node.dir match {
-                case `in` => node.component
-                case `out` => if(node.component.parent != null)
-                  node.component.parent
-                else
-                  null
-                case _ => node.component
-              }
-              if(c != null) {
-                node.dir match{
-                  case `in` =>  {
-                    Component.push(c.parent)
-                    node.assignFrom(node.defaultValue, false)
-                    Component.pop(c.parent)
-                  }
-                  case _ => {
-                    Component.push(c)
-                    node.assignFrom(node.defaultValue, false)
-                    Component.pop(c)
-                  }
+    import pc._
+    Node.walk(pc.walkNodesDefautStack,node => {
+      node match{
+        case node : BaseType => {
+          if(node.input == null && node.defaultValue != null){
+            val c = node.dir match {
+              case `in` => node.component
+              case `out` => if(node.component.parent != null)
+                node.component.parent
+              else
+                null
+              case _ => node.component
+            }
+            if(c != null) {
+              node.dir match{
+                case `in` =>  {
+                  Component.push(c.parent)
+                  node.assignFrom(node.defaultValue, false)
+                  Component.pop(c.parent)
+                }
+                case _ => {
+                  Component.push(c)
+                  node.assignFrom(node.defaultValue, false)
+                  Component.pop(c)
                 }
               }
             }
           }
-          case _ =>
         }
+        case _ =>
+      }
 
-      })
-    }
+    })
   }
 }
 
@@ -154,8 +152,9 @@ class PhaseNodesBlackBoxGenerics(pc: PhaseContext) extends Phase{
 }
 
 
-class PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(forceMemToBlackboxTranslation : Boolean)(pc: PhaseContext) extends Phase{
+class PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc: PhaseContext) extends Phase{
   override def impl(): Unit = {
+    import pc._
     class MemTopo(val mem: Mem[_]) {
       val writes = ArrayBuffer[MemWrite]()
       val readsAsync = ArrayBuffer[MemReadAsync]()
@@ -208,7 +207,7 @@ class PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(forceMemToBlack
 
 
 
-    for ((mem, topo) <- memsTopo.iterator if forceMemToBlackboxTranslation || mem.forceMemToBlackboxTranslation
+    for ((mem, topo) <- memsTopo.iterator if config.forceMemToBlackboxTranslation || mem.forceMemToBlackboxTranslation
          if mem.initialContent == null) {
 
       if (topo.writes.size == 1 && topo.readsAsync.size == 1 && topo.readsSync.isEmpty && topo.writeReadSync.isEmpty && topo.writeOrReadSync.isEmpty) {
@@ -1148,9 +1147,10 @@ class PhasePrintStates(pc: PhaseContext) extends Phase{
   }
 }
 
-class PhaseCreateComponent(gen : => Component,defaultClockDomainFrequency : IClockDomainFrequency)(pc: PhaseContext) extends Phase{
+class PhaseCreateComponent(gen : => Component)(pc: PhaseContext) extends Phase{
   override def impl(): Unit = {
-    val defaultClockDomain = ClockDomain.external("",frequency = defaultClockDomainFrequency)
+    import pc._
+    val defaultClockDomain = ClockDomain.external("",frequency = config.defaultClockDomainFrequency)
     ClockDomain.push(defaultClockDomain)
     pc.topLevel = gen
     ClockDomain.pop(defaultClockDomain)
@@ -1165,19 +1165,48 @@ trait SpinalArg
 trait SpinalArgVhdl extends SpinalArg
 
 object SpinalArg {
-  case class forceMemToBlackboxTranslation(enable: Boolean = true) extends SpinalArg
+  case class forceMemToBlackboxTranslation() extends SpinalArg
   case class defaultConfigForClockDomains(config: ClockDomainConfig) extends SpinalArg
   case class defaultClockDomainFrequency(frequency: IClockDomainFrequency = UnknownFrequency()) extends SpinalArg
+  case class debugMode() extends SpinalArg
 }
 
 object SpinalArgVhdl{
+  case class genVhd() extends SpinalArgVhdl
   case class onlyStdLogicVectorAtTopLevelIo(enable : Boolean = true) extends SpinalArgVhdl
   case class vhdPath(value : String) extends SpinalArgVhdl
 }
 
-object TMP{
-  def doIt[T <: Component](gen : => T,args : Seq[SpinalArg]) : BackendReport[T] ={
-    val pc = new PhaseContext
+object SpinalVhdlWrapper{
+  def apply[T <: Component](config : SpinalConfig)(gen : => T) : SpinalReport[T] ={
+    try {
+      singleShot(config)(gen)
+    } catch {
+      case e: Throwable => {
+        if(!config.debug){
+          Thread.sleep(10)
+          println("\n**********************************************************************************************")
+          val errCnt = SpinalError.getErrorCount()
+          SpinalWarning(s"Elaboration failed (${errCnt} error" + (if(errCnt > 1){s"s"} else {s""}) + s").\n" +
+            s"          Spinal will restart with scala trace to help you to find the problem.")
+          println("**********************************************************************************************\n")
+          Thread.sleep(100)
+          return singleShot(config.copy(debug = true))(gen)
+        }else{
+          Thread.sleep(100)
+          println("\n**********************************************************************************************")
+          val errCnt = SpinalError.getErrorCount()
+          SpinalWarning(s"Elaboration failed (${errCnt} error" + (if(errCnt > 1){s"s"} else {s""}) + ").")
+          println("**********************************************************************************************")
+          Thread.sleep(100)
+          throw e
+        }
+      }
+    }
+  }
+
+  def singleShot[T <: Component](config : SpinalConfig)(gen : => T): SpinalReport[T] ={
+    val pc = new PhaseContext(config)
     val prunedSignals = mutable.Set[BaseType]()
 
     val reservedKeywords = Seq(
@@ -1193,24 +1222,12 @@ object TMP{
 
     val phases = ArrayBuffer[Phase]()
 
-    phases += new PhaseCreateComponent(gen,{
-      args
-        .find(_.isInstanceOf[SpinalArg.defaultClockDomainFrequency])
-        .getOrElse(SpinalArg.defaultClockDomainFrequency())
-        .asInstanceOf[SpinalArg.defaultClockDomainFrequency]
-        .frequency
-    })(pc)
+    phases += new PhaseCreateComponent(gen)(pc)
 
     phases += new PhaseFillComponentList(pc)
     phases += new PhaseApplyIoDefault(pc)
     phases += new PhaseNodesBlackBoxGenerics(pc)
-    phases += new PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress({
-      args
-        .find(_.isInstanceOf[SpinalArg.forceMemToBlackboxTranslation])
-        .getOrElse(SpinalArg.forceMemToBlackboxTranslation())
-        .asInstanceOf[SpinalArg.forceMemToBlackboxTranslation]
-        .enable
-    })(pc)
+    phases += new PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc)
 
     phases += new PhaseNameNodesByReflection(pc)
     phases += new PhaseCollectAndNameEnum(pc)
@@ -1263,7 +1280,7 @@ object TMP{
 
     pc.checkGlobalData()
 
-    val report = new BackendReport[T](pc.topLevel.asInstanceOf[T])
+    val report = new SpinalReport[T](pc.topLevel.asInstanceOf[T])
     report.prunedSignals ++= prunedSignals
 
     report

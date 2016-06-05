@@ -44,7 +44,7 @@ class VhdlBackend extends Backend with VhdlBase {
 
   reservedKeyWords ++= vhdlKeyWords
 
-  override protected def elaborate[T <: Component](topLevel: T): BackendReport[T] = {
+  override protected def elaborate[T <: Component](topLevel: T): SpinalReport[T] = {
     val report = super.elaborate(topLevel)
     SpinalInfoPhase("Write VHDL")
 

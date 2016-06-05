@@ -25,7 +25,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
     import pc._
     SpinalInfoPhase("Write VHDL")
 
-    if (outputFilePath == null) outputFilePath = topLevel.definitionName + ".vhd"
+    outputFilePath = pc.config.targetDirectory + "/" +  topLevel.definitionName + ".vhd"
 
     outFile = new java.io.FileWriter(outputFilePath)
     emitEnumPackage(outFile)

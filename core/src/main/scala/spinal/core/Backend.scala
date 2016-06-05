@@ -21,7 +21,7 @@ package spinal.core
 import scala.collection.mutable
 import scala.collection.mutable.{StringBuilder, ArrayBuffer}
 
-class BackendReport[T <: Component](val toplevel: T) {
+class SpinalReport[T <: Component](val toplevel: T) {
   val prunedSignals = mutable.Set[BaseType]()
 
   def printPruned() : this.type = {
@@ -53,7 +53,7 @@ class Backend {
     reservedKeyWords.foreach(scope.allocateName(_))
   }
 
-  def elaborate[T <: Component](gen: () => T): BackendReport[T] = {
+  def elaborate[T <: Component](gen: () => T): SpinalReport[T] = {
     SpinalInfoPhase("Start elaboration")
 
     //default clockDomain
@@ -101,8 +101,8 @@ class Backend {
   //TODO Mux node with n inputss instead of fixed 2
   //TODO non bundle that should be bundle into a bundle should be warned
   //TODO move nodes nomalisation before node symplification   (normalisation create resizes that could be then symplified)
-  protected def elaborate[T <: Component](topLevel: T): BackendReport[T] = {
-    val backendReport = new BackendReport(topLevel)
+  protected def elaborate[T <: Component](topLevel: T): SpinalReport[T] = {
+    val backendReport = new SpinalReport(topLevel)
 
     SpinalInfoPhase("Start analysis and transform")
     addReservedKeyWordToScope(globalScope)
@@ -1190,7 +1190,7 @@ class Backend {
     })
   }
 
-  def printUnUsedSignals[T <: Component](report : BackendReport[T]) : Unit = {
+  def printUnUsedSignals[T <: Component](report : SpinalReport[T]) : Unit = {
     //val warnings = mutable.ArrayBuffer[String]()
     val targetAlgoId = GlobalData.get.algoId
     Node.walk(walkNodesDefautStack,node => {})
