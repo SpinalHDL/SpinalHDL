@@ -1161,24 +1161,6 @@ class PhaseCreateComponent(gen : => Component)(pc: PhaseContext) extends Phase{
   }
 }
 
-
-
-trait SpinalArg
-trait SpinalArgVhdl extends SpinalArg
-
-object SpinalArg {
-  case class forceMemToBlackboxTranslation() extends SpinalArg
-  case class defaultConfigForClockDomains(config: ClockDomainConfig) extends SpinalArg
-  case class defaultClockDomainFrequency(frequency: IClockDomainFrequency = UnknownFrequency()) extends SpinalArg
-  case class debugMode() extends SpinalArg
-}
-
-object SpinalArgVhdl{
-  case class genVhd() extends SpinalArgVhdl
-  case class onlyStdLogicVectorAtTopLevelIo(enable : Boolean = true) extends SpinalArgVhdl
-  case class vhdPath(value : String) extends SpinalArgVhdl
-}
-
 object SpinalVhdlBoot{
   def apply[T <: Component](config : SpinalConfig)(gen : => T) : SpinalReport[T] ={
     try {

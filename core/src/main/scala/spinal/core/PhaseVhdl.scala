@@ -16,8 +16,6 @@ object SINGLE_RAM extends MemBitsMaskKind
 class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
   import pc._
   var outFile: java.io.FileWriter = null
-  var outputFilePath: String = null
-  var onlyStdLogicVectorTopLevelIo = false
   var memBitsMaskKind : MemBitsMaskKind = MULTIPLE_RAM
 
   val emitedComponent = mutable.Map[ComponentBuilder, ComponentBuilder]()
@@ -27,10 +25,8 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
   override def impl(): Unit = {
     import pc._
     SpinalInfoPhase("Write VHDL")
-
-    outputFilePath = pc.config.targetDirectory + "/" +  topLevel.definitionName + ".vhd"
-
-    outFile = new java.io.FileWriter(outputFilePath)
+    
+    outFile = new java.io.FileWriter(pc.config.targetDirectory + "/" +  topLevel.definitionName + ".vhd")
     emitEnumPackage(outFile)
     emitPackage(outFile)
 
@@ -623,7 +619,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
     ret ++= s"\nentity ${component.definitionName} is\n"
     ret = builder.newPart(true)
     ret ++= s"  port(\n"
-    if (!(onlyStdLogicVectorTopLevelIo && component == topLevel)) {
+    if (!(config.onlyStdLogicVectorAtTopLevelIo && component == topLevel)) {
       component.getOrdredNodeIo.foreach(baseType =>
         ret ++= s"    ${baseType.getName()} : ${emitDirection(baseType)} ${emitDataType(baseType)};\n"
       )
@@ -649,7 +645,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
 
   def emitArchitecture(component: Component, builder: ComponentBuilder): Unit = {
     var ret = builder.newPart(false)
-    val wrappedIo = if (onlyStdLogicVectorTopLevelIo && component == topLevel) ioStdLogicVectorWrapNames() else HashMap[BaseType, WrappedStuff]()
+    val wrappedIo = if (config.onlyStdLogicVectorAtTopLevelIo && component == topLevel) ioStdLogicVectorWrapNames() else HashMap[BaseType, WrappedStuff]()
     ret ++= s"architecture arch of ${component.definitionName} is\n"
     ret = builder.newPart(true)
     emitBlackBoxComponents(component, ret)

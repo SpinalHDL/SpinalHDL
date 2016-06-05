@@ -119,6 +119,9 @@ class UartCtrlUsageExample extends Component{
 
 object UartCtrlUsageExample{
   def main(args: Array[String]) {
-    SpinalConfig(mode = VHDL,defaultClockDomainFrequency=FixedFrequency(50e6)).generate(new UartCtrlUsageExample)
+    SpinalConfig(
+      mode = VHDL,
+      defaultClockDomainFrequency=FixedFrequency(50e6)
+    ).generate(new UartCtrlUsageExample)
   }
 }

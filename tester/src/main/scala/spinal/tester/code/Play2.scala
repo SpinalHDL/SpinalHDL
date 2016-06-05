@@ -670,5 +670,5 @@ object PlayB8 {
 
   def main(args: Array[String]): Unit = {
     Spinal("--vhdl")(new UartCtrl)
-}
+  }
 }

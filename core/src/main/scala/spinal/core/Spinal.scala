@@ -41,6 +41,21 @@ case class SpinalConfig(
     def apply[T <: Component](gen : => T) : SpinalReport[T] = Spinal(this)(gen)
 }
 
+object SpinalConfig{
+  def shell[T <: Component](args : Seq[String]): Unit = {
+    val parser = new scopt.OptionParser[SpinalConfig]("SpinalCore") {
+      head("Spinal core")
+      opt[Unit]("vhdl") action { (_, c) => c.copy(mode = VHDL) }text("Set the VHDL mode")
+      opt[Unit]('d', "debug") action { (_, c) => c.copy(debug = true) } text("Enable debug mode directly")
+    }
+
+    parser.parse(args, SpinalConfig()) match {
+      case Some(config) => config
+      case None => ???
+    }
+  }
+}
+
 class SpinalReport[T <: Component](val toplevel: T) {
   val prunedSignals = mutable.Set[BaseType]()
 
@@ -76,16 +91,7 @@ object Spinal{
 
   def apply[T <: Component](args : String*)(gen : => T) : Unit = seq(args)(gen)
   def seq[T <: Component](args : Seq[String])(gen : => T) : Unit = {
-    val parser = new scopt.OptionParser[SpinalConfig]("scopt") {
-      head("Spinal core")
-      opt[Unit]("vhdl") action { (_, c) => c.copy(mode = VHDL) }text("Set the VHDL mode")
-      opt[Unit]('d', "debug") action { (_, c) => c.copy(debug = true) } text("Enable debug mode directly")
-    }
 
-    parser.parse(args, SpinalConfig()) match {
-      case Some(config) => Spinal(config)(gen)
-      case None =>
-    }
   }
 }
 

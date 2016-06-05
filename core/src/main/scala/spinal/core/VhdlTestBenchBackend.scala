@@ -28,20 +28,19 @@ import scala.io.Source
 class VhdlTestBenchBackend(pc : PhaseContext) extends VhdlBase with Phase {
   import pc._
   var out: java.io.FileWriter = null
-  var outputFile: String = null
   var tbName: String = null
 
   val userCodes = mutable.Map[String, String]()
 
 
 
-
+  def outputFilePath = config.targetDirectory + "/" +  topLevel.definitionName + "_tb.vhd"
+  
   override def impl() : Unit = {
-    outputFile = config.targetDirectory + "/" +  topLevel.definitionName + "_tb.vhd"
     if (tbName == null) tbName = topLevel.definitionName + "_tb"
     extractUserCodes
 
-    val tbFile = new java.io.FileWriter(outputFile)
+    val tbFile = new java.io.FileWriter(outputFilePath)
 
     val ret = new StringBuilder()
 
@@ -74,8 +73,8 @@ class VhdlTestBenchBackend(pc : PhaseContext) extends VhdlBase with Phase {
 
 
   def extractUserCodes: Unit = {
-    if (!Files.exists(Paths.get(outputFile))) return
-    val iterator = Source.fromFile(outputFile).getLines()
+    if (!Files.exists(Paths.get(outputFilePath))) return
+    val iterator = Source.fromFile(outputFilePath).getLines()
     val begin = "#spinalBegin"
     val end = "#spinalEnd"
     while (iterator.hasNext) {
