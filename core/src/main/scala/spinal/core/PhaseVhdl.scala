@@ -8,11 +8,14 @@ import scala.util.Random
  * Created by PIC32F_USER on 05/06/2016.
  */
 
+trait MemBitsMaskKind
+object MULTIPLE_RAM extends MemBitsMaskKind
+object SINGLE_RAM extends MemBitsMaskKind
+
+
 class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
   import pc._
   var outFile: java.io.FileWriter = null
-  var enumPackageName = "pkg_enum"
-  var packageName = "pkg_scala2hdl"
   var outputFilePath: String = null
   var onlyStdLogicVectorTopLevelIo = false
   var memBitsMaskKind : MemBitsMaskKind = MULTIPLE_RAM
@@ -609,16 +612,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
     emitLibrary(ret)
   }
 
-  def emitLibrary(ret: StringBuilder): Unit = {
-    ret ++= "library ieee;\n"
-    ret ++= "use ieee.std_logic_1164.all;\n"
-    ret ++= "use ieee.numeric_std.all;\n"
-    ret ++= "\n"
-    ret ++= s"library work;\n"
-    ret ++= s"use work.$packageName.all;\n"
-    ret ++= s"use work.all;\n"
-    ret ++= s"use work.$enumPackageName.all;\n\n"
-  }
+
 
   def emitEntityName(component: Component): Unit = {
 

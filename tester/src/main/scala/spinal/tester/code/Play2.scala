@@ -197,7 +197,7 @@ object PlayB2 {
 
   class TopLevel extends Component {
 
-    val input = in UInt (4 bit)
+    val input = in UInt (3 bit)
     val output = out UInt(4 bits)
     output := input + input
     //    switch(io.input){
@@ -218,7 +218,8 @@ object PlayB2 {
 
   def main(args: Array[String]): Unit = {
     //SpinalVhdl(new TopLevel)
-    SpinalVhdl(new TopLevel)
+
+    SpinalConfig(mode = VHDL)(new TopLevel)
   }
 }
 object PlayB3 {

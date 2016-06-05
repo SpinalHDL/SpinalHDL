@@ -9,6 +9,8 @@ import scala.collection.mutable.ArrayBuffer
 
 class PhaseContext(val config : SpinalConfig){
   var globalData = GlobalData.reset
+  globalData.scalaLocatedEnable = config.debug
+
   val components = ArrayBuffer[Component]()
   val globalScope = new Scope()
   var topLevel: Component = null
@@ -1177,14 +1179,14 @@ object SpinalArgVhdl{
   case class vhdPath(value : String) extends SpinalArgVhdl
 }
 
-object SpinalVhdlWrapper{
+object SpinalVhdlBoot{
   def apply[T <: Component](config : SpinalConfig)(gen : => T) : SpinalReport[T] ={
     try {
       singleShot(config)(gen)
     } catch {
       case e: Throwable => {
         if(!config.debug){
-          Thread.sleep(10)
+          Thread.sleep(100)
           println("\n**********************************************************************************************")
           val errCnt = SpinalError.getErrorCount()
           SpinalWarning(s"Elaboration failed (${errCnt} error" + (if(errCnt > 1){s"s"} else {s""}) + s").\n" +
@@ -1268,6 +1270,7 @@ object SpinalVhdlWrapper{
 
 
     phases += new PhaseVhdl(pc)
+    phases += new VhdlTestBenchBackend(pc)
 
 
 

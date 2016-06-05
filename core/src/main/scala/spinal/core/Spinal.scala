@@ -21,7 +21,8 @@ package spinal.core
 import java.text.SimpleDateFormat
 import java.util.Date
 
-import spinal.core.SpinalReport
+import scala.collection.mutable
+
 
 trait SpinalMode
 object VHDL extends SpinalMode
@@ -35,8 +36,24 @@ case class SpinalConfig(
   onlyStdLogicVectorAtTopLevelIo : Boolean = false,
   defaultClockDomainFrequency : IClockDomainFrequency = UnknownFrequency(),
   targetDirectory : String = "."
-)
+){
+    def generate[T <: Component](gen : => T) : SpinalReport[T] = Spinal(this)(gen)
+    def apply[T <: Component](gen : => T) : SpinalReport[T] = Spinal(this)(gen)
+}
 
+class SpinalReport[T <: Component](val toplevel: T) {
+  val prunedSignals = mutable.Set[BaseType]()
+
+  def printPruned() : this.type = {
+    prunedSignals.foreach(bt => SpinalWarning(s"Unused wire detected : $bt"))
+    this
+  }
+
+  def printPrunedIo() : this.type = {
+    prunedSignals.filter(_.dir != null).foreach(bt => SpinalWarning(s"Unused wire detected : $bt"))
+    this
+  }
+}
 
 object Spinal{
   def apply[T <: Component](config : SpinalConfig)(gen : => T) : SpinalReport[T]  = {
@@ -52,7 +69,7 @@ object Spinal{
     } + s" Current date : ${dateFmt.format(curDate)}")
 
     config.mode match {
-      case `VHDL` => SpinalVhdlWrapper(config)(gen)
+      case `VHDL` => SpinalVhdlBoot(config)(gen)
     }
   }
 
@@ -81,8 +98,8 @@ object SpinalVhdl {
                             defaultConfigForClockDomains: ClockDomainConfig = ClockDomainConfig(),
                             onlyStdLogicVectorAtTopLevelIo : Boolean = false,
                             defaultClockDomainFrequency : IClockDomainFrequency = UnknownFrequency(),
-                            vhdPath : String = null): SpinalReport[T] = {
-    Spinal(SpinalConfig().copy(
+                            vhdPath : String = "."): SpinalReport[T] = {
+    SpinalVhdl(SpinalConfig().copy(
       defaultConfigForClockDomains=defaultConfigForClockDomains,
       onlyStdLogicVectorAtTopLevelIo=onlyStdLogicVectorAtTopLevelIo,
       defaultClockDomainFrequency=defaultClockDomainFrequency,

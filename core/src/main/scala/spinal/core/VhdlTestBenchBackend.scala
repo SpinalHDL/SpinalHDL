@@ -20,10 +20,13 @@ package spinal.core
 
 import java.nio.file.{Files, Paths}
 
+import scala.StringBuilder
 import scala.collection.mutable
+import scala.collection.mutable.StringBuilder
 import scala.io.Source
 
-class VhdlTestBenchBackend() extends VhdlBase {
+class VhdlTestBenchBackend(pc : PhaseContext) extends VhdlBase with Phase {
+  import pc._
   var out: java.io.FileWriter = null
   var outputFile: String = null
   var tbName: String = null
@@ -31,14 +34,10 @@ class VhdlTestBenchBackend() extends VhdlBase {
   val userCodes = mutable.Map[String, String]()
 
 
-  var topLevel: Component = null
-  var backend: VhdlBackend = null
 
-  def elaborate(backend: VhdlBackend, topLevel: Component): Unit = {
-    this.topLevel = topLevel
-    this.backend = backend
 
-    if (outputFile == null) outputFile = backend.outputFilePath.replace(".vhd","_tb.vhd")
+  override def impl() : Unit = {
+    outputFile = config.targetDirectory + "/" +  topLevel.definitionName + "_tb.vhd"
     if (tbName == null) tbName = topLevel.definitionName + "_tb"
     extractUserCodes
 
@@ -46,7 +45,8 @@ class VhdlTestBenchBackend() extends VhdlBase {
 
     val ret = new StringBuilder()
 
-    backend.emitLibrary(ret)
+
+    emitLibrary(ret)
     emitUserCode("", "userLibrary", ret)
     ret ++= s"""
                 |
@@ -70,6 +70,7 @@ class VhdlTestBenchBackend() extends VhdlBase {
     tbFile.flush();
     tbFile.close();
   }
+
 
 
   def extractUserCodes: Unit = {
@@ -108,7 +109,7 @@ class VhdlTestBenchBackend() extends VhdlBase {
     for (io <- c.getOrdredNodeIo) {
       val str = emitSignal(io, io)
 
-      ret ++= {if(backend.onlyStdLogicVectorTopLevelIo)
+      ret ++= {if(config.onlyStdLogicVectorAtTopLevelIo)
         str.replace("unsigned","std_logic_vector").replace("signed","std_logic_vector")
       else
         str}
