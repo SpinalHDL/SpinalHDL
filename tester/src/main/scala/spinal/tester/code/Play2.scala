@@ -25,7 +25,7 @@ object PlayB7 {
   }
 
   def main(args: Array[String]): Unit = {
-    SpinalVhdl(new TopLevel,vhdPath="C:/tmp/toto.vhd")
+    SpinalVhdl(new TopLevel)
   }
 }
 
@@ -189,8 +189,7 @@ object PlayB1 {
 
   def main(args: Array[String]): Unit = {
     //SpinalVhdl(new TopLevel)
-    SpinalVhdlBuilder(new TopLevel)
-      .elaborate()
+    SpinalVhdl(new TopLevel)
   }
 }
 
@@ -198,7 +197,7 @@ object PlayB2 {
 
   class TopLevel extends Component {
 
-    val input = in UInt (4 bit)
+    val input = in UInt (3 bit)
     val output = out UInt(4 bits)
     output := input + input
     //    switch(io.input){
@@ -219,8 +218,8 @@ object PlayB2 {
 
   def main(args: Array[String]): Unit = {
     //SpinalVhdl(new TopLevel)
-    SpinalVhdlBuilder(new TopLevel)
-      .elaborate()
+
+    SpinalConfig(mode = VHDL).generate(new TopLevel)
   }
 }
 object PlayB3 {
@@ -663,5 +662,13 @@ object PlayWidthChanger {
 
   def main(args: Array[String]): Unit = {
     SpinalVhdl(new TopLevel)
+  }
+}
+
+
+object PlayB8 {
+
+  def main(args: Array[String]): Unit = {
+    Spinal("--vhdl")(new UartCtrl)
   }
 }

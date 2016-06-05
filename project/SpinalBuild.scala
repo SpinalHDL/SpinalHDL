@@ -21,6 +21,8 @@ object SpinalBuild extends Build {
     settings = defaultSettings ++ Seq(
       name := "SpinalHDL Core",
       libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value,
+      libraryDependencies += "com.github.scopt" %% "scopt" % "3.4.0",
+      resolvers += Resolver.sonatypeRepo("public"),
       version := SpinalVersion.core
     )
   )

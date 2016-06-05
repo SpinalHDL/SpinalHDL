@@ -1,192 +1,162 @@
-/*
- * SpinalHDL
- * Copyright (c) Dolu, All rights reserved.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 3.0 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library.
- */
-
 package spinal.core
 
 import scala.collection.mutable
-import scala.collection.mutable.{StringBuilder, ArrayBuffer}
+import scala.collection.mutable.ArrayBuffer
 
+/**
+ * Created by PIC32F_USER on 05/06/2016.
+ */
 
-
-class Backend {
+class PhaseContext(val config : SpinalConfig){
   var globalData = GlobalData.reset
+  globalData.scalaLocatedEnable = config.debug
+
   val components = ArrayBuffer[Component]()
   val globalScope = new Scope()
-  val reservedKeyWords = mutable.Set[String]()
   var topLevel: Component = null
   val enums = mutable.Map[SpinalEnum,mutable.Set[SpinalEnumEncoding]]()
-  var forceMemToBlackboxTranslation = false
-  var jsonReportPath = ""
-  var defaultClockDomainFrequency : IClockDomainFrequency = UnknownFrequency()
-
+  val reservedKeyWords = mutable.Set[String]()
 
   def sortedComponents = components.sortWith(_.level > _.level)
 
-  def addReservedKeyWordToScope(scope: Scope): Unit = {
-    reservedKeyWords.foreach(scope.allocateName(_))
-  }
+  def walkNodesDefautStack = {
+    val nodeStack = mutable.Stack[Node]()
 
-  def elaborate[T <: Component](gen: () => T): SpinalReport[T] = {
-    SpinalInfoPhase("Start elaboration")
-
-    //default clockDomain
-    val defaultClockDomain = ClockDomain.external("",frequency = defaultClockDomainFrequency)
-
-    ClockDomain.push(defaultClockDomain)
-    topLevel = gen()
-//    if(topLevel.isUnnamed)topLevel.setWeakName("toplevel")
-    ClockDomain.pop(defaultClockDomain)
-
-    def checkGlobalData() : Unit = {
-      if (!GlobalData.get.clockDomainStack.isEmpty) SpinalWarning("clockDomain stack is not empty :(")
-      if (!GlobalData.get.componentStack.isEmpty) SpinalWarning("componentStack stack is not empty :(")
-      if (!GlobalData.get.switchStack.isEmpty) SpinalWarning("switchStack stack is not empty :(")
-      if (!GlobalData.get.conditionalAssignStack.isEmpty) SpinalWarning("conditionalAssignStack stack is not empty :(")
-    }
-
-    checkGlobalData
-    val ret = elaborate(topLevel.asInstanceOf[T])
-    checkGlobalData
-
-    globalData.postBackendTask.foreach(_())
-    val reports = globalData.jsonReports
-
-    val builder = new mutable.StringBuilder
-    builder ++= "{\n"
-    builder ++= "\"reports\":[\n"
-    if(globalData.jsonReports.size != 0) {
-      builder ++= "  ";
-      builder ++= globalData.jsonReports.reduceLeft(_ + ",\n" + _).replace("\n", "\n  ")
-    }
-    builder ++= "  ]\n"
-    builder ++= "}\n"
-    val out = new java.io.FileWriter(jsonReportPath)
-    out.write(builder.toString())
-    out.flush()
-    out.close()
-
-    ret
-  }
-
-  //TODO implicit area base class for each base type that implement operator
-  //TODO Union support
-  //TODO better Mem support (user specifyed blackbox)
-  //TODO Mux node with n inputss instead of fixed 2
-  //TODO non bundle that should be bundle into a bundle should be warned
-  //TODO move nodes nomalisation before node symplification   (normalisation create resizes that could be then symplified)
-  protected def elaborate[T <: Component](topLevel: T): SpinalReport[T] = {
-    val backendReport = new SpinalReport(topLevel)
-
-    SpinalInfoPhase("Start analysis and transform")
-    addReservedKeyWordToScope(globalScope)
-
-
-
-    buildComponentsList(topLevel)
-    applyComponentIoDefaults()
-    walkNodesBlackBoxGenerics()
-    replaceMemByBlackBox_simplifyWriteReadWithSameAddress()
-
-
-    //trickDontCares()
-
-    //notifyNodes(StartPhase)
-
-    SpinalInfoPhase("Get names from reflection")
-    nameNodesByReflection()
-    collectAndNameEnum()
-    if(!globalData.pendingErrors.isEmpty) SpinalError()
-
-    //Component connection
-    SpinalInfoPhase("Transform connections")
-    // allowLiteralToCrossHierarchy
-    pullClockDomains()
-    check_noNull_noCrossHierarchy_noInputRegister_noDirectionLessIo()
-
-    addInOutBinding()
-    nameBinding()
-    allowNodesToReadOutputs()
-    allowNodesToReadInputOfKindComponent()
-
-
-    //Node width
-    SpinalInfoPhase("Infer nodes's bit width")
-    postWidthInferationChecks()
-    inferWidth()
-    simplifyNodes()
-    inferWidth()
-    propagateBaseTypeWidth()
-    normalizeNodeInputs()
-    checkInferredWidth()
-
-    //Check
-    SpinalInfoPhase("Check combinatorial loops")
-    checkCombinationalLoops2()
-    SpinalInfoPhase("Check cross clock domains")
-    checkCrossClockDomains()
-
-
-    //Simplify nodes
-    SpinalInfoPhase("Simplify graph's nodes")
-    fillNodeConsumer()
-    dontSymplifyBasetypeWithComplexAssignement()
-    deleteUselessBaseTypes()
-   // convertWhenToDefault()
-    SpinalInfoPhase("Check that there is no incomplete assignment")
-    check_noAsyncNodeWithIncompleteAssignment()
-    simplifyBlacBoxGenerics()
-
-    SpinalInfoPhase("Collect signals not used in the graph")
-    printUnUsedSignals(backendReport)
-
-    SpinalInfoPhase("Finalise")
-
-    //Name patch
-    //nameBinding()
-    //simplifyBlackBoxIoNames
-
-    //Finalise
-    addNodesIntoComponent()
-    orderComponentsNodes()
-    allocateNames()
-    removeComponentThatNeedNoHdlEmit()
-
-    printStates()
-
-    backendReport
-  }
-
-  def nameNodesByReflection(): Unit = {
-    globalData.nodeAreNamed = true
-    if (topLevel.getName() == null) topLevel.setWeakName("toplevel")
-    for (c <- sortedComponents) {
-      c.nameElements()
-      nameComponentDeclaration(c)
+    topLevel.getAllIo.foreach(nodeStack.push(_))
+    components.foreach(c => {
       c match {
-        case bb: BlackBox => {
-          bb.getGeneric.genNames
+        case blackBox: BlackBox => blackBox.getAllIo.filter(_.isInput).foreach(nodeStack.push(_))
+        case _ =>
+      }
+      c.additionalNodesRoot.foreach(nodeStack.push(_))
+    })
+    nodeStack
+  }
+
+  def walkNodesBlackBoxGenerics() = {
+    val nodeStack = mutable.Stack[Node]()
+    components.foreach(_ match {
+      case blackBox: BlackBox => {
+        blackBox.getGeneric.flatten.foreach(_ match {
+          case bt: BaseType => nodeStack.push(bt)
+          case _ =>
+        })
+      }
+      case _ =>
+    })
+    nodeStack
+  }
+
+  def fillNodeConsumer(): Unit = {
+    Node.walk(walkNodesDefautStack,(node)=>{
+      node.onEachInput(input => {
+        if (input != null) input.consumers += node
+      })
+    })
+  }
+
+  def removeNodeConsumer() : Unit = {
+    Node.walk(walkNodesDefautStack,_.consumers.clear())
+  }
+
+  def fillComponentList(): Unit ={
+    components.clear()
+    def walk(c: Component): Unit = {
+      components += c
+      c.kinds.foreach(walk(_))
+    }
+    walk(topLevel)
+  }
+
+  def checkGlobalData() : Unit = {
+    if (!GlobalData.get.clockDomainStack.isEmpty) SpinalWarning("clockDomain stack is not empty :(")
+    if (!GlobalData.get.componentStack.isEmpty) SpinalWarning("componentStack stack is not empty :(")
+    if (!GlobalData.get.switchStack.isEmpty) SpinalWarning("switchStack stack is not empty :(")
+    if (!GlobalData.get.conditionalAssignStack.isEmpty) SpinalWarning("conditionalAssignStack stack is not empty :(")
+  }
+
+  def checkPendingErrors() = if(!globalData.pendingErrors.isEmpty) SpinalError()
+}
+
+trait Phase{
+  def impl(): Unit
+}
+
+class MultiPhase(pc: PhaseContext) extends Phase{
+  val phases = ArrayBuffer[Phase]()
+
+  override def impl(): Unit = {
+    phases.foreach(_.impl())
+  }
+}
+
+
+class PhaseFillComponentList(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+    pc.fillComponentList()
+  }
+}
+
+
+
+class PhaseApplyIoDefault(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+    import pc._
+    Node.walk(pc.walkNodesDefautStack,node => {
+      node match{
+        case node : BaseType => {
+          if(node.input == null && node.defaultValue != null){
+            val c = node.dir match {
+              case `in` => node.component
+              case `out` => if(node.component.parent != null)
+                node.component.parent
+              else
+                null
+              case _ => node.component
+            }
+            if(c != null) {
+              node.dir match{
+                case `in` =>  {
+                  Component.push(c.parent)
+                  node.assignFrom(node.defaultValue, false)
+                  Component.pop(c.parent)
+                }
+                case _ => {
+                  Component.push(c)
+                  node.assignFrom(node.defaultValue, false)
+                  Component.pop(c)
+                }
+              }
+            }
+          }
         }
         case _ =>
       }
-    }
-  }
 
-  def replaceMemByBlackBox_simplifyWriteReadWithSameAddress(): Unit = {
+    })
+  }
+}
+
+class PhaseNodesBlackBoxGenerics(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+    val nodeStack = mutable.Stack[Node]()
+    pc.components.foreach(_ match {
+      case blackBox: BlackBox => {
+        blackBox.getGeneric.flatten.foreach(_ match {
+          case bt: BaseType => nodeStack.push(bt)
+          case _ =>
+        })
+      }
+      case _ =>
+    })
+    nodeStack
+  }
+}
+
+
+class PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+    import pc._
     class MemTopo(val mem: Mem[_]) {
       val writes = ArrayBuffer[MemWrite]()
       val readsAsync = ArrayBuffer[MemReadAsync]()
@@ -198,7 +168,7 @@ class Backend {
 
     def topoOf(mem: Mem[_]) = memsTopo.getOrElseUpdate(mem, new MemTopo(mem))
 
-    Node.walk(walkNodesDefautStack,node => node match {
+    Node.walk(pc.walkNodesDefautStack,node => node match {
       case write: MemWrite => {
         val memTopo = topoOf(write.getMem)
         val readSync = memTopo.readsSync.find(readSync => readSync.originalAddress == write.originalAddress).orNull
@@ -239,8 +209,8 @@ class Backend {
 
 
 
-    for ((mem, topo) <- memsTopo.iterator if forceMemToBlackboxTranslation || mem.forceMemToBlackboxTranslation
-                                          if mem.initialContent == null) {
+    for ((mem, topo) <- memsTopo.iterator if config.forceMemToBlackboxTranslation || mem.forceMemToBlackboxTranslation
+         if mem.initialContent == null) {
 
       if (topo.writes.size == 1 && topo.readsAsync.size == 1 && topo.readsSync.isEmpty && topo.writeReadSync.isEmpty && topo.writeOrReadSync.isEmpty) {
         val wr = topo.writes(0)
@@ -344,41 +314,32 @@ class Backend {
         }
       }
     }
-    components.clear()
-    buildComponentsList(topLevel)
+    pc.fillComponentList()
   }
+}
 
-  def printStates(): Unit = {
-    var counter = 0
-    Node.walk(walkNodesDefautStack,_ => counter = counter + 1)
-    SpinalInfo(s"Graph has $counter nodes")
-  }
-
-
-  def nameBinding(): Unit = {
-    for (c <- components) {
-      for ((bindedOut, bind) <- c.kindsOutputsToBindings) {
-        if (bind.isUnnamed && bindedOut.component.isNamed && bindedOut.isNamed) {
-          bind.setWeakName(bindedOut.component.getName() + "_" + bindedOut.getName())
+class PhaseNameNodesByReflection(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+    import pc._
+    globalData.nodeAreNamed = true
+    if (topLevel.getName() == null) topLevel.setWeakName("toplevel")
+    for (c <- sortedComponents) {
+      c.nameElements()
+      if(c.definitionName == null)
+        c.definitionName = c.getClass.getSimpleName
+      c match {
+        case bb: BlackBox => {
+          bb.getGeneric.genNames
         }
+        case _ =>
       }
     }
-
-    Node.walk(walkNodesDefautStack,node => node match {
-      case node: BaseType => {
-        if (node.isInput && node.input != null && node.input.isInstanceOf[Nameable]) {
-          val nameable = node.input.asInstanceOf[Nameable]
-          if (nameable.isUnnamed && node.component.isNamed && node.isNamed) {
-            nameable.setWeakName(node.component.getName() + "_" + node.getName())
-          }
-        }
-      }
-      case _ =>
-    })
   }
+}
 
-
-  def collectAndNameEnum(): Unit = {
+class PhaseCollectAndNameEnum(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+    import pc._
     Node.walk(walkNodesDefautStack,node => {
       node match {
         case enum: SpinalEnumCraft[_] => enums.getOrElseUpdate(enum.blueprint,mutable.Set[SpinalEnumEncoding]()).add(enum.encoding)
@@ -406,95 +367,34 @@ class Backend {
       }
     }
   }
-  def convertWhenToDefault() : Unit = {
-    val startContext = mutable.Set[WhenContext]()
-    Node.walk(walkNodesDefautStack,node => node match {
-      case whenNode : WhenNode => {
-        val whenContext = whenNode.w
-        if(whenContext.parentElseWhen == null && whenContext.childElseWhen != null) startContext.add(whenContext)
-      }
-      case _ =>
-    })
-    val symplifyThem = mutable.Set[WhenContext]()
-    for(startContext <- startContext){
-      //TODO
-//      var ptr = startContext
-//      while(ptr.childElseWhen != null){
-//        ptr = ptr.childElseWhen
-//      }
-//      symplifyThem.add(ptr.parentElseWhen)
-    }
-//    Node.walk(walkNodesDefautStack,node => node match { Patch me, should update consumers ref
-//      case whenNode : WhenNode if(symplifyThem.contains(whenNode.w)) => whenNode.setInpXutWrap(2) = whenNode.getInput(2).getInput(1)
-//      case _ =>
-//    })
-  }
+}
 
-  def check_noAsyncNodeWithIncompleteAssignment(): Unit = {
-    val errors = mutable.ArrayBuffer[String]()
+class PhasePullClockDomains(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+    import pc._
+    Node.walk(walkNodesDefautStack,(node, push) =>  {
+      node match {
+        case delay: SyncNode => {
+          if(delay.isUsingResetSignal && !delay.getClockDomain.hasResetSignal)
+            SpinalError(s"Clock domain without reset contain a register which needs one\n ${delay.getScalaLocationLong}")
 
-    Node.walk(walkNodesDefautStack,node => node match {
-      case signal: BaseType if !signal.isDelay => {
+          Component.push(delay.component)
+          delay.setInput(SyncNode.getClockInputId,delay.getClockDomain.readClockWire)
 
-        val signalRange = new AssignedRange(signal.getWidth - 1, 0)
-
-        def walk(nodes: Iterator[Node]): AssignedBits = {
-          val assignedBits = new AssignedBits(signal.getBitsWidth)
-
-          for (node <- nodes) node match {
-            case wn: WhenNode => {
-              assignedBits.add(AssignedBits.intersect(walk(Iterator(wn.whenTrue)), walk(Iterator(wn.whenFalse))))
-            }
-            case an: AssignementNode => {
-              assignedBits.add(an.getAssignedBits)
-            }
-            case man: MultipleAssignmentNode => return walk(man.getInputs)
-            case nothing: NoneNode =>
-            case _ => assignedBits.add(signalRange)
-          }
-          assignedBits
+          if(delay.isUsingResetSignal)  delay.setInput(SyncNode.getClockResetId,delay.getClockDomain.readResetWire)
+          if(delay.isUsingEnableSignal) delay.setInput(SyncNode.getClockEnableId,delay.getClockDomain.readClockEnableWire)
+          Component.pop(delay.component)
         }
-
-        val assignedBits = walk(signal.getInputs)
-
-        val unassignedBits = new AssignedBits(signal.getBitsWidth)
-        unassignedBits.add(signalRange)
-        unassignedBits.remove(assignedBits)
-        if (!unassignedBits.isEmpty)
-          errors += s"Incomplete assignment is detected on $signal, unassigned bit mask " +
-                    s"is ${unassignedBits.toBinaryString}, declared at\n${signal.getScalaLocationLong}"
+        case _ =>
       }
-      case _ =>
-    })
-
-    if (errors.nonEmpty)
-      SpinalError(errors)
-  }
-
-  // Clone is to weak, loses tag and don't symplify :(
-  def allowLiteralToCrossHierarchy(): Unit = {
-    Node.walk(walkNodesDefautStack,consumer => {
-      consumer.onEachInput((consumerInput,consumerInputId) => {
-        consumerInput match {
-          case litBaseType: BaseType if litBaseType.input.isInstanceOf[Literal] => {
-            val lit: Literal = litBaseType.input.asInstanceOf[Literal]
-            val c = if (consumer.isInstanceOf[BaseType] && consumer.asInstanceOf[BaseType].isInput) consumer.component.parent else consumer.component
-            Component.push(c)
-            val newBt = litBaseType.clone()
-            val newLit: Literal = lit.clone()
-
-            newBt.input = newLit
-            consumer.setInput(consumerInputId,newBt)
-            Component.pop(c)
-
-          }
-          case _ =>
-        }
-      })
+      node.onEachInput(push(_))
     })
   }
+}
 
-  def check_noNull_noCrossHierarchy_noInputRegister_noDirectionLessIo(): Unit = {
+class PhaseCheck_noNull_noCrossHierarchy_noInputRegister_noDirectionLessIo(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+    import pc._
     val errors = mutable.ArrayBuffer[String]()
 
     for(c <- components){
@@ -566,34 +466,11 @@ class Backend {
       SpinalError(errors)
   }
 
-  def allocateNames() = {
-    for (enumDef <- enums.keys) {
-      if (enumDef.isWeak)
-        enumDef.setName(globalScope.allocateName(enumDef.getName()));
-      else
-        globalScope.iWantIt(enumDef.getName())
-    }
-    for (c <- sortedComponents) {
-      addReservedKeyWordToScope(c.localScope)
-      c.allocateNames
+}
 
-      if (c.isInstanceOf[BlackBox])
-        globalScope.lockName(c.definitionName)
-      else
-        c.definitionName = globalScope.allocateName(c.definitionName)
-    }
-
-
-  }
-
-  def normalizeNodeInputs(): Unit = {
-    Node.walk(walkNodesDefautStack,(node,push) => {
-      node.onEachInput(push(_))
-      node.normalizeInputs
-    })
-  }
-
-  def addInOutBinding(): Unit = {
+class PhaseAddInOutBinding(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+    import pc._
     Node.walk(walkNodesDefautStack,(node,push) => {
       //Create inputss bindings, usefull if the node is driven by when statments
       if (node.isInstanceOf[BaseType] && node.component.parent != null) {
@@ -638,189 +515,80 @@ class Backend {
       })
     })
   }
+}
 
-  def pullClockDomains(): Unit = {
-    Node.walk(walkNodesDefautStack,(node, push) =>  {
-      node match {
-        case delay: SyncNode => {
-          if(delay.isUsingResetSignal && !delay.getClockDomain.hasResetSignal)
-              SpinalError(s"Clock domain without reset contain a register which needs one\n ${delay.getScalaLocationLong}")
-
-          Component.push(delay.component)
-          delay.setInput(SyncNode.getClockInputId,delay.getClockDomain.readClockWire)
-
-          if(delay.isUsingResetSignal)  delay.setInput(SyncNode.getClockResetId,delay.getClockDomain.readResetWire)
-          if(delay.isUsingEnableSignal) delay.setInput(SyncNode.getClockEnableId,delay.getClockDomain.readClockEnableWire)
-          Component.pop(delay.component)
+class PhaseNameBinding(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+  import pc._
+    for (c <- components) {
+      for ((bindedOut, bind) <- c.kindsOutputsToBindings) {
+        if (bind.isUnnamed && bindedOut.component.isNamed && bindedOut.isNamed) {
+          bind.setWeakName(bindedOut.component.getName() + "_" + bindedOut.getName())
         }
-        case _ =>
       }
-      node.onEachInput(push(_))
-    })
-  }
+    }
 
-  def dontSymplifyBasetypeWithComplexAssignement(): Unit = {
-    Node.walk(walkNodesDefautStack,node => {
-      node match {
-        case baseType: BaseType => {
-          baseType.input match {
-            case wn: WhenNode => baseType.dontSimplifyIt()
-            case an: AssignementNode => baseType.dontSimplifyIt()
-            case man: MultipleAssignmentNode => baseType.dontSimplifyIt()
-            case _ =>
+    Node.walk(walkNodesDefautStack,node => node match {
+      case node: BaseType => {
+        if (node.isInput && node.input != null && node.input.isInstanceOf[Nameable]) {
+          val nameable = node.input.asInstanceOf[Nameable]
+          if (nameable.isUnnamed && node.component.isNamed && node.isNamed) {
+            nameable.setWeakName(node.component.getName() + "_" + node.getName())
           }
         }
-        case _ =>
-      }
-    })
-  }
-
-  def deleteUselessBaseTypes(): Unit = {
-    Node.walk(walkNodesDefautStack,(node, push) => {
-      node match {
-        case node: BaseType => {
-          if ((node.isUnnamed || node.dontCareAboutNameForSymplify) && !node.isIo && node.consumers.size == 1 && node.canSymplifyIt) {
-            val consumer = node.consumers(0)
-            val input = node.input
-            if (!node.isDelay || consumer.isInstanceOf[BaseType]) {
-              // don't allow to put a non base type on component inputss
-              if (input.isInstanceOf[BaseType] || !consumer.isInstanceOf[BaseType] || !consumer.asInstanceOf[BaseType].isInput) {
-                //don't allow to jump from kind to kind
-                val isKindOutputBinding = node.component.kindsOutputsBindings.contains(node)
-                if (!(isKindOutputBinding && (!consumer.isInstanceOf[BaseType] || node.component == consumer.component.parent))) {
-
-                  val inputConsumer = input.consumers
-
-                  if (isKindOutputBinding) {
-                    val newBind = consumer.asInstanceOf[BaseType]
-                    node.component.kindsOutputsBindings += newBind
-                    node.component.kindsOutputsToBindings += (input.asInstanceOf[BaseType] -> newBind)
-                  }
-                  consumer.onEachInput((consumerInput,idx) => {
-                    if (consumerInput == node)
-                      consumer.setInput(idx,input)
-                  })
-                  inputConsumer -= node
-                  inputConsumer += consumer
-                }
-              }
-            }
-          }
-        }
-
-        case _ =>
-      }
-      node.onEachInput(push(_))
-    })
-  }
-
-  def removeComponentThatNeedNoHdlEmit() = {
-    val componentsFiltred = components.filter(c => {
-      if (c.isInBlackBoxTree) {
-        false
-      } else if (c.nodes.size == 0) {
-        if (c.parent != null) c.parent.kinds -= c
-        false
-      } else {
-        true
-      }
-    })
-    components.clear()
-    components ++= componentsFiltred
-  }
-
-  def fillNodeConsumer(): Unit = {
-    Node.walk(walkNodesDefautStack,(node)=>{
-      node.onEachInput(input => {
-        if (input != null) input.consumers += node
-      })
-    })
-  }
-
-  def nameComponentDeclaration(c: Component): Unit = {
-    if(c.definitionName == null)
-      c.definitionName = c.getClass.getSimpleName
-  }
-
-
-  def checkInferredWidth(): Unit = {
-    val errors = mutable.ArrayBuffer[String]()
-    Node.walk(walkNodesDefautStack,node => {
-      val error = node.checkInferedWidth
-      if (error != null)
-        errors += error
-    })
-
-    if (errors.nonEmpty)
-      SpinalError(errors)
-  }
-
-
-  def walkNodesDefautStack = {
-    val nodeStack = mutable.Stack[Node]()
-
-    topLevel.getAllIo.foreach(nodeStack.push(_))
-    components.foreach(c => {
-      c match {
-        case blackBox: BlackBox => blackBox.getAllIo.filter(_.isInput).foreach(nodeStack.push(_))
-        case _ =>
-      }
-      c.additionalNodesRoot.foreach(nodeStack.push(_))
-    })
-    nodeStack
-  }
-
-  def applyComponentIoDefaults() = {
-    Node.walk(walkNodesDefautStack,node => {
-      node match{
-        case node : BaseType => {
-          if(node.input == null && node.defaultValue != null){
-            val c = node.dir match {
-              case `in` => node.component
-              case `out` => if(node.component.parent != null)
-                node.component.parent
-              else
-                null
-              case _ => node.component
-            }
-            if(c != null) {
-              node.dir match{
-                case `in` =>  {
-                  Component.push(c.parent)
-                  node.assignFrom(node.defaultValue, false)
-                  Component.pop(c.parent)
-                }
-                case _ => {
-                  Component.push(c)
-                  node.assignFrom(node.defaultValue, false)
-                  Component.pop(c)
-                }
-              }
-            }
-          }
-        }
-        case _ =>
-      }
-
-    })
-  }
-
-  def walkNodesBlackBoxGenerics() = {
-    val nodeStack = mutable.Stack[Node]()
-    components.foreach(_ match {
-      case blackBox: BlackBox => {
-        blackBox.getGeneric.flatten.foreach(_ match {
-          case bt: BaseType => nodeStack.push(bt)
-          case _ =>
-        })
       }
       case _ =>
     })
-    nodeStack
   }
+}
 
+class PhaseAllowNodesToReadOutputs(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+    import pc._
+    val outputsBuffers = mutable.Map[BaseType, BaseType]()
+    Node.walk(walkNodesDefautStack,node => {
+      node.onEachInput((nodeInput,i) => {
+        nodeInput match {
+          case baseTypeInput: BaseType => {
+            if (baseTypeInput.isOutput && baseTypeInput.component.parent != node.component) {
+              val buffer = outputsBuffers.getOrElseUpdate(baseTypeInput, {
+                val buffer = baseTypeInput.clone()
+                buffer.input = baseTypeInput.input
+                baseTypeInput.input = buffer
+                buffer.component = baseTypeInput.component
+                buffer
+              })
+              node.setInput(i,buffer)
+            }
+          }
+          case _ =>
+        }
+      })
+    })
+  }
+}
 
-  def postWidthInferationChecks() : Unit = {
+class PhaseAllowNodesToReadInputOfKindComponent(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+    import pc._
+    Node.walk(walkNodesDefautStack,node => {
+      node.onEachInput((input,i) => {
+        input match {
+          case baseTypeInput: BaseType => {
+            if (baseTypeInput.isInput && baseTypeInput.component.parent == node.component) {
+              node.setInput(i,baseTypeInput.input)
+            }
+          }
+          case _ =>
+        }
+      })
+    })
+  }
+}
+
+class PhasePostWidthInferationChecks(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+    import pc._
     val errors = mutable.ArrayBuffer[String]()
     Node.walk(walkNodesDefautStack ++ walkNodesBlackBoxGenerics,_ match {
       case node : Reg =>{
@@ -833,8 +601,11 @@ class Backend {
     if(!errors.isEmpty)
       SpinalError(errors)
   }
+}
 
-  def inferWidth(): Unit = {
+class PhaseInferWidth(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+    import pc._
     globalData.nodeAreInferringWidth = true
     val nodes = ArrayBuffer[Node]()
     Node.walk(walkNodesDefautStack ++ walkNodesBlackBoxGenerics,nodes += _)
@@ -870,59 +641,20 @@ class Backend {
       }
     }
   }
+}
 
-  def trickDontCares(): Unit ={
-    Node.walk(walkNodesDefautStack,node => {
-      node match{
-        case baseType : BaseType =>{
-
-        }
-        case _ =>
-      }
-    })
+class PhaseSimplifyNodes(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+    import pc._
+    fillNodeConsumer
+    Node.walk(walkNodesDefautStack,_.simplifyNode)
+    removeNodeConsumer
   }
+}
 
-  def allowNodesToReadOutputs(): Unit = {
-    val outputsBuffers = mutable.Map[BaseType, BaseType]()
-    Node.walk(walkNodesDefautStack,node => {
-      node.onEachInput((nodeInput,i) => {
-        nodeInput match {
-          case baseTypeInput: BaseType => {
-            if (baseTypeInput.isOutput && baseTypeInput.component.parent != node.component) {
-              val buffer = outputsBuffers.getOrElseUpdate(baseTypeInput, {
-                val buffer = baseTypeInput.clone()
-                buffer.input = baseTypeInput.input
-                baseTypeInput.input = buffer
-                buffer.component = baseTypeInput.component
-                buffer
-              })
-              node.setInput(i,buffer)
-            }
-          }
-          case _ =>
-        }
-      })
-    })
-  }
-
-  def allowNodesToReadInputOfKindComponent() = {
-    Node.walk(walkNodesDefautStack,node => {
-      node.onEachInput((input,i) => {
-        input match {
-          case baseTypeInput: BaseType => {
-            if (baseTypeInput.isInput && baseTypeInput.component.parent == node.component) {
-              node.setInput(i,baseTypeInput.input)
-            }
-          }
-          case _ =>
-        }
-      })
-    })
-  }
-
-
-
-  def propagateBaseTypeWidth(): Unit = {
+class PhasePropagateBaseTypeWidth(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+    import pc._
     Node.walk(walkNodesDefautStack,node => {
       node match {
         case node: BaseType => {
@@ -1006,52 +738,38 @@ class Backend {
         case _ =>
       }
     })
+
   }
+}
 
-  def checkCrossClockDomains(): Unit = {
+class PhaseNormalizeNodeInputs(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+    import pc._
+    Node.walk(walkNodesDefautStack,(node,push) => {
+      node.onEachInput(push(_))
+      node.normalizeInputs
+    })
+  }
+}
+
+class PhaseCheckInferredWidth(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+  import pc._
     val errors = mutable.ArrayBuffer[String]()
-
     Node.walk(walkNodesDefautStack,node => {
-      node match {
-        case syncNode: SyncNode => {
-          if (!syncNode.hasTag(crossClockDomain)) {
-            val consumerCockDomain = syncNode.getClockDomain
-            for (syncInput <- syncNode.getSynchronousInputs) {
-              val walked = mutable.Set[Object]() //TODO upgrade it to the check bit by bit
-              check(syncInput)
-              def check(that: Node): Unit = {
-                if(walked.contains(that)) return;
-                walked += that
-                if(that == null){
-                  println(":(")
-                }
-                if (!that.hasTag(crossClockDomain)) {
-                  that match {
-                    case syncDriver: SyncNode => {
-                      val driverClockDomain = syncDriver.getClockDomain
-                      if (//syncDriver.getClockDomain.clock != consumerCockDomain.clock &&
-                          ! driverClockDomain.isSyncronousWith(consumerCockDomain)) {
-                        errors += s"Synchronous element ${syncNode.getScalaLocationShort} is driven " +
-                          s"by ${syncDriver.getScalaLocationShort} but they don't have the same clock domain. " +
-                          s"Register declaration at \n${syncNode.getScalaLocationLong}"
-                      }
-                    }
-                    case _ => that.onEachInput(input => if (input != null) check(input))
-                  }
-                }
-              }
-            }
-          }
-        }
-        case _ =>
-      }
+      val error = node.checkInferedWidth
+      if (error != null)
+        errors += error
     })
 
-    if (!errors.isEmpty)
+    if (errors.nonEmpty)
       SpinalError(errors)
   }
+}
 
-  def checkCombinationalLoops2(): Unit = {
+class PhaseCheckCombinationalLoops(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+    import pc._
     val targetAlgoId = GlobalData.get.allocateAlgoId()
 
     val errors = mutable.ArrayBuffer[String]()
@@ -1071,7 +789,7 @@ class Backend {
 
     def walk(consumers :  scala.collection.immutable.HashMap[Node, AssignedBits],stack : List[(Node,Int,Int)],
              node: Node,
-              outHi : Int, outLo : Int): Unit = {
+             outHi : Int, outLo : Int): Unit = {
       if (node == null || node.component == null || node.isInstanceOf[NoneNode]) {
 
       }else {
@@ -1080,7 +798,7 @@ class Backend {
         if (bitsAlreadyUsed.isIntersecting(AssignedRange(outHi, outLo))) {
           val ordred = newStack.reverseIterator
           val filtred = ordred.dropWhile((e) => (e._1 != node || e._2 < outLo || e._3 > outHi)).drop(1).toArray
-         // val filtredNode = filtred.map(_._1)
+          // val filtredNode = filtred.map(_._1)
 
           val wellNameLoop = filtred.reverseIterator.filter{case (n,hi,lo) => n.isInstanceOf[Nameable] && n.asInstanceOf[Nameable].isNamed}.map{case (n,hi,lo)  => n.asInstanceOf[Nameable].toString() + s"[$hi:$lo]"}.foldLeft("")(_ + _ + " ->\n      ")
           val multiLineLoop = filtred.reverseIterator.map(n => "      " + n.toString).reduceLeft(_ + "\n" + _)
@@ -1138,22 +856,172 @@ class Backend {
     def addPendingNode(node: Node) = {
       if (node != null && ! isNodeCompleted(node)) pendingNodes.push(node)
     }
+
   }
+}
 
+class PhaseCheckCrossClockDomains(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+    import pc._
+    val errors = mutable.ArrayBuffer[String]()
 
+    Node.walk(walkNodesDefautStack,node => {
+      node match {
+        case syncNode: SyncNode => {
+          if (!syncNode.hasTag(crossClockDomain)) {
+            val consumerCockDomain = syncNode.getClockDomain
+            for (syncInput <- syncNode.getSynchronousInputs) {
+              val walked = mutable.Set[Object]() //TODO upgrade it to the check bit by bit
+              check(syncInput)
+              def check(that: Node): Unit = {
+                if(walked.contains(that)) return;
+                walked += that
+                if(that == null){
+                  println(":(")
+                }
+                if (!that.hasTag(crossClockDomain)) {
+                  that match {
+                    case syncDriver: SyncNode => {
+                      val driverClockDomain = syncDriver.getClockDomain
+                      if (//syncDriver.getClockDomain.clock != consumerCockDomain.clock &&
+                        ! driverClockDomain.isSyncronousWith(consumerCockDomain)) {
+                        errors += s"Synchronous element ${syncNode.getScalaLocationShort} is driven " +
+                          s"by ${syncDriver.getScalaLocationShort} but they don't have the same clock domain. " +
+                          s"Register declaration at \n${syncNode.getScalaLocationLong}"
+                      }
+                    }
+                    case _ => that.onEachInput(input => if (input != null) check(input))
+                  }
+                }
+              }
+            }
+          }
+        }
+        case _ =>
+      }
+    })
 
-
-  def simplifyNodes(): Unit = {
-    fillNodeConsumer
-    Node.walk(walkNodesDefautStack,_.simplifyNode)
-    removeNodeConsumer
+    if (!errors.isEmpty)
+      SpinalError(errors)
   }
+}
 
-  def removeNodeConsumer() : Unit = {
-    Node.walk(walkNodesDefautStack,_.consumers.clear())
+class PhaseFillNodesConsumers(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+    pc.fillNodeConsumer()
   }
+}
 
-  def simplifyBlacBoxGenerics(): Unit = {
+
+
+class PhaseDontSymplifyBasetypeWithComplexAssignement(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+    import pc._
+    Node.walk(walkNodesDefautStack,node => {
+      node match {
+        case baseType: BaseType => {
+          baseType.input match {
+            case wn: WhenNode => baseType.dontSimplifyIt()
+            case an: AssignementNode => baseType.dontSimplifyIt()
+            case man: MultipleAssignmentNode => baseType.dontSimplifyIt()
+            case _ =>
+          }
+        }
+        case _ =>
+      }
+    })
+  }
+}
+
+class PhaseDeleteUselessBaseTypes(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+    import pc._
+    Node.walk(walkNodesDefautStack,(node, push) => {
+      node match {
+        case node: BaseType => {
+          if ((node.isUnnamed || node.dontCareAboutNameForSymplify) && !node.isIo && node.consumers.size == 1 && node.canSymplifyIt) {
+            val consumer = node.consumers(0)
+            val input = node.input
+            if (!node.isDelay || consumer.isInstanceOf[BaseType]) {
+              // don't allow to put a non base type on component inputss
+              if (input.isInstanceOf[BaseType] || !consumer.isInstanceOf[BaseType] || !consumer.asInstanceOf[BaseType].isInput) {
+                //don't allow to jump from kind to kind
+                val isKindOutputBinding = node.component.kindsOutputsBindings.contains(node)
+                if (!(isKindOutputBinding && (!consumer.isInstanceOf[BaseType] || node.component == consumer.component.parent))) {
+
+                  val inputConsumer = input.consumers
+
+                  if (isKindOutputBinding) {
+                    val newBind = consumer.asInstanceOf[BaseType]
+                    node.component.kindsOutputsBindings += newBind
+                    node.component.kindsOutputsToBindings += (input.asInstanceOf[BaseType] -> newBind)
+                  }
+                  consumer.onEachInput((consumerInput,idx) => {
+                    if (consumerInput == node)
+                      consumer.setInput(idx,input)
+                  })
+                  inputConsumer -= node
+                  inputConsumer += consumer
+                }
+              }
+            }
+          }
+        }
+
+        case _ =>
+      }
+      node.onEachInput(push(_))
+    })
+  }
+}
+
+class PhaseCheck_noAsyncNodeWithIncompleteAssignment(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+    import pc._
+    val errors = mutable.ArrayBuffer[String]()
+
+    Node.walk(walkNodesDefautStack,node => node match {
+      case signal: BaseType if !signal.isDelay => {
+
+        val signalRange = new AssignedRange(signal.getWidth - 1, 0)
+
+        def walk(nodes: Iterator[Node]): AssignedBits = {
+          val assignedBits = new AssignedBits(signal.getBitsWidth)
+
+          for (node <- nodes) node match {
+            case wn: WhenNode => {
+              assignedBits.add(AssignedBits.intersect(walk(Iterator(wn.whenTrue)), walk(Iterator(wn.whenFalse))))
+            }
+            case an: AssignementNode => {
+              assignedBits.add(an.getAssignedBits)
+            }
+            case man: MultipleAssignmentNode => return walk(man.getInputs)
+            case nothing: NoneNode =>
+            case _ => assignedBits.add(signalRange)
+          }
+          assignedBits
+        }
+
+        val assignedBits = walk(signal.getInputs)
+
+        val unassignedBits = new AssignedBits(signal.getBitsWidth)
+        unassignedBits.add(signalRange)
+        unassignedBits.remove(assignedBits)
+        if (!unassignedBits.isEmpty)
+          errors += s"Incomplete assignment is detected on $signal, unassigned bit mask " +
+            s"is ${unassignedBits.toBinaryString}, declared at\n${signal.getScalaLocationLong}"
+      }
+      case _ =>
+    })
+
+    if (errors.nonEmpty)
+      SpinalError(errors)
+  }
+}
+
+class PhaseSimplifyBlacBoxGenerics(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+    import pc._
     components.foreach(_ match {
       case blackBox: BlackBox => {
         blackBox.getGeneric.flatten.foreach(tuple => {
@@ -1177,11 +1045,14 @@ class Backend {
       case _ =>
     })
   }
+}
 
-  def printUnUsedSignals[T <: Component](report : SpinalReport[T]) : Unit = {
-    //val warnings = mutable.ArrayBuffer[String]()
+class PhasePrintUnUsedSignals(prunedSignals : mutable.Set[BaseType])(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+    import pc._
+
     val targetAlgoId = GlobalData.get.algoId
-    Node.walk(walkNodesDefautStack,node => {})
+    Node.walk(walkNodesDefautStack,node => {node.algoId = targetAlgoId})
 
     for(c <- components){
       def checkNameable(that : Any) : Unit = that match {
@@ -1191,7 +1062,7 @@ class Backend {
         case data : Data =>  {
           data.flatten.foreach(bt => {
             if(bt.algoId != targetAlgoId && bt.getWidth != 0 && !bt.hasTag(unusedTag)){
-              report.prunedSignals += bt
+              prunedSignals += bt
             }
           })
         }
@@ -1200,12 +1071,15 @@ class Backend {
 
       c.forEachNameables(obj => checkNameable(obj))
     }
-    if(!report.prunedSignals.isEmpty){
-      SpinalWarning(s"${report.prunedSignals.size} signals were pruned. You can call printPruned on the backend report to get more informations.")
+    if(!prunedSignals.isEmpty){
+      SpinalWarning(s"${prunedSignals.size} signals were pruned. You can call printPruned on the backend report to get more informations.")
     }
   }
+}
 
-  def addNodesIntoComponent(): Unit = {
+class PhaseAddNodesIntoComponent(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+    import pc._
     Node.walk({
       val stack = walkNodesDefautStack
       for (c <- components) {
@@ -1216,17 +1090,184 @@ class Backend {
       node.component.nodes += node
     })
   }
+}
 
-  def orderComponentsNodes(): Unit = {
+class PhaseOrderComponentsNodes(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+    import pc._
     for (c <- components) {
       c.nodes = c.nodes.sortWith(_.instanceCounter < _.instanceCounter)
     }
   }
-
-  def buildComponentsList(c: Component): Unit = {
-    components += c
-    c.kinds.foreach(buildComponentsList(_))
-  }
-
 }
 
+class PhaseAllocateNames(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+    import pc._
+    for (enumDef <- enums.keys) {
+      if (enumDef.isWeak)
+        enumDef.setName(globalScope.allocateName(enumDef.getName()));
+      else
+        globalScope.iWantIt(enumDef.getName())
+    }
+    for (c <- sortedComponents) {
+      reservedKeyWords.foreach(c.localScope.allocateName(_))
+      c.allocateNames
+
+      if (c.isInstanceOf[BlackBox])
+        globalScope.lockName(c.definitionName)
+      else
+        c.definitionName = globalScope.allocateName(c.definitionName)
+    }
+  }
+}
+
+class PhaseRemoveComponentThatNeedNoHdlEmit(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+    import pc._
+    val componentsFiltred = components.filter(c => {
+      if (c.isInBlackBoxTree) {
+        false
+      } else if (c.nodes.size == 0) {
+        if (c.parent != null) c.parent.kinds -= c
+        false
+      } else {
+        true
+      }
+    })
+    components.clear()
+    components ++= componentsFiltred
+  }
+}
+
+class PhasePrintStates(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+    import pc._
+    var counter = 0
+    Node.walk(walkNodesDefautStack,_ => counter = counter + 1)
+    SpinalInfo(s"Graph has $counter nodes")
+  }
+}
+
+class PhaseCreateComponent(gen : => Component)(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+    import pc._
+    val defaultClockDomain = ClockDomain.external("",frequency = config.defaultClockDomainFrequency)
+    ClockDomain.push(defaultClockDomain)
+    pc.topLevel = gen
+    ClockDomain.pop(defaultClockDomain)
+
+    pc.checkGlobalData()
+  }
+}
+
+object SpinalVhdlBoot{
+  def apply[T <: Component](config : SpinalConfig)(gen : => T) : SpinalReport[T] ={
+    try {
+      singleShot(config)(gen)
+    } catch {
+      case e: Throwable => {
+        if(!config.debug){
+          Thread.sleep(100)
+          println("\n**********************************************************************************************")
+          val errCnt = SpinalError.getErrorCount()
+          SpinalWarning(s"Elaboration failed (${errCnt} error" + (if(errCnt > 1){s"s"} else {s""}) + s").\n" +
+            s"          Spinal will restart with scala trace to help you to find the problem.")
+          println("**********************************************************************************************\n")
+          Thread.sleep(100)
+          return singleShot(config.copy(debug = true))(gen)
+        }else{
+          Thread.sleep(100)
+          println("\n**********************************************************************************************")
+          val errCnt = SpinalError.getErrorCount()
+          SpinalWarning(s"Elaboration failed (${errCnt} error" + (if(errCnt > 1){s"s"} else {s""}) + ").")
+          println("**********************************************************************************************")
+          Thread.sleep(100)
+          throw e
+        }
+      }
+    }
+  }
+
+  def singleShot[T <: Component](config : SpinalConfig)(gen : => T): SpinalReport[T] ={
+    val pc = new PhaseContext(config)
+    val prunedSignals = mutable.Set[BaseType]()
+
+    val reservedKeywords = Seq(
+      "in", "out", "buffer", "inout",
+      "entity", "component", "architecture",
+      "type","open","block","access",
+      "or","and","xor","nand","nor"
+    )
+    reservedKeywords.foreach(pc.globalScope.allocateName(_))
+
+    SpinalInfoPhase("Start elaboration")
+
+
+    val phases = ArrayBuffer[Phase]()
+
+    phases += new PhaseCreateComponent(gen)(pc)
+
+    phases += new PhaseFillComponentList(pc)
+    phases += new PhaseApplyIoDefault(pc)
+    phases += new PhaseNodesBlackBoxGenerics(pc)
+    phases += new PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc)
+
+    phases += new PhaseNameNodesByReflection(pc)
+    phases += new PhaseCollectAndNameEnum(pc)
+
+    phases += new PhasePullClockDomains(pc)
+    phases += new PhaseCheck_noNull_noCrossHierarchy_noInputRegister_noDirectionLessIo(pc)
+    phases += new PhaseAddInOutBinding(pc)
+    phases += new PhaseNameBinding(pc)
+    phases += new PhaseAllowNodesToReadOutputs(pc)
+    phases += new PhaseAllowNodesToReadInputOfKindComponent(pc)
+
+    phases += new PhasePostWidthInferationChecks(pc)
+    phases += new PhaseInferWidth(pc)
+    phases += new PhaseSimplifyNodes(pc)
+    phases += new PhaseInferWidth(pc)
+    phases += new PhasePropagateBaseTypeWidth(pc)
+    phases += new PhaseNormalizeNodeInputs(pc)
+    phases += new PhaseCheckInferredWidth(pc)
+
+    phases += new PhaseCheckCombinationalLoops(pc)
+    phases += new PhaseCheckCrossClockDomains(pc)
+
+    phases += new PhaseFillNodesConsumers(pc)
+    phases += new PhaseDontSymplifyBasetypeWithComplexAssignement(pc)
+    phases += new PhaseDeleteUselessBaseTypes(pc)
+
+    phases += new PhaseCheck_noAsyncNodeWithIncompleteAssignment(pc)
+    phases += new PhaseSimplifyBlacBoxGenerics(pc)
+
+    phases += new PhasePrintUnUsedSignals(prunedSignals)(pc)
+    phases += new PhaseAddNodesIntoComponent(pc)
+    phases += new PhaseOrderComponentsNodes(pc)
+    phases += new PhaseAllocateNames(pc)
+    phases += new PhaseRemoveComponentThatNeedNoHdlEmit(pc)
+
+    phases += new PhasePrintStates(pc)
+
+
+
+    phases += new PhaseVhdl(pc)
+    phases += new VhdlTestBenchBackend(pc)
+
+
+
+
+    for(phase <- phases){
+      phase.impl()
+      pc.checkPendingErrors()
+    }
+
+
+    pc.checkGlobalData()
+
+    val report = new SpinalReport[T](pc.topLevel.asInstanceOf[T])
+    report.prunedSignals ++= prunedSignals
+
+    report
+  }
+}

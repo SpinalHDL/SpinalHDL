@@ -1,57 +1,32 @@
-/*
- * SpinalHDL
- * Copyright (c) Dolu, All rights reserved.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 3.0 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library.
- */
-
 package spinal.core
 
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, StringBuilder, HashMap}
 import scala.util.Random
 
-
 /**
-  * Created by PIC18F on 07.01.2015.
-  */
+ * Created by PIC32F_USER on 05/06/2016.
+ */
 
 trait MemBitsMaskKind
 object MULTIPLE_RAM extends MemBitsMaskKind
 object SINGLE_RAM extends MemBitsMaskKind
 
-class VhdlBackend extends Backend with VhdlBase {
+
+class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
+  import pc._
   var outFile: java.io.FileWriter = null
-  var enumPackageName = "pkg_enum"
-  var packageName = "pkg_scala2hdl"
-  var outputFilePath: String = null
-  var onlyStdLogicVectorTopLevelIo = false
   var memBitsMaskKind : MemBitsMaskKind = MULTIPLE_RAM
 
   val emitedComponent = mutable.Map[ComponentBuilder, ComponentBuilder]()
   val emitedComponentRef = mutable.Map[Component, Component]()
 
-  reservedKeyWords ++= vhdlKeyWords
 
-  override protected def elaborate[T <: Component](topLevel: T): BackendReport[T] = {
-    val report = super.elaborate(topLevel)
+  override def impl(): Unit = {
+    import pc._
     SpinalInfoPhase("Write VHDL")
-
-    if (outputFilePath == null) outputFilePath = topLevel.definitionName + ".vhd"
-    if (jsonReportPath == "") jsonReportPath = outputFilePath.replace(".vhd",".json")
-
-    outFile = new java.io.FileWriter(outputFilePath)
+    
+    outFile = new java.io.FileWriter(pc.config.targetDirectory + "/" +  topLevel.definitionName + ".vhd")
     emitEnumPackage(outFile)
     emitPackage(outFile)
 
@@ -62,11 +37,8 @@ class VhdlBackend extends Backend with VhdlBase {
 
     outFile.flush();
     outFile.close();
-
-    //  emitTestBench(topLevel :: Nil,topLevel.definitionName + "_tb")
-
-    report
   }
+
 
 
   def compile(component: Component): Unit = {
@@ -134,12 +106,12 @@ class VhdlBackend extends Backend with VhdlBase {
     val ret = new StringBuilder();
     ret ++=
       s"""library IEEE;
-          |use IEEE.STD_LOGIC_1164.ALL;
-          |use IEEE.NUMERIC_STD.all;
-          |use ieee.math_real.all;
-          |
-               |package $enumPackageName is
-          |""".stripMargin
+         |use IEEE.STD_LOGIC_1164.ALL;
+         |use IEEE.NUMERIC_STD.all;
+         |use ieee.math_real.all;
+         |
+         |package $enumPackageName is
+                                    |""".stripMargin
     for (enumDef <- enums.keys) {
       ret ++= s"  type ${enumDef.getName()} is (${enumDef.values.map(_.getName()).reduce(_ + "," + _)});\n"
       ret ++= s"  type ${getEnumDebugType(enumDef)} is (${enumDef.values.foldLeft("XXX")((str, e) => str + "," + e.getName())});\n"
@@ -240,9 +212,9 @@ class VhdlBackend extends Backend with VhdlBase {
           if (!encoding.isNative)
             ret ++=
               s"""  function ${getEnumToDebugFuntion(enumDef, encoding)} (value : ${emitEnumType(enumDef, encoding)}) return ${getEnumDebugType(enumDef)} is
-                  |  begin
-                  |    case value is
-                  |${
+                                                                                                                                                           |  begin
+                                                                                                                                                           |    case value is
+                                                                                                                                                           |${
                 {
                   for (e <- enumDef.values) yield s"      when ${emitEnumLiteral(e, encoding)} => return ${e.getName()};"
                 }.reduce(_ + "\n" + _)
@@ -254,31 +226,31 @@ class VhdlBackend extends Backend with VhdlBase {
           else {
             ret ++=
               s"""  function pkg_to${enumName}_${encoding.getName()} (value : std_logic_vector(${encoding.getWidth(enumDef) - 1} downto 0)) return $enumName is
-                  |  begin
-                  |    case value is
-                  |${
+                                                                                                                                                              |  begin
+                                                                                                                                                              |    case value is
+                                                                                                                                                              |${
                 {
                   for (e <- enumDef.values) yield s"      when ${idToBits(e, encoding)} => return ${e.getName()};"
                 }.reduce(_ + "\n" + _)
               }
                   |      when others => return ${enumDef.values.head.getName()};
-                  |    end case;
-                  |  end;
-                  |""".stripMargin
+                                                                                 |    end case;
+                                                                                 |  end;
+                                                                                 |""".stripMargin
 
             ret ++=
               s"""  function pkg_toStdLogicVector_${encoding.getName()} (value : $enumName) return std_logic_vector is
-                  |  begin
-                  |    case value is
-                  |${
+                                                                                            |  begin
+                                                                                            |    case value is
+                                                                                            |${
                 {
                   for (e <- enumDef.values) yield s"      when ${e.getName()} => return ${idToBits(e, encoding)};"
                 }.reduce(_ + "\n" + _)
               }
                   |      when others => return ${idToBits(enumDef.values.head, encoding)};
-                  |    end case;
-                  |  end;
-                  |""".stripMargin
+                                                                                           |    end case;
+                                                                                           |  end;
+                                                                                           |""".stripMargin
           }
 
 
@@ -636,16 +608,7 @@ class VhdlBackend extends Backend with VhdlBase {
     emitLibrary(ret)
   }
 
-  def emitLibrary(ret: StringBuilder): Unit = {
-    ret ++= "library ieee;\n"
-    ret ++= "use ieee.std_logic_1164.all;\n"
-    ret ++= "use ieee.numeric_std.all;\n"
-    ret ++= "\n"
-    ret ++= s"library work;\n"
-    ret ++= s"use work.$packageName.all;\n"
-    ret ++= s"use work.all;\n"
-    ret ++= s"use work.$enumPackageName.all;\n\n"
-  }
+
 
   def emitEntityName(component: Component): Unit = {
 
@@ -656,7 +619,7 @@ class VhdlBackend extends Backend with VhdlBase {
     ret ++= s"\nentity ${component.definitionName} is\n"
     ret = builder.newPart(true)
     ret ++= s"  port(\n"
-    if (!(onlyStdLogicVectorTopLevelIo && component == topLevel)) {
+    if (!(config.onlyStdLogicVectorAtTopLevelIo && component == topLevel)) {
       component.getOrdredNodeIo.foreach(baseType =>
         ret ++= s"    ${baseType.getName()} : ${emitDirection(baseType)} ${emitDataType(baseType)};\n"
       )
@@ -682,7 +645,7 @@ class VhdlBackend extends Backend with VhdlBase {
 
   def emitArchitecture(component: Component, builder: ComponentBuilder): Unit = {
     var ret = builder.newPart(false)
-    val wrappedIo = if (onlyStdLogicVectorTopLevelIo && component == topLevel) ioStdLogicVectorWrapNames() else HashMap[BaseType, WrappedStuff]()
+    val wrappedIo = if (config.onlyStdLogicVectorAtTopLevelIo && component == topLevel) ioStdLogicVectorWrapNames() else HashMap[BaseType, WrappedStuff]()
     ret ++= s"architecture arch of ${component.definitionName} is\n"
     ret = builder.newPart(true)
     emitBlackBoxComponents(component, ret)
@@ -978,7 +941,7 @@ class VhdlBackend extends Backend with VhdlBase {
   }
 
   def operatorImplAsUnaryOperator(vhd: String)(op: Modifier): String = {
-     s"($vhd ${emitLogic(op.getInput(0))})"
+    s"($vhd ${emitLogic(op.getInput(0))})"
   }
 
   def operatorImplAsFunction(vhd: String)(func: Modifier): String = {
@@ -1251,7 +1214,7 @@ class VhdlBackend extends Backend with VhdlBase {
       case _: SInt => s"pkg_signed(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
     }
     case lit: BoolLiteral => s"pkg_toStdLogic(${lit.value})"
-  //  case lit: BoolLiteral => if(lit.value) "'1'" else "'0'" //Invalid VHDL when '1' = '1'
+    //  case lit: BoolLiteral => if(lit.value) "'1'" else "'0'" //Invalid VHDL when '1' = '1'
     case lit: EnumLiteral[_] => emitEnumLiteral(lit.enum, lit.encoding)
     case memRead: MemReadAsync => {
       if (memRead.writeToReadKind == dontCare) SpinalWarning(s"memReadAsync with dontCare is as writeFirst into VHDL")

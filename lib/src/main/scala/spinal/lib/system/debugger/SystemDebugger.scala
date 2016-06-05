@@ -85,7 +85,7 @@ class SystemDebugger(c : SystemDebuggerConfig) extends Component{
 
 object JtagAvalonDebuggerMain{
   def main(args: Array[String]) {
-    val toplevel = SpinalVhdl({
+    val toplevel = SpinalVhdl(SpinalConfig().copy(onlyStdLogicVectorAtTopLevelIo=true))({
       val tck = Bool.setName("tck")
       val jtagClock = ClockDomain(tck)
       val c = SystemDebuggerConfig(
@@ -96,7 +96,7 @@ object JtagAvalonDebuggerMain{
         jtagClockDomain = jtagClock
       )
       new JtagAvalonDebugger(c)
-    },_.onlyStdLogicVectorAtTopLevelIo).toplevel
+    }).toplevel
 
     toplevel.io.mem addTag(ClockDomainTag(toplevel.clockDomain))
     QSysify(toplevel)
