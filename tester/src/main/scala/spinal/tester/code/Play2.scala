@@ -669,6 +669,7 @@ object PlayWidthChanger {
 object PlayB8 {
 
   def main(args: Array[String]): Unit = {
-    Spinal("--vhdl")(new UartCtrl)
+    SpinalConfig(mode = VHDL,targetDirectory="temp/myDesign").generate(new UartCtrl)
+    SpinalConfig.shell(Seq("-aa"))(new UartCtrl)
   }
 }
