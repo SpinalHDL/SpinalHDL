@@ -754,7 +754,7 @@ class PhaseNormalizeNodeInputs(pc: PhaseContext) extends Phase{
 
 class PhaseCheckInferredWidth(pc: PhaseContext) extends Phase{
   override def impl(): Unit = {
-  import pc._
+    import pc._
     val errors = mutable.ArrayBuffer[String]()
     Node.walk(walkNodesDefautStack,node => {
       val error = node.checkInferedWidth
