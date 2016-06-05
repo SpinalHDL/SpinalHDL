@@ -25,7 +25,7 @@ object PlayB7 {
   }
 
   def main(args: Array[String]): Unit = {
-    SpinalVhdl(new TopLevel,vhdPath="C:/tmp/toto.vhd")
+    SpinalVhdl(new TopLevel)
   }
 }
 
@@ -219,7 +219,7 @@ object PlayB2 {
   def main(args: Array[String]): Unit = {
     //SpinalVhdl(new TopLevel)
 
-    SpinalConfig(mode = VHDL)(new TopLevel)
+    SpinalConfig(mode = VHDL).generate(new TopLevel)
   }
 }
 object PlayB3 {

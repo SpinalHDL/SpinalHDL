@@ -90,21 +90,9 @@ object Spinal{
 }
 
 object SpinalVhdl {
-  def apply[T <: Component](config : SpinalConfig)(gen: => T) : SpinalReport[T] ={
+  def apply[T <: Component](config : SpinalConfig)(gen: => T) : SpinalReport[T] =
     Spinal(config.copy(mode=VHDL))(gen)
-  }
 
-  def apply[T <: Component](gen: => T,
-                            defaultConfigForClockDomains: ClockDomainConfig = ClockDomainConfig(),
-                            onlyStdLogicVectorAtTopLevelIo : Boolean = false,
-                            defaultClockDomainFrequency : IClockDomainFrequency = UnknownFrequency(),
-                            vhdPath : String = "."): SpinalReport[T] = {
-    SpinalVhdl(SpinalConfig().copy(
-      defaultConfigForClockDomains=defaultConfigForClockDomains,
-      onlyStdLogicVectorAtTopLevelIo=onlyStdLogicVectorAtTopLevelIo,
-      defaultClockDomainFrequency=defaultClockDomainFrequency,
-      targetDirectory=vhdPath
-    ))(gen)
-  }
+  def apply[T <: Component](gen: => T): SpinalReport[T] = SpinalConfig(mode = VHDL).generate(gen)
 }
 
