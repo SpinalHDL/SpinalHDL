@@ -35,22 +35,9 @@ class BackendReport[T <: Component](val toplevel: T) {
   }
 }
 
-trait Phase{
-  def run()
-}
-
-class MultiPhase extends Phase{
-  val phases = ArrayBuffer[Phase]()
-
-  override def run(): Unit = {
-    phases.foreach(_.run)
-  }
-}
-
 class Backend {
   var globalData = GlobalData.reset
   val components = ArrayBuffer[Component]()
-  var sortedComponents = ArrayBuffer[Component]()
   val globalScope = new Scope()
   val reservedKeyWords = mutable.Set[String]()
   var topLevel: Component = null
@@ -58,6 +45,9 @@ class Backend {
   var forceMemToBlackboxTranslation = false
   var jsonReportPath = ""
   var defaultClockDomainFrequency : IClockDomainFrequency = UnknownFrequency()
+
+
+  def sortedComponents = components.sortWith(_.level > _.level)
 
   def addReservedKeyWordToScope(scope: Scope): Unit = {
     reservedKeyWords.foreach(scope.allocateName(_))
@@ -124,8 +114,6 @@ class Backend {
     walkNodesBlackBoxGenerics()
     replaceMemByBlackBox_simplifyWriteReadWithSameAddress()
 
-
-    sortedComponents = components.sortWith(_.level > _.level)
 
     //trickDontCares()
 
@@ -739,8 +727,7 @@ class Backend {
   }
 
   def removeComponentThatNeedNoHdlEmit() = {
-
-    sortedComponents = sortedComponents.filter(c => {
+    val componentsFiltred = components.filter(c => {
       if (c.isInBlackBoxTree) {
         false
       } else if (c.nodes.size == 0) {
@@ -751,7 +738,7 @@ class Backend {
       }
     })
     components.clear()
-    components ++= sortedComponents
+    components ++= componentsFiltred
   }
 
   def fillNodeConsumer(): Unit = {
@@ -776,11 +763,6 @@ class Backend {
         errors += error
     })
 
-//    for(checker <- globalData.widthCheckers){
-//      val error = checker.check()
-//      if(error != null)
-//        errors += error + s", ${checker.consumer.getWidth} bits assigned by ${checker.provider.getWidth} bits\n  consumer is ${checker.consumer.getScalaLocationString}\n  provider is ${checker.provider.getScalaLocationString}"
-//    }
     if (errors.nonEmpty)
       SpinalError(errors)
   }
