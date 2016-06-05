@@ -1161,6 +1161,12 @@ class PhaseCreateComponent(gen : => Component)(pc: PhaseContext) extends Phase{
   }
 }
 
+class PhaseDummy(doThat : => Unit) extends Phase{
+  override def impl(): Unit = {
+    doThat
+  }
+}
+
 object SpinalVhdlBoot{
   def apply[T <: Component](config : SpinalConfig)(gen : => T) : SpinalReport[T] ={
     try {
@@ -1208,14 +1214,17 @@ object SpinalVhdlBoot{
 
     phases += new PhaseCreateComponent(gen)(pc)
 
+    phases += new PhaseDummy(SpinalInfoPhase("Start analysis and transform"))
     phases += new PhaseFillComponentList(pc)
     phases += new PhaseApplyIoDefault(pc)
     phases += new PhaseNodesBlackBoxGenerics(pc)
     phases += new PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc)
 
+    phases += new PhaseDummy(SpinalInfoPhase("Get names from reflection"))
     phases += new PhaseNameNodesByReflection(pc)
     phases += new PhaseCollectAndNameEnum(pc)
 
+    phases += new PhaseDummy(SpinalInfoPhase("Transform connections"))
     phases += new PhasePullClockDomains(pc)
     phases += new PhaseCheck_noNull_noCrossHierarchy_noInputRegister_noDirectionLessIo(pc)
     phases += new PhaseAddInOutBinding(pc)
@@ -1223,6 +1232,7 @@ object SpinalVhdlBoot{
     phases += new PhaseAllowNodesToReadOutputs(pc)
     phases += new PhaseAllowNodesToReadInputOfKindComponent(pc)
 
+    phases += new PhaseDummy(SpinalInfoPhase("Infer nodes's bit width"))
     phases += new PhasePostWidthInferationChecks(pc)
     phases += new PhaseInferWidth(pc)
     phases += new PhaseSimplifyNodes(pc)
@@ -1231,17 +1241,24 @@ object SpinalVhdlBoot{
     phases += new PhaseNormalizeNodeInputs(pc)
     phases += new PhaseCheckInferredWidth(pc)
 
+    phases += new PhaseDummy(SpinalInfoPhase("Check combinatorial loops"))
     phases += new PhaseCheckCombinationalLoops(pc)
+    phases += new PhaseDummy(SpinalInfoPhase("Check cross clock domains"))
     phases += new PhaseCheckCrossClockDomains(pc)
 
+    phases += new PhaseDummy(SpinalInfoPhase("Simplify graph's nodes"))
     phases += new PhaseFillNodesConsumers(pc)
     phases += new PhaseDontSymplifyBasetypeWithComplexAssignement(pc)
     phases += new PhaseDeleteUselessBaseTypes(pc)
 
+    phases += new PhaseDummy(SpinalInfoPhase("Check that there is no incomplete assignment"))
     phases += new PhaseCheck_noAsyncNodeWithIncompleteAssignment(pc)
     phases += new PhaseSimplifyBlacBoxGenerics(pc)
 
+    phases += new PhaseDummy(SpinalInfoPhase("Collect signals not used in the graph"))
     phases += new PhasePrintUnUsedSignals(prunedSignals)(pc)
+
+    phases += new PhaseDummy(SpinalInfoPhase("Finalise"))
     phases += new PhaseAddNodesIntoComponent(pc)
     phases += new PhaseOrderComponentsNodes(pc)
     phases += new PhaseAllocateNames(pc)

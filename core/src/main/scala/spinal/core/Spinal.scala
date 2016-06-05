@@ -84,7 +84,11 @@ object Spinal{
     } + s" Current date : ${dateFmt.format(curDate)}")
 
     config.mode match {
-      case `VHDL` => SpinalVhdlBoot(config)(gen)
+      case `VHDL` => {
+        val report = SpinalVhdlBoot(config)(gen)
+        println({SpinalLog.tag("Done", Console.GREEN)} + s" at ${f"${Driver.executionTime}%1.3f"}")
+        report
+      }
     }
   }
 
