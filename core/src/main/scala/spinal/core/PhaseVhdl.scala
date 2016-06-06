@@ -587,10 +587,6 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
 
 
 
-  def emitEntityName(component: Component): Unit = {
-
-  }
-
   def emitEntity(component: Component, builder: ComponentBuilder): Unit = {
     var ret = builder.newPart(false)
     ret ++= s"\nentity ${component.definitionName} is\n"
@@ -940,14 +936,14 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
     func.getInput(0).getWidth match{
       case 0 => {
         func.getInput(0) match {
-          case lit: BitsLiteral => {
-            val bitString =  '"' + "0" * func.getWidth + '"'
+          /*case lit: BitsLiteral => {
+            val bitString =  '"' + "0" ASFASF* func.getWidth + '"'
             lit.kind match {
               case _: Bits => s"pkg_stdLogicVector($bitString)"
               case _: UInt => s"pkg_unsigned($bitString)"
               case _: SInt => s"pkg_signed($bitString)"
             }
-          }
+          }*/
           case _ => s"pkg_resize(${emitLogic(resize.input)},${resize.size})"
         }
       }

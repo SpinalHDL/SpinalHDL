@@ -1328,7 +1328,12 @@ object SpinalVerilogBoot{
       "in", "out", "buffer", "inout",
       "entity", "component", "architecture",
       "type","open","block","access",
-      "or","and","xor","nand","nor"
+      "or","and","xor","nand","nor",
+
+      "input", "output",  "inout",
+      "module","parameter","logic","reg",
+      "begin","end",
+      "always","posedge","negedge"
     )
     reservedKeywords.foreach(pc.globalScope.allocateName(_))
 

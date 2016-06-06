@@ -677,9 +677,14 @@ object PlayB8 {
 object PlayVerilog1 {
   class TopLevel extends Component {
     val a,b = in UInt(4 bits)
-    val result = out UInt(4 bits)
+    val x,y,z = out UInt(4 bits)
 
-    result := a + b
+    x := a - b
+
+    y := a + b
+    y(0) := False
+
+    z(z.range) := 0
   }
   def main(args: Array[String]): Unit = {
     SpinalVerilog(new TopLevel)

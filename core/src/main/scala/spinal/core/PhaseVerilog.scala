@@ -21,11 +21,10 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
 
   override def impl(): Unit = {
     import pc._
-    SpinalInfoPhase("Write VHDL")
+    SpinalInfoPhase("Write Verilog")
     
-    outFile = new java.io.FileWriter(pc.config.targetDirectory + "/" +  topLevel.definitionName + ".vhd")
-    emitEnumPackage(outFile)
-    emitPackage(outFile)
+    outFile = new java.io.FileWriter(pc.config.targetDirectory + "/" +  topLevel.definitionName + ".v")
+    // TODO emitEnumPackage(outFile)
 
     for (c <- sortedComponents) {
       SpinalInfoPhase(s"${"  " * (1 + c.level)}emit ${c.definitionName}")
@@ -44,37 +43,12 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
   }
 
 
-
-  case class WrappedStuff(originalName: String, newName: String)
-
-  def ioStdLogicVectorWrapNames(): HashMap[BaseType, WrappedStuff] = {
-    val map = HashMap[BaseType, WrappedStuff]()
-    def wrap(that: BaseType): Unit = {
-      val newName = that.getName() + "_wrappedName"
-      map(that) = WrappedStuff(that.getName, newName)
-      that.setName(newName)
-    }
-    for (e <- topLevel.getAllIo) e match {
-      case e: UInt => wrap(e)
-      case e: SInt => wrap(e)
-      case _ =>
-    }
-    map
-  }
-
-  def ioStdLogicVectorRestoreNames(map: HashMap[BaseType, WrappedStuff]): Unit = {
-    if (map != null) {
-      for ((e, w) <- map) e.setName(w.originalName)
-    }
-  }
-
   def emit(component: Component): String = {
     val ret = new StringBuilder()
     val builder = new ComponentBuilder(component)
 
-    emitLibrary(builder)
-    emitEntity(component, builder)
-    emitArchitecture(component, builder)
+    emitModuleIo(component, builder)
+    emitModuleContent(component, builder)
 
     val oldBuilder = emitedComponent.getOrElse(builder, null)
     if (oldBuilder == null) {
@@ -99,648 +73,41 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
     s"${spinalEnum.getName()}_debug"
   }
 
-  def emitEnumPackage(out: java.io.FileWriter): Unit = {
-    val ret = new StringBuilder();
-    ret ++=
-      s"""library IEEE;
-         |use IEEE.STD_LOGIC_1164.ALL;
-         |use IEEE.NUMERIC_STD.all;
-         |use ieee.math_real.all;
-         |
-         |package $enumPackageName is
-                                    |""".stripMargin
-    for (enumDef <- enums.keys) {
-      ret ++= s"  type ${enumDef.getName()} is (${enumDef.values.map(_.getName()).reduce(_ + "," + _)});\n"
-      ret ++= s"  type ${getEnumDebugType(enumDef)} is (${enumDef.values.foldLeft("XXX")((str, e) => str + "," + e.getName())});\n"
-    }
-
-    ret ++= "\n"
-    for ((enumDef, encodings) <- enums) {
-      val enumName = enumDef.getName()
-      ret ++= s"  function pkg_mux (sel : std_logic;one : $enumName;zero : $enumName) return $enumName;\n"
 
 
-      for (encoding <- encodings if !encoding.isNative) {
-        val encodingName = encoding.getName()
-        val bitCount = encoding.getWidth(enumDef)
-        val vhdlEnumType = emitEnumType(enumDef, encoding)
-        ret ++= s"  subtype $vhdlEnumType is std_logic_vector(${bitCount - 1} downto 0);\n"
-        for (element <- enumDef.values) {
-          ret ++= s"  constant ${emitEnumLiteral(element, encoding)} : $vhdlEnumType := ${idToBits(element, encoding)};\n"
-        }
-        ret ++= "\n"
-        //ret ++= s"  function pkg_to${enumName}_debug (value : std_logic_vector) return $enumName;\n"
-      }
-      for (encoding <- encodings) {
-        if (!encoding.isNative)
-          ret ++= s"  function ${getEnumToDebugFuntion(enumDef, encoding)} (value : ${emitEnumType(enumDef, encoding)}) return ${getEnumDebugType(enumDef)};\n"
-        else {
-          ret ++= s"  function pkg_toStdLogicVector_${encoding.getName()} (value : $enumName) return std_logic_vector;\n"
-          ret ++= s"  function pkg_to${enumName}_${encoding.getName()} (value : std_logic_vector(${encoding.getWidth(enumDef) - 1} downto 0)) return $enumName;\n"
-        }
-
-        for (targetEncoding <- encodings if targetEncoding != encoding && !(targetEncoding.isNative && encoding.isNative)) {
-          ret ++= s"  function ${getReEncodingFuntion(enumDef, encoding, targetEncoding)} (that : ${emitEnumType(enumDef, encoding)}) return ${emitEnumType(enumDef, targetEncoding)};\n"
-        }
-      }
-    }
-
-    def idToBits[T <: SpinalEnum](enum: SpinalEnumElement[T], encoding: SpinalEnumEncoding): String = {
-      val str = encoding.getValue(enum).toString(2)
-      "\"" + ("0" * (encoding.getWidth(enum.parent) - str.length)) + str + "\""
-    }
-
-    //    val vecTypes = mutable.Set[Seq[Int]]()
-    //    Node.walk(walkNodesDefautStack,node => node match{
-    //      case node : VecBaseType[_] => {
-    //        if(!vecTypes.contains(node.dims.toSeq)){
-    //          var dimsVar = Seq[Int]()
-    //          for(dim <- node.dims.reverseIterator){
-    //            dimsVar = dim +: dimsVar
-    //            if(!vecTypes.contains(dimsVar)){
-    //              ret ++= s"  type ${emitVecType(node.baseType,dimsVar  )}} is array (3 downto 0) of std_ulogic;"
-    //            }
-    //          }
-    //          ret ++= "asd\n"
-    //          vecTypes += node.dims.toSeq
-    //        }
-    //      }
-    //      case _ =>
-    //    })
-
-
-    ret ++= s"end $enumPackageName;\n\n"
-    if (enums.size != 0) {
-      ret ++= s"package body $enumPackageName is\n"
-      for ((enumDef, encodings) <- enums) {
-        val enumName = enumDef.getName()
-        ret ++= s"  function pkg_mux (sel : std_logic;one : $enumName;zero : $enumName) return $enumName is\n"
-        ret ++= "  begin\n"
-        ret ++= "    if sel = '1' then\n"
-        ret ++= "      return one;\n"
-        ret ++= "    else\n"
-        ret ++= "      return zero;\n"
-        ret ++= "    end if;\n"
-        ret ++= "  end pkg_mux;\n\n"
-
-
-
-        for (encoding <- encodings) {
-          if (!encoding.isNative)
-            ret ++=
-              s"""  function ${getEnumToDebugFuntion(enumDef, encoding)} (value : ${emitEnumType(enumDef, encoding)}) return ${getEnumDebugType(enumDef)} is
-                                                                                                                                                           |  begin
-                                                                                                                                                           |    case value is
-                                                                                                                                                           |${
-                {
-                  for (e <- enumDef.values) yield s"      when ${emitEnumLiteral(e, encoding)} => return ${e.getName()};"
-                }.reduce(_ + "\n" + _)
-              }
-                  |      when others => return XXX;
-                  |    end case;
-                  |  end;
-                  |""".stripMargin
-          else {
-            ret ++=
-              s"""  function pkg_to${enumName}_${encoding.getName()} (value : std_logic_vector(${encoding.getWidth(enumDef) - 1} downto 0)) return $enumName is
-                                                                                                                                                              |  begin
-                                                                                                                                                              |    case value is
-                                                                                                                                                              |${
-                {
-                  for (e <- enumDef.values) yield s"      when ${idToBits(e, encoding)} => return ${e.getName()};"
-                }.reduce(_ + "\n" + _)
-              }
-                  |      when others => return ${enumDef.values.head.getName()};
-                                                                                 |    end case;
-                                                                                 |  end;
-                                                                                 |""".stripMargin
-
-            ret ++=
-              s"""  function pkg_toStdLogicVector_${encoding.getName()} (value : $enumName) return std_logic_vector is
-                                                                                            |  begin
-                                                                                            |    case value is
-                                                                                            |${
-                {
-                  for (e <- enumDef.values) yield s"      when ${e.getName()} => return ${idToBits(e, encoding)};"
-                }.reduce(_ + "\n" + _)
-              }
-                  |      when others => return ${idToBits(enumDef.values.head, encoding)};
-                                                                                           |    end case;
-                                                                                           |  end;
-                                                                                           |""".stripMargin
-          }
-
-
-
-          for (targetEncoding <- encodings if targetEncoding != encoding) {
-            ret ++= s"  function ${getReEncodingFuntion(enumDef, encoding, targetEncoding)} (that : ${emitEnumType(enumDef, encoding)}) return ${emitEnumType(enumDef, targetEncoding)} is\n"
-            ret ++= "  begin\n"
-            ret ++= "    case that is \n"
-            for (e <- enumDef.values) {
-              ret ++= s"      when ${emitEnumLiteral(e, encoding)} => return ${emitEnumLiteral(e, targetEncoding)};\n"
-            }
-            ret ++= s"      when others => return ${emitEnumLiteral(enumDef.values.head, targetEncoding)};\n"
-            ret ++= "    end case;\n"
-            ret ++= "  end;\n\n"
-          }
-        }
-      }
-      ret ++= s"end $enumPackageName;\n\n\n"
-    }
-    out.write(ret.result())
-  }
-
-  def emitPackage(out: java.io.FileWriter): Unit = {
-
-    def pkgExtractBool(kind: String): Tuple2[String, String] = {
-      val ret = new StringBuilder();
-      (s"function pkg_extract (that : $kind; bitId : integer) return std_logic", {
-        ret ++= "  begin\n"
-        ret ++= "    return that(bitId);\n"
-        ret ++= "  end pkg_extract;\n\n"
-        ret.result()
-      })
-    }
-    def pkgExtract(kind: String): Tuple2[String, String] = {
-      val ret = new StringBuilder();
-      (s"function pkg_extract (that : $kind; base : unsigned; size : integer) return $kind", {
-        ret ++= "   constant elementCount : integer := (that'length-size)+1;\n"
-        ret ++= s"   type tableType is array (0 to elementCount-1) of $kind(size-1 downto 0);\n"
-        ret ++= "   variable table : tableType;\n"
-        ret ++= "  begin\n"
-        ret ++= "    for i in 0 to elementCount-1 loop\n"
-        ret ++= "      table(i) := that(i + size - 1 downto i);\n"
-        ret ++= "    end loop;\n"
-        ret ++= "    return table(to_integer(base));\n"
-        ret ++= "  end pkg_extract;\n\n"
-        ret.result()
-      })
-    }
-
-
-    def pkgCat(kind: String): Tuple2[String, String] = {
-      val ret = new StringBuilder();
-      (s"function pkg_cat (a : $kind; b : $kind) return $kind", {
-        ret ++= s"    variable cat : $kind(a'length + b'length-1 downto 0);\n"
-        ret ++= s"  begin\n"
-        ret ++= s"    cat := a & b;\n"
-        ret ++= s"    return cat;\n"
-        ret ++= s"  end pkg_cat;\n\n"
-        ret.result()
-      })
-    }
-
-
-    val vectorTypes = "std_logic_vector" :: "unsigned" :: "signed" :: Nil
-    val funcs = ArrayBuffer[Tuple2[String, String]]()
-    vectorTypes.foreach(kind => {
-      funcs += pkgExtractBool(kind)
-      funcs += pkgExtract(kind)
-      funcs += pkgCat(kind)
-    })
-
-
-
-    val ret = new StringBuilder();
-    ret ++= s"library IEEE;\n"
-    ret ++= "use ieee.std_logic_1164.all;\n"
-    ret ++= "use ieee.numeric_std.all;\n"
-    ret ++= "use ieee.math_real.all;\n"
-    ret ++= "\n"
-    ret ++= s"package $packageName is\n"
-    ret ++= s"${funcs.map("  " + _._1 + ";\n").reduce(_ + _)}\n"
-    ret ++= "\n"
-    ret ++= "  function pkg_mux (sel : std_logic;one : std_logic;zero : std_logic) return std_logic;\n"
-    ret ++= "  function pkg_mux (sel : std_logic;one : std_logic_vector;zero : std_logic_vector) return std_logic_vector;\n"
-    ret ++= "  function pkg_mux (sel : std_logic;one : unsigned;zero : unsigned) return unsigned;\n"
-    ret ++= "  function pkg_mux (sel : std_logic;one : signed;zero : signed) return signed;\n"
-    ret ++= s"\n"
-    ret ++= s"\n"
-    ret ++= "  function pkg_toStdLogic (value : boolean) return std_logic;\n"
-    ret ++= "  function pkg_toStdLogicVector (value : std_logic) return std_logic_vector;\n"
-    ret ++= "  function pkg_toUnsigned(value : std_logic) return unsigned;\n"
-    ret ++= "  function pkg_toSigned (value : std_logic) return signed;\n"
-    ret ++= "  function pkg_stdLogicVector (lit : std_logic_vector) return std_logic_vector;\n"
-    ret ++= "  function pkg_unsigned (lit : unsigned) return unsigned;\n"
-    ret ++= "  function pkg_signed (lit : signed) return signed;\n"
-    ret ++= "\n"
-    ret ++= "  function pkg_resize (that : std_logic_vector; width : integer) return std_logic_vector;\n"
-    ret ++= "  function pkg_resize (that : unsigned; width : integer) return unsigned;\n"
-    ret ++= "  function pkg_resize (that : signed; width : integer) return signed;\n"
-    ret ++= "\n"
-    ret ++= "  function pkg_extract (that : std_logic_vector; high : integer; low : integer) return std_logic_vector;\n"
-    ret ++= "  function pkg_extract (that : unsigned; high : integer; low : integer) return unsigned;\n"
-    ret ++= "  function pkg_extract (that : signed; high : integer; low : integer) return signed;\n"
-    ret ++= "\n"
-    ret ++= "  function pkg_shiftRight (that : std_logic_vector; size : natural) return std_logic_vector;\n"
-    ret ++= "  function pkg_shiftRight (that : std_logic_vector; size : unsigned) return std_logic_vector;\n"
-    ret ++= "  function pkg_shiftLeft (that : std_logic_vector; size : natural) return std_logic_vector;\n"
-    ret ++= "  function pkg_shiftLeft (that : std_logic_vector; size : unsigned) return std_logic_vector;\n"
-    ret ++= "\n"
-    ret ++= "  function pkg_shiftRight (that : unsigned; size : natural) return unsigned;\n"
-    ret ++= "  function pkg_shiftRight (that : unsigned; size : unsigned) return unsigned;\n"
-    ret ++= "  function pkg_shiftLeft (that : unsigned; size : natural) return unsigned;\n"
-    ret ++= "  function pkg_shiftLeft (that : unsigned; size : unsigned) return unsigned;\n"
-    ret ++= "\n"
-    ret ++= "  function pkg_shiftRight (that : signed; size : natural) return signed;\n"
-    ret ++= "  function pkg_shiftRight (that : signed; size : unsigned) return signed;\n"
-    ret ++= "  function pkg_shiftLeft (that : signed; size : natural) return signed;\n"
-    ret ++= "  function pkg_shiftLeft (that : signed; size : unsigned) return signed;\n"
-    ret ++= "\n"
-    ret ++= "  function pkg_rotateLeft (that : std_logic_vector; size : unsigned) return std_logic_vector;\n"
-    ret ++= s"end  $packageName;\n"
-    ret ++= "\n"
-    ret ++= s"package body $packageName is\n"
-    ret ++= s"${funcs.map(f => "  " + f._1 + " is\n" + f._2 + "\n").reduce(_ + _)}"
-    ret ++= "\n"
-    ret ++= "  -- unsigned shifts\n"
-    ret ++= "  function pkg_shiftRight (that : unsigned; size : natural) return unsigned is\n"
-    ret ++= "  begin\n"
-    ret ++= "    if size >= that'length then\n"
-    ret ++= "      return \"\";\n"
-    ret ++= "    else\n"
-    ret ++= "      return shift_right(that,size)(that'high-size downto 0);\n"
-    ret ++= "    end if;\n"
-    ret ++= "  end pkg_shiftRight;\n"
-    ret ++= "\n"
-    ret ++= "  function pkg_shiftRight (that : unsigned; size : unsigned) return unsigned is\n"
-    ret ++= "  begin\n"
-    ret ++= "    return shift_right(that,to_integer(size));\n"
-    ret ++= "  end pkg_shiftRight;\n"
-    ret ++= "\n"
-    ret ++= "  function pkg_shiftLeft (that : unsigned; size : natural) return unsigned is\n"
-    ret ++= "  begin\n"
-    ret ++= "    return shift_left(resize(that,that'length + size),size);\n"
-    ret ++= "  end pkg_shiftLeft;\n"
-    ret ++= "\n"
-    ret ++= "  function pkg_shiftLeft (that : unsigned; size : unsigned) return unsigned is\n"
-    ret ++= "  begin\n"
-    ret ++= "    return shift_left(resize(that,that'length + 2**size'length - 1),to_integer(size));\n"
-    ret ++= "  end pkg_shiftLeft;\n"
-    ret ++= "\n"
-    ret ++= "\n"
-    ret ++= "  -- std_logic_vector shifts\n"
-    ret ++= "  function pkg_shiftRight (that : std_logic_vector; size : natural) return std_logic_vector is\n"
-    ret ++= "  begin\n"
-    ret ++= "    return std_logic_vector(pkg_shiftRight(unsigned(that),size));\n"
-    ret ++= "  end pkg_shiftRight;\n"
-    ret ++= "\n"
-    ret ++= "  function pkg_shiftRight (that : std_logic_vector; size : unsigned) return std_logic_vector is\n"
-    ret ++= "  begin\n"
-    ret ++= "    return std_logic_vector(pkg_shiftRight(unsigned(that),size));\n"
-    ret ++= "  end pkg_shiftRight;\n"
-    ret ++= "\n"
-    ret ++= "  function pkg_shiftLeft (that : std_logic_vector; size : natural) return std_logic_vector is\n"
-    ret ++= "  begin\n"
-    ret ++= "    return std_logic_vector(pkg_shiftLeft(unsigned(that),size));\n"
-    ret ++= "  end pkg_shiftLeft;\n"
-    ret ++= "\n"
-    ret ++= "  function pkg_shiftLeft (that : std_logic_vector; size : unsigned) return std_logic_vector is\n"
-    ret ++= "  begin\n"
-    ret ++= "    return std_logic_vector(pkg_shiftLeft(unsigned(that),size));\n"
-    ret ++= "  end pkg_shiftLeft;\n"
-    ret ++= "\n"
-    ret ++= "  -- signed shifts\n"
-    ret ++= "  function pkg_shiftRight (that : signed; size : natural) return signed is\n"
-    ret ++= "  begin\n"
-    ret ++= "    return signed(pkg_shiftRight(unsigned(that),size));\n"
-    ret ++= "  end pkg_shiftRight;\n"
-    ret ++= "\n"
-    ret ++= "  function pkg_shiftRight (that : signed; size : unsigned) return signed is\n"
-    ret ++= "  begin\n"
-    ret ++= "    return shift_right(that,to_integer(size));\n"
-    ret ++= "  end pkg_shiftRight;\n"
-    ret ++= "\n"
-    ret ++= "  function pkg_shiftLeft (that : signed; size : natural) return signed is\n"
-    ret ++= "  begin\n"
-    ret ++= "    return signed(pkg_shiftLeft(unsigned(that),size));\n"
-    ret ++= "  end pkg_shiftLeft;\n"
-    ret ++= "\n"
-    ret ++= "  function pkg_shiftLeft (that : signed; size : unsigned) return signed is\n"
-    ret ++= "  begin\n"
-    ret ++= "    return signed(pkg_shiftLeft(unsigned(that),size));\n"
-    ret ++= "  end pkg_shiftLeft;\n"
-    ret ++= "\n"
-    ret ++= "  function pkg_rotateLeft (that : std_logic_vector; size : unsigned) return std_logic_vector is\n"
-    ret ++= "  begin\n"
-    ret ++= "    return std_logic_vector(rotate_left(unsigned(that),to_integer(size)));\n"
-    ret ++= "  end pkg_rotateLeft;\n"
-    ret ++= "\n"
-    ret ++= "  function pkg_extract (that : std_logic_vector; high : integer; low : integer) return std_logic_vector is\n"
-    ret ++= "    variable temp : std_logic_vector(high-low downto 0);\n"
-    ret ++= "  begin\n"
-    ret ++= "    temp := that(high downto low);\n"
-    ret ++= "    return temp;\n"
-    ret ++= "  end pkg_extract;\n"
-    ret ++= "\n"
-    ret ++= "  function pkg_extract (that : unsigned; high : integer; low : integer) return unsigned is\n"
-    ret ++= "    variable temp : unsigned(high-low downto 0);\n"
-    ret ++= "  begin\n"
-    ret ++= "    temp := that(high downto low);\n"
-    ret ++= "    return temp;\n"
-    ret ++= "  end pkg_extract;\n"
-    ret ++= "\n"
-    ret ++= "  function pkg_extract (that : signed; high : integer; low : integer) return signed is\n"
-    ret ++= "    variable temp : signed(high-low downto 0);\n"
-    ret ++= "  begin\n"
-    ret ++= "    temp := that(high downto low);\n"
-    ret ++= "    return temp;\n"
-    ret ++= "  end pkg_extract;\n"
-    ret ++= "\n"
-    ret ++= "  function pkg_mux (sel : std_logic;one : std_logic;zero : std_logic) return std_logic is\n"
-    ret ++= "  begin\n"
-    ret ++= "    if sel = '1' then\n"
-    ret ++= "      return one;\n"
-    ret ++= "    else\n"
-    ret ++= "      return zero;\n"
-    ret ++= "    end if;\n"
-    ret ++= "  end pkg_mux;\n"
-    ret ++= "\n"
-    ret ++= "  function pkg_mux (sel : std_logic;one : std_logic_vector;zero : std_logic_vector) return std_logic_vector is\n"
-    ret ++= "    variable ret : std_logic_vector(zero'range);"
-    ret ++= "  begin\n"
-    ret ++= "    if sel = '1' then\n"
-    ret ++= "      ret := one;\n"
-    ret ++= "    else\n"
-    ret ++= "      ret := zero;\n"
-    ret ++= "    end if;\n"
-    ret ++= "    return ret;"
-    ret ++= "  end pkg_mux;\n"
-    ret ++= "\n"
-    ret ++= "  function pkg_mux (sel : std_logic;one : unsigned;zero : unsigned) return unsigned is\n"
-    ret ++= "    variable ret : unsigned(zero'range);"
-    ret ++= "  begin\n"
-    ret ++= "    if sel = '1' then\n"
-    ret ++= "      ret := one;\n"
-    ret ++= "    else\n"
-    ret ++= "      ret := zero;\n"
-    ret ++= "    end if;\n"
-    ret ++= "    return ret;"
-    ret ++= "  end pkg_mux;\n"
-    ret ++= "\n"
-    ret ++= "  function pkg_mux (sel : std_logic;one : signed;zero : signed) return signed is\n"
-    ret ++= "    variable ret : signed(zero'range);"
-    ret ++= "  begin\n"
-    ret ++= "    if sel = '1' then\n"
-    ret ++= "      ret := one;\n"
-    ret ++= "    else\n"
-    ret ++= "      ret := zero;\n"
-    ret ++= "    end if;\n"
-    ret ++= "    return ret;"
-    ret ++= "  end pkg_mux;\n"
-    ret ++= "\n"
-    ret ++= "  function pkg_toStdLogic (value : boolean) return std_logic is\n"
-    ret ++= "  begin\n"
-    ret ++= "    if value = true then\n"
-    ret ++= "      return '1';\n"
-    ret ++= "    else\n"
-    ret ++= "      return '0';\n"
-    ret ++= "    end if;\n"
-    ret ++= "  end pkg_toStdLogic;\n"
-    ret ++= "\n"
-    ret ++= "  function pkg_toStdLogicVector (value : std_logic) return std_logic_vector is\n"
-    ret ++= "    variable ret : std_logic_vector(0 downto 0);\n"
-    ret ++= "  begin\n"
-    ret ++= "    ret(0) := value;\n"
-    ret ++= "    return ret;\n"
-    ret ++= "  end pkg_toStdLogicVector;\n"
-    ret ++= "\n"
-    ret ++= "  function pkg_toUnsigned (value : std_logic) return unsigned is\n"
-    ret ++= "    variable ret : unsigned(0 downto 0);\n"
-    ret ++= "  begin\n"
-    ret ++= "    ret(0) := value;\n"
-    ret ++= "    return ret;\n"
-    ret ++= "  end pkg_toUnsigned;\n"
-    ret ++= "\n"
-    ret ++= "  function pkg_toSigned (value : std_logic) return signed is\n"
-    ret ++= "    variable ret : signed(0 downto 0);\n"
-    ret ++= "  begin\n"
-    ret ++= "    ret(0) := value;\n"
-    ret ++= "    return ret;\n"
-    ret ++= "  end pkg_toSigned;\n"
-    ret ++= "\n"
-    ret ++= "  function pkg_stdLogicVector (lit : std_logic_vector) return std_logic_vector is\n"
-    ret ++= "    variable ret : std_logic_vector(lit'length-1 downto 0);\n"
-    ret ++= "  begin\n"
-    ret ++= "    ret := lit;"
-    ret ++= "    return ret;\n"
-    ret ++= "  end pkg_stdLogicVector;\n"
-    ret ++= "\n"
-    ret ++= "  function pkg_unsigned (lit : unsigned) return unsigned is\n"
-    ret ++= "    variable ret : unsigned(lit'length-1 downto 0);\n"
-    ret ++= "  begin\n"
-    ret ++= "    ret := lit;"
-    ret ++= "    return ret;\n"
-    ret ++= "  end pkg_unsigned;\n"
-    ret ++= "\n"
-    ret ++= "  function pkg_signed (lit : signed) return signed is\n"
-    ret ++= "    variable ret : signed(lit'length-1 downto 0);\n"
-    ret ++= "  begin\n"
-    ret ++= "    ret := lit;"
-    ret ++= "    return ret;\n"
-    ret ++= "  end pkg_signed;\n"
-    ret ++= "\n"
-    ret ++= "  function pkg_resize (that : std_logic_vector; width : integer) return std_logic_vector is\n"
-    ret ++= "  begin\n"
-    ret ++= "    return std_logic_vector(resize(unsigned(that),width));\n"
-    ret ++= "  end pkg_resize;\n"
-    ret ++= "\n"
-    ret ++=
-      """
-        |  function pkg_resize (that : unsigned; width : integer) return unsigned is
-        |	  variable ret : unsigned(width-1 downto 0);
-        |  begin
-        |    if that'length = 0 then
-        |       ret := (others => '0');
-        |    else
-        |       ret := resize(that,width);
-        |    end if;
-        |		return ret;
-        |  end pkg_resize;
-        | """.stripMargin
-
-
-    ret ++=
-      """
-        |  function pkg_resize (that : signed; width : integer) return signed is
-        |	  variable ret : signed(width-1 downto 0);
-        |  begin
-        |    if that'length = 0 then
-        |       ret := (others => '0');
-        |    else
-        |       ret := resize(that,width);
-        |    end if;
-        |		return ret;
-        |  end pkg_resize;
-        | """.stripMargin
-    ret ++= s"end $packageName;\n"
-    ret ++= "\n"
-    ret ++= "\n"
-
-    out.write(ret.result())
-  }
-
-  def emitLibrary(builder: ComponentBuilder): Unit = {
-    val ret = builder.newPart(true)
-    emitLibrary(ret)
-  }
-
-
-
-  def emitEntityName(component: Component): Unit = {
-
-  }
-
-  def emitEntity(component: Component, builder: ComponentBuilder): Unit = {
+  def emitModuleIo(component: Component, builder: ComponentBuilder): Unit = {
     var ret = builder.newPart(false)
-    ret ++= s"\nentity ${component.definitionName} is\n"
+    ret ++= s"module ${component.definitionName}\n"
     ret = builder.newPart(true)
-    ret ++= s"  port(\n"
-    if (!(config.onlyStdLogicVectorAtTopLevelIo && component == topLevel)) {
-      component.getOrdredNodeIo.foreach(baseType =>
-        ret ++= s"    ${baseType.getName()} : ${emitDirection(baseType)} ${emitDataType(baseType)};\n"
-      )
-    } else {
-      component.getOrdredNodeIo.foreach(baseType => {
-        val originalType = emitDataType(baseType)
-        val correctedType = originalType.replace("unsigned", "std_logic_vector").replace("signed", "std_logic_vector")
-        ret ++= s"    ${baseType.getName()} : ${emitDirection(baseType)} ${correctedType};\n"
-      }
-      )
-    }
-    /*component.getOrdredNodeIo.foreach(baseType =>
-      ret ++= s"    ${baseType.getName()} : ${emitDirection(baseType)} ${emitDataType(baseType)};\n"
-    )*/
+    ret ++= s"(\n"
+    component.getOrdredNodeIo.foreach(baseType =>
+      ret ++= s"    ${emitDirection(baseType)} ${emitDataType(baseType)} ${baseType.getName()},\n"
+    )
+
     ret.setCharAt(ret.size - 2, ' ')
-    ret ++= s"  );\n"
+    ret ++= s");\n"
     ret = builder.newPart(false)
-    ret ++= s"end ${component.definitionName};\n"
     ret ++= s"\n"
-
   }
 
 
-  def emitArchitecture(component: Component, builder: ComponentBuilder): Unit = {
-    var ret = builder.newPart(false)
-    val wrappedIo = if (config.onlyStdLogicVectorAtTopLevelIo && component == topLevel) ioStdLogicVectorWrapNames() else HashMap[BaseType, WrappedStuff]()
-    ret ++= s"architecture arch of ${component.definitionName} is\n"
-    ret = builder.newPart(true)
-    emitBlackBoxComponents(component, ret)
-    emitAttributesDef(component, ret)
+  def emitModuleContent(component: Component, builder: ComponentBuilder): Unit = {
+    var ret = builder.newPart(true)
     val enumDebugSignals = ArrayBuffer[SpinalEnumCraft[_]]()
     emitSignals(component, ret, enumDebugSignals)
-    emitWrappedIoSignals(ret, wrappedIo)
     val retTemp = new StringBuilder
-    retTemp ++= s"begin\n"
     emitComponentInstances(component, retTemp)
     emitAsyncronous(component, retTemp, ret)
     emitSyncronous(component, retTemp)
-    emitWrappedIoConnection(retTemp, wrappedIo)
-    emitDebug(component, retTemp, enumDebugSignals)
-    retTemp ++= s"end arch;\n"
+    //TODO emitDebug(component, retTemp, enumDebugSignals)
+    retTemp ++= s"endmodule\n"
     retTemp ++= s"\n"
 
-    ioStdLogicVectorRestoreNames(wrappedIo)
 
     ret ++= retTemp
 
   }
 
-  def emitWrappedIoSignals(buff: StringBuilder, map: HashMap[BaseType, WrappedStuff]): Unit = {
-    for ((e, w) <- map) {
-      buff ++= s"  signal ${w.newName} : ${emitDataType(e)};\n"
-    }
-  }
-
-  def emitWrappedIoConnection(buff: StringBuilder, map: HashMap[BaseType, WrappedStuff]): Unit = {
-    for ((e, w) <- map) e.dir match {
-      case spinal.core.in => e match {
-        case e: UInt => buff ++= s"  ${w.newName} <= unsigned(${w.originalName});\n"
-        case e: SInt => buff ++= s"  ${w.newName} <= signed(${w.originalName});\n"
-      }
-      case spinal.core.out => buff ++= s"  ${w.originalName} <= std_logic_vector(${w.newName});\n"
-    }
-  }
-
-  def emitBlackBoxComponents(component: Component, ret: StringBuilder): Unit = {
-    val emited = mutable.Set[String]()
-    for (c <- component.kinds) c match {
-      case blackBox: BlackBox => {
-        if (!emited.contains(blackBox.definitionName)) {
-          emited += blackBox.definitionName
-          emitBlackBoxComponent(blackBox, ret)
-        }
-      }
-      case _ =>
-    }
-  }
-
-  def blackBoxRemplaceULogic(b: BlackBox, str: String): String = {
-    if (b.isUsingULogic)
-      str.replace("std_logic", "std_ulogic")
-    else
-      str
-  }
-
-  def emitBlackBoxComponent(component: BlackBox, ret: StringBuilder): Unit = {
-    ret ++= s"\n  component ${component.definitionName} is\n"
-    val genericFlat = component.getGeneric.flatten
-    if (genericFlat.size != 0) {
-      ret ++= s"    generic(\n"
-      for ((name, e) <- genericFlat) {
-        e match {
-          case baseType: BaseType => ret ++= s"      ${emitReference(baseType)} : ${blackBoxRemplaceULogic(component, emitDataType(baseType, false))};\n"
-          case s: String => ret ++= s"      $name : string;\n"
-          case i: Int => ret ++= s"      $name : integer;\n"
-          case d: Double => ret ++= s"      $name : real;\n"
-          case b: Boolean => ret ++= s"      $name : boolean;\n"
-          case b: STime => ret ++= s"      $name : time;\n"
-        }
-      }
-
-      ret.setCharAt(ret.size - 2, ' ')
-      ret ++= s"    );\n"
-    }
-    ret ++= s"    port(\n"
-    component.nodes.foreach(_ match {
-      case baseType: BaseType => {
-        if (baseType.isIo) {
-          ret ++= s"      ${baseType.getName()} : ${emitDirection(baseType)} ${blackBoxRemplaceULogic(component, emitDataType(baseType, false))};\n"
-        }
-      }
-      case _ =>
-    })
-    ret.setCharAt(ret.size - 2, ' ')
-    ret ++= s"    );\n"
-    ret ++= s"  end component;\n"
-    ret ++= s"  \n"
-  }
-
-  def emitAttributesDef(component: Component, ret: StringBuilder): Unit = {
-    val map = mutable.Map[String, Attribute]()
-
-    for (node <- component.nodes) {
-      node match {
-        case attributeReady: AttributeReady => {
-          for (attribute <- attributeReady.attributes) {
-            val mAttribute = map.getOrElseUpdate(attribute.getName, attribute)
-            if (!mAttribute.sameType(attribute)) SpinalError(s"There is some attributes with different nature (${attribute} and ${mAttribute} at\n${node.component}})")
-          }
-        }
-        case _ =>
-      }
-    }
-
-    for (attribute <- map.values) {
-      val typeString = attribute match {
-        case _: AttributeString => "string"
-        case _: AttributeFlag => "boolean"
-      }
-      ret ++= s"  attribute ${attribute.getName} : $typeString;\n"
-    }
-
-    ret ++= "\n"
-  }
 
   def toSpinalEnumCraft[T <: SpinalEnum](that: Any) = that.asInstanceOf[SpinalEnumCraft[T]]
 
@@ -749,26 +116,26 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
       node match {
         case signal: BaseType => {
           if (!signal.isIo) {
-            ret ++= s"  signal ${emitReference(signal)} : ${emitDataType(signal)}"
+            ret ++= s"  ${emitDataType(signal)} ${emitReference(signal)}"
             val reg = if(signal.isReg) signal.input.asInstanceOf[Reg] else null
             if(reg != null && reg.initialValue != null && reg.getClockDomain.config.resetKind == BOOT) {
-              ret ++= " := " + (reg.initialValue match {
+              ret ++= " = " + (reg.initialValue match {
                 case init : BaseType => emitLogic(init.getLiteral)
                 case init =>  emitLogic(init)
               })
             }else if (signal.hasTag(randomBoot)) {
               signal match {
-                case b: Bool => ret ++= " := " + {
+                case b: Bool => ret ++= " = " + {
                   if (Random.nextBoolean()) "'1'" else "'0'"
                 }
                 case bv: BitVector => {
                   val rand = BigInt(bv.getWidth, Random).toString(2)
-                  ret ++= " := \"" + "0" * (bv.getWidth - rand.length) + rand + "\""
+                  ret ++= " := " + bv.getWidth + "’b" + "0" * (bv.getWidth - rand.length) + rand
                 }
                 case e: SpinalEnumCraft[_] => {
                   val vec = e.blueprint.values.toVector
                   val rand = vec(Random.nextInt(vec.size))
-                  ret ++= " := " + emitEnumLiteral(rand, e.encoding)
+                  ret ++= " = " + emitEnumLiteral(rand, e.encoding)
                 }
               }
             }
@@ -776,8 +143,9 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
             if (signal.isInstanceOf[SpinalEnumCraft[_]]) {
               val craft = toSpinalEnumCraft(signal)
               if (!craft.encoding.isNative) {
-                ret ++= s"  signal ${emitReference(signal)}_debug : ${getEnumDebugType(craft.blueprint)};\n"
-                enumDebugSignals += toSpinalEnumCraft(signal)
+                //TODO
+                // ret ++= s"  ${emitReference(signal)}_debug : ${getEnumDebugType(craft.blueprint)};\n"
+                //enumDebugSignals += toSpinalEnumCraft(signal)
               }
             }
           }
@@ -790,6 +158,7 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
           //ret ++= emitSignal(mem, mem);
           var initAssignementBuilder = new StringBuilder()
           if (mem.initialContent != null) {
+            ??? //TODO
             initAssignementBuilder ++= " := ("
             val values = mem.initialContent.map(e => {
               e.hashCode()
@@ -864,7 +233,7 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
 
     for (process <- processList if !process.needProcessDef) {
       for (node <- process.nodes) {
-        emitAssignement(node, node.getInput(0), ret, "  ", "<=")
+        emitAssignement(node, node.getInput(0), ret, "  assign ", "=")
       }
     }
 
@@ -878,19 +247,20 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
 
       if (process.sensitivity.size != 0) {
 
-        ret ++= s"  process(${process.sensitivity.toList.sortWith(_.instanceCounter < _.instanceCounter).map(emitReference(_)).reduceLeft(_ + "," + _)})\n"
+        ret ++= s"  always @ (${process.sensitivity.toList.sortWith(_.instanceCounter < _.instanceCounter).map(emitReference(_)).reduceLeft(_ + "," + _)})\n"
         ret ++= "  begin\n"
         emitAssignementLevel(context,ret, "    ", "<=")
-        ret ++= "  end process;\n\n"
+        ret ++= "  end\n\n"
       } else {
         //emit func as logic
-        assert(process.nodes.size == 1)
-        for (node <- process.nodes) {
-          val funcName = "zz_" + emitReference(node)
-          funcRet ++= emitFuncDef(funcName, node, context)
-          ret ++= s"  ${emitReference(node)} <= ${funcName};\n"
-          //          ret ++= s"  ${emitReference(node)} <= ${emitLogic(node.getInput(0))};\n"
-        }
+        ??? //TODO
+//        assert(process.nodes.size == 1)
+//        for (node <- process.nodes) {
+//          val funcName = "zz_" + emitReference(node)
+//          funcRet ++= emitFuncDef(funcName, node, context)
+//          ret ++= s"  ${emitReference(node)} <= ${funcName};\n"
+//          //          ret ++= s"  ${emitReference(node)} <= ${emitLogic(node.getInput(0))};\n"
+//        }
       }
     }
 
@@ -898,14 +268,15 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
 
 
   def emitFuncDef(funcName: String, node: Node, context: AssignementLevel): StringBuilder = {
-    val ret = new StringBuilder
-    //context.emitContext(ret, "    ",":=")
-    ret ++= s"  function $funcName return ${emitDataType(node, false)} is\n"
-    ret ++= s"    variable ${emitReference(node)} : ${emitDataType(node, true)};\n"
-    ret ++= s"  begin\n"
-    emitAssignementLevel(context,ret, "    ", ":=")
-    ret ++= s"    return ${emitReference(node)};\n"
-    ret ++= s"  end function;\n"
+    ??? //TODO
+//    val ret = new StringBuilder
+//    //context.emitContext(ret, "    ",":=")
+//    ret ++= s"  function $funcName return ${emitDataType(node, false)} is\n"
+//    ret ++= s"    variable ${emitReference(node)} : ${emitDataType(node, true)};\n"
+//    ret ++= s"  begin\n"
+//    emitAssignementLevel(context,ret, "    ", ":=")
+//    ret ++= s"    return ${emitReference(node)};\n"
+//    ret ++= s"  end function;\n"
   }
 
 
@@ -935,19 +306,21 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
     s"pkg_shiftLeft(${emitLogic(node.input)},${node.shift})"
   }
 
+  //TODO
   def resizeFunction(vhdlFunc : String)(func: Modifier): String = {
     val resize = func.asInstanceOf[Resize]
     func.getInput(0).getWidth match{
       case 0 => {
-        func.getInput(0) match {
-          case lit: BitsLiteral => {
-            val bitString =  '"' + "0" * func.getWidth + '"'
+        func.getInput(0) match { //TODO
+          /*case lit: BitsLiteral => {
+            val bitString =  '"' + "0"AFAFAF * func.getWidth + '"'
             lit.kind match {
               case _: Bits => s"pkg_stdLogicVector($bitString)"
               case _: UInt => s"pkg_unsigned($bitString)"
               case _: SInt => s"pkg_signed($bitString)"
             }
-          }
+            s"(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
+          }*/
           case _ => s"pkg_resize(${emitLogic(resize.input)},${resize.size})"
         }
       }
@@ -1180,32 +553,23 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
   def emitLogic(node: Node): String = node match {
     case baseType: BaseType => emitReference(baseType)
     case node: Modifier => modifierImplMap.getOrElse(node.opName, throw new Exception("can't find " + node.opName))(node)
-    case lit: BitsLiteral => lit.kind match {
-      case _: Bits => s"pkg_stdLogicVector(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
-      case _: UInt => s"pkg_unsigned(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
-      case _: SInt => s"pkg_signed(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
-    }
-    case lit: BitsAllToLiteral => lit.theConsumer match {
-      case _: Bits => s"pkg_stdLogicVector(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
-      case _: UInt => s"pkg_unsigned(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
-      case _: SInt => s"pkg_signed(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
-    }
-    case lit: BoolLiteral => s"pkg_toStdLogic(${lit.value})"
-    //  case lit: BoolLiteral => if(lit.value) "'1'" else "'0'" //Invalid VHDL when '1' = '1'
+    case lit: BitsLiteral => s"(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
+    case lit: BitsAllToLiteral => s"(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
+    case lit: BoolLiteral => if(lit.value) "1" else "0"
     case lit: EnumLiteral[_] => emitEnumLiteral(lit.enum, lit.encoding)
     case memRead: MemReadAsync => {
       if (memRead.writeToReadKind == dontCare) SpinalWarning(s"memReadAsync with dontCare is as writeFirst into VHDL")
       val symbolCount = memRead.getMem.getMemSymbolCount
       if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
-        s"${emitReference(memRead.getMem)}(to_integer(${emitReference(memRead.getAddress)}))"
+        s"${emitReference(memRead.getMem)}[${emitReference(memRead.getAddress)}]"
       else
-        (0 until symbolCount).reverse.map(i => (s"${emitReference(memRead.getMem)}_symbol$i(to_integer(${emitReference(memRead.getAddress)}))")).reduce(_ + " & " + _)
+        "{" + (0 until symbolCount).reverse.map(i => (s"${emitReference(memRead.getMem)}_symbol$i[${emitReference(memRead.getAddress)}]")).reduce(_ + " , " + _) + "}"
     }
-    case whenNode: WhenNode => s"pkg_mux(${whenNode.getInputs.map(emitLogic(_)).reduce(_ + "," + _)})" //Exeptional case with asyncrouns of literal
+    case whenNode: WhenNode => s"(${emitLogic(whenNode.cond)} ? ${emitLogic(whenNode.cond)} : ${emitLogic(whenNode.cond)})" //Exeptional case with asyncrouns of literal
     case dc: DontCareNode => {
       dc.getBaseType match {
-        case to: Bool => s"'-'"
-        case to: BitVector => s"(${'"'}${"-" * dc.getWidth}${'"'})"
+        case to: Bool => "1'bx"
+        case to: BitVector => s"(${to.getWidth}'b${"x" * dc.getWidth})"
       }
     }
 
@@ -1437,11 +801,11 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
   def emitAssignement(to: Node, from: Node, ret: StringBuilder, tab: String, assignementKind: String): Unit = {
     from match {
       case from: AssignementNode => {
-        from match {
-          case assign: BitAssignmentFixed => ret ++= s"$tab${emitReference(to)}(${assign.getBitId}) ${assignementKind} ${emitLogic(assign.getInput)};\n"
-          case assign: BitAssignmentFloating => ret ++= s"$tab${emitReference(to)}(to_integer(${emitLogic(assign.getBitId)})) ${assignementKind} ${emitLogic(assign.getInput)};\n"
-          case assign: RangedAssignmentFixed => ret ++= s"$tab${emitReference(to)}(${assign.getHi} downto ${assign.getLo}) ${assignementKind} ${emitLogic(assign.getInput)};\n"
-          case assign: RangedAssignmentFloating => ret ++= s"$tab${emitReference(to)}(${assign.getBitCount.value - 1} + to_integer(${emitLogic(assign.getOffset)}) downto to_integer(${emitLogic(assign.getOffset)})) ${assignementKind} ${emitLogic(assign.getInput)};\n"
+        from match { //TODO
+          case assign: BitAssignmentFixed => ret ++= s"$tab${emitReference(to)}[${assign.getBitId}] ${assignementKind} ${emitLogic(assign.getInput)};\n"
+          case assign: BitAssignmentFloating => ret ++= s"$tab${emitReference(to)}[${emitLogic(assign.getBitId)}] ${assignementKind} ${emitLogic(assign.getInput)};\n"
+          case assign: RangedAssignmentFixed => ret ++= s"$tab${emitReference(to)}[${assign.getHi} : ${assign.getLo}] ${assignementKind} ${emitLogic(assign.getInput)};\n"
+          case assign: RangedAssignmentFloating => ret ++= s"$tab${emitReference(to)}[${emitLogic(assign.getOffset)} +: ${assign.getBitCount.value}] ${assignementKind} ${emitLogic(assign.getInput)};\n"
         }
       }
       case man: MultipleAssignmentNode => {
@@ -1471,35 +835,34 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
         def doTrue = when.whenTrue.isNotEmpty
         def doFalse = when.whenFalse.isNotEmpty
         val condLogic = emitLogic(when.cond)
-        val condLogicCleaned = if(condLogic.startsWith("pkg_toStdLogic(")) condLogic.substring("pkg_toStdLogic(".length,condLogic.length-1) else condLogic + " = '1'"
 
         if (doTrue && !doFalse) {
-          ret ++= s"${firstTab}if $condLogicCleaned then\n"
+          ret ++= s"${firstTab}if $condLogic begin\n"
           emitAssignementLevel(when.whenTrue,ret, tab + "  ", assignementKind)
-          ret ++= s"${tab}end if;\n"
+          ret ++= s"${tab}end\n"
         } else /*if (doTrue && doFalse)*/ {
-          ret ++= s"${firstTab}if $condLogicCleaned then\n"
+          ret ++= s"${firstTab}if $condLogic begin\n"
           emitAssignementLevel(when.whenTrue,ret, tab + "  ", assignementKind)
           val falseHead = if (when.whenFalse.logicChunk.isEmpty && when.whenFalse.conditionalTrees.size == 1) when.whenFalse.conditionalTrees.head._1 else null
           if (falseHead != null && falseHead.isInstanceOf[WhenContext] && falseHead.asInstanceOf[WhenContext].parentElseWhen != null) {
-            ret ++= s"${tab}els"
+            ret ++= s"${tab}end else "
             emitAssignementLevel(when.whenFalse,ret, tab, assignementKind, true)
           } else {
-            ret ++= s"${tab}else\n"
+            ret ++= s"${tab}end else \n"
             emitAssignementLevel(when.whenFalse,ret, tab + "  ", assignementKind)
-            ret ++= s"${tab}end if;\n"
+            ret ++= s"${tab}end\n"
           }
         }
         emitLogicChunk(when)
       }
-      case switchTree: SwitchTree => {
-        for (caseElement <- switchTree.cases if caseElement != null) {
-          val (cond, level) = caseElement
-          ret ++= s"${tab}if ${emitLogic(cond)} = '1'  then\n"
-          emitAssignementLevel(level,ret, tab + "  ", assignementKind)
-          ret ++= s"${tab}end if;\n"
-        }
-      }
+//      case switchTree: SwitchTree => {
+//        for (caseElement <- switchTree.cases if caseElement != null) {
+//          val (cond, level) = caseElement
+//          ret ++= s"${tab}if ${emitLogic(cond)} = '1'  then\n"
+//          emitAssignementLevel(level,ret, tab + "  ", assignementKind)
+//          ret ++= s"${tab}end if;\n"
+//        }
+//      }
     }
   }
 

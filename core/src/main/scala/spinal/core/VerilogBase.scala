@@ -27,38 +27,21 @@ import scala.collection.mutable.StringBuilder
 
 trait VerilogBase extends VhdlVerilogBase{
 
-  var enumPackageName = "pkg_enum"
-  var packageName = "pkg_scala2hdl"
-
-  val vhdlKeyWords = Set[String]("in", "out", "buffer", "inout", "entity", "component", "architecture","type","open","block","access","or","and","xor","nand","nor")
-
-  def emitLibrary(ret: StringBuilder): Unit = {
-    ret ++= "library ieee;\n"
-    ret ++= "use ieee.std_logic_1164.all;\n"
-    ret ++= "use ieee.numeric_std.all;\n"
-    ret ++= "\n"
-    ret ++= s"library work;\n"
-    ret ++= s"use work.$packageName.all;\n"
-    ret ++= s"use work.all;\n"
-    ret ++= s"use work.$enumPackageName.all;\n\n"
-  }
-
-
   def emitSignal(ref: Node, typeNode: Node): String = {
-    s"  signal ${emitReference(ref)} : ${emitDataType(typeNode)};\n"
+    s"  wire ${emitDataType(typeNode)} ${emitReference(ref)};\n"
   }
 
 
   def emitClockEdge(clock: Bool, edgeKind: EdgeKind): String = {
     s"${
       edgeKind match {
-        case RISING => "rising_edge"
-        case FALLING => "falling_edge"
+        case RISING => "posedge"
+        case FALLING => "negedge"
       }
-    }(${emitReference(clock)}) then\n"
+    } ${emitReference(clock)}\n"
   }
 
-
+  //TODO
   def emitEnumLiteral[T <: SpinalEnum](enum : SpinalEnumElement[T],encoding: SpinalEnumEncoding) : String = {
     if(encoding.isNative)
       return "pkg_enum." + enum.getName()
@@ -68,6 +51,7 @@ trait VerilogBase extends VhdlVerilogBase{
 
   def emitEnumType[T <: SpinalEnum](enum : SpinalEnumCraft[T]) : String = emitEnumType(enum.blueprint,enum.encoding)
 
+  //TODO
   def emitEnumType(enum : SpinalEnum,encoding: SpinalEnumEncoding) : String = {
     if(encoding.isNative)
       return enum.getName()
@@ -75,24 +59,21 @@ trait VerilogBase extends VhdlVerilogBase{
       return enum.getName() + "_" + encoding.getName() + "_type"
   }
 
-  def emitDataType(node: Node, constrained: Boolean = true) = node match {
-    case bool: Bool => "std_logic"
-    case uint: UInt => s"unsigned${if (constrained) emitRange(uint) else ""}"
-    case sint: SInt => s"signed${if (constrained) emitRange(sint) else ""}"
-    case bits: Bits => s"std_logic_vector${if (constrained) emitRange(bits) else ""}"
-    case mem: Mem[_] => s"${emitReference(mem)}_type"
+  def emitDataType(node: Node) = node match {
+    case bool: Bool => "wire"
+    case bitvector: BitVector => s"wire${emitRange(bitvector)}"
     case enum: SpinalEnumCraft[_] => emitEnumType(enum)
     case _ => throw new Exception("Unknown datatype"); ""
   }
 
   def emitDirection(baseType: BaseType) = baseType.dir match {
-    case `in` => "in"
-    case `out` => "out"
+    case `in` => "input"
+    case `out` => "output"
     case _ => throw new Exception("Unknown direction"); ""
   }
 
 
-  def emitRange(node: Node) = s"(${node.getWidth - 1} downto 0)"
+  def emitRange(node: Node) = s"[${node.getWidth - 1}:0]"
 
   def emitReference(node: Node): String = {
     node match {
