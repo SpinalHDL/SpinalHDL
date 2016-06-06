@@ -80,9 +80,9 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
     ret ++= s"module ${component.definitionName}\n"
     ret = builder.newPart(true)
     ret ++= s"(\n"
-    component.getOrdredNodeIo.foreach(baseType =>
-      ret ++= s"    ${emitDirection(baseType)} ${emitDataType(baseType)} ${baseType.getName()},\n"
-    )
+    component.getOrdredNodeIo.foreach(baseType => {
+      ret ++= s"  ${emitDirection(baseType)} ${if(signalNeedProcess(baseType)) "reg " else ""}${emitDataType(baseType)} ${baseType.getName()},\n"
+    })
 
     ret.setCharAt(ret.size - 2, ' ')
     ret ++= s");\n"
@@ -116,7 +116,7 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
       node match {
         case signal: BaseType => {
           if (!signal.isIo) {
-            ret ++= s"  ${emitDataType(signal)} ${emitReference(signal)}"
+            ret ++= s"  ${if(signalNeedProcess(signal)) "reg " else "wire"}${emitDataType(signal)} ${emitReference(signal)}"
             val reg = if(signal.isReg) signal.input.asInstanceOf[Reg] else null
             if(reg != null && reg.initialValue != null && reg.getClockDomain.config.resetKind == BOOT) {
               ret ++= " = " + (reg.initialValue match {
@@ -187,7 +187,7 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
 
           val symbolWidth = mem.getMemSymbolWidth()
           val symbolCount = mem.getMemSymbolCount
-
+          //TODO
           if(memBitsMaskKind == MULTIPLE_RAM && symbolCount != 1) {
             if(mem.initialContent != null) SpinalError("Memory with multiple symbol per line + initial contant are not suported currently")
 
@@ -226,7 +226,12 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
     }
   }
 
-
+  //TODO ? Not true for literal driven signals with multiple assignement
+  def signalNeedProcess(baseType: BaseType) : Boolean = {
+    if(baseType.isReg) return true
+    if(baseType.input.isInstanceOf[MultipleAssignmentNode] || baseType.input.isInstanceOf[WhenNode]) return true
+    return false
+  }
 
   def emitAsyncronous(component: Component, ret: StringBuilder, funcRet: StringBuilder): Unit = {
     val processList = getAsyncProcesses(component)
@@ -280,13 +285,8 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
   }
 
 
-  def operatorImplAsBinaryOperator(vhd: String)(op: Modifier): String = {
-    val temp = s"(${emitLogic(op.getInput(0))} $vhd ${emitLogic(op.getInput(1))})"
-    if (opThatNeedBoolCast.contains(op.opName))
-      return s"pkg_toStdLogic$temp"
-    else
-      return temp
-  }
+  def operatorImplAsBinaryOperator(vhd: String)(op: Modifier): String = s"(${emitLogic(op.getInput(0))} $vhd ${emitLogic(op.getInput(1))})"
+
 
   def operatorImplAsUnaryOperator(vhd: String)(op: Modifier): String = {
     s"($vhd ${emitLogic(op.getInput(0))})"
@@ -392,15 +392,15 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
   modifierImplMap.put("u-u", operatorImplAsBinaryOperator("-"))
   modifierImplMap.put("u*u", operatorImplAsBinaryOperator("*"))
   modifierImplMap.put("u/u", operatorImplAsBinaryOperator("/"))
-  modifierImplMap.put("u%u", operatorImplAsBinaryOperator("rem"))
+  modifierImplMap.put("u%u", operatorImplAsBinaryOperator("%"))
 
-  modifierImplMap.put("u|u", operatorImplAsBinaryOperator("or"))
-  modifierImplMap.put("u&u", operatorImplAsBinaryOperator("and"))
-  modifierImplMap.put("u^u", operatorImplAsBinaryOperator("xor"))
-  modifierImplMap.put("~u",  operatorImplAsUnaryOperator("not"))
+  modifierImplMap.put("u|u", operatorImplAsBinaryOperator("|"))
+  modifierImplMap.put("u&u", operatorImplAsBinaryOperator("&"))
+  modifierImplMap.put("u^u", operatorImplAsBinaryOperator("^"))
+  modifierImplMap.put("~u",  operatorImplAsUnaryOperator("~"))
 
-  modifierImplMap.put("u==u", operatorImplAsBinaryOperator("="))
-  modifierImplMap.put("u!=u", operatorImplAsBinaryOperator("/="))
+  modifierImplMap.put("u==u", operatorImplAsBinaryOperator("=="))
+  modifierImplMap.put("u!=u", operatorImplAsBinaryOperator("!="))
   modifierImplMap.put("u<u",  operatorImplAsBinaryOperator("<"))
   modifierImplMap.put("u<=u", operatorImplAsBinaryOperator("<="))
 
@@ -416,12 +416,12 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
   modifierImplMap.put("s-s", operatorImplAsBinaryOperator("-"))
   modifierImplMap.put("s*s", operatorImplAsBinaryOperator("*"))
   modifierImplMap.put("s/s", operatorImplAsBinaryOperator("/"))
-  modifierImplMap.put("s%s", operatorImplAsBinaryOperator("rem"))
+  modifierImplMap.put("s%s", operatorImplAsBinaryOperator("%"))
 
-  modifierImplMap.put("s|s", operatorImplAsBinaryOperator("or"))
-  modifierImplMap.put("s&s", operatorImplAsBinaryOperator("and"))
-  modifierImplMap.put("s^s", operatorImplAsBinaryOperator("xor"))
-  modifierImplMap.put("~s", operatorImplAsUnaryOperator("not"))
+  modifierImplMap.put("s|s", operatorImplAsBinaryOperator("|"))
+  modifierImplMap.put("s&s", operatorImplAsBinaryOperator("&"))
+  modifierImplMap.put("s^s", operatorImplAsBinaryOperator("^"))
+  modifierImplMap.put("~s", operatorImplAsUnaryOperator("~"))
   modifierImplMap.put("-s", operatorImplAsUnaryOperator("-"))
 
   modifierImplMap.put("s==s", operatorImplAsBinaryOperator("="))
@@ -440,13 +440,13 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
   //bits
   modifierImplMap.put("b##b", operatorImplAsFunction("pkg_cat"))
 
-  modifierImplMap.put("b|b", operatorImplAsBinaryOperator("or"))
-  modifierImplMap.put("b&b", operatorImplAsBinaryOperator("and"))
-  modifierImplMap.put("b^b", operatorImplAsBinaryOperator("xor"))
-  modifierImplMap.put("~b",  operatorImplAsUnaryOperator("not"))
+  modifierImplMap.put("b|b", operatorImplAsBinaryOperator("|"))
+  modifierImplMap.put("b&b", operatorImplAsBinaryOperator("&"))
+  modifierImplMap.put("b^b", operatorImplAsBinaryOperator("^"))
+  modifierImplMap.put("~b",  operatorImplAsUnaryOperator("~"))
 
-  modifierImplMap.put("b==b", operatorImplAsBinaryOperator("="))
-  modifierImplMap.put("b!=b", operatorImplAsBinaryOperator("/="))
+  modifierImplMap.put("b==b", operatorImplAsBinaryOperator("=="))
+  modifierImplMap.put("b!=b", operatorImplAsBinaryOperator("!="))
 
   modifierImplMap.put("b>>i", shiftRightByIntImpl)
   modifierImplMap.put("b<<i", shiftLeftByIntImpl)
@@ -457,14 +457,14 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
 
 
   //bool
-  modifierImplMap.put("B==B", operatorImplAsBinaryOperator("="))
-  modifierImplMap.put("B!=B", operatorImplAsBinaryOperator("/="))
+  modifierImplMap.put("B==B", operatorImplAsBinaryOperator("=="))
+  modifierImplMap.put("B!=B", operatorImplAsBinaryOperator("!="))
 
 
-  modifierImplMap.put("!", operatorImplAsUnaryOperator("not"))
-  modifierImplMap.put("&&", operatorImplAsBinaryOperator("and"))
-  modifierImplMap.put("||", operatorImplAsBinaryOperator("or"))
-  modifierImplMap.put("B^B", operatorImplAsBinaryOperator("xor"))
+  modifierImplMap.put("!", operatorImplAsUnaryOperator("!"))
+  modifierImplMap.put("&&", operatorImplAsBinaryOperator("&&"))
+  modifierImplMap.put("||", operatorImplAsBinaryOperator("||"))
+  modifierImplMap.put("B^B", operatorImplAsBinaryOperator("^"))
 
 
   //enum
@@ -537,17 +537,6 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
     s"pkg_extract(${emitLogic(that.getBitVector)},${emitLogic(that.getOffset)},${that.getBitCount})"
   }
 
-
-  def opThatNeedBoolCastGen(a: String, b: String): List[String] = {
-    ("==" :: "!=" :: "<" :: "<=" :: Nil).map(a + _ + b)
-  }
-
-  val opThatNeedBoolCast = mutable.Set[String]()
-  opThatNeedBoolCast ++= opThatNeedBoolCastGen("B", "B")
-  opThatNeedBoolCast ++= opThatNeedBoolCastGen("b", "b")
-  opThatNeedBoolCast ++= opThatNeedBoolCastGen("u", "u")
-  opThatNeedBoolCast ++= opThatNeedBoolCastGen("s", "s")
-  opThatNeedBoolCast ++= opThatNeedBoolCastGen("e", "e")
 
 
   def emitLogic(node: Node): String = node match {
@@ -636,30 +625,27 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
 
         if (asyncReset) {
           val sensitivity = getSensitivity(initialValues, true)
-          ret ++= s"${tabStr}process(${emitReference(clock)},${emitReference(reset)}${sensitivity.foldLeft("")(_ + "," + emitReference(_))})\n"
+          ret ++= s"${tabStr}always @ (${emitClockEdge(clock,clockDomain.config.clockEdge)} or ${emitResetEdge(reset,clockDomain.config.resetActiveLevel)}${if(sensitivity.isEmpty) "" else sensitivity.foldLeft(",")(_ + "," + emitReference(_))})\n"
         } else {
-          ret ++= s"${tabStr}process(${emitReference(clock)})\n"
+          ret ++= s"${tabStr}always @ (${emitClockEdge(clock,clockDomain.config.clockEdge)})\n"
         }
 
         ret ++= s"${tabStr}begin\n"
         inc
         if (asyncReset) {
-          ret ++= s"${tabStr}if ${emitReference(reset)} = \'${if (clockDomain.config.resetActiveLevel == HIGH) 1 else 0}\' then\n";
+          ret ++= s"${tabStr}if (${if (clockDomain.config.resetActiveLevel == HIGH) "" else "!"}${emitReference(reset)}) begin\n";
           inc
           emitRegsInitialValue(initialValueAssignement, tabStr)
           dec
-          ret ++= s"${tabStr}elsif ${emitClockEdge(clock, clockDomain.config.clockEdge)}"
-          inc
-        } else {
-          ret ++= s"${tabStr}if ${emitClockEdge(clock, clockDomain.config.clockEdge)}"
+          ret ++= s"${tabStr}end else begin\n"
           inc
         }
         if (clockEnable != null) {
-          ret ++= s"${tabStr}if ${emitReference(clockEnable)} = \'${if (clockDomain.config.clockEnableActiveLevel == HIGH) 1 else 0}\' then\n"
+          ret ++= s"${tabStr}if(${if (clockDomain.config.clockEnableActiveLevel == HIGH) "" else "!"}${emitReference(clockEnable)}) begin\n"
           inc
         }
         if (syncReset) {
-          ret ++= s"${tabStr}if ${emitReference(reset)} = \'${if (clockDomain.config.resetActiveLevel == HIGH) 1 else 0}\' then\n"
+          ret ++= s"${tabStr}if(${if (clockDomain.config.resetActiveLevel == HIGH) "" else "!"}${emitReference(reset)}) begin\n"
           inc
           emitRegsInitialValue(initialValueAssignement, tabStr)
           dec
@@ -667,7 +653,7 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
           inc
           emitRegsLogic(tabStr)
           dec
-          ret ++= s"${tabStr}end if;\n"
+          ret ++= s"${tabStr}end\n"
           dec
         } else {
           emitRegsLogic(tabStr)
@@ -675,10 +661,10 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
         }
 
         while (tabLevel != 1) {
-          ret ++= s"${tabStr}end if;\n"
+          ret ++= s"${tabStr}end\n"
           dec
         }
-        ret ++= s"${tabStr}end process;\n"
+        ret ++= s"${tabStr}end\n"
         dec
         ret ++= s"${tabStr}\n"
 

@@ -28,7 +28,7 @@ import scala.collection.mutable.StringBuilder
 trait VerilogBase extends VhdlVerilogBase{
 
   def emitSignal(ref: Node, typeNode: Node): String = {
-    s"  wire ${emitDataType(typeNode)} ${emitReference(ref)};\n"
+    s"  ${emitDataType(typeNode)} ${emitReference(ref)};\n"
   }
 
 
@@ -38,7 +38,16 @@ trait VerilogBase extends VhdlVerilogBase{
         case RISING => "posedge"
         case FALLING => "negedge"
       }
-    } ${emitReference(clock)}\n"
+    } ${emitReference(clock)}"
+  }
+
+  def emitResetEdge(reset: Bool, polarity: ActiveKind): String = {
+    s"${
+      polarity match {
+        case HIGH => "posedge"
+        case LOW => "negedge"
+      }
+    } ${emitReference(reset)}"
   }
 
   //TODO
@@ -60,8 +69,8 @@ trait VerilogBase extends VhdlVerilogBase{
   }
 
   def emitDataType(node: Node) = node match {
-    case bool: Bool => "wire"
-    case bitvector: BitVector => s"wire${emitRange(bitvector)}"
+    case bool: Bool => ""
+    case bitvector: BitVector => emitRange(bitvector)
     case enum: SpinalEnumCraft[_] => emitEnumType(enum)
     case _ => throw new Exception("Unknown datatype"); ""
   }

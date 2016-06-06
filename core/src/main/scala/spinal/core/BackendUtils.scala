@@ -155,16 +155,17 @@ trait VhdlVerilogBase {
     def needProcessDef: Boolean = {
       if (!whens.isEmpty || nodes.size > 1) return true
       if (hasMultipleAssignment) {
-        val ma: MultipleAssignmentNode = nodes(0).getInput(0).asInstanceOf[MultipleAssignmentNode]
-        val assignedBits = new AssignedBits(nodes(0).getWidth)
-        ma.onEachInput(_ match {
-          case assign: AssignementNode => {
-            val scope = assign.getScopeBits
-            if (!AssignedBits.intersect(scope, assignedBits).isEmpty) return true
-            assignedBits.add(scope)
-          }
-          case _ => return true
-        })
+//        val ma: MultipleAssignmentNode = nodes(0).getInput(0).asInstanceOf[MultipleAssignmentNode]
+//        val assignedBits = new AssignedBits(nodes(0).getWidth)
+//        ma.onEachInput(_ match {
+//          case assign: AssignementNode => {
+//            val scope = assign.getScopeBits
+//            if (!AssignedBits.intersect(scope, assignedBits).isEmpty) return true
+//            assignedBits.add(scope)
+//          }
+//          case _ => return true
+//        })
+        return true; //Symplified because of Verilog backend
       }
       return false
     }

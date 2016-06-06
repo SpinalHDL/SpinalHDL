@@ -679,12 +679,33 @@ object PlayVerilog1 {
     val a,b = in UInt(4 bits)
     val x,y,z = out UInt(4 bits)
 
+    val l,m = UInt(4 bits).keep()
+    val n,o = Reg(UInt(4 bits)).keep()
+    val p,q = Reg(UInt(4 bits)).keep() init(U"0010")
     x := a - b
 
     y := a + b
     y(0) := False
 
-    z(z.range) := 0
+    z(z.range) := U"0110"
+
+    l := a & b
+    m := a
+    when(a === b){
+      m := b
+    }
+
+    n := a & b
+    o := a
+    when(a === b){
+      o := b
+    }
+
+    p := a & b
+    q := a
+    when(a === b){
+      q := b
+    }
   }
   def main(args: Array[String]): Unit = {
     SpinalVerilog(new TopLevel)

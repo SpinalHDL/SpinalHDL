@@ -1,35 +1,59 @@
-
-module Shift (A, Y1, Y2);
-
-                 input [7:0] A;
-                 output [7:0] Y1, Y2;
-                 parameter B=3; reg [7:0] Y1, Y2;
- assign Y2 = A>>B; //logical shift right
-                 always @(A)
-                 begin
-                                  Y1=A<<B; //logical shift left
-
-                 end
-endmodule
-/*
 module TopLevel
 (
-    input [3:0] a,
-    input [3:0] b
+  input [3:0] a,
+  input [3:0] b,
+  output [3:0] x,
+  output reg [3:0] y,
+  output [3:0] z,
+  input  clk,
+  input  reset 
 );
-     logic [3:0] x;
-     logic [3:0] yy;
-     logic [3:0] z;
+
+  wire[3:0] l;
+  reg [3:0] m;
+  reg [3:0] n;
+  reg [3:0] o;
+  reg [3:0] p;
+  reg [3:0] q;
   assign x = (a - b);
-  assign z[3 : 0] = 4; //nothing
+  assign z[3 : 0] = (4'b0110);
+  assign l = (a & b);
   always @ (a,b)
   begin
-    if (a[0]) begin
-        yy <= (a + b);  //reg
+    y <= (a + b);
+    y[0] <= 0;
+  end
+
+  always @ (a,b)
+  begin
+    m <= a;
+    if (a == b) begin
+      m <= b;
     end
   end
 
+  always @ (posedge clk or posedge reset)
+  begin
+    if (reset) begin
+      p <= (4'b0010);
+      q <= (4'b0010);
+    end else begin
+      p <= (a & b);
+      q <= a;
+      if (a == b) begin
+        q <= b;
+      end
+    end
+  end
 
+  always @ (posedge clk)
+  begin
+    n <= (a & b);
+    o <= a;
+    if (a == b) begin
+      o <= b;
+    end
+  end
 
-endmodule*/
+endmodule
 
