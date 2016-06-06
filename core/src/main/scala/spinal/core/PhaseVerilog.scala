@@ -296,14 +296,30 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
     s"$vhd(${func.getInputs.map(emitLogic(_)).reduce(_ + "," + _)})"
   }
 
+  def operatorImplAsMux(func: Modifier): String = {
+    val mux = func.asInstanceOf[Multiplexer]
+    s"(${emitLogic(mux.cond)} ? ${emitLogic(mux.whenTrue)} : ${emitLogic(mux.whenFalse)})"
+  }
+
+
+
+  def operatorImplAsNoTransformation(func: Modifier): String = {
+    emitLogic(func.getInput(0))
+  }
+
   def shiftRightByIntImpl(func: Modifier): String = {
     val node = func.asInstanceOf[Operator.BitVector.ShiftRightByInt]
-    s"pkg_shiftRight(${emitLogic(node.input)},${node.shift})"
+    s"(${emitLogic(node.input)} >>> ${node.shift})"
   }
 
   def shiftLeftByIntImpl(func: Modifier): String = {
     val node = func.asInstanceOf[Operator.BitVector.ShiftLeftByInt]
-    s"pkg_shiftLeft(${emitLogic(node.input)},${node.shift})"
+    s"(${emitLogic(node.input)} <<< ${node.shift})"
+  }
+
+  def operatorImplAsCat(op : Modifier) : String = {
+    val cat = op.asInstanceOf[Operator.Bits.Cat]
+    s"{${cat.left},${cat.right}}"
   }
 
   //TODO
@@ -407,8 +423,8 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
 
   modifierImplMap.put("u>>i", shiftRightByIntImpl)
   modifierImplMap.put("u<<i", shiftLeftByIntImpl)
-  modifierImplMap.put("u>>u", operatorImplAsFunction("pkg_shiftRight"))
-  modifierImplMap.put("u<<u", operatorImplAsFunction("pkg_shiftLeft"))
+  modifierImplMap.put("u>>u", operatorImplAsBinaryOperator(">>>"))
+  modifierImplMap.put("u<<u", operatorImplAsBinaryOperator("<<<"))
 
 
   //signed
@@ -432,13 +448,13 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
 
   modifierImplMap.put("s>>i", shiftRightByIntImpl)
   modifierImplMap.put("s<<i", shiftLeftByIntImpl)
-  modifierImplMap.put("s>>u", operatorImplAsFunction("pkg_shiftRight"))
-  modifierImplMap.put("s<<u", operatorImplAsFunction("pkg_shiftLeft"))
+  modifierImplMap.put("s>>u", operatorImplAsBinaryOperator(">>>"))
+  modifierImplMap.put("s<<u", operatorImplAsBinaryOperator("<<<"))
 
 
 
   //bits
-  modifierImplMap.put("b##b", operatorImplAsFunction("pkg_cat"))
+  modifierImplMap.put("b##b", operatorImplAsCat)
 
   modifierImplMap.put("b|b", operatorImplAsBinaryOperator("|"))
   modifierImplMap.put("b&b", operatorImplAsBinaryOperator("&"))
@@ -448,11 +464,11 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
   modifierImplMap.put("b==b", operatorImplAsBinaryOperator("=="))
   modifierImplMap.put("b!=b", operatorImplAsBinaryOperator("!="))
 
-  modifierImplMap.put("b>>i", shiftRightByIntImpl)
-  modifierImplMap.put("b<<i", shiftLeftByIntImpl)
-  modifierImplMap.put("b>>u", operatorImplAsFunction("pkg_shiftRight"))
-  modifierImplMap.put("b<<u", operatorImplAsFunction("pkg_shiftLeft"))
-  modifierImplMap.put("brotlu", operatorImplAsFunction("pkg_rotateLeft"))
+  modifierImplMap.put("b>>i",  shiftRightByIntImpl)
+  modifierImplMap.put("b<<i",  shiftLeftByIntImpl)
+  modifierImplMap.put("b>>u",  operatorImplAsBinaryOperator(">>>"))
+  modifierImplMap.put("b<<u",  operatorImplAsBinaryOperator("<<<"))
+  modifierImplMap.put("brotlu", operatorImplAsFunction("pkg_rotateLeft")) //TODO
 
 
 
@@ -472,16 +488,16 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
   modifierImplMap.put("e!=e", enumEgualsImpl(false))
 
   //cast
-  modifierImplMap.put("s->b", operatorImplAsFunction("std_logic_vector"))
-  modifierImplMap.put("u->b", operatorImplAsFunction("std_logic_vector"))
-  modifierImplMap.put("B->b", operatorImplAsFunction("pkg_toStdLogicVector"))
+  modifierImplMap.put("s->b", operatorImplAsNoTransformation)
+  modifierImplMap.put("u->b", operatorImplAsNoTransformation)
+  modifierImplMap.put("B->b", operatorImplAsNoTransformation)
   modifierImplMap.put("e->b", operatorImplAsEnumToBits)
 
-  modifierImplMap.put("b->s", operatorImplAsFunction("signed"))
-  modifierImplMap.put("u->s", operatorImplAsFunction("signed"))
+  modifierImplMap.put("b->s", operatorImplAsNoTransformation)
+  modifierImplMap.put("u->s", operatorImplAsNoTransformation)
 
-  modifierImplMap.put("b->u", operatorImplAsFunction("unsigned"))
-  modifierImplMap.put("s->u", operatorImplAsFunction("unsigned"))
+  modifierImplMap.put("b->u", operatorImplAsNoTransformation)
+  modifierImplMap.put("s->u", operatorImplAsNoTransformation)
 
   modifierImplMap.put("b->e", operatorImplAsBitsToEnum)
   modifierImplMap.put("e->e", operatorImplAsEnumToEnum)
@@ -489,16 +505,16 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
 
   //misc
 
-  modifierImplMap.put("resize(s,i)", resizeFunction("pkg_signed"))
-  modifierImplMap.put("resize(u,i)", resizeFunction("pkg_unsigned"))
-  modifierImplMap.put("resize(b,i)", resizeFunction("pkg_stdLogicVector"))
+  modifierImplMap.put("resize(s,i)", operatorImplAsNoTransformation)
+  modifierImplMap.put("resize(u,i)", operatorImplAsNoTransformation)
+  modifierImplMap.put("resize(b,i)", operatorImplAsNoTransformation)
 
   //Memo whenNode hardcode emitlogic
-  modifierImplMap.put("mux(B,B,B)", operatorImplAsFunction("pkg_mux"))
-  modifierImplMap.put("mux(B,b,b)", operatorImplAsFunction("pkg_mux"))
-  modifierImplMap.put("mux(B,u,u)", operatorImplAsFunction("pkg_mux"))
-  modifierImplMap.put("mux(B,s,s)", operatorImplAsFunction("pkg_mux"))
-  modifierImplMap.put("mux(B,e,e)", operatorImplAsFunction("pkg_mux"))
+  modifierImplMap.put("mux(B,B,B)", operatorImplAsMux)
+  modifierImplMap.put("mux(B,b,b)", operatorImplAsMux)
+  modifierImplMap.put("mux(B,u,u)", operatorImplAsMux)
+  modifierImplMap.put("mux(B,s,s)", operatorImplAsMux)
+  modifierImplMap.put("mux(B,e,e)", operatorImplAsMux)
 
   modifierImplMap.put("extract(b,i)", extractBoolFixed)
   modifierImplMap.put("extract(u,i)", extractBoolFixed)
@@ -519,22 +535,22 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
 
   def extractBoolFixed(func: Modifier): String = {
     val that = func.asInstanceOf[ExtractBoolFixed]
-    s"pkg_extract(${emitLogic(that.getBitVector)},${that.getBitId})"
+    s"${emitLogic(that.getBitVector)}[${that.getBitId}]"
   }
 
   def extractBoolFloating(func: Modifier): String = {
     val that = func.asInstanceOf[ExtractBoolFloating]
-    s"pkg_extract(${emitLogic(that.getBitVector)},to_integer(${emitLogic(that.getBitId)}))"
+    s"pkg_extract(${emitLogic(that.getBitVector)}[${emitLogic(that.getBitId)}]"
   }
 
   def extractBitVectorFixed(func: Modifier): String = {
     val that = func.asInstanceOf[ExtractBitsVectorFixed]
-    s"pkg_extract(${emitLogic(that.getBitVector)},${that.getHi},${that.getLo})"
+    s"${emitLogic(that.getBitVector)}[${that.getHi},${that.getLo}]"
   }
 
   def extractBitVectorFloating(func: Modifier): String = {
     val that = func.asInstanceOf[ExtractBitsVectorFloating]
-    s"pkg_extract(${emitLogic(that.getBitVector)},${emitLogic(that.getOffset)},${that.getBitCount})"
+    s"${emitLogic(that.getBitVector)}[${emitLogic(that.getOffset)} +: ${that.getBitCount}]"
   }
 
 
@@ -563,7 +579,7 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
       else
         "{" + (0 until symbolCount).reverse.map(i => (s"${emitReference(memRead.getMem)}_symbol$i[${emitReference(memRead.getAddress)}]")).reduce(_ + " , " + _) + "}"
     }
-    case whenNode: WhenNode => s"(${emitLogic(whenNode.cond)} ? ${emitLogic(whenNode.cond)} : ${emitLogic(whenNode.cond)})" //Exeptional case with asyncrouns of literal
+    case whenNode: WhenNode => s"(${emitLogic(whenNode.cond)} ? ${emitLogic(whenNode.whenTrue)} : ${emitLogic(whenNode.whenFalse)})" //Exeptional case with asyncrouns of literal
     case dc: DontCareNode => {
       dc.getBaseType match {
         case to: Bool => "1'bx"

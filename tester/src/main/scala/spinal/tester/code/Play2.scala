@@ -2,7 +2,10 @@ package spinal.tester.code
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.bus.neutral.NeutralStreamDma
 import spinal.lib.com.uart.UartCtrl
+import spinal.lib.graphic.RgbConfig
+import spinal.lib.graphic.vga.{AvalonMMVgaCtrl, AvalonMMVgaCtrl$, VgaCtrl}
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
