@@ -187,19 +187,16 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
 
           val symbolWidth = mem.getMemSymbolWidth()
           val symbolCount = mem.getMemSymbolCount
-          //TODO
           if(memBitsMaskKind == MULTIPLE_RAM && symbolCount != 1) {
             if(mem.initialContent != null) SpinalError("Memory with multiple symbol per line + initial contant are not suported currently")
 
-            ret ++= s"  type ${emitReference(mem)}_type is array (0 to ${mem.wordCount - 1}) of std_logic_vector(${symbolWidth - 1} downto 0);\n"
-            for(i <- 0 until symbolCount) {
+             for(i <- 0 until symbolCount) {
               val postfix = "_symbol" + i
-              ret ++= s"  signal ${emitReference(mem)}$postfix : ${emitDataType(mem)};\n"
+              ret ++= s"  reg [${symbolWidth- 1}:0] ${emitReference(mem)}$postfix [${mem.wordCount - 1}:0] ${initAssignementBuilder.toString()};\n"
               emitAttributes(mem, "signal", ret,postfix = postfix)
             }
           }else{
-            ret ++= s"  type ${emitReference(mem)}_type is array (0 to ${mem.wordCount - 1}) of std_logic_vector(${mem.getWidth - 1} downto 0);\n"
-            ret ++= s"  signal ${emitReference(mem)} : ${emitDataType(mem)}${initAssignementBuilder.toString()};\n"
+            ret ++= s"  reg ${emitRange(mem)} ${emitReference(mem)} [${mem.wordCount - 1}:0] ${initAssignementBuilder.toString()};\n"
             emitAttributes(mem, "signal", ret)
           }
         }
@@ -545,7 +542,7 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
 
   def extractBitVectorFixed(func: Modifier): String = {
     val that = func.asInstanceOf[ExtractBitsVectorFixed]
-    s"${emitLogic(that.getBitVector)}[${that.getHi},${that.getLo}]"
+    s"${emitLogic(that.getBitVector)}[${that.getHi} : ${that.getLo}]"
   }
 
   def extractBitVectorFloating(func: Modifier): String = {
@@ -572,7 +569,7 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
     case lit: BoolLiteral => if(lit.value) "1" else "0"
     case lit: EnumLiteral[_] => emitEnumLiteral(lit.enum, lit.encoding)
     case memRead: MemReadAsync => {
-      if (memRead.writeToReadKind == dontCare) SpinalWarning(s"memReadAsync with dontCare is as writeFirst into VHDL")
+      if (memRead.writeToReadKind == dontCare) SpinalWarning(s"memReadAsync with dontCare is as writeFirst into Verilog")
       val symbolCount = memRead.getMem.getMemSymbolCount
       if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
         s"${emitReference(memRead.getMem)}[${emitReference(memRead.getAddress)}]"
@@ -650,7 +647,7 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
 
         if (asyncReset) {
           val sensitivity = getSensitivity(initialValues, true)
-          ret ++= s"${tabStr}always @ (${emitClockEdge(clock,clockDomain.config.clockEdge)} or ${emitResetEdge(reset,clockDomain.config.resetActiveLevel)}${if(sensitivity.isEmpty) "" else sensitivity.foldLeft(",")(_ + "," + emitReference(_))})\n"
+          ret ++= s"${tabStr}always @ (${emitClockEdge(clock,clockDomain.config.clockEdge)} or ${emitResetEdge(reset,clockDomain.config.resetActiveLevel)}${if(sensitivity.isEmpty) "" else sensitivity.foldLeft("")(_ + "," + emitReference(_))})\n"
         } else {
           ret ++= s"${tabStr}always @ (${emitClockEdge(clock,clockDomain.config.clockEdge)})\n"
         }
@@ -728,22 +725,22 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
 
                 if(memWrite.getMask == null) {
                   if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
-                    ret ++= s"$tab${emitReference(memWrite.getMem)}(to_integer(${emitReference(memWrite.getAddress)})) <= ${emitReference(memWrite.getData)};\n"
+                    ret ++= s"$tab${emitReference(memWrite.getMem)}[${emitReference(memWrite.getAddress)}] <= ${emitReference(memWrite.getData)};\n"
                   else
                     for(i <- 0 until symbolCount) {
-                      val range = s"(${(i + 1) * bitPerSymbole - 1} downto ${i * bitPerSymbole})"
-                      ret ++= s"$tab  ${emitReference(memWrite.getMem)}_symbol${i}(to_integer(${emitReference(memWrite.getAddress)})) <= ${emitReference(memWrite.getData)}$range;\n"
+                      val range = s"[${(i + 1) * bitPerSymbole - 1} : ${i * bitPerSymbole}]"
+                      ret ++= s"$tab  ${emitReference(memWrite.getMem)}_symbol${i}[${emitReference(memWrite.getAddress)}] <= ${emitReference(memWrite.getData)}$range;\n"
                     }
                 }else{
 
                   val maskCount = memWrite.getMask.getWidth
                   for(i <- 0 until maskCount){
-                    val range = s"(${(i+1)*bitPerSymbole-1} downto ${i*bitPerSymbole})"
+                    val range = s"[${(i+1)*bitPerSymbole-1} : ${i*bitPerSymbole}]"
                     ret ++= s"${tab}if ${emitReference(memWrite.getMask)}($i) = '1' then\n"
                     if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
-                      ret ++= s"$tab  ${emitReference(memWrite.getMem)}(to_integer(${emitReference(memWrite.getAddress)}))$range <= ${emitReference(memWrite.getData)}$range;\n"
+                      ret ++= s"$tab  ${emitReference(memWrite.getMem)}[${emitReference(memWrite.getAddress)}))$range <= ${emitReference(memWrite.getData)}$range;\n"
                     else
-                      ret ++= s"$tab  ${emitReference(memWrite.getMem)}_symbol${i}(to_integer(${emitReference(memWrite.getAddress)})) <= ${emitReference(memWrite.getData)}$range;\n"
+                      ret ++= s"$tab  ${emitReference(memWrite.getMem)}_symbol${i}[(${emitReference(memWrite.getAddress)}] <= ${emitReference(memWrite.getData)}$range;\n"
 
                     ret ++= s"${tab}end if;\n"
                   }
@@ -764,9 +761,9 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
               def emitRamRead() = {
                 val symbolCount = memReadSync.getMem.getMemSymbolCount
                 if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
-                  s"${emitReference(memReadSync.getMem)}(to_integer(${emitReference(memReadSync.getAddress)}))"
+                  s"${emitReference(memReadSync.getMem)}[${emitReference(memReadSync.getAddress)}]"
                 else
-                  (0 until symbolCount).reverse.map(i => (s"${emitReference(memReadSync.getMem)}_symbol$i(to_integer(${emitReference(memReadSync.getAddress)}))")).reduce(_ + " & " + _)
+                  (0 until symbolCount).reverse.map(i => (s"${emitReference(memReadSync.getMem)}_symbol$i[${emitReference(memReadSync.getAddress)}]")).reduce(_ + " & " + _)
               }
               def emitRead(tab: String) = ret ++= s"$tab${emitReference(memReadSync.consumers(0))} <= ${emitRamRead()};\n"
 
@@ -785,8 +782,8 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
                 emitRead(tab + "  ")
               ret ++= s"${tab}end if;\n"
 
-              def emitWrite(tab: String) = ret ++= s"$tab${emitReference(memWrite.getMem)}(to_integer(${emitReference(memWrite.getAddress)})) <= ${emitReference(memWrite.getData)};\n"
-              def emitRead(tab: String) = ret ++= s"$tab${emitReference(memReadSync.consumers(0))} <= ${emitReference(memReadSync.getMem)}(to_integer(${emitReference(memReadSync.getAddress)}));\n"
+              def emitWrite(tab: String) = ret ++= s"$tab${emitReference(memWrite.getMem)}[(${emitReference(memWrite.getAddress)}] <= ${emitReference(memWrite.getData)};\n"
+              def emitRead(tab: String) = ret ++= s"$tab${emitReference(memReadSync.consumers(0))} <= ${emitReference(memReadSync.getMem)}[${emitReference(memReadSync.getAddress)}];\n"
             }
             case memWriteRead_readPart: MemWriteOrRead_readPart => {
 
