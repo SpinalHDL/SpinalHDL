@@ -51,27 +51,27 @@ trait VerilogBase extends VhdlVerilogBase{
   }
 
   //TODO
-  def emitEnumLiteral[T <: SpinalEnum](enum : SpinalEnumElement[T],encoding: SpinalEnumEncoding) : String = {
+  def emitEnumLiteral[T <: SpinalEnum](enum : SpinalEnumElement[T],encoding: SpinalEnumEncoding,prefix : String = "`") : String = {
     if(encoding.isNative)
-      return "pkg_enum." + enum.getName()
+      return prefix + "pkg_enum_" + enum.getName()
     else
-      return enum.parent.getName() + "_" + encoding.getName() + "_" + enum.getName()
+      return prefix + enum.parent.getName() + "_" + encoding.getName() + "_" + enum.getName()
   }
 
-  def emitEnumType[T <: SpinalEnum](enum : SpinalEnumCraft[T]) : String = emitEnumType(enum.blueprint,enum.encoding)
+  def emitEnumType[T <: SpinalEnum](enum : SpinalEnumCraft[T],prefix : String) : String = emitEnumType(enum.blueprint,enum.encoding,prefix)
 
   //TODO
-  def emitEnumType(enum : SpinalEnum,encoding: SpinalEnumEncoding) : String = {
+  def emitEnumType(enum : SpinalEnum,encoding: SpinalEnumEncoding,prefix : String = "'") : String = {
     if(encoding.isNative)
-      return enum.getName()
+      return prefix + enum.getName()
     else
-      return enum.getName() + "_" + encoding.getName() + "_type"
+      return prefix + enum.getName() + "_" + encoding.getName() + "_type"
   }
 
   def emitDataType(node: Node) = node match {
     case bool: Bool => ""
     case bitvector: BitVector =>  emitRange(bitvector)
-    case enum: SpinalEnumCraft[_] => emitEnumType(enum)
+    case enum: SpinalEnumCraft[_] => emitEnumType(enum,"`")
     case _ => throw new Exception("Unknown datatype"); ""
   }
 

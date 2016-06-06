@@ -1303,10 +1303,11 @@ class PhaseDontSymplifyVerilogMismatchingWidth(pc: PhaseContext) extends Phase{
     Node.walk(walkNodesDefautStack,node => {
       node match {
         case node: Resize => applyTo(node)
-        case node: Operator.BitVector.Add => applyTo(node)
-        case node: Operator.BitVector.Sub => applyTo(node)
-        case node: Operator.BitVector.ShiftRightByInt => applyTo(node)
-        case node: Operator.Bits.Cat => applyTo(node)
+        case node: Operator => applyTo(node) // .....
+//        case node: Operator.BitVector.Add => applyTo(node)
+//        case node: Operator.BitVector.Sub => applyTo(node)
+//        case node: Operator.BitVector.ShiftRightByInt => applyTo(node)
+//        case node: Operator.Bits.Cat => applyTo(node)
         case node : Extract => applyTo(node)
         case _ =>
       }

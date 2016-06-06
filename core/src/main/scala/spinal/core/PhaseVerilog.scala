@@ -24,7 +24,7 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
     SpinalInfoPhase("Write Verilog")
     
     outFile = new java.io.FileWriter(pc.config.targetDirectory + "/" +  topLevel.definitionName + ".v")
-    // TODO emitEnumPackage(outFile)
+    emitEnumPackage(outFile)
 
     for (c <- sortedComponents) {
       SpinalInfoPhase(s"${"  " * (1 + c.level)}emit ${c.definitionName}")
@@ -34,6 +34,7 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
     outFile.flush();
     outFile.close();
   }
+
 
 
 
@@ -111,6 +112,108 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
 
   def toSpinalEnumCraft[T <: SpinalEnum](that: Any) = that.asInstanceOf[SpinalEnumCraft[T]]
 
+  def emitEnumPackage(out: java.io.FileWriter): Unit = {
+    val ret = new StringBuilder();
+
+//    for (enumDef <- enums.keys) {
+//      ret ++= s"`define ${emitEnumType(enumDef,native) [${enumDef.values.size-1}:0]\n"
+//      for (element <- enumDef.values) {
+//        ret ++= s"`define ${emitEnumLiteral(element, native)} : $vhdlEnumType := ${idToBits(element, encoding)};\n"
+//      }
+//      ret ++= "\n"
+//      (${enumDef.values.map(_.getName()).reduce(_ + "," + _)})
+//      ret ++= s"`define ${getEnumDebugType(enumDef)} is (${enumDef.values.foldLeft("XXX")((str, e) => str + "," + e.getName())});\n"
+//    }
+
+    ret ++= "\n"
+    for ((enumDef, encodings) <- enums) {
+      val enumName = enumDef.getName()
+
+      for (encoding <- encodings) {
+        val encodingName = encoding.getName()
+        val bitCount = encoding.getWidth(enumDef)
+        val vhdlEnumType = emitEnumType(enumDef, encoding,"")
+        ret ++= s"`define $vhdlEnumType [${bitCount - 1}:0]\n"
+        for (element <- enumDef.values) {
+          ret ++= s"`define ${emitEnumLiteral(element, encoding,"")} ${idToBits(element, encoding)}\n"
+        }
+        ret ++= "\n"
+        //ret ++= s"  function pkg_to${enumName}_debug (value : std_logic_vector) return $enumName;\n"
+      }
+    }
+
+    def idToBits[T <: SpinalEnum](enum: SpinalEnumElement[T], encoding: SpinalEnumEncoding): String = {
+      val str = encoding.getValue(enum).toString(2)
+      "'b" + ("0" * (encoding.getWidth(enum.parent) - str.length)) + str
+    }
+
+
+    if (enums.size != 0) {
+      for ((enumDef, encodings) <- enums) {
+        val enumName = enumDef.getName()
+
+        for (encoding <- encodings) {
+          if (!encoding.isNative) {
+            //            ret ++=
+            //              s"""  function ${getEnumToDebugFuntion(enumDef, encoding)} (value : ${emitEnumType(enumDef, encoding)}) return ${getEnumDebugType(enumDef)} is
+            //              |  begin
+            //              |    case value is
+            //              |${
+            //              {
+            //              for (e <- enumDef.values) yield s"      when ${emitEnumLiteral(e, encoding)} => return ${e.getName()};"
+            //              }.reduce(_ + "\n" + _)
+            //              }
+            //              |      when others => return XXX;
+            //              |    end case;
+            //              |  end;
+            //              |""".stripMargin
+          }else {
+            //TODO
+//            ret ++=
+//            s"""function ${emitEnumType(enumDef, encoding)} pkg_to${enumName}_${encoding.getName()} ([${encoding.getWidth(enumDef) - 1} : 0] value) is
+//            |begin
+//            |  case(value)
+//            |${{
+//              for (e <- enumDef.values)
+//                yield s"    ${idToBits(e, encoding)} : return ${emitEnumLiteral(e, native)};"}.reduce(_ + "\n" + _)
+//            }
+//            |    default :  return ${emitEnumLiteral(enumDef.values.head, native)};
+//            |  endcase
+//            |endfunction
+//            |""".stripMargin
+
+//            ret ++=
+//            s"""  function pkg_toStdLogicVector_${encoding.getName()} (value : $enumName) return std_logic_vector is
+//            |  begin
+//            |    case value is
+//            |${{for (e <- enumDef.values) yield s"      when ${e.getName()} => return ${idToBits(e, encoding)};"}.reduce(_ + "\n" + _)}
+//            |      when others => return ${idToBits(enumDef.values.head, encoding)};
+//            |    end case;
+//            |  end;
+//            |""".stripMargin
+//            }
+
+
+
+//          for (targetEncoding <- encodings if targetEncoding != encoding) {
+//            ret ++= s"  function ${getReEncodingFuntion(enumDef, encoding, targetEncoding)} (that : ${emitEnumType(enumDef, encoding)}) return ${emitEnumType(enumDef, targetEncoding)} is\n"
+//            ret ++= "  begin\n"
+//            ret ++= "    case that is \n"
+//            for (e <- enumDef.values) {
+//              ret ++= s"      when ${emitEnumLiteral(e, encoding)} => return ${emitEnumLiteral(e, targetEncoding)};\n"
+//            }
+//            ret ++= s"      when others => return ${emitEnumLiteral(enumDef.values.head, targetEncoding)};\n"
+//            ret ++= "    end case;\n"
+//            ret ++= "  end;\n\n"
+          }
+        }
+      }
+      ret ++= "\n\n\n"
+    }
+    out.write(ret.result())
+  }
+
+
   def emitSignals(component: Component, ret: StringBuilder, enumDebugSignals: ArrayBuffer[SpinalEnumCraft[_]]): Unit = {
     for (node <- component.nodes) {
       node match {
@@ -156,34 +259,7 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
 
         case mem: Mem[_] => {
           //ret ++= emitSignal(mem, mem);
-          var initAssignementBuilder = new StringBuilder()
-          if (mem.initialContent != null) {
-            ??? //TODO
-            initAssignementBuilder ++= " := ("
-            val values = mem.initialContent.map(e => {
-              e.hashCode()
-            })
 
-            var first = true
-            for ((e, index) <- mem.initialContent.zipWithIndex) {
-              if (!first)
-                initAssignementBuilder ++= ","
-              else
-                first = false
-
-              if ((index & 15) == 0) {
-                initAssignementBuilder ++= "\n     "
-              }
-
-              val values = (e.flatten, mem._widths).zipped.map((e, width) => {
-                e.getLiteral.getBitsStringOn(width)
-              })
-
-              initAssignementBuilder ++= "\"" + values.reduceLeft((l, r) => r + l) + "\""
-            }
-
-            initAssignementBuilder ++= ")"
-          }
 
           val symbolWidth = mem.getMemSymbolWidth()
           val symbolCount = mem.getMemSymbolCount
@@ -192,12 +268,25 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
 
              for(i <- 0 until symbolCount) {
               val postfix = "_symbol" + i
-              ret ++= s"  reg [${symbolWidth- 1}:0] ${emitReference(mem)}$postfix [${mem.wordCount - 1}:0] ${initAssignementBuilder.toString()};\n"
+              ret ++= s"  reg [${symbolWidth- 1}:0] ${emitReference(mem)}$postfix [${mem.wordCount - 1}:0];\n"
               emitAttributes(mem, "signal", ret,postfix = postfix)
             }
           }else{
-            ret ++= s"  reg ${emitRange(mem)} ${emitReference(mem)} [${mem.wordCount - 1}:0] ${initAssignementBuilder.toString()};\n"
+            ret ++= s"  reg ${emitRange(mem)} ${emitReference(mem)} [${mem.wordCount - 1}:0];\n"
             emitAttributes(mem, "signal", ret)
+          }
+
+          if (mem.initialContent != null) {
+            ret ++= "initial begin\n"
+            for ((e, index) <- mem.initialContent.zipWithIndex) {
+              val values = (e.flatten, mem._widths).zipped.map((e, width) => {
+                e.getLiteral.getBitsStringOn(width)
+              })
+
+              ret ++= s"  ${emitReference(mem)}[$index] = 'b${values.reduceLeft((l, r) => r + l)};\n"
+            }
+
+            ret ++= "end\n"
           }
         }
         case _ =>
@@ -206,6 +295,7 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
 
     }
   }
+
 
 
 
@@ -323,27 +413,7 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
     s"{${emitLogic(cat.left)},${emitLogic(cat.right)}}"
   }
 
-  //TODO
-  def resizeFunction(vhdlFunc : String)(func: Modifier): String = {
-    val resize = func.asInstanceOf[Resize]
-    func.getInput(0).getWidth match{
-      case 0 => {
-        func.getInput(0) match { //TODO
-          /*case lit: BitsLiteral => {
-            val bitString =  '"' + "0"AFAFAF * func.getWidth + '"'
-            lit.kind match {
-              case _: Bits => s"pkg_stdLogicVector($bitString)"
-              case _: UInt => s"pkg_unsigned($bitString)"
-              case _: SInt => s"pkg_signed($bitString)"
-            }
-            s"(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
-          }*/
-          case _ => s"pkg_resize(${emitLogic(resize.input)},${resize.size})"
-        }
-      }
-      case _ => s"pkg_resize(${emitLogic(resize.input)},${resize.size})"
-    }
-  }
+
 
 
   def enumEgualsImpl(eguals: Boolean)(op: Modifier): String = {
@@ -813,7 +883,7 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
   def emitAssignement(to: Node, from: Node, ret: StringBuilder, tab: String, assignementKind: String): Unit = {
     from match {
       case from: AssignementNode => {
-        from match { //TODO
+        from match {
           case assign: BitAssignmentFixed => ret ++= s"$tab${emitReference(to)}[${assign.getBitId}] ${assignementKind} ${emitLogic(assign.getInput)};\n"
           case assign: BitAssignmentFloating => ret ++= s"$tab${emitReference(to)}[${emitLogic(assign.getBitId)}] ${assignementKind} ${emitLogic(assign.getInput)};\n"
           case assign: RangedAssignmentFixed => ret ++= s"$tab${emitReference(to)}[${assign.getHi} : ${assign.getLo}] ${assignementKind} ${emitLogic(assign.getInput)};\n"

@@ -1263,6 +1263,12 @@ object SinFir {
       sampleCount=64,
       firLength=16
     ))
+
+    SpinalVerilog(new TopLevel(
+      resolutionWidth=16,
+      sampleCount=64,
+      firLength=16
+    ))
   }
 }
 

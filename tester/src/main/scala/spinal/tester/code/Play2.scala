@@ -717,12 +717,21 @@ object PlayVerilog1 {
     }
 
     val sub = new Sub
-    sub.cmd := a + b
+    sub.cmd := 0
     val subOut = out(UInt(4 bits))
     subOut := sub.rsp
 
     val r = UInt(5 bits).keep()
     r := ((a-b) >> 2).resized
+
+
+    object MyEnum extends SpinalEnum{
+      val a,b,c = newElement
+    }
+
+    val e1 = MyEnum().keep
+    e1 := MyEnum.a
+
 
 
   }
