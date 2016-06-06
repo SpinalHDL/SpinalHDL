@@ -26,6 +26,7 @@ import scala.collection.mutable
 
 trait SpinalMode
 object VHDL extends SpinalMode
+object Verilog extends SpinalMode
 
 
 case class SpinalConfig(
@@ -45,6 +46,7 @@ object SpinalConfig{
   def shell[T <: Component](args : Seq[String]): SpinalConfig = {
     val parser = new scopt.OptionParser[SpinalConfig]("SpinalCore") {
       opt[Unit]("vhdl") action { (_, c) => c.copy(mode = VHDL) }text("Select the VHDL mode")
+      opt[Unit]("verilog") action { (_, c) => c.copy(mode = VHDL) }text("Select the Verilog mode")
       opt[Unit]('d', "debug") action { (_, c) => c.copy(debug = true) } text("Enter in debug mode directly")
       opt[String]('o', "targetDirectory") action { (v, c) => c.copy(targetDirectory = v) } text("Set the target directory")
     }
@@ -83,13 +85,13 @@ object Spinal{
       SpinalLog.tag("Runtime", Console.YELLOW)
     } + s" Current date : ${dateFmt.format(curDate)}")
 
-    config.mode match {
-      case `VHDL` => {
-        val report = SpinalVhdlBoot(config)(gen)
-        println({SpinalLog.tag("Done", Console.GREEN)} + s" at ${f"${Driver.executionTime}%1.3f"}")
-        report
-      }
+    val report = config.mode match {
+      case `VHDL` => SpinalVhdlBoot(config)(gen)
+      case `Verilog` => SpinalVerilogBoot(config)(gen)
+
     }
+    println({SpinalLog.tag("Done", Console.GREEN)} + s" at ${f"${Driver.executionTime}%1.3f"}")
+    report
   }
 
 
@@ -100,9 +102,11 @@ object Spinal{
 }
 
 object SpinalVhdl {
-  def apply[T <: Component](config : SpinalConfig)(gen: => T) : SpinalReport[T] =
-    Spinal(config.copy(mode=VHDL))(gen)
-
+  def apply[T <: Component](config : SpinalConfig)(gen: => T) : SpinalReport[T] = Spinal(config.copy(mode=VHDL))(gen)
   def apply[T <: Component](gen: => T): SpinalReport[T] = SpinalConfig(mode = VHDL).generate(gen)
+}
+object SpinalVerilog {
+  def apply[T <: Component](config : SpinalConfig)(gen: => T) : SpinalReport[T] = Spinal(config.copy(mode=Verilog))(gen)
+  def apply[T <: Component](gen: => T): SpinalReport[T] = SpinalConfig(mode = Verilog).generate(gen)
 }
 

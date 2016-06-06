@@ -673,3 +673,15 @@ object PlayB8 {
     SpinalConfig.shell(Seq("-aa"))(new UartCtrl)
   }
 }
+
+object PlayVerilog1 {
+  class TopLevel extends Component {
+    val a,b = in UInt(4 bits)
+    val result = out UInt(4 bits)
+
+    result := a + b
+  }
+  def main(args: Array[String]): Unit = {
+    SpinalVerilog(new TopLevel)
+  }
+}
