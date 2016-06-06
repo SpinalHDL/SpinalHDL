@@ -933,6 +933,8 @@ class PhaseDontSymplifyBasetypeWithComplexAssignement(pc: PhaseContext) extends 
   }
 }
 
+
+
 class PhaseDeleteUselessBaseTypes(pc: PhaseContext) extends Phase{
   override def impl(): Unit = {
     import pc._
@@ -1291,6 +1293,27 @@ object SpinalVhdlBoot{
 
 
 
+class PhaseDontSymplifyVerilogMismatchingWidth(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+    def applyTo(that : Node): Unit ={
+      assert(that.consumers.size == 1)
+      that.consumers(0).asInstanceOf[BaseType].dontSimplifyIt()
+    }
+    import pc._
+    Node.walk(walkNodesDefautStack,node => {
+      node match {
+        case node: Resize => applyTo(node)
+        case node: Operator.BitVector.Add => applyTo(node)
+        case node: Operator.BitVector.Sub => applyTo(node)
+        case node: Operator.BitVector.ShiftRightByInt => applyTo(node)
+        case _ =>
+      }
+    })
+  }
+}
+
+
+
 
 object SpinalVerilogBoot{
   def apply[T <: Component](config : SpinalConfig)(gen : => T) : SpinalReport[T] ={
@@ -1379,6 +1402,7 @@ object SpinalVerilogBoot{
     phases += new PhaseDummy(SpinalInfoPhase("Simplify graph's nodes"))
     phases += new PhaseFillNodesConsumers(pc)
     phases += new PhaseDontSymplifyBasetypeWithComplexAssignement(pc)
+    phases += new PhaseDontSymplifyVerilogMismatchingWidth(pc)    //VERILOG
     phases += new PhaseDeleteUselessBaseTypes(pc)
 
     phases += new PhaseDummy(SpinalInfoPhase("Check that there is no incomplete assignment"))

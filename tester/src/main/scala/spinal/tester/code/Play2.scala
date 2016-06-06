@@ -717,6 +717,11 @@ object PlayVerilog1 {
     sub.cmd := a + b
     val subOut = out(UInt(4 bits))
     subOut := sub.rsp
+
+    val r = UInt(5 bits).keep()
+    r := ((a-b) >> 2).resized
+
+
   }
   def main(args: Array[String]): Unit = {
     SpinalVerilog(new TopLevel)

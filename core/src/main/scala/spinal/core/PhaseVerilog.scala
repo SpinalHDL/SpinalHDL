@@ -116,7 +116,7 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
       node match {
         case signal: BaseType => {
           if (!signal.isIo) {
-            ret ++= s"  ${if(signalNeedProcess(signal)) "reg " else "wire"}${emitDataType(signal)} ${emitReference(signal)}"
+            ret ++= s"  ${if(signalNeedProcess(signal)) "reg " else "wire "}${emitDataType(signal)} ${emitReference(signal)}"
             val reg = if(signal.isReg) signal.input.asInstanceOf[Reg] else null
             if(reg != null && reg.initialValue != null && reg.getClockDomain.config.resetKind == BOOT) {
               ret ++= " = " + (reg.initialValue match {
@@ -542,8 +542,17 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
   def emitLogic(node: Node): String = node match {
     case baseType: BaseType => emitReference(baseType)
     case node: Modifier => modifierImplMap.getOrElse(node.opName, throw new Exception("can't find " + node.opName))(node)
-    case lit: BitsLiteral => s"(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
-    case lit: BitsAllToLiteral => s"(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
+
+    case lit: BitsLiteral => lit.kind match {
+      case _: Bits => s"(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
+      case _: UInt => '$' + s"unsigned(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
+      case _: SInt => '$' + s"signed(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
+    }
+    case lit: BitsAllToLiteral => lit.theConsumer match {
+      case _: Bits => s"(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
+      case _: UInt => '$' + s"unsigned(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
+      case _: SInt => '$' + s"signed(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
+    }
     case lit: BoolLiteral => if(lit.value) "1" else "0"
     case lit: EnumLiteral[_] => emitEnumLiteral(lit.enum, lit.encoding)
     case memRead: MemReadAsync => {
