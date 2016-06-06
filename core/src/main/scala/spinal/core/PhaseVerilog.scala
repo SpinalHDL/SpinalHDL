@@ -316,7 +316,7 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
 
   def operatorImplAsCat(op : Modifier) : String = {
     val cat = op.asInstanceOf[Operator.Bits.Cat]
-    s"{${cat.left},${cat.right}}"
+    s"{${emitLogic(cat.left)},${emitLogic(cat.right)}}"
   }
 
   //TODO
@@ -712,9 +712,9 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
             }
             case memWrite: MemWrite => {
               if (memWrite.useWriteEnable) {
-                ret ++= s"${tab}if ${emitReference(memWrite.getEnable)} = '1' then\n"
+                ret ++= s"${tab}if(${emitReference(memWrite.getEnable)})begin\n"
                 emitWrite(tab + "  ")
-                ret ++= s"${tab}end if;\n"
+                ret ++= s"${tab}end\n"
               } else {
                 emitWrite(tab)
               }
@@ -736,7 +736,7 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
                   val maskCount = memWrite.getMask.getWidth
                   for(i <- 0 until maskCount){
                     val range = s"[${(i+1)*bitPerSymbole-1} : ${i*bitPerSymbole}]"
-                    ret ++= s"${tab}if ${emitReference(memWrite.getMask)}($i) = '1' then\n"
+                    ret ++= s"${tab}if(${emitReference(memWrite.getMask)}($i))then\n"
                     if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
                       ret ++= s"$tab  ${emitReference(memWrite.getMem)}[${emitReference(memWrite.getAddress)}))$range <= ${emitReference(memWrite.getData)}$range;\n"
                     else
@@ -845,18 +845,18 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
         val condLogic = emitLogic(when.cond)
 
         if (doTrue && !doFalse) {
-          ret ++= s"${firstTab}if $condLogic begin\n"
+          ret ++= s"${firstTab}if($condLogic)begin\n"
           emitAssignementLevel(when.whenTrue,ret, tab + "  ", assignementKind)
           ret ++= s"${tab}end\n"
         } else /*if (doTrue && doFalse)*/ {
-          ret ++= s"${firstTab}if $condLogic begin\n"
+          ret ++= s"${firstTab}if($condLogic)begin\n"
           emitAssignementLevel(when.whenTrue,ret, tab + "  ", assignementKind)
           val falseHead = if (when.whenFalse.logicChunk.isEmpty && when.whenFalse.conditionalTrees.size == 1) when.whenFalse.conditionalTrees.head._1 else null
           if (falseHead != null && falseHead.isInstanceOf[WhenContext] && falseHead.asInstanceOf[WhenContext].parentElseWhen != null) {
             ret ++= s"${tab}end else "
             emitAssignementLevel(when.whenFalse,ret, tab, assignementKind, true)
           } else {
-            ret ++= s"${tab}end else \n"
+            ret ++= s"${tab}end else begin\n"
             emitAssignementLevel(when.whenFalse,ret, tab + "  ", assignementKind)
             ret ++= s"${tab}end\n"
           }

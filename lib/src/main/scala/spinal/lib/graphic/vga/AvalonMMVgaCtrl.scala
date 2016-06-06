@@ -91,7 +91,7 @@ class AvalonMMVgaCtrl(cDma : NeutralStreamDma.Config,cColor : RgbConfig) extends
 
 object AvalonMMVgaCtrl{
   def main(args: Array[String]) {
-    val toplevel = SpinalVhdl({
+    def gen = {
       val vgaClk = ClockDomain.external("vga")
       val dmaConfig = NeutralStreamDma.Config(
         addressWidth = 30,
@@ -104,10 +104,14 @@ object AvalonMMVgaCtrl{
       )
       val colorConfig = RgbConfig(8,8,8)
       new AvalonMMVgaCtrl(dmaConfig,colorConfig)
-    }).toplevel
+    }
+    val toplevel = SpinalVhdl(gen).toplevel
 
     toplevel.io.mem.addTag(ClockDomainTag(toplevel.clockDomain))
     QSysify(toplevel)
+
+
+    SpinalVerilog(gen)
 
 //    SpinalVhdl({
 //      val vgaClk = ClockDomain.external("vga")
