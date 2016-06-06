@@ -736,6 +736,9 @@ object PlayVerilog1 {
     r.addAttribute("value","yolo")
 
 
+    val s = out(UInt(4 bits))
+    s := 15
+    s(0) := False
   }
   def main(args: Array[String]): Unit = {
     SpinalVerilog(new TopLevel)

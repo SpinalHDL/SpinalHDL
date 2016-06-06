@@ -219,7 +219,7 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
       node match {
         case signal: BaseType => {
           if (!signal.isIo) {
-            ret ++= s"  ${emitAttributes(signal)} ${if(signalNeedProcess(signal)) "reg " else "wire "}${emitDataType(signal)} ${emitReference(signal)}"
+            ret ++= s"  ${emitAttributes(signal)}${if(signalNeedProcess(signal)) "reg " else "wire "}${emitDataType(signal)} ${emitReference(signal)}"
             val reg = if(signal.isReg) signal.input.asInstanceOf[Reg] else null
             if(reg != null && reg.initialValue != null && reg.getClockDomain.config.resetKind == BOOT) {
               ret ++= " = " + (reg.initialValue match {
@@ -304,8 +304,6 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
     "(* " + values.reduce(_ + " , " + _) + " *) "
   }
 
-
-  //TODO ? Not true for literal driven signals with multiple assignement
   def signalNeedProcess(baseType: BaseType) : Boolean = {
     if(baseType.input.isInstanceOf[SyncNode]) return true
     if(baseType.input.isInstanceOf[MultipleAssignmentNode] || baseType.input.isInstanceOf[WhenNode]) return true
@@ -337,32 +335,16 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
         ret ++= "  end\n\n"
       } else {
         //emit func as logic
-        ??? //TODO
-//        assert(process.nodes.size == 1)
-//        for (node <- process.nodes) {
-//          val funcName = "zz_" + emitReference(node)
-//          funcRet ++= emitFuncDef(funcName, node, context)
-//          ret ++= s"  ${emitReference(node)} <= ${funcName};\n"
-//          //          ret ++= s"  ${emitReference(node)} <= ${emitLogic(node.getInput(0))};\n"
-//        }
+        assert(process.nodes.size == 1)
+        for (node <- process.nodes) {
+          ret ++= s"  initial begin\n"
+          emitAssignementLevel(context,ret, "    ", "=")
+          ret ++= s"  end\n"
+        }
       }
     }
 
   }
-
-
-  def emitFuncDef(funcName: String, node: Node, context: AssignementLevel): StringBuilder = {
-    ??? //TODO
-//    val ret = new StringBuilder
-//    //context.emitContext(ret, "    ",":=")
-//    ret ++= s"  function $funcName return ${emitDataType(node, false)} is\n"
-//    ret ++= s"    variable ${emitReference(node)} : ${emitDataType(node, true)};\n"
-//    ret ++= s"  begin\n"
-//    emitAssignementLevel(context,ret, "    ", ":=")
-//    ret ++= s"    return ${emitReference(node)};\n"
-//    ret ++= s"  end function;\n"
-  }
-
 
 
   def operatorImplAsBinaryOperator(vhd: String)(op: Modifier): String = s"(${emitLogic(op.getInput(0))} $vhd ${emitLogic(op.getInput(1))})"
