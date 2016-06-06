@@ -732,6 +732,8 @@ object PlayVerilog1 {
     val e1 = MyEnum().keep
     e1 := MyEnum.a
 
+    r.addAttribute("flag")
+    r.addAttribute("value","yolo")
 
 
   }

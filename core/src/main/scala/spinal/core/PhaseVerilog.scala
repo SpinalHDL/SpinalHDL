@@ -219,7 +219,7 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
       node match {
         case signal: BaseType => {
           if (!signal.isIo) {
-            ret ++= s"  ${if(signalNeedProcess(signal)) "reg " else "wire "}${emitDataType(signal)} ${emitReference(signal)}"
+            ret ++= s"  ${emitAttributes(signal)} ${if(signalNeedProcess(signal)) "reg " else "wire "}${emitDataType(signal)} ${emitReference(signal)}"
             val reg = if(signal.isReg) signal.input.asInstanceOf[Reg] else null
             if(reg != null && reg.initialValue != null && reg.getClockDomain.config.resetKind == BOOT) {
               ret ++= " = " + (reg.initialValue match {
@@ -252,9 +252,6 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
               }
             }
           }
-
-
-          emitAttributes(signal, "signal", ret)
         }
 
         case mem: Mem[_] => {
@@ -268,12 +265,10 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
 
              for(i <- 0 until symbolCount) {
               val postfix = "_symbol" + i
-              ret ++= s"  reg [${symbolWidth- 1}:0] ${emitReference(mem)}$postfix [${mem.wordCount - 1}:0];\n"
-              emitAttributes(mem, "signal", ret,postfix = postfix)
+              ret ++= s"  ${emitAttributes(mem)}reg [${symbolWidth- 1}:0] ${emitReference(mem)}$postfix [${mem.wordCount - 1}:0];\n"
             }
           }else{
-            ret ++= s"  reg ${emitRange(mem)} ${emitReference(mem)} [${mem.wordCount - 1}:0];\n"
-            emitAttributes(mem, "signal", ret)
+            ret ++= s"  ${emitAttributes(mem)}reg ${emitRange(mem)} ${emitReference(mem)} [${mem.wordCount - 1}:0];\n"
           }
 
           if (mem.initialContent != null) {
@@ -297,21 +292,18 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
   }
 
 
-
-
-  def emitAttributes(node: Node, vhdlType: String, ret: StringBuilder,postfix : String = ""): Unit = {
-    if (!node.isInstanceOf[AttributeReady]) return
+  def emitAttributes(node: Node): String = {
+    if (!node.isInstanceOf[AttributeReady]) return ""
     val attributeReady = node.asInstanceOf[AttributeReady]
-
-    for (attribute <- attributeReady.attributes) {
-      val value = attribute match {
-        case attribute: AttributeString => "\"" + attribute.value + "\""
-        case attribute: AttributeFlag => "true"
-      }
-
-      ret ++= s"  attribute ${attribute.getName} of ${emitReference(node)}: signal is $value;\n"
+    if(attributeReady.attributes.isEmpty) return "" +
+      ""
+    val values = for (attribute <- attributeReady.attributes) yield attribute match {
+      case attribute: AttributeString => attribute.getName + " = \"" + attribute.value + "\""
+      case attribute: AttributeFlag => attribute.getName
     }
+    "(* " + values.reduce(_ + " , " + _) + " *) "
   }
+
 
   //TODO ? Not true for literal driven signals with multiple assignement
   def signalNeedProcess(baseType: BaseType) : Boolean = {
