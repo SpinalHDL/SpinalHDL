@@ -63,7 +63,7 @@ class PhaseContext(val config : SpinalConfig){
     components.clear()
     def walk(c: Component): Unit = {
       components += c
-      c.kinds.foreach(walk(_))
+      c.children.foreach(walk(_))
     }
     walk(topLevel)
   }
@@ -1129,7 +1129,7 @@ class PhaseRemoveComponentThatNeedNoHdlEmit(pc: PhaseContext) extends Phase{
       if (c.isInBlackBoxTree) {
         false
       } else if (c.nodes.size == 0) {
-        if (c.parent != null) c.parent.kinds -= c
+        if (c.parent != null) c.parent.children -= c
         false
       } else {
         true

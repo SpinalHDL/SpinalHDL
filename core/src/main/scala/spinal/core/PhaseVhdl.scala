@@ -660,7 +660,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
 
   def emitBlackBoxComponents(component: Component, ret: StringBuilder): Unit = {
     val emited = mutable.Set[String]()
-    for (c <- component.kinds) c match {
+    for (c <- component.children) c match {
       case blackBox: BlackBox => {
         if (!emited.contains(blackBox.definitionName)) {
           emited += blackBox.definitionName
@@ -1500,7 +1500,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
   }
 
   def emitComponentInstances(component: Component, ret: StringBuilder): Unit = {
-    for (kind <- component.kinds) {
+    for (kind <- component.children) {
       val isBB = kind.isInstanceOf[BlackBox]
       val isBBUsingULogic = isBB && kind.asInstanceOf[BlackBox].isUsingULogic
       val definitionString = if (isBB) kind.definitionName

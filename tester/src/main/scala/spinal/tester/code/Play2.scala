@@ -675,13 +675,16 @@ object PlayB8 {
 }
 
 object PlayVerilog1 {
+  class Sub extends Component{
+    val cmd = in UInt(4 bits)
+    val rsp = out UInt(4 bits)
+    rsp := cmd + cmd
+  }
+
   class TopLevel extends Component {
     val a,b = in UInt(4 bits)
     val x,y,z = out UInt(4 bits)
 
-    val l,m = UInt(4 bits).keep()
-    val n,o = Reg(UInt(4 bits)).keep()
-    val p,q = Reg(UInt(4 bits)).keep() init(U"0010")
     x := a - b
 
     y := a + b
@@ -689,23 +692,31 @@ object PlayVerilog1 {
 
     z(z.range) := U"0110"
 
+    val l,m = UInt(4 bits).keep()
     l := a & b
     m := a
     when(a === b){
       m := b
     }
 
+    val n,o = Reg(UInt(4 bits)).keep()
     n := a & b
     o := a
     when(a === b){
       o := b
     }
 
+    val p,q = Reg(UInt(4 bits)).keep() init(U"0010")
     p := a & b
     q := a
     when(a === b){
       q := b
     }
+
+    val sub = new Sub
+    sub.cmd := a + b
+    val subOut = out(UInt(4 bits))
+    subOut := sub.rsp
   }
   def main(args: Array[String]): Unit = {
     SpinalVerilog(new TopLevel)

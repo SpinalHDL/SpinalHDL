@@ -853,78 +853,51 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
   }
 
   def emitComponentInstances(component: Component, ret: StringBuilder): Unit = {
-    for (kind <- component.kinds) {
-      val isBB = kind.isInstanceOf[BlackBox]
-      val isBBUsingULogic = isBB && kind.asInstanceOf[BlackBox].isUsingULogic
-      val definitionString = if (isBB) kind.definitionName
-      else s"entity work.${
-        emitedComponentRef.getOrElse(kind, kind).definitionName
-      }"
-      ret ++= s"  ${
-        kind.getName()
-      } : $definitionString\n"
+    for (child <- component.children) {
+      val isBB = child.isInstanceOf[BlackBox]
+      val isBBUsingULogic = isBB && child.asInstanceOf[BlackBox].isUsingULogic
+      val definitionString = child.definitionName
+      ret ++= s"  $definitionString "
 
-
-      def addULogicCast(bt: BaseType, io: String, logic: String, dir: IODirection): String = {
-
-        if (isBBUsingULogic)
-          if (dir == in) {
-            bt match {
-              case _: Bool => return s"      $io => std_ulogic($logic),\n"
-              case _: Bits => return s"      $io => std_ulogic_vector($logic),\n"
-              case _ => return s"      $io => $logic,\n"
-            }
-          } else if (dir == spinal.core.out) {
-            bt match {
-              case _: Bool => return s"      std_ulogic($io) => $logic,\n"
-              case _: Bits => return s"      std_ulogic_vector($io) => $logic,\n"
-              case _ => return s"      $io => $logic,\n"
-            }
-          } else SpinalError("???")
-
-        else
-          return s"      $io => $logic,\n"
-      }
-
-      if (kind.isInstanceOf[BlackBox]) {
-        val bb = kind.asInstanceOf[BlackBox]
+      if (child.isInstanceOf[BlackBox]) {
+        val bb = child.asInstanceOf[BlackBox]
         val genericFlat = bb.getGeneric.flatten
 
         if (genericFlat.size != 0) {
-          ret ++= s"    generic map(\n"
+          ret ++= s"#(\n"
 
 
           for ((name, e) <- genericFlat) {
             e match {
-              case baseType: BaseType => ret ++= addULogicCast(baseType, emitReference(baseType), emitLogic(baseType.getInput(0)), in)
-              case s: String => ret ++= s"      ${name} => ${"\""}${s}${"\""},\n"
-              case i: Int => ret ++= s"      ${name} => $i,\n"
-              case d: Double => ret ++= s"      ${name} => $d,\n"
-              case b: Boolean => ret ++= s"      ${name} => $b,\n"
+              case baseType: BaseType => ret ++= s"    .${name}(${emitLogic(baseType.getInput(0))}),\n"
+              case s: String => ret ++= s"    .${name}(${"\""}${s}${"\""}),\n"
+              case i: Int => ret ++= s"    .${name}($i),\n"
+              case d: Double => ret ++= s"    .${name}($d),\n"
+              case b: Boolean => ret ++= s"    .${name}($b),\n"
               case t: STime => {
-                val d = t.decompose
-                ret ++= s"      ${name} => ${d._1} ${d._2},\n"
+                ???
               }
             }
           }
           ret.setCharAt(ret.size - 2, ' ')
-          ret ++= s"    )\n"
+          ret ++= s") "
         }
       }
-      ret ++= s"    port map (\n"
-      for (data <- kind.getOrdredNodeIo) {
+
+      ret ++= s"${child.getName()} (\n"
+      for (data <- child.getOrdredNodeIo) {
         if (data.isOutput) {
           val bind = component.kindsOutputsToBindings.getOrElse(data, null)
           if (bind != null) {
-            ret ++= addULogicCast(data, emitReference(data), emitReference(bind), data.dir)
+            ret ++= s"    .${emitReference(data)}(${emitReference(bind)}),\n"
           }
         }
         else if (data.isInput)
-          ret ++= addULogicCast(data, emitReference(data), emitReference(data.getInput(0)), data.dir)
+          ret ++= s"    .${emitReference(data)}(${emitReference(data.getInput(0))}),\n"
       }
       ret.setCharAt(ret.size - 2, ' ')
 
-      ret ++= s"    );"
+      ret ++= s"  );"
       ret ++= s"\n"
     }
   }

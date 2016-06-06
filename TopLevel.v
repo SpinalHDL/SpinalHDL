@@ -1,3 +1,12 @@
+module Sub
+(
+  input [3:0] cmd,
+  output [3:0] rsp 
+);
+
+  assign rsp = (cmd + cmd);
+endmodule
+
 module TopLevel
 (
   input [3:0] a,
@@ -5,6 +14,7 @@ module TopLevel
   output [3:0] x,
   output reg [3:0] y,
   output [3:0] z,
+  output [3:0] subOut,
   input  clk,
   input  reset 
 );
@@ -15,9 +25,15 @@ module TopLevel
   reg [3:0] o;
   reg [3:0] p;
   reg [3:0] q;
+  wire[3:0] zz_1;
+  Sub sub (
+    .cmd(zz_1),
+    .rsp(subOut) 
+  );
   assign x = (a - b);
   assign z[3 : 0] = (4'b0110);
   assign l = (a & b);
+  assign zz_1 = (a + b);
   always @ (a,b)
   begin
     y <= (a + b);
