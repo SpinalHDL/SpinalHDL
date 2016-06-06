@@ -116,6 +116,9 @@ class AssignementLevel {
 }
 
 
+trait MemBitsMaskKind
+object MULTIPLE_RAM extends MemBitsMaskKind
+object SINGLE_RAM extends MemBitsMaskKind
 
 
 trait VhdlVerilogBase {

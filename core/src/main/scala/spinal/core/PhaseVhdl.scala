@@ -8,9 +8,6 @@ import scala.util.Random
  * Created by PIC32F_USER on 05/06/2016.
  */
 
-trait MemBitsMaskKind
-object MULTIPLE_RAM extends MemBitsMaskKind
-object SINGLE_RAM extends MemBitsMaskKind
 
 
 class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
@@ -186,26 +183,6 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
         ret ++= "    end if;\n"
         ret ++= "  end pkg_mux;\n\n"
 
-
-        //        ret ++= s"  function pkg_toStdLogicVector (value : $enumName) return std_logic_vector is\n"
-        //        ret ++= "  begin\n"
-        //        ret ++= "    case value is \n"
-        //        for (e <- enumDef.values) {
-        //          ret ++= s"      when ${e.getName()} => return ${idToBits(e.position)};\n"
-        //        }
-        //        ret ++= s"      when others => return ${idToBits(enumDef.values.head)};\n"
-        //        ret ++= "    end case;\n"
-        //        ret ++= "  end pkg_toStdLogicVector;\n\n"
-        //
-        //        ret ++= s"  function pkg_to$enumName (value : std_logic_vector) return $enumName is\n"
-        //        ret ++= "  begin\n"
-        //        ret ++= "    case to_integer(unsigned(value)) is \n"
-        //        for (e <- enumDef.values) {
-        //          ret ++= s"      when ${e.id} => return ${e.getName()};\n"
-        //        }
-        //        ret ++= s"      when others => return ${enumDef.values.head.getName()};\n"
-        //        ret ++= "    end case;\n"
-        //        ret ++= s"  end pkg_to$enumName;\n\n"
 
 
         for (encoding <- encodings) {
