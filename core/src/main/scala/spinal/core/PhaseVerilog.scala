@@ -282,7 +282,9 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
   }
 
 
+
   def operatorImplAsBinaryOperator(vhd: String)(op: Modifier): String = s"(${emitLogic(op.getInput(0))} $vhd ${emitLogic(op.getInput(1))})"
+  def operatorImplAsBinaryOperatorSigned(vhd: String)(op: Modifier): String = s"($$signed(${emitLogic(op.getInput(0))}) $vhd $$signed(${emitLogic(op.getInput(1))}))"
 
 
   def operatorImplAsUnaryOperator(vhd: String)(op: Modifier): String = {
@@ -303,7 +305,9 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
   def operatorImplAsNoTransformation(func: Modifier): String = {
     emitLogic(func.getInput(0))
   }
-
+  def operatorImplAsSigned(func: Modifier): String = {
+    "$signed(" + emitLogic(func.getInput(0)) + ")"
+  }
   def shiftRightByIntImpl(func: Modifier): String = {
     val node = func.asInstanceOf[Operator.BitVector.ShiftRightByInt]
     s"(${emitLogic(node.input)} >>> ${node.shift})"
@@ -425,11 +429,11 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
 
 
   //signed
-  modifierImplMap.put("s+s", operatorImplAsBinaryOperator("+"))
-  modifierImplMap.put("s-s", operatorImplAsBinaryOperator("-"))
-  modifierImplMap.put("s*s", operatorImplAsBinaryOperator("*"))
-  modifierImplMap.put("s/s", operatorImplAsBinaryOperator("/"))
-  modifierImplMap.put("s%s", operatorImplAsBinaryOperator("%"))
+  modifierImplMap.put("s+s", operatorImplAsBinaryOperatorSigned("+"))
+  modifierImplMap.put("s-s", operatorImplAsBinaryOperatorSigned("-"))
+  modifierImplMap.put("s*s", operatorImplAsBinaryOperatorSigned("*"))
+  modifierImplMap.put("s/s", operatorImplAsBinaryOperatorSigned("/"))
+  modifierImplMap.put("s%s", operatorImplAsBinaryOperatorSigned("%"))
 
   modifierImplMap.put("s|s", operatorImplAsBinaryOperator("|"))
   modifierImplMap.put("s&s", operatorImplAsBinaryOperator("&"))
@@ -437,16 +441,16 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
   modifierImplMap.put("~s", operatorImplAsUnaryOperator("~"))
   modifierImplMap.put("-s", operatorImplAsUnaryOperator("-"))
 
-  modifierImplMap.put("s==s", operatorImplAsBinaryOperator("="))
-  modifierImplMap.put("s!=s", operatorImplAsBinaryOperator("/="))
-  modifierImplMap.put("s<s", operatorImplAsBinaryOperator("<"))
-  modifierImplMap.put("s<=s", operatorImplAsBinaryOperator("<="))
+  modifierImplMap.put("s==s", operatorImplAsBinaryOperatorSigned("="))
+  modifierImplMap.put("s!=s", operatorImplAsBinaryOperatorSigned("/="))
+  modifierImplMap.put("s<s", operatorImplAsBinaryOperatorSigned("<"))
+  modifierImplMap.put("s<=s", operatorImplAsBinaryOperatorSigned("<="))
 
 
   modifierImplMap.put("s>>i", shiftRightByIntImpl)
   modifierImplMap.put("s<<i", shiftLeftByIntImpl)
-  modifierImplMap.put("s>>u", operatorImplAsBinaryOperator(">>>"))
-  modifierImplMap.put("s<<u", operatorImplAsBinaryOperator("<<<"))
+  modifierImplMap.put("s>>u", operatorImplAsBinaryOperatorSigned(">>>"))
+  modifierImplMap.put("s<<u", operatorImplAsBinaryOperatorSigned("<<<"))
 
 
 
@@ -502,7 +506,7 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
 
   //misc
 
-  modifierImplMap.put("resize(s,i)", operatorImplAsNoTransformation)
+  modifierImplMap.put("resize(s,i)", operatorImplAsSigned)
   modifierImplMap.put("resize(u,i)", operatorImplAsNoTransformation)
   modifierImplMap.put("resize(b,i)", operatorImplAsNoTransformation)
 
@@ -558,12 +562,12 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
 
     case lit: BitsLiteral => lit.kind match {
       case _: Bits => s"(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
-      case _: UInt => '$' + s"unsigned(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
+      case _: UInt => s"(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
       case _: SInt => '$' + s"signed(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
     }
     case lit: BitsAllToLiteral => lit.theConsumer match {
       case _: Bits => s"(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
-      case _: UInt => '$' + s"unsigned(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
+      case _: UInt => s"(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
       case _: SInt => '$' + s"signed(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
     }
     case lit: BoolLiteral => if(lit.value) "1" else "0"

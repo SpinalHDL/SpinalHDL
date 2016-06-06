@@ -70,9 +70,7 @@ trait VerilogBase extends VhdlVerilogBase{
 
   def emitDataType(node: Node) = node match {
     case bool: Bool => ""
-    case uint: UInt => s"unsigned " + emitRange(uint)
-    case sint: SInt => s"signed " + emitRange(sint)
-    case bits: Bits => emitRange(bits)
+    case bitvector: BitVector =>  emitRange(bitvector)
     case enum: SpinalEnumCraft[_] => emitEnumType(enum)
     case _ => throw new Exception("Unknown datatype"); ""
   }
