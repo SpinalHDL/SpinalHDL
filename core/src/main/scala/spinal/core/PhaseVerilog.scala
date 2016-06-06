@@ -225,7 +225,7 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
 
   //TODO ? Not true for literal driven signals with multiple assignement
   def signalNeedProcess(baseType: BaseType) : Boolean = {
-    if(baseType.isReg) return true
+    if(baseType.input.isInstanceOf[SyncNode]) return true
     if(baseType.input.isInstanceOf[MultipleAssignmentNode] || baseType.input.isInstanceOf[WhenNode]) return true
     return false
   }
