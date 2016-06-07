@@ -193,17 +193,32 @@ object Misc {
     val input = to.getInput(inputId)
     if (input == null || input.getWidth == width || input.isInstanceOf[NoneNode]) return;
 
-    val that = input.asInstanceOf[BitVector]
-    Component.push(that.component)
-    val resize = that.resize(width)
-    resize.inferredWidth = width
-    resize.input.inferredWidth = width
-    to.setInput(inputId,resize)
-    Component.pop(that.component)
-//    if (input.isInstanceOf[BaseType] && input.asInstanceOf[BaseType].getLiteral[Literal] == null)
-//      println("asd")
-//    else
-//      SpinalWarning("Automatic resize on " + to.toString)
+    input match{
+      case bitVector : BitVector => {
+        bitVector.getInput(0) match{
+          case lit : BitsLiteral if (! lit.hasSpecifiedBitCount) =>{
+            Component.push(input.component)
+            val sizedLit = lit.clone
+            sizedLit.inferredWidth = width
+            to.setInput(inputId,sizedLit)
+            Component.pop(input.component)
+            Misc.normalizeResize(to, inputId, Math.max(lit.minimalValueBitWidth,width)) //Allow resize on direct literal with unfixed values
+
+          }
+
+          case _ => {
+            val that = input.asInstanceOf[BitVector]
+            Component.push(that.component)
+            val resize = that.resize(width)
+            resize.inferredWidth = width
+            resize.input.inferredWidth = width
+            to.setInput(inputId,resize)
+            Component.pop(that.component)
+          }
+        }
+      }
+      case _ =>
+    }
   }
 
 }

@@ -21,6 +21,8 @@ object SpinalBuild extends Build {
     settings = defaultSettings ++ Seq(
       name := "SpinalHDL Core",
       libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value,
+      libraryDependencies += "com.github.scopt" %% "scopt" % "3.4.0",
+      resolvers += Resolver.sonatypeRepo("public"),
       version := SpinalVersion.core
     )
   )
@@ -41,7 +43,7 @@ object SpinalBuild extends Build {
       name := "SpinalHDL Debugger",
       version := SpinalVersion.debugger,
       resolvers += "sparetimelabs" at "http://www.sparetimelabs.com/maven2/",
-      libraryDependencies += "org.scalafx" %% "scalafx" % "8.0.40-R8",
+      //libraryDependencies += "org.scalafx" %% "scalafx" % "8.0.40-R8",
       libraryDependencies += "com.sparetimelabs" % "purejavacomm" % "0.0.22",
       libraryDependencies += "net.liftweb" %% "lift-json" % "latest.release",
       publishTo := None

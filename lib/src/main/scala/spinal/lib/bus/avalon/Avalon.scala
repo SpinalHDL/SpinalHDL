@@ -53,11 +53,13 @@ case class AvalonMMConfig( addressWidth : Int,
 
 object AvalonMMConfig{
   def fixed(addressWidth : Int,
-                dataWidth : Int) = AvalonMMConfig(
+            dataWidth : Int,
+            readLatency : Int) = AvalonMMConfig(
     addressWidth=addressWidth,
     dataWidth=dataWidth,
+    readLatency = readLatency,
     burstCountWidth = -1,
-    useByteEnable = true,
+    useByteEnable = false,
     useDebugAccess = false,
     useRead = true,
     useWrite = true,
@@ -66,10 +68,8 @@ object AvalonMMConfig{
     useWaitRequestn = true,
     useReadDataValid = false,
     useBurstCount = false,
-  //  useEndOfPacket = false,
 
-    maximumPendingReadTransactions = 0,
-    readLatency = 1
+    maximumPendingReadTransactions = 0
   )
 
 
@@ -79,7 +79,7 @@ object AvalonMMConfig{
       addressWidth=addressWidth,
       dataWidth=dataWidth,
       burstCountWidth = -1,
-      useByteEnable = true,
+      useByteEnable = false,
       useDebugAccess = false,
       useRead = true,
       useWrite = true,
@@ -88,7 +88,6 @@ object AvalonMMConfig{
       useWaitRequestn = true,
       useReadDataValid = true,
       useBurstCount = false
-  //  useEndOfPacket = false
     )
 
 
@@ -98,7 +97,7 @@ object AvalonMMConfig{
       addressWidth=addressWidth,
       dataWidth=dataWidth,
       burstCountWidth = burstCountWidth,
-      useByteEnable = true,
+      useByteEnable = false,
       useDebugAccess = false,
       useRead = true,
       useWrite = true,
@@ -107,17 +106,19 @@ object AvalonMMConfig{
       useWaitRequestn = true,
       useReadDataValid = true,
       useBurstCount = true
-    //  useEndOfPacket = false
     )
 }
 
-
-object AvalonResponse extends SpinalEnum(sequancial){
-  val OKAY,RESERVED,SLAVEERROR,DECODEERROR = newElement()
+object AvalonMM{
+  object Response extends SpinalEnum(sequancial){
+    val OKAY,RESERVED,SLAVEERROR,DECODEERROR = newElement()
+  }
 }
 
-case class AvalonMMBus(c : AvalonMMConfig) extends Bundle with IMasterSlave{
-  import c._
+
+
+case class AvalonMM(config : AvalonMMConfig) extends Bundle with IMasterSlave{
+  import config._
   val read          = if(useRead)          Bool else null
   val write         = if(useWrite)         Bool else null
   val waitRequestn  = if(useWaitRequestn)  Bool else null
@@ -127,7 +128,7 @@ case class AvalonMMBus(c : AvalonMMConfig) extends Bundle with IMasterSlave{
   val burstCount    = if(useBurstCount)    UInt(burstCountWidth bit) else null
   val byteEnable    = if(useByteEnable)    Bits(dataByteCount bit) else null
   val writeData     = if(useWrite)         Bits(dataWidth bit) else null
-  val response      = if(useResponse)      AvalonResponse() else null
+  val response      = if(useResponse)      AvalonMM.Response() else null
 
   val readDataValid = if(useReadDataValid) Bool else null
   val readData      = if(useRead)          Bits(dataWidth bit) else null
@@ -136,10 +137,11 @@ case class AvalonMMBus(c : AvalonMMConfig) extends Bundle with IMasterSlave{
   def isReady = (if(useWaitRequestn) waitRequestn else True)
   def fire = isValid && isReady
 
+  def setOKEY : Unit = response := AvalonMM.Response.OKAY
 
-  override def asMaster(): AvalonMMBus.this.type = {
+  override def asMaster(): this.type = {
     outWithNull(read,write,lock,debugAccess,address,burstCount,byteEnable,writeData)
-    inWithNull(waitRequestn,response,readDataValid,readData/*,endOfPacket*/)
+    inWithNull(waitRequestn,response,readDataValid,readData)
     this
   }
 }

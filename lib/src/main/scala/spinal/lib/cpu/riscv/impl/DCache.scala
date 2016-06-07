@@ -5,7 +5,7 @@ import java.text.AttributedString
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.avalon.{AvalonMMBus, AvalonMMConfig}
+import spinal.lib.bus.avalon.{AvalonMM, AvalonMMConfig}
 
 
 case class DataCacheConfig( cacheSize : Int,
@@ -19,6 +19,7 @@ case class DataCacheConfig( cacheSize : Int,
       addressWidth = addressWidth,
       dataWidth = memDataWidth,
     burstCountWidth = log2Up(burstSize + 1)).copy(
+      useByteEnable = true,
       constantBurstBehavior = true,
       burstOnBurstBoundariesOnly = true,
       maximumPendingReadTransactions = 2
@@ -81,9 +82,9 @@ case class DataCacheMemBus(implicit p : DataCacheConfig) extends Bundle with IMa
 
   override def asSlave(): this.type = asMaster.flip()
 
-  def toAvalon(): AvalonMMBus = {
+  def toAvalon(): AvalonMM = {
     val avalonConfig = p.getAvalonConfig()
-    val mm = AvalonMMBus(avalonConfig)
+    val mm = AvalonMM(avalonConfig)
     mm.read := cmd.valid && !cmd.wr
     mm.write := cmd.valid && cmd.wr
     mm.address := cmd.address(cmd.address.high downto log2Up(p.memDataWidth/8)) @@ U(0,log2Up(p.memDataWidth/8) bits)

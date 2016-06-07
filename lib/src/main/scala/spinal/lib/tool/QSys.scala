@@ -2,7 +2,8 @@ package spinal.lib.tool
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.avalon.AvalonMMBus
+import spinal.lib.bus.amba3.apb.Apb3
+import spinal.lib.bus.avalon.AvalonMM
 
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, StringBuilder}
@@ -11,6 +12,7 @@ object QSysify{
   def apply(that : Component) : Unit = {
     val tool = new QSysify
     tool.interfaceEmiters += new AvalonEmitter()
+    tool.interfaceEmiters += new ApbEmitter()
     tool.interfaceEmiters += new ClockDomainEmitter()
     tool.interfaceEmiters += new ResetEmitterEmitter()
     tool.interfaceEmiters += new InterruptReceiverEmitter()
@@ -146,8 +148,8 @@ class ClockDomainEmitter extends QSysifyInterfaceEmiter {
 
 class AvalonEmitter extends QSysifyInterfaceEmiter{
   override def emit(i: Data,builder : StringBuilder): Boolean = i match {
-    case e: AvalonMMBus =>{
-      import e.c._
+    case e: AvalonMM =>{
+      import e.config._
       val isMaster = e.address.isOutput
       val (masterPinDir,slavePinDir,startEnd) = if(isMaster) ("Output", "Input","start") else ("Input","Output","end")
       val name = e.getName()
@@ -300,6 +302,50 @@ class ResetEmitterEmitter extends QSysifyInterfaceEmiter{
     true
   }
 }
+
+
+
+class ApbEmitter extends QSysifyInterfaceEmiter{
+  override def emit(i: Data,builder : StringBuilder): Boolean = i match {
+    case e: Apb3 =>{
+      import e.config._
+      val isMaster = e.PADDR.isOutput
+      val (masterPinDir,slavePinDir,startEnd) = if(isMaster) ("Output", "Input","start") else ("Input","Output","end")
+      val name = e.getName()
+      val clockDomainTag = e.getTag(classOf[ClockDomainTag])
+      if(clockDomainTag.isEmpty) SpinalError(s"Clock domain of ${i} is not defined, You shoud apply the ClockDomainTag to the inferface\nyourBus.addTag(ClockDomainTag(ClockDomain.current))")
+      val clockName = clockDomainTag.get.clockDomain.clock.getName()
+      val resetName = clockDomainTag.get.clockDomain.reset.getName()
+      builder ++=
+s"""
+#
+# connection point $name
+#
+add_interface $name apb $startEnd
+set_interface_property $name ENABLED true
+set_interface_property $name EXPORT_OF ""
+set_interface_property $name PORT_NAME_MAP ""
+set_interface_property $name CMSIS_SVD_VARIABLES ""
+set_interface_property $name SVD_ADDRESS_GROUP ""
+
+set_interface_property $name associatedClock $clockName
+set_interface_property $name associatedReset $resetName
+
+add_interface_port $name ${e.PADDR.getName()} paddr ${masterPinDir} ${e.config.addressWidth}
+add_interface_port $name ${e.PSEL.getName()} psel ${masterPinDir} ${e.config.selWidth}
+add_interface_port $name ${e.PENABLE.getName()} penable ${masterPinDir} 1
+add_interface_port $name ${e.PWRITE.getName()} pwrite ${masterPinDir} 1
+add_interface_port $name ${e.PWDATA.getName()} pwdata ${masterPinDir} ${e.config.dataWidth}
+add_interface_port $name ${e.PRDATA.getName()} prdata ${slavePinDir} ${e.config.dataWidth}
+add_interface_port $name ${e.PREADY.getName()} pready ${slavePinDir} 1
+"""
+      if(useSlaveError) builder ++= s"add_interface_port $name ${e.PSLVERROR.getName()} pslverr ${slavePinDir}  1"
+      true
+    }
+    case _ => false
+  }
+}
+
 //
 //class StreamEmitter extends QSysifyInterfaceEmiter{
 //  override def emit(i: Data,builder : StringBuilder): Boolean = i match {

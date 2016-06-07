@@ -64,13 +64,13 @@ object ClockDomain {
     var reset: Bool = null
     if (withReset) {
       reset = Bool()
-      reset.setName((if (name != "") name + "_reset" else "reset") + (if (config.resetActiveLevel == HIGH) "" else "N"))
+      reset.setName((if (name != "") name + "_reset" else "reset") + (if (config.resetActiveLevel == HIGH) "" else "n"))
     }
 
     var clockEnable: Bool = null
     if (withClockEnable) {
       clockEnable = Bool()
-      clockEnable.setName((if (name != "") name + "_clkEn" else "clkEn") + (if (config.resetActiveLevel == HIGH) "" else "N"))
+      clockEnable.setName((if (name != "") name + "_clkEn" else "clkEn") + (if (config.resetActiveLevel == HIGH) "" else "n"))
     }
 
     val clockDomain = ClockDomain(clock, reset, clockEnable, frequency,config)

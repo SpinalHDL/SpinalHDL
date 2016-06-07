@@ -1164,18 +1164,18 @@ object CombinatorialLogic {
       val withoutProcess = out UInt(4 bits)
       val withProcess = out UInt(4 bits)
     }
-    io.withProcess := io.value
-    io.withoutProcess := 0
+    io.withoutProcess := io.value
+    io.withProcess := 0
     when(io.cond){
       switch(io.value){
         is(U"0000"){
-          io.withoutProcess := 8
+          io.withProcess := 8
         }
         is(U"0001"){
-          io.withoutProcess := 9
+          io.withProcess := 9
         }
         default{
-          io.withoutProcess := io.value+1
+          io.withProcess := io.value+1
         }
       }
     }
@@ -1259,6 +1259,12 @@ object SinFir {
 
   def main(args: Array[String]): Unit = {
     SpinalVhdl(new TopLevel(
+      resolutionWidth=16,
+      sampleCount=64,
+      firLength=16
+    ))
+
+    SpinalVerilog(new TopLevel(
       resolutionWidth=16,
       sampleCount=64,
       firLength=16

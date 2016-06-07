@@ -1,13 +1,13 @@
 package spinal.lib.cpu.riscv.impl.extension
 
 import spinal.core._
-import spinal.lib.bus.avalon.{AvalonMMBus, AvalonMMConfig}
+import spinal.lib.bus.avalon.{AvalonMM, AvalonMMConfig}
 import spinal.lib.cpu.riscv.impl._
 import spinal.lib._
 
 trait AvalonProvider{
   def getConfig() : AvalonMMConfig
-  def getAvalon() : AvalonMMBus
+  def getAvalon() : AvalonMM
 }
 
 class NativeInstructionBusExtension extends CoreExtension with AvalonProvider{
@@ -23,7 +23,7 @@ class NativeInstructionBusExtension extends CoreExtension with AvalonProvider{
 //    core.iCacheFlush.rsp := core.iCacheFlush.cmd.valid
   }
 
-  override def getAvalon(): AvalonMMBus = memBus.toAvalon()
+  override def getAvalon(): AvalonMM = memBus.toAvalon()
   override def getConfig(): AvalonMMConfig = CoreInstructionBus.getAvalonConfig(memBus.p)
 }
 
@@ -68,6 +68,6 @@ class CachedInstructionBusExtension(c : InstructionCacheConfig,cutCpuCmdReady : 
 
   override def needFlowDRsp: Boolean = true
 
-  override def getAvalon(): AvalonMMBus = memBus.toAvalon()
+  override def getAvalon(): AvalonMM = memBus.toAvalon()
   override def getConfig(): AvalonMMConfig = c.getAvalonConfig()
 }
