@@ -1,5 +1,7 @@
 package spinal.tester.code
 
+import java.util
+
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.neutral.NeutralStreamDma
@@ -743,5 +745,90 @@ object PlayVerilog1 {
   def main(args: Array[String]): Unit = {
     SpinalConfig(mode = Verilog,defaultConfigForClockDomains=ClockDomainConfig(clockEdge = RISING,resetKind = SYNC,resetActiveLevel = LOW))
       .generate(new TopLevel)
+  }
+}
+
+
+
+object PlaySwitch4 {
+
+  object MyEnum extends SpinalEnum{
+    val a,b,c = newElement
+  }
+
+  class TopLevel extends Component {
+    val sel = in (MyEnum())
+    val result = out UInt(8 bits)
+
+    switch(sel){
+      is(MyEnum.a){
+        result := 0
+      }
+      is(MyEnum.b){
+        result := 1
+      }
+      default{
+        result := 2
+      }
+    }
+  }
+
+
+
+  def main(args: Array[String]): Unit = {
+
+
+
+    val lala = new util.LinkedList[Any]()
+    lala.add(1)
+    lala.add(2)
+    val iter2 = lala.listIterator(1)
+    lala.add(3)
+    val iter = lala.listIterator()
+    iter.next()
+    iter.add(666)
+//    iter2.add(333)
+
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
+
+object Play65{
+
+
+  class TopLevel extends Component {
+    val sel = in (Vec(Bool,8))
+    val result = out UInt(8 bits)
+    val result2 = out UInt(8 bits)
+
+    result := 6
+    result2 := 0
+
+    when(sel(3)){
+      result := 5
+    }.elsewhen(sel(4)){
+      result := 6
+    }
+
+    when(sel(0)){
+      result := 0
+    }otherwise{
+      result := 1
+      result2 := 1
+      when(sel(1)){
+        result := 2
+      }.elsewhen(sel(2)){
+        result := 4
+        result2 := 3
+      }
+    }
+  }
+
+
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
   }
 }

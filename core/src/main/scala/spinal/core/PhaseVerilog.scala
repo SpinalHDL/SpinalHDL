@@ -272,16 +272,16 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
           }
 
           if (mem.initialContent != null) {
-            ret ++= "initial begin\n"
+            ret ++= "  initial begin\n"
             for ((e, index) <- mem.initialContent.zipWithIndex) {
               val values = (e.flatten, mem._widths).zipped.map((e, width) => {
                 e.getLiteral.getBitsStringOn(width)
               })
 
-              ret ++= s"  ${emitReference(mem)}[$index] = 'b${values.reduceLeft((l, r) => r + l)};\n"
+              ret ++= s"    ${emitReference(mem)}[$index] = 'b${values.reduceLeft((l, r) => r + l)};\n"
             }
 
-            ret ++= "end\n"
+            ret ++= "  end\n"
           }
         }
         case _ =>
@@ -874,51 +874,39 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
     }
   }
 
-  def emitAssignementLevel(context : AssignementLevel,ret: mutable.StringBuilder, tab: String, assignementKind: String, isElseIf: Boolean = false): Unit = {
-    def emitLogicChunk(key: WhenTree): Unit = {
-      if (context.logicChunk.contains(key)) {
-        for ((to, from) <- context.logicChunk.get(key).get) {
-          emitAssignement(to, from, ret, tab, assignementKind)
-        }
-      }
-    }
+   def emitAssignementLevel(context : AssignementLevel,ret: mutable.StringBuilder, tab: String, assignementKind: String, isElseIf: Boolean = false): Unit = {
     val firstTab = if (isElseIf) "" else tab
 
-    emitLogicChunk(null)
-    //OPT tolist.sort
-    for (conditionalTree <- context.conditionalTrees.values.toList.sortWith(_.instanceCounter < _.instanceCounter)) conditionalTree match {
-      case when: WhenTree => {
-        def doTrue = when.whenTrue.isNotEmpty
-        def doFalse = when.whenFalse.isNotEmpty
-        val condLogic = emitLogic(when.cond)
+    var ptr = context.content.next
+    while(ptr != null){
+      ptr.elem match {
+        case whenTree: WhenTree => {
+          def doTrue = whenTree.whenTrue.isNotEmpty
+          def doFalse = whenTree.whenFalse.isNotEmpty
+          val condLogic = emitLogic(whenTree.cond)
 
-        if (doTrue && !doFalse) {
-          ret ++= s"${firstTab}if($condLogic)begin\n"
-          emitAssignementLevel(when.whenTrue,ret, tab + "  ", assignementKind)
-          ret ++= s"${tab}end\n"
-        } else /*if (doTrue && doFalse)*/ {
-          ret ++= s"${firstTab}if($condLogic)begin\n"
-          emitAssignementLevel(when.whenTrue,ret, tab + "  ", assignementKind)
-          val falseHead = if (when.whenFalse.logicChunk.isEmpty && when.whenFalse.conditionalTrees.size == 1) when.whenFalse.conditionalTrees.head._1 else null
-          if (falseHead != null && falseHead.isInstanceOf[WhenContext] && falseHead.asInstanceOf[WhenContext].parentElseWhen != null) {
-            ret ++= s"${tab}end else "
-            emitAssignementLevel(when.whenFalse,ret, tab, assignementKind, true)
-          } else {
-            ret ++= s"${tab}end else begin\n"
-            emitAssignementLevel(when.whenFalse,ret, tab + "  ", assignementKind)
+          if (doTrue && !doFalse) {
+            ret ++= s"${firstTab}if($condLogic)begin\n"
+            emitAssignementLevel(whenTree.whenTrue,ret, tab + "  ", assignementKind)
             ret ++= s"${tab}end\n"
+          } else /*if (doTrue && doFalse)*/ {
+            ret ++= s"${firstTab}if($condLogic)begin\n"
+            emitAssignementLevel(whenTree.whenTrue, ret, tab + "  ", assignementKind)
+            val falseHead = if (whenTree.whenFalse.isOnlyAWhen) whenTree.whenFalse.content.next.elem else null
+            if (falseHead != null && falseHead.asInstanceOf[WhenTree].context.parentElseWhen == whenTree.context) {
+              ret ++= s"${tab}end else "
+              emitAssignementLevel(whenTree.whenFalse,ret, tab, assignementKind, true)
+            } else {
+              ret ++= s"${tab}end else begin\n"
+              emitAssignementLevel(whenTree.whenFalse,ret, tab + "  ", assignementKind)
+              ret ++= s"${tab}end\n"
+            }
           }
         }
-        emitLogicChunk(when)
+        case task : AssignementTask => emitAssignement(task.that, task.by, ret, tab, assignementKind)
       }
-//      case switchTree: SwitchTree => {
-//        for (caseElement <- switchTree.cases if caseElement != null) {
-//          val (cond, level) = caseElement
-//          ret ++= s"${tab}if ${emitLogic(cond)} = '1'  then\n"
-//          emitAssignementLevel(level,ret, tab + "  ", assignementKind)
-//          ret ++= s"${tab}end if;\n"
-//        }
-//      }
+
+      ptr = ptr.next
     }
   }
 

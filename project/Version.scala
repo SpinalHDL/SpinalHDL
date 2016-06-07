@@ -11,6 +11,4 @@ object SpinalVersion {
   val debugger    = s"$major$snapshot"
   val demo        = s"$major$snapshot"
   val tester      = s"$major$snapshot"
-
-
 }

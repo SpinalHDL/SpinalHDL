@@ -1,5 +1,7 @@
 package spinal.core
 
+import java.util
+
 import scala.StringBuilder
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, StringBuilder}
@@ -48,68 +50,86 @@ class ComponentBuilder(val component: Component) {
 }
 
 
-class ConditionalTree(val instanceCounter: Int)
+class ConditionalTree
 
-class WhenTree(val cond: Node, instanceCounter: Int) extends ConditionalTree(instanceCounter) {
+class WhenTree(val cond: Node,val context : WhenContext) extends ConditionalTree{
   var whenTrue: AssignementLevel = new AssignementLevel
   var whenFalse: AssignementLevel = new AssignementLevel
 }
 
-class SwitchTree(instanceCounter: Int, context: SwitchContext) extends ConditionalTree(instanceCounter) {
+class SwitchTree(context: SwitchContext) extends ConditionalTree {
   val cases = new Array[(Node, AssignementLevel)](context.caseCount)
 }
 
+class AdditiveList[T]{
+  var head : AdditiveListNode[T] = null
+}
+
+case class AdditiveListNode[T](elem : T) {
+  var next : AdditiveListNode[T] = null
+
+  def +=(that : T) : AdditiveListNode[T] = {
+    val ret = AdditiveListNode(that)
+    ret.next = this.next
+    next = ret
+    ret
+  }
+}
+
+case class AssignementTask(that : Node,by : Node)
+
+
+//        whenTree.cond match {
+//          case cond : Operator.Enum.Equal => {
+//            (cond.left,cond.right) match {
+//              case (c : SpinalEnumCraft[_],l : EnumLiteral[_]) => {
+//                println("yolo")
+//              }
+//              case _ =>
+//            }
+//          }
+//          case _ =>
+//        }
+
 class AssignementLevel {
-  //map of precedent ConditionalTree , assignements      if no precedent ConditionalTree simple assignememnt => null
-  val logicChunk = mutable.Map[ConditionalTree, ArrayBuffer[(Node, Node)]]()
-  val conditionalTrees = mutable.Map[ConditionalContext, ConditionalTree]()
+  val content = AdditiveListNode[Any](null)
+  val whenMap = mutable.HashMap[WhenContext,AdditiveListNode[Any]]()
 
-  def isEmpty = logicChunk.isEmpty && conditionalTrees.isEmpty
+  def isNotEmpty = content.next != null
+  def isOnlyAWhen = isNotEmpty && content.next.elem.isInstanceOf[WhenTree] && content.next.next == null
 
-  def isNotEmpty = !isEmpty
+  def walkWhenTree(root: Node, that: Node,ptr_ : AdditiveListNode[Any] = content): Unit = {
+    var ptr = ptr_
+    def getElements: Iterator[Node] = if (that.isInstanceOf[MultipleAssignmentNode])
+        that.getInputs else Iterator(that)
 
 
-  def walkWhenTree(root: Node, that: Node): Unit = {
-    def getElements: Iterator[Node] = {
-      if (that.isInstanceOf[MultipleAssignmentNode]) {
-        return that.getInputs
-      } else {
-        return Iterator(that)
-      }
-    }
-
-    var lastConditionalTree: ConditionalTree = null
     for (node <- getElements) {
       node match {
         case whenNode: WhenNode => {
+          def getWhenTree(): WhenTree = {
+            whenMap.get(whenNode.w) match {
+              case Some(newPtr) => {
+                ptr = newPtr
+                ptr.elem.asInstanceOf[WhenTree]
+              }
+              case None => {
+                val whenTree = new WhenTree(whenNode.cond,whenNode.w)
+                ptr = (ptr += whenTree)
+                whenMap.put(whenNode.w,ptr)
+                whenTree
+              }
+            }
+          }
           if (!whenNode.whenTrue.isInstanceOf[NoneNode]) {
-            val whenTree = this.conditionalTrees.getOrElseUpdate(whenNode.w, new WhenTree(whenNode.cond, node.instanceCounter)).asInstanceOf[WhenTree]
-            lastConditionalTree = whenTree
-            whenTree.whenTrue.walkWhenTree(root, whenNode.whenTrue)
+            getWhenTree().whenTrue.walkWhenTree(root, whenNode.whenTrue)
           }
           if (!whenNode.whenFalse.isInstanceOf[NoneNode]) {
-            val whenTree = this.conditionalTrees.getOrElseUpdate(whenNode.w, new WhenTree(whenNode.cond, node.instanceCounter)).asInstanceOf[WhenTree]
-            lastConditionalTree = whenTree
-            whenTree.whenFalse.walkWhenTree(root, whenNode.whenFalse)
+            getWhenTree().whenFalse.walkWhenTree(root, whenNode.whenFalse)
           }
         }
-        case switchNode: SwitchNode => {
-          val switchTree = this.conditionalTrees.getOrElseUpdate(switchNode.context, new SwitchTree(node.instanceCounter, switchNode.context)).asInstanceOf[SwitchTree]
-          lastConditionalTree = switchTree
-          switchNode.onEachInput(input => {
-            val caseNode = input.asInstanceOf[CaseNode]
-            val tmp = switchTree.cases(caseNode.context.id)
-            var caseElement = if (tmp != null) tmp
-            else {
-              val tmp = (caseNode.cond -> new AssignementLevel)
-              switchTree.cases(caseNode.context.id) = tmp
-              tmp
-            }
-            caseElement._2.walkWhenTree(root, caseNode.assignement)
-          })
-        }
         case reg: Reg =>
-        case _ => this.logicChunk.getOrElseUpdate(lastConditionalTree, new ArrayBuffer[(Node, Node)]) += new Tuple2(root, node)
+        case _ => ptr = (ptr += new AssignementTask(root, node))
       }
     }
   }
