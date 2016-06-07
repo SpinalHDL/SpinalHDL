@@ -8,9 +8,6 @@ import scala.util.Random
  * Created by PIC32F_USER on 05/06/2016.
  */
 
-trait MemBitsMaskKind
-object MULTIPLE_RAM extends MemBitsMaskKind
-object SINGLE_RAM extends MemBitsMaskKind
 
 
 class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
@@ -153,24 +150,6 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
       "\"" + ("0" * (encoding.getWidth(enum.parent) - str.length)) + str + "\""
     }
 
-    //    val vecTypes = mutable.Set[Seq[Int]]()
-    //    Node.walk(walkNodesDefautStack,node => node match{
-    //      case node : VecBaseType[_] => {
-    //        if(!vecTypes.contains(node.dims.toSeq)){
-    //          var dimsVar = Seq[Int]()
-    //          for(dim <- node.dims.reverseIterator){
-    //            dimsVar = dim +: dimsVar
-    //            if(!vecTypes.contains(dimsVar)){
-    //              ret ++= s"  type ${emitVecType(node.baseType,dimsVar  )}} is array (3 downto 0) of std_ulogic;"
-    //            }
-    //          }
-    //          ret ++= "asd\n"
-    //          vecTypes += node.dims.toSeq
-    //        }
-    //      }
-    //      case _ =>
-    //    })
-
 
     ret ++= s"end $enumPackageName;\n\n"
     if (enums.size != 0) {
@@ -186,26 +165,6 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
         ret ++= "    end if;\n"
         ret ++= "  end pkg_mux;\n\n"
 
-
-        //        ret ++= s"  function pkg_toStdLogicVector (value : $enumName) return std_logic_vector is\n"
-        //        ret ++= "  begin\n"
-        //        ret ++= "    case value is \n"
-        //        for (e <- enumDef.values) {
-        //          ret ++= s"      when ${e.getName()} => return ${idToBits(e.position)};\n"
-        //        }
-        //        ret ++= s"      when others => return ${idToBits(enumDef.values.head)};\n"
-        //        ret ++= "    end case;\n"
-        //        ret ++= "  end pkg_toStdLogicVector;\n\n"
-        //
-        //        ret ++= s"  function pkg_to$enumName (value : std_logic_vector) return $enumName is\n"
-        //        ret ++= "  begin\n"
-        //        ret ++= "    case to_integer(unsigned(value)) is \n"
-        //        for (e <- enumDef.values) {
-        //          ret ++= s"      when ${e.id} => return ${e.getName()};\n"
-        //        }
-        //        ret ++= s"      when others => return ${enumDef.values.head.getName()};\n"
-        //        ret ++= "    end case;\n"
-        //        ret ++= s"  end pkg_to$enumName;\n\n"
 
 
         for (encoding <- encodings) {
@@ -610,10 +569,6 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
 
 
 
-  def emitEntityName(component: Component): Unit = {
-
-  }
-
   def emitEntity(component: Component, builder: ComponentBuilder): Unit = {
     var ret = builder.newPart(false)
     ret ++= s"\nentity ${component.definitionName} is\n"
@@ -687,7 +642,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
 
   def emitBlackBoxComponents(component: Component, ret: StringBuilder): Unit = {
     val emited = mutable.Set[String]()
-    for (c <- component.kinds) c match {
+    for (c <- component.children) c match {
       case blackBox: BlackBox => {
         if (!emited.contains(blackBox.definitionName)) {
           emited += blackBox.definitionName
@@ -963,14 +918,14 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
     func.getInput(0).getWidth match{
       case 0 => {
         func.getInput(0) match {
-          case lit: BitsLiteral => {
-            val bitString =  '"' + "0" * func.getWidth + '"'
+          /*case lit: BitsLiteral => {
+            val bitString =  '"' + "0" ASFASF* func.getWidth + '"'
             lit.kind match {
               case _: Bits => s"pkg_stdLogicVector($bitString)"
               case _: UInt => s"pkg_unsigned($bitString)"
               case _: SInt => s"pkg_signed($bitString)"
             }
-          }
+          }*/
           case _ => s"pkg_resize(${emitLogic(resize.input)},${resize.size})"
         }
       }
@@ -1527,7 +1482,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
   }
 
   def emitComponentInstances(component: Component, ret: StringBuilder): Unit = {
-    for (kind <- component.kinds) {
+    for (kind <- component.children) {
       val isBB = kind.isInstanceOf[BlackBox]
       val isBBUsingULogic = isBB && kind.asInstanceOf[BlackBox].isUsingULogic
       val definitionString = if (isBB) kind.definitionName

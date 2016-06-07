@@ -341,7 +341,7 @@ trait Area extends Nameable with ContextUser{
           else if (namable.asInstanceOf[ContextUser].component == component)
             namable.setWeakName(this.getName() + "_" + name)
           else {
-            for (kind <- component.kinds) {
+            for (kind <- component.children) {
               //Allow to name a component by his io reference into the parent component
               if (kind.reflectIo == namable) {
                 kind.setWeakName(this.getName() + "_" + name)

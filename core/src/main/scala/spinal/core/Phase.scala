@@ -9,7 +9,7 @@ import scala.collection.mutable.ArrayBuffer
 
 class PhaseContext(val config : SpinalConfig){
   var globalData = GlobalData.reset
-  globalData.scalaLocatedEnable = config.debug
+  config.applyToGlobalData(globalData)
 
   val components = ArrayBuffer[Component]()
   val globalScope = new Scope()
@@ -63,7 +63,7 @@ class PhaseContext(val config : SpinalConfig){
     components.clear()
     def walk(c: Component): Unit = {
       components += c
-      c.kinds.foreach(walk(_))
+      c.children.foreach(walk(_))
     }
     walk(topLevel)
   }
@@ -933,6 +933,8 @@ class PhaseDontSymplifyBasetypeWithComplexAssignement(pc: PhaseContext) extends 
   }
 }
 
+
+
 class PhaseDeleteUselessBaseTypes(pc: PhaseContext) extends Phase{
   override def impl(): Unit = {
     import pc._
@@ -1129,7 +1131,7 @@ class PhaseRemoveComponentThatNeedNoHdlEmit(pc: PhaseContext) extends Phase{
       if (c.isInBlackBoxTree) {
         false
       } else if (c.nodes.size == 0) {
-        if (c.parent != null) c.parent.kinds -= c
+        if (c.parent != null) c.parent.children -= c
         false
       } else {
         true
@@ -1270,6 +1272,161 @@ object SpinalVhdlBoot{
 
     phases += new PhaseVhdl(pc)
     phases += new VhdlTestBenchBackend(pc)
+
+
+
+
+    for(phase <- phases){
+      phase.impl()
+      pc.checkPendingErrors()
+    }
+
+
+    pc.checkGlobalData()
+
+    val report = new SpinalReport[T](pc.topLevel.asInstanceOf[T])
+    report.prunedSignals ++= prunedSignals
+
+    report
+  }
+}
+
+
+
+class PhaseDontSymplifyVerilogMismatchingWidth(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+    def applyTo(that : Node): Unit ={
+      assert(that.consumers.size == 1)
+      that.consumers(0).asInstanceOf[BaseType].dontSimplifyIt()
+    }
+    import pc._
+    Node.walk(walkNodesDefautStack,node => {
+      node match {
+        case node: Resize => applyTo(node)
+        case node: Operator => applyTo(node) // .....
+//        case node: Operator.BitVector.Add => applyTo(node)
+//        case node: Operator.BitVector.Sub => applyTo(node)
+//        case node: Operator.BitVector.ShiftRightByInt => applyTo(node)
+//        case node: Operator.Bits.Cat => applyTo(node)
+        case node : Extract => applyTo(node)
+        case _ =>
+      }
+    })
+  }
+}
+
+
+
+
+object SpinalVerilogBoot{
+  def apply[T <: Component](config : SpinalConfig)(gen : => T) : SpinalReport[T] ={
+    try {
+      singleShot(config)(gen)
+    } catch {
+      case e: Throwable => {
+        if(!config.debug){
+          Thread.sleep(100)
+          println("\n**********************************************************************************************")
+          val errCnt = SpinalError.getErrorCount()
+          SpinalWarning(s"Elaboration failed (${errCnt} error" + (if(errCnt > 1){s"s"} else {s""}) + s").\n" +
+            s"          Spinal will restart with scala trace to help you to find the problem.")
+          println("**********************************************************************************************\n")
+          Thread.sleep(100)
+          return singleShot(config.copy(debug = true))(gen)
+        }else{
+          Thread.sleep(100)
+          println("\n**********************************************************************************************")
+          val errCnt = SpinalError.getErrorCount()
+          SpinalWarning(s"Elaboration failed (${errCnt} error" + (if(errCnt > 1){s"s"} else {s""}) + ").")
+          println("**********************************************************************************************")
+          Thread.sleep(100)
+          throw e
+        }
+      }
+    }
+  }
+
+  def singleShot[T <: Component](config : SpinalConfig)(gen : => T): SpinalReport[T] ={
+    val pc = new PhaseContext(config)
+    val prunedSignals = mutable.Set[BaseType]()
+
+    val reservedKeywords = Seq(
+      "in", "out", "buffer", "inout",
+      "entity", "component", "architecture",
+      "type","open","block","access",
+      "or","and","xor","nand","nor",
+
+      "input", "output",  "inout",
+      "module","parameter","logic","reg",
+      "begin","end",
+      "always","posedge","negedge"
+    )
+    reservedKeywords.foreach(pc.globalScope.allocateName(_))
+
+    SpinalInfoPhase("Start elaboration")
+
+
+    val phases = ArrayBuffer[Phase]()
+
+    phases += new PhaseCreateComponent(gen)(pc)
+
+    phases += new PhaseDummy(SpinalInfoPhase("Start analysis and transform"))
+    phases += new PhaseFillComponentList(pc)
+    phases += new PhaseApplyIoDefault(pc)
+    phases += new PhaseNodesBlackBoxGenerics(pc)
+    phases += new PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc)
+
+    phases += new PhaseDummy(SpinalInfoPhase("Get names from reflection"))
+    phases += new PhaseNameNodesByReflection(pc)
+    phases += new PhaseCollectAndNameEnum(pc)
+
+    phases += new PhaseDummy(SpinalInfoPhase("Transform connections"))
+    phases += new PhasePullClockDomains(pc)
+    phases += new PhaseCheck_noNull_noCrossHierarchy_noInputRegister_noDirectionLessIo(pc)
+    phases += new PhaseAddInOutBinding(pc)
+    phases += new PhaseNameBinding(pc)
+    phases += new PhaseAllowNodesToReadOutputs(pc)
+    phases += new PhaseAllowNodesToReadInputOfKindComponent(pc)
+
+    phases += new PhaseDummy(SpinalInfoPhase("Infer nodes's bit width"))
+    phases += new PhasePostWidthInferationChecks(pc)
+    phases += new PhaseInferWidth(pc)
+    phases += new PhaseSimplifyNodes(pc)
+    phases += new PhaseInferWidth(pc)
+    phases += new PhasePropagateBaseTypeWidth(pc)
+    phases += new PhaseNormalizeNodeInputs(pc)
+    phases += new PhaseCheckInferredWidth(pc)
+
+    phases += new PhaseDummy(SpinalInfoPhase("Check combinatorial loops"))
+    phases += new PhaseCheckCombinationalLoops(pc)
+    phases += new PhaseDummy(SpinalInfoPhase("Check cross clock domains"))
+    phases += new PhaseCheckCrossClockDomains(pc)
+
+    phases += new PhaseDummy(SpinalInfoPhase("Simplify graph's nodes"))
+    phases += new PhaseFillNodesConsumers(pc)
+    phases += new PhaseDontSymplifyBasetypeWithComplexAssignement(pc)
+    phases += new PhaseDontSymplifyVerilogMismatchingWidth(pc)    //VERILOG
+    phases += new PhaseDeleteUselessBaseTypes(pc)
+
+    phases += new PhaseDummy(SpinalInfoPhase("Check that there is no incomplete assignment"))
+    phases += new PhaseCheck_noAsyncNodeWithIncompleteAssignment(pc)
+    phases += new PhaseSimplifyBlacBoxGenerics(pc)
+
+    phases += new PhaseDummy(SpinalInfoPhase("Collect signals not used in the graph"))
+    phases += new PhasePrintUnUsedSignals(prunedSignals)(pc)
+
+    phases += new PhaseDummy(SpinalInfoPhase("Finalise"))
+    phases += new PhaseAddNodesIntoComponent(pc)
+    phases += new PhaseOrderComponentsNodes(pc)
+    phases += new PhaseAllocateNames(pc)
+    phases += new PhaseRemoveComponentThatNeedNoHdlEmit(pc)
+
+    phases += new PhasePrintStates(pc)
+
+
+
+    phases += new PhaseVerilog(pc)
+
 
 
 

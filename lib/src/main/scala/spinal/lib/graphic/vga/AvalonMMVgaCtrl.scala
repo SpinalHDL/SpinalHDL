@@ -8,12 +8,9 @@ import spinal.lib.bus.neutral.NeutralStreamDma
 import spinal.lib.graphic._
 import spinal.lib.tool.QSysify
 
-case class AvalonVgaConfig(rgbConfig : RgbConfig){
-//  def getControlConfig = AvalonMMConfig.fixed(4,32)
-//  def getPictureConfig = AvalonMMConfig.fixed(4,32).getWriteOnlyConfig
-}
 
-class AvalonVgaCtrl(cDma : NeutralStreamDma.Config,cColor : RgbConfig) extends Component{
+
+class AvalonMMVgaCtrl(cDma : NeutralStreamDma.Config,cColor : RgbConfig) extends Component{
   val io = new Bundle{
 //    val control = slave (AvalonMMBus(c.getControlConfig))
     val mem = master (AvalonMM(cDma.getAvalonConfig))
@@ -92,9 +89,9 @@ class AvalonVgaCtrl(cDma : NeutralStreamDma.Config,cColor : RgbConfig) extends C
 }
 
 
-object AvalonVgaCtrl{
+object AvalonMMVgaCtrl{
   def main(args: Array[String]) {
-    val toplevel = SpinalVhdl({
+    def gen = {
       val vgaClk = ClockDomain.external("vga")
       val dmaConfig = NeutralStreamDma.Config(
         addressWidth = 30,
@@ -106,11 +103,15 @@ object AvalonVgaCtrl{
         ctrlRspClock = vgaClk
       )
       val colorConfig = RgbConfig(8,8,8)
-      new AvalonVgaCtrl(dmaConfig,colorConfig)
-    }).toplevel
+      new AvalonMMVgaCtrl(dmaConfig,colorConfig)
+    }
+    val toplevel = SpinalVhdl(gen).toplevel
 
     toplevel.io.mem.addTag(ClockDomainTag(toplevel.clockDomain))
     QSysify(toplevel)
+
+
+    SpinalVerilog(gen)
 
 //    SpinalVhdl({
 //      val vgaClk = ClockDomain.external("vga")
@@ -133,6 +134,12 @@ object AvalonVgaCtrl{
 object AvalonVgaCtrlCCTest{
   def main(args: Array[String]) {
     SpinalVhdl({
+      val pushClock = ClockDomain.external("pushClock")
+      val popClock = ClockDomain.external("popClock")
+      new StreamFifoCC(Bits(33 bit),512,pushClock,popClock).setDefinitionName("TopLevel")
+    })
+
+    SpinalVerilog({
       val pushClock = ClockDomain.external("pushClock")
       val popClock = ClockDomain.external("popClock")
       new StreamFifoCC(Bits(33 bit),512,pushClock,popClock).setDefinitionName("TopLevel")

@@ -2,7 +2,10 @@ package spinal.tester.code
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.bus.neutral.NeutralStreamDma
 import spinal.lib.com.uart.UartCtrl
+import spinal.lib.graphic.RgbConfig
+import spinal.lib.graphic.vga.{AvalonMMVgaCtrl, AvalonMMVgaCtrl$, VgaCtrl}
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -671,5 +674,74 @@ object PlayB8 {
   def main(args: Array[String]): Unit = {
     SpinalConfig(mode = VHDL,targetDirectory="temp/myDesign").generate(new UartCtrl)
     SpinalConfig.shell(Seq("-aa"))(new UartCtrl)
+  }
+}
+
+object PlayVerilog1 {
+  class Sub extends Component{
+    val cmd = in UInt(4 bits)
+    val rsp = out UInt(4 bits)
+    rsp := cmd + cmd
+  }
+
+  class TopLevel extends Component {
+    val a,b = in UInt(4 bits)
+    val x,y,z = out UInt(4 bits)
+
+    x := a - b
+
+    y := a + b
+    y(0) := False
+
+    z(z.range) := U"0110"
+
+    val l,m = UInt(4 bits).keep()
+    l := a & b
+    m := a
+    when(a === b){
+      m := b
+    }
+
+    val n,o = Reg(UInt(4 bits)).keep()
+    n := a & b
+    o := a
+    when(a === b){
+      o := b
+    }
+
+    val p,q = Reg(UInt(4 bits)).keep() init(U"0010")
+    p := a & b
+    q := a
+    when(a === b){
+      q := b
+    }
+
+    val sub = new Sub
+    sub.cmd := 0
+    val subOut = out(UInt(4 bits))
+    subOut := sub.rsp
+
+    val r = UInt(5 bits).keep()
+    r := ((a-b) >> 2).resized
+
+
+    object MyEnum extends SpinalEnum{
+      val a,b,c = newElement
+    }
+
+    val e1 = MyEnum().keep
+    e1 := MyEnum.a
+
+    r.addAttribute("flag")
+    r.addAttribute("value","yolo")
+
+
+    val s = out(UInt(4 bits))
+    s := 15
+    s(0) := False
+  }
+  def main(args: Array[String]): Unit = {
+    SpinalConfig(mode = Verilog,defaultConfigForClockDomains=ClockDomainConfig(clockEdge = RISING,resetKind = SYNC,resetActiveLevel = LOW))
+      .generate(new TopLevel)
   }
 }

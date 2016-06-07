@@ -31,7 +31,6 @@ trait VhdlBase extends VhdlVerilogBase{
   var enumPackageName = "pkg_enum"
   var packageName = "pkg_scala2hdl"
 
-  val vhdlKeyWords = Set[String]("in", "out", "buffer", "inout", "entity", "component", "architecture","type","open","block","access","or","and","xor","nand","nor")
 
   def emitLibrary(ret: StringBuilder): Unit = {
     ret ++= "library ieee;\n"
