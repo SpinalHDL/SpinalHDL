@@ -835,3 +835,67 @@ object Play65{
     SpinalVhdl(new TopLevel)
   }
 }
+
+
+
+
+object PlayGenerics{
+  class TopLevel extends Component {
+
+    val io = new Bundle {
+      val in1  = in Bool
+      val out1 = out Bool
+    }
+
+    val inbuf = alt_inbuf()
+    inbuf.i := io.in1
+    io.out1 := inbuf.o
+  }
+
+
+  trait BOOLEAN { def value : String }
+  case object ON   extends BOOLEAN { def value = "ON"   }
+  case object OFF  extends BOOLEAN { def value = "OFF"  }
+  case object NONE extends BOOLEAN { def value = "None" }
+
+
+  trait IO_STRANDARD { def value : String }
+  case object STD_1_2V      extends IO_STRANDARD { def value = "1.2V" }
+  case object STD_1_2V_HSTL extends IO_STRANDARD { def value = "1.2- V HSTL" }
+  case object STD_1_2V_HSUL extends IO_STRANDARD { def value = "1.2- V HSUL" }
+  case object STD_NONE      extends IO_STRANDARD { def value = "None" }
+
+
+  /**
+   * ALT_INBUF
+   * @TODO add library altera.altera_primitives_components
+   */
+  case class alt_inbuf(_io_standard           : IO_STRANDARD = STD_NONE,
+                       _location              : String       = "None",
+                       _enable_bus_hold       : BOOLEAN      = NONE,
+                       _weak_pull_up_resistor : BOOLEAN      = NONE,
+                       _termination           : String       = "None") extends BlackBox{
+
+    val generic = new Generic {
+      val io_standard           = _io_standard.value
+      val location              = _location
+      val enable_bus_hold       = _enable_bus_hold.value
+      val weak_pull_up_resistor = _weak_pull_up_resistor.value
+      val termination           = _termination
+    }
+
+    val io = new Bundle{
+      val i = in Bool
+      val o = out Bool
+    }.setName("")
+
+    def i : Bool = io.i
+    def o : Bool = io.o
+  }
+
+
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}

@@ -151,7 +151,7 @@ object Misc {
       for (method <- methods) {
         method.setAccessible(true)
         val fieldRef = method.invoke(o)
-        if (fieldRef != null && !refs.contains(fieldRef)) {
+        if (fieldRef != null && (!refs.isInstanceOf[Data] || !refs.contains(fieldRef))) {
           val methodName = method.getName
           val firstCharIndex = methodName.lastIndexOf('$')
           val postFix = if(firstCharIndex == -1)
