@@ -68,22 +68,43 @@ class SwitchTree(key: Node) extends ConditionalTree {
 }
 
 class AdditiveList[T]{
-  var head : AdditiveListNode[T] = null
+  var headNode : AdditiveListNode[T] = null
 
-  def iterator = new AdditiveIterator(this)
+  def isEmpty = headNode == null
+
+  def iterator = new AdditiveListIterator(this)
+  def head = headNode.elem
+  def onEachNode(doThat : (AdditiveListNode[T]) => Unit): Unit ={
+    var ptr = headNode
+    while(ptr != null){
+      doThat(ptr)
+      ptr = ptr.next
+    }
+  }
+  def onEach(doThat : (T) => Unit): Unit ={
+    var ptr = headNode
+    while(ptr != null){
+      doThat(ptr.elem)
+      ptr = ptr.next
+    }
+  }
 }
 
-class AdditiveIterator[T](list : AdditiveList[T]){
-  var position : AdditiveListNode[T] = list.head
+class AdditiveListIterator[T](list : AdditiveList[T]){
+  var position : AdditiveListNode[T] = list.headNode
 
   def += (that : T) : Unit = {
     if(position == null){
       position = AdditiveListNode(that)
-      list.head = position
+      list.headNode = position
     }else{
       position = (position += that)
     }
   }
+
+  def seek(that : AdditiveListNode[T]) : Unit = position = that
+
+  def value = position.elem
 }
 
 case class AdditiveListNode[T](elem : T) {
@@ -103,14 +124,29 @@ case class AssignementTask(that : Node,by : Node)
 
 
 class AssignementLevel {
-  val content = AdditiveListNode[Any](null)
+  val content = new AdditiveList[Any]()
   val whenMap = mutable.HashMap[WhenContext,AdditiveListNode[Any]]()
 
-  def isNotEmpty = content.next != null
-  def isOnlyAWhen = isNotEmpty && content.next.elem.isInstanceOf[WhenTree] && content.next.next == null
+  def isNotEmpty = !content.isEmpty
+  def isOnlyAWhen = isNotEmpty && content.headNode.elem.isInstanceOf[WhenTree] && content.headNode.next == null
 
-  def walkWhenTree(root: Node, that: Node,ptr_ : AdditiveListNode[Any] = content): Unit = {
-    var ptr = ptr_
+  def walkNodes(thats : Seq[AssignementTask]) : Unit = {
+    def getElements(that : Node): Iterator[Node] = if (that.isInstanceOf[MultipleAssignmentNode])
+      that.getInputs else Iterator(that)
+
+    thats.foreach(_.by match {
+      case by : WhenNode => by.w.algoId = 0
+      case by : Node => by.algoId = 0
+    })
+    thats.foreach(_.by match {
+      case by : WhenNode => by.w.algoId += 1
+      case by : Node => by.algoId += 1
+    })
+
+  }
+
+  def walkWhenTree(root: Node, that: Node,ptr_ : AdditiveListIterator[Any] = content.iterator): Unit = {
+    val ptr = ptr_
     def getElements: Iterator[Node] = if (that.isInstanceOf[MultipleAssignmentNode])
         that.getInputs else Iterator(that)
 
@@ -120,14 +156,14 @@ class AssignementLevel {
         case whenNode: WhenNode => {
           def getWhenTree(): WhenTree = {
             whenMap.get(whenNode.w) match {
-              case Some(newPtr) => {
-                ptr = newPtr
-                ptr.elem.asInstanceOf[WhenTree]
+              case Some(listNode) => {
+                ptr.seek(listNode)
+                ptr.value.asInstanceOf[WhenTree]
               }
               case None => {
                 val whenTree = new WhenTree(whenNode.cond,whenNode.w)
-                ptr = (ptr += whenTree)
-                whenMap.put(whenNode.w,ptr)
+                ptr += whenTree
+                whenMap.put(whenNode.w,ptr.position)
                 whenTree
               }
             }
@@ -140,57 +176,57 @@ class AssignementLevel {
           }
         }
         case reg: Reg =>
-        case _ => ptr = (ptr += new AssignementTask(root, node))
+        case _ => ptr += new AssignementTask(root, node)
       }
     }
   }
 
-  def caseify() : Unit = {
-    var ptr = content.next
-    while(ptr != null){
-      ptr.elem match {
-        case whenTree: WhenTree => {
-          whenTree.cond match {
-            case cond : Operator.Enum.Equal => {
-              (cond.left,cond.right) match {
-                case (c : SpinalEnumCraft[_],l : EnumLiteral[_]) => {
-                  println("yolo")
-                }
-                case _ =>
-              }
-            }
-            case _ =>
-          }
-        }
-        case _ =>
-      }
-      ptr = ptr.next
-    }
-  }
-
-  def casifyReq() : Unit = {
-    caseify()
-    var ptr = content.next
-    while(ptr != null){
-      ptr.elem match {
-        case whenTree: WhenTree => {
-          whenTree.cond match {
-            case cond : Operator.Enum.Equal => {
-              (cond.left,cond.right) match {
-                case (c : SpinalEnumCraft[_],l : EnumLiteral[_]) => {
-                  println("yolo")
-                }
-                case _ =>
-              }
-            }
-            case _ =>
-          }
-        }
-        case _ =>
-      }
-      ptr = ptr.next
-    }
-  }
+//  def caseify() : Unit = {
+//    var ptr = content.next
+//    while(ptr != null){
+//      ptr.elem match {
+//        case whenTree: WhenTree => {
+//          whenTree.cond match {
+//            case cond : Operator.Enum.Equal => {
+//              (cond.left,cond.right) match {
+//                case (c : SpinalEnumCraft[_],l : EnumLiteral[_]) => {
+//                  println("yolo")
+//                }
+//                case _ =>
+//              }
+//            }
+//            case _ =>
+//          }
+//        }
+//        case _ =>
+//      }
+//      ptr = ptr.next
+//    }
+//  }
+//
+//  def casifyReq() : Unit = {
+//    caseify()
+//    var ptr = content.next
+//    while(ptr != null){
+//      ptr.elem match {
+//        case whenTree: WhenTree => {
+//          whenTree.cond match {
+//            case cond : Operator.Enum.Equal => {
+//              (cond.left,cond.right) match {
+//                case (c : SpinalEnumCraft[_],l : EnumLiteral[_]) => {
+//                  println("yolo")
+//                }
+//                case _ =>
+//              }
+//            }
+//            case _ =>
+//          }
+//        }
+//        case _ =>
+//      }
+//      ptr = ptr.next
+//    }
+//  }
 }
 
 

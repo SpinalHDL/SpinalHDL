@@ -877,37 +877,32 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
    def emitAssignementLevel(context : AssignementLevel,ret: mutable.StringBuilder, tab: String, assignementKind: String, isElseIf: Boolean = false): Unit = {
     val firstTab = if (isElseIf) "" else tab
 
-    var ptr = context.content.next
-    while(ptr != null){
-      ptr.elem match {
-        case whenTree: WhenTree => {
-          def doTrue = whenTree.whenTrue.isNotEmpty
-          def doFalse = whenTree.whenFalse.isNotEmpty
-          val condLogic = emitLogic(whenTree.cond)
+    context.content.onEach(_ match {
+      case whenTree: WhenTree => {
+        def doTrue = whenTree.whenTrue.isNotEmpty
+        def doFalse = whenTree.whenFalse.isNotEmpty
+        val condLogic = emitLogic(whenTree.cond)
 
-          if (doTrue && !doFalse) {
-            ret ++= s"${firstTab}if($condLogic)begin\n"
-            emitAssignementLevel(whenTree.whenTrue,ret, tab + "  ", assignementKind)
-            ret ++= s"${tab}end\n"
+        if (doTrue && !doFalse) {
+          ret ++= s"${firstTab}if($condLogic)begin\n"
+          emitAssignementLevel(whenTree.whenTrue, ret, tab + "  ", assignementKind)
+          ret ++= s"${tab}end\n"
+        } else {
+          ret ++= s"${firstTab}if($condLogic)begin\n"
+          emitAssignementLevel(whenTree.whenTrue, ret, tab + "  ", assignementKind)
+          val falseHead = if (whenTree.whenFalse.isOnlyAWhen) whenTree.whenFalse.content.head else null
+          if (falseHead != null && falseHead.asInstanceOf[WhenTree].context.parentElseWhen == whenTree.context) {
+            ret ++= s"${tab}end else "
+            emitAssignementLevel(whenTree.whenFalse, ret, tab, assignementKind, true)
           } else {
-            ret ++= s"${firstTab}if($condLogic)begin\n"
-            emitAssignementLevel(whenTree.whenTrue, ret, tab + "  ", assignementKind)
-            val falseHead = if (whenTree.whenFalse.isOnlyAWhen) whenTree.whenFalse.content.next.elem else null
-            if (falseHead != null && falseHead.asInstanceOf[WhenTree].context.parentElseWhen == whenTree.context) {
-              ret ++= s"${tab}end else "
-              emitAssignementLevel(whenTree.whenFalse,ret, tab, assignementKind, true)
-            } else {
-              ret ++= s"${tab}end else begin\n"
-              emitAssignementLevel(whenTree.whenFalse,ret, tab + "  ", assignementKind)
-              ret ++= s"${tab}end\n"
-            }
+            ret ++= s"${tab}end else begin\n"
+            emitAssignementLevel(whenTree.whenFalse, ret, tab + "  ", assignementKind)
+            ret ++= s"${tab}end\n"
           }
         }
-        case task : AssignementTask => emitAssignement(task.that, task.by, ret, tab, assignementKind)
       }
-
-      ptr = ptr.next
-    }
+      case task: AssignementTask => emitAssignement(task.that, task.by, ret, tab, assignementKind)
+    })
   }
 
   def emitComponentInstances(component: Component, ret: StringBuilder): Unit = {

@@ -1435,38 +1435,35 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
   def emitAssignementLevel(context : AssignementLevel,ret: mutable.StringBuilder, tab: String, assignementKind: String, isElseIf: Boolean = false): Unit = {
     val firstTab = if (isElseIf) "" else tab
 
-    var ptr = context.content.next
-    while(ptr != null){
-      ptr.elem match {
-        case whenTree: WhenTree => {
-          def doTrue = whenTree.whenTrue.isNotEmpty
-          def doFalse = whenTree.whenFalse.isNotEmpty
-          val condLogic = emitLogic(whenTree.cond)
-          val condLogicCleaned = if (condLogic.startsWith("pkg_toStdLogic(")) condLogic.substring("pkg_toStdLogic(".length, condLogic.length - 1) else condLogic + " = '1'"
+    context.content.onEach(_ match {
+      case whenTree: WhenTree => {
+        def doTrue = whenTree.whenTrue.isNotEmpty
+        def doFalse = whenTree.whenFalse.isNotEmpty
+        val condLogic = emitLogic(whenTree.cond)
+        val condLogicCleaned = if (condLogic.startsWith("pkg_toStdLogic(")) condLogic.substring("pkg_toStdLogic(".length, condLogic.length - 1) else condLogic + " = '1'"
 
-          if (doTrue && !doFalse) {
-            ret ++= s"${firstTab}if $condLogicCleaned then\n"
-            emitAssignementLevel(whenTree.whenTrue, ret, tab + "  ", assignementKind)
-            ret ++= s"${tab}end if;\n"
+        if (doTrue && !doFalse) {
+          ret ++= s"${firstTab}if $condLogicCleaned then\n"
+          emitAssignementLevel(whenTree.whenTrue, ret, tab + "  ", assignementKind)
+          ret ++= s"${tab}end if;\n"
+        } else {
+          ret ++= s"${firstTab}if $condLogicCleaned then\n"
+          emitAssignementLevel(whenTree.whenTrue, ret, tab + "  ", assignementKind)
+          val falseHead = if (whenTree.whenFalse.isOnlyAWhen) whenTree.whenFalse.content.head else null
+          if (falseHead != null && falseHead.asInstanceOf[WhenTree].context.parentElseWhen == whenTree.context) {
+            ret ++= s"${tab}els"
+            emitAssignementLevel(whenTree.whenFalse, ret, tab, assignementKind, true)
           } else {
-            ret ++= s"${firstTab}if $condLogicCleaned then\n"
-            emitAssignementLevel(whenTree.whenTrue, ret, tab + "  ", assignementKind)
-            val falseHead = if (whenTree.whenFalse.isOnlyAWhen) whenTree.whenFalse.content.next.elem else null
-            if (falseHead != null && falseHead.asInstanceOf[WhenTree].context.parentElseWhen == whenTree.context) {
-              ret ++= s"${tab}els"
-              emitAssignementLevel(whenTree.whenFalse, ret, tab, assignementKind, true)
-            } else {
-              ret ++= s"${tab}else\n"
-              emitAssignementLevel(whenTree.whenFalse, ret, tab + "  ", assignementKind)
-              ret ++= s"${tab}end if;\n"
-            }
+            ret ++= s"${tab}else\n"
+            emitAssignementLevel(whenTree.whenFalse, ret, tab + "  ", assignementKind)
+            ret ++= s"${tab}end if;\n"
           }
         }
-        case task : AssignementTask => emitAssignement(task.that, task.by, ret, tab, assignementKind)
       }
+      case task : AssignementTask => emitAssignement(task.that, task.by, ret, tab, assignementKind)
+    })
 
-      ptr = ptr.next
-    }
+
   }
 
   def emitComponentInstances(component: Component, ret: StringBuilder): Unit = {
