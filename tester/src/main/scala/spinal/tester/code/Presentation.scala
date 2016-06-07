@@ -1159,10 +1159,10 @@ object CombinatorialLogic {
 
   class TopLevel extends Component {
     val io = new Bundle {
-      val cond   = in Bool
-      val value      = in UInt (4 bit)
-      val withoutProcess = out UInt(4 bits)
-      val withProcess = out UInt(4 bits)
+      val cond            = in Bool
+      val value           = in UInt (4 bit)
+      val withoutProcess  = out UInt(4 bits)
+      val withProcess     = out UInt(4 bits)
     }
     io.withoutProcess := io.value
     io.withProcess := 0
