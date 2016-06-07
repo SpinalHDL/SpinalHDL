@@ -5,8 +5,10 @@ import spinal.lib.WrapWithReg
 import spinal.lib.cpu.riscv.impl.CoreQSysAvalon.RiscvAvalon
 import spinal.lib.cpu.riscv.impl._
 import spinal.lib.cpu.riscv.impl.extension.{BarrelShifterLightExtension, BarrelShifterFullExtension, DivExtension, MulExtension}
-import spinal.lib.eda.quartus.QuartusFlow
-import spinal.lib.eda.quartus.QuartusFlow.Report
+import spinal.lib.eda.altera.QuartusFlow
+import QuartusFlow.Report
+import spinal.lib.eda.altera.QuartusFlow
+import QuartusFlow
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}

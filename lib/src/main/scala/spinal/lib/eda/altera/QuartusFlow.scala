@@ -1,10 +1,6 @@
-package spinal.lib.eda.quartus
-
-
-import java.nio.file.Files
+package spinal.lib.eda.altera
 
 import scala.sys.process._
-import java.io.File
 /**
  * Created by PIC32F_USER on 18/05/2016.
  */
