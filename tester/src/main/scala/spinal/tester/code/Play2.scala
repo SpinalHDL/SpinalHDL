@@ -760,6 +760,7 @@ object PlaySwitch4 {
     val sel = in (MyEnum())
     val result = out UInt(8 bits)
 
+    result := 5
     switch(sel){
       is(MyEnum.a){
         result := 0
@@ -767,8 +768,23 @@ object PlaySwitch4 {
       is(MyEnum.b){
         result := 1
       }
-      default{
-        result := 2
+//      default{
+//        result := 2
+//      }
+    }
+
+    val sel2 = in UInt(8 bits)
+    val result2 = out UInt(8 bits)
+    result2 := 3
+    switch(sel2){
+      is(0){
+        result2 := 0
+      }
+      is(1){
+        result2 := 1
+      }
+      is(2){
+        result2 := 2
       }
     }
   }

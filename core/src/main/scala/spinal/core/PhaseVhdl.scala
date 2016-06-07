@@ -1461,6 +1461,18 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
           }
         }
       }
+      case switchTree : AssignementLevelSwitch => {
+        ret ++= s"${tab}case ${emitLogic(switchTree.key)} is\n"
+        switchTree.cases.foreach(c => {
+          ret ++= s"${tab}  when ${emitLogic(c.const)} =>\n"
+          emitAssignementLevel(c.doThat,ret,tab + "    ","<=")
+        })
+        ret ++= s"${tab}  when others =>\n"
+        if(!switchTree.default.isInstanceOf[NoneNode]){
+          emitAssignementLevel(switchTree.default.doThat,ret,tab + "    ","<=")
+        }
+        ret ++= s"${tab}end case;\n"
+      }
       case task : AssignementLevelSimple => emitAssignement(task.that, task.by, ret, tab, assignementKind)
     })
 

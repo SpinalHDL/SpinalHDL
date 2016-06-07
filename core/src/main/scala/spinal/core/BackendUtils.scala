@@ -66,9 +66,39 @@ class AssignementLevelWhen(val cond: Node,val context : WhenContext) extends Ass
   var whenTrue: AssignementLevel = null
   var whenFalse: AssignementLevel = null
   val whenTrueCmds,whenFalseCmds = ArrayBuffer[AssignementLevelCmd]()
+
+  def isSwitchable: (Node,Node,AssignementLevelWhen) = {
+    (if(cond.isInstanceOf[Bool]) cond.asInstanceOf[Bool].input else cond) match {
+      case cond : Operator.Enum.Equal => {
+        (cond.left,cond.right) match {
+          case (c : SpinalEnumCraft[_],l : EnumLiteral[_]) => return (c,l,this)
+          case _ =>
+        }
+      }
+      case cond : Operator.BitVector.Equal => {
+        (cond.left,cond.right) match {
+          case (c : BitVector,l : BitsLiteral) => return (c,l,this)
+          case _ =>
+        }
+      }
+
+
+      case _ =>
+    }
+    return null
+  }
+
+  def getElseWhenChain() : List[AssignementLevelWhen] = {
+    // && whenFalse.content.head.isInstanceOf[AssignementLevelWhen]
+    if(whenFalse.content.size == 1 && whenFalse.content.head.isInstanceOf[AssignementLevelWhen]){
+      this :: whenFalse.content.head.asInstanceOf[AssignementLevelWhen].getElseWhenChain()
+    }else{
+      List(this)
+    }
+  }
 }
 
-class AssignementLevelSwitch(key: Node) extends AssignementLevelNode {
+class AssignementLevelSwitch(val key: Node) extends AssignementLevelNode {
   val cases = ArrayBuffer[SwitchTreeCase]()
   var default : SwitchTreeDefault = null
 }
@@ -140,105 +170,38 @@ class AssignementLevel(inTasks : Seq[AssignementLevelCmd]) {
     })
   }
 
+
+  def caseify() : Unit = {
+    var idx = content.size
+    while(idx != 0){
+      idx-=1;
+      content(idx) match {
+        case whenTree : AssignementLevelWhen if whenTree.context.parentElseWhen == null => {
+          val chain = whenTree.getElseWhenChain()
+          if(chain.size > 1){
+            val switchable = chain.map(_.isSwitchable)
+            if(switchable.foldLeft(true)((carry,e) => carry && (e != null))){
+              val key = switchable.head._1
+              if(switchable.foldLeft(true)((carry,k) => carry && (k._1 == key))) {
+                val switchNode = new AssignementLevelSwitch(key)
+                switchable.foreach { case (_, lit, src) => {
+                  switchNode.cases += SwitchTreeCase(lit, src.whenTrue)
+                }}
+                switchNode.default = SwitchTreeDefault(switchable.last._3.whenFalse)
+
+                content(idx) = switchNode
+              }
+            }
+          }
+        }
+        case _ =>
+      }
+    }
+
+  }
+
   build()
-
-//  def walkNodes(thats : Seq[AssignementTask]) : Unit = {
-//    def getElements(that : Node): Iterator[Node] = if (that.isInstanceOf[MultipleAssignmentNode])
-//      that.getInputs else Iterator(that)
-//
-//    thats.foreach(_.by match {
-//      case by : WhenNode => by.w.algoId = 0
-//      case by : Node => by.algoId = 0
-//    })
-//    thats.foreach(_.by match {
-//      case by : WhenNode => by.w.algoId += 1
-//      case by : Node => by.algoId += 1
-//    })
-//
-//  }
-//
-//  def walkWhenTree(root: Node, that: Node,ptr_ : AdditiveListIterator[Any] = content.iterator): Unit = {
-//    val ptr = ptr_
-//    def getElements: Iterator[Node] = if (that.isInstanceOf[MultipleAssignmentNode])
-//        that.getInputs else Iterator(that)
-//
-//
-//    for (node <- getElements) {
-//      node match {
-//        case whenNode: WhenNode => {
-//          def getWhenTree(): WhenTree = {
-//            whenMap.get(whenNode.w) match {
-//              case Some(listNode) => {
-//                ptr.seek(listNode)
-//                ptr.value.asInstanceOf[WhenTree]
-//              }
-//              case None => {
-//                val whenTree = new WhenTree(whenNode.cond,whenNode.w)
-//                ptr += whenTree
-//                whenMap.put(whenNode.w,ptr.position)
-//                whenTree
-//              }
-//            }
-//          }
-//          if (!whenNode.whenTrue.isInstanceOf[NoneNode]) {
-//            getWhenTree().whenTrue.walkWhenTree(root, whenNode.whenTrue)
-//          }
-//          if (!whenNode.whenFalse.isInstanceOf[NoneNode]) {
-//            getWhenTree().whenFalse.walkWhenTree(root, whenNode.whenFalse)
-//          }
-//        }
-//        case reg: Reg =>
-//        case _ => ptr += new AssignementTask(root, node)
-//      }
-//    }
-//  }
-
-//  def caseify() : Unit = {
-//    var ptr = content.next
-//    while(ptr != null){
-//      ptr.elem match {
-//        case whenTree: WhenTree => {
-//          whenTree.cond match {
-//            case cond : Operator.Enum.Equal => {
-//              (cond.left,cond.right) match {
-//                case (c : SpinalEnumCraft[_],l : EnumLiteral[_]) => {
-//                  println("yolo")
-//                }
-//                case _ =>
-//              }
-//            }
-//            case _ =>
-//          }
-//        }
-//        case _ =>
-//      }
-//      ptr = ptr.next
-//    }
-//  }
-//
-//  def casifyReq() : Unit = {
-//    caseify()
-//    var ptr = content.next
-//    while(ptr != null){
-//      ptr.elem match {
-//        case whenTree: WhenTree => {
-//          whenTree.cond match {
-//            case cond : Operator.Enum.Equal => {
-//              (cond.left,cond.right) match {
-//                case (c : SpinalEnumCraft[_],l : EnumLiteral[_]) => {
-//                  println("yolo")
-//                }
-//                case _ =>
-//              }
-//            }
-//            case _ =>
-//          }
-//        }
-//        case _ =>
-//      }
-//      ptr = ptr.next
-//    }
-//  }
+  caseify()
 }
 
 
