@@ -889,7 +889,7 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
             ret ++= s"${firstTab}if($condLogic)begin\n"
             emitAssignementLevel(whenTree.whenTrue,ret, tab + "  ", assignementKind)
             ret ++= s"${tab}end\n"
-          } else /*if (doTrue && doFalse)*/ {
+          } else {
             ret ++= s"${firstTab}if($condLogic)begin\n"
             emitAssignementLevel(whenTree.whenTrue, ret, tab + "  ", assignementKind)
             val falseHead = if (whenTree.whenFalse.isOnlyAWhen) whenTree.whenFalse.content.next.elem else null

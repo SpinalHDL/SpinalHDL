@@ -776,19 +776,6 @@ object PlaySwitch4 {
 
 
   def main(args: Array[String]): Unit = {
-
-
-
-    val lala = new util.LinkedList[Any]()
-    lala.add(1)
-    lala.add(2)
-    val iter2 = lala.listIterator(1)
-    lala.add(3)
-    val iter = lala.listIterator()
-    iter.next()
-    iter.add(666)
-//    iter2.add(333)
-
     SpinalVhdl(new TopLevel)
   }
 }

@@ -57,12 +57,33 @@ class WhenTree(val cond: Node,val context : WhenContext) extends ConditionalTree
   var whenFalse: AssignementLevel = new AssignementLevel
 }
 
-class SwitchTree(context: SwitchContext) extends ConditionalTree {
-  val cases = new Array[(Node, AssignementLevel)](context.caseCount)
+
+case class SwitchTreeCase(const : Node,doThat : AssignementLevel)
+case class SwitchTreeDefault(doThat : AssignementLevel)
+
+
+class SwitchTree(key: Node) extends ConditionalTree {
+  val cases = ArrayBuffer[SwitchTreeCase]()
+  var default : SwitchTreeDefault = null
 }
 
 class AdditiveList[T]{
   var head : AdditiveListNode[T] = null
+
+  def iterator = new AdditiveIterator(this)
+}
+
+class AdditiveIterator[T](list : AdditiveList[T]){
+  var position : AdditiveListNode[T] = list.head
+
+  def += (that : T) : Unit = {
+    if(position == null){
+      position = AdditiveListNode(that)
+      list.head = position
+    }else{
+      position = (position += that)
+    }
+  }
 }
 
 case class AdditiveListNode[T](elem : T) {
@@ -79,17 +100,7 @@ case class AdditiveListNode[T](elem : T) {
 case class AssignementTask(that : Node,by : Node)
 
 
-//        whenTree.cond match {
-//          case cond : Operator.Enum.Equal => {
-//            (cond.left,cond.right) match {
-//              case (c : SpinalEnumCraft[_],l : EnumLiteral[_]) => {
-//                println("yolo")
-//              }
-//              case _ =>
-//            }
-//          }
-//          case _ =>
-//        }
+
 
 class AssignementLevel {
   val content = AdditiveListNode[Any](null)
@@ -131,6 +142,53 @@ class AssignementLevel {
         case reg: Reg =>
         case _ => ptr = (ptr += new AssignementTask(root, node))
       }
+    }
+  }
+
+  def caseify() : Unit = {
+    var ptr = content.next
+    while(ptr != null){
+      ptr.elem match {
+        case whenTree: WhenTree => {
+          whenTree.cond match {
+            case cond : Operator.Enum.Equal => {
+              (cond.left,cond.right) match {
+                case (c : SpinalEnumCraft[_],l : EnumLiteral[_]) => {
+                  println("yolo")
+                }
+                case _ =>
+              }
+            }
+            case _ =>
+          }
+        }
+        case _ =>
+      }
+      ptr = ptr.next
+    }
+  }
+
+  def casifyReq() : Unit = {
+    caseify()
+    var ptr = content.next
+    while(ptr != null){
+      ptr.elem match {
+        case whenTree: WhenTree => {
+          whenTree.cond match {
+            case cond : Operator.Enum.Equal => {
+              (cond.left,cond.right) match {
+                case (c : SpinalEnumCraft[_],l : EnumLiteral[_]) => {
+                  println("yolo")
+                }
+                case _ =>
+              }
+            }
+            case _ =>
+          }
+        }
+        case _ =>
+      }
+      ptr = ptr.next
     }
   }
 }
