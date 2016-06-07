@@ -38,8 +38,12 @@ case class SpinalConfig(
   defaultClockDomainFrequency : IClockDomainFrequency = UnknownFrequency(),
   targetDirectory : String = "."
 ){
-    def generate[T <: Component](gen : => T) : SpinalReport[T] = Spinal(this)(gen)
-    def apply[T <: Component](gen : => T) : SpinalReport[T] = Spinal(this)(gen)
+  def generate[T <: Component](gen : => T) : SpinalReport[T] = Spinal(this)(gen)
+  def apply[T <: Component](gen : => T) : SpinalReport[T] = Spinal(this)(gen)
+  def applyToGlobalData(globalData: GlobalData) : Unit ={
+    globalData.scalaLocatedEnable = debug
+    globalData.commonClockConfig = defaultConfigForClockDomains
+  }
 }
 
 object SpinalConfig{

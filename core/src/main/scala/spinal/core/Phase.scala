@@ -9,7 +9,7 @@ import scala.collection.mutable.ArrayBuffer
 
 class PhaseContext(val config : SpinalConfig){
   var globalData = GlobalData.reset
-  globalData.scalaLocatedEnable = config.debug
+  config.applyToGlobalData(globalData)
 
   val components = ArrayBuffer[Component]()
   val globalScope = new Scope()

@@ -741,6 +741,7 @@ object PlayVerilog1 {
     s(0) := False
   }
   def main(args: Array[String]): Unit = {
-    SpinalVerilog(new TopLevel)
+    SpinalConfig(mode = Verilog,defaultConfigForClockDomains=ClockDomainConfig(clockEdge = RISING,resetKind = SYNC,resetActiveLevel = LOW))
+      .generate(new TopLevel)
   }
 }
