@@ -322,10 +322,8 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
     for (process <- processList if process.needProcessDef) {
       process.genSensitivity
 
-      val context = new AssignementLevel
-      for (node <- process.nodes) {
-        context.walkWhenTree(node, node.getInput(0))
-      }
+      val context = new AssignementLevel(process.nodes.map(n => AssignementLevelCmd(n,n.getInput(0))))
+
 
       if (process.sensitivity.size != 0) {
 
@@ -680,17 +678,19 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
           tabLevel = tabLevel - 1
         }
 
-        val initialValueAssignement = new AssignementLevel
+
         val initialValues = ArrayBuffer[Node]()
+        val initialTasks = ArrayBuffer[AssignementLevelCmd]()
         for (syncNode <- activeArray) syncNode match {
           case reg: Reg => {
             if (reg.hasInitialValue) {
-              initialValueAssignement.walkWhenTree(reg.getOutputByConsumers, reg.getInitialValue)
+              initialTasks += AssignementLevelCmd(reg.getOutputByConsumers, reg.getInitialValue)
               initialValues += reg.getInitialValue
             }
           }
           case _ =>
         }
+        val initialValueAssignement = new AssignementLevel(initialTasks)
 
 
         if (asyncReset) {
@@ -747,7 +747,8 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
         def emitRegsLogic(tab: String): Unit = {
 
 
-          val rootContext = new AssignementLevel
+          val assignementTasks = ArrayBuffer[AssignementLevelCmd]()
+
 
           for (syncNode <- activeArray) syncNode match {
             case reg: Reg => {
@@ -755,7 +756,7 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
               if (!regSignal.isIo || !regSignal.isInput) {
                 val in = reg.getDataInput
                 if (in != reg)
-                  rootContext.walkWhenTree(regSignal, in)
+                  assignementTasks += AssignementLevelCmd(regSignal, in)
               }
             }
             case memWrite: MemWrite => {
@@ -848,6 +849,7 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
               ret ++= s"${tab}assert $cond = '1' $message $severity;\n"
             }
           }
+          val rootContext = new AssignementLevel(assignementTasks)
           emitAssignementLevel(rootContext,ret, tab, "<=")
         }
       }
@@ -877,8 +879,8 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
    def emitAssignementLevel(context : AssignementLevel,ret: mutable.StringBuilder, tab: String, assignementKind: String, isElseIf: Boolean = false): Unit = {
     val firstTab = if (isElseIf) "" else tab
 
-    context.content.onEach(_ match {
-      case whenTree: WhenTree => {
+    context.content.foreach(_ match {
+      case whenTree: AssignementLevelWhen => {
         def doTrue = whenTree.whenTrue.isNotEmpty
         def doFalse = whenTree.whenFalse.isNotEmpty
         val condLogic = emitLogic(whenTree.cond)
@@ -891,7 +893,7 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
           ret ++= s"${firstTab}if($condLogic)begin\n"
           emitAssignementLevel(whenTree.whenTrue, ret, tab + "  ", assignementKind)
           val falseHead = if (whenTree.whenFalse.isOnlyAWhen) whenTree.whenFalse.content.head else null
-          if (falseHead != null && falseHead.asInstanceOf[WhenTree].context.parentElseWhen == whenTree.context) {
+          if (falseHead != null && falseHead.asInstanceOf[AssignementLevelWhen].context.parentElseWhen == whenTree.context) {
             ret ++= s"${tab}end else "
             emitAssignementLevel(whenTree.whenFalse, ret, tab, assignementKind, true)
           } else {
@@ -901,7 +903,7 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
           }
         }
       }
-      case task: AssignementTask => emitAssignement(task.that, task.by, ret, tab, assignementKind)
+      case task: AssignementLevelSimple => emitAssignement(task.that, task.by, ret, tab, assignementKind)
     })
   }
 

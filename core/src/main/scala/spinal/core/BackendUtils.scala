@@ -50,136 +50,148 @@ class ComponentBuilder(val component: Component) {
 }
 
 
-class ConditionalTree
+trait AssignementLevelNode{
+  var dependencies = 0
+  val dependers = ArrayBuffer[AssignementLevelNode]()
 
-class WhenTree(val cond: Node,val context : WhenContext) extends ConditionalTree{
-  var whenTrue: AssignementLevel = new AssignementLevel
-  var whenFalse: AssignementLevel = new AssignementLevel
+  def addDepender(that : AssignementLevelNode) : Unit = {
+    dependers += that
+    that.dependencies += 1
+  }
+}
+case class AssignementLevelSimple(that : Node,by : Node) extends AssignementLevelNode{
+
+}
+class AssignementLevelWhen(val cond: Node,val context : WhenContext) extends AssignementLevelNode{
+  var whenTrue: AssignementLevel = null
+  var whenFalse: AssignementLevel = null
+  val whenTrueCmds,whenFalseCmds = ArrayBuffer[AssignementLevelCmd]()
 }
 
-
-case class SwitchTreeCase(const : Node,doThat : AssignementLevel)
-case class SwitchTreeDefault(doThat : AssignementLevel)
-
-
-class SwitchTree(key: Node) extends ConditionalTree {
+class AssignementLevelSwitch(key: Node) extends AssignementLevelNode {
   val cases = ArrayBuffer[SwitchTreeCase]()
   var default : SwitchTreeDefault = null
 }
 
-class AdditiveList[T]{
-  var headNode : AdditiveListNode[T] = null
+case class SwitchTreeCase(const : Node,doThat : AssignementLevel)
+case class SwitchTreeDefault(doThat : AssignementLevel)
+case class AssignementLevelCmd(that : Node,by : Node)
 
-  def isEmpty = headNode == null
-
-  def iterator = new AdditiveListIterator(this)
-  def head = headNode.elem
-  def onEachNode(doThat : (AdditiveListNode[T]) => Unit): Unit ={
-    var ptr = headNode
-    while(ptr != null){
-      doThat(ptr)
-      ptr = ptr.next
-    }
-  }
-  def onEach(doThat : (T) => Unit): Unit ={
-    var ptr = headNode
-    while(ptr != null){
-      doThat(ptr.elem)
-      ptr = ptr.next
-    }
-  }
-}
-
-class AdditiveListIterator[T](list : AdditiveList[T]){
-  var position : AdditiveListNode[T] = list.headNode
-
-  def += (that : T) : Unit = {
-    if(position == null){
-      position = AdditiveListNode(that)
-      list.headNode = position
-    }else{
-      position = (position += that)
-    }
-  }
-
-  def seek(that : AdditiveListNode[T]) : Unit = position = that
-
-  def value = position.elem
-}
-
-case class AdditiveListNode[T](elem : T) {
-  var next : AdditiveListNode[T] = null
-
-  def +=(that : T) : AdditiveListNode[T] = {
-    val ret = AdditiveListNode(that)
-    ret.next = this.next
-    next = ret
-    ret
-  }
-}
-
-case class AssignementTask(that : Node,by : Node)
-
-
-
-
-class AssignementLevel {
-  val content = new AdditiveList[Any]()
-  val whenMap = mutable.HashMap[WhenContext,AdditiveListNode[Any]]()
+class AssignementLevel(inTasks : Seq[AssignementLevelCmd]) {
+  val content = new ArrayBuffer[AssignementLevelNode]()
 
   def isNotEmpty = !content.isEmpty
-  def isOnlyAWhen = isNotEmpty && content.headNode.elem.isInstanceOf[WhenTree] && content.headNode.next == null
+  def isOnlyAWhen = content.size == 1 && content.head.isInstanceOf[AssignementLevelWhen]
 
-  def walkNodes(thats : Seq[AssignementTask]) : Unit = {
+  def build(): Unit = {
     def getElements(that : Node): Iterator[Node] = if (that.isInstanceOf[MultipleAssignmentNode])
       that.getInputs else Iterator(that)
+    
+    val whenMap = mutable.HashMap[WhenContext,AssignementLevelWhen]()
 
-    thats.foreach(_.by match {
-      case by : WhenNode => by.w.algoId = 0
-      case by : Node => by.algoId = 0
-    })
-    thats.foreach(_.by match {
-      case by : WhenNode => by.w.algoId += 1
-      case by : Node => by.algoId += 1
-    })
+    inTasks.foreach(inTask => {
+      var previous : AssignementLevelNode = null
+      getElements(inTask.by).foreach(input => input match {
+        case input : WhenNode => {
+          val temp = whenMap.getOrElseUpdate(input.w,{
+            val newOne = new AssignementLevelWhen(input.cond,input.w)
+            content += newOne
+            newOne
+          })
 
-  }
-
-  def walkWhenTree(root: Node, that: Node,ptr_ : AdditiveListIterator[Any] = content.iterator): Unit = {
-    val ptr = ptr_
-    def getElements: Iterator[Node] = if (that.isInstanceOf[MultipleAssignmentNode])
-        that.getInputs else Iterator(that)
-
-
-    for (node <- getElements) {
-      node match {
-        case whenNode: WhenNode => {
-          def getWhenTree(): WhenTree = {
-            whenMap.get(whenNode.w) match {
-              case Some(listNode) => {
-                ptr.seek(listNode)
-                ptr.value.asInstanceOf[WhenTree]
-              }
-              case None => {
-                val whenTree = new WhenTree(whenNode.cond,whenNode.w)
-                ptr += whenTree
-                whenMap.put(whenNode.w,ptr.position)
-                whenTree
-              }
-            }
+          if (!input.whenTrue.isInstanceOf[NoneNode]) {
+            temp.whenTrueCmds += AssignementLevelCmd(inTask.that,input.whenTrue)
           }
-          if (!whenNode.whenTrue.isInstanceOf[NoneNode]) {
-            getWhenTree().whenTrue.walkWhenTree(root, whenNode.whenTrue)
+          if (!input.whenFalse.isInstanceOf[NoneNode]) {
+            temp.whenFalseCmds += AssignementLevelCmd(inTask.that,input.whenFalse)
           }
-          if (!whenNode.whenFalse.isInstanceOf[NoneNode]) {
-            getWhenTree().whenFalse.walkWhenTree(root, whenNode.whenFalse)
-          }
+
+          if(previous != null) previous.addDepender(temp)
+          previous = temp
         }
         case reg: Reg =>
-        case _ => ptr += new AssignementTask(root, node)
-      }
+        case input  => {
+          val temp = AssignementLevelSimple(inTask.that,input)
+          content += temp
+          if(previous != null) previous.addDepender(temp)
+          previous = temp
+        }
+      })
+    })
+
+    val readyTasks = content.filter(_.dependencies == 0)
+    content.clear()
+
+    def flushTask(task : AssignementLevelNode) : Unit = {
+      content += task
+      task.dependers.foreach(depender => {
+        depender.dependencies -= 1
+        if(depender.dependencies == 0) flushTask(depender)
+      })
     }
+    readyTasks.foreach(flushTask)
+
+    content.foreach(_ match {
+      case task : AssignementLevelWhen => {
+        task.whenTrue = new AssignementLevel(task.whenTrueCmds)
+        task.whenFalse = new AssignementLevel(task.whenFalseCmds)
+      }
+      case task : AssignementLevelNode =>
+    })
   }
+
+  build()
+
+//  def walkNodes(thats : Seq[AssignementTask]) : Unit = {
+//    def getElements(that : Node): Iterator[Node] = if (that.isInstanceOf[MultipleAssignmentNode])
+//      that.getInputs else Iterator(that)
+//
+//    thats.foreach(_.by match {
+//      case by : WhenNode => by.w.algoId = 0
+//      case by : Node => by.algoId = 0
+//    })
+//    thats.foreach(_.by match {
+//      case by : WhenNode => by.w.algoId += 1
+//      case by : Node => by.algoId += 1
+//    })
+//
+//  }
+//
+//  def walkWhenTree(root: Node, that: Node,ptr_ : AdditiveListIterator[Any] = content.iterator): Unit = {
+//    val ptr = ptr_
+//    def getElements: Iterator[Node] = if (that.isInstanceOf[MultipleAssignmentNode])
+//        that.getInputs else Iterator(that)
+//
+//
+//    for (node <- getElements) {
+//      node match {
+//        case whenNode: WhenNode => {
+//          def getWhenTree(): WhenTree = {
+//            whenMap.get(whenNode.w) match {
+//              case Some(listNode) => {
+//                ptr.seek(listNode)
+//                ptr.value.asInstanceOf[WhenTree]
+//              }
+//              case None => {
+//                val whenTree = new WhenTree(whenNode.cond,whenNode.w)
+//                ptr += whenTree
+//                whenMap.put(whenNode.w,ptr.position)
+//                whenTree
+//              }
+//            }
+//          }
+//          if (!whenNode.whenTrue.isInstanceOf[NoneNode]) {
+//            getWhenTree().whenTrue.walkWhenTree(root, whenNode.whenTrue)
+//          }
+//          if (!whenNode.whenFalse.isInstanceOf[NoneNode]) {
+//            getWhenTree().whenFalse.walkWhenTree(root, whenNode.whenFalse)
+//          }
+//        }
+//        case reg: Reg =>
+//        case _ => ptr += new AssignementTask(root, node)
+//      }
+//    }
+//  }
 
 //  def caseify() : Unit = {
 //    var ptr = content.next
