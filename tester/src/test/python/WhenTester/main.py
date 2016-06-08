@@ -26,7 +26,7 @@ def ClockDomainAsyncReset(clk,reset):
 
 
 def getReference(dut):
-    if int(dut.io_conds_0) == 1:
+    if int(dut.io_conds_0) == 0:
         io_outDefault_ref = dut.io_data_1
     else:
         io_outDefault_ref = dut.io_data_0
