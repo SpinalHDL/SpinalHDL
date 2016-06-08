@@ -30,7 +30,7 @@ object GrayCounterTester {
 }
 
 
-class GrayCounterTesterBoot extends SpinalTesterBase {
+class GrayCounterTesterGhdlBoot extends SpinalTesterGhdlBase {
   override def getName: String = "GrayCounterTester"
 
   override def createToplevel: Component = new GrayCounterTester(8)

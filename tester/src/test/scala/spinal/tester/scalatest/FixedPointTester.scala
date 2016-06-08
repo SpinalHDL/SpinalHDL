@@ -33,7 +33,7 @@ object FixedPointTester{
 }
 
 
-class FixedPointTesterBoot extends SpinalTesterBase {
+class FixedPointTesterGhdlBoot extends SpinalTesterGhdlBase {
   override def getName: String = "FixedPointTester"
   override def createToplevel: Component = new FixedPointTester
 }

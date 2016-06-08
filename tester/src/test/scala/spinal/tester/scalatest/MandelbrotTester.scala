@@ -8,7 +8,7 @@ class MandelbrotTester(p : MandelbrotCoreParameters ) extends MandelbrotCore(p){
 }
 
 
-class MandelbrotTesterBoot extends SpinalTesterBase {
+class MandelbrotTesterGhdlBoot extends SpinalTesterGhdlBase {
   override def getName: String = "MandelbrotTester"
   override def createToplevel: Component = new MandelbrotTester(MandelbrotCoreParameters(16, 8, 16, 16, 7, 34))
   override def backendConfig(config: SpinalConfig) : SpinalConfig = {

@@ -900,3 +900,37 @@ object PlayGenerics{
     SpinalVhdl(new TopLevel)
   }
 }
+
+
+
+object PlayCocotb{
+
+
+  class TopLevel extends Component {
+    val clear = in Bool
+    val incrementBy = in UInt(16 bits)
+    val result = out (Reg(UInt(16 bits))) init(0)
+    result := result + incrementBy
+    when(clear){
+      result := 0
+    }
+  }
+
+
+
+  def main(args: Array[String]): Unit = {
+    //SpinalVhdl(new TopLevel)
+    SpinalVerilog(new TopLevel)
+
+    import scala.sys.process._
+
+
+    def doCmd(cmd : String): Unit ={
+      println(cmd)
+      Process("sh -c \"" + cmd + "\"") !
+    }
+
+    doCmd("export COCOTB=/d/pro/hdl/cocotbRepo && cd tester/src/test/python/TopLevel && make")
+
+  }
+}

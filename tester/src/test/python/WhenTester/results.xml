@@ -1,0 +1,6 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<testsuites name="results">
+  <testsuite name="all" package="all" tests="0">
+    <testcase classname="main" name="test1" time="0.6330001354217529" />
+  </testsuite>
+</testsuites>

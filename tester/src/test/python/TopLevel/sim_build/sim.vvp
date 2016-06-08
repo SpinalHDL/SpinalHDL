@@ -1,0 +1,64 @@
+#! c:/iverilog-x86/bin/vvp
+:ivl_version "10.0 (stable)" "(v10_0)";
+:ivl_delay_selection "TYPICAL";
+:vpi_time_precision + 0;
+:vpi_module "system";
+:vpi_module "vhdl_sys";
+:vpi_module "v2005_math";
+:vpi_module "va_math";
+S_009cc2c8 .scope module, "TopLevel" "TopLevel" 2 2;
+ .timescale 0 0;
+    .port_info 0 /INPUT 1 "clear"
+    .port_info 1 /INPUT 16 "incrementBy"
+    .port_info 2 /OUTPUT 16 "result"
+    .port_info 3 /INPUT 1 "clk"
+    .port_info 4 /INPUT 1 "reset"
+L_009cb540 .functor BUFZ 16, v009cee10_0, C4<0000000000000000>, C4<0000000000000000>, C4<0000000000000000>;
+o023c7c64 .functor BUFZ 1, C4<z>; HiZ drive
+v009cb4e8_0 .net "clear", 0 0, o023c7c64;  0 drivers
+o023c7c7c .functor BUFZ 1, C4<z>; HiZ drive
+v009cf6b8_0 .net "clk", 0 0, o023c7c7c;  0 drivers
+o023c7c94 .functor BUFZ 16, C4<zzzzzzzzzzzzzzzz>; HiZ drive
+v009cf710_0 .net "incrementBy", 15 0, o023c7c94;  0 drivers
+o023c7cac .functor BUFZ 1, C4<z>; HiZ drive
+v009cf768_0 .net "reset", 0 0, o023c7cac;  0 drivers
+v009ced60_0 .net "result", 15 0, L_009cb540;  1 drivers
+v009cedb8_0 .net "zz_1", 15 0, L_009cee68;  1 drivers
+v009cee10_0 .var "zz_2", 15 0;
+E_009c44f8 .event posedge, v009cf768_0, v009cf6b8_0;
+L_009cee68 .arith/sum 16, v009cee10_0, o023c7c94;
+S_009cf5e8 .scope module, "dump" "dump" 3 1;
+ .timescale 0 0;
+    .scope S_009cc2c8;
+T_0 ;
+    %wait E_009c44f8;
+    %load/vec4 v009cf768_0;
+    %flag_set/vec4 8;
+    %jmp/0xz  T_0.0, 8;
+    %pushi/vec4 0, 0, 16;
+    %assign/vec4 v009cee10_0, 0;
+    %jmp T_0.1;
+T_0.0 ;
+    %load/vec4 v009cedb8_0;
+    %assign/vec4 v009cee10_0, 0;
+    %load/vec4 v009cb4e8_0;
+    %flag_set/vec4 8;
+    %jmp/0xz  T_0.2, 8;
+    %pushi/vec4 0, 0, 16;
+    %assign/vec4 v009cee10_0, 0;
+T_0.2 ;
+T_0.1 ;
+    %jmp T_0;
+    .thread T_0;
+    .scope S_009cf5e8;
+T_1 ;
+    %vpi_call 3 3 "$dumpfile", "wave.vcd" {0 0 0};
+    %vpi_call 3 4 "$dumpvars", 32'sb00000000000000000000000000000001, S_009cc2c8 {0 0 0};
+    %end;
+    .thread T_1;
+# The file index is used to find the file name in the following table.
+:file_names 4;
+    "N/A";
+    "<interactive>";
+    "d:/pro/hdl/spinalHDL/spinalHDL/tester/src/test/python/TopLevel/../../../../../TopLevel.v";
+    "d:/pro/hdl/spinalHDL/spinalHDL/tester/src/test/python/TopLevel/dump.v";

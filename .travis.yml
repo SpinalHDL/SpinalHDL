@@ -20,13 +20,23 @@ jdk:
   - openjdk7
 
 before_install:
+  # JDK fix
   - cat /etc/hosts # optionally check the content *before*
   - sudo hostname "$(hostname | cut -c1-63)"
   - sed -e "s/^\\(127\\.0\\.0\\.1.*\\)/\\1 $(hostname | cut -c1-63)/" /etc/hosts | sudo tee /etc/hosts
   - cat /etc/hosts # optionally check the content *after*
-  - sudo add-apt-repository ppa:pgavin/ghdl -y
+
+  # GHDL
+  - sudo add-apt-repository -y ppa:pgavin/ghdl
   - sudo apt-get update
-  - sudo apt-get install ghdl -y
+  - sudo apt-get install -y ghdl
+
+  # cocotb + iverilog
+  - sudo apt-get install -y git make gcc g++ swig python-dev
+  - sudo apt-get install -y iverilog
+  - git clone https://github.com/potentialventures/cocotb
+  - export COCOTB=cocotb
+
 
 before_cache:
   # Tricks to avoid unnecessary cache updates

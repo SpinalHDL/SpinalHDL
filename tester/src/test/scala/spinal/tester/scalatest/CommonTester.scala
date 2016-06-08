@@ -143,7 +143,7 @@ object CommonTester {
 
 }
 
-class CommonTesterBoot extends SpinalTesterBase {
+class CommonTesterGhdlBoot extends SpinalTesterGhdlBase {
   override def getName: String = "CommonTester"
 
   override def createToplevel: Component = new CommonTester.CommonTester

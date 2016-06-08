@@ -64,7 +64,7 @@ class InternalClockTester extends Component {
 
 
 
-class InternalClockTesterBoot extends SpinalTesterBase {
+class InternalClockTesterGhdlBoot extends SpinalTesterGhdlBase {
   override def getName: String = "InternalClockTester"
   override def createToplevel: Component = new InternalClockTester
 }

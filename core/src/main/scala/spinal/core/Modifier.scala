@@ -694,7 +694,7 @@ object SpinalMap {
   }
 }
 
-
+//TODO DOC
 object Select{
   def apply[T <: Data](default: T, mappings: (Bool, T)*): T = list(default,mappings)
   def apply[T <: Data](mappings: (Bool, T)*): T = list(mappings)
