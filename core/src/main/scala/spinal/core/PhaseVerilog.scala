@@ -231,7 +231,7 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
             }else if (signal.hasTag(randomBoot)) {
               signal match {
                 case b: Bool => ret ++= " = " + {
-                  if (Random.nextBoolean()) "'1'" else "'0'"
+                  if (Random.nextBoolean()) "1" else "0"
                 }
                 case bv: BitVector => {
                   val rand = BigInt(bv.getWidth, Random).toString(2)
@@ -387,6 +387,9 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
     s"{${emitLogic(cat.left)},${emitLogic(cat.right)}}"
   }
 
+  def unimplementedModifier(message : String)(op: Modifier): String = {
+    SpinalError(message)
+  }
 
 
 
@@ -401,29 +404,6 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
     }
   }
 
-
-  def operatorImplAsBitsToEnum(func: Modifier): String = {
-    val (enumDef: SpinalEnum, encoding) = func.asInstanceOf[CastBitsToEnum].enum match {
-      case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.encoding)
-    }
-    if (!encoding.isNative) {
-      emitLogic(func.getInput(0))
-    } else {
-      s"pkg_to${enumDef.getName()}_${encoding.getName()}(${(emitLogic(func.getInput(0)))})"
-    }
-  }
-
-  def operatorImplAsEnumToBits(func: Modifier): String = {
-    val (enumDef, encoding) = func.getInput(0) match {
-      case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.encoding)
-      case literal: EnumLiteral[_] => (literal.enum.parent, literal.encoding)
-    }
-    if (!encoding.isNative) {
-      emitLogic(func.getInput(0))
-    } else {
-      s"pkg_toStdLogicVector_${encoding.getName()}(${(emitLogic(func.getInput(0)))})"
-    }
-  }
 
   def operatorImplAsEnumToEnum(func: Modifier): String = {
     SpinalError("Currently cast between enumeration encoding is not supported in the Verilog backend") //TODO
@@ -486,8 +466,8 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
   modifierImplMap.put("~s", operatorImplAsUnaryOperator("~"))
   modifierImplMap.put("-s", operatorImplAsUnaryOperator("-"))
 
-  modifierImplMap.put("s==s", operatorImplAsBinaryOperatorSigned("="))
-  modifierImplMap.put("s!=s", operatorImplAsBinaryOperatorSigned("/="))
+  modifierImplMap.put("s==s", operatorImplAsBinaryOperatorSigned("=="))
+  modifierImplMap.put("s!=s", operatorImplAsBinaryOperatorSigned("!="))
   modifierImplMap.put("s<s", operatorImplAsBinaryOperatorSigned("<"))
   modifierImplMap.put("s<=s", operatorImplAsBinaryOperatorSigned("<="))
 
@@ -514,7 +494,7 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
   modifierImplMap.put("b<<i",  shiftLeftByIntImpl)
   modifierImplMap.put("b>>u",  operatorImplAsBinaryOperator(">>>"))
   modifierImplMap.put("b<<u",  operatorImplAsBinaryOperator("<<<"))
-  modifierImplMap.put("brotlu", operatorImplAsFunction("pkg_rotateLeft")) //TODO
+  modifierImplMap.put("brotlu", unimplementedModifier("Currently UInt rotate left is not implemented in the Verilog Backend") /*operatorImplAsFunction("pkg_rotateLeft")*/) //TODO
 
 
 
@@ -586,7 +566,7 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
 
   def extractBoolFloating(func: Modifier): String = {
     val that = func.asInstanceOf[ExtractBoolFloating]
-    s"pkg_extract(${emitLogic(that.getBitVector)}[${emitLogic(that.getBitId)}]"
+    s"${emitLogic(that.getBitVector)}[${emitLogic(that.getBitId)}]"
   }
 
   def extractBitVectorFixed(func: Modifier): String = {
@@ -605,15 +585,15 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
     case baseType: BaseType => emitReference(baseType)
     case node: Modifier => modifierImplMap.getOrElse(node.opName, throw new Exception("can't find " + node.opName))(node)
 
-    case lit: BitsLiteral => lit.kind match {
-      case _: Bits => s"(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
-      case _: UInt => s"(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
-      case _: SInt => '$' + s"signed(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
+    case lit: BitsLiteral => lit.kind match {  //TODO remove if(lit.getWidth == 0) "0" else
+      case _: Bits => if(lit.getWidth == 0) "0" else s"(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
+      case _: UInt => if(lit.getWidth == 0) "0" else s"(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
+      case _: SInt => if(lit.getWidth == 0) "0" else ('$' + s"signed(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})")
     }
     case lit: BitsAllToLiteral => lit.theConsumer match {
-      case _: Bits => s"(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
-      case _: UInt => s"(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
-      case _: SInt => '$' + s"signed(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
+      case _: Bits => if(lit.getWidth == 0) "0" else s"(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
+      case _: UInt => if(lit.getWidth == 0) "0" else s"(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
+      case _: SInt => if(lit.getWidth == 0) "0" else ('$' + s"signed(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})")
     }
     case lit: BoolLiteral => if(lit.value) "1" else "0"
     case lit: EnumLiteral[_] => emitEnumLiteral(lit.enum, lit.encoding)
@@ -788,25 +768,25 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
                   val maskCount = memWrite.getMask.getWidth
                   for(i <- 0 until maskCount){
                     val range = s"[${(i+1)*bitPerSymbole-1} : ${i*bitPerSymbole}]"
-                    ret ++= s"${tab}if(${emitReference(memWrite.getMask)}($i))then\n"
+                    ret ++= s"${tab}if(${emitReference(memWrite.getMask)}[$i])begin\n"
                     if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
                       ret ++= s"$tab  ${emitReference(memWrite.getMem)}[${emitReference(memWrite.getAddress)}))$range <= ${emitReference(memWrite.getData)}$range;\n"
                     else
-                      ret ++= s"$tab  ${emitReference(memWrite.getMem)}_symbol${i}[(${emitReference(memWrite.getAddress)}] <= ${emitReference(memWrite.getData)}$range;\n"
+                      ret ++= s"$tab  ${emitReference(memWrite.getMem)}_symbol${i}[${emitReference(memWrite.getAddress)}] <= ${emitReference(memWrite.getData)}$range;\n"
 
-                    ret ++= s"${tab}end if;\n"
+                    ret ++= s"${tab}end\n"
                   }
                 }
               }
             }
             case memReadSync: MemReadSync => {
               //readFirst
-              if (memReadSync.writeToReadKind == writeFirst) SpinalError(s"Can't translate a memReadSync with writeFirst into VHDL $memReadSync")
-              if (memReadSync.writeToReadKind == dontCare) SpinalWarning(s"memReadSync with dontCare is as readFirst into VHDL $memReadSync")
+              if (memReadSync.writeToReadKind == writeFirst) SpinalError(s"Can't translate a memReadSync with writeFirst into Verilog $memReadSync")
+              if (memReadSync.writeToReadKind == dontCare) SpinalWarning(s"memReadSync with dontCare is as readFirst into Verilog $memReadSync")
               if (memReadSync.useReadEnable) {
-                ret ++= s"${tab}if ${emitReference(memReadSync.getReadEnable)} = '1' then\n"
+                ret ++= s"${tab}if(${emitReference(memReadSync.getReadEnable)})begin\n"
                 emitRead(tab + "  ")
-                ret ++= s"${tab}end if;\n"
+                ret ++= s"${tab}end\n"
               } else {
                 emitRead(tab)
               }
@@ -823,18 +803,18 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
 
             case memWrite: MemWriteOrRead_writePart => {
               val memReadSync = memWrite.readPart
-              if (memReadSync.writeToReadKind == writeFirst) SpinalError(s"Can't translate a MemWriteOrRead with writeFirst into VHDL $memReadSync")
-              if (memReadSync.writeToReadKind == dontCare) SpinalWarning(s"MemWriteOrRead with dontCare is as readFirst into VHDL $memReadSync")
+              if (memReadSync.writeToReadKind == writeFirst) SpinalError(s"Can't translate a MemWriteOrRead with writeFirst into Verilog $memReadSync")
+              if (memReadSync.writeToReadKind == dontCare) SpinalWarning(s"MemWriteOrRead with dontCare is as readFirst into Verilog $memReadSync")
 
-              ret ++= s"${tab}if ${emitReference(memWrite.getChipSelect)} = '1' then\n"
-              ret ++= s"${tab}  if ${emitReference(memWrite.getWriteEnable)} = '1' then\n"
+              ret ++= s"${tab}if(${emitReference(memWrite.getChipSelect)}) begin\n"
+              ret ++= s"${tab}  if(${emitReference(memWrite.getWriteEnable)}) begin\n"
               emitWrite(tab + "    ")
-              ret ++= s"${tab}  end if;\n"
+              ret ++= s"${tab}  end\n"
               if (memReadSync.component.nodes.contains(memReadSync))
                 emitRead(tab + "  ")
-              ret ++= s"${tab}end if;\n"
+              ret ++= s"${tab}end\n"
 
-              def emitWrite(tab: String) = ret ++= s"$tab${emitReference(memWrite.getMem)}[(${emitReference(memWrite.getAddress)}] <= ${emitReference(memWrite.getData)};\n"
+              def emitWrite(tab: String) = ret ++= s"$tab${emitReference(memWrite.getMem)}[${emitReference(memWrite.getAddress)}] <= ${emitReference(memWrite.getData)};\n"
               def emitRead(tab: String) = ret ++= s"$tab${emitReference(memReadSync.consumers(0))} <= ${emitReference(memReadSync.getMem)}[${emitReference(memReadSync.getAddress)}];\n"
             }
             case memWriteRead_readPart: MemWriteOrRead_readPart => {
@@ -842,14 +822,18 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
             }
             case assertNode : AssertNode => {
               val cond = emitLogic(assertNode.cond)
-              val message = if(assertNode.message != null) s"""report "${assertNode.message}" """ else ""
-              val severity = "severity " +  (assertNode.severity match{
+              val message = if(assertNode.message != null) s""":   ${assertNode.message} """ else ""
+              val severity = assertNode.severity match{
                 case `NOTE`     => "NOTE"
                 case `WARNING`  => "WARNING"
                 case `ERROR`    => "ERROR"
                 case `FAILURE`  => "FAILURE"
-              })
-              ret ++= s"${tab}assert $cond = '1' $message $severity;\n"
+              }
+
+              ret ++= s"${tab}if (!$cond) begin\n"
+              ret ++= s"""${tab}  $$display("$severity $message}");\n"""
+              if(assertNode.severity == `FAILURE`) ret ++= ret ++= tab + "  $finish;\n"
+              ret ++= s"end\n"
             }
           }
           val rootContext = new AssignementLevel(assignementTasks)
