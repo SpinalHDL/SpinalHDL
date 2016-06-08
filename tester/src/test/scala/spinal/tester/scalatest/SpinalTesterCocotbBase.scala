@@ -41,7 +41,7 @@ abstract class SpinalTesterCocotbBase extends FunSuite with BeforeAndAfterAll  w
       }
       assert(spinalMustPass,"Spinal has not fail :(")
 
-      doCmd(s"cd $pythonTestLocation && rm results.xml && make")
+      doCmd(s"cd $pythonTestLocation && rm -f results.xml && make")
       val pass = getCocotbPass()
       assert(!cocotbMustPass || pass,"Simulation fail")
       assert(cocotbMustPass || !pass,"Simulation has not fail :(")
@@ -55,7 +55,7 @@ abstract class SpinalTesterCocotbBase extends FunSuite with BeforeAndAfterAll  w
 
   def doCmd(cmd : String): Int ={
     println(cmd)
-    Process("sh -c \"" + cmd + "\"") !
+    Process("sh -c '" + cmd + "'") !
   }
 
   def getCocotbPass() : Boolean = {
