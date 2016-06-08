@@ -695,6 +695,44 @@ object SpinalMap {
 }
 
 
+object Select{
+  def apply[T <: Data](default: T, mappings: (Bool, T)*): T = list(default,mappings)
+  def apply[T <: Data](mappings: (Bool, T)*): T = list(mappings)
+
+  def list[ T <: Data]( defaultValue: T, mappings: Seq[(Bool, T)]): T = {
+    val result : T = defaultValue.clone
+
+    var ptr : WhenContext = null
+
+    mappings.foreach{case (cond,that) => {
+      if(ptr == null){
+        ptr = when(cond){
+          result := that
+        }
+      }else{
+        ptr = ptr.elsewhen(cond){
+          result := that
+        }
+      }
+    }}
+
+    if(ptr == null){
+      result := defaultValue
+    }else{
+      ptr.otherwise{
+        result := defaultValue
+      }
+    }
+    result
+  }
+
+  def list[T <: Data](mappings: Seq[(Bool, T)]): T = {
+    val defaultValue = mappings.find(_._1 == default)
+    if(!defaultValue.isDefined) new Exception("No default element in SpinalMap (default -> xxx)")
+    list(defaultValue.get._2,mappings.filter(_._1 != default))
+  }
+}
+
 private[spinal] object Multiplex {
 
   def baseType[T <: BaseType](sel: Bool, whenTrue: T, whenFalse: T): Multiplexer = {
