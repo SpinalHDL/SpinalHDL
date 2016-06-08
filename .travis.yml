@@ -28,5 +28,12 @@ before_install:
   - sudo apt-get update
   - sudo apt-get install ghdl -y
 
-# after_success:
-# Push to sonatype ?
+before_cache:
+  # Tricks to avoid unnecessary cache updates
+  - find $HOME/.ivy2 -name "ivydata-*.properties" -delete
+  - find $HOME/.sbt -name "*.lock" -delete
+
+cache:
+  directories:
+    - $HOME/.ivy2/cache
+    - $HOME/.sbt/boot/
