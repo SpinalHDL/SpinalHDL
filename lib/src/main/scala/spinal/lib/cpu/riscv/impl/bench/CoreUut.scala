@@ -236,7 +236,7 @@ object CoreUut{
 
   def main(args: Array[String]) {
     SpinalVhdl({ new TopLevel().setDefinitionName("CoreWrapper")})
-    SpinalVhdl({ new TopLevel()})
+    SpinalVerilog({ new TopLevel()})
   }
 }
 
