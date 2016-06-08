@@ -35,7 +35,7 @@ before_install:
   - sudo apt-get install -y git make gcc g++ swig python-dev
   - sudo apt-get install -y iverilog
   - git clone https://github.com/potentialventures/cocotb
-  - export COCOTB=$(pwd)cocotb
+  - export COCOTB=$(pwd)/cocotb
 
 
 before_cache:
