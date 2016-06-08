@@ -67,6 +67,6 @@ case class LambdaComponent(bitsWidth: Int) extends Component {
 
 object BlackBoxTry {
   def main(args: Array[String]) {
-    SpinalVhdl(LambdaComponent(8), _.setDefaultClockFrequency(FixedFrequency(100e6)))
+    SpinalVhdl(LambdaComponent(8))
   }
 }

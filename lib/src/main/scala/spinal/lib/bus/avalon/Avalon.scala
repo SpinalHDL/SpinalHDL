@@ -109,10 +109,13 @@ object AvalonMMConfig{
     )
 }
 
-
-object AvalonResponse extends SpinalEnum(sequancial){
-  val OKAY,RESERVED,SLAVEERROR,DECODEERROR = newElement()
+object AvalonMM{
+  object Response extends SpinalEnum(sequancial){
+    val OKAY,RESERVED,SLAVEERROR,DECODEERROR = newElement()
+  }
 }
+
+
 
 case class AvalonMM(config : AvalonMMConfig) extends Bundle with IMasterSlave{
   import config._
@@ -125,7 +128,7 @@ case class AvalonMM(config : AvalonMMConfig) extends Bundle with IMasterSlave{
   val burstCount    = if(useBurstCount)    UInt(burstCountWidth bit) else null
   val byteEnable    = if(useByteEnable)    Bits(dataByteCount bit) else null
   val writeData     = if(useWrite)         Bits(dataWidth bit) else null
-  val response      = if(useResponse)      AvalonResponse() else null
+  val response      = if(useResponse)      AvalonMM.Response() else null
 
   val readDataValid = if(useReadDataValid) Bool else null
   val readData      = if(useRead)          Bits(dataWidth bit) else null
@@ -134,6 +137,7 @@ case class AvalonMM(config : AvalonMMConfig) extends Bundle with IMasterSlave{
   def isReady = (if(useWaitRequestn) waitRequestn else True)
   def fire = isValid && isReady
 
+  def setOKEY : Unit = response := AvalonMM.Response.OKAY
 
   override def asMaster(): this.type = {
     outWithNull(read,write,lock,debugAccess,address,burstCount,byteEnable,writeData)

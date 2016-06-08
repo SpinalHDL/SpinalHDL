@@ -1,120 +1,49 @@
-/*
- * SpinalHDL
- * Copyright (c) Dolu, All rights reserved.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 3.0 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library.
- */
-
 package spinal.core
 
 import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, StringBuilder, HashMap}
 import scala.util.Random
 
-
 /**
-  * Created by PIC18F on 07.01.2015.
-  */
+ * Created by PIC32F_USER on 05/06/2016.
+ */
 
-trait MemBitsMaskKind
-object MULTIPLE_RAM extends MemBitsMaskKind
-object SINGLE_RAM extends MemBitsMaskKind
 
-class VhdlBackend extends Backend with VhdlBase {
-  var out: java.io.FileWriter = null
-  var enumPackageName = "pkg_enum"
-  var packageName = "pkg_scala2hdl"
-  var outputFilePath: String = null
-  var onlyStdLogicVectorTopLevelIo = false
+
+class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
+  import pc._
+  var outFile: java.io.FileWriter = null
   var memBitsMaskKind : MemBitsMaskKind = MULTIPLE_RAM
 
   val emitedComponent = mutable.Map[ComponentBuilder, ComponentBuilder]()
   val emitedComponentRef = mutable.Map[Component, Component]()
 
-  reservedKeyWords ++= vhdlKeyWords
 
-  override protected def elaborate[T <: Component](topLevel: T): BackendReport[T] = {
-    val report = super.elaborate(topLevel)
+  override def impl(): Unit = {
+    import pc._
     SpinalInfoPhase("Write VHDL")
-
-    if (outputFilePath == null) outputFilePath = topLevel.definitionName + ".vhd"
-    if (jsonReportPath == "") jsonReportPath = outputFilePath.replace(".vhd",".json")
-
-    out = new java.io.FileWriter(outputFilePath)
-    emitEnumPackage(out)
-    emitPackage(out)
+    
+    outFile = new java.io.FileWriter(pc.config.targetDirectory + "/" +  topLevel.definitionName + ".vhd")
+    emitEnumPackage(outFile)
+    emitPackage(outFile)
 
     for (c <- sortedComponents) {
       SpinalInfoPhase(s"${"  " * (1 + c.level)}emit ${c.definitionName}")
       compile(c)
     }
 
-    out.flush();
-    out.close();
-
-    //  emitTestBench(topLevel :: Nil,topLevel.definitionName + "_tb")
-
-    report
+    outFile.flush();
+    outFile.close();
   }
+
 
 
   def compile(component: Component): Unit = {
     val text = emit(component)
-    out.write(text)
+    outFile.write(text)
   }
 
-  class ComponentBuilder(val component: Component) {
-    val parts = ArrayBuffer[(StringBuilder, Boolean)]()
 
-    def newPart(mustMatch: Boolean): StringBuilder = {
-      val builder = new mutable.StringBuilder
-      parts += (builder -> mustMatch)
-      builder
-    }
-
-    def result: String = {
-      val ret = new mutable.StringBuilder
-      parts.foreach(ret ++= _._1)
-      ret.result()
-    }
-
-    var hash: Integer = null
-
-    override def hashCode(): Int = {
-      if (hash == null) {
-        hash = parts.filter(_._2).foldLeft(0)(_ + _._1.result().hashCode())
-      }
-      hash
-    }
-
-    override def equals(obj: scala.Any): Boolean = {
-      if (this.hashCode() != obj.hashCode()) return false //Colision into hashmap implementation don't check it XD
-      obj match {
-        case cb: ComponentBuilder => {
-          for ((a, b) <- (parts, cb.parts).zipped) {
-            if (a._2 || b._2) {
-              if (a._1.result() != b._1.result()) {
-                return false
-              }
-            }
-          }
-          return true;
-        }
-        case _ => return ???
-      }
-    }
-  }
 
   case class WrappedStuff(originalName: String, newName: String)
 
@@ -174,12 +103,12 @@ class VhdlBackend extends Backend with VhdlBase {
     val ret = new StringBuilder();
     ret ++=
       s"""library IEEE;
-          |use IEEE.STD_LOGIC_1164.ALL;
-          |use IEEE.NUMERIC_STD.all;
-          |use ieee.math_real.all;
-          |
-               |package $enumPackageName is
-          |""".stripMargin
+         |use IEEE.STD_LOGIC_1164.ALL;
+         |use IEEE.NUMERIC_STD.all;
+         |use ieee.math_real.all;
+         |
+         |package $enumPackageName is
+                                    |""".stripMargin
     for (enumDef <- enums.keys) {
       ret ++= s"  type ${enumDef.getName()} is (${enumDef.values.map(_.getName()).reduce(_ + "," + _)});\n"
       ret ++= s"  type ${getEnumDebugType(enumDef)} is (${enumDef.values.foldLeft("XXX")((str, e) => str + "," + e.getName())});\n"
@@ -221,24 +150,6 @@ class VhdlBackend extends Backend with VhdlBase {
       "\"" + ("0" * (encoding.getWidth(enum.parent) - str.length)) + str + "\""
     }
 
-    //    val vecTypes = mutable.Set[Seq[Int]]()
-    //    Node.walk(walkNodesDefautStack,node => node match{
-    //      case node : VecBaseType[_] => {
-    //        if(!vecTypes.contains(node.dims.toSeq)){
-    //          var dimsVar = Seq[Int]()
-    //          for(dim <- node.dims.reverseIterator){
-    //            dimsVar = dim +: dimsVar
-    //            if(!vecTypes.contains(dimsVar)){
-    //              ret ++= s"  type ${emitVecType(node.baseType,dimsVar  )}} is array (3 downto 0) of std_ulogic;"
-    //            }
-    //          }
-    //          ret ++= "asd\n"
-    //          vecTypes += node.dims.toSeq
-    //        }
-    //      }
-    //      case _ =>
-    //    })
-
 
     ret ++= s"end $enumPackageName;\n\n"
     if (enums.size != 0) {
@@ -255,34 +166,14 @@ class VhdlBackend extends Backend with VhdlBase {
         ret ++= "  end pkg_mux;\n\n"
 
 
-        //        ret ++= s"  function pkg_toStdLogicVector (value : $enumName) return std_logic_vector is\n"
-        //        ret ++= "  begin\n"
-        //        ret ++= "    case value is \n"
-        //        for (e <- enumDef.values) {
-        //          ret ++= s"      when ${e.getName()} => return ${idToBits(e.position)};\n"
-        //        }
-        //        ret ++= s"      when others => return ${idToBits(enumDef.values.head)};\n"
-        //        ret ++= "    end case;\n"
-        //        ret ++= "  end pkg_toStdLogicVector;\n\n"
-        //
-        //        ret ++= s"  function pkg_to$enumName (value : std_logic_vector) return $enumName is\n"
-        //        ret ++= "  begin\n"
-        //        ret ++= "    case to_integer(unsigned(value)) is \n"
-        //        for (e <- enumDef.values) {
-        //          ret ++= s"      when ${e.id} => return ${e.getName()};\n"
-        //        }
-        //        ret ++= s"      when others => return ${enumDef.values.head.getName()};\n"
-        //        ret ++= "    end case;\n"
-        //        ret ++= s"  end pkg_to$enumName;\n\n"
-
 
         for (encoding <- encodings) {
           if (!encoding.isNative)
             ret ++=
               s"""  function ${getEnumToDebugFuntion(enumDef, encoding)} (value : ${emitEnumType(enumDef, encoding)}) return ${getEnumDebugType(enumDef)} is
-                  |  begin
-                  |    case value is
-                  |${
+                                                                                                                                                           |  begin
+                                                                                                                                                           |    case value is
+                                                                                                                                                           |${
                 {
                   for (e <- enumDef.values) yield s"      when ${emitEnumLiteral(e, encoding)} => return ${e.getName()};"
                 }.reduce(_ + "\n" + _)
@@ -294,31 +185,31 @@ class VhdlBackend extends Backend with VhdlBase {
           else {
             ret ++=
               s"""  function pkg_to${enumName}_${encoding.getName()} (value : std_logic_vector(${encoding.getWidth(enumDef) - 1} downto 0)) return $enumName is
-                  |  begin
-                  |    case value is
-                  |${
+                                                                                                                                                              |  begin
+                                                                                                                                                              |    case value is
+                                                                                                                                                              |${
                 {
                   for (e <- enumDef.values) yield s"      when ${idToBits(e, encoding)} => return ${e.getName()};"
                 }.reduce(_ + "\n" + _)
               }
                   |      when others => return ${enumDef.values.head.getName()};
-                  |    end case;
-                  |  end;
-                  |""".stripMargin
+                                                                                 |    end case;
+                                                                                 |  end;
+                                                                                 |""".stripMargin
 
             ret ++=
               s"""  function pkg_toStdLogicVector_${encoding.getName()} (value : $enumName) return std_logic_vector is
-                  |  begin
-                  |    case value is
-                  |${
+                                                                                            |  begin
+                                                                                            |    case value is
+                                                                                            |${
                 {
                   for (e <- enumDef.values) yield s"      when ${e.getName()} => return ${idToBits(e, encoding)};"
                 }.reduce(_ + "\n" + _)
               }
                   |      when others => return ${idToBits(enumDef.values.head, encoding)};
-                  |    end case;
-                  |  end;
-                  |""".stripMargin
+                                                                                           |    end case;
+                                                                                           |  end;
+                                                                                           |""".stripMargin
           }
 
 
@@ -676,27 +567,14 @@ class VhdlBackend extends Backend with VhdlBase {
     emitLibrary(ret)
   }
 
-  def emitLibrary(ret: StringBuilder): Unit = {
-    ret ++= "library ieee;\n"
-    ret ++= "use ieee.std_logic_1164.all;\n"
-    ret ++= "use ieee.numeric_std.all;\n"
-    ret ++= "\n"
-    ret ++= s"library work;\n"
-    ret ++= s"use work.$packageName.all;\n"
-    ret ++= s"use work.all;\n"
-    ret ++= s"use work.$enumPackageName.all;\n\n"
-  }
 
-  def emitEntityName(component: Component): Unit = {
-
-  }
 
   def emitEntity(component: Component, builder: ComponentBuilder): Unit = {
     var ret = builder.newPart(false)
     ret ++= s"\nentity ${component.definitionName} is\n"
     ret = builder.newPart(true)
     ret ++= s"  port(\n"
-    if (!(onlyStdLogicVectorTopLevelIo && component == topLevel)) {
+    if (!(config.onlyStdLogicVectorAtTopLevelIo && component == topLevel)) {
       component.getOrdredNodeIo.foreach(baseType =>
         ret ++= s"    ${baseType.getName()} : ${emitDirection(baseType)} ${emitDataType(baseType)};\n"
       )
@@ -722,7 +600,7 @@ class VhdlBackend extends Backend with VhdlBase {
 
   def emitArchitecture(component: Component, builder: ComponentBuilder): Unit = {
     var ret = builder.newPart(false)
-    val wrappedIo = if (onlyStdLogicVectorTopLevelIo && component == topLevel) ioStdLogicVectorWrapNames() else HashMap[BaseType, WrappedStuff]()
+    val wrappedIo = if (config.onlyStdLogicVectorAtTopLevelIo && component == topLevel) ioStdLogicVectorWrapNames() else HashMap[BaseType, WrappedStuff]()
     ret ++= s"architecture arch of ${component.definitionName} is\n"
     ret = builder.newPart(true)
     emitBlackBoxComponents(component, ret)
@@ -764,7 +642,7 @@ class VhdlBackend extends Backend with VhdlBase {
 
   def emitBlackBoxComponents(component: Component, ret: StringBuilder): Unit = {
     val emited = mutable.Set[String]()
-    for (c <- component.kinds) c match {
+    for (c <- component.children) c match {
       case blackBox: BlackBox => {
         if (!emited.contains(blackBox.definitionName)) {
           emited += blackBox.definitionName
@@ -958,164 +836,26 @@ class VhdlBackend extends Backend with VhdlBase {
   }
 
 
-  def getSensitivity(nodes: Iterable[Node], includeNodes: Boolean): mutable.Set[Node] = {
-    val sensitivity = mutable.Set[Node]()
-
-    if (includeNodes)
-      nodes.foreach(walk(_))
-    else
-      nodes.foreach(_.onEachInput(walk(_)))
-
-    def walk(node: Node): Unit = {
-      if (isReferenceable(node))
-        sensitivity += node
-      else
-        node.onEachInput(walk(_))
-    }
-
-    sensitivity
-  }
 
   def emitAsyncronous(component: Component, ret: StringBuilder, funcRet: StringBuilder): Unit = {
-
-    var processCounter = 0
-    class Process(val order: Int) {
-      var sensitivity: mutable.Set[Node] = null
-      val nodes = ArrayBuffer[Node]()
-      val whens = ArrayBuffer[ConditionalContext]()
-      var hasMultipleAssignment = false
-
-      def genSensitivity: Unit = sensitivity = getSensitivity(nodes, false)
-
-
-      def needProcessDef: Boolean = {
-        if (!whens.isEmpty || nodes.size > 1) return true
-        if (hasMultipleAssignment) {
-          val ma: MultipleAssignmentNode = nodes(0).getInput(0).asInstanceOf[MultipleAssignmentNode]
-          val assignedBits = new AssignedBits(nodes(0).getWidth)
-          ma.onEachInput(_ match {
-            case assign: AssignementNode => {
-              val scope = assign.getScopeBits
-              if (!AssignedBits.intersect(scope, assignedBits).isEmpty) return true
-              assignedBits.add(scope)
-            }
-            case _ => return true
-          })
-        }
-        return false
-      }
-    }
-
-    val processSet = mutable.Set[Process]()
-    val whenToProcess = mutable.Map[ConditionalContext, Process]()
-
-    def move(to: Process, from: Process): Unit = {
-      to.nodes ++= from.nodes
-      to.whens ++= from.whens
-      to.hasMultipleAssignment |= from.hasMultipleAssignment
-      from.whens.foreach(whenToProcess(_) = to)
-      processSet.remove(from)
-    }
-
-    val asyncSignals = component.nodes.filter(_ match {
-      case signal: BaseType => (!signal.isDelay) && (!((signal.isIo && signal.isInput) || component.kindsOutputsBindings.contains(signal)))
-      case _ => false
-    })
-
-    for (signal <- asyncSignals) {
-      var process: Process = null
-      var hasMultipleAssignment = false
-      walk(signal.getInput(0))
-      def walk(that: Node): Unit = {
-        that match {
-          case wn: WhenNode => {
-            if (whenToProcess.contains(wn.w)) {
-              val otherProcess = whenToProcess.get(wn.w).get
-              if (process == null) {
-                process = otherProcess
-                otherProcess.nodes += signal
-              } else if (process != otherProcess) {
-                move(otherProcess, process)
-                process = otherProcess
-              }
-            } else {
-              if (process == null) {
-                process = new Process(processCounter);
-                processCounter += 1
-                process.nodes += signal
-                processSet += process
-              }
-              process.whens += wn.w
-              whenToProcess += (wn.w -> process)
-            }
-
-            walk(wn.whenTrue)
-            walk(wn.whenFalse)
-          }
-          case switchNode: SwitchNode => {
-            if (whenToProcess.contains(switchNode.context)) {
-              val otherProcess = whenToProcess.get(switchNode.context).get
-              if (process == null) {
-                process = otherProcess
-                otherProcess.nodes += signal
-              } else if (process != otherProcess) {
-                move(otherProcess, process)
-                process = otherProcess
-              }
-            } else {
-              if (process == null) {
-                process = new Process(processCounter);
-                processCounter += 1
-                process.nodes += signal
-                processSet += process
-              }
-              process.whens += switchNode.context
-              whenToProcess += (switchNode.context -> process)
-            }
-
-            switchNode.cases.foreach(n => walk(n.asInstanceOf[CaseNode].assignement))
-          }
-          case man: MultipleAssignmentNode => {
-            man.onEachInput(walk(_))
-            hasMultipleAssignment = true
-          }
-          case that => {
-            if (process == null) {
-              process = new Process(processCounter);
-              processCounter += 1
-              process.nodes += signal
-              processSet += process
-            }
-          }
-        }
-      }
-
-      process.hasMultipleAssignment |= hasMultipleAssignment
-    }
-
-    val processList = processSet.toList.sortWith(_.order < _.order)
-
+    val processList = getAsyncProcesses(component)
 
     for (process <- processList if !process.needProcessDef) {
       for (node <- process.nodes) {
         emitAssignement(node, node.getInput(0), ret, "  ", "<=")
-        //ret ++= s"  ${emitReference(node)} <= ${emitLogic(node.getInput(0))};\n"
       }
     }
 
     for (process <- processList if process.needProcessDef) {
       process.genSensitivity
 
-      val context = new AssignementLevel
-      for (node <- process.nodes) {
-        context.walkWhenTree(node, node.getInput(0))
-      }
+      val context = new AssignementLevel(process.nodes.map(n => AssignementLevelCmd(n,n.getInput(0))))
 
       if (process.sensitivity.size != 0) {
 
         ret ++= s"  process(${process.sensitivity.toList.sortWith(_.instanceCounter < _.instanceCounter).map(emitReference(_)).reduceLeft(_ + "," + _)})\n"
         ret ++= "  begin\n"
-        context.emitContext(ret, "    ", "<=")
+        emitAssignementLevel(context,ret, "    ", "<=")
         ret ++= "  end process;\n\n"
       } else {
         //emit func as logic
@@ -1138,7 +878,7 @@ class VhdlBackend extends Backend with VhdlBase {
     ret ++= s"  function $funcName return ${emitDataType(node, false)} is\n"
     ret ++= s"    variable ${emitReference(node)} : ${emitDataType(node, true)};\n"
     ret ++= s"  begin\n"
-    context.emitContext(ret, "    ", ":=")
+    emitAssignementLevel(context,ret, "    ", ":=")
     ret ++= s"    return ${emitReference(node)};\n"
     ret ++= s"  end function;\n"
   }
@@ -1153,7 +893,7 @@ class VhdlBackend extends Backend with VhdlBase {
   }
 
   def operatorImplAsUnaryOperator(vhd: String)(op: Modifier): String = {
-     s"($vhd ${emitLogic(op.getInput(0))})"
+    s"($vhd ${emitLogic(op.getInput(0))})"
   }
 
   def operatorImplAsFunction(vhd: String)(func: Modifier): String = {
@@ -1175,14 +915,14 @@ class VhdlBackend extends Backend with VhdlBase {
     func.getInput(0).getWidth match{
       case 0 => {
         func.getInput(0) match {
-          case lit: BitsLiteral => {
-            val bitString =  '"' + "0" * func.getWidth + '"'
+          /*case lit: BitsLiteral => {
+            val bitString =  '"' + "0" ASFASF* func.getWidth + '"'
             lit.kind match {
               case _: Bits => s"pkg_stdLogicVector($bitString)"
               case _: UInt => s"pkg_unsigned($bitString)"
               case _: SInt => s"pkg_signed($bitString)"
             }
-          }
+          }*/
           case _ => s"pkg_resize(${emitLogic(resize.input)},${resize.size})"
         }
       }
@@ -1426,7 +1166,7 @@ class VhdlBackend extends Backend with VhdlBase {
       case _: SInt => s"pkg_signed(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
     }
     case lit: BoolLiteral => s"pkg_toStdLogic(${lit.value})"
-  //  case lit: BoolLiteral => if(lit.value) "'1'" else "'0'" //Invalid VHDL when '1' = '1'
+    //  case lit: BoolLiteral => if(lit.value) "'1'" else "'0'" //Invalid VHDL when '1' = '1'
     case lit: EnumLiteral[_] => emitEnumLiteral(lit.enum, lit.encoding)
     case memRead: MemReadAsync => {
       if (memRead.writeToReadKind == dontCare) SpinalWarning(s"memReadAsync with dontCare is as writeFirst into VHDL")
@@ -1492,17 +1232,19 @@ class VhdlBackend extends Backend with VhdlBase {
           tabLevel = tabLevel - 1
         }
 
-        val initialValueAssignement = new AssignementLevel
         val initialValues = ArrayBuffer[Node]()
+        val initialTasks = ArrayBuffer[AssignementLevelCmd]()
         for (syncNode <- activeArray) syncNode match {
           case reg: Reg => {
             if (reg.hasInitialValue) {
-              initialValueAssignement.walkWhenTree(reg.getOutputByConsumers, reg.getInitialValue)
+              initialTasks += AssignementLevelCmd(reg.getOutputByConsumers, reg.getInitialValue)
               initialValues += reg.getInitialValue
             }
           }
           case _ =>
         }
+        val initialValueAssignement = new AssignementLevel(initialTasks)
+
 
 
         if (asyncReset) {
@@ -1555,14 +1297,15 @@ class VhdlBackend extends Backend with VhdlBase {
 
 
         def emitRegsInitialValue(assignementLevel: AssignementLevel, tab: String): Unit = {
-          assignementLevel.emitContext(ret, tab, "<=")
+          emitAssignementLevel(assignementLevel,ret, tab, "<=")
         }
 
 
         def emitRegsLogic(tab: String): Unit = {
 
 
-          val rootContext = new AssignementLevel
+          val assignementTasks = ArrayBuffer[AssignementLevelCmd]()
+
 
           for (syncNode <- activeArray) syncNode match {
             case reg: Reg => {
@@ -1570,7 +1313,7 @@ class VhdlBackend extends Backend with VhdlBase {
               if (!regSignal.isIo || !regSignal.isInput) {
                 val in = reg.getDataInput
                 if (in != reg)
-                  rootContext.walkWhenTree(regSignal, in)
+                  assignementTasks += AssignementLevelCmd(regSignal, in)
               }
             }
             case memWrite: MemWrite => {
@@ -1663,7 +1406,8 @@ class VhdlBackend extends Backend with VhdlBase {
               ret ++= s"${tab}assert $cond = '1' $message $severity;\n"
             }
           }
-          rootContext.emitContext(ret, tab, "<=")
+          val rootContext = new AssignementLevel(assignementTasks)
+          emitAssignementLevel(rootContext,ret, tab, "<=")
         }
       }
     }
@@ -1689,130 +1433,54 @@ class VhdlBackend extends Backend with VhdlBase {
     }
   }
 
-  class ConditionalTree(val instanceCounter: Int)
+  def emitAssignementLevel(context : AssignementLevel,ret: mutable.StringBuilder, tab: String, assignementKind: String, isElseIf: Boolean = false): Unit = {
+    val firstTab = if (isElseIf) "" else tab
 
-  class WhenTree(val cond: Node, instanceCounter: Int) extends ConditionalTree(instanceCounter) {
-    var whenTrue: AssignementLevel = new AssignementLevel
-    var whenFalse: AssignementLevel = new AssignementLevel
-  }
+    context.content.foreach(_ match {
+      case whenTree: AssignementLevelWhen => {
+        def doTrue = whenTree.whenTrue.isNotEmpty
+        def doFalse = whenTree.whenFalse.isNotEmpty
+        val condLogic = emitLogic(whenTree.cond)
+        val condLogicCleaned = if (condLogic.startsWith("pkg_toStdLogic(")) condLogic.substring("pkg_toStdLogic(".length, condLogic.length - 1) else condLogic + " = '1'"
 
-  class SwitchTree(instanceCounter: Int, context: SwitchContext) extends ConditionalTree(instanceCounter) {
-    val cases = new Array[(Node, AssignementLevel)](context.caseCount)
-  }
-
-  class AssignementLevel {
-    //map of precedent ConditionalTree , assignements      if no precedent ConditionalTree simple assignememnt => null
-    val logicChunk = mutable.Map[ConditionalTree, ArrayBuffer[(Node, Node)]]()
-    val conditionalTrees = mutable.Map[ConditionalContext, ConditionalTree]()
-
-    def isEmpty = logicChunk.isEmpty && conditionalTrees.isEmpty
-
-    def isNotEmpty = !isEmpty
-
-
-    def walkWhenTree(root: Node, that: Node): Unit = {
-      def getElements: Iterator[Node] = {
-        if (that.isInstanceOf[MultipleAssignmentNode]) {
-          return that.getInputs
+        if (doTrue && !doFalse) {
+          ret ++= s"${firstTab}if $condLogicCleaned then\n"
+          emitAssignementLevel(whenTree.whenTrue, ret, tab + "  ", assignementKind)
+          ret ++= s"${tab}end if;\n"
         } else {
-          return Iterator(that)
-        }
-      }
-
-      var lastConditionalTree: ConditionalTree = null
-      for (node <- getElements) {
-        node match {
-          case whenNode: WhenNode => {
-            if (!whenNode.whenTrue.isInstanceOf[NoneNode]) {
-              val whenTree = this.conditionalTrees.getOrElseUpdate(whenNode.w, new WhenTree(whenNode.cond, node.instanceCounter)).asInstanceOf[WhenTree]
-              lastConditionalTree = whenTree
-              whenTree.whenTrue.walkWhenTree(root, whenNode.whenTrue)
-            }
-            if (!whenNode.whenFalse.isInstanceOf[NoneNode]) {
-              val whenTree = this.conditionalTrees.getOrElseUpdate(whenNode.w, new WhenTree(whenNode.cond, node.instanceCounter)).asInstanceOf[WhenTree]
-              lastConditionalTree = whenTree
-              whenTree.whenFalse.walkWhenTree(root, whenNode.whenFalse)
-            }
-          }
-          case switchNode: SwitchNode => {
-            val switchTree = this.conditionalTrees.getOrElseUpdate(switchNode.context, new SwitchTree(node.instanceCounter, switchNode.context)).asInstanceOf[SwitchTree]
-            lastConditionalTree = switchTree
-            switchNode.onEachInput(input => {
-              val caseNode = input.asInstanceOf[CaseNode]
-              val tmp = switchTree.cases(caseNode.context.id)
-              var caseElement = if (tmp != null) tmp
-              else {
-                val tmp = (caseNode.cond -> new AssignementLevel)
-                switchTree.cases(caseNode.context.id) = tmp
-                tmp
-              }
-              caseElement._2.walkWhenTree(root, caseNode.assignement)
-            })
-          }
-          case reg: Reg =>
-          case _ => this.logicChunk.getOrElseUpdate(lastConditionalTree, new ArrayBuffer[(Node, Node)]) += new Tuple2(root, node)
-        }
-      }
-    }
-
-
-    def emitContext(ret: mutable.StringBuilder, tab: String, assignementKind: String, isElseIf: Boolean = false): Unit = {
-      def emitLogicChunk(key: WhenTree): Unit = {
-        if (this.logicChunk.contains(key)) {
-          for ((to, from) <- this.logicChunk.get(key).get) {
-            emitAssignement(to, from, ret, tab, assignementKind)
-          }
-        }
-      }
-      val firstTab = if (isElseIf) "" else tab
-
-      emitLogicChunk(null)
-      //OPT tolist.sort
-      for (conditionalTree <- this.conditionalTrees.values.toList.sortWith(_.instanceCounter < _.instanceCounter)) conditionalTree match {
-        case when: WhenTree => {
-          def doTrue = when.whenTrue.isNotEmpty
-          def doFalse = when.whenFalse.isNotEmpty
-
-//          def isCondSwitchReady : Boolean = {
-//            true
-//          }
-
-          val condLogic = emitLogic(when.cond)
-          val condLogicCleaned = if(condLogic.startsWith("pkg_toStdLogic(")) condLogic.substring("pkg_toStdLogic(".length,condLogic.length-1) else condLogic + " = '1'"
-
-          if (doTrue && !doFalse) {
-            ret ++= s"${firstTab}if $condLogicCleaned then\n"
-            when.whenTrue.emitContext(ret, tab + "  ", assignementKind)
-            ret ++= s"${tab}end if;\n"
-          } else /*if (doTrue && doFalse)*/ {
-            ret ++= s"${firstTab}if $condLogicCleaned then\n"
-            when.whenTrue.emitContext(ret, tab + "  ", assignementKind)
-            val falseHead = if (when.whenFalse.logicChunk.isEmpty && when.whenFalse.conditionalTrees.size == 1) when.whenFalse.conditionalTrees.head._1 else null
-            if (falseHead != null && falseHead.isInstanceOf[WhenContext] && falseHead.asInstanceOf[WhenContext].parentElseWhen != null) {
-              ret ++= s"${tab}els"
-              when.whenFalse.emitContext(ret, tab, assignementKind, true)
-            } else {
-              ret ++= s"${tab}else\n"
-              when.whenFalse.emitContext(ret, tab + "  ", assignementKind)
-              ret ++= s"${tab}end if;\n"
-            }
-          }
-          emitLogicChunk(when)
-        }
-        case switchTree: SwitchTree => {
-          for (caseElement <- switchTree.cases if caseElement != null) {
-            val (cond, level) = caseElement
-            ret ++= s"${tab}if ${emitLogic(cond)} = '1'  then\n"
-            level.emitContext(ret, tab + "  ", assignementKind)
+          ret ++= s"${firstTab}if $condLogicCleaned then\n"
+          emitAssignementLevel(whenTree.whenTrue, ret, tab + "  ", assignementKind)
+          val falseHead = if (whenTree.whenFalse.isOnlyAWhen) whenTree.whenFalse.content.head else null
+          if (falseHead != null && falseHead.asInstanceOf[AssignementLevelWhen].context.parentElseWhen == whenTree.context) {
+            ret ++= s"${tab}els"
+            emitAssignementLevel(whenTree.whenFalse, ret, tab, assignementKind, true)
+          } else {
+            ret ++= s"${tab}else\n"
+            emitAssignementLevel(whenTree.whenFalse, ret, tab + "  ", assignementKind)
             ret ++= s"${tab}end if;\n"
           }
         }
       }
-    }
+      case switchTree : AssignementLevelSwitch => {
+        ret ++= s"${tab}case ${emitLogic(switchTree.key)} is\n"
+        switchTree.cases.foreach(c => {
+          ret ++= s"${tab}  when ${emitLogic(c.const)} =>\n"
+          emitAssignementLevel(c.doThat,ret,tab + "    ","<=")
+        })
+        ret ++= s"${tab}  when others =>\n"
+        if(!switchTree.default.isInstanceOf[NoneNode]){
+          emitAssignementLevel(switchTree.default.doThat,ret,tab + "    ","<=")
+        }
+        ret ++= s"${tab}end case;\n"
+      }
+      case task : AssignementLevelSimple => emitAssignement(task.that, task.by, ret, tab, assignementKind)
+    })
+
+
   }
 
   def emitComponentInstances(component: Component, ret: StringBuilder): Unit = {
-    for (kind <- component.kinds) {
+    for (kind <- component.children) {
       val isBB = kind.isInstanceOf[BlackBox]
       val isBBUsingULogic = isBB && kind.asInstanceOf[BlackBox].isUsingULogic
       val definitionString = if (isBB) kind.definitionName

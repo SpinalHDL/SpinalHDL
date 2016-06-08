@@ -1,8 +1,8 @@
-package spinal.lib.bus.avalon
+package spinal.lib.com.uart
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.com.uart._
+import spinal.lib.bus.avalon.{AvalonMM, AvalonMMSlaveFactory}
 import spinal.lib.tool.QSysify
 
 object AvalonMMUartCtrl{
