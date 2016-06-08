@@ -112,8 +112,10 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
 
   def toSpinalEnumCraft[T <: SpinalEnum](that: Any) = that.asInstanceOf[SpinalEnumCraft[T]]
 
+
   def emitEnumPackage(out: java.io.FileWriter): Unit = {
     val ret = new StringBuilder();
+
 
 //    for (enumDef <- enums.keys) {
 //      ret ++= s"`define ${emitEnumType(enumDef,native) [${enumDef.values.size-1}:0]\n"
@@ -128,8 +130,8 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
     ret ++= "\n"
     for ((enumDef, encodings) <- enums) {
       val enumName = enumDef.getName()
-
-      for (encoding <- encodings) {
+      val swappedEncodings = encodings.map(getSwappedEncoding(_))
+      for (encoding <- swappedEncodings) {
         val encodingName = encoding.getName()
         val bitCount = encoding.getWidth(enumDef)
         val vhdlEnumType = emitEnumType(enumDef, encoding,"")
@@ -394,7 +396,7 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
       case literal: EnumLiteral[_] => (literal.enum.parent, literal.encoding)
     }
     encoding match {
-      case `oneHot` => s"((${emitLogic(op.getInput(0))} and ${emitLogic(op.getInput(1))}) ${if (eguals) "!=" else "=="} ${'"' + "0" * op.getInput(0).getWidth + '"'})"
+      case `binaryOneHot` => s"((${emitLogic(op.getInput(0))} and ${emitLogic(op.getInput(1))}) ${if (eguals) "!=" else "=="} ${'"' + "0" * op.getInput(0).getWidth + '"'})"
       case _ => s"(${emitLogic(op.getInput(0))} ${if (eguals) "==" else "!="} ${emitLogic(op.getInput(1))})"
     }
   }
@@ -424,23 +426,24 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
   }
 
   def operatorImplAsEnumToEnum(func: Modifier): String = {
-    val (enumDefSrc, encodingSrc) = func.getInput(0) match {
-      case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.encoding)
-      case literal: EnumLiteral[_] => (literal.enum.parent, literal.encoding)
-    }
-    val enumCast = func.asInstanceOf[CastBitsToEnum]
-    val (enumDefDst, encodingDst) = enumCast.enum match {
-      case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.encoding)
-    }
-    if (encodingDst.isNative && encodingSrc.isNative)
-      emitLogic(func.getInput(0))
-    else {
-      val encoding = enumCast.getInput(0) match {
-        case input: SpinalEnumCraft[_] => input.encoding
-        case input: EnumLiteral[_] => input.encoding
-      }
-      s"${getReEncodingFuntion(enumCast.enum.blueprint.asInstanceOf[SpinalEnum], encoding, enumCast.enum.encoding)}(${func.getInputs.map(emitLogic(_)).reduce(_ + "," + _)})"
-    }
+    SpinalError("Currently cast between enumeration encoding is not supported in the Verilog backend") //TODO
+//    val (enumDefSrc, encodingSrc) = func.getInput(0) match {
+//      case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.encoding)
+//      case literal: EnumLiteral[_] => (literal.enum.parent, literal.encoding)
+//    }
+//    val enumCast = func.asInstanceOf[CastEnumToEnum]
+//    val (enumDefDst, encodingDst) = enumCast.enum match {
+//      case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.encoding)
+//    }
+//    if (encodingDst.isNative && encodingSrc.isNative)
+//      emitLogic(func.getInput(0))
+//    else {
+//      val encoding = enumCast.getInput(0) match {
+//        case input: SpinalEnumCraft[_] => input.encoding
+//        case input: EnumLiteral[_] => input.encoding
+//      }
+//      s"${getReEncodingFuntion(enumCast.enum.blueprint.asInstanceOf[SpinalEnum], encoding, enumCast.enum.encoding)}(${func.getInputs.map(emitLogic(_)).reduce(_ + "," + _)})"
+//    }
   }
 
   val modifierImplMap = mutable.Map[String, Modifier => String]()
@@ -534,7 +537,7 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
   modifierImplMap.put("s->b", operatorImplAsNoTransformation)
   modifierImplMap.put("u->b", operatorImplAsNoTransformation)
   modifierImplMap.put("B->b", operatorImplAsNoTransformation)
-  modifierImplMap.put("e->b", operatorImplAsEnumToBits)
+  modifierImplMap.put("e->b", operatorImplAsNoTransformation)
 
   modifierImplMap.put("b->s", operatorImplAsNoTransformation)
   modifierImplMap.put("u->s", operatorImplAsNoTransformation)
@@ -542,7 +545,7 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
   modifierImplMap.put("b->u", operatorImplAsNoTransformation)
   modifierImplMap.put("s->u", operatorImplAsNoTransformation)
 
-  modifierImplMap.put("b->e", operatorImplAsBitsToEnum)
+  modifierImplMap.put("b->e", operatorImplAsNoTransformation)
   modifierImplMap.put("e->e", operatorImplAsEnumToEnum)
 
 

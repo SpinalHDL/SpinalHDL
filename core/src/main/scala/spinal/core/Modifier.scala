@@ -495,14 +495,14 @@ object Operator{
     class Equal extends BinaryOperator{
       override def opName: String = "e==e"
       override def calcWidth(): Int = 1
-      override def normalizeInputs: Unit = {InputNormalize.enumImpl(this)}
+      override def normalizeInputs: Unit = {InputNormalize.binaryOperatorEnumImpl(this)}
       override def simplifyNode: Unit = {}
     }
 
     class NotEqual extends BinaryOperator{
       override def opName: String = "e!=e"
       override def calcWidth(): Int = 1
-      override def normalizeInputs: Unit = {InputNormalize.enumImpl(this)}
+      override def normalizeInputs: Unit = {InputNormalize.binaryOperatorEnumImpl(this)}
       override def simplifyNode: Unit = {}
     }
 
@@ -621,6 +621,10 @@ class MultiplexerSInt extends Multiplexer{
 }
 class MultiplexerEnum extends Multiplexer{
   override def opName: String = "mux(B,e,e)"
+  override def normalizeInputs: Unit = {
+    InputNormalize.binaryOperatorEnumImpl(this,1,2)
+  }
+
 }
 
 object Mux {

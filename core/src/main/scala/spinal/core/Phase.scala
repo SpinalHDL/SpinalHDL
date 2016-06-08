@@ -15,7 +15,19 @@ class PhaseContext(val config : SpinalConfig){
   val globalScope = new Scope()
   var topLevel: Component = null
   val enums = mutable.Map[SpinalEnum,mutable.Set[SpinalEnumEncoding]]()
-  val reservedKeyWords = mutable.Set[String]()
+  val reservedKeyWords = mutable.Set[String](
+    "in", "out", "buffer", "inout",
+    "entity", "component", "architecture",
+    "type","open","block","access",
+    "or","and","xor","nand","nor",
+
+    "input", "output",
+    "module","parameter","logic","reg",
+    "begin","end",
+    "always","posedge","negedge"
+  )
+
+  reservedKeyWords.foreach(globalScope.allocateName(_))
 
   def sortedComponents = components.sortWith(_.level > _.level)
 
@@ -1201,13 +1213,7 @@ object SpinalVhdlBoot{
     val pc = new PhaseContext(config)
     val prunedSignals = mutable.Set[BaseType]()
 
-    val reservedKeywords = Seq(
-      "in", "out", "buffer", "inout",
-      "entity", "component", "architecture",
-      "type","open","block","access",
-      "or","and","xor","nand","nor"
-    )
-    reservedKeywords.foreach(pc.globalScope.allocateName(_))
+
 
     SpinalInfoPhase("Start elaboration")
 
@@ -1349,19 +1355,6 @@ object SpinalVerilogBoot{
   def singleShot[T <: Component](config : SpinalConfig)(gen : => T): SpinalReport[T] ={
     val pc = new PhaseContext(config)
     val prunedSignals = mutable.Set[BaseType]()
-
-    val reservedKeywords = Seq(
-      "in", "out", "buffer", "inout",
-      "entity", "component", "architecture",
-      "type","open","block","access",
-      "or","and","xor","nand","nor",
-
-      "input", "output",  "inout",
-      "module","parameter","logic","reg",
-      "begin","end",
-      "always","posedge","negedge"
-    )
-    reservedKeywords.foreach(pc.globalScope.allocateName(_))
 
     SpinalInfoPhase("Start elaboration")
 

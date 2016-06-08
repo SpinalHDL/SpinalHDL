@@ -1127,23 +1127,27 @@ object PlayEnum {
     //    output := tmp
     val cond = in Bool()
     val input = in(MyEnum())
-    val output = out(MyEnum())
 
-    val tmp = Reg(MyEnum(sequancial))
-    out(tmp.asBits)
-    out(input.asBits)
+
+    val tmp = Reg(MyEnum(binarySequancial))
+
     tmp := MyEnum.s3
     when(input === MyEnum.s4) {
       tmp := MyEnum.s7
     }
     when(input === MyEnum.s5) {
-      tmp := Mux(cond, MyEnum.s6(), MyEnum.s8())
+      tmp := Mux(cond, MyEnum.s6(binarySequancial), MyEnum.s8(binarySequancial))
     }
-    output := tmp
+//    val output = out(MyEnum())
+//    output := tmp
+
+    out(tmp)
+    out(tmp.asBits)
+    out(input.asBits)
   }
 
   def main(args: Array[String]): Unit = {
-    SpinalVhdl(new TopLevel)
+    SpinalVerilog(new TopLevel)
   }
 }
 object PlayMul {
