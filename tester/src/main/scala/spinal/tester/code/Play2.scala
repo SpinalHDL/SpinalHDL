@@ -793,6 +793,7 @@ object PlaySwitch4 {
 
   def main(args: Array[String]): Unit = {
     SpinalVhdl(new TopLevel)
+    SpinalVerilog(new TopLevel)
   }
 }
 

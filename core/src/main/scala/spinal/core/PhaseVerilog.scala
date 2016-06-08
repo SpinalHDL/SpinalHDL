@@ -394,8 +394,8 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
       case literal: EnumLiteral[_] => (literal.enum.parent, literal.encoding)
     }
     encoding match {
-      case `oneHot` => s"pkg_toStdLogic((${emitLogic(op.getInput(0))} and ${emitLogic(op.getInput(1))}) ${if (eguals) "/=" else "="} ${'"' + "0" * op.getInput(0).getWidth + '"'})"
-      case _ => s"pkg_toStdLogic(${emitLogic(op.getInput(0))} ${if (eguals) "=" else "/="} ${emitLogic(op.getInput(1))})"
+      case `oneHot` => s"((${emitLogic(op.getInput(0))} and ${emitLogic(op.getInput(1))}) ${if (eguals) "!=" else "=="} ${'"' + "0" * op.getInput(0).getWidth + '"'})"
+      case _ => s"(${emitLogic(op.getInput(0))} ${if (eguals) "==" else "!="} ${emitLogic(op.getInput(1))})"
     }
   }
 
@@ -902,6 +902,21 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
             ret ++= s"${tab}end\n"
           }
         }
+      }
+
+      case switchTree : AssignementLevelSwitch => {
+        ret ++= s"${tab}case(${emitLogic(switchTree.key)})\n"
+        switchTree.cases.foreach(c => {
+          ret ++= s"${tab}  ${emitLogic(c.const)} : begin\n"
+          emitAssignementLevel(c.doThat,ret,tab + "    ","<=")
+          ret ++= s"${tab}  end\n"
+        })
+        ret ++= s"${tab}  default : begin\n"
+        if(!switchTree.default.isInstanceOf[NoneNode]){
+          emitAssignementLevel(switchTree.default.doThat,ret,tab + "    ","<=")
+        }
+        ret ++= s"${tab}  end\n"
+        ret ++= s"${tab}endcase\n"
       }
       case task: AssignementLevelSimple => emitAssignement(task.that, task.by, ret, tab, assignementKind)
     })
