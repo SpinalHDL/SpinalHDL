@@ -47,7 +47,7 @@ before_install:
   - export COCOTB=$(pwd)/cocotb
 
   # Force cocotb to compile VPI to avoid race condition when tests are start in parallel
-  - cd tester/src/test/python/spinal/BundleTester
+  - cd tester/src/test/python/spinal/Dummy
   - make
   - cd ../../../../../..
 
