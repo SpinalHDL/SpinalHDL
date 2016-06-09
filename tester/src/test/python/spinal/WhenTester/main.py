@@ -64,6 +64,7 @@ def test1(dut):
     random.seed(0)
     clockThread = cocotb.fork(ClockDomainAsyncReset(dut.clk, None))
 
+
     for i in range(0,1000):
         dut.io_conds_0 <= randBool()
         dut.io_conds_1 <= randBool()
@@ -100,3 +101,14 @@ def test1(dut):
                 "io_outRegComplex")
 
     dut.log.info("Cocotb test done")
+
+    from pprint import pprint
+    pprint(dut)
+    ret = object()
+    for o in dut:
+        print(o)
+        pprint(o)
+        # print(str(o.path) + "  " + str(int(o)))
+
+    # print(ret.io_outRegComplex)
+    #     print("LEN = " + str(len(dut.io_outRegComplex)))

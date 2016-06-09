@@ -82,5 +82,5 @@ class WhenTesterCocotbBoot extends SpinalTesterCocotbBase {
   override def getName: String = "WhenTester"
   override def createToplevel: Component = new WhenTester
 
-  override def pythonTestLocation: String = "tester/src/test/python/WhenTester"
+  override def pythonTestLocation: String = "tester/src/test/python/spinal/WhenTester"
 }

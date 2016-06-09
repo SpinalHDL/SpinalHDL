@@ -102,7 +102,7 @@ object CommonTester {
         val a = x(i)
         val b = y(i)
         ret(i) := a ^ b ^ c
-        c = (a & b) | (a & c) | (b & c)
+        c \= (a & b) | (a & c) | (b & c)
       }
       ret
     }
@@ -147,4 +147,10 @@ class CommonTesterGhdlBoot extends SpinalTesterGhdlBase {
   override def getName: String = "CommonTester"
 
   override def createToplevel: Component = new CommonTester.CommonTester
+}
+
+class CommonTesterCocotbBoot extends SpinalTesterCocotbBase {
+  override def getName: String = "CommonTester"
+  override def createToplevel: Component =  new CommonTester.CommonTester
+  override def pythonTestLocation: String = "tester/src/test/python/spinal/CommonTester"
 }
