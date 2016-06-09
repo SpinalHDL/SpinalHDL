@@ -40,6 +40,7 @@ out
 *.xml
 !tester/src/test/resources/*.vhd
 !dump.v
+!Dummy.v
 
 /src/
 *.out

@@ -61,6 +61,7 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
     }
   }
 
+
   def getReEncodingFuntion(spinalEnum: SpinalEnum, source: SpinalEnumEncoding, target: SpinalEnumEncoding): String = {
     s"${spinalEnum.getName()}_${source.getName()}_to_${target.getName()}"
   }
@@ -101,6 +102,14 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
     emitAsyncronous(component, retTemp, ret)
     emitSyncronous(component, retTemp)
     //TODO emitDebug(component, retTemp, enumDebugSignals)
+    if(component == topLevel && pc.config.dumpWave){
+      ret ++= s"""
+initial begin
+  $$dumpfile("wave.vcd");
+  $$dumpvars(1, ${component.definitionName});
+end
+"""
+    }
     retTemp ++= s"endmodule\n"
     retTemp ++= s"\n"
 

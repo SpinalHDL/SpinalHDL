@@ -1,8 +1,5 @@
 package spinal.tester.code
 
-/**
- * Created by PIC32F_USER on 20/09/2015.
- */
 
 import java.io.InputStream
 import java.util.concurrent.CyclicBarrier

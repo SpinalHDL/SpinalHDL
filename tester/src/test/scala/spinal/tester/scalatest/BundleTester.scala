@@ -64,3 +64,9 @@ class BundleTesterGhdlBoot extends SpinalTesterGhdlBase {
   override def getName: String = "BundleTester"
   override def createToplevel: Component = new BundleTester
 }
+
+class BundleTesterCocotbBoot extends SpinalTesterCocotbBase {
+  override def getName: String = "BundleTester"
+  override def pythonTestLocation: String = "tester/src/test/python/spinal/BundleTester"
+  override def createToplevel: Component = new BundleTester
+}

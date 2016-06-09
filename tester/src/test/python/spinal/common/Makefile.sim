@@ -1,0 +1,4 @@
+export PYTHONPATH:=${PWD}/../..
+SPINALROOT=$(PWD)/../../../../../..
+include $(COCOTB)/makefiles/Makefile.inc
+include $(COCOTB)/makefiles/Makefile.sim

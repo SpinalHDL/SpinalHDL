@@ -34,7 +34,7 @@ abstract class SpinalTesterCocotbBase extends FunSuite  {
 
   def doTest: Unit ={
       try {
-        backendConfig(SpinalConfig(mode = Verilog)).generate(createToplevel)
+        backendConfig(SpinalConfig(mode = Verilog,dumpWave = true)).generate(createToplevel)
       } catch {
         case e: Throwable => {
           assert(!spinalMustPass,"Spinal has fail :(")
@@ -43,7 +43,10 @@ abstract class SpinalTesterCocotbBase extends FunSuite  {
       }
       assert(spinalMustPass,"Spinal has not fail :(")
 
-      doCmd(Seq(s"cd $pythonTestLocation", "rm -f results.xml", "make"))
+      doCmd(Seq(
+        s"cd $pythonTestLocation",
+        "make")
+      )
       val pass = getCocotbPass()
       assert(!cocotbMustPass || pass,"Simulation fail")
       assert(cocotbMustPass || !pass,"Simulation has not fail :(")
