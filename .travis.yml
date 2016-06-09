@@ -46,7 +46,10 @@ before_install:
   - git clone https://github.com/potentialventures/cocotb
   - export COCOTB=$(pwd)/cocotb
 
-
+  # Force cocotb to compile VPI to avoid race condition when tests are start in parallel
+  - cd tester/src/test/python/spinal/BundleTester
+  - make
+  - cd ../../../../../..
 
 before_cache:
   # Tricks to avoid unnecessary cache updates
