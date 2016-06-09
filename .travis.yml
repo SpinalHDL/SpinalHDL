@@ -46,8 +46,6 @@ before_install:
   - git clone https://github.com/potentialventures/cocotb
   - export COCOTB=$(pwd)/cocotb
 
-  #Misc
-  - export PYTHONPATH=$(pwd)/tester/src/test/python:$PYTHONPATH
 
 
 before_cache:

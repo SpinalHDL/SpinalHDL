@@ -1,18 +1,19 @@
 import cocotb
 from cocotb.triggers import Timer, Edge, RisingEdge
 
-from spinal.common.misc import setBit, randSignal, assertEguality
+from spinal.common.misc import setBit, randSignal, assertEquals, truncInt
 
 
 class Ref:
     def __init__(self,dut):
         self.io_complexLiteral = 5986
-        self.io_inAABits =   (int(dut.io_outAA_bod_gggg) << 0) + \
-                             (int(dut.io_outAA_bod_aosi) << 1) + \
-                             (int(dut.io_outAA_ahe) << 4) + \
-                             (int(dut.io_outAA_zwg) << 5) + \
-                             (int(dut.io_outAA_vsw) << 6) + \
-                             (int(dut.io_outAA_lwee) << 7)
+
+        self.io_outAA_bod_gggg = truncInt(int(dut.io_inAABits) >> 0,dut.io_outAA_bod_gggg)
+        self.io_outAA_bod_aosi = truncInt(int(dut.io_inAABits) >> 1,dut.io_outAA_bod_aosi)
+        self.io_outAA_ahe = truncInt(int(dut.io_inAABits) >> 4,dut.io_outAA_ahe)
+        self.io_outAA_zwg = truncInt(int(dut.io_inAABits) >> 5,dut.io_outAA_zwg)
+        self.io_outAA_vsw = truncInt(int(dut.io_inAABits) >> 6,dut.io_outAA_vsw)
+        self.io_outAA_lwee = truncInt(int(dut.io_inAABits) >> 7,dut.io_outAA_lwee)
 
         self.io_outAABits = (int(dut.io_inAA_bod_gggg) << 0) + \
                             (int(dut.io_inAA_bod_aosi) << 1) + \
@@ -68,10 +69,15 @@ def test1(dut):
         randSignal(dut.io_assign_sel_3)
         yield Timer(1000)
         ref = Ref(dut)
-        assertEguality(ref.io_complexLiteral,dut.io_complexLiteral,"io_complexLiteral")
-        assertEguality(ref.io_inAABits, dut.io_inAABits, "io_inAABits")
-        assertEguality(ref.io_outAABits, dut.io_outAABits, "io_outAABits")
-        assertEguality(ref.io_outUIntAdder, dut.io_outUIntAdder, "io_outUIntAdder")
-        assertEguality(ref.io_assign_bitDemux, dut.io_assign_bitDemux, "io_assign_bitDemux")
+        assertEquals(ref.io_complexLiteral, dut.io_complexLiteral, "io_complexLiteral")
+        assertEquals(ref.io_outAA_bod_gggg, dut.io_outAA_bod_gggg, "io_outAA_bod_gggg")
+        assertEquals(ref.io_outAA_bod_aosi, dut.io_outAA_bod_aosi, "io_outAA_bod_aosi")
+        assertEquals(ref.io_outAA_ahe, dut.io_outAA_ahe, "io_outAA_ahe")
+        assertEquals(ref.io_outAA_zwg, dut.io_outAA_zwg, "io_outAA_zwg")
+        assertEquals(ref.io_outAA_vsw, dut.io_outAA_vsw, "io_outAA_vsw")
+        assertEquals(ref.io_outAA_lwee, dut.io_outAA_lwee, "io_outAA_lwee")
+        assertEquals(ref.io_outAABits, dut.io_outAABits, "io_outAABits")
+        assertEquals(ref.io_outUIntAdder, dut.io_outUIntAdder, "io_outUIntAdder")
+        assertEquals(ref.io_assign_bitDemux, dut.io_assign_bitDemux, "io_assign_bitDemux")
 
     dut.log.info("Cocotb test done")

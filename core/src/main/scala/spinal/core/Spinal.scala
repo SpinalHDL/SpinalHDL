@@ -36,7 +36,8 @@ case class SpinalConfig(
   defaultConfigForClockDomains: ClockDomainConfig = ClockDomainConfig(),
   onlyStdLogicVectorAtTopLevelIo : Boolean = false,
   defaultClockDomainFrequency : IClockDomainFrequency = UnknownFrequency(),
-  targetDirectory : String = "."
+  targetDirectory : String = ".",
+  dumpWave : Boolean = false
 ){
   def generate[T <: Component](gen : => T) : SpinalReport[T] = Spinal(this)(gen)
   def apply[T <: Component](gen : => T) : SpinalReport[T] = Spinal(this)(gen)

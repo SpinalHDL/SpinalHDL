@@ -1,5 +1,5 @@
-VERILOG_SOURCES =  $(PWD)/dump.v $(PWD)/../../../../../../WhenTester.v
+VERILOG_SOURCES += $(SPINALROOT)/WhenTester.v
 TOPLEVEL=WhenTester
-MODULE=main
-include $(COCOTB)/makefiles/Makefile.inc
-include $(COCOTB)/makefiles/Makefile.sim
+MODULE=WhenTester
+
+include ../common/Makefile.sim

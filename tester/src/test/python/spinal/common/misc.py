@@ -13,9 +13,12 @@ def randBits(width):
 def randSignal(that):
     that <= random.getrandbits(len(that))
 
-def assertEguality(a,b,name):
+def assertEquals(a, b, name):
     if int(a) != int(b):
         raise TestFailure("FAIL %s    %d != %d" % (name,int(a),int(b)))
+
+def truncInt(value,signal):
+    return value & ((1 << len(signal))-1)
 
 def setBit(v, index, x):
   mask = 1 << index
@@ -23,6 +26,13 @@ def setBit(v, index, x):
   if x:
     v |= mask
   return v
+
+def uint(signal):
+    return signal.value.integer
+
+def sint(signal):
+    return signal.value.signed_integer
+
 
 @cocotb.coroutine
 def ClockDomainAsyncReset(clk,reset):
@@ -37,3 +47,20 @@ def ClockDomainAsyncReset(clk,reset):
         yield Timer(500)
         clk <= 1
         yield Timer(500)
+
+
+
+
+
+
+
+        # from pprint import pprint
+        # pprint(dut)
+        # ret = object()
+        # for o in dut:
+        #     print(o)
+        #     pprint(o)
+        # print(str(o.path) + "  " + str(int(o)))
+
+# print(ret.io_outRegComplex)
+#     print("LEN = " + str(len(dut.io_outRegComplex)))
