@@ -32,12 +32,14 @@ before_install:
   - sudo apt-get install -y ghdl
 
   # iverilog (debian package 9.7 contain bugs)
+  - cd ..
   - wget ftp://ftp.icarus.com/pub/eda/verilog/v10/verilog-10.0.tar.gz
   - tar -xvf verilog-10.0.tar.gz
   - cd verilog-10.0
   - ./configure
   - make -j4
   - sudo make install
+  - cd SpinalHDL
 
   # cocotb
   - sudo apt-get install -y git make gcc g++ swig python-dev
