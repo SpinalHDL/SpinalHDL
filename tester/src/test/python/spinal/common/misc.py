@@ -13,6 +13,10 @@ def randBits(width):
 def randSignal(that):
     that <= random.getrandbits(len(that))
 
+def randBoolSignal(that,prob):
+    that <= (random.random() < prob)
+
+
 def assertEquals(a, b, name):
     if int(a) != int(b):
         raise TestFailure("FAIL %s    %d != %d" % (name,int(a),int(b)))
