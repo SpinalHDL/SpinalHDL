@@ -26,7 +26,7 @@ import spinal.core._
 import scala.concurrent.Await
 import scala.sys.process._
 
-abstract class SpinalTesterCocotbBase extends FunSuite with BeforeAndAfterAll  with ParallelTestExecution {
+abstract class SpinalTesterCocotbBase extends FunSuite  {
 
   var withWaveform = false
   var spinalMustPass = true
@@ -56,23 +56,22 @@ abstract class SpinalTesterCocotbBase extends FunSuite with BeforeAndAfterAll  w
 
 
   def doCmd(cmds : Seq[String]): Unit ={
-
     var out,err : String = null
-    val io = new ProcessIO(
-      stdin  => {
-        for(cmd <- cmds)
-          stdin.write((cmd + "\n").getBytes)
-        stdin.close()
-      },
-      stdout => {
-        out = scala.io.Source.fromInputStream(stdout).getLines.reduce(_ + "\n" + _)
-        stdout.close()
-      },
-      stderr => {
-        err = scala.io.Source.fromInputStream(stderr).getLines.reduce(_ + "\n" + _)
-        stderr.close()
-      })
-    val proc = Process("sh").run(io)
+        val io = new ProcessIO(
+          stdin  => {
+            for(cmd <- cmds)
+              stdin.write((cmd + "\n").getBytes)
+            stdin.close()
+          },
+          stdout => {
+            out = scala.io.Source.fromInputStream(stdout).getLines.reduce(_ + "\n" + _)
+            stdout.close()
+          },
+          stderr => {
+            err = scala.io.Source.fromInputStream(stderr).getLines.reduce(_ + "\n" + _)
+            stderr.close()
+          })
+        val proc = Process("sh").run(io)
     proc.exitValue()
     println(out)
     println(err)
