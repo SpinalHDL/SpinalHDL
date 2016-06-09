@@ -39,7 +39,7 @@ before_install:
   - ./configure
   - make -j4
   - sudo make install
-  - cd SpinalHDL
+  - cd ../SpinalHDL
 
   # cocotb
   - sudo apt-get install -y git make gcc g++ swig python-dev
