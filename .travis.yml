@@ -31,9 +31,16 @@ before_install:
   - sudo apt-get update
   - sudo apt-get install -y ghdl
 
-  # cocotb + iverilog
+  # iverilog (debian package 9.7 contain bugs)
+  - wget ftp://ftp.icarus.com/pub/eda/verilog/v10/verilog-10.0.tar.gz
+  - tar -xvf verilog-10.0.tar.gz
+  - cd verilog-10.0
+  - ./configure
+  - make -j4
+  - sudo make install
+
+  # cocotb
   - sudo apt-get install -y git make gcc g++ swig python-dev
-  - sudo apt-get install -y iverilog
   - git clone https://github.com/potentialventures/cocotb
   - export COCOTB=$(pwd)/cocotb
 
