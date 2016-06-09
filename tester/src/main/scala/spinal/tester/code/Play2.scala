@@ -1,5 +1,7 @@
 package spinal.tester.code
 
+
+import java.io.{PrintWriter, ByteArrayOutputStream}
 import java.util
 
 import spinal.core._
@@ -7,10 +9,11 @@ import spinal.lib._
 import spinal.lib.bus.neutral.NeutralStreamDma
 import spinal.lib.com.uart.UartCtrl
 import spinal.lib.graphic.RgbConfig
-import spinal.lib.graphic.vga.{AvalonMMVgaCtrl, AvalonMMVgaCtrl$, VgaCtrl}
+import spinal.lib.graphic.vga.{AvalonMMVgaCtrl, VgaCtrl}
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
+import scala.sys.process.{ProcessLogger, Process, ProcessIO}
 
 /**
  * Created by PIC32F_USER on 21/05/2016.
@@ -898,5 +901,69 @@ object PlayGenerics{
 
   def main(args: Array[String]) {
     SpinalVhdl(new TopLevel)
+  }
+}
+
+
+
+object PlayCocotb{
+
+
+  class TopLevel extends Component {
+    val clear = in Bool
+    val incrementBy = in UInt(16 bits)
+    val result = out (Reg(UInt(16 bits))) init(0)
+    result := result + incrementBy
+    when(clear){
+      result := 0
+    }
+  }
+
+
+
+  def main(args: Array[String]): Unit = {
+    //SpinalVhdl(new TopLevel)
+    SpinalVerilog(new TopLevel)
+
+    import scala.sys.process._
+
+
+    def doCmd(cmd : String): Unit ={
+      println(cmd)
+      Process("sh -c \"" + cmd + "\"") !
+    }
+
+    doCmd("export COCOTB=/d/pro/hdl/cocotbRepo && cd tester/src/test/python/TopLevel && make")
+
+  }
+}
+
+object PlayShell{
+  def main(args: Array[String]) {
+    var res = ""
+    val io = new ProcessIO(
+      stdin  => { stdin.write(("Yolo\n").getBytes)
+        stdin.flush()
+        stdin.close() },
+      stdout => { scala.io.Source.fromInputStream(stdout).getLines.foreach(println)
+        stdout.close() },
+      stderr => { scala.io.Source.fromInputStream(stderr).getLines.foreach(println)
+        stderr.close()})
+    val proc = Process("cmd").run(io)
+
+
+    //    def runCommand(cmd: Seq[String]): (Int, String, String) = {
+//      val stdoutStream = new ByteArrayOutputStream()
+//      val stderrStream = new ByteArrayOutputStream
+//      val stdoutWriter = new PrintWriter(stdoutStream)
+//      val stderrWriter = new PrintWriter(stderrStream)
+//      val exitValue = Process(cmd).!(ProcessLogger(stdin  => { stdin.write("Yolo".getBytes),stdoutWriter.println, stderrWriter.println))
+//      stdoutWriter.close()
+//      stderrWriter.close()
+//      (exitValue, stdoutStream.toString, stderrStream.toString)
+//    }
+//    val (int,out,err) = runCommand(Seq("sh"))
+//    println(out)
+//    println(err)
   }
 }

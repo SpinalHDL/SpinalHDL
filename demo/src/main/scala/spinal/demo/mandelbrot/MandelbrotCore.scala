@@ -69,7 +69,7 @@ class FrameTaskFilter(p: MandelbrotCoreParameters) extends Component {
 }
 
 
-class MandelbrotCore(p: MandelbrotCoreParameters) extends Component {
+class   MandelbrotCore(p: MandelbrotCoreParameters) extends Component {
   val io = new Bundle {
     val cmdPort = slave Flow Fragment(Bits(8 bit))
     val retPort = master Stream Fragment(Bits(8 bit))

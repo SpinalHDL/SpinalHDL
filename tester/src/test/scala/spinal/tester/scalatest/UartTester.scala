@@ -13,7 +13,7 @@ class UartTester extends Component {
 
 
 
-class UartTesterBoot extends SpinalTesterBase {
+class UartTesterGhdlBoot extends SpinalTesterGhdlBase {
   override def getName: String = "UartTester"
   override def createToplevel: Component = new UartTester
 }

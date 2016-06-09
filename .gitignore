@@ -35,7 +35,11 @@ out
 *.json
 *.tcl
 *.vcd
+*.pyc
+*.vvp
+*.xml
 !tester/src/test/resources/*.vhd
+!dump.v
 
 /src/
 *.out

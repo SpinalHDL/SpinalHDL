@@ -31,7 +31,7 @@ class StreamTester extends Component {
 
 
 
-class StreamTesterBoot extends SpinalTesterBase {
+class StreamTesterGhdlBoot extends SpinalTesterGhdlBase {
   override def getName: String = "StreamTester"
   override def createToplevel: Component = new StreamTester
 }

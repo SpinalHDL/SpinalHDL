@@ -23,7 +23,7 @@ object LibTester{
 }
 
 
-class LibTesterBoot extends SpinalTesterBase {
+class LibTesterGhdlBoot extends SpinalTesterGhdlBase {
   override def getName: String = "LibTester"
   override def createToplevel: Component = new LibTester.LibTester
 }

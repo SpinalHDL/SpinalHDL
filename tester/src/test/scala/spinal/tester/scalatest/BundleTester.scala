@@ -60,7 +60,7 @@ class BundleTester extends Component {
 }
 
 
-class BundleTesterBoot extends SpinalTesterBase {
+class BundleTesterGhdlBoot extends SpinalTesterGhdlBase {
   override def getName: String = "BundleTester"
   override def createToplevel: Component = new BundleTester
 }
