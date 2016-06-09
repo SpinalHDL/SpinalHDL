@@ -39,6 +39,7 @@ out
 *.vvp
 results.xml
 !tester/src/test/resources/*.vhd
+!dump.v
 
 /src/
 *.out

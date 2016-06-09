@@ -18,10 +18,12 @@
 
 package spinal.tester.scalatest
 
+import java.nio.charset.Charset
+
 import org.scalatest.{BeforeAndAfterAll, ParallelTestExecution, FunSuite}
 import spinal.core._
 
-import scala.sys.process._
+import scala.concurrent.Await
 import scala.sys.process._
 
 abstract class SpinalTesterCocotbBase extends FunSuite with BeforeAndAfterAll  with ParallelTestExecution {
@@ -41,7 +43,7 @@ abstract class SpinalTesterCocotbBase extends FunSuite with BeforeAndAfterAll  w
       }
       assert(spinalMustPass,"Spinal has not fail :(")
 
-      doCmd(s"cd $pythonTestLocation && rm -f results.xml && make")
+      doCmd(Seq(s"cd $pythonTestLocation", "rm -f results.xml", "make"))
       val pass = getCocotbPass()
       assert(!cocotbMustPass || pass,"Simulation fail")
       assert(cocotbMustPass || !pass,"Simulation has not fail :(")
@@ -53,9 +55,27 @@ abstract class SpinalTesterCocotbBase extends FunSuite with BeforeAndAfterAll  w
 
 
 
-  def doCmd(cmd : String): Int ={
-    println(cmd)
-    Process("sh -c '" + cmd + "'") !
+  def doCmd(cmds : Seq[String]): Unit ={
+
+    var out,err : String = null
+    val io = new ProcessIO(
+      stdin  => {
+        for(cmd <- cmds)
+          stdin.write((cmd + "\n").getBytes)
+        stdin.close()
+      },
+      stdout => {
+        out = scala.io.Source.fromInputStream(stdout).getLines.reduce(_ + "\n" + _)
+        stdout.close()
+      },
+      stderr => {
+        err = scala.io.Source.fromInputStream(stderr).getLines.reduce(_ + "\n" + _)
+        stderr.close()
+      })
+    val proc = Process("sh").run(io)
+    proc.exitValue()
+    println(out)
+    println(err)
   }
 
   def getCocotbPass() : Boolean = {

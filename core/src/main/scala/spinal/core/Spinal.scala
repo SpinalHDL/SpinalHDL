@@ -76,6 +76,7 @@ class SpinalReport[T <: Component](val toplevel: T) {
   }
 }
 
+//TODO add version number into logs
 object Spinal{
   def apply[T <: Component](config : SpinalConfig)(gen : => T) : SpinalReport[T]  = {
     val runtime = Runtime.getRuntime
