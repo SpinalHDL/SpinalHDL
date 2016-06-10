@@ -32,6 +32,7 @@ before_install:
   - sudo apt-get install -y ghdl
 
   # iverilog (debian package 9.7 contain bugs)
+  - sudo apt-get install -y gperf readline-common bison flex
   - cd ..
   - wget https://github.com/steveicarus/iverilog/archive/v10_0.tar.gz
   - tar -xvf v10_0.tar.gz
