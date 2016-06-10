@@ -922,7 +922,7 @@ end
     for (child <- component.children) {
       val isBB = child.isInstanceOf[BlackBox]
       val isBBUsingULogic = isBB && child.asInstanceOf[BlackBox].isUsingULogic
-      val definitionString = emitedComponentRef.getOrElse(child, child).definitionName
+      val definitionString =  if (isBB) child.definitionName else emitedComponentRef.getOrElse(child, child).definitionName
       ret ++= s"  $definitionString "
 
       if (child.isInstanceOf[BlackBox]) {
