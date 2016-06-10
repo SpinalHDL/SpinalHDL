@@ -2,7 +2,8 @@ import random
 
 import cocotb
 from cocotb.result import TestFailure
-from cocotb.triggers import Timer
+from cocotb.triggers import Timer, RisingEdge
+
 
 def randBool():
     return bool(random.getrandbits(1))
@@ -51,6 +52,20 @@ def ClockDomainAsyncReset(clk,reset):
         yield Timer(500)
         clk <= 1
         yield Timer(500)
+
+import time;
+@cocotb.coroutine
+def simulationSpeedPrinter(clk):
+    counter = 0
+    lastTime = time.time()
+    while True:
+        yield RisingEdge(clk)
+        counter += 1
+        thisTime = time.time()
+        if thisTime - lastTime >= 1.0:
+            lastTime = thisTime
+            print("Sim speed : %f khz" %(counter/1000.0))
+            counter = 0
 
 
 

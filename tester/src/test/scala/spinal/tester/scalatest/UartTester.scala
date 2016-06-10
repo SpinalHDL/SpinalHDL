@@ -17,3 +17,9 @@ class UartTesterGhdlBoot extends SpinalTesterGhdlBase {
   override def getName: String = "UartTester"
   override def createToplevel: Component = new UartTester
 }
+
+class UartTesterCocotbBoot extends SpinalTesterCocotbBase {
+  override def getName: String = "UartTester"
+  override def pythonTestLocation: String = "tester/src/test/python/spinal/UartTester"
+  override def createToplevel: Component = new UartTester
+}
