@@ -293,7 +293,7 @@ class Core(implicit val c : CoreConfig) extends Component{
 
   //Memories
   val regFile = Mem(Bits(32 bit),32)
-  val brancheCache = Mem(BranchPredictorLine(), 1<<dynamicBranchPredictorCacheSizeLog2)
+  val brancheCache = Mem(BranchPredictorLine(), 1<<dynamicBranchPredictorCacheSizeLog2) randBoot
 
 
   //Send instruction request to io.i.cmd
