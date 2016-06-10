@@ -54,17 +54,20 @@ def ClockDomainAsyncReset(clk,reset):
 
 
 
+class BoolRandomizer:
+    def __init__(self):
+        self.prob = 0.5
+        self.counter = 0
+
+    def get(self):
+        self.counter += 1
+        if self.counter == 100:
+            self.counter = 0
+            self.prob = random.uniform(0.1, 0.9)
+        return random.random() < self.prob
 
 
 
-
-        # from pprint import pprint
-        # pprint(dut)
-        # ret = object()
-        # for o in dut:
-        #     print(o)
-        #     pprint(o)
-        # print(str(o.path) + "  " + str(int(o)))
 
 # print(ret.io_outRegComplex)
 #     print("LEN = " + str(len(dut.io_outRegComplex)))

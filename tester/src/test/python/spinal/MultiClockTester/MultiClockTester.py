@@ -19,7 +19,7 @@ def cmd(dut,queue):
     validRandomizer = BoolRandomizer()
     dut.io_slave0_valid <= 0
     while True:
-        yield RisingEdge(dut.clk)
+        yield RisingEdge(dut.io_clkA)
         if int(dut.io_slave0_valid) == 1 and int(dut.io_slave0_ready) == 1:
             queue.put(Packet(int(dut.io_slave0_payload_a),int(dut.io_slave0_payload_b)))
         dut.io_slave0_valid <= validRandomizer.get()
@@ -34,7 +34,7 @@ def rsp(dut,queue):
     dut.io_master0_ready <= 0
     for i in range(0,1000):
         while True:
-            yield RisingEdge(dut.clk)
+            yield RisingEdge(dut.io_clkB)
             dut.io_master0_ready <= readyRandomizer.get()
             if int(dut.io_master0_valid) == 1 and int(dut.io_master0_ready) == 1:
                 break
@@ -46,6 +46,28 @@ def rsp(dut,queue):
 
 
 
+@cocotb.coroutine
+def clockProcess(dut):
+    randomizer = BoolRandomizer()
+    dut.io_clkA <= 0
+    dut.io_clkB <= 0
+    dut.io_resetB <= 1
+    dut.io_resetA <= 1
+    yield Timer(1000)
+    dut.io_resetA <= 0
+    dut.io_resetB <= 0
+    while True:
+        dut.io_clkA <= 0
+        dut.io_clkB <= 0
+        yield Timer(500)
+        if randomizer.get():
+            dut.io_clkA <= 1
+        else:
+            dut.io_clkB <= 1
+        yield Timer(500)
+
+
+
 @cocotb.test()
 def test1(dut):
     dut.log.info("Cocotb test boot")
@@ -53,7 +75,7 @@ def test1(dut):
 
     queue = Queue()
 
-    cocotb.fork(ClockDomainAsyncReset(dut.clk, dut.reset))
+    cocotb.fork(clockProcess(dut))
     cocotb.fork(cmd(dut,queue))
     yield rsp(dut,queue)
 
