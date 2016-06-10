@@ -23,3 +23,13 @@ class MandelbrotTesterGhdlBoot extends SpinalTesterGhdlBase {
 
   }
 }
+
+
+class MandelbrotTesterCocotbBoot extends SpinalTesterCocotbBase {
+  override def getName: String = "MandelbrotTester"
+  override def pythonTestLocation: String = "tester/src/test/python/spinal/MandelbrotTester"
+  override def createToplevel: Component = new MandelbrotTester(MandelbrotCoreParameters(16, 8, 16, 16, 7, 34))
+  override def backendConfig(config: SpinalConfig) : SpinalConfig = {
+    config.copy(defaultClockDomainFrequency=FixedFrequency(100e6))
+  }
+}

@@ -37,6 +37,31 @@ object PlayB7 {
   }
 }
 
+
+object Play74 {
+
+  class TopLevel extends Component {
+
+    when(in(Bool)) {
+      assert(
+        assertion = True,
+        message = "Address read doesn't match the address of the device ",
+        severity = NOTE
+      )
+    }
+    report(
+      message = "Address read doesn't match the address of the device ",
+      severity = NOTE
+    )
+  }
+
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
 object PlayB6 {
 
   class TopLevel extends Component {
