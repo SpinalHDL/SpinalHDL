@@ -51,7 +51,7 @@ object SpinalConfig{
   def shell[T <: Component](args : Seq[String]): SpinalConfig = {
     val parser = new scopt.OptionParser[SpinalConfig]("SpinalCore") {
       opt[Unit]("vhdl") action { (_, c) => c.copy(mode = VHDL) }text("Select the VHDL mode")
-      opt[Unit]("verilog") action { (_, c) => c.copy(mode = VHDL) }text("Select the Verilog mode")
+      opt[Unit]("verilog") action { (_, c) => c.copy(mode = Verilog) }text("Select the Verilog mode")
       opt[Unit]('d', "debug") action { (_, c) => c.copy(debug = true) } text("Enter in debug mode directly")
       opt[String]('o', "targetDirectory") action { (v, c) => c.copy(targetDirectory = v) } text("Set the target directory")
     }
