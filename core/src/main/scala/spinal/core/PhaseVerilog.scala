@@ -804,7 +804,7 @@ end
                 if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
                   s"${emitReference(memReadSync.getMem)}[${emitReference(memReadSync.getAddress)}]"
                 else
-                  (0 until symbolCount).reverse.map(i => (s"${emitReference(memReadSync.getMem)}_symbol$i[${emitReference(memReadSync.getAddress)}]")).reduce(_ + " & " + _)
+                  "{" + (0 until symbolCount).reverse.map(i => (s"${emitReference(memReadSync.getMem)}_symbol$i[${emitReference(memReadSync.getAddress)}]")).reduce(_ + "," + _) + "}"
               }
               def emitRead(tab: String) = ret ++= s"$tab${emitReference(memReadSync.consumers(0))} <= ${emitRamRead()};\n"
 
