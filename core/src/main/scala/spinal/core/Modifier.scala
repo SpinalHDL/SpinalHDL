@@ -1492,7 +1492,7 @@ class AssertNode extends SyncNode(){
   override def getInputs: Iterator[Node] = super.getInputs ++ Iterator(cond)
   override def getInput(id: Int): Node = id match{
     case 3 => cond
-    case _ => getInput(id)
+    case _ => super.getInput(id)
   }
 
   override private[core] def calcWidth: Int = 1
