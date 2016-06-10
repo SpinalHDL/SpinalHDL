@@ -57,7 +57,7 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
       return builder.result
     } else {
       emitedComponentRef += (component -> oldBuilder.component)
-      return s"\n--${component.definitionName} remplaced by ${oldBuilder.component.definitionName}\n\n"
+      return s"\n//${component.definitionName} remplaced by ${oldBuilder.component.definitionName}\n\n"
     }
   }
 
@@ -922,7 +922,7 @@ end
     for (child <- component.children) {
       val isBB = child.isInstanceOf[BlackBox]
       val isBBUsingULogic = isBB && child.asInstanceOf[BlackBox].isUsingULogic
-      val definitionString = child.definitionName
+      val definitionString = emitedComponentRef.getOrElse(child, child).definitionName
       ret ++= s"  $definitionString "
 
       if (child.isInstanceOf[BlackBox]) {
