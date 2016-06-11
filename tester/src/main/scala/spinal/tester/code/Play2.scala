@@ -867,6 +867,28 @@ object Play65{
 
 
 
+object PlayResize{
+
+
+  class TopLevel extends Component {
+    val cmd = in Vec(Bool,3)
+    val rsp = out Vec(Bool,2)
+    rsp := cmd.asBits.asSInt.resize(2).asBools
+
+    for((e,i) <- cmd.zipWithIndex) e.setName(('a' + i).toChar.toString)
+    for((e,i) <- rsp.zipWithIndex) e.setName(('x' + i).toChar.toString)
+  }
+
+
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+    SpinalVerilog(new TopLevel().setDefinitionName("TopLevelV"))
+  }
+}
+
+
+
 
 object PlayGenerics{
   class TopLevel extends Component {

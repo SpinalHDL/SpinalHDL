@@ -549,6 +549,8 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
         |  begin
         |    if that'length = 0 then
         |       ret := (others => '0');
+        |    elsif that'length >= width then
+        |       ret := that(width-1 downto 0);
         |    else
         |       ret := resize(that,width);
         |    end if;
