@@ -10,8 +10,8 @@ object CoreUut{
   class TopLevel extends Component{
     val io_interrupt = in Bool
     val oneCycleInstrPip = true
-    val iCached = false
-    val dCached = false
+    val iCached = true
+    val dCached = true
     val iCacheConfig = InstructionCacheConfig(
       cacheSize = 4096,
       bytePerLine =32,

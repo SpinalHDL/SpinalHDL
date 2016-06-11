@@ -699,8 +699,8 @@ end
 
 
         if (asyncReset) {
-          val sensitivity = getSensitivity(initialValues, true)
-          ret ++= s"${tabStr}always @ (${emitClockEdge(clock,clockDomain.config.clockEdge)} or ${emitResetEdge(reset,clockDomain.config.resetActiveLevel)}${if(sensitivity.isEmpty) "" else sensitivity.foldLeft("")(_ + "," + emitReference(_))})\n"
+          val sensitivity = getSensitivity(initialValues, true)  //${if(sensitivity.isEmpty) "" else sensitivity.foldLeft("")(_ + "," + emitReference(_))}
+          ret ++= s"${tabStr}always @ (${emitClockEdge(clock,clockDomain.config.clockEdge)} or ${emitResetEdge(reset,clockDomain.config.resetActiveLevel)})\n"
         } else {
           ret ++= s"${tabStr}always @ (${emitClockEdge(clock,clockDomain.config.clockEdge)})\n"
         }

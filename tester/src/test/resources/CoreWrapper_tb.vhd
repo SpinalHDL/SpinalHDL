@@ -91,7 +91,7 @@ architecture arch of CoreWrapper_tb is
   shared variable done : integer := 0;
   constant memSize : integer := 1024*1024;
   type memType is array (0 to memSize-1) of std_logic_vector(7 downto 0);
-  shared variable rom : memType;
+  shared variable rom : memType := (others => (others => '1'));
   shared variable ram : memType;
   
   signal match_i_cmd_addr : std_logic;
