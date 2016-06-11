@@ -10,8 +10,8 @@ object CoreUut{
   class TopLevel extends Component{
     val io_interrupt = in Bool
     val oneCycleInstrPip = true
-    val iCached = true
-    val dCached = true
+    val iCached = false
+    val dCached = false
     val iCacheConfig = InstructionCacheConfig(
       cacheSize = 4096,
       bytePerLine =32,
@@ -236,7 +236,7 @@ object CoreUut{
 
   def main(args: Array[String]) {
     SpinalVhdl({ new TopLevel().setDefinitionName("CoreWrapper")})
-    SpinalVerilog({ new TopLevel()})
+    SpinalVerilog({ new TopLevel().setDefinitionName("CoreWrapper")})
   }
 }
 

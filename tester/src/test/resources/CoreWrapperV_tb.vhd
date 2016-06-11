@@ -2,12 +2,7 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
-library lib_CoreUut_v;
 
-library riscv;
-use riscv.pkg_scala2hdl.all;
-use riscv.all;
-use riscv.pkg_enum.all;
 
 -- #spinalBegin userLibrary
 library STD;
@@ -570,7 +565,7 @@ begin
 	end process;
   --lib_CoreUut_v
   -- #spinalEnd userLogics
-  uut : entity riscv.CoreWrapper
+  uut : entity work.CoreWrapper
     port map (
       io_interrupt =>  io_interrupt,
       io_i_cmd_valid =>  io_i_cmd_valid,

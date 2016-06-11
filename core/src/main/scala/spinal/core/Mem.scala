@@ -201,6 +201,11 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
     symbolWidth
   }
   private[core] def getMemSymbolCount() : Int = getWidth/getMemSymbolWidth
+
+  def randBoot(): this.type = {
+    addTag(spinal.core.randomBoot)
+    this
+  }
 }
 
 class MemReadAsync(mem_ : Mem[_], address_ : UInt, data: Bits, val writeToReadKind: MemWriteToReadKind) extends Node {

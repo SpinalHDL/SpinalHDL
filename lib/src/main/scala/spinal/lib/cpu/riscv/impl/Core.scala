@@ -293,7 +293,7 @@ class Core(implicit val c : CoreConfig) extends Component{
 
   //Memories
   val regFile = Mem(Bits(32 bit),32)
-  val brancheCache = Mem(BranchPredictorLine(), 1<<dynamicBranchPredictorCacheSizeLog2)
+  val brancheCache = Mem(BranchPredictorLine(), 1<<dynamicBranchPredictorCacheSizeLog2) randBoot
 
 
   //Send instruction request to io.i.cmd
@@ -569,16 +569,18 @@ class Core(implicit val c : CoreConfig) extends Component{
     })
 
     // dynamic branch predictor history update
+    val line = BranchPredictorLine()
+    val newHistory = inInst.branchHistory.payload.resize(branchPredictorHistoryWidth + 1) + Mux(pc_sel === PC.INC,S(1),S(-1))
+    line.pc := inInst.pc(pcWidth-1 downto 2 + dynamicBranchPredictorCacheSizeLog2)
+    when(inInst.branchHistory.valid){
+      line.history := newHistory.resized
+    }otherwise {
+      line.history := (pc_sel =/= PC.INC).asSInt.resized
+    }
+
+    //TODO Performance drop 11/06/2016 ?? 113kcycles
     when(inInst.fire && inInst.ctrl.br =/= BR.JR && inInst.ctrl.br =/= BR.N && inInst.ctrl.br =/= BR.J){
-      val line = BranchPredictorLine()
-      val newHistory = inInst.branchHistory.payload.resize(branchPredictorHistoryWidth + 1) + Mux(pc_sel === PC.INC,S(1),S(-1))
-      line.pc := inInst.pc(pcWidth-1 downto 2 + dynamicBranchPredictorCacheSizeLog2)
-      when(inInst.branchHistory.valid){
-        line.history := newHistory.resized
-      }otherwise {
-        line.history := (pc_sel =/= PC.INC).asSInt.resized
-      }
-      when(newHistory(newHistory.high downto newHistory.high - 1) =/= S"10") { //no history overflow
+      when(newHistory(newHistory.high downto newHistory.high - 1) =/= S"10" && newHistory(newHistory.high downto newHistory.high - 1) =/= S"01") { //no history overflow  TODO fix me
         brancheCache(inInst.pc(2, dynamicBranchPredictorCacheSizeLog2 bit)) := line
       }
     }
