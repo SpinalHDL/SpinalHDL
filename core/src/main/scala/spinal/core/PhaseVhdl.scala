@@ -795,7 +795,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
 
             initAssignementBuilder ++= ")"
           }else if(mem.hasTag(randomBoot)){
-            initAssignementBuilder ++= " := (others => (others => '0'))"
+            initAssignementBuilder ++= " := (others => (others => '1'))"
           }
 
           val symbolWidth = mem.getMemSymbolWidth()
