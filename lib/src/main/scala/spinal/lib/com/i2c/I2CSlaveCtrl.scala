@@ -123,7 +123,7 @@ class I2CSlaveCtrl(config: I2CSlaveCtrConfig) extends Component{
 
     val index = Reg(UInt(log2Up(config.dataSize) bits)) init(config.dataSize-1)
 
-    def reset() = index := config.dataSize-1
+    def clear() = index := config.dataSize-1
     def isOver : Bool = index === 0
 
     when(sclSampling.risingEdge) {
@@ -165,7 +165,7 @@ class I2CSlaveCtrl(config: I2CSlaveCtrConfig) extends Component{
         when(detector.start){
           state     := RD_ADDR_DEVICE
           dataShift := 0
-          bitCounter.reset()
+          bitCounter. clear()
         }
       }
       is(RD_ADDR_DEVICE){
@@ -237,7 +237,7 @@ class I2CSlaveCtrl(config: I2CSlaveCtrConfig) extends Component{
 
           when(ccIO.i2c_sda === I2C.ACK){
             dataShift := 0
-            bitCounter.reset()
+            bitCounter. clear()
 
             state := mode_rw ? WR_DATA | RD_DATA
 
@@ -250,6 +250,7 @@ class I2CSlaveCtrl(config: I2CSlaveCtrConfig) extends Component{
           }otherwise{
             state := IDLE
           }
+
         }
       }
       is(WR_DATA){
@@ -297,8 +298,6 @@ class I2CSlaveCtrl(config: I2CSlaveCtrConfig) extends Component{
                 dataValid   := False
               }
             }
-
-
           }
         }
       }
