@@ -29,12 +29,12 @@ object CoreQSysAvalon{
     }
 
     val io = new Bundle{
-      val i = master(AvalonMMBus(iConfig))
-      val d = master(AvalonMMBus(dConfig))
+      val i = master(AvalonMM(iConfig))
+      val d = master(AvalonMM(dConfig))
       val interrupt = if(interruptCount != 0) in(Bits(4 bit)) else null
       val debugResetIn = if(debug) in Bool else null
       val debugResetOut = if(debug) out Bool else null
-      val debugBus = if(debug) slave(AvalonMMBus(DebugExtension.getAvalonMMConfig)) else null
+      val debugBus = if(debug) slave(AvalonMM(DebugExtension.getAvalonMMConfig)) else null
     }
 
 
@@ -98,7 +98,7 @@ object CoreQSysAvalon{
     val debug = true
     val interruptCount = 4
 
-    val report = SpinalVhdl({
+    val report = SpinalVhdl(SpinalConfig().copy(onlyStdLogicVectorAtTopLevelIo=true))({
 
       //replace wit null to disable instruction cache
       val iCacheConfig = InstructionCacheConfig(
@@ -113,13 +113,13 @@ object CoreQSysAvalon{
 
       //replace wit null to disable data cache
       val dCacheConfig = DataCacheConfig(
-      cacheSize = 4096,
-      bytePerLine =32,
-      wayCount = 1,
-      addressWidth = 32,
-      cpuDataWidth = 32,
-      memDataWidth = 32
-    )
+        cacheSize = 4096,
+        bytePerLine =32,
+        wayCount = 1,
+        addressWidth = 32,
+        cpuDataWidth = 32,
+        memDataWidth = 32
+      )
 
       val coreConfig = CoreConfig(
         pcWidth = 32,
@@ -143,7 +143,7 @@ object CoreQSysAvalon{
 
 
       new RiscvAvalon(coreConfig,iCacheConfig,dCacheConfig,debug,interruptCount)
-    },_.onlyStdLogicVectorAtTopLevelIo)
+    })
 
     report.toplevel.io.i addTag(ClockDomainTag(report.toplevel.clockDomain))
     report.toplevel.io.d addTag(ClockDomainTag(report.toplevel.clockDomain))

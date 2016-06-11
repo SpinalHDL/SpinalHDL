@@ -17,7 +17,7 @@ import scala.collection.mutable.ArrayBuffer
 
 trait BranchPrediction
 object disable extends BranchPrediction
-object static extends BranchPrediction
+object static  extends BranchPrediction
 object dynamic extends BranchPrediction
 
 trait RegFileReadKind
@@ -89,27 +89,28 @@ case class CoreInstructionBus(implicit val p : CoreConfig) extends Bundle with I
 
   override def asSlave(): CoreInstructionBus.this.type = asMaster.flip()
 
-  def toAxiRead(): AxiReadOnly ={
-    val axiParameters = AxiConfig(
-      addressWidth = 32,
-      dataWidth = 32
-    )
-    val axi = new AxiReadOnly(axiParameters)
+//  def toAxiRead(): AxiBus ={
+//    val axiParameters = Axi4Config(
+//      addressWidth = 32,
+//      dataWidth = 32,
+//      mode = READ_ONLY
+//    )
+//    val axi = new AxiBus(axiParameters)
+//
+//    axi.readCmd.translateFrom(cmd)((to,from) => {
+//      to.addr := from.pc
+//      to.prot := 0
+//    })
+//    rsp.translateFrom(axi.readRsp)((to,from) => {
+//      to.instruction := from.data
+//    })
+//
+//    axi
+//  }
 
-    axi.readCmd.translateFrom(cmd)((to,from) => {
-      to.addr := from.pc
-      to.prot := 0
-    })
-    rsp.translateFrom(axi.readRsp)((to,from) => {
-      to.instruction := from.data
-    })
-
-    axi
-  }
-
-  def toAvalon(): AvalonMMBus = {
+  def toAvalon(): AvalonMM = {
     val avalonConfig = CoreInstructionBus.getAvalonConfig(p)
-    val mm = AvalonMMBus(avalonConfig)
+    val mm = AvalonMM(avalonConfig)
     val pendingCmd = RegInit(False)
     pendingCmd := (pendingCmd && !mm.readDataValid) || mm.fire
     val haltCmd = rsp.isStall || (pendingCmd && !mm.readDataValid) // Don't overflow the backupFifo and don't have more than one pending cmd
@@ -139,6 +140,7 @@ object CoreDataBus{
   def getAvalonConfig(p : CoreConfig) = AvalonMMConfig.pipelined(
     addressWidth = 32,
     dataWidth = 32).copy(
+      useByteEnable = true,
       maximumPendingReadTransactions = 2
     )
 }
@@ -155,9 +157,9 @@ case class CoreDataBus(implicit p : CoreConfig) extends Bundle with IMasterSlave
 
   override def asSlave(): this.type = asMaster.flip()
 
-  def toAvalon(): AvalonMMBus = {
+  def toAvalon(): AvalonMM = {
     val avalonConfig = CoreDataBus.getAvalonConfig(p)
-    val mm = AvalonMMBus(avalonConfig)
+    val mm = AvalonMM(avalonConfig)
     mm.read := cmd.valid && !cmd.wr
     mm.write := cmd.valid && cmd.wr
     mm.address := cmd.address(cmd.address.high downto 2) @@ U"00"

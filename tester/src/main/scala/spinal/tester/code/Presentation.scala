@@ -8,7 +8,7 @@ import spinal.core._
 import spinal.debugger.LogicAnalyserBuilder
 import spinal.demo.mandelbrot._
 import spinal.lib._
-import spinal.lib.bus.amba3.apb.{Apb3SlaveController, Apb3Slave, Apb3Config}
+import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config}
 import spinal.lib.com.uart.{UartCtrlConfig, Uart, UartCtrl, UartCtrlTx}
 
 import scala.util.Random
@@ -824,41 +824,41 @@ object t8_a {
     // some logic ..
   }
 
-  class ApbUartCtrl(apbConfig: Apb3Config) extends Component {
-    val io = new Bundle {
-      val bus = slave(new Apb3Slave(apbConfig))
-      val uart = master(Uart())
-    }
-    val busCtrl = new Apb3SlaveController(io.bus) //This is a APB3 slave controller builder tool
-
-    val config = busCtrl.writeOnlyRegOf(UartCtrlConfig(), 0x10) //Create a write only configuration register at address 0x10
-    val writeStream = busCtrl.writeStreamOf(Bits(8 bit), 0x20)
-    val readStream = busCtrl.readStreamOf(Bits(8 bit), 0x30)
-
-    val uartCtrl = new UartCtrl()
-    uartCtrl.io.config := config
-    uartCtrl.io.write <-< writeStream //Pipelined connection
-    uartCtrl.io.read.toStream.queue(16) >> readStream  //Queued connection
-    uartCtrl.io.uart <> io.uart
-  }
+//  class ApbUartCtrl(apbConfig: Apb3Config) extends Component {
+//    val io = new Bundle {
+//      val bus = slave(new Apb3(apbConfig))
+//      val uart = master(Uart())
+//    }
+//    val busCtrl = new Apb3SlaveController(io.bus) //This is a APB3 slave controller builder tool
+//
+//    val config = busCtrl.writeOnlyRegOf(UartCtrlConfig(), 0x10) //Create a write only configuration register at address 0x10
+//    val writeStream = busCtrl.writeStreamOf(Bits(8 bit), 0x20)
+//    val readStream = busCtrl.readStreamOf(Bits(8 bit), 0x30)
+//
+//    val uartCtrl = new UartCtrl()
+//    uartCtrl.io.config := config
+//    uartCtrl.io.write <-< writeStream //Pipelined connection
+//    uartCtrl.io.read.toStream.queue(16) >> readStream  //Queued connection
+//    uartCtrl.io.uart <> io.uart
+//  }
 }
 
 
 object t8_B2 {
-
-  class ApbUartCtrl(apbConfig: Apb3Config) extends Component {
-    val io = new Bundle {
-      val apb = slave(new Apb3Slave(apbConfig))
-      val uart = master(Uart())
-    }
-    val uartCtrl = new UartCtrl()
-    uartCtrl.io.uart <> io.uart
-
-    val busCtrl = new Apb3SlaveController(io.apb)
-    busCtrl.writeOnlyRegOf(uartCtrl.io.config, 0x10)
-    busCtrl.writeStream(uartCtrl.io.write, 0x20)
-    busCtrl.readStream(uartCtrl.io.read.toStream.queue(16), 0x30)
-  }
+//
+//  class ApbUartCtrl(apbConfig: Apb3Config) extends Component {
+//    val io = new Bundle {
+//      val apb = slave(new Apb3(apbConfig))
+//      val uart = master(Uart())
+//    }
+//    val uartCtrl = new UartCtrl()
+//    uartCtrl.io.uart <> io.uart
+//
+//    val busCtrl = new Apb3SlaveController(io.apb)
+//    busCtrl.writeOnlyRegOf(uartCtrl.io.config, 0x10)
+//    busCtrl.writeStream(uartCtrl.io.write, 0x20)
+//    busCtrl.readStream(uartCtrl.io.read.toStream.queue(16), 0x30)
+//  }
 
 }
 
@@ -1159,23 +1159,23 @@ object CombinatorialLogic {
 
   class TopLevel extends Component {
     val io = new Bundle {
-      val cond   = in Bool
-      val value      = in UInt (4 bit)
-      val withoutProcess = out UInt(4 bits)
-      val withProcess = out UInt(4 bits)
+      val cond            = in Bool
+      val value           = in UInt (4 bit)
+      val withoutProcess  = out UInt(4 bits)
+      val withProcess     = out UInt(4 bits)
     }
-    io.withProcess := io.value
-    io.withoutProcess := 0
+    io.withoutProcess := io.value
+    io.withProcess := 0
     when(io.cond){
       switch(io.value){
         is(U"0000"){
-          io.withoutProcess := 8
+          io.withProcess := 8
         }
         is(U"0001"){
-          io.withoutProcess := 9
+          io.withProcess := 9
         }
         default{
-          io.withoutProcess := io.value+1
+          io.withProcess := io.value+1
         }
       }
     }
@@ -1259,6 +1259,12 @@ object SinFir {
 
   def main(args: Array[String]): Unit = {
     SpinalVhdl(new TopLevel(
+      resolutionWidth=16,
+      sampleCount=64,
+      firLength=16
+    ))
+
+    SpinalVerilog(new TopLevel(
       resolutionWidth=16,
       sampleCount=64,
       firLength=16

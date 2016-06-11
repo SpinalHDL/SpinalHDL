@@ -11,10 +11,22 @@ scala:
 sbt_args: -no-colors -J-Xss2m
 
 script:
-   - sbt ++$TRAVIS_SCALA_VERSION -jvm-opts  test
+  - sbt -jvm-opts travis/jvmopts.compile compile
+  - sbt -jvm-opts travis/jvmopts.test test
 
 jdk:
+  - oraclejdk8
+  - oraclejdk7
   - openjdk7
+
+before_install:
+  - cat /etc/hosts # optionally check the content *before*
+  - sudo hostname "$(hostname | cut -c1-63)"
+  - sed -e "s/^\\(127\\.0\\.0\\.1.*\\)/\\1 $(hostname | cut -c1-63)/" /etc/hosts | sudo tee /etc/hosts
+  - cat /etc/hosts # optionally check the content *after*
+  - sudo add-apt-repository ppa:pgavin/ghdl -y
+  - sudo apt-get update
+  - sudo apt-get install ghdl -y
 
 # after_success:
 # Push to sonatype ?

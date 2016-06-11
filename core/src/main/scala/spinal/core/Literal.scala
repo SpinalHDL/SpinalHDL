@@ -131,6 +131,7 @@ object BitsLiteral {
   }
 }
 
+//WARNING if flatten it into bits,uint,sint variation, need to patch caseify isSwitchable
 class BitsLiteral(val value: BigInt, val bitCount: Integer,val hasSpecifiedBitCount : Boolean, val kind: Node) extends Literal {
   def calcWidth: Int = bitCount
   if(globalData.nodeAreInferringWidth) inferredWidth = bitCount

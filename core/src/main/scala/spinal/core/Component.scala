@@ -55,7 +55,12 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
 
     if ((body _).getClass.getDeclaringClass == this.getClass) {
       // this.io.flatten.foreach(_.isIo = true)
-      this.nameElements()
+      for(t <- prePopTasks){
+        t()
+      }
+      prePopTasks.clear()
+
+      this.nameElements() //TODO could probably be removed
       Component.pop(this)
       this.userParentCalledDef
     }
@@ -94,11 +99,11 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
   private[core] val additionalNodesRoot = mutable.Set[Node]()
   var definitionName: String = null
   private[core] val level = globalData.componentStack.size()
-  val kinds = ArrayBuffer[Component]()
+  val children = ArrayBuffer[Component]()
   val parent = Component.current
 
   if (parent != null) {
-    parent.kinds += this;
+    parent.children += this;
   } else {
     setWeakName("toplevel")
   }
@@ -149,7 +154,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
           else if (nameable.asInstanceOf[ContextUser].component == this)
             nameable.setWeakName(name)
           else {
-            for (kind <- kinds) {
+            for (kind <- children) {
               //Allow to name a component by his io reference into the parent component
               if (kind.reflectIo == nameable) {
                 kind.setWeakName(name)
@@ -176,7 +181,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
       }
       case _ =>
     }
-    for (kind <- kinds) {
+    for (kind <- children) {
       if (kind.isUnnamed) {
         var name = kind.getClass.getSimpleName
         name = Character.toLowerCase(name.charAt(0)) + (if (name.length() > 1) name.substring(1) else "");
@@ -245,10 +250,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
   }
   override def prePopEvent(): Unit = {
    // println("pop " + this.getClass.getSimpleName)
-    for(t <- prePopTasks){
-      t()
-    }
-    prePopTasks.clear()
+
   }
 
 

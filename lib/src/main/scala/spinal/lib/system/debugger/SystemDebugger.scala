@@ -1,7 +1,7 @@
 package spinal.lib.system.debugger
 
 import spinal.core._
-import spinal.lib.bus.avalon.{AvalonMMBus, AvalonMMConfig}
+import spinal.lib.bus.avalon.{AvalonMM, AvalonMMConfig}
 import spinal.lib.bus.avalon._
 import spinal.lib.com.jtag._
 import spinal.lib._
@@ -57,7 +57,7 @@ class JtagBridge(c: SystemDebuggerConfig) extends Component{
 class JtagAvalonDebugger(val c: SystemDebuggerConfig) extends Component {
   val io = new Bundle {
     val jtag = slave(Jtag())
-    val mem = master(AvalonMMBus(c.getMemAvalonConfig))
+    val mem = master(AvalonMM(c.getMemAvalonConfig))
   }
 
   val jtagBridge = new JtagBridge(c)
@@ -85,7 +85,7 @@ class SystemDebugger(c : SystemDebuggerConfig) extends Component{
 
 object JtagAvalonDebuggerMain{
   def main(args: Array[String]) {
-    val toplevel = SpinalVhdl({
+    val toplevel = SpinalVhdl(SpinalConfig().copy(onlyStdLogicVectorAtTopLevelIo=true))({
       val tck = Bool.setName("tck")
       val jtagClock = ClockDomain(tck)
       val c = SystemDebuggerConfig(
@@ -96,7 +96,7 @@ object JtagAvalonDebuggerMain{
         jtagClockDomain = jtagClock
       )
       new JtagAvalonDebugger(c)
-    },_.onlyStdLogicVectorAtTopLevelIo).toplevel
+    }).toplevel
 
     toplevel.io.mem addTag(ClockDomainTag(toplevel.clockDomain))
     QSysify(toplevel)

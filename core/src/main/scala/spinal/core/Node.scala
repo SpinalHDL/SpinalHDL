@@ -27,12 +27,12 @@ import scala.collection.mutable.ArrayBuffer
 object SymplifyNode {
   def replaceNode(it: Node, by: Node): Unit = {
     for (consumer <- it.consumers) {
-      for (i <- 0 until consumer.getInputsCount) {
-        if (consumer.getInput(i) == it) {
+      consumer.onEachInput((input,i) => {
+        if (input == it) {
           consumer.setInput(i,by)
           by.consumers += consumer
         }
-      }
+      })
     }
   }
 
@@ -286,8 +286,10 @@ object InputNormalize {
       input match{
       case bitVector : BitVector => {
         bitVector.getInput(0) match{
-          case lit : BitsLiteral if (! lit.hasSpecifiedBitCount) =>
+          case lit : BitsLiteral if (! lit.hasSpecifiedBitCount) =>{
             Misc.normalizeResize(parent, inputId, Math.max(lit.minimalValueBitWidth,targetWidth)) //Allow resize on direct literal with unfixed values
+          }
+
           case _ =>
             if(input.hasTag(tagAutoResize))
               Misc.normalizeResize(parent, inputId, targetWidth)
@@ -295,13 +297,6 @@ object InputNormalize {
       }
       case _ =>
     }
-  }
-
-  def regImpl(node: Node): Unit = {
-    val targetWidth = node.getWidth
-    InputNormalize.bitVectoreAssignement(node, RegS.getDataInputId, targetWidth)
-    //Misc.normalizeResize(node, RegS.getDataInputId, targetWidth)
-    if (node.asInstanceOf[Reg].isUsingReset) InputNormalize.bitVectoreAssignement(node, RegS.getInitialValueId, targetWidth)
   }
 
   def memReadImpl(node: Node): Unit = {
@@ -329,14 +324,16 @@ object InputNormalize {
 
   def nodeWidth(node: Node): Unit = {
     val targetWidth = node.getWidth
-    for (i <- 0 until node.getInputsCount)
+    node.onEachInput((input,i) => {
       Misc.normalizeResize(node, i, targetWidth)
+    })
   }
 
   def inputWidthMax(node: Node): Unit = {
     val targetWidth = Math.max(node.getInput(0).getWidth, node.getInput(1).getWidth)
-    for (i <- 0 until node.getInputsCount)
+    node.onEachInput((input,i) => {
       Misc.normalizeResize(node, i, targetWidth)
+    })
   }
 }
 
@@ -353,12 +350,7 @@ object WidthInfer {
     Math.max(node.getInput(1).getWidth, node.getInput(2).getWidth)
   }
 
-  def regImpl(node: Node): Int = {
-    val dataIn = node.getInput(RegS.getDataInputId)
-    val init = node.getInput(RegS.getInitialValueId)
 
-    math.max(if (dataIn != node) dataIn.getWidth else -1, if (node.asInstanceOf[Reg].isUsingReset) init.getWidth else -1)
-  }
 
   def cumulateInputWidth(node: Node): Int = {
     node.getInputs.foldLeft(0)((old, n) => old + Math.max(0, n.getWidth))
@@ -417,7 +409,7 @@ abstract class NodeWithVariableInputsCount extends Node{
   override def getInputs : Iterator[Node] = inputs.iterator
 
   override def onEachInput(doThat : (Node,Int) => Unit) : Unit = {
-    var idx = getInputsCount
+    var idx = inputs.length
     while(idx != 0){
       idx -= 1
       doThat(getInput(idx),idx)
@@ -425,7 +417,7 @@ abstract class NodeWithVariableInputsCount extends Node{
   }
 
   override def onEachInput(doThat : (Node) => Unit) : Unit = {
-    var idx = getInputsCount
+    var idx = inputs.length
     while(idx != 0){
       idx -= 1
       doThat(getInput(idx))
@@ -445,7 +437,7 @@ abstract class NodeWithoutInputs extends Node{
 abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady with GlobalDataUser {
   val consumers = new ArrayBuffer[Node](4)
 
-  def getInputsCount : Int
+  def getInputsCount : Int = getInputs.size
   def getInput(id : Int) : Node
   def setInput(id : Int,node : Node) : Unit
 

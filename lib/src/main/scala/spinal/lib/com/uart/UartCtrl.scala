@@ -5,6 +5,7 @@ import UartStopType._
 import spinal.core._
 import spinal.lib.FragmentToBitsStates._
 import spinal.lib._
+import spinal.lib.bus.misc.BusSlaveFactory
 
 //All construction parameters of the UartCtrl
 case class UartCtrlGenerics( dataWidthMax: Int = 8,
@@ -70,6 +71,15 @@ class UartCtrl(g : UartCtrlGenerics = UartCtrlGenerics()) extends Component {
 
   io.uart.txd <> tx.io.txd
   io.uart.rxd <> rx.io.rxd
+
+
+  def driveFrom(busCtrl : BusSlaveFactory,rxFifoDepth : Int) : Unit = {
+    busCtrl.driveAndRead(io.config.clockDivider,address = 0)
+    busCtrl.driveAndRead(io.config.frame,address = 4)
+    busCtrl.createAndDriveFlow(Bits(g.dataWidthMax bits),address = 8).toStream >-> io.write
+    busCtrl.read(io.write.valid,address = 8)
+    busCtrl.readStreamNonBlocking(io.read.toStream.queue(rxFifoDepth),address = 12)
+  }
 }
 
 
@@ -109,6 +119,9 @@ class UartCtrlUsageExample extends Component{
 
 object UartCtrlUsageExample{
   def main(args: Array[String]) {
-    SpinalVhdl(new UartCtrlUsageExample,defaultClockDomainFrequency=FixedFrequency(50e6))
+    SpinalConfig(
+      mode = VHDL,
+      defaultClockDomainFrequency=FixedFrequency(50e6)
+    ).generate(new UartCtrlUsageExample)
   }
 }

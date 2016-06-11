@@ -30,6 +30,7 @@ out
 
 #User
 *.vhd
+*.v
 *.cf
 *.json
 *.tcl

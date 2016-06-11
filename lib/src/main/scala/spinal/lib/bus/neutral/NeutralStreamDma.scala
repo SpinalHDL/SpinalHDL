@@ -60,7 +60,7 @@ object NeutralStreamDma {
     }
 
     def toAvalon = {
-      val ret = AvalonMMBus(c.getAvalonConfig)
+      val ret = AvalonMM(c.getAvalonConfig)
       ret.read := cmd.valid
       ret.address := cmd.address
       ret.burstCount := cmd.length

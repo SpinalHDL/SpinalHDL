@@ -6,15 +6,15 @@ import spinal.lib._
 /**
  * Created by PIC on 30.05.2015.
  */
-case class AxiLiteSimpleReadDmaCmd(axiLiteConfig: AxiLiteConfig) extends Bundle{
+case class AxiLite4SimpleReadDmaCmd(axiLiteConfig: AxiLite4Config) extends Bundle{
   val offset = UInt(axiLiteConfig.addressWidth bit)
   val endAt = UInt(axiLiteConfig.addressWidth bit)
 }
 
-class AxiLiteSimpleReadDma(axiLiteConfig: AxiLiteConfig) extends Component {
+class AxiLite4SimpleReadDma(axiLiteConfig: AxiLite4Config) extends Component {
   val io = new Bundle {
-    val run = slave Stream (AxiLiteSimpleReadDmaCmd(axiLiteConfig))
-    val axi = master(AxiLite(axiLiteConfig))
+    val run = slave Stream (AxiLite4SimpleReadDmaCmd(axiLiteConfig))
+    val axi = master(AxiLite4(axiLiteConfig))
     val read = master Stream (Bits(axiLiteConfig.dataWidth bit))
   }
 
@@ -40,7 +40,7 @@ class AxiLiteSimpleReadDma(axiLiteConfig: AxiLiteConfig) extends Component {
   io.axi.readCmd.addr := counter
   io.axi.readCmd.setUnprivileged
 
-  io.read.translateFrom(io.axi.readData)((to,from) => {
+  io.read.translateFrom(io.axi.readRsp)((to,from) => {
     to := from.data
   })
 }

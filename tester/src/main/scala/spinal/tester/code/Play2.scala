@@ -1,8 +1,13 @@
 package spinal.tester.code
 
+import java.util
+
 import spinal.core._
 import spinal.lib._
+import spinal.lib.bus.neutral.NeutralStreamDma
 import spinal.lib.com.uart.UartCtrl
+import spinal.lib.graphic.RgbConfig
+import spinal.lib.graphic.vga.{AvalonMMVgaCtrl, AvalonMMVgaCtrl$, VgaCtrl}
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -25,7 +30,7 @@ object PlayB7 {
   }
 
   def main(args: Array[String]): Unit = {
-    SpinalVhdl(new TopLevel,vhdPath="C:/tmp/toto.vhd")
+    SpinalVhdl(new TopLevel)
   }
 }
 
@@ -97,10 +102,15 @@ object PlayFixedPoint {
 
 
 object PlayBug75 {
+  implicit class StreamPimped(pimped : Stream[UInt]){
+    def asStreamSInt() : Stream[SInt] = pimped.translateWith(pimped.payload.asSInt)
+  }
+
   class TopLevel extends Component {
-    val toto = in Bits(8 bits)
-    val titi = out(toto(-1 downto 0))
-    print("done")
+    val src = slave Stream(UInt(4 bits))
+    val sink = master Stream(SInt(4 bits))
+
+    sink << src.asStreamSInt()
   }
 
   def main(args: Array[String]): Unit = {
@@ -128,7 +138,7 @@ object PlayBlackBox3 {
         val addr = in UInt (log2Up(_wordCount) bit)
         val data = out Bits (_wordWidth bit)
       }
-    }
+    }.setName("")
 
     mapClockDomain(clock=io.clk)
   }
@@ -184,8 +194,7 @@ object PlayB1 {
 
   def main(args: Array[String]): Unit = {
     //SpinalVhdl(new TopLevel)
-    SpinalVhdlBuilder(new TopLevel)
-      .elaborate()
+    SpinalVhdl(new TopLevel)
   }
 }
 
@@ -193,7 +202,7 @@ object PlayB2 {
 
   class TopLevel extends Component {
 
-    val input = in UInt (4 bit)
+    val input = in UInt (3 bit)
     val output = out UInt(4 bits)
     output := input + input
     //    switch(io.input){
@@ -214,8 +223,8 @@ object PlayB2 {
 
   def main(args: Array[String]): Unit = {
     //SpinalVhdl(new TopLevel)
-    SpinalVhdlBuilder(new TopLevel)
-      .elaborate()
+
+    SpinalConfig(mode = VHDL).generate(new TopLevel)
   }
 }
 object PlayB3 {
@@ -592,4 +601,301 @@ object PlayBug43{
   }
 
 
+}
+
+
+object PlayUnconstrained {
+  class Counter extends Component{
+    val io = new Bundle{
+      val load = slave  Flow(UInt)
+      val value = out UInt
+    }
+    val register = Reg(UInt()) init(0)
+    register := register + 1
+    when(io.load.valid){
+      register := io.load.payload
+    }
+    io.value := register
+  }
+
+  class TopLevel extends Component {
+    val io = new Bundle{
+      val load = slave Flow(UInt(8 bits))
+      val value = out UInt
+    }
+
+    val counter = new Counter
+    counter.io.load <> io.load
+    counter.io.value <> io.value
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+object PlayBootReset {
+
+  class TopLevel extends Component {
+    val coreClk = in Bool
+    val coreClockDomain = ClockDomain(coreClk,config = ClockDomainConfig(resetKind = BOOT))
+    val core = new ClockingArea(coreClockDomain){
+      val input = in UInt (4 bit)
+      val output = out UInt(4 bits)
+      output := RegNext(output) init(0)
+
+    }
+
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
+
+object PlayWidthChanger {
+  case class RGB() extends Bundle{
+    val r,g,b = UInt(8 bits)
+  }
+  
+  class TopLevel extends Component {
+    val cmd = slave (Stream Fragment Bits(8 bits))
+    val rsp = master(cmd.toStreamOf(RGB()))
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
+object PlayB8 {
+
+  def main(args: Array[String]): Unit = {
+    SpinalConfig(mode = VHDL,targetDirectory="temp/myDesign").generate(new UartCtrl)
+    SpinalConfig.shell(Seq("-aa"))(new UartCtrl)
+  }
+}
+
+object PlayVerilog1 {
+  class Sub extends Component{
+    val cmd = in UInt(4 bits)
+    val rsp = out UInt(4 bits)
+    rsp := cmd + cmd
+  }
+
+  class TopLevel extends Component {
+    val a,b = in UInt(4 bits)
+    val x,y,z = out UInt(4 bits)
+
+    x := a - b
+
+    y := a + b
+    y(0) := False
+
+    z(z.range) := U"0110"
+
+    val l,m = UInt(4 bits).keep()
+    l := a & b
+    m := a
+    when(a === b){
+      m := b
+    }
+
+    val n,o = Reg(UInt(4 bits)).keep()
+    n := a & b
+    o := a
+    when(a === b){
+      o := b
+    }
+
+    val p,q = Reg(UInt(4 bits)).keep() init(U"0010")
+    p := a & b
+    q := a
+    when(a === b){
+      q := b
+    }
+
+    val sub = new Sub
+    sub.cmd := 0
+    val subOut = out(UInt(4 bits))
+    subOut := sub.rsp
+
+    val r = UInt(5 bits).keep()
+    r := ((a-b) >> 2).resized
+
+
+    object MyEnum extends SpinalEnum{
+      val a,b,c = newElement
+    }
+
+    val e1 = MyEnum().keep
+    e1 := MyEnum.a
+
+    r.addAttribute("flag")
+    r.addAttribute("value","yolo")
+
+
+    val s = out(UInt(4 bits))
+    s := 15
+    s(0) := False
+  }
+  def main(args: Array[String]): Unit = {
+    SpinalConfig(mode = Verilog,defaultConfigForClockDomains=ClockDomainConfig(clockEdge = RISING,resetKind = SYNC,resetActiveLevel = LOW))
+      .generate(new TopLevel)
+  }
+}
+
+
+
+object PlaySwitch4 {
+
+  object MyEnum extends SpinalEnum{
+    val a,b,c = newElement
+  }
+
+  class TopLevel extends Component {
+    val sel = in (MyEnum())
+    val result = out UInt(8 bits)
+
+    result := 5
+    switch(sel){
+      is(MyEnum.a){
+        result := 0
+      }
+      is(MyEnum.b){
+        result := 1
+      }
+//      default{
+//        result := 2
+//      }
+    }
+
+    val sel2 = in UInt(8 bits)
+    val result2 = out UInt(8 bits)
+    result2 := 3
+    switch(sel2){
+      is(0){
+        result2 := 0
+      }
+      is(1){
+        result2 := 1
+      }
+      is(2){
+        result2 := 2
+      }
+    }
+  }
+
+
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
+
+object Play65{
+
+
+  class TopLevel extends Component {
+    val sel = in (Vec(Bool,8))
+    val result = out UInt(8 bits)
+    val result2 = out UInt(8 bits)
+
+    result := 6
+    result2 := 0
+
+    when(sel(3)){
+      result := 5
+    }.elsewhen(sel(4)){
+      result := 6
+    }
+
+    when(sel(0)){
+      result := 0
+    }otherwise{
+      result := 1
+      result2 := 1
+      when(sel(1)){
+        result := 2
+      }.elsewhen(sel(2)){
+        result := 4
+        result2 := 3
+      }
+    }
+  }
+
+
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
+
+
+object PlayGenerics{
+  class TopLevel extends Component {
+
+    val io = new Bundle {
+      val in1  = in Bool
+      val out1 = out Bool
+    }
+
+    val inbuf = alt_inbuf()
+    inbuf.i := io.in1
+    io.out1 := inbuf.o
+  }
+
+
+  trait BOOLEAN { def value : String }
+  case object ON   extends BOOLEAN { def value = "ON"   }
+  case object OFF  extends BOOLEAN { def value = "OFF"  }
+  case object NONE extends BOOLEAN { def value = "None" }
+
+
+  trait IO_STRANDARD { def value : String }
+  case object STD_1_2V      extends IO_STRANDARD { def value = "1.2V" }
+  case object STD_1_2V_HSTL extends IO_STRANDARD { def value = "1.2- V HSTL" }
+  case object STD_1_2V_HSUL extends IO_STRANDARD { def value = "1.2- V HSUL" }
+  case object STD_NONE      extends IO_STRANDARD { def value = "None" }
+
+
+  /**
+   * ALT_INBUF
+   * @TODO add library altera.altera_primitives_components
+   */
+  case class alt_inbuf(_io_standard           : IO_STRANDARD = STD_NONE,
+                       _location              : String       = "None",
+                       _enable_bus_hold       : BOOLEAN      = NONE,
+                       _weak_pull_up_resistor : BOOLEAN      = NONE,
+                       _termination           : String       = "None") extends BlackBox{
+
+    val generic = new Generic {
+      val io_standard           = _io_standard.value
+      val location              = _location
+      val enable_bus_hold       = _enable_bus_hold.value
+      val weak_pull_up_resistor = _weak_pull_up_resistor.value
+      val termination           = _termination
+    }
+
+    val io = new Bundle{
+      val i = in Bool
+      val o = out Bool
+    }.setName("")
+
+    def i : Bool = io.i
+    def o : Bool = io.o
+  }
+
+
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
 }

@@ -21,6 +21,8 @@ Getting started
 
 [![Join the chat at https://gitter.im/SpinalHDL/SpinalHDL](https://badges.gitter.im/SpinalHDL/SpinalHDL.svg)](https://gitter.im/SpinalHDL/SpinalHDL?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
+[![Build Status](https://travis-ci.org/SpinalHDL/SpinalHDL.svg?branch=master)](https://travis-ci.org/SpinalHDL/SpinalHDL)
+
 ## Basics
 - VHDL backend : The digital hardware description is flushed into a synthesizable VHDL file
 - Base Types : Bool, Bits, UInt, SInt, Enumeration

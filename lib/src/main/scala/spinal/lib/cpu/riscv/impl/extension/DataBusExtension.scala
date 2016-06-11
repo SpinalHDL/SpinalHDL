@@ -2,7 +2,7 @@ package spinal.lib.cpu.riscv.impl.extension
 
 
 import spinal.core._
-import spinal.lib.bus.avalon.{AvalonMMBus, AvalonMMConfig}
+import spinal.lib.bus.avalon.{AvalonMM, AvalonMMConfig}
 import spinal.lib.cpu.riscv.impl.Utils._
 import spinal.lib.cpu.riscv.impl._
 import spinal.lib._
@@ -16,7 +16,7 @@ class NativeDataBusExtension extends CoreExtension with AvalonProvider{
     memBus.rsp >> core.dRsp
   }
 
-  override def getAvalon(): AvalonMMBus = memBus.toAvalon()
+  override def getAvalon(): AvalonMM = memBus.toAvalon()
   override def getConfig(): AvalonMMConfig = CoreInstructionBus.getAvalonConfig(memBus.p)
 }
 
@@ -87,6 +87,6 @@ class CachedDataBusExtension(c : DataCacheConfig,cutCpuCmdReady : Boolean = fals
     }
   }
 
-  override def getAvalon(): AvalonMMBus = memBus.toAvalon()
+  override def getAvalon(): AvalonMM = memBus.toAvalon()
   override def getConfig(): AvalonMMConfig = c.getAvalonConfig()
 }

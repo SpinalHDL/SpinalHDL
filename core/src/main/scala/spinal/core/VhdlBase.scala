@@ -18,16 +18,30 @@
 
 package spinal.core
 
+import scala.collection.mutable
+import scala.collection.mutable.{StringBuilder, ArrayBuffer}
+
 /**
  * Created by PIC18F on 07.01.2015.
  */
-trait VhdlBase {
 
-  val vhdlKeyWords = Set[String]("in", "out", "buffer", "inout", "entity", "component", "architecture","type","open","block","access","or","and","xor","nand","nor")
 
-//  override def getReservedKeyword(): Iterable[String] = {
-//    return reservedKeyWords
-//  }
+trait VhdlBase extends VhdlVerilogBase{
+
+  var enumPackageName = "pkg_enum"
+  var packageName = "pkg_scala2hdl"
+
+
+  def emitLibrary(ret: StringBuilder): Unit = {
+    ret ++= "library ieee;\n"
+    ret ++= "use ieee.std_logic_1164.all;\n"
+    ret ++= "use ieee.numeric_std.all;\n"
+    ret ++= "\n"
+    ret ++= s"library work;\n"
+    ret ++= s"use work.$packageName.all;\n"
+    ret ++= s"use work.all;\n"
+    ret ++= s"use work.$enumPackageName.all;\n\n"
+  }
 
 
   def emitSignal(ref: Node, typeNode: Node): String = {
@@ -88,5 +102,4 @@ trait VhdlBase {
     }
   }
 
-  def isReferenceable(node: Node) = node.isInstanceOf[Nameable]
 }

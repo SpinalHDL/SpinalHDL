@@ -549,6 +549,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
   override def getComponent(): Component = component
   def getComponents() : Seq[Component] = if(component == null) Nil else (component.parents() ++ Seq(component))
 
+  def genIf(cond : Boolean) : this.type = if(cond) this else null
 }
 
 trait DataWrapper extends Data{

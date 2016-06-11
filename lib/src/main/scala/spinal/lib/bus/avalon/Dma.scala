@@ -27,7 +27,7 @@ case class AvalonReadDmaConfig( addressWidth : Int,
 class AvalonReadDma[T <: Data](dataType : T,c: AvalonReadDmaConfig) extends Component {
   val io = new Bundle {
     val cmd = slave Stream (AvalonReadDmaCmd(c))
-    val mem = master(AvalonMMBus(c.getAvalonConfig))
+    val mem = master(AvalonMM(c.getAvalonConfig))
     val rsp = master Stream(dataType)
   }
 
@@ -41,7 +41,7 @@ class AvalonReadDma[T <: Data](dataType : T,c: AvalonReadDmaConfig) extends Comp
     }
   } otherwise {
     when(io.mem.fire) {
-      counter := counter + io.cmd.burstSize * io.mem.c.dataByteCount
+      counter := counter + io.cmd.burstSize * io.mem.config.dataByteCount
       when(counter === io.cmd.endAt) {
         active := False
         io.cmd.ready := True
