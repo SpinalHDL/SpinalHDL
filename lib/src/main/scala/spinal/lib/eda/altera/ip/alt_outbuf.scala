@@ -3,36 +3,30 @@ package spinal.lib.eda.altera.ip
 import spinal.core._
 
 /**
-  * alt_inbuf_diff
-  *
-  * http://quartushelp.altera.com/14.0/mergedProjects/hdl/prim/prim_file_alt_inbuf_diff.htm
+  * Generic parameters for the alt_inbuf_diff
   */
-case class alt_inbuf_diff(_io_standard           : IO_STRANDARD = STD_NONE,
-                          _current_strength      : String       = "None",
-                          _slew_rate             : Int          = -1,
-                          _slow_slew_rate        : String       = "None",
-                          _location              : String       = "None",
-                          _enable_bus_hold       : BOOLEAN      = NONE,
-                          _weak_pull_up_resistor : BOOLEAN      = NONE,
-                          _termination           : String       = "None") extends BlackBox{
+case class alt_outbuf_diffGeneric(io_standard           : String       = "None",
+                                  current_strength      : String       = "None",
+                                  slew_rate             : String       = "None",
+                                  location              : String       = "None",
+                                  enable_bus_hold       : String       = "None",
+                                  weak_pull_up_resistor : String       = "None",
+                                  termination           : String       = "None") extends Generic
 
-  val generic = new Generic {
-    val io_standard           = _io_standard.value
-    val current_strength      = _current_strength
-    val slow_slew_rate        = _slow_slew_rate
-    val location              = _location
-    val enable_bus_hold       = _enable_bus_hold.value
-    val weak_pull_up_resistor = _weak_pull_up_resistor.value
-    val termination           = _termination
-  }
+
+
+
+/**
+  * alt_inbuf_diff
+  */
+case class alt_outbuf_diff(val generic : alt_outbuf_diffGeneric = alt_outbuf_diffGeneric()) extends BlackBox{
 
   val io = new Bundle{
-    val i    = in Bool
+    val i    = in  Bool
     val o    = out Bool
   }.setName("")
 
   def i    : Bool = io.i
   def o    : Bool = io.o
 }
-
 
