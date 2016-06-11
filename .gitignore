@@ -29,8 +29,8 @@ out
 
 
 #User
-*.vhd
-*.v
+/*.vhd
+/*.v
 *.cf
 *.json
 *.tcl
@@ -38,9 +38,6 @@ out
 *.pyc
 *.vvp
 *.xml
-!tester/src/test/resources/*.vhd
-!dump.v
-!Dummy.v
 
 /src/
 *.out
