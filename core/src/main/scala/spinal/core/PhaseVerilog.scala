@@ -302,7 +302,7 @@ end
             ret ++= s"""
 initial begin
   for (verilogIndex = 0; verilogIndex < ${mem.wordCount} - 1; verilogIndex = verilogIndex + 1)begin
-     ${emitReference(mem)}[verilogIndex] = 0;
+     ${emitReference(mem)}[verilogIndex] = -1;
   end
 end
 """
