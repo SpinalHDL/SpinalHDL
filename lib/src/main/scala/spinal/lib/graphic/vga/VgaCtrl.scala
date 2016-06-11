@@ -118,32 +118,29 @@ object VgaCtrl {
   }
 }
 
-
-class QsysVgaCtrl(rgbConfig: RgbConfig) extends Component{
+//TODO add to doc example
+class BlinkingVgaCtrl(rgbConfig: RgbConfig) extends Component{
   val io = new Bundle{
-    val pixel = slave Stream Fragment(Bits(rgbConfig.getWidth bits))
     val vga = master(Vga(rgbConfig))
   }
 
-  val pixel = Stream Fragment(Rgb(rgbConfig))
-  pixel.arbitrationFrom(io.pixel)
-  pixel.last := io.pixel.last
-  pixel.fragment.assignFromBits(io.pixel.fragment)
+  val counter = Reg(UInt(rgbConfig.gWidth bits))
+  val ctrl = new VgaCtrl(rgbConfig)
+  ctrl.io.softReset := False
+  ctrl.io.timings.setAs_h640_v480_r60
+  ctrl.io.pixels.valid := True
+  ctrl.io.pixels.r := 0
+  ctrl.io.pixels.g := counter
+  ctrl.io.pixels.b := 0
+  ctrl.io.vga <> io.vga
 
-  val burstSize = 8;
-//  val dma = new NeutralBasicReadDma(burstSize)
-//  dma.io.
-//
-//  val ctrl = new VgaCtrl(rgbConfig)
-//  ctrl.feedWith(pixel)
-
-
+  when(ctrl.io.frameStart){
+    counter := counter + 1
+  }
 }
 
-object QsysVgaCtrl {
+object BlinkingVgaCtrl {
   def main(args: Array[String]) {
-    val toplevel = SpinalVhdl(new QsysVgaCtrl(RgbConfig(8, 8, 8))).toplevel
-    toplevel.io.pixel.addTag(ClockDomainTag(toplevel.clockDomain))
-    QSysify(toplevel)
+    SpinalVhdl(new BlinkingVgaCtrl(RgbConfig(8, 8, 8))).toplevel
   }
 }

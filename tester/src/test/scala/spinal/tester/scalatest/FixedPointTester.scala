@@ -33,7 +33,13 @@ object FixedPointTester{
 }
 
 
-class FixedPointTesterBoot extends SpinalTesterBase {
+class FixedPointTesterGhdlBoot extends SpinalTesterGhdlBase {
   override def getName: String = "FixedPointTester"
+  override def createToplevel: Component = new FixedPointTester
+}
+
+class FixedPointTesterCocotbBoot extends SpinalTesterCocotbBase {
+  override def getName: String = "FixedPointTester"
+  override def pythonTestLocation: String = "tester/src/test/python/spinal/FixedPointTester"
   override def createToplevel: Component = new FixedPointTester
 }

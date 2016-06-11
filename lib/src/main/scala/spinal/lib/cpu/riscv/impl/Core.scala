@@ -71,7 +71,6 @@ object CoreInstructionBus{
     addressWidth = p.addrWidth,
     dataWidth = 32
   ).getReadOnlyConfig.copy(
-    useByteEnable = true,
     maximumPendingReadTransactions = 1
   )
 }
@@ -141,6 +140,7 @@ object CoreDataBus{
   def getAvalonConfig(p : CoreConfig) = AvalonMMConfig.pipelined(
     addressWidth = 32,
     dataWidth = 32).copy(
+      useByteEnable = true,
       maximumPendingReadTransactions = 2
     )
 }

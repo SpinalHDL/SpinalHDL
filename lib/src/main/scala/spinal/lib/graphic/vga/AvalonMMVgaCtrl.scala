@@ -12,7 +12,6 @@ import spinal.lib.tool.QSysify
 
 class AvalonMMVgaCtrl(cDma : NeutralStreamDma.Config,cColor : RgbConfig) extends Component{
   val io = new Bundle{
-//    val control = slave (AvalonMMBus(c.getControlConfig))
     val mem = master (AvalonMM(cDma.getAvalonConfig))
     val vga = master(Vga(cColor))
   }
@@ -33,9 +32,6 @@ class AvalonMMVgaCtrl(cDma : NeutralStreamDma.Config,cColor : RgbConfig) extends
   val vga = new ClockingArea(if(cDma.ctrlRspClock != null) cDma.ctrlRspClock else ClockDomain.current) {
     val ctrl = new VgaCtrl(cColor)
     val pixelStream = Stream(Fragment(Rgb(cColor)))
-//    pixelStream.arbitrationFrom(dma.io.ctrl.rsp)
-//    pixelStream.last := dma.io.ctrl.rsp.last
-//    pixelStream.fragment.assignFromBits(dma.io.ctrl.rsp.fragment)
 
     val high = RegInit(False)
     when(pixelStream.fire){
@@ -58,34 +54,6 @@ class AvalonMMVgaCtrl(cDma : NeutralStreamDma.Config,cColor : RgbConfig) extends
     ctrl.feedWith(pixelStream)
     io.vga := RegNext(ctrl.io.vga)
   }
-  //  when(io.control.write){
-//    switch(io.control.address){
-//      is(0){
-//        ctrl.io.timings.h.syncStart := io.control.writeData.asUInt.resized
-//      }
-//      is(1){
-//        ctrl.io.timings.h.syncStart := io.control.writeData.asUInt.resized
-//      }
-//      is(2){
-//        ctrl.io.timings.h.syncStart := io.control.writeData.asUInt.resized
-//      }
-//      is(3){
-//        ctrl.io.timings.h.syncStart := io.control.writeData.asUInt.resized
-//      }
-//      is(4){
-//        ctrl.io.timings.h.syncStart := io.control.writeData.asUInt.resized
-//      }
-//      is(5){
-//        ctrl.io.timings.h.syncStart := io.control.writeData.asUInt.resized
-//      }
-//      is(6){
-//        ctrl.io.timings.h.syncStart := io.control.writeData.asUInt.resized
-//      }
-//      is(7){
-//        ctrl.io.timings.h.syncStart := io.control.writeData.asUInt.resized
-//      }
-//    }
-//  }
 }
 
 

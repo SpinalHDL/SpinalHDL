@@ -49,23 +49,22 @@ trait VerilogBase extends VhdlVerilogBase{
       }
     } ${emitReference(reset)}"
   }
-
+  def getSwappedEncoding(encoding : SpinalEnumEncoding): SpinalEnumEncoding ={
+    if(encoding == `native`) binarySequancial
+    else encoding
+  }
   //TODO
-  def emitEnumLiteral[T <: SpinalEnum](enum : SpinalEnumElement[T],encoding: SpinalEnumEncoding,prefix : String = "`") : String = {
-    if(encoding.isNative)
-      return prefix + "pkg_enum_" + enum.getName()
-    else
-      return prefix + enum.parent.getName() + "_" + encoding.getName() + "_" + enum.getName()
+  def emitEnumLiteral[T <: SpinalEnum](enum : SpinalEnumElement[T],encoding_ : SpinalEnumEncoding,prefix : String = "`") : String = {
+    val encoding = getSwappedEncoding(encoding_)
+    return prefix + enum.parent.getName() + "_" + encoding.getName() + "_" + enum.getName()
   }
 
   def emitEnumType[T <: SpinalEnum](enum : SpinalEnumCraft[T],prefix : String) : String = emitEnumType(enum.blueprint,enum.encoding,prefix)
 
   //TODO
-  def emitEnumType(enum : SpinalEnum,encoding: SpinalEnumEncoding,prefix : String = "'") : String = {
-    if(encoding.isNative)
-      return prefix + enum.getName()
-    else
-      return prefix + enum.getName() + "_" + encoding.getName() + "_type"
+  def emitEnumType(enum : SpinalEnum,encoding_ : SpinalEnumEncoding,prefix : String = "'") : String = {
+    val encoding = getSwappedEncoding(encoding_)
+    return prefix + enum.getName() + "_" + encoding.getName() + "_type"
   }
 
   def emitDataType(node: Node) = node match {

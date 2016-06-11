@@ -31,7 +31,13 @@ class StreamTester extends Component {
 
 
 
-class StreamTesterBoot extends SpinalTesterBase {
+class StreamTesterGhdlBoot extends SpinalTesterGhdlBase {
   override def getName: String = "StreamTester"
+  override def createToplevel: Component = new StreamTester
+}
+
+class StreamTesterCocotbBoot extends SpinalTesterCocotbBase {
+  override def getName: String = "StreamTester"
+  override def pythonTestLocation: String = "tester/src/test/python/spinal/StreamTester"
   override def createToplevel: Component = new StreamTester
 }

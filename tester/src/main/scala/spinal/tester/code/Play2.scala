@@ -1,5 +1,7 @@
 package spinal.tester.code
 
+
+import java.io.{PrintWriter, ByteArrayOutputStream}
 import java.util
 
 import spinal.core._
@@ -7,10 +9,11 @@ import spinal.lib._
 import spinal.lib.bus.neutral.NeutralStreamDma
 import spinal.lib.com.uart.UartCtrl
 import spinal.lib.graphic.RgbConfig
-import spinal.lib.graphic.vga.{AvalonMMVgaCtrl, AvalonMMVgaCtrl$, VgaCtrl}
+import spinal.lib.graphic.vga.{AvalonMMVgaCtrl, VgaCtrl}
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
+import scala.sys.process.{ProcessLogger, Process, ProcessIO}
 
 /**
  * Created by PIC32F_USER on 21/05/2016.
@@ -33,6 +36,31 @@ object PlayB7 {
     SpinalVhdl(new TopLevel)
   }
 }
+
+
+object Play74 {
+
+  class TopLevel extends Component {
+
+    when(in(Bool)) {
+      assert(
+        assertion = True,
+        message = "Address read doesn't match the address of the device ",
+        severity = NOTE
+      )
+    }
+    report(
+      message = "Address read doesn't match the address of the device ",
+      severity = NOTE
+    )
+  }
+
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
 
 object PlayB6 {
 
@@ -760,6 +788,7 @@ object PlaySwitch4 {
     val sel = in (MyEnum())
     val result = out UInt(8 bits)
 
+    result := 5
     switch(sel){
       is(MyEnum.a){
         result := 0
@@ -767,8 +796,23 @@ object PlaySwitch4 {
       is(MyEnum.b){
         result := 1
       }
-      default{
-        result := 2
+//      default{
+//        result := 2
+//      }
+    }
+
+    val sel2 = in UInt(8 bits)
+    val result2 = out UInt(8 bits)
+    result2 := 3
+    switch(sel2){
+      is(0){
+        result2 := 0
+      }
+      is(1){
+        result2 := 1
+      }
+      is(2){
+        result2 := 2
       }
     }
   }
@@ -777,6 +821,7 @@ object PlaySwitch4 {
 
   def main(args: Array[String]): Unit = {
     SpinalVhdl(new TopLevel)
+    SpinalVerilog(new TopLevel)
   }
 }
 
@@ -817,5 +862,133 @@ object Play65{
 
   def main(args: Array[String]): Unit = {
     SpinalVhdl(new TopLevel)
+  }
+}
+
+
+
+
+object PlayGenerics{
+  class TopLevel extends Component {
+
+    val io = new Bundle {
+      val in1  = in Bool
+      val out1 = out Bool
+    }
+
+    val inbuf = alt_inbuf()
+    inbuf.i := io.in1
+    io.out1 := inbuf.o
+  }
+
+
+  trait BOOLEAN { def value : String }
+  case object ON   extends BOOLEAN { def value = "ON"   }
+  case object OFF  extends BOOLEAN { def value = "OFF"  }
+  case object NONE extends BOOLEAN { def value = "None" }
+
+
+  trait IO_STRANDARD { def value : String }
+  case object STD_1_2V      extends IO_STRANDARD { def value = "1.2V" }
+  case object STD_1_2V_HSTL extends IO_STRANDARD { def value = "1.2- V HSTL" }
+  case object STD_1_2V_HSUL extends IO_STRANDARD { def value = "1.2- V HSUL" }
+  case object STD_NONE      extends IO_STRANDARD { def value = "None" }
+
+
+  /**
+   * ALT_INBUF
+   * @TODO add library altera.altera_primitives_components
+   */
+  case class alt_inbuf(_io_standard           : IO_STRANDARD = STD_NONE,
+                       _location              : String       = "None",
+                       _enable_bus_hold       : BOOLEAN      = NONE,
+                       _weak_pull_up_resistor : BOOLEAN      = NONE,
+                       _termination           : String       = "None") extends BlackBox{
+
+    val generic = new Generic {
+      val io_standard           = _io_standard.value
+      val location              = _location
+      val enable_bus_hold       = _enable_bus_hold.value
+      val weak_pull_up_resistor = _weak_pull_up_resistor.value
+      val termination           = _termination
+    }
+
+    val io = new Bundle{
+      val i = in Bool
+      val o = out Bool
+    }.setName("")
+
+    def i : Bool = io.i
+    def o : Bool = io.o
+  }
+
+
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
+
+object PlayCocotb{
+
+
+  class TopLevel extends Component {
+    val clear = in Bool
+    val incrementBy = in UInt(16 bits)
+    val result = out (Reg(UInt(16 bits))) init(0)
+    result := result + incrementBy
+    when(clear){
+      result := 0
+    }
+  }
+
+
+
+  def main(args: Array[String]): Unit = {
+    //SpinalVhdl(new TopLevel)
+    SpinalVerilog(new TopLevel)
+
+    import scala.sys.process._
+
+
+    def doCmd(cmd : String): Unit ={
+      println(cmd)
+      Process("sh -c \"" + cmd + "\"") !
+    }
+
+    doCmd("export COCOTB=/d/pro/hdl/cocotbRepo && cd tester/src/test/python/TopLevel && make")
+
+  }
+}
+
+object PlayShell{
+  def main(args: Array[String]) {
+    var res = ""
+    val io = new ProcessIO(
+      stdin  => { stdin.write(("Yolo\n").getBytes)
+        stdin.flush()
+        stdin.close() },
+      stdout => { scala.io.Source.fromInputStream(stdout).getLines.foreach(println)
+        stdout.close() },
+      stderr => { scala.io.Source.fromInputStream(stderr).getLines.foreach(println)
+        stderr.close()})
+    val proc = Process("cmd").run(io)
+
+
+    //    def runCommand(cmd: Seq[String]): (Int, String, String) = {
+//      val stdoutStream = new ByteArrayOutputStream()
+//      val stderrStream = new ByteArrayOutputStream
+//      val stdoutWriter = new PrintWriter(stdoutStream)
+//      val stderrWriter = new PrintWriter(stderrStream)
+//      val exitValue = Process(cmd).!(ProcessLogger(stdin  => { stdin.write("Yolo".getBytes),stdoutWriter.println, stderrWriter.println))
+//      stdoutWriter.close()
+//      stderrWriter.close()
+//      (exitValue, stdoutStream.toString, stderrStream.toString)
+//    }
+//    val (int,out,err) = runCommand(Seq("sh"))
+//    println(out)
+//    println(err)
   }
 }

@@ -937,7 +937,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
       case literal: EnumLiteral[_] => (literal.enum.parent, literal.encoding)
     }
     encoding match {
-      case `oneHot` => s"pkg_toStdLogic((${emitLogic(op.getInput(0))} and ${emitLogic(op.getInput(1))}) ${if (eguals) "/=" else "="} ${'"' + "0" * op.getInput(0).getWidth + '"'})"
+      case `binaryOneHot` => s"pkg_toStdLogic((${emitLogic(op.getInput(0))} and ${emitLogic(op.getInput(1))}) ${if (eguals) "/=" else "="} ${'"' + "0" * op.getInput(0).getWidth + '"'})"
       case _ => s"pkg_toStdLogic(${emitLogic(op.getInput(0))} ${if (eguals) "=" else "/="} ${emitLogic(op.getInput(1))})"
     }
   }
@@ -971,7 +971,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
       case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.encoding)
       case literal: EnumLiteral[_] => (literal.enum.parent, literal.encoding)
     }
-    val enumCast = func.asInstanceOf[CastBitsToEnum]
+    val enumCast = func.asInstanceOf[CastEnumToEnum]
     val (enumDefDst, encodingDst) = enumCast.enum match {
       case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.encoding)
     }
@@ -1460,6 +1460,18 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
             ret ++= s"${tab}end if;\n"
           }
         }
+      }
+      case switchTree : AssignementLevelSwitch => {
+        ret ++= s"${tab}case ${emitLogic(switchTree.key)} is\n"
+        switchTree.cases.foreach(c => {
+          ret ++= s"${tab}  when ${emitLogic(c.const)} =>\n"
+          emitAssignementLevel(c.doThat,ret,tab + "    ","<=")
+        })
+        ret ++= s"${tab}  when others =>\n"
+        if(!switchTree.default.isInstanceOf[NoneNode]){
+          emitAssignementLevel(switchTree.default.doThat,ret,tab + "    ","<=")
+        }
+        ret ++= s"${tab}end case;\n"
       }
       case task : AssignementLevelSimple => emitAssignement(task.that, task.by, ret, tab, assignementKind)
     })
