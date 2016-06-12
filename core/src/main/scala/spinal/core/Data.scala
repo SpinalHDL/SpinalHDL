@@ -179,10 +179,7 @@ class DataPimper[T <: Data](val pimpIt: T){
   def mux[T <: Data](mappings: (Any, T)*): T = {
     SpinalMap.list(pimpIt,mappings)
   }
-  @deprecated("Use mux instead")
-  def map[T <: Data](mappings: (Any, T)*): T = {
-    SpinalMap.list(pimpIt,mappings)
-  }
+
 }
 
 //abstract class WidthChecker(val consumer : Node,val provider : Node) {

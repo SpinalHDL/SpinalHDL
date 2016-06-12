@@ -1,5 +1,7 @@
 package spinal.tester.code
 
+
+import java.io.{PrintWriter, ByteArrayOutputStream}
 import java.util
 
 import spinal.core._
@@ -7,11 +9,11 @@ import spinal.lib._
 import spinal.lib.bus.neutral.NeutralStreamDma
 import spinal.lib.com.uart.UartCtrl
 import spinal.lib.graphic.RgbConfig
-import spinal.lib.graphic.vga.{AvalonMMVgaCtrl, AvalonMMVgaCtrl$, VgaCtrl}
-import spinal.lib.com.i2c._
+import spinal.lib.graphic.vga.{AvalonMMVgaCtrl, VgaCtrl}
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
+import scala.sys.process.{ProcessLogger, Process, ProcessIO}
 
 /**
  * Created by PIC32F_USER on 21/05/2016.
@@ -34,6 +36,31 @@ object PlayB7 {
     SpinalVhdl(new TopLevel)
   }
 }
+
+
+object Play74 {
+
+  class TopLevel extends Component {
+
+    when(in(Bool)) {
+      assert(
+        assertion = True,
+        message = "Address read doesn't match the address of the device ",
+        severity = NOTE
+      )
+    }
+    report(
+      message = "Address read doesn't match the address of the device ",
+      severity = NOTE
+    )
+  }
+
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
 
 object PlayB6 {
 
@@ -675,7 +702,7 @@ object PlayWidthChanger {
 object PlayB8 {
 
   def main(args: Array[String]): Unit = {
-    SpinalConfig(mode = VHDL,targetDirectory="temp/myDesign").generate(new UartCtrl)
+//    SpinalConfig(mode = VHDL,targetDirectory="temp/myDesign").generate(new UartCtrl)
     SpinalConfig.shell(Seq("-aa"))(new UartCtrl)
   }
 }
@@ -794,6 +821,7 @@ object PlaySwitch4 {
 
   def main(args: Array[String]): Unit = {
     SpinalVhdl(new TopLevel)
+    SpinalVerilog(new TopLevel)
   }
 }
 
@@ -834,6 +862,28 @@ object Play65{
 
   def main(args: Array[String]): Unit = {
     SpinalVhdl(new TopLevel)
+  }
+}
+
+
+
+object PlayResize{
+
+
+  class TopLevel extends Component {
+    val cmd = in Vec(Bool,3)
+    val rsp = out Vec(Bool,2)
+    rsp := cmd.asBits.asSInt.resize(2).asBools
+
+    for((e,i) <- cmd.zipWithIndex) e.setName(('a' + i).toChar.toString)
+    for((e,i) <- rsp.zipWithIndex) e.setName(('x' + i).toChar.toString)
+  }
+
+
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+    SpinalVerilog(new TopLevel().setDefinitionName("TopLevelV"))
   }
 }
 
@@ -903,46 +953,64 @@ object PlayGenerics{
 
 
 
+object PlayCocotb{
 
-object PlayI2CMasterCtrl_7bits{
 
   class TopLevel extends Component {
-
-    val config = I2CMasterCtrConfig(ADDR_7bits, Fast)
-
-    val io = new Bundle {
-      val i2c         = master( I2C() )
-      val read        = master Flow(Bits(config.dataSize bits))
-      val write       = slave  Stream(Bits(config.dataSize bits))
-      val start       = in Bool // pulse to start the sequence..
-      val read_cmd    = slave( Event )
-      val addrDevice  = in UInt(config.modeAddr.value bits)
-      val errorAck    = out Bool
-      val busy        = out Bool
+    val clear = in Bool
+    val incrementBy = in UInt(16 bits)
+    val result = out (Reg(UInt(16 bits))) init(0)
+    result := result + incrementBy
+    when(clear){
+      result := 0
     }
-
-    val myMasterI2C  = new I2CMasterCtrl(config)
-
-
-    io <> myMasterI2C.io
-
-    /*
-    io.i2c <> myMasterI2C.io.i2c
-    io.read <> myMasterI2C.io.read
-    io.write <> myMasterI2C.io.write
-    io.start <> myMasterI2C.io.start
-    io.read_cmd <> myMasterI2C.io.read_cmd
-    io.addrDevice <> myMaster
-    */
-
   }
 
 
+
+  def main(args: Array[String]): Unit = {
+    //SpinalVhdl(new TopLevel)
+    SpinalVerilog(new TopLevel)
+
+    import scala.sys.process._
+
+
+    def doCmd(cmd : String): Unit ={
+      println(cmd)
+      Process("sh -c \"" + cmd + "\"") !
+    }
+
+    doCmd("export COCOTB=/d/pro/hdl/cocotbRepo && cd tester/src/test/python/TopLevel && make")
+
+  }
+}
+
+object PlayShell{
   def main(args: Array[String]) {
-    SpinalConfig(
-      mode = VHDL,
-      defaultConfigForClockDomains=ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
-      defaultClockDomainFrequency=FixedFrequency(50e6)
-    ).generate(new TopLevel).printPruned
+    var res = ""
+    val io = new ProcessIO(
+      stdin  => { stdin.write(("Yolo\n").getBytes)
+        stdin.flush()
+        stdin.close() },
+      stdout => { scala.io.Source.fromInputStream(stdout).getLines.foreach(println)
+        stdout.close() },
+      stderr => { scala.io.Source.fromInputStream(stderr).getLines.foreach(println)
+        stderr.close()})
+    val proc = Process("cmd").run(io)
+
+
+    //    def runCommand(cmd: Seq[String]): (Int, String, String) = {
+//      val stdoutStream = new ByteArrayOutputStream()
+//      val stderrStream = new ByteArrayOutputStream
+//      val stdoutWriter = new PrintWriter(stdoutStream)
+//      val stderrWriter = new PrintWriter(stderrStream)
+//      val exitValue = Process(cmd).!(ProcessLogger(stdin  => { stdin.write("Yolo".getBytes),stdoutWriter.println, stderrWriter.println))
+//      stdoutWriter.close()
+//      stderrWriter.close()
+//      (exitValue, stdoutStream.toString, stderrStream.toString)
+//    }
+//    val (int,out,err) = runCommand(Seq("sh"))
+//    println(out)
+//    println(err)
   }
 }

@@ -495,14 +495,14 @@ object Operator{
     class Equal extends BinaryOperator{
       override def opName: String = "e==e"
       override def calcWidth(): Int = 1
-      override def normalizeInputs: Unit = {InputNormalize.enumImpl(this)}
+      override def normalizeInputs: Unit = {InputNormalize.binaryOperatorEnumImpl(this)}
       override def simplifyNode: Unit = {}
     }
 
     class NotEqual extends BinaryOperator{
       override def opName: String = "e!=e"
       override def calcWidth(): Int = 1
-      override def normalizeInputs: Unit = {InputNormalize.enumImpl(this)}
+      override def normalizeInputs: Unit = {InputNormalize.binaryOperatorEnumImpl(this)}
       override def simplifyNode: Unit = {}
     }
 
@@ -621,6 +621,10 @@ class MultiplexerSInt extends Multiplexer{
 }
 class MultiplexerEnum extends Multiplexer{
   override def opName: String = "mux(B,e,e)"
+  override def normalizeInputs: Unit = {
+    InputNormalize.binaryOperatorEnumImpl(this,1,2)
+  }
+
 }
 
 object Mux {
@@ -690,6 +694,44 @@ object SpinalMap {
   }
 }
 
+//TODO DOC
+object Select{
+  def apply[T <: Data](default: T, mappings: (Bool, T)*): T = list(default,mappings)
+  def apply[T <: Data](mappings: (Bool, T)*): T = list(mappings)
+
+  def list[ T <: Data]( defaultValue: T, mappings: Seq[(Bool, T)]): T = {
+    val result : T = defaultValue.clone
+
+    var ptr : WhenContext = null
+
+    mappings.foreach{case (cond,that) => {
+      if(ptr == null){
+        ptr = when(cond){
+          result := that
+        }
+      }else{
+        ptr = ptr.elsewhen(cond){
+          result := that
+        }
+      }
+    }}
+
+    if(ptr == null){
+      result := defaultValue
+    }else{
+      ptr.otherwise{
+        result := defaultValue
+      }
+    }
+    result
+  }
+
+  def list[T <: Data](mappings: Seq[(Bool, T)]): T = {
+    val defaultValue = mappings.find(_._1 == default)
+    if(!defaultValue.isDefined) new Exception("No default element in SpinalMap (default -> xxx)")
+    list(defaultValue.get._2,mappings.filter(_._1 != default))
+  }
+}
 
 private[spinal] object Multiplex {
 
@@ -1450,7 +1492,7 @@ class AssertNode extends SyncNode(){
   override def getInputs: Iterator[Node] = super.getInputs ++ Iterator(cond)
   override def getInput(id: Int): Node = id match{
     case 3 => cond
-    case _ => getInput(id)
+    case _ => super.getInput(id)
   }
 
   override private[core] def calcWidth: Int = 1

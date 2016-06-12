@@ -36,7 +36,7 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T,val encoding: SpinalEnum
   private[core] def assertSameType(than: SpinalEnumCraft[_]): Unit =
     if (blueprint != than.blueprint) SpinalError("Enum is assigned by a incompatible enum")
 
-  def :=(that: SpinalEnumElement[T]): Unit = new DataPimper(this) := that.craft()
+  def :=(that: SpinalEnumElement[T]): Unit = new DataPimper(this) := that.craft(encoding)
   def ===(that: SpinalEnumElement[T]): Bool = this === (that.craft())
   def =/=(that: SpinalEnumElement[T]): Bool = this =/= (that.craft())
 
@@ -51,6 +51,12 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T,val encoding: SpinalEnum
     this := c
   }
 
+
+//  override private[core] def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = that match{
+//    case that : SpinalEnumCraft[T] => {
+//      super.assignFromImpl(that, conservative)
+//    }
+//  }
 
   override private[core] def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = that match{
     case that : SpinalEnumCraft[T] => {
@@ -116,6 +122,10 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T,val encoding: SpinalEnum
     ret
   }
   private[core] override def weakClone: this.type = new SpinalEnumCraft(blueprint,encoding).asInstanceOf[this.type]
+
+  override private[core] def normalizeInputs: Unit = {
+//    InputNormalize.enumImpl(this)
+  }
 }
 
 
@@ -127,10 +137,10 @@ class SpinalEnumElement[T <: SpinalEnum](val parent: T, val position: Int) exten
     that =/= this
   }
 
-  def apply() : SpinalEnumCraft[T] = craft()
-  def craft(): SpinalEnumCraft[T] = {
+  def apply(encoding : SpinalEnumEncoding = this.parent.defaultEncoding) : SpinalEnumCraft[T] = craft(encoding)
+  def craft(encoding : SpinalEnumEncoding = this.parent.defaultEncoding): SpinalEnumCraft[T] = {
     val ret = parent.craft().asInstanceOf[SpinalEnumCraft[T]]
-    ret.input = new EnumLiteral(this,this.parent.defaultEncoding)
+    ret.input = new EnumLiteral(this,encoding)
     ret
   }
 
@@ -152,25 +162,25 @@ object native extends SpinalEnumEncoding{
   setWeakName("native")
 }
 
-object sequancial extends SpinalEnumEncoding{
+object binarySequancial extends SpinalEnumEncoding{
   override def getWidth(enum: SpinalEnum): Int = log2Up(enum.values.length)
   def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]) : BigInt = {
     return element.position
   }
 
   override def isNative = false
-  setWeakName("sequancial")
+  setWeakName("binary_sequancial")
 }
 
 
 
-object oneHot extends SpinalEnumEncoding{
+object binaryOneHot extends SpinalEnumEncoding{
   override def getWidth(enum: SpinalEnum): Int = enum.values.length
   def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]) : BigInt = {
     return BigInt(1) << element.position
   }
   override def isNative = true
-  setWeakName("one_hot")
+  setWeakName("binary_one_hot")
 }
 
 object Encoding{
@@ -196,7 +206,7 @@ object Encoding{
 }
 
 class EnumFsm(defaultEncoding : SpinalEnumEncoding = native) extends SpinalEnum
-class EnumData(defaultEncoding : SpinalEnumEncoding = sequancial) extends SpinalEnum
+class EnumData(defaultEncoding : SpinalEnumEncoding = binarySequancial) extends SpinalEnum
 
 class SpinalEnum(var defaultEncoding : SpinalEnumEncoding = native) extends Nameable {
   type T = SpinalEnumCraft[this.type]

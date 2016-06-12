@@ -549,6 +549,8 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
         |  begin
         |    if that'length = 0 then
         |       ret := (others => '0');
+        |    elsif that'length >= width then
+        |       ret := that(width-1 downto 0);
         |    else
         |       ret := resize(that,width);
         |    end if;
@@ -792,6 +794,8 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
             }
 
             initAssignementBuilder ++= ")"
+          }else if(mem.hasTag(randomBoot)){
+            initAssignementBuilder ++= " := (others => (others => '1'))"
           }
 
           val symbolWidth = mem.getMemSymbolWidth()
@@ -937,7 +941,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
       case literal: EnumLiteral[_] => (literal.enum.parent, literal.encoding)
     }
     encoding match {
-      case `oneHot` => s"pkg_toStdLogic((${emitLogic(op.getInput(0))} and ${emitLogic(op.getInput(1))}) ${if (eguals) "/=" else "="} ${'"' + "0" * op.getInput(0).getWidth + '"'})"
+      case `binaryOneHot` => s"pkg_toStdLogic((${emitLogic(op.getInput(0))} and ${emitLogic(op.getInput(1))}) ${if (eguals) "/=" else "="} ${'"' + "0" * op.getInput(0).getWidth + '"'})"
       case _ => s"pkg_toStdLogic(${emitLogic(op.getInput(0))} ${if (eguals) "=" else "/="} ${emitLogic(op.getInput(1))})"
     }
   }
@@ -971,7 +975,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
       case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.encoding)
       case literal: EnumLiteral[_] => (literal.enum.parent, literal.encoding)
     }
-    val enumCast = func.asInstanceOf[CastBitsToEnum]
+    val enumCast = func.asInstanceOf[CastEnumToEnum]
     val (enumDefDst, encodingDst) = enumCast.enum match {
       case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.encoding)
     }

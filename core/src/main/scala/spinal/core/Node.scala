@@ -309,11 +309,11 @@ object InputNormalize {
     Misc.normalizeResize(node, MemWrite.getAddressId, node.asInstanceOf[Mem[_]].addressWidth)
   }
 
-  def enumImpl[T <: SpinalEnum](node : Node) : Unit = {
-    val left = node.getInput(0).asInstanceOf[SpinalEnumCraft[T]]
-    val right = node.getInput(1).asInstanceOf[SpinalEnumCraft[T]]
+  def binaryOperatorEnumImpl[T <: SpinalEnum](node : Node,leftId : Int = 0,rightId : Int = 1) : Unit = {
+    val left = node.getInput(leftId).asInstanceOf[SpinalEnumCraft[T]]
+    val right = node.getInput(rightId).asInstanceOf[SpinalEnumCraft[T]]
     if(left.encoding != right.encoding){
-      val (that,ref,thatId) = if(left.getWidth > right.getWidth) (left,right,0) else  (right,left,1)
+      val (that,ref,thatId) = if(left.getWidth > right.getWidth) (left,right,leftId) else  (right,left,rightId)
       Component.push(that.component)
       val newOne = ref.clone.asInstanceOf[SpinalEnumCraft[T]]
       newOne.assignFromAnotherEncoding(that)
@@ -321,6 +321,23 @@ object InputNormalize {
       Component.pop(that.component)
     }
   }
+
+//
+//  def enumImpl[T <: SpinalEnum](consumer : Node,inputId : Int,targetEncoding : SpinalEnumEncoding) : Unit = {
+//    val input = consumer.getInput(inputId)
+//    input match {
+//      case enum : SpinalEnumCraft if enum.encoding != targetEncoding=> {
+//        Component.push(input.component)
+//        val newOne = ref.clone.asInstanceOf[SpinalEnumCraft[T]]
+//        newOne.assignFromAnotherEncoding(that)
+//        consumer.setInput(thatId,newOne)
+//        Component.pop(input.component)
+//      }
+//      case _ =>
+//    }
+//
+//  }
+
 
   def nodeWidth(node: Node): Unit = {
     val targetWidth = node.getWidth

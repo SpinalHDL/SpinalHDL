@@ -30,8 +30,14 @@ object GrayCounterTester {
 }
 
 
-class GrayCounterTesterBoot extends SpinalTesterBase {
+class GrayCounterTesterGhdlBoot extends SpinalTesterGhdlBase {
   override def getName: String = "GrayCounterTester"
 
+  override def createToplevel: Component = new GrayCounterTester(8)
+}
+
+class GrayCounterTesterCocotbBoot extends SpinalTesterCocotbBase {
+  override def getName: String = "GrayCounterTester"
+  override def pythonTestLocation: String = "tester/src/test/python/spinal/GrayCounterTester"
   override def createToplevel: Component = new GrayCounterTester(8)
 }

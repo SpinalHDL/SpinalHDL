@@ -15,8 +15,8 @@ end UartTester_tb;
 
 architecture arch of UartTester_tb is
   signal io_uart_config_frame_dataLength : unsigned(2 downto 0);
-  signal io_uart_config_frame_stop : UartStopType_sequancial_type;
-  signal io_uart_config_frame_parity : UartParityType_sequancial_type;
+  signal io_uart_config_frame_stop : UartStopType_binary_sequancial_type;
+  signal io_uart_config_frame_parity : UartParityType_binary_sequancial_type;
   signal io_uart_config_clockDivider : unsigned(19 downto 0);
   signal io_uart_write_valid : std_logic;
   signal io_uart_write_ready : std_logic;
@@ -62,8 +62,8 @@ begin
   begin
     reset <= '1';
     io_uart_config_frame_dataLength <= "111";
-    io_uart_config_frame_stop <= UartStopType_sequancial_ONE;
-    io_uart_config_frame_parity <= UartParityType_sequancial_EVEN;
+    io_uart_config_frame_stop <= UartStopType_binary_sequancial_ONE;
+    io_uart_config_frame_parity <= UartParityType_binary_sequancial_EVEN;
     io_uart_config_clockDivider <= to_unsigned(clockDivider,20);
 
     io_uart_write_valid <= '0';
@@ -97,13 +97,13 @@ begin
       variable parity : std_logic;
       variable stopTime : time;
     begin
-        if io_uart_config_frame_parity = UartParityType_sequancial_EVEN then
+        if io_uart_config_frame_parity = UartParityType_binary_sequancial_EVEN then
           parity := '0';
         else
           parity := '1';
         end if;
         
-        if io_uart_config_frame_stop = UartStopType_sequancial_ONE then
+        if io_uart_config_frame_stop = UartStopType_binary_sequancial_ONE then
           stopTime := baudPeriod;
         else
           stopTime := 2 * baudPeriod;
@@ -125,7 +125,7 @@ begin
         checkBit(parity);
         
         checkBit('1');
-        if io_uart_config_frame_stop = UartStopType_sequancial_TWO then
+        if io_uart_config_frame_stop = UartStopType_binary_sequancial_TWO then
          checkBit('1');       
         end if;
     end checkTx;

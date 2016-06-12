@@ -9,7 +9,7 @@ case class IrqUsage(isException : Boolean)
 
 
 object Utils{
-  object PC extends SpinalEnum(sequancial){
+  object PC extends SpinalEnum(binarySequancial){
     val INC,BRA,J,JR = newElement()
   }
   object BR extends SpinalEnum{
@@ -30,28 +30,28 @@ object Utils{
     def isSignedComp(that : T) = !that.asBits(1)
   }
 
-  object OP0 extends SpinalEnum(sequancial){
+  object OP0 extends SpinalEnum(binarySequancial){
     val RS, IMU, IMZ, IMJB = newElement()
     def X = RS
   }
 
 
-  object OP1 extends SpinalEnum(sequancial){
+  object OP1 extends SpinalEnum(binarySequancial){
     val RS, IMI, IMS, PC1 = newElement()
     def X = RS
   }
 
-  object WB extends SpinalEnum(sequancial){
+  object WB extends SpinalEnum(binarySequancial){
     val ALU1, MEM, PC4, CSR1 = newElement()
     def X = ALU1
   }
 
-  object MWR extends SpinalEnum(sequancial){
+  object MWR extends SpinalEnum(binarySequancial){
     val R, W, F = newElement()
   }
 
 
-  object MSK extends SpinalEnum(sequancial){
+  object MSK extends SpinalEnum(binarySequancial){
     val B,H,W = newElement()
     def X = B
   }
@@ -62,7 +62,7 @@ object Utils{
   }
 
 
-  object M extends SpinalEnum(sequancial){
+  object M extends SpinalEnum(binarySequancial){
     val XRD, XWR = newElement()
     def X = XRD
   }
@@ -89,7 +89,7 @@ object Utils{
   }
   def apply(x : Int) = 2
 
-  object CSR extends SpinalEnum(sequancial){
+  object CSR extends SpinalEnum(binarySequancial){
     val N, W, S, C = newElement()
   }
 
