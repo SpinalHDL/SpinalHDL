@@ -226,6 +226,7 @@ end
 
 
   def emitSignals(component: Component, ret: StringBuilder, enumDebugSignals: ArrayBuffer[SpinalEnumCraft[_]]): Unit = {
+    var verilogIndexGenerated = false
     for (node <- component.nodes) {
       node match {
         case signal: BaseType => {
@@ -276,10 +277,10 @@ end
 
              for(i <- 0 until symbolCount) {
               val postfix = "_symbol" + i
-              ret ++= s"  ${emitAttributes(mem)}reg [${symbolWidth- 1}:0] ${emitReference(mem)}$postfix [${mem.wordCount - 1}:0];\n"
+              ret ++= s"  ${emitAttributes(mem)}reg [${symbolWidth- 1}:0] ${emitReference(mem)}$postfix [0:${mem.wordCount - 1}];\n"
             }
           }else{
-            ret ++= s"  ${emitAttributes(mem)}reg ${emitRange(mem)} ${emitReference(mem)} [${mem.wordCount - 1}:0];\n"
+            ret ++= s"  ${emitAttributes(mem)}reg ${emitRange(mem)} ${emitReference(mem)} [0:${mem.wordCount - 1}];\n"
           }
 
           if (mem.initialContent != null) {
@@ -293,6 +294,18 @@ end
             }
 
             ret ++= "  end\n"
+          }else if(mem.hasTag(randomBoot)){
+            if(!verilogIndexGenerated) {
+              verilogIndexGenerated = true
+              ret ++= "integer verilogIndex;\n"
+            }
+            ret ++= s"""
+initial begin
+  for (verilogIndex = 0; verilogIndex < ${mem.wordCount} - 1; verilogIndex = verilogIndex + 1)begin
+     ${emitReference(mem)}[verilogIndex] = -1;
+  end
+end
+"""
           }
         }
         case _ =>
@@ -597,12 +610,12 @@ end
     case lit: BitsLiteral => lit.kind match {  //TODO remove if(lit.getWidth == 0) "0" else
       case _: Bits => if(lit.getWidth == 0) "0" else s"(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
       case _: UInt => if(lit.getWidth == 0) "0" else s"(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
-      case _: SInt => if(lit.getWidth == 0) "0" else ('$' + s"signed(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})")
+      case _: SInt => if(lit.getWidth == 0) "0" else s"(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
     }
     case lit: BitsAllToLiteral => lit.theConsumer match {
       case _: Bits => if(lit.getWidth == 0) "0" else s"(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
       case _: UInt => if(lit.getWidth == 0) "0" else s"(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
-      case _: SInt => if(lit.getWidth == 0) "0" else ('$' + s"signed(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})")
+      case _: SInt => if(lit.getWidth == 0) "0" else s"(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
     }
     case lit: BoolLiteral => if(lit.value) "1" else "0"
     case lit: EnumLiteral[_] => emitEnumLiteral(lit.enum, lit.encoding)
@@ -686,8 +699,8 @@ end
 
 
         if (asyncReset) {
-          val sensitivity = getSensitivity(initialValues, true)
-          ret ++= s"${tabStr}always @ (${emitClockEdge(clock,clockDomain.config.clockEdge)} or ${emitResetEdge(reset,clockDomain.config.resetActiveLevel)}${if(sensitivity.isEmpty) "" else sensitivity.foldLeft("")(_ + "," + emitReference(_))})\n"
+          val sensitivity = getSensitivity(initialValues, true)  //${if(sensitivity.isEmpty) "" else sensitivity.foldLeft("")(_ + "," + emitReference(_))}
+          ret ++= s"${tabStr}always @ (${emitClockEdge(clock,clockDomain.config.clockEdge)} or ${emitResetEdge(reset,clockDomain.config.resetActiveLevel)})\n"
         } else {
           ret ++= s"${tabStr}always @ (${emitClockEdge(clock,clockDomain.config.clockEdge)})\n"
         }
@@ -804,7 +817,7 @@ end
                 if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
                   s"${emitReference(memReadSync.getMem)}[${emitReference(memReadSync.getAddress)}]"
                 else
-                  (0 until symbolCount).reverse.map(i => (s"${emitReference(memReadSync.getMem)}_symbol$i[${emitReference(memReadSync.getAddress)}]")).reduce(_ + " & " + _)
+                  "{" + (0 until symbolCount).reverse.map(i => (s"${emitReference(memReadSync.getMem)}_symbol$i[${emitReference(memReadSync.getAddress)}]")).reduce(_ + "," + _) + "}"
               }
               def emitRead(tab: String) = ret ++= s"$tab${emitReference(memReadSync.consumers(0))} <= ${emitRamRead()};\n"
 

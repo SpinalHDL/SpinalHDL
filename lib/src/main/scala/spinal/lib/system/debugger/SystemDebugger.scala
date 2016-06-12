@@ -20,6 +20,8 @@ case class SystemDebuggerConfig(cpuDataWidth : Int = 32,
   def getMemAvalonConfig = AvalonMMConfig.pipelined(
     addressWidth = memAddressWidth,
     dataWidth = memDataWidth
+  ).copy(
+    useByteEnable = true
   )
 }
 

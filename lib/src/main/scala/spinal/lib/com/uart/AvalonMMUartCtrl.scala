@@ -9,7 +9,7 @@ object AvalonMMUartCtrl{
   def getAvalonMMConfig = AvalonMMSlaveFactory.getAvalonConfig(addressWidth = 4,dataWidth = 32)
 
   def main(args: Array[String]) {
-    val report = SpinalVhdl(new AvalonMMUartCtrl(UartCtrlGenerics(),64)).printPruned()
+    val report = SpinalVerilog(new AvalonMMUartCtrl(UartCtrlGenerics(),64)).printPruned()
     val toplevel = report.toplevel
     toplevel.io.bus addTag(ClockDomainTag(toplevel.clockDomain))
     QSysify(toplevel)

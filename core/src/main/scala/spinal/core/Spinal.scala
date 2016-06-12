@@ -40,6 +40,8 @@ case class SpinalConfig(
   dumpWave : Boolean = false
 ){
   def generate[T <: Component](gen : => T) : SpinalReport[T] = Spinal(this)(gen)
+  def generateVhdl[T <: Component](gen : => T) : SpinalReport[T] = Spinal(this.copy(mode = VHDL))(gen)
+  def generateVerilog[T <: Component](gen : => T) : SpinalReport[T] = Spinal(this.copy(mode = Verilog))(gen)
   def apply[T <: Component](gen : => T) : SpinalReport[T] = Spinal(this)(gen)
   def applyToGlobalData(globalData: GlobalData) : Unit ={
     globalData.scalaLocatedEnable = debug

@@ -98,7 +98,7 @@ object CoreQSysAvalon{
     val debug = true
     val interruptCount = 4
 
-    val report = SpinalVhdl(SpinalConfig().copy(onlyStdLogicVectorAtTopLevelIo=true))({
+    val report = SpinalConfig(onlyStdLogicVectorAtTopLevelIo=true).generateVerilog({
 
       //replace wit null to disable instruction cache
       val iCacheConfig = InstructionCacheConfig(
