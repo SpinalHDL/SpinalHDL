@@ -10,10 +10,13 @@ import spinal.lib.bus.neutral.NeutralStreamDma
 import spinal.lib.com.uart.UartCtrl
 import spinal.lib.graphic.RgbConfig
 import spinal.lib.graphic.vga.{AvalonMMVgaCtrl, VgaCtrl}
+import spinal.lib.com.i2c._
+
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.sys.process.{ProcessLogger, Process, ProcessIO}
+
 
 /**
  * Created by PIC32F_USER on 21/05/2016.
@@ -919,7 +922,8 @@ object PlayGenerics{
 
   /**
    * ALT_INBUF
-   * @TODO add library altera.altera_primitives_components
+    *
+    * @TODO add library altera.altera_primitives_components
    */
   case class alt_inbuf(_io_standard           : IO_STRANDARD = STD_NONE,
                        _location              : String       = "None",
@@ -1012,5 +1016,36 @@ object PlayShell{
 //    val (int,out,err) = runCommand(Seq("sh"))
 //    println(out)
 //    println(err)
+  }
+}
+
+object PlayI2CMasterCtrl_7bits {
+
+  class TopLevel extends Component {
+
+    val config = I2CMasterCtrConfig(ADDR_7bits, Fast)
+    val myMasterI2C = new I2CMasterCtrl(config)
+
+    val io = new Bundle {
+      val i2c = master(I2C())
+      val read = master Flow (Bits(config.dataSize bits))
+      val write = slave Stream (Bits(config.dataSize bits))
+      val start = in Bool
+      // pulse to start the sequence..
+      val read_cmd = slave(Event)
+      val addrDevice = in UInt (config.modeAddr.value bits)
+      val errorAck = out Bool
+      val busy = out Bool
+    }
+
+    io <> myMasterI2C.io
+  }
+
+  def main(args: Array[String]) {
+    SpinalConfig(
+      mode = VHDL,
+      defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
+      defaultClockDomainFrequency = FixedFrequency(50e6)
+    ).generate(new TopLevel).printPruned
   }
 }

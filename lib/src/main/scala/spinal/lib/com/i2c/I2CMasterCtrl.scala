@@ -137,7 +137,7 @@ class I2CMasterCtrl(config: I2CMasterCtrConfig) extends Component{
     import I2CCtrlMasterState._
 
     val state      = RegInit(IDLE)
-    val data  = Reg(Bits(config.dataSize bits)) init(0)
+    val data       = Reg(Bits(config.dataSize bits)) init(0)
     val addrDevice = Reg(UInt(config.modeAddr.value bits)) init(0)
     val clk_en     = Reg(Bool) init(False)
     val sda        = Reg(Bool) init(True)
@@ -197,7 +197,7 @@ class I2CMasterCtrl(config: I2CMasterCtrConfig) extends Component{
               rw  := True
             }otherwise{
               report(
-                message   = "No read or write to perform ",
+                message   = "No read or write to execute ",
                 severity  = NOTE
               )
               state       := GEN_STOP_1 // @TODO maybe manage better this case (wait ack from slave before stopping)
@@ -286,7 +286,6 @@ class I2CMasterCtrl(config: I2CMasterCtrConfig) extends Component{
           state := GEN_STOP_1
         }
       }
-
     }
 
   }
