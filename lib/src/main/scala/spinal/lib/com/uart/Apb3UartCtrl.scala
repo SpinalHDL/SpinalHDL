@@ -27,7 +27,7 @@ class Apb3UartCtrl(uartCtrlConfig : UartCtrlGenerics, rxFifoDepth : Int) extends
     val uart = master(Uart())
   }
 
-  val uartCtrl = new UartCtrl()
+  val uartCtrl = new UartCtrl(uartCtrlConfig)
   io.uart <> uartCtrl.io.uart
 
   val busCtrl = Apb3SlaveFactory(io.bus,0)

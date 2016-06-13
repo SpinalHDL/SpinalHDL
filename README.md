@@ -17,7 +17,7 @@ Getting started
 ## Links
 - Documentation                  <br> http://spinalhdl.github.io/SpinalDoc/
 - SBT base project               <br> https://github.com/SpinalHDL/SpinalBaseProject
-- Presentation of the language   <br> https://github.com/SpinalHDL/SpinalDoc/tree/master/presentation/en (pptx has comments)
+- Presentation of the language   <br> https://github.com/SpinalHDL/SpinalDoc/tree/master/presentation/en
 
 [![Join the chat at https://gitter.im/SpinalHDL/SpinalHDL](https://badges.gitter.im/SpinalHDL/SpinalHDL.svg)](https://gitter.im/SpinalHDL/SpinalHDL?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
