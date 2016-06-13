@@ -1338,7 +1338,7 @@ object c666{
   }
 }
 
-object c666{
+object c6669{
   class AvalonUartCtrl(uartCtrlConfig : UartCtrlGenerics, rxFifoDepth : Int) extends Component{
     val io = new Bundle{
       val bus =  slave(AvalonMM(AvalonMMUartCtrl.getAvalonMMConfig))
