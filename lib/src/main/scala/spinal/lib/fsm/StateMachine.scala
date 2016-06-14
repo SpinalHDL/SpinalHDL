@@ -18,8 +18,8 @@ import scala.collection.mutable.ArrayBuffer
 trait StateMachineAccessor{
   def setEntry(state : State) : Unit
   def goto(state : State) : Unit
-  def goto(stateMachine: StateMachine,exitTo : State) : Unit
   def add(state : State) : Int
+  def add(stateMachine: StateMachine) : Unit
   def start() : Unit
   def exit() : Unit
 }
@@ -36,18 +36,16 @@ class StateBoot(autoStart : Boolean)(implicit stateMachineAccessor : StateMachin
 class StateMachineEnum extends SpinalEnum
 
   //TODO extends Area  and then it loop
-class StateMachine extends StateMachineAccessor{
-  var removeMeName : String = ""
-  def setName(name : String) : Unit = removeMeName = name
+class StateMachine extends Area with StateMachineAccessor{
   val enumDefinition = new StateMachineEnum
   var stateReg  : enumDefinition.C = null
   var stateNext : enumDefinition.C = null
   val wantExit = False
   var autoStart = true
-  var parentStateMachine : StateMachine = null
-  val childStateMachines = ArrayBuffer[StateMachine]()
+  private var parentStateMachine : StateMachine = null
+  private val childStateMachines = ArrayBuffer[StateMachine]()
   val stateMachineToEnumElement = mutable.HashMap[StateMachine,enumDefinition.E]()
-  val states = ArrayBuffer[State]()
+  private val states = ArrayBuffer[State]()
   val stateToEnumElement = mutable.HashMap[State,enumDefinition.E]()
   var entryState : State = null
   def enumOf(state : State) = stateToEnumElement(state)
@@ -61,12 +59,12 @@ class StateMachine extends StateMachineAccessor{
       stateToEnumElement += (state -> enumElement)
     }
     for(child <- childStateMachines){
-      val enumElement = enumDefinition.newElement(child.removeMeName)//(child.getName())
+      val enumElement = enumDefinition.newElement(child.getName())
       stateMachineToEnumElement += (child -> enumElement)
     }
 
-    stateReg  = RegInit(enumOf(stateBoot)).setName(removeMeName +  "_STATE_REG") //TODO
-    stateNext = enumDefinition().setName(removeMeName + "_STATE_NEXT")  //TODO
+    stateReg  = RegInit(enumOf(stateBoot)).setName(getName() +  "_STATE_REG") //TODO
+    stateNext = enumDefinition().setName(getName() + "_STATE_NEXT")  //TODO
     stateReg := stateNext
 
     val stateRegOneHotMap  = states.map(state => (state -> (stateReg === enumOf(state)))).toMap
@@ -136,14 +134,12 @@ class StateMachine extends StateMachineAccessor{
     entryState = state
   }
   override def goto(state: State): Unit = stateNext := enumOf(state)
-  override def goto(stateMachine: StateMachine,exitTo : State) : Unit = {
 
-  }
   override def add(state: State): Int = {
     states += state
     states.length-1
   }
-  def add(stateMachine : StateMachine) : Unit = {
+  override def add(stateMachine : StateMachine) : Unit = {
     childStateMachines += stateMachine
     stateMachine.parentStateMachine = this
   }

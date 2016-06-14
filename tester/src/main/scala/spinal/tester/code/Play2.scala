@@ -997,20 +997,16 @@ object PlayShell{
       stderr => { scala.io.Source.fromInputStream(stderr).getLines.foreach(println)
         stderr.close()})
     val proc = Process("cmd").run(io)
+  }
+}
 
-
-    //    def runCommand(cmd: Seq[String]): (Int, String, String) = {
-//      val stdoutStream = new ByteArrayOutputStream()
-//      val stderrStream = new ByteArrayOutputStream
-//      val stdoutWriter = new PrintWriter(stdoutStream)
-//      val stderrWriter = new PrintWriter(stderrStream)
-//      val exitValue = Process(cmd).!(ProcessLogger(stdin  => { stdin.write("Yolo".getBytes),stdoutWriter.println, stderrWriter.println))
-//      stdoutWriter.close()
-//      stderrWriter.close()
-//      (exitValue, stdoutStream.toString, stderrStream.toString)
-//    }
-//    val (int,out,err) = runCommand(Seq("sh"))
-//    println(out)
-//    println(err)
+object PlayRefl{
+  def main(args: Array[String]) {
+    class Toto{
+      private val cash = 2.0
+      val name = "salut"
+    }
+    val toto = new Toto
+    println(toto)
   }
 }

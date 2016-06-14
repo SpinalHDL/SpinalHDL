@@ -7,36 +7,36 @@ import spinal.core._
  */
 
 
-object StateMachineSimpleExample{
-  class TopLevel extends Component{
-    val io = new Bundle{
-      val enter  = out UInt(8 bits)
-      val active = out UInt(8 bits)
-      val exit   = out UInt(8 bits)
+object StateMachineSimpleExample {
+  class TopLevel extends Component {
+    val io = new Bundle {
+      val enter = out UInt (8 bits)
+      val active = out UInt (8 bits)
+      val exit = out UInt (8 bits)
     }
 
-    io.enter  := 0xFF
+    io.enter := 0xFF
     io.active := 0xFF
-    io.exit   := 0xFF
+    io.exit := 0xFF
 
-    val counter = Reg(UInt(8 bits)) init(0)
+    val counter = Reg(UInt(8 bits)) init (0)
 
     implicit val fsm = new StateMachine
 
-    val stateA : State = new State with EntryPoint{
-      onEntry{
+    val stateA: State = new State with EntryPoint {
+      onEntry {
         io.enter := stateId
       }
-      whenIsActive{
+      whenIsActive {
         goto(stateB)
         io.active := stateId
       }
-      onExit{
+      onExit {
         io.exit := stateId
       }
     }
 
-    val stateB : State = new State{
+    val stateB: State = new State {
       onEntry {
         io.enter := stateId
         counter := 0
@@ -60,61 +60,20 @@ object StateMachineSimpleExample{
 }
 
 
+object StateMachineWithInnerExample {
+  class TopLevel extends Component {
 
-object StateMachineWithInnerExample{
-  class TopLevel extends Component{
-    val io = new Bundle{
-      val enter  = out UInt(8 bits)
-      val active = out UInt(8 bits)
-      val exit   = out UInt(8 bits)
-    }
-
-    io.enter  := 0xFF
-    io.active := 0xFF
-    io.exit   := 0xFF
-
-
-
-    val counter = Reg(UInt(8 bits)) init(0)
-
-    implicit val fsm = new StateMachine
-    fsm.setName("mainFsm") //TODO removeme
-    val stateA : State = new State with EntryPoint{
-      whenIsActive{
-        goto(stateB)
-        io.active := stateId
-      }
-    }
-    val stateB : State = new State{
-      onEntry{
-        inner.fsm.start()
-      }
-      whenIsActive{
-        when(inner.fsm.wantExit){
-          goto(stateC)
-        }
-      }
-    }
-    val stateC : State = new State{
-      whenIsActive{
-        goto(stateA)
-      }
-    }
-
-
-    val inner = new Area{
-      val counter = Reg(UInt(8 bits)) init(0)
+    val inner = new Area {
+      val counter = Reg(UInt(8 bits)) init (0)
 
       implicit val fsm = new StateMachine
-      fsm.setName("innerFsm") //TODO removeme
-      fsm.autoStart = false //TODO REMOVE
-      val stateA : State = new State with EntryPoint{
-        whenIsActive{
+      val stateA: State = new State with EntryPoint {
+        whenIsActive {
           goto(stateB)
         }
       }
-      val stateB : State = new State{
-        onEntry{
+      val stateB: State = new State {
+        onEntry {
           counter := 0
         }
         whenIsActive {
@@ -124,13 +83,28 @@ object StateMachineWithInnerExample{
           counter := counter + 1
         }
       }
-      val stateExit : State = new State{
-        whenIsActive{
-          fsm.exit() //TODO remove
+      val stateExit: State = new StateExit()
+    }
+
+
+    val core = new Area {
+      implicit val fsm = new StateMachine
+      val counter = Reg(UInt(8 bits)) init (0)
+
+      val stateA: State = new State with EntryPoint {
+        whenIsActive {
+          goto(stateB)
+        }
+      }
+      val stateB: State = new StateInnerFsm(inner.fsm, returnIn = stateC)
+      val stateC: State = new State {
+        whenIsActive {
+          goto(stateA)
         }
       }
     }
-    fsm.add(inner.fsm) //TODO remove
+
+    inner.fsm.wantExit.keep
   }
 
   def main(args: Array[String]) {
