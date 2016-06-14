@@ -1003,8 +1003,9 @@ object PlayShell{
 object PlayRefl{
   def main(args: Array[String]) {
     class Toto{
-      private val cash = 2.0
-      val name = "salut"
+      @dontName var caca = 42.0
+      @dontName val cash = 2.0
+      @dontName val name = "salut"
     }
     val toto = new Toto
     println(toto)

@@ -38,14 +38,14 @@ class StateMachineEnum extends SpinalEnum
   //TODO extends Area  and then it loop
 class StateMachine extends Area with StateMachineAccessor{
   val enumDefinition = new StateMachineEnum
-  var stateReg  : enumDefinition.C = null
-  var stateNext : enumDefinition.C = null
+  var stateReg  = Reg(enumDefinition())
+  var stateNext = enumDefinition()
   val wantExit = False
   var autoStart = true
-  private var parentStateMachine : StateMachine = null
-  private val childStateMachines = ArrayBuffer[StateMachine]()
+  @dontName var parentStateMachine : StateMachine = null
+  @dontName private val childStateMachines = ArrayBuffer[StateMachine]()
   val stateMachineToEnumElement = mutable.HashMap[StateMachine,enumDefinition.E]()
-  private val states = ArrayBuffer[State]()
+  @dontName val states = ArrayBuffer[State]()
   val stateToEnumElement = mutable.HashMap[State,enumDefinition.E]()
   var entryState : State = null
   def enumOf(state : State) = stateToEnumElement(state)
@@ -63,8 +63,7 @@ class StateMachine extends Area with StateMachineAccessor{
       stateMachineToEnumElement += (child -> enumElement)
     }
 
-    stateReg  = RegInit(enumOf(stateBoot)).setName(getName() +  "_STATE_REG") //TODO
-    stateNext = enumDefinition().setName(getName() + "_STATE_NEXT")  //TODO
+    stateReg init(enumOf(stateBoot))
     stateReg := stateNext
 
     val stateRegOneHotMap  = states.map(state => (state -> (stateReg === enumOf(state)))).toMap
@@ -73,13 +72,6 @@ class StateMachine extends Area with StateMachineAccessor{
 
     stateNext := stateReg
     switch(stateReg){
-//      for(child <- childStateMachines){
-//        is(enumOf(child)){
-//          when(child.isOnExit){
-//
-//          }
-//        }
-//      }
       for(state <- states){
         state match {
           case `stateBoot` => default {
@@ -93,13 +85,6 @@ class StateMachine extends Area with StateMachineAccessor{
     }
 
     switch(stateNext){
-      //      for(child <- childStateMachines){
-      //        is(enumOf(child)){
-      //          when(child.isOnExit){
-      //
-      //          }
-      //        }
-      //      }
       for(state <- states){
         state match {
           case `stateBoot` => default {

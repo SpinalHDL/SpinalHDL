@@ -96,7 +96,7 @@ object StateMachineWithInnerExample {
           goto(stateB)
         }
       }
-      val stateB: State = new StateInnerFsm(inner.fsm, returnIn = stateC)
+      val stateB: State = new StateInnerFsm(inner.fsm, returnIn=stateC)
       val stateC: State = new State {
         whenIsActive {
           goto(stateA)

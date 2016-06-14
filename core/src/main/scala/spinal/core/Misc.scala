@@ -143,7 +143,7 @@ object Misc {
       explore(c.getSuperclass)
 
       val fields = c.getDeclaredFields
-      def isValDef(m: java.lang.reflect.Method) = fields exists (fd => fd.getName == m.getName && fd.getType == m.getReturnType)
+      def isValDef(m: java.lang.reflect.Method) = fields exists (fd => fd.getName == m.getName && fd.getType == m.getReturnType && ! AnnotationUtils.isDontName(fd)) //  && java.lang.reflect.Modifier.isPublic(fd.getModifiers )     && fd.isAnnotationPresent(Class[spinal.core.refOnly])
       val methods = c.getDeclaredMethods filter (m => m.getParameterTypes.isEmpty && isValDef(m))
 
 
@@ -258,7 +258,7 @@ class Scope {
 
   def iWantIt(name: String): Unit = {
     val lowerCase = name.toLowerCase
-    if (map.contains(lowerCase)) SpinalError("Reserved name $name is not free")
+    if (map.contains(lowerCase)) SpinalError(s"Reserved name $name is not free")
     map(lowerCase) = 1
   }
 }
