@@ -47,12 +47,12 @@ class StateMachine extends Area with StateMachineAccessor{
   val stateMachineToEnumElement = mutable.HashMap[StateMachine,enumDefinition.E]()
   @dontName val states = ArrayBuffer[State]()
   val stateToEnumElement = mutable.HashMap[State,enumDefinition.E]()
-  var entryState : State = null
+  @dontName var entryState : State = null
   def enumOf(state : State) = stateToEnumElement(state)
   def enumOf(stateMachine : StateMachine) = stateMachineToEnumElement(stateMachine)
   def build() : Unit = {
     childStateMachines.foreach(_.build())
-    val stateBoot = new StateBoot(autoStart)(this).setName("boot") //TODO
+    val stateBoot = new StateBoot(autoStart).setName("boot") //TODO
 
     for(state <- states){
       val enumElement = enumDefinition.newElement(state.getName())
@@ -131,5 +131,5 @@ class StateMachine extends Area with StateMachineAccessor{
 
   def start() : Unit = goto(entryState)
   def exit() : Unit = wantExit := True
-
+  @dontName implicit val implicitFsm = this
 }

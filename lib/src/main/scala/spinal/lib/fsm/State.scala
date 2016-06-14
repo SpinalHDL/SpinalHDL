@@ -8,12 +8,12 @@ import scala.collection.mutable.ArrayBuffer
  * Created by PIC32F_USER on 14/06/2016.
  */
 trait EntryPoint
-class State(implicit stateMachineAccessor : StateMachineAccessor) extends Nameable{
+class State(implicit stateMachineAccessor : StateMachineAccessor) extends Area{
   val onEntryTasks = ArrayBuffer[() => Unit]()
   val onExitTasks = ArrayBuffer[() => Unit]()
   val whenActiveTasks = ArrayBuffer[() => Unit]()
   val whenIsNextTasks = ArrayBuffer[() => Unit]()
-  var innerFsm = ArrayBuffer[StateMachine]()
+  @dontName var innerFsm = ArrayBuffer[StateMachine]()
 
   def onEntry(doThat : => Unit) : Unit = onEntryTasks += (() => doThat)
   def onExit(doThat : => Unit) : Unit = onExitTasks += (() => doThat)
@@ -28,17 +28,17 @@ class State(implicit stateMachineAccessor : StateMachineAccessor) extends Nameab
   if(isInstanceOf[EntryPoint]) stateMachineAccessor.setEntry(this)
 }
 
-class StateInnerFsm(inner : => StateMachine,returnIn : =>  State)(implicit stateMachineAccessor : StateMachineAccessor) extends State{
+class StateInnerFsm(val fsm :  StateMachine,returnIn : =>  State)(implicit stateMachineAccessor : StateMachineAccessor) extends State{
   onEntry{
-    inner.start()
+    fsm.start()
   }
   whenIsActive{
-    when(inner.wantExit){
+    when(fsm.wantExit){
       goto(returnIn)
     }
   }
-  stateMachineAccessor.add(inner)
-  inner.autoStart = false
+  stateMachineAccessor.add(fsm)
+  fsm.autoStart = false
 }
 
 class StateExit(implicit stateMachineAccessor : StateMachineAccessor) extends State{
