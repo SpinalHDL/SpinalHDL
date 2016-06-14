@@ -19,12 +19,10 @@ case class alt_inbuf(val generic : alt_inbufGeneric = alt_inbufGeneric()) extend
 
   val io = new Bundle{
     val i    = in  Bool
-    val ibar = in  Bool
     val o    = out Bool
   }.setName("")
 
   def i    : Bool = io.i
-  def ibar : Bool = io.ibar
   def o    : Bool = io.o
 }
 

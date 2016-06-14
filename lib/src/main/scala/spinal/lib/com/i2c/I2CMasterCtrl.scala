@@ -122,6 +122,11 @@ class I2CMasterCtrl(config: I2CMasterCtrConfig) extends Component{
     def lastIndex() : Bool = index === 1
     def isOver()    : Bool = index === 0
     def clear()     : Unit = index := config.dataSize-1
+
+    when(scl_gen.risingEdge) {
+      index := index - 1
+    }
+
   }
 
 
@@ -214,7 +219,7 @@ class I2CMasterCtrl(config: I2CMasterCtrConfig) extends Component{
         when(scl_gen.risingEdge){
 
           // NACK received
-          when(io.i2c.sda.read){
+          when(ccIO.i2c_sda){
 
             io.errorAck := True
             state       := GEN_STOP_1
@@ -270,7 +275,7 @@ class I2CMasterCtrl(config: I2CMasterCtrConfig) extends Component{
           when(counterIndex.isOver){
             state := io.read_cmd.valid ? WR_ACK | WR_NACK
             io.read.payload := data // @TODO to put somewhere else because data is not correct yet
-            io.read.valid := True
+            io.read.valid   := True
           }
         }
       }
@@ -287,11 +292,10 @@ class I2CMasterCtrl(config: I2CMasterCtrConfig) extends Component{
         }
       }
     }
-
   }
 
   io.i2c.sda.write := stateMachine.sda
-  scl_en := stateMachine.clk_en
+  scl_en           := stateMachine.clk_en
 }
 
 

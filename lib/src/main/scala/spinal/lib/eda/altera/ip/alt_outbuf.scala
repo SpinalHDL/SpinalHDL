@@ -3,23 +3,21 @@ package spinal.lib.eda.altera.ip
 import spinal.core._
 
 /**
-  * Generic parameters for the alt_inbuf_diff
+  * Generic parameters for the alt_inbuf
   */
-case class alt_outbuf_diffGeneric(io_standard           : String       = "None",
-                                  current_strength      : String       = "None",
-                                  slew_rate             : String       = "None",
-                                  location              : String       = "None",
-                                  enable_bus_hold       : String       = "None",
-                                  weak_pull_up_resistor : String       = "None",
-                                  termination           : String       = "None") extends Generic
-
-
-
+case class alt_outbufGeneric(io_standard           : String       = "None",
+                             current_strength      : String       = "None",
+                             slew_rate             : Int          = -1,
+                             slow_slew_rate        : String       = "None",
+                             location              : String       = "None",
+                             enable_bus_hold       : String       = "None",
+                             weak_pull_up_resistor : String       = "None",
+                             termination           : String       = "None") extends Generic
 
 /**
-  * alt_inbuf_diff
+  * alt_inbuf
   */
-case class alt_outbuf_diff(val generic : alt_outbuf_diffGeneric = alt_outbuf_diffGeneric()) extends BlackBox{
+case class alt_outbuf(val generic : alt_outbufGeneric = alt_outbufGeneric()) extends BlackBox{
 
   val io = new Bundle{
     val i    = in  Bool

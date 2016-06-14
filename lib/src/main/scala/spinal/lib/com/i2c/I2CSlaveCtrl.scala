@@ -237,7 +237,7 @@ class I2CSlaveCtrl(config: I2CSlaveCtrConfig) extends Component{
 
           when(ccIO.i2c_sda === I2C.ACK){
             dataShift := 0
-            bitCounter. clear()
+            bitCounter.clear()
 
             state := mode_rw ? WR_DATA | RD_DATA
 
