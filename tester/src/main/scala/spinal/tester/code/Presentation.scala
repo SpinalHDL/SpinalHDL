@@ -614,14 +614,16 @@ object C15 {
 
 
 object T1 {
-  val mySignal = Bool
-  val myRegister = Reg(UInt(4 bit))
-  val myRegisterWithInit = Reg(UInt(4 bit)) init (3)
+  val cond                = Bool
+  val mySignal            = Bool
+  val myRegister          = Reg(UInt(4 bit))
+  val myRegisterWithReset = Reg(UInt(4 bit)) init (3)
 
   mySignal := False
-  when(???) {
-    mySignal := True
-    myRegister := myRegister + 1
+  when(cond) {
+    mySignal            := True
+    myRegister          := myRegister + 1
+    myRegisterWithReset := myRegisterWithReset + 1
   }
 }
 
@@ -1360,5 +1362,23 @@ object c6669{
     busCtrl.read(uartCtrl.io.write.valid,address = 8)
     //Make read register
     busCtrl.readStreamNonBlocking(uartCtrl.io.read.toStream.queue(rxFifoDepth),address = 12)
+  }
+}
+
+
+object c4828{
+  class SinusGenerator(resolutionWidth : Int,sampleCount : Int) extends Component {
+    val io = new Bundle {
+      val sin = out SInt (resolutionWidth bits)
+    }
+
+    def sinTable = (0 until sampleCount).map(sampleIndex => {
+      val sinValue = Math.sin(2 * Math.PI * sampleIndex / sampleCount)
+      S((sinValue * ((1 << resolutionWidth) / 2 - 1)).toInt, resolutionWidth bits)
+    })
+
+    val rom   = Mem(SInt(resolutionWidth bit), initialContent = sinTable)
+    val phase = CounterFreeRun(sampleCount)
+    val sin   = rom.readSync(phase)
   }
 }

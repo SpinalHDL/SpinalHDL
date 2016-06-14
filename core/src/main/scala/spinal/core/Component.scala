@@ -54,13 +54,15 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
     body
 
     if ((body _).getClass.getDeclaringClass == this.getClass) {
-      // this.io.flatten.foreach(_.isIo = true)
+
+      this.nameElements()
+
       for(t <- prePopTasks){
         t()
       }
       prePopTasks.clear()
 
-      this.nameElements() //TODO could probably be removed
+
       Component.pop(this)
       this.userParentCalledDef
     }

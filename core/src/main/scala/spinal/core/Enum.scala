@@ -210,6 +210,7 @@ class EnumData(defaultEncoding : SpinalEnumEncoding = binarySequancial) extends 
 
 class SpinalEnum(var defaultEncoding : SpinalEnumEncoding = native) extends Nameable {
   type T = SpinalEnumCraft[this.type]
+  type E = SpinalEnumElement[this.type]
   def apply() = craft()
   def apply(encoding: SpinalEnumEncoding) = craft(encoding)
 
