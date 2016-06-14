@@ -62,6 +62,31 @@ object StateMachineSimpleExample {
 
 object StateMachineWithInnerExample {
   class TopLevel extends Component {
+
+    def simpleFsm(countTo : Int) = new StateMachine {
+      val counter = Reg(UInt(8 bits)) init (0)
+
+      val stateA: State = new State with EntryPoint {
+        whenIsActive {
+          goto(stateB)
+        }
+      }
+
+      val stateB: State = new State {
+        onEntry {
+          counter := 0
+        }
+        whenIsActive {
+          when(counter === countTo) {
+            goto(stateExit)
+          }
+          counter := counter + 1
+        }
+      }
+
+      val stateExit: State = new StateExit()
+    }
+
     val coreFsm = new StateMachine {
       val stateA: State = new State with EntryPoint {
         whenIsActive {
@@ -69,8 +94,8 @@ object StateMachineWithInnerExample {
         }
       }
 
-      val stateB: State = new StateFsm(
-        fsm = new StateMachine {
+      val stateB: State = StateFsm(exitState = stateC) {
+        new StateMachine {
           val counter = Reg(UInt(8 bits)) init (0)
 
           val stateA: State = new State with EntryPoint {
@@ -92,11 +117,14 @@ object StateMachineWithInnerExample {
           }
 
           val stateExit: State = new StateExit()
-        },
-        returnIn = stateC
+        }
+      }
+      val stateC = StateMultiFsm(exitState = stateD) (
+        simpleFsm(5),
+        simpleFsm(8),
+        simpleFsm(3)
       )
-
-      val stateC: State = new State {
+      val stateD: State = new State {
         whenIsActive {
           goto(stateA)
         }
@@ -133,6 +161,35 @@ object StateMachineTryExample {
         whenIsActive {
           goto(stateA)
         }
+      }
+    }
+    fsm.stateReg.keep()
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+object StateMachineTry2Example {
+  class TopLevel extends Component {
+
+
+    val fsm = new StateMachine{
+      val counter = Reg(UInt(8 bits)) init (0)
+
+      val stateA = new State with EntryPoint
+      val stateB = new State
+      val stateC = new State
+
+      stateA.whenIsActive {
+        goto(stateB)
+      }
+      stateB.whenIsActive {
+        goto(stateC)
+      }
+      stateC.whenIsActive {
+        goto(stateA)
       }
     }
     fsm.stateReg.keep()

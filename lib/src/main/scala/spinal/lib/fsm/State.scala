@@ -28,7 +28,11 @@ class State(implicit stateMachineAccessor : StateMachineAccessor) extends Area{
   if(isInstanceOf[EntryPoint]) stateMachineAccessor.setEntry(this)
 }
 
-class StateFsm(val fsm :  StateMachine,returnIn : =>  State)(implicit stateMachineAccessor : StateMachineAccessor) extends State{
+object StateFsm{
+  def apply(exitState : =>  State)(fsm :  StateMachine)(implicit stateMachineAccessor : StateMachineAccessor) : StateFsm = new StateFsm(exitState,fsm)
+}
+
+class StateFsm(returnIn : =>  State,val fsm :  StateMachine)(implicit stateMachineAccessor : StateMachineAccessor) extends State{
   onEntry{
     fsm.start()
   }
@@ -39,6 +43,25 @@ class StateFsm(val fsm :  StateMachine,returnIn : =>  State)(implicit stateMachi
   }
   stateMachineAccessor.add(fsm)
   fsm.autoStart = false
+}
+
+object StateMultiFsm{
+  def apply(exitState : =>  State)(fsms :  StateMachine*)(implicit stateMachineAccessor : StateMachineAccessor) : StateMultiFsm = new StateMultiFsm(exitState,fsms)
+}
+
+class StateMultiFsm(returnIn : =>  State,val fsms :  Seq[StateMachine])(implicit stateMachineAccessor : StateMachineAccessor) extends State{
+  onEntry{
+    fsms.foreach(_.start())
+  }
+  whenIsActive{
+    when(fsms.map(_.wantExit).reduce(_ && _)){
+      goto(returnIn)
+    }
+  }
+  for(fsm <- fsms){
+    stateMachineAccessor.add(fsm)
+    fsm.autoStart = false
+  }
 }
 
 class StateExit(implicit stateMachineAccessor : StateMachineAccessor) extends State{
