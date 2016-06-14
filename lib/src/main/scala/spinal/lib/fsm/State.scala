@@ -28,7 +28,7 @@ class State(implicit stateMachineAccessor : StateMachineAccessor) extends Area{
   if(isInstanceOf[EntryPoint]) stateMachineAccessor.setEntry(this)
 }
 
-class StateInnerFsm(val fsm :  StateMachine,returnIn : =>  State)(implicit stateMachineAccessor : StateMachineAccessor) extends State{
+class StateFsm(val fsm :  StateMachine,returnIn : =>  State)(implicit stateMachineAccessor : StateMachineAccessor) extends State{
   onEntry{
     fsm.start()
   }

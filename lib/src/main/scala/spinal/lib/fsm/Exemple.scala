@@ -63,14 +63,13 @@ object StateMachineSimpleExample {
 object StateMachineWithInnerExample {
   class TopLevel extends Component {
     val coreFsm = new StateMachine {
-      val counter = Reg(UInt(8 bits)) init (0)
-
       val stateA: State = new State with EntryPoint {
         whenIsActive {
           goto(stateB)
         }
       }
-      val stateB: State = new StateInnerFsm(
+
+      val stateB: State = new StateFsm(
         fsm = new StateMachine {
           val counter = Reg(UInt(8 bits)) init (0)
 
@@ -79,6 +78,7 @@ object StateMachineWithInnerExample {
               goto(stateB)
             }
           }
+
           val stateB: State = new State {
             onEntry {
               counter := 0
@@ -90,10 +90,12 @@ object StateMachineWithInnerExample {
               counter := counter + 1
             }
           }
+
           val stateExit: State = new StateExit()
         },
         returnIn = stateC
       )
+
       val stateC: State = new State {
         whenIsActive {
           goto(stateA)
