@@ -18,42 +18,55 @@ import scala.collection.mutable.ArrayBuffer
 trait StateMachineAccessor{
   def setEntry(state : State) : Unit
   def goto(state : State) : Unit
-  def goto(stateMachine: StateMachine) : Unit
+  def goto(stateMachine: StateMachine,exitTo : State) : Unit
   def add(state : State) : Int
+  def start() : Unit
+  def exit() : Unit
 }
 
 
-class StateBoot(initialState : State)(implicit stateMachineAccessor : StateMachineAccessor) extends State{
-  whenActive{
-    goto(initialState)
-  }
-}
-
-class StateMachineEnum extends SpinalEnum{
-  def build(states : Seq[State],stateToEnumElement : mutable.HashMap[State,E]) : Unit = {
-    for(state <- states){
-      val enumElement = newElement(state.getName())
-      stateToEnumElement += (state -> enumElement)
+class StateBoot(autoStart : Boolean)(implicit stateMachineAccessor : StateMachineAccessor) extends State{
+  if(autoStart) {
+    whenIsActive {
+      stateMachineAccessor.start()
     }
   }
 }
 
-class StateMachine extends Area with StateMachineAccessor{
-  val enumDefinition = new StateMachineEnum
-  var stateReg  : enumDefinition.T = null
-  var stateNext : enumDefinition.T = null
+class StateMachineEnum extends SpinalEnum
 
+  //TODO extends Area  and then it loop
+class StateMachine extends StateMachineAccessor{
+  var removeMeName : String = ""
+  def setName(name : String) : Unit = removeMeName = name
+  val enumDefinition = new StateMachineEnum
+  var stateReg  : enumDefinition.C = null
+  var stateNext : enumDefinition.C = null
+  val wantExit = False
+  var autoStart = true
+  var parentStateMachine : StateMachine = null
+  val childStateMachines = ArrayBuffer[StateMachine]()
+  val stateMachineToEnumElement = mutable.HashMap[StateMachine,enumDefinition.E]()
   val states = ArrayBuffer[State]()
   val stateToEnumElement = mutable.HashMap[State,enumDefinition.E]()
   var entryState : State = null
   def enumOf(state : State) = stateToEnumElement(state)
+  def enumOf(stateMachine : StateMachine) = stateMachineToEnumElement(stateMachine)
   def build() : Unit = {
-    val stateBoot = new StateBoot(entryState)(this).setName("boot") //TODO
+    childStateMachines.foreach(_.build())
+    val stateBoot = new StateBoot(autoStart)(this).setName("boot") //TODO
 
-    enumDefinition.build(states,stateToEnumElement)
+    for(state <- states){
+      val enumElement = enumDefinition.newElement(state.getName())
+      stateToEnumElement += (state -> enumElement)
+    }
+    for(child <- childStateMachines){
+      val enumElement = enumDefinition.newElement(child.removeMeName)//(child.getName())
+      stateMachineToEnumElement += (child -> enumElement)
+    }
 
-    stateReg  = RegInit(enumOf(stateBoot)).setName("STATE_REG") //TODO
-    stateNext = enumDefinition().setName("STATE_NEXT")  //TODO
+    stateReg  = RegInit(enumOf(stateBoot)).setName(removeMeName +  "_STATE_REG") //TODO
+    stateNext = enumDefinition().setName(removeMeName + "_STATE_NEXT")  //TODO
     stateReg := stateNext
 
     val stateRegOneHotMap  = states.map(state => (state -> (stateReg === enumOf(state)))).toMap
@@ -62,6 +75,13 @@ class StateMachine extends Area with StateMachineAccessor{
 
     stateNext := stateReg
     switch(stateReg){
+//      for(child <- childStateMachines){
+//        is(enumOf(child)){
+//          when(child.isOnExit){
+//
+//          }
+//        }
+//      }
       for(state <- states){
         state match {
           case `stateBoot` => default {
@@ -74,6 +94,27 @@ class StateMachine extends Area with StateMachineAccessor{
       }
     }
 
+    switch(stateNext){
+      //      for(child <- childStateMachines){
+      //        is(enumOf(child)){
+      //          when(child.isOnExit){
+      //
+      //          }
+      //        }
+      //      }
+      for(state <- states){
+        state match {
+          case `stateBoot` => default {
+            state.whenIsNextTasks.foreach(_())
+          }
+          case _ => is(enumOf(state)) {
+            state.whenIsNextTasks.foreach(_())
+          }
+        }
+      }
+    }
+
+
     for(state <- states){
       when(!stateRegOneHotMap(state) && stateNextOneHotMap(state)){
         state.onEntryTasks.foreach(_())
@@ -84,7 +125,10 @@ class StateMachine extends Area with StateMachineAccessor{
     }
   }
 
-  component.addPrePopTask(() => build())
+  Component.current.addPrePopTask(() => {
+    if(parentStateMachine == null)
+      build()
+  })
 
 
   override def setEntry(state : State): Unit = {
@@ -92,9 +136,19 @@ class StateMachine extends Area with StateMachineAccessor{
     entryState = state
   }
   override def goto(state: State): Unit = stateNext := enumOf(state)
-  override def goto(stateMachine: StateMachine) : Unit = ???
+  override def goto(stateMachine: StateMachine,exitTo : State) : Unit = {
+
+  }
   override def add(state: State): Int = {
     states += state
     states.length-1
   }
+  def add(stateMachine : StateMachine) : Unit = {
+    childStateMachines += stateMachine
+    stateMachine.parentStateMachine = this
+  }
+
+  def start() : Unit = goto(entryState)
+  def exit() : Unit = wantExit := True
+
 }

@@ -27,7 +27,7 @@ object Utils{
       N -> 8
     )
 
-    def isSignedComp(that : T) = !that.asBits(1)
+    def isSignedComp(that : C) = !that.asBits(1)
   }
 
   object OP0 extends SpinalEnum(binarySequancial){
@@ -84,8 +84,8 @@ object Utils{
       SRA1 -> (8+5)
     )
     def X = ADD
-    def isSltX(that : T) =  that.asBits === M"-01-"
-    def isAddSub(that : T) =  that.asBits === M"-000"
+    def isSltX(that : C) =  that.asBits === M"-01-"
+    def isAddSub(that : C) =  that.asBits === M"-000"
   }
   def apply(x : Int) = 2
 

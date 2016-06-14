@@ -23,5 +23,5 @@ object UartParityType extends SpinalEnum(binarySequancial) {
 
 object UartStopType extends SpinalEnum(binarySequancial) {
   val ONE, TWO = newElement()
-  def toBitCount(that : T) : UInt = (that === ONE) ? U"0" | U"1"
+  def toBitCount(that : C) : UInt = (that === ONE) ? U"0" | U"1"
 }
