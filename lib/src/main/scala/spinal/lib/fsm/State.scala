@@ -32,13 +32,13 @@ object StateFsm{
   def apply(exitState : =>  State)(fsm :  StateMachineAccessor)(implicit stateMachineAccessor : StateMachineAccessor) : StateFsm = new StateFsm(exitState,fsm)
 }
 
-class StateFsm(returnIn : =>  State,val fsm :  StateMachineAccessor)(implicit stateMachineAccessor : StateMachineAccessor) extends State{
+class StateFsm(exitState : =>  State,val fsm :  StateMachineAccessor)(implicit stateMachineAccessor : StateMachineAccessor) extends State{
   onEntry{
     fsm.start()
   }
   whenIsActive{
     when(fsm.wantExit()){
-      goto(returnIn)
+      goto(exitState)
     }
   }
   stateMachineAccessor.add(fsm)
@@ -62,13 +62,13 @@ object StateParallelFsm{
   def apply(exitState : =>  State)(fsms :  StateMachineAccessor*)(implicit stateMachineAccessor : StateMachineAccessor) : StateParallelFsm = new StateParallelFsm(exitState,fsms)
 }
 
-class StateParallelFsm(returnIn : =>  State,val fsms :  Seq[StateMachineAccessor])(implicit stateMachineAccessor : StateMachineAccessor) extends State{
+class StateParallelFsm(exitState : =>  State,val fsms :  Seq[StateMachineAccessor])(implicit stateMachineAccessor : StateMachineAccessor) extends State{
   onEntry{
     fsms.foreach(_.start())
   }
   whenIsActive{
     when(fsms.map(_.wantExit).reduce(_ && _)){
-      goto(returnIn)
+      goto(exitState)
     }
   }
   for(fsm <- fsms){
@@ -93,7 +93,7 @@ class StateMachineSharableRegUInt{
   Component.current.addPrePopTask(() => value.setWidth(width))
 }
 
-class StateDelay(returnIn : =>  State,cyclesCount : BigInt)(implicit stateMachineAccessor : StateMachineAccessor)  extends State{
+class StateDelay(exitIn : =>  State,cyclesCount : BigInt)(implicit stateMachineAccessor : StateMachineAccessor)  extends State{
   val cache = stateMachineAccessor.cacheGetOrElseUpdate(StateMachineSharableUIntKey,new StateMachineSharableRegUInt).asInstanceOf[StateMachineSharableRegUInt]
   cache.addMinWidth(log2Up(cyclesCount))
 
@@ -103,7 +103,7 @@ class StateDelay(returnIn : =>  State,cyclesCount : BigInt)(implicit stateMachin
   whenIsActive{
     cache.value := cache.value - 1
     when(cache.value === 0){
-      goto(returnIn)
+      goto(exitIn)
     }
   }
 }

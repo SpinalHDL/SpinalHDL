@@ -17,6 +17,7 @@ import scala.collection.mutable.ArrayBuffer
 
 trait StateMachineAccessor{
   def setEntry(state : State) : Unit
+  def getEntry() : State
   def goto(state : State) : Unit
   def add(state : State) : Int
   def add(stateMachine: StateMachineAccessor) : Unit
@@ -60,7 +61,7 @@ class StateMachine extends Area with StateMachineAccessor{
   val wantExit = False
   var autoStart = true
   @dontName var parentStateMachine : StateMachineAccessor = null
-  @dontName private val childStateMachines = ArrayBuffer[StateMachineAccessor]()
+  @dontName val childStateMachines = ArrayBuffer[StateMachineAccessor]()
   val stateMachineToEnumElement = mutable.HashMap[StateMachineAccessor,enumDefinition.E]()
   @dontName val states = ArrayBuffer[State]()
   val stateToEnumElement = mutable.HashMap[State,enumDefinition.E]()
@@ -135,6 +136,9 @@ class StateMachine extends Area with StateMachineAccessor{
     assert(entryState == null,"Entry point already set !")
     entryState = state
   }
+
+  override def getEntry(): State = entryState
+
   override def goto(state: State): Unit = stateNext := enumOf(state)
 
   override def add(state: State): Int = {
