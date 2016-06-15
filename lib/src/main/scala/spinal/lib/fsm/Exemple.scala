@@ -41,8 +41,44 @@ object StateMachineStyle1 {
 }
 
 
-
 object StateMachineStyle2 {
+  class TopLevel extends Component {
+    val io = new Bundle{
+      val result = out Bool
+    }
+
+    val fsm = new StateMachine{
+      val stateA = new State with EntryPoint
+      val stateB = new State
+      val stateC = new State
+
+      val counter = Reg(UInt(8 bits)) init (0)
+      io.result := False
+
+      stateA
+        .whenIsActive (goto(stateB))
+
+      stateB
+        .onEntry(counter := 0)
+        .whenIsActive {
+          counter := counter + 1
+          when(counter === 4){
+            goto(stateC)
+          }
+        }
+        .onExit(io.result := True)
+
+      stateC
+        .whenIsActive (goto(stateA))
+    }
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+object StateMachineStyle3 {
   class TopLevel extends Component {
     val io = new Bundle{
       val result = out Bool
@@ -76,40 +112,6 @@ object StateMachineStyle2 {
 
 
 
-object StateMachineStyle3 {
-  class TopLevel extends Component {
-    val io = new Bundle{
-      val result = out Bool
-    }
-
-    val fsm = new StateMachine{
-      val stateA = new State with EntryPoint
-      val stateB = new State
-      val stateC = new State
-
-      val counter = Reg(UInt(8 bits)) init (0)
-      io.result := False
-
-      stateA
-        .whenIsActive (goto(stateB))
-      stateB
-        .onEntry(counter := 0)
-        .whenIsActive {
-          counter := counter + 1
-          when(counter === 4){
-            goto(stateC)
-          }
-        }
-        .onExit(io.result := True)
-      stateC
-        .whenIsActive (goto(stateA))
-    }
-  }
-
-  def main(args: Array[String]) {
-    SpinalVhdl(new TopLevel)
-  }
-}
 
 
 object StateMachineSimpleExample {
