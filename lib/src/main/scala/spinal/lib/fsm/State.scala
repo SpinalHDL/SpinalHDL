@@ -75,11 +75,15 @@ object StateParallelFsm{
 }
 
 class StateParallelFsm(exitState : =>  State,val fsms :  Seq[StateMachineAccessor])(implicit stateMachineAccessor : StateMachineAccessor) extends State{
+  val readys = Vec(Reg(Bool),fsms.size)
   onEntry{
     fsms.foreach(_.start())
+    readys.foreach(_ := False)
   }
   whenIsActive{
-    when(fsms.map(_.wantExit).reduce(_ && _)){
+    val nextReadys = Vec((readys,fsms).zipped.map((ready,fsm) => ready || fsm.wantExit()))
+    readys := nextReadys
+    when(nextReadys.reduce(_ && _)){
       goto(exitState)
     }
   }
@@ -89,11 +93,11 @@ class StateParallelFsm(exitState : =>  State,val fsms :  Seq[StateMachineAccesso
   }
 }
 
-class StateExit(implicit stateMachineAccessor : StateMachineAccessor) extends State{
-  whenIsActive{
-    stateMachineAccessor.exit()
-  }
-}
+//class StateExit(implicit stateMachineAccessor : StateMachineAccessor) extends State{
+//  whenIsActive{
+//    stateMachineAccessor.exit()
+//  }
+//}
 object StateMachineSharableUIntKey
 class StateMachineSharableRegUInt{
   val value = Reg(UInt())

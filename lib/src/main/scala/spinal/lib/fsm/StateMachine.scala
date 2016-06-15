@@ -30,6 +30,7 @@ trait StateMachineAccessor{
   def setParentStateMachine(parent : StateMachineAccessor) : Unit
   def cacheGet(key : Any) : Option[Any]
   def cachePut(key : Any,value : Any) : Unit
+  def isStateNextBoot() : Bool
   def cacheGetOrElseUpdate(key: Any, op: => Any) : Any = {
     cacheGet(key) match{
       case Some(value) => value
@@ -58,6 +59,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated{
   val enumDefinition = new StateMachineEnum
   var stateReg  = Reg(enumDefinition())
   var stateNext = enumDefinition()
+  var stateBoot : State = null
   val wantExit = False
   var autoStart = true
   @dontName var parentStateMachine : StateMachineAccessor = null
@@ -74,7 +76,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated{
   def checkState(state : State) = assert(state.getStateMachineAccessor == this,s"A state machine ($this)is using a state ($state) that come from another state machine.\n\nState machine defined at ${this.getScalaLocationLong}\n State defined at ${state.getScalaLocationLong}")
   def build() : Unit = {
     childStateMachines.foreach(_.build())
-    val stateBoot = new StateBoot(autoStart).setName("boot") //TODO
+    stateBoot = new StateBoot(autoStart).setName("boot") //TODO
 
     for(state <- states){
       checkState(state)
@@ -86,7 +88,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated{
       stateMachineToEnumElement += (child -> enumElement)
     }
 
-    stateReg init(enumOf(stateBoot))
+    stateReg init(enumOf(this.stateBoot))
     stateReg := stateNext
 
     val stateRegOneHotMap  = states.map(state => (state -> (stateReg === enumOf(state)))).toMap
@@ -96,26 +98,20 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated{
     stateNext := stateReg
     switch(stateReg){
       for(state <- states){
-        state match {
-          case `stateBoot` => default {
-            state.whenActiveTasks.foreach(_())
-          }
-          case _ => is(enumOf(state)) {
-            state.whenActiveTasks.foreach(_())
-          }
+        if(state == stateBoot) default {
+          state.whenActiveTasks.foreach(_())
+        } else is(enumOf(state)) {
+          state.whenActiveTasks.foreach(_())
         }
       }
     }
 
     switch(stateNext){
       for(state <- states){
-        state match {
-          case `stateBoot` => default {
-            state.whenIsNextTasks.foreach(_())
-          }
-          case _ => is(enumOf(state)) {
-            state.whenIsNextTasks.foreach(_())
-          }
+        if(state == stateBoot) default {
+          state.whenIsNextTasks.foreach(_())
+        } else is(enumOf(state)) {
+          state.whenIsNextTasks.foreach(_())
         }
       }
     }
@@ -156,7 +152,10 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated{
   }
 
   def start() : Unit = goto(entryState)
-  def exit() : Unit = wantExit := True
+  def exit() : Unit = {
+    wantExit := True
+    goto(stateBoot)
+  }
   @dontName implicit val implicitFsm = this
 
   override def disableAutoStart(): Unit = autoStart = false
@@ -165,4 +164,5 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated{
 
   override def cacheGet(key: Any): Option[Any] = cache.get(key)
   override def cachePut(key: Any, value: Any): Unit = cache.put(key,value)
+  def isStateNextBoot() : Bool = stateNext === enumOf(stateBoot)
 }
