@@ -40,17 +40,24 @@ class State(implicit stateMachineAccessor : StateMachineAccessor) extends Area w
   if(isInstanceOf[EntryPoint]) stateMachineAccessor.setEntry(this)
 }
 
-object StateFsm{
-  def apply(exitState : =>  State)(fsm :  StateMachineAccessor)(implicit stateMachineAccessor : StateMachineAccessor) : StateFsm = new StateFsm(exitState,fsm)
-}
+//object StateFsm{
+//  def apply(fsm :  StateMachineAccessor)(implicit stateMachineAccessor : StateMachineAccessor) : StateFsm = new StateFsm(exitState,fsm)
+//}
 
-class StateFsm(exitState : =>  State,val fsm :  StateMachineAccessor)(implicit stateMachineAccessor : StateMachineAccessor) extends State{
+class StateFsm(val fsm :  StateMachineAccessor)(implicit stateMachineAccessor : StateMachineAccessor) extends State{
+  val onDoneTasks = ArrayBuffer[() => Unit]()
+
+  def onDone(doThat : => Unit) : this.type = {
+    onDoneTasks += (() => doThat)
+    this
+  }
+
   onEntry{
     fsm.start()
   }
   whenIsActive{
     when(fsm.wantExit()){
-      goto(exitState)
+      onDoneTasks.foreach(_())
     }
   }
   stateMachineAccessor.add(fsm)
@@ -58,30 +65,42 @@ class StateFsm(exitState : =>  State,val fsm :  StateMachineAccessor)(implicit s
 }
 
 object StatesSerialFsm{
-  def apply(exitState : =>  State)(fsms :  StateMachineAccessor*)(implicit stateMachineAccessor : StateMachineAccessor) : Seq[State] = {
-    var outState = exitState
+  def apply(doOnDone : (State) =>  Unit)(fsms :  StateMachineAccessor*)(implicit stateMachineAccessor : StateMachineAccessor) : Seq[State] = {
+    var nextState : State = null
     val states = for(i <- fsms.size-1 downto 0) yield{
-      val outStateCpy = outState
-      outState = StateFsm(if(i == fsms.size-1) exitState else outStateCpy)(fsms(i))
-      outState
+      val nextCpy = nextState
+      nextState = new StateFsm(fsms(i)){
+        if(nextState == null)
+          onDone(doOnDone(this))
+        else
+          onDone(this.goto(nextCpy))
+      }
+      nextState
     }
     states.reverse
   }
 }
 
 
-object StateParallelFsm{
-  def apply(exitState : =>  State)(fsms :  StateMachineAccessor*)(implicit stateMachineAccessor : StateMachineAccessor) : StateParallelFsm = new StateParallelFsm(exitState,fsms)
-}
+//object StateParallelFsm{
+//  def apply(fsms :  StateMachineAccessor*)(implicit stateMachineAccessor : StateMachineAccessor) : StateParallelFsm = new StateParallelFsm(fsms)
+//}
 
-class StateParallelFsm(exitState : =>  State,val fsms :  Seq[StateMachineAccessor])(implicit stateMachineAccessor : StateMachineAccessor) extends State{
+class StateParallelFsm(val fsms :  StateMachineAccessor*)(implicit stateMachineAccessor : StateMachineAccessor) extends State{
+  val onDoneTasks = ArrayBuffer[() => Unit]()
+
+  def onDone(doThat : => Unit) : this.type = {
+    onDoneTasks += (() => doThat)
+    this
+  }
+
   onEntry{
     fsms.foreach(_.start())
   }
   whenIsActive{
-    val readys = fsms.map(fsm => fsm.isStateRegBoot() || fsm.wantExit()) //TODO could be moved out
+    val readys = fsms.map(fsm => fsm.isStateRegBoot() || fsm.wantExit())
     when(readys.reduce(_ && _)){
-      goto(exitState)
+      onDoneTasks.foreach(_())
     }
   }
   for(fsm <- fsms){

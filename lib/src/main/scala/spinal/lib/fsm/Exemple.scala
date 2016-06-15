@@ -207,7 +207,7 @@ object StateMachineWithInnerExample {
         }
       }
 
-      val stateB: State = StateFsm(exitState = stateC) {
+      val stateB: State = new StateFsm(
         new StateMachine {
           val counter = Reg(UInt(8 bits)) init (0)
 
@@ -230,18 +230,20 @@ object StateMachineWithInnerExample {
           }
 
         }
+      ){
+          onDone(goto(stateC))
       }
-      val stateC = StateParallelFsm(exitState = stateD) (
-        simpleFsm(5),
-        simpleFsm(8),
-        simpleFsm(3)
-      )
-      val stateD = StateParallelFsm(exitState = stateE.head) (
-        simpleFsm(5),
-        simpleFsm(8),
-        simpleFsm(3)
-      )
-      val stateE = StatesSerialFsm(exitState = stateF) (
+      val stateC = new StateParallelFsm(simpleFsm(5), simpleFsm(8), simpleFsm(3)){
+        onDone{
+          goto(stateD)
+        }
+      }
+      val stateD = new StateParallelFsm (simpleFsm(5), simpleFsm(8), simpleFsm(3)){
+        onDone{
+          goto(stateE.head)
+        }
+      }
+      val stateE = StatesSerialFsm(doOnDone = _.goto(stateF)) (
         simpleFsm(8),
         simpleFsm(12),
         simpleFsm(16)
@@ -332,7 +334,11 @@ object StateMachineTry2Example {
           goto(stateB)
         }
       }
-      val stateB: State = StateParallelFsm(stateC)(simpleFsm(9),simpleFsm(18))
+      val stateB: State = new StateParallelFsm(simpleFsm(9),simpleFsm(18)){
+        onDone{
+          goto(stateC)
+        }
+      }
       val stateC: State = new State {
         whenIsActive {
           goto(stateA)
