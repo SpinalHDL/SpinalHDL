@@ -248,9 +248,9 @@ object StateMachineWithInnerExample {
         simpleFsm(12),
         simpleFsm(16)
       )(_.goto(stateF))
-      val stateF : State = new StateDelay(stateG,30)
-      val stateG : State = new StateDelay(stateH,40)
-      val stateH : State = new StateDelay(stateI,50)
+      val stateF : State = new StateDelay(30){onDone(goto(stateG))}
+      val stateG : State = new StateDelay(40){onDone(goto(stateH))}
+      val stateH : State = new StateDelay(50){onDone(goto(stateI))}
       val stateI: State = new State {
         whenIsActive {
           goto(stateA)

@@ -8,6 +8,16 @@ import scala.collection.mutable.ArrayBuffer
  * Created by PIC32F_USER on 14/06/2016.
  */
 trait EntryPoint
+trait OnDonable{
+  val onDoneTasks = ArrayBuffer[() => Unit]()
+
+  def onDone(doThat : => Unit) : this.type = {
+    onDoneTasks += (() => doThat)
+    this
+  }
+
+  protected def doOnDoneTasks() : Unit = onDoneTasks.foreach(_())
+}
 class State(implicit stateMachineAccessor : StateMachineAccessor) extends Area with ScalaLocated{
   val onEntryTasks = ArrayBuffer[() => Unit]()
   val onExitTasks = ArrayBuffer[() => Unit]()
@@ -44,20 +54,13 @@ class State(implicit stateMachineAccessor : StateMachineAccessor) extends Area w
 //  def apply(fsm :  StateMachineAccessor)(implicit stateMachineAccessor : StateMachineAccessor) : StateFsm = new StateFsm(exitState,fsm)
 //}
 
-class StateFsm(val fsm :  StateMachineAccessor)(implicit stateMachineAccessor : StateMachineAccessor) extends State{
-  val onDoneTasks = ArrayBuffer[() => Unit]()
-
-  def onDone(doThat : => Unit) : this.type = {
-    onDoneTasks += (() => doThat)
-    this
-  }
-
+class StateFsm(val fsm :  StateMachineAccessor)(implicit stateMachineAccessor : StateMachineAccessor) extends State with OnDonable{
   onEntry{
     fsm.start()
   }
   whenIsActive{
     when(fsm.wantExit()){
-      onDoneTasks.foreach(_())
+      doOnDoneTasks()
     }
   }
   stateMachineAccessor.add(fsm)
@@ -86,21 +89,14 @@ object StatesSerialFsm{
 //  def apply(fsms :  StateMachineAccessor*)(implicit stateMachineAccessor : StateMachineAccessor) : StateParallelFsm = new StateParallelFsm(fsms)
 //}
 
-class StateParallelFsm(val fsms :  StateMachineAccessor*)(implicit stateMachineAccessor : StateMachineAccessor) extends State{
-  val onDoneTasks = ArrayBuffer[() => Unit]()
-
-  def onDone(doThat : => Unit) : this.type = {
-    onDoneTasks += (() => doThat)
-    this
-  }
-
+class StateParallelFsm(val fsms :  StateMachineAccessor*)(implicit stateMachineAccessor : StateMachineAccessor) extends State with OnDonable{
   onEntry{
     fsms.foreach(_.start())
   }
   whenIsActive{
     val readys = fsms.map(fsm => fsm.isStateRegBoot() || fsm.wantExit())
     when(readys.reduce(_ && _)){
-      onDoneTasks.foreach(_())
+      doOnDoneTasks()
     }
   }
   for(fsm <- fsms){
@@ -125,7 +121,7 @@ class StateMachineSharableRegUInt{
   Component.current.addPrePopTask(() => value.setWidth(width))
 }
 
-class StateDelay(exitIn : =>  State,cyclesCount : BigInt)(implicit stateMachineAccessor : StateMachineAccessor)  extends State{
+class StateDelay(cyclesCount : BigInt)(implicit stateMachineAccessor : StateMachineAccessor)  extends State with OnDonable{
   val cache = stateMachineAccessor.cacheGetOrElseUpdate(StateMachineSharableUIntKey,new StateMachineSharableRegUInt).asInstanceOf[StateMachineSharableRegUInt]
   cache.addMinWidth(log2Up(cyclesCount))
 
@@ -135,7 +131,7 @@ class StateDelay(exitIn : =>  State,cyclesCount : BigInt)(implicit stateMachineA
   whenIsActive{
     cache.value := cache.value - 1
     when(cache.value === 0){
-      goto(exitIn)
+      doOnDoneTasks()
     }
   }
 }
