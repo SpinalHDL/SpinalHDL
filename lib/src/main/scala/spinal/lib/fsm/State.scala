@@ -82,3 +82,28 @@ class StateExit(implicit stateMachineAccessor : StateMachineAccessor) extends St
     stateMachineAccessor.exit()
   }
 }
+object StateMachineSharableUIntKey
+class StateMachineSharableRegUInt{
+  val value = Reg(UInt())
+  var width = 0
+  def addMinWidth(min : Int): Unit ={
+    width = Math.max(width,min)
+  }
+
+  Component.current.addPrePopTask(() => value.setWidth(width))
+}
+
+class StateDelay(returnIn : =>  State,cyclesCount : BigInt)(implicit stateMachineAccessor : StateMachineAccessor)  extends State{
+  val cache = stateMachineAccessor.cacheGetOrElseUpdate(StateMachineSharableUIntKey,new StateMachineSharableRegUInt).asInstanceOf[StateMachineSharableRegUInt]
+  cache.addMinWidth(log2Up(cyclesCount))
+
+  onEntry{
+    cache.value := cyclesCount - 1
+  }
+  whenIsActive{
+    cache.value := cache.value - 1
+    when(cache.value === 0){
+      goto(returnIn)
+    }
+  }
+}

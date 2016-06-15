@@ -27,6 +27,18 @@ trait StateMachineAccessor{
   def getName() : String
   def build() : Unit
   def setParentStateMachine(parent : StateMachineAccessor) : Unit
+  def cacheGet(key : Any) : Option[Any]
+  def cachePut(key : Any,value : Any) : Unit
+  def cacheGetOrElseUpdate(key: Any, op: => Any) : Any = {
+    cacheGet(key) match{
+      case Some(value) => value
+      case None => {
+        val value = op
+        cachePut(key,value)
+        value
+      }
+    }
+  }
 }
 
 
@@ -40,8 +52,8 @@ class StateBoot(autoStart : Boolean)(implicit stateMachineAccessor : StateMachin
 
 class StateMachineEnum extends SpinalEnum
 
-  //TODO extends Area  and then it loop
 class StateMachine extends Area with StateMachineAccessor{
+  val cache = mutable.HashMap[Any,Any]()
   val enumDefinition = new StateMachineEnum
   var stateReg  = Reg(enumDefinition())
   var stateNext = enumDefinition()
@@ -138,7 +150,10 @@ class StateMachine extends Area with StateMachineAccessor{
   def exit() : Unit = wantExit := True
   @dontName implicit val implicitFsm = this
 
-    override def disableAutoStart(): Unit = autoStart = false
+  override def disableAutoStart(): Unit = autoStart = false
 
-    override def setParentStateMachine(parent: StateMachineAccessor): Unit = parentStateMachine = parent
-  }
+  override def setParentStateMachine(parent: StateMachineAccessor): Unit = parentStateMachine = parent
+
+  override def cacheGet(key: Any): Option[Any] = cache.get(key)
+  override def cachePut(key: Any, value: Any): Unit = cache.put(key,value)
+}
