@@ -304,7 +304,7 @@ object StateMachineTry2Example {
   class TopLevel extends Component {
 
 
-    def simpleFsm(countTo : Int) = new StateMachine {
+    def InnerFsm(stateBDelay : Int) = new StateMachine {
       val counter = Reg(UInt(8 bits)) init (0)
 
       val stateA: State = new State with EntryPoint {
@@ -318,7 +318,7 @@ object StateMachineTry2Example {
           counter := 0
         }
         whenIsActive {
-          when(counter === countTo) {
+          when(counter === stateBDelay) {
             exit()
           }
           counter := counter + 1
@@ -327,14 +327,12 @@ object StateMachineTry2Example {
     }
 
     val fsm = new StateMachine{
-      val counter = Reg(UInt(8 bits)) init (0)
-
       val stateA: State = new State with EntryPoint {
         whenIsActive {
           goto(stateB)
         }
       }
-      val stateB: State = new StateParallelFsm(simpleFsm(9),simpleFsm(18)){
+      val stateB: State = new StateParallelFsm(InnerFsm(9),InnerFsm(18)){
         onDone{
           goto(stateC)
         }
@@ -359,5 +357,36 @@ object StateMachineTry2Example {
 
 
 
+
+
+object StateMachineTry3Example {
+  class TopLevel extends Component {
+    val fsm = new StateMachine{
+      val counter = Reg(UInt(8 bits)) init (0)
+      counter := counter + 1
+      val stateA: State = new State with EntryPoint {
+        whenIsActive {
+          goto(stateB)
+        }
+      }
+      val stateB: State = new State{
+        whenIsActive{
+         // goto(counter(2) ? enumOf(stateC) | enumOf(stateB))
+          goto(counter(2) ? enumOf(stateC) | enumOf(stateB))
+        }
+      }
+      val stateC: State = new State {
+        whenIsActive {
+          goto(stateA)
+        }
+      }
+    }
+    fsm.stateReg.keep()
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
 
 
