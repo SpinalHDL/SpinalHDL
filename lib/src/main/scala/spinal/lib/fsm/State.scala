@@ -8,21 +8,33 @@ import scala.collection.mutable.ArrayBuffer
  * Created by PIC32F_USER on 14/06/2016.
  */
 trait EntryPoint
-class State(implicit stateMachineAccessor : StateMachineAccessor) extends Area{
+class State(implicit stateMachineAccessor : StateMachineAccessor) extends Area with ScalaLocated{
   val onEntryTasks = ArrayBuffer[() => Unit]()
   val onExitTasks = ArrayBuffer[() => Unit]()
   val whenActiveTasks = ArrayBuffer[() => Unit]()
   val whenIsNextTasks = ArrayBuffer[() => Unit]()
   @dontName var innerFsm = ArrayBuffer[StateMachine]()
 
-  def onEntry(doThat : => Unit) : Unit = onEntryTasks += (() => doThat)
-  def onExit(doThat : => Unit) : Unit = onExitTasks += (() => doThat)
-  def whenIsActive(doThat : => Unit) : Unit = whenActiveTasks += (() => doThat)
-  def whenIsNext(doThat : => Unit) : Unit = whenIsNextTasks += (() => doThat)
+  def onEntry(doThat : => Unit) : this.type = {
+    onEntryTasks += (() => doThat)
+    this
+  }
+  def onExit(doThat : => Unit) : this.type = {
+    onExitTasks += (() => doThat)
+    this
+  }
+  def whenIsActive(doThat : => Unit) : this.type = {
+    whenActiveTasks += (() => doThat)
+    this
+  }
+  def whenIsNext(doThat : => Unit) : this.type = {
+    whenIsNextTasks += (() => doThat)
+    this
+  }
   def goto(state : State) = stateMachineAccessor.goto(state)
   def innerFsm(that : => StateMachine) : Unit = innerFsm += that
   def exit() : Unit = stateMachineAccessor.exit()
-
+  def getStateMachineAccessor() = stateMachineAccessor
   val stateId = stateMachineAccessor.add(this)
 
   if(isInstanceOf[EntryPoint]) stateMachineAccessor.setEntry(this)

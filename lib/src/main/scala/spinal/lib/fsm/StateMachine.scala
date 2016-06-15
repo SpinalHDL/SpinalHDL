@@ -53,7 +53,7 @@ class StateBoot(autoStart : Boolean)(implicit stateMachineAccessor : StateMachin
 
 class StateMachineEnum extends SpinalEnum
 
-class StateMachine extends Area with StateMachineAccessor{
+class StateMachine extends Area with StateMachineAccessor with ScalaLocated{
   val cache = mutable.HashMap[Any,Any]()
   val enumDefinition = new StateMachineEnum
   var stateReg  = Reg(enumDefinition())
@@ -66,13 +66,18 @@ class StateMachine extends Area with StateMachineAccessor{
   @dontName val states = ArrayBuffer[State]()
   val stateToEnumElement = mutable.HashMap[State,enumDefinition.E]()
   @dontName var entryState : State = null
-  def enumOf(state : State) = stateToEnumElement(state)
+  def enumOf(state : State) = {
+    checkState(state)
+    stateToEnumElement(state)
+  }
   def enumOf(stateMachine : StateMachineAccessor) = stateMachineToEnumElement(stateMachine)
+  def checkState(state : State) = assert(state.getStateMachineAccessor == this,s"A state machine ($this)is using a state ($state) that come from another state machine.\n\nState machine defined at ${this.getScalaLocationLong}\n State defined at ${state.getScalaLocationLong}")
   def build() : Unit = {
     childStateMachines.foreach(_.build())
     val stateBoot = new StateBoot(autoStart).setName("boot") //TODO
 
     for(state <- states){
+      checkState(state)
       val enumElement = enumDefinition.newElement(state.getName())
       stateToEnumElement += (state -> enumElement)
     }
