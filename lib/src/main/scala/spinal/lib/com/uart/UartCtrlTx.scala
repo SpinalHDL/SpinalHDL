@@ -3,6 +3,7 @@ package spinal.lib.com.uart
 import spinal.core._
 import spinal.lib.com.uart.UartStopType._
 import spinal.lib.slave
+import spinal.lib.fsm._
 
 object UartCtrlTxState extends SpinalEnum {
   val IDLE, START, DATA, PARITY, STOP = newElement()

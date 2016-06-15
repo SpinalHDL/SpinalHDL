@@ -7,6 +7,8 @@ package spinal.lib.com.i2c
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.fsm._
+
 
 
 /**
@@ -33,14 +35,6 @@ case class I2CMasterCtrConfig(modeAddr   : ADDR_MODE,
   }
 
   def clockDivider : Int = (ClockDomain.current.frequency.getValue / mode.frequency * 2).toInt
-}
-
-
-/**
-  * Define all state of the state machine for the I2C controller
-  */
-object I2CCtrlMasterState extends SpinalEnum {
-  val IDLE, GEN_START, GEN_STOP_1, GEN_STOP_2, GEN_RESTART, WR_ADDR, RD_ACK, RD_DATA, WR_DATA, WR_ACK, WR_NACK = newElement()
 }
 
 
@@ -132,67 +126,53 @@ class I2CMasterCtrl(config: I2CMasterCtrConfig) extends Component{
 
   io.busy := False // @TODO manage the busy
 
-  assert(io.write.valid && io.read_cmd.valid, "Can't perform a read and write simultaneously", WARNING)
+ // assert( io.write.valid && io.read_cmd.valid, "Can't perform a read and write simultaneously ", WARNING)
+
 
   /**
     * I2C : Master state machine
     */
-  val stateMachine = new Area {
 
-    import I2CCtrlMasterState._
+  val masterSM = new StateMachine{
 
-    val state      = RegInit(IDLE)
-    val data       = Reg(Bits(config.dataSize bits)) init(0)
+    val data       = Reg(Bits(config.dataSize bits))       init(0)
     val addrDevice = Reg(UInt(config.modeAddr.value bits)) init(0)
     val clk_en     = Reg(Bool) init(False)
     val sda        = Reg(Bool) init(True)
     val rw         = Reg(Bool) init(False)
 
     io.errorAck       := False
-    io.read_cmd.ready := True
-    io.write.ready    := True
+    io.read_cmd.ready := False
+    io.write.ready    := False
     io.read.valid     := False
     io.read.payload   := 0
 
-    switch(state){
-      is(IDLE){
+    val IDLE : State = new State with EntryPoint{
+      whenIsActive{
         when(io.start){
           addrDevice := io.addrDevice
-          state      := GEN_START
+          goto(GEN_START)
         }
       }
-      is(GEN_START){
+    }
+
+    val GEN_START : State = new State{
+      whenIsActive{
         clk_en := True
         when(scl_gen.triggerSequence){
           sda   := False
-          state := WR_ADDR
           counterIndex.clear()
+          goto(WR_ADDR)
         }
       }
-      is(GEN_RESTART){
-        when(scl_gen.fallingEdge){
-          state := GEN_START
-        }
-      }
-      is(GEN_STOP_1){
-        when(scl_gen.fallingEdge){
-          sda   := False
-          state := GEN_STOP_2
-        }
-      }
-      is(GEN_STOP_2){
-        when(scl_gen.triggerSequence){
-          sda   := True
-          state := IDLE
-        }
-      }
-      is(WR_ADDR){
+    }
+
+    val WR_ADDR : State = new State{
+      whenIsActive{
         when(scl_gen.fallingEdge){
           when(counterIndex.isOver){
-            state := RD_ACK
-          }
 
-          when(counterIndex.lastIndex){
+            goto(WAIT_END_TX_DATA)
 
             when(io.write.valid){
               sda := False
@@ -205,7 +185,7 @@ class I2CMasterCtrl(config: I2CMasterCtrConfig) extends Component{
                 message   = "No read or write to execute ",
                 severity  = NOTE
               )
-              state       := GEN_STOP_1 // @TODO maybe manage better this case (wait ack from slave before stopping)
+              goto(GEN_STOP_1) // @TODO maybe manage better this case (wait ack from slave before stopping)
               io.errorAck := True
             }
 
@@ -214,88 +194,157 @@ class I2CMasterCtrl(config: I2CMasterCtrConfig) extends Component{
           }
         }
       }
-      is(RD_ACK){
+    }
 
+    val WAIT_END_TX_DATA : State = new State{
+      whenIsActive{
+        when(scl_gen.risingEdge){
+          goto(RD_ACK)
+        }
+      }
+    }
+
+    val RD_ACK : State = new State{
+      whenIsActive{
+        when(scl_gen.fallingEdge){
+          sda := True
+        }
         when(scl_gen.risingEdge){
 
           // NACK received
           when(ccIO.i2c_sda){
 
             io.errorAck := True
-            state       := GEN_STOP_1
+            goto(GEN_STOP_1)
+
             report(
               message   = "NACK received ",
-              severity  = NOTE
+              severity  = WARNING
             )
 
           // ACK received
           }otherwise{
+
             counterIndex.clear()
+
             // succession of read
             when(io.read_cmd.valid && rw){
-              state := RD_DATA
-              io.read_cmd.ready   := False
-              rw  := True
-            // sucession of write
+
+              io.read_cmd.ready   := True
+              rw                  := True
+
+              goto(RD_DATA)
+
+            // succession of write
             }.elsewhen(io.write.valid && rw === False) {
-              data := io.write.payload
-              io.write.ready := False
-              state := WR_DATA
+
+              data           := io.write.payload
+              io.write.ready := True
+              goto(WR_DATA)
+
             // write after read, or read after write
             }.elsewhen( (io.write.valid && rw) || (io.read_cmd.valid && rw === False) ){
-              state := GEN_RESTART
+
+              goto(GEN_RESTART)
+
             }otherwise{
-                state := GEN_STOP_1
-                report(
-                  message   = "No read/write operation ready",
-                  severity  = NOTE
-                )
+
+              report(
+                message   = "No read/write operation ready",
+                severity  = WARNING
+              )
+
+              goto(GEN_STOP_1)
+
             }
           }
         }
       }
-      is(WR_DATA){
+    }
 
-        io.write.ready := True
+    val RD_DATA : State = new State{
+      whenIsActive{
+        when(scl_gen.risingEdge){
+          data(counterIndex.index) := ccIO.i2c_sda
 
+          when(counterIndex.isOver){
+            when(io.read_cmd.valid){
+              goto(WR_ACK)
+            }otherwise{
+              goto(WR_NACK)
+            }
+            io.read.payload := data // @TODO to put somewhere else because data is not correct yet
+            io.read.valid   := True
+          }
+        }
+      }
+    }
+
+    val WR_DATA : State = new State{
+
+      whenIsActive{
         when(scl_gen.fallingEdge){
           sda := data(counterIndex.index)
         }
 
         when(scl_gen.risingEdge){
           when(counterIndex.isOver()){
-            state := RD_ACK
+            goto(RD_ACK)
           }
-        }
-      }
-      is(RD_DATA){
-        when(scl_gen.risingEdge){
-          data(counterIndex.index) := ccIO.i2c_sda
-
-          when(counterIndex.isOver){
-            state := io.read_cmd.valid ? WR_ACK | WR_NACK
-            io.read.payload := data // @TODO to put somewhere else because data is not correct yet
-            io.read.valid   := True
-          }
-        }
-      }
-      is(WR_ACK){
-        when(scl_gen.fallingEdge){
-          sda   := False
-          state := RD_ACK
-        }
-      }
-      is(WR_NACK){
-        when(scl_gen.fallingEdge){
-          sda   := True
-          state := GEN_STOP_1
         }
       }
     }
+
+    val GEN_RESTART : State = new State{
+      whenIsActive{
+        when(scl_gen.fallingEdge){
+          goto(GEN_START)
+        }
+      }
+    }
+
+    val GEN_STOP_1 : State = new State{
+      whenIsActive{
+        when(scl_gen.fallingEdge){
+          sda   := False
+          goto(GEN_STOP_2)
+        }
+      }
+    }
+
+    val GEN_STOP_2 : State = new State{
+      whenIsActive{
+        when(scl_gen.triggerSequence){
+          sda    := True
+          clk_en := False
+          goto(IDLE)
+        }
+      }
+    }
+
+    val WR_ACK  : State  = new State{
+      whenIsActive {
+        when(scl_gen.fallingEdge) {
+          sda := False
+          goto(RD_ACK)
+        }
+      }
+    }
+
+    val WR_NACK : State = new State{
+      whenIsActive {
+        when(scl_gen.fallingEdge) {
+          sda := True
+          goto(GEN_STOP_1)
+        }
+      }
+    }
+
   }
 
-  io.i2c.sda.write := stateMachine.sda
-  scl_en           := stateMachine.clk_en
+
+  io.i2c.sda.write := masterSM.sda
+  scl_en           := masterSM.clk_en
 }
 
 

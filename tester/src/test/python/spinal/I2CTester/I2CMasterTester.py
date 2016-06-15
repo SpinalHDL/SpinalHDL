@@ -9,18 +9,34 @@ from I2CSlaveModel import I2CSlaveModel
 
 @cocotb.coroutine
 def send_randomData(dut, model):
+
     dut.io_start      <= 0
     dut.io_addrDevice <= 0
+    dut.io_read_valid <= 0
+    
     yield RisingEdge(dut.clk)
+
     dut.io_start      <= 1
-    dut.io_addrDevice <= 2
+    dut.io_addrDevice <= 3
+
     yield RisingEdge(dut.clk)
-    if int(dut.io_write_ready) == 1 :
-        dut.io_write_payload <= 3
-        dut.io_write_valid   <= 1
 
-    yield model.dataRxEvent.wait()
+    dut.io_start         <= 0
+    dut.io_write_payload <= 254
+    dut.io_write_valid   <= 1
 
+    yield model.dataTXEvent.wait()
+
+    print("Addr received ",  model.dataTXEvent.data)
+
+    yield model.dataTXEvent.wait()
+
+   
+    print("Data received ",  model.dataTXEvent.data)
+
+    dut.io_write_valid <= 0
+
+    yield RisingEdge(dut.clk)
 
 
 
@@ -30,15 +46,11 @@ def master_test(dut):
     dut.log.info("Cocotb I2C Master controller")
 
     memory =  {0: 11, 1: 22, 2: 33}
-    slaveModel = I2CSlaveModel(dut.io_i2c_sda_write, dut.io_i2c_sda_read, dut.io_i2c_scl, dut.clk, dut.resetn, 4, memory)
- #   slaveModel.startSlave ()
-
-
+    slaveModel = I2CSlaveModel(dut.io_i2c_sda_write, dut.io_i2c_sda_read, dut.io_i2c_scl, dut.clk, dut.resetn, 7, memory)
+    slaveModel.startSlave ()
 
     cocotb.fork(ClockDomainInAsynResetn(dut.clk, dut.resetn))
     cocotb.fork(send_randomData(dut, slaveModel))
-
-
 
     yield Timer(10000000)
 

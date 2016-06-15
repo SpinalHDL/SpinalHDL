@@ -1,0 +1,49 @@
+[*]
+[*] GTKWave Analyzer v3.3.48 (w)1999-2013 BSI
+[*] Wed Jun 15 20:40:19 2016
+[*]
+[dumpfile] "/Users/morarddany/Documents/Projet/Scala/SpinalHDL/SpinalHDL/SpinalHDL/tester/src/test/python/spinal/I2CTester/wave.vcd"
+[dumpfile_mtime] "Wed Jun 15 20:39:11 2016"
+[dumpfile_size] 581259
+[savefile] "/Users/morarddany/Documents/Projet/Scala/SpinalHDL/SpinalHDL/SpinalHDL/tester/src/test/python/spinal/I2CTester/backup.gtkw"
+[timestart] 0
+[size] 1776 574
+[pos] -1 -1
+*-21.545309 7580000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] TopLevel.
+[sst_width] 203
+[signals_width] 214
+[sst_expanded] 1
+[sst_vpaned_height] 148
+@28
+TopLevel.clk
+TopLevel.resetn
+@200
+-Master cmd
+@22
+TopLevel.io_write_payload[7:0]
+@28
+TopLevel.io_write_ready
+@22
+TopLevel.io_write_payload[7:0]
+@28
+TopLevel.io_write_valid
+@22
+TopLevel.io_addrDevice[6:0]
+@28
+TopLevel.io_start
+@200
+-Master In
+@22
+TopLevel.myMasterI2C.masterSM_stateNext[3:0]
+@200
+-I2C
+@28
+TopLevel.io_i2c_sda_read
+TopLevel.io_i2c_sda_write
+TopLevel.io_i2c_scl
+TopLevel.io_read_cmd_valid
+TopLevel.io_read_cmd_ready
+TopLevel.io_errorAck
+[pattern_trace] 1
+[pattern_trace] 0
