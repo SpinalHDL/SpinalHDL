@@ -471,7 +471,7 @@ class Core(implicit val c : CoreConfig) extends Component{
       val eq = inInst.src0 === inInst.src1
 
 
-      val pc_sel = inInst.ctrl.br.mux[PC.T](
+      val pc_sel = inInst.ctrl.br.mux[PC.C](
         default -> PC.INC,
         BR.NE -> Mux(!eq, PC.BRA, PC.INC),
         BR.EQ -> Mux(eq, PC.BRA, PC.INC),

@@ -9,7 +9,8 @@ import spinal.debugger.LogicAnalyserBuilder
 import spinal.demo.mandelbrot._
 import spinal.lib._
 import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config}
-import spinal.lib.com.uart.{UartCtrlConfig, Uart, UartCtrl, UartCtrlTx}
+import spinal.lib.bus.avalon.{AvalonMM, AvalonMMSlaveFactory}
+import spinal.lib.com.uart._
 
 import scala.util.Random
 
@@ -239,17 +240,17 @@ object C9 {
   class MyColorSummer(sourceCount: Int, channelWidth: Int) extends Component {
     val io = new Bundle {
       val sources = in Vec(Color(channelWidth), sourceCount)
-      val result = out(Color(channelWidth))
+      val result  = out(Color(channelWidth))
     }
 
     var sum = io.sources(0)
-    for (i <- 0 until sourceCount) {
+    for (i <- 1 until sourceCount) {
       sum \= sum + io.sources(i)
     }
     io.result := sum
 
-    // But you can do all this stuff by this way, balanced is bonus :
-    //io.result := io.sources.reduceBalancedSpinal(_ + _)
+    // But you can do all this stuff by this way:
+    //io.result := io.sources.reduce(_ + _)
   }
 
 
@@ -613,14 +614,16 @@ object C15 {
 
 
 object T1 {
-  val mySignal = Bool
-  val myRegister = Reg(UInt(4 bit))
-  val myRegisterWithInit = Reg(UInt(4 bit)) init (3)
+  val cond                = Bool
+  val mySignal            = Bool
+  val myRegister          = Reg(UInt(4 bit))
+  val myRegisterWithReset = Reg(UInt(4 bit)) init (3)
 
   mySignal := False
-  when(???) {
-    mySignal := True
-    myRegister := myRegister + 1
+  when(cond) {
+    mySignal            := True
+    myRegister          := myRegister + 1
+    myRegisterWithReset := myRegisterWithReset + 1
   }
 }
 
@@ -1274,3 +1277,108 @@ object SinFir {
 
 
 
+object c99{
+
+
+  class MyTopLevel extends Component {
+    val io = new Bundle {
+      val coreClk = in Bool
+      val coreReset = in Bool
+    }
+    val coreClockDomain = ClockDomain(
+      clock  = io.coreClk,
+      reset  = io.coreReset,
+      config = ClockDomainConfig(
+        clockEdge        = RISING,
+        resetKind        = ASYNC,
+        resetActiveLevel = HIGH
+      )
+    )
+
+    val coreArea = new ClockingArea(coreClockDomain) {
+      val myCoreClockedRegister = Reg(UInt(4 bit))
+      //...
+    }
+  }
+}
+
+
+
+object c666{
+  class AvalonUartCtrl(uartCtrlConfig : UartCtrlGenerics, rxFifoDepth : Int) extends Component{
+    val io = new Bundle{
+      val bus =  slave(AvalonMM(AvalonMMUartCtrl.getAvalonMMConfig))
+      val uart = master(Uart())
+    }
+
+    // Instanciate an simple uart controller
+    val uartCtrl = new UartCtrl(uartCtrlConfig)
+    io.uart <> uartCtrl.io.uart
+
+    // Create an instance of the AvalonMMSlaveFactory that will then be used as a slave factory drived by io.bus
+    val busCtrl = AvalonMMSlaveFactory(io.bus)
+
+    // Ask the busCtrl to create a readable/writable register at the address 0
+    // and drive uartCtrl.io.config.clockDivider with this register
+    busCtrl.driveAndRead(uartCtrl.io.config.clockDivider,address = 0)
+
+    // Do the same thing than above but for uartCtrl.io.config.frame at the address 4
+    busCtrl.driveAndRead(uartCtrl.io.config.frame,address = 4)
+
+    // Ask the busCtrl to create a writable Flow[Bits] (valid/payload) at the address 8.
+    // Then convert it into a stream and connect it to the uartCtrl.io.write by using an register stage (>->)
+    busCtrl.createAndDriveFlow(Bits(uartCtrlConfig.dataWidthMax bits),address = 8).toStream >-> uartCtrl.io.write
+
+    // To avoid losing writes commands between the Flow to Stream transformation just above,
+    // make the occupancy of the uartCtrl.io.write readable at address 8
+    busCtrl.read(uartCtrl.io.write.valid,address = 8)
+
+    // Take uartCtrl.io.read, convert it into a Stream, then connect it to the input of a FIFO of 64 elements
+    // Then make the output of the FIFO readable at the address 12 by using a non blocking protocol
+    // (bit 0 => data valid, bits 8 downto 1 => data)
+    busCtrl.readStreamNonBlocking(uartCtrl.io.read.toStream.queue(rxFifoDepth),address = 12)
+  }
+}
+
+object c6669{
+  class AvalonUartCtrl(uartCtrlConfig : UartCtrlGenerics, rxFifoDepth : Int) extends Component{
+    val io = new Bundle{
+      val bus =  slave(AvalonMM(AvalonMMUartCtrl.getAvalonMMConfig))
+      val uart = master(Uart())
+    }
+
+    val uartCtrl = new UartCtrl(uartCtrlConfig)
+    io.uart <> uartCtrl.io.uart
+
+    val busCtrl = AvalonMMSlaveFactory(io.bus)
+    //Make clockDivider register
+    busCtrl.driveAndRead(uartCtrl.io.config.clockDivider,address = 0)
+    //Make frame register
+    busCtrl.driveAndRead(uartCtrl.io.config.frame,address = 4)
+    //Make writeCmd register
+    val writeFlow = busCtrl.createAndDriveFlow(Bits(uartCtrlConfig.dataWidthMax bits),address = 8)
+    writeFlow.toStream.stage() >> uartCtrl.io.write
+    //Make writeBusy register
+    busCtrl.read(uartCtrl.io.write.valid,address = 8)
+    //Make read register
+    busCtrl.readStreamNonBlocking(uartCtrl.io.read.toStream.queue(rxFifoDepth),address = 12)
+  }
+}
+
+
+object c4828{
+  class SinusGenerator(resolutionWidth : Int,sampleCount : Int) extends Component {
+    val io = new Bundle {
+      val sin = out SInt (resolutionWidth bits)
+    }
+
+    def sinTable = (0 until sampleCount).map(sampleIndex => {
+      val sinValue = Math.sin(2 * Math.PI * sampleIndex / sampleCount)
+      S((sinValue * ((1 << resolutionWidth) / 2 - 1)).toInt, resolutionWidth bits)
+    })
+
+    val rom   = Mem(SInt(resolutionWidth bit), initialContent = sinTable)
+    val phase = CounterFreeRun(sampleCount)
+    val sin   = rom.readSync(phase)
+  }
+}

@@ -22,7 +22,7 @@ class AvalonMMUartCtrl(uartCtrlConfig : UartCtrlGenerics, rxFifoDepth : Int) ext
     val uart = master(Uart())
   }
 
-  val uartCtrl = new UartCtrl()
+  val uartCtrl = new UartCtrl(uartCtrlConfig)
   io.uart <> uartCtrl.io.uart
 
   val busCtrl = AvalonMMSlaveFactory(io.bus)

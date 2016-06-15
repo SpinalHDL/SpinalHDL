@@ -29,7 +29,7 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   class IntBuilder(val i: Int) extends AnyVal {
     //    def x[T <: Data](dataType : T) : Vec[T] = Vec(dataType,i)
 
-    def downto(start: Int): Range.Inclusive = Range.inclusive(start, i)
+    def downto(start: Int): Range.Inclusive = Range.inclusive(i,start,-1)
 
     def bit = new BitCount(i)
     def bits = new BitCount(i)

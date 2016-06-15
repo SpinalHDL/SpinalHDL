@@ -81,7 +81,7 @@ class JtagTap(jtag: Jtag, instructionWidth: Int) extends Area with JtagTapAccess
   //JtagTapAccess impl
   override def getInstruction(): Bits = instruction
   override def setInstruction(value: Bits): Unit = instruction := value
-  override def getState: JtagState.T = fsm.state
+  override def getState: JtagState.C = fsm.state
   override def getTdi: Bool = jtag.tdi
   override def setTdo(value: Bool): Unit = jtag.tdo := value
   override def getTms: Bool = jtag.tms
