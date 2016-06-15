@@ -119,19 +119,29 @@ object StateMachineWithInnerExample {
           val stateExit: State = new StateExit()
         }
       }
-      val stateC = StateMultiFsm(exitState = stateD) (
+      val stateC = StateParallelFsm(exitState = stateD) (
         simpleFsm(5),
         simpleFsm(8),
         simpleFsm(3)
       )
-      val stateD: State = new State {
+      val stateD = StateParallelFsm(exitState = stateE.head) (
+        simpleFsm(5),
+        simpleFsm(8),
+        simpleFsm(3)
+      )
+      val stateE = StatesSerialFsm(exitState = stateF) (
+        simpleFsm(8),
+        simpleFsm(12),
+        simpleFsm(16)
+      )
+      val stateF: State = new State {
         whenIsActive {
           goto(stateA)
         }
       }
     }
 
-    coreFsm.stateReg.keep
+    out(coreFsm.stateReg)
   }
 
   def main(args: Array[String]) {

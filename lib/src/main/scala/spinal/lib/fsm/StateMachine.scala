@@ -19,9 +19,14 @@ trait StateMachineAccessor{
   def setEntry(state : State) : Unit
   def goto(state : State) : Unit
   def add(state : State) : Int
-  def add(stateMachine: StateMachine) : Unit
+  def add(stateMachine: StateMachineAccessor) : Unit
   def start() : Unit
   def exit() : Unit
+  def wantExit() : Bool
+  def disableAutoStart() : Unit
+  def getName() : String
+  def build() : Unit
+  def setParentStateMachine(parent : StateMachineAccessor) : Unit
 }
 
 
@@ -42,14 +47,14 @@ class StateMachine extends Area with StateMachineAccessor{
   var stateNext = enumDefinition()
   val wantExit = False
   var autoStart = true
-  @dontName var parentStateMachine : StateMachine = null
-  @dontName private val childStateMachines = ArrayBuffer[StateMachine]()
-  val stateMachineToEnumElement = mutable.HashMap[StateMachine,enumDefinition.E]()
+  @dontName var parentStateMachine : StateMachineAccessor = null
+  @dontName private val childStateMachines = ArrayBuffer[StateMachineAccessor]()
+  val stateMachineToEnumElement = mutable.HashMap[StateMachineAccessor,enumDefinition.E]()
   @dontName val states = ArrayBuffer[State]()
   val stateToEnumElement = mutable.HashMap[State,enumDefinition.E]()
   @dontName var entryState : State = null
   def enumOf(state : State) = stateToEnumElement(state)
-  def enumOf(stateMachine : StateMachine) = stateMachineToEnumElement(stateMachine)
+  def enumOf(stateMachine : StateMachineAccessor) = stateMachineToEnumElement(stateMachine)
   def build() : Unit = {
     childStateMachines.foreach(_.build())
     val stateBoot = new StateBoot(autoStart).setName("boot") //TODO
@@ -124,12 +129,16 @@ class StateMachine extends Area with StateMachineAccessor{
     states += state
     states.length-1
   }
-  override def add(stateMachine : StateMachine) : Unit = {
+  override def add(stateMachine : StateMachineAccessor) : Unit = {
     childStateMachines += stateMachine
-    stateMachine.parentStateMachine = this
+    stateMachine.setParentStateMachine(this)
   }
 
   def start() : Unit = goto(entryState)
   def exit() : Unit = wantExit := True
   @dontName implicit val implicitFsm = this
-}
+
+    override def disableAutoStart(): Unit = autoStart = false
+
+    override def setParentStateMachine(parent: StateMachineAccessor): Unit = parentStateMachine = parent
+  }

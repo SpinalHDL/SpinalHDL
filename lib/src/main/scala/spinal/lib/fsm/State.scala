@@ -29,27 +29,40 @@ class State(implicit stateMachineAccessor : StateMachineAccessor) extends Area{
 }
 
 object StateFsm{
-  def apply(exitState : =>  State)(fsm :  StateMachine)(implicit stateMachineAccessor : StateMachineAccessor) : StateFsm = new StateFsm(exitState,fsm)
+  def apply(exitState : =>  State)(fsm :  StateMachineAccessor)(implicit stateMachineAccessor : StateMachineAccessor) : StateFsm = new StateFsm(exitState,fsm)
 }
 
-class StateFsm(returnIn : =>  State,val fsm :  StateMachine)(implicit stateMachineAccessor : StateMachineAccessor) extends State{
+class StateFsm(returnIn : =>  State,val fsm :  StateMachineAccessor)(implicit stateMachineAccessor : StateMachineAccessor) extends State{
   onEntry{
     fsm.start()
   }
   whenIsActive{
-    when(fsm.wantExit){
+    when(fsm.wantExit()){
       goto(returnIn)
     }
   }
   stateMachineAccessor.add(fsm)
-  fsm.autoStart = false
+  fsm.disableAutoStart()
 }
 
-object StateMultiFsm{
-  def apply(exitState : =>  State)(fsms :  StateMachine*)(implicit stateMachineAccessor : StateMachineAccessor) : StateMultiFsm = new StateMultiFsm(exitState,fsms)
+object StatesSerialFsm{
+  def apply(exitState : =>  State)(fsms :  StateMachineAccessor*)(implicit stateMachineAccessor : StateMachineAccessor) : Seq[State] = {
+    var outState = exitState
+    val states = for(i <- fsms.size-1 downto 0) yield{
+      val outStateCpy = outState
+      outState = StateFsm(if(i == fsms.size-1) exitState else outStateCpy)(fsms(i))
+      outState
+    }
+    states.reverse
+  }
 }
 
-class StateMultiFsm(returnIn : =>  State,val fsms :  Seq[StateMachine])(implicit stateMachineAccessor : StateMachineAccessor) extends State{
+
+object StateParallelFsm{
+  def apply(exitState : =>  State)(fsms :  StateMachineAccessor*)(implicit stateMachineAccessor : StateMachineAccessor) : StateParallelFsm = new StateParallelFsm(exitState,fsms)
+}
+
+class StateParallelFsm(returnIn : =>  State,val fsms :  Seq[StateMachineAccessor])(implicit stateMachineAccessor : StateMachineAccessor) extends State{
   onEntry{
     fsms.foreach(_.start())
   }
@@ -60,7 +73,7 @@ class StateMultiFsm(returnIn : =>  State,val fsms :  Seq[StateMachine])(implicit
   }
   for(fsm <- fsms){
     stateMachineAccessor.add(fsm)
-    fsm.autoStart = false
+    fsm.disableAutoStart()
   }
 }
 
