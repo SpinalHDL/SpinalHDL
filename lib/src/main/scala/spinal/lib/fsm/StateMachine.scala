@@ -31,6 +31,7 @@ trait StateMachineAccessor{
   def cacheGet(key : Any) : Option[Any]
   def cachePut(key : Any,value : Any) : Unit
   def isStateNextBoot() : Bool
+  def isStateRegBoot() : Bool
   def cacheGetOrElseUpdate(key: Any, op: => Any) : Any = {
     cacheGet(key) match{
       case Some(value) => value
@@ -165,4 +166,5 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated{
   override def cacheGet(key: Any): Option[Any] = cache.get(key)
   override def cachePut(key: Any, value: Any): Unit = cache.put(key,value)
   def isStateNextBoot() : Bool = stateNext === enumOf(stateBoot)
+  def isStateRegBoot() : Bool = stateReg === enumOf(stateBoot)
 }

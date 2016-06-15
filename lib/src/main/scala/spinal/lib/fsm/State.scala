@@ -75,15 +75,12 @@ object StateParallelFsm{
 }
 
 class StateParallelFsm(exitState : =>  State,val fsms :  Seq[StateMachineAccessor])(implicit stateMachineAccessor : StateMachineAccessor) extends State{
-  val readys = Vec(Reg(Bool),fsms.size)
   onEntry{
     fsms.foreach(_.start())
-    readys.foreach(_ := False)
   }
   whenIsActive{
-    val nextReadys = Vec((readys,fsms).zipped.map((ready,fsm) => ready || fsm.wantExit()))
-    readys := nextReadys
-    when(nextReadys.reduce(_ && _)){
+    val readys = fsms.map(fsm => fsm.isStateRegBoot() || fsm.wantExit()) //TODO could be moved out
+    when(readys.reduce(_ && _)){
       goto(exitState)
     }
   }
