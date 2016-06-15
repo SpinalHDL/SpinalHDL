@@ -65,7 +65,7 @@ class StateFsm(val fsm :  StateMachineAccessor)(implicit stateMachineAccessor : 
 }
 
 object StatesSerialFsm{
-  def apply(doOnDone : (State) =>  Unit)(fsms :  StateMachineAccessor*)(implicit stateMachineAccessor : StateMachineAccessor) : Seq[State] = {
+  def apply(fsms :  StateMachineAccessor*)(doOnDone : (State) =>  Unit)(implicit stateMachineAccessor : StateMachineAccessor) : Seq[State] = {
     var nextState : State = null
     val states = for(i <- fsms.size-1 downto 0) yield{
       val nextCpy = nextState

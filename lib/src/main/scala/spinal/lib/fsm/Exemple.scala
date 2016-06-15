@@ -243,11 +243,11 @@ object StateMachineWithInnerExample {
           goto(stateE.head)
         }
       }
-      val stateE = StatesSerialFsm(doOnDone = _.goto(stateF)) (
+      val stateE = StatesSerialFsm (
         simpleFsm(8),
         simpleFsm(12),
         simpleFsm(16)
-      )
+      )(_.goto(stateF))
       val stateF : State = new StateDelay(stateG,30)
       val stateG : State = new StateDelay(stateH,40)
       val stateH : State = new StateDelay(stateI,50)
