@@ -12,7 +12,7 @@ trait JtagTapAccess {
   def getTms : Bool
   def setTdo(value : Bool) : Unit
 
-  def getState : JtagState.T
+  def getState : JtagState.C
   def getInstruction() : Bits
   def setInstruction(value : Bits) : Unit
 
