@@ -41,3 +41,5 @@ out
 
 /src/
 *.out
+
+/tester/**/*.gtkw
