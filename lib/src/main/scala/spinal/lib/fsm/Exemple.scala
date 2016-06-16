@@ -362,6 +362,7 @@ object StateMachineTry2Example {
 object StateMachineTry3Example {
   class TopLevel extends Component {
     val fsm = new StateMachine{
+      val toto = this
       val counter = Reg(UInt(8 bits)) init (0)
       counter := counter + 1
       val stateA: State = new State with EntryPoint {
@@ -372,7 +373,8 @@ object StateMachineTry3Example {
       val stateB: State = new State{
         whenIsActive{
          // goto(counter(2) ? enumOf(stateC) | enumOf(stateB))
-          goto(counter(2) ? enumOf(stateC) | enumOf(stateB))
+//          val titi = counter(2) ? enumOf(stateC) | enumOf(stateB)
+//          toto.goto(titi)
         }
       }
       val stateC: State = new State {

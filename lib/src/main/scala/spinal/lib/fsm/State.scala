@@ -42,9 +42,9 @@ class State(implicit stateMachineAccessor : StateMachineAccessor) extends Area w
     this
   }
   def goto(state : State) = stateMachineAccessor.goto(state)
-  def goto(state : SpinalEnumElement[StateMachineEnum]) = ???
-  def goto(state : SpinalEnumCraft[StateMachineEnum]) = ??? //stateMachineAccessor.goto(state)
-  def enumOf(state : State) : SpinalEnumElement[StateMachineEnum] = ???
+ // def goto(state : SpinalEnumElement[StateMachineEnum]) = ???
+ // def goto(state : SpinalEnumCraft[StateMachineEnum]) = ??? //stateMachineAccessor.goto(state)
+ // def enumOf(state : State) : SpinalEnumElement[StateMachineEnum] = ???
   def innerFsm(that : => StateMachine) : Unit = innerFsm += that
   def exit() : Unit = stateMachineAccessor.exit()
   def getStateMachineAccessor() = stateMachineAccessor

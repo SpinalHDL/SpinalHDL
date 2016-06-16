@@ -19,7 +19,7 @@ trait StateMachineAccessor{
   def setEntry(state : State) : Unit
   def getEntry() : State
   def goto(state : State) : Unit
-  //def goto(state : SpinalEnumElement[StateMachineEnum]) : Unit
+//  def goto(state : SpinalEnumElement[StateMachineEnum]) : Unit
   def add(state : State) : Int
   def add(stateMachine: StateMachineAccessor) : Unit
   def start() : Unit
@@ -144,7 +144,8 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated{
 
   override def goto(state: State): Unit = stateNext := enumOf(state)
   //override def goto(state: SpinalEnumElement[StateMachineEnum]): Unit = stateNext := state.asInstanceOf[enumDefinition.E]
-  def goto(state: enumDefinition.C): Unit = stateNext := state
+
+//  override def goto(state: SpinalEnumElement[StateMachineEnum]): Unit = ??? //stateNext := state
 
   override def add(state: State): Int = {
     states += state
