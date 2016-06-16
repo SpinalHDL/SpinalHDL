@@ -6,5 +6,3 @@ TOPLEVEL=TopLevel_I2CMasterCtrl
 MODULE=I2CMasterTester
 
 include ../../common/Makefile.sim
-
-f
