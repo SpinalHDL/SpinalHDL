@@ -6,9 +6,48 @@ from cocotb.result import TestFailure
 from spinal.common.misc import ClockDomainInAsynResetn
 from I2CSlaveModel import I2CSlaveModel
 
+@cocotb.coroutine
+def readData(dut, model, addrDevice, nbrRead):
+
+    dut.io_start      <= 0
+    dut.io_addrDevice <= 0
+    dut.io_read_cmd_valid <= 0
+
+    yield RisingEdge(dut.clk)
+
+    dut.io_start      <= 1
+    dut.io_addrDevice <= addrDevice
+
+    yield RisingEdge(dut.clk)
+
+    dut.io_start         <= 0
+
+    yield RisingEdge(dut.clk)
+
+
+    for x in range(0, nbrRead):
+        dut.io_read_cmd_valid <= 1
+
+        yield FallingEdge(dut.io_read_cmd_ready)
+
+        if x < nbrRead-1 :
+            dut.io_read_cmd_valid <= 1
+        else:
+            dut.io_read_cmd_valid <= 0
+
+        yield model.dataRxEvent.wait()
+
+        res = model.dataRxEvent.data
+
+        print("data received..", res['data'], res['ack'])
+
+
+    dut.io_read_cmd_valid <= 0
+
+
 
 @cocotb.coroutine
-def send_randomData(dut, model):
+def writeRandomData(dut, model, addrDevice,  data2send):
 
     dut.io_start      <= 0
     dut.io_addrDevice <= 0
@@ -17,22 +56,35 @@ def send_randomData(dut, model):
     yield RisingEdge(dut.clk)
 
     dut.io_start      <= 1
-    dut.io_addrDevice <= 3
+    dut.io_addrDevice <= addrDevice
 
     yield RisingEdge(dut.clk)
 
     dut.io_start         <= 0
-    dut.io_write_payload <= 254
+
+
+    dut.io_write_payload <= data2send[0]
     dut.io_write_valid   <= 1
 
     yield model.dataTXEvent.wait()
 
-    print("Addr received ",  model.dataTXEvent.data)
+    # check address
+    dataRX = model.dataTXEvent.data[:-1]
+    assert addrDevice == int("".join([str(x) for x in dataRX]), 2)
+
+    for index in range(1, len(data2send)):
+        dut.io_write_payload <= data2send[index]
+        dut.io_write_valid   <= 1
+
+        yield model.dataTXEvent.wait()
+
+        assert data2send[index-1] == int("".join([str(x) for x in model.dataTXEvent.data]), 2)
+
+    dut.io_write_valid <= 0
 
     yield model.dataTXEvent.wait()
 
-   
-    print("Data received ",  model.dataTXEvent.data)
+   ## assert data2send[len(data2send)-1] == int("".join([str(x) for x in model.dataTXEvent.data]), 2)
 
     dut.io_write_valid <= 0
 
@@ -50,9 +102,12 @@ def master_test(dut):
     slaveModel.startSlave ()
 
     cocotb.fork(ClockDomainInAsynResetn(dut.clk, dut.resetn))
-    cocotb.fork(send_randomData(dut, slaveModel))
+    cocotb.fork(writeRandomData(dut, slaveModel, 3,  [2,0,255,123]))
+    #cocotb.fork(readData(dut, slaveModel, 4,  3))
 
-    yield Timer(10000000)
+
+
+    yield Timer(30000000)
 
     dut.log.info("Cocotb I2C Master controller simulation done")
 
@@ -68,7 +123,6 @@ def master_test(dut):
  #   .io_write_ready(io_write_ready),
  #   .io_write_payload(io_write_payload),
  #   .io_start(io_start),
- #   .io_read_cmd_valid(io_read_cmd_valid),
  #   .io_read_cmd_ready(io_read_cmd_ready),
  #   .io_addrDevice(io_addrDevice),
  #   .io_errorAck(io_errorAck),

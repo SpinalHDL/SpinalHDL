@@ -1,5 +1,6 @@
 /******************************************************************************
   * I2C master controller.
+  *  - Acutally the master works only with 7 address bits
   *  - Single Master !!
   */
 
@@ -10,14 +11,14 @@ import spinal.lib._
 import spinal.lib.fsm._
 
 
-
 /**
   * Define all modes
   */
 trait I2CMode { def frequency : Double }
-case object Standard extends I2CMode { def frequency : Double = 100000 } // 100kHz
-case object Fast     extends I2CMode { def frequency : Double = 400000 } // 400kHz
-case object FastPlus extends I2CMode { def frequency : Double = 0 }
+case object Standard  extends I2CMode { def frequency : Double = 100000 } // 100kHz
+case object Fast      extends I2CMode { def frequency : Double = 400000 } // 400kHz
+case object FastPlus  extends I2CMode { def frequency : Double = 0 }
+case object HighSpeed extends I2CMode { def frequency : Double = 0 }
 
 
 
@@ -81,6 +82,7 @@ class I2CMasterCtrl(config: I2CMasterCtrConfig) extends Component{
     }otherwise{
       scl := True
       counter.clear()
+     // assert( scl === False , "Clock scl stop while it was low", WARNING)
     }
 
     // generate the scl signal
@@ -112,21 +114,19 @@ class I2CMasterCtrl(config: I2CMasterCtrConfig) extends Component{
     */
   // @TODO implement the counter
   val counterIndex = new Area{
-    val index = Reg(UInt( 32 bits )) init(config.dataSize-1) // @TODO change size
-    def lastIndex() : Bool = index === 1
+    val index = Reg(UInt( log2Up(config.dataSize-1) bits )) init(config.dataSize-1)
     def isOver()    : Bool = index === 0
     def clear()     : Unit = index := config.dataSize-1
 
     when(scl_gen.risingEdge) {
       index := index - 1
     }
-
   }
 
 
   io.busy := False // @TODO manage the busy
 
- // assert( io.write.valid && io.read_cmd.valid, "Can't perform a read and write simultaneously ", WARNING)
+  // assert( io.write.valid && io.read_cmd.valid, "Can't perform a read and write simultaneously ", WARNING)
 
 
   /**
@@ -181,14 +181,10 @@ class I2CMasterCtrl(config: I2CMasterCtrConfig) extends Component{
               sda := True
               rw  := True
             }otherwise{
-              report(
-                message   = "No read or write to execute ",
-                severity  = NOTE
-              )
-              goto(GEN_STOP_1) // @TODO maybe manage better this case (wait ack from slave before stopping)
+              report( message = "No read/write to execute ", severity  = NOTE )
               io.errorAck := True
+              goto(GEN_STOP_1) // @TODO  (wait ack from slave before stopping)
             }
-
           }otherwise{
             sda := addrDevice(counterIndex.index-1)
           }
@@ -206,6 +202,7 @@ class I2CMasterCtrl(config: I2CMasterCtrConfig) extends Component{
 
     val RD_ACK : State = new State{
       whenIsActive{
+
         when(scl_gen.fallingEdge){
           sda := True
         }
@@ -213,36 +210,29 @@ class I2CMasterCtrl(config: I2CMasterCtrConfig) extends Component{
 
           // NACK received
           when(ccIO.i2c_sda){
-
             io.errorAck := True
+            report(message = "NACK received ", severity = WARNING)
             goto(GEN_STOP_1)
 
-            report(
-              message   = "NACK received ",
-              severity  = WARNING
-            )
-
-          // ACK received
+            // ACK received
           }otherwise{
-
             counterIndex.clear()
 
             // succession of read
             when(io.read_cmd.valid && rw){
-
               io.read_cmd.ready   := True
               rw                  := True
 
               goto(RD_DATA)
 
-            // succession of write
+              // succession of write
             }.elsewhen(io.write.valid && rw === False) {
 
               data           := io.write.payload
               io.write.ready := True
               goto(WR_DATA)
 
-            // write after read, or read after write
+              // write after read, or read after write => restart
             }.elsewhen( (io.write.valid && rw) || (io.read_cmd.valid && rw === False) ){
 
               goto(GEN_RESTART)
@@ -264,6 +254,9 @@ class I2CMasterCtrl(config: I2CMasterCtrConfig) extends Component{
 
     val RD_DATA : State = new State{
       whenIsActive{
+        when(scl_gen.fallingEdge){
+          sda := True
+        }
         when(scl_gen.risingEdge){
           data(counterIndex.index) := ccIO.i2c_sda
 

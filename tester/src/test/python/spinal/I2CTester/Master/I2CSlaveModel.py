@@ -28,14 +28,15 @@ class I2CSlaveModel:
         self.clk         = _clk 
         self.state       = I2CSlaveState.IDLE
 
+
         self.forceSDA    = 1
-    
+
     def startSlave(self):
         
         cocotb.fork(self.startDetection())
         cocotb.fork(self.stopDetection())
         cocotb.fork(self.stateMachine())
-      #  cocotb.fork(self.manageSDA())
+        cocotb.fork(self.manageSDA())
 
     @cocotb.coroutine
     def stateMachine(self):
@@ -54,55 +55,59 @@ class I2CSlaveModel:
 
             elif self.state == I2CSlaveState.RD_ADDR:
                 
-                yield self.readTrame()
+                yield self._readData()
 
-                if self.dataTXEvent.data[7] == 0 : # read operatrion                    
-                    self.state = I2CSlaveState.WR_DATA  
-                else:                              # write operation              
-                    self.state = I2CSlaveState.RD_DATA 
-
-
-            elif self.state == I2CSlaveState.RD_DATA :
-
-                data = self.mem.get(self.addr, 55) #BinaryValue(0xAA, 8)) # if addr doesn't exist read AA
-                cocotb.fork(self.writeTrame(data))
-                yield self.dataTXEvent.wait()
-                if self.dataTXEvent.data == 1 : # NACK received
-                    yield self.stopEvent.wait()
-                    self.state = I2CSlaveState.IDLE
-                else :                          # ACK received
+                if self.dataTXEvent.data[7] == 0 :                   
+                    self.state = I2CSlaveState.RD_DATA
+                else:                                           
                     self.state = I2CSlaveState.WR_DATA
 
 
             elif self.state == I2CSlaveState.WR_DATA :
 
-                yield RisingEdge(self.scl)
+                data = self.mem.get(self.addr, 55) #BinaryValue(0xAA, 8)) # if addr doesn't exist read AA
 
-                yield self.readTrame()
+                yield self._writeData(data)
+
+                res = self.dataRxEvent.data
+
+                if res["ack"] == 1 : # NACK received
+                    yield self.stopEvent.wait()
+                    self.state = I2CSlaveState.IDLE
+                else :                          # ACK received
+                    self.state = I2CSlaveState.WR_DATA
+                    self.addr += 1
+
+
+            elif self.state == I2CSlaveState.RD_DATA :
+
+                yield FallingEdge(self.scl)
+                self.forceSDA = 1 
+
+                yield self._readData()
 
                 dataReceived = self.dataTXEvent.data
 
                 if isFirstData == True :    
-                    self.addr   = int("".join([str(x) for x in dataReceived]), 2)
+                    self.addr   = int("".join([str(x) for x in dataReceived]), 2)                    
                     isFirstData = False
                 else:
-                    self.mem[self.addr] = int(self.dataTXEvent.data)
+                    self.mem[self.addr] = int("".join([str(x) for x in dataReceived]), 2)
                     self.addr += 1
+                    print("Memory", self.mem)
 
-                self.state = I2CSlaveState.IDLE
-
-                
+                self.state = I2CSlaveState.RD_DATA
 
     @cocotb.coroutine
     def manageSDA(self):
         while True:
             yield Edge(self.clk)
-
-            if self.forceSDA == 0 :                
+            #self.sda_rd <= self.forceSDA
+            if self.forceSDA == 0:
                 self.sda_rd <= 0
             else:
                 self.sda_rd <= int(self.sda_wr)
-            
+
 
 
     @cocotb.coroutine
@@ -111,8 +116,8 @@ class I2CSlaveModel:
             yield FallingEdge(self.sda_wr)
             if int(self.scl) == 1:
                 print("Start detected ...")
-                self.startEvent.set()                
-
+                self.startEvent.set()
+                self.addr = 0
 
 
     @cocotb.coroutine
@@ -125,17 +130,18 @@ class I2CSlaveModel:
                 self.state = I2CSlaveState.IDLE
 
 
+
     @cocotb.coroutine
-    def readTrame(self):    
+    def _readData(self):
         cnt  = 0
         dataRead = list()
-        while True:
-                        
+        while True:            
             if (cnt == 8):
-                print("Send ack")
-                yield FallingEdge(self.scl)
-                self.sda_rd <= 0 # send ACK                
+                yield FallingEdge(self.scl)                
+                self.forceSDA = 0 # send ACK
+                yield RisingEdge(self.scl)
                 self.dataTXEvent.set(data=dataRead)
+
                 break
             else:
                 yield RisingEdge(self.scl)                
@@ -145,17 +151,25 @@ class I2CSlaveModel:
 
 
     @cocotb.coroutine
-    def writeTrame(self, data):
+    def _writeData(self, data):
+        print("write data")
         write = True
-        cnt   = 0 
+        cnt   = 0
+        data2Send = bin(data)[2:].zfill(8)
         while write:
             yield FallingEdge(self.scl)
-            self.forceSDA <= int(data(cnt))
-            cnt += 1
+            self.forceSDA = int(data2Send[cnt])
+
             if (cnt == 7):
                 yield RisingEdge(self.scl)
                 yield RisingEdge(self.scl)
-                # read ACK 
-                ack = int(self.sda_wr)
-                dataRXEvent.set(ack)
+                # read ACK
+                result = dict()
+                result["data"] = data2Send
+                result["ack"]  = int(self.sda_wr)
+
+                self.dataRxEvent.set(result)
+                break
+
+            cnt += 1
 

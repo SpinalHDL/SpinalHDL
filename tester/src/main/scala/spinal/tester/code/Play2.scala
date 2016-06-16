@@ -1018,7 +1018,7 @@ object PlayRefl{
 
 object PlayI2CMasterCtrl_7bits {
 
-  class TopLevel extends Component {
+  class TopLevel_I2CMasterCtrl extends Component {
 
     val config = I2CMasterCtrConfig(ADDR_7bits, Fast)
     val myMasterI2C = new I2CMasterCtrl(config)
@@ -1044,6 +1044,6 @@ object PlayI2CMasterCtrl_7bits {
       dumpWave = true,
       defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
       defaultClockDomainFrequency = FixedFrequency(50e6)
-    ).generate(new TopLevel).printPruned
+    ).generate(new TopLevel_I2CMasterCtrl).printPruned
   }
 }
