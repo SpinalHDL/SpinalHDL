@@ -66,7 +66,6 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated{
   var autoStart = true
   @dontName var parentStateMachine : StateMachineAccessor = null
   @dontName val childStateMachines = mutable.Set[StateMachineAccessor]()
-  val stateMachineToEnumElement = mutable.HashMap[StateMachineAccessor,enumDefinition.E]()
   @dontName val states = ArrayBuffer[State]()
   val stateToEnumElement = mutable.HashMap[State,enumDefinition.E]()
   @dontName var entryState : State = null
@@ -74,7 +73,6 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated{
     checkState(state)
     stateToEnumElement(state)
   }
-  def enumOf(stateMachine : StateMachineAccessor) = stateMachineToEnumElement(stateMachine)
   def checkState(state : State) = assert(state.getStateMachineAccessor == this,s"A state machine ($this)is using a state ($state) that come from another state machine.\n\nState machine defined at ${this.getScalaLocationLong}\n State defined at ${state.getScalaLocationLong}")
   def build() : Unit = {
     childStateMachines.foreach(_.build())
@@ -84,10 +82,6 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated{
       checkState(state)
       val enumElement = enumDefinition.newElement(state.getName())
       stateToEnumElement += (state -> enumElement)
-    }
-    for(child <- childStateMachines){
-      val enumElement = enumDefinition.newElement(child.getName())
-      stateMachineToEnumElement += (child -> enumElement)
     }
 
     stateReg init(enumOf(this.stateBoot))
