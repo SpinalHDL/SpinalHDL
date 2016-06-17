@@ -922,8 +922,7 @@ object PlayGenerics{
 
   /**
    * ALT_INBUF
-    *
-    * @TODO add library altera.altera_primitives_components
+   * @TODO add library altera.altera_primitives_components
    */
   case class alt_inbuf(_io_standard           : IO_STRANDARD = STD_NONE,
                        _location              : String       = "None",
@@ -1016,34 +1015,61 @@ object PlayRefl{
   }
 }
 
-object PlayI2CMasterCtrl_7bits {
-
-  class TopLevel_I2CMasterCtrl extends Component {
-
-    val config = I2CMasterCtrConfig(ADDR_7bits, Fast)
-    val myMasterI2C = new I2CMasterCtrl(config)
-
-    val io = new Bundle {
-      val i2c = master(I2C())
-      val read = master Flow (Bits(config.dataSize bits))
-      val write = slave Stream (Bits(config.dataSize bits))
-      val start = in Bool
-      // pulse to start the sequence..
-      val read_cmd = slave(Event)
-      val addrDevice = in UInt (config.modeAddr.value bits)
-      val errorAck = out Bool
-      val busy = out Bool
-    }
-
-    io <> myMasterI2C.io
+object PlayEnumTypes{
+  class MyEnum extends SpinalEnum{
+    val s0,s1,s2 = newElement()
+  }
+  class MyEnum2 extends SpinalEnum{
+    val s0,s1,s2 = newElement()
   }
 
-  def main(args: Array[String]) {
-    SpinalConfig(
-      mode = Verilog,
-      dumpWave = true,
-      defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
-      defaultClockDomainFrequency = FixedFrequency(50e6)
-    ).generate(new TopLevel_I2CMasterCtrl).printPruned
+  class TopLevel extends Component {
+    val enumDef = new MyEnum
+    val enumDef2 = new MyEnum2
+
+    //    implicit def EnumEtoEnumE2[T <: SpinalEnum,T2 <: T](element : SpinalEnumElement[T])  = element.asInstanceOf[SpinalEnumElement[T2]]
+
+    val e0 = enumDef()
+    val e1 : SpinalEnumElement[MyEnum] = enumDef.s0.asInstanceOf[ SpinalEnumElement[MyEnum] ]
+    val e2 : SpinalEnumElement[MyEnum] = enumDef.s0
+    e2 := enumDef.s0
+    val e3 : enumDef.E = e1.asInstanceOf[enumDef.E]
+    val e4 : enumDef.E = e1
+
+    //    val f0 = enumDef2()
+    //    val f1 : SpinalEnumElement[MyEnum2] = enumDef.s0.asInstanceOf[ SpinalEnumElement[MyEnum] ]
+    //    val f2 : SpinalEnumElement[MyEnum2] = enumDef.s0
+    //    f2 := enumDef.s0
+    //    val f3 : enumDef2.E = f1.asInstanceOf[enumDef.E]
+    //    val f4 : enumDef2.E = f1
+  }
+
+
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
+
+
+object PlayOthersLike{
+  import spinal.lib.fsm._
+  class TopLevel extends Component {
+    val t0 = out(B(5 -> true,default -> false))
+    val t1 = out Bits(10 bits)
+    t1 := B(5 -> true,default -> false)
+
+
+    val t2 = out(B(5 -> true,default -> False))
+    val t3 = out Bits(10 bits)
+    t3 := B(5 -> true,default -> False)
+  }
+
+
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
   }
 }

@@ -88,8 +88,8 @@ object C4 {
 
     val reg1 = Reg(Bool)
     val reg2 = Reg(Bool) init (False)
-    val reg3 = RegInit(False)
-    val reg4 = RegNext(io.a)
+    val reg3 = Reg(Bool)
+    reg3 := io.a
   }
 
   class MyTopLevel extends Component {
@@ -223,7 +223,7 @@ object C9 {
     def +(that: Color): Color = {
       assert(that.channelWidth == this.channelWidth)
 
-      val result = cloneOf(this)
+      val result = Color(channelWidth)
       result.r := channelAdd(this.r, that.r)
       result.g := channelAdd(this.g, that.g)
       result.b := channelAdd(this.b, that.b)
@@ -530,6 +530,37 @@ object C13 {
   }
 
 }
+
+object C13b {
+
+  object MyEnum extends SpinalEnum {
+    val state0, state1, anotherState = newElement()
+  }
+
+  class MyComponent extends Component {
+    val state = Reg(MyEnum) init(MyEnum.state0)
+    switch(state) {
+      is(MyEnum.state0) {
+
+      }
+      is(MyEnum.state1) {
+
+      }
+      is(MyEnum.anotherState) {
+
+      }
+      default{
+
+      }
+    }
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new MyComponent)
+  }
+
+}
+
 
 object C14 {
   //Create a timeout, he become asserted if the function clear
@@ -1157,6 +1188,19 @@ object RgbToGray{
   }
 }
 
+
+object RgbToGray2{
+  // Input RGB color
+  val r,g,b = UInt(8 bits)
+
+  // Define a function to multiply a UInt by a scala Float value.
+  def coefMul(value : UInt,by : Float) : UInt = (value * U((255*by).toInt,8 bits) >> 8)
+
+  //Calculate the gray level
+  val gray = coefMul(r,0.3f) +
+             coefMul(g,0.4f) +
+             coefMul(b,0.3f)
+}
 
 object CombinatorialLogic {
 
