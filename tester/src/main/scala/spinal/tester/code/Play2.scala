@@ -1024,7 +1024,7 @@ object PlayEnumTypes{
     val enumDef = new MyEnum
     val enumDef2 = new MyEnum2
 
-//    implicit def EnumEtoEnumE2[T <: SpinalEnum,T2 <: T](element : SpinalEnumElement[T])  = element.asInstanceOf[SpinalEnumElement[T2]]
+    //    implicit def EnumEtoEnumE2[T <: SpinalEnum,T2 <: T](element : SpinalEnumElement[T])  = element.asInstanceOf[SpinalEnumElement[T2]]
 
     val e0 = enumDef()
     val e1 : SpinalEnumElement[MyEnum] = enumDef.s0.asInstanceOf[ SpinalEnumElement[MyEnum] ]
@@ -1033,12 +1033,28 @@ object PlayEnumTypes{
     val e3 : enumDef.E = e1.asInstanceOf[enumDef.E]
     val e4 : enumDef.E = e1
 
-//    val f0 = enumDef2()
-//    val f1 : SpinalEnumElement[MyEnum2] = enumDef.s0.asInstanceOf[ SpinalEnumElement[MyEnum] ]
-//    val f2 : SpinalEnumElement[MyEnum2] = enumDef.s0
-//    f2 := enumDef.s0
-//    val f3 : enumDef2.E = f1.asInstanceOf[enumDef.E]
-//    val f4 : enumDef2.E = f1
+    //    val f0 = enumDef2()
+    //    val f1 : SpinalEnumElement[MyEnum2] = enumDef.s0.asInstanceOf[ SpinalEnumElement[MyEnum] ]
+    //    val f2 : SpinalEnumElement[MyEnum2] = enumDef.s0
+    //    f2 := enumDef.s0
+    //    val f3 : enumDef2.E = f1.asInstanceOf[enumDef.E]
+    //    val f4 : enumDef2.E = f1
+  }
+
+
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
+
+
+object PlayOthersLike{
+
+  class TopLevel extends Component {
+   val t0 = B(5 -> true,default -> false))
   }
 
 

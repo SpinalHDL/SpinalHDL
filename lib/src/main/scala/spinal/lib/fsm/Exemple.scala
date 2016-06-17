@@ -231,15 +231,15 @@ object StateMachineWithInnerExample {
 
         }
       ){
-          onDone(goto(stateC))
+        whenCompleted(goto(stateC))
       }
-      val stateC = new StateParallelFsm(simpleFsm(5), simpleFsm(8), simpleFsm(3)){
-        onDone{
+      val stateC = new StateFsm(simpleFsm(5)){
+        whenCompleted{
           goto(stateD)
         }
       }
       val stateD = new StateParallelFsm (simpleFsm(5), simpleFsm(8), simpleFsm(3)){
-        onDone{
+        whenCompleted{
           goto(stateE.head)
         }
       }
@@ -248,9 +248,9 @@ object StateMachineWithInnerExample {
         simpleFsm(12),
         simpleFsm(16)
       )(_.goto(stateF))
-      val stateF : State = new StateDelay(30){onDone(goto(stateG))}
-      val stateG : State = new StateDelay(40){onDone(goto(stateH))}
-      val stateH : State = new StateDelay(50){onDone(goto(stateI))}
+      val stateF : State = new StateDelay(30){whenCompleted(goto(stateG))}
+      val stateG : State = new StateDelay(40){whenCompleted(goto(stateH))}
+      val stateH : State = new StateDelay(50){whenCompleted(goto(stateI))}
       val stateI: State = new State {
         whenIsActive {
           goto(stateA)
@@ -333,7 +333,7 @@ object StateMachineTry2Example {
         }
       }
       val stateB: State = new StateParallelFsm(InnerFsm(9),InnerFsm(18)){
-        onDone{
+        whenCompleted{
           goto(stateC)
         }
       }
