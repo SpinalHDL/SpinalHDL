@@ -51,6 +51,7 @@ object I2CCtrlSlaveState extends SpinalEnum {
   */
 class I2CSlaveCtrl(config: I2CSlaveCtrConfig) extends Component{
 
+  /*
   val io = new Bundle{
     val i2c   = slave( I2C() )
     val read  = master Flow(Bits(config.dataSize bits))
@@ -305,4 +306,6 @@ class I2CSlaveCtrl(config: I2CSlaveCtrConfig) extends Component{
   }
 
   io.i2c.sda.write := stateMachine.bit2Send
+
+  */
 }

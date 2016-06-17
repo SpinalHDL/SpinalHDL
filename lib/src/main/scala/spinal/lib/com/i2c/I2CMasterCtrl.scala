@@ -43,7 +43,7 @@ case class I2CMasterCtrConfig(modeAddr   : ADDR_MODE,
   * I2C : Master controller
   */
 class I2CMasterCtrl(config: I2CMasterCtrConfig) extends Component{
-
+/*
   val io = new Bundle{
     val i2c         = master( I2C() )
     val read        = master Flow(Bits(config.dataSize bits))
@@ -338,6 +338,7 @@ class I2CMasterCtrl(config: I2CMasterCtrConfig) extends Component{
 
   io.i2c.sda.write := masterSM.sda
   scl_en           := masterSM.clk_en
+  */
 }
 
 

@@ -1016,25 +1016,21 @@ object PlayRefl{
   }
 }
 
-object PlayI2CMasterCtrl_7bits {
+object PlayI2CMasterHAL {
 
-  class TopLevel_I2CMasterCtrl extends Component {
+  class TopLevel_I2CMasterHAL extends Component {
 
-    val config = I2CMasterCtrConfig(ADDR_7bits, Fast)
-    val myMasterI2C = new I2CMasterCtrl(config)
+    val generic = I2CMasterHALGenerics()
 
     val io = new Bundle {
-      val i2c = master(I2C())
-      val read = master Flow (Bits(config.dataSize bits))
-      val write = slave Stream (Bits(config.dataSize bits))
-      val start = in Bool
-      // pulse to start the sequence..
-      val read_cmd = slave(Event)
-      val addrDevice = in UInt (config.modeAddr.value bits)
-      val errorAck = out Bool
-      val busy = out Bool
+      val i2c    = master( I2C() )
+      val config = in( I2CMasterHALConfig(generic) )
+      val cmd    = slave Stream(I2CMasteHALCmd(generic))
+      val rsp    = master Flow(I2CMasterHALRsp (generic))
     }
 
+
+    val myMasterI2C = new I2CMasterHAL(generic)
     io <> myMasterI2C.io
   }
 
@@ -1044,6 +1040,6 @@ object PlayI2CMasterCtrl_7bits {
       dumpWave = true,
       defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
       defaultClockDomainFrequency = FixedFrequency(50e6)
-    ).generate(new TopLevel_I2CMasterCtrl).printPruned
+    ).generate(new TopLevel_I2CMasterHAL).printPruned
   }
 }

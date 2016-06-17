@@ -1,0 +1,262 @@
+/******************************************************************************
+  * I2CMaster HAL
+  *
+  * Write : data write is read ...
+  *
+  */
+
+// @TOTO some comments...
+
+package spinal.lib.com.i2c
+
+import spinal.core._
+import spinal.lib._
+import spinal.lib.fsm._
+
+
+/**
+  * Global configuration of the I2C Master
+  *
+  * @param dataWidth         : Width of the data send
+  * @param clockDividerWidth : Width of the clockDivider value
+  */
+case class I2CMasterHALGenerics(dataWidth         : Int =  8,
+                                clockDividerWidth : Int = 20  ){}
+
+
+/**
+  * Used to config the I2C master HAL at runtime
+  */
+case class I2CMasterHALConfig(g: I2CMasterHALGenerics) extends Bundle {
+
+  val clockDivider = UInt (g.clockDividerWidth bits)
+
+  def setFrequency(sclFrequency : Double, clkFrequency : Double = ClockDomain.current.frequency.getValue) : Unit = {
+    clockDivider := (clkFrequency / sclFrequency * 2).toInt
+  }
+}
+
+
+/**
+  * 4 differents mode can be used to manage the I2C
+  *    WRITE   : Send a data
+  *    READ    : Read a data
+  *    CLOSE   : Send a stop sequence
+  *    RESTART : Send a restart sequence
+  *    ( The start sequence is automatically done )
+  */
+object I2CMasterHALCmdMode extends SpinalEnum{
+  val WRITE, READ, CLOSE, RESTART = newElement()
+}
+
+
+/**
+  * Define the command interface
+  */
+case class I2CMasteHALCmd(g : I2CMasterHALGenerics) extends Bundle{
+  val mode   = I2CMasterHALCmdMode()
+  val data   = Bits(g.dataWidth bits)
+}
+
+
+/**
+  * Define the response interface
+  */
+case class I2CMasterHALRsp(g : I2CMasterHALGenerics) extends Bundle{
+  val ack  = Bool
+  val data = Bits(g.dataWidth bits)
+}
+
+
+/**
+  * Definition of the component I2C Master HAL
+  */
+class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
+
+  import I2CMasterHALCmdMode._
+
+  val io = new Bundle {
+
+    val i2c    = master( I2C() )
+    val config = in( I2CMasterHALConfig(g) )
+    val cmd    = slave  Stream(I2CMasteHALCmd(g))
+    val rsp    = master Flow(I2CMasterHALRsp (g))
+
+  }
+
+
+
+
+  // Enable/Disable the scl signal
+  val scl_en = True // @TODO to be modified...
+
+
+  /**
+    * Generate the scl clock
+    */
+  val sclGenerator = new Area{
+
+    val risingEdge      = False
+    val fallingEdge     = False
+    val triggerSequence = False
+    val scl             = Reg(Bool) init(True)
+
+    val counterValue = 50                 // @TODO !!! change at runtime this value !!!!!
+    val counter =  Counter(counterValue)
+
+    // start / stop the counter clock
+    when(scl_en){
+      counter.increment()
+    }otherwise{
+      scl := True
+      counter.clear()
+      // assert( scl === False , "Clock scl stop while it was low", WARNING)
+    }
+
+    // Generate the scl signal
+    when(counter.willOverflowIfInc){
+      scl := !scl
+
+      // detect rising and falling edge
+      when(scl){
+        fallingEdge := True
+      }otherwise{
+        risingEdge  := True
+      }
+    }
+
+    // Used to indicate when to generate the start/retard/stop sequence
+    when(scl){
+      when(counter.value === (counterValue/2).toInt){
+        triggerSequence := True
+      }
+    }
+  }
+
+
+  /**
+    * Counter of bit write/read
+    */
+  val counterBit = new Area{
+    val index = Reg(UInt( log2Up(g.dataWidth) bits )) init(g.dataWidth-1)
+    def isDone()    : Bool = index === 0
+    def clear()     : Unit = index := g.dataWidth-1
+
+    when(sclGenerator.risingEdge) {
+      index := index - 1
+    }
+  }
+
+  /**
+    * State machine
+    */
+  val smMaster = new StateMachine{
+
+    val scl_en    = Reg(Bool) init(False)
+    val data2Send = Reg(Bits(g.dataWidth bits)) init(0)
+    val mode      = RegInit(CLOSE)
+    val sda       = RegInit(True)
+
+
+    io.cmd.ready     := False
+
+    val sIDLE : State = new State with EntryPoint{
+      whenIsActive{
+
+        when(io.cmd.valid){
+
+          io.cmd.ready := True
+          data2Send    := io.cmd.data
+          mode         := io.cmd.mode
+
+          switch(io.cmd.mode){
+            is(WRITE)  { goto(sSTART) }
+            is(READ)   { goto(sSTART) }
+            default    { goto(sIDLE) }
+          }
+        }
+      }
+    }
+
+    val sSTART : State = new State{
+      whenIsActive{
+        scl_en := True
+
+        when(sclGenerator.triggerSequence){
+          sda := False
+          counterBit.clear()
+          when(mode === WRITE){ goto(sWRITE) }otherwise{ goto(sREAD) }
+        }
+      }
+    }
+
+    val sWRITE = new StateParallelFsm (writeSM(), readSM()){
+      whenCompleted{
+        goto(sRD_ACK)
+      }
+    }
+
+    val sRD_ACK : State = new State{
+      whenIsActive{
+        goto(sIDLE)
+      }
+    }
+
+    val sREAD = new StateFsm(fsm=readSM()){
+      whenCompleted{
+        goto(sIDLE)
+      }
+    }
+
+
+
+  }
+
+  def writeSM() = new StateMachine {
+
+    val sWRITE: State = new State with EntryPoint {
+      whenIsActive{
+        when(sclGenerator.fallingEdge){
+          sda := data2Send(counterBit.index)
+          when(counterBit.isDone()){
+            exit()
+          }
+        }
+      }
+    }
+  }
+
+  def readSM() = new StateMachine {
+    val sREAD: State = new State with EntryPoint {
+      whenIsActive{
+        when(sclGenerator.fallingEdge){
+          sda := data2Send(counterBit.index)
+          when(counterBit.isDone()){
+            exit()
+          }
+        }
+      }
+    }
+  }
+
+
+
+  // init all data to run simulation
+
+  io.i2c.sda.write := smMaster.sda
+
+
+  io.rsp.valid := True
+  io.rsp.payload.ack := True
+  io.rsp.payload.data := 0
+
+  io.i2c.scl.write := sclGenerator.scl
+
+
+
+}
+
+
+
+
+

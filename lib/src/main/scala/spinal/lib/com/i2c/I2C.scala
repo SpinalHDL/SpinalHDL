@@ -11,16 +11,16 @@ import spinal.lib.io._
 case class I2C() extends Bundle with IMasterSlave {
 
   val sda   = ReadableOpenDrain(Bool)
-  val scl   = Bool
+  val scl   = ReadableOpenDrain(Bool)
 
   override def asMaster(): this.type = {
-    out(scl)
+    master(scl)
     master(sda)
     this
   }
 
   override def asSlave(): this.type = {
-    in(scl)
+    master(scl)
     master(sda)
     this
   }
