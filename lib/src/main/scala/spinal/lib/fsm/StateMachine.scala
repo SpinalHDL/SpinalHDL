@@ -18,7 +18,10 @@ import scala.collection.mutable.ArrayBuffer
 trait StateMachineAccessor{
   def setEntry(state : State) : Unit
   def getEntry() : State
+  def isActive(state : State) : Bool
+  def isEntering(state : State) : Bool
   def goto(state : State) : Unit
+//  def goto(state : SpinalEnumElement[StateMachineEnum]) : Unit
   def add(state : State) : Int
   def add(stateMachine: StateMachineAccessor) : Unit
   def start() : Unit
@@ -56,6 +59,7 @@ class StateBoot(autoStart : Boolean)(implicit stateMachineAccessor : StateMachin
 class StateMachineEnum extends SpinalEnum
 
 class StateMachine extends Area with StateMachineAccessor with ScalaLocated{
+  @dontName val postBuildTasks = ArrayBuffer[() => Unit]()
   val cache = mutable.HashMap[Any,Any]()
   val enumDefinition = new StateMachineEnum
   var stateReg  = Reg(enumDefinition())
@@ -64,8 +68,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated{
   val wantExit = False
   var autoStart = true
   @dontName var parentStateMachine : StateMachineAccessor = null
-  @dontName val childStateMachines = ArrayBuffer[StateMachineAccessor]()
-  val stateMachineToEnumElement = mutable.HashMap[StateMachineAccessor,enumDefinition.E]()
+  @dontName val childStateMachines = mutable.Set[StateMachineAccessor]()
   @dontName val states = ArrayBuffer[State]()
   val stateToEnumElement = mutable.HashMap[State,enumDefinition.E]()
   @dontName var entryState : State = null
@@ -73,7 +76,6 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated{
     checkState(state)
     stateToEnumElement(state)
   }
-  def enumOf(stateMachine : StateMachineAccessor) = stateMachineToEnumElement(stateMachine)
   def checkState(state : State) = assert(state.getStateMachineAccessor == this,s"A state machine ($this)is using a state ($state) that come from another state machine.\n\nState machine defined at ${this.getScalaLocationLong}\n State defined at ${state.getScalaLocationLong}")
   def build() : Unit = {
     childStateMachines.foreach(_.build())
@@ -83,10 +85,6 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated{
       checkState(state)
       val enumElement = enumDefinition.newElement(state.getName())
       stateToEnumElement += (state -> enumElement)
-    }
-    for(child <- childStateMachines){
-      val enumElement = enumDefinition.newElement(child.getName())
-      stateMachineToEnumElement += (child -> enumElement)
     }
 
     stateReg init(enumOf(this.stateBoot))
@@ -126,6 +124,8 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated{
         state.onExitTasks.foreach(_())
       }
     }
+
+    postBuildTasks.foreach(_())
   }
 
   Component.current.addPrePopTask(() => {
@@ -142,6 +142,24 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated{
   override def getEntry(): State = entryState
 
   override def goto(state: State): Unit = stateNext := enumOf(state)
+  def isActive(state : State) : Bool ={
+    val ret = Bool
+    postBuildTasks += {() => {
+      ret := stateReg === enumOf(state)
+    }}
+    ret
+  }
+
+  def isEntering(state : State) : Bool ={
+    val ret = Bool
+    postBuildTasks += {() => {
+      ret := stateNext === enumOf(state) && stateReg =/= enumOf(state)
+    }}
+    ret
+  }
+  //override def goto(state: SpinalEnumElement[StateMachineEnum]): Unit = stateNext := state.asInstanceOf[enumDefinition.E]
+
+//  override def goto(state: SpinalEnumElement[StateMachineEnum]): Unit = ??? //stateNext := state
 
   override def add(state: State): Int = {
     states += state

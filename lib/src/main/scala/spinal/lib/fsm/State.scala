@@ -8,16 +8,26 @@ import scala.collection.mutable.ArrayBuffer
  * Created by PIC32F_USER on 14/06/2016.
  */
 trait EntryPoint
-trait OnDonable{
-  val onDoneTasks = ArrayBuffer[() => Unit]()
+trait StateCompletionTrait{
+ val whenCompletedTasks = ArrayBuffer[() => Unit]()
 
-  def onDone(doThat : => Unit) : this.type = {
-    onDoneTasks += (() => doThat)
+  def whenCompleted(doThat : => Unit) : this.type = {
+    whenCompletedTasks += (() => doThat)
     this
   }
 
-  protected def doOnDoneTasks() : Unit = onDoneTasks.foreach(_())
+  protected def doWhenCompletedTasks() : Unit = whenCompletedTasks.foreach(_())
 }
+
+
+object State{
+  def apply()(implicit stateMachineAccessor : StateMachineAccessor) : State = new State
+}
+object StateEntryPoint{
+  def apply()(implicit stateMachineAccessor : StateMachineAccessor) : State = new State with EntryPoint
+}
+
+
 class State(implicit stateMachineAccessor : StateMachineAccessor) extends Area with ScalaLocated{
   val onEntryTasks = ArrayBuffer[() => Unit]()
   val onExitTasks = ArrayBuffer[() => Unit]()
@@ -42,6 +52,9 @@ class State(implicit stateMachineAccessor : StateMachineAccessor) extends Area w
     this
   }
   def goto(state : State) = stateMachineAccessor.goto(state)
+ // def goto(state : SpinalEnumElement[StateMachineEnum]) = ???
+ // def goto(state : SpinalEnumCraft[StateMachineEnum]) = ??? //stateMachineAccessor.goto(state)
+ // def enumOf(state : State) : SpinalEnumElement[StateMachineEnum] = ???
   def innerFsm(that : => StateMachine) : Unit = innerFsm += that
   def exit() : Unit = stateMachineAccessor.exit()
   def getStateMachineAccessor() = stateMachineAccessor
@@ -54,13 +67,13 @@ class State(implicit stateMachineAccessor : StateMachineAccessor) extends Area w
 //  def apply(fsm :  StateMachineAccessor)(implicit stateMachineAccessor : StateMachineAccessor) : StateFsm = new StateFsm(exitState,fsm)
 //}
 
-class StateFsm(val fsm :  StateMachineAccessor)(implicit stateMachineAccessor : StateMachineAccessor) extends State with OnDonable{
+class StateFsm[T <: StateMachineAccessor] (val fsm :  T)(implicit stateMachineAccessor : StateMachineAccessor) extends State with StateCompletionTrait{
   onEntry{
     fsm.start()
   }
   whenIsActive{
     when(fsm.wantExit()){
-      doOnDoneTasks()
+      doWhenCompletedTasks()
     }
   }
   stateMachineAccessor.add(fsm)
@@ -68,15 +81,15 @@ class StateFsm(val fsm :  StateMachineAccessor)(implicit stateMachineAccessor : 
 }
 
 object StatesSerialFsm{
-  def apply(fsms :  StateMachineAccessor*)(doOnDone : (State) =>  Unit)(implicit stateMachineAccessor : StateMachineAccessor) : Seq[State] = {
+  def apply(fsms :  StateMachineAccessor*)(doWhenCompleted : (State) =>  Unit)(implicit stateMachineAccessor : StateMachineAccessor) : Seq[State] = {
     var nextState : State = null
     val states = for(i <- fsms.size-1 downto 0) yield{
       val nextCpy = nextState
       nextState = new StateFsm(fsms(i)){
         if(nextState == null)
-          onDone(doOnDone(this))
+          whenCompleted(doWhenCompleted(this))
         else
-          onDone(this.goto(nextCpy))
+          whenCompleted(this.goto(nextCpy))
       }
       nextState
     }
@@ -89,14 +102,14 @@ object StatesSerialFsm{
 //  def apply(fsms :  StateMachineAccessor*)(implicit stateMachineAccessor : StateMachineAccessor) : StateParallelFsm = new StateParallelFsm(fsms)
 //}
 
-class StateParallelFsm(val fsms :  StateMachineAccessor*)(implicit stateMachineAccessor : StateMachineAccessor) extends State with OnDonable{
+class StateParallelFsm(val fsms :  StateMachineAccessor*)(implicit stateMachineAccessor : StateMachineAccessor) extends State with StateCompletionTrait{
   onEntry{
     fsms.foreach(_.start())
   }
   whenIsActive{
     val readys = fsms.map(fsm => fsm.isStateRegBoot() || fsm.wantExit())
     when(readys.reduce(_ && _)){
-      doOnDoneTasks()
+      doWhenCompletedTasks()
     }
   }
   for(fsm <- fsms){
@@ -121,7 +134,7 @@ class StateMachineSharableRegUInt{
   Component.current.addPrePopTask(() => value.setWidth(width))
 }
 
-class StateDelay(cyclesCount : BigInt)(implicit stateMachineAccessor : StateMachineAccessor)  extends State with OnDonable{
+class StateDelay(cyclesCount : BigInt)(implicit stateMachineAccessor : StateMachineAccessor)  extends State with StateCompletionTrait{
   val cache = stateMachineAccessor.cacheGetOrElseUpdate(StateMachineSharableUIntKey,new StateMachineSharableRegUInt).asInstanceOf[StateMachineSharableRegUInt]
   cache.addMinWidth(log2Up(cyclesCount))
 
@@ -131,7 +144,7 @@ class StateDelay(cyclesCount : BigInt)(implicit stateMachineAccessor : StateMach
   whenIsActive{
     cache.value := cache.value - 1
     when(cache.value === 0){
-      doOnDoneTasks()
+      doWhenCompletedTasks()
     }
   }
 }

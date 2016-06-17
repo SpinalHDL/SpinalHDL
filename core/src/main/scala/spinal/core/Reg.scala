@@ -37,7 +37,7 @@ object Reg {
     if(next != null) regOut := next
     regOut
   }
-
+  def apply[T <: SpinalEnum](enumType: T): enumType.C = Reg(enumType())
 
  // def apply[T <: Data](dataType: T)(init: T = null.asInstanceOf[T],next : T = null.asInstanceOf[T]): T = Reg(dataType,init,next)
 }
