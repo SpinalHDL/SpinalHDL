@@ -188,9 +188,7 @@ object StateMachineWithInnerExample {
       }
 
       val stateB: State = new State {
-        onEntry {
-          counter := 0
-        }
+        onEntry (counter := 0)
         whenIsActive {
           when(counter === countTo) {
             exit()
@@ -249,7 +247,11 @@ object StateMachineWithInnerExample {
         simpleFsm(16)
       )(_.goto(stateF))
       val stateF : State = new StateDelay(30){whenCompleted(goto(stateG))}
-      val stateG : State = new StateDelay(40){whenCompleted(goto(stateH))}
+      val stateG : State = new StateDelay(40){
+        whenCompleted{
+          goto(stateH)
+        }
+      }
       val stateH : State = new StateDelay(50){whenCompleted(goto(stateI))}
       val stateI: State = new State {
         whenIsActive {
@@ -361,8 +363,8 @@ object StateMachineTry2Example {
 
 object StateMachineTry3Example {
   class TopLevel extends Component {
+
     val fsm = new StateMachine{
-      val toto = this
       val counter = Reg(UInt(8 bits)) init (0)
       counter := counter + 1
       val stateA: State = new State with EntryPoint {
@@ -372,9 +374,7 @@ object StateMachineTry3Example {
       }
       val stateB: State = new State{
         whenIsActive{
-         // goto(counter(2) ? enumOf(stateC) | enumOf(stateB))
-//          val titi = counter(2) ? enumOf(stateC) | enumOf(stateB)
-//          toto.goto(titi)
+          goto(stateC)
         }
       }
       val stateC: State = new State {
@@ -383,6 +383,10 @@ object StateMachineTry3Example {
         }
       }
     }
+
+    val isInStateB = out(fsm.isActive(fsm.stateB))
+    val isEnteringStateB = out(fsm.isEntering(fsm.stateB))
+
     fsm.stateReg.keep()
   }
 
