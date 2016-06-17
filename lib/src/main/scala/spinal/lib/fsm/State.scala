@@ -18,6 +18,16 @@ trait StateCompletionTrait{
 
   protected def doWhenCompletedTasks() : Unit = whenCompletedTasks.foreach(_())
 }
+
+
+object State{
+  def apply()(implicit stateMachineAccessor : StateMachineAccessor) : State = new State
+}
+object StateEntryPoint{
+  def apply()(implicit stateMachineAccessor : StateMachineAccessor) : State = new State with EntryPoint
+}
+
+
 class State(implicit stateMachineAccessor : StateMachineAccessor) extends Area with ScalaLocated{
   val onEntryTasks = ArrayBuffer[() => Unit]()
   val onExitTasks = ArrayBuffer[() => Unit]()

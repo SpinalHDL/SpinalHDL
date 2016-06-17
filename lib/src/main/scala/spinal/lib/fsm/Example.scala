@@ -85,23 +85,24 @@ object StateMachineStyle3 {
     }
 
     val fsm = new StateMachine{
-      val stateA = new State with EntryPoint
-      val stateB = new State
-      val stateC = new State
-
       val counter = Reg(UInt(8 bits)) init (0)
       io.result := False
 
-      stateA.whenIsActive (goto(stateB))
-      stateB.onEntry(counter := 0)
-      stateB.whenIsActive {
-        counter := counter + 1
-        when(counter === 4){
-          goto(stateC)
+      val stateA  : State = StateEntryPoint()
+        .whenIsActive(goto(stateB))
+
+      val stateB  : State = State()
+        .onEntry(counter := 0)
+        .whenIsActive {
+          counter := counter + 1
+          when(counter === 4){
+            goto(stateC)
+          }
         }
-      }
-      stateB.onExit(io.result := True)
-      stateC.whenIsActive (goto(stateA))
+        .onExit(io.result := True)
+
+      val stateC : State = State()
+        .whenIsActive (goto(stateA))
     }
   }
 

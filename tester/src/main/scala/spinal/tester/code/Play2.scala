@@ -1052,11 +1052,16 @@ object PlayEnumTypes{
 
 
 object PlayOthersLike{
-
+  import spinal.lib.fsm._
   class TopLevel extends Component {
     val t0 = out(B(5 -> true,default -> false))
     val t1 = out Bits(10 bits)
     t1 := B(5 -> true,default -> false)
+
+
+    val t2 = out(B(5 -> true,default -> False))
+    val t3 = out Bits(10 bits)
+    t3 := B(5 -> true,default -> False)
   }
 
 
