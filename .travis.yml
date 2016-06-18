@@ -46,6 +46,9 @@ before_install:
   # cocotb
   - sudo apt-get install -y git make gcc g++ swig python-dev
   - git clone https://github.com/potentialventures/cocotb
+  - cd cocotb
+  - git reset --hard 4fdd89339222759d57e9cc3d741ca04b3cdebe4f
+  - cd ..
   - export COCOTB=$(pwd)/cocotb
 
   # Force cocotb to compile VPI to avoid race condition when tests are start in parallel
