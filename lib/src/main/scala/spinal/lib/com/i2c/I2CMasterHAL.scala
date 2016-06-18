@@ -162,10 +162,10 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
     val ack          = RegInit(False)
 
 
-    io.cmd.ready        := False
-    io.rsp.valid        := False
-    io.rsp.payload.ack  := False
-    io.rsp.payload.data := 0
+    io.cmd.ready := False
+    io.rsp.valid := False
+    io.rsp.ack   := I2C.NACK
+    io.rsp.data  := 0
 
     val sIDLE : State = new State with EntryPoint{
       whenIsActive{
@@ -203,10 +203,10 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
 
           switch(io.cmd.mode) {
             is(WRITE)      { goto(sWRITE) }
-            is(READ)       { goto(sREAD)  }
+            is(READ)       { goto(sWAIT_BEFORE_READ)  }
             is(WRITECLOSE) { goto(sWRITE) }
             is(RESTART)    { goto(sSTART) }
-            is(READCLOSE)  { goto(sREAD)  }
+            is(READCLOSE)  { goto(sWAIT_BEFORE_READ)  }
             default        { goto(sIDLE)  }
           }
         }
@@ -223,9 +223,9 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
 
           switch(mode){
             is(WRITE)      { goto(sWRITE) }
-            is(READ)       { goto(sREAD)  }
+            is(READ)       { goto(sWAIT_BEFORE_READ)  }
             is(WRITECLOSE) { goto(sWRITE) }
-            is(READCLOSE)  { goto(sREAD)  }
+            is(READCLOSE)  { goto(sWAIT_BEFORE_READ)  }
             is(RESTART)    { goto(sIDLE)  }
             default        { goto(sIDLE)  }
           }
@@ -265,11 +265,17 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
     val sWR_ACK = new State{
       whenIsActive{
         when(sclGenerator.fallingEdge){
+
+          io.rsp.valid := True
+          io.rsp.data  := dataReceived
+
           when(mode === READCLOSE){
-            wr_sda := I2C.NACK
-            goto(sCLOSE)
+            wr_sda     := I2C.NACK
+            io.rsp.ack := I2C.NACK
+            goto(sWAIT_BEFORE_CLOSE)
           }otherwise{
-            wr_sda := I2C.ACK
+            wr_sda     := I2C.ACK
+            io.rsp.ack := I2C.ACK
             goto(sWAIT_NEXT_CMD)
           }
 
@@ -295,6 +301,16 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
         }
       }
     }
+
+    val sWAIT_BEFORE_READ : State = new State{
+      whenIsActive{
+        when(sclGenerator.fallingEdge){
+          wr_sda := True
+          counterBit.clear()
+          goto(sREAD)
+        }
+      }
+    }
   }
 
 
@@ -306,9 +322,6 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
     * @return
     */
   def writeSM(sda : Bool, data2Send:Bits) = new StateMachine {
-
-    //val sdaReg = RegInit(True)
-    //sda := sdaReg
 
     val sWRITE: State = new State with EntryPoint {
       whenIsActive{

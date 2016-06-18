@@ -1,13 +1,6 @@
 import cocotb
 from cocotb.triggers import Timer, Edge, RisingEdge, FallingEdge, Event
 
-class I2CSlaveModelHALState:
-    IDLE    = 0
-    WRITE   = 1
-    READ    = 2
-    NONE    = 3
-
-
 
 
 class I2CSlaveModelHAL:
@@ -17,60 +10,22 @@ class I2CSlaveModelHAL:
 
         self.startEvent  = Event()
         self.stopEvent   = Event()
-       # self.dataRxEvent = Event()
+        self.dataRxEvent = Event()
         self.dataTXEvent = Event()
         self.sda_wr      = _wr_sda
         self.sda_rd      = _rd_sda
         self.scl_wr      = _wr_scl
-       # self.scl_rd      = _rd_scl
-        #self.modeAddr    = addrMode   # 7 = 7 bits , 10 = 10 bits
-        #self.mem         = initMemory # Create a dictionnary (address, value)
-        #self.addr        = 0
+       # self.scl_rd     = _rd_scl
         self.resetn      = _resetn
         self.clk         = _clock
-        self.state       = I2CSlaveModelHALState.NONE
-        self.nextState   = I2CSlaveModelHALState.NONE
-
-
         self.forceSDA    = 1
-        #self.startSlave()
+
 
     def startSlave(self):
 
         cocotb.fork(self._startDetection())
         cocotb.fork(self._stopDetection())
-     #   cocotb.fork(self._stateMachine())
         cocotb.fork(self._manageSDA())
-
-    def setNextState(self, mode):
-        self.nextState = mode
-
-    @cocotb.coroutine
-    def _stateMachine(self):
-
-        while True:
-
-            if self.state == I2CSlaveModelHALState.NONE:
-                yield RisingEdge(self.clk)
-
-
-            elif self.state == I2CSlaveModelHALState.IDLE:
-
-            #    yield self.startEvent.wait()
-                self.state =  self.nextState
-
-            elif self.state == I2CSlaveModelHALState.READ:
-
-                self.state = self.nextState
-
-                yield self._readData()
-
-                yield FallingEdge(self.scl_wr)
-                self.forceSDA = 1
-
-
-
-
 
     @cocotb.coroutine
     def _manageSDA(self):
@@ -88,7 +43,6 @@ class I2CSlaveModelHAL:
             yield FallingEdge(self.sda_wr)
             if int(self.scl_wr) == 1:
                 print("Start detected ...")
-                self.state = I2CSlaveModelHALState.IDLE
                 self.startEvent.set()
 
 
@@ -100,12 +54,12 @@ class I2CSlaveModelHAL:
             if int(self.scl_wr) == 1:
                 print("Stop detected  ...")
                 self.stopEvent.set()
-               # self.state = I2CSlaveState.IDLE
+
 
 
 
     @cocotb.coroutine
-    def _readData(self):
+    def readData(self):
         cnt  = 0
         dataRead = list()
         while True:
@@ -127,19 +81,20 @@ class I2CSlaveModelHAL:
 
 
     @cocotb.coroutine
-    def _writeData(self, data):
-        print("write data")
+    def writeData(self, data):
+
         write = True
         cnt   = 0
         data2Send = bin(data)[2:].zfill(8)
+
         while write:
-            yield FallingEdge(self.scl)
+            yield FallingEdge(self.scl_wr)
             self.forceSDA = int(data2Send[cnt])
 
             if (cnt == 7):
-                yield RisingEdge(self.scl)
-                yield RisingEdge(self.scl)
-                # read ACK
+                yield FallingEdge(self.scl_wr)
+                self.forceSDA = 1
+
                 result = dict()
                 result["data"] = data2Send
                 result["ack"]  = int(self.sda_wr)
