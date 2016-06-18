@@ -50,13 +50,13 @@ class MemWritePayload[T <: Data](dataType: T, addressWidth: Int) extends Bundle 
   val address = UInt(addressWidth bit)
 }
 
-class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableInputsCount  with AttributeReady with Nameable {
+class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableInputsCount  with AttributeReady with Nameable with Widthable{
   var forceMemToBlackboxTranslation = false
-  val _widths = wordType.flatten.map(t => t.getWidth).toVector //Force to fix width of each wire
+  val _widths = wordType.flatten.map(t => t.getBitsWidth).toVector //Force to fix width of each wire
 
   def wordType: T = _wordType.clone
 
-  override def calcWidth: Int = _wordType.flatten.map(_.calcWidth).reduceLeft(_ + _)
+  override def calcWidth: Int = _wordType.flatten.map(_.getBitsWidth).reduceLeft(_ + _)
 
   def addressWidth = log2Up(wordCount)
 
@@ -208,7 +208,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
   }
 }
 
-class MemReadAsync(mem_ : Mem[_], address_ : UInt, data: Bits, val writeToReadKind: MemWriteToReadKind) extends Node {
+class MemReadAsync(mem_ : Mem[_], address_ : UInt, data: Bits, val writeToReadKind: MemWriteToReadKind) extends Node with Widthable {
   if (writeToReadKind == readFirst) SpinalError("readFirst mode for asynchronous read is not allowed")
 
   var address : Node = address_
@@ -248,7 +248,7 @@ object MemReadSync {
   def getEnableId: Int = 4
 }
 
-class MemReadSync(mem_ : Mem[_], val originalAddress: UInt, address_ : UInt, data: Bits, enable_ : Bool, val writeToReadKind: MemWriteToReadKind, clockDomain: ClockDomain) extends SyncNode(clockDomain) {
+class MemReadSync(mem_ : Mem[_], val originalAddress: UInt, address_ : UInt, data: Bits, enable_ : Bool, val writeToReadKind: MemWriteToReadKind, clockDomain: ClockDomain) extends SyncNode(clockDomain) with Widthable{
   var address : Node = address_
   var readEnable  : Node = enable_
   var mem     : Mem[_] = mem_
@@ -321,7 +321,7 @@ object MemWrite {
   def getEnableId: Int = 6
 }
 
-class MemWrite(mem: Mem[_], val originalAddress: UInt, address_ : UInt, data_ : Bits, mask_ : Bits, enable_ : Bool, clockDomain: ClockDomain) extends SyncNode(clockDomain) {
+class MemWrite(mem: Mem[_], val originalAddress: UInt, address_ : UInt, data_ : Bits, mask_ : Bits, enable_ : Bool, clockDomain: ClockDomain) extends SyncNode(clockDomain) with Widthable{
   var address : Node  = address_
   var data     : Node = data_
   var mask     : Node = (if (mask_ != null) mask_ else NoneNode())
@@ -405,7 +405,7 @@ object MemWriteOrRead_writePart {
   def getWriteEnableId: Int = 6
 }
 
-class MemWriteOrRead_writePart(mem: Mem[_], address_ : UInt, data_ : Bits, chipSelect_ : Bool, writeEnable_ : Bool, clockDomain: ClockDomain) extends SyncNode(clockDomain) {
+class MemWriteOrRead_writePart(mem: Mem[_], address_ : UInt, data_ : Bits, chipSelect_ : Bool, writeEnable_ : Bool, clockDomain: ClockDomain) extends SyncNode(clockDomain) with Widthable{
   var address : Node  = address_
   var data     : Node = data_
   var chipSelect   : Node = chipSelect_
@@ -473,7 +473,7 @@ object MemWriteOrRead_readPart {
   def getWriteEnableId: Int = 5
 }
 
-class MemWriteOrRead_readPart(mem_ : Mem[_], address_ : UInt, data_ : Bits, chipSelect_ : Bool, writeEnable_ : Bool, val writeToReadKind: MemWriteToReadKind, clockDomain: ClockDomain) extends SyncNode(clockDomain) {
+class MemWriteOrRead_readPart(mem_ : Mem[_], address_ : UInt, data_ : Bits, chipSelect_ : Bool, writeEnable_ : Bool, val writeToReadKind: MemWriteToReadKind, clockDomain: ClockDomain) extends SyncNode(clockDomain) with Widthable{
 
   var address : Node  = address_
   var chipSelect     : Node = chipSelect_

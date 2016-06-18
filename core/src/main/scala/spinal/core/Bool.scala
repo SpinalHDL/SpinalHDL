@@ -26,7 +26,7 @@ trait BoolFactory {
 
 
 class Bool extends BaseType {
-  private[core] override def calcWidth: Int = 1
+  override def getBitsWidth: Int = 1
 
   def &&(b: Bool): Bool = wrapLogicalOperator(b,new Operator.Bool.And)
   def ||(b: Bool): Bool = wrapLogicalOperator(b,new Operator.Bool.Or)

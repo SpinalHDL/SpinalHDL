@@ -132,8 +132,8 @@ object BitsLiteral {
 }
 
 //WARNING if flatten it into bits,uint,sint variation, need to patch caseify isSwitchable
-class BitsLiteral(val value: BigInt, val bitCount: Integer,val hasSpecifiedBitCount : Boolean, val kind: Node) extends Literal {
-  def calcWidth: Int = bitCount
+class BitsLiteral(val value: BigInt, val bitCount: Integer,val hasSpecifiedBitCount : Boolean, val kind: Node) extends Literal with Widthable {
+  override def calcWidth: Int = bitCount
   if(globalData.nodeAreInferringWidth) inferredWidth = bitCount
 
   override def clone(): this.type = new BitsLiteral(value, bitCount,hasSpecifiedBitCount, kind).asInstanceOf[this.type]
@@ -159,8 +159,8 @@ class BitsLiteral(val value: BigInt, val bitCount: Integer,val hasSpecifiedBitCo
   def isSignedKind = kind.isInstanceOf[SInt]
 }
 
-class BitsAllToLiteral(val theConsumer : Node,val value: Boolean) extends Literal {
-  def calcWidth: Int = theConsumer.getWidth
+class BitsAllToLiteral(val theConsumer : Node,val value: Boolean) extends Literal with Widthable {
+  override def calcWidth: Int = theConsumer.asInstanceOf[Widthable].getWidth
   override def getBitsStringOn(bitCount: Int): String = (if(value) "1" else "0" ) * getWidth
 }
 
@@ -172,7 +172,6 @@ object BoolLiteral {
 }
 
 class BoolLiteral(val value: Boolean) extends Literal {
-  def calcWidth: Int = 1
   override def clone(): this.type = new BoolLiteral(value).asInstanceOf[this.type]
   override def getBitsStringOn(bitCount: Int): String = {
     assert(bitCount == 1)

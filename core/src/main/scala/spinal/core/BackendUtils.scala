@@ -310,29 +310,7 @@ trait VhdlVerilogBase {
             walk(wn.whenTrue)
             walk(wn.whenFalse)
           }
-          case switchNode: SwitchNode => {
-            if (whenToProcess.contains(switchNode.context)) {
-              val otherProcess = whenToProcess.get(switchNode.context).get
-              if (process == null) {
-                process = otherProcess
-                otherProcess.nodes += signal
-              } else if (process != otherProcess) {
-                move(otherProcess, process)
-                process = otherProcess
-              }
-            } else {
-              if (process == null) {
-                process = new Process(processCounter);
-                processCounter += 1
-                process.nodes += signal
-                processSet += process
-              }
-              process.whens += switchNode.context
-              whenToProcess += (switchNode.context -> process)
-            }
 
-            switchNode.cases.foreach(n => walk(n.asInstanceOf[CaseNode].assignement))
-          }
           case man: MultipleAssignmentNode => {
             man.onEachInput(walk(_))
             hasMultipleAssignment = true

@@ -619,8 +619,10 @@ class PhaseInferWidth(pc: PhaseContext) extends Phase{
   override def impl(): Unit = {
     import pc._
     globalData.nodeAreInferringWidth = true
-    val nodes = ArrayBuffer[Node]()
-    Node.walk(walkNodesDefautStack ++ walkNodesBlackBoxGenerics,nodes += _)
+    val nodes = ArrayBuffer[Node with Widthable]()
+    Node.walk(walkNodesDefautStack ++ walkNodesBlackBoxGenerics,node => {
+      if(node.isInstanceOf[Node with Widthable]) nodes += node.asInstanceOf[Node with Widthable]
+    })
 
 
     def checkAll(): Unit = {
@@ -669,11 +671,11 @@ class PhasePropagateBaseTypeWidth(pc: PhaseContext) extends Phase{
     import pc._
     Node.walk(walkNodesDefautStack,node => {
       node match {
-        case node: BaseType => {
+        case node: BitVector => {
           val width = node.getWidth
 
           node.input match {
-            case that: Reg => {
+            case that: RegWidthable => {
               that.inferredWidth = width
               if(that.initialValue != null) walk(that,RegS.getInitialValueId)
               walk(that,RegS.getDataInputId)
@@ -687,30 +689,33 @@ class PhasePropagateBaseTypeWidth(pc: PhaseContext) extends Phase{
             def walkChildren() : Unit = that.onEachInput((input,id) => walk(that,id))
 
             that match {
-              case that: Multiplexer => { //TODO probably useless
+              case that: MultiplexedWidthable => { //TODO probably useless
                 that.inferredWidth = width
                 walk(that,1)
                 walk(that,2)
               }
-              case that: WhenNode => {
+              case that: WhenNodeWidthable => {
                 that.inferredWidth = width
                 walk(that,1)
                 walk(that,2)
               }
-              case that: MultipleAssignmentNode => {
+              case that: MultipleAssignmentNodeWidthable => {
                 that.inferredWidth = width
                 walkChildren()
               }
-              case that : AssignementNode => that.inferredWidth = width
-              case that: CaseNode => {
-                that.inferredWidth = width
-                walkChildren()
+              case that : AssignementNodeWidthable => that.inferredWidth = width
+//              case that: CaseNode => {
+//                that.inferredWidth = width
+//                walkChildren()
+//              }
+//              case that: SwitchNode => {
+//                that.inferredWidth = width
+//                walkChildren()
+//              }
+              case dontCare : DontCareNodeFixed =>{
+                dontCare.inferredWidth = width
               }
-              case that: SwitchNode => {
-                that.inferredWidth = width
-                walkChildren()
-              }
-              case dontCare : DontCareNode =>{
+              case dontCare : DontCareNodeInfered =>{
                 dontCare.inferredWidth = width
               }
               // case lit : BitsAllToLiteral => lit.inferredWidth = width
@@ -768,10 +773,13 @@ class PhaseCheckInferredWidth(pc: PhaseContext) extends Phase{
   override def impl(): Unit = {
     import pc._
     val errors = mutable.ArrayBuffer[String]()
-    Node.walk(walkNodesDefautStack,node => {
-      val error = node.checkInferedWidth
-      if (error != null)
-        errors += error
+    Node.walk(walkNodesDefautStack,_ match {
+      case node : CheckWidth => {
+        val error = node.checkInferedWidth
+        if (error != null)
+          errors += error
+      }
+      case _ =>
     })
 
     if (errors.nonEmpty)
@@ -791,9 +799,14 @@ class PhaseCheckCombinationalLoops(pc: PhaseContext) extends Phase{
     def nodeIsCompleted(node: Node) = node.algoId = targetAlgoId
     def isNodeCompleted(node : Node) = node.algoId == targetAlgoId
 
+    def getNodeWidth(that : Node): Int = that match {
+      case that : WidthProvider => that.getWidth
+      case _ => 1 //TODO doesn't check Enums
+    }
+
     while (!pendingNodes.isEmpty) {
       val pop = pendingNodes.pop()
-      walk(scala.collection.immutable.HashMap[Node, AssignedBits](),Nil,pop,pop.getWidth-1,0)
+      walk(scala.collection.immutable.HashMap[Node, AssignedBits](),Nil,pop,getNodeWidth(pop)-1,0)
     }
 
     if (!errors.isEmpty)
@@ -806,7 +819,7 @@ class PhaseCheckCombinationalLoops(pc: PhaseContext) extends Phase{
 
       }else {
         val newStack = Tuple3(node,outHi,outLo) :: stack
-        var bitsAlreadyUsed = consumers.getOrElse(node, new AssignedBits(node.getWidth))
+        var bitsAlreadyUsed = consumers.getOrElse(node, new AssignedBits(getNodeWidth(node)))
         if (bitsAlreadyUsed.isIntersecting(AssignedRange(outHi, outLo))) {
           val ordred = newStack.reverseIterator
           val filtred = ordred.dropWhile((e) => (e._1 != node || e._2 < outLo || e._3 > outHi)).drop(1).toArray
@@ -822,10 +835,10 @@ class PhaseCheckCombinationalLoops(pc: PhaseContext) extends Phase{
               val newConsumers = consumers + (node -> bitsAlreadyUsed.+(AssignedRange(outHi, outLo)))
               val syncNode = node.asInstanceOf[SyncNode]
               syncNode.getSynchronousInputs.foreach(addPendingNode(_))
-              syncNode.getAsynchronousInputs.foreach(i => walk(newConsumers,newStack, i, i.getWidth - 1, 0)) //TODO, pessimistic
+              syncNode.getAsynchronousInputs.foreach(i => walk(newConsumers,newStack, i, getNodeWidth(i) - 1, 0)) //TODO, pessimistic
             }
             case baseType: BaseType => {
-              val consumersPlusFull = consumers + (baseType -> bitsAlreadyUsed.+(AssignedRange(node.getWidth - 1, 0)))
+              val consumersPlusFull = consumers + (baseType -> bitsAlreadyUsed.+(AssignedRange(getNodeWidth(node) - 1, 0)))
               def walkBaseType(node: Node): Unit = {
                 if (node != null) {
                   node match {
@@ -861,7 +874,7 @@ class PhaseCheckCombinationalLoops(pc: PhaseContext) extends Phase{
               })
             }
           }
-          if (outHi == node.getWidth - 1 && outLo == 0) nodeIsCompleted(node)
+          if (outHi == getNodeWidth(node) - 1 && outLo == 0) nodeIsCompleted(node)
         }
       }
     }
@@ -997,7 +1010,7 @@ class PhaseCheck_noAsyncNodeWithIncompleteAssignment(pc: PhaseContext) extends P
     Node.walk(walkNodesDefautStack,node => node match {
       case signal: BaseType if !signal.isDelay => {
 
-        val signalRange = new AssignedRange(signal.getWidth - 1, 0)
+        val signalRange = new AssignedRange(signal.getBitsWidth - 1, 0)
 
         def walk(nodes: Iterator[Node]): AssignedBits = {
           val assignedBits = new AssignedBits(signal.getBitsWidth)
@@ -1046,7 +1059,8 @@ class PhaseSimplifyBlacBoxGenerics(pc: PhaseContext) extends Phase{
             def walk(node: Node, first: Node): Unit = node match {
               case node: BaseType => {
                 first.setInput(0,node.input)
-                first.getInput(0).inferredWidth = first.inferredWidth
+                if(node.input.isInstanceOf[Widthable])
+                  first.getInput(0).asInstanceOf[Widthable].inferredWidth = first.asInstanceOf[Widthable].inferredWidth
                 walk(node.input, first)
               }
               case lit: Literal =>
@@ -1075,7 +1089,7 @@ class PhasePrintUnUsedSignals(prunedSignals : mutable.Set[BaseType])(pc: PhaseCo
         }
         case data : Data =>  {
           data.flatten.foreach(bt => {
-            if(bt.algoId != targetAlgoId && bt.getWidth != 0 && !bt.hasTag(unusedTag)){
+            if(bt.algoId != targetAlgoId && (!bt.isInstanceOf[BitVector] || bt.asInstanceOf[BitVector].getWidth != 0) && !bt.hasTag(unusedTag)){
               prunedSignals += bt
             }
           })

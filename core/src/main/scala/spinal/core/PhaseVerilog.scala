@@ -421,7 +421,7 @@ end
       case literal: EnumLiteral[_] => (literal.enum.parent, literal.encoding)
     }
     encoding match {
-      case `binaryOneHot` => s"((${emitLogic(op.getInput(0))} and ${emitLogic(op.getInput(1))}) ${if (eguals) "!=" else "=="} ${'"' + "0" * op.getInput(0).getWidth + '"'})"
+      case `binaryOneHot` => s"((${emitLogic(op.getInput(0))} and ${emitLogic(op.getInput(1))}) ${if (eguals) "!=" else "=="} ${'"' + "0" * encoding.getWidth(enumDef) + '"'})"
       case _ => s"(${emitLogic(op.getInput(0))} ${if (eguals) "==" else "!="} ${emitLogic(op.getInput(1))})"
     }
   }
@@ -631,7 +631,7 @@ end
     case dc: DontCareNode => {
       dc.getBaseType match {
         case to: Bool => "1'bx"
-        case to: BitVector => s"(${to.getWidth}'b${"x" * dc.getWidth})"
+        case to: BitVector => s"(${to.getWidth}'b${"x" * to.getWidth})"
       }
     }
 

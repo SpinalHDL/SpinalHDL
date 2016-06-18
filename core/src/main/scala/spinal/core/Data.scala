@@ -182,42 +182,6 @@ class DataPimper[T <: Data](val pimpIt: T){
 
 }
 
-//abstract class WidthChecker(val consumer : Node,val provider : Node) {
-//  consumer.globalData.widthCheckers += this
-//
-//  def check() : String = {
-//    if(consumer.inferredWidth == -1 || provider.inferredWidth == -1) return null
-//    def isLiteralBitWidthUnspecified(n : Node) : Boolean = {
-//      n match{
-//        case n : BitsLiteral => return ! n.hasSpecifiedBitCount
-//        case n : BitVector => return if(n.isFixedWidth) false else isLiteralBitWidthUnspecified(n.input)
-//        case _ => return false
-//      }
-//    }
-//    if(isLiteralBitWidthUnspecified(provider)) return null
-//    if(provider.hasTag(tagAutoResize)) return null
-//    return checkImpl()
-//  }
-//  def checkImpl() : String = null
-//}
-//class WidthCheckerReduce(consumer : Node,provider : Node) extends WidthChecker(consumer,provider){
-//  def checkImpl() : String = {
-//    if( consumer.getWidth <= provider.getWidth ) return null
-//    return ":< assignement error ! Bit width assemption is wrong"
-//  }
-//}
-//class WidthCheckerAugment(consumer : Node,provider : Node) extends WidthChecker(consumer,provider){
-//  def checkImpl() : String = {
-//    if( consumer.getWidth >= provider.getWidth ) return null
-//    return ":> assignement error ! Bit width assemption is wrong"
-//  }
-//}
-//class WidthCheckerEguals(consumer : Node,provider : Node) extends WidthChecker(consumer,provider){
-//  def checkImpl() : String = {
-//    if( consumer.getWidth == provider.getWidth ) return null
-//    return " := assignement error ! Bit width assemption is wrong"
-//  }
-//}
 
 //Should not extends AnyVal, Because it create kind of strange call stack move that make error reporting miss accurate
 class BitVectorPimper[T <: BitVector](val pimpIt: T)  {

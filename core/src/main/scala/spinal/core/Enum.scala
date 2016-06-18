@@ -21,8 +21,6 @@ package spinal.core
 import scala.collection.mutable.ArrayBuffer
 
 class EnumLiteral[T <: SpinalEnum](val enum: SpinalEnumElement[T],val encoding: SpinalEnumEncoding) extends Literal {
-  override def calcWidth: Int = encoding.getWidth(enum.parent)
-
   override def clone : this.type = new EnumLiteral(enum,encoding).asInstanceOf[this.type]
 
   private[core] override def getBitsStringOn(bitCount: Int): String = {
@@ -99,11 +97,12 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T,val encoding: SpinalEnum
 
   override def assignFromBits(bits: Bits,hi : Int,lo : Int): Unit = {
     assert(lo == 0,"Enumeration can't be partially assigned")
-    assert(hi == getWidth-1,"Enumeration can't be partially assigned")
+    assert(hi == getBitsWidth-1,"Enumeration can't be partially assigned")
     assignFromBits(bits)
   }
 
-  override def calcWidth: Int = encoding.getWidth(blueprint)
+  override def getBitsWidth: Int = encoding.getWidth(blueprint)
+
   override def clone: this.type = {
     val res = new SpinalEnumCraft(blueprint,encoding).asInstanceOf[this.type]
    // res.dir = this.dir

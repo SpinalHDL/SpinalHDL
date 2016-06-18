@@ -916,7 +916,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
 
   def resizeFunction(vhdlFunc : String)(func: Modifier): String = {
     val resize = func.asInstanceOf[Resize]
-    func.getInput(0).getWidth match{
+    resize.input.getWidth match{
       case 0 => {
         func.getInput(0) match {
           /*case lit: BitsLiteral => {
@@ -941,7 +941,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
       case literal: EnumLiteral[_] => (literal.enum.parent, literal.encoding)
     }
     encoding match {
-      case `binaryOneHot` => s"pkg_toStdLogic((${emitLogic(op.getInput(0))} and ${emitLogic(op.getInput(1))}) ${if (eguals) "/=" else "="} ${'"' + "0" * op.getInput(0).getWidth + '"'})"
+      case `binaryOneHot` => s"pkg_toStdLogic((${emitLogic(op.getInput(0))} and ${emitLogic(op.getInput(1))}) ${if (eguals) "/=" else "="} ${'"' + "0" * encoding.getWidth(enumDef) + '"'})"
       case _ => s"pkg_toStdLogic(${emitLogic(op.getInput(0))} ${if (eguals) "=" else "/="} ${emitLogic(op.getInput(1))})"
     }
   }
@@ -1184,7 +1184,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
     case dc: DontCareNode => {
       dc.getBaseType match {
         case to: Bool => s"'-'"
-        case to: BitVector => s"(${'"'}${"-" * dc.getWidth}${'"'})"
+        case to: BitVector => s"(${'"'}${"-" * to.getWidth}${'"'})"
       }
     }
 

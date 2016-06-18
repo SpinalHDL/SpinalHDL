@@ -235,8 +235,12 @@ class ConduitEmitter extends QSysifyInterfaceEmiter{
       val dirStr = if(e.isOutput) "Output"
       else if(e.isInput) "Input"
       else null;
+      val width = e match {
+        case e : BitVector => e.getWidth
+        case e : Bool => 1
+      }
       if(dirStr != null)
-        builder ++= s"add_interface_port $name ${e.getName()} export ${dirStr} ${e.getWidth}\n"
+        builder ++= s"add_interface_port $name ${e.getName()} export ${dirStr} ${width}\n"
     }
     builder ++= "\n\n"
     true
