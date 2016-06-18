@@ -247,7 +247,6 @@ class UFix(maxExp: Int, bitCount: Int) extends XFix[UFix, UInt](maxExp, bitCount
     ret
   }
 
-  //TODO should shift be width concervative or resolution concervative ?
   def <<(that: Int): UFix = doShiftLeft(that)
   def >>(that: Int): UFix = doShiftRight(that)
   def <<|(that: Int): UFix = doShiftLeftBorned(that)

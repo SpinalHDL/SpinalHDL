@@ -20,7 +20,7 @@ package spinal.core
 
 import scala.collection.mutable.ArrayBuffer
 
-abstract class BitVector extends BaseType with Widthable {
+abstract class BitVector extends BaseType with Widthable with CheckWidth {
   private[core] var fixedWidth = -1
 
   def high = getWidth - 1

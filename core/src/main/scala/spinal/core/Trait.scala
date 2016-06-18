@@ -171,7 +171,7 @@ abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends 
 
   def getResetStyleInputs = List[Node](getReset)
 
-  def isUsingResetSignal: Boolean //TODO BOOT could be mixed between having a initial value or using the reset pin
+  def isUsingResetSignal: Boolean
   def isUsingEnableSignal: Boolean = enable != null
   def setUseReset = {
     reset = clockDomain.reset

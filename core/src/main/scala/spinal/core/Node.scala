@@ -459,9 +459,11 @@ trait CheckWidth{
   private[core] def checkInferedWidth: String
 }
 
-//TODO remove CheckWidth
-trait Widthable extends WidthProvider with GlobalDataUser with CheckWidth with ScalaLocated{
+trait Widthable extends WidthProvider with GlobalDataUser with ScalaLocated{
   private[core] var widthWhenNotInferred = -1
+  private[core] var inferredWidth = -1
+
+  private[core] def calcWidth: Int
 
   override def getWidth: Int = {
     if (globalData.nodeAreInferringWidth) {
@@ -500,7 +502,6 @@ trait Widthable extends WidthProvider with GlobalDataUser with CheckWidth with S
     }
   }
 
-  private[core] def calcWidth: Int
 
 
   private[core] def inferWidth: Boolean = {
@@ -514,12 +515,6 @@ trait Widthable extends WidthProvider with GlobalDataUser with CheckWidth with S
       return false
     }
   }
-
-
-  private[core] var inferredWidth = -1
-
-  private[core] def checkInferedWidth: String = null
-
 }
 
 abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady with GlobalDataUser {

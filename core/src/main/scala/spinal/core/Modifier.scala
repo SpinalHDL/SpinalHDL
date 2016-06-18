@@ -1382,7 +1382,7 @@ class BitAssignmentFloating(out: BitVector, in_ : Node, bitId_ : Node) extends A
   override def clone(out: Node): this.type = new BitAssignmentFloating(out.asInstanceOf[BitVector],in_,bitId_).asInstanceOf[this.type]
 }
 
-class RangedAssignmentFloating(out: BitVector, in_ : Node, offset_ : Node, bitCount: BitCount) extends AssignementNodeWidthable {
+class RangedAssignmentFloating(out: BitVector, in_ : Node, offset_ : Node, bitCount: BitCount) extends AssignementNodeWidthable  with CheckWidth {
   var input  : Node with WidthProvider = in_.asInstanceOf[Node with WidthProvider]
   var offset  : Node with WidthProvider = offset_.asInstanceOf[Node with WidthProvider]
 

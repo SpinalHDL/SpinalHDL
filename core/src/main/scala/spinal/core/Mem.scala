@@ -321,7 +321,7 @@ object MemWrite {
   def getEnableId: Int = 6
 }
 
-class MemWrite(mem: Mem[_], val originalAddress: UInt, address_ : UInt, data_ : Bits, mask_ : Bits, enable_ : Bool, clockDomain: ClockDomain) extends SyncNode(clockDomain) with Widthable{
+class MemWrite(mem: Mem[_], val originalAddress: UInt, address_ : UInt, data_ : Bits, mask_ : Bits, enable_ : Bool, clockDomain: ClockDomain) extends SyncNode(clockDomain) with Widthable with CheckWidth{
   var address : Node  = address_
   var data     : Node = data_
   var mask     : Node = (if (mask_ != null) mask_ else NoneNode())
