@@ -2,10 +2,12 @@ import cocotb
 from cocotb.triggers import Timer, Edge, RisingEdge, FallingEdge, Event
 
 
-
+###############################################################################
+# I2C Slave Hal model
 class I2CSlaveModelHAL:
 
-
+    ##########################################################################
+    # Construcot
     def __init__(self, _clock, _resetn,  _wr_sda, _rd_sda, _wr_scl ): # initMemory = dict()):
 
         self.startEvent  = Event()
@@ -20,13 +22,17 @@ class I2CSlaveModelHAL:
         self.clk         = _clock
         self.forceSDA    = 1
 
-
+    ##########################################################################
+    # Launch all slave process
     def startSlave(self):
 
         cocotb.fork(self._startDetection())
         cocotb.fork(self._stopDetection())
         cocotb.fork(self._manageSDA())
 
+
+    ##########################################################################
+    # Simulate an open drain pin
     @cocotb.coroutine
     def _manageSDA(self):
         while True:
@@ -36,7 +42,8 @@ class I2CSlaveModelHAL:
             else:
                 self.sda_rd <= int(self.sda_wr)
 
-
+    ##########################################################################
+    # Detect the start/restart sequence
     @cocotb.coroutine
     def _startDetection(self):
         while True:
@@ -45,8 +52,8 @@ class I2CSlaveModelHAL:
                 print("Start detected ...")
                 self.startEvent.set()
 
-
-
+    ##########################################################################
+    # Detect the stop sequence
     @cocotb.coroutine
     def _stopDetection(self):
         while True:
@@ -55,9 +62,8 @@ class I2CSlaveModelHAL:
                 print("Stop detected  ...")
                 self.stopEvent.set()
 
-
-
-
+    ##########################################################################
+    # Read a data comming from the master
     @cocotb.coroutine
     def readData(self):
         cnt  = 0
@@ -79,7 +85,8 @@ class I2CSlaveModelHAL:
 
             cnt += 1
 
-
+    ##########################################################################
+    # Write a data to the master
     @cocotb.coroutine
     def writeData(self, data):
 

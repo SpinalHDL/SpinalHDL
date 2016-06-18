@@ -48,7 +48,7 @@ case class I2CMasterHALConfig(g: I2CMasterHALGenerics) extends Bundle {
   *    ( The start sequence is automatically done )
   */
 object I2CMasterHALCmdMode extends SpinalEnum{
-  val WRITE, READ, WRITECLOSE, RESTART, READCLOSE, IDLE= newElement()
+  val WRITE, READ, WRITECLOSE, READCLOSE, READRESTART, WRITERESTART, IDLE= newElement()
 }
 
 
@@ -177,12 +177,13 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
           mode         := io.cmd.mode
 
           switch(io.cmd.mode){
-            is(WRITE)      { goto(sSTART) }
-            is(READ)       { goto(sSTART) }
-            is(WRITECLOSE) { goto(sSTART) }
-            is(RESTART)    { goto(sSTART) }
-            is(READCLOSE)  { goto(sSTART) }
-            default        { goto(sIDLE)  }
+            is(WRITE)       { goto(sSTART) }
+            is(READ)        { goto(sSTART) }
+            is(WRITECLOSE)  { goto(sSTART) }
+            is(READCLOSE)   { goto(sSTART) }
+            is(READRESTART) { goto(sSTART) }
+            is(WRITERESTART){ goto(sSTART) }
+            default         { goto(sIDLE)  }
           }
 
         }
@@ -202,12 +203,13 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
           counterBit.clear()
 
           switch(io.cmd.mode) {
-            is(WRITE)      { goto(sWRITE) }
-            is(READ)       { goto(sWAIT_BEFORE_READ)  }
-            is(WRITECLOSE) { goto(sWRITE) }
-            is(RESTART)    { goto(sSTART) }
-            is(READCLOSE)  { goto(sWAIT_BEFORE_READ)  }
-            default        { goto(sIDLE)  }
+            is(WRITE)       { goto(sWRITE) }
+            is(READ)        { goto(sWAIT_BEFORE_READ)  }
+            is(WRITECLOSE)  { goto(sWRITE) }
+            is(READCLOSE)   { goto(sWAIT_BEFORE_READ)  }
+            is(READRESTART) { goto(sWAIT_BEFORE_READ) }
+            is(WRITERESTART){ goto(sWRITE) }
+            default         { goto(sIDLE)  }
           }
         }
       }
@@ -222,12 +224,13 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
           counterBit.clear()
 
           switch(mode){
-            is(WRITE)      { goto(sWRITE) }
-            is(READ)       { goto(sWAIT_BEFORE_READ)  }
-            is(WRITECLOSE) { goto(sWRITE) }
-            is(READCLOSE)  { goto(sWAIT_BEFORE_READ)  }
-            is(RESTART)    { goto(sIDLE)  }
-            default        { goto(sIDLE)  }
+            is(WRITE)        { goto(sWRITE)            }
+            is(READ)         { goto(sWAIT_BEFORE_READ) }
+            is(WRITECLOSE)   { goto(sWRITE)            }
+            is(READCLOSE)    { goto(sWAIT_BEFORE_READ) }
+            is(READRESTART)  { goto(sWAIT_BEFORE_READ) }
+            is(WRITERESTART) { goto(sWRITE)            }
+            default          { goto(sIDLE)             }
           }
         }
       }
@@ -251,7 +254,14 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
           io.rsp.ack   := io.i2c.sda.read
           io.rsp.data  := dataReceived
 
-          when(mode === WRITECLOSE){ goto(sWAIT_BEFORE_CLOSE) }otherwise(  goto(sWAIT_NEXT_CMD) )
+
+          when(mode === WRITECLOSE){
+            goto(sWAIT_BEFORE_CLOSE)
+          }.elsewhen(mode === WRITERESTART){
+            goto(sWAIT_BEFORE_RESTART)
+          }otherwise{
+            goto(sWAIT_NEXT_CMD)
+          }
         }
       }
     }
@@ -269,10 +279,14 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
           io.rsp.valid := True
           io.rsp.data  := dataReceived
 
-          when(mode === READCLOSE){
-            wr_sda     := I2C.NACK
+          when(mode === READCLOSE) {
+            wr_sda := I2C.NACK
             io.rsp.ack := I2C.NACK
             goto(sWAIT_BEFORE_CLOSE)
+          }.elsewhen(mode === READRESTART){
+            wr_sda := I2C.NACK
+            io.rsp.ack := I2C.NACK
+            goto(sWAIT_BEFORE_RESTART_RD)
           }otherwise{
             wr_sda     := I2C.ACK
             io.rsp.ack := I2C.ACK
@@ -308,6 +322,25 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
           wr_sda := True
           counterBit.clear()
           goto(sREAD)
+        }
+      }
+    }
+
+    val sWAIT_BEFORE_RESTART : State = new State{
+      whenIsActive{
+        when(sclGenerator.fallingEdge){
+          wr_sda := True
+        }
+        when(sclGenerator.risingEdge){
+          goto(sSTART)
+        }
+      }
+    }
+
+    val sWAIT_BEFORE_RESTART_RD : State = new State{
+      whenIsActive{
+        when(sclGenerator.risingEdge){
+          goto(sWAIT_BEFORE_RESTART)
         }
       }
     }
@@ -356,20 +389,10 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
     }
   }
 
-
-
-
-
-
-  // init all data to run simulation
-
   io.i2c.sda.write := smMaster.wr_sda
   scl_en := smMaster.scl_en
 
-
-
   io.i2c.scl.write := sclGenerator.scl
-
 }
 
 
