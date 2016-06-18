@@ -1077,10 +1077,11 @@ object PlayNodeWithoutWidth{
   class TopLevel extends Component {
     val a,b,c = in UInt(8 bits)
 
-    val result = out UInt
+    val result = out Bits
 
 
-      result := U(7 -> False,default -> true)
+      result := 0
+    out(B((3 downto 0) -> a(0)))
 //    result := a + a
 //    when(b === 0){
 //      result := c + a

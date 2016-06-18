@@ -74,7 +74,7 @@ abstract class BitVectorLiteralFactory[T <: BitVector] {
         hig = Math.max(hig,pos)
       }
       case (range : Range,_) => {
-        hig = Math.max(hig,range.last)
+        hig = Math.max(hig,range.high)
       }
       case _ =>
     })

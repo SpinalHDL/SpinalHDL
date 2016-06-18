@@ -207,7 +207,22 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     }
   }
 
+  implicit class RangePimper(pimped: Range) {
+    def high: Int = {
+      if(pimped.step > 0)
+        pimped.end + (if(pimped.isInclusive) 0 else -1)
+      else
+        pimped.start
+    }
 
+    def low: Int = {
+      if(pimped.step < 0)
+        pimped.end + (if(pimped.isInclusive) 0 else 1)
+      else
+        pimped.start
+    }
+
+  }
 
 
   @elidable(ASSERTION)

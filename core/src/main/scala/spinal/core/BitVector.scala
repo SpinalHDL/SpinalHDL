@@ -155,10 +155,7 @@ abstract class BitVector extends BaseType with Widthable {
   def apply(offset: UInt, bitCount: BitCount): this.type
 
   def apply(hi: Int, lo: Int): this.type = this.apply(lo, hi-lo+1 bit)
-  def apply(range: Range): this.type = if(range.step > 0)
-    this.apply(range.end + (if(range.isInclusive) 0 else -1), range.start)
-  else
-    this.apply(range.start + (if(range.isInclusive) 0 else -1), range.end)
+  def apply(range: Range): this.type = this.apply(range.high,range.low)
 
   def setAllTo(value: Boolean) = {
     val litBt = weakClone
