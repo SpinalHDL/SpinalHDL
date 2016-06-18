@@ -922,7 +922,8 @@ object PlayGenerics{
 
   /**
    * ALT_INBUF
-   * @TODO add library altera.altera_primitives_components
+    *
+    * @TODO add library altera.altera_primitives_components
    */
   case class alt_inbuf(_io_standard           : IO_STRANDARD = STD_NONE,
                        _location              : String       = "None",
@@ -1051,6 +1052,28 @@ object PlayEnumTypes{
   }
 }
 
+
+object PlayOthersLike {
+
+  import spinal.lib.fsm._
+
+  class TopLevel extends Component {
+    val t0 = out(B(5 -> true, default -> false))
+    val t1 = out Bits (10 bits)
+    t1 := B(5 -> true, default -> false)
+
+
+    val t2 = out(B(5 -> true, default -> False))
+    val t3 = out Bits (10 bits)
+    t3 := B(5 -> true, default -> False)
+  }
+
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
 object PlayI2CMasterHAL {
 
   class TopLevel_I2CMasterHAL extends Component {
@@ -1078,23 +1101,3 @@ object PlayI2CMasterHAL {
     ).generate(new TopLevel_I2CMasterHAL).printPruned
   }
 }
-
-
-
-object PlayOthersLike{
-  import spinal.lib.fsm._
-  class TopLevel extends Component {
-    val t0 = out(B(5 -> true,default -> false))
-    val t1 = out Bits(10 bits)
-    t1 := B(5 -> true,default -> false)
-
-
-    val t2 = out(B(5 -> true,default -> False))
-    val t3 = out Bits(10 bits)
-    t3 := B(5 -> true,default -> False)
-  }
-
-
-
-  def main(args: Array[String]): Unit = {
-    SpinalVhdl(new TopLevel)
