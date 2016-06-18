@@ -41,10 +41,7 @@ package object lib  {
   implicit class UIntPimper(that : UInt){
     def toOneHot : Bits = B"1" << that
   }
-  implicit class RangePimped(that : Range){
-    def high = Math.max(that.start,that.end)
-    def low = Math.min(that.start,that.end)
-  }
+
   def StreamArbiter = new StreamArbiterCoreFactory()
 
   type ScalaStream[T] = collection.immutable.Stream[T]
