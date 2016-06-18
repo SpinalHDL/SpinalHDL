@@ -1075,14 +1075,17 @@ object PlayOthersLike{
 object PlayNodeWithoutWidth{
   import spinal.lib.fsm._
   class TopLevel extends Component {
-    val a,b,c = in Bool
+    val a,b,c = in UInt(8 bits)
 
-    val result = out Bool
+    val result = out UInt
 
-    result := a
-    when(b){
-      result := c
-    }
+
+      result := U(7 -> False,default -> true)
+//    result := a + a
+//    when(b === 0){
+//      result := c + a
+//    }
+//    result.getWidth
   }
 
 

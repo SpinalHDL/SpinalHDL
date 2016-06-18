@@ -633,7 +633,7 @@ class PhaseInferWidth(pc: PhaseContext) extends Phase{
           errors += s"Can't infer width on ${node.getScalaLocationLong}"
         }
         if (node.widthWhenNotInferred != -1 && node.widthWhenNotInferred != node.getWidth) {
-          errors += s"getWidth call result during elaboration differ from inferred width on ${node.getScalaLocationLong}"
+          errors += s"getWidth call result during elaboration differ from inferred width on\n${node.getScalaLocationLong}"
         }
       }
       if (errors.nonEmpty)

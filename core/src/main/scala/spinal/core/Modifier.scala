@@ -1229,7 +1229,7 @@ abstract class AssignementNodeWidthable extends AssignementNode with Widthable{
 
 }
 
-class BitAssignmentFixed(out: BitVector, in: Node, bitId: Int) extends AssignementNode with Widthable with CheckWidth{
+class BitAssignmentFixed(out: BitVector, in: Node, bitId: Int) extends AssignementNodeWidthable with CheckWidth{
   var input : Node = in
 
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = doThat(input,0)
@@ -1274,7 +1274,7 @@ class BitAssignmentFixed(out: BitVector, in: Node, bitId: Int) extends Assigneme
 
 
 //TODO remove BitVector
-class RangedAssignmentFixed(out: BitVector, in: Node, hi: Int, lo: Int) extends AssignementNode with WidthProvider with CheckWidth {
+class RangedAssignmentFixed(out: BitVector, in: Node, hi: Int, lo: Int) extends AssignementNodeWidthable with CheckWidth {
   var input : Node with WidthProvider = in.asInstanceOf[Node with WidthProvider]
 
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = doThat(input,0)
@@ -1295,7 +1295,7 @@ class RangedAssignmentFixed(out: BitVector, in: Node, hi: Int, lo: Int) extends 
   def getHi = hi
   def getLo = lo
 
-  override def getWidth: Int = hi + 1
+  override def calcWidth: Int = hi + 1
 
   override def checkInferedWidth: String = {
     if (input.component != null && hi + 1 - lo != input.getWidth) {
