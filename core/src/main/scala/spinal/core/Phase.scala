@@ -815,7 +815,7 @@ class PhaseCheckCombinationalLoops(pc: PhaseContext) extends Phase{
     def walk(consumers :  scala.collection.immutable.HashMap[Node, AssignedBits],stack : List[(Node,Int,Int)],
              node: Node,
              outHi : Int, outLo : Int): Unit = {
-      if (node == null || node.component == null || node.isInstanceOf[NoneNode]) {
+      if (node == null || node.component == null) {
 
       }else {
         val newStack = Tuple3(node,outHi,outLo) :: stack
@@ -1023,7 +1023,6 @@ class PhaseCheck_noAsyncNodeWithIncompleteAssignment(pc: PhaseContext) extends P
               assignedBits.add(an.getAssignedBits)
             }
             case man: MultipleAssignmentNode => return walk(man.getInputs)
-            case nothing: NoneNode =>
             case _ => assignedBits.add(signalRange)
           }
           assignedBits

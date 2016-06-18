@@ -129,10 +129,10 @@ class AssignementLevel(inTasks : Seq[AssignementLevelCmd]) {
             newOne
           })
 
-          if (!input.whenTrue.isInstanceOf[NoneNode]) {
+          if (input.whenTrue != null) {
             temp.whenTrueCmds += AssignementLevelCmd(inTask.that,input.whenTrue)
           }
-          if (!input.whenFalse.isInstanceOf[NoneNode]) {
+          if (input.whenFalse != null) {
             temp.whenFalseCmds += AssignementLevelCmd(inTask.that,input.whenFalse)
           }
 

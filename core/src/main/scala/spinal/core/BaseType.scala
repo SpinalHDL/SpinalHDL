@@ -80,7 +80,7 @@ object BaseType {
         conditionalAssign match {
           case when: WhenContext => {
             consumer.getInput(consumerInputId) match {
-              case nothing@(null | _: NoneNode) => {
+              case null => {
                 val whenNode = WhenNode(baseType,when)
                 if(consumer.isInstanceOf[AssignementTreePart]){
                   consumer.asInstanceOf[AssignementTreePart].setAssignementContext(consumerInputId,globalData.getThrowable())
@@ -111,53 +111,6 @@ object BaseType {
 
             consumerInputId = if (when.isTrue) 1 else 2
           }
-
-//          case context: SwitchContext => {
-//            consumer.getInput(consumerInputId) match {
-//              case nothing@(null | _: NoneNode) => {
-//                val switchNode = new SwitchNode(context)
-//                consumer.setInpu3tWrap(consumerInputId) = switchNode
-//                consumer = switchNode
-//              }
-//              case man: MultipleAssignmentNode => {
-//                man.inputs.last match {
-//                  case currentContext: SwitchNode if currentContext.context == context => consumer = currentContext
-//                  case _ => {
-//                    val switchNode = new SwitchNode(context)
-//                    man.inputs += switchNode
-//                    consumer = switchNode
-//                  }
-//                }
-//              }
-//              case currentContext: SwitchNode if currentContext.context == context => consumer = currentContext
-//              case that => {
-//                val man = MultipleAssignmentNode.newFor(baseType)
-//                val switchNode = new SwitchNode(context)
-//                initMan(man, that)
-//                man.inputs += switchNode
-//                consumer.setIn3putWrap(consumerInputId) = man
-//                consumer = switchNode
-//              }
-//            }
-//          }
-
-//          case context: CaseContext => {
-//            if (consumer.getInputsCount == 0) {
-//              val caseNode = new CaseNode(context)
-//              consumer.inputs += caseNode
-//              consumer = caseNode
-//            } else {
-//              val last = consumer.inputs.last.asInstanceOf[CaseNode]
-//              if (last.context != context) {
-//                val caseNode = new CaseNode(context)
-//                consumer.inputs += caseNode
-//                consumer = caseNode
-//              } else {
-//                consumer = last
-//              }
-//            }
-//            consumerInputId = 1
-//          }
         }
       }
     }
@@ -166,7 +119,6 @@ object BaseType {
 
     if (conservative) {
       consumer.getInput(consumerInputId) match {
-        case that: NoneNode =>
         case null =>
         case man: MultipleAssignmentNode => {
           consumer = man
@@ -184,7 +136,7 @@ object BaseType {
       }
     } else {
       val overrided = consumer.getInput(consumerInputId)
-      if (overrided != null && !overrided.isInstanceOf[NoneNode] && !overrided.isInstanceOf[Reg])
+      if (overrided != null && !overrided.isInstanceOf[Reg])
         if (consumer.globalData.overridingAssignementWarnings) {
           val exept = new Throwable()
           val trace = ScalaLocated.short

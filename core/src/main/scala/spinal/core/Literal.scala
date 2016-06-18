@@ -160,7 +160,7 @@ class BitsLiteral(val value: BigInt, val bitCount: Integer,val hasSpecifiedBitCo
 }
 
 class BitsAllToLiteral(val theConsumer : Node,val value: Boolean) extends Literal with Widthable {
-  override def calcWidth: Int = theConsumer.asInstanceOf[Widthable].getWidth
+  override def calcWidth: Int = theConsumer.asInstanceOf[WidthProvider].getWidth
   override def getBitsStringOn(bitCount: Int): String = (if(value) "1" else "0" ) * getWidth
 }
 

@@ -125,7 +125,7 @@ class SwitchStack(val value: Data) {
 object WhenNode {
 
   def apply(forThat : BaseType,w: WhenContext): WhenNode = {
-    apply(forThat,w, w.cond, NoneNode(), NoneNode())
+    apply(forThat,w, w.cond, null,null)
   }
 
   def apply(forThat : BaseType,w: WhenContext, cond: Bool, whenTrue: Node, whenFalse: Node): WhenNode = {
@@ -150,13 +150,13 @@ class WhenNode (val w: WhenContext) extends Node with AssignementTreePart {
 
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
     doThat(cond,0)
-    doThat(whenTrue,1)
-    doThat(whenFalse,2)
+    if(whenTrue != null)  doThat(whenTrue,1)
+    if(whenFalse != null) doThat(whenFalse,2)
   }
   override def onEachInput(doThat: (Node) => Unit): Unit = {
     doThat(cond)
-    doThat(whenTrue)
-    doThat(whenFalse)
+    if(whenTrue != null)  doThat(whenTrue)
+    if(whenFalse != null) doThat(whenFalse)
   }
 
   override def setInput(id: Int, node: Node): Unit = id match{
@@ -165,8 +165,13 @@ class WhenNode (val w: WhenContext) extends Node with AssignementTreePart {
     case 2 => whenFalse = node.asInstanceOf[T]
   }
 
-  override def getInputsCount: Int = 3
-  override def getInputs: Iterator[Node] = Iterator(cond,whenTrue,whenFalse)
+  override def getInputsCount: Int = 1 + (if(whenTrue != null) 1 else 0) + (if(whenFalse != null) 1 else 0)
+  override def getInputs: Iterator[Node] = (whenTrue != null,whenFalse != null) match{
+    case (false,false) => Iterator(cond)
+    case (false,true)  => Iterator(cond,whenFalse)
+    case (true,false)  => Iterator(cond,whenTrue)
+    case (true,true)   => Iterator(cond,whenTrue,whenFalse)
+  }
   override def getInput(id: Int): Node = id match{
     case 0 => cond
     case 1 => whenTrue
@@ -196,16 +201,16 @@ class WhenNode (val w: WhenContext) extends Node with AssignementTreePart {
 class WhenNodeWidthable (w: WhenContext) extends WhenNode(w) with Widthable with CheckWidth{
   override type T = Node with WidthProvider
 
-  override def calcWidth: Int = Math.max(whenTrue.getWidth, whenFalse.getWidth)
+  override def calcWidth: Int = Math.max(if(whenTrue != null) whenTrue.getWidth else -1, if(whenFalse != null) whenFalse.getWidth else -1)
 
   override def normalizeInputs: Unit = {
-    InputNormalize.bitVectoreAssignement(this,1,this.getWidth)
-    InputNormalize.bitVectoreAssignement(this,2,this.getWidth)
+    if(whenTrue != null)  InputNormalize.bitVectoreAssignement(this,1,this.getWidth)
+    if(whenFalse != null) InputNormalize.bitVectoreAssignement(this,2,this.getWidth)
   }
 
   override private[core] def checkInferedWidth: String = {
     def doit(input : T,i : Int) : String = {
-      if (input != null && input.component != null && !input.isInstanceOf[NoneNode] && this.getWidth != input.getWidth) {
+      if (input != null && input.component != null && this.getWidth != input.getWidth) {
         return s"Assignement bit count missmatch. ${this} := ${input}} at\n${ScalaLocated.long(getAssignementContext(i))}"
       }
       else null

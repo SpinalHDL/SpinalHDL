@@ -1472,7 +1472,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
           emitAssignementLevel(c.doThat,ret,tab + "    ","<=")
         })
         ret ++= s"${tab}  when others =>\n"
-        if(!switchTree.default.isInstanceOf[NoneNode]){
+        if(switchTree.default != null){
           emitAssignementLevel(switchTree.default.doThat,ret,tab + "    ","<=")
         }
         ret ++= s"${tab}end case;\n"

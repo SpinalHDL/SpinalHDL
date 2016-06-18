@@ -921,7 +921,7 @@ end
           ret ++= s"${tab}  end\n"
         })
         ret ++= s"${tab}  default : begin\n"
-        if(!switchTree.default.isInstanceOf[NoneNode]){
+        if(switchTree.default != null){
           emitAssignementLevel(switchTree.default.doThat,ret,tab + "    ","<=")
         }
         ret ++= s"${tab}  end\n"

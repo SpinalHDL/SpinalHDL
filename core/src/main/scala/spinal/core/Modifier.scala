@@ -540,7 +540,7 @@ abstract class Cast extends Modifier {
 }
 
 abstract class CastBitVectorToBitVector extends Cast with Widthable{
-  override private[core] def calcWidth: Int = input.asInstanceOf[Widthable].getWidth
+  override private[core] def calcWidth: Int = input.asInstanceOf[WidthProvider].getWidth
 }
 
 class CastSIntToBits extends CastBitVectorToBitVector{

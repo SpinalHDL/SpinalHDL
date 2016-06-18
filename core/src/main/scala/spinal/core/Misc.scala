@@ -191,7 +191,7 @@ object Misc {
 
   def normalizeResize(to: Node, inputId: Integer, width: Int) {
     val input = to.getInput(inputId)
-    if (input == null || input.asInstanceOf[Widthable].getWidth == width || input.isInstanceOf[NoneNode]) return;
+    if (input == null || input.asInstanceOf[WidthProvider].getWidth == width) return;
 
     input match{
       case bitVector : BitVector => {

@@ -54,7 +54,7 @@ abstract class BitVector extends BaseType with Widthable {
   private[core] override def calcWidth: Int = {
     if (isFixedWidth) return fixedWidth
     if (input == null) return -1
-    return input.asInstanceOf[Widthable].getWidth
+    return input.asInstanceOf[WidthProvider].getWidth
   }
 
   def asBools: Vec[Bool] = {
@@ -189,7 +189,7 @@ abstract class BitVector extends BaseType with Widthable {
 
   override private[core] def checkInferedWidth: String = {
     val input = this.input
-    if (input != null && input.component != null && this.getWidth != input.asInstanceOf[Widthable].getWidth) {
+    if (input != null && input.component != null && this.getWidth != input.asInstanceOf[WidthProvider].getWidth) {
       return s"Assignment bit count mismatch. ${this} := ${input}} at \n${ScalaLocated.long(getAssignementContext(0))}"
     }
     return null

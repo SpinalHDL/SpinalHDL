@@ -42,8 +42,8 @@ object Reg {
  // def apply[T <: Data](dataType: T)(init: T = null.asInstanceOf[T],next : T = null.asInstanceOf[T]): T = Reg(dataType,init,next)
 
   private[core] def newFor(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) : Reg = outType match{
-    case that : BitVector => new Reg(outType,clockDomain)
-    case _ => new RegWidthable(outType,clockDomain)
+    case that : BitVector => new RegWidthable(outType,clockDomain)
+    case _ => new Reg(outType,clockDomain)
   }
 }
 
