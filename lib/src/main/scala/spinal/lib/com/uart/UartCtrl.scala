@@ -78,7 +78,7 @@ class UartCtrl(g : UartCtrlGenerics = UartCtrlGenerics()) extends Component {
     busCtrl.driveAndRead(io.config.frame,address = 4)
     busCtrl.createAndDriveFlow(Bits(g.dataWidthMax bits),address = 8).toStream >-> io.write
     busCtrl.read(io.write.valid,address = 8)
-    busCtrl.readStreamNonBlocking(io.read.toStream.queue(rxFifoDepth),address = 12,validOffset = 31,dataOffset = 0)
+    busCtrl.readStreamNonBlocking(io.read.toStream.queue(rxFifoDepth),address = 12,validBitOffset = 31,dataBitOffset = 0)
   }
 }
 

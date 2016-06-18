@@ -131,14 +131,14 @@ trait BusSlaveFactory  extends Area{
   
   def readStreamNonBlocking[T <: Data] (that : Stream[T],
                                         address: BigInt,
-                                        validOffset : Int,
-                                        dataOffset : Int) : Unit = {
+                                        validBitOffset : Int,
+                                        dataBitOffset : Int) : Unit = {
     that.ready := False
     onRead(address){
       that.ready := True
     }
-    read(that.valid  ,address,validOffset)
-    read(that.payload,address,dataOffset)
+    read(that.valid  ,address,validBitOffset)
+    read(that.payload,address,dataBitOffset)
   }
 }
 
