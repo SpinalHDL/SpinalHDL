@@ -102,6 +102,7 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
     val fallingEdge     = False
     val triggerSequence = False
     val scl             = Reg(Bool) init(True)
+    val cntValue        = Reg(UInt(g.clockDividerWidth bits)) init(0)
 
     val counterValue = 50                 // @TODO !!! change at runtime this value !!!!!
     val counter =  Counter(counterValue)
@@ -109,6 +110,7 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
     // start / stop the counter clock
     when(scl_en){
       counter.increment()
+      cntValue := cntValue + 1
     }otherwise{
       scl := True
       counter.clear()
@@ -258,7 +260,7 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
           when(mode === WRITECLOSE){
             goto(sWAIT_BEFORE_CLOSE)
           }.elsewhen(mode === WRITERESTART){
-            goto(sWAIT_BEFORE_RESTART)
+            goto(sREAD_CMD)
           }otherwise{
             goto(sWAIT_NEXT_CMD)
           }
@@ -332,7 +334,8 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
           wr_sda := True
         }
         when(sclGenerator.risingEdge){
-          goto(sSTART)
+
+            goto(sSTART)
         }
       }
     }
@@ -340,8 +343,31 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
     val sWAIT_BEFORE_RESTART_RD : State = new State{
       whenIsActive{
         when(sclGenerator.risingEdge){
-          goto(sWAIT_BEFORE_RESTART)
+          when(io.cmd.valid) {
+            io.cmd.ready := True
+            data2Send := io.cmd.data
+            mode := io.cmd.mode
+            counterBit.clear()
+            goto(sWAIT_BEFORE_RESTART)
+          }otherwise{
+            goto(sWAIT_BEFORE_CLOSE)
+          }
         }
+      }
+    }
+
+    val sREAD_CMD : State = new State{
+      whenIsActive{
+        when(io.cmd.valid) {
+          io.cmd.ready := True
+          data2Send := io.cmd.data
+          mode := io.cmd.mode
+          counterBit.clear()
+          goto(sWAIT_BEFORE_RESTART)
+        }otherwise{
+          goto(sWAIT_BEFORE_CLOSE)
+        }
+
       }
     }
   }

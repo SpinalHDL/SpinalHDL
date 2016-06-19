@@ -36,7 +36,7 @@ def check_cmd_ready(clk, ready, event):
 ###############################################################################
 # Execute write restart read sequence
 @cocotb.coroutine
-def writeRestartReadTest(dut, readyCmdEvent):
+def writeRestartReadTest(dut, readyCmdEvent, model ):
 
     dut.io_cmd_valid        <= 0
     dut.io_cmd_payload_mode <= 0
@@ -48,12 +48,46 @@ def writeRestartReadTest(dut, readyCmdEvent):
         if int(dut.resetn) == 1:
             break;
 
+    # Write restart ...
     dut.io_cmd_valid        <= 1
     dut.io_cmd_payload_mode <= I2CMasterHALMode.WRITERESTART
-    dut.io_cmd_payload_data <= 0x0
+    dut.io_cmd_payload_data <= 0x34
 
     yield readyCmdEvent.wait()
-    dut.io_cmd_valid <= 0
+
+    dut.io_cmd_valid        <= 1
+    dut.io_cmd_payload_mode <= I2CMasterHALMode.READRESTART
+    dut.io_cmd_payload_data <= 0x0
+
+    yield model.startEvent.wait()
+
+    cocotb.fork(model.readData())
+    yield model.dataTXEvent.wait()
+
+    print("data ", model.dataTXEvent.data)
+
+
+    yield readyCmdEvent.wait()
+    dut.io_cmd_valid        <= 1
+    dut.io_cmd_payload_mode <= I2CMasterHALMode.READCLOSE
+    dut.io_cmd_payload_data <= 0x0
+
+    yield model.startEvent.wait()
+    yield model.writeData(0xf0)
+
+
+    yield model.startEvent.wait()
+
+    dut.io_cmd_valid        <= 0
+    #yield model.startEvent.wait()
+
+    yield model.writeData(0x10)
+
+
+
+
+
+    yield RisingEdge(dut.clk)
 
 
 
@@ -192,7 +226,7 @@ def checkReadTest(dut, data2Read):
 
 ###############################################################################
 # Test a sequence of write
-cocotb.test()
+#@cocotb.test()
 def master_hal_test_write(dut):
 
     dut.log.info("Cocotb I2C Master HAL - write Test ")
@@ -243,7 +277,7 @@ def master_hal_test_read(dut):
 
 ###############################################################################
 # Test a sequence of write read (try the restart sequence)
-#@cocotb.test()
+@cocotb.test()
 def master_hal_test_writeRestartRead(dut):
 
     dut.log.info("Cocotb I2C Master HAL - write restart read Test ")
@@ -254,14 +288,14 @@ def master_hal_test_writeRestartRead(dut):
 
     cocotb.fork(ClockDomainInAsynResetn(dut.clk, dut.resetn))
     cocotb.fork(check_cmd_ready(dut.clk, dut.io_cmd_ready, cmdReadyEvent))
-    #cocotb.fork(writeRestartReadTest(dut, cmdReadyEvent, modelSlave, data2Read))
+    cocotb.fork(writeRestartReadTest(dut, cmdReadyEvent, modelSlave))
     #cocotb.fork(checkReadTest(dut, data2Read ))
 
     # Wait to avoid that the model detect a stop condition after the reset
     yield RisingEdge(dut.resetn)
     modelSlave.startSlave()
 
-    yield Timer(3000000)
+    yield Timer(4000000)
 
     dut.log.info("I2C Master HAL - write restart read Test done")
 
