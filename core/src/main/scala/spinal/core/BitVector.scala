@@ -20,7 +20,7 @@ package spinal.core
 
 import scala.collection.mutable.ArrayBuffer
 
-abstract class BitVector extends BaseType {
+abstract class BitVector extends BaseType with Widthable with CheckWidth {
   private[core] var fixedWidth = -1
 
   def high = getWidth - 1
@@ -39,6 +39,8 @@ abstract class BitVector extends BaseType {
     this
   }
 
+  override def getBitsWidth: Int = getWidth
+
   override def clone: this.type = {
     val res = super.clone
     res.fixedWidth = this.fixedWidth
@@ -52,7 +54,7 @@ abstract class BitVector extends BaseType {
   private[core] override def calcWidth: Int = {
     if (isFixedWidth) return fixedWidth
     if (input == null) return -1
-    return input.getWidth
+    return input.asInstanceOf[WidthProvider].getWidth
   }
 
   def asBools: Vec[Bool] = {
@@ -153,7 +155,7 @@ abstract class BitVector extends BaseType {
   def apply(offset: UInt, bitCount: BitCount): this.type
 
   def apply(hi: Int, lo: Int): this.type = this.apply(lo, hi-lo+1 bit)
-  def apply(range: Range): this.type = this.apply(range.end + (if(range.isInclusive) 0 else -1), range.start)
+  def apply(range: Range): this.type = this.apply(range.high,range.low)
 
   def setAllTo(value: Boolean) = {
     val litBt = weakClone
@@ -184,5 +186,20 @@ abstract class BitVector extends BaseType {
     if(width == -1) return "?"
     else width.toString
   }
+
+  override private[core] def checkInferedWidth: String = {
+    val input = this.input
+    if (input != null && input.component != null && this.getWidth != input.asInstanceOf[WidthProvider].getWidth) {
+      return s"Assignment bit count mismatch. ${this} := ${input}} at \n${ScalaLocated.long(getAssignementContext(0))}"
+    }
+    return null
+  }
+
+
+  override def assignDontCare(): this.type = {
+    this.assignFrom(new DontCareNodeInfered(this), false)
+    this
+  }
+
   override def toString(): String = s"${component.getPath() + "/" + this.getDisplayName()} : ${getClassIdentifier}[${getWidthStringNoInferation} bit]"
 }

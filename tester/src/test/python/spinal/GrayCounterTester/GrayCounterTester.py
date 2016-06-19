@@ -1,7 +1,7 @@
 import cocotb
 from cocotb.triggers import Timer, Edge, RisingEdge
 
-from spinal.common.misc import setBit, randSignal, assertEquals, truncInt, sint, ClockDomainAsyncReset
+from spinal.common.misc import setBit, randSignal, assertEquals, truncUInt, sint, ClockDomainAsyncReset
 
 
 class Ref:
@@ -16,7 +16,7 @@ class Ref:
             yield RisingEdge(self.dut.clk)
             if int(self.dut.enable) == 1:
                 yield Timer(1)
-                self.value = truncInt(self.value + 1, self.dut.gray)
+                self.value = truncUInt(self.value + 1, self.dut.gray)
 
     def getGray(self):
         return (self.value >> 1) ^ self.value

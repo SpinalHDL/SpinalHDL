@@ -34,6 +34,7 @@ trait UIntFactory{
 class UInt extends BitVector with Num[UInt] with MinMaxProvider {
   private[core] def prefix : String = "u"
 
+
   //TODO width assert
   def assignMask(maskedLiteral: MaskedLiteral): Unit ={
     var (literal,careAbout) = (maskedLiteral.value,maskedLiteral.careAbout)

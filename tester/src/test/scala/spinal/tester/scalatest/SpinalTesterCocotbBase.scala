@@ -37,7 +37,8 @@ abstract class SpinalTesterCocotbBase extends FunSuite  {
         backendConfig(SpinalConfig(mode = Verilog,dumpWave = true)).generate(createToplevel)
       } catch {
         case e: Throwable => {
-          assert(!spinalMustPass,"Spinal has fail :(")
+          if(spinalMustPass)
+            throw e
           return
         }
       }

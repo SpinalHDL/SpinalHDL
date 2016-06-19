@@ -81,7 +81,7 @@ trait VerilogBase extends VhdlVerilogBase{
   }
 
 
-  def emitRange(node: Node) = s"[${node.getWidth - 1}:0]"
+  def emitRange(node: Widthable) = s"[${node.getWidth - 1}:0]"
 
   def emitReference(node: Node): String = {
     node match {

@@ -1,19 +1,19 @@
 import cocotb
 from cocotb.triggers import Timer, Edge, RisingEdge
 
-from spinal.common.misc import setBit, randSignal, assertEquals, truncInt
+from spinal.common.misc import setBit, randSignal, assertEquals, truncUInt
 
 
 class Ref:
     def __init__(self,dut):
         self.io_complexLiteral = 5986
 
-        self.io_outAA_bod_gggg = truncInt(int(dut.io_inAABits) >> 0,dut.io_outAA_bod_gggg)
-        self.io_outAA_bod_aosi = truncInt(int(dut.io_inAABits) >> 1,dut.io_outAA_bod_aosi)
-        self.io_outAA_ahe = truncInt(int(dut.io_inAABits) >> 4,dut.io_outAA_ahe)
-        self.io_outAA_zwg = truncInt(int(dut.io_inAABits) >> 5,dut.io_outAA_zwg)
-        self.io_outAA_vsw = truncInt(int(dut.io_inAABits) >> 6,dut.io_outAA_vsw)
-        self.io_outAA_lwee = truncInt(int(dut.io_inAABits) >> 7,dut.io_outAA_lwee)
+        self.io_outAA_bod_gggg = truncUInt(int(dut.io_inAABits) >> 0, dut.io_outAA_bod_gggg)
+        self.io_outAA_bod_aosi = truncUInt(int(dut.io_inAABits) >> 1, dut.io_outAA_bod_aosi)
+        self.io_outAA_ahe = truncUInt(int(dut.io_inAABits) >> 4, dut.io_outAA_ahe)
+        self.io_outAA_zwg = truncUInt(int(dut.io_inAABits) >> 5, dut.io_outAA_zwg)
+        self.io_outAA_vsw = truncUInt(int(dut.io_inAABits) >> 6, dut.io_outAA_vsw)
+        self.io_outAA_lwee = truncUInt(int(dut.io_inAABits) >> 7, dut.io_outAA_lwee)
 
         self.io_outAABits = (int(dut.io_inAA_bod_gggg) << 0) + \
                             (int(dut.io_inAA_bod_aosi) << 1) + \

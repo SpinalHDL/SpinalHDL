@@ -171,7 +171,7 @@ abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends 
 
   def getResetStyleInputs = List[Node](getReset)
 
-  def isUsingResetSignal: Boolean //TODO BOOT could be mixed between having a initial value or using the reset pin
+  def isUsingResetSignal: Boolean
   def isUsingEnableSignal: Boolean = enable != null
   def setUseReset = {
     reset = clockDomain.reset
@@ -446,7 +446,7 @@ class GlobalData {
   var overridingAssignementWarnings = true
   var nodeAreNamed = false
   var nodeAreInferringWidth = false
-  val nodeGetWidthWalkedSet: mutable.Set[Node] = mutable.Set[Node]()
+  val nodeGetWidthWalkedSet = mutable.Set[Widthable]()
   val clockSyncronous = mutable.HashMap[Bool,ArrayBuffer[Bool]]()
   // val nodeWidthInferredCheck = ArrayBuffer[() => Unit]()
   val clockDomainStack = new SafeStack[ClockDomain]

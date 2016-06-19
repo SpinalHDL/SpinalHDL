@@ -22,8 +22,23 @@ def assertEquals(a, b, name):
     if int(a) != int(b):
         raise TestFailure("FAIL %s    %d != %d" % (name,int(a),int(b)))
 
-def truncInt(value,signal):
-    return value & ((1 << len(signal))-1)
+def truncUInt(value, signal):
+    if isinstance( signal, int ):
+        return value & ((1 << signal)-1)
+    else:
+        return value & ((1 << len(signal)) - 1)
+
+def truncSInt(value, signal):
+    if isinstance( signal, int ):
+        bitCount = signal
+    else:
+        bitCount = len(signal)
+    masked = value & ((1 << bitCount)-1)
+    if (masked & (1 << bitCount-1)) != 0:
+        return - (1 << bitCount) + masked
+    else:
+        return masked
+
 
 def setBit(v, index, x):
   mask = 1 << index

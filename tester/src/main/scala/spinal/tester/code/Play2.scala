@@ -1070,3 +1070,28 @@ object PlayOthersLike{
     SpinalVhdl(new TopLevel)
   }
 }
+
+
+object PlayNodeWithoutWidth{
+  import spinal.lib.fsm._
+  class TopLevel extends Component {
+    val a,b,c = in UInt(8 bits)
+
+    val result = out Bits
+
+
+      result := 0
+    out(B((3 downto 0) -> a(0)))
+//    result := a + a
+//    when(b === 0){
+//      result := c + a
+//    }
+//    result.getWidth
+  }
+
+
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
