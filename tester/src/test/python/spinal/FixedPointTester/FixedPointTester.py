@@ -1,14 +1,14 @@
 import cocotb
 from cocotb.triggers import Timer, Edge, RisingEdge
 
-from spinal.common.misc import setBit, randSignal, assertEquals, truncInt, sint
+from spinal.common.misc import setBit, randSignal, assertEquals, truncUInt, sint
 
 
 class Ref:
     def __init__(self,dut):
-        self.io_outSFix_0 = truncInt(sint(dut.io_inSFix_0) + ((sint(dut.io_inSFix_1) << 2)),dut.io_outSFix_0)
-        self.io_outSFix_1 = truncInt((sint(dut.io_inSFix_0) * sint(dut.io_inSFix_1)) >> 5,dut.io_outSFix_1)
-        self.io_outBundleA_a_sfix = truncInt(sint(dut.io_inBundleA_a_sfix) >> 2,dut.io_outBundleA_a_sfix)
+        self.io_outSFix_0 = truncUInt(sint(dut.io_inSFix_0) + ((sint(dut.io_inSFix_1) << 2)), dut.io_outSFix_0)
+        self.io_outSFix_1 = truncUInt((sint(dut.io_inSFix_0) * sint(dut.io_inSFix_1)) >> 5, dut.io_outSFix_1)
+        self.io_outBundleA_a_sfix = truncUInt(sint(dut.io_inBundleA_a_sfix) >> 2, dut.io_outBundleA_a_sfix)
 
 @cocotb.test()
 def test1(dut):

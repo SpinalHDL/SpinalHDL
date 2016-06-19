@@ -1,7 +1,7 @@
 import cocotb
 from cocotb.triggers import Timer, Edge, RisingEdge
 
-from spinal.common.misc import setBit, randSignal, assertEquals, truncInt, sint
+from spinal.common.misc import setBit, randSignal, assertEquals, truncUInt, sint
 
 
 class Ref:
