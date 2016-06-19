@@ -101,24 +101,23 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
     val risingEdge      = False
     val fallingEdge     = False
     val triggerSequence = False
-    val scl             = Reg(Bool) init(True)
+    val scl             = RegInit(True)
     val cntValue        = Reg(UInt(g.clockDividerWidth bits)) init(0)
-
-    val counterValue = 50                 // @TODO !!! change at runtime this value !!!!!
-    val counter =  Counter(counterValue)
 
     // start / stop the counter clock
     when(scl_en){
-      counter.increment()
       cntValue := cntValue + 1
+      when(cntValue >= io.config.clockDivider ){
+        cntValue := 0
+      }
     }otherwise{
       scl := True
-      counter.clear()
+      cntValue := 0
       // assert( scl === False , "Clock scl stop while it was low", WARNING)
     }
 
     // Generate the scl signal
-    when(counter.willOverflowIfInc){
+    when(cntValue === io.config.clockDivider){
       scl := !scl
 
       // detect rising and falling edge
@@ -131,7 +130,7 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
 
     // Used to indicate when to generate the start/retard/stop sequence
     when(scl){
-      when(counter.value === (counterValue/2).toInt){
+      when(cntValue === (io.config.clockDivider >> 2)){
         triggerSequence := True
       }
     }
