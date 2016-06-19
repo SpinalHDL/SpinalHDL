@@ -34,7 +34,7 @@ class I2CMasterHALTester extends Component {
   }
 
   val myMasterI2C = new I2CMasterHAL(generic)
-  myMasterI2C.io.config.setFrequency(1e6)
+  myMasterI2C.io.config.setFrequency(4e6)
 
   io <> myMasterI2C.io
 }

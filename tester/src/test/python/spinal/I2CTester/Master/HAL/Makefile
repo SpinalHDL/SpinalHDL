@@ -1,8 +1,8 @@
 TOPLEVEL_LANG ?= verilog
 
-VERILOG_SOURCES += $(SPINALROOT)/TopLevel_I2CMasterHAL.v
+VERILOG_SOURCES += $(SPINALROOT)/I2CMasterHALTester.v
 
-TOPLEVEL=TopLevel_I2CMasterHAL
+TOPLEVEL=I2CMasterHALTester
 MODULE=I2CMasterHALTester
 
 include ../../../common/Makefile.sim

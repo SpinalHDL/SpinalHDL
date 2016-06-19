@@ -99,14 +99,17 @@ class I2CSlaveModelHAL:
             self.forceSDA = int(data2Send[cnt])
 
             if (cnt == 7):
-                yield FallingEdge(self.scl_wr)
-                self.forceSDA = 1
 
                 result = dict()
-                result["data"] = data2Send
+                result["data"] = int("".join([str(x) for x in data2Send]), 2)
                 result["ack"]  = int(self.sda_wr)
 
                 self.dataRxEvent.set(result)
+
+                yield FallingEdge(self.scl_wr)
+                self.forceSDA = 1
+
+
                 break
 
             cnt += 1

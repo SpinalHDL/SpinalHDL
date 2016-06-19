@@ -1100,7 +1100,7 @@ object PlayNodeWithoutWidth{
 
 object PlayI2CMasterHAL {
 
-  class TopLevel_I2CMasterHAL extends Component {
+  class I2CMasterHALTester extends Component {
 
     val generic = I2CMasterHALGenerics()
 
@@ -1124,6 +1124,6 @@ object PlayI2CMasterHAL {
       dumpWave = true,
       defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
       defaultClockDomainFrequency = FixedFrequency(50e6)
-    ).generate(new TopLevel_I2CMasterHAL).printPruned
+    ).generate(new I2CMasterHALTester).printPruned
   }
 }
