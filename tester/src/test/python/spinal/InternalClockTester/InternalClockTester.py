@@ -1,7 +1,7 @@
 import cocotb
 from cocotb.triggers import Timer, Edge, RisingEdge
 
-from spinal.common.misc import setBit, randSignal, assertEquals, truncInt, sint, ClockDomainAsyncReset
+from spinal.common.misc import setBit, randSignal, assertEquals, truncUInt, sint, ClockDomainAsyncReset
 
 
 class Ref:
@@ -23,6 +23,6 @@ def test1(dut):
         yield RisingEdge(dut.clk)
         yield RisingEdge(dut.clk)
         assertEquals(counter, dut.io_internalClkCounter, "io_internalClkCounter")
-        counter = truncInt(counter + 1,dut.io_internalClkCounter)
+        counter = truncUInt(counter + 1, dut.io_internalClkCounter)
 
     dut.log.info("Cocotb test done")

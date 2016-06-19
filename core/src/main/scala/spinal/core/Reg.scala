@@ -27,7 +27,7 @@ object Reg {
   def apply[T <: Data](dataType: T, init: T = null.asInstanceOf[T],next : T = null.asInstanceOf[T]): T = {
     val regOut = dataType.clone()//.dontSimplifyIt
     for ( e <- regOut.flatten) {
-      val reg = new Reg(e)
+      val reg = newFor(e)
       reg.compositeTagReady = e
       e.input = reg;
       e.compositeAssign = reg
@@ -40,6 +40,11 @@ object Reg {
   def apply[T <: SpinalEnum](enumType: T): enumType.C = Reg(enumType())
 
  // def apply[T <: Data](dataType: T)(init: T = null.asInstanceOf[T],next : T = null.asInstanceOf[T]): T = Reg(dataType,init,next)
+
+  private[core] def newFor(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) : Reg = outType match{
+    case that : BitVector => new RegWidthable(outType,clockDomain)
+    case _ => new Reg(outType,clockDomain)
+  }
 }
 
 
@@ -84,9 +89,13 @@ object RegS {
   val getInitialValueId: Int = 4
 }
 
-class Reg(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) extends SyncNode(clockDomain) with Assignable with AssignementTreePart {
-  var dataInput     : Node = this
-  var initialValue  : Node = null
+
+//TODO remove outType
+class Reg (outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) extends SyncNode(clockDomain) with Assignable with AssignementTreePart {
+  type T <: Node
+
+  var dataInput     : T = this.asInstanceOf[T]
+  var initialValue  : T = null.asInstanceOf[T]
 
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
     super.onEachInput(doThat)
@@ -100,8 +109,8 @@ class Reg(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) ext
   }
 
   override def setInput(id: Int, node: Node): Unit = id match{
-    case 3 => dataInput = node
-    case 4 if initialValue != null => initialValue = node
+    case 3 => dataInput = node.asInstanceOf[T]
+    case 4 if initialValue != null => initialValue = node.asInstanceOf[T]
     case _ => super.setInput(id,node)
   }
 
@@ -135,31 +144,14 @@ class Reg(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) ext
   def getDataInput: Node = dataInput
   def getInitialValue: Node = initialValue
 
-  def setDataInput(that: Node): Unit = dataInput = that
+  def setDataInput(that: Node): Unit = dataInput = that.asInstanceOf[T]
   def setInitialValue(that: Node): Unit = {
-    initialValue = that
+    initialValue = that.asInstanceOf[T]
     setUseReset
   }
 
 
-  def calcWidth = math.max(if (dataInput != this) dataInput.getWidth else -1, if (initialValue != null) initialValue.getWidth else -1)
 
-  override def normalizeInputs: Unit = {
-    val width = this.getWidth
-    InputNormalize.bitVectoreAssignement(this, RegS.getDataInputId, width)
-    if (this.initialValue != null) InputNormalize.bitVectoreAssignement(this, RegS.getInitialValueId, width)
-  }
-
-  override private[core] def checkInferedWidth: String = {
-    val dataInput = this.getInput(RegS.getDataInputId)
-    if (dataInput != null && dataInput.component != null && this.getWidth != dataInput.getWidth) {
-      return s"Assignment bit count mismatch. ${this} := ${dataInput}} at \n${ScalaLocated.long(getAssignementContext(RegS.getDataInputId))}"
-    }
-    if (initialValue != null && initialValue.component != null && this.getWidth != initialValue.getWidth) {
-      return s"Assignment bit count mismatch. ${this} := ${initialValue}} at \n${ScalaLocated.long(getAssignementContext(RegS.getDataInputId))}"
-    }
-    return null
-  }
 
   override def getAssignementContext(id: Int): Throwable = id match {
     case RegS.getDataInputId => outType.getAssignementContext(0)
@@ -191,4 +183,26 @@ class Reg(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) ext
   }
 
   override def toString: String = "Reg of " + outType.toString()
+}
+
+
+class RegWidthable(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current)  extends Reg(outType,clockDomain) with Widthable with CheckWidth{
+  override type T = Node with WidthProvider
+  override def calcWidth = math.max(if (dataInput != this) dataInput.getWidth else -1, if (initialValue != null) initialValue.getWidth else -1)
+
+  override def normalizeInputs: Unit = {
+    val width = this.getWidth
+    InputNormalize.bitVectoreAssignement(this, RegS.getDataInputId, width)
+    if (this.initialValue != null) InputNormalize.bitVectoreAssignement(this, RegS.getInitialValueId, width)
+  }
+
+  override private[core] def checkInferedWidth: String = {
+    if (dataInput != null && dataInput.component != null && this.getWidth != dataInput.getWidth) {
+      return s"Assignment bit count mismatch. ${this} := ${dataInput}} at \n${ScalaLocated.long(getAssignementContext(RegS.getDataInputId))}"
+    }
+    if (initialValue != null && initialValue.component != null && this.getWidth != initialValue.getWidth) {
+      return s"Assignment bit count mismatch. ${this} := ${initialValue}} at \n${ScalaLocated.long(getAssignementContext(RegS.getDataInputId))}"
+    }
+    return null
+  }
 }

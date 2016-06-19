@@ -922,8 +922,7 @@ object PlayGenerics{
 
   /**
    * ALT_INBUF
-    *
-    * @TODO add library altera.altera_primitives_components
+   * @TODO add library altera.altera_primitives_components
    */
   case class alt_inbuf(_io_standard           : IO_STRANDARD = STD_NONE,
                        _location              : String       = "None",
@@ -1058,15 +1057,40 @@ object PlayOthersLike {
   import spinal.lib.fsm._
 
   class TopLevel extends Component {
-    val t0 = out(B(5 -> true, default -> false))
-    val t1 = out Bits (10 bits)
-    t1 := B(5 -> true, default -> false)
+    val t0 = out(B(5 -> true,default -> false))
+    val t1 = out Bits(10 bits)
+    t1 := B(5 -> true,default -> false)
 
 
-    val t2 = out(B(5 -> true, default -> False))
-    val t3 = out Bits (10 bits)
-    t3 := B(5 -> true, default -> False)
+    val t2 = out(B(5 -> true,default -> False))
+    val t3 = out Bits(10 bits)
+    t3 := B(5 -> true,default -> False)
   }
+
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
+object PlayNodeWithoutWidth{
+  import spinal.lib.fsm._
+  class TopLevel extends Component {
+    val a,b,c = in UInt(8 bits)
+
+    val result = out Bits
+
+
+      result := 0
+    out(B((3 downto 0) -> a(0)))
+//    result := a + a
+//    when(b === 0){
+//      result := c + a
+//    }
+//    result.getWidth
+  }
+
 
 
   def main(args: Array[String]): Unit = {

@@ -4,7 +4,7 @@ from Queue import Queue
 import cocotb
 from cocotb.triggers import Timer, Edge, RisingEdge, Join, Event, FallingEdge
 
-from spinal.common.misc import setBit, randSignal, assertEquals, truncInt, sint, ClockDomainAsyncReset, randBoolSignal, \
+from spinal.common.misc import setBit, randSignal, assertEquals, truncUInt, sint, ClockDomainAsyncReset, randBoolSignal, \
     BoolRandomizer, simulationSpeedPrinter
 
 UartParityType_NONE = 0

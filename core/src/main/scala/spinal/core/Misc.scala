@@ -191,7 +191,7 @@ object Misc {
 
   def normalizeResize(to: Node, inputId: Integer, width: Int) {
     val input = to.getInput(inputId)
-    if (input == null || input.getWidth == width || input.isInstanceOf[NoneNode]) return;
+    if (input == null || input.asInstanceOf[WidthProvider].getWidth == width) return;
 
     input match{
       case bitVector : BitVector => {
@@ -199,7 +199,7 @@ object Misc {
           case lit : BitsLiteral if (! lit.hasSpecifiedBitCount) =>{
             Component.push(input.component)
             val sizedLit = lit.clone
-            sizedLit.inferredWidth = width
+            sizedLit.asInstanceOf[Widthable].inferredWidth = width
             to.setInput(inputId,sizedLit)
             Component.pop(input.component)
             Misc.normalizeResize(to, inputId, Math.max(lit.minimalValueBitWidth,width)) //Allow resize on direct literal with unfixed values
@@ -211,7 +211,7 @@ object Misc {
             Component.push(that.component)
             val resize = that.resize(width)
             resize.inferredWidth = width
-            resize.input.inferredWidth = width
+            resize.input.asInstanceOf[Widthable].inferredWidth = width
             to.setInput(inputId,resize)
             Component.pop(that.component)
           }

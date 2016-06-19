@@ -66,7 +66,7 @@ class Probe {
   def postBackend: Unit = {
     if (kind == "") kind = baseType.getClass.getSimpleName
     if (name == "") name = baseType.getName()
-    width = baseType.getWidth
+    width = baseType.getBitsWidth
     // scope = (baseType.component.parents() ++ List(baseType.component)).map(_.getName()).reduceLeft(_ + " " + _)
     scope ++= (baseType.component.parents() ++ List(baseType.component)).map(_.getName())
   }
