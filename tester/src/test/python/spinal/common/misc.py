@@ -74,7 +74,7 @@ def ClockDomainInAsynResetn(clk,resetn):
     if resetn:
         resetn <= 0
     clk <= 0
-    yield Timer(100)
+    yield Timer(1000)
     if resetn:
         resetn <= 1
     while True:
