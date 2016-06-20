@@ -102,11 +102,11 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
     emitAsyncronous(component, retTemp, ret)
     emitSyncronous(component, retTemp)
     //TODO emitDebug(component, retTemp, enumDebugSignals)
-    if(component == topLevel && pc.config.dumpWave){
+    if(component == topLevel && pc.config.dumpWave != null){
       ret ++= s"""
 initial begin
-  $$dumpfile("wave.vcd");
-  $$dumpvars(1, ${component.definitionName});
+  $$dumpfile("${pc.config.dumpWave.vcdPath}");
+  $$dumpvars(${pc.config.dumpWave.depth}, ${component.definitionName});
 end
 """
     }

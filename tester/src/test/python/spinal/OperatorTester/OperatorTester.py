@@ -203,6 +203,7 @@ def test1(dut):
 
         bits8StateSeq = (bits8 & 3)
         bits8StateHO = (bits8 & 7)
+
         if bits8StateSeq <= 2:
             check(dut.stateNativeBits,2,bits8)
             check(dut.stateBinarySequancialBits, 2, bits8)
@@ -218,6 +219,7 @@ def test1(dut):
             check(dut.stateBinarySequancialIsNotA,1,bits8StateSeq != 0)
             check(dut.stateBinarySequancialIsNotB, 1, bits8StateSeq != 1)
             check(dut.stateBinarySequancialIsNotC, 1, bits8StateSeq != 2)
+
         if bits8StateHO == 1 or bits8StateHO == 2 or bits8StateHO == 4:
             check(dut.stateBinaryOneHotBits, 3, bits8)
             check(dut.stateBinaryOneHotIsA,1,bits8StateHO == 1)
