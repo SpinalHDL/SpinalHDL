@@ -200,4 +200,15 @@ def test1(dut):
         check(dut.uintResizeSmaller ,4 ,uint8)
         check(dut.sintResizeBigger  ,16,sint8)
         check(dut.sintResizeSmaller ,4 ,sint8)
+
+        bits8StateSeq = (bits8 & 3)
+        bits8StateHO = (bits8 & 7)
+        if bits8StateSeq <= 2:
+            check(dut.stateNativeBits,2,bits8)
+            check(dut.stateBinarySequancialBits, 2, bits8)
+            check(dut.stateNativeIsA,1,bits8StateSeq == 0)
+            check(dut.stateNativeIsB, 1, bits8StateSeq == 1)
+            check(dut.stateNativeIsC, 1, bits8StateSeq == 2)
+        if bits8StateHO == 1 or bits8StateHO == 2 or bits8StateHO == 4:
+            check(dut.stateBinaryOneHotBits, 3, bits8)
     dut.log.info("Cocotb test done")

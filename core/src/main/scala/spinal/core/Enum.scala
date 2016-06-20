@@ -35,8 +35,10 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T,val encoding: SpinalEnum
     if (blueprint != than.blueprint) SpinalError("Enum is assigned by a incompatible enum")
 
   def :=(that: SpinalEnumElement[T]): Unit = new DataPimper(this) := that.craft(encoding)
-  def ===(that: SpinalEnumElement[T]): Bool = this === (that.craft())
-  def =/=(that: SpinalEnumElement[T]): Bool = this =/= (that.craft())
+  def ===(that: SpinalEnumElement[T]): Bool = this === (that.craft(this.encoding))
+  def =/=(that: SpinalEnumElement[T]): Bool = this =/= (that.craft(this.encoding))
+
+
 
   @deprecated("Use =/= instead")
   def !==(that: SpinalEnumElement[T]): Bool = this =/= that
@@ -138,7 +140,7 @@ class SpinalEnumElement[T <: SpinalEnum](val parent: T, val position: Int) exten
 
   def apply(encoding : SpinalEnumEncoding = this.parent.defaultEncoding) : SpinalEnumCraft[T] = craft(encoding)
   def craft(encoding : SpinalEnumEncoding = this.parent.defaultEncoding): SpinalEnumCraft[T] = {
-    val ret = parent.craft().asInstanceOf[SpinalEnumCraft[T]]
+    val ret = parent.craft(encoding).asInstanceOf[SpinalEnumCraft[T]]
     ret.input = new EnumLiteral(this,encoding)
     ret
   }
