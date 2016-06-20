@@ -184,6 +184,42 @@ object OperatorTester {
     val sintResizeBigger  = out(sint8.resize(16))
     val sintResizeSmaller = out(sint8.resize(4))
 
+
+    val State = new SpinalEnum{
+      val a,b,c = newElement
+    }
+
+    val stateNative = State(native)
+    stateNative.assignFromBits(bits8(1 downto 0))
+    val stateNativeBits   = out(stateNative.asBits)
+    val stateNativeIsA    = out(stateNative === State.a)
+    val stateNativeIsB    = out(stateNative === State.b)
+    val stateNativeIsC    = out(stateNative === State.c)
+    val stateNativeIsNotA = out(stateNative =/= State.a)
+    val stateNativeIsNotB = out(stateNative =/= State.b)
+    val stateNativeIsNotC = out(stateNative =/= State.c)
+
+
+    val stateBinarySequancial = State(binarySequancial)
+    stateBinarySequancial.assignFromBits(bits8(1 downto 0))
+    val stateBinarySequancialBits   = out(stateBinarySequancial.asBits)
+    val stateBinarySequancialIsA    = out(stateBinarySequancial === State.a)
+    val stateBinarySequancialIsB    = out(stateBinarySequancial === State.b)
+    val stateBinarySequancialIsC    = out(stateBinarySequancial === State.c)
+    val stateBinarySequancialIsNotA = out(stateBinarySequancial =/= State.a)
+    val stateBinarySequancialIsNotB = out(stateBinarySequancial =/= State.b)
+    val stateBinarySequancialIsNotC = out(stateBinarySequancial =/= State.c)
+
+
+    val stateBinaryOneHot = State(binaryOneHot)
+    stateBinaryOneHot.assignFromBits(bits8(2 downto 0))
+    val stateBinaryOneHotBits = out(stateBinaryOneHot.asBits)
+    val stateBinaryOneHotIsA    = out(stateBinaryOneHot === State.a)
+    val stateBinaryOneHotIsB    = out(stateBinaryOneHot === State.b)
+    val stateBinaryOneHotIsC    = out(stateBinaryOneHot === State.c)
+    val stateBinaryOneHotIsNotA = out(stateBinaryOneHot =/= State.a)
+    val stateBinaryOneHotIsNotB = out(stateBinaryOneHot =/= State.b)
+    val stateBinaryOneHotIsNotC = out(stateBinaryOneHot =/= State.c)
   }
 }
 

@@ -28,6 +28,7 @@ trait SpinalMode
 object VHDL extends SpinalMode
 object Verilog extends SpinalMode
 
+case class DumpWaveConfig(depth : Int = 0, vcdPath : String = "wave.vcd")
 
 case class SpinalConfig(
   mode: SpinalMode = null,
@@ -37,7 +38,7 @@ case class SpinalConfig(
   onlyStdLogicVectorAtTopLevelIo : Boolean = false,
   defaultClockDomainFrequency : IClockDomainFrequency = UnknownFrequency(),
   targetDirectory : String = ".",
-  dumpWave : Boolean = false
+  dumpWave : DumpWaveConfig = null
 ){
   def generate[T <: Component](gen : => T) : SpinalReport[T] = Spinal(this)(gen)
   def generateVhdl[T <: Component](gen : => T) : SpinalReport[T] = Spinal(this.copy(mode = VHDL))(gen)
@@ -47,6 +48,7 @@ case class SpinalConfig(
     globalData.scalaLocatedEnable = debug
     globalData.commonClockConfig = defaultConfigForClockDomains
   }
+  def dumpWave(depth : Int = 0, vcdPath : String = "wave.vcd") : this.type = this.copy(dumpWave=DumpWaveConfig(depth,vcdPath))
 }
 
 object SpinalConfig{

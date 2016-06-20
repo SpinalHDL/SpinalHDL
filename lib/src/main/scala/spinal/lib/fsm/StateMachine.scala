@@ -59,11 +59,13 @@ class StateBoot(autoStart : Boolean)(implicit stateMachineAccessor : StateMachin
 class StateMachineEnum extends SpinalEnum
 
 class StateMachine extends Area with StateMachineAccessor with ScalaLocated{
+  def setEncoding(encoding : SpinalEnumEncoding) : Unit = enumDefinition.defaultEncoding = encoding
+
   @dontName val postBuildTasks = ArrayBuffer[() => Unit]()
   val cache = mutable.HashMap[Any,Any]()
   val enumDefinition = new StateMachineEnum
-  var stateReg  = Reg(enumDefinition())
-  var stateNext = enumDefinition()
+  var stateReg  : enumDefinition.C = null
+  var stateNext : enumDefinition.C = null
   var stateBoot : State = null
   val wantExit = False
   var autoStart = true
@@ -80,6 +82,15 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated{
   def build() : Unit = {
     childStateMachines.foreach(_.build())
     stateBoot = new StateBoot(autoStart).setName("boot") //TODO
+
+
+    stateReg  = Reg(enumDefinition())
+    stateNext = enumDefinition()
+
+    if(this.isNamed){
+      stateReg.setWeakName(this.getName() + "_stateReg")
+      stateNext.setWeakName(this.getName() + "_stateNext")
+    }
 
     for(state <- states){
       checkState(state)

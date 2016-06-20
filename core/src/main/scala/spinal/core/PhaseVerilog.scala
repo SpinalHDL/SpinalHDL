@@ -102,11 +102,11 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
     emitAsyncronous(component, retTemp, ret)
     emitSyncronous(component, retTemp)
     //TODO emitDebug(component, retTemp, enumDebugSignals)
-    if(component == topLevel && pc.config.dumpWave){
+    if(component == topLevel && pc.config.dumpWave != null){
       ret ++= s"""
 initial begin
-  $$dumpfile("wave.vcd");
-  $$dumpvars(1, ${component.definitionName});
+  $$dumpfile("${pc.config.dumpWave.vcdPath}");
+  $$dumpvars(${pc.config.dumpWave.depth}, ${component.definitionName});
 end
 """
     }
@@ -421,7 +421,7 @@ end
       case literal: EnumLiteral[_] => (literal.enum.parent, literal.encoding)
     }
     encoding match {
-      case `binaryOneHot` => s"((${emitLogic(op.getInput(0))} and ${emitLogic(op.getInput(1))}) ${if (eguals) "!=" else "=="} ${'"' + "0" * encoding.getWidth(enumDef) + '"'})"
+      case `binaryOneHot` => s"((${emitLogic(op.getInput(0))} & ${emitLogic(op.getInput(1))}) ${if (eguals) "!=" else "=="} 'b${"0" * encoding.getWidth(enumDef)})"
       case _ => s"(${emitLogic(op.getInput(0))} ${if (eguals) "==" else "!="} ${emitLogic(op.getInput(1))})"
     }
   }
