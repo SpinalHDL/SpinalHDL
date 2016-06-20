@@ -256,14 +256,14 @@ def checkReadTest(dut, data2Read):
 
 ###############################################################################
 # Test a sequence of write
-#@cocotb.test()
+@cocotb.test()
 def master_hal_test_write(dut):
 
     dut.log.info("Cocotb I2C Master HAL - write Test ")
 
     cmdReadyEvent = Event()
     modelSlave    = I2CSlaveModelHAL(dut.clk, dut.resetn,  dut.io_i2c_sda_write, dut.io_i2c_sda_read, dut.io_i2c_scl_write )
-    data2Send     = [0xf0, 0x55, 0xAA]
+    data2Send     = [0xf0, 0x55]
 
     cocotb.fork(ClockDomainInAsynResetn(dut.clk, dut.resetn))
     cocotb.fork(check_cmd_ready(dut.clk, dut.io_cmd_ready, cmdReadyEvent))

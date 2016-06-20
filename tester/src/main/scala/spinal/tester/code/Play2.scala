@@ -1121,7 +1121,7 @@ object PlayI2CMasterHAL {
   def main(args: Array[String]) {
     SpinalConfig(
       mode = Verilog,
-      dumpWave = true,
+      dumpWave = DumpWaveConfig(depth = 1),
       defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
       defaultClockDomainFrequency = FixedFrequency(50e6)
     ).generate(new I2CMasterHALTester).printPruned
