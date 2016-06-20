@@ -10,10 +10,13 @@ import spinal.lib.bus.neutral.NeutralStreamDma
 import spinal.lib.com.uart.UartCtrl
 import spinal.lib.graphic.RgbConfig
 import spinal.lib.graphic.vga.{AvalonMMVgaCtrl, VgaCtrl}
+import spinal.lib.com.i2c._
+
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.sys.process.{ProcessLogger, Process, ProcessIO}
+
 
 /**
  * Created by PIC32F_USER on 21/05/2016.
@@ -1049,10 +1052,10 @@ object PlayEnumTypes{
 }
 
 
+object PlayOthersLike {
 
-
-object PlayOthersLike{
   import spinal.lib.fsm._
+
   class TopLevel extends Component {
     val t0 = out(B(5 -> true,default -> false))
     val t1 = out Bits(10 bits)
@@ -1063,7 +1066,6 @@ object PlayOthersLike{
     val t3 = out Bits(10 bits)
     t3 := B(5 -> true,default -> False)
   }
-
 
 
   def main(args: Array[String]): Unit = {
@@ -1093,5 +1095,35 @@ object PlayNodeWithoutWidth{
 
   def main(args: Array[String]): Unit = {
     SpinalVhdl(new TopLevel)
+  }
+}
+
+object PlayI2CMasterHAL {
+
+  class I2CMasterHALTester extends Component {
+
+    val generic = I2CMasterHALGenerics()
+
+    val io = new Bundle {
+      val i2c    = master( I2C() )
+      val config = in( I2CMasterHALConfig(generic) )
+      val cmd    = slave Stream(I2CMasteHALCmd(generic))
+      val rsp    = master Flow(I2CMasterHALRsp (generic))
+    }
+
+
+    val myMasterI2C = new I2CMasterHAL(generic)
+    io <> myMasterI2C.io
+    myMasterI2C.io.config.setFrequency(2e6)
+
+  }
+
+  def main(args: Array[String]) {
+    SpinalConfig(
+      mode = Verilog,
+      dumpWave = DumpWaveConfig(depth = 1),
+      defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
+      defaultClockDomainFrequency = FixedFrequency(50e6)
+    ).generate(new I2CMasterHALTester).printPruned
   }
 }
