@@ -48,7 +48,7 @@ case class SpinalConfig(
     globalData.scalaLocatedEnable = debug
     globalData.commonClockConfig = defaultConfigForClockDomains
   }
-  def dumpWave(depth : Int = 0, vcdPath : String = "wave.vcd") : this.type = this.copy(dumpWave=DumpWaveConfig(depth,vcdPath))
+  def dumpWave(depth : Int = 0, vcdPath : String = "wave.vcd") : SpinalConfig = this.copy(dumpWave=DumpWaveConfig(depth,vcdPath))
 }
 
 object SpinalConfig{
