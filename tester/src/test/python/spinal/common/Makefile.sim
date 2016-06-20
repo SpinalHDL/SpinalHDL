@@ -1,4 +1,9 @@
-export PYTHONPATH:=${PWD}/../..
-SPINALROOT=$(PWD)/../../../../../..
+COMMON_PATH:=${abspath ${dir ${lastword ${MAKEFILE_LIST}}}}
+
+export PYTHONPATH:=$(COMMON_PATH)/../..
+SPINALROOT=${COMMON_PATH}/../../../../../..
 include $(COCOTB)/makefiles/Makefile.inc
 include $(COCOTB)/makefiles/Makefile.sim
+
+
+$(info *** Base path :  ${COMMON_PATH} )
