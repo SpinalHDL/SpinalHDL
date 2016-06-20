@@ -251,9 +251,6 @@ def checkReadTest(dut, data2Read):
 
 
 
-
-
-
 ###############################################################################
 # Test a sequence of write
 @cocotb.test()

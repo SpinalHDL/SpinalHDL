@@ -11,7 +11,7 @@
   *   Master :   | START |      | ACK |      | NACK | STOP |
   *   Slave  :   |       | READ |     | READ |      |      |
   *
-  * Restart sequence
+  * Restart sequence :
   *   CMD    : START   READ  RESTART         WRITE          STOP
   *   Master :   | START |      | NACK | START | WRITE |     | STOP |
   *   Slave  :   |       | READ |      |       |       | ACK |      |
@@ -86,8 +86,8 @@ case class I2CMasterHALRsp(g : I2CMasterHALGenerics) extends Bundle{
 case class I2CMasterHALio(g : I2CMasterHALGenerics) extends Bundle{
   val i2c    = master( I2C() )
   val config = in( I2CMasterHALConfig(g) )
-  val cmd    = slave  Stream(I2CMasteHALCmd(g))
-  val rsp    = master Flow(I2CMasterHALRsp (g))
+  val cmd    = slave  Stream( I2CMasteHALCmd(g)   )
+  val rsp    = master Flow  ( I2CMasterHALRsp (g) )
 }
 
 /**
