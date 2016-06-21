@@ -13,7 +13,7 @@ object CoreUut{
     val iCached = true
     val dCached = true
     val iCacheConfig = InstructionCacheConfig(
-      cacheSize = 4096*32,
+      cacheSize = 4096*2,
       bytePerLine =32,
       wayCount = 1,
       wrappedMemAccess = true,
@@ -23,7 +23,7 @@ object CoreUut{
     )
 
     val dCacheConfig = DataCacheConfig(
-      cacheSize = 4096*32,
+      cacheSize = 4096*2,
       bytePerLine =32,
       wayCount = 1,
       addressWidth = 32,
