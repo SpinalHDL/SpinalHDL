@@ -6,7 +6,8 @@
 import cocotb
 from cocotb.triggers import Timer, RisingEdge, FallingEdge, Event
 
-from spinal.common.misc import ClockDomainInAsynResetn, assertEquals
+from spinal.common.misc import assertEquals
+from spinal.common.ClockDomain import ClockDomain, RESET_ACTIVE_LEVEL
 from I2CSlaveModelHAL import I2CSlaveModelHAL
 
 
@@ -262,7 +263,9 @@ def master_hal_test_write(dut):
     modelSlave    = I2CSlaveModelHAL(dut.clk, dut.resetn,  dut.io_i2c_sda_write, dut.io_i2c_sda_read, dut.io_i2c_scl_write )
     data2Send     = [0xf0, 0x55]
 
-    cocotb.fork(ClockDomainInAsynResetn(dut.clk, dut.resetn))
+    clockDomain = ClockDomain(dut.clk, 500, dut.resetn, RESET_ACTIVE_LEVEL.LOW)
+
+    cocotb.fork(clockDomain.start())
     cocotb.fork(check_cmd_ready(dut.clk, dut.io_cmd_ready, cmdReadyEvent))
     cocotb.fork(writeTest(dut, cmdReadyEvent, modelSlave, data2Send))
     cocotb.fork(checkWriteTest(dut,data2Send))
@@ -288,7 +291,9 @@ def master_hal_test_read(dut):
     modelSlave    = I2CSlaveModelHAL(dut.clk, dut.resetn,  dut.io_i2c_sda_write, dut.io_i2c_sda_read, dut.io_i2c_scl_write )
     data2Read     = [0x04, 0x85, 0xFF]
 
-    cocotb.fork(ClockDomainInAsynResetn(dut.clk, dut.resetn))
+    clockDomain = ClockDomain(dut.clk, 500, dut.resetn, RESET_ACTIVE_LEVEL.LOW)
+
+    cocotb.fork(clockDomain.start())
     cocotb.fork(check_cmd_ready(dut.clk, dut.io_cmd_ready, cmdReadyEvent))
     cocotb.fork(readTest(dut, cmdReadyEvent, modelSlave, data2Read))
     cocotb.fork(checkReadTest(dut, data2Read))
@@ -313,7 +318,9 @@ def master_hal_test_writeRestartRead(dut):
     modelSlave    = I2CSlaveModelHAL(dut.clk, dut.resetn,  dut.io_i2c_sda_write, dut.io_i2c_sda_read, dut.io_i2c_scl_write )
     #data2Read     = [0x05, 0x45, 0x00]
 
-    cocotb.fork(ClockDomainInAsynResetn(dut.clk, dut.resetn))
+    clockDomain = ClockDomain(dut.clk, 500, dut.resetn, RESET_ACTIVE_LEVEL.LOW)
+
+    cocotb.fork(clockDomain.start())
     cocotb.fork(check_cmd_ready(dut.clk, dut.io_cmd_ready, cmdReadyEvent))
     cocotb.fork(writeRestartReadTest(dut, cmdReadyEvent, modelSlave))
 
