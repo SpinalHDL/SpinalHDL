@@ -1,8 +1,10 @@
 package spinal.tester.scalatest
 
 import spinal.core._
+import spinal.lib.cpu.riscv.impl._
 import spinal.lib.cpu.riscv.impl.bench.CoreUut
 import spinal.lib.cpu.riscv.impl.bench.CoreUut.TopLevel
+import spinal.lib.cpu.riscv.impl.extension.{BarrelShifterLightExtension, BarrelShifterFullExtension, DivExtension, MulExtension}
 import language.postfixOps
 
 object RiscvTester {
@@ -12,8 +14,85 @@ object RiscvTester {
 }
 
 
-class RiscvTesterCocotbBoot extends SpinalTesterCocotbBase {
-  override def getName: String = "RiscvTester"
-  override def pythonTestLocation: String = "tester/src/test/python/spinal/RiscvTester"
-  override def createToplevel: Component = new CoreUut.TopLevel().setDefinitionName("RiscvTester")
+class RiscvTesterCachedCocotbBoot extends SpinalTesterCocotbBase {
+  override def getName: String = "RiscvTesterCached"
+  override def pythonTestLocation: String = "tester/src/test/python/spinal/RiscvTester/cached"
+  override def createToplevel: Component = {
+
+    val iCacheConfig = InstructionCacheConfig(
+      cacheSize = 4096*2,
+      bytePerLine =32,
+      wayCount = 1,
+      wrappedMemAccess = true,
+      addressWidth = 32,
+      cpuDataWidth = 32,
+      memDataWidth = 32
+    )
+
+    val dCacheConfig = DataCacheConfig(
+      cacheSize = 4096*2,
+      bytePerLine =32,
+      wayCount = 1,
+      addressWidth = 32,
+      cpuDataWidth = 32,
+      memDataWidth = 32
+    )
+
+    implicit val p = CoreConfig(
+      pcWidth = 32,
+      addrWidth = 32,
+      startAddress = 0x200,
+      regFileReadyKind = sync,
+      branchPrediction = dynamic,
+      bypassExecute0 = true,
+      bypassExecute1 = true,
+      bypassWriteBack = true,
+      bypassWriteBackBuffer = true,
+      collapseBubble = true,
+      fastFetchCmdPcCalculation = true,
+      dynamicBranchPredictorCacheSizeLog2 = 16,
+      branchPredictorHistoryWidth = 2
+    )
+
+    p.add(new MulExtension)
+    p.add(new DivExtension)
+    p.add(new BarrelShifterFullExtension)
+    //     p.add(new BarrelShifterLightExtension)
+
+    new CoreUut.TopLevel(p,iCacheConfig,dCacheConfig,true,4).setDefinitionName("RiscvTesterCached")
+  }
+}
+
+
+class RiscvTesterUncachedCocotbBoot extends SpinalTesterCocotbBase {
+  override def getName: String = "RiscvTesterUncached"
+  override def pythonTestLocation: String = "tester/src/test/python/spinal/RiscvTester/uncached"
+  override def createToplevel: Component = {
+
+    val iCacheConfig = null
+    val dCacheConfig = null
+
+    implicit val p = CoreConfig(
+      pcWidth = 32,
+      addrWidth = 32,
+      startAddress = 0x200,
+      regFileReadyKind = sync,
+      branchPrediction = disable,
+      bypassExecute0 = false,
+      bypassExecute1 = false,
+      bypassWriteBack = false,
+      bypassWriteBackBuffer = false,
+      collapseBubble = false,
+      fastFetchCmdPcCalculation = false,
+      dynamicBranchPredictorCacheSizeLog2 = 16,
+      branchPredictorHistoryWidth = 2
+    )
+
+    p.add(new MulExtension)
+    p.add(new DivExtension)
+    //p.add(new BarrelShifterFullExtension)
+    p.add(new BarrelShifterLightExtension)
+
+    new CoreUut.TopLevel(p,iCacheConfig,dCacheConfig,true,4).setDefinitionName("RiscvTesterUncached")
+  }
 }

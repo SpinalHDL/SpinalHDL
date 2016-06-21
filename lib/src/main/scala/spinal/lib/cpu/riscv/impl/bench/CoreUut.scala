@@ -7,56 +7,11 @@ import spinal.lib.cpu.riscv.impl._
 object CoreUut{
   import spinal.lib.cpu.riscv.impl.extension._
 
-  class TopLevel extends Component{
-    val io_interrupt = in Bool
+  class TopLevel(p : CoreConfig,iCacheConfig : InstructionCacheConfig, dCacheConfig : DataCacheConfig,debug : Boolean,interruptCount : Int) extends Component{
+    implicit val toto = p
     val oneCycleInstrPip = true
-    val iCached = true
-    val dCached = true
-    val iCacheConfig = InstructionCacheConfig(
-      cacheSize = 4096*2,
-      bytePerLine =32,
-      wayCount = 1,
-      wrappedMemAccess = true,
-      addressWidth = 32,
-      cpuDataWidth = 32,
-      memDataWidth = 32
-    )
-
-    val dCacheConfig = DataCacheConfig(
-      cacheSize = 4096*2,
-      bytePerLine =32,
-      wayCount = 1,
-      addressWidth = 32,
-      cpuDataWidth = 32,
-      memDataWidth = 32
-    )
-
-    implicit val p = CoreConfig(
-      pcWidth = 32,
-      addrWidth = 32,
-      startAddress = 0x200,
-      regFileReadyKind = sync,
-      branchPrediction = dynamic,
-      bypassExecute0 = true,
-      bypassExecute1 = true,
-      bypassWriteBack = true,
-      bypassWriteBackBuffer = true,
-      collapseBubble = true,
-      fastFetchCmdPcCalculation = true,
-      dynamicBranchPredictorCacheSizeLog2 = 16,
-      branchPredictorHistoryWidth = 2
-    )
-
-    p.add(new MulExtension)
-    p.add(new DivExtension)
-    p.add(new BarrelShifterFullExtension)
-    p.add(new SimpleInterruptExtension(exceptionVector=0x0).addIrq(id=4,pin=io_interrupt,IrqUsage(isException=false),name="io_interrupt"))
-    // p.add(new BarrelShifterLightExtension)
-    val nativeInstructionBusExtension = if(!iCached)p.add(new NativeInstructionBusExtension)  else null
-    val cachedInstructionBusExtension = if(iCached)p.add(new CachedInstructionBusExtension(iCacheConfig,false,false))  else null
-    val nativeDataBusExtension = if(!dCached) p.add(new NativeDataBusExtension) else null
-    val cachedDataBusExtension = if(dCached) p.add(new CachedDataBusExtension(dCacheConfig,true)) else null
-
+    val iCached = iCacheConfig != null
+    val dCached = dCacheConfig != null
 
     val io = new Bundle{
       val i_cmd = master Stream CoreInstructionCmd()
@@ -78,7 +33,18 @@ object CoreUut{
       //debug purposes
       val cpuCmdLog = master Flow(CoreDataCmd())
       val cpuRspLog = master Flow(Bits(32 bits))
+      val interrupt = in Bits(interruptCount bits)
     }
+
+    if(interruptCount != 0)
+      p.add(new SimpleInterruptExtension(exceptionVector=0x0).addIrq(id=4,pins=io.interrupt,IrqUsage(isException=false),name="io_interrupt"))
+    val nativeInstructionBusExtension = if(!iCached)p.add(new NativeInstructionBusExtension)  else null
+    val cachedInstructionBusExtension = if(iCached)p.add(new CachedInstructionBusExtension(iCacheConfig,false,false))  else null
+    val nativeDataBusExtension = if(!dCached) p.add(new NativeDataBusExtension) else null
+    val cachedDataBusExtension = if(dCached) p.add(new CachedDataBusExtension(dCacheConfig,true)) else null
+
+
+
     def StreamDelay[T <: Data](that : Stream[T]) = that.s2mPipe().s2mPipe().s2mPipe().s2mPipe().s2mPipe().s2mPipe()
     def InstStreamDelay[T <: Data](that : Stream[T]) = if(oneCycleInstrPip) that else that.s2mPipe().s2mPipe().s2mPipe().s2mPipe().s2mPipe().s2mPipe()
     val core = new Core
@@ -235,8 +201,73 @@ object CoreUut{
   }
 
   def main(args: Array[String]) {
-    SpinalVhdl({ new TopLevel().setDefinitionName("CoreWrapper")})
-    SpinalVerilog({ new TopLevel().setDefinitionName("CoreWrapper")})
+    def factory = {
+//        val iCacheConfig = InstructionCacheConfig(
+//          cacheSize = 4096*2,
+//          bytePerLine =32,
+//          wayCount = 1,
+//          wrappedMemAccess = true,
+//          addressWidth = 32,
+//          cpuDataWidth = 32,
+//          memDataWidth = 32
+//        )
+//
+//        val dCacheConfig = DataCacheConfig(
+//          cacheSize = 4096*2,
+//          bytePerLine =32,
+//          wayCount = 1,
+//          addressWidth = 32,
+//          cpuDataWidth = 32,
+//          memDataWidth = 32
+//        )
+//
+//        implicit val p = CoreConfig(
+//          pcWidth = 32,
+//          addrWidth = 32,
+//          startAddress = 0x200,
+//          regFileReadyKind = sync,
+//          branchPrediction = dynamic,
+//          bypassExecute0 = true,
+//          bypassExecute1 = true,
+//          bypassWriteBack = true,
+//          bypassWriteBackBuffer = true,
+//          collapseBubble = true,
+//          fastFetchCmdPcCalculation = true,
+//          dynamicBranchPredictorCacheSizeLog2 = 16,
+//          branchPredictorHistoryWidth = 2
+//        )
+//
+//        p.add(new MulExtension)
+//        p.add(new DivExtension)
+//        p.add(new BarrelShifterFullExtension)
+////     p.add(new BarrelShifterLightExtension)
+      val iCacheConfig = null
+      val dCacheConfig = null
+
+      implicit val p = CoreConfig(
+        pcWidth = 32,
+        addrWidth = 32,
+        startAddress = 0x200,
+        regFileReadyKind = sync,
+        branchPrediction = disable,
+        bypassExecute0 = false,
+        bypassExecute1 = false,
+        bypassWriteBack = false,
+        bypassWriteBackBuffer = false,
+        collapseBubble = false,
+        fastFetchCmdPcCalculation = false,
+        dynamicBranchPredictorCacheSizeLog2 = 16,
+        branchPredictorHistoryWidth = 2
+      )
+
+      p.add(new MulExtension)
+      p.add(new DivExtension)
+      //p.add(new BarrelShifterFullExtension)
+      p.add(new BarrelShifterLightExtension)
+      new TopLevel(p,iCacheConfig,dCacheConfig,true,4).setDefinitionName("CoreWrapper")
+    }
+    SpinalVhdl(factory)
+    SpinalVerilog(factory)
   }
 }
 

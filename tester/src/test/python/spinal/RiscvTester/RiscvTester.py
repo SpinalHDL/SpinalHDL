@@ -35,11 +35,26 @@ def loadIHex(path,array):
 class Tester:
     def __init__(self,dut):
         self.dut = dut
-        self.ram = array.array('B', (0 for i in range(0, 1024 * 1024)))
-        self.rom = array.array('B', (0 for i in range(0, 1024 * 1024)))
+        self.ram = array.array('B', (0xFF for i in range(0, 1024 * 1024)))
+        self.rom = array.array('B', (0xFF for i in range(0, 1024 * 1024)))
         self.allowRomWrite = False
         self.io_iCheck_valid = True
         self.wrapICmdZero = False
+
+
+    @cocotb.coroutine
+    def driveICmdReady(self):
+        dut = self.dut
+        while True:
+            yield [Edge(dut.io_i_rsp_valid),Edge(dut.io_i_rsp_ready)]
+            dut.io_i_cmd_ready <= (int(dut.io_i_rsp_valid) == 0 or int(dut.io_i_rsp_ready) == 1);
+
+    @cocotb.coroutine
+    def driveDCmdReady(self):
+        dut = self.dut
+        while True:
+            yield [Edge(dut.io_d_rsp_valid),Edge(dut.io_d_rsp_ready)]
+            dut.io_d_cmd_ready <= (int(dut.io_d_rsp_valid) == 0 or int(dut.io_d_rsp_ready) == 1);
 
     @cocotb.coroutine
     def driveMisc(self):
@@ -50,7 +65,10 @@ class Tester:
         self.dut.io_i_cmd_ready <= 1
         self.dut.io_d_cmd_ready <= 1
         self.dut.io_doCacheFlush <= 0
-        yield Timer(1000*1000*1000)
+        cocotb.fork(self.driveICmdReady())
+        cocotb.fork(self.driveDCmdReady())
+        while True:
+            yield RisingEdge(self.dut.clk)
 
     @cocotb.coroutine
     def driveIRsp(self):
@@ -183,54 +201,56 @@ def testIsa(dut,iHexPath=None):
     print(str(iHexPath))
     tester = Tester(dut)
     tester.wrapICmdZero = True
+    tester.allowRomWrite = True
     yield tester.do(iHexPath)
 
 
-factory = TestFactory(testIsa)
-factory.add_option("iHexPath",  ["tests/rv32ui-pt-mul.hex",
-                                 "tests/rv32ui-pt-mulh.hex",
-                                 "tests/rv32ui-pt-mulhsu.hex",
-                                 "tests/rv32ui-pt-mulhu.hex",
-                                 "tests/rv32ui-pt-div.hex",
-                                 "tests/rv32ui-pt-divu.hex",
-                                 "tests/rv32ui-pt-rem.hex",
-                                 "tests/rv32ui-pt-remu.hex",
-                                 "tests/rv32ui-pt-add.hex",
-                                 "tests/rv32ui-pt-addi.hex",
-                                 "tests/rv32ui-pt-and.hex",
-                                 "tests/rv32ui-pt-andi.hex",
-                                 "tests/rv32ui-pt-auipc.hex",
-                                 "tests/rv32ui-pt-beq.hex",
-                                 "tests/rv32ui-pt-bge.hex",
-                                 "tests/rv32ui-pt-bgeu.hex",
-                                 "tests/rv32ui-pt-blt.hex",
-                                 "tests/rv32ui-pt-bltu.hex",
-                                 "tests/rv32ui-pt-bne.hex",
-                                 "tests/rv32ui-pt-j.hex",
-                                 "tests/rv32ui-pt-jal.hex",
-                                 "tests/rv32ui-pt-jalr.hex",
-                                 "tests/rv32ui-pt-lb.hex",
-                                 "tests/rv32ui-pt-lbu.hex",
-                                 "tests/rv32ui-pt-lh.hex",
-                                 "tests/rv32ui-pt-lhu.hex",
-                                 "tests/rv32ui-pt-lui.hex",
-                                 "tests/rv32ui-pt-lw.hex",
-                                 "tests/rv32ui-pt-or.hex",
-                                 "tests/rv32ui-pt-ori.hex",
-                                 "tests/rv32ui-pt-sb.hex",
-                                 "tests/rv32ui-pt-sh.hex",
-                                 "tests/rv32ui-pt-simple.hex",
-                                 "tests/rv32ui-pt-sll.hex",
-                                 "tests/rv32ui-pt-slli.hex",
-                                 "tests/rv32ui-pt-slt.hex",
-                                 "tests/rv32ui-pt-slti.hex",
-                                 "tests/rv32ui-pt-sra.hex",
-                                 "tests/rv32ui-pt-srai.hex",
-                                 "tests/rv32ui-pt-srl.hex",
-                                 "tests/rv32ui-pt-srli.hex",
-                                 "tests/rv32ui-pt-sub.hex",
-                                 "tests/rv32ui-pt-sw.hex",
-                                 "tests/rv32ui-pt-xor.hex",
-                                 "tests/rv32ui-pt-xori.hex"])
+isaTestsBase =  ["tests/rv32ui-pt-add.hex",
+                 "tests/rv32ui-pt-addi.hex",
+                 "tests/rv32ui-pt-and.hex",
+                 "tests/rv32ui-pt-andi.hex",
+                 "tests/rv32ui-pt-auipc.hex",
+                 "tests/rv32ui-pt-beq.hex",
+                 "tests/rv32ui-pt-bge.hex",
+                 "tests/rv32ui-pt-bgeu.hex",
+                 "tests/rv32ui-pt-blt.hex",
+                 "tests/rv32ui-pt-bltu.hex",
+                 "tests/rv32ui-pt-bne.hex",
+                 "tests/rv32ui-pt-j.hex",
+                 "tests/rv32ui-pt-jal.hex",
+                 "tests/rv32ui-pt-jalr.hex",
+                 "tests/rv32ui-pt-or.hex",
+                 "tests/rv32ui-pt-ori.hex",
+                 "tests/rv32ui-pt-simple.hex",
+                 "tests/rv32ui-pt-sll.hex",
+                 "tests/rv32ui-pt-slli.hex",
+                 "tests/rv32ui-pt-slt.hex",
+                 "tests/rv32ui-pt-slti.hex",
+                 "tests/rv32ui-pt-sra.hex",
+                 "tests/rv32ui-pt-srai.hex",
+                 "tests/rv32ui-pt-srl.hex",
+                 "tests/rv32ui-pt-srli.hex",
+                 "tests/rv32ui-pt-sub.hex",
+                 "tests/rv32ui-pt-xor.hex",
+                 "tests/rv32ui-pt-xori.hex"]
 
-factory.generate_tests()
+
+isaTestsMemory = ["tests/rv32ui-pt-lb.hex",
+                  "tests/rv32ui-pt-lbu.hex",
+                  "tests/rv32ui-pt-lh.hex",
+                  "tests/rv32ui-pt-lhu.hex",
+                  "tests/rv32ui-pt-lui.hex",
+                  "tests/rv32ui-pt-lw.hex",
+                  "tests/rv32ui-pt-sb.hex",
+                  "tests/rv32ui-pt-sh.hex",
+                  "tests/rv32ui-pt-sw.hex"]
+
+
+isaTestsMulDiv = ["tests/rv32ui-pt-mul.hex",
+                  "tests/rv32ui-pt-mulh.hex",
+                  "tests/rv32ui-pt-mulhsu.hex",
+                  "tests/rv32ui-pt-mulhu.hex",
+                  "tests/rv32ui-pt-div.hex",
+                  "tests/rv32ui-pt-divu.hex",
+                  "tests/rv32ui-pt-rem.hex",
+                  "tests/rv32ui-pt-remu.hex"]

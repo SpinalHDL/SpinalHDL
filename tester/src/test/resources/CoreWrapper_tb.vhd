@@ -23,7 +23,7 @@ entity CoreWrapper_tb is
 end CoreWrapper_tb;
 
 architecture arch of CoreWrapper_tb is
-  signal io_interrupt : std_logic;
+  signal io_interrupt : std_logic_vector(3 downto 0);
   signal io_i_cmd_valid : std_logic;
   signal io_i_cmd_ready : std_logic;
   signal io_i_cmd_payload_pc : unsigned(31 downto 0);
@@ -255,22 +255,22 @@ begin
       doTest("E:/vm/share/isa/rv32ui-p-remu.hex");
 
        --doTest("E:/vm/share/isa/rv32si-p-csr.hex");
-       --doTest("E:/vm/share/isa/rv32si-p-illegal.hex");   
-       --doTest("E:/vm/share/isa/rv32si-p-ma_addr.hex");   
-       --doTest("E:/vm/share/isa/rv32si-p-ma_fetch.hex");   
-       --doTest("E:/vm/share/isa/rv32si-p-sbreak.hex");   
-       --doTest("E:/vm/share/isa/rv32si-p-scall.hex");   
-       --doTest("E:/vm/share/isa/rv32si-p-shamt.hex");   
+       --doTest("E:/vm/share/isa/rv32si-p-illegal.hex");
+       --doTest("E:/vm/share/isa/rv32si-p-ma_addr.hex");
+       --doTest("E:/vm/share/isa/rv32si-p-ma_fetch.hex");
+       --doTest("E:/vm/share/isa/rv32si-p-sbreak.hex");
+       --doTest("E:/vm/share/isa/rv32si-p-scall.hex");
+       --doTest("E:/vm/share/isa/rv32si-p-shamt.hex");
        doTest("E:/vm/share/isa/rv32ui-p-add.hex");   
-       doTest("E:/vm/share/isa/rv32ui-p-addi.hex");   
-       --doTest("E:/vm/share/isa/rv32ui-p-amoadd_w.hex");   
-       --doTest("E:/vm/share/isa/rv32ui-p-amoand_w.hex");   
-       --doTest("E:/vm/share/isa/rv32ui-p-amomaxu_w.hex");   
-       --doTest("E:/vm/share/isa/rv32ui-p-amomax_w.hex");   
-       --doTest("E:/vm/share/isa/rv32ui-p-amominu_w.hex");   
-       --doTest("E:/vm/share/isa/rv32ui-p-amomin_w.hex");   
-       --doTest("E:/vm/share/isa/rv32ui-p-amoor_w.hex");   
-       --doTest("E:/vm/share/isa/rv32ui-p-amoswap_w.hex");   
+       doTest("E:/vm/share/isa/rv32ui-p-addi.hex");
+       --doTest("E:/vm/share/isa/rv32ui-p-amoadd_w.hex");
+       --doTest("E:/vm/share/isa/rv32ui-p-amoand_w.hex");
+       --doTest("E:/vm/share/isa/rv32ui-p-amomaxu_w.hex");
+       --doTest("E:/vm/share/isa/rv32ui-p-amomax_w.hex");
+       --doTest("E:/vm/share/isa/rv32ui-p-amominu_w.hex");
+       --doTest("E:/vm/share/isa/rv32ui-p-amomin_w.hex");
+       --doTest("E:/vm/share/isa/rv32ui-p-amoor_w.hex");
+       --doTest("E:/vm/share/isa/rv32ui-p-amoswap_w.hex");
        doTest("E:/vm/share/isa/rv32ui-p-and.hex");   
        doTest("E:/vm/share/isa/rv32ui-p-andi.hex");   
        doTest("E:/vm/share/isa/rv32ui-p-auipc.hex");   
@@ -360,7 +360,7 @@ begin
   
   io_i_cmd_ready <= (not io_i_rsp_valid or io_i_rsp_ready);
   io_d_cmd_ready <= (not io_d_rsp_buff_valid or io_d_rsp_buff_ready);
-  io_interrupt <= interrupt;
+  io_interrupt <= (others => interrupt);
   process(clk,reset)
     variable char : Character;
     file log : text is out "E:/vm/share/log.txt";
