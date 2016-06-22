@@ -708,6 +708,28 @@ class PhaseSimplifyNodes(pc: PhaseContext) extends Phase{
   }
 }
 
+class PhaseResizeLiteralSimplify(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+    import pc._
+    fillNodeConsumer
+    Node.walk(walkNodesDefautStack,node => node.onEachInput((input,id) => input match{
+      case resize : Resize => {
+        if(resize.input.getWidth == 0){
+          val newNode = resize match{
+            case _ : ResizeBits => BitsLiteral(0,resize.getWidth)
+            case _ : ResizeUInt => UIntLiteral(0,resize.getWidth)
+            case _ : ResizeSInt => SIntLiteral(0,resize.getWidth)
+          }
+          newNode.inferredWidth = resize.getWidth
+          node.setInput(id,newNode)
+        }
+      }
+      case _ =>
+    }))
+
+  }
+}
+
 class PhasePropagateBaseTypeWidth(pc: PhaseContext) extends Phase{
   override def impl(): Unit = {
     import pc._
@@ -1289,6 +1311,7 @@ object SpinalVhdlBoot{
     phases += new PhaseInferWidth(pc)
     phases += new PhasePropagateBaseTypeWidth(pc)
     phases += new PhaseNormalizeNodeInputs(pc)
+    phases += new PhaseResizeLiteralSimplify(pc)
     phases += new PhaseCheckInferredWidth(pc)
 
     phases += new PhaseDummy(SpinalInfoPhase("Check combinatorial loops"))
