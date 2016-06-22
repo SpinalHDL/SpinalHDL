@@ -45,6 +45,7 @@ class Tester:
     @cocotb.coroutine
     def driveICmdReady(self):
         dut = self.dut
+        dut.io_i_cmd_ready <= 1
         while True:
             yield [Edge(dut.io_i_rsp_valid),Edge(dut.io_i_rsp_ready)]
             dut.io_i_cmd_ready <= (int(dut.io_i_rsp_valid) == 0 or int(dut.io_i_rsp_ready) == 1);
@@ -52,6 +53,7 @@ class Tester:
     @cocotb.coroutine
     def driveDCmdReady(self):
         dut = self.dut
+        dut.io_d_cmd_ready <= 1
         while True:
             yield [Edge(dut.io_d_rsp_valid),Edge(dut.io_d_rsp_ready)]
             dut.io_d_cmd_ready <= (int(dut.io_d_rsp_valid) == 0 or int(dut.io_d_rsp_ready) == 1);
@@ -62,13 +64,16 @@ class Tester:
         self.dut.io_iRspDrive <= 1
         self.dut.io_dCmdDrive <= 1
         self.dut.io_dRspDrive <= 1
-        self.dut.io_i_cmd_ready <= 1
-        self.dut.io_d_cmd_ready <= 1
         self.dut.io_doCacheFlush <= 0
         cocotb.fork(self.driveICmdReady())
         cocotb.fork(self.driveDCmdReady())
         while True:
             yield RisingEdge(self.dut.clk)
+            randBoolSignal(self.dut.io_iCmdDrive,0.7)
+            randBoolSignal(self.dut.io_iRspDrive,0.7)
+            randBoolSignal(self.dut.io_dCmdDrive,0.7)
+            # randBoolSignal(self.dut.io_dRspDrive,0.7)
+            randBoolSignal(self.dut.io_doCacheFlush,0.0003)
 
     @cocotb.coroutine
     def driveIRsp(self):
