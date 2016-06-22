@@ -176,6 +176,8 @@ def test1(dut):
         check(dut.bitsBsOr, 8, bits8 | bits4)
         check(dut.bitsBsXor, 8, bits8 ^ bits4)
 
+        check(dut.bitsCat, 12, bits8 * 16 +  bits4)
+
 
         check(dut.boolEquals, 1, boolA == boolB)
         check(dut.boolNotEquals, 1, boolA != boolB)

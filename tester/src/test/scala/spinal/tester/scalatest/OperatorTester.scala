@@ -146,6 +146,8 @@ object OperatorTester {
     val bitsBsXor = out(bits8 ^ bits4)
     val bitsBsNot = out(~bits8)
 
+    val bitsCat = out(bits8 ## bits4)
+
 
 
 
