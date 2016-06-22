@@ -126,6 +126,24 @@ class PhaseContext(val config : SpinalConfig){
   }
 
   def checkPendingErrors() = if(!globalData.pendingErrors.isEmpty) SpinalError()
+
+
+
+  def checkNoZeroWidth(): Unit ={
+    def zeroCheck (that : WidthProvider): Unit ={
+      if (that.getWidth < 1) {
+        println(that)
+      }
+    }
+
+    Node.walk(walkNodesDefautStack,_ match {
+      case node : WidthProvider => {
+        zeroCheck(node)
+      }
+      case _ =>
+    })
+  }
+
 }
 
 trait Phase{
@@ -1354,19 +1372,8 @@ object SpinalVhdlBoot{
 
     pc.checkGlobalData()
 
-    def zeroCheck (that : WidthProvider): Unit ={
-      if (that.getWidth < 1) {
-        //println(that)
-        val a = 2
-      }
-    }
-    Node.walk(pc.walkNodesDefautStack,_ match {
-      case node : WidthProvider => {
-        zeroCheck(node)
-      }
-      case _ =>
-    })
 
+    //pc.checkNoZeroWidth() for debug
 
 
     val report = new SpinalReport[T](pc.topLevel.asInstanceOf[T])
@@ -1467,6 +1474,7 @@ object SpinalVerilogBoot{
     phases += new PhaseInferWidth(pc)
     phases += new PhasePropagateBaseTypeWidth(pc)
     phases += new PhaseNormalizeNodeInputs(pc)
+    phases += new PhaseResizeLiteralSimplify(pc)
     phases += new PhaseCheckInferredWidth(pc)
 
     phases += new PhaseDummy(SpinalInfoPhase("Check combinatorial loops"))
