@@ -126,6 +126,24 @@ class PhaseContext(val config : SpinalConfig){
   }
 
   def checkPendingErrors() = if(!globalData.pendingErrors.isEmpty) SpinalError()
+
+
+
+  def checkNoZeroWidth(): Unit ={
+    def zeroCheck (that : WidthProvider): Unit ={
+      if (that.getWidth < 1) {
+        println(that)
+      }
+    }
+
+    Node.walk(walkNodesDefautStack,_ match {
+      case node : WidthProvider => {
+        zeroCheck(node)
+      }
+      case _ =>
+    })
+  }
+
 }
 
 trait Phase{
@@ -640,7 +658,7 @@ class PhaseAllowNodesToReadInputOfKindComponent(pc: PhaseContext) extends Phase{
   }
 }
 
-class PhasePostWidthInferationChecks(pc: PhaseContext) extends Phase{
+class PhasePreWidthInferationChecks(pc: PhaseContext) extends Phase{
   override def impl(): Unit = {
     import pc._
     val errors = mutable.ArrayBuffer[String]()
@@ -708,6 +726,27 @@ class PhaseSimplifyNodes(pc: PhaseContext) extends Phase{
   }
 }
 
+class PhaseResizeLiteralSimplify(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+    import pc._
+    Node.walk(walkNodesDefautStack,node => node.onEachInput((input,id) => input match{
+      case resize : Resize => {
+        if(resize.input.getWidth == 0){
+          val newNode = resize match{
+            case _ : ResizeBits => BitsLiteral(0,resize.getWidth)
+            case _ : ResizeUInt => UIntLiteral(0,resize.getWidth)
+            case _ : ResizeSInt => SIntLiteral(0,resize.getWidth)
+          }
+          newNode.inferredWidth = resize.getWidth
+          node.setInput(id,newNode)
+        }
+      }
+      case _ =>
+    }))
+
+  }
+}
+
 class PhasePropagateBaseTypeWidth(pc: PhaseContext) extends Phase{
   override def impl(): Unit = {
     import pc._
@@ -731,11 +770,6 @@ class PhasePropagateBaseTypeWidth(pc: PhaseContext) extends Phase{
             def walkChildren() : Unit = that.onEachInput((input,id) => walk(that,id))
 
             that match {
-              case that: MultiplexedWidthable => { //TODO probably useless
-                that.inferredWidth = width
-                walk(that,1)
-                walk(that,2)
-              }
               case that: WhenNodeWidthable => {
                 that.inferredWidth = width
                 walk(that,1)
@@ -746,14 +780,6 @@ class PhasePropagateBaseTypeWidth(pc: PhaseContext) extends Phase{
                 walkChildren()
               }
               case that : AssignementNodeWidthable => that.inferredWidth = width
-//              case that: CaseNode => {
-//                that.inferredWidth = width
-//                walkChildren()
-//              }
-//              case that: SwitchNode => {
-//                that.inferredWidth = width
-//                walkChildren()
-//              }
               case dontCare : DontCareNodeFixed =>{
                 dontCare.inferredWidth = width
               }
@@ -1270,24 +1296,24 @@ object SpinalVhdlBoot{
 
 
 
-    SpinalInfoPhase("Start elaboration")
+    SpinalProgress("Start elaboration")
 
 
     val phases = ArrayBuffer[Phase]()
 
     phases += new PhaseCreateComponent(gen)(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Start analysis and transform"))
+    phases += new PhaseDummy(SpinalProgress("Start analysis and transform"))
     phases += new PhaseFillComponentList(pc)
     phases += new PhaseApplyIoDefault(pc)
     phases += new PhaseNodesBlackBoxGenerics(pc)
     phases += new PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Get names from reflection"))
+    phases += new PhaseDummy(SpinalProgress("Get names from reflection"))
     phases += new PhaseNameNodesByReflection(pc)
     phases += new PhaseCollectAndNameEnum(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Transform connections"))
+    phases += new PhaseDummy(SpinalProgress("Transform connections"))
     phases += new PhasePullClockDomains(pc)
     phases += new PhaseCheck_noNull_noCrossHierarchy_noInputRegister_noDirectionLessIo(pc)
     phases += new PhaseAddInOutBinding(pc)
@@ -1295,33 +1321,34 @@ object SpinalVhdlBoot{
     phases += new PhaseAllowNodesToReadOutputs(pc)
     phases += new PhaseAllowNodesToReadInputOfKindComponent(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Infer nodes's bit width"))
-    phases += new PhasePostWidthInferationChecks(pc)
+    phases += new PhaseDummy(SpinalProgress("Infer nodes's bit width"))
+    phases += new PhasePreWidthInferationChecks(pc)
     phases += new PhaseInferWidth(pc)
     phases += new PhaseSimplifyNodes(pc)
     phases += new PhaseInferWidth(pc)
     phases += new PhasePropagateBaseTypeWidth(pc)
     phases += new PhaseNormalizeNodeInputs(pc)
+    phases += new PhaseResizeLiteralSimplify(pc)
     phases += new PhaseCheckInferredWidth(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Check combinatorial loops"))
+    phases += new PhaseDummy(SpinalProgress("Check combinatorial loops"))
     phases += new PhaseCheckCombinationalLoops(pc)
-    phases += new PhaseDummy(SpinalInfoPhase("Check cross clock domains"))
+    phases += new PhaseDummy(SpinalProgress("Check cross clock domains"))
     phases += new PhaseCheckCrossClockDomains(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Simplify graph's nodes"))
+    phases += new PhaseDummy(SpinalProgress("Simplify graph's nodes"))
     phases += new PhaseFillNodesConsumers(pc)
     phases += new PhaseDontSymplifyBasetypeWithComplexAssignement(pc)
     phases += new PhaseDeleteUselessBaseTypes(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Check that there is no incomplete assignment"))
+    phases += new PhaseDummy(SpinalProgress("Check that there is no incomplete assignment"))
     phases += new PhaseCheck_noAsyncNodeWithIncompleteAssignment(pc)
     phases += new PhaseSimplifyBlacBoxGenerics(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Collect signals not used in the graph"))
+    phases += new PhaseDummy(SpinalProgress("Collect signals not used in the graph"))
     phases += new PhasePrintUnUsedSignals(prunedSignals)(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Finalise"))
+    phases += new PhaseDummy(SpinalProgress("Finalise"))
     phases += new PhaseAddNodesIntoComponent(pc)
     phases += new PhaseOrderComponentsNodes(pc)
     phases += new PhaseAllocateNames(pc)
@@ -1344,6 +1371,10 @@ object SpinalVhdlBoot{
 
 
     pc.checkGlobalData()
+
+
+    //pc.checkNoZeroWidth() for debug
+
 
     val report = new SpinalReport[T](pc.topLevel.asInstanceOf[T])
     report.prunedSignals ++= prunedSignals
@@ -1411,24 +1442,24 @@ object SpinalVerilogBoot{
     val pc = new PhaseContext(config)
     val prunedSignals = mutable.Set[BaseType]()
 
-    SpinalInfoPhase("Start elaboration")
+    SpinalProgress("Start elaboration")
 
 
     val phases = ArrayBuffer[Phase]()
 
     phases += new PhaseCreateComponent(gen)(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Start analysis and transform"))
+    phases += new PhaseDummy(SpinalProgress("Start analysis and transform"))
     phases += new PhaseFillComponentList(pc)
     phases += new PhaseApplyIoDefault(pc)
     phases += new PhaseNodesBlackBoxGenerics(pc)
     phases += new PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Get names from reflection"))
+    phases += new PhaseDummy(SpinalProgress("Get names from reflection"))
     phases += new PhaseNameNodesByReflection(pc)
     phases += new PhaseCollectAndNameEnum(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Transform connections"))
+    phases += new PhaseDummy(SpinalProgress("Transform connections"))
     phases += new PhasePullClockDomains(pc)
     phases += new PhaseCheck_noNull_noCrossHierarchy_noInputRegister_noDirectionLessIo(pc)
     phases += new PhaseAddInOutBinding(pc)
@@ -1436,34 +1467,35 @@ object SpinalVerilogBoot{
     phases += new PhaseAllowNodesToReadOutputs(pc)
     phases += new PhaseAllowNodesToReadInputOfKindComponent(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Infer nodes's bit width"))
-    phases += new PhasePostWidthInferationChecks(pc)
+    phases += new PhaseDummy(SpinalProgress("Infer nodes's bit width"))
+    phases += new PhasePreWidthInferationChecks(pc)
     phases += new PhaseInferWidth(pc)
     phases += new PhaseSimplifyNodes(pc)
     phases += new PhaseInferWidth(pc)
     phases += new PhasePropagateBaseTypeWidth(pc)
     phases += new PhaseNormalizeNodeInputs(pc)
+    phases += new PhaseResizeLiteralSimplify(pc)
     phases += new PhaseCheckInferredWidth(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Check combinatorial loops"))
+    phases += new PhaseDummy(SpinalProgress("Check combinatorial loops"))
     phases += new PhaseCheckCombinationalLoops(pc)
-    phases += new PhaseDummy(SpinalInfoPhase("Check cross clock domains"))
+    phases += new PhaseDummy(SpinalProgress("Check cross clock domains"))
     phases += new PhaseCheckCrossClockDomains(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Simplify graph's nodes"))
+    phases += new PhaseDummy(SpinalProgress("Simplify graph's nodes"))
     phases += new PhaseFillNodesConsumers(pc)
     phases += new PhaseDontSymplifyBasetypeWithComplexAssignement(pc)
     phases += new PhaseDontSymplifyVerilogMismatchingWidth(pc)    //VERILOG
     phases += new PhaseDeleteUselessBaseTypes(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Check that there is no incomplete assignment"))
+    phases += new PhaseDummy(SpinalProgress("Check that there is no incomplete assignment"))
     phases += new PhaseCheck_noAsyncNodeWithIncompleteAssignment(pc)
     phases += new PhaseSimplifyBlacBoxGenerics(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Collect signals not used in the graph"))
+    phases += new PhaseDummy(SpinalProgress("Collect signals not used in the graph"))
     phases += new PhasePrintUnUsedSignals(prunedSignals)(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Finalise"))
+    phases += new PhaseDummy(SpinalProgress("Finalise"))
     phases += new PhaseAddNodesIntoComponent(pc)
     phases += new PhaseOrderComponentsNodes(pc)
     phases += new PhaseAllocateNames(pc)

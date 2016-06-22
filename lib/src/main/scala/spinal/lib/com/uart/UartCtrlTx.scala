@@ -32,7 +32,7 @@ class UartCtrlTx(g : UartCtrlGenerics) extends Component {
 
   // Count up each clockDivider.tick, used by the state machine to count up data bits and stop bits
   val tickCounter = new Area {
-    val value = Reg(UInt(Math.max(dataWidthMax, 2) bit))
+    val value = Reg(UInt(Math.max(log2Up(dataWidthMax), 2) bit))
     def reset() = value := 0
 
     when(clockDivider.tick) {
