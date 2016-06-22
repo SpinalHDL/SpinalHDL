@@ -31,7 +31,17 @@ object OperatorTester {
     val sint8 = in SInt(8 bits)
     val bits4 = in Bits(4 bits)
     val bits8 = in Bits(8 bits)
-    val boolA,boolB = in Bool
+    val boolA,boolB,boolC = in Bool
+
+
+    val boolMux = out(Mux(boolC,boolA,boolB))
+
+    val bitsBsMux = out(Mux(boolC,bits8,bits4))
+    val uintBsMux = out(Mux(boolC,uint8,uint4))
+    val sintBsMux = out(Mux(boolC,sint8,sint4))
+    val bitsSbMux = out(Mux(boolC,bits4,bits8))
+    val uintSbMux = out(Mux(boolC,uint4,uint8))
+    val sintSbMux = out(Mux(boolC,sint4,sint8))
 
 
     val uintNot = out(~uint4)
@@ -191,7 +201,8 @@ object OperatorTester {
       val a,b,c = newElement
     }
 
-    val stateNative = State(native)
+    State.defaultEncoding = native
+    val stateNative = State()
     stateNative.assignFromBits(bits8(1 downto 0))
     val stateNativeBits   = out(stateNative.asBits)
     val stateNativeIsA    = out(stateNative === State.a)
@@ -200,9 +211,10 @@ object OperatorTester {
     val stateNativeIsNotA = out(stateNative =/= State.a)
     val stateNativeIsNotB = out(stateNative =/= State.b)
     val stateNativeIsNotC = out(stateNative =/= State.c)
+    val stateNativeMux = out(Mux(boolC,State.a,State.b).asBits)
 
-
-    val stateBinarySequancial = State(binarySequancial)
+    State.defaultEncoding = binarySequancial
+    val stateBinarySequancial = State()
     stateBinarySequancial.assignFromBits(bits8(1 downto 0))
     val stateBinarySequancialBits   = out(stateBinarySequancial.asBits)
     val stateBinarySequancialIsA    = out(stateBinarySequancial === State.a)
@@ -211,9 +223,10 @@ object OperatorTester {
     val stateBinarySequancialIsNotA = out(stateBinarySequancial =/= State.a)
     val stateBinarySequancialIsNotB = out(stateBinarySequancial =/= State.b)
     val stateBinarySequancialIsNotC = out(stateBinarySequancial =/= State.c)
+    val stateBinarySequancialMux = out(Mux(boolC,State.a,State.b))
 
-
-    val stateBinaryOneHot = State(binaryOneHot)
+    State.defaultEncoding = binaryOneHot
+    val stateBinaryOneHot = State()
     stateBinaryOneHot.assignFromBits(bits8(2 downto 0))
     val stateBinaryOneHotBits = out(stateBinaryOneHot.asBits)
     val stateBinaryOneHotIsA    = out(stateBinaryOneHot === State.a)
@@ -222,6 +235,7 @@ object OperatorTester {
     val stateBinaryOneHotIsNotA = out(stateBinaryOneHot =/= State.a)
     val stateBinaryOneHotIsNotB = out(stateBinaryOneHot =/= State.b)
     val stateBinaryOneHotIsNotC = out(stateBinaryOneHot =/= State.c)
+    val stateBinaryOneHotMux = out(Mux(boolC,State.a,State.b))
   }
 }
 

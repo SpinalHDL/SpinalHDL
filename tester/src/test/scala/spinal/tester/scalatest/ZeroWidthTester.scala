@@ -31,11 +31,17 @@ object ZeroWidthTester {
     val sint8 = in SInt(8 bits)
     val bits8 = in Bits(8 bits)
 
-    val uint0 = U(0)
-    val sint0 = S(0)
-    val bits0 = B(0)
+    val uint0Src = U(0)
+    val sint0Src = S(0)
+    val bits0Src = B(0)
 
+    val uint0 = UInt(0 bits)
+    val sint0 = SInt(0 bits)
+    val bits0 = Bits(0 bits)
 
+    uint0 := uint0Src
+    sint0 := sint0Src
+    bits0 := bits0Src
 
     val bitsShiftLeftInt = out(bits0 << 4)
     val uintShiftLeftInt = out(uint0 << 4)

@@ -35,6 +35,7 @@ def test1(dut):
         randSignal(dut.bits8)
         randSignal(dut.boolA)
         randSignal(dut.boolB)
+        randSignal(dut.boolC)
         yield Timer(1000)
         uint4 = int(dut.uint4)
         uint8 = int(dut.uint8)
@@ -44,8 +45,20 @@ def test1(dut):
         bits8 = int(dut.bits8)
         boolA = int(dut.boolA)
         boolB = int(dut.boolB)
+        boolC = int(dut.boolC)
 
 
+
+        check(dut.boolMux,1, boolA if boolC else boolB)
+        check(dut.bitsBsMux,8, bits8 if boolC else bits4)
+        check(dut.uintBsMux,8, uint8 if boolC else uint4)
+        check(dut.sintBsMux,8, sint8 if boolC else sint4)
+        check(dut.bitsSbMux,8, bits4 if boolC else bits8)
+        check(dut.uintSbMux,8, uint4 if boolC else uint8)
+        check(dut.sintSbMux,8, sint4 if boolC else sint8)
+        check(dut.stateNativeMux            ,2, 0 if boolC else 1)
+        check(dut.stateBinarySequancialMux  ,2, 0 if boolC else 1)
+        check(dut.stateBinaryOneHotMux      ,3, 1 if boolC else 2)
 
         check(dut.uintNot, 4, ~uint4)
         check(dut.uintShiftLeftInt  , 12, uint8 << 4)
