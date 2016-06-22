@@ -711,7 +711,6 @@ class PhaseSimplifyNodes(pc: PhaseContext) extends Phase{
 class PhaseResizeLiteralSimplify(pc: PhaseContext) extends Phase{
   override def impl(): Unit = {
     import pc._
-    fillNodeConsumer
     Node.walk(walkNodesDefautStack,node => node.onEachInput((input,id) => input match{
       case resize : Resize => {
         if(resize.input.getWidth == 0){

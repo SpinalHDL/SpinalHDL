@@ -1161,7 +1161,7 @@ object PlayWidthInferation {
 
   class TopLevel extends Component {
     val sel = in Bool
-    val result = out(Mux(sel,S(1),S(0)))
+    val result = out(Mux(sel,S(1),S(0)) + 1 + 3)
 
   }
 
