@@ -196,7 +196,7 @@ object Misc {
     input match{
       case bitVector : BitVector => {
         bitVector.getInput(0) match{
-          case lit : BitsLiteral if (! lit.hasSpecifiedBitCount) =>{
+          case lit : BitVectorLiteral if (! lit.hasSpecifiedBitCount) =>{
             Component.push(input.component)
             val sizedLit = lit.clone
             sizedLit.asInstanceOf[Widthable].inferredWidth = width

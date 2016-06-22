@@ -77,7 +77,7 @@ class AssignementLevelWhen(val cond: Node,val context : WhenContext) extends Ass
       }
       case cond : Operator.BitVector.Equal => {
         (cond.left,cond.right) match {
-          case (c : BitVector,l : BitsLiteral) => return (c,l,this)
+          case (c : BitVector,l : BitVectorLiteral) => return (c,l,this)
           case _ =>
         }
       }
