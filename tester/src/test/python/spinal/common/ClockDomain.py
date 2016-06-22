@@ -14,8 +14,10 @@ class RESET_ACTIVE_LEVEL:
 # Clock
 #
 # Usage :
-#    #Create a clock @ 5MHz with a reset active high
-#    cocobt.fork( ClockDomain(dut.clk, 5e6, dut.reset, RESET_ACTIVE_LEVEL.HIGH).start() )
+#
+#    # Create a clock with a reset active high
+#    clockDomain = ClockDomain(dut.clk, 400, dut.reset, RESET_ACTIVE_LEVEL.HIGH)
+#    cocobt.fork( clockDomain.start() )
 #
 class ClockDomain:
 

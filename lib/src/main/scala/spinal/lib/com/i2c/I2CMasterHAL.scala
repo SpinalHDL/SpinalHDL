@@ -2,22 +2,30 @@
   * I2C Master HAL
   *
   * Write sequence :
+  *
   *   CMD    : START   WRITE         WRITE         STOP
   *   Master :   | START | WRITE |     | WRITE |     | STOP |
   *   Slave  :   |       |       | ACK |       | ACK |      |
   *
+  *
   * Read sequence :
-  *   CMD    : START   READ    READ         STOP
+  *
+  *   CMD    : START   READ    ACK   READ   NACK   STOP
   *   Master :   | START |      | ACK |      | NACK | STOP |
   *   Slave  :   |       | READ |     | READ |      |      |
   *
+  *
   * Restart sequence :
-  *   CMD    : START   READ  RESTART         WRITE          STOP
+  *
+  *   CMD    : START   READ   NACK   RESTART  WRITE         STOP
   *   Master :   | START |      | NACK | START | WRITE |     | STOP |
   *   Slave  :   |       | READ |      |       |       | ACK |      |
   */
 
 // @TOTO Synch/Filter inputs signals..
+// @TODO add ack and nack signals
+// @TODO remove internal buffer
+
 
 package spinal.lib.com.i2c
 
@@ -51,14 +59,16 @@ case class I2CMasterHALConfig(g: I2CMasterHALGenerics) extends Bundle {
 
 
 /**
-  * 4 different modes can be used to manage the I2C
+  * 6 different modes can be used to manage the I2C
   *    START      : Send the start/restart sequence
-  *    WRITE      : Send a data
+  *    WRITE      : Write a data
   *    READ       : Read a data
+  *    ACK        : Send an ACK after reading
+  *    NACK       : Send a NACK after reading
   *    STOP       : Send the stop sequence
   */
 object I2CMasterHALCmdMode extends SpinalEnum{
-  val START, WRITE, READ, STOP = newElement()
+  val START, WRITE, READ, ACK, NACK, STOP = newElement()
 }
 
 
@@ -72,11 +82,22 @@ case class I2CMasteHALCmd(g : I2CMasterHALGenerics) extends Bundle{
 
 
 /**
+  * 4 different modes for the response
+  *    ACK       :
+  *    NACK      :
+  *    DATA      :
+  *    COLLISION :
+  */
+object I2CMasterHALRspMode extends SpinalEnum{
+  val ACK, NACK, DATA, COLLISION = newElement()
+}
+
+/**
   * Define the response interface
   */
 case class I2CMasterHALRsp(g : I2CMasterHALGenerics) extends Bundle{
-  val ack  = Bool
-  val data = Bits(g.dataWidth bits)
+  val mode  = I2CMasterHALRspMode()
+  val data  = Bits(g.dataWidth bits)
 }
 
 
@@ -87,7 +108,7 @@ case class I2CMasterHALio(g : I2CMasterHALGenerics) extends Bundle{
   val i2c    = master( I2C() )
   val config = in( I2CMasterHALConfig(g) )
   val cmd    = slave  Stream( I2CMasteHALCmd(g)   )
-  val rsp    = master Flow  ( I2CMasterHALRsp (g) )
+  val rsp    = master Flow  ( I2CMasterHALRsp(g) )
 }
 
 /**

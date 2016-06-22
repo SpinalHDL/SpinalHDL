@@ -19,7 +19,8 @@ case class I2CSlaveHALGenerics(dataWidth  : Int =  8){}
 
 
 object I2CSlaveHALCmdMode extends SpinalEnum{
-  val READ, WRITE, FREEZE, ACK = newElement()
+  val START, NACK, ACK, STOP, DATA = newElement()
+
 }
 
 case class I2CSlaveHALCmd(g : I2CSlaveHALGenerics) extends Bundle{
@@ -28,7 +29,7 @@ case class I2CSlaveHALCmd(g : I2CSlaveHALGenerics) extends Bundle{
 }
 
 object I2CSlaveHALRspMode extends SpinalEnum{
-  val READ, START, STOP, ACK = newElement()
+  val DATA, NONE, ACK = new newElement()
 }
 
 case class I2CSlaveHALRsp(g : I2CSlaveHALGenerics) extends Bundle{
@@ -38,8 +39,8 @@ case class I2CSlaveHALRsp(g : I2CSlaveHALGenerics) extends Bundle{
 
 case class I2CSlaveHALio(g : I2CSlaveHALGenerics) extends Bundle{
   val i2c  = slave( I2C() )
-  val cmd  = slave   Stream( I2CSlaveHALCmd(g) )
-  val rsp  = master  Flow  ( I2CSlaveHALRsp(g) )
+  val cmd  = master Stream( I2CSlaveHALCmd(g) )
+  val rsp  = slave  Stream( I2CSlaveHALRsp(g) )
 }
 
 
@@ -88,7 +89,7 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
     val stop    = False
 
     val sda_cur  = RegNext(ccIO.rd_scl) init(False)
-    val sda_prev = RegNext(sda_cur)      init(False)
+    val sda_prev = RegNext(sda_cur)     init(False)
 
     // start = falling edge of sda while the scl is 1
     when(sclSampling.scl_cur && sclSampling.scl_prev && sda_cur === False && sda_prev ){
