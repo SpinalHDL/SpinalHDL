@@ -1296,24 +1296,24 @@ object SpinalVhdlBoot{
 
 
 
-    SpinalInfoPhase("Start elaboration")
+    SpinalProgress("Start elaboration")
 
 
     val phases = ArrayBuffer[Phase]()
 
     phases += new PhaseCreateComponent(gen)(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Start analysis and transform"))
+    phases += new PhaseDummy(SpinalProgress("Start analysis and transform"))
     phases += new PhaseFillComponentList(pc)
     phases += new PhaseApplyIoDefault(pc)
     phases += new PhaseNodesBlackBoxGenerics(pc)
     phases += new PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Get names from reflection"))
+    phases += new PhaseDummy(SpinalProgress("Get names from reflection"))
     phases += new PhaseNameNodesByReflection(pc)
     phases += new PhaseCollectAndNameEnum(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Transform connections"))
+    phases += new PhaseDummy(SpinalProgress("Transform connections"))
     phases += new PhasePullClockDomains(pc)
     phases += new PhaseCheck_noNull_noCrossHierarchy_noInputRegister_noDirectionLessIo(pc)
     phases += new PhaseAddInOutBinding(pc)
@@ -1321,7 +1321,7 @@ object SpinalVhdlBoot{
     phases += new PhaseAllowNodesToReadOutputs(pc)
     phases += new PhaseAllowNodesToReadInputOfKindComponent(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Infer nodes's bit width"))
+    phases += new PhaseDummy(SpinalProgress("Infer nodes's bit width"))
     phases += new PhasePreWidthInferationChecks(pc)
     phases += new PhaseInferWidth(pc)
     phases += new PhaseSimplifyNodes(pc)
@@ -1331,24 +1331,24 @@ object SpinalVhdlBoot{
     phases += new PhaseResizeLiteralSimplify(pc)
     phases += new PhaseCheckInferredWidth(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Check combinatorial loops"))
+    phases += new PhaseDummy(SpinalProgress("Check combinatorial loops"))
     phases += new PhaseCheckCombinationalLoops(pc)
-    phases += new PhaseDummy(SpinalInfoPhase("Check cross clock domains"))
+    phases += new PhaseDummy(SpinalProgress("Check cross clock domains"))
     phases += new PhaseCheckCrossClockDomains(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Simplify graph's nodes"))
+    phases += new PhaseDummy(SpinalProgress("Simplify graph's nodes"))
     phases += new PhaseFillNodesConsumers(pc)
     phases += new PhaseDontSymplifyBasetypeWithComplexAssignement(pc)
     phases += new PhaseDeleteUselessBaseTypes(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Check that there is no incomplete assignment"))
+    phases += new PhaseDummy(SpinalProgress("Check that there is no incomplete assignment"))
     phases += new PhaseCheck_noAsyncNodeWithIncompleteAssignment(pc)
     phases += new PhaseSimplifyBlacBoxGenerics(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Collect signals not used in the graph"))
+    phases += new PhaseDummy(SpinalProgress("Collect signals not used in the graph"))
     phases += new PhasePrintUnUsedSignals(prunedSignals)(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Finalise"))
+    phases += new PhaseDummy(SpinalProgress("Finalise"))
     phases += new PhaseAddNodesIntoComponent(pc)
     phases += new PhaseOrderComponentsNodes(pc)
     phases += new PhaseAllocateNames(pc)
@@ -1442,24 +1442,24 @@ object SpinalVerilogBoot{
     val pc = new PhaseContext(config)
     val prunedSignals = mutable.Set[BaseType]()
 
-    SpinalInfoPhase("Start elaboration")
+    SpinalProgress("Start elaboration")
 
 
     val phases = ArrayBuffer[Phase]()
 
     phases += new PhaseCreateComponent(gen)(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Start analysis and transform"))
+    phases += new PhaseDummy(SpinalProgress("Start analysis and transform"))
     phases += new PhaseFillComponentList(pc)
     phases += new PhaseApplyIoDefault(pc)
     phases += new PhaseNodesBlackBoxGenerics(pc)
     phases += new PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Get names from reflection"))
+    phases += new PhaseDummy(SpinalProgress("Get names from reflection"))
     phases += new PhaseNameNodesByReflection(pc)
     phases += new PhaseCollectAndNameEnum(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Transform connections"))
+    phases += new PhaseDummy(SpinalProgress("Transform connections"))
     phases += new PhasePullClockDomains(pc)
     phases += new PhaseCheck_noNull_noCrossHierarchy_noInputRegister_noDirectionLessIo(pc)
     phases += new PhaseAddInOutBinding(pc)
@@ -1467,7 +1467,7 @@ object SpinalVerilogBoot{
     phases += new PhaseAllowNodesToReadOutputs(pc)
     phases += new PhaseAllowNodesToReadInputOfKindComponent(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Infer nodes's bit width"))
+    phases += new PhaseDummy(SpinalProgress("Infer nodes's bit width"))
     phases += new PhasePreWidthInferationChecks(pc)
     phases += new PhaseInferWidth(pc)
     phases += new PhaseSimplifyNodes(pc)
@@ -1477,25 +1477,25 @@ object SpinalVerilogBoot{
     phases += new PhaseResizeLiteralSimplify(pc)
     phases += new PhaseCheckInferredWidth(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Check combinatorial loops"))
+    phases += new PhaseDummy(SpinalProgress("Check combinatorial loops"))
     phases += new PhaseCheckCombinationalLoops(pc)
-    phases += new PhaseDummy(SpinalInfoPhase("Check cross clock domains"))
+    phases += new PhaseDummy(SpinalProgress("Check cross clock domains"))
     phases += new PhaseCheckCrossClockDomains(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Simplify graph's nodes"))
+    phases += new PhaseDummy(SpinalProgress("Simplify graph's nodes"))
     phases += new PhaseFillNodesConsumers(pc)
     phases += new PhaseDontSymplifyBasetypeWithComplexAssignement(pc)
     phases += new PhaseDontSymplifyVerilogMismatchingWidth(pc)    //VERILOG
     phases += new PhaseDeleteUselessBaseTypes(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Check that there is no incomplete assignment"))
+    phases += new PhaseDummy(SpinalProgress("Check that there is no incomplete assignment"))
     phases += new PhaseCheck_noAsyncNodeWithIncompleteAssignment(pc)
     phases += new PhaseSimplifyBlacBoxGenerics(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Collect signals not used in the graph"))
+    phases += new PhaseDummy(SpinalProgress("Collect signals not used in the graph"))
     phases += new PhasePrintUnUsedSignals(prunedSignals)(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Finalise"))
+    phases += new PhaseDummy(SpinalProgress("Finalise"))
     phases += new PhaseAddNodesIntoComponent(pc)
     phases += new PhaseOrderComponentsNodes(pc)
     phases += new PhaseAllocateNames(pc)

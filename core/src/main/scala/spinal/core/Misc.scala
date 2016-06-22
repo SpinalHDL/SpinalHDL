@@ -348,7 +348,7 @@ object SpinalLog{
       s"[${name}]"
 }
 
-object SpinalInfoPhase {
+object SpinalProgress {
   def apply(message: String) = println(s"${SpinalLog.tag("Progress", Console.BLUE)} at ${f"${Driver.executionTime}%1.3f"} : $message")
 }
 

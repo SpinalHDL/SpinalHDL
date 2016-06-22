@@ -21,13 +21,13 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
 
   override def impl(): Unit = {
     import pc._
-    SpinalInfoPhase("Write Verilog")
+    SpinalProgress("Write Verilog")
     
     outFile = new java.io.FileWriter(pc.config.targetDirectory + "/" +  topLevel.definitionName + ".v")
     emitEnumPackage(outFile)
 
     for (c <- sortedComponents) {
-      SpinalInfoPhase(s"${"  " * (1 + c.level)}emit ${c.definitionName}")
+      SpinalProgress(s"${"  " * (1 + c.level)}emit ${c.definitionName}")
       compile(c)
     }
 

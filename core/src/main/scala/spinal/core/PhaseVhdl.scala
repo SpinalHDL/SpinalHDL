@@ -21,14 +21,14 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
 
   override def impl(): Unit = {
     import pc._
-    SpinalInfoPhase("Write VHDL")
+    SpinalProgress("Write VHDL")
     
     outFile = new java.io.FileWriter(pc.config.targetDirectory + "/" +  topLevel.definitionName + ".vhd")
     emitEnumPackage(outFile)
     emitPackage(outFile)
 
     for (c <- sortedComponents) {
-      SpinalInfoPhase(s"${"  " * (1 + c.level)}emit ${c.definitionName}")
+      SpinalProgress(s"${"  " * (1 + c.level)}emit ${c.definitionName}")
       compile(c)
     }
 
