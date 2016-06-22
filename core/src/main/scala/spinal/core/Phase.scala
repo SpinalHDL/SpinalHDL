@@ -640,7 +640,7 @@ class PhaseAllowNodesToReadInputOfKindComponent(pc: PhaseContext) extends Phase{
   }
 }
 
-class PhasePostWidthInferationChecks(pc: PhaseContext) extends Phase{
+class PhasePreWidthInferationChecks(pc: PhaseContext) extends Phase{
   override def impl(): Unit = {
     import pc._
     val errors = mutable.ArrayBuffer[String]()
@@ -731,11 +731,6 @@ class PhasePropagateBaseTypeWidth(pc: PhaseContext) extends Phase{
             def walkChildren() : Unit = that.onEachInput((input,id) => walk(that,id))
 
             that match {
-              case that: MultiplexedWidthable => { //TODO probably useless
-                that.inferredWidth = width
-                walk(that,1)
-                walk(that,2)
-              }
               case that: WhenNodeWidthable => {
                 that.inferredWidth = width
                 walk(that,1)
@@ -746,14 +741,6 @@ class PhasePropagateBaseTypeWidth(pc: PhaseContext) extends Phase{
                 walkChildren()
               }
               case that : AssignementNodeWidthable => that.inferredWidth = width
-//              case that: CaseNode => {
-//                that.inferredWidth = width
-//                walkChildren()
-//              }
-//              case that: SwitchNode => {
-//                that.inferredWidth = width
-//                walkChildren()
-//              }
               case dontCare : DontCareNodeFixed =>{
                 dontCare.inferredWidth = width
               }
@@ -1296,7 +1283,7 @@ object SpinalVhdlBoot{
     phases += new PhaseAllowNodesToReadInputOfKindComponent(pc)
 
     phases += new PhaseDummy(SpinalInfoPhase("Infer nodes's bit width"))
-    phases += new PhasePostWidthInferationChecks(pc)
+    phases += new PhasePreWidthInferationChecks(pc)
     phases += new PhaseInferWidth(pc)
     phases += new PhaseSimplifyNodes(pc)
     phases += new PhaseInferWidth(pc)
@@ -1344,6 +1331,21 @@ object SpinalVhdlBoot{
 
 
     pc.checkGlobalData()
+
+    def zeroCheck (that : WidthProvider): Unit ={
+      if (that.getWidth < 1) {
+        //println(that)
+        val a = 2
+      }
+    }
+    Node.walk(pc.walkNodesDefautStack,_ match {
+      case node : WidthProvider => {
+        zeroCheck(node)
+      }
+      case _ =>
+    })
+
+
 
     val report = new SpinalReport[T](pc.topLevel.asInstanceOf[T])
     report.prunedSignals ++= prunedSignals
@@ -1437,7 +1439,7 @@ object SpinalVerilogBoot{
     phases += new PhaseAllowNodesToReadInputOfKindComponent(pc)
 
     phases += new PhaseDummy(SpinalInfoPhase("Infer nodes's bit width"))
-    phases += new PhasePostWidthInferationChecks(pc)
+    phases += new PhasePreWidthInferationChecks(pc)
     phases += new PhaseInferWidth(pc)
     phases += new PhaseSimplifyNodes(pc)
     phases += new PhaseInferWidth(pc)
