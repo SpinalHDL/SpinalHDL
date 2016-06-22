@@ -91,7 +91,7 @@ class MulExtension extends CoreExtension{
       ctrl.instVal := True
       ctrl.op0 := OP0.RS
       ctrl.op1 := OP1.RS
-      ctrl.wb  := WB.ALU1
+      ctrl.wb  := WB.ALU
       ctrl.rfen := True
       ctrl.execute0AluBypass := False
       ctrl.execute1AluBypass := False //instruction(14 downto 12) === B"000"

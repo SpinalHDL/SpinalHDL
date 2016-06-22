@@ -94,7 +94,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated{
 
     for(state <- states){
       checkState(state)
-      val enumElement = enumDefinition.newElement(state.getName())
+      val enumElement = enumDefinition.newElement(if(state.isNamed) state.getName() else null)
       stateToEnumElement += (state -> enumElement)
     }
 

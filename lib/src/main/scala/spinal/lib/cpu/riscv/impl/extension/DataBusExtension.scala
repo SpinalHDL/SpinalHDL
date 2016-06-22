@@ -80,7 +80,7 @@ class CachedDataBusExtension(c : DataCacheConfig,cutCpuCmdReady : Boolean = fals
       applyTag(ctrl)
       ctrl.instVal := True
       ctrl.op1 := OP1.RS
-      ctrl.alu := ALU.COPY1
+      ctrl.alu := ALU.COPY
       ctrl.men := True
       ctrl.useSrc1 := True
       ctrl.m := M.XWR

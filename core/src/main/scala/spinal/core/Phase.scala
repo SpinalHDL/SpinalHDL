@@ -16,15 +16,53 @@ class PhaseContext(val config : SpinalConfig){
   var topLevel: Component = null
   val enums = mutable.Map[SpinalEnum,mutable.Set[SpinalEnumEncoding]]()
   val reservedKeyWords = mutable.Set[String](
-    "in", "out", "buffer", "inout",
-    "entity", "component", "architecture",
-    "type","open","block","access",
-    "or","and","xor","nand","nor",
+    //VHDL
+    "abs", "access", "after", "alias", "all",
+    "and", "architecture", "array", "assert",
+    "attribute", "begin", "block", "body",
+    "buffer", "bus", "case", "component",
+    "configuration", "constant", "disconnect", "downto",
+    "else", "elsif", "end", "entity", "exit", "file",
+    "for", "function", "generate", "generic",
+    "group", "guarded", "if", "impure", "in",
+    "inertial", "inout", "is", "label", "library",
+    "linkage", "literal", "loop", "map", "mod",
+    "nand", "new", "next", "nor", "not", "null",
+    "of", "on", "open", "or", "others", "out",
+    "package", "port", "postponed", "procedure",
+    "process", "pure", "range", "record", "register",
+    "reject", "rem", "report", "return", "rol",
+    "ror", "select", "severity", "signal", "shared",
+    "sla", "sll", "sra", "srl", "subtype", "then",
+    "to", "transport", "type", "unaffected", "units",
+    "until", "use", "variable", "wait", "when",
+    "while", "with", "xnor", "xor",
 
-    "input", "output",
-    "module","parameter","logic","reg",
-    "begin","end",
-    "always","posedge","negedge"
+    //Verilog
+    "always", "and", "assign", "automatic", "begin", "buf",
+    "bufif0", "bufif1", "case", "casex", "casez",
+    "cell", "cmos", "config", "deassign", "default",
+    "defparam", "design", "disable", "edge", "else",
+    "end", "endcase", "endconfig", "endfunction", "endgenerate",
+    "endmodule", "endprimitive", "endspecify", "endtable", "endtask",
+    "event", "for", "force", "forever", "fork",
+    "function", "generate", "genvar", "highz0", "highz1",
+    "if", "ifnone", "incdir", "include", "initial",
+    "inout", "input", "instance", "integer", "join",
+    "large", "liblist", "library", "localparam", "macromodule",
+    "medium", "module", "nand", "negedge", "nmos", "nor",
+    "noshowcancelledno", "not", "notif0", "notif1", "or",
+    "output", "parameter", "pmos", "posedge", "primitive", "pull0",
+    "pull1", "pulldown", "pullup", "pulsestyle_oneventglitch",
+    "pulsestyle_ondetectglitch", "remos", "real", "realtime",
+    "reg", "release", "repeat", "rnmos", "rpmos", "rtran",
+    "rtranif0", "rtranif1", "scalared", "showcancelled", "signed",
+    "small", "specify", "specparam", "strong0", "strong1",
+    "supply0", "supply1", "table", "task", "time",
+    "tran", "tranif0", "tranif1", "tri", "tri0", "tri1",
+    "triand", "trior", "trireg", "unsigned", "use", "vectored",
+    "wait", "wand", "weak0", "weak1", "while", "wire",
+    "wor", "xnor", "xor"
   )
 
   reservedKeyWords.foreach(globalScope.allocateName(_))
@@ -81,10 +119,10 @@ class PhaseContext(val config : SpinalConfig){
   }
 
   def checkGlobalData() : Unit = {
-    if (!GlobalData.get.clockDomainStack.isEmpty) SpinalWarning("clockDomain stack is not empty :(")
-    if (!GlobalData.get.componentStack.isEmpty) SpinalWarning("componentStack stack is not empty :(")
-    if (!GlobalData.get.switchStack.isEmpty) SpinalWarning("switchStack stack is not empty :(")
-    if (!GlobalData.get.conditionalAssignStack.isEmpty) SpinalWarning("conditionalAssignStack stack is not empty :(")
+    if (!GlobalData.get.clockDomainStack.isEmpty) SpinalError("clockDomain stack is not empty :(")
+    if (!GlobalData.get.componentStack.isEmpty) SpinalError("componentStack stack is not empty :(")
+    if (!GlobalData.get.switchStack.isEmpty) SpinalError("switchStack stack is not empty :(")
+    if (!GlobalData.get.conditionalAssignStack.isEmpty) SpinalError("conditionalAssignStack stack is not empty :(")
   }
 
   def checkPendingErrors() = if(!globalData.pendingErrors.isEmpty) SpinalError()
@@ -359,23 +397,27 @@ class PhaseCollectAndNameEnum(pc: PhaseContext) extends Phase{
       }
     })
 
+    val scope = pc.globalScope.copy()
+    enums.keys.foreach(e => {
+      val name = if(e.isNamed)
+        e.getName()
+      else
+        e.getClass.getSimpleName.replace("$","")
+
+      e.setName(scope.allocateName(name))
+    })
+
     for (enumDef <- enums.keys) {
       Misc.reflect(enumDef, (name, obj) => {
         obj match {
-          case obj: Nameable => obj.setWeakName(name)
+          case obj: Nameable => obj.setWeakName(scope.getUnusedName(name))
           case _ =>
         }
       })
       for (e <- enumDef.values) {
         if (e.isUnnamed) {
-          e.setWeakName("s" + e.position)
+          e.setWeakName(scope.getUnusedName("e" + e.position))
         }
-      }
-      if (enumDef.isWeak) {
-        var name = enumDef.getClass.getSimpleName
-        if (name.endsWith("$"))
-          name = name.substring(0, name.length - 1)
-        enumDef.setWeakName(name)
       }
     }
   }

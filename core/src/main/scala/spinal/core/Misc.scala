@@ -250,6 +250,13 @@ class Scope {
     if (count == 0) name else name + "_" + count
   }
 
+  def getUnusedName(name: String): String = {
+    val lowerCase = name.toLowerCase
+    val count = map.get(lowerCase).getOrElse(0)
+    if (count == 0) name else name + "_" + count
+  }
+
+
   def lockName(name: String): Unit = {
     val lowerCase = name.toLowerCase
     val count = map.get(lowerCase).getOrElse(1)
@@ -260,6 +267,12 @@ class Scope {
     val lowerCase = name.toLowerCase
     if (map.contains(lowerCase)) SpinalError(s"Reserved name $name is not free")
     map(lowerCase) = 1
+  }
+
+  def copy() : Scope = {
+    val cpy = new Scope
+    map.foreach{case (n,i) => cpy.map.put(n,i)}
+    cpy
   }
 }
 

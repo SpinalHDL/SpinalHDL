@@ -365,7 +365,7 @@ object StateMachineTry2Example {
 object StateMachineTry3Example {
   class TopLevel extends Component {
 
-    val fsm = new StateMachine{
+    /*val fsm = */new StateMachine{
       val counter = Reg(UInt(8 bits)) init (0)
       counter := counter + 1
       val stateA: State = new State with EntryPoint {
@@ -383,12 +383,14 @@ object StateMachineTry3Example {
           goto(stateA)
         }
       }
+      out(isActive(stateB))
     }
 
-    val isInStateB = out(fsm.isActive(fsm.stateB))
-    val isEnteringStateB = out(fsm.isEntering(fsm.stateB))
-
-    fsm.stateReg.keep()
+//    val isInStateB = out(fsm.isActive(fsm.stateB))
+//    val isEnteringStateB = out(fsm.isEntering(fsm.stateB))
+//
+//    fsm.stateReg.keep()
+    val toto = "asd"
   }
 
   def main(args: Array[String]) {

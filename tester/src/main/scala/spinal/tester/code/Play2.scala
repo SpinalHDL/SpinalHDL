@@ -1127,3 +1127,30 @@ object PlayI2CMasterHAL {
     ).generate(new I2CMasterHALTester).printPruned
   }
 }
+
+object PlayEnumName {
+
+  class TopLevel extends Component {
+    val a = new SpinalEnum{
+      val x,b,c = newElement
+    }
+    val myEnum = new SpinalEnum{
+      val a,b,c = newElement
+    }
+    val state = out(myEnum.a())
+    val state2 = out(a.b())
+
+    def toto: Unit ={
+      val enumDef = new SpinalEnum{
+        val a,b,c = newElement
+        setName("myEnum")
+      }
+      val xx = out(enumDef.b())
+    }
+    toto
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
