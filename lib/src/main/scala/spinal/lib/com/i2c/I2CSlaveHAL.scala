@@ -1,6 +1,27 @@
 /******************************************************************************
   * I2C Slave HAL
   *
+  * Write sequence :
+  *
+  *   RSP    :           NONE     ACK          ACK          NONE
+  *   Master :   | START | WRITE |     | WRITE |     | STOP |
+  *   Slave  :   |       |       | ACK |       | ACK |      |
+  *   CMD    :       START    DATA          DATA         STOP
+  *
+  *
+  * Read sequence :
+  *
+  *   RSP    :           DATA         DATA          STOP
+  *   Master :   | START |      | ACK |      | NACK | STOP |
+  *   Slave  :   |       | READ |     | READ |      |      |
+  *   CMD    :       START          ACK          NACK
+  *
+  * Restart sequence :
+  *
+  *   CMD    :
+  *   Master :   | START |      | NACK | START | WRITE |     | STOP |
+  *   Slave  :   |       | READ |      |       |       | ACK |      |
+  *   RSP    :
   */
 
 package spinal.lib.com.i2c
@@ -29,7 +50,7 @@ case class I2CSlaveHALCmd(g : I2CSlaveHALGenerics) extends Bundle{
 }
 
 object I2CSlaveHALRspMode extends SpinalEnum{
-  val DATA, NONE, ACK = newElement()
+  val DATA, NONE, ACK = newElement() // @TODO FREEZE Can be done with stream...
 }
 
 case class I2CSlaveHALRsp(g : I2CSlaveHALGenerics) extends Bundle{
@@ -45,6 +66,9 @@ case class I2CSlaveHALio(g : I2CSlaveHALGenerics) extends Bundle{
 
 
 class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
+
+  import spinal.lib.com.i2c.{I2CSlaveHALRspMode => RspMode}
+  import spinal.lib.com.i2c.{I2CSlaveHALCmdMode => CmdMode}
 
   val io = I2CSlaveHALio(g)
 
@@ -127,13 +151,27 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
 
     val sIDLE : State = new State with EntryPoint{
       whenIsActive{
-        when(io.cmd.valid){
-          cmd  := io.cmd.mode
-          data := io.cmd.data
+        when(detector.start){
 
-          switch(io.cmd.mode){
-            is(START)  { goto(sIDLE) }
-            is(START) { goto(sIDLE) }
+          io.cmd.valid := True
+          io.cmd.data  := 0
+          io.cmd.mode  := CmdMode.START
+
+          goto(sWAIT_CMD)
+        }
+      }
+    }
+
+    val sWAIT_CMD : State = new State{
+      whenIsActive{
+        when(io.rsp.valid){
+          switch(io.rsp.mode){
+            is(RspMode.NONE){
+              //goot(sWRITE)
+            }
+            is(RspMode.DATA){
+              //goto(sREAD)
+            }
           }
         }
       }
@@ -147,7 +185,5 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
   io.rsp.data := 0
   io.i2c.sda.write := False
   io.rsp.valid := False
-
-
 
 }

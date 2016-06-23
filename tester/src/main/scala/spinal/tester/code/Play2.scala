@@ -1141,7 +1141,6 @@ object PlayI2CSlaveHAL {
       val rsp  = master  Flow  ( I2CSlaveHALRsp(generic) )
     }
 
-
     val mySlave = new I2CSlaveHAL(generic)
     io <> mySlave.io
 
