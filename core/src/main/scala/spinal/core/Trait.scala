@@ -123,10 +123,10 @@ abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends 
 
 
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
-    doThat(clock,0)
-    if(isUsingEnableSignal)doThat(enable,1)
-    if(isUsingResetSignal) doThat(reset,2)
-    if(isUsingSoftResetSignal) doThat(softReset,3)
+    doThat(clock,SyncNode.getClockInputId)
+    if(isUsingEnableSignal)doThat(enable,SyncNode.getClockEnableId)
+    if(isUsingResetSignal) doThat(reset,SyncNode.getClockResetId)
+    if(isUsingSoftResetSignal) doThat(softReset,SyncNode.getClockSoftResetId)
   }
   override def onEachInput(doThat: (Node) => Unit): Unit = {
     doThat(clock)
@@ -136,10 +136,10 @@ abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends 
   }
 
   override def setInput(id: Int, node: Node): Unit = id match{
-    case 0 => clock = node.asInstanceOf[Bool]
-    case 1 if(isUsingEnableSignal) => enable = node.asInstanceOf[Bool]
-    case 2 if(isUsingResetSignal)  => reset = node.asInstanceOf[Bool]
-    case 3 if(isUsingSoftResetSignal)  => softReset = node.asInstanceOf[Bool]
+    case SyncNode.getClockInputId => clock = node.asInstanceOf[Bool]
+    case SyncNode.getClockEnableId if(isUsingEnableSignal) => enable = node.asInstanceOf[Bool]
+    case SyncNode.getClockResetId if(isUsingResetSignal)  => reset = node.asInstanceOf[Bool]
+    case SyncNode.getClockSoftResetId if(isUsingSoftResetSignal)  => softReset = node.asInstanceOf[Bool]
   }
 
   override def getInputsCount: Int = 1 + (if(isUsingEnableSignal) 1 else 0) + (if(isUsingResetSignal) 1 else 0) + (if(isUsingSoftResetSignal) 1 else 0)
@@ -157,10 +157,10 @@ abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends 
   }
 
   override def getInput(id: Int): Node = id match{
-    case 0 => clock
-    case 1 if(isUsingEnableSignal) => enable
-    case 2 if(isUsingResetSignal)  => reset
-    case 3 if(isUsingSoftResetSignal)  => softReset
+    case SyncNode.getClockInputId => clock
+    case SyncNode.getClockEnableId if(isUsingEnableSignal) => enable
+    case SyncNode.getClockResetId if(isUsingResetSignal)  => reset
+    case SyncNode.getClockSoftResetId if(isUsingSoftResetSignal)  => softReset
   }
 
 
@@ -168,7 +168,7 @@ abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends 
     case SyncNode.getClockInputId =>  (0,0)
     case SyncNode.getClockEnableId => (0,0)
     case SyncNode.getClockResetId =>  (0,0)
-    case 3 =>  (0,0)
+    case SyncNode.getClockSoftResetId =>  (0,0)
   }
 
   final def getLatency = 1 //if not final => update latencyAnalyser
