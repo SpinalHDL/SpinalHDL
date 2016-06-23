@@ -2,6 +2,8 @@ package spinal.lib
 
 import spinal.core._
 
+import scala.collection.mutable.ArrayBuffer
+
 class FragmentFactory {
   def apply[T <: Data](dataType: T): Fragment[T] = new Fragment(dataType)
 }
@@ -10,6 +12,9 @@ object Fragment extends FragmentFactory
 
 
 class FlowFragmentPimped[T <: Data](pimped: Flow[Fragment[T]]) {
+  def toFlowOfFragment : Flow[T] = pimped.translateWith(pimped.fragment)
+
+
   def filterHeader(header: T): Flow[Fragment[T]] = {
     val takeIt = RegInit(False)
 
@@ -63,7 +68,7 @@ class StreamFragmentPimped[T <: Data](pimped: Stream[Fragment[T]]) {
     when(pimped.valid) {
       ret.valid := True
       when(!waitPacket) {
-        ret.data := pimped.data
+        ret.payload := pimped.payload
       }
     }
 
@@ -105,11 +110,11 @@ class FlowBitsPimped(pimped: Flow[Bits]) {
     val buffer = Reg(pimped)
     val newData = False
     val isLast = False
-    val isMagic = pimped.data === cMagic
+    val isMagic = pimped.payload === cMagic
 
     ret.valid := False
     ret.last := isLast
-    ret.fragment := buffer.data
+    ret.fragment := buffer.payload
     when(isLast || newData) {
       ret.valid := buffer.valid
       buffer.valid := False
@@ -121,13 +126,13 @@ class FlowBitsPimped(pimped: Flow[Bits]) {
     when(pimped.valid) {
       when(inMagic) {
         inMagic := False
-        when(pimped.data === cLast) {
+        when(pimped.payload === cLast) {
           isLast := True
         }
-        when(pimped.data === cResetSet) {
+        when(pimped.payload === cResetSet) {
           softReset := True
         }
-        when(pimped.data === cResetClear) {
+        when(pimped.payload === cResetClear) {
           softReset := False
         }
       }.elsewhen(isMagic) {
@@ -136,7 +141,7 @@ class FlowBitsPimped(pimped: Flow[Bits]) {
 
       when((inMagic && isMagic) || (!inMagic && !isMagic)) {
         buffer.valid := True
-        buffer.data := pimped.data
+        buffer.payload := pimped.payload
         newData := True
       }
     }
@@ -186,7 +191,7 @@ class StreamFragmentBitsPimped(pimped: Stream[Fragment[Bits]]) {
     switch(state) {
       default {
         ret.valid := pimped.valid
-        ret.data := pimped.fragment
+        ret.payload := pimped.fragment
         pimped.ready := ret.ready
 
         when(pimped.fragment === cMagic) {
@@ -198,7 +203,7 @@ class StreamFragmentBitsPimped(pimped: Stream[Fragment[Bits]]) {
       }
       is(eMagicData) {
         ret.valid := True
-        ret.data := pimped.fragment
+        ret.payload := pimped.fragment
         when(ret.ready) {
           pimped.ready := True
           state := eDefault
@@ -206,14 +211,14 @@ class StreamFragmentBitsPimped(pimped: Stream[Fragment[Bits]]) {
       }
       is(eFinish0) {
         ret.valid := True
-        ret.data := cMagic
+        ret.payload := cMagic
         when(ret.ready) {
           state := eFinish1
         }
       }
       is(eFinish1) {
         ret.valid := True
-        ret.data := cLast
+        ret.payload := cLast
         when(ret.ready) {
           state := eDefault
         }
@@ -236,7 +241,7 @@ class StreamFragmentBitsPimped(pimped: Stream[Fragment[Bits]]) {
 
     if (toWidth <= fromWidth) {
       ret.valid := pimped.fire && pimped.last
-      ret.data.assignFromBits(pimped.fragment.resize(ret.data.getBitsWidth))
+      ret.payload.assignFromBits(pimped.fragment.resize(ret.payload.getBitsWidth))
       pimped.ready := ret.ready
     } else {
       val missingBitsCount = toWidth - fromWidth
@@ -248,18 +253,69 @@ class StreamFragmentBitsPimped(pimped: Stream[Fragment[Bits]]) {
 
       ret.valid := pimped.isLast
       pimped.ready := ret.ready || ! pimped.isLast
-      ret.data.assignFromBits(pimped.fragment ## buffer)
+      ret.payload.assignFromBits(pimped.fragment ## buffer)
     }
     ret
   }
 }
 
+case class StreamFragmentBitsDispatcherElement(sink : Stream[Bits],header : Int)
+
+class StreamFragmentBitsDispatcher(headerWidth : Int,input : Stream[Fragment[Bits]],outputs : Seq[(Int,Stream[Data])]) extends Area{
+  val sourceWidth = input.fragment.getWidth
+  val dataMaxWidth = outputs.map(_._2.payload.getBitsWidth).reduce(Math.max(_,_))
+  val dataWidth =  roundUp(dataMaxWidth,by=sourceWidth).toInt
+  val dataPacketCount = dataWidth / sourceWidth
+  val dataShifter = Reg(Bits(dataWidth bit))
+  val dataLoaded = RegInit(False)
+
+  val headerShifter = Reg(Bits(roundUp(headerWidth,by=sourceWidth) bit))
+  val headerPacketCount = headerShifter.getWidth / sourceWidth
+  val header = headerShifter(headerWidth-1 downto 0)
+  val headerLoaded = RegInit(False)
+
+  val counter = Reg(UInt(log2Up(headerPacketCount) bit)) init(0)
+
+  when(input.valid) {
+    when(headerLoaded === False) {
+      headerShifter := (input.fragment ## headerShifter) >> sourceWidth
+      counter := counter + 1
+      when(counter === headerPacketCount-1){
+        headerLoaded := True
+      }
+    }otherwise{
+      dataShifter := (input.fragment ## dataShifter) >> sourceWidth
+    }
+
+    when(input.last){
+      headerLoaded := True
+      dataLoaded := True
+      counter := 0
+    }
+  }
+
+  input.ready := !dataLoaded
+
+  for((portHeader,port) <- outputs){
+    val sinkWidth = port.payload.getBitsWidth
+    val offset = dataWidth - roundUp(sinkWidth,by=sourceWidth).toInt
+    port.payload.assignFromBits(dataShifter(offset,sinkWidth bit))
+    port.valid := dataLoaded && header === portHeader
+  }
+
+  when(outputs.map(_._2.fire).reduce(_ || _)){
+    headerLoaded := False
+    dataLoaded := False
+  }
+}
+
+
+
 class DataCarrierFragmentPimped[T <: Data](pimped: DataCarrier[Fragment[T]]) {
-  def fragment: T = pimped.data.fragment
   def first: Bool = signalCache(pimped, "first", () => RegNextWhen(pimped.last, pimped.fire, True))
   def tail: Bool = !first
-  def last: Bool = pimped.data.last
   def isFirst: Bool = pimped.valid && first
+  def isTail : Bool = pimped.valid && tail
   def isLast: Bool = pimped.valid && pimped.last
 }
 
@@ -300,7 +356,7 @@ class DataCarrierFragmentBitsPimped(pimped: DataCarrier[Fragment[Bits]]) {
 
     if (toWidth <= fromWidth) {
       ret.valid := pimped.fire && pimped.last
-      ret.data.assignFromBits(pimped.fragment)
+      ret.payload.assignFromBits(pimped.fragment)
     } else {
       val missingBitsCount = toWidth - fromWidth
 
@@ -310,7 +366,7 @@ class DataCarrierFragmentBitsPimped(pimped: DataCarrier[Fragment[Bits]]) {
       }
 
       ret.valid := pimped.isLast
-      ret.data.assignFromBits(pimped.fragment ## buffer)
+      ret.payload.assignFromBits(pimped.fragment ## buffer)
     }
     ret
   }
@@ -400,7 +456,7 @@ class StreamToStreamFragmentBits[T <: Data](dataType: T, bitsWidth: Int) extends
     val output = master Stream Fragment(Bits(bitsWidth bit))
   }
   val counter = Counter((widthOf(dataType) - 1) / bitsWidth + 1)
-  val inputBits = B(0, bitsWidth bit) ## toBits(io.input.data) //The ## allow to mux inputBits
+  val inputBits = B(0, bitsWidth bit) ## asBits(io.input.payload) //The ## allow to mux inputBits
 
   io.input.ready := counter.willOverflow
   io.output.last := counter.willOverflowIfInc

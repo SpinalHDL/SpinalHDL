@@ -20,33 +20,32 @@ package spinal.core
 
 import java.nio.file.{Files, Paths}
 
+import scala.StringBuilder
 import scala.collection.mutable
+import scala.collection.mutable.StringBuilder
 import scala.io.Source
 
-class VhdlTestBenchBackend() extends VhdlBase {
+class VhdlTestBenchBackend(pc : PhaseContext) extends VhdlBase with Phase {
+  import pc._
   var out: java.io.FileWriter = null
-  var outputFile: String = null
   var tbName: String = null
 
   val userCodes = mutable.Map[String, String]()
 
 
-  var topLevel: Component = null
-  var backend: VhdlBackend = null
 
-  def elaborate(backend: VhdlBackend, topLevel: Component): Unit = {
-    this.topLevel = topLevel
-    this.backend = backend
-
-    if (outputFile == null) outputFile = backend.outputFile + "_tb"
+  def outputFilePath = config.targetDirectory + "/" +  topLevel.definitionName + "_tb.vhd"
+  
+  override def impl() : Unit = {
     if (tbName == null) tbName = topLevel.definitionName + "_tb"
     extractUserCodes
 
-    val tbFile = new java.io.FileWriter(outputFile + ".vhd")
+    val tbFile = new java.io.FileWriter(outputFilePath)
 
     val ret = new StringBuilder()
 
-    backend.emitLibrary(ret)
+
+    emitLibrary(ret)
     emitUserCode("", "userLibrary", ret)
     ret ++= s"""
                 |
@@ -72,9 +71,10 @@ class VhdlTestBenchBackend() extends VhdlBase {
   }
 
 
+
   def extractUserCodes: Unit = {
-    if (!Files.exists(Paths.get(outputFile + ".vhd"))) return
-    val iterator = Source.fromFile(outputFile + ".vhd").getLines()
+    if (!Files.exists(Paths.get(outputFilePath))) return
+    val iterator = Source.fromFile(outputFilePath).getLines()
     val begin = "#spinalBegin"
     val end = "#spinalEnd"
     while (iterator.hasNext) {
@@ -106,12 +106,17 @@ class VhdlTestBenchBackend() extends VhdlBase {
 
   def emitSignals(c: Component, ret: StringBuilder): Unit = {
     for (io <- c.getOrdredNodeIo) {
-      ret ++= emitSignal(io, io);
+      val str = emitSignal(io, io)
+
+      ret ++= {if(config.onlyStdLogicVectorAtTopLevelIo)
+        str.replace("unsigned","std_logic_vector").replace("signed","std_logic_vector")
+      else
+        str}
     }
   }
 
   def emitComponentInstance(c: Component, ret: StringBuilder): Unit = {
-    val definitionString = s"entity ${backend.library}.${c.definitionName}"
+    val definitionString = s"entity work.${c.definitionName}"
     ret ++= s"  uut : $definitionString\n"
     ret ++= s"    port map (\n"
     for (data <- c.getOrdredNodeIo) {

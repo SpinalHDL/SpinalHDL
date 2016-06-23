@@ -40,7 +40,13 @@ class MultiClockTester extends Component {
 
 
 
-class MultiClockTesterBoot extends SpinalTesterBase {
+class MultiClockTesterGhdlBoot extends SpinalTesterGhdlBase {
   override def getName: String = "MultiClockTester"
+  override def createToplevel: Component = new MultiClockTester
+}
+
+class MultiClockTesterCocotbBoot extends SpinalTesterCocotbBase {
+  override def getName: String = "MultiClockTester"
+  override def pythonTestLocation: String = "tester/src/test/python/spinal/MultiClockTester"
   override def createToplevel: Component = new MultiClockTester
 }

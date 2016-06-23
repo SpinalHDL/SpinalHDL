@@ -21,18 +21,17 @@ package spinal.core
 import scala.collection.mutable.ArrayBuffer
 
 /**
- * Created by PIC18F on 24.01.2015.
- */
+  * Created by PIC18F on 24.01.2015.
+  */
 
 
 class Generic {
   var flattenCache: ArrayBuffer[Any] = null
 
-
-  def genNames: Unit ={
+  def genNames: Unit = {
     Misc.reflect(this, (name, obj) => {
-      obj match{
-        case obj : Nameable =>
+      obj match {
+        case obj: Nameable =>
           obj.setWeakName(name)
         case _ =>
       }
@@ -43,8 +42,8 @@ class Generic {
     if (flattenCache == null) {
       flattenCache = ArrayBuffer[Any]()
       Misc.reflect(this, (name, obj) => {
-        obj match{
-          case obj : Data =>
+        obj match {
+          case obj: Data =>
             flattenCache ++= obj.flatten
           case _ =>
             flattenCache += Tuple2(name, obj)
@@ -62,28 +61,28 @@ abstract class BlackBox extends Component with SpinalTagReady {
 
 
   //def generic: Generic// = new Generic{}
-  def getGeneric : Generic = {
-    try{
+  def getGeneric: Generic = {
+    try {
       val clazz = this.getClass
       val m = clazz.getMethod("generic")
       val generic = m.invoke(this).asInstanceOf[Generic]
       return generic
-    } catch{
-      case _ : Throwable => new Generic
+    } catch {
+      case _: Throwable => new Generic
     }
   }
 
   //
   def mapClockDomain(clockDomain: ClockDomain = ClockDomain.current, clock: Bool = null, reset: Bool = null, enable: Bool = null): Unit = {
     Component.push(parent)
-    if (clockDomain.hasClockEnable && enable == null) SpinalError(s"Clock domain has clock enable, but blackbox is not compatible $this")
+    if (clockDomain.hasClockEnableSignal && enable == null) SpinalError(s"Clock domain has clock enable, but blackbox is not compatible $this")
     if (enable != null) {
       pulledDataCache += (clockDomain.clockEnable -> enable)
       enable := ClockDomain.current.readClockEnableWire
     }
 
     if (reset != null) {
-      if (!clockDomain.hasReset) SpinalError(s"Clock domain has no reset, but blackbox need it $this")
+      if (!clockDomain.hasResetSignal) SpinalError(s"Clock domain has no reset, but blackbox need it $this")
       pulledDataCache += (clockDomain.reset -> reset)
       reset := ClockDomain.current.readResetWire
     }
@@ -101,24 +100,25 @@ abstract class BlackBox extends Component with SpinalTagReady {
 
   override def nameElements(): Unit = {
     val io = reflectIo
-    if(io != null){
-      io.setWeakName("")
-    }
+//    if (io != null) {
+//      io.setWeakName("")
+//    }
     super.nameElements()
   }
 
   override def isInBlackBoxTree: Boolean = true
 
-  def setBlackBoxName(name : String) : this.type ={
+  def setBlackBoxName(name: String): this.type = {
     this.definitionName = name
     this
   }
 
   def isUsingULogic = this.hasTag(uLogic)
+
   def remplaceStdLogicByStdULogic = this.addTag(uLogic)
 }
 
 
-abstract class BlackBoxULogic extends BlackBox{
+abstract class BlackBoxULogic extends BlackBox {
   remplaceStdLogicByStdULogic
 }

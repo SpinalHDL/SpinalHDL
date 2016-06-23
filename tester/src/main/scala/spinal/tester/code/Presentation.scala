@@ -8,8 +8,9 @@ import spinal.core._
 import spinal.debugger.LogicAnalyserBuilder
 import spinal.demo.mandelbrot._
 import spinal.lib._
-import spinal.lib.bus.amba3.apb.{Apb3SlaveController, Apb3Slave, Apb3Config}
-import spinal.lib.com.uart.{UartCtrlConfig, Uart, UartCtrl, UartCtrlTx}
+import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config}
+import spinal.lib.bus.avalon.{AvalonMM, AvalonMMSlaveFactory}
+import spinal.lib.com.uart._
 
 import scala.util.Random
 
@@ -87,8 +88,8 @@ object C4 {
 
     val reg1 = Reg(Bool)
     val reg2 = Reg(Bool) init (False)
-    val reg3 = RegInit(False)
-    val reg4 = RegNext(io.a)
+    val reg3 = Reg(Bool)
+    reg3 := io.a
   }
 
   class MyTopLevel extends Component {
@@ -201,7 +202,7 @@ object C8 {
       val result = out Bits (3 * channelWidth bit)
     }
     val selectedSource = io.sources(io.sel)
-    io.result := toBits(selectedSource)
+    io.result := asBits(selectedSource)
   }
 
 
@@ -222,7 +223,7 @@ object C9 {
     def +(that: Color): Color = {
       assert(that.channelWidth == this.channelWidth)
 
-      val result = cloneOf(this)
+      val result = Color(channelWidth)
       result.r := channelAdd(this.r, that.r)
       result.g := channelAdd(this.g, that.g)
       result.b := channelAdd(this.b, that.b)
@@ -239,17 +240,17 @@ object C9 {
   class MyColorSummer(sourceCount: Int, channelWidth: Int) extends Component {
     val io = new Bundle {
       val sources = in Vec(Color(channelWidth), sourceCount)
-      val result = out(Color(channelWidth))
+      val result  = out(Color(channelWidth))
     }
 
     var sum = io.sources(0)
     for (i <- 1 until sourceCount) {
-      sum = sum + io.sources(i)
+      sum \= sum + io.sources(i)
     }
     io.result := sum
 
-    // But you can do all this stuff by this way, balanced is bonus :
-    //io.result := io.sources.reduceBalancedSpinal(_ + _)
+    // But you can do all this stuff by this way:
+    //io.result := io.sources.reduce(_ + _)
   }
 
 
@@ -358,7 +359,7 @@ object C10_2 {
     }
 
     io.memoryReadAddress.valid := io.run.valid
-    io.memoryReadAddress.data := toBits(addressCounter)
+    io.memoryReadAddress.payload := asBits(addressCounter)
 
     io.colorStream.translateFrom(io.memoryReadData)(_.assignFromBits(_))
   }
@@ -493,8 +494,8 @@ object C12 {
     fifo.io.push << io.slavePort
     fifo.io.pop >/-> io.masterPort
 
-    assert(3 == latencyAnalysis(io.slavePort.data, io.masterPort.data))
-    assert(2 == latencyAnalysis(io.masterPort.ready, io.slavePort.ready))
+    assert(3 == LatencyAnalysis(io.slavePort.payload, io.masterPort.payload))
+    assert(2 == LatencyAnalysis(io.masterPort.ready, io.slavePort.ready))
   }
 
 }
@@ -529,6 +530,37 @@ object C13 {
   }
 
 }
+
+object C13b {
+
+  object MyEnum extends SpinalEnum {
+    val state0, state1, anotherState = newElement()
+  }
+
+  class MyComponent extends Component {
+    val state = Reg(MyEnum) init(MyEnum.state0)
+    switch(state) {
+      is(MyEnum.state0) {
+
+      }
+      is(MyEnum.state1) {
+
+      }
+      is(MyEnum.anotherState) {
+
+      }
+      default{
+
+      }
+    }
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new MyComponent)
+  }
+
+}
+
 
 object C14 {
   //Create a timeout, he become asserted if the function clear
@@ -605,6 +637,13 @@ object C15 {
   }
 
 
+  object Funcitonal{
+    val addresses = Vec(UInt(8 bits),4)
+    val key  = UInt(8 bits)
+    val hits = addresses.map(address => address === key)
+    val hit  = hits.reduce((a,b) => a || b)
+  }
+
   def main(args: Array[String]) {
     SpinalVhdl(StreamRgbAdder(RGB(5, 6, 5), 4)) //Generate the VHDL for a 4 srcPort and a RGB config of 5,6,5 bits
   }
@@ -613,14 +652,16 @@ object C15 {
 
 
 object T1 {
-  val mySignal = Bool
-  val myRegister = Reg(UInt(4 bit))
-  val myRegisterWithInit = Reg(UInt(4 bit)) init (3)
+  val cond                = Bool
+  val mySignal            = Bool
+  val myRegister          = Reg(UInt(4 bit))
+  val myRegisterWithReset = Reg(UInt(4 bit)) init (3)
 
   mySignal := False
-  when(???) {
-    mySignal := True
-    myRegister := myRegister + 1
+  when(cond) {
+    mySignal            := True
+    myRegister          := myRegister + 1
+    myRegisterWithReset := myRegisterWithReset + 1
   }
 }
 
@@ -824,41 +865,41 @@ object t8_a {
     // some logic ..
   }
 
-  class ApbUartCtrl(apbConfig: Apb3Config) extends Component {
-    val io = new Bundle {
-      val bus = slave(new Apb3Slave(apbConfig))
-      val uart = master(Uart())
-    }
-    val busCtrl = new Apb3SlaveController(io.bus) //This is a APB3 slave controller builder tool
-
-    val config = busCtrl.writeOnlyRegOf(UartCtrlConfig(), 0x10) //Create a write only configuration register at address 0x10
-    val writeStream = busCtrl.writeStreamOf(Bits(8 bit), 0x20)
-    val readStream = busCtrl.readStreamOf(Bits(8 bit), 0x30)
-
-    val uartCtrl = new UartCtrl()
-    uartCtrl.io.config := config
-    uartCtrl.io.write <-< writeStream //Pipelined connection
-    uartCtrl.io.read.toStream.queue(16) >> readStream  //Queued connection
-    uartCtrl.io.uart <> io.uart
-  }
+//  class ApbUartCtrl(apbConfig: Apb3Config) extends Component {
+//    val io = new Bundle {
+//      val bus = slave(new Apb3(apbConfig))
+//      val uart = master(Uart())
+//    }
+//    val busCtrl = new Apb3SlaveController(io.bus) //This is a APB3 slave controller builder tool
+//
+//    val config = busCtrl.writeOnlyRegOf(UartCtrlConfig(), 0x10) //Create a write only configuration register at address 0x10
+//    val writeStream = busCtrl.writeStreamOf(Bits(8 bit), 0x20)
+//    val readStream = busCtrl.readStreamOf(Bits(8 bit), 0x30)
+//
+//    val uartCtrl = new UartCtrl()
+//    uartCtrl.io.config := config
+//    uartCtrl.io.write <-< writeStream //Pipelined connection
+//    uartCtrl.io.read.toStream.queue(16) >> readStream  //Queued connection
+//    uartCtrl.io.uart <> io.uart
+//  }
 }
 
 
 object t8_B2 {
-
-  class ApbUartCtrl(apbConfig: Apb3Config) extends Component {
-    val io = new Bundle {
-      val apb = slave(new Apb3Slave(apbConfig))
-      val uart = master(Uart())
-    }
-    val uartCtrl = new UartCtrl()
-    uartCtrl.io.uart <> io.uart
-
-    val busCtrl = new Apb3SlaveController(io.apb)
-    busCtrl.writeOnlyRegOf(uartCtrl.io.config, 0x10)
-    busCtrl.writeStream(uartCtrl.io.write, 0x20)
-    busCtrl.readStream(uartCtrl.io.read.toStream.queue(16), 0x30)
-  }
+//
+//  class ApbUartCtrl(apbConfig: Apb3Config) extends Component {
+//    val io = new Bundle {
+//      val apb = slave(new Apb3(apbConfig))
+//      val uart = master(Uart())
+//    }
+//    val uartCtrl = new UartCtrl()
+//    uartCtrl.io.uart <> io.uart
+//
+//    val busCtrl = new Apb3SlaveController(io.apb)
+//    busCtrl.writeOnlyRegOf(uartCtrl.io.config, 0x10)
+//    busCtrl.writeStream(uartCtrl.io.write, 0x20)
+//    busCtrl.readStream(uartCtrl.io.read.toStream.queue(16), 0x30)
+//  }
 
 }
 
@@ -935,7 +976,7 @@ object t12 {
 
 object t13 {
   val normalVec = Vec(UInt(4 bit), 10)
-  val variableVec = Vec(UInt(5 bit), UInt(9 bit), UInt(16 bit))
+//  val variableVec = Vec(UInt(5 bit), UInt(9 bit), UInt(16 bit))
 
   val containZero = normalVec.sContains(0)
   val existOne = normalVec.sExists(_ === 1)
@@ -945,20 +986,20 @@ object t13 {
 
   val targetAddress = UInt(32 bit)
 
+  val lines = new Area {
+    class tag extends Bundle {
+      val valid = Bool
+      val address = UInt(32 bit)
+      val dirty = Bool
 
-  class LineTag extends Bundle {
-    val valid = Bool
-    val address = UInt(32 bit)
-    val dirty = Bool
+      def hit(targetAddress: UInt): Bool = valid && address === targetAddress
+    }
 
-    def hit(targetAddress : UInt) : Bool = valid && address === targetAddress
+    val tags = Vec(new tag, 8)
+    val hits = tags.map(tag => tag.hit(targetAddress))
+    val hitValid = hits.reduce((a, b) => a || b)
+    val hitIndex = OHToUInt(hits)
   }
-
-  val lineTags = Vec(new LineTag, 8)
-  val lineHits = lineTags.map(lineTag => lineTag.hit(targetAddress))
-  val lineHitValid = lineHits.reduce((a,b) => a || b)
-  val lineHitIndex = OHToUInt(lineHits)
-
 }
 
 
@@ -1038,10 +1079,357 @@ object t14{
 
 
 
+import spinal.core._
+
+class AND_Gate extends Component {
+
+  /**
+   * This is the component definition that corresponds to
+   * the VHDL entity of the component
+   */
+  val io = new Bundle {
+    val a = in Bool
+    val b = in Bool
+    val c = out Bool
+  }
+
+  // Here we define some asynchronous logic
+  io.c := io.a & io.b
+}
+
+object AND_Gate {
+  // Let's go
+  def main(args: Array[String]) {
+    SpinalVhdl(new AND_Gate)
+  }
+}
 
 
 
+class CustomClockExample extends Component {
+  val io = new Bundle {
+    val clk = in Bool
+    val resetn = in Bool
+    val result = out UInt (4 bits)
+  }
+
+  val myClockDomainConfig = ClockDomainConfig(
+    clockEdge = RISING,
+    resetKind = ASYNC,
+    resetActiveLevel = LOW
+  )
+  val myClockDomain = ClockDomain(io.clk,io.resetn,config = myClockDomainConfig)
+
+  val myArea = new ClockingArea(myClockDomain){
+    val myReg = Reg(UInt(4 bits)) init(7)
+    myReg := myReg + 1
+
+    io.result := myReg
+  }
+}
+
+
+object CustomClockExample{
+  def main(args: Array[String]) {
+    SpinalVhdl(new CustomClockExample)
+  }
+}
 
 
 
+class ExternalClockExample extends Component {
+  val io = new Bundle {
+    val result = out UInt (4 bits)
+  }
+  val myClockDomain = ClockDomain.external("myClockName")
+  val myArea = new ClockingArea(myClockDomain){
+    val myReg = Reg(UInt(4 bits)) init(7)
+    myReg := myReg + 1
 
+    io.result := myReg
+  }
+}
+
+
+object ExternalClockExample{
+  def main(args: Array[String]) {
+    SpinalVhdl(new ExternalClockExample)
+  }
+}
+
+
+
+object RgbToGray{
+  class RgbToGray extends Component{
+    val io = new Bundle{
+      val clear = in Bool
+      val r,g,b = in UInt(8 bits)
+
+      val wr = out Bool
+      val address = out UInt(16 bits)
+      val data = out UInt(8 bits)
+    }
+
+    def coef(value : UInt,by : Float) : UInt = (value * U((255*by).toInt,8 bits) >> 8)
+    val gray = RegNext(
+      coef(io.r,0.3f) +
+      coef(io.g,0.4f) +
+      coef(io.b,0.3f)
+    )
+
+    val address = CounterFreeRun(stateCount = 1 << 16)
+    io.address := address
+    io.wr := True
+    io.data := gray
+
+    when(io.clear){
+      gray := 0
+      address.clear()
+      io.wr := False
+    }
+  }
+
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new RgbToGray)
+  }
+}
+
+
+object RgbToGray2{
+  // Input RGB color
+  val r,g,b = UInt(8 bits)
+
+  // Define a function to multiply a UInt by a scala Float value.
+  def coefMul(value : UInt,by : Float) : UInt = (value * U((255*by).toInt,8 bits) >> 8)
+
+  //Calculate the gray level
+  val gray = coefMul(r,0.3f) +
+             coefMul(g,0.4f) +
+             coefMul(b,0.3f)
+}
+
+object CombinatorialLogic {
+
+  class TopLevel extends Component {
+    val io = new Bundle {
+      val cond            = in Bool
+      val value           = in UInt (4 bit)
+      val withoutProcess  = out UInt(4 bits)
+      val withProcess     = out UInt(4 bits)
+    }
+    io.withoutProcess := io.value
+    io.withProcess := 0
+    when(io.cond){
+      switch(io.value){
+        is(U"0000"){
+          io.withProcess := 8
+        }
+        is(U"0001"){
+          io.withProcess := 9
+        }
+        default{
+          io.withProcess := io.value+1
+        }
+      }
+    }
+  }
+
+  def main(args: Array[String]): Unit = {
+    //SpinalVhdl(new TopLevel)
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
+object FlipFlop {
+  class TopLevel extends Component {
+    val io = new Bundle {
+      val cond   = in Bool
+      val value  = in UInt (4 bit)
+      val resultA = out UInt(4 bit)
+      val resultB = out UInt(4 bit)
+    }
+
+    val regWithReset = Reg(UInt(4 bits)) init(0)
+    val regWithoutReset = Reg(UInt(4 bits))
+
+    regWithReset := io.value
+
+    regWithoutReset := 0
+    when(io.cond){
+      regWithoutReset := io.value
+    }
+
+    io.resultA := regWithReset
+    io.resultB := regWithoutReset
+  }
+
+  def main(args: Array[String]): Unit = {
+    //SpinalVhdl(new TopLevel)
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
+object SinFir {
+  class TopLevel(resolutionWidth : Int,sampleCount : Int,firLength : Int) extends Component {
+    val io = new Bundle {
+      val sin = out SInt(resolutionWidth bit)
+      val sinFir = out SInt(resolutionWidth bit)
+
+      val square = out SInt(resolutionWidth bit)
+      val squareFir = out SInt(resolutionWidth bit)
+    }
+
+    def sinTable = (0 until sampleCount).map(sampleIndex => {
+      val sinValue = Math.sin(2 * Math.PI * sampleIndex / sampleCount)
+      S((sinValue * ((1<<resolutionWidth)/2-1)).toInt,resolutionWidth bits)
+    })
+
+    val rom =  Mem(SInt(resolutionWidth bit),initialContent = sinTable)
+    val phase = CounterFreeRun(sampleCount)
+    val sin = rom.readSync(phase)
+    val square =  S(resolutionWidth-1 -> ! phase.msb, default -> phase.msb)
+
+    val firCoefs = (0 until firLength).map(i => {
+      val coefValue = 0.54 - 0.46 * Math.cos(2 * Math.PI * i / firLength)
+      S((coefValue * ((1<<resolutionWidth)/2-1)).toInt,resolutionWidth bits)
+    })
+
+    def applyFirTo(that : SInt) : SInt = {
+      val firMul = for((coef,value) <- (firCoefs, History(that, firLength-1)).zipped) yield {
+        (coef * value) >> resolutionWidth
+      }
+      firMul.foldLeft(S(0,resolutionWidth + log2Up(firLength) bits))(_ + _)
+    }
+
+    io.sin := sin
+    io.sinFir := applyFirTo(sin) >> log2Up(firLength)
+
+    io.square := square
+    io.squareFir := applyFirTo(square) >> log2Up(firLength)
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel(
+      resolutionWidth=16,
+      sampleCount=64,
+      firLength=16
+    ))
+
+    SpinalVerilog(new TopLevel(
+      resolutionWidth=16,
+      sampleCount=64,
+      firLength=16
+    ))
+  }
+}
+
+
+
+object c99{
+
+
+  class MyTopLevel extends Component {
+    val io = new Bundle {
+      val coreClk = in Bool
+      val coreReset = in Bool
+    }
+    val coreClockDomain = ClockDomain(
+      clock  = io.coreClk,
+      reset  = io.coreReset,
+      config = ClockDomainConfig(
+        clockEdge        = RISING,
+        resetKind        = ASYNC,
+        resetActiveLevel = HIGH
+      )
+    )
+
+    val coreArea = new ClockingArea(coreClockDomain) {
+      val myCoreClockedRegister = Reg(UInt(4 bit))
+      //...
+    }
+  }
+}
+
+
+
+object c666{
+  class AvalonUartCtrl(uartCtrlConfig : UartCtrlGenerics, rxFifoDepth : Int) extends Component{
+    val io = new Bundle{
+      val bus =  slave(AvalonMM(AvalonMMUartCtrl.getAvalonMMConfig))
+      val uart = master(Uart())
+    }
+
+    // Instanciate an simple uart controller
+    val uartCtrl = new UartCtrl(uartCtrlConfig)
+    io.uart <> uartCtrl.io.uart
+
+    // Create an instance of the AvalonMMSlaveFactory that will then be used as a slave factory drived by io.bus
+    val busCtrl = AvalonMMSlaveFactory(io.bus)
+
+    // Ask the busCtrl to create a readable/writable register at the address 0
+    // and drive uartCtrl.io.config.clockDivider with this register
+    busCtrl.driveAndRead(uartCtrl.io.config.clockDivider,address = 0)
+
+    // Do the same thing than above but for uartCtrl.io.config.frame at the address 4
+    busCtrl.driveAndRead(uartCtrl.io.config.frame,address = 4)
+
+    // Ask the busCtrl to create a writable Flow[Bits] (valid/payload) at the address 8.
+    // Then convert it into a stream and connect it to the uartCtrl.io.write by using an register stage (>->)
+    busCtrl.createAndDriveFlow(Bits(uartCtrlConfig.dataWidthMax bits),address = 8).toStream >-> uartCtrl.io.write
+
+    // To avoid losing writes commands between the Flow to Stream transformation just above,
+    // make the occupancy of the uartCtrl.io.write readable at address 8
+    busCtrl.read(uartCtrl.io.write.valid,address = 8)
+
+    // Take uartCtrl.io.read, convert it into a Stream, then connect it to the input of a FIFO of 64 elements
+    // Then make the output of the FIFO readable at the address 12 by using a non blocking protocol
+    // (bit 0 => data valid, bits 8 downto 1 => data)
+    busCtrl.readStreamNonBlocking(uartCtrl.io.read.toStream.queue(rxFifoDepth),address = 12,validBitOffset = 31,payloadBitOffset = 0)
+  }
+}
+
+object c6669{
+  class AvalonUartCtrl(uartCtrlConfig : UartCtrlGenerics, rxFifoDepth : Int) extends Component{
+    val io = new Bundle{
+      val bus =  slave(AvalonMM(AvalonMMUartCtrl.getAvalonMMConfig))
+      val uart = master(Uart())
+    }
+
+    val uartCtrl = new UartCtrl(uartCtrlConfig)
+    io.uart <> uartCtrl.io.uart
+
+    val busCtrl = AvalonMMSlaveFactory(io.bus)
+    //Make clockDivider register
+    busCtrl.driveAndRead(uartCtrl.io.config.clockDivider,address = 0)
+    //Make frame register
+    busCtrl.driveAndRead(uartCtrl.io.config.frame,address = 4)
+    //Make writeCmd register
+    val writeFlow = busCtrl.createAndDriveFlow(Bits(uartCtrlConfig.dataWidthMax bits),address = 8)
+    writeFlow.toStream.stage() >> uartCtrl.io.write
+    //Make writeBusy register
+    busCtrl.read(uartCtrl.io.write.valid,address = 8)
+    //Make read register
+    busCtrl.readStreamNonBlocking(uartCtrl.io.read.toStream.queue(rxFifoDepth),address = 12,validBitOffset = 31,payloadBitOffset = 0)
+  }
+}
+
+
+object c4828{
+  class SinusGenerator(resolutionWidth : Int,sampleCount : Int) extends Component {
+    val io = new Bundle {
+      val sin = out SInt (resolutionWidth bits)
+    }
+
+    def sinTable = (0 until sampleCount).map(sampleIndex => {
+      val sinValue = Math.sin(2 * Math.PI * sampleIndex / sampleCount)
+      S((sinValue * ((1 << resolutionWidth) / 2 - 1)).toInt, resolutionWidth bits)
+    })
+
+    val rom   = Mem(SInt(resolutionWidth bit), initialContent = sinTable)
+    val phase = CounterFreeRun(sampleCount)
+    val sin   = rom.readSync(phase)
+  }
+}

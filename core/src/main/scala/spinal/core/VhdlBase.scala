@@ -18,16 +18,30 @@
 
 package spinal.core
 
+import scala.collection.mutable
+import scala.collection.mutable.{StringBuilder, ArrayBuffer}
+
 /**
  * Created by PIC18F on 07.01.2015.
  */
-trait VhdlBase {
 
-  val vhdlKeyWords = Set[String]("in", "out", "buffer", "inout", "entity", "component", "architecture","type","open")
 
-//  override def getReservedKeyword(): Iterable[String] = {
-//    return reservedKeyWords
-//  }
+trait VhdlBase extends VhdlVerilogBase{
+
+  var enumPackageName = "pkg_enum"
+  var packageName = "pkg_scala2hdl"
+
+
+  def emitLibrary(ret: StringBuilder): Unit = {
+    ret ++= "library ieee;\n"
+    ret ++= "use ieee.std_logic_1164.all;\n"
+    ret ++= "use ieee.numeric_std.all;\n"
+    ret ++= "\n"
+    ret ++= s"library work;\n"
+    ret ++= s"use work.$packageName.all;\n"
+    ret ++= s"use work.all;\n"
+    ret ++= s"use work.$enumPackageName.all;\n\n"
+  }
 
 
   def emitSignal(ref: Node, typeNode: Node): String = {
@@ -46,14 +60,19 @@ trait VhdlBase {
 
 
   def emitEnumLiteral[T <: SpinalEnum](enum : SpinalEnumElement[T],encoding: SpinalEnumEncoding) : String = {
-    return enum.parent.getName() + "_" + encoding.getName() + "_" + enum.getName()
+    if(encoding.isNative)
+      return "pkg_enum." + enum.getName()
+    else
+      return enum.parent.getName() + "_" + encoding.getName() + "_" + enum.getName()
   }
 
-  def emitEnumType[T <: SpinalEnum](enum : SpinalEnumCraft[T]) : String = {
-    return enum.blueprint.getName() + "_" + enum.encoding.getName() + "_type"
-  }
+  def emitEnumType[T <: SpinalEnum](enum : SpinalEnumCraft[T]) : String = emitEnumType(enum.blueprint,enum.encoding)
+
   def emitEnumType(enum : SpinalEnum,encoding: SpinalEnumEncoding) : String = {
-    return enum.getName() + "_" + encoding.getName() + "_type"
+    if(encoding.isNative)
+      return enum.getName()
+    else
+      return enum.getName() + "_" + encoding.getName() + "_type"
   }
 
   def emitDataType(node: Node, constrained: Boolean = true) = node match {
@@ -73,7 +92,7 @@ trait VhdlBase {
   }
 
 
-  def emitRange(node: Node) = s"(${node.getWidth - 1} downto 0)"
+  def emitRange(node: Widthable) = s"(${node.getWidth - 1} downto 0)"
 
   def emitReference(node: Node): String = {
     node match {
@@ -83,5 +102,4 @@ trait VhdlBase {
     }
   }
 
-  def isReferenceable(node: Node) = node.isInstanceOf[Nameable]
 }

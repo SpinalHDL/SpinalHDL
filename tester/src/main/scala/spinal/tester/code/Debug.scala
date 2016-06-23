@@ -110,7 +110,7 @@ object Debug {
 
     newOutput := !newInput
 
-    val myClockDomain = ClockDomain("ttDomain")
+    val myClockDomain = ClockDomain.external("ttDomain")
     val ttArea = new ClockingArea(myClockDomain) {
       io.tt := RegNext(!io.tt)
     }
@@ -121,7 +121,7 @@ object Debug {
     //
     val s0Reg = RegNext(MyEnum.s0())
 
-    io.boolToUnsigned := toUInt(True)
+    io.boolToUnsigned := asUInt(True)
 
     val forks = StreamFork(io.input, 3)
     io.output << StreamArbiter.lowIdPortFirst.transactionLock.build(forks)
@@ -166,7 +166,7 @@ object Debug {
 
     val firLength = 32
     val coefs = (0 until firLength).map(i => S(((0.54 - 0.46 * Math.cos(2 * Math.PI * i / firLength)) * 32767 / firLength).toInt, 16 bit))
-    io.fir := (coefs, Delays(io.sin, firLength)).zipped.map((coef, delay) => (coef * delay) >> 15).reduce(_ + _)
+    io.fir := (coefs, History(io.sin, firLength)).zipped.map((coef, delay) => (coef * delay) >> 15).reduce(_ + _)
 
     nameElements()
 

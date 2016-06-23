@@ -87,8 +87,8 @@ object MemTest {
     //val tmp = mem.readSync(commonAddress,io.cond2,readFirst)
     val tmp = mem.writeOrReadSync(commonAddress,io.wrData,io.cond0,io.cond1)
     io.rdData := tmp
-    tmp.add(new AttributeString("myAttribut", "hallo"))
-    tmp.add(new AttributeFlag("yolo"))
+    tmp.addAttribute(new AttributeString("myAttribut", "hallo"))
+    tmp.addAttribute(new AttributeFlag("yolo"))
 
 
 

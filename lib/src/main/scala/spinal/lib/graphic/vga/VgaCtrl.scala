@@ -2,7 +2,10 @@ package spinal.lib.graphic.vga
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.graphic.Rgb
+import spinal.lib.bus.neutral.NeutralStreamDma
+import spinal.lib.graphic.{RgbConfig, Rgb}
+import spinal.lib.tool.QSysify
+
 
 case class VgaTimingsHV(timingsWidth: Int) extends Bundle {
   val colorStart = UInt(timingsWidth bit)
@@ -38,18 +41,20 @@ case class VgaTimings(timingsWidth: Int) extends Bundle {
 }
 
 
-class VgaCtrl(rgbType: Rgb, timingsWidth: Int = 12) extends Component {
+class VgaCtrl(rgbConfig: RgbConfig, timingsWidth: Int = 12) extends Component {
   val io = new Bundle {
-    val softReset = in Bool
+    val softReset = in Bool() default(False)
     val timings = in(VgaTimings(timingsWidth))
 
     val frameStart = out Bool
-    val colorStream = slave Stream (rgbType)
-    val vga = master(Vga(rgbType))
+    val pixels = slave Stream (Rgb(rgbConfig))
+    val vga = master(Vga(rgbConfig))
+
+    val error = out Bool
   }
 
   case class HVArea(timingsHV: VgaTimingsHV, enable: Bool) extends Area {
-    val counter = Reg(UInt(timingsWidth bit))
+    val counter = Reg(UInt(timingsWidth bit)) init(0)
 
     val syncStart = counter === timingsHV.syncStart
     val syncEnd = counter === timingsHV.syncEnd
@@ -63,8 +68,8 @@ class VgaCtrl(rgbType: Rgb, timingsWidth: Int = 12) extends Component {
       }
     }
 
-    val sync = BoolReg(syncStart, syncEnd)
-    val colorEn = BoolReg(colorStart, colorEnd)
+    val sync    = RegInit(False) setWhen(syncStart) clearWhen(syncEnd)
+    val colorEn = RegInit(False) setWhen(colorStart) clearWhen(colorEnd)
 
     when(io.softReset) {
       counter := 0
@@ -76,19 +81,66 @@ class VgaCtrl(rgbType: Rgb, timingsWidth: Int = 12) extends Component {
   val h = HVArea(io.timings.h, True)
   val v = HVArea(io.timings.v, h.syncEnd)
   val colorEn = h.colorEn && v.colorEn
-  io.colorStream.ready := colorEn
+  io.pixels.ready := colorEn
+  io.error := colorEn && ! io.pixels.valid
 
   io.frameStart := v.syncEnd
 
   io.vga.hSync := h.sync
   io.vga.vSync := v.sync
   io.vga.colorEn := colorEn
-  io.vga.color := io.colorStream.data
+  io.vga.color := io.pixels.payload
+
+
+  //Can be called by parent component to make the VgaCtrl autonom by using a Stream of fragment to feed it.
+  def feedWith(that : Stream[Fragment[Rgb]]): Unit ={
+    io.pixels << that.toStreamOfFragment
+
+    val error = RegInit(False)
+    when(io.error){
+      error := True
+    }
+    when(that.isLast){
+      error := False
+    }
+
+    io.softReset := error
+    when(error){
+      that.ready := True
+    }
+  }
 }
 
 
 object VgaCtrl {
   def main(args: Array[String]) {
-    SpinalVhdl(new VgaCtrl(Rgb(8, 8, 8)))
+    SpinalVhdl(new VgaCtrl(RgbConfig(8, 8, 8)))
+  }
+}
+
+//TODO add to doc example
+class BlinkingVgaCtrl(rgbConfig: RgbConfig) extends Component{
+  val io = new Bundle{
+    val vga = master(Vga(rgbConfig))
+  }
+
+  val counter = Reg(UInt(rgbConfig.gWidth bits))
+  val ctrl = new VgaCtrl(rgbConfig)
+  ctrl.io.softReset := False
+  ctrl.io.timings.setAs_h640_v480_r60
+  ctrl.io.pixels.valid := True
+  ctrl.io.pixels.r := 0
+  ctrl.io.pixels.g := counter
+  ctrl.io.pixels.b := 0
+  ctrl.io.vga <> io.vga
+
+  when(ctrl.io.frameStart){
+    counter := counter + 1
+  }
+}
+
+object BlinkingVgaCtrl {
+  def main(args: Array[String]) {
+    SpinalVhdl(new BlinkingVgaCtrl(RgbConfig(8, 8, 8))).toplevel
   }
 }

@@ -4,9 +4,7 @@ import spinal.core._
 
 
 object BufferCC {
-  def apply[T <: Data](input: T): T = apply(input, null.asInstanceOf[T])
-  def apply[T <: Data](input: T, init: T): T = apply(input, init, 2)
-  def apply[T <: Data](input: T, init: T, bufferDepth: Int): T = {
+  def apply[T <: Data](input: T, init: T = null, bufferDepth: Int = 2): T = {
     val c = new BufferCC(input, init != null, bufferDepth)
     c.io.input := input
     if(init != null) c.io.init := init

@@ -15,9 +15,13 @@ SpinalHDL is a scala library that allows the user to describe his digital hardwa
 Getting started
 ===============
 ## Links
-- There is a SBT base project                     <br> https://github.com/SpinalHDL/SpinalBaseProject
-- There is a presentation of the language there   <br> https://github.com/SpinalHDL/SpinalDoc/tree/master/presentation/en (pptx has comments)
-- There is a small paper about it there           <br> https://github.com/SpinalHDL/SpinalDoc/tree/master/paper/en
+- Documentation                  <br> http://spinalhdl.github.io/SpinalDoc/
+- SBT base project               <br> https://github.com/SpinalHDL/SpinalBaseProject
+- Presentation of the language   <br> https://github.com/SpinalHDL/SpinalDoc/tree/master/presentation/en
+
+[![Join the chat at https://gitter.im/SpinalHDL/SpinalHDL](https://badges.gitter.im/SpinalHDL/SpinalHDL.svg)](https://gitter.im/SpinalHDL/SpinalHDL?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
+[![Build Status](https://travis-ci.org/SpinalHDL/SpinalHDL.svg?branch=master)](https://travis-ci.org/SpinalHDL/SpinalHDL)
 
 ## Basics
 - VHDL backend : The digital hardware description is flushed into a synthesizable VHDL file
@@ -319,47 +323,6 @@ class LogicAnalyser extends Component {
  }
 ```
 
-Function like filterHeader, toRegOf and pulseOn are not hardcoded into the language.
-The user can extend it by using the Pimp my library scala pattern.
-
-There is the implementation of filterHeader and pulseOn with pimp my library pattern :
-```scala
-package spinal
-
-import spinal.core._
-
-package object lib {
-  ...
-  implicit def flowFragmentPimpIt[T <: Data](that : Flow[Fragment[T]]) = new FlowFragmentPimpIt[T](that)
-  ...
-}
-```
-
-```scala
-package spinal.lib
-
-import spinal.core._
-
-class FlowFragmentPimpIt[T <: Data](PimpIt: Flow[Fragment[T]]) {
-  def filterHeader(header: T): Flow[Fragment[T]] = {
-    val takeIt = RegInit(False)
-
-    when(PimpIt.isFirst) {
-      when(PimpIt.fragment === header) {
-        takeIt := True
-      }
-    }
-    when(PimpIt.isLast) {
-      takeIt := False
-    }
-
-    return PimpIt.takeWhen(takeIt)
-  }
-
-  def pulseOn(header: T):Bool = PimpIt.isFirst && PimpIt.fragment === header
-}
-```
-
 
 ## Create an custom bus, parametrized RGB data type,+ operator overloading, array of port management
 ```scala
@@ -420,38 +383,9 @@ def main(args: Array[String]) {
 ```
 
 ## Why not Chisel ?
-It's a real question, why SpinalHDL was implemented while there Chisel already existing from 3 years ago.
-Chisel is a big step forward compared to common HDL,
-but when come serious design that mix multiple clock domain and external IP (blackbox), Chisel show some serious conception issue : 
-
-Multiple clock support is awkward :
-- Working into a single block with multiple clock is difficult, you can't define "ClockingArea", only creating a module allow it
-- Reset wire is not really integrated into the clock domain notion, sub module lose reset of parent and it's really annoying
-- No support of falling edge clock, active low reset
-- No clock enable support
-- Chisel make the assumption that every clock wire come from the top level inputs, you don't have access to clock signal
-
-Black box support is far from good :
-- Generic/Parameter are not really supported
-- Specify clock input for a black box is not supported. You have to use workaround and you don't have any control on clock signal name and change against your will
-
-Syntax could be better :
-- Not pretty literal value syntax, No implicit conversion between Scala and Chisel types
-- Not pretty input/output definition
-- Assignment operator is only checked when you generate the code, the IDE can't check it for you. Bundle assignment operator is weak typed.
-- Switch statement doesn't have default case
-- No "Area" notion to give a better structure to the user code
-
-Various issue :
-- You can't define function without argument into Bundles
-- There is no notion of "Area" 
-- Using when/otherwise is not strict in all case, then it allow you to generate an asynchronous signal that is not assigned in all case.
-- You can't really write a given range of bit into a bit vector.
-- The library that is integrated into Chisel and give you some utils and useful bus definition is a good intention, but could be so better and more complete
-
-For a lot of issue listed here, an issue/pull request was open on github, but doesn't have any following. In addition, if we consider the age (3 years) of Chisel,this is a very serious issue and it's why SpinalHDL was created.
+For many reason : http://spinalhdl.github.io/SpinalDoc/#what-are-the-differences-between-chisel-vs-spinal-
 
 Other consideration
 ===============
-Intellij scala plugin has some syntax highlight bug. Please use scala plugin >= 1.4
+Intellij scala plugin has some syntax highlight bug. As far i know, Intellij 14.1 is the best version. 
 

@@ -7,6 +7,63 @@ import scala.language.experimental.macros
 
 object MacroTest {
 
+  def enum_impl(c: scala.reflect.macros.whitebox.Context)(param: c.Expr[Symbol]*) = {
+    import c.universe._
+    val states = param.toList map { sym =>       //println(showRaw(sym.tree))
+      sym.tree match {
+        case Apply(_, List(Literal(Constant(name: String)))) => TermName(name)
+        case _ =>
+          throw new Exception("Expected list of symbols")
+      }
+    }  
+
+    val enumName = TypeName(c.freshName)
+    val objectName = TermName(c.freshName)
+    val cleanObjectName = TermName(c.freshName)
+    val tree = q"""
+      object $objectName extends SpinalEnum{
+        ..${states.map(s => q"val $s = newElement()")}
+      }
+
+      object $cleanObjectName{
+        def enumType = $objectName
+        def apply() = enumType()
+        ..${states.map(s => q"def $s = $objectName.$s")}
+      }
+      $cleanObjectName
+    """
+
+    c.Expr(tree)
+  }    
+
+  
+//    val tree2 = q"""
+//      class $enumName extends SpinalEnum{
+//        ..${states.map(s => q"val $s = ordered")}
+//      }
+//      object $cleanObjectName{
+//        def enumType = new $enumName()
+//        def apply() = enumType.craft()
+//        ..${states.map(s => q"def $s = enumType.$s")}
+//      }
+//      $cleanObjectName
+//    """
+  
+    def createEnumImpl(c: scala.reflect.macros.blackbox.Context)(ename: c.Expr[String]) = {
+      import c.universe._
+
+      val Literal(Constant(s_ename: String)) = ename.tree
+      val oname = TermName(s_ename)
+
+      val barLine = q"val bar: Int = 5"
+      //q"object $oname { $barLine }"
+      barLine
+    }
+
+    def createEnum(ename: String): Unit = macro createEnumImpl
+
+    
+    
 //  type H2Db(connString: String) = macro implaa
 //  def implaa(c: scala.reflect.macros.whitebox.Context) = {
 //    import c.universe._
@@ -24,21 +81,9 @@ object MacroTest {
 //  }
 //
 //  def createEnum(ename: String): Unit = macro createEnumImpl
-
-
-    def createEnumImpl(c: scala.reflect.macros.blackbox.Context)(ename: c.Expr[String]) = {
-      import c.universe._
-
-      val Literal(Constant(s_ename: String)) = ename.tree
-      val oname = TermName(s_ename)
-
-      val barLine = q"val bar: Int = 5"
-      //q"object $oname { $barLine }"
-      barLine
-    }
-
-    def createEnum(ename: String): Unit = macro createEnumImpl
-
+    
+    
+    
 //  def mkObject(param: Any*) = macro mkObjectImpl
 //  def mkObjectImpl(c: scala.reflect.macros.blackbox.Context)(param: c.Expr[Any]*) = {
 //    import c.universe._
@@ -151,46 +196,9 @@ object MacroTest {
   }  */  
   
     /* Make an instance of a structural type with the named member. */
-  def enum(param: Symbol*): Any = macro enum_impl
+  //def enum(param: Symbol*): Any = macro enum_impl
 
-  def enum_impl(c: scala.reflect.macros.whitebox.Context)(param: c.Expr[Symbol]*) = {
-    import c.universe._
-    val states = param.toList map { sym =>       //println(showRaw(sym.tree))
-      sym.tree match {
-        case Apply(_, List(Literal(Constant(name: String)))) => TermName(name)
-        case _ =>
-          throw new Exception("Expected list of symbols")
-      }
-    }  
 
-    val enumName = TypeName(c.freshName)
-    val objectName = TermName(c.freshName)
-    val cleanObjectName = TermName(c.freshName)
-    val tree = q"""
-      object $objectName extends SpinalEnum{
-        ..${states.map(s => q"val $s = newElement()")}
-      }
-
-      object $cleanObjectName{
-        def enumType = $objectName
-        def apply() = enumType()
-        ..${states.map(s => q"def $s = $objectName.$s")}
-      }
-      $cleanObjectName
-    """
-//    val tree2 = q"""
-//      class $enumName extends SpinalEnum{
-//        ..${states.map(s => q"val $s = ordered")}
-//      }
-//      object $cleanObjectName{
-//        def enumType = new $enumName()
-//        def apply() = enumType.craft()
-//        ..${states.map(s => q"def $s = enumType.$s")}
-//      }
-//      $cleanObjectName
-//    """
-    c.Expr(tree)
-  }    
   
   def enum2(param: Symbol*): Any = macro enum2_impl
 

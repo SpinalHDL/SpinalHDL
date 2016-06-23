@@ -66,8 +66,8 @@ object SpinalLibTest {
 
       //val arbiter = new StreamArbiterIO(new BundleA,4)
 
-      val uart = new UartCtrlIo()
-      val uartX = new UartCtrlIo()
+      val uart = new UartCtrlIo(UartCtrlGenerics())
+      val uartX = new UartCtrlIo(UartCtrlGenerics())
 
      // val fifo = new StreamFifoIo(Bits(36 bit),256)
     }

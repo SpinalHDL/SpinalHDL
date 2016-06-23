@@ -84,10 +84,10 @@ object CommonTester {
     val noData = NoData
 
     io.outAA.assignFromBits(io.inAABits)
-    io.outAABits := io.inAA.toBits
+    io.outAABits := io.inAA.asBits
 
     io.complexLiteral(15,4) := 0x70
-    io.complexLiteral(15,12) := U(2) + U(1)
+    io.complexLiteral(15,12) := (U(2) + U(1)).resized
     io.complexLiteral(6) := True
     io.complexLiteral(3) := True
     io.complexLiteral(5) := True
@@ -102,7 +102,7 @@ object CommonTester {
         val a = x(i)
         val b = y(i)
         ret(i) := a ^ b ^ c
-        c = (a & b) | (a & c) | (b & c)
+        c \= (a & b) | (a & c) | (b & c)
       }
       ret
     }
@@ -143,8 +143,14 @@ object CommonTester {
 
 }
 
-class CommonTesterBoot extends SpinalTesterBase {
+class CommonTesterGhdlBoot extends SpinalTesterGhdlBase {
   override def getName: String = "CommonTester"
 
   override def createToplevel: Component = new CommonTester.CommonTester
+}
+
+class CommonTesterCocotbBoot extends SpinalTesterCocotbBase {
+  override def getName: String = "CommonTester"
+  override def createToplevel: Component =  new CommonTester.CommonTester
+  override def pythonTestLocation: String = "tester/src/test/python/spinal/CommonTester"
 }

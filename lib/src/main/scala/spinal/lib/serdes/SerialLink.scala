@@ -65,16 +65,16 @@ class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) ext
     //Fill the buffer from upper layer data
     io.input.ready := !full
     when(io.input.fire) {
-      ram.write(writePtr, io.input.data)
+      ram.write(writePtr, io.input.payload)
       writePtr.increment()
     }
 
     //manage syncPtr from rxToTx notification port
     when(io.rxToTx.otherRxPtr.fire) {
-      when(syncPtr =/= io.rxToTx.otherRxPtr.data) {
+      when(syncPtr =/= io.rxToTx.otherRxPtr.payload) {
         resendTimeout.clear()
       }
-      syncPtr := io.rxToTx.otherRxPtr.data
+      syncPtr := io.rxToTx.otherRxPtr.payload
     }
 
     //read managment
@@ -151,8 +151,8 @@ class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) ext
       }
       is(eMyPtr0) {
         io.output.valid := True
-        io.output.fragment := toBits(io.rxToTx.rxPtr(7, 0))
-        dataBuffer := toBits(io.rxToTx.rxPtr(15, 8))
+        io.output.fragment := asBits(io.rxToTx.rxPtr(7, 0))
+        dataBuffer := asBits(io.rxToTx.rxPtr(15, 8))
         when(io.output.ready) {
           state := eMyPtr1
         }
@@ -173,14 +173,14 @@ class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) ext
       }
       is(eMessagePtr0) {
         io.output.valid := True
-        io.output.fragment := toBits(buffer.readPtr(7, 0))
+        io.output.fragment := asBits(buffer.readPtr(7, 0))
         when(io.output.ready) {
           state := eMessagePtr1
         }
       }
       is(eMessagePtr1) {
         io.output.valid := True
-        io.output.fragment := toBits(buffer.readPtr(15, 8))
+        io.output.fragment := asBits(buffer.readPtr(15, 8))
 
         when(buffer.empty || txDataLeftIsZero) {
           io.output.last := True
@@ -246,7 +246,7 @@ class SerialLinkRx extends Component {
   io.rxToTx.otherRxPtr.default(0)
 
   io.output.valid := False
-  io.output.data := io.input.fragment
+  io.output.payload := io.input.fragment
   io.input.ready := False
   when(io.input.valid) {
     switch(state) {
@@ -275,11 +275,11 @@ class SerialLinkRx extends Component {
       }
       is(eOtherPtr1) {
         io.input.ready := True
-        io.rxToTx.otherRxPtr.push(toUInt(data ## dataOld))
+        io.rxToTx.otherRxPtr.push(asUInt(data ## dataOld))
         state := eMessagePtr0
       }
       is(eMessagePtr0) {
-        when(rxPtr(7, 0) =/= toUInt(data)) {
+        when(rxPtr(7, 0) =/= asUInt(data)) {
           keepData := False
           io.rxToTx.miss := True
         }
@@ -287,7 +287,7 @@ class SerialLinkRx extends Component {
         io.input.ready := True
       }
       is(eMessagePtr1) {
-        when(rxPtr(15, 8) =/= toUInt(data)) {
+        when(rxPtr(15, 8) =/= asUInt(data)) {
           keepData := False
           io.rxToTx.miss := keepData
         }

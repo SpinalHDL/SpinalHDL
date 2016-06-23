@@ -16,7 +16,7 @@ class MemPimped[T <: Data](mem: Mem[T]) {
     val ret = Stream(new ReadRetLinked(mem.wordType, linkedData))
 
     val retValid = RegInit(False)
-    val retData = mem.readSync(cmd.data, cmd.ready)
+    val retData = mem.readSync(cmd.payload, cmd.ready)
     val retLinked = RegNextWhen(linkedData, cmd.ready)
 
     when(ret.ready) {
@@ -29,8 +29,8 @@ class MemPimped[T <: Data](mem: Mem[T]) {
     cmd.ready := ret.isFree
 
     ret.valid := retValid
-    ret.data.value := retData
-    ret.data.linked := retLinked
+    ret.value := retData
+    ret.linked := retLinked
     ret
   }
 
@@ -38,7 +38,7 @@ class MemPimped[T <: Data](mem: Mem[T]) {
     val ret = Stream(mem.wordType)
 
     val retValid = RegInit(False)
-    val retData = mem.readSync(cmd.data, cmd.ready)
+    val retData = mem.readSync(cmd.payload, cmd.ready)
 
     when(ret.ready) {
       retValid := Bool(false)
@@ -50,22 +50,54 @@ class MemPimped[T <: Data](mem: Mem[T]) {
     cmd.ready := ret.isFree
 
     ret.valid := retValid
-    ret.data := retData
+    ret.payload := retData
     ret
   }
 
   def flowReadSync(cmd : Flow[UInt]) : Flow[T] = {
     val ret = Flow(mem.wordType)
     ret.valid := RegNext(cmd.valid)
-    ret.data := mem.readSync(cmd.data)
+    ret.payload := mem.readSync(cmd.payload)
     ret
   }
 
   def flowReadSync[T2 <: Data](cmd: Flow[UInt], linkedData: T2) : Flow[ReadRetLinked[T,T2]] = {
     val ret = Flow(ReadRetLinked(mem.wordType, linkedData))
     ret.valid := RegNext(cmd.valid)
-    ret.data.linked := RegNext(linkedData)
-    ret.data.value := mem.readSync(cmd.data)
+    ret.linked := RegNext(linkedData)
+    ret.value := mem.readSync(cmd.payload)
     ret
+  }
+
+
+  def writePort : Flow[MemWriteCmd[T]] = {
+    val ret = Flow(MemWriteCmd(mem))
+    when(ret.valid){
+      mem.write(ret.address,ret.data)
+    }
+    ret
+  }
+
+  def readSyncPort : MemReadPort[T] = {
+    val ret : MemReadPort[T] = MemReadPort(mem.wordType,mem.addressWidth)
+    ret.rsp := mem.readSync(ret.cmd.payload,ret.cmd.valid)
+    ret
+  }
+}
+
+
+case class MemWriteCmd[T <: Data](mem : Mem[T]) extends Bundle{
+  val address = mem.addressType
+  val data = mem.wordType
+}
+
+case class MemReadPort[T <: Data](dataType : T,addressWidth : Int) extends Bundle with IMasterSlave{
+  val cmd = Flow(UInt(addressWidth bit))
+  val rsp = dataType.clone
+
+  override def asMaster(): MemReadPort.this.type = {
+    master(cmd)
+    in(rsp)
+    this
   }
 }

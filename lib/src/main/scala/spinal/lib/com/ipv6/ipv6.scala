@@ -56,7 +56,7 @@ class Ipv6Rx extends Component {
   val statemachine = new Area {
     io.inFrame.ready := False
     io.outFrame.valid := False
-    io.outFrame.data := io.inFrame.data
+    io.outFrame.payload := io.inFrame.payload
 
     import Ipv6RxState._
 

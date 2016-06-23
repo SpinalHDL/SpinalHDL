@@ -21,27 +21,31 @@ package spinal.core
 import scala.collection.mutable.ArrayBuffer
 
 /**
- * Created by PIC18F on 09.02.2015.
- */
-trait AttributeReady{
+  * Created by PIC18F on 09.02.2015.
+  */
+trait AttributeReady {
   private[core] val attributes = ArrayBuffer[Attribute]()
-  def add(attribute: Attribute): Unit
+
+  def addAttribute(attribute: Attribute): this.type
+  def addAttribute(name: String): this.type = addAttribute(new AttributeFlag(name))
+  def addAttribute(name: String,value : String): this.type = addAttribute(new AttributeString(name,value))
 }
 
 trait Attribute {
-  def getName : String
-  def sameType(that: Attribute) : Boolean
+  def getName: String
+  def sameType(that: Attribute): Boolean
+
   override def toString: String = getName
 }
 
-
-class AttributeString(name : String, val value : String) extends Attribute{
+class AttributeString(name: String, val value: String) extends Attribute {
   override def getName: String = name
-  override def sameType(that: Attribute) : Boolean = that.isInstanceOf[AttributeString]
+  override def sameType(that: Attribute): Boolean = that.isInstanceOf[AttributeString]
 }
-class AttributeFlag(name : String) extends Attribute{
+
+class AttributeFlag(name: String) extends Attribute {
   override def getName: String = name
-  override def sameType(that: Attribute) : Boolean = that.isInstanceOf[AttributeFlag]
+  override def sameType(that: Attribute): Boolean = that.isInstanceOf[AttributeFlag]
 }
 
 

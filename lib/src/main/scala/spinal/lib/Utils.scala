@@ -28,9 +28,9 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 
-object OHToUInt {
-  def apply(bitVector: BitVector): UInt = apply(bitVector.toBools)
 
+object OHToUInt {
+  def apply(bitVector: BitVector): UInt = apply(bitVector.asBools)
   def apply(bools: collection.IndexedSeq[Bool]): UInt = {
     val boolsSize = bools.size
     if (boolsSize < 2) return U(0)
@@ -49,13 +49,44 @@ object OHToUInt {
       ret(retBitId) := bit.dontSimplifyIt()
     }
 
-    ret.toBits.toUInt
+    ret.asBits.asUInt
   }
 }
 
+object CountOne{
+  def args(thats : Bool*) : UInt = apply(thats)
+  def apply(thats : BitVector) : UInt = apply(thats.asBools)
+  def apply(thats : Seq[Bool]) : UInt = {
+    var ret = UInt(log2Up(thats.length+1) bit)
+    ret := 0
+    for(e <- thats){
+      when(e){
+        ret \= ret + 1
+      }
+    }
+    ret
+  }
+}
+
+object LeastSignificantBitSet{
+  def apply(thats : Bool*) : UInt = list(thats)
+  def apply(thats : Bits) : UInt = list(thats.asBools)
+  def list(thats : Seq[Bool]) : UInt = {
+    var ret = UInt(log2Up(thats.length+1) bit)
+    ret.assignDontCare()
+    for((e,id) <- thats.zipWithIndex.reverse){
+      when(e){
+        ret := id
+      }
+    }
+    ret
+  }
+}
+
+
 object toGray {
   def apply(uint: UInt): Bits = {
-    toBits((uint >> U(1)) ^ uint)
+    asBits((uint >> U(1)) ^ uint)
   }
 }
 
@@ -70,6 +101,37 @@ object fromGray {
   }
 }
 
+/**
+  * Big-Endian <-> Little-Endian
+  */
+object Endianness{
+  def apply[T <: BitVector](that : T, base:BitCount = 8 bits) : T = {
+
+    val nbrBase = that.getWidth / base.value
+    val ret = that.clone
+
+    assert(nbrBase * base.value == that.getWidth, "Endianness Error : Width's input is not a multiple of " + base.value)
+
+    for(i <- (0 until nbrBase)){
+      val rangeIn  = (i * base.value + base.value - 1)    downto (i * base.value)
+      val rangeOut = (that.getWidth - 1 - i * base.value) downto (that.getWidth - i * base.value - base.value)
+
+      ret(rangeOut) := that(rangeIn)
+    }
+    ret
+  }
+}
+
+
+object Reverse{
+  def apply[T <: BitVector](that : T) : T = {
+    val ret = that.clone
+    for(i <- that.range){
+      ret(i) := that(that.getWidth-1-i)
+    }
+    ret
+  }
+}
 object adderAndCarry {
   def apply(left: UInt, right: UInt): (UInt, Bool) = {
     val temp = left.resize(left.getWidth + 1) + right.resize(right.getWidth + 1)
@@ -162,7 +224,7 @@ class Counter(val stateCount: BigInt) extends ImplicitArea[UInt] {
   val willOverflow = willOverflowIfInc && willIncrement
 
   if (isPow2(stateCount)) {
-    valueNext :~= value + toUInt(willIncrement)
+    valueNext :~= value + asUInt(willIncrement)
   }
   else {
     when(willIncrement) {
@@ -179,8 +241,13 @@ class Counter(val stateCount: BigInt) extends ImplicitArea[UInt] {
     valueNext := 0
   }
 
+  willOverflowIfInc.unused
+  willOverflow.unused
+
   override def implicitValue: UInt = this.value
 }
+
+
 
 
 object Timeout {
@@ -209,7 +276,7 @@ class Timeout(val limit: BigInt) extends ImplicitArea[Bool] {
 }
 
 object MajorityVote {
-  def apply(that: BitVector): Bool = apply(that.toBools)
+  def apply(that: BitVector): Bool = apply(that.asBools)
   def apply(that: collection.IndexedSeq[Bool]): Bool = {
     val size = that.size
     val trigger = that.size / 2 + 1
@@ -227,13 +294,83 @@ object MajorityVote {
   }
 }
 
+
+object CounterUpDown {
+  def apply(stateCount: BigInt): CounterUpDown = new CounterUpDown(stateCount)
+  def apply(stateCount: BigInt, incWhen: Bool,decWhen : Bool): CounterUpDown = {
+    val counter = CounterUpDown(stateCount)
+    when(incWhen) {
+      counter.increment()
+    }
+    when(decWhen) {
+      counter.decrement()
+    }
+    counter
+  }
+  //  implicit def implicitValue(c: Counter) = c.value
+}
+
+class CounterUpDown(val stateCount: BigInt) extends ImplicitArea[UInt] {
+  val incrementIt = False
+  val decrementIt = False
+
+  def increment(): Unit = incrementIt := True
+  def decrement(): Unit = decrementIt := True
+
+  def ===(that: UInt): Bool = this.value === that
+  def !==(that: UInt): Bool = this.value =/= that
+  def =/=(that: UInt): Bool = this.value =/= that
+
+  val valueNext = UInt(log2Up(stateCount) bit)
+  val value = RegNext(valueNext) init(0)
+  val willOverflowIfInc = value === stateCount - 1 && !decrementIt
+  val willOverflow = willOverflowIfInc && incrementIt
+
+  val finalIncrement = UInt(log2Up(stateCount) bit)
+  when(incrementIt && !decrementIt){
+    finalIncrement := 1
+  }.elsewhen(!incrementIt && decrementIt){
+    finalIncrement := finalIncrement.maxValue
+  }otherwise{
+    finalIncrement := 0
+  }
+
+  if (isPow2(stateCount)) {
+    valueNext :~= value + finalIncrement
+  }
+  else {
+    assert(false,"TODO")
+  }
+
+
+  override def implicitValue: UInt = this.value
+}
+
+
+object CounterMultiRequest {
+  def apply(width: Int, requests : (Bool,(UInt) => UInt)*): UInt = {
+    val counter = Reg(UInt(width bit)) init(0)
+    var counterNext = counter.clone
+    counterNext := counter
+    for((cond,func) <- requests){
+      when(cond){
+        counterNext \= func(counterNext)
+      }
+    }
+    counter := counterNext
+    counter
+  }
+}
+
+
+
 //object SpinalMap {
 //  def apply[Key <: Data, Value <: Data](elems: Tuple2[() => Key, () => Value]*): SpinalMap[Key, Value] = {
 //    new SpinalMap(elems)
 //  }
 //}
-
-class SpinalMap[Key <: Data, Value <: Data](pairs: Iterable[(() => Key, () => Value)]) {
+@deprecated
+class SpinalMapOld[Key <: Data, Value <: Data](pairs: Iterable[(() => Key, () => Value)]) {
   def apply(key: Key): Value = {
     val ret: Value = pairs.head._2()
 
@@ -248,9 +385,12 @@ class SpinalMap[Key <: Data, Value <: Data](pairs: Iterable[(() => Key, () => Va
 }
 
 
-object latencyAnalysis {
+
+object LatencyAnalysis {
   //Don't care about clock domain
-  def apply(paths: Node*): Integer = {
+  def apply(paths: Node*): Integer = list(paths)
+
+  def list(paths: Seq[Node]): Integer = {
     var stack = 0;
     for (i <- (0 to paths.size - 2)) {
       stack = stack + impl(paths(i), paths(i + 1))
@@ -286,9 +426,9 @@ object latencyAnalysis {
           pendingStack ++= delay.getSynchronousInputs
         }
         case _ => {
-          for (input <- that.inputs) {
+          that.onEachInput(input =>  {
             if (walk(input)) return true
-          }
+          })
         }
       }
       false
@@ -299,11 +439,16 @@ object latencyAnalysis {
   }
 }
 
+object DataCarrier{
+  implicit def toImplicit[T <: Bundle](dataCarrier: DataCarrier[T]): T = dataCarrier.payload
+}
 
 trait DataCarrier[T <: Data] {
   def fire: Bool
   def valid: Bool
-  def data: T
+  def payload: T
+  @deprecated("Shoud use payload instead of data. Or directly myStream.myBundleElement in place of myStream.data.myBundleElement")
+  //def data : T = payload
   def freeRun(): this.type
 }
 
@@ -393,12 +538,12 @@ class TraversableOncePimped[T <: Data](pimped: scala.collection.Iterable[T]) {
 
 
   def read(idx: UInt): T = {
-    Vec(pimped)(idx)
+    Vec(pimped).read(idx)
   }
   def write(index: UInt, data: T): Unit = {
     read(index) := data
   }
-  def apply(index: UInt): T = read(index)
+  def apply(index: UInt): T = Vec(pimped)(index)
 
   def sExists(condition: T => Bool): Bool = (pimped map condition).fold(False)(_ || _)
   def sContains(value: T) : Bool = sExists(_ === value)
@@ -417,24 +562,36 @@ class TraversableOncePimped[T <: Data](pimped: scala.collection.Iterable[T]) {
 
 
 object Delay {
-  def apply[T <: Data](that: T, length: Int): T = {
-    length match {
+  def apply[T <: Data](that: T, cycleCount: Int): T = {
+    cycleCount match {
       case 0 => that
-      case _ => Delay(RegNext(that), length - 1)
+      case _ => Delay(RegNext(that), cycleCount - 1)
     }
   }
 }
 
+object DelayWithInit {
+  def apply[T <: Data](that: T, cycleCount: Int)(onEachReg : (T) => Unit = null): T = {
+    cycleCount match {
+      case 0 => that
+      case _ => {
+        val reg = RegNext(that)
+        if(onEachReg != null) onEachReg(reg)
+        DelayWithInit(reg, cycleCount - 1)(onEachReg)
+      }
+    }
+  }
+}
 
-object Delays {
-  def apply[T <: Data](that: T, length: Int): Vec[T] = {
+object History {
+  def apply[T <: Data](that: T, length: Int,when : Bool = True,initValue : T = null): Vec[T] = {
     def builder(that: T, left: Int): List[T] = {
       left match {
         case 0 => that :: Nil
-        case _ => that :: builder(RegNext(that), left - 1)
+        case _ => that :: builder(RegNextWhen(that,when,init=initValue), left - 1)
       }
     }
-    Vec(builder(that, length))
+    Vec(builder(that, length-1))
   }
 }
 
@@ -445,9 +602,9 @@ object SetCount
     if (in.size == 0) {
       U(0)
     } else if (in.size == 1) {
-      in.head.toUInt
+      in.head.asUInt
     } else {
-      (U(0,1 bit) ## apply(in.slice(0, in.size/2))).toUInt + apply(in.slice(in.size/2, in.size))
+      (U(0,1 bit) ## apply(in.slice(0, in.size/2))).asUInt + apply(in.slice(in.size/2, in.size))
     }
   }
   def apply(in: Bits): UInt = apply((0 until in.getWidth).map(in(_)))
@@ -474,5 +631,36 @@ object PriorityMux{
     }
   }
   def apply[T <: Data](sel: Iterable[Bool], in: Iterable[T]): T = apply(sel zip in)
-  def apply[T <: Data](sel: Bits, in: Iterable[T]): T = apply(sel.toBools.zip(in))
+  def apply[T <: Data](sel: Bits, in: Iterable[T]): T = apply(sel.asBools.zip(in))
+}
+
+
+
+object WrapWithReg{
+  def on(c : Component): Unit = {
+    c.nameElements()
+    for(e <- c.getAllIo){
+      if(e.isInput){
+        e := RegNext(RegNext(in(e.clone.setName(e.getName))))
+      }else{
+        out(e.clone.setName(e.getName)) := RegNext(RegNext(e))
+      }
+    }
+  }
+
+  class Wrapper(c :  => Component) extends Component{
+    val comp = c
+    on(comp)
+  }
+}
+
+
+case class TriState[T <: Data](dataType : T) extends Bundle with IMasterSlave{
+  val read,write : T = dataType.clone
+  val writeEnable = Bool
+  override def asMaster(): TriState.this.type = {
+    out(write,writeEnable)
+    in(read)
+    this
+  }
 }

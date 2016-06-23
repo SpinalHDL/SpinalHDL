@@ -18,8 +18,6 @@
 
 package spinal.core
 
-import scala.collection.mutable.Stack
-
 /**
  * Created by PIC18F on 21.08.2014.
  */

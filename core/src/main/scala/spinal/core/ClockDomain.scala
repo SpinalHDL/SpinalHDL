@@ -21,69 +21,74 @@ package spinal.core
 import scala.collection.mutable.ArrayBuffer
 
 /**
- * Created by PIC18F on 21.08.2014.
- */
+  * Created by PIC18F on 21.08.2014.
+  */
 
-trait EdgeKind;
+trait EdgeKind
+object RISING extends EdgeKind
+object FALLING extends EdgeKind
 
-object RISING extends EdgeKind;
-object FALLING extends EdgeKind;
+trait ResetKind
+object ASYNC extends ResetKind
+object SYNC extends ResetKind
+object BOOT extends ResetKind
 
-trait ResetKind;
+trait ActiveKind
+object HIGH extends ActiveKind
+object LOW extends ActiveKind
 
-object ASYNC extends ResetKind;
-object SYNC extends ResetKind;
+
 
 // Default configuration of clock domain is :
 // Rising edge clock with optional asyncronous reset active high and optional active high clockEnable
-case class ClockDomainConfig(clockEdge: EdgeKind = RISING, resetKind: ResetKind = ASYNC, resetActiveHigh: Boolean = true, clockEnableActiveHigh: Boolean = true) {
-
+case class ClockDomainConfig(clockEdge: EdgeKind = RISING, resetKind: ResetKind = ASYNC, resetActiveLevel: ActiveKind = HIGH, softResetActiveLevel: ActiveKind = HIGH, clockEnableActiveLevel: ActiveKind = HIGH) {
+  val useResetPin = resetKind match{
+    case `ASYNC` | `SYNC` => true
+    case _ => false
+  }
 }
 
 //To use when you want to define a new clock domain by using internal signals
 object ClockDomain {
-  def apply(config: ClockDomainConfig, clock: Bool, reset: Bool = null, clockEnable: Bool = null,frequency: IClockDomainFrequency = UnknownFrequency()): ClockDomain = {
-    new ClockDomain(config, clock, reset, clockEnable,frequency)
+  def apply(clock: Bool, reset: Bool = null, dummyArg : DummyTrait = null,softReset : Bool = null,clockEnable: Bool = null, frequency: IClockDomainFrequency = UnknownFrequency(),config: ClockDomainConfig = GlobalData.get.commonClockConfig): ClockDomain = {
+    new ClockDomain(config, clock, reset,dummyArg,softReset,clockEnable, frequency)
   }
-  def apply(clock: Bool, reset: Bool, clockEnable: Bool): ClockDomain = {
-    new ClockDomain(GlobalData.get.commonClockConfig, clock, reset, clockEnable)
-  }
-  def apply(clock: Bool, reset: Bool): ClockDomain = {
-    new ClockDomain(GlobalData.get.commonClockConfig, clock, reset, null)
-  }
-  def apply(clock: Bool): ClockDomain = {
-    new ClockDomain(GlobalData.get.commonClockConfig, clock, null, null)
-  }
+
   // To use when you want to define a new ClockDomain that thank signals outside the toplevel.
   // (it create input clock, reset, clockenable in the top level)
-  def apply(name: String,config: ClockDomainConfig,withReset : Boolean,withClockEnable : Boolean,frequency: IClockDomainFrequency): ClockDomain = {
+  def external(name: String,config: ClockDomainConfig = GlobalData.get.commonClockConfig,withReset : Boolean = true, dummyArg : DummyTrait = null,withSoftReset : Boolean = false,withClockEnable : Boolean = false,frequency: IClockDomainFrequency = UnknownFrequency()): ClockDomain = {
     Component.push(null)
-    val clock = Bool
+    val clock = Bool()
     clock.setName(if (name != "") name + "_clk" else "clk")
 
-    var reset : Bool = null
-    if(withReset) {
-      reset = Bool
-      reset.setName((if (name != "") name + "_reset" else "reset") + (if (config.resetActiveHigh) "" else "N"))
+    var reset: Bool = null
+    if (withReset) {
+      reset = Bool()
+      reset.setName((if (name != "") name + "_reset" else "reset") + (if (config.resetActiveLevel == HIGH) "" else "n"))
     }
 
-    var clockEnable : Bool = null
-    if(withClockEnable) {
-      clockEnable = Bool
-      clockEnable.setName((if (name != "") name + "_clkEn" else "clkEn") + (if (config.resetActiveHigh) "" else "N"))
+    var softReset: Bool = null
+    if (withSoftReset) {
+      softReset = Bool()
+      softReset.setName((if (name != "") name + "_soft_reset" else "soft_reset") + (if (config.softResetActiveLevel == HIGH) "" else "n"))
     }
 
-    val clockDomain = ClockDomain(config,clock, reset,clockEnable,frequency)
+    var clockEnable: Bool = null
+    if (withClockEnable) {
+      clockEnable = Bool()
+      clockEnable.setName((if (name != "") name + "_clkEn" else "clkEn") + (if (config.resetActiveLevel == HIGH) "" else "n"))
+    }
+
+    val clockDomain = ClockDomain(clock, reset,dummyArg,softReset, clockEnable, frequency,config)
     Component.pop(null)
     clockDomain
   }
-  def apply(name: String,frequency: IClockDomainFrequency): ClockDomain = ClockDomain(name, GlobalData.get.commonClockConfig, true, false,frequency)
-  def apply(name: String): ClockDomain = ClockDomain(name, GlobalData.get.commonClockConfig, true, false,UnknownFrequency())
 
 
   def push(c: ClockDomain): Unit = {
     GlobalData.get.clockDomainStack.push(c)
   }
+
   def pop(c: ClockDomain): Unit = {
     GlobalData.get.clockDomainStack.pop(c)
   }
@@ -93,49 +98,94 @@ object ClockDomain {
   def isResetActive = current.isResetActive
   def isClockEnableActive = current.isClockEnableActive
 
-
   def readClockWire = current.readClockWire
   def readResetWire = current.readResetWire
   def readClockEnableWire = current.readClockEnableWire
+
+  def getClockDomainDriver(that: Bool): Bool = {
+    if (that.spinalTags.exists(_.isInstanceOf[ClockDomainBoolTag])) {
+      that
+    } else {
+      that.input match {
+        case input: Bool => getClockDomainDriver(input)
+        case _ => null
+      }
+    }
+  }
+
+  def getClockDomainTag(that: Bool): ClockDomainBoolTag = {
+    val driver = getClockDomainDriver(that)
+    if (driver == null) {
+      null
+    } else {
+      driver.spinalTags.find(_.isInstanceOf[ClockDomainBoolTag]).get.asInstanceOf[ClockDomainBoolTag]
+    }
+  }
 }
 
+case class ClockDomainTag(clockDomain: ClockDomain) extends SpinalTag
+
+trait ClockDomainBoolTag extends SpinalTag
+case class ClockTag(clockDomain: ClockDomain) extends ClockDomainBoolTag
+case class ResetTag(clockDomain: ClockDomain) extends ClockDomainBoolTag
+case class ClockEnableTag(clockDomain: ClockDomain) extends ClockDomainBoolTag
+
+trait DummyTrait
+
+class ClockDomain(val config: ClockDomainConfig, val clock: Bool, val reset: Bool = null,dummyArg : DummyTrait = null,val softReset : Bool = null, val clockEnable: Bool = null, val frequency: IClockDomainFrequency = UnknownFrequency()) {
+  assert(!(reset != null && config.resetKind == BOOT),"A reset pin was given to a clock domain where the config.resetKind is 'BOOT'")
+  clock.dontSimplifyIt()
+  if(reset != null)reset.dontSimplifyIt()
+  if(clockEnable != null)clockEnable.dontSimplifyIt()
+
+  clock.addTag(ClockTag(this))
+  if (reset != null) reset.addTag(ResetTag(this))
+  if (clockEnable != null) clockEnable.addTag(ClockEnableTag(this))
 
 
-class ClockDomain(val config: ClockDomainConfig, val clock: Bool, val reset: Bool = null, val clockEnable: Bool = null,val frequency : IClockDomainFrequency = UnknownFrequency()) {
-  def hasClockEnable = clockEnable != null
-  def hasReset = reset != null
-
-  def push: Unit = ClockDomain.push(this)
-  def pop: Unit = ClockDomain.pop(this)
-
-  def isResetActive = if (config.resetActiveHigh) readResetWire else !readResetWire
-  def isClockEnableActive = if (config.clockEnableActiveHigh) readClockEnableWire else !readClockEnableWire
-
+  def hasClockEnableSignal = clockEnable != null
+  def hasResetSignal = reset != null
+  def hasSoftResetSignal = softReset != null
+  def push() : Unit = ClockDomain.push(this)
+  def pop(): Unit = ClockDomain.pop(this)
+  def isResetActive = {
+    if(config.useResetPin && reset != null)
+      if (config.resetActiveLevel == HIGH) readResetWire else !readResetWire
+    else
+      False
+  }
+  def isSoftResetActive = {
+    if(softReset != null)
+      if (config.softResetActiveLevel == HIGH) readSoftResetWire else ! readSoftResetWire
+    else
+      False
+  }
+  def isClockEnableActive = {
+    if(clockEnable != null)
+      if (config.clockEnableActiveLevel == HIGH) readClockEnableWire else !readClockEnableWire
+    else
+      True
+  }
   def readClockWire = if (null == clock) Bool(config.clockEdge == FALLING) else Data.doPull(clock, Component.current, true, true)
-  def readResetWire = if (null == reset) Bool(!config.resetActiveHigh) else Data.doPull(reset, Component.current, true, true)
-  def readClockEnableWire = if (null == clockEnable) Bool(config.clockEnableActiveHigh) else Data.doPull(clockEnable, Component.current, true, true)
-
+  def readResetWire = if (null == reset) Bool(config.resetActiveLevel == LOW) else Data.doPull(reset, Component.current, true, true)
+  def readSoftResetWire = if (null == softReset) Bool(config.softResetActiveLevel == LOW) else Data.doPull(softReset, Component.current, true, true)
+  def readClockEnableWire = if (null == clockEnable) Bool(config.clockEnableActiveLevel == HIGH) else Data.doPull(clockEnable, Component.current, true, true)
 
   val syncroneWith = ArrayBuffer[ClockDomain]()
-  def isSyncronousWith(that : ClockDomain) : Boolean = {
-    if(this == that) return true
-    if(this.clock == that.clock) return true
-    if(syncroneWith.contains(that)) return true
 
+  def isSyncronousWith(that: ClockDomain): Boolean = {
+    if (this == that) return true
+    if (this.clock == that.clock) return true
+    if (syncroneWith.contains(that)) return true
     return false
   }
-  def setSyncronousWith(that : ClockDomain) = {
+
+  def setSyncronousWith(that: ClockDomain) = {
     this.syncroneWith += that
     that.syncroneWith += this
   }
 
-  def apply(block: => Unit): Unit = {
-    push
-    block
-    pop
-  }
-
-  def apply[T <: Data](block: => T): T = {
+  def apply[T](block: => T): T = {
     push
     val ret: T = block
     pop
@@ -143,23 +193,23 @@ class ClockDomain(val config: ClockDomainConfig, val clock: Bool, val reset: Boo
   }
 
 
-  def clone(config: ClockDomainConfig = config, clock: Bool = clock, reset: Bool = reset, clockEnable: Bool = clockEnable): ClockDomain = new ClockDomain(config, clock, reset, clockEnable,frequency)
+  def clone(config: ClockDomainConfig = config, clock: Bool = clock, reset: Bool = reset, dummyArg : DummyTrait = null,softReset : Bool = null,clockEnable: Bool = clockEnable): ClockDomain = new ClockDomain(config, clock, reset, dummyArg, softReset,  clockEnable, frequency)
 }
 
-case class UnknownFrequency() extends IClockDomainFrequency{
-  def getValue : Double = ???
-  def getMax : Double = ???
-  def getMin : Double = ???
+case class UnknownFrequency() extends IClockDomainFrequency {
+  def getValue: Double = SpinalError("You are trying to get the frequency of a ClockDomain that didn't know it")
+  def getMax: Double = SpinalError("You are trying to get the frequency of a ClockDomain that didn't know it")
+  def getMin: Double = SpinalError("You are trying to get the frequency of a ClockDomain that didn't know it")
 }
 
-case class FixedFrequency(value : Double) extends  IClockDomainFrequency{
-  def getValue : Double = value
-  def getMax : Double = value
-  def getMin : Double = value
+case class FixedFrequency(value: Double) extends IClockDomainFrequency {
+  def getValue: Double = value
+  def getMax: Double = value
+  def getMin: Double = value
 }
 
-trait IClockDomainFrequency{
-  def getValue : Double
-  def getMax : Double
-  def getMin : Double
+trait IClockDomainFrequency {
+  def getValue: Double
+  def getMax: Double
+  def getMin: Double
 }
