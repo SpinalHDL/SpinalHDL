@@ -1211,7 +1211,10 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
       val arrayWithoutReset = ArrayBuffer[SyncNode]()
 
       for (syncNode <- array) {
-        if (syncNode.isUsingResetSignal) arrayWithReset += syncNode else arrayWithoutReset += syncNode
+        if (syncNode.isUsingResetSignal || syncNode.isUsingSoftResetSignal)
+          arrayWithReset += syncNode
+        else
+          arrayWithoutReset += syncNode
       }
 
       emitClockDomain(true)
@@ -1224,6 +1227,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
         if (activeArray.size == 0) return;
         val clock = component.pulledDataCache.getOrElse(clockDomain.clock, throw new Exception("???")).asInstanceOf[Bool]
         val reset = if (null == clockDomain.reset || !withReset) null else component.pulledDataCache.getOrElse(clockDomain.reset, throw new Exception("???")).asInstanceOf[Bool]
+        val softReset = if (null == clockDomain.softReset || !withReset) null else component.pulledDataCache.getOrElse(clockDomain.softReset, throw new Exception("???")).asInstanceOf[Bool]
         val clockEnable = if (null == clockDomain.clockEnable) null else component.pulledDataCache.getOrElse(clockDomain.clockEnable, throw new Exception("???")).asInstanceOf[Bool]
         val asyncReset = (null != reset) && clockDomain.config.resetKind == ASYNC
         val syncReset = (null != reset) && clockDomain.config.resetKind == SYNC
@@ -1275,8 +1279,13 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
           ret ++= s"${tabStr}if ${emitReference(clockEnable)} = \'${if (clockDomain.config.clockEnableActiveLevel == HIGH) 1 else 0}\' then\n"
           inc
         }
-        if (syncReset) {
-          ret ++= s"${tabStr}if ${emitReference(reset)} = \'${if (clockDomain.config.resetActiveLevel == HIGH) 1 else 0}\' then\n"
+
+        if (syncReset || softReset != null) {
+          var condList = ArrayBuffer[String]()
+          if(syncReset) condList += s"${emitReference(reset)} = \'${if (clockDomain.config.resetActiveLevel == HIGH) 1 else 0}\'"
+          if(softReset != null) condList += s"${emitReference(softReset)} = \'${if (clockDomain.config.softResetActiveLevel == HIGH) 1 else 0}\'"
+
+          ret ++= s"${tabStr}if ${condList.reduce(_ + " or " + _)} then\n"
           inc
           emitRegsInitialValue(initialValueAssignement, tabStr)
           dec

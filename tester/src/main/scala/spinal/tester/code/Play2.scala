@@ -1169,3 +1169,99 @@ object PlayWidthInferation {
     SpinalVhdl(new TopLevel)
   }
 }
+
+object PlaySoftReset {
+
+  class TopLevel extends Component {
+    val io = new Bundle{
+      val clk = in Bool
+      val resetn = in Bool
+      val softReset = in Bool
+
+      val result = out UInt(4 bits)
+    }
+
+    val asyncClockDomain = ClockDomain(
+      clock     = io.clk,
+      reset     = io.resetn,
+      softReset = io.softReset,
+      config = ClockDomainConfig(
+        clockEdge = RISING,
+        resetActiveLevel = LOW,
+        resetKind = ASYNC,
+        softResetActiveLevel = HIGH
+      )
+    )
+
+    val syncClockDomain = ClockDomain(
+      clock     = io.clk,
+      reset     = io.resetn,
+      softReset = io.softReset,
+      config = ClockDomainConfig(
+        clockEdge = RISING,
+        resetActiveLevel = LOW,
+        resetKind = SYNC,
+        softResetActiveLevel = HIGH
+      )
+    )
+
+    val bootClockDomain = ClockDomain(
+      clock     = io.clk,
+      softReset = io.softReset,
+      config = ClockDomainConfig(
+        clockEdge = RISING,
+        resetActiveLevel = LOW,
+        resetKind = BOOT,
+        softResetActiveLevel = HIGH
+      )
+    )
+
+    val noResetClockDomain = ClockDomain(
+      clock     = io.clk,
+      softReset = io.softReset,
+      config = ClockDomainConfig(
+        clockEdge = RISING,
+        softResetActiveLevel = HIGH
+      )
+    )
+
+    val noResetNoSoftResetClockDomain = ClockDomain(
+      clock     = io.clk,
+      config = ClockDomainConfig(
+        clockEdge = RISING
+      )
+    )
+
+    val async = new ClockingArea(asyncClockDomain) {
+      val counter = Reg(UInt(4 bits)) init (0)
+      counter := counter + 1
+    }
+
+    val sync = new ClockingArea(syncClockDomain) {
+      val counter = Reg(UInt(4 bits)) init (0)
+      counter := counter + 1
+    }
+
+    val boot = new ClockingArea(bootClockDomain) {
+      val counter = Reg(UInt(4 bits)) init (0)
+      counter := counter + 1
+    }
+
+    val noReset = new ClockingArea(noResetClockDomain) {
+      val counter = Reg(UInt(4 bits)) init (0)
+      counter := counter + 1
+    }
+
+    val noResetNoSoftReset = new ClockingArea(noResetNoSoftResetClockDomain) {
+      val counter = Reg(UInt(4 bits))
+      counter := counter + 1
+    }
+    io.result := async.counter + sync.counter  + boot.counter + noReset.counter + noResetNoSoftReset.counter
+  }
+
+  def main(args: Array[String]) {
+    val config = SpinalConfig()
+    config.generateVerilog(new TopLevel)
+    config.generateVhdl(new TopLevel)
+  }
+}

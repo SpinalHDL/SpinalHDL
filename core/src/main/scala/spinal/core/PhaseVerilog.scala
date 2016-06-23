@@ -656,7 +656,7 @@ end
       val arrayWithoutReset = ArrayBuffer[SyncNode]()
 
       for (syncNode <- array) {
-        if (syncNode.isUsingResetSignal) arrayWithReset += syncNode else arrayWithoutReset += syncNode
+        if (syncNode.isUsingResetSignal || syncNode.isUsingSoftResetSignal) arrayWithReset += syncNode else arrayWithoutReset += syncNode
       }
 
       emitClockDomain(true)
@@ -669,9 +669,11 @@ end
         if (activeArray.size == 0) return;
         val clock = component.pulledDataCache.getOrElse(clockDomain.clock, throw new Exception("???")).asInstanceOf[Bool]
         val reset = if (null == clockDomain.reset || !withReset) null else component.pulledDataCache.getOrElse(clockDomain.reset, throw new Exception("???")).asInstanceOf[Bool]
+        val softReset = if (null == clockDomain.softReset || !withReset) null else component.pulledDataCache.getOrElse(clockDomain.softReset, throw new Exception("???")).asInstanceOf[Bool]
         val clockEnable = if (null == clockDomain.clockEnable) null else component.pulledDataCache.getOrElse(clockDomain.clockEnable, throw new Exception("???")).asInstanceOf[Bool]
         val asyncReset = (null != reset) && clockDomain.config.resetKind == ASYNC
         val syncReset = (null != reset) && clockDomain.config.resetKind == SYNC
+
         var tabLevel = 1
         def tabStr = "  " * tabLevel
         def inc = {
@@ -713,16 +715,21 @@ end
           ret ++= s"${tabStr}end else begin\n"
           inc
         }
+
         if (clockEnable != null) {
           ret ++= s"${tabStr}if(${if (clockDomain.config.clockEnableActiveLevel == HIGH) "" else "!"}${emitReference(clockEnable)}) begin\n"
           inc
         }
-        if (syncReset) {
-          ret ++= s"${tabStr}if(${if (clockDomain.config.resetActiveLevel == HIGH) "" else "!"}${emitReference(reset)}) begin\n"
+        if (syncReset || softReset != null) {
+          var condList = ArrayBuffer[String]()
+          if(syncReset) condList += s"${if (clockDomain.config.resetActiveLevel == HIGH) "" else "!"}${emitReference(reset)}"
+          if(softReset != null) condList += s"${if (clockDomain.config.softResetActiveLevel == HIGH) "" else "!"}${emitReference(softReset)}"
+
+          ret ++= s"${tabStr}if(${condList.reduce(_ + " || " + _)}) begin\n"
           inc
           emitRegsInitialValue(initialValueAssignement, tabStr)
           dec
-          ret ++= s"${tabStr}else\n"
+          ret ++= s"${tabStr}end else begin\n"
           inc
           emitRegsLogic(tabStr)
           dec

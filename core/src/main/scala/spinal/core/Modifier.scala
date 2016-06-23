@@ -1526,7 +1526,7 @@ class AssertNode extends SyncNode(){
 
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
     super.onEachInput(doThat)
-    doThat(cond,3)
+    doThat(cond,4)
   }
   override def onEachInput(doThat: (Node) => Unit): Unit = {
     super.onEachInput(doThat)
@@ -1534,16 +1534,17 @@ class AssertNode extends SyncNode(){
   }
 
   override def setInput(id: Int, node: Node): Unit = id match{
-    case 3 => cond = node
+    case 4 => cond = node
     case _ => super.setInput(id,node)
   }
 
   override def getInputsCount: Int = 1 + super.getInputsCount
   override def getInputs: Iterator[Node] = super.getInputs ++ Iterator(cond)
   override def getInput(id: Int): Node = id match{
-    case 3 => cond
+    case 4 => cond
     case _ => super.getInput(id)
   }
 
   override def isUsingResetSignal: Boolean = false
+  override def isUsingSoftResetSignal: Boolean = false
 }

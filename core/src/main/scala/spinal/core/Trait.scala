@@ -112,43 +112,55 @@ object SyncNode {
   val getClockInputId: Int = 0
   val getClockEnableId: Int = 1
   val getClockResetId: Int = 2
+  val getClockSoftResetId: Int = 3
 }
 
 abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends Node {
-  var clock  : Node = clockDomain.clock
-  var enable : Node = clockDomain.clockEnable
-  var reset  : Node = clockDomain.reset
+  var clock      : Bool = clockDomain.clock
+  var enable     : Bool = clockDomain.clockEnable
+  var reset      : Bool = clockDomain.reset
+  var softReset  : Bool = clockDomain.softReset
 
 
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
     doThat(clock,0)
     if(isUsingEnableSignal)doThat(enable,1)
     if(isUsingResetSignal) doThat(reset,2)
+    if(isUsingSoftResetSignal) doThat(softReset,3)
   }
   override def onEachInput(doThat: (Node) => Unit): Unit = {
     doThat(clock)
     if(isUsingEnableSignal)doThat(enable)
     if(isUsingResetSignal) doThat(reset)
+    if(isUsingSoftResetSignal) doThat(softReset)
   }
 
   override def setInput(id: Int, node: Node): Unit = id match{
-    case 0 => clock = node
-    case 1 if(isUsingEnableSignal) => enable = node
-    case 2 if(isUsingResetSignal)  => reset = node
+    case 0 => clock = node.asInstanceOf[Bool]
+    case 1 if(isUsingEnableSignal) => enable = node.asInstanceOf[Bool]
+    case 2 if(isUsingResetSignal)  => reset = node.asInstanceOf[Bool]
+    case 3 if(isUsingSoftResetSignal)  => softReset = node.asInstanceOf[Bool]
   }
 
-  override def getInputsCount: Int = 1 + (if(isUsingEnableSignal) 1 else 0) + (if(isUsingResetSignal) 1 else 0)
-  override def getInputs: Iterator[Node] = (isUsingEnableSignal,isUsingResetSignal) match{
-    case (false,false) => Iterator(clock             )
-    case (false,true)  => Iterator(clock,       reset)
-    case (true,false)  => Iterator(clock,enable      )
-    case (true,true)   => Iterator(clock,enable,reset)
+  override def getInputsCount: Int = 1 + (if(isUsingEnableSignal) 1 else 0) + (if(isUsingResetSignal) 1 else 0) + (if(isUsingSoftResetSignal) 1 else 0)
+  override def getInputs: Iterator[Node] = {
+    val itr = (isUsingEnableSignal,isUsingResetSignal) match{
+      case (false,false) => Iterator(clock             )
+      case (false,true)  => Iterator(clock,       reset)
+      case (true,false)  => Iterator(clock,enable      )
+      case (true,true)   => Iterator(clock,enable,reset)
+    }
+    if(isUsingSoftResetSignal)
+      itr ++ List(softReset)
+    else
+      itr
   }
 
   override def getInput(id: Int): Node = id match{
     case 0 => clock
     case 1 if(isUsingEnableSignal) => enable
     case 2 if(isUsingResetSignal)  => reset
+    case 3 if(isUsingSoftResetSignal)  => softReset
   }
 
 
@@ -156,6 +168,7 @@ abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends 
     case SyncNode.getClockInputId =>  (0,0)
     case SyncNode.getClockEnableId => (0,0)
     case SyncNode.getClockResetId =>  (0,0)
+    case 3 =>  (0,0)
   }
 
   final def getLatency = 1 //if not final => update latencyAnalyser
@@ -164,6 +177,7 @@ abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends 
     var ret : List[Node] = Nil
     if(clockDomain.config.resetKind == SYNC  && isUsingResetSignal) ret = getResetStyleInputs ++ ret
     if(isUsingEnableSignal) ret = getClockEnable :: ret
+    if(isUsingSoftResetSignal) ret = getSoftReset :: ret
     ret
   }
 
@@ -171,6 +185,7 @@ abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends 
 
   def getResetStyleInputs = List[Node](getReset)
 
+  def isUsingSoftResetSignal : Boolean
   def isUsingResetSignal: Boolean
   def isUsingEnableSignal: Boolean = enable != null
   def setUseReset = {
@@ -178,9 +193,10 @@ abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends 
   }
   def getClockDomain: ClockDomain = clockDomain
 
-  def getClock: Bool = getInput(SyncNode.getClockInputId).asInstanceOf[Bool]
-  def getClockEnable: Bool = getInput(SyncNode.getClockEnableId).asInstanceOf[Bool]
-  def getReset: Bool = getInput(SyncNode.getClockResetId).asInstanceOf[Bool]
+  def getClock: Bool = clock
+  def getClockEnable: Bool = enable
+  def getReset: Bool = reset
+  def getSoftReset: Bool = softReset
 }
 
 trait Assignable {

@@ -447,14 +447,15 @@ class PhasePullClockDomains(pc: PhaseContext) extends Phase{
     Node.walk(walkNodesDefautStack,(node, push) =>  {
       node match {
         case delay: SyncNode => {
-          if(delay.isUsingResetSignal && !delay.getClockDomain.hasResetSignal)
+          if(delay.isUsingResetSignal && (!delay.getClockDomain.hasResetSignal && !delay.getClockDomain.hasSoftResetSignal))
             SpinalError(s"Clock domain without reset contain a register which needs one\n ${delay.getScalaLocationLong}")
 
           Component.push(delay.component)
           delay.setInput(SyncNode.getClockInputId,delay.getClockDomain.readClockWire)
 
-          if(delay.isUsingResetSignal)  delay.setInput(SyncNode.getClockResetId,delay.getClockDomain.readResetWire)
-          if(delay.isUsingEnableSignal) delay.setInput(SyncNode.getClockEnableId,delay.getClockDomain.readClockEnableWire)
+          if(delay.isUsingResetSignal)      delay.setInput(SyncNode.getClockResetId,delay.getClockDomain.readResetWire.dontSimplifyIt())
+          if(delay.isUsingSoftResetSignal)  delay.setInput(SyncNode.getClockSoftResetId,delay.getClockDomain.readSoftResetWire.dontSimplifyIt())
+          if(delay.isUsingEnableSignal)     delay.setInput(SyncNode.getClockEnableId,delay.getClockDomain.readClockEnableWire.dontSimplifyIt())
           Component.pop(delay.component)
         }
         case _ =>
