@@ -29,7 +29,7 @@ case class I2CSlaveHALCmd(g : I2CSlaveHALGenerics) extends Bundle{
 }
 
 object I2CSlaveHALRspMode extends SpinalEnum{
-  val DATA, NONE, ACK = new newElement()
+  val DATA, NONE, ACK = newElement()
 }
 
 case class I2CSlaveHALRsp(g : I2CSlaveHALGenerics) extends Bundle{
@@ -121,7 +121,7 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
 
     import I2CSlaveHALCmdMode._
 
-    val cmd = RegInit(FREEZE)
+    val cmd = RegInit(START)
     val data = Reg(Bits(g.dataWidth bits)) init(0)
 
 
@@ -132,8 +132,8 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
           data := io.cmd.data
 
           switch(io.cmd.mode){
-            is(READ)  { goto(sIDLE) }
-            is(WRITE) { goto(sIDLE) }
+            is(START)  { goto(sIDLE) }
+            is(START) { goto(sIDLE) }
           }
         }
       }
@@ -143,7 +143,7 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
 
   io.i2c.scl.write := False
   io.cmd.ready := False
-  io.rsp.mode := I2CSlaveHALRspMode.READ
+  io.rsp.mode := I2CSlaveHALRspMode.ACK
   io.rsp.data := 0
   io.i2c.sda.write := False
   io.rsp.valid := False

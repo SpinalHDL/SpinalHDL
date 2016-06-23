@@ -6,26 +6,24 @@
   *   CMD    : START   WRITE         WRITE         STOP
   *   Master :   | START | WRITE |     | WRITE |     | STOP |
   *   Slave  :   |       |       | ACK |       | ACK |      |
-  *
+  *   RSP    :                  DATA  ACK     DATA  ACK
   *
   * Read sequence :
   *
   *   CMD    : START   READ    ACK   READ   NACK   STOP
   *   Master :   | START |      | ACK |      | NACK | STOP |
   *   Slave  :   |       | READ |     | READ |      |      |
-  *
+  *   RSP    :                 DATA        DATA
   *
   * Restart sequence :
   *
   *   CMD    : START   READ   NACK   RESTART  WRITE         STOP
   *   Master :   | START |      | NACK | START | WRITE |     | STOP |
   *   Slave  :   |       | READ |      |       |       | ACK |      |
+  *   RSP    :                 DATA                   DATA  ACK
   */
 
 // @TOTO Synch/Filter inputs signals..
-// @TODO add ack and nack signals
-// @TODO remove internal buffer
-
 
 package spinal.lib.com.i2c
 
@@ -45,6 +43,7 @@ case class I2CMasterHALGenerics(dataWidth         : Int =  8,
                                 clockDividerWidth : Int = 20,
                                 multiMaster_en    : Boolean = true){}
 
+
 /**
   * Used to config the I2C master HAL at runtime
   */
@@ -59,7 +58,7 @@ case class I2CMasterHALConfig(g: I2CMasterHALGenerics) extends Bundle {
 
 
 /**
-  * 6 different modes can be used to manage the I2C
+  * 6 different modes can be used to manage the master
   *    START      : Send the start/restart sequence
   *    WRITE      : Write a data
   *    READ       : Read a data
@@ -82,11 +81,11 @@ case class I2CMasteHALCmd(g : I2CMasterHALGenerics) extends Bundle{
 
 
 /**
-  * 4 different modes for the response
-  *    ACK       :
-  *    NACK      :
-  *    DATA      :
-  *    COLLISION :
+  * 4 different modes are available for a response
+  *    ACK       : ACK received after writting
+  *    NACK      : NACK recieved after writting
+  *    DATA      : Data read on the bus
+  *    COLLISION : Collision detected during a write
   */
 object I2CMasterHALRspMode extends SpinalEnum{
   val ACK, NACK, DATA, COLLISION = newElement()
@@ -107,7 +106,7 @@ case class I2CMasterHALRsp(g : I2CMasterHALGenerics) extends Bundle{
 case class I2CMasterHALio(g : I2CMasterHALGenerics) extends Bundle{
   val i2c    = master( I2C() )
   val config = in( I2CMasterHALConfig(g) )
-  val cmd    = slave  Stream( I2CMasteHALCmd(g)   )
+  val cmd    = slave  Stream( I2CMasteHALCmd(g)  )
   val rsp    = master Flow  ( I2CMasterHALRsp(g) )
 }
 
@@ -116,13 +115,15 @@ case class I2CMasterHALio(g : I2CMasterHALGenerics) extends Bundle{
   */
 class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
 
-  import I2CMasterHALCmdMode._
+  import spinal.lib.com.i2c.{I2CMasterHALRspMode => RspMode}
+  import spinal.lib.com.i2c.{I2CMasterHALCmdMode => CmdMode}
+
 
   val io = I2CMasterHALio(g)
 
   // Enable/Disable the scl signal
   val scl_en     = Bool
-  // freeze the scl for a clock synchronization
+  // freeze the scl for clock synchronization
   val scl_freeze = Bool
 
   /**
@@ -219,74 +220,51 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
   val smMaster = new StateMachine{
 
     val scl_en         = Reg(Bool) init(False)
-    val data2Send      = Reg(Bits(g.dataWidth bits)) init(0)
-    val mode           = RegInit(READ)
     val wr_sda         = RegInit(True)
+    val rd_sda         = if (g.multiMaster_en ) io.i2c.sda.read else null
     val dataReceived   = Reg(Bits(g.dataWidth bits)) init(0)
-    val ack            = RegInit(False)
-    val isPrevWriteOp  = Reg(Bool) init(True)
-    val isFirstRead    = RegInit(True)
-    val hasTransactionStarted = RegInit(False)
+    val isStarted      = RegInit(False)
 
     // default value
     io.cmd.ready := False
     io.rsp.valid := False
-    io.rsp.ack   := I2C.NACK
+    io.rsp.mode  := RspMode.ACK
     io.rsp.data  := 0
 
-
-    val sIDLE : State = new State with EntryPoint{
-      whenIsActive{
-        when(io.cmd.valid){
-
-          io.cmd.ready := True
-          mode         := io.cmd.mode
-          data2Send    := io.cmd.data
-
-          switch(io.cmd.mode){
-            is(START){
-              isFirstRead := True
-              when(hasTransactionStarted === False){
-                hasTransactionStarted := True
+    val sIDLE : State = new State with EntryPoint {
+      whenIsActive {
+        when(io.cmd.valid) {
+          switch(io.cmd.mode) {
+            is(CmdMode.START) {
+              io.cmd.ready := True
+              when(isStarted === False) {
+                isStarted := True
                 goto(sSTART)
-              }otherwise{
-                when(isPrevWriteOp){
-                  goto(sWAIT_BEFORE_START)
-                }otherwise{
-                  ack := I2C.NACK
-                  goto(sRD_ACK)
-                }
+              } otherwise {
+                goto(sWAIT_BEFORE_START)
               }
             }
-            is(STOP) {
-              hasTransactionStarted := False
-              when(isPrevWriteOp){
-                goto(sWAIT_BEFORE_STOP)
-              }otherwise{
-                ack := I2C.NACK // send a nack before stoping
-                goto(sWR_ACK)
-              }
+            is(CmdMode.STOP) {
+              io.cmd.ready := True
+              isStarted    := False
+              goto(sWAIT_BEFORE_STOP)
             }
-            is(READ) {
-              isPrevWriteOp := False
-              when(isFirstRead){
-                isFirstRead := False
-                goto(sWAIT_BEFORE_READ)
-              }otherwise{
-                ack := I2C.ACK
-                goto(sWR_ACK)
-              }
+            is(CmdMode.READ) {
+              io.cmd.ready := True
+              counterBit.clear()
+              goto(sWAIT_BEFORE_READ)
             }
-            is(WRITE){
-              isPrevWriteOp := True
+            is(CmdMode.WRITE) {
               counterBit.clear()
               goto(sWRITE)
+            }
+            is(CmdMode.NACK, CmdMode.ACK) {
+              goto(sWR_ACK)
             }
           }
         }
       }
     }
-
 
     val sSTART : State = new State {
       whenIsActive{
@@ -300,13 +278,32 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
 
     val sREAD = new StateFsm(fsm=readSM(io.i2c.sda.read, dataReceived)){
       whenCompleted{
+        goto(sNOTIFIY_NEW_DATA_R)
+      }
+    }
+
+    val sWRITE = new StateParallelFsm (writeSM(wr_sda,io.cmd.data, rd_sda), readSM(io.i2c.sda.read, dataReceived)){
+      whenCompleted{
+        io.cmd.ready := True
+        goto(sNOTIFIY_NEW_DATA_W)
+      }
+    }
+
+    val sNOTIFIY_NEW_DATA_R : State = new State{
+      whenIsActive{
+        io.rsp.mode  := RspMode.DATA
+        io.rsp.valid := True
+        io.rsp.data  := dataReceived
         goto(sIDLE)
       }
     }
 
-    val sWRITE = new StateParallelFsm (writeSM(wr_sda,data2Send), readSM(io.i2c.sda.read, dataReceived)){
-      whenCompleted{
-        goto(sRD_ACK)
+    val sNOTIFIY_NEW_DATA_W : State = new State{
+      whenIsActive{
+      io.rsp.mode  := RspMode.DATA
+      io.rsp.valid := True
+      io.rsp.data  := dataReceived
+      goto(sRD_ACK)
       }
     }
 
@@ -316,19 +313,13 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
           wr_sda := True
         }
         when(sclGenerator.risingEdge){
-
           val ackRead = io.i2c.sda.read
-          ack := ackRead
 
+          io.rsp.mode  := ackRead ? RspMode.NACK | RspMode.ACK
           io.rsp.valid := True
-          io.rsp.data  := dataReceived
-          io.rsp.ack   := ackRead
+          io.rsp.data  := 0
 
-          when(mode === START){
-            goto(sSTART)
-          }otherwise{
-            goto(sIDLE)
-          }
+          goto(sIDLE)
         }
       }
     }
@@ -336,21 +327,11 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
     val sWR_ACK : State = new State {
       whenIsActive{
         when(sclGenerator.fallingEdge){
-          wr_sda := ack
+          wr_sda := (io.cmd.mode === CmdMode.ACK) ? I2C.ACK | I2C.NACK
         }
         when(sclGenerator.risingEdge){
-
-          io.rsp.valid := True          // @TODO maybe put this in the sREAD state
-          io.rsp.data  := dataReceived
-          io.rsp.ack   := I2C.ACK
-
-          counterBit.clear()
-
-          when(mode === STOP){
-            goto(sWAIT_BEFORE_STOP)
-          }otherwise{
-            goto(sWAIT_BEFORE_READ)
-          }
+          io.cmd.ready := True
+          goto(sIDLE)
         }
       }
     }
@@ -423,7 +404,9 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
           when(wr_sda === rd_sda){
             goto(sWRITE)
           }otherwise{
-            // @TODO generate a collision ERROR
+            io.rsp.data  := 0
+            io.rsp.mode  := RspMode.COLLISION
+            io.rsp.valid := True
             exit()
           }
         }

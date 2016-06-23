@@ -13,12 +13,21 @@ from I2CSlaveModelHAL import I2CSlaveModelHAL
 
 ###############################################################################
 # Define the different command mode that the master accept
-class I2CMasterHALMode:
+class I2CMasterHALCmdMode:
     START = 0
     WRITE = 1
     READ  = 2
-    STOP  = 3
+    ACK   = 3
+    NACK  = 4
+    STOP  = 5
 
+###############################################################################
+# Define the different response of the master
+class I2CMasterHALRspMode:
+    ACK       = 0
+    NACK      = 1
+    DATA      = 2
+    COLLISION = 3
 
 ###############################################################################
 # Generate an Event when the cmd.ready signal is high
@@ -45,9 +54,10 @@ def writeRestartReadTest(dut, readyCmdEvent, model ):
         if int(dut.resetn) == 1:
             break;
 
+
     # Start
     dut.io_cmd_valid        <= 1
-    dut.io_cmd_payload_mode <= I2CMasterHALMode.START
+    dut.io_cmd_payload_mode <= I2CMasterHALCmdMode.START
     dut.io_cmd_payload_data <= 0x0
 
     yield readyCmdEvent.wait()
@@ -57,17 +67,19 @@ def writeRestartReadTest(dut, readyCmdEvent, model ):
 
     # Write
     dut.io_cmd_valid        <= 1
-    dut.io_cmd_payload_mode <= I2CMasterHALMode.WRITE
+    dut.io_cmd_payload_mode <= I2CMasterHALCmdMode.WRITE
     dut.io_cmd_payload_data <= 0x55
 
-    yield readyCmdEvent.wait()
-    dut.io_cmd_valid <= 0
 
     cocotb.fork(model.readData())
     yield model.dataTXEvent.wait()
 
+    dut.io_cmd_valid <= 0
+
+    yield RisingEdge(dut.clk)
+
     dut.io_cmd_valid        <= 1
-    dut.io_cmd_payload_mode <= I2CMasterHALMode.START
+    dut.io_cmd_payload_mode <= I2CMasterHALCmdMode.START
     dut.io_cmd_payload_data <= 0x55
 
     yield readyCmdEvent.wait()
@@ -77,27 +89,41 @@ def writeRestartReadTest(dut, readyCmdEvent, model ):
 
     # Read
     dut.io_cmd_valid        <= 1
-    dut.io_cmd_payload_mode <= I2CMasterHALMode.READ
+    dut.io_cmd_payload_mode <= I2CMasterHALCmdMode.READ
     dut.io_cmd_payload_data <= 0x0
 
     yield readyCmdEvent.wait()
     dut.io_cmd_valid  <= 0
 
-    yield RisingEdge(dut.io_i2c_scl_write)
-
-    cocotb.fork(model.writeData(0x25))
+    cocotb.fork(model.writeData(0x44))
     yield model.dataRxEvent.wait()
 
+    yield RisingEdge(dut.io_rsp_valid)
+
+    dut.io_cmd_valid        <= 1
+    dut.io_cmd_payload_mode <= I2CMasterHALCmdMode.NACK
+    dut.io_cmd_payload_data <= 0x0
+
+    yield readyCmdEvent.wait()
+
+    dut.io_cmd_valid        <= 0
+
+    yield RisingEdge(dut.clk)
 
     # Send stop sequence
     dut.io_cmd_valid        <= 1
-    dut.io_cmd_payload_mode <= I2CMasterHALMode.STOP
+    dut.io_cmd_payload_mode <= I2CMasterHALCmdMode.STOP
     dut.io_cmd_payload_data <= 0
 
     yield readyCmdEvent.wait()
     dut.io_cmd_valid <= 0
 
     yield RisingEdge(dut.clk)
+
+
+
+
+
 
 
 
@@ -123,7 +149,7 @@ def readTest(dut, readyCmdEvent, model, data2Read):
 
     # Start
     dut.io_cmd_valid        <= 1
-    dut.io_cmd_payload_mode <= I2CMasterHALMode.START
+    dut.io_cmd_payload_mode <= I2CMasterHALCmdMode.START
     dut.io_cmd_payload_data <= 0x0
 
     yield readyCmdEvent.wait()
@@ -134,22 +160,34 @@ def readTest(dut, readyCmdEvent, model, data2Read):
     for index in range(0, len(data2Read)):
 
         dut.io_cmd_valid        <= 1
-        dut.io_cmd_payload_mode <= I2CMasterHALMode.READ
+        dut.io_cmd_payload_mode <= I2CMasterHALCmdMode.READ
         dut.io_cmd_payload_data <= 0x0
 
         yield readyCmdEvent.wait()
         dut.io_cmd_valid  <= 0
 
-        if index != 0:
-            yield RisingEdge(dut.io_i2c_scl_write)
-
         cocotb.fork(model.writeData(data2Read[index]))
         yield model.dataRxEvent.wait()
+
+        yield RisingEdge(dut.io_rsp_valid)
+
+        dut.io_cmd_valid        <= 1
+        if index == len(data2Read) - 1 :
+            dut.io_cmd_payload_mode <= I2CMasterHALCmdMode.NACK
+        else:
+            dut.io_cmd_payload_mode <= I2CMasterHALCmdMode.ACK
+        dut.io_cmd_payload_data <= 0x0
+
+        yield readyCmdEvent.wait()
+
+        dut.io_cmd_valid        <= 0
+
+        yield RisingEdge(dut.clk)
 
 
     # Send stop sequence
     dut.io_cmd_valid        <= 1
-    dut.io_cmd_payload_mode <= I2CMasterHALMode.STOP
+    dut.io_cmd_payload_mode <= I2CMasterHALCmdMode.STOP
     dut.io_cmd_payload_data <= 0
 
     yield readyCmdEvent.wait()
@@ -180,7 +218,7 @@ def writeTest(dut, readyCmdEvent, model, data2Send):
 
     # Send the START sequence
     dut.io_cmd_valid        <= 1
-    dut.io_cmd_payload_mode <= I2CMasterHALMode.START
+    dut.io_cmd_payload_mode <= I2CMasterHALCmdMode.START
     dut.io_cmd_payload_data <= 0
 
     yield readyCmdEvent.wait()
@@ -192,20 +230,21 @@ def writeTest(dut, readyCmdEvent, model, data2Send):
     for index in range(0, len(data2Send)):
 
         dut.io_cmd_valid        <= 1
-        dut.io_cmd_payload_mode <= I2CMasterHALMode.WRITE
+        dut.io_cmd_payload_mode <= I2CMasterHALCmdMode.WRITE
         dut.io_cmd_payload_data <= data2Send[index]
-
-        yield readyCmdEvent.wait()
-        dut.io_cmd_valid <= 0
 
         cocotb.fork(model.readData())
         yield model.dataTXEvent.wait()
+
+        dut.io_cmd_valid <= 0
+
+        yield RisingEdge(dut.clk)
 
         assertEquals(model.dataTXEvent.data, data2Send[index], "Data Send by Master is not equal to Data read by the Slave")
 
     # Send stop sequence
     dut.io_cmd_valid        <= 1
-    dut.io_cmd_payload_mode <= I2CMasterHALMode.STOP
+    dut.io_cmd_payload_mode <= I2CMasterHALCmdMode.STOP
     dut.io_cmd_payload_data <= 0
 
     yield readyCmdEvent.wait()
@@ -227,9 +266,12 @@ def checkWriteTest(dut,data2Send):
     while True:
         yield RisingEdge(dut.clk)
         if int(dut.io_rsp_valid):
-            dataRead = int(dut.io_rsp_payload_data)
-            assertEquals(dataRead,data2Send[cnt], "Data write not equal to data read")
-            cnt += 1
+            
+            if dut.io_rsp_payload_mode == I2CMasterHALRspMode.DATA:
+            
+                dataRead = int(dut.io_rsp_payload_data)
+                assertEquals(dataRead,data2Send[cnt], "Data write not equal to data read")
+                cnt += 1
 
 
 
@@ -246,10 +288,10 @@ def checkReadTest(dut, data2Read):
     while True:
         yield RisingEdge(dut.io_rsp_valid)
         yield RisingEdge(dut.clk)
-        data  = int(dut.io_rsp_payload_data)
-        assertEquals(data, data2Read[cnt], "Data Read by the master is not equal to the data write by the slave")
-        cnt += 1
-
+        if dut.io_rsp_payload_mode == I2CMasterHALRspMode.DATA:
+            data  = int(dut.io_rsp_payload_data)
+            assertEquals(data, data2Read[cnt], "Data Read by the master is not equal to the data write by the slave")
+            cnt += 1
 
 
 ###############################################################################
@@ -333,14 +375,3 @@ def master_hal_test_writeRestartRead(dut):
 
     dut.log.info("I2C Master HAL - write restart read Test done")
 
-#.io_i2c_sda_write(io_i2c_sda_write),
-#.io_i2c_scl_write(io_i2c_scl_write),
-#.io_cmd_valid(io_cmd_valid),
-#.io_cmd_ready(io_cmd_ready),
-#.io_cmd_payload_mode(io_cmd_payload_mode),
-#.io_cmd_payload_data(io_cmd_payload_data),
-#.io_rsp_valid(io_rsp_valid),
-#.io_rsp_payload_ack(io_rsp_payload_ack),
-#.io_rsp_payload_data(io_rsp_payload_data),
-#.clk(clk),
-#.resetn(resetn)
