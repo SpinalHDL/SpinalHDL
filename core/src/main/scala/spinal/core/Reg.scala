@@ -43,6 +43,7 @@ object Reg {
 
   private[core] def newFor(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) : Reg = outType match{
     case that : BitVector => new RegWidthable(outType,clockDomain)
+    case that : SpinalEnumCraft[_] => new RegEnum(outType,that.blueprint,clockDomain)
     case _ => new Reg(outType,clockDomain)
   }
 }
@@ -201,4 +202,12 @@ class RegWidthable(outType: BaseType, clockDomain: ClockDomain = ClockDomain.cur
     }
     return null
   }
+}
+
+
+
+class RegEnum(outType: BaseType,enumDef : SpinalEnum, clockDomain: ClockDomain = ClockDomain.current)  extends Reg(outType,clockDomain) with InferableEnumEncodingImpl{
+  override type T = Node with EnumEncoded
+  override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
+  override def getDefinition: SpinalEnum = enumDef
 }

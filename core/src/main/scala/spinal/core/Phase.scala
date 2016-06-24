@@ -217,7 +217,6 @@ class PhaseNodesBlackBoxGenerics(pc: PhaseContext) extends Phase{
       }
       case _ =>
     })
-    nodeStack
   }
 }
 
@@ -410,7 +409,7 @@ class PhaseCollectAndNameEnum(pc: PhaseContext) extends Phase{
     import pc._
     Node.walk(walkNodesDefautStack,node => {
       node match {
-        case enum: SpinalEnumCraft[_] => enums.getOrElseUpdate(enum.blueprint,mutable.Set[SpinalEnumEncoding]()).add(enum.encoding)
+        case enum: SpinalEnumCraft[_] => enums.getOrElseUpdate(enum.blueprint,mutable.Set[SpinalEnumEncoding]()) //Encodings will be added later
         case _ =>
       }
     })
@@ -712,6 +711,63 @@ class PhaseInferWidth(pc: PhaseContext) extends Phase{
 
       if (!somethingChange || iterationCounter == nodes.size) {
         checkAll()
+        return
+      }
+    }
+  }
+}
+
+
+class PhaseInferEnumEncodings(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+    import pc._
+    globalData.nodeAreInferringEnumEncoding = true
+    val nodes = ArrayBuffer[Node with EnumEncoded]()
+    val nodesInferrable = ArrayBuffer[Node with InferableEnumEncoding]()
+    Node.walk(walkNodesDefautStack ++ walkNodesBlackBoxGenerics,node => {
+      if(node.isInstanceOf[EnumEncoded]) nodes += node.asInstanceOf[Node with EnumEncoded]
+      if(node.isInstanceOf[InferableEnumEncoding]) nodesInferrable += node.asInstanceOf[Node with InferableEnumEncoding]
+    })
+
+    nodesInferrable.foreach(node => {
+      node.bootInferration()
+    })
+
+    def checkAll(): Unit = {
+
+//      val errors = mutable.ArrayBuffer[String]()
+//      for (node <- nodes) {
+//        if (node.inferWidth && !node.isInstanceOf[Reg]) {
+//          //Don't care about Reg width inference
+//          errors += s"Can't infer width on ${node.getScalaLocationLong}"
+//        }
+//        if (node.widthWhenNotInferred != -1 && node.widthWhenNotInferred != node.getWidth) {
+//          errors += s"getWidth call result during elaboration differ from inferred width on\n${node.getScalaLocationLong}"
+//        }
+//      }
+//      if (errors.nonEmpty)
+//        SpinalError(errors)
+    }
+
+    var iterationCounter = 0
+    while (true) {
+      iterationCounter = iterationCounter + 1
+      var somethingChange = false
+      for (node <- nodes) {
+        node.onEachInput(_ match {
+          case input : InferableEnumEncoding => {
+            val hasChange = input.encodingProposal(node.getEncoding)
+            somethingChange = somethingChange || hasChange
+          }
+          case _ => //TODO remove me
+        })
+      }
+
+      if (!somethingChange || iterationCounter == nodes.size) {
+        checkAll()
+        nodes.foreach(enum => {
+          enums.getOrElseUpdate(enum.getDefinition, mutable.Set[SpinalEnumEncoding]()).add(enum.getEncoding)
+        })
         return
       }
     }
@@ -1324,6 +1380,7 @@ object SpinalVhdlBoot{
 
     phases += new PhaseDummy(SpinalProgress("Infer nodes's bit width"))
     phases += new PhasePreWidthInferationChecks(pc)
+    phases += new PhaseInferEnumEncodings(pc)
     phases += new PhaseInferWidth(pc)
     phases += new PhaseSimplifyNodes(pc)
     phases += new PhaseInferWidth(pc)
@@ -1401,7 +1458,7 @@ class PhaseDontSymplifyVerilogMismatchingWidth(pc: PhaseContext) extends Phase{
 //        case node: Operator.BitVector.Sub => applyTo(node)
 //        case node: Operator.BitVector.ShiftRightByInt => applyTo(node)
 //        case node: Operator.Bits.Cat => applyTo(node)
-        case node : Extract => applyTo(node)
+//        case node : Extract => applyTo(node)
         case _ =>
       }
     })
@@ -1470,6 +1527,7 @@ object SpinalVerilogBoot{
 
     phases += new PhaseDummy(SpinalProgress("Infer nodes's bit width"))
     phases += new PhasePreWidthInferationChecks(pc)
+    phases += new PhaseInferEnumEncodings(pc)
     phases += new PhaseInferWidth(pc)
     phases += new PhaseSimplifyNodes(pc)
     phases += new PhaseInferWidth(pc)

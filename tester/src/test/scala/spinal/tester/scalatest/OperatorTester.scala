@@ -201,8 +201,8 @@ object OperatorTester {
       val a,b,c = newElement
     }
 
-    State.defaultEncoding = native
-    val stateNative = State()
+
+    val stateNative,stateNativeMuxInternal = State(native)
     stateNative.assignFromBits(bits8(1 downto 0))
     val stateNativeBits   = out(stateNative.asBits)
     val stateNativeIsA    = out(stateNative === State.a)
@@ -211,10 +211,11 @@ object OperatorTester {
     val stateNativeIsNotA = out(stateNative =/= State.a)
     val stateNativeIsNotB = out(stateNative =/= State.b)
     val stateNativeIsNotC = out(stateNative =/= State.c)
-    val stateNativeMux = out(Mux(boolC,State.a,State.b).asBits)
+    stateNativeMuxInternal := Mux(boolC,State.a,State.b)
+    val stateNativeMux = out(stateNativeMuxInternal.asBits)
 
-    State.defaultEncoding = binarySequancial
-    val stateBinarySequancial = State()
+
+    val stateBinarySequancial,stateBinarySequancialMux = State(binarySequancial)
     stateBinarySequancial.assignFromBits(bits8(1 downto 0))
     val stateBinarySequancialBits   = out(stateBinarySequancial.asBits)
     val stateBinarySequancialIsA    = out(stateBinarySequancial === State.a)
@@ -223,10 +224,10 @@ object OperatorTester {
     val stateBinarySequancialIsNotA = out(stateBinarySequancial =/= State.a)
     val stateBinarySequancialIsNotB = out(stateBinarySequancial =/= State.b)
     val stateBinarySequancialIsNotC = out(stateBinarySequancial =/= State.c)
-    val stateBinarySequancialMux = out(Mux(boolC,State.a,State.b))
+    stateBinarySequancialMux    := Mux(boolC,State.a,State.b)
+    stateBinarySequancialMux.asOutput()
 
-    State.defaultEncoding = binaryOneHot
-    val stateBinaryOneHot = State()
+    val stateBinaryOneHot,stateBinaryOneHotMux = State(binaryOneHot)
     stateBinaryOneHot.assignFromBits(bits8(2 downto 0))
     val stateBinaryOneHotBits = out(stateBinaryOneHot.asBits)
     val stateBinaryOneHotIsA    = out(stateBinaryOneHot === State.a)
@@ -235,7 +236,8 @@ object OperatorTester {
     val stateBinaryOneHotIsNotA = out(stateBinaryOneHot =/= State.a)
     val stateBinaryOneHotIsNotB = out(stateBinaryOneHot =/= State.b)
     val stateBinaryOneHotIsNotC = out(stateBinaryOneHot =/= State.c)
-    val stateBinaryOneHotMux = out(Mux(boolC,State.a,State.b))
+    stateBinaryOneHotMux := (Mux(boolC,State.a,State.b))
+    stateBinaryOneHotMux.asOutput()
   }
 }
 

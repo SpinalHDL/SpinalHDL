@@ -311,16 +311,18 @@ object InputNormalize {
   }
 
   def binaryOperatorEnumImpl[T <: SpinalEnum](node : Node,leftId : Int = 0,rightId : Int = 1) : Unit = {
+    //TODO
     val left = node.getInput(leftId).asInstanceOf[SpinalEnumCraft[T]]
     val right = node.getInput(rightId).asInstanceOf[SpinalEnumCraft[T]]
-    if(left.encoding != right.encoding){
-      val (that,ref,thatId) = if(left.asInstanceOf[WidthProvider].getWidth > right.asInstanceOf[WidthProvider].getWidth) (left,right,leftId) else  (right,left,rightId)
-      Component.push(that.component)
-      val newOne = ref.clone.asInstanceOf[SpinalEnumCraft[T]]
-      newOne.assignFromAnotherEncoding(that)
-      node.setInput(thatId,newOne)
-      Component.pop(that.component)
-    }
+    assert(left.getEncoding == right.getEncoding)
+//    if(left.getEncoding != right.getEncoding){
+//      val (that,ref,thatId) = if(left.asInstanceOf[WidthProvider].getWidth > right.asInstanceOf[WidthProvider].getWidth) (left,right,leftId) else  (right,left,rightId)
+//      Component.push(that.component)
+//      val newOne = ref.clone.asInstanceOf[SpinalEnumCraft[T]]
+//      newOne.assignFromAnotherEncoding(that)
+//      node.setInput(thatId,newOne)
+//      Component.pop(that.component)
+//    }
   }
 
 //
@@ -517,6 +519,85 @@ trait Widthable extends WidthProvider with GlobalDataUser with ScalaLocated{
   }
 }
 
+trait EnumEncoded{
+  def getEncoding : SpinalEnumEncoding
+  def getDefinition : SpinalEnum
+}
+
+trait InferableEnumEncoding{
+  private[core] def encodingProposal(e : SpinalEnumEncoding) : Boolean
+  def bootInferration() : Unit
+}
+
+
+
+trait InferableEnumEncodingImplChoice
+object InferableEnumEncodingImplChoiceUndone      extends InferableEnumEncodingImplChoice
+object InferableEnumEncodingImplChoiceFixed       extends InferableEnumEncodingImplChoice
+object InferableEnumEncodingImplChoiceAnticipated extends InferableEnumEncodingImplChoice
+object InferableEnumEncodingImplChoiceInferred    extends InferableEnumEncodingImplChoice
+
+trait InferableEnumEncodingImpl extends EnumEncoded  with InferableEnumEncoding with ContextUser with ScalaLocated{
+  private[core] var encodingChoice : InferableEnumEncodingImplChoice = InferableEnumEncodingImplChoiceUndone
+  private[core] var encoding  : SpinalEnumEncoding = null
+
+
+  override def bootInferration(): Unit = {
+    if(encodingChoice == InferableEnumEncodingImplChoiceUndone){
+      encodingChoice = InferableEnumEncodingImplChoiceInferred
+      encoding = getDefaultEncoding()
+    }
+  }
+
+  private[core] def getDefaultEncoding() : SpinalEnumEncoding
+  def fixEncoding(e : SpinalEnumEncoding) : Unit = {
+    encoding = e
+    encodingChoice = InferableEnumEncodingImplChoiceFixed
+  }
+  def copyEncodingConfig(that : InferableEnumEncodingImpl) : Unit = {
+    this.encoding       = that.encoding
+    this.encodingChoice = that.encodingChoice
+  }
+
+  private[core] override def encodingProposal(e : SpinalEnumEncoding) : Boolean = {
+    def takeIt: Boolean ={
+      if(encoding != e) {
+        encoding = e
+        encodingChoice = InferableEnumEncodingImplChoiceInferred
+        true
+      }else{
+        false
+      }
+    }
+
+    encodingChoice match {
+      case `InferableEnumEncodingImplChoiceUndone`   => takeIt
+      case `InferableEnumEncodingImplChoiceInferred` => takeIt
+      case `InferableEnumEncodingImplChoiceAnticipated` => {
+        if(encoding != e){
+          globalData.pendingErrors += (() => (s"$this encoding has change between the elaboration phase and the compilation phase\n${this.getScalaLocationLong}"))
+        }
+        false
+      }
+      case `InferableEnumEncodingImplChoiceFixed` => false
+    }
+  }
+
+  override def getEncoding: SpinalEnumEncoding = {
+    if (globalData.nodeAreInferringEnumEncoding) {
+      encoding
+    } else {
+      if(encodingChoice == InferableEnumEncodingImplChoiceUndone){
+        encoding = getDefaultEncoding
+        encodingChoice = InferableEnumEncodingImplChoiceAnticipated
+      }
+      encoding
+    }
+  }
+}
+
+
+
 abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady with GlobalDataUser {
   val consumers = new ArrayBuffer[Node](4)
 
@@ -534,7 +615,6 @@ abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady wi
   def simplifyNode: Unit = {}
 
 
-  //TODO dirty
   private[core] def getOutToInUsage(inputId : Int,outHi : Int, outLo : Int) : (Int,Int) = getInput(inputId) match{
     case input : WidthProvider => (input.getWidth-1,0)
     case _ => (0,0)

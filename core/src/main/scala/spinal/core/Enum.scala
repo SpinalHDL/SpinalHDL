@@ -20,36 +20,46 @@ package spinal.core
 
 import scala.collection.mutable.ArrayBuffer
 
-class EnumLiteral[T <: SpinalEnum](val enum: SpinalEnumElement[T],val encoding: SpinalEnumEncoding) extends Literal {
-  override def clone : this.type = new EnumLiteral(enum,encoding).asInstanceOf[this.type]
+class EnumLiteral[T <: SpinalEnum](val enum: SpinalEnumElement[T]) extends Literal with  InferableEnumEncodingImpl{
+  override def clone : this.type = {
+    val ret = new EnumLiteral(enum).asInstanceOf[this.type]
+    ret.copyEncodingConfig(this)
+    ret
+  }
 
   private[core] override def getBitsStringOn(bitCount: Int): String = {
     val str = encoding.getValue(enum).toString(2)
     return "0" * (bitCount - str.length) + str
   }
+
+  override def getDefinition: SpinalEnum = enum.parent
+
+  override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enum.parent.defaultEncoding
 }
 
-class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T,val encoding: SpinalEnumEncoding) extends BaseType {
+class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T/*, encoding: SpinalEnumEncoding*/) extends BaseType with InferableEnumEncodingImpl{
+  override private[core] def getDefaultEncoding(): SpinalEnumEncoding = blueprint.defaultEncoding
+  override def getDefinition: SpinalEnum = blueprint
 
   private[core] def assertSameType(than: SpinalEnumCraft[_]): Unit =
     if (blueprint != than.blueprint) SpinalError("Enum is assigned by a incompatible enum")
 
-  def :=(that: SpinalEnumElement[T]): Unit = new DataPimper(this) := that.craft(encoding)
-  def ===(that: SpinalEnumElement[T]): Bool = this === (that.craft(this.encoding))
-  def =/=(that: SpinalEnumElement[T]): Bool = this =/= (that.craft(this.encoding))
+  def :=(that: SpinalEnumElement[T]): Unit = new DataPimper(this) := that.craft()
+  def ===(that: SpinalEnumElement[T]): Bool = this === (that.craft())
+  def =/=(that: SpinalEnumElement[T]): Bool = this =/= (that.craft())
 
 
 
   @deprecated("Use =/= instead")
   def !==(that: SpinalEnumElement[T]): Bool = this =/= that
 
-  def assignFromAnotherEncoding(spinalEnumCraft: SpinalEnumCraft[T]) = {
-    val c = this.clone
-    val cast = new CastEnumToEnum(c)
-    cast.input = spinalEnumCraft
-    c.input = cast
-    this := c
-  }
+//  def assignFromAnotherEncoding(spinalEnumCraft: SpinalEnumCraft[T]) = {
+//    val c = this.clone
+//    val cast = new CastEnumToEnum(c)
+//    cast.input = spinalEnumCraft
+//    c.input = cast
+//    this := c
+//  }
 
 
 //  override private[core] def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = that match{
@@ -60,14 +70,7 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T,val encoding: SpinalEnum
 
   override private[core] def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = that match{
     case that : SpinalEnumCraft[T] => {
-      val assignWith = if (this.encoding == that.encoding){
-        that
-      }else{
-        val cloned = this.clone
-        cloned.assignFromAnotherEncoding(that)
-        cloned
-      }
-      super.assignFromImpl(assignWith, conservative)
+      super.assignFromImpl(that, conservative)
     }
   }
 
@@ -86,13 +89,13 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T,val encoding: SpinalEnum
     }
   }
 
-  private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse,new MultiplexerEnum)
+  private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse,new MultiplexerEnum(blueprint))
   override def asBits: Bits = wrapCast(Bits(),new CastEnumToBits)
 
   override def assignFromBits(bits: Bits): Unit = {
     val c = this.clone
-    val cast = new CastBitsToEnum(c)
-    cast.input = bits
+    val cast = new CastBitsToEnum(this.blueprint)
+    cast.input = bits.asInstanceOf[cast.T]
     c.input = cast
     this := c
   }
@@ -106,8 +109,8 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T,val encoding: SpinalEnum
   override def getBitsWidth: Int = encoding.getWidth(blueprint)
 
   override def clone: this.type = {
-    val res = new SpinalEnumCraft(blueprint,encoding).asInstanceOf[this.type]
-   // res.dir = this.dir
+    val res = new SpinalEnumCraft(blueprint).asInstanceOf[this.type]
+    res.copyEncodingConfig(this)
     res
   }
 
@@ -122,7 +125,11 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T,val encoding: SpinalEnum
     ret.assignFromBits(B(0))
     ret
   }
-  private[core] override def weakClone: this.type = new SpinalEnumCraft(blueprint,encoding).asInstanceOf[this.type]
+  private[core] override def weakClone: this.type = {
+    val ret = new SpinalEnumCraft(blueprint).asInstanceOf[this.type]
+    ret.copyEncodingConfig(this)
+    ret
+  }
 
   override private[core] def normalizeInputs: Unit = {
 //    InputNormalize.enumImpl(this)
@@ -138,14 +145,23 @@ class SpinalEnumElement[T <: SpinalEnum](val parent: T, val position: Int) exten
     that =/= this
   }
 
-  def apply(encoding : SpinalEnumEncoding = this.parent.defaultEncoding) : SpinalEnumCraft[T] = craft(encoding)
-  def craft(encoding : SpinalEnumEncoding = this.parent.defaultEncoding): SpinalEnumCraft[T] = {
-    val ret = parent.craft(encoding).asInstanceOf[SpinalEnumCraft[T]]
-    ret.input = new EnumLiteral(this,encoding)
+  def apply() : SpinalEnumCraft[T] = craft()
+  def apply(encoding : SpinalEnumEncoding) : SpinalEnumCraft[T] = craft(encoding)
+
+  def craft(): SpinalEnumCraft[T] = {
+    val ret = parent.craft().asInstanceOf[SpinalEnumCraft[T]]
+    ret.input = new EnumLiteral(this)
     ret
   }
 
-  def toBits: Bits = craft().asBits
+  def craft(encoding : SpinalEnumEncoding): SpinalEnumCraft[T] = {
+    val ret = parent.craft(encoding).asInstanceOf[SpinalEnumCraft[T]]
+    val lit = new EnumLiteral(this)
+    lit.fixEncoding(encoding)
+    ret.input = lit
+    ret
+  }
+  def asBits: Bits = craft().asBits
 }
 
 trait SpinalEnumEncoding extends Nameable{
@@ -180,7 +196,7 @@ object binaryOneHot extends SpinalEnumEncoding{
   def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]) : BigInt = {
     return BigInt(1) << element.position
   }
-  override def isNative = true
+  override def isNative = false
   setWeakName("binary_one_hot")
 }
 
@@ -225,6 +241,10 @@ class SpinalEnum(var defaultEncoding : SpinalEnumEncoding = native) extends Name
     v
   }
 
-  def craft(enumEncoding: SpinalEnumEncoding): SpinalEnumCraft[this.type] = new SpinalEnumCraft[this.type](this,enumEncoding)
-  def craft(): SpinalEnumCraft[this.type] = craft(defaultEncoding)
+  def craft(enumEncoding: SpinalEnumEncoding): SpinalEnumCraft[this.type] = {
+    val ret = new SpinalEnumCraft[this.type](this)
+    ret.fixEncoding(enumEncoding)
+    ret
+  }
+  def craft(): SpinalEnumCraft[this.type] = new SpinalEnumCraft[this.type](this)
 }

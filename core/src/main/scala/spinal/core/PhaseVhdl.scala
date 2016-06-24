@@ -748,14 +748,14 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
                 case e: SpinalEnumCraft[_] => {
                   val vec = e.blueprint.values.toVector
                   val rand = vec(Random.nextInt(vec.size))
-                  ret ++= " := " + emitEnumLiteral(rand, e.encoding)
+                  ret ++= " := " + emitEnumLiteral(rand, e.getEncoding)
                 }
               }
             }
             ret ++= ";\n"
             if (signal.isInstanceOf[SpinalEnumCraft[_]]) {
               val craft = toSpinalEnumCraft(signal)
-              if (!craft.encoding.isNative) {
+              if (!craft.getEncoding.isNative) {
                 ret ++= s"  signal ${emitReference(signal)}_debug : ${getEnumDebugType(craft.blueprint)};\n"
                 enumDebugSignals += toSpinalEnumCraft(signal)
               }
@@ -937,7 +937,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
 
   def enumEgualsImpl(eguals: Boolean)(op: Modifier): String = {
     val (enumDef, encoding) = op.getInput(0) match {
-      case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.encoding)
+      case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.getEncoding)
       case literal: EnumLiteral[_] => (literal.enum.parent, literal.encoding)
     }
     encoding match {
@@ -948,9 +948,10 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
 
 
   def operatorImplAsBitsToEnum(func: Modifier): String = {
-    val (enumDef: SpinalEnum, encoding) = func.asInstanceOf[CastBitsToEnum].enum match {
-      case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.encoding)
-    }
+    val node = func.asInstanceOf[CastBitsToEnum]
+    val enumDef = node.getDefinition
+    val encoding = node.encoding
+
     if (!encoding.isNative) {
       emitLogic(func.getInput(0))
     } else {
@@ -960,7 +961,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
 
   def operatorImplAsEnumToBits(func: Modifier): String = {
     val (enumDef, encoding) = func.getInput(0) match {
-      case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.encoding)
+      case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.getEncoding)
       case literal: EnumLiteral[_] => (literal.enum.parent, literal.encoding)
     }
     if (!encoding.isNative) {
@@ -971,22 +972,20 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
   }
 
   def operatorImplAsEnumToEnum(func: Modifier): String = {
-    val (enumDefSrc, encodingSrc) = func.getInput(0) match {
-      case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.encoding)
-      case literal: EnumLiteral[_] => (literal.enum.parent, literal.encoding)
-    }
     val enumCast = func.asInstanceOf[CastEnumToEnum]
-    val (enumDefDst, encodingDst) = enumCast.enum match {
-      case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.encoding)
-    }
+    val enumDefSrc = enumCast.input.getDefinition
+    val encodingSrc = enumCast.input.getEncoding
+    val enumDefDst = enumCast.getDefinition
+    val encodingDst = enumCast.getEncoding
+
     if (encodingDst.isNative && encodingSrc.isNative)
       emitLogic(func.getInput(0))
     else {
       val encoding = enumCast.getInput(0) match {
-        case input: SpinalEnumCraft[_] => input.encoding
+        case input: SpinalEnumCraft[_] => input.getEncoding
         case input: EnumLiteral[_] => input.encoding
       }
-      s"${getReEncodingFuntion(enumCast.enum.blueprint.asInstanceOf[SpinalEnum], encoding, enumCast.enum.encoding)}(${func.getInputs.map(emitLogic(_)).reduce(_ + "," + _)})"
+      s"${getReEncodingFuntion(enumDefDst, encoding,encodingDst)}(${func.getInputs.map(emitLogic(_)).reduce(_ + "," + _)})"
     }
   }
 
@@ -1193,7 +1192,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
 
   def emitDebug(component: Component, ret: StringBuilder, enumDebugSignals: ArrayBuffer[SpinalEnumCraft[_]]): Unit = {
     for (signal <- enumDebugSignals) {
-      ret ++= s"  ${emitReference(signal)}_debug <= ${getEnumToDebugFuntion(toSpinalEnumCraft(signal).blueprint, signal.encoding)}(${emitReference(signal)});\n"
+      ret ++= s"  ${emitReference(signal)}_debug <= ${getEnumToDebugFuntion(toSpinalEnumCraft(signal).blueprint, signal.getEncoding)}(${emitReference(signal)});\n"
     }
   }
 

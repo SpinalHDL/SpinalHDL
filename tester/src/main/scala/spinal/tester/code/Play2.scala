@@ -1140,6 +1140,12 @@ object PlayEnumName {
     val state = out(myEnum.a())
     val state2 = out(a.b())
 
+    switch(state){
+      is(myEnum.a, myEnum.b){
+        state2 := a.c
+      }
+    }
+
     def toto: Unit ={
       val enumDef = new SpinalEnum{
         val a,b,c = newElement
@@ -1265,3 +1271,28 @@ object PlaySoftReset {
     config.generateVhdl(new TopLevel)
   }
 }
+
+
+object PlayEnumInferation {
+  object myEnum extends SpinalEnum{
+    val a,b,c = newElement
+  }
+  class TopLevel extends Component {
+
+
+//    val stateAuto             = out(myEnum())
+//    val stateNative           = out(myEnum(native))
+//    val stateBinarySequancial = out(myEnum(binarySequancial))
+    val stateBinaryOneHot     = out(myEnum(binaryOneHot))
+
+//    stateAuto := myEnum.a
+//    stateNative := myEnum.a
+//    stateBinarySequancial := myEnum.a
+    stateBinaryOneHot := myEnum.a
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+

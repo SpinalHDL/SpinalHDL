@@ -250,14 +250,14 @@ end
                 case e: SpinalEnumCraft[_] => {
                   val vec = e.blueprint.values.toVector
                   val rand = vec(Random.nextInt(vec.size))
-                  ret ++= " = " + emitEnumLiteral(rand, e.encoding)
+                  ret ++= " = " + emitEnumLiteral(rand, e.getEncoding)
                 }
               }
             }
             ret ++= ";\n"
             if (signal.isInstanceOf[SpinalEnumCraft[_]]) {
               val craft = toSpinalEnumCraft(signal)
-              if (!craft.encoding.isNative) {
+              if (!craft.getEncoding.isNative) {
                 //TODO
                 // ret ++= s"  ${emitReference(signal)}_debug : ${getEnumDebugType(craft.blueprint)};\n"
                 //enumDebugSignals += toSpinalEnumCraft(signal)
@@ -417,7 +417,7 @@ end
 
   def enumEgualsImpl(eguals: Boolean)(op: Modifier): String = {
     val (enumDef, encoding) = op.getInput(0) match {
-      case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.encoding)
+      case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.getEncoding)
       case literal: EnumLiteral[_] => (literal.enum.parent, literal.encoding)
     }
     encoding match {
@@ -638,7 +638,7 @@ end
 
   def emitDebug(component: Component, ret: StringBuilder, enumDebugSignals: ArrayBuffer[SpinalEnumCraft[_]]): Unit = {
     for (signal <- enumDebugSignals) {
-      ret ++= s"  ${emitReference(signal)}_debug <= ${getEnumToDebugFuntion(toSpinalEnumCraft(signal).blueprint, signal.encoding)}(${emitReference(signal)});\n"
+      ret ++= s"  ${emitReference(signal)}_debug <= ${getEnumToDebugFuntion(toSpinalEnumCraft(signal).blueprint, signal.getEncoding)}(${emitReference(signal)});\n"
     }
   }
 

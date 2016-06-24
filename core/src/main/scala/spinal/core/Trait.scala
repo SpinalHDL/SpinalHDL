@@ -462,6 +462,7 @@ class GlobalData {
   var overridingAssignementWarnings = true
   var nodeAreNamed = false
   var nodeAreInferringWidth = false
+  var nodeAreInferringEnumEncoding = false
   val nodeGetWidthWalkedSet = mutable.Set[Widthable]()
   val clockSyncronous = mutable.HashMap[Bool,ArrayBuffer[Bool]]()
   // val nodeWidthInferredCheck = ArrayBuffer[() => Unit]()
