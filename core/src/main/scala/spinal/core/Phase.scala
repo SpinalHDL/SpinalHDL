@@ -733,46 +733,39 @@ class PhaseInferEnumEncodings(pc: PhaseContext) extends Phase{
       node.bootInferration()
     })
 
-    def checkAll(): Unit = {
+    nodes.foreach(enum => {
+      enum.onEachInput(input => if(input != null) input.consumers += enum)
+    })
 
-//      val errors = mutable.ArrayBuffer[String]()
-//      for (node <- nodes) {
-//        if (node.inferWidth && !node.isInstanceOf[Reg]) {
-//          //Don't care about Reg width inference
-//          errors += s"Can't infer width on ${node.getScalaLocationLong}"
-//        }
-//        if (node.widthWhenNotInferred != -1 && node.widthWhenNotInferred != node.getWidth) {
-//          errors += s"getWidth call result during elaboration differ from inferred width on\n${node.getScalaLocationLong}"
-//        }
-//      }
-//      if (errors.nonEmpty)
-//        SpinalError(errors)
-    }
-
-    var iterationCounter = 0
-    while (true) {
-      iterationCounter = iterationCounter + 1
-      var somethingChange = false
-      for (node <- nodes) {
-        node.onEachInput(_ match {
-          case input : InferableEnumEncoding => {
-            val hasChange = input.encodingProposal(node.getEncoding)
-            somethingChange = somethingChange || hasChange
+    nodes.foreach(enum => {
+      if(enum.propagateEncoding){
+        val alreadyWalkeds = mutable.Set[Node]()
+        def propagateOn(that : Node): Unit = {
+          that match {
+            case that : InferableEnumEncoding => {
+              if(alreadyWalkeds.contains(that)) return
+              alreadyWalkeds += that
+              if(that.encodingProposal(enum.getEncoding)) {
+                that.onEachInput(propagateOn(_))
+                that.consumers.foreach(propagateOn(_))
+              }
+            }
+            case _ =>
           }
-          case _ => //TODO remove me
-        })
+        }
+        enum.onEachInput(propagateOn(_))
+        enum.consumers.foreach(propagateOn(_))
       }
+    })
 
-      if (!somethingChange || iterationCounter == nodes.size) {
-        checkAll()
-        nodes.foreach(enum => {
-          enums.getOrElseUpdate(enum.getDefinition, mutable.Set[SpinalEnumEncoding]()).add(enum.getEncoding)
-        })
-        return
-      }
-    }
+
+    nodes.foreach(enum => {
+      enums.getOrElseUpdate(enum.getDefinition, mutable.Set[SpinalEnumEncoding]()).add(enum.getEncoding)
+      enum.onEachInput(input => if(input != null) input.consumers.clear)
+    })
   }
 }
+
 
 class PhaseSimplifyNodes(pc: PhaseContext) extends Phase{
   override def impl(): Unit = {

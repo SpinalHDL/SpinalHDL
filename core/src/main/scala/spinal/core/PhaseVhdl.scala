@@ -985,7 +985,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
         case input: SpinalEnumCraft[_] => input.getEncoding
         case input: EnumLiteral[_] => input.encoding
       }
-      s"${getReEncodingFuntion(enumDefDst, encoding,encodingDst)}(${func.getInputs.map(emitLogic(_)).reduce(_ + "," + _)})"
+      s"${getReEncodingFuntion(enumDefDst, encoding,encodingDst)}(${emitLogic(enumCast.input)})"
     }
   }
 

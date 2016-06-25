@@ -53,20 +53,6 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T/*, encoding: SpinalEnumE
   @deprecated("Use =/= instead")
   def !==(that: SpinalEnumElement[T]): Bool = this =/= that
 
-//  def assignFromAnotherEncoding(spinalEnumCraft: SpinalEnumCraft[T]) = {
-//    val c = this.clone
-//    val cast = new CastEnumToEnum(c)
-//    cast.input = spinalEnumCraft
-//    c.input = cast
-//    this := c
-//  }
-
-
-//  override private[core] def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = that match{
-//    case that : SpinalEnumCraft[T] => {
-//      super.assignFromImpl(that, conservative)
-//    }
-//  }
 
   override private[core] def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = that match{
     case that : SpinalEnumCraft[T] => {
@@ -76,15 +62,15 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T/*, encoding: SpinalEnumE
 
   override def isEguals(that: Any): Bool = {
     that match{
-      case that : SpinalEnumCraft[_] if that.blueprint == blueprint =>  wrapLogicalOperator(that,new Operator.Enum.Equal);
-      case that : SpinalEnumElement[_] if that.parent == blueprint =>  wrapLogicalOperator(that(),new Operator.Enum.Equal);
+      case that : SpinalEnumCraft[_] if that.blueprint == blueprint =>  wrapLogicalOperator(that,new Operator.Enum.Equal(blueprint));
+      case that : SpinalEnumElement[_] if that.parent == blueprint =>  wrapLogicalOperator(that(),new Operator.Enum.Equal(blueprint));
       case _ => SpinalError("Incompatible test")
     }
   }
   override def isNotEguals(that: Any): Bool = {
     that match{
-      case that : SpinalEnumCraft[_] if that.blueprint == blueprint =>  wrapLogicalOperator(that,new Operator.Enum.NotEqual);
-      case that :SpinalEnumElement[_] if that.parent == blueprint => wrapLogicalOperator(that(),new Operator.Enum.NotEqual);
+      case that : SpinalEnumCraft[_] if that.blueprint == blueprint =>  wrapLogicalOperator(that,new Operator.Enum.NotEqual(blueprint));
+      case that :SpinalEnumElement[_] if that.parent == blueprint => wrapLogicalOperator(that(),new Operator.Enum.NotEqual(blueprint));
       case _ => SpinalError("Incompatible test")
     }
   }
@@ -127,12 +113,11 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T/*, encoding: SpinalEnumE
   }
   private[core] override def weakClone: this.type = {
     val ret = new SpinalEnumCraft(blueprint).asInstanceOf[this.type]
-    ret.copyEncodingConfig(this)
     ret
   }
 
   override private[core] def normalizeInputs: Unit = {
-//    InputNormalize.enumImpl(this)
+    InputNormalize.enumImpl(this)
   }
 }
 

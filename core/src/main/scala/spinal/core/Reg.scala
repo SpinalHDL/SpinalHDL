@@ -210,4 +210,7 @@ class RegEnum(outType: BaseType,enumDef : SpinalEnum, clockDomain: ClockDomain =
   override type T = Node with EnumEncoded
   override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
   override def getDefinition: SpinalEnum = enumDef
+  override private[core] def normalizeInputs: Unit = {
+    InputNormalize.enumImpl(this)
+  }
 }

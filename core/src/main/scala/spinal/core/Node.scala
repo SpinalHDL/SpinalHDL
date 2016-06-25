@@ -281,6 +281,22 @@ object InputNormalize {
 
   }
 
+  def enumImpl(node : Node with EnumEncoded) : Unit = {
+    node.onEachInput((input,id) => input match{
+      case input : Node with EnumEncoded => {
+        if(node.getEncoding != input.getEncoding){
+          Component.push(input.component)
+          val cast = new CastEnumToEnum(node.getDefinition)
+          cast.input = input.asInstanceOf[cast.T]
+          node.setInput(id,cast)
+          cast.fixEncoding(node.getEncoding)
+          Component.pop(input.component)
+        }
+      }
+      case _ =>
+    })
+  }
+
   def bitVectoreAssignement(parent : Node,inputId : Int,targetWidth : Int): Unit ={
     val input = parent.getInput(inputId)
     if(input == null) return
@@ -521,6 +537,7 @@ trait Widthable extends WidthProvider with GlobalDataUser with ScalaLocated{
 
 trait EnumEncoded{
   def getEncoding : SpinalEnumEncoding
+  def propagateEncoding = false
   def getDefinition : SpinalEnum
 }
 
@@ -541,7 +558,7 @@ trait InferableEnumEncodingImpl extends EnumEncoded  with InferableEnumEncoding 
   private[core] var encodingChoice : InferableEnumEncodingImplChoice = InferableEnumEncodingImplChoiceUndone
   private[core] var encoding  : SpinalEnumEncoding = null
 
-
+  override def propagateEncoding = encodingChoice == InferableEnumEncodingImplChoiceFixed
   override def bootInferration(): Unit = {
     if(encodingChoice == InferableEnumEncodingImplChoiceUndone){
       encodingChoice = InferableEnumEncodingImplChoiceInferred
