@@ -146,7 +146,6 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated{
 
     alwaysTasks.foreach(_())
     postBuildTasks.foreach(_())
-    inGeneration = false
   }
 
   Component.current.addPrePopTask(() => {
