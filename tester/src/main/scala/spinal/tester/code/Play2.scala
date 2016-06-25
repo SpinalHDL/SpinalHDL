@@ -8,6 +8,7 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.neutral.NeutralStreamDma
 import spinal.lib.com.uart.UartCtrl
+import spinal.lib.fsm._
 import spinal.lib.graphic.RgbConfig
 import spinal.lib.graphic.vga.{AvalonMMVgaCtrl, VgaCtrl}
 import spinal.lib.com.i2c._
@@ -1140,6 +1141,12 @@ object PlayEnumName {
     val state = out(myEnum.a())
     val state2 = out(a.b())
 
+    switch(state){
+      is(myEnum.a, myEnum.b){
+        state2 := a.c
+      }
+    }
+
     def toto: Unit ={
       val enumDef = new SpinalEnum{
         val a,b,c = newElement
@@ -1263,5 +1270,107 @@ object PlaySoftReset {
     val config = SpinalConfig()
     config.generateVerilog(new TopLevel)
     config.generateVhdl(new TopLevel)
+  }
+}
+
+
+object PlayEnumInferation {
+  object myEnum extends SpinalEnum{
+    val a,b,c = newElement
+  }
+  class TopLevel extends Component {
+
+    val sel = in UInt(4 bits)
+//    val stateAuto             = out(myEnum())
+//    val stateNative           = out(myEnum(native))
+//    val stateBinarySequancial = out(myEnum(binarySequancial))
+//    val stateBinaryOneHot     = out(myEnum(binaryOneHot))
+//
+//    stateAuto := myEnum.a
+//    stateNative := myEnum.a
+//    stateBinarySequancial := myEnum.a
+//    stateBinaryOneHot := myEnum.a
+//
+//    when(sel === 0){
+//      stateBinaryOneHot := stateBinarySequancial
+//    }
+
+//    val inferredMux1 = Mux(sel(0),myEnum.a(binaryOneHot),myEnum.a)
+//    val inferredMux2 = Mux(sel(0),myEnum.b,myEnum.a)
+//    val egualsOut     = out(inferredMux1 === inferredMux2)
+    val stateIn = in (myEnum(binaryOneHot))
+    val stateBinarySequancialIsA    = out(stateIn === myEnum.a)
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+    SpinalVerilog(new TopLevel)
+  }
+}
+
+object PlayHex {
+
+  class TopLevel extends Component {
+    val io = new Bundle {
+      val HEX0 = out Bits (7 bit)
+      val HEX1 = out Bits (7 bit)
+    }
+
+    val segROM = Vec(Bits(7 bit),10)
+    segROM(0) := "1000000"
+    segROM(1) := "1111001"
+    segROM(2) := "0100100"
+    segROM(3) := "0110000"
+    segROM(4) := "0011001"
+    segROM(5) := "0010010"
+    segROM(6) := "0000010"
+    segROM(7) := "1011000"
+    segROM(8) := "0000000"
+    segROM(9) := "0010000"
+
+    val hexFSM = new StateMachine{
+
+      val delayState = new StateDelay(cyclesCount = 27000000) with EntryPoint
+      val countState = new State
+      val translationState = new State
+
+      val sighex0 = Reg(UInt(4 bit)) init(0)
+      val sighex1 = Reg(UInt(4 bit)) init(0)
+
+      val HEX0 = Reg(Bits (7 bit))
+      val HEX1 = Reg(Bits (7 bit))
+
+      delayState
+        .whenCompleted {
+          goto(countState)
+        }
+
+      countState
+        .whenIsActive {
+          sighex0 := sighex0 + 1
+          when(sighex0 === 0x9) {
+            sighex0 := 0
+            sighex1 := sighex1 + 1
+            when(sighex1 === 0x9) {
+              sighex1 := 0
+            }
+          }
+          goto(translationState)
+        }
+
+      translationState
+        .whenIsActive {
+          HEX0 := segROM(sighex0)
+          HEX1 := segROM(sighex1)
+          goto(delayState)
+        }
+    }
+
+    io.HEX0 := hexFSM.HEX0
+    io.HEX1 := hexFSM.HEX1
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
   }
 }

@@ -83,7 +83,6 @@ class SpinalReport[T <: Component](val toplevel: T) {
 
 //TODO add version number into logs
 //TODO remove emulation of (x downto y -> m, default -> z) syntaxes
-//TODO Check zero width removal pass
 object Spinal{
   def apply[T <: Component](config : SpinalConfig)(gen : => T) : SpinalReport[T]  = {
     val runtime = Runtime.getRuntime

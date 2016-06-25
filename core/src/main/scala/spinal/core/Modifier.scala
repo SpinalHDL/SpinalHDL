@@ -501,16 +501,24 @@ object Operator{
   }
 
   object Enum{
-    class Equal extends BinaryOperator{
+    class Equal(enumDef : SpinalEnum) extends BinaryOperator with InferableEnumEncodingImpl{
       override def opName: String = "e==e"
-      override def normalizeInputs: Unit = {InputNormalize.binaryOperatorEnumImpl(this)}
+      override def normalizeInputs: Unit = {InputNormalize.enumImpl(this)}
       override def simplifyNode: Unit = {}
+
+      override type T = Node with EnumEncoded
+      override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
+      override def getDefinition: SpinalEnum = enumDef
     }
 
-    class NotEqual extends BinaryOperator{
+    class NotEqual(enumDef : SpinalEnum) extends BinaryOperator with InferableEnumEncodingImpl{
       override def opName: String = "e!=e"
-      override def normalizeInputs: Unit = {InputNormalize.binaryOperatorEnumImpl(this)}
+      override def normalizeInputs: Unit = {InputNormalize.enumImpl(this)}
       override def simplifyNode: Unit = {}
+
+      override type T = Node with EnumEncoded
+      override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
+      override def getDefinition: SpinalEnum = enumDef
     }
 
   }
@@ -530,17 +538,19 @@ abstract class Modifier extends Node {
 
 
 abstract class Cast extends Modifier {
-  var input : Node = null
+  type T <: Node
+  var input : T = null.asInstanceOf[T]
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = doThat(input,0)
   override def onEachInput(doThat: (Node) => Unit): Unit = doThat(input)
-  override def setInput(id: Int, node: Node): Unit = {assert(id == 0); this.input = node}
+  override def setInput(id: Int, node: Node): Unit = {assert(id == 0); this.input = node.asInstanceOf[T]}
   override def getInputsCount: Int = 1
   override def getInputs: Iterator[Node] = Iterator(input)
   override def getInput(id: Int): Node = {assert(id == 0); input}
 }
 
 abstract class CastBitVectorToBitVector extends Cast with Widthable{
-  override private[core] def calcWidth: Int = input.asInstanceOf[WidthProvider].getWidth
+  override type T <: Node with WidthProvider
+  override private[core] def calcWidth: Int = input.getWidth
 }
 
 class CastSIntToBits extends CastBitVectorToBitVector{
@@ -565,16 +575,25 @@ class CastBoolToBits extends Cast with Widthable{
   override def opName: String = "B->b"
   override private[core] def calcWidth: Int = 1
 }
+//TODO
 class CastEnumToBits extends Cast with Widthable{
+  override type T <: Node with EnumEncoded
   override def opName: String = "e->b"
   override private[core] def calcWidth: Int = input.asInstanceOf[SpinalEnumCraft[_]].getBitsWidth //TODO Should not use SpinalEnumCraft cast
 }
-class CastBitsToEnum(val enum: SpinalEnumCraft[_]) extends Cast{
+class CastBitsToEnum(val enumDef: SpinalEnum) extends Cast with InferableEnumEncodingImpl{
+  override type T <: Node with WidthProvider
   override def opName: String = "b->e"
+  override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
+  override def getDefinition: SpinalEnum = enumDef
   //TODO add width check
 }
-class CastEnumToEnum(val enum: SpinalEnumCraft[_]) extends Cast {
+class CastEnumToEnum(enumDef: SpinalEnum) extends Cast with  InferableEnumEncodingImpl{
+  override type T <: Node with EnumEncoded
   override def opName: String = "e->e"
+
+  override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
+  override def getDefinition: SpinalEnum = enumDef
 }
 
 
@@ -635,12 +654,14 @@ class MultiplexerUInt extends MultiplexedWidthable{
 class MultiplexerSInt extends MultiplexedWidthable{
   override def opName: String = "mux(B,s,s)"
 }
-class MultiplexerEnum extends Multiplexer{
+class MultiplexerEnum(enumDef : SpinalEnum) extends Multiplexer with InferableEnumEncodingImpl{
+  override type T = Node with EnumEncoded
   override def opName: String = "mux(B,e,e)"
-  override def normalizeInputs: Unit = {
-    InputNormalize.binaryOperatorEnumImpl(this,1,2)
+  override def getDefinition: SpinalEnum = enumDef
+  override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
+  override private[core] def normalizeInputs: Unit = {
+    InputNormalize.enumImpl(this)
   }
-
 }
 
 object Mux {
@@ -713,7 +734,7 @@ object SpinalMap {
 //TODO DOC
 object Select{
   def apply[T <: Data](default: T, mappings: (Bool, T)*): T = list(default,mappings)
-  def apply[T <: Data](mappings: (Bool, T)*): T = list(mappings)
+  def apply[T <: Data](mappings: (Any, T)*): T = list(mappings)
 
   def list[ T <: Data]( defaultValue: T, mappings: Seq[(Bool, T)]): T = {
     val result : T = defaultValue.clone
@@ -742,10 +763,11 @@ object Select{
     result
   }
 
-  def list[T <: Data](mappings: Seq[(Bool, T)]): T = {
+  def list[T <: Data](mappings: Seq[(Any, T)]): T = {
     val defaultValue = mappings.find(_._1 == default)
     if(!defaultValue.isDefined) new Exception("No default element in SpinalMap (default -> xxx)")
-    list(defaultValue.get._2,mappings.filter(_._1 != default))
+    val filterd = mappings.filter(_._1 != default).map(t => (t._1.asInstanceOf[Bool] -> t._2))
+    list(defaultValue.get._2,filterd)
   }
 }
 
@@ -1443,6 +1465,7 @@ class RangedAssignmentFloating(out: BitVector, in_ : Node, offset_ : Node, bitCo
 object MultipleAssignmentNode{
   def newFor(that : BaseType) : MultipleAssignmentNode = that match{
     case that : BitVector => new MultipleAssignmentNodeWidthable
+    case that : SpinalEnumCraft[_] => new MultipleAssignmentNodeEnum(that.blueprint)
     case _ => new MultipleAssignmentNode
   }
 }
@@ -1500,7 +1523,15 @@ class MultipleAssignmentNodeWidthable extends MultipleAssignmentNode with Widtha
     }
     return null
   }
+}
 
+class MultipleAssignmentNodeEnum(enumDef : SpinalEnum) extends MultipleAssignmentNode with InferableEnumEncodingImpl{
+  override type T = Node with EnumEncoded
+  override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
+  override def getDefinition: SpinalEnum = enumDef
+  override private[core] def normalizeInputs: Unit = {
+    InputNormalize.enumImpl(this)
+  }
 }
 
 object AssertNode{

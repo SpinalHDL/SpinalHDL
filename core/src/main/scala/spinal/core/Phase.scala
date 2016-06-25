@@ -217,7 +217,6 @@ class PhaseNodesBlackBoxGenerics(pc: PhaseContext) extends Phase{
       }
       case _ =>
     })
-    nodeStack
   }
 }
 
@@ -410,7 +409,7 @@ class PhaseCollectAndNameEnum(pc: PhaseContext) extends Phase{
     import pc._
     Node.walk(walkNodesDefautStack,node => {
       node match {
-        case enum: SpinalEnumCraft[_] => enums.getOrElseUpdate(enum.blueprint,mutable.Set[SpinalEnumEncoding]()).add(enum.encoding)
+        case enum: SpinalEnumCraft[_] => enums.getOrElseUpdate(enum.blueprint,mutable.Set[SpinalEnumEncoding]()) //Encodings will be added later
         case _ =>
       }
     })
@@ -717,6 +716,56 @@ class PhaseInferWidth(pc: PhaseContext) extends Phase{
     }
   }
 }
+
+
+class PhaseInferEnumEncodings(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+    import pc._
+    globalData.nodeAreInferringEnumEncoding = true
+    val nodes = ArrayBuffer[Node with EnumEncoded]()
+    val nodesInferrable = ArrayBuffer[Node with InferableEnumEncoding]()
+    Node.walk(walkNodesDefautStack ++ walkNodesBlackBoxGenerics,node => {
+      if(node.isInstanceOf[EnumEncoded]) nodes += node.asInstanceOf[Node with EnumEncoded]
+      if(node.isInstanceOf[InferableEnumEncoding]) nodesInferrable += node.asInstanceOf[Node with InferableEnumEncoding]
+    })
+
+    nodesInferrable.foreach(node => {
+      node.bootInferration()
+    })
+
+    nodes.foreach(enum => {
+      enum.onEachInput(input => if(input != null) input.consumers += enum)
+    })
+
+    nodes.foreach(enum => {
+      if(enum.propagateEncoding){
+        val alreadyWalkeds = mutable.Set[Node]()
+        def propagateOn(that : Node): Unit = {
+          that match {
+            case that : InferableEnumEncoding => {
+              if(alreadyWalkeds.contains(that)) return
+              alreadyWalkeds += that
+              if(that.encodingProposal(enum.getEncoding)) {
+                that.onEachInput(propagateOn(_))
+                that.consumers.foreach(propagateOn(_))
+              }
+            }
+            case _ =>
+          }
+        }
+        enum.onEachInput(propagateOn(_))
+        enum.consumers.foreach(propagateOn(_))
+      }
+    })
+
+
+    nodes.foreach(enum => {
+      enums.getOrElseUpdate(enum.getDefinition, mutable.Set[SpinalEnumEncoding]()).add(enum.getEncoding)
+      enum.onEachInput(input => if(input != null) input.consumers.clear)
+    })
+  }
+}
+
 
 class PhaseSimplifyNodes(pc: PhaseContext) extends Phase{
   override def impl(): Unit = {
@@ -1324,6 +1373,7 @@ object SpinalVhdlBoot{
 
     phases += new PhaseDummy(SpinalProgress("Infer nodes's bit width"))
     phases += new PhasePreWidthInferationChecks(pc)
+    phases += new PhaseInferEnumEncodings(pc)
     phases += new PhaseInferWidth(pc)
     phases += new PhaseSimplifyNodes(pc)
     phases += new PhaseInferWidth(pc)
@@ -1390,7 +1440,10 @@ class PhaseDontSymplifyVerilogMismatchingWidth(pc: PhaseContext) extends Phase{
   override def impl(): Unit = {
     def applyTo(that : Node): Unit ={
       assert(that.consumers.size == 1)
-      that.consumers(0).asInstanceOf[BaseType].dontSimplifyIt()
+      that.consumers(0) match {
+        case consumer: BaseType => consumer.dontSimplifyIt()
+        case _ =>
+      }
     }
     import pc._
     Node.walk(walkNodesDefautStack,node => {
@@ -1401,7 +1454,7 @@ class PhaseDontSymplifyVerilogMismatchingWidth(pc: PhaseContext) extends Phase{
 //        case node: Operator.BitVector.Sub => applyTo(node)
 //        case node: Operator.BitVector.ShiftRightByInt => applyTo(node)
 //        case node: Operator.Bits.Cat => applyTo(node)
-        case node : Extract => applyTo(node)
+//        case node : Extract => applyTo(node)
         case _ =>
       }
     })
@@ -1470,6 +1523,7 @@ object SpinalVerilogBoot{
 
     phases += new PhaseDummy(SpinalProgress("Infer nodes's bit width"))
     phases += new PhasePreWidthInferationChecks(pc)
+    phases += new PhaseInferEnumEncodings(pc)
     phases += new PhaseInferWidth(pc)
     phases += new PhaseSimplifyNodes(pc)
     phases += new PhaseInferWidth(pc)
