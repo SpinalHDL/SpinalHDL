@@ -59,7 +59,7 @@ class StateBoot(autoStart : Boolean)(implicit stateMachineAccessor : StateMachin
 class StateMachineEnum extends SpinalEnum
 
 class StateMachine extends Area with StateMachineAccessor with ScalaLocated{
-
+  var inGeneration = false
   val alwaysTasks = ArrayBuffer[() => Unit]()
   def always(doThat : => Unit) : this.type = {
     alwaysTasks += (() => doThat)
@@ -86,6 +86,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated{
   }
   def checkState(state : State) = assert(state.getStateMachineAccessor == this,s"A state machine ($this)is using a state ($state) that come from another state machine.\n\nState machine defined at ${this.getScalaLocationLong}\n State defined at ${state.getScalaLocationLong}")
   def build() : Unit = {
+    inGeneration = true
     childStateMachines.foreach(_.build())
     stateBoot = new StateBoot(autoStart).setName("boot") //TODO
 
@@ -145,6 +146,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated{
 
     alwaysTasks.foreach(_())
     postBuildTasks.foreach(_())
+    inGeneration = false
   }
 
   Component.current.addPrePopTask(() => {
@@ -160,7 +162,10 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated{
 
   override def getEntry(): State = entryState
 
-  override def goto(state: State): Unit = stateNext := enumOf(state)
+  override def goto(state: State): Unit = {
+    assert(inGeneration,"You can't use the 'goto' function there. Maybe you should use an always{.. goto(x) ..} block ?")
+    stateNext := enumOf(state)
+  }
   def isActive(state : State) : Bool ={
     val ret = Bool
     postBuildTasks += {() => {
