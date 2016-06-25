@@ -1304,6 +1304,7 @@ object PlayEnumInferation {
 
   def main(args: Array[String]) {
     SpinalVhdl(new TopLevel)
+    SpinalVerilog(new TopLevel)
   }
 }
 

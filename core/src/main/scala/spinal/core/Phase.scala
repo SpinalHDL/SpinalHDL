@@ -1440,7 +1440,10 @@ class PhaseDontSymplifyVerilogMismatchingWidth(pc: PhaseContext) extends Phase{
   override def impl(): Unit = {
     def applyTo(that : Node): Unit ={
       assert(that.consumers.size == 1)
-      that.consumers(0).asInstanceOf[BaseType].dontSimplifyIt()
+      that.consumers(0) match {
+        case consumer: BaseType => consumer.dontSimplifyIt()
+        case _ =>
+      }
     }
     import pc._
     Node.walk(walkNodesDefautStack,node => {

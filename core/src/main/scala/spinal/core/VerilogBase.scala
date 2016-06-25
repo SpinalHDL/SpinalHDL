@@ -62,7 +62,7 @@ trait VerilogBase extends VhdlVerilogBase{
   def emitEnumType[T <: SpinalEnum](enum : SpinalEnumCraft[T],prefix : String) : String = emitEnumType(enum.blueprint,enum.getEncoding,prefix)
 
   //TODO
-  def emitEnumType(enum : SpinalEnum,encoding_ : SpinalEnumEncoding,prefix : String = "'") : String = {
+  def emitEnumType(enum : SpinalEnum,encoding_ : SpinalEnumEncoding,prefix : String = "`") : String = {
     val encoding = getSwappedEncoding(encoding_)
     return prefix + enum.getName() + "_" + encoding.getName() + "_type"
   }

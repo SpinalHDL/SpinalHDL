@@ -96,6 +96,7 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
   def emitModuleContent(component: Component, builder: ComponentBuilder): Unit = {
     var ret = builder.newPart(true)
     val enumDebugSignals = ArrayBuffer[SpinalEnumCraft[_]]()
+    emitFunctions(component,ret)
     emitSignals(component, ret, enumDebugSignals)
     val retTemp = new StringBuilder
     emitComponentInstances(component, retTemp)
@@ -223,7 +224,33 @@ end
     }
     out.write(ret.result())
   }
-
+  def emitFunctions(component: Component, ret: StringBuilder): Unit = {
+    val alreadyEmitted = mutable.Set[String]()
+    for (node <- component.nodes) {
+      node match {
+        case node : CastEnumToEnum => {
+          val encodingSrc = node.input.getEncoding
+          val enumDef = node.getDefinition
+          val encodingDst = node.getEncoding
+          val fName = getReEncodingFuntion(enumDef, encodingSrc,encodingDst)
+          if(!alreadyEmitted.contains(fName)) {
+            alreadyEmitted += fName
+            ret ++= s"  function $fName(${emitEnumType(enumDef, encodingSrc)} that);\n"
+            ret ++= "  begin\n"
+            ret ++= "    case(that) \n"
+            for (e <- enumDef.values) {
+              ret ++= s"      ${emitEnumLiteral(e, encodingSrc)} : $fName =  ${emitEnumLiteral(e, encodingDst)};\n"
+            }
+            ret ++= s"      default : $fName =  ${emitEnumLiteral(enumDef.values.head, encodingDst)};\n"
+            ret ++= "    endcase\n"
+            ret ++= "  end\n"
+            ret ++= "  endfunction\n\n"
+          }
+        }
+        case _ =>
+      }
+    }
+  }
 
   def emitSignals(component: Component, ret: StringBuilder, enumDebugSignals: ArrayBuffer[SpinalEnumCraft[_]]): Unit = {
     var verilogIndexGenerated = false
@@ -426,26 +453,14 @@ end
     }
   }
 
-
   def operatorImplAsEnumToEnum(func: Modifier): String = {
-    SpinalError("Currently cast between enumeration encoding is not supported in the Verilog backend") //TODO
-//    val (enumDefSrc, encodingSrc) = func.getInput(0) match {
-//      case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.encoding)
-//      case literal: EnumLiteral[_] => (literal.enum.parent, literal.encoding)
-//    }
-//    val enumCast = func.asInstanceOf[CastEnumToEnum]
-//    val (enumDefDst, encodingDst) = enumCast.enum match {
-//      case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.encoding)
-//    }
-//    if (encodingDst.isNative && encodingSrc.isNative)
-//      emitLogic(func.getInput(0))
-//    else {
-//      val encoding = enumCast.getInput(0) match {
-//        case input: SpinalEnumCraft[_] => input.encoding
-//        case input: EnumLiteral[_] => input.encoding
-//      }
-//      s"${getReEncodingFuntion(enumCast.enum.blueprint.asInstanceOf[SpinalEnum], encoding, enumCast.enum.encoding)}(${func.getInputs.map(emitLogic(_)).reduce(_ + "," + _)})"
-//    }
+    val enumCast = func.asInstanceOf[CastEnumToEnum]
+    val enumDefSrc = enumCast.input.getDefinition
+    val encodingSrc = enumCast.input.getEncoding
+    val enumDefDst = enumCast.getDefinition
+    val encodingDst = enumCast.getEncoding
+
+    s"${getReEncodingFuntion(enumDefDst, encodingSrc,encodingDst)}(${emitLogic(enumCast.input)})"
   }
 
   val modifierImplMap = mutable.Map[String, Modifier => String]()

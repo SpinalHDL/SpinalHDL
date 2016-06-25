@@ -981,11 +981,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
     if (encodingDst.isNative && encodingSrc.isNative)
       emitLogic(func.getInput(0))
     else {
-      val encoding = enumCast.getInput(0) match {
-        case input: SpinalEnumCraft[_] => input.getEncoding
-        case input: EnumLiteral[_] => input.encoding
-      }
-      s"${getReEncodingFuntion(enumDefDst, encoding,encodingDst)}(${emitLogic(enumCast.input)})"
+      s"${getReEncodingFuntion(enumDefDst, encodingSrc,encodingDst)}(${emitLogic(enumCast.input)})"
     }
   }
 
