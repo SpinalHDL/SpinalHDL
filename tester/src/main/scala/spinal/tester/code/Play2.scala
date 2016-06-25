@@ -1137,13 +1137,12 @@ object PlayI2CSlaveHAL {
 
     val io = new Bundle {
       val i2c  = slave( I2C() )
-      val cmd  = slave Stream( I2CSlaveHALCmd(generic) )
-      val rsp  = master  Flow  ( I2CSlaveHALRsp(generic) )
+      val cmd  = master  Stream ( I2CSlaveHALCmd(generic) )
+      val rsp  = slave Stream ( I2CSlaveHALRsp(generic) )
     }
 
     val mySlave = new I2CSlaveHAL(generic)
     io <> mySlave.io
-
   }
 
   def main(args: Array[String]) {
@@ -1151,8 +1150,7 @@ object PlayI2CSlaveHAL {
       mode = Verilog,
       dumpWave = DumpWaveConfig(depth = 0),
       defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
-      defaultClockDomainFrequency = FixedFrequency(50e6)
+      defaultClockDomainFrequency  = FixedFrequency(50e6)
     ).generate(new I2CSlaveHALTester).printPruned
   }
 }
-

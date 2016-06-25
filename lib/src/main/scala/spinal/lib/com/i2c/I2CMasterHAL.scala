@@ -126,6 +126,7 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
   // freeze the scl for clock synchronization
   val scl_freeze = Bool
 
+
   /**
     * Generate and manage the scl clock,  signals to indicate the
     * rising and falling edge of SCL as well as a signal to indicate
