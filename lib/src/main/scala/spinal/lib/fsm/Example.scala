@@ -365,9 +365,16 @@ object StateMachineTry2Example {
 object StateMachineTry3Example {
   class TopLevel extends Component {
 
-    /*val fsm = */new StateMachine{
+    val fsm = new StateMachine{
       val counter = Reg(UInt(8 bits)) init (0)
       counter := counter + 1
+
+      always{
+        when(counter === 9){
+          counter := 0
+          goto(stateB)
+        }
+      }
       val stateA: State = new State with EntryPoint {
         whenIsActive {
           goto(stateB)
