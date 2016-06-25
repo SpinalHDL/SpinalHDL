@@ -1300,6 +1300,8 @@ object PlayEnumInferation {
 //    val egualsOut     = out(inferredMux1 === inferredMux2)
     val stateIn = in (myEnum(binaryOneHot))
     val stateBinarySequancialIsA    = out(stateIn === myEnum.a)
+    val outState = out (myEnum())
+    outState := stateIn
   }
 
   def main(args: Array[String]) {

@@ -718,7 +718,7 @@ class PhaseInferWidth(pc: PhaseContext) extends Phase{
 }
 
 
-class PhaseInferEnumEncodings(pc: PhaseContext) extends Phase{
+class PhaseInferEnumEncodings(pc: PhaseContext,encodingSwap : (SpinalEnumEncoding) => SpinalEnumEncoding) extends Phase{
   override def impl(): Unit = {
     import pc._
     globalData.nodeAreInferringEnumEncoding = true
@@ -735,6 +735,7 @@ class PhaseInferEnumEncodings(pc: PhaseContext) extends Phase{
 
     nodes.foreach(enum => {
       enum.onEachInput(input => if(input != null) input.consumers += enum)
+      enum.swapEncoding(encodingSwap(enum.getEncoding))
     })
 
     nodes.foreach(enum => {
@@ -1373,7 +1374,7 @@ object SpinalVhdlBoot{
 
     phases += new PhaseDummy(SpinalProgress("Infer nodes's bit width"))
     phases += new PhasePreWidthInferationChecks(pc)
-    phases += new PhaseInferEnumEncodings(pc)
+    phases += new PhaseInferEnumEncodings(pc,e => e)
     phases += new PhaseInferWidth(pc)
     phases += new PhaseSimplifyNodes(pc)
     phases += new PhaseInferWidth(pc)
@@ -1523,7 +1524,7 @@ object SpinalVerilogBoot{
 
     phases += new PhaseDummy(SpinalProgress("Infer nodes's bit width"))
     phases += new PhasePreWidthInferationChecks(pc)
-    phases += new PhaseInferEnumEncodings(pc)
+    phases += new PhaseInferEnumEncodings(pc,e => if(e == `native`) binarySequancial else e)
     phases += new PhaseInferWidth(pc)
     phases += new PhaseSimplifyNodes(pc)
     phases += new PhaseInferWidth(pc)

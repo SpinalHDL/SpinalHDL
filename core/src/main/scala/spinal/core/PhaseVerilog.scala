@@ -127,21 +127,10 @@ end
     val ret = new StringBuilder();
 
 
-//    for (enumDef <- enums.keys) {
-//      ret ++= s"`define ${emitEnumType(enumDef,native) [${enumDef.values.size-1}:0]\n"
-//      for (element <- enumDef.values) {
-//        ret ++= s"`define ${emitEnumLiteral(element, native)} : $vhdlEnumType := ${idToBits(element, encoding)};\n"
-//      }
-//      ret ++= "\n"
-//      (${enumDef.values.map(_.getName()).reduce(_ + "," + _)})
-//      ret ++= s"`define ${getEnumDebugType(enumDef)} is (${enumDef.values.foldLeft("XXX")((str, e) => str + "," + e.getName())});\n"
-//    }
-
     ret ++= "\n"
     for ((enumDef, encodings) <- enums) {
       val enumName = enumDef.getName()
-      val swappedEncodings = encodings.map(getSwappedEncoding(_))
-      for (encoding <- swappedEncodings) {
+      for (encoding <- encodings) {
         val encodingName = encoding.getName()
         val bitCount = encoding.getWidth(enumDef)
         val vhdlEnumType = emitEnumType(enumDef, encoding,"")
@@ -150,7 +139,6 @@ end
           ret ++= s"`define ${emitEnumLiteral(element, encoding,"")} ${idToBits(element, encoding)}\n"
         }
         ret ++= "\n"
-        //ret ++= s"  function pkg_to${enumName}_debug (value : std_logic_vector) return $enumName;\n"
       }
     }
 
@@ -160,68 +148,6 @@ end
     }
 
 
-    if (enums.size != 0) {
-      for ((enumDef, encodings) <- enums) {
-        val enumName = enumDef.getName()
-
-        for (encoding <- encodings) {
-          if (!encoding.isNative) {
-            //            ret ++=
-            //              s"""  function ${getEnumToDebugFuntion(enumDef, encoding)} (value : ${emitEnumType(enumDef, encoding)}) return ${getEnumDebugType(enumDef)} is
-            //              |  begin
-            //              |    case value is
-            //              |${
-            //              {
-            //              for (e <- enumDef.values) yield s"      when ${emitEnumLiteral(e, encoding)} => return ${e.getName()};"
-            //              }.reduce(_ + "\n" + _)
-            //              }
-            //              |      when others => return XXX;
-            //              |    end case;
-            //              |  end;
-            //              |""".stripMargin
-          }else {
-            //TODO
-//            ret ++=
-//            s"""function ${emitEnumType(enumDef, encoding)} pkg_to${enumName}_${encoding.getName()} ([${encoding.getWidth(enumDef) - 1} : 0] value) is
-//            |begin
-//            |  case(value)
-//            |${{
-//              for (e <- enumDef.values)
-//                yield s"    ${idToBits(e, encoding)} : return ${emitEnumLiteral(e, native)};"}.reduce(_ + "\n" + _)
-//            }
-//            |    default :  return ${emitEnumLiteral(enumDef.values.head, native)};
-//            |  endcase
-//            |endfunction
-//            |""".stripMargin
-
-//            ret ++=
-//            s"""  function pkg_toStdLogicVector_${encoding.getName()} (value : $enumName) return std_logic_vector is
-//            |  begin
-//            |    case value is
-//            |${{for (e <- enumDef.values) yield s"      when ${e.getName()} => return ${idToBits(e, encoding)};"}.reduce(_ + "\n" + _)}
-//            |      when others => return ${idToBits(enumDef.values.head, encoding)};
-//            |    end case;
-//            |  end;
-//            |""".stripMargin
-//            }
-
-
-
-//          for (targetEncoding <- encodings if targetEncoding != encoding) {
-//            ret ++= s"  function ${getReEncodingFuntion(enumDef, encoding, targetEncoding)} (that : ${emitEnumType(enumDef, encoding)}) return ${emitEnumType(enumDef, targetEncoding)} is\n"
-//            ret ++= "  begin\n"
-//            ret ++= "    case that is \n"
-//            for (e <- enumDef.values) {
-//              ret ++= s"      when ${emitEnumLiteral(e, encoding)} => return ${emitEnumLiteral(e, targetEncoding)};\n"
-//            }
-//            ret ++= s"      when others => return ${emitEnumLiteral(enumDef.values.head, targetEncoding)};\n"
-//            ret ++= "    end case;\n"
-//            ret ++= "  end;\n\n"
-          }
-        }
-      }
-      ret ++= "\n\n\n"
-    }
     out.write(ret.result())
   }
   def emitFunctions(component: Component, ret: StringBuilder): Unit = {
@@ -443,10 +369,9 @@ end
 
 
   def enumEgualsImpl(eguals: Boolean)(op: Modifier): String = {
-    val (enumDef, encoding) = op.getInput(0) match {
-      case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.getEncoding)
-      case literal: EnumLiteral[_] => (literal.enum.parent, literal.encoding)
-    }
+    val enumDef = op.asInstanceOf[EnumEncoded].getDefinition
+    val encoding = op.asInstanceOf[EnumEncoded].getEncoding
+
     encoding match {
       case `binaryOneHot` => s"((${emitLogic(op.getInput(0))} & ${emitLogic(op.getInput(1))}) ${if (eguals) "!=" else "=="} 'b${"0" * encoding.getWidth(enumDef)})"
       case _ => s"(${emitLogic(op.getInput(0))} ${if (eguals) "==" else "!="} ${emitLogic(op.getInput(1))})"

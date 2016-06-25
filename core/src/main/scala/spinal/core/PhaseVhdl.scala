@@ -936,10 +936,9 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
 
 
   def enumEgualsImpl(eguals: Boolean)(op: Modifier): String = {
-    val (enumDef, encoding) = op.getInput(0) match {
-      case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.getEncoding)
-      case literal: EnumLiteral[_] => (literal.enum.parent, literal.encoding)
-    }
+    val enumDef = op.asInstanceOf[EnumEncoded].getDefinition
+    val encoding = op.asInstanceOf[EnumEncoded].getEncoding
+
     encoding match {
       case `binaryOneHot` => s"pkg_toStdLogic((${emitLogic(op.getInput(0))} and ${emitLogic(op.getInput(1))}) ${if (eguals) "/=" else "="} ${'"' + "0" * encoding.getWidth(enumDef) + '"'})"
       case _ => s"pkg_toStdLogic(${emitLogic(op.getInput(0))} ${if (eguals) "=" else "/="} ${emitLogic(op.getInput(1))})"
@@ -960,10 +959,10 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
   }
 
   def operatorImplAsEnumToBits(func: Modifier): String = {
-    val (enumDef, encoding) = func.getInput(0) match {
-      case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.getEncoding)
-      case literal: EnumLiteral[_] => (literal.enum.parent, literal.encoding)
-    }
+    val cast = func.asInstanceOf[CastEnumToBits]
+    val enumDef = cast.input.getDefinition
+    val encoding = cast.input.getEncoding
+
     if (!encoding.isNative) {
       emitLogic(func.getInput(0))
     } else {

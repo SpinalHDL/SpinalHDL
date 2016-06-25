@@ -539,6 +539,8 @@ trait EnumEncoded{
   def getEncoding : SpinalEnumEncoding
   def propagateEncoding = false
   def getDefinition : SpinalEnum
+  //Only used in the inferation phase
+  def swapEncoding(encoding : SpinalEnumEncoding)
 }
 
 trait InferableEnumEncoding{
@@ -557,6 +559,8 @@ object InferableEnumEncodingImplChoiceInferred    extends InferableEnumEncodingI
 trait InferableEnumEncodingImpl extends EnumEncoded  with InferableEnumEncoding with ContextUser with ScalaLocated{
   private[core] var encodingChoice : InferableEnumEncodingImplChoice = InferableEnumEncodingImplChoiceUndone
   private[core] var encoding  : SpinalEnumEncoding = null
+
+  override def swapEncoding(encoding: SpinalEnumEncoding): Unit = this.encoding = encoding
 
   override def propagateEncoding = encodingChoice == InferableEnumEncodingImplChoiceFixed
   override def bootInferration(): Unit = {
