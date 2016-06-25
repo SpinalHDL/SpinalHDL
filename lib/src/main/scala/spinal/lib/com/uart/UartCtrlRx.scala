@@ -43,7 +43,7 @@ class UartCtrlRx(g : UartCtrlGenerics) extends Component {
   // Provide bitCounter.value that count up each bitTimer.tick, Used by the state machine to count data bits and stop bits
   // reset() can be called to reset it to zero
   val bitCounter = new Area {
-    val value = Reg(UInt(Math.max(dataWidthMax, 2) bit))
+    val value = Reg(UInt(Math.max(log2Up(dataWidthMax), 2) bit))
     def reset() = value := 0
 
     when(bitTimer.tick) {

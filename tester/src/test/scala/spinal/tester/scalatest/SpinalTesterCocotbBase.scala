@@ -68,11 +68,11 @@ abstract class SpinalTesterCocotbBase extends FunSuite  {
             stdin.close()
           },
           stdout => {
-            out = scala.io.Source.fromInputStream(stdout).getLines.reduce(_ + "\n" + _)
+            out = scala.io.Source.fromInputStream(stdout).getLines.foldLeft("")(_ + "\n" + _)
             stdout.close()
           },
           stderr => {
-            err = scala.io.Source.fromInputStream(stderr).getLines.reduce(_ + "\n" + _)
+            err = scala.io.Source.fromInputStream(stderr).getLines.foldLeft("")(_ + "\n" + _)
             stderr.close()
           })
         val proc = Process("sh").run(io)

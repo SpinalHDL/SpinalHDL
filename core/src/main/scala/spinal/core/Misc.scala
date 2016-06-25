@@ -94,7 +94,7 @@ object Misc {
   addReflectionExclusion(new SInt)
   addReflectionExclusion(new Generic)
   addReflectionExclusion(new SpinalEnum)
-  addReflectionExclusion(new SpinalEnumCraft(null,null))
+  addReflectionExclusion(new SpinalEnumCraft(null))
   addReflectionExclusion(new Area{})
 
   //XXXX find if there is a solution to keep declaration order in every case, then remove fix from component.nameElements
@@ -196,7 +196,7 @@ object Misc {
     input match{
       case bitVector : BitVector => {
         bitVector.getInput(0) match{
-          case lit : BitsLiteral if (! lit.hasSpecifiedBitCount) =>{
+          case lit : BitVectorLiteral if (! lit.hasSpecifiedBitCount) =>{
             Component.push(input.component)
             val sizedLit = lit.clone
             sizedLit.asInstanceOf[Widthable].inferredWidth = width
@@ -250,6 +250,13 @@ class Scope {
     if (count == 0) name else name + "_" + count
   }
 
+  def getUnusedName(name: String): String = {
+    val lowerCase = name.toLowerCase
+    val count = map.get(lowerCase).getOrElse(0)
+    if (count == 0) name else name + "_" + count
+  }
+
+
   def lockName(name: String): Unit = {
     val lowerCase = name.toLowerCase
     val count = map.get(lowerCase).getOrElse(1)
@@ -260,6 +267,12 @@ class Scope {
     val lowerCase = name.toLowerCase
     if (map.contains(lowerCase)) SpinalError(s"Reserved name $name is not free")
     map(lowerCase) = 1
+  }
+
+  def copy() : Scope = {
+    val cpy = new Scope
+    map.foreach{case (n,i) => cpy.map.put(n,i)}
+    cpy
   }
 }
 
@@ -335,7 +348,7 @@ object SpinalLog{
       s"[${name}]"
 }
 
-object SpinalInfoPhase {
+object SpinalProgress {
   def apply(message: String) = println(s"${SpinalLog.tag("Progress", Console.BLUE)} at ${f"${Driver.executionTime}%1.3f"} : $message")
 }
 

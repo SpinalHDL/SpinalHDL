@@ -244,8 +244,9 @@ class MemReadAsync(mem_ : Mem[_], address_ : UInt, data: Bits, val writeToReadKi
 
 
 object MemReadSync {
-  def getAddressId: Int = 3
-  def getEnableId: Int = 4
+  val getAddressId: Int = 4
+  val getEnableId: Int = 5
+  val getMemId: Int = 6
 }
 
 class MemReadSync(mem_ : Mem[_], val originalAddress: UInt, address_ : UInt, data: Bits, enable_ : Bool, val writeToReadKind: MemWriteToReadKind, clockDomain: ClockDomain) extends SyncNode(clockDomain) with Widthable{
@@ -255,9 +256,9 @@ class MemReadSync(mem_ : Mem[_], val originalAddress: UInt, address_ : UInt, dat
 
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
     super.onEachInput(doThat)
-    doThat(address,3)
-    doThat(readEnable,4)
-    doThat(mem,5)
+    doThat(address,MemReadSync.getAddressId)
+    doThat(readEnable,MemReadSync.getEnableId)
+    doThat(mem,MemReadSync.getMemId)
   }
   override def onEachInput(doThat: (Node) => Unit): Unit = {
     super.onEachInput(doThat)
@@ -267,18 +268,18 @@ class MemReadSync(mem_ : Mem[_], val originalAddress: UInt, address_ : UInt, dat
   }
 
   override def setInput(id: Int, node: Node): Unit = id match{
-    case 3 => address = node
-    case 4 => readEnable = node
-    case 5 => mem = node.asInstanceOf[Mem[_]]
+    case MemReadSync.getAddressId => address = node
+    case MemReadSync.getEnableId => readEnable = node
+    case MemReadSync.getMemId => mem = node.asInstanceOf[Mem[_]]
     case _ => super.setInput(id,node)
   }
 
-  override def getInputsCount: Int = super.getInputsCount + 3
+  override def getInputsCount: Int = super.getInputsCount + MemReadSync.getAddressId
   override def getInputs: Iterator[Node] = super.getInputs ++ Iterator(address,readEnable,mem)
   override def getInput(id: Int): Node = id match{
-    case 3 => address
-    case 4 => readEnable
-    case 5 => mem
+    case MemReadSync.getAddressId => address
+    case MemReadSync.getEnableId => readEnable
+    case MemReadSync.getMemId => mem
     case _ => super.getInput(id)
   }
 
@@ -287,6 +288,7 @@ class MemReadSync(mem_ : Mem[_], val originalAddress: UInt, address_ : UInt, dat
   override def getSynchronousInputs: List[Node] = getMem :: getAddress :: getReadEnable :: super.getSynchronousInputs
 
   override def isUsingResetSignal: Boolean = false
+  override def isUsingSoftResetSignal: Boolean = false
 
   def getData = data
 
@@ -315,10 +317,10 @@ class MemReadSync(mem_ : Mem[_], val originalAddress: UInt, address_ : UInt, dat
 
 
 object MemWrite {
-  def getAddressId: Int = 3
-  def getDataId: Int = 4
-  def getMaskId: Int = 5
-  def getEnableId: Int = 6
+  val getAddressId: Int = 4
+  val getDataId: Int = 5
+  val getMaskId: Int = 6
+  val getEnableId: Int = 7
 }
 
 class MemWrite(mem: Mem[_], val originalAddress: UInt, address_ : UInt, data_ : Bits, mask_ : Bits, enable_ : Bool, clockDomain: ClockDomain) extends SyncNode(clockDomain) with Widthable with CheckWidth{
@@ -329,10 +331,10 @@ class MemWrite(mem: Mem[_], val originalAddress: UInt, address_ : UInt, data_ : 
 
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
     super.onEachInput(doThat)
-    doThat(address,3)
-    doThat(data,4)
-    doThat(mask,5)
-    doThat(writeEnable,6)
+    doThat(address,MemWrite.getAddressId)
+    doThat(data,MemWrite.getDataId)
+    doThat(mask,MemWrite.getMaskId)
+    doThat(writeEnable,MemWrite.getEnableId)
   }
 
   override def onEachInput(doThat: (Node) => Unit): Unit = {
@@ -344,20 +346,20 @@ class MemWrite(mem: Mem[_], val originalAddress: UInt, address_ : UInt, data_ : 
   }
 
   override def setInput(id: Int, node: Node): Unit = id match{
-    case 3 => address = node
-    case 4 => data = node
-    case 5 => mask = node
-    case 6 => writeEnable = node
+    case MemWrite.getAddressId => address = node
+    case MemWrite.getDataId => data = node
+    case MemWrite.getMaskId => mask = node
+    case MemWrite.getEnableId => writeEnable = node
     case _ => super.setInput(id,node)
   }
 
   override def getInputsCount: Int = super.getInputsCount + 4
   override def getInputs: Iterator[Node] = super.getInputs ++ Iterator(address,data,mask,writeEnable)
   override def getInput(id: Int): Node = id match{
-    case 3 => address
-    case 4 => data
-    case 5 => mask
-    case 6 => writeEnable
+    case MemWrite.getAddressId => address
+    case MemWrite.getDataId => data
+    case MemWrite.getMaskId => mask
+    case MemWrite.getEnableId => writeEnable
     case _ => super.getInput(id)
   }
 
@@ -366,6 +368,7 @@ class MemWrite(mem: Mem[_], val originalAddress: UInt, address_ : UInt, data_ : 
   override def getSynchronousInputs: List[Node] = getAddress :: getData :: getEnable :: getInput(MemWrite.getMaskId) :: super.getSynchronousInputs
 
   override def isUsingResetSignal: Boolean = false
+  override def isUsingSoftResetSignal: Boolean = false
 
   def getMem = mem
   def getAddress = address.asInstanceOf[UInt]
@@ -396,13 +399,10 @@ class MemWrite(mem: Mem[_], val originalAddress: UInt, address_ : UInt, data_ : 
 }
 
 object MemWriteOrRead_writePart {
-  def getAddressId: Int = 3
-
-  def getDataId: Int = 4
-
-  def getChipSelectId: Int = 5
-
-  def getWriteEnableId: Int = 6
+  val getAddressId: Int = 4
+  val getDataId: Int = 5
+  val getChipSelectId: Int = 6
+  val getWriteEnableId: Int = 7
 }
 
 class MemWriteOrRead_writePart(mem: Mem[_], address_ : UInt, data_ : Bits, chipSelect_ : Bool, writeEnable_ : Bool, clockDomain: ClockDomain) extends SyncNode(clockDomain) with Widthable{
@@ -413,10 +413,10 @@ class MemWriteOrRead_writePart(mem: Mem[_], address_ : UInt, data_ : Bits, chipS
 
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
     super.onEachInput(doThat)
-    doThat(address,3)
-    doThat(data,4)
-    doThat(chipSelect,5)
-    doThat(writeEnable,6)
+    doThat(address,MemWriteOrRead_writePart.getAddressId)
+    doThat(data,MemWriteOrRead_writePart.getDataId)
+    doThat(chipSelect,MemWriteOrRead_writePart.getChipSelectId)
+    doThat(writeEnable,MemWriteOrRead_writePart.getWriteEnableId)
   }
 
   override def onEachInput(doThat: (Node) => Unit): Unit = {
@@ -428,9 +428,9 @@ class MemWriteOrRead_writePart(mem: Mem[_], address_ : UInt, data_ : Bits, chipS
   }
 
   override def setInput(id: Int, node: Node): Unit = id match{
-    case 3 => address = node
-    case 4 => data = node
-    case 5 => chipSelect = node
+    case MemWriteOrRead_writePart.getAddressId => address = node
+    case MemWriteOrRead_writePart.getDataId => data = node
+    case MemWriteOrRead_writePart.getChipSelectId => chipSelect = node
     case 6 => writeEnable = node
     case _ => super.setInput(id,node)
   }
@@ -438,10 +438,10 @@ class MemWriteOrRead_writePart(mem: Mem[_], address_ : UInt, data_ : Bits, chipS
   override def getInputsCount: Int = super.getInputsCount + 4
   override def getInputs: Iterator[Node] = super.getInputs ++ Iterator(address,data,chipSelect,writeEnable)
   override def getInput(id: Int): Node = id match{
-    case 3 => address
-    case 4 => data
-    case 5 => chipSelect
-    case 6 => writeEnable
+    case MemWriteOrRead_writePart.getAddressId => address
+    case MemWriteOrRead_writePart.getDataId => data
+    case MemWriteOrRead_writePart.getChipSelectId => chipSelect
+    case MemWriteOrRead_writePart.getWriteEnableId => writeEnable
     case _ => super.getInput(id)
   }
 
@@ -450,6 +450,7 @@ class MemWriteOrRead_writePart(mem: Mem[_], address_ : UInt, data_ : Bits, chipS
   override def getSynchronousInputs: List[Node] = getAddress :: getData :: getChipSelect :: getWriteEnable :: super.getSynchronousInputs
 
   override def isUsingResetSignal: Boolean = false
+  override def isUsingSoftResetSignal: Boolean = false
 
   def getMem = mem
   def getAddress = address.asInstanceOf[UInt]
@@ -466,11 +467,10 @@ class MemWriteOrRead_writePart(mem: Mem[_], address_ : UInt, data_ : Bits, chipS
 
 
 object MemWriteOrRead_readPart {
-  def getAddressId: Int = 3
-
-  def getChipSelectId: Int = 4
-
-  def getWriteEnableId: Int = 5
+  val getAddressId: Int = 4
+  val getChipSelectId: Int = 5
+  val getWriteEnableId: Int = 6
+  val getMemId: Int = 7
 }
 
 class MemWriteOrRead_readPart(mem_ : Mem[_], address_ : UInt, data_ : Bits, chipSelect_ : Bool, writeEnable_ : Bool, val writeToReadKind: MemWriteToReadKind, clockDomain: ClockDomain) extends SyncNode(clockDomain) with Widthable{
@@ -482,10 +482,10 @@ class MemWriteOrRead_readPart(mem_ : Mem[_], address_ : UInt, data_ : Bits, chip
 
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
     super.onEachInput(doThat)
-    doThat(address,3)
-    doThat(chipSelect,4)
-    doThat(writeEnable,5)
-    doThat(mem,6)
+    doThat(address,MemWriteOrRead_readPart.getAddressId)
+    doThat(chipSelect,MemWriteOrRead_readPart.getChipSelectId)
+    doThat(writeEnable,MemWriteOrRead_readPart.getWriteEnableId)
+    doThat(mem,MemWriteOrRead_readPart.getMemId)
   }
 
   override def onEachInput(doThat: (Node) => Unit): Unit = {
@@ -497,20 +497,20 @@ class MemWriteOrRead_readPart(mem_ : Mem[_], address_ : UInt, data_ : Bits, chip
   }
 
   override def setInput(id: Int, node: Node): Unit = id match{
-    case 3 => address = node
-    case 4 => chipSelect = node
-    case 5 => writeEnable = node
-    case 6 => mem = node.asInstanceOf[Mem[_]]
+    case MemWriteOrRead_readPart.getAddressId => address = node
+    case MemWriteOrRead_readPart.getChipSelectId => chipSelect = node
+    case MemWriteOrRead_readPart.getWriteEnableId => writeEnable = node
+    case MemWriteOrRead_readPart.getMemId => mem = node.asInstanceOf[Mem[_]]
     case _ => super.setInput(id,node)
   }
 
   override def getInputsCount: Int = super.getInputsCount + 4
   override def getInputs: Iterator[Node] = super.getInputs ++ Iterator(address,chipSelect,writeEnable,mem)
   override def getInput(id: Int): Node = id match{
-    case 3 => address
-    case 4 => chipSelect
-    case 5 => writeEnable
-    case 6 => mem
+    case MemWriteOrRead_readPart.getAddressId => address
+    case MemWriteOrRead_readPart.getChipSelectId => chipSelect
+    case MemWriteOrRead_readPart.getWriteEnableId => writeEnable
+    case MemWriteOrRead_readPart.getMemId => mem
     case _ => super.getInput(id)
   }
 
@@ -521,6 +521,7 @@ class MemWriteOrRead_readPart(mem_ : Mem[_], address_ : UInt, data_ : Bits, chip
   override def getSynchronousInputs: List[Node] = getMem :: getAddress :: getChipSelect :: getWriteEnable :: super.getSynchronousInputs
 
   override def isUsingResetSignal: Boolean = false
+  override def isUsingSoftResetSignal: Boolean = false
 
   def getData = data_
 

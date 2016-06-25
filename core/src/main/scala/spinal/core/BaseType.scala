@@ -267,7 +267,7 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
   }
 
   def wrapCast[T <: BaseType](result : T,node : Cast) : T = {
-    node.input = this
+    node.input = this.asInstanceOf[node.T]
     result.input = node
     result
   }

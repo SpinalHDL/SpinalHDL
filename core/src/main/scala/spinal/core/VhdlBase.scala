@@ -66,7 +66,7 @@ trait VhdlBase extends VhdlVerilogBase{
       return enum.parent.getName() + "_" + encoding.getName() + "_" + enum.getName()
   }
 
-  def emitEnumType[T <: SpinalEnum](enum : SpinalEnumCraft[T]) : String = emitEnumType(enum.blueprint,enum.encoding)
+  def emitEnumType[T <: SpinalEnum](enum : SpinalEnumCraft[T]) : String = emitEnumType(enum.blueprint,enum.getEncoding)
 
   def emitEnumType(enum : SpinalEnum,encoding: SpinalEnumEncoding) : String = {
     if(encoding.isNative)

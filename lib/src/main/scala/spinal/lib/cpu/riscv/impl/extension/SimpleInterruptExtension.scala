@@ -85,8 +85,8 @@ class SimpleInterruptExtension(exceptionVector : Int) extends CoreExtension{
     when(instruction === M"00000--------------------0001011"){
       applyTag(ctrl)
       ctrl.instVal := True
-      ctrl.wb := WB.ALU1
-      ctrl.alu := ALU.COPY1
+      ctrl.wb := WB.ALU
+      ctrl.alu := ALU.COPY
       when(instruction(25)){
         ctrl.rfen := True
       }

@@ -16,15 +16,53 @@ class PhaseContext(val config : SpinalConfig){
   var topLevel: Component = null
   val enums = mutable.Map[SpinalEnum,mutable.Set[SpinalEnumEncoding]]()
   val reservedKeyWords = mutable.Set[String](
-    "in", "out", "buffer", "inout",
-    "entity", "component", "architecture",
-    "type","open","block","access",
-    "or","and","xor","nand","nor",
+    //VHDL
+    "abs", "access", "after", "alias", "all",
+    "and", "architecture", "array", "assert",
+    "attribute", "begin", "block", "body",
+    "buffer", "bus", "case", "component",
+    "configuration", "constant", "disconnect", "downto",
+    "else", "elsif", "end", "entity", "exit", "file",
+    "for", "function", "generate", "generic",
+    "group", "guarded", "if", "impure", "in",
+    "inertial", "inout", "is", "label", "library",
+    "linkage", "literal", "loop", "map", "mod",
+    "nand", "new", "next", "nor", "not", "null",
+    "of", "on", "open", "or", "others", "out",
+    "package", "port", "postponed", "procedure",
+    "process", "pure", "range", "record", "register",
+    "reject", "rem", "report", "return", "rol",
+    "ror", "select", "severity", "signal", "shared",
+    "sla", "sll", "sra", "srl", "subtype", "then",
+    "to", "transport", "type", "unaffected", "units",
+    "until", "use", "variable", "wait", "when",
+    "while", "with", "xnor", "xor",
 
-    "input", "output",
-    "module","parameter","logic","reg",
-    "begin","end",
-    "always","posedge","negedge"
+    //Verilog
+    "always", "and", "assign", "automatic", "begin", "buf",
+    "bufif0", "bufif1", "case", "casex", "casez",
+    "cell", "cmos", "config", "deassign", "default",
+    "defparam", "design", "disable", "edge", "else",
+    "end", "endcase", "endconfig", "endfunction", "endgenerate",
+    "endmodule", "endprimitive", "endspecify", "endtable", "endtask",
+    "event", "for", "force", "forever", "fork",
+    "function", "generate", "genvar", "highz0", "highz1",
+    "if", "ifnone", "incdir", "include", "initial",
+    "inout", "input", "instance", "integer", "join",
+    "large", "liblist", "library", "localparam", "macromodule",
+    "medium", "module", "nand", "negedge", "nmos", "nor",
+    "noshowcancelledno", "not", "notif0", "notif1", "or",
+    "output", "parameter", "pmos", "posedge", "primitive", "pull0",
+    "pull1", "pulldown", "pullup", "pulsestyle_oneventglitch",
+    "pulsestyle_ondetectglitch", "remos", "real", "realtime",
+    "reg", "release", "repeat", "rnmos", "rpmos", "rtran",
+    "rtranif0", "rtranif1", "scalared", "showcancelled", "signed",
+    "small", "specify", "specparam", "strong0", "strong1",
+    "supply0", "supply1", "table", "task", "time",
+    "tran", "tranif0", "tranif1", "tri", "tri0", "tri1",
+    "triand", "trior", "trireg", "unsigned", "use", "vectored",
+    "wait", "wand", "weak0", "weak1", "while", "wire",
+    "wor", "xnor", "xor"
   )
 
   reservedKeyWords.foreach(globalScope.allocateName(_))
@@ -81,13 +119,31 @@ class PhaseContext(val config : SpinalConfig){
   }
 
   def checkGlobalData() : Unit = {
-    if (!GlobalData.get.clockDomainStack.isEmpty) SpinalWarning("clockDomain stack is not empty :(")
-    if (!GlobalData.get.componentStack.isEmpty) SpinalWarning("componentStack stack is not empty :(")
-    if (!GlobalData.get.switchStack.isEmpty) SpinalWarning("switchStack stack is not empty :(")
-    if (!GlobalData.get.conditionalAssignStack.isEmpty) SpinalWarning("conditionalAssignStack stack is not empty :(")
+    if (!GlobalData.get.clockDomainStack.isEmpty) SpinalError("clockDomain stack is not empty :(")
+    if (!GlobalData.get.componentStack.isEmpty) SpinalError("componentStack stack is not empty :(")
+    if (!GlobalData.get.switchStack.isEmpty) SpinalError("switchStack stack is not empty :(")
+    if (!GlobalData.get.conditionalAssignStack.isEmpty) SpinalError("conditionalAssignStack stack is not empty :(")
   }
 
   def checkPendingErrors() = if(!globalData.pendingErrors.isEmpty) SpinalError()
+
+
+
+  def checkNoZeroWidth(): Unit ={
+    def zeroCheck (that : WidthProvider): Unit ={
+      if (that.getWidth < 1) {
+        println(that)
+      }
+    }
+
+    Node.walk(walkNodesDefautStack,_ match {
+      case node : WidthProvider => {
+        zeroCheck(node)
+      }
+      case _ =>
+    })
+  }
+
 }
 
 trait Phase{
@@ -161,7 +217,6 @@ class PhaseNodesBlackBoxGenerics(pc: PhaseContext) extends Phase{
       }
       case _ =>
     })
-    nodeStack
   }
 }
 
@@ -354,28 +409,32 @@ class PhaseCollectAndNameEnum(pc: PhaseContext) extends Phase{
     import pc._
     Node.walk(walkNodesDefautStack,node => {
       node match {
-        case enum: SpinalEnumCraft[_] => enums.getOrElseUpdate(enum.blueprint,mutable.Set[SpinalEnumEncoding]()).add(enum.encoding)
+        case enum: SpinalEnumCraft[_] => enums.getOrElseUpdate(enum.blueprint,mutable.Set[SpinalEnumEncoding]()) //Encodings will be added later
         case _ =>
       }
+    })
+
+    val scope = pc.globalScope.copy()
+    enums.keys.foreach(e => {
+      val name = if(e.isNamed)
+        e.getName()
+      else
+        e.getClass.getSimpleName.replace("$","")
+
+      e.setName(scope.allocateName(name))
     })
 
     for (enumDef <- enums.keys) {
       Misc.reflect(enumDef, (name, obj) => {
         obj match {
-          case obj: Nameable => obj.setWeakName(name)
+          case obj: Nameable => obj.setWeakName(scope.getUnusedName(name))
           case _ =>
         }
       })
       for (e <- enumDef.values) {
         if (e.isUnnamed) {
-          e.setWeakName("s" + e.position)
+          e.setWeakName(scope.getUnusedName("e" + e.position))
         }
-      }
-      if (enumDef.isWeak) {
-        var name = enumDef.getClass.getSimpleName
-        if (name.endsWith("$"))
-          name = name.substring(0, name.length - 1)
-        enumDef.setWeakName(name)
       }
     }
   }
@@ -387,14 +446,15 @@ class PhasePullClockDomains(pc: PhaseContext) extends Phase{
     Node.walk(walkNodesDefautStack,(node, push) =>  {
       node match {
         case delay: SyncNode => {
-          if(delay.isUsingResetSignal && !delay.getClockDomain.hasResetSignal)
+          if(delay.isUsingResetSignal && (!delay.getClockDomain.hasResetSignal && !delay.getClockDomain.hasSoftResetSignal))
             SpinalError(s"Clock domain without reset contain a register which needs one\n ${delay.getScalaLocationLong}")
 
           Component.push(delay.component)
           delay.setInput(SyncNode.getClockInputId,delay.getClockDomain.readClockWire)
 
-          if(delay.isUsingResetSignal)  delay.setInput(SyncNode.getClockResetId,delay.getClockDomain.readResetWire)
-          if(delay.isUsingEnableSignal) delay.setInput(SyncNode.getClockEnableId,delay.getClockDomain.readClockEnableWire)
+          if(delay.isUsingResetSignal)      delay.setInput(SyncNode.getClockResetId,delay.getClockDomain.readResetWire.dontSimplifyIt())
+          if(delay.isUsingSoftResetSignal)  delay.setInput(SyncNode.getClockSoftResetId,delay.getClockDomain.readSoftResetWire.dontSimplifyIt())
+          if(delay.isUsingEnableSignal)     delay.setInput(SyncNode.getClockEnableId,delay.getClockDomain.readClockEnableWire.dontSimplifyIt())
           Component.pop(delay.component)
         }
         case _ =>
@@ -598,7 +658,7 @@ class PhaseAllowNodesToReadInputOfKindComponent(pc: PhaseContext) extends Phase{
   }
 }
 
-class PhasePostWidthInferationChecks(pc: PhaseContext) extends Phase{
+class PhasePreWidthInferationChecks(pc: PhaseContext) extends Phase{
   override def impl(): Unit = {
     import pc._
     val errors = mutable.ArrayBuffer[String]()
@@ -657,12 +717,84 @@ class PhaseInferWidth(pc: PhaseContext) extends Phase{
   }
 }
 
+
+class PhaseInferEnumEncodings(pc: PhaseContext,encodingSwap : (SpinalEnumEncoding) => SpinalEnumEncoding) extends Phase{
+  override def impl(): Unit = {
+    import pc._
+    globalData.nodeAreInferringEnumEncoding = true
+    val nodes = ArrayBuffer[Node with EnumEncoded]()
+    val nodesInferrable = ArrayBuffer[Node with InferableEnumEncoding]()
+    Node.walk(walkNodesDefautStack ++ walkNodesBlackBoxGenerics,node => {
+      if(node.isInstanceOf[EnumEncoded]) nodes += node.asInstanceOf[Node with EnumEncoded]
+      if(node.isInstanceOf[InferableEnumEncoding]) nodesInferrable += node.asInstanceOf[Node with InferableEnumEncoding]
+    })
+
+    nodesInferrable.foreach(node => {
+      node.bootInferration()
+    })
+
+    nodes.foreach(enum => {
+      enum.onEachInput(input => if(input != null) input.consumers += enum)
+      enum.swapEncoding(encodingSwap(enum.getEncoding))
+    })
+
+    nodes.foreach(enum => {
+      if(enum.propagateEncoding){
+        val alreadyWalkeds = mutable.Set[Node]()
+        def propagateOn(that : Node): Unit = {
+          that match {
+            case that : InferableEnumEncoding => {
+              if(alreadyWalkeds.contains(that)) return
+              alreadyWalkeds += that
+              if(that.encodingProposal(enum.getEncoding)) {
+                that.onEachInput(propagateOn(_))
+                that.consumers.foreach(propagateOn(_))
+              }
+            }
+            case _ =>
+          }
+        }
+        enum.onEachInput(propagateOn(_))
+        enum.consumers.foreach(propagateOn(_))
+      }
+    })
+
+
+    nodes.foreach(enum => {
+      enums.getOrElseUpdate(enum.getDefinition, mutable.Set[SpinalEnumEncoding]()).add(enum.getEncoding)
+      enum.onEachInput(input => if(input != null) input.consumers.clear)
+    })
+  }
+}
+
+
 class PhaseSimplifyNodes(pc: PhaseContext) extends Phase{
   override def impl(): Unit = {
     import pc._
     fillNodeConsumer
     Node.walk(walkNodesDefautStack,_.simplifyNode)
     removeNodeConsumer
+  }
+}
+
+class PhaseResizeLiteralSimplify(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+    import pc._
+    Node.walk(walkNodesDefautStack,node => node.onEachInput((input,id) => input match{
+      case resize : Resize => {
+        if(resize.input.getWidth == 0){
+          val newNode = resize match{
+            case _ : ResizeBits => BitsLiteral(0,resize.getWidth)
+            case _ : ResizeUInt => UIntLiteral(0,resize.getWidth)
+            case _ : ResizeSInt => SIntLiteral(0,resize.getWidth)
+          }
+          newNode.inferredWidth = resize.getWidth
+          node.setInput(id,newNode)
+        }
+      }
+      case _ =>
+    }))
+
   }
 }
 
@@ -689,11 +821,6 @@ class PhasePropagateBaseTypeWidth(pc: PhaseContext) extends Phase{
             def walkChildren() : Unit = that.onEachInput((input,id) => walk(that,id))
 
             that match {
-              case that: MultiplexedWidthable => { //TODO probably useless
-                that.inferredWidth = width
-                walk(that,1)
-                walk(that,2)
-              }
               case that: WhenNodeWidthable => {
                 that.inferredWidth = width
                 walk(that,1)
@@ -704,14 +831,6 @@ class PhasePropagateBaseTypeWidth(pc: PhaseContext) extends Phase{
                 walkChildren()
               }
               case that : AssignementNodeWidthable => that.inferredWidth = width
-//              case that: CaseNode => {
-//                that.inferredWidth = width
-//                walkChildren()
-//              }
-//              case that: SwitchNode => {
-//                that.inferredWidth = width
-//                walkChildren()
-//              }
               case dontCare : DontCareNodeFixed =>{
                 dontCare.inferredWidth = width
               }
@@ -1228,24 +1347,24 @@ object SpinalVhdlBoot{
 
 
 
-    SpinalInfoPhase("Start elaboration")
+    SpinalProgress("Start elaboration")
 
 
     val phases = ArrayBuffer[Phase]()
 
     phases += new PhaseCreateComponent(gen)(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Start analysis and transform"))
+    phases += new PhaseDummy(SpinalProgress("Start analysis and transform"))
     phases += new PhaseFillComponentList(pc)
     phases += new PhaseApplyIoDefault(pc)
     phases += new PhaseNodesBlackBoxGenerics(pc)
     phases += new PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Get names from reflection"))
+    phases += new PhaseDummy(SpinalProgress("Get names from reflection"))
     phases += new PhaseNameNodesByReflection(pc)
     phases += new PhaseCollectAndNameEnum(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Transform connections"))
+    phases += new PhaseDummy(SpinalProgress("Transform connections"))
     phases += new PhasePullClockDomains(pc)
     phases += new PhaseCheck_noNull_noCrossHierarchy_noInputRegister_noDirectionLessIo(pc)
     phases += new PhaseAddInOutBinding(pc)
@@ -1253,33 +1372,35 @@ object SpinalVhdlBoot{
     phases += new PhaseAllowNodesToReadOutputs(pc)
     phases += new PhaseAllowNodesToReadInputOfKindComponent(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Infer nodes's bit width"))
-    phases += new PhasePostWidthInferationChecks(pc)
+    phases += new PhaseDummy(SpinalProgress("Infer nodes's bit width"))
+    phases += new PhasePreWidthInferationChecks(pc)
+    phases += new PhaseInferEnumEncodings(pc,e => e)
     phases += new PhaseInferWidth(pc)
     phases += new PhaseSimplifyNodes(pc)
     phases += new PhaseInferWidth(pc)
     phases += new PhasePropagateBaseTypeWidth(pc)
     phases += new PhaseNormalizeNodeInputs(pc)
+    phases += new PhaseResizeLiteralSimplify(pc)
     phases += new PhaseCheckInferredWidth(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Check combinatorial loops"))
+    phases += new PhaseDummy(SpinalProgress("Check combinatorial loops"))
     phases += new PhaseCheckCombinationalLoops(pc)
-    phases += new PhaseDummy(SpinalInfoPhase("Check cross clock domains"))
+    phases += new PhaseDummy(SpinalProgress("Check cross clock domains"))
     phases += new PhaseCheckCrossClockDomains(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Simplify graph's nodes"))
+    phases += new PhaseDummy(SpinalProgress("Simplify graph's nodes"))
     phases += new PhaseFillNodesConsumers(pc)
     phases += new PhaseDontSymplifyBasetypeWithComplexAssignement(pc)
     phases += new PhaseDeleteUselessBaseTypes(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Check that there is no incomplete assignment"))
+    phases += new PhaseDummy(SpinalProgress("Check that there is no incomplete assignment"))
     phases += new PhaseCheck_noAsyncNodeWithIncompleteAssignment(pc)
     phases += new PhaseSimplifyBlacBoxGenerics(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Collect signals not used in the graph"))
+    phases += new PhaseDummy(SpinalProgress("Collect signals not used in the graph"))
     phases += new PhasePrintUnUsedSignals(prunedSignals)(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Finalise"))
+    phases += new PhaseDummy(SpinalProgress("Finalise"))
     phases += new PhaseAddNodesIntoComponent(pc)
     phases += new PhaseOrderComponentsNodes(pc)
     phases += new PhaseAllocateNames(pc)
@@ -1303,6 +1424,10 @@ object SpinalVhdlBoot{
 
     pc.checkGlobalData()
 
+
+    //pc.checkNoZeroWidth() for debug
+
+
     val report = new SpinalReport[T](pc.topLevel.asInstanceOf[T])
     report.prunedSignals ++= prunedSignals
 
@@ -1316,7 +1441,10 @@ class PhaseDontSymplifyVerilogMismatchingWidth(pc: PhaseContext) extends Phase{
   override def impl(): Unit = {
     def applyTo(that : Node): Unit ={
       assert(that.consumers.size == 1)
-      that.consumers(0).asInstanceOf[BaseType].dontSimplifyIt()
+      that.consumers(0) match {
+        case consumer: BaseType => consumer.dontSimplifyIt()
+        case _ =>
+      }
     }
     import pc._
     Node.walk(walkNodesDefautStack,node => {
@@ -1327,7 +1455,7 @@ class PhaseDontSymplifyVerilogMismatchingWidth(pc: PhaseContext) extends Phase{
 //        case node: Operator.BitVector.Sub => applyTo(node)
 //        case node: Operator.BitVector.ShiftRightByInt => applyTo(node)
 //        case node: Operator.Bits.Cat => applyTo(node)
-        case node : Extract => applyTo(node)
+//        case node : Extract => applyTo(node)
         case _ =>
       }
     })
@@ -1369,24 +1497,24 @@ object SpinalVerilogBoot{
     val pc = new PhaseContext(config)
     val prunedSignals = mutable.Set[BaseType]()
 
-    SpinalInfoPhase("Start elaboration")
+    SpinalProgress("Start elaboration")
 
 
     val phases = ArrayBuffer[Phase]()
 
     phases += new PhaseCreateComponent(gen)(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Start analysis and transform"))
+    phases += new PhaseDummy(SpinalProgress("Start analysis and transform"))
     phases += new PhaseFillComponentList(pc)
     phases += new PhaseApplyIoDefault(pc)
     phases += new PhaseNodesBlackBoxGenerics(pc)
     phases += new PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Get names from reflection"))
+    phases += new PhaseDummy(SpinalProgress("Get names from reflection"))
     phases += new PhaseNameNodesByReflection(pc)
     phases += new PhaseCollectAndNameEnum(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Transform connections"))
+    phases += new PhaseDummy(SpinalProgress("Transform connections"))
     phases += new PhasePullClockDomains(pc)
     phases += new PhaseCheck_noNull_noCrossHierarchy_noInputRegister_noDirectionLessIo(pc)
     phases += new PhaseAddInOutBinding(pc)
@@ -1394,34 +1522,36 @@ object SpinalVerilogBoot{
     phases += new PhaseAllowNodesToReadOutputs(pc)
     phases += new PhaseAllowNodesToReadInputOfKindComponent(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Infer nodes's bit width"))
-    phases += new PhasePostWidthInferationChecks(pc)
+    phases += new PhaseDummy(SpinalProgress("Infer nodes's bit width"))
+    phases += new PhasePreWidthInferationChecks(pc)
+    phases += new PhaseInferEnumEncodings(pc,e => if(e == `native`) binarySequancial else e)
     phases += new PhaseInferWidth(pc)
     phases += new PhaseSimplifyNodes(pc)
     phases += new PhaseInferWidth(pc)
     phases += new PhasePropagateBaseTypeWidth(pc)
     phases += new PhaseNormalizeNodeInputs(pc)
+    phases += new PhaseResizeLiteralSimplify(pc)
     phases += new PhaseCheckInferredWidth(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Check combinatorial loops"))
+    phases += new PhaseDummy(SpinalProgress("Check combinatorial loops"))
     phases += new PhaseCheckCombinationalLoops(pc)
-    phases += new PhaseDummy(SpinalInfoPhase("Check cross clock domains"))
+    phases += new PhaseDummy(SpinalProgress("Check cross clock domains"))
     phases += new PhaseCheckCrossClockDomains(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Simplify graph's nodes"))
+    phases += new PhaseDummy(SpinalProgress("Simplify graph's nodes"))
     phases += new PhaseFillNodesConsumers(pc)
     phases += new PhaseDontSymplifyBasetypeWithComplexAssignement(pc)
     phases += new PhaseDontSymplifyVerilogMismatchingWidth(pc)    //VERILOG
     phases += new PhaseDeleteUselessBaseTypes(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Check that there is no incomplete assignment"))
+    phases += new PhaseDummy(SpinalProgress("Check that there is no incomplete assignment"))
     phases += new PhaseCheck_noAsyncNodeWithIncompleteAssignment(pc)
     phases += new PhaseSimplifyBlacBoxGenerics(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Collect signals not used in the graph"))
+    phases += new PhaseDummy(SpinalProgress("Collect signals not used in the graph"))
     phases += new PhasePrintUnUsedSignals(prunedSignals)(pc)
 
-    phases += new PhaseDummy(SpinalInfoPhase("Finalise"))
+    phases += new PhaseDummy(SpinalProgress("Finalise"))
     phases += new PhaseAddNodesIntoComponent(pc)
     phases += new PhaseOrderComponentsNodes(pc)
     phases += new PhaseAllocateNames(pc)

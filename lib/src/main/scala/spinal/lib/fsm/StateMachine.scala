@@ -59,6 +59,12 @@ class StateBoot(autoStart : Boolean)(implicit stateMachineAccessor : StateMachin
 class StateMachineEnum extends SpinalEnum
 
 class StateMachine extends Area with StateMachineAccessor with ScalaLocated{
+
+  val alwaysTasks = ArrayBuffer[() => Unit]()
+  def always(doThat : => Unit) : this.type = {
+    alwaysTasks += (() => doThat)
+    this
+  }
   def setEncoding(encoding : SpinalEnumEncoding) : Unit = enumDefinition.defaultEncoding = encoding
 
   @dontName val postBuildTasks = ArrayBuffer[() => Unit]()
@@ -94,7 +100,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated{
 
     for(state <- states){
       checkState(state)
-      val enumElement = enumDefinition.newElement(state.getName())
+      val enumElement = enumDefinition.newElement(if(state.isNamed) state.getName() else null)
       stateToEnumElement += (state -> enumElement)
     }
 
@@ -136,6 +142,8 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated{
       }
     }
 
+
+    alwaysTasks.foreach(_())
     postBuildTasks.foreach(_())
   }
 

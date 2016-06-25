@@ -26,9 +26,10 @@ class TagDefault(val default : Tuple2[Any,Any],val litFacto : (BigInt,Int) => Bi
 
 abstract class BitVectorLiteralFactory[T <: BitVector] {
   def apply(): T
-  def apply(value: BigInt): T = BitsLiteral(value, -1, this())
-  def apply(value: BigInt, width: BitCount): T = BitsLiteral(value, width.value, this().setWidth(width.value))
+  def apply(value: BigInt): T = getFactory(value, -1, this())
+  def apply(value: BigInt, width: BitCount): T = getFactory(value, width.value, this().setWidth(width.value))
   def apply(value: String): T = bitVectorStringParser(this,value,isSigned)
+  def getFactory : (BigInt,Int,T) => T
   def isSigned : Boolean
 
   private[core] def newInstance(bitCount : BitCount) : T
@@ -86,20 +87,22 @@ abstract class BitVectorLiteralFactory[T <: BitVector] {
 object B extends BitVectorLiteralFactory[Bits] {
   def apply() : Bits = new Bits()
   override private[core] def newInstance(bitCount: BitCount): Bits = Bits(bitCount)
-
   override def isSigned: Boolean = false
+  override def getFactory: (BigInt, Int, Bits) => Bits = BitsLiteral.apply[Bits]
 }
 
 object U extends BitVectorLiteralFactory[UInt] {
   def apply() : UInt = new UInt()
   override private[core] def newInstance(bitCount: BitCount): UInt = UInt(bitCount)
   override def isSigned: Boolean = false
+  override def getFactory: (BigInt, Int, UInt) => UInt = UIntLiteral.apply[UInt]
 }
 
 object S extends BitVectorLiteralFactory[SInt] {
   def apply() : SInt = new SInt()
   override private[core] def newInstance(bitCount: BitCount): SInt = SInt(bitCount)
   override def isSigned: Boolean = true
+  override def getFactory: (BigInt, Int, SInt) => SInt = SIntLiteral.apply[SInt]
 }
 
 
@@ -116,27 +119,63 @@ trait Literal extends Node {
 }
 
 object BitsLiteral {
-
-  def apply[T <: BaseType](value: BigInt, specifiedBitCount: Int, on: T): T = {
-    val valueBitCount = value.bitLength + (if (on.isInstanceOf[SInt] && value != 0) 1 else 0)
+  def apply(value: BigInt, specifiedBitCount: Int): BitsLiteral = {
+    val valueBitCount = value.bitLength
     var bitCount = specifiedBitCount
-    if (!on.isInstanceOf[SInt] && value < 0) throw new Exception("literal value is negative and can be represented")
+    if (value < 0) throw new Exception("literal value is negative and can be represented")
     if (bitCount != -1) {
       if (valueBitCount > bitCount) throw new Exception("literal width specification is to small")
     } else {
       bitCount = valueBitCount
     }
-    on.input = new BitsLiteral(value, bitCount,specifiedBitCount != -1, on)
+    new BitsLiteral(value, bitCount,specifiedBitCount != -1)
+  }
+  def apply[T <: Node](value: BigInt, specifiedBitCount: Int,on : T) : T ={
+    on.setInput(0,apply(value,specifiedBitCount))
+    on
+  }
+}
+
+object UIntLiteral {
+  def apply(value: BigInt, specifiedBitCount: Int): UIntLiteral = {
+    val valueBitCount = value.bitLength
+    var bitCount = specifiedBitCount
+    if (value < 0) throw new Exception("literal value is negative and can be represented")
+    if (bitCount != -1) {
+      if (valueBitCount > bitCount) throw new Exception("literal width specification is to small")
+    } else {
+      bitCount = valueBitCount
+    }
+    new UIntLiteral(value, bitCount,specifiedBitCount != -1)
+  }
+  def apply[T <: Node](value: BigInt, specifiedBitCount: Int,on : T):T={
+    on.setInput(0,apply(value,specifiedBitCount))
+    on
+  }
+}
+object SIntLiteral{
+  def apply(value: BigInt, specifiedBitCount: Int): SIntLiteral = {
+    val valueBitCount = value.bitLength + (if (value != 0) 1 else 0)
+    var bitCount = specifiedBitCount
+    if (bitCount != -1) {
+      if (valueBitCount > bitCount) throw new Exception("literal width specification is to small")
+    } else {
+      bitCount = valueBitCount
+    }
+    new SIntLiteral(value, bitCount,specifiedBitCount != -1)
+  }
+  def apply[T <: Node](value: BigInt, specifiedBitCount: Int,on : T):T={
+    on.setInput(0,apply(value,specifiedBitCount))
     on
   }
 }
 
 //WARNING if flatten it into bits,uint,sint variation, need to patch caseify isSwitchable
-class BitsLiteral(val value: BigInt, val bitCount: Integer,val hasSpecifiedBitCount : Boolean, val kind: Node) extends Literal with Widthable {
+abstract class BitVectorLiteral(val value: BigInt, val bitCount: Integer,val hasSpecifiedBitCount : Boolean) extends Literal with Widthable {
   override def calcWidth: Int = bitCount
   if(globalData.nodeAreInferringWidth) inferredWidth = bitCount
 
-  override def clone(): this.type = new BitsLiteral(value, bitCount,hasSpecifiedBitCount, kind).asInstanceOf[this.type]
+
   override def getBitsStringOn(bitCount: Int): String = {
     def makeIt(fillWidth : Boolean) : String = {
       val str = (if(value > 0) value else ((BigInt(1) << bitCount) + value)).toString(2)
@@ -144,11 +183,7 @@ class BitsLiteral(val value: BigInt, val bitCount: Integer,val hasSpecifiedBitCo
       return (filling * (bitCount - str.length) + str).takeRight(bitCount)
     }
 
-    kind match{
-      case b : Bits => makeIt(false)
-      case u : UInt => makeIt(false)
-      case s : SInt => makeIt(value < 0)
-    }
+    makeIt(isSignedKind && value < 0)
   }
   
   
@@ -156,7 +191,20 @@ class BitsLiteral(val value: BigInt, val bitCount: Integer,val hasSpecifiedBitCo
     value.bitLength + (if(isSignedKind && value != 0) 1 else 0)
   }
 
-  def isSignedKind = kind.isInstanceOf[SInt]
+  def isSignedKind : Boolean
+}
+
+class BitsLiteral(value: BigInt, bitCount: Integer,hasSpecifiedBitCount : Boolean) extends BitVectorLiteral(value,bitCount,hasSpecifiedBitCount){
+  override def isSignedKind: Boolean = false
+  override def clone(): this.type = new BitsLiteral(value, bitCount,hasSpecifiedBitCount).asInstanceOf[this.type]
+}
+class UIntLiteral(value: BigInt, bitCount: Integer,hasSpecifiedBitCount : Boolean) extends BitVectorLiteral(value,bitCount,hasSpecifiedBitCount){
+  override def isSignedKind: Boolean = false
+  override def clone(): this.type = new UIntLiteral(value, bitCount,hasSpecifiedBitCount).asInstanceOf[this.type]
+}
+class SIntLiteral(value: BigInt, bitCount: Integer,hasSpecifiedBitCount : Boolean) extends BitVectorLiteral(value,bitCount,hasSpecifiedBitCount){
+  override def isSignedKind: Boolean = true
+  override def clone(): this.type = new SIntLiteral(value, bitCount,hasSpecifiedBitCount).asInstanceOf[this.type]
 }
 
 class BitsAllToLiteral(val theConsumer : Node,val value: Boolean) extends Literal with Widthable {

@@ -637,6 +637,13 @@ object C15 {
   }
 
 
+  object Funcitonal{
+    val addresses = Vec(UInt(8 bits),4)
+    val key  = UInt(8 bits)
+    val hits = addresses.map(address => address === key)
+    val hit  = hits.reduce((a,b) => a || b)
+  }
+
   def main(args: Array[String]) {
     SpinalVhdl(StreamRgbAdder(RGB(5, 6, 5), 4)) //Generate the VHDL for a 4 srcPort and a RGB config of 5,6,5 bits
   }
@@ -1380,7 +1387,7 @@ object c666{
     // Take uartCtrl.io.read, convert it into a Stream, then connect it to the input of a FIFO of 64 elements
     // Then make the output of the FIFO readable at the address 12 by using a non blocking protocol
     // (bit 0 => data valid, bits 8 downto 1 => data)
-    busCtrl.readStreamNonBlocking(uartCtrl.io.read.toStream.queue(rxFifoDepth),address = 12,validBitOffset = 31,dataBitOffset = 0)
+    busCtrl.readStreamNonBlocking(uartCtrl.io.read.toStream.queue(rxFifoDepth),address = 12,validBitOffset = 31,payloadBitOffset = 0)
   }
 }
 
@@ -1405,7 +1412,7 @@ object c6669{
     //Make writeBusy register
     busCtrl.read(uartCtrl.io.write.valid,address = 8)
     //Make read register
-    busCtrl.readStreamNonBlocking(uartCtrl.io.read.toStream.queue(rxFifoDepth),address = 12,validBitOffset = 31,dataBitOffset = 0)
+    busCtrl.readStreamNonBlocking(uartCtrl.io.read.toStream.queue(rxFifoDepth),address = 12,validBitOffset = 31,payloadBitOffset = 0)
   }
 }
 

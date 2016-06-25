@@ -368,6 +368,13 @@ object StateMachineTry3Example {
     val fsm = new StateMachine{
       val counter = Reg(UInt(8 bits)) init (0)
       counter := counter + 1
+
+      always{
+        when(counter === 9){
+          counter := 0
+          goto(stateB)
+        }
+      }
       val stateA: State = new State with EntryPoint {
         whenIsActive {
           goto(stateB)
@@ -383,12 +390,14 @@ object StateMachineTry3Example {
           goto(stateA)
         }
       }
+      out(isActive(stateB))
     }
 
-    val isInStateB = out(fsm.isActive(fsm.stateB))
-    val isEnteringStateB = out(fsm.isEntering(fsm.stateB))
-
-    fsm.stateReg.keep()
+//    val isInStateB = out(fsm.isActive(fsm.stateB))
+//    val isEnteringStateB = out(fsm.isEntering(fsm.stateB))
+//
+//    fsm.stateReg.keep()
+    val toto = "asd"
   }
 
   def main(args: Array[String]) {

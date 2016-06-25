@@ -37,13 +37,13 @@ object Utils{
 
 
   object OP1 extends SpinalEnum(binarySequancial){
-    val RS, IMI, IMS, PC1 = newElement()
+    val RS, IMI, IMS, PC = newElement()
     def X = RS
   }
 
   object WB extends SpinalEnum(binarySequancial){
-    val ALU1, MEM, PC4, CSR1 = newElement()
-    def X = ALU1
+    val ALU, MEM, PC4, CSR1 = newElement()
+    def X = ALU
   }
 
   object MWR extends SpinalEnum(binarySequancial){
@@ -68,20 +68,20 @@ object Utils{
   }
 
   object ALU extends SpinalEnum{
-    val ADD, SLL1, SLT, SLTU, XOR1, SRL1, OR1, AND1, SUB1, COPY1, SRA1 = newElement()
+    val ADD, SLL1, SLT, SLTU, XOR, SRL, OR, AND, SUB, COPY, SRA = newElement()
 
     defaultEncoding = Encoding("opt")(
       ADD -> 0,
       SLL1 -> 1,
       SLT -> 2,
       SLTU -> 3,
-      XOR1 -> 4,
-      SRL1 -> 5,
-      OR1 -> 6,
-      AND1 -> 7,
-      SUB1 -> (8+0),
-      COPY1 -> 15,
-      SRA1 -> (8+5)
+      XOR -> 4,
+      SRL -> 5,
+      OR -> 6,
+      AND -> 7,
+      SUB -> (8+0),
+      COPY -> 15,
+      SRA -> (8+5)
     )
     def X = ADD
     def isSltX(that : C) =  that.asBits === M"-01-"
@@ -185,9 +185,9 @@ object Utils{
         when(instruction === BASE_AUIPC){
           ctrl.instVal := True
           ctrl.op0 := OP0.IMU
-          ctrl.op1 := OP1.PC1
+          ctrl.op1 := OP1.PC
           ctrl.alu := ALU.ADD
-          ctrl.wb  := WB.ALU1
+          ctrl.wb  := WB.ALU
           ctrl.rfen := True
           ctrl.execute0AluBypass := True
           ctrl.execute1AluBypass := True
@@ -195,8 +195,8 @@ object Utils{
         when(instruction === BASE_LUI){
           ctrl.instVal := True
           ctrl.op0 := OP0.IMU
-          ctrl.alu := ALU.COPY1
-          ctrl.wb  := WB.ALU1
+          ctrl.alu := ALU.COPY
+          ctrl.wb  := WB.ALU
           ctrl.rfen := True
           ctrl.execute0AluBypass := True
           ctrl.execute1AluBypass := True
@@ -209,7 +209,7 @@ object Utils{
               ctrl.op0 := OP0.RS
               ctrl.op1 := OP1.IMI
               ctrl.alu.assignFromBits((isShift && instruction(30)) ## instruction(14 downto 12))
-              ctrl.wb  := WB.ALU1
+              ctrl.wb  := WB.ALU
               ctrl.rfen := True
               ctrl.execute0AluBypass := !isShift
               ctrl.execute1AluBypass := True
@@ -222,7 +222,7 @@ object Utils{
                 ctrl.op0 := OP0.RS
                 ctrl.op1 := OP1.RS
                 ctrl.alu.assignFromBits(instruction(30) ## instruction(14 downto 12))
-                ctrl.wb  := WB.ALU1
+                ctrl.wb  := WB.ALU
                 ctrl.rfen := True
                 ctrl.execute0AluBypass := !isShift
                 ctrl.execute1AluBypass := True
@@ -237,7 +237,7 @@ object Utils{
           ctrl.br := BR.J
           ctrl.alu := ALU.ADD
           ctrl.op0 := OP0.IMJB
-          ctrl.op1 := OP1.PC1
+          ctrl.op1 := OP1.PC
           ctrl.jmp := True
           ctrl.wb := WB.PC4
           ctrl.rfen := True
@@ -257,7 +257,7 @@ object Utils{
           ctrl.instVal := True
           ctrl.alu := ALU.ADD
           ctrl.op0 := OP0.IMJB
-          ctrl.op1 := OP1.PC1
+          ctrl.op1 := OP1.PC
           ctrl.br.assignFromBits(False ## instruction(14 downto 12))
           ctrl.useSrc0 := True
           ctrl.useSrc1 := True
@@ -269,7 +269,7 @@ object Utils{
           }otherwise {
             ctrl.op0 := OP0.RS
           }
-          ctrl.alu := ALU.COPY1
+          ctrl.alu := ALU.COPY
           ctrl.wb := WB.CSR1
           ctrl.rfen := True
           ctrl.csr.assignFromBits(instruction(13 downto 12))

@@ -38,7 +38,7 @@ out
 *.pyc
 *.vvp
 *.xml
-
+log.txt
 /src/
 *.out
 

@@ -138,6 +138,7 @@ object WhenNode {
 
   def newFor(that : BaseType,w: WhenContext) : WhenNode = that match{
     case that : BitVector => new WhenNodeWidthable(w)
+    case that : SpinalEnumCraft[_] => new WhenNodeEnum(w,that.blueprint)
     case _ => new WhenNode(w)
   }
 }
@@ -219,6 +220,15 @@ class WhenNodeWidthable (w: WhenContext) extends WhenNode(w) with Widthable with
     str = doit(whenTrue,1);  if(str != null) return str
     str = doit(whenFalse,2); if(str != null) return str
     return null
+  }
+}
+
+class WhenNodeEnum (w: WhenContext,enumDef : SpinalEnum) extends WhenNode(w) with InferableEnumEncodingImpl{
+  override type T = Node with EnumEncoded
+  override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
+  override def getDefinition: SpinalEnum = enumDef
+  override private[core] def normalizeInputs: Unit = {
+    InputNormalize.enumImpl(this)
   }
 }
 

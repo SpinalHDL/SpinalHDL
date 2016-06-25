@@ -14,7 +14,7 @@ class BarrelShifterLightExtension extends CoreExtension{
 
     val s1 = new Area {
       val amplitude = execute0.inInst.alu_op1(4 downto 0).asUInt
-      val isShift = execute0.inInst.ctrl.alu === ALU.SLL1 || execute0.inInst.ctrl.alu === ALU.SRL1 || execute0.inInst.ctrl.alu === ALU.SRA1
+      val isShift = execute0.inInst.ctrl.alu === ALU.SLL1 || execute0.inInst.ctrl.alu === ALU.SRL || execute0.inInst.ctrl.alu === ALU.SRA
       when(execute0.inInst.valid && isShift){
         execute0.outInst.result := execute0.inInst.alu_op0
         when(amplitude =/= 0){
@@ -24,8 +24,8 @@ class BarrelShifterLightExtension extends CoreExtension{
             is(ALU.SLL1){
               execute0.inInst.alu_op0.getDrivingReg := (execute0.inInst.alu_op0 << 1).resized
             }
-            is(ALU.SRL1,ALU.SRA1){
-              execute0.inInst.alu_op0.getDrivingReg := (((execute0.inInst.ctrl.alu === ALU.SRA1 && execute0.inInst.alu_op0.msb) ## execute0.inInst.alu_op0).asSInt >> 1).asBits
+            is(ALU.SRL,ALU.SRA){
+              execute0.inInst.alu_op0.getDrivingReg := (((execute0.inInst.ctrl.alu === ALU.SRA && execute0.inInst.alu_op0.msb) ## execute0.inInst.alu_op0).asSInt >> 1).asBits
             }
           }
         }

@@ -21,13 +21,13 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
 
   override def impl(): Unit = {
     import pc._
-    SpinalInfoPhase("Write Verilog")
+    SpinalProgress("Write Verilog")
     
     outFile = new java.io.FileWriter(pc.config.targetDirectory + "/" +  topLevel.definitionName + ".v")
     emitEnumPackage(outFile)
 
     for (c <- sortedComponents) {
-      SpinalInfoPhase(s"${"  " * (1 + c.level)}emit ${c.definitionName}")
+      SpinalProgress(s"${"  " * (1 + c.level)}emit ${c.definitionName}")
       compile(c)
     }
 
@@ -96,6 +96,7 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
   def emitModuleContent(component: Component, builder: ComponentBuilder): Unit = {
     var ret = builder.newPart(true)
     val enumDebugSignals = ArrayBuffer[SpinalEnumCraft[_]]()
+    emitFunctions(component,ret)
     emitSignals(component, ret, enumDebugSignals)
     val retTemp = new StringBuilder
     emitComponentInstances(component, retTemp)
@@ -126,21 +127,10 @@ end
     val ret = new StringBuilder();
 
 
-//    for (enumDef <- enums.keys) {
-//      ret ++= s"`define ${emitEnumType(enumDef,native) [${enumDef.values.size-1}:0]\n"
-//      for (element <- enumDef.values) {
-//        ret ++= s"`define ${emitEnumLiteral(element, native)} : $vhdlEnumType := ${idToBits(element, encoding)};\n"
-//      }
-//      ret ++= "\n"
-//      (${enumDef.values.map(_.getName()).reduce(_ + "," + _)})
-//      ret ++= s"`define ${getEnumDebugType(enumDef)} is (${enumDef.values.foldLeft("XXX")((str, e) => str + "," + e.getName())});\n"
-//    }
-
     ret ++= "\n"
     for ((enumDef, encodings) <- enums) {
       val enumName = enumDef.getName()
-      val swappedEncodings = encodings.map(getSwappedEncoding(_))
-      for (encoding <- swappedEncodings) {
+      for (encoding <- encodings) {
         val encodingName = encoding.getName()
         val bitCount = encoding.getWidth(enumDef)
         val vhdlEnumType = emitEnumType(enumDef, encoding,"")
@@ -149,7 +139,6 @@ end
           ret ++= s"`define ${emitEnumLiteral(element, encoding,"")} ${idToBits(element, encoding)}\n"
         }
         ret ++= "\n"
-        //ret ++= s"  function pkg_to${enumName}_debug (value : std_logic_vector) return $enumName;\n"
       }
     }
 
@@ -159,71 +148,35 @@ end
     }
 
 
-    if (enums.size != 0) {
-      for ((enumDef, encodings) <- enums) {
-        val enumName = enumDef.getName()
-
-        for (encoding <- encodings) {
-          if (!encoding.isNative) {
-            //            ret ++=
-            //              s"""  function ${getEnumToDebugFuntion(enumDef, encoding)} (value : ${emitEnumType(enumDef, encoding)}) return ${getEnumDebugType(enumDef)} is
-            //              |  begin
-            //              |    case value is
-            //              |${
-            //              {
-            //              for (e <- enumDef.values) yield s"      when ${emitEnumLiteral(e, encoding)} => return ${e.getName()};"
-            //              }.reduce(_ + "\n" + _)
-            //              }
-            //              |      when others => return XXX;
-            //              |    end case;
-            //              |  end;
-            //              |""".stripMargin
-          }else {
-            //TODO
-//            ret ++=
-//            s"""function ${emitEnumType(enumDef, encoding)} pkg_to${enumName}_${encoding.getName()} ([${encoding.getWidth(enumDef) - 1} : 0] value) is
-//            |begin
-//            |  case(value)
-//            |${{
-//              for (e <- enumDef.values)
-//                yield s"    ${idToBits(e, encoding)} : return ${emitEnumLiteral(e, native)};"}.reduce(_ + "\n" + _)
-//            }
-//            |    default :  return ${emitEnumLiteral(enumDef.values.head, native)};
-//            |  endcase
-//            |endfunction
-//            |""".stripMargin
-
-//            ret ++=
-//            s"""  function pkg_toStdLogicVector_${encoding.getName()} (value : $enumName) return std_logic_vector is
-//            |  begin
-//            |    case value is
-//            |${{for (e <- enumDef.values) yield s"      when ${e.getName()} => return ${idToBits(e, encoding)};"}.reduce(_ + "\n" + _)}
-//            |      when others => return ${idToBits(enumDef.values.head, encoding)};
-//            |    end case;
-//            |  end;
-//            |""".stripMargin
-//            }
-
-
-
-//          for (targetEncoding <- encodings if targetEncoding != encoding) {
-//            ret ++= s"  function ${getReEncodingFuntion(enumDef, encoding, targetEncoding)} (that : ${emitEnumType(enumDef, encoding)}) return ${emitEnumType(enumDef, targetEncoding)} is\n"
-//            ret ++= "  begin\n"
-//            ret ++= "    case that is \n"
-//            for (e <- enumDef.values) {
-//              ret ++= s"      when ${emitEnumLiteral(e, encoding)} => return ${emitEnumLiteral(e, targetEncoding)};\n"
-//            }
-//            ret ++= s"      when others => return ${emitEnumLiteral(enumDef.values.head, targetEncoding)};\n"
-//            ret ++= "    end case;\n"
-//            ret ++= "  end;\n\n"
-          }
-        }
-      }
-      ret ++= "\n\n\n"
-    }
     out.write(ret.result())
   }
-
+  def emitFunctions(component: Component, ret: StringBuilder): Unit = {
+    val alreadyEmitted = mutable.Set[String]()
+    for (node <- component.nodes) {
+      node match {
+        case node : CastEnumToEnum => {
+          val encodingSrc = node.input.getEncoding
+          val enumDef = node.getDefinition
+          val encodingDst = node.getEncoding
+          val fName = getReEncodingFuntion(enumDef, encodingSrc,encodingDst)
+          if(!alreadyEmitted.contains(fName)) {
+            alreadyEmitted += fName
+            ret ++= s"  function $fName(${emitEnumType(enumDef, encodingSrc)} that);\n"
+            ret ++= "  begin\n"
+            ret ++= "    case(that) \n"
+            for (e <- enumDef.values) {
+              ret ++= s"      ${emitEnumLiteral(e, encodingSrc)} : $fName =  ${emitEnumLiteral(e, encodingDst)};\n"
+            }
+            ret ++= s"      default : $fName =  ${emitEnumLiteral(enumDef.values.head, encodingDst)};\n"
+            ret ++= "    endcase\n"
+            ret ++= "  end\n"
+            ret ++= "  endfunction\n\n"
+          }
+        }
+        case _ =>
+      }
+    }
+  }
 
   def emitSignals(component: Component, ret: StringBuilder, enumDebugSignals: ArrayBuffer[SpinalEnumCraft[_]]): Unit = {
     var verilogIndexGenerated = false
@@ -250,14 +203,14 @@ end
                 case e: SpinalEnumCraft[_] => {
                   val vec = e.blueprint.values.toVector
                   val rand = vec(Random.nextInt(vec.size))
-                  ret ++= " = " + emitEnumLiteral(rand, e.encoding)
+                  ret ++= " = " + emitEnumLiteral(rand, e.getEncoding)
                 }
               }
             }
             ret ++= ";\n"
             if (signal.isInstanceOf[SpinalEnumCraft[_]]) {
               val craft = toSpinalEnumCraft(signal)
-              if (!craft.encoding.isNative) {
+              if (!craft.getEncoding.isNative) {
                 //TODO
                 // ret ++= s"  ${emitReference(signal)}_debug : ${getEnumDebugType(craft.blueprint)};\n"
                 //enumDebugSignals += toSpinalEnumCraft(signal)
@@ -416,36 +369,23 @@ end
 
 
   def enumEgualsImpl(eguals: Boolean)(op: Modifier): String = {
-    val (enumDef, encoding) = op.getInput(0) match {
-      case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.encoding)
-      case literal: EnumLiteral[_] => (literal.enum.parent, literal.encoding)
-    }
+    val enumDef = op.asInstanceOf[EnumEncoded].getDefinition
+    val encoding = op.asInstanceOf[EnumEncoded].getEncoding
+
     encoding match {
       case `binaryOneHot` => s"((${emitLogic(op.getInput(0))} & ${emitLogic(op.getInput(1))}) ${if (eguals) "!=" else "=="} 'b${"0" * encoding.getWidth(enumDef)})"
       case _ => s"(${emitLogic(op.getInput(0))} ${if (eguals) "==" else "!="} ${emitLogic(op.getInput(1))})"
     }
   }
 
-
   def operatorImplAsEnumToEnum(func: Modifier): String = {
-    SpinalError("Currently cast between enumeration encoding is not supported in the Verilog backend") //TODO
-//    val (enumDefSrc, encodingSrc) = func.getInput(0) match {
-//      case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.encoding)
-//      case literal: EnumLiteral[_] => (literal.enum.parent, literal.encoding)
-//    }
-//    val enumCast = func.asInstanceOf[CastEnumToEnum]
-//    val (enumDefDst, encodingDst) = enumCast.enum match {
-//      case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.encoding)
-//    }
-//    if (encodingDst.isNative && encodingSrc.isNative)
-//      emitLogic(func.getInput(0))
-//    else {
-//      val encoding = enumCast.getInput(0) match {
-//        case input: SpinalEnumCraft[_] => input.encoding
-//        case input: EnumLiteral[_] => input.encoding
-//      }
-//      s"${getReEncodingFuntion(enumCast.enum.blueprint.asInstanceOf[SpinalEnum], encoding, enumCast.enum.encoding)}(${func.getInputs.map(emitLogic(_)).reduce(_ + "," + _)})"
-//    }
+    val enumCast = func.asInstanceOf[CastEnumToEnum]
+    val enumDefSrc = enumCast.input.getDefinition
+    val encodingSrc = enumCast.input.getEncoding
+    val enumDefDst = enumCast.getDefinition
+    val encodingDst = enumCast.getEncoding
+
+    s"${getReEncodingFuntion(enumDefDst, encodingSrc,encodingDst)}(${emitLogic(enumCast.input)})"
   }
 
   val modifierImplMap = mutable.Map[String, Modifier => String]()
@@ -607,11 +547,9 @@ end
     case baseType: BaseType => emitReference(baseType)
     case node: Modifier => modifierImplMap.getOrElse(node.opName, throw new Exception("can't find " + node.opName))(node)
 
-    case lit: BitsLiteral => lit.kind match {  //TODO remove if(lit.getWidth == 0) "0" else
-      case _: Bits => if(lit.getWidth == 0) "0" else s"(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
-      case _: UInt => if(lit.getWidth == 0) "0" else s"(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
-      case _: SInt => if(lit.getWidth == 0) "0" else s"(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
-    }
+    //TODO remove if(lit.getWidth == 0) "0" else
+    case lit: BitVectorLiteral => if(lit.getWidth == 0) "0" else s"(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
+
     case lit: BitsAllToLiteral => lit.theConsumer match {
       case _: Bits => if(lit.getWidth == 0) "0" else s"(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
       case _: UInt => if(lit.getWidth == 0) "0" else s"(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
@@ -640,7 +578,7 @@ end
 
   def emitDebug(component: Component, ret: StringBuilder, enumDebugSignals: ArrayBuffer[SpinalEnumCraft[_]]): Unit = {
     for (signal <- enumDebugSignals) {
-      ret ++= s"  ${emitReference(signal)}_debug <= ${getEnumToDebugFuntion(toSpinalEnumCraft(signal).blueprint, signal.encoding)}(${emitReference(signal)});\n"
+      ret ++= s"  ${emitReference(signal)}_debug <= ${getEnumToDebugFuntion(toSpinalEnumCraft(signal).blueprint, signal.getEncoding)}(${emitReference(signal)});\n"
     }
   }
 
@@ -658,7 +596,7 @@ end
       val arrayWithoutReset = ArrayBuffer[SyncNode]()
 
       for (syncNode <- array) {
-        if (syncNode.isUsingResetSignal) arrayWithReset += syncNode else arrayWithoutReset += syncNode
+        if (syncNode.isUsingResetSignal || syncNode.isUsingSoftResetSignal) arrayWithReset += syncNode else arrayWithoutReset += syncNode
       }
 
       emitClockDomain(true)
@@ -671,9 +609,11 @@ end
         if (activeArray.size == 0) return;
         val clock = component.pulledDataCache.getOrElse(clockDomain.clock, throw new Exception("???")).asInstanceOf[Bool]
         val reset = if (null == clockDomain.reset || !withReset) null else component.pulledDataCache.getOrElse(clockDomain.reset, throw new Exception("???")).asInstanceOf[Bool]
+        val softReset = if (null == clockDomain.softReset || !withReset) null else component.pulledDataCache.getOrElse(clockDomain.softReset, throw new Exception("???")).asInstanceOf[Bool]
         val clockEnable = if (null == clockDomain.clockEnable) null else component.pulledDataCache.getOrElse(clockDomain.clockEnable, throw new Exception("???")).asInstanceOf[Bool]
         val asyncReset = (null != reset) && clockDomain.config.resetKind == ASYNC
         val syncReset = (null != reset) && clockDomain.config.resetKind == SYNC
+
         var tabLevel = 1
         def tabStr = "  " * tabLevel
         def inc = {
@@ -715,16 +655,21 @@ end
           ret ++= s"${tabStr}end else begin\n"
           inc
         }
+
         if (clockEnable != null) {
           ret ++= s"${tabStr}if(${if (clockDomain.config.clockEnableActiveLevel == HIGH) "" else "!"}${emitReference(clockEnable)}) begin\n"
           inc
         }
-        if (syncReset) {
-          ret ++= s"${tabStr}if(${if (clockDomain.config.resetActiveLevel == HIGH) "" else "!"}${emitReference(reset)}) begin\n"
+        if (syncReset || softReset != null) {
+          var condList = ArrayBuffer[String]()
+          if(syncReset) condList += s"${if (clockDomain.config.resetActiveLevel == HIGH) "" else "!"}${emitReference(reset)}"
+          if(softReset != null) condList += s"${if (clockDomain.config.softResetActiveLevel == HIGH) "" else "!"}${emitReference(softReset)}"
+
+          ret ++= s"${tabStr}if(${condList.reduce(_ + " || " + _)}) begin\n"
           inc
           emitRegsInitialValue(initialValueAssignement, tabStr)
           dec
-          ret ++= s"${tabStr}else\n"
+          ret ++= s"${tabStr}end else begin\n"
           inc
           emitRegsLogic(tabStr)
           dec

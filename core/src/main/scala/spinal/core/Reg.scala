@@ -43,6 +43,7 @@ object Reg {
 
   private[core] def newFor(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) : Reg = outType match{
     case that : BitVector => new RegWidthable(outType,clockDomain)
+    case that : SpinalEnumCraft[_] => new RegEnum(outType,that.blueprint,clockDomain)
     case _ => new Reg(outType,clockDomain)
   }
 }
@@ -85,8 +86,8 @@ object BoolReg{
 }*/
 
 object RegS {
-  val getDataInputId: Int = 3
-  val getInitialValueId: Int = 4
+  val getDataInputId: Int = 4
+  val getInitialValueId: Int = 5
 }
 
 
@@ -99,8 +100,8 @@ class Reg (outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) ex
 
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
     super.onEachInput(doThat)
-    doThat(dataInput,3)
-    if(initialValue != null) doThat(initialValue,4)
+    doThat(dataInput,RegS.getDataInputId)
+    if(initialValue != null) doThat(initialValue,RegS.getInitialValueId)
   }
   override def onEachInput(doThat: (Node) => Unit): Unit = {
     super.onEachInput(doThat)
@@ -109,16 +110,16 @@ class Reg (outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) ex
   }
 
   override def setInput(id: Int, node: Node): Unit = id match{
-    case 3 => dataInput = node.asInstanceOf[T]
-    case 4 if initialValue != null => initialValue = node.asInstanceOf[T]
+    case RegS.getDataInputId => dataInput = node.asInstanceOf[T]
+    case RegS.getInitialValueId if initialValue != null => initialValue = node.asInstanceOf[T]
     case _ => super.setInput(id,node)
   }
 
   override def getInputsCount: Int = super.getInputsCount + (if(initialValue != null) 2 else 1)
   override def getInputs: Iterator[Node] = super.getInputs ++ (if(initialValue != null) Iterator(dataInput,initialValue) else  Iterator(dataInput))
   override def getInput(id: Int): Node = id match{
-    case 3 => dataInput
-    case 4 if initialValue != null=> initialValue
+    case RegS.getDataInputId => dataInput
+    case RegS.getInitialValueId if initialValue != null=> initialValue
     case _ => super.getInput(id)
   }
 
@@ -131,13 +132,9 @@ class Reg (outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) ex
     case _ => super.getOutToInUsage(inputId,outHi,outLo)
   }
 
-  object SyncNode {
-    def getClockInputId: Int = 0
-    def getClockEnableId: Int = 1
-    def getClockResetId: Int = 2
-  }
 
   override def isUsingResetSignal: Boolean = clockDomain.config.resetKind != BOOT && initialValue != null
+  override def isUsingSoftResetSignal: Boolean = initialValue != null
   override def getSynchronousInputs: List[Node] = getDataInput :: super.getSynchronousInputs
   override def getResetStyleInputs: List[Node] = getInitialValue :: super.getResetStyleInputs
 
@@ -204,5 +201,16 @@ class RegWidthable(outType: BaseType, clockDomain: ClockDomain = ClockDomain.cur
       return s"Assignment bit count mismatch. ${this} := ${initialValue}} at \n${ScalaLocated.long(getAssignementContext(RegS.getDataInputId))}"
     }
     return null
+  }
+}
+
+
+
+class RegEnum(outType: BaseType,enumDef : SpinalEnum, clockDomain: ClockDomain = ClockDomain.current)  extends Reg(outType,clockDomain) with InferableEnumEncodingImpl{
+  override type T = Node with EnumEncoded
+  override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
+  override def getDefinition: SpinalEnum = enumDef
+  override private[core] def normalizeInputs: Unit = {
+    InputNormalize.enumImpl(this)
   }
 }

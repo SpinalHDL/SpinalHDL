@@ -21,14 +21,14 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
 
   override def impl(): Unit = {
     import pc._
-    SpinalInfoPhase("Write VHDL")
+    SpinalProgress("Write VHDL")
     
     outFile = new java.io.FileWriter(pc.config.targetDirectory + "/" +  topLevel.definitionName + ".vhd")
     emitEnumPackage(outFile)
     emitPackage(outFile)
 
     for (c <- sortedComponents) {
-      SpinalInfoPhase(s"${"  " * (1 + c.level)}emit ${c.definitionName}")
+      SpinalProgress(s"${"  " * (1 + c.level)}emit ${c.definitionName}")
       compile(c)
     }
 
@@ -748,14 +748,14 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
                 case e: SpinalEnumCraft[_] => {
                   val vec = e.blueprint.values.toVector
                   val rand = vec(Random.nextInt(vec.size))
-                  ret ++= " := " + emitEnumLiteral(rand, e.encoding)
+                  ret ++= " := " + emitEnumLiteral(rand, e.getEncoding)
                 }
               }
             }
             ret ++= ";\n"
             if (signal.isInstanceOf[SpinalEnumCraft[_]]) {
               val craft = toSpinalEnumCraft(signal)
-              if (!craft.encoding.isNative) {
+              if (!craft.getEncoding.isNative) {
                 ret ++= s"  signal ${emitReference(signal)}_debug : ${getEnumDebugType(craft.blueprint)};\n"
                 enumDebugSignals += toSpinalEnumCraft(signal)
               }
@@ -936,10 +936,9 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
 
 
   def enumEgualsImpl(eguals: Boolean)(op: Modifier): String = {
-    val (enumDef, encoding) = op.getInput(0) match {
-      case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.encoding)
-      case literal: EnumLiteral[_] => (literal.enum.parent, literal.encoding)
-    }
+    val enumDef = op.asInstanceOf[EnumEncoded].getDefinition
+    val encoding = op.asInstanceOf[EnumEncoded].getEncoding
+
     encoding match {
       case `binaryOneHot` => s"pkg_toStdLogic((${emitLogic(op.getInput(0))} and ${emitLogic(op.getInput(1))}) ${if (eguals) "/=" else "="} ${'"' + "0" * encoding.getWidth(enumDef) + '"'})"
       case _ => s"pkg_toStdLogic(${emitLogic(op.getInput(0))} ${if (eguals) "=" else "/="} ${emitLogic(op.getInput(1))})"
@@ -948,9 +947,10 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
 
 
   def operatorImplAsBitsToEnum(func: Modifier): String = {
-    val (enumDef: SpinalEnum, encoding) = func.asInstanceOf[CastBitsToEnum].enum match {
-      case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.encoding)
-    }
+    val node = func.asInstanceOf[CastBitsToEnum]
+    val enumDef = node.getDefinition
+    val encoding = node.encoding
+
     if (!encoding.isNative) {
       emitLogic(func.getInput(0))
     } else {
@@ -959,10 +959,10 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
   }
 
   def operatorImplAsEnumToBits(func: Modifier): String = {
-    val (enumDef, encoding) = func.getInput(0) match {
-      case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.encoding)
-      case literal: EnumLiteral[_] => (literal.enum.parent, literal.encoding)
-    }
+    val cast = func.asInstanceOf[CastEnumToBits]
+    val enumDef = cast.input.getDefinition
+    val encoding = cast.input.getEncoding
+
     if (!encoding.isNative) {
       emitLogic(func.getInput(0))
     } else {
@@ -971,22 +971,16 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
   }
 
   def operatorImplAsEnumToEnum(func: Modifier): String = {
-    val (enumDefSrc, encodingSrc) = func.getInput(0) match {
-      case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.encoding)
-      case literal: EnumLiteral[_] => (literal.enum.parent, literal.encoding)
-    }
     val enumCast = func.asInstanceOf[CastEnumToEnum]
-    val (enumDefDst, encodingDst) = enumCast.enum match {
-      case craft: SpinalEnumCraft[_] => (craft.blueprint, craft.encoding)
-    }
+    val enumDefSrc = enumCast.input.getDefinition
+    val encodingSrc = enumCast.input.getEncoding
+    val enumDefDst = enumCast.getDefinition
+    val encodingDst = enumCast.getEncoding
+
     if (encodingDst.isNative && encodingSrc.isNative)
       emitLogic(func.getInput(0))
     else {
-      val encoding = enumCast.getInput(0) match {
-        case input: SpinalEnumCraft[_] => input.encoding
-        case input: EnumLiteral[_] => input.encoding
-      }
-      s"${getReEncodingFuntion(enumCast.enum.blueprint.asInstanceOf[SpinalEnum], encoding, enumCast.enum.encoding)}(${func.getInputs.map(emitLogic(_)).reduce(_ + "," + _)})"
+      s"${getReEncodingFuntion(enumDefDst, encodingSrc,encodingDst)}(${emitLogic(enumCast.input)})"
     }
   }
 
@@ -1159,11 +1153,11 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
   def emitLogic(node: Node): String = node match {
     case baseType: BaseType => emitReference(baseType)
     case node: Modifier => modifierImplMap.getOrElse(node.opName, throw new Exception("can't find " + node.opName))(node)
-    case lit: BitsLiteral => lit.kind match {
-      case _: Bits => s"pkg_stdLogicVector(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
-      case _: UInt => s"pkg_unsigned(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
-      case _: SInt => s"pkg_signed(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
-    }
+
+    case lit: BitsLiteral => s"pkg_stdLogicVector(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
+    case lit: UIntLiteral => s"pkg_unsigned(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
+    case lit: SIntLiteral => s"pkg_signed(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
+
     case lit: BitsAllToLiteral => lit.theConsumer match {
       case _: Bits => s"pkg_stdLogicVector(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
       case _: UInt => s"pkg_unsigned(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
@@ -1193,7 +1187,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
 
   def emitDebug(component: Component, ret: StringBuilder, enumDebugSignals: ArrayBuffer[SpinalEnumCraft[_]]): Unit = {
     for (signal <- enumDebugSignals) {
-      ret ++= s"  ${emitReference(signal)}_debug <= ${getEnumToDebugFuntion(toSpinalEnumCraft(signal).blueprint, signal.encoding)}(${emitReference(signal)});\n"
+      ret ++= s"  ${emitReference(signal)}_debug <= ${getEnumToDebugFuntion(toSpinalEnumCraft(signal).blueprint, signal.getEncoding)}(${emitReference(signal)});\n"
     }
   }
 
@@ -1211,7 +1205,10 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
       val arrayWithoutReset = ArrayBuffer[SyncNode]()
 
       for (syncNode <- array) {
-        if (syncNode.isUsingResetSignal) arrayWithReset += syncNode else arrayWithoutReset += syncNode
+        if (syncNode.isUsingResetSignal || syncNode.isUsingSoftResetSignal)
+          arrayWithReset += syncNode
+        else
+          arrayWithoutReset += syncNode
       }
 
       emitClockDomain(true)
@@ -1224,6 +1221,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
         if (activeArray.size == 0) return;
         val clock = component.pulledDataCache.getOrElse(clockDomain.clock, throw new Exception("???")).asInstanceOf[Bool]
         val reset = if (null == clockDomain.reset || !withReset) null else component.pulledDataCache.getOrElse(clockDomain.reset, throw new Exception("???")).asInstanceOf[Bool]
+        val softReset = if (null == clockDomain.softReset || !withReset) null else component.pulledDataCache.getOrElse(clockDomain.softReset, throw new Exception("???")).asInstanceOf[Bool]
         val clockEnable = if (null == clockDomain.clockEnable) null else component.pulledDataCache.getOrElse(clockDomain.clockEnable, throw new Exception("???")).asInstanceOf[Bool]
         val asyncReset = (null != reset) && clockDomain.config.resetKind == ASYNC
         val syncReset = (null != reset) && clockDomain.config.resetKind == SYNC
@@ -1275,8 +1273,13 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
           ret ++= s"${tabStr}if ${emitReference(clockEnable)} = \'${if (clockDomain.config.clockEnableActiveLevel == HIGH) 1 else 0}\' then\n"
           inc
         }
-        if (syncReset) {
-          ret ++= s"${tabStr}if ${emitReference(reset)} = \'${if (clockDomain.config.resetActiveLevel == HIGH) 1 else 0}\' then\n"
+
+        if (syncReset || softReset != null) {
+          var condList = ArrayBuffer[String]()
+          if(syncReset) condList += s"${emitReference(reset)} = \'${if (clockDomain.config.resetActiveLevel == HIGH) 1 else 0}\'"
+          if(softReset != null) condList += s"${emitReference(softReset)} = \'${if (clockDomain.config.softResetActiveLevel == HIGH) 1 else 0}\'"
+
+          ret ++= s"${tabStr}if ${condList.reduce(_ + " or " + _)} then\n"
           inc
           emitRegsInitialValue(initialValueAssignement, tabStr)
           dec

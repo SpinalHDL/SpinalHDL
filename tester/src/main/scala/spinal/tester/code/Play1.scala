@@ -11,8 +11,12 @@ import spinal.lib._
 import spinal.lib.bus.amba3.apb.{ Apb3Config, Apb3}
 import spinal.lib.bus.amba4.axilite.AxiLite4.prot
 import spinal.lib.bus.amba4.axilite._
+import spinal.lib.bus.avalon.AvalonMM
 import spinal.lib.bus.sbl.{SblConfig, SblReadRet, SblReadCmd, SblWriteCmd}
 import spinal.lib.com.uart._
+import spinal.lib.cpu.riscv.impl.CoreQSysAvalon.RiscvAvalon
+import spinal.lib.cpu.riscv.impl._
+import spinal.lib.cpu.riscv.impl.extension.{DebugExtension, BarrelShifterFullExtension, DivExtension, MulExtension}
 import spinal.lib.graphic.{RgbConfig, Rgb}
 import spinal.lib.graphic.vga.{VgaCtrl, Vga}
 
@@ -1638,26 +1642,100 @@ object OverloadPlay {
       // Console.in.read
       println(report.toplevel)
       var entries = 0
-      var allocatedEntries = 0
+
       val c = ArrayBuffer().getClass()
       val f = c.getDeclaredField("array")
       f.setAccessible(true)
       Node.walk(report.toplevel.getAllIo.toSeq, node => {
         entries += node.getInputs.size
-        allocatedEntries += node.getInputs.size
-
-        entries += node.consumers.length
-        allocatedEntries += f.get(node.consumers).asInstanceOf[Array[AnyRef]].length
-        //      for(input <- f.get(node.inputs).asInstanceOf[Array[AnyRef]])
-        //        if(input != null)
-        //          allocatedEntries += 1
       })
-      println(allocatedEntries)
+
       println(entries)
             while(true){
               Thread.sleep(1000)
               println(report.toplevel )
             }
+    }
+  }
+}
+
+object OverloadPlay2 {
+
+  class OverloadPlay2 extends Component {
+    for (i <- 0 until 100) {
+      //replace wit null to disable instruction cache
+      val iCacheConfig = InstructionCacheConfig(
+        cacheSize =4096,
+        bytePerLine =32,
+        wayCount = 1,
+        wrappedMemAccess = true,
+        addressWidth = 32,
+        cpuDataWidth = 32,
+        memDataWidth = 32
+      )
+
+      //replace wit null to disable data cache
+      val dCacheConfig = DataCacheConfig(
+        cacheSize = 4096,
+        bytePerLine =32,
+        wayCount = 1,
+        addressWidth = 32,
+        cpuDataWidth = 32,
+        memDataWidth = 32
+      )
+
+      val coreConfig = CoreConfig(
+        pcWidth = 32,
+        addrWidth = 32,
+        startAddress = 0x200,
+        regFileReadyKind = sync,
+        branchPrediction = dynamic,
+        bypassExecute0 = true,
+        bypassExecute1 = true,
+        bypassWriteBack = true,
+        bypassWriteBackBuffer = true,
+        collapseBubble = false,
+        fastFetchCmdPcCalculation = true,
+        dynamicBranchPredictorCacheSizeLog2 = 7
+      )
+
+      coreConfig.add(new MulExtension)
+      coreConfig.add(new DivExtension)
+      coreConfig.add(new BarrelShifterFullExtension)
+      //  p.add(new BarrelShifterLightExtension)
+
+
+      val core = new RiscvAvalon(coreConfig,iCacheConfig,dCacheConfig,true,4)
+      val io = core.io.clone
+      io <> core.io
+      for((a,b) <- (io.flatten,core.io.flatten).zipped)if(b.isInput)
+        a.asInput
+      else
+        a.asOutput
+    }
+  }
+
+  def main(args: Array[String]): Unit = {
+    //    Console.in.read
+
+    for (i <- 0 until 1) {
+      val report = SpinalVhdl(new OverloadPlay2)
+      // Console.in.read
+      println(report.toplevel)
+      var entries = 0
+
+      val c = ArrayBuffer().getClass()
+      val f = c.getDeclaredField("array")
+      f.setAccessible(true)
+      Node.walk(report.toplevel.getAllIo.toSeq, node => {
+        entries += node.getInputs.size
+      })
+
+      println(entries)
+      while(true){
+        Thread.sleep(1000)
+        println(report.toplevel )
+      }
     }
   }
 }

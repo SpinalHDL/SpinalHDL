@@ -19,9 +19,9 @@ class Alu extends Component{
 
   // AND, OR, XOR, COPY0
   val bitwise = io.func.mux(
-    ALU.AND1 -> (io.src0 & io.src1),
-    ALU.OR1 ->  (io.src0 | io.src1),
-    ALU.XOR1 -> (io.src0 ^ io.src1),
+    ALU.AND -> (io.src0 & io.src1),
+    ALU.OR ->  (io.src0 | io.src1),
+    ALU.XOR -> (io.src0 ^ io.src1),
     default -> io.src0
   )
 
@@ -33,7 +33,7 @@ class Alu extends Component{
   // mux results
   io.result := io.func.mux(
     (ALU.SLT,ALU.SLTU) -> less.asBits(32 bit),
-    (ALU.ADD,ALU.SUB1) -> addSub,
+    (ALU.ADD,ALU.SUB) -> addSub,
     default  -> bitwise
   )
 

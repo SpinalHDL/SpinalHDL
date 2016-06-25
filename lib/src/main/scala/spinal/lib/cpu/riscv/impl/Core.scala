@@ -438,7 +438,7 @@ class Core(implicit val c : CoreConfig) extends Component{
       default -> outInst.src1,
       OP1.IMI -> imm.i_sext.resized,
       OP1.IMS -> imm.s_sext.resized,
-      OP1.PC1 -> inInst.pc.asBits
+      OP1.PC -> inInst.pc.asBits
     )
     outInst.predictorHasBranch := pcLoad.valid
     outInst.branchHistory.valid := branchCacheHit
@@ -666,7 +666,7 @@ class Core(implicit val c : CoreConfig) extends Component{
 
     val regFileData = inInst.ctrl.wb.mux (
       default -> B(0,32 bit), //CSR1
-      WB.ALU1 -> inInst.result,
+      WB.ALU -> inInst.result,
       WB.MEM  -> dataRspFormated,
       WB.PC4  -> (inInst.pcPlus4).asBits.resized
     )

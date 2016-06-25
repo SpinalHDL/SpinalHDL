@@ -18,7 +18,7 @@ class BarrelShifterFullExtension extends CoreExtension{
     val s1 = new Area {
       val amplitude = execute0.inInst.alu_op1(4 downto 0).asUInt
       val reversed = Mux(execute0.inInst.ctrl.alu === ALU.SLL1, Reverse(execute0.inInst.alu_op0), execute0.inInst.alu_op0)
-      val shiftRight = (Cat(execute0.inInst.ctrl.alu === ALU.SRA1 & reversed.msb, reversed).asSInt >> amplitude)(31 downto 0).asBits
+      val shiftRight = (Cat(execute0.inInst.ctrl.alu === ALU.SRA & reversed.msb, reversed).asSInt >> amplitude)(31 downto 0).asBits
     }
 
     val s2 = new Area{
@@ -28,7 +28,7 @@ class BarrelShifterFullExtension extends CoreExtension{
         is(ALU.SLL1){
           execute1.outInst.result :=Reverse(shiftRight)
         }
-        is(ALU.SRL1,ALU.SRA1){
+        is(ALU.SRL,ALU.SRA){
           execute1.outInst.result := shiftRight
         }
       }
