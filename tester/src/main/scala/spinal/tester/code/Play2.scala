@@ -1295,11 +1295,11 @@ object PlayEnumInferation {
 //      stateBinaryOneHot := stateBinarySequancial
 //    }
 
-    val inferredMux1 = Mux(sel(0),myEnum.a(binaryOneHot),myEnum.a)
-    val inferredMux2 = Mux(sel(0),myEnum.b,myEnum.a)
-    inferredMux2.fixEncoding(native)
-    val egualsOut     = out(inferredMux1 === inferredMux2)
-
+//    val inferredMux1 = Mux(sel(0),myEnum.a(binaryOneHot),myEnum.a)
+//    val inferredMux2 = Mux(sel(0),myEnum.b,myEnum.a)
+//    val egualsOut     = out(inferredMux1 === inferredMux2)
+    val stateIn = in (myEnum(binaryOneHot))
+    val stateBinarySequancialIsA    = out(stateIn === myEnum.a)
   }
 
   def main(args: Array[String]) {

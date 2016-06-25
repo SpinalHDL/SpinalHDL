@@ -134,7 +134,7 @@ class SpinalEnumElement[T <: SpinalEnum](val parent: T, val position: Int) exten
   def apply(encoding : SpinalEnumEncoding) : SpinalEnumCraft[T] = craft(encoding)
 
   def craft(): SpinalEnumCraft[T] = {
-    val ret = parent.craft().asInstanceOf[SpinalEnumCraft[T]]
+    val ret = parent.craft(inferred).asInstanceOf[SpinalEnumCraft[T]]
     ret.input = new EnumLiteral(this)
     ret
   }
@@ -153,6 +153,12 @@ trait SpinalEnumEncoding extends Nameable{
   def getWidth(enum : SpinalEnum) : Int
   def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]) : BigInt
   def isNative : Boolean
+}
+
+object inferred extends SpinalEnumEncoding{
+  override def getWidth(enum: SpinalEnum): Int = ???
+  override def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt = ???
+  override def isNative: Boolean = ???
 }
 
 object native extends SpinalEnumEncoding{
@@ -211,6 +217,7 @@ class EnumFsm(defaultEncoding : SpinalEnumEncoding = native) extends SpinalEnum
 class EnumData(defaultEncoding : SpinalEnumEncoding = binarySequancial) extends SpinalEnum
 
 class SpinalEnum(var defaultEncoding : SpinalEnumEncoding = native) extends Nameable {
+  assert(defaultEncoding != inferred,"Enum definition should not have 'inferred' as default encoding")
   type C = SpinalEnumCraft[this.type]
   type E = SpinalEnumElement[this.type]
   def apply() = craft()
@@ -228,8 +235,8 @@ class SpinalEnum(var defaultEncoding : SpinalEnumEncoding = native) extends Name
 
   def craft(enumEncoding: SpinalEnumEncoding): SpinalEnumCraft[this.type] = {
     val ret = new SpinalEnumCraft[this.type](this)
-    ret.fixEncoding(enumEncoding)
+    if(enumEncoding != `inferred`) ret.fixEncoding(enumEncoding)
     ret
   }
-  def craft(): SpinalEnumCraft[this.type] = new SpinalEnumCraft[this.type](this)
+  def craft(): SpinalEnumCraft[this.type] = craft(defaultEncoding)
 }
