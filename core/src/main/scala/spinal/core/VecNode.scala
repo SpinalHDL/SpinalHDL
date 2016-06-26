@@ -61,7 +61,7 @@ package spinal.core
 //}
 
 
-//TODO outToIn for all
+//TOD outToIn for all
 //class VecBaseTypeExtractFixed(val sels : Seq[Int]) extends NodeWithVariableInputsCount{
 //  inputs += null
 //  def getVec = getInput(0).asInstanceOf[VecBaseType[_]]
@@ -79,13 +79,13 @@ package spinal.core
 //
 //  //override private[core] def calcWidth: Int = vec.getWidth
 //
-//  override def getAssignedBits: AssignedRange = {//TODO
+//  override def getAssignedBits: AssignedRange = {//TOD
 //    AssignedRange(vec.getWidth-1,0)
 //  }
 //
 //  override def getOutBaseType: BaseType = vec
 //
-//  override def getScopeBits: AssignedRange = getAssignedBits //TODO
+//  override def getScopeBits: AssignedRange = getAssignedBits //TOD
 //  override def clone(out: Node): VecBaseTypeAssignFixed.this.type = ???
 //
 //  override private[core] def calcWidth: Int = ???

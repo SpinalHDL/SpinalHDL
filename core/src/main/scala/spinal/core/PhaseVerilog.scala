@@ -102,7 +102,6 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
     emitComponentInstances(component, retTemp)
     emitAsyncronous(component, retTemp, ret)
     emitSyncronous(component, retTemp)
-    //TODO emitDebug(component, retTemp, enumDebugSignals)
     if(component == topLevel && pc.config.dumpWave != null){
       ret ++= s"""
 initial begin
@@ -208,14 +207,6 @@ end
               }
             }
             ret ++= ";\n"
-            if (signal.isInstanceOf[SpinalEnumCraft[_]]) {
-              val craft = toSpinalEnumCraft(signal)
-              if (!craft.getEncoding.isNative) {
-                //TODO
-                // ret ++= s"  ${emitReference(signal)}_debug : ${getEnumDebugType(craft.blueprint)};\n"
-                //enumDebugSignals += toSpinalEnumCraft(signal)
-              }
-            }
           }
         }
 
@@ -547,8 +538,7 @@ end
     case baseType: BaseType => emitReference(baseType)
     case node: Modifier => modifierImplMap.getOrElse(node.opName, throw new Exception("can't find " + node.opName))(node)
 
-    //TODO remove if(lit.getWidth == 0) "0" else
-    case lit: BitVectorLiteral => if(lit.getWidth == 0) "0" else s"(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
+    case lit: BitVectorLiteral => s"(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
 
     case lit: BitsAllToLiteral => lit.theConsumer match {
       case _: Bits => if(lit.getWidth == 0) "0" else s"(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"

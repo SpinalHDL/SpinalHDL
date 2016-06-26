@@ -88,7 +88,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated{
   def build() : Unit = {
     inGeneration = true
     childStateMachines.foreach(_.build())
-    stateBoot = new StateBoot(autoStart).setName("boot") //TODO
+    stateBoot = new StateBoot(autoStart).setName("boot")
 
 
     stateReg  = Reg(enumDefinition())

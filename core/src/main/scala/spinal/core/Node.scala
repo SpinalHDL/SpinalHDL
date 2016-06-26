@@ -163,18 +163,6 @@ object SymplifyNode {
   }
 
 
-  def unsignedDivImpl(node: Node) : Unit = {
-    //TODO
-  }
-  def unsignedModImpl(node: Node) : Unit = {
-    //TODO
-  }
-  def signedDivImpl(node: Node) : Unit = {
-    //TODO
-  }
-  def signedModImpl(node: Node) : Unit = {
-    //TODO
-  }
 
 
   def resizeImpl2(zeroFactory: (BigInt, BitCount) => Node,node: Node): Unit = {
@@ -241,16 +229,6 @@ object SymplifyNode {
   }
 
 
-  def multiplexerImpl(node: Node): Unit = {
-    //TODO
-//    val w0 = node.getInput(1).asInstanceOf[WidthProvider].getWidth
-//    val w1 = node.getInput(2).asInstanceOf[WidthProvider].getWidth
-//    if (w0 == 0) {
-//      replaceNode(node, 2)
-//    } else if (w1 == 0) {
-//      replaceNode(node, 1)
-//    }
-  }
 
 
   def binaryThatIfBoth(thatFactory: => Node)(node: Node): Unit = {
@@ -325,37 +303,6 @@ object InputNormalize {
     Misc.normalizeResize(node, MemWrite.getDataId, node.asInstanceOf[WidthProvider].getWidth)
     Misc.normalizeResize(node, MemWrite.getAddressId, node.asInstanceOf[Mem[_]].addressWidth)
   }
-
-  def binaryOperatorEnumImpl[T <: SpinalEnum](node : Node,leftId : Int = 0,rightId : Int = 1) : Unit = {
-    //TODO
-    val left = node.getInput(leftId).asInstanceOf[SpinalEnumCraft[T]]
-    val right = node.getInput(rightId).asInstanceOf[SpinalEnumCraft[T]]
-    assert(left.getEncoding == right.getEncoding)
-//    if(left.getEncoding != right.getEncoding){
-//      val (that,ref,thatId) = if(left.asInstanceOf[WidthProvider].getWidth > right.asInstanceOf[WidthProvider].getWidth) (left,right,leftId) else  (right,left,rightId)
-//      Component.push(that.component)
-//      val newOne = ref.clone.asInstanceOf[SpinalEnumCraft[T]]
-//      newOne.assignFromAnotherEncoding(that)
-//      node.setInput(thatId,newOne)
-//      Component.pop(that.component)
-//    }
-  }
-
-//
-//  def enumImpl[T <: SpinalEnum](consumer : Node,inputId : Int,targetEncoding : SpinalEnumEncoding) : Unit = {
-//    val input = consumer.getInput(inputId)
-//    input match {
-//      case enum : SpinalEnumCraft if enum.encoding != targetEncoding=> {
-//        Component.push(input.component)
-//        val newOne = ref.clone.asInstanceOf[SpinalEnumCraft[T]]
-//        newOne.assignFromAnotherEncoding(that)
-//        consumer.setInput(thatId,newOne)
-//        Component.pop(input.component)
-//      }
-//      case _ =>
-//    }
-//
-//  }
 
 
   def nodeWidth(node: Node): Unit = {

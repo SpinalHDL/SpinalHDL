@@ -49,15 +49,11 @@ trait VerilogBase extends VhdlVerilogBase{
       }
     } ${emitReference(reset)}"
   }
-  //TODO
-  def emitEnumLiteral[T <: SpinalEnum](enum : SpinalEnumElement[T],encoding : SpinalEnumEncoding,prefix : String = "`") : String = {
 
+  def emitEnumLiteral[T <: SpinalEnum](enum : SpinalEnumElement[T],encoding : SpinalEnumEncoding,prefix : String = "`") : String = {
     return prefix + enum.parent.getName() + "_" + encoding.getName() + "_" + enum.getName()
   }
-
   def emitEnumType[T <: SpinalEnum](enum : SpinalEnumCraft[T],prefix : String) : String = emitEnumType(enum.blueprint,enum.getEncoding,prefix)
-
-  //TODO
   def emitEnumType(enum : SpinalEnum,encoding : SpinalEnumEncoding,prefix : String = "`") : String = {
     return prefix + enum.getName() + "_" + encoding.getName() + "_type"
   }
