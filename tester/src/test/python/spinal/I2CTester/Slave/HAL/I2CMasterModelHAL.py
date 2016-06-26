@@ -30,6 +30,8 @@ class I2CMasterModelHAL:
         self.sclRising   = Event()
         self.sclFalling  = Event()
 
+        self.dataRead    = Event()
+
 
 
     ##########################################################################
@@ -99,20 +101,22 @@ class I2CMasterModelHAL:
 
         self.sda = 0
 
+        yield self.sclFalling.wait()
+
+        self.sda = 1
+
 
     ##########################################################################
     # Generate the stop condition
     @cocotb.coroutine
     def genStop(self):
 
-        yield self.sclRising.wait()
 
         yield self.sclFalling.wait()
 
         self.sda = 0
 
         yield self.sclRising.wait()
-
         yield self.trigger.wait()
 
         self.sda    = 1
@@ -147,26 +151,6 @@ class I2CMasterModelHAL:
 
 
 
-
-
-
-
-
-
-
-
-
-    ##########################################################################
-    # Detect the stop sequence
-    @cocotb.coroutine
-    def _stopDetection(self):
-        while True:
-            yield RisingEdge(self.sda_wr)
-            if int(self.scl_wr) == 1:
-                print("Stop detected  ...")
-                self.stopEvent.set()
-
-
     ##########################################################################
     # Read a data comming from the master
     @cocotb.coroutine
@@ -175,18 +159,18 @@ class I2CMasterModelHAL:
         dataRead = list()
         while True:
             if (cnt == 8):
-                yield FallingEdge(self.scl_wr)
-                self.forceSDA = 0
-                yield RisingEdge(self.scl_wr)
+                yield self.sclFalling.wait()
+                self.sda = 0
+                yield self.sclRising.wait()
                 dataInt = int("".join([str(x) for x in dataRead]), 2)
-                self.dataTXEvent.set(data= dataInt )
-                yield FallingEdge(self.scl_wr)
-                self.forceSDA = 1
+                self.dataRead.set(data= dataInt )
+                yield self.sclFalling.wait()
+                self.sda = 1
 
                 break
             else:
-                yield RisingEdge(self.scl_wr)
-                dataRead.append( int(self.sda_wr) )
+                yield self.sclRising.wait()
+                dataRead.append( int(self.rd_sda) )
 
             cnt += 1
 
