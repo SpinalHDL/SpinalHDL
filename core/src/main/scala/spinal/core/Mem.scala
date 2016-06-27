@@ -431,7 +431,7 @@ class MemWriteOrRead_writePart(mem: Mem[_], address_ : UInt, data_ : Bits, chipS
     case MemWriteOrRead_writePart.getAddressId => address = node
     case MemWriteOrRead_writePart.getDataId => data = node
     case MemWriteOrRead_writePart.getChipSelectId => chipSelect = node
-    case 6 => writeEnable = node
+    case MemWriteOrRead_writePart.getWriteEnableId => writeEnable = node
     case _ => super.setInput(id,node)
   }
 
