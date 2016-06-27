@@ -920,7 +920,7 @@ class PhaseCheckCombinationalLoops(pc: PhaseContext) extends Phase{
 
     def getNodeWidth(that : Node): Int = that match {
       case that : WidthProvider => that.getWidth
-      case _ => 1 //TODO doesn't check Enums
+      case _ => 1 //Pessimistic for enum
     }
 
     while (!pendingNodes.isEmpty) {

@@ -207,13 +207,11 @@ object Operator{
     abstract class Div extends BinaryOperatorWidthableInputs with Widthable{
       override def calcWidth(): Int = left.getWidth
       override def normalizeInputs: Unit = {}
-      override def simplifyNode: Unit = {SymplifyNode.unsignedDivImpl(this)}
     }
 
     abstract class Mod extends BinaryOperatorWidthableInputs with Widthable{
       override def calcWidth(): Int = left.getWidth
       override def normalizeInputs: Unit = {}
-      override def simplifyNode: Unit = {SymplifyNode.unsignedModImpl(this)}
     }
 
     abstract class Equal extends BinaryOperatorWidthableInputs{
@@ -575,18 +573,19 @@ class CastBoolToBits extends Cast with Widthable{
   override def opName: String = "B->b"
   override private[core] def calcWidth: Int = 1
 }
-//TODO
+
 class CastEnumToBits extends Cast with Widthable{
   override type T <: Node with EnumEncoded
   override def opName: String = "e->b"
-  override private[core] def calcWidth: Int = input.asInstanceOf[SpinalEnumCraft[_]].getBitsWidth //TODO Should not use SpinalEnumCraft cast
+  override private[core] def calcWidth: Int = input.getEncoding.getWidth(input.getDefinition)
 }
-class CastBitsToEnum(val enumDef: SpinalEnum) extends Cast with InferableEnumEncodingImpl{
+class CastBitsToEnum(val enumDef: SpinalEnum) extends Cast with InferableEnumEncodingImpl with CheckWidth{
   override type T <: Node with WidthProvider
   override def opName: String = "b->e"
   override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
   override def getDefinition: SpinalEnum = enumDef
-  //TODO add width check
+  override private[core] def checkInferedWidth: String = if(input.getWidth ==  getEncoding.getWidth(enumDef)) null else
+    s"$input has ${input.getWidth} bits in place of ${getEncoding.getWidth(enumDef)} bits at ${input.getScalaLocationLong}"
 }
 class CastEnumToEnum(enumDef: SpinalEnum) extends Cast with  InferableEnumEncodingImpl{
   override type T <: Node with EnumEncoded
@@ -638,8 +637,6 @@ abstract class MultiplexedWidthable extends Multiplexer with Widthable{
     Misc.normalizeResize(this, 1, this.getWidth)
     Misc.normalizeResize(this, 2, this.getWidth)
   }
-
-  override def simplifyNode: Unit = SymplifyNode.multiplexerImpl(this)
 }
 
 class MultiplexerBool extends Multiplexer{

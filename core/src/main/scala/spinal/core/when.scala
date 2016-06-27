@@ -249,7 +249,6 @@ class CaseContext(val switchContext: SwitchContext,val cond : Bool) extends Cond
 
 
 object switch {
-
   def apply[T <: Data](value: T)(block: => Unit): Unit = {
     val s = new SwitchStack(value)
     value.globalData.switchStack.push(s)

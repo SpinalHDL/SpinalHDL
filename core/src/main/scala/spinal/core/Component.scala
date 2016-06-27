@@ -47,7 +47,6 @@ object Component {
 }
 
 
-// TODO Delayed init is deprecated
 abstract class Component extends NameableByComponent with GlobalDataUser with ScalaLocated with DelayedInit with Stackable{
 
   override def delayedInit(body: => Unit) = {

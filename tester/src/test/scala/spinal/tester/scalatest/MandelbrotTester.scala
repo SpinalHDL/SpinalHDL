@@ -4,7 +4,7 @@ import spinal.core._
 import spinal.demo.mandelbrot._
 
 class MandelbrotTester(p : MandelbrotCoreParameters ) extends MandelbrotCore(p){
-  "miaou"
+  print("miaou")
 }
 
 

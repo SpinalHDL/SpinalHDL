@@ -19,6 +19,8 @@
 package spinal.core
 
 
+import java.lang.reflect.Field
+
 import scala.collection.mutable
 import scala.collection.mutable.Stack
 import scala.reflect.ClassTag
@@ -97,41 +99,6 @@ object Misc {
   addReflectionExclusion(new SpinalEnumCraft(null))
   addReflectionExclusion(new Area{})
 
-  //XXXX find if there is a solution to keep declaration order in every case, then remove fix from component.nameElements
-  // It look like Java8 keep order
-  //  def reflect(o: Object, onEach: (String, Any) => Unit,namePrefix :String = ""): Unit = {
-  //    val refs = mutable.Set[Any]()
-  //    val ru = scala.reflect.runtime.universe
-  //    val runtimeMirror = ru.runtimeMirror(o.getClass.getClassLoader)
-  //    val instanceMirror = runtimeMirror.reflect(o)
-  //    val symbols = instanceMirror.symbol.typeSignature.members.sorted
-  //    for(symbol <- symbols){
-  //      if(symbol.isMethod){
-  //        val method = symbol.asMethod
-  //        if(method.isGetter && method.isPublic){
-  //          val fieldRef = instanceMirror.reflectMethod(method.asMethod).apply()
-  //          if (fieldRef != null && !refs.contains(fieldRef)) {
-  //            val name = namePrefix + method.name
-  //            fieldRef match {
-  //              case vec: Vec[_] =>
-  //              case seq: Seq[_] => {
-  //                for ((obj, i) <- seq.zipWithIndex) {
-  //                  onEach(name + i, obj.asInstanceOf[Object])
-  //                  refs += fieldRef
-  //                }
-  //              }
-  //              case zone : Area => {
-  //                reflect(zone,onEach,name + "_")
-  //              }
-  //              case _ =>
-  //            }
-  //            onEach(name, fieldRef)
-  //            refs += fieldRef
-  //          }
-  //        }
-  //      }
-  //    }
-  //  }
 
   def reflect(o: Object, onEach: (String, Object) => Unit, namePrefix: String = ""): Unit = {
     val refs = mutable.Set[Object]()
@@ -436,3 +403,9 @@ object ArrayManager{
   }
 }
 
+
+object AnnotationUtils{
+  def isDontName(f: Field): Boolean = {
+    return f.isAnnotationPresent(classOf[dontName])
+  }
+}

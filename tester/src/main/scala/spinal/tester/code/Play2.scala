@@ -1404,3 +1404,19 @@ object PlayHex {
     SpinalVhdl(new TopLevel)
   }
 }
+
+
+
+object PlayHistory {
+  class TopLevel extends Component {
+    @dontName val input = in(UInt(4 bits))
+    val history = History(input,2 to 4)
+    val result = out(history.clone)
+    result := history
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+    SpinalVerilog(new TopLevel)
+  }
+}

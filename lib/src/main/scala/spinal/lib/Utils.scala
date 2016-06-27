@@ -584,17 +584,35 @@ object DelayWithInit {
 }
 
 object History {
-  def apply[T <: Data](that: T, length: Int,when : Bool = True,initValue : T = null): Vec[T] = {
+  def apply[T <: Data](that: T, length: Int, when: Bool = null, initValue: T = null): Vec[T] = {
     def builder(that: T, left: Int): List[T] = {
       left match {
-        case 0 => that :: Nil
-        case _ => that :: builder(RegNextWhen(that,when,init=initValue), left - 1)
+        case 0 => Nil
+        case 1 => that :: Nil
+        case _ => that :: builder({
+          if (when != null)
+            RegNextWhen(that, when, init = initValue)
+          else
+            RegNext(that, init = initValue)
+        }, left - 1)
       }
     }
-    Vec(builder(that, length-1))
+    Vec(builder(that, length))
   }
-}
 
+  def apply[T <: Data](that: T, range: Range, when: Bool, initValue: T): Vec[T] =
+    Vec(History(that, range.high + 1, when, initValue).drop(range.low))
+
+  def apply[T <: Data](that: T, range: Range, initValue: T): Vec[T] =
+    apply(that, range, null, initValue = initValue)
+
+  def apply[T <: Data](that: T, range: Range, when: Bool): Vec[T] =
+    apply(that, range, when, null.asInstanceOf[T])
+
+  def apply[T <: Data](that: T, range: Range): Vec[T] =
+    apply(that, range, null, null.asInstanceOf[T])
+
+}
 
 object SetCount
 {

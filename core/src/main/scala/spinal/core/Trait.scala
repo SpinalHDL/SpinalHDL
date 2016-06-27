@@ -465,21 +465,10 @@ class GlobalData {
   var nodeAreInferringEnumEncoding = false
   val nodeGetWidthWalkedSet = mutable.Set[Widthable]()
   val clockSyncronous = mutable.HashMap[Bool,ArrayBuffer[Bool]]()
-  // val nodeWidthInferredCheck = ArrayBuffer[() => Unit]()
   val clockDomainStack = new SafeStack[ClockDomain]
-  val componentStack = new SafeStackWithStackable[Component]{
-//    override def pop(e: Component): Unit = {
-//      for(task <- e.postCreationTask){
-//        task()
-//      }
-//      e.postCreationTask.clear()
-//      super.pop(e)
-//    }
-  }
-  val switchStack = new SafeStack[SwitchStack] //TODO switch
+  val componentStack = new SafeStackWithStackable[Component]
+  val switchStack = new SafeStack[SwitchStack]
   val conditionalAssignStack = new SafeStack[ConditionalContext]
- // val widthCheckers = new ArrayBuffer[WidthChecker]()
-
   var scalaLocatedEnable = false
   var instanceCounter = 0
   val pendingErrors = mutable.ArrayBuffer[() => String]()
