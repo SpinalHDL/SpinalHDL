@@ -1382,7 +1382,7 @@ object PlayHex {
 object PlayHistory {
   class TopLevel extends Component {
     @dontName val input = in(UInt(4 bits))
-    val history = History(input,2 to 4)
+    val history = History(input,2 to 4,init=U(0))
     val result = out(history.clone)
     result := history
   }

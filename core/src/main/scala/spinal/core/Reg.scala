@@ -133,8 +133,8 @@ class Reg (outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) ex
   }
 
 
-  override def isUsingResetSignal: Boolean = clockDomain.config.resetKind != BOOT && initialValue != null
-  override def isUsingSoftResetSignal: Boolean = initialValue != null
+  override def isUsingResetSignal: Boolean = clockDomain.config.resetKind != BOOT && initialValue != null && reset != null
+  override def isUsingSoftResetSignal: Boolean = initialValue != null && softReset != null
   override def getSynchronousInputs: List[Node] = getDataInput :: super.getSynchronousInputs
   override def getResetStyleInputs: List[Node] = getInitialValue :: super.getResetStyleInputs
 
