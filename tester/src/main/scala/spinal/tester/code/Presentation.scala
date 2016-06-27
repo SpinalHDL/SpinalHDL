@@ -1298,7 +1298,7 @@ object SinFir {
     })
 
     def applyFirTo(that : SInt) : SInt = {
-      val firMul = for((coef,value) <- (firCoefs, History(that, firLength-1)).zipped) yield {
+      val firMul = for((coef,value) <- (firCoefs, History(that, firLength)).zipped) yield {
         (coef * value) >> resolutionWidth
       }
       firMul.foldLeft(S(0,resolutionWidth + log2Up(firLength) bits))(_ + _)

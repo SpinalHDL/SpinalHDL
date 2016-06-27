@@ -23,15 +23,6 @@ Getting started
 
 [![Build Status](https://travis-ci.org/SpinalHDL/SpinalHDL.svg?branch=master)](https://travis-ci.org/SpinalHDL/SpinalHDL)
 
-## Basics
-- VHDL backend : The digital hardware description is flushed into a synthesizable VHDL file
-- Base Types : Bool, Bits, UInt, SInt, Enumeration
-- Bundle : That allow you to describe a data structure with the possibility for each element to specify the direction (in,out). That is useful to describe bus
-- Reg : Create a register signal
-- Vec : That allow you to create an array of data
-- Mem : Give the possibility to manipulate memory
-- BlackBox : Allow you to instantiate a third party HDL component
-
 ## SBT
 
 ```scala
@@ -51,6 +42,15 @@ libraryDependencies ++= Seq(
 
 Examples
 ===============
+
+## Basics
+- Base Types : Bool, Bits, UInt, SInt, Enumeration
+- Bundle : That allow you to describe a data structure with the possibility for each element to specify the direction (in,out). That is useful to describe bus
+- Reg : Create a register
+- Vec : That allow you to create an array of data
+- Mem : Give the possibility to instantiate memory
+- BlackBox : Allow you to instantiate a third party HDL component
+
 ## Simple component
 
 ```scala
