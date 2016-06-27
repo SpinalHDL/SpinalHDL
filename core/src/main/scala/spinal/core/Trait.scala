@@ -116,10 +116,10 @@ object SyncNode {
 }
 
 abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends Node {
-  var clock      : Bool = clockDomain.clock
-  var enable     : Bool = clockDomain.clockEnable
-  var reset      : Bool = clockDomain.reset
-  var softReset  : Bool = clockDomain.softReset
+  var clock      : Bool = null
+  var enable     : Bool = null
+  var reset      : Bool = null
+  var softReset  : Bool = null
 
 
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
@@ -187,7 +187,7 @@ abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends 
 
   def isUsingSoftResetSignal : Boolean
   def isUsingResetSignal: Boolean
-  def isUsingEnableSignal: Boolean = enable != null
+  def isUsingEnableSignal: Boolean = clockDomain.clockEnable != null
   def setUseReset = {
     reset = clockDomain.reset
   }
