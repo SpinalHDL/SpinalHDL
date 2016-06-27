@@ -115,6 +115,7 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
 
   /**
     * Rising and falling edge of the scl signal detection
+    *
     * @TODO oversampling the scl signals ???
     */
   val sclSampling = new Area{
@@ -182,11 +183,9 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
 
     import I2CSlaveHALCmdMode._
 
-    val cmd          = RegInit(START)
     val dataReceived = Reg(Bits(g.dataWidth bits)) init(0)
     val wr_sda       = RegInit(True)
-    val wr_clk       = RegInit(True)
-    val waitCMDready = RegInit(False)
+    val wr_scl       = RegInit(True)
     val cmd_valid    = RegInit(False)
     val cmd_mode     = RegInit(CmdMode.STOP)
 
@@ -204,7 +203,6 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
 
     when(io.cmd.ready){
       cmd_valid    := False
-      waitCMDready := False
     }
 
     val sIDLE : State = new State with EntryPoint{
@@ -227,18 +225,26 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
 
     val sWAIT_CMD : State = new State{
       whenIsActive{
-        when(sclSampling.fallingEdge){
-          wr_sda := True
-        }
-        when(io.rsp.valid){
-          switch(io.rsp.mode){
-            is(RspMode.NONE){
-              io.rsp.ready := True
-              goto(sWAIT_BEFORE_WRITE)
+        when(cmd_valid === False){
+          wr_scl := True
+          when(sclSampling.fallingEdge){
+            wr_sda := True
+          }
+          when(io.rsp.valid){
+            switch(io.rsp.mode){
+              bitCounter.reset()
+              is(RspMode.NONE){
+                io.rsp.ready := True
+                goto(sWAIT_BEFORE_WRITE)
+              }
+              is(RspMode.DATA){
+                goto(sREAD)
+              }
             }
-            is(RspMode.DATA){
-              goto(sREAD)
-            }
+          }
+        }otherwise{
+          when(sclSampling.fallingEdge){
+            wr_scl := False
           }
         }
       }
@@ -261,7 +267,6 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
 
         cmd_valid    := True
         cmd_mode     := CmdMode.DATA
-        waitCMDready := True
 
         goto(sWAIT_CMD_AFTER_WRITE)
       }
@@ -273,7 +278,6 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
         io.rsp.ready := True
         cmd_valid    := True
         cmd_mode     := CmdMode.DATA
-        waitCMDready := True
 
         goto(sWAIT_CMD_AFTER_READ)
       }
@@ -281,8 +285,8 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
 
     val sWAIT_CMD_AFTER_WRITE : State = new State{
       whenIsActive{
-        when(waitCMDready === False){
-          wr_clk := True
+        when(cmd_valid === False){
+          wr_scl := True
           when(io.rsp.valid){
             switch(io.rsp.mode){
               is(RspMode.ACK, RspMode.NONE){
@@ -292,7 +296,7 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
           }
         }otherwise{
           when(sclSampling.fallingEdge){
-            wr_clk := False
+            wr_scl := False
           }
         }
       }
@@ -300,10 +304,17 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
 
     val sWAIT_CMD_AFTER_READ : State = new State{
       whenIsActive{
-        when(io.rsp.valid){
-          io.rsp.ready := True
-          when(io.rsp.mode === RspMode.NONE ){
-            goto(sRD_ACK)
+        when(cmd_valid === False){
+          wr_scl := True
+          when(io.rsp.valid){
+            io.rsp.ready := True
+            when(io.rsp.mode === RspMode.NONE ){
+              goto(sRD_ACK)
+            }
+          }
+        }otherwise{
+          when(sclSampling.fallingEdge){
+            wr_scl := False
           }
         }
       }
@@ -332,7 +343,7 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
             cmd_mode  := CmdMode.ACK
           }
 
-          goto(sWAIT_CMD)
+          goto(sWAIT_NONE)
         }
       }
     }
@@ -347,6 +358,22 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
       }
     }
 
+    val sWAIT_NONE : State = new State{
+      whenIsActive{
+        when(cmd_valid === False){
+          wr_scl := True
+          when(io.rsp.valid){
+            io.rsp.ready := True
+            bitCounter.reset()
+            goto(sWAIT_CMD)
+          }
+        }otherwise{
+          when(sclSampling.fallingEdge){
+            wr_scl := False
+          }
+        }
+      }
+    }
   }
 
   /**
@@ -391,7 +418,7 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
 
 
 
-  io.i2c.scl.write := smSlave.wr_clk
+  io.i2c.scl.write := smSlave.wr_scl
   io.i2c.sda.write := smSlave.wr_sda
 
   io.cmd.valid := smSlave.cmd_valid

@@ -49,3 +49,29 @@ class I2CMasterHALCocotbBoot extends SpinalTesterCocotbBase {
                 defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW))
   }
 }
+
+
+class I2CSlaveHALTester extends Component {
+
+  val generic = I2CSlaveHALGenerics()
+
+  val io = new Bundle {
+    val i2c  = slave( I2C() )
+    val cmd  = master  Stream ( I2CSlaveHALCmd(generic) )
+    val rsp  = slave Stream ( I2CSlaveHALRsp(generic) )
+  }
+
+  val mySlave = new I2CSlaveHAL(generic)
+  io <> mySlave.io
+}
+
+
+class I2CSlaveHALCocotbBoot extends SpinalTesterCocotbBase {
+  override def getName: String = "I2CSlaveHALTest"
+  override def pythonTestLocation: String = "tester/src/test/python/spinal/I2CTester/Slave/HAL"
+  override def createToplevel: Component = new I2CSlaveHALTester
+  override def backendConfig(config: SpinalConfig) : SpinalConfig = {
+    config.copy(defaultClockDomainFrequency  = FixedFrequency(50e6),
+      defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW))
+  }
+}
