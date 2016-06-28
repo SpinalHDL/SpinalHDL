@@ -28,7 +28,6 @@ object Reg {
     val regOut = dataType.clone()//.dontSimplifyIt
     for ( e <- regOut.flatten) {
       val reg = newFor(e)
-      reg.compositeTagReady = e
       e.input = reg;
       e.compositeAssign = reg
     }

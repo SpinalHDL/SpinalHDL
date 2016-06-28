@@ -1430,7 +1430,7 @@ object PlayRandBoot{
 
     val titi = out(Reg(UInt(4 bits)))
     titi.randBoot()
-    titi := toto + titi
+    titi := toto + 1
   }
 
   def main(args: Array[String]) {
@@ -1441,9 +1441,9 @@ object PlayRandBoot{
 
 object PlayCCBuffer{
   class TopLevel extends Component {
-    val result = out(RegInit(False)).addTag(crossClockBuffer).addAttribute("Yolo")
-    val add = new Add
-    println(add)
+    val result = out(Reg(UInt(3 bits))).addTag(crossClockBuffer).addAttribute("Yolo").randBoot()
+    result := result + 2
+
   }
 
   def main(args: Array[String]) {

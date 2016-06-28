@@ -310,7 +310,6 @@ trait ScalaLocated extends GlobalDataUser {
 
 trait SpinalTagReady {
   var _spinalTags : mutable.Set[SpinalTag] =  null
-  private[core] var compositeTagReady: SpinalTagReady = null
   def spinalTags : mutable.Set[SpinalTag] = {
     if(_spinalTags == null)
       _spinalTags = new mutable.HashSet[SpinalTag]{
@@ -323,13 +322,22 @@ trait SpinalTagReady {
     spinalTags += spinalTag
     this
   }
+  def addTags(tags: Iterable[SpinalTag]): this.type = {
+    spinalTags ++= tags
+    this
+  }
   def removeTag(spinalTag: SpinalTag): this.type = {
     if(_spinalTags != null)
       _spinalTags -= spinalTag
     this
   }
+
+  def removeTags(tags: Iterable[SpinalTag]): this.type = {
+    if(_spinalTags != null)
+      _spinalTags --= tags
+    this
+  }
   def hasTag(spinalTag: SpinalTag): Boolean = {
-    if (compositeTagReady != null && compositeTagReady.hasTag(spinalTag)) return true
     if(_spinalTags == null) return false
     if (_spinalTags.contains(spinalTag)) return true
     return false
@@ -337,31 +345,27 @@ trait SpinalTagReady {
 
   //Feed it with classOf[?] to avoid intermodule problems
   def getTag[T <: SpinalTag](clazz : Class[T]) : Option[T] = {
-    if (compositeTagReady != null) compositeTagReady.getTag[T](clazz)
     if(_spinalTags == null) return None
     val tag = _spinalTags.find(_.getClass == clazz)
     if(tag.isDefined) return Option(tag.get.asInstanceOf[T])
     None
   }
   def findTag(cond : (SpinalTag) => Boolean) : Option[SpinalTag] = {
-    if (compositeTagReady != null) {
-      val comp = compositeTagReady.findTag(cond)
-      if(comp.isDefined)comp
-    }
     if(_spinalTags == null) return None
     _spinalTags.find(cond)
   }
   def existsTag(cond : (SpinalTag) => Boolean) : Boolean = {
-    if (compositeTagReady != null && compositeTagReady.existsTag(cond)) return true
     if(_spinalTags == null) return false
     _spinalTags.exists(cond)
   }
   def isEmptyOfTag : Boolean = {
-    if (compositeTagReady != null && !compositeTagReady.isEmptyOfTag) return false
     if(_spinalTags == null) return true
     _spinalTags.isEmpty
   }
-
+  def filterTag(cond : (SpinalTag) => Boolean) : Iterable[SpinalTag] = {
+    if(_spinalTags == null) return Nil
+    _spinalTags.filter(cond)
+  }
 
   def addAttribute(attribute: Attribute): this.type
   def addAttribute(name: String): this.type = addAttribute(new AttributeFlag(name))
@@ -373,7 +377,8 @@ trait SpinalTagReady {
       case _ =>
     })
   }
-  def attributes : Iterable[Attribute] = {
+
+  def instanceAttributes : Iterable[Attribute] = {
     if(_spinalTags == null) return Nil
     val array = ArrayBuffer[Attribute]()
     _spinalTags.foreach(e => if(e.isInstanceOf[Attribute])array += e.asInstanceOf[Attribute])
@@ -381,18 +386,29 @@ trait SpinalTagReady {
   }
 }
 
+object SpinalTagReady{
+  def splitNewSink(source : SpinalTagReady,sink : SpinalTagReady) : Unit = {
+    source.instanceAttributes.foreach(e => {
+      if(e.duplicative){
+        sink.addTag(e)
+      }
+    })
+  }
+}
 
 trait SpinalTag {
   def isAssignedTo(that: SpinalTagReady) = that.hasTag(this)
-  def followLogic = false //When true, if Spinal do some binding/move of logic, the tag move aswell
+  def moveToSyncNode = false //When true, Spinal will automaticaly move the tag to the driving syncNode
+  def duplicative = false
+  def driverShouldNotChange = false
 }
 
-object unusedTag extends SpinalTag{override def followLogic = false}
-object crossClockDomain extends SpinalTag{override def followLogic = true}
-object crossClockBuffer extends SpinalTag{override def followLogic = true}
-object randomBoot extends SpinalTag{override def followLogic = true}
-object tagAutoResize extends SpinalTag{override def followLogic = true}
-object tagTruncated extends SpinalTag{override def followLogic = true}
+object unusedTag extends SpinalTag
+object crossClockDomain extends SpinalTag{override def moveToSyncNode = true}
+object crossClockBuffer extends SpinalTag{override def moveToSyncNode = true}
+object randomBoot extends SpinalTag{override def moveToSyncNode = true}
+object tagAutoResize extends SpinalTag{override def duplicative = true}
+object tagTruncated extends SpinalTag{override def duplicative = true}
 
 trait Area extends Nameable with ContextUser{
   override protected def nameChangeEvent(weak: Boolean): Unit = {
@@ -428,13 +444,6 @@ object ImplicitArea{
 abstract class ImplicitArea[T] extends Area {
   def implicitValue: T
 }
-
-//object ImplicitArea2{
-//  implicit def toImplicit[T](area: ImplicitArea2[T]): T = area.implicitValue
-//}
-//abstract class ImplicitArea2[T <: Data](dataType : T) extends Area{
-//  protected val implicitValue = cloneOf(dataType)
-//}
 
 class ClockingArea(clockDomain: ClockDomain) extends Area with DelayedInit {
   clockDomain.push

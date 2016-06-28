@@ -95,7 +95,6 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
     val addressBuffer = UInt(addressWidth bit).dontSimplifyIt()
     addressBuffer := address
     val readPort = new MemReadAsync(this, addressBuffer, readBits, writeToReadKind)
-    readPort.compositeTagReady = readWord
 
     readBits.input = readPort
     readWord.assignFromBits(readBits)
@@ -110,7 +109,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
     val addressBuffer = UInt(addressWidth bit).dontSimplifyIt()
     addressBuffer := address
     val readPort = new MemReadSync(this, address, addressBuffer, readBits, enable.dontSimplifyIt(), writeToReadKind, ClockDomain.current)
-    readPort.compositeTagReady = readWord
+
     if (crossClock)
       readPort.addTag(crossClockDomain)
 
@@ -162,7 +161,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
     val readBits = Bits(wordType.getBitsWidth bit)
     val readWord = wordType.clone()
     val readPort = new MemWriteOrRead_readPart(this, addressBuffer, readBits, chipSelect, writeEnable, writeToReadKind, ClockDomain.current)
-    readPort.compositeTagReady = readWord
+
     readBits.input = readPort
     readWord.assignFromBits(readBits)
     if (crossClock)

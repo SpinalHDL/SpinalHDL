@@ -167,6 +167,38 @@ class PhaseFillComponentList(pc: PhaseContext) extends Phase{
 
 
 
+class PhaseNodesBlackBoxGenerics(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+    val nodeStack = mutable.Stack[Node]()
+    pc.components.foreach(_ match {
+      case blackBox: BlackBox => {
+        blackBox.getGeneric.flatten.foreach(_ match {
+          case bt: BaseType => nodeStack.push(bt)
+          case _ =>
+        })
+      }
+      case _ =>
+    })
+  }
+}
+
+class PhaseMoveLogicTags(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+    import pc._
+    Node.walk(pc.walkNodesDefautStack,_ match{
+        case node : BaseType => {
+          if(node.input.isInstanceOf[SyncNode]){
+            val moves = node.filterTag(_.moveToSyncNode)
+            node.removeTags(moves)
+            node.input.addTags(moves)
+          }
+        }
+        case _ =>
+    })
+  }
+}
+
+
 class PhaseApplyIoDefault(pc: PhaseContext) extends Phase{
   override def impl(): Unit = {
     import pc._
@@ -201,21 +233,6 @@ class PhaseApplyIoDefault(pc: PhaseContext) extends Phase{
         case _ =>
       }
 
-    })
-  }
-}
-
-class PhaseNodesBlackBoxGenerics(pc: PhaseContext) extends Phase{
-  override def impl(): Unit = {
-    val nodeStack = mutable.Stack[Node]()
-    pc.components.foreach(_ match {
-      case blackBox: BlackBox => {
-        blackBox.getGeneric.flatten.foreach(_ match {
-          case bt: BaseType => nodeStack.push(bt)
-          case _ =>
-        })
-      }
-      case _ =>
     })
   }
 }
@@ -577,10 +594,6 @@ class PhaseAddInOutBinding(pc: PhaseContext) extends Phase{
                 bind.component = into
                 bind.input = nodeInput
                 bind.dontCareAboutNameForSymplify = true
-                if (nodeInput.hasTag(randomBoot)){
-                  nodeInput.removeTag(randomBoot)
-                  bind.addTag(randomBoot)
-                }
                 bind
               })
 
@@ -633,6 +646,7 @@ class PhaseAllowNodesToReadOutputs(pc: PhaseContext) extends Phase{
                 buffer.input = baseTypeInput.input
                 baseTypeInput.input = buffer
                 buffer.component = baseTypeInput.component
+                SpinalTagReady.splitNewSink(source=baseTypeInput,sink=buffer)
                 buffer
               })
               node.setInput(i,buffer)
@@ -1381,6 +1395,7 @@ object SpinalVhdlBoot{
     phases += new PhaseDummy(SpinalProgress("Start analysis and transform"))
     phases += new PhaseFillComponentList(pc)
     phases += new PhaseApplyIoDefault(pc)
+    phases += new PhaseMoveLogicTags(pc)
     phases += new PhaseNodesBlackBoxGenerics(pc)
     phases += new PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc)
 
@@ -1532,6 +1547,7 @@ object SpinalVerilogBoot{
     phases += new PhaseDummy(SpinalProgress("Start analysis and transform"))
     phases += new PhaseFillComponentList(pc)
     phases += new PhaseApplyIoDefault(pc)
+    phases += new PhaseMoveLogicTags(pc)
     phases += new PhaseNodesBlackBoxGenerics(pc)
     phases += new PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc)
 

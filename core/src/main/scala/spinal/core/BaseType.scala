@@ -238,7 +238,12 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
   override def flattenLocalName: Seq[String] = Seq("")
 
   override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
-
+  def instanceAndSyncNodeAttributes : Iterable[Attribute] = {
+    if(input.isInstanceOf[SyncNode])
+      return input.instanceAttributes ++ this.instanceAttributes
+    else
+      this.instanceAttributes
+  }
 
 
   override def clone: this.type = {

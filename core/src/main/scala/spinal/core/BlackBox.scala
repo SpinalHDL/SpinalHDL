@@ -54,7 +54,7 @@ class Generic {
   }
 }
 
-object uLogic extends SpinalTag{override def followLogic = false}
+object uLogic extends SpinalTag{override def moveToSyncNode = false}
 
 
 abstract class BlackBox extends Component with SpinalTagReady {

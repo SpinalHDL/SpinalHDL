@@ -82,7 +82,8 @@ class SpinalReport[T <: Component](val toplevel: T) {
 }
 
 //TODO add version number into logs
-//TODO remove emulation of (x downto y -> m, default -> z) syntaxes
+//TODO remove non deterministic emition order on backends
+//TODO SpinalTag move with logic
 object Spinal{
   def apply[T <: Component](config : SpinalConfig)(gen : => T) : SpinalReport[T]  = {
     val runtime = Runtime.getRuntime
