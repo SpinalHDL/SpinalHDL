@@ -385,7 +385,7 @@ def monitor_rsp_ready(dut, event):
 
 ###############################################################################
 # Test a sequence of write
-@cocotb.test()
+#@cocotb.test()
 def slave_hal_test_write(dut):
 
     dut.log.info("Cocotb I2C Slave HAL - write Test ")
@@ -442,7 +442,7 @@ def slave_hal_test_read(dut):
 
 ###############################################################################
 # Test a sequence of read
-#@cocotb.test()
+@cocotb.test()
 def slave_hal_test_WriteRead(dut):
 
     dut.log.info("Cocotb I2C Slave HAL - read Test ")

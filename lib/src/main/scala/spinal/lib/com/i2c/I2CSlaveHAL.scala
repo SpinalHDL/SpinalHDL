@@ -1,5 +1,9 @@
 /******************************************************************************
   * I2C Slave HAL
+  *          ________                       _______
+  *         |        |<------- I2C ------->|       |
+  *         | Master |                     | Slave |
+  *         |________|      RSP Stream --->|_______|---> CMD Stream
   *
   * Write sequence :
   *
@@ -18,12 +22,11 @@
   *
   * Restart sequence :
   *
-  *   CMD    :
+  *   RSP    :           DATA   NONE   NONE    NONE    ACK          NONE
   *   Master :   | START |      | NACK | START | DATA  |     | STOP |
   *   Slave  :   |       | DATA |      |       |       | ACK |      |
-  *   RSP    :
+  *   CMD    :       START   DATA   NACK    START   DATA         STOP
   */
-
 package spinal.lib.com.i2c
 
 import spinal.core._
@@ -31,16 +34,17 @@ import spinal.lib._
 import spinal.lib.fsm._
 
 
+// @TODO oversampling the input's signal...
+
 /**
   * Global configuration of the I2C Slave
   *
   * @param dataWidth    : Width of the data send/read
   */
-case class I2CSlaveHALGenerics(dataWidth  : Int =  8){}
+case class I2CSlaveHALGenerics(dataWidth  : Int = 8){}
 
 
 /**
-  * 5 different modes
   *    START : START sequence detected
   *    NACK  : NACK received
   *    ACK   : ACK received
@@ -49,7 +53,6 @@ case class I2CSlaveHALGenerics(dataWidth  : Int =  8){}
   */
 object I2CSlaveHALCmdMode extends SpinalEnum{
   val START, NACK, ACK, STOP, DATA = newElement()
-
 }
 
 
@@ -63,14 +66,13 @@ case class I2CSlaveHALCmd(g : I2CSlaveHALGenerics) extends Bundle{
 
 
 /**
-  * 3 different modes
   *    DATA  : Send a data to the master
   *    NONE  : NO operation / NACK
   *    ACK   : ACK
-  *   (FREEZE) is done with the stream
+  *   (FREEZE) is done with the response stream. If no ready is received the bus if frozen
   */
 object I2CSlaveHALRspMode extends SpinalEnum{
-  val DATA, NONE, ACK = newElement() // @TODO FREEZE is done with stream...
+  val DATA, NONE, ACK = newElement()
 }
 
 
@@ -82,6 +84,7 @@ case class I2CSlaveHALRsp(g : I2CSlaveHALGenerics) extends Bundle{
   val data  = Bits(g.dataWidth bits)
 }
 
+
 /**
   * Interface I2C Slave HAL
   */
@@ -92,7 +95,6 @@ case class I2CSlaveHALio(g : I2CSlaveHALGenerics) extends Bundle{
 }
 
 
-
 /**
   * Definition of the component I2C Slave HAL
   */
@@ -100,6 +102,7 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
 
   import spinal.lib.com.i2c.{I2CSlaveHALRspMode => RspMode}
   import spinal.lib.com.i2c.{I2CSlaveHALCmdMode => CmdMode}
+
 
   val io = I2CSlaveHALio(g)
 
@@ -115,8 +118,6 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
 
   /**
     * Rising and falling edge of the scl signal detection
-    *
-    * @TODO oversampling the scl signals ???
     */
   val sclSampling = new Area{
 
@@ -161,14 +162,14 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
 
 
   /**
-    * Index counter (MSB is send first )
+    * For counting the number of bit send/received (MSB is send first )
     */
   val bitCounter = new Area {
 
     val index = Reg(UInt(log2Up(g.dataWidth) bits)) init(g.dataWidth-1)
 
-    def reset() = index := g.dataWidth-1
-    def isOver : Bool = index === 0
+    def reset()  : Unit = index := g.dataWidth-1
+    def isDone() : Bool = index === 0
 
     when(sclSampling.risingEdge) {
       index := index - 1
@@ -181,8 +182,6 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
     */
   val smSlave = new StateMachine{
 
-    import I2CSlaveHALCmdMode._
-
     val dataReceived = Reg(Bits(g.dataWidth bits)) init(0)
     val wr_sda       = RegInit(True)
     val wr_scl       = RegInit(True)
@@ -190,27 +189,23 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
     val cmd_mode     = RegInit(CmdMode.STOP)
 
     // default value
-    io.cmd.valid := False
-    io.cmd.data  := 0
-    io.cmd.mode  := CmdMode.STOP
     io.rsp.ready := False
+
+    when(io.cmd.ready){
+      cmd_valid  := False
+    }
 
     always{
       when(detector.stop)  { goto(sSTOP)  }
       when(detector.start) { goto(sSTART) }
     }
 
-
-    when(io.cmd.ready){
-      cmd_valid    := False
-    }
-
     val sIDLE : State = new State with EntryPoint{
+      // no goto.. wait for a start signal...
       whenIsActive{
         when(io.rsp.valid){
           io.rsp.ready := True
         }
-        // no goto.. wait for a start signal...
       }
     }
 
@@ -225,26 +220,25 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
 
     val sWAIT_CMD : State = new State{
       whenIsActive{
-        when(cmd_valid === False){
-          wr_scl := True
+        freezeBusIfNeededOrDoThat{
           when(sclSampling.fallingEdge){
             wr_sda := True
           }
           when(io.rsp.valid){
             switch(io.rsp.mode){
-              bitCounter.reset()
               is(RspMode.NONE){
                 io.rsp.ready := True
                 goto(sWAIT_BEFORE_WRITE)
               }
               is(RspMode.DATA){
+                bitCounter.reset()
                 goto(sREAD)
               }
+              default{
+                io.rsp.ready := True
+                goto(sIDLE)
+              }
             }
-          }
-        }otherwise{
-          when(sclSampling.fallingEdge){
-            wr_scl := False
           }
         }
       }
@@ -257,14 +251,11 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
           bitCounter.reset()
           goto(sWRITE)
         }
-
       }
     }
 
-
     val sWRITE = new StateFsm(fsm=readSM(io.i2c.sda.read, dataReceived)){
       whenCompleted{
-
         cmd_valid    := True
         cmd_mode     := CmdMode.DATA
 
@@ -274,7 +265,6 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
 
     val sREAD = new StateParallelFsm (writeSM(wr_sda,io.rsp.data), readSM(ccIO.rd_sda, dataReceived)){
       whenCompleted{
-
         io.rsp.ready := True
         cmd_valid    := True
         cmd_mode     := CmdMode.DATA
@@ -285,18 +275,17 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
 
     val sWAIT_CMD_AFTER_WRITE : State = new State{
       whenIsActive{
-        when(cmd_valid === False){
-          wr_scl := True
+        freezeBusIfNeededOrDoThat{
           when(io.rsp.valid){
             switch(io.rsp.mode){
               is(RspMode.ACK, RspMode.NONE){
                 goto(sWR_ACK)
               }
+              default{
+                io.rsp.ready := True
+                goto(sIDLE)
+              }
             }
-          }
-        }otherwise{
-          when(sclSampling.fallingEdge){
-            wr_scl := False
           }
         }
       }
@@ -304,17 +293,15 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
 
     val sWAIT_CMD_AFTER_READ : State = new State{
       whenIsActive{
-        when(cmd_valid === False){
-          wr_scl := True
+        freezeBusIfNeededOrDoThat{
           when(io.rsp.valid){
             io.rsp.ready := True
             when(io.rsp.mode === RspMode.NONE ){
               goto(sRD_ACK)
+            }otherwise{
+              io.rsp.ready := True
+              goto(sIDLE)
             }
-          }
-        }otherwise{
-          when(sclSampling.fallingEdge){
-            wr_scl := False
           }
         }
       }
@@ -336,21 +323,15 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
       whenIsActive{
         when(sclSampling.risingEdge){
           cmd_valid := True
+          cmd_mode  := ccIO.rd_sda ? CmdMode.NACK | CmdMode.ACK
 
-          when(ccIO.rd_sda){
-            cmd_mode  := CmdMode.NACK
-          }otherwise{
-            cmd_mode  := CmdMode.ACK
-          }
-
-          goto(sWAIT_NONE)
+          goto(sWAIT_NONE_AFTER_RD_ACK)
         }
       }
     }
 
     val sSTOP : State = new State{
       whenIsActive{
-
         cmd_valid := True
         cmd_mode  := CmdMode.STOP
 
@@ -358,23 +339,39 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
       }
     }
 
-    val sWAIT_NONE : State = new State{
+    val sWAIT_NONE_AFTER_RD_ACK : State = new State{
       whenIsActive{
-        when(cmd_valid === False){
-          wr_scl := True
+        freezeBusIfNeededOrDoThat{
           when(io.rsp.valid){
             io.rsp.ready := True
-            bitCounter.reset()
-            goto(sWAIT_CMD)
-          }
-        }otherwise{
-          when(sclSampling.fallingEdge){
-            wr_scl := False
+            when(io.rsp.mode === RspMode.NONE){
+              goto(sWAIT_CMD)
+            }otherwise{
+              goto(sIDLE)
+            }
           }
         }
       }
     }
+
+    /**
+      * Used to freeze the bus if no cmd ready is received on time
+      */
+    def freezeBusIfNeededOrDoThat(doThat : => Unit) : Unit ={
+      when(cmd_valid === False){
+        wr_scl := True
+
+        doThat
+
+      }otherwise{
+        when(sclSampling.fallingEdge){
+          wr_scl := False
+        }
+      }
+    }
+
   }
+
 
   /**
     * Write a data on the I2C
@@ -383,14 +380,11 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
     * @param data2Send : Data that will be sent on the I2C
     */
   def writeSM(wr_sda : Bool, data2Send:Bits) = new StateMachine {
-
     val sWRITE: State = new State with EntryPoint {
       whenIsActive{
         when(sclSampling.fallingEdge){
           wr_sda := data2Send(bitCounter.index)
-          when(bitCounter.isOver){
-            exit()
-          }
+          when(bitCounter.isDone()){ exit() }
         }
       }
     }
@@ -408,14 +402,11 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
       whenIsActive{
         when(sclSampling.risingEdge){
           dataReceived(bitCounter.index) := sda
-          when(bitCounter.isOver){
-            exit()
-          }
+          when(bitCounter.isDone()){ exit() }
         }
       }
     }
   }
-
 
 
   io.i2c.scl.write := smSlave.wr_scl
@@ -424,6 +415,4 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
   io.cmd.valid := smSlave.cmd_valid
   io.cmd.data  := smSlave.dataReceived
   io.cmd.mode  := smSlave.cmd_mode
-
-
 }
