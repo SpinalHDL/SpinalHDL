@@ -7,14 +7,14 @@ import language.postfixOps
 
 object ClockDomainConfigTester {
   class ClockDomainConfigTester() extends Component {
-    val clk,reset,softReset,enable    = in Bool
-    val clkn,resetn,softResetn,enablen = in Bool
+    val clk,syncReset,asyncReset,softReset,enable    = in Bool
+    val clkn,syncResetn,asyncResetn,softResetn,enablen = in Bool
 
     class TestArea(cd : ClockDomain,withInit : Boolean = true) extends ClockingArea(cd){
       val regWithoutReset = out(Reg(UInt(8 bits)) randBoot())
       regWithoutReset := regWithoutReset + 1
       val regWithReset = if(withInit) {
-        val reg = out(Reg(UInt(8 bits)) init(0))
+        val reg = out(Reg(UInt(8 bits)) init(42) randBoot())
         reg := reg + 1
         reg
       } else null
@@ -56,7 +56,7 @@ object ClockDomainConfigTester {
 
     val test_async_reset = new TestArea(ClockDomain(
       clock = clk,
-      reset = reset,
+      reset = asyncReset,
       config = ClockDomainConfig(
         clockEdge = RISING,
         resetKind = ASYNC,
@@ -68,7 +68,7 @@ object ClockDomainConfigTester {
 
     val test_async_resetn = new TestArea(ClockDomain(
       clock = clk,
-      reset = resetn,
+      reset = asyncResetn,
       config = ClockDomainConfig(
         clockEdge = RISING,
         resetKind = ASYNC,
@@ -80,7 +80,7 @@ object ClockDomainConfigTester {
 
     val test_sync_reset = new TestArea(ClockDomain(
       clock = clk,
-      reset = reset,
+      reset = syncReset,
       config = ClockDomainConfig(
         clockEdge = RISING,
         resetKind = SYNC,
@@ -92,7 +92,7 @@ object ClockDomainConfigTester {
 
     val test_sync_resetn = new TestArea(ClockDomain(
       clock = clk,
-      reset = resetn,
+      reset = syncResetn,
       config = ClockDomainConfig(
         clockEdge = RISING,
         resetKind = SYNC,
@@ -116,7 +116,7 @@ object ClockDomainConfigTester {
 
     val test_enablen = new TestArea(ClockDomain(
       clock = clk,
-      clockEnable = enable,
+      clockEnable = enablen,
       config = ClockDomainConfig(
         clockEdge = RISING,
         resetKind = ASYNC,
@@ -128,7 +128,7 @@ object ClockDomainConfigTester {
 
     val test_sync_reset_enable = new TestArea(ClockDomain(
       clock = clk,
-      reset = reset,
+      reset = syncReset,
       clockEnable = enable,
       config = ClockDomainConfig(
         clockEdge = RISING,
@@ -137,7 +137,7 @@ object ClockDomainConfigTester {
         softResetActiveLevel = HIGH,
         clockEnableActiveLevel= HIGH
       )
-    ),false)
+    ))
 
     val test_softReset = new TestArea(ClockDomain(
       clock = clk,
@@ -165,7 +165,7 @@ object ClockDomainConfigTester {
 
     val test_async_reset_softReset = new TestArea(ClockDomain(
       clock = clk,
-      reset = reset,
+      reset = asyncReset,
       softReset = softReset,
       config = ClockDomainConfig(
         clockEdge = RISING,
@@ -178,7 +178,7 @@ object ClockDomainConfigTester {
 
     val test_sync_reset_softReset = new TestArea(ClockDomain(
       clock = clk,
-      reset = reset,
+      reset = syncReset,
       softReset = softReset,
       config = ClockDomainConfig(
         clockEdge = RISING,
@@ -196,8 +196,8 @@ object ClockDomainConfigTester {
 }
 
 
-//class ClockDomainConfigTesterCocotbBoot extends SpinalTesterCocotbBase {
-//  override def getName: String = "ClockDomainConfigTester"
-//  override def pythonTestLocation: String = "tester/src/test/python/spinal/ClockDomainConfigTester"
-//  override def createToplevel: Component = new ClockDomainConfigTester()
-//}
+class ClockDomainConfigTesterCocotbBoot extends SpinalTesterCocotbBase {
+  override def getName: String = "ClockDomainConfigTester"
+  override def pythonTestLocation: String = "tester/src/test/python/spinal/ClockDomainConfigTester"
+  override def createToplevel: Component = new ClockDomainConfigTester()
+}
