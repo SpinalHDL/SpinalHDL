@@ -69,19 +69,6 @@ def ClockDomainAsyncReset(clk,reset):
         yield Timer(500)
 
 
-@cocotb.coroutine
-def ClockDomainInAsynResetn(clk,resetn):
-    if resetn:
-        resetn <= 0
-    clk <= 0
-    yield Timer(1000)
-    if resetn:
-        resetn <= 1
-    while True:
-        clk <= 0
-        yield Timer(500)
-        clk <= 1
-        yield Timer(500)
 
 import time;
 @cocotb.coroutine

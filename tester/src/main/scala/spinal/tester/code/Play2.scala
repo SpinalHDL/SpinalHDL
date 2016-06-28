@@ -1122,12 +1122,40 @@ object PlayI2CMasterHAL {
   def main(args: Array[String]) {
     SpinalConfig(
       mode = Verilog,
-      dumpWave = DumpWaveConfig(depth = 1),
+      dumpWave = DumpWaveConfig(depth = 0),
       defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
       defaultClockDomainFrequency = FixedFrequency(50e6)
     ).generate(new I2CMasterHALTester).printPruned
   }
 }
+
+
+object PlayI2CSlaveHAL {
+
+  class I2CSlaveHALTester extends Component {
+
+    val generic = I2CSlaveHALGenerics()
+
+    val io = new Bundle {
+      val i2c  = slave( I2C() )
+      val cmd  = master  Stream ( I2CSlaveHALCmd(generic) )
+      val rsp  = slave Stream ( I2CSlaveHALRsp(generic) )
+    }
+
+    val mySlave = new I2CSlaveHAL(generic)
+    io <> mySlave.io
+  }
+
+  def main(args: Array[String]) {
+    SpinalConfig(
+      mode = Verilog,
+      dumpWave = DumpWaveConfig(depth = 0),
+      defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
+      defaultClockDomainFrequency  = FixedFrequency(50e6)
+    ).generate(new I2CSlaveHALTester).printPruned
+  }
+}
+
 
 object PlayEnumName {
 

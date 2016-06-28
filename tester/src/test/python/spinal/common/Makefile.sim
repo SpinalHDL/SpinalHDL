@@ -6,4 +6,4 @@ include $(COCOTB)/makefiles/Makefile.inc
 include $(COCOTB)/makefiles/Makefile.sim
 
 
-$(info *** Base path :  ${COMMON_PATH} )
+#$(info *** Base path :  ${COMMON_PATH} )
