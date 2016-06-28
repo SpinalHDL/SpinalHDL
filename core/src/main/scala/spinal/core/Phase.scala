@@ -577,6 +577,10 @@ class PhaseAddInOutBinding(pc: PhaseContext) extends Phase{
                 bind.component = into
                 bind.input = nodeInput
                 bind.dontCareAboutNameForSymplify = true
+                if (nodeInput.hasTag(randomBoot)){
+                  nodeInput.removeTag(randomBoot)
+                  bind.addTag(randomBoot)
+                }
                 bind
               })
 
@@ -841,7 +845,7 @@ class PhasePropagateBaseTypeWidth(pc: PhaseContext) extends Phase{
               // case lit : BitsAllToLiteral => lit.inferredWidth = width
               case bitVector : BitVector  => {
                 if(bitVector.getWidth < width  && ! bitVector.isReg) {
-                  val default = bitVector.spinalTags.find(_.isInstanceOf[TagDefault]).getOrElse(null).asInstanceOf[TagDefault]
+                  val default = bitVector.findTag(_.isInstanceOf[TagDefault]).getOrElse(null).asInstanceOf[TagDefault]
 
                   if (default != null) {
                     val addedBitCount = width - bitVector.getWidth
@@ -1048,6 +1052,25 @@ class PhaseCheckCrossClockDomains(pc: PhaseContext) extends Phase{
 
     if (!errors.isEmpty)
       SpinalError(errors)
+  }
+}
+
+
+class PhaseCheckMisc(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+    import pc._
+    Node.walk(walkNodesDefautStack,node => {
+      node match {
+        case baseType: BaseType => {
+          if(baseType.hasTag(randomBoot)){
+            if(!baseType.isReg){
+              pc.globalData.pendingErrors += (() => s"$baseType has the randBoot tag set but is not a register\n ${baseType.getScalaLocationLong}")
+            }
+          }
+        }
+        case _ =>
+      }
+    })
   }
 }
 
@@ -1388,6 +1411,7 @@ object SpinalVhdlBoot{
     phases += new PhaseCheckCombinationalLoops(pc)
     phases += new PhaseDummy(SpinalProgress("Check cross clock domains"))
     phases += new PhaseCheckCrossClockDomains(pc)
+    phases += new PhaseCheckMisc(pc)
 
     phases += new PhaseDummy(SpinalProgress("Simplify graph's nodes"))
     phases += new PhaseFillNodesConsumers(pc)
@@ -1538,6 +1562,7 @@ object SpinalVerilogBoot{
     phases += new PhaseCheckCombinationalLoops(pc)
     phases += new PhaseDummy(SpinalProgress("Check cross clock domains"))
     phases += new PhaseCheckCrossClockDomains(pc)
+    phases += new PhaseCheckMisc(pc)
 
     phases += new PhaseDummy(SpinalProgress("Simplify graph's nodes"))
     phases += new PhaseFillNodesConsumers(pc)

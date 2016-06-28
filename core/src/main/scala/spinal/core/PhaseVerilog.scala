@@ -22,7 +22,7 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
   override def impl(): Unit = {
     import pc._
     SpinalProgress("Write Verilog")
-    
+
     outFile = new java.io.FileWriter(pc.config.targetDirectory + "/" +  topLevel.definitionName + ".v")
     emitEnumPackage(outFile)
 
@@ -83,7 +83,7 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
     ret = builder.newPart(true)
     ret ++= s"(\n"
     component.getOrdredNodeIo.foreach(baseType => {
-      ret ++= s"  ${emitDirection(baseType)} ${if(signalNeedProcess(baseType)) "reg " else ""}${emitDataType(baseType)} ${baseType.getName()},\n"
+      ret ++= s"  ${emitAttributes(baseType)}${emitDirection(baseType)} ${if(signalNeedProcess(baseType)) "reg " else ""}${emitDataType(baseType)} ${baseType.getName()}${getSignalInitialisation(baseType)},\n"
     })
 
     ret.setCharAt(ret.size - 2, ' ')
@@ -177,36 +177,37 @@ end
     }
   }
 
+  def getSignalInitialisation(signal : BaseType) : String = {
+    val reg = if(signal.isReg) signal.input.asInstanceOf[Reg] else null
+    if(reg != null && reg.initialValue != null && reg.getClockDomain.config.resetKind == BOOT) {
+      " = " + (reg.initialValue match {
+        case init : BaseType => emitLogic(init.getLiteral)
+        case init =>  emitLogic(init)
+      })
+    }else if (signal.hasTag(randomBoot)) {
+      signal match {
+        case b: Bool => " = " + (if (Random.nextBoolean()) "1" else "0")
+
+        case bv: BitVector => {
+          val rand = BigInt(bv.getWidth, Random).toString(2)
+          " = " + bv.getWidth + "'b" + "0" * (bv.getWidth - rand.length) + rand
+        }
+        case e: SpinalEnumCraft[_] => {
+          val vec = e.blueprint.values.toVector
+          val rand = vec(Random.nextInt(vec.size))
+          " = " + emitEnumLiteral(rand, e.getEncoding)
+        }
+      }
+    } else ""
+  }
+
   def emitSignals(component: Component, ret: StringBuilder, enumDebugSignals: ArrayBuffer[SpinalEnumCraft[_]]): Unit = {
     var verilogIndexGenerated = false
     for (node <- component.nodes) {
       node match {
         case signal: BaseType => {
           if (!signal.isIo) {
-            ret ++= s"  ${emitAttributes(signal)}${if(signalNeedProcess(signal)) "reg " else "wire "}${emitDataType(signal)} ${emitReference(signal)}"
-            val reg = if(signal.isReg) signal.input.asInstanceOf[Reg] else null
-            if(reg != null && reg.initialValue != null && reg.getClockDomain.config.resetKind == BOOT) {
-              ret ++= " = " + (reg.initialValue match {
-                case init : BaseType => emitLogic(init.getLiteral)
-                case init =>  emitLogic(init)
-              })
-            }else if (signal.hasTag(randomBoot)) {
-              signal match {
-                case b: Bool => ret ++= " = " + {
-                  if (Random.nextBoolean()) "1" else "0"
-                }
-                case bv: BitVector => {
-                  val rand = BigInt(bv.getWidth, Random).toString(2)
-                  ret ++= " := " + bv.getWidth + "’b" + "0" * (bv.getWidth - rand.length) + rand
-                }
-                case e: SpinalEnumCraft[_] => {
-                  val vec = e.blueprint.values.toVector
-                  val rand = vec(Random.nextInt(vec.size))
-                  ret ++= " = " + emitEnumLiteral(rand, e.getEncoding)
-                }
-              }
-            }
-            ret ++= ";\n"
+            ret ++= s"  ${emitAttributes(signal)}${if(signalNeedProcess(signal)) "reg " else "wire "}${emitDataType(signal)} ${emitReference(signal)}${getSignalInitialisation(signal)};\n"
           }
         }
 

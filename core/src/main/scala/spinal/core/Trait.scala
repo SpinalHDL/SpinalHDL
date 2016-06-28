@@ -309,39 +309,73 @@ trait ScalaLocated extends GlobalDataUser {
 
 
 trait SpinalTagReady {
-  private[core] val spinalTags = mutable.Set[SpinalTag]()
+  var _spinalTags : mutable.Set[SpinalTag] =  mutable.Set[SpinalTag]()
   private[core] var compositeTagReady: SpinalTagReady = null
+  def spinalTags : mutable.Set[SpinalTag] = {
+    if(_spinalTags == null)
+      _spinalTags = new mutable.HashSet[SpinalTag]{
+        override def initialSize: Int = 4
+      }
+    _spinalTags
+  }
 
   def addTag(spinalTag: SpinalTag): this.type = {
     spinalTags += spinalTag
     this
   }
-
+  def removeTag(spinalTag: SpinalTag): this.type = {
+    if(_spinalTags != null)
+      _spinalTags -= spinalTag
+    this
+  }
   def hasTag(spinalTag: SpinalTag): Boolean = {
-    if (spinalTags.contains(spinalTag)) return true
     if (compositeTagReady != null && compositeTagReady.hasTag(spinalTag)) return true
+    if(_spinalTags == null) return false
+    if (_spinalTags.contains(spinalTag)) return true
     return false
   }
 
   //Feed it with classOf[?] to avoid intermodule problems
   def getTag[T <: SpinalTag](clazz : Class[T]) : Option[T] = {
-    val tag = spinalTags.find(_.getClass == clazz)
-    if(tag.isDefined) return Option(tag.get.asInstanceOf[T])
     if (compositeTagReady != null) compositeTagReady.getTag[T](clazz)
+    if(_spinalTags == null) return None
+    val tag = _spinalTags.find(_.getClass == clazz)
+    if(tag.isDefined) return Option(tag.get.asInstanceOf[T])
     None
   }
+  def findTag(cond : (SpinalTag) => Boolean) : Option[SpinalTag] = {
+    if (compositeTagReady != null) {
+      val comp = compositeTagReady.findTag(cond)
+      if(comp.isDefined)comp
+    }
+    if(_spinalTags == null) return None
+    _spinalTags.find(cond)
+  }
+  def existsTag(cond : (SpinalTag) => Boolean) : Boolean = {
+    if (compositeTagReady != null && compositeTagReady.existsTag(cond)) return true
+    if(_spinalTags == null) return false
+    _spinalTags.exists(cond)
+  }
+  def isEmptyOfTag : Boolean = {
+    if (compositeTagReady != null && !compositeTagReady.isEmptyOfTag) return false
+    if(_spinalTags == null) return true
+    _spinalTags.isEmpty
+  }
+
 }
+
 
 trait SpinalTag {
   def isAssignedTo(that: SpinalTagReady) = that.hasTag(this)
+  def followLogic = false //When true, if Spinal do some binding/move of logic, the tag move aswell
 }
 
-object unusedTag extends SpinalTag
-object crossClockDomain extends SpinalTag
-object crossClockBuffer extends SpinalTag
-object randomBoot extends SpinalTag
-object tagAutoResize extends SpinalTag
-object tagTruncated extends SpinalTag
+object unusedTag extends SpinalTag{override def followLogic = false}
+object crossClockDomain extends SpinalTag{override def followLogic = true}
+object crossClockBuffer extends SpinalTag{override def followLogic = true}
+object randomBoot extends SpinalTag{override def followLogic = true}
+object tagAutoResize extends SpinalTag{override def followLogic = true}
+object tagTruncated extends SpinalTag{override def followLogic = true}
 
 trait Area extends Nameable with ContextUser{
   override protected def nameChangeEvent(weak: Boolean): Unit = {

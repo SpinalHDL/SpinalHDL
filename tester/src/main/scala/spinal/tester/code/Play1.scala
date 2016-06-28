@@ -1723,15 +1723,18 @@ object OverloadPlay2 {
       // Console.in.read
       println(report.toplevel)
       var entries = 0
+      var spinalTagSet = 0
 
       val c = ArrayBuffer().getClass()
       val f = c.getDeclaredField("array")
       f.setAccessible(true)
       Node.walk(report.toplevel.getAllIo.toSeq, node => {
         entries += node.getInputs.size
+        if(node._spinalTags != null) spinalTagSet += 1
       })
 
       println(entries)
+      println(spinalTagSet)
       while(true){
         Thread.sleep(1000)
         println(report.toplevel )

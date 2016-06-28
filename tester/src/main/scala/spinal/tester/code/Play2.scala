@@ -1420,3 +1420,31 @@ object PlayHistory {
     SpinalVerilog(new TopLevel)
   }
 }
+
+
+object PlayRandBoot{
+  class TopLevel extends Component {
+    val toto = Reg(UInt(4 bits)) randBoot() dontSimplifyIt()
+    toto := 3
+
+    val titi = out(Reg(UInt(4 bits)))
+    titi.randBoot()
+    titi := toto + titi
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+    SpinalVerilog(new TopLevel)
+  }
+}
+
+object PlayCCBuffer{
+  class TopLevel extends Component {
+    val result = out(RegInit(False)).addTag(crossClockBuffer)
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+    SpinalVerilog(new TopLevel)
+  }
+}

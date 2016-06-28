@@ -578,15 +578,14 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
     ret ++= s"  port(\n"
     if (!(config.onlyStdLogicVectorAtTopLevelIo && component == topLevel)) {
       component.getOrdredNodeIo.foreach(baseType =>
-        ret ++= s"    ${baseType.getName()} : ${emitDirection(baseType)} ${emitDataType(baseType)};\n"
+        ret ++= s"    ${baseType.getName()} : ${emitDirection(baseType)} ${emitDataType(baseType)}${getSignalInitialisation(baseType)};\n"
       )
     } else {
       component.getOrdredNodeIo.foreach(baseType => {
         val originalType = emitDataType(baseType)
         val correctedType = originalType.replace("unsigned", "std_logic_vector").replace("signed", "std_logic_vector")
         ret ++= s"    ${baseType.getName()} : ${emitDirection(baseType)} ${correctedType};\n"
-      }
-      )
+      })
     }
     /*component.getOrdredNodeIo.foreach(baseType =>
       ret ++= s"    ${baseType.getName()} : ${emitDirection(baseType)} ${emitDataType(baseType)};\n"
@@ -724,35 +723,38 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
 
   def toSpinalEnumCraft[T <: SpinalEnum](that: Any) = that.asInstanceOf[SpinalEnumCraft[T]]
 
+  def getSignalInitialisation(signal : BaseType) : String = {
+    val reg = if(signal.isReg) signal.input.asInstanceOf[Reg] else null
+    if(reg != null && reg.initialValue != null && reg.getClockDomain.config.resetKind == BOOT) {
+      " := " + (reg.initialValue match {
+        case init : BaseType => emitLogic(init.getLiteral)
+        case init =>  emitLogic(init)
+      })
+    }else if (signal.hasTag(randomBoot)) {
+      signal match {
+        case b: Bool => " := " + {
+          if (Random.nextBoolean()) "'1'" else "'0'"
+        }
+        case bv: BitVector => {
+          val rand = BigInt(bv.getWidth, Random).toString(2)
+          " := \"" + "0" * (bv.getWidth - rand.length) + rand + "\""
+        }
+        case e: SpinalEnumCraft[_] => {
+          val vec = e.blueprint.values.toVector
+          val rand = vec(Random.nextInt(vec.size))
+          " := " + emitEnumLiteral(rand, e.getEncoding)
+        }
+      }
+    }else ""
+  }
+
   def emitSignals(component: Component, ret: StringBuilder, enumDebugSignals: ArrayBuffer[SpinalEnumCraft[_]]): Unit = {
     for (node <- component.nodes) {
       node match {
         case signal: BaseType => {
           if (!signal.isIo) {
-            ret ++= s"  signal ${emitReference(signal)} : ${emitDataType(signal)}"
-            val reg = if(signal.isReg) signal.input.asInstanceOf[Reg] else null
-            if(reg != null && reg.initialValue != null && reg.getClockDomain.config.resetKind == BOOT) {
-              ret ++= " := " + (reg.initialValue match {
-                case init : BaseType => emitLogic(init.getLiteral)
-                case init =>  emitLogic(init)
-              })
-            }else if (signal.hasTag(randomBoot)) {
-              signal match {
-                case b: Bool => ret ++= " := " + {
-                  if (Random.nextBoolean()) "'1'" else "'0'"
-                }
-                case bv: BitVector => {
-                  val rand = BigInt(bv.getWidth, Random).toString(2)
-                  ret ++= " := \"" + "0" * (bv.getWidth - rand.length) + rand + "\""
-                }
-                case e: SpinalEnumCraft[_] => {
-                  val vec = e.blueprint.values.toVector
-                  val rand = vec(Random.nextInt(vec.size))
-                  ret ++= " := " + emitEnumLiteral(rand, e.getEncoding)
-                }
-              }
-            }
-            ret ++= ";\n"
+            ret ++= s"  signal ${emitReference(signal)} : ${emitDataType(signal)}${getSignalInitialisation(signal)};\n"
+
             if (signal.isInstanceOf[SpinalEnumCraft[_]]) {
               val craft = toSpinalEnumCraft(signal)
               if (!craft.getEncoding.isNative) {

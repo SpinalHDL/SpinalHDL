@@ -103,7 +103,7 @@ object ClockDomain {
   def readClockEnableWire = current.readClockEnableWire
 
   def getClockDomainDriver(that: Bool): Bool = {
-    if (that.spinalTags.exists(_.isInstanceOf[ClockDomainBoolTag])) {
+    if (that.existsTag(_.isInstanceOf[ClockDomainBoolTag])) {
       that
     } else {
       that.input match {
@@ -118,7 +118,7 @@ object ClockDomain {
     if (driver == null) {
       null
     } else {
-      driver.spinalTags.find(_.isInstanceOf[ClockDomainBoolTag]).get.asInstanceOf[ClockDomainBoolTag]
+      driver.findTag(_.isInstanceOf[ClockDomainBoolTag]).get.asInstanceOf[ClockDomainBoolTag]
     }
   }
 }
