@@ -262,14 +262,12 @@ end
 
 
   def emitAttributes(node: Node): String = {
-    if (!node.isInstanceOf[AttributeReady]) return ""
-    val attributeReady = node.asInstanceOf[AttributeReady]
-    if(attributeReady.attributes.isEmpty) return "" +
-      ""
-    val values = for (attribute <- attributeReady.attributes) yield attribute match {
+    if(node.isEmptyOfTag) return ""
+    val values = for (attribute <- node.attributes) yield attribute match {
       case attribute: AttributeString => attribute.getName + " = \"" + attribute.value + "\""
       case attribute: AttributeFlag => attribute.getName
     }
+    if(values.isEmpty) return ""
     "(* " + values.reduce(_ + " , " + _) + " *) "
   }
 

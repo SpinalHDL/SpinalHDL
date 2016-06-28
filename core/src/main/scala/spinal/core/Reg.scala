@@ -98,6 +98,10 @@ class Reg (outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) ex
   var dataInput     : T = this.asInstanceOf[T]
   var initialValue  : T = null.asInstanceOf[T]
 
+
+  override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
+
+
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
     super.onEachInput(doThat)
     doThat(dataInput,RegS.getDataInputId)

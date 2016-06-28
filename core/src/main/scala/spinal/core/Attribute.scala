@@ -18,20 +18,20 @@
 
 package spinal.core
 
-import scala.collection.mutable.ArrayBuffer
+//import scala.collection.mutable.ArrayBuffer
 
 /**
   * Created by PIC18F on 09.02.2015.
   */
-trait AttributeReady {
-  private[core] val attributes = ArrayBuffer[Attribute]()
+//trait AttributeReady {
+//  private[core] val attributes = ArrayBuffer[Attribute]()
+//
+//  def addAttribute(attribute: Attribute): this.type
+//  def addAttribute(name: String): this.type = addAttribute(new AttributeFlag(name))
+//  def addAttribute(name: String,value : String): this.type = addAttribute(new AttributeString(name,value))
+//}
 
-  def addAttribute(attribute: Attribute): this.type
-  def addAttribute(name: String): this.type = addAttribute(new AttributeFlag(name))
-  def addAttribute(name: String,value : String): this.type = addAttribute(new AttributeString(name,value))
-}
-
-trait Attribute {
+trait Attribute extends SpinalTag{
   def getName: String
   def sameType(that: Attribute): Boolean
 

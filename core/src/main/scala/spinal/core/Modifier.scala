@@ -532,6 +532,8 @@ abstract class Modifier extends Node {
   }
 
   override def nonRecursiveToString(): String = opName
+
+  override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
 }
 
 
@@ -1245,7 +1247,7 @@ abstract class AssignementNode extends Node {
   def clone(out : Node) : this.type
 }
 abstract class AssignementNodeWidthable extends AssignementNode with Widthable{
-
+  override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
 }
 
 class BitAssignmentFixed(out: BitVector, in: Node, bitId: Int) extends AssignementNodeWidthable with CheckWidth{
@@ -1471,6 +1473,8 @@ class MultipleAssignmentNode extends Node with AssignementTreePart{
   type T <: Node
   val inputs = new ArrayBuffer[T](4)
 
+  override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
+
   override def getInputsCount = inputs.length
   override def getInput(id : Int) : Node = inputs(id)
   override def setInput(id : Int,node : Node) : Unit = inputs(id) = node.asInstanceOf[T]
@@ -1551,6 +1555,10 @@ class AssertNode extends SyncNode(){
   var cond : Node = null
   var message : String = null
   var severity : AssertNodeSeverity = null
+
+
+  override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
+
 
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
     super.onEachInput(doThat)

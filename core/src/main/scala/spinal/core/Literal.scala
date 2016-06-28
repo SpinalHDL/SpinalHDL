@@ -116,6 +116,8 @@ trait Literal extends Node {
   override def onEachInput(doThat: (Node) => Unit): Unit = {}
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = {}
   override def setInput(id: Int, node: Node): Unit = ???
+
+  override def addAttribute(attribute: Attribute): Literal.this.type = addTag(attribute)
 }
 
 object BitsLiteral {

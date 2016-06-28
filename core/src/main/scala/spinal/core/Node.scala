@@ -605,12 +605,15 @@ object NoneNode {
 
 class NoneNode extends NodeWithoutInputs {
   override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = (-1,0)
+
+  override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
 }
 
 
 
 class DontCareNode(target : BaseType) extends NodeWithoutInputs{
   def getBaseType: BaseType = target
+  override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
 }
 
 //TODO remove base type and add WidthProvider

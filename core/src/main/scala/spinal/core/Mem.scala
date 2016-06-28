@@ -50,7 +50,7 @@ class MemWritePayload[T <: Data](dataType: T, addressWidth: Int) extends Bundle 
   val address = UInt(addressWidth bit)
 }
 
-class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableInputsCount  with AttributeReady with Nameable with Widthable{
+class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableInputsCount  with Nameable with Widthable{
   var forceMemToBlackboxTranslation = false
   val _widths = wordType.flatten.map(t => t.getBitsWidth).toVector //Force to fix width of each wire
 
@@ -175,10 +175,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
     readWord
   }
 
-  override def addAttribute(attribute: Attribute): this.type = {
-    attributes += attribute
-    this
-  }
+  override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
 
 
   private[core] def getMemSymbolWidth() : Int = {
@@ -210,6 +207,8 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
 
 class MemReadAsync(mem_ : Mem[_], address_ : UInt, data: Bits, val writeToReadKind: MemWriteToReadKind) extends Node with Widthable {
   if (writeToReadKind == readFirst) SpinalError("readFirst mode for asynchronous read is not allowed")
+
+  override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
 
   var address : Node = address_
   var mem     : Mem[_] = mem_
@@ -253,6 +252,8 @@ class MemReadSync(mem_ : Mem[_], val originalAddress: UInt, address_ : UInt, dat
   var address : Node = address_
   var readEnable  : Node = enable_
   var mem     : Mem[_] = mem_
+
+  override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
 
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
     super.onEachInput(doThat)
@@ -328,6 +329,8 @@ class MemWrite(mem: Mem[_], val originalAddress: UInt, address_ : UInt, data_ : 
   var data     : Node = data_
   var mask     : Node = (if (mask_ != null) mask_ else NoneNode())
   var writeEnable  : Node  = enable_
+
+  override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
 
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
     super.onEachInput(doThat)
@@ -411,6 +414,8 @@ class MemWriteOrRead_writePart(mem: Mem[_], address_ : UInt, data_ : Bits, chipS
   var chipSelect   : Node = chipSelect_
   var writeEnable  : Node  = writeEnable_
 
+  override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
+
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
     super.onEachInput(doThat)
     doThat(address,MemWriteOrRead_writePart.getAddressId)
@@ -479,6 +484,10 @@ class MemWriteOrRead_readPart(mem_ : Mem[_], address_ : UInt, data_ : Bits, chip
   var chipSelect     : Node = chipSelect_
   var writeEnable   : Node = writeEnable_
   var mem  : Mem[_]  = mem_
+
+
+  override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
+
 
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
     super.onEachInput(doThat)

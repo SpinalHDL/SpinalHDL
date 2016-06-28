@@ -59,6 +59,7 @@ object uLogic extends SpinalTag{override def followLogic = false}
 
 abstract class BlackBox extends Component with SpinalTagReady {
 
+  override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
 
   //def generic: Generic// = new Generic{}
   def getGeneric: Generic = {

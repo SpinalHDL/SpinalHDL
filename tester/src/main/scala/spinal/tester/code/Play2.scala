@@ -4,6 +4,7 @@ package spinal.tester.code
 import java.io.{PrintWriter, ByteArrayOutputStream}
 import java.util
 
+import spinal.core.Operator.UInt.Add
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.neutral.NeutralStreamDma
@@ -1440,7 +1441,9 @@ object PlayRandBoot{
 
 object PlayCCBuffer{
   class TopLevel extends Component {
-    val result = out(RegInit(False)).addTag(crossClockBuffer)
+    val result = out(RegInit(False)).addTag(crossClockBuffer).addAttribute("Yolo")
+    val add = new Add
+    println(add)
   }
 
   def main(args: Array[String]) {

@@ -699,14 +699,9 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
     val map = mutable.Map[String, Attribute]()
 
     for (node <- component.nodes) {
-      node match {
-        case attributeReady: AttributeReady => {
-          for (attribute <- attributeReady.attributes) {
-            val mAttribute = map.getOrElseUpdate(attribute.getName, attribute)
-            if (!mAttribute.sameType(attribute)) SpinalError(s"There is some attributes with different nature (${attribute} and ${mAttribute} at\n${node.component}})")
-          }
-        }
-        case _ =>
+      for (attribute <- node.attributes) {
+        val mAttribute = map.getOrElseUpdate(attribute.getName, attribute)
+        if (!mAttribute.sameType(attribute)) SpinalError(s"There is some attributes with different nature (${attribute} and ${mAttribute} at\n${node.component}})")
       }
     }
 
@@ -828,10 +823,8 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
 
 
   def emitAttributes(node: Node, vhdlType: String, ret: StringBuilder,postfix : String = ""): Unit = {
-    if (!node.isInstanceOf[AttributeReady]) return
-    val attributeReady = node.asInstanceOf[AttributeReady]
-
-    for (attribute <- attributeReady.attributes) {
+    if(node.isEmptyOfTag) return ""
+    for (attribute <- node.attributes){
       val value = attribute match {
         case attribute: AttributeString => "\"" + attribute.value + "\""
         case attribute: AttributeFlag => "true"

@@ -309,7 +309,7 @@ trait ScalaLocated extends GlobalDataUser {
 
 
 trait SpinalTagReady {
-  var _spinalTags : mutable.Set[SpinalTag] =  mutable.Set[SpinalTag]()
+  var _spinalTags : mutable.Set[SpinalTag] =  null
   private[core] var compositeTagReady: SpinalTagReady = null
   def spinalTags : mutable.Set[SpinalTag] = {
     if(_spinalTags == null)
@@ -362,6 +362,23 @@ trait SpinalTagReady {
     _spinalTags.isEmpty
   }
 
+
+  def addAttribute(attribute: Attribute): this.type
+  def addAttribute(name: String): this.type = addAttribute(new AttributeFlag(name))
+  def addAttribute(name: String,value : String): this.type = addAttribute(new AttributeString(name,value))
+  def onEachAttributes(doIt : (Attribute) => Unit) : Unit = {
+    if(_spinalTags == null) return
+    _spinalTags.foreach(_ match{
+      case attribute : Attribute => doIt(attribute)
+      case _ =>
+    })
+  }
+  def attributes : Iterable[Attribute] = {
+    if(_spinalTags == null) return Nil
+    val array = ArrayBuffer[Attribute]()
+    _spinalTags.foreach(e => if(e.isInstanceOf[Attribute])array += e.asInstanceOf[Attribute])
+    array
+  }
 }
 
 
