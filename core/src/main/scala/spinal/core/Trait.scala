@@ -213,24 +213,26 @@ trait Assignable {
   private[core] def assignFromImpl(that: AnyRef, conservative: Boolean): Unit
 }
 
-object Child{
-  def set(child : Any,parent : Any) = {
-    if(child.isInstanceOf[Child])
-      child.asInstanceOf[Child].setParent(parent)
+object Ownable{
+  def set(ownable : Any,owner : Any) = {
+    if(ownable.isInstanceOf[Ownable])
+      ownable.asInstanceOf[Ownable].setOwner(owner)
   }
 }
 
-trait Child{
-  type ParentType
-  var parent : ParentType = null.asInstanceOf[ParentType]
-  def setParent(that : Any): Unit ={
-    parent = that.asInstanceOf[ParentType]
+trait Ownable{
+  type OwnerType
+  @dontName var owner : OwnerType = null.asInstanceOf[OwnerType]
+  def setOwner(that : Any): Unit ={
+    owner = that.asInstanceOf[OwnerType]
   }
 
-  def childParents() : List[Any] = parent match {
-    case null => Nil
-    case parent : Child => parent.childParents() :+ parent
-    case _ => parent :: Nil
+  def getOwners() : List[Any] = {
+    owner match {
+      case null => Nil
+      case owner : Ownable => owner.getOwners() :+ owner
+      case _ => owner :: Nil
+    }
   }
 }
 
@@ -429,30 +431,30 @@ object randomBoot extends SpinalTag{override def moveToSyncNode = true}
 object tagAutoResize extends SpinalTag{override def duplicative = true}
 object tagTruncated extends SpinalTag{override def duplicative = true}
 
-trait Area extends Nameable with ContextUser with Child{
+trait Area extends Nameable with ContextUser with Ownable{
   override protected def nameChangeEvent(weak: Boolean): Unit = {
     Misc.reflect(this, (name, obj) => {
       obj match {
         case component: Component => {
           if (component.parent == this.component) {
             component.setWeakName(this.getName() + "_" + name)
-            Child.set(component,this)
+            Ownable.set(component,this)
           }
 
         }
         case namable: Nameable => {
           if (!namable.isInstanceOf[ContextUser]) {
             namable.setWeakName(this.getName() + "_" + name)
-            Child.set(namable,this)
+            Ownable.set(namable,this)
           } else if (namable.asInstanceOf[ContextUser].component == component){
             namable.setWeakName(this.getName() + "_" + name)
-            Child.set(namable,this)
+            Ownable.set(namable,this)
           } else {
             for (kind <- component.children) {
               //Allow to name a component by his io reference into the parent component
               if (kind.reflectIo == namable) {
                 kind.setWeakName(this.getName() + "_" + name)
-                Child.set(kind,this)
+                Ownable.set(kind,this)
               }
             }
           }

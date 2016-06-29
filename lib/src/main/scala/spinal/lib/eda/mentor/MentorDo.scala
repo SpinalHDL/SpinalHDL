@@ -22,13 +22,25 @@ class MentorDo {
     var outFile: java.io.FileWriter = null
     outFile = new java.io.FileWriter(file)
     val builder = new StringBuilder()
+
+    def getLabel(that : Nameable with Ownable) : String = that.owner match{
+      case owner : Nameable => {
+        val name = that.getName()
+        val ownerName = owner.getName()
+        val label = if(name.startsWith(ownerName + "_")) name.substring(ownerName.length + 1) else name
+        label
+      }
+      case _ =>  that.getName()
+    }
     for(component <- components){
       val componentPath = component.getPath()
       for(node <- component.nodes) node match{
         case bt : BaseType => {
-          val groups = bt.childParents.map(" -group " + _.asInstanceOf[Nameable].getName())
-          if(!groups.isEmpty)
-            builder ++= s"add wave -noupdate ${groups.reduce(_ + " " + _)} $prefix$componentPath/${bt.getName()}\n"
+          val groups = bt.getOwners.map(e => " -group " + getLabel(e.asInstanceOf[Nameable with Ownable]))
+          if(!groups.isEmpty) {
+            val label = getLabel(bt)
+            builder ++= s"add wave -noupdate ${groups.reduce(_ + " " + _)} -label $label $prefix$componentPath/${bt.getName()}\n"
+          }
         }
         case _ =>
       }
