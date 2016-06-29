@@ -14,7 +14,6 @@ class I2CMasterModelHAL:
         self.wr_scl       = wr_scl
         self.wr_sda       = wr_sda
 
-
         self.rd_scl    = rd_scl
         self.rd_sda    = rd_sda
         self.sda       = 1
@@ -25,13 +24,13 @@ class I2CMasterModelHAL:
         self.scl_en       = 0
         self.clk          = clock
 
-
         self.trigger     = Event()
         self.sclRising   = Event()
         self.sclFalling  = Event()
 
         self.dataRead    = Event()
 
+        self.freezeBus   = False
 
 
     ##########################################################################
@@ -39,6 +38,7 @@ class I2CMasterModelHAL:
     def startMaster(self):
         cocotb.fork(self.genSCL())
         cocotb.fork(self._manageOpenDrain())
+        cocotb.fork(self._synchSCL())
 
 
     ##########################################################################
@@ -47,7 +47,6 @@ class I2CMasterModelHAL:
     def _manageOpenDrain(self):
         while True:
             yield RisingEdge(self.clk)
-
 
             if int(self.rd_sda) == 0 :
                 self.wr_sda <= 0
@@ -59,6 +58,16 @@ class I2CMasterModelHAL:
             else:
                 self.wr_scl <= self.scl
 
+
+    @cocotb.coroutine
+    def _synchSCL(self):
+        while True:
+            yield RisingEdge(self.clk)
+
+            if int(self.scl) == 1 and int(self.rd_scl) == 0 :
+                self.freezeBus = True
+            else:
+                self.freezeBus = False
 
 
 
@@ -72,7 +81,7 @@ class I2CMasterModelHAL:
 
             yield RisingEdge(self.clk)
 
-            if self.scl_en == 1:
+            if self.scl_en == 1 and self.freezeBus == False:
                 cnt += 1
                 if (cnt >= self.clockDivider):
                     if self.scl == 0:
@@ -110,8 +119,6 @@ class I2CMasterModelHAL:
     # Generate the stop condition
     @cocotb.coroutine
     def genStop(self):
-
-
         yield self.sclFalling.wait()
 
         self.sda = 0
@@ -123,9 +130,8 @@ class I2CMasterModelHAL:
         self.scl_en = 0
 
 
-
-
-
+    ##########################################################################
+    # Write a data
     @cocotb.coroutine
     def writeData(self, data):
 
@@ -149,10 +155,8 @@ class I2CMasterModelHAL:
 
             index += 1
 
-
-
     ##########################################################################
-    # Read a data comming from the master
+    # Read a data
     @cocotb.coroutine
     def readData(self):
         cnt  = 0

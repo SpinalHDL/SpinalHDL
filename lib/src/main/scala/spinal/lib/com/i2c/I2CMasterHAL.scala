@@ -181,8 +181,7 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
     */
   val smSynchSCL = if (g.multiMaster_en) new StateMachine{
 
-    val freezeSCL = Bool
-    freezeSCL := False
+    val freezeSCL = False
 
     val sIDLE : State = new State with EntryPoint{
       whenIsActive{

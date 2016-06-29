@@ -33,4 +33,5 @@ case class I2C() extends Bundle with IMasterSlave {
 object I2C {
   def ACK  = False
   def NACK = True
+
 }
