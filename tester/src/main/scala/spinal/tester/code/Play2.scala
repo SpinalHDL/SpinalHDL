@@ -9,6 +9,7 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.neutral.NeutralStreamDma
 import spinal.lib.com.uart.UartCtrl
+import spinal.lib.eda.mentor.MentorDo
 import spinal.lib.fsm._
 import spinal.lib.graphic.RgbConfig
 import spinal.lib.graphic.vga.{AvalonMMVgaCtrl, VgaCtrl}
@@ -1449,5 +1450,37 @@ object PlayCCBuffer{
   def main(args: Array[String]) {
     SpinalVhdl(new TopLevel)
     SpinalVerilog(new TopLevel)
+  }
+}
+
+
+object PlayMentorDo{
+  case class Packet() extends Bundle{
+    val e1,e2 = Bool
+  }
+  class TopLevel extends Component {
+    val io = new Bundle{
+      val a,b    = in UInt(8 bits)
+      val result = out UInt(8 bits)
+
+      val cmd = slave Stream(Packet())
+      val rsp = master Stream(Packet())
+    }
+
+    io.result := io.a + io.b
+
+    val fifo = new StreamFifo(Packet(),64)
+    fifo.io.push << io.cmd
+    fifo.io.pop  >> io.rsp
+
+  }
+
+  def main(args: Array[String]) {
+    val report = SpinalVhdl(new TopLevel)
+    val toplevel = report.toplevel
+    MentorDo()
+      .add(toplevel)
+      .add(toplevel.fifo)
+      .build("/","mentor.do")
   }
 }

@@ -92,7 +92,8 @@ class Bundle extends MultiData with Nameable with OverridedEqualsHashCode {
             if (!rejectOlder || this.isOlderThan(data)) {
               //To avoid bundle argument
               elementsCache += Tuple2(name, data)
-              data.parent = this
+              Child.set(data,this)
+//              data.parent = this
             }
           }
           case _ =>

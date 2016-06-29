@@ -205,12 +205,15 @@ class BitVectorPimper[T <: BitVector](val pimpIt: T)  {
   def :~=(that: T): Unit = pimpIt assignFrom(that.resized, false)
 }
 
-trait Data extends ContextUser with NameableByComponent with Assignable  with SpinalTagReady with GlobalDataUser with ScalaLocated {
+trait Data extends ContextUser with NameableByComponent with Assignable  with SpinalTagReady with GlobalDataUser with ScalaLocated with Child {
   private[core] var dir: IODirection = null
   private[core] def isIo = dir != null
 
-  var parent : Data = null
-  def getRootParent : Data = if(parent == null) this else parent.getRootParent
+//  var parent : Data = null
+  def getRootParent : Data = parent match {
+    case parent : Data => parent.getRootParent
+    case _ => this
+  }
 
   def asInput(): this.type = {
     dir = in

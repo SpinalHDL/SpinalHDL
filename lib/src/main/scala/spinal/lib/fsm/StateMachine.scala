@@ -89,6 +89,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated{
     inGeneration = true
     childStateMachines.foreach(_.build())
     stateBoot = new StateBoot(autoStart).setName("boot")
+    Child.set(stateBoot,this)
 
 
     stateReg  = Reg(enumDefinition())
@@ -97,6 +98,8 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated{
     if(this.isNamed){
       stateReg.setWeakName(this.getName() + "_stateReg")
       stateNext.setWeakName(this.getName() + "_stateNext")
+      Child.set(stateReg,this)
+      Child.set(stateNext,this)
     }
 
     for(state <- states){

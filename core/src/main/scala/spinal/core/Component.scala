@@ -47,7 +47,7 @@ object Component {
 }
 
 
-abstract class Component extends NameableByComponent with GlobalDataUser with ScalaLocated with DelayedInit with Stackable{
+abstract class Component extends NameableByComponent with GlobalDataUser with ScalaLocated with DelayedInit with Stackable with Child{
 
   override def delayedInit(body: => Unit) = {
     body
@@ -101,7 +101,8 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
   var definitionName: String = null
   private[core] val level = globalData.componentStack.size()
   val children = ArrayBuffer[Component]()
-  val parent = Component.current
+  override type ParentType = Component
+  parent = Component.current
 
   if (parent != null) {
     parent.children += this;
@@ -146,19 +147,24 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
     Misc.reflect(this, (name, obj) => {
       obj match {
         case component: Component => {
-          if (component.parent == this)
+          if (component.parent == this) {
+            Child.set(obj,this)
             component.setWeakName(name)
+          }
         }
         case nameable: Nameable => {
-          if (!nameable.isInstanceOf[ContextUser])
+          if (!nameable.isInstanceOf[ContextUser]) {
             nameable.setWeakName(name)
-          else if (nameable.asInstanceOf[ContextUser].component == this)
+            Child.set(obj,this)
+          }else if (nameable.asInstanceOf[ContextUser].component == this) {
             nameable.setWeakName(name)
-          else {
+            Child.set(obj,this)
+          }else {
             for (kind <- children) {
               //Allow to name a component by his io reference into the parent component
               if (kind.reflectIo == nameable) {
                 kind.setWeakName(name)
+                Child.set(kind,this)
               }
             }
           }
@@ -183,6 +189,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
       case _ =>
     }
     for (kind <- children) {
+      Child.set(kind,this)
       if (kind.isUnnamed) {
         var name = kind.getClass.getSimpleName
         name = Character.toLowerCase(name.charAt(0)) + (if (name.length() > 1) name.substring(1) else "");
@@ -239,7 +246,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
   def getGroupedIO(ioBundleBypass: Boolean): Seq[Data] = {
     val ret = mutable.Set[Data]()
     val ioBundle = if (ioBundleBypass) reflectIo else null
-    def getRootParent(that: Data): Data = if (that.parent == null || that.parent == ioBundle) that else getRootParent(that.parent)
+    def getRootParent(that: Data): Data = if (that.parent == null || !that.parent.isInstanceOf[Data] || that.parent == ioBundle) that else getRootParent(that.parent.asInstanceOf[Data])
     for (e <- getAllIo) {
       ret += getRootParent(e)
     }
@@ -254,7 +261,14 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
 
   }
 
-
+//  def keepAll() : Unit = {
+//    Misc.reflect(this, (name, obj) => {
+//      obj match {
+//        case data : Data => data.keep()
+//        case area : Area => area.keepAll()
+//      }
+//    }
+//  }
 
 }
 

@@ -213,7 +213,26 @@ trait Assignable {
   private[core] def assignFromImpl(that: AnyRef, conservative: Boolean): Unit
 }
 
+object Child{
+  def set(child : Any,parent : Any) = {
+    if(child.isInstanceOf[Child])
+      child.asInstanceOf[Child].setParent(parent)
+  }
+}
 
+trait Child{
+  type ParentType
+  var parent : ParentType = null.asInstanceOf[ParentType]
+  def setParent(that : Any): Unit ={
+    parent = that.asInstanceOf[ParentType]
+  }
+
+  def childParents() : List[Any] = parent match {
+    case null => Nil
+    case parent : Child => parent.childParents() :+ parent
+    case _ => parent :: Nil
+  }
+}
 
 trait Nameable {
   private var name: String = ""
@@ -410,24 +429,30 @@ object randomBoot extends SpinalTag{override def moveToSyncNode = true}
 object tagAutoResize extends SpinalTag{override def duplicative = true}
 object tagTruncated extends SpinalTag{override def duplicative = true}
 
-trait Area extends Nameable with ContextUser{
+trait Area extends Nameable with ContextUser with Child{
   override protected def nameChangeEvent(weak: Boolean): Unit = {
     Misc.reflect(this, (name, obj) => {
       obj match {
         case component: Component => {
-          if (component.parent == this.component)
+          if (component.parent == this.component) {
             component.setWeakName(this.getName() + "_" + name)
+            Child.set(component,this)
+          }
+
         }
         case namable: Nameable => {
-          if (!namable.isInstanceOf[ContextUser])
+          if (!namable.isInstanceOf[ContextUser]) {
             namable.setWeakName(this.getName() + "_" + name)
-          else if (namable.asInstanceOf[ContextUser].component == component)
+            Child.set(namable,this)
+          } else if (namable.asInstanceOf[ContextUser].component == component){
             namable.setWeakName(this.getName() + "_" + name)
-          else {
+            Child.set(namable,this)
+          } else {
             for (kind <- component.children) {
               //Allow to name a component by his io reference into the parent component
               if (kind.reflectIo == namable) {
                 kind.setWeakName(this.getName() + "_" + name)
+                Child.set(kind,this)
               }
             }
           }
@@ -436,6 +461,15 @@ trait Area extends Nameable with ContextUser{
       }
     })
   }
+
+//  def keepAll() : Unit = {
+//    Misc.reflect(this, (name, obj) => {
+//      obj match {
+//        case data : Data => data.keep()
+//        case area : Area => area.keepAll()
+//      }
+//    }
+//  }
 }
 
 object ImplicitArea{
