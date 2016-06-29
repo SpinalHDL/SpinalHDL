@@ -93,7 +93,7 @@ class Bundle extends MultiData with Nameable with OverridedEqualsHashCode {
               //To avoid bundle argument
               elementsCache += Tuple2(name, data)
               Ownable.set(data,this)
-//              data.parent = this
+              data.parent = this
             }
           }
           case _ =>

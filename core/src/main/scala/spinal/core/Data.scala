@@ -210,10 +210,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable  with Sp
   private[core] def isIo = dir != null
 
   var parent : Data = null
-  def getRootParent : Data = parent match {
-    case parent : Data => parent.getRootParent
-    case _ => this
-  }
+  def getRootParent : Data = if(parent == null) this else parent.getRootParent
 
   def asInput(): this.type = {
     dir = in

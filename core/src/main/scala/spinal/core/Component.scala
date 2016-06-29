@@ -246,7 +246,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
   def getGroupedIO(ioBundleBypass: Boolean): Seq[Data] = {
     val ret = mutable.Set[Data]()
     val ioBundle = if (ioBundleBypass) reflectIo else null
-    def getRootParent(that: Data): Data = if (that.parent == null || !that.parent.isInstanceOf[Data] || that.parent == ioBundle) that else getRootParent(that.parent.asInstanceOf[Data])
+    def getRootParent(that: Data): Data = if (that.parent == null || that.parent == ioBundle) that else getRootParent(that.parent)
     for (e <- getAllIo) {
       ret += getRootParent(e)
     }
