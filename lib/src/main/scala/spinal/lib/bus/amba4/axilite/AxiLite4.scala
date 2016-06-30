@@ -134,7 +134,7 @@ case class AxiLite4B(config: AxiLite4Config) extends Bundle {
   * @param config Axi Lite configuration class
   */
 case class AxiLite4R(config: AxiLite4Config) extends Bundle {
-  val data = Bits(config.addressWidth bits)
+  val data = Bits(config.dataWidth bits)
   val resp = Bits(2 bits)
 
   import AxiLite4.resp._

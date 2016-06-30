@@ -23,7 +23,7 @@ class MentorDo {
     outFile = new java.io.FileWriter(file)
     val builder = new StringBuilder()
 
-    def getLabel(that : Nameable with Ownable) : String = that.owner match{
+    def getLabel(that : Nameable with OwnableRef) : String = that.refOwner match{
       case owner : Nameable => {
         val name = that.getName()
         val ownerName = owner.getName()
@@ -36,7 +36,7 @@ class MentorDo {
       val componentPath = component.getPath()
       for(node <- component.nodes) node match{
         case bt : BaseType => {
-          val groups = bt.getOwners.map(e => " -group " + getLabel(e.asInstanceOf[Nameable with Ownable]))
+          val groups = bt.getRefOwnersChain.map(e => " -group " + getLabel(e.asInstanceOf[Nameable with OwnableRef]))
           if(!groups.isEmpty) {
             val label = getLabel(bt)
             builder ++= s"add wave -noupdate ${groups.reduce(_ + " " + _)} -label $label $prefix$componentPath/${bt.getName()}\n"

@@ -47,7 +47,7 @@ object Component {
 }
 
 
-abstract class Component extends NameableByComponent with GlobalDataUser with ScalaLocated with DelayedInit with Stackable with Ownable{
+abstract class Component extends NameableByComponent with GlobalDataUser with ScalaLocated with DelayedInit with Stackable with OwnableRef{
 
   override def delayedInit(body: => Unit) = {
     body
@@ -101,7 +101,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
   var definitionName: String = null
   private[core] val level = globalData.componentStack.size()
   val children = ArrayBuffer[Component]()
-  override type OwnerType = Component
+  override type RefOwnerType = Component
   val parent = Component.current
 
   if (parent != null) {
@@ -148,23 +148,23 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
       obj match {
         case component: Component => {
           if (component.parent == this) {
-            Ownable.set(obj,this)
+            OwnableRef.set(obj,this)
             component.setWeakName(name)
           }
         }
         case nameable: Nameable => {
           if (!nameable.isInstanceOf[ContextUser]) {
             nameable.setWeakName(name)
-            Ownable.set(obj,this)
+            OwnableRef.set(obj,this)
           }else if (nameable.asInstanceOf[ContextUser].component == this) {
             nameable.setWeakName(name)
-            Ownable.set(obj,this)
+            OwnableRef.set(obj,this)
           }else {
             for (kind <- children) {
               //Allow to name a component by his io reference into the parent component
               if (kind.reflectIo == nameable) {
                 kind.setWeakName(name)
-                Ownable.set(kind,this)
+                OwnableRef.set(kind,this)
               }
             }
           }
@@ -189,7 +189,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
       case _ =>
     }
     for (kind <- children) {
-      Ownable.set(kind,this)
+      OwnableRef.set(kind,this)
       if (kind.isUnnamed) {
         var name = kind.getClass.getSimpleName
         name = Character.toLowerCase(name.charAt(0)) + (if (name.length() > 1) name.substring(1) else "");

@@ -1466,7 +1466,7 @@ object PlayMentorDo{
 
       val cmd = slave Stream(Packet())
       val rsp = master Stream(Packet())
-    }
+    }.setName("")
 
     io.result := io.a + io.b
 

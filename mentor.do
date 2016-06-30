@@ -1,14 +1,14 @@
-add wave -noupdate  -group toplevel  -group io -label a /toplevel/io_a
-add wave -noupdate  -group toplevel  -group io -label b /toplevel/io_b
-add wave -noupdate  -group toplevel  -group io -label result /toplevel/io_result
-add wave -noupdate  -group toplevel  -group io  -group cmd -label valid /toplevel/io_cmd_valid
-add wave -noupdate  -group toplevel  -group io  -group cmd -label ready /toplevel/io_cmd_ready
-add wave -noupdate  -group toplevel  -group io  -group cmd  -group payload -label e1 /toplevel/io_cmd_payload_e1
-add wave -noupdate  -group toplevel  -group io  -group cmd  -group payload -label e2 /toplevel/io_cmd_payload_e2
-add wave -noupdate  -group toplevel  -group io  -group rsp -label valid /toplevel/io_rsp_valid
-add wave -noupdate  -group toplevel  -group io  -group rsp -label ready /toplevel/io_rsp_ready
-add wave -noupdate  -group toplevel  -group io  -group rsp  -group payload -label e1 /toplevel/io_rsp_payload_e1
-add wave -noupdate  -group toplevel  -group io  -group rsp  -group payload -label e2 /toplevel/io_rsp_payload_e2
+add wave -noupdate  -group toplevel  -group  -label a /toplevel/a
+add wave -noupdate  -group toplevel  -group  -label b /toplevel/b
+add wave -noupdate  -group toplevel  -group  -label result /toplevel/result
+add wave -noupdate  -group toplevel  -group   -group cmd -label valid /toplevel/cmd_valid
+add wave -noupdate  -group toplevel  -group   -group cmd -label ready /toplevel/cmd_ready
+add wave -noupdate  -group toplevel  -group   -group cmd  -group payload -label e1 /toplevel/cmd_payload_e1
+add wave -noupdate  -group toplevel  -group   -group cmd  -group payload -label e2 /toplevel/cmd_payload_e2
+add wave -noupdate  -group toplevel  -group   -group rsp -label valid /toplevel/rsp_valid
+add wave -noupdate  -group toplevel  -group   -group rsp -label ready /toplevel/rsp_ready
+add wave -noupdate  -group toplevel  -group   -group rsp  -group payload -label e1 /toplevel/rsp_payload_e1
+add wave -noupdate  -group toplevel  -group   -group rsp  -group payload -label e2 /toplevel/rsp_payload_e2
 add wave -noupdate  -group toplevel  -group fifo  -group io  -group push -label valid /toplevel/fifo/io_push_valid
 add wave -noupdate  -group toplevel  -group fifo  -group io  -group push -label ready /toplevel/fifo/io_push_ready
 add wave -noupdate  -group toplevel  -group fifo  -group io  -group push  -group payload -label e1 /toplevel/fifo/io_push_payload_e1

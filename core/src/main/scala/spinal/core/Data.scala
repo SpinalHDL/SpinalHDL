@@ -205,7 +205,7 @@ class BitVectorPimper[T <: BitVector](val pimpIt: T)  {
   def :~=(that: T): Unit = pimpIt assignFrom(that.resized, false)
 }
 
-trait Data extends ContextUser with NameableByComponent with Assignable  with SpinalTagReady with GlobalDataUser with ScalaLocated with Ownable {
+trait Data extends ContextUser with NameableByComponent with Assignable  with SpinalTagReady with GlobalDataUser with ScalaLocated with OwnableRef {
   private[core] var dir: IODirection = null
   private[core] def isIo = dir != null
 
