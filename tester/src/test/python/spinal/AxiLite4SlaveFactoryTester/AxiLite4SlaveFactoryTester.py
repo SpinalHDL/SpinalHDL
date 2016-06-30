@@ -21,6 +21,7 @@ class UutModel:
         dut = self.dut
         while True:
             yield RisingEdge(dut.clk)
+            assertEquals(dut.io_nonStopWrited,truncUInt(int(dut.io_bus_w_payload_data) >> 4,dut.io_nonStopWrited),"io_nonStopWrited")
             if int(dut.io_bus_r_valid) & int(dut.io_bus_r_ready) == 1:
                 if self.readAddresses.empty():
                     raise TestFailure("FAIL readAddresses is empty")
