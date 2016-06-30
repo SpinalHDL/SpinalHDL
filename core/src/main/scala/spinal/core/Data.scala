@@ -281,7 +281,10 @@ trait Data extends ContextUser with NameableByComponent with Assignable  with Sp
 
   private[core] def autoConnect(that: Data): Unit// = (this.flatten, that.flatten).zipped.foreach(_ autoConnect _)
   private[core] def autoConnectBaseImpl(that: Data): Unit = {
-    def error(message : String) = SpinalError(message + "\n" + this + "\n" + that)
+    def error(message : String) = {
+      val locationString = ScalaLocated.long
+      globalData.pendingErrors += (() => (message + "\n" + this + "\n" + that + "\n" + locationString))
+    }
     if (this.component == that.component) {
       if (this.component == Component.current) {
         sameFromInside

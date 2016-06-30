@@ -14,6 +14,7 @@ import spinal.lib.fsm._
 import spinal.lib.graphic.RgbConfig
 import spinal.lib.graphic.vga.{AvalonMMVgaCtrl, VgaCtrl}
 import spinal.lib.com.i2c._
+import spinal.lib.io.ReadableOpenDrain
 
 
 import scala.collection.mutable
@@ -1482,5 +1483,72 @@ object PlayMentorDo{
       .add(toplevel)
       .add(toplevel.fifo)
       .build("/","mentor.do")
+  }
+}
+
+object PlayAuto{
+  class I2CHAL extends Component{
+
+    val slaveGeneric  = I2CSlaveHALGenerics()
+    val masterGeneric = I2CMasterHALGenerics()
+
+    val io = new Bundle{
+      val ioSlave = new Bundle {
+        val cmd  = master  Stream ( I2CSlaveHALCmd(slaveGeneric) )
+        val rsp  = slave Stream ( I2CSlaveHALRsp(slaveGeneric) )
+      }
+      val ioMaster = new Bundle {
+        val cmd    = slave Stream(I2CMasteHALCmd(masterGeneric))
+        val rsp    = master Flow (I2CMasterHALRsp (masterGeneric))
+      }
+    }
+
+    val i2cSlave  = new I2CSlaveHAL(slaveGeneric)
+    val i2cMaster = new I2CMasterHAL(masterGeneric)
+    val simSDA    = new SimOpenDrain()
+    val simSCL    = new SimOpenDrain()
+
+    i2cSlave.io.cmd  <> io.ioSlave.cmd
+    i2cSlave.io.rsp  <> io.ioSlave.rsp
+    i2cMaster.io.cmd <> io.ioMaster.cmd
+    i2cMaster.io.rsp <> io.ioMaster.rsp
+    i2cMaster.io.config.setFrequency(2e6)
+
+    simSDA.io.input     <> i2cMaster.io.i2c.sda
+
+    simSDA.io.output.read     := i2cSlave.io.i2c.sda.write
+    i2cSlave.io.i2c.sda.read  := simSDA.io.output.write
+
+    simSCL.io.input.read      := i2cMaster.io.i2c.scl.write
+    i2cMaster.io.i2c.scl.read := simSCL.io.input.write
+
+    simSCL.io.output.read     := i2cSlave.io.i2c.scl.write
+    i2cSlave.io.i2c.scl.read  := simSCL.io.output.write
+  }
+
+  class SimOpenDrain extends Component{
+    val io = new Bundle{
+      val input  = master ( ReadableOpenDrain(Bool)  )
+      val output = master ( ReadableOpenDrain(Bool) )
+    }
+
+    val sim = new Area{
+      when(io.input.read === False || io.output.read === False){
+        io.output.write := False
+        io.input.write  := False
+      }otherwise{
+        io.output.write  := True
+        io.input.write   := True
+      }
+    }
+  }
+
+  def main(args : Array[String]): Unit ={
+    SpinalConfig(
+      mode = Verilog,
+      dumpWave = DumpWaveConfig(depth = 0),
+      defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
+      defaultClockDomainFrequency  = FixedFrequency(50e6)
+    ).generate(new I2CHAL()).printPruned()
   }
 }
