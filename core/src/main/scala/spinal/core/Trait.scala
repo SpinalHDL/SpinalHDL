@@ -305,9 +305,23 @@ object ScalaLocated {
     filterStackTrace(scalaTrace.getStackTrace)(0).toString
   }
 
+
   def long(scalaTrace : Throwable,tab : String = "    "): String = {
     if(scalaTrace == null) return "???"
-    filterStackTrace(scalaTrace.getStackTrace).map(tab + _.toString).mkString("\n") + "\n\n"
+    def filter(that : String) : Boolean = {
+      if(that.startsWith("sun.reflect.NativeConstructorAccessorImpl.newInstance")) return false
+      if(that.startsWith("sun.reflect.DelegatingConstructorAccessorImpl.newInstance")) return false
+      if(that.startsWith("java.lang.reflect.Constructor.newInstance")) return false
+      if(that.startsWith("java.lang.Class.newInstance")) return false
+      if(that.startsWith("sun.reflect.NativeMethodAccessorImpl.invoke")) return false
+      if(that.startsWith("sun.reflect.DelegatingMethodAccessorImpl.invoke")) return false
+      if(that.startsWith("java.lang.reflect.Method.invoke")) return false
+      if(that.startsWith("com.intellij.rt.execution.application.AppMain.main")) return false
+
+      return true
+    }
+
+    filterStackTrace(scalaTrace.getStackTrace).map(_.toString).filter(filter).map(tab + _ ).mkString("\n") + "\n\n"
   }
 
   def short: String = short(new Throwable())
