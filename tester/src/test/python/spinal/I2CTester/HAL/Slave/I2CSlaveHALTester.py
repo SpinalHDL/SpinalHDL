@@ -177,7 +177,7 @@ def writeRead_test(dut, model, eventCmdValid, rspReadyEvent):
 ###############################################################################
 # Test the read
 @cocotb.coroutine
-def read_test(dut, model, eventCmdValid, rspReadyEvent, data, freeze):
+def read_test(dut, model, eventCmdValid, rspReadyEvent, data):
 
     dut.io_cmd_ready        <= 0
     dut.io_rsp_payload_mode <= 0
@@ -193,8 +193,6 @@ def read_test(dut, model, eventCmdValid, rspReadyEvent, data, freeze):
 
     assertEquals(eventCmdValid.data["mode"], CmdMode.START, "START : Cmd mode received wrong")
 
-   # if freeze == True :
-    #    yield Timer(200000)
 
     dut.io_cmd_ready <= 1
     yield RisingEdge(dut.clk)
@@ -217,8 +215,6 @@ def read_test(dut, model, eventCmdValid, rspReadyEvent, data, freeze):
 
         yield eventCmdValid.wait()
 
-        if freeze == True :
-            yield Timer(200000)
 
         dut.io_cmd_ready <= 1
         yield RisingEdge(dut.clk)
@@ -241,9 +237,6 @@ def read_test(dut, model, eventCmdValid, rspReadyEvent, data, freeze):
         yield eventCmdValid.wait()
 
         assertEquals(eventCmdValid.data["mode"], CmdMode.ACK or CmdMode.NACK, "ACK/NACK : Cmd mode received wrong")
-
-        if freeze == True :
-            yield Timer(200000)
 
         dut.io_cmd_ready <= 1
         yield RisingEdge(dut.clk)
@@ -292,7 +285,7 @@ def read_test(dut, model, eventCmdValid, rspReadyEvent, data, freeze):
 ###############################################################################
 # Test the write
 @cocotb.coroutine
-def write_test(dut, model, eventCmdValid, rspReadyEvent, data, freeze=False):
+def write_test(dut, model, eventCmdValid, rspReadyEvent, data):
 
     dut.io_cmd_ready        <= 0
     dut.io_rsp_payload_mode <= 0
@@ -308,8 +301,6 @@ def write_test(dut, model, eventCmdValid, rspReadyEvent, data, freeze=False):
 
     assertEquals(eventCmdValid.data["mode"], CmdMode.START, "START : Cmd mode received wrong")
 
-    if freeze == True :
-        yield Timer(200000)
 
     dut.io_cmd_ready <= 1
     yield RisingEdge(dut.clk)
@@ -330,11 +321,9 @@ def write_test(dut, model, eventCmdValid, rspReadyEvent, data, freeze=False):
         cocotb.fork(  model.writeData(data[i]) )
         yield eventCmdValid.wait()
 
-    #    assertEquals(eventCmdValid.data["data"], data[i], "Data send by the master is not equal to the data read by the slave")
-   #     assertEquals(eventCmdValid.data["mode"], CmdMode.DATA, "DATA : Cmd mode received wrong")
+        assertEquals(eventCmdValid.data["data"], data[i], "Data send by the master is not equal to the data read by the slave")
+        assertEquals(eventCmdValid.data["mode"], CmdMode.DATA, "DATA : Cmd mode received wrong")
 
-     #   if freeze == True :
-      #      yield Timer(200000)
 
         dut.io_cmd_ready <= 1
         yield RisingEdge(dut.clk)
@@ -357,7 +346,7 @@ def write_test(dut, model, eventCmdValid, rspReadyEvent, data, freeze=False):
 
     yield eventCmdValid.wait()
 
- #   assertEquals(eventCmdValid.data["mode"], CmdMode.STOP, "STOP : Cmd mode received wrong")
+    assertEquals(eventCmdValid.data["mode"], CmdMode.STOP, "STOP : Cmd mode received wrong")
 
     dut.io_cmd_ready <= 1
 
@@ -405,7 +394,7 @@ def monitor_rsp_ready(dut, event):
 
 ###############################################################################
 # Test a sequence of write
-#@cocotb.test()
+@cocotb.test()
 def slave_hal_test_write(dut):
 
     dut.log.info("Cocotb I2C Slave HAL - write Test ")
@@ -434,7 +423,7 @@ def slave_hal_test_write(dut):
 
 ###############################################################################
 # Test a sequence of read
-#@cocotb.test()
+@cocotb.test()
 def slave_hal_test_read(dut):
 
     dut.log.info("Cocotb I2C Slave HAL - read Test ")
@@ -461,7 +450,7 @@ def slave_hal_test_read(dut):
 
 ###############################################################################
 # Test a sequence of read
-#@cocotb.test()
+@cocotb.test()
 def slave_hal_test_WriteRead(dut):
 
     dut.log.info("Cocotb I2C Slave HAL - read Test ")
@@ -485,56 +474,3 @@ def slave_hal_test_WriteRead(dut):
     dut.log.info("I2C Slave HAL - read Test done")
 
 
-###############################################################################
-# Test a sequence of write
-@cocotb.test()
-def slave_hal_test_write_freeze(dut):
-
-    dut.log.info("Cocotb I2C Slave HAL - write Test ")
-
-
-    cmdValidEvent = Event()
-    rspReadyEvent = Event()
-
-    data2Write = [0x85]
-
-    modelMaster = I2CMasterModelHAL(dut.clk, dut.io_i2c_scl_read, dut.io_i2c_sda_read, dut.io_i2c_scl_write, dut.io_i2c_sda_write, 50)
-
-    clockDomain = ClockDomain(dut.clk, 500, dut.resetn, RESET_ACTIVE_LEVEL.LOW)
-
-    cocotb.fork(clockDomain.start())
-    cocotb.fork(monitor_cmd_valid(dut, cmdValidEvent))
-    cocotb.fork(monitor_rsp_ready(dut, rspReadyEvent))
-    cocotb.fork(write_test(dut, modelMaster, cmdValidEvent,rspReadyEvent, data2Write, True))
-    modelMaster.startMaster()
-
-    yield Timer(3000000)
-
-    dut.log.info("I2C Slave HAL - write Test done")
-
-
-###############################################################################
-# Test a sequence of read
-#@cocotb.test()
-def slave_hal_test_read_Freeze(dut):
-
-    dut.log.info("Cocotb I2C Slave HAL - read Test ")
-
-    cmdValidEvent = Event()
-    rspReadyEvent = Event()
-
-    data2Read = [0x34]
-
-    modelMaster = I2CMasterModelHAL(dut.clk, dut.io_i2c_scl_read, dut.io_i2c_sda_read, dut.io_i2c_scl_write, dut.io_i2c_sda_write, 50)
-
-    clockDomain = ClockDomain(dut.clk, 500, dut.resetn, RESET_ACTIVE_LEVEL.LOW)
-
-    cocotb.fork(clockDomain.start())
-    cocotb.fork(monitor_cmd_valid(dut, cmdValidEvent))
-    cocotb.fork(monitor_rsp_ready(dut, rspReadyEvent))
-    cocotb.fork(read_test(dut, modelMaster, cmdValidEvent,rspReadyEvent, data2Read, True))
-    modelMaster.startMaster()
-
-    yield Timer(3000000)
-
-    dut.log.info("I2C Slave HAL - read Test done")

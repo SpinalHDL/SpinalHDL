@@ -12,6 +12,7 @@ import spinal.lib.fsm._
 import spinal.lib.graphic.RgbConfig
 import spinal.lib.graphic.vga.{AvalonMMVgaCtrl, VgaCtrl}
 import spinal.lib.com.i2c._
+import spinal.lib.io.ReadableOpenDrain
 
 
 import scala.collection.mutable
@@ -923,7 +924,8 @@ object PlayGenerics{
 
   /**
    * ALT_INBUF
-   * @TODO add library altera.altera_primitives_components
+    *
+    * @TODO add library altera.altera_primitives_components
    */
   case class alt_inbuf(_io_standard           : IO_STRANDARD = STD_NONE,
                        _location              : String       = "None",
@@ -1153,6 +1155,55 @@ object PlayI2CSlaveHAL {
       defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
       defaultClockDomainFrequency  = FixedFrequency(50e6)
     ).generate(new I2CSlaveHALTester).printPruned
+  }
+}
+object PlayI2CHAL{
+
+  class I2CHALTester extends Component{
+
+    val slaveGeneric  = I2CSlaveHALGenerics()
+    val masterGeneric = I2CMasterHALGenerics()
+
+    val io = new Bundle{
+      val ioSlave = new Bundle {
+        val cmd  = master  Stream ( I2CSlaveHALCmd(slaveGeneric) )
+        val rsp  = slave Stream ( I2CSlaveHALRsp(slaveGeneric) )
+      }
+      val ioMaster = new Bundle {
+        val cmd    = slave Stream(I2CMasteHALCmd(masterGeneric))
+        val rsp    = master Flow (I2CMasterHALRsp (masterGeneric))
+      }
+    }
+
+    val i2cSlave  = new I2CSlaveHAL(slaveGeneric)
+    val i2cMaster = new I2CMasterHAL(masterGeneric)
+
+
+    i2cSlave.io.cmd  <> io.ioSlave.cmd
+    i2cSlave.io.rsp  <> io.ioSlave.rsp
+    i2cMaster.io.cmd <> io.ioMaster.cmd
+    i2cMaster.io.rsp <> io.ioMaster.rsp
+    i2cMaster.io.config.setFrequency(2e6)
+
+
+    interconnect(Seq(i2cMaster.io.i2c.scl, i2cSlave.io.i2c.scl))
+    interconnect(Seq(i2cMaster.io.i2c.sda, i2cSlave.io.i2c.sda))
+
+
+    //def interconnect[T <: Data](elements : Seq[ReadableOpenDrain[T]]) : Unit = {
+    def interconnect(elements : Seq[ReadableOpenDrain[Bool]]) : Unit = {
+      val readValue = elements.map(_.write).reduce(_ & _)
+      elements.foreach(_.read := readValue)
+    }
+  }
+
+  def main(args : Array[String]): Unit ={
+    SpinalConfig(
+        mode = Verilog,
+        dumpWave = DumpWaveConfig(depth = 0),
+        defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
+        defaultClockDomainFrequency  = FixedFrequency(50e6)
+    ).generate(new I2CHALTester()).printPruned()
   }
 }
 
