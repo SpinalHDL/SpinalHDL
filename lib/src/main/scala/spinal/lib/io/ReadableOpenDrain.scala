@@ -7,7 +7,7 @@ import spinal.lib._
   * Define an open drain readable port
   */
 case class ReadableOpenDrain[T<: Data](dataType : T) extends Bundle with IMasterSlave{
-  val write,read = dataType.clone()
+  val write,read : T = dataType.clone()
 
   override def asMaster(): this.type = {
     out(write)

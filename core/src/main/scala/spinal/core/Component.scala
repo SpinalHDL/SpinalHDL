@@ -47,7 +47,7 @@ object Component {
 }
 
 
-abstract class Component extends NameableByComponent with GlobalDataUser with ScalaLocated with DelayedInit with Stackable{
+abstract class Component extends NameableByComponent with GlobalDataUser with ScalaLocated with DelayedInit with Stackable with Ownable{
 
   override def delayedInit(body: => Unit) = {
     body
@@ -101,6 +101,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
   var definitionName: String = null
   private[core] val level = globalData.componentStack.size()
   val children = ArrayBuffer[Component]()
+  override type OwnerType = Component
   val parent = Component.current
 
   if (parent != null) {
@@ -146,19 +147,24 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
     Misc.reflect(this, (name, obj) => {
       obj match {
         case component: Component => {
-          if (component.parent == this)
+          if (component.parent == this) {
+            Ownable.set(obj,this)
             component.setWeakName(name)
+          }
         }
         case nameable: Nameable => {
-          if (!nameable.isInstanceOf[ContextUser])
+          if (!nameable.isInstanceOf[ContextUser]) {
             nameable.setWeakName(name)
-          else if (nameable.asInstanceOf[ContextUser].component == this)
+            Ownable.set(obj,this)
+          }else if (nameable.asInstanceOf[ContextUser].component == this) {
             nameable.setWeakName(name)
-          else {
+            Ownable.set(obj,this)
+          }else {
             for (kind <- children) {
               //Allow to name a component by his io reference into the parent component
               if (kind.reflectIo == nameable) {
                 kind.setWeakName(name)
+                Ownable.set(kind,this)
               }
             }
           }
@@ -183,6 +189,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
       case _ =>
     }
     for (kind <- children) {
+      Ownable.set(kind,this)
       if (kind.isUnnamed) {
         var name = kind.getClass.getSimpleName
         name = Character.toLowerCase(name.charAt(0)) + (if (name.length() > 1) name.substring(1) else "");
@@ -254,7 +261,14 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
 
   }
 
-
+//  def keepAll() : Unit = {
+//    Misc.reflect(this, (name, obj) => {
+//      obj match {
+//        case data : Data => data.keep()
+//        case area : Area => area.keepAll()
+//      }
+//    }
+//  }
 
 }
 

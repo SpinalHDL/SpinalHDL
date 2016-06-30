@@ -30,9 +30,11 @@ class Generic {
 
   def genNames: Unit = {
     Misc.reflect(this, (name, obj) => {
+      Ownable.set(obj,this)
       obj match {
-        case obj: Nameable =>
+        case obj: Nameable => {
           obj.setWeakName(name)
+        }
         case _ =>
       }
     })

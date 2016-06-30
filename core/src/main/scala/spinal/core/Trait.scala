@@ -213,7 +213,28 @@ trait Assignable {
   private[core] def assignFromImpl(that: AnyRef, conservative: Boolean): Unit
 }
 
+object Ownable{
+  def set(ownable : Any,owner : Any) = {
+    if(ownable.isInstanceOf[Ownable])
+      ownable.asInstanceOf[Ownable].setOwner(owner)
+  }
+}
 
+trait Ownable{
+  type OwnerType
+  @dontName var owner : OwnerType = null.asInstanceOf[OwnerType]
+  def setOwner(that : Any): Unit ={
+    owner = that.asInstanceOf[OwnerType]
+  }
+
+  def getOwners() : List[Any] = {
+    owner match {
+      case null => Nil
+      case owner : Ownable => owner.getOwners() :+ owner
+      case _ => owner :: Nil
+    }
+  }
+}
 
 trait Nameable {
   private var name: String = ""
@@ -284,9 +305,23 @@ object ScalaLocated {
     filterStackTrace(scalaTrace.getStackTrace)(0).toString
   }
 
+
   def long(scalaTrace : Throwable,tab : String = "    "): String = {
     if(scalaTrace == null) return "???"
-    filterStackTrace(scalaTrace.getStackTrace).map(tab + _.toString).mkString("\n") + "\n\n"
+    def filter(that : String) : Boolean = {
+      if(that.startsWith("sun.reflect.NativeConstructorAccessorImpl.newInstance")) return false
+      if(that.startsWith("sun.reflect.DelegatingConstructorAccessorImpl.newInstance")) return false
+      if(that.startsWith("java.lang.reflect.Constructor.newInstance")) return false
+      if(that.startsWith("java.lang.Class.newInstance")) return false
+      if(that.startsWith("sun.reflect.NativeMethodAccessorImpl.invoke")) return false
+      if(that.startsWith("sun.reflect.DelegatingMethodAccessorImpl.invoke")) return false
+      if(that.startsWith("java.lang.reflect.Method.invoke")) return false
+      if(that.startsWith("com.intellij.rt.execution.application.AppMain.main")) return false
+
+      return true
+    }
+
+    filterStackTrace(scalaTrace.getStackTrace).map(_.toString).filter(filter).map(tab + _ ).mkString("\n") + "\n\n"
   }
 
   def short: String = short(new Throwable())
@@ -410,24 +445,30 @@ object randomBoot extends SpinalTag{override def moveToSyncNode = true}
 object tagAutoResize extends SpinalTag{override def duplicative = true}
 object tagTruncated extends SpinalTag{override def duplicative = true}
 
-trait Area extends Nameable with ContextUser{
+trait Area extends Nameable with ContextUser with Ownable{
   override protected def nameChangeEvent(weak: Boolean): Unit = {
     Misc.reflect(this, (name, obj) => {
       obj match {
         case component: Component => {
-          if (component.parent == this.component)
+          if (component.parent == this.component) {
             component.setWeakName(this.getName() + "_" + name)
+            Ownable.set(component,this)
+          }
+
         }
         case namable: Nameable => {
-          if (!namable.isInstanceOf[ContextUser])
+          if (!namable.isInstanceOf[ContextUser]) {
             namable.setWeakName(this.getName() + "_" + name)
-          else if (namable.asInstanceOf[ContextUser].component == component)
+            Ownable.set(namable,this)
+          } else if (namable.asInstanceOf[ContextUser].component == component){
             namable.setWeakName(this.getName() + "_" + name)
-          else {
+            Ownable.set(namable,this)
+          } else {
             for (kind <- component.children) {
               //Allow to name a component by his io reference into the parent component
               if (kind.reflectIo == namable) {
                 kind.setWeakName(this.getName() + "_" + name)
+                Ownable.set(kind,this)
               }
             }
           }
@@ -436,6 +477,15 @@ trait Area extends Nameable with ContextUser{
       }
     })
   }
+
+//  def keepAll() : Unit = {
+//    Misc.reflect(this, (name, obj) => {
+//      obj match {
+//        case data : Data => data.keep()
+//        case area : Area => area.keepAll()
+//      }
+//    }
+//  }
 }
 
 object ImplicitArea{
