@@ -29,7 +29,7 @@ before_install:
   # GHDL
   - sudo add-apt-repository -y ppa:pgavin/ghdl
   - sudo apt-get update
-  - sudo apt-get install -y ghdl
+  - sudo apt-get install -y --force-yes ghdl
 
   # iverilog (debian package 9.7 contain bugs)
   - sudo apt-get install -y gperf readline-common bison flex
