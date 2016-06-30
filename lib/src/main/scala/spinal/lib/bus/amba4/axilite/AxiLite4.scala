@@ -76,9 +76,9 @@ object READ_WRITE extends AxiLite4Mode{
   * @param dataWidth    Width of the data bus
   * @param mode         Access mode : WRITE_ONLY, READ_ONLY, READ_WRITE
   */
-case class AxiLite4Config(addressWidth: Int,
-                         dataWidth    : Int,
-                         mode         : AxiLite4Mode = READ_WRITE){
+case class AxiLite4Config(addressWidth : Int,
+                          dataWidth    : Int,
+                          mode         : AxiLite4Mode = READ_WRITE){
   def dataByteCount = dataWidth/8
 }
 
