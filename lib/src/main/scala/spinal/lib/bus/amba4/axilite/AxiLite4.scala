@@ -126,6 +126,10 @@ case class AxiLite4B(config: AxiLite4Config) extends Bundle {
   def setEXOKAY() : Unit = resp := EXOKAY
   def setSLVERR() : Unit = resp := SLVERR
   def setDECERR() : Unit = resp := DECERR
+  def isOKAY()   : Unit = resp === OKAY
+  def isEXOKAY() : Unit = resp === EXOKAY
+  def isSLVERR() : Unit = resp === SLVERR
+  def isDECERR() : Unit = resp === DECERR
 }
 
 
@@ -143,6 +147,10 @@ case class AxiLite4R(config: AxiLite4Config) extends Bundle {
   def setEXOKAY() : Unit = resp := EXOKAY
   def setSLVERR() : Unit = resp := SLVERR
   def setDECERR() : Unit = resp := DECERR
+  def isOKAY()   : Unit = resp === OKAY
+  def isEXOKAY() : Unit = resp === EXOKAY
+  def isSLVERR() : Unit = resp === SLVERR
+  def isDECERR() : Unit = resp === DECERR
 }
 
 

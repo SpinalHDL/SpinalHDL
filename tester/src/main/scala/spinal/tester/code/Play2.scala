@@ -1593,3 +1593,26 @@ object PlayImplicitArg{
 
   }
 }
+
+
+
+
+object PlayNameRefl{
+  class TopLevel extends Component {
+    val io = new Bundle{
+      val result = out Bool
+    }
+
+    val toto = io.result
+
+    toto := False
+    val i = 2
+    var o = 3
+    var titi = False
+
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}

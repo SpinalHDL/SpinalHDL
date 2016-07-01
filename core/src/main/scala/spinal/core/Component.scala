@@ -144,32 +144,40 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
   }
 
   def nameElements(): Unit = {
+    val io = reflectIo
+    if(io != null) {
+      io.setWeakName("io")
+      OwnableRef.set(io,this)
+    }
+
     Misc.reflect(this, (name, obj) => {
-      obj match {
-        case component: Component => {
-          if (component.parent == this) {
-            OwnableRef.set(obj,this)
-            component.setWeakName(name)
+      if(name != "io") {
+        obj match {
+          case component: Component => {
+            if (component.parent == this) {
+              OwnableRef.set(obj, this)
+              component.setWeakName(name)
+            }
           }
-        }
-        case nameable: Nameable => {
-          if (!nameable.isInstanceOf[ContextUser]) {
-            nameable.setWeakName(name)
-            OwnableRef.set(obj,this)
-          }else if (nameable.asInstanceOf[ContextUser].component == this) {
-            nameable.setWeakName(name)
-            OwnableRef.set(obj,this)
-          }else {
-            for (kind <- children) {
-              //Allow to name a component by his io reference into the parent component
-              if (kind.reflectIo == nameable) {
-                kind.setWeakName(name)
-                OwnableRef.set(kind,this)
+          case nameable: Nameable => {
+            if (!nameable.isInstanceOf[ContextUser]) {
+              nameable.setWeakName(name)
+              OwnableRef.set(obj, this)
+            } else if (nameable.asInstanceOf[ContextUser].component == this) {
+              nameable.setWeakName(name)
+              OwnableRef.set(obj, this)
+            } else {
+              for (kind <- children) {
+                //Allow to name a component by his io reference into the parent component
+                if (kind.reflectIo == nameable) {
+                  kind.setWeakName(name)
+                  OwnableRef.set(kind, this)
+                }
               }
             }
           }
+          case _ =>
         }
-        case _ =>
       }
     })
   }
