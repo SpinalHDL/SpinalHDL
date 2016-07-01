@@ -7,7 +7,7 @@ import java.util
 import spinal.core.Operator.UInt.Add
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.amba4.axilite.{AxiLite4Config, AxiLite4}
+import spinal.lib.bus.amba4.axilite.{AxiLite4SpecRenamer, AxiLite4Config, AxiLite4}
 import spinal.lib.bus.neutral.NeutralStreamDma
 import spinal.lib.com.uart.UartCtrl
 import spinal.lib.eda.mentor.MentorDo
@@ -1455,22 +1455,6 @@ object PlayCCBuffer{
   }
 }
 
-object  AxiLite4XilinxRenamer{
-  def apply(that : AxiLite4): Unit ={
-    def doIt = {
-      that.flatten.foreach((bt) => {
-        bt.setName(bt.getName().replace("_payload_",""))
-        bt.setName(bt.getName().replace("_valid","valid"))
-        bt.setName(bt.getName().replace("_ready","ready"))
-        bt.setName(bt.getName().replaceFirst("io_",""))
-      })
-    }
-    if(Component.current == that.component)
-      that.component.addPrePopTask(() => {doIt})
-    else
-      doIt
-  }
-}
 
 
 object PlayRename{
@@ -1482,14 +1466,22 @@ object PlayRename{
 
     io.sink << io.source
 
-
-
-    AxiLite4XilinxRenamer(io.source)
-    AxiLite4XilinxRenamer(io.sink)
+    val toto = Reg(Bool).init(False).keep //Force to keep clock and reset in this small example
   }
 
   def main(args: Array[String]) {
-    SpinalVhdl(new TopLevel)
+    SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(
+      clockEdge = RISING,
+      resetKind = ASYNC,
+      resetActiveLevel = LOW
+    )).generateVhdl({
+      val myIp = new TopLevel
+      AxiLite4SpecRenamer(myIp.io.source)
+      AxiLite4SpecRenamer(myIp.io.sink)
+      ClockDomain.current.clock.setName("fancyClockName")
+      ClockDomain.current.reset.setName("fancyResetName")
+      myIp
+    })
   }
 }
 
@@ -1589,5 +1581,15 @@ object PlayAuto{
       defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
       defaultClockDomainFrequency  = FixedFrequency(50e6)
     ).generate(new I2CHAL()).printPruned()
+  }
+}
+
+object PlayImplicitArg{
+  class A(implicit x : Int)
+//  class B extends A
+  def main(args: Array[String]) {
+    implicit val answer = 42
+    val a = new A
+
   }
 }
