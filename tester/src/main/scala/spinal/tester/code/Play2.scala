@@ -7,6 +7,7 @@ import java.util
 import spinal.core.Operator.UInt.Add
 import spinal.core._
 import spinal.lib._
+import spinal.lib.bus.amba4.axilite.{AxiLite4Config, AxiLite4}
 import spinal.lib.bus.neutral.NeutralStreamDma
 import spinal.lib.com.uart.UartCtrl
 import spinal.lib.eda.mentor.MentorDo
@@ -1451,6 +1452,44 @@ object PlayCCBuffer{
   def main(args: Array[String]) {
     SpinalVhdl(new TopLevel)
     SpinalVerilog(new TopLevel)
+  }
+}
+
+object  AxiLite4XilinxRenamer{
+  def apply(that : AxiLite4): Unit ={
+    def doIt = {
+      that.flatten.foreach((bt) => {
+        bt.setName(bt.getName().replace("_payload_",""))
+        bt.setName(bt.getName().replace("_valid","valid"))
+        bt.setName(bt.getName().replace("_ready","ready"))
+        bt.setName(bt.getName().replaceFirst("io_",""))
+      })
+    }
+    if(Component.current == that.component)
+      that.component.addPrePopTask(() => {doIt})
+    else
+      doIt
+  }
+}
+
+
+object PlayRename{
+  class TopLevel extends Component {
+    val io = new Bundle{
+      val source = slave(AxiLite4(AxiLite4Config(32,32)))
+      val sink = master(AxiLite4(AxiLite4Config(32,32)))
+    }
+
+    io.sink << io.source
+
+
+
+    AxiLite4XilinxRenamer(io.source)
+    AxiLite4XilinxRenamer(io.sink)
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
   }
 }
 

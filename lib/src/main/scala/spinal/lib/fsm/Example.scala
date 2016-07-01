@@ -180,7 +180,7 @@ object StateMachineWithInnerExample {
   class TopLevel extends Component {
 
     def simpleFsm(countTo : Int) = new StateMachine {
-      val counter = Reg(UInt(8 bits)) init (0)
+      val counter = out(Reg(UInt(8 bits)) init (0))
 
       val stateA: State = new State with EntryPoint {
         whenIsActive {
@@ -261,7 +261,7 @@ object StateMachineWithInnerExample {
       }
     }
 
-    out(coreFsm.stateReg)
+
   }
 
   def main(args: Array[String]) {
