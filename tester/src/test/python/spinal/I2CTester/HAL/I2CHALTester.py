@@ -20,6 +20,11 @@ class Slave:
 
         # Event -------------------------------------------
         self.event_cmd_valid = Event()
+        self.event_rsp_ready = Event()
+
+        # Start process
+        cocotb.fork(self.monitor_cmd_valid())
+        cocotb.fork(self.monitor_rsp_ready())
 
     class IO:
 
@@ -63,6 +68,13 @@ class Slave:
             if int(self.io.cmd_valid) == 1:
                 self.event_cmd_valid.set()
 
+    @cocotb.coroutine
+    def monitor_rsp_ready(self):
+        while True:
+            yield RisingEdge(self.io.clk)
+            if int(self.io.rsp_ready) == 1:
+                self.event_rsp_ready.set()
+
 
 ###############################################################################
 # Master class
@@ -73,6 +85,12 @@ class Master:
 
         # Event -------------------------------------------
         self.event_cmd_ready = Event()
+        self.event_rsp_valid = Event()
+
+        # Start process
+        cocotb.fork(self.monitor_cmd_ready())
+        cocotb.fork(self.monitor_rsp_valid())
+
 
     class IO:
         def __init__ (self, dut):
@@ -115,11 +133,42 @@ class Master:
             if int(self.io.cmd_ready) == 1:
                 self.event_cmd_ready.set()
 
+    @cocotb.coroutine
+    def monitor_rsp_valid(self):
+        while True:
+            yield RisingEdge(self.io.clk)
+            if int(self.io.rsp_valid) == 1:
+                self.event_rsp_valid.set()
+
+
+
+class SimData:
+    pass
+
+class Nothing(SimData):
+    pass
+
+class SimCMD(SimData):
+
+    def __init__(self, cmd, data=0):
+        self.mode = cmd
+        self.data = data
+
+class SimRsp(SimData):
+
+    def __init__(self, rsp, data=0):
+        self.mode = rsp
+        self.data = data
+
+
+
+
+
 
 
 
 @cocotb.coroutine
-def masterManager(masterHelp):
+def masterManager(masterHelp, seqMaster):
 
     io = masterHelp.io
 
@@ -127,43 +176,38 @@ def masterManager(masterHelp):
 
     yield RisingEdge(io.clk)
 
-    # Send start condition
-    io.cmd_valid <= 1
-    io.cmd_mode  <= Master.CMD.START
-
-    yield masterHelp.event_cmd_ready.wait()
-
-    io.cmd_valid <= 0
-
-    yield RisingEdge(io.clk)
-
-    # Send a data
-    io.cmd_valid <= 1
-    io.cmd_mode  <= Master.CMD.WRITE
-    io.cmd_data  <= 0x39
-
-    yield masterHelp.event_cmd_ready.wait()
-
-    io.cmd_valid <= 0
-
-    yield RisingEdge(io.clk)
-
-    # Send a data
-    io.cmd_valid <= 1
-    io.cmd_mode  <= Master.CMD.ACK
-    io.cmd_data  <= 0x39
-
-    yield masterHelp.event_cmd_ready.wait()
-
-    io.cmd_valid <= 0
+    for (simCMD, simRSP, delay) in seqMaster:
 
 
+        # Execute the command
+        if not (isinstance(simCMD, Nothing)):
 
+            io.cmd_valid <= 1
+            io.cmd_mode  <= simCMD.mode
+            io.cmd_data  <= simCMD.data
+
+            yield masterHelp.event_cmd_ready.wait()
+
+            io.cmd_valid <= 0
+
+        if isinstance(simRSP, Nothing):
+            yield RisingEdge(io.clk)
+        else:
+
+            yield masterHelp.event_rsp_valid.wait()
+
+            # check response
+            assertEquals(simRSP.mode, int(io.rsp_mode), "Master mode response wrong")
+            if simRSP.mode == Master.RSP.DATA:
+                pass
+            #    assertEquals(simRSP.data, int(io.rsp_data), "Master data response wrong")
+
+        yield Timer(delay)
 
 
 
 @cocotb.coroutine
-def slaveManager(slaveHelper):
+def slaveManager(slaveHelper, seqSlave):
 
     io = slaveHelper.io
 
@@ -171,11 +215,25 @@ def slaveManager(slaveHelper):
 
     yield RisingEdge(io.clk)
 
-    yield slaveHelper.event_cmd_valid.wait()
+    for (simCMD, simRSP, delay) in seqSlave:
 
-    io.cmd_ready <= 1
-    yield RisingEdge(io.clk)
-    io.cmd_ready <= 0
+        if not (isinstance(simCMD, Nothing)):
+
+            yield slaveHelper.event_cmd_valid.wait()
+
+            io.cmd_ready <= 1
+            yield RisingEdge(io.clk)
+            io.cmd_ready <= 0
+
+            if not (isinstance(simRSP, Nothing)):
+                io.rsp_valid <= 1
+                io.rsp_mode  <= simRSP.mode
+                io.rsp_data  <= simRSP.data
+
+                yield slaveHelper.event_rsp_ready.wait()
+
+                io.cmd_ready <= 0
+
 
 
 
@@ -192,13 +250,44 @@ def test_scenario_1(dut):
     masterHelper = Master(dut)
     slaveHelper  = Slave(dut)
 
+    seqMaster = [( SimCMD(Master.CMD.START)      , Nothing()                          , 0 ),
+                 ( SimCMD(Master.CMD.WRITE, 0x44), SimRsp(Master.RSP.DATA, 0x44), 0 ),
+                 ( SimCMD(Master.CMD.START)      , Nothing()                          , 0 ),  #300000
+                 ( SimCMD(Master.CMD.WRITE, 0xAA), SimRsp(Master.RSP.DATA, 0xAA), 0 ),
+                 ( SimCMD(Master.CMD.STOP)       , Nothing()                          , 0 )]
+
+    # seqMaster = [( SimCMD(Master.CMD.START)      , Nothing()                          , 0 ),
+    #              ( SimCMD(Master.CMD.WRITE, 0x44), SimRsp(Master.RSP.DATA, 0x44), 0 ),
+    #              ( Nothing()                     , SimRsp(Master.RSP.NACK)      , 0 ),
+    #              ( SimCMD(Master.CMD.STOP)       , Nothing()                          , 0 )]
+
+
+
+
+    # Senario : Simple Read
+    seqMaster1 = [( SimCMD(Master.CMD.START)     , Nothing()                          , 0 ),
+                 ( SimCMD(Master.CMD.READ )      , SimRsp(Master.RSP.DATA, 0x44)      , 0 ),
+                 ( SimCMD(Master.CMD.NACK )      , Nothing()                          , 0 ),
+                 ( SimCMD(Master.CMD.STOP)       , Nothing()                          , 0 )]
+
+
+    seqSlave1  = [( SimCMD(Slave.CMD.START)     , SimRsp(Slave.RSP.DATA, 0x44)      , 0 ),
+                 ( SimCMD(Slave.CMD.DATA )      , SimRsp(Slave.RSP.NONE)            , 0 ),
+                 ( SimCMD(Slave.CMD.NACK )      , SimRsp(Slave.RSP.NONE)            , 0 ),
+                 ( SimCMD(Slave.CMD.STOP)       , SimRsp(Slave.RSP.NONE)            , 0 )]
+
+
+
+    # select the scenario
+    seqMaster = seqMaster1
+    seqSlave  = seqSlave1
+
     clockDomain = ClockDomain(dut.clk, 500, dut.resetn, RESET_ACTIVE_LEVEL.LOW)
 
     cocotb.fork(clockDomain.start())
-    cocotb.fork(masterManager(masterHelper))
-    cocotb.fork(slaveManager(slaveHelper))
-    cocotb.fork(masterHelper.monitor_cmd_ready())
-    cocotb.fork(slaveHelper.monitor_cmd_valid())
+    cocotb.fork(masterManager(masterHelper, seqMaster))
+    cocotb.fork(slaveManager(slaveHelper, seqSlave))
+
 
 
     yield Timer(3000000)

@@ -3,17 +3,17 @@
   *
   * Write sequence :
   *
-  *   CMD    : START   WRITE         WRITE         STOP
+  *   CMD    : START   WRITE           WRITE        STOP
   *   Master :   | START | WRITE |     | WRITE |     | STOP |
   *   Slave  :   |       |       | ACK |       | ACK |      |
   *   RSP    :                  DATA  ACK     DATA  ACK
   *
   * Read sequence :
   *
-  *   CMD    : START   READ    ACK   READ   NACK   STOP
+  *   CMD    : START   READ     ACK   READ   NACK   STOP
   *   Master :   | START |      | ACK |      | NACK | STOP |
   *   Slave  :   |       | READ |     | READ |      |      |
-  *   RSP    :                 DATA        DATA
+  *   RSP    :                DATA        DATA
   *
   * Restart sequence :
   *
@@ -150,7 +150,7 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
       }
 
     }otherwise{
-      scl      := True
+      when(scl_freeze){ scl := False }otherwise{ scl := True }
       cntValue := 0
     }
 
@@ -173,6 +173,61 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
       }
     }
   }
+
+
+  /**
+    * Detect the start/restart and the stop sequence
+    */
+  val detector = new Area{
+
+    val start   = False
+    val stop    = False
+
+    val sda_cur  = RegNext(io.i2c.sda.read) init(False)
+    val sda_prev = RegNext(sda_cur)     init(False)
+
+    // start = falling edge of sda while the scl is 1
+    when(sclGenerator.scl && sda_cur === False && sda_prev ){
+      start   := True
+    }
+
+    // stop = rising edge of sda while the scl is 1
+    when(sclGenerator.scl && sda_cur && sda_prev === False ){
+      stop := True
+    }
+  }
+
+
+
+  val state_Bus = new StateMachine{
+
+    val busy = False
+
+    val sIDLE : State = new State with EntryPoint{
+      whenIsActive {
+        when(detector.start){
+          goto(sDELAY)
+        }
+      }
+      // @TODO cyclesCounter must be : (io.config.clockDivider >> 1).toInt
+      val sDELAY : State = new StateDelay(cyclesCount=40 ){
+        whenCompleted{
+          goto(sBUSY)
+        }
+      }
+
+      val sBUSY : State = new State{
+        whenIsActive{
+          busy := True
+          when(detector.stop){
+            goto(sIDLE)
+          }
+        }
+      }
+    }
+  }
+
+
 
 
   /**
@@ -221,9 +276,13 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
 
     val scl_en         = Reg(Bool) init(False)
     val wr_sda         = RegInit(True)
-    val rd_sda         = if (g.multiMaster_en ) io.i2c.sda.read else null
+    @dontName  val rd_sda         =  io.i2c.sda.read   // if (g.multiMaster_en ) io.i2c.sda.read else null
     val dataReceived   = Reg(Bits(g.dataWidth bits)) init(0)
     val isStarted      = RegInit(False)
+    val freezeBus      = RegInit(False)
+    val isCMDAfterFreeze = RegInit(False)
+
+    when(io.cmd.valid){ freezeBus := False }
 
     // default value
     io.cmd.ready := False
@@ -233,35 +292,47 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
 
     val sIDLE : State = new State with EntryPoint {
       whenIsActive {
-        when(io.cmd.valid) {
-          switch(io.cmd.mode) {
-            is(CmdMode.START) {
-              io.cmd.ready := True
-              when(isStarted === False) {
-                isStarted := True
-                goto(sSTART)
-              } otherwise {
-                goto(sWAIT_BEFORE_START)
+        when(freezeBus === False){
+
+          when(!((!isStarted) && state_Bus.busy)){
+
+          when(io.cmd.valid) {
+            switch(io.cmd.mode) {
+              is(CmdMode.START) {
+                io.cmd.ready := True
+                when(isStarted === False) {
+                  isStarted := True
+                  goto(sSTART)
+                } otherwise {
+                  goto(sWAIT_BEFORE_START)
+                }
+              }
+              is(CmdMode.STOP) {
+                io.cmd.ready := True
+                isStarted    := False
+                goto(sWAIT_BEFORE_STOP)
+              }
+              is(CmdMode.READ) {
+                io.cmd.ready := True
+                counterBit.clear()
+                goto(sWAIT_BEFORE_READ)
+              }
+              is(CmdMode.WRITE) {
+                counterBit.clear()
+                goto(sWRITE)
+              }
+              is(CmdMode.NACK, CmdMode.ACK) {
+                goto(sWR_ACK)
               }
             }
-            is(CmdMode.STOP) {
-              io.cmd.ready := True
-              isStarted    := False
-              goto(sWAIT_BEFORE_STOP)
-            }
-            is(CmdMode.READ) {
-              io.cmd.ready := True
-              counterBit.clear()
-              goto(sWAIT_BEFORE_READ)
-            }
-            is(CmdMode.WRITE) {
-              counterBit.clear()
-              goto(sWRITE)
-            }
-            is(CmdMode.NACK, CmdMode.ACK) {
-              goto(sWR_ACK)
-            }
           }
+
+          }
+        }
+
+        when(sclGenerator.fallingEdge){
+          freezeBus := True
+          isCMDAfterFreeze := True
         }
       }
     }
@@ -282,7 +353,7 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
       }
     }
 
-    val sWRITE = new StateParallelFsm (writeSM(wr_sda,io.cmd.data, rd_sda), readSM(io.i2c.sda.read, dataReceived)){
+    val sWRITE = new StateParallelFsm (writeSM(wr_sda,io.cmd.data, isCMDAfterFreeze, rd_sda), readSM(io.i2c.sda.read, dataReceived)){
       whenCompleted{
         io.cmd.ready := True
         goto(sNOTIFIY_NEW_DATA_W)
@@ -351,6 +422,10 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
 
     val sWAIT_BEFORE_STOP : State = new State{
       whenIsActive{
+        when(isCMDAfterFreeze){
+          wr_sda := False
+          goto(sSTOP)
+        }
         when (sclGenerator.triggerSequence){
           goto(sSTOP)
         }
@@ -384,10 +459,14 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
     * @param data2Send : Data that will be sent on the I2C
     * @param rd_sda    : If not null, the data write will be read to check if collision exist on the bus (multi master)
     */
-  def writeSM(wr_sda : Bool, data2Send:Bits, rd_sda:Bool=null) = new StateMachine {
+  def writeSM(wr_sda : Bool, data2Send:Bits, cmdAfterFreeze:Bool, rd_sda:Bool=null) = new StateMachine {
 
     val sWRITE: State = new State with EntryPoint {
       whenIsActive{
+        when(cmdAfterFreeze){
+          cmdAfterFreeze := False
+          wr_sda := data2Send(counterBit.index)
+        }
         when(sclGenerator.fallingEdge){
           wr_sda := data2Send(counterBit.index)
           if (rd_sda != null) goto(sCHECK_COLLISION)
@@ -441,11 +520,10 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
   scl_en     := smMaster.scl_en
 
   if (g.multiMaster_en){
-    scl_freeze := smSynchSCL.freezeSCL
+    scl_freeze := smSynchSCL.freezeSCL || smMaster.freezeBus
   }else{
-    scl_freeze := False
+    scl_freeze := smMaster.freezeBus
   }
-
 }
 
 
