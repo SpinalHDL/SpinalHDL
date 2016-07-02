@@ -53,6 +53,30 @@ object OHToUInt {
   }
 }
 
+object min {
+    def apply[T <: Data with Num[T]](nums: T*) = list(nums)
+    def list[T <: Data with Num[T]](nums: Seq[T]) = {
+        nums.reduceBalancedTree(_ min _)
+    }
+}
+
+object max {
+    def apply[T <: Data with Num[T]](nums: T*) = list(nums)
+    def list[T <: Data with Num[T]](nums: Seq[T]) = {
+        nums.reduceBalancedTree(_ max _)
+    }
+}
+
+object MaskByPriority{
+    def apply[T <: Data](that : T) : T = {
+        val input = that.asBits.asUInt
+        val masked = input & ~(input - 1)
+        val ret = that.clone
+        ret.assignFromBits(masked.asBits)
+        ret
+    }
+}
+
 object CountOne{
   def args(thats : Bool*) : UInt = apply(thats)
   def apply(thats : BitVector) : UInt = apply(thats.asBools)
