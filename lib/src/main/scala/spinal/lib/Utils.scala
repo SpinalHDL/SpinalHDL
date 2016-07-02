@@ -67,6 +67,16 @@ object max {
     }
 }
 
+object MaskByPriority{
+    def apply[T <: Data](that : T) : T = {
+        val input = that.asBits.asUInt
+        val masked = input & ~(input - 1)
+        val ret = that.clone
+        ret.assignFromBits(masked.asBits)
+        ret
+    }
+}
+
 object CountOne{
   def args(thats : Bool*) : UInt = apply(thats)
   def apply(thats : BitVector) : UInt = apply(thats.asBools)
