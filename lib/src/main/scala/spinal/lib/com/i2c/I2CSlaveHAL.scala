@@ -7,10 +7,10 @@
   *
   * Write sequence :
   *
-  *   RSP    :           NONE     ACK          ACK          NONE
+  *   RSP    :           NONE     ACK  NONE    ACK   NONE   NONE
   *   Master :   | START | DATA  |     | DATA  |     | STOP |
   *   Slave  :   |       |       | ACK |       | ACK |      |
-  *   CMD    :       START    DATA          DATA         STOP
+  *   CMD    :       START    DATA   ACK    DATA   ACK   STOP
   *
   * Read sequence :
   *
@@ -232,7 +232,7 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
               }
               default{
                 busFreezed  := False
-                io.rsp.ready := True
+               // io.rsp.ready := True
                 goto(sIDLE)
               }
             }
@@ -275,7 +275,7 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
         freezeBusIfNeededOrDoThat{
           when(io.rsp.valid){
             switch(io.rsp.mode){
-              is(RspMode.ACK, RspMode.NONE){ goto(sWR_ACK) }
+              is(RspMode.ACK, RspMode.NONE){ goto(sRD_ACK) }
               default{
                 io.rsp.ready := True
                 goto(sIDLE)
@@ -292,7 +292,7 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
           when(io.rsp.valid){
             io.rsp.ready := True
             when(io.rsp.mode === RspMode.NONE ){
-              goto(sRD_ACK)
+              goto(sWR_ACK)
             }otherwise{
               io.rsp.ready := True
               goto(sIDLE)
@@ -305,23 +305,32 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
     val sWR_ACK : State = new State{
       whenIsActive{
         when(sclSampling.fallingEdge){
-          io.rsp.ready := True
-          wr_sda       := (io.rsp.mode === RspMode.ACK ) ? I2C.ACK |  I2C.NACK
+          wr_sda := True
         }
-        when(sclSampling.risingEdge){ goto(sWAIT_CMD) }
+        when(sclSampling.risingEdge){
+          cmd_valid := True
+          cmd_mode  := ccIO.rd_sda ? CmdMode.NACK | CmdMode.ACK
+
+          goto(sWAIT_NONE_AFTER_WR_ACK)
+        }
       }
     }
 
     val sRD_ACK : State = new State{
       whenIsActive{
+        when(sclSampling.fallingEdge){
+          io.rsp.ready := True
+          wr_sda       := (io.rsp.mode === RspMode.ACK ) ? I2C.ACK |  I2C.NACK
+        }
         when(sclSampling.risingEdge){
           cmd_valid := True
           cmd_mode  := ccIO.rd_sda ? CmdMode.NACK | CmdMode.ACK
-
-          goto(sWAIT_NONE_AFTER_RD_ACK)
+          goto(sWAIT_CMD)
         }
       }
     }
+
+
 
     val sSTOP : State = new State{
       whenIsActive{
@@ -332,12 +341,26 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
       }
     }
 
-    val sWAIT_NONE_AFTER_RD_ACK : State = new State{
+    val sWAIT_NONE_AFTER_WR_ACK : State = new State{
       whenIsActive{
         freezeBusIfNeededOrDoThat{
           when(io.rsp.valid){
-            io.rsp.ready := True
-            when(io.rsp.mode === RspMode.NONE){ goto(sWAIT_CMD) }otherwise{ goto(sIDLE) }
+
+            switch(io.rsp.mode){
+              is(RspMode.NONE){
+                io.rsp.ready := True
+                goto(sWAIT_CMD)
+              }
+              is(RspMode.DATA){
+                bitCounter.clear()
+                goto(sREAD)
+              }
+              default{
+                io.rsp.ready := True
+                goto(sIDLE)
+              }
+            }
+
           }
         }
       }

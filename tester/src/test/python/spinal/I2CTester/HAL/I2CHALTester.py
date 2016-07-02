@@ -6,7 +6,7 @@
 import cocotb
 from cocotb.triggers import Timer, RisingEdge, FallingEdge, Event
 
-from spinal.common.misc import assertEquals
+from spinal.common.misc import assertEquals, simulationSpeedPrinter
 from spinal.common.ClockDomain import ClockDomain, RESET_ACTIVE_LEVEL
 
 
@@ -35,7 +35,7 @@ class Slave:
             self.cmd_mode  = dut.io_ioSlave_cmd_payload_mode
             self.cmd_data  = dut.io_ioSlave_cmd_payload_data
             # RSP ---------------------------------------------
-            self.rsp_ready = dut.io_ioSlave_rsp_valid
+            self.rsp_ready = dut.io_ioSlave_rsp_ready
             self.rsp_valid = dut.io_ioSlave_rsp_valid
             self.rsp_mode  = dut.io_ioSlave_rsp_payload_mode
             self.rsp_data  = dut.io_ioSlave_rsp_payload_data
@@ -146,7 +146,8 @@ class SimData:
     pass
 
 class Nothing(SimData):
-    pass
+    def __repr__(self):
+        return "Nothing"
 
 class SimCMD(SimData):
 
@@ -154,11 +155,17 @@ class SimCMD(SimData):
         self.mode = cmd
         self.data = data
 
+    def __repr__(self):
+        return "SimCMD %d" % (self.mode)
+
 class SimRsp(SimData):
 
     def __init__(self, rsp, data=0):
         self.mode = rsp
         self.data = data
+
+    def __repr__(self):
+        return "SimRSP %d" % (self.mode)
 
 
 
@@ -178,9 +185,12 @@ def masterManager(masterHelp, seqMaster):
 
     for (simCMD, simRSP, delay) in seqMaster:
 
-
         # Execute the command
         if not (isinstance(simCMD, Nothing)):
+
+            yield Timer(delay)
+
+            yield RisingEdge(io.clk)
 
             io.cmd_valid <= 1
             io.cmd_mode  <= simCMD.mode
@@ -199,10 +209,9 @@ def masterManager(masterHelp, seqMaster):
             # check response
             assertEquals(simRSP.mode, int(io.rsp_mode), "Master mode response wrong")
             if simRSP.mode == Master.RSP.DATA:
-                pass
-            #    assertEquals(simRSP.data, int(io.rsp_data), "Master data response wrong")
+                assertEquals(simRSP.data, int(io.rsp_data), "Master data response wrong")
 
-        yield Timer(delay)
+
 
 
 
@@ -221,19 +230,133 @@ def slaveManager(slaveHelper, seqSlave):
 
             yield slaveHelper.event_cmd_valid.wait()
 
+
+            # check command
+            assertEquals(simCMD.mode, int(io.cmd_mode), "Slave mode command wrong")
+            if simCMD.mode == Slave.CMD.DATA:
+                assertEquals(simCMD.data, int(io.cmd_data), "Slave data command wrong")
+
+
+            yield Timer(delay)
+
+            yield RisingEdge(io.clk)
             io.cmd_ready <= 1
             yield RisingEdge(io.clk)
             io.cmd_ready <= 0
 
-            if not (isinstance(simRSP, Nothing)):
-                io.rsp_valid <= 1
-                io.rsp_mode  <= simRSP.mode
-                io.rsp_data  <= simRSP.data
+        if not (isinstance(simRSP, Nothing)):
+            io.rsp_valid <= 1
+            io.rsp_mode  <= simRSP.mode
+            io.rsp_data  <= simRSP.data
 
-                yield slaveHelper.event_rsp_ready.wait()
+            yield slaveHelper.event_rsp_ready.wait()
 
-                io.cmd_ready <= 0
+            io.rsp_valid <= 0
 
+
+
+
+
+
+class ScenarioAction:
+    pass
+
+class sSTART(ScenarioAction):
+    pass
+
+class sWRITE(ScenarioAction):
+    def __init__(self, data):
+        self.data = data
+
+class sREAD(ScenarioAction):
+    def __init__(self, data):
+        self.data = data
+
+class sACK(ScenarioAction):
+    pass
+
+class sNACK(ScenarioAction):
+    pass
+
+class sSTOP(ScenarioAction):
+    pass
+
+
+def genScenario(listAction):
+
+    masterSeq = list()
+    slaveSeq  = list()
+
+
+
+    for index in range(0,len(listAction)):
+
+        action = listAction[index]
+
+        if isinstance(action, sSTART):
+            masterSeq.append( ( SimCMD(Master.CMD.START) , Nothing()                 , 0 ) )
+
+            nextAction = listAction[index+1]
+            if isinstance(nextAction, sREAD):
+                slaveSeq.append(( SimCMD(Slave.CMD.START)    , SimRsp(Slave.RSP.DATA, nextAction.data)       , 0 ))
+            elif isinstance(nextAction, sWRITE):
+                slaveSeq.append(  ( SimCMD(Slave.CMD.START)  , SimRsp(Slave.RSP.NONE)    , 0 ) )
+
+        elif isinstance(action, sWRITE):
+            masterSeq.append( ( SimCMD(Master.CMD.WRITE, action.data) , SimRsp(Master.RSP.DATA, action.data)    , 0 ))
+            nextAction = listAction[index+1]
+            if isinstance(nextAction, sACK):
+                slaveSeq.append(  ( SimCMD(Slave.CMD.DATA, action.data) , SimRsp(Slave.RSP.ACK)     , 0 ))
+            elif isinstance(nextAction, sNACK):
+                slaveSeq.append(  ( SimCMD(Slave.CMD.DATA, action.data) , SimRsp(Slave.RSP.NONE)     , 0 ))
+            else:
+                break
+                return -1
+
+        elif isinstance(action, sACK):
+            lastAction = listAction[index-1]
+            if isinstance(lastAction, sWRITE):
+                masterSeq.append(( Nothing() , SimRsp(Master.RSP.ACK), 0 ))
+                slaveSeq.append( ( SimCMD(Slave.CMD.ACK), SimRsp(Slave.RSP.NONE), 0 ) )
+            elif isinstance(lastAction, sREAD):
+                masterSeq.append(( SimCMD(Master.CMD.ACK )       , Nothing()    , 0 ))
+                nextAction = listAction[index+1]
+                if isinstance(nextAction, sWRITE):
+                    slaveSeq.append(( SimCMD(Slave.CMD.ACK )       , SimRsp(Slave.RSP.DATA, nextAction.data)      , 0 ))
+                elif isinstance(nextAction, sREAD) or isinstance(nextAction, sSTOP):
+                    slaveSeq.append(( SimCMD(Slave.CMD.ACK )      , SimRsp(Slave.RSP.NONE)            , 0 ))
+                else:
+                    break
+                    return -1
+
+
+        elif isinstance(action, sNACK):
+            lastAction = listAction[index-1]
+            if isinstance(lastAction, sWRITE):
+                masterSeq.append(( Nothing() , SimRsp(Master.RSP.NACK), 0 ))
+                slaveSeq.append(( SimCMD(Slave.CMD.NACK), SimRsp(Slave.RSP.NONE), 0 ))
+            elif isinstance(lastAction, sREAD):
+                masterSeq.append(( SimCMD(Master.CMD.NACK )       , Nothing()                          , 0 ))
+                nextAction = listAction[index+1]
+                if isinstance(nextAction, sWRITE):
+                    slaveSeq.append(( SimCMD(Slave.CMD.NACK )       , SimRsp(Slave.RSP.DATA, nextAction.data)      , 0 ))
+                elif isinstance(nextAction, sREAD) or isinstance(nextAction, sSTOP):
+                    slaveSeq.append(( SimCMD(Slave.CMD.NACK )      , SimRsp(Slave.RSP.NONE)            , 0 ))
+                else:
+                    break
+                    return -1
+
+
+        elif isinstance(action, sREAD):
+            masterSeq.append(( SimCMD(Master.CMD.READ )      , SimRsp(Master.RSP.DATA, action.data)      , 0 ))
+            slaveSeq.append(( SimCMD(Slave.CMD.DATA, action.data) , SimRsp(Slave.RSP.NONE)            , 0 ))
+
+        elif isinstance(action, sSTOP):
+            masterSeq.append(( SimCMD(Master.CMD.STOP)       , Nothing()                       , 0 ))
+            slaveSeq.append(( SimCMD(Slave.CMD.STOP)       , SimRsp(Slave.RSP.NONE)            , 0 ))
+
+
+    return (masterSeq, slaveSeq)
 
 
 
@@ -250,45 +373,100 @@ def test_scenario_1(dut):
     masterHelper = Master(dut)
     slaveHelper  = Slave(dut)
 
-    seqMaster = [( SimCMD(Master.CMD.START)      , Nothing()                          , 0 ),
-                 ( SimCMD(Master.CMD.WRITE, 0x44), SimRsp(Master.RSP.DATA, 0x44), 0 ),
-                 ( SimCMD(Master.CMD.START)      , Nothing()                          , 0 ),  #300000
-                 ( SimCMD(Master.CMD.WRITE, 0xAA), SimRsp(Master.RSP.DATA, 0xAA), 0 ),
-                 ( SimCMD(Master.CMD.STOP)       , Nothing()                          , 0 )]
 
-    # seqMaster = [( SimCMD(Master.CMD.START)      , Nothing()                          , 0 ),
-    #              ( SimCMD(Master.CMD.WRITE, 0x44), SimRsp(Master.RSP.DATA, 0x44), 0 ),
-    #              ( Nothing()                     , SimRsp(Master.RSP.NACK)      , 0 ),
-    #              ( SimCMD(Master.CMD.STOP)       , Nothing()                          , 0 )]
+    seqMasterList = list()
+    seqSlaveList  = list()
+
+    # Scenario simple write
+    (mSeq, sSeq) = genScenario([sSTART(), sWRITE(0x33), sACK(), sWRITE(0x88), sNACK(), sSTOP() ])
+
+    # Scenario double Write
+    (mSeq, sSeq) = genScenario([sSTART(), sWRITE(0x33), sACK(), sWRITE(0x88), sNACK(), sSTOP() ])
+
+    # Scenario simple read
+    (mSeq, sSeq) = genScenario([sSTART(), sREAD(0x81), sNACK(),  sSTOP() ])
+
+    # Scenario double read
+    (mSeq, sSeq) = genScenario([sSTART(), sREAD(0x81), sACK(), sREAD(11), sNACK(),  sSTOP() ])
+
+    print(mSeq)
+    print(sSeq)
 
 
+    # Senario : One Write
+    # ------------------------------------------------------------------------------------------
+    seqMasterList.append( [( SimCMD(Master.CMD.START)      , Nothing()                         , 0 ),
+                           ( SimCMD(Master.CMD.WRITE, 0x81) , SimRsp(Master.RSP.DATA, 0x81)    , 0 ),
+                           ( Nothing()                      , SimRsp(Master.RSP.ACK)           , 300000 ),
+                           ( SimCMD(Master.CMD.STOP)        , Nothing()                        , 0 )])
+
+    seqSlaveList.append( [( SimCMD(Slave.CMD.START)      , SimRsp(Slave.RSP.NONE)    , 0 ),
+                          ( SimCMD(Slave.CMD.DATA, 0x81) , SimRsp(Slave.RSP.ACK)     , 0 ),
+                          ( SimCMD(Slave.CMD.ACK)        , SimRsp(Slave.RSP.NONE)     , 0 ),
+                          ( SimCMD(Slave.CMD.STOP)       , SimRsp(Slave.RSP.NONE)    , 0 )])
+
+
+    # Senario : Double Write
+    # ------------------------------------------------------------------------------------------
+    seqMasterList.append( [( SimCMD(Master.CMD.START)       , Nothing()                         , 0 ),
+                           ( SimCMD(Master.CMD.WRITE, 0x81) , SimRsp(Master.RSP.DATA, 0x81)    , 0 ),
+                           ( Nothing()                      , SimRsp(Master.RSP.ACK)           , 0 ),
+                           ( SimCMD(Master.CMD.WRITE, 0x44) , SimRsp(Master.RSP.DATA, 0x44)    , 0 ),
+                           ( Nothing()                      , SimRsp(Master.RSP.NACK)          , 0 ),
+                           ( SimCMD(Master.CMD.STOP)        , Nothing()                        , 0 )])
+
+    seqSlaveList.append( [( SimCMD(Slave.CMD.START)      , SimRsp(Slave.RSP.NONE)    , 0 ),
+                          ( SimCMD(Slave.CMD.DATA, 0x81) , SimRsp(Slave.RSP.ACK)     , 0 ),
+                          ( SimCMD(Slave.CMD.ACK)        , SimRsp(Slave.RSP.NONE)     , 0 ),
+                          ( SimCMD(Slave.CMD.DATA, 0x44) , SimRsp(Slave.RSP.NONE)     , 0 ),
+                          ( SimCMD(Slave.CMD.NACK)        , SimRsp(Slave.RSP.NONE)     , 0 ),
+                          ( SimCMD(Slave.CMD.STOP)       , SimRsp(Slave.RSP.NONE)    , 0 )])
 
 
     # Senario : Simple Read
-    seqMaster1 = [( SimCMD(Master.CMD.START)     , Nothing()                          , 0 ),
-                 ( SimCMD(Master.CMD.READ )      , SimRsp(Master.RSP.DATA, 0x44)      , 0 ),
-                 ( SimCMD(Master.CMD.NACK )      , Nothing()                          , 0 ),
-                 ( SimCMD(Master.CMD.STOP)       , Nothing()                          , 0 )]
+    # ------------------------------------------------------------------------------------------
+    seqMasterList.append( [( SimCMD(Master.CMD.START)     , Nothing()                           , 0 ),
+                           ( SimCMD(Master.CMD.READ )      , SimRsp(Master.RSP.DATA, 0x81)      , 0 ),
+                           ( SimCMD(Master.CMD.ACK )       , Nothing()                          , 0 ),
+                           ( SimCMD(Master.CMD.STOP)       , Nothing()                          , 0 )])
 
 
-    seqSlave1  = [( SimCMD(Slave.CMD.START)     , SimRsp(Slave.RSP.DATA, 0x44)      , 0 ),
-                 ( SimCMD(Slave.CMD.DATA )      , SimRsp(Slave.RSP.NONE)            , 0 ),
-                 ( SimCMD(Slave.CMD.NACK )      , SimRsp(Slave.RSP.NONE)            , 0 ),
-                 ( SimCMD(Slave.CMD.STOP)       , SimRsp(Slave.RSP.NONE)            , 0 )]
+    seqSlaveList.append( [( SimCMD(Slave.CMD.START)      , SimRsp(Slave.RSP.DATA, 0x81)       , 0 ),
+                          ( SimCMD(Slave.CMD.DATA, 0x81) , SimRsp(Slave.RSP.NONE)             , 0 ),
+                          ( SimCMD(Slave.CMD.ACK )       , SimRsp(Slave.RSP.NONE)            , 0 ),
+                          ( SimCMD(Slave.CMD.STOP)       , SimRsp(Slave.RSP.NONE)            , 0 )])
 
+
+
+    # Senario : double Read
+    # ------------------------------------------------------------------------------------------
+    seqMasterList.append( [( SimCMD(Master.CMD.START)      , Nothing()                          , 0 ),
+                           ( SimCMD(Master.CMD.READ )      , SimRsp(Master.RSP.DATA, 0x81)      , 0 ),
+                           ( SimCMD(Master.CMD.ACK )       , Nothing()                          , 0 ),
+                           ( SimCMD(Master.CMD.READ )      , SimRsp(Master.RSP.DATA, 0x44)      , 0 ),
+                           ( SimCMD(Master.CMD.NACK )      , Nothing()                          , 0 ),
+                           ( SimCMD(Master.CMD.STOP)       , Nothing()                          , 0 )])
+
+
+    seqSlaveList.append( [( SimCMD(Slave.CMD.START)      , SimRsp(Slave.RSP.DATA, 0x81)      , 0 ),
+                          ( SimCMD(Slave.CMD.DATA, 0x81) , SimRsp(Slave.RSP.NONE)            , 0 ),
+                          ( SimCMD(Slave.CMD.ACK )       , SimRsp(Slave.RSP.DATA, 0x44)      , 0 ),
+                          ( SimCMD(Slave.CMD.DATA, 0x44) , SimRsp(Slave.RSP.NONE)            , 0 ),
+                          ( SimCMD(Slave.CMD.NACK )      , SimRsp(Slave.RSP.NONE)            , 0 ),
+                          ( SimCMD(Slave.CMD.STOP)       , SimRsp(Slave.RSP.NONE)            , 0 )])
 
 
     # select the scenario
-    seqMaster = seqMaster1
-    seqSlave  = seqSlave1
+    index = 3
+    seqMaster = mSeq #seqMasterList[index]
+    seqSlave  = sSeq #seqSlaveList[index]
+
 
     clockDomain = ClockDomain(dut.clk, 500, dut.resetn, RESET_ACTIVE_LEVEL.LOW)
 
     cocotb.fork(clockDomain.start())
     cocotb.fork(masterManager(masterHelper, seqMaster))
     cocotb.fork(slaveManager(slaveHelper, seqSlave))
-
-
 
     yield Timer(3000000)
 

@@ -1,9 +1,14 @@
 /******************************************************************************
   * I2C Master HAL
   *
+  *                ________                       _______
+  *               |        |<------- I2C ------->|       |
+  *               | Master |                     | Slave |
+  *  CMD Stream ->|________|-> RSP Flow          |_______|
+  *
   * Write sequence :
   *
-  *   CMD    : START   WRITE           WRITE        STOP
+  *   CMD    : START   WRITE           WRITE         STOP
   *   Master :   | START | WRITE |     | WRITE |     | STOP |
   *   Slave  :   |       |       | ACK |       | ACK |      |
   *   RSP    :                  DATA  ACK     DATA  ACK
@@ -125,6 +130,7 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
   val scl_en     = Bool
   // freeze the scl for clock synchronization
   val scl_freeze = Bool
+  val sclFreezeByMater = Bool
 
 
   /**
@@ -150,7 +156,8 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
       }
 
     }otherwise{
-      when(scl_freeze){ scl := False }otherwise{ scl := True }
+      when(sclFreezeByMater){ scl := False}otherwise{scl := True}
+
       cntValue := 0
     }
 
@@ -234,9 +241,9 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
     * State machine which synchronize all SCL signals of the different master
     * in the case when several master drive the SCL.
     */
-  val smSynchSCL = if (g.multiMaster_en) new StateMachine{
+  val smSynchSCL = new StateMachine{
 
-    val freezeSCL = False
+    val freezeSCL = RegInit(False)
 
     val sIDLE : State = new State with EntryPoint{
       whenIsActive{
@@ -249,10 +256,17 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
         when(sclGenerator.scl && io.i2c.scl.read === False){
           freezeSCL := True
         }
+        when(sclGenerator.scl && io.i2c.scl.read){
+          freezeSCL := False
+        }
+
+       // when(sclGenerator.scl && io.i2c.scl.read){
+       //   freezeSCL := False
+       // }
         when(scl_en === False){ goto(sIDLE) }
       }
     }
-  } else null
+  }
 
 
   /**
@@ -384,9 +398,8 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
           wr_sda := True
         }
         when(sclGenerator.risingEdge){
-          val ackRead = io.i2c.sda.read
 
-          io.rsp.mode  := ackRead ? RspMode.NACK | RspMode.ACK
+          io.rsp.mode  := io.i2c.sda.read ? RspMode.NACK | RspMode.ACK
           io.rsp.valid := True
           io.rsp.data  := 0
 
@@ -397,6 +410,10 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
 
     val sWR_ACK : State = new State {
       whenIsActive{
+        when(isCMDAfterFreeze){
+          isCMDAfterFreeze := False
+          wr_sda := (io.cmd.mode === CmdMode.ACK) ? I2C.ACK | I2C.NACK
+        }
         when(sclGenerator.fallingEdge){
           wr_sda := (io.cmd.mode === CmdMode.ACK) ? I2C.ACK | I2C.NACK
         }
@@ -423,6 +440,7 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
     val sWAIT_BEFORE_STOP : State = new State{
       whenIsActive{
         when(isCMDAfterFreeze){
+          isCMDAfterFreeze := False
           wr_sda := False
           goto(sSTOP)
         }
@@ -434,6 +452,11 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
 
     val sWAIT_BEFORE_READ : State = new State{
       whenIsActive{
+        when(isCMDAfterFreeze){
+          isCMDAfterFreeze := False
+          wr_sda := True
+          goto(sREAD)
+        }
         when(sclGenerator.fallingEdge){
           wr_sda := True
           goto(sREAD)
@@ -519,11 +542,12 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
 
   scl_en     := smMaster.scl_en
 
-  if (g.multiMaster_en){
+
     scl_freeze := smSynchSCL.freezeSCL || smMaster.freezeBus
-  }else{
-    scl_freeze := smMaster.freezeBus
-  }
+  sclFreezeByMater := smMaster.freezeBus
+
+  //  scl_freeze := smMaster.freezeBus
+
 }
 
 
