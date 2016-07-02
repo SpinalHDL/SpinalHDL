@@ -39,6 +39,6 @@ object SIntMath {
       Delay((mult << (task.aOffset + task.bOffset)),multRegs).resize(aWidth+bWidth)
     })
     //ret
-     mults.sortWith(widthOf(_) < widthOf(_)).reduceBalancedSpinal((l, r) => l + r,aggregatorStages)
+     mults.sortWith(widthOf(_) < widthOf(_)).reduceBalancedTree((l, r) => l + r,aggregatorStages)
   }
 }

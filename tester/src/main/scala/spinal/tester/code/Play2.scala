@@ -1616,3 +1616,28 @@ object PlayNameRefl{
     SpinalVhdl(new TopLevel)
   }
 }
+object PlayMinMax{
+  class TopLevel extends Component {
+    val io = new Bundle{
+      val result = out Bool
+    }
+
+    val toto = io.result
+
+    toto := False
+    val i = 2
+    var o = 3
+    var titi = False
+    def apply[T <: Data with Num[T]](nums : T*) : T = list(nums)
+    def list[T <: Data with Num[T]](nums: Seq[T] ) : T = { nums.reduceLeft(_ min _) }
+
+    val tata = out(apply(U"00",U"00",U"01"))
+
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+

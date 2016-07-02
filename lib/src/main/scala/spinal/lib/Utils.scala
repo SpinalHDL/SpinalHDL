@@ -513,10 +513,10 @@ class NoData extends Bundle {
 
 
 class TraversableOncePimped[T <: Data](pimped: scala.collection.Iterable[T]) {
-  def reduceBalancedSpinal(op: (T, T) => T): T = {
-    reduceBalancedSpinal(op, (s,l) => s)
+  def reduceBalancedTree(op: (T, T) => T): T = {
+    reduceBalancedTree(op, (s,l) => s)
   }
-  def reduceBalancedSpinal(op: (T, T) => T, levelBridge: (T, Int) => T): T = {
+  def reduceBalancedTree(op: (T, T) => T, levelBridge: (T, Int) => T): T = {
     def stage(elements: ArrayBuffer[T], level: Int): T = {
       if (elements.length == 1) return elements.head
       val stageLogic = new ArrayBuffer[T]()
@@ -545,11 +545,11 @@ class TraversableOncePimped[T <: Data](pimped: scala.collection.Iterable[T]) {
   }
   def apply(index: UInt): T = Vec(pimped)(index)
 
-  def sExists(condition: T => Bool): Bool = (pimped map condition).fold(False)(_ || _)
-  def sContains(value: T) : Bool = sExists(_ === value)
+  def sExist(condition: T => Bool): Bool = (pimped map condition).fold(False)(_ || _)
+  def sContains(value: T) : Bool = sExist(_ === value)
 
   def sCount(condition: T => Bool): UInt = SetCount((pimped.map(condition)))
-  def sCount(value: T ): UInt = sCount(_ === value)
+  def sCount(value: T): UInt = sCount(_ === value)
 
   def sFindFirst(condition: T => Bool) : (Bool,UInt) = {
     val size = pimped.size
