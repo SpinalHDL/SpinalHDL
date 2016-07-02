@@ -277,7 +277,7 @@ object StateMachineTryExample {
     val fsm = new StateMachine{
       val counter = Reg(UInt(8 bits)) init (0)
 
-      val stateA: State = new State with EntryPoint {
+      val stateA: State = new State {
         whenIsActive {
           goto(stateB)
         }
@@ -290,10 +290,11 @@ object StateMachineTryExample {
       val stateC: State = new State {
         whenIsActive {
           goto(stateA)
+          counter := counter + 1
         }
       }
     }
-    fsm.stateReg.keep()
+    fsm.counter.keep
   }
 
   def main(args: Array[String]) {

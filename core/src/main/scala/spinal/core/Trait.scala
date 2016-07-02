@@ -445,7 +445,7 @@ object randomBoot extends SpinalTag{override def moveToSyncNode = true}
 object tagAutoResize extends SpinalTag{override def duplicative = true}
 object tagTruncated extends SpinalTag{override def duplicative = true}
 
-trait Area extends Nameable with ContextUser with OwnableRef{
+trait Area extends Nameable with ContextUser with OwnableRef with ScalaLocated{
   override protected def nameChangeEvent(weak: Boolean): Unit = {
     Misc.reflect(this, (name, obj) => {
       obj match {
@@ -478,6 +478,7 @@ trait Area extends Nameable with ContextUser with OwnableRef{
     })
   }
 
+
 //  def keepAll() : Unit = {
 //    Misc.reflect(this, (name, obj) => {
 //      obj match {
@@ -486,6 +487,7 @@ trait Area extends Nameable with ContextUser with OwnableRef{
 //      }
 //    }
 //  }
+  override def toString(): String = component.getPath() + "/" + super.toString()
 }
 
 object ImplicitArea{

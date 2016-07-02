@@ -1641,3 +1641,24 @@ object PlayMinMax{
 }
 
 
+object PlayMask{
+  case class MyBundle() extends Bundle{
+    val a,b,c = SInt(3 bits)
+  }
+  class TopLevel extends Component {
+    def doIt[T <: Data](that : T) : T = {
+      val uint = that.asBits.asUInt
+      val masked = uint & ~(uint - 1)
+      val ret = that.clone
+      ret.assignFromBits(masked.asBits)
+      ret
+    }
+    val result = out(doIt(in(MyBundle())))
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+

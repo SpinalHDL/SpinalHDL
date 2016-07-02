@@ -196,7 +196,12 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated{
     stateMachine.setParentStateMachine(this)
   }
 
-  def start() : Unit = goto(entryState)
+  def start() : Unit = {
+    if(entryState == null)
+      globalData.pendingErrors += (() => (s"$this as no entry point set. val yourState : State = new State with EntryPoint{...}   should solve the situation at \n${getScalaLocationLong}"))
+    else
+      goto(entryState)
+  }
   def exit() : Unit = {
     wantExit := True
     goto(stateBoot)
