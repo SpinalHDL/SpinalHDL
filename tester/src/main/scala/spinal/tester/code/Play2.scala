@@ -1497,7 +1497,7 @@ object PlayMentorDo{
 
       val cmd = slave Stream(Packet())
       val rsp = master Stream(Packet())
-    }.setName("")
+    }
 
     io.result := io.a + io.b
 
@@ -1511,8 +1511,7 @@ object PlayMentorDo{
     val report = SpinalVhdl(new TopLevel)
     val toplevel = report.toplevel
     MentorDo()
-      .add(toplevel)
-      .add(toplevel.fifo)
+      .add(toplevel,depth=4)
       .build("/","mentor.do")
   }
 }

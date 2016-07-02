@@ -87,6 +87,7 @@ trait ContextUser extends GlobalDataUser {
   private[core] var conditionalAssignScope = globalData.conditionalAssignStack.head()
   private[core] var instanceCounter = globalData.getInstanceCounter
 
+  def getInstanceCounter = instanceCounter
   private[core] def isOlderThan(that : ContextUser) : Boolean = this.instanceCounter < that.instanceCounter
 }
 
