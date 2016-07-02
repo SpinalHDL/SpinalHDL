@@ -53,6 +53,20 @@ object OHToUInt {
   }
 }
 
+object min {
+    def apply[T <: Data with Num[T]](nums: T*) = list(nums)
+    def list[T <: Data with Num[T]](nums: Seq[T]) = {
+        nums.reduceBalancedTree(_ min _)
+    }
+}
+
+object max {
+    def apply[T <: Data with Num[T]](nums: T*) = list(nums)
+    def list[T <: Data with Num[T]](nums: Seq[T]) = {
+        nums.reduceBalancedTree(_ max _)
+    }
+}
+
 object CountOne{
   def args(thats : Bool*) : UInt = apply(thats)
   def apply(thats : BitVector) : UInt = apply(thats.asBools)
