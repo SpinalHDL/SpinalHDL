@@ -152,14 +152,12 @@ class Axi4Ax(config: Axi4Config) extends Bundle {
 
   import Axi4.burst._
 
-  def setBurstFIXED(): Unit = if(config.useBurst) burst := FIXED
-  def setBurstWRAP() : Unit = if(config.useBurst) burst := WRAP
-  def setBurstINCR() : Unit = if(config.useBurst) burst := INCR
+  def setBurstFIXED(): Unit = {assert(config.useBurst); burst := FIXED}
+  def setBurstWRAP() : Unit = {assert(config.useBurst); burst := WRAP}
+  def setBurstINCR() : Unit = {assert(config.useBurst); burst := INCR}
 
   def setSize(sizeBurst :Bits) : Unit = if(config.useBurst) size := sizeBurst
-
   def setLock(lockType :Bits) : Unit = if(config.useLock) lock := lockType
-
   def setCache(cacheType : Bits) : Unit = if (config.useCache ) cache := cacheType
 
 }
@@ -177,7 +175,7 @@ case class Axi4W(config: Axi4Config) extends Bundle {
   val user = if(config.useUser) Bits(config.userWidth bits)     else null
   val last = if(config.useLen)  Bool                            else null
 
-  def setStrb : Unit = if(config.useStrb) strb := (1 << widthOf(strb))-1
+  def setStrb() : Unit = if(config.useStrb) strb := (1 << widthOf(strb))-1
   def setStrb(bytesLane : Bits) : Unit = if(config.useStrb) strb := bytesLane
 }
 
