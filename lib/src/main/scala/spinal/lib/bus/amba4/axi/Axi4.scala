@@ -112,17 +112,17 @@ object READ_WRITE extends Axi4Mode{
   */
 case class Axi4Config(addressWidth : Int,
                       dataWidth    : Int,
-                      useId        : Boolean = false,
-                      useRegion    : Boolean = false,
-                      useBurst     : Boolean = false,
-                      useLock      : Boolean = false,
-                      useCache     : Boolean = false,
-                      useSize      : Boolean = false,
-                      useQos       : Boolean = false,
-                      useLen       : Boolean = false,
-                      useResp      : Boolean = false,
-                      useUser      : Boolean = false,
-                      useStrb      : Boolean = false,
+                      useId        : Boolean = true,
+                      useRegion    : Boolean = true,
+                      useBurst     : Boolean = true,
+                      useLock      : Boolean = true,
+                      useCache     : Boolean = true,
+                      useSize      : Boolean = true,
+                      useQos       : Boolean = true,
+                      useLen       : Boolean = true,
+                      useResp      : Boolean = true,
+                      useUser      : Boolean = true,
+                      useStrb      : Boolean = true,
                       lenWidth     : Int = -1 ,
                       idWidth      : Int = -1,
                       userWidth    : Int = -1 ,
@@ -137,7 +137,7 @@ case class Axi4Config(addressWidth : Int,
   * Definition of the Write/Read address channel
   * @param config Axi4 configuration class
   */
-case class Axi4Ax(config: Axi4Config) extends Bundle {
+class Axi4Ax(config: Axi4Config) extends Bundle {
   val addr   = UInt(config.addressWidth bits)
   val id     = if(config.useId)     UInt(config.idWidth bits)   else null
   val region = if(config.useRegion) Bits(4 bits)                else null
@@ -164,13 +164,15 @@ case class Axi4Ax(config: Axi4Config) extends Bundle {
 
 }
 
+case class Axi4Ar(config: Axi4Config) extends Axi4Ax(config)
+case class Axi4Aw(config: Axi4Config) extends Axi4Ax(config)
 
 /**
   * Definition of the Write data channel
   * @param config Axi4 configuration class
   */
 case class Axi4W(config: Axi4Config) extends Bundle {
-  val data = Bits(config.addressWidth bits)
+  val data = Bits(config.dataWidth bits)
   val strb = if(config.useStrb) Bits(config.dataByteCount bits) else null
   val user = if(config.useUser) Bits(config.userWidth bits)     else null
   val last = if(config.useLen)  Bool                            else null
@@ -195,6 +197,10 @@ case class Axi4B(config: Axi4Config) extends Bundle {
   def setEXOKAY() : Unit = resp := EXOKAY
   def setSLVERR() : Unit = resp := SLVERR
   def setDECERR() : Unit = resp := DECERR
+  def isOKAY()   : Unit = resp === OKAY
+  def isEXOKAY() : Unit = resp === EXOKAY
+  def isSLVERR() : Unit = resp === SLVERR
+  def isDECERR() : Unit = resp === DECERR
 }
 
 
@@ -203,7 +209,7 @@ case class Axi4B(config: Axi4Config) extends Bundle {
   * @param config Axi4 configuration class
   */
 case class Axi4R(config: Axi4Config) extends Bundle {
-  val data = Bits(config.addressWidth bits)
+  val data = Bits(config.dataWidth bits)
   val resp = if(config.useResp) Bits(2 bits)               else null
   val last = if(config.useLen)  Bool                       else null
 
@@ -213,6 +219,10 @@ case class Axi4R(config: Axi4Config) extends Bundle {
   def setEXOKAY() : Unit = resp := EXOKAY
   def setSLVERR() : Unit = resp := SLVERR
   def setDECERR() : Unit = resp := DECERR
+  def isOKAY()   : Unit = resp === OKAY
+  def isEXOKAY() : Unit = resp === EXOKAY
+  def isSLVERR() : Unit = resp === SLVERR
+  def isDECERR() : Unit = resp === DECERR
 }
 
 
@@ -222,10 +232,10 @@ case class Axi4R(config: Axi4Config) extends Bundle {
   */
 case class Axi4(config: Axi4Config) extends Bundle with IMasterSlave {
 
-  val aw = if(config.mode.write) Stream(Axi4Ax(config))     else null
+  val aw = if(config.mode.write) Stream(Axi4Aw(config))     else null
   val w  = if(config.mode.write) Stream(Axi4W(config))      else null
   val b  = if(config.mode.write) Stream(Axi4B(config))      else null
-  val ar = if(config.mode.read)  Stream(Axi4Ax(config))     else null
+  val ar = if(config.mode.read)  Stream(Axi4Ar(config))     else null
   val r  = if(config.mode.read)  Stream(Axi4R(config))      else null
 
   def writeCmd  = aw
@@ -247,7 +257,6 @@ case class Axi4(config: Axi4Config) extends Bundle with IMasterSlave {
       this.readCmd  >> that.readCmd
       this.readRsp  << that.readRsp
     }
-
   }
 
   def <<(that : Axi4) : Unit = that >> this
@@ -264,5 +273,22 @@ case class Axi4(config: Axi4Config) extends Bundle with IMasterSlave {
     this
   }
 
+}
+
+object  Axi4SpecRenamer{
+  def apply(that : Axi4): Unit ={
+    def doIt = {
+      that.flatten.foreach((bt) => {
+        bt.setName(bt.getName().replace("_payload_",""))
+        bt.setName(bt.getName().replace("_valid","valid"))
+        bt.setName(bt.getName().replace("_ready","ready"))
+        if(bt.getName().startsWith("io_")) bt.setName(bt.getName().replaceFirst("io_",""))
+      })
+    }
+    if(Component.current == that.component)
+      that.component.addPrePopTask(() => {doIt})
+    else
+      doIt
+  }
 }
 
