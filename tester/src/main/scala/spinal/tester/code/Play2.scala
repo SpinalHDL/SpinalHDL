@@ -1511,8 +1511,8 @@ object PlayMentorDo{
     val report = SpinalVhdl(new TopLevel)
     val toplevel = report.toplevel
     MentorDo()
-      .add(toplevel,depth=4)
-      .build("/","mentor.do")
+      .add(toplevel,Seq("yolo"),depth=4)
+      .build("/toplevel_tb/uut/","mentor.do")
   }
 }
 

@@ -46,14 +46,14 @@ class MentorDo {
         val components = getComponents(task.c, 0)
         val nodes = components.map(_.nodes).reduce(_ ++ _).filter(_.isInstanceOf[Node with ContextUser]).map(_.asInstanceOf[Node with ContextUser]).sortBy(_.getInstanceCounter)
         for (node <- nodes) node match {
-          case bt: BaseType => {
-            val componentPath = node.component.getPath()
+          case node: BaseType => {
+            val componentPath = node.getComponents().tail.mkString("/")
             val preGroups = if (task.in == null) Nil else task.in
-            val nodeGroups = bt.getRefOwnersChain.dropWhile(_ != task.c).map(e => getLabel(e.asInstanceOf[Nameable with OwnableRef]))
-            val groupsMap = (preGroups ++ nodeGroups).map(e => " -group " + e)
+            val nodeGroups = node.getRefOwnersChain.dropWhile(_ != task.c).map(e => getLabel(e.asInstanceOf[Nameable with OwnableRef]))
             if (!nodeGroups.isEmpty) {
-              val label = getLabel(bt)
-              builder ++= s"add wave -noupdate ${groupsMap.reduce(_ + " " + _)} -label $label $prefix$componentPath/${bt.getName()}\n"
+              val groupsMap = (preGroups ++ nodeGroups.tail).map(e => " -group " + e)
+              val label = getLabel(node)
+              builder ++= s"add wave -noupdate ${groupsMap.foldLeft("")(_ + " " + _)} -label $label $prefix$componentPath${if(componentPath != "")"/" else ""}${node.getName()}\n"
             }
           }
           case _ =>

@@ -43,3 +43,4 @@ log.txt
 *.out
 
 /tester/**/*.gtkw
+*.do
