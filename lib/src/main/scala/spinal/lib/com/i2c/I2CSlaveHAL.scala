@@ -349,7 +349,8 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
             switch(io.rsp.mode){
               is(RspMode.NONE){
                 io.rsp.ready := True
-                goto(sWAIT_CMD)
+                bitCounter.clear()
+                goto(sWRITE)
               }
               is(RspMode.DATA){
                 bitCounter.clear()

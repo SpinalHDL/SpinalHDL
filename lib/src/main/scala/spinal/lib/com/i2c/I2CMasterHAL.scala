@@ -191,7 +191,7 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
     val stop    = False
 
     val sda_cur  = RegNext(io.i2c.sda.read) init(False)
-    val sda_prev = RegNext(sda_cur)     init(False)
+    val sda_prev = RegNext(sda_cur)         init(False)
 
     // start = falling edge of sda while the scl is 1
     when(sclGenerator.scl && sda_cur === False && sda_prev ){
