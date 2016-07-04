@@ -1127,7 +1127,7 @@ object PlayEnum {
     //    }
     //    output := tmp
     val cond = in Bool()
-    val input = in(MyEnum())
+    val input = in(MyEnum)
 
 
     val tmp = Reg(MyEnum(binarySequancial))

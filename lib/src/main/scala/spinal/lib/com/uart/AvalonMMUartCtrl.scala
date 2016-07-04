@@ -3,7 +3,7 @@ package spinal.lib.com.uart
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.avalon.{AvalonMM, AvalonMMSlaveFactory}
-import spinal.lib.tool.QSysify
+import spinal.lib.eda.altera.QSysify
 
 object AvalonMMUartCtrl{
   def getAvalonMMConfig = AvalonMMSlaveFactory.getAvalonConfig(addressWidth = 4,dataWidth = 32)

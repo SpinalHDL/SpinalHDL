@@ -1661,3 +1661,111 @@ object PlayMask{
 }
 
 
+
+object PlayWhenSyntax{
+
+
+  def main(args: Array[String]) {
+    class When{
+      def otherwise = new Otherwise
+    }
+    class Otherwise{
+      def  when(cond : Boolean)(block : => Unit) = new When
+    }
+
+    def when(cond : Boolean)(block : => Unit) = new When
+
+    when(true){
+
+    }.otherwise.when(false){
+
+    }
+  }
+}
+
+
+object PlayPwm{
+
+  object PWMMode extends SpinalEnum {
+    val nSingleEdge, nDualEdge = newElement()
+  }
+
+
+  class PWMControl(width: Int) extends Bundle{
+    val enable = in Bool
+    val period = in UInt(width bits)
+    val mode = in(PWMMode)
+  }
+
+  class PWMCore(width: Int) extends Component {
+    val io = new Bundle {
+      val control = new PWMControl(width)
+      val duty = in UInt(width+1 bits)
+      val output = out Bool
+      val outSync = out Bool
+    }
+
+    import PWMMode._
+    // Todo remove this
+
+    val counter = Reg(UInt(width bits)) init (0)
+    val outSyncReg = Reg(Bool)
+    val decrementCounter = Reg(Bool) init(False)
+
+    val PwmCounter = new Area {
+      val upDownCount = SInt(width bits)
+      when(decrementCounter){
+        upDownCount := -1
+      } otherwise {
+        upDownCount := 1
+      }
+
+      counter := counter + upDownCount.asUInt
+      outSyncReg := False
+      // Uper or equal comparator used for safety purposes
+      when(counter >= io.control.period) {
+        when(io.control.mode === nSingleEdge) {
+          counter := 0
+        }
+
+        when(io.control.mode === nDualEdge) {
+          decrementCounter := True
+        }
+      }
+
+      when(counter === 0) {
+        decrementCounter := False
+        outSyncReg := True
+      }
+
+      when(!io.control.enable) {
+        decrementCounter := False
+        counter := 0
+      }
+    }
+
+    io.output := RegNext(counter < io.duty)
+    io.outSync := outSyncReg
+
+    val cond = True
+    cond.?[SInt](1)  | 1
+  }
+}
+
+
+
+
+object PlayResized54{
+  class TopLevel extends Component {
+    val readAddr = in UInt(8 bits)
+
+    val readData = out Bits(4 bits)
+    val mem = Mem(Bits(4 bits), 16)
+    readData := mem(readAddr)
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+

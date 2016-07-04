@@ -3,7 +3,7 @@ package spinal.lib.com.uart
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config, Apb3SlaveFactory}
-import spinal.lib.tool.QSysify
+import spinal.lib.eda.altera.QSysify
 
 object Apb3UartCtrl{
   def getApb3Config = Apb3Config(
