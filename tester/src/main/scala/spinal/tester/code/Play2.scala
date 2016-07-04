@@ -1706,7 +1706,6 @@ object PlayPwm{
     }
 
     import PWMMode._
-    // Todo remove this
 
     val counter = Reg(UInt(width bits)) init (0)
     val outSyncReg = Reg(Bool)
@@ -1757,15 +1756,24 @@ object PlayPwm{
 
 object PlayResized54{
   class TopLevel extends Component {
-    val readAddr = in UInt(8 bits)
+    val readAddr = in UInt(4 bits)
 
     val readData = out Bits(4 bits)
     val mem = Mem(Bits(4 bits), 16)
     readData := mem(readAddr)
+
+    val pc = U(32,32 bits)
+    val pcPlus4 = pc + 4
+    pcPlus4.addAttribute("keep")
+
+    pcPlus4.keep()
   }
 
   def main(args: Array[String]) {
     SpinalVhdl(new TopLevel)
+    SpinalVerilog(new TopLevel)
   }
 }
+
+
 
