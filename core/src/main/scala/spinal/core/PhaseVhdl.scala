@@ -1467,7 +1467,21 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
       case switchTree : AssignementLevelSwitch => {
         ret ++= s"${tab}case ${emitLogic(switchTree.key)} is\n"
         switchTree.cases.foreach(c => {
-          ret ++= s"${tab}  when ${emitLogic(c.const)} =>\n"
+          val litString = c.const match {
+            case lit: BitsLiteral => s"${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'}"
+            case lit: UIntLiteral => s"${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'}"
+            case lit: SIntLiteral => s"${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'}"
+
+            case lit: BitsAllToLiteral => lit.theConsumer match {
+              case _: Bits => s"${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'}"
+              case _: UInt => s"${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'}"
+              case _: SInt => s"${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'}"
+            }
+            case lit: BoolLiteral => s"${lit.value}"
+            //  case lit: BoolLiteral => if(lit.value) "'1'" else "'0'" //Invalid VHDL when '1' = '1'
+            case lit: EnumLiteral[_] => emitEnumLiteral(lit.enum, lit.encoding)
+          }
+          ret ++= s"${tab}  when $litString =>\n"
           emitAssignementLevel(c.doThat,ret,tab + "    ","<=")
         })
         ret ++= s"${tab}  when others =>\n"

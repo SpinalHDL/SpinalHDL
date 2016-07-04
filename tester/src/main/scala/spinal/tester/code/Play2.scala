@@ -1777,3 +1777,43 @@ object PlayResized54{
 
 
 
+object PlaySwitchError{
+  class TopLevel extends Component {
+    val value = in Bits(8 bits)
+    val temp = UInt(8 bits)
+    val result = out UInt(8 bits)
+    val toto = B"00001111"
+    switch(value){
+      is(0){
+        temp := 0
+      }
+      is(1){
+        temp := 1
+      }
+      default{
+        temp := 2
+      }
+    }
+
+    result := RegNext(temp) init(9)
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+    SpinalVerilog(new TopLevel)
+    assert(doCmd(s"ghdl -a --ieee=synopsys TopLevel.vhd TopLevel_tb.vhd") == 0,"GHDL analysis fail")
+    assert(doCmd(s"ghdl -e --ieee=synopsys TopLevel_tb"                   ) == 0,"GHDL elaboration fail")
+    assert(doCmd(s"ghdl -r --ieee=synopsys TopLevel_tb --vcd=wave.vcd"    ) == 0,"GHDL simulation fail")
+    println("SUCCESS")
+  }
+
+  def doCmd(cmd : String) : Int = {
+    import scala.sys.process._
+    println(cmd)
+    cmd !
+  }
+}
+
+
+
+

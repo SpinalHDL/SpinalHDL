@@ -202,7 +202,7 @@ class SerialCheckerRx(wordCountMax: Int) extends Component {
     val lastWriteData = RegNextWhen(io.input.bits(bitsWidth - 1, 0), pushFlag)
 
     when(pushFlag || flushFlag) {
-      ram(writePtr - asUInt(flushFlag)) := Mux(pushFlag, io.input.bits, True ## lastWriteData)
+      ram((writePtr - asUInt(flushFlag)).resized) := (Mux(pushFlag, io.input.bits, True ## lastWriteData)).resized
     }
 
     when(pushFlag) {
@@ -210,7 +210,7 @@ class SerialCheckerRx(wordCountMax: Int) extends Component {
       writePtr.increment()
     }
     when(flushFlag) {
-      validPtr := writePtr
+      validPtr := writePtr.resized
     }
 
     def push: Bool = {
@@ -225,7 +225,7 @@ class SerialCheckerRx(wordCountMax: Int) extends Component {
       flushFlag := True
     }
     def writeStart: Unit = {
-      writePtr.valueNext := validPtr
+      writePtr.valueNext := validPtr.resized
       checksum := 0
     }
 
@@ -237,7 +237,7 @@ class SerialCheckerRx(wordCountMax: Int) extends Component {
     readPtr.willIncrement := readCmd.fire
     io.output.translateFrom(ram.streamReadSync(readCmd))((to, from) => {
       to.last := from.msb
-      to.fragment := from
+      to.fragment := from.resized
     })
 
   }

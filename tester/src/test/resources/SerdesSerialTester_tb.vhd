@@ -17,10 +17,10 @@ end SerdesSerialTester_tb;
 
 architecture arch of SerdesSerialTester_tb is
   signal io_rx_valid : std_logic;
-  signal io_rx_data : std_logic_vector(7 downto 0);
+  signal io_rx_payload : std_logic_vector(7 downto 0);
   signal io_tx_valid : std_logic;
   signal io_tx_ready : std_logic;
-  signal io_tx_data : std_logic_vector(7 downto 0);
+  signal io_tx_payload : std_logic_vector(7 downto 0);
   signal clk : std_logic;
   signal reset : std_logic;
   -- #spinalBegin userDeclarations
@@ -68,7 +68,7 @@ begin
     procedure tx(that : std_logic_vector(7 downto 0)) is
     begin
       io_rx_valid <= '1';
-      io_rx_data <= that;
+      io_rx_payload <= that;
       wait until rising_edge(clk);
       io_rx_valid <= '0';
     end tx;
@@ -76,12 +76,15 @@ begin
     procedure txPacket(thatIn : std_logic_vector) is
       variable checksum : unsigned(15 downto 0) := X"0000";
       variable that : std_logic_vector( thatIn'high downto 0) := thatIn;
+      variable i : integer;
     begin
       tx(X"A5");
       tx(X"D8");
-      for i in (that'length / 8) -1 downto 0 loop
+      i := (that'length / 8) -1;
+      while i >= 0 loop
         tx(that(i*8+7 downto i*8));
         checksum := checksum + unsigned(that(i*8+7 downto i*8));
+        i := i - 1;
       end loop;
       tx(X"A5");
       tx(X"9A");    
@@ -120,7 +123,7 @@ begin
       io_tx_ready <= '1';
       wait until rising_edge(clk) and io_tx_valid = '1';
       io_tx_ready <= '0';
-   --   return io_tx_data;
+   --   return io_tx_payload;
     end rx;
   begin
     io_tx_ready <= '0';
@@ -139,10 +142,10 @@ begin
   uut : entity lib_SerdesSerialTester.SerdesSerialTester
     port map (
       io_rx_valid =>  io_rx_valid,
-      io_rx_data =>  io_rx_data,
+      io_rx_payload =>  io_rx_payload,
       io_tx_valid =>  io_tx_valid,
       io_tx_ready =>  io_tx_ready,
-      io_tx_data =>  io_tx_data,
+      io_tx_payload =>  io_tx_payload,
       clk =>  clk,
       reset =>  reset 
     );

@@ -44,7 +44,7 @@ class SerdesSerialTester extends Component {
 }
 
 
-//class SerdesSerialTesterBoot extends SpinalTesterBase {
-//  override def getName: String = "SerdesSerialTester"
-//  override def createToplevel: Component = new SerdesSerialTester
-//}
+class SerdesSerialTesterBoot extends SpinalTesterGhdlBase {
+  override def getName: String = "SerdesSerialTester"
+  override def createToplevel: Component = new SerdesSerialTester
+}
