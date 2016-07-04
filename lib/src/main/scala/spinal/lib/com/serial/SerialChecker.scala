@@ -1,4 +1,4 @@
-package spinal.lib.serdes
+package spinal.lib.com.serial
 
 import spinal.core._
 import spinal.lib._

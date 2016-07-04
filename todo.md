@@ -8,4 +8,9 @@
 
 - [ ] Finalise and document many Stream utils
 - [ ] More spinal.lib basic utils (priority encoder, ..)
-- [ ] Implement more spinal.lib.com components (SPI, ..)
+- [ ] spinal.lib.com.spi
+- [ ] spinal.lib.com.serial
+- [ ] spinal.lib.com.8b/10b
+- [ ] spinal.lib.misc.pwm
+- [ ] spinal.lib.misc.pdm
+- [ ] spinal.lib.misc.dds
