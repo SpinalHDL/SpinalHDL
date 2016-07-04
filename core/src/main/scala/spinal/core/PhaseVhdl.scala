@@ -54,7 +54,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
       map(that) = WrappedStuff(that.getName, newName)
       that.setName(newName)
     }
-    for (e <- topLevel.getAllIo) e match {
+    for (e <- topLevel.getOrdredNodeIo) e match {
       case e: UInt => wrap(e)
       case e: SInt => wrap(e)
       case _ =>
@@ -1196,7 +1196,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
       clockDomainMap.getOrElseUpdate(syncNode.getClockDomain, new ArrayBuffer[SyncNode]()) += syncNode
     }
 
-    for ((clockDomain, array) <- clockDomainMap) {
+    for ((clockDomain, array) <- clockDomainMap.toList.sortWith(_._1.instanceCounter < _._1.instanceCounter)) {
       val arrayWithReset = ArrayBuffer[SyncNode]()
       val arrayWithoutReset = ArrayBuffer[SyncNode]()
 

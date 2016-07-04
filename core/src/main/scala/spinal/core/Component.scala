@@ -225,7 +225,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
 
 
 
-  private[core] def getOrdredNodeIo = getAllIo.toList.sortWith(_.instanceCounter < _.instanceCounter)
+  def getOrdredNodeIo = getAllIo.toList.sortWith(_.instanceCounter < _.instanceCounter)
 
   private[core] def getDelays = {
     val delays = new ArrayBuffer[SyncNode]()
@@ -255,7 +255,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
     val ret = mutable.Set[Data]()
     val ioBundle = if (ioBundleBypass) reflectIo else null
     def getRootParent(that: Data): Data = if (that.parent == null || that.parent == ioBundle) that else getRootParent(that.parent)
-    for (e <- getAllIo) {
+    for (e <- getOrdredNodeIo) {
       ret += getRootParent(e)
     }
     ret.toSeq.sortBy(_.instanceCounter)

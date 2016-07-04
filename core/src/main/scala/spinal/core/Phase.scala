@@ -72,10 +72,10 @@ class PhaseContext(val config : SpinalConfig){
   def walkNodesDefautStack = {
     val nodeStack = mutable.Stack[Node]()
 
-    topLevel.getAllIo.foreach(nodeStack.push(_))
+    topLevel.getOrdredNodeIo.foreach(nodeStack.push(_))
     components.foreach(c => {
       c match {
-        case blackBox: BlackBox => blackBox.getAllIo.filter(_.isInput).foreach(nodeStack.push(_))
+        case blackBox: BlackBox => blackBox.getOrdredNodeIo.filter(_.isInput).foreach(nodeStack.push(_))
         case _ =>
       }
       c.additionalNodesRoot.foreach(nodeStack.push(_))
@@ -646,6 +646,9 @@ class PhaseAllowNodesToReadOutputs(pc: PhaseContext) extends Phase{
                 buffer.input = baseTypeInput.input
                 baseTypeInput.input = buffer
                 buffer.component = baseTypeInput.component
+                if(baseTypeInput.isNamed){
+                  buffer.setWeakName(baseTypeInput.getName() + "_readableBuffer")
+                }
                 SpinalTagReady.splitNewSink(source=baseTypeInput,sink=buffer)
                 buffer
               })

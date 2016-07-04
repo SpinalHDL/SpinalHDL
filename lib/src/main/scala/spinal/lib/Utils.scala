@@ -681,7 +681,7 @@ object PriorityMux{
 object WrapWithReg{
   def on(c : Component): Unit = {
     c.nameElements()
-    for(e <- c.getAllIo){
+    for(e <- c.getOrdredNodeIo){
       if(e.isInput){
         e := RegNext(RegNext(in(e.clone.setName(e.getName))))
       }else{
