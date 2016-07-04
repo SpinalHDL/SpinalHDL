@@ -53,6 +53,30 @@ object OHToUInt {
   }
 }
 
+object min {
+    def apply[T <: Data with Num[T]](nums: T*) = list(nums)
+    def list[T <: Data with Num[T]](nums: Seq[T]) = {
+        nums.reduceBalancedTree(_ min _)
+    }
+}
+
+object max {
+    def apply[T <: Data with Num[T]](nums: T*) = list(nums)
+    def list[T <: Data with Num[T]](nums: Seq[T]) = {
+        nums.reduceBalancedTree(_ max _)
+    }
+}
+
+object MaskByPriority{
+    def apply[T <: Data](that : T) : T = {
+        val input = that.asBits.asUInt
+        val masked = input & ~(input - 1)
+        val ret = that.clone
+        ret.assignFromBits(masked.asBits)
+        ret
+    }
+}
+
 object CountOne{
   def args(thats : Bool*) : UInt = apply(thats)
   def apply(thats : BitVector) : UInt = apply(thats.asBools)
@@ -513,10 +537,10 @@ class NoData extends Bundle {
 
 
 class TraversableOncePimped[T <: Data](pimped: scala.collection.Iterable[T]) {
-  def reduceBalancedSpinal(op: (T, T) => T): T = {
-    reduceBalancedSpinal(op, (s,l) => s)
+  def reduceBalancedTree(op: (T, T) => T): T = {
+    reduceBalancedTree(op, (s,l) => s)
   }
-  def reduceBalancedSpinal(op: (T, T) => T, levelBridge: (T, Int) => T): T = {
+  def reduceBalancedTree(op: (T, T) => T, levelBridge: (T, Int) => T): T = {
     def stage(elements: ArrayBuffer[T], level: Int): T = {
       if (elements.length == 1) return elements.head
       val stageLogic = new ArrayBuffer[T]()
@@ -545,11 +569,11 @@ class TraversableOncePimped[T <: Data](pimped: scala.collection.Iterable[T]) {
   }
   def apply(index: UInt): T = Vec(pimped)(index)
 
-  def sExists(condition: T => Bool): Bool = (pimped map condition).fold(False)(_ || _)
-  def sContains(value: T) : Bool = sExists(_ === value)
+  def sExist(condition: T => Bool): Bool = (pimped map condition).fold(False)(_ || _)
+  def sContains(value: T) : Bool = sExist(_ === value)
 
   def sCount(condition: T => Bool): UInt = SetCount((pimped.map(condition)))
-  def sCount(value: T ): UInt = sCount(_ === value)
+  def sCount(value: T): UInt = sCount(_ === value)
 
   def sFindFirst(condition: T => Bool) : (Bool,UInt) = {
     val size = pimped.size
@@ -584,27 +608,27 @@ object DelayWithInit {
 }
 
 object History {
-  def apply[T <: Data](that: T, length: Int, when: Bool = null, initValue: T = null): Vec[T] = {
+  def apply[T <: Data](that: T, length: Int, when: Bool = null, init: T = null): Vec[T] = {
     def builder(that: T, left: Int): List[T] = {
       left match {
         case 0 => Nil
         case 1 => that :: Nil
         case _ => that :: builder({
           if (when != null)
-            RegNextWhen(that, when, init = initValue)
+            RegNextWhen(that, when, init = init)
           else
-            RegNext(that, init = initValue)
+            RegNext(that, init = init)
         }, left - 1)
       }
     }
     Vec(builder(that, length))
   }
 
-  def apply[T <: Data](that: T, range: Range, when: Bool, initValue: T): Vec[T] =
-    Vec(History(that, range.high + 1, when, initValue).drop(range.low))
+  def apply[T <: Data](that: T, range: Range, when: Bool, init: T): Vec[T] =
+    Vec(History(that, range.high + 1, when, init).drop(range.low))
 
-  def apply[T <: Data](that: T, range: Range, initValue: T): Vec[T] =
-    apply(that, range, null, initValue = initValue)
+  def apply[T <: Data](that: T, range: Range, init: T): Vec[T] =
+    apply(that, range, null, init = init)
 
   def apply[T <: Data](that: T, range: Range, when: Bool): Vec[T] =
     apply(that, range, when, null.asInstanceOf[T])
@@ -657,7 +681,7 @@ object PriorityMux{
 object WrapWithReg{
   def on(c : Component): Unit = {
     c.nameElements()
-    for(e <- c.getAllIo){
+    for(e <- c.getOrdredNodeIo){
       if(e.isInput){
         e := RegNext(RegNext(in(e.clone.setName(e.getName))))
       }else{

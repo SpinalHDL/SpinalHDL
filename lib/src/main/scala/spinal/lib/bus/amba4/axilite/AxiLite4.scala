@@ -76,9 +76,9 @@ object READ_WRITE extends AxiLite4Mode{
   * @param dataWidth    Width of the data bus
   * @param mode         Access mode : WRITE_ONLY, READ_ONLY, READ_WRITE
   */
-case class AxiLite4Config(addressWidth: Int,
-                         dataWidth    : Int,
-                         mode         : AxiLite4Mode = READ_WRITE){
+case class AxiLite4Config(addressWidth : Int,
+                          dataWidth    : Int,
+                          mode         : AxiLite4Mode = READ_WRITE){
   def dataByteCount = dataWidth/8
 }
 
@@ -126,6 +126,10 @@ case class AxiLite4B(config: AxiLite4Config) extends Bundle {
   def setEXOKAY() : Unit = resp := EXOKAY
   def setSLVERR() : Unit = resp := SLVERR
   def setDECERR() : Unit = resp := DECERR
+  def isOKAY()   : Unit = resp === OKAY
+  def isEXOKAY() : Unit = resp === EXOKAY
+  def isSLVERR() : Unit = resp === SLVERR
+  def isDECERR() : Unit = resp === DECERR
 }
 
 
@@ -134,7 +138,7 @@ case class AxiLite4B(config: AxiLite4Config) extends Bundle {
   * @param config Axi Lite configuration class
   */
 case class AxiLite4R(config: AxiLite4Config) extends Bundle {
-  val data = Bits(config.addressWidth bits)
+  val data = Bits(config.dataWidth bits)
   val resp = Bits(2 bits)
 
   import AxiLite4.resp._
@@ -143,6 +147,10 @@ case class AxiLite4R(config: AxiLite4Config) extends Bundle {
   def setEXOKAY() : Unit = resp := EXOKAY
   def setSLVERR() : Unit = resp := SLVERR
   def setDECERR() : Unit = resp := DECERR
+  def isOKAY()   : Unit = resp === OKAY
+  def isEXOKAY() : Unit = resp === EXOKAY
+  def isSLVERR() : Unit = resp === SLVERR
+  def isDECERR() : Unit = resp === DECERR
 }
 
 
@@ -195,3 +203,22 @@ case class AxiLite4(config: AxiLite4Config) extends Bundle with IMasterSlave {
     this
   }
 }
+
+
+object  AxiLite4SpecRenamer{
+  def apply(that : AxiLite4): Unit ={
+    def doIt = {
+      that.flatten.foreach((bt) => {
+        bt.setName(bt.getName().replace("_payload_",""))
+        bt.setName(bt.getName().replace("_valid","valid"))
+        bt.setName(bt.getName().replace("_ready","ready"))
+        if(bt.getName().startsWith("io_")) bt.setName(bt.getName().replaceFirst("io_",""))
+      })
+    }
+    if(Component.current == that.component)
+      that.component.addPrePopTask(() => {doIt})
+    else
+      doIt
+  }
+}
+

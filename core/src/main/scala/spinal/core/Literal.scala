@@ -22,7 +22,7 @@ package spinal.core
  * Created by PIC18F on 21.08.2014.
  */
 
-class TagDefault(val default : Tuple2[Any,Any],val litFacto : (BigInt,Int) => BitVector) extends SpinalTag
+class TagDefault(val default : Tuple2[Any,Any],val litFacto : (BigInt,Int) => BitVector) extends SpinalTag{override def driverShouldNotChange = true}
 
 abstract class BitVectorLiteralFactory[T <: BitVector] {
   def apply(): T
@@ -116,6 +116,8 @@ trait Literal extends Node {
   override def onEachInput(doThat: (Node) => Unit): Unit = {}
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = {}
   override def setInput(id: Int, node: Node): Unit = ???
+
+  override def addAttribute(attribute: Attribute): Literal.this.type = addTag(attribute)
 }
 
 object BitsLiteral {

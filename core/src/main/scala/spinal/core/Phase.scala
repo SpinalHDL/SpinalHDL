@@ -72,10 +72,10 @@ class PhaseContext(val config : SpinalConfig){
   def walkNodesDefautStack = {
     val nodeStack = mutable.Stack[Node]()
 
-    topLevel.getAllIo.foreach(nodeStack.push(_))
+    topLevel.getOrdredNodeIo.foreach(nodeStack.push(_))
     components.foreach(c => {
       c match {
-        case blackBox: BlackBox => blackBox.getAllIo.filter(_.isInput).foreach(nodeStack.push(_))
+        case blackBox: BlackBox => blackBox.getOrdredNodeIo.filter(_.isInput).foreach(nodeStack.push(_))
         case _ =>
       }
       c.additionalNodesRoot.foreach(nodeStack.push(_))
@@ -167,6 +167,38 @@ class PhaseFillComponentList(pc: PhaseContext) extends Phase{
 
 
 
+class PhaseNodesBlackBoxGenerics(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+    val nodeStack = mutable.Stack[Node]()
+    pc.components.foreach(_ match {
+      case blackBox: BlackBox => {
+        blackBox.getGeneric.flatten.foreach(_ match {
+          case bt: BaseType => nodeStack.push(bt)
+          case _ =>
+        })
+      }
+      case _ =>
+    })
+  }
+}
+
+class PhaseMoveLogicTags(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+    import pc._
+    Node.walk(pc.walkNodesDefautStack,_ match{
+        case node : BaseType => {
+          if(node.input.isInstanceOf[SyncNode]){
+            val moves = node.filterTag(_.moveToSyncNode)
+            node.removeTags(moves)
+            node.input.addTags(moves)
+          }
+        }
+        case _ =>
+    })
+  }
+}
+
+
 class PhaseApplyIoDefault(pc: PhaseContext) extends Phase{
   override def impl(): Unit = {
     import pc._
@@ -201,21 +233,6 @@ class PhaseApplyIoDefault(pc: PhaseContext) extends Phase{
         case _ =>
       }
 
-    })
-  }
-}
-
-class PhaseNodesBlackBoxGenerics(pc: PhaseContext) extends Phase{
-  override def impl(): Unit = {
-    val nodeStack = mutable.Stack[Node]()
-    pc.components.foreach(_ match {
-      case blackBox: BlackBox => {
-        blackBox.getGeneric.flatten.foreach(_ match {
-          case bt: BaseType => nodeStack.push(bt)
-          case _ =>
-        })
-      }
-      case _ =>
     })
   }
 }
@@ -446,15 +463,16 @@ class PhasePullClockDomains(pc: PhaseContext) extends Phase{
     Node.walk(walkNodesDefautStack,(node, push) =>  {
       node match {
         case delay: SyncNode => {
-          if(delay.isUsingResetSignal && (!delay.getClockDomain.hasResetSignal && !delay.getClockDomain.hasSoftResetSignal))
+          val clockDomain = delay.getClockDomain
+          if(delay.isUsingResetSignal && (!clockDomain.hasResetSignal && !clockDomain.hasSoftResetSignal))
             SpinalError(s"Clock domain without reset contain a register which needs one\n ${delay.getScalaLocationLong}")
 
           Component.push(delay.component)
-          delay.setInput(SyncNode.getClockInputId,delay.getClockDomain.readClockWire)
+          delay.setInput(SyncNode.getClockInputId,clockDomain.readClockWire)
 
-          if(delay.isUsingResetSignal)      delay.setInput(SyncNode.getClockResetId,delay.getClockDomain.readResetWire.dontSimplifyIt())
-          if(delay.isUsingSoftResetSignal)  delay.setInput(SyncNode.getClockSoftResetId,delay.getClockDomain.readSoftResetWire.dontSimplifyIt())
-          if(delay.isUsingEnableSignal)     delay.setInput(SyncNode.getClockEnableId,delay.getClockDomain.readClockEnableWire.dontSimplifyIt())
+          if(delay.isUsingResetSignal)      delay.setInput(SyncNode.getClockResetId,clockDomain.readResetWire.dontSimplifyIt())
+          if(delay.isUsingSoftResetSignal)  delay.setInput(SyncNode.getClockSoftResetId,clockDomain.readSoftResetWire.dontSimplifyIt())
+          if(delay.isUsingEnableSignal)     delay.setInput(SyncNode.getClockEnableId,clockDomain.readClockEnableWire.dontSimplifyIt())
           Component.pop(delay.component)
         }
         case _ =>
@@ -628,6 +646,10 @@ class PhaseAllowNodesToReadOutputs(pc: PhaseContext) extends Phase{
                 buffer.input = baseTypeInput.input
                 baseTypeInput.input = buffer
                 buffer.component = baseTypeInput.component
+                if(baseTypeInput.isNamed){
+                  buffer.setWeakName(baseTypeInput.getName() + "_readableBuffer")
+                }
+                SpinalTagReady.splitNewSink(source=baseTypeInput,sink=buffer)
                 buffer
               })
               node.setInput(i,buffer)
@@ -840,7 +862,7 @@ class PhasePropagateBaseTypeWidth(pc: PhaseContext) extends Phase{
               // case lit : BitsAllToLiteral => lit.inferredWidth = width
               case bitVector : BitVector  => {
                 if(bitVector.getWidth < width  && ! bitVector.isReg) {
-                  val default = bitVector.spinalTags.find(_.isInstanceOf[TagDefault]).getOrElse(null).asInstanceOf[TagDefault]
+                  val default = bitVector.findTag(_.isInstanceOf[TagDefault]).getOrElse(null).asInstanceOf[TagDefault]
 
                   if (default != null) {
                     val addedBitCount = width - bitVector.getWidth
@@ -1047,6 +1069,25 @@ class PhaseCheckCrossClockDomains(pc: PhaseContext) extends Phase{
 
     if (!errors.isEmpty)
       SpinalError(errors)
+  }
+}
+
+
+class PhaseCheckMisc(pc: PhaseContext) extends Phase{
+  override def impl(): Unit = {
+    import pc._
+    Node.walk(walkNodesDefautStack,node => {
+      node match {
+        case baseType: BaseType => {
+          if(baseType.hasTag(randomBoot)){
+            if(!baseType.isReg){
+              pc.globalData.pendingErrors += (() => s"$baseType has the randBoot tag set but is not a register\n ${baseType.getScalaLocationLong}")
+            }
+          }
+        }
+        case _ =>
+      }
+    })
   }
 }
 
@@ -1357,6 +1398,7 @@ object SpinalVhdlBoot{
     phases += new PhaseDummy(SpinalProgress("Start analysis and transform"))
     phases += new PhaseFillComponentList(pc)
     phases += new PhaseApplyIoDefault(pc)
+    phases += new PhaseMoveLogicTags(pc)
     phases += new PhaseNodesBlackBoxGenerics(pc)
     phases += new PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc)
 
@@ -1387,6 +1429,7 @@ object SpinalVhdlBoot{
     phases += new PhaseCheckCombinationalLoops(pc)
     phases += new PhaseDummy(SpinalProgress("Check cross clock domains"))
     phases += new PhaseCheckCrossClockDomains(pc)
+    phases += new PhaseCheckMisc(pc)
 
     phases += new PhaseDummy(SpinalProgress("Simplify graph's nodes"))
     phases += new PhaseFillNodesConsumers(pc)
@@ -1507,6 +1550,7 @@ object SpinalVerilogBoot{
     phases += new PhaseDummy(SpinalProgress("Start analysis and transform"))
     phases += new PhaseFillComponentList(pc)
     phases += new PhaseApplyIoDefault(pc)
+    phases += new PhaseMoveLogicTags(pc)
     phases += new PhaseNodesBlackBoxGenerics(pc)
     phases += new PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc)
 
@@ -1537,6 +1581,7 @@ object SpinalVerilogBoot{
     phases += new PhaseCheckCombinationalLoops(pc)
     phases += new PhaseDummy(SpinalProgress("Check cross clock domains"))
     phases += new PhaseCheckCrossClockDomains(pc)
+    phases += new PhaseCheckMisc(pc)
 
     phases += new PhaseDummy(SpinalProgress("Simplify graph's nodes"))
     phases += new PhaseFillNodesConsumers(pc)

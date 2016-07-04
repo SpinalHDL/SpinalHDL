@@ -979,7 +979,7 @@ object t13 {
 //  val variableVec = Vec(UInt(5 bit), UInt(9 bit), UInt(16 bit))
 
   val containZero = normalVec.sContains(0)
-  val existOne = normalVec.sExists(_ === 1)
+  val existOne = normalVec.sExist(_ === 1)
   val (firstTwoValid, firstTwoIndex) = normalVec.sFindFirst(_ === 2)
   val toto = normalVec.map(_ === 3)
 

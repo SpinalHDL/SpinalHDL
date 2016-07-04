@@ -50,11 +50,13 @@ class MemWritePayload[T <: Data](dataType: T, addressWidth: Int) extends Bundle 
   val address = UInt(addressWidth bit)
 }
 
-class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableInputsCount  with AttributeReady with Nameable with Widthable{
+class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableInputsCount  with Nameable with Widthable{
   var forceMemToBlackboxTranslation = false
   val _widths = wordType.flatten.map(t => t.getBitsWidth).toVector //Force to fix width of each wire
 
   def wordType: T = _wordType.clone
+
+  val ports = ArrayBuffer[Node]()
 
   override def calcWidth: Int = _widths.reduce(_ + _)//_wordType.flatten.map(_.getBitsWidth).reduceLeft(_ + _)
 
@@ -95,11 +97,10 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
     val addressBuffer = UInt(addressWidth bit).dontSimplifyIt()
     addressBuffer := address
     val readPort = new MemReadAsync(this, addressBuffer, readBits, writeToReadKind)
-    readPort.compositeTagReady = readWord
+    ports += readPort
 
     readBits.input = readPort
     readWord.assignFromBits(readBits)
-
     readWord
   }
 
@@ -110,13 +111,13 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
     val addressBuffer = UInt(addressWidth bit).dontSimplifyIt()
     addressBuffer := address
     val readPort = new MemReadSync(this, address, addressBuffer, readBits, enable.dontSimplifyIt(), writeToReadKind, ClockDomain.current)
-    readPort.compositeTagReady = readWord
+    ports += readPort
+
     if (crossClock)
       readPort.addTag(crossClockDomain)
 
     readBits.input = readPort
     readWord.assignFromBits(readBits)
-
     readWord
   }
 
@@ -142,6 +143,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
 
 
     val writePort = new MemWrite(this, address, addressBuffer, dataBuffer, maskBuffer, when.getWhensCond(this).dontSimplifyIt(), ClockDomain.current)
+    ports += writePort
     inputs += writePort
   }
 
@@ -162,7 +164,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
     val readBits = Bits(wordType.getBitsWidth bit)
     val readWord = wordType.clone()
     val readPort = new MemWriteOrRead_readPart(this, addressBuffer, readBits, chipSelect, writeEnable, writeToReadKind, ClockDomain.current)
-    readPort.compositeTagReady = readWord
+
     readBits.input = readPort
     readWord.assignFromBits(readBits)
     if (crossClock)
@@ -171,14 +173,12 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
 
     writePort.readPart = readPort;
     readPort.writePart = writePort
-
+    ports += readPort
+    ports += writePort
     readWord
   }
 
-  override def addAttribute(attribute: Attribute): this.type = {
-    attributes += attribute
-    this
-  }
+  override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
 
 
   private[core] def getMemSymbolWidth() : Int = {
@@ -206,10 +206,18 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
     addTag(spinal.core.randomBoot)
     this
   }
+
+  override protected def nameChangeEvent(weak: Boolean): Unit = {
+    ports.zipWithIndex.foreach{case (port,id) => port match {
+      case port : Nameable => port.setName(getName() + "_port" + id,weak)
+    }}
+  }
 }
 
-class MemReadAsync(mem_ : Mem[_], address_ : UInt, data: Bits, val writeToReadKind: MemWriteToReadKind) extends Node with Widthable {
+class MemReadAsync(mem_ : Mem[_], address_ : UInt, data: Bits, val writeToReadKind: MemWriteToReadKind) extends Node with Widthable with Nameable {
   if (writeToReadKind == readFirst) SpinalError("readFirst mode for asynchronous read is not allowed")
+
+  override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
 
   var address : Node = address_
   var mem     : Mem[_] = mem_
@@ -240,6 +248,11 @@ class MemReadAsync(mem_ : Mem[_], address_ : UInt, data: Bits, val writeToReadKi
   def getAddress = address.asInstanceOf[UInt]
   def getMem = mem.asInstanceOf[Mem[_]]
   override def calcWidth: Int = getMem.getWidth
+
+  override protected def nameChangeEvent(weak: Boolean): Unit = {
+    address_.setName(getName() + "_address",weak)
+    data.setName(getName() + "_data",weak)
+  }
 }
 
 
@@ -249,10 +262,18 @@ object MemReadSync {
   val getMemId: Int = 6
 }
 
-class MemReadSync(mem_ : Mem[_], val originalAddress: UInt, address_ : UInt, data: Bits, enable_ : Bool, val writeToReadKind: MemWriteToReadKind, clockDomain: ClockDomain) extends SyncNode(clockDomain) with Widthable{
+class MemReadSync(mem_ : Mem[_], val originalAddress: UInt, address_ : UInt, data: Bits, enable_ : Bool, val writeToReadKind: MemWriteToReadKind, clockDomain: ClockDomain) extends SyncNode(clockDomain) with Widthable with Nameable{
   var address : Node = address_
   var readEnable  : Node = enable_
   var mem     : Mem[_] = mem_
+
+  override protected def nameChangeEvent(weak: Boolean): Unit = {
+    address_.setName(getName() + "_address",weak)
+    data.setName(getName() + "_data",weak)
+    enable_.setName(getName() + "_enable",weak)
+  }
+
+  override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
 
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
     super.onEachInput(doThat)
@@ -323,11 +344,21 @@ object MemWrite {
   val getEnableId: Int = 7
 }
 
-class MemWrite(mem: Mem[_], val originalAddress: UInt, address_ : UInt, data_ : Bits, mask_ : Bits, enable_ : Bool, clockDomain: ClockDomain) extends SyncNode(clockDomain) with Widthable with CheckWidth{
+class MemWrite(mem: Mem[_], val originalAddress: UInt, address_ : UInt, data_ : Bits, mask_ : Bits, enable_ : Bool, clockDomain: ClockDomain) extends SyncNode(clockDomain) with Widthable with CheckWidth with Nameable{
   var address : Node  = address_
   var data     : Node = data_
   var mask     : Node = (if (mask_ != null) mask_ else NoneNode())
   var writeEnable  : Node  = enable_
+
+  override protected def nameChangeEvent(weak: Boolean): Unit = {
+    address_.setName(getName() + "_address",weak)
+    data_.setName(getName() + "_data",weak)
+    if(mask_ != null)mask_.setName(getName() + "_mask",weak)
+    enable_.setName(getName() + "_enable",weak)
+  }
+
+
+  override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
 
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
     super.onEachInput(doThat)
@@ -405,11 +436,21 @@ object MemWriteOrRead_writePart {
   val getWriteEnableId: Int = 7
 }
 
-class MemWriteOrRead_writePart(mem: Mem[_], address_ : UInt, data_ : Bits, chipSelect_ : Bool, writeEnable_ : Bool, clockDomain: ClockDomain) extends SyncNode(clockDomain) with Widthable{
+class MemWriteOrRead_writePart(mem: Mem[_], address_ : UInt, data_ : Bits, chipSelect_ : Bool, writeEnable_ : Bool, clockDomain: ClockDomain) extends SyncNode(clockDomain) with Widthable with Nameable{
   var address : Node  = address_
   var data     : Node = data_
   var chipSelect   : Node = chipSelect_
   var writeEnable  : Node  = writeEnable_
+
+  override protected def nameChangeEvent(weak: Boolean): Unit = {
+    address_.setName(getName() + "_address",weak)
+    data_.setName(getName() + "_data",weak)
+    chipSelect_.setName(getName() + "_chipSelect",weak)
+    writeEnable_.setName(getName() + "_writeEnable",weak)
+  }
+
+
+  override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
 
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
     super.onEachInput(doThat)
@@ -473,12 +514,23 @@ object MemWriteOrRead_readPart {
   val getMemId: Int = 7
 }
 
-class MemWriteOrRead_readPart(mem_ : Mem[_], address_ : UInt, data_ : Bits, chipSelect_ : Bool, writeEnable_ : Bool, val writeToReadKind: MemWriteToReadKind, clockDomain: ClockDomain) extends SyncNode(clockDomain) with Widthable{
+class MemWriteOrRead_readPart(mem_ : Mem[_], address_ : UInt, data_ : Bits, chipSelect_ : Bool, writeEnable_ : Bool, val writeToReadKind: MemWriteToReadKind, clockDomain: ClockDomain) extends SyncNode(clockDomain) with Widthable with Nameable{
 
   var address : Node  = address_
   var chipSelect     : Node = chipSelect_
   var writeEnable   : Node = writeEnable_
   var mem  : Mem[_]  = mem_
+
+
+  override protected def nameChangeEvent(weak: Boolean): Unit = {
+    address_.setName(getName() + "_address",weak)
+    data_.setName(getName() + "_data",weak)
+    chipSelect_.setName(getName() + "_chipSelect",weak)
+    writeEnable_.setName(getName() + "_writeEnable",weak)
+  }
+
+  override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
+
 
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
     super.onEachInput(doThat)
@@ -531,45 +583,8 @@ class MemWriteOrRead_readPart(mem_ : Mem[_], address_ : UInt, data_ : Bits, chip
   def getWriteEnable = writeEnable.asInstanceOf[Bool]
 
   override def calcWidth: Int = getMem.calcWidth
-
-  //  def useReadEnable: Boolean = {
-  //    val lit = getEnable.getLiteral[BoolLiteral]
-  //    return lit == null || lit.value == false
-  //  }
-
 }
 
 
-//object MemReadOrWrite {
-//  def getEnableId: Int = 3
-//  def getWriteElseReadId: Int = 4
-//  def getAddressId: Int = 5
-//  def getWriteDataId: Int = 6
-//
-//}
-//
-//class MemWriteOrReadSync(mem: Mem[_], address: UInt, writeData: Bits, enable: Bool, writeElseRead: Bool, clockDomain: ClockDomain) extends SyncNode(clockDomain) {
-//  inputs += enable
-//  inputs += writeElseRead
-//  inputs += address
-//  inputs += writeData
-//
-//
-//  override def getSynchronousInputs: ArrayBuffer[Node] = super.getSynchronousInputs ++= getAddress :: getWriteData :: getWriteEnable :: getMem :: getReadEnable :: Nil
-//  override def isUsingReset: Boolean = false
-//
-//  def getMem = mem
-//  def getAddress = getInput(MemReadOrWrite.getAddressId).asInstanceOf[UInt]
-//  def getWriteData = getInput(MemReadOrWrite.getWriteDataId).asInstanceOf[Bits]
-//  def getEnable = getInput(MemReadOrWrite.getEnableId).asInstanceOf[Bool]
-//  def getWriteOrRead = getInput(MemReadOrWrite.getWriteElseReadId).asInstanceOf[Bool]
-//
-//  override def calcWidth: Int = getMem.calcWidth
-//
-//  def useWriteEnable: Boolean = {
-//    val lit = getWriteEnable.getLiteral[BoolLiteral]
-//    return lit == null || lit.value == false
-//  }
-//}
 
 

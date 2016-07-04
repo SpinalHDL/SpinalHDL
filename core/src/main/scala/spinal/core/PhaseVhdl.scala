@@ -54,7 +54,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
       map(that) = WrappedStuff(that.getName, newName)
       that.setName(newName)
     }
-    for (e <- topLevel.getAllIo) e match {
+    for (e <- topLevel.getOrdredNodeIo) e match {
       case e: UInt => wrap(e)
       case e: SInt => wrap(e)
       case _ =>
@@ -578,15 +578,14 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
     ret ++= s"  port(\n"
     if (!(config.onlyStdLogicVectorAtTopLevelIo && component == topLevel)) {
       component.getOrdredNodeIo.foreach(baseType =>
-        ret ++= s"    ${baseType.getName()} : ${emitDirection(baseType)} ${emitDataType(baseType)};\n"
+        ret ++= s"    ${baseType.getName()} : ${emitDirection(baseType)} ${emitDataType(baseType)}${getBaseTypeSignalInitialisation(baseType)};\n"
       )
     } else {
       component.getOrdredNodeIo.foreach(baseType => {
         val originalType = emitDataType(baseType)
         val correctedType = originalType.replace("unsigned", "std_logic_vector").replace("signed", "std_logic_vector")
         ret ++= s"    ${baseType.getName()} : ${emitDirection(baseType)} ${correctedType};\n"
-      }
-      )
+      })
     }
     /*component.getOrdredNodeIo.foreach(baseType =>
       ret ++= s"    ${baseType.getName()} : ${emitDirection(baseType)} ${emitDataType(baseType)};\n"
@@ -700,14 +699,9 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
     val map = mutable.Map[String, Attribute]()
 
     for (node <- component.nodes) {
-      node match {
-        case attributeReady: AttributeReady => {
-          for (attribute <- attributeReady.attributes) {
-            val mAttribute = map.getOrElseUpdate(attribute.getName, attribute)
-            if (!mAttribute.sameType(attribute)) SpinalError(s"There is some attributes with different nature (${attribute} and ${mAttribute} at\n${node.component}})")
-          }
-        }
-        case _ =>
+      for (attribute <- node.instanceAttributes) {
+        val mAttribute = map.getOrElseUpdate(attribute.getName, attribute)
+        if (!mAttribute.sameType(attribute)) SpinalError(s"There is some attributes with different nature (${attribute} and ${mAttribute} at\n${node.component}})")
       }
     }
 
@@ -724,35 +718,41 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
 
   def toSpinalEnumCraft[T <: SpinalEnum](that: Any) = that.asInstanceOf[SpinalEnumCraft[T]]
 
+  def getBaseTypeSignalInitialisation(signal : BaseType) : String = {
+    val reg = if(signal.isReg) signal.input.asInstanceOf[Reg] else null
+    if(reg != null){
+      if(reg.initialValue != null && reg.getClockDomain.config.resetKind == BOOT) {
+        return " := " + (reg.initialValue match {
+          case init : BaseType => emitLogic(init.getLiteral)
+          case init =>  emitLogic(init)
+        })
+      }else if (reg.hasTag(randomBoot)) {
+        return signal match {
+          case b: Bool => " := " + {
+            if (Random.nextBoolean()) "'1'" else "'0'"
+          }
+          case bv: BitVector => {
+            val rand = BigInt(bv.getWidth, Random).toString(2)
+            " := \"" + "0" * (bv.getWidth - rand.length) + rand + "\""
+          }
+          case e: SpinalEnumCraft[_] => {
+            val vec = e.blueprint.values.toVector
+            val rand = vec(Random.nextInt(vec.size))
+            " := " + emitEnumLiteral(rand, e.getEncoding)
+          }
+        }
+      }
+    }
+    ""
+  }
+
   def emitSignals(component: Component, ret: StringBuilder, enumDebugSignals: ArrayBuffer[SpinalEnumCraft[_]]): Unit = {
     for (node <- component.nodes) {
       node match {
         case signal: BaseType => {
           if (!signal.isIo) {
-            ret ++= s"  signal ${emitReference(signal)} : ${emitDataType(signal)}"
-            val reg = if(signal.isReg) signal.input.asInstanceOf[Reg] else null
-            if(reg != null && reg.initialValue != null && reg.getClockDomain.config.resetKind == BOOT) {
-              ret ++= " := " + (reg.initialValue match {
-                case init : BaseType => emitLogic(init.getLiteral)
-                case init =>  emitLogic(init)
-              })
-            }else if (signal.hasTag(randomBoot)) {
-              signal match {
-                case b: Bool => ret ++= " := " + {
-                  if (Random.nextBoolean()) "'1'" else "'0'"
-                }
-                case bv: BitVector => {
-                  val rand = BigInt(bv.getWidth, Random).toString(2)
-                  ret ++= " := \"" + "0" * (bv.getWidth - rand.length) + rand + "\""
-                }
-                case e: SpinalEnumCraft[_] => {
-                  val vec = e.blueprint.values.toVector
-                  val rand = vec(Random.nextInt(vec.size))
-                  ret ++= " := " + emitEnumLiteral(rand, e.getEncoding)
-                }
-              }
-            }
-            ret ++= ";\n"
+            ret ++= s"  signal ${emitReference(signal)} : ${emitDataType(signal)}${getBaseTypeSignalInitialisation(signal)};\n"
+
             if (signal.isInstanceOf[SpinalEnumCraft[_]]) {
               val craft = toSpinalEnumCraft(signal)
               if (!craft.getEncoding.isNative) {
@@ -763,7 +763,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
           }
 
 
-          emitAttributes(signal, "signal", ret)
+          emitAttributes(signal,signal.instanceAndSyncNodeAttributes, "signal", ret)
         }
 
         case mem: Mem[_] => {
@@ -808,12 +808,12 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
             for(i <- 0 until symbolCount) {
               val postfix = "_symbol" + i
               ret ++= s"  signal ${emitReference(mem)}$postfix : ${emitDataType(mem)};\n"
-              emitAttributes(mem, "signal", ret,postfix = postfix)
+              emitAttributes(mem,mem.instanceAttributes, "signal", ret,postfix = postfix)
             }
           }else{
             ret ++= s"  type ${emitReference(mem)}_type is array (0 to ${mem.wordCount - 1}) of std_logic_vector(${mem.getWidth - 1} downto 0);\n"
             ret ++= s"  signal ${emitReference(mem)} : ${emitDataType(mem)}${initAssignementBuilder.toString()};\n"
-            emitAttributes(mem, "signal", ret)
+            emitAttributes(mem, mem.instanceAttributes, "signal", ret)
           }
         }
         case _ =>
@@ -824,12 +824,8 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
   }
 
 
-
-  def emitAttributes(node: Node, vhdlType: String, ret: StringBuilder,postfix : String = ""): Unit = {
-    if (!node.isInstanceOf[AttributeReady]) return
-    val attributeReady = node.asInstanceOf[AttributeReady]
-
-    for (attribute <- attributeReady.attributes) {
+  def emitAttributes(node : Node,attributes: Iterable[Attribute], vhdlType: String, ret: StringBuilder,postfix : String = ""): Unit = {
+    for (attribute <- attributes){
       val value = attribute match {
         case attribute: AttributeString => "\"" + attribute.value + "\""
         case attribute: AttributeFlag => "true"
@@ -1200,7 +1196,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
       clockDomainMap.getOrElseUpdate(syncNode.getClockDomain, new ArrayBuffer[SyncNode]()) += syncNode
     }
 
-    for ((clockDomain, array) <- clockDomainMap) {
+    for ((clockDomain, array) <- clockDomainMap.toList.sortWith(_._1.instanceCounter < _._1.instanceCounter)) {
       val arrayWithReset = ArrayBuffer[SyncNode]()
       val arrayWithoutReset = ArrayBuffer[SyncNode]()
 

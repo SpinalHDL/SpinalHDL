@@ -5,9 +5,8 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.avalon.{AvalonMM, AvalonMMConfig}
 import spinal.lib.bus.neutral.NeutralStreamDma
+import spinal.lib.eda.altera.QSysify
 import spinal.lib.graphic._
-import spinal.lib.tool.QSysify
-
 
 
 class AvalonMMVgaCtrl(cDma : NeutralStreamDma.Config,cColor : RgbConfig) extends Component{

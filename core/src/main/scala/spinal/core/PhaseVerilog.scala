@@ -22,7 +22,7 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
   override def impl(): Unit = {
     import pc._
     SpinalProgress("Write Verilog")
-    
+
     outFile = new java.io.FileWriter(pc.config.targetDirectory + "/" +  topLevel.definitionName + ".v")
     emitEnumPackage(outFile)
 
@@ -83,7 +83,7 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
     ret = builder.newPart(true)
     ret ++= s"(\n"
     component.getOrdredNodeIo.foreach(baseType => {
-      ret ++= s"  ${emitDirection(baseType)} ${if(signalNeedProcess(baseType)) "reg " else ""}${emitDataType(baseType)} ${baseType.getName()},\n"
+      ret ++= s"  ${emitAttributes(baseType.instanceAndSyncNodeAttributes)}${emitDirection(baseType)} ${if(signalNeedProcess(baseType)) "reg " else ""}${emitDataType(baseType)} ${baseType.getName()}${getBaseTypeSignalInitialisation(baseType)},\n"
     })
 
     ret.setCharAt(ret.size - 2, ' ')
@@ -177,36 +177,43 @@ end
     }
   }
 
+
+
+  def getBaseTypeSignalInitialisation(signal : BaseType) : String = {
+    val reg = if(signal.isReg) signal.input.asInstanceOf[Reg] else null
+    if(reg != null){
+      if(reg.initialValue != null && reg.getClockDomain.config.resetKind == BOOT) {
+        return " = " + (reg.initialValue match {
+          case init : BaseType => emitLogic(init.getLiteral)
+          case init =>  emitLogic(init)
+        })
+      }else if (reg.hasTag(randomBoot)) {
+        return signal match {
+          case b: Bool => " = " + (if (Random.nextBoolean()) "1" else "0")
+
+          case bv: BitVector => {
+            val rand = BigInt(bv.getWidth, Random).toString(2)
+            " = " + bv.getWidth + "'b" + "0" * (bv.getWidth - rand.length) + rand
+          }
+          case e: SpinalEnumCraft[_] => {
+            val vec = e.blueprint.values.toVector
+            val rand = vec(Random.nextInt(vec.size))
+            " = " + emitEnumLiteral(rand, e.getEncoding)
+          }
+        }
+      }
+    }
+    ""
+  }
+
+
   def emitSignals(component: Component, ret: StringBuilder, enumDebugSignals: ArrayBuffer[SpinalEnumCraft[_]]): Unit = {
     var verilogIndexGenerated = false
     for (node <- component.nodes) {
       node match {
         case signal: BaseType => {
           if (!signal.isIo) {
-            ret ++= s"  ${emitAttributes(signal)}${if(signalNeedProcess(signal)) "reg " else "wire "}${emitDataType(signal)} ${emitReference(signal)}"
-            val reg = if(signal.isReg) signal.input.asInstanceOf[Reg] else null
-            if(reg != null && reg.initialValue != null && reg.getClockDomain.config.resetKind == BOOT) {
-              ret ++= " = " + (reg.initialValue match {
-                case init : BaseType => emitLogic(init.getLiteral)
-                case init =>  emitLogic(init)
-              })
-            }else if (signal.hasTag(randomBoot)) {
-              signal match {
-                case b: Bool => ret ++= " = " + {
-                  if (Random.nextBoolean()) "1" else "0"
-                }
-                case bv: BitVector => {
-                  val rand = BigInt(bv.getWidth, Random).toString(2)
-                  ret ++= " := " + bv.getWidth + "’b" + "0" * (bv.getWidth - rand.length) + rand
-                }
-                case e: SpinalEnumCraft[_] => {
-                  val vec = e.blueprint.values.toVector
-                  val rand = vec(Random.nextInt(vec.size))
-                  ret ++= " = " + emitEnumLiteral(rand, e.getEncoding)
-                }
-              }
-            }
-            ret ++= ";\n"
+            ret ++= s"  ${emitAttributes(signal.instanceAndSyncNodeAttributes)}${if(signalNeedProcess(signal)) "reg " else "wire "}${emitDataType(signal)} ${emitReference(signal)}${getBaseTypeSignalInitialisation(signal)};\n"
           }
         }
 
@@ -221,10 +228,10 @@ end
 
              for(i <- 0 until symbolCount) {
               val postfix = "_symbol" + i
-              ret ++= s"  ${emitAttributes(mem)}reg [${symbolWidth- 1}:0] ${emitReference(mem)}$postfix [0:${mem.wordCount - 1}];\n"
+              ret ++= s"  ${emitAttributes(mem.instanceAttributes)}reg [${symbolWidth- 1}:0] ${emitReference(mem)}$postfix [0:${mem.wordCount - 1}];\n"
             }
           }else{
-            ret ++= s"  ${emitAttributes(mem)}reg ${emitRange(mem)} ${emitReference(mem)} [0:${mem.wordCount - 1}];\n"
+            ret ++= s"  ${emitAttributes(mem.instanceAttributes)}reg ${emitRange(mem)} ${emitReference(mem)} [0:${mem.wordCount - 1}];\n"
           }
 
           if (mem.initialContent != null) {
@@ -260,15 +267,12 @@ end
   }
 
 
-  def emitAttributes(node: Node): String = {
-    if (!node.isInstanceOf[AttributeReady]) return ""
-    val attributeReady = node.asInstanceOf[AttributeReady]
-    if(attributeReady.attributes.isEmpty) return "" +
-      ""
-    val values = for (attribute <- attributeReady.attributes) yield attribute match {
+  def emitAttributes(attributes: Iterable[Attribute]): String = {
+    val values = for (attribute <- attributes) yield attribute match {
       case attribute: AttributeString => attribute.getName + " = \"" + attribute.value + "\""
       case attribute: AttributeFlag => attribute.getName
     }
+    if(values.isEmpty) return ""
     "(* " + values.reduce(_ + " , " + _) + " *) "
   }
 

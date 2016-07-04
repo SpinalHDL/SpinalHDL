@@ -87,6 +87,7 @@ trait ContextUser extends GlobalDataUser {
   private[core] var conditionalAssignScope = globalData.conditionalAssignStack.head()
   private[core] var instanceCounter = globalData.getInstanceCounter
 
+  def getInstanceCounter = instanceCounter
   private[core] def isOlderThan(that : ContextUser) : Boolean = this.instanceCounter < that.instanceCounter
 }
 
@@ -116,10 +117,10 @@ object SyncNode {
 }
 
 abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends Node {
-  var clock      : Bool = clockDomain.clock
-  var enable     : Bool = clockDomain.clockEnable
-  var reset      : Bool = clockDomain.reset
-  var softReset  : Bool = clockDomain.softReset
+  var clock      : Bool = null
+  var enable     : Bool = null
+  var reset      : Bool = null
+  var softReset  : Bool = null
 
 
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
@@ -187,7 +188,7 @@ abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends 
 
   def isUsingSoftResetSignal : Boolean
   def isUsingResetSignal: Boolean
-  def isUsingEnableSignal: Boolean = enable != null
+  def isUsingEnableSignal: Boolean = clockDomain.clockEnable != null
   def setUseReset = {
     reset = clockDomain.reset
   }
@@ -213,7 +214,28 @@ trait Assignable {
   private[core] def assignFromImpl(that: AnyRef, conservative: Boolean): Unit
 }
 
+object OwnableRef{
+  def set(ownable : Any,owner : Any) = {
+    if(ownable.isInstanceOf[OwnableRef])
+      ownable.asInstanceOf[OwnableRef].setRefOwner(owner)
+  }
+}
 
+trait OwnableRef{
+  type RefOwnerType
+  @dontName var refOwner : RefOwnerType = null.asInstanceOf[RefOwnerType]
+  def setRefOwner(that : Any): Unit ={
+    refOwner = that.asInstanceOf[RefOwnerType]
+  }
+
+  def getRefOwnersChain() : List[Any] = {
+    refOwner match {
+      case null => Nil
+      case owner : OwnableRef => owner.getRefOwnersChain() :+ owner
+      case _ => refOwner :: Nil
+    }
+  }
+}
 
 trait Nameable {
   private var name: String = ""
@@ -284,9 +306,23 @@ object ScalaLocated {
     filterStackTrace(scalaTrace.getStackTrace)(0).toString
   }
 
+
   def long(scalaTrace : Throwable,tab : String = "    "): String = {
     if(scalaTrace == null) return "???"
-    filterStackTrace(scalaTrace.getStackTrace).map(tab + _.toString).mkString("\n") + "\n\n"
+    def filter(that : String) : Boolean = {
+      if(that.startsWith("sun.reflect.NativeConstructorAccessorImpl.newInstance")) return false
+      if(that.startsWith("sun.reflect.DelegatingConstructorAccessorImpl.newInstance")) return false
+      if(that.startsWith("java.lang.reflect.Constructor.newInstance")) return false
+      if(that.startsWith("java.lang.Class.newInstance")) return false
+      if(that.startsWith("sun.reflect.NativeMethodAccessorImpl.invoke")) return false
+      if(that.startsWith("sun.reflect.DelegatingMethodAccessorImpl.invoke")) return false
+      if(that.startsWith("java.lang.reflect.Method.invoke")) return false
+      if(that.startsWith("com.intellij.rt.execution.application.AppMain.main")) return false
+
+      return true
+    }
+
+    filterStackTrace(scalaTrace.getStackTrace).map(_.toString).filter(filter).map(tab + _ ).mkString("\n") + "\n\n"
   }
 
   def short: String = short(new Throwable())
@@ -309,58 +345,131 @@ trait ScalaLocated extends GlobalDataUser {
 
 
 trait SpinalTagReady {
-  private[core] val spinalTags = mutable.Set[SpinalTag]()
-  private[core] var compositeTagReady: SpinalTagReady = null
+  var _spinalTags : mutable.Set[SpinalTag] =  null
+  def spinalTags : mutable.Set[SpinalTag] = {
+    if(_spinalTags == null)
+      _spinalTags = new mutable.HashSet[SpinalTag]{
+        override def initialSize: Int = 4
+      }
+    _spinalTags
+  }
 
   def addTag(spinalTag: SpinalTag): this.type = {
     spinalTags += spinalTag
     this
   }
+  def addTags(tags: Iterable[SpinalTag]): this.type = {
+    spinalTags ++= tags
+    this
+  }
+  def removeTag(spinalTag: SpinalTag): this.type = {
+    if(_spinalTags != null)
+      _spinalTags -= spinalTag
+    this
+  }
 
+  def removeTags(tags: Iterable[SpinalTag]): this.type = {
+    if(_spinalTags != null)
+      _spinalTags --= tags
+    this
+  }
   def hasTag(spinalTag: SpinalTag): Boolean = {
-    if (spinalTags.contains(spinalTag)) return true
-    if (compositeTagReady != null && compositeTagReady.hasTag(spinalTag)) return true
+    if(_spinalTags == null) return false
+    if (_spinalTags.contains(spinalTag)) return true
     return false
   }
 
   //Feed it with classOf[?] to avoid intermodule problems
   def getTag[T <: SpinalTag](clazz : Class[T]) : Option[T] = {
-    val tag = spinalTags.find(_.getClass == clazz)
+    if(_spinalTags == null) return None
+    val tag = _spinalTags.find(_.getClass == clazz)
     if(tag.isDefined) return Option(tag.get.asInstanceOf[T])
-    if (compositeTagReady != null) compositeTagReady.getTag[T](clazz)
     None
+  }
+  def findTag(cond : (SpinalTag) => Boolean) : Option[SpinalTag] = {
+    if(_spinalTags == null) return None
+    _spinalTags.find(cond)
+  }
+  def existsTag(cond : (SpinalTag) => Boolean) : Boolean = {
+    if(_spinalTags == null) return false
+    _spinalTags.exists(cond)
+  }
+  def isEmptyOfTag : Boolean = {
+    if(_spinalTags == null) return true
+    _spinalTags.isEmpty
+  }
+  def filterTag(cond : (SpinalTag) => Boolean) : Iterable[SpinalTag] = {
+    if(_spinalTags == null) return Nil
+    _spinalTags.filter(cond)
+  }
+
+  def addAttribute(attribute: Attribute): this.type
+  def addAttribute(name: String): this.type = addAttribute(new AttributeFlag(name))
+  def addAttribute(name: String,value : String): this.type = addAttribute(new AttributeString(name,value))
+  def onEachAttributes(doIt : (Attribute) => Unit) : Unit = {
+    if(_spinalTags == null) return
+    _spinalTags.foreach(_ match{
+      case attribute : Attribute => doIt(attribute)
+      case _ =>
+    })
+  }
+
+  def instanceAttributes : Iterable[Attribute] = {
+    if(_spinalTags == null) return Nil
+    val array = ArrayBuffer[Attribute]()
+    _spinalTags.foreach(e => if(e.isInstanceOf[Attribute])array += e.asInstanceOf[Attribute])
+    array
+  }
+}
+
+object SpinalTagReady{
+  def splitNewSink(source : SpinalTagReady,sink : SpinalTagReady) : Unit = {
+    source.instanceAttributes.foreach(e => {
+      if(e.duplicative){
+        sink.addTag(e)
+      }
+    })
   }
 }
 
 trait SpinalTag {
   def isAssignedTo(that: SpinalTagReady) = that.hasTag(this)
+  def moveToSyncNode = false //When true, Spinal will automaticaly move the tag to the driving syncNode
+  def duplicative = false
+  def driverShouldNotChange = false
 }
 
 object unusedTag extends SpinalTag
-object crossClockDomain extends SpinalTag
-object crossClockBuffer extends SpinalTag
-object randomBoot extends SpinalTag
-object tagAutoResize extends SpinalTag
-object tagTruncated extends SpinalTag
+object crossClockDomain extends SpinalTag{override def moveToSyncNode = true}
+object crossClockBuffer extends SpinalTag{override def moveToSyncNode = true}
+object randomBoot extends SpinalTag{override def moveToSyncNode = true}
+object tagAutoResize extends SpinalTag{override def duplicative = true}
+object tagTruncated extends SpinalTag{override def duplicative = true}
 
-trait Area extends Nameable with ContextUser{
+trait Area extends Nameable with ContextUser with OwnableRef with ScalaLocated{
   override protected def nameChangeEvent(weak: Boolean): Unit = {
     Misc.reflect(this, (name, obj) => {
       obj match {
         case component: Component => {
-          if (component.parent == this.component)
+          if (component.parent == this.component) {
             component.setWeakName(this.getName() + "_" + name)
+            OwnableRef.set(component,this)
+          }
+
         }
         case namable: Nameable => {
-          if (!namable.isInstanceOf[ContextUser])
+          if (!namable.isInstanceOf[ContextUser]) {
             namable.setWeakName(this.getName() + "_" + name)
-          else if (namable.asInstanceOf[ContextUser].component == component)
+            OwnableRef.set(namable,this)
+          } else if (namable.asInstanceOf[ContextUser].component == component){
             namable.setWeakName(this.getName() + "_" + name)
-          else {
+            OwnableRef.set(namable,this)
+          } else {
             for (kind <- component.children) {
               //Allow to name a component by his io reference into the parent component
               if (kind.reflectIo == namable) {
                 kind.setWeakName(this.getName() + "_" + name)
+                OwnableRef.set(kind,this)
               }
             }
           }
@@ -369,6 +478,17 @@ trait Area extends Nameable with ContextUser{
       }
     })
   }
+
+
+//  def keepAll() : Unit = {
+//    Misc.reflect(this, (name, obj) => {
+//      obj match {
+//        case data : Data => data.keep()
+//        case area : Area => area.keepAll()
+//      }
+//    }
+//  }
+  override def toString(): String = component.getPath() + "/" + super.toString()
 }
 
 object ImplicitArea{
@@ -377,13 +497,6 @@ object ImplicitArea{
 abstract class ImplicitArea[T] extends Area {
   def implicitValue: T
 }
-
-//object ImplicitArea2{
-//  implicit def toImplicit[T](area: ImplicitArea2[T]): T = area.implicitValue
-//}
-//abstract class ImplicitArea2[T <: Data](dataType : T) extends Area{
-//  protected val implicitValue = cloneOf(dataType)
-//}
 
 class ClockingArea(clockDomain: ClockDomain) extends Area with DelayedInit {
   clockDomain.push

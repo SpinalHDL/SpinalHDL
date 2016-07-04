@@ -22,6 +22,9 @@ import spinal.core._
 import spinal.lib._
 
 object OperatorTester {
+  object State extends SpinalEnum{
+    val a,b,c = newElement
+  }
 
 
   class OperatorTester extends Component {
@@ -197,9 +200,6 @@ object OperatorTester {
     val sintResizeSmaller = out(sint8.resize(4))
 
 
-    val State = new SpinalEnum{
-      val a,b,c = newElement
-    }
 
 
     val stateNative,stateNativeMuxInternal = State(native)

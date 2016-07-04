@@ -30,9 +30,11 @@ class Generic {
 
   def genNames: Unit = {
     Misc.reflect(this, (name, obj) => {
+      OwnableRef.set(obj,this)
       obj match {
-        case obj: Nameable =>
+        case obj: Nameable => {
           obj.setWeakName(name)
+        }
         case _ =>
       }
     })
@@ -54,11 +56,12 @@ class Generic {
   }
 }
 
-object uLogic extends SpinalTag
+object uLogic extends SpinalTag{override def moveToSyncNode = false}
 
 
 abstract class BlackBox extends Component with SpinalTagReady {
 
+  override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
 
   //def generic: Generic// = new Generic{}
   def getGeneric: Generic = {

@@ -28,7 +28,6 @@ object Reg {
     val regOut = dataType.clone()//.dontSimplifyIt
     for ( e <- regOut.flatten) {
       val reg = newFor(e)
-      reg.compositeTagReady = e
       e.input = reg;
       e.compositeAssign = reg
     }
@@ -98,6 +97,10 @@ class Reg (outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) ex
   var dataInput     : T = this.asInstanceOf[T]
   var initialValue  : T = null.asInstanceOf[T]
 
+
+  override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
+
+
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
     super.onEachInput(doThat)
     doThat(dataInput,RegS.getDataInputId)
@@ -133,8 +136,8 @@ class Reg (outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) ex
   }
 
 
-  override def isUsingResetSignal: Boolean = clockDomain.config.resetKind != BOOT && initialValue != null
-  override def isUsingSoftResetSignal: Boolean = initialValue != null
+  override def isUsingResetSignal: Boolean = clockDomain.config.resetKind != BOOT && initialValue != null && clockDomain.reset != null
+  override def isUsingSoftResetSignal: Boolean = initialValue != null && clockDomain.softReset != null
   override def getSynchronousInputs: List[Node] = getDataInput :: super.getSynchronousInputs
   override def getResetStyleInputs: List[Node] = getInitialValue :: super.getResetStyleInputs
 

@@ -205,7 +205,7 @@ class BitVectorPimper[T <: BitVector](val pimpIt: T)  {
   def :~=(that: T): Unit = pimpIt assignFrom(that.resized, false)
 }
 
-trait Data extends ContextUser with NameableByComponent with Assignable with AttributeReady with SpinalTagReady with GlobalDataUser with ScalaLocated {
+trait Data extends ContextUser with NameableByComponent with Assignable  with SpinalTagReady with GlobalDataUser with ScalaLocated with OwnableRef {
   private[core] var dir: IODirection = null
   private[core] def isIo = dir != null
 
@@ -281,7 +281,10 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Att
 
   private[core] def autoConnect(that: Data): Unit// = (this.flatten, that.flatten).zipped.foreach(_ autoConnect _)
   private[core] def autoConnectBaseImpl(that: Data): Unit = {
-    def error(message : String) = SpinalError(message + "\n" + this + "\n" + that)
+    def error(message : String) = {
+      val locationString = ScalaLocated.long
+      globalData.pendingErrors += (() => (message + "\n" + this + "\n" + that + "\n" + locationString))
+    }
     if (this.component == that.component) {
       if (this.component == Component.current) {
         sameFromInside

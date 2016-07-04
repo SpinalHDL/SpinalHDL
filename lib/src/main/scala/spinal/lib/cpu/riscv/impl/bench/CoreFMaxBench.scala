@@ -2,13 +2,10 @@ package spinal.lib.cpu.riscv.impl.bench
 
 
 import spinal.core._
-import spinal.lib.WrapWithReg.Wrapper
 import spinal.lib._
-import spinal.lib.bus.avalon._
 import spinal.lib.cpu.riscv.impl.CoreQSysAvalon.RiscvAvalon
 import spinal.lib.cpu.riscv.impl._
 import spinal.lib.cpu.riscv.impl.extension._
-import spinal.lib.tool.{ResetEmitterTag, InterruptReceiverTag, QSysify}
 
 
 //Only used to check FMAX

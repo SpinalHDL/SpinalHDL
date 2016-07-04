@@ -103,7 +103,7 @@ object ClockDomain {
   def readClockEnableWire = current.readClockEnableWire
 
   def getClockDomainDriver(that: Bool): Bool = {
-    if (that.spinalTags.exists(_.isInstanceOf[ClockDomainBoolTag])) {
+    if (that.existsTag(_.isInstanceOf[ClockDomainBoolTag])) {
       that
     } else {
       that.input match {
@@ -118,7 +118,7 @@ object ClockDomain {
     if (driver == null) {
       null
     } else {
-      driver.spinalTags.find(_.isInstanceOf[ClockDomainBoolTag]).get.asInstanceOf[ClockDomainBoolTag]
+      driver.findTag(_.isInstanceOf[ClockDomainBoolTag]).get.asInstanceOf[ClockDomainBoolTag]
     }
   }
 }
@@ -134,6 +134,7 @@ trait DummyTrait
 
 class ClockDomain(val config: ClockDomainConfig, val clock: Bool, val reset: Bool = null,dummyArg : DummyTrait = null,val softReset : Bool = null, val clockEnable: Bool = null, val frequency: IClockDomainFrequency = UnknownFrequency()) {
   assert(!(reset != null && config.resetKind == BOOT),"A reset pin was given to a clock domain where the config.resetKind is 'BOOT'")
+  val instanceCounter = GlobalData.get.getInstanceCounter
   clock.dontSimplifyIt()
   if(reset != null)reset.dontSimplifyIt()
   if(clockEnable != null)clockEnable.dontSimplifyIt()

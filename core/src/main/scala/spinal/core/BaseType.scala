@@ -164,7 +164,7 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
   override def getInputs: Iterator[Node] = Iterator(input)
   override def getInput(id: Int): Node = {assert(id == 0); input}
 
-  private[core] def canSymplifyIt = !dontSimplify && attributes.isEmpty
+  private[core] def canSymplifyIt = !dontSimplify && isEmptyOfTag
 
   private[core] var dontSimplify = false
   private[core] var dontCareAboutNameForSymplify = false
@@ -237,12 +237,13 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
 
   override def flattenLocalName: Seq[String] = Seq("")
 
-  override def addAttribute(attribute: Attribute): this.type = {
-    attributes += attribute
-    dontSimplifyIt()
-    this
+  override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
+  def instanceAndSyncNodeAttributes : Iterable[Attribute] = {
+    if(input.isInstanceOf[SyncNode])
+      return input.instanceAttributes ++ this.instanceAttributes
+    else
+      this.instanceAttributes
   }
-
 
 
   override def clone: this.type = {
@@ -305,7 +306,7 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
   //Create a new instance of the same datatype without any configuration (width, direction)
   private[core] def weakClone: this.type
 
-  override def toString(): String = s"${component.getPath() + "/" + this.getDisplayName()} : ${getClassIdentifier}"
+  override def toString(): String = s"${component.getPath() + "/" + this.getDisplayName()} : ${if(isInput) "in " else if(isOutput) "out " else ""}${getClassIdentifier}"
 
 
 

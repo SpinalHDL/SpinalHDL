@@ -149,6 +149,9 @@ class WhenNode (val w: WhenContext) extends Node with AssignementTreePart {
   var whenTrue  : T = null.asInstanceOf[T]
   var whenFalse : T = null.asInstanceOf[T]
 
+  override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
+
+
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
     doThat(cond,0)
     if(whenTrue != null)  doThat(whenTrue,1)

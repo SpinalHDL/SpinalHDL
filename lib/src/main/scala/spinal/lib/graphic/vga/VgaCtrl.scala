@@ -3,8 +3,8 @@ package spinal.lib.graphic.vga
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.neutral.NeutralStreamDma
+import spinal.lib.eda.altera.QSysify
 import spinal.lib.graphic.{RgbConfig, Rgb}
-import spinal.lib.tool.QSysify
 
 
 case class VgaTimingsHV(timingsWidth: Int) extends Bundle {
