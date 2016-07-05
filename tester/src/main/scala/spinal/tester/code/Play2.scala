@@ -37,7 +37,7 @@ object PlayB7 {
       val z = out UInt( 4 bits )
     }
     val a = Stream(Fragment(UInt(4 bits)))
-    val b = StreamArbiterCore().inOrder.noLock.build(a,10)
+    val b = StreamArbiterFactory.inOrder.noLock.build(a,10)
   }
 
   def main(args: Array[String]): Unit = {

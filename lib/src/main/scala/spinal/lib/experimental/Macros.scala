@@ -1,7 +1,6 @@
-package spinal.lib
+package spinal.lib.experimental
 
 import scala.language.experimental.macros
-import scala.reflect.macros.blackbox.Context
 
 class MacrosClass{
   var toto = 2

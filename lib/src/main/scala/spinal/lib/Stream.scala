@@ -250,8 +250,8 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
 
   def fragmentTransaction(bitsWidth: Int): Stream[Fragment[Bits]] = {
     val converter = new StreamToStreamFragmentBits(payload, bitsWidth)
-    converter.io.input << this
-    return converter.io.output
+    converter.io.cmd << this
+    return converter.io.rsp
   }
   def addFragmentLast(last : Bool) : Stream[Fragment[T]] = {
     val ret = Stream(Fragment(dataType))
@@ -264,10 +264,58 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
 }
 
 
-class StreamArbiterCore[T <: Data](dataType: T, val portCount: Int)(arbitrationLogic: (StreamArbiterCore[T]) => Area, lockLogic: (StreamArbiterCore[T]) => Area) extends Component {
+object StreamArbiter {
+  def arbitration_lowIdPortFirst(core: StreamArbiter[_]) = new Area {
+    import core._
+    var search = True
+    for (i <- 0 to portCount - 2) {
+      maskProposal(i) := search & io.cmd(i).valid
+      search = search & !io.cmd(i).valid
+    }
+    maskProposal(portCount - 1) := search
+  }
+
+  def arbitration_InOrder(core: StreamArbiter[_]) = new Area {
+    import core._
+    val counter = Counter(core.portCount, io.rsp.fire)
+
+    for (i <- 0 to core.portCount - 1) {
+      maskProposal(i) := False
+    }
+
+    maskProposal(counter) := True
+  }
+
+  def lock_none(core: StreamArbiter[_]) = new Area {
+
+  }
+
+  def lock_transactionLock(core: StreamArbiter[_]) = new Area {
+    import core._
+    when(io.rsp.valid) {
+      locked := True
+    }
+    when(io.rsp.ready) {
+      locked := False
+    }
+  }
+
+  def lock_fragmentLock(core: StreamArbiter[_]) = new Area {
+    val realCore = core.asInstanceOf[StreamArbiter[Fragment[_]]]
+    import realCore._
+    when(io.rsp.valid) {
+      locked := True
+    }
+    when(io.rsp.ready && io.rsp.last) {
+      locked := False
+    }
+  }
+}
+
+class StreamArbiter[T <: Data](dataType: T, val portCount: Int)(arbitrationLogic: (StreamArbiter[T]) => Area, lockLogic: (StreamArbiter[T]) => Area) extends Component {
   val io = new Bundle {
-    val inputs = Vec(slave Stream (dataType),portCount)
-    val output = master Stream (dataType)
+    val cmd = Vec(slave Stream (dataType),portCount)
+    val rsp = master Stream (dataType)
     val chosen = out UInt (log2Up(portCount) bit)
   }
 
@@ -278,7 +326,7 @@ class StreamArbiterCore[T <: Data](dataType: T, val portCount: Int)(arbitrationL
   val maskRouted = Mux(locked, maskLocked, maskProposal)
 
 
-  when(io.output.valid) {
+  when(io.rsp.valid) {
     maskLocked := maskRouted
   }
 
@@ -286,150 +334,77 @@ class StreamArbiterCore[T <: Data](dataType: T, val portCount: Int)(arbitrationL
   val lock = lockLogic(this)
 
   //Route
-  var outputValid = False
-  var outputData = B(0)
-  for ((input, mask) <- (io.inputs, maskRouted).zipped) {
-    outputValid = outputValid | (mask & input.valid) //mask & is not mandatory for all kind of arbitration/lock
-    outputData = outputData | Mux(mask, input.payload.asBits, B(0))
-    input.ready := mask & io.output.ready
-  }
-  io.output.valid := outputValid
-  io.output.payload.assignFromBits(outputData)
+//  var outputValid = False
+//  var outputData = B(0)
+//  for ((input, mask) <- (io.cmd, maskRouted).zipped) {
+//    outputValid = outputValid | (mask & input.valid) //mask & is not mandatory for all kind of arbitration/lock
+//    outputData = outputData | Mux(mask, input.payload.asBits, B(0))
+//    input.ready := mask & io.rsp.ready
+//  }
+//  io.rsp.valid := outputValid
+//  io.rsp.payload.assignFromBits(outputData)
+
+  io.rsp.valid := (io.cmd, maskRouted).zipped.map(_.valid & _).reduce(_ | _)
+  io.rsp.payload := MuxOH(maskRouted,Vec(io.cmd.map(_.payload)))
+  (io.cmd, maskRouted).zipped.foreach(_.ready := _ & io.rsp.ready)
 
   io.chosen := OHToUInt(maskRouted)
 
 }
 
-class StreamArbiterCoreFactory {
-  var arbitrationLogic: (StreamArbiterCore[_]) => Area = StreamArbiterCore.arbitration_lowIdPortFirst
-  var lockLogic: (StreamArbiterCore[_]) => Area = StreamArbiterCore.lock_transactionLock
 
-  def build[T <: Data](dataType: T, portCount: Int): StreamArbiterCore[T] = {
-    new StreamArbiterCore(dataType, portCount)(arbitrationLogic, lockLogic)
+class StreamArbiterFactory {
+  var arbitrationLogic: (StreamArbiter[_]) => Area = StreamArbiter.arbitration_lowIdPortFirst
+  var lockLogic: (StreamArbiter[_]) => Area = StreamArbiter.lock_transactionLock
+
+  def build[T <: Data](dataType: T, portCount: Int): StreamArbiter[T] = {
+    new StreamArbiter(dataType, portCount)(arbitrationLogic, lockLogic)
   }
 
   def build[T <: Data](input: Seq[Stream[T]]): Stream[T] = {
     val arbiter = build(input(0).dataType, input.size)
-    (arbiter.io.inputs, input).zipped.foreach(_ << _)
-    return arbiter.io.output
+    (arbiter.io.cmd, input).zipped.foreach(_ << _)
+    return arbiter.io.rsp
   }
 
   def lowIdPortFirst: this.type = {
-    arbitrationLogic = StreamArbiterCore.arbitration_lowIdPortFirst
+    arbitrationLogic = StreamArbiter.arbitration_lowIdPortFirst
     this
   }
   def inOrder: this.type = {
-    arbitrationLogic = StreamArbiterCore.arbitration_InOrder
+    arbitrationLogic = StreamArbiter.arbitration_InOrder
     this
   }
   def noLock: this.type = {
-    lockLogic = StreamArbiterCore.lock_transactionLock
+    lockLogic = StreamArbiter.lock_none
     this
   }
   def fragmentLock: this.type = {
-    lockLogic = StreamArbiterCore.lock_fragmentLock
+    lockLogic = StreamArbiter.lock_fragmentLock
     this
   }
   def transactionLock: this.type = {
-    lockLogic = StreamArbiterCore.lock_transactionLock
+    lockLogic = StreamArbiter.lock_transactionLock
     this
   }
 }
 
-object StreamArbiterCore {
-  def apply() = new StreamArbiterCoreFactory
 
-  def arbitration_lowIdPortFirst(core: StreamArbiterCore[_]) = new Area {
-
-    import core._
-
-    var search = True
-    for (i <- 0 to portCount - 2) {
-      maskProposal(i) := search & io.inputs(i).valid
-      search = search & !io.inputs(i).valid
-    }
-    maskProposal(portCount - 1) := search
-  }
-
-  def arbitration_InOrder(core: StreamArbiterCore[_]) = new Area {
-
-    import core._
-
-    val counter = Counter(core.portCount, io.output.fire)
-
-    for (i <- 0 to core.portCount - 1) {
-      maskProposal(i) := False
-    }
-
-    maskProposal(counter) := True
-  }
-
-  def lock_none(core: StreamArbiterCore[_]) = new Area {
-
-  }
-
-  def lock_transactionLock(core: StreamArbiterCore[_]) = new Area {
-
-    import core._
-
-    when(io.output.valid) {
-      locked := True
-    }
-    when(io.output.ready) {
-      locked := False
-    }
-  }
-
-  def lock_fragmentLock(core: StreamArbiterCore[_]) = new Area {
-    val realCore = core.asInstanceOf[StreamArbiterCore[Fragment[_]]]
-
-    import realCore._
-
-    when(io.output.valid) {
-      locked := True
-    }
-    when(io.output.ready && io.output.last) {
-      locked := False
-    }
-  }
-}
-
-//object StreamArbiterPriorityToLow{
-//  def apply[T <: Data](dataType: T, portCount : Int) : StreamArbiter[T] ={
-//    new StreamArbiter(dataType,portCount)(StreamArbiter.arbitration_lowIdPortFirst,StreamArbiter.lock_none)
-//  }
-//
-//  def apply[T <: Data](input: Vec[Stream[T]]) : Stream[T] ={
-//    val arbiter = new StreamArbiter(input(0).dataType,input.size)(StreamArbiter.arbitration_lowIdPortFirst,StreamArbiter.lock_none)
-//    (arbiter.io.inputs,input).zipped.foreach(_ << _)
-//    return arbiter.io.output
-//  }
-//}
-
-//TODOTEST
-//class StreamArbiterPriorityImpl[T <: Data](dataType: T, portCount: Int, allowSwitchWithoutConsumption: Boolean = false) extends StreamArbiterCore(dataType, portCount, allowSwitchWithoutConsumption) {
-//  var search = True
-//  for (i <- 0 to portCount - 2) {
-//    maskProposal(i) := search & io.inputs(i).valid
-//    search = search & !io.inputs(i).valid
-//  }
-//  maskProposal(portCount - 1) := search
-//}
 
 
 object StreamFork {
   def apply[T <: Data](input: Stream[T], portCount: Int): Vec[Stream[T]] = {
     val fork = new StreamFork(input.dataType, portCount)
-    fork.io.input << input
-    return fork.io.output
+    fork.io.cmd << input
+    return fork.io.rsp
   }
 }
 
 object StreamFork2 {
   def apply[T <: Data](input: Stream[T]): (Stream[T], Stream[T]) = {
     val fork = new StreamFork(input.dataType, 2)
-    fork.io.input << input
-    return (fork.io.output(0), fork.io.output(1))
+    fork.io.cmd << input
+    return (fork.io.rsp(0), fork.io.rsp(1))
   }
 }
 
@@ -437,49 +412,59 @@ object StreamFork2 {
 //TODOTEST
 class StreamFork[T <: Data](dataType: T, portCount: Int) extends Component {
   val io = new Bundle {
-    val input = slave Stream (dataType)
-    val output = Vec(master Stream (dataType),portCount)
+    val cmd = slave Stream (dataType)
+    val rsp = Vec(master Stream (dataType),portCount)
   }
   val linkEnable = Vec(RegInit(True),portCount)
 
-  io.input.ready := True
+  io.cmd.ready := True
   for (i <- 0 until portCount) {
-    when(!io.output(i).ready && linkEnable(i)) {
-      io.input.ready := False
+    when(!io.rsp(i).ready && linkEnable(i)) {
+      io.cmd.ready := False
     }
   }
 
   for (i <- 0 until portCount) {
-    io.output(i).valid := io.input.valid && linkEnable(i)
-    io.output(i).payload := io.input.payload
-    when(io.output(i).fire) {
+    io.rsp(i).valid := io.cmd.valid && linkEnable(i)
+    io.rsp(i).payload := io.cmd.payload
+    when(io.rsp(i).fire) {
       linkEnable(i) := False
     }
   }
 
-  when(io.input.ready) {
+  when(io.cmd.ready) {
     linkEnable.foreach(_ := True)
   }
 }
 
 //TODOTEST
+object StreamDemux{
+  def apply[T <: Data](cmd: Stream[T],sel : UInt, portCount: Int) : Vec[Stream[T]] = {
+    val c = new StreamDemux(cmd.payload,portCount)
+    c.io.cmd << cmd
+    c.io.sel := sel
+    c.io.rsp
+  }
+}
+
 class StreamDemux[T <: Data](dataType: T, portCount: Int) extends Component {
   val io = new Bundle {
     val sel = in UInt (log2Up(portCount) bit)
-    val input = slave Stream (dataType)
-    val output = Vec(master Stream (dataType),portCount)
+    val cmd = slave Stream (dataType)
+    val rsp = Vec(master Stream (dataType),portCount)
   }
-  io.input.ready := False
+  io.cmd.ready := False
   for (i <- 0 to portCount - 1) {
-    io.output(i).payload := io.input.payload
-    when(U(i) =/= io.sel) {
-      io.output(i).valid := False
+    io.rsp(i).payload := io.cmd.payload
+    when(i =/= io.sel) {
+      io.rsp(i).valid := False
     } otherwise {
-      io.output(i).valid := io.input.valid
-      io.input.ready := io.output(i).ready
+      io.rsp(i).valid := io.cmd.valid
+      io.cmd.ready := io.rsp(i).ready
     }
   }
 }
+
 
 class StreamFifo[T <: Data](dataType: T, depth: Int) extends Component {
   val io = new Bundle {
@@ -531,16 +516,6 @@ class StreamFifo[T <: Data](dataType: T, depth: Int) extends Component {
     risingOccupancy := False
   }
 }
-
-
-
-//class StreamFifoBackup[T <: Data](dataType: T, depth: Int) extends Component {
-//  val io = new Bundle {
-//    val incoming = slave Event
-//    val push = slave Flow (dataType)
-//    val pop = master Stream (dataType)
-//  }
-//}
 
 
 class StreamFifoCC[T <: Data](dataType: T, val depth: Int, pushClock: ClockDomain, popClock: ClockDomain) extends Component {
@@ -614,7 +589,7 @@ class StreamCCByToggle[T <: Data](dataType: T, pushClock: ClockDomain, popClock:
 
   val outHitSignal = Bool
 
-  val inputArea = new ClockingArea(pushClock) {
+  val cmdArea = new ClockingArea(pushClock) {
     val hit = BufferCC(outHitSignal, False)
     val target = RegInit(False)
     val data = Reg(io.push.payload)
@@ -627,14 +602,14 @@ class StreamCCByToggle[T <: Data](dataType: T, pushClock: ClockDomain, popClock:
   }
 
 
-  val outputArea = new ClockingArea(popClock) {
-    val target = BufferCC(inputArea.target, False)
+  val rspArea = new ClockingArea(popClock) {
+    val target = BufferCC(cmdArea.target, False)
     val hit = RegInit(False)
     outHitSignal := hit
 
     val stream = io.push.clone
     stream.valid := (target =/= hit)
-    stream.payload := inputArea.data
+    stream.payload := cmdArea.data
     stream.payload.addTag(crossClockDomain)
 
     when(stream.fire) {
@@ -646,57 +621,58 @@ class StreamCCByToggle[T <: Data](dataType: T, pushClock: ClockDomain, popClock:
 }
 
 
-class DispatcherInOrder[T <: Data](gen: T, n: Int) extends Component {
+class StreamDispatcherInOrder[T <: Data](gen: T, n: Int) extends Component {
   val io = new Bundle {
-    val input = slave Stream (gen)
-    val outputs = Vec(master Stream (gen),n)
+    val cmd = slave Stream (gen)
+    val rsp = Vec(master Stream (gen),n)
   }
-  val counter = Counter(n, io.input.fire)
+  val counter = Counter(n, io.cmd.fire)
 
   if (n == 1) {
-    io.input >> io.outputs(0)
+    io.cmd >> io.rsp(0)
   } else {
-    io.input.ready := False
+    io.cmd.ready := False
     for (i <- 0 to n - 1) {
-      io.outputs(i).payload := io.input.payload
+      io.rsp(i).payload := io.cmd.payload
       when(counter !== i) {
-        io.outputs(i).valid := False
+        io.rsp(i).valid := False
       } otherwise {
-        io.outputs(i).valid := io.input.valid
-        io.input.ready := io.outputs(i).ready
+        io.rsp(i).valid := io.cmd.valid
+        io.cmd.ready := io.rsp(i).ready
       }
     }
   }
 }
 
 object StreamFlowArbiter {
-  def apply[T <: Data](inputStream: Stream[T], inputFlow: Flow[T]): Flow[T] = {
-    val output = cloneOf(inputFlow)
+  def apply[T <: Data](cmdStream: Stream[T], cmdFlow: Flow[T]): Flow[T] = {
+    val output = cloneOf(cmdFlow)
 
-    output.valid := inputFlow.valid || inputStream.valid
-    inputStream.ready := !inputFlow.valid
-    output.payload := Mux(inputFlow.valid, inputFlow.payload, inputStream.payload)
+    output.valid := cmdFlow.valid || cmdStream.valid
+    cmdStream.ready := !cmdFlow.valid
+    output.payload := Mux(cmdFlow.valid, cmdFlow.payload, cmdStream.payload)
 
     output
   }
 }
 
+//Give priority to the cmdFlow
 class StreamFlowArbiter[T <: Data](dataType: T) extends Area {
   val io = new Bundle {
-    val inputFlow = slave Flow (dataType)
-    val inputStream = slave Stream (dataType)
-    val output = master Flow (dataType)
+    val cmdFlow = slave Flow (dataType)
+    val cmdStream = slave Stream (dataType)
+    val rsp = master Flow (dataType)
   }
-  io.output.valid := io.inputFlow.valid || io.inputStream.valid
-  io.inputStream.ready := !io.inputFlow.valid
-  io.output.payload := Mux(io.inputFlow.valid, io.inputFlow.payload, io.inputStream.payload)
+  io.rsp.valid := io.cmdFlow.valid || io.cmdStream.valid
+  io.cmdStream.ready := !io.cmdFlow.valid
+  io.rsp.payload := Mux(io.cmdFlow.valid, io.cmdFlow.payload, io.cmdStream.payload)
 }
 
 
-object StreamSelector {
+object StreamMux {
   def apply[T <: Data](select: UInt, inputs: Seq[Stream[T]]): Stream[T] = {
     val vec = Vec(inputs)
-    StreamSelector(select, vec)
+    StreamMux(select, vec)
   }
 
   def apply[T <: Data](select: UInt, inputs: Vec[Stream[T]]): Stream[T] = {

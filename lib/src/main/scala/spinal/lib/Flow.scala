@@ -117,7 +117,7 @@ class Flow[T <: Data](_dataType: T) extends Bundle with IMasterSlave with DataCa
 
 
 object RegFlow{
-  def apply[T <: Data](dataType : T) = {
+  def apply[T <: Data](dataType : T) : Flow[T] = {
     val reg = Reg(Flow(dataType))
     reg.valid init(False)
     reg
@@ -125,48 +125,48 @@ object RegFlow{
 }
 
 object FlowCCByToggle {
-  def apply[T <: Data](input: Flow[T], clockIn: ClockDomain = ClockDomain.current, clockOut: ClockDomain = ClockDomain.current): Flow[T] = {
-    val c = new FlowCCByToggle[T](input.payload, clockIn, clockOut)
-    c.io.input connectFrom input
-    return c.io.output
+  def apply[T <: Data](cmd: Flow[T], cmdClock: ClockDomain = ClockDomain.current, rspClock: ClockDomain = ClockDomain.current): Flow[T] = {
+    val c = new FlowCCByToggle[T](cmd.payload, cmdClock, rspClock)
+    c.io.cmd connectFrom cmd
+    return c.io.rsp
   }
 }
 
 
-class FlowCCByToggle[T <: Data](dataType: T, clockIn: ClockDomain, clockOut: ClockDomain) extends Component {
+class FlowCCByToggle[T <: Data](dataType: T, cmdClock: ClockDomain, rspClock: ClockDomain) extends Component {
   val io = new Bundle {
-    val input = slave Flow (dataType)
-    val output = master Flow (dataType)
+    val cmd = slave  Flow (dataType)
+    val rsp = master Flow (dataType)
   }
 
   val outHitSignal = Bool
 
-  val inputArea = new ClockingArea(clockIn) {
+  val cmdArea = new ClockingArea(cmdClock) {
     val target = Reg(Bool)
-    val data = Reg(io.input.payload)
-    when(io.input.valid) {
+    val data = Reg(io.cmd.payload)
+    when(io.cmd.valid) {
       target := !target
-      data := io.input.payload
+      data := io.cmd.payload
     }
   }
 
 
-  val outputArea = new ClockingArea(clockOut) {
-    val target = BufferCC(inputArea.target, if(clockIn.hasResetSignal) False else null)
+  val rspArea = new ClockingArea(rspClock) {
+    val target = BufferCC(cmdArea.target, if(cmdClock.hasResetSignal) False else null)
     val hit = RegNext(target)
 
-    val flow = io.input.clone
+    val flow = io.cmd.clone
     flow.valid := (target =/= hit)
-    flow.payload := inputArea.data
+    flow.payload := cmdArea.data
     flow.payload.addTag(crossClockDomain)
 
-    io.output <-< flow
+    io.rsp <-< flow
   }
 
-  if(clockIn.hasResetSignal){
-    inputArea.target init(False)
-    outputArea.hit init(False)
+  if(cmdClock.hasResetSignal){
+    cmdArea.target init(False)
+    rspArea.hit init(False)
   }else{
-    inputArea.target.randBoot()
+    cmdArea.target.randBoot()
   }
 }

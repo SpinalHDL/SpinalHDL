@@ -12,17 +12,17 @@ class FrameTaskSolver(p: MandelbrotCoreParameters) extends Component {
   }
 
   val pixelTaskGenerator = new PixelTaskGenerator(p)
-  val pixelTaskDispatcher = new DispatcherInOrder(Fragment(PixelTask(p)), p.pixelTaskSolverCount)
+  val pixelTaskDispatcher = new StreamDispatcherInOrder(Fragment(PixelTask(p)), p.pixelTaskSolverCount)
   val pixelTaskSolver = List.fill(p.pixelTaskSolverCount)(new PixelTaskSolver(p))
-  val pixelResultArbiter = StreamArbiter.inOrder.build(Fragment(PixelResult(p)), p.pixelTaskSolverCount)
+  val pixelResultArbiter = StreamArbiterFactory.inOrder.build(Fragment(PixelResult(p)), p.pixelTaskSolverCount)
 
   pixelTaskGenerator.io.frameTask << io.frameTask
-  pixelTaskDispatcher.io.input <-/< pixelTaskGenerator.io.pixelTask
+  pixelTaskDispatcher.io.cmd <-/< pixelTaskGenerator.io.pixelTask
   for (solverId <- 0 until p.pixelTaskSolverCount) {
-    pixelTaskSolver(solverId).io.pixelTask << pixelTaskDispatcher.io.outputs(solverId)
-    pixelResultArbiter.io.inputs(solverId) << pixelTaskSolver(solverId).io.pixelResult
+    pixelTaskSolver(solverId).io.pixelTask << pixelTaskDispatcher.io.rsp(solverId)
+    pixelResultArbiter.io.cmd(solverId) << pixelTaskSolver(solverId).io.pixelResult
   }
-  io.pixelResult <-< pixelResultArbiter.io.output
+  io.pixelResult <-< pixelResultArbiter.io.rsp
 }
 
 //  The scala-like way to do the FrameTaskSolver stuff is :
