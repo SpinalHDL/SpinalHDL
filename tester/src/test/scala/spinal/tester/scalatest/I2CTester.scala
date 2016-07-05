@@ -57,7 +57,7 @@ class I2CSlaveHALTester extends Component {
 
   val io = new Bundle {
     val i2c  = slave( I2C() )
-    val cmd  = master  Stream ( I2CSlaveHALCmd(generic) )
+    val cmd  = master  Flow ( I2CSlaveHALCmd(generic) )
     val rsp  = slave Stream ( I2CSlaveHALRsp(generic) )
   }
 

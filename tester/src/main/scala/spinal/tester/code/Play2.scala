@@ -1143,7 +1143,7 @@ object PlayI2CSlaveHAL {
 
     val io = new Bundle {
       val i2c  = slave( I2C() )
-      val cmd  = master  Stream ( I2CSlaveHALCmd(generic) )
+      val cmd  = master  Flow ( I2CSlaveHALCmd(generic) )
       val rsp  = slave Stream ( I2CSlaveHALRsp(generic) )
     }
 
@@ -1169,7 +1169,7 @@ object PlayI2CHAL{
 
     val io = new Bundle{
       val ioSlave = new Bundle {
-        val cmd  = master  Stream ( I2CSlaveHALCmd(slaveGeneric) )
+        val cmd  = master  Flow ( I2CSlaveHALCmd(slaveGeneric) )
         val rsp  = slave Stream ( I2CSlaveHALRsp(slaveGeneric) )
       }
       val ioMaster = new Bundle {
@@ -1574,7 +1574,7 @@ object PlayAuto{
 
     val io = new Bundle{
       val ioSlave = new Bundle {
-        val cmd  = master  Stream ( I2CSlaveHALCmd(slaveGeneric) )
+        val cmd  = master  Flow ( I2CSlaveHALCmd(slaveGeneric) )
         val rsp  = slave Stream ( I2CSlaveHALRsp(slaveGeneric) )
       }
       val ioMaster = new Bundle {

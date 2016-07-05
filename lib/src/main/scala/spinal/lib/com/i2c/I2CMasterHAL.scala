@@ -134,6 +134,31 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
 
 
   /**
+    * Synchronize input's signals of the I2C
+    */
+  val ccIO = new Area{
+    val rd_scl = BufferCC(io.i2c.scl.read)
+    val rd_sda = BufferCC(io.i2c.sda.read)
+  }
+
+
+  /**
+    * Rising and falling edge of the scl signal detection
+    */
+  val sclSampling = new Area{
+
+    val risingEdge  = False
+    val fallingEdge = False
+
+    val scl_cur  = RegNext(ccIO.rd_scl) init(False)
+    val scl_prev = RegNext(scl_cur)     init(False)
+
+    when(scl_cur && !scl_prev){ risingEdge := True }
+
+    when(!scl_cur && scl_prev){ fallingEdge := True }
+  }
+
+  /**
     * Generate and manage the scl clock,  signals to indicate the
     * rising and falling edge of SCL as well as a signal to indicate
     * when to execute a start/stop/restart operation
@@ -145,6 +170,10 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
     val fallingEdge     = False
     val triggerSequence = False
     val scl             = RegInit(True)
+    val sclStateChange  = RegInit(False)
+
+    risingEdge  := sclSampling.risingEdge
+    fallingEdge := sclSampling.fallingEdge
 
 
     // start / stop the counter clock
@@ -165,13 +194,26 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
     when(cntValue === io.config.clockDivider){
       scl := !scl
 
-      // detect rising and falling edge
-      when(scl){
-        fallingEdge := True
-      }otherwise{
-        risingEdge  := True
-      }
+      // The rising and falling edge is generated one clock after setting the new state of SCL.
+      // Check there is no collision on the scl signal before setting falling or rising edge
+//      sclStateChange := True
+
+ //     when(scl){
+ //       fallingEdge := True
+ //     }
+
     }
+/*
+    // Rising / Falling edge
+    // @TODO detect the rising and falling edge by reading the scl signals...
+    when(sclStateChange){ sclStateChange := False}
+    val delaySCLStateChange = Delay(sclStateChange,3)
+    when(delaySCLStateChange &&  !scl_freeze){
+
+      when(scl){
+        risingEdge := True
+      }
+    }*/
 
     // Used to indicate when to generate the start/restart/stop sequence
     when(scl){
@@ -182,6 +224,8 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
   }
 
 
+
+
   /**
     * Detect the start/restart and the stop sequence
     */
@@ -190,16 +234,16 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
     val start   = False
     val stop    = False
 
-    val sda_cur  = RegNext(io.i2c.sda.read) init(False)
+    val sda_cur  = RegNext(ccIO.rd_sda) init(False)
     val sda_prev = RegNext(sda_cur)         init(False)
 
     // start = falling edge of sda while the scl is 1
-    when(sclGenerator.scl && sda_cur === False && sda_prev ){
+    when(sclGenerator.scl && !sda_cur  && sda_prev ){
       start   := True
     }
 
     // stop = rising edge of sda while the scl is 1
-    when(sclGenerator.scl && sda_cur && sda_prev === False ){
+    when(sclGenerator.scl && sda_cur && !sda_prev ){
       stop := True
     }
   }
@@ -253,10 +297,10 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
 
     val sMONITOR : State = new State {
       whenIsActive{
-        when(sclGenerator.scl && io.i2c.scl.read === False){
+        when(Delay(sclGenerator.scl,2) && !ccIO.rd_scl){
           freezeSCL := True
         }
-        when(sclGenerator.scl && io.i2c.scl.read){
+        when(Delay(sclGenerator.scl,2) && ccIO.rd_scl){
           freezeSCL := False
         }
 
@@ -290,7 +334,7 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
 
     val scl_en         = Reg(Bool) init(False)
     val wr_sda         = RegInit(True)
-    @dontName  val rd_sda         =  io.i2c.sda.read   // if (g.multiMaster_en ) io.i2c.sda.read else null
+ //   @dontName  val rd_sda         =  io.i2c.sda.read   // if (g.multiMaster_en ) io.i2c.sda.read else null
     val dataReceived   = Reg(Bits(g.dataWidth bits)) init(0)
     val isStarted      = RegInit(False)
     val freezeBus      = RegInit(False)
@@ -306,7 +350,7 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
 
     val sIDLE : State = new State with EntryPoint {
       whenIsActive {
-        when(freezeBus === False){
+        when(!freezeBus){
 
           when(!((!isStarted) && state_Bus.busy)){
 
@@ -361,13 +405,13 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
       }
     }
 
-    val sREAD = new StateFsm(fsm=readSM(io.i2c.sda.read, dataReceived)){
+    val sREAD = new StateFsm(fsm=readSM(ccIO.rd_sda, dataReceived)){
       whenCompleted{
         goto(sNOTIFIY_NEW_DATA_R)
       }
     }
 
-    val sWRITE = new StateParallelFsm (writeSM(wr_sda,io.cmd.data, isCMDAfterFreeze, rd_sda), readSM(io.i2c.sda.read, dataReceived)){
+    val sWRITE = new StateParallelFsm (writeSM(wr_sda,io.cmd.data, isCMDAfterFreeze, ccIO.rd_sda), readSM(ccIO.rd_sda, dataReceived)){
       whenCompleted{
         io.cmd.ready := True
         goto(sNOTIFIY_NEW_DATA_W)
@@ -399,7 +443,7 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
         }
         when(sclGenerator.risingEdge){
 
-          io.rsp.mode  := io.i2c.sda.read ? RspMode.NACK | RspMode.ACK
+          io.rsp.mode  := ccIO.rd_sda ? RspMode.NACK | RspMode.ACK
           io.rsp.valid := True
           io.rsp.data  := 0
 
@@ -543,7 +587,7 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
   scl_en     := smMaster.scl_en
 
 
-    scl_freeze := smSynchSCL.freezeSCL || smMaster.freezeBus
+  scl_freeze := smSynchSCL.freezeSCL || smMaster.freezeBus
   sclFreezeByMater := smMaster.freezeBus
 
   //  scl_freeze := smMaster.freezeBus

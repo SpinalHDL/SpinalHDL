@@ -36,9 +36,44 @@ class I2CMasterModelHAL:
     ##########################################################################
     # Start the master
     def startMaster(self):
-        cocotb.fork(self.genSCL())
+        cocotb.fork(self._genSCL())
         cocotb.fork(self._manageOpenDrain())
-        cocotb.fork(self._synchSCL())
+
+
+    def writeTest(self, data2Write):
+        cocotb.fork(self._runWrite(data2Write))
+
+    def readTest(self, data2Read):
+        cocotb.fork(self._runRead(data2Read))
+
+
+    ##########################################################################
+    # Execute : START - READ* - STOP
+    @cocotb.coroutine
+    def _runRead(self,data2Write):
+
+        yield(self._genStart())
+
+        for data in data2Write:
+            yield self.readData()
+
+        yield(self._genStop())
+
+
+
+    ##########################################################################
+    # Execute : START - WRITE* - STOP
+    @cocotb.coroutine
+    def _runWrite(self,data2Write):
+
+        yield(self._genStart())
+
+        for data in data2Write:
+
+            yield self._writeData(data)
+
+        yield self.sclFalling.wait()
+        yield(self._genStop())
 
 
     ##########################################################################
@@ -59,22 +94,14 @@ class I2CMasterModelHAL:
                 self.wr_scl <= self.scl
 
 
-    @cocotb.coroutine
-    def _synchSCL(self):
-        while True:
-            yield RisingEdge(self.clk)
 
-            if int(self.scl) == 1 and int(self.rd_scl) == 0 :
-                self.freezeBus = True
-            else:
-                self.freezeBus = False
 
 
 
     ##########################################################################
     # SCL generation
     @cocotb.coroutine
-    def genSCL(self):
+    def _genSCL(self):
         cnt = 0
         self.scl = 1
         while True:
@@ -87,6 +114,7 @@ class I2CMasterModelHAL:
                     if self.scl == 0:
                         self.scl = 1
                         self.sclRising.set()
+
                     else:
                         self.scl = 0
                         self.sclFalling.set()
@@ -102,7 +130,7 @@ class I2CMasterModelHAL:
     ##########################################################################
     # Generate the start condition
     @cocotb.coroutine
-    def genStart(self):
+    def _genStart(self):
 
         self.scl_en = 1
 
@@ -118,8 +146,7 @@ class I2CMasterModelHAL:
     ##########################################################################
     # Generate the stop condition
     @cocotb.coroutine
-    def genStop(self):
-        yield self.sclFalling.wait()
+    def _genStop(self):
 
         self.sda = 0
 
@@ -133,14 +160,13 @@ class I2CMasterModelHAL:
     ##########################################################################
     # Write a data
     @cocotb.coroutine
-    def writeData(self, data):
+    def _writeData(self, data):
 
         data2Send = bin(data)[2:].zfill(8)
         write     = True
         index     = 0
 
         while write:
-
 
             yield FallingEdge(self.wr_scl)
 
