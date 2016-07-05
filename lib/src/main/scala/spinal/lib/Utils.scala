@@ -53,14 +53,14 @@ object OHToUInt {
   }
 }
 
-object min {
+object Min {
     def apply[T <: Data with Num[T]](nums: T*) = list(nums)
     def list[T <: Data with Num[T]](nums: Seq[T]) = {
         nums.reduceBalancedTree(_ min _)
     }
 }
 
-object max {
+object Max {
     def apply[T <: Data with Num[T]](nums: T*) = list(nums)
     def list[T <: Data with Num[T]](nums: Seq[T]) = {
         nums.reduceBalancedTree(_ max _)
@@ -156,7 +156,7 @@ object Reverse{
     ret
   }
 }
-object adderAndCarry {
+object AddWithCarry {
   def apply(left: UInt, right: UInt): (UInt, Bool) = {
     val temp = left.resize(left.getWidth + 1) + right.resize(right.getWidth + 1)
     return (temp.resize(temp.getWidth - 1), temp.msb)

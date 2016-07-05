@@ -71,6 +71,9 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider {
   override def /(right: UInt): UInt = wrapBinaryOperator(right,new Operator.UInt.Div)
   override def %(right: UInt): UInt = wrapBinaryOperator(right,new Operator.UInt.Mod)
 
+//  def +!(right: UInt): UInt = this.resize(this.getWidth + 1) + right.resize(right.getWidth + 1)
+//  def -!(right: UInt): UInt = this.resize(this.getWidth + 1) - right.resize(right.getWidth + 1)
+
   def |(right: UInt): UInt = wrapBinaryOperator(right,new Operator.UInt.Or)
   def &(right: UInt): UInt = wrapBinaryOperator(right,new Operator.UInt.And)
   def ^(right: UInt): UInt = wrapBinaryOperator(right,new Operator.UInt.Xor)

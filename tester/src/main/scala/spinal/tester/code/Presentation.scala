@@ -229,7 +229,7 @@ object C9 {
       result.b := channelAdd(this.b, that.b)
 
       def channelAdd(left: UInt, right: UInt): UInt = {
-        val (value, carry) = adderAndCarry(right, left)
+        val (value, carry) = AddWithCarry(right, left)
         return Mux(carry, left.maxValue, value)
       }
 
