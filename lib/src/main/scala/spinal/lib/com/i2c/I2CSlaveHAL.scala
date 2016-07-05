@@ -138,15 +138,14 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
     */
   val sclSampling = new Area{
 
-    val risingEdge  = False
-    val fallingEdge = False
+    val risingEdge  = Bool
+    val fallingEdge = Bool
 
     val scl_cur  = RegNext(ccIO.rd_scl) init(False)
     val scl_prev = RegNext(scl_cur)     init(False)
 
-    when(scl_cur && !scl_prev){ risingEdge := True }
-
-    when(!scl_cur && scl_prev){ fallingEdge := True }
+    risingEdge  := scl_cur && !scl_prev
+    fallingEdge := !scl_cur && scl_prev
   }
 
 
@@ -155,21 +154,20 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
     */
   val detector = new Area{
 
-    val start   = False
+    val start   = Bool
     val stop    = False
 
     val sda_cur  = RegNext(ccIO.rd_sda) init(False)
     val sda_prev = RegNext(sda_cur)     init(False)
 
     // start = falling edge of sda while the scl is 1
-    when(sclSampling.scl_cur && sclSampling.scl_prev && !sda_cur && sda_prev ){
-      start := True
-    }
+    start := sclSampling.scl_cur && sclSampling.scl_prev && !sda_cur && sda_prev
 
     // stop = rising edge of sda while the scl is 1
-    when(sclSampling.scl_cur && sclSampling.scl_prev && sda_cur && !sda_prev ){
+    when( sclSampling.scl_cur && sclSampling.scl_prev && sda_cur && !sda_prev){
       stop := True
     }
+  // @TODO check why there is a différence between when or without the when...
   }
 
 
@@ -177,13 +175,16 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
     * For counting the number of bit send/received (MSB is send first )
     */
   val bitCounter = new Area {
-    // @TODO init with 0 or max value ??
-    val index = Reg(UInt(log2Up(g.dataWidth+1) bits)) init(g.dataWidth)
 
-    def clear()  : Unit = index := g.dataWidth
-    def isDone() : Bool = index === 0
+    val index = Reg(UInt(log2Up(g.dataWidth) bits)) randBoot()
+    val isDone = False
 
-    when(sclSampling.fallingEdge) { index := index - 1 }
+    def clear() : Unit = index := g.dataWidth-1
+
+    when(sclSampling.fallingEdge) {
+      index  := index - 1
+      isDone := index === 0
+    }
   }
 
 
@@ -192,7 +193,7 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
     */
   val smSlave = new StateMachine{
 
-    val dataReceived = Reg(Bits(g.dataWidth bits)) init(0)
+    val dataReceived = Reg(Bits(g.dataWidth bits)) randBoot()
     val wr_sda       = True
     val wr_scl       = True
 
@@ -240,33 +241,26 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
         bitCounter.clear()
       }
       whenIsActive{
-        when(io.rsp.valid){
 
-          // Read data on bus
-          when(io.rsp.mode === RspMode.DATA){
-            // index change at each falling edge
-            when(bitCounter.isDone()){
-              wr_sda := io.rsp.data(0)
-            }.otherwise{
-              wr_sda := io.rsp.data(bitCounter.index - 1)
-            }
-          }
+        wr_scl := io.rsp.valid
 
-          // Always write on bus
-          when(sclSampling.risingEdge) {
-            dataReceived(bitCounter.index-1) := ccIO.rd_sda
-          }
+        // Read data on bus
+        when(io.rsp.mode === RspMode.DATA){
+          // index change at each falling edge
+          wr_sda := io.rsp.data(bitCounter.index )
+        }
 
-          // End of data sequence ?
-          when(bitCounter.isDone()){
-            io.rsp.ready := True
-            io.cmd.valid := True
-            io.cmd.mode  := CmdMode.DATA
-            goto(sACK)
-          }
-        }.otherwise{
-          // Freeze the bus if no rsp received
-          wr_scl := False
+        // Always write on bus
+        when(sclSampling.risingEdge) {
+          dataReceived(bitCounter.index) := ccIO.rd_sda
+        }
+
+        // End of data sequence ?
+        when(bitCounter.isDone){
+          io.rsp.ready := True
+          io.cmd.valid := True
+          io.cmd.mode  := CmdMode.DATA
+          goto(sACK)
         }
       }
     }
@@ -274,31 +268,26 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
     val sACK : State = new State{
       whenIsActive{
 
-        when(io.rsp.valid){
+        wr_scl := io.rsp.valid
 
-          // Read ack on bus
-          wr_sda := (io.rsp.mode === RspMode.ACK) ? False | True
+        // Read ack on bus
+        wr_sda := (io.rsp.mode === RspMode.ACK) ? False | True
 
-          // Write ack on bus
-          when(sclSampling.risingEdge){
-            io.cmd.valid := True
-            io.cmd.mode  := ccIO.rd_sda ? CmdMode.NACK | CmdMode.ACK
-          }
+        // Write ack on bus
+        when(sclSampling.risingEdge){
+          io.cmd.valid := True
+          io.cmd.mode  := ccIO.rd_sda ? CmdMode.NACK | CmdMode.ACK
+        }
 
-          // end of the ACK sequence
-          when(sclSampling.fallingEdge){
-            io.rsp.ready := True
-         //   bitCounter.clear()
-            goto(sData)
-          }
-        }.otherwise{
-          // Freeze bus if no rsp received
-          wr_scl := False
+        // end of the ACK sequence
+        when(sclSampling.fallingEdge){
+          io.rsp.ready := True
+          goto(sData)
         }
       }
     }
   }
 
-  io.i2c.scl.write := RegNext(smSlave.wr_scl) init(True)
-  io.i2c.sda.write := RegNext(smSlave.wr_sda) init(True)
+  io.i2c.scl.write := RegNext(smSlave.wr_scl) randBoot()
+  io.i2c.sda.write := RegNext(smSlave.wr_sda) randBoot()
 }

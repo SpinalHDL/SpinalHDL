@@ -217,7 +217,7 @@ def slave_hal_test_read(dut):
     cmdValidEvent = Event()
     rspReadyEvent = Event()
 
-    data2Read = [0x34,0xAA]
+    data2Read = [0x84, 0x55]
 
     modelMaster = I2CMasterModelHAL(dut.clk, dut.io_i2c_scl_read, dut.io_i2c_sda_read, dut.io_i2c_scl_write, dut.io_i2c_sda_write, 50)
 
