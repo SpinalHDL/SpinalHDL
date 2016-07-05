@@ -60,7 +60,8 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider {
   def ===(that : MaskedLiteral) : Bool = this.isEguals(that)
   def =/=(that : MaskedLiteral) : Bool = this.isNotEguals(that)
 
-  def @@(that : UInt) = (this ## that).asUInt
+  def @@(that : UInt) : UInt = (this ## that).asUInt
+  def @@(that : Bool) : UInt = (this ## that).asUInt
 
 
   def twoComplement(enable : Bool): SInt = ((False ## Mux(enable,~this,this)).asUInt + enable.asUInt).asSInt
