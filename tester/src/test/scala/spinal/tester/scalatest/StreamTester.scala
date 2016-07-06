@@ -34,22 +34,22 @@ class StreamTester extends Component {
   (forkOutputs , StreamFork(forkInput,3)).zipped.foreach(_ << _)
 
   val dispatcherInOrderInput = slave Stream(Bits(8 bits))
-  val dispatcherInOrderOutput = Vec(master Stream(Bits(8 bits)),3)
-  (dispatcherInOrderOutput , StreamDispatcherInOrder(dispatcherInOrderInput,3)).zipped.foreach(_ << _)
+  val dispatcherInOrderOutputs = Vec(master Stream(Bits(8 bits)),3)
+  (dispatcherInOrderOutputs , StreamDispatcherInOrder(dispatcherInOrderInput,3)).zipped.foreach(_ << _)
 
-  val streamFlowArbiterStreamInput = slave Stream(Bits(8 bits))
-  val streamFlowArbiterFlowInput = slave Flow(Bits(8 bits))
+  val streamFlowArbiterInputStream = slave Stream(Bits(8 bits))
+  val streamFlowArbiterInputFlow = slave Flow(Bits(8 bits))
   val streamFlowArbiterOutput = master Flow(Bits(8 bits))
-  streamFlowArbiterOutput << StreamFlowArbiter(streamFlowArbiterStreamInput,streamFlowArbiterFlowInput)
+  streamFlowArbiterOutput << StreamFlowArbiter(streamFlowArbiterInputStream,streamFlowArbiterInputFlow)
 
-  val muxSelect = in UInt(2 bits)
-  val muxInputs = Vec(slave Stream(Bits(8 bits)),3)
-  val muxOutput = master Stream(Bits(8 bits))
-  muxOutput << StreamMux(muxSelect,muxInputs)
+//  val muxSelect = in UInt(2 bits)
+//  val muxInputs = Vec(slave Stream(Bits(8 bits)),3)
+//  val muxOutput = master Stream(Bits(8 bits))
+//  muxOutput << StreamMux(muxSelect,muxInputs)
 
-  val joinInputs = Vec(slave Stream(Bits(8 bits)),3)
-  val joinOutput = master.Event
-  joinOutput << StreamJoin(joinInputs)
+//  val joinInputs = Vec(slave Stream(Bits(8 bits)),3)
+//  val joinOutput = master.Event
+//  joinOutput << StreamJoin(joinInputs)
 }
 
 

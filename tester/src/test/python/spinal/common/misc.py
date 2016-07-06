@@ -138,6 +138,31 @@ def StreamRandomizer(streamName, onNew,handle, dut, clk):
                 onNew(payload,handle)
 
 @cocotb.coroutine
+def FlowRandomizer(streamName, onNew,handle, dut, clk):
+    validRandomizer = BoolRandomizer()
+    valid = getattr(dut, streamName + "_valid")
+    payloads = [a for a in dut if a._name.startswith(streamName + "_payload")]
+
+    valid <= 0
+    while True:
+        yield RisingEdge(clk)
+        if validRandomizer.get():
+            valid <= 1
+            for e in payloads:
+                randSignal(e)
+            yield Timer(1)
+            if len(payloads) == 1 and payloads[0]._name == streamName + "_payload":
+                payload = int(payloads[0])
+            else:
+                payload = object()
+                for e in payloads:
+                    payload.__setattr__(e._name[len(streamName) + 1:], int(e))
+
+            onNew(payload,handle)
+        else:
+            valid <= 0
+
+@cocotb.coroutine
 def StreamReader(streamName, onTransaction, handle, dut, clk):
     validRandomizer = BoolRandomizer()
     valid = getattr(dut, streamName + "_valid")

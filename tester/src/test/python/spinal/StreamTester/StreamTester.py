@@ -5,7 +5,7 @@ import cocotb
 from cocotb.triggers import Timer, Edge, RisingEdge, Join
 
 from spinal.common.misc import setBit, randSignal, assertEquals, truncUInt, sint, ClockDomainAsyncReset, randBoolSignal, \
-    BoolRandomizer, StreamRandomizer,StreamReader
+    BoolRandomizer, StreamRandomizer,StreamReader, FlowRandomizer
 
 
 class FifoPacket:
@@ -74,40 +74,87 @@ class Fork:
         for idx in range(0,3):
             cocotb.fork(StreamReader("forkOutputs_" + str(idx), self.onOutput, idx, self.dut, self.dut.clk))
 
-        while not reduce(lambda x,y: x and y, map(lambda x: x > 100, self.counters)):
+        while not reduce(lambda x,y: x and y, map(lambda x: x > 1000, self.counters)):
             yield RisingEdge(self.dut.clk)
 
 
 
+class DispatcherInOrder:
+    def __init__(self,dut):
+        self.queue = Queue()
+        self.counter = 0
+        self.nextPort = 0
+        self.dut = dut
 
-#
-# forkInput_valid = > forkInput_valid,
-# forkInput_ready = > forkInput_ready,
-# forkInput_payload = > forkInput_payload,
-# forkOutput_0_valid = > forkOutput_0_valid,
-# forkOutput_0_ready = > forkOutput_0_ready,
-# forkOutput_0_payload = > forkOutput_0_payload,
-# forkOutput_1_valid = > forkOutput_1_valid,
-# forkOutput_1_ready = > forkOutput_1_ready,
-# forkOutput_1_payload = > forkOutput_1_payload,
-# forkOutput_2_valid = > forkOutput_2_valid,
-# forkOutput_2_ready = > forkOutput_2_ready,
-# forkOutput_2_payload = > forkOutput_2_payload,
+    def onInput(self,payload,handle):
+        self.queue.put(payload)
+
+    def onOutput(self,payload,portId):
+        assertEquals(payload,self.queue.get(),"DispatcherInOrder payload error")
+        assertEquals(portId,self.nextPort,"DispatcherInOrder order error")
+        self.nextPort = (self.nextPort + 1) % 3
+        self.counter += 1
+
+    @cocotb.coroutine
+    def run(self):
+        cocotb.fork(StreamRandomizer("dispatcherInOrderInput", self.onInput,None, self.dut, self.dut.clk))
+        for idx in range(0,3):
+            cocotb.fork(StreamReader("dispatcherInOrderOutputs_" + str(idx), self.onOutput, idx, self.dut, self.dut.clk))
+
+        while self.counter < 1000:
+            yield RisingEdge(self.dut.clk)
+
+class StreamFlowArbiter:
+    def __init__(self,dut):
+        self.inputStreamCounter = 0
+        self.inputFlowCounter = 0
+        self.dut = dut
+
+    def onInputStream(self,payload,handle):
+        pass
+
+    def onInputFlow(self,payload,handle):
+        pass
+
+
+    @cocotb.coroutine
+    def run(self):
+        dut = self.dut
+        cocotb.fork(StreamRandomizer("streamFlowArbiterInputStream", self.onInputStream, None, dut, dut.clk))
+        cocotb.fork(FlowRandomizer("streamFlowArbiterInputFlow", self.onInputFlow, None, dut, dut.clk))
+
+        while not (self.inputFlowCounter > 1000 and self.inputStreamCounter > 1000):
+            yield RisingEdge(dut.clk)
+            if int(dut.streamFlowArbiterOutput_valid) == 1:
+                if int(dut.streamFlowArbiterInputFlow_valid) == 1:
+                    assertEquals(dut.streamFlowArbiterOutput_payload,dut.streamFlowArbiterInputFlow_payload,"StreamFlowArbiter payload error")
+                    assertEquals(0, dut.streamFlowArbiterInputStream_ready, "StreamFlowArbiter arbitration error")
+                    self.inputFlowCounter += 1
+                else:
+                    assertEquals(dut.streamFlowArbiterOutput_payload,dut.streamFlowArbiterInputStream_payload,"StreamFlowArbiter payload error")
+                    assertEquals(0, dut.streamFlowArbiterInputFlow_valid, "StreamFlowArbiter arbitration error")
+                    self.inputStreamCounter += 1
+
+
+
 
 
 @cocotb.test()
 def test1(dut):
     dut.log.info("Cocotb test boot")
-    #random.seed(0)
+    random.seed(0)
 
 
     cocotb.fork(ClockDomainAsyncReset(dut.clk, dut.reset))
 
-    fifo = cocotb.fork(Fifo(dut).run())
-    fork = cocotb.fork(Fork(dut).run())
+    threads = []
+    threads.append(cocotb.fork(Fifo(dut).run()))
+    threads.append(cocotb.fork(Fork(dut).run()))
+    threads.append(cocotb.fork(DispatcherInOrder(dut).run()))
+    threads.append(cocotb.fork(StreamFlowArbiter(dut).run()))
 
-    yield fifo.join()
-    yield fork.join()
+    for thread in threads:
+        yield thread.join()
 
     #
     #

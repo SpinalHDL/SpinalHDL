@@ -41,46 +41,22 @@ architecture arch of StreamTester_tb is
   signal dispatcherInOrderInput_valid : std_logic;
   signal dispatcherInOrderInput_ready : std_logic;
   signal dispatcherInOrderInput_payload : std_logic_vector(7 downto 0);
-  signal dispatcherInOrderOutput_0_valid : std_logic;
-  signal dispatcherInOrderOutput_0_ready : std_logic;
-  signal dispatcherInOrderOutput_0_payload : std_logic_vector(7 downto 0);
-  signal dispatcherInOrderOutput_1_valid : std_logic;
-  signal dispatcherInOrderOutput_1_ready : std_logic;
-  signal dispatcherInOrderOutput_1_payload : std_logic_vector(7 downto 0);
-  signal dispatcherInOrderOutput_2_valid : std_logic;
-  signal dispatcherInOrderOutput_2_ready : std_logic;
-  signal dispatcherInOrderOutput_2_payload : std_logic_vector(7 downto 0);
-  signal streamFlowArbiterStreamInput_valid : std_logic;
-  signal streamFlowArbiterStreamInput_ready : std_logic;
-  signal streamFlowArbiterStreamInput_payload : std_logic_vector(7 downto 0);
-  signal streamFlowArbiterFlowInput_valid : std_logic;
-  signal streamFlowArbiterFlowInput_payload : std_logic_vector(7 downto 0);
+  signal dispatcherInOrderOutputs_0_valid : std_logic;
+  signal dispatcherInOrderOutputs_0_ready : std_logic;
+  signal dispatcherInOrderOutputs_0_payload : std_logic_vector(7 downto 0);
+  signal dispatcherInOrderOutputs_1_valid : std_logic;
+  signal dispatcherInOrderOutputs_1_ready : std_logic;
+  signal dispatcherInOrderOutputs_1_payload : std_logic_vector(7 downto 0);
+  signal dispatcherInOrderOutputs_2_valid : std_logic;
+  signal dispatcherInOrderOutputs_2_ready : std_logic;
+  signal dispatcherInOrderOutputs_2_payload : std_logic_vector(7 downto 0);
+  signal streamFlowArbiterInputStream_valid : std_logic;
+  signal streamFlowArbiterInputStream_ready : std_logic;
+  signal streamFlowArbiterInputStream_payload : std_logic_vector(7 downto 0);
+  signal streamFlowArbiterInputFlow_valid : std_logic;
+  signal streamFlowArbiterInputFlow_payload : std_logic_vector(7 downto 0);
   signal streamFlowArbiterOutput_valid : std_logic;
   signal streamFlowArbiterOutput_payload : std_logic_vector(7 downto 0);
-  signal muxSelect : unsigned(1 downto 0);
-  signal muxInputs_0_valid : std_logic;
-  signal muxInputs_0_ready : std_logic;
-  signal muxInputs_0_payload : std_logic_vector(7 downto 0);
-  signal muxInputs_1_valid : std_logic;
-  signal muxInputs_1_ready : std_logic;
-  signal muxInputs_1_payload : std_logic_vector(7 downto 0);
-  signal muxInputs_2_valid : std_logic;
-  signal muxInputs_2_ready : std_logic;
-  signal muxInputs_2_payload : std_logic_vector(7 downto 0);
-  signal muxOutput_valid : std_logic;
-  signal muxOutput_ready : std_logic;
-  signal muxOutput_payload : std_logic_vector(7 downto 0);
-  signal joinInputs_0_valid : std_logic;
-  signal joinInputs_0_ready : std_logic;
-  signal joinInputs_0_payload : std_logic_vector(7 downto 0);
-  signal joinInputs_1_valid : std_logic;
-  signal joinInputs_1_ready : std_logic;
-  signal joinInputs_1_payload : std_logic_vector(7 downto 0);
-  signal joinInputs_2_valid : std_logic;
-  signal joinInputs_2_ready : std_logic;
-  signal joinInputs_2_payload : std_logic_vector(7 downto 0);
-  signal joinOutput_valid : std_logic;
-  signal joinOutput_ready : std_logic;
   signal clk : std_logic;
   signal reset : std_logic;
   -- #spinalBegin userDeclarations
@@ -226,46 +202,22 @@ begin
       dispatcherInOrderInput_valid =>  dispatcherInOrderInput_valid,
       dispatcherInOrderInput_ready =>  dispatcherInOrderInput_ready,
       dispatcherInOrderInput_payload =>  dispatcherInOrderInput_payload,
-      dispatcherInOrderOutput_0_valid =>  dispatcherInOrderOutput_0_valid,
-      dispatcherInOrderOutput_0_ready =>  dispatcherInOrderOutput_0_ready,
-      dispatcherInOrderOutput_0_payload =>  dispatcherInOrderOutput_0_payload,
-      dispatcherInOrderOutput_1_valid =>  dispatcherInOrderOutput_1_valid,
-      dispatcherInOrderOutput_1_ready =>  dispatcherInOrderOutput_1_ready,
-      dispatcherInOrderOutput_1_payload =>  dispatcherInOrderOutput_1_payload,
-      dispatcherInOrderOutput_2_valid =>  dispatcherInOrderOutput_2_valid,
-      dispatcherInOrderOutput_2_ready =>  dispatcherInOrderOutput_2_ready,
-      dispatcherInOrderOutput_2_payload =>  dispatcherInOrderOutput_2_payload,
-      streamFlowArbiterStreamInput_valid =>  streamFlowArbiterStreamInput_valid,
-      streamFlowArbiterStreamInput_ready =>  streamFlowArbiterStreamInput_ready,
-      streamFlowArbiterStreamInput_payload =>  streamFlowArbiterStreamInput_payload,
-      streamFlowArbiterFlowInput_valid =>  streamFlowArbiterFlowInput_valid,
-      streamFlowArbiterFlowInput_payload =>  streamFlowArbiterFlowInput_payload,
+      dispatcherInOrderOutputs_0_valid =>  dispatcherInOrderOutputs_0_valid,
+      dispatcherInOrderOutputs_0_ready =>  dispatcherInOrderOutputs_0_ready,
+      dispatcherInOrderOutputs_0_payload =>  dispatcherInOrderOutputs_0_payload,
+      dispatcherInOrderOutputs_1_valid =>  dispatcherInOrderOutputs_1_valid,
+      dispatcherInOrderOutputs_1_ready =>  dispatcherInOrderOutputs_1_ready,
+      dispatcherInOrderOutputs_1_payload =>  dispatcherInOrderOutputs_1_payload,
+      dispatcherInOrderOutputs_2_valid =>  dispatcherInOrderOutputs_2_valid,
+      dispatcherInOrderOutputs_2_ready =>  dispatcherInOrderOutputs_2_ready,
+      dispatcherInOrderOutputs_2_payload =>  dispatcherInOrderOutputs_2_payload,
+      streamFlowArbiterInputStream_valid =>  streamFlowArbiterInputStream_valid,
+      streamFlowArbiterInputStream_ready =>  streamFlowArbiterInputStream_ready,
+      streamFlowArbiterInputStream_payload =>  streamFlowArbiterInputStream_payload,
+      streamFlowArbiterInputFlow_valid =>  streamFlowArbiterInputFlow_valid,
+      streamFlowArbiterInputFlow_payload =>  streamFlowArbiterInputFlow_payload,
       streamFlowArbiterOutput_valid =>  streamFlowArbiterOutput_valid,
       streamFlowArbiterOutput_payload =>  streamFlowArbiterOutput_payload,
-      muxSelect =>  muxSelect,
-      muxInputs_0_valid =>  muxInputs_0_valid,
-      muxInputs_0_ready =>  muxInputs_0_ready,
-      muxInputs_0_payload =>  muxInputs_0_payload,
-      muxInputs_1_valid =>  muxInputs_1_valid,
-      muxInputs_1_ready =>  muxInputs_1_ready,
-      muxInputs_1_payload =>  muxInputs_1_payload,
-      muxInputs_2_valid =>  muxInputs_2_valid,
-      muxInputs_2_ready =>  muxInputs_2_ready,
-      muxInputs_2_payload =>  muxInputs_2_payload,
-      muxOutput_valid =>  muxOutput_valid,
-      muxOutput_ready =>  muxOutput_ready,
-      muxOutput_payload =>  muxOutput_payload,
-      joinInputs_0_valid =>  joinInputs_0_valid,
-      joinInputs_0_ready =>  joinInputs_0_ready,
-      joinInputs_0_payload =>  joinInputs_0_payload,
-      joinInputs_1_valid =>  joinInputs_1_valid,
-      joinInputs_1_ready =>  joinInputs_1_ready,
-      joinInputs_1_payload =>  joinInputs_1_payload,
-      joinInputs_2_valid =>  joinInputs_2_valid,
-      joinInputs_2_ready =>  joinInputs_2_ready,
-      joinInputs_2_payload =>  joinInputs_2_payload,
-      joinOutput_valid =>  joinOutput_valid,
-      joinOutput_ready =>  joinOutput_ready,
       clk =>  clk,
       reset =>  reset 
     );
