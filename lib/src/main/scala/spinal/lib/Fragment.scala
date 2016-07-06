@@ -497,20 +497,16 @@ object StreamFragmentGenerator {
 
 
 object StreamFragmentArbiter {
-
-  // def apply[T <: Data](dataType: T,portCount: Int) = new StreamArbiterCore(dataType,2)(StreamArbiterCore.arbitration_lowIdPortFirst,StreamArbiterCore.lock_fragmentLock)
-  def apply[T <: Data](dataType: T)(inputs: Seq[Stream[Fragment[T]]]): Stream[Fragment[T]] = {
-    val arbiter = new StreamArbiterCore(Fragment(dataType), inputs.size)(StreamArbiterCore.arbitration_lowIdPortFirst, StreamArbiterCore.lock_fragmentLock)
+   def apply[T <: Data](dataType: T)(inputs: Seq[Stream[Fragment[T]]]): Stream[Fragment[T]] = {
+    val arbiter = new StreamArbiter(Fragment(dataType), inputs.size)(StreamArbiter.Arbitration.lowIdPortFirst, StreamArbiter.Lock.fragmentLock)
     (inputs, arbiter.io.inputs).zipped.foreach(_ >> _)
     arbiter.io.output
   }
-
-
 }
 
 object StreamFragmentArbiterAndHeaderAdder {
   def apply[T <: Data](dataType: T)(inputs: Seq[Tuple2[Stream[Fragment[T]], T]]): Stream[Fragment[T]] = {
-    val arbiter = new StreamArbiterCore(Fragment(dataType), inputs.size)(StreamArbiterCore.arbitration_lowIdPortFirst, StreamArbiterCore.lock_fragmentLock)
+    val arbiter = new StreamArbiter(Fragment(dataType), inputs.size)(StreamArbiter.Arbitration.lowIdPortFirst, StreamArbiter.Lock.fragmentLock)
     (inputs, arbiter.io.inputs).zipped.foreach(_._1 >> _)
 
     val ret = Stream Fragment (dataType)

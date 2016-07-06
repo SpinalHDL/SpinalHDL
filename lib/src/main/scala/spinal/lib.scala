@@ -43,7 +43,7 @@ package object lib  {
   }
 
   
-  def StreamArbiter = new StreamArbiterCoreFactory()
+  def StreamArbiterFactory = new StreamArbiterFactory()
 
   type ScalaStream[T] = collection.immutable.Stream[T]
 

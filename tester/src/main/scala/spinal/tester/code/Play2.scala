@@ -37,7 +37,7 @@ object PlayB7 {
       val z = out UInt( 4 bits )
     }
     val a = Stream(Fragment(UInt(4 bits)))
-    val b = StreamArbiterCore().inOrder.noLock.build(a,10)
+    val b = StreamArbiterFactory.inOrder.noLock.build(a,10)
   }
 
   def main(args: Array[String]): Unit = {
@@ -1817,3 +1817,25 @@ object PlaySwitchError{
 
 
 
+object PlayCall{
+  class TopLevel extends Component {
+    val a,b,c = in UInt(8 bits)
+    val result = out(Reg(UInt(8 bits)))
+    result := result + a + b + c
+
+    val clear = Callable(result := 0)
+
+    when(result > 42){
+      clear.call()
+    }
+    when(result === 11){
+      clear.call()
+    }
+
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+    SpinalVerilog(new TopLevel)
+  }
+}

@@ -331,6 +331,10 @@ object SpinalWarning {
 
 class SpinalExit(message: String) extends Exception("\n\n" + (GlobalData.get.pendingErrors.map(_.apply()) ++ Seq(message)).reduceLeft(_ + "\n\n" + _));
 
+object PendingError {
+  def apply(error : => String) = GlobalData.get.pendingErrors += (() => error)
+}
+
 object SpinalError {
   private var errCount:Int = 0
 

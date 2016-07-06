@@ -53,6 +53,15 @@ object OHToUInt {
   }
 }
 
+//Will be target dependent
+object MuxOH {
+  def apply[T <: Data](oneHot : BitVector,inputs : Iterable[T]): T = apply(oneHot.asBools,inputs)
+  def apply[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Iterable[T]): T =  apply(oneHot,Vec(inputs))
+
+  def apply[T <: Data](oneHot : BitVector,inputs : Vec[T]): T = apply(oneHot.asBools,inputs)
+  def apply[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Vec[T]): T = inputs(OHToUInt(oneHot))
+}
+
 object Min {
     def apply[T <: Data with Num[T]](nums: T*) = list(nums)
     def list[T <: Data with Num[T]](nums: Seq[T]) = {
@@ -697,12 +706,12 @@ object WrapWithReg{
 }
 
 
-case class TriState[T <: Data](dataType : T) extends Bundle with IMasterSlave{
-  val read,write : T = dataType.clone
-  val writeEnable = Bool
-  override def asMaster(): TriState.this.type = {
-    out(write,writeEnable)
-    in(read)
-    this
+
+object Callable{
+  def apply(doIt : => Unit) = new Area{
+    val isCalled = False
+    when(isCalled){doIt}
+
+    def call() = isCalled := True
   }
 }

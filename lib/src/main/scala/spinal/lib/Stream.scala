@@ -264,7 +264,51 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
 }
 
 
-class StreamArbiterCore[T <: Data](dataType: T, val portCount: Int)(arbitrationLogic: (StreamArbiterCore[T]) => Area, lockLogic: (StreamArbiterCore[T]) => Area) extends Component {
+object StreamArbiter {
+  object Arbitration{
+    def lowIdPortFirst(core: StreamArbiter[_]) = new Area {
+      import core._
+      var search = True
+      for (i <- 0 to portCount - 2) {
+        maskProposal(i) := search & io.inputs(i).valid
+        search = search & !io.inputs(i).valid
+      }
+      maskProposal(portCount - 1) := search
+    }
+
+    def InOrder(core: StreamArbiter[_]) = new Area {
+      import core._
+      val counter = Counter(core.portCount, io.output.fire)
+
+      for (i <- 0 to core.portCount - 1) {
+        maskProposal(i) := False
+      }
+
+      maskProposal(counter) := True
+    }
+  }
+
+  object Lock{
+    def none(core: StreamArbiter[_]) = new Area {
+
+    }
+
+    def transactionLock(core: StreamArbiter[_]) = new Area {
+      import core._
+      locked setWhen(io.output.valid)
+      locked.clearWhen(io.output.ready)
+    }
+
+    def fragmentLock(core: StreamArbiter[_]) = new Area {
+      val realCore = core.asInstanceOf[StreamArbiter[Fragment[_]]]
+      import realCore._
+      locked setWhen(io.output.valid)
+      locked.clearWhen(io.output.ready && io.output.last)
+    }
+  }
+}
+
+class StreamArbiter[T <: Data](dataType: T, val portCount: Int)(arbitrationLogic: (StreamArbiter[T]) => Area, lockLogic: (StreamArbiter[T]) => Area) extends Component {
   val io = new Bundle {
     val inputs = Vec(slave Stream (dataType),portCount)
     val output = master Stream (dataType)
@@ -286,26 +330,31 @@ class StreamArbiterCore[T <: Data](dataType: T, val portCount: Int)(arbitrationL
   val lock = lockLogic(this)
 
   //Route
-  var outputValid = False
-  var outputData = B(0)
-  for ((input, mask) <- (io.inputs, maskRouted).zipped) {
-    outputValid = outputValid | (mask & input.valid) //mask & is not mandatory for all kind of arbitration/lock
-    outputData = outputData | Mux(mask, input.payload.asBits, B(0))
-    input.ready := mask & io.output.ready
-  }
-  io.output.valid := outputValid
-  io.output.payload.assignFromBits(outputData)
+//  var outputValid = False
+//  var outputData = B(0)
+//  for ((input, mask) <- (io.cmd, maskRouted).zipped) {
+//    outputValid = outputValid | (mask & input.valid) //mask & is not mandatory for all kind of arbitration/lock
+//    outputData = outputData | Mux(mask, input.payload.asBits, B(0))
+//    input.ready := mask & io.rsp.ready
+//  }
+//  io.rsp.valid := outputValid
+//  io.rsp.payload.assignFromBits(outputData)
+
+  io.output.valid := (io.inputs, maskRouted).zipped.map(_.valid & _).reduce(_ | _)
+  io.output.payload := MuxOH(maskRouted,Vec(io.inputs.map(_.payload)))
+  (io.inputs, maskRouted).zipped.foreach(_.ready := _ & io.output.ready)
 
   io.chosen := OHToUInt(maskRouted)
 
 }
 
-class StreamArbiterCoreFactory {
-  var arbitrationLogic: (StreamArbiterCore[_]) => Area = StreamArbiterCore.arbitration_lowIdPortFirst
-  var lockLogic: (StreamArbiterCore[_]) => Area = StreamArbiterCore.lock_transactionLock
 
-  def build[T <: Data](dataType: T, portCount: Int): StreamArbiterCore[T] = {
-    new StreamArbiterCore(dataType, portCount)(arbitrationLogic, lockLogic)
+class StreamArbiterFactory {
+  var arbitrationLogic: (StreamArbiter[_]) => Area = StreamArbiter.Arbitration.lowIdPortFirst
+  var lockLogic: (StreamArbiter[_]) => Area = StreamArbiter.Lock.transactionLock
+
+  def build[T <: Data](dataType: T, portCount: Int): StreamArbiter[T] = {
+    new StreamArbiter(dataType, portCount)(arbitrationLogic, lockLogic)
   }
 
   def build[T <: Data](input: Seq[Stream[T]]): Stream[T] = {
@@ -315,113 +364,35 @@ class StreamArbiterCoreFactory {
   }
 
   def lowIdPortFirst: this.type = {
-    arbitrationLogic = StreamArbiterCore.arbitration_lowIdPortFirst
+    arbitrationLogic = StreamArbiter.Arbitration.lowIdPortFirst
     this
   }
   def inOrder: this.type = {
-    arbitrationLogic = StreamArbiterCore.arbitration_InOrder
+    arbitrationLogic = StreamArbiter.Arbitration.InOrder
     this
   }
   def noLock: this.type = {
-    lockLogic = StreamArbiterCore.lock_transactionLock
+    lockLogic = StreamArbiter.Lock.none
     this
   }
   def fragmentLock: this.type = {
-    lockLogic = StreamArbiterCore.lock_fragmentLock
+    lockLogic = StreamArbiter.Lock.fragmentLock
     this
   }
   def transactionLock: this.type = {
-    lockLogic = StreamArbiterCore.lock_transactionLock
+    lockLogic = StreamArbiter.Lock.transactionLock
     this
   }
 }
 
-object StreamArbiterCore {
-  def apply() = new StreamArbiterCoreFactory
 
-  def arbitration_lowIdPortFirst(core: StreamArbiterCore[_]) = new Area {
-
-    import core._
-
-    var search = True
-    for (i <- 0 to portCount - 2) {
-      maskProposal(i) := search & io.inputs(i).valid
-      search = search & !io.inputs(i).valid
-    }
-    maskProposal(portCount - 1) := search
-  }
-
-  def arbitration_InOrder(core: StreamArbiterCore[_]) = new Area {
-
-    import core._
-
-    val counter = Counter(core.portCount, io.output.fire)
-
-    for (i <- 0 to core.portCount - 1) {
-      maskProposal(i) := False
-    }
-
-    maskProposal(counter) := True
-  }
-
-  def lock_none(core: StreamArbiterCore[_]) = new Area {
-
-  }
-
-  def lock_transactionLock(core: StreamArbiterCore[_]) = new Area {
-
-    import core._
-
-    when(io.output.valid) {
-      locked := True
-    }
-    when(io.output.ready) {
-      locked := False
-    }
-  }
-
-  def lock_fragmentLock(core: StreamArbiterCore[_]) = new Area {
-    val realCore = core.asInstanceOf[StreamArbiterCore[Fragment[_]]]
-
-    import realCore._
-
-    when(io.output.valid) {
-      locked := True
-    }
-    when(io.output.ready && io.output.last) {
-      locked := False
-    }
-  }
-}
-
-//object StreamArbiterPriorityToLow{
-//  def apply[T <: Data](dataType: T, portCount : Int) : StreamArbiter[T] ={
-//    new StreamArbiter(dataType,portCount)(StreamArbiter.arbitration_lowIdPortFirst,StreamArbiter.lock_none)
-//  }
-//
-//  def apply[T <: Data](input: Vec[Stream[T]]) : Stream[T] ={
-//    val arbiter = new StreamArbiter(input(0).dataType,input.size)(StreamArbiter.arbitration_lowIdPortFirst,StreamArbiter.lock_none)
-//    (arbiter.io.inputs,input).zipped.foreach(_ << _)
-//    return arbiter.io.output
-//  }
-//}
-
-//TODOTEST
-//class StreamArbiterPriorityImpl[T <: Data](dataType: T, portCount: Int, allowSwitchWithoutConsumption: Boolean = false) extends StreamArbiterCore(dataType, portCount, allowSwitchWithoutConsumption) {
-//  var search = True
-//  for (i <- 0 to portCount - 2) {
-//    maskProposal(i) := search & io.inputs(i).valid
-//    search = search & !io.inputs(i).valid
-//  }
-//  maskProposal(portCount - 1) := search
-//}
 
 
 object StreamFork {
   def apply[T <: Data](input: Stream[T], portCount: Int): Vec[Stream[T]] = {
     val fork = new StreamFork(input.dataType, portCount)
     fork.io.input << input
-    return fork.io.output
+    return fork.io.outputs
   }
 }
 
@@ -429,7 +400,7 @@ object StreamFork2 {
   def apply[T <: Data](input: Stream[T]): (Stream[T], Stream[T]) = {
     val fork = new StreamFork(input.dataType, 2)
     fork.io.input << input
-    return (fork.io.output(0), fork.io.output(1))
+    return (fork.io.outputs(0), fork.io.outputs(1))
   }
 }
 
@@ -438,21 +409,21 @@ object StreamFork2 {
 class StreamFork[T <: Data](dataType: T, portCount: Int) extends Component {
   val io = new Bundle {
     val input = slave Stream (dataType)
-    val output = Vec(master Stream (dataType),portCount)
+    val outputs = Vec(master Stream (dataType),portCount)
   }
   val linkEnable = Vec(RegInit(True),portCount)
 
   io.input.ready := True
   for (i <- 0 until portCount) {
-    when(!io.output(i).ready && linkEnable(i)) {
+    when(!io.outputs(i).ready && linkEnable(i)) {
       io.input.ready := False
     }
   }
 
   for (i <- 0 until portCount) {
-    io.output(i).valid := io.input.valid && linkEnable(i)
-    io.output(i).payload := io.input.payload
-    when(io.output(i).fire) {
+    io.outputs(i).valid := io.input.valid && linkEnable(i)
+    io.outputs(i).payload := io.input.payload
+    when(io.outputs(i).fire) {
       linkEnable(i) := False
     }
   }
@@ -463,23 +434,33 @@ class StreamFork[T <: Data](dataType: T, portCount: Int) extends Component {
 }
 
 //TODOTEST
+object StreamDemux{
+  def apply[T <: Data](input: Stream[T],select : UInt, portCount: Int) : Vec[Stream[T]] = {
+    val c = new StreamDemux(input.payload,portCount)
+    c.io.input << input
+    c.io.select := select
+    c.io.outputs
+  }
+}
+
 class StreamDemux[T <: Data](dataType: T, portCount: Int) extends Component {
   val io = new Bundle {
-    val sel = in UInt (log2Up(portCount) bit)
+    val select = in UInt (log2Up(portCount) bit)
     val input = slave Stream (dataType)
-    val output = Vec(master Stream (dataType),portCount)
+    val outputs = Vec(master Stream (dataType),portCount)
   }
   io.input.ready := False
   for (i <- 0 to portCount - 1) {
-    io.output(i).payload := io.input.payload
-    when(U(i) =/= io.sel) {
-      io.output(i).valid := False
+    io.outputs(i).payload := io.input.payload
+    when(i =/= io.select) {
+      io.outputs(i).valid := False
     } otherwise {
-      io.output(i).valid := io.input.valid
-      io.input.ready := io.output(i).ready
+      io.outputs(i).valid := io.input.valid
+      io.input.ready := io.outputs(i).ready
     }
   }
 }
+
 
 class StreamFifo[T <: Data](dataType: T, depth: Int) extends Component {
   val io = new Bundle {
@@ -531,16 +512,6 @@ class StreamFifo[T <: Data](dataType: T, depth: Int) extends Component {
     risingOccupancy := False
   }
 }
-
-
-
-//class StreamFifoBackup[T <: Data](dataType: T, depth: Int) extends Component {
-//  val io = new Bundle {
-//    val incoming = slave Event
-//    val push = slave Flow (dataType)
-//    val pop = master Stream (dataType)
-//  }
-//}
 
 
 class StreamFifoCC[T <: Data](dataType: T, val depth: Int, pushClock: ClockDomain, popClock: ClockDomain) extends Component {
@@ -598,55 +569,61 @@ class StreamFifoCC[T <: Data](dataType: T, val depth: Int, pushClock: ClockDomai
 }
 
 object StreamCCByToggle {
-    def apply[T <: Data](push: Stream[T], pushClock: ClockDomain, popClock: ClockDomain): Stream[T] = {
-    val c = new StreamCCByToggle[T](push.payload, pushClock, popClock)
-    c.io.push << push
-    return c.io.pop
+    def apply[T <: Data](input: Stream[T], inputClock: ClockDomain, outputClock: ClockDomain): Stream[T] = {
+    val c = new StreamCCByToggle[T](input.payload, inputClock, outputClock)
+    c.io.input << input
+    return c.io.output
   }
 }
 
 
-class StreamCCByToggle[T <: Data](dataType: T, pushClock: ClockDomain, popClock: ClockDomain) extends Component {
+class StreamCCByToggle[T <: Data](dataType: T, inputClock: ClockDomain, outputClock: ClockDomain) extends Component {
   val io = new Bundle {
-    val push = slave Stream (dataType)
-    val pop = master Stream (dataType)
+    val input = slave Stream (dataType)
+    val output = master Stream (dataType)
   }
 
   val outHitSignal = Bool
 
-  val inputArea = new ClockingArea(pushClock) {
+  val pushArea = new ClockingArea(inputClock) {
     val hit = BufferCC(outHitSignal, False)
     val target = RegInit(False)
-    val data = Reg(io.push.payload)
-    io.push.ready := False
-    when(io.push.valid && hit === target) {
+    val data = Reg(io.input.payload)
+    io.input.ready := False
+    when(io.input.valid && hit === target) {
       target := !target
-      data := io.push.payload
-      io.push.ready := True
+      data := io.input.payload
+      io.input.ready := True
     }
   }
 
 
-  val outputArea = new ClockingArea(popClock) {
-    val target = BufferCC(inputArea.target, False)
+  val popArea = new ClockingArea(outputClock) {
+    val target = BufferCC(pushArea.target, False)
     val hit = RegInit(False)
     outHitSignal := hit
 
-    val stream = io.push.clone
+    val stream = io.input.clone
     stream.valid := (target =/= hit)
-    stream.payload := inputArea.data
+    stream.payload := pushArea.data
     stream.payload.addTag(crossClockDomain)
 
     when(stream.fire) {
       hit := !hit
     }
 
-    io.pop << stream.m2sPipe()
+    io.output << stream.m2sPipe()
   }
 }
 
-
-class DispatcherInOrder[T <: Data](gen: T, n: Int) extends Component {
+object StreamDispatcherInOrder{
+  def apply[T <: Data](input: Stream[T], portCount: Int): Vec[Stream[T]] = {
+    val dispatcher = new StreamDispatcherInOrder(input.dataType, portCount)
+    dispatcher.io.input << input
+    return dispatcher.io.outputs
+  }
+}
+class StreamDispatcherInOrder[T <: Data](gen: T, n: Int) extends Component {
   val io = new Bundle {
     val input = slave Stream (gen)
     val outputs = Vec(master Stream (gen),n)
@@ -681,6 +658,7 @@ object StreamFlowArbiter {
   }
 }
 
+//Give priority to the inputFlow
 class StreamFlowArbiter[T <: Data](dataType: T) extends Area {
   val io = new Bundle {
     val inputFlow = slave Flow (dataType)
@@ -693,10 +671,10 @@ class StreamFlowArbiter[T <: Data](dataType: T) extends Area {
 }
 
 
-object StreamSelector {
+object StreamMux {
   def apply[T <: Data](select: UInt, inputs: Seq[Stream[T]]): Stream[T] = {
     val vec = Vec(inputs)
-    StreamSelector(select, vec)
+    StreamMux(select, vec)
   }
 
   def apply[T <: Data](select: UInt, inputs: Vec[Stream[T]]): Stream[T] = {
@@ -713,6 +691,7 @@ object StreamSelector {
 }
 
 
+
 case class EventEmitter(on : Event){
   val reg = RegInit(False)
   when(on.ready){
@@ -726,7 +705,8 @@ case class EventEmitter(on : Event){
 }
 
 object StreamJoin{
-  def apply(sources : Stream[_]*) : Event = {
+  def arg(sources : Stream[_]*) : Event = apply(sources.seq)
+  def apply(sources : Seq[Stream[_]]) : Event = {
     val event = Event
     val eventFire = event.fire
     event.valid := sources.map(_.valid).reduce(_ && _)

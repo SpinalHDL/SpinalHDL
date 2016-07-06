@@ -99,7 +99,87 @@ class BoolRandomizer:
         return random.random() < self.prob
 
 
+# class Stream:
+#     def __init__(self,name,dut):
+#         self.valid = getattr(dut, name + "_valid")
+#         self.ready = getattr(dut, name + "_ready")
+#         payloads = [a for a in dut if a._name.startswith(name + "_payload")]
+#         if len(payloads) == 1 and payloads[0]._name == name + "_payload":
+#             self.payload = payloads[0]
 
 
-# print(ret.io_outRegComplex)
-#     print("LEN = " + str(len(dut.io_outRegComplex)))
+
+@cocotb.coroutine
+def StreamRandomizer(streamName, onNew,handle, dut, clk):
+    validRandomizer = BoolRandomizer()
+    valid = getattr(dut, streamName + "_valid")
+    ready = getattr(dut, streamName + "_ready")
+    payloads = [a for a in dut if a._name.startswith(streamName + "_payload")]
+
+    valid <= 0
+    while True:
+        yield RisingEdge(clk)
+        if int(ready) == 1:
+            valid <= 0
+
+        if int(valid) == 0 or int(ready) == 1:
+            if validRandomizer.get():
+                valid <= 1
+                for e in payloads:
+                    randSignal(e)
+                yield Timer(1)
+                if len(payloads) == 1 and payloads[0]._name == streamName + "_payload":
+                    payload = int(payloads[0])
+                else:
+                    payload = object()
+                    for e in payloads:
+                        payload.__setattr__(e._name[len(streamName) + 1:], int(e))
+
+                onNew(payload,handle)
+
+@cocotb.coroutine
+def FlowRandomizer(streamName, onNew,handle, dut, clk):
+    validRandomizer = BoolRandomizer()
+    valid = getattr(dut, streamName + "_valid")
+    payloads = [a for a in dut if a._name.startswith(streamName + "_payload")]
+
+    valid <= 0
+    while True:
+        yield RisingEdge(clk)
+        if validRandomizer.get():
+            valid <= 1
+            for e in payloads:
+                randSignal(e)
+            yield Timer(1)
+            if len(payloads) == 1 and payloads[0]._name == streamName + "_payload":
+                payload = int(payloads[0])
+            else:
+                payload = object()
+                for e in payloads:
+                    payload.__setattr__(e._name[len(streamName) + 1:], int(e))
+
+            onNew(payload,handle)
+        else:
+            valid <= 0
+
+@cocotb.coroutine
+def StreamReader(streamName, onTransaction, handle, dut, clk):
+    validRandomizer = BoolRandomizer()
+    valid = getattr(dut, streamName + "_valid")
+    ready = getattr(dut, streamName + "_ready")
+    payloads = [a for a in dut if a._name.startswith(streamName + "_payload")]
+
+    ready <= 0
+    while True:
+        yield RisingEdge(clk)
+        ready <= validRandomizer.get()
+        if int(valid) == 1 and int(ready) == 1:
+            if len(payloads) == 1 and payloads[0]._name == streamName + "_payload":
+                payload = int(payloads[0])
+            else:
+                payload = object()
+                for e in payloads:
+                    payload.__setattr__(e._name[len(streamName) + 1:], int(e))
+
+            onTransaction(payload,handle)
+

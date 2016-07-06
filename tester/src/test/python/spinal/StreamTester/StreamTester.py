@@ -5,42 +5,135 @@ import cocotb
 from cocotb.triggers import Timer, Edge, RisingEdge, Join
 
 from spinal.common.misc import setBit, randSignal, assertEquals, truncUInt, sint, ClockDomainAsyncReset, randBoolSignal, \
-    BoolRandomizer
+    BoolRandomizer, StreamRandomizer,StreamReader, FlowRandomizer
 
 
-class Packet:
+class FifoPacket:
     def __init__(self,a,b):
         self.a = a
         self.b = b
 
+class Fifo:
+    def __init__(self,dut):
+        self.queue = Queue()
+        self.dut = dut
 
-@cocotb.coroutine
-def cmd(dut,queue):
-    validRandomizer = BoolRandomizer()
-    dut.io_slave0_valid <= 0
-    while True:
-        yield RisingEdge(dut.clk)
-        if int(dut.io_slave0_valid) == 1 and int(dut.io_slave0_ready) == 1:
-            queue.put(Packet(int(dut.io_slave0_payload_a),int(dut.io_slave0_payload_b)))
-        dut.io_slave0_valid <= validRandomizer.get()
-        randSignal(dut.io_slave0_payload_a)
-        randSignal(dut.io_slave0_payload_b)
+    @cocotb.coroutine
+    def run(self):
+        cocotb.fork(self.push())
+        yield self.pop()
 
-
-
-@cocotb.coroutine
-def rsp(dut,queue):
-    readyRandomizer = BoolRandomizer()
-    dut.io_master0_ready <= 0
-    for i in range(0,1000):
+    @cocotb.coroutine
+    def push(self):
+        dut = self.dut
+        queue = self.queue
+        validRandomizer = BoolRandomizer()
+        dut.io_slave0_valid <= 0
         while True:
             yield RisingEdge(dut.clk)
-            dut.io_master0_ready <= readyRandomizer.get()
-            if int(dut.io_master0_valid) == 1 and int(dut.io_master0_ready) == 1:
-                break
-        pop = queue.get()
-        assertEquals(pop.a, dut.io_master0_payload_a,"io_master0_payload_a")
-        assertEquals(pop.b, dut.io_master0_payload_b, "io_master0_payload_b")
+            if int(dut.io_slave0_valid) == 1 and int(dut.io_slave0_ready) == 1:
+                queue.put(FifoPacket(int(dut.io_slave0_payload_a), int(dut.io_slave0_payload_b)))
+            dut.io_slave0_valid <= validRandomizer.get()
+            randSignal(dut.io_slave0_payload_a)
+            randSignal(dut.io_slave0_payload_b)
+
+    @cocotb.coroutine
+    def pop(self):
+        dut = self.dut
+        queue = self.queue
+        readyRandomizer = BoolRandomizer()
+        dut.io_master0_ready <= 0
+        for i in range(0,1000):
+            while True:
+                yield RisingEdge(dut.clk)
+                dut.io_master0_ready <= readyRandomizer.get()
+                if int(dut.io_master0_valid) == 1 and int(dut.io_master0_ready) == 1:
+                    break
+            pop = queue.get()
+            assertEquals(pop.a, dut.io_master0_payload_a,"io_master0_payload_a")
+            assertEquals(pop.b, dut.io_master0_payload_b, "io_master0_payload_b")
+
+
+class Fork:
+    def __init__(self,dut):
+        self.queues = [Queue() for i in range(0,3)]
+        self.counters = [0 for i in range (0,3)]
+        self.dut = dut
+
+    def onInput(self,payload,handle):
+        for queue in self.queues:
+            queue.put(payload)
+
+    def onOutput(self,payload,portId):
+        assertEquals(payload,self.queues[portId].get(),"fork error")
+        self.counters[portId] += 1
+
+    @cocotb.coroutine
+    def run(self):
+        cocotb.fork(StreamRandomizer("forkInput", self.onInput,None, self.dut, self.dut.clk))
+        for idx in range(0,3):
+            cocotb.fork(StreamReader("forkOutputs_" + str(idx), self.onOutput, idx, self.dut, self.dut.clk))
+
+        while not reduce(lambda x,y: x and y, map(lambda x: x > 1000, self.counters)):
+            yield RisingEdge(self.dut.clk)
+
+
+
+class DispatcherInOrder:
+    def __init__(self,dut):
+        self.queue = Queue()
+        self.counter = 0
+        self.nextPort = 0
+        self.dut = dut
+
+    def onInput(self,payload,handle):
+        self.queue.put(payload)
+
+    def onOutput(self,payload,portId):
+        assertEquals(payload,self.queue.get(),"DispatcherInOrder payload error")
+        assertEquals(portId,self.nextPort,"DispatcherInOrder order error")
+        self.nextPort = (self.nextPort + 1) % 3
+        self.counter += 1
+
+    @cocotb.coroutine
+    def run(self):
+        cocotb.fork(StreamRandomizer("dispatcherInOrderInput", self.onInput,None, self.dut, self.dut.clk))
+        for idx in range(0,3):
+            cocotb.fork(StreamReader("dispatcherInOrderOutputs_" + str(idx), self.onOutput, idx, self.dut, self.dut.clk))
+
+        while self.counter < 1000:
+            yield RisingEdge(self.dut.clk)
+
+class StreamFlowArbiter:
+    def __init__(self,dut):
+        self.inputStreamCounter = 0
+        self.inputFlowCounter = 0
+        self.dut = dut
+
+    def onInputStream(self,payload,handle):
+        pass
+
+    def onInputFlow(self,payload,handle):
+        pass
+
+
+    @cocotb.coroutine
+    def run(self):
+        dut = self.dut
+        cocotb.fork(StreamRandomizer("streamFlowArbiterInputStream", self.onInputStream, None, dut, dut.clk))
+        cocotb.fork(FlowRandomizer("streamFlowArbiterInputFlow", self.onInputFlow, None, dut, dut.clk))
+
+        while not (self.inputFlowCounter > 1000 and self.inputStreamCounter > 1000):
+            yield RisingEdge(dut.clk)
+            if int(dut.streamFlowArbiterOutput_valid) == 1:
+                if int(dut.streamFlowArbiterInputFlow_valid) == 1:
+                    assertEquals(dut.streamFlowArbiterOutput_payload,dut.streamFlowArbiterInputFlow_payload,"StreamFlowArbiter payload error")
+                    assertEquals(0, dut.streamFlowArbiterInputStream_ready, "StreamFlowArbiter arbitration error")
+                    self.inputFlowCounter += 1
+                else:
+                    assertEquals(dut.streamFlowArbiterOutput_payload,dut.streamFlowArbiterInputStream_payload,"StreamFlowArbiter payload error")
+                    assertEquals(0, dut.streamFlowArbiterInputFlow_valid, "StreamFlowArbiter arbitration error")
+                    self.inputStreamCounter += 1
 
 
 
@@ -49,12 +142,23 @@ def rsp(dut,queue):
 @cocotb.test()
 def test1(dut):
     dut.log.info("Cocotb test boot")
-    #random.seed(0)
+    random.seed(0)
 
-    queue = Queue()
 
     cocotb.fork(ClockDomainAsyncReset(dut.clk, dut.reset))
-    cocotb.fork(cmd(dut,queue))
-    yield rsp(dut,queue)
+
+    threads = []
+    threads.append(cocotb.fork(Fifo(dut).run()))
+    threads.append(cocotb.fork(Fork(dut).run()))
+    threads.append(cocotb.fork(DispatcherInOrder(dut).run()))
+    threads.append(cocotb.fork(StreamFlowArbiter(dut).run()))
+
+    for thread in threads:
+        yield thread.join()
+
+    #
+    #
+    # yield fork
+
 
     dut.log.info("Cocotb test done")
