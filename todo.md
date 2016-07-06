@@ -18,25 +18,27 @@
 
 ## spinal.tester
 
-- [ ] spinal.lib.StreamFork
+- [X] spinal.lib.StreamFork
 - [ ] spinal.lib.StreamDemux
 - [ ] spinal.lib.StreamCCByToggle
-- [ ] spinal.lib.StreamDispatcherInOrder
-- [ ] spinal.lib.StreamFlowArbiter
+- [X] spinal.lib.StreamDispatcherInOrder
+- [X] spinal.lib.StreamFlowArbiter
+- [X] spinal.lib.StreamArbiter
 - [ ] spinal.lib.StreamMux
 - [ ] spinal.lib.EventEmitter
-- [ ] spinal.lib.StreamJoin
+- [x] spinal.lib.StreamJoin
 - [ ] spinal.lib.FlowCCByToggle
 
 ## http://spinalhdl.github.io/SpinalDoc/
 
-- [ ] wait verification spinal.lib.StreamFork
+- [ ] spinal.lib.StreamFork
 - [ ] wait verification spinal.lib.StreamDemux
 - [ ] wait verification spinal.lib.StreamCCByToggle
-- [ ] wait verification spinal.lib.StreamDispatcherInOrder
-- [ ] wait verification spinal.lib.StreamFlowArbiter
+- [ ] spinal.lib.StreamDispatcherInOrder
+- [ ] spinal.lib.StreamFlowArbiter
+- [ ] spinal.lib.StreamArbiter
 - [ ] wait verification spinal.lib.StreamMux
 - [ ] wait verification spinal.lib.EventEmitter
-- [ ] wait verification spinal.lib.StreamJoin
+- [ ] spinal.lib.StreamJoin
 - [ ] spinal.lib.RegFlow
 - [ ] wait verification spinal.lib.FlowCCByToggle

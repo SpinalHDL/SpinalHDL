@@ -2,7 +2,8 @@ import random
 from Queue import Queue
 
 import cocotb
-from cocotb.triggers import Timer, Edge, RisingEdge, Join
+from cocotb.result import TestFailure
+from cocotb.triggers import Timer, Edge, RisingEdge, Join, FallingEdge
 
 from spinal.common.misc import setBit, randSignal, assertEquals, truncUInt, sint, ClockDomainAsyncReset, randBoolSignal, \
     BoolRandomizer, StreamRandomizer,StreamReader, FlowRandomizer
@@ -138,6 +139,152 @@ class StreamFlowArbiter:
 
 
 
+class ArbiterInOrder:
+    def __init__(self,dut):
+        self.queues = [Queue() for i in range(0,3)]
+        self.counter = 0
+        self.nextPort = 0
+        self.dut = dut
+
+    def onInput(self,payload,portId):
+        self.queues[portId].put(payload)
+
+    def onOutput(self,payload,portId):
+        assertEquals(payload,self.queues[self.nextPort].get(),"ArbiterInOrder payload error")
+        self.nextPort = (self.nextPort + 1) % 3
+        self.counter += 1
+
+    @cocotb.coroutine
+    def run(self):
+        for idx in range(0,3):
+            cocotb.fork(StreamRandomizer("arbiterInOrderInputs_" + str(idx), self.onInput ,idx, self.dut, self.dut.clk))
+
+        cocotb.fork(StreamReader("arbiterInOrderOutput", self.onOutput, idx, self.dut, self.dut.clk))
+
+        while self.counter < 1000:
+            yield RisingEdge(self.dut.clk)
+
+class ArbiterLowIdPortFirst:
+    def __init__(self,dut):
+        self.queues = [Queue() for i in range(0,3)]
+        self.nextPort = -1
+        self.counter = 0
+        self.dut = dut
+
+    def onInput(self,payload,portId):
+        self.queues[portId].put(payload)
+
+    def onOutput(self,payload,dummy):
+        assertEquals(payload,self.queues[self.nextPort].get(),"ArbiterLowIdPortFirst payload error")
+        self.counter += 1
+        self.nextPort = -1
+
+    @cocotb.coroutine
+    def arbitration(self):
+        while True:
+            yield FallingEdge(self.dut.clk)
+            if self.nextPort == -1:
+                if int(self.dut.arbiterLowIdPortFirstInputs_0_valid) == 1:
+                    self.nextPort = 0
+                elif int(self.dut.arbiterLowIdPortFirstInputs_1_valid) == 1:
+                    self.nextPort = 1
+                elif int(self.dut.arbiterLowIdPortFirstInputs_2_valid) == 1:
+                    self.nextPort = 2
+
+    @cocotb.coroutine
+    def run(self):
+        dut = self.dut
+        for idx in range(0,3):
+            cocotb.fork(StreamRandomizer("arbiterLowIdPortFirstInputs_" + str(idx), self.onInput ,idx, self.dut, self.dut.clk))
+        cocotb.fork(StreamReader("arbiterLowIdPortFirstOutput", self.onOutput, idx, self.dut, self.dut.clk))
+        cocotb.fork(self.arbitration())
+
+        while self.counter < 1000:
+            yield RisingEdge(dut.clk)
+
+
+class ArbiterLowIdPortNoLockFirst:
+    def __init__(self,dut):
+        self.queues = [Queue() for i in range(0,3)]
+        self.nextPort = -1
+        self.counter = 0
+        self.dut = dut
+
+    def onInput(self,payload,portId):
+        self.queues[portId].put(payload)
+
+    def onOutput(self,payload,portId):
+        assertEquals(payload,self.queues[self.nextPort].get(),"ArbiterLowIdPortNoLockFirst payload error")
+        self.counter += 1
+        self.nextPort = -1
+
+
+    @cocotb.coroutine
+    def arbitration(self):
+        while True:
+            yield FallingEdge(self.dut.clk)
+            if int(self.dut.arbiterLowIdPortFirstNoLockInputs_0_valid) == 1:
+                self.nextPort = 0
+            elif int(self.dut.arbiterLowIdPortFirstNoLockInputs_1_valid) == 1:
+                self.nextPort = 1
+            elif int(self.dut.arbiterLowIdPortFirstNoLockInputs_2_valid) == 1:
+                self.nextPort = 2
+            else:
+                self.nextPort = -1
+
+    @cocotb.coroutine
+    def run(self):
+        dut = self.dut
+        for idx in range(0,3):
+            cocotb.fork(StreamRandomizer("arbiterLowIdPortFirstNoLockInputs_" + str(idx), self.onInput ,idx, self.dut, self.dut.clk))
+        cocotb.fork(StreamReader("arbiterLowIdPortFirstNoLockOutput", self.onOutput, idx, self.dut, self.dut.clk))
+        cocotb.fork(self.arbitration())
+
+        while self.counter < 1000:
+            yield RisingEdge(dut.clk)
+
+
+class ArbiterLowIdPortFragmentLockFirst:
+    def __init__(self,dut):
+        self.queues = [Queue() for i in range(0,3)]
+        self.nextPort = -1
+        self.counter = 0
+        self.dut = dut
+
+    def onInput(self,payload,portId):
+        self.queues[portId].put(payload.fragment)
+
+    def onOutput(self,payload,dummy):
+        if self.queues[self.nextPort].empty():
+            raise TestFailure("ArbiterLowIdPortFragmentLockFirst Empty queue")
+        assertEquals(payload.fragment,self.queues[self.nextPort].get(),"ArbiterLowIdPortFragmentLockFirst payload error")
+        self.counter += 1
+        if payload.last == 1:
+            self.nextPort = -1
+
+
+    @cocotb.coroutine
+    def arbitration(self):
+        while True:
+            yield FallingEdge(self.dut.clk)
+            if self.nextPort == -1:
+                if int(self.dut.arbiterLowIdPortFirstFragmentLockInputs_0_valid) == 1:
+                    self.nextPort = 0
+                elif int(self.dut.arbiterLowIdPortFirstFragmentLockInputs_1_valid) == 1:
+                    self.nextPort = 1
+                elif int(self.dut.arbiterLowIdPortFirstFragmentLockInputs_2_valid) == 1:
+                    self.nextPort = 2
+
+    @cocotb.coroutine
+    def run(self):
+        dut = self.dut
+        for idx in range(0,3):
+            cocotb.fork(StreamRandomizer("arbiterLowIdPortFirstFragmentLockInputs_" + str(idx), self.onInput ,idx, self.dut, self.dut.clk))
+        cocotb.fork(StreamReader("arbiterLowIdPortFirstFragmentLockOutput", self.onOutput, idx, self.dut, self.dut.clk))
+        cocotb.fork(self.arbitration())
+
+        while self.counter < 1000:
+            yield RisingEdge(dut.clk)
 
 @cocotb.test()
 def test1(dut):
@@ -152,6 +299,10 @@ def test1(dut):
     threads.append(cocotb.fork(Fork(dut).run()))
     threads.append(cocotb.fork(DispatcherInOrder(dut).run()))
     threads.append(cocotb.fork(StreamFlowArbiter(dut).run()))
+    threads.append(cocotb.fork(ArbiterInOrder(dut).run()))
+    threads.append(cocotb.fork(ArbiterLowIdPortFirst(dut).run()))
+    threads.append(cocotb.fork(ArbiterLowIdPortNoLockFirst(dut).run()))
+    threads.append(cocotb.fork(ArbiterLowIdPortFragmentLockFirst(dut).run()))
 
     for thread in threads:
         yield thread.join()

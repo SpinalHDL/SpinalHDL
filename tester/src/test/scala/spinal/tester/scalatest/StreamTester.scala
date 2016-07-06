@@ -42,7 +42,24 @@ class StreamTester extends Component {
   val streamFlowArbiterOutput = master Flow(Bits(8 bits))
   streamFlowArbiterOutput << StreamFlowArbiter(streamFlowArbiterInputStream,streamFlowArbiterInputFlow)
 
-//  val muxSelect = in UInt(2 bits)
+  val arbiterInOrderInputs =  Vec(slave Stream(Bits(8 bits)),3)
+  val arbiterInOrderOutput =  master Stream(Bits(8 bits))
+  arbiterInOrderOutput << StreamArbiterFactory.inOrder.build(arbiterInOrderInputs)
+
+  val arbiterLowIdPortFirstInputs =  Vec(slave Stream(Bits(8 bits)),3)
+  val arbiterLowIdPortFirstOutput =  master Stream(Bits(8 bits))
+  arbiterLowIdPortFirstOutput << StreamArbiterFactory.lowIdPortFirst.build(arbiterLowIdPortFirstInputs)
+
+  val arbiterLowIdPortFirstNoLockInputs =  Vec(slave Stream(Bits(8 bits)),3)
+  val arbiterLowIdPortFirstNoLockOutput =  master Stream(Bits(8 bits))
+  arbiterLowIdPortFirstNoLockOutput << StreamArbiterFactory.lowIdPortFirst.noLock.build(arbiterLowIdPortFirstNoLockInputs)
+
+  val arbiterLowIdPortFirstFragmentLockInputs =  Vec(slave Stream(Fragment(Bits(8 bits))),3)
+  val arbiterLowIdPortFirstFragmentLockOutput =  master Stream(Fragment(Bits(8 bits)))
+  arbiterLowIdPortFirstFragmentLockOutput << StreamArbiterFactory.lowIdPortFirst.fragmentLock.build(arbiterLowIdPortFirstFragmentLockInputs)
+
+
+  //  val muxSelect = in UInt(2 bits)
 //  val muxInputs = Vec(slave Stream(Bits(8 bits)),3)
 //  val muxOutput = master Stream(Bits(8 bits))
 //  muxOutput << StreamMux(muxSelect,muxInputs)
