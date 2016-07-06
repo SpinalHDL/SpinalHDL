@@ -8,6 +8,7 @@ object SpinalVersion {
   val all         = s"$major$snapshot"
   val core        = s"$major$snapshot"
   val lib         = s"$major$snapshot"
+  val ip         = s"$major$snapshot"
   val debugger    = s"$major$snapshot"
   val demo        = s"$major$snapshot"
   val tester      = s"$major$snapshot"
