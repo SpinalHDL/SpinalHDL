@@ -67,7 +67,7 @@ object SpinalBuild extends Build {
       version := SpinalVersion.demo,
       publishTo := None
     )
-  ) dependsOn(core, lib,, ip ,debugger)
+  ) dependsOn(core, lib, ip ,debugger)
 
 
   lazy val tester = Project(
