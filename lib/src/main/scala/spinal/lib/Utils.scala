@@ -706,3 +706,12 @@ object WrapWithReg{
 }
 
 
+
+object Call{
+  def apply(doIt : => Unit) = new Area{
+    val isCalled = False
+    when(isCalled){doIt}
+
+    def call() = isCalled := True
+  }
+}
