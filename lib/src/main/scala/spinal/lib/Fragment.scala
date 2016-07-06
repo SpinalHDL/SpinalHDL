@@ -452,17 +452,17 @@ class FlowFragmentBitsRouter(input: Flow[Fragment[Bits]], allowBroadcast: Boolea
 
 class StreamToStreamFragmentBits[T <: Data](dataType: T, bitsWidth: Int) extends Component {
   val io = new Bundle {
-    val cmd = slave Stream (dataType)
-    val rsp = master Stream Fragment(Bits(bitsWidth bit))
+    val input = slave Stream (dataType)
+    val output = master Stream Fragment(Bits(bitsWidth bit))
   }
   val counter = Counter((widthOf(dataType) - 1) / bitsWidth + 1)
-  val cmdBits = B(0, bitsWidth bit) ## asBits(io.cmd.payload) //The ## allow to mux inputBits
+  val inputBits = B(0, bitsWidth bit) ## asBits(io.input.payload) //The ## allow to mux inputBits
 
-  io.cmd.ready := counter.willOverflow
-  io.rsp.last := counter.willOverflowIfInc
-  io.rsp.valid := io.cmd.valid
-  io.rsp.fragment := cmdBits(counter * U(bitsWidth), bitsWidth bit)
-  when(io.rsp.fire) {
+  io.input.ready := counter.willOverflow
+  io.output.last := counter.willOverflowIfInc
+  io.output.valid := io.input.valid
+  io.output.fragment := inputBits(counter * U(bitsWidth), bitsWidth bit)
+  when(io.output.fire) {
     counter.increment()
   }
 }
@@ -498,23 +498,23 @@ object StreamFragmentGenerator {
 
 object StreamFragmentArbiter {
    def apply[T <: Data](dataType: T)(inputs: Seq[Stream[Fragment[T]]]): Stream[Fragment[T]] = {
-    val arbiter = new StreamArbiter(Fragment(dataType), inputs.size)(StreamArbiter.arbitration_lowIdPortFirst, StreamArbiter.lock_fragmentLock)
-    (inputs, arbiter.io.cmd).zipped.foreach(_ >> _)
-    arbiter.io.rsp
+    val arbiter = new StreamArbiter(Fragment(dataType), inputs.size)(StreamArbiter.Arbitration.lowIdPortFirst, StreamArbiter.Lock.fragmentLock)
+    (inputs, arbiter.io.inputs).zipped.foreach(_ >> _)
+    arbiter.io.output
   }
 }
 
 object StreamFragmentArbiterAndHeaderAdder {
   def apply[T <: Data](dataType: T)(inputs: Seq[Tuple2[Stream[Fragment[T]], T]]): Stream[Fragment[T]] = {
-    val arbiter = new StreamArbiter(Fragment(dataType), inputs.size)(StreamArbiter.arbitration_lowIdPortFirst, StreamArbiter.lock_fragmentLock)
-    (inputs, arbiter.io.cmd).zipped.foreach(_._1 >> _)
+    val arbiter = new StreamArbiter(Fragment(dataType), inputs.size)(StreamArbiter.Arbitration.lowIdPortFirst, StreamArbiter.Lock.fragmentLock)
+    (inputs, arbiter.io.inputs).zipped.foreach(_._1 >> _)
 
     val ret = Stream Fragment (dataType)
     def first = ret.first
-    ret.valid := arbiter.io.rsp.valid
-    ret.last := arbiter.io.rsp.last && !first
-    ret.fragment := Mux(first, Vec(inputs.map(_._2))(arbiter.io.chosen), arbiter.io.rsp.fragment)
-    arbiter.io.rsp.ready := ret.ready && !first
+    ret.valid := arbiter.io.output.valid
+    ret.last := arbiter.io.output.last && !first
+    ret.fragment := Mux(first, Vec(inputs.map(_._2))(arbiter.io.chosen), arbiter.io.output.fragment)
+    arbiter.io.output.ready := ret.ready && !first
 
     ret
     // arbiter.io.output

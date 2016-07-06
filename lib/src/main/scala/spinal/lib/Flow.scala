@@ -125,48 +125,48 @@ object RegFlow{
 }
 
 object FlowCCByToggle {
-  def apply[T <: Data](cmd: Flow[T], cmdClock: ClockDomain = ClockDomain.current, rspClock: ClockDomain = ClockDomain.current): Flow[T] = {
-    val c = new FlowCCByToggle[T](cmd.payload, cmdClock, rspClock)
-    c.io.cmd connectFrom cmd
-    return c.io.rsp
+  def apply[T <: Data](input: Flow[T], inputClock: ClockDomain = ClockDomain.current, outputClock: ClockDomain = ClockDomain.current): Flow[T] = {
+    val c = new FlowCCByToggle[T](input.payload, inputClock, outputClock)
+    c.io.input connectFrom input
+    return c.io.output
   }
 }
 
 
-class FlowCCByToggle[T <: Data](dataType: T, cmdClock: ClockDomain, rspClock: ClockDomain) extends Component {
+class FlowCCByToggle[T <: Data](dataType: T, inputClock: ClockDomain, outputClock: ClockDomain) extends Component {
   val io = new Bundle {
-    val cmd = slave  Flow (dataType)
-    val rsp = master Flow (dataType)
+    val input = slave  Flow (dataType)
+    val output = master Flow (dataType)
   }
 
   val outHitSignal = Bool
 
-  val cmdArea = new ClockingArea(cmdClock) {
+  val inputArea = new ClockingArea(inputClock) {
     val target = Reg(Bool)
-    val data = Reg(io.cmd.payload)
-    when(io.cmd.valid) {
+    val data = Reg(io.input.payload)
+    when(io.input.valid) {
       target := !target
-      data := io.cmd.payload
+      data := io.input.payload
     }
   }
 
 
-  val rspArea = new ClockingArea(rspClock) {
-    val target = BufferCC(cmdArea.target, if(cmdClock.hasResetSignal) False else null)
+  val outputArea = new ClockingArea(outputClock) {
+    val target = BufferCC(inputArea.target, if(inputClock.hasResetSignal) False else null)
     val hit = RegNext(target)
 
-    val flow = io.cmd.clone
+    val flow = io.input.clone
     flow.valid := (target =/= hit)
-    flow.payload := cmdArea.data
+    flow.payload := inputArea.data
     flow.payload.addTag(crossClockDomain)
 
-    io.rsp <-< flow
+    io.output <-< flow
   }
 
-  if(cmdClock.hasResetSignal){
-    cmdArea.target init(False)
-    rspArea.hit init(False)
+  if(inputClock.hasResetSignal){
+    inputArea.target init(False)
+    outputArea.hit init(False)
   }else{
-    cmdArea.target.randBoot()
+    inputArea.target.randBoot()
   }
 }

@@ -1,10 +1,11 @@
-library IEEE;
-use IEEE.STD_LOGIC_1164.ALL;
-use IEEE.NUMERIC_STD.all;
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
-library lib_StreamTester;
-use lib_StreamTester.pkg_scala2hdl.all;
-use lib_StreamTester.pkg_enum.all;
+library work;
+use work.pkg_scala2hdl.all;
+use work.all;
+use work.pkg_enum.all;
 
 -- #spinalBegin userLibrary
 library IEEE;
@@ -25,6 +26,61 @@ architecture arch of StreamTester_tb is
   signal io_master0_payload_a : unsigned(7 downto 0);
   signal io_master0_payload_b : std_logic;
   signal io_fifo0_occupancy : unsigned(4 downto 0);
+  signal forkInput_valid : std_logic;
+  signal forkInput_ready : std_logic;
+  signal forkInput_payload : std_logic_vector(7 downto 0);
+  signal forkOutputs_0_valid : std_logic;
+  signal forkOutputs_0_ready : std_logic;
+  signal forkOutputs_0_payload : std_logic_vector(7 downto 0);
+  signal forkOutputs_1_valid : std_logic;
+  signal forkOutputs_1_ready : std_logic;
+  signal forkOutputs_1_payload : std_logic_vector(7 downto 0);
+  signal forkOutputs_2_valid : std_logic;
+  signal forkOutputs_2_ready : std_logic;
+  signal forkOutputs_2_payload : std_logic_vector(7 downto 0);
+  signal dispatcherInOrderInput_valid : std_logic;
+  signal dispatcherInOrderInput_ready : std_logic;
+  signal dispatcherInOrderInput_payload : std_logic_vector(7 downto 0);
+  signal dispatcherInOrderOutput_0_valid : std_logic;
+  signal dispatcherInOrderOutput_0_ready : std_logic;
+  signal dispatcherInOrderOutput_0_payload : std_logic_vector(7 downto 0);
+  signal dispatcherInOrderOutput_1_valid : std_logic;
+  signal dispatcherInOrderOutput_1_ready : std_logic;
+  signal dispatcherInOrderOutput_1_payload : std_logic_vector(7 downto 0);
+  signal dispatcherInOrderOutput_2_valid : std_logic;
+  signal dispatcherInOrderOutput_2_ready : std_logic;
+  signal dispatcherInOrderOutput_2_payload : std_logic_vector(7 downto 0);
+  signal streamFlowArbiterStreamInput_valid : std_logic;
+  signal streamFlowArbiterStreamInput_ready : std_logic;
+  signal streamFlowArbiterStreamInput_payload : std_logic_vector(7 downto 0);
+  signal streamFlowArbiterFlowInput_valid : std_logic;
+  signal streamFlowArbiterFlowInput_payload : std_logic_vector(7 downto 0);
+  signal streamFlowArbiterOutput_valid : std_logic;
+  signal streamFlowArbiterOutput_payload : std_logic_vector(7 downto 0);
+  signal muxSelect : unsigned(1 downto 0);
+  signal muxInputs_0_valid : std_logic;
+  signal muxInputs_0_ready : std_logic;
+  signal muxInputs_0_payload : std_logic_vector(7 downto 0);
+  signal muxInputs_1_valid : std_logic;
+  signal muxInputs_1_ready : std_logic;
+  signal muxInputs_1_payload : std_logic_vector(7 downto 0);
+  signal muxInputs_2_valid : std_logic;
+  signal muxInputs_2_ready : std_logic;
+  signal muxInputs_2_payload : std_logic_vector(7 downto 0);
+  signal muxOutput_valid : std_logic;
+  signal muxOutput_ready : std_logic;
+  signal muxOutput_payload : std_logic_vector(7 downto 0);
+  signal joinInputs_0_valid : std_logic;
+  signal joinInputs_0_ready : std_logic;
+  signal joinInputs_0_payload : std_logic_vector(7 downto 0);
+  signal joinInputs_1_valid : std_logic;
+  signal joinInputs_1_ready : std_logic;
+  signal joinInputs_1_payload : std_logic_vector(7 downto 0);
+  signal joinInputs_2_valid : std_logic;
+  signal joinInputs_2_ready : std_logic;
+  signal joinInputs_2_payload : std_logic_vector(7 downto 0);
+  signal joinOutput_valid : std_logic;
+  signal joinOutput_ready : std_logic;
   signal clk : std_logic;
   signal reset : std_logic;
   -- #spinalBegin userDeclarations
@@ -144,7 +200,7 @@ begin
   end process;
   
   -- #spinalEnd userLogics
-  uut : entity lib_StreamTester.StreamTester
+  uut : entity work.StreamTester
     port map (
       io_slave0_valid =>  io_slave0_valid,
       io_slave0_ready =>  io_slave0_ready,
@@ -155,6 +211,61 @@ begin
       io_master0_payload_a =>  io_master0_payload_a,
       io_master0_payload_b =>  io_master0_payload_b,
       io_fifo0_occupancy =>  io_fifo0_occupancy,
+      forkInput_valid =>  forkInput_valid,
+      forkInput_ready =>  forkInput_ready,
+      forkInput_payload =>  forkInput_payload,
+      forkOutputs_0_valid =>  forkOutputs_0_valid,
+      forkOutputs_0_ready =>  forkOutputs_0_ready,
+      forkOutputs_0_payload =>  forkOutputs_0_payload,
+      forkOutputs_1_valid =>  forkOutputs_1_valid,
+      forkOutputs_1_ready =>  forkOutputs_1_ready,
+      forkOutputs_1_payload =>  forkOutputs_1_payload,
+      forkOutputs_2_valid =>  forkOutputs_2_valid,
+      forkOutputs_2_ready =>  forkOutputs_2_ready,
+      forkOutputs_2_payload =>  forkOutputs_2_payload,
+      dispatcherInOrderInput_valid =>  dispatcherInOrderInput_valid,
+      dispatcherInOrderInput_ready =>  dispatcherInOrderInput_ready,
+      dispatcherInOrderInput_payload =>  dispatcherInOrderInput_payload,
+      dispatcherInOrderOutput_0_valid =>  dispatcherInOrderOutput_0_valid,
+      dispatcherInOrderOutput_0_ready =>  dispatcherInOrderOutput_0_ready,
+      dispatcherInOrderOutput_0_payload =>  dispatcherInOrderOutput_0_payload,
+      dispatcherInOrderOutput_1_valid =>  dispatcherInOrderOutput_1_valid,
+      dispatcherInOrderOutput_1_ready =>  dispatcherInOrderOutput_1_ready,
+      dispatcherInOrderOutput_1_payload =>  dispatcherInOrderOutput_1_payload,
+      dispatcherInOrderOutput_2_valid =>  dispatcherInOrderOutput_2_valid,
+      dispatcherInOrderOutput_2_ready =>  dispatcherInOrderOutput_2_ready,
+      dispatcherInOrderOutput_2_payload =>  dispatcherInOrderOutput_2_payload,
+      streamFlowArbiterStreamInput_valid =>  streamFlowArbiterStreamInput_valid,
+      streamFlowArbiterStreamInput_ready =>  streamFlowArbiterStreamInput_ready,
+      streamFlowArbiterStreamInput_payload =>  streamFlowArbiterStreamInput_payload,
+      streamFlowArbiterFlowInput_valid =>  streamFlowArbiterFlowInput_valid,
+      streamFlowArbiterFlowInput_payload =>  streamFlowArbiterFlowInput_payload,
+      streamFlowArbiterOutput_valid =>  streamFlowArbiterOutput_valid,
+      streamFlowArbiterOutput_payload =>  streamFlowArbiterOutput_payload,
+      muxSelect =>  muxSelect,
+      muxInputs_0_valid =>  muxInputs_0_valid,
+      muxInputs_0_ready =>  muxInputs_0_ready,
+      muxInputs_0_payload =>  muxInputs_0_payload,
+      muxInputs_1_valid =>  muxInputs_1_valid,
+      muxInputs_1_ready =>  muxInputs_1_ready,
+      muxInputs_1_payload =>  muxInputs_1_payload,
+      muxInputs_2_valid =>  muxInputs_2_valid,
+      muxInputs_2_ready =>  muxInputs_2_ready,
+      muxInputs_2_payload =>  muxInputs_2_payload,
+      muxOutput_valid =>  muxOutput_valid,
+      muxOutput_ready =>  muxOutput_ready,
+      muxOutput_payload =>  muxOutput_payload,
+      joinInputs_0_valid =>  joinInputs_0_valid,
+      joinInputs_0_ready =>  joinInputs_0_ready,
+      joinInputs_0_payload =>  joinInputs_0_payload,
+      joinInputs_1_valid =>  joinInputs_1_valid,
+      joinInputs_1_ready =>  joinInputs_1_ready,
+      joinInputs_1_payload =>  joinInputs_1_payload,
+      joinInputs_2_valid =>  joinInputs_2_valid,
+      joinInputs_2_ready =>  joinInputs_2_ready,
+      joinInputs_2_payload =>  joinInputs_2_payload,
+      joinOutput_valid =>  joinOutput_valid,
+      joinOutput_ready =>  joinOutput_ready,
       clk =>  clk,
       reset =>  reset 
     );

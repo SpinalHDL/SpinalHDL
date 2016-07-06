@@ -918,12 +918,12 @@ object t9 {
     val pixelResultArbiter = StreamArbiterFactory.inOrder.build(Fragment(PixelResult(p)), p.pixelTaskSolverCount)
 
     pixelTaskGenerator.io.frameTask << io.frameTask
-    pixelTaskDispatcher.io.cmd <-/< pixelTaskGenerator.io.pixelTask
+    pixelTaskDispatcher.io.input <-/< pixelTaskGenerator.io.pixelTask
     for (solverId <- 0 until p.pixelTaskSolverCount) {
-      pixelTaskSolver(solverId).io.pixelTask <-/< pixelTaskDispatcher.io.rsp(solverId)
-      pixelResultArbiter.io.cmd(solverId) </< pixelTaskSolver(solverId).io.pixelResult
+      pixelTaskSolver(solverId).io.pixelTask <-/< pixelTaskDispatcher.io.outputs(solverId)
+      pixelResultArbiter.io.inputs(solverId) </< pixelTaskSolver(solverId).io.pixelResult
     }
-    io.pixelResult <-< pixelResultArbiter.io.rsp
+    io.pixelResult <-< pixelResultArbiter.io.output
   }
 
 }

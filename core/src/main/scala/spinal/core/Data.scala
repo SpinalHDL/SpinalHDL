@@ -213,11 +213,21 @@ trait Data extends ContextUser with NameableByComponent with Assignable  with Sp
   def getRootParent : Data = if(parent == null) this else parent.getRootParent
 
   def asInput(): this.type = {
-    dir = in
+    if(this.component != Component.current) {
+      val location = ScalaLocated.long
+      PendingError(s"You should not set $this as input outside it's own component.\n$location" )
+    }else {
+      dir = in
+    }
     this
   }
   def asOutput(): this.type = {
-    dir = out
+    if(this.component != Component.current) {
+      val location = ScalaLocated.long
+      PendingError(s"You should not set $this as output outside it's own component.\n$location" )
+    }else {
+      dir = out
+    }
     this
   }
 

@@ -707,7 +707,7 @@ object WrapWithReg{
 
 
 
-object Call{
+object Callable{
   def apply(doIt : => Unit) = new Area{
     val isCalled = False
     when(isCalled){doIt}

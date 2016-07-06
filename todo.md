@@ -3,6 +3,7 @@
 - [ ] Add version number into elaboration logs
 - [ ] Add rotate left support in the verilog backend
 - [ ] Better mux Nodes (more than two inputs)
+- [ ] Remove the generation of when nodes condition when they are emited as a case statments
 
 ## spinal.lib
 
