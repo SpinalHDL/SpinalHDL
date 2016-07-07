@@ -124,7 +124,7 @@ object Debug {
     io.boolToUnsigned := asUInt(True)
 
     val forks = StreamFork(io.input, 3)
-    io.output << StreamArbiterFactory.lowIdPortFirst.transactionLock.build(forks)
+    io.output << StreamArbiterFactory.lowerFirst.transactionLock.build(forks)
 
     object MyData {
       def apply(a: Boolean, b: BigInt): MyData = {

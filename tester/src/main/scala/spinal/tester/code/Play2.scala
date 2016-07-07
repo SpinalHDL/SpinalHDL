@@ -37,7 +37,7 @@ object PlayB7 {
       val z = out UInt( 4 bits )
     }
     val a = Stream(Fragment(UInt(4 bits)))
-    val b = StreamArbiterFactory.inOrder.noLock.build(a,10)
+    val b = StreamArbiterFactory.sequentialOrder.noLock.build(a,10)
   }
 
   def main(args: Array[String]): Unit = {
@@ -1838,4 +1838,17 @@ object PlayCall{
     SpinalVhdl(new TopLevel)
     SpinalVerilog(new TopLevel)
   }
+}
+
+
+object PlaySyntaxCheck{
+  val clockA = ClockDomain(???)
+  val clockB = ClockDomain(???)
+  val streamA = Stream(Bits(8 bits))
+  val streamB = StreamCCByToggle(
+    input    = streamA,
+    inputClock  = clockA,
+    outputClock = clockB
+  )
+
 }

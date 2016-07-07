@@ -44,19 +44,24 @@ class StreamTester extends Component {
 
   val arbiterInOrderInputs =  Vec(slave Stream(Bits(8 bits)),3)
   val arbiterInOrderOutput =  master Stream(Bits(8 bits))
-  arbiterInOrderOutput << StreamArbiterFactory.inOrder.build(arbiterInOrderInputs)
+  arbiterInOrderOutput << StreamArbiterFactory.sequentialOrder.build(arbiterInOrderInputs)
 
   val arbiterLowIdPortFirstInputs =  Vec(slave Stream(Bits(8 bits)),3)
   val arbiterLowIdPortFirstOutput =  master Stream(Bits(8 bits))
-  arbiterLowIdPortFirstOutput << StreamArbiterFactory.lowIdPortFirst.build(arbiterLowIdPortFirstInputs)
+  arbiterLowIdPortFirstOutput << StreamArbiterFactory.lowerFirst.build(arbiterLowIdPortFirstInputs)
+
+  val arbiterRoundRobinInputs =  Vec(slave Stream(Bits(8 bits)),3)
+  val arbiterRoundRobinOutput =  master Stream(Bits(8 bits))
+  arbiterRoundRobinOutput << StreamArbiterFactory.roundRobin.build(arbiterRoundRobinInputs)
+
 
   val arbiterLowIdPortFirstNoLockInputs =  Vec(slave Stream(Bits(8 bits)),3)
   val arbiterLowIdPortFirstNoLockOutput =  master Stream(Bits(8 bits))
-  arbiterLowIdPortFirstNoLockOutput << StreamArbiterFactory.lowIdPortFirst.noLock.build(arbiterLowIdPortFirstNoLockInputs)
+  arbiterLowIdPortFirstNoLockOutput << StreamArbiterFactory.lowerFirst.noLock.build(arbiterLowIdPortFirstNoLockInputs)
 
   val arbiterLowIdPortFirstFragmentLockInputs =  Vec(slave Stream(Fragment(Bits(8 bits))),3)
   val arbiterLowIdPortFirstFragmentLockOutput =  master Stream(Fragment(Bits(8 bits)))
-  arbiterLowIdPortFirstFragmentLockOutput << StreamArbiterFactory.lowIdPortFirst.fragmentLock.build(arbiterLowIdPortFirstFragmentLockInputs)
+  arbiterLowIdPortFirstFragmentLockOutput << StreamArbiterFactory.lowerFirst.fragmentLock.build(arbiterLowIdPortFirstFragmentLockInputs)
 
 
   //  val muxSelect = in UInt(2 bits)
@@ -80,4 +85,5 @@ class StreamTesterCocotbBoot extends SpinalTesterCocotbBase {
   override def getName: String = "StreamTester"
   override def pythonTestLocation: String = "tester/src/test/python/spinal/StreamTester"
   override def createToplevel: Component = new StreamTester
+  override def backendConfig(config: SpinalConfig): SpinalConfig = config.dumpWave()
 }

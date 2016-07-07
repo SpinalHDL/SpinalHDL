@@ -76,14 +76,28 @@ object Max {
     }
 }
 
-object MaskByPriority{
-    def apply[T <: Data](that : T) : T = {
-        val input = that.asBits.asUInt
-        val masked = input & ~(input - 1)
-        val ret = that.clone
-        ret.assignFromBits(masked.asBits)
-        ret
-    }
+object OHMasking{
+  def first[T <: Data](that : T) : T = {
+      val input = that.asBits.asUInt
+      val masked = input & ~(input - 1)
+      val ret = that.clone
+      ret.assignFromBits(masked.asBits)
+      ret
+  }
+
+  def roundRobin[T <: Data](requests : T,ohPriority : T) : T = {
+    val width = requests.getBitsWidth
+    val uRequests = requests.asBits.asUInt
+    val uGranted = ohPriority.asBits.asUInt
+
+    val doubleRequests = uRequests @@ uRequests
+    val doubleGrant = doubleRequests & ~(doubleRequests-uGranted)
+    val masked = doubleGrant(width,width bits) | doubleGrant(0,width bits)
+
+    val ret = requests.clone
+    ret.assignFromBits(masked.asBits)
+    ret
+  }
 }
 
 object CountOne{

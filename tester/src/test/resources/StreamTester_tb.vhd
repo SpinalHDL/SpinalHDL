@@ -81,6 +81,18 @@ architecture arch of StreamTester_tb is
   signal arbiterLowIdPortFirstOutput_valid : std_logic;
   signal arbiterLowIdPortFirstOutput_ready : std_logic;
   signal arbiterLowIdPortFirstOutput_payload : std_logic_vector(7 downto 0);
+  signal arbiterRoundRobinInputs_0_valid : std_logic;
+  signal arbiterRoundRobinInputs_0_ready : std_logic;
+  signal arbiterRoundRobinInputs_0_payload : std_logic_vector(7 downto 0);
+  signal arbiterRoundRobinInputs_1_valid : std_logic;
+  signal arbiterRoundRobinInputs_1_ready : std_logic;
+  signal arbiterRoundRobinInputs_1_payload : std_logic_vector(7 downto 0);
+  signal arbiterRoundRobinInputs_2_valid : std_logic;
+  signal arbiterRoundRobinInputs_2_ready : std_logic;
+  signal arbiterRoundRobinInputs_2_payload : std_logic_vector(7 downto 0);
+  signal arbiterRoundRobinOutput_valid : std_logic;
+  signal arbiterRoundRobinOutput_ready : std_logic;
+  signal arbiterRoundRobinOutput_payload : std_logic_vector(7 downto 0);
   signal arbiterLowIdPortFirstNoLockInputs_0_valid : std_logic;
   signal arbiterLowIdPortFirstNoLockInputs_0_ready : std_logic;
   signal arbiterLowIdPortFirstNoLockInputs_0_payload : std_logic_vector(7 downto 0);
@@ -294,6 +306,18 @@ begin
       arbiterLowIdPortFirstOutput_valid =>  arbiterLowIdPortFirstOutput_valid,
       arbiterLowIdPortFirstOutput_ready =>  arbiterLowIdPortFirstOutput_ready,
       arbiterLowIdPortFirstOutput_payload =>  arbiterLowIdPortFirstOutput_payload,
+      arbiterRoundRobinInputs_0_valid =>  arbiterRoundRobinInputs_0_valid,
+      arbiterRoundRobinInputs_0_ready =>  arbiterRoundRobinInputs_0_ready,
+      arbiterRoundRobinInputs_0_payload =>  arbiterRoundRobinInputs_0_payload,
+      arbiterRoundRobinInputs_1_valid =>  arbiterRoundRobinInputs_1_valid,
+      arbiterRoundRobinInputs_1_ready =>  arbiterRoundRobinInputs_1_ready,
+      arbiterRoundRobinInputs_1_payload =>  arbiterRoundRobinInputs_1_payload,
+      arbiterRoundRobinInputs_2_valid =>  arbiterRoundRobinInputs_2_valid,
+      arbiterRoundRobinInputs_2_ready =>  arbiterRoundRobinInputs_2_ready,
+      arbiterRoundRobinInputs_2_payload =>  arbiterRoundRobinInputs_2_payload,
+      arbiterRoundRobinOutput_valid =>  arbiterRoundRobinOutput_valid,
+      arbiterRoundRobinOutput_ready =>  arbiterRoundRobinOutput_ready,
+      arbiterRoundRobinOutput_payload =>  arbiterRoundRobinOutput_payload,
       arbiterLowIdPortFirstNoLockInputs_0_valid =>  arbiterLowIdPortFirstNoLockInputs_0_valid,
       arbiterLowIdPortFirstNoLockInputs_0_ready =>  arbiterLowIdPortFirstNoLockInputs_0_ready,
       arbiterLowIdPortFirstNoLockInputs_0_payload =>  arbiterLowIdPortFirstNoLockInputs_0_payload,
