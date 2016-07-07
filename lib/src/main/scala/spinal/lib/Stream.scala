@@ -621,14 +621,14 @@ class StreamCCByToggle[T <: Data](dataType: T, inputClock: ClockDomain, outputCl
   }
 }
 
-object StreamDispatcherInOrder{
-  def apply[T <: Data](input: Stream[T], portCount: Int): Vec[Stream[T]] = {
-    val dispatcher = new StreamDispatcherInOrder(input.dataType, portCount)
+object StreamDispatcherSequencial{
+  def apply[T <: Data](input: Stream[T], outputCount: Int): Vec[Stream[T]] = {
+    val dispatcher = new StreamDispatcherSequencial(input.dataType, outputCount)
     dispatcher.io.input << input
     return dispatcher.io.outputs
   }
 }
-class StreamDispatcherInOrder[T <: Data](gen: T, n: Int) extends Component {
+class StreamDispatcherSequencial[T <: Data](gen: T, n: Int) extends Component {
   val io = new Bundle {
     val input = slave Stream (gen)
     val outputs = Vec(master Stream (gen),n)

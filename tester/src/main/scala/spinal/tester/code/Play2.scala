@@ -1842,9 +1842,9 @@ object PlayCall{
 
 
 object PlaySyntaxCheck{
-  val streamA, streamB, streamC = Stream(Bits(8 bits))
-  val arbitredABC = StreamArbiterFactory.roundRobin.onArgs(streamA, streamB, streamC)
-
-  val streamD, streamE, streamF = Stream(Bits(8 bits))
-  val arbitredDEF = StreamArbiterFactory.lowerFirst.noLock.onArgs(streamD, streamE, streamF)
+  val inputStream = Stream(Bits(8 bits))
+  val dispatchedStreams = StreamDispatcherSequencial(
+    input = inputStream,
+    outputCount = 3
+  )
 }

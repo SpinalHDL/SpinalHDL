@@ -913,7 +913,7 @@ object t9 {
     }
 
     val pixelTaskGenerator = new PixelTaskGenerator(p)
-    val pixelTaskDispatcher = new StreamDispatcherInOrder(Fragment(PixelTask(p)), p.pixelTaskSolverCount)
+    val pixelTaskDispatcher = new StreamDispatcherSequencial(Fragment(PixelTask(p)), p.pixelTaskSolverCount)
     val pixelTaskSolver = for (i <- 0 until p.pixelTaskSolverCount) yield new PixelTaskSolver(p)
     val pixelResultArbiter = StreamArbiterFactory.sequentialOrder.build(Fragment(PixelResult(p)), p.pixelTaskSolverCount)
 

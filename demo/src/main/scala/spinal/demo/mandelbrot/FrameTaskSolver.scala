@@ -12,7 +12,7 @@ class FrameTaskSolver(p: MandelbrotCoreParameters) extends Component {
   }
 
   val pixelTaskGenerator = new PixelTaskGenerator(p)
-  val pixelTaskDispatcher = new StreamDispatcherInOrder(Fragment(PixelTask(p)), p.pixelTaskSolverCount)
+  val pixelTaskDispatcher = new StreamDispatcherSequencial(Fragment(PixelTask(p)), p.pixelTaskSolverCount)
   val pixelTaskSolver = List.fill(p.pixelTaskSolverCount)(new PixelTaskSolver(p))
   val pixelResultArbiter = StreamArbiterFactory.sequentialOrder.build(Fragment(PixelResult(p)), p.pixelTaskSolverCount)
 

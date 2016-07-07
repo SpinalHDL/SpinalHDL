@@ -35,7 +35,7 @@ class StreamTester extends Component {
 
   val dispatcherInOrderInput = slave Stream(Bits(8 bits))
   val dispatcherInOrderOutputs = Vec(master Stream(Bits(8 bits)),3)
-  (dispatcherInOrderOutputs , StreamDispatcherInOrder(dispatcherInOrderInput,3)).zipped.foreach(_ << _)
+  (dispatcherInOrderOutputs , StreamDispatcherSequencial(dispatcherInOrderInput,3)).zipped.foreach(_ << _)
 
   val streamFlowArbiterInputStream = slave Stream(Bits(8 bits))
   val streamFlowArbiterInputFlow = slave Flow(Bits(8 bits))
