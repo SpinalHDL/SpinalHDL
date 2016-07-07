@@ -346,9 +346,10 @@ class StreamArbiterFactory {
     new StreamArbiter(dataType, portCount)(arbitrationLogic, lockLogic)
   }
 
-  def build[T <: Data](input: Seq[Stream[T]]): Stream[T] = {
-    val arbiter = build(input(0).dataType, input.size)
-    (arbiter.io.inputs, input).zipped.foreach(_ << _)
+  def onArgs[T <: Data](inputs: Stream[T]*): Stream[T] = on(inputs.seq)
+  def on[T <: Data](inputs: Seq[Stream[T]]): Stream[T] = {
+    val arbiter = build(inputs(0).dataType, inputs.size)
+    (arbiter.io.inputs, inputs).zipped.foreach(_ << _)
     return arbiter.io.output
   }
 

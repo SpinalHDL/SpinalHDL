@@ -44,24 +44,24 @@ class StreamTester extends Component {
 
   val arbiterInOrderInputs =  Vec(slave Stream(Bits(8 bits)),3)
   val arbiterInOrderOutput =  master Stream(Bits(8 bits))
-  arbiterInOrderOutput << StreamArbiterFactory.sequentialOrder.build(arbiterInOrderInputs)
+  arbiterInOrderOutput << StreamArbiterFactory.sequentialOrder.on(arbiterInOrderInputs)
 
   val arbiterLowIdPortFirstInputs =  Vec(slave Stream(Bits(8 bits)),3)
   val arbiterLowIdPortFirstOutput =  master Stream(Bits(8 bits))
-  arbiterLowIdPortFirstOutput << StreamArbiterFactory.lowerFirst.build(arbiterLowIdPortFirstInputs)
+  arbiterLowIdPortFirstOutput << StreamArbiterFactory.lowerFirst.on(arbiterLowIdPortFirstInputs)
 
   val arbiterRoundRobinInputs =  Vec(slave Stream(Bits(8 bits)),3)
   val arbiterRoundRobinOutput =  master Stream(Bits(8 bits))
-  arbiterRoundRobinOutput << StreamArbiterFactory.roundRobin.build(arbiterRoundRobinInputs)
+  arbiterRoundRobinOutput << StreamArbiterFactory.roundRobin.on(arbiterRoundRobinInputs)
 
 
   val arbiterLowIdPortFirstNoLockInputs =  Vec(slave Stream(Bits(8 bits)),3)
   val arbiterLowIdPortFirstNoLockOutput =  master Stream(Bits(8 bits))
-  arbiterLowIdPortFirstNoLockOutput << StreamArbiterFactory.lowerFirst.noLock.build(arbiterLowIdPortFirstNoLockInputs)
+  arbiterLowIdPortFirstNoLockOutput << StreamArbiterFactory.lowerFirst.noLock.on(arbiterLowIdPortFirstNoLockInputs)
 
   val arbiterLowIdPortFirstFragmentLockInputs =  Vec(slave Stream(Fragment(Bits(8 bits))),3)
   val arbiterLowIdPortFirstFragmentLockOutput =  master Stream(Fragment(Bits(8 bits)))
-  arbiterLowIdPortFirstFragmentLockOutput << StreamArbiterFactory.lowerFirst.fragmentLock.build(arbiterLowIdPortFirstFragmentLockInputs)
+  arbiterLowIdPortFirstFragmentLockOutput << StreamArbiterFactory.lowerFirst.fragmentLock.on(arbiterLowIdPortFirstFragmentLockInputs)
 
 
   //  val muxSelect = in UInt(2 bits)

@@ -1842,13 +1842,9 @@ object PlayCall{
 
 
 object PlaySyntaxCheck{
-  val clockA = ClockDomain(???)
-  val clockB = ClockDomain(???)
-  val streamA = Stream(Bits(8 bits))
-  val streamB = StreamCCByToggle(
-    input    = streamA,
-    inputClock  = clockA,
-    outputClock = clockB
-  )
+  val streamA, streamB, streamC = Stream(Bits(8 bits))
+  val arbitredABC = StreamArbiterFactory.roundRobin.onArgs(streamA, streamB, streamC)
 
+  val streamD, streamE, streamF = Stream(Bits(8 bits))
+  val arbitredDEF = StreamArbiterFactory.lowerFirst.noLock.onArgs(streamD, streamE, streamF)
 }
