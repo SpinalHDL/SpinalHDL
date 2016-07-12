@@ -25,13 +25,3 @@ case class I2C() extends Bundle with IMasterSlave {
     this
   }
 }
-
-
-/**
-  * Define I2C constants
-  */
-object I2C {
-  def ACK  = False
-  def NACK = True
-
-}

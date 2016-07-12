@@ -32,6 +32,7 @@
 
 package spinal.lib.com.i2c
 
+
 import spinal.core._
 import spinal.lib._
 import spinal.lib.fsm._
@@ -55,6 +56,7 @@ case class I2CMasterHALGenerics(dataWidth         : Int =  8,
 case class I2CMasterHALConfig(g: I2CMasterHALGenerics) extends Bundle {
 
   val clockDivider = UInt (g.clockDividerWidth bits)
+  val enCollision  = Bool
 
   def setFrequency(sclFrequency : Double, clkFrequency : Double = ClockDomain.current.frequency.getValue) : Unit = {
     clockDivider := (clkFrequency / sclFrequency * 2).toInt
@@ -170,7 +172,7 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
     val fallingEdge     = False
     val triggerSequence = False
     val scl             = RegInit(True)
-    val sclStateChange  = RegInit(False)
+
 
     risingEdge  := sclSampling.risingEdge
     fallingEdge := sclSampling.fallingEdge
@@ -193,27 +195,8 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
     // Generate the scl signal
     when(cntValue === io.config.clockDivider){
       scl := !scl
-
-      // The rising and falling edge is generated one clock after setting the new state of SCL.
-      // Check there is no collision on the scl signal before setting falling or rising edge
-//      sclStateChange := True
-
- //     when(scl){
- //       fallingEdge := True
- //     }
-
     }
-/*
-    // Rising / Falling edge
-    // @TODO detect the rising and falling edge by reading the scl signals...
-    when(sclStateChange){ sclStateChange := False}
-    val delaySCLStateChange = Delay(sclStateChange,3)
-    when(delaySCLStateChange &&  !scl_freeze){
 
-      when(scl){
-        risingEdge := True
-      }
-    }*/
 
     // Used to indicate when to generate the start/restart/stop sequence
     when(scl){
@@ -260,8 +243,8 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
           goto(sDELAY)
         }
       }
-      // @TODO cyclesCounter must be : (io.config.clockDivider >> 1).toInt
-      val sDELAY : State = new StateDelay(cyclesCount=40 ){
+      // @TODO (val halfDivider := io.config.clockDivider >> 1)
+      val sDELAY : State = new StateDelay(cyclesCount=(io.config.clockDivider >> 1) ){
         whenCompleted{
           goto(sBUSY)
         }
@@ -304,9 +287,6 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
           freezeSCL := False
         }
 
-       // when(sclGenerator.scl && io.i2c.scl.read){
-       //   freezeSCL := False
-       // }
         when(scl_en === False){ goto(sIDLE) }
       }
     }
@@ -317,13 +297,14 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
     * Counter of bit write/read. MSB is send first on the I2C bus
     * so counter goes from dataWdith to 0
     */
-  val counterBit = new Area{
-    val index = Reg(UInt( log2Up(g.dataWidth) bits )) init(g.dataWidth-1)
-    def isDone()    : Bool = index === 0
-    def clear()     : Unit = index := g.dataWidth-1
+  val bitCounter = new Area{
+    val index  = Reg(UInt( log2Up(g.dataWidth) bits )) randBoot()
+    val isDone = False
+    def clear() : Unit = index := g.dataWidth - 1
 
-    when(sclGenerator.risingEdge) {
-      index := index - 1
+    when(sclGenerator.fallingEdge) {
+      index  := index - 1
+      isDone := index === 0
     }
   }
 
@@ -332,265 +313,130 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
     */
   val smMaster = new StateMachine{
 
-    val scl_en         = Reg(Bool) init(False)
-    val wr_sda         = RegInit(True)
- //   @dontName  val rd_sda         =  io.i2c.sda.read   // if (g.multiMaster_en ) io.i2c.sda.read else null
-    val dataReceived   = Reg(Bits(g.dataWidth bits)) init(0)
-    val isStarted      = RegInit(False)
-    val freezeBus      = RegInit(False)
-    val isCMDAfterFreeze = RegInit(False)
+    val dataReceived   = Reg(Bits(g.dataWidth bits)) randBoot()
 
-    when(io.cmd.valid){ freezeBus := False }
+    // val isStarted      = RegInit(False)
+    val scl_en         = False
+    val wr_sda         = True
+    val wr_scl         = True
 
     // default value
     io.cmd.ready := False
     io.rsp.valid := False
     io.rsp.mode  := RspMode.ACK
-    io.rsp.data  := 0
+    io.rsp.data  := dataReceived
 
-    val sIDLE : State = new State with EntryPoint {
-      whenIsActive {
-        when(!freezeBus){
+    always{
+      when(io.cmd.valid && io.cmd.mode === CmdMode.STOP){
+        goto(sStop)
+      }
 
-          when(!((!isStarted) && state_Bus.busy)){
-
-          when(io.cmd.valid) {
-            switch(io.cmd.mode) {
-              is(CmdMode.START) {
-                io.cmd.ready := True
-                when(isStarted === False) {
-                  isStarted := True
-                  goto(sSTART)
-                } otherwise {
-                  goto(sWAIT_BEFORE_START)
-                }
-              }
-              is(CmdMode.STOP) {
-                io.cmd.ready := True
-                isStarted    := False
-                goto(sWAIT_BEFORE_STOP)
-              }
-              is(CmdMode.READ) {
-                io.cmd.ready := True
-                counterBit.clear()
-                goto(sWAIT_BEFORE_READ)
-              }
-              is(CmdMode.WRITE) {
-                counterBit.clear()
-                goto(sWRITE)
-              }
-              is(CmdMode.NACK, CmdMode.ACK) {
-                goto(sWR_ACK)
-              }
-            }
-          }
-
-          }
-        }
-
-        when(sclGenerator.fallingEdge){
-          freezeBus := True
-          isCMDAfterFreeze := True
-        }
+      when(io.cmd.valid && io.cmd.mode === CmdMode.START){
+        goto(sStart)
       }
     }
 
-    val sSTART : State = new State {
+    val sIdle : State = new State with EntryPoint {
+      whenIsActive {
+        // nothing to do
+      }
+    }
+
+    val sStart : State = new State {
       whenIsActive{
         scl_en := True
         when(sclGenerator.triggerSequence){
           wr_sda := False
-          goto(sIDLE)
+        }
+        // end of the stop sequence
+        when(sclSampling.fallingEdge){
+          io.cmd.ready   := True
+          goto(sData)
         }
       }
     }
 
-    val sREAD = new StateFsm(fsm=readSM(ccIO.rd_sda, dataReceived)){
-      whenCompleted{
-        goto(sNOTIFIY_NEW_DATA_R)
+    val sData : State = new State{
+      onEntry{
+        bitCounter.clear()
       }
-    }
-
-    val sWRITE = new StateParallelFsm (writeSM(wr_sda,io.cmd.data, isCMDAfterFreeze, ccIO.rd_sda), readSM(ccIO.rd_sda, dataReceived)){
-      whenCompleted{
-        io.cmd.ready := True
-        goto(sNOTIFIY_NEW_DATA_W)
-      }
-    }
-
-    val sNOTIFIY_NEW_DATA_R : State = new State{
       whenIsActive{
-        io.rsp.mode  := RspMode.DATA
-        io.rsp.valid := True
-        io.rsp.data  := dataReceived
-        goto(sIDLE)
-      }
-    }
+        scl_en := True
+        wr_scl := io.rsp.valid
 
-    val sNOTIFIY_NEW_DATA_W : State = new State{
-      whenIsActive{
-      io.rsp.mode  := RspMode.DATA
-      io.rsp.valid := True
-      io.rsp.data  := dataReceived
-      goto(sRD_ACK)
-      }
-    }
+        // write data on bus and check collision
+        when(io.cmd.mode === CmdMode.WRITE){
+          wr_sda := io.cmd.data(bitCounter.index)
 
-    val sRD_ACK : State = new State {
-      whenIsActive{
-        when(sclGenerator.fallingEdge){
-          wr_sda := True
+          when(sclSampling.risingEdge && io.config.enCollision){
+            when(ccIO.rd_sda =/= wr_sda){
+              io.rsp.mode  := RspMode.COLLISION
+              io.rsp.valid := True
+              goto(sIdle)
+            }
+          }
         }
-        when(sclGenerator.risingEdge){
 
-          io.rsp.mode  := ccIO.rd_sda ? RspMode.NACK | RspMode.ACK
+        // Read data on bus
+        when(sclSampling.fallingEdge){
+          dataReceived(bitCounter.index) := ccIO.rd_sda
+        }
+
+        // data sequence is done ?
+        when(bitCounter.isDone){
+          io.rsp.mode  := RspMode.DATA
           io.rsp.valid := True
-          io.rsp.data  := 0
-
-          goto(sIDLE)
+          io.cmd.ready := !(io.cmd.mode === CmdMode.WRITE)
+          goto(sACK)
         }
       }
     }
 
-    val sWR_ACK : State = new State {
+    val sACK : State = new State{
       whenIsActive{
-        when(isCMDAfterFreeze){
-          isCMDAfterFreeze := False
-          wr_sda := (io.cmd.mode === CmdMode.ACK) ? I2C.ACK | I2C.NACK
-        }
-        when(sclGenerator.fallingEdge){
-          wr_sda := (io.cmd.mode === CmdMode.ACK) ? I2C.ACK | I2C.NACK
-        }
-        when(sclGenerator.risingEdge){
+        scl_en := True
+        wr_scl := io.cmd.valid
+
+        // write ACK
+        wr_sda := !(io.cmd.mode === CmdMode.ACK)
+
+        // read ACK
+        when(sclSampling.risingEdge){
+          io.rsp.mode  := (ccIO.rd_sda) ? RspMode.NACK | RspMode.ACK
+          io.rsp.valid := True
           io.cmd.ready := True
-          goto(sIDLE)
+        }
+
+        // end of the ACK sequence ?
+        when(sclSampling.fallingEdge){
+          goto(sData)
         }
       }
     }
 
-    val sSTOP : State = new State {
+    val sStop : State = new State {
       whenIsActive{
-        when(sclGenerator.fallingEdge){
-          wr_sda := False
-        }
+        scl_en := True
+        wr_sda := False
+
         when(sclGenerator.triggerSequence){
           scl_en := False
           wr_sda := True
-          goto(sIDLE)
-        }
-      }
-    }
-
-    val sWAIT_BEFORE_STOP : State = new State{
-      whenIsActive{
-        when(isCMDAfterFreeze){
-          isCMDAfterFreeze := False
-          wr_sda := False
-          goto(sSTOP)
-        }
-        when (sclGenerator.triggerSequence){
-          goto(sSTOP)
-        }
-      }
-    }
-
-    val sWAIT_BEFORE_READ : State = new State{
-      whenIsActive{
-        when(isCMDAfterFreeze){
-          isCMDAfterFreeze := False
-          wr_sda := True
-          goto(sREAD)
-        }
-        when(sclGenerator.fallingEdge){
-          wr_sda := True
-          goto(sREAD)
-        }
-      }
-    }
-
-    val sWAIT_BEFORE_START : State = new State{
-      whenIsActive{
-        when(sclGenerator.fallingEdge){
-          wr_sda := True
-          goto(sSTART)
+          io.cmd.ready := True
+          goto(sIdle)
         }
       }
     }
   }
-
-
-  /**
-    * Write a data on the I2C
-    *
-    * @param wr_sda    : The write signal of the sda
-    * @param data2Send : Data that will be sent on the I2C
-    * @param rd_sda    : If not null, the data write will be read to check if collision exist on the bus (multi master)
-    */
-  def writeSM(wr_sda : Bool, data2Send:Bits, cmdAfterFreeze:Bool, rd_sda:Bool=null) = new StateMachine {
-
-    val sWRITE: State = new State with EntryPoint {
-      whenIsActive{
-        when(cmdAfterFreeze){
-          cmdAfterFreeze := False
-          wr_sda := data2Send(counterBit.index)
-        }
-        when(sclGenerator.fallingEdge){
-          wr_sda := data2Send(counterBit.index)
-          if (rd_sda != null) goto(sCHECK_COLLISION)
-          when(counterBit.isDone()){
-            exit()
-          }
-        }
-      }
-    }
-
-    val sCHECK_COLLISION = if(rd_sda != null) new State{
-      whenIsActive{
-        when(sclGenerator.risingEdge){
-          when(wr_sda === rd_sda){
-            goto(sWRITE)
-          }otherwise{
-            io.rsp.data  := 0
-            io.rsp.mode  := RspMode.COLLISION
-            io.rsp.valid := True
-            exit()
-          }
-        }
-      }
-    }else null
-  }
-
-
-  /**
-    * Read a data on the I2C bus
-    *
-    * @param sda           : The read signal of the sda
-    * @param dataReceived  : Register that will contains the data receveid
-    */
-  def readSM(sda:Bool, dataReceived : Bits) = new StateMachine {
-    val sREAD: State = new State with EntryPoint {
-      whenIsActive{
-        when(sclGenerator.risingEdge){
-          dataReceived(counterBit.index) := sda
-          when(counterBit.isDone()){
-            exit()
-          }
-        }
-      }
-    }
-  }
-
 
   io.i2c.sda.write := smMaster.wr_sda
-  io.i2c.scl.write := sclGenerator.scl
+  io.i2c.scl.write := sclGenerator.scl && smMaster.wr_scl
 
   scl_en     := smMaster.scl_en
 
 
-  scl_freeze := smSynchSCL.freezeSCL || smMaster.freezeBus
-  sclFreezeByMater := smMaster.freezeBus
-
-  //  scl_freeze := smMaster.freezeBus
+  scl_freeze := smSynchSCL.freezeSCL || !smMaster.wr_scl
+  sclFreezeByMater := !smMaster.wr_scl
 
 }
 

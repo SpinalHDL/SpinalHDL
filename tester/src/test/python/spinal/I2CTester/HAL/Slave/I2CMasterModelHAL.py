@@ -1,28 +1,28 @@
 import cocotb
 from cocotb.triggers import Timer, Edge, RisingEdge, FallingEdge, Event
 
+from spinal.I2CTester.HAL.I2CHAL import *
 
 ###############################################################################
 # I2C Master Hal model
 class I2CMasterModelHAL:
 
 
-    ##########################################################################
-    # Construcot
-    def __init__(self, clock, wr_scl, wr_sda, rd_scl, rd_sda, clockDivider):
+    def __init__(self, helperSlave, clockDivider):
 
-        self.wr_scl       = wr_scl
-        self.wr_sda       = wr_sda
+        self.wr_scl   = helperSlave.io.scl_rd
+        self.wr_sda   = helperSlave.io.sda_rd
+        self.rd_scl   = helperSlave.io.scl_wr
+        self.rd_sda   = helperSlave.io.sda_wr
+        self.clk      = helperSlave.io.clk
 
-        self.rd_scl    = rd_scl
-        self.rd_sda    = rd_sda
+
         self.sda       = 1
         self.scl       = 1
 
         self.clockDivider = clockDivider
 
         self.scl_en       = 0
-        self.clk          = clock
 
         self.trigger     = Event()
         self.sclRising   = Event()
@@ -35,45 +35,63 @@ class I2CMasterModelHAL:
 
     ##########################################################################
     # Start the master
-    def startMaster(self):
+    @cocotb.coroutine
+    def startMaster(self, listOperations):
+
+        yield RisingEdge(self.clk)
+
         cocotb.fork(self._genSCL())
         cocotb.fork(self._manageOpenDrain())
-
-
-    def writeTest(self, data2Write):
-        cocotb.fork(self._runWrite(data2Write))
-
-    def readTest(self, data2Read):
-        cocotb.fork(self._runRead(data2Read))
+        cocotb.fork(self._runMaster(listOperations))
 
 
     ##########################################################################
-    # Execute : START - READ* - STOP
+    # Execute all operation
     @cocotb.coroutine
-    def _runRead(self,data2Write):
+    def _runMaster(self, listOperations):
 
-        yield(self._genStart())
+        for index in range(0,len(listOperations)):
 
-        for data in data2Write:
-            yield self.readData()
+            operation = listOperations[index]
 
-        yield(self._genStop())
+            # START -----------------------------------------------------------
+            if isinstance(operation, START):
+                if index != 0 :
+                    yield self.sclRising.wait()
+
+                yield self._genStart()
+
+            # WRITE -----------------------------------------------------------
+            elif isinstance(operation, WRITE):
+                yield  self._writeData(operation.data)
+
+            # READ ------------------------------------------------------------
+            elif isinstance(operation, READ):
+                yield self._readData()
+
+            # ACK -------------------------------------------------------------
+            elif isinstance(operation, ACK):
+                prevOperation = listOperations[index-1]
+
+                yield self.sclFalling.wait()
+                self.sda = 1 if isinstance(prevOperation, WRITE) else 0
+                yield self.sclRising.wait()
+                yield self.sclFalling.wait()
+                self.sda = 1
+
+            # NACK ------------------------------------------------------------
+            elif isinstance(operation, NACK):
+
+                yield self.sclFalling.wait()
+                self.sda  = 1
+                yield self.sclRising.wait()
+                yield self.sclFalling.wait()
+
+            # STOP ------------------------------------------------------------
+            elif isinstance(operation, STOP):
+                yield self._genStop()
 
 
-
-    ##########################################################################
-    # Execute : START - WRITE* - STOP
-    @cocotb.coroutine
-    def _runWrite(self,data2Write):
-
-        yield(self._genStart())
-
-        for data in data2Write:
-
-            yield self._writeData(data)
-
-        yield self.sclFalling.wait()
-        yield(self._genStop())
 
 
     ##########################################################################
@@ -92,10 +110,6 @@ class I2CMasterModelHAL:
                 self.wr_scl <= 0
             else:
                 self.wr_scl <= self.scl
-
-
-
-
 
 
     ##########################################################################
@@ -173,10 +187,6 @@ class I2CMasterModelHAL:
             self.sda = int(data2Send[index])
 
             if index == 7:
-
-                yield FallingEdge(self.wr_scl)
-                self.sda = 1
-
                 break
 
             index += 1
@@ -184,18 +194,14 @@ class I2CMasterModelHAL:
     ##########################################################################
     # Read a data
     @cocotb.coroutine
-    def readData(self):
+    def _readData(self):
         cnt  = 0
         dataRead = list()
         while True:
+
             if (cnt == 8):
-                yield self.sclFalling.wait()
-                self.sda = 0
-                yield self.sclRising.wait()
                 dataInt = int("".join([str(x) for x in dataRead]), 2)
                 self.dataRead.set(data= dataInt )
-                yield self.sclFalling.wait()
-                self.sda = 1
 
                 break
             else:

@@ -69,7 +69,7 @@ case class I2CSlaveHALCmd(g : I2CSlaveHALGenerics) extends Bundle{
   *    DATA  : Send a data to the master
   *    NONE  : NO operation / NACK
   *    ACK   : ACK
-  *   (FREEZE) is done with the response stream. If no ready is received the bus if frozen
+  *   (FREEZE) is done with the response stream.
   */
 object I2CSlaveHALRspMode extends SpinalEnum{
   val DATA, NONE, ACK = newElement()
@@ -138,14 +138,20 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
     */
   val sclSampling = new Area{
 
-    val risingEdge  = Bool
-    val fallingEdge = Bool
+    val risingEdge  = False
+    val fallingEdge = False
 
     val scl_cur  = RegNext(ccIO.rd_scl) init(False)
     val scl_prev = RegNext(scl_cur)     init(False)
 
-    risingEdge  := scl_cur && !scl_prev
-    fallingEdge := !scl_cur && scl_prev
+    when(scl_cur && !scl_prev){
+       risingEdge  := True
+    }
+
+    when(!scl_cur && scl_prev){
+      fallingEdge := True
+    }
+
   }
 
 
@@ -154,20 +160,22 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
     */
   val detector = new Area{
 
-    val start   = Bool
+    val start   = False
     val stop    = False
 
     val sda_cur  = RegNext(ccIO.rd_sda) init(False)
     val sda_prev = RegNext(sda_cur)     init(False)
 
     // start = falling edge of sda while the scl is 1
-    start := sclSampling.scl_cur && sclSampling.scl_prev && !sda_cur && sda_prev
+    when(sclSampling.scl_cur && sclSampling.scl_prev && !sda_cur && sda_prev){
+      start := True
+    }
 
     // stop = rising edge of sda while the scl is 1
     when( sclSampling.scl_cur && sclSampling.scl_prev && sda_cur && !sda_prev){
       stop := True
     }
-  // @TODO check why there is a différence between when or without the when...
+    // @TODO check why there is a difference between when or without the when... CCBuffer propagation
   }
 
 
@@ -176,7 +184,7 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
     */
   val bitCounter = new Area {
 
-    val index = Reg(UInt(log2Up(g.dataWidth) bits)) randBoot()
+    val index  = Reg(UInt(log2Up(g.dataWidth) bits)) randBoot()
     val isDone = False
 
     def clear() : Unit = index := g.dataWidth-1
@@ -193,7 +201,7 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
     */
   val smSlave = new StateMachine{
 
-    val dataReceived = Reg(Bits(g.dataWidth bits)) randBoot()
+    val dataReceived = Reg(Bits(g.dataWidth bits)) init(0) // randBoot()
     val wr_sda       = True
     val wr_scl       = True
 
@@ -203,7 +211,7 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
     io.cmd.valid := False
     io.cmd.mode  := CmdMode.ACK
 
-    // Always stuff for state machine
+
     always{
 
       // Stop detected
@@ -216,8 +224,8 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
 
       // Start detected
       when(detector.start) {
-        io.cmd.valid := True
-        io.cmd.mode  := CmdMode.START
+        io.rsp.ready := io.rsp.valid
+
         goto(sWaitEndStart)
       }
     }
@@ -229,6 +237,10 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
     }
 
     val sWaitEndStart : State = new State {
+      onEntry{
+        io.cmd.valid := True
+        io.cmd.mode  := CmdMode.START
+      }
       whenIsActive{
         when(sclSampling.fallingEdge){
           goto(sData)
@@ -241,7 +253,7 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
         bitCounter.clear()
       }
       whenIsActive{
-
+        // Freeze the bus if no response received
         wr_scl := io.rsp.valid
 
         // Read data on bus
@@ -267,11 +279,11 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
 
     val sACK : State = new State{
       whenIsActive{
-
+        // Freeze the bus if no response received
         wr_scl := io.rsp.valid
 
         // Read ack on bus
-        wr_sda := (io.rsp.mode === RspMode.ACK) ? False | True
+        wr_sda := !(io.rsp.mode === RspMode.ACK)
 
         // Write ack on bus
         when(sclSampling.risingEdge){

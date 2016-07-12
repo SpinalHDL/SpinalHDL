@@ -6,8 +6,7 @@ from cocotb.triggers import Timer, Edge, RisingEdge, FallingEdge, Event
 # I2C Slave Hal model
 class I2CSlaveModelHAL:
 
-    ##########################################################################
-    # Construcot
+
     def __init__(self, _clock, _resetn,  _wr_sda, _rd_sda, _wr_scl ): # initMemory = dict()):
 
         self.startEvent  = Event()
@@ -42,6 +41,7 @@ class I2CSlaveModelHAL:
             else:
                 self.sda_rd <= int(self.sda_wr)
 
+
     ##########################################################################
     # Detect the start/restart sequence
     @cocotb.coroutine
@@ -52,6 +52,7 @@ class I2CSlaveModelHAL:
                 print("Start detected ...")
                 self.startEvent.set()
 
+
     ##########################################################################
     # Detect the stop sequence
     @cocotb.coroutine
@@ -61,6 +62,7 @@ class I2CSlaveModelHAL:
             if int(self.scl_wr) == 1:
                 print("Stop detected  ...")
                 self.stopEvent.set()
+
 
     ##########################################################################
     # Read a data comming from the master

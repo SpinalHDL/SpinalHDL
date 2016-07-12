@@ -1,5 +1,5 @@
 import cocotb
-from cocotb.triggers import Timer, RisingEdge
+from cocotb.triggers import Timer, RisingEdge, Event
 
 
 ###############################################################################
@@ -37,27 +37,47 @@ class ClockDomain:
         self.reset     = reset
         self.typeReset = resetActiveLevel
 
+        self.event_endReset = Event()
+
 
     ##########################################################################
     # Generate the clock signals
     @cocotb.coroutine
     def start(self):
+        cocotb.fork(self._clkGen())
+        cocotb.fork(self._waitEndReset())
 
         if self.reset:
             self.reset <= self.typeReset
 
-        self.clk <= 0
-
-        yield Timer(self.halfPeriod * 3)
+        yield Timer(self.halfPeriod * 5)
 
         if self.reset:
             self.reset <= 1 if self.typeReset == RESET_ACTIVE_LEVEL.LOW else 0
 
+
+
+    ##########################################################################
+    # Generate the clk
+    @cocotb.coroutine
+    def _clkGen(self):
         while True:
             self.clk <= 0
             yield Timer(self.halfPeriod)
             self.clk <= 1
             yield Timer(self.halfPeriod)
+
+
+    ##########################################################################
+    # Wait the end of the reset
+    @cocotb.coroutine
+    def _waitEndReset(self):
+        while True:
+            yield RisingEdge(self.clk)
+            valueReset = 1 if self.typeReset == RESET_ACTIVE_LEVEL.LOW else 0
+            if int(self.reset) == valueReset:
+                self.event_endReset.set()
+                break;
 
 
     ##########################################################################
