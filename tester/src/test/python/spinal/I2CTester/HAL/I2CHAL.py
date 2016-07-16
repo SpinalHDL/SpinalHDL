@@ -3,6 +3,11 @@ from cocotb.triggers import RisingEdge, FallingEdge, Event, Timer
 from spinal.common.misc import assertEquals
 
 
+###############################################################################
+# I2C - Configuration
+#
+class I2CConfig:
+    dataWdith = 8
 
 ###############################################################################
 # I2C - Analyse data passing on the i2c bus
@@ -39,6 +44,7 @@ class I2CHALAnalyser:
         cocotb.fork(self._stopDetection())
         yield self._analyser()
 
+
     #==========================================================================
     # Store all event appening on the bus
     #==========================================================================
@@ -59,7 +65,7 @@ class I2CHALAnalyser:
             dataBinRead = list()
             index = 0
             # Read data -----------------------------------------------------------
-            while index < 8:
+            while index < I2CConfig.dataWdith:
                 yield self.event_RisingEdge.wait()
                 dataBinRead.append(int(self.sda))
                 #print("data ", index, " value " , int(self.sda), "index ", index, "start " , self.startSeq )

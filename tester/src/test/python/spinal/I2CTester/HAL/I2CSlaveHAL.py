@@ -56,7 +56,6 @@ class I2CSlaveHAL:
             self.scl_rd    <= 1
 
 
-
     #==========================================================================
     # RSP mode
     #==========================================================================
@@ -163,6 +162,7 @@ class I2CSlaveHAL:
 
         # process all commands
         for index in range(0,len(listOperation)):
+
             operation = listOperation[index]
 
             # Start -----------------------------------------------------------

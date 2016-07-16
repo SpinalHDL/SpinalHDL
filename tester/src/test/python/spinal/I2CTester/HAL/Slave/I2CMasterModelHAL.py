@@ -16,7 +16,6 @@ class I2CMasterModelHAL:
         self.rd_sda   = helperSlave.io.sda_wr
         self.clk      = helperSlave.io.clk
 
-
         self.sda       = 1
         self.scl       = 1
 
@@ -176,7 +175,7 @@ class I2CMasterModelHAL:
     @cocotb.coroutine
     def _writeData(self, data):
 
-        data2Send = bin(data)[2:].zfill(8)
+        data2Send = bin(data)[2:].zfill(I2CConfig.dataWdith)
         write     = True
         index     = 0
 
@@ -186,7 +185,7 @@ class I2CMasterModelHAL:
 
             self.sda = int(data2Send[index])
 
-            if index == 7:
+            if index == I2CConfig.dataWdith-1:
                 break
 
             index += 1
@@ -199,7 +198,7 @@ class I2CMasterModelHAL:
         dataRead = list()
         while True:
 
-            if (cnt == 8):
+            if (cnt == I2CConfig.dataWdith):
                 dataInt = int("".join([str(x) for x in dataRead]), 2)
                 self.dataRead.set(data= dataInt )
 

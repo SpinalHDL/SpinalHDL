@@ -3,6 +3,8 @@ from cocotb.triggers import RisingEdge, Event
 
 from spinal.common.misc import assertEquals
 
+from spinal.I2CTester.HAL.I2CHAL import *
+
 
 ###############################################################################
 # I2C Master HAL Helper class
@@ -28,15 +30,20 @@ class I2CMasterHAL:
     class IO:
 
         def __init__ (self, dut):
+            # I2C ---------------------------------------------
+            self.sda_wr    = dut.io_i2c_sda_write
+            self.sda_rd    = dut.io_i2c_sda_read
+            self.scl_wr    = dut.io_i2c_scl_write
+            self.scl_rd    = dut.io_i2c_scl_read
             # CMD ---------------------------------------------
-            self.cmd_ready = dut.io_ioMaster_cmd_ready
-            self.cmd_valid = dut.io_ioMaster_cmd_valid
-            self.cmd_mode  = dut.io_ioMaster_cmd_payload_mode
-            self.cmd_data  = dut.io_ioMaster_cmd_payload_data
+            self.cmd_ready = dut.io_cmd_ready
+            self.cmd_valid = dut.io_cmd_valid
+            self.cmd_mode  = dut.io_cmd_payload_mode
+            self.cmd_data  = dut.io_cmd_payload_data
             # RSP ---------------------------------------------
-            self.rsp_valid = dut.io_ioMaster_rsp_valid
-            self.rsp_mode  = dut.io_ioMaster_rsp_payload_mode
-            self.rsp_data  = dut.io_ioMaster_rsp_payload_data
+            self.rsp_valid = dut.io_rsp_valid
+            self.rsp_mode  = dut.io_rsp_payload_mode
+            self.rsp_data  = dut.io_rsp_payload_data
             # Clk & Rst ---------------------------------------
             self.clk       = dut.clk
             self.resetn    = dut.resetn
@@ -45,12 +52,15 @@ class I2CMasterHAL:
             self.cmd_valid <= 0
             self.cmd_mode  <= 0
             self.cmd_data  <= 0
+            self.sda_rd    <= 1
+            self.scl_rd    <= 1
 
 
     #==========================================================================
     # RSP mode
     #==========================================================================
     class RSP:
+
         ACK       = 0
         NACK      = 1
         DATA      = 2
@@ -61,6 +71,7 @@ class I2CMasterHAL:
     # CMD  mode
     #==========================================================================
     class CMD:
+
         START = 0
         WRITE = 1
         READ  = 2
@@ -96,13 +107,13 @@ class I2CMasterHAL:
     # Execute a list of operations
     #==========================================================================
     @cocotb.coroutine
-    def execOperations(listOperation):
+    def execOperations(self, listOperation):
 
         # get all io of the master
         io = self.io
 
         # execute all operations
-        for index in range(0, len(listOperation)-1):
+        for index in range(0, len(listOperation)):
 
             operation = listOperation[index]
 
@@ -131,7 +142,7 @@ class I2CMasterHAL:
             # READ ----------------------------------------------------------------
             elif isinstance(operation, READ):
                 io.cmd_valid  <= 1
-                io.cmd_mode   <= I2CMasterHAL.CMD.WRITE
+                io.cmd_mode   <= I2CMasterHAL.CMD.READ
                 io.cmd_data   <= 0
 
                 yield self.event_cmd_ready.wait()
@@ -154,12 +165,15 @@ class I2CMasterHAL:
                     io.cmd_valid  <= 0
 
                     yield RisingEdge(io.clk)
+                #else:
+                    #yield FallingEdge(io.scl_rd)
 
             # STOP ----------------------------------------------------------------
             elif isinstance(operation, STOP):
                 io.cmd_valid  <= 1
                 io.cmd_mode   <= I2CMasterHAL.CMD.STOP
                 io.cmd_data   <= 0
+                yield RisingEdge(io.clk)
 
                 yield self.event_cmd_ready.wait()
                 io.cmd_valid  <= 0
@@ -171,7 +185,7 @@ class I2CMasterHAL:
     # Check the response received from the master
     #==========================================================================
     @cocotb.coroutine
-    def checkResponse(listOperations):
+    def checkResponse(self, listOperations):
 
         for index in range(0, len(listOperations)-1):
             operation = listOperations[index]

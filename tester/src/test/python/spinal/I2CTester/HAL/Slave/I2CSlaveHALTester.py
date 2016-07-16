@@ -36,7 +36,7 @@ def slave_hal_basic_test(dut):
     listOperation.append( [START(), READ(0x01),  ACK(), START(), WRITE(0x55), NACK(), STOP()] )
 
 
-    operationSeq = listOperation[7]
+    operationSeq = listOperation[0]
 
     helperSlave  = I2CSlaveHAL(dut)
     modelMaster  = I2CMasterModelHAL(helperSlave, 50)

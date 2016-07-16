@@ -145,7 +145,7 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
     val scl_prev = RegNext(scl_cur)     init(False)
 
     when(scl_cur && !scl_prev){
-       risingEdge  := True
+       risingEdge := True
     }
 
     when(!scl_cur && scl_prev){
