@@ -5,6 +5,7 @@
 - [ ] Better mux Nodes (more than two inputs)
 - [ ] Remove the generation of when nodes condition when they are emited as a case statments
 - [ ] Rework Namable trait, to allow it to be named by composition + postfix, and maybe to work with Ownable trait for hearchical naming
+- [ ] bool/bits/uint/sint should extends dataimper to avoid implicites and allow implicite area to uint
 
 ## spinal.lib
 
