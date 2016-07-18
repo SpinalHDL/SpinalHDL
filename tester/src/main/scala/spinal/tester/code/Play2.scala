@@ -1120,8 +1120,6 @@ object PlayI2CMasterHAL {
 
     val myMasterI2C = new I2CMasterHAL(generic)
     io <> myMasterI2C.io
-    myMasterI2C.io.config.setFrequency(2e6)
-
   }
 
   def main(args: Array[String]) {

@@ -164,6 +164,8 @@ class I2CHALAnalyser:
 # I2C - Define all operation available
 #
 class I2COperation(object):
+    def __init__(self, delayCmd=0):
+        self.delayInput = delayCmd
     pass
 
 class START(I2COperation):
@@ -171,15 +173,17 @@ class START(I2COperation):
         return "Start - "
 
 class WRITE(I2COperation):
-    def __init__(self, data):
+    def __init__(self, data, delayCmd = 0):
         self.data = data
+        self.delayInput = delayCmd
 
     def __repr__(self):
         return "Write %08X - " % (self.data)
 
 class READ(I2COperation):
-    def __init__(self, data):
+    def __init__(self, data, delayCmd = 0):
         self.data = data
+        self.delayInput = delayCmd
 
     def __repr__(self):
         return "Read %08X - " % (self.data)

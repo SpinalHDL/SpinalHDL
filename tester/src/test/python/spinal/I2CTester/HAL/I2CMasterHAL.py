@@ -35,6 +35,8 @@ class I2CMasterHAL:
             self.sda_rd    = dut.io_i2c_sda_read
             self.scl_wr    = dut.io_i2c_scl_write
             self.scl_rd    = dut.io_i2c_scl_read
+            # Config ------------------------------------------
+            self.config_clockDivider = dut.io_config_clockDivider
             # CMD ---------------------------------------------
             self.cmd_ready = dut.io_cmd_ready
             self.cmd_valid = dut.io_cmd_valid
@@ -48,12 +50,13 @@ class I2CMasterHAL:
             self.clk       = dut.clk
             self.resetn    = dut.resetn
 
-        def init(self):
+        def init(self, sclDivider):
             self.cmd_valid <= 0
             self.cmd_mode  <= 0
             self.cmd_data  <= 0
             self.sda_rd    <= 1
             self.scl_rd    <= 1
+            self.config_clockDivider <= sclDivider
 
 
     #==========================================================================
@@ -119,6 +122,9 @@ class I2CMasterHAL:
 
             # START ---------------------------------------------------------------
             if isinstance(operation, START):
+
+                yield Timer(operation.delayInput)
+
                 io.cmd_valid  <= 1
                 io.cmd_mode   <= I2CMasterHAL.CMD.START
                 io.cmd_data   <= 0x0
@@ -130,6 +136,9 @@ class I2CMasterHAL:
 
             # WRITE ---------------------------------------------------------------
             elif isinstance(operation, WRITE):
+
+                yield Timer(operation.delayInput)
+
                 io.cmd_valid  <= 1
                 io.cmd_mode   <= I2CMasterHAL.CMD.WRITE
                 io.cmd_data   <= operation.data
@@ -141,6 +150,9 @@ class I2CMasterHAL:
 
             # READ ----------------------------------------------------------------
             elif isinstance(operation, READ):
+
+                yield Timer(operation.delayInput)
+
                 io.cmd_valid  <= 1
                 io.cmd_mode   <= I2CMasterHAL.CMD.READ
                 io.cmd_data   <= 0
@@ -157,6 +169,8 @@ class I2CMasterHAL:
 
                 if isinstance(prevOperation, READ):
 
+                    yield Timer(operation.delayInput)
+
                     io.cmd_valid  <= 1
                     io.cmd_mode   <= I2CMasterHAL.CMD.ACK if isinstance(operation,ACK) else I2CMasterHAL.CMD.NACK
                     io.cmd_data   <= 0
@@ -170,6 +184,9 @@ class I2CMasterHAL:
 
             # STOP ----------------------------------------------------------------
             elif isinstance(operation, STOP):
+
+                yield Timer(operation.delayInput)
+
                 io.cmd_valid  <= 1
                 io.cmd_mode   <= I2CMasterHAL.CMD.STOP
                 io.cmd_data   <= 0

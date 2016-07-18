@@ -24,12 +24,12 @@ def master_hal_basic_tests(dut):
 
     dut.log.info("Cocotb I2C Master HAL - write Test ")
 
-    listOperation = [START(), WRITE(0x45), NACK(), STOP()]
-    listOperation = [START(), READ(0x11),  NACK(), STOP()]
-    listOperation = [START(), WRITE(0x44), NACK(), WRITE(0x11), NACK(), STOP()]
-    listOperation = [START(), READ(0x11),  ACK(),  READ(0x45),  NACK(), STOP()]
-    listOperation = [START(), WRITE(0x44), NACK(), START(), READ(0x88),  NACK(), STOP()]
-    listOperation = [START(), READ(0x33),  ACK(),  START(), WRITE(0x22), ACK(),  STOP()]
+    listOperation = [START(), WRITE(0x45), ACK(), STOP()]
+    listOperation = [START(), READ(0x11 ),  ACK(), STOP()]
+    #listOperation = [START(), WRITE(0x44), NACK(), WRITE(0x11), NACK(), STOP()]
+    #listOperation = [START(), READ(0x11),  ACK(),  READ(0x45),  NACK(), STOP()]
+    #listOperation = [START(), WRITE(0x44), NACK(), START(), READ(0x88),  NACK(), STOP()]
+    #listOperation = [START(), READ(0x33),  NACK(),  START(), WRITE(0x22), NACK(),  STOP()]
 
     helperMaster = I2CMasterHAL(dut)
  #   analyser     = I2CHALAnalyser(helperMaster, listOperation)
@@ -40,7 +40,8 @@ def master_hal_basic_tests(dut):
     cocotb.fork(clockDomain.start())
 
     # Init IO and wait the end of the reset
-    helperMaster.io.init()
+    sclClockDivider = 50
+    helperMaster.io.init(sclClockDivider)
     yield clockDomain.event_endReset.wait()
 
 
