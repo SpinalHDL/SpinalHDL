@@ -38,11 +38,11 @@ trait BitsFactory {
   def Bits(width: BitCount): Bits = Bits.setWidth(width.value)
 }
 
-class Bits extends BitVector {
+class Bits extends BitVector with DataPrimitives[Bits]{
   private[core] def prefix: String = "b"
 
-  def ===(that: Bits): Bool = this.isEguals(that)
-  def =/=(that: Bits): Bool = this.isNotEguals(that)
+  override private[spinal] def _data: Bits = this
+
   def ===(that: MaskedLiteral): Bool = this.isEguals(that)
   def =/=(that: MaskedLiteral): Bool = this.isNotEguals(that)
   def ##(right: Bits): Bits = wrapBinaryOperator(right,new Operator.Bits.Cat)

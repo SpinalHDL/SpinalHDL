@@ -34,16 +34,16 @@ trait SIntFactory{
   def SInt(width: BitCount): SInt = SInt.setWidth(width.value)
 }
 
-class SInt extends BitVector with Num[SInt] with MinMaxProvider {
+class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimitives[SInt] {
   private[core] def prefix : String = "s"
+
+
+  override private[spinal] def _data: SInt = this
 
   def @@(that : SInt) : SInt = (this ## that).asSInt
   def @@(that : UInt) : SInt = (this ## that).asSInt
   def @@(that : Bool) : SInt = (this ## that).asSInt
 
-
-  def ===(that : SInt) : Bool = this.isEguals(that)
-  def =/=(that : SInt) : Bool = this.isNotEguals(that)
   def ===(that : MaskedLiteral) : Bool = this.isEguals(that)
   def =/=(that : MaskedLiteral) : Bool = this.isNotEguals(that)
 

@@ -129,10 +129,11 @@ object Data {
   }
 }
 
-//Should not extends AnyVal, Because it create kind of strange call stack move that make error reporting miss accurate
-class DataPimper[T <: Data](val pimpIt: T){
-  def ===(that: T): Bool = pimpIt.isEguals(that)
-  def =/=(that: T): Bool = pimpIt.isNotEguals(that)
+trait DataPrimitives[T <: Data]{
+  private[spinal] def _data : T
+
+  def ===(that: T): Bool = _data.isEguals(that)
+  def =/=(that: T): Bool = _data.isNotEguals(that)
   @deprecated("Use =/= instead")
   def !==(that: T): Bool = this =/= that
 
@@ -140,45 +141,52 @@ class DataPimper[T <: Data](val pimpIt: T){
 
   def := (that: T): Unit = {
     if(that.isInstanceOf[BitVector])
-      pimpIt.asInstanceOf[BitVector] := that.asInstanceOf[BitVector]
+      _data.asInstanceOf[BitVector] := that.asInstanceOf[BitVector]
     else
-      pimpIt assignFrom(that, false)
+      _data assignFrom(that, false)
   }
 
 
-//  def := [T2 <: T](that: T2): Unit = pimpIt assignFrom(that, false)
+  //  def := [T2 <: T](that: T2): Unit = pimpIt assignFrom(that, false)
 
   //Use as \= to have the same behavioral than VHDL variable
   def \(that: T) : T = {
     val ret = cloneOf(that)
-    ret := pimpIt
-    ret.flatten.foreach(_.conditionalAssignScope = pimpIt.conditionalAssignScope)
+    ret := _data
+    ret.flatten.foreach(_.conditionalAssignScope = _data.conditionalAssignScope)
     ret.globalData.overridingAssignementWarnings = false
     ret := that
     ret.globalData.overridingAssignementWarnings = true
     ret
   }
 
-  def <>(that: T): Unit = pimpIt autoConnect that
-  def init(that: T): T = pimpIt.initImpl(that)
+  def <>(that: T): Unit = _data autoConnect that
+  def init(that: T): T = _data.initImpl(that)
   def default(that : => T) : T ={
-    val c = if(pimpIt.dir == in)
+    val c = if(_data.dir == in)
       Component.current.parent
     else
       Component.current
 
     Component.push(c)
-    pimpIt.defaultImpl(that)
+    _data.defaultImpl(that)
     Component.pop(c)
-    pimpIt
+    _data
   }
 
   def muxList[T <: Data](mappings: Seq[(Any, T)]): T = {
-    SpinalMap.list(pimpIt,mappings)
+    SpinalMap.list(_data,mappings)
   }
   def mux[T <: Data](mappings: (Any, T)*): T = {
-    SpinalMap.list(pimpIt,mappings)
+    SpinalMap.list(_data,mappings)
   }
+
+}
+
+
+
+//Should not extends AnyVal, Because it create kind of strange call stack move that make error reporting miss accurate
+class DataPimper[T <: Data](val _data: T) extends DataPrimitives[T]{
 
 }
 

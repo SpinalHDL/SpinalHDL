@@ -641,7 +641,7 @@ class StreamDispatcherSequencial[T <: Data](gen: T, n: Int) extends Component {
     io.input.ready := False
     for (i <- 0 to n - 1) {
       io.outputs(i).payload := io.input.payload
-      when(counter !== i) {
+      when(counter =/= i) {
         io.outputs(i).valid := False
       } otherwise {
         io.outputs(i).valid := io.input.valid
