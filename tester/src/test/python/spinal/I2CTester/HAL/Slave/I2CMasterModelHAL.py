@@ -39,9 +39,17 @@ class I2CMasterModelHAL:
 
         yield RisingEdge(self.clk)
 
-        cocotb.fork(self._genSCL())
-        cocotb.fork(self._manageOpenDrain())
+        self.fork_scl    = cocotb.fork(self._genSCL())
+        self.fork_drain  = cocotb.fork(self._manageOpenDrain())
         cocotb.fork(self._runMaster(listOperations))
+
+
+    ##########################################################################
+    # Stop all processes
+    def stop(self):
+
+        self.fork_scl.kill()
+        self.fork_drain.kill()
 
 
     ##########################################################################

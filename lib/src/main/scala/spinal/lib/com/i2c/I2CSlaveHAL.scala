@@ -34,22 +34,35 @@ import spinal.lib.fsm._
 
 
 // @TODO oversampling the input's signal...
+// @TODO check after reset no dectecotr.start or stop fire
 
 /**
-  * Global configuration of the I2C Slave
+  * Generics for the I2C Slave
   *
-  * @param dataWidth    : Width of the data send/read
+  * @param dataWidth         : Width of the data send/read
+  * @param samplingSize      : deepth smapling
+  * @param clockDividerWidth : Width of the clock divider
   */
-case class I2CSlaveHALGenerics(dataWidth            : Int    = 8,
-                               clockDividerSampling : BigInt = 100 ){}
+case class I2CSlaveHALGenerics(dataWidth         : Int  = 8,
+                               samplingSize      : Int = 3,
+                               clockDividerWidth : Int = 10 ){}
 
 
 /**
-  *    START : START sequence detected
-  *    NACK  : NACK received
-  *    ACK   : ACK received
-  *    STOP  : STOP sequence detected
-  *    DATA  : DATA received
+  * Run-time configuration for the I2CSlave
+  */
+case class I2CSlaveHALConfig(g : I2CSlaveHALGenerics) extends Bundle {
+
+  val clockDivider = UInt(g.clockDividerWidth bit)
+
+  def setClockDivider(divider : Int): Unit = {
+    clockDivider := divider
+  }
+}
+
+
+/**
+  * Mode used to manage the slave
   */
 object I2CSlaveHALCmdMode extends SpinalEnum{
   val START, NACK, ACK, STOP, DATA = newElement()
@@ -67,7 +80,7 @@ case class I2CSlaveHALCmd(g : I2CSlaveHALGenerics) extends Bundle{
 
 /**
   *    DATA  : Send a data to the master
-  *    NONE  : NO operation / NACK
+  *    NONE  : None operation / NACK / Read data from the master
   *    ACK   : ACK
   *   (FREEZE) is done with the response stream.
   */
@@ -89,9 +102,10 @@ case class I2CSlaveHALRsp(g : I2CSlaveHALGenerics) extends Bundle{
   * Interface I2C Slave HAL
   */
 case class I2CSlaveHALio(g : I2CSlaveHALGenerics) extends Bundle{
-  val i2c  = slave( I2C() )
-  val cmd  = master Flow  ( I2CSlaveHALCmd(g) )
-  val rsp  = slave  Stream( I2CSlaveHALRsp(g) )
+  val i2c    = slave( I2C() )
+  val config = in( I2CSlaveHALConfig(g) )
+  val cmd    = master Flow  ( I2CSlaveHALCmd(g) )
+  val rsp    = slave  Stream( I2CSlaveHALRsp(g) )
 }
 
 
@@ -103,79 +117,62 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
   import spinal.lib.com.i2c.{I2CSlaveHALRspMode => RspMode}
   import spinal.lib.com.i2c.{I2CSlaveHALCmdMode => CmdMode}
 
-
   val io = I2CSlaveHALio(g)
 
-
   /**
-    * Synchronize input's signals of the I2C
+    * Clock divider used to sample sda and scl
     */
-  val ccIO = new Area{
-    val rd_scl = BufferCC(io.i2c.scl.read)
-    val rd_sda = BufferCC(io.i2c.sda.read)
-  }
-
-
-  // @TODO in progress... sampling input..
   val samplingClockDivider = new Area{
-    val counter = Reg(UInt(log2Up(g.clockDividerSampling) bits)) init(0)
+
+    val counter = Reg(UInt(g.clockDividerWidth bits)) init(0)
     val tick    = counter === 0
 
     counter := counter - 1
-    when(tick){
-      counter := g.clockDividerSampling
-    }
-  }
-
-  val filterInput = new Area{
-    val sdaSample = RegNextWhen(ccIO.rd_sda, samplingClockDivider.tick)
-    val sclSample = RegNextWhen(ccIO.rd_scl, samplingClockDivider.tick)
+    when(tick){ counter := io.config.clockDivider }
   }
 
 
   /**
-    * Rising and falling edge of the scl signal detection
+    * Sample sda and scl
+    */
+  val sampler = new Area{
+
+    val rd_scl     = BufferCC(io.i2c.scl.read)
+    val rd_sda     = BufferCC(io.i2c.sda.read)
+
+    val sdaSamples = History(that=rd_sda, length=g.samplingSize, when=samplingClockDivider.tick, init=True)
+    val sclSamples = History(that=rd_scl, length=g.samplingSize, when=samplingClockDivider.tick, init=True)
+
+    val sda        = RegNext(MajorityVote(sdaSamples))
+    val scl        = RegNext(MajorityVote(sclSamples))
+  }
+
+
+  /**
+    * Falling and rising edge detection of the scl signal
     */
   val sclSampling = new Area{
 
-    val risingEdge  = False
-    val fallingEdge = False
+    val scl_cur  = sampler.rd_scl
+    val scl_prev = RegNext(scl_cur) init(True)
 
-    val scl_cur  = RegNext(ccIO.rd_scl) init(False)
-    val scl_prev = RegNext(scl_cur)     init(False)
-
-    when(scl_cur && !scl_prev){
-       risingEdge := True
-    }
-
-    when(!scl_cur && scl_prev){
-      fallingEdge := True
-    }
-
+    val risingEdge  = scl_cur && !scl_prev
+    val fallingEdge = !scl_cur && scl_prev
   }
 
 
   /**
-    * Detect the start/restart and the stop sequence
+    * Detect the start/restart and the stop sequences
     */
   val detector = new Area{
 
-    val start   = False
-    val stop    = False
+    val sda_cur  = sampler.rd_sda
+    val sda_prev = RegNext(sda_cur)  init(True)
 
-    val sda_cur  = RegNext(ccIO.rd_sda) init(False)
-    val sda_prev = RegNext(sda_cur)     init(False)
+    val sclHighLevel = sclSampling.scl_cur && sclSampling.scl_prev
 
-    // start = falling edge of sda while the scl is 1
-    when(sclSampling.scl_cur && sclSampling.scl_prev && !sda_cur && sda_prev){
-      start := True
-    }
-
-    // stop = rising edge of sda while the scl is 1
-    when( sclSampling.scl_cur && sclSampling.scl_prev && sda_cur && !sda_prev){
-      stop := True
-    }
-    // @TODO check why there is a difference between when or without the when... CCBuffer propagation
+    val start = sclHighLevel && !sda_cur && sda_prev
+    val stop  = sclHighLevel && sda_cur  && !sda_prev
   }
 
 
@@ -201,7 +198,7 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
     */
   val smSlave = new StateMachine{
 
-    val dataReceived = Reg(Bits(g.dataWidth bits)) init(0) // randBoot()
+    val dataReceived = Reg(Bits(g.dataWidth bits)) randBoot()
     val wr_sda       = True
     val wr_scl       = True
 
@@ -225,8 +222,7 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
       // Start detected
       when(detector.start) {
         io.rsp.ready := io.rsp.valid
-
-        goto(sWaitEndStart)
+        goto(sStart)
       }
     }
 
@@ -236,15 +232,13 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
       }
     }
 
-    val sWaitEndStart : State = new State {
+    val sStart : State = new State {
       onEntry{
         io.cmd.valid := True
         io.cmd.mode  := CmdMode.START
       }
       whenIsActive{
-        when(sclSampling.fallingEdge){
-          goto(sData)
-        }
+        when(sclSampling.fallingEdge){ goto(sData) }
       }
     }
 
@@ -256,15 +250,15 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
         // Freeze the bus if no response received
         wr_scl := io.rsp.valid
 
-        // Read data on bus
+        // Read data
         when(io.rsp.mode === RspMode.DATA){
           // index change at each falling edge
           wr_sda := io.rsp.data(bitCounter.index )
         }
 
-        // Always write on bus
+        // Always write
         when(sclSampling.risingEdge) {
-          dataReceived(bitCounter.index) := ccIO.rd_sda
+          dataReceived(bitCounter.index) := sampler.rd_sda
         }
 
         // End of data sequence ?
@@ -282,13 +276,13 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
         // Freeze the bus if no response received
         wr_scl := io.rsp.valid
 
-        // Read ack on bus
+        // Read ack
         wr_sda := !(io.rsp.mode === RspMode.ACK)
 
-        // Write ack on bus
+        // Write ack
         when(sclSampling.risingEdge){
           io.cmd.valid := True
-          io.cmd.mode  := ccIO.rd_sda ? CmdMode.NACK | CmdMode.ACK
+          io.cmd.mode  := sampler.rd_sda ? CmdMode.NACK | CmdMode.ACK
         }
 
         // end of the ACK sequence

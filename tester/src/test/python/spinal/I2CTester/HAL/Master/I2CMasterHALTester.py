@@ -6,54 +6,63 @@
 import cocotb
 from cocotb.triggers import Timer, RisingEdge, FallingEdge, Event
 
-from spinal.common.misc import assertEquals
-from spinal.common.ClockDomain import ClockDomain, RESET_ACTIVE_LEVEL
 
-
+from spinal.common.ClockDomain         import ClockDomain, RESET_ACTIVE_LEVEL
 from spinal.I2CTester.HAL.I2CMasterHAL import I2CMasterHAL
-from spinal.I2CTester.HAL.I2CHAL import *
+from spinal.I2CTester.HAL.I2CHAL       import *
 
 from I2CSlaveModelHAL import I2CSlaveModelHAL
 
-
-
 ###############################################################################
-# Test a sequence of write
+# Basic test
 @cocotb.test()
 def master_hal_basic_tests(dut):
 
-    dut.log.info("Cocotb I2C Master HAL - write Test ")
+    dut.log.info("Cocotb I2C Master HAL - Basic Test ")
 
-    listOperation = [START(), WRITE(0x45), ACK(), STOP()]
-    listOperation = [START(), READ(0x11 ),  ACK(), STOP()]
-    #listOperation = [START(), WRITE(0x44), NACK(), WRITE(0x11), NACK(), STOP()]
-    #listOperation = [START(), READ(0x11),  ACK(),  READ(0x45),  NACK(), STOP()]
-    #listOperation = [START(), WRITE(0x44), NACK(), START(), READ(0x88),  NACK(), STOP()]
-    #listOperation = [START(), READ(0x33),  NACK(),  START(), WRITE(0x22), NACK(),  STOP()]
+    delayBetweenCMD = 300000
 
-    helperMaster = I2CMasterHAL(dut)
- #   analyser     = I2CHALAnalyser(helperMaster, listOperation)
-    modelSlave   = I2CSlaveModelHAL(helperMaster)
+    listOperation = list()
+    listOperation.append( [START(delayBetweenCMD), WRITE(), ACK(), STOP()]  )
+    listOperation.append( [START(), READ(),  ACK(delayBetweenCMD), STOP()] )
+    listOperation.append( [START(), WRITE(-1,delayBetweenCMD), NACK(), WRITE(), NACK(), STOP()] )
+    listOperation.append( [START(), READ(),  ACK(),  READ(),  NACK(delayBetweenCMD), STOP()] )
+    listOperation.append( [START(), WRITE(), ACK(), START(delayBetweenCMD), READ(),  NACK(), STOP(delayBetweenCMD)] )
+    listOperation.append( [START(), READ(-1,delayBetweenCMD),  NACK(), START(), WRITE(), NACK(),  STOP()] )
 
-    clockDomain = ClockDomain(dut.clk, 500, dut.resetn, RESET_ACTIVE_LEVEL.LOW)
+    for operationSeq in listOperation:
 
-    cocotb.fork(clockDomain.start())
+        helperMaster = I2CMasterHAL(dut)
+        analyser     = I2CHALAnalyser(helperMaster, operationSeq)
+        modelSlave   = I2CSlaveModelHAL(helperMaster)
 
-    # Init IO and wait the end of the reset
-    sclClockDivider = 50
-    helperMaster.io.init(sclClockDivider)
-    yield clockDomain.event_endReset.wait()
+        clockDomain = ClockDomain(dut.clk, 500, dut.resetn, RESET_ACTIVE_LEVEL.LOW)
+
+        cocotb.fork(clockDomain.start())
+
+        # Init IO and wait the end of the reset
+        sclClockDivider = 50
+        helperMaster.io.init(sclClockDivider)
+        yield clockDomain.event_endReset.wait()
+
+        # run
+        cocotb.fork(modelSlave.startSlave(operationSeq))
+        cocotb.fork(helperMaster.execOperations(operationSeq))
+        cocotb.fork(analyser.start())
+        yield helperMaster.checkResponse(operationSeq)
 
 
-    cocotb.fork(modelSlave.startSlave(listOperation))
-    cocotb.fork(helperMaster.execOperations(listOperation))
-    cocotb.fork(helperMaster.checkResponse(listOperation))
-    #cocotb.fork(analyser.start())
+        yield Timer(500000)
+
+        # kill all processes
+        clockDomain.stop()
+        helperMaster.stop()
+        modelSlave.stop()
+        analyser.stop()
+
+        yield Timer(500000)
 
 
-
-    yield Timer(3000000)
-
-    dut.log.info("I2C Master HAL - wirte Test done")
+    dut.log.info("I2C Master HAL - Basic Test done")
 
 

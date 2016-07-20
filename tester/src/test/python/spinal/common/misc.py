@@ -5,6 +5,9 @@ from cocotb.result import TestFailure
 from cocotb.triggers import Timer, RisingEdge
 
 
+def randInt(min,max):
+    return random.randint(min, max)
+
 def randBool():
     return bool(random.getrandbits(1))
 

@@ -35,10 +35,18 @@ class I2CSlaveModelHAL:
 
         yield RisingEdge(self.clk)
 
-        cocotb.fork(self._manageSDA())
-        cocotb.fork(self._startDetection())
-        cocotb.fork(self._stopDetection())
+        self.fork_drain = cocotb.fork(self._manageSDA())
+        self.fork_start = cocotb.fork(self._startDetection())
+        self.fork_stop  = cocotb.fork(self._stopDetection())
         cocotb.fork(self._runSlave(listOperations))
+
+
+    ##########################################################################
+    # Stop all processes
+    def stop(self):
+        self.fork_drain.kill()
+        self.fork_start.kill()
+        self.fork_stop.kill()
 
 
     ##########################################################################

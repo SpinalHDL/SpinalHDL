@@ -44,7 +44,8 @@ class ClockDomain:
     # Generate the clock signals
     @cocotb.coroutine
     def start(self):
-        cocotb.fork(self._clkGen())
+
+        self.fork_gen = cocotb.fork(self._clkGen())
         cocotb.fork(self._waitEndReset())
 
         if self.reset:
@@ -55,6 +56,12 @@ class ClockDomain:
         if self.reset:
             self.reset <= 1 if self.typeReset == RESET_ACTIVE_LEVEL.LOW else 0
 
+
+    ##########################################################################
+    # Stop all processes
+    def stop(self):
+
+        self.fork_gen.kill()
 
 
     ##########################################################################

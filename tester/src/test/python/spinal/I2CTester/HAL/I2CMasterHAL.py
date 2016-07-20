@@ -11,17 +11,26 @@ from spinal.I2CTester.HAL.I2CHAL import *
 #
 class I2CMasterHAL:
 
-    def __init__(self,dut):
+    def __init__(self,dut, fullTest=False):
         # IO definition -----------------------------------
-        self.io = I2CMasterHAL.IO(dut)
+        self.io = I2CMasterHAL.IO(dut, fullTest)
 
         # Event -------------------------------------------
         self.event_cmd_ready = Event()
         self.event_rsp_valid = Event()
 
         # Start process -----------------------------------
-        cocotb.fork(self.monitor_cmd_ready())
-        cocotb.fork(self.monitor_rsp_valid())
+        self.fork_cmdReady = cocotb.fork(self.monitor_cmd_ready())
+        self.fork_rspValid = cocotb.fork(self.monitor_rsp_valid())
+
+
+    #==========================================================================
+    # Stop all processes
+    #==========================================================================
+    def stop(self):
+
+        self.fork_cmdReady.kill()
+        self.fork_rspValid.kill()
 
 
     #==========================================================================
@@ -29,23 +38,23 @@ class I2CMasterHAL:
     #==========================================================================
     class IO:
 
-        def __init__ (self, dut):
+        def __init__ (self, dut, fullTest):
             # I2C ---------------------------------------------
-            self.sda_wr    = dut.io_i2c_sda_write
-            self.sda_rd    = dut.io_i2c_sda_read
-            self.scl_wr    = dut.io_i2c_scl_write
-            self.scl_rd    = dut.io_i2c_scl_read
+            self.sda_wr    = dut.io_i2c_sda_write if not fullTest else 0
+            self.sda_rd    = dut.io_i2c_sda_read  if not fullTest else dut.io_sda
+            self.scl_wr    = dut.io_i2c_scl_write if not fullTest else 0
+            self.scl_rd    = dut.io_i2c_scl_read  if not fullTest else dut.io_scl
             # Config ------------------------------------------
-            self.config_clockDivider = dut.io_config_clockDivider
+            self.config_clockDivider = dut.io_config_clockDivider if not fullTest else 0
             # CMD ---------------------------------------------
-            self.cmd_ready = dut.io_cmd_ready
-            self.cmd_valid = dut.io_cmd_valid
-            self.cmd_mode  = dut.io_cmd_payload_mode
-            self.cmd_data  = dut.io_cmd_payload_data
+            self.cmd_ready = dut.io_cmd_ready        if not fullTest else dut.io_ioMaster_cmd_ready
+            self.cmd_valid = dut.io_cmd_valid        if not fullTest else dut.io_ioMaster_cmd_valid
+            self.cmd_mode  = dut.io_cmd_payload_mode if not fullTest else dut.io_ioMaster_cmd_payload_mode
+            self.cmd_data  = dut.io_cmd_payload_data if not fullTest else dut.io_ioMaster_cmd_payload_data
             # RSP ---------------------------------------------
-            self.rsp_valid = dut.io_rsp_valid
-            self.rsp_mode  = dut.io_rsp_payload_mode
-            self.rsp_data  = dut.io_rsp_payload_data
+            self.rsp_valid = dut.io_rsp_valid        if not fullTest else dut.io_ioMaster_rsp_valid
+            self.rsp_mode  = dut.io_rsp_payload_mode if not fullTest else dut.io_ioMaster_rsp_payload_mode
+            self.rsp_data  = dut.io_rsp_payload_data if not fullTest else dut.io_ioMaster_rsp_payload_data
             # Clk & Rst ---------------------------------------
             self.clk       = dut.clk
             self.resetn    = dut.resetn
@@ -123,7 +132,7 @@ class I2CMasterHAL:
             # START ---------------------------------------------------------------
             if isinstance(operation, START):
 
-                yield Timer(operation.delayInput)
+                yield Timer(operation.delayCMD)
 
                 io.cmd_valid  <= 1
                 io.cmd_mode   <= I2CMasterHAL.CMD.START
@@ -137,7 +146,7 @@ class I2CMasterHAL:
             # WRITE ---------------------------------------------------------------
             elif isinstance(operation, WRITE):
 
-                yield Timer(operation.delayInput)
+                yield Timer(operation.delayCMD)
 
                 io.cmd_valid  <= 1
                 io.cmd_mode   <= I2CMasterHAL.CMD.WRITE
@@ -151,7 +160,7 @@ class I2CMasterHAL:
             # READ ----------------------------------------------------------------
             elif isinstance(operation, READ):
 
-                yield Timer(operation.delayInput)
+                yield Timer(operation.delayCMD)
 
                 io.cmd_valid  <= 1
                 io.cmd_mode   <= I2CMasterHAL.CMD.READ
@@ -169,7 +178,7 @@ class I2CMasterHAL:
 
                 if isinstance(prevOperation, READ):
 
-                    yield Timer(operation.delayInput)
+                    yield Timer(operation.delayCMD)
 
                     io.cmd_valid  <= 1
                     io.cmd_mode   <= I2CMasterHAL.CMD.ACK if isinstance(operation,ACK) else I2CMasterHAL.CMD.NACK
@@ -185,7 +194,7 @@ class I2CMasterHAL:
             # STOP ----------------------------------------------------------------
             elif isinstance(operation, STOP):
 
-                yield Timer(operation.delayInput)
+                yield Timer(operation.delayCMD)
 
                 io.cmd_valid  <= 1
                 io.cmd_mode   <= I2CMasterHAL.CMD.STOP

@@ -1,6 +1,5 @@
 /******************************************************************************
   * I2C Master HAL
-  *
   *                ________                       _______
   *               |        |<------- I2C ------->|       |
   *               | Master |                     | Slave |
@@ -43,15 +42,13 @@ import spinal.lib.fsm._
   *
   * @param dataWidth         : Width of the data send
   * @param clockDividerWidth : Width of the clockDivider value
-  * @param multiMaster_en    : Multi-Master or Single-Master
   */
 case class I2CMasterHALGenerics(dataWidth         : Int =  8,
-                                clockDividerWidth : Int = 20,
-                                multiMaster_en    : Boolean = true){}
+                                clockDividerWidth : Int = 20){}
 
 
 /**
-  * Used to config the I2C master HAL at runtime
+  * Runtime configuartion of the I2C master
   */
 case class I2CMasterHALConfig(g: I2CMasterHALGenerics) extends Bundle {
 
@@ -65,13 +62,7 @@ case class I2CMasterHALConfig(g: I2CMasterHALGenerics) extends Bundle {
 
 
 /**
-  * 6 different modes can be used to manage the master
-  *    START      : Send the start/restart sequence
-  *    WRITE      : Write a data
-  *    READ       : Read a data
-  *    ACK        : Send an ACK after reading
-  *    NACK       : Send a NACK after reading
-  *    STOP       : Send the stop sequence
+  * Modes used to manage the master
   */
 object I2CMasterHALCmdMode extends SpinalEnum{
   val START, WRITE, READ, ACK, NACK, STOP = newElement()
@@ -98,6 +89,7 @@ object I2CMasterHALRspMode extends SpinalEnum{
   val ACK, NACK, DATA, COLLISION = newElement()
 }
 
+
 /**
   * Define the response interface
   */
@@ -116,6 +108,7 @@ case class I2CMasterHALio(g : I2CMasterHALGenerics) extends Bundle{
   val cmd    = slave  Stream( I2CMasteHALCmd(g)  )
   val rsp    = master Flow  ( I2CMasterHALRsp(g) )
 }
+
 
 /**
   * Definition of the component I2C Master HAL
@@ -151,14 +144,11 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
     */
   val sclSampling = new Area{
 
-    val risingEdge  = Bool
-    val fallingEdge = Bool
-
-    val scl_cur  = RegNext(ccIO.rd_scl)
+    val scl_cur  = ccIO.rd_scl
     val scl_prev = RegNext(scl_cur)
 
-    risingEdge  := scl_cur && !scl_prev
-    fallingEdge := !scl_cur && scl_prev
+    val risingEdge  = scl_cur && !scl_prev
+    val fallingEdge = !scl_cur && scl_prev
   }
 
 
@@ -170,7 +160,6 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
   val sclGenerator = new Area{
 
     val cntValue        = Reg(UInt(g.clockDividerWidth bits)) init(0)
-    val triggerSequence = Bool
     val scl             = RegInit(True)
 
     // start / stop the counter clock
@@ -180,8 +169,6 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
       when(cntValue >= io.config.clockDivider ){ cntValue := 0 }
 
     }otherwise{
-     // when(sclFreezeByMater){ scl := False}otherwise{scl := True}
-
       cntValue := 0
     }
 
@@ -189,7 +176,7 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
     when(cntValue === io.config.clockDivider){ scl := !scl }
 
     // Used to indicate when to generate the start/restart/stop sequence
-    triggerSequence := scl && cntValue >= quarterDivider
+    val triggerStartStop = scl && cntValue >= quarterDivider
   }
 
 
@@ -200,22 +187,17 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
     */
   val detector = new Area{
 
-    val start   = Bool
-    val stop    = Bool
-
-    val sda_cur  = RegNext(ccIO.rd_sda)
+    //    val sda_cur  = RegNext(ccIO.rd_sda)
+    val sda_cur  = ccIO.rd_sda
     val sda_prev = RegNext(sda_cur)
 
-    // start = falling edge of sda while the scl is 1
-    start := sclGenerator.scl && !sda_cur  && sda_prev
-
-    // stop = rising edge of sda while the scl is 1
-    stop  := sclGenerator.scl && sda_cur && !sda_prev
+    val start = sclGenerator.scl && !sda_cur  && sda_prev
+    val stop  = sclGenerator.scl && sda_cur && !sda_prev
 
   }
 
 
-
+///@todo...
   val state_Bus = new StateMachine{
 
     val busy = False
@@ -249,13 +231,12 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
 
   /**
     * Synchronize all SCL signals of the different master
-    * in the case when several master drive the SCL.
+    * in the case when several master drive the SCL on the same time
     */
   val smSynchSCL = new Area{
 
-    val freezeSCL = Bool
-
-    freezeSCL := Delay(sclGenerator.scl,2) && !ccIO.rd_scl
+    val freezeSCL = Delay(sclGenerator.scl,3) && !ccIO.rd_scl
+   //val freezeSCL = sclGenerator.scl && !ccIO.rd_scl
   }
 
 
@@ -282,9 +263,9 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
 
     val dataReceived   = Reg(Bits(g.dataWidth bits)) randBoot()
 
-    val scl_en         = False
-    val wr_sda         = True
-    val wr_scl         = True
+    val scl_en = False
+    val wr_sda = True
+    val wr_scl = True
 
     // default value
     io.cmd.ready := False
@@ -294,8 +275,8 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
 
     always{
       when(io.cmd.valid && io.cmd.mode === CmdMode.STOP){
-          io.cmd.ready   := True
-          goto(sStop)
+        io.cmd.ready := True
+        goto(sStop)
       }
 
       when(io.cmd.valid && io.cmd.mode === CmdMode.START){
@@ -313,12 +294,10 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
     val sStart : State = new State {
       whenIsActive{
         scl_en := True
-        wr_sda := !sclGenerator.triggerSequence
+        wr_sda := !sclGenerator.triggerStartStop
 
         // end of the stop sequence
-        when(sclSampling.fallingEdge){
-          goto(sData)
-        }
+        when(sclSampling.fallingEdge){ goto(sData) }
       }
     }
 
@@ -330,7 +309,7 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
         scl_en := True
         wr_scl := io.cmd.valid
 
-        // write data on bus and check collision
+        // write data and check collision
         when(io.cmd.mode === CmdMode.WRITE){
           wr_sda := io.cmd.data(bitCounter.index)
 
@@ -343,10 +322,8 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
           }
         }
 
-        // Read data on bus
-        when(sclSampling.risingEdge){
-          dataReceived(bitCounter.index) := ccIO.rd_sda
-        }
+        // Read data
+        when(sclSampling.risingEdge){ dataReceived(bitCounter.index) := ccIO.rd_sda }
 
         // data sequence is done ?
         when(bitCounter.isDone){
@@ -384,24 +361,14 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
       whenIsActive{
         scl_en := True
         wr_sda := False
-
-        when(sclGenerator.triggerSequence){
-          goto(sIdle)
-        }
+        when(sclGenerator.triggerStartStop){ goto(sIdle) }
       }
     }
   }
 
   io.i2c.sda.write := RegNext(smMaster.wr_sda)
-  io.i2c.scl.write := RegNext(sclGenerator.scl) // && smMaster.wr_scl
+  io.i2c.scl.write := RegNext(sclGenerator.scl)
 
   scl_en     := smMaster.scl_en
-
-  sclFreeze  := !smMaster.wr_scl //smSynchSCL.freezeSCL || !smMaster.wr_scl
-
+  sclFreeze  := !smMaster.wr_scl || smSynchSCL.freezeSCL
 }
-
-
-
-
-

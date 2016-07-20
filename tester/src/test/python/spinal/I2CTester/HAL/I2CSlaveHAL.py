@@ -10,18 +10,26 @@ from spinal.common.misc import assertEquals
 #
 class I2CSlaveHAL:
 
-    def __init__(self,dut):
+    def __init__(self,dut, fullTest=False):
 
         # IO definition -----------------------------------
-        self.io = I2CSlaveHAL.IO(dut)
+        self.io = I2CSlaveHAL.IO(dut, fullTest)
 
         # Event -------------------------------------------
         self.event_cmd_valid = Event()
         self.event_rsp_ready = Event()
 
         # Start process -----------------------------------
-        cocotb.fork(self.monitor_cmd_valid())
-        cocotb.fork(self.monitor_rsp_ready())
+        self.fork_cmdValid = cocotb.fork(self.monitor_cmd_valid())
+        self.fork_rspReady = cocotb.fork(self.monitor_rsp_ready())
+
+
+    #==========================================================================
+    # Stop all processes
+    #==========================================================================
+    def stop(self):
+        self.fork_cmdValid.kill()
+        self.fork_rspReady.kill()
 
 
     #==========================================================================
@@ -29,21 +37,21 @@ class I2CSlaveHAL:
     #==========================================================================
     class IO:
 
-        def __init__ (self, dut):
+        def __init__ (self, dut, fullTest):
             # I2C ---------------------------------------------
-            self.sda_wr   = dut.io_i2c_sda_write
-            self.sda_rd   = dut.io_i2c_sda_read
-            self.scl_wr   = dut.io_i2c_scl_write
-            self.scl_rd   = dut.io_i2c_scl_read
+            self.sda_wr   = dut.io_i2c_sda_write if not fullTest else 0
+            self.sda_rd   = dut.io_i2c_sda_read  if not fullTest else dut.io_sda
+            self.scl_wr   = dut.io_i2c_scl_write if not fullTest else 0
+            self.scl_rd   = dut.io_i2c_scl_read  if not fullTest else dut.io_scl
             # CMD ---------------------------------------------
-            self.cmd_valid = dut.io_cmd_valid
-            self.cmd_mode  = dut.io_cmd_payload_mode
-            self.cmd_data  = dut.io_cmd_payload_data
+            self.cmd_valid = dut.io_cmd_valid         if not fullTest else dut.io_ioSlave_cmd_valid
+            self.cmd_mode  = dut.io_cmd_payload_mode  if not fullTest else dut.io_ioSlave_cmd_payload_mode
+            self.cmd_data  = dut.io_cmd_payload_data  if not fullTest else dut.io_ioSlave_cmd_payload_data
             # RSP ---------------------------------------------
-            self.rsp_ready = dut.io_rsp_ready
-            self.rsp_valid = dut.io_rsp_valid
-            self.rsp_mode  = dut.io_rsp_payload_mode
-            self.rsp_data  = dut.io_rsp_payload_data
+            self.rsp_ready = dut.io_rsp_ready         if not fullTest else dut.io_ioSlave_rsp_ready
+            self.rsp_valid = dut.io_rsp_valid         if not fullTest else dut.io_ioSlave_rsp_valid
+            self.rsp_mode  = dut.io_rsp_payload_mode  if not fullTest else dut.io_ioSlave_rsp_payload_mode
+            self.rsp_data  = dut.io_rsp_payload_data  if not fullTest else dut.io_ioSlave_rsp_payload_data
             # Clk & Rst ---------------------------------------
             self.clk       = dut.clk
             self.resetn    = dut.resetn
@@ -167,7 +175,9 @@ class I2CSlaveHAL:
 
             # Start -----------------------------------------------------------
             if isinstance(operation, START):
+
                 if index != 0 :
+                    yield Timer(operation.delayRSP)
                     io.rsp_valid <= 1
                     io.rsp_mode <= I2CSlaveHAL.RSP.NONE
                     io.rsp_data  <= 0
@@ -181,6 +191,9 @@ class I2CSlaveHAL:
 
             # Write -----------------------------------------------------------
             elif isinstance(operation, WRITE):
+
+                yield Timer(operation.delayRSP)
+
                 io.rsp_valid <= 1
                 io.rsp_mode <= I2CSlaveHAL.RSP.NONE
                 io.rsp_data  <= 0
@@ -193,6 +206,9 @@ class I2CSlaveHAL:
 
             # Read -----------------------------------------------------------
             elif isinstance(operation,READ):
+
+                yield Timer(operation.delayRSP)
+
                 io.rsp_valid <= 1
                 io.rsp_mode <= I2CSlaveHAL.RSP.DATA
                 io.rsp_data  <= operation.data
@@ -207,6 +223,8 @@ class I2CSlaveHAL:
             elif isinstance(operation,ACK) or isinstance(operation, NACK):
 
                 prevOperation = listOperation[index-1]
+
+                yield Timer(operation.delayRSP)
 
                 if isinstance(prevOperation, WRITE):
                     io.rsp_valid <= 1
@@ -226,6 +244,8 @@ class I2CSlaveHAL:
 
             # Stop ------------------------------------------------------------
             if isinstance(operation, STOP):
+
+                yield Timer(operation.delayRSP)
 
                 io.rsp_valid <= 1
                 io.rsp_mode <= I2CSlaveHAL.RSP.NONE

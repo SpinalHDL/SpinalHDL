@@ -1,6 +1,7 @@
 import cocotb
 from cocotb.triggers import RisingEdge, FallingEdge, Event, Timer
-from spinal.common.misc import assertEquals
+from spinal.common.misc import assertEquals, randInt
+import math
 
 
 ###############################################################################
@@ -38,11 +39,21 @@ class I2CHALAnalyser:
     @cocotb.coroutine
     def start(self):
 
-        cocotb.fork(self._FallingEdgeDetection())
-        cocotb.fork(self._RisingEdgeDetection())
-        cocotb.fork(self._startDetection())
-        cocotb.fork(self._stopDetection())
+        self.fork_falling = cocotb.fork(self._FallingEdgeDetection())
+        self.fork_rising  = cocotb.fork(self._RisingEdgeDetection())
+        self.fork_start   = cocotb.fork(self._startDetection())
+        self.fork_stop    = cocotb.fork(self._stopDetection())
         yield self._analyser()
+
+
+    #==========================================================================
+    # Stop all processes
+    #==========================================================================
+    def stop(self):
+        self.fork_falling.kill()
+        self.fork_rising.kill()
+        self.fork_start.kill()
+        self.fork_stop.kill()
 
 
     #==========================================================================
@@ -50,8 +61,6 @@ class I2CHALAnalyser:
     #==========================================================================
     @cocotb.coroutine
     def _analyser(self):
-
-        print("start aalyer")
 
         self.listOp = list()
 
@@ -74,6 +83,7 @@ class I2CHALAnalyser:
                     index = 0
                     self.startSeq = 0
                     dataBinRead = list()
+                    dataBinRead.append(int(self.sda))
 
                 index += 1
 
@@ -164,26 +174,34 @@ class I2CHALAnalyser:
 # I2C - Define all operation available
 #
 class I2COperation(object):
-    def __init__(self, delayCmd=0):
-        self.delayInput = delayCmd
-    pass
+    def __init__(self, delayCmd=0, delayRsp=0):
+        self.delayCMD = delayCmd
+        self.delayRSP = delayRsp
 
 class START(I2COperation):
     def __repr__(self):
         return "Start - "
 
 class WRITE(I2COperation):
-    def __init__(self, data, delayCmd = 0):
-        self.data = data
-        self.delayInput = delayCmd
+    def __init__(self, data=-1, delayCmd=0, delayRsp=0):
+        if data == -1 :
+            self.data = randInt(0,2**I2CConfig.dataWdith)
+        else:
+            self.data = data
+        self.delayCMD = delayCmd
+        self.delayRSP = delayRsp
 
     def __repr__(self):
         return "Write %08X - " % (self.data)
 
 class READ(I2COperation):
-    def __init__(self, data, delayCmd = 0):
-        self.data = data
-        self.delayInput = delayCmd
+    def __init__(self, data=-1, delayCmd=0, delayRsp=0):
+        if data == -1 :
+            self.data = randInt(0,2**I2CConfig.dataWdith)
+        else:
+            self.data = data
+        self.delayCMD = delayCmd
+        self.delayRSP = delayRsp
 
     def __repr__(self):
         return "Read %08X - " % (self.data)

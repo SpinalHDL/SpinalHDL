@@ -1140,9 +1140,10 @@ object PlayI2CSlaveHAL {
     val generic = I2CSlaveHALGenerics()
 
     val io = new Bundle {
-      val i2c  = slave( I2C() )
-      val cmd  = master  Flow ( I2CSlaveHALCmd(generic) )
-      val rsp  = slave Stream ( I2CSlaveHALRsp(generic) )
+      val i2c    = slave( I2C() )
+      val config = in(I2CSlaveHALConfig(generic))
+      val cmd    = master  Flow ( I2CSlaveHALCmd(generic) )
+      val rsp    = slave Stream ( I2CSlaveHALRsp(generic) )
     }
 
     val mySlave = new I2CSlaveHAL(generic)
@@ -1174,6 +1175,9 @@ object PlayI2CHAL{
         val cmd    = slave Stream(I2CMasteHALCmd(masterGeneric))
         val rsp    = master Flow (I2CMasterHALRsp (masterGeneric))
       }
+
+      val sda = out Bool
+      val scl = out Bool
     }
 
     val i2cSlave  = new I2CSlaveHAL(slaveGeneric)
@@ -1185,6 +1189,10 @@ object PlayI2CHAL{
     i2cMaster.io.cmd <> io.ioMaster.cmd
     i2cMaster.io.rsp <> io.ioMaster.rsp
     i2cMaster.io.config.setFrequency(2e6)
+    i2cMaster.io.config.enCollision := True
+
+    io.sda := i2cMaster.io.i2c.sda.read
+    io.scl := i2cMaster.io.i2c.scl.read
 
 
     interconnect(Seq(i2cMaster.io.i2c.scl, i2cSlave.io.i2c.scl))
