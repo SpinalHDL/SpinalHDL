@@ -1,11 +1,11 @@
 ## spinal.core
 
-- [ ] Add version number into elaboration logs
+- [X] Add version number into elaboration logs
 - [ ] Add rotate left support in the verilog backend
 - [ ] Better mux Nodes (more than two inputs)
 - [ ] Remove the generation of when nodes condition when they are emited as a case statments
 - [ ] Rework Namable trait, to allow it to be named by composition + postfix, and maybe to work with Ownable trait for hearchical naming
-- [ ] bool/bits/uint/sint should extends dataimper to avoid implicites and allow implicite area to uint
+- [X] bool/bits/uint/sint should extends dataimper to avoid implicites and allow implicite area to uint
 
 ## spinal.lib
 
@@ -28,7 +28,7 @@
 - [X] spinal.lib.StreamArbiter
 - [ ] spinal.lib.StreamMux
 - [ ] spinal.lib.EventEmitter
-- [x] spinal.lib.StreamJoin
+- [X] spinal.lib.StreamJoin
 - [ ] spinal.lib.FlowCCByToggle
 
 ## http://spinalhdl.github.io/SpinalDoc/

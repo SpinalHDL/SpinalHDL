@@ -84,6 +84,12 @@ class SpinalReport[T <: Component](val toplevel: T) {
 
 object Spinal{
   def apply[T <: Component](config : SpinalConfig)(gen : => T) : SpinalReport[T]  = {
+
+    println({
+      SpinalLog.tag("Runtime", Console.YELLOW)
+    } + s" SpinalHDL 0.9.0")
+
+
     val runtime = Runtime.getRuntime
     println({
       SpinalLog.tag("Runtime", Console.YELLOW)
@@ -98,8 +104,8 @@ object Spinal{
     val report = config.mode match {
       case `VHDL` => SpinalVhdlBoot(config)(gen)
       case `Verilog` => SpinalVerilogBoot(config)(gen)
-
     }
+
     println({SpinalLog.tag("Done", Console.GREEN)} + s" at ${f"${Driver.executionTime}%1.3f"}")
     report
   }
