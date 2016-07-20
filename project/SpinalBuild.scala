@@ -36,14 +36,14 @@ object SpinalBuild extends Build {
     )
   ) dependsOn (core)
 
-  lazy val ip = Project(
-    id = "SpinalHDL-ip",
-    base = file("ip"),
-    settings = defaultSettings ++ Seq(
-      name := "SpinalHDL ip",
-      version := SpinalVersion.ip
-    )
-  ) dependsOn (core,lib)
+//  lazy val ip = Project(
+//    id = "SpinalHDL-ip",
+//    base = file("ip"),
+//    settings = defaultSettings ++ Seq(
+//      name := "SpinalHDL ip",
+//      version := SpinalVersion.ip
+//    )
+//  ) dependsOn (core,lib)
 
   lazy val debugger = Project(
     id = "SpinalHDL-debugger",
@@ -57,7 +57,7 @@ object SpinalBuild extends Build {
       libraryDependencies += "net.liftweb" %% "lift-json" % "latest.release",
       publishTo := None
     )
-  ) dependsOn(core, lib, ip)
+  ) dependsOn(core, lib/*, ip*/)
 
   lazy val demo = Project(
     id = "SpinalHDL-demo",
@@ -67,7 +67,7 @@ object SpinalBuild extends Build {
       version := SpinalVersion.demo,
       publishTo := None
     )
-  ) dependsOn(core, lib, ip ,debugger)
+  ) dependsOn(core, lib/*, ip*/ ,debugger)
 
 
   lazy val tester = Project(
@@ -80,7 +80,7 @@ object SpinalBuild extends Build {
       //libraryDependencies += "com.storm-enroute" %% "scalameter" % "latest.release",
       publishTo := None
     )
-  ) dependsOn(core, lib, ip, debugger,demo)
+  ) dependsOn(core, lib/*, ip*/, debugger,demo)
 
   //sbt clean reload publishSigned
   //https://oss.sonatype.org
