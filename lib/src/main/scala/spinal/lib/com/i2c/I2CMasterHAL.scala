@@ -127,6 +127,9 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
   // freeze the SCL signal
   val sclFreeze = Bool
 
+  // stop detected
+  val stop = Bool
+
   val quarterDivider = io.config.clockDivider >> 1
 
 
@@ -144,11 +147,10 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
     */
   val sclSampling = new Area{
 
-    val scl_cur  = ccIO.rd_scl
-    val scl_prev = RegNext(scl_cur)
+    val scl_prev = RegNext(ccIO.rd_scl)
 
-    val risingEdge  = scl_cur && !scl_prev
-    val fallingEdge = !scl_cur && scl_prev
+    val risingEdge  = ccIO.rd_scl  && !scl_prev
+    val fallingEdge = !ccIO.rd_scl && scl_prev
   }
 
 
@@ -168,7 +170,7 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
       cntValue := cntValue + 1
       when(cntValue >= io.config.clockDivider ){ cntValue := 0 }
 
-    }otherwise{
+    }.elsewhen(stop){
       cntValue := 0
     }
 
@@ -176,7 +178,8 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
     when(cntValue === io.config.clockDivider){ scl := !scl }
 
     // Used to indicate when to generate the start/restart/stop sequence
-    val triggerStartStop = scl && cntValue >= quarterDivider
+    val quarterPeriod    = cntValue >= quarterDivider
+    val triggerStartStop = scl && quarterPeriod
   }
 
 
@@ -187,41 +190,43 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
     */
   val detector = new Area{
 
-    //    val sda_cur  = RegNext(ccIO.rd_sda)
-    val sda_cur  = ccIO.rd_sda
-    val sda_prev = RegNext(sda_cur)
+    val sda_prev = RegNext(ccIO.rd_sda)
 
-    val start = sclGenerator.scl && !sda_cur  && sda_prev
-    val stop  = sclGenerator.scl && sda_cur && !sda_prev
-
+    val start = sclGenerator.triggerStartStop && ccIO.rd_scl && !ccIO.rd_sda  && sda_prev
+    val stop  = sclGenerator.triggerStartStop && ccIO.rd_scl && ccIO.rd_sda   && !sda_prev
   }
 
 
-///@todo...
-  val state_Bus = new StateMachine{
+  ///@todo...
+  val busState = new StateMachine{
 
     val busy = False
 
-    val sIDLE : State = new State with EntryPoint{
+    always{
+      when(detector.start) { goto(sStart) }
+    }
+
+    val sIdle : State = new State with EntryPoint {
       whenIsActive {
-        when(detector.start){
-          goto(sDELAY)
-        }
       }
+    }
 
-      val sDELAY : State = new StateDelay(cyclesCount= quarterDivider){
-        whenCompleted{
-          goto(sBUSY)
-        }
+    val sStart : State = new State{
+      whenIsActive{
+        when(sclSampling.fallingEdge){ goto(sWait)}
       }
+    }
 
-      val sBUSY : State = new State{
-        whenIsActive{
-          busy := True
-          when(detector.stop){
-            goto(sIDLE)
-          }
-        }
+    val sWait : State = new State{
+      whenIsActive{
+        when(sclGenerator.quarterPeriod){ goto(sBusBusy) }
+      }
+    }
+
+    val sBusBusy : State = new State{
+      whenIsActive{
+        busy := True
+        when(detector.stop){ goto(sIdle) }
       }
     }
   }
@@ -236,7 +241,6 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
   val smSynchSCL = new Area{
 
     val freezeSCL = Delay(sclGenerator.scl,3) && !ccIO.rd_scl
-   //val freezeSCL = sclGenerator.scl && !ccIO.rd_scl
   }
 
 
@@ -279,7 +283,7 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
         goto(sStop)
       }
 
-      when(io.cmd.valid && io.cmd.mode === CmdMode.START){
+      when(io.cmd.valid && io.cmd.mode === CmdMode.START && !busState.busy ){
         io.cmd.ready   := True
         goto(sStart)
       }
@@ -313,12 +317,10 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
         when(io.cmd.mode === CmdMode.WRITE){
           wr_sda := io.cmd.data(bitCounter.index)
 
-          when(sclSampling.risingEdge && io.config.enCollision){
-            when(ccIO.rd_sda =/= wr_sda){
-              io.rsp.mode  := RspMode.COLLISION
-              io.rsp.valid := True
-              goto(sIdle)
-            }
+          when(ccIO.rd_sda =/= wr_sda && sclSampling.risingEdge && io.config.enCollision){
+            io.rsp.mode  := RspMode.COLLISION
+            io.rsp.valid := True
+            goto(sIdle)
           }
         }
 
@@ -371,4 +373,6 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
 
   scl_en     := smMaster.scl_en
   sclFreeze  := !smMaster.wr_scl || smSynchSCL.freezeSCL
+
+  stop := detector.stop
 }

@@ -27,12 +27,12 @@ def test_scenario_1(dut):
 
     listOperation.append( [START(), WRITE(0x88, 0, delay), ACK(), STOP()] )
     listOperation.append( [START(), READ(), NACK(), STOP()] )
-    listOperation.append( [START(), READ(),  ACK(), READ(),  NACK(), STOP()] )
-    listOperation.append( [START(), WRITE(), ACK(), WRITE(), NACK(), STOP()])
-    listOperation.append( [START(), READ(),  ACK(), WRITE(), NACK(), STOP()])
-    listOperation.append( [START(), WRITE(), ACK(), READ(),  NACK(), STOP()] )
-    listOperation.append( [START(), WRITE(), ACK(), START(), READ(), NACK(), STOP()]  )
-    listOperation.append( [START(), READ(),  ACK(), START(), WRITE(), NACK(), STOP()] )
+    #listOperation.append( [START(), READ(),  ACK(), READ(),  NACK(), STOP()] )
+    #listOperation.append( [START(), WRITE(), ACK(), WRITE(), NACK(), STOP()])
+    #listOperation.append( [START(), READ(),  ACK(), WRITE(), NACK(), STOP()])
+    #listOperation.append( [START(), WRITE(), ACK(), READ(),  NACK(), STOP()] )
+    #listOperation.append( [START(), WRITE(), ACK(), START(), READ(), NACK(), STOP()]  )
+    #listOperation.append( [START(), READ(),  ACK(), START(), WRITE(), NACK(), STOP()] )
 
     for operationSeq in listOperation:
 
