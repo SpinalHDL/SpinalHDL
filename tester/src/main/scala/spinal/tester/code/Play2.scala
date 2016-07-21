@@ -1188,11 +1188,13 @@ object PlayI2CHAL{
     i2cSlave.io.rsp  <> io.ioSlave.rsp
     i2cMaster.io.cmd <> io.ioMaster.cmd
     i2cMaster.io.rsp <> io.ioMaster.rsp
-    i2cMaster.io.config.setFrequency(2e6)
+    i2cMaster.io.config.setSCLFrequency(2e6)
     i2cMaster.io.config.enCollision := True
+    i2cMaster.io.config.setClockDividerSampling(5)
 
     io.sda := i2cMaster.io.i2c.sda.read
     io.scl := i2cMaster.io.i2c.scl.read
+    i2cSlave.io.config.setClockDividerSampling(5)
 
 
     interconnect(Seq(i2cMaster.io.i2c.scl, i2cSlave.io.i2c.scl))
@@ -1598,7 +1600,7 @@ object PlayAuto{
     i2cSlave.io.rsp  <> io.ioSlave.rsp
     i2cMaster.io.cmd <> io.ioMaster.cmd
     i2cMaster.io.rsp <> io.ioMaster.rsp
-    i2cMaster.io.config.setFrequency(2e6)
+    i2cMaster.io.config.setSCLFrequency(2e6)
 
     simSDA.io.input     <> i2cMaster.io.i2c.sda
 

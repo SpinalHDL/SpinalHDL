@@ -32,8 +32,6 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.fsm._
 
-
-// @TODO oversampling the input's signal...
 // @TODO check after reset no dectecotr.start or stop fire
 
 /**
@@ -41,11 +39,11 @@ import spinal.lib.fsm._
   *
   * @param dataWidth         : Width of the data send/read
   * @param samplingSize      : deepth smapling
-  * @param clockDividerWidth : Width of the clock divider
+  * @param clockDividerSamplingWidth : Width of the clock divider
   */
-case class I2CSlaveHALGenerics(dataWidth         : Int  = 8,
-                               samplingSize      : Int = 3,
-                               clockDividerWidth : Int = 10 ){}
+case class I2CSlaveHALGenerics(dataWidth                 : Int  = 8,
+                               samplingSize              : Int = 3,
+                               clockDividerSamplingWidth : Int = 10 ){}
 
 
 /**
@@ -53,10 +51,10 @@ case class I2CSlaveHALGenerics(dataWidth         : Int  = 8,
   */
 case class I2CSlaveHALConfig(g : I2CSlaveHALGenerics) extends Bundle {
 
-  val clockDivider = UInt(g.clockDividerWidth bit)
+  val clockDividerSampling = UInt(g.clockDividerSamplingWidth bit)
 
-  def setClockDivider(divider : Int): Unit = {
-    clockDivider := divider
+  def setClockDividerSampling(divider : Int): Unit = {
+    clockDividerSampling := divider
   }
 }
 
@@ -124,11 +122,11 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
     */
   val samplingClockDivider = new Area{
 
-    val counter = Reg(UInt(g.clockDividerWidth bits)) init(0)
+    val counter = Reg(UInt(g.clockDividerSamplingWidth bits)) init(0)
     val tick    = counter === 0
 
     counter := counter - 1
-    when(tick){ counter := io.config.clockDivider }
+    when(tick){ counter := io.config.clockDividerSampling }
   }
 
 
@@ -137,14 +135,14 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
     */
   val sampler = new Area{
 
-    val rd_scl     = BufferCC(io.i2c.scl.read)
-    val rd_sda     = BufferCC(io.i2c.sda.read)
+    val scl     = BufferCC(io.i2c.scl.read)
+    val sda     = BufferCC(io.i2c.sda.read)
 
-    val sdaSamples = History(that=rd_sda, length=g.samplingSize, when=samplingClockDivider.tick, init=True)
-    val sclSamples = History(that=rd_scl, length=g.samplingSize, when=samplingClockDivider.tick, init=True)
+    val sdaSamples = History(that=sda, length=g.samplingSize, when=samplingClockDivider.tick, init=True)
+    val sclSamples = History(that=scl, length=g.samplingSize, when=samplingClockDivider.tick, init=True)
 
-    val sda        = RegNext(MajorityVote(sdaSamples))
-    val scl        = RegNext(MajorityVote(sclSamples))
+    val rd_sda        = RegNext(MajorityVote(sdaSamples))
+    val rd_scl        = RegNext(MajorityVote(sclSamples))
   }
 
 
@@ -153,11 +151,10 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
     */
   val sclSampling = new Area{
 
-    val scl_cur  = sampler.rd_scl
-    val scl_prev = RegNext(scl_cur) init(True)
+    val scl_prev = RegNext(sampler.rd_scl) init(True)
 
-    val risingEdge  = scl_cur && !scl_prev
-    val fallingEdge = !scl_cur && scl_prev
+    val risingEdge  = sampler.rd_scl  && !scl_prev
+    val fallingEdge = !sampler.rd_scl && scl_prev
   }
 
 
@@ -169,7 +166,7 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
     val sda_cur  = sampler.rd_sda
     val sda_prev = RegNext(sda_cur)  init(True)
 
-    val sclHighLevel = sclSampling.scl_cur && sclSampling.scl_prev
+    val sclHighLevel = sampler.rd_scl && sclSampling.scl_prev
 
     val start = sclHighLevel && !sda_cur && sda_prev
     val stop  = sclHighLevel && sda_cur  && !sda_prev
