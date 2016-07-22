@@ -1504,4 +1504,15 @@ object c4828{
     val phase = CounterFreeRun(sampleCount)
     val sin   = rom.readSync(phase)
   }
+
+  class MyComponent extends Component {
+    val io = new Bundle{
+      val a      = in Bool
+      val result = out Bool
+    }
+    when(io.a){
+      io.result := True
+    }
+  }
+
 }
