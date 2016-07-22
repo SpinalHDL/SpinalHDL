@@ -58,7 +58,7 @@ abstract class MultiData extends Data {
       case nameable: Nameable => {
         if (eName == "")
           nameable.setName(getName(), weak)
-        else if(getName() == "")
+        else if(isUnnamed)
           nameable.setName(eName, weak)
         else
           nameable.setName(getName() + "_" + eName, weak)

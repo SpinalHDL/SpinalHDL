@@ -234,7 +234,8 @@ class Scope {
 
   def iWantIt(name: String): Unit = {
     val lowerCase = name.toLowerCase
-    if (map.contains(lowerCase)) SpinalError(s"Reserved name $name is not free")
+    if (map.contains(lowerCase))
+      SpinalError(s"Reserved name $name is not free")
     map(lowerCase) = 1
   }
 

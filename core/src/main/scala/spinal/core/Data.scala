@@ -47,7 +47,7 @@ object Data {
       Component.push(finalComponent)
       finalData = srcData.clone
       if (propagateName)
-        finalData.setCompositeName(srcData)
+        finalData.setCompositeName(srcData,true)
       finalData.asInput()
       if (useCache) currentComponent.pulledDataCache.put(srcData, finalData)
       Component.pop(finalComponent)
@@ -66,7 +66,7 @@ object Data {
           Component.push(currentComponent)
           val copy = srcData.clone
           if (propagateName)
-            copy.setCompositeName(srcData)
+            copy.setCompositeName(srcData,true)
           copy.asInput()
           currentData.assignFrom(copy,false)
           Component.pop(currentComponent)
@@ -92,7 +92,7 @@ object Data {
         Component.push(fallPath.head)
         val copy = srcData.clone
         if (propagateName)
-          copy.setCompositeName(srcData)
+          copy.setCompositeName(srcData,true)
         copy.asOutput()
         Component.pop(fallPath.head)
 

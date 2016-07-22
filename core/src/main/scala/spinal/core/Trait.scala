@@ -237,11 +237,40 @@ trait OwnableRef{
   }
 }
 
-trait Nameable {
-  private var name: String = ""
-  private[core] var compositeName: Nameable = null
-  def getName(): String = if (compositeName == null) name else compositeName.getName()
-  //def getDisplayName() : String = if(isNamed) getName() else "???"
+object Nameable{
+  val UNANMED : Byte = 0
+  val ABSOLUTE : Byte = 1
+  val NAMEABLE_REF : Byte = 2
+  val OWNER_PREFIXED : Byte = 3
+}
+
+trait Nameable extends OwnableRef{
+  import Nameable._
+  private var name : String = null
+  private var nameableRef : Nameable = null
+  private var mode : Byte = UNANMED
+  private var weak : Byte = 1
+
+  private def getMode = mode
+  private[core] def isWeak = weak != 0
+  private[core] def setMode(mode : Byte)     = this.mode = mode
+  private[core] def setWeak(weak : Boolean) = this.weak = (if(weak) 1 else 0)
+
+  def isUnnamed: Boolean = getMode match{
+    case UNANMED => true
+    case ABSOLUTE => name == null || name == ""
+    case NAMEABLE_REF => nameableRef == null || nameableRef.isUnnamed
+  }
+  def isNamed: Boolean = !isUnnamed
+
+  def getName() : String = getName("")
+  def getName(default : String): String = getMode match{
+    case UNANMED => default
+    case ABSOLUTE => name
+    case NAMEABLE_REF => if(nameableRef != null) nameableRef.getName() else default
+  }
+
+
   def getDisplayName() : String = {
     val name = getName()
     if(name.length == 0)
@@ -249,35 +278,36 @@ trait Nameable {
     else
       name
   }
-  def isUnnamed: Boolean = name == "" && (compositeName == null || compositeName.isUnnamed)
-  def isNamed: Boolean = !isUnnamed
-  private[core] var isWeak = true
+
 
 
   override def toString(): String = name
 
-  private[core] def getNameElseThrow: String = name
-  def setCompositeName(nameable: Nameable) = {
-    compositeName = nameable
-    name = ""
-    isWeak = true
+  private[core] def getNameElseThrow: String = getName(null)
+  def setCompositeName(nameable: Nameable,weak : Boolean = false) = {
+    nameableRef = nameable
+    name = null
+    setMode(NAMEABLE_REF)
+    setWeak(weak)
   }
   def setWeakName(name: String) = setName(name, true)
-  def setName(nameable: Nameable) = {
-    name = nameable.name
-    isWeak = nameable.isWeak
-    compositeName = null
-  }
+//  def setName(nameable: Nameable) = {
+//    name = nameable.name
+//    isWeak = nameable.isWeak
+//    compositeName = null
+//  }
+
 
   def setName(name: String, weak: Boolean = false): this.type = {
-    compositeName = null
     if (!weak) {
       this.name = name;
-      isWeak = false;
+      setMode(ABSOLUTE)
+      setWeak(weak)
       nameChangeEvent(weak)
     }
     else if (isWeak && !isNamed) {
       this.name = name;
+      setMode(ABSOLUTE)
       nameChangeEvent(weak)
     }
     this
