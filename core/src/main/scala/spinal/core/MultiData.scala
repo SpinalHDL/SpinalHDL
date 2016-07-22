@@ -52,21 +52,6 @@ abstract class MultiData extends Data {
     ret
   }
 
-  protected override def nameChangeEvent(weak: Boolean): Unit = {
-    super.nameChangeEvent(weak)
-    for ((eName, e) <- elements) e match {
-      case nameable: Nameable => {
-        if (eName == "")
-          nameable.setName(getName(), weak)
-        else if(isUnnamed)
-          nameable.setName(eName, weak)
-        else
-          nameable.setName(getName() + "_" + eName, weak)
-      }
-    }
-  }
-
-
   override def getBitsWidth: Int = {
     var accumulateWidth = 0
     for ((_, e) <- elements) {

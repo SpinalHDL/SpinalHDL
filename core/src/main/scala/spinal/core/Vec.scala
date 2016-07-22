@@ -238,6 +238,7 @@ class Vec[T <: Data](_dataType: T, val vec: Vector[T]) extends MultiData with co
       for ((e, i) <- vec.zipWithIndex) {
         elementsCache += Tuple2(i.toString, e)
         OwnableRef.set(e,this)
+        e.setPartialName(i.toString,true)
       }
     }
     elementsCache

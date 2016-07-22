@@ -258,8 +258,9 @@ trait Nameable extends OwnableRef{
 
   def isUnnamed: Boolean = getMode match{
     case UNANMED => true
-    case ABSOLUTE => name == null || name == ""
+    case ABSOLUTE => name == null
     case NAMEABLE_REF => nameableRef == null || nameableRef.isUnnamed
+    case OWNER_PREFIXED => refOwner == null || refOwner.asInstanceOf[Nameable].isUnnamed
   }
   def isNamed: Boolean = !isUnnamed
 
@@ -267,7 +268,21 @@ trait Nameable extends OwnableRef{
   def getName(default : String): String = getMode match{
     case UNANMED => default
     case ABSOLUTE => name
-    case NAMEABLE_REF => if(nameableRef != null) nameableRef.getName() else default
+    case NAMEABLE_REF => if(nameableRef != null && nameableRef.isNamed) nameableRef.getName() else default
+    case OWNER_PREFIXED => {
+      if(refOwner != null) {
+        val ref = refOwner.asInstanceOf[Nameable]
+        if (ref.isNamed) {
+          val ownerName = ref.getName()
+          if(ownerName != "" && name != "")
+            ownerName + "_" + name
+          else
+            ownerName + name
+        } else {
+          default
+        }
+      } else default
+    }
   }
 
 
@@ -284,19 +299,19 @@ trait Nameable extends OwnableRef{
   override def toString(): String = name
 
   private[core] def getNameElseThrow: String = getName(null)
+
   def setCompositeName(nameable: Nameable,weak : Boolean = false) = {
     nameableRef = nameable
     name = null
     setMode(NAMEABLE_REF)
     setWeak(weak)
   }
-  def setWeakName(name: String) = setName(name, true)
-//  def setName(nameable: Nameable) = {
-//    name = nameable.name
-//    isWeak = nameable.isWeak
-//    compositeName = null
-//  }
 
+  def setPartialName(name: String,weak : Boolean = false) = {
+    this.name = name
+    setMode(OWNER_PREFIXED)
+    setWeak(weak)
+  }
 
   def setName(name: String, weak: Boolean = false): this.type = {
     if (!weak) {
@@ -312,6 +327,8 @@ trait Nameable extends OwnableRef{
     }
     this
   }
+
+  def setWeakName(name: String) = setName(name, true)
 
   protected def nameChangeEvent(weak: Boolean): Unit = {}
 

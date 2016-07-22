@@ -93,6 +93,7 @@ class Bundle extends MultiData with Nameable with OverridedEqualsHashCode {
               //To avoid bundle argument
               elementsCache += Tuple2(name, data)
               OwnableRef.set(data,this)
+              data.setPartialName(name,true)
               data.parent = this
             }
           }
