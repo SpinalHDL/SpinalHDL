@@ -118,44 +118,18 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
   val io = I2CSlaveHALio(g)
 
   /**
-    * Clock divider used to sample sda and scl
+    * Filter SDA and SCL input
     */
-  val samplingClockDivider = new Area{
-
-    val counter = Reg(UInt(g.clockDividerSamplingWidth bits)) init(0)
-    val tick    = counter === 0
-
-    counter := counter - 1
-    when(tick){ counter := io.config.clockDividerSampling }
-  }
-
+  val sampler = new I2CFilterArea(i2c_sda           = io.i2c.sda.read,
+                                  i2c_scl           = io.i2c.scl.read,
+                                  clockDivider      = io.config.clockDividerSampling,
+                                  samplingSize      = g.samplingSize,
+                                  clockDividerWidth = g.clockDividerSamplingWidth)
 
   /**
-    * Sample sda and scl
+    * Detect the rising and falling edge of the scl signal
     */
-  val sampler = new Area{
-
-    val scl     = BufferCC(io.i2c.scl.read)
-    val sda     = BufferCC(io.i2c.sda.read)
-
-    val sdaSamples = History(that=sda, length=g.samplingSize, when=samplingClockDivider.tick, init=True)
-    val sclSamples = History(that=scl, length=g.samplingSize, when=samplingClockDivider.tick, init=True)
-
-    val rd_sda        = RegNext(MajorityVote(sdaSamples))
-    val rd_scl        = RegNext(MajorityVote(sclSamples))
-  }
-
-
-  /**
-    * Falling and rising edge detection of the scl signal
-    */
-  val sclSampling = new Area{
-
-    val scl_prev = RegNext(sampler.rd_scl) init(True)
-
-    val risingEdge  = sampler.rd_scl  && !scl_prev
-    val fallingEdge = !sampler.rd_scl && scl_prev
-  }
+  val sclEdge = new SCLEdgeDetector(sampler.scl)
 
 
   /**
@@ -163,31 +137,19 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
     */
   val detector = new Area{
 
-    val sda_cur  = sampler.rd_sda
-    val sda_prev = RegNext(sda_cur)  init(True)
+    val sda_prev = RegNext(sampler.sda)  init(True)
 
-    val sclHighLevel = sampler.rd_scl && sclSampling.scl_prev
+    val sclHighLevel = sampler.scl && sclEdge.scl_prev
 
-    val start = sclHighLevel && !sda_cur && sda_prev
-    val stop  = sclHighLevel && sda_cur  && !sda_prev
+    val start = sclHighLevel && !sampler.sda && sda_prev
+    val stop  = sclHighLevel && sampler.sda  && !sda_prev
   }
 
 
   /**
-    * For counting the number of bit send/received (MSB is send first )
+    * Counter of bit write/read
     */
-  val bitCounter = new Area {
-
-    val index  = Reg(UInt(log2Up(g.dataWidth) bits)) randBoot()
-    val isDone = False
-
-    def clear() : Unit = index := g.dataWidth-1
-
-    when(sclSampling.fallingEdge) {
-      index  := index - 1
-      isDone := index === 0
-    }
-  }
+  val bitCounter = new I2CBitCounter(sclEdge.falling, g.dataWidth)
 
 
   /**
@@ -235,7 +197,7 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
         io.cmd.mode  := CmdMode.START
       }
       whenIsActive{
-        when(sclSampling.fallingEdge){ goto(sData) }
+        when(sclEdge.falling){ goto(sData) }
       }
     }
 
@@ -254,8 +216,8 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
         }
 
         // Always write
-        when(sclSampling.risingEdge) {
-          dataReceived(bitCounter.index) := sampler.rd_sda
+        when(sclEdge.rising) {
+          dataReceived(bitCounter.index) := sampler.sda
         }
 
         // End of data sequence ?
@@ -277,13 +239,13 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
         wr_sda := !(io.rsp.mode === RspMode.ACK)
 
         // Write ack
-        when(sclSampling.risingEdge){
+        when(sclEdge.rising){
           io.cmd.valid := True
-          io.cmd.mode  := sampler.rd_sda ? CmdMode.NACK | CmdMode.ACK
+          io.cmd.mode  := sampler.sda ? CmdMode.NACK | CmdMode.ACK
         }
 
         // end of the ACK sequence
-        when(sclSampling.fallingEdge){
+        when(sclEdge.falling){
           io.rsp.ready := True
           goto(sData)
         }

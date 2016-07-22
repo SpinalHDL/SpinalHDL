@@ -27,8 +27,6 @@
   *   RSP    :                 DATA                   DATA  ACK
   */
 
-// @TOTO Synch/Filter inputs signals..
-
 package spinal.lib.com.i2c
 
 
@@ -132,53 +130,20 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
 
 
   /**
-    * Synchronize input's signals of the I2C
+    * Filter SDA and SCL input
     */
- /* val ccIO = new Area{
-    val rd_scl = BufferCC(io.i2c.scl.read)
-    val rd_sda = BufferCC(io.i2c.sda.read)
-  }*/
+  val sampler = new I2CFilterArea(i2c_sda           = io.i2c.sda.read,
+                                  i2c_scl           = io.i2c.scl.read,
+                                  clockDivider      = io.config.clockDividerSampling,
+                                  samplingSize      = g.samplingSize,
+                                  clockDividerWidth = g.clockDividerSamplingWidth)
 
 
   /**
-    * Clock divider used to sample sda and scl
+    * Detect the rising and falling edge of the scl signal
     */
-  val samplingClockDivider = new Area{
+  val sclEdge = new SCLEdgeDetector(sampler.scl)
 
-    val counter = Reg(UInt(g.clockDividerSamplingWidth bits)) init(0)
-    val tick    = counter === 0
-
-    counter := counter - 1
-    when(tick){ counter := io.config.clockDividerSampling }
-  }
-
-
-  /**
-    * Sample sda and scl
-    */
-  val sampler = new Area{
-
-    val scl     = BufferCC(io.i2c.scl.read)
-    val sda     = BufferCC(io.i2c.sda.read)
-
-    val sdaSamples = History(that=sda, length=g.samplingSize, when=samplingClockDivider.tick, init=True)
-    val sclSamples = History(that=scl, length=g.samplingSize, when=samplingClockDivider.tick, init=True)
-
-    val rd_sda        = RegNext(MajorityVote(sdaSamples))
-    val rd_scl        = RegNext(MajorityVote(sclSamples))
-  }
-
-
-  /**
-    * Rising and falling edge of the scl signal detection
-    */
-  val sclSampling = new Area{
-
-    val scl_prev = RegNext(sampler.rd_scl)
-
-    val risingEdge  = sampler.rd_scl  && !scl_prev
-    val fallingEdge = !sampler.rd_scl && scl_prev
-  }
 
 
   /**
@@ -193,7 +158,7 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
     val stopDetected    = Bool // set in the area "detector"
 
     // detect if the slave freeze the bus
-    val slaveFreeze = scl && !sampler.rd_scl
+    val slaveFreeze = scl && !sampler.scl
 
     // start / stop the counter clock
     when(scl_en && !masterFreeze && !slaveFreeze){
@@ -218,40 +183,29 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
     */
   val detector = new Area{
 
-    val sda_prev = RegNext(sampler.rd_sda)
+    val sda_prev = RegNext(sampler.sda)
 
-    val start = sclGenerator.triggerStartStop && sampler.rd_scl && !sampler.rd_sda  && sda_prev
-    val stop  = sclGenerator.triggerStartStop && sampler.rd_scl && sampler.rd_sda   && !sda_prev
+    val sclLevelHigh = sclGenerator.triggerStartStop && sampler.scl
+
+    val start = sclLevelHigh && !sampler.sda  && sda_prev
+    val stop  = sclLevelHigh && sampler.sda   && !sda_prev
 
     sclGenerator.stopDetected := stop
   }
 
 
   /**
-    * Once a start is detected
+    * when start is detected, block all others master
     */
   val busState = new Area{
-    val busy = Reg(Bool) init(False)
-
-    when(detector.start){ busy.set()  }
-    when(detector.stop) { busy.clear()}
+    val busy = Reg(Bool).init(False).setWhen(detector.start).clearWhen(detector.stop)
   }
 
 
   /**
-    * Counter of bit write/read. MSB is send first on the I2C bus
-    * so counter goes from dataWdith to 0
+    * Counter of bit write/read
     */
-  val bitCounter = new Area{
-    val index  = Reg(UInt( log2Up(g.dataWidth) bits )) randBoot()
-    val isDone = False
-    def clear() : Unit = index := g.dataWidth - 1
-
-    when(sclSampling.fallingEdge) {
-      index  := index - 1
-      isDone := index === 0
-    }
-  }
+  val bitCounter = new I2CBitCounter(sclEdge.falling, g.dataWidth)
 
 
   /**
@@ -259,7 +213,8 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
     */
   val smMaster = new StateMachine{
 
-    val dataReceived   = Reg(Bits(g.dataWidth bits)) randBoot()
+    val dataReceived = Reg(Bits(g.dataWidth bits)) randBoot()
+    val getBus       = Reg(Bool) init(False)
 
     val wr_sda = True
 
@@ -277,8 +232,9 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
         goto(sStop)
       }
 
-      when(io.cmd.valid && io.cmd.mode === CmdMode.START && !busState.busy ){
+      when(io.cmd.valid && io.cmd.mode === CmdMode.START && (!busState.busy | getBus) ){
         io.cmd.ready   := True
+        getBus.set()
         goto(sStart)
       }
     }
@@ -286,6 +242,7 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
     val sIdle : State = new State with EntryPoint {
       whenIsActive {
         // nothing to do
+        getBus.clear()
       }
     }
 
@@ -295,7 +252,7 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
         wr_sda := !sclGenerator.triggerStartStop
 
         // end of the stop sequence
-        when(sclSampling.fallingEdge){ goto(sData) }
+        when(sclEdge.falling){ goto(sData) }
       }
     }
 
@@ -311,7 +268,7 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
         when(io.cmd.mode === CmdMode.WRITE){
           wr_sda := io.cmd.data(bitCounter.index)
 
-          when(sampler.rd_sda =/= wr_sda && sclSampling.risingEdge && io.config.enCollision){
+          when(sampler.sda =/= wr_sda && sclEdge.rising && io.config.enCollision){
             io.rsp.mode  := RspMode.COLLISION
             io.rsp.valid := True
             goto(sIdle)
@@ -319,7 +276,7 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
         }
 
         // Read data
-        when(sclSampling.risingEdge){ dataReceived(bitCounter.index) := sampler.rd_sda }
+        when(sclEdge.rising){ dataReceived(bitCounter.index) := sampler.sda }
 
         // data sequence is done ?
         when(bitCounter.isDone){
@@ -340,13 +297,13 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
         wr_sda := !(io.cmd.mode === CmdMode.ACK)
 
         // read ACK
-        when(sclSampling.risingEdge){
-          io.rsp.mode  := (sampler.rd_sda) ? RspMode.NACK | RspMode.ACK
+        when(sclEdge.rising){
+          io.rsp.mode  := (sampler.sda) ? RspMode.NACK | RspMode.ACK
           io.rsp.valid := True
         }
 
         // end of the ACK sequence ?
-        when(sclSampling.fallingEdge){
+        when(sclEdge.falling){
           io.cmd.ready := True
           goto(sData)
         }

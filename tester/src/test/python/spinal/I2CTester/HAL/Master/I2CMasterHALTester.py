@@ -20,15 +20,13 @@ def master_hal_basic_tests(dut):
 
     dut.log.info("Cocotb I2C Master HAL - Basic Test ")
 
-    delayBetweenCMD = 300000
-
     listOperation = list()
-    listOperation.append( [START(delayBetweenCMD), WRITE(), ACK(), STOP()]  )
-    listOperation.append( [START(), READ(),  ACK(delayBetweenCMD), STOP()] )
-    listOperation.append( [START(), WRITE(-1,delayBetweenCMD), NACK(), WRITE(), NACK(), STOP()] )
-    listOperation.append( [START(), READ(),  ACK(),  READ(),  NACK(delayBetweenCMD), STOP()] )
-    listOperation.append( [START(), WRITE(), ACK(), START(delayBetweenCMD), READ(),  NACK(), STOP(delayBetweenCMD)] )
-    listOperation.append( [START(), READ(-1,delayBetweenCMD),  NACK(), START(), WRITE(), NACK(),  STOP()] )
+    listOperation.append( [START(), WRITE(), ACK(), STOP()]  )
+    listOperation.append( [START(), READ(),  ACK(), STOP()] )
+    listOperation.append( [START(), WRITE(), NACK(), WRITE(), NACK(), STOP()] )
+    listOperation.append( [START(), READ(),  ACK(),  READ(),  NACK(), STOP()] )
+    listOperation.append( [START(), WRITE(), ACK(), START(), READ(),  NACK(), STOP()] )
+    listOperation.append( [START(), READ(),  NACK(), START(), WRITE(), NACK(),  STOP()] )
 
     for operationSeq in listOperation:
 
@@ -42,7 +40,9 @@ def master_hal_basic_tests(dut):
 
         # Init IO and wait the end of the reset
         sclClockDivider = 50
-        helperMaster.io.init(sclClockDivider)
+        samplingClockDivider = 5
+        enCollision = 1
+        helperMaster.io.init(sclClockDivider, samplingClockDivider, enCollision)
         yield clockDomain.event_endReset.wait()
 
         # run

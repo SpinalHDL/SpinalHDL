@@ -45,7 +45,9 @@ class I2CMasterHAL:
             self.scl_wr    = dut.io_i2c_scl_write if not fullTest else 0
             self.scl_rd    = dut.io_i2c_scl_read  if not fullTest else dut.io_scl
             # Config ------------------------------------------
-            self.config_clockDivider = dut.io_config_clockDivider if not fullTest else 0
+            self.config_SCLclockDivider      = dut.io_config_clockDividerSCL      if not fullTest else 0
+            self.config_enCollision          = dut.io_config_enCollision          if not fullTest else 0
+            self.config_SamplingClockDivider = dut.io_config_clockDividerSampling if not fullTest else 0
             # CMD ---------------------------------------------
             self.cmd_ready = dut.io_cmd_ready        if not fullTest else dut.io_ioMaster_cmd_ready
             self.cmd_valid = dut.io_cmd_valid        if not fullTest else dut.io_ioMaster_cmd_valid
@@ -59,13 +61,15 @@ class I2CMasterHAL:
             self.clk       = dut.clk
             self.resetn    = dut.resetn
 
-        def init(self, sclDivider):
+        def init(self, sclDivider, samplingDivider, enCollision=1):
             self.cmd_valid <= 0
             self.cmd_mode  <= 0
             self.cmd_data  <= 0
             self.sda_rd    <= 1
             self.scl_rd    <= 1
-            self.config_clockDivider <= sclDivider
+            self.config_SCLclockDivider <= sclDivider
+            self.config_SamplingClockDivider <= samplingDivider
+            self.config_enCollision <= enCollision
 
 
     #==========================================================================
