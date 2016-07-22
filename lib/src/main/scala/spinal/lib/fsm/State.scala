@@ -134,16 +134,16 @@ class StateMachineSharableRegUInt{
   Component.current.addPrePopTask(() => value.setWidth(width))
 }
 
-class StateDelay(cyclesCount : BigInt)(implicit stateMachineAccessor : StateMachineAccessor)  extends State with StateCompletionTrait{
+class StateDelay(cyclesCount : UInt)(implicit stateMachineAccessor : StateMachineAccessor)  extends State with StateCompletionTrait{
   val cache = stateMachineAccessor.cacheGetOrElseUpdate(StateMachineSharableUIntKey,new StateMachineSharableRegUInt).asInstanceOf[StateMachineSharableRegUInt]
-  cache.addMinWidth(log2Up(cyclesCount))
+  cache.addMinWidth(cyclesCount.getWidth)
 
   onEntry{
-    cache.value := cyclesCount - 1
+    cache.value := cyclesCount
   }
   whenIsActive{
     cache.value := cache.value - 1
-    when(cache.value === 0){
+    when(cache.value <= 1){
       doWhenCompletedTasks()
     }
   }

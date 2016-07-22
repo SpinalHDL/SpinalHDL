@@ -17,6 +17,7 @@ import spinal.lib.com.uart._
 import spinal.lib.cpu.riscv.impl.CoreQSysAvalon.RiscvAvalon
 import spinal.lib.cpu.riscv.impl._
 import spinal.lib.cpu.riscv.impl.extension.{DebugExtension, BarrelShifterFullExtension, DivExtension, MulExtension}
+import spinal.lib.experimental.MacrosClass
 import spinal.lib.graphic.{RgbConfig, Rgb}
 import spinal.lib.graphic.vga.{VgaCtrl, Vga}
 
@@ -1127,7 +1128,7 @@ object PlayEnum {
     //    }
     //    output := tmp
     val cond = in Bool()
-    val input = in(MyEnum())
+    val input = in(MyEnum)
 
 
     val tmp = Reg(MyEnum(binarySequancial))

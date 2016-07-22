@@ -53,6 +53,53 @@ object OHToUInt {
   }
 }
 
+//Will be target dependent
+object MuxOH {
+  def apply[T <: Data](oneHot : BitVector,inputs : Iterable[T]): T = apply(oneHot.asBools,inputs)
+  def apply[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Iterable[T]): T =  apply(oneHot,Vec(inputs))
+
+  def apply[T <: Data](oneHot : BitVector,inputs : Vec[T]): T = apply(oneHot.asBools,inputs)
+  def apply[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Vec[T]): T = inputs(OHToUInt(oneHot))
+}
+
+object Min {
+    def apply[T <: Data with Num[T]](nums: T*) = list(nums)
+    def list[T <: Data with Num[T]](nums: Seq[T]) = {
+        nums.reduceBalancedTree(_ min _)
+    }
+}
+
+object Max {
+    def apply[T <: Data with Num[T]](nums: T*) = list(nums)
+    def list[T <: Data with Num[T]](nums: Seq[T]) = {
+        nums.reduceBalancedTree(_ max _)
+    }
+}
+
+object OHMasking{
+  def first[T <: Data](that : T) : T = {
+      val input = that.asBits.asUInt
+      val masked = input & ~(input - 1)
+      val ret = that.clone
+      ret.assignFromBits(masked.asBits)
+      ret
+  }
+
+  def roundRobin[T <: Data](requests : T,ohPriority : T) : T = {
+    val width = requests.getBitsWidth
+    val uRequests = requests.asBits.asUInt
+    val uGranted = ohPriority.asBits.asUInt
+
+    val doubleRequests = uRequests @@ uRequests
+    val doubleGrant = doubleRequests & ~(doubleRequests-uGranted)
+    val masked = doubleGrant(width,width bits) | doubleGrant(0,width bits)
+
+    val ret = requests.clone
+    ret.assignFromBits(masked.asBits)
+    ret
+  }
+}
+
 object CountOne{
   def args(thats : Bool*) : UInt = apply(thats)
   def apply(thats : BitVector) : UInt = apply(thats.asBools)
@@ -132,7 +179,7 @@ object Reverse{
     ret
   }
 }
-object adderAndCarry {
+object AddWithCarry {
   def apply(left: UInt, right: UInt): (UInt, Bool) = {
     val temp = left.resize(left.getWidth + 1) + right.resize(right.getWidth + 1)
     return (temp.resize(temp.getWidth - 1), temp.msb)
@@ -213,10 +260,6 @@ class Counter(val stateCount: BigInt) extends ImplicitArea[UInt] {
 
   def clear(): Unit = willClear := True
   def increment(): Unit = willIncrement := True
-
-  def ===(that: UInt): Bool = this.value === that
-  def !==(that: UInt): Bool = this.value =/= that
-  def =/=(that: UInt): Bool = this.value =/= that
 
   val valueNext = UInt(log2Up(stateCount) bit)
   val value = RegNext(valueNext) init(0)
@@ -513,10 +556,10 @@ class NoData extends Bundle {
 
 
 class TraversableOncePimped[T <: Data](pimped: scala.collection.Iterable[T]) {
-  def reduceBalancedSpinal(op: (T, T) => T): T = {
-    reduceBalancedSpinal(op, (s,l) => s)
+  def reduceBalancedTree(op: (T, T) => T): T = {
+    reduceBalancedTree(op, (s,l) => s)
   }
-  def reduceBalancedSpinal(op: (T, T) => T, levelBridge: (T, Int) => T): T = {
+  def reduceBalancedTree(op: (T, T) => T, levelBridge: (T, Int) => T): T = {
     def stage(elements: ArrayBuffer[T], level: Int): T = {
       if (elements.length == 1) return elements.head
       val stageLogic = new ArrayBuffer[T]()
@@ -545,11 +588,11 @@ class TraversableOncePimped[T <: Data](pimped: scala.collection.Iterable[T]) {
   }
   def apply(index: UInt): T = Vec(pimped)(index)
 
-  def sExists(condition: T => Bool): Bool = (pimped map condition).fold(False)(_ || _)
-  def sContains(value: T) : Bool = sExists(_ === value)
+  def sExist(condition: T => Bool): Bool = (pimped map condition).fold(False)(_ || _)
+  def sContains(value: T) : Bool = sExist(_ === value)
 
   def sCount(condition: T => Bool): UInt = SetCount((pimped.map(condition)))
-  def sCount(value: T ): UInt = sCount(_ === value)
+  def sCount(value: T): UInt = sCount(_ === value)
 
   def sFindFirst(condition: T => Bool) : (Bool,UInt) = {
     val size = pimped.size
@@ -657,7 +700,7 @@ object PriorityMux{
 object WrapWithReg{
   def on(c : Component): Unit = {
     c.nameElements()
-    for(e <- c.getAllIo){
+    for(e <- c.getOrdredNodeIo){
       if(e.isInput){
         e := RegNext(RegNext(in(e.clone.setName(e.getName))))
       }else{
@@ -673,12 +716,12 @@ object WrapWithReg{
 }
 
 
-case class TriState[T <: Data](dataType : T) extends Bundle with IMasterSlave{
-  val read,write : T = dataType.clone
-  val writeEnable = Bool
-  override def asMaster(): TriState.this.type = {
-    out(write,writeEnable)
-    in(read)
-    this
+
+object Callable{
+  def apply(doIt : => Unit) = new Area{
+    val isCalled = False
+    when(isCalled){doIt}
+
+    def call() = isCalled := True
   }
 }

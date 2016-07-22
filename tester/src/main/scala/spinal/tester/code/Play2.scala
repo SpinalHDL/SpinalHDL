@@ -7,6 +7,7 @@ import java.util
 import spinal.core.Operator.UInt.Add
 import spinal.core._
 import spinal.lib._
+import spinal.lib.bus.amba4.axilite.{AxiLite4SpecRenamer, AxiLite4Config, AxiLite4}
 import spinal.lib.bus.neutral.NeutralStreamDma
 import spinal.lib.com.uart.UartCtrl
 import spinal.lib.eda.mentor.MentorDo
@@ -14,6 +15,7 @@ import spinal.lib.fsm._
 import spinal.lib.graphic.RgbConfig
 import spinal.lib.graphic.vga.{AvalonMMVgaCtrl, VgaCtrl}
 import spinal.lib.com.i2c._
+import spinal.lib.io.ReadableOpenDrain
 
 
 import scala.collection.mutable
@@ -35,7 +37,7 @@ object PlayB7 {
       val z = out UInt( 4 bits )
     }
     val a = Stream(Fragment(UInt(4 bits)))
-    val b = StreamArbiterCore().inOrder.noLock.build(a,10)
+    val b = StreamArbiterFactory.sequentialOrder.noLock.build(a,10)
   }
 
   def main(args: Array[String]): Unit = {
@@ -1454,6 +1456,36 @@ object PlayCCBuffer{
 }
 
 
+
+object PlayRename{
+  class TopLevel extends Component {
+    val io = new Bundle{
+      val source = slave(AxiLite4(AxiLite4Config(32,32)))
+      val sink = master(AxiLite4(AxiLite4Config(32,32)))
+    }
+
+    io.sink << io.source
+
+    val toto = Reg(Bool).init(False).keep //Force to keep clock and reset in this small example
+  }
+
+  def main(args: Array[String]) {
+    SpinalConfig(defaultConfigForClockDomains = ClockDomainConfig(
+      clockEdge = RISING,
+      resetKind = ASYNC,
+      resetActiveLevel = LOW
+    )).generateVhdl({
+      val myIp = new TopLevel
+      AxiLite4SpecRenamer(myIp.io.source)
+      AxiLite4SpecRenamer(myIp.io.sink)
+      ClockDomain.current.clock.setName("fancyClockName")
+      ClockDomain.current.reset.setName("fancyResetName")
+      myIp
+    })
+  }
+}
+
+
 object PlayMentorDo{
   case class Packet() extends Bundle{
     val e1,e2 = Bool
@@ -1479,8 +1511,340 @@ object PlayMentorDo{
     val report = SpinalVhdl(new TopLevel)
     val toplevel = report.toplevel
     MentorDo()
-      .add(toplevel)
-      .add(toplevel.fifo)
-      .build("/","mentor.do")
+      .add(toplevel,Seq("yolo"),depth=4)
+      .build("/toplevel_tb/uut/","mentor.do")
   }
+}
+
+object PlayAuto{
+  class I2CHAL extends Component{
+
+    val slaveGeneric  = I2CSlaveHALGenerics()
+    val masterGeneric = I2CMasterHALGenerics()
+
+    val io = new Bundle{
+      val ioSlave = new Bundle {
+        val cmd  = master  Stream ( I2CSlaveHALCmd(slaveGeneric) )
+        val rsp  = slave Stream ( I2CSlaveHALRsp(slaveGeneric) )
+      }
+      val ioMaster = new Bundle {
+        val cmd    = slave Stream(I2CMasteHALCmd(masterGeneric))
+        val rsp    = master Flow (I2CMasterHALRsp (masterGeneric))
+      }
+    }
+
+    val i2cSlave  = new I2CSlaveHAL(slaveGeneric)
+    val i2cMaster = new I2CMasterHAL(masterGeneric)
+    val simSDA    = new SimOpenDrain()
+    val simSCL    = new SimOpenDrain()
+
+    i2cSlave.io.cmd  <> io.ioSlave.cmd
+    i2cSlave.io.rsp  <> io.ioSlave.rsp
+    i2cMaster.io.cmd <> io.ioMaster.cmd
+    i2cMaster.io.rsp <> io.ioMaster.rsp
+    i2cMaster.io.config.setFrequency(2e6)
+
+    simSDA.io.input     <> i2cMaster.io.i2c.sda
+
+    simSDA.io.output.read     := i2cSlave.io.i2c.sda.write
+    i2cSlave.io.i2c.sda.read  := simSDA.io.output.write
+
+    simSCL.io.input.read      := i2cMaster.io.i2c.scl.write
+    i2cMaster.io.i2c.scl.read := simSCL.io.input.write
+
+    simSCL.io.output.read     := i2cSlave.io.i2c.scl.write
+    i2cSlave.io.i2c.scl.read  := simSCL.io.output.write
+  }
+
+  class SimOpenDrain extends Component{
+    val io = new Bundle{
+      val input  = master ( ReadableOpenDrain(Bool)  )
+      val output = master ( ReadableOpenDrain(Bool) )
+    }
+
+    val sim = new Area{
+      when(io.input.read === False || io.output.read === False){
+        io.output.write := False
+        io.input.write  := False
+      }otherwise{
+        io.output.write  := True
+        io.input.write   := True
+      }
+    }
+  }
+
+  def main(args : Array[String]): Unit ={
+    SpinalConfig(
+      mode = Verilog,
+      dumpWave = DumpWaveConfig(depth = 0),
+      defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
+      defaultClockDomainFrequency  = FixedFrequency(50e6)
+    ).generate(new I2CHAL()).printPruned()
+  }
+}
+
+object PlayImplicitArg{
+  class A(implicit x : Int)
+//  class B extends A
+  def main(args: Array[String]) {
+    implicit val answer = 42
+    val a = new A
+
+  }
+}
+
+
+
+
+object PlayNameRefl{
+  class TopLevel extends Component {
+    val io = new Bundle{
+      val result = out Bool
+    }
+
+    val toto = io.result
+
+    toto := False
+    val i = 2
+    var o = 3
+    var titi = False
+
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+object PlayMinMax{
+  class TopLevel extends Component {
+    val io = new Bundle{
+      val result = out Bool
+    }
+
+    val toto = io.result
+
+    toto := False
+    val i = 2
+    var o = 3
+    var titi = False
+    def apply[T <: Data with Num[T]](nums : T*) : T = list(nums)
+    def list[T <: Data with Num[T]](nums: Seq[T] ) : T = { nums.reduceLeft(_ min _) }
+
+    val tata = out(apply(U"00",U"00",U"01"))
+
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
+object PlayMask{
+  case class MyBundle() extends Bundle{
+    val a,b,c = SInt(3 bits)
+  }
+  class TopLevel extends Component {
+    def doIt[T <: Data](that : T) : T = {
+      val uint = that.asBits.asUInt
+      val masked = uint & ~(uint - 1)
+      val ret = that.clone
+      ret.assignFromBits(masked.asBits)
+      ret
+    }
+    val result = out(doIt(in(MyBundle())))
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
+
+object PlayWhenSyntax{
+
+
+  def main(args: Array[String]) {
+    class When{
+      def otherwise = new Otherwise
+    }
+    class Otherwise{
+      def  when(cond : Boolean)(block : => Unit) = new When
+    }
+
+    def when(cond : Boolean)(block : => Unit) = new When
+
+    when(true){
+
+    }.otherwise.when(false){
+
+    }
+  }
+}
+
+
+object PlayPwm{
+
+  object PWMMode extends SpinalEnum {
+    val nSingleEdge, nDualEdge = newElement()
+  }
+
+
+  class PWMControl(width: Int) extends Bundle{
+    val enable = in Bool
+    val period = in UInt(width bits)
+    val mode = in(PWMMode)
+  }
+
+  class PWMCore(width: Int) extends Component {
+    val io = new Bundle {
+      val control = new PWMControl(width)
+      val duty = in UInt(width+1 bits)
+      val output = out Bool
+      val outSync = out Bool
+    }
+
+    import PWMMode._
+
+    val counter = Reg(UInt(width bits)) init (0)
+    val outSyncReg = Reg(Bool)
+    val decrementCounter = Reg(Bool) init(False)
+
+    val PwmCounter = new Area {
+      val upDownCount = SInt(width bits)
+      when(decrementCounter){
+        upDownCount := -1
+      } otherwise {
+        upDownCount := 1
+      }
+
+      counter := counter + upDownCount.asUInt
+      outSyncReg := False
+      // Uper or equal comparator used for safety purposes
+      when(counter >= io.control.period) {
+        when(io.control.mode === nSingleEdge) {
+          counter := 0
+        }
+
+        when(io.control.mode === nDualEdge) {
+          decrementCounter := True
+        }
+      }
+
+      when(counter === 0) {
+        decrementCounter := False
+        outSyncReg := True
+      }
+
+      when(!io.control.enable) {
+        decrementCounter := False
+        counter := 0
+      }
+    }
+
+    io.output := RegNext(counter < io.duty)
+    io.outSync := outSyncReg
+
+    val cond = True
+    cond.?[SInt](1)  | 1
+  }
+}
+
+
+
+
+object PlayResized54{
+  class TopLevel extends Component {
+    val readAddr = in UInt(4 bits)
+
+    val readData = out Bits(4 bits)
+    val mem = Mem(Bits(4 bits), 16)
+    readData := mem(readAddr)
+
+    val pc = U(32,32 bits)
+    val pcPlus4 = pc + 4
+    pcPlus4.addAttribute("keep")
+
+    pcPlus4.keep()
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+    SpinalVerilog(new TopLevel)
+  }
+}
+
+
+
+object PlaySwitchError{
+  class TopLevel extends Component {
+    val value = in Bits(8 bits)
+    val temp = UInt(8 bits)
+    val result = out UInt(8 bits)
+    val toto = B"00001111"
+    switch(value){
+      is(0){
+        temp := 0
+      }
+      is(1){
+        temp := 1
+      }
+      default{
+        temp := 2
+      }
+    }
+
+    result := RegNext(temp) init(9)
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+    SpinalVerilog(new TopLevel)
+    assert(doCmd(s"ghdl -a --ieee=synopsys TopLevel.vhd TopLevel_tb.vhd") == 0,"GHDL analysis fail")
+    assert(doCmd(s"ghdl -e --ieee=synopsys TopLevel_tb"                   ) == 0,"GHDL elaboration fail")
+    assert(doCmd(s"ghdl -r --ieee=synopsys TopLevel_tb --vcd=wave.vcd"    ) == 0,"GHDL simulation fail")
+    println("SUCCESS")
+  }
+
+  def doCmd(cmd : String) : Int = {
+    import scala.sys.process._
+    println(cmd)
+    cmd !
+  }
+}
+
+
+
+
+object PlayCall{
+  class TopLevel extends Component {
+    val a,b,c = in UInt(8 bits)
+    val result = out(Reg(UInt(8 bits)))
+    result := result + a + b + c
+
+    val clear = Callable(result := 0)
+
+    when(result > 42){
+      clear.call()
+    }
+    when(result === 11){
+      clear.call()
+    }
+
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+    SpinalVerilog(new TopLevel)
+  }
+}
+
+
+object PlaySyntaxCheck{
+  val inputStream = Stream(Bits(8 bits))
+  val dispatchedStreams = StreamDispatcherSequencial(
+    input = inputStream,
+    outputCount = 3
+  )
 }

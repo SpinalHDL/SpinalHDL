@@ -109,17 +109,19 @@ object Misc {
         return
       explore(c.getSuperclass)
 
-      val fields = c.getDeclaredFields
-      def isValDef(m: java.lang.reflect.Method) = fields exists (fd => fd.getName == m.getName && fd.getType == m.getReturnType && ! AnnotationUtils.isDontName(fd)) //  && java.lang.reflect.Modifier.isPublic(fd.getModifiers )     && fd.isAnnotationPresent(Class[spinal.core.refOnly])
-      val methods = c.getDeclaredMethods filter (m => m.getParameterTypes.isEmpty && isValDef(m))
+//      val fields = c.getDeclaredFields
+//      def isValDef(m: java.lang.reflect.Method) = fields exists (fd => fd.getName == m.getName && fd.getType == m.getReturnType && ! AnnotationUtils.isDontName(fd)) //  && java.lang.reflect.Modifier.isPublic(fd.getModifiers )     && fd.isAnnotationPresent(Class[spinal.core.refOnly])
+//      val methods = c.getDeclaredMethods filter (m => m.getParameterTypes.isEmpty && isValDef(m))
+//
+//
+      val methods = c.getDeclaredMethods
+      val fields = c.getDeclaredFields.filter(fd => methods.exists(_.getName == fd.getName) && ! AnnotationUtils.isDontName(fd))
 
-
-
-      for (method <- methods) {
-        method.setAccessible(true)
-        val fieldRef = method.invoke(o)
+      for (field <- fields) {
+        field.setAccessible(true)
+        val fieldRef = field.get(o)
         if (fieldRef != null && (!refs.isInstanceOf[Data] || !refs.contains(fieldRef))) {
-          val methodName = method.getName
+          val methodName = field.getName
           val firstCharIndex = methodName.lastIndexOf('$')
           val postFix = if(firstCharIndex == -1)
             methodName
@@ -328,6 +330,10 @@ object SpinalWarning {
 }
 
 class SpinalExit(message: String) extends Exception("\n\n" + (GlobalData.get.pendingErrors.map(_.apply()) ++ Seq(message)).reduceLeft(_ + "\n\n" + _));
+
+object PendingError {
+  def apply(error : => String) = GlobalData.get.pendingErrors += (() => error)
+}
 
 object SpinalError {
   private var errCount:Int = 0

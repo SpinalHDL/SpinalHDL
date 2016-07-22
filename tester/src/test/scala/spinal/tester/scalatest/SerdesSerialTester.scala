@@ -2,8 +2,7 @@ package spinal.tester.scalatest
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.serdes.UnderTest._
-import spinal.lib.serdes._
+import spinal.lib.com.serial._
 
 object SerdesSerialTester {
 
@@ -45,7 +44,7 @@ class SerdesSerialTester extends Component {
 }
 
 
-//class SerdesSerialTesterBoot extends SpinalTesterBase {
-//  override def getName: String = "SerdesSerialTester"
-//  override def createToplevel: Component = new SerdesSerialTester
-//}
+class SerdesSerialTesterBoot extends SpinalTesterGhdlBase {
+  override def getName: String = "SerdesSerialTester"
+  override def createToplevel: Component = new SerdesSerialTester
+}

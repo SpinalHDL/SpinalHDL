@@ -54,7 +54,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
       map(that) = WrappedStuff(that.getName, newName)
       that.setName(newName)
     }
-    for (e <- topLevel.getAllIo) e match {
+    for (e <- topLevel.getOrdredNodeIo) e match {
       case e: UInt => wrap(e)
       case e: SInt => wrap(e)
       case _ =>
@@ -1196,7 +1196,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
       clockDomainMap.getOrElseUpdate(syncNode.getClockDomain, new ArrayBuffer[SyncNode]()) += syncNode
     }
 
-    for ((clockDomain, array) <- clockDomainMap) {
+    for ((clockDomain, array) <- clockDomainMap.toList.sortWith(_._1.instanceCounter < _._1.instanceCounter)) {
       val arrayWithReset = ArrayBuffer[SyncNode]()
       val arrayWithoutReset = ArrayBuffer[SyncNode]()
 
@@ -1467,7 +1467,21 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
       case switchTree : AssignementLevelSwitch => {
         ret ++= s"${tab}case ${emitLogic(switchTree.key)} is\n"
         switchTree.cases.foreach(c => {
-          ret ++= s"${tab}  when ${emitLogic(c.const)} =>\n"
+          val litString = c.const match {
+            case lit: BitsLiteral => s"${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'}"
+            case lit: UIntLiteral => s"${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'}"
+            case lit: SIntLiteral => s"${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'}"
+
+            case lit: BitsAllToLiteral => lit.theConsumer match {
+              case _: Bits => s"${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'}"
+              case _: UInt => s"${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'}"
+              case _: SInt => s"${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'}"
+            }
+            case lit: BoolLiteral => s"${lit.value}"
+            //  case lit: BoolLiteral => if(lit.value) "'1'" else "'0'" //Invalid VHDL when '1' = '1'
+            case lit: EnumLiteral[_] => emitEnumLiteral(lit.enum, lit.encoding)
+          }
+          ret ++= s"${tab}  when $litString =>\n"
           emitAssignementLevel(c.doThat,ret,tab + "    ","<=")
         })
         ret ++= s"${tab}  when others =>\n"

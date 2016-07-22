@@ -89,7 +89,7 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated{
     inGeneration = true
     childStateMachines.foreach(_.build())
     stateBoot = new StateBoot(autoStart).setName("boot")
-    Ownable.set(stateBoot,this)
+    OwnableRef.set(stateBoot,this)
 
 
     stateReg  = Reg(enumDefinition())
@@ -98,8 +98,8 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated{
     if(this.isNamed){
       stateReg.setWeakName(this.getName() + "_stateReg")
       stateNext.setWeakName(this.getName() + "_stateNext")
-      Ownable.set(stateReg,this)
-      Ownable.set(stateNext,this)
+      OwnableRef.set(stateReg,this)
+      OwnableRef.set(stateNext,this)
     }
 
     for(state <- states){
@@ -196,7 +196,12 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated{
     stateMachine.setParentStateMachine(this)
   }
 
-  def start() : Unit = goto(entryState)
+  def start() : Unit = {
+    if(entryState == null)
+      globalData.pendingErrors += (() => (s"$this as no entry point set. val yourState : State = new State with EntryPoint{...}   should solve the situation at \n${getScalaLocationLong}"))
+    else
+      goto(entryState)
+  }
   def exit() : Unit = {
     wantExit := True
     goto(stateBoot)

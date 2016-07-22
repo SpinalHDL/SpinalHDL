@@ -1,12 +1,11 @@
-package spinal.lib.tool
+package spinal.lib.eda.altera
 
 import spinal.core._
-import spinal.lib._
 import spinal.lib.bus.amba3.apb.Apb3
 import spinal.lib.bus.avalon.AvalonMM
 
 import scala.collection.mutable
-import scala.collection.mutable.{ArrayBuffer, StringBuilder}
+import scala.collection.mutable.StringBuilder
 
 object QSysify{
   def apply(that : Component) : Unit = {

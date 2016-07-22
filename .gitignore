@@ -41,5 +41,7 @@ out
 log.txt
 /src/
 *.out
+*.o
 
 /tester/**/*.gtkw
+*.do

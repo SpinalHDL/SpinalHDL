@@ -17,7 +17,7 @@ case class UartCtrlGenerics( dataWidthMax: Int = 8,
 
   assert(isPow2(rxSamplePerBit))
   if ((samplingSize % 2) == 0)
-    SpinalWarning(s"It's not nice to have a odd samplingSize value at ${ScalaLocated.short} (because of the majority vote)")
+    SpinalWarning(s"It's not nice to have a even samplingSize value at ${ScalaLocated.short} (because of the majority vote)")
 }
 
 

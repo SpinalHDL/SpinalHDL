@@ -5,7 +5,7 @@ import spinal.lib.bus.avalon.{AvalonMM, AvalonMMConfig}
 import spinal.lib.bus.avalon._
 import spinal.lib.com.jtag._
 import spinal.lib._
-import spinal.lib.tool.QSysify
+import spinal.lib.eda.altera.QSysify
 
 /**
  * Created by PIC32F_USER on 09/04/2016.

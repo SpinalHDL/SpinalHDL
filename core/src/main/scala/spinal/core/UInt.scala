@@ -31,9 +31,11 @@ trait UIntFactory{
   def UInt(width: BitCount): UInt = UInt().setWidth(width.value)
 }
 
-class UInt extends BitVector with Num[UInt] with MinMaxProvider {
+class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimitives[UInt]{
   private[core] def prefix : String = "u"
 
+
+  override def _data: UInt = this
 
   //TODO width assert
   def assignMask(maskedLiteral: MaskedLiteral): Unit ={
@@ -55,12 +57,11 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider {
     }
   }
 
-  def ===(that : UInt) : Bool = this.isEguals(that)
-  def =/=(that : UInt) : Bool = this.isNotEguals(that)
   def ===(that : MaskedLiteral) : Bool = this.isEguals(that)
   def =/=(that : MaskedLiteral) : Bool = this.isNotEguals(that)
 
-  def @@(that : UInt) = (this ## that).asUInt
+  def @@(that : UInt) : UInt = (this ## that).asUInt
+  def @@(that : Bool) : UInt = (this ## that).asUInt
 
 
   def twoComplement(enable : Bool): SInt = ((False ## Mux(enable,~this,this)).asUInt + enable.asUInt).asSInt
@@ -70,6 +71,9 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider {
   override def *(right: UInt): UInt = wrapBinaryOperator(right,new Operator.UInt.Mul)
   override def /(right: UInt): UInt = wrapBinaryOperator(right,new Operator.UInt.Div)
   override def %(right: UInt): UInt = wrapBinaryOperator(right,new Operator.UInt.Mod)
+
+//  def +!(right: UInt): UInt = this.resize(this.getWidth + 1) + right.resize(right.getWidth + 1)
+//  def -!(right: UInt): UInt = this.resize(this.getWidth + 1) - right.resize(right.getWidth + 1)
 
   def |(right: UInt): UInt = wrapBinaryOperator(right,new Operator.UInt.Or)
   def &(right: UInt): UInt = wrapBinaryOperator(right,new Operator.UInt.And)

@@ -8,7 +8,7 @@ import spinal.core._
 import spinal.debugger.LogicAnalyserBuilder
 import spinal.demo.mandelbrot._
 import spinal.lib._
-import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config}
+import spinal.lib.bus.amba3.apb.{Apb3SlaveFactory, Apb3, Apb3Config}
 import spinal.lib.bus.avalon.{AvalonMM, AvalonMMSlaveFactory}
 import spinal.lib.com.uart._
 
@@ -229,7 +229,7 @@ object C9 {
       result.b := channelAdd(this.b, that.b)
 
       def channelAdd(left: UInt, right: UInt): UInt = {
-        val (value, carry) = adderAndCarry(right, left)
+        val (value, carry) = AddWithCarry(right, left)
         return Mux(carry, left.maxValue, value)
       }
 
@@ -913,9 +913,9 @@ object t9 {
     }
 
     val pixelTaskGenerator = new PixelTaskGenerator(p)
-    val pixelTaskDispatcher = new DispatcherInOrder(Fragment(PixelTask(p)), p.pixelTaskSolverCount)
+    val pixelTaskDispatcher = new StreamDispatcherSequencial(Fragment(PixelTask(p)), p.pixelTaskSolverCount)
     val pixelTaskSolver = for (i <- 0 until p.pixelTaskSolverCount) yield new PixelTaskSolver(p)
-    val pixelResultArbiter = StreamArbiter.inOrder.build(Fragment(PixelResult(p)), p.pixelTaskSolverCount)
+    val pixelResultArbiter = StreamArbiterFactory.sequentialOrder.build(Fragment(PixelResult(p)), p.pixelTaskSolverCount)
 
     pixelTaskGenerator.io.frameTask << io.frameTask
     pixelTaskDispatcher.io.input <-/< pixelTaskGenerator.io.pixelTask
@@ -979,7 +979,7 @@ object t13 {
 //  val variableVec = Vec(UInt(5 bit), UInt(9 bit), UInt(16 bit))
 
   val containZero = normalVec.sContains(0)
-  val existOne = normalVec.sExists(_ === 1)
+  val existOne = normalVec.sExist(_ === 1)
   val (firstTwoValid, firstTwoIndex) = normalVec.sFindFirst(_ === 2)
   val toto = normalVec.map(_ === 3)
 
@@ -1389,6 +1389,78 @@ object c666{
     // (bit 0 => data valid, bits 8 downto 1 => data)
     busCtrl.readStreamNonBlocking(uartCtrl.io.read.toStream.queue(rxFifoDepth),address = 12,validBitOffset = 31,payloadBitOffset = 0)
   }
+
+
+  class Apb3UartCtrl_1(rxFifoDepth : Int) extends Component {
+    val io = new Bundle {
+      val bus = slave(Apb3(addressWidth = 4, dataWidth = 32))
+      val uart = master(Uart())
+    }
+
+    // Instanciate an simple uart controller
+    val uartCtrl = new UartCtrl()
+
+    //Connect its uart bus
+    io.uart <> uartCtrl.io.uart
+
+    //Here we need some glue between the io.bus and the uartCtrl !
+  }
+
+
+  class Apb3UartCtrl_2(rxFifoDepth : Int) extends Component {
+    val io = new Bundle {
+      val bus = slave(Apb3(addressWidth = 4, dataWidth = 32))
+      val uart = master(Uart())
+    }
+
+    // Instanciate an simple uart controller
+    val uartCtrl = new UartCtrl()
+
+    //Connect its uart bus
+    io.uart <> uartCtrl.io.uart
+
+
+
+
+    // Create an instance of the Apb3SlaveFactory that will then be used as a slave factory drived by io.bus
+    val busCtrl = Apb3SlaveFactory(io.bus)
+  }
+
+  class Apb3UartCtrl(rxFifoDepth : Int) extends Component{
+    val io = new Bundle{
+      val bus =  slave(Apb3(addressWidth = 4, dataWidth = 32))
+      val uart = master(Uart())
+    }
+
+    // Instanciate an simple uart controller
+    val uartCtrl = new UartCtrl()
+    io.uart <> uartCtrl.io.uart
+
+    // Create an instance of the AvalonMMSlaveFactory that will then be used as a slave factory drived by io.bus
+    val busCtrl = Apb3SlaveFactory(io.bus)
+
+    // Ask the busCtrl to create a readable/writable register at the address 0
+    // and drive uartCtrl.io.config.clockDivider with this register
+    busCtrl.driveAndRead(uartCtrl.io.config.clockDivider,address = 0)
+
+    // Do the same thing than above but for uartCtrl.io.config.frame at the address 4
+    busCtrl.driveAndRead(uartCtrl.io.config.frame,address = 4)
+
+    // Ask the busCtrl to create a writable Flow[Bits] (valid/payload) at the address 8.
+    // Then convert it into a stream and connect it to the uartCtrl.io.write by using an register stage (>->)
+    val writeFlow = busCtrl.createAndDriveFlow(Bits(3 bits),address = 8)
+    writeFlow.toStream.stage >> uartCtrl.io.write
+
+    // To avoid losing writes commands between the Flow to Stream transformation just above,
+    // make the occupancy of the uartCtrl.io.write readable at address 8
+    busCtrl.read(uartCtrl.io.write.valid,address = 8)
+
+    // Take uartCtrl.io.read, convert it into a Stream, then connect it to the input of a FIFO of 'rxFifoDepth' elements
+    // Then make the output of the FIFO readable at the address 12 by using a non blocking protocol
+    // (bit 31 => data valid, bits 7 downto 0 => data)
+    val readStream = uartCtrl.io.read.toStream.queue(rxFifoDepth)
+    busCtrl.readStreamNonBlocking(readStream,address = 12,validBitOffset = 31,payloadBitOffset = 0)
+  }
 }
 
 object c6669{
@@ -1432,4 +1504,15 @@ object c4828{
     val phase = CounterFreeRun(sampleCount)
     val sin   = rom.readSync(phase)
   }
+
+  class MyComponent extends Component {
+    val io = new Bundle{
+      val a      = in Bool
+      val result = out Bool
+    }
+    when(io.a){
+      io.result := True
+    }
+  }
+
 }

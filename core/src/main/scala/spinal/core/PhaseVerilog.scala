@@ -299,7 +299,7 @@ end
 
       if (process.sensitivity.size != 0) {
 
-        ret ++= s"  always @ (${process.sensitivity.toList.sortWith(_.instanceCounter < _.instanceCounter).map(emitReference(_)).reduceLeft(_ + "," + _)})\n"
+        ret ++= s"  always @ (${process.sensitivity.toList.sortWith(_.instanceCounter < _.instanceCounter).map(emitReference(_)).reduceLeft(_ + " or " + _)})\n"
         ret ++= "  begin\n"
         emitAssignementLevel(context,ret, "    ", "<=")
         ret ++= "  end\n\n"

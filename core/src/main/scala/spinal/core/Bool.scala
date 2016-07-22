@@ -25,8 +25,11 @@ trait BoolFactory {
 }
 
 
-class Bool extends BaseType {
+class Bool extends BaseType with DataPrimitives[Bool]{
   override def getBitsWidth: Int = 1
+
+
+  override private[spinal] def _data: Bool = this
 
   def &&(b: Bool): Bool = wrapLogicalOperator(b,new Operator.Bool.And)
   def ||(b: Bool): Bool = wrapLogicalOperator(b,new Operator.Bool.Or)
