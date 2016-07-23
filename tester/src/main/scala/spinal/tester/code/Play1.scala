@@ -2699,6 +2699,9 @@ object PlayArea {
       }))
       val tmp = cmd.m2sPipe()
       val rsp = master(tmp.m2sPipe())
+      val subArea = new Area{
+        val toto = U(2).keep()
+      }
     }
   }
 

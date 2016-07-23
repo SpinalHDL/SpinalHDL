@@ -198,10 +198,10 @@ class RegWidthable(outType: BaseType, clockDomain: ClockDomain = ClockDomain.cur
 
   override private[core] def checkInferedWidth: String = {
     if (dataInput != null && dataInput.component != null && this.getWidth != dataInput.getWidth) {
-      return s"Assignment bit count mismatch. ${this} := ${dataInput}} at \n${ScalaLocated.long(getAssignementContext(RegS.getDataInputId))}"
+      return s"Assignment bit count mismatch. ${this} := ${dataInput} at \n${ScalaLocated.long(getAssignementContext(RegS.getDataInputId))}"
     }
     if (initialValue != null && initialValue.component != null && this.getWidth != initialValue.getWidth) {
-      return s"Assignment bit count mismatch. ${this} := ${initialValue}} at \n${ScalaLocated.long(getAssignementContext(RegS.getDataInputId))}"
+      return s"Assignment bit count mismatch. ${this} := ${initialValue} at \n${ScalaLocated.long(getAssignementContext(RegS.getDataInputId))}"
     }
     return null
   }

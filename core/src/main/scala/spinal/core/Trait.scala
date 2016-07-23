@@ -318,19 +318,15 @@ trait Nameable extends OwnableRef{
       this.name = name;
       setMode(ABSOLUTE)
       setWeak(weak)
-      nameChangeEvent(weak)
     }
     else if (isWeak && !isNamed) {
       this.name = name;
       setMode(ABSOLUTE)
-      nameChangeEvent(weak)
     }
     this
   }
 
   def setWeakName(name: String) = setName(name, true)
-
-  protected def nameChangeEvent(weak: Boolean): Unit = {}
 
   def forEachNameables(doThat : (Any) => Unit) : Unit = {
     Misc.reflect(this, (name, obj) => {
@@ -494,28 +490,29 @@ object tagAutoResize extends SpinalTag{override def duplicative = true}
 object tagTruncated extends SpinalTag{override def duplicative = true}
 
 trait Area extends Nameable with ContextUser with OwnableRef with ScalaLocated{
-  override protected def nameChangeEvent(weak: Boolean): Unit = {
+  component.addPrePopTask(reflectNames)
+
+  def reflectNames() : Unit = {
     Misc.reflect(this, (name, obj) => {
       obj match {
         case component: Component => {
           if (component.parent == this.component) {
-            component.setWeakName(this.getName() + "_" + name)
+            component.setPartialName(name,true)
             OwnableRef.set(component,this)
           }
-
         }
         case namable: Nameable => {
           if (!namable.isInstanceOf[ContextUser]) {
-            namable.setWeakName(this.getName() + "_" + name)
+            namable.setPartialName(name,true)
             OwnableRef.set(namable,this)
           } else if (namable.asInstanceOf[ContextUser].component == component){
-            namable.setWeakName(this.getName() + "_" + name)
+            namable.setPartialName(name,true)
             OwnableRef.set(namable,this)
           } else {
             for (kind <- component.children) {
               //Allow to name a component by his io reference into the parent component
               if (kind.reflectIo == namable) {
-                kind.setWeakName(this.getName() + "_" + name)
+                kind.setPartialName(name,true)
                 OwnableRef.set(kind,this)
               }
             }

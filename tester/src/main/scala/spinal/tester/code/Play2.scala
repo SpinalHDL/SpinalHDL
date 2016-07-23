@@ -281,7 +281,7 @@ object PlayB3 {
 object PlayB4 {
 
   class TopLevel extends Component {
-    val address = in UInt(4 bits)
+    val address = in UInt(8 bits)
     val writeData = in Bits(8 bits)
     val chipSelect = in Bool
     val writeEnable = in Bool
@@ -293,7 +293,6 @@ object PlayB4 {
 
 
 
-    address := 0
   }
 
   def main(args: Array[String]): Unit = {

@@ -91,13 +91,26 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
 
   def addressTypeAt(initialValue: BigInt) = U(initialValue, addressWidth bit)
 
+  private def addPort(port : Node with Nameable) : Unit = {
+    port.setPartialName("port" + ports.length,true)
+    port.setRefOwner(this)
+    ports += port
+  }
+
   def readAsync(address: UInt, writeToReadKind: MemWriteToReadKind = dontCare): T = {
     val readBits = Bits(wordType.getBitsWidth bit)
     val readWord = wordType.clone()
     val addressBuffer = UInt(addressWidth bit).dontSimplifyIt()
     addressBuffer := address
     val readPort = new MemReadAsync(this, addressBuffer, readBits, writeToReadKind)
-    ports += readPort
+
+    addressBuffer.setRefOwner(readPort)
+    addressBuffer.setPartialName("address",true)
+
+    readBits.setRefOwner(readPort)
+    readBits.setPartialName("data",true)
+
+    addPort(readPort)
 
     readBits.input = readPort
     readWord.assignFromBits(readBits)
@@ -111,10 +124,20 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
     val addressBuffer = UInt(addressWidth bit).dontSimplifyIt()
     addressBuffer := address
     val readPort = new MemReadSync(this, address, addressBuffer, readBits, enable.dontSimplifyIt(), writeToReadKind, ClockDomain.current)
-    ports += readPort
+
+    addressBuffer.setRefOwner(readPort)
+    addressBuffer.setPartialName("address",true)
+
+    readBits.setRefOwner(readPort)
+    readBits.setPartialName("data",true)
+
+    enable.setRefOwner(readPort)
+    enable.setPartialName("enable",true)
 
     if (crossClock)
       readPort.addTag(crossClockDomain)
+
+    addPort(readPort)
 
     readBits.input = readPort
     readWord.assignFromBits(readBits)
@@ -141,10 +164,25 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
       null
     }
 
-
-    val writePort = new MemWrite(this, address, addressBuffer, dataBuffer, maskBuffer, when.getWhensCond(this).dontSimplifyIt(), ClockDomain.current)
-    ports += writePort
+    val whenBuffer =  when.getWhensCond(this).dontSimplifyIt()
+    val writePort = new MemWrite(this, address, addressBuffer, dataBuffer, maskBuffer,whenBuffer, ClockDomain.current)
     inputs += writePort
+
+    addressBuffer.setRefOwner(writePort)
+    addressBuffer.setPartialName("address",true)
+
+    dataBuffer.setRefOwner(writePort)
+    dataBuffer.setPartialName("data",true)
+
+    if(maskBuffer != null) {
+      maskBuffer.setRefOwner(writePort)
+      maskBuffer.setPartialName("mask", true)
+    }
+
+    whenBuffer.setRefOwner(writePort)
+    whenBuffer.setPartialName("enable",true)
+
+    addPort(writePort)
   }
 
   // ASIC friendly single port ram
@@ -160,12 +198,21 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
     val writePort = new MemWriteOrRead_writePart(this, addressBuffer, dataBuffer, chipSelect, writeEnable, ClockDomain.current)
     inputs += writePort
 
+    addressBuffer.setRefOwner(writePort)
+    addressBuffer.setPartialName("address",true)
+
+    dataBuffer.setRefOwner(writePort)
+    dataBuffer.setPartialName("writeData",true)
+
 
     val readBits = Bits(wordType.getBitsWidth bit)
     val readWord = wordType.clone()
     val readPort = new MemWriteOrRead_readPart(this, addressBuffer, readBits, chipSelect, writeEnable, writeToReadKind, ClockDomain.current)
 
     readBits.input = readPort
+    readBits.setRefOwner(readPort)
+    readBits.setPartialName("readData",true)
+
     readWord.assignFromBits(readBits)
     if (crossClock)
       readPort.addTag(crossClockDomain)
@@ -173,8 +220,8 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
 
     writePort.readPart = readPort;
     readPort.writePart = writePort
-    ports += readPort
-    ports += writePort
+    addPort(readPort)
+    addPort(writePort)
     readWord
   }
 
@@ -205,12 +252,6 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
   def randBoot(): this.type = {
     addTag(spinal.core.randomBoot)
     this
-  }
-
-  override protected def nameChangeEvent(weak: Boolean): Unit = {
-    ports.zipWithIndex.foreach{case (port,id) => port match {
-      case port : Nameable => port.setName(getName() + "_port" + id,weak)
-    }}
   }
 }
 
@@ -248,11 +289,6 @@ class MemReadAsync(mem_ : Mem[_], address_ : UInt, data: Bits, val writeToReadKi
   def getAddress = address.asInstanceOf[UInt]
   def getMem = mem.asInstanceOf[Mem[_]]
   override def calcWidth: Int = getMem.getWidth
-
-  override protected def nameChangeEvent(weak: Boolean): Unit = {
-    address_.setName(getName() + "_address",weak)
-    data.setName(getName() + "_data",weak)
-  }
 }
 
 
@@ -266,12 +302,6 @@ class MemReadSync(mem_ : Mem[_], val originalAddress: UInt, address_ : UInt, dat
   var address : Node = address_
   var readEnable  : Node = enable_
   var mem     : Mem[_] = mem_
-
-  override protected def nameChangeEvent(weak: Boolean): Unit = {
-    address_.setName(getName() + "_address",weak)
-    data.setName(getName() + "_data",weak)
-    enable_.setName(getName() + "_enable",weak)
-  }
 
   override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
 
@@ -330,9 +360,6 @@ class MemReadSync(mem_ : Mem[_], val originalAddress: UInt, address_ : UInt, dat
     this.setInput(MemReadSync.getAddressId,write.getAddress)
   }
 
-  //  override def normalizeInputs: Unit = {
-  //    Misc.normalizeResize(this, MemReadSync.getAddressId, getMem.addressWidth)
-  //  }
 
 }
 
@@ -350,12 +377,6 @@ class MemWrite(mem: Mem[_], val originalAddress: UInt, address_ : UInt, data_ : 
   var mask     : Node = (if (mask_ != null) mask_ else NoneNode())
   var writeEnable  : Node  = enable_
 
-  override protected def nameChangeEvent(weak: Boolean): Unit = {
-    address_.setName(getName() + "_address",weak)
-    data_.setName(getName() + "_data",weak)
-    if(mask_ != null)mask_.setName(getName() + "_mask",weak)
-    enable_.setName(getName() + "_enable",weak)
-  }
 
 
   override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
@@ -442,13 +463,6 @@ class MemWriteOrRead_writePart(mem: Mem[_], address_ : UInt, data_ : Bits, chipS
   var chipSelect   : Node = chipSelect_
   var writeEnable  : Node  = writeEnable_
 
-  override protected def nameChangeEvent(weak: Boolean): Unit = {
-    address_.setName(getName() + "_address",weak)
-    data_.setName(getName() + "_data",weak)
-    chipSelect_.setName(getName() + "_chipSelect",weak)
-    writeEnable_.setName(getName() + "_writeEnable",weak)
-  }
-
 
   override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
 
@@ -521,13 +535,6 @@ class MemWriteOrRead_readPart(mem_ : Mem[_], address_ : UInt, data_ : Bits, chip
   var writeEnable   : Node = writeEnable_
   var mem  : Mem[_]  = mem_
 
-
-  override protected def nameChangeEvent(weak: Boolean): Unit = {
-    address_.setName(getName() + "_address",weak)
-    data_.setName(getName() + "_data",weak)
-    chipSelect_.setName(getName() + "_chipSelect",weak)
-    writeEnable_.setName(getName() + "_writeEnable",weak)
-  }
 
   override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
 
