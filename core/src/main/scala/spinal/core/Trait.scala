@@ -300,28 +300,30 @@ trait Nameable extends OwnableRef{
 
   private[core] def getNameElseThrow: String = getName(null)
 
-  def setCompositeName(nameable: Nameable,weak : Boolean = false) = {
-    nameableRef = nameable
-    name = null
-    setMode(NAMEABLE_REF)
-    setWeak(weak)
+  def setCompositeName(nameable: Nameable,weak : Boolean = false) : this.type = {
+    if (!weak || (mode == UNANMED)) {
+      nameableRef = nameable
+      name = null
+      setMode(NAMEABLE_REF)
+      setWeak(weak)
+    }
+    this
   }
 
-  def setPartialName(name: String,weak : Boolean = false) = {
-    this.name = name
-    setMode(OWNER_PREFIXED)
-    setWeak(weak)
+  def setPartialName(name: String,weak : Boolean = false) : this.type = {
+    if (!weak || (mode == UNANMED)) {
+      this.name = name
+      setMode(OWNER_PREFIXED)
+      setWeak(weak)
+    }
+    this
   }
 
   def setName(name: String, weak: Boolean = false): this.type = {
-    if (!weak) {
-      this.name = name;
+    if (!weak || (mode == UNANMED)) {
+      this.name = name
       setMode(ABSOLUTE)
       setWeak(weak)
-    }
-    else if (isWeak && !isNamed) {
-      this.name = name;
-      setMode(ABSOLUTE)
     }
     this
   }
