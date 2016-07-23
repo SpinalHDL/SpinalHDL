@@ -429,7 +429,7 @@ class PhaseNameNodesByReflection(pc: PhaseContext) extends Phase{
     for (c <- sortedComponents) {
       c.nameElements()
       if(c.definitionName == null)
-        c.definitionName = c.getClass.getSimpleName
+        c.definitionName = pc.config.globalPrefix + c.getClass.getSimpleName
       c match {
         case bb: BlackBox => {
           bb.getGeneric.genNames
@@ -1471,9 +1471,14 @@ object SpinalVhdlBoot{
     phases += new PhasePrintStates(pc)
 
 
+    def initVhdlBase[T <: VhdlBase](base : T) = {
+      base.packageName     = pc.config.globalPrefix + base.packageName
+      base.enumPackageName = pc.config.globalPrefix + base.enumPackageName
+      base
+    }
 
-    phases += new PhaseVhdl(pc)
-    phases += new VhdlTestBenchBackend(pc)
+    phases += initVhdlBase(new PhaseVhdl(pc))
+    phases += initVhdlBase(new VhdlTestBenchBackend(pc))
 
 
 

@@ -38,7 +38,8 @@ case class SpinalConfig(
   onlyStdLogicVectorAtTopLevelIo : Boolean = false,
   defaultClockDomainFrequency : IClockDomainFrequency = UnknownFrequency(),
   targetDirectory : String = ".",
-  dumpWave : DumpWaveConfig = null
+  dumpWave : DumpWaveConfig = null,
+  globalPrefix : String = ""
 ){
   def generate[T <: Component](gen : => T) : SpinalReport[T] = Spinal(this)(gen)
   def generateVhdl[T <: Component](gen : => T) : SpinalReport[T] = Spinal(this.copy(mode = VHDL))(gen)
