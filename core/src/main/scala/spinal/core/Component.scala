@@ -70,7 +70,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
 
 
   private[core] val ioSet = mutable.Set[BaseType]()
-
+  private[core] var ioPrefixEnable = true
   val userCache = mutable.Map[Object, mutable.Map[Object, Object]]()
   private[core] val localScope = new Scope()
   private[core] val prePopTasks = mutable.ArrayBuffer[() => Unit]()
@@ -96,6 +96,15 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
 
   def setDefinitionName(name: String): this.type = {
     definitionName = name
+    this
+  }
+
+  def noIoPrefix() : this.type = {
+    val io = reflectIo
+    if(io != null) {
+      io.setName("")
+    }
+    ioPrefixEnable = false
     this
   }
 
@@ -125,32 +134,40 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
   def nameElements(): Unit = {
     val io = reflectIo
     if(io != null) {
-      io.setWeakName("io")
+      if(io.isUnnamed || io.isWeak) {
+        if (ioPrefixEnable)
+          io.setName("io")
+        else
+          io.setName("")
+      }
       OwnableRef.set(io,this)
     }
-
+//    if(io != null) {
+//      io.setName("io")
+//      OwnableRef.set(io,this)
+//    }
     Misc.reflect(this, (name, obj) => {
-      if(name != "io") {
+      if(obj != io) {
         obj match {
           case component: Component => {
             if (component.parent == this) {
-              OwnableRef.set(obj, this)
+              OwnableRef.proposal(obj, this)
               component.setWeakName(name)
             }
           }
           case nameable: Nameable => {
             if (!nameable.isInstanceOf[ContextUser]) {
               nameable.setWeakName(name)
-              OwnableRef.set(obj, this)
+              OwnableRef.proposal(obj, this)
             } else if (nameable.asInstanceOf[ContextUser].component == this) {
               nameable.setWeakName(name)
-              OwnableRef.set(obj, this)
+              OwnableRef.proposal(obj, this)
             } else {
               for (kind <- children) {
                 //Allow to name a component by his io reference into the parent component
                 if (kind.reflectIo == nameable) {
                   kind.setWeakName(name)
-                  OwnableRef.set(kind, this)
+                  OwnableRef.proposal(kind, this)
                 }
               }
             }
@@ -166,6 +183,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
     for (node <- nodes) node match {
       case nameable: Nameable => {
         if (nameable.isUnnamed || nameable.getName() == "") {
+          nameable.setMode(Nameable.UNANMED)
           nameable.setWeakName("zz")
         }
         if (nameable.isWeak)
@@ -176,7 +194,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
       case _ =>
     }
     for (kind <- children) {
-      OwnableRef.set(kind,this)
+      OwnableRef.proposal(kind,this)
       if (kind.isUnnamed) {
         var name = kind.getClass.getSimpleName
         name = Character.toLowerCase(name.charAt(0)) + (if (name.length() > 1) name.substring(1) else "");

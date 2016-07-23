@@ -442,6 +442,8 @@ trait Data extends ContextUser with NameableByComponent with Assignable  with Sp
   }
 
 
+  override def getComponent(): Component = component
+
   override def clone: this.type = {
     try {
       val clazz = this.getClass
@@ -495,16 +497,16 @@ trait Data extends ContextUser with NameableByComponent with Assignable  with Sp
             copy.asInstanceOf[Bundle].cloneFunc = (() => constructor.newInstance(c).asInstanceOf[this.type].asDirectionLess())
           return copy
         }
-//        val a = c.areaClassSet.get(pt)
-//        if(a.isDefined && a.get != null){
-//          return constructor.newInstance(a.get).asInstanceOf[this.type]
-//        }
+        //        val a = c.areaClassSet.get(pt)
+        //        if(a.isDefined && a.get != null){
+        //          return constructor.newInstance(a.get).asInstanceOf[this.type]
+        //        }
       }
 
 
-//      if (clazz.getAnnotations.find(_.isInstanceOf[valClone]).isDefined) {
-//        return constructorParamsAreVal
-//      }
+      //      if (clazz.getAnnotations.find(_.isInstanceOf[valClone]).isDefined) {
+      //        return constructorParamsAreVal
+      //      }
 
       needCloneImpl()
 
@@ -518,17 +520,15 @@ trait Data extends ContextUser with NameableByComponent with Assignable  with Sp
     def needCloneImpl(): this.type = {
       SpinalError(
         s"""
-          |*** Spinal can't clone ${this.getClass} datatype
-          |*** You have two way to solve that :
-          |*** In place to declare a "class Bundle(args){}", create a "case class Bundle(args){}"
-          |*** Or override by your self the bundle clone function
-          |*** The error is """.stripMargin + this.getScalaLocationLong);
+           |*** Spinal can't clone ${this.getClass} datatype
+                                                     |*** You have two way to solve that :
+                                                     |*** In place to declare a "class Bundle(args){}", create a "case class Bundle(args){}"
+                                                     |*** Or override by your self the bundle clone function
+                                                     |*** The error is """.stripMargin + this.getScalaLocationLong);
       null
     }
     null
   }
-
-  override def getComponent(): Component = component
   def getComponents() : Seq[Component] = if(component == null) Nil else (component.parents() ++ Seq(component))
 
   def genIf(cond : Boolean) : this.type = if(cond) this else null

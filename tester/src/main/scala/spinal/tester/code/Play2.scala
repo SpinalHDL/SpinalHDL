@@ -1504,6 +1504,7 @@ object PlayMentorDo{
     fifo.io.push << io.cmd
     fifo.io.pop  >> io.rsp
 
+    fifo.noIoPrefix()
   }
 
   def main(args: Array[String]) {
@@ -1553,11 +1554,13 @@ object PlayAuto{
 
     simSCL.io.output.read     := i2cSlave.io.i2c.scl.write
     i2cSlave.io.i2c.scl.read  := simSCL.io.output.write
+
+
   }
 
   class SimOpenDrain extends Component{
     val io = new Bundle{
-      val input  = master ( ReadableOpenDrain(Bool)  )
+      val input  = slave ( ReadableOpenDrain(Bool)  )
       val output = master ( ReadableOpenDrain(Bool) )
     }
 
@@ -1846,4 +1849,30 @@ object PlaySyntaxCheck{
     input = inputStream,
     outputCount = 3
   )
+}
+
+
+object PlayNameableIssue{
+  class TopLevel extends Component {
+    val arbiterRoundRobinInputs =  Vec(slave Stream(Bits(8 bits)),3)
+    val arbiterRoundRobinOutput =  master Stream(Bits(8 bits))
+    arbiterRoundRobinOutput << StreamArbiterFactory.roundRobin.on(arbiterRoundRobinInputs)
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
+object PlayNameableIssue2{
+  class TopLevel extends Component {
+    val arbiterRoundRobinInputs =  Vec(slave Stream(Bits(8 bits)),3)
+    val arbiterRoundRobinOutput =  master Stream(Bits(8 bits))
+    arbiterRoundRobinOutput << StreamArbiterFactory.roundRobin.on(arbiterRoundRobinInputs)
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new StreamArbiter(Bits(8 bits),3)(StreamArbiter.Arbitration.lowerFirst,StreamArbiter.Lock.transactionLock))
+  }
 }

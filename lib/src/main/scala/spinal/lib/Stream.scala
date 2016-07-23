@@ -276,6 +276,7 @@ object StreamArbiter {
       for(bitId  <- maskLocked.range){
         maskLocked(bitId) init(Bool(bitId == maskLocked.length-1))
       }
+      //maskProposal := maskLocked
       maskProposal := OHMasking.roundRobin(Vec(io.inputs.map(_.valid)),Vec(maskLocked.last +: maskLocked.take(maskLocked.length-1)))
     }
 

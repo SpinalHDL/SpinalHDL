@@ -219,6 +219,13 @@ object OwnableRef{
     if(ownable.isInstanceOf[OwnableRef])
       ownable.asInstanceOf[OwnableRef].setRefOwner(owner)
   }
+  def proposal(ownable : Any,owner : Any) = {
+    if(ownable.isInstanceOf[OwnableRef]) {
+      val ownableTmp = ownable.asInstanceOf[OwnableRef]
+      if(ownableTmp.refOwner == null)
+        ownableTmp.asInstanceOf[OwnableRef].setRefOwner(owner)
+    }
+  }
 }
 
 trait OwnableRef{
