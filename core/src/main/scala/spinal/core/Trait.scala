@@ -317,7 +317,22 @@ trait Nameable extends OwnableRef{
     this
   }
 
-  def setPartialName(name: String,weak : Boolean = false) : this.type = {
+  def setPartialName(owner : Nameable,name: String) : this.type = setPartialName(owner,name,false)
+  def setPartialName(name: String) : this.type = setPartialName(name,false)
+
+
+    def setPartialName(owner : Nameable,name: String,weak : Boolean) : this.type = {
+    if (!weak || (mode == UNANMED)) {
+      setRefOwner(owner)
+      this.name = name
+      setMode(OWNER_PREFIXED)
+      setWeak(weak)
+    }
+    this
+  }
+
+
+  def setPartialName(name: String,weak : Boolean) : this.type = {
     if (!weak || (mode == UNANMED)) {
       this.name = name
       setMode(OWNER_PREFIXED)

@@ -98,8 +98,9 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
 
   def queue(size: Int): Stream[T] = {
     val fifo = new StreamFifo(dataType, size)
+    fifo.setPartialName(this,"fifo")
     fifo.io.push << this
-    return fifo.io.pop
+    fifo.io.pop
   }
 
   def queue(size: Int, pushClock: ClockDomain, popClock: ClockDomain): Stream[T] = {

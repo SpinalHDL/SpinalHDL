@@ -1876,3 +1876,14 @@ object PlayNameableIssue2{
     SpinalVhdl(new StreamArbiter(Bits(8 bits),3)(StreamArbiter.Arbitration.lowerFirst,StreamArbiter.Lock.transactionLock))
   }
 }
+object PlayNameableIssue3{
+  class TopLevel extends Component {
+    val cmd =  slave Stream(Bits(8 bits))
+    val rsp =  master Stream(Bits(8 bits))
+    cmd.queue(16) >> rsp
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
