@@ -165,7 +165,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
     localScope.allocateName("zz")
     for (node <- nodes) node match {
       case nameable: Nameable => {
-        if (nameable.isUnnamed) {
+        if (nameable.isUnnamed || nameable.getName() == "") {
           nameable.setWeakName("zz")
         }
         if (nameable.isWeak)

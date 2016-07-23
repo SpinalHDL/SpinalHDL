@@ -1,6 +1,9 @@
 ## spinal.core
 
 - [X] Add version number into elaboration logs
+- [ ] Toplevel io_ prefix + naming rules transformator in SpinalConfig
+- [ ] Add option to disable the pkg generation in VHDL
+- [ ] Check xilinx and altera FF about syncronus reset + clock enable interaction kind 
 - [ ] Add rotate left support in the verilog backend
 - [ ] Better mux Nodes (more than two inputs)
 - [ ] Remove the generation of when nodes condition when they are emited as a case statments

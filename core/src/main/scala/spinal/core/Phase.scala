@@ -332,7 +332,7 @@ class PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc: PhaseContex
         ram.io.rd.addr := rd.getAddress.allowSimplifyIt()
         rd.getData.allowSimplifyIt() := ram.io.rd.data
 
-        ram.setCompositeName(mem)
+        ram.setName(mem.getName())
         Component.pop(mem.component)
         clockDomain.pop()
       } else if (topo.writes.size == 1 && topo.readsAsync.isEmpty && topo.readsSync.size == 1 && topo.writeReadSync.isEmpty && topo.writeOrReadSync.isEmpty) {
@@ -360,7 +360,7 @@ class PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc: PhaseContex
             lit == null || lit.value == false
           }
 
-          ram.setCompositeName(mem)
+          ram.setName(mem.getName())
           Component.pop(mem.component)
           clockDomain.pop()
         }
@@ -388,7 +388,7 @@ class PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc: PhaseContex
             lit == null || lit.value == false
           }
 
-          ram.setCompositeName(mem)
+          ram.setName(mem.getName())
           Component.pop(mem.component)
           clockDomain.pop()
         }
@@ -411,7 +411,7 @@ class PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc: PhaseContex
 
           rd.getData.allowSimplifyIt() := ram.io.rdData
 
-          ram.setCompositeName(mem)
+          ram.setName(mem.getName())
           Component.pop(mem.component)
           clockDomain.pop()
         }
