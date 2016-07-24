@@ -1900,6 +1900,38 @@ object PlayBug54{
   }
 }
 
+object PlayBug5441{
+  object State extends SpinalEnum{
+    val s0,s1,s2,s3 = newElement()
+  }
+  class TopLevel extends Component {
+    val tmp = State()
+    val result = out(State)
+    result := tmp
+    tmp := result
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel())
+  }
+}
+
+object PlayBug544441{
+  class TopLevel extends Component {
+    val condA = in Bool
+    val condB = in Bool
+    val result = out Bits(8 bits)
+    when(condA){
+//      when(condB){
+        result := 4
+//      }
+    }
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel())
+  }
+}
 
 
 
@@ -1959,6 +1991,8 @@ object Play928267{
     io.slvsel := B(default -> true)
   }
   def main(args: Array[String]) {
-    SpinalVhdl(new SPIMaster(4))
+    SpinalConfig().dumpWave().generateVhdl(new SPIMaster(4)).printPruned()
+    //ou
+    SpinalConfig(dumpWave = DumpWaveConfig()).generateVhdl(new SPIMaster(4)).printPruned()
   }
 }

@@ -1187,8 +1187,7 @@ class PhaseCheck_noAsyncNodeWithIncompleteAssignment(pc: PhaseContext) extends P
     val errors = mutable.ArrayBuffer[String]()
 
     Node.walk(walkNodesDefautStack,node => node match {
-      case signal: BaseType if !signal.isDelay => {
-
+      case signal: BaseType if !signal.isDelay && node.component != null && !(signal.component.isInBlackBoxTree && !signal.isInput) && !(signal.component.parent == null && signal.isInput) => {
         val signalRange = new AssignedRange(signal.getBitsWidth - 1, 0)
 
         def walk(nodes: Iterator[Node]): AssignedBits = {
@@ -1202,6 +1201,7 @@ class PhaseCheck_noAsyncNodeWithIncompleteAssignment(pc: PhaseContext) extends P
               assignedBits.add(an.getAssignedBits)
             }
             case man: MultipleAssignmentNode => return walk(man.getInputs)
+            case null =>
             case _ => assignedBits.add(signalRange)
           }
           assignedBits

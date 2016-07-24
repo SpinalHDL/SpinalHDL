@@ -2,6 +2,7 @@
 - [ ] Fix B(default -> True)
 
 ## spinal.core
+- [ ] Add regression for all implicit spinal hdl check like latch, comb loop etc
 - [ ] add xxx := (default -> True) support (no B/U/S prefix)
 - [ ] Add myBool := 0/1 ?
 - [ ] Add logic inferation LOCK functionality ? switch -> is   State -> functions
