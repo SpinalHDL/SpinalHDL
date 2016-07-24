@@ -59,7 +59,7 @@ class SCLEdgeDetector(scl:Bool) extends Area{
 /**
   * Filter the SCL and SDA input signals
   */
-class I2CFilterArea(i2c_sda:Bool, i2c_scl:Bool, clockDivider : UInt, samplingSize:Int, clockDividerWidth : Int) extends Area{
+class I2CFilterInput(i2c_sda:Bool, i2c_scl:Bool, clockDivider : UInt, samplingSize:Int, clockDividerWidth : Int) extends Area{
 
   // Clock divier for sampling the input signals
   val samplingClockDivider = new Area{

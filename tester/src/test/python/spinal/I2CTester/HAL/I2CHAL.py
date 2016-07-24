@@ -183,13 +183,14 @@ class START(I2COperation):
         return "Start - "
 
 class WRITE(I2COperation):
-    def __init__(self, data=-1, delayCmd=0, delayRsp=0):
+    def __init__(self, data=-1, delayCmd=0, delayRsp=0, genCollision=False):
         if data == -1 :
             self.data = randInt(0,2**I2CConfig.dataWdith)
         else:
             self.data = data
         self.delayCMD = delayCmd
         self.delayRSP = delayRsp
+        self.enCollision = genCollision
 
     def __repr__(self):
         return "Write %08X - " % (self.data)
@@ -202,6 +203,7 @@ class READ(I2COperation):
             self.data = data
         self.delayCMD = delayCmd
         self.delayRSP = delayRsp
+        self.enCollision = False
 
     def __repr__(self):
         return "Read %08X - " % (self.data)

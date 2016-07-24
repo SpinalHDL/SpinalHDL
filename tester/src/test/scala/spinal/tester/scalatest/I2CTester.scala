@@ -20,58 +20,63 @@ package spinal.tester.scalatest
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.io._
 import spinal.lib.com.i2c._
 
-class I2CMasterHALTester extends Component {
 
-  val generic = I2CMasterHALGenerics()
+class I2CHALTester extends Component{
 
-  val io = new Bundle {
-    val i2c    = master( I2C() )
-    val config = in( I2CMasterHALConfig(generic) )
-    val cmd    = slave Stream(I2CMasteHALCmd(generic))
-    val rsp    = master Flow(I2CMasterHALRsp (generic))
-  }
+    val slaveGeneric  = I2CSlaveHALGenerics()
+    val masterGeneric = I2CMasterHALGenerics()
 
-  val myMasterI2C = new I2CMasterHAL(generic)
-  myMasterI2C.io.config.setSCLFrequency(4e6)
+    val io = new Bundle{
+      val ioSlave = new Bundle {
+        val cmd  = master  Flow ( I2CSlaveHALCmd(slaveGeneric) )
+        val rsp  = slave Stream ( I2CSlaveHALRsp(slaveGeneric) )
+      }
+      val ioMaster = new Bundle {
+        val cmd    = slave Stream(I2CMasteHALCmd(masterGeneric))
+        val rsp    = master Flow (I2CMasterHALRsp (masterGeneric))
+      }
 
-  io <> myMasterI2C.io
+      val sda = out Bool
+      val scl = out Bool
+    }
+
+    val i2cSlave  = new I2CSlaveHAL(slaveGeneric)
+    val i2cMaster = new I2CMasterHAL(masterGeneric)
+
+    i2cSlave.io.cmd  <> io.ioSlave.cmd
+    i2cSlave.io.rsp  <> io.ioSlave.rsp
+    i2cMaster.io.cmd <> io.ioMaster.cmd
+    i2cMaster.io.rsp <> io.ioMaster.rsp
+    i2cMaster.io.config.setSCLFrequency(2e6)
+    i2cMaster.io.config.enCollision := True
+    i2cMaster.io.config.setClockDividerSampling(5)
+
+    io.sda := i2cMaster.io.i2c.sda.read
+    io.scl := i2cMaster.io.i2c.scl.read
+    i2cSlave.io.config.setClockDividerSampling(5)
+
+
+    interconnect(Seq(i2cMaster.io.i2c.scl, i2cSlave.io.i2c.scl))
+    interconnect(Seq(i2cMaster.io.i2c.sda, i2cSlave.io.i2c.sda))
+
+
+    def interconnect(elements : Seq[ReadableOpenDrain[Bool]]) : Unit = {
+      val readValue = elements.map(_.write).reduce(_ & _)
+      elements.foreach(_.read := readValue)
+    }
+
 }
 
-
-class I2CMasterHALCocotbBoot extends SpinalTesterCocotbBase {
-  override def getName: String = "I2CMasterHALTest"
-  override def pythonTestLocation: String = "tester/src/test/python/spinal/I2CTester/Master/HAL"
-  override def createToplevel: Component = new I2CMasterHALTester
-  override def backendConfig(config: SpinalConfig) : SpinalConfig = {
-    config.copy(defaultClockDomainFrequency  = FixedFrequency(50e6),
-                defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW))
-  }
-}
-
-
-class I2CSlaveHALTester extends Component {
-
-  val generic = I2CSlaveHALGenerics()
-
-  val io = new Bundle {
-    val i2c  = slave( I2C() )
-    val cmd  = master  Flow ( I2CSlaveHALCmd(generic) )
-    val rsp  = slave Stream ( I2CSlaveHALRsp(generic) )
-  }
-
-  val mySlave = new I2CSlaveHAL(generic)
-  io <> mySlave.io
-}
-
-
-class I2CSlaveHALCocotbBoot extends SpinalTesterCocotbBase {
-  override def getName: String = "I2CSlaveHALTest"
-  override def pythonTestLocation: String = "tester/src/test/python/spinal/I2CTester/Slave/HAL"
-  override def createToplevel: Component = new I2CSlaveHALTester
+class I2CHALCocotbBoot extends SpinalTesterCocotbBase {
+  override def getName: String = "I2CHALTest"
+  override def pythonTestLocation: String = "tester/src/test/python/spinal/I2CTester/HAL"
+  override def createToplevel: Component = new I2CHALTester
   override def backendConfig(config: SpinalConfig) : SpinalConfig = {
     config.copy(defaultClockDomainFrequency  = FixedFrequency(50e6),
       defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW))
   }
 }
+

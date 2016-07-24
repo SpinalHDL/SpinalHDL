@@ -25,7 +25,7 @@ def test_scenario_1(dut):
 
     listOperation = list()
 
-    listOperation.append( [START(), WRITE(0x88, 0, delay), ACK(), STOP()] )
+    listOperation.append( [START(), WRITE(), ACK(), STOP()] )
     listOperation.append( [START(), READ(), NACK(), STOP()] )
     listOperation.append( [START(), READ(),  ACK(), READ(),  NACK(), STOP()] )
     listOperation.append( [START(), WRITE(), ACK(), WRITE(), NACK(), STOP()])
@@ -38,7 +38,7 @@ def test_scenario_1(dut):
 
         helperMaster = I2CMasterHAL(dut, True)
         helperSlave  = I2CSlaveHAL(dut, True)
-        #analyser     = I2CHALAnalyser(helperMaster, operationSeq)
+        analyser     = I2CHALAnalyser(helperMaster, operationSeq)
 
         clockDomain = ClockDomain(dut.clk, 500, dut.resetn, RESET_ACTIVE_LEVEL.LOW)
         cocotb.fork(clockDomain.start())
@@ -52,13 +52,13 @@ def test_scenario_1(dut):
         yield clockDomain.event_endReset.wait()
 
 
-      #  cocotb.fork(analyser.start())
+        cocotb.fork(analyser.start())
         cocotb.fork(helperMaster.execOperations(operationSeq))
         cocotb.fork(helperMaster.checkResponse(operationSeq))
         cocotb.fork(helperSlave.execOperations(operationSeq))
         yield helperSlave.checkResponse(operationSeq)
 
-        yield Timer(500000)
+        yield Timer(250000)
 
         # Stop all processes
         clockDomain.stop()
@@ -66,7 +66,7 @@ def test_scenario_1(dut):
         helperMaster.stop()
        # analyser.stop()
 
-        yield Timer(500000)
+        yield Timer(250000)
 
 
     dut.log.info("Cocotb I2C HAL - Basic test")

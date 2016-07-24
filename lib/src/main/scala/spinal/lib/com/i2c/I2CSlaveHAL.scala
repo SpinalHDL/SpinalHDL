@@ -120,11 +120,11 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
   /**
     * Filter SDA and SCL input
     */
-  val sampler = new I2CFilterArea(i2c_sda           = io.i2c.sda.read,
-                                  i2c_scl           = io.i2c.scl.read,
-                                  clockDivider      = io.config.clockDividerSampling,
-                                  samplingSize      = g.samplingSize,
-                                  clockDividerWidth = g.clockDividerSamplingWidth)
+  val sampler = new I2CFilterInput(i2c_sda           = io.i2c.sda.read,
+                                   i2c_scl           = io.i2c.scl.read,
+                                   clockDivider      = io.config.clockDividerSampling,
+                                   samplingSize      = g.samplingSize,
+                                   clockDividerWidth = g.clockDividerSamplingWidth)
 
   /**
     * Detect the rising and falling edge of the scl signal

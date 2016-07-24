@@ -21,7 +21,8 @@ def master_hal_basic_tests(dut):
     dut.log.info("Cocotb I2C Master HAL - Basic Test ")
 
     listOperation = list()
-    listOperation.append( [START(), WRITE(), ACK(), STOP()]  )
+    listOperation.append( [START(), WRITE(-1,0,0,True), ACK(), STOP()]  )    ## Test collision
+    listOperation.append( [START(), WRITE(), ACK(), STOP()] )
     listOperation.append( [START(), READ(),  ACK(), STOP()] )
     listOperation.append( [START(), WRITE(), NACK(), WRITE(), NACK(), STOP()] )
     listOperation.append( [START(), READ(),  ACK(),  READ(),  NACK(), STOP()] )

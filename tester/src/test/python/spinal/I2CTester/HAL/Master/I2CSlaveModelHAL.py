@@ -67,7 +67,7 @@ class I2CSlaveModelHAL:
 
 
             elif isinstance(operation, WRITE):
-                yield self._writeData()
+                yield self._writeData(operation.enCollision)
 
             elif isinstance(operation, READ):
                 yield self._readData(operation.data)
@@ -141,7 +141,7 @@ class I2CSlaveModelHAL:
     ##########################################################################
     # Read a data comming from the master
     @cocotb.coroutine
-    def _writeData(self):
+    def _writeData(self, enCollision):
         cnt  = 0
         dataRead = list()
         while True:
@@ -152,8 +152,13 @@ class I2CSlaveModelHAL:
 
                 break
             else:
+                if enCollision == True:
+                    yield FallingEdge(self.scl_wr)
+                    if int(self.sda_wr) == 1:
+                        self.sda = 0
                 yield RisingEdge(self.scl_wr)
                 dataRead.append( int(self.sda_wr) )
+
 
             cnt += 1
 

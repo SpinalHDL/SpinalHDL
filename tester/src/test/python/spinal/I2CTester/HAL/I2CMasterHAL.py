@@ -228,9 +228,14 @@ class I2CMasterHAL:
             # READ/WRITE => Data response -----------------------------------------
             elif isinstance(operation,WRITE) or isinstance(operation,READ):
                 yield self.event_rsp_valid.wait()
-                (payloadMode, payloadData) = self.event_rsp_valid.data
-                assertEquals(payloadData, operation.data       , "DATA : Rsp data is wrong")
-                assertEquals(payloadMode, I2CMasterHAL.RSP.DATA, "DATA : Rsp mode received is wrong")
+                if operation.enCollision == True:
+                    (payloadMode, payloadData) = self.event_rsp_valid.data
+                    assertEquals(payloadMode, I2CMasterHAL.RSP.COLLISION, "DATA : Rsp Collision received is wrong")
+                    break
+                else:
+                    (payloadMode, payloadData) = self.event_rsp_valid.data
+                    assertEquals(payloadData, operation.data       , "DATA : Rsp data is wrong")
+                    assertEquals(payloadMode, I2CMasterHAL.RSP.DATA, "DATA : Rsp mode received is wrong")
 
             # ACK/NACK => ACK/NACK response ---------------------------------------
             elif isinstance(operation,ACK) or isinstance(operation,NACK):
