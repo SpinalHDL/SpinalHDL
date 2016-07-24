@@ -29,6 +29,7 @@ object VHDL extends SpinalMode
 object Verilog extends SpinalMode
 
 case class DumpWaveConfig(depth : Int = 0, vcdPath : String = "wave.vcd")
+case class Device(vendor : String = "?", family : String = "?", name : String = "?")
 
 case class SpinalConfig(
   mode: SpinalMode = null,
@@ -39,7 +40,10 @@ case class SpinalConfig(
   defaultClockDomainFrequency : IClockDomainFrequency = UnknownFrequency(),
   targetDirectory : String = ".",
   dumpWave : DumpWaveConfig = null,
-  globalPrefix : String = ""
+  globalPrefix : String = "",
+  device: Device = Device(),
+  genVhdlPkg : Boolean = true
+
 ){
   def generate[T <: Component](gen : => T) : SpinalReport[T] = Spinal(this)(gen)
   def generateVhdl[T <: Component](gen : => T) : SpinalReport[T] = Spinal(this.copy(mode = VHDL))(gen)

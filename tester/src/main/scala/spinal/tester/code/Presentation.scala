@@ -1516,3 +1516,31 @@ object c4828{
   }
 
 }
+
+
+
+object c9482 {
+
+  class TopLevel extends Component {
+    def complicatedLogic(input : UInt) = RegNext(RegNext(input))
+
+    val a = UInt(8 bits)
+    val b = UInt(8 bits)
+
+    val aCalcResult = complicatedLogic(a)
+
+    val aCalcResultLatency = LatencyAnalysis(a,aCalcResult)
+    val bDelayed = Delay(b,cycleCount = aCalcResultLatency)
+
+    val result = aCalcResult + bDelayed
+
+
+    in(a,b)
+    out(result)
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+
+}

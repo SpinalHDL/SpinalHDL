@@ -25,7 +25,8 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
     
     outFile = new java.io.FileWriter(pc.config.targetDirectory + "/" +  topLevel.definitionName + ".vhd")
     emitEnumPackage(outFile)
-    emitPackage(outFile)
+    if(pc.config.genVhdlPkg)
+      emitPackage(outFile)
 
     for (c <- sortedComponents) {
       SpinalProgress(s"${"  " * (1 + c.level)}emit ${c.definitionName}")
