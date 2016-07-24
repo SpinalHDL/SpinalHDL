@@ -1887,3 +1887,78 @@ object PlayNameableIssue3{
     SpinalConfig(globalPrefix = "yolo_").generateVhdl(new TopLevel().setDefinitionName("miaou"))
   }
 }
+
+
+object PlayBug54{
+  class TopLevel extends Component {
+    val result = out Bits(8 bits)
+    result := B(default -> true)
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel())
+  }
+}
+
+
+
+
+object Play928267{
+  class SPIConfig extends Bundle {
+    val CPOL = in Bool
+    val CPHA = in Bool
+    val Prescale = in UInt(8 bits)
+  }
+
+  class SPIMaster(nEnables: Int) extends Component {
+    val io = new Bundle{
+      val configIf = new SPIConfig
+      val inputData = slave Stream(Bits(8 bits))
+      val sck = out Bool
+      val miso = in Bool
+      val mosi = out Bool
+      val slvsel = out Bits(nEnables bits)
+    }
+
+    val sckReg = Reg(Bool) init(False)
+    sckReg := io.configIf.CPOL
+
+    val clockGen = new Area {
+      val sckCounter = Reg(UInt(8 bits)) init(0)
+      sckCounter := sckCounter + 1
+      when (sckCounter === io.configIf.Prescale) {
+        sckReg := !sckReg
+        sckCounter := 0
+      }
+    }
+
+
+    val dataOutReg = Reg(Bits(8 bits))
+    val masterFsm = new StateMachine {
+      io.inputData.ready := False
+
+      val Idle : State = new State with EntryPoint {
+        io.inputData.ready := True
+        whenIsActive {
+          when (io.inputData.valid) {
+            dataOutReg := io.inputData.payload
+            goto(ShiftData)
+          }
+        }
+      }
+
+      val ShiftData : State = new State {
+        whenIsActive {
+          goto(Idle)
+        }
+      }
+
+    }
+    io.sck := sckReg
+    io.mosi := False
+    io.slvsel := B(default -> true)
+  }
+  def main(args: Array[String]) {
+    SpinalVhdl(new SPIMaster(4))
+  }
+}
