@@ -981,6 +981,13 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
     }
   }
 
+  def unaryAllBy(cast : String)(func: Modifier): String = {
+    val node = func.asInstanceOf[Operator.BitVector.AllByBool]
+    s"${cast}'(${node.getWidth-1} downto 0 => ${emitLogic(node.input)})"
+  }
+
+
+
   val modifierImplMap = mutable.Map[String, Modifier => String]()
 
 
@@ -1090,6 +1097,11 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
   modifierImplMap.put("resize(u,i)", resizeFunction("pkg_unsigned"))
   modifierImplMap.put("resize(b,i)", resizeFunction("pkg_stdLogicVector"))
 
+  modifierImplMap.put("bAllByB", unaryAllBy("std_logic_vector"))
+  modifierImplMap.put("uAllByB", unaryAllBy("unsigned"))
+  modifierImplMap.put("sAllByB", unaryAllBy("signed"))
+
+
   //Memo whenNode hardcode emitlogic
   modifierImplMap.put("mux(B,B,B)", operatorImplAsFunction("pkg_mux"))
   modifierImplMap.put("mux(B,b,b)", operatorImplAsFunction("pkg_mux"))
@@ -1112,6 +1124,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
   modifierImplMap.put("extract(b,u,w)", extractBitVectorFloating)
   modifierImplMap.put("extract(u,u,w)", extractBitVectorFloating)
   modifierImplMap.put("extract(s,u,w)", extractBitVectorFloating)
+
 
 
   def extractBoolFixed(func: Modifier): String = {

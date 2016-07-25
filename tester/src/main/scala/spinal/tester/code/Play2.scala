@@ -1891,13 +1891,37 @@ object PlayNameableIssue3{
 
 object PlayBug54{
   class TopLevel extends Component {
-    val result = out Bits(8 bits)
-    result := B(default -> true)
-    result.setWidth(16)
+    val a = in Bool
+    val fixedWidth = new Area {
+      val resultBits = out Bits (8 bits)
+      resultBits := B(7 -> false, (6 downto 0) -> a)
+      val resultUInt = out UInt (8 bits)
+      resultUInt := U(7 -> false, (6 downto 0) -> a)
+      val resultSInt = out SInt (8 bits)
+      resultSInt := S(7 -> false, (6 downto 0) -> a)
+    }
+    val unfixedWidth = new Area {
+      val resultBits = out Bits (8 bits)
+      resultBits := (4 -> False,default -> a)
+      val resultUInt = out UInt (8 bits)
+      resultUInt := (4 -> false,default -> a)
+      val resultSInt = out SInt (8 bits)
+      resultSInt := ((4 downto 0) -> false,default -> a)
+    }
+
+    val unfixeConstdWidth = new Area {
+      val resultBits = out Bits (8 bits)
+      resultBits := (4 -> False,default -> True)
+      val resultUInt = out UInt (8 bits)
+      resultUInt := (4 -> false,default -> True)
+      val resultSInt = out SInt (8 bits)
+      resultSInt := ((4 downto 0) -> false,default -> True)
+    }
   }
 
   def main(args: Array[String]) {
     SpinalVhdl(new TopLevel())
+    SpinalVerilog(new TopLevel())
   }
 }
 

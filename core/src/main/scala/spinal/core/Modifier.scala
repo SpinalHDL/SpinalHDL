@@ -259,6 +259,11 @@ object Operator{
       override def simplifyNode: Unit = {SymplifyNode.rotateImpl(getLiteralFactory,this)}
       def getLiteralFactory : (BigInt, BitCount) => Node
     }
+
+    abstract class AllByBool(val theConsumer : Node) extends UnaryOperator with Widthable {
+      override def calcWidth: Int = theConsumer.asInstanceOf[WidthProvider].getWidth
+    }
+
   }
 
   object Bits{
@@ -320,6 +325,9 @@ object Operator{
       def getLiteralFactory : (BigInt, BitCount) => Node = B.apply
     }
 
+    class AllByBool(theConsumer : Node) extends BitVector.AllByBool(theConsumer) {
+      override def opName: String = "bAllByB"
+    }
   }
 
 
@@ -404,6 +412,10 @@ object Operator{
     class ShiftLeftByUInt extends BitVector.ShiftLeftByUInt{
       override def opName: String = "u<<u"
       override def getLiteralFactory: (BigInt, BitCount) => Node = U.apply
+    }
+
+    class AllByBool(theConsumer : Node) extends BitVector.AllByBool(theConsumer) {
+      override def opName: String = "uAllByB"
     }
   }
 
@@ -495,6 +507,10 @@ object Operator{
     class ShiftLeftByUInt extends BitVector.ShiftLeftByUInt{
       override def opName: String = "s<<u"
       override def getLiteralFactory: (BigInt, BitCount) => Node = S.apply
+    }
+
+    class AllByBool(theConsumer : Node) extends BitVector.AllByBool(theConsumer) {
+      override def opName: String = "sAllByB"
     }
   }
 

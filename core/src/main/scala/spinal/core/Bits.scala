@@ -18,6 +18,8 @@
 
 package spinal.core
 
+import spinal.core.Operator.BitVector.AllByBool
+import spinal.core.Operator.Bits
 import spinal.core.Operator.Bits.RotateLeftByUInt
 
 /**
@@ -56,7 +58,14 @@ class Bits extends BitVector with DataPrimitives[Bits]{
   def <<(that: UInt): Bits = wrapBinaryOperator(that,new Operator.Bits.ShiftLeftByUInt)
   def rotateLeft(that: UInt): Bits = wrapBinaryOperator(that,new RotateLeftByUInt)
 
+  def :=(rangesValue : Tuple2[Any,Any],_rangesValues: Tuple2[Any,Any]*) : Unit = {
+    val rangesValues = rangesValue +: _rangesValues
+    B.applyTupples(this,rangesValues)
+  }
+
   private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse,new MultiplexerBits)
+
+  override protected def getAllToBoolNode(): AllByBool = new Operator.Bits.AllByBool(this)
 
   override def resize(width: Int): this.type = wrapWithWeakClone({
     val node = new ResizeBits

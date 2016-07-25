@@ -24,6 +24,9 @@ package spinal.core
 
 class TagDefault(val default : Tuple2[Any,Any],val litFacto : (BigInt,Int) => BitVector) extends SpinalTag{override def driverShouldNotChange = true}
 
+
+
+
 abstract class BitVectorLiteralFactory[T <: BitVector] {
   def apply(): T
   def apply(value: BigInt): T = getFactory(value, -1, this())
@@ -37,34 +40,42 @@ abstract class BitVectorLiteralFactory[T <: BitVector] {
 
   private def aggregate(bitCount : BitCount,rangesValues: Seq[Tuple2[Any,Any]]) : T = {
     val ret : T = this.newInstance(bitCount.value bit)
+    applyTupples(ret,rangesValues)
+    ret
+  }
 
+  def applyTupples(on : T,rangesValues : Seq[Tuple2[Any,Any]]) : Unit = {
+    //Apply default
     rangesValues.foreach(_ match{
-      case (`default`,value : Boolean) =>  {
-        ret.setAllTo(value)
-        ret.addTag(new TagDefault(default -> value,(x:BigInt,y:Int) => this.apply(x,y bit)))
-      }
-      case (`default`,value : Bool) =>{
-        for(i <- 0 until bitCount.value)
-          ret(i) := value
-        ret.addTag(new TagDefault(default -> value,(x:BigInt,y:Int) => this.apply(x,y bit)))
-      }
+      case (`default`,value : Boolean) =>  on.setAllTo(value)
+      case (`default`,value : Bool)    => on.setAllTo(value)
       case _ =>
     })
 
-    rangesValues.foreach(_ match{
-      case (pos : Int,value : Boolean) => ret(pos) := Bool(value)
-      case (pos : Int,value : Bool) => ret(pos) := value //literal extraction
+    //Apply specific access in order
+    for(e <- rangesValues) e match{
+      case (pos : Int,value : Boolean) => on(pos) := Bool(value)
+      case (pos : Int,value : Bool) => on(pos) := value //literal extraction
       case (range : Range,value : Bool) => {
         for(i <- range)
-          ret(i) := value
+          on(i) := value
       }
-      case (range : Range,value : Boolean) => ret(range) := apply(if(! value) BigInt(0) else (BigInt(1) << range.size)-1)
-      case (range : Range,value : String) => ret(range) := apply(value)
-      case (range : Range,value : T) => ret(range) := value
+      case (range : Range,value : Boolean) => on(range) := apply(
+        if(! value)
+          BigInt(0)
+        else {
+          if(!on.isInstanceOf[SInt])
+            (BigInt(1) << range.size) - 1
+          else
+            BigInt(-1)
+
+        }
+      )
+      case (range : Range,value : String) => on(range) := apply(value)
+      case (range : Range,value : T) => on(range) := value
       case (`default`,value : Boolean) =>
       case (`default`,value : Bool) =>
-    })
-    ret
+    }
   }
 
   def apply(rangesValue : Tuple2[Any,Any],_rangesValues: Tuple2[Any,Any]*) : T = {
@@ -76,6 +87,10 @@ abstract class BitVectorLiteralFactory[T <: BitVector] {
       }
       case (range : Range,_) => {
         hig = Math.max(hig,range.high)
+      }
+      case (`default`,_) => {
+        val where = ScalaLocated.long
+        GlobalData.get.pendingErrors += (() => s"You can't use default -> ??? in this case. \n${where}")
       }
       case _ =>
     })
@@ -213,6 +228,8 @@ class BitsAllToLiteral(val theConsumer : Node,val value: Boolean) extends Litera
   override def calcWidth: Int = theConsumer.asInstanceOf[WidthProvider].getWidth
   override def getBitsStringOn(bitCount: Int): String = (if(value) "1" else "0" ) * getWidth
 }
+
+
 
 object BoolLiteral {
   def apply(value: Boolean, on: Bool): Bool = {
