@@ -76,14 +76,28 @@ object Max {
     }
 }
 
-object MaskByPriority{
-    def apply[T <: Data](that : T) : T = {
-        val input = that.asBits.asUInt
-        val masked = input & ~(input - 1)
-        val ret = that.clone
-        ret.assignFromBits(masked.asBits)
-        ret
-    }
+object OHMasking{
+  def first[T <: Data](that : T) : T = {
+      val input = that.asBits.asUInt
+      val masked = input & ~(input - 1)
+      val ret = that.clone
+      ret.assignFromBits(masked.asBits)
+      ret
+  }
+
+  def roundRobin[T <: Data](requests : T,ohPriority : T) : T = {
+    val width = requests.getBitsWidth
+    val uRequests = requests.asBits.asUInt
+    val uGranted = ohPriority.asBits.asUInt
+
+    val doubleRequests = uRequests @@ uRequests
+    val doubleGrant = doubleRequests & ~(doubleRequests-uGranted)
+    val masked = doubleGrant(width,width bits) | doubleGrant(0,width bits)
+
+    val ret = requests.clone
+    ret.assignFromBits(masked.asBits)
+    ret
+  }
 }
 
 object CountOne{
@@ -246,10 +260,6 @@ class Counter(val stateCount: BigInt) extends ImplicitArea[UInt] {
 
   def clear(): Unit = willClear := True
   def increment(): Unit = willIncrement := True
-
-  def ===(that: UInt): Bool = this.value === that
-  def !==(that: UInt): Bool = this.value =/= that
-  def =/=(that: UInt): Bool = this.value =/= that
 
   val valueNext = UInt(log2Up(stateCount) bit)
   val value = RegNext(valueNext) init(0)

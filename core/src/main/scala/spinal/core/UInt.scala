@@ -31,9 +31,11 @@ trait UIntFactory{
   def UInt(width: BitCount): UInt = UInt().setWidth(width.value)
 }
 
-class UInt extends BitVector with Num[UInt] with MinMaxProvider {
+class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimitives[UInt]{
   private[core] def prefix : String = "u"
 
+
+  override def _data: UInt = this
 
   //TODO width assert
   def assignMask(maskedLiteral: MaskedLiteral): Unit ={
@@ -55,8 +57,6 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider {
     }
   }
 
-  def ===(that : UInt) : Bool = this.isEguals(that)
-  def =/=(that : UInt) : Bool = this.isNotEguals(that)
   def ===(that : MaskedLiteral) : Bool = this.isEguals(that)
   def =/=(that : MaskedLiteral) : Bool = this.isNotEguals(that)
 

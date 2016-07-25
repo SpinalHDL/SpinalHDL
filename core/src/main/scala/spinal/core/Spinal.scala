@@ -29,6 +29,7 @@ object VHDL extends SpinalMode
 object Verilog extends SpinalMode
 
 case class DumpWaveConfig(depth : Int = 0, vcdPath : String = "wave.vcd")
+case class Device(vendor : String = "?", family : String = "?", name : String = "?")
 
 case class SpinalConfig(
   mode: SpinalMode = null,
@@ -38,7 +39,11 @@ case class SpinalConfig(
   onlyStdLogicVectorAtTopLevelIo : Boolean = false,
   defaultClockDomainFrequency : IClockDomainFrequency = UnknownFrequency(),
   targetDirectory : String = ".",
-  dumpWave : DumpWaveConfig = null
+  dumpWave : DumpWaveConfig = null,
+  globalPrefix : String = "",
+  device: Device = Device(),
+  genVhdlPkg : Boolean = true
+
 ){
   def generate[T <: Component](gen : => T) : SpinalReport[T] = Spinal(this)(gen)
   def generateVhdl[T <: Component](gen : => T) : SpinalReport[T] = Spinal(this.copy(mode = VHDL))(gen)
@@ -84,6 +89,12 @@ class SpinalReport[T <: Component](val toplevel: T) {
 
 object Spinal{
   def apply[T <: Component](config : SpinalConfig)(gen : => T) : SpinalReport[T]  = {
+
+    println({
+      SpinalLog.tag("Runtime", Console.YELLOW)
+    } + s" SpinalHDL 0.9.1")
+
+
     val runtime = Runtime.getRuntime
     println({
       SpinalLog.tag("Runtime", Console.YELLOW)
@@ -98,8 +109,8 @@ object Spinal{
     val report = config.mode match {
       case `VHDL` => SpinalVhdlBoot(config)(gen)
       case `Verilog` => SpinalVerilogBoot(config)(gen)
-
     }
+
     println({SpinalLog.tag("Done", Console.GREEN)} + s" at ${f"${Driver.executionTime}%1.3f"}")
     report
   }

@@ -219,6 +219,13 @@ object OwnableRef{
     if(ownable.isInstanceOf[OwnableRef])
       ownable.asInstanceOf[OwnableRef].setRefOwner(owner)
   }
+  def proposal(ownable : Any,owner : Any) = {
+    if(ownable.isInstanceOf[OwnableRef]) {
+      val ownableTmp = ownable.asInstanceOf[OwnableRef]
+      if(ownableTmp.refOwner == null)
+        ownableTmp.asInstanceOf[OwnableRef].setRefOwner(owner)
+    }
+  }
 }
 
 trait OwnableRef{
@@ -237,11 +244,55 @@ trait OwnableRef{
   }
 }
 
-trait Nameable {
-  private var name: String = ""
-  private[core] var compositeName: Nameable = null
-  def getName(): String = if (compositeName == null) name else compositeName.getName()
-  //def getDisplayName() : String = if(isNamed) getName() else "???"
+object Nameable{
+  val UNANMED : Byte = 0
+  val ABSOLUTE : Byte = 1
+  val NAMEABLE_REF : Byte = 2
+  val OWNER_PREFIXED : Byte = 3
+}
+
+trait Nameable extends OwnableRef{
+  import Nameable._
+  private var name : String = null
+  private var nameableRef : Nameable = null
+  private var mode : Byte = UNANMED
+  private var weak : Byte = 1
+
+  private def getMode = mode
+  private[core] def isWeak = weak != 0
+  private[core] def setMode(mode : Byte)     = this.mode = mode
+  private[core] def setWeak(weak : Boolean) = this.weak = (if(weak) 1 else 0)
+
+  def isUnnamed: Boolean = getMode match{
+    case UNANMED => true
+    case ABSOLUTE => name == null
+    case NAMEABLE_REF => nameableRef == null || nameableRef.isUnnamed
+    case OWNER_PREFIXED => refOwner == null || refOwner.asInstanceOf[Nameable].isUnnamed
+  }
+  def isNamed: Boolean = !isUnnamed
+
+  def getName() : String = getName("")
+  def getName(default : String): String = getMode match{
+    case UNANMED => default
+    case ABSOLUTE => name
+    case NAMEABLE_REF => if(nameableRef != null && nameableRef.isNamed) nameableRef.getName() else default
+    case OWNER_PREFIXED => {
+      if(refOwner != null) {
+        val ref = refOwner.asInstanceOf[Nameable]
+        if (ref.isNamed) {
+          val ownerName = ref.getName()
+          if(ownerName != "" && name != "")
+            ownerName + "_" + name
+          else
+            ownerName + name
+        } else {
+          default
+        }
+      } else default
+    }
+  }
+
+
   def getDisplayName() : String = {
     val name = getName()
     if(name.length == 0)
@@ -249,41 +300,57 @@ trait Nameable {
     else
       name
   }
-  def isUnnamed: Boolean = name == "" && (compositeName == null || compositeName.isUnnamed)
-  def isNamed: Boolean = !isUnnamed
-  private[core] var isWeak = true
+
 
 
   override def toString(): String = name
 
-  private[core] def getNameElseThrow: String = name
-  def setCompositeName(nameable: Nameable) = {
-    compositeName = nameable
-    name = ""
-    isWeak = true
-  }
-  def setWeakName(name: String) = setName(name, true)
-  def setName(nameable: Nameable) = {
-    name = nameable.name
-    isWeak = nameable.isWeak
-    compositeName = null
-  }
+  private[core] def getNameElseThrow: String = getName(null)
 
-  def setName(name: String, weak: Boolean = false): this.type = {
-    compositeName = null
-    if (!weak) {
-      this.name = name;
-      isWeak = false;
-      nameChangeEvent(weak)
-    }
-    else if (isWeak && !isNamed) {
-      this.name = name;
-      nameChangeEvent(weak)
+  def setCompositeName(nameable: Nameable,weak : Boolean = false) : this.type = {
+    if (!weak || (mode == UNANMED)) {
+      nameableRef = nameable
+      name = null
+      setMode(NAMEABLE_REF)
+      setWeak(weak)
     }
     this
   }
 
-  protected def nameChangeEvent(weak: Boolean): Unit = {}
+  def setPartialName(owner : Nameable,name: String) : this.type = setPartialName(owner,name,false)
+  def setPartialName(name: String) : this.type = setPartialName(name,false)
+
+
+    def setPartialName(owner : Nameable,name: String,weak : Boolean) : this.type = {
+    if (!weak || (mode == UNANMED)) {
+      setRefOwner(owner)
+      this.name = name
+      setMode(OWNER_PREFIXED)
+      setWeak(weak)
+    }
+    this
+  }
+
+
+  def setPartialName(name: String,weak : Boolean) : this.type = {
+    if (!weak || (mode == UNANMED)) {
+      this.name = name
+      setMode(OWNER_PREFIXED)
+      setWeak(weak)
+    }
+    this
+  }
+
+  def setName(name: String, weak: Boolean = false): this.type = {
+    if (!weak || (mode == UNANMED)) {
+      this.name = name
+      setMode(ABSOLUTE)
+      setWeak(weak)
+    }
+    this
+  }
+
+  def setWeakName(name: String) = setName(name, true)
 
   def forEachNameables(doThat : (Any) => Unit) : Unit = {
     Misc.reflect(this, (name, obj) => {
@@ -447,28 +514,29 @@ object tagAutoResize extends SpinalTag{override def duplicative = true}
 object tagTruncated extends SpinalTag{override def duplicative = true}
 
 trait Area extends Nameable with ContextUser with OwnableRef with ScalaLocated{
-  override protected def nameChangeEvent(weak: Boolean): Unit = {
+  component.addPrePopTask(reflectNames)
+
+  def reflectNames() : Unit = {
     Misc.reflect(this, (name, obj) => {
       obj match {
         case component: Component => {
           if (component.parent == this.component) {
-            component.setWeakName(this.getName() + "_" + name)
+            component.setPartialName(name,true)
             OwnableRef.set(component,this)
           }
-
         }
         case namable: Nameable => {
           if (!namable.isInstanceOf[ContextUser]) {
-            namable.setWeakName(this.getName() + "_" + name)
+            namable.setPartialName(name,true)
             OwnableRef.set(namable,this)
           } else if (namable.asInstanceOf[ContextUser].component == component){
-            namable.setWeakName(this.getName() + "_" + name)
+            namable.setPartialName(name,true)
             OwnableRef.set(namable,this)
           } else {
             for (kind <- component.children) {
               //Allow to name a component by his io reference into the parent component
               if (kind.reflectIo == namable) {
-                kind.setWeakName(this.getName() + "_" + name)
+                kind.setPartialName(name,true)
                 OwnableRef.set(kind,this)
               }
             }

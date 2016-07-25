@@ -45,7 +45,13 @@ abstract class XFix[T <: XFix[T, R], R <: BitVector with Num[R]](val maxExp: Int
 
   def minExp: Int
 
-  override def elements: ArrayBuffer[(String, Data)] = ArrayBuffer(("" -> raw))
+
+
+  override def elements: ArrayBuffer[(String, Data)] = {
+    raw.setRefOwner(this)
+    raw.setPartialName("",true)
+    ArrayBuffer(("" -> raw))
+  }
 
   def rawFactory(exp: Int, bitCount: Int): R
   def fixFactory(exp: Int, bitCount: Int): T

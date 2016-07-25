@@ -57,6 +57,70 @@ architecture arch of StreamTester_tb is
   signal streamFlowArbiterInputFlow_payload : std_logic_vector(7 downto 0);
   signal streamFlowArbiterOutput_valid : std_logic;
   signal streamFlowArbiterOutput_payload : std_logic_vector(7 downto 0);
+  signal arbiterInOrderInputs_0_valid : std_logic;
+  signal arbiterInOrderInputs_0_ready : std_logic;
+  signal arbiterInOrderInputs_0_payload : std_logic_vector(7 downto 0);
+  signal arbiterInOrderInputs_1_valid : std_logic;
+  signal arbiterInOrderInputs_1_ready : std_logic;
+  signal arbiterInOrderInputs_1_payload : std_logic_vector(7 downto 0);
+  signal arbiterInOrderInputs_2_valid : std_logic;
+  signal arbiterInOrderInputs_2_ready : std_logic;
+  signal arbiterInOrderInputs_2_payload : std_logic_vector(7 downto 0);
+  signal arbiterInOrderOutput_valid : std_logic;
+  signal arbiterInOrderOutput_ready : std_logic;
+  signal arbiterInOrderOutput_payload : std_logic_vector(7 downto 0);
+  signal arbiterLowIdPortFirstInputs_0_valid : std_logic;
+  signal arbiterLowIdPortFirstInputs_0_ready : std_logic;
+  signal arbiterLowIdPortFirstInputs_0_payload : std_logic_vector(7 downto 0);
+  signal arbiterLowIdPortFirstInputs_1_valid : std_logic;
+  signal arbiterLowIdPortFirstInputs_1_ready : std_logic;
+  signal arbiterLowIdPortFirstInputs_1_payload : std_logic_vector(7 downto 0);
+  signal arbiterLowIdPortFirstInputs_2_valid : std_logic;
+  signal arbiterLowIdPortFirstInputs_2_ready : std_logic;
+  signal arbiterLowIdPortFirstInputs_2_payload : std_logic_vector(7 downto 0);
+  signal arbiterLowIdPortFirstOutput_valid : std_logic;
+  signal arbiterLowIdPortFirstOutput_ready : std_logic;
+  signal arbiterLowIdPortFirstOutput_payload : std_logic_vector(7 downto 0);
+  signal arbiterRoundRobinInputs_0_valid : std_logic;
+  signal arbiterRoundRobinInputs_0_ready : std_logic;
+  signal arbiterRoundRobinInputs_0_payload : std_logic_vector(7 downto 0);
+  signal arbiterRoundRobinInputs_1_valid : std_logic;
+  signal arbiterRoundRobinInputs_1_ready : std_logic;
+  signal arbiterRoundRobinInputs_1_payload : std_logic_vector(7 downto 0);
+  signal arbiterRoundRobinInputs_2_valid : std_logic;
+  signal arbiterRoundRobinInputs_2_ready : std_logic;
+  signal arbiterRoundRobinInputs_2_payload : std_logic_vector(7 downto 0);
+  signal arbiterRoundRobinOutput_valid : std_logic;
+  signal arbiterRoundRobinOutput_ready : std_logic;
+  signal arbiterRoundRobinOutput_payload : std_logic_vector(7 downto 0);
+  signal arbiterLowIdPortFirstNoLockInputs_0_valid : std_logic;
+  signal arbiterLowIdPortFirstNoLockInputs_0_ready : std_logic;
+  signal arbiterLowIdPortFirstNoLockInputs_0_payload : std_logic_vector(7 downto 0);
+  signal arbiterLowIdPortFirstNoLockInputs_1_valid : std_logic;
+  signal arbiterLowIdPortFirstNoLockInputs_1_ready : std_logic;
+  signal arbiterLowIdPortFirstNoLockInputs_1_payload : std_logic_vector(7 downto 0);
+  signal arbiterLowIdPortFirstNoLockInputs_2_valid : std_logic;
+  signal arbiterLowIdPortFirstNoLockInputs_2_ready : std_logic;
+  signal arbiterLowIdPortFirstNoLockInputs_2_payload : std_logic_vector(7 downto 0);
+  signal arbiterLowIdPortFirstNoLockOutput_valid : std_logic;
+  signal arbiterLowIdPortFirstNoLockOutput_ready : std_logic;
+  signal arbiterLowIdPortFirstNoLockOutput_payload : std_logic_vector(7 downto 0);
+  signal arbiterLowIdPortFirstFragmentLockInputs_0_valid : std_logic;
+  signal arbiterLowIdPortFirstFragmentLockInputs_0_ready : std_logic;
+  signal arbiterLowIdPortFirstFragmentLockInputs_0_payload_last : std_logic;
+  signal arbiterLowIdPortFirstFragmentLockInputs_0_payload_fragment : std_logic_vector(7 downto 0);
+  signal arbiterLowIdPortFirstFragmentLockInputs_1_valid : std_logic;
+  signal arbiterLowIdPortFirstFragmentLockInputs_1_ready : std_logic;
+  signal arbiterLowIdPortFirstFragmentLockInputs_1_payload_last : std_logic;
+  signal arbiterLowIdPortFirstFragmentLockInputs_1_payload_fragment : std_logic_vector(7 downto 0);
+  signal arbiterLowIdPortFirstFragmentLockInputs_2_valid : std_logic;
+  signal arbiterLowIdPortFirstFragmentLockInputs_2_ready : std_logic;
+  signal arbiterLowIdPortFirstFragmentLockInputs_2_payload_last : std_logic;
+  signal arbiterLowIdPortFirstFragmentLockInputs_2_payload_fragment : std_logic_vector(7 downto 0);
+  signal arbiterLowIdPortFirstFragmentLockOutput_valid : std_logic;
+  signal arbiterLowIdPortFirstFragmentLockOutput_ready : std_logic;
+  signal arbiterLowIdPortFirstFragmentLockOutput_payload_last : std_logic;
+  signal arbiterLowIdPortFirstFragmentLockOutput_payload_fragment : std_logic_vector(7 downto 0);
   signal clk : std_logic;
   signal reset : std_logic;
   -- #spinalBegin userDeclarations
@@ -218,6 +282,70 @@ begin
       streamFlowArbiterInputFlow_payload =>  streamFlowArbiterInputFlow_payload,
       streamFlowArbiterOutput_valid =>  streamFlowArbiterOutput_valid,
       streamFlowArbiterOutput_payload =>  streamFlowArbiterOutput_payload,
+      arbiterInOrderInputs_0_valid =>  arbiterInOrderInputs_0_valid,
+      arbiterInOrderInputs_0_ready =>  arbiterInOrderInputs_0_ready,
+      arbiterInOrderInputs_0_payload =>  arbiterInOrderInputs_0_payload,
+      arbiterInOrderInputs_1_valid =>  arbiterInOrderInputs_1_valid,
+      arbiterInOrderInputs_1_ready =>  arbiterInOrderInputs_1_ready,
+      arbiterInOrderInputs_1_payload =>  arbiterInOrderInputs_1_payload,
+      arbiterInOrderInputs_2_valid =>  arbiterInOrderInputs_2_valid,
+      arbiterInOrderInputs_2_ready =>  arbiterInOrderInputs_2_ready,
+      arbiterInOrderInputs_2_payload =>  arbiterInOrderInputs_2_payload,
+      arbiterInOrderOutput_valid =>  arbiterInOrderOutput_valid,
+      arbiterInOrderOutput_ready =>  arbiterInOrderOutput_ready,
+      arbiterInOrderOutput_payload =>  arbiterInOrderOutput_payload,
+      arbiterLowIdPortFirstInputs_0_valid =>  arbiterLowIdPortFirstInputs_0_valid,
+      arbiterLowIdPortFirstInputs_0_ready =>  arbiterLowIdPortFirstInputs_0_ready,
+      arbiterLowIdPortFirstInputs_0_payload =>  arbiterLowIdPortFirstInputs_0_payload,
+      arbiterLowIdPortFirstInputs_1_valid =>  arbiterLowIdPortFirstInputs_1_valid,
+      arbiterLowIdPortFirstInputs_1_ready =>  arbiterLowIdPortFirstInputs_1_ready,
+      arbiterLowIdPortFirstInputs_1_payload =>  arbiterLowIdPortFirstInputs_1_payload,
+      arbiterLowIdPortFirstInputs_2_valid =>  arbiterLowIdPortFirstInputs_2_valid,
+      arbiterLowIdPortFirstInputs_2_ready =>  arbiterLowIdPortFirstInputs_2_ready,
+      arbiterLowIdPortFirstInputs_2_payload =>  arbiterLowIdPortFirstInputs_2_payload,
+      arbiterLowIdPortFirstOutput_valid =>  arbiterLowIdPortFirstOutput_valid,
+      arbiterLowIdPortFirstOutput_ready =>  arbiterLowIdPortFirstOutput_ready,
+      arbiterLowIdPortFirstOutput_payload =>  arbiterLowIdPortFirstOutput_payload,
+      arbiterRoundRobinInputs_0_valid =>  arbiterRoundRobinInputs_0_valid,
+      arbiterRoundRobinInputs_0_ready =>  arbiterRoundRobinInputs_0_ready,
+      arbiterRoundRobinInputs_0_payload =>  arbiterRoundRobinInputs_0_payload,
+      arbiterRoundRobinInputs_1_valid =>  arbiterRoundRobinInputs_1_valid,
+      arbiterRoundRobinInputs_1_ready =>  arbiterRoundRobinInputs_1_ready,
+      arbiterRoundRobinInputs_1_payload =>  arbiterRoundRobinInputs_1_payload,
+      arbiterRoundRobinInputs_2_valid =>  arbiterRoundRobinInputs_2_valid,
+      arbiterRoundRobinInputs_2_ready =>  arbiterRoundRobinInputs_2_ready,
+      arbiterRoundRobinInputs_2_payload =>  arbiterRoundRobinInputs_2_payload,
+      arbiterRoundRobinOutput_valid =>  arbiterRoundRobinOutput_valid,
+      arbiterRoundRobinOutput_ready =>  arbiterRoundRobinOutput_ready,
+      arbiterRoundRobinOutput_payload =>  arbiterRoundRobinOutput_payload,
+      arbiterLowIdPortFirstNoLockInputs_0_valid =>  arbiterLowIdPortFirstNoLockInputs_0_valid,
+      arbiterLowIdPortFirstNoLockInputs_0_ready =>  arbiterLowIdPortFirstNoLockInputs_0_ready,
+      arbiterLowIdPortFirstNoLockInputs_0_payload =>  arbiterLowIdPortFirstNoLockInputs_0_payload,
+      arbiterLowIdPortFirstNoLockInputs_1_valid =>  arbiterLowIdPortFirstNoLockInputs_1_valid,
+      arbiterLowIdPortFirstNoLockInputs_1_ready =>  arbiterLowIdPortFirstNoLockInputs_1_ready,
+      arbiterLowIdPortFirstNoLockInputs_1_payload =>  arbiterLowIdPortFirstNoLockInputs_1_payload,
+      arbiterLowIdPortFirstNoLockInputs_2_valid =>  arbiterLowIdPortFirstNoLockInputs_2_valid,
+      arbiterLowIdPortFirstNoLockInputs_2_ready =>  arbiterLowIdPortFirstNoLockInputs_2_ready,
+      arbiterLowIdPortFirstNoLockInputs_2_payload =>  arbiterLowIdPortFirstNoLockInputs_2_payload,
+      arbiterLowIdPortFirstNoLockOutput_valid =>  arbiterLowIdPortFirstNoLockOutput_valid,
+      arbiterLowIdPortFirstNoLockOutput_ready =>  arbiterLowIdPortFirstNoLockOutput_ready,
+      arbiterLowIdPortFirstNoLockOutput_payload =>  arbiterLowIdPortFirstNoLockOutput_payload,
+      arbiterLowIdPortFirstFragmentLockInputs_0_valid =>  arbiterLowIdPortFirstFragmentLockInputs_0_valid,
+      arbiterLowIdPortFirstFragmentLockInputs_0_ready =>  arbiterLowIdPortFirstFragmentLockInputs_0_ready,
+      arbiterLowIdPortFirstFragmentLockInputs_0_payload_last =>  arbiterLowIdPortFirstFragmentLockInputs_0_payload_last,
+      arbiterLowIdPortFirstFragmentLockInputs_0_payload_fragment =>  arbiterLowIdPortFirstFragmentLockInputs_0_payload_fragment,
+      arbiterLowIdPortFirstFragmentLockInputs_1_valid =>  arbiterLowIdPortFirstFragmentLockInputs_1_valid,
+      arbiterLowIdPortFirstFragmentLockInputs_1_ready =>  arbiterLowIdPortFirstFragmentLockInputs_1_ready,
+      arbiterLowIdPortFirstFragmentLockInputs_1_payload_last =>  arbiterLowIdPortFirstFragmentLockInputs_1_payload_last,
+      arbiterLowIdPortFirstFragmentLockInputs_1_payload_fragment =>  arbiterLowIdPortFirstFragmentLockInputs_1_payload_fragment,
+      arbiterLowIdPortFirstFragmentLockInputs_2_valid =>  arbiterLowIdPortFirstFragmentLockInputs_2_valid,
+      arbiterLowIdPortFirstFragmentLockInputs_2_ready =>  arbiterLowIdPortFirstFragmentLockInputs_2_ready,
+      arbiterLowIdPortFirstFragmentLockInputs_2_payload_last =>  arbiterLowIdPortFirstFragmentLockInputs_2_payload_last,
+      arbiterLowIdPortFirstFragmentLockInputs_2_payload_fragment =>  arbiterLowIdPortFirstFragmentLockInputs_2_payload_fragment,
+      arbiterLowIdPortFirstFragmentLockOutput_valid =>  arbiterLowIdPortFirstFragmentLockOutput_valid,
+      arbiterLowIdPortFirstFragmentLockOutput_ready =>  arbiterLowIdPortFirstFragmentLockOutput_ready,
+      arbiterLowIdPortFirstFragmentLockOutput_payload_last =>  arbiterLowIdPortFirstFragmentLockOutput_payload_last,
+      arbiterLowIdPortFirstFragmentLockOutput_payload_fragment =>  arbiterLowIdPortFirstFragmentLockOutput_payload_fragment,
       clk =>  clk,
       reset =>  reset 
     );

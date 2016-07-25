@@ -81,7 +81,7 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
     var ret = builder.newPart(false)
     ret ++= s"module ${component.definitionName}\n"
     ret = builder.newPart(true)
-    ret ++= s"(\n"
+    ret ++= s"( \n"
     component.getOrdredNodeIo.foreach(baseType => {
       ret ++= s"  ${emitAttributes(baseType.instanceAndSyncNodeAttributes)}${emitDirection(baseType)} ${if(signalNeedProcess(baseType)) "reg " else ""}${emitDataType(baseType)} ${baseType.getName()}${getBaseTypeSignalInitialisation(baseType)},\n"
     })
@@ -882,7 +882,7 @@ end
         val genericFlat = bb.getGeneric.flatten
 
         if (genericFlat.size != 0) {
-          ret ++= s"#(\n"
+          ret ++= s"#( \n"
 
 
           for ((name, e) <- genericFlat) {
@@ -902,7 +902,7 @@ end
         }
       }
 
-      ret ++= s"${child.getName()} (\n"
+      ret ++= s"${child.getName()} ( \n"
       for (data <- child.getOrdredNodeIo) {
         if (data.isOutput) {
           val bind = component.kindsOutputsToBindings.getOrElse(data, null)

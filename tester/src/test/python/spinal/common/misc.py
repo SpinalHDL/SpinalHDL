@@ -109,6 +109,8 @@ class BoolRandomizer:
 
 
 
+MyObject = type('MyObject', (object,), {})
+
 @cocotb.coroutine
 def StreamRandomizer(streamName, onNew,handle, dut, clk):
     validRandomizer = BoolRandomizer()
@@ -131,11 +133,11 @@ def StreamRandomizer(streamName, onNew,handle, dut, clk):
                 if len(payloads) == 1 and payloads[0]._name == streamName + "_payload":
                     payload = int(payloads[0])
                 else:
-                    payload = object()
+                    payload = MyObject()
                     for e in payloads:
-                        payload.__setattr__(e._name[len(streamName) + 1:], int(e))
-
-                onNew(payload,handle)
+                        payload.__setattr__(e._name[len(streamName + "_payload_"):], int(e))
+                if onNew:
+                    onNew(payload,handle)
 
 @cocotb.coroutine
 def FlowRandomizer(streamName, onNew,handle, dut, clk):
@@ -154,11 +156,11 @@ def FlowRandomizer(streamName, onNew,handle, dut, clk):
             if len(payloads) == 1 and payloads[0]._name == streamName + "_payload":
                 payload = int(payloads[0])
             else:
-                payload = object()
+                payload = MyObject()
                 for e in payloads:
-                    payload.__setattr__(e._name[len(streamName) + 1:], int(e))
-
-            onNew(payload,handle)
+                    payload.__setattr__(e._name[len(streamName + "_payload_"):], int(e))
+            if onNew:
+                onNew(payload,handle)
         else:
             valid <= 0
 
@@ -177,9 +179,10 @@ def StreamReader(streamName, onTransaction, handle, dut, clk):
             if len(payloads) == 1 and payloads[0]._name == streamName + "_payload":
                 payload = int(payloads[0])
             else:
-                payload = object()
+                payload = MyObject()
                 for e in payloads:
-                    payload.__setattr__(e._name[len(streamName) + 1:], int(e))
+                    payload.__setattr__(e._name[len(streamName + "_payload_"):], int(e))
 
-            onTransaction(payload,handle)
+            if onTransaction:
+                onTransaction(payload,handle)
 

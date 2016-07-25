@@ -25,7 +25,8 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
     
     outFile = new java.io.FileWriter(pc.config.targetDirectory + "/" +  topLevel.definitionName + ".vhd")
     emitEnumPackage(outFile)
-    emitPackage(outFile)
+    if(pc.config.genVhdlPkg)
+      emitPackage(outFile)
 
     for (c <- sortedComponents) {
       SpinalProgress(s"${"  " * (1 + c.level)}emit ${c.definitionName}")
@@ -575,7 +576,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
     var ret = builder.newPart(false)
     ret ++= s"\nentity ${component.definitionName} is\n"
     ret = builder.newPart(true)
-    ret ++= s"  port(\n"
+    ret ++= s"  port( \n"
     if (!(config.onlyStdLogicVectorAtTopLevelIo && component == topLevel)) {
       component.getOrdredNodeIo.foreach(baseType =>
         ret ++= s"    ${baseType.getName()} : ${emitDirection(baseType)} ${emitDataType(baseType)}${getBaseTypeSignalInitialisation(baseType)};\n"
@@ -665,7 +666,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
     ret ++= s"\n  component ${component.definitionName} is\n"
     val genericFlat = component.getGeneric.flatten
     if (genericFlat.size != 0) {
-      ret ++= s"    generic(\n"
+      ret ++= s"    generic( \n"
       for ((name, e) <- genericFlat) {
         e match {
           case baseType: BaseType => ret ++= s"      ${emitReference(baseType)} : ${blackBoxRemplaceULogic(component, emitDataType(baseType, false))};\n"
@@ -680,7 +681,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
       ret.setCharAt(ret.size - 2, ' ')
       ret ++= s"    );\n"
     }
-    ret ++= s"    port(\n"
+    ret ++= s"    port( \n"
     component.nodes.foreach(_ match {
       case baseType: BaseType => {
         if (baseType.isIo) {
@@ -1535,7 +1536,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
         val genericFlat = bb.getGeneric.flatten
 
         if (genericFlat.size != 0) {
-          ret ++= s"    generic map(\n"
+          ret ++= s"    generic map( \n"
 
 
           for ((name, e) <- genericFlat) {
@@ -1555,7 +1556,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
           ret ++= s"    )\n"
         }
       }
-      ret ++= s"    port map (\n"
+      ret ++= s"    port map ( \n"
       for (data <- kind.getOrdredNodeIo) {
         if (data.isOutput) {
           val bind = component.kindsOutputsToBindings.getOrElse(data, null)

@@ -37,7 +37,7 @@ object PlayB7 {
       val z = out UInt( 4 bits )
     }
     val a = Stream(Fragment(UInt(4 bits)))
-    val b = StreamArbiterFactory.inOrder.noLock.build(a,10)
+    val b = StreamArbiterFactory.sequentialOrder.noLock.build(a,10)
   }
 
   def main(args: Array[String]): Unit = {
@@ -281,7 +281,7 @@ object PlayB3 {
 object PlayB4 {
 
   class TopLevel extends Component {
-    val address = in UInt(4 bits)
+    val address = in UInt(8 bits)
     val writeData = in Bits(8 bits)
     val chipSelect = in Bool
     val writeEnable = in Bool
@@ -293,7 +293,6 @@ object PlayB4 {
 
 
 
-    address := 0
   }
 
   def main(args: Array[String]): Unit = {
@@ -1505,6 +1504,7 @@ object PlayMentorDo{
     fifo.io.push << io.cmd
     fifo.io.pop  >> io.rsp
 
+    fifo.noIoPrefix()
   }
 
   def main(args: Array[String]) {
@@ -1554,11 +1554,13 @@ object PlayAuto{
 
     simSCL.io.output.read     := i2cSlave.io.i2c.scl.write
     i2cSlave.io.i2c.scl.read  := simSCL.io.output.write
+
+
   }
 
   class SimOpenDrain extends Component{
     val io = new Bundle{
-      val input  = master ( ReadableOpenDrain(Bool)  )
+      val input  = slave ( ReadableOpenDrain(Bool)  )
       val output = master ( ReadableOpenDrain(Bool) )
     }
 
@@ -1837,5 +1839,162 @@ object PlayCall{
   def main(args: Array[String]) {
     SpinalVhdl(new TopLevel)
     SpinalVerilog(new TopLevel)
+  }
+}
+
+
+object PlaySyntaxCheck{
+  val inputStream = Stream(Bits(8 bits))
+  val dispatchedStreams = StreamDispatcherSequencial(
+    input = inputStream,
+    outputCount = 3
+  )
+}
+
+
+object PlayNameableIssue{
+  class TopLevel extends Component {
+    val arbiterRoundRobinInputs =  Vec(slave Stream(Bits(8 bits)),3)
+    val arbiterRoundRobinOutput =  master Stream(Bits(8 bits))
+    arbiterRoundRobinOutput << StreamArbiterFactory.roundRobin.on(arbiterRoundRobinInputs)
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
+object PlayNameableIssue2{
+  class TopLevel extends Component {
+    val arbiterRoundRobinInputs =  Vec(slave Stream(Bits(8 bits)),3)
+    val arbiterRoundRobinOutput =  master Stream(Bits(8 bits))
+    arbiterRoundRobinOutput << StreamArbiterFactory.roundRobin.on(arbiterRoundRobinInputs)
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new StreamArbiter(Bits(8 bits),3)(StreamArbiter.Arbitration.lowerFirst,StreamArbiter.Lock.transactionLock))
+  }
+}
+object PlayNameableIssue3{
+  class TopLevel extends Component {
+    val cmd =  slave Stream(Bits(8 bits))
+    val rsp =  master Stream(Bits(8 bits))
+    cmd.queue(16) >> rsp
+  }
+
+  def main(args: Array[String]) {
+    SpinalConfig(globalPrefix = "yolo_").generateVhdl(new TopLevel().setDefinitionName("miaou"))
+  }
+}
+
+
+object PlayBug54{
+  class TopLevel extends Component {
+    val result = out Bits(8 bits)
+    result := B(default -> true)
+    result.setWidth(16)
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel())
+  }
+}
+
+object PlayBug5441{
+  object State extends SpinalEnum{
+    val s0,s1,s2,s3 = newElement()
+  }
+  class TopLevel extends Component {
+    val tmp = State()
+    val result = out(State)
+    result := tmp
+    tmp := result
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel())
+  }
+}
+
+object PlayBug544441{
+  class TopLevel extends Component {
+    val condA = in Bool
+    val condB = in Bool
+    val result = out Bits(8 bits)
+    result(3 downto 2) := 0
+    when(condA){
+//      when(condB){
+        result := 4
+//      }
+    }
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel())
+  }
+}
+
+
+
+object Play928267{
+  class SPIConfig extends Bundle {
+    val CPOL = in Bool
+    val CPHA = in Bool
+    val Prescale = in UInt(8 bits)
+  }
+
+  class SPIMaster(nEnables: Int) extends Component {
+    val io = new Bundle{
+      val configIf = new SPIConfig
+      val inputData = slave Stream(Bits(8 bits))
+      val sck = out Bool
+      val miso = in Bool
+      val mosi = out Bool
+      val slvsel = out Bits(nEnables bits)
+    }
+
+    val sckReg = Reg(Bool) init(False)
+    sckReg := io.configIf.CPOL
+
+    val clockGen = new Area {
+      val sckCounter = Reg(UInt(8 bits)) init(0)
+      sckCounter := sckCounter + 1
+      when (sckCounter === io.configIf.Prescale) {
+        sckReg := !sckReg
+        sckCounter := 0
+      }
+    }
+
+
+    val dataOutReg = Reg(Bits(8 bits))
+    val masterFsm = new StateMachine {
+      io.inputData.ready := False
+
+      val Idle : State = new State with EntryPoint {
+        io.inputData.ready := True
+        whenIsActive {
+          when (io.inputData.valid) {
+            dataOutReg := io.inputData.payload
+            goto(ShiftData)
+          }
+        }
+      }
+
+      val ShiftData : State = new State {
+        whenIsActive {
+          goto(Idle)
+        }
+      }
+
+    }
+    io.sck := sckReg
+    io.mosi := False
+    io.slvsel := B(default -> true)
+  }
+  def main(args: Array[String]) {
+    SpinalConfig().dumpWave().generateVhdl(new SPIMaster(4)).printPruned()
+    //ou
+    SpinalConfig(dumpWave = DumpWaveConfig()).generateVhdl(new SPIMaster(4)).printPruned()
   }
 }

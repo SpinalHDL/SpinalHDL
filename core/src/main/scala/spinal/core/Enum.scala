@@ -37,9 +37,12 @@ class EnumLiteral[T <: SpinalEnum](val enum: SpinalEnumElement[T]) extends Liter
   override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enum.parent.defaultEncoding
 }
 
-class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T/*, encoding: SpinalEnumEncoding*/) extends BaseType with InferableEnumEncodingImpl{
+class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T/*, encoding: SpinalEnumEncoding*/) extends BaseType with InferableEnumEncodingImpl with DataPrimitives[SpinalEnumCraft[T]]{
   override private[core] def getDefaultEncoding(): SpinalEnumEncoding = blueprint.defaultEncoding
   override def getDefinition: SpinalEnum = blueprint
+
+
+  override private[spinal] def _data: SpinalEnumCraft[T] = this
 
   private[core] def assertSameType(than: SpinalEnumCraft[_]): Unit =
     if (blueprint != than.blueprint) SpinalError("Enum is assigned by a incompatible enum")
@@ -47,8 +50,6 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T/*, encoding: SpinalEnumE
   def :=(that: SpinalEnumElement[T]): Unit = new DataPimper(this) := that.craft()
   def ===(that: SpinalEnumElement[T]): Bool = this === (that.craft())
   def =/=(that: SpinalEnumElement[T]): Bool = this =/= (that.craft())
-
-
 
   @deprecated("Use =/= instead")
   def !==(that: SpinalEnumElement[T]): Bool = this =/= that
