@@ -1212,9 +1212,13 @@ class PhaseCheck_noAsyncNodeWithIncompleteAssignment(pc: PhaseContext) extends P
         val unassignedBits = new AssignedBits(signal.getBitsWidth)
         unassignedBits.add(signalRange)
         unassignedBits.remove(assignedBits)
-        if (!unassignedBits.isEmpty)
-          errors += s"Incomplete assignment is detected on $signal, unassigned bit mask " +
-            s"is ${unassignedBits.toBinaryString}, declared at\n${signal.getScalaLocationLong}"
+        if (!unassignedBits.isEmpty) {
+          if(unassignedBits.isFull)
+            errors += s"Combinatorial signal $signal has no default value => LATCH, defined at\n${signal.getScalaLocationLong}"
+          else
+            errors += s"Incomplete assignment is detected on the combinatorial signal $signal, unassigned bit mask " +
+              s"is ${unassignedBits.toBinaryString}, declared at\n${signal.getScalaLocationLong}"
+        }
       }
       case _ =>
     })

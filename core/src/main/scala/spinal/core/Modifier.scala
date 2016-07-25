@@ -1237,6 +1237,13 @@ class AssignedBits(val width : Int) {
     strs.reduce(_ + "_" + _)
   }
   def isEmpty = value.foldLeft(true)((c,e) => c && (e == 0))
+  def isFull : Boolean = {
+    for(i <- 0 to value.length-2){
+      if(value(i) != 0xFFFFFFFF) return false
+    }
+    if(value.last != (1 << (width.toLong % 32))-1) return false
+    true
+  }
 }
 
 abstract class AssignementNode extends Node {

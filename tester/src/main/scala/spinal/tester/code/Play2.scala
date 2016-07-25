@@ -1921,6 +1921,7 @@ object PlayBug544441{
     val condA = in Bool
     val condB = in Bool
     val result = out Bits(8 bits)
+    result(3 downto 2) := 0
     when(condA){
 //      when(condB){
         result := 4
