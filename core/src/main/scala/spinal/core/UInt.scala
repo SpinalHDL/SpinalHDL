@@ -18,6 +18,9 @@
 
 package spinal.core
 
+import spinal.core.Operator.BitVector.AllByBool
+import spinal.core.Operator.UInt
+
 trait UIntCast{
   def asUInt(that : Bool) : UInt = that.asUInt
   def asUInt(that : Bits) : UInt = that.asUInt
@@ -91,6 +94,11 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   def >>(that: UInt): UInt         = wrapBinaryOperator(that,new Operator.UInt.ShiftRightByUInt)
   def <<(that: UInt): UInt         = wrapBinaryOperator(that,new Operator.UInt.ShiftLeftByUInt)
 
+  def :=(rangesValue : Tuple2[Any,Any],_rangesValues: Tuple2[Any,Any]*) : Unit = {
+    val rangesValues = rangesValue +: _rangesValues
+    U.applyTupples(this,rangesValues)
+  }
+
   private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse,new MultiplexerUInt)
   private[core] override def isEguals(that: Any): Bool = {
     that match {
@@ -133,6 +141,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   override private[core] def weakClone: this.type = new UInt().asInstanceOf[this.type]
   override def getZero: this.type = U(0,this.getWidth bits).asInstanceOf[this.type]
   override def getZeroUnconstrained: this.type = U(0).asInstanceOf[this.type]
+  override protected def getAllToBoolNode(): AllByBool = new Operator.UInt.AllByBool(this)
 }
 
 object UInt2D{

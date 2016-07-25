@@ -163,6 +163,15 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
     this := litBt
   }
 
+  protected def getAllToBoolNode() : Operator.BitVector.AllByBool
+  def setAllTo(value: Bool) = {
+    val litBt = weakClone
+    val node = getAllToBoolNode()
+    node.input = value.asInstanceOf[node.T]
+    litBt.input = node
+    this := litBt
+  }
+
   def setAll() = setAllTo(true)
 
   def clearAll() = setAllTo(false)

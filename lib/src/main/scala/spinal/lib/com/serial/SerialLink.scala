@@ -145,7 +145,7 @@ class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) ext
           when(io.output.ready) {
             state := eMyPtr0
             val otherRxBufferFreeSpace = otherWindow - (buffer.readPtr - buffer.syncPtr)
-            txDataLeft := Mux(burstSize <  otherRxBufferFreeSpace,burstSize,burstSize)
+            txDataLeft := Mux[UInt](burstSize <  otherRxBufferFreeSpace,burstSize,burstSize).resized
           }
         }
       }

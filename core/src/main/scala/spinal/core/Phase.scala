@@ -879,34 +879,34 @@ class PhasePropagateBaseTypeWidth(pc: PhaseContext) extends Phase{
                 dontCare.inferredWidth = width
               }
               // case lit : BitsAllToLiteral => lit.inferredWidth = width
-              case bitVector : BitVector  => {
-                if(bitVector.getWidth < width  && ! bitVector.isReg) {
-                  val default = bitVector.findTag(_.isInstanceOf[TagDefault]).getOrElse(null).asInstanceOf[TagDefault]
-
-                  if (default != null) {
-                    val addedBitCount = width - bitVector.getWidth
-                    Component.push(bitVector.component)
-                    val newOne = bitVector.weakClone
-                    newOne.inferredWidth = width
-                    if(bitVector.getWidth > 0)
-                      newOne(bitVector.getWidth-1,0) := bitVector
-                    default.default match {
-                      case (_,value : Boolean) =>  {
-                        val lit = default.litFacto(if(value) (BigInt(1) << addedBitCount)-1 else 0,addedBitCount)
-                        newOne(width-1,bitVector.getWidth).assignFrom(lit,false)
-                      }
-                      case (_,value : Bool) =>{
-                        for(i <- bitVector.getWidth until width)
-                          newOne(i) := value
-                      }
-                    }
-
-                    parent.setInput(inputId,newOne)
-                    Component.pop(bitVector.component)
-                  }
-                }
-
-              }
+//              case bitVector : BitVector  => {
+//                if(bitVector.getWidth < width  && ! bitVector.isReg) {
+//                  val default = bitVector.findTag(_.isInstanceOf[TagDefault]).getOrElse(null).asInstanceOf[TagDefault]
+//
+//                  if (default != null) {
+//                    val addedBitCount = width - bitVector.getWidth
+//                    Component.push(bitVector.component)
+//                    val newOne = bitVector.weakClone
+//                    newOne.inferredWidth = width
+//                    if(bitVector.getWidth > 0)
+//                      newOne(bitVector.getWidth-1,0) := bitVector
+//                    default.default match {
+//                      case (_,value : Boolean) =>  {
+//                        val lit = default.litFacto(if(value) (BigInt(1) << addedBitCount)-1 else 0,addedBitCount)
+//                        newOne(width-1,bitVector.getWidth).assignFrom(lit,false)
+//                      }
+//                      case (_,value : Bool) =>{
+//                        for(i <- bitVector.getWidth until width)
+//                          newOne(i) := value
+//                      }
+//                    }
+//
+//                    parent.setInput(inputId,newOne)
+//                    Component.pop(bitVector.component)
+//                  }
+//                }
+//
+//              }
               case _ =>
             }
           }
