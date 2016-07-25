@@ -1893,6 +1893,7 @@ object PlayBug54{
   class TopLevel extends Component {
     val result = out Bits(8 bits)
     result := B(default -> true)
+    result.setWidth(16)
   }
 
   def main(args: Array[String]) {
