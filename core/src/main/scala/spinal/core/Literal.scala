@@ -90,7 +90,7 @@ abstract class BitVectorLiteralFactory[T <: BitVector] {
       }
       case (`default`,_) => {
         val where = ScalaLocated.long
-        GlobalData.get.pendingErrors += (() => s"You can't use default -> ??? in this case. \n${where}")
+        GlobalData.get.pendingErrors += (() => s"You can't use default -> ??? in this case. \nBut you can use it in the following case : myBits := (???,default -> ???, ???)\n${where}")
       }
       case _ =>
     })

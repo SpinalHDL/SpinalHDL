@@ -140,10 +140,7 @@ trait DataPrimitives[T <: Data]{
 
 
   def := (that: T): Unit = {
-    if(that.isInstanceOf[BitVector])
-      _data.asInstanceOf[BitVector] := that.asInstanceOf[BitVector]
-    else
-      _data assignFrom(that, false)
+    _data assignFrom(that, false)
   }
 
 
@@ -190,28 +187,6 @@ class DataPimper[T <: Data](val _data: T) extends DataPrimitives[T]{
 
 }
 
-
-//Should not extends AnyVal, Because it create kind of strange call stack move that make error reporting miss accurate
-class BitVectorPimper[T <: BitVector](val pimpIt: T)  {
-  def :=(that: T): Unit ={
-  //  new WidthCheckerEguals(pimpIt,that)
-    pimpIt assignFrom(that, false)
-  }
-
-  @deprecated
-  def :<=(that: T): Unit = {
-  //  new WidthCheckerReduce(pimpIt,that)
-    pimpIt assignFrom(that.resized, false)
-  }
-
-  @deprecated
-  def :>=(that: T): Unit = {
-  //  new WidthCheckerAugment(pimpIt,that)
-    pimpIt assignFrom(that.resized, false)
-  }
-
-  def :~=(that: T): Unit = pimpIt assignFrom(that.resized, false)
-}
 
 trait Data extends ContextUser with NameableByComponent with Assignable  with SpinalTagReady with GlobalDataUser with ScalaLocated with OwnableRef {
   private[core] var dir: IODirection = null

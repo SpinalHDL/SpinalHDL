@@ -267,7 +267,7 @@ class Counter(val stateCount: BigInt) extends ImplicitArea[UInt] {
   val willOverflow = willOverflowIfInc && willIncrement
 
   if (isPow2(stateCount)) {
-    valueNext :~= value + asUInt(willIncrement)
+    valueNext := (value + asUInt(willIncrement)).resized
   }
   else {
     when(willIncrement) {
@@ -379,7 +379,7 @@ class CounterUpDown(val stateCount: BigInt) extends ImplicitArea[UInt] {
   }
 
   if (isPow2(stateCount)) {
-    valueNext :~= value + finalIncrement
+    valueNext := (value + finalIncrement).resized
   }
   else {
     assert(false,"TODO")

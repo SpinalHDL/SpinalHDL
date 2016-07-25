@@ -1943,15 +1943,22 @@ object PlayBug5441{
 
 object PlayBug544441{
   class TopLevel extends Component {
-    val condA = in Bool
-    val condB = in Bool
-    val result = out Bits(8 bits)
-    result(3 downto 2) := 0
-    when(condA){
-//      when(condB){
-        result := 4
-//      }
-    }
+//    val condA = in Bool
+//    val condB = in Bool
+//    val result = out Bits(8 bits)
+//    result(3 downto 2) := 0
+//    when(condA){
+////      when(condB){
+//        result := 4
+////      }
+//
+//    }
+
+    val a,b,c = out Bits(8 bits)
+    a := "0000_0001"
+    b := "x55"
+    c.:=("xAA")
+    
   }
 
   def main(args: Array[String]) {
