@@ -1,21 +1,3 @@
-/*
- * SpinalHDL
- * Copyright (c) Dolu, All rights reserved.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 3.0 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library.
- */
-
 package spinal.tester.scalatest
 
 import spinal.core._
@@ -84,10 +66,10 @@ object CommonTester {
     val noData = NoData
 
     io.outAA.assignFromBits(io.inAABits)
-    io.outAABits := io.inAA.toBits
+    io.outAABits := io.inAA.asBits
 
     io.complexLiteral(15,4) := 0x70
-    io.complexLiteral(15,12) := U(2) + U(1)
+    io.complexLiteral(15,12) := (U(2) + U(1)).resized
     io.complexLiteral(6) := True
     io.complexLiteral(3) := True
     io.complexLiteral(5) := True
@@ -102,7 +84,7 @@ object CommonTester {
         val a = x(i)
         val b = y(i)
         ret(i) := a ^ b ^ c
-        c = (a & b) | (a & c) | (b & c)
+        c \= (a & b) | (a & c) | (b & c)
       }
       ret
     }
@@ -143,8 +125,14 @@ object CommonTester {
 
 }
 
-class CommonTesterBoot extends SpinalTesterBase {
+class CommonTesterGhdlBoot extends SpinalTesterGhdlBase {
   override def getName: String = "CommonTester"
 
   override def createToplevel: Component = new CommonTester.CommonTester
+}
+
+class CommonTesterCocotbBoot extends SpinalTesterCocotbBase {
+  override def getName: String = "CommonTester"
+  override def createToplevel: Component =  new CommonTester.CommonTester
+  override def pythonTestLocation: String = "tester/src/test/python/spinal/CommonTester"
 }

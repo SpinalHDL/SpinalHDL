@@ -22,46 +22,102 @@ package spinal.core
  * Created by PIC18F on 21.08.2014.
  */
 
+class TagDefault(val default : Tuple2[Any,Any],val litFacto : (BigInt,Int) => BitVector) extends SpinalTag{override def driverShouldNotChange = true}
+
+
+
+
 abstract class BitVectorLiteralFactory[T <: BitVector] {
   def apply(): T
-  def apply(value: BigInt): T = BitsLiteral(value, -1, this())
-  def apply(value: BigInt, width: BitCount): T = BitsLiteral(value, width.value, this().setWidth(width.value))
+  def apply(value: BigInt): T = getFactory(value, -1, this())
+  def apply(value: BigInt, width: BitCount): T = getFactory(value, width.value, this().setWidth(width.value))
+  def apply(value: String): T = bitVectorStringParser(this,value,isSigned)
+  def getFactory : (BigInt,Int,T) => T
+  def isSigned : Boolean
 
+  private[core] def newInstance(bitCount : BitCount) : T
+  def apply(bitCount : BitCount,rangesValue : Tuple2[Any,Any], _rangesValues: Tuple2[Any,Any]*) : T = this.aggregate(bitCount,rangesValue +: _rangesValues)
 
-  def apply(rangesValues: Tuple2[Any,Any]*) : T = {
-    val ret : T = this.apply()
-    var hig = 0
-//    for((range,value) <- rangesValues) (range,value)match{
-//      case (Int,Bool) => range + range
-//    }
+  private def aggregate(bitCount : BitCount,rangesValues: Seq[Tuple2[Any,Any]]) : T = {
+    val ret : T = this.newInstance(bitCount.value bit)
+    applyTupples(ret,rangesValues)
+    ret
+  }
 
-
-
+  def applyTupples(on : T,rangesValues : Seq[Tuple2[Any,Any]]) : Unit = {
+    //Apply default
     rangesValues.foreach(_ match{
-      case (pos : Int,value : Bool) => {
-        ret(pos) := value
+      case (`default`,value : Boolean) =>  on.setAllTo(value)
+      case (`default`,value : Bool)    => on.setAllTo(value)
+      case _ =>
+    })
+
+    //Apply specific access in order
+    for(e <- rangesValues) e match{
+      case (pos : Int,value : Boolean) => on(pos) := Bool(value)
+      case (pos : Int,value : Bool) => on(pos) := value //literal extraction
+      case (range : Range,value : Bool) => {
+        for(i <- range)
+          on(i) := value
+      }
+      case (range : Range,value : Boolean) => on(range) := apply(
+        if(! value)
+          BigInt(0)
+        else {
+          if(!on.isInstanceOf[SInt])
+            (BigInt(1) << range.size) - 1
+          else
+            BigInt(-1)
+
+        }
+      )
+      case (range : Range,value : String) => on(range) := apply(value)
+      case (range : Range,value : T) => on(range) := value
+      case (`default`,value : Boolean) =>
+      case (`default`,value : Bool) =>
+    }
+  }
+
+  def apply(rangesValue : Tuple2[Any,Any],_rangesValues: Tuple2[Any,Any]*) : T = {
+    val rangesValues = rangesValue +: _rangesValues
+    var hig = -1
+    rangesValues.foreach(_ match{
+      case (pos : Int,_) => {
         hig = Math.max(hig,pos)
       }
-      case (range : Range,value : T) => {
-        ret(range) := value
-        hig = Math.max(hig,range.last)
+      case (range : Range,_) => {
+        hig = Math.max(hig,range.high)
       }
+      case (`default`,_) => {
+        val where = ScalaLocated.long
+        GlobalData.get.pendingErrors += (() => s"You can't use default -> ??? in this case. \nBut you can use it in the following case : myBits := (???,default -> ???, ???)\n${where}")
+      }
+      case _ =>
     })
-    ret.setWidth(hig + 1)
-    ret
+
+    this.aggregate(hig + 1 bit,rangesValues)
   }
 }
 
 object B extends BitVectorLiteralFactory[Bits] {
   def apply() : Bits = new Bits()
+  override private[core] def newInstance(bitCount: BitCount): Bits = Bits(bitCount)
+  override def isSigned: Boolean = false
+  override def getFactory: (BigInt, Int, Bits) => Bits = BitsLiteral.apply[Bits]
 }
 
 object U extends BitVectorLiteralFactory[UInt] {
   def apply() : UInt = new UInt()
+  override private[core] def newInstance(bitCount: BitCount): UInt = UInt(bitCount)
+  override def isSigned: Boolean = false
+  override def getFactory: (BigInt, Int, UInt) => UInt = UIntLiteral.apply[UInt]
 }
 
 object S extends BitVectorLiteralFactory[SInt] {
   def apply() : SInt = new SInt()
+  override private[core] def newInstance(bitCount: BitCount): SInt = SInt(bitCount)
+  override def isSigned: Boolean = true
+  override def getFactory: (BigInt, Int, SInt) => SInt = SIntLiteral.apply[SInt]
 }
 
 
@@ -69,30 +125,74 @@ trait Literal extends Node {
   override def clone: this.type = ???
   private[core] def getBitsStringOn(bitCount : Int) : String
 
+  override def getInput(id: Int): Node = ???
+  override def getInputs: Iterator[Node] = Iterator()
+  override def getInputsCount: Int = 0
+  override def onEachInput(doThat: (Node) => Unit): Unit = {}
+  override def onEachInput(doThat: (Node, Int) => Unit): Unit = {}
+  override def setInput(id: Int, node: Node): Unit = ???
 
+  override def addAttribute(attribute: Attribute): Literal.this.type = addTag(attribute)
 }
 
 object BitsLiteral {
-
-  def apply[T <: Node](value: BigInt, specifiedBitCount: Int, on: T): T = {
-    val valueBitCount = value.bitLength + (if (on.isInstanceOf[SInt] && value != 0) 1 else 0)
+  def apply(value: BigInt, specifiedBitCount: Int): BitsLiteral = {
+    val valueBitCount = value.bitLength
     var bitCount = specifiedBitCount
-    if (!on.isInstanceOf[SInt] && value < 0) throw new Exception("literal value is negative and can be represented")
+    if (value < 0) throw new Exception("literal value is negative and can be represented")
     if (bitCount != -1) {
-      if (valueBitCount > bitCount) throw new Exception("literal width specification is to little")
+      if (valueBitCount > bitCount) throw new Exception("literal width specification is to small")
     } else {
       bitCount = valueBitCount
     }
-    on.inputs(0) = new BitsLiteral(value, bitCount,specifiedBitCount != -1, on)
+    new BitsLiteral(value, bitCount,specifiedBitCount != -1)
+  }
+  def apply[T <: Node](value: BigInt, specifiedBitCount: Int,on : T) : T ={
+    on.setInput(0,apply(value,specifiedBitCount))
     on
   }
 }
 
-class BitsLiteral(val value: BigInt, val bitCount: Integer,val hasSpecifiedBitCount : Boolean, val kind: Node) extends Literal {
-  def calcWidth: Int = bitCount
+object UIntLiteral {
+  def apply(value: BigInt, specifiedBitCount: Int): UIntLiteral = {
+    val valueBitCount = value.bitLength
+    var bitCount = specifiedBitCount
+    if (value < 0) throw new Exception("literal value is negative and can be represented")
+    if (bitCount != -1) {
+      if (valueBitCount > bitCount) throw new Exception("literal width specification is to small")
+    } else {
+      bitCount = valueBitCount
+    }
+    new UIntLiteral(value, bitCount,specifiedBitCount != -1)
+  }
+  def apply[T <: Node](value: BigInt, specifiedBitCount: Int,on : T):T={
+    on.setInput(0,apply(value,specifiedBitCount))
+    on
+  }
+}
+object SIntLiteral{
+  def apply(value: BigInt, specifiedBitCount: Int): SIntLiteral = {
+    val valueBitCount = value.bitLength + (if (value != 0) 1 else 0)
+    var bitCount = specifiedBitCount
+    if (bitCount != -1) {
+      if (valueBitCount > bitCount) throw new Exception("literal width specification is to small")
+    } else {
+      bitCount = valueBitCount
+    }
+    new SIntLiteral(value, bitCount,specifiedBitCount != -1)
+  }
+  def apply[T <: Node](value: BigInt, specifiedBitCount: Int,on : T):T={
+    on.setInput(0,apply(value,specifiedBitCount))
+    on
+  }
+}
+
+//WARNING if flatten it into bits,uint,sint variation, need to patch caseify isSwitchable
+abstract class BitVectorLiteral(val value: BigInt, val bitCount: Integer,val hasSpecifiedBitCount : Boolean) extends Literal with Widthable {
+  override def calcWidth: Int = bitCount
   if(globalData.nodeAreInferringWidth) inferredWidth = bitCount
 
-  override def clone(): this.type = new BitsLiteral(value, bitCount,hasSpecifiedBitCount, kind).asInstanceOf[this.type]
+
   override def getBitsStringOn(bitCount: Int): String = {
     def makeIt(fillWidth : Boolean) : String = {
       val str = (if(value > 0) value else ((BigInt(1) << bitCount) + value)).toString(2)
@@ -100,24 +200,45 @@ class BitsLiteral(val value: BigInt, val bitCount: Integer,val hasSpecifiedBitCo
       return (filling * (bitCount - str.length) + str).takeRight(bitCount)
     }
 
-    kind match{
-      case b : Bits => makeIt(false)
-      case u : UInt => makeIt(false)
-      case s : SInt => makeIt(value < 0)
-    }
+    makeIt(isSignedKind && value < 0)
   }
+  
+  
+  def minimalValueBitWidth : Int = {
+    value.bitLength + (if(isSignedKind && value != 0) 1 else 0)
+  }
+
+  def isSignedKind : Boolean
 }
+
+class BitsLiteral(value: BigInt, bitCount: Integer,hasSpecifiedBitCount : Boolean) extends BitVectorLiteral(value,bitCount,hasSpecifiedBitCount){
+  override def isSignedKind: Boolean = false
+  override def clone(): this.type = new BitsLiteral(value, bitCount,hasSpecifiedBitCount).asInstanceOf[this.type]
+}
+class UIntLiteral(value: BigInt, bitCount: Integer,hasSpecifiedBitCount : Boolean) extends BitVectorLiteral(value,bitCount,hasSpecifiedBitCount){
+  override def isSignedKind: Boolean = false
+  override def clone(): this.type = new UIntLiteral(value, bitCount,hasSpecifiedBitCount).asInstanceOf[this.type]
+}
+class SIntLiteral(value: BigInt, bitCount: Integer,hasSpecifiedBitCount : Boolean) extends BitVectorLiteral(value,bitCount,hasSpecifiedBitCount){
+  override def isSignedKind: Boolean = true
+  override def clone(): this.type = new SIntLiteral(value, bitCount,hasSpecifiedBitCount).asInstanceOf[this.type]
+}
+
+class BitsAllToLiteral(val theConsumer : Node,val value: Boolean) extends Literal with Widthable {
+  override def calcWidth: Int = theConsumer.asInstanceOf[WidthProvider].getWidth
+  override def getBitsStringOn(bitCount: Int): String = (if(value) "1" else "0" ) * getWidth
+}
+
 
 
 object BoolLiteral {
   def apply(value: Boolean, on: Bool): Bool = {
-    on.inputs(0) = new BoolLiteral(value)
+    on.input = new BoolLiteral(value)
     on
   }
 }
 
 class BoolLiteral(val value: Boolean) extends Literal {
-  def calcWidth: Int = 1
   override def clone(): this.type = new BoolLiteral(value).asInstanceOf[this.type]
   override def getBitsStringOn(bitCount: Int): String = {
     assert(bitCount == 1)
@@ -125,25 +246,6 @@ class BoolLiteral(val value: Boolean) extends Literal {
   }
 }
 
-
-object IntLiteral {
-  def apply(value: BigInt): IntLiteral = {
-    return new IntLiteral(value)
-  }
-}
-
-class IntLiteral(val value: BigInt) extends Literal with MinMaxProvider {
-  def calcWidth: Int = value.bitLength + (if (value < 0) 1 else 0)
-
-  def minValue: BigInt = value
-  def maxValue: BigInt = value
-
-
-
-  override def clone(): this.type = new IntLiteral(value).asInstanceOf[this.type]
-
-  override def getBitsStringOn(bitCount: Int): String = ???
-}
 
 
 

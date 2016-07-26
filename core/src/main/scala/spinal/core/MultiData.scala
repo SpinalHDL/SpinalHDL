@@ -42,36 +42,22 @@ abstract class MultiData extends Data {
     temp._2
   }
 
-  override def toBits: Bits = {
+  override def asBits: Bits = {
     var ret: Bits = null
     for ((eName, e) <- elements) {
-      if (ret == null.asInstanceOf[Object]) ret = e.toBits
-      else ret = e.toBits ## ret
+      if (ret == null.asInstanceOf[Object]) ret = e.asBits
+      else ret = e.asBits ## ret
     }
     if (ret.asInstanceOf[Object] == null) ret = Bits(0 bit)
     ret
   }
 
-  protected override def nameChangeEvent(weak: Boolean): Unit = {
-    super.nameChangeEvent(weak)
-    for ((eName, e) <- elements) e match {
-      case nameable: Nameable => {
-        if (eName == "")
-          nameable.setName(getName(), weak)
-        else if(getName() == "")
-          nameable.setName(eName, weak)
-        else
-          nameable.setName(getName() + "_" + eName, weak)
-      }
-    }
-  }
-
-
   override def getBitsWidth: Int = {
     var accumulateWidth = 0
     for ((_, e) <- elements) {
       val width = e.getBitsWidth
-      if (width == -1) SpinalError("Can't return bits width")
+      if (width == -1)
+        SpinalError("Can't return bits width")
       accumulateWidth += width
     }
     accumulateWidth
@@ -91,6 +77,12 @@ abstract class MultiData extends Data {
     this
   }
 
+
+  override def asDirectionLess: this.type = {
+    super.asDirectionLess()
+    elements.foreach(_._2.asDirectionLess());
+    this
+  }
 
   override def flatten: Seq[BaseType] = {
     elements.map(_._2.flatten).foldLeft(List[BaseType]())(_ ++ _)

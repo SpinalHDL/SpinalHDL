@@ -21,6 +21,8 @@ object SpinalBuild extends Build {
     settings = defaultSettings ++ Seq(
       name := "SpinalHDL Core",
       libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value,
+      libraryDependencies += "com.github.scopt" %% "scopt" % "3.4.0",
+      resolvers += Resolver.sonatypeRepo("public"),
       version := SpinalVersion.core
     )
   )
@@ -34,6 +36,15 @@ object SpinalBuild extends Build {
     )
   ) dependsOn (core)
 
+//  lazy val ip = Project(
+//    id = "SpinalHDL-ip",
+//    base = file("ip"),
+//    settings = defaultSettings ++ Seq(
+//      name := "SpinalHDL ip",
+//      version := SpinalVersion.ip
+//    )
+//  ) dependsOn (core,lib)
+
   lazy val debugger = Project(
     id = "SpinalHDL-debugger",
     base = file("debugger"),
@@ -41,12 +52,12 @@ object SpinalBuild extends Build {
       name := "SpinalHDL Debugger",
       version := SpinalVersion.debugger,
       resolvers += "sparetimelabs" at "http://www.sparetimelabs.com/maven2/",
-      libraryDependencies += "org.scalafx" %% "scalafx" % "8.0.40-R8",
+      //libraryDependencies += "org.scalafx" %% "scalafx" % "8.0.40-R8",
       libraryDependencies += "com.sparetimelabs" % "purejavacomm" % "0.0.22",
       libraryDependencies += "net.liftweb" %% "lift-json" % "latest.release",
       publishTo := None
     )
-  ) dependsOn(core, lib)
+  ) dependsOn(core, lib/*, ip*/)
 
   lazy val demo = Project(
     id = "SpinalHDL-demo",
@@ -56,7 +67,7 @@ object SpinalBuild extends Build {
       version := SpinalVersion.demo,
       publishTo := None
     )
-  ) dependsOn(core, lib,debugger)
+  ) dependsOn(core, lib/*, ip*/ ,debugger)
 
 
   lazy val tester = Project(
@@ -69,7 +80,7 @@ object SpinalBuild extends Build {
       //libraryDependencies += "com.storm-enroute" %% "scalameter" % "latest.release",
       publishTo := None
     )
-  ) dependsOn(core, lib, debugger,demo)
+  ) dependsOn(core, lib/*, ip*/, debugger,demo)
 
   //sbt clean reload publishSigned
   //https://oss.sonatype.org

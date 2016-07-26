@@ -1,20 +1,3 @@
-/*
- * SpinalHDL
- * Copyright (c) Dolu, All rights reserved.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 3.0 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library.
- */
 
 package spinal.tester.code
 
@@ -110,7 +93,7 @@ object Debug {
 
     newOutput := !newInput
 
-    val myClockDomain = ClockDomain("ttDomain")
+    val myClockDomain = ClockDomain.external("ttDomain")
     val ttArea = new ClockingArea(myClockDomain) {
       io.tt := RegNext(!io.tt)
     }
@@ -121,10 +104,10 @@ object Debug {
     //
     val s0Reg = RegNext(MyEnum.s0())
 
-    io.boolToUnsigned := toUInt(True)
+    io.boolToUnsigned := asUInt(True)
 
     val forks = StreamFork(io.input, 3)
-    io.output << StreamArbiter.lowIdPortFirst.transactionLock.build(forks)
+    io.output << StreamArbiterFactory.lowerFirst.transactionLock.on(forks)
 
     object MyData {
       def apply(a: Boolean, b: BigInt): MyData = {
@@ -166,7 +149,7 @@ object Debug {
 
     val firLength = 32
     val coefs = (0 until firLength).map(i => S(((0.54 - 0.46 * Math.cos(2 * Math.PI * i / firLength)) * 32767 / firLength).toInt, 16 bit))
-    io.fir := (coefs, Delays(io.sin, firLength)).zipped.map((coef, delay) => (coef * delay) >> 15).reduce(_ + _)
+    io.fir := (coefs, History(io.sin, firLength)).zipped.map((coef, delay) => (coef * delay) >> 15).reduce(_ + _)
 
     nameElements()
 

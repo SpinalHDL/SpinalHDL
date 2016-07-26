@@ -18,47 +18,49 @@
 
 package spinal.core
 
+import spinal.core.Operator.BitVector.{ShiftLeftByUInt, ShiftLeftByInt, ShiftRightByUInt, ShiftRightByInt}
+
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 
-object ZeroWidth {
+object SymplifyNode {
   def replaceNode(it: Node, by: Node): Unit = {
     for (consumer <- it.consumers) {
-      for (i <- 0 until consumer.inputs.size) {
-        if (consumer.inputs(i) == it) {
-          consumer.inputs(i) = by
+      consumer.onEachInput((input,i) => {
+        if (input == it) {
+          consumer.setInput(i,by)
           by.consumers += consumer
         }
-      }
+      })
     }
   }
 
   def replaceNodeInput(it: Node,inId : Int,by : Node): Unit ={
-    it.inputs(inId).consumers -= it
-    it.inputs(inId) = by
+    it.getInput(inId).consumers -= it
+    it.setInput(inId,by)
     by.consumers += it
   }
 
   def replaceNode(it: Node, by: Int): Unit = {
-    replaceNode(it, it.inputs(by))
+    replaceNode(it, it.getInput(by))
   }
 
   def none(node: Node): Unit = {}
 
   def binaryPartition(node: Node): (Node, Node) = {
-    if (node.inputs(0).getWidth == 0) {
-      return (node.inputs(0), node.inputs(1))
+    if (node.getInput(0).asInstanceOf[WidthProvider].getWidth == 0) {
+      return (node.getInput(0), node.getInput(1))
     }
-    if (node.inputs(1).getWidth == 0) {
-      return (node.inputs(1), node.inputs(0))
+    if (node.getInput(1).asInstanceOf[WidthProvider].getWidth == 0) {
+      return (node.getInput(1), node.getInput(0))
     }
     return null
   }
 
   def binaryTakeOther(node: Node): Unit = {
-    val w0 = node.inputs(0).getWidth
-    val w1 = node.inputs(1).getWidth
+    val w0 = node.getInput(0).asInstanceOf[WidthProvider].getWidth
+    val w1 = node.getInput(1).asInstanceOf[WidthProvider].getWidth
     if (w0 == 0) {
       replaceNode(node, 1)
     } else if (w1 == 0) {
@@ -67,8 +69,8 @@ object ZeroWidth {
   }
 
   def binaryUIntSmaller(node: Node): Unit = {
-    val w0 = node.inputs(0).getWidth
-    val w1 = node.inputs(1).getWidth
+    val w0 = node.getInput(0).asInstanceOf[WidthProvider].getWidth
+    val w1 = node.getInput(1).asInstanceOf[WidthProvider].getWidth
     if (w0 == 0 && w1 == 0) {
       Component.push(node.component)
       replaceNode(node, False)
@@ -85,8 +87,8 @@ object ZeroWidth {
   }
 
   def binaryUIntSmallerOrEgual(node: Node): Unit = {
-    val w0 = node.inputs(0).getWidth
-    val w1 = node.inputs(1).getWidth
+    val w0 = node.getInput(0).asInstanceOf[WidthProvider].getWidth
+    val w1 = node.getInput(1).asInstanceOf[WidthProvider].getWidth
     if (w0 == 0 && w1 == 0) {
       Component.push(node.component)
       replaceNode(node, True)
@@ -103,8 +105,8 @@ object ZeroWidth {
   }
 
   def binarySIntSmaller(node: Node): Unit = {
-    val w0 = node.inputs(0).getWidth
-    val w1 = node.inputs(1).getWidth
+    val w0 = node.getInput(0).asInstanceOf[WidthProvider].getWidth
+    val w1 = node.getInput(1).asInstanceOf[WidthProvider].getWidth
     if (w0 == 0 && w1 == 0) {
       Component.push(node.component)
       replaceNode(node, False)
@@ -121,8 +123,8 @@ object ZeroWidth {
   }
 
   def binarySIntSmallerOrEgual(node: Node): Unit = {
-    val w0 = node.inputs(0).getWidth
-    val w1 = node.inputs(1).getWidth
+    val w0 = node.getInput(0).asInstanceOf[WidthProvider].getWidth
+    val w1 = node.getInput(1).asInstanceOf[WidthProvider].getWidth
     if (w0 == 0 && w1 == 0) {
       Component.push(node.component)
       replaceNode(node, True)
@@ -140,8 +142,8 @@ object ZeroWidth {
 
 
   def binaryMinus(zeroFactory: (BigInt, BitCount) => Node)(node: Node): Unit = {
-    val w0 = node.inputs(0).getWidth
-    val w1 = node.inputs(1).getWidth
+    val w0 = node.getInput(0).asInstanceOf[WidthProvider].getWidth
+    val w1 = node.getInput(1).asInstanceOf[WidthProvider].getWidth
     if(w1 == 0) {
       replaceNode(node,0)
     } else if (w0 == 0) {
@@ -155,35 +157,69 @@ object ZeroWidth {
     val partition = binaryPartition(node)
     if (partition != null) {
       Component.push(node.component)
-      replaceNode(node, zeroFactory(0, partition._2.getWidth bit))
+      replaceNode(node, zeroFactory(0, partition._2.asInstanceOf[WidthProvider].getWidth bit))
       Component.pop(node.component)
     }
   }
 
-  def resizeImpl(zeroFactory: (BigInt, BitCount) => Node)(node: Node): Unit = {
-    val w0 = node.inputs(0).getWidth
+
+
+
+  def resizeImpl2(zeroFactory: (BigInt, BitCount) => Node,node: Node): Unit = {
+    val w0 = node.getInput(0).asInstanceOf[WidthProvider].getWidth
     if (w0 == 0) {
       Component.push(node.component)
-      replaceNode(node, zeroFactory(0, node.getWidth bit))
+      replaceNode(node, zeroFactory(0, node.asInstanceOf[WidthProvider].getWidth bit))
       Component.pop(node.component)
     }
   }
 
-  def shiftRightImpl(node: Node): Unit = {
-    val w1 = node.inputs(1).getWidth
-    if (w1 == 0) {
+  def shiftRightImpl(node: ShiftRightByUInt): Unit = {
+    if (node.right.asInstanceOf[WidthProvider].getWidth == 0) {
       Component.push(node.component)
       replaceNode(node, 0)
       Component.pop(node.component)
     }
   }
-  S
-  def shiftLeftImpl(zeroFactory: (BigInt, BitCount) => Node)(node: Node): Unit = {
-    val w0 = node.inputs(0).getWidth
-    val w1 = node.inputs(1).getWidth
+
+  def shiftRightImpl(node: ShiftRightByInt): Unit = {
+    if (node.shift == 0) {
+      Component.push(node.component)
+      replaceNode(node, 0)
+      Component.pop(node.component)
+    }
+  }
+
+  def shiftLeftImpl(zeroFactory: (BigInt, BitCount) => Node,node: ShiftLeftByUInt): Unit = {
+    if (node.left.asInstanceOf[WidthProvider].getWidth == 0) {
+      Component.push(node.component)
+      replaceNode(node, zeroFactory(0, node.asInstanceOf[WidthProvider].getWidth bit))
+      Component.pop(node.component)
+    } else if (node.right.asInstanceOf[WidthProvider].getWidth == 0) {
+      Component.push(node.component)
+      replaceNode(node, 0)
+      Component.pop(node.component)
+    }
+  }
+
+  def shiftLeftImpl(zeroFactory: (BigInt, BitCount) => Node,node: ShiftLeftByInt): Unit = {
+    if (node.input.asInstanceOf[WidthProvider].getWidth == 0) {
+      Component.push(node.component)
+      replaceNode(node, zeroFactory(0, node.asInstanceOf[WidthProvider].getWidth bit))
+      Component.pop(node.component)
+    } else if (node.shift == 0) {
+      Component.push(node.component)
+      replaceNode(node, 0)
+      Component.pop(node.component)
+    }
+  }
+
+  def rotateImpl(zeroFactory: (BigInt, BitCount) => Node,node: Node): Unit = {
+    val w0 = node.getInput(0).asInstanceOf[WidthProvider].getWidth
+    val w1 = node.getInput(1).asInstanceOf[WidthProvider].getWidth
     if (w0 == 0) {
       Component.push(node.component)
-      replaceNode(node, zeroFactory(0, node.getWidth bit))
+      replaceNode(node, zeroFactory(0, node.asInstanceOf[WidthProvider].getWidth bit))
       Component.pop(node.component)
     } else if (w1 == 0) {
       Component.push(node.component)
@@ -192,19 +228,11 @@ object ZeroWidth {
     }
   }
 
-  def multiplexerImpl(node: Node): Unit = {
-    val w0 = node.inputs(0).getWidth
-    val w1 = node.inputs(1).getWidth
-    if (w0 == 0) {
-      replaceNode(node, 1)
-    } else if (w1 == 0) {
-      replaceNode(node, 0)
-    }
-  }
+
 
 
   def binaryThatIfBoth(thatFactory: => Node)(node: Node): Unit = {
-    if (node.inputs(0).getWidth == 0 && node.inputs(1).getWidth == 0) {
+    if (node.getInput(0).asInstanceOf[WidthProvider].getWidth == 0 && node.getInput(1).asInstanceOf[WidthProvider].getWidth == 0) {
       Component.push(node.component)
       replaceNode(node, thatFactory)
       Component.pop(node.component)
@@ -213,12 +241,12 @@ object ZeroWidth {
 
 
   def unaryShortCut(node: Node): Unit = {
-    if (node.inputs(0).getWidth == 0) {
+    if (node.getInput(0).asInstanceOf[WidthProvider].getWidth == 0) {
       replaceNode(node, 0)
     }
   }
   def unaryZero(node: Node): Unit = {
-    if (node.inputs(0).getWidth == 0) {
+    if (node.getInput(0).asInstanceOf[WidthProvider].getWidth == 0) {
       Component.push(node.component)
       replaceNode(node, U(0, 0 bit))
       Component.pop(node.component)
@@ -231,10 +259,39 @@ object InputNormalize {
 
   }
 
-  def regImpl(node: Node): Unit = {
-    val targetWidth = node.getWidth
-    Misc.normalizeResize(node, RegS.getDataInputId, targetWidth)
-    if (node.asInstanceOf[Reg].isUsingReset) Misc.normalizeResize(node, RegS.getInitialValueId, targetWidth)
+  def enumImpl(node : Node with EnumEncoded) : Unit = {
+    node.onEachInput((input,id) => input match{
+      case input : Node with EnumEncoded => {
+        if(node.getEncoding != input.getEncoding){
+          Component.push(input.component)
+          val cast = new CastEnumToEnum(node.getDefinition)
+          cast.input = input.asInstanceOf[cast.T]
+          node.setInput(id,cast)
+          cast.fixEncoding(node.getEncoding)
+          Component.pop(input.component)
+        }
+      }
+      case _ =>
+    })
+  }
+
+  def bitVectoreAssignement(parent : Node,inputId : Int,targetWidth : Int): Unit ={
+    val input = parent.getInput(inputId)
+    if(input == null) return
+      input match{
+      case bitVector : BitVector => {
+        bitVector.getInput(0) match{
+          case lit : BitVectorLiteral if (! lit.hasSpecifiedBitCount) =>{
+            Misc.normalizeResize(parent, inputId, Math.max(lit.minimalValueBitWidth,targetWidth)) //Allow resize on direct literal with unfixed values
+          }
+
+          case _ =>
+            if(input.hasTag(tagAutoResize))
+              Misc.normalizeResize(parent, inputId, targetWidth)
+        }
+      }
+      case _ =>
+    }
   }
 
   def memReadImpl(node: Node): Unit = {
@@ -243,65 +300,52 @@ object InputNormalize {
   }
 
   def memWriteImpl(node: Node): Unit = {
-    Misc.normalizeResize(node, MemWrite.getDataId, node.getWidth)
+    Misc.normalizeResize(node, MemWrite.getDataId, node.asInstanceOf[WidthProvider].getWidth)
     Misc.normalizeResize(node, MemWrite.getAddressId, node.asInstanceOf[Mem[_]].addressWidth)
   }
 
-  def enumImpl[T <: SpinalEnum](node : Node) : Unit = {
-    val left = node.inputs(0).asInstanceOf[SpinalEnumCraft[T]]
-    val right = node.inputs(1).asInstanceOf[SpinalEnumCraft[T]]
-    if(left.encoding != right.encoding){
-      val (that,ref,thatId) = if(left.getWidth > right.getWidth) (left,right,0) else  (right,left,1)
-      Component.push(that.component)
-      val newOne = ref.clone.asInstanceOf[SpinalEnumCraft[T]]
-      newOne.assignFromAnotherEncoding(that)
-      node.inputs(thatId) = newOne
-      Component.pop(that.component)
-    }
-  }
 
   def nodeWidth(node: Node): Unit = {
-    val targetWidth = node.getWidth
-    for (i <- 0 until node.inputs.size)
+    val targetWidth = node.asInstanceOf[WidthProvider].getWidth
+    node.onEachInput((input,i) => {
       Misc.normalizeResize(node, i, targetWidth)
+    })
   }
 
   def inputWidthMax(node: Node): Unit = {
-    val targetWidth = Math.max(node.inputs(0).getWidth, node.inputs(1).getWidth)
-    for (i <- 0 until node.inputs.size)
+    val targetWidth = Math.max(node.getInput(0).asInstanceOf[WidthProvider].getWidth, node.getInput(1).asInstanceOf[WidthProvider].getWidth)
+    node.onEachInput((input,i) => {
       Misc.normalizeResize(node, i, targetWidth)
+    })
   }
 }
 
 object WidthInfer {
+  def multipleAssignmentNodeWidth(node: Node): Int = {
+    node.getInputs.foldLeft(-1)((best, n) => Math.max(best, if (n != null && !n.isInstanceOf[Reg]) n.asInstanceOf[WidthProvider].getWidth else -1))
+  }
+
   def inputMaxWidth(node: Node): Int = {
-    node.inputs.foldLeft(-1)((best, n) => Math.max(best, if (n != null) n.getWidth else -1))
+    node.getInputs.foldLeft(-1)((best, n) => Math.max(best, if (n != null) n.asInstanceOf[WidthProvider].getWidth else -1))
   }
 
   def multiplexImpl(node: Node): Int = {
-    Math.max(node.inputs(1).getWidth, node.inputs(2).getWidth)
+    Math.max(node.getInput(1).asInstanceOf[WidthProvider].getWidth, node.getInput(2).asInstanceOf[WidthProvider].getWidth)
   }
 
-  def regImpl(node: Node): Int = {
-    val dataIn = node.inputs(RegS.getDataInputId)
-    val init = node.inputs(RegS.getInitialValueId)
-    math.max(if (dataIn != node) dataIn.getWidth else -1, if (node.asInstanceOf[Reg].isUsingReset) init.getWidth else -1)
-  }
+
 
   def cumulateInputWidth(node: Node): Int = {
-    node.inputs.foldLeft(0)((old, n) => old + Math.max(0, n.getWidth))
+    node.getInputs.foldLeft(0)((old, n) => old + Math.max(0, n.asInstanceOf[WidthProvider].getWidth))
   }
 
-  def intLit1Width(node: Node): Int = {
-    node.inputs(1).asInstanceOf[IntLiteral].value.toInt
-  }
 
   def input0Width(node: Node): Int = {
-    node.inputs(0).getWidth
+    node.getInput(0).asInstanceOf[WidthProvider].getWidth
   }
 
-  def shiftLeftWidth(node: Node): Int = node.inputs(0).getWidth + node.inputs(1).asInstanceOf[MinMaxProvider].maxValue.toInt
-  def shiftRightWidth(node: Node): Int = Math.max(0, node.inputs(0).getWidth - node.inputs(1).asInstanceOf[MinMaxProvider].minValue.toInt)
+  def shiftLeftWidth(node: Node): Int = node.getInput(0).asInstanceOf[WidthProvider].getWidth + node.getInput(1).asInstanceOf[MinMaxProvider].maxValue.toInt
+  def shiftRightWidth(node: Node): Int = Math.max(0, node.getInput(0).asInstanceOf[WidthProvider].getWidth - node.getInput(1).asInstanceOf[MinMaxProvider].minValue.toInt)
 
 
   def oneWidth(node: Node): Int = 1
@@ -311,7 +355,7 @@ object WidthInfer {
 object Node{
 
   def walk(starts: Seq[Node],walker: (Node, (Node) => Unit) => Unit): Unit = {
-    val targetAlgoId = GlobalData.get.algoId
+    val targetAlgoId = GlobalData.get.allocateAlgoId()
     val pendingNodes = mutable.Stack[Node]()
 
     def addNodeToStack(node: Node): Unit = {
@@ -326,25 +370,67 @@ object Node{
       walker(pendingNodes.pop, addNodeToStack)
     }
 
-    GlobalData.get.algoId += 1
   }
 
 
   def walk(starts: Seq[Node],walker: (Node) => Unit): Unit = {
     walk(starts,(node,push) => {
       walker(node)
-      node.inputs.foreach(push(_))
+      node.onEachInput(push(_))
     })
   }
 }
-abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady with GlobalDataUser {
-  val consumers = new ArrayBuffer[Node](4)
-  val inputs = new ArrayBuffer[Node](3)
 
-  private[core] var algoId = 0
+
+abstract class NodeWithVariableInputsCount extends Node{
+  val inputs = new ArrayBuffer[Node](4)
+
+  override def getInputsCount = inputs.length
+  override def getInput(id : Int) : Node = inputs(id)
+  override def setInput(id : Int,node : Node) : Unit = inputs(id) = node
+
+  override def getInputs : Iterator[Node] = inputs.iterator
+
+  override def onEachInput(doThat : (Node,Int) => Unit) : Unit = {
+    var idx = inputs.length
+    while(idx != 0){
+      idx -= 1
+      doThat(getInput(idx),idx)
+    }
+  }
+
+  override def onEachInput(doThat : (Node) => Unit) : Unit = {
+    var idx = inputs.length
+    while(idx != 0){
+      idx -= 1
+      doThat(getInput(idx))
+    }
+  }
+}
+
+abstract class NodeWithoutInputs extends Node{
+  override def getInput(id: Int): Node = ???
+  override def getInputs: Iterator[Node] = Iterator()
+  override def getInputsCount: Int = 0
+  override def onEachInput(doThat: (Node) => Unit): Unit = {}
+  override def onEachInput(doThat: (Node, Int) => Unit): Unit = {}
+  override def setInput(id: Int, node: Node): Unit = ???
+}
+
+trait WidthProvider{
+  def getWidth : Int
+}
+trait CheckWidth{
+  private[core] def checkInferedWidth: String
+}
+
+trait Widthable extends WidthProvider with GlobalDataUser with ScalaLocated{
   private[core] var widthWhenNotInferred = -1
+  private[core] var inferredWidth = -1
 
-  def getWidth: Int = {
+  private[core] def calcWidth: Int
+
+  override def getWidth: Int = {
     if (globalData.nodeAreInferringWidth) {
       inferredWidth
     } else {
@@ -369,19 +455,18 @@ abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady wi
 
       if (temp == -1) {
         globalData.nodeGetWidthWalkedSet.clear()
-        SpinalError(s"Can't infer width because of unspecified width on ${this.getScalaLocationString}")
+        SpinalError(s"Can't infer width because of unspecified width on ${this.getScalaLocationLong}")
       }
 
       globalData.nodeGetWidthWalkedSet -= this
 
       if (isFirst) globalData.nodeGetWidthWalkedSet.clear()
-      if (widthWhenNotInferred != -1 && widthWhenNotInferred != temp) SpinalError(s"getWidth result differ from last call $getScalaLocationString")
+      if (widthWhenNotInferred != -1 && widthWhenNotInferred != temp) SpinalError(s"getWidth result differ from last call $getScalaLocationLong")
       widthWhenNotInferred = temp
       temp
     }
   }
 
-  private[core] def calcWidth: Int
 
 
   private[core] def inferWidth: Boolean = {
@@ -395,20 +480,114 @@ abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady wi
       return false
     }
   }
+}
+
+trait EnumEncoded{
+  def getEncoding : SpinalEnumEncoding
+  def propagateEncoding = false
+  def getDefinition : SpinalEnum
+  //Only used in the inferation phase
+  def swapEncoding(encoding : SpinalEnumEncoding)
+}
+
+trait InferableEnumEncoding{
+  private[core] def encodingProposal(e : SpinalEnumEncoding) : Boolean
+  def bootInferration() : Unit
+}
 
 
-  private[core] var inferredWidth = -1
 
-  private[core] def checkInferedWidth: String = null
+trait InferableEnumEncodingImplChoice
+object InferableEnumEncodingImplChoiceUndone      extends InferableEnumEncodingImplChoice
+object InferableEnumEncodingImplChoiceFixed       extends InferableEnumEncodingImplChoice
+object InferableEnumEncodingImplChoiceAnticipated extends InferableEnumEncodingImplChoice
+object InferableEnumEncodingImplChoiceInferred    extends InferableEnumEncodingImplChoice
 
+trait InferableEnumEncodingImpl extends EnumEncoded  with InferableEnumEncoding with ContextUser with ScalaLocated{
+  private[core] var encodingChoice : InferableEnumEncodingImplChoice = InferableEnumEncodingImplChoiceUndone
+  private[core] var encoding  : SpinalEnumEncoding = null
+
+  override def swapEncoding(encoding: SpinalEnumEncoding): Unit = this.encoding = encoding
+
+  override def propagateEncoding = encodingChoice == InferableEnumEncodingImplChoiceFixed
+  override def bootInferration(): Unit = {
+    if(encodingChoice == InferableEnumEncodingImplChoiceUndone){
+      encodingChoice = InferableEnumEncodingImplChoiceInferred
+      encoding = getDefaultEncoding()
+    }
+  }
+
+  private[core] def getDefaultEncoding() : SpinalEnumEncoding
+  def fixEncoding(e : SpinalEnumEncoding) : Unit = {
+    encoding = e
+    encodingChoice = InferableEnumEncodingImplChoiceFixed
+  }
+  def copyEncodingConfig(that : InferableEnumEncodingImpl) : Unit = {
+    this.encoding       = that.encoding
+    this.encodingChoice = that.encodingChoice
+  }
+
+  private[core] override def encodingProposal(e : SpinalEnumEncoding) : Boolean = {
+    def takeIt: Boolean ={
+      if(encoding != e) {
+        encoding = e
+        encodingChoice = InferableEnumEncodingImplChoiceInferred
+        true
+      }else{
+        false
+      }
+    }
+
+    encodingChoice match {
+      case `InferableEnumEncodingImplChoiceUndone`   => takeIt
+      case `InferableEnumEncodingImplChoiceInferred` => takeIt
+      case `InferableEnumEncodingImplChoiceAnticipated` => {
+        if(encoding != e){
+          globalData.pendingErrors += (() => (s"$this encoding has change between the elaboration phase and the compilation phase\n${this.getScalaLocationLong}"))
+        }
+        false
+      }
+      case `InferableEnumEncodingImplChoiceFixed` => false
+    }
+  }
+
+  override def getEncoding: SpinalEnumEncoding = {
+    if (globalData.nodeAreInferringEnumEncoding) {
+      encoding
+    } else {
+      if(encodingChoice == InferableEnumEncodingImplChoiceUndone){
+        encoding = getDefaultEncoding
+        encodingChoice = InferableEnumEncodingImplChoiceAnticipated
+      }
+      encoding
+    }
+  }
+}
+
+
+
+abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady with GlobalDataUser {
+  globalData.netlistUpdate()
+  val consumers = new ArrayBuffer[Node](4)
+
+  def getInputsCount : Int = getInputs.size
+  def getInput(id : Int) : Node
+  def setInput(id : Int,node : Node) : Unit
+
+  def getInputs : Iterator[Node]
+  def onEachInput(doThat : (Node,Int) => Unit) : Unit
+  def onEachInput(doThat : (Node) => Unit) : Unit
+
+  private[core] var algoId = 0
   private[core] def normalizeInputs: Unit = {}
 
   def simplifyNode: Unit = {}
 
-  private[core] def setInput(node: Node): Unit = {
-    inputs(0) = node
-  }
 
+  private[core] def getOutToInUsage(inputId : Int,outHi : Int, outLo : Int) : (Int,Int) = getInput(inputId) match{
+    case input : WidthProvider => (input.getWidth-1,0)
+    case _ => (0,0)
+  }
 
   private[core] def getClassIdentifier: String = this.getClass.getSimpleName
 
@@ -417,38 +596,39 @@ abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady wi
   private[core] def nonRecursiveToString(): String = {
     toString()
   }
+
+  override def toString(): String = s"${super.toString()}"
 }
 
 object NoneNode {
   def apply() = new NoneNode
 }
 
-class NoneNode extends Node {
-  override def calcWidth: Int = 0
+class NoneNode extends NodeWithoutInputs {
+  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = (-1,0)
+
+  override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
 }
 
 
 
-abstract class DontCareNode extends Node{
-  def getBaseType : BaseType
+class DontCareNode(target : BaseType) extends NodeWithoutInputs{
+  def getBaseType: BaseType = target
+  override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
 }
-class DontCareNodeInfered(target : BaseType) extends DontCareNode {
-  override def calcWidth: Int = target.getWidth
-  override def getBaseType: BaseType = target
+
+//TODO remove base type and add WidthProvider
+class DontCareNodeInfered(target : BaseType) extends DontCareNode(target) with Widthable{
+  override def calcWidth: Int = target.asInstanceOf[WidthProvider].getWidth
 }
-class DontCareNodeFixed(target : BaseType,fixedWidth : Int) extends DontCareNode {
-  override def calcWidth: Int = fixedWidth
-  override def getBaseType: BaseType = target
+
+class DontCareNodeFixed(target : BaseType,fixedWidth : Int) extends DontCareNode(target)  with Widthable {
+  override def calcWidth : Int = fixedWidth
 }
 
 
-//abstract class WidthAssemptionNode(provider : Node) extends Node{
-//  inputs += provider
-//  override def calcWidth: Int = inputs(0).getWidth
-//  def check(consumer : Node) : Boolean
-//
-//}
-//
-//class WidthAssemptionReduce(provider : Node) extends WidthAssemptionNode(provider){
-//  override def check(consumer: Node): Boolean = consumer.getWidth < inputs(0).getWidth
-//}
+
+trait AssignementTreePart{
+  def setAssignementContext(id : Int,that : Throwable) : Unit
+  def getAssignementContext(id : Int) : Throwable
+}

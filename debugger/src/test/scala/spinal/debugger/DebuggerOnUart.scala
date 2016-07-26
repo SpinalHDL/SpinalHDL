@@ -1,19 +1,3 @@
-/* SpinalHDL
-* Copyright (c) Dolu, All rights reserved.
-*
-* This library is free software; you can redistribute it and/or
-* modify it under the terms of the GNU Lesser General Public
-* License as published by the Free Software Foundation; either
-* version 3.0 of the License, or (at your option) any later version.
-*
-* This library is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-* Lesser General Public License for more details.
-*
-* You should have received a copy of the GNU Lesser General Public
-* License along with this library.
-*/
 
 package spinal.debugger
 
@@ -43,15 +27,15 @@ object DebuggerOnUart {
     subComponentA.io.input := io.input
     io.output := subComponentA.io.output
 
-    val condsParity = io.conds.toBools.reduceLeft(_ ^ _)
+    val condsParity = io.conds.asBools.reduceLeft(_ ^ _)
 
     val counter = CounterFreeRun(1024)
 
     val uartCtrl = new UartCtrl()
-    uartCtrl.io.clockDivider := BigInt((50e6 / 57.6e3 / 8).toLong)
-    uartCtrl.io.config.dataLength := 7
-    uartCtrl.io.config.parity := UartParityType.eParityNone
-    uartCtrl.io.config.stop := UartStopType.eStop1bit
+    uartCtrl.io.config.clockDivider := BigInt((50e6 / 57.6e3 / 8).toLong)
+    uartCtrl.io.config.frame.dataLength := 7
+    uartCtrl.io.config.frame.parity := UartParityType.NONE
+    uartCtrl.io.config.frame.stop := UartStopType.ONE
     uartCtrl.io.uart <> io.uart
 
     val (uartFlowFragment, uartSoftReset) = uartCtrl.io.read.toFlowFragmentBitsAndReset()

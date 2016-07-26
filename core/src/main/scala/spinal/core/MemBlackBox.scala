@@ -69,7 +69,6 @@ class Ram_1c_1w_1rs(wordWidth: Int, wordCount: Int, writeToReadKind: MemWriteToR
 }
 
 
-
 class Ram_1wrs(wordWidth: Int, wordCount: Int, writeToReadKind: MemWriteToReadKind = dontCare) extends BlackBox {
   val generic = new Generic {
     val wordCount = Ram_1wrs.this.wordCount
@@ -106,9 +105,6 @@ class Ram_1wrs(wordWidth: Int, wordCount: Int, writeToReadKind: MemWriteToReadKi
 }
 
 
-
-
-
 class Ram_1wors(wordWidth: Int, wordCount: Int, writeToReadKind: MemWriteToReadKind = dontCare) extends BlackBox {
   val generic = new Generic {
     val wordCount = Ram_1wors.this.wordCount
@@ -130,5 +126,5 @@ class Ram_1wors(wordWidth: Int, wordCount: Int, writeToReadKind: MemWriteToReadK
 
   //Following is not obligatory, just to describe blackbox logic
   val mem = Mem(io.wrData, wordCount)
-  io.rdData := mem.writeOrReadSync(io.addr, io.wrData,io.cs,io.we,writeToReadKind)
+  io.rdData := mem.writeOrReadSync(io.addr, io.wrData, io.cs, io.we, writeToReadKind)
 }

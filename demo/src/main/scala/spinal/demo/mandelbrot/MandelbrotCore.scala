@@ -43,7 +43,7 @@ class FrameTaskFilter(p: MandelbrotCoreParameters) extends Component {
     val shiftRight = log2Up(BigDecimal(enableHz * tao).toBigInt())
     val out = Reg(in) init (0)
     when(enable) {
-      out := RegNext(((in - out) >> shiftRight)) + out
+      out := RegNext(((in - out) >>| shiftRight)) + out
     }
     out
   }
@@ -62,14 +62,14 @@ class FrameTaskFilter(p: MandelbrotCoreParameters) extends Component {
   val filterEnable = RegNext(CounterFreeRun((clkHz / filterHz).toInt).willOverflow) //TODO periodic pulse lib
 
   io.output.valid := True
-  io.output.data.start.x := rcChainFilter(filterIn.start.x, filterTaos, filterEnable, filterHz)
-  io.output.data.start.y := rcChainFilter(filterIn.start.y, filterTaos, filterEnable, filterHz)
-  io.output.data.inc.x := rcChainFilter(filterIn.inc.x, filterTaos, filterEnable, filterHz)
-  io.output.data.inc.y := rcChainFilter(filterIn.inc.y, filterTaos, filterEnable, filterHz)
+  io.output.start.x := rcChainFilter(filterIn.start.x, filterTaos, filterEnable, filterHz)
+  io.output.start.y := rcChainFilter(filterIn.start.y, filterTaos, filterEnable, filterHz)
+  io.output.inc.x := rcChainFilter(filterIn.inc.x, filterTaos, filterEnable, filterHz)
+  io.output.inc.y := rcChainFilter(filterIn.inc.y, filterTaos, filterEnable, filterHz)
 }
 
 
-class MandelbrotCore(p: MandelbrotCoreParameters) extends Component {
+class   MandelbrotCore(p: MandelbrotCoreParameters) extends Component {
   val io = new Bundle {
     val cmdPort = slave Flow Fragment(Bits(8 bit))
     val retPort = master Stream Fragment(Bits(8 bit))
@@ -96,10 +96,10 @@ class MandelbrotCore(p: MandelbrotCoreParameters) extends Component {
   // Force a initial frametask into the system.
   // By this way, when the system is reseted, it draw directly something
   frameTaskSolver.io.frameTask.valid init (True)
-  frameTaskSolver.io.frameTask.data.start.x init (-1.0)
-  frameTaskSolver.io.frameTask.data.start.y init (-1.0)
-  frameTaskSolver.io.frameTask.data.inc.x init (2.0 / p.screenResX)
-  frameTaskSolver.io.frameTask.data.inc.y init (2.0 / p.screenResY)
+  frameTaskSolver.io.frameTask.start.x init (-1.0)
+  frameTaskSolver.io.frameTask.start.y init (-1.0)
+  frameTaskSolver.io.frameTask.inc.x init (2.0 / p.screenResX)
+  frameTaskSolver.io.frameTask.inc.y init (2.0 / p.screenResY)
 
   io.pixelResult << frameTaskSolver.io.pixelResult
 

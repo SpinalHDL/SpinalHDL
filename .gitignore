@@ -29,11 +29,19 @@ out
 
 
 #User
-*.vhd
+/*.vhd
+/*.v
 *.cf
 *.json
+*.tcl
 *.vcd
-!tester/src/test/resources/*.vhd
-
+*.pyc
+*.vvp
+*.xml
+log.txt
 /src/
 *.out
+*.o
+
+/tester/**/*.gtkw
+*.do

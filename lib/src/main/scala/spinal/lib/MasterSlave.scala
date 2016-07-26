@@ -4,8 +4,16 @@ import spinal.core.Data
 
 trait IMasterSlave {
   def asMaster(): this.type
-  def asSlave(): this.type
+  def asSlave(): this.type = asMaster.asInstanceOf[Data].flip.asInstanceOf[this.type]
 }
+
+//trait MasterSlave extends IMasterSlave{
+//  def applyMaster() : Unit
+//  def asMaseter() : this.type = {
+//    applyMaster()
+//    this
+//  }
+//}
 
 trait MSFactory{
   def postApply(interface : IMasterSlave) : Unit = {}
@@ -13,6 +21,11 @@ trait MSFactory{
 
 trait MS{
   def apply[T <: IMasterSlave](i: T) : T
+  def apply(a: IMasterSlave,b: IMasterSlave,c: IMasterSlave*) : Unit = {
+    apply(a)
+    apply(b)
+    for(e <- c) apply(e)
+  }
 
   object Flow extends FlowFactory{
     override def postApply(interface : IMasterSlave) : Unit = {
@@ -37,7 +50,7 @@ trait MS{
 
   def Event : Event = {
     val ret = spinal.lib.Event
-    MS.this.apply(ret)
+    this.apply(ret)
     ret
   }
 }
@@ -54,4 +67,11 @@ object slave extends MS {
     i.asSlave();
     i
   }
+}
+
+object slaveWithNull extends MS {
+  override def apply[T <: IMasterSlave](that: T): T = if(that != null) that.asSlave() else that
+}
+object masterWithNull extends MS {
+  override def apply[T <: IMasterSlave](that: T): T = if(that != null) that.asMaster() else that
 }

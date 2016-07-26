@@ -4,15 +4,13 @@ import spinal.core._
 
 
 object BufferCC {
-  def apply[T <: Data](input: T): T = apply(input, null.asInstanceOf[T])
-  def apply[T <: Data](input: T, init: T): T = apply(input, init, 2)
-  def apply[T <: Data](input: T, init: T, bufferDepth: Int): T = {
+  def apply[T <: Data](input: T, init: T = null, bufferDepth: Int = 2): T = {
     val c = new BufferCC(input, init != null, bufferDepth)
-    c.io.input := input
-    if(init != null) c.io.init := init
+    c.io.dataIn := input
+    if(init != null) c.io.initial := init
 
-    val ret = cloneOf(c.io.output)
-    ret := c.io.output
+    val ret = cloneOf(c.io.dataOut)
+    ret := c.io.dataOut
     return ret
   }
 }
@@ -21,14 +19,14 @@ class BufferCC[T <: Data](dataType: T, withInit : Boolean, bufferDepth: Int) ext
   assert(bufferDepth >= 1)
 
   val io = new Bundle {
-    val input = in(cloneOf(dataType))
-    val init = if(!withInit) null.asInstanceOf[T] else in(dataType.clone)
-    val output = out(dataType.clone)
+    val initial = if(!withInit) null.asInstanceOf[T] else in(dataType.clone)
+    val dataIn = in(cloneOf(dataType))
+    val dataOut = out(dataType.clone)
   }
 
-  val buffers = Vec(Reg(dataType, io.init),bufferDepth)
+  val buffers = Vec(Reg(dataType, io.initial),bufferDepth)
 
-  buffers(0) := io.input
+  buffers(0) := io.dataIn
   buffers(0).addTag(crossClockDomain)
   for (i <- 1 until bufferDepth) {
     buffers(i) := buffers(i - 1)
@@ -36,43 +34,39 @@ class BufferCC[T <: Data](dataType: T, withInit : Boolean, bufferDepth: Int) ext
 
   }
 
-  io.output := buffers.last
-
-
+  io.dataOut := buffers.last
 }
 
 
 object PulseCCByToggle {
   def apply(input: Bool, clockIn: ClockDomain, clockOut: ClockDomain): Bool = {
     val c = new PulseCCByToggle(clockIn,clockOut)
-    c.io.input := input
-    return c.io.output
-
+    c.io.pulseIn := input
+    return c.io.pulseOut
   }
-
 }
 
 
 class PulseCCByToggle(clockIn: ClockDomain, clockOut: ClockDomain) extends Component{
   val io = new Bundle{
-    val input = in Bool
-    val output = in Bool
+    val pulseIn = in Bool
+    val pulseOut = in Bool
   }
-  val inputArea = new ClockingArea(clockIn) {
+  val inArea = new ClockingArea(clockIn) {
     val target = RegInit(Bool(false))
-    when(io.input) {
+    when(io.pulseIn) {
       target := !target
     }
   }
 
-  val outputArea = new ClockingArea(clockOut) {
-    val target = BufferCC(inputArea.target, Bool(false))
+  val outArea = new ClockingArea(clockOut) {
+    val target = BufferCC(inArea.target, Bool(false))
     val hit = RegInit(Bool(false));
 
     when(target =/= hit) {
       hit := !hit
     }
 
-    io.output := (target =/= hit)
+    io.pulseOut := (target =/= hit)
   }
 }

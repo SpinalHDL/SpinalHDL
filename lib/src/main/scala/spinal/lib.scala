@@ -38,9 +38,12 @@ package object lib  {
 
   implicit def boolPimped(that: Bool) = new BoolPimped(that)
 
+  implicit class UIntPimper(that : UInt){
+    def toOneHot : Bits = B"1" << that
+  }
 
-
-  def StreamArbiter = new StreamArbiterCoreFactory()
+  
+  def StreamArbiterFactory = new StreamArbiterFactory()
 
   type ScalaStream[T] = collection.immutable.Stream[T]
 

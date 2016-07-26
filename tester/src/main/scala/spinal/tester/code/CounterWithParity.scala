@@ -13,7 +13,7 @@ class CounterWithParity(size : Int) extends Component{
   when(io.increment){
     counter := counter + U(1)
   }
-  io.evenParity := counter.toBools.reduceLeft(_ ^ _)
+  io.evenParity := counter.asBools.reduceLeft(_ ^ _)
 
   io.value := counter
 }

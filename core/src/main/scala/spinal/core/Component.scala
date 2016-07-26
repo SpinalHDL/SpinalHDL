@@ -27,9 +27,8 @@ object Component {
     //    c.io.flatten.foreach(_._2.isIo = true)
     //    pop(c);
     //    c.userParentCalledDef
-    return c;
+    return c
   }
-
 
   def push(c: Component): Unit = {
     //  if (when.stack.size() != 0) throw new Exception("Creating a component into hardware conditional expression")
@@ -37,13 +36,7 @@ object Component {
   }
 
   def pop(c: Component): Unit = {
-    try {
-      /* if(lastPoped == c) return;
-       lastPoped = c*/
-      GlobalData.get.componentStack.pop(c)
-    } catch {
-      case e: Exception => SpinalError(s"You probably forget the 'Component(new ${c.globalData.componentStack.head().getClass.getName})' into ${c.getClass.getName}")
-    }
+    GlobalData.get.componentStack.pop(c)
   }
 
   //var lastPoped : Component = null
@@ -54,50 +47,74 @@ object Component {
 }
 
 
-abstract class Component extends NameableByComponent with GlobalDataUser with ScalaLocated with DelayedInit {
+abstract class Component extends NameableByComponent with GlobalDataUser with ScalaLocated with DelayedInit with Stackable with OwnableRef{
 
   override def delayedInit(body: => Unit) = {
     body
 
     if ((body _).getClass.getDeclaringClass == this.getClass) {
-      // this.io.flatten.foreach(_.isIo = true)
-      Component.pop(this);
+
+      this.nameElements()
+
+      for(t <- prePopTasks){
+        t()
+      }
+      prePopTasks.clear()
+
+
+      Component.pop(this)
       this.userParentCalledDef
     }
   }
 
 
-  //def io: Data
-  private[core] val ioSet = mutable.Set[BaseType]()
 
+  private[core] val ioSet = mutable.Set[BaseType]()
+  private[core] var ioPrefixEnable = true
   val userCache = mutable.Map[Object, mutable.Map[Object, Object]]()
   private[core] val localScope = new Scope()
-  //private[core] val postCreationTask = mutable.ArrayBuffer[() => Unit]()
+  private[core] val prePopTasks = mutable.ArrayBuffer[() => Unit]()
   private[core] val kindsOutputsToBindings = mutable.Map[BaseType, BaseType]()
   private[core] val kindsOutputsBindings = mutable.Set[BaseType]()
-  private[core] val additionalNodesRoot = mutable.Set[BaseType]()
+  private[core] val additionalNodesRoot = mutable.Set[Node]()
   var definitionName: String = null
   private[core] val level = globalData.componentStack.size()
-  val kinds = ArrayBuffer[Component]()
+  val children = ArrayBuffer[Component]()
+  override type RefOwnerType = Component
   val parent = Component.current
+
   if (parent != null) {
-    parent.kinds += this;
-  }else{
+    parent.children += this;
+  } else {
     setWeakName("toplevel")
   }
 
+  def addPrePopTask(task : () => Unit) = prePopTasks += task
+//  def addPrePopTask(task :  => Unit) = prePopTasks += (() => {task; println("asd")})
+
+  val clockDomain = ClockDomain.current
+
+  def setDefinitionName(name: String): this.type = {
+    definitionName = name
+    this
+  }
+
+  def noIoPrefix() : this.type = {
+    val io = reflectIo
+    if(io != null) {
+      io.setName("")
+    }
+    ioPrefixEnable = false
+    this
+  }
+
   private[core] def isTopLevel: Boolean = parent == null
-
   private[core] val initialAssignementCondition = globalData.conditionalAssignStack.head()
-
   var nodes: ArrayBuffer[Node] = null
-
 
   private[core] var pulledDataCache = mutable.Map[Data, Data]()
 
-
   Component.push(this)
-
 
   def parents(of: Component = this, list: List[Component] = Nil): List[Component] = {
     if (of.parent == null) return list
@@ -115,27 +132,48 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
   }
 
   def nameElements(): Unit = {
+    val io = reflectIo
+    if(io != null) {
+      if(io.isUnnamed || io.isWeak) {
+        if (ioPrefixEnable)
+          io.setName("io")
+        else
+          io.setName("")
+      }
+      OwnableRef.set(io,this)
+    }
+//    if(io != null) {
+//      io.setName("io")
+//      OwnableRef.set(io,this)
+//    }
     Misc.reflect(this, (name, obj) => {
-      obj match {
-        case component: Component => {
-          if (component.parent == this)
-            component.setWeakName(name)
-        }
-        case namable: Nameable => {
-          if (!namable.isInstanceOf[ContextUser])
-            namable.setWeakName(name)
-          else if (namable.asInstanceOf[ContextUser].component == this)
-            namable.setWeakName(name)
-          else {
-            for (kind <- kinds) {
-              //Allow to name a component by his io reference into the parent component
-              if (kind.reflectIo == namable) {
-                kind.setWeakName(name)
+      if(obj != io) {
+        obj match {
+          case component: Component => {
+            if (component.parent == this) {
+              OwnableRef.proposal(obj, this)
+              component.setWeakName(name)
+            }
+          }
+          case nameable: Nameable => {
+            if (!nameable.isInstanceOf[ContextUser]) {
+              nameable.setWeakName(name)
+              OwnableRef.proposal(obj, this)
+            } else if (nameable.asInstanceOf[ContextUser].component == this) {
+              nameable.setWeakName(name)
+              OwnableRef.proposal(obj, this)
+            } else {
+              for (kind <- children) {
+                //Allow to name a component by his io reference into the parent component
+                if (kind.reflectIo == nameable) {
+                  kind.setWeakName(name)
+                  OwnableRef.proposal(kind, this)
+                }
               }
             }
           }
+          case _ =>
         }
-        case _ =>
       }
     })
   }
@@ -144,7 +182,8 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
     localScope.allocateName("zz")
     for (node <- nodes) node match {
       case nameable: Nameable => {
-        if (nameable.isUnnamed) {
+        if (nameable.isUnnamed || nameable.getName() == "") {
+          nameable.setMode(Nameable.UNANMED)
           nameable.setWeakName("zz")
         }
         if (nameable.isWeak)
@@ -154,7 +193,8 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
       }
       case _ =>
     }
-    for (kind <- kinds) {
+    for (kind <- children) {
+      OwnableRef.proposal(kind,this)
       if (kind.isUnnamed) {
         var name = kind.getClass.getSimpleName
         name = Character.toLowerCase(name.charAt(0)) + (if (name.length() > 1) name.substring(1) else "");
@@ -165,7 +205,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
   }
 
 
-  def getAllIo : mutable.Set[BaseType] = {
+  def getAllIo: mutable.Set[BaseType] = {
 
     if (nodes == null) {
       ioSet
@@ -180,8 +220,9 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
 
   }
 
-  private[core] def getOrdredNodeIo = getAllIo.toList.sortWith(_.instanceCounter < _.instanceCounter)
 
+
+  def getOrdredNodeIo = getAllIo.toList.sortWith(_.instanceCounter < _.instanceCounter)
 
   private[core] def getDelays = {
     val delays = new ArrayBuffer[SyncNode]()
@@ -192,7 +233,6 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
     delays
   }
 
-
   private[core] def userParentCalledDef: Unit = {
 
   }
@@ -200,6 +240,41 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
   private[core] def isInBlackBoxTree: Boolean = if (parent == null) false else parent.isInBlackBoxTree
 
   private[core] override def getComponent(): Component = parent
+
+
+  override def getDisplayName(): String = if (isNamed) super.getDisplayName() else "[" + getClass.getSimpleName + "]"
+
+  def getParentsPath(sep: String = "/"): String = if (parent == null) "" else parents().map(_.getDisplayName()).reduce(_ + sep + _)
+
+  def getPath(sep: String = "/"): String = (if (parent == null) "" else (getParentsPath(sep) + sep)) + this.getDisplayName()
+
+  def getGroupedIO(ioBundleBypass: Boolean): Seq[Data] = {
+    val ret = mutable.Set[Data]()
+    val ioBundle = if (ioBundleBypass) reflectIo else null
+    def getRootParent(that: Data): Data = if (that.parent == null || that.parent == ioBundle) that else getRootParent(that.parent)
+    for (e <- getOrdredNodeIo) {
+      ret += getRootParent(e)
+    }
+    ret.toSeq.sortBy(_.instanceCounter)
+  }
+
+  override def postPushEvent(): Unit = {
+  //  println("push " + this.getClass.getSimpleName)
+  }
+  override def prePopEvent(): Unit = {
+   // println("pop " + this.getClass.getSimpleName)
+
+  }
+
+//  def keepAll() : Unit = {
+//    Misc.reflect(this, (name, obj) => {
+//      obj match {
+//        case data : Data => data.keep()
+//        case area : Area => area.keepAll()
+//      }
+//    }
+//  }
+
 }
 
 

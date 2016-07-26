@@ -54,13 +54,14 @@ object when {
   }
 
   //Allow the user to get a Bool that represent the  aggregation of all condition to the current context
-  def getWhensCond(that: ContextUser): Bool = {
-    val whenScope = if (that == null) null else that.conditionalAssignScope
+  def getWhensCond(that: ContextUser): Bool = getWhensCond(if (that == null) null else that.conditionalAssignScope)
 
+
+  def getWhensCond(scope: ConditionalContext): Bool = {
     var ret: Bool = null
-    for (conditionalAssign <- that.globalData.conditionalAssignStack.stack) conditionalAssign match {
+    for (conditionalAssign <- GlobalData.get.conditionalAssignStack.stack) conditionalAssign match {
       case w : WhenContext => {
-        if (w == whenScope) return returnFunc
+        if (w == scope) return returnFunc
         val newCond = if (w.isTrue) w.cond else !w.cond
         if (ret == null) {
           ret = newCond
@@ -68,7 +69,6 @@ object when {
           ret = ret && newCond
         }
       }
-      case s : SwitchNode => ??? //TODO switch
     }
 
 
@@ -113,8 +113,6 @@ class WhenContext(val cond: Bool) extends ConditionalContext {
     parentElseWhen.destackElseWhen
   }
 
-
-
 }
 
 class SwitchStack(val value: Data) {
@@ -126,29 +124,114 @@ class SwitchStack(val value: Data) {
 
 object WhenNode {
 
-  def apply(w: WhenContext): WhenNode = {
-    apply(w, w.cond, NoneNode(), NoneNode())
+  def apply(forThat : BaseType,w: WhenContext): WhenNode = {
+    apply(forThat,w, w.cond, null,null)
   }
 
-  def apply(w: WhenContext, cond: Bool, whenTrue: Node, whenFalse: Node): WhenNode = {
-    val ret = new WhenNode(w)
-    ret.inputs += cond
-    ret.inputs += whenTrue
-    ret.inputs += whenFalse
+  def apply(forThat : BaseType,w: WhenContext, cond: Bool, whenTrue: Node, whenFalse: Node): WhenNode = {
+    val ret = newFor(forThat,w)
+    ret.cond = cond
+    ret.whenTrue = whenTrue.asInstanceOf[ret.T]
+    ret.whenFalse = whenFalse.asInstanceOf[ret.T]
     ret
+  }
+
+  def newFor(that : BaseType,w: WhenContext) : WhenNode = that match{
+    case that : BitVector => new WhenNodeWidthable(w)
+    case that : SpinalEnumCraft[_] => new WhenNodeEnum(w,that.blueprint)
+    case _ => new WhenNode(w)
   }
 }
 
-class WhenNode(val w: WhenContext) extends Node {
-  override def calcWidth: Int = Math.max(whenTrue.getWidth, whenFalse.getWidth)
+class WhenNode (val w: WhenContext) extends Node with AssignementTreePart {
+  type T <: Node
+  var cond      : Node = null
+  var whenTrue  : T = null.asInstanceOf[T]
+  var whenFalse : T = null.asInstanceOf[T]
 
-  def cond = inputs(0)
-  def whenTrue = inputs(1)
-  def whenFalse = inputs(2)
+  override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
+
+
+  override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
+    doThat(cond,0)
+    if(whenTrue != null)  doThat(whenTrue,1)
+    if(whenFalse != null) doThat(whenFalse,2)
+  }
+  override def onEachInput(doThat: (Node) => Unit): Unit = {
+    doThat(cond)
+    if(whenTrue != null)  doThat(whenTrue)
+    if(whenFalse != null) doThat(whenFalse)
+  }
+
+  override def setInput(id: Int, node: Node): Unit = id match{
+    case 0 => cond = node
+    case 1 => whenTrue = node.asInstanceOf[T]
+    case 2 => whenFalse = node.asInstanceOf[T]
+  }
+
+  override def getInputsCount: Int = 1 + (if(whenTrue != null) 1 else 0) + (if(whenFalse != null) 1 else 0)
+  override def getInputs: Iterator[Node] = (whenTrue != null,whenFalse != null) match{
+    case (false,false) => Iterator(cond)
+    case (false,true)  => Iterator(cond,whenFalse)
+    case (true,false)  => Iterator(cond,whenTrue)
+    case (true,true)   => Iterator(cond,whenTrue,whenFalse)
+  }
+  override def getInput(id: Int): Node = id match{
+    case 0 => cond
+    case 1 => whenTrue
+    case 2 => whenFalse
+  }
+
+  var whenTrueThrowable : Throwable = null
+  var whenFalseThrowable : Throwable = null
+
+  override def getAssignementContext(id: Int): Throwable = id match{
+    case 1 => whenTrueThrowable
+    case 2 => whenFalseThrowable
+  }
+  override def setAssignementContext(id: Int,that : Throwable = globalData.getThrowable()): Unit =  id match{
+    case 1 => whenTrueThrowable  = that
+    case 2 => whenFalseThrowable = that
+  }
+
+  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
+    case 0 => (0, 0)
+    case _ => (outHi,outLo)
+  }
+
+}
+
+
+class WhenNodeWidthable (w: WhenContext) extends WhenNode(w) with Widthable with CheckWidth{
+  override type T = Node with WidthProvider
+
+  override def calcWidth: Int = Math.max(if(whenTrue != null) whenTrue.getWidth else -1, if(whenFalse != null) whenFalse.getWidth else -1)
 
   override def normalizeInputs: Unit = {
-    Misc.normalizeResize(this, 1, this.getWidth)
-    Misc.normalizeResize(this, 2, this.getWidth)
+    if(whenTrue != null)  InputNormalize.bitVectoreAssignement(this,1,this.getWidth)
+    if(whenFalse != null) InputNormalize.bitVectoreAssignement(this,2,this.getWidth)
+  }
+
+  override private[core] def checkInferedWidth: String = {
+    def doit(input : T,i : Int) : String = {
+      if (input != null && input.component != null && this.getWidth != input.getWidth) {
+        return s"Assignement bit count missmatch. ${this} := ${input}} at\n${ScalaLocated.long(getAssignementContext(i))}"
+      }
+      else null
+    }
+    var str : String = null
+    str = doit(whenTrue,1);  if(str != null) return str
+    str = doit(whenFalse,2); if(str != null) return str
+    return null
+  }
+}
+
+class WhenNodeEnum (w: WhenContext,enumDef : SpinalEnum) extends WhenNode(w) with InferableEnumEncodingImpl{
+  override type T = Node with EnumEncoded
+  override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
+  override def getDefinition: SpinalEnum = enumDef
+  override private[core] def normalizeInputs: Unit = {
+    InputNormalize.enumImpl(this)
   }
 }
 
@@ -169,11 +252,15 @@ class CaseContext(val switchContext: SwitchContext,val cond : Bool) extends Cond
 
 
 object switch {
-
   def apply[T <: Data](value: T)(block: => Unit): Unit = {
+    //value.globalData.pushNetlistLock(() => {
+//      SpinalError(s"You should not use 'general statments' in the 'switch' scope, but only 'is' statments.\n${ScalaLocated.long}")
+//    })
     val s = new SwitchStack(value)
     value.globalData.switchStack.push(s)
     block
+
+    //value.globalData.pushNetlistUnlock()
     if (s.defaultBlock != null) {
       if (s.lastWhen == null) {
         block
@@ -181,15 +268,21 @@ object switch {
         s.lastWhen.otherwise(s.defaultBlock())
       }
     }
+
+    //value.globalData.popNetlistUnlock()
     value.globalData.switchStack.pop(s)
+    //value.globalData.popNetlistLock
   }
 }
 
 
 object is {
-  def apply(values: Any*)(block: => Unit): Unit = {
+  def apply(values:  Any*)(block: => Unit): Unit = list(values.iterator)(block)
+
+  def list(values: Iterator[Any])(block: => Unit): Unit = {
     val globalData = GlobalData.get
     if (globalData.switchStack.isEmpty) SpinalError("Use 'is' statement outside the 'switch'")
+    globalData.pushNetlistUnlock()
 
     val value = globalData.switchStack.head()
     if (value.whenStackHead != globalData.conditionalAssignStack.head())
@@ -226,6 +319,7 @@ object is {
     } else {
       value.lastWhen = value.lastWhen.elsewhen(cond)(block)
     }
+    globalData.popNetlistUnlock()
   }
 }
 
@@ -233,6 +327,7 @@ object default {
   def apply(block: => Unit): Unit = {
     val globalData = GlobalData.get
     if (globalData.switchStack.isEmpty) SpinalError("Use 'default' statement outside the 'switch'")
+    globalData.pushNetlistUnlock()
     val value = globalData.switchStack.head()
 
     if (value.whenStackHead != globalData.conditionalAssignStack.head()) SpinalError("'default' statement is not at the top level of the 'switch'")
@@ -240,104 +335,6 @@ object default {
     value.defaultBlock = () => {
       block
     }
+    globalData.popNetlistUnlock()
   }
-}
-
-
-object switch2 {
-
-  def apply[T <: Data](value: T)(block: => Unit): Unit = {
-    val s = new SwitchContext(value)
-    value.globalData.conditionalAssignStack.push(s)
-    block
-    value.globalData.conditionalAssignStack.pop(s)
-  }
-}
-
-
-object is2 {
-  def apply(values: Any*)(block: => Unit): Unit = {
-    val globalData = GlobalData.get
-    if (globalData.conditionalAssignStack.isEmpty) SpinalError("Use 'is' statement outside the 'switch'")
-
-    val switchContext : SwitchContext = globalData.conditionalAssignStack.head() match{
-      case switchContext : SwitchContext => switchContext
-      case _ => SpinalError("'is' statement is not at the top level of the 'switch'")
-    }
-    val e = ArrayBuffer[Bool]()
-    val switchValue = switchContext.value
-
-    def analyse(key: Any): Bool = {
-      key match {
-        case key: Data => switchValue.isEguals(key)
-        case key: Seq[_] => key.map(d => analyse(d)).reduce(_ || _)
-        case key: Int => {
-          switchValue match {
-            case switchValue: Bits => switchValue === B(key)
-            case switchValue: UInt => switchValue === U(key)
-            case switchValue: SInt => switchValue === S(key)
-            case _ => SpinalError("The switch is not a Bits, UInt or SInt")
-          }
-        }
-        case that : SpinalEnumElement[_] => switchValue.isEguals(that())
-        case key : MaskedLiteral => switchValue match {
-          case switchValue: Bits => switchValue === key
-          case switchValue: UInt => switchValue === key
-          case switchValue: SInt => switchValue === key
-          case _ => SpinalError("The switch is not a Bits, UInt or SInt")
-        }
-      }
-    }
-
-
-    val cond = values.map(analyse(_)).reduce(_ || _)
-    val caseContext = new CaseContext(switchContext,cond)
-    caseContext.push
-    switchContext.defaultCond := False
-    block
-    caseContext.pop
-  }
-}
-
-//TODO switch make a proper implementation/check
-object default2 {
-  def apply(block: => Unit): Unit = {
-    val globalData = GlobalData.get
-    val switchContext : SwitchContext = globalData.conditionalAssignStack.head() match{
-      case switchContext : SwitchContext => switchContext
-      case _ => SpinalError("'is' statement is not at the top level of the 'switch'")
-    }
-
-    if (switchContext.defaultBlockPresent) SpinalError("'default' statement must appear only one time in the 'switch'")
-    switchContext.defaultBlockPresent = true
-
-
-    val cond = switchContext.defaultCond
-    val caseContext = new CaseContext(switchContext,cond)
-    switchContext.defaultContext = caseContext
-    caseContext.push
-    block
-    caseContext.pop
-  }
-}
-
-class CaseNode(val context: CaseContext) extends Node{
-  inputs += context.cond
-  inputs += null
-  def cond = inputs(0)
-  def assignement = inputs(1)
-
-  override private[core] def calcWidth: Int = assignement.getWidth
-}
-
-class SwitchNode(val context: SwitchContext) extends Node{
-  def cases = inputs
-
-  override def normalizeInputs: Unit = {
-    for((input,i)  <- inputs.zipWithIndex){
-      Misc.normalizeResize(this, i, this.getWidth)
-    }
-  }
-
-  override def calcWidth: Int = cases.foldLeft(-1)((a,b) => Math.max(a,b.getWidth))
 }

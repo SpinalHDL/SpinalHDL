@@ -11,10 +11,57 @@ scala:
 sbt_args: -no-colors -J-Xss2m
 
 script:
-   - sbt ++$TRAVIS_SCALA_VERSION -jvm-opts  test
+  - sbt -jvm-opts travis/jvmopts.compile compile
+  - sbt -jvm-opts travis/jvmopts.test test
 
 jdk:
+  - oraclejdk8
+  - oraclejdk7
   - openjdk7
 
-# after_success:
-# Push to sonatype ?
+before_install:
+  # JDK fix
+  - cat /etc/hosts # optionally check the content *before*
+  - sudo hostname "$(hostname | cut -c1-63)"
+  - sed -e "s/^\\(127\\.0\\.0\\.1.*\\)/\\1 $(hostname | cut -c1-63)/" /etc/hosts | sudo tee /etc/hosts
+  - cat /etc/hosts # optionally check the content *after*
+
+  # GHDL
+  - sudo add-apt-repository -y ppa:pgavin/ghdl
+  - sudo apt-get update
+  - sudo apt-get install -y --force-yes ghdl
+
+  # iverilog (debian package 9.7 contain bugs)
+  - sudo apt-get install -y gperf readline-common bison flex
+  - cd ..
+  - wget https://github.com/steveicarus/iverilog/archive/v10_0.tar.gz
+  - tar -xvf v10_0.tar.gz
+  - cd iverilog-10_0
+  - autoconf
+  - ./configure
+  - make -j4
+  - sudo make install
+  - cd ../SpinalHDL
+
+  # cocotb
+  - sudo apt-get install -y git make gcc g++ swig python-dev
+  - git clone https://github.com/potentialventures/cocotb
+  - cd cocotb
+  - git reset --hard 4fdd89339222759d57e9cc3d741ca04b3cdebe4f
+  - cd ..
+  - export COCOTB=$(pwd)/cocotb
+
+  # Force cocotb to compile VPI to avoid race condition when tests are start in parallel
+  - cd tester/src/test/python/spinal/Dummy
+  - make
+  - cd ../../../../../..
+
+before_cache:
+  # Tricks to avoid unnecessary cache updates
+  - find $HOME/.ivy2 -name "ivydata-*.properties" -delete
+  - find $HOME/.sbt -name "*.lock" -delete
+
+cache:
+  directories:
+    - $HOME/.ivy2/cache
+    - $HOME/.sbt/boot/
