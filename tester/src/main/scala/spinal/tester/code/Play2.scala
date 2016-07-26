@@ -2029,3 +2029,124 @@ object Play928267{
     SpinalConfig(dumpWave = DumpWaveConfig()).generateVhdl(new SPIMaster(4)).printPruned()
   }
 }
+
+
+object PlayLogicLock{
+  class TopLevel extends Component {
+    val sel = in UInt(4 bits)
+    val result = out Bits(8 bits)
+
+    switch(sel){
+      is(0){
+        result := 3
+      }
+      default{
+        result := 4
+      }
+    }
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+object PlayProcess{
+  class TopLevel extends Component {
+    val a,b,c = in Bool
+    val result = out UInt(8 bits)
+
+    val combinatorial   =     UInt(8 bits)
+    val regWithoutReset = Reg(UInt(8 bits))
+    val regWithReset    = Reg(UInt(8 bits)) init(0)
+
+    when(a){
+      combinatorial := 0
+      when(b){
+        regWithoutReset := regWithoutReset + 1
+        when(c){
+          combinatorial := 2
+        }
+      }
+    }otherwise{
+      regWithReset := regWithReset + 1
+      combinatorial := 1
+    }
+
+    result := combinatorial + regWithoutReset + regWithReset
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
+
+object PlayHandshake{
+  case class Handshake[T <: Data](dataType : T) extends Bundle{
+    val valid   = Bool
+    val ready   = Bool
+    val payload = cloneOf(dataType)  //Make another instance of 'dataType'
+
+    def asMaster() : Handshake[T] = {
+      out(valid,payload)
+      in(ready)
+      this
+    }
+
+    def asSlave() : Handshake[T] = {
+      in(valid,payload)
+      out(ready)
+      this
+    }
+  }
+
+  class ArbiterLowPortFirst[T <: Data](dataType : T,inputsCount : Int) extends Component {
+    val io = new Bundle{
+      val inputs = Vec(Handshake(dataType).asSlave(),size = inputsCount)
+      val output = Handshake(dataType).asMaster()
+    }
+    
+    var free = True
+    io.output.valid := False
+    io.output.payload := io.inputs(0).payload //default
+    for(input <- io.inputs){
+      input.ready := io.output.ready && free
+      when(input.valid && free){
+        free \= False
+        io.output.valid := True
+        io.output.payload := input.payload
+      }
+    }
+  }
+
+  case class RGB(redWidth : Int,greenWidth : Int,blueWidth : Int) extends Bundle{
+    val r = UInt(redWidth bits)
+    val g = UInt(greenWidth bits)
+    val b = UInt(blueWidth bits)
+  }
+
+  class TopLevel extends Component{
+    val io = new Bundle{
+      val a      = Handshake(RGB(5,6,5)).asSlave
+      val b      = Handshake(RGB(5,6,5)).asSlave
+      val c      = Handshake(RGB(5,6,5)).asSlave
+      val output = Handshake(RGB(5,6,5)).asMaster
+    }
+
+    val arbiter = new ArbiterLowPortFirst(
+      dataType = RGB(5,6,5),
+      inputsCount = 3
+    )
+
+    arbiter.io.inputs(0) <> io.a
+    arbiter.io.inputs(1) <> io.b
+    arbiter.io.inputs(2) <> io.c
+    arbiter.io.output    <> io.output
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}

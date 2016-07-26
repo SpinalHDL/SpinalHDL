@@ -567,6 +567,7 @@ trait InferableEnumEncodingImpl extends EnumEncoded  with InferableEnumEncoding 
 
 
 abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady with GlobalDataUser {
+  globalData.netlistUpdate()
   val consumers = new ArrayBuffer[Node](4)
 
   def getInputsCount : Int = getInputs.size

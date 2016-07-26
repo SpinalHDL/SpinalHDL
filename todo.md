@@ -6,7 +6,7 @@
 - [X] add xxx := (default -> True) support (no B/U/S prefix)
 - [ ] Add myBool := 0/1 ?
 - [ ] Do a improvment run on Mem (writeFirst, black box, vendor/family support, ...)
-- [ ] Add logic inferation LOCK functionality ? switch -> is   State -> functions
+- [/] Add logic inferation LOCK functionality ? switch -> is   State -> functions
 - [X] Add version number into elaboration logs
 - [X] Function for compinent without the io_ prefix on IO
 - [X] Add option to disable the pkg generation in VHDL

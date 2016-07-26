@@ -22,7 +22,7 @@ package spinal.core
 import java.util
 
 import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.{Stack, ArrayBuffer}
 
 case class BitCount(val value: Int) {}
 case class ExpNumber(val value: Int) {}
@@ -654,6 +654,17 @@ class GlobalData {
   var instanceCounter = 0
   val pendingErrors = mutable.ArrayBuffer[() => String]()
   val postBackendTask = mutable.ArrayBuffer[() => Unit]()
+  var netlistLockError = new Stack[() => Unit]()
+  netlistLockError.push(null)
+  def pushNetlistLock(error : () => Unit) : Unit = netlistLockError.push(error)
+  def popNetlistLock() : Unit = netlistLockError.pop
+  def pushNetlistUnlock() : Unit = netlistLockError.push(null)
+  def popNetlistUnlock() : Unit = netlistLockError.pop
+  def netlistUpdate() : Unit = {
+    if(netlistLockError.head != null){
+      netlistLockError.head()
+    }
+  }
 
   val jsonReports = ArrayBuffer[String]()
 
