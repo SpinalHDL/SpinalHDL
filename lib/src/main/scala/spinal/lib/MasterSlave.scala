@@ -8,6 +8,12 @@ trait IMasterSlave {
 }
 
 //trait MasterSlave extends IMasterSlave{
+//  def asMaster() : this.type = {
+//    this
+//  }
+//}
+
+//trait MasterSlave extends IMasterSlave{
 //  def applyMaster() : Unit
 //  def asMaseter() : this.type = {
 //    applyMaster()
