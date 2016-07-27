@@ -141,6 +141,9 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated{
       when(stateRegOneHotMap(state) && !stateNextOneHotMap(state)){
         state.onExitTasks.foreach(_())
       }
+      when(!stateRegOneHotMap(state)){
+        state.whenInactiveTasks.foreach(_())
+      }
     }
 
 
