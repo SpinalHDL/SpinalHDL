@@ -19,7 +19,6 @@
 package spinal.core
 
 import spinal.core.Operator.BitVector.AllByBool
-import spinal.core.Operator.UInt
 
 trait UIntCast{
   def asUInt(that : Bool) : UInt = that.asUInt

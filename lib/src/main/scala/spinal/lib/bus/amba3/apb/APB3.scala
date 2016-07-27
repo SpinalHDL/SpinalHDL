@@ -34,7 +34,7 @@ class Apb3(val config: Apb3Config) extends Bundle with IMasterSlave {
   val PWDATA     = Bits(config.dataWidth bit)
   val PRDATA     = Bits(config.dataWidth bit)
   val PSLVERROR  = if(config.useSlaveError) Bool else null
-  override def asMaster(): Apb3.this.type = {
+  override def asMaster(): this.type = {
     out(PADDR,PSEL,PENABLE,PWRITE,PWDATA)
     in(PREADY,PRDATA)
     if(config.useSlaveError) in(PSLVERROR)

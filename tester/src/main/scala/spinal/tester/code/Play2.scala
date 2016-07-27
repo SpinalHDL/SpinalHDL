@@ -2150,3 +2150,67 @@ object PlayHandshake{
     SpinalVhdl(new TopLevel)
   }
 }
+
+object PlayMasterSlave{
+  class APB( addressWidth: Int,
+              dataWidth: Int,
+              selWidth : Int,
+              useSlaveError : Boolean) extends Bundle with IMasterSlave {
+
+    val PADDR      = UInt(addressWidth bit)
+    val PSEL       = Bits(selWidth bits)
+    val PENABLE    = Bool
+    val PREADY     = Bool
+    val PWRITE     = Bool
+    val PWDATA     = Bits(dataWidth bit)
+    val PRDATA     = Bits(dataWidth bit)
+    val PSLVERROR  = if(useSlaveError) Bool else null   //This wire is added to the bundle only when useSlaveError is true
+
+    override def asMaster(): this.type = {
+      out(PADDR,PSEL,PENABLE,PWRITE,PWDATA)
+      in(PREADY,PRDATA)
+      if(useSlaveError) in(PSLVERROR)
+      this
+    }
+  }
+
+  case class APBConfig(addressWidth: Int,
+                       dataWidth: Int,
+                       selWidth : Int,
+                       useSlaveError : Boolean)
+
+  class APB3(val config: APBConfig) extends Bundle with IMasterSlave {
+    val PADDR      = UInt(config.addressWidth bit)
+    val PSEL       = Bits(config.selWidth bits)
+    val PENABLE    = Bool
+    val PREADY     = Bool
+    val PWRITE     = Bool
+    val PWDATA     = Bits(config.dataWidth bit)
+    val PRDATA     = Bits(config.dataWidth bit)
+    val PSLVERROR  = if(config.useSlaveError) Bool else null
+
+    override def asMaster(): this.type = {
+      out(PADDR,PSEL,PENABLE,PWRITE,PWDATA)
+      in(PREADY,PRDATA)
+      if(config.useSlaveError) in(PSLVERROR)
+      this
+    }
+  }
+
+//
+//  object Handshake{
+//    def apply() = new Handshake
+//  }
+//  class Handshake extends Bundle with MasterSlave{
+//    @masterx val valid = Bool
+//    @masterx val payload = Bits(8 bits)
+//  }
+////  implicit def masterToHandshake()
+//  class TopLevel extends Component {
+//    val rsp = master(new Handshake)
+//  }
+//
+//  def main(args: Array[String]) {
+//    SpinalVhdl(new TopLevel)
+//  }
+}
