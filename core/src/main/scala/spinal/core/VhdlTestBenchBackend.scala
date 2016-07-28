@@ -25,8 +25,11 @@ import scala.collection.mutable
 import scala.collection.mutable.StringBuilder
 import scala.io.Source
 
-class VhdlTestBenchBackend(pc : PhaseContext) extends VhdlBase with Phase {
+class VhdlTestBenchBackend(pc : PhaseContext) extends VhdlBase with PhaseMisc {
   import pc._
+
+  override def useNodeConsumers: Boolean = false
+
   var out: java.io.FileWriter = null
   var tbName: String = null
 

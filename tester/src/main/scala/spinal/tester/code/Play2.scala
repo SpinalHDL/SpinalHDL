@@ -2197,6 +2197,72 @@ object PlayMasterSlave{
     }
   }
 
+
+  class MyBundle extends Bundle{
+    val publicElement = Bool
+    private val privateElement = Bool
+
+    def getPrivateElement() : Bool = {
+      return privateElement
+    }
+
+    def setPrivateElement(value : Bool) : Unit = {
+      privateElement := value
+    }
+
+    def setPrivateElementByAnAbstractWay(trigger : UInt) : Unit = {
+      when(trigger > 10) {
+        privateElement := True
+      }
+    }
+  }
+
+
+//  class RGB(channelWidth : Int) extends Bundle{
+//    val r,g,b = UInt(channelWidth bits)
+//
+//    def isClear() : Bool ={
+//      return r === 0 && g === 0 && b === 0
+//    }
+//  }
+//
+//  class RGBA(channelWidth : Int) extends RGB(channelWidth){
+//    val a = UInt(channelWidth bits)
+//
+//    override def isClear() : Bool ={
+//      return super.isClear() && a === 0
+//    }
+//  }
+
+  case class Handshake[T <: Data](dataType : T) extends Bundle{
+    val valid   = Bool
+    val ready   = Bool
+    val payload = cloneOf(dataType)  //All data type that i give to the Handshake class should implement the clone method
+  }
+
+  case class RGB() extends Bundle{
+    val r,g,b = UInt(8 bits)
+  }
+
+  class RGBA extends Bundle{
+    val r,g,b,a = UInt(8 bits)
+
+    override def clone: this.type = new RGBA().asInstanceOf[this.type]  //RGBA is not a "case class", To to be abble to clone it in the Handhsake, we need to implement this.
+  }
+
+
+  implicit class Imp(toto : Toto){
+    def aaa = 2
+    override def clone() : Toto = new Toto
+  }
+  class Toto{
+
+  }
+
+  val toto = new Toto
+  toto.aaa
+//  toto.clo
+
 //
 //  object Handshake{
 //    def apply() = new Handshake

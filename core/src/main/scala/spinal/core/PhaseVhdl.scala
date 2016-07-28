@@ -10,8 +10,10 @@ import scala.util.Random
 
 
 
-class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
+class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
   import pc._
+  override def useNodeConsumers: Boolean = true
+
   var outFile: java.io.FileWriter = null
   var memBitsMaskKind : MemBitsMaskKind = MULTIPLE_RAM
 
@@ -29,8 +31,10 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
       emitPackage(outFile)
 
     for (c <- sortedComponents) {
-      SpinalProgress(s"${"  " * (1 + c.level)}emit ${c.definitionName}")
-      compile(c)
+      if (!c.isInBlackBoxTree) {
+        SpinalProgress(s"${"  " * (1 + c.level)}emit ${c.definitionName}")
+        compile(c)
+      }
     }
 
     outFile.flush();

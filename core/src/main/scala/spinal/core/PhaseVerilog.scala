@@ -10,8 +10,11 @@ import scala.util.Random
 
 
 
-class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
+class PhaseVerilog(pc : PhaseContext) extends PhaseMisc with VerilogBase {
   import pc._
+
+  override def useNodeConsumers: Boolean = true
+
   var outFile: java.io.FileWriter = null
   var memBitsMaskKind : MemBitsMaskKind = MULTIPLE_RAM
 
@@ -27,8 +30,10 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
     emitEnumPackage(outFile)
 
     for (c <- sortedComponents) {
-      SpinalProgress(s"${"  " * (1 + c.level)}emit ${c.definitionName}")
-      compile(c)
+      if (!c.isInBlackBoxTree) {
+        SpinalProgress(s"${"  " * (1 + c.level)}emit ${c.definitionName}")
+        compile(c)
+      }
     }
 
     outFile.flush();
