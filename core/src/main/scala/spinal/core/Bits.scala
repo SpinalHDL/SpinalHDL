@@ -19,7 +19,6 @@
 package spinal.core
 
 import spinal.core.Operator.BitVector.AllByBool
-import spinal.core.Operator.Bits
 import spinal.core.Operator.Bits.RotateLeftByUInt
 
 /**

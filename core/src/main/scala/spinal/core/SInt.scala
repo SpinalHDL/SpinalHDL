@@ -19,7 +19,6 @@
 package spinal.core
 
 import spinal.core.Operator.BitVector.AllByBool
-import spinal.core.Operator.SInt
 
 /**
  * Created by PIC18F on 21.08.2014.

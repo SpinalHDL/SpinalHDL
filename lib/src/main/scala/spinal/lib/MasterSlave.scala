@@ -7,6 +7,20 @@ trait IMasterSlave {
   def asSlave(): this.type = asMaster.asInstanceOf[Data].flip.asInstanceOf[this.type]
 }
 
+//trait MasterSlave extends IMasterSlave{
+//  def asMaster() : this.type = {
+//    this
+//  }
+//}
+
+//trait MasterSlave extends IMasterSlave{
+//  def applyMaster() : Unit
+//  def asMaseter() : this.type = {
+//    applyMaster()
+//    this
+//  }
+//}
+
 trait MSFactory{
   def postApply(interface : IMasterSlave) : Unit = {}
 }

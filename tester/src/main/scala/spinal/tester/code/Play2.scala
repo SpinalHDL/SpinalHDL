@@ -1943,15 +1943,22 @@ object PlayBug5441{
 
 object PlayBug544441{
   class TopLevel extends Component {
-    val condA = in Bool
-    val condB = in Bool
-    val result = out Bits(8 bits)
-    result(3 downto 2) := 0
-    when(condA){
-//      when(condB){
-        result := 4
-//      }
-    }
+//    val condA = in Bool
+//    val condB = in Bool
+//    val result = out Bits(8 bits)
+//    result(3 downto 2) := 0
+//    when(condA){
+////      when(condB){
+//        result := 4
+////      }
+//
+//    }
+
+    val a,b,c = out Bits(8 bits)
+    a := "0000_0001"
+    b := "x55"
+    c.:=("xAA")
+    
   }
 
   def main(args: Array[String]) {
@@ -2021,4 +2028,189 @@ object Play928267{
     //ou
     SpinalConfig(dumpWave = DumpWaveConfig()).generateVhdl(new SPIMaster(4)).printPruned()
   }
+}
+
+
+object PlayLogicLock{
+  class TopLevel extends Component {
+    val sel = in UInt(4 bits)
+    val result = out Bits(8 bits)
+
+    switch(sel){
+      is(0){
+        result := 3
+      }
+      default{
+        result := 4
+      }
+    }
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+object PlayProcess{
+  class TopLevel extends Component {
+    val a,b,c = in Bool
+    val result = out UInt(8 bits)
+
+    val combinatorial   =     UInt(8 bits)
+    val regWithoutReset = Reg(UInt(8 bits))
+    val regWithReset    = Reg(UInt(8 bits)) init(0)
+
+    when(a){
+      combinatorial := 0
+      when(b){
+        regWithoutReset := regWithoutReset + 1
+        when(c){
+          combinatorial := 2
+        }
+      }
+    }otherwise{
+      regWithReset := regWithReset + 1
+      combinatorial := 1
+    }
+
+    result := combinatorial + regWithoutReset + regWithReset
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
+
+object PlayHandshake{
+  case class Handshake[T <: Data](dataType : T) extends Bundle{
+    val valid   = Bool
+    val ready   = Bool
+    val payload = cloneOf(dataType)  //Make another instance of 'dataType'
+
+    def asMaster() : Handshake[T] = {
+      out(valid,payload)
+      in(ready)
+      this
+    }
+
+    def asSlave() : Handshake[T] = {
+      in(valid,payload)
+      out(ready)
+      this
+    }
+  }
+
+  class ArbiterLowPortFirst[T <: Data](dataType : T,inputsCount : Int) extends Component {
+    val io = new Bundle{
+      val inputs = Vec(Handshake(dataType).asSlave(),size = inputsCount)
+      val output = Handshake(dataType).asMaster()
+    }
+    
+    var free = True
+    io.output.valid := False
+    io.output.payload := io.inputs(0).payload //default
+    for(input <- io.inputs){
+      input.ready := io.output.ready && free
+      when(input.valid && free){
+        free \= False
+        io.output.valid := True
+        io.output.payload := input.payload
+      }
+    }
+  }
+
+  case class RGB(redWidth : Int,greenWidth : Int,blueWidth : Int) extends Bundle{
+    val r = UInt(redWidth bits)
+    val g = UInt(greenWidth bits)
+    val b = UInt(blueWidth bits)
+  }
+
+  class TopLevel extends Component{
+    val io = new Bundle{
+      val a      = Handshake(RGB(5,6,5)).asSlave
+      val b      = Handshake(RGB(5,6,5)).asSlave
+      val c      = Handshake(RGB(5,6,5)).asSlave
+      val output = Handshake(RGB(5,6,5)).asMaster
+    }
+
+    val arbiter = new ArbiterLowPortFirst(
+      dataType = RGB(5,6,5),
+      inputsCount = 3
+    )
+
+    arbiter.io.inputs(0) <> io.a
+    arbiter.io.inputs(1) <> io.b
+    arbiter.io.inputs(2) <> io.c
+    arbiter.io.output    <> io.output
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+object PlayMasterSlave{
+  class APB( addressWidth: Int,
+              dataWidth: Int,
+              selWidth : Int,
+              useSlaveError : Boolean) extends Bundle with IMasterSlave {
+
+    val PADDR      = UInt(addressWidth bit)
+    val PSEL       = Bits(selWidth bits)
+    val PENABLE    = Bool
+    val PREADY     = Bool
+    val PWRITE     = Bool
+    val PWDATA     = Bits(dataWidth bit)
+    val PRDATA     = Bits(dataWidth bit)
+    val PSLVERROR  = if(useSlaveError) Bool else null   //This wire is added to the bundle only when useSlaveError is true
+
+    override def asMaster(): this.type = {
+      out(PADDR,PSEL,PENABLE,PWRITE,PWDATA)
+      in(PREADY,PRDATA)
+      if(useSlaveError) in(PSLVERROR)
+      this
+    }
+  }
+
+  case class APBConfig(addressWidth: Int,
+                       dataWidth: Int,
+                       selWidth : Int,
+                       useSlaveError : Boolean)
+
+  class APB3(val config: APBConfig) extends Bundle with IMasterSlave {
+    val PADDR      = UInt(config.addressWidth bit)
+    val PSEL       = Bits(config.selWidth bits)
+    val PENABLE    = Bool
+    val PREADY     = Bool
+    val PWRITE     = Bool
+    val PWDATA     = Bits(config.dataWidth bit)
+    val PRDATA     = Bits(config.dataWidth bit)
+    val PSLVERROR  = if(config.useSlaveError) Bool else null
+
+    override def asMaster(): this.type = {
+      out(PADDR,PSEL,PENABLE,PWRITE,PWDATA)
+      in(PREADY,PRDATA)
+      if(config.useSlaveError) in(PSLVERROR)
+      this
+    }
+  }
+
+//
+//  object Handshake{
+//    def apply() = new Handshake
+//  }
+//  class Handshake extends Bundle with MasterSlave{
+//    @masterx val valid = Bool
+//    @masterx val payload = Bits(8 bits)
+//  }
+////  implicit def masterToHandshake()
+//  class TopLevel extends Component {
+//    val rsp = master(new Handshake)
+//  }
+//
+//  def main(args: Array[String]) {
+//    SpinalVhdl(new TopLevel)
+//  }
 }

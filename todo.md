@@ -1,12 +1,12 @@
 ## BUG
-- [ ] Fix B(default -> True)
+- [X] Fix B(default -> True)
 
 ## spinal.core
-- [ ] Add regression for all implicit spinal hdl check like latch, comb loop etc
-- [ ] add xxx := (default -> True) support (no B/U/S prefix)
+- [x] Add regression for all implicit spinal hdl check like latch, comb loop etc
+- [X] add xxx := (default -> True) support (no B/U/S prefix)
 - [ ] Add myBool := 0/1 ?
-- [ ] Do a improvment run on Mem
-- [ ] Add logic inferation LOCK functionality ? switch -> is   State -> functions
+- [ ] Do a improvment run on Mem (writeFirst, black box, vendor/family support, ...)
+- [/] Add logic inferation LOCK functionality ? switch -> is   State -> functions
 - [X] Add version number into elaboration logs
 - [X] Function for compinent without the io_ prefix on IO
 - [X] Add option to disable the pkg generation in VHDL

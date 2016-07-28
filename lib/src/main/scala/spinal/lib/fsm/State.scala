@@ -32,6 +32,7 @@ class State(implicit stateMachineAccessor : StateMachineAccessor) extends Area w
   val onEntryTasks = ArrayBuffer[() => Unit]()
   val onExitTasks = ArrayBuffer[() => Unit]()
   val whenActiveTasks = ArrayBuffer[() => Unit]()
+  val whenInactiveTasks = ArrayBuffer[() => Unit]()
   val whenIsNextTasks = ArrayBuffer[() => Unit]()
   @dontName var innerFsm = ArrayBuffer[StateMachine]()
 
@@ -45,6 +46,10 @@ class State(implicit stateMachineAccessor : StateMachineAccessor) extends Area w
   }
   def whenIsActive(doThat : => Unit) : this.type = {
     whenActiveTasks += (() => doThat)
+    this
+  }
+  def whenIsInactive(doThat : => Unit) : this.type = {
+    whenInactiveTasks += (() => doThat)
     this
   }
   def whenIsNext(doThat : => Unit) : this.type = {
