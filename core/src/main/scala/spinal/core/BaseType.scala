@@ -54,6 +54,7 @@ object BaseType {
     var consumerInputId: Int = initialConsumerInputId
     val globalData = baseType.globalData
     var initialConditionalAssignHit = baseType.conditionalAssignScope == null
+    globalData.netlistUpdate()
 
     def initMan(man: MultipleAssignmentNode, that: Node): Unit = {
       if(consumer.isInstanceOf[AssignementTreePart]){

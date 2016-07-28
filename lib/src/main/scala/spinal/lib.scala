@@ -42,10 +42,8 @@ package object lib  {
     def toOneHot : Bits = B"1" << that
   }
 
-  def Max = max
-  def Min = min
   
-  def StreamArbiter = new StreamArbiterCoreFactory()
+  def StreamArbiterFactory = new StreamArbiterFactory()
 
   type ScalaStream[T] = collection.immutable.Stream[T]
 

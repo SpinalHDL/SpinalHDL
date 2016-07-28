@@ -660,8 +660,8 @@ class Core(implicit val c : CoreConfig) extends Component{
 
     val dataRspFormated = inInst.ctrl.msk.mux(
       default -> dRsp.payload, //W
-      MSK.B   -> B(default -> (dRsp.payload(7) && ! inInst.instruction(14)),(7 downto 0) -> dRsp.payload(7 downto 0)),
-      MSK.H   -> B(default -> (dRsp.payload(15) && ! inInst.instruction(14)),(15 downto 0) -> dRsp.payload(15 downto 0))
+      MSK.B   -> B((31 downto 8) -> (dRsp.payload(7) && ! inInst.instruction(14)),(7 downto 0) -> dRsp.payload(7 downto 0)),
+      MSK.H   -> B((31 downto 16) -> (dRsp.payload(15) && ! inInst.instruction(14)),(15 downto 0) -> dRsp.payload(15 downto 0))
     )
 
     val regFileData = inInst.ctrl.wb.mux (

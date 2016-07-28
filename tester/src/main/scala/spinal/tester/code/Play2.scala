@@ -38,7 +38,7 @@ object PlayB7 {
       val z = out UInt( 4 bits )
     }
     val a = Stream(Fragment(UInt(4 bits)))
-    val b = StreamArbiterCore().inOrder.noLock.build(a,10)
+    val b = StreamArbiterFactory.sequentialOrder.noLock.build(a,10)
   }
 
   def main(args: Array[String]): Unit = {
@@ -282,7 +282,7 @@ object PlayB3 {
 object PlayB4 {
 
   class TopLevel extends Component {
-    val address = in UInt(4 bits)
+    val address = in UInt(8 bits)
     val writeData = in Bits(8 bits)
     val chipSelect = in Bool
     val writeEnable = in Bool
@@ -294,7 +294,6 @@ object PlayB4 {
 
 
 
-    address := 0
   }
 
   def main(args: Array[String]): Unit = {
@@ -1656,6 +1655,7 @@ object PlayMentorDo{
     fifo.io.push << io.cmd
     fifo.io.pop  >> io.rsp
 
+    fifo.noIoPrefix()
   }
 
   def main(args: Array[String]) {
@@ -1705,11 +1705,13 @@ object PlayAuto{
 
     simSCL.io.output.read     := i2cSlave.io.i2c.scl.write
     i2cSlave.io.i2c.scl.read  := simSCL.io.output.write
+
+
   }
 
   class SimOpenDrain extends Component{
     val io = new Bundle{
-      val input  = master ( ReadableOpenDrain(Bool)  )
+      val input  = slave ( ReadableOpenDrain(Bool)  )
       val output = master ( ReadableOpenDrain(Bool) )
     }
 
@@ -1928,3 +1930,438 @@ object PlayResized54{
 
 
 
+object PlaySwitchError{
+  class TopLevel extends Component {
+    val value = in Bits(8 bits)
+    val temp = UInt(8 bits)
+    val result = out UInt(8 bits)
+    val toto = B"00001111"
+    switch(value){
+      is(0){
+        temp := 0
+      }
+      is(1){
+        temp := 1
+      }
+      default{
+        temp := 2
+      }
+    }
+
+    result := RegNext(temp) init(9)
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+    SpinalVerilog(new TopLevel)
+    assert(doCmd(s"ghdl -a --ieee=synopsys TopLevel.vhd TopLevel_tb.vhd") == 0,"GHDL analysis fail")
+    assert(doCmd(s"ghdl -e --ieee=synopsys TopLevel_tb"                   ) == 0,"GHDL elaboration fail")
+    assert(doCmd(s"ghdl -r --ieee=synopsys TopLevel_tb --vcd=wave.vcd"    ) == 0,"GHDL simulation fail")
+    println("SUCCESS")
+  }
+
+  def doCmd(cmd : String) : Int = {
+    import scala.sys.process._
+    println(cmd)
+    cmd !
+  }
+}
+
+
+
+
+object PlayCall{
+  class TopLevel extends Component {
+    val a,b,c = in UInt(8 bits)
+    val result = out(Reg(UInt(8 bits)))
+    result := result + a + b + c
+
+    val clear = Callable(result := 0)
+
+    when(result > 42){
+      clear.call()
+    }
+    when(result === 11){
+      clear.call()
+    }
+
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+    SpinalVerilog(new TopLevel)
+  }
+}
+
+
+object PlaySyntaxCheck{
+  val inputStream = Stream(Bits(8 bits))
+  val dispatchedStreams = StreamDispatcherSequencial(
+    input = inputStream,
+    outputCount = 3
+  )
+}
+
+
+object PlayNameableIssue{
+  class TopLevel extends Component {
+    val arbiterRoundRobinInputs =  Vec(slave Stream(Bits(8 bits)),3)
+    val arbiterRoundRobinOutput =  master Stream(Bits(8 bits))
+    arbiterRoundRobinOutput << StreamArbiterFactory.roundRobin.on(arbiterRoundRobinInputs)
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
+object PlayNameableIssue2{
+  class TopLevel extends Component {
+    val arbiterRoundRobinInputs =  Vec(slave Stream(Bits(8 bits)),3)
+    val arbiterRoundRobinOutput =  master Stream(Bits(8 bits))
+    arbiterRoundRobinOutput << StreamArbiterFactory.roundRobin.on(arbiterRoundRobinInputs)
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new StreamArbiter(Bits(8 bits),3)(StreamArbiter.Arbitration.lowerFirst,StreamArbiter.Lock.transactionLock))
+  }
+}
+object PlayNameableIssue3{
+  class TopLevel extends Component {
+    val cmd =  slave Stream(Bits(8 bits))
+    val rsp =  master Stream(Bits(8 bits))
+    cmd.queue(16) >> rsp
+  }
+
+  def main(args: Array[String]) {
+    SpinalConfig(globalPrefix = "yolo_").generateVhdl(new TopLevel().setDefinitionName("miaou"))
+  }
+}
+
+
+object PlayBug54{
+  class TopLevel extends Component {
+    val a = in Bool
+    val fixedWidth = new Area {
+      val resultBits = out Bits (8 bits)
+      resultBits := B(7 -> false, (6 downto 0) -> a)
+      val resultUInt = out UInt (8 bits)
+      resultUInt := U(7 -> false, (6 downto 0) -> a)
+      val resultSInt = out SInt (8 bits)
+      resultSInt := S(7 -> false, (6 downto 0) -> a)
+    }
+    val unfixedWidth = new Area {
+      val resultBits = out Bits (8 bits)
+      resultBits := (4 -> False,default -> a)
+      val resultUInt = out UInt (8 bits)
+      resultUInt := (4 -> false,default -> a)
+      val resultSInt = out SInt (8 bits)
+      resultSInt := ((4 downto 0) -> false,default -> a)
+    }
+
+    val unfixeConstdWidth = new Area {
+      val resultBits = out Bits (8 bits)
+      resultBits := (4 -> False,default -> True)
+      val resultUInt = out UInt (8 bits)
+      resultUInt := (4 -> false,default -> True)
+      val resultSInt = out SInt (8 bits)
+      resultSInt := ((4 downto 0) -> false,default -> True)
+    }
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel())
+    SpinalVerilog(new TopLevel())
+  }
+}
+
+object PlayBug5441{
+  object State extends SpinalEnum{
+    val s0,s1,s2,s3 = newElement()
+  }
+  class TopLevel extends Component {
+    val tmp = State()
+    val result = out(State)
+    result := tmp
+    tmp := result
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel())
+  }
+}
+
+object PlayBug544441{
+  class TopLevel extends Component {
+//    val condA = in Bool
+//    val condB = in Bool
+//    val result = out Bits(8 bits)
+//    result(3 downto 2) := 0
+//    when(condA){
+////      when(condB){
+//        result := 4
+////      }
+//
+//    }
+
+    val a,b,c = out Bits(8 bits)
+    a := "0000_0001"
+    b := "x55"
+    c.:=("xAA")
+    
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel())
+  }
+}
+
+
+
+object Play928267{
+  class SPIConfig extends Bundle {
+    val CPOL = in Bool
+    val CPHA = in Bool
+    val Prescale = in UInt(8 bits)
+  }
+
+  class SPIMaster(nEnables: Int) extends Component {
+    val io = new Bundle{
+      val configIf = new SPIConfig
+      val inputData = slave Stream(Bits(8 bits))
+      val sck = out Bool
+      val miso = in Bool
+      val mosi = out Bool
+      val slvsel = out Bits(nEnables bits)
+    }
+
+    val sckReg = Reg(Bool) init(False)
+    sckReg := io.configIf.CPOL
+
+    val clockGen = new Area {
+      val sckCounter = Reg(UInt(8 bits)) init(0)
+      sckCounter := sckCounter + 1
+      when (sckCounter === io.configIf.Prescale) {
+        sckReg := !sckReg
+        sckCounter := 0
+      }
+    }
+
+
+    val dataOutReg = Reg(Bits(8 bits))
+    val masterFsm = new StateMachine {
+      io.inputData.ready := False
+
+      val Idle : State = new State with EntryPoint {
+        io.inputData.ready := True
+        whenIsActive {
+          when (io.inputData.valid) {
+            dataOutReg := io.inputData.payload
+            goto(ShiftData)
+          }
+        }
+      }
+
+      val ShiftData : State = new State {
+        whenIsActive {
+          goto(Idle)
+        }
+      }
+
+    }
+    io.sck := sckReg
+    io.mosi := False
+    io.slvsel := B(default -> true)
+  }
+  def main(args: Array[String]) {
+    SpinalConfig().dumpWave().generateVhdl(new SPIMaster(4)).printPruned()
+    //ou
+    SpinalConfig(dumpWave = DumpWaveConfig()).generateVhdl(new SPIMaster(4)).printPruned()
+  }
+}
+
+
+object PlayLogicLock{
+  class TopLevel extends Component {
+    val sel = in UInt(4 bits)
+    val result = out Bits(8 bits)
+
+    switch(sel){
+      is(0){
+        result := 3
+      }
+      default{
+        result := 4
+      }
+    }
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+object PlayProcess{
+  class TopLevel extends Component {
+    val a,b,c = in Bool
+    val result = out UInt(8 bits)
+
+    val combinatorial   =     UInt(8 bits)
+    val regWithoutReset = Reg(UInt(8 bits))
+    val regWithReset    = Reg(UInt(8 bits)) init(0)
+
+    when(a){
+      combinatorial := 0
+      when(b){
+        regWithoutReset := regWithoutReset + 1
+        when(c){
+          combinatorial := 2
+        }
+      }
+    }otherwise{
+      regWithReset := regWithReset + 1
+      combinatorial := 1
+    }
+
+    result := combinatorial + regWithoutReset + regWithReset
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
+
+object PlayHandshake{
+  case class Handshake[T <: Data](dataType : T) extends Bundle{
+    val valid   = Bool
+    val ready   = Bool
+    val payload = cloneOf(dataType)  //Make another instance of 'dataType'
+
+    def asMaster() : Handshake[T] = {
+      out(valid,payload)
+      in(ready)
+      this
+    }
+
+    def asSlave() : Handshake[T] = {
+      in(valid,payload)
+      out(ready)
+      this
+    }
+  }
+
+  class ArbiterLowPortFirst[T <: Data](dataType : T,inputsCount : Int) extends Component {
+    val io = new Bundle{
+      val inputs = Vec(Handshake(dataType).asSlave(),size = inputsCount)
+      val output = Handshake(dataType).asMaster()
+    }
+    
+    var free = True
+    io.output.valid := False
+    io.output.payload := io.inputs(0).payload //default
+    for(input <- io.inputs){
+      input.ready := io.output.ready && free
+      when(input.valid && free){
+        free \= False
+        io.output.valid := True
+        io.output.payload := input.payload
+      }
+    }
+  }
+
+  case class RGB(redWidth : Int,greenWidth : Int,blueWidth : Int) extends Bundle{
+    val r = UInt(redWidth bits)
+    val g = UInt(greenWidth bits)
+    val b = UInt(blueWidth bits)
+  }
+
+  class TopLevel extends Component{
+    val io = new Bundle{
+      val a      = Handshake(RGB(5,6,5)).asSlave
+      val b      = Handshake(RGB(5,6,5)).asSlave
+      val c      = Handshake(RGB(5,6,5)).asSlave
+      val output = Handshake(RGB(5,6,5)).asMaster
+    }
+
+    val arbiter = new ArbiterLowPortFirst(
+      dataType = RGB(5,6,5),
+      inputsCount = 3
+    )
+
+    arbiter.io.inputs(0) <> io.a
+    arbiter.io.inputs(1) <> io.b
+    arbiter.io.inputs(2) <> io.c
+    arbiter.io.output    <> io.output
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+object PlayMasterSlave{
+  class APB( addressWidth: Int,
+              dataWidth: Int,
+              selWidth : Int,
+              useSlaveError : Boolean) extends Bundle with IMasterSlave {
+
+    val PADDR      = UInt(addressWidth bit)
+    val PSEL       = Bits(selWidth bits)
+    val PENABLE    = Bool
+    val PREADY     = Bool
+    val PWRITE     = Bool
+    val PWDATA     = Bits(dataWidth bit)
+    val PRDATA     = Bits(dataWidth bit)
+    val PSLVERROR  = if(useSlaveError) Bool else null   //This wire is added to the bundle only when useSlaveError is true
+
+    override def asMaster(): this.type = {
+      out(PADDR,PSEL,PENABLE,PWRITE,PWDATA)
+      in(PREADY,PRDATA)
+      if(useSlaveError) in(PSLVERROR)
+      this
+    }
+  }
+
+  case class APBConfig(addressWidth: Int,
+                       dataWidth: Int,
+                       selWidth : Int,
+                       useSlaveError : Boolean)
+
+  class APB3(val config: APBConfig) extends Bundle with IMasterSlave {
+    val PADDR      = UInt(config.addressWidth bit)
+    val PSEL       = Bits(config.selWidth bits)
+    val PENABLE    = Bool
+    val PREADY     = Bool
+    val PWRITE     = Bool
+    val PWDATA     = Bits(config.dataWidth bit)
+    val PRDATA     = Bits(config.dataWidth bit)
+    val PSLVERROR  = if(config.useSlaveError) Bool else null
+
+    override def asMaster(): this.type = {
+      out(PADDR,PSEL,PENABLE,PWRITE,PWDATA)
+      in(PREADY,PRDATA)
+      if(config.useSlaveError) in(PSLVERROR)
+      this
+    }
+  }
+
+//
+//  object Handshake{
+//    def apply() = new Handshake
+//  }
+//  class Handshake extends Bundle with MasterSlave{
+//    @masterx val valid = Bool
+//    @masterx val payload = Bits(8 bits)
+//  }
+////  implicit def masterToHandshake()
+//  class TopLevel extends Component {
+//    val rsp = master(new Handshake)
+//  }
+//
+//  def main(args: Array[String]) {
+//    SpinalVhdl(new TopLevel)
+//  }
+}

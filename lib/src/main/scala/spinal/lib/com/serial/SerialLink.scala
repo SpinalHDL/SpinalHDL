@@ -1,4 +1,4 @@
-package spinal.lib.serdes
+package spinal.lib.com.serial
 
 import spinal.core._
 import spinal.lib._
@@ -65,7 +65,7 @@ class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) ext
     //Fill the buffer from upper layer data
     io.input.ready := !full
     when(io.input.fire) {
-      ram.write(writePtr, io.input.payload)
+      ram.write(writePtr.resized, io.input.payload)
       writePtr.increment()
     }
 
@@ -74,12 +74,12 @@ class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) ext
       when(syncPtr =/= io.rxToTx.otherRxPtr.payload) {
         resendTimeout.clear()
       }
-      syncPtr := io.rxToTx.otherRxPtr.payload
+      syncPtr := io.rxToTx.otherRxPtr.payload.resized
     }
 
     //read managment
     val readFlag = False
-    val readPort = ram.readSync(readPtr,readFlag)
+    val readPort = ram.readSync(readPtr.resized,readFlag)
     readPtr.willIncrement := readFlag
 
   }
@@ -145,7 +145,7 @@ class SerialLinkTx(bufferSize: Int, burstSize: Int, resendTimeoutLimit: Int) ext
           when(io.output.ready) {
             state := eMyPtr0
             val otherRxBufferFreeSpace = otherWindow - (buffer.readPtr - buffer.syncPtr)
-            txDataLeft := Mux(burstSize <  otherRxBufferFreeSpace,burstSize,burstSize)
+            txDataLeft := Mux[UInt](burstSize <  otherRxBufferFreeSpace,burstSize,burstSize).resized
           }
         }
       }

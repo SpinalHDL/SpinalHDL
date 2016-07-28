@@ -18,6 +18,7 @@
 
 package spinal.core
 
+import spinal.core.Operator.BitVector.AllByBool
 import spinal.core.Operator.Bits.RotateLeftByUInt
 
 /**
@@ -38,11 +39,11 @@ trait BitsFactory {
   def Bits(width: BitCount): Bits = Bits.setWidth(width.value)
 }
 
-class Bits extends BitVector {
+class Bits extends BitVector with DataPrimitives[Bits]{
   private[core] def prefix: String = "b"
 
-  def ===(that: Bits): Bool = this.isEguals(that)
-  def =/=(that: Bits): Bool = this.isNotEguals(that)
+  override private[spinal] def _data: Bits = this
+
   def ===(that: MaskedLiteral): Bool = this.isEguals(that)
   def =/=(that: MaskedLiteral): Bool = this.isNotEguals(that)
   def ##(right: Bits): Bits = wrapBinaryOperator(right,new Operator.Bits.Cat)
@@ -56,7 +57,14 @@ class Bits extends BitVector {
   def <<(that: UInt): Bits = wrapBinaryOperator(that,new Operator.Bits.ShiftLeftByUInt)
   def rotateLeft(that: UInt): Bits = wrapBinaryOperator(that,new RotateLeftByUInt)
 
+  def :=(rangesValue : Tuple2[Any,Any],_rangesValues: Tuple2[Any,Any]*) : Unit = {
+    val rangesValues = rangesValue +: _rangesValues
+    B.applyTupples(this,rangesValues)
+  }
+
   private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse,new MultiplexerBits)
+
+  override protected def getAllToBoolNode(): AllByBool = new Operator.Bits.AllByBool(this)
 
   override def resize(width: Int): this.type = wrapWithWeakClone({
     val node = new ResizeBits

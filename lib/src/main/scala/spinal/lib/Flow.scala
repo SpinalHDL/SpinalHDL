@@ -117,7 +117,7 @@ class Flow[T <: Data](_dataType: T) extends Bundle with IMasterSlave with DataCa
 
 
 object RegFlow{
-  def apply[T <: Data](dataType : T) = {
+  def apply[T <: Data](dataType : T) : Flow[T] = {
     val reg = Reg(Flow(dataType))
     reg.valid init(False)
     reg
@@ -125,23 +125,23 @@ object RegFlow{
 }
 
 object FlowCCByToggle {
-  def apply[T <: Data](input: Flow[T], clockIn: ClockDomain = ClockDomain.current, clockOut: ClockDomain = ClockDomain.current): Flow[T] = {
-    val c = new FlowCCByToggle[T](input.payload, clockIn, clockOut)
+  def apply[T <: Data](input: Flow[T], inputClock: ClockDomain = ClockDomain.current, outputClock: ClockDomain = ClockDomain.current): Flow[T] = {
+    val c = new FlowCCByToggle[T](input.payload, inputClock, outputClock)
     c.io.input connectFrom input
     return c.io.output
   }
 }
 
 
-class FlowCCByToggle[T <: Data](dataType: T, clockIn: ClockDomain, clockOut: ClockDomain) extends Component {
+class FlowCCByToggle[T <: Data](dataType: T, inputClock: ClockDomain, outputClock: ClockDomain) extends Component {
   val io = new Bundle {
-    val input = slave Flow (dataType)
+    val input = slave  Flow (dataType)
     val output = master Flow (dataType)
   }
 
   val outHitSignal = Bool
 
-  val inputArea = new ClockingArea(clockIn) {
+  val inputArea = new ClockingArea(inputClock) {
     val target = Reg(Bool)
     val data = Reg(io.input.payload)
     when(io.input.valid) {
@@ -151,8 +151,8 @@ class FlowCCByToggle[T <: Data](dataType: T, clockIn: ClockDomain, clockOut: Clo
   }
 
 
-  val outputArea = new ClockingArea(clockOut) {
-    val target = BufferCC(inputArea.target, if(clockIn.hasResetSignal) False else null)
+  val outputArea = new ClockingArea(outputClock) {
+    val target = BufferCC(inputArea.target, if(inputClock.hasResetSignal) False else null)
     val hit = RegNext(target)
 
     val flow = io.input.clone
@@ -163,7 +163,7 @@ class FlowCCByToggle[T <: Data](dataType: T, clockIn: ClockDomain, clockOut: Clo
     io.output <-< flow
   }
 
-  if(clockIn.hasResetSignal){
+  if(inputClock.hasResetSignal){
     inputArea.target init(False)
     outputArea.hit init(False)
   }else{

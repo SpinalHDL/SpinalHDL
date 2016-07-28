@@ -129,7 +129,7 @@ class JtagInstructionFlowFragmentPush(sink : Flow[Fragment[Bits]],sinkClockDomai
   source.last := tap.getTms
   source.fragment.lsb := tap.getTdi
 
-  sink << FlowCCByToggle(source,clockOut = sinkClockDomain)
+  sink << FlowCCByToggle(source,outputClock = sinkClockDomain)
 
   override def doShift(): Unit = {
     source.valid := True

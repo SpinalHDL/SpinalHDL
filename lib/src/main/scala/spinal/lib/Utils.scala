@@ -53,28 +53,51 @@ object OHToUInt {
   }
 }
 
-object min {
+//Will be target dependent
+object MuxOH {
+  def apply[T <: Data](oneHot : BitVector,inputs : Iterable[T]): T = apply(oneHot.asBools,inputs)
+  def apply[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Iterable[T]): T =  apply(oneHot,Vec(inputs))
+
+  def apply[T <: Data](oneHot : BitVector,inputs : Vec[T]): T = apply(oneHot.asBools,inputs)
+  def apply[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Vec[T]): T = inputs(OHToUInt(oneHot))
+}
+
+object Min {
     def apply[T <: Data with Num[T]](nums: T*) = list(nums)
     def list[T <: Data with Num[T]](nums: Seq[T]) = {
         nums.reduceBalancedTree(_ min _)
     }
 }
 
-object max {
+object Max {
     def apply[T <: Data with Num[T]](nums: T*) = list(nums)
     def list[T <: Data with Num[T]](nums: Seq[T]) = {
         nums.reduceBalancedTree(_ max _)
     }
 }
 
-object MaskByPriority{
-    def apply[T <: Data](that : T) : T = {
-        val input = that.asBits.asUInt
-        val masked = input & ~(input - 1)
-        val ret = that.clone
-        ret.assignFromBits(masked.asBits)
-        ret
-    }
+object OHMasking{
+  def first[T <: Data](that : T) : T = {
+      val input = that.asBits.asUInt
+      val masked = input & ~(input - 1)
+      val ret = that.clone
+      ret.assignFromBits(masked.asBits)
+      ret
+  }
+
+  def roundRobin[T <: Data](requests : T,ohPriority : T) : T = {
+    val width = requests.getBitsWidth
+    val uRequests = requests.asBits.asUInt
+    val uGranted = ohPriority.asBits.asUInt
+
+    val doubleRequests = uRequests @@ uRequests
+    val doubleGrant = doubleRequests & ~(doubleRequests-uGranted)
+    val masked = doubleGrant(width,width bits) | doubleGrant(0,width bits)
+
+    val ret = requests.clone
+    ret.assignFromBits(masked.asBits)
+    ret
+  }
 }
 
 object CountOne{
@@ -156,7 +179,7 @@ object Reverse{
     ret
   }
 }
-object adderAndCarry {
+object AddWithCarry {
   def apply(left: UInt, right: UInt): (UInt, Bool) = {
     val temp = left.resize(left.getWidth + 1) + right.resize(right.getWidth + 1)
     return (temp.resize(temp.getWidth - 1), temp.msb)
@@ -238,17 +261,13 @@ class Counter(val stateCount: BigInt) extends ImplicitArea[UInt] {
   def clear(): Unit = willClear := True
   def increment(): Unit = willIncrement := True
 
-  def ===(that: UInt): Bool = this.value === that
-  def !==(that: UInt): Bool = this.value =/= that
-  def =/=(that: UInt): Bool = this.value =/= that
-
   val valueNext = UInt(log2Up(stateCount) bit)
   val value = RegNext(valueNext) init(0)
   val willOverflowIfInc = value === stateCount - 1
   val willOverflow = willOverflowIfInc && willIncrement
 
   if (isPow2(stateCount)) {
-    valueNext :~= value + asUInt(willIncrement)
+    valueNext := (value + asUInt(willIncrement)).resized
   }
   else {
     when(willIncrement) {
@@ -360,7 +379,7 @@ class CounterUpDown(val stateCount: BigInt) extends ImplicitArea[UInt] {
   }
 
   if (isPow2(stateCount)) {
-    valueNext :~= value + finalIncrement
+    valueNext := (value + finalIncrement).resized
   }
   else {
     assert(false,"TODO")
@@ -697,12 +716,12 @@ object WrapWithReg{
 }
 
 
-case class TriState[T <: Data](dataType : T) extends Bundle with IMasterSlave{
-  val read,write : T = dataType.clone
-  val writeEnable = Bool
-  override def asMaster(): TriState.this.type = {
-    out(write,writeEnable)
-    in(read)
-    this
+
+object Callable{
+  def apply(doIt : => Unit) = new Area{
+    val isCalled = False
+    when(isCalled){doIt}
+
+    def call() = isCalled := True
   }
 }

@@ -7,7 +7,7 @@ import spinal.lib.bus.misc._
 
 
 class AxiLite4SlaveFactory(bus : AxiLite4) extends BusSlaveFactoryDelayed{
-  val writeJoinEvent = StreamJoin(bus.writeCmd,bus.writeData)
+  val writeJoinEvent = StreamJoin.arg(bus.writeCmd,bus.writeData)
   val writeRsp = AxiLite4B(bus.config)
   bus.writeRsp <-< writeJoinEvent.translateWith(writeRsp)
 

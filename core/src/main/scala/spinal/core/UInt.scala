@@ -18,6 +18,8 @@
 
 package spinal.core
 
+import spinal.core.Operator.BitVector.AllByBool
+
 trait UIntCast{
   def asUInt(that : Bool) : UInt = that.asUInt
   def asUInt(that : Bits) : UInt = that.asUInt
@@ -31,9 +33,11 @@ trait UIntFactory{
   def UInt(width: BitCount): UInt = UInt().setWidth(width.value)
 }
 
-class UInt extends BitVector with Num[UInt] with MinMaxProvider {
+class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimitives[UInt]{
   private[core] def prefix : String = "u"
 
+
+  override def _data: UInt = this
 
   //TODO width assert
   def assignMask(maskedLiteral: MaskedLiteral): Unit ={
@@ -55,12 +59,11 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider {
     }
   }
 
-  def ===(that : UInt) : Bool = this.isEguals(that)
-  def =/=(that : UInt) : Bool = this.isNotEguals(that)
   def ===(that : MaskedLiteral) : Bool = this.isEguals(that)
   def =/=(that : MaskedLiteral) : Bool = this.isNotEguals(that)
 
-  def @@(that : UInt) = (this ## that).asUInt
+  def @@(that : UInt) : UInt = (this ## that).asUInt
+  def @@(that : Bool) : UInt = (this ## that).asUInt
 
 
   def twoComplement(enable : Bool): SInt = ((False ## Mux(enable,~this,this)).asUInt + enable.asUInt).asSInt
@@ -70,6 +73,9 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider {
   override def *(right: UInt): UInt = wrapBinaryOperator(right,new Operator.UInt.Mul)
   override def /(right: UInt): UInt = wrapBinaryOperator(right,new Operator.UInt.Div)
   override def %(right: UInt): UInt = wrapBinaryOperator(right,new Operator.UInt.Mod)
+
+//  def +!(right: UInt): UInt = this.resize(this.getWidth + 1) + right.resize(right.getWidth + 1)
+//  def -!(right: UInt): UInt = this.resize(this.getWidth + 1) - right.resize(right.getWidth + 1)
 
   def |(right: UInt): UInt = wrapBinaryOperator(right,new Operator.UInt.Or)
   def &(right: UInt): UInt = wrapBinaryOperator(right,new Operator.UInt.And)
@@ -86,6 +92,11 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider {
   override def <<(that: Int): UInt = wrapConstantOperator(new Operator.UInt.ShiftLeftByInt(that))
   def >>(that: UInt): UInt         = wrapBinaryOperator(that,new Operator.UInt.ShiftRightByUInt)
   def <<(that: UInt): UInt         = wrapBinaryOperator(that,new Operator.UInt.ShiftLeftByUInt)
+
+  def :=(rangesValue : Tuple2[Any,Any],_rangesValues: Tuple2[Any,Any]*) : Unit = {
+    val rangesValues = rangesValue +: _rangesValues
+    U.applyTupples(this,rangesValues)
+  }
 
   private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse,new MultiplexerUInt)
   private[core] override def isEguals(that: Any): Bool = {
@@ -129,6 +140,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider {
   override private[core] def weakClone: this.type = new UInt().asInstanceOf[this.type]
   override def getZero: this.type = U(0,this.getWidth bits).asInstanceOf[this.type]
   override def getZeroUnconstrained: this.type = U(0).asInstanceOf[this.type]
+  override protected def getAllToBoolNode(): AllByBool = new Operator.UInt.AllByBool(this)
 }
 
 object UInt2D{

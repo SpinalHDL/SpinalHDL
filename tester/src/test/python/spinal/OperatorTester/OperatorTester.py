@@ -243,4 +243,21 @@ def test1(dut):
             check(dut.stateBinaryOneHotIsNotA,1,bits8StateHO != 1)
             check(dut.stateBinaryOneHotIsNotB, 1, bits8StateHO != 2)
             check(dut.stateBinaryOneHotIsNotC, 1, bits8StateHO != 4)
+        #  B(7 -> false,(6 downto 5) -> true,(4 downto 3) -> bits8(1 downto 0),(2 downto 1) -> boolA,0 -> True)
+        aggregateValue = (3 << 5) | ((bits8 & 3) << 3) |(boolA << 2) | (boolA << 1) | (1 << 0)
+        check(dut.bitsAggregateFixed, 8, aggregateValue)
+        check(dut.uintAggregateFixed, 8, aggregateValue)
+        check(dut.sintAggregateFixed, 8, aggregateValue)
+
+        aggregateValue = (3 << 5) | ((bits8 & 3) << 3) |(boolA << 2) | (3 << 1) | (1 << 0)
+        check(dut.bitsAggregateUnfixedWidthFixedDefault, 8, aggregateValue)
+        check(dut.uintAggregateUnfixedWidthFixedDefault, 8, aggregateValue)
+        check(dut.sintAggregateUnfixedWidthFixedDefault, 8, aggregateValue)
+
+        aggregateValue = (3 << 5) | ((bits8 & 3) << 3) |(boolA << 2) | (boolA << 1) | (1 << 0)
+        check(dut.bitsAggregateUnfixedWidthUnfixedDefault, 8, aggregateValue)
+        check(dut.uintAggregateUnfixedWidthUnfixedDefault, 8, aggregateValue)
+        check(dut.sintAggregateUnfixedWidthUnfixedDefault, 8, aggregateValue)
+
+
     dut.log.info("Cocotb test done")

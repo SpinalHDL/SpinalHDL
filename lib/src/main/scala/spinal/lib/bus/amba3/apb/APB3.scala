@@ -10,7 +10,22 @@ case class Apb3Config(
   useSlaveError : Boolean
 )
 
-case class Apb3(config: Apb3Config) extends Bundle with IMasterSlave {
+object Apb3{
+  def apply(config: Apb3Config) = new Apb3(config)
+  def apply( addressWidth: Int,
+             dataWidth: Int) = {
+    new Apb3(
+      Apb3Config(
+        addressWidth = addressWidth,
+        dataWidth = dataWidth,
+        selWidth = 1,
+        useSlaveError = false
+      )
+    )
+  }
+}
+
+class Apb3(val config: Apb3Config) extends Bundle with IMasterSlave {
   val PADDR      = UInt(config.addressWidth bit)
   val PSEL       = Bits(config.selWidth bits)
   val PENABLE    = Bool
@@ -19,7 +34,7 @@ case class Apb3(config: Apb3Config) extends Bundle with IMasterSlave {
   val PWDATA     = Bits(config.dataWidth bit)
   val PRDATA     = Bits(config.dataWidth bit)
   val PSLVERROR  = if(config.useSlaveError) Bool else null
-  override def asMaster(): Apb3.this.type = {
+  override def asMaster(): this.type = {
     out(PADDR,PSEL,PENABLE,PWRITE,PWDATA)
     in(PREADY,PRDATA)
     if(config.useSlaveError) in(PSLVERROR)

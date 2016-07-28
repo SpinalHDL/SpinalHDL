@@ -20,7 +20,11 @@ class RInt(val max : BigInt,val min : BigInt) extends MultiData with Num[RInt]{
   def rawBitWidth = Math.max(bitToRepresent(max),bitToRepresent(min))
   val raw = Bits(rawBitWidth bit)
 
-  override def elements: ArrayBuffer[(String, Data)] = ArrayBuffer(("" -> raw))
+  override def elements: ArrayBuffer[(String, Data)] = {
+    raw.setRefOwner(this)
+    raw.setPartialName("",true)
+    ArrayBuffer(("" -> raw))
+  }
 
   override private[core] def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = ???
 

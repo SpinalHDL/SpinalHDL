@@ -81,7 +81,7 @@ class PhaseVerilog(pc : PhaseContext) extends Phase with VerilogBase {
     var ret = builder.newPart(false)
     ret ++= s"module ${component.definitionName}\n"
     ret = builder.newPart(true)
-    ret ++= s"(\n"
+    ret ++= s"( \n"
     component.getOrdredNodeIo.foreach(baseType => {
       ret ++= s"  ${emitAttributes(baseType.instanceAndSyncNodeAttributes)}${emitDirection(baseType)} ${if(signalNeedProcess(baseType)) "reg " else ""}${emitDataType(baseType)} ${baseType.getName()}${getBaseTypeSignalInitialisation(baseType)},\n"
     })
@@ -299,7 +299,7 @@ end
 
       if (process.sensitivity.size != 0) {
 
-        ret ++= s"  always @ (${process.sensitivity.toList.sortWith(_.instanceCounter < _.instanceCounter).map(emitReference(_)).reduceLeft(_ + "," + _)})\n"
+        ret ++= s"  always @ (${process.sensitivity.toList.sortWith(_.instanceCounter < _.instanceCounter).map(emitReference(_)).reduceLeft(_ + " or " + _)})\n"
         ret ++= "  begin\n"
         emitAssignementLevel(context,ret, "    ", "<=")
         ret ++= "  end\n\n"
@@ -492,6 +492,11 @@ end
   modifierImplMap.put("resize(u,i)", operatorImplAsNoTransformation)
   modifierImplMap.put("resize(b,i)", operatorImplAsNoTransformation)
 
+  modifierImplMap.put("bAllByB", unaryAllBy)
+  modifierImplMap.put("uAllByB", unaryAllBy)
+  modifierImplMap.put("sAllByB", unaryAllBy)
+
+
   //Memo whenNode hardcode emitlogic
   modifierImplMap.put("mux(B,B,B)", operatorImplAsMux)
   modifierImplMap.put("mux(B,b,b)", operatorImplAsMux)
@@ -515,7 +520,6 @@ end
   modifierImplMap.put("extract(u,u,w)", extractBitVectorFloating)
   modifierImplMap.put("extract(s,u,w)", extractBitVectorFloating)
 
-
   def extractBoolFixed(func: Modifier): String = {
     val that = func.asInstanceOf[ExtractBoolFixed]
     s"${emitLogic(that.getBitVector)}[${that.getBitId}]"
@@ -536,6 +540,12 @@ end
     s"${emitLogic(that.getBitVector)}[${emitLogic(that.getOffset)} +: ${that.getBitCount}]"
   }
 
+  def unaryAllBy(func: Modifier): String = {
+    val node = func.asInstanceOf[Operator.BitVector.AllByBool]
+    s"{${node.getWidth}{${emitLogic(node.input)}}}"
+  }
+
+
 
 
   def emitLogic(node: Node): String = node match {
@@ -545,11 +555,12 @@ end
     case lit: BitVectorLiteral => s"(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
 
     case lit: BitsAllToLiteral => lit.theConsumer match {
-      case _: Bits => if(lit.getWidth == 0) "0" else s"(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
-      case _: UInt => if(lit.getWidth == 0) "0" else s"(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
-      case _: SInt => if(lit.getWidth == 0) "0" else s"(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
+      case _: Bits => if(lit.getWidth == 0) "1'b0" else s"(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
+      case _: UInt => if(lit.getWidth == 0) "1'b0" else s"(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
+      case _: SInt => if(lit.getWidth == 0) "1'b0" else s"(${lit.getWidth}'b${lit.getBitsStringOn(lit.getWidth)})"
     }
-    case lit: BoolLiteral => if(lit.value) "1" else "0"
+
+    case lit: BoolLiteral => if(lit.value) "1'b1" else "1'b0"
     case lit: EnumLiteral[_] => emitEnumLiteral(lit.enum, lit.encoding)
     case memRead: MemReadAsync => {
       if (memRead.writeToReadKind == dontCare) SpinalWarning(s"memReadAsync with dontCare is as writeFirst into Verilog")
@@ -882,7 +893,7 @@ end
         val genericFlat = bb.getGeneric.flatten
 
         if (genericFlat.size != 0) {
-          ret ++= s"#(\n"
+          ret ++= s"#( \n"
 
 
           for ((name, e) <- genericFlat) {
@@ -902,7 +913,7 @@ end
         }
       }
 
-      ret ++= s"${child.getName()} (\n"
+      ret ++= s"${child.getName()} ( \n"
       for (data <- child.getOrdredNodeIo) {
         if (data.isOutput) {
           val bind = component.kindsOutputsToBindings.getOrElse(data, null)

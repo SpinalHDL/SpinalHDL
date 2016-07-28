@@ -47,7 +47,7 @@ object Data {
       Component.push(finalComponent)
       finalData = srcData.clone
       if (propagateName)
-        finalData.setCompositeName(srcData)
+        finalData.setCompositeName(srcData,true)
       finalData.asInput()
       if (useCache) currentComponent.pulledDataCache.put(srcData, finalData)
       Component.pop(finalComponent)
@@ -66,7 +66,7 @@ object Data {
           Component.push(currentComponent)
           val copy = srcData.clone
           if (propagateName)
-            copy.setCompositeName(srcData)
+            copy.setCompositeName(srcData,true)
           copy.asInput()
           currentData.assignFrom(copy,false)
           Component.pop(currentComponent)
@@ -92,7 +92,7 @@ object Data {
         Component.push(fallPath.head)
         val copy = srcData.clone
         if (propagateName)
-          copy.setCompositeName(srcData)
+          copy.setCompositeName(srcData,true)
         copy.asOutput()
         Component.pop(fallPath.head)
 
@@ -129,81 +129,64 @@ object Data {
   }
 }
 
-//Should not extends AnyVal, Because it create kind of strange call stack move that make error reporting miss accurate
-class DataPimper[T <: Data](val pimpIt: T){
-  def ===(that: T): Bool = pimpIt.isEguals(that)
-  def =/=(that: T): Bool = pimpIt.isNotEguals(that)
+trait DataPrimitives[T <: Data]{
+  private[spinal] def _data : T
+
+  def ===(that: T): Bool = _data.isEguals(that)
+  def =/=(that: T): Bool = _data.isNotEguals(that)
   @deprecated("Use =/= instead")
   def !==(that: T): Bool = this =/= that
 
 
 
   def := (that: T): Unit = {
-    if(that.isInstanceOf[BitVector])
-      pimpIt.asInstanceOf[BitVector] := that.asInstanceOf[BitVector]
-    else
-      pimpIt assignFrom(that, false)
+    _data assignFrom(that, false)
   }
 
 
-//  def := [T2 <: T](that: T2): Unit = pimpIt assignFrom(that, false)
+  //  def := [T2 <: T](that: T2): Unit = pimpIt assignFrom(that, false)
 
   //Use as \= to have the same behavioral than VHDL variable
   def \(that: T) : T = {
     val ret = cloneOf(that)
-    ret := pimpIt
-    ret.flatten.foreach(_.conditionalAssignScope = pimpIt.conditionalAssignScope)
+    ret := _data
+    ret.flatten.foreach(_.conditionalAssignScope = _data.conditionalAssignScope)
     ret.globalData.overridingAssignementWarnings = false
     ret := that
     ret.globalData.overridingAssignementWarnings = true
     ret
   }
 
-  def <>(that: T): Unit = pimpIt autoConnect that
-  def init(that: T): T = pimpIt.initImpl(that)
+  def <>(that: T): Unit = _data autoConnect that
+  def init(that: T): T = _data.initImpl(that)
   def default(that : => T) : T ={
-    val c = if(pimpIt.dir == in)
+    val c = if(_data.dir == in)
       Component.current.parent
     else
       Component.current
 
     Component.push(c)
-    pimpIt.defaultImpl(that)
+    _data.defaultImpl(that)
     Component.pop(c)
-    pimpIt
+    _data
   }
 
   def muxList[T <: Data](mappings: Seq[(Any, T)]): T = {
-    SpinalMap.list(pimpIt,mappings)
+    SpinalMap.list(_data,mappings)
   }
   def mux[T <: Data](mappings: (Any, T)*): T = {
-    SpinalMap.list(pimpIt,mappings)
+    SpinalMap.list(_data,mappings)
   }
 
 }
+
 
 
 //Should not extends AnyVal, Because it create kind of strange call stack move that make error reporting miss accurate
-class BitVectorPimper[T <: BitVector](val pimpIt: T)  {
-  def :=(that: T): Unit ={
-  //  new WidthCheckerEguals(pimpIt,that)
-    pimpIt assignFrom(that, false)
-  }
+class DataPimper[T <: Data](val _data: T) extends DataPrimitives[T]{
 
-  @deprecated
-  def :<=(that: T): Unit = {
-  //  new WidthCheckerReduce(pimpIt,that)
-    pimpIt assignFrom(that.resized, false)
-  }
-
-  @deprecated
-  def :>=(that: T): Unit = {
-  //  new WidthCheckerAugment(pimpIt,that)
-    pimpIt assignFrom(that.resized, false)
-  }
-
-  def :~=(that: T): Unit = pimpIt assignFrom(that.resized, false)
 }
+
 
 trait Data extends ContextUser with NameableByComponent with Assignable  with SpinalTagReady with GlobalDataUser with ScalaLocated with OwnableRef {
   private[core] var dir: IODirection = null
@@ -213,11 +196,21 @@ trait Data extends ContextUser with NameableByComponent with Assignable  with Sp
   def getRootParent : Data = if(parent == null) this else parent.getRootParent
 
   def asInput(): this.type = {
-    dir = in
+    if(this.component != Component.current) {
+      val location = ScalaLocated.long
+      PendingError(s"You should not set $this as input outside it's own component.\n$location" )
+    }else {
+      dir = in
+    }
     this
   }
   def asOutput(): this.type = {
-    dir = out
+    if(this.component != Component.current) {
+      val location = ScalaLocated.long
+      PendingError(s"You should not set $this as output outside it's own component.\n$location" )
+    }else {
+      dir = out
+    }
     this
   }
 
@@ -424,6 +417,8 @@ trait Data extends ContextUser with NameableByComponent with Assignable  with Sp
   }
 
 
+  override def getComponent(): Component = component
+
   override def clone: this.type = {
     try {
       val clazz = this.getClass
@@ -477,16 +472,16 @@ trait Data extends ContextUser with NameableByComponent with Assignable  with Sp
             copy.asInstanceOf[Bundle].cloneFunc = (() => constructor.newInstance(c).asInstanceOf[this.type].asDirectionLess())
           return copy
         }
-//        val a = c.areaClassSet.get(pt)
-//        if(a.isDefined && a.get != null){
-//          return constructor.newInstance(a.get).asInstanceOf[this.type]
-//        }
+        //        val a = c.areaClassSet.get(pt)
+        //        if(a.isDefined && a.get != null){
+        //          return constructor.newInstance(a.get).asInstanceOf[this.type]
+        //        }
       }
 
 
-//      if (clazz.getAnnotations.find(_.isInstanceOf[valClone]).isDefined) {
-//        return constructorParamsAreVal
-//      }
+      //      if (clazz.getAnnotations.find(_.isInstanceOf[valClone]).isDefined) {
+      //        return constructorParamsAreVal
+      //      }
 
       needCloneImpl()
 
@@ -500,17 +495,15 @@ trait Data extends ContextUser with NameableByComponent with Assignable  with Sp
     def needCloneImpl(): this.type = {
       SpinalError(
         s"""
-          |*** Spinal can't clone ${this.getClass} datatype
-          |*** You have two way to solve that :
-          |*** In place to declare a "class Bundle(args){}", create a "case class Bundle(args){}"
-          |*** Or override by your self the bundle clone function
-          |*** The error is """.stripMargin + this.getScalaLocationLong);
+           |*** Spinal can't clone ${this.getClass} datatype
+                                                     |*** You have two way to solve that :
+                                                     |*** In place to declare a "class Bundle(args){}", create a "case class Bundle(args){}"
+                                                     |*** Or override by your self the bundle clone function
+                                                     |*** The error is """.stripMargin + this.getScalaLocationLong);
       null
     }
     null
   }
-
-  override def getComponent(): Component = component
   def getComponents() : Seq[Component] = if(component == null) Nil else (component.parents() ++ Seq(component))
 
   def genIf(cond : Boolean) : this.type = if(cond) this else null

@@ -38,31 +38,50 @@ class PhaseContext(val config : SpinalConfig){
     "until", "use", "variable", "wait", "when",
     "while", "with", "xnor", "xor",
 
-    //Verilog
-    "always", "and", "assign", "automatic", "begin", "buf",
-    "bufif0", "bufif1", "case", "casex", "casez",
-    "cell", "cmos", "config", "deassign", "default",
-    "defparam", "design", "disable", "edge", "else",
-    "end", "endcase", "endconfig", "endfunction", "endgenerate",
-    "endmodule", "endprimitive", "endspecify", "endtable", "endtask",
-    "event", "for", "force", "forever", "fork",
-    "function", "generate", "genvar", "highz0", "highz1",
-    "if", "ifnone", "incdir", "include", "initial",
-    "inout", "input", "instance", "integer", "join",
-    "large", "liblist", "library", "localparam", "macromodule",
-    "medium", "module", "nand", "negedge", "nmos", "nor",
-    "noshowcancelledno", "not", "notif0", "notif1", "or",
-    "output", "parameter", "pmos", "posedge", "primitive", "pull0",
-    "pull1", "pulldown", "pullup", "pulsestyle_oneventglitch",
-    "pulsestyle_ondetectglitch", "remos", "real", "realtime",
-    "reg", "release", "repeat", "rnmos", "rpmos", "rtran",
-    "rtranif0", "rtranif1", "scalared", "showcancelled", "signed",
-    "small", "specify", "specparam", "strong0", "strong1",
-    "supply0", "supply1", "table", "task", "time",
-    "tran", "tranif0", "tranif1", "tri", "tri0", "tri1",
-    "triand", "trior", "trireg", "unsigned", "use", "vectored",
-    "wait", "wand", "weak0", "weak1", "while", "wire",
-    "wor", "xnor", "xor"
+    //Verilog + SystemVerilog
+    "alias", "always", "always_comb", "always_ff",
+    "always_latch", "and", "assert", "assign",
+    "assume", "automatic", "before", "begin", "bind",
+    "bins", "binsof", "bit", "break",
+    "buf", "bufif0", "bufif1", "byte", "case", "casex",
+    "casez", "cell", "chandle", "class", "clocking", "cmos",
+    "config", "const", "constraint", "context", "continue",
+    "cover", "covergroup", "coverpoint", "cross", "deassign",
+    "default", "defparam", "design", "disable", "dist", "do",
+    "edge", "else", "end", "endcase", "endclass", "endclocking",
+    "endconfig", "endfunction", "endgenerate", "endgroup",
+    "endinterface", "endmodule", "endpackage","endprimitive",
+    "endprogram","endproperty","endspecify","endsequence",
+    "endtable","endtask","enum","event","expect","export",
+    "extends","extern","final","first_match","for","force",
+    "foreach","forever","fork","forkjoin","function",
+    "generate","genvar","highz0","highz1","if","iff",
+    "ifnone","ignore_bins","illegal_bins","import","incdir",
+    "include","initial","inout","input","inside",
+    "instance","int","integer","interface","intersect",
+    "join","join_any","join_none","large","liblist",
+    "library","local","localparam","logic","longint",
+    "macromodule","matches","medium","modport","module",
+    "nand","negedge","new","nmos","nor","noshowcancelled","not",
+    "notif0","notif1","null","or","output","package",
+    "packed","parameter","pmos","posedge","primitive",
+    "priority","program","property","protected","pull0",
+    "pull1","pulldown","pullup","pulsestyle_onevent",
+    "pulsestyle_ondetect","pure","rand","randc",
+    "randcase","randsequence","rcmos","real","realtime",
+    "ref","reg","release","repeat","return","rnmos",
+    "rpmos","rtran","rtranif0","rtranif1","scalared",
+    "sequence","shortint","shortreal","showcancelled",
+    "signed","small","solve","specify","specparam",
+    "static","string","strong0","strong1","struct",
+    "super","supply0","supply1","table","tagged","task",
+    "this","throughout","time","timeprecision","timeunit","tran",
+    "tranif0","tranif1","tri","tri0","tri1","triand",
+    "trior","trireg","type","typedef","union","unique",
+    "unsigned","use","uwire","var","vectored","virtual",
+    "void","wait","wait_order","wand","weak0","weak1",
+    "while","wildcard","wire","with","within","wor",
+    "xnor","xor"
   )
 
   reservedKeyWords.foreach(globalScope.allocateName(_))
@@ -313,7 +332,7 @@ class PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc: PhaseContex
         ram.io.rd.addr := rd.getAddress.allowSimplifyIt()
         rd.getData.allowSimplifyIt() := ram.io.rd.data
 
-        ram.setCompositeName(mem)
+        ram.setName(mem.getName())
         Component.pop(mem.component)
         clockDomain.pop()
       } else if (topo.writes.size == 1 && topo.readsAsync.isEmpty && topo.readsSync.size == 1 && topo.writeReadSync.isEmpty && topo.writeOrReadSync.isEmpty) {
@@ -341,7 +360,7 @@ class PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc: PhaseContex
             lit == null || lit.value == false
           }
 
-          ram.setCompositeName(mem)
+          ram.setName(mem.getName())
           Component.pop(mem.component)
           clockDomain.pop()
         }
@@ -369,7 +388,7 @@ class PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc: PhaseContex
             lit == null || lit.value == false
           }
 
-          ram.setCompositeName(mem)
+          ram.setName(mem.getName())
           Component.pop(mem.component)
           clockDomain.pop()
         }
@@ -392,7 +411,7 @@ class PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc: PhaseContex
 
           rd.getData.allowSimplifyIt() := ram.io.rdData
 
-          ram.setCompositeName(mem)
+          ram.setName(mem.getName())
           Component.pop(mem.component)
           clockDomain.pop()
         }
@@ -410,7 +429,7 @@ class PhaseNameNodesByReflection(pc: PhaseContext) extends Phase{
     for (c <- sortedComponents) {
       c.nameElements()
       if(c.definitionName == null)
-        c.definitionName = c.getClass.getSimpleName
+        c.definitionName = pc.config.globalPrefix + c.getClass.getSimpleName
       c match {
         case bb: BlackBox => {
           bb.getGeneric.genNames
@@ -860,34 +879,34 @@ class PhasePropagateBaseTypeWidth(pc: PhaseContext) extends Phase{
                 dontCare.inferredWidth = width
               }
               // case lit : BitsAllToLiteral => lit.inferredWidth = width
-              case bitVector : BitVector  => {
-                if(bitVector.getWidth < width  && ! bitVector.isReg) {
-                  val default = bitVector.findTag(_.isInstanceOf[TagDefault]).getOrElse(null).asInstanceOf[TagDefault]
-
-                  if (default != null) {
-                    val addedBitCount = width - bitVector.getWidth
-                    Component.push(bitVector.component)
-                    val newOne = bitVector.weakClone
-                    newOne.inferredWidth = width
-                    if(bitVector.getWidth > 0)
-                      newOne(bitVector.getWidth-1,0) := bitVector
-                    default.default match {
-                      case (_,value : Boolean) =>  {
-                        val lit = default.litFacto(if(value) (BigInt(1) << addedBitCount)-1 else 0,addedBitCount)
-                        newOne(width-1,bitVector.getWidth).assignFrom(lit,false)
-                      }
-                      case (_,value : Bool) =>{
-                        for(i <- bitVector.getWidth until width)
-                          newOne(i) := value
-                      }
-                    }
-
-                    parent.setInput(inputId,newOne)
-                    Component.pop(bitVector.component)
-                  }
-                }
-
-              }
+//              case bitVector : BitVector  => {
+//                if(bitVector.getWidth < width  && ! bitVector.isReg) {
+//                  val default = bitVector.findTag(_.isInstanceOf[TagDefault]).getOrElse(null).asInstanceOf[TagDefault]
+//
+//                  if (default != null) {
+//                    val addedBitCount = width - bitVector.getWidth
+//                    Component.push(bitVector.component)
+//                    val newOne = bitVector.weakClone
+//                    newOne.inferredWidth = width
+//                    if(bitVector.getWidth > 0)
+//                      newOne(bitVector.getWidth-1,0) := bitVector
+//                    default.default match {
+//                      case (_,value : Boolean) =>  {
+//                        val lit = default.litFacto(if(value) (BigInt(1) << addedBitCount)-1 else 0,addedBitCount)
+//                        newOne(width-1,bitVector.getWidth).assignFrom(lit,false)
+//                      }
+//                      case (_,value : Bool) =>{
+//                        for(i <- bitVector.getWidth until width)
+//                          newOne(i) := value
+//                      }
+//                    }
+//
+//                    parent.setInput(inputId,newOne)
+//                    Component.pop(bitVector.component)
+//                  }
+//                }
+//
+//              }
               case _ =>
             }
           }
@@ -1168,8 +1187,7 @@ class PhaseCheck_noAsyncNodeWithIncompleteAssignment(pc: PhaseContext) extends P
     val errors = mutable.ArrayBuffer[String]()
 
     Node.walk(walkNodesDefautStack,node => node match {
-      case signal: BaseType if !signal.isDelay => {
-
+      case signal: BaseType if !signal.isDelay && node.component != null && !(signal.component.isInBlackBoxTree && !signal.isInput) && !(signal.component.parent == null && signal.isInput) => {
         val signalRange = new AssignedRange(signal.getBitsWidth - 1, 0)
 
         def walk(nodes: Iterator[Node]): AssignedBits = {
@@ -1183,6 +1201,7 @@ class PhaseCheck_noAsyncNodeWithIncompleteAssignment(pc: PhaseContext) extends P
               assignedBits.add(an.getAssignedBits)
             }
             case man: MultipleAssignmentNode => return walk(man.getInputs)
+            case null =>
             case _ => assignedBits.add(signalRange)
           }
           assignedBits
@@ -1193,9 +1212,13 @@ class PhaseCheck_noAsyncNodeWithIncompleteAssignment(pc: PhaseContext) extends P
         val unassignedBits = new AssignedBits(signal.getBitsWidth)
         unassignedBits.add(signalRange)
         unassignedBits.remove(assignedBits)
-        if (!unassignedBits.isEmpty)
-          errors += s"Incomplete assignment is detected on $signal, unassigned bit mask " +
-            s"is ${unassignedBits.toBinaryString}, declared at\n${signal.getScalaLocationLong}"
+        if (!unassignedBits.isEmpty) {
+          if(unassignedBits.isFull)
+            errors += s"Combinatorial signal $signal has no default value => LATCH, defined at\n${signal.getScalaLocationLong}"
+          else
+            errors += s"Incomplete assignment is detected on the combinatorial signal $signal, unassigned bit mask " +
+              s"is ${unassignedBits.toBinaryString}, declared at\n${signal.getScalaLocationLong}"
+        }
       }
       case _ =>
     })
@@ -1452,9 +1475,14 @@ object SpinalVhdlBoot{
     phases += new PhasePrintStates(pc)
 
 
+    def initVhdlBase[T <: VhdlBase](base : T) = {
+      base.packageName     = pc.config.globalPrefix + base.packageName
+      base.enumPackageName = pc.config.globalPrefix + base.enumPackageName
+      base
+    }
 
-    phases += new PhaseVhdl(pc)
-    phases += new VhdlTestBenchBackend(pc)
+    phases += initVhdlBase(new PhaseVhdl(pc))
+    phases += initVhdlBase(new VhdlTestBenchBackend(pc))
 
 
 

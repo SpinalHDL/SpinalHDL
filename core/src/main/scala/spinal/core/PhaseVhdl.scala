@@ -25,7 +25,8 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
     
     outFile = new java.io.FileWriter(pc.config.targetDirectory + "/" +  topLevel.definitionName + ".vhd")
     emitEnumPackage(outFile)
-    emitPackage(outFile)
+    if(pc.config.genVhdlPkg)
+      emitPackage(outFile)
 
     for (c <- sortedComponents) {
       SpinalProgress(s"${"  " * (1 + c.level)}emit ${c.definitionName}")
@@ -575,7 +576,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
     var ret = builder.newPart(false)
     ret ++= s"\nentity ${component.definitionName} is\n"
     ret = builder.newPart(true)
-    ret ++= s"  port(\n"
+    ret ++= s"  port( \n"
     if (!(config.onlyStdLogicVectorAtTopLevelIo && component == topLevel)) {
       component.getOrdredNodeIo.foreach(baseType =>
         ret ++= s"    ${baseType.getName()} : ${emitDirection(baseType)} ${emitDataType(baseType)}${getBaseTypeSignalInitialisation(baseType)};\n"
@@ -665,7 +666,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
     ret ++= s"\n  component ${component.definitionName} is\n"
     val genericFlat = component.getGeneric.flatten
     if (genericFlat.size != 0) {
-      ret ++= s"    generic(\n"
+      ret ++= s"    generic( \n"
       for ((name, e) <- genericFlat) {
         e match {
           case baseType: BaseType => ret ++= s"      ${emitReference(baseType)} : ${blackBoxRemplaceULogic(component, emitDataType(baseType, false))};\n"
@@ -680,7 +681,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
       ret.setCharAt(ret.size - 2, ' ')
       ret ++= s"    );\n"
     }
-    ret ++= s"    port(\n"
+    ret ++= s"    port( \n"
     component.nodes.foreach(_ match {
       case baseType: BaseType => {
         if (baseType.isIo) {
@@ -980,6 +981,13 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
     }
   }
 
+  def unaryAllBy(cast : String)(func: Modifier): String = {
+    val node = func.asInstanceOf[Operator.BitVector.AllByBool]
+    s"${cast}'(${node.getWidth-1} downto 0 => ${emitLogic(node.input)})"
+  }
+
+
+
   val modifierImplMap = mutable.Map[String, Modifier => String]()
 
 
@@ -1089,6 +1097,11 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
   modifierImplMap.put("resize(u,i)", resizeFunction("pkg_unsigned"))
   modifierImplMap.put("resize(b,i)", resizeFunction("pkg_stdLogicVector"))
 
+  modifierImplMap.put("bAllByB", unaryAllBy("std_logic_vector"))
+  modifierImplMap.put("uAllByB", unaryAllBy("unsigned"))
+  modifierImplMap.put("sAllByB", unaryAllBy("signed"))
+
+
   //Memo whenNode hardcode emitlogic
   modifierImplMap.put("mux(B,B,B)", operatorImplAsFunction("pkg_mux"))
   modifierImplMap.put("mux(B,b,b)", operatorImplAsFunction("pkg_mux"))
@@ -1111,6 +1124,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
   modifierImplMap.put("extract(b,u,w)", extractBitVectorFloating)
   modifierImplMap.put("extract(u,u,w)", extractBitVectorFloating)
   modifierImplMap.put("extract(s,u,w)", extractBitVectorFloating)
+
 
 
   def extractBoolFixed(func: Modifier): String = {
@@ -1467,7 +1481,21 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
       case switchTree : AssignementLevelSwitch => {
         ret ++= s"${tab}case ${emitLogic(switchTree.key)} is\n"
         switchTree.cases.foreach(c => {
-          ret ++= s"${tab}  when ${emitLogic(c.const)} =>\n"
+          val litString = c.const match {
+            case lit: BitsLiteral => s"${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'}"
+            case lit: UIntLiteral => s"${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'}"
+            case lit: SIntLiteral => s"${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'}"
+
+            case lit: BitsAllToLiteral => lit.theConsumer match {
+              case _: Bits => s"${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'}"
+              case _: UInt => s"${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'}"
+              case _: SInt => s"${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'}"
+            }
+            case lit: BoolLiteral => s"${lit.value}"
+            //  case lit: BoolLiteral => if(lit.value) "'1'" else "'0'" //Invalid VHDL when '1' = '1'
+            case lit: EnumLiteral[_] => emitEnumLiteral(lit.enum, lit.encoding)
+          }
+          ret ++= s"${tab}  when $litString =>\n"
           emitAssignementLevel(c.doThat,ret,tab + "    ","<=")
         })
         ret ++= s"${tab}  when others =>\n"
@@ -1521,7 +1549,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
         val genericFlat = bb.getGeneric.flatten
 
         if (genericFlat.size != 0) {
-          ret ++= s"    generic map(\n"
+          ret ++= s"    generic map( \n"
 
 
           for ((name, e) <- genericFlat) {
@@ -1541,7 +1569,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
           ret ++= s"    )\n"
         }
       }
-      ret ++= s"    port map (\n"
+      ret ++= s"    port map ( \n"
       for (data <- kind.getOrdredNodeIo) {
         if (data.isOutput) {
           val bind = component.kindsOutputsToBindings.getOrElse(data, null)

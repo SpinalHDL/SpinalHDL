@@ -253,9 +253,14 @@ class CaseContext(val switchContext: SwitchContext,val cond : Bool) extends Cond
 
 object switch {
   def apply[T <: Data](value: T)(block: => Unit): Unit = {
+    //value.globalData.pushNetlistLock(() => {
+//      SpinalError(s"You should not use 'general statments' in the 'switch' scope, but only 'is' statments.\n${ScalaLocated.long}")
+//    })
     val s = new SwitchStack(value)
     value.globalData.switchStack.push(s)
     block
+
+    //value.globalData.pushNetlistUnlock()
     if (s.defaultBlock != null) {
       if (s.lastWhen == null) {
         block
@@ -263,17 +268,21 @@ object switch {
         s.lastWhen.otherwise(s.defaultBlock())
       }
     }
+
+    //value.globalData.popNetlistUnlock()
     value.globalData.switchStack.pop(s)
+    //value.globalData.popNetlistLock
   }
 }
 
 
 object is {
-  def apply(values: Any*)(block: => Unit): Unit = list(values.iterator)(block)
+  def apply(values:  Any*)(block: => Unit): Unit = list(values.iterator)(block)
 
   def list(values: Iterator[Any])(block: => Unit): Unit = {
     val globalData = GlobalData.get
     if (globalData.switchStack.isEmpty) SpinalError("Use 'is' statement outside the 'switch'")
+    globalData.pushNetlistUnlock()
 
     val value = globalData.switchStack.head()
     if (value.whenStackHead != globalData.conditionalAssignStack.head())
@@ -310,6 +319,7 @@ object is {
     } else {
       value.lastWhen = value.lastWhen.elsewhen(cond)(block)
     }
+    globalData.popNetlistUnlock()
   }
 }
 
@@ -317,6 +327,7 @@ object default {
   def apply(block: => Unit): Unit = {
     val globalData = GlobalData.get
     if (globalData.switchStack.isEmpty) SpinalError("Use 'default' statement outside the 'switch'")
+    globalData.pushNetlistUnlock()
     val value = globalData.switchStack.head()
 
     if (value.whenStackHead != globalData.conditionalAssignStack.head()) SpinalError("'default' statement is not at the top level of the 'switch'")
@@ -324,5 +335,6 @@ object default {
     value.defaultBlock = () => {
       block
     }
+    globalData.popNetlistUnlock()
   }
 }

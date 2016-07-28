@@ -238,6 +238,25 @@ object OperatorTester {
     val stateBinaryOneHotIsNotC = out(stateBinaryOneHot =/= State.c)
     stateBinaryOneHotMux := (Mux(boolC,State.a,State.b))
     stateBinaryOneHotMux.asOutput()
+
+
+
+    val bitsAggregateFixed = out(B(7 -> false,(6 downto 5) -> true,(4 downto 3) -> bits8(1 downto 0),(2 downto 1) -> boolA,0 -> True))
+    val uintAggregateFixed = out(U(7 -> false,(6 downto 5) -> true,(4 downto 3) -> bits8(1 downto 0),(2 downto 1) -> boolA,0 -> True))
+    val sintAggregateFixed = out(S(7 -> false,(6 downto 5) -> true,(4 downto 3) -> bits8(1 downto 0),(2 downto 1) -> boolA,0 -> True))
+
+    val bitsAggregateUnfixedWidthFixedDefault = out(B(7 -> false,(6 downto 5) -> true,(4 downto 3) -> bits8(1 downto 0),0 -> True,(2 downto 1) -> true))
+    val uintAggregateUnfixedWidthFixedDefault = out(U(7 -> false,(6 downto 5) -> true,(4 downto 3) -> bits8(1 downto 0),0 -> True,(2 downto 1) -> true))
+    val sintAggregateUnfixedWidthFixedDefault = out(S(7 -> false,(6 downto 5) -> true,(4 downto 3) -> bits8(1 downto 0),0 -> True,(2 downto 1) -> true))
+
+    val bitsAggregateUnfixedWidthUnfixedDefault = out Bits(8 bits)
+    val uintAggregateUnfixedWidthUnfixedDefault = out UInt(8 bits)
+    val sintAggregateUnfixedWidthUnfixedDefault = out SInt(8 bits)
+
+    bitsAggregateUnfixedWidthUnfixedDefault := (7 -> false,(6 downto 5) -> true,(4 downto 3) -> bits8(1 downto 0),0 -> True,default -> boolA)
+    uintAggregateUnfixedWidthUnfixedDefault := (7 -> false,(6 downto 5) -> true,(4 downto 3) -> bits8(1 downto 0),0 -> True,default -> boolA)
+    sintAggregateUnfixedWidthUnfixedDefault := (7 -> false,(6 downto 5) -> true,(4 downto 3) -> bits8(1 downto 0),0 -> True,default -> boolA)
+
   }
 }
 

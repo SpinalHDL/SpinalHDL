@@ -17,6 +17,7 @@ import spinal.lib.com.uart._
 import spinal.lib.cpu.riscv.impl.CoreQSysAvalon.RiscvAvalon
 import spinal.lib.cpu.riscv.impl._
 import spinal.lib.cpu.riscv.impl.extension.{DebugExtension, BarrelShifterFullExtension, DivExtension, MulExtension}
+import spinal.lib.experimental.MacrosClass
 import spinal.lib.graphic.{RgbConfig, Rgb}
 import spinal.lib.graphic.vga.{VgaCtrl, Vga}
 
@@ -2690,20 +2691,31 @@ object PlayArea {
 
   class TopLevel extends Component {
     val myArea = new Area{
-      val cmd = slave Stream(wrap(new Bundle{
-        val aaa = Bool
-        val xxx = new Bundle{
-          val yyy = UInt(3 bit)
+//      val cmd = slave Stream(wrap(new Bundle{
+//        val aaa = Bool
+//        val xxx = new Bundle{
+//          val yyy = UInt(3 bit)
+//        }
+//      }))
+//      val tmp = cmd.m2sPipe()
+//      val rsp = master(tmp.m2sPipe())
+      var yolo = 54
+      val subArea = new Area{
+        var titi = 32
+        val subsubArea = new Area {
+          val toto = U(2).keep()
         }
-      }))
-      val tmp = cmd.m2sPipe()
-      val rsp = master(tmp.m2sPipe())
+      }.setPartialName("chocolat")
     }
   }
 
 
   def main(args: Array[String]) {
-    SpinalVhdl(new TopLevel)
+    SpinalVhdl({
+      val c = new TopLevel
+      println(c)
+      c
+    })
     println("Done")
   }
 }

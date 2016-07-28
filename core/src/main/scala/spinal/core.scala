@@ -179,7 +179,6 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   }
 
   implicit def DataPimped[T <: Data](that: T) : DataPimper[T] = new DataPimper(that)
-  implicit def BitVectorPimped[T <: BitVector](that: T)  : BitVectorPimper[T] = new BitVectorPimper(that)
 
   // @TODO Should those be removed ?
   // implicit def UIntToLitBuilder(sc: StringContext) = new UIntLitBuilder(sc)

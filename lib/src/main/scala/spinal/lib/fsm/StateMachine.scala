@@ -89,18 +89,15 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated{
     inGeneration = true
     childStateMachines.foreach(_.build())
     stateBoot = new StateBoot(autoStart).setName("boot")
-    OwnableRef.set(stateBoot,this)
-
-
     stateReg  = Reg(enumDefinition())
     stateNext = enumDefinition()
 
-    if(this.isNamed){
-      stateReg.setWeakName(this.getName() + "_stateReg")
-      stateNext.setWeakName(this.getName() + "_stateNext")
-      OwnableRef.set(stateReg,this)
-      OwnableRef.set(stateNext,this)
-    }
+    OwnableRef.proposal(stateBoot,this)
+    OwnableRef.proposal(stateReg,this)
+    OwnableRef.proposal(stateNext,this)
+
+    stateReg.setPartialName("stateReg")
+    stateNext.setPartialName("stateNext")
 
     for(state <- states){
       checkState(state)
@@ -143,6 +140,9 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated{
       }
       when(stateRegOneHotMap(state) && !stateNextOneHotMap(state)){
         state.onExitTasks.foreach(_())
+      }
+      when(!stateRegOneHotMap(state)){
+        state.whenInactiveTasks.foreach(_())
       }
     }
 
