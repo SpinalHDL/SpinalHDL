@@ -39,7 +39,7 @@ class VhdlTestBenchBackend(pc : PhaseContext) extends VhdlBase with PhaseMisc {
 
   def outputFilePath = config.targetDirectory + "/" +  topLevel.definitionName + "_tb.vhd"
   
-  override def impl() : Unit = {
+  override def impl(pc : PhaseContext) : Unit = {
     if (tbName == null) tbName = topLevel.definitionName + "_tb"
     extractUserCodes
 

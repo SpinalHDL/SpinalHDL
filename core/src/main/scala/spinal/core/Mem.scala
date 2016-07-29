@@ -23,21 +23,42 @@ import scala.collection.mutable.ArrayBuffer
 /**
   * Created by PIC18F on 02.02.2015.
   */
-trait MemWriteToReadKind {
+trait MemWriteToReadKind{
+  def writeToReadKind : String
+}
 
+trait MemTechnologyKind{
+  def technologyKind : String
+}
+
+object dontCare extends MemWriteToReadKind with MemTechnologyKind{
+  override def writeToReadKind: String = "dontCare"
+  override def technologyKind: String = "dontCare"
 }
 
 object writeFirst extends MemWriteToReadKind {
-  override def toString: String = "writeFirst"
+  override def writeToReadKind: String = "writeFirst"
 }
 
 object readFirst extends MemWriteToReadKind {
-  override def toString: String = "readFirst"
+  override def writeToReadKind: String = "readFirst"
 }
 
-object dontCare extends MemWriteToReadKind {
-  override def toString: String = "dontCare"
+
+
+
+object ramBlock extends MemTechnologyKind {
+  override def technologyKind: String = "ramBlock"
 }
+
+object distributedLut extends MemTechnologyKind {
+  override def technologyKind: String = "distributedLut"
+}
+
+object registerFile extends MemTechnologyKind {
+  override def technologyKind: String = "registerFile"
+}
+
 
 object Mem {
   def apply[T <: Data](wordType: T, wordCount: Int) = new Mem(wordType, wordCount)
@@ -123,7 +144,10 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
 
     val addressBuffer = UInt(addressWidth bit).dontSimplifyIt()
     addressBuffer := address
-    val readPort = new MemReadSync(this, address, addressBuffer, readBits, enable.dontSimplifyIt(), writeToReadKind, ClockDomain.current)
+
+    val enableBuffer = Bool
+    enableBuffer := enable
+    val readPort = new MemReadSync(this, addressBuffer, readBits, enableBuffer.dontSimplifyIt(), writeToReadKind, ClockDomain.current)
 
     addressBuffer.setRefOwner(readPort)
     addressBuffer.setPartialName("address",true)
@@ -131,8 +155,8 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
     readBits.setRefOwner(readPort)
     readBits.setPartialName("data",true)
 
-    enable.setRefOwner(readPort)
-    enable.setPartialName("enable",true)
+    enableBuffer.setRefOwner(readPort)
+    enableBuffer.setPartialName("enable",true)
 
     if (crossClock)
       readPort.addTag(crossClockDomain)
@@ -164,8 +188,10 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
       null
     }
 
-    val whenBuffer =  when.getWhensCond(this).dontSimplifyIt()
-    val writePort = new MemWrite(this, address, addressBuffer, dataBuffer, maskBuffer,whenBuffer, ClockDomain.current)
+    val whenCond =  when.getWhensCond(this)
+    val whenBuffer = Bool.dontSimplifyIt()
+    whenBuffer := whenCond
+    val writePort = new MemWrite(this, addressBuffer, dataBuffer, maskBuffer,whenBuffer, ClockDomain.current)
     inputs += writePort
 
     addressBuffer.setRefOwner(writePort)
@@ -298,7 +324,7 @@ object MemReadSync {
   val getMemId: Int = 6
 }
 
-class MemReadSync(mem_ : Mem[_], val originalAddress: UInt, address_ : UInt, data: Bits, enable_ : Bool, val writeToReadKind: MemWriteToReadKind, clockDomain: ClockDomain) extends SyncNode(clockDomain) with Widthable with Nameable{
+class MemReadSync(mem_ : Mem[_], address_ : UInt, data: Bits, enable_ : Bool, val writeToReadKind: MemWriteToReadKind, clockDomain: ClockDomain) extends SyncNode(clockDomain) with Widthable with Nameable{
   var address : Node = address_
   var readEnable  : Node = enable_
   var mem     : Mem[_] = mem_
@@ -371,8 +397,8 @@ object MemWrite {
   val getEnableId: Int = 7
 }
 
-class MemWrite(mem: Mem[_], val originalAddress: UInt, address_ : UInt, data_ : Bits, mask_ : Bits, enable_ : Bool, clockDomain: ClockDomain) extends SyncNode(clockDomain) with Widthable with CheckWidth with Nameable{
-  var address : Node  = address_
+class MemWrite(mem: Mem[_], address_ : UInt, data_ : Bits, mask_ : Bits, enable_ : Bool, clockDomain: ClockDomain) extends SyncNode(clockDomain) with Widthable with CheckWidth with Nameable{
+  var address  : Node  = address_
   var data     : Node = data_
   var mask     : Node = (if (mask_ != null) mask_ else NoneNode())
   var writeEnable  : Node  = enable_
@@ -595,3 +621,13 @@ class MemWriteOrRead_readPart(mem_ : Mem[_], address_ : UInt, data_ : Bits, chip
 
 
 
+//trait MemBlackBoxer{
+//  def applyOn(that : Mem): Unit
+//}
+//
+//object MemBlackBoxer extends MemBlackBoxer{
+//  override def applyOn(that: Mem): Unit = {
+//
+//    if(that.ports.count(_.isInstanceOf[MemWrite]) == 1 && that.ports.count(_.isInstanceOf[MemWrite])
+//  }
+//}

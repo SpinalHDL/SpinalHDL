@@ -12,7 +12,7 @@ import spinal.lib.bus.neutral.NeutralStreamDma
 import spinal.lib.com.uart.UartCtrl
 import spinal.lib.eda.mentor.MentorDo
 import spinal.lib.fsm._
-import spinal.lib.graphic.RgbConfig
+import spinal.lib.graphic.{Rgb, RgbConfig}
 import spinal.lib.graphic.vga.{AvalonMMVgaCtrl, VgaCtrl}
 import spinal.lib.com.i2c._
 import spinal.lib.io.ReadableOpenDrain
@@ -2048,6 +2048,37 @@ object PlayLogicLock{
 
   def main(args: Array[String]) {
     SpinalVhdl(new TopLevel)
+  }
+}
+
+
+object PlaySimple{
+  class TopLevel extends Component {
+    val a,b = in UInt(8 bits)
+    val result = out UInt(8 bits)
+    result := a + b
+  }
+
+  def main(args: Array[String]) {
+    SpinalConfig().addTransformationPhase(new PhaseDummy(println("MIAOU"))).generateVhdl(new TopLevel)
+  }
+}
+
+
+
+object PlayRamBB{
+  class TopLevel extends Component {
+    val rgbConfig = RgbConfig(5,6,5)
+    val mem = Mem(Rgb(rgbConfig),1 << 16)//.setAsBlackBox()
+
+    val writePort = in(mem.writePort)
+    val readSyncPort = slave(mem.readSyncPort)
+    val readAsyncAddr = in UInt(16 bits)
+    val readAsyncData = out(mem.readAsync(readAsyncAddr))
+  }
+
+  def main(args: Array[String]) {
+    SpinalConfig().generateVhdl(new TopLevel)
   }
 }
 

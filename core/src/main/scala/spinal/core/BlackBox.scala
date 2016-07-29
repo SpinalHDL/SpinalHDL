@@ -100,15 +100,6 @@ abstract class BlackBox extends Component with SpinalTagReady {
     mapClockDomain(ClockDomain.current, clock, reset, enable)
   }
 
-
-  override def nameElements(): Unit = {
-    val io = reflectIo
-//    if (io != null) {
-//      io.setWeakName("")
-//    }
-    super.nameElements()
-  }
-
   override def isInBlackBoxTree: Boolean = true
 
   def setBlackBoxName(name: String): this.type = {

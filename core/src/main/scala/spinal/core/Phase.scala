@@ -172,7 +172,7 @@ class PhaseContext(val config : SpinalConfig){
       fillNodeConsumer()
       dirtyConsumers = false
     }
-    phase.impl()
+    phase.impl(this)
     checkPendingErrors()
     if(phase.hasNetlistImpact){
       dirtyConsumers = true
@@ -182,7 +182,7 @@ class PhaseContext(val config : SpinalConfig){
 }
 
 trait Phase{
-  def impl(): Unit
+  def impl(pc: PhaseContext): Unit
 
   def hasNetlistImpact : Boolean
   def useNodeConsumers : Boolean
@@ -203,14 +203,14 @@ trait PhaseCheck extends Phase{
 //class MultiPhase(pc: PhaseContext) extends Phase{
 //  val phases = ArrayBuffer[Phase]()
 //
-//  override def impl(): Unit = {
-//    phases.foreach(_.impl())
+//  override def impl(pc : PhaseContext): Unit = {
+//    phases.foreach(_.impl(pc : PhaseContext))
 //  }
 //}
 
 
 //class PhaseFillComponentList(pc: PhaseContext) extends Phase{
-//  override def impl(): Unit = {
+//  override def impl(pc : PhaseContext): Unit = {
 //    pc.fillComponentList()
 //  }
 //}
@@ -219,7 +219,7 @@ trait PhaseCheck extends Phase{
 
 class PhaseNodesBlackBoxGenerics(pc: PhaseContext) extends PhaseMisc{
   override def useNodeConsumers = false
-  override def impl(): Unit = {
+  override def impl(pc : PhaseContext): Unit = {
     val nodeStack = mutable.Stack[Node]()
     pc.components.foreach(_ match {
       case blackBox: BlackBox => {
@@ -235,7 +235,7 @@ class PhaseNodesBlackBoxGenerics(pc: PhaseContext) extends PhaseMisc{
 
 class PhaseMoveLogicTags(pc: PhaseContext) extends PhaseMisc{
   override def useNodeConsumers = false
-  override def impl(): Unit = {
+  override def impl(pc : PhaseContext): Unit = {
     import pc._
     Node.walk(pc.walkNodesDefautStack,_ match{
         case node : BaseType => {
@@ -253,7 +253,7 @@ class PhaseMoveLogicTags(pc: PhaseContext) extends PhaseMisc{
 
 class PhaseApplyIoDefault(pc: PhaseContext) extends PhaseNetlist{
   override def useNodeConsumers = false
-  override def impl(): Unit = {
+  override def impl(pc : PhaseContext): Unit = {
     import pc._
     Node.walk(pc.walkNodesDefautStack,node => {
       node match{
@@ -293,7 +293,7 @@ class PhaseApplyIoDefault(pc: PhaseContext) extends PhaseNetlist{
 
 class PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc: PhaseContext) extends PhaseNetlist{
   override def useNodeConsumers = false
-  override def impl(): Unit = {
+  override def impl(pc : PhaseContext): Unit = {
     import pc._
     class MemTopo(val mem: Mem[_]) {
       val writes = ArrayBuffer[MemWrite]()
@@ -309,7 +309,7 @@ class PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc: PhaseContex
     Node.walk(pc.walkNodesDefautStack,node => node match {
       case write: MemWrite => {
         val memTopo = topoOf(write.getMem)
-        val readSync = memTopo.readsSync.find(readSync => readSync.originalAddress == write.originalAddress).orNull
+        val readSync = memTopo.readsSync.find(readSync => readSync.address.getInput(0) == write.address.getInput(0)).orNull
         if (readSync == null) {
           memTopo.writes += write
         } else {
@@ -321,7 +321,7 @@ class PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc: PhaseContex
       case readAsync: MemReadAsync => topoOf(readAsync.getMem).readsAsync += readAsync
       case readSync: MemReadSync => {
         val memTopo = topoOf(readSync.getMem)
-        val write = memTopo.writes.find(write => readSync.originalAddress == write.originalAddress).orNull
+        val write = memTopo.writes.find(write => readSync.address.getInput(0) == write.address.getInput(0)).orNull
         if (write == null) {
           memTopo.readsSync += readSync
         } else {
@@ -346,58 +346,56 @@ class PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc: PhaseContex
     })
 
 
-
-    for ((mem, topo) <- memsTopo.iterator if config.forceMemToBlackboxTranslation || mem.forceMemToBlackboxTranslation
-         if mem.initialContent == null) {
-
-      if (topo.writes.size == 1 && topo.readsAsync.size == 1 && topo.readsSync.isEmpty && topo.writeReadSync.isEmpty && topo.writeOrReadSync.isEmpty) {
+    for ((mem, topo) <- memsTopo.iterator if config.forceMemToBlackboxTranslation || mem.forceMemToBlackboxTranslation if mem.initialContent == null) {
+      if (topo.writes.size == 1 && topo.writes(0).mask == null && (!topo.readsAsync.isEmpty || !topo.readsSync.isEmpty) && topo.writeReadSync.isEmpty && topo.writeOrReadSync.isEmpty) {
         val wr = topo.writes(0)
-        val rd = topo.readsAsync(0)
-        val clockDomain = wr.getClockDomain
-        clockDomain.push()
-        Component.push(mem.component)
-
-        val ram = Component(new Ram_1c_1w_1ra(mem.getWidth, mem.wordCount, rd.writeToReadKind))
-        val enable = clockDomain.isClockEnableActive
-
-        ram.io.wr.en := wr.getEnable.allowSimplifyIt() && enable
-        ram.io.wr.addr := wr.getAddress.allowSimplifyIt()
-        ram.io.wr.data := wr.getData.allowSimplifyIt()
-
-        ram.io.rd.addr := rd.getAddress.allowSimplifyIt()
-        rd.getData.allowSimplifyIt() := ram.io.rd.data
-
-        ram.setName(mem.getName())
-        Component.pop(mem.component)
-        clockDomain.pop()
-      } else if (topo.writes.size == 1 && topo.readsAsync.isEmpty && topo.readsSync.size == 1 && topo.writeReadSync.isEmpty && topo.writeOrReadSync.isEmpty) {
-        val wr = topo.writes(0)
-        val rd = topo.readsSync(0)
-        if (rd.getClockDomain.clock == wr.getClockDomain.clock) {
+        for(rd <- topo.readsAsync) {
           val clockDomain = wr.getClockDomain
-
           clockDomain.push()
           Component.push(mem.component)
 
-          val ram = Component(new Ram_1c_1w_1rs(mem.getWidth, mem.wordCount, rd.writeToReadKind))
+          val ram = new Ram_1c_1w_1ra(mem.getWidth, mem.wordCount, rd.writeToReadKind)
           val enable = clockDomain.isClockEnableActive
 
           ram.io.wr.en := wr.getEnable.allowSimplifyIt() && enable
           ram.io.wr.addr := wr.getAddress.allowSimplifyIt()
           ram.io.wr.data := wr.getData.allowSimplifyIt()
 
-          ram.io.rd.en := rd.getReadEnable.allowSimplifyIt() && enable
           ram.io.rd.addr := rd.getAddress.allowSimplifyIt()
           rd.getData.allowSimplifyIt() := ram.io.rd.data
-
-          ram.generic.useReadEnable = {
-            val lit = ram.io.rd.en.getLiteral[BoolLiteral]
-            lit == null || lit.value == false
-          }
 
           ram.setName(mem.getName())
           Component.pop(mem.component)
           clockDomain.pop()
+        }
+
+        for(rd <- topo.readsSync){
+          if (rd.getClockDomain.clock == wr.getClockDomain.clock) {
+            val clockDomain = wr.getClockDomain
+
+            clockDomain.push()
+            Component.push(mem.component)
+
+            val ram = new Ram_1c_1w_1rs(mem.getWidth, mem.wordCount, rd.writeToReadKind)
+            val enable = clockDomain.isClockEnableActive
+
+            ram.io.wr.en := wr.getEnable.allowSimplifyIt() && enable
+            ram.io.wr.addr := wr.getAddress.allowSimplifyIt()
+            ram.io.wr.data := wr.getData.allowSimplifyIt()
+
+            ram.io.rd.en := rd.getReadEnable.allowSimplifyIt() && enable
+            ram.io.rd.addr := rd.getAddress.allowSimplifyIt()
+            rd.getData.allowSimplifyIt() := ram.io.rd.data
+
+            ram.generic.useReadEnable = {
+              val lit = ram.io.rd.en.getLiteral[BoolLiteral]
+              lit == null || lit.value == false
+            }
+
+            ram.setName(mem.getName())
+            Component.pop(mem.component)
+            clockDomain.pop()
+          }
         }
       } else if (topo.writes.isEmpty && topo.readsAsync.isEmpty && topo.readsSync.isEmpty && topo.writeReadSync.size == 1 && topo.writeOrReadSync.isEmpty) {
         val wr = topo.writeReadSync(0)._1
@@ -408,7 +406,7 @@ class PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc: PhaseContex
           clockDomain.push()
           Component.push(mem.component)
 
-          val ram = Component(new Ram_1wrs(mem.getWidth, mem.wordCount, rd.writeToReadKind))
+          val ram = new Ram_1wrs(mem.getWidth, mem.wordCount, rd.writeToReadKind)
           val enable = clockDomain.isClockEnableActive
 
           ram.io.addr := wr.getAddress.allowSimplifyIt()
@@ -436,7 +434,7 @@ class PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc: PhaseContex
           clockDomain.push()
           Component.push(mem.component)
 
-          val ram = Component(new Ram_1wors(mem.getWidth, mem.wordCount, rd.writeToReadKind))
+          val ram = new Ram_1wors(mem.getWidth, mem.wordCount, rd.writeToReadKind)
           val enable = clockDomain.isClockEnableActive
 
           ram.io.addr := wr.getAddress.allowSimplifyIt()
@@ -457,7 +455,7 @@ class PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc: PhaseContex
 
 class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
   override def useNodeConsumers = false
-  override def impl(): Unit = {
+  override def impl(pc : PhaseContext): Unit = {
     import pc._
     globalData.nodeAreNamed = true
     if (topLevel.getName() == null) topLevel.setWeakName("toplevel")
@@ -477,7 +475,7 @@ class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
 
 class PhaseCollectAndNameEnum(pc: PhaseContext) extends PhaseMisc{
   override def useNodeConsumers = false
-  override def impl(): Unit = {
+  override def impl(pc : PhaseContext): Unit = {
     import pc._
     Node.walk(walkNodesDefautStack,node => {
       node match {
@@ -514,7 +512,7 @@ class PhaseCollectAndNameEnum(pc: PhaseContext) extends PhaseMisc{
 
 class PhasePullClockDomains(pc: PhaseContext) extends PhaseNetlist{
   override def useNodeConsumers = false
-  override def impl(): Unit = {
+  override def impl(pc : PhaseContext): Unit = {
     import pc._
     Node.walk(walkNodesDefautStack,(node, push) =>  {
       node match {
@@ -540,7 +538,7 @@ class PhasePullClockDomains(pc: PhaseContext) extends PhaseNetlist{
 
 class PhaseCheck_noNull_noCrossHierarchy_noInputRegister_noDirectionLessIo(pc: PhaseContext) extends PhaseCheck{
   override def useNodeConsumers = false
-  override def impl(): Unit = {
+  override def impl(pc : PhaseContext): Unit = {
     import pc._
     val errors = mutable.ArrayBuffer[String]()
 
@@ -617,7 +615,7 @@ class PhaseCheck_noNull_noCrossHierarchy_noInputRegister_noDirectionLessIo(pc: P
 
 class PhaseAddInOutBinding(pc: PhaseContext) extends PhaseNetlist{
   override def useNodeConsumers = false
-  override def impl(): Unit = {
+  override def impl(pc : PhaseContext): Unit = {
     import pc._
     Node.walk(walkNodesDefautStack,(node,push) => {
       //Create inputss bindings, usefull if the node is driven by when statments
@@ -667,7 +665,7 @@ class PhaseAddInOutBinding(pc: PhaseContext) extends PhaseNetlist{
 
 class PhaseNameBinding(pc: PhaseContext) extends PhaseMisc{
   override def useNodeConsumers = false
-  override def impl(): Unit = {
+  override def impl(pc : PhaseContext): Unit = {
   import pc._
     for (c <- components) {
       for ((bindedOut, bind) <- c.kindsOutputsToBindings) {
@@ -693,7 +691,7 @@ class PhaseNameBinding(pc: PhaseContext) extends PhaseMisc{
 
 class PhaseAllowNodesToReadOutputs(pc: PhaseContext) extends PhaseNetlist{
   override def useNodeConsumers = false
-  override def impl(): Unit = {
+  override def impl(pc : PhaseContext): Unit = {
     import pc._
     val outputsBuffers = mutable.Map[BaseType, BaseType]()
     Node.walk(walkNodesDefautStack,node => {
@@ -724,7 +722,7 @@ class PhaseAllowNodesToReadOutputs(pc: PhaseContext) extends PhaseNetlist{
 
 class PhaseAllowNodesToReadInputOfKindComponent(pc: PhaseContext) extends PhaseNetlist{
   override def useNodeConsumers = false
-  override def impl(): Unit = {
+  override def impl(pc : PhaseContext): Unit = {
     import pc._
     Node.walk(walkNodesDefautStack,node => {
       node.onEachInput((input,i) => {
@@ -743,7 +741,7 @@ class PhaseAllowNodesToReadInputOfKindComponent(pc: PhaseContext) extends PhaseN
 
 class PhasePreWidthInferationChecks(pc: PhaseContext) extends PhaseMisc{
   override def useNodeConsumers = false
-  override def impl(): Unit = {
+  override def impl(pc : PhaseContext): Unit = {
     import pc._
     val errors = mutable.ArrayBuffer[String]()
     Node.walk(walkNodesDefautStack ++ walkNodesBlackBoxGenerics,_ match {
@@ -761,7 +759,7 @@ class PhasePreWidthInferationChecks(pc: PhaseContext) extends PhaseMisc{
 
 class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
   override def useNodeConsumers = false
-  override def impl(): Unit = {
+  override def impl(pc : PhaseContext): Unit = {
     import pc._
     globalData.nodeAreInferringWidth = true
     val nodes = ArrayBuffer[Node with Widthable]()
@@ -805,7 +803,7 @@ class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
 
 class PhaseInferEnumEncodings(pc: PhaseContext,encodingSwap : (SpinalEnumEncoding) => SpinalEnumEncoding) extends PhaseMisc{
   override def useNodeConsumers = true
-  override def impl(): Unit = {
+  override def impl(pc : PhaseContext): Unit = {
     import pc._
     globalData.nodeAreInferringEnumEncoding = true
     val nodes = ArrayBuffer[Node with EnumEncoded]()
@@ -854,7 +852,7 @@ class PhaseInferEnumEncodings(pc: PhaseContext,encodingSwap : (SpinalEnumEncodin
 
 class PhaseSimplifyNodes(pc: PhaseContext) extends PhaseNetlist{
   override def useNodeConsumers = true
-  override def impl(): Unit = {
+  override def impl(pc : PhaseContext): Unit = {
     import pc._
     Node.walk(walkNodesDefautStack,_.simplifyNode)
   }
@@ -862,7 +860,7 @@ class PhaseSimplifyNodes(pc: PhaseContext) extends PhaseNetlist{
 
 class PhaseResizeLiteralSimplify(pc: PhaseContext) extends PhaseNetlist{
   override def useNodeConsumers = false
-  override def impl(): Unit = {
+  override def impl(pc : PhaseContext): Unit = {
     import pc._
     Node.walk(walkNodesDefautStack,node => node.onEachInput((input,id) => input match{
       case resize : Resize => {
@@ -884,7 +882,7 @@ class PhaseResizeLiteralSimplify(pc: PhaseContext) extends PhaseNetlist{
 
 class PhasePropagateBaseTypeWidth(pc: PhaseContext) extends PhaseMisc{
   override def useNodeConsumers = false
-  override def impl(): Unit = {
+  override def impl(pc : PhaseContext): Unit = {
     import pc._
     Node.walk(walkNodesDefautStack,node => {
       node match {
@@ -936,7 +934,7 @@ class PhasePropagateBaseTypeWidth(pc: PhaseContext) extends PhaseMisc{
 
 class PhaseNormalizeNodeInputs(pc: PhaseContext) extends PhaseNetlist{
   override def useNodeConsumers = false
-  override def impl(): Unit = {
+  override def impl(pc : PhaseContext): Unit = {
     import pc._
     Node.walk(walkNodesDefautStack,(node,push) => {
       node.onEachInput(push(_))
@@ -947,7 +945,7 @@ class PhaseNormalizeNodeInputs(pc: PhaseContext) extends PhaseNetlist{
 
 class PhaseCheckInferredWidth(pc: PhaseContext) extends PhaseCheck{
   override def useNodeConsumers = false
-  override def impl(): Unit = {
+  override def impl(pc : PhaseContext): Unit = {
     import pc._
     val errors = mutable.ArrayBuffer[String]()
     Node.walk(walkNodesDefautStack,_ match {
@@ -966,7 +964,7 @@ class PhaseCheckInferredWidth(pc: PhaseContext) extends PhaseCheck{
 
 class PhaseCheckCombinationalLoops(pc: PhaseContext) extends PhaseCheck{
   override def useNodeConsumers = false
-  override def impl(): Unit = {
+  override def impl(pc : PhaseContext): Unit = {
     import pc._
     val targetAlgoId = GlobalData.get.allocateAlgoId()
 
@@ -1065,7 +1063,7 @@ class PhaseCheckCombinationalLoops(pc: PhaseContext) extends PhaseCheck{
 
 class PhaseCheckCrossClockDomains(pc: PhaseContext) extends PhaseCheck{
   override def useNodeConsumers = false
-  override def impl(): Unit = {
+  override def impl(pc : PhaseContext): Unit = {
     import pc._
     val errors = mutable.ArrayBuffer[String]()
 
@@ -1113,7 +1111,7 @@ class PhaseCheckCrossClockDomains(pc: PhaseContext) extends PhaseCheck{
 
 class PhaseCheckMisc(pc: PhaseContext) extends PhaseCheck{
   override def useNodeConsumers = false
-  override def impl(): Unit = {
+  override def impl(pc : PhaseContext): Unit = {
     import pc._
     Node.walk(walkNodesDefautStack,node => {
       node match {
@@ -1131,7 +1129,7 @@ class PhaseCheckMisc(pc: PhaseContext) extends PhaseCheck{
 }
 
 //class PhaseFillNodesConsumers(pc: PhaseContext) extends Phase{
-//  override def impl(): Unit = {
+//  override def impl(pc : PhaseContext): Unit = {
 //    pc.fillNodeConsumer()
 //  }
 //}
@@ -1140,7 +1138,7 @@ class PhaseCheckMisc(pc: PhaseContext) extends PhaseCheck{
 
 class PhaseDontSymplifyBasetypeWithComplexAssignement(pc: PhaseContext) extends PhaseMisc{
   override def useNodeConsumers = false
-  override def impl(): Unit = {
+  override def impl(pc : PhaseContext): Unit = {
     import pc._
     Node.walk(walkNodesDefautStack,node => {
       node match {
@@ -1162,7 +1160,7 @@ class PhaseDontSymplifyBasetypeWithComplexAssignement(pc: PhaseContext) extends 
 
 class PhaseDeleteUselessBaseTypes(pc: PhaseContext) extends PhaseNetlist{
   override def useNodeConsumers = true
-  override def impl(): Unit = {
+  override def impl(pc : PhaseContext): Unit = {
     import pc._
     Node.walk(walkNodesDefautStack,(node, push) => {
       node match {
@@ -1205,7 +1203,7 @@ class PhaseDeleteUselessBaseTypes(pc: PhaseContext) extends PhaseNetlist{
 
 class PhaseCheck_noAsyncNodeWithIncompleteAssignment(pc: PhaseContext) extends PhaseCheck{
   override def useNodeConsumers = false
-  override def impl(): Unit = {
+  override def impl(pc : PhaseContext): Unit = {
     import pc._
     val errors = mutable.ArrayBuffer[String]()
 
@@ -1253,7 +1251,7 @@ class PhaseCheck_noAsyncNodeWithIncompleteAssignment(pc: PhaseContext) extends P
 
 class PhaseSimplifyBlacBoxGenerics(pc: PhaseContext) extends PhaseNetlist{
   override def useNodeConsumers = false
-  override def impl(): Unit = {
+  override def impl(pc : PhaseContext): Unit = {
     import pc._
     components.foreach(_ match {
       case blackBox: BlackBox => {
@@ -1283,7 +1281,7 @@ class PhaseSimplifyBlacBoxGenerics(pc: PhaseContext) extends PhaseNetlist{
 
 class PhasePrintUnUsedSignals(prunedSignals : mutable.Set[BaseType])(pc: PhaseContext) extends PhaseCheck{
   override def useNodeConsumers = false
-  override def impl(): Unit = {
+  override def impl(pc : PhaseContext): Unit = {
     import pc._
 
     val targetAlgoId = GlobalData.get.algoId
@@ -1314,7 +1312,7 @@ class PhasePrintUnUsedSignals(prunedSignals : mutable.Set[BaseType])(pc: PhaseCo
 
 class PhaseAddNodesIntoComponent(pc: PhaseContext) extends PhaseMisc{
   override def useNodeConsumers = false
-  override def impl(): Unit = {
+  override def impl(pc : PhaseContext): Unit = {
     import pc._
     Node.walk({
       val stack = walkNodesDefautStack
@@ -1330,7 +1328,7 @@ class PhaseAddNodesIntoComponent(pc: PhaseContext) extends PhaseMisc{
 
 class PhaseOrderComponentsNodes(pc: PhaseContext) extends PhaseMisc{
   override def useNodeConsumers = false
-  override def impl(): Unit = {
+  override def impl(pc : PhaseContext): Unit = {
     import pc._
     for (c <- components) {
       c.nodes = c.nodes.sortWith(_.instanceCounter < _.instanceCounter)
@@ -1340,7 +1338,7 @@ class PhaseOrderComponentsNodes(pc: PhaseContext) extends PhaseMisc{
 
 class PhaseAllocateNames(pc: PhaseContext) extends PhaseMisc{
   override def useNodeConsumers = false
-  override def impl(): Unit = {
+  override def impl(pc : PhaseContext): Unit = {
     import pc._
     for (enumDef <- enums.keys) {
       if (enumDef.isWeak)
@@ -1362,7 +1360,7 @@ class PhaseAllocateNames(pc: PhaseContext) extends PhaseMisc{
 
 class PhaseRemoveComponentThatNeedNoHdlEmit(pc: PhaseContext) extends PhaseNetlist{
   override def useNodeConsumers = false
-  override def impl(): Unit = {
+  override def impl(pc : PhaseContext): Unit = {
     import pc._
    components.foreach(c => {
       if (c.nodes.size == 0) {
@@ -1374,7 +1372,7 @@ class PhaseRemoveComponentThatNeedNoHdlEmit(pc: PhaseContext) extends PhaseNetli
 
 class PhasePrintStates(pc: PhaseContext) extends PhaseMisc{
   override def useNodeConsumers = false
-  override def impl(): Unit = {
+  override def impl(pc : PhaseContext): Unit = {
     import pc._
     var counter = 0
     Node.walk(walkNodesDefautStack,_ => counter = counter + 1)
@@ -1384,7 +1382,7 @@ class PhasePrintStates(pc: PhaseContext) extends PhaseMisc{
 
 class PhaseCreateComponent(gen : => Component)(pc: PhaseContext) extends PhaseNetlist{
   override def useNodeConsumers = false
-  override def impl(): Unit = {
+  override def impl(pc : PhaseContext): Unit = {
     import pc._
     val defaultClockDomain = ClockDomain.external("",frequency = config.defaultClockDomainFrequency)
     ClockDomain.push(defaultClockDomain)
@@ -1397,7 +1395,7 @@ class PhaseCreateComponent(gen : => Component)(pc: PhaseContext) extends PhaseNe
 
 class PhaseDummy(doThat : => Unit) extends PhaseMisc{
   override def useNodeConsumers = false
-  override def impl(): Unit = {
+  override def impl(pc : PhaseContext): Unit = {
     doThat
   }
 }
@@ -1443,10 +1441,11 @@ object SpinalVhdlBoot{
 
     phases += new PhaseCreateComponent(gen)(pc)
     phases += new PhaseDummy(SpinalProgress("Start analysis and transform"))
+    phases ++= config.transformationPhases
+    phases += new PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc)
     phases += new PhaseApplyIoDefault(pc)
     phases += new PhaseMoveLogicTags(pc)
     phases += new PhaseNodesBlackBoxGenerics(pc)
-    phases += new PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc)
 
     phases += new PhaseDummy(SpinalProgress("Get names from reflection"))
     phases += new PhaseNameNodesByReflection(pc)
@@ -1507,6 +1506,9 @@ object SpinalVhdlBoot{
     phases += initVhdlBase(new VhdlTestBenchBackend(pc))
 
 
+    for(inserter <-config.phasesInserters){
+      inserter(phases)
+    }
 
 
     for(phase <- phases){
@@ -1531,7 +1533,7 @@ object SpinalVhdlBoot{
 
 class PhaseDontSymplifyVerilogMismatchingWidth(pc: PhaseContext) extends PhaseMisc{
   override def useNodeConsumers = true
-  override def impl(): Unit = {
+  override def impl(pc : PhaseContext): Unit = {
     def applyTo(that : Node): Unit ={
       assert(that.consumers.size == 1)
       that.consumers(0) match {
@@ -1596,12 +1598,12 @@ object SpinalVerilogBoot{
     val phases = ArrayBuffer[Phase]()
 
     phases += new PhaseCreateComponent(gen)(pc)
-
     phases += new PhaseDummy(SpinalProgress("Start analysis and transform"))
+    phases ++= config.transformationPhases
+    phases += new PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc)
     phases += new PhaseApplyIoDefault(pc)
     phases += new PhaseMoveLogicTags(pc)
     phases += new PhaseNodesBlackBoxGenerics(pc)
-    phases += new PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc)
 
     phases += new PhaseDummy(SpinalProgress("Get names from reflection"))
     phases += new PhaseNameNodesByReflection(pc)
@@ -1651,14 +1653,12 @@ object SpinalVerilogBoot{
     phases += new PhaseRemoveComponentThatNeedNoHdlEmit(pc)
 
     phases += new PhasePrintStates(pc)
-
-
-
     phases += new PhaseVerilog(pc)
 
 
-
-
+    for(inserter <-config.phasesInserters){
+      inserter(phases)
+    }
 
     for(phase <- phases){
       pc.doPhase(phase)

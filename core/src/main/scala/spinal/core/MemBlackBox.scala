@@ -6,7 +6,7 @@ class Ram_1c_1w_1ra(wordWidth: Int, wordCount: Int, writeToReadKind: MemWriteToR
   val generic = new Generic {
     val wordCount = Ram_1c_1w_1ra.this.wordCount
     val wordWidth = Ram_1c_1w_1ra.this.wordWidth
-    val readToWriteKind = writeToReadKind.toString
+    val readToWriteKind = writeToReadKind.writeToReadKind
   }
 
   val io = new Bundle {
@@ -37,7 +37,7 @@ class Ram_1c_1w_1rs(wordWidth: Int, wordCount: Int, writeToReadKind: MemWriteToR
   val generic = new Generic {
     val wordCount = Ram_1c_1w_1rs.this.wordCount
     val wordWidth = Ram_1c_1w_1rs.this.wordWidth
-    val readToWriteKind = writeToReadKind.toString
+    val readToWriteKind = writeToReadKind.writeToReadKind
     var useReadEnable = true
   }
 
@@ -73,7 +73,7 @@ class Ram_1wrs(wordWidth: Int, wordCount: Int, writeToReadKind: MemWriteToReadKi
   val generic = new Generic {
     val wordCount = Ram_1wrs.this.wordCount
     val wordWidth = Ram_1wrs.this.wordWidth
-    val readToWriteKind = writeToReadKind.toString
+    val readToWriteKind = writeToReadKind.writeToReadKind
     var useReadEnable = true
   }
 
@@ -109,7 +109,7 @@ class Ram_1wors(wordWidth: Int, wordCount: Int, writeToReadKind: MemWriteToReadK
   val generic = new Generic {
     val wordCount = Ram_1wors.this.wordCount
     val wordWidth = Ram_1wors.this.wordWidth
-    val readToWriteKind = writeToReadKind.toString
+    val readToWriteKind = writeToReadKind.writeToReadKind
   }
 
   val io = new Bundle {

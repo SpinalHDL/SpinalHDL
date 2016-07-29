@@ -72,7 +72,7 @@ object MemTest {
       val input = spinal.core.in UInt (4 bit)
       val output = spinal.core.out UInt (9 bit)
     }
-    val componentAA = spinal.core.Component(new ComponentAA)
+    val componentAA = new ComponentAA
     componentAA.io.input := io.input
     io.output := RegNext(io.output)
 

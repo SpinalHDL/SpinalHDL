@@ -21,7 +21,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
   val emitedComponentRef = mutable.Map[Component, Component]()
 
 
-  override def impl(): Unit = {
+  override def impl(pc : PhaseContext): Unit = {
     import pc._
     SpinalProgress("Write VHDL")
     
@@ -770,7 +770,11 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
           emitAttributes(signal,signal.instanceAndSyncNodeAttributes, "signal", ret)
         }
-
+//        case readSync : MemReadSync => {
+//          if(readSync.writeToReadKind == `writeFirst`){
+//            ret ++= s"  signal ${emitReference(readSync.consumers(0))}_mem_addr : unsigned(${readSync.mem.addressWidth-1}} downto 0);\n"
+//          }
+//        }
         case mem: Mem[_] => {
           //ret ++= emitSignal(mem, mem);
           var initAssignementBuilder = new StringBuilder()

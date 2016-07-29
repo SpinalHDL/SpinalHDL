@@ -22,7 +22,7 @@ class PhaseVerilog(pc : PhaseContext) extends PhaseMisc with VerilogBase {
   val emitedComponentRef = mutable.Map[Component, Component]()
 
 
-  override def impl(): Unit = {
+  override def impl(pc : PhaseContext): Unit = {
     import pc._
     SpinalProgress("Write Verilog")
 

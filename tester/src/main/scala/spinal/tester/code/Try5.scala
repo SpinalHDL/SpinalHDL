@@ -94,7 +94,7 @@ object Try5 {
 
 
     clockC.push
-    val subComponent = core.Component(new SubComponent)
+    val subComponent = new SubComponent
     subComponent.io.in := io.in2
     io.outC := subComponent.io.out
     clockC.pop
