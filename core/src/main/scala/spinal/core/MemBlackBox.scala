@@ -1,12 +1,15 @@
 package spinal.core
 
-class Ram_1c_1w_1ra(wordWidth: Int, wordCount: Int, writeToReadKind: MemWriteToReadKind = dontCare) extends BlackBox {
+class Ram_1c_1w_1ra(wordWidth: Int, wordCount: Int, maskWidth : Int = 1, useMask : Boolean = false,writeToReadKind: MemWriteToReadKind = dontCare,tech : MemTechnologyKind = auto) extends BlackBox {
   if (writeToReadKind == readFirst) SpinalError("readFirst mode for asyncronous read is not alowed")
 
   val generic = new Generic {
     val wordCount = Ram_1c_1w_1ra.this.wordCount
     val wordWidth = Ram_1c_1w_1ra.this.wordWidth
+    val maskWidth = Ram_1c_1w_1ra.this.maskWidth
     val readToWriteKind = writeToReadKind.writeToReadKind
+    val tech = Ram_1c_1w_1ra.this.tech.technologyKind
+    val useMask = Ram_1c_1w_1ra.this.useMask
   }
 
   val io = new Bundle {
@@ -14,6 +17,7 @@ class Ram_1c_1w_1ra(wordWidth: Int, wordCount: Int, writeToReadKind: MemWriteToR
 
     val wr = new Bundle {
       val en = in Bool
+      val mask = in Bits(maskWidth bits)
       val addr = in UInt (log2Up(wordCount) bit)
       val data = in Bits (wordWidth bit)
     }
@@ -28,17 +32,20 @@ class Ram_1c_1w_1ra(wordWidth: Int, wordCount: Int, writeToReadKind: MemWriteToR
   //Following is not obligatory, just to describe blackbox logic
   val mem = Mem(io.wr.data, wordCount)
   when(io.wr.en) {
-    mem.write(io.wr.addr, io.wr.data)
+    mem.write(io.wr.addr, io.wr.data,if(useMask) io.wr.mask else null)
   }
   io.rd.data := mem.readAsync(io.rd.addr)
 }
 
-class Ram_1c_1w_1rs(wordWidth: Int, wordCount: Int, writeToReadKind: MemWriteToReadKind = dontCare) extends BlackBox {
+class Ram_1c_1w_1rs(wordWidth: Int, wordCount: Int, maskWidth : Int = 1, useMask : Boolean = false,writeToReadKind: MemWriteToReadKind = dontCare,tech : MemTechnologyKind = auto) extends BlackBox {
   val generic = new Generic {
     val wordCount = Ram_1c_1w_1rs.this.wordCount
     val wordWidth = Ram_1c_1w_1rs.this.wordWidth
+    val maskWidth = Ram_1c_1w_1rs.this.maskWidth
     val readToWriteKind = writeToReadKind.writeToReadKind
+    val tech = Ram_1c_1w_1rs.this.tech.technologyKind
     var useReadEnable = true
+    val useMask = Ram_1c_1w_1rs.this.useMask
   }
 
   val io = new Bundle {
@@ -46,6 +53,7 @@ class Ram_1c_1w_1rs(wordWidth: Int, wordCount: Int, writeToReadKind: MemWriteToR
 
     val wr = new Bundle {
       val en = in Bool
+      val mask = in Bits(maskWidth bits)
       val addr = in UInt (log2Up(wordCount) bit)
       val data = in Bits (wordWidth bit)
     }
@@ -63,7 +71,7 @@ class Ram_1c_1w_1rs(wordWidth: Int, wordCount: Int, writeToReadKind: MemWriteToR
   //Following is not obligatory, just to describe blackbox logic
   val mem = Mem(io.wr.data, wordCount)
   when(io.wr.en) {
-    mem.write(io.wr.addr, io.wr.data)
+    mem.write(io.wr.addr, io.wr.data,if(useMask) io.wr.mask else null)
   }
   io.rd.data := mem.readSync(io.rd.addr, io.rd.en)
 }

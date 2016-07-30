@@ -45,8 +45,8 @@ case class SpinalConfig(
   device: Device = Device(),
   genVhdlPkg : Boolean = true,
   phasesInserters : ArrayBuffer[(ArrayBuffer[Phase]) => Unit] = ArrayBuffer[(ArrayBuffer[Phase]) => Unit](),
-  transformationPhases : ArrayBuffer[Phase] = ArrayBuffer[Phase]()
-
+  transformationPhases : ArrayBuffer[Phase] = ArrayBuffer[Phase](),
+  memBlackBoxers : ArrayBuffer[Phase] =  ArrayBuffer[Phase](new PhaseMemBlackBoxerDefault)
                          ){
   def generate[T <: Component](gen : => T) : SpinalReport[T] = Spinal(this)(gen)
   def generateVhdl[T <: Component](gen : => T) : SpinalReport[T] = Spinal(this.copy(mode = VHDL))(gen)

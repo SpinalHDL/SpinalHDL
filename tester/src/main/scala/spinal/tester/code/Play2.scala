@@ -2069,12 +2069,14 @@ object PlaySimple{
 object PlayRamBB{
   class TopLevel extends Component {
     val rgbConfig = RgbConfig(5,6,5)
-    val mem = Mem(Rgb(rgbConfig),1 << 16)//.setAsBlackBox()
+    val mem = Mem(Rgb(rgbConfig),1 << 16).setAsBlackBox()
 
     val writePort = in(mem.writePort)
     val readSyncPort = slave(mem.readSyncPort)
     val readAsyncAddr = in UInt(16 bits)
     val readAsyncData = out(mem.readAsync(readAsyncAddr))
+
+//    MemBlackBoxer.applyOn(mem)
   }
 
   def main(args: Array[String]) {

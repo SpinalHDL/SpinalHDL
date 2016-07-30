@@ -290,21 +290,22 @@ class PhaseApplyIoDefault(pc: PhaseContext) extends PhaseNetlist{
   }
 }
 
+class MemTopology(val mem: Mem[_]) {
+  val writes = ArrayBuffer[MemWrite]()
+  val readsAsync = ArrayBuffer[MemReadAsync]()
+  val readsSync = ArrayBuffer[MemReadSync]()
+  val writeReadSync = ArrayBuffer[(MemWrite, MemReadSync)]()
+  val writeOrReadSync = ArrayBuffer[(MemWriteOrRead_writePart, MemWriteOrRead_readPart)]()
+}
 
-class PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc: PhaseContext) extends PhaseNetlist{
-  override def useNodeConsumers = false
-  override def impl(pc : PhaseContext): Unit = {
+trait PhaseMemBlackboxer extends PhaseNetlist{
+
+
+  override def impl(pc: PhaseContext): Unit = {
     import pc._
-    class MemTopo(val mem: Mem[_]) {
-      val writes = ArrayBuffer[MemWrite]()
-      val readsAsync = ArrayBuffer[MemReadAsync]()
-      val readsSync = ArrayBuffer[MemReadSync]()
-      val writeReadSync = ArrayBuffer[(MemWrite, MemReadSync)]()
-      val writeOrReadSync = ArrayBuffer[(MemWriteOrRead_writePart, MemWriteOrRead_readPart)]()
-    }
-    val memsTopo = mutable.Map[Mem[_], MemTopo]()
+    val memsTopo = mutable.Map[Mem[_], MemTopology]()
 
-    def topoOf(mem: Mem[_]) = memsTopo.getOrElseUpdate(mem, new MemTopo(mem))
+    def topoOf(mem: Mem[_]) = memsTopo.getOrElseUpdate(mem, new MemTopology(mem))
 
     Node.walk(pc.walkNodesDefautStack,node => node match {
       case write: MemWrite => {
@@ -344,46 +345,62 @@ class PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc: PhaseContex
       }
       case _ =>
     })
+    doBlackboxing(pc,memsTopo)
+  }
 
+  def doBlackboxing(pc: PhaseContext,memTopologies : mutable.Map[Mem[_], MemTopology]) : Unit
 
-    for ((mem, topo) <- memsTopo.iterator if config.forceMemToBlackboxTranslation || mem.forceMemToBlackboxTranslation if mem.initialContent == null) {
-      if (topo.writes.size == 1 && topo.writes(0).mask == null && (!topo.readsAsync.isEmpty || !topo.readsSync.isEmpty) && topo.writeReadSync.isEmpty && topo.writeOrReadSync.isEmpty) {
+}
+
+class PhaseMemBlackBoxerDefault extends PhaseMemBlackboxer{
+  override def useNodeConsumers = false
+
+  override def doBlackboxing(pc: PhaseContext,memTopologies : mutable.Map[Mem[_], MemTopology]) : Unit = {
+    import pc._
+    for ((mem, topo) <- memTopologies.iterator if config.forceMemToBlackboxTranslation || mem.forceMemToBlackboxTranslation if mem.initialContent == null) {
+      Component.push(mem.component)
+      if (topo.writes.size == 1 && (!topo.readsAsync.isEmpty || !topo.readsSync.isEmpty) && topo.writeReadSync.isEmpty && topo.writeOrReadSync.isEmpty) {
         val wr = topo.writes(0)
         for(rd <- topo.readsAsync) {
           val clockDomain = wr.getClockDomain
           clockDomain.push()
-          Component.push(mem.component)
 
-          val ram = new Ram_1c_1w_1ra(mem.getWidth, mem.wordCount, rd.writeToReadKind)
+          val ram = new Ram_1c_1w_1ra(mem.getWidth, mem.wordCount,if(wr.mask != null) wr.mask.getWidth else 1,wr.mask != null, rd.writeToReadKind,mem.tech)
           val enable = clockDomain.isClockEnableActive
 
           ram.io.wr.en := wr.getEnable.allowSimplifyIt() && enable
           ram.io.wr.addr := wr.getAddress.allowSimplifyIt()
           ram.io.wr.data := wr.getData.allowSimplifyIt()
+          if(wr.mask != null)
+            ram.io.wr.mask := wr.getMask.allowSimplifyIt()
+          else
+            ram.io.wr.mask := "1"
+
 
           ram.io.rd.addr := rd.getAddress.allowSimplifyIt()
           rd.getData.allowSimplifyIt() := ram.io.rd.data
 
           ram.setName(mem.getName())
-          Component.pop(mem.component)
           clockDomain.pop()
         }
 
         for(rd <- topo.readsSync){
           if (rd.getClockDomain.clock == wr.getClockDomain.clock) {
             val clockDomain = wr.getClockDomain
-
             clockDomain.push()
-            Component.push(mem.component)
 
-            val ram = new Ram_1c_1w_1rs(mem.getWidth, mem.wordCount, rd.writeToReadKind)
+            val ram = new Ram_1c_1w_1rs(mem.getWidth, mem.wordCount,if(wr.mask != null) wr.mask.getWidth else 1,wr.mask != null, rd.writeToReadKind,mem.tech)
             val enable = clockDomain.isClockEnableActive
 
             ram.io.wr.en := wr.getEnable.allowSimplifyIt() && enable
             ram.io.wr.addr := wr.getAddress.allowSimplifyIt()
             ram.io.wr.data := wr.getData.allowSimplifyIt()
+            if(wr.mask != null)
+              ram.io.wr.mask := wr.getMask.allowSimplifyIt()
+            else
+              ram.io.wr.mask := "1"
 
-            ram.io.rd.en := rd.getReadEnable.allowSimplifyIt() && enable
+              ram.io.rd.en := rd.getReadEnable.allowSimplifyIt() && enable
             ram.io.rd.addr := rd.getAddress.allowSimplifyIt()
             rd.getData.allowSimplifyIt() := ram.io.rd.data
 
@@ -393,8 +410,9 @@ class PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc: PhaseContex
             }
 
             ram.setName(mem.getName())
-            Component.pop(mem.component)
             clockDomain.pop()
+          }else{
+            ??? //TODO
           }
         }
       } else if (topo.writes.isEmpty && topo.readsAsync.isEmpty && topo.readsSync.isEmpty && topo.writeReadSync.size == 1 && topo.writeOrReadSync.isEmpty) {
@@ -404,7 +422,6 @@ class PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc: PhaseContex
           val clockDomain = wr.getClockDomain
 
           clockDomain.push()
-          Component.push(mem.component)
 
           val ram = new Ram_1wrs(mem.getWidth, mem.wordCount, rd.writeToReadKind)
           val enable = clockDomain.isClockEnableActive
@@ -422,7 +439,6 @@ class PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc: PhaseContex
           }
 
           ram.setName(mem.getName())
-          Component.pop(mem.component)
           clockDomain.pop()
         }
       } else if (topo.writes.isEmpty && topo.readsAsync.isEmpty && topo.readsSync.isEmpty && topo.writeReadSync.isEmpty && topo.writeOrReadSync.size == 1) {
@@ -432,7 +448,6 @@ class PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc: PhaseContex
           val clockDomain = wr.getClockDomain
 
           clockDomain.push()
-          Component.push(mem.component)
 
           val ram = new Ram_1wors(mem.getWidth, mem.wordCount, rd.writeToReadKind)
           val enable = clockDomain.isClockEnableActive
@@ -445,10 +460,10 @@ class PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc: PhaseContex
           rd.getData.allowSimplifyIt() := ram.io.rdData
 
           ram.setName(mem.getName())
-          Component.pop(mem.component)
           clockDomain.pop()
         }
       }
+      Component.pop(mem.component)
     }
   }
 }
@@ -1442,7 +1457,7 @@ object SpinalVhdlBoot{
     phases += new PhaseCreateComponent(gen)(pc)
     phases += new PhaseDummy(SpinalProgress("Start analysis and transform"))
     phases ++= config.transformationPhases
-    phases += new PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc)
+    phases ++= config.memBlackBoxers
     phases += new PhaseApplyIoDefault(pc)
     phases += new PhaseMoveLogicTags(pc)
     phases += new PhaseNodesBlackBoxGenerics(pc)
@@ -1600,7 +1615,7 @@ object SpinalVerilogBoot{
     phases += new PhaseCreateComponent(gen)(pc)
     phases += new PhaseDummy(SpinalProgress("Start analysis and transform"))
     phases ++= config.transformationPhases
-    phases += new PhaseReplaceMemByBlackBox_simplifyWriteReadWithSameAddress(pc)
+    phases ++= config.memBlackBoxers
     phases += new PhaseApplyIoDefault(pc)
     phases += new PhaseMoveLogicTags(pc)
     phases += new PhaseNodesBlackBoxGenerics(pc)
