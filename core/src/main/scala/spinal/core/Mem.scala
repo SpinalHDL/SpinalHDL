@@ -23,21 +23,43 @@ import scala.collection.mutable.ArrayBuffer
 /**
   * Created by PIC18F on 02.02.2015.
   */
-trait MemWriteToReadKind {
+trait MemWriteToReadKind{
+  def writeToReadKind : String
+}
 
+trait MemTechnologyKind{
+  def technologyKind : String
+}
+
+object dontCare extends MemWriteToReadKind{
+  override def writeToReadKind: String = "dontCare"
 }
 
 object writeFirst extends MemWriteToReadKind {
-  override def toString: String = "writeFirst"
+  override def writeToReadKind: String = "writeFirst"
 }
 
 object readFirst extends MemWriteToReadKind {
-  override def toString: String = "readFirst"
+  override def writeToReadKind: String = "readFirst"
 }
 
-object dontCare extends MemWriteToReadKind {
-  override def toString: String = "dontCare"
+object auto extends  MemTechnologyKind{
+  override def technologyKind: String = "auto"
 }
+
+
+object ramBlock extends MemTechnologyKind {
+  override def technologyKind: String = "ramBlock"
+}
+
+object distributedLut extends MemTechnologyKind {
+  override def technologyKind: String = "distributedLut"
+}
+
+object registerFile extends MemTechnologyKind {
+  override def technologyKind: String = "registerFile"
+}
+
 
 object Mem {
   def apply[T <: Data](wordType: T, wordCount: Int) = new Mem(wordType, wordCount)
@@ -50,13 +72,22 @@ class MemWritePayload[T <: Data](dataType: T, addressWidth: Int) extends Bundle 
   val address = UInt(addressWidth bit)
 }
 
+case class MemWriteOrReadSync(write : MemWriteOrRead_writePart,read : MemWriteOrRead_readPart)
+
 class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableInputsCount  with Nameable with Widthable{
   var forceMemToBlackboxTranslation = false
   val _widths = wordType.flatten.map(t => t.getBitsWidth).toVector //Force to fix width of each wire
 
   def wordType: T = _wordType.clone
 
-  val ports = ArrayBuffer[Node]()
+  var tech : MemTechnologyKind = auto
+  def setTech(tech : MemTechnologyKind) = this.tech = tech
+
+  val ports = ArrayBuffer[Any]()
+  def getWritePorts() = ports.filter(_.isInstanceOf[MemWrite]).map(_.asInstanceOf[MemWrite])
+  def getReadSyncPorts() = ports.filter(_.isInstanceOf[MemReadSync]).map(_.asInstanceOf[MemReadSync])
+  def getReadAsyncPorts() = ports.filter(_.isInstanceOf[MemReadAsync]).map(_.asInstanceOf[MemReadAsync])
+  def getMemWriteOrReadSyncPorts() = ports.filter(_.isInstanceOf[MemWriteOrReadSync]).map(_.asInstanceOf[MemWriteOrReadSync])
 
   override def calcWidth: Int = _widths.reduce(_ + _)//_wordType.flatten.map(_.getBitsWidth).reduceLeft(_ + _)
 
@@ -123,7 +154,10 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
 
     val addressBuffer = UInt(addressWidth bit).dontSimplifyIt()
     addressBuffer := address
-    val readPort = new MemReadSync(this, address, addressBuffer, readBits, enable.dontSimplifyIt(), writeToReadKind, ClockDomain.current)
+
+    val enableBuffer = Bool
+    enableBuffer := enable
+    val readPort = new MemReadSync(this, addressBuffer, readBits, enableBuffer.dontSimplifyIt(), writeToReadKind, ClockDomain.current)
 
     addressBuffer.setRefOwner(readPort)
     addressBuffer.setPartialName("address",true)
@@ -131,8 +165,8 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
     readBits.setRefOwner(readPort)
     readBits.setPartialName("data",true)
 
-    enable.setRefOwner(readPort)
-    enable.setPartialName("enable",true)
+    enableBuffer.setRefOwner(readPort)
+    enableBuffer.setPartialName("enable",true)
 
     if (crossClock)
       readPort.addTag(crossClockDomain)
@@ -164,8 +198,10 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
       null
     }
 
-    val whenBuffer =  when.getWhensCond(this).dontSimplifyIt()
-    val writePort = new MemWrite(this, address, addressBuffer, dataBuffer, maskBuffer,whenBuffer, ClockDomain.current)
+    val whenCond =  when.getWhensCond(this)
+    val whenBuffer = Bool.dontSimplifyIt()
+    whenBuffer := whenCond
+    val writePort = new MemWrite(this, addressBuffer, dataBuffer, maskBuffer,whenBuffer, ClockDomain.current)
     inputs += writePort
 
     addressBuffer.setRefOwner(writePort)
@@ -220,8 +256,14 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
 
     writePort.readPart = readPort;
     readPort.writePart = writePort
-    addPort(readPort)
-    addPort(writePort)
+
+    readPort.setPartialName("port" + ports.length,true)
+    readPort.setRefOwner(this)
+    writePort.setPartialName("port" + ports.length,true)
+    writePort.setRefOwner(this)
+    ports += MemWriteOrReadSync(writePort,readPort)
+    //    addPort(readPort)
+//    addPort(writePort)
     readWord
   }
 
@@ -298,7 +340,7 @@ object MemReadSync {
   val getMemId: Int = 6
 }
 
-class MemReadSync(mem_ : Mem[_], val originalAddress: UInt, address_ : UInt, data: Bits, enable_ : Bool, val writeToReadKind: MemWriteToReadKind, clockDomain: ClockDomain) extends SyncNode(clockDomain) with Widthable with Nameable{
+class MemReadSync(mem_ : Mem[_], address_ : UInt, data: Bits, enable_ : Bool, val writeToReadKind: MemWriteToReadKind, clockDomain: ClockDomain) extends SyncNode(clockDomain) with Widthable with Nameable{
   var address : Node = address_
   var readEnable  : Node = enable_
   var mem     : Mem[_] = mem_
@@ -371,10 +413,10 @@ object MemWrite {
   val getEnableId: Int = 7
 }
 
-class MemWrite(mem: Mem[_], val originalAddress: UInt, address_ : UInt, data_ : Bits, mask_ : Bits, enable_ : Bool, clockDomain: ClockDomain) extends SyncNode(clockDomain) with Widthable with CheckWidth with Nameable{
-  var address : Node  = address_
+class MemWrite(mem: Mem[_], address_ : UInt, data_ : Bits, mask_ : Bits, enable_ : Bool, clockDomain: ClockDomain) extends SyncNode(clockDomain) with Widthable with CheckWidth with Nameable{
+  var address  : Node  = address_
   var data     : Node = data_
-  var mask     : Node = (if (mask_ != null) mask_ else NoneNode())
+  var mask     : Node with Widthable=  mask_
   var writeEnable  : Node  = enable_
 
 
@@ -385,7 +427,7 @@ class MemWrite(mem: Mem[_], val originalAddress: UInt, address_ : UInt, data_ : 
     super.onEachInput(doThat)
     doThat(address,MemWrite.getAddressId)
     doThat(data,MemWrite.getDataId)
-    doThat(mask,MemWrite.getMaskId)
+    if(mask != null) doThat(mask,MemWrite.getMaskId)
     doThat(writeEnable,MemWrite.getEnableId)
   }
 
@@ -393,20 +435,20 @@ class MemWrite(mem: Mem[_], val originalAddress: UInt, address_ : UInt, data_ : 
     super.onEachInput(doThat)
     doThat(address)
     doThat(data)
-    doThat(mask)
+    if(mask != null) doThat(mask)
     doThat(writeEnable)
   }
 
   override def setInput(id: Int, node: Node): Unit = id match{
     case MemWrite.getAddressId => address = node
     case MemWrite.getDataId => data = node
-    case MemWrite.getMaskId => mask = node
+    case MemWrite.getMaskId => mask = node.asInstanceOf[Node with Widthable]
     case MemWrite.getEnableId => writeEnable = node
     case _ => super.setInput(id,node)
   }
 
-  override def getInputsCount: Int = super.getInputsCount + 4
-  override def getInputs: Iterator[Node] = super.getInputs ++ Iterator(address,data,mask,writeEnable)
+  override def getInputsCount: Int = super.getInputsCount + 3 + (if(mask != null) 1 else 0)
+  override def getInputs: Iterator[Node] = super.getInputs ++ Iterator(address,data,writeEnable) ++ (if(mask != null) List(mask) else Nil)
   override def getInput(id: Int): Node = id match{
     case MemWrite.getAddressId => address
     case MemWrite.getDataId => data
@@ -417,7 +459,13 @@ class MemWrite(mem: Mem[_], val originalAddress: UInt, address_ : UInt, data_ : 
 
 
 
-  override def getSynchronousInputs: List[Node] = getAddress :: getData :: getEnable :: getInput(MemWrite.getMaskId) :: super.getSynchronousInputs
+  override def getSynchronousInputs: List[Node] = {
+    val base = getAddress :: getData :: getEnable :: super.getSynchronousInputs
+    if(mask != null)
+      mask :: base
+    else
+      base
+  }
 
   override def isUsingResetSignal: Boolean = false
   override def isUsingSoftResetSignal: Boolean = false
@@ -595,3 +643,67 @@ class MemWriteOrRead_readPart(mem_ : Mem[_], address_ : UInt, data_ : Bits, chip
 
 
 
+//trait MemBlackBoxer{
+//  def applyOn(that : Mem[_]): Unit
+//}
+//
+//object MemBlackBoxer extends MemBlackBoxer{
+//  override def applyOn(mem: Mem[_]): Unit = {
+//    if(mem.getWritePorts() == 1 && mem.ports.length == 1 + mem.getReadAsyncPorts().length + mem.getReadSyncPorts().length){
+//      val popComponent = if(Component.current != mem.component){
+//        Component.push(mem.component)
+//        true
+//      } else false
+//
+//      val wr = mem.getWritePorts.head
+//      for(rd <- mem.getReadAsyncPorts) {
+//        val clockDomain = wr.getClockDomain
+//        clockDomain.push()
+//
+//        val ram = new Ram_1c_1w_1ra(mem.getWidth, mem.wordCount, rd.writeToReadKind)
+//        val enable = clockDomain.isClockEnableActive
+//
+//        ram.io.wr.en := wr.getEnable.allowSimplifyIt() && enable
+//        ram.io.wr.addr := wr.getAddress.allowSimplifyIt()
+//        ram.io.wr.data := wr.getData.allowSimplifyIt()
+//
+//        ram.io.rd.addr := rd.getAddress.allowSimplifyIt()
+//        rd.getData.allowSimplifyIt() := ram.io.rd.data
+//
+//        ram.setName(mem.getName())
+//        clockDomain.pop()
+//      }
+//
+//      for(rd <- mem.getReadSyncPorts()){
+//        if (rd.getClockDomain.clock == wr.getClockDomain.clock) {
+//          val clockDomain = wr.getClockDomain
+//
+//          clockDomain.push()
+//
+//          val ram = new Ram_1c_1w_1rs(mem.getWidth, mem.wordCount, rd.writeToReadKind)
+//          val enable = clockDomain.isClockEnableActive
+//
+//          ram.io.wr.en := wr.getEnable.allowSimplifyIt() && enable
+//          ram.io.wr.addr := wr.getAddress.allowSimplifyIt()
+//          ram.io.wr.data := wr.getData.allowSimplifyIt()
+//
+//          ram.io.rd.en := rd.getReadEnable.allowSimplifyIt() && enable
+//          ram.io.rd.addr := rd.getAddress.allowSimplifyIt()
+//          rd.getData.allowSimplifyIt() := ram.io.rd.data
+//
+//          ram.generic.useReadEnable = {
+//            val lit = ram.io.rd.en.getLiteral[BoolLiteral]
+//            lit == null || lit.value == false
+//          }
+//
+//          ram.setName(mem.getName())
+//          clockDomain.pop()
+//        }else{
+//          ???
+//        }
+//      }
+//
+//      if(popComponent) Component.pop(mem.component)
+//    }
+//  }
+//}

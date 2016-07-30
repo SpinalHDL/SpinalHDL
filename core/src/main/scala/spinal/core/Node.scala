@@ -600,9 +600,7 @@ abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady wi
   override def toString(): String = s"${super.toString()}"
 }
 
-object NoneNode {
-  def apply() = new NoneNode
-}
+
 
 class NoneNode extends NodeWithoutInputs {
   override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = (-1,0)

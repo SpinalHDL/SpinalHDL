@@ -22,6 +22,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 
 import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
 
 
 trait SpinalMode
@@ -42,9 +43,11 @@ case class SpinalConfig(
   dumpWave : DumpWaveConfig = null,
   globalPrefix : String = "",
   device: Device = Device(),
-  genVhdlPkg : Boolean = true
-
-){
+  genVhdlPkg : Boolean = true,
+  phasesInserters : ArrayBuffer[(ArrayBuffer[Phase]) => Unit] = ArrayBuffer[(ArrayBuffer[Phase]) => Unit](),
+  transformationPhases : ArrayBuffer[Phase] = ArrayBuffer[Phase](),
+  memBlackBoxers : ArrayBuffer[Phase] =  ArrayBuffer[Phase](new PhaseMemBlackBoxerDefault)
+                         ){
   def generate[T <: Component](gen : => T) : SpinalReport[T] = Spinal(this)(gen)
   def generateVhdl[T <: Component](gen : => T) : SpinalReport[T] = Spinal(this.copy(mode = VHDL))(gen)
   def generateVerilog[T <: Component](gen : => T) : SpinalReport[T] = Spinal(this.copy(mode = Verilog))(gen)
@@ -54,6 +57,14 @@ case class SpinalConfig(
     globalData.commonClockConfig = defaultConfigForClockDomains
   }
   def dumpWave(depth : Int = 0, vcdPath : String = "wave.vcd") : SpinalConfig = this.copy(dumpWave=DumpWaveConfig(depth,vcdPath))
+  def addTransformationPhase(phase : Phase): SpinalConfig = {
+    transformationPhases += phase
+//    def inserter(p : ArrayBuffer[Phase]) : Unit = {
+//      p.insertAll(p.indexWhere(_.isInstanceOf[PhaseCreateComponent]) + 1,phases)
+//    }
+//    phasesInserters += inserter
+    this
+  }
 }
 
 object SpinalConfig{
@@ -92,7 +103,7 @@ object Spinal{
 
     println({
       SpinalLog.tag("Runtime", Console.YELLOW)
-    } + s" SpinalHDL 0.9.1")
+    } + s" SpinalHDL 0.9.3")
 
 
     val runtime = Runtime.getRuntime

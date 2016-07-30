@@ -10,8 +10,10 @@ import scala.util.Random
 
 
 
-class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
+class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
   import pc._
+  override def useNodeConsumers: Boolean = true
+
   var outFile: java.io.FileWriter = null
   var memBitsMaskKind : MemBitsMaskKind = MULTIPLE_RAM
 
@@ -19,7 +21,7 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
   val emitedComponentRef = mutable.Map[Component, Component]()
 
 
-  override def impl(): Unit = {
+  override def impl(pc : PhaseContext): Unit = {
     import pc._
     SpinalProgress("Write VHDL")
     
@@ -29,8 +31,10 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
       emitPackage(outFile)
 
     for (c <- sortedComponents) {
-      SpinalProgress(s"${"  " * (1 + c.level)}emit ${c.definitionName}")
-      compile(c)
+      if (!c.isInBlackBoxTree) {
+        SpinalProgress(s"${"  " * (1 + c.level)}emit ${c.definitionName}")
+        compile(c)
+      }
     }
 
     outFile.flush();
@@ -766,7 +770,11 @@ class PhaseVhdl(pc : PhaseContext) extends Phase with VhdlBase {
 
           emitAttributes(signal,signal.instanceAndSyncNodeAttributes, "signal", ret)
         }
-
+//        case readSync : MemReadSync => {
+//          if(readSync.writeToReadKind == `writeFirst`){
+//            ret ++= s"  signal ${emitReference(readSync.consumers(0))}_mem_addr : unsigned(${readSync.mem.addressWidth-1}} downto 0);\n"
+//          }
+//        }
         case mem: Mem[_] => {
           //ret ++= emitSignal(mem, mem);
           var initAssignementBuilder = new StringBuilder()
