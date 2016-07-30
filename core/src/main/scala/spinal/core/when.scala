@@ -199,6 +199,7 @@ class WhenNode (val w: WhenContext) extends Node with AssignementTreePart {
     case _ => (outHi,outLo)
   }
 
+  def cloneWhenNode : this.type = new WhenNode(w).asInstanceOf[this.type]
 }
 
 
@@ -224,6 +225,8 @@ class WhenNodeWidthable (w: WhenContext) extends WhenNode(w) with Widthable with
     str = doit(whenFalse,2); if(str != null) return str
     return null
   }
+
+  override def cloneWhenNode : this.type = new WhenNodeWidthable(w).asInstanceOf[this.type]
 }
 
 class WhenNodeEnum (w: WhenContext,enumDef : SpinalEnum) extends WhenNode(w) with InferableEnumEncodingImpl{
@@ -233,6 +236,7 @@ class WhenNodeEnum (w: WhenContext,enumDef : SpinalEnum) extends WhenNode(w) wit
   override private[core] def normalizeInputs: Unit = {
     InputNormalize.enumImpl(this)
   }
+  override def cloneWhenNode : this.type = new WhenNodeEnum(w,enumDef).asInstanceOf[this.type]
 }
 
 

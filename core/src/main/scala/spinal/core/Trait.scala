@@ -201,9 +201,9 @@ abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends 
 }
 
 trait Assignable {
-  private[core] var compositeAssign: Assignable = null
+ /* private[core] */var compositeAssign: Assignable = null
 
-  private[core] final def assignFrom(that: AnyRef, conservative: Boolean): Unit = {
+  /*private[core] */final def assignFrom(that: AnyRef, conservative: Boolean): Unit = {
     if (compositeAssign != null) {
       compositeAssign.assignFrom(that, conservative)
     } else {

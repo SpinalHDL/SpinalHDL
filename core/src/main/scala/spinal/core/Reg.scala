@@ -114,7 +114,7 @@ class Reg (outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) ex
 
   override def setInput(id: Int, node: Node): Unit = id match{
     case RegS.getDataInputId => dataInput = node.asInstanceOf[T]
-    case RegS.getInitialValueId if initialValue != null => initialValue = node.asInstanceOf[T]
+    case RegS.getInitialValueId => initialValue = node.asInstanceOf[T]
     case _ => super.setInput(id,node)
   }
 
@@ -183,6 +183,8 @@ class Reg (outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) ex
   }
 
   override def toString: String = "Reg of " + outType.toString()
+
+  def cloneReg() : this.type = new Reg(outType,clockDomain).asInstanceOf[this.type]
 }
 
 
@@ -205,6 +207,7 @@ class RegWidthable(outType: BaseType, clockDomain: ClockDomain = ClockDomain.cur
     }
     return null
   }
+  override def cloneReg() : this.type = new RegWidthable(outType,clockDomain).asInstanceOf[this.type]
 }
 
 
@@ -216,4 +219,5 @@ class RegEnum(outType: BaseType,enumDef : SpinalEnum, clockDomain: ClockDomain =
   override private[core] def normalizeInputs: Unit = {
     InputNormalize.enumImpl(this)
   }
+  override def cloneReg() : this.type = new RegEnum(outType,enumDef,clockDomain).asInstanceOf[this.type]
 }

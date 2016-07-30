@@ -1527,6 +1527,9 @@ class MultipleAssignmentNode extends Node with AssignementTreePart{
     ArrayManager.getElseNull(inputsThrowable,id)
   override def setAssignementContext(id: Int,that : Throwable = globalData.getThrowable()): Unit =
     inputsThrowable = ArrayManager.setAllocate(inputsThrowable,id,that)
+
+
+  def cloneMultipleAssignmentNode : this.type = new MultipleAssignmentNode().asInstanceOf[this.type]
 }
 
 
@@ -1547,6 +1550,8 @@ class MultipleAssignmentNodeWidthable extends MultipleAssignmentNode with Widtha
     }
     return null
   }
+
+  override def cloneMultipleAssignmentNode : this.type = new MultipleAssignmentNodeWidthable().asInstanceOf[this.type]
 }
 
 class MultipleAssignmentNodeEnum(enumDef : SpinalEnum) extends MultipleAssignmentNode with InferableEnumEncodingImpl{
@@ -1556,6 +1561,7 @@ class MultipleAssignmentNodeEnum(enumDef : SpinalEnum) extends MultipleAssignmen
   override private[core] def normalizeInputs: Unit = {
     InputNormalize.enumImpl(this)
   }
+  override def cloneMultipleAssignmentNode : this.type = new MultipleAssignmentNodeEnum(enumDef).asInstanceOf[this.type]
 }
 
 object AssertNode{
