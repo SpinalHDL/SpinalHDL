@@ -412,7 +412,26 @@ class PhaseMemBlackBoxerDefault extends PhaseMemBlackboxer{
             ram.setName(mem.getName())
             clockDomain.pop()
           }else{
-            ??? //TODO
+            val ram = new Ram_2c_1w_1rs(mem.getWidth, mem.wordCount,wr.getClockDomain,rd.getClockDomain,if(wr.mask != null) wr.mask.getWidth else 1,wr.mask != null, rd.writeToReadKind,mem.tech)
+
+            ram.io.wr.en := wr.getEnable.allowSimplifyIt() && wr.getClockDomain.isClockEnableActive
+            ram.io.wr.addr := wr.getAddress.allowSimplifyIt()
+            ram.io.wr.data := wr.getData.allowSimplifyIt()
+            if(wr.mask != null)
+              ram.io.wr.mask := wr.getMask.allowSimplifyIt()
+            else
+              ram.io.wr.mask := "1"
+
+            ram.io.rd.en := rd.getReadEnable.allowSimplifyIt() && rd.getClockDomain.isClockEnableActive
+            ram.io.rd.addr := rd.getAddress.allowSimplifyIt()
+            rd.getData.allowSimplifyIt() := ram.io.rd.data
+
+            ram.generic.useReadEnable = {
+              val lit = ram.io.rd.en.getLiteral[BoolLiteral]
+              lit == null || lit.value == false
+            }
+
+            ram.setName(mem.getName())
           }
         }
       } else if (topo.writes.isEmpty && topo.readsAsync.isEmpty && topo.readsSync.isEmpty && topo.writeReadSync.size == 1 && topo.writeOrReadSync.isEmpty) {
@@ -440,6 +459,8 @@ class PhaseMemBlackBoxerDefault extends PhaseMemBlackboxer{
 
           ram.setName(mem.getName())
           clockDomain.pop()
+        }else{
+          ??? //TODO
         }
       } else if (topo.writes.isEmpty && topo.readsAsync.isEmpty && topo.readsSync.isEmpty && topo.writeReadSync.isEmpty && topo.writeOrReadSync.size == 1) {
         val wr = topo.writeOrReadSync(0)._1
@@ -461,7 +482,11 @@ class PhaseMemBlackBoxerDefault extends PhaseMemBlackboxer{
 
           ram.setName(mem.getName())
           clockDomain.pop()
+        }else{
+          ??? //TODO
         }
+      }else{
+        ??? //TODO
       }
       Component.pop(mem.component)
     }

@@ -2068,6 +2068,8 @@ object PlaySimple{
 
 object PlayRamBB{
   class TopLevel extends Component {
+    val clockB = in Bool
+
     val rgbConfig = RgbConfig(5,6,5)
     val mem = Mem(Rgb(rgbConfig),1 << 16).setAsBlackBox()
 
@@ -2076,6 +2078,12 @@ object PlayRamBB{
     val readAsyncAddr = in UInt(16 bits)
     val readAsyncData = out(mem.readAsync(readAsyncAddr))
 
+
+    val clockBArea = new ClockingArea(ClockDomain(clockB)){
+      val readSyncAddr = in UInt(16 bits)
+      val readSyncEn = in Bool
+      val readSyncPort = out(mem.readSyncCC(readSyncAddr,readSyncEn))
+    }
 //    MemBlackBoxer.applyOn(mem)
   }
 

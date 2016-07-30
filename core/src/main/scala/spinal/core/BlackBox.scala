@@ -81,16 +81,16 @@ abstract class BlackBox extends Component with SpinalTagReady {
     if (clockDomain.hasClockEnableSignal && enable == null) SpinalError(s"Clock domain has clock enable, but blackbox is not compatible $this")
     if (enable != null) {
       pulledDataCache += (clockDomain.clockEnable -> enable)
-      enable := ClockDomain.current.readClockEnableWire
+      enable := clockDomain.readClockEnableWire
     }
 
     if (reset != null) {
       if (!clockDomain.hasResetSignal) SpinalError(s"Clock domain has no reset, but blackbox need it $this")
       pulledDataCache += (clockDomain.reset -> reset)
-      reset := ClockDomain.current.readResetWire
+      reset := clockDomain.readResetWire
     }
     pulledDataCache += (clockDomain.clock -> clock)
-    clock := ClockDomain.current.readClockWire
+    clock := clockDomain.readClockWire
 
     Component.pop(parent)
   }
