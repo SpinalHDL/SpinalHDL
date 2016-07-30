@@ -7,6 +7,7 @@ import java.util
 import spinal.core.Operator.UInt.Add
 import spinal.core._
 import spinal.lib._
+import spinal.lib.bus.avalon._
 import spinal.lib.bus.amba4.axilite.{AxiLite4SpecRenamer, AxiLite4Config, AxiLite4}
 import spinal.lib.bus.neutral.NeutralStreamDma
 import spinal.lib.com.uart.UartCtrl
@@ -926,7 +927,8 @@ object PlayGenerics{
 
   /**
    * ALT_INBUF
-   * @TODO add library altera.altera_primitives_components
+    *
+    * @TODO add library altera.altera_primitives_components
    */
   case class alt_inbuf(_io_standard           : IO_STRANDARD = STD_NONE,
                        _location              : String       = "None",
@@ -1118,8 +1120,6 @@ object PlayI2CMasterHAL {
 
     val myMasterI2C = new I2CMasterHAL(generic)
     io <> myMasterI2C.io
-    myMasterI2C.io.config.setFrequency(2e6)
-
   }
 
   def main(args: Array[String]) {
@@ -1140,9 +1140,10 @@ object PlayI2CSlaveHAL {
     val generic = I2CSlaveHALGenerics()
 
     val io = new Bundle {
-      val i2c  = slave( I2C() )
-      val cmd  = master  Stream ( I2CSlaveHALCmd(generic) )
-      val rsp  = slave Stream ( I2CSlaveHALRsp(generic) )
+      val i2c    = slave( I2C() )
+      val config = in(I2CSlaveHALConfig(generic))
+      val cmd    = master  Flow ( I2CSlaveHALCmd(generic) )
+      val rsp    = slave Stream ( I2CSlaveHALRsp(generic) )
     }
 
     val mySlave = new I2CSlaveHAL(generic)
@@ -1158,6 +1159,156 @@ object PlayI2CSlaveHAL {
     ).generate(new I2CSlaveHALTester).printPruned
   }
 }
+object PlayI2CHAL{
+
+  class I2CHALTester extends Component{
+
+    val slaveGeneric  = I2CSlaveHALGenerics()
+    val masterGeneric = I2CMasterHALGenerics()
+
+    val io = new Bundle{
+      val ioSlave = new Bundle {
+        val cmd  = master  Flow ( I2CSlaveHALCmd(slaveGeneric) )
+        val rsp  = slave Stream ( I2CSlaveHALRsp(slaveGeneric) )
+      }
+      val ioMaster = new Bundle {
+        val cmd    = slave Stream(I2CMasteHALCmd(masterGeneric))
+        val rsp    = master Flow (I2CMasterHALRsp (masterGeneric))
+      }
+
+      val sda = out Bool
+      val scl = out Bool
+    }
+
+    val i2cSlave  = new I2CSlaveHAL(slaveGeneric)
+    val i2cMaster = new I2CMasterHAL(masterGeneric)
+
+
+    i2cSlave.io.cmd  <> io.ioSlave.cmd
+    i2cSlave.io.rsp  <> io.ioSlave.rsp
+    i2cMaster.io.cmd <> io.ioMaster.cmd
+    i2cMaster.io.rsp <> io.ioMaster.rsp
+    i2cMaster.io.config.setSCLFrequency(2e6)
+    i2cMaster.io.config.enCollision := True
+    i2cMaster.io.config.setClockDividerSampling(5)
+
+    io.sda := i2cMaster.io.i2c.sda.read
+    io.scl := i2cMaster.io.i2c.scl.read
+    i2cSlave.io.config.setClockDividerSampling(5)
+
+
+    interconnect(Seq(i2cMaster.io.i2c.scl, i2cSlave.io.i2c.scl))
+    interconnect(Seq(i2cMaster.io.i2c.sda, i2cSlave.io.i2c.sda))
+
+
+    //def interconnect[T <: Data](elements : Seq[ReadableOpenDrain[T]]) : Unit = {
+    def interconnect(elements : Seq[ReadableOpenDrain[Bool]]) : Unit = {
+      val readValue = elements.map(_.write).reduce(_ & _)
+      elements.foreach(_.read := readValue)
+    }
+  }
+
+  def main(args : Array[String]): Unit ={
+    SpinalConfig(
+        mode = Verilog,
+        dumpWave = DumpWaveConfig(depth = 0),
+        defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
+        defaultClockDomainFrequency  = FixedFrequency(50e6)
+    ).generate(new I2CHALTester()).printPruned()
+  }
+}
+
+object PlayI2CHALTest{
+
+  class I2CHAL_App extends Component {
+
+    val io = new Bundle{
+      val bus       = slave(AvalonMM(AvalonMMSlaveFactory.getAvalonConfig(4,32)))
+      val i2cSlave  = master( I2C() )
+      val i2cMaster = slave( I2C() )
+    }
+
+    /**
+      * Create the master and the slave
+      */
+    val masterI2CGeneric = I2CMasterHALGenerics()
+    val masterI2C     = new I2CMasterHAL(masterI2CGeneric)
+    val slaveI2C      = new I2CSlaveHAL(I2CSlaveHALGenerics())
+
+
+    /**
+      * Define all register needed to manage the master and the slave
+      */
+    val masterStatusCMD = Reg(Bits(32 bits)) randBoot()
+    val masterStatusRSP = Reg(Bits(32 bits)) randBoot()
+    val masterStreamRSP = Stream(I2CMasterHALRsp(masterI2CGeneric))
+
+    val slaveRSP       = Reg(Bits(32 bits)) randBoot()
+    val slaveStatusCMD = Reg(Bits(32 bits)) randBoot()
+    val slaveStatusRSP = Reg(Bits(32 bits)) randBoot()
+    val salveRSP_valid = Reg(Bool) init(False)
+
+    masterI2C.io.rsp.toStream >-> masterStreamRSP
+
+    /**
+      * Create the Avalon bus and the rigister bank
+      */
+    val busCtrl = AvalonMMSlaveFactory(io.bus)
+
+    busCtrl.driveAndRead(masterI2C.io.config,    0x00)
+    busCtrl.createAndDriveFlow(I2CMasteHALCmd(masterI2CGeneric), 0x04).toStream >-> masterI2C.io.cmd
+    busCtrl.readStreamNonBlocking(masterStreamRSP, address = 0x0C, validBitOffset=0, payloadBitOffset=1)
+    busCtrl.readAndWrite (masterStatusCMD, 0x08)
+    //  busCtrl.readAndWrite (masterStatusRSP, 0x0C)
+
+    busCtrl.driveAndRead(slaveI2C.io.config.clockDividerSampling,    0x10)
+    busCtrl.write(slaveRSP,       0x14)
+    busCtrl.readAndWrite (slaveStatusCMD, 0x18)
+    busCtrl.readAndWrite (slaveStatusRSP, 0x1C)
+    busCtrl.onWrite(0x14){ salveRSP_valid.set() }
+
+
+
+    // Master connection
+
+    masterI2C.io.i2c <> io.i2cMaster
+
+
+    when(masterI2C.io.cmd.ready){
+      masterStatusCMD(0) := True
+    }
+
+    // Slave connection
+
+    slaveI2C.io.i2c  <> io.i2cSlave
+
+    slaveI2C.io.rsp.mode.assignFromBits( slaveRSP(1 downto 0) )
+    slaveI2C.io.rsp.data  := slaveRSP(9 downto 2)
+    slaveI2C.io.rsp.valid  := salveRSP_valid
+
+
+    when(slaveI2C.io.rsp.ready){
+      slaveStatusRSP(0) := True
+      salveRSP_valid    := False
+    }
+    when(slaveI2C.io.cmd.valid){
+      slaveStatusCMD := 0
+      slaveStatusCMD(0) := True
+      slaveStatusCMD(2 downto 0)  := slaveI2C.io.cmd.mode.asBits
+      slaveStatusCMD(10 downto 3) := slaveI2C.io.cmd.data
+    }
+  }
+
+  def main(args : Array[String]): Unit ={
+    SpinalConfig(
+      mode = Verilog,
+      defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
+      defaultClockDomainFrequency  = FixedFrequency(50e6)
+    ).generate(new I2CHAL_App()).printPruned()
+  }
+
+}
+
 
 
 object PlayEnumName {
@@ -1524,7 +1675,7 @@ object PlayAuto{
 
     val io = new Bundle{
       val ioSlave = new Bundle {
-        val cmd  = master  Stream ( I2CSlaveHALCmd(slaveGeneric) )
+        val cmd  = master  Flow ( I2CSlaveHALCmd(slaveGeneric) )
         val rsp  = slave Stream ( I2CSlaveHALRsp(slaveGeneric) )
       }
       val ioMaster = new Bundle {
@@ -1542,7 +1693,7 @@ object PlayAuto{
     i2cSlave.io.rsp  <> io.ioSlave.rsp
     i2cMaster.io.cmd <> io.ioMaster.cmd
     i2cMaster.io.rsp <> io.ioMaster.rsp
-    i2cMaster.io.config.setFrequency(2e6)
+    i2cMaster.io.config.setSCLFrequency(2e6)
 
     simSDA.io.input     <> i2cMaster.io.i2c.sda
 
