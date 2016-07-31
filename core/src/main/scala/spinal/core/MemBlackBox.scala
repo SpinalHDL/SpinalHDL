@@ -190,5 +190,5 @@ class Ram_1wors(wordWidth: Int, wordCount: Int, writeToReadKind: MemWriteToReadK
 
   //Following is not obligatory, just to describe blackbox logic
   val mem = Mem(io.wrData, wordCount)
-  io.rdData := mem.writeOrReadSync(io.addr, io.wrData, io.cs, io.we, writeToReadKind)
+  io.rdData := mem.writeReadSync(io.addr, io.wrData, io.cs, io.we, writeToReadKind)
 }

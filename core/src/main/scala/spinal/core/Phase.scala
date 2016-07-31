@@ -294,13 +294,11 @@ class MemTopology(val mem: Mem[_]) {
   val writes = ArrayBuffer[MemWrite]()
   val readsAsync = ArrayBuffer[MemReadAsync]()
   val readsSync = ArrayBuffer[MemReadSync]()
-  val writeReadSync = ArrayBuffer[(MemWrite, MemReadSync)]()
-  val writeOrReadSync = ArrayBuffer[(MemWriteOrRead_writePart, MemWriteOrRead_readPart)]()
+  val writeReadSameAddressSync = ArrayBuffer[(MemWrite, MemReadSync)]()
+  val writeReadSync = ArrayBuffer[(MemWriteOrRead_writePart, MemWriteOrRead_readPart)]()
 }
 
 trait PhaseMemBlackboxer extends PhaseNetlist{
-
-
   override def impl(pc: PhaseContext): Unit = {
     import pc._
     val memsTopo = mutable.Map[Mem[_], MemTopology]()
@@ -315,7 +313,7 @@ trait PhaseMemBlackboxer extends PhaseNetlist{
           memTopo.writes += write
         } else {
           memTopo.readsSync -= readSync
-          memTopo.writeReadSync += (write -> readSync)
+          memTopo.writeReadSameAddressSync += (write -> readSync)
           readSync.sameAddressThan(write)
         }
       }
@@ -327,20 +325,20 @@ trait PhaseMemBlackboxer extends PhaseNetlist{
           memTopo.readsSync += readSync
         } else {
           memTopo.writes -= write
-          memTopo.writeReadSync += (write -> readSync)
+          memTopo.writeReadSameAddressSync += (write -> readSync)
           readSync.sameAddressThan(write)
         }
       }
       case writePart: MemWriteOrRead_writePart => {
         val memTopo = topoOf(writePart.getMem)
-        if (memTopo.writeOrReadSync.count(_._1 == writePart) == 0) {
-          memTopo.writeOrReadSync += (writePart -> writePart.readPart)
+        if (memTopo.writeReadSync.count(_._1 == writePart) == 0) {
+          memTopo.writeReadSync += (writePart -> writePart.readPart)
         }
       }
       case readPart: MemWriteOrRead_readPart => {
         val memTopo = topoOf(readPart.getMem)
-        if (memTopo.writeOrReadSync.count(_._2 == readPart) == 0) {
-          memTopo.writeOrReadSync += (readPart.writePart -> readPart)
+        if (memTopo.writeReadSync.count(_._2 == readPart) == 0) {
+          memTopo.writeReadSync += (readPart.writePart -> readPart)
         }
       }
       case _ =>
@@ -352,14 +350,15 @@ trait PhaseMemBlackboxer extends PhaseNetlist{
 
 }
 
-class PhaseMemBlackBoxerDefault extends PhaseMemBlackboxer{
+class PhaseMemBlackBoxerDefault(policy : MemBlackboxersPolicy) extends PhaseMemBlackboxer{
   override def useNodeConsumers = false
 
   override def doBlackboxing(pc: PhaseContext,memTopologies : mutable.Map[Mem[_], MemTopology]) : Unit = {
     import pc._
-    for ((mem, topo) <- memTopologies.iterator if config.forceMemToBlackboxTranslation || mem.forceMemToBlackboxTranslation if mem.initialContent == null) {
+    for ((mem, topo) <- memTopologies.iterator if policy.shouldTranslate(topo)) {
       Component.push(mem.component)
-      if (topo.writes.size == 1 && (!topo.readsAsync.isEmpty || !topo.readsSync.isEmpty) && topo.writeReadSync.isEmpty && topo.writeOrReadSync.isEmpty) {
+      if(mem.initialContent != null) ???
+      if (topo.writes.size == 1 && (!topo.readsAsync.isEmpty || !topo.readsSync.isEmpty) && topo.writeReadSameAddressSync.isEmpty && topo.writeReadSync.isEmpty) {
         val wr = topo.writes(0)
         for(rd <- topo.readsAsync) {
           val clockDomain = wr.getClockDomain
@@ -434,9 +433,9 @@ class PhaseMemBlackBoxerDefault extends PhaseMemBlackboxer{
             ram.setName(mem.getName())
           }
         }
-      } else if (topo.writes.isEmpty && topo.readsAsync.isEmpty && topo.readsSync.isEmpty && topo.writeReadSync.size == 1 && topo.writeOrReadSync.isEmpty) {
-        val wr = topo.writeReadSync(0)._1
-        val rd = topo.writeReadSync(0)._2
+      } else if (topo.writes.isEmpty && topo.readsAsync.isEmpty && topo.readsSync.isEmpty && topo.writeReadSameAddressSync.size == 1 && topo.writeReadSync.isEmpty) {
+        val wr = topo.writeReadSameAddressSync(0)._1
+        val rd = topo.writeReadSameAddressSync(0)._2
         if (rd.getClockDomain.clock == wr.getClockDomain.clock) {
           val clockDomain = wr.getClockDomain
 
@@ -462,9 +461,9 @@ class PhaseMemBlackBoxerDefault extends PhaseMemBlackboxer{
         }else{
           ??? //TODO
         }
-      } else if (topo.writes.isEmpty && topo.readsAsync.isEmpty && topo.readsSync.isEmpty && topo.writeReadSync.isEmpty && topo.writeOrReadSync.size == 1) {
-        val wr = topo.writeOrReadSync(0)._1
-        val rd = topo.writeOrReadSync(0)._2
+      } else if (topo.writes.isEmpty && topo.readsAsync.isEmpty && topo.readsSync.isEmpty && topo.writeReadSameAddressSync.isEmpty && topo.writeReadSync.size == 1) {
+        val wr = topo.writeReadSync(0)._1
+        val rd = topo.writeReadSync(0)._2
         if (rd.getClockDomain.clock == wr.getClockDomain.clock) {
           val clockDomain = wr.getClockDomain
 

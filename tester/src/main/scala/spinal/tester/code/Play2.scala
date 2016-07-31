@@ -288,7 +288,7 @@ object PlayB4 {
     val readData = out Bits(8 bits)
 
     val mem = Mem(Bits(8 bits),16)
-    readData := mem.writeOrReadSync(address,writeData,chipSelect,writeEnable)
+    readData := mem.writeReadSync(address,writeData,chipSelect,writeEnable)
 
 
 
@@ -2088,7 +2088,9 @@ object PlayRamBB{
   }
 
   def main(args: Array[String]) {
-    SpinalConfig().generateVhdl(new TopLevel)
+    SpinalConfig().
+      addStandardMemBlackboxer(blackboxAll).
+      generateVhdl(new TopLevel)
   }
 }
 
@@ -2370,7 +2372,6 @@ object PlayRegTriplify{
       baseType
     }
 
-
     regOutput.input = null
     regOutput.compositeAssign = null
 
@@ -2400,6 +2401,12 @@ object PlayRegTriplify{
         regOutput.assignFrom((r0 & r1) | (r0 & r2) | (r1 & r2) ,false)
       }
     }
+
+    regOutput.compositeAssign = new Assignable {
+      override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
+        regs.foreach(_.input.asInstanceOf[Reg].assignFrom(that,conservative))
+      }
+    }
   }
 
   class TopLevel extends Component {
@@ -2418,6 +2425,9 @@ object PlayRegTriplify{
 
     triplifyReg(counter)
 
+    when(counter === 34){
+      counter := 3
+    }
 
     result := counter
   }

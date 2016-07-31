@@ -32,10 +32,32 @@ object Verilog extends SpinalMode
 case class DumpWaveConfig(depth : Int = 0, vcdPath : String = "wave.vcd")
 case class Device(vendor : String = "?", family : String = "?", name : String = "?")
 
+trait MemBlackboxersPolicy{
+  def shouldTranslate(topology: MemTopology) : Boolean
+}
+
+object blackboxAll extends MemBlackboxersPolicy{
+  override def shouldTranslate(topology: MemTopology): Boolean = true
+}
+object blackboxRequestedAndUninferable extends MemBlackboxersPolicy{
+  override def shouldTranslate(topology: MemTopology): Boolean = {
+    if(blackboxOnlyIfRequested.shouldTranslate(topology)) return true
+    if(topology.readsAsync.exists(_.writeToReadKind != writeFirst)) return true
+    if(topology.readsSync.exists(_.writeToReadKind != readFirst)) return true
+    if(topology.writeReadSameAddressSync.exists(_._2.writeToReadKind != readFirst)) return true
+    if(topology.writeReadSync.exists(_._2.writeToReadKind != readFirst)) return true
+    return false
+  }
+}
+object blackboxOnlyIfRequested extends MemBlackboxersPolicy{
+  override def shouldTranslate(topology: MemTopology): Boolean = {
+    topology.mem.forceMemToBlackboxTranslation
+  }
+}
+
 case class SpinalConfig(
   mode: SpinalMode = null,
   debug : Boolean = false,
-  forceMemToBlackboxTranslation : Boolean = false,
   defaultConfigForClockDomains: ClockDomainConfig = ClockDomainConfig(),
   onlyStdLogicVectorAtTopLevelIo : Boolean = false,
   defaultClockDomainFrequency : IClockDomainFrequency = UnknownFrequency(),
@@ -46,7 +68,7 @@ case class SpinalConfig(
   genVhdlPkg : Boolean = true,
   phasesInserters : ArrayBuffer[(ArrayBuffer[Phase]) => Unit] = ArrayBuffer[(ArrayBuffer[Phase]) => Unit](),
   transformationPhases : ArrayBuffer[Phase] = ArrayBuffer[Phase](),
-  memBlackBoxers : ArrayBuffer[Phase] =  ArrayBuffer[Phase](new PhaseMemBlackBoxerDefault)
+  memBlackBoxers : ArrayBuffer[Phase] =  ArrayBuffer[Phase](/*new PhaseMemBlackBoxerDefault(blackboxNothing)*/)
                          ){
   def generate[T <: Component](gen : => T) : SpinalReport[T] = Spinal(this)(gen)
   def generateVhdl[T <: Component](gen : => T) : SpinalReport[T] = Spinal(this.copy(mode = VHDL))(gen)
@@ -63,6 +85,11 @@ case class SpinalConfig(
 //      p.insertAll(p.indexWhere(_.isInstanceOf[PhaseCreateComponent]) + 1,phases)
 //    }
 //    phasesInserters += inserter
+    this
+  }
+
+  def addStandardMemBlackboxer(policy: MemBlackboxersPolicy) : this.type = {
+    memBlackBoxers += new PhaseMemBlackBoxerDefault(policy)
     this
   }
 }
