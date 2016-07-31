@@ -268,6 +268,12 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
 //    }
 //  }
 
+  def rework[T](gen : => T) : T = {
+    Component.push(this)
+    val ret = gen
+    Component.pop(this)
+    ret
+  }
 }
 
 
