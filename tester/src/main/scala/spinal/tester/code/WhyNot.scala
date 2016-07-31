@@ -7,8 +7,8 @@ import spinal.core._
  */
 class WhyNot extends Component{
   val ram = Mem(Bits(4 bit),16)
-  out(ram.writeOrReadSync(in UInt(4 bit),in Bits(4 bit),in Bool,in Bool))
-  out(ram.writeOrReadSync(in UInt(4 bit),in Bits(4 bit),in Bool,in Bool))
+  out(ram.writeReadSync(in UInt(4 bit),in Bits(4 bit),in Bool,in Bool))
+  out(ram.writeReadSync(in UInt(4 bit),in Bits(4 bit),in Bool,in Bool))
 }
 
 

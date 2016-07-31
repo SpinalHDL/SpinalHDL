@@ -288,7 +288,7 @@ object PlayB4 {
     val readData = out Bits(8 bits)
 
     val mem = Mem(Bits(8 bits),16)
-    readData := mem.writeOrReadSync(address,writeData,chipSelect,writeEnable)
+    readData := mem.writeReadSync(address,writeData,chipSelect,writeEnable)
 
 
 
@@ -2068,6 +2068,8 @@ object PlaySimple{
 
 object PlayRamBB{
   class TopLevel extends Component {
+    val clockB = in Bool
+
     val rgbConfig = RgbConfig(5,6,5)
     val mem = Mem(Rgb(rgbConfig),1 << 16).setAsBlackBox()
 
@@ -2076,11 +2078,19 @@ object PlayRamBB{
     val readAsyncAddr = in UInt(16 bits)
     val readAsyncData = out(mem.readAsync(readAsyncAddr))
 
+
+    val clockBArea = new ClockingArea(ClockDomain(clockB)){
+      val readSyncAddr = in UInt(16 bits)
+      val readSyncEn = in Bool
+      val readSyncPort = out(mem.readSyncCC(readSyncAddr,readSyncEn))
+    }
 //    MemBlackBoxer.applyOn(mem)
   }
 
   def main(args: Array[String]) {
-    SpinalConfig().generateVhdl(new TopLevel)
+    SpinalConfig().
+      addStandardMemBlackboxer(blackboxAll).
+      generateVhdl(new TopLevel)
   }
 }
 
@@ -2313,3 +2323,117 @@ object PlayMasterSlave{
 //    SpinalVhdl(new TopLevel)
 //  }
 }
+
+
+
+object PlayRegTriplify{
+  def triplifyReg(regOutput : BaseType) : Unit = {
+
+    def cloneAssignementTree(finalOutput : Node,node : Node,into : Node,intoId : Int) : Unit = {
+      node match {
+        case node : MultipleAssignmentNode => {
+          val cpy = node.cloneMultipleAssignmentNode
+          for(i <- 0 until node.inputs.length) cpy.inputs += null.asInstanceOf[cpy.T]
+          node.onEachInput((input,inputId) => cloneAssignementTree(finalOutput,input,cpy,inputId))
+          into.setInput(intoId,cpy)
+        }
+        case node : WhenNode => {
+          val cpy = node.cloneWhenNode
+          node.onEachInput((input, inputId) => cloneAssignementTree(finalOutput,input, cpy, inputId))
+          into.setInput(intoId,cpy)
+        }
+        case node : AssignementNode => {
+          val cpy = node.clone(finalOutput)
+          node.onEachInput((input, inputId) => cloneAssignementTree(finalOutput,input, cpy, inputId))
+          into.setInput(intoId,cpy)
+        }
+        case node => into.setInput(intoId,node)
+      }
+    }
+
+    def cloneReg(outBaseType : BaseType,that : Reg) : Reg = {
+      val clone = that.cloneReg()
+      cloneAssignementTree(outBaseType,that.dataInput,clone,RegS.getDataInputId)
+      cloneAssignementTree(outBaseType,that.initialValue,clone,RegS.getInitialValueId)
+      clone.dataInput match {
+        case node : MultipleAssignmentNode =>{
+          if(node.inputs.head.isInstanceOf[Reg]) node.setInput(0,clone)
+        }
+        case _ =>
+      }
+      clone
+    }
+
+    val originalReg = regOutput.input.asInstanceOf[Reg]
+    val regs = for(i <- 0 to 2) yield {
+      val baseType = regOutput.clone()
+      baseType.input = cloneReg(baseType,originalReg)
+      baseType.setPartialName(regOutput,i.toString)
+      baseType
+    }
+
+    regOutput.input = null
+    regOutput.compositeAssign = null
+
+    regOutput match {
+      case regOutput : Bool => {
+        val r0 = regs(0).asInstanceOf[Bool]
+        val r1 = regs(1).asInstanceOf[Bool]
+        val r2 = regs(2).asInstanceOf[Bool]
+        regOutput.assignFrom((r0 & r1) | (r0 & r2) | (r1 & r2) ,false)
+      }
+      case regOutput : Bits => {
+        val r0 = regs(0).asInstanceOf[Bits]
+        val r1 = regs(1).asInstanceOf[Bits]
+        val r2 = regs(2).asInstanceOf[Bits]
+        regOutput.assignFrom((r0 & r1) | (r0 & r2) | (r1 & r2) ,false)
+      }
+      case regOutput : UInt => {
+        val r0 = regs(0).asInstanceOf[UInt]
+        val r1 = regs(1).asInstanceOf[UInt]
+        val r2 = regs(2).asInstanceOf[UInt]
+        regOutput.assignFrom((r0 & r1) | (r0 & r2) | (r1 & r2) ,false)
+      }
+      case regOutput : SInt => {
+        val r0 = regs(0).asInstanceOf[SInt]
+        val r1 = regs(1).asInstanceOf[SInt]
+        val r2 = regs(2).asInstanceOf[SInt]
+        regOutput.assignFrom((r0 & r1) | (r0 & r2) | (r1 & r2) ,false)
+      }
+    }
+
+    regOutput.compositeAssign = new Assignable {
+      override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
+        regs.foreach(_.input.asInstanceOf[Reg].assignFrom(that,conservative))
+      }
+    }
+  }
+
+  class TopLevel extends Component {
+    val cond = in Bool
+    val a,b = in UInt(8 bits)
+    val result = out UInt(8 bits)
+    val counter = Reg(UInt(8 bits))
+
+
+    when(cond){
+      counter := a + b
+    }
+    when(counter > 54){
+      counter(4) := False
+    }
+
+    triplifyReg(counter)
+
+    when(counter === 34){
+      counter := 3
+    }
+
+    result := counter
+  }
+
+  def main(args: Array[String]) {
+    SpinalConfig().generateVhdl(new TopLevel)
+  }
+}
+

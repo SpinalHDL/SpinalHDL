@@ -222,7 +222,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
   }
 
   // ASIC friendly single port ram
-  def writeOrReadSync(address: UInt, writeData: T, chipSelect: Bool, writeEnable: Bool, writeToReadKind: MemWriteToReadKind = dontCare, crossClock: Boolean = false): T = {
+  def writeReadSync(address: UInt, writeData: T, chipSelect: Bool, writeEnable: Bool, writeToReadKind: MemWriteToReadKind = dontCare, crossClock: Boolean = false): T = {
     val addressBuffer = UInt(addressWidth bit).dontSimplifyIt()
     addressBuffer := address
     chipSelect.dontSimplifyIt()
