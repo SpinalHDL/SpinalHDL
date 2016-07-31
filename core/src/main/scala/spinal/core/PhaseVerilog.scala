@@ -568,6 +568,7 @@ end
     case lit: BoolLiteral => if(lit.value) "1'b1" else "1'b0"
     case lit: EnumLiteral[_] => emitEnumLiteral(lit.enum, lit.encoding)
     case memRead: MemReadAsync => {
+      if(memRead.aspectRatio != 1) SpinalError(s"Verilog backend can't emit ${memRead.getMem} because of its mixed width ports")
       if (memRead.writeToReadKind == dontCare) SpinalWarning(s"memReadAsync with dontCare is as writeFirst into Verilog")
       val symbolCount = memRead.getMem.getMemSymbolCount
       if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
@@ -720,6 +721,8 @@ end
               }
             }
             case memWrite: MemWrite => {
+              if(memWrite.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${memWrite.getMem} because of its mixed width ports")
+
               if (memWrite.useWriteEnable) {
                 ret ++= s"${tab}if(${emitReference(memWrite.getEnable)})begin\n"
                 emitWrite(tab + "  ")
@@ -757,10 +760,10 @@ end
               }
             }
             case memReadSync: MemReadSync => {
-              //readFirst
-              if (memReadSync.writeToReadKind == writeFirst) SpinalError(s"Can't translate a memReadSync with writeFirst into Verilog $memReadSync")
-              if (memReadSync.writeToReadKind == dontCare) SpinalWarning(s"memReadSync with dontCare is as readFirst into Verilog $memReadSync")
-              if (memReadSync.useReadEnable) {
+              if(memReadSync.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${memReadSync.getMem} because of its mixed width ports")
+              if(memReadSync.writeToReadKind == writeFirst) SpinalError(s"Can't translate a memReadSync with writeFirst into Verilog $memReadSync")
+              if(memReadSync.writeToReadKind == dontCare) SpinalWarning(s"memReadSync with dontCare is as readFirst into Verilog $memReadSync")
+              if(memReadSync.useReadEnable) {
                 ret ++= s"${tab}if(${emitReference(memReadSync.getReadEnable)})begin\n"
                 emitRead(tab + "  ")
                 ret ++= s"${tab}end\n"

@@ -778,19 +778,12 @@ class PhaseAllowNodesToReadInputOfKindComponent(pc: PhaseContext) extends PhaseN
   }
 }
 
-class PhasePreWidthInferationChecks(pc: PhaseContext) extends PhaseMisc{
+class PhasePreInferationChecks(pc: PhaseContext) extends PhaseMisc{
   override def useNodeConsumers = false
   override def impl(pc : PhaseContext): Unit = {
     import pc._
     val errors = mutable.ArrayBuffer[String]()
-    Node.walk(walkNodesDefautStack ++ walkNodesBlackBoxGenerics,_ match {
-      case node : Reg =>{
-        if(node.initialValue == null && node.dataInput == node){
-          errors += s"$node has no assignement value and no reset value at\n ${node.getScalaLocationLong}"
-        }
-      }
-      case _ =>
-    })
+    Node.walk(walkNodesDefautStack ++ walkNodesBlackBoxGenerics,_.preInferationCheck())
     if(!errors.isEmpty)
       SpinalError(errors)
   }
@@ -987,14 +980,17 @@ class PhaseCheckInferredWidth(pc: PhaseContext) extends PhaseCheck{
   override def impl(pc : PhaseContext): Unit = {
     import pc._
     val errors = mutable.ArrayBuffer[String]()
-    Node.walk(walkNodesDefautStack,_ match {
+
+    def checker(node : Node) : Unit = node match {
       case node : CheckWidth => {
         val error = node.checkInferedWidth
-        if (error != null)
+        if (error != null) {
           errors += error
+        }
       }
       case _ =>
-    })
+    }
+    Node.walk(walkNodesDefautStack,checker(_))
 
     if (errors.nonEmpty)
       SpinalError(errors)
@@ -1499,7 +1495,7 @@ object SpinalVhdlBoot{
     phases += new PhaseAllowNodesToReadInputOfKindComponent(pc)
 
     phases += new PhaseDummy(SpinalProgress("Infer nodes's bit width"))
-    phases += new PhasePreWidthInferationChecks(pc)
+    phases += new PhasePreInferationChecks(pc)
     phases += new PhaseInferEnumEncodings(pc,e => e)
     phases += new PhaseInferWidth(pc)
     phases += new PhaseSimplifyNodes(pc)
@@ -1657,7 +1653,7 @@ object SpinalVerilogBoot{
     phases += new PhaseAllowNodesToReadInputOfKindComponent(pc)
 
     phases += new PhaseDummy(SpinalProgress("Infer nodes's bit width"))
-    phases += new PhasePreWidthInferationChecks(pc)
+    phases += new PhasePreInferationChecks(pc)
     phases += new PhaseInferEnumEncodings(pc,e => if(e == `native`) binarySequancial else e)
     phases += new PhaseInferWidth(pc)
     phases += new PhaseSimplifyNodes(pc)

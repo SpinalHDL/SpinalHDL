@@ -597,6 +597,8 @@ abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady wi
     toString()
   }
 
+  private[core] def preInferationCheck() : Unit = {}
+
   override def toString(): String = s"${super.toString()}"
 }
 

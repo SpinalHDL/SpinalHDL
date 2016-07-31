@@ -1185,6 +1185,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     //  case lit: BoolLiteral => if(lit.value) "'1'" else "'0'" //Invalid VHDL when '1' = '1'
     case lit: EnumLiteral[_] => emitEnumLiteral(lit.enum, lit.encoding)
     case memRead: MemReadAsync => {
+      if(memRead.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${memRead.getMem} because of its mixed width ports")
       if (memRead.writeToReadKind == dontCare) SpinalWarning(s"memReadAsync with dontCare is as writeFirst into VHDL")
       val symbolCount = memRead.getMem.getMemSymbolCount
       if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
@@ -1342,6 +1343,8 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
               }
             }
             case memWrite: MemWrite => {
+              if(memWrite.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${memWrite.getMem} because of its mixed width ports")
+
               if (memWrite.useWriteEnable) {
                 ret ++= s"${tab}if ${emitReference(memWrite.getEnable)} = '1' then\n"
                 emitWrite(tab + "  ")
@@ -1379,10 +1382,10 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
               }
             }
             case memReadSync: MemReadSync => {
-              //readFirst
-              if (memReadSync.writeToReadKind == writeFirst) SpinalError(s"Can't translate a memReadSync with writeFirst into VHDL $memReadSync")
-              if (memReadSync.writeToReadKind == dontCare) SpinalWarning(s"memReadSync with dontCare is as readFirst into VHDL $memReadSync")
-              if (memReadSync.useReadEnable) {
+              if(memReadSync.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${memReadSync.getMem} because of its mixed width ports")
+              if(memReadSync.writeToReadKind == writeFirst) SpinalError(s"Can't translate a memReadSync with writeFirst into VHDL $memReadSync")
+              if(memReadSync.writeToReadKind == dontCare) SpinalWarning(s"memReadSync with dontCare is as readFirst into VHDL $memReadSync")
+              if(memReadSync.useReadEnable) {
                 ret ++= s"${tab}if ${emitReference(memReadSync.getReadEnable)} = '1' then\n"
                 emitRead(tab + "  ")
                 ret ++= s"${tab}end if;\n"

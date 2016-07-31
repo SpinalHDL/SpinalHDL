@@ -182,6 +182,13 @@ class Reg (outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) ex
     }
   }
 
+
+  override private[core] def preInferationCheck(): Unit = {
+    if(this.initialValue == null && this.dataInput == this){
+      globalData.pendingErrors += (() => s"$this has no assignement value and no reset value at\n ${this.getScalaLocationLong}")
+    }
+  }
+
   override def toString: String = "Reg of " + outType.toString()
 
   def cloneReg() : this.type = new Reg(outType,clockDomain).asInstanceOf[this.type]
