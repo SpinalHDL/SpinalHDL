@@ -140,7 +140,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
   def readAsyncMixedWidth(address: UInt, data : Data, writeToReadKind: MemWriteToReadKind = dontCare): Unit =  readAsyncImpl(address,data,writeToReadKind,true)
 
   def readAsyncImpl(address: UInt, data : Data,writeToReadKind: MemWriteToReadKind = dontCare,allowMixedWidth : Boolean): Unit = {
-    val readBits = Bits()
+    val readBits = Bits(data.getBitsWidth bits)
     val addressBuffer = (if(allowMixedWidth) UInt() else UInt(addressWidth bits)).dontSimplifyIt() //Allow resized address when mixedMode is disable
     addressBuffer := address
     val readPort = new MemReadAsync(this, addressBuffer, readBits, writeToReadKind)
@@ -164,7 +164,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
   def readSyncMixedWidth(address: UInt, data : Data, enable: Bool = True,writeToReadKind: MemWriteToReadKind = dontCare,crossClock: Boolean = false): Unit =  readSyncImpl(address,data,enable,writeToReadKind,crossClock,true)
 
   def readSyncImpl(address: UInt, data : Data, enable: Bool = True, writeToReadKind: MemWriteToReadKind = dontCare, crossClock: Boolean = false,allowMixedWidth : Boolean = false): Unit = {
-    val readBits = Bits()
+    val readBits = Bits(data.getBitsWidth bits)
 
     val addressBuffer = (if(allowMixedWidth) UInt() else UInt(addressWidth bits)).dontSimplifyIt() //Allow resized address when mixedMode is disable
     addressBuffer := address
@@ -313,7 +313,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
   override def toString(): String = s"${component.getPath() + "/" + this.getDisplayName()} : ${getClassIdentifier}[${getWidth} bits]"
 }
 
-class MemReadAsync(mem_ : Mem[_], address_ : UInt, data: Bits, val writeToReadKind: MemWriteToReadKind) extends Node with Widthable with Nameable {
+class MemReadAsync(mem_ : Mem[_], address_ : UInt, data: Bits, val writeToReadKind: MemWriteToReadKind) extends Node with Widthable with CheckWidth with Nameable {
   if (writeToReadKind == readFirst) SpinalError("readFirst mode for asynchronous read is not allowed")
 
   override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
@@ -346,7 +346,25 @@ class MemReadAsync(mem_ : Mem[_], address_ : UInt, data: Bits, val writeToReadKi
   def getData = data
   def getAddress = address.asInstanceOf[UInt]
   def getMem = mem
-  override def calcWidth: Int = getMem.getWidth >> (address.getWidth - mem.addressWidth)
+  override def calcWidth: Int = data.getWidth //getMem.getWidth >> (address.getWidth - mem.addressWidth)
+
+  override private[core] def checkInferedWidth: Unit = {
+    if(mem.getWidth != getWidth){
+      if(!hasTag(AllowMixedWidth)) {
+        PendingError(s"Read data width (${data.getWidth} bits) is not the same than the memory one ($mem) at\n${this.getScalaLocationLong}")
+        return
+      }
+      if(mem.getWidth / getWidth * getWidth != mem.getWidth) {
+        PendingError(s"The aspect ration between readed data and the memory should be a power of two. currently it's ${mem.getWidth}/${getWidth}. Memory : $mem, written at\n${this.getScalaLocationLong}")
+        return
+      }
+    }
+
+    if(address.getWidth != mem.addressWidth + log2Up(aspectRatio)) {
+      PendingError(s"Address used to read $mem doesn't match the required width, ${address.getWidth} bits in place of ${mem.addressWidth + log2Up(aspectRatio)} bits\n${this.getScalaLocationLong}")
+      return
+    }
+  }
 
   def aspectRatio = mem.getWidth/getWidth
 }
@@ -358,7 +376,7 @@ object MemReadSync {
   val getMemId: Int = 6
 }
 
-class MemReadSync(mem_ : Mem[_], address_ : UInt, data: Bits, enable_ : Bool, val writeToReadKind: MemWriteToReadKind, clockDomain: ClockDomain) extends SyncNode(clockDomain) with Widthable with Nameable{
+class MemReadSync(mem_ : Mem[_], address_ : UInt, data: Bits, enable_ : Bool, val writeToReadKind: MemWriteToReadKind, clockDomain: ClockDomain) extends SyncNode(clockDomain) with Widthable with CheckWidth with Nameable{
   var address : Node with Widthable = address_
   var readEnable  : Node = enable_
   var mem     : Mem[_] = mem_
@@ -419,7 +437,26 @@ class MemReadSync(mem_ : Mem[_], address_ : UInt, data: Bits, enable_ : Bool, va
     this.setInput(MemReadSync.getAddressId,write.getAddress)
   }
 
-  override def calcWidth: Int = getMem.getWidth >> (address.getWidth - mem.addressWidth)
+  override def calcWidth: Int = data.getWidth //getMem.getWidth >> (address.getWidth - mem.addressWidth)
+
+  override private[core] def checkInferedWidth: Unit = {
+    if(mem.getWidth != getWidth){
+      if(!hasTag(AllowMixedWidth)) {
+        PendingError(s"Read data width (${data.getWidth} bits) is not the same than the memory one ($mem) at\n${this.getScalaLocationLong}")
+        return
+      }
+      if(mem.getWidth / getWidth * getWidth != mem.getWidth) {
+        PendingError(s"The aspect ration between readed data and the memory should be a power of two. currently it's ${mem.getWidth}/${getWidth}. Memory : $mem, written at\n${this.getScalaLocationLong}")
+        return
+      }
+    }
+
+    if(address.getWidth != mem.addressWidth + log2Up(aspectRatio)) {
+      PendingError(s"Address used to read $mem doesn't match the required width, ${address.getWidth} bits in place of ${mem.addressWidth + log2Up(aspectRatio)} bits\n${this.getScalaLocationLong}")
+      return
+    }
+
+  }
 
   def aspectRatio = mem.getWidth/getWidth
 }
@@ -509,19 +546,28 @@ class MemWrite(mem: Mem[_], address_ : UInt, data_ : Bits, mask_ : Bits, enable_
     return lit == null || lit.value == false
   }
 
-  override private[core] def checkInferedWidth: String = {
+  override private[core] def checkInferedWidth: Unit = {
     if(mem.getWidth != getWidth){
-      if(!hasTag(AllowMixedWidth)) return s"Write data width (${data.getWidth} bits) is not the same than the memory one ($mem) at\n${this.getScalaLocationLong}"
-      if(mem.getWidth / getWidth * getWidth != mem.getWidth) return s"The aspect ration between written data and the memory should be a power of two. currently it's ${mem.getWidth}/${getWidth}. Memory : $mem, written at\n${this.getScalaLocationLong}"
+      if(!hasTag(AllowMixedWidth)) {
+        PendingError(s"Write data width (${data.getWidth} bits) is not the same than the memory one ($mem) at\n${this.getScalaLocationLong}")
+        return
+      }
+      if(mem.getWidth / getWidth * getWidth != mem.getWidth) {
+        PendingError(s"The aspect ration between written data and the memory should be a power of two. currently it's ${mem.getWidth}/${getWidth}. Memory : $mem, written at\n${this.getScalaLocationLong}")
+        return
+      }
     }
 
-    if(getMask != null && getData.getWidth % getMask.getWidth != 0)
-      return s"Memory write_data_width % write_data_mask_width != 0 at\n${this.getScalaLocationLong}"
+    if(getMask != null && getData.getWidth % getMask.getWidth != 0) {
+      PendingError(s"Memory write_data_width % write_data_mask_width != 0 at\n${this.getScalaLocationLong}")
+      return
+    }
 
 
-    if(address.getWidth != mem.addressWidth + log2Up(aspectRatio))
-      return s"Address used to write $mem doesn't match the required width, ${address.getWidth} bits in place of ${mem.addressWidth + log2Up(aspectRatio)} bits\n${this.getScalaLocationLong}"
-    null
+    if(address.getWidth != mem.addressWidth + log2Up(aspectRatio)) {
+      PendingError(s"Address used to write $mem doesn't match the required width, ${address.getWidth} bits in place of ${mem.addressWidth + log2Up(aspectRatio)} bits\n${this.getScalaLocationLong}")
+      return
+    }
   }
 
   def aspectRatio = mem.getWidth/getWidth

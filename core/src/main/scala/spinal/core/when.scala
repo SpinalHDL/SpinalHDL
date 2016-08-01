@@ -213,17 +213,15 @@ class WhenNodeWidthable (w: WhenContext) extends WhenNode(w) with Widthable with
     if(whenFalse != null) InputNormalize.bitVectoreAssignement(this,2,this.getWidth)
   }
 
-  override private[core] def checkInferedWidth: String = {
-    def doit(input : T,i : Int) : String = {
+  override private[core] def checkInferedWidth: Unit = {
+    def doit(input : T,i : Int) : Unit = {
       if (input != null && input.component != null && this.getWidth != input.getWidth) {
-        return s"Assignement bit count missmatch. ${this} := ${input}} at\n${ScalaLocated.long(getAssignementContext(i))}"
+        PendingError(s"Assignement bit count missmatch. ${this} := ${input}} at\n${ScalaLocated.long(getAssignementContext(i))}")
       }
-      else null
     }
-    var str : String = null
-    str = doit(whenTrue,1);  if(str != null) return str
-    str = doit(whenFalse,2); if(str != null) return str
-    return null
+
+    doit(whenTrue,1);
+    doit(whenFalse,2);
   }
 
   override def cloneWhenNode : this.type = new WhenNodeWidthable(w).asInstanceOf[this.type]

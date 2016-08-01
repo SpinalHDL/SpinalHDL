@@ -421,7 +421,7 @@ trait WidthProvider{
   def getWidth : Int
 }
 trait CheckWidth{
-  private[core] def checkInferedWidth: String
+  private[core] def checkInferedWidth: Unit
 }
 
 trait Widthable extends WidthProvider with GlobalDataUser with ScalaLocated{

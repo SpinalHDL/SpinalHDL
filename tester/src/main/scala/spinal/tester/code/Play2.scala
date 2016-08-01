@@ -2232,30 +2232,29 @@ object PlayRamBB{
       mem.writeMixedWidth(writeAddr, writeData)
     }
 
-    val readAsyncAddr = in UInt(16 bits)
-    val readAsyncData = out(mem.readAsync(readAsyncAddr))
-    val readAsyncMixedWidthAddr = in UInt(17 bits)
-    val readAsyncMixedWidthData = out UInt(8 bits)
-    mem.readAsyncMixedWidth(readAsyncMixedWidthAddr,readAsyncMixedWidthData)
+//    val readAsyncAddr = in UInt(16 bits)
+//    val readAsyncData = out(mem.readAsync(readAsyncAddr))
+//    val readAsyncMixedWidthAddr = in UInt(17 bits)
+//    val readAsyncMixedWidthData = out UInt(8 bits)
+//    mem.readAsyncMixedWidth(readAsyncMixedWidthAddr,readAsyncMixedWidthData)
 
-    val readSyncPort = slave(mem.readSyncPort)
+//    val readSyncPort = slave(mem.readSyncPort)
     val readSyncMixedWidthEnable = in Bool
     val readSyncMixedWidthAddr = in UInt(17 bits)
-    val readSyncMixedWidthData = out UInt(8 bits)
+    val readSyncMixedWidthData = out UInt(9 bits)
     mem.readSyncMixedWidth(readSyncMixedWidthAddr,readSyncMixedWidthData,readSyncMixedWidthEnable)
 
 
     val clockBArea = new ClockingArea(ClockDomain(clockB)){
       val readSyncAddr = in UInt(16 bits)
       val readSyncEn = in Bool
-      val readSyncPort = out(mem.readSyncCC(readSyncAddr,readSyncEn))
+//      val readSyncPort = out(mem.readSyncCC(readSyncAddr,readSyncEn))
     }
-//    MemBlackBoxer.applyOn(mem)
   }
 
   def main(args: Array[String]) {
     SpinalConfig().
-  //    addStandardMemBlackboxer(blackboxAll).
+      addStandardMemBlackboxer(blackboxAll).
       generateVhdl(new TopLevel)
   }
 }

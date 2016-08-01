@@ -205,14 +205,12 @@ class RegWidthable(outType: BaseType, clockDomain: ClockDomain = ClockDomain.cur
     if (this.initialValue != null) InputNormalize.bitVectoreAssignement(this, RegS.getInitialValueId, width)
   }
 
-  override private[core] def checkInferedWidth: String = {
+  override private[core] def checkInferedWidth: Unit = {
     if (dataInput != null && dataInput.component != null && this.getWidth != dataInput.getWidth) {
-      return s"Assignment bit count mismatch. ${this} := ${dataInput} at \n${ScalaLocated.long(getAssignementContext(RegS.getDataInputId))}"
+      PendingError(s"Assignment bit count mismatch. ${this} := ${dataInput} at \n${ScalaLocated.long(getAssignementContext(RegS.getDataInputId))}")
+    } else if(initialValue != null && initialValue.component != null && this.getWidth != initialValue.getWidth) {
+      PendingError(s"Assignment bit count mismatch. ${this} := ${initialValue} at \n${ScalaLocated.long(getAssignementContext(RegS.getDataInputId))}")
     }
-    if (initialValue != null && initialValue.component != null && this.getWidth != initialValue.getWidth) {
-      return s"Assignment bit count mismatch. ${this} := ${initialValue} at \n${ScalaLocated.long(getAssignementContext(RegS.getDataInputId))}"
-    }
-    return null
   }
   override def cloneReg() : this.type = new RegWidthable(outType,clockDomain).asInstanceOf[this.type]
 }
