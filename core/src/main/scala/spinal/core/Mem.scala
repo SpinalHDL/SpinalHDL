@@ -23,24 +23,24 @@ import scala.collection.mutable.ArrayBuffer
 /**
   * Created by PIC18F on 02.02.2015.
   */
-trait MemWriteToReadKind{
-  def writeToReadKind : String
+trait ReadUnderWritePolicy{
+  def readUnderWriteString : String
 }
 
 trait MemTechnologyKind{
   def technologyKind : String
 }
 
-object dontCare extends MemWriteToReadKind{
-  override def writeToReadKind: String = "dontCare"
+object dontCare extends ReadUnderWritePolicy{
+  override def readUnderWriteString: String = "dontCare"
 }
 
-object writeFirst extends MemWriteToReadKind {
-  override def writeToReadKind: String = "writeFirst"
+object writeFirst extends ReadUnderWritePolicy {
+  override def readUnderWriteString: String = "writeFirst"
 }
 
-object readFirst extends MemWriteToReadKind {
-  override def writeToReadKind: String = "readFirst"
+object readFirst extends ReadUnderWritePolicy {
+  override def readUnderWriteString: String = "readFirst"
 }
 
 object auto extends  MemTechnologyKind{
@@ -72,7 +72,7 @@ class MemWritePayload[T <: Data](dataType: T, addressWidth: Int) extends Bundle 
   val address = UInt(addressWidth bit)
 }
 
-case class MemWriteOrReadSync(write : MemWriteOrRead_writePart,read : MemWriteOrRead_readPart)
+case class MemWriteOrReadSync(write : MemReadWrite_writePart,read : MemReadWrite_readPart)
 
 object AllowMixedWidth extends SpinalTag
 
@@ -131,19 +131,19 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
   }
 
 
-  def readAsync(address: UInt, writeToReadKind: MemWriteToReadKind = dontCare): T = {
+  def readAsync(address: UInt, readUnderWrite: ReadUnderWritePolicy = dontCare): T = {
     val readWord = wordType.clone()
-    readAsyncImpl(address,readWord,writeToReadKind,false)
+    readAsyncImpl(address,readWord,readUnderWrite,false)
     readWord
   }
 
-  def readAsyncMixedWidth(address: UInt, data : Data, writeToReadKind: MemWriteToReadKind = dontCare): Unit =  readAsyncImpl(address,data,writeToReadKind,true)
+  def readAsyncMixedWidth(address: UInt, data : Data, readUnderWrite: ReadUnderWritePolicy = dontCare): Unit =  readAsyncImpl(address,data,readUnderWrite,true)
 
-  def readAsyncImpl(address: UInt, data : Data,writeToReadKind: MemWriteToReadKind = dontCare,allowMixedWidth : Boolean): Unit = {
+  def readAsyncImpl(address: UInt, data : Data,readUnderWrite : ReadUnderWritePolicy = dontCare,allowMixedWidth : Boolean): Unit = {
     val readBits = Bits(data.getBitsWidth bits)
     val addressBuffer = (if(allowMixedWidth) UInt() else UInt(addressWidth bits)).dontSimplifyIt() //Allow resized address when mixedMode is disable
     addressBuffer := address
-    val readPort = new MemReadAsync(this, addressBuffer, readBits, writeToReadKind)
+    val readPort = new MemReadAsync(this, addressBuffer, readBits, readUnderWrite)
     if(allowMixedWidth) readPort.addTag(AllowMixedWidth)
 
     addressBuffer.setPartialName(readPort,"address",true)
@@ -155,15 +155,15 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
     data.assignFromBits(readBits)
   }
 
-  def readSync(address: UInt, enable: Bool = True, writeToReadKind: MemWriteToReadKind = dontCare, crossClock: Boolean = false): T = {
+  def readSync(address: UInt, enable: Bool = True, readUnderWrite: ReadUnderWritePolicy = dontCare, clockCrossing: Boolean = false): T = {
     val readWord = wordType.clone()
-    readSyncImpl(address,readWord,enable,writeToReadKind,crossClock,false)
+    readSyncImpl(address,readWord,enable,readUnderWrite,clockCrossing,false)
     readWord
   }
 
-  def readSyncMixedWidth(address: UInt, data : Data, enable: Bool = True,writeToReadKind: MemWriteToReadKind = dontCare,crossClock: Boolean = false): Unit =  readSyncImpl(address,data,enable,writeToReadKind,crossClock,true)
+  def readSyncMixedWidth(address: UInt, data : Data, enable: Bool = True,readUnderWrite: ReadUnderWritePolicy = dontCare,clockCrossing: Boolean = false): Unit =  readSyncImpl(address,data,enable,readUnderWrite,clockCrossing,true)
 
-  def readSyncImpl(address: UInt, data : Data, enable: Bool = True, writeToReadKind: MemWriteToReadKind = dontCare, crossClock: Boolean = false,allowMixedWidth : Boolean = false): Unit = {
+  def readSyncImpl(address: UInt, data : Data, enable: Bool = True, readUnderWrite: ReadUnderWritePolicy = dontCare, clockCrossing: Boolean = false,allowMixedWidth : Boolean = false): Unit = {
     val readBits = Bits(data.getBitsWidth bits)
 
     val addressBuffer = (if(allowMixedWidth) UInt() else UInt(addressWidth bits)).dontSimplifyIt() //Allow resized address when mixedMode is disable
@@ -171,14 +171,14 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
 
     val enableBuffer = Bool
     enableBuffer := enable
-    val readPort = new MemReadSync(this, addressBuffer, readBits, enableBuffer.dontSimplifyIt(), writeToReadKind, ClockDomain.current)
+    val readPort = new MemReadSync(this, addressBuffer, readBits, enableBuffer.dontSimplifyIt(), readUnderWrite, ClockDomain.current)
     if(allowMixedWidth) readPort.addTag(AllowMixedWidth)
 
     addressBuffer.setPartialName(readPort,"address",true)
     readBits.setPartialName(readPort,"data",true)
     enableBuffer.setPartialName(readPort,"enable",true)
 
-    if (crossClock)
+    if (clockCrossing)
       readPort.addTag(crossClockDomain)
 
     addPort(readPort)
@@ -187,8 +187,9 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
     data.assignFromBits(readBits)
   }
 
-  def readSyncCC(address: UInt, enable: Bool = True, writeToReadKind: MemWriteToReadKind = dontCare): T = {
-    readSync(address, enable, writeToReadKind, true)
+  @deprecated
+  def readSyncCC(address: UInt, enable: Bool = True, readUnderWrite: ReadUnderWritePolicy = dontCare): T = {
+    readSync(address, enable, readUnderWrite, true)
   }
 
 
@@ -235,17 +236,22 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
     addPort(writePort)
   }
 
-  // ASIC friendly single port ram
-  def writeReadSync(address: UInt, writeData: T, chipSelect: Bool, writeEnable: Bool, writeToReadKind: MemWriteToReadKind = dontCare, crossClock: Boolean = false): T = {
+  // Single port ram
+  def readWriteSync(address: UInt,
+                    data: T,
+                    enable: Bool,
+                    write: Bool,
+                    readUnderWrite: ReadUnderWritePolicy = dontCare,
+                    crossClock: Boolean = false): T = {
     val addressBuffer = UInt(addressWidth bit).dontSimplifyIt()
     addressBuffer := address
-    chipSelect.dontSimplifyIt()
-    writeEnable.dontSimplifyIt()
+    enable.dontSimplifyIt()
+    write.dontSimplifyIt()
 
 
     val dataBuffer = Bits(getWidth bit).dontSimplifyIt()
-    dataBuffer := writeData.asBits
-    val writePort = new MemWriteOrRead_writePart(this, addressBuffer, dataBuffer, chipSelect, writeEnable, ClockDomain.current)
+    dataBuffer := data.asBits
+    val writePort = new MemReadWrite_writePart(this, addressBuffer, dataBuffer, enable, write, ClockDomain.current)
     inputs += writePort
 
     addressBuffer.setRefOwner(writePort)
@@ -257,7 +263,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
 
     val readBits = Bits(wordType.getBitsWidth bit)
     val readWord = wordType.clone()
-    val readPort = new MemWriteOrRead_readPart(this, addressBuffer, readBits, chipSelect, writeEnable, writeToReadKind, ClockDomain.current)
+    val readPort = new MemReadWrite_readPart(this, addressBuffer, readBits, enable, write, readUnderWrite, ClockDomain.current)
 
     readBits.input = readPort
     readBits.setRefOwner(readPort)
@@ -313,8 +319,8 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
   override def toString(): String = s"${component.getPath() + "/" + this.getDisplayName()} : ${getClassIdentifier}[${getWidth} bits]"
 }
 
-class MemReadAsync(mem_ : Mem[_], address_ : UInt, data: Bits, val writeToReadKind: MemWriteToReadKind) extends Node with Widthable with CheckWidth with Nameable {
-  if (writeToReadKind == readFirst) SpinalError("readFirst mode for asynchronous read is not allowed")
+class MemReadAsync(mem_ : Mem[_], address_ : UInt, data: Bits, val readUnderWrite: ReadUnderWritePolicy) extends Node with Widthable with CheckWidth with Nameable {
+  if (readUnderWrite == readFirst) SpinalError("readFirst mode for asynchronous read is not allowed")
 
   override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
 
@@ -376,7 +382,7 @@ object MemReadSync {
   val getMemId: Int = 6
 }
 
-class MemReadSync(mem_ : Mem[_], address_ : UInt, data: Bits, enable_ : Bool, val writeToReadKind: MemWriteToReadKind, clockDomain: ClockDomain) extends SyncNode(clockDomain) with Widthable with CheckWidth with Nameable{
+class MemReadSync(mem_ : Mem[_], address_ : UInt, data: Bits, enable_ : Bool, val readUnderWrite: ReadUnderWritePolicy, clockDomain: ClockDomain) extends SyncNode(clockDomain) with Widthable with CheckWidth with Nameable{
   var address : Node with Widthable = address_
   var readEnable  : Node = enable_
   var mem     : Mem[_] = mem_
@@ -573,14 +579,14 @@ class MemWrite(mem: Mem[_], address_ : UInt, data_ : Bits, mask_ : Bits, enable_
   def aspectRatio = mem.getWidth/getWidth
 }
 
-object MemWriteOrRead_writePart {
+object MemReadWrite_writePart {
   val getAddressId: Int = 4
   val getDataId: Int = 5
   val getChipSelectId: Int = 6
   val getWriteEnableId: Int = 7
 }
 
-class MemWriteOrRead_writePart(mem: Mem[_], address_ : UInt, data_ : Bits, chipSelect_ : Bool, writeEnable_ : Bool, clockDomain: ClockDomain) extends SyncNode(clockDomain) with Widthable with Nameable{
+class MemReadWrite_writePart(mem: Mem[_], address_ : UInt, data_ : Bits, chipSelect_ : Bool, writeEnable_ : Bool, clockDomain: ClockDomain) extends SyncNode(clockDomain) with Widthable with Nameable{
   var address : Node  = address_
   var data     : Node = data_
   var chipSelect   : Node = chipSelect_
@@ -591,10 +597,10 @@ class MemWriteOrRead_writePart(mem: Mem[_], address_ : UInt, data_ : Bits, chipS
 
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
     super.onEachInput(doThat)
-    doThat(address,MemWriteOrRead_writePart.getAddressId)
-    doThat(data,MemWriteOrRead_writePart.getDataId)
-    doThat(chipSelect,MemWriteOrRead_writePart.getChipSelectId)
-    doThat(writeEnable,MemWriteOrRead_writePart.getWriteEnableId)
+    doThat(address,MemReadWrite_writePart.getAddressId)
+    doThat(data,MemReadWrite_writePart.getDataId)
+    doThat(chipSelect,MemReadWrite_writePart.getChipSelectId)
+    doThat(writeEnable,MemReadWrite_writePart.getWriteEnableId)
   }
 
   override def onEachInput(doThat: (Node) => Unit): Unit = {
@@ -606,24 +612,24 @@ class MemWriteOrRead_writePart(mem: Mem[_], address_ : UInt, data_ : Bits, chipS
   }
 
   override def setInput(id: Int, node: Node): Unit = id match{
-    case MemWriteOrRead_writePart.getAddressId => address = node
-    case MemWriteOrRead_writePart.getDataId => data = node
-    case MemWriteOrRead_writePart.getChipSelectId => chipSelect = node
-    case MemWriteOrRead_writePart.getWriteEnableId => writeEnable = node
+    case MemReadWrite_writePart.getAddressId => address = node
+    case MemReadWrite_writePart.getDataId => data = node
+    case MemReadWrite_writePart.getChipSelectId => chipSelect = node
+    case MemReadWrite_writePart.getWriteEnableId => writeEnable = node
     case _ => super.setInput(id,node)
   }
 
   override def getInputsCount: Int = super.getInputsCount + 4
   override def getInputs: Iterator[Node] = super.getInputs ++ Iterator(address,data,chipSelect,writeEnable)
   override def getInput(id: Int): Node = id match{
-    case MemWriteOrRead_writePart.getAddressId => address
-    case MemWriteOrRead_writePart.getDataId => data
-    case MemWriteOrRead_writePart.getChipSelectId => chipSelect
-    case MemWriteOrRead_writePart.getWriteEnableId => writeEnable
+    case MemReadWrite_writePart.getAddressId => address
+    case MemReadWrite_writePart.getDataId => data
+    case MemReadWrite_writePart.getChipSelectId => chipSelect
+    case MemReadWrite_writePart.getWriteEnableId => writeEnable
     case _ => super.getInput(id)
   }
 
-  var readPart: MemWriteOrRead_readPart = null
+  var readPart: MemReadWrite_readPart = null
 
   override def getSynchronousInputs: List[Node] = getAddress :: getData :: getChipSelect :: getWriteEnable :: super.getSynchronousInputs
 
@@ -644,14 +650,14 @@ class MemWriteOrRead_writePart(mem: Mem[_], address_ : UInt, data_ : Bits, chipS
 }
 
 
-object MemWriteOrRead_readPart {
+object MemReadWrite_readPart {
   val getAddressId: Int = 4
   val getChipSelectId: Int = 5
   val getWriteEnableId: Int = 6
   val getMemId: Int = 7
 }
 
-class MemWriteOrRead_readPart(mem_ : Mem[_], address_ : UInt, data_ : Bits, chipSelect_ : Bool, writeEnable_ : Bool, val writeToReadKind: MemWriteToReadKind, clockDomain: ClockDomain) extends SyncNode(clockDomain) with Widthable with Nameable{
+class MemReadWrite_readPart(mem_ : Mem[_], address_ : UInt, data_ : Bits, chipSelect_ : Bool, writeEnable_ : Bool, val readUnderWrite: ReadUnderWritePolicy, clockDomain: ClockDomain) extends SyncNode(clockDomain) with Widthable with Nameable{
 
   var address : Node  = address_
   var chipSelect     : Node = chipSelect_
@@ -664,10 +670,10 @@ class MemWriteOrRead_readPart(mem_ : Mem[_], address_ : UInt, data_ : Bits, chip
 
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
     super.onEachInput(doThat)
-    doThat(address,MemWriteOrRead_readPart.getAddressId)
-    doThat(chipSelect,MemWriteOrRead_readPart.getChipSelectId)
-    doThat(writeEnable,MemWriteOrRead_readPart.getWriteEnableId)
-    doThat(mem,MemWriteOrRead_readPart.getMemId)
+    doThat(address,MemReadWrite_readPart.getAddressId)
+    doThat(chipSelect,MemReadWrite_readPart.getChipSelectId)
+    doThat(writeEnable,MemReadWrite_readPart.getWriteEnableId)
+    doThat(mem,MemReadWrite_readPart.getMemId)
   }
 
   override def onEachInput(doThat: (Node) => Unit): Unit = {
@@ -679,26 +685,26 @@ class MemWriteOrRead_readPart(mem_ : Mem[_], address_ : UInt, data_ : Bits, chip
   }
 
   override def setInput(id: Int, node: Node): Unit = id match{
-    case MemWriteOrRead_readPart.getAddressId => address = node
-    case MemWriteOrRead_readPart.getChipSelectId => chipSelect = node
-    case MemWriteOrRead_readPart.getWriteEnableId => writeEnable = node
-    case MemWriteOrRead_readPart.getMemId => mem = node.asInstanceOf[Mem[_]]
+    case MemReadWrite_readPart.getAddressId => address = node
+    case MemReadWrite_readPart.getChipSelectId => chipSelect = node
+    case MemReadWrite_readPart.getWriteEnableId => writeEnable = node
+    case MemReadWrite_readPart.getMemId => mem = node.asInstanceOf[Mem[_]]
     case _ => super.setInput(id,node)
   }
 
   override def getInputsCount: Int = super.getInputsCount + 4
   override def getInputs: Iterator[Node] = super.getInputs ++ Iterator(address,chipSelect,writeEnable,mem)
   override def getInput(id: Int): Node = id match{
-    case MemWriteOrRead_readPart.getAddressId => address
-    case MemWriteOrRead_readPart.getChipSelectId => chipSelect
-    case MemWriteOrRead_readPart.getWriteEnableId => writeEnable
-    case MemWriteOrRead_readPart.getMemId => mem
+    case MemReadWrite_readPart.getAddressId => address
+    case MemReadWrite_readPart.getChipSelectId => chipSelect
+    case MemReadWrite_readPart.getWriteEnableId => writeEnable
+    case MemReadWrite_readPart.getMemId => mem
     case _ => super.getInput(id)
   }
 
 
 
-  var writePart: MemWriteOrRead_writePart = null
+  var writePart: MemReadWrite_writePart = null
 
   override def getSynchronousInputs: List[Node] = getMem :: getAddress :: getChipSelect :: getWriteEnable :: super.getSynchronousInputs
 
@@ -716,69 +722,3 @@ class MemWriteOrRead_readPart(mem_ : Mem[_], address_ : UInt, data_ : Bits, chip
 }
 
 
-
-
-//trait MemBlackBoxer{
-//  def applyOn(that : Mem[_]): Unit
-//}
-//
-//object MemBlackBoxer extends MemBlackBoxer{
-//  override def applyOn(mem: Mem[_]): Unit = {
-//    if(mem.getWritePorts() == 1 && mem.ports.length == 1 + mem.getReadAsyncPorts().length + mem.getReadSyncPorts().length){
-//      val popComponent = if(Component.current != mem.component){
-//        Component.push(mem.component)
-//        true
-//      } else false
-//
-//      val wr = mem.getWritePorts.head
-//      for(rd <- mem.getReadAsyncPorts) {
-//        val clockDomain = wr.getClockDomain
-//        clockDomain.push()
-//
-//        val ram = new Ram_1c_1w_1ra(mem.getWidth, mem.wordCount, rd.writeToReadKind)
-//        val enable = clockDomain.isClockEnableActive
-//
-//        ram.io.wr.en := wr.getEnable.allowSimplifyIt() && enable
-//        ram.io.wr.addr := wr.getAddress.allowSimplifyIt()
-//        ram.io.wr.data := wr.getData.allowSimplifyIt()
-//
-//        ram.io.rd.addr := rd.getAddress.allowSimplifyIt()
-//        rd.getData.allowSimplifyIt() := ram.io.rd.data
-//
-//        ram.setName(mem.getName())
-//        clockDomain.pop()
-//      }
-//
-//      for(rd <- mem.getReadSyncPorts()){
-//        if (rd.getClockDomain.clock == wr.getClockDomain.clock) {
-//          val clockDomain = wr.getClockDomain
-//
-//          clockDomain.push()
-//
-//          val ram = new Ram_1c_1w_1rs(mem.getWidth, mem.wordCount, rd.writeToReadKind)
-//          val enable = clockDomain.isClockEnableActive
-//
-//          ram.io.wr.en := wr.getEnable.allowSimplifyIt() && enable
-//          ram.io.wr.addr := wr.getAddress.allowSimplifyIt()
-//          ram.io.wr.data := wr.getData.allowSimplifyIt()
-//
-//          ram.io.rd.en := rd.getReadEnable.allowSimplifyIt() && enable
-//          ram.io.rd.addr := rd.getAddress.allowSimplifyIt()
-//          rd.getData.allowSimplifyIt() := ram.io.rd.data
-//
-//          ram.generic.useReadEnable = {
-//            val lit = ram.io.rd.en.getLiteral[BoolLiteral]
-//            lit == null || lit.value == false
-//          }
-//
-//          ram.setName(mem.getName())
-//          clockDomain.pop()
-//        }else{
-//          ???
-//        }
-//      }
-//
-//      if(popComponent) Component.pop(mem.component)
-//    }
-//  }
-//}

@@ -559,7 +559,7 @@ class StreamFifoCC[T <: Data](dataType: T, val depth: Int, pushClock: ClockDomai
     val empty = isEmpty(popPtrGray, pushPtrGray)
 
     io.pop.valid := !empty
-    io.pop.payload := ram.readSyncCC(popPtr.valueNext.resized)
+    io.pop.payload := ram.readSync(popPtr.valueNext.resized,clockCrossing = true)
     when(io.pop.fire) {
       popPtr.increment()
     }

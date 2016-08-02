@@ -42,10 +42,10 @@ object blackboxAll extends MemBlackboxersPolicy{
 object blackboxRequestedAndUninferable extends MemBlackboxersPolicy{
   override def shouldTranslate(topology: MemTopology): Boolean = {
     if(blackboxOnlyIfRequested.shouldTranslate(topology)) return true
-    if(topology.readsAsync.exists(_.writeToReadKind != writeFirst)) return true
-    if(topology.readsSync.exists(_.writeToReadKind != readFirst)) return true
-    if(topology.writeReadSameAddressSync.exists(_._2.writeToReadKind != readFirst)) return true
-    if(topology.writeReadSync.exists(_._2.writeToReadKind != readFirst)) return true
+    if(topology.readsAsync.exists(_.readUnderWrite != writeFirst)) return true
+    if(topology.readsSync.exists(_.readUnderWrite != readFirst)) return true
+    if(topology.writeReadSameAddressSync.exists(_._2.readUnderWrite != readFirst)) return true
+    if(topology.writeReadSync.exists(_._2.readUnderWrite != readFirst)) return true
     return false
   }
 }

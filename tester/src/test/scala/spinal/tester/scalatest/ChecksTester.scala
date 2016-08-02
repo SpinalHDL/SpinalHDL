@@ -89,7 +89,7 @@ class ChecksTester extends FunSuite  {
     })
   }
 
-  test("checkCrossClock") {
+  test("checkClockCrossing") {
     generationShouldFaild(new Component{
       val clockA = in Bool
       val clockB = in Bool

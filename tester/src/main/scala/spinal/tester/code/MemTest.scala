@@ -85,7 +85,7 @@ object MemTest {
     }
    // val tmp = mem.readSync(io.rdAddr + spinal.core.UInt(2),io.cond2,readFirst)
     //val tmp = mem.readSync(commonAddress,io.cond2,readFirst)
-    val tmp = mem.writeReadSync(commonAddress,io.wrData,io.cond0,io.cond1)
+    val tmp = mem.readWriteSync(commonAddress,io.wrData,io.cond0,io.cond1)
     io.rdData := tmp
     tmp.addAttribute(new AttributeString("myAttribut", "hallo"))
     tmp.addAttribute(new AttributeFlag("yolo"))

@@ -1186,7 +1186,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     case lit: EnumLiteral[_] => emitEnumLiteral(lit.enum, lit.encoding)
     case memRead: MemReadAsync => {
       if(memRead.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${memRead.getMem} because of its mixed width ports")
-      if (memRead.writeToReadKind == dontCare) SpinalWarning(s"memReadAsync with dontCare is as writeFirst into VHDL")
+      if (memRead.readUnderWrite == dontCare) SpinalWarning(s"memReadAsync with dontCare is as writeFirst into VHDL")
       val symbolCount = memRead.getMem.getMemSymbolCount
       if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
         s"${emitReference(memRead.getMem)}(to_integer(${emitReference(memRead.getAddress)}))"
@@ -1383,8 +1383,8 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
             }
             case memReadSync: MemReadSync => {
               if(memReadSync.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${memReadSync.getMem} because of its mixed width ports")
-              if(memReadSync.writeToReadKind == writeFirst) SpinalError(s"Can't translate a memReadSync with writeFirst into VHDL $memReadSync")
-              if(memReadSync.writeToReadKind == dontCare) SpinalWarning(s"memReadSync with dontCare is as readFirst into VHDL $memReadSync")
+              if(memReadSync.readUnderWrite == writeFirst) SpinalError(s"Can't translate a memReadSync with writeFirst into VHDL $memReadSync")
+              if(memReadSync.readUnderWrite == dontCare) SpinalWarning(s"memReadSync with dontCare is as readFirst into VHDL $memReadSync")
               if(memReadSync.useReadEnable) {
                 ret ++= s"${tab}if ${emitReference(memReadSync.getReadEnable)} = '1' then\n"
                 emitRead(tab + "  ")
@@ -1403,10 +1403,10 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
             }
 
-            case memWrite: MemWriteOrRead_writePart => {
+            case memWrite: MemReadWrite_writePart => {
               val memReadSync = memWrite.readPart
-              if (memReadSync.writeToReadKind == writeFirst) SpinalError(s"Can't translate a MemWriteOrRead with writeFirst into VHDL $memReadSync")
-              if (memReadSync.writeToReadKind == dontCare) SpinalWarning(s"MemWriteOrRead with dontCare is as readFirst into VHDL $memReadSync")
+              if (memReadSync.readUnderWrite == writeFirst) SpinalError(s"Can't translate a MemWriteOrRead with writeFirst into VHDL $memReadSync")
+              if (memReadSync.readUnderWrite == dontCare) SpinalWarning(s"MemWriteOrRead with dontCare is as readFirst into VHDL $memReadSync")
 
               ret ++= s"${tab}if ${emitReference(memWrite.getChipSelect)} = '1' then\n"
               ret ++= s"${tab}  if ${emitReference(memWrite.getWriteEnable)} = '1' then\n"
@@ -1419,7 +1419,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
               def emitWrite(tab: String) = ret ++= s"$tab${emitReference(memWrite.getMem)}(to_integer(${emitReference(memWrite.getAddress)})) <= ${emitReference(memWrite.getData)};\n"
               def emitRead(tab: String) = ret ++= s"$tab${emitReference(memReadSync.consumers(0))} <= ${emitReference(memReadSync.getMem)}(to_integer(${emitReference(memReadSync.getAddress)}));\n"
             }
-            case memWriteRead_readPart: MemWriteOrRead_readPart => {
+            case memWriteRead_readPart: MemReadWrite_readPart => {
 
             }
             case assertNode : AssertNode => {

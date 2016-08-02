@@ -295,7 +295,7 @@ class MemTopology(val mem: Mem[_]) {
   val readsAsync = ArrayBuffer[MemReadAsync]()
   val readsSync = ArrayBuffer[MemReadSync]()
   val writeReadSameAddressSync = ArrayBuffer[(MemWrite, MemReadSync)]()
-  val writeReadSync = ArrayBuffer[(MemWriteOrRead_writePart, MemWriteOrRead_readPart)]()
+  val writeReadSync = ArrayBuffer[(MemReadWrite_writePart, MemReadWrite_readPart)]()
 }
 
 trait PhaseMemBlackboxer extends PhaseNetlist{
@@ -329,13 +329,13 @@ trait PhaseMemBlackboxer extends PhaseNetlist{
           readSync.sameAddressThan(write)
         }
       }
-      case writePart: MemWriteOrRead_writePart => {
+      case writePart: MemReadWrite_writePart => {
         val memTopo = topoOf(writePart.getMem)
         if (memTopo.writeReadSync.count(_._1 == writePart) == 0) {
           memTopo.writeReadSync += (writePart -> writePart.readPart)
         }
       }
-      case readPart: MemWriteOrRead_readPart => {
+      case readPart: MemReadWrite_readPart => {
         val memTopo = topoOf(readPart.getMem)
         if (memTopo.writeReadSync.count(_._2 == readPart) == 0) {
           memTopo.writeReadSync += (readPart.writePart -> readPart)
@@ -366,7 +366,7 @@ class PhaseMemBlackBoxerDefault(policy : MemBlackboxersPolicy) extends PhaseMemB
             val clockDomain = wr.getClockDomain
             clockDomain.push()
 
-            val ram = new Ram_1c_1w_1ra(mem.getWidth, mem.wordCount, if (wr.mask != null) wr.mask.getWidth else 1, wr.mask != null, rd.writeToReadKind, mem.tech)
+            val ram = new Ram_1c_1w_1ra(mem.getWidth, mem.wordCount, if (wr.mask != null) wr.mask.getWidth else 1, wr.mask != null, rd.readUnderWrite, mem.tech)
             val enable = clockDomain.isClockEnableActive
 
             ram.io.wr.en := wr.getEnable.allowSimplifyIt() && enable
@@ -399,7 +399,7 @@ class PhaseMemBlackBoxerDefault(policy : MemBlackboxersPolicy) extends PhaseMemB
               readDataWidth = rd.getData.getWidth,
               writeMaskWidth = if (wr.mask != null) wr.mask.getWidth else 1,
               useMask = wr.mask != null,
-              writeToReadKind = rd.writeToReadKind,
+              readUnderWrite = rd.readUnderWrite,
               tech = mem.tech
             )
 
@@ -430,7 +430,7 @@ class PhaseMemBlackBoxerDefault(policy : MemBlackboxersPolicy) extends PhaseMemB
 
             clockDomain.push()
 
-            val ram = new Ram_1wrs(mem.getWidth, mem.wordCount, rd.writeToReadKind)
+            val ram = new Ram_1wrs(mem.getWidth, mem.wordCount, rd.readUnderWrite)
             val enable = clockDomain.isClockEnableActive
 
             ram.io.addr := wr.getAddress.allowSimplifyIt()
@@ -458,7 +458,7 @@ class PhaseMemBlackBoxerDefault(policy : MemBlackboxersPolicy) extends PhaseMemB
 
             clockDomain.push()
 
-            val ram = new Ram_1wors(mem.getWidth, mem.wordCount, rd.writeToReadKind)
+            val ram = new Ram_1wors(mem.getWidth, mem.wordCount, rd.readUnderWrite)
             val enable = clockDomain.isClockEnableActive
 
             ram.io.addr := wr.getAddress.allowSimplifyIt()

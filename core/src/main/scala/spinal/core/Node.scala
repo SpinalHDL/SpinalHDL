@@ -379,6 +379,43 @@ object Node{
       node.onEachInput(push(_))
     })
   }
+
+  //Take an assignement tree and create an copy recursively where it's pointed
+  def cloneAssignementTree(finalOutput : Node,node : Node,into : Node,intoId : Int) : Unit = {
+    node match {
+      case node : MultipleAssignmentNode => {
+        val cpy = node.cloneMultipleAssignmentNode
+        for(i <- 0 until node.inputs.length) cpy.inputs += null.asInstanceOf[cpy.T]
+        node.onEachInput((input,inputId) => cloneAssignementTree(finalOutput,input,cpy,inputId))
+        into.setInput(intoId,cpy)
+      }
+      case node : WhenNode => {
+        val cpy = node.cloneWhenNode
+        node.onEachInput((input, inputId) => cloneAssignementTree(finalOutput,input, cpy, inputId))
+        into.setInput(intoId,cpy)
+      }
+      case node : AssignementNode => {
+        val cpy = node.clone(finalOutput)
+        node.onEachInput((input, inputId) => cloneAssignementTree(finalOutput,input, cpy, inputId))
+        into.setInput(intoId,cpy)
+      }
+      case node => into.setInput(intoId,node)
+    }
+  }
+
+  //Clone a Reg node
+  def cloneReg(outBaseType : BaseType,that : Reg) : Reg = {
+    val clone = that.cloneReg()
+    cloneAssignementTree(outBaseType,that.dataInput,clone,RegS.getDataInputId)
+    cloneAssignementTree(outBaseType,that.initialValue,clone,RegS.getInitialValueId)
+    clone.dataInput match {
+      case node : MultipleAssignmentNode =>{
+        if(node.inputs.head.isInstanceOf[Reg]) node.setInput(0,clone)
+      }
+      case _ =>
+    }
+    clone
+  }
 }
 
 

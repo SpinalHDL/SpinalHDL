@@ -1,13 +1,13 @@
 package spinal.core
 
-class Ram_1c_1w_1ra(wordWidth: Int, wordCount: Int, maskWidth : Int = 1, useMask : Boolean = false,writeToReadKind: MemWriteToReadKind = dontCare,tech : MemTechnologyKind = auto) extends BlackBox {
-  if (writeToReadKind == readFirst) SpinalError("readFirst mode for asyncronous read is not alowed")
+class Ram_1c_1w_1ra(wordWidth: Int, wordCount: Int, maskWidth : Int = 1, useMask : Boolean = false,readUnderWrite: ReadUnderWritePolicy = dontCare,tech : MemTechnologyKind = auto) extends BlackBox {
+  if (readUnderWrite == readFirst) SpinalError("readFirst mode for asyncronous read is not alowed")
 
   val generic = new Generic {
     val wordCount = Ram_1c_1w_1ra.this.wordCount
     val wordWidth = Ram_1c_1w_1ra.this.wordWidth
     val maskWidth = Ram_1c_1w_1ra.this.maskWidth
-    val readToWriteKind = writeToReadKind.writeToReadKind
+    val readUnderWrite = Ram_1c_1w_1ra.this.readUnderWrite.readUnderWriteString
     val tech = Ram_1c_1w_1ra.this.tech.technologyKind
     val useMask = Ram_1c_1w_1ra.this.useMask
   }
@@ -35,7 +35,7 @@ class Ram_1c_1w_1ra(wordWidth: Int, wordCount: Int, maskWidth : Int = 1, useMask
   when(io.wr.en) {
     mem.write(io.wr.addr, io.wr.data,if(useMask) io.wr.mask else null)
   }
-  io.rd.data := mem.readAsync(io.rd.addr,writeToReadKind)
+  io.rd.data := mem.readAsync(io.rd.addr,readUnderWrite)
 }
 
 class Ram_1w_1rs(wordWidth: Int,
@@ -48,7 +48,7 @@ class Ram_1w_1rs(wordWidth: Int,
                     readDataWidth : Int,
                     writeMaskWidth : Int = 1,
                     useMask : Boolean = false,
-                    writeToReadKind: MemWriteToReadKind = dontCare,
+                    readUnderWrite: ReadUnderWritePolicy = dontCare,
                     tech : MemTechnologyKind = auto) extends BlackBox {
   
   val generic = new Generic {
@@ -59,10 +59,10 @@ class Ram_1w_1rs(wordWidth: Int,
     val readAddressWidth = Ram_1w_1rs.this.readAddressWidth
     val readDataWidth = Ram_1w_1rs.this.readDataWidth
     val maskWidth = Ram_1w_1rs.this.writeMaskWidth
-    val readToWriteKind = writeToReadKind.writeToReadKind
+    val readUnderWrite = Ram_1w_1rs.this.readUnderWrite.readUnderWriteString
     val tech = Ram_1w_1rs.this.tech.technologyKind
     var useReadEnable = true
-    var crossClock = wrClock != rdClock
+    var clockCrossing = wrClock != rdClock
     val useMask = Ram_1w_1rs.this.useMask
   }
 
@@ -104,13 +104,13 @@ class Ram_2c_1w_1rs(wordWidth: Int,
                     rdClock : ClockDomain,
                     maskWidth : Int = 1,
                     useMask : Boolean = false,
-                    writeToReadKind: MemWriteToReadKind = dontCare,
+                    readUnderWrite: ReadUnderWritePolicy = dontCare,
                     tech : MemTechnologyKind = auto) extends BlackBox {
   val generic = new Generic {
     val wordCount = Ram_2c_1w_1rs.this.wordCount
     val wordWidth = Ram_2c_1w_1rs.this.wordWidth
     val maskWidth = Ram_2c_1w_1rs.this.maskWidth
-    val readToWriteKind = writeToReadKind.writeToReadKind
+    val readUnderWrite = Ram_2c_1w_1rs.this.readUnderWrite.readUnderWriteString
     val tech = Ram_2c_1w_1rs.this.tech.technologyKind
     var useReadEnable = true
     val useMask = Ram_2c_1w_1rs.this.useMask
@@ -146,15 +146,15 @@ class Ram_2c_1w_1rs(wordWidth: Int,
     }
   }
   new ClockingArea(rdClock) {
-    io.rd.data := mem.readSyncCC(io.rd.addr, io.rd.en,writeToReadKind)
+    io.rd.data := mem.readSync(io.rd.addr, io.rd.en,readUnderWrite,clockCrossing = true)
   }
 }
 
-class Ram_1wrs(wordWidth: Int, wordCount: Int, writeToReadKind: MemWriteToReadKind = dontCare) extends BlackBox {
+class Ram_1wrs(wordWidth: Int, wordCount: Int, readUnderWrite: ReadUnderWritePolicy = dontCare) extends BlackBox {
   val generic = new Generic {
     val wordCount = Ram_1wrs.this.wordCount
     val wordWidth = Ram_1wrs.this.wordWidth
-    val readToWriteKind = writeToReadKind.writeToReadKind
+    val readUnderWrite = Ram_1wrs.this.readUnderWrite.readUnderWriteString
     var useReadEnable = true
   }
 
@@ -187,11 +187,11 @@ class Ram_1wrs(wordWidth: Int, wordCount: Int, writeToReadKind: MemWriteToReadKi
 }
 
 
-class Ram_1wors(wordWidth: Int, wordCount: Int, writeToReadKind: MemWriteToReadKind = dontCare) extends BlackBox {
+class Ram_1wors(wordWidth: Int, wordCount: Int, readUnderWrite: ReadUnderWritePolicy = dontCare) extends BlackBox {
   val generic = new Generic {
     val wordCount = Ram_1wors.this.wordCount
     val wordWidth = Ram_1wors.this.wordWidth
-    val readToWriteKind = writeToReadKind.writeToReadKind
+    val readUnderWrite = Ram_1wors.this.readUnderWrite.readUnderWriteString
   }
 
   val io = new Bundle {
@@ -209,5 +209,5 @@ class Ram_1wors(wordWidth: Int, wordCount: Int, writeToReadKind: MemWriteToReadK
 
   //Following is not obligatory, just to describe blackbox logic
   val mem = Mem(io.wrData, wordCount)
-  io.rdData := mem.writeReadSync(io.addr, io.wrData, io.cs, io.we, writeToReadKind)
+  io.rdData := mem.readWriteSync(io.addr, io.wrData, io.cs, io.we, readUnderWrite)
 }

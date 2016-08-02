@@ -289,7 +289,7 @@ object PlayB4 {
     val readData = out Bits(8 bits)
 
     val mem = Mem(Bits(8 bits),16)
-    readData := mem.writeReadSync(address,writeData,chipSelect,writeEnable)
+    readData := mem.readWriteSync(address,writeData,chipSelect,writeEnable)
 
 
 
@@ -2493,46 +2493,12 @@ object PlayMasterSlave{
 
 object PlayRegTriplify{
   def triplifyReg(regOutput : BaseType) : Unit = {
-
-    def cloneAssignementTree(finalOutput : Node,node : Node,into : Node,intoId : Int) : Unit = {
-      node match {
-        case node : MultipleAssignmentNode => {
-          val cpy = node.cloneMultipleAssignmentNode
-          for(i <- 0 until node.inputs.length) cpy.inputs += null.asInstanceOf[cpy.T]
-          node.onEachInput((input,inputId) => cloneAssignementTree(finalOutput,input,cpy,inputId))
-          into.setInput(intoId,cpy)
-        }
-        case node : WhenNode => {
-          val cpy = node.cloneWhenNode
-          node.onEachInput((input, inputId) => cloneAssignementTree(finalOutput,input, cpy, inputId))
-          into.setInput(intoId,cpy)
-        }
-        case node : AssignementNode => {
-          val cpy = node.clone(finalOutput)
-          node.onEachInput((input, inputId) => cloneAssignementTree(finalOutput,input, cpy, inputId))
-          into.setInput(intoId,cpy)
-        }
-        case node => into.setInput(intoId,node)
-      }
-    }
-
-    def cloneReg(outBaseType : BaseType,that : Reg) : Reg = {
-      val clone = that.cloneReg()
-      cloneAssignementTree(outBaseType,that.dataInput,clone,RegS.getDataInputId)
-      cloneAssignementTree(outBaseType,that.initialValue,clone,RegS.getInitialValueId)
-      clone.dataInput match {
-        case node : MultipleAssignmentNode =>{
-          if(node.inputs.head.isInstanceOf[Reg]) node.setInput(0,clone)
-        }
-        case _ =>
-      }
-      clone
-    }
-
     val originalReg = regOutput.input.asInstanceOf[Reg]
+
+    //Create 3 equivalent registers
     val regs = for(i <- 0 to 2) yield {
       val baseType = regOutput.clone()
-      baseType.input = cloneReg(baseType,originalReg)
+      baseType.input = Node.cloneReg(baseType,originalReg)
       baseType.setPartialName(regOutput,i.toString)
       baseType
     }
@@ -2567,6 +2533,7 @@ object PlayRegTriplify{
       }
     }
 
+    //Allow to reassign the triplified register even after this call
     regOutput.compositeAssign = new Assignable {
       override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
         regs.foreach(_.input.asInstanceOf[Reg].assignFrom(that,conservative))
@@ -2588,11 +2555,12 @@ object PlayRegTriplify{
       counter(4) := False
     }
 
-    triplifyReg(counter)
-
     when(counter === 34){
       counter := 3
     }
+
+
+    triplifyReg(counter)
 
     result := counter
   }
