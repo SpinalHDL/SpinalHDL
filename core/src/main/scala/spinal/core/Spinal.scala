@@ -32,27 +32,42 @@ object Verilog extends SpinalMode
 case class DumpWaveConfig(depth : Int = 0, vcdPath : String = "wave.vcd")
 case class Device(vendor : String = "?", family : String = "?", name : String = "?")
 
-trait MemBlackboxersPolicy{
-  def shouldTranslate(topology: MemTopology) : Boolean
+trait MemBlackboxingPolicy{
+  def translationInterest(topology: MemTopology) : Boolean
+  def onUnblackboxable(topology: MemTopology,who : Any,message : String) : Unit
+  
+  def generateUnblackboxableError(topology: MemTopology,who : Any,message : String) : Unit = {
+    PendingError(s"${this.getClass} is not able to blackbox ${topology.mem}\n  write ports : ${topology.writes.size} \n  readAsync ports : ${topology.readsAsync.size} \n  readSync ports : ${topology.readsSync.size} \n  readRrite ports : ${topology.readWriteSync.size}\n  -> $message")
+  }
 }
 
-object blackboxAll extends MemBlackboxersPolicy{
-  override def shouldTranslate(topology: MemTopology): Boolean = true
+object blackboxAllWhatsYouCan extends MemBlackboxingPolicy{
+  override def translationInterest(topology: MemTopology): Boolean = true
+  override def onUnblackboxable(topology: MemTopology,who : Any,message : String): Unit = {}
 }
-object blackboxRequestedAndUninferable extends MemBlackboxersPolicy{
-  override def shouldTranslate(topology: MemTopology): Boolean = {
-    if(blackboxOnlyIfRequested.shouldTranslate(topology)) return true
-    if(topology.readsAsync.exists(_.writeToReadKind != writeFirst)) return true
-    if(topology.readsSync.exists(_.writeToReadKind != readFirst)) return true
-    if(topology.writeReadSameAddressSync.exists(_._2.writeToReadKind != readFirst)) return true
-    if(topology.writeReadSync.exists(_._2.writeToReadKind != readFirst)) return true
+
+
+object blackboxAll extends MemBlackboxingPolicy{
+  override def translationInterest(topology: MemTopology): Boolean = true
+  override def onUnblackboxable(topology: MemTopology,who : Any,message : String): Unit = {generateUnblackboxableError(topology,who,message)}
+}
+
+object blackboxRequestedAndUninferable extends MemBlackboxingPolicy{
+  override def translationInterest(topology: MemTopology): Boolean = {
+    if(blackboxOnlyIfRequested.translationInterest(topology)) return true
+    if(topology.readsAsync.exists(_.readUnderWrite != writeFirst)) return true
+    if(topology.readsSync.exists(_.readUnderWrite != readFirst)) return true
+    if(topology.writeReadSameAddressSync.exists(_._2.readUnderWrite != readFirst)) return true
+    if(topology.readWriteSync.exists(_._2.readUnderWrite != readFirst)) return true
     return false
   }
+  override def onUnblackboxable(topology: MemTopology,who : Any,message : String): Unit = {generateUnblackboxableError(topology,who,message)}
 }
-object blackboxOnlyIfRequested extends MemBlackboxersPolicy{
-  override def shouldTranslate(topology: MemTopology): Boolean = {
+object blackboxOnlyIfRequested extends MemBlackboxingPolicy{
+  override def translationInterest(topology: MemTopology): Boolean = {
     topology.mem.forceMemToBlackboxTranslation
   }
+  override def onUnblackboxable(topology: MemTopology,who : Any,message : String): Unit = {generateUnblackboxableError(topology,who,message)}
 }
 
 case class SpinalConfig(
@@ -88,8 +103,8 @@ case class SpinalConfig(
     this
   }
 
-  def addStandardMemBlackboxer(policy: MemBlackboxersPolicy) : this.type = {
-    memBlackBoxers += new PhaseMemBlackBoxerDefault(policy)
+  def addStandardMemBlackboxing(policy: MemBlackboxingPolicy) : this.type = {
+    memBlackBoxers += new PhaseMemBlackBoxingDefault(policy)
     this
   }
 }

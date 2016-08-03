@@ -568,7 +568,8 @@ end
     case lit: BoolLiteral => if(lit.value) "1'b1" else "1'b0"
     case lit: EnumLiteral[_] => emitEnumLiteral(lit.enum, lit.encoding)
     case memRead: MemReadAsync => {
-      if (memRead.writeToReadKind == dontCare) SpinalWarning(s"memReadAsync with dontCare is as writeFirst into Verilog")
+      if(memRead.aspectRatio != 1) SpinalError(s"Verilog backend can't emit ${memRead.getMem} because of its mixed width ports")
+      if (memRead.readUnderWrite == dontCare) SpinalWarning(s"memReadAsync with dontCare is as writeFirst into Verilog")
       val symbolCount = memRead.getMem.getMemSymbolCount
       if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
         s"${emitReference(memRead.getMem)}[${emitReference(memRead.getAddress)}]"
@@ -720,6 +721,8 @@ end
               }
             }
             case memWrite: MemWrite => {
+              if(memWrite.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${memWrite.getMem} because of its mixed width ports")
+
               if (memWrite.useWriteEnable) {
                 ret ++= s"${tab}if(${emitReference(memWrite.getEnable)})begin\n"
                 emitWrite(tab + "  ")
@@ -757,10 +760,10 @@ end
               }
             }
             case memReadSync: MemReadSync => {
-              //readFirst
-              if (memReadSync.writeToReadKind == writeFirst) SpinalError(s"Can't translate a memReadSync with writeFirst into Verilog $memReadSync")
-              if (memReadSync.writeToReadKind == dontCare) SpinalWarning(s"memReadSync with dontCare is as readFirst into Verilog $memReadSync")
-              if (memReadSync.useReadEnable) {
+              if(memReadSync.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${memReadSync.getMem} because of its mixed width ports")
+              if(memReadSync.readUnderWrite == writeFirst) SpinalError(s"Can't translate a memReadSync with writeFirst into Verilog $memReadSync")
+              if(memReadSync.readUnderWrite == dontCare) SpinalWarning(s"memReadSync with dontCare is as readFirst into Verilog $memReadSync")
+              if(memReadSync.useReadEnable) {
                 ret ++= s"${tab}if(${emitReference(memReadSync.getReadEnable)})begin\n"
                 emitRead(tab + "  ")
                 ret ++= s"${tab}end\n"
@@ -778,10 +781,11 @@ end
 
             }
 
-            case memWrite: MemWriteOrRead_writePart => {
+            case memWrite: MemReadWrite_writePart => {
               val memReadSync = memWrite.readPart
-              if (memReadSync.writeToReadKind == writeFirst) SpinalError(s"Can't translate a MemWriteOrRead with writeFirst into Verilog $memReadSync")
-              if (memReadSync.writeToReadKind == dontCare) SpinalWarning(s"MemWriteOrRead with dontCare is as readFirst into Verilog $memReadSync")
+              if(memWrite.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${memWrite.getMem} because of its mixed width ports")
+              if (memReadSync.readUnderWrite == writeFirst) SpinalError(s"Can't translate a MemWriteOrRead with writeFirst into Verilog $memReadSync")
+              if (memReadSync.readUnderWrite == dontCare) SpinalWarning(s"MemWriteOrRead with dontCare is as readFirst into Verilog $memReadSync")
 
               ret ++= s"${tab}if(${emitReference(memWrite.getChipSelect)}) begin\n"
               ret ++= s"${tab}  if(${emitReference(memWrite.getWriteEnable)}) begin\n"
@@ -791,10 +795,48 @@ end
                 emitRead(tab + "  ")
               ret ++= s"${tab}end\n"
 
-              def emitWrite(tab: String) = ret ++= s"$tab${emitReference(memWrite.getMem)}[${emitReference(memWrite.getAddress)}] <= ${emitReference(memWrite.getData)};\n"
-              def emitRead(tab: String) = ret ++= s"$tab${emitReference(memReadSync.consumers(0))} <= ${emitReference(memReadSync.getMem)}[${emitReference(memReadSync.getAddress)}];\n"
+              def emitWrite(tab: String) = {
+//                ret ++= s"$tab${emitReference(memWrite.getMem)}[${emitReference(memWrite.getAddress)}] <= ${emitReference(memWrite.getData)};\n"
+                val symbolCount = memWrite.getMem.getMemSymbolCount
+                val bitPerSymbole = memWrite.getMem.getMemSymbolWidth()
+
+                if(memWrite.getMask == null) {
+                  if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
+                    ret ++= s"$tab${emitReference(memWrite.getMem)}[${emitReference(memWrite.getAddress)}] <= ${emitReference(memWrite.getData)};\n"
+                  else
+                    for(i <- 0 until symbolCount) {
+                      val range = s"[${(i + 1) * bitPerSymbole - 1} : ${i * bitPerSymbole}]"
+                      ret ++= s"$tab  ${emitReference(memWrite.getMem)}_symbol${i}[${emitReference(memWrite.getAddress)}] <= ${emitReference(memWrite.getData)}$range;\n"
+                    }
+                }else{
+
+                  val maskCount = memWrite.getMask.getWidth
+                  for(i <- 0 until maskCount){
+                    val range = s"[${(i+1)*bitPerSymbole-1} : ${i*bitPerSymbole}]"
+                    ret ++= s"${tab}if(${emitReference(memWrite.getMask)}[$i])begin\n"
+                    if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
+                      ret ++= s"$tab  ${emitReference(memWrite.getMem)}[${emitReference(memWrite.getAddress)}))$range <= ${emitReference(memWrite.getData)}$range;\n"
+                    else
+                      ret ++= s"$tab  ${emitReference(memWrite.getMem)}_symbol${i}[${emitReference(memWrite.getAddress)}] <= ${emitReference(memWrite.getData)}$range;\n"
+
+                    ret ++= s"${tab}end\n"
+                  }
+                }
+              }
+
+              def emitRamRead() = {
+                val symbolCount = memReadSync.getMem.getMemSymbolCount
+                if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
+                  s"${emitReference(memReadSync.getMem)}[${emitReference(memReadSync.getAddress)}]"
+                else
+                  "{" + (0 until symbolCount).reverse.map(i => (s"${emitReference(memReadSync.getMem)}_symbol$i[${emitReference(memReadSync.getAddress)}]")).reduce(_ + "," + _) + "}"
+              }
+              def emitRead(tab: String) = ret ++= s"$tab${emitReference(memReadSync.consumers(0))} <= ${emitRamRead()};\n"
+//              def emitRead(tab: String) = {
+//                ret ++= s"$tab${emitReference(memReadSync.consumers(0))} <= ${emitReference(memReadSync.getMem)}[${emitReference(memReadSync.getAddress)}];\n"
+//              }
             }
-            case memWriteRead_readPart: MemWriteOrRead_readPart => {
+            case memWriteRead_readPart: MemReadWrite_readPart => {
 
             }
             case assertNode : AssertNode => {

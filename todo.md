@@ -6,6 +6,7 @@
 - [X] add xxx := (default -> True) support (no B/U/S prefix)
 - [ ] Add myBool := 0/1 ?
 - [ ] Do a improvment run on Mem (writeFirst, black box, vendor/family support, ...)
+- [ ] MemBlackboxer currently manipulate Mem graph before with inferation (OK), but before with check (KO)
 - [/] Add logic inferation LOCK functionality ? switch -> is   State -> functions
 - [X] Add version number into elaboration logs
 - [X] Function for compinent without the io_ prefix on IO
@@ -43,7 +44,9 @@
 - [ ] spinal.lib.FlowCCByToggle
 
 ## http://spinalhdl.github.io/SpinalDoc/
-
+- [ ] component.rework
+- [ ] MemBlackboxers
+- [ ] Custom phases
 - [ ] spinal.lib.StreamFork
 - [ ] wait verification spinal.lib.StreamDemux
 - [ ] wait verification spinal.lib.StreamCCByToggle

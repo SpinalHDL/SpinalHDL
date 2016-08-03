@@ -687,7 +687,7 @@ trait OverridedEqualsHashCode{
 }
 
 
-abstract trait Num[T <: Data] {
+trait Num[T <: Data] {
   def +  (right: T): T
   def -  (right: T): T
   def *  (right: T): T
@@ -705,3 +705,10 @@ abstract trait Num[T <: Data] {
   def min(right: T): T = Mux(this < right, this.asInstanceOf[T], right)
   def max(right: T): T = Mux(this < right, right, this.asInstanceOf[T])
 }
+
+//trait BitwiseType[T <: Data]{
+//  def & (right: T): T
+//  def |  (right: T): T
+//  def ^  (right: T): T
+//  def unary_!  : T
+//}

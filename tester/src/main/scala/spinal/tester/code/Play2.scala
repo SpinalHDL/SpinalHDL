@@ -289,7 +289,7 @@ object PlayB4 {
     val readData = out Bits(8 bits)
 
     val mem = Mem(Bits(8 bits),16)
-    readData := mem.writeReadSync(address,writeData,chipSelect,writeEnable)
+    readData := mem.readWriteSync(address,writeData,chipSelect,writeEnable)
 
 
 
@@ -2222,26 +2222,66 @@ object PlayRamBB{
     val clockB = in Bool
 
     val rgbConfig = RgbConfig(5,6,5)
-    val mem = Mem(Rgb(rgbConfig),1 << 16).setAsBlackBox()
+    val mem = Mem(Rgb(rgbConfig),1 << 16)
 
-    val writePort = in(mem.writePort)
-    val readSyncPort = slave(mem.readSyncPort)
-    val readAsyncAddr = in UInt(16 bits)
-    val readAsyncData = out(mem.readAsync(readAsyncAddr))
+////    val writePort = in(mem.writePort)
+//    val writeAddr = in UInt(17 bits)
+//    val writeData = in UInt(8 bits)
+//    val writeEnable = in Bool()
+//    when(writeEnable) {
+//      mem.writeMixedWidth(writeAddr, writeData)
+////      mem.writeMixedWidth(writeAddr, writeData)
+//    }
+//
+//    val readAsyncAddr = in UInt(16 bits)
+//    val readAsyncData = out(mem.readAsync(readAsyncAddr))
+//    val readAsyncMixedWidthAddr = in UInt(17 bits)
+//    val readAsyncMixedWidthData = out UInt(8 bits)
+//    mem.readAsyncMixedWidth(readAsyncMixedWidthAddr,readAsyncMixedWidthData)
+//
+//    val readSyncPort = slave(mem.readSyncPort)
+//    val readSyncMixedWidthEnable = in Bool
+//    val readSyncMixedWidthAddr = in UInt(17 bits)
+//    val readSyncMixedWidthData = out UInt(8 bits)
+//    mem.readSyncMixedWidth(readSyncMixedWidthAddr,readSyncMixedWidthData,readSyncMixedWidthEnable)
+//
 
+    val readWrite = new Area {
+      val en, wr = in Bool
+      val addr = in UInt (16 bits)
+      val wrData = in(Rgb(rgbConfig))
+      val wrMask = in Bits (4 bits)
+      val rdData = out(Rgb(rgbConfig))
+      rdData := mem.readWriteSync(addr, wrData, en, wr, wrMask)
+    }
+
+    val readWriteMixedWidth = new Area {
+      val en, wr = in Bool
+      val addr = in UInt (18 bits)
+      val wrData = in(Bits(4 bits))
+      val wrMask = in Bits (4 bits)
+      val rdData = out(Bits (4 bits))
+      rdData := mem.readWriteSyncMixedWidth(addr, wrData, en, wr, wrMask)
+    }
 
     val clockBArea = new ClockingArea(ClockDomain(clockB)){
       val readSyncAddr = in UInt(16 bits)
       val readSyncEn = in Bool
-      val readSyncPort = out(mem.readSyncCC(readSyncAddr,readSyncEn))
+//      val readSyncPort = out(mem.readSyncCC(readSyncAddr,readSyncEn))
     }
-//    MemBlackBoxer.applyOn(mem)
+
+    mem.generateAsBlackBox
   }
 
   def main(args: Array[String]) {
-    SpinalConfig().
-      addStandardMemBlackboxer(blackboxAll).
-      generateVhdl(new TopLevel)
+    SpinalConfig()
+      .addStandardMemBlackboxing(blackboxOnlyIfRequested)
+      .generateVhdl(new TopLevel)
+
+    SpinalConfig()
+      .addStandardMemBlackboxing(blackboxOnlyIfRequested)
+      .generateVerilog(new TopLevel)
+
   }
 }
 
@@ -2479,46 +2519,12 @@ object PlayMasterSlave{
 
 object PlayRegTriplify{
   def triplifyReg(regOutput : BaseType) : Unit = {
-
-    def cloneAssignementTree(finalOutput : Node,node : Node,into : Node,intoId : Int) : Unit = {
-      node match {
-        case node : MultipleAssignmentNode => {
-          val cpy = node.cloneMultipleAssignmentNode
-          for(i <- 0 until node.inputs.length) cpy.inputs += null.asInstanceOf[cpy.T]
-          node.onEachInput((input,inputId) => cloneAssignementTree(finalOutput,input,cpy,inputId))
-          into.setInput(intoId,cpy)
-        }
-        case node : WhenNode => {
-          val cpy = node.cloneWhenNode
-          node.onEachInput((input, inputId) => cloneAssignementTree(finalOutput,input, cpy, inputId))
-          into.setInput(intoId,cpy)
-        }
-        case node : AssignementNode => {
-          val cpy = node.clone(finalOutput)
-          node.onEachInput((input, inputId) => cloneAssignementTree(finalOutput,input, cpy, inputId))
-          into.setInput(intoId,cpy)
-        }
-        case node => into.setInput(intoId,node)
-      }
-    }
-
-    def cloneReg(outBaseType : BaseType,that : Reg) : Reg = {
-      val clone = that.cloneReg()
-      cloneAssignementTree(outBaseType,that.dataInput,clone,RegS.getDataInputId)
-      cloneAssignementTree(outBaseType,that.initialValue,clone,RegS.getInitialValueId)
-      clone.dataInput match {
-        case node : MultipleAssignmentNode =>{
-          if(node.inputs.head.isInstanceOf[Reg]) node.setInput(0,clone)
-        }
-        case _ =>
-      }
-      clone
-    }
-
     val originalReg = regOutput.input.asInstanceOf[Reg]
+
+    //Create 3 equivalent registers
     val regs = for(i <- 0 to 2) yield {
       val baseType = regOutput.clone()
-      baseType.input = cloneReg(baseType,originalReg)
+      baseType.input = Node.cloneReg(baseType,originalReg)
       baseType.setPartialName(regOutput,i.toString)
       baseType
     }
@@ -2553,6 +2559,7 @@ object PlayRegTriplify{
       }
     }
 
+    //Allow to reassign the triplified register even after this call
     regOutput.compositeAssign = new Assignable {
       override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
         regs.foreach(_.input.asInstanceOf[Reg].assignFrom(that,conservative))
@@ -2574,11 +2581,12 @@ object PlayRegTriplify{
       counter(4) := False
     }
 
-    triplifyReg(counter)
-
     when(counter === 34){
       counter := 3
     }
+
+
+    triplifyReg(counter)
 
     result := counter
   }
