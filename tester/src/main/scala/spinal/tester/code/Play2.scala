@@ -2222,27 +2222,35 @@ object PlayRamBB{
     val clockB = in Bool
 
     val rgbConfig = RgbConfig(5,6,5)
-    val mem = Mem(Rgb(rgbConfig),1 << 16).setAsBlackBox()
+    val mem = Mem(Rgb(rgbConfig),1 << 16)
 
-//    val writePort = in(mem.writePort)
-    val writeAddr = in UInt(17 bits)
-    val writeData = in UInt(8 bits)
-    val writeEnable = in Bool()
-    when(writeEnable) {
-      mem.writeMixedWidth(writeAddr, writeData)
-    }
-
+////    val writePort = in(mem.writePort)
+//    val writeAddr = in UInt(17 bits)
+//    val writeData = in UInt(8 bits)
+//    val writeEnable = in Bool()
+//    when(writeEnable) {
+//      mem.writeMixedWidth(writeAddr, writeData)
+////      mem.writeMixedWidth(writeAddr, writeData)
+//    }
+//
 //    val readAsyncAddr = in UInt(16 bits)
 //    val readAsyncData = out(mem.readAsync(readAsyncAddr))
 //    val readAsyncMixedWidthAddr = in UInt(17 bits)
 //    val readAsyncMixedWidthData = out UInt(8 bits)
 //    mem.readAsyncMixedWidth(readAsyncMixedWidthAddr,readAsyncMixedWidthData)
-
+//
 //    val readSyncPort = slave(mem.readSyncPort)
-    val readSyncMixedWidthEnable = in Bool
-    val readSyncMixedWidthAddr = in UInt(17 bits)
-    val readSyncMixedWidthData = out UInt(9 bits)
-    mem.readSyncMixedWidth(readSyncMixedWidthAddr,readSyncMixedWidthData,readSyncMixedWidthEnable)
+//    val readSyncMixedWidthEnable = in Bool
+//    val readSyncMixedWidthAddr = in UInt(17 bits)
+//    val readSyncMixedWidthData = out UInt(8 bits)
+//    mem.readSyncMixedWidth(readSyncMixedWidthAddr,readSyncMixedWidthData,readSyncMixedWidthEnable)
+//
+
+    val en,wr = in Bool
+    val addr = in UInt(16 bits)
+    val wrData = in (Rgb(rgbConfig))
+    val rdData = out(Rgb(rgbConfig))
+    rdData := mem.readWriteSync(addr,wrData,en,wr)
 
 
     val clockBArea = new ClockingArea(ClockDomain(clockB)){
@@ -2250,12 +2258,14 @@ object PlayRamBB{
       val readSyncEn = in Bool
 //      val readSyncPort = out(mem.readSyncCC(readSyncAddr,readSyncEn))
     }
+
+    mem.generateAsBlackBox
   }
 
   def main(args: Array[String]) {
-    SpinalConfig().
-      addStandardMemBlackboxer(blackboxAll).
-      generateVhdl(new TopLevel)
+    SpinalConfig()
+      .addStandardMemBlackboxing(blackboxOnlyIfRequested)
+      .generateVhdl(new TopLevel)
   }
 }
 

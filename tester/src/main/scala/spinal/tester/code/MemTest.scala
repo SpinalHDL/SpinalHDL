@@ -76,7 +76,7 @@ object MemTest {
     componentAA.io.input := io.input
     io.output := RegNext(io.output)
 
-    val mem = new Mem(io.wrData, 1 << io.wrAddr.getWidth).setAsBlackBox
+    val mem = new Mem(io.wrData, 1 << io.wrAddr.getWidth).generateAsBlackBox
 
     val commonAddress = io.wrAddr + U(3)
     when(io.cond0 && io.cond1) {

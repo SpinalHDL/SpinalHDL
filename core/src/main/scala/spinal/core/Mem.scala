@@ -82,8 +82,8 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
 
   def wordType: T = _wordType.clone
 
-  var tech : MemTechnologyKind = auto
-  def setTech(tech : MemTechnologyKind) = this.tech = tech
+  var technology : MemTechnologyKind = auto
+  def setTech(tech : MemTechnologyKind) = this.technology = tech
 
   val ports = ArrayBuffer[Any]()
   def getWritePorts() = ports.filter(_.isInstanceOf[MemWrite]).map(_.asInstanceOf[MemWrite])
@@ -95,7 +95,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
 
   def addressWidth = log2Up(wordCount)
 
-  def setAsBlackBox(): this.type = {
+  def generateAsBlackBox(): this.type = {
     forceMemToBlackboxTranslation = true
     this
   }

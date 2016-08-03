@@ -294,11 +294,12 @@ class MemTopology(val mem: Mem[_]) {
   val writes = ArrayBuffer[MemWrite]()
   val readsAsync = ArrayBuffer[MemReadAsync]()
   val readsSync = ArrayBuffer[MemReadSync]()
-  val writeReadSameAddressSync = ArrayBuffer[(MemWrite, MemReadSync)]()
-  val writeReadSync = ArrayBuffer[(MemReadWrite_writePart, MemReadWrite_readPart)]()
+  val writeReadSameAddressSync = ArrayBuffer[(MemWrite, MemReadSync)]() //DISABLED
+  val readWriteSync = ArrayBuffer[(MemReadWrite_writePart, MemReadWrite_readPart)]()
 }
 
-trait PhaseMemBlackboxer extends PhaseNetlist{
+
+trait PhaseMemBlackboxing extends PhaseNetlist{
   override def impl(pc: PhaseContext): Unit = {
     import pc._
     val memsTopo = mutable.Map[Mem[_], MemTopology]()
@@ -308,37 +309,37 @@ trait PhaseMemBlackboxer extends PhaseNetlist{
     Node.walk(pc.walkNodesDefautStack,node => node match {
       case write: MemWrite => {
         val memTopo = topoOf(write.getMem)
-        val readSync = memTopo.readsSync.find(readSync => readSync.address.getInput(0) == write.address.getInput(0)).orNull
-        if (readSync == null) {
+//        val readSync = memTopo.readsSync.find(readSync => readSync.address.getInput(0) == write.address.getInput(0)).orNull
+//        if (readSync == null) {
           memTopo.writes += write
-        } else {
-          memTopo.readsSync -= readSync
-          memTopo.writeReadSameAddressSync += (write -> readSync)
-          readSync.sameAddressThan(write)
-        }
+//        } else {
+//          memTopo.readsSync -= readSync
+//          memTopo.writeReadSameAddressSync += (write -> readSync)
+//          readSync.sameAddressThan(write)
+//        }
       }
       case readAsync: MemReadAsync => topoOf(readAsync.getMem).readsAsync += readAsync
       case readSync: MemReadSync => {
         val memTopo = topoOf(readSync.getMem)
-        val write = memTopo.writes.find(write => readSync.address.getInput(0) == write.address.getInput(0)).orNull
-        if (write == null) {
+//        val write = memTopo.writes.find(write => readSync.address.getInput(0) == write.address.getInput(0)).orNull
+//        if (write == null) {
           memTopo.readsSync += readSync
-        } else {
-          memTopo.writes -= write
-          memTopo.writeReadSameAddressSync += (write -> readSync)
-          readSync.sameAddressThan(write)
-        }
+//        } else {
+//          memTopo.writes -= write
+//          memTopo.writeReadSameAddressSync += (write -> readSync)
+//          readSync.sameAddressThan(write)
+//        }
       }
       case writePart: MemReadWrite_writePart => {
         val memTopo = topoOf(writePart.getMem)
-        if (memTopo.writeReadSync.count(_._1 == writePart) == 0) {
-          memTopo.writeReadSync += (writePart -> writePart.readPart)
+        if (memTopo.readWriteSync.count(_._1 == writePart) == 0) {
+          memTopo.readWriteSync += (writePart -> writePart.readPart)
         }
       }
       case readPart: MemReadWrite_readPart => {
         val memTopo = topoOf(readPart.getMem)
-        if (memTopo.writeReadSync.count(_._2 == readPart) == 0) {
-          memTopo.writeReadSync += (readPart.writePart -> readPart)
+        if (memTopo.readWriteSync.count(_._2 == readPart) == 0) {
+          memTopo.readWriteSync += (readPart.writePart -> readPart)
         }
       }
       case _ =>
@@ -347,137 +348,158 @@ trait PhaseMemBlackboxer extends PhaseNetlist{
   }
 
   def doBlackboxing(pc: PhaseContext,memTopologies : mutable.Map[Mem[_], MemTopology]) : Unit
-
 }
 
-class PhaseMemBlackBoxerDefault(policy : MemBlackboxersPolicy) extends PhaseMemBlackboxer{
+abstract class PhaseMemBlackBoxingWithPolicy(policy : MemBlackboxingPolicy) extends PhaseMemBlackboxing{
+  override def doBlackboxing(pc: PhaseContext, memTopologies: mutable.Map[Mem[_], MemTopology]): Unit = {
+    import pc._
+    for ((mem, topo) <- memTopologies if policy.translationInterest(topo)) {
+      val message = doBlackboxing(topo)
+      if(message != null) policy.onUnblackboxable(topo,this,message)
+    }
+  }
+
+  //Return null if success
+  def doBlackboxing(memTopology: MemTopology) : String
+}
+
+
+class PhaseMemBlackBoxingDefault(policy : MemBlackboxingPolicy) extends PhaseMemBlackBoxingWithPolicy(policy){
   override def useNodeConsumers = false
 
-  override def doBlackboxing(pc: PhaseContext,memTopologies : mutable.Map[Mem[_], MemTopology]) : Unit = {
-    import pc._
-    for ((mem, topo) <- memTopologies if policy.shouldTranslate(topo)) {
-      mem.component.rework {
-        if (mem.initialContent != null) ???
-        if (topo.writes.size == 1 && (!topo.readsAsync.isEmpty || !topo.readsSync.isEmpty) && topo.writeReadSameAddressSync.isEmpty && topo.writeReadSync.isEmpty) {
-          val wr = topo.writes(0)
-          for (rd <- topo.readsAsync) {
-            rd.checkInferedWidth
-            wr.checkInferedWidth
-            val clockDomain = wr.getClockDomain
-            clockDomain.push()
+  def doBlackboxing(topo: MemTopology) : String = {
+    val mem = topo.mem
+    mem.component.rework {
+      if (mem.initialContent != null) {
+        return "Can't blackbox ROM"//TODO
+      } else if (topo.writes.size == 1 && (!topo.readsAsync.isEmpty || !topo.readsSync.isEmpty) && topo.writeReadSameAddressSync.isEmpty && topo.readWriteSync.isEmpty) {
+        val wr = topo.writes(0)
+        for (rd <- topo.readsAsync) {
+          rd.checkInferedWidth
+          wr.checkInferedWidth
+          val clockDomain = wr.getClockDomain
+          clockDomain.push()
 
-            val ram = new Ram_1c_1w_1ra(mem.getWidth, mem.wordCount, if (wr.mask != null) wr.mask.getWidth else 1, wr.mask != null, rd.readUnderWrite, mem.tech)
-            val enable = clockDomain.isClockEnableActive
+          val ram = new Ram_1w_1ra(
+            wordWidth = mem.getWidth,
+            wordCount = mem.wordCount,
+            wrAddressWidth = wr.address.getWidth,
+            wrDataWidth = wr.data.getWidth,
+            rdAddressWidth = rd.address.getWidth,
+            rdDataWidth = rd.getData.getWidth,
+            wrMaskWidth = if (wr.mask != null) wr.mask.getWidth else 1,
+            wrMaskEnable = wr.mask != null,
+            readUnderWrite = rd.readUnderWrite,
+            technology = mem.technology
+          )
+          val enable = clockDomain.isClockEnableActive
 
-            ram.io.wr.en := wr.getEnable.allowSimplifyIt() && enable
-            ram.io.wr.addr := wr.getAddress.allowSimplifyIt()
-            ram.io.wr.data := wr.getData.allowSimplifyIt()
-            if (wr.mask != null)
-              ram.io.wr.mask := wr.getMask.allowSimplifyIt()
-            else
-              ram.io.wr.mask := "1"
+          ram.io.wr.en := wr.getEnable.allowSimplifyIt() && enable
+          ram.io.wr.addr := wr.getAddress.allowSimplifyIt()
+          ram.io.wr.data := wr.getData.allowSimplifyIt()
+          if (wr.mask != null)
+            ram.io.wr.mask := wr.getMask.allowSimplifyIt()
+          else
+            ram.io.wr.mask := "1"
 
 
-            ram.io.rd.addr := rd.getAddress.allowSimplifyIt()
-            rd.getData.allowSimplifyIt() := ram.io.rd.data
+          ram.io.rd.addr := rd.getAddress.allowSimplifyIt()
+          rd.getData.allowSimplifyIt() := ram.io.rd.data
 
-            ram.setName(mem.getName())
-            clockDomain.pop()
-          }
-
-          for (rd <- topo.readsSync) {
-            rd.checkInferedWidth
-            wr.checkInferedWidth
-            val ram = new Ram_1w_1rs(
-              wordWidth = mem.getWidth,
-              wordCount = mem.wordCount,
-              wrClock = wr.getClockDomain,
-              rdClock = rd.getClockDomain,
-              writeAddressWidth = wr.address.getWidth,
-              writeDataWidth = wr.data.getWidth,
-              readAddressWidth = rd.address.getWidth,
-              readDataWidth = rd.getData.getWidth,
-              writeMaskWidth = if (wr.mask != null) wr.mask.getWidth else 1,
-              useMask = wr.mask != null,
-              readUnderWrite = rd.readUnderWrite,
-              tech = mem.tech
-            )
-
-            ram.io.wr.en := wr.getEnable.allowSimplifyIt() && wr.getClockDomain.isClockEnableActive
-            ram.io.wr.addr := wr.getAddress.allowSimplifyIt()
-            ram.io.wr.data := wr.getData.allowSimplifyIt()
-            if (wr.mask != null)
-              ram.io.wr.mask := wr.getMask.allowSimplifyIt()
-            else
-              ram.io.wr.mask := "1"
-
-            ram.io.rd.en := rd.getReadEnable.allowSimplifyIt() && rd.getClockDomain.isClockEnableActive
-            ram.io.rd.addr := rd.getAddress.allowSimplifyIt()
-            rd.getData.allowSimplifyIt() := ram.io.rd.data
-
-            ram.generic.useReadEnable = {
-              val lit = ram.io.rd.en.getLiteral[BoolLiteral]
-              lit == null || lit.value == false
-            }
-
-            ram.setName(mem.getName())
-          }
-        } else if (topo.writes.isEmpty && topo.readsAsync.isEmpty && topo.readsSync.isEmpty && topo.writeReadSameAddressSync.size == 1 && topo.writeReadSync.isEmpty) {
-          val wr = topo.writeReadSameAddressSync(0)._1
-          val rd = topo.writeReadSameAddressSync(0)._2
-          if (rd.getClockDomain.clock == wr.getClockDomain.clock) {
-            val clockDomain = wr.getClockDomain
-
-            clockDomain.push()
-
-            val ram = new Ram_1wrs(mem.getWidth, mem.wordCount, rd.readUnderWrite)
-            val enable = clockDomain.isClockEnableActive
-
-            ram.io.addr := wr.getAddress.allowSimplifyIt()
-            ram.io.wr.en := wr.getEnable.allowSimplifyIt() && enable
-            ram.io.wr.data := wr.getData.allowSimplifyIt()
-
-            ram.io.rd.en := rd.getReadEnable.allowSimplifyIt() && enable
-            rd.getData.allowSimplifyIt() := ram.io.rd.data
-
-            ram.generic.useReadEnable = {
-              val lit = ram.io.rd.en.getLiteral[BoolLiteral]
-              lit == null || lit.value == false
-            }
-
-            ram.setName(mem.getName())
-            clockDomain.pop()
-          } else {
-            ??? //TODO
-          }
-        } else if (topo.writes.isEmpty && topo.readsAsync.isEmpty && topo.readsSync.isEmpty && topo.writeReadSameAddressSync.isEmpty && topo.writeReadSync.size == 1) {
-          val wr = topo.writeReadSync(0)._1
-          val rd = topo.writeReadSync(0)._2
-          if (rd.getClockDomain.clock == wr.getClockDomain.clock) {
-            val clockDomain = wr.getClockDomain
-
-            clockDomain.push()
-
-            val ram = new Ram_1wors(mem.getWidth, mem.wordCount, rd.readUnderWrite)
-            val enable = clockDomain.isClockEnableActive
-
-            ram.io.addr := wr.getAddress.allowSimplifyIt()
-            ram.io.cs := wr.getChipSelect.allowSimplifyIt() && enable
-            ram.io.we := wr.getWriteEnable.allowSimplifyIt()
-            ram.io.wrData := wr.getData.allowSimplifyIt()
-
-            rd.getData.allowSimplifyIt() := ram.io.rdData
-
-            ram.setName(mem.getName())
-            clockDomain.pop()
-          } else {
-            ??? //TODO
-          }
-        } else {
-          ??? //TODO
+          ram.setName(mem.getName())
+          clockDomain.pop()
         }
+
+        for (rd <- topo.readsSync) {
+          rd.checkInferedWidth
+          wr.checkInferedWidth
+          val ram = new Ram_1w_1rs(
+            wordWidth = mem.getWidth,
+            wordCount = mem.wordCount,
+            wrClock = wr.getClockDomain,
+            rdClock = rd.getClockDomain,
+            wrAddressWidth = wr.address.getWidth,
+            wrDataWidth = wr.data.getWidth,
+            rdAddressWidth = rd.address.getWidth,
+            rdDataWidth = rd.getData.getWidth,
+            wrMaskWidth = if (wr.mask != null) wr.mask.getWidth else 1,
+            wrMaskEnable = wr.mask != null,
+            readUnderWrite = rd.readUnderWrite,
+            technology = mem.technology
+          )
+
+          ram.io.wr.en := wr.getEnable.allowSimplifyIt() && wr.getClockDomain.isClockEnableActive
+          ram.io.wr.addr := wr.getAddress.allowSimplifyIt()
+          ram.io.wr.data := wr.getData.allowSimplifyIt()
+          if (wr.mask != null)
+            ram.io.wr.mask := wr.getMask.allowSimplifyIt()
+          else
+            ram.io.wr.mask := "1"
+
+          ram.io.rd.en := rd.getReadEnable.allowSimplifyIt() && rd.getClockDomain.isClockEnableActive
+          ram.io.rd.addr := rd.getAddress.allowSimplifyIt()
+          rd.getData.allowSimplifyIt() := ram.io.rd.data
+
+          ram.generic.rdEnEnable = {
+            val lit = ram.io.rd.en.getLiteral[BoolLiteral]
+            lit == null || lit.value == false
+          }
+
+          ram.setName(mem.getName())
+        }
+
+//      } else if (topo.writes.isEmpty && topo.readsAsync.isEmpty && topo.readsSync.isEmpty && topo.writeReadSameAddressSync.size == 1 && topo.readWriteSync.isEmpty) {
+//        val wr = topo.writeReadSameAddressSync(0)._1
+//        val rd = topo.writeReadSameAddressSync(0)._2
+//        if (rd.getClockDomain.clock == wr.getClockDomain.clock) {
+//          val clockDomain = wr.getClockDomain
+//
+//          clockDomain.push()
+//
+//          val ram = new Ram_1wrs(mem.getWidth, mem.wordCount, rd.readUnderWrite)
+//          val enable = clockDomain.isClockEnableActive
+//
+//          ram.io.addr := wr.getAddress.allowSimplifyIt()
+//          ram.io.wr.en := wr.getEnable.allowSimplifyIt() && enable
+//          ram.io.wr.data := wr.getData.allowSimplifyIt()
+//
+//          ram.io.rd.en := rd.getReadEnable.allowSimplifyIt() && enable
+//          rd.getData.allowSimplifyIt() := ram.io.rd.data
+//
+//          ram.generic.useReadEnable = {
+//            val lit = ram.io.rd.en.getLiteral[BoolLiteral]
+//            lit == null || lit.value == false
+//          }
+//
+//          ram.setName(mem.getName())
+//          clockDomain.pop()
+//        } else {
+//          return "Can't blackbox"//TODO
+//        }
+      } else if (topo.writes.isEmpty && topo.readsAsync.isEmpty && topo.readsSync.isEmpty && topo.writeReadSameAddressSync.isEmpty && topo.readWriteSync.size == 1) {
+        val wr = topo.readWriteSync(0)._1
+        val rd = topo.readWriteSync(0)._2
+        val clockDomain = wr.getClockDomain
+
+        clockDomain.push()
+
+        val ram = new Ram_1wrs(mem.getWidth, mem.wordCount,mem.technology, rd.readUnderWrite)
+        val enable = clockDomain.isClockEnableActive
+
+        ram.io.addr := wr.getAddress.allowSimplifyIt()
+        ram.io.en := wr.getChipSelect.allowSimplifyIt() && enable
+        ram.io.we := wr.getWriteEnable.allowSimplifyIt()
+        ram.io.wrData := wr.getData.allowSimplifyIt()
+
+        rd.getData.allowSimplifyIt() := ram.io.rdData
+
+        ram.setName(mem.getName())
+        clockDomain.pop()
+      } else {
+        return "Unblackboxable memory topology"//TODO
       }
     }
+    return null
   }
 }
 
