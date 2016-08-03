@@ -2246,12 +2246,23 @@ object PlayRamBB{
 //    mem.readSyncMixedWidth(readSyncMixedWidthAddr,readSyncMixedWidthData,readSyncMixedWidthEnable)
 //
 
-    val en,wr = in Bool
-    val addr = in UInt(16 bits)
-    val wrData = in (Rgb(rgbConfig))
-    val rdData = out(Rgb(rgbConfig))
-    rdData := mem.readWriteSync(addr,wrData,en,wr)
+    val readWrite = new Area {
+      val en, wr = in Bool
+      val addr = in UInt (16 bits)
+      val wrData = in(Rgb(rgbConfig))
+      val wrMask = in Bits (4 bits)
+      val rdData = out(Rgb(rgbConfig))
+      rdData := mem.readWriteSync(addr, wrData, en, wr, wrMask)
+    }
 
+    val readWriteMixedWidth = new Area {
+      val en, wr = in Bool
+      val addr = in UInt (18 bits)
+      val wrData = in(Bits(4 bits))
+      val wrMask = in Bits (4 bits)
+      val rdData = out(Bits (4 bits))
+      rdData := mem.readWriteSyncMixedWidth(addr, wrData, en, wr, wrMask)
+    }
 
     val clockBArea = new ClockingArea(ClockDomain(clockB)){
       val readSyncAddr = in UInt(16 bits)
@@ -2266,6 +2277,11 @@ object PlayRamBB{
     SpinalConfig()
       .addStandardMemBlackboxing(blackboxOnlyIfRequested)
       .generateVhdl(new TopLevel)
+
+    SpinalConfig()
+      .addStandardMemBlackboxing(blackboxOnlyIfRequested)
+      .generateVerilog(new TopLevel)
+
   }
 }
 

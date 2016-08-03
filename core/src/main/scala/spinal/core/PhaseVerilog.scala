@@ -783,6 +783,7 @@ end
 
             case memWrite: MemReadWrite_writePart => {
               val memReadSync = memWrite.readPart
+              if(memWrite.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${memWrite.getMem} because of its mixed width ports")
               if (memReadSync.readUnderWrite == writeFirst) SpinalError(s"Can't translate a MemWriteOrRead with writeFirst into Verilog $memReadSync")
               if (memReadSync.readUnderWrite == dontCare) SpinalWarning(s"MemWriteOrRead with dontCare is as readFirst into Verilog $memReadSync")
 
@@ -794,8 +795,46 @@ end
                 emitRead(tab + "  ")
               ret ++= s"${tab}end\n"
 
-              def emitWrite(tab: String) = ret ++= s"$tab${emitReference(memWrite.getMem)}[${emitReference(memWrite.getAddress)}] <= ${emitReference(memWrite.getData)};\n"
-              def emitRead(tab: String) = ret ++= s"$tab${emitReference(memReadSync.consumers(0))} <= ${emitReference(memReadSync.getMem)}[${emitReference(memReadSync.getAddress)}];\n"
+              def emitWrite(tab: String) = {
+//                ret ++= s"$tab${emitReference(memWrite.getMem)}[${emitReference(memWrite.getAddress)}] <= ${emitReference(memWrite.getData)};\n"
+                val symbolCount = memWrite.getMem.getMemSymbolCount
+                val bitPerSymbole = memWrite.getMem.getMemSymbolWidth()
+
+                if(memWrite.getMask == null) {
+                  if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
+                    ret ++= s"$tab${emitReference(memWrite.getMem)}[${emitReference(memWrite.getAddress)}] <= ${emitReference(memWrite.getData)};\n"
+                  else
+                    for(i <- 0 until symbolCount) {
+                      val range = s"[${(i + 1) * bitPerSymbole - 1} : ${i * bitPerSymbole}]"
+                      ret ++= s"$tab  ${emitReference(memWrite.getMem)}_symbol${i}[${emitReference(memWrite.getAddress)}] <= ${emitReference(memWrite.getData)}$range;\n"
+                    }
+                }else{
+
+                  val maskCount = memWrite.getMask.getWidth
+                  for(i <- 0 until maskCount){
+                    val range = s"[${(i+1)*bitPerSymbole-1} : ${i*bitPerSymbole}]"
+                    ret ++= s"${tab}if(${emitReference(memWrite.getMask)}[$i])begin\n"
+                    if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
+                      ret ++= s"$tab  ${emitReference(memWrite.getMem)}[${emitReference(memWrite.getAddress)}))$range <= ${emitReference(memWrite.getData)}$range;\n"
+                    else
+                      ret ++= s"$tab  ${emitReference(memWrite.getMem)}_symbol${i}[${emitReference(memWrite.getAddress)}] <= ${emitReference(memWrite.getData)}$range;\n"
+
+                    ret ++= s"${tab}end\n"
+                  }
+                }
+              }
+
+              def emitRamRead() = {
+                val symbolCount = memReadSync.getMem.getMemSymbolCount
+                if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
+                  s"${emitReference(memReadSync.getMem)}[${emitReference(memReadSync.getAddress)}]"
+                else
+                  "{" + (0 until symbolCount).reverse.map(i => (s"${emitReference(memReadSync.getMem)}_symbol$i[${emitReference(memReadSync.getAddress)}]")).reduce(_ + "," + _) + "}"
+              }
+              def emitRead(tab: String) = ret ++= s"$tab${emitReference(memReadSync.consumers(0))} <= ${emitRamRead()};\n"
+//              def emitRead(tab: String) = {
+//                ret ++= s"$tab${emitReference(memReadSync.consumers(0))} <= ${emitReference(memReadSync.getMem)}[${emitReference(memReadSync.getAddress)}];\n"
+//              }
             }
             case memWriteRead_readPart: MemReadWrite_readPart => {
 

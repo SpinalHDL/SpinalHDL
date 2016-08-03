@@ -479,22 +479,59 @@ class PhaseMemBlackBoxingDefault(policy : MemBlackboxingPolicy) extends PhaseMem
       } else if (topo.writes.isEmpty && topo.readsAsync.isEmpty && topo.readsSync.isEmpty && topo.writeReadSameAddressSync.isEmpty && topo.readWriteSync.size == 1) {
         val wr = topo.readWriteSync(0)._1
         val rd = topo.readWriteSync(0)._2
-        val clockDomain = wr.getClockDomain
-
-        clockDomain.push()
 
         val ram = new Ram_1wrs(mem.getWidth, mem.wordCount,mem.technology, rd.readUnderWrite)
-        val enable = clockDomain.isClockEnableActive
 
         ram.io.addr := wr.getAddress.allowSimplifyIt()
-        ram.io.en := wr.getChipSelect.allowSimplifyIt() && enable
+        ram.io.en := wr.getChipSelect.allowSimplifyIt() && wr.getClockDomain.isClockEnableActive
         ram.io.we := wr.getWriteEnable.allowSimplifyIt()
         ram.io.wrData := wr.getData.allowSimplifyIt()
 
         rd.getData.allowSimplifyIt() := ram.io.rdData
 
         ram.setName(mem.getName())
-        clockDomain.pop()
+      } else if (topo.writes.isEmpty && topo.readsAsync.isEmpty && topo.readsSync.isEmpty && topo.writeReadSameAddressSync.isEmpty && topo.readWriteSync.size == 2) {
+        val portA_wr = topo.readWriteSync(0)._1
+        val portA_rd = topo.readWriteSync(0)._2
+
+        val portB_wr = topo.readWriteSync(1)._1
+        val portB_rd = topo.readWriteSync(1)._2
+
+        val ram = new Ram_2wrs(
+          wordWidth = mem.getWidth,
+          wordCount = mem.wordCount,
+          technology = mem.technology,
+
+          portA_readUnderWrite = portA_rd.readUnderWrite,
+          portA_clock = portA_wr.getClockDomain,
+          portA_addressWidth = portA_wr.address.getWidth,
+          portA_dataWidth  = portA_wr.getWidth,
+          portA_maskWidth  = if(portA_wr.getMask != null) portA_wr.getMask.getWidth else 1,
+          portA_maskEnable  = portA_wr.getMask != null,
+
+          portB_readUnderWrite = portA_rd.readUnderWrite,
+          portB_clock = portB_wr.getClockDomain,
+          portB_addressWidth = portB_wr.address.getWidth,
+          portB_dataWidth  = portB_wr.getWidth,
+          portB_maskWidth  = if(portB_wr.getMask != null) portB_wr.getMask.getWidth else 1,
+          portB_maskEnable  = portB_wr.getMask != null
+        )
+
+        ram.io.portA.addr := portA_wr.getAddress.allowSimplifyIt()
+        ram.io.portA.en := portA_wr.getChipSelect.allowSimplifyIt() && portA_wr.getClockDomain.isClockEnableActive
+        ram.io.portA.wr := portA_wr.getWriteEnable.allowSimplifyIt()
+        ram.io.portA.wrData := portA_wr.getData.allowSimplifyIt()
+        ram.io.portA.mask := (if(portA_wr.getMask != null) portA_wr.getMask.allowSimplifyIt() else B"1")
+        portA_rd.getData.allowSimplifyIt() := ram.io.portA.rdData
+
+        ram.io.portB.addr := portB_wr.getAddress.allowSimplifyIt()
+        ram.io.portB.en := portB_wr.getChipSelect.allowSimplifyIt() && portB_wr.getClockDomain.isClockEnableActive
+        ram.io.portB.wr := portB_wr.getWriteEnable.allowSimplifyIt()
+        ram.io.portB.wrData := portB_wr.getData.allowSimplifyIt()
+        ram.io.portB.mask := (if(portB_wr.getMask != null) portB_wr.getMask.allowSimplifyIt() else B"1")
+        portB_rd.getData.allowSimplifyIt() := ram.io.portB.rdData
+
+        ram.setName(mem.getName())
       } else {
         return "Unblackboxable memory topology"//TODO
       }

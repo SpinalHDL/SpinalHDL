@@ -238,41 +238,68 @@ class Ram_1wrs(wordWidth: Int,
 }
 
 
-class Ram_2wrs(wordWidth: Int,
-               wordCount: Int,
-               technology: MemTechnologyKind,
-               readUnderWrite: ReadUnderWritePolicy = dontCare
+class Ram_2wrs( wordWidth: Int,
+                wordCount: Int,
+                technology: MemTechnologyKind,
 
-//                portA_addressWidth : Int,
-//               portA_dataWidth : Int,
+
+                portA_readUnderWrite: ReadUnderWritePolicy = dontCare,
+                portA_clock : ClockDomain,
+                portA_addressWidth : Int,
+                portA_dataWidth : Int,
+                portA_maskWidth : Int,
+                portA_maskEnable : Boolean,
+
+                portB_readUnderWrite: ReadUnderWritePolicy = dontCare,
+                portB_clock : ClockDomain,
+                portB_addressWidth : Int,
+                portB_dataWidth : Int,
+                portB_maskWidth : Int,
+                portB_maskEnable : Boolean
                 ) extends BlackBox {
   val generic = new Generic {
     val wordCount = Ram_2wrs.this.wordCount
     val wordWidth = Ram_2wrs.this.wordWidth
-    val readUnderWrite = Ram_2wrs.this.readUnderWrite.readUnderWriteString
+    var clockCrossing = portA_clock != portB_clock
     val technology = Ram_2wrs.this.technology.technologyKind
+
+
+    val portA_readUnderWrite = Ram_2wrs.this.portA_readUnderWrite.readUnderWriteString
+    val portA_addressWidth = Ram_2wrs.this.portA_addressWidth
+    val portA_dataWidth = Ram_2wrs.this.portA_dataWidth
+    val portA_maskWidth = Ram_2wrs.this.portA_maskWidth
+    val portA_maskEnable = Ram_2wrs.this.portA_maskEnable
+
+    val portB_readUnderWrite = Ram_2wrs.this.portB_readUnderWrite.readUnderWriteString
+    val portB_addressWidth = Ram_2wrs.this.portB_addressWidth
+    val portB_dataWidth = Ram_2wrs.this.portB_dataWidth
+    val portB_maskWidth = Ram_2wrs.this.portB_maskWidth
+    val portB_maskEnable = Ram_2wrs.this.portB_maskEnable
   }
 
   val io = new Bundle {
     val portA = new Bundle {
       val clk = in Bool
       val en = in Bool
-      val we = in Bool
-      val addr = in UInt (log2Up(wordCount) bit)
-      val wrData = in Bits (wordWidth bit)
-      val rdData = out Bits (wordWidth bit)
+      val wr = in Bool
+      val mask = in Bits(portA_maskWidth bits)
+      val addr = in UInt (portA_addressWidth bit)
+      val wrData = in Bits (portA_dataWidth bit)
+      val rdData = out Bits (portA_dataWidth bit)
     }
     val portB = new Bundle {
       val clk = in Bool
       val en = in Bool
-      val we = in Bool
-      val addr = in UInt (log2Up(wordCount) bit)
-      val wrData = in Bits (wordWidth bit)
-      val rdData = out Bits (wordWidth bit)
+      val wr = in Bool
+      val mask = in Bits(portB_maskWidth bits)
+      val addr = in UInt (portB_addressWidth bit)
+      val wrData = in Bits (portB_dataWidth bit)
+      val rdData = out Bits (portB_dataWidth bit)
     }
   }
 
-//  mapCurrentClockDomain(io.clk)
+  mapClockDomain(portA_clock,io.portA.clk)
+  mapClockDomain(portB_clock,io.portB.clk)
   noIoPrefix()
 
   //Following is not obligatory, just to describe blackbox logic
