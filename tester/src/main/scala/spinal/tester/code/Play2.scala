@@ -1188,13 +1188,14 @@ object PlayI2CHAL{
     i2cSlave.io.rsp  <> io.ioSlave.rsp
     i2cMaster.io.cmd <> io.ioMaster.cmd
     i2cMaster.io.rsp <> io.ioMaster.rsp
-    i2cMaster.io.config.setSCLFrequency(2e6)
+    i2cMaster.io.config.setSCLFrequency(2 MHz)
     i2cMaster.io.config.enCollision := True
-    i2cMaster.io.config.setClockDividerSampling(5)
+    i2cMaster.io.config.setFrequencySampling(5 MHz)
+
 
     io.sda := i2cMaster.io.i2c.sda.read
     io.scl := i2cMaster.io.i2c.scl.read
-    i2cSlave.io.config.setClockDividerSampling(5)
+    i2cSlave.io.config.setFrequencySampling(5 MHz)
 
 
     interconnect(Seq(i2cMaster.io.i2c.scl, i2cSlave.io.i2c.scl))
@@ -1210,7 +1211,7 @@ object PlayI2CHAL{
 
   def main(args : Array[String]): Unit ={
     SpinalConfig(
-        mode = Verilog,
+        mode = VHDL,
         dumpWave = DumpWaveConfig(depth = 0),
         defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
         defaultClockDomainFrequency  = FixedFrequency(50e6)

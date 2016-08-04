@@ -31,12 +31,12 @@ case class I2C() extends Bundle with IMasterSlave {
   * Counter of bit write/read.
   * MSB is send first on the I2C bus so the counter goes from dataWdith-1 to 0
   */
-class I2CBitCounter(sclFallingEdge : Bool, dataWidth : Int) extends Area {
+class I2CBitCounter(sclFallingEdge:Bool, dataWidth:BitCount) extends Area {
 
-  val index  = Reg(UInt(log2Up(dataWidth) bits)) randBoot()
+  val index  = Reg(UInt(log2Up(dataWidth.value) bits)) randBoot()
   val isDone = False
 
-  def clear() : Unit = index := dataWidth-1
+  def clear() : Unit = index := dataWidth.value - 1
 
   when(sclFallingEdge) {
     index  := index - 1
@@ -59,11 +59,11 @@ class SCLEdgeDetector(scl:Bool) extends Area{
 /**
   * Filter the SCL and SDA input signals
   */
-class I2CFilterInput(i2c_sda:Bool, i2c_scl:Bool, clockDivider : UInt, samplingSize:Int, clockDividerWidth : Int) extends Area{
+class I2CFilterInput(i2c_sda:Bool, i2c_scl:Bool, clockDivider:UInt, samplingSize:Int, clockDividerWidth:BitCount) extends Area{
 
-  // Clock divier for sampling the input signals
+  // Clock divider for sampling the input signals
   val samplingClockDivider = new Area{
-    val counter = Reg(UInt(clockDividerWidth bits)) init(0)
+    val counter = Reg(UInt(clockDividerWidth)) init(0)
     val tick    = counter === 0
 
     counter := counter - 1
@@ -78,11 +78,11 @@ class I2CFilterInput(i2c_sda:Bool, i2c_scl:Bool, clockDivider : UInt, samplingSi
     val sdaSamples = History(that = cc_sda, length = samplingSize, when = samplingClockDivider.tick, init = True)
     val sclSamples = History(that = cc_scl, length = samplingSize, when = samplingClockDivider.tick, init = True)
 
-    val sda = RegNext(MajorityVote(sdaSamples))
-    val scl = RegNext(MajorityVote(sclSamples))
+    val sdaMajority = MajorityVote(sdaSamples)
+    val sclMajority = MajorityVote(sclSamples)
   }
 
-  val sda = samplingInput.sda
-  val scl = samplingInput.scl
+  val sda = RegNext(samplingInput.sdaMajority)
+  val scl = RegNext(samplingInput.sclMajority)
 }
 

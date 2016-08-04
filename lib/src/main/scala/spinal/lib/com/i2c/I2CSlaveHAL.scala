@@ -32,7 +32,7 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.fsm._
 
-// @TODO check after reset no dectecotr.start or stop fire
+// @TODO check after reset no dectector start or stop fire
 
 /**
   * Generics for the I2C Slave
@@ -41,9 +41,9 @@ import spinal.lib.fsm._
   * @param samplingSize      : deepth smapling
   * @param clockDividerSamplingWidth : Width of the clock divider
   */
-case class I2CSlaveHALGenerics(dataWidth                 : Int  = 8,
+case class I2CSlaveHALGenerics(dataWidth                 : BitCount = 8 bits,
                                samplingSize              : Int = 3,
-                               clockDividerSamplingWidth : Int = 10 ){}
+                               clockDividerSamplingWidth : BitCount = 10 bits ){}
 
 
 /**
@@ -51,10 +51,10 @@ case class I2CSlaveHALGenerics(dataWidth                 : Int  = 8,
   */
 case class I2CSlaveHALConfig(g : I2CSlaveHALGenerics) extends Bundle {
 
-  val clockDividerSampling = UInt(g.clockDividerSamplingWidth bit)
+  val clockDividerSampling = UInt(g.clockDividerSamplingWidth )
 
-  def setClockDividerSampling(divider : Int): Unit = {
-    clockDividerSampling := divider
+  def setFrequencySampling(frequencySampling : BigDecimal, clkFrequency : BigDecimal = ClockDomain.current.frequency.getValue): Unit = {
+    clockDividerSampling := (clkFrequency / frequencySampling).toInt
   }
 }
 
@@ -72,7 +72,7 @@ object I2CSlaveHALCmdMode extends SpinalEnum{
   */
 case class I2CSlaveHALCmd(g : I2CSlaveHALGenerics) extends Bundle{
   val mode  = I2CSlaveHALCmdMode()
-  val data  = Bits(g.dataWidth bits)
+  val data  = Bits(g.dataWidth )
 }
 
 
@@ -92,7 +92,7 @@ object I2CSlaveHALRspMode extends SpinalEnum{
   */
 case class I2CSlaveHALRsp(g : I2CSlaveHALGenerics) extends Bundle{
   val mode  = I2CSlaveHALRspMode()
-  val data  = Bits(g.dataWidth bits)
+  val data  = Bits(g.dataWidth )
 }
 
 
@@ -121,10 +121,10 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
     * Filter SDA and SCL input
     */
   val sampler = new I2CFilterInput(i2c_sda           = io.i2c.sda.read,
-                                   i2c_scl           = io.i2c.scl.read,
-                                   clockDivider      = io.config.clockDividerSampling,
-                                   samplingSize      = g.samplingSize,
-                                   clockDividerWidth = g.clockDividerSamplingWidth)
+    i2c_scl           = io.i2c.scl.read,
+    clockDivider      = io.config.clockDividerSampling,
+    samplingSize      = g.samplingSize,
+    clockDividerWidth = g.clockDividerSamplingWidth)
 
   /**
     * Detect the rising and falling edge of the scl signal
@@ -157,7 +157,7 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
     */
   val smSlave = new StateMachine{
 
-    val dataReceived = Reg(Bits(g.dataWidth bits)) randBoot()
+    val dataReceived = Reg(Bits(g.dataWidth)) randBoot()
     val wr_sda       = True
     val wr_scl       = True
 
