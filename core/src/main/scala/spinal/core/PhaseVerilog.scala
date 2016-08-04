@@ -950,9 +950,9 @@ end
               case i: Int => ret ++= s"    .${name}($i),\n"
               case d: Double => ret ++= s"    .${name}($d),\n"
               case b: Boolean => ret ++= s"    .${name}($b),\n"
-              case t: STime => {
-                ???
-              }
+//              case t: STime => {
+//                ???
+//              }
             }
           }
           ret.setCharAt(ret.size - 2, ' ')

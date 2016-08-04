@@ -58,7 +58,7 @@ case class I2CMasterHALConfig(g: I2CMasterHALGenerics) extends Bundle {
   val clockDividerSCL      = UInt (g.clockDividerSCLWidth bits)
   val enCollision          = Bool
 
-  def setSCLFrequency(sclFrequency : Double, clkFrequency : Double = ClockDomain.current.frequency.getValue) : Unit = {
+  def setSCLFrequency(sclFrequency : BigDecimal, clkFrequency : BigDecimal = ClockDomain.current.frequency.getValue) : Unit = {
     clockDividerSCL := (clkFrequency / sclFrequency * 2).toInt
   }
 

@@ -678,7 +678,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
           case i: Int => ret ++= s"      $name : integer;\n"
           case d: Double => ret ++= s"      $name : real;\n"
           case b: Boolean => ret ++= s"      $name : boolean;\n"
-          case b: STime => ret ++= s"      $name : time;\n"
+//          case b: STime => ret ++= s"      $name : time;\n"
         }
       }
 
@@ -1612,10 +1612,10 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
               case i: Int => ret ++= s"      ${name} => $i,\n"
               case d: Double => ret ++= s"      ${name} => $d,\n"
               case b: Boolean => ret ++= s"      ${name} => $b,\n"
-              case t: STime => {
-                val d = t.decompose
-                ret ++= s"      ${name} => ${d._1} ${d._2},\n"
-              }
+//              case t: STime => {
+//                val d = t.decompose
+//                ret ++= s"      ${name} => ${d._1} ${d._2},\n"
+//              }
             }
           }
           ret.setCharAt(ret.size - 2, ' ')
