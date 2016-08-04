@@ -43,7 +43,7 @@ import spinal.lib.fsm._
   * @param clockDividerSamplingWidth : Width of the clockDivider value
   * @param clockDividerSCLWidth      : Width of the clockDivider value
   */
-case class I2CMasterHALGenerics(dataWidth                 : Int =  8,
+case class I2CMasterHALGenerics(dataWidth                 : Int = 8,
                                 samplingSize              : Int = 3,
                                 clockDividerSamplingWidth : Int = 10,
                                 clockDividerSCLWidth      : Int = 20){}
