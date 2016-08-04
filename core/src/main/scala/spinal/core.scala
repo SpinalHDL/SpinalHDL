@@ -53,12 +53,11 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     def fs = (i * BigDecimal(1e-15))
 
 
-    def Thz = (i * BigDecimal(1e12))
-    def Hhz = (i * BigDecimal(1e9))
-    def Mhz = (i * BigDecimal(1e6))
-    def Khz = (i * BigDecimal(1e3))
-    def hz = (i * BigDecimal(1e0))
-    def mhz = (i * BigDecimal(1e-3))
+    def THz = (i * BigDecimal(1e12))
+    def HHz = (i * BigDecimal(1e9))
+    def MHz = (i * BigDecimal(1e6))
+    def KHz = (i * BigDecimal(1e3))
+    def Hz = (i * BigDecimal(1e0))
   }
 
   case class BigIntBuilder(i: BigInt) {
@@ -78,12 +77,11 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     def fs =  (d  * BigDecimal(1e-15))
 
 
-    def Thz = (d * BigDecimal(1e12))
-    def Hhz = (d * BigDecimal(1e9))
-    def Mhz = (d * BigDecimal(1e6))
-    def Khz = (d * BigDecimal(1e3))
-    def hz =  (d * BigDecimal(1e0))
-    def mhz = (d * BigDecimal(1e-3))
+    def THz = (d * BigDecimal(1e12))
+    def HHz = (d * BigDecimal(1e9))
+    def MHz = (d * BigDecimal(1e6))
+    def KHz = (d * BigDecimal(1e3))
+    def  Hz = (d * BigDecimal(1e0))
   }
 
   def True = Bool(true) //Should be def, not val, else it will create cross hierarchy usage of the same instance

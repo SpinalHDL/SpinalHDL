@@ -2606,7 +2606,7 @@ object PlayBigDecimal{
 
 
     import spinal.core._
-    val frequency = 100 Mhz
+    val frequency = 100 MHz
     val periode = 100 us
     val cycles = frequency*periode
     println(cycles)
