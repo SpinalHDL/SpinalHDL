@@ -36,7 +36,7 @@ trait SIntFactory{
   def SInt(width: BitCount): SInt = SInt.setWidth(width.value)
 }
 
-class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimitives[SInt] {
+class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimitives[SInt] with BitwiseOp[SInt] {
   private[core] def prefix : String = "s"
 
 

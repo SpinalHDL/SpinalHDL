@@ -602,8 +602,8 @@ class CastBitsToEnum(val enumDef: SpinalEnum) extends Cast with InferableEnumEnc
   override def opName: String = "b->e"
   override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
   override def getDefinition: SpinalEnum = enumDef
-  override private[core] def checkInferedWidth: String = if(input.getWidth ==  getEncoding.getWidth(enumDef)) null else
-    s"$input has ${input.getWidth} bits in place of ${getEncoding.getWidth(enumDef)} bits at ${input.getScalaLocationLong}"
+  override private[core] def checkInferedWidth: Unit = if(input.getWidth !=  getEncoding.getWidth(enumDef))
+    PendingError(s"$input has ${input.getWidth} bits in place of ${getEncoding.getWidth(enumDef)} bits at ${input.getScalaLocationLong}")
 }
 class CastEnumToEnum(enumDef: SpinalEnum) extends Cast with  InferableEnumEncodingImpl{
   override type T <: Node with EnumEncoded
@@ -840,11 +840,10 @@ abstract class ExtractBoolFixed extends Extract with CheckWidth{
   def getBitVector = input
   def getBitId = bitId
 
-  override def checkInferedWidth: String = {
+  override def checkInferedWidth: Unit = {
     if (bitId < 0 || bitId >= getBitVector.getWidth) {
-      return s"Static bool extraction (bit ${bitId}) is outside the range (${getBitVector.getWidth - 1} downto 0) of ${getBitVector} at\n${getScalaLocationLong}"
+      PendingError(s"Static bool extraction (bit ${bitId}) is outside the range (${getBitVector.getWidth - 1} downto 0) of ${getBitVector} at\n${getScalaLocationLong}")
     }
-    return null
   }
 
   override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
@@ -944,12 +943,11 @@ abstract class ExtractBitsVectorFixed extends Extract with WidthProvider with Ch
 
   override def getWidth: Int = hi - lo + 1
 
-  override def checkInferedWidth: String = {
+  override def checkInferedWidth: Unit = {
     val width = input.getWidth
     if (hi >= width || lo < 0) {
-      return s"Static bits extraction ($hi downto $lo) is outside the range (${width - 1} downto 0) of ${getBitVector} at\n${getScalaLocationLong}"
+      PendingError(s"Static bits extraction ($hi downto $lo) is outside the range (${width - 1} downto 0) of ${getBitVector} at\n${getScalaLocationLong}")
     }
-    return null
   }
 
   def getParameterNodes: List[Node] =  Nil
@@ -1295,11 +1293,10 @@ class BitAssignmentFixed(out: BitVector, in: Node, bitId: Int) extends Assigneme
   def getBitId = bitId
   override def calcWidth: Int = bitId + 1
 
-  override def checkInferedWidth: String = {
+  override def checkInferedWidth: Unit = {
     if (bitId < 0 || bitId >= out.getWidth) {
-      return s"Static bool extraction (bit ${bitId}) is outside the range (${out.getWidth - 1} downto 0) of ${out} at\n${getScalaLocationLong}"
+      PendingError(s"Static bool extraction (bit ${bitId}) is outside the range (${out.getWidth - 1} downto 0) of ${out} at\n${getScalaLocationLong}")
     }
-    return null
   }
 
   def getAssignedBits: AssignedRange = AssignedRange(bitId)
@@ -1341,16 +1338,17 @@ class RangedAssignmentFixed(out: BitVector, in: Node, hi: Int, lo: Int) extends 
 
   override def calcWidth: Int = hi + 1
 
-  override def checkInferedWidth: String = {
+  override def checkInferedWidth: Unit = {
     if (input.component != null && hi + 1 - lo != input.getWidth) {
-      return s"Assignment bit count mismatch. ${this} := ${input}} at\n${getScalaLocationLong}"
+      PendingError(s"Assignment bit count mismatch. ${this} := ${input}} at\n${getScalaLocationLong}")
+      return
     }
 
     val width = out.getWidth
     if (hi >= width || lo < 0) {
-      return s"Static bits assignment ($hi downto $lo) is outside the range (${width - 1} downto 0) of ${out} at\n${getScalaLocationLong}"
+      PendingError(s"Static bits assignment ($hi downto $lo) is outside the range (${width - 1} downto 0) of ${out} at\n${getScalaLocationLong}")
+      return
     }
-    return null
   }
 
   override def normalizeInputs: Unit = {
@@ -1460,13 +1458,11 @@ class RangedAssignmentFloating(out: BitVector, in_ : Node, offset_ : Node, bitCo
   override def calcWidth: Int = 1 << Math.min(20,offset_.asInstanceOf[Node with WidthProvider].getWidth) + bitCount.value
 
   //TODO should not use constructor node ref
-  override def checkInferedWidth: String = {
+  override def checkInferedWidth: Unit = {
     val input = getInput
     if (input.component != null && bitCount.value != input.asInstanceOf[Node with WidthProvider].getWidth) {
-      return s"Assignement bit count missmatch. ${this} := ${input}} at\n${getScalaLocationLong}"
+      PendingError(s"Assignement bit count missmatch. ${this} := ${input}} at\n${getScalaLocationLong}")
     }
-
-    return null
   }
 
   override def normalizeInputs: Unit = {
@@ -1527,6 +1523,9 @@ class MultipleAssignmentNode extends Node with AssignementTreePart{
     ArrayManager.getElseNull(inputsThrowable,id)
   override def setAssignementContext(id: Int,that : Throwable = globalData.getThrowable()): Unit =
     inputsThrowable = ArrayManager.setAllocate(inputsThrowable,id,that)
+
+
+  def cloneMultipleAssignmentNode : this.type = new MultipleAssignmentNode().asInstanceOf[this.type]
 }
 
 
@@ -1538,15 +1537,16 @@ class MultipleAssignmentNodeWidthable extends MultipleAssignmentNode with Widtha
       InputNormalize.bitVectoreAssignement(this,i,this.getWidth)
   }
 
-  override private[core] def checkInferedWidth: String = {
+  override private[core] def checkInferedWidth: Unit = {
     for(i <- 0 until inputs.length){
       val input = inputs(i)
       if (input != null && input.component != null && this.getWidth !=input.getWidth) {
-        return s"Assignement bit count missmatch. ${this} := ${input}} at\n${ScalaLocated.long(getAssignementContext(i))}"
+        PendingError(s"Assignement bit count missmatch. ${this} := ${input}} at\n${ScalaLocated.long(getAssignementContext(i))}")
       }
     }
-    return null
   }
+
+  override def cloneMultipleAssignmentNode : this.type = new MultipleAssignmentNodeWidthable().asInstanceOf[this.type]
 }
 
 class MultipleAssignmentNodeEnum(enumDef : SpinalEnum) extends MultipleAssignmentNode with InferableEnumEncodingImpl{
@@ -1556,6 +1556,7 @@ class MultipleAssignmentNodeEnum(enumDef : SpinalEnum) extends MultipleAssignmen
   override private[core] def normalizeInputs: Unit = {
     InputNormalize.enumImpl(this)
   }
+  override def cloneMultipleAssignmentNode : this.type = new MultipleAssignmentNodeEnum(enumDef).asInstanceOf[this.type]
 }
 
 object AssertNode{

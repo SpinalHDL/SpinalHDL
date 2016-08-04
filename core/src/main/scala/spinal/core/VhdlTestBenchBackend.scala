@@ -25,8 +25,11 @@ import scala.collection.mutable
 import scala.collection.mutable.StringBuilder
 import scala.io.Source
 
-class VhdlTestBenchBackend(pc : PhaseContext) extends VhdlBase with Phase {
+class VhdlTestBenchBackend(pc : PhaseContext) extends VhdlBase with PhaseMisc {
   import pc._
+
+  override def useNodeConsumers: Boolean = false
+
   var out: java.io.FileWriter = null
   var tbName: String = null
 
@@ -36,7 +39,7 @@ class VhdlTestBenchBackend(pc : PhaseContext) extends VhdlBase with Phase {
 
   def outputFilePath = config.targetDirectory + "/" +  topLevel.definitionName + "_tb.vhd"
   
-  override def impl() : Unit = {
+  override def impl(pc : PhaseContext) : Unit = {
     if (tbName == null) tbName = topLevel.definitionName + "_tb"
     extractUserCodes
 

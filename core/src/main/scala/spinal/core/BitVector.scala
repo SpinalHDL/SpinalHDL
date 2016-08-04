@@ -196,12 +196,11 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
     else width.toString
   }
 
-  override private[core] def checkInferedWidth: String = {
+  override private[core] def checkInferedWidth: Unit = {
     val input = this.input
     if (input != null && input.component != null && this.getWidth != input.asInstanceOf[WidthProvider].getWidth) {
-      return s"Assignment bit count mismatch. ${this} := ${input} at \n${ScalaLocated.long(getAssignementContext(0))}"
+      PendingError(s"Assignment bit count mismatch. ${this} := ${input} at \n${ScalaLocated.long(getAssignementContext(0))}")
     }
-    return null
   }
 
 
@@ -210,5 +209,5 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
     this
   }
 
-  override def toString(): String = s"${component.getPath() + "/" + this.getDisplayName()} : ${getClassIdentifier}[${getWidthStringNoInferation} bit]"
+  override def toString(): String = s"${component.getPath() + "/" + this.getDisplayName()} : ${getClassIdentifier}[${getWidthStringNoInferation} bits]"
 }

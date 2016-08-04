@@ -23,13 +23,6 @@ import scala.collection.mutable.ArrayBuffer
 
 
 object Component {
-  def apply[T <: Component](c: T): T = {
-    //    c.io.flatten.foreach(_._2.isIo = true)
-    //    pop(c);
-    //    c.userParentCalledDef
-    return c
-  }
-
   def push(c: Component): Unit = {
     //  if (when.stack.size() != 0) throw new Exception("Creating a component into hardware conditional expression")
     GlobalData.get.componentStack.push(c)
@@ -275,6 +268,12 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
 //    }
 //  }
 
+  def rework[T](gen : => T) : T = {
+    Component.push(this)
+    val ret = gen
+    Component.pop(this)
+    ret
+  }
 }
 
 

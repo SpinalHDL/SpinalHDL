@@ -33,7 +33,7 @@ trait UIntFactory{
   def UInt(width: BitCount): UInt = UInt().setWidth(width.value)
 }
 
-class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimitives[UInt]{
+class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimitives[UInt] with BitwiseOp[UInt]{
   private[core] def prefix : String = "u"
 
 

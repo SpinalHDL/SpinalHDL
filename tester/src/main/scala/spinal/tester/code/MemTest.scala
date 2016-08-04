@@ -72,11 +72,11 @@ object MemTest {
       val input = spinal.core.in UInt (4 bit)
       val output = spinal.core.out UInt (9 bit)
     }
-    val componentAA = spinal.core.Component(new ComponentAA)
+    val componentAA = new ComponentAA
     componentAA.io.input := io.input
     io.output := RegNext(io.output)
 
-    val mem = new Mem(io.wrData, 1 << io.wrAddr.getWidth).setAsBlackBox
+    val mem = new Mem(io.wrData, 1 << io.wrAddr.getWidth).generateAsBlackBox
 
     val commonAddress = io.wrAddr + U(3)
     when(io.cond0 && io.cond1) {
@@ -85,7 +85,7 @@ object MemTest {
     }
    // val tmp = mem.readSync(io.rdAddr + spinal.core.UInt(2),io.cond2,readFirst)
     //val tmp = mem.readSync(commonAddress,io.cond2,readFirst)
-    val tmp = mem.writeOrReadSync(commonAddress,io.wrData,io.cond0,io.cond1)
+    val tmp = mem.readWriteSync(commonAddress,io.wrData,io.cond0,io.cond1)
     io.rdData := tmp
     tmp.addAttribute(new AttributeString("myAttribut", "hallo"))
     tmp.addAttribute(new AttributeFlag("yolo"))

@@ -13,7 +13,7 @@ import spinal.lib.bus.neutral.NeutralStreamDma
 import spinal.lib.com.uart.UartCtrl
 import spinal.lib.eda.mentor.MentorDo
 import spinal.lib.fsm._
-import spinal.lib.graphic.RgbConfig
+import spinal.lib.graphic.{Rgb, RgbConfig}
 import spinal.lib.graphic.vga.{AvalonMMVgaCtrl, VgaCtrl}
 import spinal.lib.com.i2c._
 import spinal.lib.io.ReadableOpenDrain
@@ -289,7 +289,7 @@ object PlayB4 {
     val readData = out Bits(8 bits)
 
     val mem = Mem(Bits(8 bits),16)
-    readData := mem.writeOrReadSync(address,writeData,chipSelect,writeEnable)
+    readData := mem.readWriteSync(address,writeData,chipSelect,writeEnable)
 
 
 
@@ -2202,6 +2202,89 @@ object PlayLogicLock{
   }
 }
 
+
+object PlaySimple{
+  class TopLevel extends Component {
+    val a,b = in UInt(8 bits)
+    val result = out UInt(8 bits)
+    result := a + b
+  }
+
+  def main(args: Array[String]) {
+    SpinalConfig().addTransformationPhase(new PhaseDummy(println("MIAOU"))).generateVhdl(new TopLevel)
+  }
+}
+
+
+
+object PlayRamBB{
+  class TopLevel extends Component {
+    val clockB = in Bool
+
+    val rgbConfig = RgbConfig(5,6,5)
+    val mem = Mem(Rgb(rgbConfig),1 << 16)
+
+////    val writePort = in(mem.writePort)
+//    val writeAddr = in UInt(17 bits)
+//    val writeData = in UInt(8 bits)
+//    val writeEnable = in Bool()
+//    when(writeEnable) {
+//      mem.writeMixedWidth(writeAddr, writeData)
+////      mem.writeMixedWidth(writeAddr, writeData)
+//    }
+//
+//    val readAsyncAddr = in UInt(16 bits)
+//    val readAsyncData = out(mem.readAsync(readAsyncAddr))
+//    val readAsyncMixedWidthAddr = in UInt(17 bits)
+//    val readAsyncMixedWidthData = out UInt(8 bits)
+//    mem.readAsyncMixedWidth(readAsyncMixedWidthAddr,readAsyncMixedWidthData)
+//
+//    val readSyncPort = slave(mem.readSyncPort)
+//    val readSyncMixedWidthEnable = in Bool
+//    val readSyncMixedWidthAddr = in UInt(17 bits)
+//    val readSyncMixedWidthData = out UInt(8 bits)
+//    mem.readSyncMixedWidth(readSyncMixedWidthAddr,readSyncMixedWidthData,readSyncMixedWidthEnable)
+//
+
+    val readWrite = new Area {
+      val en, wr = in Bool
+      val addr = in UInt (16 bits)
+      val wrData = in(Rgb(rgbConfig))
+      val wrMask = in Bits (4 bits)
+      val rdData = out(Rgb(rgbConfig))
+      rdData := mem.readWriteSync(addr, wrData, en, wr, wrMask)
+    }
+
+    val readWriteMixedWidth = new Area {
+      val en, wr = in Bool
+      val addr = in UInt (18 bits)
+      val wrData = in(Bits(4 bits))
+      val wrMask = in Bits (4 bits)
+      val rdData = out(Bits (4 bits))
+      rdData := mem.readWriteSyncMixedWidth(addr, wrData, en, wr, wrMask)
+    }
+
+    val clockBArea = new ClockingArea(ClockDomain(clockB)){
+      val readSyncAddr = in UInt(16 bits)
+      val readSyncEn = in Bool
+//      val readSyncPort = out(mem.readSyncCC(readSyncAddr,readSyncEn))
+    }
+
+    mem.generateAsBlackBox
+  }
+
+  def main(args: Array[String]) {
+    SpinalConfig()
+      .addStandardMemBlackboxing(blackboxOnlyIfRequested)
+      .generateVhdl(new TopLevel)
+
+    SpinalConfig()
+      .addStandardMemBlackboxing(blackboxOnlyIfRequested)
+      .generateVerilog(new TopLevel)
+
+  }
+}
+
 object PlayProcess{
   class TopLevel extends Component {
     val a,b,c = in Bool
@@ -2348,6 +2431,72 @@ object PlayMasterSlave{
     }
   }
 
+
+  class MyBundle extends Bundle{
+    val publicElement = Bool
+    private val privateElement = Bool
+
+    def getPrivateElement() : Bool = {
+      return privateElement
+    }
+
+    def setPrivateElement(value : Bool) : Unit = {
+      privateElement := value
+    }
+
+    def setPrivateElementByAnAbstractWay(trigger : UInt) : Unit = {
+      when(trigger > 10) {
+        privateElement := True
+      }
+    }
+  }
+
+
+//  class RGB(channelWidth : Int) extends Bundle{
+//    val r,g,b = UInt(channelWidth bits)
+//
+//    def isClear() : Bool ={
+//      return r === 0 && g === 0 && b === 0
+//    }
+//  }
+//
+//  class RGBA(channelWidth : Int) extends RGB(channelWidth){
+//    val a = UInt(channelWidth bits)
+//
+//    override def isClear() : Bool ={
+//      return super.isClear() && a === 0
+//    }
+//  }
+
+  case class Handshake[T <: Data](dataType : T) extends Bundle{
+    val valid   = Bool
+    val ready   = Bool
+    val payload = cloneOf(dataType)  //All data type that i give to the Handshake class should implement the clone method
+  }
+
+  case class RGB() extends Bundle{
+    val r,g,b = UInt(8 bits)
+  }
+
+  class RGBA extends Bundle{
+    val r,g,b,a = UInt(8 bits)
+
+    override def clone: this.type = new RGBA().asInstanceOf[this.type]  //RGBA is not a "case class", To to be abble to clone it in the Handhsake, we need to implement this.
+  }
+
+
+  implicit class Imp(toto : Toto){
+    def aaa = 2
+    override def clone() : Toto = new Toto
+  }
+  class Toto{
+
+  }
+
+  val toto = new Toto
+  toto.aaa
+//  toto.clo
+
 //
 //  object Handshake{
 //    def apply() = new Handshake
@@ -2364,4 +2513,108 @@ object PlayMasterSlave{
 //  def main(args: Array[String]) {
 //    SpinalVhdl(new TopLevel)
 //  }
+}
+
+
+
+object PlayRegTriplify{
+  def triplifyReg(regOutput : BaseType) : Unit = {
+    val originalReg = regOutput.input.asInstanceOf[Reg]
+
+    //Create 3 equivalent registers
+    val regs = for(i <- 0 to 2) yield {
+      val baseType = regOutput.clone()
+      baseType.input = Node.cloneReg(baseType,originalReg)
+      baseType.setPartialName(regOutput,i.toString)
+      baseType
+    }
+
+    regOutput.input = null
+    regOutput.compositeAssign = null
+
+    regOutput match {
+      case regOutput : Bool => {
+        val r0 = regs(0).asInstanceOf[Bool]
+        val r1 = regs(1).asInstanceOf[Bool]
+        val r2 = regs(2).asInstanceOf[Bool]
+        regOutput.assignFrom((r0 & r1) | (r0 & r2) | (r1 & r2) ,false)
+      }
+      case regOutput : Bits => {
+        val r0 = regs(0).asInstanceOf[Bits]
+        val r1 = regs(1).asInstanceOf[Bits]
+        val r2 = regs(2).asInstanceOf[Bits]
+        regOutput.assignFrom((r0 & r1) | (r0 & r2) | (r1 & r2) ,false)
+      }
+      case regOutput : UInt => {
+        val r0 = regs(0).asInstanceOf[UInt]
+        val r1 = regs(1).asInstanceOf[UInt]
+        val r2 = regs(2).asInstanceOf[UInt]
+        regOutput.assignFrom((r0 & r1) | (r0 & r2) | (r1 & r2) ,false)
+      }
+      case regOutput : SInt => {
+        val r0 = regs(0).asInstanceOf[SInt]
+        val r1 = regs(1).asInstanceOf[SInt]
+        val r2 = regs(2).asInstanceOf[SInt]
+        regOutput.assignFrom((r0 & r1) | (r0 & r2) | (r1 & r2) ,false)
+      }
+    }
+
+    //Allow to reassign the triplified register even after this call
+    regOutput.compositeAssign = new Assignable {
+      override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
+        regs.foreach(_.input.asInstanceOf[Reg].assignFrom(that,conservative))
+      }
+    }
+  }
+
+  class TopLevel extends Component {
+    val cond = in Bool
+    val a,b = in UInt(8 bits)
+    val result = out UInt(8 bits)
+    val counter = Reg(UInt(8 bits))
+
+
+    when(cond){
+      counter := a + b
+    }
+    when(counter > 54){
+      counter(4) := False
+    }
+
+    when(counter === 34){
+      counter := 3
+    }
+
+
+    triplifyReg(counter)
+
+    result := counter
+  }
+
+  def main(args: Array[String]) {
+    SpinalConfig().generateVhdl(new TopLevel)
+  }
+}
+
+object PlayBigDecimal{
+  def main(args: Array[String]) {
+    val a = BigDecimal(1)
+    val b = BigDecimal(3)
+
+    val x = a/b
+
+
+
+    import spinal.core._
+    val frequency = 100 MHz
+    val periode = 100 us
+    val cycles = frequency*periode
+    println(cycles)
+
+    val timeoutLimit = 3 mn
+    val timeoutCycles = frequency*timeoutLimit
+    println(timeoutCycles)
+
+
+  }
 }

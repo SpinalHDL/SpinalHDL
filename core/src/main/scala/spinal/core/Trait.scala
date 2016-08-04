@@ -201,9 +201,9 @@ abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends 
 }
 
 trait Assignable {
-  private[core] var compositeAssign: Assignable = null
+ /* private[core] */var compositeAssign: Assignable = null
 
-  private[core] final def assignFrom(that: AnyRef, conservative: Boolean): Unit = {
+  /*private[core] */final def assignFrom(that: AnyRef, conservative: Boolean): Unit = {
     if (compositeAssign != null) {
       compositeAssign.assignFrom(that, conservative)
     } else {
@@ -687,7 +687,7 @@ trait OverridedEqualsHashCode{
 }
 
 
-abstract trait Num[T <: Data] {
+trait Num[T <: Data] {
   def +  (right: T): T
   def -  (right: T): T
   def *  (right: T): T
@@ -704,4 +704,11 @@ abstract trait Num[T <: Data] {
 
   def min(right: T): T = Mux(this < right, this.asInstanceOf[T], right)
   def max(right: T): T = Mux(this < right, right, this.asInstanceOf[T])
+}
+
+trait BitwiseOp[T <: Data]{
+  def & (right: T): T
+  def |  (right: T): T
+  def ^  (right: T): T
+  def unary_~  : T
 }

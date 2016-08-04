@@ -57,7 +57,7 @@ abstract class XFix[T <: XFix[T, R], R <: BitVector with Num[R]](val maxExp: Int
   def fixFactory(exp: Int, bitCount: Int): T
   def difLsb(that: T) = (this.maxExp - this.bitCount) - (that.maxExp - that.bitCount)
 
-  def resolution : Double
+  def resolution : BigDecimal
 
   def alignLsb(that: T): Tuple2[R, R] = {
     val lsbDif = difLsb(that)
@@ -212,9 +212,10 @@ class SFix(maxExp: Int, bitCount: Int) extends XFix[SFix, SInt](maxExp, bitCount
     }
   }
 
-  def maxValue: Double = Math.pow(2.0, maxExp) * (1.0 - 1.0 / (math.pow(2.0, bitCount - 1)))
-  def minValue: Double = -Math.pow(2.0, maxExp)
-  override def resolution: Double = Math.pow(2.0, maxExp-bitCount+1)
+  //TODO Should update the calculation with BigDecimal
+  def maxValue: BigDecimal = Math.pow(2.0, maxExp) * (1.0 - BigDecimal(1.0 / (math.pow(2.0, bitCount - 1))))
+  def minValue: BigDecimal = -Math.pow(2.0, maxExp)
+  override def resolution: BigDecimal = Math.pow(2.0, maxExp-bitCount+1)
 
   override def clone(): this.type = new SFix(maxExp, bitCount).asInstanceOf[this.type]
 
@@ -316,9 +317,9 @@ class UFix(maxExp: Int, bitCount: Int) extends XFix[UFix, UInt](maxExp, bitCount
   }
 
 
-  def maxValue: Double = Math.pow(2.0, maxExp) * (1.0 - 1.0 / (math.pow(2.0, bitCount - 1)))
-  def minValue: Double = 0.0
-  override def resolution: Double = Math.pow(2.0, maxExp-bitCount)
+  def maxValue: BigDecimal = Math.pow(2.0, maxExp) * (1.0 - 1.0 / (math.pow(2.0, bitCount - 1)))
+  def minValue: BigDecimal = 0.0
+  override def resolution: BigDecimal = Math.pow(2.0, maxExp-bitCount)
 
   override def clone: this.type = new UFix(maxExp, bitCount).asInstanceOf[this.type]
 }

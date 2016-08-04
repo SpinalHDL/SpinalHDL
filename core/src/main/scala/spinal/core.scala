@@ -42,14 +42,22 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     def bits = new BitCount(i)
     def exp = new ExpNumber(i)
     def pos = new PosCount(i)
-    def hr = new STime(i * 3600)
-    def min = new STime(i * 60)
-    def sec = new STime(i * 1)
-    def ms = new STime(i * 1e-3)
-    def us = new STime(i * 1e-6)
-    def ns = new STime(i * 1e-9)
-    def ps = new STime(i * 1e-12)
-    def fs = new STime(i * 1e-15)
+
+    def hr = (i * BigDecimal(3600.0))
+    def mn = (i * BigDecimal(60.0))
+    def sec = (i * BigDecimal(1.0))
+    def ms = (i * BigDecimal(1e-3))
+    def us = (i * BigDecimal(1e-6))
+    def ns = (i * BigDecimal(1e-9))
+    def ps = (i * BigDecimal(1e-12))
+    def fs = (i * BigDecimal(1e-15))
+
+
+    def THz = (i * BigDecimal(1e12))
+    def GHz = (i * BigDecimal(1e9))
+    def MHz = (i * BigDecimal(1e6))
+    def KHz = (i * BigDecimal(1e3))
+    def Hz = (i * BigDecimal(1e0))
   }
 
   case class BigIntBuilder(i: BigInt) {
@@ -59,14 +67,21 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   }
 
   case class DoubleBuilder(d: Double) {
-    def hr = new STime(d * 3600)
-    def min = new STime(d * 60)
-    def sec = new STime(d * 1)
-    def ms = new STime(d * 1e-3)
-    def us = new STime(d * 1e-6)
-    def ns = new STime(d * 1e-9)
-    def ps = new STime(d * 1e-12)
-    def fs = new STime(d * 1e-15)
+    def hr =  (d  * BigDecimal(3600.0))
+    def mn = (d * BigDecimal(60.0))
+    def sec = (d * BigDecimal(1.0))
+    def ms =  (d  * BigDecimal(1e-3))
+    def us =  (d  * BigDecimal(1e-6))
+    def ns =  (d  * BigDecimal(1e-9))
+    def ps =  (d  * BigDecimal(1e-12))
+    def fs =  (d  * BigDecimal(1e-15))
+
+
+    def THz = (d * BigDecimal(1e12))
+    def GHz = (d * BigDecimal(1e9))
+    def MHz = (d * BigDecimal(1e6))
+    def KHz = (d * BigDecimal(1e3))
+    def  Hz = (d * BigDecimal(1e0))
   }
 
   def True = Bool(true) //Should be def, not val, else it will create cross hierarchy usage of the same instance
