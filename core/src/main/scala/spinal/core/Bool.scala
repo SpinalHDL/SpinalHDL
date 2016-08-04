@@ -25,7 +25,7 @@ trait BoolFactory {
 }
 
 
-class Bool extends BaseType with DataPrimitives[Bool]{
+class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
   override def getBitsWidth: Int = 1
 
 
@@ -35,6 +35,7 @@ class Bool extends BaseType with DataPrimitives[Bool]{
   def ||(b: Bool): Bool = wrapLogicalOperator(b,new Operator.Bool.Or)
   def ^(b: Bool): Bool  = wrapLogicalOperator(b,new Operator.Bool.Xor)
   def unary_!(): Bool = wrapUnaryOperator(new Operator.Bool.Not)
+  def unary_~(): Bool = ! this
   def &(b: Bool): Bool = this && b
   def |(b: Bool): Bool = this || b
   def set() = this := True

@@ -223,7 +223,7 @@ class Ram_1wrs(wordWidth: Int,
     val clk = in Bool
 
     val en = in Bool
-    val we = in Bool
+    val wr = in Bool
     val addr = in UInt (log2Up(wordCount) bit)
     val wrData = in Bits (wordWidth bit)
     val rdData = out Bits (wordWidth bit)

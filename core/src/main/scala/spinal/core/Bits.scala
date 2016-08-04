@@ -39,7 +39,7 @@ trait BitsFactory {
   def Bits(width: BitCount): Bits = Bits.setWidth(width.value)
 }
 
-class Bits extends BitVector with DataPrimitives[Bits]{
+class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
   private[core] def prefix: String = "b"
 
   override private[spinal] def _data: Bits = this

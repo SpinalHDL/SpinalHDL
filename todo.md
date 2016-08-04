@@ -5,8 +5,9 @@
 - [x] Add regression for all implicit spinal hdl check like latch, comb loop etc
 - [X] add xxx := (default -> True) support (no B/U/S prefix)
 - [ ] Add myBool := 0/1 ?
-- [ ] Do a improvment run on Mem (writeFirst, black box, vendor/family support, ...)
-- [ ] MemBlackboxer currently manipulate Mem graph before with inferation (OK), but before with check (KO)
+- [ ] Add time/frequancy support
+- [X] Do a improvment run on Mem (writeFirst, black box, vendor/family support, ...)
+- [X] MemBlackboxer currently manipulate Mem graph before with inferation (OK), but before with check (KO)
 - [/] Add logic inferation LOCK functionality ? switch -> is   State -> functions
 - [X] Add version number into elaboration logs
 - [X] Function for compinent without the io_ prefix on IO
@@ -16,7 +17,7 @@
 - [ ] Add rotate left support in the verilog backend
 - [ ] Better mux Nodes (more than two inputs)
 - [ ] Remove the generation of when nodes condition when they are emited as a case statments
-- [ ] Rework Namable trait, to allow it to be named by composition + postfix, and maybe to work with Ownable trait for hearchical naming
+- [X] Rework Namable trait, to allow it to be named by composition + postfix, and maybe to work with Ownable trait for hearchical naming
 - [X] bool/bits/uint/sint should extends dataimper to avoid implicites and allow implicite area to uint
 
 ## spinal.lib
@@ -45,7 +46,7 @@
 
 ## http://spinalhdl.github.io/SpinalDoc/
 - [ ] component.rework
-- [ ] MemBlackboxers
+- [X] MemBlackboxers
 - [ ] Custom phases
 - [ ] spinal.lib.StreamFork
 - [ ] wait verification spinal.lib.StreamDemux

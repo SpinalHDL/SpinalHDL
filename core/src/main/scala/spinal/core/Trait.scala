@@ -706,9 +706,9 @@ trait Num[T <: Data] {
   def max(right: T): T = Mux(this < right, right, this.asInstanceOf[T])
 }
 
-//trait BitwiseType[T <: Data]{
-//  def & (right: T): T
-//  def |  (right: T): T
-//  def ^  (right: T): T
-//  def unary_!  : T
-//}
+trait BitwiseOp[T <: Data]{
+  def & (right: T): T
+  def |  (right: T): T
+  def ^  (right: T): T
+  def unary_~  : T
+}

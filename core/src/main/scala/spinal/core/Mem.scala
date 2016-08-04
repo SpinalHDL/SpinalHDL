@@ -243,8 +243,8 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
                      write: Bool,
                      mask: Bits = null,
                      readUnderWrite: ReadUnderWritePolicy = dontCare,
-                     crossClock: Boolean = false): T = {
-    readWriteSyncImpl(address,data,enable,write,mask,readUnderWrite,crossClock,false)
+                     clockCrossing: Boolean = false): T = {
+    readWriteSyncImpl(address,data,enable,write,mask,readUnderWrite,clockCrossing,false)
   }
 
   def readWriteSyncMixedWidth[U <: Data](address: UInt,
@@ -253,8 +253,8 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
                                write: Bool,
                                mask: Bits = null,
                                readUnderWrite: ReadUnderWritePolicy = dontCare,
-                               crossClock: Boolean = false): U = {
-    readWriteSyncImpl(address,data,enable,write,mask,readUnderWrite,crossClock,true)
+                               clockCrossing: Boolean = false): U = {
+    readWriteSyncImpl(address,data,enable,write,mask,readUnderWrite,clockCrossing,true)
   }
 
   def readWriteSyncImpl[U <: Data](address: UInt,
@@ -263,7 +263,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
                                    write: Bool,
                                    mask: Bits = null,
                                    readUnderWrite: ReadUnderWritePolicy = dontCare,
-                                   crossClock: Boolean = false,
+                                   clockCrossing: Boolean = false,
                                    allowMixedWidth : Boolean = false): U = {
     val addressBuffer = (if(allowMixedWidth) UInt() else UInt(addressWidth bits)).dontSimplifyIt() //Allow resized address when mixedMode is disable
     addressBuffer := address
@@ -305,7 +305,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
     readBits.setPartialName(readPort,"readData",true)
 
     readWord.assignFromBits(readBits)
-    if (crossClock)
+    if (clockCrossing)
       readPort.addTag(crossClockDomain)
 
 
