@@ -89,7 +89,7 @@ object Misc {
   val reflectExclusion = mutable.Set[Class[_]]()
 
   addReflectionExclusion(new Bundle())
-  addReflectionExclusion(new Vec(null, null))
+  addReflectionExclusion(new Vec(Bool, Vector[Bool]()))
   addReflectionExclusion(new Bool)
   addReflectionExclusion(new Bits)
   addReflectionExclusion(new UInt)

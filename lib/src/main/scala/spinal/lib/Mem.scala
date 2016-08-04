@@ -88,7 +88,7 @@ class MemPimped[T <: Data](mem: Mem[T]) {
 
 case class MemWriteCmd[T <: Data](mem : Mem[T]) extends Bundle{
   val address = mem.addressType
-  val data = mem.wordType
+  val data    = mem.wordType
 }
 
 case class MemReadPort[T <: Data](dataType : T,addressWidth : Int) extends Bundle with IMasterSlave{

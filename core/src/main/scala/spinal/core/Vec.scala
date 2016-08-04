@@ -114,7 +114,13 @@ class VecAccessAssign[T <: BaseType](enables: Seq[Bool], tos: Seq[T]) extends As
 }
 
 class Vec[T <: Data](_dataType: T, val vec: Vector[T]) extends MultiData with collection.IndexedSeq[T] {
-
+  if(component != null) component.addPrePopTask(() => {
+    for(i <- 0 until elements.length){
+      val e = elements(i)._2
+      OwnableRef.proposal(e,this)
+      e.setPartialName(i.toString,true)
+    }
+  })
   def dataType = cloneOf(_dataType)
 
   def range = 0 until vec.length
@@ -230,15 +236,8 @@ class Vec[T <: Data](_dataType: T, val vec: Vector[T]) extends MultiData with co
   def elements = {
     if (elementsCache == null) {
       elementsCache = ArrayBuffer[(String, Data)]()
-      //      var i = vec.size -1
-      //      while(i >= 0) {
-      //        elementsCache += Tuple2(i.toString, vec(i))
-      //        i = i - 1
-      //      }
       for ((e, i) <- vec.zipWithIndex) {
         elementsCache += Tuple2(i.toString, e)
-        OwnableRef.proposal(e,this)
-        e.setPartialName(i.toString,true)
       }
     }
     elementsCache
@@ -247,5 +246,6 @@ class Vec[T <: Data](_dataType: T, val vec: Vector[T]) extends MultiData with co
   override def clone: this.type = {
     new Vec[T](dataType, vec.map(_.clone())).asInstanceOf[this.type]
   }
+//  println(elements)
 }
 

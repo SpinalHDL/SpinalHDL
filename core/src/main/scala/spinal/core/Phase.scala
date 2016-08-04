@@ -1397,6 +1397,32 @@ class PhasePrintUnUsedSignals(prunedSignals : mutable.Set[BaseType])(pc: PhaseCo
   }
 }
 
+//class PhaseCompletSwitchCases extends PhaseCheck{
+//  override def useNodeConsumers = false
+//  override def impl(pc : PhaseContext): Unit = {
+//    import pc._
+//
+//    def walkAssignementTree(output : BaseType,node : Node): Unit = node match {
+//      case node : MultipleAssignmentNode => node.onEachInput(input => walkAssignementTree(output,input))
+//      case node : Reg => {
+//        walkAssignementTree(output,node.dataInput)
+//        walkAssignementTree(output,node.initialValue)
+//      }
+//      case node : WhenNode => {
+//
+//      }
+//      case _ =>
+//    }
+//
+//    Node.walk(walkNodesDefautStack,_ match{
+//      case baseType : BaseType => {
+//        walkAssignementTree(baseType,baseType.input)
+//      }
+//    })
+//
+//  }
+//}
+
 class PhaseAddNodesIntoComponent(pc: PhaseContext) extends PhaseMisc{
   override def useNodeConsumers = false
   override def impl(pc : PhaseContext): Unit = {
@@ -1489,30 +1515,30 @@ class PhaseDummy(doThat : => Unit) extends PhaseMisc{
 
 object SpinalVhdlBoot{
   def apply[T <: Component](config : SpinalConfig)(gen : => T) : SpinalReport[T] ={
-    try {
+//    try {
       singleShot(config)(gen)
-    } catch {
-      case e: Throwable => {
-        if(!config.debug){
-          Thread.sleep(100)
-          println("\n**********************************************************************************************")
-          val errCnt = SpinalError.getErrorCount()
-          SpinalWarning(s"Elaboration failed (${errCnt} error" + (if(errCnt > 1){s"s"} else {s""}) + s").\n" +
-            s"          Spinal will restart with scala trace to help you to find the problem.")
-          println("**********************************************************************************************\n")
-          Thread.sleep(100)
-          return singleShot(config.copy(debug = true))(gen)
-        }else{
-          Thread.sleep(100)
-          println("\n**********************************************************************************************")
-          val errCnt = SpinalError.getErrorCount()
-          SpinalWarning(s"Elaboration failed (${errCnt} error" + (if(errCnt > 1){s"s"} else {s""}) + ").")
-          println("**********************************************************************************************")
-          Thread.sleep(100)
-          throw e
-        }
-      }
-    }
+//    } catch {
+//      case e: Throwable => {
+//        if(!config.debug){
+//          Thread.sleep(100)
+//          println("\n**********************************************************************************************")
+//          val errCnt = SpinalError.getErrorCount()
+//          SpinalWarning(s"Elaboration failed (${errCnt} error" + (if(errCnt > 1){s"s"} else {s""}) + s").\n" +
+//            s"          Spinal will restart with scala trace to help you to find the problem.")
+//          println("**********************************************************************************************\n")
+//          Thread.sleep(100)
+//          return singleShot(config.copy(debug = true))(gen)
+//        }else{
+//          Thread.sleep(100)
+//          println("\n**********************************************************************************************")
+//          val errCnt = SpinalError.getErrorCount()
+//          SpinalWarning(s"Elaboration failed (${errCnt} error" + (if(errCnt > 1){s"s"} else {s""}) + ").")
+//          println("**********************************************************************************************")
+//          Thread.sleep(100)
+//          throw e
+//        }
+//      }
+//    }
   }
 
   def singleShot[T <: Component](config : SpinalConfig)(gen : => T): SpinalReport[T] ={

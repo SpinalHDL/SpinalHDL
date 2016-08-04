@@ -30,8 +30,12 @@ object Bundle {
 
 class Bundle extends MultiData with Nameable with OverridedEqualsHashCode {
   var cloneFunc: () => Object = null
-  if(component != null) component.addPrePopTask(() => elements)
-
+  if(component != null) component.addPrePopTask(() => {
+    elements.foreach{case (n,e) => {
+      OwnableRef.proposal(e,this)
+      e.setPartialName(n,true)
+    }}
+  })
   override def clone: this.type = {
     if (cloneFunc != null) {
       val ret = cloneFunc().asInstanceOf[this.type].asDirectionLess
@@ -92,8 +96,6 @@ class Bundle extends MultiData with Nameable with OverridedEqualsHashCode {
             if (!rejectOlder || this.isOlderThan(data)) {
               //To avoid bundle argument
               elementsCache += Tuple2(name, data)
-              OwnableRef.proposal(data,this)
-              data.setPartialName(name,true)
               data.parent = this
             }
           }

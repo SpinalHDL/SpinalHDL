@@ -2618,3 +2618,49 @@ object PlayBigDecimal{
 
   }
 }
+//val context = new AssignementLevel(process.nodes.map(n => AssignementLevelCmd(n,n.getInput(0))))
+
+object PlaySwitchEmit{
+  class TopLevel extends Component {
+    val sel = in UInt(2 bits)
+    val x,y,z = out UInt(8 bits)
+
+    x := 0
+    y := 0
+    switch(sel){
+      is(0) {
+        x := 1
+        z := 0
+      }
+      is(1){
+        y := 1
+        z := 1
+      }
+      is(2){
+        y := 1
+        z := 2
+      }
+      is(3){
+        y := 1
+        z := 3
+      }
+    }
+  }
+
+  def main(args: Array[String]) {
+    SpinalConfig().generateVhdl(new TopLevel)
+  }
+}
+
+
+object PlayBufferCC{
+  class TopLevel extends Component {
+    val input = in Bits(8 bits)
+    val output = out Bits(8 bits)
+    output := BufferCC(input)
+  }
+
+  def main(args: Array[String]) {
+    SpinalConfig().generateVhdl(new TopLevel).printPruned()
+  }
+}

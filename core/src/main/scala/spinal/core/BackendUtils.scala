@@ -67,22 +67,21 @@ class AssignementLevelWhen(val cond: Node,val context : WhenContext) extends Ass
   var whenFalse: AssignementLevel = null
   val whenTrueCmds,whenFalseCmds = ArrayBuffer[AssignementLevelCmd]()
 
-  def isSwitchable: (Node,Node,AssignementLevelWhen) = {
+  //(Condition, key,literal,this)
+  def isSwitchable: (Node,Node,Node,AssignementLevelWhen) = {
     (if(cond.isInstanceOf[Bool]) cond.asInstanceOf[Bool].input else cond) match {
       case cond : Operator.Enum.Equal => {
         (cond.left,cond.right) match {
-          case (c : SpinalEnumCraft[_],l : EnumLiteral[_]) => return (c,l,this)
+          case (c : SpinalEnumCraft[_],l : EnumLiteral[_]) => return (cond,c,l,this)
           case _ =>
         }
       }
       case cond : Operator.BitVector.Equal => {
         (cond.left,cond.right) match {
-          case (c : BitVector,l : BitVectorLiteral) => return (c,l,this)
+          case (c : BitVector,l : BitVectorLiteral) => return (cond,c,l,this)
           case _ =>
         }
       }
-
-
       case _ =>
     }
     return null
@@ -103,7 +102,7 @@ class AssignementLevelSwitch(val key: Node) extends AssignementLevelNode {
   var default : SwitchTreeDefault = null
 }
 
-case class SwitchTreeCase(const : Node,doThat : AssignementLevel)
+case class SwitchTreeCase(const : Node,doThat : AssignementLevel,whenCond : Node)
 case class SwitchTreeDefault(doThat : AssignementLevel)
 case class AssignementLevelCmd(that : Node,by : Node)
 
@@ -184,10 +183,10 @@ class AssignementLevel(inTasks : Seq[AssignementLevelCmd]) {
               val key = switchable.head._1
               if(switchable.foldLeft(true)((carry,k) => carry && (k._1 == key))) {
                 val switchNode = new AssignementLevelSwitch(key)
-                switchable.foreach { case (_, lit, src) => {
-                  switchNode.cases += SwitchTreeCase(lit, src.whenTrue)
+                switchable.foreach { case (cond,_, lit, src) => {
+                  switchNode.cases += SwitchTreeCase(lit, src.whenTrue,cond)
                 }}
-                switchNode.default = SwitchTreeDefault(switchable.last._3.whenFalse)
+                switchNode.default = SwitchTreeDefault(switchable.last._4.whenFalse)
 
                 content(idx) = switchNode
               }
