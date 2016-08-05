@@ -167,7 +167,11 @@ class DataCache(implicit p : DataCacheConfig) extends Component{
       tags(tagsWriteCmd.address) := tagsWriteCmd.data
     }
     when(dataWriteCmd.valid && dataWriteCmd.way === id){
-      data.write(dataWriteCmd.address,dataWriteCmd.data,dataWriteCmd.mask)
+      data.write(
+        address = dataWriteCmd.address,
+        data = dataWriteCmd.data,
+        mask = dataWriteCmd.mask
+      )
     }
     val dataReadRsp = data.readSync(dataReadCmd)
   })

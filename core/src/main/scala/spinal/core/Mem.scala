@@ -155,22 +155,22 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
     data.assignFromBits(readBits)
   }
 
-  def readSync(address: UInt, enable: Bool = True, readUnderWrite: ReadUnderWritePolicy = dontCare, clockCrossing: Boolean = false): T = {
+  def readSync(address: UInt, enable: Bool = null, readUnderWrite: ReadUnderWritePolicy = dontCare, clockCrossing: Boolean = false): T = {
     val readWord = wordType.clone()
     readSyncImpl(address,readWord,enable,readUnderWrite,clockCrossing,false)
     readWord
   }
 
-  def readSyncMixedWidth(address: UInt, data : Data, enable: Bool = True,readUnderWrite: ReadUnderWritePolicy = dontCare,clockCrossing: Boolean = false): Unit =  readSyncImpl(address,data,enable,readUnderWrite,clockCrossing,true)
+  def readSyncMixedWidth(address: UInt, data : Data, enable: Bool = null,readUnderWrite: ReadUnderWritePolicy = dontCare,clockCrossing: Boolean = false): Unit =  readSyncImpl(address,data,enable,readUnderWrite,clockCrossing,true)
 
-  def readSyncImpl(address: UInt, data : Data, enable: Bool = True, readUnderWrite: ReadUnderWritePolicy = dontCare, clockCrossing: Boolean = false,allowMixedWidth : Boolean = false): Unit = {
+  def readSyncImpl(address: UInt, data : Data, enable: Bool = null, readUnderWrite: ReadUnderWritePolicy = dontCare, clockCrossing: Boolean = false,allowMixedWidth : Boolean = false): Unit = {
     val readBits = Bits(data.getBitsWidth bits)
 
     val addressBuffer = (if(allowMixedWidth) UInt() else UInt(addressWidth bits)).dontSimplifyIt() //Allow resized address when mixedMode is disable
     addressBuffer := address
 
     val enableBuffer = Bool.dontSimplifyIt()
-    enableBuffer := enable
+    enableBuffer := (if(enable != null) enable else True) //when.getWhensCond(this))
     val readPort = new MemReadSync(this, addressBuffer, readBits, enableBuffer, readUnderWrite, ClockDomain.current)
     if(allowMixedWidth) readPort.addTag(AllowMixedWidth)
 
@@ -193,10 +193,10 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
   }
 
 
-  def writeMixedWidth(address: UInt, data: Data, mask: Bits = null): Unit = writeImpl(address,data,mask,allowMixedWidth = true)
-  def write(address: UInt, data: T, mask: Bits = null) : Unit = writeImpl(address,data,mask,allowMixedWidth = false)
+  def writeMixedWidth(address: UInt, data: Data,enable : Bool = null, mask: Bits = null): Unit = writeImpl(address,data,enable,mask,allowMixedWidth = true)
+  def write(address: UInt, data: T,enable : Bool = null, mask: Bits = null) : Unit = writeImpl(address,data,enable,mask,allowMixedWidth = false)
 
-  def writeImpl(address: UInt, data: Data, mask: Bits = null,allowMixedWidth : Boolean = false) : Unit = {
+  def writeImpl(address: UInt, data: Data,enable : Bool = null, mask: Bits = null,allowMixedWidth : Boolean = false) : Unit = {
     /*assert(mask == null, "Mem write mask currently not implemented by Spinal. You can either create a blackbox " +
       "or instantiate multiple memory instead")*/
     val addressBuffer = (if(allowMixedWidth) UInt() else UInt(addressWidth bits)).dontSimplifyIt() //Allow resized address when mixedMode is disable
@@ -212,7 +212,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
       null
     }
 
-    val whenCond =  when.getWhensCond(this)
+    val whenCond =  if(enable == null) when.getWhensCond(this) else enable
     val whenBuffer = Bool.dontSimplifyIt()
     whenBuffer := whenCond
     val writePort = new MemWrite(this, addressBuffer, dataBuffer, maskBuffer,whenBuffer, ClockDomain.current)

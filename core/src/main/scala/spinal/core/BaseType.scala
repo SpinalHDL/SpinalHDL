@@ -49,7 +49,7 @@ object BaseType {
     }
   }
 
-  def walkWhenNodes(baseType: BaseType, initialConsumer: Node, initialConsumerInputId: Int, conservative: Boolean = false) = {
+  def walkWhenNodes(baseType: BaseType, initialConsumer: Node, initialConsumerInputId: Int, conservative: Boolean = false) : (Node,Int) = {
     var consumer = initialConsumer
     var consumerInputId: Int = initialConsumerInputId
     val globalData = baseType.globalData
@@ -115,8 +115,10 @@ object BaseType {
         }
       }
     }
-    if (!initialConditionalAssignHit)
-      throw new Exception("Basetype is affected outside his scope")
+    if (!initialConditionalAssignHit){
+      val location = ScalaLocated.long
+      SpinalError(s"$baseType is assigned outside the when statements where it is declared.\n Assignement there :\n $location The signal is declared there :\n${baseType.getScalaLocationLong}")
+    }
 
     if (conservative) {
       consumer.getInput(consumerInputId) match {

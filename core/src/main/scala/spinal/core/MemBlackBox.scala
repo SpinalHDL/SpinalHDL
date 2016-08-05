@@ -160,15 +160,15 @@ class Ram_2c_1w_1rs(wordWidth: Int,
   def useReadEnable = io.rd.en.getLiteral[BoolLiteral]
 
   //Following is not obligatory, just to describe blackbox logic
-  val mem = Mem(io.wr.data, wordCount)
-  new ClockingArea(wrClock) {
-    when(io.wr.en) {
-      mem.write(io.wr.addr, io.wr.data, if (useMask) io.wr.mask else null)
-    }
-  }
-  new ClockingArea(rdClock) {
-    io.rd.data := mem.readSync(io.rd.addr, io.rd.en,readUnderWrite,clockCrossing = true)
-  }
+//  val mem = Mem(io.wr.data, wordCount)
+//  new ClockingArea(wrClock) {
+//    when(io.wr.en) {
+//      mem.write(io.wr.addr, io.wr.data, if (useMask) io.wr.mask else null)
+//    }
+//  }
+//  new ClockingArea(rdClock) {
+//    io.rd.data := mem.readSync(io.rd.addr, io.rd.en,readUnderWrite,clockCrossing = true)
+//  }
 }
 
 class Ram_1wors(wordWidth: Int, wordCount: Int, readUnderWrite: ReadUnderWritePolicy = dontCare) extends BlackBox {

@@ -2664,3 +2664,35 @@ object PlayBufferCC{
     SpinalConfig().generateVhdl(new TopLevel).printPruned()
   }
 }
+
+
+
+object MemTest2 {
+
+  class TopLevel extends Component{
+
+    val io = new Bundle{
+      val rw      = in Bool
+      val cs      = in Bool
+      val dataIn  = in Bits(8 bits)
+      val addr    = in UInt(8 bits)
+      val dataOut = out Bits(8 bits)
+    }
+
+    val memory = Mem(Bits(8 bits), 255)
+    io.dataOut := 0
+
+    when(io.cs){
+      when(io.rw){
+        memory(io.addr) := io.dataIn
+      }otherwise{
+        io.dataOut := memory.readSync(address = io.addr)
+      }
+    }
+
+      memory.generateAsBlackBox()
+  }
+  def main(args:Array[String]){
+    SpinalConfig(mode=VHDL).addStandardMemBlackboxing(blackboxOnlyIfRequested).generate(new TopLevel).printPruned()
+  }
+}
