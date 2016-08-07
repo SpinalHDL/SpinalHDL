@@ -41,3 +41,28 @@ object PlayAhb3{
     SpinalVhdl(new TopLevel)
   }
 }
+
+
+object PlayAhb3_2{
+  class TopLevel extends Component{
+    val ahbConfig = Ahb3Config(addressWidth = 16,dataWidth = 32)
+//    val apbConfig = Apb3Config(addressWidth = 16,dataWidth = 32)
+
+    val ahbMasters = Vec(slave(Ahb3Master(ahbConfig)),3)
+    val ahbSlaves  = Vec(master(Ahb3Slave(ahbConfig)),4)
+
+    val interconnect = Ahb3InterconnectFactory(ahbConfig)
+      .addSlave(ahbSlaves(0),(0x1000,0x1000))
+      .addSlave(ahbSlaves(1),(0x3000,0x1000))
+      .addSlave(ahbSlaves(2),(0x4000,0x1000))
+      .addSlave(ahbSlaves(3),(0x5000,0x1000))
+      .addConnection(ahbMasters(0),ahbSlaves(0),ahbSlaves(1))
+      .addConnection(ahbMasters(1),ahbSlaves(1),ahbSlaves(2),ahbSlaves(3))
+      .addConnection(ahbMasters(2),ahbSlaves(0),ahbSlaves(3))
+      .build()
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel).printPruned()
+  }
+}
