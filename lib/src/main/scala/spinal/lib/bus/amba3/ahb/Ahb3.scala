@@ -57,7 +57,7 @@ case class Ahb3Slave(config: Ahb3Config) extends Bundle with IMasterSlave{
   val HRESP = Bool
 
   override def asMaster(): Ahb3Slave.this.type = {
-    out(HADDR,HWRITE,HSIZE,HBURST,HPROT,HTRANS,HMASTLOCK,HWDATA,HREADYIN)
+    out(HADDR,HWRITE,HSIZE,HBURST,HPROT,HTRANS,HMASTLOCK,HWDATA,HREADYIN,HSEL)
     in(HREADYOUT,HRESP,HRDATA)
     this
   }

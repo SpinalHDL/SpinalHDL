@@ -6,8 +6,8 @@ import spinal.lib._
 case class Apb3Config(
   addressWidth: Int,
   dataWidth: Int,
-  selWidth : Int,
-  useSlaveError : Boolean
+  selWidth : Int = 1,
+  useSlaveError : Boolean = true
 )
 
 object Apb3{

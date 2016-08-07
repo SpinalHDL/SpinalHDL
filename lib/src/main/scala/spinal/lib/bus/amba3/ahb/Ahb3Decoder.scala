@@ -5,7 +5,7 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc.BaseSize
 
-class Ahb3Decoder(ahb3Config: Ahb3Config,decodings : Seq[BaseSize]) extends Component{
+case class Ahb3Decoder(ahb3Config: Ahb3Config,decodings : Seq[BaseSize]) extends Component{
   val io = new Bundle{
     val input = slave(Ahb3Master(ahb3Config))
     val outputs = Vec(master(Ahb3Slave(ahb3Config)),decodings.length)

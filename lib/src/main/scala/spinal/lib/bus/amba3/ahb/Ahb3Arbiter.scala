@@ -3,7 +3,7 @@ package spinal.lib.bus.amba3.ahb
 import spinal.core._
 import spinal.lib._
 
-class Ahb3Arbiter(ahb3Config: Ahb3Config,inputsCount : Int) extends Component{
+case class Ahb3Arbiter(ahb3Config: Ahb3Config,inputsCount : Int) extends Component{
   val io = new Bundle{
     val inputs = Vec(slave(Ahb3Slave(ahb3Config)),inputsCount)
     val output = master(Ahb3Slave(ahb3Config))
