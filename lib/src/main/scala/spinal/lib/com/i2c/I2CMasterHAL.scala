@@ -43,10 +43,10 @@ import spinal.lib.fsm._
   * @param clockDividerSamplingWidth : Width of the clockDivider value
   * @param clockDividerSCLWidth      : Width of the clockDivider value
   */
-case class I2CMasterHALGenerics(dataWidth                 : Int =  8,
+case class I2CMasterHALGenerics(dataWidth                 : BitCount =  8 bits,
                                 samplingSize              : Int = 3,
-                                clockDividerSamplingWidth : Int = 10,
-                                clockDividerSCLWidth      : Int = 20){}
+                                clockDividerSamplingWidth : BitCount = 10 bits,
+                                clockDividerSCLWidth      : BitCount = 20 bits){}
 
 
 /**
@@ -54,16 +54,16 @@ case class I2CMasterHALGenerics(dataWidth                 : Int =  8,
   */
 case class I2CMasterHALConfig(g: I2CMasterHALGenerics) extends Bundle {
 
-  val clockDividerSampling = UInt(g.clockDividerSamplingWidth bit)
-  val clockDividerSCL      = UInt (g.clockDividerSCLWidth bits)
+  val clockDividerSampling = UInt(g.clockDividerSamplingWidth)
+  val clockDividerSCL      = UInt (g.clockDividerSCLWidth)
   val enCollision          = Bool
 
   def setSCLFrequency(sclFrequency : BigDecimal, clkFrequency : BigDecimal = ClockDomain.current.frequency.getValue) : Unit = {
     clockDividerSCL := (clkFrequency / sclFrequency * 2).toInt
   }
 
-  def setClockDividerSampling(divider : Int): Unit = {
-    clockDividerSampling := divider
+  def setFrequencySampling(frequencySampling : BigDecimal, clkFrequency : BigDecimal = ClockDomain.current.frequency.getValue): Unit = {
+    clockDividerSampling := (clkFrequency / frequencySampling).toInt
   }
 }
 
@@ -81,7 +81,7 @@ object I2CMasterHALCmdMode extends SpinalEnum{
   */
 case class I2CMasteHALCmd(g : I2CMasterHALGenerics) extends Bundle{
   val mode   = I2CMasterHALCmdMode()
-  val data   = Bits(g.dataWidth bits)
+  val data   = Bits(g.dataWidth )
 }
 
 
@@ -102,7 +102,7 @@ object I2CMasterHALRspMode extends SpinalEnum{
   */
 case class I2CMasterHALRsp(g : I2CMasterHALGenerics) extends Bundle{
   val mode  = I2CMasterHALRspMode()
-  val data  = Bits(g.dataWidth bits)
+  val data  = Bits(g.dataWidth )
 }
 
 
@@ -133,10 +133,10 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
     * Filter SDA and SCL input
     */
   val sampler = new I2CFilterInput(i2c_sda           = io.i2c.sda.read,
-                                   i2c_scl           = io.i2c.scl.read,
-                                   clockDivider      = io.config.clockDividerSampling,
-                                   samplingSize      = g.samplingSize,
-                                   clockDividerWidth = g.clockDividerSamplingWidth)
+    i2c_scl           = io.i2c.scl.read,
+    clockDivider      = io.config.clockDividerSampling,
+    samplingSize      = g.samplingSize,
+    clockDividerWidth = g.clockDividerSamplingWidth)
 
 
   /**
@@ -151,7 +151,7 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
     */
   val sclGenerator = new Area{
 
-    val cntValue        = Reg(UInt(g.clockDividerSCLWidth bits)) init(0)
+    val cntValue        = Reg(UInt(g.clockDividerSCLWidth)) init(0)
     val scl             = RegInit(True)
     val scl_en          = Bool // set in the state machine "smMaster"
     val masterFreeze    = Bool // set in the state machine "smMaster"
@@ -213,7 +213,7 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
     */
   val smMaster = new StateMachine{
 
-    val dataReceived = Reg(Bits(g.dataWidth bits)) randBoot()
+    val dataReceived = Reg(Bits(g.dataWidth)) randBoot()
     val getBus       = Reg(Bool) init(False)
 
     val wr_sda = True
@@ -241,7 +241,6 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
 
     val sIdle : State = new State with EntryPoint {
       whenIsActive {
-        // nothing to do
         getBus.clear()
       }
     }
