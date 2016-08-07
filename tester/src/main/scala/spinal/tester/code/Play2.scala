@@ -2697,3 +2697,48 @@ object MemTest2 {
     SpinalConfig(mode=VHDL).addStandardMemBlackboxing(blackboxOnlyIfRequested).generate(new TopLevel).printPruned()
   }
 }
+
+
+object PlayDualPort{
+  class TopLevel(wordWidth : Int,
+                 wordCount : Int) extends Component {
+
+    val addressWidth = log2Up(wordCount)
+    val io = new Bundle {
+      val portA = new Bundle {
+        val en = in Bool
+        val wr = in Bool
+        val addr = in UInt (addressWidth bits)
+        val wrData = in Bits (wordWidth bits)
+        val rdData = out Bits (wordWidth bits)
+      }
+      val portB = new Bundle {
+        val en = in Bool
+        val wr = in Bool
+        val addr = in UInt (addressWidth bits)
+        val wrData = in Bits (wordWidth bits)
+        val rdData = out Bits (wordWidth bits)
+      }
+    }
+
+    val mem = Mem(Bits(wordWidth bits),wordCount)
+    io.portA.rdData := mem.readWriteSync(
+      enable  = io.portA.en,
+      address = io.portA.addr,
+      write   = io.portA.wr,
+      data    = io.portA.wrData
+    )
+    io.portB.rdData := mem.readWriteSync(
+      enable  = io.portB.en,
+      address = io.portB.addr,
+      write   = io.portB.wr,
+      data    = io.portB.wrData
+    )
+  }
+
+  def main(args: Array[String]) {
+    SpinalConfig()
+     // .addStandardMemBlackboxing(blackboxAll)
+      .generateVhdl(new TopLevel(wordWidth = 32,wordCount = 1024))
+  }
+}
