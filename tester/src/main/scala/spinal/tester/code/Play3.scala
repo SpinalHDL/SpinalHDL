@@ -4,7 +4,6 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba3.ahb._
 import spinal.lib.bus.amba3.apb.Apb3Config
-import spinal.lib.bus.misc.BaseSize
 
 object PlayAhb3{
   class TopLevel extends Component{
@@ -18,10 +17,10 @@ object PlayAhb3{
       val decoder = Ahb3Decoder(
         ahb3Config = ahbConfig,
         decodings = List(
-          BaseSize(0x1000,0x1000),
-          BaseSize(0x3000,0x1000),
-          BaseSize(0x4000,0x1000),
-          BaseSize(0x6000,0x1000)
+          (0x1000,0x1000),
+          (0x3000,0x1000),
+          (0x4000,0x1000),
+          (0x6000,0x1000)
         )
       )
       decoder.io.input <> ahbMaster
@@ -52,13 +51,17 @@ object PlayAhb3_2{
     val ahbSlaves  = Vec(master(Ahb3Slave(ahbConfig)),4)
 
     val interconnect = Ahb3InterconnectFactory(ahbConfig)
-      .addSlave(ahbSlaves(0),(0x1000,0x1000))
-      .addSlave(ahbSlaves(1),(0x3000,0x1000))
-      .addSlave(ahbSlaves(2),(0x4000,0x1000))
-      .addSlave(ahbSlaves(3),(0x5000,0x1000))
-      .addConnection(ahbMasters(0),ahbSlaves(0),ahbSlaves(1))
-      .addConnection(ahbMasters(1),ahbSlaves(1),ahbSlaves(2),ahbSlaves(3))
-      .addConnection(ahbMasters(2),ahbSlaves(0),ahbSlaves(3))
+      .addSlaves(
+        ahbSlaves(0) -> (0x1000,0x1000),
+        ahbSlaves(1) -> (0x3000,0x1000),
+        ahbSlaves(2) -> (0x4000,0x1000),
+        ahbSlaves(3) -> (0x5000,0x1000)
+      )
+      .addConnections(
+        ahbMasters(0) -> List(ahbSlaves(0),ahbSlaves(1)),
+        ahbMasters(1) -> List(ahbSlaves(1),ahbSlaves(2),ahbSlaves(3)),
+        ahbMasters(2) -> List(ahbSlaves(0),ahbSlaves(3))
+      )
       .build()
   }
 

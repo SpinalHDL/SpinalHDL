@@ -176,7 +176,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
     for (node <- nodes) node match {
       case nameable: Nameable => {
         if (nameable.isUnnamed || nameable.getName() == "") {
-          nameable.setMode(Nameable.UNANMED)
+          nameable.unsetName()
           nameable.setWeakName("zz")
         }
         if (nameable.isWeak)
@@ -186,14 +186,15 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
       }
       case _ =>
     }
-    for (kind <- children) {
-      OwnableRef.proposal(kind,this)
-      if (kind.isUnnamed) {
-        var name = kind.getClass.getSimpleName
+    for (child <- children) {
+      OwnableRef.proposal(child,this)
+      if (child.isUnnamed) {
+        var name = child.getClass.getSimpleName
         name = Character.toLowerCase(name.charAt(0)) + (if (name.length() > 1) name.substring(1) else "");
-        kind.setWeakName(name)
+        child.unsetName()
+        child.setWeakName(name)
       }
-      kind.setName(localScope.allocateName(kind.getName()));
+      child.setName(localScope.allocateName(child.getName()));
     }
   }
 

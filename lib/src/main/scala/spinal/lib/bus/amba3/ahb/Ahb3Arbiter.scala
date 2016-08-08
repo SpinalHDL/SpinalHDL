@@ -3,6 +3,8 @@ package spinal.lib.bus.amba3.ahb
 import spinal.core._
 import spinal.lib._
 
+//BUSY transfer, undefined length burst
+//INCR
 case class Ahb3Arbiter(ahb3Config: Ahb3Config,inputsCount : Int) extends Component{
   val io = new Bundle{
     val inputs = Vec(slave(Ahb3Slave(ahb3Config)),inputsCount)
@@ -36,12 +38,11 @@ case class Ahb3Arbiter(ahb3Config: Ahb3Config,inputsCount : Int) extends Compone
   io.output.HSIZE     := io.inputs(requestIndex).HSIZE
   io.output.HBURST    := io.inputs(requestIndex).HBURST
   io.output.HPROT     := io.inputs(requestIndex).HPROT
-  io.output.HTRANS    := io.inputs(requestIndex).HTRANS
+  io.output.HTRANS    := io.output.HSEL ? io.inputs(requestIndex).HTRANS | "00"
   io.output.HMASTLOCK := io.inputs(requestIndex).HMASTLOCK
 
   val dataIndex        = RegNextWhen(requestIndex,io.output.HSEL && io.output.HREADYIN)
   io.output.HWDATA    := io.inputs(dataIndex).HWDATA
-
 
   for((input,requestRouted) <- (io.inputs,maskRouted.asBools).zipped){
     input.HRDATA    := io.output.HRDATA
