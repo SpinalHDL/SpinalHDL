@@ -1381,7 +1381,7 @@ class PhasePrintUnUsedSignals(prunedSignals : mutable.Set[BaseType])(pc: PhaseCo
         }
         case data : Data =>  {
           data.flatten.foreach(bt => {
-            if(bt.algoId != targetAlgoId && (!bt.isInstanceOf[BitVector] || bt.asInstanceOf[BitVector].getWidth != 0) && !bt.hasTag(unusedTag)){
+            if(bt.algoId != targetAlgoId && (!bt.isInstanceOf[BitVector] || bt.asInstanceOf[BitVector].inferredWidth != 0) && !bt.hasTag(unusedTag)){
               prunedSignals += bt
             }
           })

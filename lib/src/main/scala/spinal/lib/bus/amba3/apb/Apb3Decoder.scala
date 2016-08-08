@@ -2,15 +2,15 @@ package spinal.lib.bus.amba3.apb
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.misc.BaseSize
+import spinal.lib.bus.misc.SizeMapping
 
 
 object Apb3Decoder{
-  def getOutputConfig(inputConfig: Apb3Config,decodings : Seq[BaseSize]) = inputConfig.copy(selWidth = decodings.length)
+  def getOutputConfig(inputConfig: Apb3Config,decodings : Seq[SizeMapping]) = inputConfig.copy(selWidth = decodings.length)
 }
 
 
-class Apb3Decoder(inputConfig: Apb3Config,decodings : Seq[BaseSize]) extends Component {
+class Apb3Decoder(inputConfig: Apb3Config,decodings : Seq[SizeMapping]) extends Component {
   import Apb3Router._
   assert(inputConfig.selWidth == 1)
 

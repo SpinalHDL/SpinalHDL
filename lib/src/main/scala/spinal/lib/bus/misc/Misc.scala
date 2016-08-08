@@ -5,14 +5,20 @@ import spinal.core._
 /**
  * Created by PIC32F_USER on 07/08/2016.
  */
-case class BaseMask(base : BigInt,mask : BigInt){
+
+trait AddressMapping{
+  def hit(address : UInt) : Bool
+}
+
+case class MaskMapping(base : BigInt,mask : BigInt) extends AddressMapping{
   def hit(address : UInt) : Bool = (address & base) === mask
 }
 
-object BaseSize{
-  implicit def tupl(that : (Int,Int)) : BaseSize = BaseSize(that._1,that._2)
+object SizeMapping{
+  implicit def implicitTuple(that : (Int,Int)) : SizeMapping = SizeMapping(that._1,that._2)
 }
-case class BaseSize(base : BigInt,size : BigInt){
+
+case class SizeMapping(base : BigInt,size : BigInt)extends AddressMapping{
   def hit(address : UInt) : Bool = if(isPow2(size) && base % size == 0)
     (address & S(-size,address.getWidth bits).asUInt) === (base)
   else

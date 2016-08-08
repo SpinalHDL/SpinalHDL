@@ -8,7 +8,13 @@ import spinal.lib._
 
 
 case class Ahb3Config(addressWidth: Int,
-                      dataWidth: Int)
+                      dataWidth: Int){
+  def addressType = UInt(addressWidth bits)
+  def dataType = Bits(dataWidth bits)
+  def bytePerWord = dataWidth/8
+  def symboleRange = log2Up(bytePerWord)-1 downto 0
+  def wordRange    = addressWidth-1 downto log2Up(bytePerWord)
+}
 
 case class Ahb3Master(config: Ahb3Config) extends Bundle with IMasterSlave{
   //  Address and control
@@ -56,18 +62,23 @@ case class Ahb3Slave(config: Ahb3Config) extends Bundle with IMasterSlave{
   val HREADYOUT = Bool
   val HRESP = Bool
 
+  def setOKEY = HRESP := False
+  def setERROR   = HRESP := True
+
   override def asMaster(): Ahb3Slave.this.type = {
     out(HADDR,HWRITE,HSIZE,HBURST,HPROT,HTRANS,HMASTLOCK,HWDATA,HREADYIN,HSEL)
     in(HREADYOUT,HRESP,HRDATA)
     this
   }
 
+  def OKEY  = !HRESP
+  def ERROR = HRESP
 
   //return true when the current transaction is the last one of the current burst
   def last() : Bool = {
     val beatCounter = Reg(UInt(4 bits))
     val beatCounterPlusOne = beatCounter + "00001"
-    val result = (HBURST(2 downto 1).asUInt @@ U"00") === beatCounterPlusOne
+    val result = (HBURST(2 downto 1).asUInt @@ U"00") === beatCounterPlusOne || (HREADYIN && ERROR)
 
     when(HSEL && HREADYIN){
       beatCounter := beatCounterPlusOne.resized
@@ -82,4 +93,10 @@ case class Ahb3Slave(config: Ahb3Config) extends Bundle with IMasterSlave{
   def isLast() : Bool = last && HSEL
 
   def fire() : Bool = HSEL && HREADYOUT
+
+
+  def writeMask() : Bits = {
+//    val lowMask,highRang =
+    ???
+  }
 }
