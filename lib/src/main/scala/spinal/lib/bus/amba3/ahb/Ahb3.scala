@@ -96,7 +96,15 @@ case class Ahb3Slave(config: Ahb3Config) extends Bundle with IMasterSlave{
 
 
   def writeMask() : Bits = {
-//    val lowMask,highRang =
-    ???
+    val lowMask,highMask = Bits(config.bytePerWord bits)
+    val low =  HADDR(config.symboleRange)
+    val high = HADDR(config.symboleRange) + Vec((0 to config.bytePerWord).map(idx => idx === HSIZE)).asBits.asUInt
+
+    for(idx <- lowMask.range){
+      lowMask(idx) := low <= idx
+      highMask(idx) := high > idx
+    }
+
+    lowMask & highMask
   }
 }
