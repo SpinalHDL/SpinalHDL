@@ -5,6 +5,9 @@ from cocotb.result import TestFailure
 from cocotb.triggers import Timer, RisingEdge
 
 
+def log2Up(value):
+    return value.bit_length()-1
+
 def randInt(min,max):
     return random.randint(min, max)
 
@@ -102,6 +105,7 @@ class BoolRandomizer:
         return random.random() < self.prob
 
 
+
 # class Stream:
 #     def __init__(self,name,dut):
 #         self.valid = getattr(dut, name + "_valid")
@@ -189,3 +193,15 @@ def StreamReader(streamName, onTransaction, handle, dut, clk):
             if onTransaction:
                 onTransaction(payload,handle)
 
+
+
+class Bundle:
+    def __init__(self,dut,name):
+        self.nameToElement = {}
+        self.elements = [a for a in dut if a._name.startswith(name + "_")]
+        for element in self.elements:
+            # print("append " + element._name + " with name : " + element._name[len(name) + 1:])
+            self.nameToElement[element._name[len(name) + 1:]] = element
+
+    def __getattr__(self, name):
+        return self.nameToElement[name]

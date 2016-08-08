@@ -27,9 +27,9 @@ object Ahb3InterconnectTester{
       .build()
   }
 }
-//
-//class Ahb3InterconnectTesterCocotbBoot extends SpinalTesterCocotbBase {
-//  override def getName: String = "Ahb3InterconnectTester"
-//  override def pythonTestLocation: String = "tester/src/test/python/spinal/Ahb3InterconnectTester"
-//  override def createToplevel: Component = new Ahb3InterconnectTester.Ahb3InterconnectTester
-//}
+
+class Ahb3InterconnectTesterCocotbBoot extends SpinalTesterCocotbBase {
+  override def getName: String = "Ahb3InterconnectTester"
+  override def pythonTestLocation: String = "tester/src/test/python/spinal/Ahb3InterconnectTester"
+  override def createToplevel: Component = new Ahb3InterconnectTester.Ahb3InterconnectTester
+}

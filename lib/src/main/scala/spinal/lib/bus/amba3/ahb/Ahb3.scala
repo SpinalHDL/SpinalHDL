@@ -78,7 +78,7 @@ case class Ahb3Slave(config: Ahb3Config) extends Bundle with IMasterSlave{
   def last() : Bool = {
     val beatCounter = Reg(UInt(4 bits))
     val beatCounterPlusOne = beatCounter + "00001"
-    val result = (HBURST(2 downto 1).asUInt @@ U"00") === beatCounterPlusOne || (HREADYIN && ERROR)
+    val result = ((U"1" << HBURST(2 downto 1).asUInt) << 1) === beatCounterPlusOne || (HREADYIN && ERROR)
 
     when(HSEL && HREADYIN){
       beatCounter := beatCounterPlusOne.resized
@@ -101,7 +101,7 @@ case class Ahb3Slave(config: Ahb3Config) extends Bundle with IMasterSlave{
     val high = HADDR(config.symboleRange) + Vec((0 to config.bytePerWord).map(idx => idx === HSIZE)).asBits.asUInt
 
     for(idx <- lowMask.range){
-      lowMask(idx) := low <= idx
+      lowMask(idx)  := low <= idx
       highMask(idx) := high > idx
     }
 
