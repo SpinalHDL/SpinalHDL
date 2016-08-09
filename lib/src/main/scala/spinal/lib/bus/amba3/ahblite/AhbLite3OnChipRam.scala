@@ -3,13 +3,13 @@ package spinal.lib.bus.amba3.ahblite
 import spinal.core._
 import spinal.lib._
 
-case class AhbLite3OnChipRam(AhbLite3Config: AhbLite3Config,byteCount : Int) extends Component{
+case class AhbLite3OnChipRam(AhbLite3Config: AhbLite3Config,byteCount : BigInt) extends Component{
   val io = new Bundle {
     val ahb = slave(AhbLite3(AhbLite3Config))
   }
 
   val wordCount = byteCount / AhbLite3Config.bytePerWord
-  val ram = Mem(AhbLite3Config.dataType,wordCount)
+  val ram = Mem(AhbLite3Config.dataType,wordCount.toInt)
   val wordRange = log2Up(wordCount) + log2Up(AhbLite3Config.bytePerWord)-1 downto log2Up(AhbLite3Config.bytePerWord)
 
   //Address/control phase to write data phase

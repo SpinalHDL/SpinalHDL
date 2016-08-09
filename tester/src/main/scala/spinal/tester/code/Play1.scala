@@ -14,7 +14,7 @@ import spinal.lib.bus.amba4.axilite._
 import spinal.lib.bus.avalon.AvalonMM
 import spinal.lib.bus.sbl.{SblConfig, SblReadRet, SblReadCmd, SblWriteCmd}
 import spinal.lib.com.uart._
-import spinal.lib.cpu.riscv.impl.CoreQSysAvalon.RiscvAvalon
+import spinal.lib.cpu.riscv.impl.build.RiscvAvalon
 import spinal.lib.cpu.riscv.impl._
 import spinal.lib.cpu.riscv.impl.extension.{DebugExtension, BarrelShifterFullExtension, DivExtension, MulExtension}
 import spinal.lib.experimental.MacrosClass

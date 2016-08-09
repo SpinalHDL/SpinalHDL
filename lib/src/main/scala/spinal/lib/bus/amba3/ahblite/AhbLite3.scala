@@ -11,7 +11,7 @@ object AhbLite3{
 }
 
 case class AhbLite3Config(addressWidth: Int,
-                      dataWidth: Int){
+                          dataWidth: Int){
   def addressType = UInt(addressWidth bits)
   def dataType = Bits(dataWidth bits)
   def bytePerWord = dataWidth/8

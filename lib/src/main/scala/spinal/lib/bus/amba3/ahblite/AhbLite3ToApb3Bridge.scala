@@ -10,7 +10,7 @@ object AhbLite3ToApb3BridgePhase extends SpinalEnum{
 }
 
 case class AhbLite3ToApb3Bridge(ahbConfig: AhbLite3Config,apbConfig: Apb3Config) extends Component{
-  assert(ahbConfig.addressWidth == apbConfig.addressWidth)
+  assert(ahbConfig.addressWidth >= apbConfig.addressWidth)
   assert(ahbConfig.dataWidth == apbConfig.dataWidth)
   assert(apbConfig.selWidth == 1)
   import AhbLite3ToApb3BridgePhase._
@@ -55,7 +55,7 @@ case class AhbLite3ToApb3Bridge(ahbConfig: AhbLite3Config,apbConfig: Apb3Config)
     }
   }
 
-  io.apb.PADDR  := address
+  io.apb.PADDR  := address.resized
   io.ahb.HRDATA := readedData
   io.apb.PWDATA := io.ahb.HWDATA
   io.apb.PWRITE := write

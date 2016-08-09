@@ -4,7 +4,7 @@ import java.util.concurrent.ForkJoinPool
 
 import spinal.core.SpinalVhdl
 import spinal.lib.WrapWithReg
-import spinal.lib.cpu.riscv.impl.CoreQSysAvalon.RiscvAvalon
+import spinal.lib.cpu.riscv.impl.build.RiscvAvalon
 import spinal.lib.cpu.riscv.impl._
 import spinal.lib.cpu.riscv.impl.extension.{BarrelShifterLightExtension, BarrelShifterFullExtension, DivExtension, MulExtension}
 import spinal.lib.eda.altera.QuartusFlow

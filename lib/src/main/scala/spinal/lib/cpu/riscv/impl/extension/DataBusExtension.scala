@@ -2,12 +2,13 @@ package spinal.lib.cpu.riscv.impl.extension
 
 
 import spinal.core._
+import spinal.lib.bus.amba3.ahblite.{AhbLite3Config, AhbLite3Master}
 import spinal.lib.bus.avalon.{AvalonMM, AvalonMMConfig}
 import spinal.lib.cpu.riscv.impl.Utils._
 import spinal.lib.cpu.riscv.impl._
 import spinal.lib._
 
-class NativeDataBusExtension extends CoreExtension with AvalonProvider{
+class NativeDataBusExtension extends CoreExtension with AvalonProvider with AhbLite3Provider{
   override def getName: String = "NativeInstructionBus"
   var memBus : CoreDataBus = null
   override def applyIt(core: Core): Area = new Area{
@@ -17,7 +18,10 @@ class NativeDataBusExtension extends CoreExtension with AvalonProvider{
   }
 
   override def getAvalon(): AvalonMM = memBus.toAvalon()
-  override def getConfig(): AvalonMMConfig = CoreInstructionBus.getAvalonConfig(memBus.p)
+  override def getAvalonConfig(): AvalonMMConfig = CoreDataBus.getAvalonConfig(memBus.p)
+
+  override def getAhbLite3(): AhbLite3Master = memBus.toAhbLite3()
+  override def getAhbLite3Config(): AhbLite3Config = CoreDataBus.getAhbLite3Config(memBus.p)
 }
 
 
@@ -88,5 +92,5 @@ class CachedDataBusExtension(c : DataCacheConfig,cutCpuCmdReady : Boolean = fals
   }
 
   override def getAvalon(): AvalonMM = memBus.toAvalon()
-  override def getConfig(): AvalonMMConfig = c.getAvalonConfig()
+  override def getAvalonConfig(): AvalonMMConfig = c.getAvalonConfig()
 }

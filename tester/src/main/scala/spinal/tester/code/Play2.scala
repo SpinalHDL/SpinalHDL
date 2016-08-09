@@ -2641,7 +2641,8 @@ object PlaySwitchEmit{
         y := 1
         z := 2
       }
-      is(3){
+      default{
+      //is(3){
         y := 1
         z := 3
       }
