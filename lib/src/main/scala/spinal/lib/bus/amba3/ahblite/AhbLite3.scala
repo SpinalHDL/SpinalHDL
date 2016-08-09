@@ -1,4 +1,4 @@
-package spinal.lib.bus.amba3.ahb
+package spinal.lib.bus.amba3.ahblite
 
 import spinal.core._
 import spinal.lib._
@@ -6,8 +6,11 @@ import spinal.lib._
  * Created by PIC32F_USER on 07/08/2016.
  */
 
+object AhbLite3{
+  def IDLE = B"00"
+}
 
-case class Ahb3Config(addressWidth: Int,
+case class AhbLite3Config(addressWidth: Int,
                       dataWidth: Int){
   def addressType = UInt(addressWidth bits)
   def dataType = Bits(dataWidth bits)
@@ -16,7 +19,7 @@ case class Ahb3Config(addressWidth: Int,
   def wordRange    = addressWidth-1 downto log2Up(bytePerWord)
 }
 
-case class Ahb3Master(config: Ahb3Config) extends Bundle with IMasterSlave{
+case class AhbLite3Master(config: AhbLite3Config) extends Bundle with IMasterSlave{
   //  Address and control
   val HADDR     = UInt(config.addressWidth bits)
   val HWRITE    = Bool
@@ -34,19 +37,42 @@ case class Ahb3Master(config: Ahb3Config) extends Bundle with IMasterSlave{
   val HREADY    = Bool
   val HRESP     = Bool
 
-  override def asMaster(): Ahb3Master.this.type = {
+  override def asMaster(): AhbLite3Master.this.type = {
     out(HADDR,HWRITE,HSIZE,HBURST,HPROT,HTRANS,HMASTLOCK,HWDATA)
     in(HREADY,HRESP,HRDATA)
     this
   }
+
+  def isIdle = HTRANS === AhbLite3.IDLE
+
+  def toAhbLite3() : AhbLite3 = {
+    val slave = AhbLite3(config)
+
+
+    slave.HADDR     := this.HADDR
+    slave.HWRITE    := this.HWRITE
+    slave.HSIZE     := this.HSIZE
+    slave.HBURST    := this.HBURST
+    slave.HPROT     := this.HPROT
+    slave.HTRANS    := this.HTRANS
+    slave.HMASTLOCK := this.HMASTLOCK
+    slave.HWDATA    := this.HWDATA
+    slave.HREADY    := slave.HREADYOUT
+
+    this.HRDATA     := slave.HRDATA
+    this.HRESP      := slave.HRESP
+    this.HREADY     := slave.HREADYOUT
+
+    slave
+  }
 }
 
 
-case class Ahb3Slave(config: Ahb3Config) extends Bundle with IMasterSlave{
+case class AhbLite3(config: AhbLite3Config) extends Bundle with IMasterSlave{
   //  Address and control
   val HADDR = UInt(config.addressWidth bits)
   val HSEL = Bool
-  val HREADYIN = Bool
+  val HREADY = Bool
   val HWRITE = Bool
   val HSIZE = Bits(3 bits)
   val HBURST = Bits(3 bits)
@@ -65,22 +91,23 @@ case class Ahb3Slave(config: Ahb3Config) extends Bundle with IMasterSlave{
   def setOKEY = HRESP := False
   def setERROR   = HRESP := True
 
-  override def asMaster(): Ahb3Slave.this.type = {
-    out(HADDR,HWRITE,HSIZE,HBURST,HPROT,HTRANS,HMASTLOCK,HWDATA,HREADYIN,HSEL)
+  override def asMaster(): AhbLite3.this.type = {
+    out(HADDR,HWRITE,HSIZE,HBURST,HPROT,HTRANS,HMASTLOCK,HWDATA,HREADY,HSEL)
     in(HREADYOUT,HRESP,HRDATA)
     this
   }
 
   def OKEY  = !HRESP
   def ERROR = HRESP
+  def isIdle = HTRANS === AhbLite3.IDLE
 
   //return true when the current transaction is the last one of the current burst
   def last() : Bool = {
-    val beatCounter = Reg(UInt(4 bits))
+    val beatCounter = Reg(UInt(4 bits)) init(0)
     val beatCounterPlusOne = beatCounter + "00001"
-    val result = (HBURST(2 downto 1).asUInt @@ U"00") === beatCounterPlusOne || (HREADYIN && ERROR)
+    val result = ((U"1" << HBURST(2 downto 1).asUInt) << 1) === beatCounterPlusOne || (HREADY && ERROR)
 
-    when(HSEL && HREADYIN){
+    when(HSEL && HREADY){
       beatCounter := beatCounterPlusOne.resized
       when(result){
         beatCounter := 0
@@ -96,7 +123,15 @@ case class Ahb3Slave(config: Ahb3Config) extends Bundle with IMasterSlave{
 
 
   def writeMask() : Bits = {
-//    val lowMask,highRang =
-    ???
+    val lowMask,highMask = Bits(config.bytePerWord bits)
+    val low =  HADDR(config.symboleRange)
+    val high = HADDR(config.symboleRange) + Vec((0 to config.bytePerWord).map(idx => idx === HSIZE)).asBits.asUInt
+
+    for(idx <- lowMask.range){
+      lowMask(idx)  := low <= idx
+      highMask(idx) := high > idx
+    }
+
+    lowMask & highMask
   }
 }

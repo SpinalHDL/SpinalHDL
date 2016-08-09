@@ -133,7 +133,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
         else
           io.setName("")
       }
-      OwnableRef.set(io,this)
+      OwnableRef.proposal(io,this)
     }
 //    if(io != null) {
 //      io.setName("io")
