@@ -8,15 +8,15 @@ import spinal.lib.bus.misc.SizeMapping
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-case class AhbLite3InterconnectSlaveConnection(master : AhbLite3Master/*,priority : Int*/)
+case class AhbLite3InterconnectSlaveConnection(master : AhbLite3/*,priority : Int*/)
 case class AhbLite3InterconnectSlaveConfig(mapping : SizeMapping){
   val masters = ArrayBuffer[AhbLite3InterconnectSlaveConnection]()
 }
 case class AhbLite3InterconnectFactory(AhbLite3Config: AhbLite3Config){
   val slavesConfigs = mutable.HashMap[AhbLite3,AhbLite3InterconnectSlaveConfig]()
 
-  def addSlave(AhbLite3Slave: AhbLite3,mapping: SizeMapping) : this.type = {
-    slavesConfigs(AhbLite3Slave) = AhbLite3InterconnectSlaveConfig(mapping)
+  def addSlave(ahb: AhbLite3,mapping: SizeMapping) : this.type = {
+    slavesConfigs(ahb) = AhbLite3InterconnectSlaveConfig(mapping)
     this
   }
 
@@ -25,25 +25,25 @@ case class AhbLite3InterconnectFactory(AhbLite3Config: AhbLite3Config){
     this
   }
 
-  def addConnection(AhbLite3Master: AhbLite3Master,AhbLite3Slave: Iterable[AhbLite3]) : this.type = {
-    AhbLite3Slave.foreach(slavesConfigs(_).masters += AhbLite3InterconnectSlaveConnection(AhbLite3Master))
+  def addConnection(ahb: AhbLite3,AhbLite3Slave: Iterable[AhbLite3]) : this.type = {
+    AhbLite3Slave.foreach(slavesConfigs(_).masters += AhbLite3InterconnectSlaveConnection(ahb))
     this
   }
-//  def addConnection(AhbLite3Master: AhbLite3Master)(AhbLite3Slave: AhbLite3Slave*) : this.type = {
-//    AhbLite3Slave.foreach(slavesConfigs(_).masters += AhbLite3InterconnectSlaveConnection(AhbLite3Master))
+//  def addConnection(AhbLite3: AhbLite3)(AhbLite3Slave: AhbLite3Slave*) : this.type = {
+//    AhbLite3Slave.foreach(slavesConfigs(_).masters += AhbLite3InterconnectSlaveConnection(AhbLite3))
 //    this
 //  }
 
-  def addConnection(order: (AhbLite3Master,Iterable[AhbLite3])) : this.type = addConnection(order._1,order._2)
+  def addConnection(order: (AhbLite3,Iterable[AhbLite3])) : this.type = addConnection(order._1,order._2)
 
-  def addConnections(orders : (AhbLite3Master,Iterable[AhbLite3])*) : this.type = {
+  def addConnections(orders : (AhbLite3,Iterable[AhbLite3])*) : this.type = {
     orders.foreach(addConnection(_))
     this
   }
 
   def build() = new Area{
     val masters = slavesConfigs.values.map(_.masters.map(_.master)).flatten.toSet
-    val masterToDecodedSlave = mutable.HashMap[AhbLite3Master,Map[AhbLite3,AhbLite3]]()
+    val masterToDecodedSlave = mutable.HashMap[AhbLite3,Map[AhbLite3,AhbLite3]]()
     val decoders = for(master <- masters) yield new Area{
       val slaves = slavesConfigs.filter{
         case (slave,config) => config.masters.exists(connection => connection.master == master)

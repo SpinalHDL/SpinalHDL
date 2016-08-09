@@ -20,9 +20,9 @@ object AhbLite3InterconnectTester{
         ahbSlaves(3) -> (0xC00,0x400)
       )
       .addConnections(
-        ahbMasters(0) -> List(ahbSlaves(1),ahbSlaves(2),ahbSlaves(3)),
-        ahbMasters(1) -> List(ahbSlaves(0),ahbSlaves(2),ahbSlaves(3)),
-        ahbMasters(2) -> List(ahbSlaves(0),ahbSlaves(1),ahbSlaves(3))
+        ahbMasters(0).toAhbLite3() -> List(ahbSlaves(1),ahbSlaves(2),ahbSlaves(3)),
+        ahbMasters(1).toAhbLite3() -> List(ahbSlaves(0),ahbSlaves(2),ahbSlaves(3)),
+        ahbMasters(2).toAhbLite3() -> List(ahbSlaves(0),ahbSlaves(1),ahbSlaves(3))
       )
       .build()
 ////

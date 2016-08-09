@@ -23,7 +23,7 @@ object PlayAhbLite3{
           (0x6000,0x1000)
         )
       )
-      decoder.io.input <> ahbMaster
+      decoder.io.input <> ahbMaster.toAhbLite3()
     }
 
     val perSlave = for((ahbSlave,idx) <- ahbSlaves.zipWithIndex) yield new Area{
@@ -58,9 +58,9 @@ object PlayAhbLite3_2{
         ahbSlaves(3) -> (0x5000,0x1000)
       )
       .addConnections(
-        ahbMasters(0) -> List(ahbSlaves(0),ahbSlaves(1)),
-        ahbMasters(1) -> List(ahbSlaves(1),ahbSlaves(2),ahbSlaves(3)),
-        ahbMasters(2) -> List(ahbSlaves(0),ahbSlaves(3))
+        ahbMasters(0).toAhbLite3() -> List(ahbSlaves(0),ahbSlaves(1)),
+        ahbMasters(1).toAhbLite3() -> List(ahbSlaves(1),ahbSlaves(2),ahbSlaves(3)),
+        ahbMasters(2).toAhbLite3() -> List(ahbSlaves(0),ahbSlaves(3))
       )
       .build()
   }

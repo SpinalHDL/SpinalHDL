@@ -7,15 +7,14 @@ import spinal.lib.bus.misc.SizeMapping
 
 case class AhbLite3Decoder(AhbLite3Config: AhbLite3Config,decodings : Iterable[SizeMapping]) extends Component{
   val io = new Bundle{
-    val input = slave(AhbLite3Master(AhbLite3Config))
+    val input = slave(AhbLite3(AhbLite3Config))
     val outputs = Vec(master(AhbLite3(AhbLite3Config)),decodings.size)
   }
   val isIdle = io.input.isIdle
   val wasIdle = RegNextWhen(isIdle,io.input.HREADY) init(True)
-  val HREADY = io.outputs.map(_.HREADYOUT).reduce(_ & _)
 
   for((output,decoding) <- (io.outputs,decodings).zipped){
-    output.HREADY  := HREADY
+    output.HREADY    := io.input.HREADY
     output.HSEL      := decoding.hit(io.input.HADDR) && !isIdle
     output.HADDR     := io.input.HADDR
     output.HWRITE    := io.input.HWRITE
@@ -29,9 +28,9 @@ case class AhbLite3Decoder(AhbLite3Config: AhbLite3Config,decodings : Iterable[S
 
   val requestIndex = OHToUInt(io.outputs.map(_.HSEL))
   val dataIndex    = RegNextWhen(requestIndex,io.input.HREADY)
-  io.input.HRDATA := io.outputs(dataIndex).HRDATA
-  io.input.HRESP  := io.outputs(dataIndex).HRESP
-  io.input.HREADY := HREADY
+  io.input.HRDATA    := io.outputs(dataIndex).HRDATA
+  io.input.HRESP     := io.outputs(dataIndex).HRESP
+  io.input.HREADYOUT := io.outputs.map(_.HREADYOUT).reduce(_ & _)
 
   when(wasIdle){
     io.input.HRESP := False

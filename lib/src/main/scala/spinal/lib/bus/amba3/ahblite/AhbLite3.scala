@@ -42,8 +42,29 @@ case class AhbLite3Master(config: AhbLite3Config) extends Bundle with IMasterSla
     in(HREADY,HRESP,HRDATA)
     this
   }
+
   def isIdle = HTRANS === AhbLite3.IDLE
-//  def lastTransaction() = RegNextWhen(this,HREADY) init(getZero)
+
+  def toAhbLite3() : AhbLite3 = {
+    val slave = AhbLite3(config)
+
+
+    slave.HADDR     := this.HADDR
+    slave.HWRITE    := this.HWRITE
+    slave.HSIZE     := this.HSIZE
+    slave.HBURST    := this.HBURST
+    slave.HPROT     := this.HPROT
+    slave.HTRANS    := this.HTRANS
+    slave.HMASTLOCK := this.HMASTLOCK
+    slave.HWDATA    := this.HWDATA
+    slave.HREADY    := slave.HREADYOUT
+
+    this.HRDATA     := slave.HRDATA
+    this.HRESP      := slave.HRESP
+    this.HREADY     := slave.HREADYOUT
+
+    slave
+  }
 }
 
 
@@ -78,6 +99,7 @@ case class AhbLite3(config: AhbLite3Config) extends Bundle with IMasterSlave{
 
   def OKEY  = !HRESP
   def ERROR = HRESP
+  def isIdle = HTRANS === AhbLite3.IDLE
 
   //return true when the current transaction is the last one of the current burst
   def last() : Bool = {
