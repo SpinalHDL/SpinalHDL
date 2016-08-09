@@ -7,7 +7,7 @@ from cocotb.triggers import RisingEdge
 from spinal.common.misc import randSignal, log2Up, BoolRandomizer, assertEquals
 
 
-def Ahb3MasterIdle(ahb):
+def AhbLite3MasterIdle(ahb):
     ahb.HADDR <= 0
     ahb.HWRITE <= 0
     ahb.HSIZE <= 0
@@ -19,7 +19,7 @@ def Ahb3MasterIdle(ahb):
 
 
 
-class Ahb3Transaction:
+class AhbLite3Transaction:
     def __init__(self):
         self.HADDR     = 0
         self.HWRITE    = 0
@@ -30,7 +30,7 @@ class Ahb3Transaction:
         self.HMASTLOCK = 0
         self.HWDATA    = 0
 
-class Ahb3TraficGenerator:
+class AhbLite3TraficGenerator:
     def __init__(self,addressWidth,dataWidth):
         self.addressWidth = addressWidth
         self.dataWidth = dataWidth
@@ -39,7 +39,7 @@ class Ahb3TraficGenerator:
 
     def getTransactions(self):
         if random.random() < 0.8:
-            trans = Ahb3Transaction()
+            trans = AhbLite3Transaction()
             return [trans]
         else:
             burst = random.randint(0,7)
@@ -63,7 +63,7 @@ class Ahb3TraficGenerator:
 
             buffer = []
             for beat in xrange(burstLength):
-                trans = Ahb3Transaction()
+                trans = AhbLite3Transaction()
                 trans.HWRITE = write
                 trans.HSIZE = log2Up(size)
                 trans.HBURST = burst
@@ -78,7 +78,7 @@ class Ahb3TraficGenerator:
                 buffer.append(trans)
             return buffer
 
-class Ahb3MasterDriver:
+class AhbLite3MasterDriver:
     def __init__(self,ahb,transactor,clk,reset):
         self.ahb = ahb
         self.clk = clk
@@ -114,7 +114,7 @@ class Ahb3MasterDriver:
                 ahb.HWDATA <= HWDATAbuffer
                 HWDATAbuffer = trans.HWDATA
 
-class Ahb3MasterReadChecker:
+class AhbLite3MasterReadChecker:
     def __init__(self,ahb,buffer,clk,reset):
         self.ahb = ahb
         self.clk = clk
@@ -141,7 +141,7 @@ class Ahb3MasterReadChecker:
 
 
 
-class Ahb3SlaveMemory:
+class AhbLite3SlaveMemory:
     def __init__(self,ahb,base,size,clk,reset):
         self.ahb = ahb
         self.clk = clk

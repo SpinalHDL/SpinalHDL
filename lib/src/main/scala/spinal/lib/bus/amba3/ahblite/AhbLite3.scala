@@ -1,4 +1,4 @@
-package spinal.lib.bus.amba3.ahb
+package spinal.lib.bus.amba3.ahblite
 
 import spinal.core._
 import spinal.lib._
@@ -6,10 +6,10 @@ import spinal.lib._
  * Created by PIC32F_USER on 07/08/2016.
  */
 
-object Ahb3{
+object AhbLite3{
   def IDLE = B"00"
 }
-case class Ahb3Config(addressWidth: Int,
+case class AhbLite3Config(addressWidth: Int,
                       dataWidth: Int){
   def addressType = UInt(addressWidth bits)
   def dataType = Bits(dataWidth bits)
@@ -18,7 +18,7 @@ case class Ahb3Config(addressWidth: Int,
   def wordRange    = addressWidth-1 downto log2Up(bytePerWord)
 }
 
-case class Ahb3Master(config: Ahb3Config) extends Bundle with IMasterSlave{
+case class AhbLite3Master(config: AhbLite3Config) extends Bundle with IMasterSlave{
   //  Address and control
   val HADDR     = UInt(config.addressWidth bits)
   val HWRITE    = Bool
@@ -36,17 +36,17 @@ case class Ahb3Master(config: Ahb3Config) extends Bundle with IMasterSlave{
   val HREADY    = Bool
   val HRESP     = Bool
 
-  override def asMaster(): Ahb3Master.this.type = {
+  override def asMaster(): AhbLite3Master.this.type = {
     out(HADDR,HWRITE,HSIZE,HBURST,HPROT,HTRANS,HMASTLOCK,HWDATA)
     in(HREADY,HRESP,HRDATA)
     this
   }
-  def isIdle = HTRANS === Ahb3.IDLE
+  def isIdle = HTRANS === AhbLite3.IDLE
 //  def lastTransaction() = RegNextWhen(this,HREADY) init(getZero)
 }
 
 
-case class Ahb3Slave(config: Ahb3Config) extends Bundle with IMasterSlave{
+case class AhbLite3Slave(config: AhbLite3Config) extends Bundle with IMasterSlave{
   //  Address and control
   val HADDR = UInt(config.addressWidth bits)
   val HSEL = Bool
@@ -69,7 +69,7 @@ case class Ahb3Slave(config: Ahb3Config) extends Bundle with IMasterSlave{
   def setOKEY = HRESP := False
   def setERROR   = HRESP := True
 
-  override def asMaster(): Ahb3Slave.this.type = {
+  override def asMaster(): AhbLite3Slave.this.type = {
     out(HADDR,HWRITE,HSIZE,HBURST,HPROT,HTRANS,HMASTLOCK,HWDATA,HREADYIN,HSEL)
     in(HREADYOUT,HRESP,HRDATA)
     this

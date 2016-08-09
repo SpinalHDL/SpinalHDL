@@ -1,14 +1,14 @@
-package spinal.lib.bus.amba3.ahb
+package spinal.lib.bus.amba3.ahblite
 
 
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc.SizeMapping
 
-case class Ahb3Decoder(ahb3Config: Ahb3Config,decodings : Iterable[SizeMapping]) extends Component{
+case class AhbLite3Decoder(AhbLite3Config: AhbLite3Config,decodings : Iterable[SizeMapping]) extends Component{
   val io = new Bundle{
-    val input = slave(Ahb3Master(ahb3Config))
-    val outputs = Vec(master(Ahb3Slave(ahb3Config)),decodings.size)
+    val input = slave(AhbLite3Master(AhbLite3Config))
+    val outputs = Vec(master(AhbLite3Slave(AhbLite3Config)),decodings.size)
   }
   val isIdle = io.input.isIdle
   val wasIdle = RegNextWhen(isIdle,io.input.HREADY) init(True)

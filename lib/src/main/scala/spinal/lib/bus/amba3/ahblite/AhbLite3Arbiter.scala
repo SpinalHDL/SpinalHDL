@@ -1,14 +1,14 @@
-package spinal.lib.bus.amba3.ahb
+package spinal.lib.bus.amba3.ahblite
 
 import spinal.core._
 import spinal.lib._
 
 //BUSY transfer, undefined length burst
 //INCR
-case class Ahb3Arbiter(ahb3Config: Ahb3Config,inputsCount : Int) extends Component{
+case class AhbLite3Arbiter(AhbLite3Config: AhbLite3Config,inputsCount : Int) extends Component{
   val io = new Bundle{
-    val inputs = Vec(slave(Ahb3Slave(ahb3Config)),inputsCount)
-    val output = master(Ahb3Slave(ahb3Config))
+    val inputs = Vec(slave(AhbLite3Slave(AhbLite3Config)),inputsCount)
+    val output = master(AhbLite3Slave(AhbLite3Config))
   }
 
   val dataPhaseActive = RegNextWhen(io.output.HTRANS(1),io.output.HREADYIN) init(False)
