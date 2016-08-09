@@ -14,10 +14,10 @@ object Ahb3InterconnectTester{
 
     val interconnect = Ahb3InterconnectFactory(ahbConfig)
       .addSlaves(
-        ahbSlaves(0) -> (0x0000,0x4000),
-        ahbSlaves(1) -> (0x4000,0x4000),
-        ahbSlaves(2) -> (0x8000,0x4000),
-        ahbSlaves(3) -> (0xC000,0x4000)
+        ahbSlaves(0) -> (0x000,0x100),
+        ahbSlaves(1) -> (0x100,0x100),
+        ahbSlaves(2) -> (0x200,0x100),
+        ahbSlaves(3) -> (0x300,0x100)
       )
       .addConnections(
         ahbMasters(0) -> List(ahbSlaves(1),ahbSlaves(2),ahbSlaves(3)),
@@ -25,6 +25,39 @@ object Ahb3InterconnectTester{
         ahbMasters(2) -> List(ahbSlaves(0),ahbSlaves(1),ahbSlaves(3))
       )
       .build()
+////
+//    val ahbConfig = Ahb3Config(addressWidth = 16,dataWidth = 32)
+//
+//    val ahbMasters = Vec(slave(Ahb3Master(ahbConfig)),3)
+//    val ahbSlaves  = Vec(master(Ahb3Slave(ahbConfig)),1)
+//
+//    val interconnect = Ahb3InterconnectFactory(ahbConfig)
+//      .addSlaves(
+//        ahbSlaves(0) -> (0x000,0x400)
+//      )
+//      .addConnections(
+//        ahbMasters(0) -> List(ahbSlaves(0)),
+//        ahbMasters(1) -> List(ahbSlaves(0)),
+//        ahbMasters(2) -> List(ahbSlaves(0))
+//      )
+//      .build()
+
+//    val ahbConfig = Ahb3Config(addressWidth = 10,dataWidth = 32)
+//
+//    val ahbMasters = Vec(slave(Ahb3Master(ahbConfig)),1)
+//    val ahbSlaves  = Vec(master(Ahb3Slave(ahbConfig)),4)
+//
+//    val interconnect = Ahb3InterconnectFactory(ahbConfig)
+//      .addSlaves(
+//        ahbSlaves(0) -> (0x000,0x100),
+//        ahbSlaves(1) -> (0x100,0x100),
+//        ahbSlaves(2) -> (0x200,0x100),
+//        ahbSlaves(3) -> (0x300,0x100)
+//      )
+//      .addConnections(
+//        ahbMasters(0) -> List(ahbSlaves(0),ahbSlaves(1),ahbSlaves(2),ahbSlaves(3))
+//      )
+//      .build()
   }
 }
 
