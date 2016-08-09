@@ -3,7 +3,7 @@ package spinal.lib.bus.amba3.ahblite
 import spinal.core._
 import spinal.lib._
 
-class AhbLite3OnChipRam(AhbLite3Config: AhbLite3Config,byteCount : Int) extends Component{
+case class AhbLite3OnChipRam(AhbLite3Config: AhbLite3Config,byteCount : Int) extends Component{
   val io = new Bundle {
     val ahb = slave(AhbLite3(AhbLite3Config))
   }
@@ -31,7 +31,7 @@ class AhbLite3OnChipRam(AhbLite3Config: AhbLite3Config,byteCount : Int) extends 
 
   io.ahb.HRDATA := ram.readSync(
     address = io.ahb.HADDR(wordRange),
-    enable = io.ahb.HSEL && io.ahb.HTRANS(1) && !io.ahb.HWRITE
+    enable = io.ahb.HSEL && io.ahb.HTRANS(1) && !io.ahb.HWRITE && io.ahb.HREADY
   )
 
   ram.write(

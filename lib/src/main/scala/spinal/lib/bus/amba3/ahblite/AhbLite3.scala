@@ -48,7 +48,6 @@ case class AhbLite3Master(config: AhbLite3Config) extends Bundle with IMasterSla
   def toAhbLite3() : AhbLite3 = {
     val slave = AhbLite3(config)
 
-
     slave.HADDR     := this.HADDR
     slave.HWRITE    := this.HWRITE
     slave.HSIZE     := this.HSIZE
@@ -58,6 +57,7 @@ case class AhbLite3Master(config: AhbLite3Config) extends Bundle with IMasterSla
     slave.HMASTLOCK := this.HMASTLOCK
     slave.HWDATA    := this.HWDATA
     slave.HREADY    := slave.HREADYOUT
+    slave.HSEL      := True
 
     this.HRDATA     := slave.HRDATA
     this.HRESP      := slave.HRESP

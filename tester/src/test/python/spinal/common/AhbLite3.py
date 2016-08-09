@@ -2,7 +2,7 @@ import random
 
 import cocotb
 from cocotb.result import TestFailure
-from cocotb.triggers import RisingEdge
+from cocotb.triggers import RisingEdge, Edge
 
 from spinal.common.misc import randSignal, log2Up, BoolRandomizer, assertEquals
 
@@ -114,6 +114,35 @@ class AhbLite3MasterDriver:
                 ahb.HWDATA <= HWDATAbuffer
                 HWDATAbuffer = trans.HWDATA
 
+class AhbLite3Terminaison:
+    def __init__(self,ahb,clk,reset):
+        self.ahb = ahb
+        self.clk = clk
+        self.reset = reset
+        self.randomHREADY = True
+        cocotb.fork(self.stim())
+        cocotb.fork(self.combEvent())
+
+    @cocotb.coroutine
+    def stim(self):
+        randomizer = BoolRandomizer()
+        self.ahb.HREADY <= 1
+        self.ahb.HSEL <= 1
+        while True:
+            yield RisingEdge(self.clk)
+            self.randomHREADY = randomizer.get()
+            self.doComb()
+
+    @cocotb.coroutine
+    def combEvent(self):
+        while True:
+            yield Edge(self.ahb.HREADYOUT)
+            self.doComb()
+
+    def doComb(self):
+        self.ahb.HREADY <= self.randomHREADY and (int(self.ahb.HREADYOUT) == 1)
+
+
 class AhbLite3MasterReadChecker:
     def __init__(self,ahb,buffer,clk,reset):
         self.ahb = ahb
@@ -133,11 +162,17 @@ class AhbLite3MasterReadChecker:
                 if readIncoming:
                     if self.buffer.empty():
                         raise TestFailure("Empty buffer ??? ")
-                    assertEquals(ahb.HRDATA,self.buffer.get(),"AHB master read checker faild %x "  %(int(ahb.HADDR)) )
-                    self.counter += 1
 
+                    bufferData = self.buffer.get()
+                    for i in xrange(byteOffset,byteOffset + size):
+                        assertEquals((int(ahb.HRDATA) >> (i*8)) & 0xFF,(bufferData >> (i*8)) & 0xFF,"AHB master read checker faild %x "  %(int(ahb.HADDR)) )
+
+                    self.counter += 1
                     # cocotb.log.info("POP " + str(self.buffer.qsize()))
+
                 readIncoming = int(ahb.HTRANS) >= 2 and int(ahb.HWRITE) == 0
+                size = 1 << int(ahb.HSIZE)
+                byteOffset = int(ahb.HADDR) % (len(ahb.HWDATA) / 8)
 
 
 
