@@ -170,7 +170,7 @@ class AhbLite3SlaveMemory:
         valid = 0
         while True:
             yield RisingEdge(self.clk)
-            while int(self.ahb.HREADYIN) == 0:
+            while int(self.ahb.HREADY) == 0:
                 yield RisingEdge(self.clk)
 
             if valid == 1:

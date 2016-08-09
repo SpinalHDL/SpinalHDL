@@ -5,7 +5,7 @@ import spinal.lib._
 
 class AhbLite3OnChipRam(AhbLite3Config: AhbLite3Config,byteCount : Int) extends Component{
   val io = new Bundle {
-    val ahb = slave(AhbLite3Slave(AhbLite3Config))
+    val ahb = slave(AhbLite3(AhbLite3Config))
   }
 
   val wordCount = byteCount / AhbLite3Config.bytePerWord
@@ -18,7 +18,7 @@ class AhbLite3OnChipRam(AhbLite3Config: AhbLite3Config,byteCount : Int) extends 
     val mask    = Bits(AhbLite3Config.bytePerWord bits)
   }))
   writeFlow.valid init(False)
-  when(io.ahb.HREADYIN){
+  when(io.ahb.HREADY){
     writeFlow.valid := io.ahb.HSEL && io.ahb.HTRANS(1) && io.ahb.HWRITE
     writeFlow.address := io.ahb.HADDR(wordRange)
     writeFlow.mask := io.ahb.writeMask
@@ -35,7 +35,7 @@ class AhbLite3OnChipRam(AhbLite3Config: AhbLite3Config,byteCount : Int) extends 
   )
 
   ram.write(
-    enable = writeFlow.valid && io.ahb.HREADYIN,
+    enable = writeFlow.valid && io.ahb.HREADY,
     address = writeFlow.address,
     mask = writeFlow.mask,
     data = io.ahb.HWDATA

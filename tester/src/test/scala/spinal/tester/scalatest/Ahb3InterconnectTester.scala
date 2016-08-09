@@ -2,7 +2,7 @@ package spinal.tester.scalatest
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.amba3.ahblite.{AhbLite3InterconnectFactory, AhbLite3Slave, AhbLite3Master, AhbLite3Config}
+import spinal.lib.bus.amba3.ahblite.{AhbLite3InterconnectFactory, AhbLite3, AhbLite3Master, AhbLite3Config}
 
 
 object AhbLite3InterconnectTester{
@@ -10,7 +10,7 @@ object AhbLite3InterconnectTester{
     val ahbConfig = AhbLite3Config(addressWidth = 12,dataWidth = 32)
 
     val ahbMasters = Vec(slave(AhbLite3Master(ahbConfig)),3)
-    val ahbSlaves  = Vec(master(AhbLite3Slave(ahbConfig)),4)
+    val ahbSlaves  = Vec(master(AhbLite3(ahbConfig)),4)
 
     val interconnect = AhbLite3InterconnectFactory(ahbConfig)
       .addSlaves(

@@ -9,6 +9,7 @@ import spinal.lib._
 object AhbLite3{
   def IDLE = B"00"
 }
+
 case class AhbLite3Config(addressWidth: Int,
                       dataWidth: Int){
   def addressType = UInt(addressWidth bits)
@@ -46,11 +47,11 @@ case class AhbLite3Master(config: AhbLite3Config) extends Bundle with IMasterSla
 }
 
 
-case class AhbLite3Slave(config: AhbLite3Config) extends Bundle with IMasterSlave{
+case class AhbLite3(config: AhbLite3Config) extends Bundle with IMasterSlave{
   //  Address and control
   val HADDR = UInt(config.addressWidth bits)
   val HSEL = Bool
-  val HREADYIN = Bool
+  val HREADY = Bool
   val HWRITE = Bool
   val HSIZE = Bits(3 bits)
   val HBURST = Bits(3 bits)
@@ -69,8 +70,8 @@ case class AhbLite3Slave(config: AhbLite3Config) extends Bundle with IMasterSlav
   def setOKEY = HRESP := False
   def setERROR   = HRESP := True
 
-  override def asMaster(): AhbLite3Slave.this.type = {
-    out(HADDR,HWRITE,HSIZE,HBURST,HPROT,HTRANS,HMASTLOCK,HWDATA,HREADYIN,HSEL)
+  override def asMaster(): AhbLite3.this.type = {
+    out(HADDR,HWRITE,HSIZE,HBURST,HPROT,HTRANS,HMASTLOCK,HWDATA,HREADY,HSEL)
     in(HREADYOUT,HRESP,HRDATA)
     this
   }
@@ -82,9 +83,9 @@ case class AhbLite3Slave(config: AhbLite3Config) extends Bundle with IMasterSlav
   def last() : Bool = {
     val beatCounter = Reg(UInt(4 bits)) init(0)
     val beatCounterPlusOne = beatCounter + "00001"
-    val result = ((U"1" << HBURST(2 downto 1).asUInt) << 1) === beatCounterPlusOne || (HREADYIN && ERROR)
+    val result = ((U"1" << HBURST(2 downto 1).asUInt) << 1) === beatCounterPlusOne || (HREADY && ERROR)
 
-    when(HSEL && HREADYIN){
+    when(HSEL && HREADY){
       beatCounter := beatCounterPlusOne.resized
       when(result){
         beatCounter := 0

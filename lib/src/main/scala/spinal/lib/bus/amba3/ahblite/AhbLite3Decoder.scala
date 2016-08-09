@@ -8,14 +8,14 @@ import spinal.lib.bus.misc.SizeMapping
 case class AhbLite3Decoder(AhbLite3Config: AhbLite3Config,decodings : Iterable[SizeMapping]) extends Component{
   val io = new Bundle{
     val input = slave(AhbLite3Master(AhbLite3Config))
-    val outputs = Vec(master(AhbLite3Slave(AhbLite3Config)),decodings.size)
+    val outputs = Vec(master(AhbLite3(AhbLite3Config)),decodings.size)
   }
   val isIdle = io.input.isIdle
   val wasIdle = RegNextWhen(isIdle,io.input.HREADY) init(True)
   val HREADY = io.outputs.map(_.HREADYOUT).reduce(_ & _)
 
   for((output,decoding) <- (io.outputs,decodings).zipped){
-    output.HREADYIN  := HREADY
+    output.HREADY  := HREADY
     output.HSEL      := decoding.hit(io.input.HADDR) && !isIdle
     output.HADDR     := io.input.HADDR
     output.HWRITE    := io.input.HWRITE

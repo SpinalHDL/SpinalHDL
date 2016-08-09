@@ -11,7 +11,7 @@ object PlayAhbLite3{
     val apbConfig = Apb3Config(addressWidth = 16,dataWidth = 32)
 
     val ahbMasters = Vec(slave(AhbLite3Master(ahbConfig)),3)
-    val ahbSlaves  = Vec(master(AhbLite3Slave(ahbConfig)),4)
+    val ahbSlaves  = Vec(master(AhbLite3(ahbConfig)),4)
 
     val perMaster = for(ahbMaster <- ahbMasters) yield new Area{
       val decoder = AhbLite3Decoder(
@@ -48,7 +48,7 @@ object PlayAhbLite3_2{
 //    val apbConfig = Apb3Config(addressWidth = 16,dataWidth = 32)
 
     val ahbMasters = Vec(slave(AhbLite3Master(ahbConfig)),3)
-    val ahbSlaves  = Vec(master(AhbLite3Slave(ahbConfig)),4)
+    val ahbSlaves  = Vec(master(AhbLite3(ahbConfig)),4)
 
     val interconnect = AhbLite3InterconnectFactory(ahbConfig)
       .addSlaves(

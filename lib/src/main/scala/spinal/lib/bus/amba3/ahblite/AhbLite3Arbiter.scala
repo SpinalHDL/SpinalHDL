@@ -7,11 +7,11 @@ import spinal.lib._
 //INCR
 case class AhbLite3Arbiter(AhbLite3Config: AhbLite3Config,inputsCount : Int) extends Component{
   val io = new Bundle{
-    val inputs = Vec(slave(AhbLite3Slave(AhbLite3Config)),inputsCount)
-    val output = master(AhbLite3Slave(AhbLite3Config))
+    val inputs = Vec(slave(AhbLite3(AhbLite3Config)),inputsCount)
+    val output = master(AhbLite3(AhbLite3Config))
   }
 
-  val dataPhaseActive = RegNextWhen(io.output.HTRANS(1),io.output.HREADYIN) init(False)
+  val dataPhaseActive = RegNextWhen(io.output.HTRANS(1),io.output.HREADY) init(False)
   val locked = RegInit(False)
   val maskProposal = Bits(inputsCount bits)
   val maskLocked = Reg(Bits(inputsCount bits)) init(BigInt(1) << (inputsCount-1))
@@ -34,7 +34,7 @@ case class AhbLite3Arbiter(AhbLite3Config: AhbLite3Config,inputsCount : Int) ext
   val requestIndex     = OHToUInt(maskRouted)
   io.output.HSEL      := (io.inputs, maskRouted.asBools).zipped.map(_.HSEL & _).reduce(_ | _)
   io.output.HADDR     := io.inputs(requestIndex).HADDR
-  io.output.HREADYIN  := io.inputs(requestIndex).HREADYIN
+  io.output.HREADY  := io.inputs(requestIndex).HREADY
   io.output.HWRITE    := io.inputs(requestIndex).HWRITE
   io.output.HSIZE     := io.inputs(requestIndex).HSIZE
   io.output.HBURST    := io.inputs(requestIndex).HBURST
@@ -42,7 +42,7 @@ case class AhbLite3Arbiter(AhbLite3Config: AhbLite3Config,inputsCount : Int) ext
   io.output.HTRANS    := io.output.HSEL ? io.inputs(requestIndex).HTRANS | "00"
   io.output.HMASTLOCK := io.inputs(requestIndex).HMASTLOCK
 
-  val dataIndex        = RegNextWhen(requestIndex,io.output.HSEL && io.output.HREADYIN)
+  val dataIndex        = RegNextWhen(requestIndex,io.output.HSEL && io.output.HREADY)
   io.output.HWDATA    := io.inputs(dataIndex).HWDATA
 
   for((input,requestRouted) <- (io.inputs,maskRouted.asBools).zipped){
