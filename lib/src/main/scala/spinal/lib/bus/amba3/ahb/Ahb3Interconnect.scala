@@ -55,6 +55,8 @@ case class Ahb3InterconnectFactory(ahb3Config: Ahb3Config){
 
       masterToDecodedSlave(master) = (slaves.map(_._1),decoder.io.outputs).zipped.toMap
       decoder.io.input <> master
+
+      decoder.setPartialName(master,"decoder")
     }
 
     val arbiters = for((slave,config) <- slavesConfigs) yield new Area{
@@ -66,6 +68,7 @@ case class Ahb3InterconnectFactory(ahb3Config: Ahb3Config){
         input <> masterToDecodedSlave(master.master)(slave)
       }
       arbiter.io.output <> slave
+      arbiter.setPartialName(slave,"arbiter")
     }
   }
 }

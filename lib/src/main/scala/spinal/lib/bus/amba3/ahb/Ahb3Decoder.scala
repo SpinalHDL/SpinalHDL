@@ -10,12 +10,13 @@ case class Ahb3Decoder(ahb3Config: Ahb3Config,decodings : Iterable[SizeMapping])
     val input = slave(Ahb3Master(ahb3Config))
     val outputs = Vec(master(Ahb3Slave(ahb3Config)),decodings.size)
   }
-
+  val isIdle = io.input.isIdle
+  val wasIdle = RegNextWhen(isIdle,io.input.HREADY) init(True)
   val HREADY = io.outputs.map(_.HREADYOUT).reduce(_ & _)
 
   for((output,decoding) <- (io.outputs,decodings).zipped){
     output.HREADYIN  := HREADY
-    output.HSEL      := decoding.hit(io.input.HADDR)
+    output.HSEL      := decoding.hit(io.input.HADDR) && !isIdle
     output.HADDR     := io.input.HADDR
     output.HWRITE    := io.input.HWRITE
     output.HSIZE     := io.input.HSIZE
@@ -31,4 +32,8 @@ case class Ahb3Decoder(ahb3Config: Ahb3Config,decodings : Iterable[SizeMapping])
   io.input.HRDATA := io.outputs(dataIndex).HRDATA
   io.input.HRESP  := io.outputs(dataIndex).HRESP
   io.input.HREADY := HREADY
+
+  when(wasIdle){
+    io.input.HRESP := False
+  }
 }

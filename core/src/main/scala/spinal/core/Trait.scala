@@ -523,22 +523,22 @@ trait Area extends Nameable with ContextUser with OwnableRef with ScalaLocated{
         case component: Component => {
           if (component.parent == this.component) {
             component.setPartialName(name,true)
-            OwnableRef.set(component,this)
+            OwnableRef.proposal(component,this)
           }
         }
         case namable: Nameable => {
           if (!namable.isInstanceOf[ContextUser]) {
             namable.setPartialName(name,true)
-            OwnableRef.set(namable,this)
+            OwnableRef.proposal(namable,this)
           } else if (namable.asInstanceOf[ContextUser].component == component){
             namable.setPartialName(name,true)
-            OwnableRef.set(namable,this)
+            OwnableRef.proposal(namable,this)
           } else {
             for (kind <- component.children) {
               //Allow to name a component by his io reference into the parent component
               if (kind.reflectIo == namable) {
                 kind.setPartialName(name,true)
-                OwnableRef.set(kind,this)
+                OwnableRef.proposal(kind,this)
               }
             }
           }

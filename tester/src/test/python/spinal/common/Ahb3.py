@@ -133,7 +133,7 @@ class Ahb3MasterReadChecker:
                 if readIncoming:
                     if self.buffer.empty():
                         raise TestFailure("Empty buffer ??? ")
-                    assertEquals(ahb.HRDATA,self.buffer.get(),"AHB master read checker faild "  + str(ahb.HADDR) )
+                    assertEquals(ahb.HRDATA,self.buffer.get(),"AHB master read checker faild %x "  %(int(ahb.HADDR)) )
                     self.counter += 1
 
                     # cocotb.log.info("POP " + str(self.buffer.qsize()))
@@ -194,7 +194,7 @@ class Ahb3SlaveMemory:
                         data = 0
                         for idx in xrange(size):
                             data |= self.ram[address-self.base + idx] << (8*(addressOffset + idx))
-                        #     print("read %x with %x" % (address + idx, self.ram[address-self.base + idx]))
+                            # print("read %x with %x" % (address + idx, self.ram[address-self.base + idx]))
                         # print(str(data))
                         ahb.HRDATA <= int(data)
 

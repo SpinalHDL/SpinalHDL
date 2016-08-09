@@ -14,7 +14,7 @@ class Ahb3TraficGeneratorWithMemory(Ahb3TraficGenerator):
     def genRandomAddress(self):
         while True:
             value = Ahb3TraficGenerator.genRandomAddress(self)
-            if value < self.id*0x100 or value >= (self.id + 1)*0x100:
+            if (value >> 10) != self.id  and ((value >> 8) & 0x3) == self.id:
                 return value
 
     def getTransactions(self):
@@ -29,12 +29,13 @@ class Ahb3TraficGeneratorWithMemory(Ahb3TraficGenerator):
                 if write == 1:
                     for idx in range(size):
                         self.ram[address  + idx] = (trans.HWDATA >> (8*(addressOffset + idx))) & 0xFF
+                        # cocotb.log.info("WRITE %d %x %x" % (self.id,address  + idx, (trans.HWDATA >> (8*(addressOffset + idx))) & 0xFF))
                 else:
                     data = 0
                     for idx in xrange(size):
                         data |= self.ram[address + idx] << (8*(addressOffset + idx))
                     self.readBuffer.put(data)
-                    # cocotb.log.info("FILL " + str(self.readBuffer.qsize()) + "  " + str(trans.HADDR))
+                    # cocotb.log.info("READ %d %x %x" % (self.id, trans.HADDR,data))
 
 
         return transactions
@@ -60,18 +61,18 @@ def test1(dut):
     for i in range(3):
         readQueue = Queue()
         ahb = Bundle(dut, "ahbMasters_" + str(i))
-        drivers.append(Ahb3MasterDriver(ahb, Ahb3TraficGeneratorWithMemory(10, 32,readQueue,i+1), dut.clk, dut.reset))
+        drivers.append(Ahb3MasterDriver(ahb, Ahb3TraficGeneratorWithMemory(12, 32,readQueue,i), dut.clk, dut.reset))
         checkers.append(Ahb3MasterReadChecker(ahb, readQueue, dut.clk, dut.reset))
 
-    Ahb3MasterIdle(Bundle(dut, "ahbMasters_1"))
-    Ahb3MasterIdle(Bundle(dut, "ahbMasters_2"))
+    # Ahb3MasterIdle(Bundle(dut, "ahbMasters_1"))
+    # Ahb3MasterIdle(Bundle(dut, "ahbMasters_2"))
     # Ahb3MasterDriver(Bundle(dut, "ahbMasters_1"), dut.clk, dut.reset)
     # Ahb3MasterDriver(Bundle(dut, "ahbMasters_2"), dut.clk, dut.reset)
     # Ahb3SlaveMemory(Bundle(dut, "ahbSlaves_0"), 0x000, 0x400, dut.clk, dut.reset)
-    Ahb3SlaveMemory(Bundle(dut, "ahbSlaves_0"),0x000,0x100, dut.clk, dut.reset)
-    Ahb3SlaveMemory(Bundle(dut, "ahbSlaves_1"),0x100,0x100, dut.clk, dut.reset)
-    Ahb3SlaveMemory(Bundle(dut, "ahbSlaves_2"),0x200,0x100, dut.clk, dut.reset)
-    Ahb3SlaveMemory(Bundle(dut, "ahbSlaves_3"),0x300,0x100, dut.clk, dut.reset)
+    Ahb3SlaveMemory(Bundle(dut, "ahbSlaves_0"),0x000,0x400, dut.clk, dut.reset)
+    Ahb3SlaveMemory(Bundle(dut, "ahbSlaves_1"),0x400,0x400, dut.clk, dut.reset)
+    Ahb3SlaveMemory(Bundle(dut, "ahbSlaves_2"),0x800,0x400, dut.clk, dut.reset)
+    Ahb3SlaveMemory(Bundle(dut, "ahbSlaves_3"),0xC00,0x400, dut.clk, dut.reset)
     # ahbMaster0.HADDR <= 0
     while True:
         yield RisingEdge(dut.clk)

@@ -11,10 +11,11 @@ case class Ahb3Arbiter(ahb3Config: Ahb3Config,inputsCount : Int) extends Compone
     val output = master(Ahb3Slave(ahb3Config))
   }
 
+  val dataPhaseActive = RegNextWhen(io.output.HTRANS(1),io.output.HREADYIN) init(False)
   val locked = RegInit(False)
   val maskProposal = Bits(inputsCount bits)
   val maskLocked = Reg(Bits(inputsCount bits)) init(BigInt(1) << (inputsCount-1))
-  val maskRouted = Mux(locked, maskLocked, maskProposal)
+  val maskRouted = Mux(locked || dataPhaseActive, maskLocked, maskProposal)
 
   when(io.output.HSEL) { //valid
     maskLocked := maskRouted
@@ -47,6 +48,6 @@ case class Ahb3Arbiter(ahb3Config: Ahb3Config,inputsCount : Int) extends Compone
   for((input,requestRouted) <- (io.inputs,maskRouted.asBools).zipped){
     input.HRDATA    := io.output.HRDATA
     input.HRESP     := io.output.HRESP
-    input.HREADYOUT := (io.output.HREADYOUT && requestRouted) || (!input.HSEL)
+    input.HREADYOUT := ((io.output.HREADYOUT && requestRouted) || (!input.HSEL))
   }
 }

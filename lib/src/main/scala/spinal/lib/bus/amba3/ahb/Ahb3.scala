@@ -6,7 +6,9 @@ import spinal.lib._
  * Created by PIC32F_USER on 07/08/2016.
  */
 
-
+object Ahb3{
+  def IDLE = B"00"
+}
 case class Ahb3Config(addressWidth: Int,
                       dataWidth: Int){
   def addressType = UInt(addressWidth bits)
@@ -39,6 +41,8 @@ case class Ahb3Master(config: Ahb3Config) extends Bundle with IMasterSlave{
     in(HREADY,HRESP,HRDATA)
     this
   }
+  def isIdle = HTRANS === Ahb3.IDLE
+//  def lastTransaction() = RegNextWhen(this,HREADY) init(getZero)
 }
 
 
@@ -76,7 +80,7 @@ case class Ahb3Slave(config: Ahb3Config) extends Bundle with IMasterSlave{
 
   //return true when the current transaction is the last one of the current burst
   def last() : Bool = {
-    val beatCounter = Reg(UInt(4 bits))
+    val beatCounter = Reg(UInt(4 bits)) init(0)
     val beatCounterPlusOne = beatCounter + "00001"
     val result = ((U"1" << HBURST(2 downto 1).asUInt) << 1) === beatCounterPlusOne || (HREADYIN && ERROR)
 
