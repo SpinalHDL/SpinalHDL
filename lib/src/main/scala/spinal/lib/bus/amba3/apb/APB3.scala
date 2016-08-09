@@ -11,7 +11,7 @@ case class Apb3Config(
 )
 
 object Apb3{
-  def apply(config: Apb3Config) = new Apb3(config)
+//  def apply(config: Apb3Config) = new Apb3(config)
   def apply( addressWidth: Int,
              dataWidth: Int) = {
     new Apb3(
@@ -25,7 +25,7 @@ object Apb3{
   }
 }
 
-class Apb3(val config: Apb3Config) extends Bundle with IMasterSlave {
+case class Apb3(config: Apb3Config) extends Bundle with IMasterSlave {
   val PADDR      = UInt(config.addressWidth bit)
   val PSEL       = Bits(config.selWidth bits)
   val PENABLE    = Bool

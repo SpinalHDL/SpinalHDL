@@ -2,11 +2,12 @@ package spinal.lib.soc.pinsec
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba3.ahblite._
-import spinal.lib.bus.amba3.apb.{Apb3Decoder, Apb3Config}
+import spinal.lib.bus.amba3.apb.{Apb3Interconnect, Apb3Gpio, Apb3Decoder, Apb3Config}
 import spinal.lib.com.jtag.Jtag
 import spinal.lib.cpu.riscv.impl.build.RiscvAhbLite3
 import spinal.lib.cpu.riscv.impl.extension.{BarrelShifterFullExtension, DivExtension, MulExtension}
 import spinal.lib.cpu.riscv.impl.{disable, dynamic, sync, CoreConfig}
+import spinal.lib.io.TriStateArray
 
 class Pinsec extends Component{
   val debug = true
@@ -16,7 +17,7 @@ class Pinsec extends Component{
 
   val io = new Bundle{
 //    val jtag = slave(Jtag())
-
+    val gpio = master(TriStateArray(32 bits))
     val interrupt = in Bits(interruptCount bits)
     val debugResetIn  = if(debug) in Bool else null
     val debugResetOut = if(debug) out Bool else null
@@ -69,12 +70,13 @@ class Pinsec extends Component{
   //  p.add(new BarrelShifterLightExtension)
 
 
-  val core = new RiscvAhbLite3(coreConfig,iCacheConfig,dCacheConfig,debug,interruptCount,apbConfig)
-  val rom = AhbLite3OnChipRam(ahbConfig,byteCount = 512 KB)
-  val ram = AhbLite3OnChipRam(ahbConfig,byteCount = 512 KB)
+  val core      = new RiscvAhbLite3(coreConfig,iCacheConfig,dCacheConfig,debug,interruptCount,apbConfig)
+  val rom       = AhbLite3OnChipRam(ahbConfig,byteCount = 512 KB)
+  val ram       = AhbLite3OnChipRam(ahbConfig,byteCount = 512 KB)
+  
+  val gpioCtrl  = Apb3Gpio(apbConfig,32)
+  
   val apbBridge = AhbLite3ToApb3Bridge(ahbConfig,apbConfig)
-
-
   val ahbInterconnect = AhbLite3InterconnectFactory(ahbConfig)
     .addSlaves(
       rom.io.ahb       -> (0x00000000L,512 KB),
@@ -85,10 +87,11 @@ class Pinsec extends Component{
       core.io.d.toAhbLite3() -> List(rom.io.ahb, ram.io.ahb, apbBridge.io.ahb)
     ).build()
 
-  val apbDecoder = Apb3Decoder(
-    apb = apbBridge.io.apb,
-    mappings = List(
-      core.io.debugBus -> (0x1000, 1 KB)
+  val apbDecoder = Apb3Interconnect(
+    master = apbBridge.io.apb,
+    slaves = List(
+      gpioCtrl.io.apb  -> (0x0000, 1 KB),
+      core.io.debugBus -> (0xF000, 1 KB)
     )
   )
 
@@ -97,6 +100,7 @@ class Pinsec extends Component{
     core.io.debugResetIn  <> io.debugResetIn
     core.io.debugResetOut <> io.debugResetOut
   }
+  gpioCtrl.io.gpio <> io.gpio
 }
 
 

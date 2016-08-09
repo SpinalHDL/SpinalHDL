@@ -21,10 +21,9 @@ class Apb3Router(inputConfig: Apb3Config) extends Component{
     output.PSEL(0) := io.input.PSEL(index)
     output.PWRITE := io.input.PWRITE
     output.PWDATA := io.input.PWDATA
-    output.PADDR := io.input.PADDR
   }
 
-  val selIndex = OHToUInt(io.input.PSEL)
+  val selIndex = RegNext(OHToUInt(io.input.PSEL))
   io.input.PREADY := io.outputs(selIndex).PREADY
   io.input.PRDATA := io.outputs(selIndex).PRDATA
   if(inputConfig.useSlaveError) io.input.PSLVERROR := io.outputs(selIndex).PSLVERROR

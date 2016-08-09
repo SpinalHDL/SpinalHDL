@@ -5,7 +5,7 @@ import spinal.lib._
 import spinal.lib.bus.misc._
 
 object Apb3SlaveFactory {
-  def apply(bus: Apb3,selId : Int = 1) = new Apb3SlaveFactory(bus,selId)
+  def apply(bus: Apb3,selId : Int = 0) = new Apb3SlaveFactory(bus,selId)
 }
 
 class Apb3SlaveFactory(bus : Apb3,selId : Int) extends BusSlaveFactoryDelayed{
