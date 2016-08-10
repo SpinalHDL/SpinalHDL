@@ -49,7 +49,7 @@ case class AhbLite3ToApb3Bridge(ahbConfig: AhbLite3Config,apbConfig: Apb3Config)
       io.ahb.HREADYOUT := False
 
       when(io.apb.PREADY){
-        readedData := io.ahb.HRDATA
+        readedData := io.apb.PRDATA
         phase := IDLE
       }
     }

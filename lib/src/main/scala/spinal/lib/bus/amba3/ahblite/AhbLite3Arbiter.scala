@@ -49,6 +49,6 @@ case class AhbLite3Arbiter(AhbLite3Config: AhbLite3Config,inputsCount : Int) ext
   for((input,requestRouted) <- (io.inputs,maskRouted.asBools).zipped){
     input.HRDATA    := io.output.HRDATA
     input.HRESP     := io.output.HRESP
-    input.HREADYOUT := ((io.output.HREADYOUT && requestRouted) || (!input.HSEL))
+    input.HREADYOUT := (!requestRouted && !input.HSEL ) || (requestRouted && io.output.HREADYOUT)
   }
 }

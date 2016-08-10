@@ -1647,25 +1647,30 @@ object SpinalVhdlBoot{
 class PhaseDontSymplifyVerilogMismatchingWidth(pc: PhaseContext) extends PhaseMisc{
   override def useNodeConsumers = true
   override def impl(pc : PhaseContext): Unit = {
-    def applyTo(that : Node): Unit ={
-      assert(that.consumers.size == 1)
-      that.consumers(0) match {
-        case consumer: BaseType => consumer.dontSimplifyIt()
-        case _ =>
-      }
-    }
+//    def applyTo(that : Node): Unit ={
+//      assert(that.consumers.size == 1)
+//      that.consumers(0) match {
+//        case consumer: BaseType => consumer.dontSimplifyIt()
+//        case _ =>
+//      }
+//    }
+//    import pc._
+//    Node.walk(walkNodesDefautStack,node => {
+//      node match {
+//        case node: Resize => applyTo(node)
+//        case node: Modifier => applyTo(node) // .....
+////        case node: Operator.BitVector.Add => applyTo(node)
+////        case node: Operator.BitVector.Sub => applyTo(node)
+////        case node: Operator.BitVector.ShiftRightByInt => applyTo(node)
+////        case node: Operator.Bits.Cat => applyTo(node)
+////        case node : Extract => applyTo(node)
+//        case _ =>
+//      }
+//    })
     import pc._
-    Node.walk(walkNodesDefautStack,node => {
-      node match {
-        case node: Resize => applyTo(node)
-        case node: Modifier => applyTo(node) // .....
-//        case node: Operator.BitVector.Add => applyTo(node)
-//        case node: Operator.BitVector.Sub => applyTo(node)
-//        case node: Operator.BitVector.ShiftRightByInt => applyTo(node)
-//        case node: Operator.Bits.Cat => applyTo(node)
-//        case node : Extract => applyTo(node)
-        case _ =>
-      }
+    Node.walk(walkNodesDefautStack,node => node match{
+      case bt : BaseType => bt.dontSimplifyIt()
+      case _ =>
     })
   }
 }

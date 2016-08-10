@@ -20,6 +20,7 @@ case class AhbLite3OnChipRam(AhbLite3Config: AhbLite3Config,byteCount : BigInt) 
   })
   
   pendingWrite.valid init(False)
+  pendingWrite.valid := False
   when(io.ahb.HREADY){
     pendingWrite.valid := io.ahb.HSEL && io.ahb.HTRANS(1) && io.ahb.HWRITE
     pendingWrite.address := io.ahb.HADDR(wordRange)
@@ -36,7 +37,7 @@ case class AhbLite3OnChipRam(AhbLite3Config: AhbLite3Config,byteCount : BigInt) 
   )
 
   ram.write(
-    enable = pendingWrite.valid && io.ahb.HREADY,
+    enable = pendingWrite.valid,
     address = pendingWrite.address,
     mask = pendingWrite.mask,
     data = io.ahb.HWDATA

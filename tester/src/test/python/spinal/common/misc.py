@@ -205,3 +205,20 @@ class Bundle:
 
     def __getattr__(self, name):
         return self.nameToElement[name]
+
+def readIHex(path, callback,context):
+    with open(path) as f:
+        offset = 0
+        for line in f:
+            if len(line) > 0:
+                assert line[0] == ':'
+                byteCount = int(line[1:3], 16)
+                nextAddr = int(line[3:7], 16) + offset
+                key = int(line[7:9], 16)
+                if key == 0:
+                    array = [int(line[9 + i * 2:11 + i * 2], 16) for i in range(0, byteCount)]
+                    callback(nextAddr,array,context)
+                elif key == 2:
+                    offset = int(line[9:13], 16)
+                else:
+                    pass

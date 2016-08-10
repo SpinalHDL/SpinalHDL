@@ -46,14 +46,39 @@ def test1(dut):
     dut.log.info("Cocotb test boot")
     random.seed(0)
 
-    cocotb.fork(ClockDomainAsyncReset(dut.clk, dut.reset))
     cocotb.fork(simulationSpeedPrinter(dut.clk))
+
+    # elements = [a for a in dut.AhbRam if a._name.startswith("")]
+    # for e in elements:
+    #     print(str(e._name))
+
+    # while True:
+    #     dut.AhbRam.ram_port1_enable <= 1
+    #     dut.AhbRam.ram_port1_mask <= 0xF
+    #     dut.AhbRam.ram_port1_address <= 0X90
+    #     dut.AhbRam.ram_port1_data <= 0xCAFEF00D
+    #
+    #     dut.AhbRam.reset <= 1
+    #     dut.AhbRam.ram_port1_enable <= 1
+    #     yield Timer(1000)
+    #     dut.AhbRam.ram_port1_enable <= 1
+    #     dut.AhbRam.clk <= 0
+    #     yield Timer(1000)
+    #     dut.AhbRam.ram_port1_enable <= 1
+    #     dut.AhbRam.clk <= 1
+    #     yield Timer(1000)
+    #     dut.AhbRam.ram_port1_enable <= 0
+    #     yield Timer(1000)
+
+    cocotb.fork(ClockDomainAsyncReset(dut.clk, dut.reset))
 
     readQueue = Queue()
     ahb = Bundle(dut, "ahb")
     driver  = AhbLite3MasterDriver(ahb, AhbLite3TraficGeneratorWithMemory(10, 32,readQueue), dut.clk, dut.reset)
     checker = AhbLite3MasterReadChecker(ahb, readQueue, dut.clk, dut.reset)
     terminaison = AhbLite3Terminaison(ahb,dut.clk,dut.reset)
+
+
 
     while True:
         yield RisingEdge(dut.clk)

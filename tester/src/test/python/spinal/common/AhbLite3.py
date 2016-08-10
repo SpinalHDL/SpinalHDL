@@ -192,8 +192,16 @@ class AhbLite3SlaveMemory:
     def stimReady(self):
         randomizer = BoolRandomizer()
         self.ahb.HREADYOUT <= 1
+        busy = False
         while True:
             yield RisingEdge(self.clk)
+            if int(self.ahb.HREADY) == 1:
+                busyNew = int(self.ahb.HTRANS) >= 2
+            else:
+                busyNew = busy
+            if (busy or busyNew) and int(self.ahb.HREADYOUT) == 0 and int(self.ahb.HREADY) == 1:
+                raise TestFailure("HREADYOUT == 0 but HREADY == 1 ??? " + self.ahb.HREADY._name)
+            busy = busyNew
             self.ahb.HREADYOUT <= randomizer.get()
 
     @cocotb.coroutine

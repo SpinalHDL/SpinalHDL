@@ -16,10 +16,11 @@ class Pinsec extends Component{
   val apbConfig = Apb3Config(addressWidth = 16,dataWidth = 32)
 
   val io = new Bundle{
+//    val ahbAccess = slave(AhbLite3(ahbConfig))
 //    val jtag = slave(Jtag())
     val gpio = master(TriStateArray(32 bits))
     val interrupt = in Bits(interruptCount bits)
-    val debugResetIn  = if(debug) in Bool else null
+//    val debugResetIn  = if(debug) in Bool else null
     val debugResetOut = if(debug) out Bool else null
   }
 
@@ -73,31 +74,34 @@ class Pinsec extends Component{
   val core      = new RiscvAhbLite3(coreConfig,iCacheConfig,dCacheConfig,debug,interruptCount,apbConfig)
   val rom       = AhbLite3OnChipRam(ahbConfig,byteCount = 512 KB)
   val ram       = AhbLite3OnChipRam(ahbConfig,byteCount = 512 KB)
-  
   val gpioCtrl  = Apb3Gpio(apbConfig,32)
   
   val apbBridge = AhbLite3ToApb3Bridge(ahbConfig,apbConfig)
   val ahbInterconnect = AhbLite3InterconnectFactory(ahbConfig)
     .addSlaves(
-      rom.io.ahb       -> (0x00000000L,512 KB),
-      ram.io.ahb       -> (0x04000000L,512 KB),
-      apbBridge.io.ahb -> (0xF0000000L,64  KB)
+      rom.io.ahb       -> (0x00000000L, 512 KB),
+      ram.io.ahb       -> (0x04000000L, 512 KB),
+      apbBridge.io.ahb -> (0xF0000000L,  64 KB)
     ).addConnections(
-      core.io.i.toAhbLite3() -> List(rom.io.ahb, ram.io.ahb),
-      core.io.d.toAhbLite3() -> List(rom.io.ahb, ram.io.ahb, apbBridge.io.ahb)
+      core.io.i.toAhbLite3()
+        -> List(rom.io.ahb, ram.io.ahb),
+      core.io.d.toAhbLite3()
+        -> List(rom.io.ahb, ram.io.ahb, apbBridge.io.ahb)
+//      io.ahbAccess
+//        -> List(rom.io.ahb, ram.io.ahb, apbBridge.io.ahb)
     ).build()
 
   val apbDecoder = Apb3Interconnect(
     master = apbBridge.io.apb,
     slaves = List(
       gpioCtrl.io.apb  -> (0x0000, 1 KB),
-      core.io.debugBus -> (0xF000, 1 KB)
+      core.io.debugBus -> (0xF000, 4 KB)
     )
   )
 
   if(interruptCount != 0) core.io.interrupt := io.interrupt
   if(debug){
-    core.io.debugResetIn  <> io.debugResetIn
+    core.io.debugResetIn  <> ClockDomain.current.readResetWire//io.debugResetIn
     core.io.debugResetOut <> io.debugResetOut
   }
   gpioCtrl.io.gpio <> io.gpio
@@ -106,6 +110,6 @@ class Pinsec extends Component{
 
 object Pinsec{
   def main(args: Array[String]) {
-    SpinalVerilog(new Pinsec)
+    SpinalConfig().dumpWave().generateVerilog(new Pinsec)
   }
 }
