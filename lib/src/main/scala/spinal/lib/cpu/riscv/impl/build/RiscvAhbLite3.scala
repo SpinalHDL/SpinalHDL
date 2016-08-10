@@ -69,8 +69,8 @@ class RiscvAhbLite3(coreConfig : CoreConfig,iCacheConfig : InstructionCacheConfi
   }else{
     val memCpu = nativeInstructionBusExtension.memBus
     val coreI = memCpu.clone
-    coreI.cmd <-< memCpu.cmd
-    coreI.rsp >-> memCpu.rsp
+    coreI.cmd << memCpu.cmd
+    coreI.rsp >> memCpu.rsp
     io.i <> coreI.toAhbLite3()
 
     if(coreI.branchCachePort != null){
@@ -87,8 +87,8 @@ class RiscvAhbLite3(coreConfig : CoreConfig,iCacheConfig : InstructionCacheConfi
   }else{
     val memCpu = nativeDataBusExtension.memBus
     val coreD = memCpu.clone
-    coreD.cmd <-/< memCpu.cmd
-    coreD.rsp >-> memCpu.rsp
+    coreD.cmd </< memCpu.cmd
+    coreD.rsp >> memCpu.rsp
     io.d <> coreD.toAhbLite3()
   }
 }

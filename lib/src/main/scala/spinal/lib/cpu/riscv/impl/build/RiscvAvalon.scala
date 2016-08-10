@@ -85,7 +85,7 @@ class RiscvAvalon(coreConfig : CoreConfig,iCacheConfig : InstructionCacheConfig,
     val coreD = memCpu.clone
     coreD.cmd <-/< memCpu.cmd
     coreD.rsp >-> memCpu.rsp
-    io.d <> coreD.toAvalon()
+    io.d <> coreD.toAvalon(false)
   }
 
 }

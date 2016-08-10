@@ -1,4 +1,8 @@
 package spinal.lib.soc.pinsec
+
+import java.io.File
+import java.nio.file.Files
+
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba3.ahblite._
@@ -72,7 +76,12 @@ class Pinsec extends Component{
 
 
   val core      = new RiscvAhbLite3(coreConfig,iCacheConfig,dCacheConfig,debug,interruptCount,apbConfig)
-  val rom       = AhbLite3OnChipRam(ahbConfig,byteCount = 512 KB)
+//  val rom       = AhbLite3OnChipRam(ahbConfig,byteCount = 512 KB)
+  val rom       = new AhbLite3OnChipRom(ahbConfig,{
+    val bytes = Files.readAllBytes(new File("E:/vm/share/pinsec_test.bin").toPath()).map(v => BigInt(if(v < 0) v + 256 else v))
+    val array =  (0 until bytes.length/4).map(i => B(bytes(i*4+0) + (bytes(i*4+1) << 8) + (bytes(i*4+2) << 16) + (bytes(i*4+3) << 24),32 bits))
+    array
+  })
   val ram       = AhbLite3OnChipRam(ahbConfig,byteCount = 512 KB)
   val gpioCtrl  = Apb3Gpio(apbConfig,32)
   
@@ -111,5 +120,6 @@ class Pinsec extends Component{
 object Pinsec{
   def main(args: Array[String]) {
     SpinalConfig().dumpWave().generateVerilog(new Pinsec)
+    SpinalConfig().dumpWave().generateVhdl(new Pinsec)
   }
 }

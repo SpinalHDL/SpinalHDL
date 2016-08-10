@@ -84,7 +84,7 @@ def test1(dut):
 
     cocotb.fork(simulationSpeedPrinter(dut.clk))
 
-    yield loadIHex(dut,"e:/vm/share/pinsec_test.hex")
+    # yield loadIHex(dut,"e:/vm/share/pinsec_test.hex")
 
     # elements = [a for a in dut.AhbRam if a._name.startswith("")]
     # for e in elements:
