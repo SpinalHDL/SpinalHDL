@@ -249,6 +249,7 @@ object Nameable{
   val ABSOLUTE : Byte = 1
   val NAMEABLE_REF : Byte = 2
   val OWNER_PREFIXED : Byte = 3
+  val NAMEABLE_REF_PREFIXED : Byte = 4
 }
 
 trait Nameable extends OwnableRef{
@@ -267,6 +268,7 @@ trait Nameable extends OwnableRef{
     case UNANMED => true
     case ABSOLUTE => name == null
     case NAMEABLE_REF => nameableRef == null || nameableRef.isUnnamed
+    case NAMEABLE_REF_PREFIXED => nameableRef == null || nameableRef.isUnnamed || name == null
     case OWNER_PREFIXED => refOwner == null || refOwner.asInstanceOf[Nameable].isUnnamed
   }
   def isNamed: Boolean = !isUnnamed
@@ -276,6 +278,7 @@ trait Nameable extends OwnableRef{
     case UNANMED => default
     case ABSOLUTE => name
     case NAMEABLE_REF => if(nameableRef != null && nameableRef.isNamed) nameableRef.getName() else default
+    case NAMEABLE_REF_PREFIXED => if(nameableRef != null && nameableRef.isNamed) nameableRef.getName() + "_" + name else default
     case OWNER_PREFIXED => {
       if(refOwner != null) {
         val ref = refOwner.asInstanceOf[Nameable]
@@ -307,11 +310,23 @@ trait Nameable extends OwnableRef{
 
   private[core] def getNameElseThrow: String = getName(null)
 
-  def setCompositeName(nameable: Nameable,weak : Boolean = false) : this.type = {
+  def setCompositeName(nameable: Nameable) : this.type  = setCompositeName(nameable,false)
+  def setCompositeName(nameable: Nameable,weak : Boolean) : this.type = {
     if (!weak || (mode == UNANMED)) {
       nameableRef = nameable
       name = null
       setMode(NAMEABLE_REF)
+      setWeak(weak)
+    }
+    this
+  }
+
+  def setCompositeName(nameable: Nameable,postfix : String) : this.type  = setCompositeName(nameable,postfix,false)
+  def setCompositeName(nameable: Nameable,postfix : String,weak : Boolean) : this.type = {
+    if (!weak || (mode == UNANMED)) {
+      nameableRef = nameable
+      name = postfix
+      setMode(NAMEABLE_REF_PREFIXED)
       setWeak(weak)
     }
     this

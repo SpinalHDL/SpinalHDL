@@ -72,10 +72,8 @@ object Axi4{
 
   object lock{
     def apply() = Bits(2 bits)
-    def NORMAL    = B"00"
-    def EXCLUSIVE = B"01"
-    def LOCKED    = B"10"
-    def RESERVED  = B"11"
+    def NORMAL    = B"0"
+    def EXCLUSIVE = B"1"
   }
 
   object resp{
@@ -129,6 +127,8 @@ case class Axi4Config(addressWidth : Int,
                       mode         : Axi4Mode = READ_WRITE ) {
 
   def dataByteCount = dataWidth/8
+  def isWriteOnly = mode == WRITE_ONLY
+  def isReadOnly = mode == READ_ONLY
 
 }
 
@@ -144,7 +144,7 @@ class Axi4Ax(config: Axi4Config) extends Bundle {
   val len    = if(config.useLen)    UInt(config.lenWidth bits)  else null
   val size   = if(config.useSize)   Bits(3 bits)                else null
   val burst  = if(config.useBurst)  Bits(2 bits)                else null
-  val lock   = if(config.useLock)   Bits(2 bits)                else null
+  val lock   = if(config.useLock)   Bits(1 bits)                else null
   val cache  = if(config.useCache)  Bits(4 bits)                else null
   val qos    = if(config.useQos)    Bits(4 bits)                else null
   val user   = if(config.useUser)   Bits(config.userWidth bits) else null
@@ -208,6 +208,7 @@ case class Axi4B(config: Axi4Config) extends Bundle {
   */
 case class Axi4R(config: Axi4Config) extends Bundle {
   val data = Bits(config.dataWidth bits)
+  val id   = if(config.useId)     UInt(config.idWidth bits)   else null
   val resp = if(config.useResp) Bits(2 bits)               else null
   val last = if(config.useLen)  Bool                       else null
 

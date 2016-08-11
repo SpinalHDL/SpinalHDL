@@ -579,6 +579,7 @@ class TraversableOncePimped[T <: Data](pimped: scala.collection.Iterable[T]) {
     stage(array, 0)
   }
 
+  def asBits() : Bits = Cat(pimped)
 
   def read(idx: UInt): T = {
     Vec(pimped).read(idx)
