@@ -25,12 +25,13 @@ case class Axi4ReadArbiter(inputConfig: Axi4Config,inputsCount : Int,pendingId :
   io.output.readCmd.id.removeAssignements()
   io.output.readCmd.id := (cmdArbiter.io.chosen @@ cmdArbiter.io.output.id)
 
-  val readRspSels = (0 until inputsCount).map(io.output.readRsp.id === _)
+  val idPathRange = outputConfig.idWidth-1 downto outputConfig.idWidth - log2Up(inputsCount)
+  val readRspSels = (0 until inputsCount).map(io.output.readRsp.id(idPathRange) === _)
   for((input,sel)<- (io.inputs,readRspSels).zipped){
     input.readRsp.valid := io.output.readRsp.valid && sel
     input.readRsp.payload <> io.output.readRsp.payload
     input.readRsp.id.removeAssignements()
-    input.readRsp.id := io.output.readRsp.id >> log2Up(inputsCount)
+    input.readRsp.id := io.output.readRsp.id(idPathRange.low-1 downto 0)
   }
   io.output.readRsp.ready := (readRspSels,io.inputs.map(_.readRsp.ready)).zipped.map(_ & _).reduce(_ | _)
 }

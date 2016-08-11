@@ -88,5 +88,6 @@ class StreamMonitor:
         while True:
             yield RisingEdge(self.clk)
             if int(stream.valid) == 1 and int(stream.ready) == 1:
+                trans = BundleTransaction(stream.payload)
                 yield Timer(1)
-                self.callback(BundleTransaction(stream.payload))
+                self.callback(trans)

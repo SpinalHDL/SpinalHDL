@@ -5,7 +5,7 @@ import spinal.lib._
 
 import spinal.lib.bus.misc.SizeMapping
 
-case class Axi4ReadDecoder(axiConfig: Axi4Config,decodings : Iterable[SizeMapping],pendingMax : Int = 3) extends Component{
+case class Axi4ReadDecoder(axiConfig: Axi4Config,decodings : Iterable[SizeMapping],pendingMax : Int = 7) extends Component{
   assert(axiConfig.isReadOnly)
   val io = new Bundle{
     val input = slave(Axi4(axiConfig))
@@ -20,8 +20,7 @@ case class Axi4ReadDecoder(axiConfig: Axi4Config,decodings : Iterable[SizeMappin
 
   val decodedSels,appliedSels = Bits(decodings.size bits)
   val lastCmdSel = RegNextWhen(appliedSels,io.input.readCmd.ready)  init(0)
-  val lastId     = RegNextWhen(io.input.readCmd.id,io.input.readCmd.ready)
-  val allowCmd = pendingCounter === 0 || (lastCmdSel === decodedSels && lastId === io.input.readCmd.id)
+  val allowCmd = pendingCounter =/= pendingMax && (pendingCounter === 0  || (lastCmdSel === decodedSels))
   decodedSels  := decodings.map(_.hit(io.input.readCmd.addr) && io.input.readCmd.valid).asBits
   appliedSels := allowCmd ? decodedSels | 0
 
@@ -32,7 +31,7 @@ case class Axi4ReadDecoder(axiConfig: Axi4Config,decodings : Iterable[SizeMappin
     output.readRsp.ready := io.input.readRsp.ready
   }
 
-  val readRspIndex = OHToUInt(lastId)
+  val readRspIndex = OHToUInt(lastCmdSel)
   io.input.readRsp.valid := (lastCmdSel & io.outputs.map(_.readRsp.valid).asBits).orR
   io.input.readRsp.payload := io.outputs(readRspIndex).readRsp.payload
 }
