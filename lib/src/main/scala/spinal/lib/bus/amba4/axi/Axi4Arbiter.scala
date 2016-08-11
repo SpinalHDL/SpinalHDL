@@ -6,14 +6,16 @@ import spinal.lib._
 import spinal.lib.bus.misc.SizeMapping
 
 object Axi4ReadArbiter{
+  def getInputConfig(inputsConfig : Seq[Axi4Config]) = inputsConfig.head.copy(idWidth = inputsConfig.map(_.idWidth).reduce(Math.max(_,_)))
   def getOutputConfig(inputConfig : Axi4Config,inputsCount : Int) = inputConfig.copy(idWidth = inputConfig.idWidth + log2Up(inputsCount))
 }
 
-class Axi4ReadArbiter(inputConfig: Axi4Config,inputsCount : Int,pendingId : Int) {
+case class Axi4ReadArbiter(inputConfig: Axi4Config,inputsCount : Int,pendingId : Int) extends Component {
   assert(inputConfig.isReadOnly)
+  val outputConfig = Axi4ReadArbiter.getOutputConfig(inputConfig,inputsCount)
   val io = new Bundle{
     val inputs = Vec(slave(Axi4(inputConfig)),inputsCount)
-    val output = master(Axi4(inputConfig))
+    val output = master(Axi4(outputConfig))
   }
 
   val cmdArbiter = StreamArbiterFactory.roundRobin.build(Axi4Ar(inputConfig),inputsCount)

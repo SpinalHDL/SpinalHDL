@@ -5,7 +5,7 @@ import spinal.lib._
 
 import spinal.lib.bus.misc.SizeMapping
 
-class AxiRead4Decoder(axiConfig: Axi4Config,decodings : Iterable[SizeMapping],pendingMax : Int = 3) {
+case class Axi4ReadDecoder(axiConfig: Axi4Config,decodings : Iterable[SizeMapping],pendingMax : Int = 3) extends Component{
   assert(axiConfig.isReadOnly)
   val io = new Bundle{
     val input = slave(Axi4(axiConfig))
