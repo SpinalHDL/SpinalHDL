@@ -120,9 +120,9 @@ case class Axi4Config(addressWidth : Int,
                       useQos       : Boolean = true,
                       useLen       : Boolean = true,
                       useResp      : Boolean = true,
-                      useUser      : Boolean = true,
+                      useUser      : Boolean = false,
                       useStrb      : Boolean = true,
-                      userWidth    : Int = 0,
+                      userWidth    : Int = -1,
                       mode         : Axi4Mode = READ_WRITE ) {
 
   def dataByteCount = dataWidth/8
