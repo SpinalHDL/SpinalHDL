@@ -14,7 +14,7 @@ class MasterHandle:
         self.id = id
         self.counter = 0
         self.doFinish = False
-        self.monitorQueues = [Queue() for i in xrange(4)]
+        self.monitorQueues = [Queue() for i in xrange(4)] # One queue for each transaction id
 
     def isCompleted(self):
         if not self.doFinish:
@@ -30,13 +30,13 @@ class MasterHandle:
             if (value >> 10) != self.id  and ((value >> 8) & 0x3) == self.id:
                 return value
 
-    def genTransaction(self):
+    def genReadCmd(self):
         if self.doFinish:
             return None
         idOffset = randBits(2)
         trans = StreamTransaction()
         trans.addr = self.genRandomAddress()
-        trans.id = self.id*4 + idOffset
+        trans.id = self.id*4 + idOffset #Each master can use 4 ID
         trans.region = randBits(4)
         trans.len = randBits(4)
         trans.size = randBits(3)
@@ -52,7 +52,7 @@ class MasterHandle:
         return trans
 
 
-    def onTransaction(self, trans):
+    def onReadRsp(self, trans):
         queue = self.monitorQueues[trans.id - self.id*4]
         task = queue.queue[0]
         assertEquals(trans.data,task.addr + task.progress,"Readed value is wrong")
@@ -68,20 +68,20 @@ class MasterHandle:
 
 class SlaveHandle:
     def __init__(self):
-        self.tasksLists = [[]]*64
+        self.tasksQueues = [Queue()] * 64 # One queue of task for each transaction id
         self.genRandomizer = BoolRandomizer()
 
     def getRandTaskList(self):
-        tasksLists = [tasksList for tasksList in self.tasksLists if len(tasksList) != 0]
-        if len(tasksLists) == 0:
+        tasksQueuesFiltred = [tasksList for tasksList in self.tasksQueues if not tasksList.empty()]
+        if len(tasksQueuesFiltred) == 0:
             return None
-        return random.choice(tasksLists)
+        return random.choice(tasksQueuesFiltred)
 
-    def genTransaction(self):
-        tasksList = self.getRandTaskList()
-        if tasksList:
+    def genReadRsp(self):
+        tasksQueue = self.getRandTaskList()
+        if tasksQueue:
             if self.genRandomizer.get():
-                task = tasksList[0]
+                task = tasksQueue.queue[0]
                 trans = StreamTransaction()
                 trans.data = task.addr + task.progress
                 trans.resp = 0
@@ -89,15 +89,15 @@ class SlaveHandle:
                 task.progress += 1
                 if task.progress == task.len + 1:
                     trans.last = 1
-                    tasksList.remove(task)
+                    tasksQueue.get()
                 else:
                     trans.last = 0
                 return trans
 
 
-    def onTransaction(self, trans):
+    def onReadCmd(self, trans):
         trans.progress = 0
-        self.tasksLists[trans.id].append(trans)
+        self.tasksQueues[trans.id].put(trans)
 
 
 
@@ -112,24 +112,27 @@ def test1(dut):
 
     axiMasters = [Axi4(dut, "axiMasters_" + str(i)) for i in range(3)]
     axiSlaves = [Axi4(dut, "axiSlaves_" + str(i)) for i in range(4)]
+
     masterHandles = []
+
+    # Instanciate master side
     for axiMaster in axiMasters:
         idx = axiMasters.index(axiMaster)
         masterHandle = MasterHandle(idx)
         masterHandles.append(masterHandle)
-        StreamDriverMaster(axiMaster.ar,masterHandle.genTransaction,dut.clk,dut.reset)
+        StreamDriverMaster(axiMaster.ar, masterHandle.genReadCmd, dut.clk, dut.reset)
         StreamDriverSlave(axiMaster.r, dut.clk, dut.reset)
-        StreamMonitor(axiMaster.r, masterHandle.onTransaction, dut.clk, dut.reset)
+        StreamMonitor(axiMaster.r, masterHandle.onReadRsp, dut.clk, dut.reset)
 
+    # instanciate slave side
     for axiSlave in axiSlaves:
         axiSlave.r.payload.id <= 0
-
-        idx = axiSlaves.index(axiSlave)
         slaveHandle = SlaveHandle()
         StreamDriverSlave(axiSlave.ar,dut.clk,dut.reset)
-        StreamDriverMaster(axiSlave.r,slaveHandle.genTransaction,dut.clk,dut.reset)
-        StreamMonitor(axiSlave.ar,slaveHandle.onTransaction,dut.clk,dut.reset)
+        StreamDriverMaster(axiSlave.r, slaveHandle.genReadRsp, dut.clk, dut.reset)
+        StreamMonitor(axiSlave.ar, slaveHandle.onReadCmd, dut.clk, dut.reset)
 
+    # Run until completion
     while True:
         yield RisingEdge(dut.clk)
         done = True
