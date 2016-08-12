@@ -6,13 +6,13 @@ import spinal.lib._
 import spinal.lib.bus.misc.SizeMapping
 
 object Axi4ReadArbiter{
-  def getInputConfig(inputsConfig : Seq[Axi4Config]) = inputsConfig.head.copy(idWidth = inputsConfig.map(_.idWidth).reduce(Math.max(_,_)))
-  def getOutputConfig(inputConfig : Axi4Config,inputsCount : Int) = inputConfig.copy(idWidth = inputConfig.idWidth + log2Up(inputsCount))
+//  def getInputConfig(inputsConfig : Seq[Axi4Config]) = inputsConfig.head.copy(idWidth = inputsConfig.map(_.idWidth).reduce(Math.max(_,_)))
+  def getInputConfig(outputConfig : Axi4Config,inputsCount : Int) = outputConfig.copy(idWidth = outputConfig.idWidth - log2Up(inputsCount))
 }
 
-case class Axi4ReadArbiter(inputConfig: Axi4Config,inputsCount : Int,pendingId : Int) extends Component {
-  assert(inputConfig.isReadOnly)
-  val outputConfig = Axi4ReadArbiter.getOutputConfig(inputConfig,inputsCount)
+case class Axi4ReadArbiter(outputConfig: Axi4Config,inputsCount : Int) extends Component {
+  assert(outputConfig.isReadOnly)
+  val inputConfig = Axi4ReadArbiter.getInputConfig(outputConfig,inputsCount)
   val io = new Bundle{
     val inputs = Vec(slave(Axi4(inputConfig)),inputsCount)
     val output = master(Axi4(outputConfig))
@@ -25,6 +25,7 @@ case class Axi4ReadArbiter(inputConfig: Axi4Config,inputsCount : Int,pendingId :
   io.output.readCmd.id.removeAssignements()
   io.output.readCmd.id := (cmdArbiter.io.chosen @@ cmdArbiter.io.output.id)
 
+  // Route readResp
   val idPathRange = outputConfig.idWidth-1 downto outputConfig.idWidth - log2Up(inputsCount)
   val readRspSels = (0 until inputsCount).map(io.output.readRsp.id(idPathRange) === _)
   for((input,sel)<- (io.inputs,readRspSels).zipped){
@@ -41,51 +42,46 @@ case class Axi4ReadArbiter(inputConfig: Axi4Config,inputsCount : Int,pendingId :
 
 
 
+object Axi4WriteArbiter{
+  //  def getInputConfig(inputsConfig : Seq[Axi4Config]) = inputsConfig.head.copy(idWidth = inputsConfig.map(_.idWidth).reduce(Math.max(_,_)))
+  def getInputConfig(outputConfig : Axi4Config,inputsCount : Int) = outputConfig.copy(idWidth = outputConfig.idWidth - log2Up(inputsCount))
+}
+
+case class Axi4WriteArbiter(outputConfig: Axi4Config,inputsCount : Int,routeBufferSize : Int) extends Component {
+  assert(outputConfig.isWriteOnly)
+  val inputConfig = Axi4ReadArbiter.getInputConfig(outputConfig,inputsCount)
+  val io = new Bundle{
+    val inputs = Vec(slave(Axi4(inputConfig)),inputsCount)
+    val output = master(Axi4(outputConfig))
+  }
+
+  // Route writeCmd
+  val cmdArbiter = StreamArbiterFactory.roundRobin.build(Axi4Aw(inputConfig),inputsCount)
+  (cmdArbiter.io.inputs,io.inputs.map(_.writeCmd)).zipped.map(_ <> _)
+  val (cmdOutputFork,cmdRouteFork) = StreamFork2(io.output.writeCmd)
+  cmdArbiter.io.output <> cmdOutputFork
+  io.output.writeCmd.id.removeAssignements()
+  io.output.writeCmd.id := (cmdArbiter.io.chosen @@ cmdArbiter.io.output.id)
+  
+  // Route writeData
+  val routeBuffer = cmdRouteFork.translateWith(cmdArbiter.io.chosen).queue(routeBufferSize) //TODO check queue minimal latency of queue (probably 2, which is bad)
+  val routeDataInput = io.inputs(routeBuffer.payload).writeData
+  io.output.writeData.valid := routeBuffer.valid && routeDataInput.valid
+  io.output.writeData.payload  := routeDataInput.payload
+  io.inputs.zipWithIndex.foreach{case(input,idx) => {
+    input.writeData.ready := routeBuffer.valid && io.output.writeData.ready && routeBuffer.payload === idx
+  }}
+
+  // Route writeResp
+  val idPathRange = outputConfig.idWidth-1 downto outputConfig.idWidth - log2Up(inputsCount)
+  val writeRspSels = (0 until inputsCount).map(io.output.writeRsp.id(idPathRange) === _)
+  for((input,sel)<- (io.inputs,writeRspSels).zipped){
+    input.writeRsp.valid := io.output.writeRsp.valid && sel
+    input.writeRsp.payload <> io.output.writeRsp.payload
+    input.writeRsp.id.removeAssignements()
+    input.writeRsp.id := io.output.writeRsp.id(idPathRange.low-1 downto 0)
+  }
+  io.output.writeRsp.ready := (writeRspSels,io.inputs.map(_.writeRsp.ready)).zipped.map(_ & _).reduce(_ | _)
+}
 
 
-
-
-//case class Axi4IdContextBufferPushTransaction[T <: Data](dataType : T,idWidth : Int) extends Bundle{
-//  val id = Bits(idWidth bits)
-//  val context = cloneOf(dataType)
-//}
-//
-//case class Axi4IdContextBufferRead[T <: Data](dataType : T,idWidth : Int) extends Bundle with IMasterSlave{
-//  val id      = Bits(idWidth bits)
-//  val remove  = Bool
-//  val context = cloneOf(dataType)
-//
-//  override def asMaster(): Axi4IdContextBufferRead.this.type = {
-//    out(id,remove)
-//    in(context)
-//    this
-//  }
-//
-//}
-//
-//case class Axi4IdContextBuffer[T <: Data](dataType : T,idWidth : Int,capacity : Int) extends Component{
-//  val io = new Bundle{
-//    val push = slave Stream(Axi4IdContextBufferPushTransaction(dataType , idWidth))
-//    val pop  = slave(Axi4IdContextBufferRead(dataType,idWidth))
-//  }
-//
-//  val valids = Vec(Reg(Bool) init(False),capacity)
-//  val ids = Vec(Reg(Bits(idWidth bits)),capacity)
-//  val contexts = Vec(Reg(dataType),capacity)
-//
-//  io.push.ready := !valids.reduce(_ && _)
-//  val pushMask = io.push.valid ? OHMasking.first(~valids.asBits) | 0
-//  for(idx <- 0 until capacity){
-//    when(pushMask(idx)) {
-//      valids(idx) := True
-//      ids(idx) := io.push.id
-//      contexts(idx) := io.push.context
-//    }
-//  }
-//
-//  val popId = OHToUInt(ids.map(_ === io.pop.id))
-//  io.pop.context := contexts(popId)
-//  when(io.pop.remove){
-//    valids(popId) := False
-//  }
-//}

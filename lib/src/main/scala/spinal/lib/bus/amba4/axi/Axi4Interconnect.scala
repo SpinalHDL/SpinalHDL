@@ -58,14 +58,12 @@ case class Axi4InterconnectFactory(/*axiConfig: Axi4Config*/){
     }
 
     val arbiters = for((slave,config) <- slavesConfigs) yield new Area{
-      val axiConfig = Axi4ReadArbiter.getInputConfig(config.connections.map(_.master.config))
       val arbiter = Axi4ReadArbiter(
-        inputConfig = axiConfig,
-        inputsCount = config.connections.length,
-        pendingId = 3
+        outputConfig = slave.config,
+        inputsCount = config.connections.length
       )
       for((input,master) <- (arbiter.io.inputs,config.connections).zipped){
-        input <> masterToDecodedSlave(master.master)(slave)
+        input << masterToDecodedSlave(master.master)(slave)
       }
       arbiter.io.output >> slave
       arbiter.setPartialName(slave,"arbiter")
