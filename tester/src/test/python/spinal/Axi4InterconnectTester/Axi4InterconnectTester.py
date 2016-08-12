@@ -67,9 +67,10 @@ class MasterHandle:
 
 
 class SlaveHandle:
-    def __init__(self):
+    def __init__(self,id):
         self.tasksQueues = [Queue()] * 64 # One queue of task for each transaction id
         self.genRandomizer = BoolRandomizer()
+        self.id = id
 
     def getRandTaskList(self):
         tasksQueuesFiltred = [tasksList for tasksList in self.tasksQueues if not tasksList.empty()]
@@ -97,6 +98,7 @@ class SlaveHandle:
 
     def onReadCmd(self, trans):
         trans.progress = 0
+        assertEquals(trans.addr >> 10, self.id, ":(")
         self.tasksQueues[trans.id].put(trans)
 
 
@@ -116,8 +118,7 @@ def test1(dut):
     masterHandles = []
 
     # Instanciate master side
-    for axiMaster in axiMasters:
-        idx = axiMasters.index(axiMaster)
+    for idx,axiMaster in enumerate(axiMasters):
         masterHandle = MasterHandle(idx)
         masterHandles.append(masterHandle)
         StreamDriverMaster(axiMaster.ar, masterHandle.genReadCmd, dut.clk, dut.reset)
@@ -125,9 +126,9 @@ def test1(dut):
         StreamMonitor(axiMaster.r, masterHandle.onReadRsp, dut.clk, dut.reset)
 
     # instanciate slave side
-    for axiSlave in axiSlaves:
+    for idx,axiSlave in enumerate(axiSlaves):
         axiSlave.r.payload.id <= 0
-        slaveHandle = SlaveHandle()
+        slaveHandle = SlaveHandle(idx)
         StreamDriverSlave(axiSlave.ar,dut.clk,dut.reset)
         StreamDriverMaster(axiSlave.r, slaveHandle.genReadRsp, dut.clk, dut.reset)
         StreamMonitor(axiSlave.ar, slaveHandle.onReadCmd, dut.clk, dut.reset)

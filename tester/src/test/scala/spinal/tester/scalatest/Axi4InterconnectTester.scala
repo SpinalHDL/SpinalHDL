@@ -34,5 +34,5 @@ class Axi4InterconnectTesterCocotbBoot extends SpinalTesterCocotbBase {
   override def getName: String = "Axi4InterconnectTester"
   override def pythonTestLocation: String = "tester/src/test/python/spinal/Axi4InterconnectTester"
   override def createToplevel: Component = new Axi4InterconnectTester.Axi4InterconnectTester
-  override def backendConfig(config: SpinalConfig): SpinalConfig = config.dumpWave()
+  //override def backendConfig(config: SpinalConfig): SpinalConfig = config.dumpWave()
 }

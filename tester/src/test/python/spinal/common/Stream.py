@@ -2,7 +2,7 @@ import cocotb
 from cocotb.result import TestFailure
 from cocotb.triggers import RisingEdge, Timer
 
-from spinal.common.misc import Bundle, BoolRandomizer
+from spinal.common.misc import Bundle, BoolRandomizer, assertEquals
 
 
 class Stream:
