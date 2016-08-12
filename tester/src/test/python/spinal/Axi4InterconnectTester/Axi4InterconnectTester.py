@@ -19,6 +19,9 @@ class MasterHandle:
         self.writeCmdQueue = Queue()
         self.writeDataQueue = Queue()
         self.idToWrites = idToWrites
+        self.readCmdIdleRand = BoolRandomizer()
+        self.writeCmdIdleRand = BoolRandomizer()
+        self.writeDataIdleRand = BoolRandomizer()
 
     def isCompleted(self):
         if not self.doFinish:
@@ -26,17 +29,18 @@ class MasterHandle:
         for q in self.readMonitorQueues:
             if not q.empty():
                 return False
-        # print(str(len(self.writeDataQueue.queue)))
-        # if not self.writeDataQueue.empty():
-        #     return False
-        # if not self.writeCmdQueue.empty():
-        #     return False
+        if not self.writeDataQueue.empty():
+            return False
+        if not self.writeCmdQueue.empty():
+            return False
         return True
 
     def genWrite(self):
         idOffset = randBits(2)
         writeCmd = StreamTransaction()
         writeCmd.addr = self.genRandomAddress()
+        if random.random() < 0.1: # Random assertion of decoding error
+            writeCmd.addr = 1 << 12
         writeCmd.hid = self.hid*4 + idOffset #Each master can use 4 id
         writeCmd.region = randBits(4)
         writeCmd.len = randBits(4)
@@ -84,9 +88,13 @@ class MasterHandle:
     def genReadCmd(self):
         if self.doFinish:
             return None
+        if not self.readCmdIdleRand.get():
+            return None
         idOffset = randBits(2)
         trans = StreamTransaction()
         trans.addr = self.genRandomAddress()
+        if random.random() < 0.1: # Random assertion of decoding error
+            trans.addr = 1 << 12
         trans.hid = self.hid*4 + idOffset #Each master can use 4 id
         trans.region = randBits(4)
         trans.len = randBits(4)
@@ -105,10 +113,14 @@ class MasterHandle:
     def onReadRsp(self, trans):
         queue = self.readMonitorQueues[trans.hid - self.hid * 4]
         task = queue.queue[0]
-        assertEquals(trans.data,task.addr + task.progress,"Readed value is wrong")
+        if task.addr != 1 << 12:
+            assertEquals(trans.data,task.addr + task.progress,"Readed value is wrong")
+        else:
+            assertEquals(trans.resp, 3, "yep")
         task.progress += 1
         if task.progress == task.len + 1:
             # print("Master FINISH %d %x" % (task.hid,task.addr))
+            assertEquals(trans.last, 1, "Should be last read")
             queue.get()
             self.readCounter += 1
             self.updateDoFinish()
@@ -116,13 +128,22 @@ class MasterHandle:
 
 
     def genWriteCmd(self):
+        if not self.writeCmdIdleRand.get():
+            return None
         return self.getNextWriteCmdTrans()
 
     def genWriteData(self):
+        if not self.writeDataIdleRand.get():
+            return None
         return self.getNextWriteDataTrans()
 
     def onWriteRsp(self,trans):
         self.writeCounter = self.writeCounter + 1
+        if trans.resp == 3:
+            write = self.idToWrites[trans.hid][0]
+            assertEquals(write.addr,(1<<12),"ERROR ?")
+            self.idToWrites[trans.hid].remove(write)
+
         self.updateDoFinish()
 
     def updateDoFinish(self):
@@ -133,11 +154,12 @@ class MasterHandle:
 class SlaveHandle:
     def __init__(self,id,idToWrites):
         self.tasksQueues = [Queue()] * 64 # One queue of task for each transaction id
-        self.genRandomizer = BoolRandomizer()
         self.hid = id
         self.writeCmds = []
         self.writeDatas = []
         self.idToWrites = idToWrites
+        self.readRspIdleRand = BoolRandomizer()
+        self.writeRspIdleRand = BoolRandomizer()
 
     def getRandTaskList(self):
         tasksQueuesFiltred = [tasksList for tasksList in self.tasksQueues if not tasksList.empty()]
@@ -148,7 +170,7 @@ class SlaveHandle:
     def genReadRsp(self):
         tasksQueue = self.getRandTaskList()
         if tasksQueue:
-            if self.genRandomizer.get():
+            if self.readRspIdleRand.get():
                 task = tasksQueue.queue[0]
                 trans = StreamTransaction()
                 trans.data = task.addr + task.progress
@@ -178,6 +200,8 @@ class SlaveHandle:
 
     def genWriteRsp(self):
         if len(self.writeCmds) != 0:
+            if not self.writeRspIdleRand.get():
+                return None
             cmd = self.writeCmds[0]
             beatCount = cmd.len + 1
             if len(self.writeDatas) >= beatCount:
@@ -260,9 +284,9 @@ def test1(dut):
             if not handle.isCompleted():
                 done = False
 
-        # for l in idToWrites:
-        #     if l:
-        #         done = False
+        for l in idToWrites:
+            if l:
+                done = False
         if done:
             break
 

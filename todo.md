@@ -23,6 +23,7 @@
 
 ## spinal.lib
 
+- [ ] Check queue minimal latency of queue for AXI4WriteArbiter (probably 2, which is bad)
 - [ ] Add more Mem Utils (Flow/Stream access)
 - [ ] Finalise and document many Stream utils
 - [ ] More spinal.lib basic utils (priority encoder, ..)

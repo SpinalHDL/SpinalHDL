@@ -8,8 +8,8 @@ import spinal.lib.bus.amba4.axi._
 
 object Axi4InterconnectTester{
   class Axi4InterconnectTester extends Component {
-    val axiMasterConfig = Axi4Config(addressWidth = 12,dataWidth = 32,idWidth = 4,mode = READ_WRITE)
-    val axiSlaveConfig  = Axi4Config(addressWidth = 12,dataWidth = 32,idWidth = 6,mode = READ_WRITE)
+    val axiMasterConfig = Axi4Config(addressWidth = 13,dataWidth = 32,idWidth = 4,mode = READ_WRITE)
+    val axiSlaveConfig  = Axi4Config(addressWidth = 13,dataWidth = 32,idWidth = 6,mode = READ_WRITE)
 
     val axiMasters = Vec(slave(Axi4(axiMasterConfig)),3)
     val axiSlaves  = Vec(master(Axi4(axiSlaveConfig)),4)
@@ -29,7 +29,6 @@ object Axi4InterconnectTester{
 
     val readInterconnect = interconnectFactory.buildRead()
     val writeInterconnect = interconnectFactory.buildWrite()
-
   }
 }
 
