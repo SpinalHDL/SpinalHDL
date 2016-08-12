@@ -15,7 +15,11 @@ case class MaskMapping(base : BigInt,mask : BigInt) extends AddressMapping{
 }
 
 object SizeMapping{
-  implicit def implicitTuple(that : (Int,Int)) : SizeMapping = SizeMapping(that._1,that._2)
+  implicit def implicitTuple1(that : (Int,Int)) : SizeMapping = SizeMapping(that._1,that._2)
+  implicit def implicitTuple2(that : (BigInt,BigInt)) : SizeMapping = SizeMapping(that._1,that._2)
+  implicit def implicitTuple3(that : (Int,BigInt)) : SizeMapping = SizeMapping(that._1,that._2)
+  implicit def implicitTuple5(that : (Long,BigInt)) : SizeMapping = SizeMapping(that._1,that._2)
+  implicit def implicitTuple4(that : (BigInt,Int)) : SizeMapping = SizeMapping(that._1,that._2)
 }
 
 case class SizeMapping(base : BigInt,size : BigInt)extends AddressMapping{

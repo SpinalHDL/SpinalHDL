@@ -4,6 +4,7 @@ import java.text.AttributedString
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.bus.amba3.ahblite.{AhbLite3Master, AhbLite3Config}
 import spinal.lib.bus.avalon._
 import spinal.lib.bus.avalon._
 import spinal.lib.bus.amba4.axi._
@@ -73,6 +74,11 @@ object CoreInstructionBus{
   ).getReadOnlyConfig.copy(
     maximumPendingReadTransactions = 1
   )
+
+  def getAhbLite3Config(p : CoreConfig) = AhbLite3Config(
+    addressWidth = p.addrWidth,
+    dataWidth = 32
+  )
 }
 
 case class CoreInstructionBus(implicit val p : CoreConfig) extends Bundle with IMasterSlave{
@@ -134,6 +140,40 @@ case class CoreInstructionBus(implicit val p : CoreConfig) extends Bundle with I
 
     mm
   }
+
+
+  def toAhbLite3() : AhbLite3Master = {
+    val ahbConfig = CoreInstructionBus.getAhbLite3Config(p)
+    val mm = AhbLite3Master(ahbConfig)
+    val readDataValid = RegNext(False) setWhen(mm.HTRANS(1) && mm.HREADY) init(False)
+    val haltCmd = rsp.isStall
+
+    mm.HTRANS := (cmd.valid && !haltCmd) ? B"10" | B"00"
+    mm.HADDR := cmd.pc
+    mm.HWRITE := False
+    mm.HSIZE := 2
+    mm.HBURST := 0
+    mm.HPROT := 0
+    mm.HWDATA := 0
+    mm.HMASTLOCK := False
+
+    cmd.ready := mm.HREADY && !haltCmd
+
+    val backupFifoIn = Stream(CoreInstructionRsp())
+    backupFifoIn.valid := readDataValid
+    backupFifoIn.instruction := mm.HRDATA
+    backupFifoIn.pc := RegNextWhen(cmd.pc,cmd.ready)
+
+    rsp </< backupFifoIn //1 depth of backup fifo, zero latency
+
+    if(p.branchPrediction == dynamic) {
+      branchCachePort.cmd.valid := cmd.fire
+      branchCachePort.cmd.payload := (cmd.pc >> 2).resized
+      backupFifoIn.branchCacheLine := branchCachePort.rsp
+    }
+
+    mm
+  }
 }
 
 object CoreDataBus{
@@ -143,6 +183,12 @@ object CoreDataBus{
       useByteEnable = true,
       maximumPendingReadTransactions = 2
     )
+
+
+  def getAhbLite3Config(p : CoreConfig) = AhbLite3Config(
+    addressWidth = p.addrWidth,
+    dataWidth = 32
+  )
 }
 
 case class CoreDataBus(implicit p : CoreConfig) extends Bundle with IMasterSlave{
@@ -157,31 +203,33 @@ case class CoreDataBus(implicit p : CoreConfig) extends Bundle with IMasterSlave
 
   override def asSlave(): this.type = asMaster.flip()
 
-  def toAvalon(): AvalonMM = {
+  //stageCmd can only be false if the minimal latency of reads is >= 2
+  def toAvalon(stageCmd : Boolean = true): AvalonMM = {
     val avalonConfig = CoreDataBus.getAvalonConfig(p)
     val mm = AvalonMM(avalonConfig)
-    mm.read := cmd.valid && !cmd.wr
-    mm.write := cmd.valid && cmd.wr
-    mm.address := cmd.address(cmd.address.high downto 2) @@ U"00"
-    mm.writeData := cmd.size.mux (
-      U(0) -> cmd.data(7 downto 0) ## cmd.data(7 downto 0) ## cmd.data(7 downto 0) ## cmd.data(7 downto 0),
-      U(1) -> cmd.data(15 downto 0) ## cmd.data(15 downto 0),
-      default -> cmd.data(31 downto 0)
+    val cmdStage = if(stageCmd) cmd.stage else cmd
+    mm.read := cmdStage.valid && !cmdStage.wr
+    mm.write := cmdStage.valid && cmdStage.wr
+    mm.address := cmdStage.address(cmdStage.address.high downto 2) @@ U"00"
+    mm.writeData := cmdStage.size.mux (
+      U(0) -> cmdStage.data(7 downto 0) ## cmdStage.data(7 downto 0) ## cmdStage.data(7 downto 0) ## cmdStage.data(7 downto 0),
+      U(1) -> cmdStage.data(15 downto 0) ## cmdStage.data(15 downto 0),
+      default -> cmdStage.data(31 downto 0)
     )
-    mm.byteEnable := (cmd.size.mux (
+    mm.byteEnable := (cmdStage.size.mux (
       U(0) -> B"0001",
       U(1) -> B"0011",
       default -> B"1111"
-    ) << cmd.address(1 downto 0)).resized
+    ) << cmdStage.address(1 downto 0)).resized
 
     val contextIn = Stream(UInt(2 bit))
-    contextIn.valid := cmd.fire && !cmd.wr
-    contextIn.payload := cmd.address(1 downto 0)
+    contextIn.valid := cmdStage.fire && !cmdStage.wr
+    contextIn.payload := cmdStage.address(1 downto 0)
 
-    val contextOut = contextIn.m2sPipe().m2sPipe()
+    val contextOut = if(stageCmd) contextIn.m2sPipe() else contextIn.m2sPipe().m2sPipe()
     contextOut.ready := rsp.fire
 
-    cmd.ready := mm.waitRequestn
+    cmdStage.ready := mm.waitRequestn
     rsp.valid := mm.readDataValid
     //rsp.payload := mm.readData >> (contextOut.payload*8)
     rsp.payload := mm.readData
@@ -189,6 +237,48 @@ case class CoreDataBus(implicit p : CoreConfig) extends Bundle with IMasterSlave
       is(1){rsp.payload(7 downto 0)  := mm.readData(15 downto 8)}
       is(2){rsp.payload(15 downto 0) := mm.readData(31 downto 16)}
       is(3){rsp.payload(7 downto 0)  := mm.readData(31 downto 24)}
+    }
+
+    mm
+  }
+
+
+  def toAhbLite3() : AhbLite3Master = {
+    val avalonConfig = CoreDataBus.getAhbLite3Config(p)
+    val mm = AhbLite3Master(avalonConfig)
+    val readDataValid = RegNext(False) setWhen(mm.HTRANS(1) && mm.HREADY) init(False)
+    val cmd = this.cmd.stage
+    mm.HTRANS := cmd.valid ? B"10" | B"00"
+    mm.HADDR := cmd.address
+    mm.HWRITE := cmd.wr
+    mm.HSIZE := 2
+    mm.HBURST := 0
+    mm.HPROT := 1
+    mm.HMASTLOCK := False
+    mm.HWDATA := RegNextWhen(
+      next = cmd.size.mux (
+        U(0) -> cmd.data(7 downto 0) ## cmd.data(7 downto 0) ## cmd.data(7 downto 0) ## cmd.data(7 downto 0),
+        U(1) -> cmd.data(15 downto 0) ## cmd.data(15 downto 0),
+        default -> cmd.data(31 downto 0)
+      ),
+      cond = mm.HREADY
+    )
+
+    val contextIn = Stream(UInt(2 bit))
+    contextIn.valid := cmd.fire && !cmd.wr
+    contextIn.payload := cmd.address(1 downto 0)
+
+    val contextOut = contextIn.m2sPipe()
+    contextOut.ready := rsp.fire
+
+    cmd.ready := mm.HREADY
+    rsp.valid := readDataValid
+    //rsp.payload := mm.readData >> (contextOut.payload*8)
+    rsp.payload := mm.HRDATA
+    switch(contextOut.payload){
+      is(1){rsp.payload(7 downto 0)  := mm.HRDATA(15 downto 8)}
+      is(2){rsp.payload(15 downto 0) := mm.HRDATA(31 downto 16)}
+      is(3){rsp.payload(7 downto 0)  := mm.HRDATA(31 downto 24)}
     }
 
     mm

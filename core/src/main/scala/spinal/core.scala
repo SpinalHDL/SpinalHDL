@@ -56,8 +56,15 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     def THz = (i * BigDecimal(1e12))
     def GHz = (i * BigDecimal(1e9))
     def MHz = (i * BigDecimal(1e6))
-    def KHz = (i * BigDecimal(1e3))
+    def kHz = (i * BigDecimal(1e3))
     def Hz = (i * BigDecimal(1e0))
+
+    def Byte = BigInt(i)
+    def KB = BigInt(i) << 10
+    def MB = BigInt(i) << 20
+    def GB = BigInt(i) << 30
+    def TB = BigInt(i) << 40
+
   }
 
   case class BigIntBuilder(i: BigInt) {
@@ -80,7 +87,7 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     def THz = (d * BigDecimal(1e12))
     def GHz = (d * BigDecimal(1e9))
     def MHz = (d * BigDecimal(1e6))
-    def KHz = (d * BigDecimal(1e3))
+    def kHz = (d * BigDecimal(1e3))
     def  Hz = (d * BigDecimal(1e0))
   }
 

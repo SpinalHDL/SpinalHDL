@@ -1659,6 +1659,7 @@ class PhaseDontSymplifyVerilogMismatchingWidth(pc: PhaseContext) extends PhaseMi
       node match {
         case node: Resize => applyTo(node)
         case node: Modifier => applyTo(node) // .....
+        case node: Literal => applyTo(node)
 //        case node: Operator.BitVector.Add => applyTo(node)
 //        case node: Operator.BitVector.Sub => applyTo(node)
 //        case node: Operator.BitVector.ShiftRightByInt => applyTo(node)
@@ -1667,6 +1668,11 @@ class PhaseDontSymplifyVerilogMismatchingWidth(pc: PhaseContext) extends PhaseMi
         case _ =>
       }
     })
+//    import pc._
+//    Node.walk(walkNodesDefautStack,node => node match{
+//      case bt : BaseType => bt.dontSimplifyIt()
+//      case _ =>
+//    })
   }
 }
 

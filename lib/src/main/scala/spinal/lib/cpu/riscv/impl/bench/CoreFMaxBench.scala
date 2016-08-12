@@ -3,7 +3,7 @@ package spinal.lib.cpu.riscv.impl.bench
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.cpu.riscv.impl.CoreQSysAvalon.RiscvAvalon
+import spinal.lib.cpu.riscv.impl.build.RiscvAvalon
 import spinal.lib.cpu.riscv.impl._
 import spinal.lib.cpu.riscv.impl.extension._
 

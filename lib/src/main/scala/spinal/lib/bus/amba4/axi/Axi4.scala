@@ -72,10 +72,8 @@ object Axi4{
 
   object lock{
     def apply() = Bits(2 bits)
-    def NORMAL    = B"00"
-    def EXCLUSIVE = B"01"
-    def LOCKED    = B"10"
-    def RESERVED  = B"11"
+    def NORMAL    = B"0"
+    def EXCLUSIVE = B"1"
   }
 
   object resp{
@@ -112,6 +110,7 @@ object READ_WRITE extends Axi4Mode{
   */
 case class Axi4Config(addressWidth : Int,
                       dataWidth    : Int,
+                      idWidth      : Int,
                       useId        : Boolean = true,
                       useRegion    : Boolean = true,
                       useBurst     : Boolean = true,
@@ -121,14 +120,14 @@ case class Axi4Config(addressWidth : Int,
                       useQos       : Boolean = true,
                       useLen       : Boolean = true,
                       useResp      : Boolean = true,
-                      useUser      : Boolean = true,
+                      useUser      : Boolean = false,
                       useStrb      : Boolean = true,
-                      lenWidth     : Int = -1 ,
-                      idWidth      : Int = -1,
-                      userWidth    : Int = -1 ,
+                      userWidth    : Int = -1,
                       mode         : Axi4Mode = READ_WRITE ) {
 
   def dataByteCount = dataWidth/8
+  def isWriteOnly = mode == WRITE_ONLY
+  def isReadOnly = mode == READ_ONLY
 
 }
 
@@ -141,10 +140,10 @@ class Axi4Ax(config: Axi4Config) extends Bundle {
   val addr   = UInt(config.addressWidth bits)
   val id     = if(config.useId)     UInt(config.idWidth bits)   else null
   val region = if(config.useRegion) Bits(4 bits)                else null
-  val len    = if(config.useLen)    UInt(config.lenWidth bits)  else null
+  val len    = if(config.useLen)    UInt(8 bits)  else null
   val size   = if(config.useSize)   Bits(3 bits)                else null
   val burst  = if(config.useBurst)  Bits(2 bits)                else null
-  val lock   = if(config.useLock)   Bits(2 bits)                else null
+  val lock   = if(config.useLock)   Bits(1 bits)                else null
   val cache  = if(config.useCache)  Bits(4 bits)                else null
   val qos    = if(config.useQos)    Bits(4 bits)                else null
   val user   = if(config.useUser)   Bits(config.userWidth bits) else null
@@ -208,6 +207,7 @@ case class Axi4B(config: Axi4Config) extends Bundle {
   */
 case class Axi4R(config: Axi4Config) extends Bundle {
   val data = Bits(config.dataWidth bits)
+  val id   = if(config.useId)     UInt(config.idWidth bits)   else null
   val resp = if(config.useResp) Bits(2 bits)               else null
   val last = if(config.useLen)  Bool                       else null
 
@@ -243,17 +243,22 @@ case class Axi4(config: Axi4Config) extends Bundle with IMasterSlave {
   def readRsp   = r
 
   def >> (that : Axi4) : Unit = {
-    assert(that.config == this.config)
-
-    if(config.mode.write){
+    if(that.config.mode.write){
       this.writeCmd  >> that.writeCmd
       this.writeData >> that.writeData
       this.writeRsp  << that.writeRsp
     }
 
-    if(config.mode.read) {
-      this.readCmd  >> that.readCmd
-      this.readRsp  << that.readRsp
+    if(that.config.mode.read) {
+      this.readCmd >> that.readCmd
+      this.readRsp << that.readRsp
+      assert(this.config.idWidth <= that.config.idWidth,s"$this idWidth > $that idWidth")
+
+      that.readCmd.id.removeAssignements()
+      that.readCmd.id := this.readCmd.id.resized
+
+      this.readRsp.id.removeAssignements()
+      this.readRsp.id := that.readRsp.id.resized
     }
   }
 

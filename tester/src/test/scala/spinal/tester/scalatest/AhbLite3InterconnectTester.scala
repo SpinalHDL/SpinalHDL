@@ -65,4 +65,5 @@ class AhbLite3InterconnectTesterCocotbBoot extends SpinalTesterCocotbBase {
   override def getName: String = "AhbLite3InterconnectTester"
   override def pythonTestLocation: String = "tester/src/test/python/spinal/AhbLite3InterconnectTester"
   override def createToplevel: Component = new AhbLite3InterconnectTester.AhbLite3InterconnectTester
+  override def backendConfig(config: SpinalConfig): SpinalConfig = config.dumpWave()
 }

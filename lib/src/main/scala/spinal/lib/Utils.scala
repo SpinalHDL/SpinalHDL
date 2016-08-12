@@ -31,7 +31,7 @@ import scala.collection.mutable.ArrayBuffer
 
 object OHToUInt {
   def apply(bitVector: BitVector): UInt = apply(bitVector.asBools)
-  def apply(bools: collection.IndexedSeq[Bool]): UInt = {
+  def apply(bools: Iterable[Bool]): UInt = {
     val boolsSize = bools.size
     if (boolsSize < 2) return U(0)
 
@@ -579,6 +579,7 @@ class TraversableOncePimped[T <: Data](pimped: scala.collection.Iterable[T]) {
     stage(array, 0)
   }
 
+  def asBits() : Bits = Cat(pimped)
 
   def read(idx: UInt): T = {
     Vec(pimped).read(idx)

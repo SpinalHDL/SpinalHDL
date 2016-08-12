@@ -172,6 +172,13 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
   private[core] var dontSimplify = false
   private[core] var dontCareAboutNameForSymplify = false
 
+  def removeAssignements() : Unit = {
+    input match {
+      case reg : Reg => reg.dataInput = null.asInstanceOf[reg.T]
+      case _ => input = null
+    }
+  }
+
   override def dontSimplifyIt(): this.type = {
     dontSimplify = true;
     this

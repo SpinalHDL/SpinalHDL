@@ -5,6 +5,7 @@ import spinal.lib._
 
 //BUSY transfer, undefined length burst
 //INCR
+// support error returned by slave (.last)
 case class AhbLite3Arbiter(AhbLite3Config: AhbLite3Config,inputsCount : Int) extends Component{
   val io = new Bundle{
     val inputs = Vec(slave(AhbLite3(AhbLite3Config)),inputsCount)
@@ -34,7 +35,7 @@ case class AhbLite3Arbiter(AhbLite3Config: AhbLite3Config,inputsCount : Int) ext
   val requestIndex     = OHToUInt(maskRouted)
   io.output.HSEL      := (io.inputs, maskRouted.asBools).zipped.map(_.HSEL & _).reduce(_ | _)
   io.output.HADDR     := io.inputs(requestIndex).HADDR
-  io.output.HREADY  := io.inputs(requestIndex).HREADY
+  io.output.HREADY    := io.inputs(requestIndex).HREADY
   io.output.HWRITE    := io.inputs(requestIndex).HWRITE
   io.output.HSIZE     := io.inputs(requestIndex).HSIZE
   io.output.HBURST    := io.inputs(requestIndex).HBURST
@@ -48,6 +49,6 @@ case class AhbLite3Arbiter(AhbLite3Config: AhbLite3Config,inputsCount : Int) ext
   for((input,requestRouted) <- (io.inputs,maskRouted.asBools).zipped){
     input.HRDATA    := io.output.HRDATA
     input.HRESP     := io.output.HRESP
-    input.HREADYOUT := ((io.output.HREADYOUT && requestRouted) || (!input.HSEL))
+    input.HREADYOUT := (!requestRouted && !input.HSEL ) || (requestRouted && io.output.HREADYOUT)
   }
 }

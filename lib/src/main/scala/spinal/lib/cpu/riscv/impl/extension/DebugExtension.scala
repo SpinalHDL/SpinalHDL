@@ -1,6 +1,7 @@
 package spinal.lib.cpu.riscv.impl.extension
 
 import spinal.core._
+import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config}
 import spinal.lib.cpu.riscv.impl._
 import spinal.lib.cpu.riscv.impl.Utils._
 import spinal.lib._
@@ -27,9 +28,23 @@ object DebugExtension{
     debug.cmd.wr := avalon.write
     debug.cmd.address := avalon.address
     debug.cmd.data := avalon.writeData
-    avalon.waitRequestn := True
 
+    avalon.waitRequestn := True
     avalon.readData := debug.rsp.data
+  }
+
+  def Apb3ToDebugBus(apb: Apb3,debug : DebugExtensionBus): Unit ={
+    assert(apb.config.addressWidth >= debug.cmd.address.getWidth + 2)
+    assert(apb.config.dataWidth == 32)
+    assert(apb.config.selWidth == 1)
+    debug.cmd.valid := apb.PSEL(0) && !apb.PENABLE
+    debug.cmd.wr := apb.PWRITE
+    debug.cmd.address := (apb.PADDR >> 2).resized
+    debug.cmd.data := apb.PWDATA
+    if(apb.config.useSlaveError) apb.PSLVERROR := False
+
+    apb.PREADY := True
+    apb.PRDATA := debug.rsp.data
   }
 }
 
