@@ -6,7 +6,6 @@ import spinal.lib._
 import spinal.lib.bus.misc.SizeMapping
 
 object Axi4ReadArbiter{
-//  def getInputConfig(inputsConfig : Seq[Axi4Config]) = inputsConfig.head.copy(idWidth = inputsConfig.map(_.idWidth).reduce(Math.max(_,_)))
   def getInputConfig(outputConfig : Axi4Config,inputsCount : Int) = outputConfig.copy(idWidth = outputConfig.idWidth - log2Up(inputsCount))
 }
 
@@ -43,10 +42,10 @@ case class Axi4ReadArbiter(outputConfig: Axi4Config,inputsCount : Int) extends C
 
 
 object Axi4WriteArbiter{
-  //  def getInputConfig(inputsConfig : Seq[Axi4Config]) = inputsConfig.head.copy(idWidth = inputsConfig.map(_.idWidth).reduce(Math.max(_,_)))
   def getInputConfig(outputConfig : Axi4Config,inputsCount : Int) = outputConfig.copy(idWidth = outputConfig.idWidth - log2Up(inputsCount))
 }
 
+//routeBufferSize Specify how many write cmd could be schedule before any write data transaction is transmitted
 case class Axi4WriteArbiter(outputConfig: Axi4Config,inputsCount : Int,routeBufferSize : Int) extends Component {
   assert(outputConfig.isWriteOnly)
   val inputConfig = Axi4ReadArbiter.getInputConfig(outputConfig,inputsCount)
@@ -58,8 +57,8 @@ case class Axi4WriteArbiter(outputConfig: Axi4Config,inputsCount : Int,routeBuff
   // Route writeCmd
   val cmdArbiter = StreamArbiterFactory.roundRobin.build(Axi4Aw(inputConfig),inputsCount)
   (cmdArbiter.io.inputs,io.inputs.map(_.writeCmd)).zipped.map(_ <> _)
-  val (cmdOutputFork,cmdRouteFork) = StreamFork2(io.output.writeCmd)
-  cmdArbiter.io.output <> cmdOutputFork
+  val (cmdOutputFork,cmdRouteFork) = StreamFork2(cmdArbiter.io.output)
+  io.output.writeCmd << cmdOutputFork
   io.output.writeCmd.id.removeAssignements()
   io.output.writeCmd.id := (cmdArbiter.io.chosen @@ cmdArbiter.io.output.id)
   
@@ -71,6 +70,7 @@ case class Axi4WriteArbiter(outputConfig: Axi4Config,inputsCount : Int,routeBuff
   io.inputs.zipWithIndex.foreach{case(input,idx) => {
     input.writeData.ready := routeBuffer.valid && io.output.writeData.ready && routeBuffer.payload === idx
   }}
+  routeBuffer.ready := io.output.writeData.fire && io.output.writeData.last
 
   // Route writeResp
   val idPathRange = outputConfig.idWidth-1 downto outputConfig.idWidth - log2Up(inputsCount)

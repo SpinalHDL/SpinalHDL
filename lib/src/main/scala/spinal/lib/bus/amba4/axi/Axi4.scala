@@ -129,6 +129,9 @@ case class Axi4Config(addressWidth : Int,
   def isWriteOnly = mode == WRITE_ONLY
   def isReadOnly = mode == READ_ONLY
 
+
+  def asReadOnly() = copy(mode = READ_ONLY)
+  def asWriteOnly() = copy(mode = WRITE_ONLY)
 }
 
 
@@ -243,13 +246,19 @@ case class Axi4(config: Axi4Config) extends Bundle with IMasterSlave {
   def readRsp   = r
 
   def >> (that : Axi4) : Unit = {
-    if(that.config.mode.write){
+    if(that.config.mode.write && this.config.mode.write){
       this.writeCmd  >> that.writeCmd
       this.writeData >> that.writeData
       this.writeRsp  << that.writeRsp
+
+      that.writeCmd.id.removeAssignements()
+      that.writeCmd.id := this.writeCmd.id.resized
+
+      this.writeRsp.id.removeAssignements()
+      this.writeRsp.id := that.writeRsp.id.resized
     }
 
-    if(that.config.mode.read) {
+    if(that.config.mode.read && this.config.mode.read) {
       this.readCmd >> that.readCmd
       this.readRsp << that.readRsp
       assert(this.config.idWidth <= that.config.idWidth,s"$this idWidth > $that idWidth")
@@ -274,6 +283,19 @@ case class Axi4(config: Axi4Config) extends Bundle with IMasterSlave {
       slave(r)
     }
     this
+  }
+
+  def toReadOnly(): Axi4 ={
+    assert(config.mode != WRITE_ONLY)
+    val ret = Axi4(config.asReadOnly())
+    ret << this
+    ret
+  }
+  def toWriteOnly(): Axi4 ={
+    assert(config.mode != READ_ONLY)
+    val ret = Axi4(config.asWriteOnly())
+    ret << this
+    ret
   }
 
 }

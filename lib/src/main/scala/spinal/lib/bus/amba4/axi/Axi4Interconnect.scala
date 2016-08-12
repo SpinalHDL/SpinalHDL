@@ -47,26 +47,58 @@ case class Axi4InterconnectFactory(/*axiConfig: Axi4Config*/){
         case (slave,config) => config.connections.exists(connection => connection.master == master)
       }
       val decoder = Axi4ReadDecoder(
-        axiConfig = master.config,
+        axiConfig = master.config.asReadOnly(),
         decodings = slaves.map(_._2.mapping)
       )
 
       masterToDecodedSlave(master) = (slaves.map(_._1),decoder.io.outputs).zipped.toMap
-      decoder.io.input << master
+      decoder.io.input << master.toReadOnly
 
-      decoder.setPartialName(master,"decoder")
+      decoder.setPartialName(master,"readDecoder")
     }
 
     val arbiters = for((slave,config) <- slavesConfigs) yield new Area{
       val arbiter = Axi4ReadArbiter(
-        outputConfig = slave.config,
+        outputConfig = slave.config.asReadOnly,
         inputsCount = config.connections.length
       )
       for((input,master) <- (arbiter.io.inputs,config.connections).zipped){
         input << masterToDecodedSlave(master.master)(slave)
       }
       arbiter.io.output >> slave
-      arbiter.setPartialName(slave,"arbiter")
+      arbiter.setPartialName(slave,"readArbiter")
+    }
+  }
+
+  def buildWrite() = new Area{
+    val masters = slavesConfigs.values.map(_.connections.map(_.master)).flatten.toSet
+    val masterToDecodedSlave = mutable.HashMap[Axi4,Map[Axi4,Axi4]]()
+    val decoders = for(master <- masters) yield new Area{
+      val slaves = slavesConfigs.filter{
+        case (slave,config) => config.connections.exists(connection => connection.master == master)
+      }
+      val decoder = Axi4WriteDecoder(
+        axiConfig = master.config.asWriteOnly,
+        decodings = slaves.map(_._2.mapping)
+      )
+
+      masterToDecodedSlave(master) = (slaves.map(_._1),decoder.io.outputs).zipped.toMap
+      decoder.io.input << master.toWriteOnly
+
+      decoder.setPartialName(master,"writeDecoder")
+    }
+
+    val arbiters = for((slave,config) <- slavesConfigs) yield new Area{
+      val arbiter = Axi4WriteArbiter(
+        outputConfig = slave.config.asWriteOnly,
+        inputsCount = config.connections.length,
+        routeBufferSize = 4
+      )
+      for((input,master) <- (arbiter.io.inputs,config.connections).zipped){
+        input << masterToDecodedSlave(master.master)(slave)
+      }
+      arbiter.io.output >> slave
+      arbiter.setPartialName(slave,"writeArbiter")
     }
   }
 }
