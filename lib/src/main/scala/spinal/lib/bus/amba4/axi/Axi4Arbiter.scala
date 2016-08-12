@@ -47,6 +47,7 @@ object Axi4WriteArbiter{
 
 //routeBufferSize Specify how many write cmd could be schedule before any write data transaction is transmitted
 case class Axi4WriteArbiter(outputConfig: Axi4Config,inputsCount : Int,routeBufferSize : Int) extends Component {
+  assert(routeBufferSize >= 1)
   assert(outputConfig.isWriteOnly)
   val inputConfig = Axi4ReadArbiter.getInputConfig(outputConfig,inputsCount)
   val io = new Bundle{

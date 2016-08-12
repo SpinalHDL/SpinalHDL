@@ -34,7 +34,7 @@ class StreamDriverMaster:
                 for i in xrange(nextDelay):
                     yield RisingEdge(self.clk)
 
-            if int(stream.valid) == 0 or int(stream.ready) == 1:
+            if self.transactor != None and (int(stream.valid) == 0 or int(stream.ready) == 1):
                 trans = self.transactor()
                 if trans != None:
                     if hasattr(trans,"nextDelay"):
