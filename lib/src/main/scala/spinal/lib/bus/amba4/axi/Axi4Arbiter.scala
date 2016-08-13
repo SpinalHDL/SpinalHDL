@@ -26,14 +26,16 @@ case class Axi4ReadArbiter(outputConfig: Axi4Config,inputsCount : Int) extends C
 
   // Route readResp
   val idPathRange = outputConfig.idWidth-1 downto outputConfig.idWidth - log2Up(inputsCount)
-  val readRspSels = (0 until inputsCount).map(io.output.readRsp.id(idPathRange) === _)
+  val readRspIndex = io.output.readRsp.id(idPathRange)
+  val readRspSels = (0 until inputsCount).map(readRspIndex === _)
   for((input,sel)<- (io.inputs,readRspSels).zipped){
     input.readRsp.valid := io.output.readRsp.valid && sel
     input.readRsp.payload <> io.output.readRsp.payload
     input.readRsp.id.removeAssignements()
     input.readRsp.id := io.output.readRsp.id(idPathRange.low-1 downto 0)
   }
-  io.output.readRsp.ready := (readRspSels,io.inputs.map(_.readRsp.ready)).zipped.map(_ & _).reduce(_ | _)
+  io.output.readRsp.ready := io.inputs(readRspIndex).readRsp.ready
+//  io.output.readRsp.ready := (readRspSels,io.inputs.map(_.readRsp.ready)).zipped.map(_ & _).reduce(_ | _)   Not optimal because can't optimize master with ready fixed to high
 }
 
 

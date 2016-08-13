@@ -79,7 +79,9 @@ object READ_WRITE extends AxiLite4Mode{
 case class AxiLite4Config(addressWidth : Int,
                           dataWidth    : Int,
                           mode         : AxiLite4Mode = READ_WRITE){
-  def dataByteCount = dataWidth/8
+  def bytePerWord = dataWidth/8
+  def addressType = UInt(addressWidth bits)
+  def dataType = Bits(dataWidth bits)
 }
 
 

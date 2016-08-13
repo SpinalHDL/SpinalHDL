@@ -27,8 +27,7 @@ object Axi4InterconnectTester{
         axiMasters(2) -> List(axiSlaves(0),axiSlaves(1),axiSlaves(3))
       )
 
-    val readInterconnect = interconnectFactory.buildRead()
-    val writeInterconnect = interconnectFactory.buildWrite()
+    val readInterconnect = interconnectFactory.build()
   }
 }
 

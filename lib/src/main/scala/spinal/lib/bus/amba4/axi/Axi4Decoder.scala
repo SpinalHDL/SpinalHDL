@@ -33,7 +33,7 @@ case class Axi4ReadDecoder(axiConfig: Axi4Config,decodings : Iterable[SizeMappin
 
   //Wire ReadRsp
   val readRspIndex = OHToUInt(lastCmdSel)
-  io.input.readRsp.valid := (lastCmdSel & io.outputs.map(_.readRsp.valid).asBits).orR
+  io.input.readRsp.valid := io.outputs.map(_.readRsp.valid).asBits.orR
   io.input.readRsp.payload := io.outputs(readRspIndex).readRsp.payload
   io.outputs.foreach(_.readRsp.ready := io.input.readRsp.ready)
 
@@ -113,7 +113,7 @@ case class Axi4WriteDecoder(axiConfig: Axi4Config,decodings : Iterable[SizeMappi
 
   //Wire writeRsp
   val writeRspIndex = OHToUInt(lastCmdSel)
-  io.input.writeRsp.valid := (lastCmdSel & io.outputs.map(_.writeRsp.valid).asBits).orR
+  io.input.writeRsp.valid := io.outputs.map(_.writeRsp.valid).asBits.orR
   io.input.writeRsp.payload := io.outputs(writeRspIndex).writeRsp.payload
   io.outputs.foreach(_.writeRsp.ready := io.input.writeRsp.ready)
   

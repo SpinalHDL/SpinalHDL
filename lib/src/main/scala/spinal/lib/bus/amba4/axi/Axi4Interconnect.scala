@@ -57,16 +57,23 @@ case class Axi4InterconnectFactory(/*axiConfig: Axi4Config*/){
       decoder.setPartialName(master,"readDecoder")
     }
 
-    val arbiters = for((slave,config) <- slavesConfigs) yield new Area{
-      val arbiter = Axi4ReadArbiter(
-        outputConfig = slave.config.asReadOnly,
-        inputsCount = config.connections.length
-      )
-      for((input,master) <- (arbiter.io.inputs,config.connections).zipped){
-        input << masterToDecodedSlave(master.master)(slave)
+    val arbiters = for((slave,config) <- slavesConfigs) yield {
+      val readConnections = config.connections.filter(_.master.config.canRead)
+      readConnections.size match {
+        case 0 => PendingError(s"$slave has no master}")
+        case 1 => slave << readConnections.head.master
+        case _ => new Area {
+          val arbiter = Axi4ReadArbiter(
+            outputConfig = slave.config.asReadOnly,
+            inputsCount = readConnections.length
+          )
+          for ((input, master) <- (arbiter.io.inputs, readConnections).zipped) {
+            input << masterToDecodedSlave(master.master)(slave)
+          }
+          arbiter.io.output >> slave
+          arbiter.setPartialName(slave, "readArbiter")
+        }
       }
-      arbiter.io.output >> slave
-      arbiter.setPartialName(slave,"readArbiter")
     }
   }
 
@@ -88,17 +95,29 @@ case class Axi4InterconnectFactory(/*axiConfig: Axi4Config*/){
       decoder.setPartialName(master,"writeDecoder")
     }
 
-    val arbiters = for((slave,config) <- slavesConfigs) yield new Area{
-      val arbiter = Axi4WriteArbiter(
-        outputConfig = slave.config.asWriteOnly,
-        inputsCount = config.connections.length,
-        routeBufferSize = 4
-      )
-      for((input,master) <- (arbiter.io.inputs,config.connections).zipped){
-        input << masterToDecodedSlave(master.master)(slave)
+    val arbiters = for((slave,config) <- slavesConfigs) yield  {
+      val writeConnections = config.connections.filter(_.master.config.canWrite)
+      config.connections.size match {
+        case 0 => PendingError(s"$slave has no master}")
+        case 1 => slave << writeConnections.head.master
+        case _ => new Area {
+          val arbiter = Axi4WriteArbiter(
+            outputConfig = slave.config.asWriteOnly,
+            inputsCount = writeConnections.length,
+            routeBufferSize = 4
+          )
+          for ((input, master) <- (arbiter.io.inputs, writeConnections).zipped) {
+            input << masterToDecodedSlave(master.master)(slave)
+          }
+          arbiter.io.output >> slave
+          arbiter.setPartialName(slave, "writeArbiter")
+        }
       }
-      arbiter.io.output >> slave
-      arbiter.setPartialName(slave,"writeArbiter")
     }
+  }
+
+  def build(): Unit ={
+    buildRead()
+    buildWrite()
   }
 }
