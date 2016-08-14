@@ -89,9 +89,6 @@ case class Axi4(config: Axi4Config) extends Bundle with IMasterSlave {
     that.writeRsp drive this.writeRsp
   }
 
-
-
-
   def <<(that : Axi4WriteOnly) : Unit = that >> this
   def >> (that : Axi4WriteOnly) : Unit = {
     this.writeCmd drive that.writeCmd
