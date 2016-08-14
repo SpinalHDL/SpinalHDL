@@ -5,11 +5,10 @@ import spinal.lib._
 
 import spinal.lib.bus.misc.SizeMapping
 
-case class Axi4ReadDecoder(axiConfig: Axi4Config,decodings : Iterable[SizeMapping],pendingMax : Int = 7) extends Component{
-  assert(axiConfig.isReadOnly)
+case class Axi4ReadOnlyDecoder(axiConfig: Axi4Config,decodings : Iterable[SizeMapping],pendingMax : Int = 7) extends Component{
   val io = new Bundle{
-    val input = slave(Axi4(axiConfig))
-    val outputs = Vec(master(Axi4(axiConfig)),decodings.size)
+    val input = slave(Axi4ReadOnly(axiConfig))
+    val outputs = Vec(master(Axi4ReadOnly(axiConfig)),decodings.size)
   }
 
   val pendingCounter = CounterUpDown(
@@ -72,10 +71,9 @@ case class Axi4ReadDecoder(axiConfig: Axi4Config,decodings : Iterable[SizeMappin
 
 
 case class Axi4WriteDecoder(axiConfig: Axi4Config,decodings : Iterable[SizeMapping],pendingMax : Int = 7) extends Component{
-  assert(axiConfig.isWriteOnly)
   val io = new Bundle{
-    val input = slave(Axi4(axiConfig))
-    val outputs = Vec(master(Axi4(axiConfig)),decodings.size)
+    val input = slave(Axi4WriteOnly(axiConfig))
+    val outputs = Vec(master(Axi4WriteOnly(axiConfig)),decodings.size)
   }
 
   val pendingCmdCounter = CounterUpDown(

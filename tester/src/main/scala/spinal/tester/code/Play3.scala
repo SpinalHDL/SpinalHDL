@@ -4,7 +4,7 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba3.ahblite._
 import spinal.lib.bus.amba3.apb.Apb3Config
-import spinal.lib.bus.amba4.axi.{Axi4, Axi4Ar, Axi4Config}
+import spinal.lib.bus.amba4.axi._
 
 object PlayAhbLite3{
   class TopLevel extends Component{
@@ -103,3 +103,8 @@ object PlayAxi4AddrIncr{
     SpinalVhdl(new TopLevel)
   }
 }
+
+//object PlayImplicitScopeAxi{
+//  val stream =Stream[Axi4Ar](null)
+//  stream.drive()
+//}

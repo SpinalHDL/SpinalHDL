@@ -10,11 +10,10 @@ object Axi4ReadArbiter{
 }
 
 case class Axi4ReadArbiter(outputConfig: Axi4Config,inputsCount : Int) extends Component {
-  assert(outputConfig.isReadOnly)
   val inputConfig = Axi4ReadArbiter.getInputConfig(outputConfig,inputsCount)
   val io = new Bundle{
-    val inputs = Vec(slave(Axi4(inputConfig)),inputsCount)
-    val output = master(Axi4(outputConfig))
+    val inputs = Vec(slave(Axi4ReadOnly(inputConfig)),inputsCount)
+    val output = master(Axi4ReadOnly(outputConfig))
   }
 
   val cmdArbiter = StreamArbiterFactory.roundRobin.build(Axi4Ar(inputConfig),inputsCount)
@@ -50,11 +49,10 @@ object Axi4WriteArbiter{
 //routeBufferSize Specify how many write cmd could be schedule before any write data transaction is transmitted
 case class Axi4WriteArbiter(outputConfig: Axi4Config,inputsCount : Int,routeBufferSize : Int) extends Component {
   assert(routeBufferSize >= 1)
-  assert(outputConfig.isWriteOnly)
   val inputConfig = Axi4ReadArbiter.getInputConfig(outputConfig,inputsCount)
   val io = new Bundle{
-    val inputs = Vec(slave(Axi4(inputConfig)),inputsCount)
-    val output = master(Axi4(outputConfig))
+    val inputs = Vec(slave(Axi4WriteOnly(inputConfig)),inputsCount)
+    val output = master(Axi4WriteOnly(outputConfig))
   }
 
   // Route writeCmd
