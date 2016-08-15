@@ -284,11 +284,12 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
       null
     }
 
-
-    val writePort = new MemReadWrite_writePart(this, addressBuffer, dataBuffer,mask, enable, write, ClockDomain.current)
+    val writePort = new MemReadWrite_writePart(this, addressBuffer, dataBuffer,maskBuffer, enableBuffer, writeBuffer, ClockDomain.current)
     if(allowMixedWidth) writePort.addTag(AllowMixedWidth)
     inputs += writePort
 
+    enableBuffer.setPartialName(writePort,"enable",true)
+    writeBuffer.setPartialName(writePort,"write",true)
     addressBuffer.setPartialName(writePort,"address",true)
     dataBuffer.setPartialName(writePort,"writeData",true)
 
@@ -298,7 +299,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
 
     val readBits = (if(allowMixedWidth) Bits() else Bits(getWidth bits)).dontSimplifyIt()
     val readWord = data.clone()
-    val readPort = new MemReadWrite_readPart(this, addressBuffer, readBits, enable, write, readUnderWrite, ClockDomain.current)
+    val readPort = new MemReadWrite_readPart(this, addressBuffer, readBits, enableBuffer, writeBuffer, readUnderWrite, ClockDomain.current)
     if(allowMixedWidth) readPort.addTag(AllowMixedWidth)
 
     readBits.input = readPort

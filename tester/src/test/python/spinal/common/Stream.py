@@ -11,8 +11,40 @@ class Stream:
         self.ready = dut.__getattr__(name + "_ready")
         self.payload = Bundle(dut,name + "_payload")
 
-StreamTransaction = type('StreamTransaction', (object,), {})
+class Transaction(object):
+    def __init__(self):
+        object.__setattr__(self,"_nameToElement",{})
 
+    def __setattr__(self, key, value):
+        # print("set " + key)
+        if key[0] != '_':
+            self._nameToElement[key] = value
+        object.__setattr__(self,key,value)
+
+    def equalRef(self,ref):
+        if(len(self._nameToElement) != len(ref._nameToElement)):
+            return False
+        for name in self._nameToElement:
+            if self._nameToElement[name] != getattr(ref,name):
+                return False
+        return True
+
+    def assertEqualRef(self,ref):
+        if not self.equalRef(ref):
+            raise TestFailure("\nFAIL transaction not equal\ntransaction =>\n%s\nref =>\n%s\n\n" % (self,ref))
+
+
+    def __str__(self):
+        buffer = ""
+        biggerName = 0
+        for n in self._nameToElement:
+            if len(n) > biggerName:
+                biggerName = len(n)
+        for name in self._nameToElement:
+            buffer += "%s %s: 0x%x\n" % (name," "*(biggerName-len(name)),self._nameToElement[name])
+        return buffer
+
+# Transaction = type('Transaction', (object,), {})
 
 class StreamDriverMaster:
     def __init__(self,stream,transactor,clk,reset):
@@ -67,10 +99,11 @@ class StreamDriverSlave:
             stream.ready <= randomizer.get()
 
 
-class BundleTransaction:
-    def __init__(self,bundle):
-        for name in bundle.nameToElement:
-            setattr(self,name, int(bundle.nameToElement[name]))
+def TransactionFromBundle(bundle):
+    trans = Transaction()
+    for name in bundle.nameToElement:
+        setattr(trans,name, int(bundle.nameToElement[name]))
+    return trans
 
 
 class StreamMonitor:
@@ -88,6 +121,6 @@ class StreamMonitor:
         while True:
             yield RisingEdge(self.clk)
             if int(stream.valid) == 1 and int(stream.ready) == 1:
-                trans = BundleTransaction(stream.payload)
+                trans = TransactionFromBundle(stream.payload)
                 yield Timer(1)
                 self.callback(trans)

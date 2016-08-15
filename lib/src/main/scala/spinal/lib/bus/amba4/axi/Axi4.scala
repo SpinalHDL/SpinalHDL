@@ -186,33 +186,35 @@ object Axi4{
 
   //Return the increment of a address depending the burst configuration (INCR,WRAP,FIXED)
   def incr(address : UInt,burst : Bits,len : UInt,size : UInt,bytePerWord : Int) : UInt = {
-    val result = UInt(address.getWidth bits)
-    val highCat = if(address.getWidth > 12) address(address.high downto 12) else U""
-    val sizeValue = (0 to bytePerWord).map(idx => idx === size).asBits.asUInt
-    val base = address(Math.min(12,address.getWidth) - 1 downto 0).resize(12)
-    val baseIncr = base + sizeValue
-    val wrapCaseMax = 3 + log2Up(bytePerWord)
-    val wrapCaseWidth = log2Up(wrapCaseMax+1)
-    val wrapCase = size.resize(wrapCaseWidth) + len.mux(
-      M"----1---" -> U"11",
-      M"-----1--" -> U"10",
-      M"------1-" -> U"01",
-      default     -> U"00"
-    )
-    val baseWrap = sizeValue
-    switch(burst){
-      is(Axi4.burst.FIXED){
-        result := address
+    val area = new Area {
+      val result = UInt(address.getWidth bits)
+      val highCat = if (address.getWidth > 12) address(address.high downto 12) else U""
+      val sizeValue = (0 to bytePerWord).map(idx => idx === size).asBits.asUInt
+      val base = address(Math.min(12, address.getWidth) - 1 downto 0).resize(12)
+      val baseIncr = base + sizeValue
+      val wrapCaseMax = 3 + log2Up(bytePerWord)
+      val wrapCaseWidth = log2Up(wrapCaseMax + 1)
+      val wrapCase = size.resize(wrapCaseWidth) + len.mux(
+        M"----1---" -> U"11",
+        M"-----1--" -> U"10",
+        M"------1-" -> U"01",
+        default -> U"00"
+      )
+      val baseWrap = sizeValue
+      switch(burst) {
+        is(Axi4.burst.FIXED) {
+          result := address
+        }
+        is(Axi4.burst.WRAP) {
+          val cases = Vec((0 to wrapCaseMax).map(i => base(11 downto i + 1) @@ baseIncr(i downto 0)))
+          result := highCat @@ cases(wrapCase)
+        }
+        default {
+          result := highCat @@ baseIncr
+        }
       }
-      is(Axi4.burst.WRAP){
-        val cases = Vec((0 until wrapCaseMax).map(i => base(11 downto i + 1) @@ baseIncr(i downto 0)))
-        result := highCat @@ cases(wrapCase)
-      }
-      default{
-        result := highCat @@ baseIncr
-      }
-    }
-    result
+    }.setWeakName("Axi4Incr")
+    area.result
   }
 }
 

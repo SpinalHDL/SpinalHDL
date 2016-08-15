@@ -5,7 +5,7 @@ import cocotb
 from cocotb.triggers import Timer, RisingEdge
 
 from spinal.common.Axi4 import Axi4
-from spinal.common.Stream import StreamDriverSlave, StreamDriverMaster, StreamTransaction, StreamMonitor
+from spinal.common.Stream import StreamDriverSlave, StreamDriverMaster, Transaction, StreamMonitor
 from spinal.common.misc import ClockDomainAsyncReset, simulationSpeedPrinter, randBits, BoolRandomizer, assertEquals
 
 
@@ -37,7 +37,7 @@ class MasterHandle:
 
     def genWrite(self):
         idOffset = randBits(2)
-        writeCmd = StreamTransaction()
+        writeCmd = Transaction()
         writeCmd.addr = self.genRandomAddress()
         if random.random() < 0.1: # Random assertion of decoding error
             writeCmd.addr = 1 << 12
@@ -54,7 +54,7 @@ class MasterHandle:
 
         writeCmd.linkedDatas = []
         for i in xrange(writeCmd.len + 1):
-            writeData = StreamTransaction()
+            writeData = Transaction()
             writeData.data = randBits(32)
             writeData.strb = randBits(4)
             writeData.last = 1 if i == writeCmd.len else 0
@@ -91,7 +91,7 @@ class MasterHandle:
         if not self.readCmdIdleRand.get():
             return None
         idOffset = randBits(2)
-        trans = StreamTransaction()
+        trans = Transaction()
         trans.addr = self.genRandomAddress()
         if random.random() < 0.1: # Random assertion of decoding error
             trans.addr = 1 << 12
@@ -172,7 +172,7 @@ class SlaveHandle:
         if tasksQueue:
             if self.readRspIdleRand.get():
                 task = tasksQueue.queue[0]
-                trans = StreamTransaction()
+                trans = Transaction()
                 trans.data = task.addr + task.progress
                 trans.resp = 0
                 trans.hid = task.hid
@@ -220,7 +220,7 @@ class SlaveHandle:
                 self.idToWrites[cmd.hid & 0xF].remove(masterWrite)
 
                 #Answer
-                trans = StreamTransaction()
+                trans = Transaction()
                 trans.hid = cmd.hid
                 trans.resp = 0
                 return trans

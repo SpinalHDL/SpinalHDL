@@ -43,7 +43,7 @@ class Axi4Ar(config: Axi4Config) extends Axi4Ax(config){
   override def clone: this.type = new Axi4Ar(config).asInstanceOf[this.type]
 }
 class Axi4Arw(config: Axi4Config) extends Axi4Ax(config){
-  val wr = Bool
+  val write = Bool
   override def clone: this.type = new Axi4Arw(config).asInstanceOf[this.type]
 }
 
@@ -136,45 +136,49 @@ object Axi4AxUnburstified{
 
       override def clone: State.this.type = new State().asInstanceOf[this.type]
     }
-    val result = Stream Fragment(cloneOf(outPayloadType))
-    val stateNext = State()
-    val state = RegNext(stateNext)
-    val doResult = Bool
+    val area = new Area {
+      val result = Stream Fragment (cloneOf(outPayloadType))
+      val doResult = Bool
+      val stateNext = State()
+      val state = RegNext(stateNext)
+      state.busy init(False)
 
-    stateNext := state
-    doResult := state.busy
+      stateNext := state
 
-    val addrIncrRange = (Math.min(11,stream.payload.config.addressWidth-1) downto 0)
-    stateNext.transaction.addr(addrIncrRange) := Axi4.incr(
-      address = state.transaction.addr(addrIncrRange),
-      burst = state.transaction.burst,
-      len = state.len,
-      size = state.transaction.size,
-      bytePerWord = stream.config.bytePerWord
-    )
+      val addrIncrRange = (Math.min(11, stream.payload.config.addressWidth - 1) downto 0)
 
-    when(result.ready){
-      stateNext.beat := state.beat - 1
-    }
 
-    when(stream.fire){
-      stateNext.busy := True
-      stateNext.beat := stream.len
-      stateNext.len  := stream.len
-      doResult := True
-      stateNext.transaction.assignSomeByName(stream.payload)
-    }
+      when(result.ready) {
+        stateNext.beat := state.beat - 1
+        stateNext.transaction.addr(addrIncrRange) := Axi4.incr(
+          address = state.transaction.addr(addrIncrRange),
+          burst = state.transaction.burst,
+          len = state.len,
+          size = state.transaction.size,
+          bytePerWord = stream.config.bytePerWord
+        )
+      }
 
-    when(stateNext.beat === 0){
-      stateNext.busy := False
-    }
+      when(stream.fire && stream.len =/= 0){
+        stateNext.busy := True
+      }
+      when(state.busy && state.beat === 1 && result.ready){
+        stateNext.busy := False
+      }
+      when(!state.busy){
+        stateNext.transaction.assignSomeByName(stream.payload)
+        stateNext.beat := stream.len
+        stateNext.len := stream.len
+      }
+      doResult       :=  stream.fire || state.busy
 
-    stream.ready := !state.busy & result.ready
+      stream.ready := !state.busy & result.ready
 
-    result.valid := doResult
-    result.last := stateNext.beat === 0
-    result.fragment := stateNext.transaction
-    result
+      result.valid := doResult
+      result.last := stateNext.beat === 0
+      result.fragment := stateNext.transaction
+    }.setWeakName("unburstify")
+    area.result
   }
 }
 

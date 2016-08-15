@@ -5,6 +5,7 @@ import spinal.lib._
 
 case class Axi4SharedOnChipRam(axiConfig: Axi4Config,byteCount : BigInt) extends Component{
   assert(!axiConfig.useLock)
+  assert(!axiConfig.useUser)
   val io = new Bundle {
     val axi = slave(Axi4Shared(axiConfig))
   }
@@ -16,7 +17,7 @@ case class Axi4SharedOnChipRam(axiConfig: Axi4Config,byteCount : BigInt) extends
   val arw = io.axi.arw.unburstify
   val stage0 = arw.haltWhen(arw.write && !io.axi.writeData.valid)
   io.axi.readRsp.data := ram.readWriteSync(
-    address = stage0.addr.resized,
+    address = stage0.addr(axiConfig.wordRange).resized,
     data = io.axi.writeData.data,
     enable = stage0.fire,
     write = stage0.write,
@@ -43,6 +44,6 @@ case class Axi4SharedOnChipRam(axiConfig: Axi4Config,byteCount : BigInt) extends
 
 object Axi4SharedOnChipRam{
   def main(args: Array[String]) {
-    SpinalVhdl(new Axi4SharedOnChipRam(Axi4Config(32,32,4,useLock = false),1024).setDefinitionName("TopLevel"))
+    SpinalVhdl(new Axi4SharedOnChipRam(Axi4Config(32,32,4,useLock = false,useUser = true,userWidth = 4),1024).setDefinitionName("TopLevel"))
   }
 }
