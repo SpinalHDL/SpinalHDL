@@ -201,9 +201,15 @@ class Bundle:
         self.elements = [a for a in dut if a._name.startswith(name + "_")]
         for element in self.elements:
             # print("append " + element._name + " with name : " + element._name[len(name) + 1:])
-            self.nameToElement[element._name[len(name) + 1:]] = element
+            eName = element._name[len(name) + 1:]
+            if eName == "id":
+                eName = "hid"
+            self.nameToElement[eName] = element
 
     def __getattr__(self, name):
+        if name not in self.nameToElement:
+            for e in self.nameToElement:
+                print(e)
         return self.nameToElement[name]
 
 

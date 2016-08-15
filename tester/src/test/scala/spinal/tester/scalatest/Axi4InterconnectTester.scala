@@ -8,13 +8,13 @@ import spinal.lib.bus.amba4.axi._
 
 object Axi4InterconnectTester{
   class Axi4InterconnectTester extends Component {
-    val axiMasterConfig = Axi4Config(addressWidth = 12,dataWidth = 32,idWidth = 4,mode = READ_ONLY)
-    val axiSlaveConfig  = Axi4Config(addressWidth = 12,dataWidth = 32,idWidth = 6,mode = READ_ONLY)
+    val axiMasterConfig = Axi4Config(addressWidth = 13,dataWidth = 32,idWidth = 4)
+    val axiSlaveConfig  = Axi4Config(addressWidth = 13,dataWidth = 32,idWidth = 6)
 
     val axiMasters = Vec(slave(Axi4(axiMasterConfig)),3)
     val axiSlaves  = Vec(master(Axi4(axiSlaveConfig)),4)
 
-    val interconnect = Axi4InterconnectFactory()
+    val interconnectFactory = Axi4InterconnectFactory()
       .addSlaves(
         axiSlaves(0) -> (0x000,0x400),
         axiSlaves(1) -> (0x400,0x400),
@@ -26,7 +26,8 @@ object Axi4InterconnectTester{
         axiMasters(1) -> List(axiSlaves(0),axiSlaves(2),axiSlaves(3)),
         axiMasters(2) -> List(axiSlaves(0),axiSlaves(1),axiSlaves(3))
       )
-      .buildRead()
+
+    val readInterconnect = interconnectFactory.build()
   }
 }
 
@@ -34,5 +35,5 @@ class Axi4InterconnectTesterCocotbBoot extends SpinalTesterCocotbBase {
   override def getName: String = "Axi4InterconnectTester"
   override def pythonTestLocation: String = "tester/src/test/python/spinal/Axi4InterconnectTester"
   override def createToplevel: Component = new Axi4InterconnectTester.Axi4InterconnectTester
-  //override def backendConfig(config: SpinalConfig): SpinalConfig = config.dumpWave()
+  override def backendConfig(config: SpinalConfig): SpinalConfig = config.dumpWave()
 }

@@ -366,7 +366,7 @@ trait Nameable extends OwnableRef{
     this
   }
 
-  def setWeakName(name: String) = setName(name, true)
+  def setWeakName(name: String) : this.type = setName(name, true)
 
   def forEachNameables(doThat : (Any) => Unit) : Unit = {
     Misc.reflect(this, (name, obj) => {

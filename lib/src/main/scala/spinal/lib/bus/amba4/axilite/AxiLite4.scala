@@ -54,32 +54,32 @@ object AxiLite4 {
 /**
   * Define all access modes
   */
-trait AxiLite4Mode{
-  def write = false
-  def read = false
-}
-object WRITE_ONLY extends AxiLite4Mode{
-  override def write = true
-}
-object READ_ONLY extends AxiLite4Mode{
-  override def read = true
-}
-object READ_WRITE extends AxiLite4Mode{
-  override def write = true
-  override def read = true
-}
+//trait AxiLite4Mode{
+//  def write = false
+//  def read = false
+//}
+//object WRITE_ONLY extends AxiLite4Mode{
+//  override def write = true
+//}
+//object READ_ONLY extends AxiLite4Mode{
+//  override def read = true
+//}
+//object READ_WRITE extends AxiLite4Mode{
+//  override def write = true
+//  override def read = true
+//}
 
 
 /**
   * Configuration class for the Axi Lite bus
   * @param addressWidth Width of the address bus
   * @param dataWidth    Width of the data bus
-  * @param mode         Access mode : WRITE_ONLY, READ_ONLY, READ_WRITE
   */
 case class AxiLite4Config(addressWidth : Int,
-                          dataWidth    : Int,
-                          mode         : AxiLite4Mode = READ_WRITE){
-  def dataByteCount = dataWidth/8
+                          dataWidth    : Int){
+  def bytePerWord = dataWidth/8
+  def addressType = UInt(addressWidth bits)
+  def dataType = Bits(dataWidth bits)
 }
 
 
@@ -160,11 +160,11 @@ case class AxiLite4R(config: AxiLite4Config) extends Bundle {
   */
 case class AxiLite4(config: AxiLite4Config) extends Bundle with IMasterSlave {
 
-  val aw = if(config.mode.write)  Stream(AxiLite4Ax(config)) else null
-  val w  = if(config.mode.write)  Stream(AxiLite4W(config))  else null
-  val b  = if(config.mode.write)  Stream(AxiLite4B(config))  else null
-  val ar = if(config.mode.read)   Stream(AxiLite4Ax(config)) else null
-  val r  = if(config.mode.read)   Stream(AxiLite4R(config))  else null
+  val aw = Stream(AxiLite4Ax(config))
+  val w  = Stream(AxiLite4W(config))
+  val b  = Stream(AxiLite4B(config))
+  val ar = Stream(AxiLite4Ax(config))
+  val r  = Stream(AxiLite4R(config))
 
   //Because aw w b ar r are ... very lazy
   def writeCmd  = aw
@@ -176,30 +176,23 @@ case class AxiLite4(config: AxiLite4Config) extends Bundle with IMasterSlave {
 
   def >> (that : AxiLite4) : Unit = {
     assert(that.config == this.config)
+    this.writeCmd  >> that.writeCmd
+    this.writeData >> that.writeData
+    this.writeRsp  << that.writeRsp
 
-    if(config.mode.write){
-      this.writeCmd  >> that.writeCmd
-      this.writeData >> that.writeData
-      this.writeRsp  << that.writeRsp
-    }
-
-    if(config.mode.read) {
-      this.readCmd  >> that.readCmd
-      this.readRsp << that.readRsp
-    }
+    this.readCmd  >> that.readCmd
+    this.readRsp << that.readRsp
   }
 
   def <<(that : AxiLite4) : Unit = that >> this
 
   override def asMaster(): this.type = {
-    if(config.mode.write){
-      master(aw,w)
-      slave(b)
-    }
-    if(config.mode.read) {
-      master(ar)
-      slave(r)
-    }
+    master(aw,w)
+    slave(b)
+
+    master(ar)
+    slave(r)
+
     this
   }
 }

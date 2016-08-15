@@ -4,6 +4,7 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba3.ahblite._
 import spinal.lib.bus.amba3.apb.Apb3Config
+import spinal.lib.bus.amba4.axi._
 
 object PlayAhbLite3{
   class TopLevel extends Component{
@@ -69,3 +70,41 @@ object PlayAhbLite3_2{
     SpinalVhdl(new TopLevel).printPruned()
   }
 }
+
+
+//object PlayAxi4ArUnburstify{
+//  class TopLevel extends Component{
+//    val axiConfig = Axi4Config(32,32,4)
+//    val cmd = slave(Stream(Axi4Ar(axiConfig)))
+//    val rsp = master(cmd.stage.unburstify.stage)
+//  }
+//
+//  def main(args: Array[String]) {
+//    SpinalVhdl(new TopLevel)
+//  }
+//}
+
+object PlayAxi4AddrIncr{
+  class TopLevel extends Component{
+    val address = in UInt(32 bits)
+    val burst = in Bits(2 bits)
+    val len = in UInt(8 bits)
+    val size = in UInt(3 bits)
+
+    val result = out(Axi4.incr(
+      address,
+      burst,
+      len,size,
+      4
+    ))
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+//object PlayImplicitScopeAxi{
+//  val stream =Stream[Axi4Ar](null)
+//  stream.drive()
+//}

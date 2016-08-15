@@ -28,7 +28,7 @@ class AxiLite4SimpleReadDma(axiLiteConfig: AxiLite4Config) extends Component {
     }
   } otherwise {
     when(io.axi.readCmd.ready) {
-      counter := counter + axiLiteConfig.dataByteCount
+      counter := counter + axiLiteConfig.bytePerWord
       when(counter === io.run.endAt) {
         active := False
         io.run.ready := True
