@@ -44,6 +44,6 @@ case class Axi4SharedOnChipRam(axiConfig: Axi4Config,byteCount : BigInt) extends
 
 object Axi4SharedOnChipRam{
   def main(args: Array[String]) {
-    SpinalVhdl(new Axi4SharedOnChipRam(Axi4Config(32,32,4,useLock = false,useUser = true,userWidth = 4),1024).setDefinitionName("TopLevel"))
+    SpinalVhdl(new Axi4SharedOnChipRam(Axi4Config(32,32,4,useLock = false),1024).setDefinitionName("TopLevel"))
   }
 }

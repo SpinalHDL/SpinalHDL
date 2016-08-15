@@ -113,16 +113,16 @@ case class Axi4R(config: Axi4Config) extends Bundle {
 
 
 
-class Axi4AxUnburstified(axiConfig : Axi4Config) extends Bundle {
-  val addr   = UInt(axiConfig.addressWidth bits)
-  val id     = if(axiConfig.useId)     UInt(axiConfig.idWidth bits)   else null
-  val region = if(axiConfig.useRegion) Bits(4 bits)                else null
-  val size   = if(axiConfig.useSize)   UInt(3 bits)                else null
-  val burst  = if(axiConfig.useBurst)  Bits(2 bits)                else null
-  val lock   = if(axiConfig.useLock)   Bits(1 bits)                else null
-  val cache  = if(axiConfig.useCache)  Bits(4 bits)                else null
-  val qos    = if(axiConfig.useQos)    Bits(4 bits)                else null
-  val user   = if(axiConfig.useUser)   Bits(axiConfig.userWidth bits) else null
+class Axi4AxUnburstified(val config : Axi4Config) extends Bundle {
+  val addr   = UInt(config.addressWidth bits)
+  val id     = if(config.useId)     UInt(config.idWidth bits)   else null
+  val region = if(config.useRegion) Bits(4 bits)                else null
+  val size   = if(config.useSize)   UInt(3 bits)                else null
+  val burst  = if(config.useBurst)  Bits(2 bits)                else null
+  val lock   = if(config.useLock)   Bits(1 bits)                else null
+  val cache  = if(config.useCache)  Bits(4 bits)                else null
+  val qos    = if(config.useQos)    Bits(4 bits)                else null
+  val user   = if(config.useUser)   Bits(config.userWidth bits) else null
   val prot   = Bits(3 bits)
 }
 
@@ -139,53 +139,78 @@ object Axi4AxUnburstified{
     val area = new Area {
       val result = Stream Fragment (cloneOf(outPayloadType))
       val doResult = Bool
-      val stateNext = State()
-      val state = RegNext(stateNext)
-      state.busy init(False)
-
-      stateNext := state
-
       val addrIncrRange = (Math.min(11, stream.payload.config.addressWidth - 1) downto 0)
 
-
-      when(result.ready) {
-        stateNext.beat := state.beat - 1
-        stateNext.transaction.addr(addrIncrRange) := Axi4.incr(
-          address = state.transaction.addr(addrIncrRange),
-          burst = state.transaction.burst,
-          len = state.len,
-          size = state.transaction.size,
+      val buffer = new Area{
+        val valid       = RegInit(False)
+        val len         = Reg(UInt(8 bits))
+        val beat        = Reg(UInt(8 bits))
+        val transaction = Reg(cloneOf(outPayloadType))
+        val last        = beat === 1
+        val address     = Axi4.incr(
+          address = transaction.addr,
+          burst   = transaction.burst,
+          len     = len,
+          size    = transaction.size,
           bytePerWord = stream.config.bytePerWord
         )
+
+        when(result.ready) {
+          beat := beat - 1
+          transaction.addr(addrIncrRange) := address(addrIncrRange)
+          when(last){
+            valid := False
+          }
+        }
       }
 
-      when(stream.fire && stream.len =/= 0){
-        stateNext.busy := True
+      stream.ready := False
+      when(buffer.valid){
+        result.valid    := True
+        result.last     := buffer.last
+        result.fragment := buffer.transaction
+        result.addr.removeAssignements()
+        result.addr     := buffer.address
+      }otherwise{
+        stream.ready    := result.ready
+        result.valid    := stream.valid
+        result.fragment.assignSomeByName(stream.payload)
+        when(stream.len === 0) {
+          result.last := True
+        }otherwise{
+          result.last := False
+          when(result.ready){
+            buffer.valid := stream.valid
+            buffer.transaction.assignSomeByName(stream.payload)
+            buffer.beat := stream.len
+            buffer.len := stream.len
+          }
+        }
       }
-      when(state.busy && state.beat === 1 && result.ready){
-        stateNext.busy := False
-      }
-      when(!state.busy){
-        stateNext.transaction.assignSomeByName(stream.payload)
-        stateNext.beat := stream.len
-        stateNext.len := stream.len
-      }
-      doResult       :=  stream.fire || state.busy
-
-      stream.ready := !state.busy & result.ready
-
-      result.valid := doResult
-      result.last := stateNext.beat === 0
-      result.fragment := stateNext.transaction
     }.setWeakName("unburstify")
     area.result
   }
 }
 
-case class Axi4ArUnburstified(axiConfig : Axi4Config) extends Axi4AxUnburstified(axiConfig)
-case class Axi4AwUnburstified(axiConfig : Axi4Config) extends Axi4AxUnburstified(axiConfig)
-case class Axi4ArwUnburstified(axiConfig : Axi4Config) extends Axi4AxUnburstified(axiConfig){
+class Axi4ArUnburstified(axiConfig : Axi4Config) extends Axi4AxUnburstified(axiConfig){
+  override def clone: this.type = new Axi4ArUnburstified(axiConfig).asInstanceOf[this.type]
+}
+class Axi4AwUnburstified(axiConfig : Axi4Config) extends Axi4AxUnburstified(axiConfig){
+  override def clone: this.type = new Axi4AwUnburstified(axiConfig).asInstanceOf[this.type]
+}
+class Axi4ArwUnburstified(axiConfig : Axi4Config) extends Axi4AxUnburstified(axiConfig){
   val write = Bool
+  override def clone: this.type = new Axi4ArwUnburstified(axiConfig).asInstanceOf[this.type]
+}
+
+object Axi4ArUnburstified{
+  def apply(axiConfig : Axi4Config) = new Axi4ArUnburstified(axiConfig)
+}
+object Axi4AwUnburstified{
+  def apply(axiConfig : Axi4Config) = new Axi4AwUnburstified(axiConfig)
+}
+object Axi4ArwUnburstified{
+  def apply(axiConfig : Axi4Config) = new Axi4ArwUnburstified(axiConfig)
 }
 
 object Axi4Aw{
