@@ -3,9 +3,26 @@ package spinal.lib.bus.amba4.axi
 import spinal.core._
 import spinal.lib._
 
-case class Axi4SharedOnChipRam(axiConfig: Axi4Config,byteCount : BigInt) extends Component{
-  assert(!axiConfig.useLock)
-  assert(!axiConfig.useUser)
+object Axi4SharedOnChipRam{
+  def getAxiConfig(dataWidth : Int,byteCount : Int,idWidth : Int) = Axi4Config(
+    addressWidth = log2Up(byteCount),
+    dataWidth = dataWidth,
+    idWidth = idWidth,
+    useLock = false,
+    useRegion = false,
+    useCache = false,
+    useProt = false,
+    useQos = false
+  )
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new Axi4SharedOnChipRam(32,1024,4).setDefinitionName("TopLevel"))
+  }
+}
+
+case class Axi4SharedOnChipRam(dataWidth : Int,byteCount : Int,idWidth : Int) extends Component{
+  val axiConfig = Axi4SharedOnChipRam.getAxiConfig(dataWidth,byteCount,idWidth)
+
   val io = new Bundle {
     val axi = slave(Axi4Shared(axiConfig))
   }
@@ -42,8 +59,3 @@ case class Axi4SharedOnChipRam(axiConfig: Axi4Config,byteCount : BigInt) extends
 }
 
 
-object Axi4SharedOnChipRam{
-  def main(args: Array[String]) {
-    SpinalVhdl(new Axi4SharedOnChipRam(Axi4Config(32,32,4,useLock = false),1024).setDefinitionName("TopLevel"))
-  }
-}

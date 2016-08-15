@@ -46,6 +46,7 @@ case class Axi4Config(addressWidth : Int,
                       useQos       : Boolean = true,
                       useLen       : Boolean = true,
                       useResp      : Boolean = true,
+                      useProt      : Boolean = true,
                       useUser      : Boolean = false,
                       useStrb      : Boolean = true,
                       userWidth    : Int = -1) {
@@ -207,10 +208,10 @@ object Axi4{
         }
         is(Axi4.burst.WRAP) {
           val cases = Vec((0 to wrapCaseMax).map(i => base(11 downto i + 1) @@ baseIncr(i downto 0)))
-          result := highCat @@ cases(wrapCase)
+          result := (highCat @@ cases(wrapCase)).resized
         }
         default {
-          result := highCat @@ baseIncr
+          result := (highCat @@ baseIncr).resized
         }
       }
     }.setWeakName("Axi4Incr")

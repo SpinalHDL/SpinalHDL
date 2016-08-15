@@ -21,7 +21,7 @@ class Axi4Ax(val config: Axi4Config) extends Bundle {
   val cache  = if(config.useCache)  Bits(4 bits)                else null
   val qos    = if(config.useQos)    Bits(4 bits)                else null
   val user   = if(config.useUser)   Bits(config.userWidth bits) else null
-  val prot   = Bits(3 bits)
+  val prot   = if(config.useProt)   Bits(3 bits)                else null
 
   import Axi4.burst._
 
@@ -123,7 +123,7 @@ class Axi4AxUnburstified(val config : Axi4Config) extends Bundle {
   val cache  = if(config.useCache)  Bits(4 bits)                else null
   val qos    = if(config.useQos)    Bits(4 bits)                else null
   val user   = if(config.useUser)   Bits(config.userWidth bits) else null
-  val prot   = Bits(3 bits)
+  val prot   = if(config.useProt)   Bits(3 bits)                else null
 }
 
 object Axi4AxUnburstified{
@@ -230,7 +230,6 @@ object Axi4Aw{
 
 
 object Axi4Ar{
-
   def apply(config: Axi4Config) = new Axi4Ar(config)
   implicit class StreamPimper(stream : Stream[Axi4Ar]){
     def drive(sink : Stream[Axi4Ar]): Unit ={
@@ -240,57 +239,6 @@ object Axi4Ar{
       sink.id.removeAssignements()
       sink.id := stream.id.resized
     }
-
-
-//
-//
-//    def unburstify : Stream[Fragment[Axi4ArUnburstified]] = {
-//      case class State() extends Bundle{
-//        val busy = Bool
-//        val len = UInt(8 bits)
-//        val beat = UInt(8 bits)
-//        val transaction = Axi4ArUnburstified(stream.config)
-//      }
-//      val result = Stream Fragment(Axi4ArUnburstified(stream.config))
-//      val stateNext = State()
-//      val state = RegNext(stateNext)
-//      val doResult = Bool
-//
-//      stateNext := state
-//      doResult := state.busy
-//
-//      val addrIncrRange = (Math.min(11,stream.config.addressWidth-1) downto 0)
-//      stateNext.transaction.addr(addrIncrRange) := Axi4.incr(
-//        address = state.transaction.addr(addrIncrRange),
-//        burst = state.transaction.burst,
-//        len = state.len,
-//        size = state.transaction.size,
-//        bytePerWord = stream.config.bytePerWord
-//      )
-//
-//      when(result.ready){
-//        stateNext.beat := state.beat - 1
-//      }
-//
-//      when(stream.fire){
-//        stateNext.busy := True
-//        stateNext.beat := stream.len
-//        stateNext.len  := stream.len
-//        doResult := True
-//        stateNext.transaction.assignSomeByName(stream.payload)
-//      }
-//
-//      when(stateNext.beat === 0){
-//        stateNext.busy := False
-//      }
-//
-//      stream.ready := !state.busy & result.ready
-//
-//      result.valid := doResult
-//      result.last := stateNext.beat === 0
-//      result.fragment := stateNext.transaction
-//      result
-//    }
   }
 }
 
