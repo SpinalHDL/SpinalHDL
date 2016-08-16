@@ -41,9 +41,9 @@ class Axi4Aw(config: Axi4Config) extends Axi4Ax(config){
 class Axi4Ar(config: Axi4Config) extends Axi4Ax(config){
   override def clone: this.type = new Axi4Ar(config).asInstanceOf[this.type]
 }
-class Axi4As(config: Axi4Config) extends Axi4Ax(config){
+class Axi4Asw(config: Axi4Config) extends Axi4Ax(config){
   val write = Bool
-  override def clone: this.type = new Axi4As(config).asInstanceOf[this.type]
+  override def clone: this.type = new Axi4Asw(config).asInstanceOf[this.type]
 }
 
 
@@ -197,9 +197,9 @@ class Axi4ArUnburstified(axiConfig : Axi4Config) extends Axi4AxUnburstified(axiC
 class Axi4AwUnburstified(axiConfig : Axi4Config) extends Axi4AxUnburstified(axiConfig){
   override def clone: this.type = new Axi4AwUnburstified(axiConfig).asInstanceOf[this.type]
 }
-class Axi4AsUnburstified(axiConfig : Axi4Config) extends Axi4AxUnburstified(axiConfig){
+class Axi4ArwUnburstified(axiConfig : Axi4Config) extends Axi4AxUnburstified(axiConfig){
   val write = Bool
-  override def clone: this.type = new Axi4AsUnburstified(axiConfig).asInstanceOf[this.type]
+  override def clone: this.type = new Axi4ArwUnburstified(axiConfig).asInstanceOf[this.type]
 }
 
 object Axi4ArUnburstified{
@@ -208,8 +208,8 @@ object Axi4ArUnburstified{
 object Axi4AwUnburstified{
   def apply(axiConfig : Axi4Config) = new Axi4AwUnburstified(axiConfig)
 }
-object Axi4AsUnburstified{
-  def apply(axiConfig : Axi4Config) = new Axi4AsUnburstified(axiConfig)
+object Axi4ArwUnburstified{
+  def apply(axiConfig : Axi4Config) = new Axi4ArwUnburstified(axiConfig)
 }
 
 object Axi4Aw{
@@ -285,12 +285,12 @@ object Axi4R{
 
 
 
-object Axi4As{
-  def apply(config: Axi4Config) = new Axi4As(config)
+object Axi4Asw{
+  def apply(config: Axi4Config) = new Axi4Asw(config)
 
-  implicit class StreamPimper(stream : Stream[Axi4As]) {
-    def unburstify : Stream[Fragment[Axi4AsUnburstified]] = {
-      Axi4AxUnburstified.unburstify(stream,Axi4AsUnburstified(stream.config))
+  implicit class StreamPimper(stream : Stream[Axi4Asw]) {
+    def unburstify : Stream[Fragment[Axi4ArwUnburstified]] = {
+      Axi4AxUnburstified.unburstify(stream,Axi4ArwUnburstified(stream.config))
     }
   }
 }

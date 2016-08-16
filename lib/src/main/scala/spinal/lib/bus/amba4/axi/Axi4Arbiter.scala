@@ -127,14 +127,14 @@ case class Axi4SharedArbiter(outputConfig: Axi4Config,
 
   // Route writeCmd
   val inputsCmd = io.readInputs.map(axi => {
-    val newPayload = Axi4As(sharedInputConfig)
+    val newPayload = Axi4Asw(sharedInputConfig)
     newPayload.assignSomeByName(axi.readCmd.payload)
     newPayload.write := False
     newPayload.id.removeAssignements()
     newPayload.id := axi.readCmd.id.resized
     axi.readCmd.translateWith(newPayload)
   }) ++ io.writeInputs.map(axi => {
-    val newPayload = Axi4As(sharedInputConfig)
+    val newPayload = Axi4Asw(sharedInputConfig)
     newPayload.assignSomeByName(axi.writeCmd.payload)
     newPayload.write := True
     newPayload.id.removeAssignements()
@@ -142,7 +142,7 @@ case class Axi4SharedArbiter(outputConfig: Axi4Config,
     axi.writeCmd.translateWith(newPayload)
   }) ++ io.sharedInputs.map(_.sharedCmd)
 
-  val cmdArbiter = StreamArbiterFactory.roundRobin.build(Axi4As(sharedInputConfig),inputsCount)
+  val cmdArbiter = StreamArbiterFactory.roundRobin.build(Axi4Asw(sharedInputConfig),inputsCount)
   (cmdArbiter.io.inputs,inputsCmd).zipped.map(_ <> _)
   val (cmdOutputFork,cmdRouteFork) = StreamFork2(cmdArbiter.io.output)
   io.output.sharedCmd << cmdOutputFork
@@ -150,7 +150,7 @@ case class Axi4SharedArbiter(outputConfig: Axi4Config,
   io.output.sharedCmd.id := Mux(
     sel       = cmdOutputFork.write,
     whenTrue  = OHToUInt(Cat(cmdArbiter.io.chosenOH(writeRange),cmdArbiter.io.chosenOH(sharedRange))) @@ cmdOutputFork.id,
-    whenFalse = OHToUInt(Cat(cmdArbiter.io.chosenOH(readRange),cmdArbiter.io.chosenOH(sharedRange)))  @@ cmdOutputFork.id
+    whenFalse = OHToUInt(Cat(cmdArbiter.io.chosenOH(readRange) ,cmdArbiter.io.chosenOH(sharedRange))) @@ cmdOutputFork.id
   )
 
   // Route writeData
@@ -166,26 +166,27 @@ case class Axi4SharedArbiter(outputConfig: Axi4Config,
 
   // Route writeResp
   val writeRspInputs = (io.writeInputs.map(_.writeRsp) ++ io.sharedInputs.map(_.writeRsp))
-  val idPathRange = outputConfig.idWidth-1 downto outputConfig.idWidth - log2Up(inputsCount)
-  val writeRspIndex = io.output.writeRsp.id(idPathRange)
+  val writeIdPathRange = outputConfig.idWidth-1 downto writeInputConfig.idWidth
+  val writeRspIndex = io.output.writeRsp.id(writeIdPathRange)
   val writeRspSels = (0 until inputsCount).map(writeRspIndex === _)
   for((input,sel)<- (writeRspInputs,writeRspSels).zipped){
     input.valid := io.output.writeRsp.valid && sel
     input.payload <> io.output.writeRsp.payload
     input.id.removeAssignements()
-    input.id := io.output.writeRsp.id(idPathRange.low-1 downto 0)
+    input.id := io.output.writeRsp.id.resized
   }
   io.output.writeRsp.ready := writeRspInputs.read(writeRspIndex).ready
 
   // Route readResp
   val readRspInputs = (io.readInputs.map(_.readRsp) ++ io.sharedInputs.map(_.readRsp))
-  val readRspIndex = io.output.readRsp.id(idPathRange)
+  val readIdPathRange = outputConfig.idWidth-1 downto readInputConfig.idWidth
+  val readRspIndex = io.output.readRsp.id(readIdPathRange)
   val readRspSels = (0 until inputsCount).map(readRspIndex === _)
   for((input,sel)<- (readRspInputs,readRspSels).zipped){
     input.valid := io.output.readRsp.valid && sel
     input.payload <> io.output.readRsp.payload
     input.id.removeAssignements()
-    input.id := io.output.readRsp.id(idPathRange.low-1 downto 0)
+    input.id := io.output.readRsp.id.resized
   }
   io.output.readRsp.ready := readRspInputs.read(readRspIndex).ready
 }

@@ -31,7 +31,7 @@ case class Axi4SharedOnChipRam(dataWidth : Int,byteCount : BigInt,idWidth : Int)
   val ram = Mem(axiConfig.dataType,wordCount.toInt)
   val wordRange = log2Up(wordCount) + log2Up(axiConfig.bytePerWord)-1 downto log2Up(axiConfig.bytePerWord)
 
-  val arw = io.axi.as.unburstify
+  val arw = io.axi.arw.unburstify
   val stage0 = arw.haltWhen(arw.write && !io.axi.writeData.valid)
   io.axi.readRsp.data := ram.readWriteSync(
     address = stage0.addr(axiConfig.wordRange).resized,
