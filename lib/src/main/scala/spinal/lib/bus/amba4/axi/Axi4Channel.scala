@@ -3,7 +3,6 @@ package spinal.lib.bus.amba4.axi
 import spinal.core._
 import spinal.lib._
 
-import scala.Predef.assert
 
 
 /**
@@ -42,9 +41,9 @@ class Axi4Aw(config: Axi4Config) extends Axi4Ax(config){
 class Axi4Ar(config: Axi4Config) extends Axi4Ax(config){
   override def clone: this.type = new Axi4Ar(config).asInstanceOf[this.type]
 }
-class Axi4Arw(config: Axi4Config) extends Axi4Ax(config){
+class Axi4As(config: Axi4Config) extends Axi4Ax(config){
   val write = Bool
-  override def clone: this.type = new Axi4Arw(config).asInstanceOf[this.type]
+  override def clone: this.type = new Axi4As(config).asInstanceOf[this.type]
 }
 
 
@@ -56,7 +55,7 @@ case class Axi4W(config: Axi4Config) extends Bundle {
   val data = Bits(config.dataWidth bits)
   val strb = if(config.useStrb) Bits(config.bytePerWord bits) else null
   val user = if(config.useUser) Bits(config.userWidth bits)     else null
-  val last = if(config.useLen)  Bool                            else null
+  val last = if(config.useLast)  Bool                            else null
 
   def setStrb() : Unit = if(config.useStrb) strb := (1 << widthOf(strb))-1
   def setStrb(bytesLane : Bits) : Unit = if(config.useStrb) strb := bytesLane
@@ -93,7 +92,7 @@ case class Axi4R(config: Axi4Config) extends Bundle {
   val data = Bits(config.dataWidth bits)
   val id   = if(config.useId)   UInt(config.idWidth bits)   else null
   val resp = if(config.useResp) Bits(2 bits)               else null
-  val last = if(config.useLen)  Bool                       else null
+  val last = if(config.useLast)  Bool                       else null
   val user = if(config.useUser) Bits(config.userWidth bits) else null
 
   import Axi4.resp._
@@ -198,9 +197,9 @@ class Axi4ArUnburstified(axiConfig : Axi4Config) extends Axi4AxUnburstified(axiC
 class Axi4AwUnburstified(axiConfig : Axi4Config) extends Axi4AxUnburstified(axiConfig){
   override def clone: this.type = new Axi4AwUnburstified(axiConfig).asInstanceOf[this.type]
 }
-class Axi4ArwUnburstified(axiConfig : Axi4Config) extends Axi4AxUnburstified(axiConfig){
+class Axi4AsUnburstified(axiConfig : Axi4Config) extends Axi4AxUnburstified(axiConfig){
   val write = Bool
-  override def clone: this.type = new Axi4ArwUnburstified(axiConfig).asInstanceOf[this.type]
+  override def clone: this.type = new Axi4AsUnburstified(axiConfig).asInstanceOf[this.type]
 }
 
 object Axi4ArUnburstified{
@@ -209,8 +208,8 @@ object Axi4ArUnburstified{
 object Axi4AwUnburstified{
   def apply(axiConfig : Axi4Config) = new Axi4AwUnburstified(axiConfig)
 }
-object Axi4ArwUnburstified{
-  def apply(axiConfig : Axi4Config) = new Axi4ArwUnburstified(axiConfig)
+object Axi4AsUnburstified{
+  def apply(axiConfig : Axi4Config) = new Axi4AsUnburstified(axiConfig)
 }
 
 object Axi4Aw{
@@ -247,7 +246,13 @@ object Axi4Ar{
 object Axi4W{
   implicit class StreamPimper(stream : Stream[Axi4W]) {
     def drive(sink: Stream[Axi4W]): Unit = {
-      stream >> sink
+      sink.arbitrationFrom(stream)
+      sink.data := stream.data
+      if(sink.strb != null) sink.strb := (if(stream.strb != null) stream.strb else B(sink.strb.range -> true))
+      if(sink.user != null)
+        if(stream.user != null) sink.user := stream.user else LocatedPendingError(s"$stream can't drive $sink because this first one has no USER")
+      if(sink.last != null)
+        if(stream.last != null) sink.last := stream.last else LocatedPendingError(s"$stream can't drive $sink because this first one has no LAST")
     }
   }
 }
@@ -280,12 +285,12 @@ object Axi4R{
 
 
 
-object Axi4Arw{
-  def apply(config: Axi4Config) = new Axi4Arw(config)
+object Axi4As{
+  def apply(config: Axi4Config) = new Axi4As(config)
 
-  implicit class StreamPimper(stream : Stream[Axi4Arw]) {
-    def unburstify : Stream[Fragment[Axi4ArwUnburstified]] = {
-      Axi4AxUnburstified.unburstify(stream,Axi4ArwUnburstified(stream.config))
+  implicit class StreamPimper(stream : Stream[Axi4As]) {
+    def unburstify : Stream[Fragment[Axi4AsUnburstified]] = {
+      Axi4AxUnburstified.unburstify(stream,Axi4AsUnburstified(stream.config))
     }
   }
 }

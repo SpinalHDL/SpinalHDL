@@ -109,8 +109,8 @@ class Bundle extends MultiData with Nameable with OverridedEqualsHashCode {
 
   private[core] def rejectOlder = true
 
-
-  override def toString(): String = s"${component.getPath() + "/" + this.getDisplayName()} : ${getClass.getSimpleName}"
+  def getTypeString = getClass.getSimpleName
+  override def toString(): String = s"${component.getPath() + "/" + this.getDisplayName()} : ${getTypeString}"
 }
 
 class BundleCase extends Bundle {

@@ -108,3 +108,19 @@ object PlayAxi4AddrIncr{
 //  val stream =Stream[Axi4Ar](null)
 //  stream.drive()
 //}
+
+
+
+object PlayAxi4StrbConnect{
+  class TopLevel extends Component{
+    val axiConfig = Axi4Config(32,32,4)
+    val source = slave(Axi4(axiConfig.copy(useLast = false)))
+    val sink   = master(Axi4(axiConfig))
+    source.w drive sink.w
+    source >> sink
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel).printPruned()
+  }
+}

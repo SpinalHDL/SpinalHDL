@@ -262,6 +262,8 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
     ret.fragment := this.payload
     return ret
   }
+
+  override def getTypeString = getClass.getSimpleName + "[" + this.payload.getClass.getSimpleName + "]"
 }
 
 
@@ -316,6 +318,7 @@ class StreamArbiter[T <: Data](dataType: T, val portCount: Int)(val arbitrationF
     val inputs = Vec(slave Stream (dataType),portCount)
     val output = master Stream (dataType)
     val chosen = out UInt (log2Up(portCount) bit)
+    val chosenOH = out Bits (portCount bit)
   }
 
   val locked = RegInit(False)
@@ -336,7 +339,8 @@ class StreamArbiter[T <: Data](dataType: T, val portCount: Int)(val arbitrationF
   io.output.payload := MuxOH(maskRouted,Vec(io.inputs.map(_.payload)))
   (io.inputs, maskRouted).zipped.foreach(_.ready := _ & io.output.ready)
 
-  io.chosen := OHToUInt(maskRouted)
+  io.chosenOH := maskRouted.asBits
+  io.chosen := OHToUInt(io.chosenOH)
 }
 
 

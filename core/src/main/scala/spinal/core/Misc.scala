@@ -24,6 +24,7 @@ import java.lang.reflect.Field
 import scala.collection.mutable
 import scala.collection.mutable.Stack
 import scala.reflect.ClassTag
+import scala.runtime.Nothing$
 
 //case class valClone() extends scala.annotation.StaticAnnotation
 
@@ -334,6 +335,12 @@ class SpinalExit(message: String) extends Exception("\n\n" + (GlobalData.get.pen
 
 object PendingError {
   def apply(error : => String) = GlobalData.get.pendingErrors += (() => error)
+}
+object LocatedPendingError {
+  def apply(error : => String) = {
+    val location = ScalaLocated.long
+    GlobalData.get.pendingErrors += (() => error + "\n" + location)
+  }
 }
 
 object SpinalError {
