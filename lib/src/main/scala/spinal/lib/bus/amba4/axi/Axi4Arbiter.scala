@@ -5,12 +5,12 @@ import spinal.lib._
 
 import spinal.lib.bus.misc.SizeMapping
 
-object Axi4ReadArbiter{
+object Axi4ReadOnlyArbiter{
   def getInputConfig(outputConfig : Axi4Config,inputsCount : Int) = outputConfig.copy(idWidth = outputConfig.idWidth - log2Up(inputsCount))
 }
 
-case class Axi4ReadArbiter(outputConfig: Axi4Config,inputsCount : Int) extends Component {
-  val inputConfig = Axi4ReadArbiter.getInputConfig(outputConfig,inputsCount)
+case class Axi4ReadOnlyArbiter(outputConfig: Axi4Config,inputsCount : Int) extends Component {
+  val inputConfig = Axi4ReadOnlyArbiter.getInputConfig(outputConfig,inputsCount)
   val io = new Bundle{
     val inputs = Vec(slave(Axi4ReadOnly(inputConfig)),inputsCount)
     val output = master(Axi4ReadOnly(outputConfig))
@@ -42,14 +42,14 @@ case class Axi4ReadArbiter(outputConfig: Axi4Config,inputsCount : Int) extends C
 
 
 
-object Axi4WriteArbiter{
+object Axi4WriteOnlyArbiter{
   def getInputConfig(outputConfig : Axi4Config,inputsCount : Int) = outputConfig.copy(idWidth = outputConfig.idWidth - log2Up(inputsCount))
 }
 
 //routeBufferSize Specify how many write cmd could be schedule before any write data transaction is transmitted
-case class Axi4WriteArbiter(outputConfig: Axi4Config,inputsCount : Int,routeBufferSize : Int) extends Component {
+case class Axi4WriteOnlyArbiter(outputConfig: Axi4Config,inputsCount : Int,routeBufferSize : Int) extends Component {
   assert(routeBufferSize >= 1)
-  val inputConfig = Axi4ReadArbiter.getInputConfig(outputConfig,inputsCount)
+  val inputConfig = Axi4ReadOnlyArbiter.getInputConfig(outputConfig,inputsCount)
   val io = new Bundle{
     val inputs = Vec(slave(Axi4WriteOnly(inputConfig)),inputsCount)
     val output = master(Axi4WriteOnly(outputConfig))
@@ -127,14 +127,14 @@ case class Axi4SharedArbiter(outputConfig: Axi4Config,
 
   // Route writeCmd
   val inputsCmd = io.readInputs.map(axi => {
-    val newPayload = Axi4Asw(sharedInputConfig)
+    val newPayload = Axi4Arw(sharedInputConfig)
     newPayload.assignSomeByName(axi.readCmd.payload)
     newPayload.write := False
     newPayload.id.removeAssignements()
     newPayload.id := axi.readCmd.id.resized
     axi.readCmd.translateWith(newPayload)
   }) ++ io.writeInputs.map(axi => {
-    val newPayload = Axi4Asw(sharedInputConfig)
+    val newPayload = Axi4Arw(sharedInputConfig)
     newPayload.assignSomeByName(axi.writeCmd.payload)
     newPayload.write := True
     newPayload.id.removeAssignements()
@@ -142,7 +142,7 @@ case class Axi4SharedArbiter(outputConfig: Axi4Config,
     axi.writeCmd.translateWith(newPayload)
   }) ++ io.sharedInputs.map(_.sharedCmd)
 
-  val cmdArbiter = StreamArbiterFactory.roundRobin.build(Axi4Asw(sharedInputConfig),inputsCount)
+  val cmdArbiter = StreamArbiterFactory.roundRobin.build(Axi4Arw(sharedInputConfig),inputsCount)
   (cmdArbiter.io.inputs,inputsCmd).zipped.map(_ <> _)
   val (cmdOutputFork,cmdRouteFork) = StreamFork2(cmdArbiter.io.output)
   io.output.sharedCmd << cmdOutputFork

@@ -41,9 +41,9 @@ class Axi4Aw(config: Axi4Config) extends Axi4Ax(config){
 class Axi4Ar(config: Axi4Config) extends Axi4Ax(config){
   override def clone: this.type = new Axi4Ar(config).asInstanceOf[this.type]
 }
-class Axi4Asw(config: Axi4Config) extends Axi4Ax(config){
+class Axi4Arw(config: Axi4Config) extends Axi4Ax(config){
   val write = Bool
-  override def clone: this.type = new Axi4Asw(config).asInstanceOf[this.type]
+  override def clone: this.type = new Axi4Arw(config).asInstanceOf[this.type]
 }
 
 
@@ -243,6 +243,7 @@ object Axi4Ar{
 
 
 
+
 object Axi4W{
   implicit class StreamPimper(stream : Stream[Axi4W]) {
     def drive(sink: Stream[Axi4W]): Unit = {
@@ -285,12 +286,20 @@ object Axi4R{
 
 
 
-object Axi4Asw{
-  def apply(config: Axi4Config) = new Axi4Asw(config)
+object Axi4Arw{
+  def apply(config: Axi4Config) = new Axi4Arw(config)
 
-  implicit class StreamPimper(stream : Stream[Axi4Asw]) {
+  implicit class StreamPimper(stream : Stream[Axi4Arw]) {
     def unburstify : Stream[Fragment[Axi4ArwUnburstified]] = {
       Axi4AxUnburstified.unburstify(stream,Axi4ArwUnburstified(stream.config))
+    }
+
+    def drive(sink : Stream[Axi4Arw]): Unit ={
+      stream >> sink
+      assert(stream.config.idWidth <= sink.config.idWidth,s"$this idWidth > $sink idWidth")
+
+      sink.id.removeAssignements()
+      sink.id := stream.id.resized
     }
   }
 }

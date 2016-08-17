@@ -124,3 +124,15 @@ object PlayAxi4StrbConnect{
     SpinalVhdl(new TopLevel).printPruned()
   }
 }
+
+
+object PlayDualRail{
+  case class DualRailBool() extends Bundle{
+    val t,f = Bool
+
+    def & (that : DualRailBool) : DualRailBool = {
+      ???
+    }
+  }
+
+}

@@ -4,7 +4,7 @@ import spinal.core._
 import spinal.lib._
 
 
-case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave {
+case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave with Axi4Bus{
 
   val aw = Stream(Axi4Aw(config))
   val w = Stream(Axi4W(config))

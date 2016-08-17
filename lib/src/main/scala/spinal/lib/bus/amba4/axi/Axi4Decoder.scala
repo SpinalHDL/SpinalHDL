@@ -71,7 +71,7 @@ case class Axi4ReadOnlyDecoder(axiConfig: Axi4Config,decodings : Iterable[SizeMa
 }
 
 
-case class Axi4WriteDecoder(axiConfig: Axi4Config,decodings : Iterable[SizeMapping],pendingMax : Int = 7) extends Component{
+case class Axi4WriteOnlyDecoder(axiConfig: Axi4Config,decodings : Iterable[SizeMapping],pendingMax : Int = 7) extends Component{
   val io = new Bundle{
     val input = slave(Axi4WriteOnly(axiConfig))
     val outputs = Vec(master(Axi4WriteOnly(axiConfig)),decodings.size)
@@ -190,7 +190,11 @@ case class Axi4SharedDecoder(axiConfig: Axi4Config,
   val lastCmdSel  = RegNextWhen(appliedCmdSels,io.input.sharedCmd.ready)  init(0)
   val allowCmd    = pendingCmdCounter =/= pendingMax && (pendingCmdCounter === 0  || (lastCmdSel === decodedCmdSels))
   val allowData   = pendingDataCounter =/= 0
-  decodedCmdSels := decodings.map(_.hit(io.input.sharedCmd.addr) && io.input.sharedCmd.valid).asBits
+  decodedCmdSels := Cat(
+    readDecodings.map(_.hit(io.input.sharedCmd.addr)   && io.input.sharedCmd.valid && !io.input.sharedCmd.write).asBits,
+    writeDecodings.map(_.hit(io.input.sharedCmd.addr)  && io.input.sharedCmd.valid &&  io.input.sharedCmd.write).asBits,
+    sharedDecodings.map(_.hit(io.input.sharedCmd.addr) && io.input.sharedCmd.valid).asBits
+  )
   appliedCmdSels := allowCmd ? decodedCmdSels | 0
 
 
@@ -239,7 +243,7 @@ case class Axi4SharedDecoder(axiConfig: Axi4Config,
 
 
   //Decoding error managment
-  val decodingErrorPossible = decodings.map(_.size).sum < (BigInt(1) << axiConfig.addressWidth)
+  val decodingErrorPossible = (writeDecodings ++ sharedDecodings).map(_.size).sum < (BigInt(1) << axiConfig.addressWidth) || (readDecodings ++ sharedDecodings).map(_.size).sum < (BigInt(1) << axiConfig.addressWidth)
   val decodingError = if(decodingErrorPossible) new Area{
     val detected = decodedCmdSels === 0 && io.input.sharedCmd.valid
     val waitLastDataWrite = RegInit(False)
