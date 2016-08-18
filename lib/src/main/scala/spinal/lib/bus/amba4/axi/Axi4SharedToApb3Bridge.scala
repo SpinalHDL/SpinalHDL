@@ -49,7 +49,7 @@ case class Axi4SharedToApb3Bridge(addressWidth : Int,dataWidth : Int,idWidth : I
   val readedData = Reg(Bits(dataWidth bits))
   val id = Reg(UInt(idWidth bits))
 
-  io.axi.readWriteCmd.ready := False
+  io.axi.sharedCmd.ready := False
   io.axi.writeData.ready    := False
   io.axi.writeRsp.valid     := False
   io.axi.readRsp.valid      := False
@@ -60,9 +60,9 @@ case class Axi4SharedToApb3Bridge(addressWidth : Int,dataWidth : Int,idWidth : I
   switch(phase){
     is(SETUP){
       io.apb.PSEL(0)  := io.axi.arw.valid
-      write := io.axi.readWriteCmd.write
-      id := io.axi.readWriteCmd.id
-      when(io.axi.readWriteCmd.valid && (!io.axi.readWriteCmd.write || io.axi.writeData.valid)) {
+      write := io.axi.sharedCmd.write
+      id := io.axi.sharedCmd.id
+      when(io.axi.sharedCmd.valid && (!io.axi.sharedCmd.write || io.axi.writeData.valid)) {
         phase := ACCESS
       }
     }
@@ -73,7 +73,7 @@ case class Axi4SharedToApb3Bridge(addressWidth : Int,dataWidth : Int,idWidth : I
       when(io.apb.PREADY){
         readedData := io.apb.PRDATA
         phase := RESPONSE
-        io.axi.readWriteCmd.ready := True
+        io.axi.sharedCmd.ready := True
         io.axi.writeData.ready    := write
       }
     }
@@ -92,9 +92,9 @@ case class Axi4SharedToApb3Bridge(addressWidth : Int,dataWidth : Int,idWidth : I
     }
   }
 
-  io.apb.PADDR  := io.axi.readWriteCmd.addr
+  io.apb.PADDR  := io.axi.sharedCmd.addr
   io.apb.PWDATA := io.axi.writeData.data
-  io.apb.PWRITE := io.axi.readWriteCmd.write
+  io.apb.PWRITE := io.axi.sharedCmd.write
   io.axi.readRsp.resp  := io.apb.PSLVERROR ## B"0"
   io.axi.writeRsp.resp := io.apb.PSLVERROR ## B"0"
   io.axi.readRsp.id  := id

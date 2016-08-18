@@ -3,7 +3,7 @@ package spinal.lib.bus.amba4.axi
 import spinal.core._
 import spinal.lib._
 
-case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave {
+case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave with Axi4Bus{
   val ar = Stream(Axi4Ar(config))
   val r = Stream(Axi4R(config))
 

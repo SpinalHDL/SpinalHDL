@@ -4,7 +4,7 @@ import spinal.core._
 import spinal.lib._
 
 object Axi4SharedOnChipRam{
-  def getAxiConfig(dataWidth : Int,byteCount : Int,idWidth : Int) = Axi4Config(
+  def getAxiConfig(dataWidth : Int,byteCount : BigInt,idWidth : Int) = Axi4Config(
     addressWidth = log2Up(byteCount),
     dataWidth = dataWidth,
     idWidth = idWidth,
@@ -20,7 +20,7 @@ object Axi4SharedOnChipRam{
   }
 }
 
-case class Axi4SharedOnChipRam(dataWidth : Int,byteCount : Int,idWidth : Int) extends Component{
+case class Axi4SharedOnChipRam(dataWidth : Int,byteCount : BigInt,idWidth : Int) extends Component{
   val axiConfig = Axi4SharedOnChipRam.getAxiConfig(dataWidth,byteCount,idWidth)
 
   val io = new Bundle {

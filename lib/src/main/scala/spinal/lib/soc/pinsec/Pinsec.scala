@@ -5,10 +5,9 @@ import java.nio.file.Files
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.amba3.ahblite._
-import spinal.lib.bus.amba3.apb.{Apb3Interconnect, Apb3Gpio, Apb3Decoder, Apb3Config}
+import spinal.lib.bus.amba3.apb._
+import spinal.lib.bus.amba4.axi._
 import spinal.lib.com.jtag.Jtag
-import spinal.lib.cpu.riscv.impl.build.RiscvAhbLite3
 import spinal.lib.cpu.riscv.impl.extension.{BarrelShifterFullExtension, DivExtension, MulExtension}
 import spinal.lib.cpu.riscv.impl.{disable, dynamic, sync, CoreConfig}
 import spinal.lib.io.TriStateArray
@@ -16,13 +15,14 @@ import spinal.lib.io.TriStateArray
 class Pinsec extends Component{
   val debug = true
   val interruptCount = 4
-  val ahbConfig = AhbLite3Config(addressWidth = 32,dataWidth = 32)
-  val apbConfig = Apb3Config(addressWidth = 16,dataWidth = 32)
+//  val ahbConfig = Axi4Config(addressWidth = 32,dataWidth = 32)
+//  val apbConfig = Apb3Config(addressWidth = 16,dataWidth = 32)
 
   val io = new Bundle{
-//    val ahbAccess = slave(AhbLite3(ahbConfig))
+//    val ahbAccess = slave(Axi4(ahbConfig))
 //    val jtag = slave(Jtag())
-    val gpio = master(TriStateArray(32 bits))
+    val gpioA = master(TriStateArray(32 bits))
+    val gpioB = master(TriStateArray(32 bits))
     val interrupt = in Bits(interruptCount bits)
 //    val debugResetIn  = if(debug) in Bool else null
     val debugResetOut = if(debug) out Bool else null
@@ -75,45 +75,65 @@ class Pinsec extends Component{
   //  p.add(new BarrelShifterLightExtension)
 
 
-  val core      = new RiscvAhbLite3(coreConfig,iCacheConfig,dCacheConfig,debug,interruptCount,apbConfig)
-//  val rom       = AhbLite3OnChipRam(ahbConfig,byteCount = 512 KB)
-  val rom       = new AhbLite3OnChipRom(ahbConfig,{
-    val bytes = Files.readAllBytes(new File("E:/vm/share/pinsec_test.bin").toPath()).map(v => BigInt(if(v < 0) v + 256 else v))
-    val array =  (0 until bytes.length/4).map(i => B(bytes(i*4+0) + (bytes(i*4+1) << 8) + (bytes(i*4+2) << 16) + (bytes(i*4+3) << 24),32 bits))
-    array
-  })
-  val ram       = AhbLite3OnChipRam(ahbConfig,byteCount = 512 KB)
-  val gpioCtrl  = Apb3Gpio(apbConfig,32)
-  
-  val apbBridge = AhbLite3ToApb3Bridge(ahbConfig,apbConfig)
-  val ahbInterconnect = AhbLite3InterconnectFactory(ahbConfig)
+//  val core      = new RiscvAxi4(coreConfig,iCacheConfig,dCacheConfig,debug,interruptCount,apbConfig)
+////  val rom       = Axi4OnChipRam(ahbConfig,byteCount = 512 KB)
+//  val rom       = new Axi4OnChipRom(ahbConfig,{
+//    val bytes = Files.readAllBytes(new File("E:/vm/share/pinsec_test.bin").toPath()).map(v => BigInt(if(v < 0) v + 256 else v))
+//    val array =  (0 until bytes.length/4).map(i => B(bytes(i*4+0) + (bytes(i*4+1) << 8) + (bytes(i*4+2) << 16) + (bytes(i*4+3) << 24),32 bits))
+//    array
+//  })
+  val ram,rom       = Axi4SharedOnChipRam(
+    dataWidth = 32,
+    byteCount = 512 KB,
+    idWidth = 4
+  )
+
+  val apbBridge = Axi4SharedToApb3Bridge(
+    addressWidth = 20,
+    dataWidth = 32,
+    idWidth = 4
+  )
+
+  val axiMaster0 = Axi4Shared(Axi4Config(32,32,2))
+  val axiMaster1 = Axi4Shared(Axi4Config(32,32,2))
+
+  val ahbInterconnect = Axi4InterconnectFactory()
     .addSlaves(
-      rom.io.ahb       -> (0x00000000L, 512 KB),
-      ram.io.ahb       -> (0x04000000L, 512 KB),
-      apbBridge.io.ahb -> (0xF0000000L,  64 KB)
+//      rom.io.axi       -> (0x00000000L, 512 KB),
+//      ram.io.axi       -> (0x04000000L, 512 KB),
+//      apbBridge.io.axi -> (0xF0000000L,  64 KB)
     ).addConnections(
-      core.io.i.toAhbLite3()
-        -> List(rom.io.ahb, ram.io.ahb),
-      core.io.d.toAhbLite3()
-        -> List(rom.io.ahb, ram.io.ahb, apbBridge.io.ahb)
+//      axiMaster0
+//        -> List(rom.io.axi, ram.io.axi, apbBridge.io.axi),
+//      axiMaster1
+//        -> List(rom.io.axi, ram.io.axi, apbBridge.io.axi)
+//      core.io.i.toAxi4()
+//        -> List(rom.io.ahb, ram.io.ahb),
+//      core.io.d.toAxi4()
+//        -> List(rom.io.ahb, ram.io.ahb, apbBridge.io.ahb)
 //      io.ahbAccess
 //        -> List(rom.io.ahb, ram.io.ahb, apbBridge.io.ahb)
     ).build()
 
+  val gpioACtrl  = Apb3Gpio(apbBridge.apbConfig,32)
+  val gpioBCtrl  = Apb3Gpio(apbBridge.apbConfig,32)
+
   val apbDecoder = Apb3Interconnect(
     master = apbBridge.io.apb,
     slaves = List(
-      gpioCtrl.io.apb  -> (0x0000, 1 KB),
-      core.io.debugBus -> (0xF000, 4 KB)
+      gpioACtrl.io.apb  -> (0x00000, 4 KB),
+      gpioBCtrl.io.apb  -> (0x01000, 4 KB)
+//      core.io.debugBus -> (0xF000, 4 KB)
     )
   )
-
-  if(interruptCount != 0) core.io.interrupt := io.interrupt
-  if(debug){
-    core.io.debugResetIn  <> ClockDomain.current.readResetWire//io.debugResetIn
-    core.io.debugResetOut <> io.debugResetOut
-  }
-  gpioCtrl.io.gpio <> io.gpio
+//
+//  if(interruptCount != 0) core.io.interrupt := io.interrupt
+//  if(debug){
+//    core.io.debugResetIn  <> ClockDomain.current.readResetWire//io.debugResetIn
+//    core.io.debugResetOut <> io.debugResetOut
+//  }
+  gpioACtrl.io.gpio <> io.gpioA
+  gpioBCtrl.io.gpio <> io.gpioB
 }
 
 

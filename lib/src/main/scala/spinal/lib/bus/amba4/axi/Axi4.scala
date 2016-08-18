@@ -45,6 +45,7 @@ case class Axi4Config(addressWidth : Int,
                       useSize      : Boolean = true,
                       useQos       : Boolean = true,
                       useLen       : Boolean = true,
+                      useLast      : Boolean = true,
                       useResp      : Boolean = true,
                       useProt      : Boolean = true,
                       useUser      : Boolean = false,
@@ -61,13 +62,13 @@ case class Axi4Config(addressWidth : Int,
 }
 
 
-
+trait Axi4Bus
 
 /**
  * Axi4 interface definition
  * @param config Axi4 configuration class
  */
-case class Axi4(config: Axi4Config) extends Bundle with IMasterSlave {
+case class Axi4(config: Axi4Config) extends Bundle with IMasterSlave with Axi4Bus{
 
   val aw = Stream(Axi4Aw(config))
   val w  = Stream(Axi4W(config))

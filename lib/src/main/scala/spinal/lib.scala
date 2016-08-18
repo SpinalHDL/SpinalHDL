@@ -15,6 +15,7 @@ package object lib  {
 
   //implicit def easyStream[T <: Bundle](that: Stream[T]) = that.data
   implicit def traversableOncePimped[T <: Data](that: scala.collection.Iterable[T]) = new TraversableOncePimped[T](that)
+//  implicit def seqPimped[T <: Data](that: scala.IndexedSeq[T]) = new TraversableOncePimped[T](that)
 
   implicit def flowFragmentPimped[T <: Data](that: Flow[Fragment[T]]) = new FlowFragmentPimped[T](that)
 
