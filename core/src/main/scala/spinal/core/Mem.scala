@@ -78,7 +78,7 @@ object AllowMixedWidth extends SpinalTag
 
 class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableInputsCount  with Nameable with Widthable{
   var forceMemToBlackboxTranslation = false
-  val _widths = wordType.flatten.map(t => t.getBitsWidth).toVector //Force to fix width of each wire
+  val _widths = _wordType.flatten.map(t => t.getBitsWidth).toVector //Force to fix width of each wire
 
   def wordType: T = _wordType.clone
 
@@ -140,7 +140,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
   def readAsyncMixedWidth(address: UInt, data : Data, readUnderWrite: ReadUnderWritePolicy = dontCare): Unit =  readAsyncImpl(address,data,readUnderWrite,true)
 
   def readAsyncImpl(address: UInt, data : Data,readUnderWrite : ReadUnderWritePolicy = dontCare,allowMixedWidth : Boolean): Unit = {
-    val readBits = Bits(data.getBitsWidth bits)
+    val readBits = (if(allowMixedWidth) Bits() else Bits(getWidth bits))
     val addressBuffer = (if(allowMixedWidth) UInt() else UInt(addressWidth bits)).dontSimplifyIt() //Allow resized address when mixedMode is disable
     addressBuffer := address
     val readPort = new MemReadAsync(this, addressBuffer, readBits, readUnderWrite)
@@ -156,7 +156,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
   }
 
   def readSync(address: UInt, enable: Bool = null, readUnderWrite: ReadUnderWritePolicy = dontCare, clockCrossing: Boolean = false): T = {
-    val readWord = wordType.clone()
+    val readWord = wordType
     readSyncImpl(address,readWord,enable,readUnderWrite,clockCrossing,false)
     readWord
   }
@@ -164,7 +164,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
   def readSyncMixedWidth(address: UInt, data : Data, enable: Bool = null,readUnderWrite: ReadUnderWritePolicy = dontCare,clockCrossing: Boolean = false): Unit =  readSyncImpl(address,data,enable,readUnderWrite,clockCrossing,true)
 
   def readSyncImpl(address: UInt, data : Data, enable: Bool = null, readUnderWrite: ReadUnderWritePolicy = dontCare, clockCrossing: Boolean = false,allowMixedWidth : Boolean = false): Unit = {
-    val readBits = Bits(data.getBitsWidth bits)
+    val readBits = (if(allowMixedWidth) Bits() else Bits(getWidth bits))
 
     val addressBuffer = (if(allowMixedWidth) UInt() else UInt(addressWidth bits)).dontSimplifyIt() //Allow resized address when mixedMode is disable
     addressBuffer := address

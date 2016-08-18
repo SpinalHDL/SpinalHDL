@@ -474,7 +474,6 @@ class StreamFifo[T <: Data](dataType: T, depth: Int) extends Component {
     val occupancy = out UInt (log2Up(depth + 1) bit)
   }
   val ram = Mem(dataType, depth)
-
   val pushPtr = Counter(depth)
   val popPtr = Counter(depth)
   val ptrMatch = pushPtr === popPtr

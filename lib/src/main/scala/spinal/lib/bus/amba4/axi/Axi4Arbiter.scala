@@ -114,9 +114,9 @@ case class Axi4SharedArbiter(outputConfig: Axi4Config,
   val (readInputConfig,writeInputConfig,sharedInputConfig) = Axi4SharedArbiter.getInputConfig(outputConfig,readInputsCount,writeInputsCount,sharedInputsCount)
 
   val io = new Bundle{
-    val readInputs   = Vec(master(Axi4ReadOnly(outputConfig)) ,readInputsCount)
-    val writeInputs  = Vec(master(Axi4WriteOnly(outputConfig)),writeInputsCount)
-    val sharedInputs = Vec(master(Axi4Shared(outputConfig))   ,sharedInputsCount)
+    val readInputs   = Vec(slave(Axi4ReadOnly(readInputConfig)) ,readInputsCount)
+    val writeInputs  = Vec(slave(Axi4WriteOnly(writeInputConfig)),writeInputsCount)
+    val sharedInputs = Vec(slave(Axi4Shared(sharedInputConfig))   ,sharedInputsCount)
     val output = master(Axi4Shared(outputConfig))
   }
 
@@ -143,7 +143,7 @@ case class Axi4SharedArbiter(outputConfig: Axi4Config,
   }) ++ io.sharedInputs.map(_.sharedCmd)
 
   val cmdArbiter = StreamArbiterFactory.roundRobin.build(Axi4Arw(sharedInputConfig),inputsCount)
-  (cmdArbiter.io.inputs,inputsCmd).zipped.map(_ <> _)
+  (inputsCmd,cmdArbiter.io.inputs).zipped.map(_ drive _)
   val (cmdOutputFork,cmdRouteFork) = StreamFork2(cmdArbiter.io.output)
   io.output.sharedCmd << cmdOutputFork
   io.output.sharedCmd.id.removeAssignements()

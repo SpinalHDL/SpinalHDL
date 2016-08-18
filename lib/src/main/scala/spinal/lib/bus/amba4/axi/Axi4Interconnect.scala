@@ -50,8 +50,16 @@ case class Axi4InterconnectFactory(/*axiConfig: Axi4Config*/){
         addConnection(axi.toReadOnly(),translatedSlaves.filter(!_.isInstanceOf[Axi4WriteOnly]))
         addConnection(axi.toWriteOnly(),translatedSlaves.filter(!_.isInstanceOf[Axi4ReadOnly]))
       }
-      case _ => {
-        slaves.foreach(slavesConfigs(_).connections += Axi4InterconnectSlaveConnection(axi))
+      case axi : Axi4WriteOnly => {
+        translatedSlaves.filter(!_.isInstanceOf[Axi4ReadOnly]).foreach(slavesConfigs(_).connections += Axi4InterconnectSlaveConnection(axi))
+        masters += axi
+      }
+      case axi : Axi4ReadOnly => {
+        translatedSlaves.filter(!_.isInstanceOf[Axi4WriteOnly]).foreach(slavesConfigs(_).connections += Axi4InterconnectSlaveConnection(axi))
+        masters += axi
+      }
+      case axi : Axi4Shared => {
+        translatedSlaves.foreach(slavesConfigs(_).connections += Axi4InterconnectSlaveConnection(axi))
         masters += axi
       }
     }
@@ -127,7 +135,7 @@ case class Axi4InterconnectFactory(/*axiConfig: Axi4Config*/){
 
 
 
-    val arbiters = for((slave,config) <- slavesConfigs) yield slave match {
+    val arbiters = for((slave,config) <- slavesConfigs.toSeq.sortBy(_._1.asInstanceOf[Bundle].getInstanceCounter)) yield slave match {
       case slave : Axi4ReadOnly => new Area{
         val readConnections = config.connections
         readConnections.size match {
@@ -139,6 +147,8 @@ case class Axi4InterconnectFactory(/*axiConfig: Axi4Config*/){
               inputsCount = readConnections.length
             )
             for ((input, master) <- (arbiter.io.inputs, readConnections).zipped) {
+              if(!masterToDecodedSlave(master.master)(slave).isInstanceOf[Axi4ReadOnly])
+                println("???")
               input << masterToDecodedSlave(master.master)(slave).asInstanceOf[Axi4ReadOnly]
             }
             arbiter.io.output >> slave

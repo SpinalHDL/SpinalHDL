@@ -36,15 +36,15 @@ object BaseType {
     dst.dir match{
       case null => if(globalData.componentStack.head() != dst.component) {
         val trace = ScalaLocated.long
-        globalData.pendingErrors += (() => (s"Signal $dst can't be assigned by $src\n$trace"))
+        globalData.pendingErrors += (() => (s"Hierarchy violation : Signal $dst can't be assigned by $src\n$trace"))
       }
       case `in` => if(!(src.component == dst.component.parent || (dst.component.parent == src.component.parent && src.isInstanceOf[BaseType] && src.asInstanceOf[BaseType].isOutput))){
         val trace = ScalaLocated.long
-        globalData.pendingErrors += (() => (s"Input signal $dst can't be assigned by $src\n$trace"))
+        globalData.pendingErrors += (() => (s"Hierarchy violation : Input signal $dst can't be assigned by $src\n$trace"))
       }
       case `out` => if(globalData.componentStack.head() != dst.component){
         val trace = ScalaLocated.long
-        globalData.pendingErrors += (() => (s"Output signal $dst can't be assigned by $src\n$trace"))
+        globalData.pendingErrors += (() => (s"Hierarchy violation : Output signal $dst can't be assigned by $src\n$trace"))
       }
     }
   }

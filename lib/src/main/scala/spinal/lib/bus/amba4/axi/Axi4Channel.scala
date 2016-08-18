@@ -296,7 +296,7 @@ object Axi4Arw{
 
     def drive(sink : Stream[Axi4Arw]): Unit ={
       stream >> sink
-      assert(stream.config.idWidth <= sink.config.idWidth,s"$this idWidth > $sink idWidth")
+      assert(stream.config.idWidth <= sink.config.idWidth,s"$stream idWidth > $sink idWidth")
 
       sink.id.removeAssignements()
       sink.id := stream.id.resized
