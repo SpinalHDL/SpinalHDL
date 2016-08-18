@@ -32,14 +32,12 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
   def dataType : T  = _dataType
   override def clone: this.type = Stream(_dataType).asInstanceOf[this.type]
 
-  override def asMaster(): this.type = {
+  override def asMaster(): Unit = {
     out(valid)
     in(ready)
     out(payload)
-    this
   }
 
-  override def asSlave(): this.type = asMaster().flip()
 
   def asDataStream = this.asInstanceOf[Stream[Data]]
   override def freeRun(): this.type = {

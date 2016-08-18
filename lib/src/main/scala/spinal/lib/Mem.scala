@@ -95,9 +95,8 @@ case class MemReadPort[T <: Data](dataType : T,addressWidth : Int) extends Bundl
   val cmd = Flow(UInt(addressWidth bit))
   val rsp = dataType.clone
 
-  override def asMaster(): MemReadPort.this.type = {
+  override def asMaster(): Unit = {
     master(cmd)
     in(rsp)
-    this
   }
 }

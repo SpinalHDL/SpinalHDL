@@ -9,9 +9,8 @@ import spinal.lib._
 case class ReadableOpenDrain[T<: Data](dataType : T) extends Bundle with IMasterSlave{
   val write,read : T = dataType.clone()
 
-  override def asMaster(): this.type = {
+  override def asMaster(): Unit = {
     out(write)
     in(read)
-    this
   }
 }

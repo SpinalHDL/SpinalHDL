@@ -30,9 +30,8 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
   }
 
 
-  override def asMaster(): this.type = {
+  override def asMaster(): Unit = {
     master(aw, w)
     slave(b)
-    this
   }
 }

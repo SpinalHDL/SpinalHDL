@@ -107,13 +107,12 @@ case class Axi4(config: Axi4Config) extends Bundle with IMasterSlave with Axi4Bu
 
 
 
-  override def asMaster(): this.type = {
+  override def asMaster(): Unit = {
     master(aw,w)
     slave(b)
 
     master(ar)
     slave(r)
-    this
   }
 
   def toReadOnly(): Axi4ReadOnly ={

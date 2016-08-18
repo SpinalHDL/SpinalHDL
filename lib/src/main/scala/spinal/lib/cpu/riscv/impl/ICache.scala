@@ -38,13 +38,11 @@ case class InstructionCacheCpuBus(implicit p : InstructionCacheConfig) extends B
   val cmd = Stream (InstructionCacheCpuCmd())
   val rsp = Stream (InstructionCacheCpuRsp())
 
-  override def asMaster(): this.type = {
+  override def asMaster(): Unit = {
     master(cmd)
     slave(rsp)
-    this
   }
 
-  override def asSlave(): this.type = asMaster.flip()
 }
 
 
@@ -59,13 +57,10 @@ case class InstructionCacheMemBus(implicit p : InstructionCacheConfig) extends B
   val cmd = Stream (InstructionCacheMemCmd())
   val rsp = Flow (InstructionCacheMemRsp())
 
-  override def asMaster(): this.type = {
+  override def asMaster(): Unit = {
     master(cmd)
     slave(rsp)
-    this
   }
-
-  override def asSlave(): this.type = asMaster.flip()
 
   def toAvalon(): AvalonMM = {
     val avalonConfig = p.getAvalonConfig()
@@ -84,10 +79,9 @@ case class InstructionCacheFlushBus() extends Bundle with IMasterSlave{
   val cmd = Event
   val rsp = Bool
 
-  override def asMaster(): InstructionCacheFlushBus.this.type = {
+  override def asMaster(): Unit = {
     master(cmd)
     in(rsp)
-    this
   }
 }
 

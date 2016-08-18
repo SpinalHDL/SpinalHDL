@@ -139,10 +139,9 @@ case class AvalonMM(config : AvalonMMConfig) extends Bundle with IMasterSlave{
 
   def setOKEY : Unit = response := AvalonMM.Response.OKAY
 
-  override def asMaster(): this.type = {
+  override def asMaster(): Unit = {
     outWithNull(read,write,lock,debugAccess,address,burstCount,byteEnable,writeData)
     inWithNull(waitRequestn,response,readDataValid,readData)
-    this
   }
 }
 

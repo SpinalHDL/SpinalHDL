@@ -13,16 +13,14 @@ case class I2C() extends Bundle with IMasterSlave {
   val sda   = ReadableOpenDrain(Bool)
   val scl   = ReadableOpenDrain(Bool)
 
-  override def asMaster(): this.type = {
+  override def asMaster(): Unit = {
     master(scl)
     master(sda)
-    this
   }
 
-  override def asSlave(): this.type = {
+  override def asSlave(): Unit = {
     master(scl)
     master(sda)
-    this
   }
 }
 

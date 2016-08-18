@@ -49,13 +49,10 @@ case class DataCacheCpuBus(implicit p : DataCacheConfig) extends Bundle with IMa
   val cmd = Stream (DataCacheCpuCmd())
   val rsp = Flow (DataCacheCpuRsp())
 
-  override def asMaster(): this.type = {
+  override def asMaster(): Unit = {
     master(cmd)
     slave(rsp)
-    this
   }
-
-  override def asSlave(): this.type = asMaster.flip()
 }
 
 
@@ -74,13 +71,11 @@ case class DataCacheMemBus(implicit p : DataCacheConfig) extends Bundle with IMa
   val cmd = Stream (DataCacheMemCmd())
   val rsp = Flow (DataCacheMemRsp())
 
-  override def asMaster(): this.type = {
+  override def asMaster(): Unit = {
     master(cmd)
     slave(rsp)
-    this
   }
 
-  override def asSlave(): this.type = asMaster.flip()
 
   def toAvalon(): AvalonMM = {
     val avalonConfig = p.getAvalonConfig()

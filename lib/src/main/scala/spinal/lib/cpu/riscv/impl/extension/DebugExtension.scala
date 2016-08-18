@@ -61,21 +61,19 @@ case class DebugExtensionBus() extends Bundle with IMasterSlave{
   val cmd = Stream(DebugExtensionCmd())
   val rsp = DebugExtensionRsp() //One cycle latency
 
-  override def asMaster(): DebugExtensionBus.this.type = {
+  override def asMaster(): Unit = {
     master(cmd)
     in(rsp)
-    this
   }
 }
 
 case class DebugExtensionIo() extends Bundle with IMasterSlave{
   val bus = DebugExtensionBus()
   val resetOut = Bool
-  
-  override def asMaster(): this.type = {
+
+  override def asMaster(): Unit = {
     master(bus)
     in(resetOut)
-    this
   }
 }
 

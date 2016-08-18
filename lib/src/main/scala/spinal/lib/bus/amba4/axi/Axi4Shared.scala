@@ -25,9 +25,8 @@ case class Axi4Shared(config: Axi4Config) extends Bundle with IMasterSlave with 
 
 
 
-  override def asMaster(): this.type = {
+  override def asMaster(): Unit = {
     master(arw,w)
     slave(b,r)
-    this
   }
 }

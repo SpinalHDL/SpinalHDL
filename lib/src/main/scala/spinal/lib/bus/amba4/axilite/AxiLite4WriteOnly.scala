@@ -16,10 +16,8 @@ case class AxiLite4WriteOnly(config: AxiLite4Config) extends Bundle with IMaster
 
 
 
-  override def asMaster(): this.type = {
+  override def asMaster(): Unit = {
     master(aw,w)
     slave(b)
-
-    this
   }
 }

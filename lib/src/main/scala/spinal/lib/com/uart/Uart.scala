@@ -8,10 +8,9 @@ case class Uart() extends Bundle with IMasterSlave {
   val txd = Bool
   val rxd = Bool
 
-  override def asMaster(): this.type = {
+  override def asMaster(): Unit = {
     out(txd)
     in(rxd)
-    this
   }
 }
 
