@@ -86,14 +86,11 @@ case class CoreInstructionBus(implicit val p : CoreConfig) extends Bundle with I
   val branchCachePort = if(p.branchPrediction == dynamic) MemReadPort(BranchPredictorLine(),p.dynamicBranchPredictorCacheSizeLog2) else null
   val rsp = Stream (CoreInstructionRsp())
 
-  override def asMaster(): CoreInstructionBus.this.type = {
+  override def asMaster(): Unit = {
     master(cmd)
     slaveWithNull(branchCachePort)
     slave(rsp)
-    this
   }
-
-  override def asSlave(): CoreInstructionBus.this.type = asMaster.flip()
 
 //  def toAxiRead(): AxiBus ={
 //    val axiParameters = Axi4Config(
@@ -195,13 +192,11 @@ case class CoreDataBus(implicit p : CoreConfig) extends Bundle with IMasterSlave
   val cmd = Stream (CoreDataCmd())
   val rsp = Stream (Bits(32 bit))
 
-  override def asMaster(): this.type = {
+  override def asMaster(): Unit = {
     master(cmd)
     slave(rsp)
-    this
   }
 
-  override def asSlave(): this.type = asMaster.flip()
 
   //stageCmd can only be false if the minimal latency of reads is >= 2
   def toAvalon(stageCmd : Boolean = true): AvalonMM = {

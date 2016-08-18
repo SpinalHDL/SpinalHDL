@@ -3,8 +3,8 @@ package spinal.lib
 import spinal.core.Data
 
 trait IMasterSlave {
-  def asMaster(): this.type
-  def asSlave(): this.type = asMaster.asInstanceOf[Data].flip.asInstanceOf[this.type]
+  def asMaster(): Unit
+  def asSlave(): Unit = master(this).asInstanceOf[Data].flip
 }
 
 //trait MasterSlave extends IMasterSlave{
@@ -63,21 +63,21 @@ trait MS{
 
 object master extends MS{
   override def apply[T <: IMasterSlave](i: T) = {
-    i.asMaster();
+    i.asMaster()
     i
   }
 }
 
 object slave extends MS {
   def apply[T <: IMasterSlave](i: T) = {
-    i.asSlave();
+    i.asSlave()
     i
   }
 }
 
 object slaveWithNull extends MS {
-  override def apply[T <: IMasterSlave](that: T): T = if(that != null) that.asSlave() else that
+  override def apply[T <: IMasterSlave](that: T): T = if(that != null) slave(that) else that
 }
 object masterWithNull extends MS {
-  override def apply[T <: IMasterSlave](that: T): T = if(that != null) that.asMaster() else that
+  override def apply[T <: IMasterSlave](that: T): T = if(that != null) master(that) else that
 }

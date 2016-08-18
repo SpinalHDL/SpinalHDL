@@ -15,10 +15,9 @@ case class SystemDebuggerRemoteBus(c : SystemDebuggerConfig) extends Bundle with
   val cmd = Stream Fragment(Bits(c.remoteCmdWidth bit))
   val rsp = Stream (SystemDebuggerRsp(c))
 
-  override def asMaster(): SystemDebuggerRemoteBus.this.type = {
+  override def asMaster(): Unit = {
     master(cmd)
     slave(rsp)
-    this
   }
 }
 
@@ -34,13 +33,11 @@ case class SystemDebuggerMemBus(c: SystemDebuggerConfig) extends Bundle with IMa
   val cmd = Stream (SystemDebuggerMemCmd(c))
   val rsp = Flow (Bits(c.memDataWidth bit))
 
-  override def asMaster(): this.type = {
+  override def asMaster(): Unit = {
     master(cmd)
     slave(rsp)
-    this
   }
 
-  override def asSlave(): this.type = asMaster.flip()
 
   def toAvalon(): AvalonMM = {
     assert(c.memDataWidth == 32)

@@ -6,11 +6,10 @@ import spinal.lib.IMasterSlave
 case class TriState[T <: Data](dataType : T) extends Bundle with IMasterSlave{
   val read,write : T = dataType.clone
   val writeEnable = Bool
-  
-  override def asMaster(): TriState.this.type = {
+
+  override def asMaster(): Unit = {
     out(write,writeEnable)
     in(read)
-    this
   }
 }
 
@@ -20,9 +19,8 @@ object TriStateArray{
 case class TriStateArray(width : Int) extends Bundle with IMasterSlave{
   val read,write,writeEnable = Bits(width bits)
 
-  override def asMaster(): TriStateArray.this.type = {
+  override def asMaster(): Unit = {
     out(write,writeEnable)
     in(read)
-    this
   }
 }

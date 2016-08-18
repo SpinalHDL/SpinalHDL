@@ -37,10 +37,9 @@ object NeutralStreamDma {
   case class Ctrl(c : Config) extends Bundle with IMasterSlave{
     val cmd = Stream(CtrlCmd(c))
     val rsp = Stream Fragment(Bits(c.dataWidth bit))
-    override def asMaster(): this.type = {
+    override def asMaster(): Unit = {
       master(cmd)
       slave(rsp)
-      this
     }
   }
 
@@ -53,10 +52,9 @@ object NeutralStreamDma {
   case class Mem(c: Config) extends Bundle with IMasterSlave{
     val cmd = Stream(MemCmd(c))
     val rsp = Flow Fragment(Bits(c.dataWidth bit))
-    override def asMaster(): Mem.this.type = {
+    override def asMaster(): Unit = {
       master(cmd)
       slave(rsp)
-      this
     }
 
     def toAvalon = {

@@ -564,13 +564,12 @@ object PlayBug43{
     val addr = Bits(config.addrWidth bits)
     val dOut = Bits(config.dataWidth bits)
 
-    override def asMaster(): this.type = {
+    override def asMaster(): Unit = {
       out(cs)
       out(rwn)
       out(dIn)
       out(addr)
       in(dOut)
-      this
     }
   }
 
@@ -2401,11 +2400,10 @@ object PlayMasterSlave{
     val PRDATA     = Bits(dataWidth bit)
     val PSLVERROR  = if(useSlaveError) Bool else null   //This wire is added to the bundle only when useSlaveError is true
 
-    override def asMaster(): this.type = {
+    override def asMaster(): Unit = {
       out(PADDR,PSEL,PENABLE,PWRITE,PWDATA)
       in(PREADY,PRDATA)
       if(useSlaveError) in(PSLVERROR)
-      this
     }
   }
 
@@ -2424,11 +2422,10 @@ object PlayMasterSlave{
     val PRDATA     = Bits(config.dataWidth bit)
     val PSLVERROR  = if(config.useSlaveError) Bool else null
 
-    override def asMaster(): this.type = {
+    override def asMaster(): Unit = {
       out(PADDR,PSEL,PENABLE,PWRITE,PWDATA)
       in(PREADY,PRDATA)
       if(config.useSlaveError) in(PSLVERROR)
-      this
     }
   }
 

@@ -37,10 +37,9 @@ case class AhbLite3Master(config: AhbLite3Config) extends Bundle with IMasterSla
   val HREADY    = Bool
   val HRESP     = Bool
 
-  override def asMaster(): AhbLite3Master.this.type = {
+  override def asMaster(): Unit = {
     out(HADDR,HWRITE,HSIZE,HBURST,HPROT,HTRANS,HMASTLOCK,HWDATA)
     in(HREADY,HRESP,HRDATA)
-    this
   }
 
   def isIdle = HTRANS === AhbLite3.IDLE
@@ -91,10 +90,9 @@ case class AhbLite3(config: AhbLite3Config) extends Bundle with IMasterSlave{
   def setOKEY = HRESP := False
   def setERROR   = HRESP := True
 
-  override def asMaster(): AhbLite3.this.type = {
+  override def asMaster(): Unit = {
     out(HADDR,HWRITE,HSIZE,HBURST,HPROT,HTRANS,HMASTLOCK,HWDATA,HREADY,HSEL)
     in(HREADYOUT,HRESP,HRDATA)
-    this
   }
 
   def OKEY  = !HRESP

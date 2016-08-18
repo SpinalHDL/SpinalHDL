@@ -16,10 +16,9 @@ case class Jtag() extends Bundle with IMasterSlave {
   val tdi = Bool
   val tdo = Bool
 
-  override def asMaster(): Jtag.this.type = {
+  override def asMaster(): Unit = {
     out(tdi, tms)
     in(tdo)
-    this
   }
 }
 
