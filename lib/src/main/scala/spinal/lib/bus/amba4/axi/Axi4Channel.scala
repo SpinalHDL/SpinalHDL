@@ -89,7 +89,7 @@ case class Axi4B(config: Axi4Config) extends Bundle {
  * @param config Axi4 configuration class
  */
 case class Axi4R(config: Axi4Config) extends Bundle {
-  val data = Bits(config.dataWidth bits)
+    val data = Bits(config.dataWidth bits)
   val id   = if(config.useId)   UInt(config.idWidth bits)   else null
   val resp = if(config.useResp) Bits(2 bits)               else null
   val last = if(config.useLast)  Bool                       else null

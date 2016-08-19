@@ -6,13 +6,14 @@ from cocotb.result import TestFailure
 from cocotb.triggers import Timer, RisingEdge
 
 from spinal.common.Axi4 import Axi4, Axi4ReadOnly, Axi4WriteOnly, Axi4Shared
-from spinal.common.Phase import PhaseManager, Infrastructure, PHASE_CHECK_SCORBOARDS
+from spinal.common.Phase import PhaseManager, Infrastructure, PHASE_CHECK_SCORBOARDS, PHASE_WAIT_TASKS_END
 from spinal.common.Stream import StreamDriverSlave, StreamDriverMaster, Transaction, StreamMonitor
 from spinal.common.misc import ClockDomainAsyncReset, simulationSpeedPrinter, randBits, BoolRandomizer, assertEquals
 
 
-class WriteOnlyMasterDriver:
-    def __init__(self,idBase,axi,dut):
+class WriteOnlyMasterDriver(Infrastructure):
+    def __init__(self,name,parent,idBase,axi,dut):
+        Infrastructure.__init__(self,name,parent)
         self.dut = dut
         self.axi = axi
         self.idBase = idBase
@@ -20,17 +21,12 @@ class WriteOnlyMasterDriver:
         self.writeDataQueue = Queue()
         self.writeCmdIdleRand = BoolRandomizer()
         self.writeDataIdleRand = BoolRandomizer()
-        self.writeCounter = 0
-        self.doFinish = False
+        self.closeIt = False
 
-    def isCompleted(self):
-        if not self.doFinish:
-            return False
-        if not self.writeDataQueue.empty():
-            return False
-        if not self.writeCmdQueue.empty():
-            return False
-        return True
+    def startPhase(self, phase):
+        Infrastructure.startPhase(self, phase)
+        if phase == PHASE_WAIT_TASKS_END:
+            self.closeIt = True
 
     def createInfrastructure(self):
         StreamDriverMaster(self.axi.aw, self.genWriteCmd, self.dut.clk, self.dut.reset)
@@ -65,19 +61,16 @@ class WriteOnlyMasterDriver:
             writeData.last = 1 if i == writeCmd.len else 0
             self.writeDataQueue.put(writeData)
 
-        self.writeCounter += 1
-        self.updateDoFinish()
-
     def getNextWriteCmdTrans(self):
         if(self.writeCmdQueue.empty()):
-            if self.doFinish:
+            if self.closeIt:
                 return None
             self.genWrite()
         return self.writeCmdQueue.get()
 
     def getNextWriteDataTrans(self):
         if(self.writeDataQueue.empty()):
-            if self.doFinish:
+            if self.closeIt:
                 return None
             self.genWrite()
         return self.writeDataQueue.get()
@@ -93,32 +86,26 @@ class WriteOnlyMasterDriver:
         return self.getNextWriteDataTrans()
 
 
-    def updateDoFinish(self):
-        if self.writeCounter > 100:
-            self.doFinish = False
 
-
-class ReadOnlyMasterDriver:
-    def __init__(self,idBase,axi,dut):
+class ReadOnlyMasterDriver(Infrastructure):
+    def __init__(self,name,parent,idBase,axi,dut):
+        Infrastructure.__init__(self,name,parent)
         self.idBase = idBase
         self.axi = axi
         self.dut = dut
-        self.readCounter = 0
-        self.doFinish = False
+        self.closeIt = False
         self.readCmdIdleRand = BoolRandomizer()
+
+    def startPhase(self, phase):
+        Infrastructure.startPhase(self, phase)
+        if phase == PHASE_WAIT_TASKS_END:
+            self.closeIt = True
+
 
     def createInfrastructure(self):
         StreamDriverMaster(self.axi.ar, self.genReadCmd, self.dut.clk, self.dut.reset)
         StreamDriverSlave(self.axi.r, self.dut.clk, self.dut.reset)
         return self
-
-    def isCompleted(self):
-        if not self.doFinish:
-            return False
-        for q in self.readMonitorQueues:
-            if not q.empty():
-                return False
-        return True
 
     def genRandomReadAddress(self):
         if random.random() < 0.1: # Random assertion of decoding error
@@ -126,7 +113,7 @@ class ReadOnlyMasterDriver:
         return randBits(12) + random.choice([0,1,2])*0x1000
 
     def genReadCmd(self):
-        if self.doFinish:
+        if self.closeIt:
             return None
         if not self.readCmdIdleRand.get():
             return None
@@ -143,22 +130,14 @@ class ReadOnlyMasterDriver:
         trans.cache = randBits(4)
         trans.qos = randBits(4)
         trans.prot = randBits(3)
-
-        self.readCounter += 1
-        self.updateDoFinish()
         return trans
-
-
-    def updateDoFinish(self):
-        if self.readCounter > 100:
-            self.doFinish = False
 
 
 
 class SharedMasterDriver(WriteOnlyMasterDriver, ReadOnlyMasterDriver):
-    def __init__(self,idBase,axi,dut):
-        WriteOnlyMasterDriver.__init__(self, idBase, axi, dut)
-        ReadOnlyMasterDriver.__init__(self, idBase, axi, dut)
+    def __init__(self,name,parent,idBase,axi,dut):
+        WriteOnlyMasterDriver.__init__(self,name,parent, idBase, axi, dut)
+        ReadOnlyMasterDriver.__init__(self,name,parent, idBase, axi, dut)
         self.readOrWriteRand = BoolRandomizer()
 
 
@@ -184,7 +163,7 @@ class SharedMasterDriver(WriteOnlyMasterDriver, ReadOnlyMasterDriver):
 
     def updateDoFinish(self):
         if self.readCounter > 100 and self.writeCounter > 100:
-            self.doFinish = False
+            self.closeIt = False
 
 
     def isCompleted(self):

@@ -15,23 +15,7 @@ class Infrastructure:
         self.parent = parent
         if parent != None:
             parent.addChild(self)
-
-
-    def startPhase(self, phase):
-        pass
-
-    def canPhaseProgress(self, phase):
-        return True
-
-    def endPhase(self, phase):
-        pass
-
-
-class InfrastructureWithChild(Infrastructure):
-    def __init__(self,name,parent):
-        Infrastructure.__init__(self,name,parent)
         self.children = []
-
 
     def startPhase(self, phase):
         error = False
@@ -49,15 +33,26 @@ class InfrastructureWithChild(Infrastructure):
             child.endPhase(phase)
 
     def addChild(self,child):
-        self.children.append(child)
+        if child not in self.children:
+            self.children.append(child)
+
+    def getPath(self):
+        if self.parent != None:
+            return self.parent.getPath() + "/" + self.name
+        else:
+            return self.name
 
 
-class PhaseManager(InfrastructureWithChild):
+class PhaseManager(Infrastructure):
     def __init__(self):
-        InfrastructureWithChild.__init__(self,None,None)
+        Infrastructure.__init__(self, None, None)
         self.phase = PHASE_NULL
+        self.name = "top"
+        self.waitTasksEndTime = 0
         # setSimManager(self)
 
+    def setWaitTasksEndTime(self,value):
+        self.waitTasksEndTime = value
 
     @cocotb.coroutine
     def waitChild(self):
@@ -81,6 +76,7 @@ class PhaseManager(InfrastructureWithChild):
         yield self.waitChild()
         self.switchPhase(PHASE_WAIT_TASKS_END)
         yield self.waitChild()
+        yield Timer(self.waitTasksEndTime)
         self.switchPhase(PHASE_CHECK_SCORBOARDS)
         self.switchPhase(PHASE_DONE)
 

@@ -12,8 +12,10 @@ from spinal.common.misc import ClockDomainAsyncReset, simulationSpeedPrinter, ra
 
 
 class ReadOnlySlaveDriver:
-    def __init__(self,axi,dut):
+    def __init__(self,axi,base,size,dut):
         self.axi = axi
+        self.size = size
+        self.base = base
         self.dut = dut
         self.readRspRand = BoolRandomizer()
         self.readRspQueues = [Queue() for i in xrange(256)]
@@ -27,6 +29,8 @@ class ReadOnlySlaveDriver:
         return self
 
     def onReadCmd(self,trans):
+        if trans.addr < self.base or trans.addr >= self.base + self.size:
+            raise TestFailure("WRONG ADDRESS addr=%d base=%d size=%d" %(trans.addr,self.base,self.size))
         for i in xrange(trans.len+1):
             rsp = Transaction()
             rsp.data = trans.addr + i
@@ -54,8 +58,10 @@ class ReadOnlySlaveDriver:
         return trans
 
 class WriteOnlySlaveDriver:
-    def __init__(self,axi,dut):
+    def __init__(self,axi,base,size,dut):
         self.axi = axi
+        self.size = size
+        self.base = base
         self.dut = dut
         self.writeRspRand = BoolRandomizer()
         self.writeCmds = []
@@ -73,6 +79,8 @@ class WriteOnlySlaveDriver:
         return self
 
     def onWriteCmd(self,trans):
+        if trans.addr < self.base or trans.addr >= self.base + self.size:
+            raise TestFailure("WRONG ADDRESS addr=%d base=%d size=%d" %(trans.addr,self.base,self.size))
         self.writeCmds.append(trans)
         self.managePendingWrites()
 
@@ -113,9 +121,9 @@ class WriteOnlySlaveDriver:
         return trans
 
 class SharedSlaveDriver(WriteOnlySlaveDriver, ReadOnlySlaveDriver):
-    def __init__(self,axi,dut):
-        WriteOnlySlaveDriver.__init__(self, axi, dut)
-        ReadOnlySlaveDriver.__init__(self, axi, dut)
+    def __init__(self,axi,base,size,dut):
+        WriteOnlySlaveDriver.__init__(self, axi,base,size, dut)
+        ReadOnlySlaveDriver.__init__(self, axi,base,size, dut)
 
 
     def createInfrastructure(self):

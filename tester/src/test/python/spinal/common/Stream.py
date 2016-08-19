@@ -129,21 +129,22 @@ class StreamMonitor:
                 self.callback(trans)
 
 
-class StreamScorboardInOrder:
-    def __init__(self):
+class StreamScorboardInOrder(Infrastructure):
+    def __init__(self,name,parent):
+        Infrastructure.__init__(self,name,parent)
         self.refs = Queue()
         self.uuts = Queue()
 
-    def refPush(self,ref,oooid):
+    def refPush(self,ref):
         self.refs.put(ref)
-        self.update(oooid)
+        self.update()
 
-    def uutPush(self, uut, oooid):
+    def uutPush(self, uut,):
         self.uuts.put(uut)
-        self.update(oooid)
+        self.update()
 
-    def update(self,oooid):
-        if self.uuts.has_key(oooid) and self.refs.has_key(oooid):
+    def update(self):
+        if (not self.refs.empty()) and (not self.uuts.empty()):
             ref = self.refs.get()
             uut = self.uuts.get()
 
@@ -152,6 +153,26 @@ class StreamScorboardInOrder:
 
     def match(self,uut,ref):
         uut.assertEqualRef(ref)
+
+    def startPhase(self, phase):
+        Infrastructure.startPhase(self, phase)
+        if phase == PHASE_CHECK_SCORBOARDS:
+            if (not self.refs.empty()) or (not self.uuts.empty()):
+                error = self.getPath() + " has some remaining transaction :\n"
+                for e in self.refs.queue:
+                    error += "REF:\n" + str(e) + "\n"
+
+                for e in self.uuts.queue:
+                    error += "UUT:\n" + str(e) + "\n"
+
+                cocotb.log.error(error)
+
+
+    def endPhase(self, phase):
+        Infrastructure.endPhase(self, phase)
+        if phase == PHASE_CHECK_SCORBOARDS:
+            if (not self.refs.empty()) or (not self.uuts.empty()):
+                raise TestFailure("Scoreboard not empty")
 
 
 class StreamScorboardOutOfOrder(Infrastructure):
@@ -194,16 +215,15 @@ class StreamScorboardOutOfOrder(Infrastructure):
 
     def startPhase(self, phase):
         Infrastructure.startPhase(self, phase)
-
         if phase == PHASE_CHECK_SCORBOARDS:
             if len(self.refsDic) != 0 or len(self.uutsDic) != 0:
                 error = self.getPath() + " has some remaining transaction :\n"
                 for l in self.refsDic.itervalues():
-                    for e in l:
+                    for e in l.queue:
                         error += "REF:\n" + str(e) + "\n"
 
                 for l in self.uutsDic.itervalues():
-                    for e in l:
+                    for e in l.queue:
                         error += "UUT:\n" + str(e) + "\n"
 
                 cocotb.log.error(error)
@@ -211,9 +231,9 @@ class StreamScorboardOutOfOrder(Infrastructure):
 
     def endPhase(self, phase):
         Infrastructure.endPhase(self, phase)
-
         if phase == PHASE_CHECK_SCORBOARDS:
-            raise TestFailure("Scoreboard not empty")
+            if len(self.refsDic) != 0 or len(self.uutsDic) != 0:
+                raise TestFailure("Scoreboard not empty")
 
 
 

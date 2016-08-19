@@ -6,6 +6,8 @@ from cocotb.result import TestFailure
 from cocotb.triggers import Timer, RisingEdge
 
 from spinal.Axi4InterconnectTester2.MasterDriver import WriteOnlyMasterDriver, ReadOnlyMasterDriver, SharedMasterDriver
+from spinal.Axi4InterconnectTester2.MasterMonitor import ReadOnlyMasterMonitor, WriteOnlyMasterMonitor, SharedMasterMonitor
+from spinal.Axi4InterconnectTester2.SlaveMonitor import WriteDataMonitor, SharedDataMonitor
 from spinal.Axi4InterconnectTester2.SlavesDriver import ReadOnlySlaveDriver, WriteOnlySlaveDriver, SharedSlaveDriver
 from spinal.common.Axi4 import Axi4, Axi4ReadOnly, Axi4WriteOnly, Axi4Shared
 from spinal.common.Phase import PhaseManager, Infrastructure, PHASE_CHECK_SCORBOARDS
@@ -52,6 +54,8 @@ def test1(dut):
 
 
     phaseManager = PhaseManager()
+    phaseManager.setWaitTasksEndTime(1000*2000)
+
     axiMasters = [Axi4(dut, "axiMasters_" + str(i)) for i in range(2)]
     axiSlaves = [Axi4(dut, "axiSlaves_" + str(i)) for i in range(2)]
 
@@ -68,38 +72,44 @@ def test1(dut):
 
     # Instanciate master sides
     for idx,axiMaster in enumerate(axiMasters):
-        writeMaster = WriteOnlyMasterDriver(0 + idx * 4, axiMaster, dut).createInfrastructure()
-        readMaster = ReadOnlyMasterDriver(0 + idx * 4, axiMaster, dut).createInfrastructure()
+        WriteOnlyMasterDriver("Axi4WriteMasterDriver" + str(idx),phaseManager,0 + idx * 4, axiMaster, dut).createInfrastructure()
+        ReadOnlyMasterDriver("Axi4ReadMasterDriver" + str(idx),phaseManager,0 + idx * 4, axiMaster, dut).createInfrastructure()
+        ReadOnlyMasterMonitor("Axi4ReadMasterMonitor" + str(idx), phaseManager, axiMaster, dut).createInfrastructure()
+        WriteOnlyMasterMonitor("Axi4WriteMasterMonitor" + str(idx), phaseManager, axiMaster, dut).createInfrastructure()
 
     for idx,axiMaster in enumerate(axiReadOnlyMasters):
-        readMaster = ReadOnlyMasterDriver(4 + idx * 4, axiMaster, dut).createInfrastructure()
+        ReadOnlyMasterDriver("ReadOnlyMasterDriver" + str(idx),phaseManager,4 + idx * 4, axiMaster, dut).createInfrastructure()
+        ReadOnlyMasterMonitor("ReadOnlyMasterMonitor" + str(idx),phaseManager,axiMaster,dut).createInfrastructure()
 
     for idx,axiMaster in enumerate(axiWriteOnlyMasters):
-        writeMaster = WriteOnlyMasterDriver(8 + idx * 4, axiMaster, dut).createInfrastructure()
+        WriteOnlyMasterDriver("WriteOnlyMasterDriver" + str(idx),phaseManager,8 + idx * 4, axiMaster, dut).createInfrastructure()
+        WriteOnlyMasterMonitor("WriteOnlyMasterMonitor" + str(idx), phaseManager, axiMaster, dut).createInfrastructure()
 
     for idx,axiMaster in enumerate(axiSharedMasters):
-        master = SharedMasterDriver(12 + idx * 4, axiMaster, dut).createInfrastructure()
-
+        SharedMasterDriver("SharedMasterDriver" + str(idx),phaseManager,12 + idx * 4, axiMaster, dut).createInfrastructure()
+        SharedMasterMonitor("SharedMasterMonitor" + str(idx), phaseManager, axiMaster, dut).createInfrastructure()
 
 
 
     for idx,axiSlave in enumerate(axiSlaves):
-        writeSlave = WriteOnlySlaveDriver(axiSlave, dut).createInfrastructure()
-        readSlave = ReadOnlySlaveDriver(axiSlave, dut).createInfrastructure()
+        WriteOnlySlaveDriver(axiSlave,0x0000 + idx*0x0800,0x0800, dut).createInfrastructure()
+        ReadOnlySlaveDriver(axiSlave,0x0000 + idx*0x0800,0x0800, dut).createInfrastructure()
+        WriteDataMonitor("Axi4DataSlaveMonitor" + str(idx), phaseManager, axiSlave, dut).createInfrastructure()
 
     for idx,axiSlave in enumerate(axiReadOnlySlaves):
-        readSlave = ReadOnlySlaveDriver(axiSlave, dut).createInfrastructure()
+        ReadOnlySlaveDriver(axiSlave,0x2000 + idx*0x0800,0x0800, dut).createInfrastructure()
 
     for idx,axiSlave in enumerate(axiWriteOnlySlaves):
-        writeSlave = WriteOnlySlaveDriver(axiSlave, dut).createInfrastructure()
+        WriteOnlySlaveDriver(axiSlave,0x3000 + idx*0x0800,0x0800, dut).createInfrastructure()
+        WriteDataMonitor("WriteOnlySlaveMonitor" + str(idx),phaseManager,axiSlave,dut).createInfrastructure()
 
     for idx,axiSlave in enumerate(axiSharedSlaves):
-        sharedSlave = SharedSlaveDriver(axiSlave, dut).createInfrastructure()
-
+        SharedSlaveDriver(axiSlave,0x1000 + idx*0x0800,0x0800, dut).createInfrastructure()
+        SharedDataMonitor("SharedSlaveMonitor" + str(idx), phaseManager, axiSlave, dut).createInfrastructure()
 
     # cocotb.log.error("miaou")
     # Run until completion
     yield phaseManager.run()
-    yield Timer(1000*6000)
+    # yield Timer(1000*6000)
 
     dut.log.info("Cocotb test done")
