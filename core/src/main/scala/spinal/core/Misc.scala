@@ -51,7 +51,7 @@ object roundUp {
 
 object cloneOf {
   //Return a new data with the same data structure than the given parameter (including bit width)
-  def apply[T <: Data](that: T): T = that.clone()
+  def apply[T <: Data](that: T): T = that.clone().asInstanceOf[T]
 }
 
 object widthOf {
@@ -168,7 +168,7 @@ object Misc {
         bitVector.getInput(0) match{
           case lit : BitVectorLiteral if (! lit.hasSpecifiedBitCount) =>{
             Component.push(input.component)
-            val sizedLit = lit.clone
+            val sizedLit = lit.clone()
             sizedLit.asInstanceOf[Widthable].inferredWidth = width
             to.setInput(inputId,sizedLit)
             Component.pop(input.component)

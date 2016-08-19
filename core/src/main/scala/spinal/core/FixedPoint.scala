@@ -116,10 +116,10 @@ abstract class XFix[T <: XFix[T, R], R <: BitVector with Num[R]](val maxExp: Int
   override def autoConnect(that: Data): Unit = autoConnectBaseImpl(that)
 
   def truncated : this.type = {
-    val copy = clone()
+    val copy = cloneOf(this)
     copy.raw := this.raw
     copy.addTag(tagTruncated)
-    copy
+    copy.asInstanceOf[this.type]
   }
   override private[spinal] def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
     that match {

@@ -162,11 +162,11 @@ abstract class MultiData extends Data {
     })
   }
   override def getZero: this.type = {
-    val ret = clone()
+    val ret = cloneOf(this)
     ret.elements.foreach(e => {
       e._2 := e._2.getZero
     })
-    ret
+    ret.asInstanceOf[this.type]
   }
   override def flip(): this.type  = {
     for ((_,e) <- elements) {

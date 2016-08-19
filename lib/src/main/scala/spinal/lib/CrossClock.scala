@@ -19,9 +19,9 @@ class BufferCC[T <: Data](dataType: T, withInit : Boolean, bufferDepth: Int) ext
   assert(bufferDepth >= 1)
 
   val io = new Bundle {
-    val initial = if(!withInit) null.asInstanceOf[T] else in(dataType.clone)
+    val initial = if(!withInit) null.asInstanceOf[T] else in(cloneOf(dataType))
     val dataIn = in(cloneOf(dataType))
-    val dataOut = out(dataType.clone)
+    val dataOut = out(cloneOf(dataType))
   }
 
   val buffers = Vec(Reg(dataType, io.initial),bufferDepth)

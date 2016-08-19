@@ -36,13 +36,13 @@ class Bundle extends MultiData with Nameable with OverridedEqualsHashCode {
       e.setPartialName(n,true)
     }}
   })
-  override def clone: this.type = {
+  override def clone: Bundle = {
     if (cloneFunc != null) {
       val ret = cloneFunc().asInstanceOf[this.type].asDirectionLess
       ret.cloneFunc = cloneFunc
       return ret
     }
-    super.clone
+    super.clone.asInstanceOf[Bundle]
   }
 
   def assignAllByName(that: Bundle): Unit = {

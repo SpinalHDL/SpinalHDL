@@ -92,7 +92,7 @@ trait BusSlaveFactory  extends Area{
                                           address : BigInt,
                                           bitOffset : Int = 0): Unit = {
     assert(that.getWidth <= busDataWidth)
-    val reg = Reg(that.clone)
+    val reg = Reg(that)
     reg := reg | that
     read(reg,address,bitOffset)
     onRead(address){

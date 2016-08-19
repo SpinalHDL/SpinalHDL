@@ -18,7 +18,7 @@ object Flow extends FlowFactory
 
 class Flow[T <: Data](_dataType: T) extends Bundle with IMasterSlave with DataCarrier[T]{
   val valid = Bool
-  val payload : T = _dataType.clone()
+  val payload : T = cloneOf(_dataType)
 
   def dataType = cloneOf(_dataType)
   override def clone: this.type = Flow(_dataType).asInstanceOf[this.type]
@@ -155,7 +155,7 @@ class FlowCCByToggle[T <: Data](dataType: T, inputClock: ClockDomain, outputCloc
     val target = BufferCC(inputArea.target, if(inputClock.hasResetSignal) False else null)
     val hit = RegNext(target)
 
-    val flow = io.input.clone
+    val flow = cloneOf(io.input)
     flow.valid := (target =/= hit)
     flow.payload := inputArea.data
     flow.payload.addTag(crossClockDomain)

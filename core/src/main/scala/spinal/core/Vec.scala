@@ -40,7 +40,7 @@ trait VecFactory {
 
   def Vec[T <: Data](gen: => T, size: Int): Vec[T] = fill(size)(gen)
 
-  def Vec[T <: Data](gen: Vec[T], size: Int): Vec[Vec[T]] = fill(size)(gen.clone)
+  def Vec[T <: Data](gen: Vec[T], size: Int): Vec[Vec[T]] = fill(size)(cloneOf(gen))
 
   def Vec[T <: Data](gen: (Int) => T, size: Int): Vec[T] = tabulate(size)(gen)
 
@@ -78,7 +78,7 @@ object SeqMux {
 
 
     if (elements.size == 1) {
-      val ret = elements.head.clone()
+      val ret = cloneOf(elements.head)
       ret := elements.head
       return ret
     }
@@ -196,7 +196,7 @@ class Vec[T <: Data](_dataType: T, val vec: Vector[T]) extends MultiData with co
     if(elements.size == oneHot.getWidth){
       SpinalError(s"To many bit to address the vector (${oneHot.getWidth} in place of ${elements.size})\n at\n${ScalaLocated.long}")
     }
-    val ret = dataType.clone
+    val ret = cloneOf(dataType)
     ret := ret.getZero
     for ((e, idx) <- vec.zipWithIndex) {
       when(oneHot(idx)) {
@@ -244,7 +244,7 @@ class Vec[T <: Data](_dataType: T, val vec: Vector[T]) extends MultiData with co
   }
 
   override def clone: this.type = {
-    new Vec[T](dataType, vec.map(_.clone())).asInstanceOf[this.type]
+    new Vec[T](dataType, vec.map(cloneOf(_))).asInstanceOf[this.type]
   }
 //  println(elements)
 }

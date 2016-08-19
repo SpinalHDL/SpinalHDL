@@ -394,7 +394,7 @@ class StreamFragmentFactory extends MSFactory {
 
 class Fragment[T <: Data](_dataType: T) extends Bundle {
   val last = Bool
-  val fragment: T = _dataType.clone
+  val fragment: T = cloneOf(_dataType)
 
   def dataType = cloneOf(_dataType)
   override def clone: this.type = {

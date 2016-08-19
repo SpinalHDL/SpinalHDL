@@ -103,6 +103,8 @@ class ComplexBundle extends Bundle {
   val b = UInt(50 bit)
   val c = Bool
   val d = Vec(Bits(8 bit), 3)
+
+//  override def clone() : this.type = new ComplexBundle
 }
 
 

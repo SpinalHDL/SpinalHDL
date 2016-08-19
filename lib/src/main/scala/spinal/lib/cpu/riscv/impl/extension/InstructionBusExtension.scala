@@ -43,7 +43,7 @@ class CachedInstructionBusExtension(c : InstructionCacheConfig,cutCpuCmdReady : 
   var memBus : InstructionCacheMemBus = null
   override def applyIt(core: Core): Area = new Area{
     val coreICmd = if(cutCpuCmdReady) core.iCmd.s2mPipe() else core.iCmd
-    val coreIRsp = core.iRsp.clone
+    val coreIRsp = cloneOf(core.iRsp)
     if(cutCpuRspReady) coreIRsp >/> core.iRsp else coreIRsp >> core.iRsp
 
     val cache = new InstructionCache()(c)
