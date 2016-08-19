@@ -1,7 +1,10 @@
+from Queue import Queue
+
 import cocotb
 from cocotb.result import TestFailure
 from cocotb.triggers import RisingEdge, Timer
 
+from spinal.common.Phase import Infrastructure, PHASE_CHECK_SCORBOARDS
 from spinal.common.misc import Bundle, BoolRandomizer, assertEquals
 
 
@@ -124,3 +127,94 @@ class StreamMonitor:
                 trans = TransactionFromBundle(stream.payload)
                 yield Timer(1)
                 self.callback(trans)
+
+
+class StreamScorboardInOrder:
+    def __init__(self):
+        self.refs = Queue()
+        self.uuts = Queue()
+
+    def refPush(self,ref,oooid):
+        self.refs.put(ref)
+        self.update(oooid)
+
+    def uutPush(self, uut, oooid):
+        self.uuts.put(uut)
+        self.update(oooid)
+
+    def update(self,oooid):
+        if self.uuts.has_key(oooid) and self.refs.has_key(oooid):
+            ref = self.refs.get()
+            uut = self.uuts.get()
+
+            self.match(uut,ref)
+
+
+    def match(self,uut,ref):
+        uut.assertEqualRef(ref)
+
+
+class StreamScorboardOutOfOrder(Infrastructure):
+    def __init__(self,name,parent):
+        Infrastructure.__init__(self,name,parent)
+        self.refsDic = {}
+        self.uutsDic = {}
+
+    def refPush(self,ref,oooid):
+        if not self.refsDic.has_key(oooid):
+            self.refsDic[oooid] = Queue()
+        self.refsDic[oooid].put(ref)
+        self.update(oooid)
+
+    def uutPush(self, uut, oooid):
+        if not self.uutsDic.has_key(oooid):
+            self.uutsDic[oooid] = Queue()
+        self.uutsDic[oooid].put(uut)
+        self.update(oooid)
+
+    def update(self,oooid):
+        if self.uutsDic.has_key(oooid) and self.refsDic.has_key(oooid):
+            refs = self.refsDic[oooid]
+            uuts = self.uutsDic[oooid]
+
+            ref = refs.get()
+            uut = uuts.get()
+
+            self.match(uut,ref)
+
+            #Clean
+            if refs.empty():
+                self.refsDic.pop(oooid)
+            if uuts.empty():
+                self.uutsDic.pop(oooid)
+
+
+    def match(self,uut,ref):
+        uut.assertEqualRef(ref)
+
+    def startPhase(self, phase):
+        Infrastructure.startPhase(self, phase)
+
+        if phase == PHASE_CHECK_SCORBOARDS:
+            if len(self.refsDic) != 0 or len(self.uutsDic) != 0:
+                error = self.getPath() + " has some remaining transaction :\n"
+                for l in self.refsDic.itervalues():
+                    for e in l:
+                        error += "REF:\n" + str(e) + "\n"
+
+                for l in self.uutsDic.itervalues():
+                    for e in l:
+                        error += "UUT:\n" + str(e) + "\n"
+
+                cocotb.log.error(error)
+
+
+    def endPhase(self, phase):
+        Infrastructure.endPhase(self, phase)
+
+        if phase == PHASE_CHECK_SCORBOARDS:
+            raise TestFailure("Scoreboard not empty")
+
+
+
+

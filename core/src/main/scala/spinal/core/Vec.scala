@@ -28,14 +28,17 @@ import scala.collection.mutable.ArrayBuffer
 trait VecFactory {
   def Vec[T <: Data](elements: TraversableOnce[T]): Vec[T] = {
     val vector = elements.toVector
-    val vecType = vector.reduce((a, b) => {
-      if (a.getClass.isAssignableFrom(b.getClass)) a
-      else if (b.getClass.isAssignableFrom(a.getClass)) b
-      else throw new Exception("can't mux that")
-    })
+    if(vector.size != 0) {
+      val vecType = vector.reduce((a, b) => {
+        if (a.getClass.isAssignableFrom(b.getClass)) a
+        else if (b.getClass.isAssignableFrom(a.getClass)) b
+        else throw new Exception("can't mux that")
+      })
 
-    val vec = new Vec(vecType, vector)
-    vec
+      new Vec(vecType, vector)
+    }else{
+      new Vec[T](null.asInstanceOf[T], vector)
+    }
   }
 
   def Vec[T <: Data](gen: => T, size: Int): Vec[T] = fill(size)(gen)

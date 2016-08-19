@@ -169,15 +169,21 @@ case class Axi4SharedDecoder(axiConfig: Axi4Config,
     val sharedOutputs = Vec(master(Axi4Shared(axiConfig)),sharedDecodings.size)
   }
 
-  val pendingCmdCounter = CounterUpDown(
-    stateCount = pendingMax+1,
-    incWhen = io.input.sharedCmd.fire,
-    decWhen = io.input.writeRsp.fire
+  val pendingCmdCounter = CounterMultiRequest(
+    log2Up(pendingMax+1),
+    (io.input.sharedCmd.fire -> (_ + 1)),
+    (io.input.writeRsp.fire -> (_ - 1)),
+    ((io.input.readRsp.fire && io.input.readRsp.last) -> (_ - 1))
   )
+//  val pendingCmdCounter = CounterUpDown(
+//    stateCount = pendingMax+1,
+//    incWhen = io.input.sharedCmd.fire,
+//    decWhen = io.input.writeRsp.fire
+//  )
 
   val pendingDataCounter = CounterUpDown(
     stateCount = pendingMax+1,
-    incWhen = io.input.sharedCmd.fire,
+    incWhen = io.input.sharedCmd.fire && io.input.sharedCmd.write,
     decWhen = io.input.writeData.fire && io.input.writeData.last
   )
 
@@ -191,9 +197,9 @@ case class Axi4SharedDecoder(axiConfig: Axi4Config,
   val allowCmd    = pendingCmdCounter =/= pendingMax && (pendingCmdCounter === 0  || (lastCmdSel === decodedCmdSels))
   val allowData   = pendingDataCounter =/= 0
   decodedCmdSels := Cat(
-    readDecodings.map(_.hit(io.input.sharedCmd.addr)   && io.input.sharedCmd.valid && !io.input.sharedCmd.write).asBits,
+    sharedDecodings.map(_.hit(io.input.sharedCmd.addr) && io.input.sharedCmd.valid).asBits,
     writeDecodings.map(_.hit(io.input.sharedCmd.addr)  && io.input.sharedCmd.valid &&  io.input.sharedCmd.write).asBits,
-    sharedDecodings.map(_.hit(io.input.sharedCmd.addr) && io.input.sharedCmd.valid).asBits
+    readDecodings.map(_.hit(io.input.sharedCmd.addr)   && io.input.sharedCmd.valid && !io.input.sharedCmd.write).asBits
   )
   appliedCmdSels := allowCmd ? decodedCmdSels | 0
 
@@ -215,7 +221,7 @@ case class Axi4SharedDecoder(axiConfig: Axi4Config,
     output.sharedCmd.payload.assignSomeByName(io.input.sharedCmd.payload)
   }
 
-  io.input.writeData.ready := ((lastCmdSel(writeRange) ## lastCmdSel(sharedRange)) & (io.writeOutputs.map(_.writeData.ready) ++ io.sharedOutputs.map(_.writeData.ready)).asBits).orR && allowData
+  io.input.writeData.ready := (lastCmdSel(sharedRange) ## (lastCmdSel(writeRange)) & (io.writeOutputs.map(_.writeData.ready) ++ io.sharedOutputs.map(_.writeData.ready)).asBits).orR && allowData
   //Wire writeWriteData
   for((output,linkEnable) <- (io.writeOutputs,lastCmdSel(writeRange).asBools).zipped){
     output.writeData.valid   := io.input.writeData.valid && allowData && linkEnable
@@ -228,16 +234,16 @@ case class Axi4SharedDecoder(axiConfig: Axi4Config,
   }
 
   //Wire writeRsp
-  val writeRspIndex = OHToUInt(Cat(lastCmdSel(writeRange),lastCmdSel(sharedRange)))
+  val writeRspIndex = OHToUInt(lastCmdSel(sharedRange) ## lastCmdSel(writeRange))
   io.input.writeRsp.valid :=   (io.writeOutputs.map(_.writeRsp.valid)   ++ io.sharedOutputs.map(_.writeRsp.valid)).asBits.orR
   io.input.writeRsp.payload := (io.writeOutputs.map(_.writeRsp.payload) ++ io.sharedOutputs.map(_.writeRsp.payload)).apply(writeRspIndex)
   io.writeOutputs.foreach(_.writeRsp.ready := io.input.writeRsp.ready)
   io.sharedOutputs.foreach(_.writeRsp.ready := io.input.writeRsp.ready)
 
   //Wire ReadRsp
-  val readRspIndex = OHToUInt(Cat(lastCmdSel(readRange),lastCmdSel(sharedRange)))
+  val readRspIndex = OHToUInt(lastCmdSel(sharedRange) ## lastCmdSel(readRange))
   io.input.readRsp.valid   := (io.readOutputs.map(_.readRsp.valid)   ++ io.sharedOutputs.map(_.readRsp.valid)).asBits.orR
-  io.input.readRsp.payload := (io.readOutputs.map(_.readRsp.payload) ++ io.sharedOutputs.map(_.readRsp.payload)).apply(writeRspIndex)
+  io.input.readRsp.payload := (io.readOutputs.map(_.readRsp.payload) ++ io.sharedOutputs.map(_.readRsp.payload)).apply(readRspIndex)
   io.readOutputs.foreach(_.readRsp.ready := io.input.readRsp.ready)
   io.sharedOutputs.foreach(_.readRsp.ready := io.input.readRsp.ready)
 

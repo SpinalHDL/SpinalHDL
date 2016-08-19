@@ -140,7 +140,9 @@ case class Axi4SharedArbiter(outputConfig: Axi4Config,
     newPayload.id.removeAssignements()
     newPayload.id := axi.writeCmd.id.resized
     axi.writeCmd.translateWith(newPayload)
-  }) ++ io.sharedInputs.map(_.sharedCmd)
+  }) ++ io.sharedInputs.map( axi => {
+    axi.sharedCmd.translateWith(axi.sharedCmd.payload)
+  })
 
   val cmdArbiter = StreamArbiterFactory.roundRobin.build(Axi4Arw(sharedInputConfig),inputsCount)
   (inputsCmd,cmdArbiter.io.inputs).zipped.map(_ drive _)
@@ -149,13 +151,13 @@ case class Axi4SharedArbiter(outputConfig: Axi4Config,
   io.output.sharedCmd.id.removeAssignements()
   io.output.sharedCmd.id := Mux(
     sel       = cmdOutputFork.write,
-    whenTrue  = OHToUInt(Cat(cmdArbiter.io.chosenOH(writeRange),cmdArbiter.io.chosenOH(sharedRange))) @@ cmdOutputFork.id,
-    whenFalse = OHToUInt(Cat(cmdArbiter.io.chosenOH(readRange) ,cmdArbiter.io.chosenOH(sharedRange))) @@ cmdOutputFork.id
+    whenTrue  = OHToUInt(cmdArbiter.io.chosenOH(sharedRange) ## cmdArbiter.io.chosenOH(writeRange)) @@ cmdOutputFork.id,
+    whenFalse = OHToUInt(cmdArbiter.io.chosenOH(sharedRange) ## cmdArbiter.io.chosenOH(readRange) ) @@ cmdOutputFork.id
   )
 
   // Route writeData
-  val writeDataInputs = (io.writeInputs.map(_.writeData) ++ io.sharedInputs.map(_.writeData))
-  val routeBuffer = cmdRouteFork.throwWhen(!cmdRouteFork.write).translateWith(OHToUInt(Cat(cmdArbiter.io.chosenOH(writeRange),cmdArbiter.io.chosenOH(sharedRange)))).queue(routeBufferSize) //TODO check queue minimal latency of queue (probably 2, which is bad)
+  @dontName val writeDataInputs = (io.writeInputs.map(_.writeData) ++ io.sharedInputs.map(_.writeData))
+  val routeBuffer = cmdRouteFork.throwWhen(!cmdRouteFork.write).translateWith(OHToUInt(cmdArbiter.io.chosenOH(sharedRange) ## cmdArbiter.io.chosenOH(writeRange))).queue(routeBufferSize) //TODO check queue minimal latency of queue (probably 2, which is bad)
   val routeDataInput = writeDataInputs.apply(routeBuffer.payload)
   io.output.writeData.valid := routeBuffer.valid && routeDataInput.valid
   io.output.writeData.payload  := routeDataInput.payload
@@ -165,7 +167,7 @@ case class Axi4SharedArbiter(outputConfig: Axi4Config,
   routeBuffer.ready := io.output.writeData.fire && io.output.writeData.last
 
   // Route writeResp
-  val writeRspInputs = (io.writeInputs.map(_.writeRsp) ++ io.sharedInputs.map(_.writeRsp))
+  @dontName val writeRspInputs = (io.writeInputs.map(_.writeRsp) ++ io.sharedInputs.map(_.writeRsp))
   val writeIdPathRange = outputConfig.idWidth-1 downto writeInputConfig.idWidth
   val writeRspIndex = io.output.writeRsp.id(writeIdPathRange)
   val writeRspSels = (0 until inputsCount).map(writeRspIndex === _)
@@ -178,7 +180,7 @@ case class Axi4SharedArbiter(outputConfig: Axi4Config,
   io.output.writeRsp.ready := writeRspInputs.read(writeRspIndex).ready
 
   // Route readResp
-  val readRspInputs = (io.readInputs.map(_.readRsp) ++ io.sharedInputs.map(_.readRsp))
+  @dontName val readRspInputs = (io.readInputs.map(_.readRsp) ++ io.sharedInputs.map(_.readRsp))
   val readIdPathRange = outputConfig.idWidth-1 downto readInputConfig.idWidth
   val readRspIndex = io.output.readRsp.id(readIdPathRange)
   val readRspSels = (0 until inputsCount).map(readRspIndex === _)
