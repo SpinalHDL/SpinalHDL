@@ -21,7 +21,7 @@ class Flow[T <: Data](_dataType: T) extends Bundle with IMasterSlave with DataCa
   val payload : T = cloneOf(_dataType)
 
   def dataType = cloneOf(_dataType)
-  override def clone: this.type = Flow(_dataType).asInstanceOf[this.type]
+  override def clone: Flow[T] = Flow(_dataType).asInstanceOf[this.type]
 
   override def asMaster(): Unit = out(this)
   override def asSlave() : Unit  = in(this)
