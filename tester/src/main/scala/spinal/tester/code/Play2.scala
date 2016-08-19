@@ -1801,7 +1801,7 @@ object PlayMask{
     def doIt[T <: Data](that : T) : T = {
       val uint = that.asBits.asUInt
       val masked = uint & ~(uint - 1)
-      val ret = that.clone
+      val ret = cloneOf(that)
       ret.assignFromBits(masked.asBits)
       ret
     }

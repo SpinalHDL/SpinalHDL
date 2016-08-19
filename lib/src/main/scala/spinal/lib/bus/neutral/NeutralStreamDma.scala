@@ -127,7 +127,7 @@ object NeutralStreamDma {
       memCmdCounter := memCmdCounter - 1
     }
 
-    val memRsp = io.mem.rsp.clone
+    val memRsp = cloneOf(io.mem.rsp)
     memRsp.valid := io.mem.rsp.valid
     memRsp.last := io.ctrl.cmd.ready
     memRsp.fragment := io.mem.rsp.fragment

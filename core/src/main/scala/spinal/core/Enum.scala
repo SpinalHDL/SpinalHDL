@@ -80,7 +80,7 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T/*, encoding: SpinalEnumE
   override def asBits: Bits = wrapCast(Bits(),new CastEnumToBits)
 
   override def assignFromBits(bits: Bits): Unit = {
-    val c = this.clone
+    val c = cloneOf(this)
     val cast = new CastBitsToEnum(this.blueprint)
     cast.input = bits.asInstanceOf[cast.T]
     c.input = cast

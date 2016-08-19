@@ -68,7 +68,7 @@ object Mem {
 }
 
 class MemWritePayload[T <: Data](dataType: T, addressWidth: Int) extends Bundle {
-  val data = dataType.clone
+  val data = cloneOf(dataType)
   val address = UInt(addressWidth bit)
 }
 
@@ -80,7 +80,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
   var forceMemToBlackboxTranslation = false
   val _widths = _wordType.flatten.map(t => t.getBitsWidth).toVector //Force to fix width of each wire
 
-  def wordType: T = _wordType.clone
+  def wordType: T = cloneOf(_wordType)
 
   var technology : MemTechnologyKind = auto
   def setTechnology(tech : MemTechnologyKind) = this.technology = tech
@@ -132,7 +132,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
 
 
   def readAsync(address: UInt, readUnderWrite: ReadUnderWritePolicy = dontCare): T = {
-    val readWord = wordType.clone()
+    val readWord = cloneOf(wordType)
     readAsyncImpl(address,readWord,readUnderWrite,false)
     readWord
   }
@@ -298,7 +298,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
     }
 
     val readBits = (if(allowMixedWidth) Bits() else Bits(getWidth bits)).dontSimplifyIt()
-    val readWord = data.clone()
+    val readWord = cloneOf(data)
     val readPort = new MemReadWrite_readPart(this, addressBuffer, readBits, enableBuffer, writeBuffer, readUnderWrite, ClockDomain.current)
     if(allowMixedWidth) readPort.addTag(AllowMixedWidth)
 

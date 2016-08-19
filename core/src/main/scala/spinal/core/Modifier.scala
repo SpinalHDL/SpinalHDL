@@ -697,7 +697,7 @@ object Mux {
 object Sel{
   def apply[T <: Data](default : T,mappings : (Bool,T)*) :T = seq(default,mappings)
   def seq[T <: Data](default : T,mappings : Seq[(Bool,T)]): T ={
-    val result = default.clone
+    val result = cloneOf(default)
     result := default
     for((cond,value) <- mappings.reverseIterator){
       when(cond){
@@ -713,7 +713,7 @@ object SpinalMap {
   def apply[K <: Data, T <: Data](addr: K, mappings: (Any, T)*): T = list(addr,mappings)
 
   def list[K <: Data, T <: Data](addr: K, defaultValue: T, mappings: Seq[(Any, T)]): T = {
-    val result : T = defaultValue.clone
+    val result : T = cloneOf(defaultValue)
 
     switch(addr){
       for ((cond, value) <- mappings) {
@@ -752,7 +752,7 @@ object Select{
   def apply[T <: Data](mappings: (Any, T)*): T = list(mappings)
 
   def list[ T <: Data]( defaultValue: T, mappings: Seq[(Bool, T)]): T = {
-    val result : T = defaultValue.clone
+    val result : T = cloneOf(defaultValue)
 
     var ptr : WhenContext = null
 
@@ -799,13 +799,13 @@ private[spinal] object Multiplex {
     else throw new Exception("can't mux that")
 
 
-    val muxOut = outType.clone()
+    val muxOut = cloneOf(outType)
     muxOut.flatten.foreach(_ match{
       case bv : BitVector => bv.fixedWidth = -1
       case _ =>
     })
-    val muxInTrue = muxOut.clone()
-    val muxInFalse = muxOut.clone()
+    val muxInTrue = cloneOf(muxOut)
+    val muxInFalse = cloneOf(muxOut)
 
 
     muxInTrue := whenTrue

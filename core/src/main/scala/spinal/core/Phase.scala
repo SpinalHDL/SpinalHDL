@@ -719,7 +719,7 @@ class PhaseAddInOutBinding(pc: PhaseContext) extends PhaseNetlist{
       if (node.isInstanceOf[BaseType] && node.component.parent != null) {
         val baseType = node.asInstanceOf[BaseType]
         if (baseType.isInput) {
-          val inBinding = baseType.clone //To be sure that there is no need of resize between it and node
+          val inBinding = cloneOf(baseType) //To be sure that there is no need of resize between it and node
           inBinding.assignementThrowable = baseType.assignementThrowable
           inBinding.scalaTrace = baseType.scalaTrace
           inBinding.input = baseType.input
@@ -739,7 +739,7 @@ class PhaseAddInOutBinding(pc: PhaseContext) extends PhaseNetlist{
             if (nodeInput.isOutput && (nodeInput.component.parent == node.component || (nodeInput.component.parent == node.component.parent && nodeInput.component != node.component))) {
               val into = nodeInput.component.parent
               val bind = into.kindsOutputsToBindings.getOrElseUpdate(nodeInput, {
-                val bind = nodeInput.clone
+                val bind = cloneOf(nodeInput)
                 bind.scalaTrace = nodeInput.scalaTrace
                 bind.assignementThrowable = nodeInput.assignementThrowable
                 into.kindsOutputsToBindings.put(nodeInput, bind)
@@ -797,7 +797,7 @@ class PhaseAllowNodesToReadOutputs(pc: PhaseContext) extends PhaseNetlist{
           case baseTypeInput: BaseType => {
             if (baseTypeInput.isOutput && baseTypeInput.component.parent != node.component) {
               val buffer = outputsBuffers.getOrElseUpdate(baseTypeInput, {
-                val buffer = baseTypeInput.clone()
+                val buffer = cloneOf(baseTypeInput)
                 buffer.input = baseTypeInput.input
                 baseTypeInput.input = buffer
                 buffer.component = baseTypeInput.component

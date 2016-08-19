@@ -52,8 +52,8 @@ object CoreUut{
 
 
     val iLogic = if(iCached) new Area{
-      val i_cmd = io.i_cmd.clone
-      val i_rsp = io.i_rsp.clone
+      val i_cmd = cloneOf(io.i_cmd)
+      val i_rsp = cloneOf(io.i_rsp)
       io.i_cmd << StreamDelay(i_cmd.continueWhen(io.iCmdDrive))
       i_rsp << StreamDelay(io.i_rsp).continueWhen(io.iRspDrive)
 
@@ -115,8 +115,8 @@ object CoreUut{
       }
     }
     val dLogic = if(dCached) new Area{
-      val d_cmd = io.d.cmd.clone
-      val d_rsp = io.d.rsp.clone
+      val d_cmd = cloneOf(io.d.cmd)
+      val d_rsp = cloneOf(io.d.rsp)
       io.d.cmd << StreamDelay(d_cmd.continueWhen(io.dCmdDrive))
       d_rsp << StreamDelay(io.d.rsp).continueWhen(io.dRspDrive)
 

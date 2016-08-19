@@ -23,7 +23,7 @@ class AvalonMMVgaCtrl(cDma : NeutralStreamDma.Config,cColor : RgbConfig) extends
   dma.io.ctrl.cmd.memCmdCount := 640*480/8/2
   dma.io.ctrl.cmd.burstLength := 8
 
-  val dmaMem = dma.io.mem.clone
+  val dmaMem = cloneOf(dma.io.mem)
   dmaMem.cmd <-< dma.io.mem.cmd
   dmaMem.rsp >> dma.io.mem.rsp
   dmaMem.toAvalon <> io.mem

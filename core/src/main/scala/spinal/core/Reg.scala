@@ -25,7 +25,7 @@ object Reg {
   //def apply[T <: SpinalEnum](enumKind: T, init: T = null.asInstanceOf[T],next : T = null.asInstanceOf[T]): SpinalEnumCraft[T] = Reg(enumKind.craft(),init,next).asInstanceOf[SpinalEnumCraft[T]]
 
   def apply[T <: Data](dataType: T, init: T = null.asInstanceOf[T],next : T = null.asInstanceOf[T]): T = {
-    val regOut = dataType.clone()//.dontSimplifyIt
+    val regOut = cloneOf(dataType)//.dontSimplifyIt
     for ( e <- regOut.flatten) {
       val reg = newFor(e)
       e.input = reg;

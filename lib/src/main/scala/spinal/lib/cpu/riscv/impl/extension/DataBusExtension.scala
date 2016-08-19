@@ -30,8 +30,8 @@ class CachedDataBusExtension(c : DataCacheConfig,cutCpuCmdReady : Boolean = fals
   var memBus : DataCacheMemBus = null
   override def applyIt(core: Core): Area = new Area{
     val cache = new DataCache()(c)
-    val cacheDCmd = cache.io.cpu.cmd.clone
-    val coreDRsp = core.dRsp.clone
+    val cacheDCmd = cloneOf(cache.io.cpu.cmd)
+    val coreDRsp = cloneOf(core.dRsp)
     cache.io.cpu.cmd << (if(cutCpuCmdReady) cacheDCmd.s2mPipe() else cacheDCmd)
     coreDRsp >> core.dRsp
 

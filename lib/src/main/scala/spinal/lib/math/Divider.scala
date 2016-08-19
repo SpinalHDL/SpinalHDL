@@ -67,13 +67,13 @@ class MixedDivider(nWidth : Int, dWidth : Int,storeDenominator : Boolean) extend
 case class UnsignedDividerCmd[T <: Data](nWidth : Int, dWidth : Int,contextType : T) extends Bundle{
   val numerator = UInt(nWidth bit)
   val denominator = UInt(dWidth bit)
-  val context = contextType.clone
+  val context = cloneOf(contextType)
 }
 case class UnsignedDividerRsp[T <: Data](nWidth : Int, dWidth : Int,contextType : T)extends Bundle{
   val quotient = UInt(nWidth bit)
   val remainder = UInt(dWidth bit)
   val error = Bool
-  val context = contextType.clone
+  val context = cloneOf(contextType)
 }
 
 

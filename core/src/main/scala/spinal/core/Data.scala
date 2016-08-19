@@ -45,7 +45,7 @@ object Data {
     //Rise path
     if(!srcPath.contains(currentComponent)){
       Component.push(finalComponent)
-      finalData = srcData.clone
+      finalData = cloneOf(srcData)
       if (propagateName)
         finalData.setCompositeName(srcData,true)
       finalData.asInput()
@@ -64,7 +64,7 @@ object Data {
           return finalData
         }else{
           Component.push(currentComponent)
-          val copy = srcData.clone
+          val copy = cloneOf(srcData)
           if (propagateName)
             copy.setCompositeName(srcData,true)
           copy.asInput()
@@ -90,7 +90,7 @@ object Data {
         return finalData
       }else{
         Component.push(fallPath.head)
-        val copy = srcData.clone
+        val copy = cloneOf(srcData)
         if (propagateName)
           copy.setCompositeName(srcData,true)
         copy.asOutput()
@@ -266,10 +266,10 @@ trait Data extends ContextUser with NameableByComponent with Assignable  with Sp
   @deprecated("Use resized instead")
   def autoResize() : this.type = this.resized
   def resized : this.type ={
-    val ret = this.clone
+    val ret = cloneOf(this)
     ret.assignFrom(this,false)
     ret.addTag(tagAutoResize)
-    return ret
+    return ret.asInstanceOf[this.type]
   }
 
   private[core] def autoConnect(that: Data): Unit// = (this.flatten, that.flatten).zipped.foreach(_ autoConnect _)
@@ -419,7 +419,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable  with Sp
 
   override def getComponent(): Component = component
 
-  override def clone: this.type = {
+  override def clone: Data = {
     try {
       val clazz = this.getClass
       val constructor = clazz.getConstructors.head
@@ -438,7 +438,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable  with Sp
           val getter = clazz.getMethod(fieldName)
           val arg = getter.invoke(this)
           if(arg.isInstanceOf[Data]){
-            arg.asInstanceOf[Data].clone
+            cloneOf(arg.asInstanceOf[Data])
           } else{
             arg
           }

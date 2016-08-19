@@ -59,13 +59,13 @@ class RiscvAvalon(coreConfig : CoreConfig,iCacheConfig : InstructionCacheConfig,
 
   if(iCached){
     val memCache = cachedInstructionBusExtension.memBus
-    val memI = memCache.clone
+    val memI = cloneOf(memCache)
     memI.cmd << memCache.cmd.halfPipe()
     memI.rsp >> memCache.rsp
     io.i <> memI.toAvalon()
   }else{
     val memCpu = nativeInstructionBusExtension.memBus
-    val coreI = memCpu.clone
+    val coreI = cloneOf(memCpu)
     coreI.cmd <-< memCpu.cmd
     coreI.rsp >-> memCpu.rsp
     io.i <> coreI.toAvalon()
@@ -76,13 +76,13 @@ class RiscvAvalon(coreConfig : CoreConfig,iCacheConfig : InstructionCacheConfig,
   }
   if(dCached){
     val memCache = cachedDataBusExtension.memBus
-    val memD = memCache.clone
+    val memD = cloneOf(memCache)
     memD.cmd << memCache.cmd.halfPipe()
     memD.rsp >-> memCache.rsp
     io.d <> memD.toAvalon()
   }else{
     val memCpu = nativeDataBusExtension.memBus
-    val coreD = memCpu.clone
+    val coreD = cloneOf(memCpu)
     coreD.cmd <-/< memCpu.cmd
     coreD.rsp >-> memCpu.rsp
     io.d <> coreD.toAvalon(false)

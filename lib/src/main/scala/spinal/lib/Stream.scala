@@ -26,11 +26,11 @@ class EventFactory extends MSFactory {
 class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with DataCarrier[T] {
   val valid = Bool
   val ready = Bool
-  val payload: T = _dataType.clone
+  val payload: T = cloneOf(_dataType)
 
 
   def dataType : T  = _dataType
-  override def clone: this.type = Stream(_dataType).asInstanceOf[this.type]
+  override def clone: Stream[T] =  Stream(_dataType)
 
   override def asMaster(): Unit = {
     out(valid)
@@ -233,7 +233,7 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
   }
 
   def throwWhen(cond: Bool): Stream[T] = {
-    val next = this.clone
+    val next = cloneOf(this)
 
     next connectFrom this
     when(cond) {
@@ -611,7 +611,7 @@ class StreamCCByToggle[T <: Data](dataType: T, inputClock: ClockDomain, outputCl
     val hit = RegInit(False)
     outHitSignal := hit
 
-    val stream = io.input.clone
+    val stream = cloneOf(io.input)
     stream.valid := (target =/= hit)
     stream.payload := pushArea.data
     stream.payload.addTag(crossClockDomain)

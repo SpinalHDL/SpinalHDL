@@ -80,7 +80,7 @@ object OHMasking{
   def first[T <: Data](that : T) : T = {
       val input = that.asBits.asUInt
       val masked = input & ~(input - 1)
-      val ret = that.clone
+      val ret = cloneOf(that)
       ret.assignFromBits(masked.asBits)
       ret
   }
@@ -94,7 +94,7 @@ object OHMasking{
     val doubleGrant = doubleRequests & ~(doubleRequests-uGranted)
     val masked = doubleGrant(width,width bits) | doubleGrant(0,width bits)
 
-    val ret = requests.clone
+    val ret = cloneOf(requests)
     ret.assignFromBits(masked.asBits)
     ret
   }
@@ -155,7 +155,7 @@ object Endianness{
   def apply[T <: BitVector](that : T, base:BitCount = 8 bits) : T = {
 
     val nbrBase = that.getWidth / base.value
-    val ret = that.clone
+    val ret = cloneOf(that)
 
     assert(nbrBase * base.value == that.getWidth, "Endianness Error : Width's input is not a multiple of " + base.value)
 
@@ -172,7 +172,7 @@ object Endianness{
 
 object Reverse{
   def apply[T <: BitVector](that : T) : T = {
-    val ret = that.clone
+    val ret = cloneOf(that)
     for(i <- that.range){
       ret(i) := that(that.getWidth-1-i)
     }
@@ -393,7 +393,7 @@ class CounterUpDown(val stateCount: BigInt) extends ImplicitArea[UInt] {
 object CounterMultiRequest {
   def apply(width: Int, requests : (Bool,(UInt) => UInt)*): UInt = {
     val counter = Reg(UInt(width bit)) init(0)
-    var counterNext = counter.clone
+    var counterNext = cloneOf(counter)
     counterNext := counter
     for((cond,func) <- requests){
       when(cond){
@@ -704,9 +704,9 @@ object WrapWithReg{
     c.nameElements()
     for(e <- c.getOrdredNodeIo){
       if(e.isInput){
-        e := RegNext(RegNext(in(e.clone.setName(e.getName))))
+        e := RegNext(RegNext(in(cloneOf(e).setName(e.getName))))
       }else{
-        out(e.clone.setName(e.getName)) := RegNext(RegNext(e))
+        out(cloneOf(e).setName(e.getName)) := RegNext(RegNext(e))
       }
     }
   }
