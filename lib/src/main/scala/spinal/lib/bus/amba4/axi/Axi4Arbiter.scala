@@ -92,7 +92,7 @@ object Axi4SharedArbiter{
                      readInputsCount : Int,
                      writeInputsCount : Int,
                      sharedInputsCount : Int) = {
-    val readIdUsage = log2Up(writeInputsCount + sharedInputsCount)
+    val readIdUsage = log2Up(readInputsCount + sharedInputsCount)
     val writeIdUsage = log2Up(writeInputsCount + sharedInputsCount)
     val sharedIdUsage = Math.max(writeIdUsage,readIdUsage)
     (

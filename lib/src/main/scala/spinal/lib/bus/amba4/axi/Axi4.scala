@@ -36,7 +36,7 @@ import spinal.lib._
  */
 case class Axi4Config(addressWidth : Int,
                       dataWidth    : Int,
-                      idWidth      : Int,
+                      idWidth      : Int = 0,
                       useId        : Boolean = true,
                       useRegion    : Boolean = true,
                       useBurst     : Boolean = true,

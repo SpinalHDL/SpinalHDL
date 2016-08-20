@@ -89,7 +89,7 @@ case class Axi4B(config: Axi4Config) extends Bundle {
  * @param config Axi4 configuration class
  */
 case class Axi4R(config: Axi4Config) extends Bundle {
-    val data = Bits(config.dataWidth bits)
+  val data = Bits(config.dataWidth bits)
   val id   = if(config.useId)   UInt(config.idWidth bits)   else null
   val resp = if(config.useResp) Bits(2 bits)               else null
   val last = if(config.useLast)  Bool                       else null
@@ -212,17 +212,44 @@ object Axi4ArwUnburstified{
   def apply(axiConfig : Axi4Config) = new Axi4ArwUnburstified(axiConfig)
 }
 
+
+object Axi4Priv{
+
+  def driveWeak[T <: Data](source : Bundle,sink : Bundle, by : T,to : T,defaultValue : () => T,allowResize : Boolean,allowDrop : Boolean) : Unit = {
+    (to != null,by != null) match {
+      case (false,false) =>
+      case (true,false) => if(defaultValue != null) to := defaultValue() else LocatedPendingError(s"$source can't drive $to because this first doesn't has the corresponding pin")
+      case (false,true) => if(!allowDrop) LocatedPendingError(s"$by can't drive $sink because this last one doesn't has the corresponding pin")
+      case (true,true) => to := (if(allowResize) by.resized else by)
+    }
+  }
+
+  def driveAx[T <: Axi4Ax](stream: Stream[T],sink: Stream[T]): Unit = {
+    sink.arbitrationFrom(stream)
+    assert(stream.config.idWidth <= sink.config.idWidth, s"$stream idWidth > $sink idWidth")
+    assert(stream.config.addressWidth >= sink.config.addressWidth, s"$stream  addressWidth < $sink addressWidth")
+
+    sink.addr := stream.addr.resized
+    driveWeak(stream,sink,stream.id,sink.id,() => U(sink.id.range -> false),true,false)
+    driveWeak(stream,sink,stream.region,sink.region,() => B(sink.id.range -> false),false,true)
+    driveWeak(stream,sink,stream.len,sink.len,() => U(sink.len.range -> false),false,false)
+    driveWeak(stream,sink,stream.size,sink.size,() => U(log2Up(sink.config.dataWidth/8)),false,false)
+    driveWeak(stream,sink,stream.burst,sink.burst,() => Axi4.burst.INCR,false,false)
+    driveWeak(stream,sink,stream.lock,sink.lock,() => Axi4.lock.NORMAL,false,true)
+    driveWeak(stream,sink,stream.cache,sink.cache,() => B"0000",false,true)
+    driveWeak(stream,sink,stream.qos,sink.qos,() => B"0000",false,true)
+    driveWeak(stream,sink,stream.user,sink.user,() => B(sink.user.range -> false),false,true)
+    driveWeak(stream,sink,stream.prot,sink.prot,null,false,true)
+  }
+
+}
+
+
 object Axi4Aw{
   def apply(config: Axi4Config) = new Axi4Aw(config)
 
   implicit class StreamPimper(stream : Stream[Axi4Aw]) {
-    def drive(sink: Stream[Axi4Aw]): Unit = {
-      stream >> sink
-      assert(stream.config.idWidth <= sink.config.idWidth, s"$this idWidth > $sink idWidth")
-
-      sink.id.removeAssignements()
-      sink.id := stream.id.resized
-    }
+    def drive(sink: Stream[Axi4Aw]): Unit = Axi4Priv.driveAx(stream,sink)
   }
 }
 
@@ -231,59 +258,9 @@ object Axi4Aw{
 object Axi4Ar{
   def apply(config: Axi4Config) = new Axi4Ar(config)
   implicit class StreamPimper(stream : Stream[Axi4Ar]){
-    def drive(sink : Stream[Axi4Ar]): Unit ={
-      stream >> sink
-      assert(stream.config.idWidth <= sink.config.idWidth,s"$this idWidth > $sink idWidth")
-
-      sink.id.removeAssignements()
-      sink.id := stream.id.resized
-    }
+    def drive(sink : Stream[Axi4Ar]): Unit = Axi4Priv.driveAx(stream,sink)
   }
 }
-
-
-
-
-object Axi4W{
-  implicit class StreamPimper(stream : Stream[Axi4W]) {
-    def drive(sink: Stream[Axi4W]): Unit = {
-      sink.arbitrationFrom(stream)
-      sink.data := stream.data
-      if(sink.strb != null) sink.strb := (if(stream.strb != null) stream.strb else B(sink.strb.range -> true))
-      if(sink.user != null)
-        if(stream.user != null) sink.user := stream.user else LocatedPendingError(s"$stream can't drive $sink because this first one has no USER")
-      if(sink.last != null)
-        if(stream.last != null) sink.last := stream.last else LocatedPendingError(s"$stream can't drive $sink because this first one has no LAST")
-    }
-  }
-}
-
-
-object Axi4B{
-  implicit class StreamPimper(stream : Stream[Axi4B]) {
-    def drive(sink: Stream[Axi4B]): Unit = {
-      stream >> sink
-      assert(sink.config.idWidth <= stream.config.idWidth,s"$sink idWidth > $stream idWidth")
-
-      sink.id.removeAssignements()
-      sink.id := stream.id.resized
-    }
-  }
-}
-
-object Axi4R{
-  implicit class StreamPimper(stream : Stream[Axi4R]) {
-    def drive(sink: Stream[Axi4R]): Unit = {
-      stream >> sink
-      assert(sink.config.idWidth <= stream.config.idWidth,s"$sink idWidth > $stream idWidth")
-
-      sink.id.removeAssignements()
-      sink.id := stream.id.resized
-    }
-  }
-}
-
-
 
 
 object Axi4Arw{
@@ -295,11 +272,50 @@ object Axi4Arw{
     }
 
     def drive(sink : Stream[Axi4Arw]): Unit ={
-      stream >> sink
-      assert(stream.config.idWidth <= sink.config.idWidth,s"$stream idWidth > $sink idWidth")
+      Axi4Priv.driveAx(stream,sink)
+      sink.write := stream.write
+    }
+  }
+}
 
-      sink.id.removeAssignements()
-      sink.id := stream.id.resized
+
+object Axi4W{
+  implicit class StreamPimper(stream : Stream[Axi4W]) {
+    def drive(sink: Stream[Axi4W]): Unit = {
+      sink.arbitrationFrom(stream)
+      sink.data := stream.data
+      Axi4Priv.driveWeak(stream,sink,stream.strb,sink.strb,() => B(sink.strb.range -> true),false,false)
+      Axi4Priv.driveWeak(stream,sink,stream.user,sink.user,() => B(sink.user.range -> false),false,true)
+      Axi4Priv.driveWeak(stream,sink,stream.last,sink.last,null,false,true)
+    }
+  }
+}
+
+
+object Axi4B{
+  implicit class StreamPimper(stream : Stream[Axi4B]) {
+    def drive(sink: Stream[Axi4B]): Unit = {
+      assert(stream.config.idWidth >= sink.config.idWidth, s"$stream idWidth < $sink idWidth")
+      sink.arbitrationFrom(stream)
+
+      Axi4Priv.driveWeak(stream,sink,stream.id,sink.id,null,true,true)
+      Axi4Priv.driveWeak(stream,sink,stream.resp,sink.resp,() => Axi4.resp.OKAY,false,true)
+      Axi4Priv.driveWeak(stream,sink,stream.user,sink.user,() => B(sink.user.range -> false),false,true)
+    }
+  }
+}
+
+object Axi4R{
+  implicit class StreamPimper(stream : Stream[Axi4R]) {
+    def drive(sink: Stream[Axi4R]): Unit = {
+      assert(stream.config.idWidth >= sink.config.idWidth, s"$stream idWidth < $sink idWidth")
+
+      sink.arbitrationFrom(stream)
+      sink.data := stream.data
+      Axi4Priv.driveWeak(stream,sink,stream.last,sink.last,null,false,true)
+      Axi4Priv.driveWeak(stream,sink,stream.id,sink.id,null,true,true)
+      Axi4Priv.driveWeak(stream,sink,stream.resp,sink.resp,() => Axi4.resp.OKAY,false,true)
+      Axi4Priv.driveWeak(stream,sink,stream.user,sink.user,() => B(sink.user.range -> false),false,true)
     }
   }
 }

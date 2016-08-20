@@ -38,7 +38,6 @@ def loadIHexCallback(address,array,dut):
     assert(address & 3 == 0)
     assert(len(array) & 3 == 0)
     # yield loadIHexCallbackCoroutine(address,array,dut)
-    dut.rom.reset <= 1
     data = 0
     # print("a")
     for b in array:
@@ -46,21 +45,34 @@ def loadIHexCallback(address,array,dut):
         # print("b")
         if (address & 3 == 3):
             yield Timer(5)
-            dut.rom.ram_port1_enable <= 1
-            dut.rom.ram_port1_mask <= 0xF
-            dut.rom.ram_port1_address <= (address) >> 2
-            dut.rom.ram_port1_data <= data
+            dut.rom.ram_port0_write <= 1
+            dut.rom.ram_port0_enable <= 1
+            dut.rom.ram_port0_mask <= 0xF
+            dut.rom.ram_port0_address <= (address) >> 2
+            dut.rom.ram_port0_writeData <= data
             data = 0
             dut.rom.clk <= 0
             yield Timer(5)
             dut.rom.clk <= 1
             yield Timer(5)
-            dut.rom.ram_port1_enable <= 0
+            dut.rom.ram_port0_enable <= 0
             yield Timer(5)
         address += 1
 
+
+
 @cocotb.coroutine
 def loadIHex(dut,hexPath):
+
+    dut.rom.reset <= 1
+    yield Timer(5)
+    writeBuffer = int(dut.rom.ram_port0_write)
+    enableBuffer = int(dut.rom.ram_port0_enable)
+    maskBuffer = int(dut.rom.ram_port0_mask)
+    addressBuffer = int(dut.rom.ram_port0_address)
+    writeDataBuffer = int(dut.rom.ram_port0_writeData)
+
+
     # readIHex(hexPath,loadIHexCallback,dut)
     with open(hexPath) as f:
         offset = 0
@@ -77,6 +89,16 @@ def loadIHex(dut,hexPath):
                     offset = int(line[9:13], 16)
                 else:
                     pass
+    dut.rom.reset <= 0
+    yield Timer(5)
+    dut.rom.reset <= 1
+
+    dut.rom.ram_port0_write <= writeBuffer
+    dut.rom.ram_port0_enable <= enableBuffer
+    dut.rom.ram_port0_mask <= maskBuffer 
+    dut.rom.ram_port0_address <= addressBuffer
+    dut.rom.ram_port0_writeData <= writeDataBuffer
+
 @cocotb.test()
 def test1(dut):
     dut.log.info("Cocotb test boot")
@@ -84,7 +106,7 @@ def test1(dut):
 
     cocotb.fork(simulationSpeedPrinter(dut.clk))
 
-    # yield loadIHex(dut,"e:/vm/share/pinsec_test.hex")
+    yield loadIHex(dut,"e:/vm/share/pinsec_test.hex")
 
     # elements = [a for a in dut.AhbRam if a._name.startswith("")]
     # for e in elements:

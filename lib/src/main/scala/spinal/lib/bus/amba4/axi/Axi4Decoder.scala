@@ -41,23 +41,23 @@ case class Axi4ReadOnlyDecoder(axiConfig: Axi4Config,decodings : Iterable[SizeMa
   val decodingError = if(decodingErrorPossible) new Area{
     val detected = decodedSels === 0 && io.input.readCmd.valid
     val sendRsp = RegInit(False)
-    val id = Reg(UInt(axiConfig.idWidth bits))
+    val id = if(axiConfig.useId) Reg(UInt(axiConfig.idWidth bits)) else null
     val remaining = Reg(UInt(8 bits))
     val remainingZero = remaining === 0
 
     //Wait until all pending commands are done
     when(detected && pendingCounter === 0){
       io.input.readCmd.ready := True
-      id := io.input.readCmd.id
-      remaining := io.input.readCmd.len
+      if(id != null)id := io.input.readCmd.id
+      remaining := (if(axiConfig.useLen) io.input.readCmd.len else U(0))
       sendRsp := True
     }
 
     //Send a DECERR readRsp
     when(sendRsp) {
       io.input.readRsp.valid := True
-      io.input.readRsp.setDECERR
-      io.input.readRsp.id := id
+      if(axiConfig.useResp) io.input.readRsp.setDECERR
+      if(id != null) io.input.readRsp.id := id
       io.input.readRsp.last := remainingZero
       when(io.input.readRsp.ready) {
         remaining := remaining - 1
@@ -95,7 +95,7 @@ case class Axi4WriteOnlyDecoder(axiConfig: Axi4Config,decodings : Iterable[SizeM
   val allowData   = pendingDataCounter =/= 0
   decodedCmdSels := decodings.map(_.hit(io.input.writeCmd.addr) && io.input.writeCmd.valid).asBits
   appliedCmdSels := allowCmd ? decodedCmdSels | 0
-  
+
   //Wire writeCmd
   io.input.writeCmd.ready := (appliedCmdSels & io.outputs.map(_.writeCmd.ready).asBits).orR
   for((output,sel) <- (io.outputs,appliedCmdSels.asBools).zipped){
@@ -123,7 +123,7 @@ case class Axi4WriteOnlyDecoder(axiConfig: Axi4Config,decodings : Iterable[SizeM
     val detected = decodedCmdSels === 0 && io.input.writeCmd.valid
     val waitDataLast = RegInit(False)
     val sendRsp = RegInit(False)
-    val id = Reg(UInt(axiConfig.idWidth bits))
+    if(axiConfig.useId) Reg(UInt(axiConfig.idWidth bits)) else null
   
     //Wait until all pending commands are done
     when(detected && pendingCmdCounter === 0){
@@ -145,7 +145,7 @@ case class Axi4WriteOnlyDecoder(axiConfig: Axi4Config,decodings : Iterable[SizeM
     //Send a DECERR writeRsp
     when(sendRsp) {
       io.input.writeRsp.valid := True
-      io.input.writeRsp.setDECERR
+      if(axiConfig.useResp) io.input.writeRsp.setDECERR
       io.input.writeRsp.id := id
       when(io.input.writeRsp.ready) {
         sendRsp := False
@@ -254,7 +254,7 @@ case class Axi4SharedDecoder(axiConfig: Axi4Config,
     val detected = decodedCmdSels === 0 && io.input.sharedCmd.valid
     val waitLastDataWrite = RegInit(False)
     val sendWriteRsp = RegInit(False)
-    val id = Reg(UInt(axiConfig.idWidth bits))
+    if(axiConfig.useId) Reg(UInt(axiConfig.idWidth bits)) else null
     val sendReadRsp = RegInit(False)
     val remaining = Reg(UInt(8 bits))
     val remainingZero = remaining === 0
@@ -263,8 +263,8 @@ case class Axi4SharedDecoder(axiConfig: Axi4Config,
     //Wait until all pending commands are done
     when(detected && pendingCmdCounter === 0){
       io.input.sharedCmd.ready := True
-      id := io.input.sharedCmd.id
-      remaining := io.input.sharedCmd.len
+      if(id != null) id := io.input.sharedCmd.id
+      remaining := (if(axiConfig.useLen) io.input.sharedCmd.len else U(0))
       waitLastDataWrite :=  io.input.sharedCmd.write
       sendReadRsp           := !io.input.sharedCmd.write
     }
@@ -282,7 +282,7 @@ case class Axi4SharedDecoder(axiConfig: Axi4Config,
     //Send a DECERR writeRsp
     when(sendWriteRsp) {
       io.input.writeRsp.valid := True
-      io.input.writeRsp.setDECERR
+      if(axiConfig.useResp) io.input.writeRsp.setDECERR
       io.input.writeRsp.id := id
       when(io.input.writeRsp.ready) {
         sendWriteRsp := False
@@ -293,7 +293,7 @@ case class Axi4SharedDecoder(axiConfig: Axi4Config,
     //Send a DECERR readRsp
     when(sendReadRsp) {
       io.input.readRsp.valid := True
-      io.input.readRsp.setDECERR
+      if(axiConfig.useResp) io.input.readRsp.setDECERR
       io.input.readRsp.id := id
       io.input.readRsp.last := remainingZero
       when(io.input.readRsp.ready) {

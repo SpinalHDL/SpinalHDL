@@ -9,7 +9,7 @@ object Apb3Interconnect{
     val router = new Apb3Router(decoder.io.output.config)
     decoder.io.input <> master
     router.io.input <> decoder.io.output
-    (slaves.map(_._1),router.io.outputs).zipped.map(_ <> _)
+    (slaves.map(_._1),router.io.outputs).zipped.map(_ << _)
     decoder.setPartialName(master,"decoder")
   }
 }

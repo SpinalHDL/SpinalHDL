@@ -4,10 +4,15 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.io.{TriStateArray, TriState}
 
-case class Apb3Gpio(apbConfig : Apb3Config,gpioWidth : Int) extends Component{
-  assert(apbConfig.dataWidth == 32)
+object Apb3Gpio{
+  def getApb3Config() = {
+    Apb3Config(addressWidth = 4,dataWidth = 32)
+  }
+}
+
+case class Apb3Gpio(gpioWidth : Int) extends Component{
   val io = new Bundle{
-    val apb  = slave(Apb3(apbConfig))
+    val apb  = slave(Apb3(Apb3Gpio.getApb3Config()))
     val gpio = master(TriStateArray(gpioWidth))
   }
 
