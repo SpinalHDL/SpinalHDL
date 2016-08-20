@@ -95,7 +95,7 @@ def loadIHex(dut,hexPath):
 
     dut.rom.ram_port0_write <= writeBuffer
     dut.rom.ram_port0_enable <= enableBuffer
-    dut.rom.ram_port0_mask <= maskBuffer 
+    dut.rom.ram_port0_mask <= maskBuffer
     dut.rom.ram_port0_address <= addressBuffer
     dut.rom.ram_port0_writeData <= writeDataBuffer
 

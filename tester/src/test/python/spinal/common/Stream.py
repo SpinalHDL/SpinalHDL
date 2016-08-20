@@ -152,7 +152,9 @@ class StreamScorboardInOrder(Infrastructure):
 
 
     def match(self,uut,ref):
-        uut.assertEqualRef(ref)
+        if not uut.equalRef(ref):
+            cocotb.log.error("Missmatch detected in " + self.getPath())
+            uut.assertEqualRef(ref)
 
     def startPhase(self, phase):
         Infrastructure.startPhase(self, phase)
@@ -211,7 +213,9 @@ class StreamScorboardOutOfOrder(Infrastructure):
 
 
     def match(self,uut,ref):
-        uut.assertEqualRef(ref)
+        if not uut.equalRef(ref):
+            cocotb.log.error("Missmatch detected in " + self.getPath())
+            uut.assertEqualRef(ref)
 
     def startPhase(self, phase):
         Infrastructure.startPhase(self, phase)
