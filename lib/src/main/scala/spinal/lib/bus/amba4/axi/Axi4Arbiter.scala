@@ -153,7 +153,7 @@ case class Axi4SharedArbiter(outputConfig: Axi4Config,
     sel       = cmdOutputFork.write,
     whenTrue  = OHToUInt(cmdArbiter.io.chosenOH(sharedRange) ## cmdArbiter.io.chosenOH(writeRange)) @@ cmdOutputFork.id,
     whenFalse = OHToUInt(cmdArbiter.io.chosenOH(sharedRange) ## cmdArbiter.io.chosenOH(readRange) ) @@ cmdOutputFork.id
-  )
+  ).resized
 
   // Route writeData
   @dontName val writeDataInputs = (io.writeInputs.map(_.writeData) ++ io.sharedInputs.map(_.writeData))
@@ -168,9 +168,9 @@ case class Axi4SharedArbiter(outputConfig: Axi4Config,
 
   // Route writeResp
   @dontName val writeRspInputs = (io.writeInputs.map(_.writeRsp) ++ io.sharedInputs.map(_.writeRsp))
-  val writeIdPathRange = outputConfig.idWidth-1 downto writeInputConfig.idWidth
+  val writeIdPathRange = log2Up(writeInputsCount + sharedInputsCount) + widthOf(cmdOutputFork.id) - 1 downto widthOf(cmdOutputFork.id)
   val writeRspIndex = io.output.writeRsp.id(writeIdPathRange)
-  val writeRspSels = (0 until inputsCount).map(writeRspIndex === _)
+  val writeRspSels = (0 until writeInputsCount + sharedInputsCount).map(writeRspIndex === _)
   for((input,sel)<- (writeRspInputs,writeRspSels).zipped){
     input.valid := io.output.writeRsp.valid && sel
     input.payload <> io.output.writeRsp.payload
@@ -181,9 +181,9 @@ case class Axi4SharedArbiter(outputConfig: Axi4Config,
 
   // Route readResp
   @dontName val readRspInputs = (io.readInputs.map(_.readRsp) ++ io.sharedInputs.map(_.readRsp))
-  val readIdPathRange = outputConfig.idWidth-1 downto readInputConfig.idWidth
+  val readIdPathRange = log2Up(readInputsCount + sharedInputsCount) + widthOf(cmdOutputFork.id) - 1 downto widthOf(cmdOutputFork.id)
   val readRspIndex = io.output.readRsp.id(readIdPathRange)
-  val readRspSels = (0 until inputsCount).map(readRspIndex === _)
+  val readRspSels = (0 until readInputsCount + sharedInputsCount).map(readRspIndex === _)
   for((input,sel)<- (readRspInputs,readRspSels).zipped){
     input.valid := io.output.readRsp.valid && sel
     input.payload <> io.output.readRsp.payload

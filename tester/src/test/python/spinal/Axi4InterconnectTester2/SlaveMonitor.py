@@ -10,7 +10,7 @@ class WriteDataMonitor(Infrastructure):
         self.dataScoreboard = StreamScorboardInOrder("scoreboard",self)
 
     def createInfrastructure(self):
-        StreamMonitor(self.axi.aw,self.onWriteCmd,self.dut.clk,self.dut.reset)
+        StreamMonitor(self.axi.aw, self.onWriteCmd, self.dut.clk, self.dut.reset)
         StreamMonitor(self.axi.w, self.onWriteData, self.dut.clk, self.dut.reset)
 
     def onWriteCmd(self,cmd):
@@ -30,7 +30,7 @@ class SharedDataMonitor(WriteDataMonitor):
         WriteDataMonitor.__init__(self,name,parent,axi,dut)
 
     def createInfrastructure(self):
-        StreamMonitor(self.axi.arw,self.onSharedCmd,self.dut.clk,self.dut.reset)
+        StreamMonitor(self.axi.arw, self.onSharedCmd, self.dut.clk, self.dut.reset)
         StreamMonitor(self.axi.w, self.onWriteData, self.dut.clk, self.dut.reset)
 
     def onSharedCmd(self,cmd):

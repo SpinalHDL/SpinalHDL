@@ -22,119 +22,133 @@ class Pinsec extends Component{
 
   val io = new Bundle{
 //    val ahbAccess = slave(Axi4(ahbConfig))
+    val asyncReset = in Bool
+    val axiClk = in Bool
     val jtag_tck = in Bool
     val jtag = slave(Jtag())
     val gpioA = master(TriStateArray(32 bits))
     val gpioB = master(TriStateArray(32 bits))
     val interrupt = in Bits(interruptCount bits)
-//    val debugResetIn  = if(debug) in Bool else null
-    val debugResetOut = if(debug) out Bool else null
   }
 
+  val resetCtrl = new ClockingArea(ClockDomain(io.axiClk,config = ClockDomainConfig(resetKind = BOOT))) {
+    val doReset = BufferCC(io.asyncReset)
+    val axiResetCounter = Reg(UInt(4 bits)) init(0)
+    when(axiResetCounter =/= "1111"){
+      axiResetCounter := axiResetCounter + 1
+    }
+    when(doReset) {
+      axiResetCounter := 0
+    }
+    val axiReset = RegNext(axiResetCounter =/= "1111")
+  }
 
+  val axi = new ClockingArea(ClockDomain(io.axiClk,resetCtrl.axiReset)) {
 
+    //replace wit null to disable instruction cache
+    val iCacheConfig = null
+    //         InstructionCacheConfig(
+    //         cacheSize =4096,
+    //         bytePerLine =32,
+    //         wayCount = 1,
+    //         wrappedMemAccess = true,
+    //         addressWidth = 32,
+    //         cpuDataWidth = 32,
+    //         memDataWidth = 32
+    //       )
 
-  //replace wit null to disable instruction cache
-  val iCacheConfig = null
-  //         InstructionCacheConfig(
-  //         cacheSize =4096,
-  //         bytePerLine =32,
-  //         wayCount = 1,
-  //         wrappedMemAccess = true,
-  //         addressWidth = 32,
-  //         cpuDataWidth = 32,
-  //         memDataWidth = 32
-  //       )
-
-  //replace wit null to disable data cache
-  val dCacheConfig = null
-  //         DataCacheConfig(
-  //         cacheSize = 4096,
-  //         bytePerLine =32,
-  //         wayCount = 1,
-  //         addressWidth = 32,
-  //         cpuDataWidth = 32,
-  //         memDataWidth = 32
-  //       )
-  //
-  val coreConfig = CoreConfig(
-    pcWidth = 32,
-    addrWidth = 32,
-    startAddress = 0x200,
-    regFileReadyKind = sync,
-    branchPrediction = disable,
-    bypassExecute0 = true,
-    bypassExecute1 = true,
-    bypassWriteBack = true,
-    bypassWriteBackBuffer = true,
-    collapseBubble = false,
-    fastFetchCmdPcCalculation = true,
-    dynamicBranchPredictorCacheSizeLog2 = 7
-  )
-
-  coreConfig.add(new MulExtension)
-  coreConfig.add(new DivExtension)
-  coreConfig.add(new BarrelShifterFullExtension)
-  //  p.add(new BarrelShifterLightExtension)
-
-
-  val core      = new RiscvAxi4(coreConfig,iCacheConfig,dCacheConfig,debug,interruptCount)
-  val ram,rom       = Axi4SharedOnChipRam(
-    dataWidth = 32,
-    byteCount = 16 KB,
-    idWidth = 4
-  )
-
-  val jtagCtrl = JtagAxi4SharedDebugger(SystemDebuggerConfig(
-    memAddressWidth = 32,
-    memDataWidth = 32,
-    remoteCmdWidth = 1,
-    jtagClockDomain = ClockDomain(io.jtag_tck)
-  ))
-
-
-  val apbBridge = Axi4SharedToApb3Bridge(
-    addressWidth = 20,
-    dataWidth = 32,
-    idWidth = 4
-  )
-
-  val gpioACtrl  = Apb3Gpio(32)
-  val gpioBCtrl  = Apb3Gpio(32)
-
-  val ahbInterconnect = Axi4InterconnectFactory()
-    .addSlaves(
-      rom.io.axi       -> (0x00000000L, 512 KB),
-      ram.io.axi       -> (0x04000000L, 512 KB),
-      apbBridge.io.axi -> (0xF0000000L,   1 MB)
-    ).addConnections(
-      core.io.i
-        -> List(rom.io.axi, ram.io.axi),
-      core.io.d
-        -> List(rom.io.axi, ram.io.axi, apbBridge.io.axi),
-      jtagCtrl.io.axi
-        -> List(rom.io.axi, ram.io.axi, apbBridge.io.axi)
-    ).build()
-
-
-  val apbDecoder = Apb3Interconnect(
-    master = apbBridge.io.apb,
-    slaves = List(
-      gpioACtrl.io.apb  -> (0x00000, 4 KB),
-      gpioBCtrl.io.apb  -> (0x01000, 4 KB),
-      core.io.debugBus ->  (0xF0000, 4 KB)
+    //replace wit null to disable data cache
+    val dCacheConfig = null
+    //         DataCacheConfig(
+    //         cacheSize = 4096,
+    //         bytePerLine =32,
+    //         wayCount = 1,
+    //         addressWidth = 32,
+    //         cpuDataWidth = 32,
+    //         memDataWidth = 32
+    //       )
+    //
+    val coreConfig = CoreConfig(
+      pcWidth = 32,
+      addrWidth = 32,
+      startAddress = 0x200,
+      regFileReadyKind = sync,
+      branchPrediction = disable,
+      bypassExecute0 = true,
+      bypassExecute1 = true,
+      bypassWriteBack = true,
+      bypassWriteBackBuffer = true,
+      collapseBubble = false,
+      fastFetchCmdPcCalculation = true,
+      dynamicBranchPredictorCacheSizeLog2 = 7
     )
-  )
 
-  if(interruptCount != 0) core.io.interrupt := io.interrupt
-  if(debug){
-    core.io.debugResetIn  <> ClockDomain.current.readResetWire//io.debugResetIn
-    core.io.debugResetOut <> io.debugResetOut
+    coreConfig.add(new MulExtension)
+    coreConfig.add(new DivExtension)
+    coreConfig.add(new BarrelShifterFullExtension)
+    //  p.add(new BarrelShifterLightExtension)
+
+
+    val core = new RiscvAxi4(coreConfig, iCacheConfig, dCacheConfig, debug, interruptCount)
+    val ram, rom = Axi4SharedOnChipRam(
+      dataWidth = 32,
+      byteCount = 16 KB,
+      idWidth = 4
+    )
+
+    val jtagCtrl = JtagAxi4SharedDebugger(SystemDebuggerConfig(
+      memAddressWidth = 32,
+      memDataWidth = 32,
+      remoteCmdWidth = 1,
+      jtagClockDomain = ClockDomain(io.jtag_tck)
+    ))
+
+
+    val apbBridge = Axi4SharedToApb3Bridge(
+      addressWidth = 20,
+      dataWidth = 32,
+      idWidth = 4
+    )
+
+    val gpioACtrl = Apb3Gpio(32)
+    val gpioBCtrl = Apb3Gpio(32)
+
+    val ahbInterconnect = Axi4InterconnectFactory()
+      .addSlaves(
+        rom.io.axi ->(0x00000000L, 512 KB),
+        ram.io.axi ->(0x04000000L, 512 KB),
+        apbBridge.io.axi ->(0xF0000000L, 1 MB)
+      ).addConnections(
+        core.io.i
+          -> List(rom.io.axi, ram.io.axi),
+        core.io.d
+          -> List(rom.io.axi, ram.io.axi, apbBridge.io.axi),
+        jtagCtrl.io.axi
+          -> List(rom.io.axi, ram.io.axi, apbBridge.io.axi)
+      ).build()
+
+
+    val apbDecoder = Apb3Interconnect(
+      master = apbBridge.io.apb,
+      slaves = List(
+        gpioACtrl.io.apb ->(0x00000, 4 KB),
+        gpioBCtrl.io.apb ->(0x01000, 4 KB),
+        core.io.debugBus ->(0xF0000, 4 KB)
+      )
+    )
+
+    if (interruptCount != 0) core.io.interrupt := io.interrupt
+    if (debug) {
+      core.io.debugResetIn := resetCtrl.axiReset
+      when(core.io.debugResetOut) {
+        resetCtrl.doReset := True
+      }
+    }
   }
-//  io.debugResetOut := True
-  io.gpioA <> gpioACtrl.io.gpio
-  io.gpioB <> gpioBCtrl.io.gpio
-  io.jtag  <> jtagCtrl.io.jtag
+
+  io.gpioA <> axi.gpioACtrl.io.gpio
+  io.gpioB <> axi.gpioBCtrl.io.gpio
+  io.jtag  <> axi.jtagCtrl.io.jtag
 }
 
 

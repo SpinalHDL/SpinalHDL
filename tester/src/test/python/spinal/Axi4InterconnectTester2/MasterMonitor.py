@@ -12,7 +12,7 @@ class ReadOnlyMasterMonitor(Infrastructure):
 
     def createInfrastructure(self):
         StreamMonitor(self.axi.ar, self.onReadCmd, self.dut.clk, self.dut.reset)
-        StreamMonitor(self.axi.r,  self.onReadRsp, self.dut.clk, self.dut.reset)
+        StreamMonitor(self.axi.r, self.onReadRsp, self.dut.clk, self.dut.reset)
 
     def onReadCmd(self,cmd):
         for i in xrange(cmd.len + 1):
@@ -50,7 +50,7 @@ class WriteOnlyMasterMonitor(Infrastructure):
 
     def createInfrastructure(self):
         StreamMonitor(self.axi.aw, self.onWriteCmd, self.dut.clk, self.dut.reset)
-        StreamMonitor(self.axi.b,  self.onWriteRsp, self.dut.clk, self.dut.reset)
+        StreamMonitor(self.axi.b, self.onWriteRsp, self.dut.clk, self.dut.reset)
 
     def onWriteCmd(self,cmd):
         rsp = Transaction()
@@ -77,8 +77,8 @@ class SharedMasterMonitor(ReadOnlyMasterMonitor,WriteOnlyMasterMonitor):
 
     def createInfrastructure(self):
         StreamMonitor(self.axi.arw, self.onSharedCmd, self.dut.clk, self.dut.reset)
-        StreamMonitor(self.axi.b,  self.onWriteRsp, self.dut.clk, self.dut.reset)
-        StreamMonitor(self.axi.r,  self.onReadRsp, self.dut.clk, self.dut.reset)
+        StreamMonitor(self.axi.b, self.onWriteRsp, self.dut.clk, self.dut.reset)
+        StreamMonitor(self.axi.r, self.onReadRsp, self.dut.clk, self.dut.reset)
 
     def onSharedCmd(self,cmd):
         if cmd.write == 1:

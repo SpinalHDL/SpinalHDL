@@ -104,18 +104,10 @@ class DebugExtension(val clockDomain: ClockDomain) extends CoreExtension{
             when(io.bus.cmd.wr){
               flushIt := io.bus.cmd.data(2)
               stepIt := io.bus.cmd.data(4)
-              when(io.bus.cmd.data(16)){
-                resetIt := True
-              }
-              when(io.bus.cmd.data(17)){
-                haltIt := True
-              }
-              when(io.bus.cmd.data(24)){
-                resetIt := False
-              }
-              when(io.bus.cmd.data(25)){
-                haltIt := False
-              }
+              resetIt setWhen(io.bus.cmd.data(16))
+              haltIt  setWhen(io.bus.cmd.data(17))
+              resetIt clearWhen(io.bus.cmd.data(24))
+              haltIt  clearWhen(io.bus.cmd.data(25))
             } otherwise{
               busReadDataReg(0) := resetIt
               busReadDataReg(1) := haltIt

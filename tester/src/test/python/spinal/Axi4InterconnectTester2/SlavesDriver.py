@@ -24,7 +24,7 @@ class ReadOnlySlaveDriver:
 
     def createInfrastructure(self):
         StreamDriverSlave(self.axi.ar, self.dut.clk, self.dut.reset)
-        StreamMonitor(self.axi.ar,self.onReadCmd,self.dut.clk,self.dut.reset)
+        StreamMonitor(self.axi.ar, self.onReadCmd, self.dut.clk, self.dut.reset)
         StreamDriverMaster(self.axi.r, self.genReadRsp, self.dut.clk, self.dut.reset)
         return self
 
@@ -73,8 +73,8 @@ class WriteOnlySlaveDriver:
     def createInfrastructure(self):
         StreamDriverSlave(self.axi.aw, self.dut.clk, self.dut.reset)
         StreamDriverSlave(self.axi.w, self.dut.clk, self.dut.reset)
-        StreamMonitor(self.axi.aw,self.onWriteCmd,self.dut.clk,self.dut.reset)
-        StreamMonitor(self.axi.w,self.onWriteData,self.dut.clk,self.dut.reset)
+        StreamMonitor(self.axi.aw, self.onWriteCmd, self.dut.clk, self.dut.reset)
+        StreamMonitor(self.axi.w, self.onWriteData, self.dut.clk, self.dut.reset)
         StreamDriverMaster(self.axi.b, self.genWriteRsp, self.dut.clk, self.dut.reset)
         return self
 
@@ -127,7 +127,7 @@ class SharedSlaveDriver(WriteOnlySlaveDriver, ReadOnlySlaveDriver):
 
 
     def createInfrastructure(self):
-        StreamMonitor(self.axi.arw,self.onSharedCmd,self.dut.clk,self.dut.reset)
+        StreamMonitor(self.axi.arw, self.onSharedCmd, self.dut.clk, self.dut.reset)
         StreamDriverSlave(self.axi.arw, self.dut.clk, self.dut.reset)
 
         StreamDriverMaster(self.axi.r, self.genReadRsp, self.dut.clk, self.dut.reset)
