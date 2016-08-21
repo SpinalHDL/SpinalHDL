@@ -80,6 +80,8 @@ case class Axi4WriteOnlyDecoder(axiConfig: Axi4Config,decodings : Iterable[SizeM
   //Used to allow writeData to be transmited before or in the same time than the corresponding writeCmd
   val dataOvertakeCmdEvent = False
   val dataOvertakeCmd = RegInit(False)  clearWhen(io.input.writeCmd.fire) setWhen(dataOvertakeCmdEvent)
+
+
   val pendingCmdCounter = CounterUpDown(
     stateCount = pendingMax+1,
     incWhen = io.input.writeCmd.fire,
@@ -91,6 +93,7 @@ case class Axi4WriteOnlyDecoder(axiConfig: Axi4Config,decodings : Iterable[SizeM
     incWhen = (io.input.writeCmd.fire && !dataOvertakeCmd) || dataOvertakeCmdEvent,
     decWhen = io.input.writeData.fire && io.input.writeData.last
   )
+
 
   val decodedCmdSels,appliedCmdSels = Bits(decodings.size bits)
   val lastCmdSels  = RegNextWhen(appliedCmdSels,io.input.writeCmd.ready)  init(0)
@@ -106,6 +109,7 @@ case class Axi4WriteOnlyDecoder(axiConfig: Axi4Config,decodings : Iterable[SizeM
     dataOvertakeCmdEvent := True
   }
 
+  
   //Wire writeCmd
   io.input.writeCmd.ready := (appliedCmdSels & io.outputs.map(_.writeCmd.ready).asBits).orR
   for((output,sel) <- (io.outputs,appliedCmdSels.asBools).zipped){
@@ -181,21 +185,20 @@ case class Axi4SharedDecoder(axiConfig: Axi4Config,
     val sharedOutputs = Vec(master(Axi4Shared(axiConfig)),sharedDecodings.size)
   }
 
+  //Used to allow writeData to be transmited before or in the same time than the corresponding writeCmd
+  val dataOvertakeCmdEvent = False
+  val dataOvertakeCmd = RegInit(False)  clearWhen(io.input.sharedCmd.fire) setWhen(dataOvertakeCmdEvent)
+
   val pendingCmdCounter = CounterMultiRequest(
     log2Up(pendingMax+1),
     (io.input.sharedCmd.fire -> (_ + 1)),
     (io.input.writeRsp.fire -> (_ - 1)),
     ((io.input.readRsp.fire && io.input.readRsp.last) -> (_ - 1))
   )
-  //  val pendingCmdCounter = CounterUpDown(
-  //    stateCount = pendingMax+1,
-  //    incWhen = io.input.sharedCmd.fire,
-  //    decWhen = io.input.writeRsp.fire
-  //  )
 
   val pendingDataCounter = CounterUpDown(
     stateCount = pendingMax+1,
-    incWhen = io.input.sharedCmd.fire && io.input.sharedCmd.write,
+    incWhen = (io.input.sharedCmd.fire && io.input.sharedCmd.write && !dataOvertakeCmd) || dataOvertakeCmdEvent,
     decWhen = io.input.writeData.fire && io.input.writeData.last
   )
 
@@ -207,13 +210,20 @@ case class Axi4SharedDecoder(axiConfig: Axi4Config,
   val decodedCmdSels,appliedCmdSels = Bits(decodings.size bits)
   val lastCmdSels  = RegNextWhen(appliedCmdSels,io.input.sharedCmd.ready)  init(0)
   val allowCmd    = pendingCmdCounter =/= pendingMax && (pendingCmdCounter === 0  || (lastCmdSels === decodedCmdSels))
-  val allowData   = pendingDataCounter =/= 0
+  val allowData   = pendingDataCounter =/= 0 || (io.input.sharedCmd.valid && io.input.sharedCmd.write && ! dataOvertakeCmd)
   decodedCmdSels := Cat(
     sharedDecodings.map(_.hit(io.input.sharedCmd.addr) && io.input.sharedCmd.valid).asBits,
     writeDecodings.map(_.hit(io.input.sharedCmd.addr)  && io.input.sharedCmd.valid &&  io.input.sharedCmd.write).asBits,
     readDecodings.map(_.hit(io.input.sharedCmd.addr)   && io.input.sharedCmd.valid && !io.input.sharedCmd.write).asBits
   )
   appliedCmdSels := allowCmd ? decodedCmdSels | 0
+
+  when(io.input.sharedCmd.fire){
+    dataOvertakeCmd := False
+  }
+  when(io.input.writeData.fire && !io.input.sharedCmd.ready && pendingCmdCounter === 0 && !dataOvertakeCmd){
+    dataOvertakeCmdEvent := True
+  }
 
 
   io.input.sharedCmd.ready := (appliedCmdSels & (io.readOutputs.map(_.readCmd.ready) ++ io.writeOutputs.map(_.writeCmd.ready) ++ io.sharedOutputs.map(_.sharedCmd.ready)).asBits).orR
@@ -244,15 +254,17 @@ case class Axi4SharedDecoder(axiConfig: Axi4Config,
 //    output.writeData.valid   := io.input.writeData.valid && allowData && (lastCmdSel || (appliedCmdSel && io.input.arw.write))
 //    output.writeData.payload := io.input.writeData.payload
 //  }
-  io.input.writeData.ready := (lastCmdSels(sharedRange) ## (lastCmdSels(writeRange)) & (io.writeOutputs.map(_.writeData.ready) ++ io.sharedOutputs.map(_.writeData.ready)).asBits).orR && allowData
+
+  val writeDataSels = (lastCmdSels | appliedCmdSels)
+  io.input.writeData.ready := (writeDataSels(sharedRange) ## (writeDataSels(writeRange)) & (io.writeOutputs.map(_.writeData.ready) ++ io.sharedOutputs.map(_.writeData.ready)).asBits).orR && allowData
   //Wire writeWriteData
-  for((output,linkEnable) <- (io.writeOutputs,lastCmdSels(writeRange).asBools).zipped){
-    output.writeData.valid   := io.input.writeData.valid && allowData && linkEnable
+  for((output,writeDataSel) <- (io.writeOutputs,writeDataSels(writeRange).asBools).zipped){
+    output.writeData.valid   := io.input.writeData.valid && allowData && writeDataSel
     output.writeData.payload := io.input.writeData.payload
   }
   //Wire sharedWriteData
-  for((output,linkEnable) <- (io.sharedOutputs,lastCmdSels(sharedRange).asBools).zipped){
-    output.writeData.valid   := io.input.writeData.valid && allowData && linkEnable
+  for((output,writeDataSel) <- (io.sharedOutputs,writeDataSels(sharedRange).asBools).zipped){
+    output.writeData.valid   := io.input.writeData.valid && allowData && writeDataSel
     output.writeData.payload := io.input.writeData.payload
   }
 
@@ -295,7 +307,8 @@ case class Axi4SharedDecoder(axiConfig: Axi4Config,
     //Consume all writeData transaction
     when(waitLastDataWrite){
       io.input.writeData.ready := True
-      when(io.input.writeData.valid && io.input.writeData.last){
+      when(pendingDataCounter === 0){
+        io.input.writeData.ready := False
         waitLastDataWrite := False
         sendWriteRsp := True
       }

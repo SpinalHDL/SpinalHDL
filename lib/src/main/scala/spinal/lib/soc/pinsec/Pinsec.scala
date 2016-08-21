@@ -61,10 +61,10 @@ class Pinsec extends Component{
     startAddress = 0x200,
     regFileReadyKind = sync,
     branchPrediction = disable,
-    bypassExecute0 = false,
-    bypassExecute1 = false,
-    bypassWriteBack = false,
-    bypassWriteBackBuffer = false,
+    bypassExecute0 = true,
+    bypassExecute1 = true,
+    bypassWriteBack = true,
+    bypassWriteBackBuffer = true,
     collapseBubble = false,
     fastFetchCmdPcCalculation = true,
     dynamicBranchPredictorCacheSizeLog2 = 7
@@ -85,7 +85,7 @@ class Pinsec extends Component{
 //  })
   val ram,rom       = Axi4SharedOnChipRam(
     dataWidth = 32,
-    byteCount = 512 KB,
+    byteCount = 16 KB,
     idWidth = 4
   )
 

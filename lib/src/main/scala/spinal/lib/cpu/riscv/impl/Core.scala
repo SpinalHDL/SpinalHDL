@@ -844,18 +844,24 @@ class Core(implicit val c : CoreConfig) extends Component{
       case `cmdStream_rspStream` => False
       case `cmdStream_rspFlow` => True
     })
+    //duplicated if to avoid icarus verilog bug
+    when(inInst.valid && needMemoryResponse){
+      if(dataBusKind == cmdStream_rspStream) dRsp.ready := !halt
+    }
     when(inInst.valid && needMemoryResponse){
       when(!dRsp.valid) {
         halt := True
       }
-      if(dataBusKind == cmdStream_rspStream) dRsp.ready := !halt
     }
-
     when(execute0.pendingDataCmd.readCount === 0){
       flushMemoryResponse := False
     }
+
+    //duplicated if to avoid icarus verilog bug
     when(flushMemoryResponse){
       dRsp.ready := True
+    }
+    when(flushMemoryResponse){
       halt := True
     }
 
