@@ -8,15 +8,15 @@ import spinal.lib.bus.misc.SizeMapping
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-case class AhbLite3InterconnectSlaveConnection(master : AhbLite3/*,priority : Int*/)
-case class AhbLite3InterconnectSlaveConfig(mapping : SizeMapping){
-  val masters = ArrayBuffer[AhbLite3InterconnectSlaveConnection]()
+case class AhbLite3CrossbarSlaveConnection(master : AhbLite3/*,priority : Int*/)
+case class AhbLite3CrossbarSlaveConfig(mapping : SizeMapping){
+  val masters = ArrayBuffer[AhbLite3CrossbarSlaveConnection]()
 }
-case class AhbLite3InterconnectFactory(AhbLite3Config: AhbLite3Config){
-  val slavesConfigs = mutable.HashMap[AhbLite3,AhbLite3InterconnectSlaveConfig]()
+case class AhbLite3CrossbarFactory(AhbLite3Config: AhbLite3Config){
+  val slavesConfigs = mutable.HashMap[AhbLite3,AhbLite3CrossbarSlaveConfig]()
 
   def addSlave(ahb: AhbLite3,mapping: SizeMapping) : this.type = {
-    slavesConfigs(ahb) = AhbLite3InterconnectSlaveConfig(mapping)
+    slavesConfigs(ahb) = AhbLite3CrossbarSlaveConfig(mapping)
     this
   }
 
@@ -26,11 +26,11 @@ case class AhbLite3InterconnectFactory(AhbLite3Config: AhbLite3Config){
   }
 
   def addConnection(ahb: AhbLite3,AhbLite3Slave: Iterable[AhbLite3]) : this.type = {
-    AhbLite3Slave.foreach(slavesConfigs(_).masters += AhbLite3InterconnectSlaveConnection(ahb))
+    AhbLite3Slave.foreach(slavesConfigs(_).masters += AhbLite3CrossbarSlaveConnection(ahb))
     this
   }
 //  def addConnection(AhbLite3: AhbLite3)(AhbLite3Slave: AhbLite3Slave*) : this.type = {
-//    AhbLite3Slave.foreach(slavesConfigs(_).masters += AhbLite3InterconnectSlaveConnection(AhbLite3))
+//    AhbLite3Slave.foreach(slavesConfigs(_).masters += AhbLite3CrossbarSlaveConnection(AhbLite3))
 //    this
 //  }
 
@@ -74,7 +74,7 @@ case class AhbLite3InterconnectFactory(AhbLite3Config: AhbLite3Config){
 }
 
 
-//case class AhbLite3Interconnect() extends Component{
+//case class AhbLite3Crossbar() extends Component{
 //  def apply()
 //
 //}

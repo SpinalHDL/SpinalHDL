@@ -4,8 +4,8 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba4.axi._
 
-object Axi4InterconnectTester2{
-  class Axi4InterconnectTester2 extends Component {
+object Axi4CrossbarTester2{
+  class Axi4CrossbarTester2 extends Component {
     val axiMasterConfig = Axi4Config(addressWidth = 15,dataWidth = 32,idWidth = 4)
     val axiSlaveConfig  = Axi4Config(addressWidth = 15,dataWidth = 32,idWidth = 8)
 
@@ -21,7 +21,7 @@ object Axi4InterconnectTester2{
     val axiSharedMasters = Vec(slave(Axi4Shared(axiMasterConfig)),2)
     val axiSharedSlaves  = Vec(master(Axi4Shared(axiSlaveConfig)),2)
 
-    val interconnectFactory = Axi4InterconnectFactory()
+    val crossbarFactory = Axi4CrossbarFactory()
       .addSlaves(
         axiSlaves(0)          -> (0x0000,0x800),
         axiSlaves(1)          -> (0x0800,0x800),
@@ -43,13 +43,13 @@ object Axi4InterconnectTester2{
         axiWriteOnlyMasters(1) -> (axiSlaves ++ axiWriteOnlySlaves ++ axiSharedSlaves)
       )
 
-    val interconnect = interconnectFactory.build()
+    val crossbar = crossbarFactory.build()
   }
 }
 
-class Axi4InterconnectTester2CocotbBoot extends SpinalTesterCocotbBase {
-  override def getName: String = "Axi4InterconnectTester2"
-  override def pythonTestLocation: String = "tester/src/test/python/spinal/Axi4InterconnectTester2"
-  override def createToplevel: Component = new Axi4InterconnectTester2.Axi4InterconnectTester2
+class Axi4CrossbarTester2CocotbBoot extends SpinalTesterCocotbBase {
+  override def getName: String = "Axi4CrossbarTester2"
+  override def pythonTestLocation: String = "tester/src/test/python/spinal/Axi4CrossbarTester2"
+  override def createToplevel: Component = new Axi4CrossbarTester2.Axi4CrossbarTester2
   override def backendConfig(config: SpinalConfig): SpinalConfig = config.dumpWave()
 }

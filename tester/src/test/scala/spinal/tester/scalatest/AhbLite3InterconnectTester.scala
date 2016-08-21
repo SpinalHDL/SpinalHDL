@@ -2,17 +2,17 @@ package spinal.tester.scalatest
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.amba3.ahblite.{AhbLite3InterconnectFactory, AhbLite3, AhbLite3Master, AhbLite3Config}
+import spinal.lib.bus.amba3.ahblite.{AhbLite3CrossbarFactory, AhbLite3, AhbLite3Master, AhbLite3Config}
 
 
-object AhbLite3InterconnectTester{
-  class AhbLite3InterconnectTester extends Component {
+object AhbLite3CrossbarTester{
+  class AhbLite3CrossbarTester extends Component {
     val ahbConfig = AhbLite3Config(addressWidth = 12,dataWidth = 32)
 
     val ahbMasters = Vec(slave(AhbLite3Master(ahbConfig)),3)
     val ahbSlaves  = Vec(master(AhbLite3(ahbConfig)),4)
 
-    val interconnect = AhbLite3InterconnectFactory(ahbConfig)
+    val crossbar = AhbLite3CrossbarFactory(ahbConfig)
       .addSlaves(
         ahbSlaves(0) -> (0x000,0x400),
         ahbSlaves(1) -> (0x400,0x400),
@@ -31,7 +31,7 @@ object AhbLite3InterconnectTester{
 //    val ahbMasters = Vec(slave(AhbLite3Master(ahbConfig)),3)
 //    val ahbSlaves  = Vec(master(AhbLite3Slave(ahbConfig)),1)
 //
-//    val interconnect = AhbLite3InterconnectFactory(ahbConfig)
+//    val interconnect = AhbLite3CrossbarFactory(ahbConfig)
 //      .addSlaves(
 //        ahbSlaves(0) -> (0x000,0x400)
 //      )
@@ -47,7 +47,7 @@ object AhbLite3InterconnectTester{
 //    val ahbMasters = Vec(slave(AhbLite3Master(ahbConfig)),1)
 //    val ahbSlaves  = Vec(master(AhbLite3Slave(ahbConfig)),4)
 //
-//    val interconnect = AhbLite3InterconnectFactory(ahbConfig)
+//    val interconnect = AhbLite3CrossbarFactory(ahbConfig)
 //      .addSlaves(
 //        ahbSlaves(0) -> (0x000,0x400),
 //        ahbSlaves(1) -> (0x400,0x400),
@@ -61,9 +61,9 @@ object AhbLite3InterconnectTester{
   }
 }
 
-class AhbLite3InterconnectTesterCocotbBoot extends SpinalTesterCocotbBase {
-  override def getName: String = "AhbLite3InterconnectTester"
-  override def pythonTestLocation: String = "tester/src/test/python/spinal/AhbLite3InterconnectTester"
-  override def createToplevel: Component = new AhbLite3InterconnectTester.AhbLite3InterconnectTester
+class AhbLite3CrossbarTesterCocotbBoot extends SpinalTesterCocotbBase {
+  override def getName: String = "AhbLite3CrossbarTester"
+  override def pythonTestLocation: String = "tester/src/test/python/spinal/AhbLite3CrossbarTester"
+  override def createToplevel: Component = new AhbLite3CrossbarTester.AhbLite3CrossbarTester
   override def backendConfig(config: SpinalConfig): SpinalConfig = config.dumpWave()
 }

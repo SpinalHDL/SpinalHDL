@@ -113,7 +113,7 @@ class Pinsec extends Component{
     val gpioACtrl = Apb3Gpio(32)
     val gpioBCtrl = Apb3Gpio(32)
 
-    val ahbInterconnect = Axi4InterconnectFactory()
+    val ahbCrossbar = Axi4CrossbarFactory()
       .addSlaves(
         rom.io.axi ->(0x00000000L, 512 KB),
         ram.io.axi ->(0x04000000L, 512 KB),
@@ -128,7 +128,7 @@ class Pinsec extends Component{
       ).build()
 
 
-    val apbDecoder = Apb3Interconnect(
+    val apbDecoder = Apb3Crossbar(
       master = apbBridge.io.apb,
       slaves = List(
         gpioACtrl.io.apb ->(0x00000, 4 KB),
