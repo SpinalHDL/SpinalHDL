@@ -48,8 +48,9 @@ class Bundle extends MultiData with Nameable with OverridedEqualsHashCode {
   def assignAllByName(that: Bundle): Unit = {
     for ((name, element) <- elements) {
       val other = that.find(name)
-      if (other == null) SpinalError("Bundle assignement is not complete at " + ScalaLocated.long)
-      element match {
+      if (other == null)
+        PendingError(s"Bundle assignement is not complete. Missing $name\n " + ScalaLocated.long)
+      else element match {
         case b: Bundle => b.assignAllByName(other.asInstanceOf[Bundle])
         case _ => element := other
       }
@@ -76,8 +77,12 @@ class Bundle extends MultiData with Nameable with OverridedEqualsHashCode {
           " be assigned. Either use assignByName or assignSomeByName at \n" + ScalaLocated.long)
         for ((name, element) <- elements) {
           val other = that.find(name)
-          if (other == null) SpinalError("Bundle assignment is not complete at " + ScalaLocated.long)
-          element := other
+          if (other == null) {
+            val trace = ScalaLocated.long
+            PendingError(s"Bundle assignement is not complete. $this need '$name' but $that doesn't provide it.\n$trace ")
+          }
+          else
+            element := other
         }
       }
       case _ => throw new Exception("Undefined assignment")

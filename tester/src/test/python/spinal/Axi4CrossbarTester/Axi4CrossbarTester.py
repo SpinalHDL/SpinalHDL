@@ -265,7 +265,7 @@ def test1(dut):
         slaveHandle = SlaveHandle(idx,idToWrites)
 
         # Read
-        StreamDriverSlave(axiSlave.ar,dut.clk,dut.reset)
+        StreamDriverSlave(axiSlave.ar, dut.clk, dut.reset)
         StreamDriverMaster(axiSlave.r, slaveHandle.genReadRsp, dut.clk, dut.reset)
         StreamMonitor(axiSlave.ar, slaveHandle.onReadCmd, dut.clk, dut.reset)
 

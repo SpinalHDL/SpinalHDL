@@ -76,7 +76,7 @@ def test1(dut):
     ahb = Bundle(dut, "ahb")
     driver  = AhbLite3MasterDriver(ahb, AhbLite3TraficGeneratorWithMemory(10, 32,readQueue), dut.clk, dut.reset)
     checker = AhbLite3MasterReadChecker(ahb, readQueue, dut.clk, dut.reset)
-    terminaison = AhbLite3Terminaison(ahb,dut.clk,dut.reset)
+    terminaison = AhbLite3Terminaison(ahb, dut.clk, dut.reset)
 
 
 

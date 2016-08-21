@@ -39,4 +39,20 @@ case class Apb3(config: Apb3Config) extends Bundle with IMasterSlave {
     in(PREADY,PRDATA)
     if(config.useSlaveError) in(PSLVERROR)
   }
+
+  def << (sink : Apb3) : Unit = sink >> this
+  def >> (sink : Apb3): Unit ={
+    assert(this.config.addressWidth >= sink.config.addressWidth)
+    assert(this.config.selWidth == sink.config.selWidth)
+
+    sink.PADDR := this.PADDR.resized
+    sink.PSEL := this.PSEL
+    sink.PENABLE := this.PENABLE
+    this.PREADY := sink.PREADY
+    sink.PWRITE := this.PWRITE
+    sink.PWDATA := this.PWDATA
+    this.PRDATA := sink.PRDATA
+    if(PSLVERROR != null)
+      this.PSLVERROR := (if(sink.PSLVERROR != null) sink.PSLVERROR else False)
+  }
 }

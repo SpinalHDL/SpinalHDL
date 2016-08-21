@@ -66,10 +66,10 @@ def test1(dut):
 
     # AhbLite3MasterIdle(Bundle(dut, "ahbMasters_1"))
     # AhbLite3MasterIdle(Bundle(dut, "ahbMasters_2"))
-    AhbLite3SlaveMemory(Bundle(dut, "ahbSlaves_0"),0x000,0x400, dut.clk, dut.reset)
-    AhbLite3SlaveMemory(Bundle(dut, "ahbSlaves_1"),0x400,0x400, dut.clk, dut.reset)
-    AhbLite3SlaveMemory(Bundle(dut, "ahbSlaves_2"),0x800,0x400, dut.clk, dut.reset)
-    AhbLite3SlaveMemory(Bundle(dut, "ahbSlaves_3"),0xC00,0x400, dut.clk, dut.reset)
+    AhbLite3SlaveMemory(Bundle(dut, "ahbSlaves_0"), 0x000, 0x400, dut.clk, dut.reset)
+    AhbLite3SlaveMemory(Bundle(dut, "ahbSlaves_1"), 0x400, 0x400, dut.clk, dut.reset)
+    AhbLite3SlaveMemory(Bundle(dut, "ahbSlaves_2"), 0x800, 0x400, dut.clk, dut.reset)
+    AhbLite3SlaveMemory(Bundle(dut, "ahbSlaves_3"), 0xC00, 0x400, dut.clk, dut.reset)
 
     while True:
         yield RisingEdge(dut.clk)

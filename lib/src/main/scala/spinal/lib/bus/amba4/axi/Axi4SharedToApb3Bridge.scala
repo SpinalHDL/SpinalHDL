@@ -59,11 +59,11 @@ case class Axi4SharedToApb3Bridge(addressWidth : Int,dataWidth : Int,idWidth : I
 
   switch(phase){
     is(SETUP){
-      io.apb.PSEL(0)  := io.axi.arw.valid
       write := io.axi.sharedCmd.write
       id := io.axi.sharedCmd.id
       when(io.axi.sharedCmd.valid && (!io.axi.sharedCmd.write || io.axi.writeData.valid)) {
         phase := ACCESS
+        io.apb.PSEL(0) := True
       }
     }
     is(ACCESS){

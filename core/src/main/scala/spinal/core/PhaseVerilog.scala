@@ -296,7 +296,7 @@ end
       }
     }
 
-    for (process <- processList if process.needProcessDef) {
+    for ((process,idx) <- processList.zipWithIndex if process.needProcessDef) {
       process.genSensitivity
 
       val context = new AssignementLevel(process.nodes.map(n => AssignementLevelCmd(n,n.getInput(0))))
@@ -307,6 +307,8 @@ end
         ret ++= s"  always @ (${process.sensitivity.toList.sortWith(_.instanceCounter < _.instanceCounter).map(emitReference(_)).reduceLeft(_ + " or " + _)})\n"
         ret ++= "  begin\n"
         emitAssignementLevel(context,ret, "    ", "<=")
+//        val senList = process.sensitivity.toList
+//        ret ++= s"""    $$display("$component $idx :${(senList.map(emitReference(_) + "=%b")).reduce(_+ " " +_)}",${(senList.map(emitReference(_))).reduce(_+ "," +_)});\n"""
         ret ++= "  end\n\n"
       } else {
         //emit func as logic

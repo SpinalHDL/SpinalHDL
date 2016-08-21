@@ -7,14 +7,14 @@ import spinal.lib.bus.misc.SizeMapping
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-case class Axi4InterconnectSlaveConnection(master : Axi4Bus/*,priority : Int*/)
-case class Axi4InterconnectSlaveConfig(mapping : SizeMapping){
-  val connections = ArrayBuffer[Axi4InterconnectSlaveConnection]()
+case class Axi4CrossbarSlaveConnection(master : Axi4Bus/*,priority : Int*/)
+case class Axi4CrossbarSlaveConfig(mapping : SizeMapping){
+  val connections = ArrayBuffer[Axi4CrossbarSlaveConnection]()
 }
 
 
-case class Axi4InterconnectFactory(/*axiConfig: Axi4Config*/){
-  val slavesConfigs = mutable.HashMap[Axi4Bus,Axi4InterconnectSlaveConfig]()
+case class Axi4CrossbarFactory(/*axiConfig: Axi4Config*/){
+  val slavesConfigs = mutable.HashMap[Axi4Bus,Axi4CrossbarSlaveConfig]()
   val axi4SlaveToReadWriteOnly = mutable.HashMap[Axi4,Seq[Axi4Bus]]()
   val masters = ArrayBuffer[Axi4Bus]()
   def addSlave(axi: Axi4Bus,mapping: SizeMapping) : this.type = {
@@ -29,7 +29,7 @@ case class Axi4InterconnectFactory(/*axiConfig: Axi4Config*/){
         addSlave(writeOnly,mapping)
       }
       case _ => {
-        slavesConfigs(axi) = Axi4InterconnectSlaveConfig(mapping)
+        slavesConfigs(axi) = Axi4CrossbarSlaveConfig(mapping)
       }
     }
     this
@@ -51,15 +51,15 @@ case class Axi4InterconnectFactory(/*axiConfig: Axi4Config*/){
         addConnection(axi.toWriteOnly(),translatedSlaves.filter(!_.isInstanceOf[Axi4ReadOnly]))
       }
       case axi : Axi4WriteOnly => {
-        translatedSlaves.filter(!_.isInstanceOf[Axi4ReadOnly]).foreach(slavesConfigs(_).connections += Axi4InterconnectSlaveConnection(axi))
+        translatedSlaves.filter(!_.isInstanceOf[Axi4ReadOnly]).foreach(slavesConfigs(_).connections += Axi4CrossbarSlaveConnection(axi))
         masters += axi
       }
       case axi : Axi4ReadOnly => {
-        translatedSlaves.filter(!_.isInstanceOf[Axi4WriteOnly]).foreach(slavesConfigs(_).connections += Axi4InterconnectSlaveConnection(axi))
+        translatedSlaves.filter(!_.isInstanceOf[Axi4WriteOnly]).foreach(slavesConfigs(_).connections += Axi4CrossbarSlaveConnection(axi))
         masters += axi
       }
       case axi : Axi4Shared => {
-        translatedSlaves.foreach(slavesConfigs(_).connections += Axi4InterconnectSlaveConnection(axi))
+        translatedSlaves.foreach(slavesConfigs(_).connections += Axi4CrossbarSlaveConnection(axi))
         masters += axi
       }
     }

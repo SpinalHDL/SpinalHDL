@@ -51,7 +51,7 @@ object PlayAhbLite3_2{
     val ahbMasters = Vec(slave(AhbLite3Master(ahbConfig)),3)
     val ahbSlaves  = Vec(master(AhbLite3(ahbConfig)),4)
 
-    val interconnect = AhbLite3InterconnectFactory(ahbConfig)
+    val crossbar = AhbLite3CrossbarFactory(ahbConfig)
       .addSlaves(
         ahbSlaves(0) -> (0x1000,0x1000),
         ahbSlaves(1) -> (0x3000,0x1000),

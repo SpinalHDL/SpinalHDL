@@ -25,7 +25,7 @@ class Apb3Decoder(inputConfig: Apb3Config,decodings : Iterable[SizeMapping]) ext
   io.output.PWDATA := io.input.PWDATA
 
   for((decoding,psel) <- (decodings,io.output.PSEL.asBools).zipped){
-    psel := decoding.hit(io.input.PADDR)
+    psel := decoding.hit(io.input.PADDR) && io.input.PSEL.lsb
   }
 
   io.input.PREADY := io.output.PREADY

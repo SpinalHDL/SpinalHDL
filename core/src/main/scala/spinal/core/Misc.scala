@@ -190,7 +190,6 @@ object Misc {
       case _ =>
     }
   }
-
 }
 
 @deprecated("Use cloneable instead")
