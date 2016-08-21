@@ -12,6 +12,7 @@ import spinal.lib.cpu.riscv.impl.build.RiscvAxi4
 import spinal.lib.cpu.riscv.impl.extension.{BarrelShifterFullExtension, DivExtension, MulExtension}
 import spinal.lib.cpu.riscv.impl.{disable, dynamic, sync, CoreConfig}
 import spinal.lib.io.TriStateArray
+import spinal.lib.system.debugger.{JtagAxi4SharedDebugger, SystemDebuggerConfig}
 
 class Pinsec extends Component{
   val debug = true
@@ -21,7 +22,8 @@ class Pinsec extends Component{
 
   val io = new Bundle{
 //    val ahbAccess = slave(Axi4(ahbConfig))
-//    val jtag = slave(Jtag())
+    val jtag_tck = in Bool
+    val jtag = slave(Jtag())
     val gpioA = master(TriStateArray(32 bits))
     val gpioB = master(TriStateArray(32 bits))
     val interrupt = in Bits(interruptCount bits)
@@ -77,17 +79,19 @@ class Pinsec extends Component{
 
 
   val core      = new RiscvAxi4(coreConfig,iCacheConfig,dCacheConfig,debug,interruptCount)
-////  val rom       = Axi4OnChipRam(ahbConfig,byteCount = 512 KB)
-//  val rom       = new Axi4OnChipRom(ahbConfig,{
-//    val bytes = Files.readAllBytes(new File("E:/vm/share/pinsec_test.bin").toPath()).map(v => BigInt(if(v < 0) v + 256 else v))
-//    val array =  (0 until bytes.length/4).map(i => B(bytes(i*4+0) + (bytes(i*4+1) << 8) + (bytes(i*4+2) << 16) + (bytes(i*4+3) << 24),32 bits))
-//    array
-//  })
   val ram,rom       = Axi4SharedOnChipRam(
     dataWidth = 32,
     byteCount = 16 KB,
     idWidth = 4
   )
+
+  val jtagCtrl = JtagAxi4SharedDebugger(SystemDebuggerConfig(
+    memAddressWidth = 32,
+    memDataWidth = 32,
+    remoteCmdWidth = 1,
+    jtagClockDomain = ClockDomain(io.jtag_tck)
+  ))
+
 
   val apbBridge = Axi4SharedToApb3Bridge(
     addressWidth = 20,
@@ -95,8 +99,8 @@ class Pinsec extends Component{
     idWidth = 4
   )
 
-//  val axiMaster0 = slave(Axi4ReadOnly(Axi4Config(32,32,2)))
-//  val axiMaster1 = slave(Axi4Shared(Axi4Config(32,32,2)))
+  val gpioACtrl  = Apb3Gpio(32)
+  val gpioBCtrl  = Apb3Gpio(32)
 
   val ahbInterconnect = Axi4InterconnectFactory()
     .addSlaves(
@@ -104,20 +108,14 @@ class Pinsec extends Component{
       ram.io.axi       -> (0x04000000L, 512 KB),
       apbBridge.io.axi -> (0xF0000000L,   1 MB)
     ).addConnections(
-//      axiMaster0
-//        -> List(rom.io.axi, ram.io.axi),
-//      axiMaster1
-//        -> List(rom.io.axi, ram.io.axi, apbBridge.io.axi),
       core.io.i
         -> List(rom.io.axi, ram.io.axi),
       core.io.d
+        -> List(rom.io.axi, ram.io.axi, apbBridge.io.axi),
+      jtagCtrl.io.axi
         -> List(rom.io.axi, ram.io.axi, apbBridge.io.axi)
-//      io.ahbAccess
-//        -> List(rom.io.ahb, ram.io.ahb, apbBridge.io.ahb)
     ).build()
 
-  val gpioACtrl  = Apb3Gpio(32)
-  val gpioBCtrl  = Apb3Gpio(32)
 
   val apbDecoder = Apb3Interconnect(
     master = apbBridge.io.apb,
@@ -127,15 +125,16 @@ class Pinsec extends Component{
       core.io.debugBus ->  (0xF0000, 4 KB)
     )
   )
-//
+
   if(interruptCount != 0) core.io.interrupt := io.interrupt
   if(debug){
     core.io.debugResetIn  <> ClockDomain.current.readResetWire//io.debugResetIn
     core.io.debugResetOut <> io.debugResetOut
   }
 //  io.debugResetOut := True
-  gpioACtrl.io.gpio <> io.gpioA
-  gpioBCtrl.io.gpio <> io.gpioB
+  io.gpioA <> gpioACtrl.io.gpio
+  io.gpioB <> gpioBCtrl.io.gpio
+  io.jtag  <> jtagCtrl.io.jtag
 }
 
 

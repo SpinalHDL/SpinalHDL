@@ -1,6 +1,7 @@
 package spinal.lib.system.debugger
 
 import spinal.core._
+import spinal.lib.bus.amba4.axi.{Axi4Config, Axi4Shared}
 import spinal.lib.bus.avalon.{AvalonMM, AvalonMMConfig}
 import spinal.lib.bus.avalon._
 import spinal.lib.com.jtag._
@@ -12,8 +13,7 @@ import spinal.lib.eda.altera.QSysify
  */
 
 
-case class SystemDebuggerConfig(cpuDataWidth : Int = 32,
-                                memAddressWidth : Int = 32,
+case class SystemDebuggerConfig(memAddressWidth : Int = 32,
                                 memDataWidth : Int = 32,
                                 remoteCmdWidth : Int,
                                 jtagClockDomain : ClockDomain){
@@ -22,6 +22,24 @@ case class SystemDebuggerConfig(cpuDataWidth : Int = 32,
     dataWidth = memDataWidth
   ).copy(
     useByteEnable = true
+  )
+
+  def getMemAxi4SharedConfig = Axi4Config(
+    addressWidth = memAddressWidth,
+    dataWidth = memDataWidth,
+    useId      = false,
+    useRegion  = false,
+    useBurst   = false,
+    useLock    = false,
+    useCache   = false,
+    useSize    = true,
+    useQos     = false,
+    useLen     = false,
+//    useLast    = false,
+    useResp    = false,
+    useProt    = false,
+    useUser    = false,
+    useStrb    = true
   )
 }
 
@@ -70,6 +88,20 @@ class JtagAvalonDebugger(val c: SystemDebuggerConfig) extends Component {
   debugger.io.mem.toAvalon() <> io.mem
 }
 
+case class JtagAxi4SharedDebugger(c: SystemDebuggerConfig) extends Component {
+  val io = new Bundle {
+    val jtag = slave(Jtag())
+    val axi = master(Axi4Shared(c.getMemAxi4SharedConfig))
+  }
+
+  val jtagBridge = new JtagBridge(c)
+  jtagBridge.io.jtag <> io.jtag
+
+  val debugger = new SystemDebugger(c)
+  debugger.io.remote <> jtagBridge.io.remote
+  debugger.io.mem.toAxi4Shared() <> io.axi
+}
+
 
 
 class SystemDebugger(c : SystemDebuggerConfig) extends Component{
@@ -91,7 +123,6 @@ object JtagAvalonDebuggerMain{
       val tck = Bool.setName("tck")
       val jtagClock = ClockDomain(tck)
       val c = SystemDebuggerConfig(
-        cpuDataWidth = 32,
         memAddressWidth = 32,
         memDataWidth = 32,
         remoteCmdWidth = 1,

@@ -58,7 +58,7 @@ case class Axi4ReadOnlyDecoder(axiConfig: Axi4Config,decodings : Iterable[SizeMa
       io.input.readRsp.valid := True
       if(axiConfig.useResp) io.input.readRsp.setDECERR
       if(id != null) io.input.readRsp.id := id
-      io.input.readRsp.last := remainingZero
+      if(io.input.readRsp.last != null) io.input.readRsp.last := remainingZero
       when(io.input.readRsp.ready) {
         remaining := remaining - 1
         when(remainingZero) {
@@ -331,7 +331,7 @@ case class Axi4SharedDecoder(axiConfig: Axi4Config,
       io.input.readRsp.valid := True
       if(axiConfig.useResp) io.input.readRsp.setDECERR
       if(id != null) io.input.readRsp.id := id
-      io.input.readRsp.last := remainingZero
+      if(io.input.readRsp.last != null) io.input.readRsp.last := remainingZero
       when(io.input.readRsp.ready) {
         remaining := remaining - 1
         when(remainingZero) {
