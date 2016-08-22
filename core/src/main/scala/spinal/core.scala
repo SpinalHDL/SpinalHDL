@@ -91,7 +91,7 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     def  Hz = (d * BigDecimal(1e0))
   }
 
-  case class BigDecimalBuilder(d: BigDecimal) {
+  implicit class BigDecimalBuilder(d: BigDecimal) {
     def hr =  (d  * BigDecimal(3600.0))
     def mn = (d * BigDecimal(60.0))
     def sec = (d * BigDecimal(1.0))
