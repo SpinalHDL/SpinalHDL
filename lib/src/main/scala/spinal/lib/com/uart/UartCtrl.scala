@@ -73,15 +73,80 @@ class UartCtrl(g : UartCtrlGenerics = UartCtrlGenerics()) extends Component {
   io.uart.rxd <> rx.io.rxd
 
 
-  def driveFrom(busCtrl : BusSlaveFactory,rxFifoDepth : Int) : Unit = {
-    busCtrl.driveAndRead(io.config.clockDivider,address = 0)
-    busCtrl.driveAndRead(io.config.frame,address = 4)
-    busCtrl.createAndDriveFlow(Bits(g.dataWidthMax bits),address = 8).toStream >-> io.write
-    busCtrl.read(io.write.valid,address = 8)
-    busCtrl.readStreamNonBlocking(io.read.toStream.queue(rxFifoDepth),address = 12,validBitOffset = 31,payloadBitOffset = 0)
+//  def driveFrom(busCtrl : BusSlaveFactory,rxFifoDepth : Int) : Unit = {
+//    busCtrl.driveAndRead(io.config.clockDivider,address = 0)
+//    busCtrl.driveAndRead(io.config.frame,address = 4)
+//    busCtrl.createAndDriveFlow(Bits(g.dataWidthMax bits),address = 8).toStream >-> io.write
+//    busCtrl.read(io.write.valid,address = 8)
+//    busCtrl.readStreamNonBlocking(io.read.toStream.queue(rxFifoDepth),address = 12,validBitOffset = 31,payloadBitOffset = 0)
+//  }
+  def driveFrom(busCtrl : BusSlaveFactory,config : UartCtrlMemoryMappedConfig) = new Area {
+    //Manage config
+    val uartConfigReg = Reg(io.config)
+    uartConfigReg.clockDivider init(0)
+    if(config.initConfig != null)            config.initConfig.initReg(uartConfigReg)
+    if(config.busCanWriteClockDividerConfig) busCtrl.write(uartConfigReg.clockDivider,address = 8)
+    if(config.busCanWriteFrameConfig){
+      busCtrl.write(uartConfigReg.frame.dataLength,address = 12,bitOffset = 0)
+      busCtrl.write(uartConfigReg.frame.parity,address = 12,bitOffset = 8)
+      busCtrl.write(uartConfigReg.frame.stop,address = 12,bitOffset = 16)
+    }
+    io.config := uartConfigReg
+
+    //manage TX
+    val write = new Area {
+      val streamUnbuffered = busCtrl.createAndDriveFlow(Bits(g.dataWidthMax bits), address = 0).toStream
+      val (stream, fifoOccupancy) = streamUnbuffered.queueWithOccupancy(config.txFifoDepth)
+      io.write << stream
+      busCtrl.read(config.txFifoDepth - fifoOccupancy, 4, 16)
+    }
+
+    //manage RX
+    val read = new Area {
+      val (stream, fofoOccupancy) = io.read.toStream.queueWithOccupancy(config.rxFifoDepth)
+      busCtrl.readStreamNonBlocking(stream, address = 0, validBitOffset = 15, payloadBitOffset = 0)
+      busCtrl.read(fofoOccupancy, 0, 16)
+    }
+
+    //manage interrupts
+    val interruptCtrl = new Area {
+      val readIntEnable  = busCtrl.createReadWrite(Bool, 4, 0) init(False)
+      val writeIntEnable = busCtrl.createReadWrite(Bool, 4, 1) init(False)
+      val readInt = readIntEnable & read.stream.valid
+      val writeInt = writeIntEnable & write.stream.valid
+      val interrupt = readInt || writeInt
+      busCtrl.read(readInt , 4, 8)
+      busCtrl.read(writeInt, 4, 9)
+    }
   }
 }
 
+case class UartCtrlInitConfig(
+  baudrate : Int = 0,
+  dataLength : Int = 0,
+  parity : UartParityType.E = null,
+  stop : UartStopType.E = null
+){
+  def initReg(reg : UartCtrlConfig): Unit ={
+    require(reg.isReg)
+    if(baudrate != 0) reg.clockDivider init((ClockDomain.current.frequency.getValue / baudrate / reg.g.rxSamplePerBit).toInt)
+    if(dataLength != 0) reg.frame.dataLength init(dataLength)
+    if(parity != null) reg.frame.parity init(parity)
+    if(stop != null) reg.frame.stop init(stop)
+  }
+}
+
+case class UartCtrlMemoryMappedConfig(
+  uartCtrlConfig : UartCtrlGenerics,
+  initConfig : UartCtrlInitConfig = null,
+  busCanWriteClockDividerConfig : Boolean = true,
+  busCanWriteFrameConfig : Boolean = true,
+  txFifoDepth : Int = 1,
+  rxFifoDepth : Int = 1
+){
+  require(txFifoDepth >= 1)
+  require(rxFifoDepth >= 1)
+}
 
 
 

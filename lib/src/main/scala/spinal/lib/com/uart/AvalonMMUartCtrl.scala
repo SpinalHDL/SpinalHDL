@@ -8,25 +8,27 @@ import spinal.lib.eda.altera.QSysify
 object AvalonMMUartCtrl{
   def getAvalonMMConfig = AvalonMMSlaveFactory.getAvalonConfig(addressWidth = 4,dataWidth = 32)
 
-  def main(args: Array[String]) {
-    val report = SpinalVerilog(new AvalonMMUartCtrl(UartCtrlGenerics(),64)).printPruned()
-    val toplevel = report.toplevel
-    toplevel.io.bus addTag(ClockDomainTag(toplevel.clockDomain))
-    QSysify(toplevel)
-  }
+//  def main(args: Array[String]) {
+//    val report = SpinalVerilog(new AvalonMMUartCtrl(UartCtrlGenerics(),64)).printPruned()
+//    val toplevel = report.toplevel
+//    toplevel.io.bus addTag(ClockDomainTag(toplevel.clockDomain))
+//    QSysify(toplevel)
+//  }
 }
 
-class AvalonMMUartCtrl(uartCtrlConfig : UartCtrlGenerics, rxFifoDepth : Int) extends Component{
+class AvalonMMUartCtrl(config : UartCtrlMemoryMappedConfig) extends Component{
   val io = new Bundle{
     val bus =  slave(AvalonMM(AvalonMMUartCtrl.getAvalonMMConfig))
     val uart = master(Uart())
+    val interrupt = out Bool
   }
 
-  val uartCtrl = new UartCtrl(uartCtrlConfig)
+  val uartCtrl = new UartCtrl(config.uartCtrlConfig)
   io.uart <> uartCtrl.io.uart
 
   val busCtrl = AvalonMMSlaveFactory(io.bus)
-  uartCtrl.driveFrom(busCtrl,rxFifoDepth)
+  val bridge = uartCtrl.driveFrom(busCtrl,config)
+  io.interrupt := bridge.interruptCtrl.interrupt
 }
 
 

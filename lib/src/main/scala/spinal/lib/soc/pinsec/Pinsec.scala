@@ -8,6 +8,7 @@ import spinal.lib._
 import spinal.lib.bus.amba3.apb._
 import spinal.lib.bus.amba4.axi._
 import spinal.lib.com.jtag.Jtag
+import spinal.lib.com.uart.{Uart, UartCtrlGenerics, UartCtrlMemoryMappedConfig, Apb3UartCtrl}
 import spinal.lib.cpu.riscv.impl.build.RiscvAxi4
 import spinal.lib.cpu.riscv.impl.extension.{BarrelShifterFullExtension, DivExtension, MulExtension}
 import spinal.lib.cpu.riscv.impl.{disable, dynamic, sync, CoreConfig}
@@ -28,7 +29,7 @@ class Pinsec extends Component{
     val jtag = slave(Jtag())
     val gpioA = master(TriStateArray(32 bits))
     val gpioB = master(TriStateArray(32 bits))
-    val interrupt = in Bits(interruptCount bits)
+    val uart  = master(Uart())
   }
 
   val resetCtrl = new ClockingArea(ClockDomain(io.axiClk,config = ClockDomainConfig(resetKind = BOOT))) {
@@ -113,7 +114,19 @@ class Pinsec extends Component{
     val gpioACtrl = Apb3Gpio(32)
     val gpioBCtrl = Apb3Gpio(32)
 
-    val ahbCrossbar = Axi4CrossbarFactory()
+    val uartCtrl = Apb3UartCtrl(UartCtrlMemoryMappedConfig(
+      uartCtrlConfig = UartCtrlGenerics(
+        dataWidthMax = 8,
+        clockDividerWidth = 20,
+        preSamplingSize = 1,
+        samplingSize = 5,
+        postSamplingSize = 2
+      ),
+      txFifoDepth = 16,
+      rxFifoDepth = 16
+    ))
+
+    val axiCrossbar = Axi4CrossbarFactory()
       .addSlaves(
         rom.io.axi ->(0x00000000L, 512 KB),
         ram.io.axi ->(0x04000000L, 512 KB),
@@ -131,13 +144,20 @@ class Pinsec extends Component{
     val apbDecoder = Apb3Crossbar(
       master = apbBridge.io.apb,
       slaves = List(
-        gpioACtrl.io.apb ->(0x00000, 4 KB),
-        gpioBCtrl.io.apb ->(0x01000, 4 KB),
-        core.io.debugBus ->(0xF0000, 4 KB)
+        gpioACtrl.io.apb -> (0x00000, 4 KB),
+        gpioBCtrl.io.apb -> (0x01000, 4 KB),
+        uartCtrl.io.apb  -> (0x10000, 4 KB),
+        core.io.debugBus -> (0xF0000, 4 KB)
       )
     )
 
-    if (interruptCount != 0) core.io.interrupt := io.interrupt
+    if (interruptCount != 0) {
+      core.io.interrupt := (
+        (0 -> uartCtrl.io.interrupt),
+        (default -> false)
+      )
+    }
+
     if (debug) {
       core.io.debugResetIn := resetCtrl.axiReset
       when(core.io.debugResetOut) {
@@ -149,6 +169,7 @@ class Pinsec extends Component{
   io.gpioA <> axi.gpioACtrl.io.gpio
   io.gpioB <> axi.gpioBCtrl.io.gpio
   io.jtag  <> axi.jtagCtrl.io.jtag
+  io.uart <> axi.uartCtrl.io.uart
 }
 
 
