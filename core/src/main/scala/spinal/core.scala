@@ -91,6 +91,24 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     def  Hz = (d * BigDecimal(1e0))
   }
 
+  case class BigDecimalBuilder(d: BigDecimal) {
+    def hr =  (d  * BigDecimal(3600.0))
+    def mn = (d * BigDecimal(60.0))
+    def sec = (d * BigDecimal(1.0))
+    def ms =  (d  * BigDecimal(1e-3))
+    def us =  (d  * BigDecimal(1e-6))
+    def ns =  (d  * BigDecimal(1e-9))
+    def ps =  (d  * BigDecimal(1e-12))
+    def fs =  (d  * BigDecimal(1e-15))
+
+
+    def THz = (d * BigDecimal(1e12))
+    def GHz = (d * BigDecimal(1e9))
+    def MHz = (d * BigDecimal(1e6))
+    def kHz = (d * BigDecimal(1e3))
+    def  Hz = (d * BigDecimal(1e0))
+  }
+
   def True = Bool(true) //Should be def, not val, else it will create cross hierarchy usage of the same instance
   def False = Bool(false)
 
