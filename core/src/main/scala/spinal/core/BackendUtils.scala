@@ -259,7 +259,7 @@ trait VhdlVerilogBase {
     }
   }
 
-  def getAsyncProcesses(component: Component) : Seq[Process] = {
+  def getAsyncProcesses(component: Component,merge : Boolean = true) : Seq[Process] = {
     var processCounter = 0
 
 
@@ -286,7 +286,7 @@ trait VhdlVerilogBase {
       def walk(that: Node): Unit = {
         that match {
           case wn: WhenNode => {
-            if (whenToProcess.contains(wn.w)) {
+            if (merge && whenToProcess.contains(wn.w)) {
               val otherProcess = whenToProcess.get(wn.w).get
               if (process == null) {
                 process = otherProcess

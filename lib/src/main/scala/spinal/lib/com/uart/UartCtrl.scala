@@ -104,19 +104,19 @@ class UartCtrl(g : UartCtrlGenerics = UartCtrlGenerics()) extends Component {
     //manage RX
     val read = new Area {
       val (stream, fofoOccupancy) = io.read.toStream.queueWithOccupancy(config.rxFifoDepth)
-      busCtrl.readStreamNonBlocking(stream, address = 0, validBitOffset = 15, payloadBitOffset = 0)
-      busCtrl.read(fofoOccupancy, 0, 16)
+      busCtrl.readStreamNonBlocking(stream, address = 0, validBitOffset = 16, payloadBitOffset = 0)
+      busCtrl.read(fofoOccupancy, 4, 24)
     }
 
     //manage interrupts
     val interruptCtrl = new Area {
-      val readIntEnable  = busCtrl.createReadWrite(Bool, 4, 0) init(False)
-      val writeIntEnable = busCtrl.createReadWrite(Bool, 4, 1) init(False)
+      val writeIntEnable = busCtrl.createReadWrite(Bool, 4, 0) init(False)
+      val readIntEnable  = busCtrl.createReadWrite(Bool, 4, 1) init(False)
       val readInt = readIntEnable & read.stream.valid
       val writeInt = writeIntEnable & write.stream.valid
       val interrupt = readInt || writeInt
-      busCtrl.read(readInt , 4, 8)
-      busCtrl.read(writeInt, 4, 9)
+      busCtrl.read(writeInt, 4, 8)
+      busCtrl.read(readInt , 4, 9)
     }
   }
 }
@@ -146,6 +146,9 @@ case class UartCtrlMemoryMappedConfig(
 ){
   require(txFifoDepth >= 1)
   require(rxFifoDepth >= 1)
+
+  require(txFifoDepth <= 255)
+  require(rxFifoDepth <= 255)
 }
 
 
