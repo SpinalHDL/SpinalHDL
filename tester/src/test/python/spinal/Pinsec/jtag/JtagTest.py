@@ -70,6 +70,10 @@ def jtagTest(dut):
     yield jtag.goToIdle()
     yield Timer(1000*8)
 
+    #yield jtagBridgeWrite(jtag,0xF00F0200,0x00030000,4)
+    #yield Timer(1000*80)
+
+
     # Check rom write/read via jtag
     yield jtagBridgeWrite(jtag,0x3000,0x11223344,4)
     yield jtagBridgeWrite(jtag,0x3002,0x00550000,1)

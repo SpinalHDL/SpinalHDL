@@ -49,8 +49,11 @@ class Pinsec extends Component{
     when(axiResetCounter =/= "1111"){
       axiResetCounter := axiResetCounter + 1
     }
-    val axiResetOrder = axiResetCounter =/= "1111" || BufferCC(io.asyncReset)
-    val coreResetOrder = axiResetOrder
+    when(BufferCC(io.asyncReset)){
+      axiResetCounter := 0
+    }
+    val axiResetOrder = axiResetCounter =/= "1111"
+    val coreResetOrder = False setWhen(axiResetOrder)
 
     val axiReset =  RegNext(axiResetOrder)
     val coreReset = RegNext(coreResetOrder)
