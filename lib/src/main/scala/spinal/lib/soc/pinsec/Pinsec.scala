@@ -32,17 +32,30 @@ class Pinsec extends Component{
     val uart  = master(Uart())
   }
 
+//  val resetCtrl = new ClockingArea(ClockDomain(io.axiClk,config = ClockDomainConfig(resetKind = BOOT))) {
+//    val asyncResetSyncronised = BufferCC(io.asyncReset)
+//    val doReset = False setWhen(asyncResetSyncronised)
+//    val axiResetCounter = Reg(UInt(4 bits)) init(0)
+//    when(axiResetCounter =/= "1111"){
+//      axiResetCounter := axiResetCounter + 1
+//    }
+//    when(doReset) {
+//      axiResetCounter := 0
+//    }
+//    val axiReset = RegNext(axiResetCounter =/= "1111")
+//  }
   val resetCtrl = new ClockingArea(ClockDomain(io.axiClk,config = ClockDomainConfig(resetKind = BOOT))) {
-    val doReset = BufferCC(io.asyncReset)
     val axiResetCounter = Reg(UInt(4 bits)) init(0)
     when(axiResetCounter =/= "1111"){
       axiResetCounter := axiResetCounter + 1
     }
-    when(doReset) {
-      axiResetCounter := 0
-    }
-    val axiReset = RegNext(axiResetCounter =/= "1111")
-  }
+    val axiResetOrder = axiResetCounter =/= "1111" || BufferCC(io.asyncReset)
+    val coreResetOrder = axiResetOrder
+
+    val axiReset =  RegNext(axiResetOrder)
+    val coreReset = RegNext(coreResetOrder)
+}
+
 
   val axi = new ClockingArea(ClockDomain(io.axiClk,resetCtrl.axiReset)) {
 
@@ -90,7 +103,10 @@ class Pinsec extends Component{
     //  p.add(new BarrelShifterLightExtension)
 
 
-    val core = new RiscvAxi4(coreConfig, iCacheConfig, dCacheConfig, debug, interruptCount)
+    val core = ClockDomain(io.axiClk,resetCtrl.coreReset){
+      new RiscvAxi4(coreConfig, iCacheConfig, dCacheConfig, debug, interruptCount)
+    }
+
     val ram, rom = Axi4SharedOnChipRam(
       dataWidth = 32,
       byteCount = 16 KB,
@@ -160,9 +176,7 @@ class Pinsec extends Component{
 
     if (debug) {
       core.io.debugResetIn := resetCtrl.axiReset
-      when(core.io.debugResetOut) {
-        resetCtrl.doReset := True
-      }
+      resetCtrl.coreResetOrder setWhen(core.io.debugResetOut)
     }
   }
 

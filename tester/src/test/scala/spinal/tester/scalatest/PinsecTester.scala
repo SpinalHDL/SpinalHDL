@@ -15,12 +15,3 @@ class PinsecTesterCocotbBoot extends SpinalTesterCocotbBase {
   override def createToplevel: Component = new StreamTester
   override def backendConfig(config: SpinalConfig): SpinalConfig = config.dumpWave()
 }
-
-class OrderedSuite extends Suites(
-  new BundleTesterCocotbBoot,
-  new Suites(
-    new BundleTesterCocotbBoot,
-    new BlackboxTesterCocotbBoot
-  ),
-  new BlackboxTesterCocotbBoot
-)
