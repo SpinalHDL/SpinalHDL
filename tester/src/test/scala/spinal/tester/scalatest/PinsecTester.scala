@@ -1,6 +1,6 @@
 package spinal.tester.scalatest
 
-import org.scalatest.Suites
+import org.scalatest.{Stepwise, Sequential, Suites}
 import spinal.core.{SpinalConfig, Component}
 import spinal.lib.soc.pinsec.Pinsec
 
@@ -16,3 +16,16 @@ class PinsecTesterCocotbBoot extends SpinalTesterCocotbBase {
   override def createToplevel: Component = new Pinsec
   override def backendConfig(config: SpinalConfig): SpinalConfig = config.dumpWave()
 }
+
+
+//
+//class OrderedSuite extends Stepwise(
+//  new BundleTesterCocotbBoot,
+//
+//    new FixedPointTesterCocotbBoot,
+//    new WhenTesterCocotbBoot,
+//    new StreamTesterCocotbBoot,
+//    new BlackboxTesterCocotbBoot
+//  ,
+//  new ZeroWidthTesterCocotbBoot
+//)

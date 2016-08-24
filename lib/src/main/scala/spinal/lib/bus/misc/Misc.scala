@@ -26,5 +26,5 @@ case class SizeMapping(base : BigInt,size : BigInt)extends AddressMapping{
   def hit(address : UInt) : Bool = if(isPow2(size) && base % size == 0)
     (address & S(-size,address.getWidth bits).asUInt) === (base)
   else
-      address >= base && address < size
+      address >= base && address < base + size
 }

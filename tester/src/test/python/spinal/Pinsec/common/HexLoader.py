@@ -52,7 +52,7 @@ def loadIHex(dut,hexPath,clk,reset):
                     array = [int(line[9 + i * 2:11 + i * 2], 16) for i in range(0, byteCount)]
                     yield loadIHexCallback(nextAddr,array,dut,clk)
                 elif key == 2:
-                    offset = int(line[9:13], 16)
+                    offset = int(line[9:13], 16) << 4
                 else:
                     pass
     reset <= 0

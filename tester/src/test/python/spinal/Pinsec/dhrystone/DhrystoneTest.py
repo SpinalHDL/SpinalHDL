@@ -12,32 +12,11 @@ from spinal.common.misc import setBit, randSignal, assertEquals, truncUInt, sint
     BoolRandomizer, StreamRandomizer,StreamReader, FlowRandomizer, Bundle, simulationSpeedPrinter, readIHex, log2Up
 
 
-@cocotb.coroutine
-def txToRxBypass(dut):
-    while True:
-        dut.io_uart_rxd <= int(dut.io_uart_txd)
-        yield Edge(dut.io_uart_txd)
+
 
 @cocotb.coroutine
 def assertions(dut):
-    yield readCoreValueAssert(dut,16, "A")
-    yield readCoreValueAssert(dut,16, "A2")
-    yield readCoreValueAssert(dut,0xAA, "B")
-    yield readCoreValueAssert(dut,3, "C")
-    yield readCoreValueAssert(dut,0x01, "D")
-    yield readCoreValueAssert(dut,0x02, "E")
-    yield readCoreValueAssert(dut,0x03, "F")
-    yield readCoreValueAssert(dut,0, "C")
-
-    yield readCoreValueAssert(dut,0x10, "L")
-    yield readCoreValueAssert(dut,0x99, "M")
-    yield readCoreValueAssert(dut,0x12345678, "N")
-
-    yield readCoreValueAssert(dut,0x9A, "O")
-
-    yield readCoreValueAssert(dut, 0x10, "P")
-    yield readCoreValueAssert(dut, 0x9B, "Q")
-    yield readCoreValueAssert(dut, 0x1234567B, "R")
+    yield Timer(1000*50000)
 
 @cocotb.test()
 def test1(dut):
@@ -45,9 +24,8 @@ def test1(dut):
     random.seed(0)
 
     cocotb.fork(simulationSpeedPrinter(dut.io_axiClk))
-    yield loadIHex(dut,"../hex/uart.hex",dut.io_axiClk,dut.io_asyncReset)
+    yield loadIHex(dut,"../hex/dhrystone.hex",dut.io_axiClk,dut.io_asyncReset)
     cocotb.fork(ClockDomainAsyncReset(dut.io_axiClk, dut.io_asyncReset))
-    cocotb.fork(txToRxBypass(dut))
 
     yield assertions(dut)
     yield Timer(1000*10)

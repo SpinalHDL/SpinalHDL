@@ -110,9 +110,15 @@ class Pinsec extends Component{
       new RiscvAxi4(coreConfig, iCacheConfig, dCacheConfig, debug, interruptCount)
     }
 
-    val ram, rom = Axi4SharedOnChipRam(
+    val rom = Axi4SharedOnChipRam(
       dataWidth = 32,
-      byteCount = 16 KB,
+      byteCount = 128 KB,
+      idWidth = 4
+    )
+
+    val ram = Axi4SharedOnChipRam(
+      dataWidth = 32,
+      byteCount = 32 KB,
       idWidth = 4
     )
 
@@ -147,8 +153,8 @@ class Pinsec extends Component{
 
     val axiCrossbar = Axi4CrossbarFactory()
       .addSlaves(
-        rom.io.axi ->(0x00000000L, 512 KB),
-        ram.io.axi ->(0x04000000L, 512 KB),
+        rom.io.axi ->(0x00000000L, 128 KB),
+        ram.io.axi ->(0x04000000L, 32 KB),
         apbBridge.io.axi ->(0xF0000000L, 1 MB)
       ).addConnections(
         core.io.i
