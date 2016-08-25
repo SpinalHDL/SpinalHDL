@@ -21,7 +21,7 @@ case class Prescaler(width : Int) extends Component{
   io.overflow := counter === io.limit
 
 
-  def driveFrom(busCtrl : BusSlaveFactory,baseAddress : BigInt,clearers : Seq[Bool],tickers : Seq[Bool]) = new Area {
+  def driveFrom(busCtrl : BusSlaveFactory,baseAddress : BigInt) = new Area {
     val limitLoad = busCtrl.createAndDriveFlow(io.limit,baseAddress)
     io.clear := limitLoad.valid
     io.limit := limitLoad.toReg()
