@@ -110,55 +110,6 @@ class ComplexBundle extends Bundle {
 
 
 
-class Play3 extends Component {
-
-
-  //  val c = out(a & b)
-  //  lazy val a = in Bool
-  //  lazy val b = in Bool
-  //  val areaC = new Area {
-  //    lazy val c  : Bool = areaAB.a & areaAB.b
-  //    lazy val d : Bool = True
-  //  }
-  //  val areaAB = new Area {
-  //    lazy val a : Bool = in Bool
-  //    lazy val b : Bool = in Bool
-  //    lazy val c : Bool  =  areaC.d
-  //  }
-  //
-  //  out(areaC.c)
-
-
-  //  val arrayType = Vec(Bool,7)
-  //  //val arrayIn = in Vec(Vec(Bool,5),10)
-  //  //val arrayIn = in Vec(arrayType,10)
-  //  val arrayIn = in Vec(UInt(3 bit), UInt(5 bit),UInt(7 bit))
-  //  val arrayOut = out cloneOf(arrayIn)
-  //  arrayOut := arrayIn
-  //
-  //  val uList = List(U(4),U(5))
-  //  val count = out (SetCount(B"b1100"))
-  //  val count2 = out(uList.sContains(U(0)))
-  //
-  //
-  //  val normalVec = Vec(UInt(4 bit),10)
-  //
-  //  val containZero = normalVec.sContains(0)
-  //  val existOne = normalVec.sExists(_ === 1)
-  //  val (firstTwoValid,firstTwoIndex) = normalVec.sFindFirst(_ === 2)
-  //
-  //
-  //  in(normalVec)
-  //  out(firstTwoValid)
-  //  out(firstTwoIndex)
-}
-
-object Play3 {
-  def main(args: Array[String]): Unit = {
-    SpinalVhdl(new Play3)
-  }
-}
-
 
 object play {
 

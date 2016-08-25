@@ -14,10 +14,11 @@ abstract class SpinalTesterCocotbBase extends FunSuite /* with BeforeAndAfterAll
   var withWaveform = false
   var spinalMustPass = true
   var cocotbMustPass = true
-
+  var genHdlSuccess = false
   def genHdl: Unit ={
       try {
         backendConfig(SpinalConfig(mode = Verilog,dumpWave = DumpWaveConfig(depth = 1))).generate(createToplevel)
+        genHdlSuccess = true
       } catch {
         case e: Throwable => {
           if(spinalMustPass)
@@ -29,6 +30,7 @@ abstract class SpinalTesterCocotbBase extends FunSuite /* with BeforeAndAfterAll
   }
 
   def doTest(testPath : String): Unit ={
+    assert(genHdlSuccess)
     doCmd(Seq(
       s"cd $testPath",
       "make")
@@ -51,7 +53,11 @@ abstract class SpinalTesterCocotbBase extends FunSuite /* with BeforeAndAfterAll
     }
   }
 
-  postTest
+  if(postTest != null){
+    test("postTests"){
+      postTest()
+    }
+  }
 
 
 
@@ -87,7 +93,7 @@ abstract class SpinalTesterCocotbBase extends FunSuite /* with BeforeAndAfterAll
     return true
   }
 
-  def postTest : Unit = {}
+  def postTest: () => Unit = null
 
   def backendConfig(config: SpinalConfig) : SpinalConfig = config
   def getName: String = this.getClass.getName()

@@ -1049,6 +1049,29 @@ class PhaseCheckInferredWidth(pc: PhaseContext) extends PhaseCheck{
   }
 }
 
+class PhaseKeepAll(pc: PhaseContext) extends PhaseMisc{
+  override def useNodeConsumers = false
+  override def impl(pc : PhaseContext): Unit = {
+    import pc._
+    def walker(that : Any): Unit ={
+      Misc.reflect(that.asInstanceOf[Object], (name, obj) => {
+        obj match {
+          case area: Area => walker(area)
+          case data: Data => data.keep()
+          case _ =>
+        }
+      })
+    }
+
+    for(c <- components()){
+      walker(c)
+    }
+  }
+}
+
+
+
+
 class PhaseCheckCombinationalLoops(pc: PhaseContext) extends PhaseCheck{
   override def useNodeConsumers = false
   override def impl(pc : PhaseContext): Unit = {
@@ -1434,7 +1457,15 @@ class PhaseAddNodesIntoComponent(pc: PhaseContext) extends PhaseMisc{
       }
       stack
     },node => {
-      node.component.nodes += node
+      node match{
+        case node : Node with Widthable =>{
+          if(node.getWidth > 0){
+            node.component.nodes += node
+          }
+        }
+        case _ => node.component.nodes += node
+      }
+
     })
   }
 }
@@ -1554,6 +1585,7 @@ object SpinalVhdlBoot{
 
     phases += new PhaseCreateComponent(gen)(pc)
     phases += new PhaseDummy(SpinalProgress("Start analysis and transform"))
+    if(config.keepAll) phases  += new PhaseKeepAll(pc)
     phases ++= config.transformationPhases
     phases ++= config.memBlackBoxers
     phases += new PhaseApplyIoDefault(pc)
@@ -1718,6 +1750,7 @@ object SpinalVerilogBoot{
 
     phases += new PhaseCreateComponent(gen)(pc)
     phases += new PhaseDummy(SpinalProgress("Start analysis and transform"))
+    if(config.keepAll) phases  += new PhaseKeepAll(pc)
     phases ++= config.transformationPhases
     phases ++= config.memBlackBoxers
     phases += new PhaseApplyIoDefault(pc)

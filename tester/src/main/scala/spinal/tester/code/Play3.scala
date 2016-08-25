@@ -137,3 +137,19 @@ object PlayDualRail{
   }
 
 }
+
+
+object PlayKeepAll{
+  class TopLevel extends Component{
+    val a,b = in Bool
+    val result = out Bool
+    val toto = U"1010"
+    val yolo = toto + 2
+
+    result := a || b
+  }
+
+  def main(args: Array[String]) {
+    SpinalConfig(keepAll = true).generateVhdl(new TopLevel).printPruned()
+  }
+}
