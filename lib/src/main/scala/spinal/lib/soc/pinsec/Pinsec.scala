@@ -18,11 +18,8 @@ import spinal.lib.system.debugger.{JtagAxi4SharedDebugger, SystemDebuggerConfig}
 class Pinsec extends Component{
   val debug = true
   val interruptCount = 4
-//  val ahbConfig = Axi4Config(addressWidth = 32,dataWidth = 32)
-//  val apbConfig = Apb3Config(addressWidth = 16,dataWidth = 32)
 
   val io = new Bundle{
-//    val ahbAccess = slave(Axi4(ahbConfig))
     val asyncReset = in Bool
     val axiClk = in Bool
     val jtag_tck = in Bool
@@ -33,18 +30,7 @@ class Pinsec extends Component{
     val uart  = master(Uart())
   }
 
-//  val resetCtrl = new ClockingArea(ClockDomain(io.axiClk,config = ClockDomainConfig(resetKind = BOOT))) {
-//    val asyncResetSyncronised = BufferCC(io.asyncReset)
-//    val doReset = False setWhen(asyncResetSyncronised)
-//    val axiResetCounter = Reg(UInt(4 bits)) init(0)
-//    when(axiResetCounter =/= "1111"){
-//      axiResetCounter := axiResetCounter + 1
-//    }
-//    when(doReset) {
-//      axiResetCounter := 0
-//    }
-//    val axiReset = RegNext(axiResetCounter =/= "1111")
-//  }
+
   val resetCtrl = new ClockingArea(ClockDomain(io.axiClk,config = ClockDomainConfig(resetKind = BOOT))) {
     val axiResetCounter = Reg(UInt(4 bits)) init(0)
     when(axiResetCounter =/= "1111"){
@@ -58,34 +44,10 @@ class Pinsec extends Component{
 
     val axiReset =  RegNext(axiResetOrder)
     val coreReset = RegNext(coreResetOrder)
-}
+  }
 
 
   val axi = new ClockingArea(ClockDomain(io.axiClk,resetCtrl.axiReset)) {
-
-    //replace wit null to disable instruction cache
-    val iCacheConfig = null
-    //         InstructionCacheConfig(
-    //         cacheSize =4096,
-    //         bytePerLine =32,
-    //         wayCount = 1,
-    //         wrappedMemAccess = true,
-    //         addressWidth = 32,
-    //         cpuDataWidth = 32,
-    //         memDataWidth = 32
-    //       )
-
-    //replace wit null to disable data cache
-    val dCacheConfig = null
-    //         DataCacheConfig(
-    //         cacheSize = 4096,
-    //         bytePerLine =32,
-    //         wayCount = 1,
-    //         addressWidth = 32,
-    //         cpuDataWidth = 32,
-    //         memDataWidth = 32
-    //       )
-    //
     val coreConfig = CoreConfig(
       pcWidth = 32,
       addrWidth = 32,
@@ -108,7 +70,7 @@ class Pinsec extends Component{
 
 
     val core = ClockDomain(io.axiClk,resetCtrl.coreReset){
-      new RiscvAxi4(coreConfig, iCacheConfig, dCacheConfig, debug, interruptCount)
+      new RiscvAxi4(coreConfig, null, null, debug, interruptCount)
     }
 
     val rom = Axi4SharedOnChipRam(
@@ -139,9 +101,7 @@ class Pinsec extends Component{
 
     val gpioACtrl = Apb3Gpio(32)
     val gpioBCtrl = Apb3Gpio(32)
-
     val timerCtrl = PinsecTimerCtrl()
-
     val uartCtrl = Apb3UartCtrl(UartCtrlMemoryMappedConfig(
       uartCtrlConfig = UartCtrlGenerics(
         dataWidthMax = 8,
@@ -156,16 +116,13 @@ class Pinsec extends Component{
 
     val axiCrossbar = Axi4CrossbarFactory()
       .addSlaves(
-        rom.io.axi ->(0x00000000L, 128 kB),
-        ram.io.axi ->(0x04000000L, 32 kB),
+        rom.io.axi       ->(0x00000000L, 128 kB),
+        ram.io.axi       ->(0x04000000L, 32 kB),
         apbBridge.io.axi ->(0xF0000000L, 1 MB)
       ).addConnections(
-        core.io.i
-          -> List(rom.io.axi, ram.io.axi),
-        core.io.d
-          -> List(rom.io.axi, ram.io.axi, apbBridge.io.axi),
-        jtagCtrl.io.axi
-          -> List(rom.io.axi, ram.io.axi, apbBridge.io.axi)
+        core.io.i       -> List(rom.io.axi, ram.io.axi),
+        core.io.d       -> List(rom.io.axi, ram.io.axi, apbBridge.io.axi),
+        jtagCtrl.io.axi -> List(rom.io.axi, ram.io.axi, apbBridge.io.axi)
       ).build()
 
 
