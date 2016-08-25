@@ -26,6 +26,7 @@ case class PinsecTimerCtrl() extends Component {
     val external = in(PinsecTimerCtrlExternal())
     val interrupt = out Bool
   }
+  val external = BufferCC(io.external)
 
   val prescaler = Prescaler(16)
 
@@ -37,48 +38,48 @@ case class PinsecTimerCtrl() extends Component {
   val prescalerBridge = prescaler.driveFrom(busCtrl,0x00)
 
   val timerABridge = timerA.driveFrom(busCtrl,0x40)(
-    clears = Seq(
-      timerA.io.tick
-    ),
-    ticks = Seq(
+    ticks = List(
       True,
       prescaler.io.overflow
+    ),
+    clears = List(
+      timerA.io.overflow
     )
   )
 
   val timerBBridge = timerB.driveFrom(busCtrl,0x50)(
-    clears = Seq(
-      timerA.io.tick,
-      io.external.clear
-    ),
-    ticks = Seq(
+    ticks = List(
       True,
       prescaler.io.overflow,
-      io.external.tick
+      external.tick
+    ),
+    clears = List(
+      timerB.io.overflow,
+      external.clear
     )
   )
 
   val timerCBridge = timerC.driveFrom(busCtrl,0x60)(
-    clears = Seq(
-      timerA.io.tick,
-      io.external.clear
-    ),
-    ticks = Seq(
+    ticks = List(
       True,
       prescaler.io.overflow,
-      io.external.tick
+      external.tick
+    ),
+    clears = List(
+      timerC.io.overflow,
+      external.clear
     )
   )
 
   val timerDBridge = timerD.driveFrom(busCtrl,0x70)(
-    clears = Seq(
-      timerA.io.tick,
-      io.external.clear
-    ),
-    ticks = Seq(
+    ticks = List(
       True,
       prescaler.io.overflow,
-      io.external.tick
+      external.tick
+    ),
+    clears = List(
+      timerD.io.overflow,
+      external.clear
     )
   )
 

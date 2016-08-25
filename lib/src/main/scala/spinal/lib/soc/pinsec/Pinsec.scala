@@ -113,13 +113,13 @@ class Pinsec extends Component{
 
     val rom = Axi4SharedOnChipRam(
       dataWidth = 32,
-      byteCount = 128 KB,
+      byteCount = 128 kB,
       idWidth = 4
     )
 
     val ram = Axi4SharedOnChipRam(
       dataWidth = 32,
-      byteCount = 32 KB,
+      byteCount = 32 kB,
       idWidth = 4
     )
 
@@ -156,8 +156,8 @@ class Pinsec extends Component{
 
     val axiCrossbar = Axi4CrossbarFactory()
       .addSlaves(
-        rom.io.axi ->(0x00000000L, 128 KB),
-        ram.io.axi ->(0x04000000L, 32 KB),
+        rom.io.axi ->(0x00000000L, 128 kB),
+        ram.io.axi ->(0x04000000L, 32 kB),
         apbBridge.io.axi ->(0xF0000000L, 1 MB)
       ).addConnections(
         core.io.i
@@ -172,11 +172,11 @@ class Pinsec extends Component{
     val apbDecoder = Apb3Crossbar(
       master = apbBridge.io.apb,
       slaves = List(
-        gpioACtrl.io.apb -> (0x00000, 4 KB),
-        gpioBCtrl.io.apb -> (0x01000, 4 KB),
-        uartCtrl.io.apb  -> (0x10000, 4 KB),
-        timerCtrl.io.apb -> (0x20000, 4 KB),
-        core.io.debugBus -> (0xF0000, 4 KB)
+        gpioACtrl.io.apb -> (0x00000, 4 kB),
+        gpioBCtrl.io.apb -> (0x01000, 4 kB),
+        uartCtrl.io.apb  -> (0x10000, 4 kB),
+        timerCtrl.io.apb -> (0x20000, 4 kB),
+        core.io.debugBus -> (0xF0000, 4 kB)
       )
     )
 

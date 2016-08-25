@@ -26,10 +26,10 @@ case class Timer(width : Int) extends Component{
   io.value := counter
 
 
-  def driveFrom(busCtrl : BusSlaveFactory,baseAddress : BigInt)(clears : Seq[Bool],ticks : Seq[Bool]) = new Area {
+  def driveFrom(busCtrl : BusSlaveFactory,baseAddress : BigInt)(ticks : Seq[Bool],clears : Seq[Bool]) = new Area {
     //Address 0 => clear/tick masks + bus
-    val clearsEnable = busCtrl.createReadWrite(Bits(clears.length bits),baseAddress + 0,0) init(0)
-    val ticksEnable  = busCtrl.createReadWrite(Bits(ticks.length bits),baseAddress + 0,16) init(0)
+    val ticksEnable  = busCtrl.createReadWrite(Bits(ticks.length bits),baseAddress + 0,0) init(0)
+    val clearsEnable = busCtrl.createReadWrite(Bits(clears.length bits),baseAddress + 0,16) init(0)
     val busClearing = False
 
     io.clear := (clearsEnable & clears.asBits).orR | busClearing
