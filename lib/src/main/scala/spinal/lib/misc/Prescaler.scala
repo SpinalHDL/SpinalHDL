@@ -14,7 +14,7 @@ case class Prescaler(width : Int) extends Component{
   val counter = Reg(UInt(width bits))
   counter := counter + 1
 
-  when(io.clear){
+  when(io.clear || io.overflow){
     counter := 0
   }
 
@@ -22,8 +22,7 @@ case class Prescaler(width : Int) extends Component{
 
 
   def driveFrom(busCtrl : BusSlaveFactory,baseAddress : BigInt) = new Area {
-    val limitLoad = busCtrl.createAndDriveFlow(io.limit,baseAddress)
-    io.clear := limitLoad.valid
-    io.limit := limitLoad.toReg()
+    busCtrl.driveAndRead(io.limit,baseAddress)
+    io.clear := busCtrl.isWriting(baseAddress)
   }
 }

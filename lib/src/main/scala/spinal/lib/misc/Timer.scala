@@ -15,7 +15,7 @@ case class Timer(width : Int) extends Component{
   }
   
   val counter = Reg(UInt(width bits))
-  when(io.tick){
+  when(io.tick && !io.overflow){
     counter := counter + 1
   }
   when(io.clear){
@@ -26,20 +26,21 @@ case class Timer(width : Int) extends Component{
   io.value := counter
 
 
-  def driveFrom(busCtrl : BusSlaveFactory,baseAddress : BigInt,clears : Seq[Bool],ticks : Seq[Bool]) = new Area {
+  def driveFrom(busCtrl : BusSlaveFactory,baseAddress : BigInt)(clears : Seq[Bool],ticks : Seq[Bool]) = new Area {
     //Address 0 => clear/tick masks + bus
-    val clearsEnable = busCtrl.createReadWrite(Bits(clears.length bits),baseAddress,0) init(0)
-    val ticksEnable  = busCtrl.createReadWrite(Bits(ticks.length bits),baseAddress,16) init(0)
+    val clearsEnable = busCtrl.createReadWrite(Bits(clears.length bits),baseAddress + 0,0) init(0)
+    val ticksEnable  = busCtrl.createReadWrite(Bits(ticks.length bits),baseAddress + 0,16) init(0)
+    val busClearing = False
 
-    io.clear := (clearsEnable & clears.asBits).orR
+    io.clear := (clearsEnable & clears.asBits).orR | busClearing
     io.tick  := (ticksEnable  & ticks.asBits ).orR
 
     //Address 4 => read/write limit (+ auto clear)
-    busCtrl.driveAndRead(io.limit,4)
-    io.clear := busCtrl.isWriting(4)
+    busCtrl.driveAndRead(io.limit,baseAddress + 4)
+    busClearing setWhen(busCtrl.isWriting(baseAddress + 4))
 
     //Address 8 => read timer value / write => clear timer value
-    busCtrl.read(io.value,8)
-    io.clear.setWhen(busCtrl.isWriting(8))
+    busCtrl.read(io.value,baseAddress + 8)
+    busClearing setWhen(busCtrl.isWriting(baseAddress + 8))
   }
 }

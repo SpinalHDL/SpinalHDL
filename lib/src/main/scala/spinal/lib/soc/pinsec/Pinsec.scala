@@ -29,6 +29,7 @@ class Pinsec extends Component{
     val jtag = slave(Jtag())
     val gpioA = master(TriStateArray(32 bits))
     val gpioB = master(TriStateArray(32 bits))
+    val timerExternal = in(PinsecTimerCtrlExternal())
     val uart  = master(Uart())
   }
 
@@ -139,6 +140,8 @@ class Pinsec extends Component{
     val gpioACtrl = Apb3Gpio(32)
     val gpioBCtrl = Apb3Gpio(32)
 
+    val timerCtrl = PinsecTimerCtrl()
+
     val uartCtrl = Apb3UartCtrl(UartCtrlMemoryMappedConfig(
       uartCtrlConfig = UartCtrlGenerics(
         dataWidthMax = 8,
@@ -172,6 +175,7 @@ class Pinsec extends Component{
         gpioACtrl.io.apb -> (0x00000, 4 KB),
         gpioBCtrl.io.apb -> (0x01000, 4 KB),
         uartCtrl.io.apb  -> (0x10000, 4 KB),
+        timerCtrl.io.apb -> (0x20000, 4 KB),
         core.io.debugBus -> (0xF0000, 4 KB)
       )
     )
@@ -179,6 +183,7 @@ class Pinsec extends Component{
     if (interruptCount != 0) {
       core.io.interrupt := (
         (0 -> uartCtrl.io.interrupt),
+        (1 -> timerCtrl.io.interrupt),
         (default -> false)
       )
     }
@@ -189,10 +194,11 @@ class Pinsec extends Component{
     }
   }
 
-  io.gpioA <> axi.gpioACtrl.io.gpio
-  io.gpioB <> axi.gpioBCtrl.io.gpio
-  io.jtag  <> axi.jtagCtrl.io.jtag
-  io.uart <> axi.uartCtrl.io.uart
+  io.gpioA         <> axi.gpioACtrl.io.gpio
+  io.gpioB         <> axi.gpioBCtrl.io.gpio
+  io.timerExternal <> axi.timerCtrl.io.external
+  io.jtag          <> axi.jtagCtrl.io.jtag
+  io.uart          <> axi.uartCtrl.io.uart
 }
 
 
