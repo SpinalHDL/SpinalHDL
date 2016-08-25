@@ -1,5 +1,5 @@
 VERILOG_SOURCES += $(SPINALROOT)/Pinsec.v
 TOPLEVEL=Pinsec
-MODULE=PinsecTest
+MODULE=UartTest
 
-include ../common/Makefile.sim
+include ../../common/Makefile.sim

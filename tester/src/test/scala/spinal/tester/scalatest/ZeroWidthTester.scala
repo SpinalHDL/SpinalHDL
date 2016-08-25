@@ -155,7 +155,7 @@ class ZeroWidthTesterCocotbBoot extends SpinalTesterCocotbBase {
   override def createToplevel: Component =  new ZeroWidthTester.ZeroWidthTester
   override def pythonTestLocation: String = "tester/src/test/python/spinal/ZeroWidthTester"
 
-  override def postTest: Unit = {
+  override def postTest: () => Unit = () => {
     val iterator = Source.fromFile("ZeroWidthTester.v").getLines()
     for(line <- iterator){
       assert (!line.contains("-1"))

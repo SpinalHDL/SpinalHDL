@@ -1,11 +1,5 @@
-
-
-
 import cocotb
-from cocotb.result import ReturnValue
 from cocotb.triggers import Timer
-
-
 
 class JtagMaster:
     def __init__(self,jtag,period,instructionWidth):

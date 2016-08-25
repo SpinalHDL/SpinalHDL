@@ -2,21 +2,23 @@ package spinal.tester.scalatest
 
 import java.nio.charset.Charset
 
-import org.scalatest.{BeforeAndAfterAll, ParallelTestExecution, FunSuite}
+import org.scalatest._
 import spinal.core._
 
+import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.Await
 import scala.sys.process._
 
-abstract class SpinalTesterCocotbBase extends FunSuite  {
+abstract class SpinalTesterCocotbBase extends FunSuite /* with BeforeAndAfterAll with ParallelTestExecution*/ {
 
   var withWaveform = false
   var spinalMustPass = true
   var cocotbMustPass = true
-
-  def doTest: Unit ={
+  var genHdlSuccess = false
+  def genHdl: Unit ={
       try {
         backendConfig(SpinalConfig(mode = Verilog,dumpWave = DumpWaveConfig(depth = 1))).generate(createToplevel)
+        genHdlSuccess = true
       } catch {
         case e: Throwable => {
           if(spinalMustPass)
@@ -25,19 +27,37 @@ abstract class SpinalTesterCocotbBase extends FunSuite  {
         }
       }
       assert(spinalMustPass,"Spinal has not fail :(")
-
-      doCmd(Seq(
-        s"cd $pythonTestLocation",
-        "make")
-      )
-      val pass = getCocotbPass()
-      assert(!cocotbMustPass || pass,"Simulation fail")
-      assert(cocotbMustPass || !pass,"Simulation has not fail :(")
-      postTest
   }
 
-  test(getName + "Verilog") {doTest}
+  def doTest(testPath : String): Unit ={
+    assert(genHdlSuccess)
+    doCmd(Seq(
+      s"cd $testPath",
+      "make")
+    )
+    val pass = getCocotbPass(testPath)
+    assert(!cocotbMustPass || pass,"Simulation fail")
+    assert(cocotbMustPass || !pass,"Simulation has not fail :(")
+  }
 
+  test("genVerilog") {genHdl}
+//  genHdl
+  if(spinalMustPass) {
+    val cocotbTests = ArrayBuffer[(String, String)]()
+    if (pythonTestLocation != null) cocotbTests += ("cocotb" -> pythonTestLocation)
+    cocotbTests ++= pythonTests
+    for ((name, location) <- cocotbTests) {
+      test(name + "Verilog") {
+        doTest(location)
+      }
+    }
+  }
+
+  if(postTest != null){
+    test("postTests"){
+      postTest()
+    }
+  }
 
 
 
@@ -63,9 +83,9 @@ abstract class SpinalTesterCocotbBase extends FunSuite  {
     println(err)
   }
 
-  def getCocotbPass() : Boolean = {
+  def getCocotbPass(location : String) : Boolean = {
     import scala.io.Source
-    for(line <- Source.fromFile(pythonTestLocation + "/results.xml").getLines()) {
+    for(line <- Source.fromFile(location + "/results.xml").getLines()) {
       if (line.contains("failure")){
         return false
       }
@@ -73,10 +93,11 @@ abstract class SpinalTesterCocotbBase extends FunSuite  {
     return true
   }
 
-  def postTest : Unit = {}
+  def postTest: () => Unit = null
 
   def backendConfig(config: SpinalConfig) : SpinalConfig = config
   def getName: String = this.getClass.getName()
   def createToplevel: Component
-  def pythonTestLocation : String
+  def pythonTestLocation : String = null
+  def pythonTests : Seq[(String,String)] = Nil
 }

@@ -73,6 +73,7 @@ object blackboxOnlyIfRequested extends MemBlackboxingPolicy{
 case class SpinalConfig(
   mode: SpinalMode = null,
   debug : Boolean = false,
+  keepAll : Boolean = false,
   defaultConfigForClockDomains: ClockDomainConfig = ClockDomainConfig(),
   onlyStdLogicVectorAtTopLevelIo : Boolean = false,
   defaultClockDomainFrequency : IClockDomainFrequency = UnknownFrequency(),

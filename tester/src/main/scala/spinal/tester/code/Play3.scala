@@ -64,6 +64,7 @@ object PlayAhbLite3_2{
         ahbMasters(2).toAhbLite3() -> List(ahbSlaves(0),ahbSlaves(3))
       )
       .build()
+    (ClockDomain.current.frequency.getValue) sec
   }
 
   def main(args: Array[String]) {
@@ -135,4 +136,20 @@ object PlayDualRail{
     }
   }
 
+}
+
+
+object PlayKeepAll{
+  class TopLevel extends Component{
+    val a,b = in Bool
+    val result = out Bool
+    val toto = U"1010"
+    val yolo = toto + 2
+
+    result := a || b
+  }
+
+  def main(args: Array[String]) {
+    SpinalConfig(keepAll = true).generateVhdl(new TopLevel).printPruned()
+  }
 }

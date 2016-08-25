@@ -288,7 +288,7 @@ end
   }
 
   def emitAsyncronous(component: Component, ret: StringBuilder, funcRet: StringBuilder): Unit = {
-    val processList = getAsyncProcesses(component)
+    val processList = getAsyncProcesses(component,false)
 
     for (process <- processList if !process.needProcessDef) {
       for (node <- process.nodes) {

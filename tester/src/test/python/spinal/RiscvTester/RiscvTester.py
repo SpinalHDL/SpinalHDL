@@ -27,7 +27,7 @@ def loadIHex(path,array):
                     for i in range(0,byteCount):
                         array[nextAddr + i] = int(line[9+i*2:11+i*2],16)
                 elif key == 2:
-                    offset = int(line[9:13],16)
+                    offset = int(line[9:13],16) << 4
                 else:
                     pass
 
@@ -142,11 +142,12 @@ class Tester:
                   for i in range(0,1 << int(dut.io_d_cmd_payload_size)):
                     self.rom[int(dut.io_d_cmd_payload_address) + i] = (int(dut.io_d_cmd_payload_data) >> (i*8)) & 0xFF
                 elif int(dut.io_d_cmd_payload_address) <= 0x04007FFF :
+                  # print("write %x %x" % (int(dut.io_d_cmd_payload_address),int(dut.io_d_cmd_payload_data)))
                   for i in range(0,1 << int(dut.io_d_cmd_payload_size)):
-                      self.ram[(int(dut.io_d_cmd_payload_address) and 0x00007FFF) + i] = (int(dut.io_d_cmd_payload_data) >> (i*8)) & 0xFF
+                      self.ram[(int(dut.io_d_cmd_payload_address) & 0x00007FFF) + i] = (int(dut.io_d_cmd_payload_data) >> (i*8)) & 0xFF
 
                 else:
-                    raise TestFailure("dCmd out of range")
+                    raise TestFailure("dCmd out of range %x" %(int(dut.io_d_cmd_payload_address)))
 
               else:
                 dut.io_d_rsp_valid <= 1
@@ -166,17 +167,18 @@ class Tester:
                 elif int(dut.io_d_cmd_payload_address) <= 0x04007FFF :
                     data = 0
                     for i in range(0, 4):
-                        data |= self.ram[(int(dut.io_d_cmd_payload_address) and 0x00007FFF) + i]  << (i*8)
+                        data |= self.ram[(int(dut.io_d_cmd_payload_address) & 0x00007FFF) + i]  << (i*8)
+                    # print("read %x %x" % (int(dut.io_d_cmd_payload_address), int(dut.io_d_cmd_payload_data)))
                     dut.io_d_rsp_payload <= data
                 else:
-                    raise TestFailure("dCmd out of range")
+                    raise TestFailure("dCmd out of range %x" %(int(dut.io_d_cmd_payload_address)))
 
 
 
 
             if int(dut.io_iCheck_valid) == 1 :
               if (int(dut.io_iCheck_payload_address) & 3) != 0:
-                raise TestFailure("dCmd bad allignement")
+                raise TestFailure("iCmd bad allignement")
               if int(dut.io_iCheck_payload_data) != 0x00000013 and int(dut.io_iCheck_payload_data) != 0x01c02023 and int(dut.io_iCheck_payload_data) != 0xffc02e23 :
                 for i in range(0,4):
                   if self.rom[int(dut.io_iCheck_payload_address)+i] != ((int(dut.io_iCheck_payload_data) >> (i*8)) & 0xFF):
