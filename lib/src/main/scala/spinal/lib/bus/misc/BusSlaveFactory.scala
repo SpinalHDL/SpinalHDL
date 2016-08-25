@@ -14,9 +14,9 @@ trait BusSlaveFactory  extends Area{
            address : BigInt,
            bitOffset : Int = 0) : Unit
   
-  def write(that : Data,
+  def write[T <: Data](that : T,
             address : BigInt,
-            bitOffset : Int = 0) : Unit
+            bitOffset : Int = 0) : T
 
   def onWrite(address : BigInt)(doThat : => Unit) : Unit
   def onRead (address : BigInt)(doThat : => Unit) : Unit
@@ -30,6 +30,24 @@ trait BusSlaveFactory  extends Area{
     write(that,address,bitOffset)
     read(that,address,bitOffset)
   }
+
+
+  def isWriting(address : BigInt) : Bool = {
+    val ret = False
+    this.onWrite(address){
+      ret := True
+    }
+    ret
+  }
+
+  def isReading (address : BigInt) : Bool = {
+    val ret = False
+    this.onRead(address){
+      ret := True
+    }
+    ret
+  }
+
 
   def readMultiWord(that : Data,
                 address : BigInt) : Unit  = {
@@ -179,11 +197,12 @@ trait BusSlaveFactoryDelayed extends BusSlaveFactory{
     addAddressableElement(BusSlaveFactoryRead(that,address,bitOffset),address)
   }
 
-  override def write(that : Data,
+  override def write[T <: Data](that : T,
             address : BigInt,
-            bitOffset : Int = 0) : Unit  = {
+            bitOffset : Int = 0) : T  = {
     assert(bitOffset + that.getBitsWidth <= busDataWidth)
     addAddressableElement(BusSlaveFactoryWrite(that,address,bitOffset),address)
+    that
   }
 
   def onWrite(address : BigInt)(doThat : => Unit) : Unit = {
