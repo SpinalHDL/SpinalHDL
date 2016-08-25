@@ -126,7 +126,7 @@ class Pinsec extends Component{
       ).build()
 
 
-    val apbDecoder = Apb3Crossbar(
+    val apbDecoder = Apb3Decoder(
       master = apbBridge.io.apb,
       slaves = List(
         gpioACtrl.io.apb -> (0x00000, 4 kB),
