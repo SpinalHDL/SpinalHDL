@@ -29,6 +29,7 @@ class StreamTester extends Component {
   assert(2 == LatencyAnalysis(io.master0.ready,io.slave0.ready))
 
 
+
   val forkInput = slave Stream(Bits(8 bits))
   val forkOutputs = Vec(master Stream(Bits(8 bits)),3)
   (forkOutputs , StreamFork(forkInput,3)).zipped.foreach(_ << _)

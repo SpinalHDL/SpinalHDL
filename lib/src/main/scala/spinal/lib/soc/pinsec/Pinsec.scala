@@ -53,7 +53,7 @@ class Pinsec extends Component{
       addrWidth = 32,
       startAddress = 0x200,
       regFileReadyKind = sync,
-      branchPrediction = disable,
+      branchPrediction = dynamic,
       bypassExecute0 = true,
       bypassExecute1 = true,
       bypassWriteBack = true,
@@ -161,7 +161,7 @@ class Pinsec extends Component{
 
 object Pinsec{
   def main(args: Array[String]) {
-    SpinalConfig().dumpWave().generateVerilog(new Pinsec)
-    SpinalConfig().dumpWave().generateVhdl(new Pinsec)
+    SpinalConfig().generateVerilog(new Pinsec)
+    SpinalConfig().generateVhdl(new Pinsec)
   }
 }

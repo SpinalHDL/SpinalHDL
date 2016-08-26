@@ -13,8 +13,13 @@ class PinsecTesterCocotbBoot extends SpinalTesterCocotbBase {
     "jtag" -> "tester/src/test/python/spinal/Pinsec/jtag",
     "uart" -> "tester/src/test/python/spinal/Pinsec/uart"
   )
-  override def createToplevel: Component = new Pinsec
-  override def backendConfig(config: SpinalConfig): SpinalConfig = config.dumpWave()
+  override def createToplevel: Component = {
+    val pinsec = new Pinsec
+    pinsec.axi.rom.ram.randBoot()
+    pinsec.axi.ram.ram.randBoot()
+    pinsec
+  }
+ // override def backendConfig(config: SpinalConfig): SpinalConfig = config.dumpWave()
 }
 
 

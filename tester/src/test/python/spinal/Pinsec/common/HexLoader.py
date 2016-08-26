@@ -31,6 +31,13 @@ def loadIHexCallback(address,array,dut,clk):
 def loadIHex(dut,hexPath,clk,reset):
 
     reset <= 1
+    clk <= 0
+    yield Timer(5)
+    clk <= 1
+    yield Timer(5)
+    clk <= 0
+    yield Timer(5)
+    clk <= 1
     yield Timer(5)
     writeBuffer = int(dut.axi_rom.ram_port0_write)
     enableBuffer = int(dut.axi_rom.ram_port0_enable)

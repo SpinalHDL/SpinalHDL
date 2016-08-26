@@ -64,7 +64,7 @@ case class Axi4WriteOnlyArbiter(outputConfig: Axi4Config,inputsCount : Int,route
   io.output.writeCmd.id := (cmdArbiter.io.chosen @@ cmdArbiter.io.output.id)
   
   // Route writeData
-  val routeBuffer = cmdRouteFork.translateWith(cmdArbiter.io.chosen).queue(routeBufferSize) //TODO check queue minimal latency of queue (probably 2, which is bad)
+  val routeBuffer = cmdRouteFork.translateWith(cmdArbiter.io.chosen).queueZeroLatency(routeBufferSize)
   val routeDataInput = io.inputs(routeBuffer.payload).writeData
   io.output.writeData.valid := routeBuffer.valid && routeDataInput.valid
   io.output.writeData.payload  := routeDataInput.payload
@@ -157,7 +157,7 @@ case class Axi4SharedArbiter(outputConfig: Axi4Config,
 
   // Route writeData
   @dontName val writeDataInputs = (io.writeInputs.map(_.writeData) ++ io.sharedInputs.map(_.writeData))
-  val routeBuffer = cmdRouteFork.throwWhen(!cmdRouteFork.write).translateWith(OHToUInt(cmdArbiter.io.chosenOH(sharedRange) ## cmdArbiter.io.chosenOH(writeRange))).queue(routeBufferSize) //TODO check queue minimal latency of queue (probably 2, which is bad)
+  val routeBuffer = cmdRouteFork.throwWhen(!cmdRouteFork.write).translateWith(OHToUInt(cmdArbiter.io.chosenOH(sharedRange) ## cmdArbiter.io.chosenOH(writeRange))).queueZeroLatency(routeBufferSize) //TODO check queue minimal latency of queue (probably 2, which is bad)
   val routeDataInput = writeDataInputs.apply(routeBuffer.payload)
   io.output.writeData.valid := routeBuffer.valid && routeDataInput.valid
   io.output.writeData.payload  := routeDataInput.payload
