@@ -169,15 +169,15 @@ case class SdramCtrl(c : SdramLayout,t : SdramTimings,CAS : Int) extends Compone
     def cycleCounter(cycleMax : BigInt,assignCheck : Boolean = false) = new Area {
       val counter = Reg(UInt(log2Up(cycleMax) bits)) init(0)
       val busy = counter =/= 0
-      when(busy){
+      when(busy && rsp.ready){
         counter := counter - 1
       }
       def setCycles(cycles : BigInt) = {
-        if(!assignCheck)
-          counter := cycles-1
+        if (!assignCheck)
+          counter := cycles - 1
         else
-          when(cycles-1 >= counter){
-            counter := cycles-1
+          when(cycles - 1 >= counter) {
+            counter := cycles - 1
           }
       }
       def setTime(time : BigDecimal) = setCycles(timeToCycles(time).max(1))
@@ -251,101 +251,111 @@ case class SdramCtrl(c : SdramLayout,t : SdramTimings,CAS : Int) extends Compone
     cmd << bubbleInserter.rsp
 
     val sdram = Reg(io.sdram)
-    io.sdram <> sdram
+    (io.sdram.flatten,  sdram.flatten).zipped.foreach((ext,int) => {
+      if(ext.isOutput) ext := int
+    })
+    sdram.CKE.init(False)
 
-    sdram.CKE  := True
-    sdram.CSn  := False
-    sdram.RASn := True
-    sdram.CASn := True
-    sdram.WEn  := True
-    sdram.DQ.write := cmd.data
-    sdram.DQ.writeEnable := False
+    val remoteCke = RegNext(sdram.CKE) init(True)
+    val readHistory = History(
+      that       = cmd.valid && cmd.task === READ,
+      range      = 0 to CAS + 2,
+      when       = remoteCke,
+      init       = False
+    )
+    sdram.CKE    := !(readHistory.orR && !io.rsp.ready)
 
-    when(cmd.valid){
-      switch(cmd.task){
-        is(PRECHARGE_ALL){
-          sdram.ADDR(10) := True
-          sdram.CSn := False
-          sdram.RASn :=False
-          sdram.CASn :=True
-          sdram.WEn :=	False
-          sdram.DQM := (sdram.DQM.range -> true)
-        }
-        is(REFRESH){
-          sdram.CSn  := False
-          sdram.RASn := False
-          sdram.CASn := False
-          sdram.WEn  := True
-          sdram.DQM  := (sdram.DQM.range -> true)
-        }
-        is(MODE){
-          sdram.ADDR := 0
-          sdram.ADDR(2 downto 0) := 0
-          sdram.ADDR(3) := False
-          sdram.ADDR(6 downto 4) := CAS
-          sdram.ADDR(8 downto 7) := 0
-          sdram.ADDR(9) := False
-          sdram.BA := 0
-          sdram.CSn := False
-          sdram.RASn :=False
-          sdram.CASn :=False
-          sdram.WEn :=	False
-          sdram.DQM := (sdram.DQM.range -> true)
-        }
-        is(ACTIVE){
-          sdram.ADDR := cmd.rowColumn.asBits
-          sdram.BA   := cmd.bank.asBits
-          sdram.CSn  := False
-          sdram.RASn :=False
-          sdram.CASn :=True
-          sdram.WEn  :=	True
-          sdram.DQM  := (sdram.DQM.range -> true)
-        }
-        is(WRITE){
-          sdram.ADDR := cmd.rowColumn.asBits
-          sdram.ADDR (10) := False
-          sdram.DQ.writeEnable := True
-          sdram.DQ.write := cmd.data
-          sdram.DQM := ~cmd.mask
-          sdram.BA := cmd.bank.asBits
-          sdram.CSn := False
-          sdram.RASn :=True
-          sdram.CASn :=False
-          sdram.WEn :=	False
-        }
-        is(READ){
-          sdram.DQM := 0
-          sdram.ADDR := cmd.rowColumn.asBits
-          sdram.ADDR (10) := False
-          sdram.BA := cmd.bank.asBits
-          sdram.CSn := False
-          sdram.RASn :=True
-          sdram.CASn :=False
-          sdram.WEn :=	True
-        }
-        is(PRECHARGE_SINGLE){
-          sdram.BA := cmd.bank.asBits
-          sdram.ADDR(10) := False
-          sdram.CSn := False
-          sdram.RASn :=False
-          sdram.CASn :=True
-          sdram.WEn :=	False
-          sdram.DQM := (sdram.DQM.range -> true)
+    when(remoteCke){
+      sdram.DQ.read := io.sdram.DQ.read
+      sdram.CSn  := False
+      sdram.RASn := True
+      sdram.CASn := True
+      sdram.WEn  := True
+      sdram.DQ.write := cmd.data
+      sdram.DQ.writeEnable := False
+
+      when(cmd.valid) {
+        switch(cmd.task) {
+          is(PRECHARGE_ALL) {
+            sdram.ADDR(10) := True
+            sdram.CSn := False
+            sdram.RASn := False
+            sdram.CASn := True
+            sdram.WEn := False
+            sdram.DQM := (sdram.DQM.range -> true)
+          }
+          is(REFRESH) {
+            sdram.CSn := False
+            sdram.RASn := False
+            sdram.CASn := False
+            sdram.WEn := True
+            sdram.DQM := (sdram.DQM.range -> true)
+          }
+          is(MODE) {
+            sdram.ADDR := 0
+            sdram.ADDR(2 downto 0) := 0
+            sdram.ADDR(3) := False
+            sdram.ADDR(6 downto 4) := CAS
+            sdram.ADDR(8 downto 7) := 0
+            sdram.ADDR(9) := False
+            sdram.BA := 0
+            sdram.CSn := False
+            sdram.RASn := False
+            sdram.CASn := False
+            sdram.WEn := False
+            sdram.DQM := (sdram.DQM.range -> true)
+          }
+          is(ACTIVE) {
+            sdram.ADDR := cmd.rowColumn.asBits
+            sdram.BA := cmd.bank.asBits
+            sdram.CSn := False
+            sdram.RASn := False
+            sdram.CASn := True
+            sdram.WEn := True
+            sdram.DQM := (sdram.DQM.range -> true)
+          }
+          is(WRITE) {
+            sdram.ADDR := cmd.rowColumn.asBits
+            sdram.ADDR(10) := False
+            sdram.DQ.writeEnable := True
+            sdram.DQ.write := cmd.data
+            sdram.DQM := ~cmd.mask
+            sdram.BA := cmd.bank.asBits
+            sdram.CSn := False
+            sdram.RASn := True
+            sdram.CASn := False
+            sdram.WEn := False
+          }
+          is(READ) {
+            sdram.DQM := 0
+            sdram.ADDR := cmd.rowColumn.asBits
+            sdram.ADDR(10) := False
+            sdram.BA := cmd.bank.asBits
+            sdram.CSn := False
+            sdram.RASn := True
+            sdram.CASn := False
+            sdram.WEn := True
+          }
+          is(PRECHARGE_SINGLE) {
+            sdram.BA := cmd.bank.asBits
+            sdram.ADDR(10) := False
+            sdram.CSn := False
+            sdram.RASn := False
+            sdram.CASn := True
+            sdram.WEn := False
+            sdram.DQM := (sdram.DQM.range -> true)
+          }
         }
       }
     }
 
-    val readDelayed = Delay(
-      that       = cmd.valid && cmd.task === READ,
-      cycleCount = CAS + 2,
-      cond       = cmd.ready,
-      init       = False
-    )
+    val backupIn = cloneOf(io.rsp)
+    backupIn.valid := readHistory.last & remoteCke
+    backupIn.data := sdram.DQ.read
 
-    io.rsp.valid := readDelayed
-    io.rsp.data  := sdram.DQ.read
+    io.rsp << backupIn.s2mPipe(2)
 
-    cmd.ready := True //TODO and don't forget readDelayed
+    cmd.ready := remoteCke
   }
 }
 

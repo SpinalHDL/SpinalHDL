@@ -27,8 +27,8 @@ class SdramTester(Infrastructure):
         self.closeIt = False
         self.ram = bytearray(b'\x00' * (1 << (9+2+2+1)))
         self.scorboard = StreamScorboardInOrder("scoreboard", self)
-        # StreamDriverSlave(self.rsp, clk, reset)
-        rsp.ready <= 1 #TODO remove
+        StreamDriverSlave(rsp, clk, reset)
+        # rsp.ready <= 1
         StreamMonitor(rsp, self.scorboard.uutPush, clk, reset)
 
     def canPhaseProgress(self, phase):
@@ -45,18 +45,16 @@ class SdramTester(Infrastructure):
 
         trans = Transaction()
 
-        # if self.fillCounter < (1 << (9+2+2)):
-        #     self.fillCounter += 1
-        # else:
         if not self.burstRandomizer.get():
             trans.address = randBits(9+2+2)
         else:
             trans.address = self.lastAddr + 1
             trans.address = trans.address & ((1 << 13)-1)
 
-        trans.write = self.writeRandomizer.get()
+        trans.write = self.writeRandomizer.get() and self.writeRandomizer.get()
         trans.mask = randBits(2)
         trans.data = randBits(16)
+
         self.lastAddr = trans.address
 
         if trans.write == 0:
@@ -72,7 +70,6 @@ class SdramTester(Infrastructure):
             for i in xrange(2):
                 if (trans.mask >> i) & 1 == 1:
                     self.ram[trans.address * 2 + i] = (trans.data >> (i*8)) & 0xFF
-
 
         return trans
 

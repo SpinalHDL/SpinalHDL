@@ -205,7 +205,7 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
   def s2mPipe(stagesCount : Int): Stream[T] = {
     stagesCount match {
       case 0 => this
-      case _ => this.s2mPipe(stagesCount-1)
+      case _ => this.s2mPipe().s2mPipe(stagesCount-1)
     }
   }
 
