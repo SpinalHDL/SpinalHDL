@@ -117,8 +117,8 @@ class Pinsec extends Component{
     val axiCrossbar = Axi4CrossbarFactory()
       .addSlaves(
         rom.io.axi       ->(0x00000000L, 128 kB),
-        ram.io.axi       ->(0x04000000L, 32 kB),
-        apbBridge.io.axi ->(0xF0000000L, 1 MB)
+        ram.io.axi       ->(0x04000000L,  32 kB),
+        apbBridge.io.axi ->(0xF0000000L,   1 MB)
       ).addConnections(
         core.io.i       -> List(rom.io.axi, ram.io.axi),
         core.io.d       -> List(rom.io.axi, ram.io.axi, apbBridge.io.axi),

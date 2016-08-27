@@ -258,9 +258,8 @@ case class SdramCtrl[T <: Data](c : SdramLayout,t : SdramTimings,CAS : Int,conte
     (io.sdram.flatten,  sdram.flatten).zipped.foreach((ext,int) => {
       if(ext.isOutput) ext := int
     })
-    sdram.CKE.init(False)
 
-    val remoteCke = RegNext(sdram.CKE) init(True)
+    val remoteCke = Bool
     val readHistory = History(
       that       = cmd.valid && cmd.task === READ,
       range      = 0 to CAS + 2,
@@ -269,7 +268,10 @@ case class SdramCtrl[T <: Data](c : SdramLayout,t : SdramTimings,CAS : Int,conte
     )
     val contextDelayed = Delay(cmd.context,CAS + 2,when=remoteCke)
 
-    sdram.CKE    := !(readHistory.orR && !io.rsp.ready)
+    val sdramCkeNext = !(readHistory.orR && !io.rsp.ready)
+    val sdramCkeInternal = RegNext(sdramCkeNext) init(True) //Duplicated register (sdram.CKE) To avoid infering an IO buffer with a reset value
+    sdram.CKE    := sdramCkeNext
+    remoteCke := RegNext(sdramCkeInternal) init(True)
 
     when(remoteCke){
       sdram.DQ.read := io.sdram.DQ.read
