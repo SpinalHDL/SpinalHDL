@@ -258,7 +258,12 @@ end
             ret ++= s"""
 initial begin
   for (verilogIndex = 0; verilogIndex < ${mem.wordCount} - 1; verilogIndex = verilogIndex + 1)begin
-     ${emitReference(mem)}[verilogIndex] = -1;
+${
+  if(symbolCount == 1){
+    emitReference(mem) + "[verilogIndex] = -1;"
+  }  else {
+    (0 until symbolCount).map("    " + emitReference(mem)  + "_symbol" + _ + "[verilogIndex] = -1;").reduce(_ + "\n" +_)
+  }}
   end
 end
 """

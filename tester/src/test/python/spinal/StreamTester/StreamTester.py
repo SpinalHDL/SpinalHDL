@@ -55,6 +55,7 @@ class Fifo:
             assertEquals(pop.b, dut.io_master0_payload_b, "io_master0_payload_b")
 
 
+
 class Fork:
     def __init__(self,dut):
         self.queues = [Queue() for i in range(0,3)]

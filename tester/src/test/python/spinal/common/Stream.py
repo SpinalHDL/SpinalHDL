@@ -4,7 +4,7 @@ import cocotb
 from cocotb.result import TestFailure
 from cocotb.triggers import RisingEdge, Timer
 
-from spinal.common.Phase import Infrastructure, PHASE_CHECK_SCORBOARDS
+from spinal.common.Phase import Infrastructure, PHASE_CHECK_SCORBOARDS, PHASE_WAIT_TASKS_END
 from spinal.common.misc import Bundle, BoolRandomizer, assertEquals
 
 
@@ -139,7 +139,7 @@ class StreamScorboardInOrder(Infrastructure):
         self.refs.put(ref)
         self.update()
 
-    def uutPush(self, uut,):
+    def uutPush(self,uut):
         self.uuts.put(uut)
         self.update()
 
@@ -240,5 +240,45 @@ class StreamScorboardOutOfOrder(Infrastructure):
                 raise TestFailure("Scoreboard not empty")
 
 
+
+
+class StreamFifoTester(Infrastructure):
+    def __init__(self,name,parent,pushStream,popStream,transactionGenerator,dutCounterTarget,clk,reset):
+        Infrastructure.__init__(self,name,parent)
+        self.pushStream = pushStream
+        self.popStream = popStream
+        self.clk = clk
+        self.reset = reset
+        self.dutCounter = 0
+        self.closeIt = False
+        self.transactionGenerator = transactionGenerator
+        self.dutCounterTarget = dutCounterTarget
+        self.pushRandomizer = BoolRandomizer()
+        self.scoreboard = StreamScorboardInOrder("scoreboard", self)
+
+    def createInfrastructure(self):
+        StreamDriverMaster(self.pushStream, self.genPush, self.clk, self.reset)
+        StreamDriverSlave(self.popStream, self.clk, self.reset)
+        StreamMonitor(self.popStream, self.onUut, self.clk, self.reset)
+        StreamMonitor(self.pushStream, self.onRef, self.clk, self.reset)
+
+    def startPhase(self, phase):
+        Infrastructure.startPhase(self, phase)
+        if phase == PHASE_WAIT_TASKS_END:
+            self.closeIt = True
+
+    def genPush(self):
+        if not self.closeIt and self.pushRandomizer.get():
+            return self.transactionGenerator()
+
+    def onUut(self, uut):
+        self.dutCounter += 1
+        self.scoreboard.uutPush(uut)
+
+    def onRef(self, uut):
+        self.scoreboard.refPush(uut)
+
+    def canPhaseProgress(self, phase):
+        return self.dutCounter > self.dutCounterTarget
 
 

@@ -60,7 +60,7 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     def Hz = (i * BigDecimal(1e0))
 
     def Byte = BigInt(i)
-    def KB = BigInt(i) << 10
+    def kB = BigInt(i) << 10
     def MB = BigInt(i) << 20
     def GB = BigInt(i) << 30
     def TB = BigInt(i) << 40

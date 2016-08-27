@@ -67,21 +67,22 @@ class AssignementLevelWhen(val cond: Node,val context : WhenContext) extends Ass
   var whenFalse: AssignementLevel = null
   val whenTrueCmds,whenFalseCmds = ArrayBuffer[AssignementLevelCmd]()
 
-  //(Condition, key,literal,this)
-  def isSwitchable: (Node,Node,Node,AssignementLevelWhen) = {
+  def isSwitchable: (Node,Node,AssignementLevelWhen) = {
     (if(cond.isInstanceOf[Bool]) cond.asInstanceOf[Bool].input else cond) match {
       case cond : Operator.Enum.Equal => {
         (cond.left,cond.right) match {
-          case (c : SpinalEnumCraft[_],l : EnumLiteral[_]) => return (cond,c,l,this)
+          case (c : SpinalEnumCraft[_],l : EnumLiteral[_]) => return (c,l,this)
           case _ =>
         }
       }
       case cond : Operator.BitVector.Equal => {
         (cond.left,cond.right) match {
-          case (c : BitVector,l : BitVectorLiteral) => return (cond,c,l,this)
+          case (c : BitVector,l : BitVectorLiteral) => return (c,l,this)
           case _ =>
         }
       }
+
+
       case _ =>
     }
     return null
@@ -102,7 +103,7 @@ class AssignementLevelSwitch(val key: Node) extends AssignementLevelNode {
   var default : SwitchTreeDefault = null
 }
 
-case class SwitchTreeCase(const : Node,doThat : AssignementLevel,whenCond : Node)
+case class SwitchTreeCase(const : Node,doThat : AssignementLevel)
 case class SwitchTreeDefault(doThat : AssignementLevel)
 case class AssignementLevelCmd(that : Node,by : Node)
 
@@ -115,7 +116,7 @@ class AssignementLevel(inTasks : Seq[AssignementLevelCmd]) {
   def build(): Unit = {
     def getElements(that : Node): Iterator[Node] = if (that.isInstanceOf[MultipleAssignmentNode])
       that.getInputs else Iterator(that)
-    
+
     val whenMap = mutable.HashMap[WhenContext,AssignementLevelWhen]()
 
     inTasks.foreach(inTask => {
@@ -183,10 +184,10 @@ class AssignementLevel(inTasks : Seq[AssignementLevelCmd]) {
               val key = switchable.head._1
               if(switchable.foldLeft(true)((carry,k) => carry && (k._1 == key))) {
                 val switchNode = new AssignementLevelSwitch(key)
-                switchable.foreach { case (cond,_, lit, src) => {
-                  switchNode.cases += SwitchTreeCase(lit, src.whenTrue,cond)
+                switchable.foreach { case (_, lit, src) => {
+                  switchNode.cases += SwitchTreeCase(lit, src.whenTrue)
                 }}
-                switchNode.default = SwitchTreeDefault(switchable.last._4.whenFalse)
+                switchNode.default = SwitchTreeDefault(switchable.last._3.whenFalse)
 
                 content(idx) = switchNode
               }
@@ -243,16 +244,16 @@ trait VhdlVerilogBase {
     def needProcessDef: Boolean = {
       if (!whens.isEmpty || nodes.size > 1) return true
       if (hasMultipleAssignment) {
-//        val ma: MultipleAssignmentNode = nodes(0).getInput(0).asInstanceOf[MultipleAssignmentNode]
-//        val assignedBits = new AssignedBits(nodes(0).getWidth)
-//        ma.onEachInput(_ match {
-//          case assign: AssignementNode => {
-//            val scope = assign.getScopeBits
-//            if (!AssignedBits.intersect(scope, assignedBits).isEmpty) return true
-//            assignedBits.add(scope)
-//          }
-//          case _ => return true
-//        })
+        //        val ma: MultipleAssignmentNode = nodes(0).getInput(0).asInstanceOf[MultipleAssignmentNode]
+        //        val assignedBits = new AssignedBits(nodes(0).getWidth)
+        //        ma.onEachInput(_ match {
+        //          case assign: AssignementNode => {
+        //            val scope = assign.getScopeBits
+        //            if (!AssignedBits.intersect(scope, assignedBits).isEmpty) return true
+        //            assignedBits.add(scope)
+        //          }
+        //          case _ => return true
+        //        })
         return true; //Symplified because of Verilog backend
       }
       return false

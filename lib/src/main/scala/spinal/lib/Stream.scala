@@ -119,6 +119,15 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
     return (fifo.io.pop, fifo.io.pushOccupancy)
   }
 
+
+
+  def queueZeroLatency(size: Int): Stream[T] = {
+    val fifo = new StreamFifoZeroLatency(dataType, size)
+    fifo.setPartialName(this,"fifo")
+    fifo.io.push << this
+    fifo.io.pop
+  }
+
   def isStall : Bool = valid && !ready
   override def fire: Bool = valid & ready
   def isFree: Bool = !valid || ready
@@ -191,6 +200,13 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
       rBits := this.payload
     }
     ret
+  }
+
+  def s2mPipe(stagesCount : Int): Stream[T] = {
+    stagesCount match {
+      case 0 => this
+      case _ => this.s2mPipe().s2mPipe(stagesCount-1)
+    }
   }
 
   // cut all path, but divide the bandwidth by 2, 1 cycle latency
@@ -465,6 +481,7 @@ object StreamFifo{
 }
 
 class StreamFifo[T <: Data](dataType: T, depth: Int) extends Component {
+  require(depth >= 1)
   val io = new Bundle {
     val push = slave Stream (dataType)
     val pop = master Stream (dataType)
@@ -484,6 +501,68 @@ class StreamFifo[T <: Data](dataType: T, depth: Int) extends Component {
   io.push.ready := !full
   io.pop.valid := !empty & !(RegNext(popPtr.valueNext === pushPtr, False) & !full) //mem write to read propagation
   io.pop.payload := ram.readSync(popPtr.valueNext)
+
+  when(pushing =/= popping) {
+    risingOccupancy := pushing
+  }
+  when(pushing) {
+    ram(pushPtr.value) := io.push.payload
+    pushPtr.increment()
+  }
+  when(popping) {
+    popPtr.increment()
+  }
+
+  val ptrDif = pushPtr - popPtr
+  if (isPow2(depth))
+    io.occupancy := ((risingOccupancy && ptrMatch) ## ptrDif).asUInt
+  else {
+    when(ptrMatch) {
+      io.occupancy := Mux(risingOccupancy, U(depth), U(0))
+    } otherwise {
+      io.occupancy := Mux(pushPtr > popPtr, ptrDif, U(depth) + ptrDif)
+    }
+  }
+
+  when(io.flush){
+    pushPtr.clear()
+    popPtr.clear()
+    risingOccupancy := False
+  }
+}
+
+object StreamFifoZeroLatency{
+  def apply[T <: Data](dataType: T, depth: Int) = new StreamFifoZeroLatency(dataType,depth)
+}
+
+class StreamFifoZeroLatency[T <: Data](dataType: T, depth: Int) extends Component {
+  require(depth >= 1)
+  val io = new Bundle {
+    val push = slave Stream (dataType)
+    val pop = master Stream (dataType)
+    val flush = in Bool() default (False)
+    val occupancy = out UInt (log2Up(depth + 1) bit)
+  }
+  val ram = Mem(dataType, depth)
+  val pushPtr = Counter(depth)
+  val popPtr = Counter(depth)
+  val ptrMatch = pushPtr === popPtr
+  val risingOccupancy = RegInit(False)
+  val empty = ptrMatch & !risingOccupancy
+  val full = ptrMatch & risingOccupancy
+
+  val pushing = io.push.fire
+  val popping = io.pop.fire
+
+  io.push.ready := !full
+
+  when(!empty){
+    io.pop.valid := !empty
+    io.pop.payload := ram.readAsync(popPtr.value)
+  } otherwise{
+    io.pop.valid := io.push.valid
+    io.pop.payload := io.push.payload
+  }
 
   when(pushing =/= popping) {
     risingOccupancy := pushing
@@ -583,6 +662,8 @@ object StreamCCByToggle {
     new StreamCCByToggle[T](dataType, inputClock, outputClock)
   }
 }
+
+
 
 
 class StreamCCByToggle[T <: Data](dataType: T, inputClock: ClockDomain, outputClock: ClockDomain) extends Component {

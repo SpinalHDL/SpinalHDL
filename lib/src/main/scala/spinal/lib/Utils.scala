@@ -556,6 +556,24 @@ class NoData extends Bundle {
 }
 
 
+class TraversableOnceAnyPimped[T <: Any](pimped: scala.collection.Iterable[T]) {
+  def toto = 2
+  def apply(id : UInt)(gen : (T) => Unit): Unit ={
+    assert(widthOf(id) == log2Up(pimped.size))
+    for((e,i) <- pimped.zipWithIndex) {
+      when(i === id){
+        gen(e)
+      }
+    }
+  }
+}
+
+class TraversableOnceBoolPimped(pimped: scala.collection.Iterable[Bool]) {
+  def orR: Bool = pimped.reduce(_ || _)
+  def andR: Bool = pimped.reduce(_ && _)
+  def xorR: Bool = pimped.reduce(_ ^ _)
+}
+
 class TraversableOncePimped[T <: Data](pimped: scala.collection.Iterable[T]) {
   def reduceBalancedTree(op: (T, T) => T): T = {
     reduceBalancedTree(op, (s,l) => s)
@@ -582,6 +600,7 @@ class TraversableOncePimped[T <: Data](pimped: scala.collection.Iterable[T]) {
 
   def asBits() : Bits = Cat(pimped)
 
+
   def read(idx: UInt): T = {
     Vec(pimped).read(idx)
   }
@@ -607,10 +626,15 @@ class TraversableOncePimped[T <: Data](pimped: scala.collection.Iterable[T]) {
 
 
 object Delay {
-  def apply[T <: Data](that: T, cycleCount: Int): T = {
+  def apply[T <: Data](that: T, cycleCount: Int,when : Bool = null,init : T = null.asInstanceOf[T]): T = {
     cycleCount match {
       case 0 => that
-      case _ => Delay(RegNext(that), cycleCount - 1)
+      case _ => {
+        if(when == null)
+          Delay(RegNext(that,init), cycleCount - 1,when,init)
+        else
+          Delay(RegNextWhen(that,when,init), cycleCount - 1,when,init)
+      }
     }
   }
 }
