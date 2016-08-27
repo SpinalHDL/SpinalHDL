@@ -12,5 +12,5 @@ class SdramCtrlTesterCocotbBoot extends SpinalTesterCocotbBase {
     val device = SdramDevices.MT48LC16M16A2
     SdramCtrl(device.config,device.timingGrade7.copy(tPOW = 5 us),2).setDefinitionName(getName)
   }
-  override def backendConfig(config: SpinalConfig): SpinalConfig = config.copy(defaultClockDomainFrequency = FixedFrequency(133 MHz)).dumpWave()
+  override def backendConfig(config: SpinalConfig): SpinalConfig = config.copy(defaultClockDomainFrequency = FixedFrequency(133 MHz))
 }

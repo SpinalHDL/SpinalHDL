@@ -68,5 +68,10 @@ module SdramCtrlTester_tb
     .clk(clk),
     .reset(reset)
   );
+
+  initial begin
+    $dumpfile("wave.vcd");
+    $dumpvars(0, SdramCtrlTester_tb);
+  end
 endmodule
 

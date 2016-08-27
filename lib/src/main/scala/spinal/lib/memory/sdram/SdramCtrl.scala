@@ -187,7 +187,7 @@ case class SdramCtrl(c : SdramLayout,t : SdramTimings,CAS : Int) extends Compone
 
     val timings = new Area{
       val read   = timeCounter(t.tRCD)
-      val write  = cycleCounter(timeToCycles(t.tRCD).max(CAS))
+      val write  = cycleCounter(timeToCycles(t.tRCD).max(CAS + 1))
 
       val banks = (0 until c.bankCount).map(i =>  new Area{
         val precharge = timeCounter(t.tRC,true)
@@ -233,7 +233,7 @@ case class SdramCtrl(c : SdramLayout,t : SdramTimings,CAS : Int) extends Compone
         is(READ){
           insertBubble := timings.read.busy
           when(cmd.ready){
-            timings.write.setCycles(CAS)
+            timings.write.setCycles(CAS + 1)
           }
         }
         is(WRITE){
@@ -336,16 +336,16 @@ case class SdramCtrl(c : SdramLayout,t : SdramTimings,CAS : Int) extends Compone
     }
 
     val readDelayed = Delay(
-      that       = cmd.task === READ,
-      cycleCount = CAS + 1,
-      when       = cmd.fire,
+      that       = cmd.valid && cmd.task === READ,
+      cycleCount = CAS + 2,
+      cond       = cmd.ready,
       init       = False
     )
 
     io.rsp.valid := readDelayed
     io.rsp.data  := sdram.DQ.read
 
-    cmd.ready := True //TODO
+    cmd.ready := True //TODO and don't forget readDelayed
   }
 }
 

@@ -11,7 +11,7 @@ from spinal.Axi4CrossbarTester2.SlaveMonitor import WriteDataMonitor, SharedData
 from spinal.Axi4CrossbarTester2.SlavesDriver import ReadOnlySlaveDriver, WriteOnlySlaveDriver, SharedSlaveDriver
 from spinal.common.Axi4 import Axi4, Axi4ReadOnly, Axi4WriteOnly, Axi4Shared
 from spinal.common.Phase import PhaseManager, Infrastructure, PHASE_CHECK_SCORBOARDS, PHASE_WAIT_TASKS_END
-from spinal.common.Stream import StreamDriverSlave, StreamDriverMaster, Transaction, StreamMonitor, Stream, StreamFifoTester
+from spinal.common.Stream import StreamDriverSlave, StreamDriverMaster, Transaction, StreamMonitor, Stream, StreamFifoTester, StreamScorboardInOrder
 from spinal.common.misc import ClockDomainAsyncReset, simulationSpeedPrinter, randBits, BoolRandomizer, assertEquals
 
 
@@ -19,19 +19,20 @@ class SdramTester(Infrastructure):
     def __init__(self,name,parent,cmd,rsp,clk,reset):
         Infrastructure.__init__(self, name, parent)
         StreamDriverMaster(cmd, self.genCmd, clk, reset)
-        rsp.ready <= 1
-        self.transactionCounter = 0
+        self.nonZeroRspCounter = 0
         self.cmdRandomizer = BoolRandomizer()
         self.writeRandomizer = BoolRandomizer()
         self.burstRandomizer = BoolRandomizer()
         self.lastAddr = 0
         self.closeIt = False
+        self.ram = bytearray(b'\x00' * (1 << (9+2+2+1)))
+        self.scorboard = StreamScorboardInOrder("scoreboard", self)
         # StreamDriverSlave(self.rsp, clk, reset)
-        # StreamMonitor(self.popStream, self.onUut, self.clk, self.reset)
-        # StreamMonitor(self.pushStream, self.onRef, self.clk, self.reset)
+        rsp.ready <= 1 #TODO remove
+        StreamMonitor(rsp, self.scorboard.uutPush, clk, reset)
 
     def canPhaseProgress(self, phase):
-        return self.transactionCounter > 10000
+        return self.nonZeroRspCounter > 4000
 
     def startPhase(self, phase):
         Infrastructure.startPhase(self, phase)
@@ -43,15 +44,36 @@ class SdramTester(Infrastructure):
             return None
 
         trans = Transaction()
+
+        # if self.fillCounter < (1 << (9+2+2)):
+        #     self.fillCounter += 1
+        # else:
         if not self.burstRandomizer.get():
-            trans.address = randBits(9+2+5)
+            trans.address = randBits(9+2+2)
         else:
             trans.address = self.lastAddr + 1
-            trans.address = trans.address & 0xFFFF
+            trans.address = trans.address & ((1 << 13)-1)
+
         trans.write = self.writeRandomizer.get()
         trans.mask = randBits(2)
         trans.data = randBits(16)
         self.lastAddr = trans.address
+
+        if trans.write == 0:
+            rsp = Transaction()
+            rsp.data = self.ram[trans.address*2] + (self.ram[trans.address*2+1] << 8)
+            self.scorboard.refPush(rsp)
+            if rsp.data != 0:
+                self.nonZeroRspCounter += 1
+                if self.nonZeroRspCounter % 50 == 0:
+                    print("self.nonZeroRspCounter=" + str(self.nonZeroRspCounter))
+
+        else:
+            for i in xrange(2):
+                if (trans.mask >> i) & 1 == 1:
+                    self.ram[trans.address * 2 + i] = (trans.data >> (i*8)) & 0xFF
+
+
         return trans
 
 
@@ -78,7 +100,7 @@ def test1(dut):
 
 
     phaseManager = PhaseManager()
-    phaseManager.setWaitTasksEndTime(1000*200)
+    phaseManager.setWaitTasksEndTime(1000*300)
 
     SdramTester("sdramTester",phaseManager,Stream(dut,"io_cmd"),Stream(dut,"io_rsp"),dut.clk,dut.reset)
 
