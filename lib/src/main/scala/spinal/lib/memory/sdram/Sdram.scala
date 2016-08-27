@@ -4,20 +4,18 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.io.TriState
 
-case class SdramConfig(
-                        bankCount : Int,
+case class SdramLayout( bankWidth : Int,
                         columnWidth : Int,
                         rowWidth : Int,
-                        dataWidth : Int
-                        ){
+                        dataWidth : Int){
   def symbolCount = dataWidth/8
-  def totalAddressWidth = log2Up(bankCount) + columnWidth + rowWidth
+  def totalAddressWidth = bankWidth + columnWidth + rowWidth
   def addressWidth = Math.max(columnWidth,rowWidth)
+  def bankCount = 1 << bankWidth
 }
 
 case class SdramTimings(
   bootRefreshCount   : Int, // Number of refresh command done in the boot sequence
-  cCAS  : Int,        // CAS latency
   tPOW  : BigDecimal, // Powerup time
   tREF  : BigDecimal, // Refresh Cycle Time (that cover all row)
   tRC   : BigDecimal, // Command Period (REF to REF / ACT to ACT)   Per bank
@@ -27,9 +25,9 @@ case class SdramTimings(
   tMRD  : BigDecimal  // Mode Register Program Time
 )
 
-case class SdramInterface(g : SdramConfig) extends Bundle with IMasterSlave{
+case class SdramInterface(g : SdramLayout) extends Bundle with IMasterSlave{
   val ADDR  = Bits(g.addressWidth bits)
-  val BA    = Bits(g.bankCount bits)
+  val BA    = Bits(g.bankWidth bits)
   val DQ    = TriState(Bits(g.dataWidth bits))
   val DQM   = Bits(g.symbolCount bits)
   val CASn  = Bool

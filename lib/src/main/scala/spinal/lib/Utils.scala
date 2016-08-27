@@ -626,10 +626,15 @@ class TraversableOncePimped[T <: Data](pimped: scala.collection.Iterable[T]) {
 
 
 object Delay {
-  def apply[T <: Data](that: T, cycleCount: Int): T = {
+  def apply[T <: Data](that: T, cycleCount: Int,when : Bool = null,init : T = null): T = {
     cycleCount match {
       case 0 => that
-      case _ => Delay(RegNext(that), cycleCount - 1)
+      case _ => {
+        if(when == null)
+          Delay(RegNext(that,init), cycleCount - 1,when,init)
+        else
+          Delay(RegNextWhen(that,when,init), cycleCount - 1,when,init)
+      }
     }
   }
 }
