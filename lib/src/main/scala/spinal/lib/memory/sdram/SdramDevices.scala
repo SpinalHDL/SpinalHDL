@@ -16,10 +16,13 @@ object SdramDevices {
       tPOW             = 100 us,
       tREF             =  64 ms,
       tRC              =  60 ns,
+      tRFC             =  60 ns,
       tRAS             =  37 ns,
       tRP              =  15 ns,
       tRCD             =  15 ns,
-      tMRD             =  14 ns
+      tMRD             =  14 ns,
+      tWR              =  10 ns,
+      cWR              =  1
     )
   }
 
@@ -37,10 +40,13 @@ object SdramDevices {
       tPOW             = 100 us,
       tREF             =  64 ms,
       tRC              =  60 ns,
+      tRFC             =  66 ns,
       tRAS             =  37 ns,
       tRP              =  15 ns,
       tRCD             =  15 ns,
-      tMRD             =  14 ns
+      tMRD             =  14 ns,
+      tWR              =  7.5 ns,
+      cWR              =  1
     )
   }
 }

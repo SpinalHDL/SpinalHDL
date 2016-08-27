@@ -15,14 +15,17 @@ case class SdramLayout( bankWidth : Int,
 }
 
 case class SdramTimings(
-  bootRefreshCount   : Int, // Number of refresh command done in the boot sequence
-  tPOW  : BigDecimal, // Powerup time
-  tREF  : BigDecimal, // Refresh Cycle Time (that cover all row)
-  tRC   : BigDecimal, // Command Period (REF to REF / ACT to ACT)   Per bank
-  tRAS  : BigDecimal, // Command Period (ACT to PRE)                Per bank
-  tRP   : BigDecimal, // Command Period (PRE to ACT)
-  tRCD  : BigDecimal, // Active Command To Read / Write Command Delay Time
-  tMRD  : BigDecimal  // Mode Register Program Time
+  bootRefreshCount : Int, // Number of refresh command done in the boot sequence
+  tPOW  : BigDecimal,     // Powerup time
+  tREF  : BigDecimal,     // Refresh Cycle Time (that cover all row)
+  tRC   : BigDecimal,     // Command Period (ACT to ACT)   Per bank
+  tRFC  : BigDecimal,     // Command Period (REF to REF)   Per bank
+  tRAS  : BigDecimal,     // Command Period (ACT to PRE)                Per bank
+  tRP   : BigDecimal,     // Command Period (PRE to ACT)
+  tRCD  : BigDecimal,     // Active Command To Read / Write Command Delay Time
+  tMRD  : BigDecimal,     // Mode Register Program Time
+  tWR   : BigDecimal,     // WRITE recovery time
+  cWR   : Int             // WRITE recovery cycle
 )
 
 case class SdramInterface(g : SdramLayout) extends Bundle with IMasterSlave{

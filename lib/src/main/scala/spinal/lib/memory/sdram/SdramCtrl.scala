@@ -166,16 +166,23 @@ case class SdramCtrl(c : SdramLayout,t : SdramTimings,CAS : Int) extends Compone
     val insertBubble = False
     rsp << cmd.haltWhen(insertBubble) //From this point, bubble should not be collapsed because of sdram timings rules
 
-    def cycleCounter(cycleMax : BigInt) = new Area {
+    def cycleCounter(cycleMax : BigInt,assignCheck : Boolean = false) = new Area {
       val counter = Reg(UInt(log2Up(cycleMax) bits)) init(0)
       val busy = counter =/= 0
       when(busy){
         counter := counter - 1
       }
-      def setCycles(cycles : Int) = counter := cycles-1
-      def setTime(time : BigDecimal) = counter := (timeToCycles(time)-1).max(0)
+      def setCycles(cycles : BigInt) = {
+        if(!assignCheck)
+          counter := cycles-1
+        else
+          when(cycles-1 >= counter){
+            counter := cycles-1
+          }
+      }
+      def setTime(time : BigDecimal) = setCycles(timeToCycles(time).max(1))
     }
-    def timeCounter(timeMax : BigDecimal) = cycleCounter(timeToCycles(timeMax))
+    def timeCounter(timeMax : BigDecimal,assignCheck : Boolean = false) = cycleCounter(timeToCycles(timeMax),assignCheck)
 
 
     val timings = new Area{
@@ -183,8 +190,8 @@ case class SdramCtrl(c : SdramLayout,t : SdramTimings,CAS : Int) extends Compone
       val write  = cycleCounter(timeToCycles(t.tRCD).max(CAS))
 
       val banks = (0 until c.bankCount).map(i =>  new Area{
-        val precharge = timeCounter(t.tRC)
-        val active    = timeCounter(t.tRC.max(t.tMRD))
+        val precharge = timeCounter(t.tRC,true)
+        val active    = timeCounter(t.tRC.max(t.tMRD).max(t.tRFC),true)
       })
     }
 
@@ -211,7 +218,7 @@ case class SdramCtrl(c : SdramLayout,t : SdramTimings,CAS : Int) extends Compone
         is(REFRESH){
           insertBubble := timings.banks.map(_.active.busy).orR
           when(cmd.ready) {
-            timings.banks.foreach(_.active.setTime(t.tRC))
+            timings.banks.foreach(_.active.setTime(t.tRFC))
           }
         }
         is(ACTIVE){
@@ -231,6 +238,9 @@ case class SdramCtrl(c : SdramLayout,t : SdramTimings,CAS : Int) extends Compone
         }
         is(WRITE){
           insertBubble := timings.write.busy
+          when(cmd.ready) {
+            timings.banks.apply(cmd.bank)(_.precharge.setCycles(t.cWR + timeToCycles(t.tWR)))
+          }
         }
       }
     }
