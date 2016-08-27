@@ -6,15 +6,17 @@ import spinal.lib._
 import scala.math.BigDecimal.RoundingMode
 
 
-case class SdramCtrlCmd(c : SdramLayout) extends Bundle{
+case class SdramCtrlCmd[T <: Data](c : SdramLayout,contextType : T) extends Bundle{
   val address = UInt(c.totalAddressWidth bits)
   val write = Bool
   val data = Bits(c.dataWidth bits)
   val mask = Bits(c.symbolCount bits)
+  val context = cloneOf(contextType)
 }
 
-case class SdramCtrlRsp(c : SdramLayout) extends Bundle{
+case class SdramCtrlRsp[T <: Data](c : SdramLayout,contextType : T)  extends Bundle{
   val data = Bits(c.dataWidth bits)
+  val context = cloneOf(contextType)
 }
 
 object SdramCtrlFrontendState extends SpinalEnum{
@@ -24,12 +26,13 @@ object SdramCtrlFrontendState extends SpinalEnum{
 object SdramCtrlBackendTask extends SpinalEnum{
   val MODE,PRECHARGE_ALL,PRECHARGE_SINGLE,REFRESH,ACTIVE,READ,WRITE = newElement()
 }
-case class SdramCtrlBackendCmd(c : SdramLayout) extends Bundle{
+case class SdramCtrlBackendCmd[T <: Data](c : SdramLayout,contextType : T) extends Bundle{
   val task = SdramCtrlBackendTask()
   val bank = UInt(c.bankWidth bits)
   val rowColumn =  UInt(Math.max(c.columnWidth,c.rowWidth) bits)
   val data = Bits(c.dataWidth bits)
   val mask = Bits(c.symbolCount bits)
+  val context = cloneOf(contextType)
 }
 
 case class SdramCtrlBank(c : SdramLayout) extends Bundle{
@@ -38,15 +41,15 @@ case class SdramCtrlBank(c : SdramLayout) extends Bundle{
 }
 
 
-case class SdramCtrl(c : SdramLayout,t : SdramTimings,CAS : Int) extends Component{
+case class SdramCtrl[T <: Data](c : SdramLayout,t : SdramTimings,CAS : Int,contextType : T) extends Component{
   import SdramCtrlBackendTask._
   import SdramCtrlFrontendState._
 
   val io = new Bundle{
     val sdram = master(SdramInterface(c))
 
-    val cmd = slave Stream(SdramCtrlCmd(c))
-    val rsp = master Stream(SdramCtrlRsp(c))
+    val cmd = slave Stream(SdramCtrlCmd(c,contextType))
+    val rsp = master Stream(SdramCtrlRsp(c,contextType))
   }
 
   val clkFrequancy = ClockDomain.current.frequency.getValue
@@ -81,13 +84,14 @@ case class SdramCtrl(c : SdramLayout,t : SdramTimings,CAS : Int) extends Compone
     }
     address.assignFromBits(io.cmd.address.asBits)
 
-    val rsp = Stream(SdramCtrlBackendCmd(c))
+    val rsp = Stream(SdramCtrlBackendCmd(c,contextType))
     rsp.valid := False
     rsp.task := REFRESH
     rsp.bank := address.bank
     rsp.rowColumn := address.row.resized
     rsp.data := io.cmd.data
     rsp.mask := io.cmd.mask
+    rsp.context := io.cmd.context
 
     io.cmd.ready := False
 
@@ -263,6 +267,8 @@ case class SdramCtrl(c : SdramLayout,t : SdramTimings,CAS : Int) extends Compone
       when       = remoteCke,
       init       = False
     )
+    val contextDelayed = Delay(cmd.context,CAS + 2,when=remoteCke)
+
     sdram.CKE    := !(readHistory.orR && !io.rsp.ready)
 
     when(remoteCke){
@@ -352,6 +358,7 @@ case class SdramCtrl(c : SdramLayout,t : SdramTimings,CAS : Int) extends Compone
     val backupIn = cloneOf(io.rsp)
     backupIn.valid := readHistory.last & remoteCke
     backupIn.data := sdram.DQ.read
+    backupIn.context := contextDelayed
 
     io.rsp << backupIn.s2mPipe(2)
 
@@ -363,6 +370,6 @@ case class SdramCtrl(c : SdramLayout,t : SdramTimings,CAS : Int) extends Compone
 object SdramCtrlMain{
   def main(args: Array[String]) {
     val device = SdramDevices.IS42x320D
-    SpinalConfig(defaultClockDomainFrequency = FixedFrequency(100 MHz)).generateVhdl(SdramCtrl(device.config,device.timingGrade7,3))
+    SpinalConfig(defaultClockDomainFrequency = FixedFrequency(100 MHz)).generateVhdl(SdramCtrl(device.config,device.timingGrade7,3,UInt(8 bits)))
   }
 }

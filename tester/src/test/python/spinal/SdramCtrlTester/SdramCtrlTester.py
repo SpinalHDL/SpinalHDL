@@ -54,12 +54,14 @@ class SdramTester(Infrastructure):
         trans.write = self.writeRandomizer.get() and self.writeRandomizer.get()
         trans.mask = randBits(2)
         trans.data = randBits(16)
+        trans.context = randBits(8)
 
         self.lastAddr = trans.address
 
         if trans.write == 0:
             rsp = Transaction()
             rsp.data = self.ram[trans.address*2] + (self.ram[trans.address*2+1] << 8)
+            rsp.context = trans.context
             self.scorboard.refPush(rsp)
             if rsp.data != 0:
                 self.nonZeroRspCounter += 1
@@ -97,7 +99,7 @@ def test1(dut):
 
 
     phaseManager = PhaseManager()
-    phaseManager.setWaitTasksEndTime(1000*300)
+    phaseManager.setWaitTasksEndTime(1000*1000)
 
     SdramTester("sdramTester",phaseManager,Stream(dut,"io_cmd"),Stream(dut,"io_rsp"),dut.clk,dut.reset)
 

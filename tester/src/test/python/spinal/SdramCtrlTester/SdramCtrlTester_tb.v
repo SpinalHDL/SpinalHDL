@@ -7,9 +7,11 @@ module SdramCtrlTester_tb
   input   io_cmd_payload_write,
   input  [15:0] io_cmd_payload_data,
   input  [1:0] io_cmd_payload_mask,
+  input  [7:0] io_cmd_payload_context,
   output  io_rsp_valid,
   input   io_rsp_ready,
   output [15:0] io_rsp_payload_data,
+  output [7:0] io_rsp_payload_context,
   input   clk,
   input   reset
 );
@@ -62,9 +64,11 @@ module SdramCtrlTester_tb
     .io_cmd_payload_write(io_cmd_payload_write),
     .io_cmd_payload_data(io_cmd_payload_data),
     .io_cmd_payload_mask(io_cmd_payload_mask),
+    .io_cmd_payload_context(io_cmd_payload_context),
     .io_rsp_valid(io_rsp_valid),
     .io_rsp_ready(io_rsp_ready),
     .io_rsp_payload_data(io_rsp_payload_data),
+    .io_rsp_payload_context(io_rsp_payload_context),
     .clk(clk),
     .reset(reset)
   );
