@@ -7,6 +7,7 @@ from cocotb.triggers import Timer, Edge, RisingEdge, Join, FallingEdge
 
 from spinal.Pinsec.common.CoreCom import readCoreValue, readCoreValueAssert
 from spinal.Pinsec.common.HexLoader import loadIHex
+from spinal.Pinsec.common.Misc import pinsecClockGen
 from spinal.common.AhbLite3 import AhbLite3MasterDriver, AhbLite3SlaveMemory, AhbLite3MasterIdle, AhbLite3TraficGenerator, AhbLite3MasterReadChecker, AhbLite3Terminaison
 from spinal.common.misc import setBit, randSignal, assertEquals, truncUInt, sint, ClockDomainAsyncReset, randBoolSignal, \
     BoolRandomizer, StreamRandomizer,StreamReader, FlowRandomizer, Bundle, simulationSpeedPrinter, readIHex, log2Up
@@ -15,7 +16,7 @@ from spinal.common.misc import setBit, randSignal, assertEquals, truncUInt, sint
 @cocotb.coroutine
 def txToRxBypass(dut):
     while True:
-        dut.io_uart_rxd <= int(dut.io_uart_txd)
+        dut.io_uart_rxd <= int(dut.uut.io_uart_txd)
         yield Edge(dut.io_uart_txd)
 
 @cocotb.coroutine
@@ -38,18 +39,16 @@ def assertions(dut):
     yield readCoreValueAssert(dut, 0x10, "P")
     yield readCoreValueAssert(dut, 0x9B, "Q")
     yield readCoreValueAssert(dut, 0x1234567B, "R")
+    yield Timer(1000*10)
 
 @cocotb.test()
 def test1(dut):
-    dut.log.info("Cocotb test boot")
     random.seed(0)
+    uut = dut.uut
 
-    cocotb.fork(simulationSpeedPrinter(dut.io_axiClk))
-    yield loadIHex(dut,"../hex/uart.hex",dut.io_axiClk,dut.io_asyncReset)
-    cocotb.fork(ClockDomainAsyncReset(dut.io_axiClk, dut.io_asyncReset))
-    cocotb.fork(txToRxBypass(dut))
+    cocotb.fork(simulationSpeedPrinter(uut.io_axiClk))
+    yield loadIHex(uut,"../hex/uart.hex",uut.io_axiClk,uut.io_asyncReset)
+    pinsecClockGen(dut)
+    cocotb.fork(txToRxBypass(uut))
 
-    yield assertions(dut)
-    yield Timer(1000*10)
-
-    dut.log.info("Cocotb test done")
+    yield assertions(uut)

@@ -61,18 +61,18 @@ def sint(signal):
 
 
 @cocotb.coroutine
-def ClockDomainAsyncReset(clk,reset):
+def ClockDomainAsyncReset(clk,reset,period = 1000):
     if reset:
         reset <= 1
     clk <= 0
-    yield Timer(1000)
+    yield Timer(period)
     if reset:
         reset <= 0
     while True:
         clk <= 0
-        yield Timer(500)
+        yield Timer(period/2)
         clk <= 1
-        yield Timer(500)
+        yield Timer(period/2)
 
 
 

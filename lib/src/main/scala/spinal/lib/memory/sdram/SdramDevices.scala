@@ -20,7 +20,7 @@ object IS42x320D {
     tRAS             =  37 ns,
     tRP              =  15 ns,
     tRCD             =  15 ns,
-    tMRD             =  14 ns,
+    cMRD             =   2,
     tWR              =  10 ns,
     cWR              =  1
   )
@@ -44,7 +44,7 @@ object MT48LC16M16A2 {
     tRAS             =  37 ns,
     tRP              =  15 ns,
     tRCD             =  15 ns,
-    tMRD             =  14 ns,
+    cMRD             =   2,
     tWR              =  7.5 ns,
     cWR              =  1
   )

@@ -10,7 +10,7 @@ class SdramCtrlTesterCocotbBoot extends SpinalTesterCocotbBase {
   override def pythonTestLocation: String = "tester/src/test/python/spinal/SdramCtrlTester"
   override def createToplevel: Component = {
     val device = MT48LC16M16A2
-    SdramCtrl(device.layout,device.timingGrade7.copy(tPOW = 5 us),2,UInt(8 bits)).setDefinitionName(getName)
+    SdramCtrl(device.layout,device.timingGrade7.copy(tPOW = 5 us),CAS = 2,UInt(8 bits)).setDefinitionName(getName)
   }
-  override def backendConfig(config: SpinalConfig): SpinalConfig = config.copy(defaultClockDomainFrequency = FixedFrequency(133 MHz)).copy(dumpWave = null)
+  override def backendConfig(config: SpinalConfig): SpinalConfig = config.copy(defaultClockDomainFrequency = FixedFrequency(133 MHz))
 }

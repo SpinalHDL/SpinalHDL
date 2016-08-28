@@ -25,7 +25,7 @@ case class SdramTimings(
   tRAS  : BigDecimal,     // Command Period (ACT to PRE)                Per bank
   tRP   : BigDecimal,     // Command Period (PRE to ACT)
   tRCD  : BigDecimal,     // Active Command To Read / Write Command Delay Time
-  tMRD  : BigDecimal,     // Mode Register Program Time
+  cMRD  : Int,            // Mode Register Program Time
   tWR   : BigDecimal,     // WRITE recovery time
   cWR   : Int             // WRITE recovery cycle
 )

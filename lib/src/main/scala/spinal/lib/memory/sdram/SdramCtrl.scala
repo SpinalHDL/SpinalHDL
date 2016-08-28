@@ -251,6 +251,7 @@ case class SdramCtrl[T <: Data](l : SdramLayout,t : SdramTimings,CAS : Int,conte
         counter := counter - 1
       }
       def setCycles(cycles : BigInt) = {
+        assert(cycles <= cycleMax)
         if (!assignCheck)
           counter := cycles - 1
         else
@@ -265,11 +266,11 @@ case class SdramCtrl[T <: Data](l : SdramLayout,t : SdramTimings,CAS : Int,conte
 
     val timings = new Area{
       val read   = timeCounter(t.tRCD)
-      val write  = cycleCounter(timeToCycles(t.tRCD).max(CAS + 1))
+      val write  = cycleCounter(timeToCycles(t.tRCD).max(CAS + 1 + 1),true)
 
       val banks = (0 until l.bankCount).map(i =>  new Area{
         val precharge = timeCounter(t.tRC,true)
-        val active    = timeCounter(t.tRC.max(t.tMRD).max(t.tRFC),true)
+        val active    = cycleCounter(timeToCycles(t.tRC.max(t.tRFC).max(t.cMRD)),true)
       })
     }
 
@@ -278,7 +279,7 @@ case class SdramCtrl[T <: Data](l : SdramLayout,t : SdramTimings,CAS : Int,conte
         is(MODE){
           insertBubble := timings.banks(0).active.busy
           when(cmd.ready) {
-            timings.banks.foreach(_.active.setTime(t.tMRD))
+            timings.banks.foreach(_.active.setCycles(t.cMRD))
           }
         }
         is(PRECHARGE_ALL){
@@ -311,7 +312,7 @@ case class SdramCtrl[T <: Data](l : SdramLayout,t : SdramTimings,CAS : Int,conte
         is(READ){
           insertBubble := timings.read.busy
           when(cmd.ready){
-            timings.write.setCycles(CAS + 1)
+            timings.write.setCycles(CAS + 1 + 1)  // + 1 to avoid bus colision
           }
         }
         is(WRITE){
@@ -355,6 +356,7 @@ case class SdramCtrl[T <: Data](l : SdramLayout,t : SdramTimings,CAS : Int,conte
       sdram.WEn  := True
       sdram.DQ.write := cmd.data
       sdram.DQ.writeEnable := False
+      sdram.DQM := (sdram.DQM.range -> !readHistory(if(CAS == 3) 1 else 0))
 
       when(cmd.valid) {
         switch(cmd.task) {
@@ -364,14 +366,12 @@ case class SdramCtrl[T <: Data](l : SdramLayout,t : SdramTimings,CAS : Int,conte
             sdram.RASn := False
             sdram.CASn := True
             sdram.WEn := False
-            sdram.DQM := (sdram.DQM.range -> true)
           }
           is(REFRESH) {
             sdram.CSn := False
             sdram.RASn := False
             sdram.CASn := False
             sdram.WEn := True
-            sdram.DQM := (sdram.DQM.range -> true)
           }
           is(MODE) {
             sdram.ADDR := 0
@@ -385,7 +385,6 @@ case class SdramCtrl[T <: Data](l : SdramLayout,t : SdramTimings,CAS : Int,conte
             sdram.RASn := False
             sdram.CASn := False
             sdram.WEn := False
-            sdram.DQM := (sdram.DQM.range -> true)
           }
           is(ACTIVE) {
             sdram.ADDR := cmd.rowColumn.asBits
@@ -394,7 +393,6 @@ case class SdramCtrl[T <: Data](l : SdramLayout,t : SdramTimings,CAS : Int,conte
             sdram.RASn := False
             sdram.CASn := True
             sdram.WEn := True
-            sdram.DQM := (sdram.DQM.range -> true)
           }
           is(WRITE) {
             sdram.ADDR := cmd.rowColumn.asBits
@@ -409,7 +407,7 @@ case class SdramCtrl[T <: Data](l : SdramLayout,t : SdramTimings,CAS : Int,conte
             sdram.WEn := False
           }
           is(READ) {
-            sdram.DQM := 0
+            //DQM is done outside this place
             sdram.ADDR := cmd.rowColumn.asBits
             sdram.ADDR(10) := False
             sdram.BA := cmd.bank.asBits
@@ -425,7 +423,6 @@ case class SdramCtrl[T <: Data](l : SdramLayout,t : SdramTimings,CAS : Int,conte
             sdram.RASn := False
             sdram.CASn := True
             sdram.WEn := False
-            sdram.DQM := (sdram.DQM.range -> true)
           }
         }
       }

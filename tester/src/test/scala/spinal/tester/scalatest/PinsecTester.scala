@@ -2,17 +2,54 @@ package spinal.tester.scalatest
 
 import org.scalatest.{Stepwise, Sequential, Suites}
 import spinal.core._
-import spinal.lib.soc.pinsec.Pinsec
+import spinal.lib.com.jtag.Jtag
+import spinal.lib.com.uart.Uart
+import spinal.lib.io.TriStateArray
+import spinal.lib.memory.sdram.{IS42x320D, SdramInterface}
+import spinal.lib.{master, slave}
+import spinal.lib.soc.pinsec.{PinsecTimerCtrlExternal, Pinsec}
 
 /**
  * Created by PIC32F_USER on 22/08/2016.
 */
 
+
+
 //object PinsecTester{
+//  case class SdramModel() extends BlackBox{
+//    val Dq = in Bool
+//    val Addr = in Bool
+//    val Ba = in Bool
+//    val Clk = in Bool
+//    val Cke = in Bool
+//    val Cs_n = in Bool
+//    val Ras_n = in Bool
+//    val Cas_n = in Bool
+//    val We_n = in Bool
+//    val Dqm = in Bool
+//  }
+//
 //  case class PinsecTester() extends Component{
 //    val io = new Bundle{
-//      val
+//      val asyncReset = in Bool
+//      val axiClk = in Bool
+//      val jtag_tck = in Bool
+//      val jtag = slave(Jtag())
+//      val gpioA = master(TriStateArray(32 bits))
+//      val gpioB = master(TriStateArray(32 bits))
+//      val timerExternal = in(PinsecTimerCtrlExternal())
+//      val uart  = master(Uart())
 //    }
+//
+//    val pinsec = new Pinsec()
+//    io.asyncReset <> pinsec.io.asyncReset
+//    io.axiClk <> pinsec.io.axiClk
+//    io.jtag_tck <> pinsec.io.jtag_tck
+//    io.jtag <> pinsec.io.jtag
+//    io.gpioA <> pinsec.io.gpioA
+//    io.gpioB <> pinsec.io.gpioB
+//    io.timerExternal <> pinsec.io.timerExternal
+//    io.uart <> pinsec.io.uart
 //  }
 //}
 
