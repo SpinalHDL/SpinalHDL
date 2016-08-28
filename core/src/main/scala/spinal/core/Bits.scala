@@ -108,6 +108,11 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
     ret
   }
 
+  def vecSplit(sliceCount : Int) : Vec[Bits] = {
+    val sliceWidth = widthOf(this)/sliceCount
+    Vec((0 until sliceCount).map(i =>this(i*sliceWidth,sliceWidth bits)))
+  }
+
 
   def apply(bitId: Int) : Bool = newExtract(bitId,new ExtractBoolFixedFromBits)
   def apply(bitId: UInt): Bool = newExtract(bitId,new ExtractBoolFloatingFromBits)

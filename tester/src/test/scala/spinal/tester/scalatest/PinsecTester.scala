@@ -1,12 +1,21 @@
 package spinal.tester.scalatest
 
 import org.scalatest.{Stepwise, Sequential, Suites}
-import spinal.core.{SpinalConfig, Component}
+import spinal.core._
 import spinal.lib.soc.pinsec.Pinsec
 
 /**
  * Created by PIC32F_USER on 22/08/2016.
 */
+
+//object PinsecTester{
+//  case class PinsecTester() extends Component{
+//    val io = new Bundle{
+//      val
+//    }
+//  }
+//}
+
 class PinsecTesterCocotbBoot extends SpinalTesterCocotbBase {
   override def getName: String = "PinsecTester"
   override def pythonTests: Seq[(String,String)] = List(
@@ -19,7 +28,8 @@ class PinsecTesterCocotbBoot extends SpinalTesterCocotbBase {
     pinsec.axi.ram.ram.randBoot()
     pinsec
   }
- // override def backendConfig(config: SpinalConfig): SpinalConfig = config.dumpWave()
+
+  override def backendConfig(config: SpinalConfig): SpinalConfig = config.copy(defaultClockDomainFrequency = FixedFrequency(50 MHz))
 }
 
 

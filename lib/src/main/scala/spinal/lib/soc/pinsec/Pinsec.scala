@@ -13,6 +13,7 @@ import spinal.lib.cpu.riscv.impl.build.RiscvAxi4
 import spinal.lib.cpu.riscv.impl.extension.{BarrelShifterFullExtension, DivExtension, MulExtension}
 import spinal.lib.cpu.riscv.impl.{disable, dynamic, sync, CoreConfig}
 import spinal.lib.io.TriStateArray
+import spinal.lib.memory.sdram._
 import spinal.lib.system.debugger.{JtagAxi4SharedDebugger, SystemDebuggerConfig}
 
 class Pinsec extends Component{
@@ -28,6 +29,7 @@ class Pinsec extends Component{
     val gpioB = master(TriStateArray(32 bits))
     val timerExternal = in(PinsecTimerCtrlExternal())
     val uart  = master(Uart())
+    val sdram = master(SdramInterface(IS42x320D.layout))
   }
 
 
@@ -47,7 +49,7 @@ class Pinsec extends Component{
   }
 
 
-  val axi = new ClockingArea(ClockDomain(io.axiClk,resetCtrl.axiReset)) {
+  val axi = new ClockingArea(ClockDomain(io.axiClk,resetCtrl.axiReset,frequency = ClockDomain.current.frequency)) {
     val coreConfig = CoreConfig(
       pcWidth = 32,
       addrWidth = 32,
@@ -85,6 +87,14 @@ class Pinsec extends Component{
       idWidth = 4
     )
 
+    val sdramCtrl = Axi4SharedSdramCtrl(
+      dataWidth = 32,
+      idWidth = 4,
+      layout = IS42x320D.layout,
+      timing = IS42x320D.timingGrade7,
+      CAS = 3
+    )
+
     val jtagCtrl = JtagAxi4SharedDebugger(SystemDebuggerConfig(
       memAddressWidth = 32,
       memDataWidth = 32,
@@ -118,11 +128,12 @@ class Pinsec extends Component{
       .addSlaves(
         rom.io.axi       ->(0x00000000L, 128 kB),
         ram.io.axi       ->(0x04000000L,  32 kB),
+        sdramCtrl.io.axi ->(0x40000000L,  64 MB),
         apbBridge.io.axi ->(0xF0000000L,   1 MB)
       ).addConnections(
-        core.io.i       -> List(rom.io.axi, ram.io.axi),
-        core.io.d       -> List(rom.io.axi, ram.io.axi, apbBridge.io.axi),
-        jtagCtrl.io.axi -> List(rom.io.axi, ram.io.axi, apbBridge.io.axi)
+        core.io.i       -> List(rom.io.axi, ram.io.axi, sdramCtrl.io.axi),
+        core.io.d       -> List(rom.io.axi, ram.io.axi, sdramCtrl.io.axi, apbBridge.io.axi),
+        jtagCtrl.io.axi -> List(rom.io.axi, ram.io.axi, sdramCtrl.io.axi, apbBridge.io.axi)
       ).build()
 
 
@@ -156,12 +167,14 @@ class Pinsec extends Component{
   io.timerExternal <> axi.timerCtrl.io.external
   io.jtag          <> axi.jtagCtrl.io.jtag
   io.uart          <> axi.uartCtrl.io.uart
+  io.sdram         <> axi.sdramCtrl.io.sdram
 }
 
 
 object Pinsec{
   def main(args: Array[String]) {
-    SpinalConfig().generateVerilog(new Pinsec)
-    SpinalConfig().generateVhdl(new Pinsec)
+    val config = SpinalConfig(defaultClockDomainFrequency = FixedFrequency(50 MHz))
+    config.generateVerilog(new Pinsec)
+    config.generateVhdl(new Pinsec)
   }
 }
