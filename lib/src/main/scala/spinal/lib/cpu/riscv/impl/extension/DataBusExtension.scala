@@ -22,6 +22,8 @@ class NativeDataBusExtension extends CoreExtension with AvalonProvider with AhbL
 
   override def getAhbLite3(): AhbLite3Master = memBus.toAhbLite3()
   override def getAhbLite3Config(): AhbLite3Config = CoreDataBus.getAhbLite3Config(memBus.p)
+
+  override def needFlowDRsp = true
 }
 
 

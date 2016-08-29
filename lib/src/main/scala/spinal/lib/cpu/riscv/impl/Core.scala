@@ -194,7 +194,7 @@ case class CoreInstructionBus(implicit val p : CoreConfig) extends Bundle with I
     val haltCmd = rsp.isStall || (pendingCmd && !mm.readRsp.valid) // Don't overflow the backupFifo and don't have more than one pending cmd
 
     mm.readCmd.valid := cmd.valid && !haltCmd
-    mm.readCmd.addr  := cmd.pc
+    mm.readCmd.addr  := cmd.pc(mm.readCmd.addr.getWidth -1 downto 2) @@ U"00"
     mm.readCmd.prot  := "110"
     mm.readCmd.cache := "1111"
     cmd.ready := mm.readCmd.ready && !haltCmd
@@ -278,7 +278,7 @@ case class CoreDataBus(implicit p : CoreConfig) extends Bundle with IMasterSlave
     contextIn.valid := cmdStage.fire && !cmdStage.wr
     contextIn.payload := cmdStage.address(1 downto 0)
 
-    val contextOut = if(stageCmd) contextIn.m2sPipe() else contextIn.m2sPipe().m2sPipe()
+    val contextOut = contextIn.m2sPipe().s2mPipe()
     contextOut.ready := rsp.fire
 
     cmdStage.ready := mm.waitRequestn
@@ -339,60 +339,69 @@ case class CoreDataBus(implicit p : CoreConfig) extends Bundle with IMasterSlave
 
   //stageCmd can only be false if the minimal latency of reads is >= 2
   def toAxi4Shared(stageCmd : Boolean = true): Axi4Shared = {
-    val Axi4SharedConfig = CoreDataBus.getAxi4Config(p)
-    val mm = Axi4Shared(Axi4SharedConfig)
-    val pendingMax = 3
-    val pendingCmd = CounterUpDown(
-      stateCount = pendingMax + 1,
-      incWhen =  mm.sharedCmd.fire,
-      decWhen = (mm.readRsp.fire  && mm.readRsp.last) || mm.writeRsp.fire
-    )
-    val pendingIsWrite = RegNextWhen(mm.sharedCmd.write,mm.sharedCmd.fire) randBoot()
+    val area = new Area {
+      val Axi4SharedConfig = CoreDataBus.getAxi4Config(p)
+      val mm = Axi4Shared(Axi4SharedConfig)
+      val pendingMax = 3
+      val pendingCmd = CounterUpDown(
+        stateCount = pendingMax + 1,
+        incWhen = mm.sharedCmd.fire,
+        decWhen = (mm.readRsp.fire && mm.readRsp.last) || mm.writeRsp.fire
+      )
+      val pendingIsWrite = RegNextWhen(mm.sharedCmd.write, mm.sharedCmd.fire) randBoot()
 
-    val cmdPreFork = if(stageCmd) cmd.stage else cmd
-    val (cmdFork,dataFork) = StreamFork2(cmdPreFork.haltWhen((pendingCmd =/= 0 && (pendingIsWrite ^ cmdPreFork.wr)) || pendingCmd === pendingMax))
-    mm.sharedCmd.valid := cmdFork.valid
-    mm.sharedCmd.write :=  cmdFork.wr
-    mm.sharedCmd.prot  := "010"
-    mm.sharedCmd.cache := "1111"
-    mm.sharedCmd.size  := cmdFork.size.resized
-    mm.sharedCmd.addr := cmdFork.address(cmdFork.address.high downto 2) @@ "00"
+      val cmdPreFork = if (stageCmd) cmd.stage else cmd
+      val (cmdFork, dataFork) = StreamFork2(cmdPreFork.haltWhen((pendingCmd =/= 0 && (pendingIsWrite ^ cmdPreFork.wr)) || pendingCmd === pendingMax))
+      mm.sharedCmd.valid := cmdFork.valid
+      mm.sharedCmd.write := cmdFork.wr
+      mm.sharedCmd.prot := "010"
+      mm.sharedCmd.cache := "1111"
+      mm.sharedCmd.size := cmdFork.size.resized
+      mm.sharedCmd.addr := cmdFork.address
 
-    val dataStage = dataFork.throwWhen(!dataFork.wr).stage()
-    mm.writeData.arbitrationFrom(dataStage)
-    mm.writeData.last := True
-    mm.writeData.data := dataStage.size.mux (
-      U(0) -> dataStage.data(7 downto 0) ## dataStage.data(7 downto 0) ## dataStage.data(7 downto 0) ## dataStage.data(7 downto 0),
-      U(1) -> dataStage.data(15 downto 0) ## dataStage.data(15 downto 0),
-      default -> dataStage.data(31 downto 0)
-    )
-    mm.writeData.strb := (dataStage.size.mux (
-      U(0) -> B"0001",
-      U(1) -> B"0011",
-      default -> B"1111"
-    ) << dataStage.address(1 downto 0)).resized
+      val dataStage = dataFork.throwWhen(!dataFork.wr).stage()
+      mm.writeData.arbitrationFrom(dataStage)
+      mm.writeData.last := True
+      mm.writeData.data := dataStage.size.mux(
+        U(0) -> dataStage.data(7 downto 0) ## dataStage.data(7 downto 0) ## dataStage.data(7 downto 0) ## dataStage.data(7 downto 0),
+        U(1) -> dataStage.data(15 downto 0) ## dataStage.data(15 downto 0),
+        default -> dataStage.data(31 downto 0)
+      )
+      mm.writeData.strb := (dataStage.size.mux(
+        U(0) -> B"0001",
+        U(1) -> B"0011",
+        default -> B"1111"
+      ) << dataStage.address(1 downto 0)).resized
 
-    val contextIn = Stream(UInt(2 bit))
-    contextIn.valid := cmdFork.fire && !cmdFork.wr
-    contextIn.payload := cmdFork.address(1 downto 0)
+      val contextIn = Stream(UInt(2 bit))
+      contextIn.valid := cmdFork.fire && !cmdFork.wr
+      contextIn.payload := cmdFork.address(1 downto 0)
 
-    val contextOut = if(stageCmd) contextIn.m2sPipe() else contextIn.m2sPipe().m2sPipe()
-    contextOut.ready := rsp.fire
+      val contextOut = contextIn.m2sPipe().s2mPipe()
+      contextOut.ready := rsp.fire
 
-    cmdFork.ready := mm.sharedCmd.ready
-    rsp.valid := mm.readRsp.valid
-    //rsp.payload := mm.readData >> (contextOut.payload*8)
-    rsp.payload := mm.readRsp.data
-    switch(contextOut.payload){
-      is(1){rsp.payload(7 downto 0)  := mm.readRsp.data(15 downto 8)}
-      is(2){rsp.payload(15 downto 0) := mm.readRsp.data(31 downto 16)}
-      is(3){rsp.payload(7 downto 0)  := mm.readRsp.data(31 downto 24)}
+      cmdFork.ready := mm.sharedCmd.ready
+      rsp.valid := mm.readRsp.valid
+      //rsp.payload := mm.readData >> (contextOut.payload*8)
+      rsp.payload := mm.readRsp.data
+      switch(contextOut.payload) {
+        is(1) {
+          rsp.payload(7 downto 0) := mm.readRsp.data(15 downto 8)
+        }
+        is(2) {
+          rsp.payload(15 downto 0) := mm.readRsp.data(31 downto 16)
+        }
+        is(3) {
+          rsp.payload(7 downto 0) := mm.readRsp.data(31 downto 24)
+        }
+      }
+
+      mm.writeRsp.ready := True
+      mm.readRsp.ready := True
     }
+    area.setName("dBridge")
+    area.mm
 
-    mm.writeRsp.ready := True
-    mm.readRsp.ready := True
-
-    mm
   }
 }
 

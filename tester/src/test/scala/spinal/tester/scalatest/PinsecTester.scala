@@ -66,7 +66,7 @@ class PinsecTesterCocotbBoot extends SpinalTesterCocotbBase {
     pinsec
   }
 
-  override def backendConfig(config: SpinalConfig): SpinalConfig = config.copy(defaultClockDomainFrequency = FixedFrequency(50 MHz))
+  override def backendConfig(config: SpinalConfig): SpinalConfig = config.copy(defaultClockDomainFrequency = FixedFrequency(50 MHz))//.dumpWave()
 }
 
 

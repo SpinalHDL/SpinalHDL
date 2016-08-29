@@ -173,7 +173,7 @@ class Pinsec extends Component{
 
 object Pinsec{
   def main(args: Array[String]) {
-    val config = SpinalConfig(defaultClockDomainFrequency = FixedFrequency(50 MHz))
+    val config = SpinalConfig(defaultClockDomainFrequency = FixedFrequency(50 MHz)).dumpWave()
     config.generateVerilog(new Pinsec)
     config.generateVhdl(new Pinsec)
   }

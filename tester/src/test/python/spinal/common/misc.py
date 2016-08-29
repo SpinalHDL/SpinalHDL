@@ -199,9 +199,17 @@ class Bundle:
     def __init__(self,dut,name):
         self.nameToElement = {}
         self.elements = [a for a in dut if a._name.startswith(name + "_")]
+
+        for e in [a for a in dut if a._name == name]:
+            self.elements.append(e)
+
         for element in self.elements:
             # print("append " + element._name + " with name : " + element._name[len(name) + 1:])
-            eName = element._name[len(name) + 1:]
+            if len(name) == len(element._name):
+                eName = element._name
+            else:
+                eName = element._name[len(name) + 1:]
+
             if eName == "id":
                 eName = "hid"
             self.nameToElement[eName] = element
