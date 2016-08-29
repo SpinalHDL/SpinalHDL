@@ -101,7 +101,7 @@ def test1(dut):
     phaseManager = PhaseManager()
     phaseManager.setWaitTasksEndTime(1000*1000)
 
-    SdramTester("sdramTester",phaseManager,Stream(dut,"io_cmd"),Stream(dut,"io_rsp"),dut.clk,dut.reset)
+    SdramTester("sdramTester",phaseManager,Stream(dut,"io_bus_cmd"),Stream(dut,"io_bus_rsp"),dut.clk,dut.reset)
 
     yield phaseManager.run()
 

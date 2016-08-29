@@ -257,7 +257,7 @@ end
             }
             ret ++= s"""
 initial begin
-  for (verilogIndex = 0; verilogIndex < ${mem.wordCount} - 1; verilogIndex = verilogIndex + 1)begin
+  for (verilogIndex = 0; verilogIndex < ${mem.wordCount}; verilogIndex = verilogIndex + 1)begin
 ${
   if(symbolCount == 1){
     emitReference(mem) + "[verilogIndex] = -1;"

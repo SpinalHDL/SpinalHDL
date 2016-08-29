@@ -7,6 +7,7 @@ from cocotb.triggers import Timer, Edge, RisingEdge, Join, FallingEdge
 
 from spinal.Pinsec.common.CoreCom import readCoreValue, readCoreValueAssert
 from spinal.Pinsec.common.HexLoader import loadIHex
+from spinal.Pinsec.common.Misc import pinsecClockGen
 from spinal.common.AhbLite3 import AhbLite3MasterDriver, AhbLite3SlaveMemory, AhbLite3MasterIdle, AhbLite3TraficGenerator, AhbLite3MasterReadChecker, AhbLite3Terminaison
 from spinal.common.misc import setBit, randSignal, assertEquals, truncUInt, sint, ClockDomainAsyncReset, randBoolSignal, \
     BoolRandomizer, StreamRandomizer,StreamReader, FlowRandomizer, Bundle, simulationSpeedPrinter, readIHex, log2Up
@@ -52,17 +53,15 @@ def _unidiff_output(expected, actual):
 
 @cocotb.test()
 def test1(dut):
-    dut.log.info("Cocotb test boot")
     random.seed(0)
 
+    uut = dut.uut
     log = open('uartTx.log', 'w')
 
-    cocotb.fork(simulationSpeedPrinter(dut.io_axiClk))
-    yield loadIHex(dut,"../hex/dhrystone.hex",dut.io_axiClk,dut.io_asyncReset)
-    cocotb.fork(ClockDomainAsyncReset(dut.io_axiClk, dut.io_asyncReset))
-    cocotb.fork(uartTxBypass(dut.axi_uartCtrl.uartCtrl,dut.io_axiClk,log))
+    cocotb.fork(simulationSpeedPrinter(uut.io_axiClk))
+    yield loadIHex(uut,"../hex/dhrystone.hex",uut.io_axiClk,uut.io_asyncReset)
+    pinsecClockGen(dut)
+    cocotb.fork(uartTxBypass(uut.axi_uartCtrl.uartCtrl,uut.io_axiClk,log))
 
-    yield assertions(dut,log)
+    yield assertions(uut,log)
     yield Timer(1000*10)
-
-    dut.log.info("Cocotb test done")

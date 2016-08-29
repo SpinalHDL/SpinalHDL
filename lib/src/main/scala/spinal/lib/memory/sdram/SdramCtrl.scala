@@ -2,21 +2,95 @@ package spinal.lib.memory.sdram
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.bus.amba4.axi.Axi4Shared
 
 import scala.math.BigDecimal.RoundingMode
 
 
 case class SdramCtrlCmd[T <: Data](c : SdramLayout,contextType : T) extends Bundle{
-  val address = UInt(c.totalAddressWidth bits)
+  val address = UInt(c.wordAddressWidth bits)
   val write = Bool
   val data = Bits(c.dataWidth bits)
-  val mask = Bits(c.symbolCount bits)
+  val mask = Bits(c.bytePerWord bits)
   val context = cloneOf(contextType)
 }
 
 case class SdramCtrlRsp[T <: Data](c : SdramLayout,contextType : T)  extends Bundle{
   val data = Bits(c.dataWidth bits)
   val context = cloneOf(contextType)
+}
+
+case class SdramCtrlAxi4SharedContext(idWidth : Int) extends Bundle{
+  val id = UInt(idWidth bits)
+  val last = Bool
+}
+
+case class SdramCtrlBus[T <: Data](c : SdramLayout, contextType : T) extends Bundle with IMasterSlave {
+  val cmd = Stream(SdramCtrlCmd(c,contextType))
+  val rsp = Stream(SdramCtrlRsp(c,contextType))
+
+  override def asMaster(): Unit = {
+    master(cmd)
+    slave(rsp)
+  }
+
+  def genScaledUpDriver(factor : Int) : SdramCtrlBus[T] = {
+    require(factor > 1)
+    require(isPow2(factor))
+    val ret = SdramCtrlBus(c.copy(dataWidth = this.c.dataWidth*factor,rowWidth = this.c.rowWidth - log2Up(factor)),contextType)
+
+    val cmdCounter    = Counter(factor,this.cmd.fire)
+    this.cmd.valid   := ret.cmd.valid
+    this.cmd.address := ret.cmd.address @@ cmdCounter
+    this.cmd.write   := ret.cmd.write
+    this.cmd.data    := ret.cmd.data.vecSplit(factor).read(cmdCounter)
+    this.cmd.mask    := ret.cmd.mask.vecSplit(factor).read(cmdCounter)
+    this.cmd.context := ret.cmd.context
+    ret.cmd.ready    := this.cmd.ready && cmdCounter.willOverflowIfInc
+
+    val rspCounter    = Counter(factor,this.rsp.fire)
+    ret.rsp.valid    := this.rsp.valid && rspCounter.willOverflowIfInc
+    ret.rsp.data     := this.rsp.data ## RegNextWhen(this.rsp.data,this.rsp.fire)
+    ret.rsp.context  := this.rsp.context
+    this.rsp.ready   := ret.rsp.ready || !rspCounter.willOverflowIfInc
+
+    ret
+  }
+
+  def driveFrom(axi : Axi4Shared) = new Area{
+    require(axi.config.dataWidth == c.dataWidth)
+
+    val axiSharedCmd = axi.arw.unburstify
+    val axiCmd = axiSharedCmd.haltWhen(axiSharedCmd.write && !axi.writeData.valid)
+    val writeRsp = cloneOf(axi.writeRsp)
+
+    //SDRAM cmd branch
+    cmd.valid   := axiCmd.valid
+    cmd.address := axiCmd.addr(axi.config.wordRange).resized
+    cmd.write   := axiCmd.write
+    cmd.data    := axi.writeData.data
+    cmd.mask    := axi.writeData.strb
+    cmd.context.asInstanceOf[SdramCtrlAxi4SharedContext].id  :=  axiCmd.id
+    cmd.context.asInstanceOf[SdramCtrlAxi4SharedContext].last := axiCmd.last
+
+    //Write rsp branch
+    writeRsp.valid := axiCmd.fire && axiCmd.write && axiCmd.last
+    writeRsp.setOKAY()
+    writeRsp.id := axiCmd.id
+    writeRsp >-> axi.writeRsp
+
+    //Read rsp branch
+    axi.readRsp.valid := rsp.valid
+    axi.readRsp.id    := rsp.context.asInstanceOf[SdramCtrlAxi4SharedContext].id
+    axi.readRsp.data  := rsp.data
+    axi.readRsp.last  := rsp.context.asInstanceOf[SdramCtrlAxi4SharedContext].last
+    axi.readRsp.setOKAY()
+
+    //Readys
+    axi.writeData.ready :=  axiSharedCmd.valid && axiSharedCmd.write  && axiCmd.ready
+    rsp.ready           := axi.readRsp.ready
+    axiCmd.ready        := cmd.ready && !(axiCmd.write && !writeRsp.ready)
+  }
 }
 
 object SdramCtrlFrontendState extends SpinalEnum{
@@ -31,7 +105,7 @@ case class SdramCtrlBackendCmd[T <: Data](c : SdramLayout,contextType : T) exten
   val bank = UInt(c.bankWidth bits)
   val rowColumn =  UInt(Math.max(c.columnWidth,c.rowWidth) bits)
   val data = Bits(c.dataWidth bits)
-  val mask = Bits(c.symbolCount bits)
+  val mask = Bits(c.bytePerWord bits)
   val context = cloneOf(contextType)
 }
 
@@ -41,22 +115,22 @@ case class SdramCtrlBank(c : SdramLayout) extends Bundle{
 }
 
 
-case class SdramCtrl[T <: Data](c : SdramLayout,t : SdramTimings,CAS : Int,contextType : T) extends Component{
+
+
+case class SdramCtrl[T <: Data](l : SdramLayout,t : SdramTimings,CAS : Int,contextType : T) extends Component{
   import SdramCtrlBackendTask._
   import SdramCtrlFrontendState._
 
   val io = new Bundle{
-    val sdram = master(SdramInterface(c))
-
-    val cmd = slave Stream(SdramCtrlCmd(c,contextType))
-    val rsp = master Stream(SdramCtrlRsp(c,contextType))
+    val bus = slave(SdramCtrlBus(l,contextType))
+    val sdram = master(SdramInterface(l))
   }
 
   val clkFrequancy = ClockDomain.current.frequency.getValue
   def timeToCycles(time : BigDecimal): BigInt = (clkFrequancy * time).setScale(0, RoundingMode.UP).toBigInt()
 
   val refresh = new Area{
-    val counter = CounterFreeRun(timeToCycles(t.tREF/(1 << c.rowWidth)))
+    val counter = CounterFreeRun(timeToCycles(t.tREF/(1 << l.rowWidth)))
     val pending = RegInit(False) setWhen(counter.willOverflow)
   }
 
@@ -74,26 +148,26 @@ case class SdramCtrl[T <: Data](c : SdramLayout,t : SdramTimings,CAS : Int,conte
 
 
   val frontend = new Area{
-    val banks = Reg(Vec(SdramCtrlBank(c),c.bankCount))
+    val banks = Reg(Vec(SdramCtrlBank(l),l.bankCount))
     banks.foreach(_.active init(False))
 
     val address = new Bundle{
-      val column = UInt(c.columnWidth bits)
-      val bank   = UInt(c.bankWidth bits)
-      val row    = UInt(c.rowWidth bits)
+      val column = UInt(l.columnWidth bits)
+      val bank   = UInt(l.bankWidth bits)
+      val row    = UInt(l.rowWidth bits)
     }
-    address.assignFromBits(io.cmd.address.asBits)
+    address.assignFromBits(io.bus.cmd.address.asBits)
 
-    val rsp = Stream(SdramCtrlBackendCmd(c,contextType))
+    val rsp = Stream(SdramCtrlBackendCmd(l,contextType))
     rsp.valid := False
     rsp.task := REFRESH
     rsp.bank := address.bank
     rsp.rowColumn := address.row.resized
-    rsp.data := io.cmd.data
-    rsp.mask := io.cmd.mask
-    rsp.context := io.cmd.context
+    rsp.data := io.bus.cmd.data
+    rsp.mask := io.bus.cmd.mask
+    rsp.context := io.bus.cmd.context
 
-    io.cmd.ready := False
+    io.bus.cmd.ready := False
 
 
     val state = RegInit(BOOT_PRECHARGE)
@@ -139,7 +213,7 @@ case class SdramCtrl[T <: Data](c : SdramLayout,t : SdramTimings,CAS : Int,conte
               refresh.pending := False
             }
           }
-        }.elsewhen(io.cmd.valid){
+        }.elsewhen(io.bus.cmd.valid){
           rsp.valid := True
           val bank = banks(address.bank)
           when(bank.active && bank.row =/= address.row){
@@ -155,8 +229,8 @@ case class SdramCtrl[T <: Data](c : SdramLayout,t : SdramTimings,CAS : Int,conte
               bank.active := True
             }
           } otherwise {
-            io.cmd.ready := rsp.ready
-            rsp.task := io.cmd.write ? WRITE | READ
+            io.bus.cmd.ready := rsp.ready
+            rsp.task := io.bus.cmd.write ? WRITE | READ
             rsp.rowColumn := address.column.resized
           }
         }
@@ -177,6 +251,7 @@ case class SdramCtrl[T <: Data](c : SdramLayout,t : SdramTimings,CAS : Int,conte
         counter := counter - 1
       }
       def setCycles(cycles : BigInt) = {
+        assert(cycles <= cycleMax)
         if (!assignCheck)
           counter := cycles - 1
         else
@@ -191,11 +266,11 @@ case class SdramCtrl[T <: Data](c : SdramLayout,t : SdramTimings,CAS : Int,conte
 
     val timings = new Area{
       val read   = timeCounter(t.tRCD)
-      val write  = cycleCounter(timeToCycles(t.tRCD).max(CAS + 1))
+      val write  = cycleCounter(timeToCycles(t.tRCD).max(CAS + 1 + 1),true)
 
-      val banks = (0 until c.bankCount).map(i =>  new Area{
+      val banks = (0 until l.bankCount).map(i =>  new Area{
         val precharge = timeCounter(t.tRC,true)
-        val active    = timeCounter(t.tRC.max(t.tMRD).max(t.tRFC),true)
+        val active    = cycleCounter(timeToCycles(t.tRC.max(t.tRFC).max(t.cMRD)),true)
       })
     }
 
@@ -204,7 +279,7 @@ case class SdramCtrl[T <: Data](c : SdramLayout,t : SdramTimings,CAS : Int,conte
         is(MODE){
           insertBubble := timings.banks(0).active.busy
           when(cmd.ready) {
-            timings.banks.foreach(_.active.setTime(t.tMRD))
+            timings.banks.foreach(_.active.setCycles(t.cMRD))
           }
         }
         is(PRECHARGE_ALL){
@@ -237,7 +312,7 @@ case class SdramCtrl[T <: Data](c : SdramLayout,t : SdramTimings,CAS : Int,conte
         is(READ){
           insertBubble := timings.read.busy
           when(cmd.ready){
-            timings.write.setCycles(CAS + 1)
+            timings.write.setCycles(CAS + 1 + 1)  // + 1 to avoid bus colision
           }
         }
         is(WRITE){
@@ -268,7 +343,7 @@ case class SdramCtrl[T <: Data](c : SdramLayout,t : SdramTimings,CAS : Int,conte
     )
     val contextDelayed = Delay(cmd.context,CAS + 2,when=remoteCke)
 
-    val sdramCkeNext = !(readHistory.orR && !io.rsp.ready)
+    val sdramCkeNext = !(readHistory.orR && !io.bus.rsp.ready)
     val sdramCkeInternal = RegNext(sdramCkeNext) init(True) //Duplicated register (sdram.CKE) To avoid infering an IO buffer with a reset value
     sdram.CKE    := sdramCkeNext
     remoteCke := RegNext(sdramCkeInternal) init(True)
@@ -281,6 +356,7 @@ case class SdramCtrl[T <: Data](c : SdramLayout,t : SdramTimings,CAS : Int,conte
       sdram.WEn  := True
       sdram.DQ.write := cmd.data
       sdram.DQ.writeEnable := False
+      sdram.DQM := (sdram.DQM.range -> !readHistory(if(CAS == 3) 1 else 0))
 
       when(cmd.valid) {
         switch(cmd.task) {
@@ -290,14 +366,12 @@ case class SdramCtrl[T <: Data](c : SdramLayout,t : SdramTimings,CAS : Int,conte
             sdram.RASn := False
             sdram.CASn := True
             sdram.WEn := False
-            sdram.DQM := (sdram.DQM.range -> true)
           }
           is(REFRESH) {
             sdram.CSn := False
             sdram.RASn := False
             sdram.CASn := False
             sdram.WEn := True
-            sdram.DQM := (sdram.DQM.range -> true)
           }
           is(MODE) {
             sdram.ADDR := 0
@@ -311,7 +385,6 @@ case class SdramCtrl[T <: Data](c : SdramLayout,t : SdramTimings,CAS : Int,conte
             sdram.RASn := False
             sdram.CASn := False
             sdram.WEn := False
-            sdram.DQM := (sdram.DQM.range -> true)
           }
           is(ACTIVE) {
             sdram.ADDR := cmd.rowColumn.asBits
@@ -320,7 +393,6 @@ case class SdramCtrl[T <: Data](c : SdramLayout,t : SdramTimings,CAS : Int,conte
             sdram.RASn := False
             sdram.CASn := True
             sdram.WEn := True
-            sdram.DQM := (sdram.DQM.range -> true)
           }
           is(WRITE) {
             sdram.ADDR := cmd.rowColumn.asBits
@@ -335,7 +407,7 @@ case class SdramCtrl[T <: Data](c : SdramLayout,t : SdramTimings,CAS : Int,conte
             sdram.WEn := False
           }
           is(READ) {
-            sdram.DQM := 0
+            //DQM is done outside this place
             sdram.ADDR := cmd.rowColumn.asBits
             sdram.ADDR(10) := False
             sdram.BA := cmd.bank.asBits
@@ -351,18 +423,17 @@ case class SdramCtrl[T <: Data](c : SdramLayout,t : SdramTimings,CAS : Int,conte
             sdram.RASn := False
             sdram.CASn := True
             sdram.WEn := False
-            sdram.DQM := (sdram.DQM.range -> true)
           }
         }
       }
     }
 
-    val backupIn = cloneOf(io.rsp)
+    val backupIn = cloneOf(io.bus.rsp)
     backupIn.valid := readHistory.last & remoteCke
     backupIn.data := sdram.DQ.read
     backupIn.context := contextDelayed
 
-    io.rsp << backupIn.s2mPipe(2)
+    io.bus.rsp << backupIn.s2mPipe(2)
 
     cmd.ready := remoteCke
   }
@@ -371,7 +442,7 @@ case class SdramCtrl[T <: Data](c : SdramLayout,t : SdramTimings,CAS : Int,conte
 
 object SdramCtrlMain{
   def main(args: Array[String]) {
-    val device = SdramDevices.IS42x320D
-    SpinalConfig(defaultClockDomainFrequency = FixedFrequency(100 MHz)).generateVhdl(SdramCtrl(device.config,device.timingGrade7,3,UInt(8 bits)))
+    val device = IS42x320D
+    SpinalConfig(defaultClockDomainFrequency = FixedFrequency(100 MHz)).generateVhdl(SdramCtrl(device.layout,device.timingGrade7,3,UInt(8 bits)))
   }
 }

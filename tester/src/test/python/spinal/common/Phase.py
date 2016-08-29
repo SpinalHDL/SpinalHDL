@@ -17,15 +17,23 @@ class Infrastructure:
             parent.addChild(self)
         self.children = []
 
+    def getPhase(self):
+        return self.parent.getPhase()
+
     def startPhase(self, phase):
         error = False
         for child in self.children:
             child.startPhase(phase)
 
+    def hasEnoughSim(self):
+        return True
+
     def canPhaseProgress(self, phase):
         for child in self.children:
             if not child.canPhaseProgress(phase):
                 return False
+        if phase == PHASE_SIM:
+            return self.hasEnoughSim()
         return True
 
     def endPhase(self, phase):
@@ -61,7 +69,8 @@ class PhaseManager(Infrastructure):
                 break
             yield Timer(10000)
 
-
+    def getPhase(self):
+        return self.phase
 
     def switchPhase(self,phase):
         for infra in self.children:

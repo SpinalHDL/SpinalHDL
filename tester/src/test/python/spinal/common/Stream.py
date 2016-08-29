@@ -182,6 +182,11 @@ class StreamScorboardOutOfOrder(Infrastructure):
         Infrastructure.__init__(self,name,parent)
         self.refsDic = {}
         self.uutsDic = {}
+        self.listeners = []
+
+
+    def addListener(self,func):
+        self.listeners.append(func)
 
     def refPush(self,ref,oooid):
         if not self.refsDic.has_key(oooid):
@@ -213,7 +218,11 @@ class StreamScorboardOutOfOrder(Infrastructure):
 
 
     def match(self,uut,ref):
-        if not uut.equalRef(ref):
+        equal = uut.equalRef(ref)
+        for l in self.listeners:
+            l(uut,ref,equal)
+
+        if not equal:
             cocotb.log.error("Missmatch detected in " + self.getPath())
             uut.assertEqualRef(ref)
 

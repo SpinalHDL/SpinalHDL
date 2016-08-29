@@ -61,18 +61,18 @@ def sint(signal):
 
 
 @cocotb.coroutine
-def ClockDomainAsyncReset(clk,reset):
+def ClockDomainAsyncReset(clk,reset,period = 1000):
     if reset:
         reset <= 1
     clk <= 0
-    yield Timer(1000)
+    yield Timer(period)
     if reset:
         reset <= 0
     while True:
         clk <= 0
-        yield Timer(500)
+        yield Timer(period/2)
         clk <= 1
-        yield Timer(500)
+        yield Timer(period/2)
 
 
 
@@ -199,9 +199,17 @@ class Bundle:
     def __init__(self,dut,name):
         self.nameToElement = {}
         self.elements = [a for a in dut if a._name.startswith(name + "_")]
+
+        for e in [a for a in dut if a._name == name]:
+            self.elements.append(e)
+
         for element in self.elements:
             # print("append " + element._name + " with name : " + element._name[len(name) + 1:])
-            eName = element._name[len(name) + 1:]
+            if len(name) == len(element._name):
+                eName = element._name
+            else:
+                eName = element._name[len(name) + 1:]
+
             if eName == "id":
                 eName = "hid"
             self.nameToElement[eName] = element

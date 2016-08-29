@@ -12,22 +12,29 @@ import spinal.lib.com.uart.{Uart, UartCtrlGenerics, UartCtrlMemoryMappedConfig, 
 import spinal.lib.cpu.riscv.impl.build.RiscvAxi4
 import spinal.lib.cpu.riscv.impl.extension.{BarrelShifterFullExtension, DivExtension, MulExtension}
 import spinal.lib.cpu.riscv.impl.{disable, dynamic, sync, CoreConfig}
+import spinal.lib.graphic.RgbConfig
+import spinal.lib.graphic.vga.{Vga, Axi4VgaCtrlGenerics, Axi4VgaCtrl}
 import spinal.lib.io.TriStateArray
+import spinal.lib.memory.sdram._
 import spinal.lib.system.debugger.{JtagAxi4SharedDebugger, SystemDebuggerConfig}
 
 class Pinsec extends Component{
   val debug = true
   val interruptCount = 4
+  def vgaRgbConfig = RgbConfig(5,6,5)
 
   val io = new Bundle{
     val asyncReset = in Bool
     val axiClk = in Bool
+    val vgaClk = in Bool
     val jtag_tck = in Bool
     val jtag = slave(Jtag())
     val gpioA = master(TriStateArray(32 bits))
     val gpioB = master(TriStateArray(32 bits))
     val timerExternal = in(PinsecTimerCtrlExternal())
     val uart  = master(Uart())
+    val sdram = master(SdramInterface(IS42x320D.layout))
+    val vga   = master(Vga(vgaRgbConfig))
   }
 
 
@@ -43,11 +50,12 @@ class Pinsec extends Component{
     val coreResetOrder = False setWhen(axiResetOrder)
 
     val axiReset =  RegNext(axiResetOrder)
+    val vgaReset =  BufferCC(axiReset)
     val coreReset = RegNext(coreResetOrder)
   }
 
 
-  val axi = new ClockingArea(ClockDomain(io.axiClk,resetCtrl.axiReset)) {
+  val axi = new ClockingArea(ClockDomain(io.axiClk,resetCtrl.axiReset,frequency = ClockDomain.current.frequency)) {
     val coreConfig = CoreConfig(
       pcWidth = 32,
       addrWidth = 32,
@@ -85,6 +93,14 @@ class Pinsec extends Component{
       idWidth = 4
     )
 
+    val sdramCtrl = Axi4SharedSdramCtrl(
+      dataWidth = 32,
+      idWidth = 4,
+      layout = IS42x320D.layout,
+      timing = IS42x320D.timingGrade7,
+      CAS = 3
+    )
+
     val jtagCtrl = JtagAxi4SharedDebugger(SystemDebuggerConfig(
       memAddressWidth = 32,
       memDataWidth = 32,
@@ -114,15 +130,27 @@ class Pinsec extends Component{
       rxFifoDepth = 16
     ))
 
+    val vgaCtrl = Axi4VgaCtrl(Axi4VgaCtrlGenerics(
+      axiAddressWidth = 32,
+      axiDataWidth = 32,
+      burstLength = 8,
+      frameSizeMax = 2048*1512,
+      fifoSize = 512,
+      rgbConfig = vgaRgbConfig,
+      vgaClock = ClockDomain(io.vgaClk,resetCtrl.vgaReset)
+    ))
+
     val axiCrossbar = Axi4CrossbarFactory()
       .addSlaves(
         rom.io.axi       ->(0x00000000L, 128 kB),
         ram.io.axi       ->(0x04000000L,  32 kB),
+        sdramCtrl.io.axi ->(0x40000000L,  64 MB),
         apbBridge.io.axi ->(0xF0000000L,   1 MB)
       ).addConnections(
-        core.io.i       -> List(rom.io.axi, ram.io.axi),
-        core.io.d       -> List(rom.io.axi, ram.io.axi, apbBridge.io.axi),
-        jtagCtrl.io.axi -> List(rom.io.axi, ram.io.axi, apbBridge.io.axi)
+        core.io.i       -> List(rom.io.axi, ram.io.axi, sdramCtrl.io.axi),
+        core.io.d       -> List(rom.io.axi, ram.io.axi, sdramCtrl.io.axi, apbBridge.io.axi),
+        jtagCtrl.io.axi -> List(rom.io.axi, ram.io.axi, sdramCtrl.io.axi, apbBridge.io.axi),
+        vgaCtrl.io.axi  -> List(                        sdramCtrl.io.axi)
       ).build()
 
 
@@ -133,6 +161,7 @@ class Pinsec extends Component{
         gpioBCtrl.io.apb -> (0x01000, 4 kB),
         uartCtrl.io.apb  -> (0x10000, 4 kB),
         timerCtrl.io.apb -> (0x20000, 4 kB),
+        vgaCtrl.io.apb -> (0x30000, 4 kB),
         core.io.debugBus -> (0xF0000, 4 kB)
       )
     )
@@ -156,12 +185,15 @@ class Pinsec extends Component{
   io.timerExternal <> axi.timerCtrl.io.external
   io.jtag          <> axi.jtagCtrl.io.jtag
   io.uart          <> axi.uartCtrl.io.uart
+  io.sdram         <> axi.sdramCtrl.io.sdram
+  io.vga           <> axi.vgaCtrl.io.vga
 }
 
 
 object Pinsec{
   def main(args: Array[String]) {
-    SpinalConfig().generateVerilog(new Pinsec)
-    SpinalConfig().generateVhdl(new Pinsec)
+    val config = SpinalConfig(defaultClockDomainFrequency = FixedFrequency(50 MHz)).dumpWave()
+    config.generateVerilog(new Pinsec)
+    config.generateVhdl(new Pinsec)
   }
 }

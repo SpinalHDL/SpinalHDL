@@ -7,6 +7,8 @@ from cocotb.triggers import Timer, Edge, RisingEdge, Join, FallingEdge
 
 from spinal.Pinsec.common.HexLoader import loadIHex
 from spinal.Pinsec.common.Jtag import JtagMaster
+from spinal.Pinsec.common.Misc import pinsecClockGen
+from spinal.Pinsec.dhrystone.DhrystoneTest import uartTxBypass
 from spinal.common.AhbLite3 import AhbLite3MasterDriver, AhbLite3SlaveMemory, AhbLite3MasterIdle, AhbLite3TraficGenerator, AhbLite3MasterReadChecker, AhbLite3Terminaison
 from spinal.common.misc import setBit, randSignal, assertEquals, truncUInt, sint, ClockDomainAsyncReset, randBoolSignal, \
     BoolRandomizer, StreamRandomizer,StreamReader, FlowRandomizer, Bundle, simulationSpeedPrinter, readIHex, log2Up
@@ -56,14 +58,16 @@ def jtagBridgeReadAssert(ctrl, address, size,value,mask = -1):
 
 @cocotb.test()
 def jtagTest(dut):
-    dut.log.info("Cocotb test boot")
-    random.seed(0)
+    uut = dut.uut
+    log = open('uartTx.log', 'w')
 
-    cocotb.fork(simulationSpeedPrinter(dut.io_axiClk))
-    yield loadIHex(dut,"../hex/dummy.hex",dut.io_axiClk,dut.io_asyncReset)
-    cocotb.fork(ClockDomainAsyncReset(dut.io_axiClk, dut.io_asyncReset))
+    cocotb.fork(simulationSpeedPrinter(uut.io_axiClk))
+    yield loadIHex(uut,"../hex/dummy.hex",uut.io_axiClk,uut.io_asyncReset)
+    pinsecClockGen(dut)
 
-    jtag = JtagMaster(Bundle(dut,"io_jtag"),4000,4)
+    yield Timer(1000*10)
+
+    jtag = JtagMaster(Bundle(uut,"io_jtag"),20000*4,4)
 
     yield Timer(1000*50)
 
@@ -80,6 +84,18 @@ def jtagTest(dut):
     yield jtagBridgeReadAssert(jtag,0x3000,4,0x11553344)
     yield jtagBridgeReadAssert(jtag,0x3002,2,0x1155)
 
+    yield jtagBridgeWrite(jtag,0x04004FF0,0xAABBCCDD,4)
+    yield Timer(1000*50)
+    yield jtagBridgeReadAssert(jtag,0x04004FF0,4,0xAABBCCDD)
+
+    yield jtagBridgeWrite(jtag,0x40004FF0,0x77665544,4)
+    yield Timer(1000*50)
+    yield jtagBridgeReadAssert(jtag,0x40004FF0,4,0x77665544)
+
+    yield jtagBridgeWrite(jtag,0x40004FF2,0x00FF0000,1)
+    yield Timer(1000*50)
+    yield jtagBridgeReadAssert(jtag,0x40004FF0,4,0x77FF5544)
+
 
     # Check RISCV APB debug module via jtag
     yield jtagBridgeWrite(jtag,0xF00F0200,1 << 17,4) #halt CPU
@@ -89,5 +105,3 @@ def jtagTest(dut):
     yield jtagBridgeReadAssert(jtag,0xF00F0000+10*4,4,0x55) #Written by dummy.hex
 
     yield Timer(1000*500)
-
-    dut.log.info("Cocotb test done")
