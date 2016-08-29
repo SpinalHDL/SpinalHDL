@@ -2,6 +2,7 @@ package spinal.lib.graphic.vga
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.bus.misc.BusSlaveFactory
 import spinal.lib.bus.neutral.NeutralStreamDma
 import spinal.lib.eda.altera.QSysify
 import spinal.lib.graphic.{RgbConfig, Rgb}
@@ -38,10 +39,23 @@ case class VgaTimings(timingsWidth: Int) extends Bundle {
     v.colorStart := 2 + 10 - 1 + 208
     v.colorEnd := 525 - 33 - 1 - 208
   }
+
+  def driveFrom(busCtrl : BusSlaveFactory,baseAddress : Int) : Unit = {
+    require(busCtrl.busDataWidth == 32)
+
+    busCtrl.drive(h.syncStart  ,baseAddress +  0)
+    busCtrl.drive(h.syncEnd    ,baseAddress +  4)
+    busCtrl.drive(h.colorStart ,baseAddress +  8)
+    busCtrl.drive(h.colorEnd   ,baseAddress + 12)
+    busCtrl.drive(v.syncStart  ,baseAddress + 16)
+    busCtrl.drive(v.syncEnd    ,baseAddress + 20)
+    busCtrl.drive(v.colorStart ,baseAddress + 24)
+    busCtrl.drive(v.colorEnd   ,baseAddress + 28)
+  }
 }
 
 
-class VgaCtrl(rgbConfig: RgbConfig, timingsWidth: Int = 12) extends Component {
+case class VgaCtrl(rgbConfig: RgbConfig, timingsWidth: Int = 12) extends Component {
   val io = new Bundle {
     val softReset = in Bool() default(False)
     val timings = in(VgaTimings(timingsWidth))

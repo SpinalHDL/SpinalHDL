@@ -803,3 +803,46 @@ object StreamJoin{
     event
   }
 }
+
+
+
+
+
+object StreamWidthAdapter{
+  def apply[T <: Data,T2 <: Data](input : Stream[T],output : Stream[T2]): Unit = {
+    val inputWidth = widthOf(input)
+    val outputWidth = widthOf(output)
+    if(inputWidth == outputWidth){
+      output.arbitrationFrom(input)
+      output.assignFromBits(input.asBits)
+    } else if(inputWidth > outputWidth){
+      val factor = inputWidth / outputWidth
+      val counter = Counter(factor,inc = output.fire)
+      output.valid := input.valid
+      output.payload.assignFromBits(input.payload.asBits.vecSplit(factor).read(counter))
+      input.ready := output.ready && counter.willOverflowIfInc
+    } else{
+      SpinalError("Currently not implemented")
+    }
+  }
+}
+
+object StreamFragmentWidthAdapter{
+  def apply[T <: Data,T2 <: Data](input : Stream[Fragment[T]],output : Stream[Fragment[T2]]): Unit = {
+    val inputWidth = widthOf(input)
+    val outputWidth = widthOf(output)
+    if(inputWidth == outputWidth){
+      output.arbitrationFrom(input)
+      output.assignFromBits(input.asBits)
+    } else if(inputWidth > outputWidth){
+      val factor = inputWidth / outputWidth
+      val counter = Counter(factor,inc = output.fire)
+      output.valid := input.valid
+      output.payload.assignFromBits(input.payload.asBits.vecSplit(factor).read(counter))
+      output.last := input.last && counter.willOverflowIfInc
+      input.ready := output.ready && counter.willOverflowIfInc
+    } else{
+      SpinalError("Currently not implemented")
+    }
+  }
+}

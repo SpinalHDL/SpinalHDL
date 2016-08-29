@@ -1,5 +1,6 @@
 package spinal.tester.code
 
+import spinal.core
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba3.ahblite._
@@ -177,5 +178,59 @@ object PlayFloat{
       val outp = out Bits(32 bits)
     }
     io.outp := io.inp.asBits
+  }
+}
+
+
+object PlayFloating{
+  import spinal.core._
+  import spinal.lib._
+
+  case class FP(exponentSize: Int,
+                mantissaSize: Int) extends Bundle {
+    val sign = Bool
+    val exponent = Bits(exponentSize bits)
+    val mantissa = Bits(mantissaSize bits)
+
+    private def isExponentZero = exponent === 0
+    private def isMantissaZero = mantissa === 0
+
+    def isZero = isMantissaZero && isExponentZero
+    def isPositive = !sign
+
+    def fromBits(word: Bits): Unit = {
+      mantissa := word(mantissaSize-1 downto 0)
+      exponent := word(mantissaSize+exponentSize-1 downto mantissaSize)
+      sign := word(mantissaSize+exponentSize)
+    }
+
+    def asRecodedFP = {
+      val recoded = RecodedFP(exponentSize+1, mantissaSize)
+      val firstMantissaBit = mantissaSize-OHMasking.first(OHToUInt(mantissa))
+      val normalizedMantissa = (mantissa << firstMantissaBit)(mantissaSize-1 downto 0)
+      val denormExponent = B(exponentSize + 1 bits, default -> True) ^ firstMantissaBit.asBits
+      val recodedExponent = Mux(isExponentZero, denormExponent, exponent).asUInt +
+        ((1 << exponentSize - 1) | Mux(isExponentZero, U(2), U(1)))
+      val isNaN = recodedExponent(exponentSize - 1 downto exponentSize - 2) === 3 && !isMantissaZero
+      val finalExponent = recodedExponent.asBits & (B(3 bits, default -> isZero) << (exponentSize - 3)) | (isNaN.asBits << (exponentSize - 3))
+      recoded.sign := sign
+      recoded.exponent := finalExponent
+      recoded.mantissa := Mux(isExponentZero, normalizedMantissa, mantissa)
+      recoded
+    }
+  }
+
+  case class RecodedFP(exponentSize: Int,
+                       mantissaSize: Int) extends Bundle {
+    val sign = Bool
+    val exponent = Bits(exponentSize bits)
+    val mantissa = Bits(mantissaSize bits)
+
+    def isZero = exponent(exponentSize-1 downto exponentSize-3) === 0
+    def isNaN = exponent(exponentSize-1 downto exponentSize-3) === 7
+    def isQNaN = isNaN && !mantissa(mantissaSize-1)
+    def isSNaN = isNaN && mantissa(mantissaSize-1)
+    def isPositive = !sign
+    def isInfinite = exponent(exponentSize-1 downto exponentSize-3) === 6
   }
 }

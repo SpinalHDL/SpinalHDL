@@ -109,6 +109,7 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
   }
 
   def vecSplit(sliceCount : Int) : Vec[Bits] = {
+    require(this.getWidth % sliceCount == 0)
     val sliceWidth = widthOf(this)/sliceCount
     Vec((0 until sliceCount).map(i =>this(i*sliceWidth,sliceWidth bits)))
   }
