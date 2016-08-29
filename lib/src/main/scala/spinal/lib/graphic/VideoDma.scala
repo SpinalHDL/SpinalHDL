@@ -13,22 +13,8 @@ case class VideoDmaMem[T <: Data](g: VideoDmaGeneric[T]) extends Bundle with IMa
     slave(rsp)
   }
 
-  
-  def getAxi4ReadOnlyConfig = Axi4Config(
-    addressWidth = g.addressWidth + log2Up(g.dataWidth/8) + log2Up(g.beatPerAccess),
-    dataWidth = g.dataWidth,
-    useId = false,
-    useRegion = false,
-    useBurst = false,
-    useLock = false,
-    useQos = false,
-    useLen = false,
-    useResp = false,
-    useSize = false
-  )
-
   def toAxi4ReadOnly : Axi4ReadOnly = {
-    val ret = Axi4ReadOnly(getAxi4ReadOnlyConfig)
+    val ret = Axi4ReadOnly(g.getAxi4ReadOnlyConfig)
     ret.readCmd.valid := this.cmd.valid
     ret.readCmd.addr  := this.cmd.payload << log2Up(g.dataWidth/8) + log2Up(g.beatPerAccess)
     ret.readCmd.prot  := "010"
@@ -37,6 +23,7 @@ case class VideoDmaMem[T <: Data](g: VideoDmaGeneric[T]) extends Bundle with IMa
     ret.readCmd.size  := log2Up(g.dataWidth/8)
     this.cmd.ready := ret.readCmd.ready
 
+    this.rsp.valid := ret.readRsp.valid
     this.rsp.last := ret.readRsp.last
     this.rsp.fragment := ret.readRsp.data
     ret.readRsp.ready := True
@@ -53,7 +40,18 @@ case class VideoDmaGeneric[T <: Data](addressWidth : Int,
                                       frameFragmentType : T,
                                       pendingRequetMax : Int,
                                       fifoSize : Int,
-                                      frameClock : ClockDomain = null)
+                                      frameClock : ClockDomain = null){
+  def getAxi4ReadOnlyConfig = Axi4Config(
+    addressWidth = addressWidth + log2Up(dataWidth/8) + log2Up(beatPerAccess),
+    dataWidth = dataWidth,
+    useId = false,
+    useRegion = false,
+    useBurst = false,
+    useLock = false,
+    useQos = false,
+    useResp = false
+  )
+}
 
 case class VideoDma[T <: Data](g : VideoDmaGeneric[T]) extends Component{
   import g._
@@ -79,6 +77,9 @@ case class VideoDma[T <: Data](g : VideoDmaGeneric[T]) extends Component{
     io.mem.cmd.fire -> (_ + beatPerAccess),
     io.mem.rsp.fire -> (_ - 1)
   )
+
+  val toManyPendingCmd = pendingMemCmd > pendingRequetMax-1
+  val toManyPendingRsp = Bool
 
   val isActive = RegInit(False)
 
@@ -110,8 +111,7 @@ case class VideoDma[T <: Data](g : VideoDmaGeneric[T]) extends Component{
   memRsp.last := memCmdDone && pendingMemRsp === 1
   memRsp.fragment := io.mem.rsp.fragment
 
-  val toManyPendingCmd = pendingMemCmd > pendingRequetMax-1
-  val toManyPendingRsp = Bool
+
 
 
   val fifoPop = Stream(Fragment(Bits(dataWidth bits)))

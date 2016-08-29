@@ -838,7 +838,7 @@ object StreamFragmentWidthAdapter{
       val factor = inputWidth / outputWidth
       val counter = Counter(factor,inc = output.fire)
       output.valid := input.valid
-      output.payload.assignFromBits(input.payload.asBits.vecSplit(factor).read(counter))
+      output.fragment.assignFromBits(input.fragment.asBits.vecSplit(factor).read(counter))
       output.last := input.last && counter.willOverflowIfInc
       input.ready := output.ready && counter.willOverflowIfInc
     } else{

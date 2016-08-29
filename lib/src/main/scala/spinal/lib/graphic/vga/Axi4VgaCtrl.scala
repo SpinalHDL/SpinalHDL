@@ -14,23 +14,26 @@ case class Axi4VgaCtrlGenerics(axiAddressWidth : Int,
                                fifoSize : Int,
                                rgbConfig: RgbConfig,
                                timingsWidth: Int = 12,
-                               pendingRequestMax : Int = 8,
+                               pendingRequestMax : Int = 7, //Should be power of two minus one
                                vgaClock : ClockDomain = ClockDomain.current){
-  def axi4Config = Axi4Config(
-    addressWidth = axiAddressWidth,
-    dataWidth = axiDataWidth,
-    useId = false,
-    useLock = false,
-    useRegion = false,
-    useCache = false,
-    useProt = false,
-    useQos = false
-  )
+
+  def axi4Config = dmaGenerics.getAxi4ReadOnlyConfig
 
   def apb3Config = Apb3Config(
     addressWidth = axiAddressWidth,
     dataWidth = axiDataWidth,
     useSlaveError = false
+  )
+
+  def dmaGenerics = VideoDmaGeneric(
+    addressWidth      = axiAddressWidth - log2Up(axiDataWidth/8) - log2Up(burstLength),
+    dataWidth         = axiDataWidth,
+    beatPerAccess     = burstLength,
+    sizeWidth         = log2Up(frameSizeMax) -log2Up(axiDataWidth/8) - log2Up(burstLength),
+    pendingRequetMax  = pendingRequestMax,
+    fifoSize          = fifoSize,
+    frameClock        = vgaClock,
+    frameFragmentType = Rgb(rgbConfig)
   )
 }
 
@@ -41,24 +44,15 @@ case class Axi4VgaCtrl(g : Axi4VgaCtrlGenerics) extends Component{
   require(isPow2(burstLength))
 
   val io = new Bundle{
-    val axi = Axi4ReadOnly(axi4Config)
-    val apb = Apb3(apb3Config)
-    val vga = Vga(rgbConfig)
+    val axi = master(Axi4ReadOnly(axi4Config))
+    val apb = slave(Apb3(apb3Config))
+    val vga = master(Vga(rgbConfig))
   }
 
   val apbCtrl = Apb3SlaveFactory(io.apb)
   val softReset = apbCtrl.createWriteOnly(Bool,0x00) init(True)
 
-  val dmaGenerics = VideoDmaGeneric(
-    addressWidth      = axiAddressWidth - log2Up(axiDataWidth/8) - log2Up(burstLength),
-    dataWidth         = axiDataWidth,
-    beatPerAccess     = burstLength,
-    sizeWidth         = log2Up(frameSizeMax) -log2Up(axiDataWidth/8) - log2Up(burstLength),
-    pendingRequetMax  = pendingRequestMax,
-    fifoSize          = fifoSize,
-    frameClock        = vgaClock,
-    frameFragmentType = Rgb(rgbConfig)
-  )
+
 
   val dma  = VideoDma(dmaGenerics)
   dma.io.mem.toAxi4ReadOnly <> io.axi
@@ -78,4 +72,22 @@ case class Axi4VgaCtrl(g : Axi4VgaCtrlGenerics) extends Component{
   vga.ctrl.io.timings.addTag(crossClockDomain)
 
   dma.io.start := PulseCCByToggle(vga.ctrl.io.frameStart,clockIn = vgaClock,clockOut = ClockDomain.current) && !softReset
+}
+
+
+object Axi4VgaCtrlMain{
+  def main(args: Array[String]) {
+
+    SpinalVhdl({
+      Axi4VgaCtrl(Axi4VgaCtrlGenerics(
+        axiAddressWidth = 32,
+        axiDataWidth = 32,
+        burstLength = 8,
+        frameSizeMax = 2048*1512,
+        fifoSize = 512,
+        rgbConfig = RgbConfig(5,6,5),
+        vgaClock = ClockDomain.external("vga")
+      ))
+    })
+  }
 }
