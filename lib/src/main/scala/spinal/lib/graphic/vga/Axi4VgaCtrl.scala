@@ -20,8 +20,8 @@ case class Axi4VgaCtrlGenerics(axiAddressWidth : Int,
   def axi4Config = dmaGenerics.getAxi4ReadOnlyConfig
 
   def apb3Config = Apb3Config(
-    addressWidth = axiAddressWidth,
-    dataWidth = axiDataWidth,
+    addressWidth = 8,
+    dataWidth = 32,
     useSlaveError = false
   )
 
@@ -88,6 +88,6 @@ object Axi4VgaCtrlMain{
         rgbConfig = RgbConfig(5,6,5),
         vgaClock = ClockDomain.external("vga")
       ))
-    })
+    }).printPruned()
   }
 }
