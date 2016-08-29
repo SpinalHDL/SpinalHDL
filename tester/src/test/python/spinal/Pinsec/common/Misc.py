@@ -21,7 +21,7 @@ from spinal.common.misc import ClockDomainAsyncReset
 
 class PinsecLogger:
     def __init__(self):
-        path = os.getenv('WAVES_DIR', "")
+        path = os.getenv('WAVES_DIR', ".")
         self.dCmdLog = open(path + '/coreDCmd.log', 'w')
         self.dRspLog = open(path + '/coreDRsp.log', 'w')
 

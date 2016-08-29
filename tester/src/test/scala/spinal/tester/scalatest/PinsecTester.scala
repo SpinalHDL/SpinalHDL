@@ -63,6 +63,10 @@ class PinsecTesterCocotbBoot extends SpinalTesterCocotbBase {
     val pinsec = new Pinsec
     pinsec.axi.rom.ram.randBoot()
     pinsec.axi.ram.ram.randBoot()
+    val sdramPowerupCounter = pinsec.axi.sdramCtrl.ctrl.powerup.counter
+    sdramPowerupCounter.component.rework(
+      sdramPowerupCounter init(sdramPowerupCounter.maxValue - 100)
+    )
     pinsec
   }
 

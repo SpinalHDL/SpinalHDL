@@ -71,9 +71,9 @@ module PinsecTester_tb
     .io_axiClk(io_axiClk)
   );
 
- // initial begin
+//  initial begin
  //   $dumpfile("wave.vcd");
- //   $dumpvars(0, SdramCtrlTester_tb);
-  //end
+ //   $dumpvars(0, PinsecTester_tb);
+ // end
 endmodule
 

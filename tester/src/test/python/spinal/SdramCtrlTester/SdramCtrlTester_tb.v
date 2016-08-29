@@ -74,8 +74,8 @@ module SdramCtrlTester_tb
   );
 
  // initial begin
- //   $dumpfile("wave.vcd");
- //   $dumpvars(0, SdramCtrlTester_tb);
-  //end
+  //  $dumpfile("wave.vcd");
+  //  $dumpvars(0, SdramCtrlTester_tb);
+ // end
 endmodule
 

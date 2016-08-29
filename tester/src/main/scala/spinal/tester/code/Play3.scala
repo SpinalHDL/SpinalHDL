@@ -153,3 +153,29 @@ object PlayKeepAll{
     SpinalConfig(keepAll = true).generateVhdl(new TopLevel).printPruned()
   }
 }
+
+
+object PlayFloat{
+
+  case class FP(mantissaSize: Int,
+                exponentSize: Int) extends Bundle {
+    val sign = Bool
+    val exponent = Bits(exponentSize bits)
+    val mantissa = Bits(mantissaSize bits)
+  }
+
+  case class RecodedFP(mantissaSize: Int,
+                       exponentSize: Int) extends Bundle {
+    val sign = Bool
+    val exponent = Bits(exponentSize bits)
+    val mantissa = Bits(mantissaSize bits)
+  }
+
+  class floatTest extends Component {
+    val io = new Bundle {
+      val inp = in(FP(23, 8))
+      val outp = out Bits(32 bits)
+    }
+    io.outp := io.inp.asBits
+  }
+}
