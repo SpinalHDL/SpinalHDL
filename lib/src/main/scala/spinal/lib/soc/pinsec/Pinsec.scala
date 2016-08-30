@@ -136,7 +136,7 @@ class Pinsec extends Component{
       axiAddressWidth = 32,
       axiDataWidth = 32,
       burstLength = 8,
-      frameSizeMax = 2048*1512,
+      frameSizeMax = 2048*1512*2,
       fifoSize = 512,
       rgbConfig = vgaRgbConfig,
       vgaClock = ClockDomain(io.vgaClk,resetCtrl.vgaReset)

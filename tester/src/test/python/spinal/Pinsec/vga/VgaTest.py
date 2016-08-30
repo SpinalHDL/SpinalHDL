@@ -17,7 +17,7 @@ from spinal.common.misc import setBit, randSignal, assertEquals, truncUInt, sint
 @cocotb.coroutine
 def assertions(dut):
 
-    for i in xrange(15000):
+    for i in xrange(2500000):
         yield RisingEdge(dut.uut.io_vgaClk)
 
 @cocotb.test()

@@ -57,7 +57,7 @@ module PinsecTester_tb
   );
 
   initial begin
-    $dumpfile("wave.vcd");
+    $dumpfile("E:/waves/wave.vcd");
     $dumpvars(0, uut.axi_vgaCtrl);
     //$dumpvars(0, uut.axi_core);
     //$dumpvars(0, uut.axi_sdramCtrl);
