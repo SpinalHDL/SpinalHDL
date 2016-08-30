@@ -21,7 +21,7 @@ case class Floating(exponentSize: Int,
     sign := word(mantissaSize+exponentSize)
   }
 
-  def asRecFloating = {
+  def toRecFloating = {
     val recExponentSize = exponentSize + 1
     val recoded = RecFloating(recExponentSize, mantissaSize)
 
@@ -42,6 +42,9 @@ case class Floating(exponentSize: Int,
     recoded.mantissa := Mux(isExponentZero, normalizedMantissa, mantissa)
     recoded
   }
+
+  def fromRecFloating(that: RecFloating) = that.toFloating
+
 }
 
 case class RecFloating(exponentSize: Int,
@@ -72,7 +75,7 @@ case class RecFloating(exponentSize: Int,
     sign := word(mantissaSize+exponentSize)
   }
 
-  def asFloating = {
+  def toFloating = {
     val decExponentSize = exponentSize - 1
     val decoded = Floating(decExponentSize, mantissaSize)
 
@@ -86,4 +89,6 @@ case class RecFloating(exponentSize: Int,
     decoded.sign := sign
     decoded
   }
+
+  def fromFloating(that: Floating) = that.toRecFloating
 }

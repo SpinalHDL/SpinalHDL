@@ -22,7 +22,7 @@ class FloatingTester extends Component {
     val dec_mantissa = out Bits(23 bits)
   }
   io.outp := io.inp.isZero
-  val rec = io.inp.asRecFloating
+  val rec = io.inp.toRecFloating
   io.zero := rec.isZero
   io.qnan := rec.isQNaN
   io.snan := rec.isSNaN
@@ -32,7 +32,7 @@ class FloatingTester extends Component {
   io.recoded_exp := rec.exponent
   io.recoded_mantissa := rec.mantissa
 
-  val dec = rec.asFloating
+  val dec = rec.toFloating
   io.dec_exponent := dec.exponent
   io.dec_mantissa := dec.mantissa
   io.dec_sign := dec.sign
