@@ -58,6 +58,7 @@ case class VideoDma[T <: Data](g : VideoDmaGeneric[T]) extends Component{
   require(dataWidth >= widthOf(g.frameFragmentType))
   val io = new Bundle{
     val start = in Bool
+    val busy  = out Bool
 
     val base  = in UInt(addressWidth bits) //base and size are in burst count, not in word, nor in byte
     val size  = in UInt(sizeWidth bits)
@@ -82,9 +83,11 @@ case class VideoDma[T <: Data](g : VideoDmaGeneric[T]) extends Component{
   val toManyPendingRsp = Bool
 
   val isActive = RegInit(False)
+  val cmdActive = RegInit(False)
+  io.busy := isActive
 
   val memCmdCounter = Reg(UInt(sizeWidth bits))
-  val memCmdDone = memCmdCounter =/= io.size
+  val memCmdLast = memCmdCounter === io.size
 
   io.mem.cmd.valid := False
   io.mem.cmd.payload := io.base + memCmdCounter
@@ -93,22 +96,26 @@ case class VideoDma[T <: Data](g : VideoDmaGeneric[T]) extends Component{
     when(io.start) {
       memCmdCounter := 0
       isActive := True
+      cmdActive := True
     }
   } otherwise {
-    when(!memCmdDone){
+    when(cmdActive){
       io.mem.cmd.valid := !toManyPendingCmd && !toManyPendingRsp
+      when(memCmdLast && io.mem.cmd.ready){
+        cmdActive := False
+      }
     }.elsewhen(pendingMemRsp === 0) {
       isActive := False
     }
   }
 
   when(io.mem.cmd.fire) {
-    memCmdCounter := memCmdCounter - 1
+    memCmdCounter := memCmdCounter + 1
   }
 
   val memRsp = cloneOf(io.mem.rsp)
   memRsp.valid := io.mem.rsp.valid
-  memRsp.last := memCmdDone && pendingMemRsp === 1
+  memRsp.last := memCmdLast && pendingMemRsp === 1
   memRsp.fragment := io.mem.rsp.fragment
 
 
@@ -116,13 +123,13 @@ case class VideoDma[T <: Data](g : VideoDmaGeneric[T]) extends Component{
 
   val fifoPop = Stream(Fragment(Bits(dataWidth bits)))
   val rspArea = if(this.clockDomain == frameClock) new Area{
+    fifoPop << memRsp.toStream.queue(fifoSize)
     val pendingMemToFifo = CounterMultiRequest(
       width=log2Up(fifoSize + 1),
       io.mem.cmd.fire -> (_ + beatPerAccess),
-      io.frame.fire -> (_ - 1)
+      fifoPop.fire -> (_ - 1)
     )
     toManyPendingRsp := pendingMemToFifo > fifoSize-beatPerAccess
-    fifoPop << memRsp.toStream.queue(fifoSize)
   } else new Area{
     val fifo = new StreamFifoCC(Fragment(Bits(dataWidth bit)),fifoSize,pushClock = ClockDomain.current,popClock = frameClock)
     fifo.io.push << memRsp.toStream

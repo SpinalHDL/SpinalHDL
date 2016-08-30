@@ -829,12 +829,13 @@ object StreamWidthAdapter{
 
 object StreamFragmentWidthAdapter{
   def apply[T <: Data,T2 <: Data](input : Stream[Fragment[T]],output : Stream[Fragment[T2]]): Unit = {
-    val inputWidth = widthOf(input)
-    val outputWidth = widthOf(output)
+    val inputWidth = widthOf(input.fragment)
+    val outputWidth = widthOf(output.fragment)
     if(inputWidth == outputWidth){
       output.arbitrationFrom(input)
       output.assignFromBits(input.asBits)
     } else if(inputWidth > outputWidth){
+      require(inputWidth % outputWidth == 0)
       val factor = inputWidth / outputWidth
       val counter = Counter(factor,inc = output.fire)
       output.valid := input.valid

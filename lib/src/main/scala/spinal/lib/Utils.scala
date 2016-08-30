@@ -31,7 +31,7 @@ import scala.collection.mutable.ArrayBuffer
 
 object OHToUInt {
   def apply(bitVector: BitVector): UInt = apply(bitVector.asBools)
-  def apply(bools: Iterable[Bool]): UInt = {
+  def apply(bools: IndexedSeq[Bool]): UInt = {
     val boolsSize = bools.size
     if (boolsSize < 2) return U(0)
 
@@ -608,6 +608,7 @@ class TraversableOncePimped[T <: Data](pimped: scala.collection.Iterable[T]) {
     read(index) := data
   }
   def apply(index: UInt): T = Vec(pimped)(index)
+  def apply(index: Int): T  = Vec(pimped)(index)
 
   def sExist(condition: T => Bool): Bool = (pimped map condition).fold(False)(_ || _)
   def sContains(value: T) : Bool = sExist(_ === value)

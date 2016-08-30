@@ -26,15 +26,17 @@ case class Axi4VgaCtrlGenerics(axiAddressWidth : Int,
   )
 
   def dmaGenerics = VideoDmaGeneric(
-    addressWidth      = axiAddressWidth - log2Up(axiDataWidth/8) - log2Up(burstLength),
+    addressWidth      = axiAddressWidth - log2Up(bytePerAddress),
     dataWidth         = axiDataWidth,
     beatPerAccess     = burstLength,
-    sizeWidth         = log2Up(frameSizeMax) -log2Up(axiDataWidth/8) - log2Up(burstLength),
+    sizeWidth         = log2Up(frameSizeMax) -log2Up(bytePerAddress),
     pendingRequetMax  = pendingRequestMax,
     fifoSize          = fifoSize,
     frameClock        = vgaClock,
     frameFragmentType = Rgb(rgbConfig)
   )
+
+  def bytePerAddress =  axiDataWidth/8 * burstLength
 }
 
 
@@ -50,19 +52,22 @@ case class Axi4VgaCtrl(g : Axi4VgaCtrlGenerics) extends Component{
   }
 
   val apbCtrl = Apb3SlaveFactory(io.apb)
-  val softReset = apbCtrl.createWriteOnly(Bool,0x00) init(True)
 
+  val run = apbCtrl.createReadWrite(Bool,0x00) init(False)
 
 
   val dma  = VideoDma(dmaGenerics)
   dma.io.mem.toAxi4ReadOnly <> io.axi
-  apbCtrl.drive(dma.io.size, 0x04)
-  apbCtrl.drive(dma.io.base, 0x08)
-  
+  apbCtrl.read(dma.io.busy,0x00,1)
+  apbCtrl.drive(dma.io.size, 0x04,log2Up(bytePerAddress))
+  apbCtrl.drive(dma.io.base, 0x08,log2Up(bytePerAddress))
+
   val vga = new ClockingArea(vgaClock) {
+    val run = BufferCC(Axi4VgaCtrl.this.run)
     val ctrl = VgaCtrl(rgbConfig, timingsWidth)
-    ctrl.feedWith(dma.io.frame)
-    ctrl.io.softReset setWhen(BufferCC(softReset))
+    ctrl.feedWith(dma.io.frame,resync = run.rise)
+    dma.io.frame.ready setWhen(!run) //Flush
+    ctrl.io.softReset := !run
 
     ctrl.io.vga <> io.vga
   }
@@ -71,7 +76,7 @@ case class Axi4VgaCtrl(g : Axi4VgaCtrlGenerics) extends Component{
   vga.ctrl.io.timings.driveFrom(apbCtrl,0x40)
   vga.ctrl.io.timings.addTag(crossClockDomain)
 
-  dma.io.start := PulseCCByToggle(vga.ctrl.io.frameStart,clockIn = vgaClock,clockOut = ClockDomain.current) && !softReset
+  dma.io.start := PulseCCByToggle(vga.ctrl.io.frameStart,clockIn = vgaClock,clockOut = ClockDomain.current) && run
 }
 
 

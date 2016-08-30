@@ -39,18 +39,20 @@ class Pinsec extends Component{
 
 
   val resetCtrl = new ClockingArea(ClockDomain(io.axiClk,config = ClockDomainConfig(resetKind = BOOT))) {
-    val axiResetCounter = Reg(UInt(4 bits)) init(0)
-    when(axiResetCounter =/= "1111"){
+    val axiResetOrder = False
+    val axiResetCounter = Reg(UInt(6 bits)) init(0)
+    when(axiResetCounter =/= U(axiResetCounter.range -> true)){
       axiResetCounter := axiResetCounter + 1
+      axiResetOrder := True
     }
     when(BufferCC(io.asyncReset)){
       axiResetCounter := 0
     }
-    val axiResetOrder = axiResetCounter =/= "1111"
+
     val coreResetOrder = False setWhen(axiResetOrder)
 
-    val axiReset =  RegNext(axiResetOrder)
-    val vgaReset =  BufferCC(axiReset)
+    val axiReset  = RegNext(axiResetOrder)
+    val vgaReset  = BufferCC(axiReset)
     val coreReset = RegNext(coreResetOrder)
   }
 
@@ -134,7 +136,7 @@ class Pinsec extends Component{
       axiAddressWidth = 32,
       axiDataWidth = 32,
       burstLength = 8,
-      frameSizeMax = 2048*1512,
+      frameSizeMax = 2048*1512*2,
       fifoSize = 512,
       rgbConfig = vgaRgbConfig,
       vgaClock = ClockDomain(io.vgaClk,resetCtrl.vgaReset)
@@ -161,7 +163,7 @@ class Pinsec extends Component{
         gpioBCtrl.io.apb -> (0x01000, 4 kB),
         uartCtrl.io.apb  -> (0x10000, 4 kB),
         timerCtrl.io.apb -> (0x20000, 4 kB),
-        vgaCtrl.io.apb -> (0x30000, 4 kB),
+        vgaCtrl.io.apb   -> (0x30000, 4 kB),
         core.io.debugBus -> (0xF0000, 4 kB)
       )
     )

@@ -234,3 +234,19 @@ object PlayFloating{
     def isInfinite = exponent(exponentSize-1 downto exponentSize-3) === 6
   }
 }
+
+
+object PlayOhToUInt{
+
+  class TopLevel extends Component{
+    val input = in Bits(24 bits)
+    val output = out UInt(5 bits)
+
+    output := OHToUInt(input)
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+    SpinalVerilog(new TopLevel)
+  }
+}
