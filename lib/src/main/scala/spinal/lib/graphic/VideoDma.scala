@@ -115,7 +115,7 @@ case class VideoDma[T <: Data](g : VideoDmaGeneric[T]) extends Component{
 
   val memRsp = cloneOf(io.mem.rsp)
   memRsp.valid := io.mem.rsp.valid
-  memRsp.last := memCmdLast && pendingMemRsp === 1
+  memRsp.last := !cmdActive && pendingMemRsp === 1
   memRsp.fragment := io.mem.rsp.fragment
 
 
