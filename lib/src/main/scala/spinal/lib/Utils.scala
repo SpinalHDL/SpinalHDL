@@ -31,7 +31,7 @@ import scala.collection.mutable.ArrayBuffer
 
 object OHToUInt {
   def apply(bitVector: BitVector): UInt = apply(bitVector.asBools)
-  def apply(bools: IndexedSeq[Bool]): UInt = {
+  def apply(bools: Seq[Bool]): UInt = {
     val boolsSize = bools.size
     if (boolsSize < 2) return U(0)
 
@@ -55,7 +55,7 @@ object OHToUInt {
 
 //Will be target dependent
 object MuxOH {
-  def apply[T <: Data](oneHot : BitVector,inputs : Iterable[T]): T = apply(oneHot.asBools,inputs)
+  def apply[T <: Data](oneHot : BitVector,inputs : Seq[T]): T = apply(oneHot.asBools,inputs)
   def apply[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Iterable[T]): T =  apply(oneHot,Vec(inputs))
 
   def apply[T <: Data](oneHot : BitVector,inputs : Vec[T]): T = apply(oneHot.asBools,inputs)
@@ -710,15 +710,15 @@ class StringPimped(pimped : String){
 
 
 object PriorityMux{
-  def apply[T <: Data](in: Iterable[(Bool, T)]): T = {
+  def apply[T <: Data](in: Seq[(Bool, T)]): T = {
     if (in.size == 1) {
       in.head._2
     } else {
       Mux(in.head._1, in.head._2, apply(in.tail)) //Inttelij right code marked red
     }
   }
-  def apply[T <: Data](sel: Iterable[Bool], in: Iterable[T]): T = apply(sel zip in)
-  def apply[T <: Data](sel: Bits, in: Iterable[T]): T = apply(sel.asBools.zip(in))
+  def apply[T <: Data](sel: Seq[Bool], in: Seq[T]): T = apply(sel zip in)
+  def apply[T <: Data](sel: Bits, in: Seq[T]): T = apply(sel.asBools.zip(in))
 }
 
 

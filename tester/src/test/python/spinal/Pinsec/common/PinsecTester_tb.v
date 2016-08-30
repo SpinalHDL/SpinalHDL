@@ -56,12 +56,12 @@ module PinsecTester_tb
     .io_vgaClk(io_vgaClk)
   );
 
- // initial begin
-   // $dumpfile("E:/waves/wave.vcd");
+ initial begin
+    //$dumpfile("E:/waves/wave.vcd");
    // $dumpvars(0, uut.axi_vgaCtrl);
-    //$dumpvars(0, uut.axi_core);
+   // $dumpvars(0, uut.axi_core);
     //$dumpvars(0, uut.axi_sdramCtrl);
    // $dumpvars(0, uut.axi_core.core.execute0_inInst_payload_pc);
- // end
+ end
 endmodule
 

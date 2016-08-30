@@ -11,7 +11,7 @@ import spinal.lib.com.jtag.Jtag
 import spinal.lib.com.uart.{Uart, UartCtrlGenerics, UartCtrlMemoryMappedConfig, Apb3UartCtrl}
 import spinal.lib.cpu.riscv.impl.build.RiscvAxi4
 import spinal.lib.cpu.riscv.impl.extension.{BarrelShifterFullExtension, DivExtension, MulExtension}
-import spinal.lib.cpu.riscv.impl.{disable, dynamic, sync, CoreConfig}
+import spinal.lib.cpu.riscv.impl._
 import spinal.lib.graphic.RgbConfig
 import spinal.lib.graphic.vga.{Vga, Axi4VgaCtrlGenerics, Axi4VgaCtrl}
 import spinal.lib.io.TriStateArray
@@ -80,7 +80,16 @@ class Pinsec extends Component{
 
 
     val core = ClockDomain(io.axiClk,resetCtrl.coreReset){
-      new RiscvAxi4(coreConfig, null, null, debug, interruptCount)
+      val iCacheConfig = InstructionCacheConfig(
+        cacheSize =4096,
+        bytePerLine =32,
+        wayCount = 1,  //Can only be one for the moment
+        wrappedMemAccess = true,
+        addressWidth = 32,
+        cpuDataWidth = 32,
+        memDataWidth = 32
+      )
+      new RiscvAxi4(coreConfig, iCacheConfig, null, debug, interruptCount)
     }
 
     val rom = Axi4SharedOnChipRam(
@@ -153,7 +162,17 @@ class Pinsec extends Component{
         core.io.d       -> List(rom.io.axi, ram.io.axi, sdramCtrl.io.axi, apbBridge.io.axi),
         jtagCtrl.io.axi -> List(rom.io.axi, ram.io.axi, sdramCtrl.io.axi, apbBridge.io.axi),
         vgaCtrl.io.axi  -> List(                        sdramCtrl.io.axi)
-      ).build()
+      ).addPipelining(apbBridge.io.axi,(from,to) => {
+        from.sharedCmd.halfPipe() >> to.sharedCmd
+        from.writeData.halfPipe() >> to.writeData
+        from.writeRsp << to.writeRsp
+        from.readRsp << to.readRsp
+      }).addPipelining(sdramCtrl.io.axi,(from,to) => {
+        from.sharedCmd.halfPipe() >> to.sharedCmd
+        from.writeData >/-> to.writeData
+        from.writeRsp << to.writeRsp
+        from.readRsp << to.readRsp
+      }).build()
 
 
     val apbDecoder = Apb3Decoder(

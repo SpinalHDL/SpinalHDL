@@ -5,7 +5,7 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc.SizeMapping
 
-case class AhbLite3Decoder(AhbLite3Config: AhbLite3Config,decodings : Iterable[SizeMapping]) extends Component{
+case class AhbLite3Decoder(AhbLite3Config: AhbLite3Config,decodings : Seq[SizeMapping]) extends Component{
   val io = new Bundle{
     val input = slave(AhbLite3(AhbLite3Config))
     val outputs = Vec(master(AhbLite3(AhbLite3Config)),decodings.size)
