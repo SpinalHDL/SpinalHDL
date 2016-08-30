@@ -18,23 +18,7 @@ module PinsecTester_tb
 
   reg   io_asyncReset;
   reg   io_axiClk;
-/*
-  initial begin
-    io_axiClk = 0;
-    io_asyncReset = 1;
-  end
-
-  initial begin
-    while(1) begin
-      #3750  io_axiClk =  ! io_axiClk;
-    end
-  end
-
-  initial begin
-      io_asyncReset = 1;
-      #20000;
-      io_asyncReset = 0;
-  end*/
+  reg   io_vgaClk;
 
 
 
@@ -68,12 +52,16 @@ module PinsecTester_tb
     .io_sdram_RASn(io_sdram_RASn),
     .io_sdram_WEn(io_sdram_WEn),
     .io_asyncReset(io_asyncReset),
-    .io_axiClk(io_axiClk)
+    .io_axiClk(io_axiClk),
+    .io_vgaClk(io_vgaClk)
   );
 
-//  initial begin
- //   $dumpfile("wave.vcd");
- //   $dumpvars(0, PinsecTester_tb);
- // end
+  initial begin
+    $dumpfile("wave.vcd");
+    $dumpvars(0, uut.axi_vgaCtrl);
+    //$dumpvars(0, uut.axi_core);
+    //$dumpvars(0, uut.axi_sdramCtrl);
+    $dumpvars(0, uut.axi_core.core.execute0_inInst_payload_pc);
+  end
 endmodule
 

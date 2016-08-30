@@ -98,7 +98,7 @@ case class VgaCtrl(rgbConfig: RgbConfig, timingsWidth: Int = 12) extends Compone
   io.pixels.ready := colorEn
   io.error := colorEn && ! io.pixels.valid
 
-  io.frameStart := v.syncEnd
+  io.frameStart := v.syncStart && h.syncStart
 
   io.vga.hSync := h.sync
   io.vga.vSync := v.sync
@@ -108,19 +108,20 @@ case class VgaCtrl(rgbConfig: RgbConfig, timingsWidth: Int = 12) extends Compone
 
   //Can be called by parent component to make the VgaCtrl autonom by using a Stream of fragment to feed it.
   def feedWith(that : Stream[Fragment[Rgb]]): Unit ={
-    io.pixels << that.toStreamOfFragment
-
     val error = RegInit(False)
-    when(io.error){
-      error := True
+    val waitStartOfFrame = RegInit(False)
+
+    io.pixels << that.toStreamOfFragment.throwWhen(error).haltWhen(waitStartOfFrame)
+
+    when(io.frameStart){
+      waitStartOfFrame := False
     }
     when(that.isLast){
       error := False
+      waitStartOfFrame := error
     }
-
-    io.softReset := error
-    when(error){
-      that.ready := True
+    when(io.error){
+      error := True
     }
   }
 }
