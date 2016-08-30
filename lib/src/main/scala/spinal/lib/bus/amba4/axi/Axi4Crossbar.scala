@@ -82,7 +82,8 @@ case class Axi4CrossbarFactory(/*axiConfig: Axi4Config*/){
       case master : Axi4ReadOnly => new Area{
         val slaves = slavesConfigs.filter{
           case (slave,config) => config.connections.exists(connection => connection.master == master)
-        }
+        }.toSeq
+
         val decoder = Axi4ReadOnlyDecoder(
           axiConfig = master.config,
           decodings = slaves.map(_._2.mapping)
@@ -96,7 +97,7 @@ case class Axi4CrossbarFactory(/*axiConfig: Axi4Config*/){
       case master : Axi4WriteOnly => new Area{
         val slaves = slavesConfigs.filter{
           case (slave,config) => config.connections.exists(connection => connection.master == master)
-        }
+        }.toSeq
         val decoder = Axi4WriteOnlyDecoder(
           axiConfig = master.config,
           decodings = slaves.map(_._2.mapping)
@@ -110,7 +111,7 @@ case class Axi4CrossbarFactory(/*axiConfig: Axi4Config*/){
       case master : Axi4Shared => new Area{
         val slaves = slavesConfigs.filter{
           case (slave,config) => config.connections.exists(connection => connection.master == master)
-        }
+        }.toSeq
         val readOnlySlaves = slaves.filter(_._1.isInstanceOf[Axi4ReadOnly])
         val writeOnlySlaves = slaves.filter(_._1.isInstanceOf[Axi4WriteOnly])
         val sharedSlaves = slaves.filter(_._1.isInstanceOf[Axi4Shared])

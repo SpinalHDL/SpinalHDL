@@ -556,7 +556,7 @@ class NoData extends Bundle {
 }
 
 
-class TraversableOnceAnyPimped[T <: Any](pimped: scala.collection.Iterable[T]) {
+class TraversableOnceAnyPimped[T <: Any](pimped: Seq[T]) {
   def toto = 2
   def apply(id : UInt)(gen : (T) => Unit): Unit ={
     assert(widthOf(id) == log2Up(pimped.size))
@@ -568,13 +568,13 @@ class TraversableOnceAnyPimped[T <: Any](pimped: scala.collection.Iterable[T]) {
   }
 }
 
-class TraversableOnceBoolPimped(pimped: scala.collection.Iterable[Bool]) {
+class TraversableOnceBoolPimped(pimped: Seq[Bool]) {
   def orR: Bool = pimped.reduce(_ || _)
   def andR: Bool = pimped.reduce(_ && _)
   def xorR: Bool = pimped.reduce(_ ^ _)
 }
 
-class TraversableOncePimped[T <: Data](pimped: scala.collection.Iterable[T]) {
+class TraversableOncePimped[T <: Data](pimped: Seq[T]) {
   def reduceBalancedTree(op: (T, T) => T): T = {
     reduceBalancedTree(op, (s,l) => s)
   }
@@ -608,7 +608,6 @@ class TraversableOncePimped[T <: Data](pimped: scala.collection.Iterable[T]) {
     read(index) := data
   }
   def apply(index: UInt): T = Vec(pimped)(index)
-  def apply(index: Int): T  = Vec(pimped)(index)
 
   def sExist(condition: T => Bool): Bool = (pimped map condition).fold(False)(_ || _)
   def sContains(value: T) : Bool = sExist(_ === value)
