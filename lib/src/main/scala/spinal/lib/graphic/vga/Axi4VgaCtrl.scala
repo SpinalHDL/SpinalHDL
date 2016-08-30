@@ -52,19 +52,22 @@ case class Axi4VgaCtrl(g : Axi4VgaCtrlGenerics) extends Component{
   }
 
   val apbCtrl = Apb3SlaveFactory(io.apb)
-  val run = apbCtrl.createWriteOnly(Bool,0x00) init(False)
 
+  val run = apbCtrl.createReadWrite(Bool,0x00) init(False)
 
 
   val dma  = VideoDma(dmaGenerics)
   dma.io.mem.toAxi4ReadOnly <> io.axi
+  apbCtrl.read(dma.io.busy,0x00,1)
   apbCtrl.drive(dma.io.size, 0x04,log2Up(bytePerAddress))
   apbCtrl.drive(dma.io.base, 0x08,log2Up(bytePerAddress))
-  
+
   val vga = new ClockingArea(vgaClock) {
+    val run = BufferCC(Axi4VgaCtrl.this.run)
     val ctrl = VgaCtrl(rgbConfig, timingsWidth)
-    ctrl.feedWith(dma.io.frame)
-    ctrl.io.softReset := !BufferCC(run)
+    ctrl.feedWith(dma.io.frame,resync = run.rise)
+    dma.io.frame.ready setWhen(!run) //Flush
+    ctrl.io.softReset := !run
 
     ctrl.io.vga <> io.vga
   }
