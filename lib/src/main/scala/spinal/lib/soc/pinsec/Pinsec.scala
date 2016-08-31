@@ -58,28 +58,28 @@ class Pinsec extends Component{
 
 
   val axi = new ClockingArea(ClockDomain(io.axiClk,resetCtrl.axiReset,frequency = ClockDomain.current.frequency)) {
-    val coreConfig = CoreConfig(
-      pcWidth = 32,
-      addrWidth = 32,
-      startAddress = 0x200,
-      regFileReadyKind = sync,
-      branchPrediction = dynamic,
-      bypassExecute0 = true,
-      bypassExecute1 = true,
-      bypassWriteBack = true,
-      bypassWriteBackBuffer = true,
-      collapseBubble = false,
-      fastFetchCmdPcCalculation = true,
-      dynamicBranchPredictorCacheSizeLog2 = 7
-    )
 
-    coreConfig.add(new MulExtension)
-    coreConfig.add(new DivExtension)
-    coreConfig.add(new BarrelShifterFullExtension)
-    //  p.add(new BarrelShifterLightExtension)
+    val core = ClockDomain(io.axiClk,resetCtrl.coreReset){ //The RISCV Core has a separate reset
+      val coreConfig = CoreConfig(
+        pcWidth = 32,
+        addrWidth = 32,
+        startAddress = 0x200,
+        regFileReadyKind = sync,
+        branchPrediction = dynamic,
+        bypassExecute0 = true,
+        bypassExecute1 = true,
+        bypassWriteBack = true,
+        bypassWriteBackBuffer = true,
+        collapseBubble = false,
+        fastFetchCmdPcCalculation = true,
+        dynamicBranchPredictorCacheSizeLog2 = 7
+      )
 
-
-    val core = ClockDomain(io.axiClk,resetCtrl.coreReset){
+      coreConfig.add(new MulExtension)
+      coreConfig.add(new DivExtension)
+      coreConfig.add(new BarrelShifterFullExtension)
+      //  p.add(new BarrelShifterLightExtension)
+      
       val iCacheConfig = InstructionCacheConfig(
         cacheSize =4096,
         bytePerLine =32,
@@ -89,6 +89,7 @@ class Pinsec extends Component{
         cpuDataWidth = 32,
         memDataWidth = 32
       )
+
       new RiscvAxi4(coreConfig, iCacheConfig, null, debug, interruptCount)
     }
 
