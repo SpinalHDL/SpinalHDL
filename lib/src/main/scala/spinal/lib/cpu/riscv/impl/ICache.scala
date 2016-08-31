@@ -5,16 +5,17 @@ import java.text.AttributedString
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.bus.amba4.axi.{Axi4Config, Axi4ReadOnly}
 import spinal.lib.bus.avalon.{AvalonMM, AvalonMMConfig}
 
 
 case class InstructionCacheConfig( cacheSize : Int,
-                                       bytePerLine : Int,
-                                       wayCount : Int,
-                                       wrappedMemAccess : Boolean,
-                                       addressWidth : Int,
-                                       cpuDataWidth : Int,
-                                       memDataWidth : Int){
+                                   bytePerLine : Int,
+                                   wayCount : Int,
+                                   wrappedMemAccess : Boolean,
+                                   addressWidth : Int,
+                                   cpuDataWidth : Int,
+                                   memDataWidth : Int){
   def burstSize = bytePerLine*8/memDataWidth
   def getAvalonConfig() = AvalonMMConfig.bursted(
     addressWidth = addressWidth,
@@ -22,7 +23,18 @@ case class InstructionCacheConfig( cacheSize : Int,
     burstCountWidth = log2Up(burstSize + 1)).getReadOnlyConfig.copy(
     linewrapBursts = wrappedMemAccess,
     constantBurstBehavior = true
-    )
+  )
+
+  def getAxi4ReadOnlyConfig() =  Axi4Config(
+    addressWidth = addressWidth,
+    dataWidth = 32,
+    useId = false,
+    useRegion = false,
+    useLock = false,
+    useQos = false,
+    useResp = false,
+    useSize = false
+  )
 }
 
 
@@ -71,6 +83,23 @@ case class InstructionCacheMemBus(implicit p : InstructionCacheConfig) extends B
     cmd.ready := mm.waitRequestn
     rsp.valid := mm.readDataValid
     rsp.data := mm.readData
+    mm
+  }
+
+  def toAxi4ReadOnly(): Axi4ReadOnly = {
+    val axiConfig = p.getAxi4ReadOnlyConfig()
+    val mm = Axi4ReadOnly(axiConfig)
+
+    mm.readCmd.valid := cmd.valid
+    mm.readCmd.len := p.burstSize-1
+    mm.readCmd.addr := cmd.address
+    mm.readCmd.prot  := "110"
+    mm.readCmd.cache := "1111"
+    mm.readCmd.setBurstWRAP()
+    cmd.ready := mm.readCmd.ready
+    rsp.valid := mm.readRsp.valid
+    rsp.data := mm.readRsp.data
+    mm.readRsp.ready := True
     mm
   }
 }

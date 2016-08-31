@@ -1,9 +1,7 @@
 ## BUG
 - [X] Fix B(default -> True)
-- [ ] Why Ahb3Interconnect decoders Area don't get name but arbiter does.
 
 ## spinal.core
-- [ ] Area indexing
 - [x] Add regression for all implicit spinal hdl check like latch, comb loop etc
 - [X] add xxx := (default -> True) support (no B/U/S prefix)
 - [ ] Add myBool := 0/1 ?

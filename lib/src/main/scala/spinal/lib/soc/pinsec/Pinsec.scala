@@ -11,7 +11,7 @@ import spinal.lib.com.jtag.Jtag
 import spinal.lib.com.uart.{Uart, UartCtrlGenerics, UartCtrlMemoryMappedConfig, Apb3UartCtrl}
 import spinal.lib.cpu.riscv.impl.build.RiscvAxi4
 import spinal.lib.cpu.riscv.impl.extension.{BarrelShifterFullExtension, DivExtension, MulExtension}
-import spinal.lib.cpu.riscv.impl.{disable, dynamic, sync, CoreConfig}
+import spinal.lib.cpu.riscv.impl._
 import spinal.lib.graphic.RgbConfig
 import spinal.lib.graphic.vga.{Vga, Axi4VgaCtrlGenerics, Axi4VgaCtrl}
 import spinal.lib.io.TriStateArray
@@ -39,18 +39,20 @@ class Pinsec extends Component{
 
 
   val resetCtrl = new ClockingArea(ClockDomain(io.axiClk,config = ClockDomainConfig(resetKind = BOOT))) {
-    val axiResetCounter = Reg(UInt(4 bits)) init(0)
-    when(axiResetCounter =/= "1111"){
+    val axiResetOrder = False
+    val axiResetCounter = Reg(UInt(6 bits)) init(0)
+    when(axiResetCounter =/= U(axiResetCounter.range -> true)){
       axiResetCounter := axiResetCounter + 1
+      axiResetOrder := True
     }
     when(BufferCC(io.asyncReset)){
       axiResetCounter := 0
     }
-    val axiResetOrder = axiResetCounter =/= "1111"
+
     val coreResetOrder = False setWhen(axiResetOrder)
 
-    val axiReset =  RegNext(axiResetOrder)
-    val vgaReset =  BufferCC(axiReset)
+    val axiReset  = RegNext(axiResetOrder)
+    val vgaReset  = BufferCC(axiReset)
     val coreReset = RegNext(coreResetOrder)
   }
 
@@ -78,7 +80,16 @@ class Pinsec extends Component{
 
 
     val core = ClockDomain(io.axiClk,resetCtrl.coreReset){
-      new RiscvAxi4(coreConfig, null, null, debug, interruptCount)
+      val iCacheConfig = InstructionCacheConfig(
+        cacheSize =4096,
+        bytePerLine =32,
+        wayCount = 1,  //Can only be one for the moment
+        wrappedMemAccess = true,
+        addressWidth = 32,
+        cpuDataWidth = 32,
+        memDataWidth = 32
+      )
+      new RiscvAxi4(coreConfig, iCacheConfig, null, debug, interruptCount)
     }
 
     val rom = Axi4SharedOnChipRam(
@@ -134,7 +145,7 @@ class Pinsec extends Component{
       axiAddressWidth = 32,
       axiDataWidth = 32,
       burstLength = 8,
-      frameSizeMax = 2048*1512,
+      frameSizeMax = 2048*1512*2,
       fifoSize = 512,
       rgbConfig = vgaRgbConfig,
       vgaClock = ClockDomain(io.vgaClk,resetCtrl.vgaReset)
@@ -151,7 +162,17 @@ class Pinsec extends Component{
         core.io.d       -> List(rom.io.axi, ram.io.axi, sdramCtrl.io.axi, apbBridge.io.axi),
         jtagCtrl.io.axi -> List(rom.io.axi, ram.io.axi, sdramCtrl.io.axi, apbBridge.io.axi),
         vgaCtrl.io.axi  -> List(                        sdramCtrl.io.axi)
-      ).build()
+      ).addPipelining(apbBridge.io.axi,(from,to) => {
+        from.sharedCmd.halfPipe() >> to.sharedCmd
+        from.writeData.halfPipe() >> to.writeData
+        from.writeRsp << to.writeRsp
+        from.readRsp << to.readRsp
+      }).addPipelining(sdramCtrl.io.axi,(from,to) => {
+        from.sharedCmd.halfPipe() >> to.sharedCmd
+        from.writeData >/-> to.writeData
+        from.writeRsp << to.writeRsp
+        from.readRsp << to.readRsp
+      }).build()
 
 
     val apbDecoder = Apb3Decoder(
@@ -161,7 +182,7 @@ class Pinsec extends Component{
         gpioBCtrl.io.apb -> (0x01000, 4 kB),
         uartCtrl.io.apb  -> (0x10000, 4 kB),
         timerCtrl.io.apb -> (0x20000, 4 kB),
-        vgaCtrl.io.apb -> (0x30000, 4 kB),
+        vgaCtrl.io.apb   -> (0x30000, 4 kB),
         core.io.debugBus -> (0xF0000, 4 kB)
       )
     )

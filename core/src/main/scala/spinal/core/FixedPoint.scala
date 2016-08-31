@@ -45,11 +45,10 @@ abstract class XFix[T <: XFix[T, R], R <: BitVector with Num[R]](val maxExp: Int
 
   def minExp: Int
 
-
+  raw.setRefOwner(this)
+  raw.setPartialName("",true)
 
   override def elements: ArrayBuffer[(String, Data)] = {
-    raw.setRefOwner(this)
-    raw.setPartialName("",true)
     ArrayBuffer(("" -> raw))
   }
 

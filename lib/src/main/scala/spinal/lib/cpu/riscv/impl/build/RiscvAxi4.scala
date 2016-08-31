@@ -16,7 +16,7 @@ class RiscvAxi4(coreConfig : CoreConfig,iCacheConfig : InstructionCacheConfig, d
   val dCached = dCacheConfig != null
 
   val iConfig = if(iCached){
-    ??? //iCacheConfig.getAvalonConfig()
+    iCacheConfig.getAxi4ReadOnlyConfig()
   }else{
     CoreInstructionBus.getAxi4Config(coreConfig)
   }
@@ -61,12 +61,11 @@ class RiscvAxi4(coreConfig : CoreConfig,iCacheConfig : InstructionCacheConfig, d
   }
 
   if(iCached){
-    //    val memCache = cachedInstructionBusExtension.memBus
-    //    val memI = cloneOf(memCache)
-    //    memI.cmd << memCache.cmd.halfPipe()
-    //    memI.rsp >> memCache.rsp
-    //    io.i <> memI.toAvalon()
-    ???
+    val memCache = cachedInstructionBusExtension.memBus
+    val memI = cloneOf(memCache)
+    memI.cmd << memCache.cmd.halfPipe()
+    memI.rsp >> memCache.rsp
+    io.i <> memI.toAxi4ReadOnly()
   }else{
     val memCpu = nativeInstructionBusExtension.memBus
     val coreI = cloneOf(memCpu)
@@ -107,16 +106,15 @@ object RiscvAxi4{
     val report = SpinalConfig(onlyStdLogicVectorAtTopLevelIo=true).generateVerilog({
       val apb3Config = Apb3Config(16,32)
       //replace wit null to disable instruction cache
-      val iCacheConfig = null
-      //         InstructionCacheConfig(
-      //         cacheSize =4096,
-      //         bytePerLine =32,
-      //         wayCount = 1,
-      //         wrappedMemAccess = true,
-      //         addressWidth = 32,
-      //         cpuDataWidth = 32,
-      //         memDataWidth = 32
-      //       )
+      val iCacheConfig = InstructionCacheConfig(
+         cacheSize =4096,
+         bytePerLine =32,
+         wayCount = 1,  //Can only be one for the moment
+         wrappedMemAccess = true,
+         addressWidth = 32,
+         cpuDataWidth = 32,
+         memDataWidth = 32
+       )
 
       //replace wit null to disable data cache
       val dCacheConfig = null

@@ -5,7 +5,7 @@ import spinal.lib._
 
 import spinal.lib.bus.misc.SizeMapping
 
-case class Axi4ReadOnlyDecoder(axiConfig: Axi4Config,decodings : Iterable[SizeMapping],pendingMax : Int = 7) extends Component{
+case class Axi4ReadOnlyDecoder(axiConfig: Axi4Config,decodings : Seq[SizeMapping],pendingMax : Int = 7) extends Component{
   val io = new Bundle{
     val input = slave(Axi4ReadOnly(axiConfig))
     val outputs = Vec(master(Axi4ReadOnly(axiConfig)),decodings.size)
@@ -71,7 +71,7 @@ case class Axi4ReadOnlyDecoder(axiConfig: Axi4Config,decodings : Iterable[SizeMa
 }
 
 
-case class Axi4WriteOnlyDecoder(axiConfig: Axi4Config,decodings : Iterable[SizeMapping],pendingMax : Int = 7) extends Component{
+case class Axi4WriteOnlyDecoder(axiConfig: Axi4Config,decodings : Seq[SizeMapping],pendingMax : Int = 7) extends Component{
   val io = new Bundle{
     val input = slave(Axi4WriteOnly(axiConfig))
     val outputs = Vec(master(Axi4WriteOnly(axiConfig)),decodings.size)
@@ -174,9 +174,9 @@ case class Axi4WriteOnlyDecoder(axiConfig: Axi4Config,decodings : Iterable[SizeM
 
 
 case class Axi4SharedDecoder(axiConfig: Axi4Config,
-                             readDecodings : Iterable[SizeMapping],
-                             writeDecodings : Iterable[SizeMapping],
-                             sharedDecodings : Iterable[SizeMapping],
+                             readDecodings : Seq[SizeMapping],
+                             writeDecodings : Seq[SizeMapping],
+                             sharedDecodings : Seq[SizeMapping],
                              pendingMax : Int = 7) extends Component{
   val io = new Bundle{
     val input = slave(Axi4Shared(axiConfig))

@@ -25,7 +25,7 @@ case class AhbLite3CrossbarFactory(AhbLite3Config: AhbLite3Config){
     this
   }
 
-  def addConnection(ahb: AhbLite3,AhbLite3Slave: Iterable[AhbLite3]) : this.type = {
+  def addConnection(ahb: AhbLite3,AhbLite3Slave: Seq[AhbLite3]) : this.type = {
     AhbLite3Slave.foreach(slavesConfigs(_).masters += AhbLite3CrossbarSlaveConnection(ahb))
     this
   }
@@ -34,9 +34,9 @@ case class AhbLite3CrossbarFactory(AhbLite3Config: AhbLite3Config){
 //    this
 //  }
 
-  def addConnection(order: (AhbLite3,Iterable[AhbLite3])) : this.type = addConnection(order._1,order._2)
+  def addConnection(order: (AhbLite3,Seq[AhbLite3])) : this.type = addConnection(order._1,order._2)
 
-  def addConnections(orders : (AhbLite3,Iterable[AhbLite3])*) : this.type = {
+  def addConnections(orders : (AhbLite3,Seq[AhbLite3])*) : this.type = {
     orders.foreach(addConnection(_))
     this
   }
@@ -47,7 +47,7 @@ case class AhbLite3CrossbarFactory(AhbLite3Config: AhbLite3Config){
     val decoders = for(master <- masters) yield new Area{
       val slaves = slavesConfigs.filter{
         case (slave,config) => config.masters.exists(connection => connection.master == master)
-      }
+      }.toSeq
       val decoder = AhbLite3Decoder(
         AhbLite3Config = AhbLite3Config,
         decodings = slaves.map(_._2.mapping)

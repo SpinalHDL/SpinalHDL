@@ -16,6 +16,7 @@ case class Axi4CrossbarSlaveConfig(mapping : SizeMapping){
 case class Axi4CrossbarFactory(/*axiConfig: Axi4Config*/){
   val slavesConfigs = mutable.HashMap[Axi4Bus,Axi4CrossbarSlaveConfig]()
   val axi4SlaveToReadWriteOnly = mutable.HashMap[Axi4,Seq[Axi4Bus]]()
+  val sharedBridger = mutable.HashMap[Axi4Shared,(Axi4Shared,Axi4Shared) => Unit]()
   val masters = ArrayBuffer[Axi4Bus]()
   def addSlave(axi: Axi4Bus,mapping: SizeMapping) : this.type = {
     axi match {
@@ -40,7 +41,7 @@ case class Axi4CrossbarFactory(/*axiConfig: Axi4Config*/){
     this
   }
 
-  def addConnection(axi: Axi4Bus,slaves: Iterable[Axi4Bus]) : this.type = {
+  def addConnection(axi: Axi4Bus,slaves: Seq[Axi4Bus]) : this.type = {
     val translatedSlaves = slaves.map(_ match{
       case that : Axi4 => axi4SlaveToReadWriteOnly(that)
       case that : Axi4Bus => that :: Nil
@@ -67,10 +68,15 @@ case class Axi4CrossbarFactory(/*axiConfig: Axi4Config*/){
   }
 
 
-  def addConnection(order: (Axi4Bus,Iterable[Axi4Bus])) : this.type = addConnection(order._1,order._2)
+  def addConnection(order: (Axi4Bus,Seq[Axi4Bus])) : this.type = addConnection(order._1,order._2)
 
-  def addConnections(orders : (Axi4Bus,Iterable[Axi4Bus])*) : this.type = {
+  def addConnections(orders : (Axi4Bus,Seq[Axi4Bus])*) : this.type = {
     orders.foreach(addConnection(_))
+    this
+  }
+
+  def addPipelining(axi : Axi4Shared,bridger : (Axi4Shared,Axi4Shared) => Unit): this.type ={
+    this.sharedBridger(axi) = bridger
     this
   }
 
@@ -82,7 +88,8 @@ case class Axi4CrossbarFactory(/*axiConfig: Axi4Config*/){
       case master : Axi4ReadOnly => new Area{
         val slaves = slavesConfigs.filter{
           case (slave,config) => config.connections.exists(connection => connection.master == master)
-        }
+        }.toSeq
+
         val decoder = Axi4ReadOnlyDecoder(
           axiConfig = master.config,
           decodings = slaves.map(_._2.mapping)
@@ -96,7 +103,7 @@ case class Axi4CrossbarFactory(/*axiConfig: Axi4Config*/){
       case master : Axi4WriteOnly => new Area{
         val slaves = slavesConfigs.filter{
           case (slave,config) => config.connections.exists(connection => connection.master == master)
-        }
+        }.toSeq
         val decoder = Axi4WriteOnlyDecoder(
           axiConfig = master.config,
           decodings = slaves.map(_._2.mapping)
@@ -110,7 +117,7 @@ case class Axi4CrossbarFactory(/*axiConfig: Axi4Config*/){
       case master : Axi4Shared => new Area{
         val slaves = slavesConfigs.filter{
           case (slave,config) => config.connections.exists(connection => connection.master == master)
-        }
+        }.toSeq
         val readOnlySlaves = slaves.filter(_._1.isInstanceOf[Axi4ReadOnly])
         val writeOnlySlaves = slaves.filter(_._1.isInstanceOf[Axi4WriteOnly])
         val sharedSlaves = slaves.filter(_._1.isInstanceOf[Axi4Shared])
@@ -126,8 +133,7 @@ case class Axi4CrossbarFactory(/*axiConfig: Axi4Config*/){
             -> List(decoder.io.readOutputs.toSeq , decoder.io.writeOutputs.toSeq , decoder.io.sharedOutputs.toSeq).flatten
         ).zipped.toMap
 
-
-        decoder.io.input << master
+        sharedBridger.getOrElse[(Axi4Shared,Axi4Shared) => Unit](master,_ >> _).apply(master,decoder.io.input)
       }
     }
 
@@ -209,7 +215,7 @@ case class Axi4CrossbarFactory(/*axiConfig: Axi4Config*/){
             for ((input, master) <- (arbiter.io.sharedInputs, sharedConnections).zipped) {
               input << masterToDecodedSlave(master.master)(slave).asInstanceOf[Axi4Shared]
             }
-            arbiter.io.output >> slave
+            sharedBridger.getOrElse[(Axi4Shared,Axi4Shared) => Unit](slave,_ >> _).apply(arbiter.io.output,slave)
           }
         }
       }

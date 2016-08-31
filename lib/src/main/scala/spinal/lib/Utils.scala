@@ -31,7 +31,7 @@ import scala.collection.mutable.ArrayBuffer
 
 object OHToUInt {
   def apply(bitVector: BitVector): UInt = apply(bitVector.asBools)
-  def apply(bools: Iterable[Bool]): UInt = {
+  def apply(bools: Seq[Bool]): UInt = {
     val boolsSize = bools.size
     if (boolsSize < 2) return U(0)
 
@@ -55,7 +55,7 @@ object OHToUInt {
 
 //Will be target dependent
 object MuxOH {
-  def apply[T <: Data](oneHot : BitVector,inputs : Iterable[T]): T = apply(oneHot.asBools,inputs)
+  def apply[T <: Data](oneHot : BitVector,inputs : Seq[T]): T = apply(oneHot.asBools,inputs)
   def apply[T <: Data](oneHot : collection.IndexedSeq[Bool],inputs : Iterable[T]): T =  apply(oneHot,Vec(inputs))
 
   def apply[T <: Data](oneHot : BitVector,inputs : Vec[T]): T = apply(oneHot.asBools,inputs)
@@ -556,7 +556,7 @@ class NoData extends Bundle {
 }
 
 
-class TraversableOnceAnyPimped[T <: Any](pimped: scala.collection.Iterable[T]) {
+class TraversableOnceAnyPimped[T <: Any](pimped: Seq[T]) {
   def toto = 2
   def apply(id : UInt)(gen : (T) => Unit): Unit ={
     assert(widthOf(id) == log2Up(pimped.size))
@@ -568,13 +568,13 @@ class TraversableOnceAnyPimped[T <: Any](pimped: scala.collection.Iterable[T]) {
   }
 }
 
-class TraversableOnceBoolPimped(pimped: scala.collection.Iterable[Bool]) {
+class TraversableOnceBoolPimped(pimped: Seq[Bool]) {
   def orR: Bool = pimped.reduce(_ || _)
   def andR: Bool = pimped.reduce(_ && _)
   def xorR: Bool = pimped.reduce(_ ^ _)
 }
 
-class TraversableOncePimped[T <: Data](pimped: scala.collection.Iterable[T]) {
+class TraversableOncePimped[T <: Data](pimped: Seq[T]) {
   def reduceBalancedTree(op: (T, T) => T): T = {
     reduceBalancedTree(op, (s,l) => s)
   }
@@ -710,15 +710,15 @@ class StringPimped(pimped : String){
 
 
 object PriorityMux{
-  def apply[T <: Data](in: Iterable[(Bool, T)]): T = {
+  def apply[T <: Data](in: Seq[(Bool, T)]): T = {
     if (in.size == 1) {
       in.head._2
     } else {
       Mux(in.head._1, in.head._2, apply(in.tail)) //Inttelij right code marked red
     }
   }
-  def apply[T <: Data](sel: Iterable[Bool], in: Iterable[T]): T = apply(sel zip in)
-  def apply[T <: Data](sel: Bits, in: Iterable[T]): T = apply(sel.asBools.zip(in))
+  def apply[T <: Data](sel: Seq[Bool], in: Seq[T]): T = apply(sel zip in)
+  def apply[T <: Data](sel: Bits, in: Seq[T]): T = apply(sel.asBools.zip(in))
 }
 
 

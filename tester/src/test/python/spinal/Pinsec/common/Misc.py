@@ -41,6 +41,7 @@ class PinsecLogger:
 
 def pinsecClockGen(dut):
     cocotb.fork(ClockDomainAsyncReset(dut.io_axiClk, dut.io_asyncReset,20000))
+    cocotb.fork(ClockDomainAsyncReset(dut.io_vgaClk, None,40000))
     # cocotb.fork(axiClkLogger(dut.uut))
     core = dut.uut.axi_core.core
     logger = PinsecLogger()
