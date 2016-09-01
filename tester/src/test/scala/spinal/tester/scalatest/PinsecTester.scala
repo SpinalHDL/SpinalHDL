@@ -61,7 +61,7 @@ class PinsecTesterCocotbBoot extends SpinalTesterCocotbBase {
   )
   override def createToplevel: Component = {
     val pinsec = new Pinsec
-    pinsec.axi.rom.ram.randBoot()
+//    pinsec.axi.rom.ram.randBoot()
     pinsec.axi.ram.ram.randBoot()
     val sdramPowerupCounter = pinsec.axi.sdramCtrl.ctrl.powerup.counter
     sdramPowerupCounter.component.rework(
@@ -70,7 +70,7 @@ class PinsecTesterCocotbBoot extends SpinalTesterCocotbBase {
     pinsec
   }
 
-  override def backendConfig(config: SpinalConfig): SpinalConfig = config.copy(defaultClockDomainFrequency = FixedFrequency(50 MHz)).copy(dumpWave = null)
+  override def backendConfig(config: SpinalConfig): SpinalConfig = config.copy(defaultClockDomainFrequency = FixedFrequency(133 MHz)).copy(dumpWave = null)
 }
 
 

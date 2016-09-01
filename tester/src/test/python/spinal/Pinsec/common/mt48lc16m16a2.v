@@ -39,7 +39,7 @@
 
 `timescale 1ns / 1ps
 
-module mt48lc16m16a2 (Dq, Addr, Ba, Clk, Cke, Cs_n, Ras_n, Cas_n, We_n, Dqm);
+module mt48lc16m16a2 (Dq, Addr, Ba, Clk, Cke, Cs_n, Ras_n, Cas_n, We_n, Dqm,loader_valid,loader_data,loader_bank,loader_address);
 
     parameter addr_bits =      13;
     parameter data_bits =      16;
@@ -57,10 +57,32 @@ module mt48lc16m16a2 (Dq, Addr, Ba, Clk, Cke, Cs_n, Ras_n, Cas_n, We_n, Dqm);
     input                         We_n;
     input                 [1 : 0] Dqm;
 
+    input  loader_valid;
+    input  [15 : 0]loader_data;
+    input  [1 : 0]loader_bank;
+    input  [31 : 0]loader_address;
+
+
     reg       [data_bits - 1 : 0] Bank0 [0 : mem_sizes];
     reg       [data_bits - 1 : 0] Bank1 [0 : mem_sizes];
     reg       [data_bits - 1 : 0] Bank2 [0 : mem_sizes];
     reg       [data_bits - 1 : 0] Bank3 [0 : mem_sizes];
+
+
+    always @ (posedge loader_valid) begin
+        if(loader_bank == 0)
+            Bank0[loader_address] = loader_data;
+        if(loader_bank == 1)
+            Bank1[loader_address] = loader_data;
+        if(loader_bank == 2)
+            Bank2[loader_address] = loader_data;
+        if(loader_bank == 3)
+            Bank3[loader_address] = loader_data;
+    end
+
+
+
+
 
     reg                   [1 : 0] Bank_addr [0 : 3];                // Bank Address Pipeline
     reg        [col_bits - 1 : 0] Col_addr [0 : 3];                 // Column Address Pipeline

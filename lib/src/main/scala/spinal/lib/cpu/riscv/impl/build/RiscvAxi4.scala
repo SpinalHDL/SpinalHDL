@@ -38,7 +38,7 @@ class RiscvAxi4(coreConfig : CoreConfig,iCacheConfig : InstructionCacheConfig, d
 
 
   if(interruptCount != 0)
-    coreConfig.add(new SimpleInterruptExtension(exceptionVector=0x0).addIrq(id=4,pins=io.interrupt,IrqUsage(isException=false),name="io_interrupt"))
+    coreConfig.add(new SimpleInterruptExtension(exceptionVector=0x20).addIrq(id=4,pins=io.interrupt,IrqUsage(isException=false),name="io_interrupt"))
   val nativeInstructionBusExtension = if(!iCached)coreConfig.add(new NativeInstructionBusExtension)  else null
   val cachedInstructionBusExtension = if(iCached)coreConfig.add(new CachedInstructionBusExtension(iCacheConfig,false,true))  else null
   val nativeDataBusExtension = if(!dCached) coreConfig.add(new NativeDataBusExtension) else null
