@@ -47,7 +47,7 @@ def test1(dut):
     uut = dut.uut
 
     cocotb.fork(simulationSpeedPrinter(uut.io_axiClk))
-    yield loadIHex(uut,"../hex/uart.hex",uut.io_axiClk,uut.io_asyncReset)
+    yield loadIHex(dut,"../hex/uart.hex",uut.io_axiClk,uut.io_asyncReset)
     pinsecClockGen(dut)
     cocotb.fork(txToRxBypass(uut))
 

@@ -20,7 +20,10 @@ module PinsecTester_tb
   reg   io_axiClk;
   reg   io_vgaClk;
 
-
+  reg  loader_valid;
+  reg  [15 : 0]loader_data;
+  reg  [1 : 0]loader_bank;
+  reg  [31 : 0]loader_address;
 
   assign io_sdram_DQ_read = io_sdram_DQ;
   assign io_sdram_DQ = io_sdram_DQ_writeEnable ? io_sdram_DQ_write : 16'bZZZZZZZZZZZZZZZZ;
@@ -35,7 +38,11 @@ module PinsecTester_tb
     .Ras_n(io_sdram_RASn),
     .Cas_n(io_sdram_CASn),
     .We_n(io_sdram_WEn),
-    .Dqm(io_sdram_DQM)
+    .Dqm(io_sdram_DQM),
+    .loader_valid(loader_valid),
+    .loader_data(loader_data),
+    .loader_bank(loader_bank),
+    .loader_address(loader_address)
   );
 
 
@@ -57,9 +64,11 @@ module PinsecTester_tb
   );
 
  initial begin
-    //$dumpfile("E:/waves/wave.vcd");
+   // $dumpfile("E:/waves/wave.vcd");
+   // $dumpvars(0, uut);
    // $dumpvars(0, uut.axi_vgaCtrl);
    // $dumpvars(0, uut.axi_core);
+   //  $dumpvars(0, sdram);
     //$dumpvars(0, uut.axi_sdramCtrl);
    // $dumpvars(0, uut.axi_core.core.execute0_inInst_payload_pc);
  end

@@ -62,7 +62,7 @@ def jtagTest(dut):
     log = open('uartTx.log', 'w')
 
     cocotb.fork(simulationSpeedPrinter(uut.io_axiClk))
-    yield loadIHex(uut,"../hex/dummy.hex",uut.io_axiClk,uut.io_asyncReset)
+    yield loadIHex(dut,"../hex/dummy.hex",uut.io_axiClk,uut.io_asyncReset)
     pinsecClockGen(dut)
 
     yield Timer(1000*10)
@@ -79,14 +79,12 @@ def jtagTest(dut):
 
 
     # Check rom write/read via jtag
-    yield jtagBridgeWrite(jtag,0x3000,0x11223344,4)
-    yield jtagBridgeWrite(jtag,0x3002,0x00550000,1)
-    yield jtagBridgeReadAssert(jtag,0x3000,4,0x11553344)
-    yield jtagBridgeReadAssert(jtag,0x3002,2,0x1155)
+    yield jtagBridgeWrite(jtag,8,0x11223344,4)
+    yield jtagBridgeWrite(jtag,10,0x00550000,1)
+    yield jtagBridgeReadAssert(jtag,8,4,0x11553344)
+    yield jtagBridgeReadAssert(jtag,10,2,0x1155)
 
-    yield jtagBridgeWrite(jtag,0x04004FF0,0xAABBCCDD,4)
-    yield Timer(1000*50)
-    yield jtagBridgeReadAssert(jtag,0x04004FF0,4,0xAABBCCDD)
+
 
     yield jtagBridgeWrite(jtag,0x40004FF0,0x77665544,4)
     yield Timer(1000*50)

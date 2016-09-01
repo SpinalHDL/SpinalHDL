@@ -58,28 +58,28 @@ class Pinsec extends Component{
 
 
   val axi = new ClockingArea(ClockDomain(io.axiClk,resetCtrl.axiReset,frequency = ClockDomain.current.frequency)) {
-    val coreConfig = CoreConfig(
-      pcWidth = 32,
-      addrWidth = 32,
-      startAddress = 0x200,
-      regFileReadyKind = sync,
-      branchPrediction = dynamic,
-      bypassExecute0 = true,
-      bypassExecute1 = true,
-      bypassWriteBack = true,
-      bypassWriteBackBuffer = true,
-      collapseBubble = false,
-      fastFetchCmdPcCalculation = true,
-      dynamicBranchPredictorCacheSizeLog2 = 7
-    )
 
-    coreConfig.add(new MulExtension)
-    coreConfig.add(new DivExtension)
-    coreConfig.add(new BarrelShifterFullExtension)
-    //  p.add(new BarrelShifterLightExtension)
+    val core = ClockDomain(io.axiClk,resetCtrl.coreReset){ //The RISCV Core has a separate reset
+      val coreConfig = CoreConfig(
+        pcWidth = 32,
+        addrWidth = 32,
+        startAddress = 0x00000000,
+        regFileReadyKind = sync,
+        branchPrediction = dynamic,
+        bypassExecute0 = true,
+        bypassExecute1 = true,
+        bypassWriteBack = true,
+        bypassWriteBackBuffer = true,
+        collapseBubble = false,
+        fastFetchCmdPcCalculation = true,
+        dynamicBranchPredictorCacheSizeLog2 = 7
+      )
 
+      coreConfig.add(new MulExtension)
+      coreConfig.add(new DivExtension)
+      coreConfig.add(new BarrelShifterFullExtension)
+      //  p.add(new BarrelShifterLightExtension)
 
-    val core = ClockDomain(io.axiClk,resetCtrl.coreReset){
       val iCacheConfig = InstructionCacheConfig(
         cacheSize =4096,
         bytePerLine =32,
@@ -89,18 +89,13 @@ class Pinsec extends Component{
         cpuDataWidth = 32,
         memDataWidth = 32
       )
+
       new RiscvAxi4(coreConfig, iCacheConfig, null, debug, interruptCount)
     }
 
-    val rom = Axi4SharedOnChipRam(
-      dataWidth = 32,
-      byteCount = 128 kB,
-      idWidth = 4
-    )
-
     val ram = Axi4SharedOnChipRam(
       dataWidth = 32,
-      byteCount = 32 kB,
+      byteCount = 4 kB,
       idWidth = 4
     )
 
@@ -153,25 +148,24 @@ class Pinsec extends Component{
 
     val axiCrossbar = Axi4CrossbarFactory()
       .addSlaves(
-        rom.io.axi       ->(0x00000000L, 128 kB),
-        ram.io.axi       ->(0x04000000L,  32 kB),
+        ram.io.axi       ->(0x00000000L ,  4 kB),
         sdramCtrl.io.axi ->(0x40000000L,  64 MB),
         apbBridge.io.axi ->(0xF0000000L,   1 MB)
       ).addConnections(
-        core.io.i       -> List(rom.io.axi, ram.io.axi, sdramCtrl.io.axi),
-        core.io.d       -> List(rom.io.axi, ram.io.axi, sdramCtrl.io.axi, apbBridge.io.axi),
-        jtagCtrl.io.axi -> List(rom.io.axi, ram.io.axi, sdramCtrl.io.axi, apbBridge.io.axi),
+        core.io.i       -> List(ram.io.axi, sdramCtrl.io.axi),
+        core.io.d       -> List(ram.io.axi, sdramCtrl.io.axi, apbBridge.io.axi),
+        jtagCtrl.io.axi -> List(ram.io.axi, sdramCtrl.io.axi, apbBridge.io.axi),
         vgaCtrl.io.axi  -> List(                        sdramCtrl.io.axi)
-      ).addPipelining(apbBridge.io.axi,(from,to) => {
-        from.sharedCmd.halfPipe() >> to.sharedCmd
-        from.writeData.halfPipe() >> to.writeData
-        from.writeRsp << to.writeRsp
-        from.readRsp << to.readRsp
-      }).addPipelining(sdramCtrl.io.axi,(from,to) => {
-        from.sharedCmd.halfPipe() >> to.sharedCmd
-        from.writeData >/-> to.writeData
-        from.writeRsp << to.writeRsp
-        from.readRsp << to.readRsp
+      ).addPipelining(apbBridge.io.axi,(crossbar,bridge) => {
+        crossbar.sharedCmd.halfPipe() >> bridge.sharedCmd
+        crossbar.writeData.halfPipe() >> bridge.writeData
+        crossbar.writeRsp << bridge.writeRsp
+        crossbar.readRsp << bridge.readRsp
+      }).addPipelining(sdramCtrl.io.axi,(crossbar,ctrl) => {
+        crossbar.sharedCmd.halfPipe() >> ctrl.sharedCmd
+        crossbar.writeData >/-> ctrl.writeData
+        crossbar.writeRsp << ctrl.writeRsp
+        crossbar.readRsp << ctrl.readRsp
       }).build()
 
 
