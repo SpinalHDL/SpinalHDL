@@ -148,6 +148,61 @@ object fromGray {
   }
 }
 
+
+/**
+  * LFSR Fibonacci
+  *        ____ ____ ____     ____ ____ ____
+  *   /-->|____|____|____|...|____|____|____|
+  *   |          |              |    |
+  *   \<--------XOR<-----------XOR<--/
+  *
+  * @param that       : Signal to shift
+  * @param xorBits    : List of index that must be xor
+  * @param rightLeft  : Shift direction
+  */
+object LFSR_Fibonacci{
+  def apply(that : Bits, xorBits : List[Int], rightLeft : Boolean = true): Bits ={
+
+    assert(that.getWidth >= xorBits.size,  "xorBits length is bigger than the bit vector length")
+    assert(xorBits.max <= that.getWidth-1, "number in xorBits is bigger than the msb of the bit vector")
+
+    val ret      = cloneOf(that)
+    val feedback = xorBits.map(that(_)).reduce(_ ^ _)
+
+    if(rightLeft){
+      ret := feedback ## (that >> 1)
+    }else{
+      val shift = (that << 1)
+      ret := shift(shift.high downto 2) ## feedback
+    }
+
+    ret
+  }
+}
+
+
+/**
+  * LFSR Galois
+  *        ____ ____        ____        ____ ____
+  *    /->|____|____|-XOR->|____|-XOR->|____|____|
+  *    |_______________|___________|___________|
+  */
+object LFSR_Galois{
+  def apply(that : Bits, xorBits : Seq[Int], rightLeft : Boolean): Bits ={
+
+    assert(that.getWidth < xorBits.size,  "xorBits lenght is bigger than the bit vector length")
+    assert(xorBits.max > that.getWidth-1, "number in xorBits is bigger than the msb of the bit vector")
+
+    val ret = cloneOf(that)
+
+ //   ret    := that.asBools.zipWithIndex.map{case (d,i) => if (xorBits.contains(i)) d ^ that(0) else that(i-1) }.reduce(_ ## _)
+ //   ret(0) := ret.msb
+
+    ret
+  }
+}
+
+
 /**
   * Big-Endian <-> Little-Endian
   */
