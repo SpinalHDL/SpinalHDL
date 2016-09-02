@@ -34,6 +34,9 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
   private[core] def isFixedWidth = fixedWidth != -1
 
   def setWidth(width: Int): this.type = {
+    if(width < 0){
+      LocatedPendingError(s"Width of $this is set by a negative number")
+    }
     fixedWidth = width
     if (globalData.nodeAreInferringWidth) inferredWidth = fixedWidth
     this
