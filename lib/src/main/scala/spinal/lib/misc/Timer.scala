@@ -30,7 +30,7 @@ case class Timer(width : Int) extends Component{
     //Address 0 => clear/tick masks + bus
     val ticksEnable  = busCtrl.createReadWrite(Bits(ticks.length bits),baseAddress + 0,0) init(0)
     val clearsEnable = busCtrl.createReadWrite(Bits(clears.length bits),baseAddress + 0,16) init(0)
-    val busClearing = False
+    val busClearing  = False
 
     io.clear := (clearsEnable & clears.asBits).orR | busClearing
     io.tick  := (ticksEnable  & ticks.asBits ).orR

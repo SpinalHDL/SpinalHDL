@@ -11,14 +11,24 @@ import scala.collection.mutable.ArrayBuffer
  */
 
 
-case class Jtag() extends Bundle with IMasterSlave {
+case class Jtag(useTck : Boolean = true) extends Bundle with IMasterSlave {
   val tms = Bool
   val tdi = Bool
   val tdo = Bool
+  val tck = if(useTck) Bool else null
+
+  def unclocked = {
+    val ret = Jtag(false)
+    ret.tms := this.tms
+    ret.tdi := this.tdi
+    this.tdo := ret.tdo
+    ret
+  }
 
   override def asMaster(): Unit = {
     out(tdi, tms)
     in(tdo)
+    if(useTck) out(tck)
   }
 }
 

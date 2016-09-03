@@ -43,8 +43,8 @@ case class SdramCtrlBus[T <: Data](c : SdramLayout, contextType : T) extends Bun
     this.cmd.valid   := ret.cmd.valid
     this.cmd.address := ret.cmd.address @@ cmdCounter
     this.cmd.write   := ret.cmd.write
-    this.cmd.data    := ret.cmd.data.vecSplit(factor).read(cmdCounter)
-    this.cmd.mask    := ret.cmd.mask.vecSplit(factor).read(cmdCounter)
+    this.cmd.data    := ret.cmd.data.subdivide(factor).read(cmdCounter)
+    this.cmd.mask    := ret.cmd.mask.subdivide(factor).read(cmdCounter)
     this.cmd.context := ret.cmd.context
     ret.cmd.ready    := this.cmd.ready && cmdCounter.willOverflowIfInc
 

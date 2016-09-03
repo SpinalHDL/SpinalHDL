@@ -366,7 +366,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable  with Sp
             else
               recursiveSearch(bt.input)
           }
-          case _ => SpinalError(s"Try to set initial value of a data that is not a register ($this)")
+          case _ => LocatedPendingError(s"Try to set initial value of a data that is not a register ($this)")
         }
       }
 

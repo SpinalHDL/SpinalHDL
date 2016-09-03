@@ -22,7 +22,7 @@ class RiscvAxi4(coreConfig : CoreConfig,iCacheConfig : InstructionCacheConfig, d
   }
 
   val dConfig = if(dCached){
-    ??? //dCacheConfig.getAvalonConfig()
+    dCacheConfig.getAxi4SharedConfig()
   }else{
     CoreDataBus.getAxi4Config(coreConfig)
   }
@@ -78,12 +78,11 @@ class RiscvAxi4(coreConfig : CoreConfig,iCacheConfig : InstructionCacheConfig, d
     }
   }
   if(dCached){
-    //    val memCache = cachedDataBusExtension.memBus
-    //    val memD = cloneOf(memCache)
-    //    memD.cmd << memCache.cmd.halfPipe()
-    //    memD.rsp >-> memCache.rsp
-    //    io.d <> memD.toAvalon()
-    ???
+    val memCache = cachedDataBusExtension.memBus
+    val memD = cloneOf(memCache)
+    memD.cmd << memCache.cmd.halfPipe()
+    memD.rsp >-> memCache.rsp
+    io.d <> memD.toAxi4Shared()
   }else{
     val memCpu = nativeDataBusExtension.memBus
     val coreD = cloneOf(memCpu)

@@ -5,6 +5,7 @@ import java.text.AttributedString
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.bus.amba4.axi.{Axi4Shared, Axi4Config}
 import spinal.lib.bus.avalon.{AvalonMM, AvalonMMConfig}
 
 
@@ -24,6 +25,20 @@ case class DataCacheConfig( cacheSize : Int,
       burstOnBurstBoundariesOnly = true,
       maximumPendingReadTransactions = 2
     )
+
+  def getAxi4SharedConfig() = Axi4Config(
+    addressWidth = addressWidth,
+    dataWidth = 32,
+    useId = false,
+    useRegion = false,
+    useBurst = false,
+    useLock = false,
+    useQos = false,
+    useLen = false,
+    useResp = false
+  )
+
+
   val burstLength = bytePerLine/(memDataWidth/8)
 }
 
@@ -90,6 +105,26 @@ case class DataCacheMemBus(implicit p : DataCacheConfig) extends Bundle with IMa
     cmd.ready := mm.waitRequestn
     rsp.valid := mm.readDataValid
     rsp.data := mm.readData
+    mm
+  }
+
+  def toAxi4Shared() : Axi4Shared = {
+    val axiConfig = p.getAxi4SharedConfig()
+    val mm = Axi4Shared(axiConfig)
+
+    ???
+
+//
+//    mm.sharedCmd.valid := cmd.valid
+//    mm.sharedCmd.write := cmd.wr
+//    mm.sharedCmd.addr := cmd.address(cmd.address.high downto log2Up(p.memDataWidth/8)) @@ U(0,log2Up(p.memDataWidth/8) bits)
+//    mm.sharedCmd.len := cmd.length-1
+//    mm.byteEnable := cmd.mask
+//    mm.writeData := cmd.data
+//
+//    cmd.ready := mm.readwaitRequestn
+//    rsp.valid := mm.readDataValid
+//    rsp.data := mm.readData
     mm
   }
 }
