@@ -24,47 +24,60 @@ class Pinsec(axiFrequency : BigDecimal) extends Component{
   def vgaRgbConfig = RgbConfig(5,6,5)
 
   val io = new Bundle{
+    //Clocks / reset
     val asyncReset = in Bool
-    val axiClk = in Bool
-    val vgaClk = in Bool
-    val jtag  = slave(Jtag(useTck = true))
-    val gpioA = master(TriStateArray(32 bits))
-    val gpioB = master(TriStateArray(32 bits))
+    val axiClk     = in Bool
+    val vgaClk     = in Bool
+
+    //Main components IO
+    val jtag       = slave(Jtag())
+    val sdram      = master(SdramInterface(IS42x320D.layout))
+
+    //Peripherals IO
+    val gpioA      = master(TriStateArray(32 bits))
+    val gpioB      = master(TriStateArray(32 bits))
+    val uart       = master(Uart())
+    val vga        = master(Vga(vgaRgbConfig))
     val timerExternal = in(PinsecTimerCtrlExternal())
-    val uart  = master(Uart())
-    val sdram = master(SdramInterface(IS42x320D.layout))
-    val vga   = master(Vga(vgaRgbConfig))
   }
 
-  val resetClockDomain = ClockDomain(
+  val resetCtrlClockDomain = ClockDomain(
     clock = io.axiClk,
     config = ClockDomainConfig(
       resetKind = BOOT
     )
   )
 
-  val resetCtrl = new ClockingArea(resetClockDomain) {
-    val axiResetOrder  = False
-    val coreResetOrder = False setWhen(axiResetOrder)
+  val resetCtrl = new ClockingArea(resetCtrlClockDomain) {
+    val axiResetUnbuffered  = False
+    val coreResetUnbuffered = False
 
+    //Implement an counter to keep the reset axiResetOrder high 64 cycles
+    // Also this counter will automaticly do a reset when the system boot.
     val axiResetCounter = Reg(UInt(6 bits)) init(0)
     when(axiResetCounter =/= U(axiResetCounter.range -> true)){
       axiResetCounter := axiResetCounter + 1
-      axiResetOrder := True
+      axiResetUnbuffered := True
     }
     when(BufferCC(io.asyncReset)){
       axiResetCounter := 0
     }
 
-    val axiReset  = RegNext(axiResetOrder)
-    val coreReset = RegNext(coreResetOrder)
-    val vgaReset  = BufferCC(axiReset)
+    //When an axiResetOrder happen, the core reset will as well
+    when(axiResetUnbuffered){
+      coreResetUnbuffered := True
+    }
+
+    //Create all reset used later in the design
+    val axiReset  = RegNext(axiResetUnbuffered)
+    val coreReset = RegNext(coreResetUnbuffered)
+    val vgaReset  = BufferCC(axiResetUnbuffered)
   }
 
   val axiClockDomain = ClockDomain(
     clock = io.axiClk,
     reset = resetCtrl.axiReset,
-    frequency = FixedFrequency(axiFrequency)
+    frequency = FixedFrequency(axiFrequency) //The frequency information is used by the SDRAM controller
   )
 
   val coreClockDomain = ClockDomain(
@@ -98,6 +111,8 @@ class Pinsec(axiFrequency : BigDecimal) extends Component{
         dynamicBranchPredictorCacheSizeLog2 = 7
       )
 
+      //The CPU has a systems of plugin which allow to add new feature into the core.
+      //Those extension are not directly implemented into the core, but are kind of additive logic patch defined in a separated area.
       coreConfig.add(new MulExtension)
       coreConfig.add(new DivExtension)
       coreConfig.add(new BarrelShifterFullExtension)
@@ -129,18 +144,17 @@ class Pinsec(axiFrequency : BigDecimal) extends Component{
     )
 
     val sdramCtrl = Axi4SharedSdramCtrl(
-      dataWidth = 32,
-      idWidth   = 4,
-      layout    = IS42x320D.layout,
-      timing    = IS42x320D.timingGrade7,
-      CAS       = 3
+      axiDataWidth = 32,
+      axiIdWidth   = 4,
+      layout       = IS42x320D.layout,
+      timing       = IS42x320D.timingGrade7,
+      CAS          = 3
     )
 
     val jtagCtrl = JtagAxi4SharedDebugger(SystemDebuggerConfig(
       memAddressWidth = 32,
       memDataWidth    = 32,
-      remoteCmdWidth  = 1,
-      jtagClockDomain = jtagClockDomain
+      remoteCmdWidth  = 1
     ))
 
 
@@ -150,8 +164,12 @@ class Pinsec(axiFrequency : BigDecimal) extends Component{
       idWidth      = 4
     )
 
-    val gpioACtrl = Apb3Gpio(32)
-    val gpioBCtrl = Apb3Gpio(32)
+    val gpioACtrl = Apb3Gpio(
+      gpioWidth = 32
+    )
+    val gpioBCtrl = Apb3Gpio(
+      gpioWidth = 32
+    )
     val timerCtrl = PinsecTimerCtrl()
 
     val uartCtrlConfig = UartCtrlMemoryMappedConfig(
@@ -191,7 +209,7 @@ class Pinsec(axiFrequency : BigDecimal) extends Component{
       core.io.i       -> List(ram.io.axi, sdramCtrl.io.axi),
       core.io.d       -> List(ram.io.axi, sdramCtrl.io.axi, apbBridge.io.axi),
       jtagCtrl.io.axi -> List(ram.io.axi, sdramCtrl.io.axi, apbBridge.io.axi),
-      vgaCtrl.io.axi  -> List(                        sdramCtrl.io.axi)
+      vgaCtrl.io.axi  -> List(                              sdramCtrl.io.axi)
     )
 
     axiCrossbar.addPipelining(apbBridge.io.axi,(crossbar,bridge) => {
@@ -233,14 +251,14 @@ class Pinsec(axiFrequency : BigDecimal) extends Component{
 
     if (debug) {
       core.io.debugResetIn := resetCtrl.axiReset
-      resetCtrl.coreResetOrder setWhen(core.io.debugResetOut)
+      resetCtrl.coreResetUnbuffered setWhen(core.io.debugResetOut)
     }
   }
 
   io.gpioA          <> axi.gpioACtrl.io.gpio
   io.gpioB          <> axi.gpioBCtrl.io.gpio
   io.timerExternal  <> axi.timerCtrl.io.external
-  io.jtag.unclocked <> axi.jtagCtrl.io.jtag
+  io.jtag           <> axi.jtagCtrl.io.jtag
   io.uart           <> axi.uartCtrl.io.uart
   io.sdram          <> axi.sdramCtrl.io.sdram
   io.vga            <> axi.vgaCtrl.io.vga

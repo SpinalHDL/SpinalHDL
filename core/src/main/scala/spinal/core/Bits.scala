@@ -26,6 +26,7 @@ import spinal.core.Operator.Bits.RotateLeftByUInt
   */
 
 trait BitsCast {
+  @deprecated
   def asBits(that: Data): Bits = that.asBits
 }
 

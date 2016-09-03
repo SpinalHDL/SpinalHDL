@@ -24,11 +24,11 @@ object Axi4SharedSdramCtrl{
   }
 }
 
-case class Axi4SharedSdramCtrl(dataWidth : Int,idWidth : Int,layout : SdramLayout,timing : SdramTimings,CAS : Int) extends Component{
-  val dataWidthFactor = dataWidth/layout.dataWidth
+case class Axi4SharedSdramCtrl(axiDataWidth : Int,axiIdWidth : Int,layout : SdramLayout,timing : SdramTimings,CAS : Int) extends Component{
+  val dataWidthFactor = axiDataWidth/layout.dataWidth
   require(dataWidthFactor != 0)
   require(isPow2(dataWidthFactor))
-  val axiConfig = Axi4SharedSdramCtrl.getAxiConfig(dataWidth,idWidth,layout)
+  val axiConfig = Axi4SharedSdramCtrl.getAxiConfig(axiDataWidth,axiIdWidth,layout)
 
   val io = new Bundle{
     val axi   = slave(Axi4Shared(axiConfig))

@@ -11,7 +11,7 @@ import scala.collection.mutable.ArrayBuffer
  */
 
 
-case class Jtag(useTck : Boolean = false) extends Bundle with IMasterSlave {
+case class Jtag(useTck : Boolean = true) extends Bundle with IMasterSlave {
   val tms = Bool
   val tdi = Bool
   val tdo = Bool

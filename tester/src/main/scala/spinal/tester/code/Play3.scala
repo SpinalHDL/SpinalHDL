@@ -279,3 +279,28 @@ object PlayVariableError{
     SpinalVhdl(new TopLevel(4))
   }
 }
+
+
+object PlayClockAndArea{
+  class TopLevel(size : Int) extends Component{
+    val clk = in Bool
+    val cd = ClockDomain(clk)
+    val yolo = cd.apply( new Area{
+
+    })
+
+
+    val yolo2 = cd(new Area {
+
+    })
+
+
+    val yolo3 = new ClockingArea(cd) {
+
+    }
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel(4))
+  }
+}

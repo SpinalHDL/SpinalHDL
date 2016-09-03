@@ -19,10 +19,12 @@ trait UFixFactory extends TypeFactory{
 
 
 trait SFixCast {
+  @deprecated
   def toSFix(sint: SInt) = sint.toSFix
 }
 
 trait UFixCast {
+  @deprecated
   def toUFix(uint: UInt): UFix = uint.toUFix
 }
 
