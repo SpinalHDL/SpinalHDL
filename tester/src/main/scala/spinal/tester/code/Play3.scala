@@ -260,6 +260,12 @@ object PlayLFSR{
       val fib_inc       = in Bool
       val fib_init      = in Bool
       val fib_rightLeft = in Bool
+
+      val gal_seed      = in Bits(16 bits)
+      val gal_result    = out Bits(16 bits)
+      val gal_inc       = in Bool
+      val gal_init      = in Bool
+      val gal_rightLeft = in Bool
     }
 
     // Fibonacci LFSR
@@ -268,19 +274,33 @@ object PlayLFSR{
 
     when(io.fib_init){ fib_shiftReg := io.fib_seed }
     when(io.fib_rightLeft){
-      when(io.fib_inc){ fib_shiftReg := LFSR_Fibonacci(fib_shiftReg, List(0,2,3,5), true) }
+      when(io.fib_inc){ fib_shiftReg := LFSR_Fibonacci(fib_shiftReg, Set(0,2,3,5), true) }
     }otherwise{
-      when(io.fib_inc){ fib_shiftReg := LFSR_Fibonacci(fib_shiftReg, List(0,2,3,5), false) }
+      when(io.fib_inc){ fib_shiftReg := LFSR_Fibonacci(fib_shiftReg, Set(0,2,3,5), false) }
     }
 
     io.fib_result := fib_shiftReg
+
+
+    // Galois LFSR
+
+    val gal_shiftReg = Reg(Bits(16 bits))
+
+    when(io.gal_init){ gal_shiftReg := io.gal_seed }
+    when(io.gal_rightLeft){
+      when(io.gal_inc){ gal_shiftReg :=  LFSR_Galois(gal_shiftReg, Set(1,2)) }
+    }otherwise{
+      when(io.gal_inc){ gal_shiftReg :=  LFSR_Galois(gal_shiftReg, Set(1,2), false) }
+    }
+
+    io.gal_result := gal_shiftReg
 
 
   }
 
   def main(args: Array[String]) {
     SpinalConfig(
-      mode = Verilog,
+      mode = VHDL,
       dumpWave = DumpWaveConfig(depth = 0),
       defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
       defaultClockDomainFrequency = FixedFrequency(50e6)

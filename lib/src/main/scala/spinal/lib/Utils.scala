@@ -26,6 +26,7 @@ import sun.text.normalizer.UTF16
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.ListBuffer
 
 
 
@@ -149,22 +150,35 @@ object fromGray {
 }
 
 
-/**
+/******************************************************************************
   * LFSR Fibonacci
-  *        ____ ____ ____     ____ ____ ____
-  *   /-->|____|____|____|...|____|____|____|
-  *   |          |              |    |
-  *   \<--------XOR<-----------XOR<--/
+  *
+  * Right :
+  *        ____ ____ ____     _____ _____ _____
+  *   /-->|_31_|_30_|_29_|...|__2__|__1__|__0__|
+  *   |          |              |     |
+  *   \<--------XOR<-----------XOR<---/
+  *
+  *   e.g : val result = LSFR(myBits, Set(30,2,1))
+  *
+  * Left :
+  *     ____ ____ ____     _____ _____ _____
+  *    |_31_|_30_|_29_|...|__2__|__1__|__0__|<-\
+  *            |              |     |          \
+  *            \------------>XOR-->XOR---------/
+  *
+  *   e.g : val result = LSFR(myBits, Set(30,2,1), false)
   *
   * @param that       : Signal to shift
   * @param xorBits    : List of index that must be xor
-  * @param rightLeft  : Shift direction
+  * @param rightLeft  : Shift direction (right=True, left=False)
   */
 object LFSR_Fibonacci{
-  def apply(that : Bits, xorBits : List[Int], rightLeft : Boolean = true): Bits ={
+  def apply(that : Bits, xorBits : Set[Int], rightLeft : Boolean = true): Bits ={
 
     assert(that.getWidth >= xorBits.size,  "xorBits length is bigger than the bit vector length")
     assert(xorBits.max <= that.getWidth-1, "number in xorBits is bigger than the msb of the bit vector")
+    assert(xorBits.size >= 2, "At least 2 indexes must be specified")
 
     val ret      = cloneOf(that)
     val feedback = xorBits.map(that(_)).reduce(_ ^ _)
@@ -172,8 +186,7 @@ object LFSR_Fibonacci{
     if(rightLeft){
       ret := feedback ## (that >> 1)
     }else{
-      val shift = (that << 1)
-      ret := shift(shift.high downto 2) ## feedback
+      ret := (that << 1)(that.high downto 1) ## feedback
     }
 
     ret
@@ -181,29 +194,71 @@ object LFSR_Fibonacci{
 }
 
 
-/**
+/******************************************************************************
   * LFSR Galois
-  *        ____ ____        ____        ____ ____
-  *    /->|____|____|-XOR->|____|-XOR->|____|____|
-  *    |_______________|___________|___________|
+  *
+  * Right :
+  *        _____ _____        _____         _____ _____
+  *    /->|__4__|__3__|-XOR->|__2__|--XOR->|__1__|__0__|
+  *    |_________________|_____________|____________|
+  *
+  *    e.g: val result = LFSR_Galois(myBits, Set(1,2))
+  *
+  * Left :
+  *       _____ _____        _____         _____ _____
+  *      |__4__|__3__|<-XOR-|__2__|<--XOR-|__1__|__0__|<-\
+  *         |____________|_____________|_________________\
+  *
+  *    e.g: val result = LFSR_Galois(myBits, Set(2,3), false)
+  *
+  * @param that       : Signal to shift
+  * @param xorBits    : List of index that must be xor
+  * @param rightLeft  : Shift direction (right=True, left=False)
   */
 object LFSR_Galois{
-  def apply(that : Bits, xorBits : Seq[Int], rightLeft : Boolean): Bits ={
+  def apply(that : Bits, xorBits : Set[Int], rightLeft : Boolean = true): Bits ={
 
-    assert(that.getWidth < xorBits.size,  "xorBits lenght is bigger than the bit vector length")
-    assert(xorBits.max > that.getWidth-1, "number in xorBits is bigger than the msb of the bit vector")
+    assert(that.getWidth >= xorBits.size,  "xorBits length is bigger than the bit vector length")
+    assert(xorBits.max <= that.getWidth-1, "number in xorBits is bigger than the msb of the bit vector")
 
     val ret = cloneOf(that)
 
- //   ret    := that.asBools.zipWithIndex.map{case (d,i) => if (xorBits.contains(i)) d ^ that(0) else that(i-1) }.reduce(_ ## _)
- //   ret(0) := ret.msb
+    if (rightLeft){
+
+      val bitsList = new ListBuffer[Bool]()
+
+      for (index <- that.high to 0 by -1){
+        if (index == that.high) {
+          bitsList += that.lsb
+        }else if(xorBits.contains(index)) {
+          bitsList += that(index + 1) ^ that(0)
+        }else{
+          bitsList += that(index+1)
+        }
+      }
+      ret := Cat(bitsList)
+
+    }else{
+      val bitsList = new ListBuffer[Bool]()
+
+      for (index <- 0 to that.high){
+        if(index == 0){
+          bitsList += that.msb
+        }else if(xorBits.contains(index)) {
+          bitsList += that(index - 1) ^ that.msb
+        }else{
+          bitsList += that(index-1)
+        }
+      }
+      ret := Cat(bitsList)
+    }
 
     ret
   }
 }
 
 
-/**
+/******************************************************************************
   * Big-Endian <-> Little-Endian
   */
 object Endianness{
