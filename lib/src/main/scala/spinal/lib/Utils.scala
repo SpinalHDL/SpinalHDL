@@ -239,6 +239,7 @@ object LFSR_Galois{
       ret := Cat(bitsList)
 
     }else{
+
       val bitsList = new ListBuffer[Bool]()
 
       for (index <- 0 to that.high){

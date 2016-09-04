@@ -255,8 +255,8 @@ object PlayLFSR{
 
   class LFSR_Top extends Component{
     val io = new Bundle{
-      val fib_seed      = in Bits(16 bits)
-      val fib_result    = out Bits(16 bits)
+      val fib_seed      = in Bits(32 bits)
+      val fib_result    = out Bits(32 bits)
       val fib_inc       = in Bool
       val fib_init      = in Bool
       val fib_rightLeft = in Bool
@@ -270,11 +270,11 @@ object PlayLFSR{
 
     // Fibonacci LFSR
 
-    val fib_shiftReg = Reg(Bits(16 bits))
+    val fib_shiftReg = Reg(Bits(32 bits))
 
     when(io.fib_init){ fib_shiftReg := io.fib_seed }
     when(io.fib_rightLeft){
-      when(io.fib_inc){ fib_shiftReg := LFSR_Fibonacci(fib_shiftReg, Set(0,2,3,5), true) }
+      when(io.fib_inc){ fib_shiftReg := LFSR_Fibonacci(fib_shiftReg, Set(0,2,3,5,10), true) }
     }otherwise{
       when(io.fib_inc){ fib_shiftReg := LFSR_Fibonacci(fib_shiftReg, Set(0,2,3,5), false) }
     }
@@ -300,7 +300,7 @@ object PlayLFSR{
 
   def main(args: Array[String]) {
     SpinalConfig(
-      mode = VHDL,
+      mode = Verilog,
       dumpWave = DumpWaveConfig(depth = 0),
       defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
       defaultClockDomainFrequency = FixedFrequency(50e6)
