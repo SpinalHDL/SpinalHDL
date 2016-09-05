@@ -10,14 +10,15 @@ import spinal.lib._
   */
 case class Floating(exponentSize: Int,
                     mantissaSize: Int) extends Bundle {
-  /** Sign field (true when negative) */
-  val sign = Bool
+
+  /** Mantissa field without the implicit first bit */
+  val mantissa = Bits(mantissaSize bits)
 
   /** Exponent field (127 excess encoded) */
   val exponent = Bits(exponentSize bits)
 
-  /** Mantissa field without the implicit first bit */
-  val mantissa = Bits(mantissaSize bits)
+  /** Sign field (true when negative) */
+  val sign = Bool
 
   private def isExponentZero = exponent === 0
   private def isMantissaZero = mantissa === 0
@@ -35,12 +36,15 @@ case class Floating(exponentSize: Int,
     sign := word(mantissaSize+exponentSize)
   }
 
+  /** return the bit value of this number */
+  override def asBits = sign ## exponent ## mantissa
+
   /** return this number recoded into Berkeley encoding */
   def toRecFloating = {
     val recExponentSize = exponentSize + 1
     val recoded = RecFloating(recExponentSize, mantissaSize)
 
-    val firstMantissaBit = mantissaSize - OHMasking.first(OHToUInt(mantissa))
+    val firstMantissaBit = mantissaSize - OHToUInt(OHMasking.last(mantissa))
     val normalizedMantissa = (mantissa << firstMantissaBit)(mantissaSize-1 downto 0)
 
     val denormExponent = B(recExponentSize bits, default -> True) ^ firstMantissaBit.asBits
@@ -63,6 +67,26 @@ case class Floating(exponentSize: Int,
 
 }
 
+/** Half precision IEEE 754 */
+object Floating16 {
+  def apply() = Floating(5, 10)
+}
+
+/** Single precision IEEE 754 */
+object Floating32 {
+  def apply() = Floating(8, 23)
+}
+
+/** Double precision IEEE 754 */
+object Floating64 {
+  def apply() = Floating(11, 52)
+}
+
+/** Quad precision IEEE 754 */
+object Floating128 {
+  def apply() = Floating(15, 112)
+}
+
 /**
   * Floating point value recoded using Berkeley encoding
   * (see https://github.com/ucb-bar/berkeley-hardfloat)
@@ -72,14 +96,14 @@ case class Floating(exponentSize: Int,
 case class RecFloating(exponentSize: Int,
                        mantissaSize: Int) extends Bundle {
 
-  /** Sign field (true when negative) */
-  val sign = Bool
+  /** Mantissa field without the implicit first bit */
+  val mantissa = Bits(mantissaSize bits)
 
   /** Exponent field (Berkeley encoded) */
   val exponent = Bits(exponentSize bits)
 
-  /** Mantissa field without the implicit first bit */
-  val mantissa = Bits(mantissaSize bits)
+  /** Sign field (true when negative) */
+  val sign = Bool
 
   private def isHighSubnormal = exponent(exponentSize - 3 downto 0).asUInt < 2
 
@@ -137,4 +161,64 @@ case class RecFloating(exponentSize: Int,
 
   /** Import from an IEEE 754 floating point number */
   def fromFloating(that: Floating) = that.toRecFloating
+
+  /** Import from UInt */
+  def fromUInt(that: UInt) = {
+    this.sign := False
+
+    val exponentValue = OHToUInt(OHMasking.last(that))
+    val normalizationOffset = that.getWidth - exponentValue
+
+    val normalizedInt = (that << normalizationOffset)(that.getWidth-1 downto that.getWidth - mantissaSize)
+    this.mantissa := normalizedInt.asBits
+
+    // 0x81 is the reencoded exponent value corresponding to 0 offset in IEEE 754
+    val exponent = (U(0x81 + ((1 << (exponentSize - 2)) - 1), exponentSize bits) + exponentValue.resize(exponentSize)).asBits
+    val isZero = that.orR
+    this.exponent := (exponent(exponent.high) && isZero) ## (exponent(exponent.high - 1) && isZero) ##
+      (exponent(exponent.high - 2) && isZero) ##
+      exponent(exponent.high - 3 downto 0)
+
+    this
+  }
+
+  /** Import from SInt */
+  def fromSInt(that: SInt) = {
+    this.sign := that(that.getWidth - 1)
+
+    val absValue = that.abs
+    val exponentValue = OHToUInt(OHMasking.last(absValue))
+    val normalizationOffset = that.getWidth - exponentValue
+    val normalizedInt = (absValue << normalizationOffset)(that.getWidth-1 downto that.getWidth - mantissaSize)
+    this.mantissa := normalizedInt.asBits
+
+    // 0x81 is the reencoded exponent value corresponding to 0 offset in IEEE 754
+    def exponent = (U(0x81 + ((1 << (exponentSize - 2)) - 1), exponentSize bits) + exponentValue.resize(exponentSize)).asBits
+    val isZero = that.orR
+    this.exponent := (exponent(exponent.high) && isZero) ## (exponent(exponent.high - 1) && isZero) ##
+      (exponent(exponent.high - 2) && isZero) ##
+      exponent(exponent.high - 3 downto 0)
+
+    this
+  }
+}
+
+/** Half precision recoded Floating */
+object RecFloating16 {
+  def apply() = RecFloating(6, 10)
+}
+
+/** Single precision recoded Floating */
+object RecFloating32 {
+  def apply() = RecFloating(9, 23)
+}
+
+/** Double precision recoded Floating */
+object RecFloating64 {
+  def apply() = RecFloating(12, 52)
+}
+
+/** Quad precision recoded Floating */
+object RecFloating128 {
+  def apply() = RecFloating(16, 112)
 }
