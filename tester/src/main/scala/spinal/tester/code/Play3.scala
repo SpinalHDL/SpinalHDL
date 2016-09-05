@@ -276,7 +276,7 @@ object PlayLFSR{
     when(io.fib_rightLeft){
       when(io.fib_inc){ fib_shiftReg := LFSR_Fibonacci(fib_shiftReg, Set(0,2,3,5,10), true) }
     }otherwise{
-      when(io.fib_inc){ fib_shiftReg := LFSR_Fibonacci(fib_shiftReg, Set(0,2,3,5), false) }
+      when(io.fib_inc){ fib_shiftReg := LFSR_Fibonacci(fib_shiftReg, Set(0,2,3,5,10), false) }
     }
 
     io.fib_result := fib_shiftReg
@@ -288,7 +288,7 @@ object PlayLFSR{
 
     when(io.gal_init){ gal_shiftReg := io.gal_seed }
     when(io.gal_rightLeft){
-      when(io.gal_inc){ gal_shiftReg :=  LFSR_Galois(gal_shiftReg, Set(1,2)) }
+      when(io.gal_inc){ gal_shiftReg :=  LFSR_Galois(gal_shiftReg, Set(1,2), true) }
     }otherwise{
       when(io.gal_inc){ gal_shiftReg :=  LFSR_Galois(gal_shiftReg, Set(1,2), false) }
     }

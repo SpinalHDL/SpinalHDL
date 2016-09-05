@@ -181,7 +181,8 @@ object LFSR_Fibonacci{
     assert(xorBits.size >= 2, "At least 2 indexes must be specified")
 
     val ret      = cloneOf(that)
-    val feedback = xorBits.map(that(_)).reduce(_ ^ _)
+    val feedback = (xorBits.map(that(_)).reduce(_ ^ _)).dontSimplifyIt().setName("LFSR_Fibonacci_feedback", true)
+
 
     if(rightLeft){
       ret := feedback ## (that >> 1)
@@ -236,7 +237,8 @@ object LFSR_Galois{
           bitsList += that(index+1)
         }
       }
-      ret := Cat(bitsList)
+
+      ret := Cat(bitsList.reverse)
 
     }else{
 
