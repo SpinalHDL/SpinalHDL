@@ -146,7 +146,7 @@ object Spinal{
 
     println({
       SpinalLog.tag("Runtime", Console.YELLOW)
-    } + s" SpinalHDL 0.10.1")
+    } + s" SpinalHDL 0.10.2")
 
 
     val runtime = Runtime.getRuntime
