@@ -278,6 +278,12 @@ object PlayVariableError{
   def main(args: Array[String]) {
     SpinalVhdl(new TopLevel(4))
   }
+  def sumBiggerThanZero(a : Float,b : Float) = {
+    (a + b) > 0
+  }
+
+
+
 }
 
 
@@ -298,9 +304,40 @@ object PlayClockAndArea{
     val yolo3 = new ClockingArea(cd) {
 
     }
+    object Apb3UartCtrl{
+      def getApb3Config = Apb3Config(
+        addressWidth = 4,
+        dataWidth    = 32
+      )
+    }
   }
 
   def main(args: Array[String]) {
     SpinalVhdl(new TopLevel(4))
+  }
+}
+
+import spinal.lib.soc.pinsec._
+
+object PinsecMain{
+  val vec = Vec(Bool,4)
+  vec.reduceBalancedTree(_ || _,(value,level) => if(level % 2 == 1) RegNext(value) else value)
+  def main(args: Array[String]) {
+    SpinalVhdl(new Pinsec(100 MHz))
+    SpinalVerilog(new Pinsec(100 MHz))
+  }
+}
+
+
+
+object PlayVecSplit2{
+  class TopLevel extends Component{
+    val vec = in Vec(Bool,16)
+    val result = out Bool()
+    result := vec.slice(2,11).reduceBalancedTree(_ && _)
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
   }
 }
