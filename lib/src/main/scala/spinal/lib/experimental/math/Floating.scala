@@ -10,8 +10,13 @@ import spinal.lib._
   */
 case class Floating(exponentSize: Int,
                     mantissaSize: Int) extends Bundle {
+  /** Sign field (true when negative) */
   val sign = Bool
+
+  /** Exponent field (127 excess encoded) */
   val exponent = Bits(exponentSize bits)
+
+  /** Mantissa field without the implicit first bit */
   val mantissa = Bits(mantissaSize bits)
 
   private def isExponentZero = exponent === 0
@@ -66,8 +71,14 @@ case class Floating(exponentSize: Int,
   */
 case class RecFloating(exponentSize: Int,
                        mantissaSize: Int) extends Bundle {
+
+  /** Sign field (true when negative) */
   val sign = Bool
+
+  /** Exponent field (Berkeley encoded) */
   val exponent = Bits(exponentSize bits)
+
+  /** Mantissa field without the implicit first bit */
   val mantissa = Bits(mantissaSize bits)
 
   private def isHighSubnormal = exponent(exponentSize - 3 downto 0).asUInt < 2
