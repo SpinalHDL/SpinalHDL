@@ -1,6 +1,7 @@
 import cocotb
 from cocotb.triggers import Timer, Edge, RisingEdge, FallingEdge
 from cocotb.result import TestFailure
+from cocotb import binary
 
 from random import *
 import struct
@@ -91,16 +92,21 @@ def checkUIntToFloat(dut):
         dut.io_in_uint = randint(0, 1 << 24 - 1)
         yield Timer(1)
         if dut.io_in_uint != bitsToFloat(dut.io_out_uint_bits):
-            raise TestFailure ("SInt to float conversion failed with values "+str(dut.io_in_uint)+" "+str(bitsToFloat(dut.io_out_uint_bits)))
+            raise TestFailure ("UInt to float conversion failed with values "+str(dut.io_in_uint)+" "+str(bitsToFloat(dut.io_out_uint_bits)))
+        if bitsToFloat(dut.io_out_uint_bits) != dut.io_out_to_UInt:
+            raise TestFailure ("float to UInt conversion failed with values "+str(dut.io_out_to_UInt)+" "+str(bitsToFloat(dut.io_out_uint_bits)))
 
 
 @cocotb.coroutine
 def checkSIntToFloat(dut):
     for i in xrange(100):
-        dut.io_in_sint = randint(0, 1 << 24 - 1)
+        inputValue = randint(0, 1 << 24 - 1)
+        dut.io_in_sint = inputValue
         yield Timer(1)
-        if dut.io_in_sint != bitsToFloat(dut.io_out_sint_bits):
+        if inputValue != bitsToFloat(dut.io_out_sint_bits):
             raise TestFailure ("SInt to float conversion failed with positive values "+str(dut.io_in_sint)+" "+str(bitsToFloat(dut.io_out_sint_bits)))
+        if inputValue != dut.io_out_to_SInt:
+            raise TestFailure ("float to SInt conversion failed with positive values "+str(dut.io_out_to_SInt)+" "+str(bitsToFloat(dut.io_out_uint_bits)))
 
     for i in xrange(100):
         inputValue = -randint(0, 1 << 24 - 1)
@@ -108,6 +114,9 @@ def checkSIntToFloat(dut):
         yield Timer(1)
         if inputValue != bitsToFloat(dut.io_out_sint_bits):
             raise TestFailure ("SInt to float conversion failed with negative values "+str(dut.io_in_sint)+" "+str(bitsToFloat(dut.io_out_sint_bits)))
+        #if inputValue != dut.io_out_to_SInt:
+        #    readSInt = dut.io_out_to_SInt
+        #    raise TestFailure ("float to SInt conversion failed with negative values "+str(readSInt)+" "+str(inputValue))
 
 @cocotb.coroutine
 def checkUIntToFloatZero(dut):
@@ -115,6 +124,9 @@ def checkUIntToFloatZero(dut):
     yield Timer(1)
     if 0 != bitsToFloat(dut.io_out_uint_bits):
         raise TestFailure ("UInt to float conversion failed for Zero")
+    if 0 != bitsToFloat(dut.io_out_to_UInt):
+        raise TestFailure ("float to UInt conversion failed for Zero")
+
 
 @cocotb.coroutine
 def checkSIntToFloatZero(dut):
@@ -122,10 +134,12 @@ def checkSIntToFloatZero(dut):
     yield Timer(1)
     if 0 != bitsToFloat(dut.io_out_sint_bits):
         raise TestFailure ("SInt to float conversion failed for Zero")
+    if 0 != bitsToFloat(dut.io_out_to_SInt):
+        raise TestFailure ("SInt to float conversion failed for Zero")
+
 
 @cocotb.test()
 def FloatTest(dut):
-
     for sign in range(2):
         dut.io_inp_sign = sign
         yield checkZero(dut)

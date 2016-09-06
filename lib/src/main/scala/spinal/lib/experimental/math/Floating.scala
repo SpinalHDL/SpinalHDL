@@ -165,6 +165,30 @@ case class RecFloating(exponentSize: Int,
     this
   }
 
+
+  /**
+    * Convert the Floating number to an unsigned integer
+    * @param width Width of the output intger
+    * @return Unsigned integer corresponding to the floating point value (truncated)
+    */
+  def toUInt(width: Int): UInt = {
+    val isNotZero = exponent(exponentSize-1 downto exponentSize-3).orR
+    val extendedMantissa = Bits(width bits)
+    extendedMantissa := isNotZero ## mantissa ## B(0, width - mantissaSize - 1 bits)
+    val exponentOffset = exponent.asUInt - U(0x81 + ((1 << (exponentSize - 2)) - 1))
+    val shift = width - 1 - exponentOffset
+    val outputMantissa = (extendedMantissa >> shift)
+    outputMantissa.asUInt
+  }
+
+  /**
+    * Overrides assignment operator
+    * @param that Integer number that will be assigned to the converted floating value
+    */
+  def assignTo(that: UInt): Unit = {
+    that := this.toUInt(that.getWidth)
+  }
+
   /** Import from SInt */
   def fromSInt(that: SInt) = {
     this.sign := that(that.getWidth - 1)
@@ -184,6 +208,31 @@ case class RecFloating(exponentSize: Int,
 
     this
   }
+
+  /**
+    * Convert the Floating number to a signed integer
+    * @param width Width ouf the output integer
+    * @return Signed integer corresponding to the Floating point value (truncated)
+    */
+  def toSInt(width: Int): SInt = {
+    val isNotZero = exponent(exponentSize-1 downto exponentSize-3).orR
+    val extendedMantissa = Bits(32 bits)
+    extendedMantissa := isNotZero ## mantissa ## B(0, width - mantissaSize - 1 bits)
+    val exponentOffset = exponent.asUInt - U(0x81 + ((1 << (exponentSize - 2)) - 1))
+    val shift = 31 - exponentOffset
+    val outputMantissa = (extendedMantissa >> shift)
+    val signedMantissa = (outputMantissa ^ B(width bits, (default -> sign))).asSInt - sign.asSInt
+    signedMantissa
+  }
+
+  /**
+    * Overrides assignment operator
+    * @param that Integer number that will be assigned to the converted floating value
+    */
+  def assignTo(that: SInt): Unit = {
+    that := this.toSInt(that.getWidth)
+  }
+
 }
 
 /** Half precision recoded Floating */
