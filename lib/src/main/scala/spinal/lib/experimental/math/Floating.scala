@@ -29,16 +29,6 @@ case class Floating(exponentSize: Int,
   /** Return true if the number is positive */
   def isPositive = !sign
 
-  /** Import number from a serialized form */
-  def fromBits(word: Bits): Unit = {
-    mantissa := word(mantissaSize-1 downto 0)
-    exponent := word(mantissaSize+exponentSize-1 downto mantissaSize)
-    sign := word(mantissaSize+exponentSize)
-  }
-
-  /** return the bit value of this number */
-  override def asBits = sign ## exponent ## mantissa
-
   /** return this number recoded into Berkeley encoding */
   def toRecFloating = {
     val recExponentSize = exponentSize + 1
@@ -135,13 +125,6 @@ case class RecFloating(exponentSize: Int,
 
   /* Return true if this value is Infinite */
   def isInfinite = isSpecial && !exponent(exponentSize - 3)
-
-  /** Import number from a bit string */
-  def fromBits(word: Bits): Unit = {
-    mantissa := word(mantissaSize-1 downto 0)
-    exponent := word(mantissaSize+exponentSize-1 downto mantissaSize)
-    sign := word(mantissaSize+exponentSize)
-  }
 
   /** Convert to classic IEEE 754 floating point number */
   def toFloating = {
