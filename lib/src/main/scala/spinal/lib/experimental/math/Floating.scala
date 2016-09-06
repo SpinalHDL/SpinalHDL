@@ -29,16 +29,6 @@ case class Floating(exponentSize: Int,
   /** Return true if the number is positive */
   def isPositive = !sign
 
-  /** Import number from a serialized form */
-  def fromBits(word: Bits): Unit = {
-    mantissa := word(mantissaSize-1 downto 0)
-    exponent := word(mantissaSize+exponentSize-1 downto mantissaSize)
-    sign := word(mantissaSize+exponentSize)
-  }
-
-  /** return the bit value of this number */
-  override def asBits = sign ## exponent ## mantissa
-
   /** return this number recoded into Berkeley encoding */
   def toRecFloating = {
     val recExponentSize = exponentSize + 1
@@ -136,13 +126,6 @@ case class RecFloating(exponentSize: Int,
   /* Return true if this value is Infinite */
   def isInfinite = isSpecial && !exponent(exponentSize - 3)
 
-  /** Import number from a bit string */
-  def fromBits(word: Bits): Unit = {
-    mantissa := word(mantissaSize-1 downto 0)
-    exponent := word(mantissaSize+exponentSize-1 downto mantissaSize)
-    sign := word(mantissaSize+exponentSize)
-  }
-
   /** Convert to classic IEEE 754 floating point number */
   def toFloating = {
     val decExponentSize = exponentSize - 1
@@ -182,6 +165,30 @@ case class RecFloating(exponentSize: Int,
     this
   }
 
+
+  /**
+    * Convert the Floating number to an unsigned integer
+    * @param width Width of the output intger
+    * @return Unsigned integer corresponding to the floating point value (truncated)
+    */
+  def toUInt(width: Int): UInt = {
+    val isNotZero = exponent(exponentSize-1 downto exponentSize-3).orR
+    val extendedMantissa = Bits(width bits)
+    extendedMantissa := isNotZero ## mantissa ## B(0, width - mantissaSize - 1 bits)
+    val exponentOffset = exponent.asUInt - U(0x81 + ((1 << (exponentSize - 2)) - 1))
+    val shift = width - 1 - exponentOffset
+    val outputMantissa = (extendedMantissa >> shift)
+    outputMantissa.asUInt
+  }
+
+  /**
+    * Overrides assignment operator
+    * @param that Integer number that will be assigned to the converted floating value
+    */
+  def assignTo(that: UInt): Unit = {
+    that := this.toUInt(that.getWidth)
+  }
+
   /** Import from SInt */
   def fromSInt(that: SInt) = {
     this.sign := that(that.getWidth - 1)
@@ -201,6 +208,31 @@ case class RecFloating(exponentSize: Int,
 
     this
   }
+
+  /**
+    * Convert the Floating number to a signed integer
+    * @param width Width ouf the output integer
+    * @return Signed integer corresponding to the Floating point value (truncated)
+    */
+  def toSInt(width: Int): SInt = {
+    val isNotZero = exponent(exponentSize-1 downto exponentSize-3).orR
+    val extendedMantissa = Bits(32 bits)
+    extendedMantissa := isNotZero ## mantissa ## B(0, width - mantissaSize - 1 bits)
+    val exponentOffset = exponent.asUInt - U(0x81 + ((1 << (exponentSize - 2)) - 1))
+    val shift = 31 - exponentOffset
+    val outputMantissa = (extendedMantissa >> shift)
+    val signedMantissa = (outputMantissa ^ B(width bits, (default -> sign))).asSInt - sign.asSInt
+    signedMantissa
+  }
+
+  /**
+    * Overrides assignment operator
+    * @param that Integer number that will be assigned to the converted floating value
+    */
+  def assignTo(that: SInt): Unit = {
+    that := this.toSInt(that.getWidth)
+  }
+
 }
 
 /** Half precision recoded Floating */

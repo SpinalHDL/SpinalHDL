@@ -31,6 +31,12 @@ class FloatingTester extends Component {
     val in_sint = in SInt(32 bits)
     val out_sint_bits = out Bits
 
+    // Float to UInt conversion
+    val out_to_UInt = out UInt(32 bits)
+
+    // Float to SInt conversion
+    val out_to_SInt = out SInt(32 bits)
+
   }
   io.outp := io.inp.isZero
 
@@ -58,10 +64,12 @@ class FloatingTester extends Component {
   io.out_float := recFloatImport.toFloating
   io.out_recfloat := recFloatImport
   io.out_uint_bits := recFloatImport.toFloating.asBits
+  io.out_to_UInt := recFloatImport.toUInt(32)
 
   // SInt to float test
   val recSIntFloatImport = RecFloating32().fromSInt(io.in_sint)
   io.out_sint_bits := recSIntFloatImport.toFloating.asBits
+  io.out_to_SInt := recSIntFloatImport.toSInt(32)
 }
 
 class FloatingTesterCocotb extends SpinalTesterCocotbBase {
