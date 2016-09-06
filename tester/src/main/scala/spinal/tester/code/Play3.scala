@@ -251,6 +251,7 @@ object PlayOhToUInt{
   }
 }
 
+
 object PlayLFSR{
 
   class LFSR_Top extends Component{
@@ -274,9 +275,9 @@ object PlayLFSR{
 
     when(io.fib_init){ fib_shiftReg := io.fib_seed }
     when(io.fib_rightLeft){
-      when(io.fib_inc){ fib_shiftReg := LFSR_Fibonacci(fib_shiftReg, Set(0,2,3,5,10), true) }
+      when(io.fib_inc){ fib_shiftReg := LFSR.Fibonacci(fib_shiftReg, Seq(0,2,3,5,10), LFSR.SHIFT_RIGHT) }
     }otherwise{
-      when(io.fib_inc){ fib_shiftReg := LFSR_Fibonacci(fib_shiftReg, Set(0,2,3,5,10), false) }
+      when(io.fib_inc){ fib_shiftReg := LFSR.Fibonacci(fib_shiftReg, Seq(0,2,3,5,10), LFSR.SHIFT_LEFT) }
     }
 
     io.fib_result := fib_shiftReg
@@ -288,9 +289,9 @@ object PlayLFSR{
 
     when(io.gal_init){ gal_shiftReg := io.gal_seed }
     when(io.gal_rightLeft){
-      when(io.gal_inc){ gal_shiftReg :=  LFSR_Galois(gal_shiftReg, Set(1,2), true) }
+      when(io.gal_inc){ gal_shiftReg :=  LFSR.Galois(gal_shiftReg, Seq(1,2), LFSR.SHIFT_RIGHT) }
     }otherwise{
-      when(io.gal_inc){ gal_shiftReg :=  LFSR_Galois(gal_shiftReg, Set(1,2), false) }
+      when(io.gal_inc){ gal_shiftReg :=  LFSR.Galois(gal_shiftReg, Seq(1,2), LFSR.SHIFT_LEFT) }
     }
 
     io.gal_result := gal_shiftReg

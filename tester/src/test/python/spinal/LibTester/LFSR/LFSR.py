@@ -2,13 +2,19 @@
 # LFSR python implementaion
 
 
+###############################################################################
+# Select the shift direction
+#
+class LFSR_SHIFT_DIR:
+    SHIFT_RIGHT = 1
+    SHIFT_LEFT  = 0
 
 ###############################################################################
 # Galois LFSR right/left
 #
 class GaloisLFSR:
 
-    def __init__(self, seed, equation=[1,2], widthReg=16, rightLeft= True):
+    def __init__(self, seed, equation=[1,2], widthReg=16, rightLeft=LFSR_SHIFT_DIR.SHIFT_RIGHT):
         self.equation  = equation
         self.rightLeft = rightLeft
         self.width     = widthReg-1
@@ -19,7 +25,7 @@ class GaloisLFSR:
 
         bitsList = []
 
-        if self.rightLeft :
+        if self.rightLeft ==  LFSR_SHIFT_DIR.SHIFT_RIGHT:
 
             for index in range(self.width,-1,-1):
                 if index == self.width :
@@ -49,7 +55,7 @@ class GaloisLFSR:
 #
 class FibonacciLFSR:
 
-    def __init__(self, seed, equation=[0,2,3,5], widthReg=16, rightLeft = True):
+    def __init__(self, seed, equation=[0,2,3,5], widthReg=16, rightLeft=LFSR_SHIFT_DIR.SHIFT_RIGHT):
         self.equation  = equation
         self.rightLeft = rightLeft
         self.width     = widthReg-1
@@ -65,7 +71,7 @@ class FibonacciLFSR:
             feedback ^= (self.state >> self.equation[index])
         feedback &= 0x01
 
-        if self.rightLeft:
+        if self.rightLeft == LFSR_SHIFT_DIR.SHIFT_RIGHT:
             self.state = ((self.state >> 1) | (feedback<<self.width)) & self.maxValue
         else:
             self.state = (((self.state << 1) & (self.maxValue << 1)) | (feedback)) & self.maxValue
