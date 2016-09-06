@@ -200,7 +200,7 @@ object LFSR{
     * @param xorBits    : List of index that must be xor
     * @param rightLeft  : Shift direction (right=True, left=False)
     */
-  def Fibonacci(that : Bits, xorBits : Seq[Int], rightLeft : LFSR_SHIFT_DIR = SHIFT_RIGHT) : Bits = {
+  def fibonacci(that : Bits, xorBits : Seq[Int], rightLeft : LFSR_SHIFT_DIR = SHIFT_RIGHT) : Bits = {
 
     assert(that.getWidth >= xorBits.size,  "xorBits length is bigger than the bit vector length")
     assert(xorBits.max <= that.getWidth-1, "number in xorBits is bigger than the index of the MSB of the bit vector")
@@ -240,7 +240,7 @@ object LFSR{
     * @param xorBits    : List of index that must be xor
     * @param rightLeft  : Shift direction (right=True, left=False)
     */
-  def Galois(that : Bits, xorBits : Seq[Int],  rightLeft : LFSR_SHIFT_DIR = SHIFT_RIGHT): Bits ={
+  def galois(that : Bits, xorBits : Seq[Int],  rightLeft : LFSR_SHIFT_DIR = SHIFT_RIGHT): Bits ={
 
     assert(that.getWidth >= xorBits.size,  "xorBits length is bigger than the bit vector length")
     assert(xorBits.max <= that.getWidth-1, "number in xorBits is bigger than the index of the MSB of the bit vector")
