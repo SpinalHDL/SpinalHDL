@@ -341,3 +341,61 @@ object PlayVecSplit2{
     SpinalVhdl(new TopLevel)
   }
 }
+
+
+object PlayLFSR{
+
+  class LFSR_Top extends Component{
+    val io = new Bundle{
+      val fib_seed      = in Bits(32 bits)
+      val fib_result    = out Bits(32 bits)
+      val fib_inc       = in Bool
+      val fib_init      = in Bool
+      val fib_rightLeft = in Bool
+
+      val gal_seed      = in Bits(16 bits)
+      val gal_result    = out Bits(16 bits)
+      val gal_inc       = in Bool
+      val gal_init      = in Bool
+      val gal_rightLeft = in Bool
+    }
+
+    // Fibonacci LFSR
+
+    val fib_shiftReg = Reg(Bits(32 bits))
+
+    when(io.fib_init){ fib_shiftReg := io.fib_seed }
+    when(io.fib_rightLeft){
+      when(io.fib_inc){ fib_shiftReg := LFSR.Fibonacci(fib_shiftReg, Seq(0,2,3,5,10), LFSR.SHIFT_RIGHT) }
+    }otherwise{
+      when(io.fib_inc){ fib_shiftReg := LFSR.Fibonacci(fib_shiftReg, Seq(0,2,3,5,10), LFSR.SHIFT_LEFT) }
+    }
+
+    io.fib_result := fib_shiftReg
+
+
+    // Galois LFSR
+
+    val gal_shiftReg = Reg(Bits(16 bits))
+
+    when(io.gal_init){ gal_shiftReg := io.gal_seed }
+    when(io.gal_rightLeft){
+      when(io.gal_inc){ gal_shiftReg :=  LFSR.Galois(gal_shiftReg, Seq(1,2), LFSR.SHIFT_RIGHT) }
+    }otherwise{
+      when(io.gal_inc){ gal_shiftReg :=  LFSR.Galois(gal_shiftReg, Seq(1,2), LFSR.SHIFT_LEFT) }
+    }
+
+    io.gal_result := gal_shiftReg
+
+
+  }
+
+  def main(args: Array[String]) {
+    SpinalConfig(
+      mode = Verilog,
+      dumpWave = DumpWaveConfig(depth = 0),
+      defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
+      defaultClockDomainFrequency = FixedFrequency(50e6)
+    ).generate(new LFSR_Top).printPruned
+  }
+}

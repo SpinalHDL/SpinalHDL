@@ -46,7 +46,8 @@ class ClockDomain:
     def start(self):
 
         self.fork_gen = cocotb.fork(self._clkGen())
-        cocotb.fork(self._waitEndReset())
+        if self.reset != None :
+            cocotb.fork(self._waitEndReset())
 
         if self.reset:
             self.reset <= self.typeReset
