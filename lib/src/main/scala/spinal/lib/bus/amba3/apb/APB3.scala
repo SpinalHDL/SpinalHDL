@@ -11,7 +11,6 @@ case class Apb3Config(
 )
 
 object Apb3{
-//  def apply(config: Apb3Config) = new Apb3(config)
   def apply( addressWidth: Int,
              dataWidth: Int) = {
     new Apb3(

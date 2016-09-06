@@ -57,6 +57,24 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
   def >>(that: UInt): Bits = wrapBinaryOperator(that,new Operator.Bits.ShiftRightByUInt)
   def <<(that: UInt): Bits = wrapBinaryOperator(that,new Operator.Bits.ShiftLeftByUInt)
   def rotateLeft(that: UInt): Bits = wrapBinaryOperator(that,new RotateLeftByUInt)
+  def rotateLeft(that: Int): Bits = {
+    val width = widthOf(this)
+    val thatMod = that % width
+    this(this.high - thatMod downto 0) ## this(this.high downto this.high - thatMod + 1)
+  }
+
+//  def rotateLeft(that: UInt): Bits = {
+//    val width = widthOf(this)
+//    val stageCount = log2Up(width)
+//    require(that.getWidth)
+//    var result = cloneOf(that)
+//    result := that
+//    for(stage <- 0 until stageCount){
+//      result =
+//    }
+//    result
+//  }
+
 
   def :=(rangesValue : Tuple2[Any,Any],_rangesValues: Tuple2[Any,Any]*) : Unit = {
     val rangesValues = rangesValue +: _rangesValues

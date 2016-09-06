@@ -4,7 +4,7 @@ import spinal.core
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba3.ahblite._
-import spinal.lib.bus.amba3.apb.Apb3Config
+import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config}
 import spinal.lib.bus.amba4.axi._
 
 object PlayAhbLite3{
@@ -320,8 +320,6 @@ object PlayClockAndArea{
 import spinal.lib.soc.pinsec._
 
 object PinsecMain{
-  val vec = Vec(Bool,4)
-  vec.reduceBalancedTree(_ || _,(value,level) => if(level % 2 == 1) RegNext(value) else value)
   def main(args: Array[String]) {
     SpinalVhdl(new Pinsec(100 MHz))
     SpinalVerilog(new Pinsec(100 MHz))
@@ -343,59 +341,129 @@ object PlayVecSplit2{
 }
 
 
-object PlayLFSR{
 
-  class LFSR_Top extends Component{
-    val io = new Bundle{
-      val fib_seed      = in Bits(32 bits)
-      val fib_result    = out Bits(32 bits)
-      val fib_inc       = in Bool
-      val fib_init      = in Bool
-      val fib_rightLeft = in Bool
+object PlayFloating32{
 
-      val gal_seed      = in Bits(16 bits)
-      val gal_result    = out Bits(16 bits)
-      val gal_inc       = in Bool
-      val gal_init      = in Bool
-      val gal_rightLeft = in Bool
-    }
+  case class Floating(a : Int,b : Int) extends Bundle{
 
-    // Fibonacci LFSR
+  }
+  object Floating32{
+    def apply() = Floating(8,23)
+  }
 
-    val fib_shiftReg = Reg(Bits(32 bits))
+  val yolo = in(Floating32())
+  val yolo2 = out(Floating32())
 
-    when(io.fib_init){ fib_shiftReg := io.fib_seed }
-    when(io.fib_rightLeft){
-      when(io.fib_inc){ fib_shiftReg := LFSR.fibonacci(fib_shiftReg, Seq(0,2,3,5,10), LFSR.SHIFT_RIGHT) }
-    }otherwise{
-      when(io.fib_inc){ fib_shiftReg := LFSR.fibonacci(fib_shiftReg, Seq(0,2,3,5,10), LFSR.SHIFT_LEFT) }
-    }
-
-    io.fib_result := fib_shiftReg
-
-
-    // Galois LFSR
-
-    val gal_shiftReg = Reg(Bits(16 bits))
-
-    when(io.gal_init){ gal_shiftReg := io.gal_seed }
-    when(io.gal_rightLeft){
-      when(io.gal_inc){ gal_shiftReg :=  LFSR.galois(gal_shiftReg, Seq(1,2), LFSR.SHIFT_RIGHT) }
-    }otherwise{
-      when(io.gal_inc){ gal_shiftReg :=  LFSR.galois(gal_shiftReg, Seq(1,2), LFSR.SHIFT_LEFT) }
-    }
-
-    io.gal_result := gal_shiftReg
-
-
+  class TopLevel extends Component{
+    val vec = in Vec(Bool,16)
+    val result = out Bool()
+    result := vec.slice(2,11).reduceBalancedTree(_ && _)
   }
 
   def main(args: Array[String]) {
-    SpinalConfig(
-      mode = Verilog,
-      dumpWave = DumpWaveConfig(depth = 0),
-      defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
-      defaultClockDomainFrequency = FixedFrequency(50e6)
-    ).generate(new LFSR_Top).printPruned
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
+object PlayTest1515 {
+
+  class TopLevel extends Component {
+    val io = new Bundle {
+      val a, b = in UInt (4 bits)
+      val result = out UInt (4 bits)
+    }
+
+    io.result := RegNext(io.a + io.b)
+  }
+
+  def main(args: Array[String]) {
+    println("MIAOU")
+    println(100 MHz)
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
+
+object PlayGrayCounter2{
+
+  // A generic Gray counter
+  class GrayCnt(size : Int = 4) extends Component {
+
+    // All IO signals for the Gray counter
+    val io = new Bundle {
+
+      // Counter output port
+      val gval = out UInt(size bits)
+
+    }
+
+    // Operation used for calculating the counter equations
+    val andNot = (a : Bool, b : Bool) => a & (~b)
+
+    // Helper bit for toggling
+    val toggle = Reg(Bool) init(False)
+
+    // Counter register
+    val cnt = Reg(UInt(size bits)) init(0)
+
+    // Toggle the helper
+    toggle := !toggle
+
+    // Calculate the LSB
+    cnt.lsb := !(cnt.lsb ^ toggle)
+
+    // Handle all 'middle' bits
+    for(i <- 1 to size - 2) {
+
+      // This equation checks the 0^* pattern
+      val tmp = cnt(i - 1) && cnt(i - 2 downto 0).asBools.reduceBalancedTree(andNot) && toggle
+
+      // Calculate the ith bit of the counter
+      cnt(i) := cnt(i) ^ tmp
+
+    }
+
+    // Calculate the MSB
+    cnt.msb := cnt.msb ^ (cnt(size - 3 downto 0).asBools.reduceBalancedTree(andNot) && toggle)
+
+    // Map the register to the output logic;
+    io.gval := cnt
+
+  }
+}
+
+
+object PlayApb3{
+  val apbConfig = Apb3Config(
+    addressWidth = 12,
+    dataWidth    = 32
+  )
+  val apbX = Apb3(apbConfig)
+  val apbY = Apb3(apbConfig)
+
+  apbX >> apbY
+
+  when(apbY.PENABLE){
+    //...
+  }
+}
+
+object PlayRotateInt{
+  class TopLevel extends Component {
+    val io = new Bundle {
+      val a = in Bits(12 bits)
+      val sel = in UInt (4 bits)
+      val result = out Bits (12 bits)
+    }
+
+    io.result := io.a.rotateLeft(4)
+  }
+
+  def main(args: Array[String]) {
+    println("MIAOU")
+    println(100 MHz)
+    SpinalVhdl(new TopLevel)
   }
 }

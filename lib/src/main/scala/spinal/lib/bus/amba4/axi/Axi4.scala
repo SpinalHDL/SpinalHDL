@@ -36,7 +36,7 @@ import spinal.lib._
  */
 case class Axi4Config(addressWidth : Int,
                       dataWidth    : Int,
-                      idWidth      : Int = 0,
+                      idWidth      : Int = -1,
                       useId        : Boolean = true,
                       useRegion    : Boolean = true,
                       useBurst     : Boolean = true,
@@ -48,9 +48,14 @@ case class Axi4Config(addressWidth : Int,
                       useLast      : Boolean = true,
                       useResp      : Boolean = true,
                       useProt      : Boolean = true,
-                      useUser      : Boolean = false,
                       useStrb      : Boolean = true,
+                      useUser      : Boolean = false,
                       userWidth    : Int = -1) {
+  if(useId)
+    require(idWidth >= 0,"You need to set idWidth")
+
+  if(useUser)
+    require(userWidth >= 0,"You need to set userWidth")
 
   def addressType = UInt(addressWidth bits)
   def dataType = Bits(dataWidth bits)
