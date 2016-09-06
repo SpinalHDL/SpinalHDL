@@ -25,9 +25,13 @@ import spinal.core.Operator.BitVector.AllByBool
  */
 
 trait SIntCast{
+  @deprecated
   def asSInt(that : Bool) : SInt = that.asSInt
+  @deprecated
   def asSInt(that : Bits) : SInt = that.asSInt
+  @deprecated
   def asSInt(that : UInt) : SInt = that.asSInt
+  @deprecated
   def toSInt(that : SFix) : SInt = that.toSInt
 }
 

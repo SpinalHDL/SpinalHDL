@@ -1039,11 +1039,14 @@ class PhaseCheckInferredWidth(pc: PhaseContext) extends PhaseCheck{
     import pc._
     val errors = mutable.ArrayBuffer[String]()
 
-    def checker(node : Node) : Unit = node match {
-      case node : CheckWidth => {
-        node.checkInferedWidth
+    def checker(node : Node) : Unit = {
+      node match {
+        case node: Node with Widthable if (node.getWidth < 0) =>
+          PendingError(s"$node has a negative number of bits\n${node.getScalaLocationLong}")
+        case node: CheckWidth =>
+          node.checkInferedWidth
+        case _ =>
       }
-      case _ =>
     }
     Node.walk(walkNodesDefautStack,checker(_))
   }

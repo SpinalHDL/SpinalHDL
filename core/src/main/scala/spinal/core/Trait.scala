@@ -116,7 +116,13 @@ object SyncNode {
   val getClockSoftResetId: Int = 3
 }
 
-abstract class SyncNode(clockDomain: ClockDomain = ClockDomain.current) extends Node {
+abstract class SyncNode(_clockDomain: ClockDomain = ClockDomain.current) extends Node {
+  var clockDomain: ClockDomain = _clockDomain
+  def setClockDomain(clockDomain: ClockDomain) : this.type = {
+    this.clockDomain = clockDomain
+    this
+  }
+
   var clock      : Bool = null
   var enable     : Bool = null
   var reset      : Bool = null

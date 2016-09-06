@@ -15,8 +15,7 @@ import spinal.lib.eda.altera.QSysify
 
 case class SystemDebuggerConfig(memAddressWidth : Int = 32,
                                 memDataWidth : Int = 32,
-                                remoteCmdWidth : Int,
-                                jtagClockDomain : ClockDomain){
+                                remoteCmdWidth : Int){
   def getMemAvalonConfig = AvalonMMConfig.pipelined(
     addressWidth = memAddressWidth,
     dataWidth = memDataWidth
@@ -65,13 +64,13 @@ class JtagBridge(c: SystemDebuggerConfig) extends Component{
     io.remote.rsp.ready := True
   }
 
-  val jtag = new ClockingArea(c.jtagClockDomain){
+  val jtag = ClockDomain(io.jtag.tck)(new Area{
     val tap = new JtagTap(io.jtag, 4)
     val idcodeArea = tap.idcode(B"x10001FFF")(1)
     val writeArea = tap.flowFragmentPush(system.cmd,JtagBridge.this.clockDomain)(2)
     val readArea = tap.read(system.rsp)(3)
     readArea.shifter.addTag(crossClockDomain)
-  }
+  })
 }
 
 class JtagAvalonDebugger(val c: SystemDebuggerConfig) extends Component {
@@ -120,13 +119,10 @@ class SystemDebugger(c : SystemDebuggerConfig) extends Component{
 object JtagAvalonDebuggerMain{
   def main(args: Array[String]) {
     val toplevel = SpinalVhdl(SpinalConfig().copy(onlyStdLogicVectorAtTopLevelIo=true))({
-      val tck = Bool.setName("tck")
-      val jtagClock = ClockDomain(tck)
       val c = SystemDebuggerConfig(
         memAddressWidth = 32,
         memDataWidth = 32,
-        remoteCmdWidth = 1,
-        jtagClockDomain = jtagClock
+        remoteCmdWidth = 1
       )
       new JtagAvalonDebugger(c)
     }).toplevel

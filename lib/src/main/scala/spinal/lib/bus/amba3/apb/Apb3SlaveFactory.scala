@@ -46,6 +46,5 @@ class Apb3SlaveFactory(bus : Apb3,selId : Int) extends BusSlaveFactoryDelayed{
       }
     }
   }
-
   override def busDataWidth: Int = bus.config.dataWidth
 }

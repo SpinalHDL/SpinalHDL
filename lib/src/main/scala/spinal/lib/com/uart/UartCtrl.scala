@@ -73,13 +73,6 @@ class UartCtrl(g : UartCtrlGenerics = UartCtrlGenerics()) extends Component {
   io.uart.rxd <> rx.io.rxd
 
 
-//  def driveFrom(busCtrl : BusSlaveFactory,rxFifoDepth : Int) : Unit = {
-//    busCtrl.driveAndRead(io.config.clockDivider,address = 0)
-//    busCtrl.driveAndRead(io.config.frame,address = 4)
-//    busCtrl.createAndDriveFlow(Bits(g.dataWidthMax bits),address = 8).toStream >-> io.write
-//    busCtrl.read(io.write.valid,address = 8)
-//    busCtrl.readStreamNonBlocking(io.read.toStream.queue(rxFifoDepth),address = 12,validBitOffset = 31,payloadBitOffset = 0)
-//  }
   def driveFrom(busCtrl : BusSlaveFactory,config : UartCtrlMemoryMappedConfig) = new Area {
     //Manage config
     val uartConfigReg = Reg(io.config)
@@ -112,8 +105,8 @@ class UartCtrl(g : UartCtrlGenerics = UartCtrlGenerics()) extends Component {
     val interruptCtrl = new Area {
       val writeIntEnable = busCtrl.createReadWrite(Bool, 4, 0) init(False)
       val readIntEnable  = busCtrl.createReadWrite(Bool, 4, 1) init(False)
-      val readInt = readIntEnable & read.stream.valid
-      val writeInt = writeIntEnable & write.stream.valid
+      val readInt   = readIntEnable & read.stream.valid
+      val writeInt  = writeIntEnable & write.stream.valid
       val interrupt = readInt || writeInt
       busCtrl.read(writeInt, 4, 8)
       busCtrl.read(readInt , 4, 9)

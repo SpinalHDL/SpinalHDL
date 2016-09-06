@@ -78,6 +78,8 @@ object Max {
 }
 
 object OHMasking{
+
+  /** returns an one hot encoded vector with only LSB of the word present */
   def first[T <: Data](that : T) : T = {
       val input = that.asBits.asUInt
       val masked = input & ~(input - 1)
@@ -85,6 +87,16 @@ object OHMasking{
       ret.assignFromBits(masked.asBits)
       ret
   }
+
+  /** returns an one hot encoded vector with only MSB of the word present */
+  def last[T <: Data](that : T) : T = {
+    val input = Reverse(that.asBits.asUInt)
+    val masked = input & ~(input - 1)
+    val ret = cloneOf(that)
+    ret.assignFromBits(Reverse(masked.asBits))
+    ret
+  }
+
 
   def roundRobin[T <: Data](requests : T,ohPriority : T) : T = {
     val width = requests.getBitsWidth

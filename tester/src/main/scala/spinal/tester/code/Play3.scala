@@ -252,6 +252,97 @@ object PlayOhToUInt{
 }
 
 
+object PlayVariableError{
+  class TopLevel(size : Int) extends Component{
+    val io = new Bundle{
+      val cond = in Bool
+      val a = in UInt(-30 bit)
+      val b = in UInt(-10 bit)
+      val result = out UInt(size bit)       //result = a + b
+    }
+
+    var c = False                    //Carry, like a VHDL variable
+    for (i <- 0 until size) {
+      //Create some intermediate value in the loop scope.
+      val a = io.a(i)
+      val b = io.b(i)
+
+      //The carry adder's asynchronous logic
+      io.result(i) := a ^ b ^ c
+      when(io.cond){
+        c = (a & b) | (a & c) | (b & c);    //variable assignment
+      }
+    }
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel(4))
+  }
+  def sumBiggerThanZero(a : Float,b : Float) = {
+    (a + b) > 0
+  }
+
+
+
+}
+
+
+object PlayClockAndArea{
+  class TopLevel(size : Int) extends Component{
+    val clk = in Bool
+    val cd = ClockDomain(clk)
+    val yolo = cd.apply( new Area{
+
+    })
+
+
+    val yolo2 = cd(new Area {
+
+    })
+
+
+    val yolo3 = new ClockingArea(cd) {
+
+    }
+    object Apb3UartCtrl{
+      def getApb3Config = Apb3Config(
+        addressWidth = 4,
+        dataWidth    = 32
+      )
+    }
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel(4))
+  }
+}
+
+import spinal.lib.soc.pinsec._
+
+object PinsecMain{
+  val vec = Vec(Bool,4)
+  vec.reduceBalancedTree(_ || _,(value,level) => if(level % 2 == 1) RegNext(value) else value)
+  def main(args: Array[String]) {
+    SpinalVhdl(new Pinsec(100 MHz))
+    SpinalVerilog(new Pinsec(100 MHz))
+  }
+}
+
+
+
+object PlayVecSplit2{
+  class TopLevel extends Component{
+    val vec = in Vec(Bool,16)
+    val result = out Bool()
+    result := vec.slice(2,11).reduceBalancedTree(_ && _)
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
 object PlayLFSR{
 
   class LFSR_Top extends Component{

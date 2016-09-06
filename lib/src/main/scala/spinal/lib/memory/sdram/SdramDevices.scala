@@ -5,10 +5,10 @@ import spinal.core._
 
 object IS42x320D {
   def layout = SdramLayout(
-    bankWidth = 2,
+    bankWidth   = 2,
     columnWidth = 10,
-    rowWidth = 13,
-    dataWidth = 16
+    rowWidth    = 13,
+    dataWidth   = 16
   )
 
   def timingGrade7 = SdramTimings(
@@ -22,7 +22,7 @@ object IS42x320D {
     tRCD             =  15 ns,
     cMRD             =   2,
     tWR              =  10 ns,
-    cWR              =  1
+    cWR              =   1
   )
 }
 
