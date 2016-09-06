@@ -858,7 +858,7 @@ end
 
               ret ++= s"${tab}if (!$cond) begin\n"
               ret ++= s"""${tab}  $$display("$severity $message}");\n"""
-              if(assertNode.severity == `FAILURE`) ret ++= ret ++= tab + "  $finish;\n"
+              if(assertNode.severity == `FAILURE`) ret ++= tab + "  $finish;\n"
               ret ++= s"end\n"
             }
           }
