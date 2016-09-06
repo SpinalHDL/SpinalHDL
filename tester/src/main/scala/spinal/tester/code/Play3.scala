@@ -6,6 +6,7 @@ import spinal.lib._
 import spinal.lib.bus.amba3.ahblite._
 import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config}
 import spinal.lib.bus.amba4.axi._
+import spinal.lib.crypto.symmetric._
 
 object PlayAhbLite3{
   class TopLevel extends Component{
@@ -465,5 +466,33 @@ object PlayRotateInt{
     println("MIAOU")
     println(100 MHz)
     SpinalVhdl(new TopLevel)
+  }
+}
+
+
+object PlayDesBlock{
+
+  class DES_Block_Tester() extends Component{
+
+    val g  = DESGenerics()
+
+    val io = new Bundle{
+      val cmd  = slave  Stream(DEScmd(g))
+      val res  = master Flow(DESrsp(g))
+    }
+
+
+    val des = new DES(g)
+
+    des.io <> io
+  }
+
+  def main(args: Array[String]) {
+    SpinalConfig(
+      mode = Verilog,
+      dumpWave = DumpWaveConfig(depth = 0),
+      defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
+      defaultClockDomainFrequency = FixedFrequency(50e6)
+    ).generate(new DES_Block_Tester).printPruned()
   }
 }
