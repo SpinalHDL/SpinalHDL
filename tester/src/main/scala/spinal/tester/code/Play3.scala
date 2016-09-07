@@ -444,6 +444,11 @@ object PlayApb3{
   val apbY = Apb3(apbConfig)
 
   apbX >> apbY
+  val myUInt = UInt(8 bits)
+  myUInt := (0 -> true, default -> false)
+  when(myUInt === U(0 -> true, (myUInt.high downto 1) -> false)){
+
+  }
 
   when(apbY.PENABLE){
     //...
