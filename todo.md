@@ -2,6 +2,8 @@
 - [X] Fix B(default -> True)
 
 ## spinal.core
+- [ ] Bits reg with init to big error message
+- [ ] Need better error when inside a when, something to big is assigned
 - [x] Add regression for all implicit spinal hdl check like latch, comb loop etc
 - [X] add xxx := (default -> True) support (no B/U/S prefix)
 - [ ] Add myBool := 0/1 ?

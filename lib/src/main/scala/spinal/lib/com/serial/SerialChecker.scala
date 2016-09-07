@@ -230,10 +230,10 @@ class SerialCheckerRx(wordCountMax: Int) extends Component {
     }
 
 
-    val readPtr = Counter(wordCountMax)
+    val readPtr = Counter(wordCountMax << 1)
     val readCmd = Stream(UInt(log2Up(wordCountMax) bit))
     readCmd.valid := (validPtr =/= readPtr)
-    readCmd.payload := readPtr
+    readCmd.payload := readPtr.resized
     readPtr.willIncrement := readCmd.fire
     io.output.translateFrom(ram.streamReadSync(readCmd))((to, from) => {
       to.last := from.msb

@@ -464,6 +464,7 @@ object PlayRotateInt{
     }
 
     io.result := io.a.rotateLeft(4)
+    val yolo = out(B"".resized | B"000")
   }
 
   def main(args: Array[String]) {

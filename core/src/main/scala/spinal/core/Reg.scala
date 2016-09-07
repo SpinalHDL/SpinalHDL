@@ -201,8 +201,8 @@ class RegWidthable(outType: BaseType, clockDomain: ClockDomain = ClockDomain.cur
 
   override def normalizeInputs: Unit = {
     val width = this.getWidth
-    InputNormalize.bitVectoreAssignement(this, RegS.getDataInputId, width)
-    if (this.initialValue != null) InputNormalize.bitVectoreAssignement(this, RegS.getInitialValueId, width)
+    InputNormalize.resizedOrUnfixedLit(this, RegS.getDataInputId, width)
+    if (this.initialValue != null) InputNormalize.resizedOrUnfixedLit(this, RegS.getInitialValueId, width)
   }
 
   override private[core] def checkInferedWidth: Unit = {

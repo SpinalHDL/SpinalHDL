@@ -50,7 +50,7 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
     res
   }
 
-  private[core] override def normalizeInputs: Unit = InputNormalize.bitVectoreAssignement(this, 0, this.getWidth)
+  private[core] override def normalizeInputs: Unit = InputNormalize.resizedOrUnfixedLit(this, 0, this.getWidth)
 
   def resize(width: Int): this.type
 

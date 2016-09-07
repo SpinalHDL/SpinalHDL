@@ -1570,3 +1570,11 @@ object c9482 {
   }
 
 }
+
+
+
+object CheatSheet{
+//  object myEnum extends SpinalEnum([encoding]){
+//    val IDLE, STATE1 = newElement()
+//  }
+}

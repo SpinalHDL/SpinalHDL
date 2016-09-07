@@ -209,8 +209,8 @@ class WhenNodeWidthable (w: WhenContext) extends WhenNode(w) with Widthable with
   override def calcWidth: Int = Math.max(if(whenTrue != null) whenTrue.getWidth else -1, if(whenFalse != null) whenFalse.getWidth else -1)
 
   override def normalizeInputs: Unit = {
-    if(whenTrue != null)  InputNormalize.bitVectoreAssignement(this,1,this.getWidth)
-    if(whenFalse != null) InputNormalize.bitVectoreAssignement(this,2,this.getWidth)
+    if(whenTrue != null)  InputNormalize.resizedOrUnfixedLit(this,1,this.getWidth)
+    if(whenFalse != null) InputNormalize.resizedOrUnfixedLit(this,2,this.getWidth)
   }
 
   override private[core] def checkInferedWidth: Unit = {

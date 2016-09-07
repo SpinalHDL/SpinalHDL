@@ -75,9 +75,9 @@ object OperatorTester {
     val uintSbDiv = out(uint4 / uint8)
     val uintSbRem = out(uint4 % uint8)
 
-    val uintSbAnd = out(uint4 & uint8)
-    val uintSbOr = out(uint4 | uint8)
-    val uintSbXor = out(uint4 ^ uint8)
+    val uintSbAnd = out(uint4.resized & uint8)
+    val uintSbOr = out(uint4.resized  | uint8)
+    val uintSbXor = out(uint4.resized  ^ uint8)
 
     val uintSbSmaller = out(uint4 < uint8)
     val uintSbSmallerEquals = out(uint4 <= uint8)
@@ -93,9 +93,9 @@ object OperatorTester {
     val sintSbDiv = out(sint4 / sint8)
     val sintSbRem = out(sint4 % sint8)
 
-    val sintSbAnd = out(sint4 & sint8)
-    val sintSbOr = out(sint4 | sint8)
-    val sintSbXor = out(sint4 ^ sint8)
+    val sintSbAnd = out(sint4.resized & sint8)
+    val sintSbOr = out(sint4.resized | sint8)
+    val sintSbXor = out(sint4.resized ^ sint8)
 
     val sintSbSmaller = out(sint4 < sint8)
     val sintSbSmallerEquals = out(sint4 <= sint8)
@@ -104,12 +104,12 @@ object OperatorTester {
 
 
 
-    val bitsSbEquals= out(bits4 === bits8)
-    val bitsSbNotEquals = out(bits4 =/= bits8)
+    val bitsSbEquals= out(bits4.resized === bits8)
+    val bitsSbNotEquals = out(bits4.resized =/= bits8)
 
-    val bitsSbAnd = out(bits4 & bits8)
-    val bitsSbOr = out(bits4 | bits8)
-    val bitsSbXor = out(bits4 ^ bits8)
+    val bitsSbAnd = out(bits4.resized & bits8)
+    val bitsSbOr = out(bits4.resized | bits8)
+    val bitsSbXor = out(bits4.resized ^ bits8)
 
 
 
@@ -122,9 +122,9 @@ object OperatorTester {
     val uintBsDiv = out(uint8 / uint4)
     val uintBsRem = out(uint8 % uint4)
 
-    val uintBsAnd = out(uint8 & uint4)
-    val uintBsOr = out(uint8 | uint4)
-    val uintBsXor = out(uint8 ^ uint4)
+    val uintBsAnd = out(uint8 & uint4.resized)
+    val uintBsOr = out(uint8 | uint4.resized)
+    val uintBsXor = out(uint8 ^ uint4.resized)
     val uintBsNot = out(~uint8)
 
     val uintBsSmaller = out(uint8 < uint4)
@@ -141,9 +141,9 @@ object OperatorTester {
     val sintBsDiv = out(sint8 / sint4)
     val sintBsRem = out(sint8 % sint4)
 
-    val sintBsAnd = out(sint8 & sint4)
-    val sintBsOr = out(sint8 | sint4)
-    val sintBsXor = out(sint8 ^ sint4)
+    val sintBsAnd = out(sint8 & sint4.resized)
+    val sintBsOr = out(sint8 | sint4.resized)
+    val sintBsXor = out(sint8 ^ sint4.resized)
     val sintBsNot = out(~sint8)
 
     val sintBsSmaller = out(sint8 < sint4)
@@ -151,12 +151,12 @@ object OperatorTester {
     val sintBsBigger = out(sint8 > sint4)
     val sintBsBiggerEquals = out(sint8 >= sint4)
 
-    val bitsBsEquals= out(bits8 === bits4)
-    val bitsBsNotEquals = out(bits8 =/= bits4)
+    val bitsBsEquals= out(bits8 === bits4.resized)
+    val bitsBsNotEquals = out(bits8 =/= bits4.resized)
 
-    val bitsBsAnd = out(bits8 & bits4)
-    val bitsBsOr = out(bits8 | bits4)
-    val bitsBsXor = out(bits8 ^ bits4)
+    val bitsBsAnd = out(bits8 & bits4.resized)
+    val bitsBsOr = out(bits8 | bits4.resized)
+    val bitsBsXor = out(bits8 ^ bits4.resized)
     val bitsBsNot = out(~bits8)
 
     val bitsCat = out(bits8 ## bits4)

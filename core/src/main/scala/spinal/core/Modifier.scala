@@ -165,23 +165,26 @@ object Operator{
   }
 
   object BitVector{
-    abstract class And extends BinaryOperatorWidthableInputs with Widthable{
+    abstract class And extends BinaryOperatorWidthableInputs with Widthable with CheckWidth{
       override def calcWidth(): Int = Math.max(left.getWidth,right.getWidth)
-      override def normalizeInputs: Unit = {InputNormalize.nodeWidth(this)}
-      override def simplifyNode: Unit = {SymplifyNode.binaryInductZeroWithOtherWidth(getLiteralFactory)(this)}
+      override def normalizeInputs: Unit = InputNormalize.resizedOrUnfixedLit(this)
+      override private[core] def checkInferedWidth: Unit = CheckWidth.allSame(this)
+      override def simplifyNode: Unit = SymplifyNode.binaryInductZeroWithOtherWidth(getLiteralFactory,true)(this)
       def getLiteralFactory : (BigInt, BitCount) => Node
     }
 
-    abstract class Or extends BinaryOperatorWidthableInputs with Widthable{
+    abstract class Or extends BinaryOperatorWidthableInputs with Widthable with CheckWidth{
       override def calcWidth(): Int = Math.max(left.getWidth,right.getWidth)
-      override def normalizeInputs: Unit = {InputNormalize.nodeWidth(this)}
-      override def simplifyNode: Unit = {SymplifyNode.binaryTakeOther(this)}
+      override def normalizeInputs: Unit = InputNormalize.resizedOrUnfixedLit(this)
+      override private[core] def checkInferedWidth: Unit = CheckWidth.allSame(this)
+      override def simplifyNode: Unit = {SymplifyNode.binaryTakeOther(this,true)}
     }
 
-    abstract class Xor extends BinaryOperatorWidthableInputs with Widthable{
+    abstract class Xor extends BinaryOperatorWidthableInputs with Widthable with CheckWidth{
       override def calcWidth(): Int = Math.max(left.getWidth,right.getWidth)
-      override def normalizeInputs: Unit = {InputNormalize.nodeWidth(this)}
-      override def simplifyNode: Unit = {SymplifyNode.binaryTakeOther(this)}
+      override def normalizeInputs: Unit = InputNormalize.resizedOrUnfixedLit(this)
+      override private[core] def checkInferedWidth: Unit = CheckWidth.allSame(this)
+      override def simplifyNode: Unit = {SymplifyNode.binaryTakeOther(this,true)}
     }
 
     abstract class Add extends BinaryOperatorWidthableInputs with Widthable{
@@ -294,11 +297,31 @@ object Operator{
       override def opName: String = "b^b"
     }
 
-    class Equal extends BitVector.Equal{
+    class Equal extends BitVector.Equal with CheckWidth{
+      override def normalizeInputs: Unit = {
+        if(this.left.getWidth < this.right.getWidth)
+          InputNormalize.resizedOrUnfixedLit(this, 0, this.right.getWidth)
+        if(this.left.getWidth > this.right.getWidth)
+          InputNormalize.resizedOrUnfixedLit(this, 1, this.left.getWidth)
+      }
+      override private[core] def checkInferedWidth: Unit = {
+        if(this.left.getWidth != this.right.getWidth)
+          PendingError(s"${this} inputs doesn't have the same width\n${this.getScalaLocationLong}")
+      }
       override def opName: String = "b==b"
     }
 
-    class NotEqual extends BitVector.NotEqual{
+    class NotEqual extends BitVector.NotEqual with CheckWidth{
+      override def normalizeInputs: Unit = {
+        if(this.left.getWidth < this.right.getWidth)
+          InputNormalize.resizedOrUnfixedLit(this, 0, this.right.getWidth)
+        if(this.left.getWidth > this.right.getWidth)
+          InputNormalize.resizedOrUnfixedLit(this, 1, this.left.getWidth)
+      }
+      override private[core] def checkInferedWidth: Unit = {
+        if(this.left.getWidth != this.right.getWidth)
+          PendingError(s"${this} inputs doesn't have the same width\n${this.getScalaLocationLong}")
+      }
       override def opName: String = "b!=b"
     }
 
@@ -1352,7 +1375,7 @@ class RangedAssignmentFixed(out: BitVector, in: Node, hi: Int, lo: Int) extends 
   }
 
   override def normalizeInputs: Unit = {
-    InputNormalize.bitVectoreAssignement(this,0,hi + 1 - lo)
+    InputNormalize.resizedOrUnfixedLit(this,0,hi + 1 - lo)
   }
 
 
@@ -1466,7 +1489,7 @@ class RangedAssignmentFloating(out: BitVector, in_ : Node, offset_ : Node, bitCo
   }
 
   override def normalizeInputs: Unit = {
-    InputNormalize.bitVectoreAssignement(this,0,bitCount.value)
+    InputNormalize.resizedOrUnfixedLit(this,0,bitCount.value)
   }
 
 
@@ -1534,7 +1557,7 @@ class MultipleAssignmentNodeWidthable extends MultipleAssignmentNode with Widtha
   override def calcWidth: Int = WidthInfer.multipleAssignmentNodeWidth(this)
   override def normalizeInputs: Unit = {
     for (i <- 0 until inputs.length)
-      InputNormalize.bitVectoreAssignement(this,i,this.getWidth)
+      InputNormalize.resizedOrUnfixedLit(this,i,this.getWidth)
   }
 
   override private[core] def checkInferedWidth: Unit = {
