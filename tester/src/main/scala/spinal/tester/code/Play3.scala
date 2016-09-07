@@ -465,6 +465,10 @@ object PlayRotateInt{
 
     io.result := io.a.rotateLeft(4)
     val yolo = out(B"".resized | B"000")
+    val register = out(Reg(UInt(4 bits)))
+
+    register.init(U"00000")
+
   }
 
   def main(args: Array[String]) {

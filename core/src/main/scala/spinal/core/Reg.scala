@@ -209,7 +209,7 @@ class RegWidthable(outType: BaseType, clockDomain: ClockDomain = ClockDomain.cur
     if (dataInput != null && dataInput.component != null && this.getWidth != dataInput.getWidth) {
       PendingError(s"Assignment bit count mismatch. ${this} := ${dataInput} at \n${ScalaLocated.long(getAssignementContext(RegS.getDataInputId))}")
     } else if(initialValue != null && initialValue.component != null && this.getWidth != initialValue.getWidth) {
-      PendingError(s"Assignment bit count mismatch. ${this} := ${initialValue} at \n${ScalaLocated.long(getAssignementContext(RegS.getDataInputId))}")
+      PendingError(s"Init bit count mismatch for ${this}.    The init value is ${initialValue} at \n${this.getScalaLocationLong}")
     }
   }
   override def cloneReg() : this.type = new RegWidthable(outType,clockDomain).asInstanceOf[this.type]
