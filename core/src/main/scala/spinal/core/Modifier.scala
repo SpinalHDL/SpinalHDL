@@ -1363,7 +1363,7 @@ class RangedAssignmentFixed(out: BitVector, in: Node, hi: Int, lo: Int) extends 
 
   override def checkInferedWidth: Unit = {
     if (input.component != null && hi + 1 - lo != input.getWidth) {
-      PendingError(s"Assignment bit count mismatch. ${this} := ${input}} at\n${getScalaLocationLong}")
+      PendingError(s"Assignment bit count mismatch. ${AssignementTree.getDrivedBaseType(this)}($hi downto $lo) := ${input}} at\n${getScalaLocationLong}")
       return
     }
 
@@ -1484,7 +1484,7 @@ class RangedAssignmentFloating(out: BitVector, in_ : Node, offset_ : Node, bitCo
   override def checkInferedWidth: Unit = {
     val input = getInput
     if (input.component != null && bitCount.value != input.asInstanceOf[Node with WidthProvider].getWidth) {
-      PendingError(s"Assignement bit count missmatch. ${this} := ${input}} at\n${getScalaLocationLong}")
+      PendingError(s"Assignement bit count missmatch. ${AssignementTree.getDrivedBaseType((this))}(${bitCount.value} bits) := ${input}} at\n${getScalaLocationLong}")
     }
   }
 
@@ -1564,7 +1564,7 @@ class MultipleAssignmentNodeWidthable extends MultipleAssignmentNode with Widtha
     for(i <- 0 until inputs.length){
       val input = inputs(i)
       if (input != null && input.component != null && this.getWidth !=input.getWidth) {
-        PendingError(s"Assignement bit count missmatch. ${this} := ${input}} at\n${ScalaLocated.long(getAssignementContext(i))}")
+        PendingError(s"Assignement bit count missmatch. ${AssignementTree.getDrivedBaseType(this)} := ${input}} at\n${ScalaLocated.long(getAssignementContext(i))}")
       }
     }
   }

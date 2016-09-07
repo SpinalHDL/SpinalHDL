@@ -1034,7 +1034,7 @@ class PhaseNormalizeNodeInputs(pc: PhaseContext) extends PhaseNetlist{
 }
 
 class PhaseCheckInferredWidth(pc: PhaseContext) extends PhaseCheck{
-  override def useNodeConsumers = false
+  override def useNodeConsumers = true
   override def impl(pc : PhaseContext): Unit = {
     import pc._
     val errors = mutable.ArrayBuffer[String]()
