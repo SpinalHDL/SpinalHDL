@@ -3,9 +3,9 @@
   *                      _________
   *                     |         |
   *    -- Plaintext --->|   DES   |-- Ciphertext -->
-  *      (64 bits)      |_________|     (64 bits)
+  *       (64 bits)     |_________|   (64 bits)
   *                          |
-  *                         Key (56 bits)
+  *                      Key (56 bits)
   */
 package spinal.lib.crypto.symmetric
 
