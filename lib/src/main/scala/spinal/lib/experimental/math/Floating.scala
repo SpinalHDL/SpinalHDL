@@ -146,17 +146,34 @@ case class RecFloating(exponentSize: Int,
   def fromFloating(that: Floating) = that.toRecFloating
 
   /** Import from UInt */
-  def fromUInt(that: UInt) = {
+  def fromUInt(that: UInt) = fromUnsignedInteger(that, 0)
+
+  /** Import from UFix */
+  def fromUFix(that: UFix) = fromUnsignedInteger(that.raw, that.minExp)
+
+  /**
+    * Import from unsigned integer
+    * @param that input signed integer value
+    * @param offset exponent offset value
+    * @return Recoded Floating value
+    */
+  private def fromUnsignedInteger(that: UInt, offset: Int) = {
     this.sign := False
 
     val exponentValue = OHToUInt(OHMasking.last(that))
     val normalizationOffset = that.getWidth - exponentValue
 
-    val normalizedInt = (that << normalizationOffset)(that.getWidth-1 downto that.getWidth - mantissaSize)
+    val inputValue = if (that.getWidth >= mantissaSize) that
+    else that.resize(mantissaSize)
+
+    val inputSize = if (that.getWidth >= mantissaSize) that.getWidth
+    else mantissaSize
+
+    val normalizedInt = (inputValue << normalizationOffset)(inputSize - 1 downto inputSize - mantissaSize)
     this.mantissa := normalizedInt.asBits
 
     // 0x81 is the reencoded exponent value corresponding to 0 offset in IEEE 754
-    val exponent = (U(0x81 + ((1 << (exponentSize - 2)) - 1), exponentSize bits) + exponentValue.resize(exponentSize)).asBits
+    val exponent = (U(0x81 + ((1 << (exponentSize - 2)) - 1) + offset, exponentSize bits) + exponentValue.resize(exponentSize)).asBits
     val isZero = that.orR
     this.exponent := (exponent(exponent.high) && isZero) ## (exponent(exponent.high - 1) && isZero) ##
       (exponent(exponent.high - 2) && isZero) ##
@@ -164,7 +181,6 @@ case class RecFloating(exponentSize: Int,
 
     this
   }
-
 
   /**
     * Convert the Floating number to an unsigned integer
@@ -190,17 +206,35 @@ case class RecFloating(exponentSize: Int,
   }
 
   /** Import from SInt */
-  def fromSInt(that: SInt) = {
+  def fromSInt(that: SInt) = fromSignedInteger(that, 0)
+
+  /** Import from SFix */
+  def fromSFix(that: SFix) = fromSignedInteger(that.raw, that.minExp)
+
+  /**
+    * Import from signed integer
+    * @param that input signed integer value
+    * @param offset exponent offset value
+    * @return Recoded Floating value
+    */
+  private def fromSignedInteger(that: SInt, offset: Int) = {
     this.sign := that(that.getWidth - 1)
 
     val absValue = that.abs
     val exponentValue = OHToUInt(OHMasking.last(absValue))
     val normalizationOffset = that.getWidth - exponentValue
-    val normalizedInt = (absValue << normalizationOffset)(that.getWidth-1 downto that.getWidth - mantissaSize)
+
+    val inputValue = if (that.getWidth >= mantissaSize) absValue
+    else absValue.resize(mantissaSize)
+
+    val inputSize = if (that.getWidth >= mantissaSize) that.getWidth
+    else mantissaSize
+
+    val normalizedInt = (inputValue << normalizationOffset)(inputSize - 1 downto inputSize - mantissaSize)
     this.mantissa := normalizedInt.asBits
 
     // 0x81 is the reencoded exponent value corresponding to 0 offset in IEEE 754
-    def exponent = (U(0x81 + ((1 << (exponentSize - 2)) - 1), exponentSize bits) + exponentValue.resize(exponentSize)).asBits
+    def exponent = (U(0x81 + ((1 << (exponentSize - 2)) - 1) + offset, exponentSize bits) + exponentValue.resize(exponentSize)).asBits
     val isZero = that.orR
     this.exponent := (exponent(exponent.high) && isZero) ## (exponent(exponent.high - 1) && isZero) ##
       (exponent(exponent.high - 2) && isZero) ##
