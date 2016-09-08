@@ -194,11 +194,11 @@ object LFSR{
     *      |                   |     |           |
     *      \----------------->XOR-->XOR----------/
     *
-    *   e.g : val result = LSFR(myBits, Seq(31,2,1), false)
+    *   e.g : val result = LSFR(myBits, Seq(31,2,1), LFSR_SHIFT_DIR.SHIFT_LEFT)
     *
     * @param that       : Signal to shift
     * @param xorBits    : List of index that must be xor
-    * @param rightLeft  : Shift direction (right=True, left=False)
+    * @param rightLeft  : Shift direction (SHIFT_RIGHT, SHIFT_LEFT)
     */
   def fibonacci(that : Bits, xorBits : Seq[Int], rightLeft : LFSR_SHIFT_DIR = SHIFT_RIGHT) : Bits = {
 
@@ -234,11 +234,11 @@ object LFSR{
     *      |__4__|__3__|<-XOR-|__2__|<--XOR-|__1__|__0__|<-\
     *         |____________|_____________|_________________|
     *
-    *    e.g: val result = LFSR_Galois(myBits, Seq(2,3), false)
+    *    e.g: val result = LFSR_Galois(myBits, Seq(2,3), LFSR_SHIFT_DIR.SHIFT_LEFT)
     *
     * @param that       : Signal to shift
     * @param xorBits    : List of index that must be xor
-    * @param rightLeft  : Shift direction (right=True, left=False)
+    * @param rightLeft  : Shift direction (SHIFT_RIGHT, SHIFT_LEFT)
     */
   def galois(that : Bits, xorBits : Seq[Int],  rightLeft : LFSR_SHIFT_DIR = SHIFT_RIGHT): Bits ={
 
