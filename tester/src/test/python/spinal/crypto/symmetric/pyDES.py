@@ -394,11 +394,14 @@ class des(_baseDes):
     DECRYPT =	0x01
 
     # Initialisation
-    def __init__(self, key, mode=ECB, IV=None, pad=None, padmode=PAD_NORMAL):
+    def __init__(self, key, mode=ECB, IV=None, pad=None, padmode=PAD_NORMAL, keyIntValue=False):
         # Sanity checking of arguments.
-        if len(key) != 8:
-            raise ValueError("Invalid DES key size. Key must be exactly 8 bytes long.")
-        _baseDes.__init__(self, mode, IV, pad, padmode)
+        if keyIntValue:
+            pass
+        else:
+            if len(key) != 8:
+                raise ValueError("Invalid DES key size. Key must be exactly 8 bytes long.")
+            _baseDes.__init__(self, mode, IV, pad, padmode)
         self.key_size = 8
 
         self.L = []
@@ -406,12 +409,12 @@ class des(_baseDes):
         self.Kn = [ [0] * 48 ] * 16	# 16 48-bit keys (K1 - K16)
         self.final = []
 
-        self.setKey(key)
+        self.setKey(key, keyIntValue)
 
-    def setKey(self, key):
+    def setKey(self, key, keyIntValue=False):
         """Will set the crypting key for this object. Must be 8 bytes."""
         _baseDes.setKey(self, key)
-        self.__create_sub_keys()
+        self.__create_sub_keys(key, keyIntValue)
 
     def __String_to_BitList(self, data):
         """Turn the string data, into a list of bits (1, 0)'s"""
@@ -457,9 +460,14 @@ class des(_baseDes):
 
     # Transform the secret key, so that it is ready for data processing
     # Create the 16 subkeys, K[1] - K[16]
-    def __create_sub_keys(self):
+    def __create_sub_keys(self, keyHex=None, keyIntValue=False):
         """Create the 16 subkeys K[1] to K[16] from the given key"""
-        key = self.__permutate(des.__pc1, self.__String_to_BitList(self.getKey()))
+        if keyIntValue:
+            print(hex(keyHex))
+            key = [x for x in '{0:064b}'.format(keyHex)]
+        else:
+            key = self.__permutate(des.__pc1, self.__String_to_BitList(self.getKey()))
+        print("Python key", key)
         i = 0
         # Split into Left and Right sections
         self.L = key[:28]
@@ -479,7 +487,11 @@ class des(_baseDes):
             # Create one of the 16 subkeys through pc2 permutation
             self.Kn[i] = self.__permutate(des.__pc2, self.L + self.R)
 
+
+            kn = hex(int("".join(self.Kn[i]),2))
+            print("K%i"%(i), kn)
             i += 1
+
 
     # Main part of the encryption algorithm, the number cruncher :)
     def __des_crypt(self, block, crypt_type):
@@ -708,6 +720,7 @@ class triple_des(_baseDes):
     def __init__(self, key, mode=ECB, IV=None, pad=None, padmode=PAD_NORMAL):
         _baseDes.__init__(self, mode, IV, pad, padmode)
         self.setKey(key)
+
 
     def setKey(self, key):
         """Will set the crypting key for this object. Either 16 or 24 bytes long."""

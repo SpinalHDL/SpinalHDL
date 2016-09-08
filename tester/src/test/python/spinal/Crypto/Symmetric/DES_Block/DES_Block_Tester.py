@@ -8,6 +8,8 @@ from spinal.common.Flow import Flow
 
 from spinal.common.misc import assertEquals, randInt
 
+from spinal.crypto.symmetric.pyDES import *
+
 ###############################################################################
 # DES Block Helper
 #
@@ -91,6 +93,14 @@ def test_DES_Block(dut):
     helperDES.io.cmd.valid         <= 0
 
     yield RisingEdge(helperDES.io.clk)
+
+
+    # model DES
+    data = "DESCRYaT"
+    k    = des(0xAABB09182736CCDD, CBC, "\0\0\0\0\0\0\0\0", pad=None, padmode=PAD_PKCS5, keyIntValue=True)
+    #k    = des("DESCRYaT", CBC, "\0\0\0\0\0\0\0\0", pad=None, padmode=PAD_PKCS5, keyIntValue=False)
+
+    #print("Encrypted message", (k.encrypt(data)).encode('hex') )
 
 
     dut.log.info("Cocotb end test DES Block")
