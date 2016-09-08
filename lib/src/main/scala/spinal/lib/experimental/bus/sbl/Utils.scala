@@ -1,8 +1,8 @@
-package spinal.lib.bus.sbl
+package spinal.lib.experimental.bus.sbl
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.sbl._
+import spinal.lib.experimental.bus.sbl._
 
 
 case class SblReadDmaCmd(config: SblConfig) extends Bundle{

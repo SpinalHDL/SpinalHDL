@@ -1,4 +1,4 @@
-package spinal.lib.bus.neutral
+package spinal.lib.experimental.bus.neutral
 
 import spinal.core._
 import spinal.lib._

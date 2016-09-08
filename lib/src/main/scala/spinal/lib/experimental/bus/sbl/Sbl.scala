@@ -1,4 +1,4 @@
-package spinal.lib.bus.sbl
+package spinal.lib.experimental.bus.sbl
 
 import spinal.core._
 

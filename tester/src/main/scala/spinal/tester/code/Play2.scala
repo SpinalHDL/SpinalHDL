@@ -9,7 +9,7 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.avalon._
 import spinal.lib.bus.amba4.axilite.{AxiLite4SpecRenamer, AxiLite4Config, AxiLite4}
-import spinal.lib.bus.neutral.NeutralStreamDma
+import spinal.lib.experimental.bus.neutral.NeutralStreamDma
 import spinal.lib.com.uart.UartCtrl
 import spinal.lib.eda.mentor.MentorDo
 import spinal.lib.fsm._

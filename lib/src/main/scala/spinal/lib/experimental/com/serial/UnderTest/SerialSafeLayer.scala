@@ -1,4 +1,4 @@
-package spinal.lib.com.serial.UnderTest
+package spinal.lib.experimental.com.serial.UnderTest
 
 import spinal.core._
 import spinal.lib._
