@@ -261,7 +261,7 @@ case class RecFloating(exponentSize: Int,
     val extendedMantissa = Bits(32 bits)
     extendedMantissa := (isNotZero ## mantissa).resizeLeft(width)
     val exponentOffset = exponent.asUInt - U(0x81 + ((1 << (exponentSize - 2)) - 1))
-    val shift = 31 - exponentOffset
+    val shift = width - 1 - exponentOffset - offset
     val outputMantissa = (extendedMantissa >> shift)
     val signedMantissa = (outputMantissa ^ B(width bits, (default -> sign))).asSInt - sign.asSInt
     signedMantissa
