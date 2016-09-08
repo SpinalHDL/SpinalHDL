@@ -182,17 +182,21 @@ case class RecFloating(exponentSize: Int,
     this
   }
 
+  /** Convert floating point to UInt */
+  def toUInt(width: Int): UInt = toUnsignedInteger(width, 0)
+
   /**
     * Convert the Floating number to an unsigned integer
     * @param width Width of the output intger
+    * @param offset Exponent offset for the integer output
     * @return Unsigned integer corresponding to the floating point value (truncated)
     */
-  def toUInt(width: Int): UInt = {
+  private def toUnsignedInteger(width: Int, offset: Int): UInt = {
     val isNotZero = exponent(exponentSize-1 downto exponentSize-3).orR
     val extendedMantissa = Bits(width bits)
     extendedMantissa := (isNotZero ## mantissa).resizeLeft(width)
     val exponentOffset = exponent.asUInt - U(0x81 + ((1 << (exponentSize - 2)) - 1))
-    val shift = width - 1 - exponentOffset
+    val shift = width - 1 - exponentOffset - offset
     val outputMantissa = (extendedMantissa >> shift)
     outputMantissa.asUInt
   }
@@ -243,12 +247,16 @@ case class RecFloating(exponentSize: Int,
     this
   }
 
+  /** Convert floating point to SInt */
+  def toSInt(width: Int): SInt = toSignedInteger(width, 0)
+
   /**
     * Convert the Floating number to a signed integer
     * @param width Width ouf the output integer
+    * @param offset exponent offset value
     * @return Signed integer corresponding to the Floating point value (truncated)
     */
-  def toSInt(width: Int): SInt = {
+  private def toSignedInteger(width: Int, offset: Int): SInt = {
     val isNotZero = exponent(exponentSize-1 downto exponentSize-3).orR
     val extendedMantissa = Bits(32 bits)
     extendedMantissa := (isNotZero ## mantissa).resizeLeft(width)
