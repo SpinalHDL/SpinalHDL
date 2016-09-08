@@ -37,14 +37,14 @@ case class Floating(exponentSize: Int,
     val firstMantissaBit = mantissaSize - OHToUInt(OHMasking.last(mantissa))
     val normalizedMantissa = (mantissa << firstMantissaBit)(mantissaSize-1 downto 0)
 
-    val denormExponent = B(recExponentSize bits, default -> True) ^ firstMantissaBit.asBits
+    val denormExponent = B(recExponentSize bits, default -> True) ^ firstMantissaBit.asBits.resized
     val recodedExponent = (Mux(isExponentZero, denormExponent, exponent).asUInt +
-      ((1 << recExponentSize - 2) | Mux(isExponentZero, U(3), U(1)))).asBits
+      ((1 << recExponentSize - 2) | Mux(isExponentZero, U(3), U(1)).resized)).asBits
 
     val isNaN = recodedExponent(recExponentSize -1 downto recExponentSize - 2) === 3 && !isMantissaZero
     val finalExponent = ((recodedExponent(recExponentSize - 1 downto recExponentSize - 3) &
       B(3 bits, default -> !isZero)) ## recodedExponent(recExponentSize - 4 downto 0)) |
-      isNaN.asBits << (recExponentSize - 3)
+      (isNaN.asBits << (recExponentSize - 3)).resized
 
     recoded.sign := sign
     recoded.exponent := finalExponent
