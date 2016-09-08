@@ -174,7 +174,7 @@ case class RecFloating(exponentSize: Int,
   def toUInt(width: Int): UInt = {
     val isNotZero = exponent(exponentSize-1 downto exponentSize-3).orR
     val extendedMantissa = Bits(width bits)
-    extendedMantissa := isNotZero ## mantissa ## B(0, width - mantissaSize - 1 bits)
+    extendedMantissa := (isNotZero ## mantissa).resizeLeft(width)
     val exponentOffset = exponent.asUInt - U(0x81 + ((1 << (exponentSize - 2)) - 1))
     val shift = width - 1 - exponentOffset
     val outputMantissa = (extendedMantissa >> shift)
@@ -217,7 +217,7 @@ case class RecFloating(exponentSize: Int,
   def toSInt(width: Int): SInt = {
     val isNotZero = exponent(exponentSize-1 downto exponentSize-3).orR
     val extendedMantissa = Bits(32 bits)
-    extendedMantissa := isNotZero ## mantissa ## B(0, width - mantissaSize - 1 bits)
+    extendedMantissa := (isNotZero ## mantissa).resizeLeft(width)
     val exponentOffset = exponent.asUInt - U(0x81 + ((1 << (exponentSize - 2)) - 1))
     val shift = 31 - exponentOffset
     val outputMantissa = (extendedMantissa >> shift)

@@ -92,6 +92,22 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
     node
   })
 
+  /**
+    * Resize by keeping MSB at the same place
+    * If the final size is bigger than the original size, the leftmost bits are filled with zeroes
+    * if the final size is smaller, only width MSB are kept
+    * @param width Final width
+    * @return Resized bits vector
+    */
+  def resizeLeft(width: Int): Bits = {
+    val lengthDifference = width - this.getWidth
+    if (lengthDifference >= 0) {
+      this ## B(0, lengthDifference bits)
+    } else {
+      this(width - 1 downto 0)
+    }
+  }
+
   def asSInt: SInt = wrapCast(SInt(),new CastBitsToSInt)
   def asUInt: UInt = wrapCast(UInt(),new CastBitsToUInt)
 
