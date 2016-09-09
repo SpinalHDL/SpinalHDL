@@ -190,6 +190,20 @@ case class RecFloating(exponentSize: Int,
   /** Convert floating point to UInt */
   def toUInt(width: Int): UInt = toUnsignedInteger(width, 0)
 
+  /** Convert floating point to SFix with width */
+  def toUFix(peak: ExpNumber, width: BitCount) = {
+    val UFixValue = UFix(peak, width)
+    UFixValue.raw := toUnsignedInteger(width.value, peak.value - width.value)
+    UFixValue
+  }
+
+  /** Convert floating point to SFix with resolution */
+  def toUFix(peak: ExpNumber, resolution: ExpNumber) = {
+    val UFixValue = UFix(peak, resolution)
+    UFixValue.raw := toUnsignedInteger(peak.value - resolution.value, resolution.value)
+    UFixValue
+  }
+
   /**
     * Convert the Floating number to an unsigned integer
     * @param width Width of the output intger
@@ -253,6 +267,20 @@ case class RecFloating(exponentSize: Int,
 
   /** Convert floating point to SInt */
   def toSInt(width: Int): SInt = toSignedInteger(width, 0)
+
+  /** Convert floating point to SFix with width */
+  def toSFix(peak: ExpNumber, width: BitCount) = {
+    val SFixValue = SFix(peak, width)
+    SFixValue.raw := toSignedInteger(width.value, peak.value - width.value)
+    SFixValue
+  }
+
+  /** Convert floating point to SFix with resolution */
+  def toSFix(peak: ExpNumber, resolution: ExpNumber) = {
+    val SFixValue = SFix(peak, resolution)
+    SFixValue.raw := toSignedInteger(peak.value - resolution.value, resolution.value)
+    SFixValue
+  }
 
   /**
     * Convert the Floating number to a signed integer
