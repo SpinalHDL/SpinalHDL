@@ -53,6 +53,15 @@ class KeyTmp:
         """Permutate this block with the specified table"""
         return list(map(lambda x: binList[x], self.__pc1))
 
+
+def int_2_String(integer):
+
+    kesList = [int(x) for x in '{0:064b}'.format(integer)]#[::-1]
+
+    k = des("DESCRYPT", CBC, "\0\0\0\0\0\0\0\0", pad=None, padmode=PAD_PKCS5)
+    return k.bitList2String(kesList)
+
+
 ###############################################################################
 # Test DES Block
 #
@@ -73,12 +82,39 @@ def test_DES_Block(dut):
     helperDES.io.init()
     yield clockDomain.event_endReset.wait()
 
+
+    #key = 0xAABB09182736CCDD
+    key = 0x0000000000000000
+    key = 0xFFFF00000000FFFF
+
+
     # drop parity of the key
     keyParity = KeyTmp()
-    listOriginalKey = [str(x) for x in '{0:064b}'.format(0xAABB09182736CCDD)]
+    listOriginalKey = [str(x) for x in '{0:064b}'.format(key)]
     listKey  = keyParity.keyDropParity( listOriginalKey[::-1] )
-    keyDrop = int("".join(listKey[::-1]),2)
-    print(hex(keyDrop))
+    keyDrop  = int("".join(listKey),2)
+    print("Key start send : ", hex(keyDrop))
+
+
+    # swap key drop before sending TODO ?????????
+    endian1 = listOriginalKey[0:8]
+    endian2 = listOriginalKey[8:16]
+    endian3 = listOriginalKey[16:24]
+    endian4 = listOriginalKey[24:32]
+    endian5 = listOriginalKey[32:40]
+    endian6 = listOriginalKey[40:48]
+    endian7 = listOriginalKey[48:56]
+    endian8 = listOriginalKey[56:64]
+    print(endian1)
+    print(endian2)
+    print(endian3)
+    print(endian4)
+    print(endian5)
+    print(endian6)
+    print(endian7)
+    print(endian8)
+    #listOriginalKey = endian1 + endian2 + endian3 + endian4 + endian5 + endian6 + endian7 + endian8
+    listOriginalKey = endian8 + endian7 + endian6 + endian5 + endian4 + endian3 + endian2 + endian1
 
     #
     helperDES.io.cmd.valid         <= 1
@@ -89,6 +125,8 @@ def test_DES_Block(dut):
     yield RisingEdge(helperDES.io.clk)
     yield RisingEdge(helperDES.io.clk)
     yield RisingEdge(helperDES.io.clk)
+    yield RisingEdge(helperDES.io.clk)
+    yield RisingEdge(helperDES.io.clk)
 
     helperDES.io.cmd.valid         <= 0
 
@@ -96,9 +134,9 @@ def test_DES_Block(dut):
 
 
     # model DES
-    data = "DESCRYaT"
-    k    = des(0xAABB09182736CCDD, CBC, "\0\0\0\0\0\0\0\0", pad=None, padmode=PAD_PKCS5, keyIntValue=True)
-    #k    = des("DESCRYaT", CBC, "\0\0\0\0\0\0\0\0", pad=None, padmode=PAD_PKCS5, keyIntValue=False)
+    data = "Please encrypt my data"
+    k    = des(int_2_String(key), CBC, "\0\0\0\0\0\0\0\0", pad=None, padmode=PAD_PKCS5)
+
 
     #print("Encrypted message", (k.encrypt(data)).encode('hex') )
 

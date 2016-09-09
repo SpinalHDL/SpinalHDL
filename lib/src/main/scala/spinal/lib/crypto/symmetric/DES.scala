@@ -112,7 +112,7 @@ class DES(g : DESGenerics) extends Component{
 
 
   val initialPermutation = new Area{
-    val perm = Cat(g.initialPermutation.map(index => io.cmd.block(index - 1 )))
+    val perm = Cat(g.initialPermutation.map(index => io.cmd.block(index - 1)))
   }
 
 
@@ -141,7 +141,7 @@ class DES(g : DESGenerics) extends Component{
     when(nextRound){ shiftKey := shiftRes }
 
     // compression : (56bits -> 48 bits)
-    val keyRound = Cat(g.pc_2.map(index => shiftRes(index - 1)))
+    val keyRound = Cat(g.pc_2.map(index => shiftRes(56 - index )))
   }
 
 
