@@ -95,6 +95,12 @@ case class RecFloating(exponentSize: Int,
   /** Sign field (true when negative) */
   val sign = Bool
 
+  /** Value of the recoded exponent corresponding to the smallest exponent */
+  def getExponentZero = (1 << (exponentSize - 2)) + 1
+
+  /** Value of the exponent bias for this float configuration */
+  def getExponentBias = ((1 << (exponentSize - 2)) - 1)
+
   private def isHighSubnormal = exponent(exponentSize - 3 downto 0).asUInt < 2
 
   /** Return true if the number is subnormal */
@@ -172,8 +178,7 @@ case class RecFloating(exponentSize: Int,
     val normalizedInt = (inputValue << normalizationOffset)(inputSize - 1 downto inputSize - mantissaSize)
     this.mantissa := normalizedInt.asBits
 
-    // 0x81 is the reencoded exponent value corresponding to 0 offset in IEEE 754
-    val exponent = (U(0x81 + ((1 << (exponentSize - 2)) - 1) + offset, exponentSize bits) + exponentValue.resize(exponentSize)).asBits
+    val exponent = (U(getExponentZero + getExponentBias + offset, exponentSize bits) + exponentValue.resize(exponentSize)).asBits
     val isZero = that.orR
     this.exponent := (exponent(exponent.high) && isZero) ## (exponent(exponent.high - 1) && isZero) ##
       (exponent(exponent.high - 2) && isZero) ##
@@ -185,6 +190,20 @@ case class RecFloating(exponentSize: Int,
   /** Convert floating point to UInt */
   def toUInt(width: Int): UInt = toUnsignedInteger(width, 0)
 
+  /** Convert floating point to SFix with width */
+  def toUFix(peak: ExpNumber, width: BitCount) = {
+    val UFixValue = UFix(peak, width)
+    UFixValue.raw := toUnsignedInteger(width.value, peak.value - width.value)
+    UFixValue
+  }
+
+  /** Convert floating point to SFix with resolution */
+  def toUFix(peak: ExpNumber, resolution: ExpNumber) = {
+    val UFixValue = UFix(peak, resolution)
+    UFixValue.raw := toUnsignedInteger(peak.value - resolution.value, resolution.value)
+    UFixValue
+  }
+
   /**
     * Convert the Floating number to an unsigned integer
     * @param width Width of the output intger
@@ -195,7 +214,7 @@ case class RecFloating(exponentSize: Int,
     val isNotZero = exponent(exponentSize-1 downto exponentSize-3).orR
     val extendedMantissa = Bits(width bits)
     extendedMantissa := (isNotZero ## mantissa).resizeLeft(width)
-    val exponentOffset = exponent.asUInt - U(0x81 + ((1 << (exponentSize - 2)) - 1))
+    val exponentOffset = exponent.asUInt - U(getExponentZero + getExponentBias)
     val shift = width - 1 - exponentOffset - offset
     val outputMantissa = (extendedMantissa >> shift)
     outputMantissa.asUInt
@@ -236,9 +255,8 @@ case class RecFloating(exponentSize: Int,
 
     val normalizedInt = (inputValue << normalizationOffset)(inputSize - 1 downto inputSize - mantissaSize)
     this.mantissa := normalizedInt.asBits
-
-    // 0x81 is the reencoded exponent value corresponding to 0 offset in IEEE 754
-    def exponent = (U(0x81 + ((1 << (exponentSize - 2)) - 1) + offset, exponentSize bits) + exponentValue.resize(exponentSize)).asBits
+    
+    def exponent = (U(getExponentZero + getExponentBias + offset, exponentSize bits) + exponentValue.resize(exponentSize)).asBits
     val isZero = that.orR
     this.exponent := (exponent(exponent.high) && isZero) ## (exponent(exponent.high - 1) && isZero) ##
       (exponent(exponent.high - 2) && isZero) ##
@@ -250,6 +268,20 @@ case class RecFloating(exponentSize: Int,
   /** Convert floating point to SInt */
   def toSInt(width: Int): SInt = toSignedInteger(width, 0)
 
+  /** Convert floating point to SFix with width */
+  def toSFix(peak: ExpNumber, width: BitCount) = {
+    val SFixValue = SFix(peak, width)
+    SFixValue.raw := toSignedInteger(width.value, peak.value - width.value)
+    SFixValue
+  }
+
+  /** Convert floating point to SFix with resolution */
+  def toSFix(peak: ExpNumber, resolution: ExpNumber) = {
+    val SFixValue = SFix(peak, resolution)
+    SFixValue.raw := toSignedInteger(peak.value - resolution.value, resolution.value)
+    SFixValue
+  }
+
   /**
     * Convert the Floating number to a signed integer
     * @param width Width ouf the output integer
@@ -260,7 +292,7 @@ case class RecFloating(exponentSize: Int,
     val isNotZero = exponent(exponentSize-1 downto exponentSize-3).orR
     val extendedMantissa = Bits(32 bits)
     extendedMantissa := (isNotZero ## mantissa).resizeLeft(width)
-    val exponentOffset = exponent.asUInt - U(0x81 + ((1 << (exponentSize - 2)) - 1))
+    val exponentOffset = exponent.asUInt - U(getExponentZero + getExponentBias)
     val shift = width - 1 - exponentOffset - offset
     val outputMantissa = (extendedMantissa >> shift)
     val signedMantissa = (outputMantissa ^ B(width bits, (default -> sign))).asSInt - sign.asSInt
