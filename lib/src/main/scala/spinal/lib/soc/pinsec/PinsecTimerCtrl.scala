@@ -29,39 +29,37 @@ case class PinsecTimerCtrl() extends Component {
   val external = BufferCC(io.external)
 
   val prescaler = Prescaler(16)
-
   val timerA = Timer(32)
   val timerB,timerC,timerD = Timer(16)
-
 
   val busCtrl = Apb3SlaveFactory(io.apb)
   val prescalerBridge = prescaler.driveFrom(busCtrl,0x00)
 
   val timerABridge = timerA.driveFrom(busCtrl,0x40)(
     ticks  = List(True, prescaler.io.overflow),
-    clears = List(timerA.io.overflow)
+    clears = List(timerA.io.full)
   )
 
   val timerBBridge = timerB.driveFrom(busCtrl,0x50)(
     ticks  = List(True, prescaler.io.overflow, external.tick),
-    clears = List(timerB.io.overflow, external.clear)
+    clears = List(timerB.io.full, external.clear)
   )
 
   val timerCBridge = timerC.driveFrom(busCtrl,0x60)(
     ticks  = List(True, prescaler.io.overflow, external.tick),
-    clears = List(timerC.io.overflow, external.clear)
+    clears = List(timerC.io.full, external.clear)
   )
 
   val timerDBridge = timerD.driveFrom(busCtrl,0x70)(
     ticks  = List(True, prescaler.io.overflow, external.tick),
-    clears = List(timerD.io.overflow, external.clear)
+    clears = List(timerD.io.full, external.clear)
   )
 
   val interruptCtrl = InterruptCtrl(4)
   val interruptCtrlBridge = interruptCtrl.driveFrom(busCtrl,0x10)
-  interruptCtrl.io.inputs(0) := timerA.io.overflow
-  interruptCtrl.io.inputs(1) := timerB.io.overflow
-  interruptCtrl.io.inputs(2) := timerC.io.overflow
-  interruptCtrl.io.inputs(3) := timerD.io.overflow
+  interruptCtrl.io.inputs(0) := timerA.io.full
+  interruptCtrl.io.inputs(1) := timerB.io.full
+  interruptCtrl.io.inputs(2) := timerC.io.full
+  interruptCtrl.io.inputs(3) := timerD.io.full
   io.interrupt := interruptCtrl.io.pendings.orR
 }

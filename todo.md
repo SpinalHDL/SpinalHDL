@@ -2,6 +2,8 @@
 - [X] Fix B(default -> True)
 
 ## spinal.core
+- [ ] Add more double comparaison into fixedpoints
+- [ ] Fixedpoints, check construction arguments
 - [X] Bits reg with init to big error message
 - [X] Need better error when inside a when, something to big is assigned
 - [x] Add regression for all implicit spinal hdl check like latch, comb loop etc

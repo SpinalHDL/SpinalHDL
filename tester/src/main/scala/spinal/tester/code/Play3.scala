@@ -485,3 +485,19 @@ object PlayRotateInt{
     SpinalVhdl(new TopLevel)
   }
 }
+
+
+
+object PlayVecAssign{
+  class TopLevel extends Component {
+    val sel = in UInt(2 bits)
+    val outputs = out Vec(Bool,4)
+
+    outputs.foreach(_ := False)
+    outputs(sel) := True
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
