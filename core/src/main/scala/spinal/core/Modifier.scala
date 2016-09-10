@@ -670,13 +670,13 @@ abstract class Multiplexer extends Modifier {
   }
 }
 
-abstract class MultiplexedWidthable extends Multiplexer with Widthable{
+abstract class MultiplexedWidthable extends Multiplexer with Widthable with CheckWidth{
   override type T = Node with Widthable
   override def calcWidth: Int = Math.max(whenTrue.getWidth, whenFalse.getWidth)
-
-  override def normalizeInputs: Unit = {
-    Misc.normalizeResize(this, 1, this.getWidth)
-    Misc.normalizeResize(this, 2, this.getWidth)
+  override private[core] def checkInferedWidth: Unit = {
+    if(whenTrue.getWidth != whenFalse.getWidth){
+      PendingError(s"${this} inputs doesn't have the same width at \n${this.getScalaLocationLong}")
+    }
   }
 }
 
@@ -685,12 +685,24 @@ class MultiplexerBool extends Multiplexer{
 }
 class MultiplexerBits extends MultiplexedWidthable{
   override def opName: String = "mux(B,b,b)"
+  override def normalizeInputs: Unit = {
+    InputNormalize.resizedOrUnfixedLitDeepOne(this, 1, this.getWidth)
+    InputNormalize.resizedOrUnfixedLitDeepOne(this, 2, this.getWidth)
+  }
 }
 class MultiplexerUInt extends MultiplexedWidthable{
   override def opName: String = "mux(B,u,u)"
+  override def normalizeInputs: Unit = {
+    Misc.normalizeResize(this, 1, this.getWidth)
+    Misc.normalizeResize(this, 2, this.getWidth)
+  }
 }
 class MultiplexerSInt extends MultiplexedWidthable{
   override def opName: String = "mux(B,s,s)"
+  override def normalizeInputs: Unit = {
+    Misc.normalizeResize(this, 1, this.getWidth)
+    Misc.normalizeResize(this, 2, this.getWidth)
+  }
 }
 class MultiplexerEnum(enumDef : SpinalEnum) extends Multiplexer with InferableEnumEncodingImpl{
   override type T = Node with EnumEncoded

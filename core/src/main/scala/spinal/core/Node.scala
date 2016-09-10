@@ -319,6 +319,23 @@ object InputNormalize {
     }
   }
 
+  def resizedOrUnfixedLitDeepOne(parent : Node,inputId : Int,targetWidth : Int): Unit ={
+    val input = parent.getInput(inputId).getInput(0)
+    if(input == null) return
+    input match{
+      case bitVector : BitVector => {
+        bitVector.getInput(0) match{
+          case lit : BitVectorLiteral if (! lit.hasSpecifiedBitCount) =>
+            Misc.normalizeResize(parent, inputId, Math.max(lit.minimalValueBitWidth,targetWidth)) //Allow resize on direct literal with unfixed values
+          case _ if(input.hasTag(tagAutoResize)) =>
+            Misc.normalizeResize(parent, inputId, targetWidth)
+          case _ =>
+        }
+      }
+      case _ =>
+    }
+  }
+
   def memReadImpl(node: Node): Unit = {
     //not here
     //Misc.normalizeResize(node, MemReadSync.getAddressId, node.asInstanceOf[].addressWidth)

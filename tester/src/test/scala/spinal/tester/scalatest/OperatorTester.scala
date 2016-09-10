@@ -39,10 +39,10 @@ object OperatorTester {
 
     val boolMux = out(Mux(boolC,boolA,boolB))
 
-    val bitsBsMux = out(Mux(boolC,bits8,bits4))
+    val bitsBsMux = out(Mux(boolC,bits8,bits4.resized))
     val uintBsMux = out(Mux(boolC,uint8,uint4))
     val sintBsMux = out(Mux(boolC,sint8,sint4))
-    val bitsSbMux = out(Mux(boolC,bits4,bits8))
+    val bitsSbMux = out(Mux(boolC,bits4.resized,bits8))
     val uintSbMux = out(Mux(boolC,uint4,uint8))
     val sintSbMux = out(Mux(boolC,sint4,sint8))
 

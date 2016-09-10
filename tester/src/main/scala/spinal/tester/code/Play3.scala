@@ -501,3 +501,15 @@ object PlayVecAssign{
     SpinalVhdl(new TopLevel)
   }
 }
+
+
+object PlayMuxBits{
+  class TopLevel extends Component {
+    val sel = in Bool
+    val result = out(sel ? U(2) | U(1,1 bits))
+  }
+
+  def main(args: Array[String]) {
+    SpinalConfig(genVhdlPkg = false).generateVhdl(new TopLevel)
+  }
+}

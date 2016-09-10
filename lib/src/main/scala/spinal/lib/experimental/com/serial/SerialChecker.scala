@@ -202,7 +202,7 @@ class SerialCheckerRx(wordCountMax: Int) extends Component {
     val lastWriteData = RegNextWhen(io.input.bits(bitsWidth - 1, 0), pushFlag)
 
     when(pushFlag || flushFlag) {
-      ram((writePtr - asUInt(flushFlag)).resized) := (Mux(pushFlag, io.input.bits, True ## lastWriteData)).resized
+      ram((writePtr - asUInt(flushFlag)).resized) := (Mux(pushFlag, io.input.bits.resized, True ## lastWriteData)).resized
     }
 
     when(pushFlag) {

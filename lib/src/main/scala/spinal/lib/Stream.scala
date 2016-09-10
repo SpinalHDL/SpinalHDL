@@ -802,6 +802,7 @@ object StreamJoin{
     sources.foreach(_.ready := eventFire)
     event
   }
+  def apply[T <: Data](sources : Seq[Stream[_]],payload : T) : Stream[T] = StreamJoin(sources).translateWith(payload)
 }
 
 
