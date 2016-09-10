@@ -3,10 +3,9 @@ import os
 import cocotb
 from cocotb.handle import simulator
 from cocotb.log import SimLogFormatter
-from cocotb.triggers import RisingEdge
+from cocotblib.misc import ClockDomainAsyncReset
 
-from spinal.common.Stream import StreamMonitor, Stream
-from spinal.common.misc import ClockDomainAsyncReset
+from cocotblib.Stream import StreamMonitor, Stream
 
 
 # @cocotb.coroutine

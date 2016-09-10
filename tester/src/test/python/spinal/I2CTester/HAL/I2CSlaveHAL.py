@@ -1,9 +1,8 @@
+from cocotb.triggers import Timer
 
-import cocotb
-from cocotb.triggers import RisingEdge, Event
-
+from cocotblib.misc import assertEquals
 from spinal.I2CTester.HAL.I2CHAL import *
-from spinal.common.misc import assertEquals
+
 
 ###############################################################################
 # I2C Slave HAL Helper class

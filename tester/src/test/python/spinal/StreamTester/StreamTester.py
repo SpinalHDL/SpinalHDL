@@ -3,10 +3,9 @@ from Queue import Queue
 
 import cocotb
 from cocotb.result import TestFailure
-from cocotb.triggers import Timer, Edge, RisingEdge, Join, FallingEdge
+from cocotb.triggers import RisingEdge, FallingEdge
 
-from spinal.common.misc import setBit, randSignal, assertEquals, truncUInt, sint, ClockDomainAsyncReset, randBoolSignal, \
-    BoolRandomizer, StreamRandomizer,StreamReader, FlowRandomizer
+from cocotblib.misc import randSignal, assertEquals, ClockDomainAsyncReset, BoolRandomizer, StreamRandomizer,StreamReader, FlowRandomizer
 
 
 class FifoPacket:

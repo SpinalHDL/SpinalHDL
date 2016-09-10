@@ -1,10 +1,9 @@
 import random
 
 import cocotb
-from cocotb.result import TestFailure
-from cocotb.triggers import Timer, Edge, RisingEdge
+from cocotb.triggers import Timer, RisingEdge
 
-from spinal.common.misc import randSignal, ClockDomainAsyncReset, assertEquals
+from cocotblib.misc import randSignal, ClockDomainAsyncReset, assertEquals
 
 
 class Ref:

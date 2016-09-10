@@ -1,11 +1,11 @@
 import random
+from Queue import Queue
 
 import cocotb
 from cocotb.result import TestFailure
-from cocotb.triggers import Timer, Edge, RisingEdge
-from Queue import Queue
+from cocotb.triggers import RisingEdge
 
-from spinal.common.misc import setBit, randSignal, assertEquals, truncUInt, sint, ClockDomainAsyncReset
+from cocotblib.misc import randSignal, assertEquals, truncUInt, ClockDomainAsyncReset
 
 
 class UutModel:

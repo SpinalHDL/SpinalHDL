@@ -2,11 +2,9 @@ import random
 
 import cocotb
 from cocotb.triggers import Timer
-
-from spinal.common.Axi4 import Axi4SharedMemoryChecker, Axi4Shared
-from spinal.common.Phase import PhaseManager
-from spinal.common.Stream import Stream
-from spinal.common.misc import simulationSpeedPrinter
+from cocotblib.Axi4 import Axi4SharedMemoryChecker, Axi4Shared
+from cocotblib.Phase import PhaseManager
+from cocotblib.misc import simulationSpeedPrinter
 
 
 @cocotb.coroutine

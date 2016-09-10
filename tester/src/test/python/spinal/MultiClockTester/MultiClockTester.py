@@ -1,11 +1,9 @@
-import random
 from Queue import Queue
 
 import cocotb
-from cocotb.triggers import Timer, Edge, RisingEdge, Join
+from cocotb.triggers import Timer, RisingEdge
 
-from spinal.common.misc import setBit, randSignal, assertEquals, truncUInt, sint, ClockDomainAsyncReset, randBoolSignal, \
-    BoolRandomizer
+from cocotblib.misc import randSignal, assertEquals, BoolRandomizer
 
 
 class Packet:

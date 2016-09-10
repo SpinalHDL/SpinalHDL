@@ -1,5 +1,7 @@
-from spinal.common.Phase import Infrastructure
-from spinal.common.Stream import StreamScorboardOutOfOrder, Transaction, StreamMonitor
+from cocotblib.Phase import Infrastructure
+from cocotblib.Scorboard import ScorboardOutOfOrder
+
+from cocotblib.Stream import Transaction, StreamMonitor
 
 
 class ReadOnlyMasterMonitor(Infrastructure):
@@ -8,7 +10,7 @@ class ReadOnlyMasterMonitor(Infrastructure):
         self.axi = axi
         self.dut = dut
         self.readRspCounter = 0
-        self.readRspScoreboard = StreamScorboardOutOfOrder("readRspScoreboard",self)
+        self.readRspScoreboard = ScorboardOutOfOrder("readRspScoreboard", self)
 
     def createInfrastructure(self):
         StreamMonitor(self.axi.ar, self.onReadCmd, self.dut.clk, self.dut.reset)
@@ -46,7 +48,7 @@ class WriteOnlyMasterMonitor(Infrastructure):
         self.axi = axi
         self.dut = dut
         self.writeRspCounter = 0
-        self.writeRspScoreboard = StreamScorboardOutOfOrder("writeRspScoreboard",self)
+        self.writeRspScoreboard = ScorboardOutOfOrder("writeRspScoreboard", self)
 
     def createInfrastructure(self):
         StreamMonitor(self.axi.aw, self.onWriteCmd, self.dut.clk, self.dut.reset)

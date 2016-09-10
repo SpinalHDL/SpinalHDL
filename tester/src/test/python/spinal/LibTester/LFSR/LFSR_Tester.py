@@ -1,12 +1,9 @@
 import cocotb
-from cocotb.triggers import Timer, Edge, RisingEdge
+from cocotb.triggers import RisingEdge
+from cocotblib.misc import assertEquals, randInt
 
-from spinal.common.ClockDomain import ClockDomain, RESET_ACTIVE_LEVEL
-
-from spinal.common.misc import assertEquals, randInt
-
+from cocotblib.ClockDomain import ClockDomain, RESET_ACTIVE_LEVEL
 from spinal.LibTester.LFSR.LFSR import *
-
 
 
 ###############################################################################

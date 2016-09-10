@@ -1,17 +1,11 @@
-import random
-from Queue import Queue
-
 import array
+
 import cocotb
-from cocotb import scheduler
-from cocotb.regression import TestFactory, _create_test
 from cocotb.result import TestFailure, TestSuccess
+from cocotb.triggers import Edge, RisingEdge
 
-
-from cocotb.triggers import Timer, Edge, RisingEdge, Join, Event, FallingEdge
-
-from spinal.common.misc import setBit, randSignal, assertEquals, truncUInt, sint, ClockDomainAsyncReset, randBoolSignal, \
-    BoolRandomizer, simulationSpeedPrinter
+from cocotblib.misc import randSignal, ClockDomainAsyncReset, randBoolSignal, \
+    simulationSpeedPrinter
 
 
 def loadIHex(path,array):

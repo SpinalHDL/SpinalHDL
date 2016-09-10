@@ -1,12 +1,8 @@
-import random
-from Queue import Queue
-
 import cocotb
 from cocotb.result import TestFailure
-from cocotb.triggers import Timer, Edge, RisingEdge, Join, Event, FallingEdge
+from cocotb.triggers import Timer
 
-from spinal.common.misc import setBit, randSignal, assertEquals, truncUInt, sint, ClockDomainAsyncReset, randBoolSignal, \
-    BoolRandomizer, simulationSpeedPrinter, truncSInt
+from cocotblib.misc import randSignal, truncUInt, sint, truncSInt
 
 
 def check(signal,bitCount,value):

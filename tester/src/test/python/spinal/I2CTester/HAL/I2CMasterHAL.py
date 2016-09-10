@@ -1,7 +1,4 @@
-import cocotb
-from cocotb.triggers import RisingEdge, Event
-
-from spinal.common.misc import assertEquals
+from cocotb.triggers import Timer
 
 from spinal.I2CTester.HAL.I2CHAL import *
 

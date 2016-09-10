@@ -2,16 +2,13 @@
 # Test for the I2C Master HAL
 #
 ###############################################################################
-
-import cocotb
-from cocotb.triggers import Timer, RisingEdge, FallingEdge, Event
-
-
-from spinal.common.ClockDomain         import ClockDomain, RESET_ACTIVE_LEVEL
-from spinal.I2CTester.HAL.I2CMasterHAL import I2CMasterHAL
-from spinal.I2CTester.HAL.I2CHAL       import *
+from cocotb.triggers import Timer
 
 from I2CSlaveModelHAL import I2CSlaveModelHAL
+from cocotblib.ClockDomain import ClockDomain, RESET_ACTIVE_LEVEL
+from spinal.I2CTester.HAL.I2CHAL       import *
+from spinal.I2CTester.HAL.I2CMasterHAL import I2CMasterHAL
+
 
 ###############################################################################
 # Basic test

@@ -1,14 +1,10 @@
 import random
 from Queue import Queue
 
-import cocotb
-from cocotb.result import TestFailure
-from cocotb.triggers import Timer, RisingEdge
+from cocotblib.Phase import Infrastructure, PHASE_WAIT_TASKS_END
+from cocotblib.misc import randBits, BoolRandomizer
 
-from spinal.common.Axi4 import Axi4, Axi4ReadOnly, Axi4WriteOnly, Axi4Shared
-from spinal.common.Phase import PhaseManager, Infrastructure, PHASE_CHECK_SCORBOARDS, PHASE_WAIT_TASKS_END
-from spinal.common.Stream import StreamDriverSlave, StreamDriverMaster, Transaction, StreamMonitor
-from spinal.common.misc import ClockDomainAsyncReset, simulationSpeedPrinter, randBits, BoolRandomizer, assertEquals
+from cocotblib.Stream import StreamDriverSlave, StreamDriverMaster, Transaction
 
 
 class WriteOnlyMasterDriver(Infrastructure):
