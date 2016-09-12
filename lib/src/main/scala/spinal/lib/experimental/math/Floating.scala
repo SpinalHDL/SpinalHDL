@@ -38,7 +38,7 @@ case class Floating(exponentSize: Int,
     val normalizedMantissa = (mantissa << firstMantissaBit)(mantissaSize-1 downto 0)
 
     val denormExponent = B(recExponentSize bits, default -> True) ^ firstMantissaBit.asBits.resized
-    val recodedExponent = (Mux(isExponentZero, denormExponent, exponent).asUInt +
+    val recodedExponent = (Mux(isExponentZero, denormExponent, B(0, 1 bit) ## exponent).asUInt +
       ((1 << recExponentSize - 2) | Mux(isExponentZero, U(3), U(1)).resized)).asBits
 
     val isNaN = recodedExponent(recExponentSize -1 downto recExponentSize - 2) === 3 && !isMantissaZero
