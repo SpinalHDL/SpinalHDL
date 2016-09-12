@@ -49,16 +49,9 @@ case class Floating(exponentSize: Int,
 
       var shiftAmount = 0
       var shiftedMantissa = inputValue
-      while ((shiftedMantissa.toBigInt() & (1 << (mantissaSize + 1))) != (1 << (mantissaSize + 1))) {
+      while ((shiftedMantissa.toBigInt() & (BigInt(1) << mantissaSize)) == 0) {
         shiftedMantissa *= 2
         shiftAmount += 1
-      }
-
-      shiftAmount -= 1 // Correction for shift one place too far
-
-      shiftedMantissa = inputValue
-      for (shift <- 0 to shiftAmount - 1) {
-        shiftedMantissa *= 2
       }
 
       def firstBitIndex = mantissaSize - shiftAmount
@@ -366,16 +359,9 @@ case class RecFloating(exponentSize: Int,
 
       var shiftAmount = 0
       var shiftedMantissa = inputValue
-      while ((shiftedMantissa.toBigInt() & (1 << (mantissaSize + 1))) != (1 << (mantissaSize + 1))) {
+      while ((shiftedMantissa.toBigInt() & (BigInt(1) << mantissaSize)) == 0) {
         shiftedMantissa *= 2
         shiftAmount += 1
-      }
-
-      shiftAmount -= 1 // Correction for shift one place too far
-
-      shiftedMantissa = inputValue
-      for (shift <- 0 to shiftAmount - 1) {
-        shiftedMantissa *= 2
       }
 
       def firstBitIndex = mantissaSize - shiftAmount
