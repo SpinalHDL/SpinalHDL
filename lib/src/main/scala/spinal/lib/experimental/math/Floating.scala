@@ -20,6 +20,9 @@ case class Floating(exponentSize: Int,
   /** Sign field (true when negative) */
   val sign = Bool
 
+  /** Value of the exponent bias for this float configuration */
+  def getExponentBias = ((1 << (exponentSize - 1)) - 1)
+
   private def isExponentZero = exponent === 0
   private def isMantissaZero = mantissa === 0
 
@@ -28,6 +31,42 @@ case class Floating(exponentSize: Int,
 
   /** Return true if the number is positive */
   def isPositive = !sign
+
+  /**
+    * Assign decimal value to the Floating
+    * @param that BigDecimal value
+    */
+  def := (that: BigDecimal) = {
+    // Handle zero case
+    if (that == 0) {
+      this.exponent := B(0)
+      this.mantissa := B(0)
+      this.sign := False
+
+    } else {
+
+      val inputValue = that.abs
+
+      var shiftAmount = 0
+      var shiftedMantissa = inputValue
+      while ((shiftedMantissa.toBigInt() & (1 << (mantissaSize + 1))) != (1 << (mantissaSize + 1))) {
+        shiftedMantissa *= 2
+        shiftAmount += 1
+      }
+
+      shiftAmount -= 1 // Correction for shift one place too far
+
+      shiftedMantissa = inputValue
+      for (shift <- 0 to shiftAmount - 1) {
+        shiftedMantissa *= 2
+      }
+
+      def firstBitIndex = mantissaSize - shiftAmount
+      this.mantissa := B(shiftedMantissa.toBigInt()).resized
+      this.exponent := (getExponentBias + firstBitIndex)
+      this.sign := Bool(that < 0)
+    }
+  }
 
   /** return this number recoded into Berkeley encoding */
   def toRecFloating = {
@@ -55,6 +94,17 @@ case class Floating(exponentSize: Int,
   /** Import number from a Berkeley encoded float number */
   def fromRecFloating(that: RecFloating) = that.toFloating
 
+  /**
+    * Initialization function
+    * @param that initialization value
+    * @return returns initialized object
+    */
+  def init(that: BigDecimal): this.type = {
+    val initValue = cloneOf(this)
+    initValue := that
+    this init (initValue)
+    this
+  }
 }
 
 /** Half precision IEEE 754 */
@@ -300,11 +350,59 @@ case class RecFloating(exponentSize: Int,
   }
 
   /**
+    * Assign double value to the Floating
+    * @param that BigDecimal value
+    */
+  def := (that: BigDecimal) = {
+    // Handle zero case
+    if (that == 0) {
+      this.exponent := B(0)
+      this.mantissa := B(0)
+      this.sign := False
+
+    } else {
+
+      val inputValue = that.abs
+
+      var shiftAmount = 0
+      var shiftedMantissa = inputValue
+      while ((shiftedMantissa.toBigInt() & (1 << (mantissaSize + 1))) != (1 << (mantissaSize + 1))) {
+        shiftedMantissa *= 2
+        shiftAmount += 1
+      }
+
+      shiftAmount -= 1 // Correction for shift one place too far
+
+      shiftedMantissa = inputValue
+      for (shift <- 0 to shiftAmount - 1) {
+        shiftedMantissa *= 2
+      }
+
+      def firstBitIndex = mantissaSize - shiftAmount
+      this.mantissa := B(shiftedMantissa.toBigInt()).resized
+      this.exponent := (getExponentBias + getExponentZero + firstBitIndex)
+      this.sign := Bool(that < 0)
+    }
+  }
+
+  /**
     * Overrides assignment operator
     * @param that Integer number that will be assigned to the converted floating value
     */
   def assignTo(that: SInt): Unit = {
     that := this.toSInt(that.getWidth)
+  }
+
+  /**
+    * Initialization function
+    * @param that initialization value
+    * @return returns initialized object
+    */
+  def init(that: BigDecimal): this.type = {
+    val initValue = cloneOf(this)
+    initValue := that
+    this init (initValue)
+    this
   }
 
 }
