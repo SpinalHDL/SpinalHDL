@@ -440,7 +440,7 @@ class des(_baseDes):
 
     def __BitList_to_String(self, data):
         """Turn the list of bits -> data, into a string"""
-        print("Bit list to string " , data)
+        #print("Bit list to string " , data)
         result = []
         pos = 0
         c = 0
@@ -464,8 +464,10 @@ class des(_baseDes):
     # Create the 16 subkeys, K[1] - K[16]
     def __create_sub_keys(self):
         """Create the 16 subkeys K[1] to K[16] from the given key"""
+        #print("key : ", self.__String_to_BitList(self.getKey()))
         key = self.__permutate(des.__pc1, self.__String_to_BitList(self.getKey()))
-        print("pyDES : Key  After permutation: " , hex(int("".join(map(lambda x: str(x), key)),2)))
+
+        #print("pyDES : Key  After permutation: " , '{0:016x}'.format(int("".join(map(lambda x: str(x), key)),2)))
         i = 0
         # Split into Left and Right sections
         self.L = key[:28]
@@ -482,12 +484,12 @@ class des(_baseDes):
 
                 j += 1
 
-            print("B%i : " %(i) , hex(int("".join(map(lambda x: str(x), self.L + self.R)),2)))
+            #print("B%i : " %(i) , hex(int("".join(map(lambda x: str(x), self.L + self.R)),2)))
 
             # Create one of the 16 subkeys through pc2 permutation
             self.Kn[i] = self.__permutate(des.__pc2, self.L + self.R)
 
-            print("K%i : " %(i) , hex(int("".join(map(lambda x: str(x), self.Kn[i])),2)))
+            #print("K%i : " %(i) , '{0:012x}'.format(int("".join(map(lambda x: str(x), self.Kn[i])),2)))
 
             i += 1
 
@@ -495,6 +497,7 @@ class des(_baseDes):
     def __des_crypt(self, block, crypt_type):
         """Crypt the block of data through DES bit-manipulation"""
         block = self.__permutate(des.__ip, block)
+        #print("init permut : " , '{0:016x}'.format(int("".join(map(lambda x: str(x), block)),2)))
         self.L = block[:32]
         self.R = block[32:]
 
@@ -517,6 +520,9 @@ class des(_baseDes):
 
             # Exclusive or R[i - 1] with K[i], create B[1] to B[8] whilst here
             self.R = list(map(lambda x, y: x ^ y, self.R, self.Kn[iteration]))
+
+            #print("B : " , '{0:016x}'.format(int("".join(map(lambda x: str(x), self.R)),2)))
+
             B = [self.R[:6], self.R[6:12], self.R[12:18], self.R[18:24], self.R[24:30], self.R[30:36], self.R[36:42], self.R[42:]]
             # Optimization: Replaced below commented code with above
             #j = 0
@@ -526,6 +532,8 @@ class des(_baseDes):
             #	j += 1
             #	if j % 6 == 0:
             #		B.append(self.R[j-6:j])
+
+
 
             # Permutate B[1] to B[8] using the S-Boxes
             j = 0
@@ -539,17 +547,25 @@ class des(_baseDes):
                 # Find the permutation value
                 v = des.__sbox[j][(m << 4) + n]
 
+                #print("S%i"%(j), hex(v), B[j])
+
                 # Turn value into bits, add it to result: Bn
                 Bn[pos] = (v & 8) >> 3
                 Bn[pos + 1] = (v & 4) >> 2
                 Bn[pos + 2] = (v & 2) >> 1
                 Bn[pos + 3] = v & 1
 
+                #print("BnXX : " , '{0:016x}'.format(int("".join(map(lambda x: str(x), Bn)),2)))
+
                 pos += 4
                 j += 1
 
+            #print("Bn : " , '{0:016x}'.format(int("".join(map(lambda x: str(x), Bn)),2)))
+
             # Permutate the concatination of B[1] to B[8] (Bn)
             self.R = self.__permutate(des.__p, Bn)
+
+            #print("R : " , '{0:016x}'.format(int("".join(map(lambda x: str(x), self.R)),2)))
 
             # Xor with L[i - 1]
             self.R = list(map(lambda x, y: x ^ y, self.R, self.L))

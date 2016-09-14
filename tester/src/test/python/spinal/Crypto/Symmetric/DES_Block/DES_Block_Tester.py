@@ -70,10 +70,8 @@ def test_DES_Block(dut):
 
     dut.log.info("Cocotb test DES Block")
 
-
     helperDES    = DES_Block_Helper(dut)
-    clockDomain  = ClockDomain(helperDES.io.clk, 500, helperDES.io.resetn , RESET_ACTIVE_LEVEL.LOW)
-
+    clockDomain  = ClockDomain(helperDES.io.clk, 200, helperDES.io.resetn , RESET_ACTIVE_LEVEL.LOW)
 
     # Start clock
     cocotb.fork(clockDomain.start())
@@ -83,43 +81,13 @@ def test_DES_Block(dut):
     yield clockDomain.event_endReset.wait()
 
 
-    #key = 0xAABB09182736CCDD
-    key = 0x0000000000000000
-    key = 0xFFFF00000000FFFF
-
-
-    # drop parity of the key
-    keyParity = KeyTmp()
-    listOriginalKey = [str(x) for x in '{0:064b}'.format(key)]
-    listKey  = keyParity.keyDropParity( listOriginalKey[::-1] )
-    keyDrop  = int("".join(listKey),2)
-    print("Key start send : ", hex(keyDrop))
-
-
-    # swap key drop before sending TODO ?????????
-    endian1 = listOriginalKey[0:8]
-    endian2 = listOriginalKey[8:16]
-    endian3 = listOriginalKey[16:24]
-    endian4 = listOriginalKey[24:32]
-    endian5 = listOriginalKey[32:40]
-    endian6 = listOriginalKey[40:48]
-    endian7 = listOriginalKey[48:56]
-    endian8 = listOriginalKey[56:64]
-    print(endian1)
-    print(endian2)
-    print(endian3)
-    print(endian4)
-    print(endian5)
-    print(endian6)
-    print(endian7)
-    print(endian8)
-    #listOriginalKey = endian1 + endian2 + endian3 + endian4 + endian5 + endian6 + endian7 + endian8
-    listOriginalKey = endian8 + endian7 + endian6 + endian5 + endian4 + endian3 + endian2 + endian1
+    key  = 0xAABB09182736CCDD
+    data = 0x123456ABCD132536
 
     #
     helperDES.io.cmd.valid         <= 1
-    helperDES.io.cmd.payload.key   <= keyDrop
-    helperDES.io.cmd.payload.block <= 0x226565
+    helperDES.io.cmd.payload.key   <= key #keyDrop
+    helperDES.io.cmd.payload.block <= data
 
 
     yield RisingEdge(helperDES.io.clk)
@@ -127,6 +95,19 @@ def test_DES_Block(dut):
     yield RisingEdge(helperDES.io.clk)
     yield RisingEdge(helperDES.io.clk)
     yield RisingEdge(helperDES.io.clk)
+    yield RisingEdge(helperDES.io.clk)
+    yield RisingEdge(helperDES.io.clk)
+    yield RisingEdge(helperDES.io.clk)
+    yield RisingEdge(helperDES.io.clk)
+    yield RisingEdge(helperDES.io.clk)
+    yield RisingEdge(helperDES.io.clk)
+    yield RisingEdge(helperDES.io.clk)
+    yield RisingEdge(helperDES.io.clk)
+    yield RisingEdge(helperDES.io.clk)
+    yield RisingEdge(helperDES.io.clk)
+    yield RisingEdge(helperDES.io.clk)
+    yield RisingEdge(helperDES.io.clk)
+
 
     helperDES.io.cmd.valid         <= 0
 
@@ -134,11 +115,12 @@ def test_DES_Block(dut):
 
 
     # model DES
-    data = "Please encrypt my data"
+    #data = "Please encrypt my data"
+    #sdata =
     k    = des(int_2_String(key), CBC, "\0\0\0\0\0\0\0\0", pad=None, padmode=PAD_PKCS5)
 
 
-    #print("Encrypted message", (k.encrypt(data)).encode('hex') )
+    print("Encrypted message", (k.encrypt(int_2_String(data))).encode('hex') )
 
 
     dut.log.info("Cocotb end test DES Block")

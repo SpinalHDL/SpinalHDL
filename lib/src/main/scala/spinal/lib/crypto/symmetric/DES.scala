@@ -76,7 +76,7 @@ case class DESGenerics(initialPermutation  : Seq[Int] = Seq(58, 50, 42, 34, 26, 
 }
 
 case class DEScmd(g : DESGenerics) extends Bundle{
-  val key   = Bits(g.keyWidth)
+  val key   = Bits(64 bits)
   val block = Bits(g.blockWidth)
 }
 
@@ -97,7 +97,7 @@ class DES(g : DESGenerics) extends Component{
 
   val roundNbr = UInt(log2Up(g.nbrRound) bits)
   val init : Bool = io.cmd.valid.rise(False)
-  val nextRound   = Reg(Bool) init(False) setWhen(init) clearWhen(roundNbr === g.nbrRound)
+  val nextRound   = Reg(Bool) init(False) setWhen(init) clearWhen(roundNbr === (g.nbrRound+1))
 
 
   val ctnRound = new Area{
@@ -110,38 +110,37 @@ class DES(g : DESGenerics) extends Component{
   }
 
 
-
+  /**
+    * Initial permutation
+    */
   val initialPermutation = new Area{
-    val perm = Cat(g.initialPermutation.map(index => io.cmd.block(index - 1)))
+    val perm = Reverse(Cat(g.initialPermutation.map(index => io.cmd.block(64 - index ))))
   }
 
 
-
-
+  /**
+    * Key scheduling
+    */
   val keySchedule = new Area{
 
     val shiftKey   = Reg(Bits(g.keyWidth))
 
-    val leftRange  = 55 downto 28
-    val rightRange = 27 downto 0
-
     // parity drop : 64bits -> 56 bits
-    // TODO : check if the key is 56 or 64 bits
-    when(init){ shiftKey := io.cmd.key } //Cat(g.pc_1.map(index => io.cmd.key(index-1))) }
+    when(init){ shiftKey := Reverse(Cat(g.pc_1.map(index => io.cmd.key(64 - index)))) }
 
-    // shift key
-    val shiftRes   = Bits(56 bits)
+    // rotate left the key (key is divided into two groups of 28 bits)
+    val shiftRes   = Bits(g.keyWidth)
     when(g.oneShiftRound.map(index => ctnRound.round === (index-1)).reduce(_ || _) ){
-      shiftRes  := shiftKey(leftRange).asBits.rotateLeft(1) ## shiftKey(rightRange).asBits.rotateLeft(1)
+      shiftRes  := shiftKey(55 downto 28).rotateLeft(1) ## shiftKey(27 downto 0).rotateLeft(1)
     }otherwise{
-      shiftRes  := shiftKey(leftRange).asBits.rotateLeft(2) ## shiftKey(rightRange).asBits.rotateLeft(2)
+      shiftRes  := shiftKey(55 downto 28).rotateLeft(2) ## shiftKey(27 downto 0).rotateLeft(2)
     }
 
     // update key shift
     when(nextRound){ shiftKey := shiftRes }
 
     // compression : (56bits -> 48 bits)
-    val keyRound = Cat(g.pc_2.map(index => shiftRes(56 - index )))
+    val keyRound = Reverse(Cat(g.pc_2.map(index => shiftRes(56 - index))))
   }
 
 
@@ -160,27 +159,25 @@ class DES(g : DESGenerics) extends Component{
     val rightRound   = Bits(32 bits) // set in roundArea
 
     // xor the key with the right block expanded(32 bits -> 48 bits)
-    val xorRes = keySchedule.keyRound ^ Cat(g.expansion.map(index => rightRound(index-1)))
+    val xorRes = keySchedule.keyRound ^ Reverse(Cat(g.expansion.map(index => rightRound(32 - index))))
 
     // sBox stage
     val boxRes   = Bits(32 bits)
-    for(i <- 0 to sBox.size-1){
+    for(i <- 0 until sBox.size){
       val addrSBox = xorRes(i*6+6-1 downto i*6)
-      boxRes(i*4+4-1 downto i*4) := sBox(i).readAsync( (addrSBox(5) ## addrSBox(0) ## addrSBox(4 downto 1)).asUInt )
+      boxRes(i*4+4-1 downto i*4) := sBox(sBox.size-i-1).readAsync( (addrSBox(5) ## addrSBox(0) ## addrSBox(4 downto 1)).asUInt )
     }
 
     // fixed permutation
-    val rResult = Cat(g.fixedPermutation.map(index => boxRes(index - 1)))
+    val rResult = Reverse(Cat(g.fixedPermutation.map(index => boxRes(32 - index))))
   }
 
 
   val roundArea = new Area{
+
     val inBlock    = Reg(Bits(g.blockWidth))
 
-    val leftRange  = 63 downto 32
-    val rightRange = 31 downto 0
-
-    val outBlock = inBlock(rightRange) ## (inBlock(leftRange) ^ funcDES.rResult)
+    val outBlock = inBlock(31 downto 0) ## (inBlock(63 downto 32) ^ funcDES.rResult)
 
     when(init){ inBlock := initialPermutation.perm }
     when(nextRound){ inBlock := outBlock }
@@ -191,7 +188,7 @@ class DES(g : DESGenerics) extends Component{
 
 
   val finalPermutation = new Area{
-    val perm = Cat(g.finalPermutation.map(index => roundArea.outBlock(index - 1)))
+    val perm = Reverse(Cat(g.finalPermutation.map(index => roundArea.outBlock(64 - index))))
   }
 
   io.res.block := finalPermutation.perm // TODOD : regNext output ??

@@ -481,7 +481,6 @@ object PlayDesBlock{
       val res  = master Flow(DESrsp(g))
     }
 
-
     val des = new DES(g)
 
     des.io <> io
