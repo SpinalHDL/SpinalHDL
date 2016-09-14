@@ -6,6 +6,8 @@
   *       (64 bits)     |_________|   (64 bits)
   *                          |
   *                      Key (56 bits)
+  *                          |
+  *                 Key + parity (64 bits)
   */
 package spinal.lib.crypto.symmetric
 
@@ -75,11 +77,15 @@ case class DESGenerics(initialPermutation  : Seq[Int] = Seq(58, 50, 42, 34, 26, 
   val oneShiftRound = List(1,2,9,16) // 1 left for 1,2,9,16 and others 2 left shift
 }
 
+// TODO : Implement the decrypt function
+case class DESConfig() extends Bundle{
+  val encDec = Bool
+}
+
 case class DEScmd(g : DESGenerics) extends Bundle{
   val key   = Bits(64 bits)
   val block = Bits(g.blockWidth)
 }
-
 
 case class DESrsp(g: DESGenerics) extends Bundle{
   val block = Bits(g.blockWidth)
@@ -97,9 +103,12 @@ class DES(g : DESGenerics) extends Component{
 
   val roundNbr = UInt(log2Up(g.nbrRound) bits)
   val init : Bool = io.cmd.valid.rise(False)
-  val nextRound   = Reg(Bool) init(False) setWhen(init) clearWhen(roundNbr === (g.nbrRound+1))
+  val nextRound   = Reg(Bool) init(False) setWhen(init) clearWhen(roundNbr === (g.nbrRound))
 
 
+  /**
+    * Count the number of round
+    */
   val ctnRound = new Area{
     val round = Reg(UInt(log2Up(g.nbrRound) bits))
 
@@ -114,7 +123,7 @@ class DES(g : DESGenerics) extends Component{
     * Initial permutation
     */
   val initialPermutation = new Area{
-    val perm = Reverse(Cat(g.initialPermutation.map(index => io.cmd.block(64 - index ))))
+    val perm = Reverse(Cat(g.initialPermutation.map(index => io.cmd.block(64 - index))))
   }
 
 
@@ -144,6 +153,9 @@ class DES(g : DESGenerics) extends Component{
   }
 
 
+  /**
+    * Des function
+    */
   val funcDES = new Area{
 
     // list of SBox ROM 1 to 8
@@ -173,22 +185,35 @@ class DES(g : DESGenerics) extends Component{
   }
 
 
-  val roundArea = new Area{
+  /**
+    * Feistel
+    */
+  val feistel = new Area{
 
-    val inBlock    = Reg(Bits(g.blockWidth))
+    val inBlock = Reg(Bits(g.blockWidth))
 
-    val outBlock = inBlock(31 downto 0) ## (inBlock(63 downto 32) ^ funcDES.rResult)
+    val outBlock = Bits(g.blockWidth)
+
+    val xorLeft = inBlock(63 downto 32) ^ funcDES.rResult
+
+    when(roundNbr === 15){
+      outBlock := xorLeft ## inBlock(31 downto 0)
+    }otherwise{
+      outBlock := inBlock(31 downto 0) ## xorLeft
+    }
 
     when(init){ inBlock := initialPermutation.perm }
     when(nextRound){ inBlock := outBlock }
 
-    funcDES.rightRound  := inBlock(rightRange)
+    funcDES.rightRound  := inBlock(31 downto 0)
   }
 
 
-
+  /**
+    * Final Permutation of the Block
+    */
   val finalPermutation = new Area{
-    val perm = Reverse(Cat(g.finalPermutation.map(index => roundArea.outBlock(64 - index))))
+    val perm = Reverse(Cat(g.finalPermutation.map(index => feistel.outBlock(64 - index))))
   }
 
   io.res.block := finalPermutation.perm // TODOD : regNext output ??
