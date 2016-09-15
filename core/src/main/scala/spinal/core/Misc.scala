@@ -59,6 +59,14 @@ object widthOf {
   def apply[T <: Data](that: T): Int = that.getBitsWidth
 }
 
+object HardType{
+  implicit def implFactory[T <: Data](t : T) = new HardType(t)
+}
+
+class HardType[T <: Data](t : T){
+  def apply() = cloneOf(t)
+}
+
 object signalCache {
   def apply[T <: Data](key: Object, subKey: Object, factory: () => T): T = {
     val cache = GlobalData.get.componentStack.head().userCache.getOrElseUpdate(key, scala.collection.mutable.Map[Object, Object]())

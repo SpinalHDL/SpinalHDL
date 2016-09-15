@@ -491,14 +491,18 @@ object PlayRotateInt{
 object PlayVecAssign{
   class TopLevel extends Component {
     val sel = in UInt(2 bits)
-    val outputs = out Vec(Bool,4)
+    val outputs = out Vec(Reg(Bool) init(False),4)
 
     outputs.foreach(_ := False)
     outputs(sel) := True
   }
 
   def main(args: Array[String]) {
-    SpinalVhdl(new TopLevel)
+    SpinalVhdl({
+      val toplevel = new TopLevel
+      ClockDomain.current.reset.setName("areset")
+      toplevel
+    })
   }
 }
 
@@ -507,9 +511,53 @@ object PlayMuxBits{
   class TopLevel extends Component {
     val sel = in Bool
     val result = out(sel ? U(2) | U(1,1 bits))
+    val result2 = out SInt(4 bits)
+    result2 := S(-9,4 bits)
   }
 
   def main(args: Array[String]) {
     SpinalConfig(genVhdlPkg = false).generateVhdl(new TopLevel)
+    BigDecimal(2).toDouble
   }
+}
+
+
+
+object PlayImplicitParameter{
+  def yolo(implicit x : Int = 0) = x + 1
+
+  def main(args: Array[String]) {
+    println(yolo)
+    implicit val newImplicit = 10
+    println(yolo)
+  }
+}
+
+
+
+object PlayTypedef{
+  class TopLevel(t : HardType[Data]) extends Component {
+    val input = in(t())
+    val output = out(t())
+    output := input
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel(UInt(3 bits)))
+  }
+}
+
+
+object PlayRamInfer{
+  val mem = Mem(Bits(32 bits),wordCount = 256)
+  mem.write(
+    enable  = io.writeValid,
+    address = io.writeAddress,
+    data    = io.writeData
+  )
+
+  io.readData := mem.readSync(
+    enable  = io.readValid,
+    address = io.readAddress
+  )
 }
