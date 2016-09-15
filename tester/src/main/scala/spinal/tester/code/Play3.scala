@@ -549,15 +549,15 @@ object PlayTypedef{
 
 
 object PlayRamInfer{
-  val mem = Mem(Bits(32 bits),wordCount = 256)
-  mem.write(
-    enable  = io.writeValid,
-    address = io.writeAddress,
-    data    = io.writeData
-  )
-
-  io.readData := mem.readSync(
-    enable  = io.readValid,
-    address = io.readAddress
-  )
+//  val mem = Mem(Bits(32 bits),wordCount = 256)
+//  mem.write(
+//    enable  = io.writeValid,
+//    address = io.writeAddress,
+//    data    = io.writeData
+//  )
+//
+//  io.readData := mem.readSync(
+//    enable  = io.readValid,
+//    address = io.readAddress
+//  )
 }
