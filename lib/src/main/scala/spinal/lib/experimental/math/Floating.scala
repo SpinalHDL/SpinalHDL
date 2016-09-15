@@ -49,16 +49,9 @@ case class Floating(exponentSize: Int,
 
       var shiftAmount = 0
       var shiftedMantissa = inputValue
-      while ((shiftedMantissa.toBigInt() & (1 << (mantissaSize + 1))) != (1 << (mantissaSize + 1))) {
+      while ((shiftedMantissa.toBigInt() & (BigInt(1) << mantissaSize)) == 0) {
         shiftedMantissa *= 2
         shiftAmount += 1
-      }
-
-      shiftAmount -= 1 // Correction for shift one place too far
-
-      shiftedMantissa = inputValue
-      for (shift <- 0 to shiftAmount - 1) {
-        shiftedMantissa *= 2
       }
 
       def firstBitIndex = mantissaSize - shiftAmount
@@ -105,6 +98,13 @@ case class Floating(exponentSize: Int,
     this init (initValue)
     this
   }
+
+  /**
+    * Absolute value
+    * @return Absolute value of this float
+    */
+  def abs: Floating = FloatingAbs(this)
+
 }
 
 /** Half precision IEEE 754 */
@@ -238,36 +238,20 @@ case class RecFloating(exponentSize: Int,
   }
 
   /** Convert floating point to UInt */
-  def toUInt(width: Int): UInt = toUnsignedInteger(width, 0)
+  def toUInt(width: Int): UInt = FloatingToUInt(this, width, 0)
 
   /** Convert floating point to SFix with width */
   def toUFix(peak: ExpNumber, width: BitCount) = {
     val UFixValue = UFix(peak, width)
-    UFixValue.raw := toUnsignedInteger(width.value, peak.value - width.value)
+    UFixValue.raw := FloatingToUInt(this, width.value, peak.value - width.value)
     UFixValue
   }
 
   /** Convert floating point to SFix with resolution */
   def toUFix(peak: ExpNumber, resolution: ExpNumber) = {
     val UFixValue = UFix(peak, resolution)
-    UFixValue.raw := toUnsignedInteger(peak.value - resolution.value, resolution.value)
+    UFixValue.raw := FloatingToUInt(this, peak.value - resolution.value, resolution.value)
     UFixValue
-  }
-
-  /**
-    * Convert the Floating number to an unsigned integer
-    * @param width Width of the output intger
-    * @param offset Exponent offset for the integer output
-    * @return Unsigned integer corresponding to the floating point value (truncated)
-    */
-  private def toUnsignedInteger(width: Int, offset: Int): UInt = {
-    val isNotZero = exponent(exponentSize-1 downto exponentSize-3).orR
-    val extendedMantissa = Bits(width bits)
-    extendedMantissa := (isNotZero ## mantissa).resizeLeft(width)
-    val exponentOffset = exponent.asUInt - U(getExponentZero + getExponentBias)
-    val shift = width - 1 - exponentOffset - offset
-    val outputMantissa = (extendedMantissa >> shift)
-    outputMantissa.asUInt
   }
 
   /**
@@ -316,37 +300,20 @@ case class RecFloating(exponentSize: Int,
   }
 
   /** Convert floating point to SInt */
-  def toSInt(width: Int): SInt = toSignedInteger(width, 0)
+  def toSInt(width: Int): SInt = FloatingToSInt(this, width, 0)
 
   /** Convert floating point to SFix with width */
   def toSFix(peak: ExpNumber, width: BitCount) = {
     val SFixValue = SFix(peak, width)
-    SFixValue.raw := toSignedInteger(width.value, peak.value - width.value)
+    SFixValue.raw := FloatingToSInt(this, width.value, peak.value - width.value)
     SFixValue
   }
 
   /** Convert floating point to SFix with resolution */
   def toSFix(peak: ExpNumber, resolution: ExpNumber) = {
     val SFixValue = SFix(peak, resolution)
-    SFixValue.raw := toSignedInteger(peak.value - resolution.value, resolution.value)
+    SFixValue.raw := FloatingToSInt(this, peak.value - resolution.value, resolution.value)
     SFixValue
-  }
-
-  /**
-    * Convert the Floating number to a signed integer
-    * @param width Width ouf the output integer
-    * @param offset exponent offset value
-    * @return Signed integer corresponding to the Floating point value (truncated)
-    */
-  private def toSignedInteger(width: Int, offset: Int): SInt = {
-    val isNotZero = exponent(exponentSize-1 downto exponentSize-3).orR
-    val extendedMantissa = Bits(32 bits)
-    extendedMantissa := (isNotZero ## mantissa).resizeLeft(width)
-    val exponentOffset = exponent.asUInt - U(getExponentZero + getExponentBias)
-    val shift = width - 1 - exponentOffset - offset
-    val outputMantissa = (extendedMantissa >> shift)
-    val signedMantissa = (outputMantissa ^ B(width bits, (default -> sign))).asSInt - sign.asSInt
-    signedMantissa
   }
 
   /**
@@ -366,16 +333,9 @@ case class RecFloating(exponentSize: Int,
 
       var shiftAmount = 0
       var shiftedMantissa = inputValue
-      while ((shiftedMantissa.toBigInt() & (1 << (mantissaSize + 1))) != (1 << (mantissaSize + 1))) {
+      while ((shiftedMantissa.toBigInt() & (BigInt(1) << mantissaSize)) == 0) {
         shiftedMantissa *= 2
         shiftAmount += 1
-      }
-
-      shiftAmount -= 1 // Correction for shift one place too far
-
-      shiftedMantissa = inputValue
-      for (shift <- 0 to shiftAmount - 1) {
-        shiftedMantissa *= 2
       }
 
       def firstBitIndex = mantissaSize - shiftAmount
@@ -404,6 +364,12 @@ case class RecFloating(exponentSize: Int,
     this init (initValue)
     this
   }
+
+  /**
+    * Absolute value
+    * @return Absolute value of this float
+    */
+  def abs: RecFloating = FloatingAbs(this)
 
 }
 
