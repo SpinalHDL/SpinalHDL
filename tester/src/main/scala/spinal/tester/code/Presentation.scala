@@ -1577,4 +1577,21 @@ object CheatSheet{
 //  object myEnum extends SpinalEnum([encoding]){
 //    val IDLE, STATE1 = newElement()
 //  }
+object State extends SpinalEnum{
+
+    val IDLE, S0,S1,S2 = newElement()
+  }
+
+//  val myBool = Bool(4 < 2 )
+  val myBool = True
+  val myUInt = U(13, 32 bits)
+//  val myBits = B"8'hA3" // h,d,b,x,o
+  val myBits = B"0110"
+  val itMatch = myBits === M"00--10--"
+
+
+
+
+
+
 }
