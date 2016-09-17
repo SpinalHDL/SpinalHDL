@@ -371,6 +371,116 @@ case class RecFloating(exponentSize: Int,
     */
   def abs: RecFloating = FloatingAbs(this)
 
+
+  /**
+    * Less than
+    * @param that other side of the comparison
+    * @return true is this value is smaller than that
+    */
+  def < (that: RecFloating): Bool = {
+    val compare = FloatingCompare(this, that)
+    compare.lessThan
+  }
+
+  /**
+    * Less than constant
+    * @param that other side of the comparison
+    * @return true is this value is smaller than that
+    */
+  def < (that: BigDecimal): Bool = {
+    val constValue = cloneOf(this)
+    constValue := that
+    val compare = FloatingCompare(this, constValue)
+    compare.lessThan
+  }
+
+  /**
+    * Less than or equal
+    * @param that other side of the comparison
+    * @return true is this value is smaller or equal to that
+    */
+  def <= (that: RecFloating): Bool = {
+    val compare = FloatingCompare(this, that)
+    compare.lessThanEqual
+  }
+
+  /**
+    * Less than or equal to constant
+    * @param that other side of the comparison
+    * @return true is this value is smaller or equal to that
+    */
+  def <= (that: BigDecimal): Bool = {
+    val constValue = cloneOf(this)
+    constValue := that
+    val compare = FloatingCompare(this, constValue)
+    compare.lessThanEqual
+  }
+
+  /**
+    * Equals
+    * @param that other side of the comparison
+    * @return true is this value equals to that
+    */
+  def === (that: RecFloating): Bool = {
+    val compare = FloatingCompare(this, that)
+    compare.equals
+  }
+
+  /**
+    * Equals to constant
+    * @param that other side of the comparison
+    * @return true is this value equals to that
+    */
+  def === (that: BigDecimal): Bool = {
+    val constValue = cloneOf(this)
+    constValue := that
+    val compare = FloatingCompare(this, constValue)
+    compare.equals
+  }
+
+  /**
+    * Greater than
+    * @param that other side of the comparison
+    * @return true is this value is greater than that
+    */
+  def > (that: RecFloating): Bool = {
+    val compare = FloatingCompare(this, that)
+    compare.greaterThan
+  }
+
+  /**
+    * Greater than constant
+    * @param that other side of the comparison
+    * @return true is this value is greater than that
+    */
+  def > (that: BigDecimal): Bool = {
+    val constValue = cloneOf(this)
+    constValue := that
+    val compare = FloatingCompare(this, constValue)
+    compare.greaterThan
+  }
+
+  /**
+    * Greater than or equal
+    * @param that other side of the comparison
+    * @return true is this value is greater of equal to that
+    */
+  def >= (that: RecFloating): Bool = {
+    val compare = FloatingCompare(this, that)
+    compare.greaterThanEqual
+  }
+
+  /**
+    * Greater than or equal to constant
+    * @param that other side of the comparison
+    * @return true is this value is greater of equal to that
+    */
+  def >= (that: BigDecimal): Bool = {
+    val constValue = cloneOf(this)
+    constValue := that
+    val compare = FloatingCompare(this, constValue)
+    compare.greaterThanEqual
+  }
 }
 
 /** Half precision recoded Floating */
