@@ -1,6 +1,7 @@
 About SpinalHDL
 ============
-SpinalHDL is a scala library that allows the user to describe his digital hardware and then generate the corresponding VHDL/Verilog file.
+SpinalHDL is a programming language to describe digital hardware and then generate the corresponding VHDL/Verilog file.
+
 ## Advantages over VHDL/Verilog
 - No restriction to the genericity of your hardware description by using Scala constructs
 - No more endless wiring. Create and connect complex buses like AXI in one line.
