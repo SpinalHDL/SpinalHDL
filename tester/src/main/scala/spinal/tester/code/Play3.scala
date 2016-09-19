@@ -561,3 +561,37 @@ object PlayRamInfer{
 //    address = io.readAddress
 //  )
 }
+
+object PlayFifoVerilog{
+  def main(args: Array[String]) {
+    SpinalVerilog(new StreamFifo(Bits(8 bits),16))
+  }
+
+  class Ram_1w_1r(wordWidth: Int, wordCount: Int) extends BlackBox {
+
+    // SpinalHDL will lock at Generic classes to get attributes which
+    // should be used ad VHDL gererics / Verilog parameter
+    val generic = new Generic {
+      val wordCount = Ram_1w_1r.this.wordCount
+      val wordWidth = Ram_1w_1r.this.wordWidth
+    }
+
+    // Define io of the VHDL entiry / Verilog module
+    val io = new Bundle {
+      val clk = in Bool
+      val wr = new Bundle {
+        val en   = in Bool
+        val addr = in UInt (log2Up(wordCount) bit)
+        val data = in Bits (wordWidth bit)
+      }
+      val rd = new Bundle {
+        val en   = in Bool
+        val addr = in UInt (log2Up(wordCount) bit)
+        val data = out Bits (wordWidth bit)
+      }
+    }
+
+    //Map the current clock domain to the io.clk pin
+    mapClockDomain(clock=io.clk)
+  }
+}

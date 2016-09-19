@@ -801,9 +801,9 @@ class PhaseAllowNodesToReadOutputs(pc: PhaseContext) extends PhaseNetlist{
                 buffer.input = baseTypeInput.input
                 baseTypeInput.input = buffer
                 buffer.component = baseTypeInput.component
-                if(baseTypeInput.isNamed){
-                  buffer.setWeakName(baseTypeInput.getName() + "_readableBuffer")
-                }
+//                if(baseTypeInput.isNamed){
+//                  buffer.setWeakName(baseTypeInput.getName() + "_readableBuffer")
+//                }
                 SpinalTagReady.splitNewSink(source=baseTypeInput,sink=buffer)
                 buffer
               })
