@@ -144,7 +144,7 @@ class CounterWithParity(size : Int) extends Component{
 
 
 ## Why not Chisel ?
-For many reason : http://spinalhdl.github.io/SpinalDoc/#what-are-the-differences-between-chisel-vs-spinal-
+For many reason : http://spinalhdl.github.io/SpinalDoc/chisel/
 
 Other consideration
 ===============

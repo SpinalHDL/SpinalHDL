@@ -43,6 +43,7 @@ object UFix2D {
 
 
 abstract class XFix[T <: XFix[T, R], R <: BitVector with Num[R]](val maxExp: Int, val bitCount: Int) extends MultiData {
+  require(bitCount >= 0)
   val raw = rawFactory(maxExp, bitCount)
 
   def minExp: Int
@@ -178,7 +179,33 @@ class SFix(maxExp: Int, bitCount: Int) extends XFix[SFix, SInt](maxExp, bitCount
     other := that
     this >= other
   }
-
+  def >(that: Double): Bool = {
+    if (that > maxValue) {
+      SpinalWarning("Impossible comparison at " + ScalaLocated.long)
+      return False
+    }
+    val other = cloneOf(this)
+    other := that
+    this > other
+  }
+  def <(that: Double): Bool = {
+    if (that < minValue) {
+      SpinalWarning("Impossible comparison at " + ScalaLocated.long)
+      return False
+    }
+    val other = cloneOf(this)
+    other := that
+    this < other
+  }
+  def <=(that: Double): Bool = {
+    if (that < minValue) {
+      SpinalWarning("Impossible comparison at " + ScalaLocated.long)
+      return False
+    }
+    val other = cloneOf(this)
+    other := that
+    this <= other
+  }
   def :=(that: Double): Unit = {
     val value = BigDecimal.valueOf(that * math.pow(2.0, bitCount - maxExp - 1)).toBigInt()
     this.raw := value

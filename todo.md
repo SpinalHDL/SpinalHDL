@@ -2,8 +2,8 @@
 - [X] Fix B(default -> True)
 
 ## spinal.core
-- [ ] Add more double comparaison into fixedpoints
-- [ ] Fixedpoints, check construction arguments
+- [X] Add more double comparaison into fixedpoints
+- [X] Fixedpoints, check construction arguments
 - [X] Bits reg with init to big error message
 - [X] Need better error when inside a when, something to big is assigned
 - [x] Add regression for all implicit spinal hdl check like latch, comb loop etc
@@ -26,7 +26,7 @@
 
 ## spinal.lib
 
-- [ ] Check queue minimal latency of queue for AXI4WriteArbiter (probably 2, which is bad)
+- [X] Check queue minimal latency of queue for AXI4WriteArbiter (probably 2, which is bad)
 - [ ] Add more Mem Utils (Flow/Stream access)
 - [ ] Finalise and document many Stream utils
 - [ ] More spinal.lib basic utils (priority encoder, ..)
