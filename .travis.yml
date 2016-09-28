@@ -17,7 +17,7 @@ script:
 jdk:
   - oraclejdk8
   - oraclejdk7
-  - openjdk7
+#  - openjdk7
 
 before_install:
   # JDK fix

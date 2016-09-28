@@ -8,7 +8,7 @@
 - [X] Need better error when inside a when, something to big is assigned
 - [x] Add regression for all implicit spinal hdl check like latch, comb loop etc
 - [X] add xxx := (default -> True) support (no B/U/S prefix)
-- [ ] Add myBool := 0/1 ?
+- [/] Add myBool := 0/1 ?
 - [X] Add time/frequency DSL
 - [X] Do a improvment run on Mem (writeFirst, black box, vendor/family support, ...)
 - [X] MemBlackboxer currently manipulate Mem graph before with inferation (OK), but before with check (KO)

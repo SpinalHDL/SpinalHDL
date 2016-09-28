@@ -549,17 +549,14 @@ object PlayTypedef{
 
 
 object PlayRamInfer{
-//  val mem = Mem(Bits(32 bits),wordCount = 256)
-//  mem.write(
-//    enable  = io.writeValid,
-//    address = io.writeAddress,
-//    data    = io.writeData
-//  )
-//
-//  io.readData := mem.readSync(
-//    enable  = io.readValid,
-//    address = io.readAddress
-//  )
+  class TopLevel() extends Component {
+    val a = out(U(8 bits,1 -> True,default -> False))
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel())
+    SpinalVerilog(new TopLevel())
+  }
 }
 
 object PlayFifoVerilog{

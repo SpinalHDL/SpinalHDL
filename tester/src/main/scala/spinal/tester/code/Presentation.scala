@@ -1521,12 +1521,12 @@ object c4828{
       val sin = out SInt (resolutionWidth bits)
     }
 
-    def sinTable = (0 until sampleCount).map(sampleIndex => {
+    def sinTable() = (0 until sampleCount).map(sampleIndex => {
       val sinValue = Math.sin(2 * Math.PI * sampleIndex / sampleCount)
       S((sinValue * ((1 << resolutionWidth) / 2 - 1)).toInt, resolutionWidth bits)
     })
 
-    val rom   = Mem(SInt(resolutionWidth bit), initialContent = sinTable)
+    val rom   = Mem(SInt(resolutionWidth bit), initialContent = sinTable())
     val phase = CounterFreeRun(sampleCount)
     val sin   = rom.readSync(phase)
   }
