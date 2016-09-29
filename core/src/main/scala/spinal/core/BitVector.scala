@@ -82,6 +82,8 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
 
   def resize(width: Int): this.type
 
+
+
   private[core] override def calcWidth: Int = {
     if (isFixedWidth) return fixedWidth
     if (input == null) return -1
@@ -94,6 +96,17 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
     if (bitCount == -1) SpinalError("Can't convert to bools a Bit that has unspecified width value")
     for (i <- 0 until bitCount) vec += this (i)
     Vec(vec)
+  }
+
+  def subdivide(sliceCount : SlicesCount) : Vec[T] = {
+    require(this.getWidth % sliceCount.value == 0)
+    val sliceWidth = widthOf(this)/sliceCount.value
+    Vec((0 until sliceCount.value).map(i =>this(i*sliceWidth,sliceWidth bits).asInstanceOf[T]))
+  }
+
+  def subdivide(sliceWidth : BitCount) : Vec[T] = {
+    require(this.getWidth % sliceWidth.value == 0)
+    subdivide(this.getWidth / sliceWidth.value slices)
   }
 
   //extract bit

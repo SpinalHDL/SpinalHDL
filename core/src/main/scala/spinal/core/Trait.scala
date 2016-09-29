@@ -31,6 +31,9 @@ case class BitCount(val value: Int) {
   def /(right : BitCount) = BitCount(this.value / right.value)
   def %(right : BitCount) = BitCount(this.value % right.value)
 }
+case class SlicesCount(val value: Int) {
+}
+
 case class ExpNumber(val value: Int) {}
 case class PosCount(val value: Int) {}
 
