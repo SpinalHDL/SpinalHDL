@@ -22,6 +22,7 @@ import scala.collection.mutable.ArrayBuffer
 
 abstract class BitVector extends BaseType with Widthable with CheckWidth {
   private[core] var fixedWidth = -1
+  type T <: BitVector
 
   def high = getWidth - 1
   def msb = this (high)
@@ -30,6 +31,33 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
   def orR = this.asBits =/= 0
   def andR = this.asBits === ((BigInt(1) << getWidth) - 1)
   def xorR = this.asBools.reduce(_ ^ _)
+
+  def rotateLeft(that: Int): T
+  def rotateRight(that: Int): T
+
+  def rotateLeft(that: UInt): T = {
+    val thatWidth = widthOf(that)
+    val thisWidth = widthOf(this)
+    require(thatWidth <= log2Up(thisWidth))
+    var result = cloneOf(this).asInstanceOf[T]
+    result := this.asInstanceOf[T]
+    for(i <- that.range){
+      result \= (that(i) ? result.rotateLeft(1<<i).asInstanceOf[T] | result)
+    }
+    result
+  }
+
+  def rotateRight(that: UInt): T = {
+    val thatWidth = widthOf(that)
+    val thisWidth = widthOf(this)
+    require(thatWidth <= log2Up(thisWidth))
+    var result = cloneOf(this).asInstanceOf[T]
+    result := this.asInstanceOf[T]
+    for(i <- that.range){
+      result \= (that(i) ? result.rotateRight(1<<i).asInstanceOf[T] | result)
+    }
+    result
+  }
 
   private[core] def isFixedWidth = fixedWidth != -1
 

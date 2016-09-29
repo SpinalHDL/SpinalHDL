@@ -1076,7 +1076,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
   modifierImplMap.put("b<<i", shiftLeftByIntImpl)
   modifierImplMap.put("b>>u", operatorImplAsFunction("pkg_shiftRight"))
   modifierImplMap.put("b<<u", operatorImplAsFunction("pkg_shiftLeft"))
-  modifierImplMap.put("brotlu", operatorImplAsFunction("pkg_rotateLeft"))
+//  modifierImplMap.put("brotlu", operatorImplAsFunction("pkg_rotateLeft"))
 
 
 

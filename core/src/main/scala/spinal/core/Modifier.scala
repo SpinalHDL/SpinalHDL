@@ -256,12 +256,12 @@ object Operator{
     }
 
 
-    abstract class RotateLeftByUInt extends BinaryOperatorWidthableInputs with Widthable{
-      override def calcWidth(): Int = left.getWidth
-      override def normalizeInputs: Unit = {}
-      override def simplifyNode: Unit = {SymplifyNode.rotateImpl(getLiteralFactory,this)}
-      def getLiteralFactory : (BigInt, BitCount) => Node
-    }
+//    abstract class RotateLeftByUInt extends BinaryOperatorWidthableInputs with Widthable{
+//      override def calcWidth(): Int = left.getWidth
+//      override def normalizeInputs: Unit = {}
+//      override def simplifyNode: Unit = {SymplifyNode.rotateImpl(getLiteralFactory,this)}
+//      def getLiteralFactory : (BigInt, BitCount) => Node
+//    }
 
     abstract class AllByBool(val theConsumer : Node) extends UnaryOperator with Widthable {
       override def calcWidth: Int = theConsumer.asInstanceOf[WidthProvider].getWidth
@@ -343,10 +343,10 @@ object Operator{
       override def getLiteralFactory: (BigInt, BitCount) => Node = B.apply
     }
 
-    class RotateLeftByUInt extends BitVector.RotateLeftByUInt{
-      override def opName: String = "brotlu"
-      def getLiteralFactory : (BigInt, BitCount) => Node = B.apply
-    }
+//    class RotateLeftByUInt extends BitVector.RotateLeftByUInt{
+//      override def opName: String = "brotlu"
+//      def getLiteralFactory : (BigInt, BitCount) => Node = B.apply
+//    }
 
     class AllByBool(theConsumer : Node) extends BitVector.AllByBool(theConsumer) {
       override def opName: String = "bAllByB"

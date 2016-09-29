@@ -40,7 +40,7 @@ trait UIntFactory{
 class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimitives[UInt] with BitwiseOp[UInt]{
   private[core] def prefix : String = "u"
 
-
+  override type T = UInt
   override def _data: UInt = this
 
   //TODO width assert
@@ -96,6 +96,18 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   override def <<(that: Int): UInt = wrapConstantOperator(new Operator.UInt.ShiftLeftByInt(that))
   def >>(that: UInt): UInt         = wrapBinaryOperator(that,new Operator.UInt.ShiftRightByUInt)
   def <<(that: UInt): UInt         = wrapBinaryOperator(that,new Operator.UInt.ShiftLeftByUInt)
+
+  override def rotateLeft(that: Int): UInt = {
+    val width = widthOf(this)
+    val thatMod = that % width
+    this(this.high - thatMod downto 0) @@ this(this.high downto this.high - thatMod + 1)
+  }
+
+  override def rotateRight(that: Int): UInt = {
+    val width = widthOf(this)
+    val thatMod = that % width
+    this(thatMod - 1 downto 0) @@ this(this.high downto thatMod)
+  }
 
   def :=(rangesValue : Tuple2[Any,Any],_rangesValues: Tuple2[Any,Any]*) : Unit = {
     val rangesValues = rangesValue +: _rangesValues

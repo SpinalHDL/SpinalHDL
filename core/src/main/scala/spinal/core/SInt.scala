@@ -42,7 +42,7 @@ trait SIntFactory{
 
 class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimitives[SInt] with BitwiseOp[SInt] {
   private[core] def prefix : String = "s"
-
+  override type T = SInt
 
   override private[spinal] def _data: SInt = this
 
@@ -81,6 +81,18 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   override def <<(that: Int): SInt = wrapConstantOperator(new Operator.SInt.ShiftLeftByInt(that))
   def >>(that: UInt): SInt         = wrapBinaryOperator(that,new Operator.SInt.ShiftRightByUInt)
   def <<(that: UInt): SInt         = wrapBinaryOperator(that,new Operator.SInt.ShiftLeftByUInt)
+
+  override def rotateLeft(that: Int): SInt = {
+    val width = widthOf(this)
+    val thatMod = that % width
+    this(this.high - thatMod downto 0) @@ this(this.high downto this.high - thatMod + 1)
+  }
+
+  override def rotateRight(that: Int): SInt = {
+    val width = widthOf(this)
+    val thatMod = that % width
+    this(thatMod - 1 downto 0) @@ this(this.high downto thatMod)
+  }
 
   def :=(rangesValue : Tuple2[Any,Any],_rangesValues: Tuple2[Any,Any]*) : Unit = {
     val rangesValues = rangesValue +: _rangesValues

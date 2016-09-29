@@ -18,7 +18,7 @@
 - [X] Add option to disable the pkg generation in VHDL
 - [X] naming rules transformator in SpinalConfig
 - [ ] Check xilinx and altera FF about syncronus reset + clock enable interaction kind 
-- [ ] Add rotate left support in the verilog backend
+- [X] Add rotate left support in the verilog backend
 - [ ] Better mux Nodes (more than two inputs)
 - [ ] Remove the generation of when nodes condition when they are emited as a case statments
 - [X] Rework Namable trait, to allow it to be named by composition + postfix, and maybe to work with Ownable trait for hearchical naming

@@ -30,10 +30,13 @@ object OperatorTester {
   class OperatorTester extends Component {
     val uint4 = in UInt(4 bits)
     val uint8 = in UInt(8 bits)
+    val uint32 = in UInt(32 bits)
     val sint4 = in SInt(4 bits)
     val sint8 = in SInt(8 bits)
+    val sint32 = in SInt(32 bits)
     val bits4 = in Bits(4 bits)
     val bits8 = in Bits(8 bits)
+    val bits32 = in Bits(32 bits)
     val boolA,boolB,boolC = in Bool
 
 
@@ -257,6 +260,15 @@ object OperatorTester {
     uintAggregateUnfixedWidthUnfixedDefault := (7 -> false,(6 downto 5) -> true,(4 downto 3) -> bits8(1 downto 0),0 -> True,default -> boolA)
     sintAggregateUnfixedWidthUnfixedDefault := (7 -> false,(6 downto 5) -> true,(4 downto 3) -> bits8(1 downto 0),0 -> True,default -> boolA)
 
+
+
+
+    val bitsRotateLeftUInt = out(bits32(26 downto 0).rotateLeft(uint8(4 downto 0)))
+    val uintRotateLeftUInt = out(bits32(26 downto 0).asUInt.rotateLeft(uint8(4 downto 0)))
+    val sintRotateLeftUInt = out(bits32(26 downto 0).asSInt.rotateLeft(uint8(4 downto 0)))
+    val bitsRotateRightUInt = out(bits32(26 downto 0).rotateRight(uint8(4 downto 0)))
+    val uintRotateRightUInt = out(bits32(26 downto 0).asUInt.rotateRight(uint8(4 downto 0)))
+    val sintRotateRightUInt = out(bits32(26 downto 0).asSInt.rotateRight(uint8(4 downto 0)))
   }
 }
 
