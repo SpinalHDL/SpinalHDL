@@ -98,15 +98,15 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
     Vec(vec)
   }
 
-  def subdivide(sliceCount : SlicesCount) : Vec[T] = {
+  def subdivideIn(sliceCount : SlicesCount) : Vec[T] = {
     require(this.getWidth % sliceCount.value == 0)
     val sliceWidth = widthOf(this)/sliceCount.value
     Vec((0 until sliceCount.value).map(i =>this(i*sliceWidth,sliceWidth bits).asInstanceOf[T]))
   }
 
-  def subdivide(sliceWidth : BitCount) : Vec[T] = {
+  def subdivideIn(sliceWidth : BitCount) : Vec[T] = {
     require(this.getWidth % sliceWidth.value == 0)
-    subdivide(this.getWidth / sliceWidth.value slices)
+    subdivideIn(this.getWidth / sliceWidth.value slices)
   }
 
   //extract bit

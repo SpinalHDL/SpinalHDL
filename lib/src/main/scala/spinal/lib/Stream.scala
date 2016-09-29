@@ -820,7 +820,7 @@ object StreamWidthAdapter{
       val factor = inputWidth / outputWidth
       val counter = Counter(factor,inc = output.fire)
       output.valid := input.valid
-      output.payload.assignFromBits(input.payload.asBits.subdivide(factor slices).read(counter))
+      output.payload.assignFromBits(input.payload.asBits.subdivideIn(factor slices).read(counter))
       input.ready := output.ready && counter.willOverflowIfInc
     } else{
       SpinalError("Currently not implemented")
@@ -840,7 +840,7 @@ object StreamFragmentWidthAdapter{
       val factor = inputWidth / outputWidth
       val counter = Counter(factor,inc = output.fire)
       output.valid := input.valid
-      output.fragment.assignFromBits(input.fragment.asBits.subdivide(factor slices).read(counter))
+      output.fragment.assignFromBits(input.fragment.asBits.subdivideIn(factor slices).read(counter))
       output.last := input.last && counter.willOverflowIfInc
       input.ready := output.ready && counter.willOverflowIfInc
     } else{
