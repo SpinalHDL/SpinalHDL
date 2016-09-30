@@ -143,7 +143,7 @@ object BaseType {
         if (consumer.globalData.overridingAssignementWarnings) {
           val exept = new Throwable()
           val trace = ScalaLocated.short
-          Component.current.prePopTasks += (() => {
+          Component.current.addPrePopTask (() => {
             SpinalWarning(s"$baseType is overridden at ${trace}")
           })
         }
