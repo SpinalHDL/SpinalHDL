@@ -559,6 +559,20 @@ object PlayRamInfer{
   }
 }
 
+object PlayRoundRobin{
+  class TopLevel() extends Component {
+    val requests,ohPriority = in Bits(4 bits)
+    val roundrobin = out(OHMasking.roundRobin(requests,ohPriority))
+    val dummy = out(RegNext(U"111") init(0))
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel())
+    SpinalVerilog(new TopLevel())
+  }
+}
+
+
 object PlayFifoVerilog{
   def main(args: Array[String]) {
     SpinalVerilog(new StreamFifo(Bits(8 bits),16))

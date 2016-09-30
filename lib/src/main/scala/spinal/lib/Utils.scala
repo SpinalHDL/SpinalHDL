@@ -538,28 +538,6 @@ object CounterMultiRequest {
 
 
 
-//object SpinalMap {
-//  def apply[Key <: Data, Value <: Data](elems: Tuple2[() => Key, () => Value]*): SpinalMap[Key, Value] = {
-//    new SpinalMap(elems)
-//  }
-//}
-@deprecated
-class SpinalMapOld[Key <: Data, Value <: Data](pairs: Iterable[(() => Key, () => Value)]) {
-  def apply(key: Key): Value = {
-    val ret: Value = pairs.head._2()
-
-    for ((k, v) <- pairs.tail.toSeq.reverseIterator) {
-      when(k() === key) {
-        ret := v()
-      }
-    }
-
-    ret
-  }
-}
-
-
-
 object LatencyAnalysis {
   //Don't care about clock domain
   def apply(paths: Node*): Integer = list(paths)

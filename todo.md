@@ -8,11 +8,9 @@
 - [X] Need better error when inside a when, something to big is assigned
 - [x] Add regression for all implicit spinal hdl check like latch, comb loop etc
 - [X] add xxx := (default -> True) support (no B/U/S prefix)
-- [/] Add myBool := 0/1 ?
 - [X] Add time/frequency DSL
 - [X] Do a improvment run on Mem (writeFirst, black box, vendor/family support, ...)
 - [X] MemBlackboxer currently manipulate Mem graph before with inferation (OK), but before with check (KO)
-- [/] Add logic inferation LOCK functionality ? switch -> is   State -> functions
 - [X] Add version number into elaboration logs
 - [X] Function for compinent without the io_ prefix on IO
 - [X] Add option to disable the pkg generation in VHDL
@@ -27,7 +25,6 @@
 ## spinal.lib
 
 - [X] Check queue minimal latency of queue for AXI4WriteArbiter (probably 2, which is bad)
-- [ ] Add more Mem Utils (Flow/Stream access)
 - [ ] Finalise and document many Stream utils
 - [ ] More spinal.lib basic utils (priority encoder, ..)
 - [ ] spinal.lib.com.spi
