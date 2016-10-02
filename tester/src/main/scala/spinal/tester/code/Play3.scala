@@ -7,6 +7,8 @@ import spinal.lib.bus.amba3.ahblite._
 import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config}
 import spinal.lib.bus.amba4.axi._
 
+import scala.collection.mutable
+
 object PlayAhbLite3{
   class TopLevel extends Component{
     val ahbConfig = AhbLite3Config(addressWidth = 16,dataWidth = 32)
@@ -604,5 +606,22 @@ object PlayFifoVerilog{
 
     //Map the current clock domain to the io.clk pin
     mapClockDomain(clock=io.clk)
+  }
+}
+
+
+object PlayhashMap{
+  def main(args: Array[String]) {
+    val dic = mutable.HashMap[String,String]()
+    dic += ("miaou" -> "toto")
+    dic += ("miaou2" -> "toto2")
+
+    println(dic("miaou"))
+
+    val set = mutable.HashSet[String]()
+    set += "yolo"
+    set += "yili"
+
+    println(set.contains("yolo"))
   }
 }
