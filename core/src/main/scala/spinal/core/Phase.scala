@@ -1589,7 +1589,7 @@ class PhaseCompletSwitchCases extends PhaseNetlist{
         def checkAndApplyCond(bt : BaseType,value : Int): Unit = {
           val hit = excludedOut(bt)
           if (!hit.allocate(value)) {
-            PendingError(s"Condition was already tested before for the $output signal\n" + node.w.getScalaLocationLong)
+            PendingError(s"Condition duplication to drive the $output signal\n" + node.w.getScalaLocationLong)
           }
           if (hit.remaining == 0 && node.whenFalse == null) {
             previous.setInput(previousId, node.whenTrue)

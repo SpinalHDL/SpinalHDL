@@ -852,6 +852,19 @@ object PlaySwitch4 {
         result2 := 3
       }
     }
+
+
+
+    val result3 = out UInt(8 bits)
+    result3 := sel2.mux(
+      0 -> U"x00",
+      1 -> U"x01",
+      2 -> U"x02",
+//      2 -> U"x02",
+//      default -> U"xFF",
+//      default -> U"xFF"
+      3 -> U"x03"
+    )
   }
 
 

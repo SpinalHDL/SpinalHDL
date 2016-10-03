@@ -54,6 +54,18 @@ object cloneOf {
   def apply[T <: Data](that: T): T = that.clone().asInstanceOf[T]
 }
 
+object weakCloneOf {
+  //Return a new data with the same data structure than the given parameter (execept bit width)
+  def apply[T <: Data](that: T): T = {
+    val ret = cloneOf(that)
+    ret.flatten.foreach(_ match {
+      case bv : BitVector => bv.unfixWidth()
+      case _ =>
+    })
+    ret
+  }
+}
+
 object widthOf {
   //Return the number of bit of the given data
   def apply[T <: Data](that: T): Int = that.getBitsWidth

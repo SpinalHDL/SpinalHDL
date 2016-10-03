@@ -744,11 +744,10 @@ object Sel{
 }
 
 object SpinalMap {
-  def apply[K <: Data, T <: Data](addr: K, default: T, mappings: (Any, T)*): T = list(addr,default,mappings)
   def apply[K <: Data, T <: Data](addr: K, mappings: (Any, T)*): T = list(addr,mappings)
 
-  def list[K <: Data, T <: Data](addr: K, defaultValue: T, mappings: Seq[(Any, T)]): T = {
-    val result : T = cloneOf(defaultValue)
+  def list[K <: Data, T <: Data](addr: K, mappings: Seq[(Any, T)]): T = {
+    val result : T = weakCloneOf(mappings.head._2)
 
     switch(addr){
       for ((cond, value) <- mappings) {
@@ -760,6 +759,11 @@ object SpinalMap {
             }
             //   }
           }
+          case `default` => {
+            default {
+              result := value
+            }
+          }
           case _ => {
             is(cond) {
               result := value
@@ -767,17 +771,8 @@ object SpinalMap {
           }
         }
       }
-      default{
-        result := defaultValue
-      }
     }
     result
-  }
-
-  def list[K <: Data, T <: Data](addr: K, mappings: Seq[(Any, T)]): T = {
-    val defaultValue = mappings.find(_._1 == default)
-    if(!defaultValue.isDefined) new Exception("No default element in SpinalMap (default -> xxx)")
-    list(addr,defaultValue.get._2,mappings.filter(_._1 != default))
   }
 }
 
@@ -834,11 +829,7 @@ private[spinal] object Multiplex {
     else throw new Exception("can't mux that")
 
 
-    val muxOut = cloneOf(outType)
-    muxOut.flatten.foreach(_ match{
-      case bv : BitVector => bv.fixedWidth = -1
-      case _ =>
-    })
+    val muxOut = weakCloneOf(outType)
     val muxInTrue = cloneOf(muxOut)
     val muxInFalse = cloneOf(muxOut)
 
