@@ -793,24 +793,44 @@ object PlaySwitch4 {
 
   class TopLevel extends Component {
     val sel = in (MyEnum())
+    val sel2 = in UInt(2 bits)
     val result = out UInt(8 bits)
 
-    result := 5
+//    result := 5
     switch(sel){
       is(MyEnum.a){
         result := 0
       }
       is(MyEnum.b){
-        result := 1
+        switch(sel2){
+          is(0){
+            result := 0
+          }
+          is(1){
+            result := 1
+          }
+          is(2) {
+            result := 2
+          }
+          is(3){
+            result := 3
+          }
+        }
       }
-//      default{
+      is(MyEnum.c){
+        result := 2
+      }
+//
+//      is(MyEnum.c){
 //        result := 2
+//      }
+//      default{
+//        result := 255
 //      }
     }
 
-    val sel2 = in UInt(8 bits)
+
     val result2 = out UInt(8 bits)
-    result2 := 3
     switch(sel2){
       is(0){
         result2 := 0
@@ -818,8 +838,18 @@ object PlaySwitch4 {
       is(1){
         result2 := 1
       }
+
+//      is(1){
+//        result2 := 1
+//      }
       is(2){
         result2 := 2
+      }
+//      is(1){
+//        result2 := 1
+//      }
+      is(3){
+        result2 := 3
       }
     }
   }

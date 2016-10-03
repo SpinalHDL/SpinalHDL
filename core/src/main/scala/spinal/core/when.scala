@@ -78,7 +78,7 @@ object when {
   }
 }
 
-class WhenContext(val cond: Bool) extends ConditionalContext {
+class WhenContext(val cond: Bool) extends ConditionalContext with ScalaLocated {
   var isTrue: Boolean = true;
   var parentElseWhen: WhenContext = null
   var childElseWhen: WhenContext = null
@@ -143,7 +143,7 @@ object WhenNode {
   }
 }
 
-class WhenNode (val w: WhenContext) extends Node with AssignementTreePart {
+class WhenNode (val w: WhenContext) extends Node with AssignementTreePart  {
   type T <: Node
   var cond      : Node = null
   var whenTrue  : T = null.asInstanceOf[T]
