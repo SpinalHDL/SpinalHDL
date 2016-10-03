@@ -794,6 +794,7 @@ object PlaySwitch4 {
   class TopLevel extends Component {
     val sel = in (MyEnum())
     val sel2 = in UInt(2 bits)
+    val sel3 = in Bool
     val result = out UInt(8 bits)
 
 //    result := 5
@@ -820,13 +821,6 @@ object PlaySwitch4 {
       is(MyEnum.c){
         result := 2
       }
-//
-//      is(MyEnum.c){
-//        result := 2
-//      }
-//      default{
-//        result := 255
-//      }
     }
 
 
@@ -865,6 +859,20 @@ object PlaySwitch4 {
 //      default -> U"xFF"
       3 -> U"x03"
     )
+
+
+    val result4 = out UInt(8 bits)
+    switch(sel3){
+      is(False){
+        result4 := 0
+      }
+      is(True){
+        result4 := 1
+      }
+
+    }
+
+
   }
 
 

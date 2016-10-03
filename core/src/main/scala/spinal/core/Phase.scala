@@ -1632,6 +1632,18 @@ class PhaseCompletSwitchCases extends PhaseNetlist{
               case _ =>
             }
           }
+          case op : Operator.Bool.Equal => {
+            (op.left, bypassBastType(op.right)) match {
+              case (craft: Bool, lit: BoolLiteral) => {
+                val value = if(lit.value) 1 else 0
+                if (!excludedOut.contains(craft)) {
+                  excludedOut += (craft -> Exclusion(2))
+                }
+                checkAndApplyCond(craft,value)
+              }
+              case _ =>
+            }
+          }
           case _ =>
         }
         walkAssignementTree(output,node.whenFalse,excludedOut,node,2)
