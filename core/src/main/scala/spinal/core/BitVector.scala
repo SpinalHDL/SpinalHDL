@@ -60,6 +60,11 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
   }
 
   private[core] def isFixedWidth = fixedWidth != -1
+  private[core] def unfixWidth() = {
+    fixedWidth = -1
+    widthWhenNotInferred = -1
+    inferredWidth = -1
+  }
 
   def setWidth(width: Int): this.type = {
     if(width < 0){
