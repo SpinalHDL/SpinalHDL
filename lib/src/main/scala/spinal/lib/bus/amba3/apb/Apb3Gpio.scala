@@ -13,7 +13,7 @@ object Apb3Gpio{
 case class Apb3Gpio(gpioWidth : Int) extends Component{
   val io = new Bundle{
     val apb  = slave(Apb3(Apb3Gpio.getApb3Config()))
-    val gpio = master(TriStateArray(gpioWidth))
+    val gpio = master(TriStateArray(gpioWidth bits))
   }
 
   val ctrl = Apb3SlaveFactory(io.apb)

@@ -3,9 +3,8 @@ package spinal.lib.io
 import spinal.core._
 import spinal.lib.IMasterSlave
 
-case class TriState[T <: Data](_dataType : T) extends Bundle with IMasterSlave{
-  def dataType = cloneOf(_dataType)
-  val read,write : T = dataType
+case class TriState[T <: Data](dataType : HardType[T]) extends Bundle with IMasterSlave{
+  val read,write : T = dataType()
   val writeEnable = Bool
 
   override def asMaster(): Unit = {
@@ -14,11 +13,9 @@ case class TriState[T <: Data](_dataType : T) extends Bundle with IMasterSlave{
   }
 }
 
-object TriStateArray{
-  def apply(width : BitCount) = new TriStateArray(width.value)
-}
-case class TriStateArray(width : Int) extends Bundle with IMasterSlave{
-  val read,write,writeEnable = Bits(width bits)
+
+case class TriStateArray(width : BitCount) extends Bundle with IMasterSlave{
+  val read,write,writeEnable = Bits(width)
 
   override def asMaster(): Unit = {
     out(write,writeEnable)

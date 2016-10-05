@@ -625,3 +625,31 @@ object PlayhashMap{
     println(set.contains("yolo"))
   }
 }
+
+
+
+
+object PlayNodeAnalyse{
+  class TopLevel() extends Component {
+    val a,b,c,d = in Bool
+    val result = out Bool
+
+    var b_and_c = b && c
+    result := a || b_and_c || d
+    b_and_c = null //b_and_c will not be named by the reflection
+  }
+
+  def main(args: Array[String]) {
+    val toplevel = SpinalVhdl(new TopLevel()).toplevel
+
+    iterateOverBaseTypeInputs(toplevel.result.input)(baseType => {
+      println(baseType)
+    })
+  }
+
+  def iterateOverBaseTypeInputs(node : Node)(gen : BaseType => Unit): Unit = node match {
+    case bt : BaseType if bt.isNamed => gen(bt)
+    case null =>
+    case _ => node.onEachInput(iterateOverBaseTypeInputs(_)(gen))
+  }
+}
