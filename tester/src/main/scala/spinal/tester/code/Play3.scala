@@ -8,6 +8,7 @@ import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config}
 import spinal.lib.bus.amba4.axi._
 
 import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
 
 object PlayAhbLite3{
   class TopLevel extends Component{
@@ -651,5 +652,70 @@ object PlayNodeAnalyse{
     case bt : BaseType if bt.isNamed => gen(bt)
     case null =>
     case _ => node.onEachInput(iterateOverBaseTypeInputs(_)(gen))
+  }
+}
+
+
+object PlayRomRam{
+  class TopLevel() extends Component {
+    def initialContent = List(
+      B"1000_0000_0000_0111",
+      B"0000_0000_0000_0001"
+    )
+
+    val ram = Mem(Bits(16 bits),initialContent ++ List.fill((1<<15) - initialContent.length)(B"x0000"))
+    ram.write(
+      address = in UInt(15 bits),
+      data = in Bits(16 bits),
+      enable = in Bool
+    )
+
+
+    out(ram.readAsync(
+      address = in UInt(15 bits)
+    ))
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
+
+object PlayRomRam2{
+  class Assembler{
+    val array = ArrayBuffer[Bits]()
+
+    def jump(address : Int) = array += B(address,16 bits)
+    def push(value : Int)   = array += B((1 << 15) | value,16 bits)
+    // ...
+
+    def build(ramSize : Int) = array ++ List.fill(ramSize - array.length)(B"x0000")
+  }
+
+  class TopLevel() extends Component {
+    def asm = new Assembler()
+    asm.push(7)
+    asm.jump(1)
+
+
+    M"111_3"
+    val ram = Mem(Bits(16 bits),asm.build(1 << 15))
+
+    ram.write(
+      address = in UInt(15 bits),
+      data = in Bits(16 bits),
+      enable = in Bool
+    )
+
+
+    out(ram.readAsync(
+      address = in UInt(15 bits)
+    ))
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
   }
 }
