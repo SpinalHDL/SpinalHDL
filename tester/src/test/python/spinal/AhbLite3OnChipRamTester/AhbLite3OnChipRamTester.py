@@ -2,12 +2,10 @@ import random
 from Queue import Queue
 
 import cocotb
-from cocotb.result import TestFailure, TestSuccess
-from cocotb.triggers import Timer, Edge, RisingEdge, Join, FallingEdge
+from cocotb.triggers import RisingEdge
+from cocotblib.AhbLite3 import AhbLite3MasterDriver, AhbLite3TraficGenerator, AhbLite3MasterReadChecker, AhbLite3Terminaison
 
-from spinal.common.AhbLite3 import AhbLite3MasterDriver, AhbLite3SlaveMemory, AhbLite3MasterIdle, AhbLite3TraficGenerator, AhbLite3MasterReadChecker, AhbLite3Terminaison
-from spinal.common.misc import setBit, randSignal, assertEquals, truncUInt, sint, ClockDomainAsyncReset, randBoolSignal, \
-    BoolRandomizer, StreamRandomizer,StreamReader, FlowRandomizer, Bundle, simulationSpeedPrinter
+from cocotblib.misc import ClockDomainAsyncReset, Bundle, simulationSpeedPrinter
 
 
 class AhbLite3TraficGeneratorWithMemory(AhbLite3TraficGenerator):

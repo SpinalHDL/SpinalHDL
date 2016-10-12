@@ -1,6 +1,7 @@
 About SpinalHDL
 ============
-SpinalHDL is a scala library that allows the user to describe his digital hardware and then generate the corresponding VHDL/Verilog file.
+SpinalHDL is a programming language to describe digital hardware and then generate the corresponding VHDL/Verilog file.
+
 ## Advantages over VHDL/Verilog
 - No restriction to the genericity of your hardware description by using Scala constructs
 - No more endless wiring. Create and connect complex buses like AXI in one line.
@@ -18,6 +19,7 @@ Getting started
 - Documentation                  <br> http://spinalhdl.github.io/SpinalDoc/
 - Presentation of the language   <br> http://spinalhdl.github.io/SpinalDoc/presentation/
 - SBT base project               <br> https://github.com/SpinalHDL/SpinalBaseProject
+- Workshop                       <br> https://github.com/SpinalHDL/SpinalBaseProject/tree/workshop
 - Google group                   <br> https://groups.google.com/forum/#!forum/spinalhdl-hardware-description-language
 
 [![Join the chat at https://gitter.im/SpinalHDL/SpinalHDL](https://badges.gitter.im/SpinalHDL/SpinalHDL.svg)](https://gitter.im/SpinalHDL/SpinalHDL?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
@@ -143,7 +145,7 @@ class CounterWithParity(size : Int) extends Component{
 
 
 ## Why not Chisel ?
-For many reason : http://spinalhdl.github.io/SpinalDoc/#what-are-the-differences-between-chisel-vs-spinal-
+For many reason : http://spinalhdl.github.io/SpinalDoc/chisel/
 
 Other consideration
 ===============

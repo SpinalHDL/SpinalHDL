@@ -1,5 +1,7 @@
-from spinal.common.Phase import Infrastructure
-from spinal.common.Stream import StreamScorboardInOrder, Transaction, StreamMonitor
+from cocotblib.Phase import Infrastructure
+from cocotblib.Scorboard import ScorboardInOrder
+
+from cocotblib.Stream import Transaction, StreamMonitor
 
 
 class WriteDataMonitor(Infrastructure):
@@ -7,7 +9,7 @@ class WriteDataMonitor(Infrastructure):
         Infrastructure.__init__(self,name,parent)
         self.axi = axi
         self.dut = dut
-        self.dataScoreboard = StreamScorboardInOrder("scoreboard",self)
+        self.dataScoreboard = ScorboardInOrder("scoreboard", self)
 
     def createInfrastructure(self):
         StreamMonitor(self.axi.aw, self.onWriteCmd, self.dut.clk, self.dut.reset)

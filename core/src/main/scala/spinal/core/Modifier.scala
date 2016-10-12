@@ -165,23 +165,26 @@ object Operator{
   }
 
   object BitVector{
-    abstract class And extends BinaryOperatorWidthableInputs with Widthable{
+    abstract class And extends BinaryOperatorWidthableInputs with Widthable with CheckWidth{
       override def calcWidth(): Int = Math.max(left.getWidth,right.getWidth)
-      override def normalizeInputs: Unit = {InputNormalize.nodeWidth(this)}
-      override def simplifyNode: Unit = {SymplifyNode.binaryInductZeroWithOtherWidth(getLiteralFactory)(this)}
+      override def normalizeInputs: Unit = InputNormalize.resizedOrUnfixedLit(this)
+      override private[core] def checkInferedWidth: Unit = CheckWidth.allSame(this)
+      override def simplifyNode: Unit = SymplifyNode.binaryInductZeroWithOtherWidth(getLiteralFactory,true)(this)
       def getLiteralFactory : (BigInt, BitCount) => Node
     }
 
-    abstract class Or extends BinaryOperatorWidthableInputs with Widthable{
+    abstract class Or extends BinaryOperatorWidthableInputs with Widthable with CheckWidth{
       override def calcWidth(): Int = Math.max(left.getWidth,right.getWidth)
-      override def normalizeInputs: Unit = {InputNormalize.nodeWidth(this)}
-      override def simplifyNode: Unit = {SymplifyNode.binaryTakeOther(this)}
+      override def normalizeInputs: Unit = InputNormalize.resizedOrUnfixedLit(this)
+      override private[core] def checkInferedWidth: Unit = CheckWidth.allSame(this)
+      override def simplifyNode: Unit = {SymplifyNode.binaryTakeOther(this,true)}
     }
 
-    abstract class Xor extends BinaryOperatorWidthableInputs with Widthable{
+    abstract class Xor extends BinaryOperatorWidthableInputs with Widthable with CheckWidth{
       override def calcWidth(): Int = Math.max(left.getWidth,right.getWidth)
-      override def normalizeInputs: Unit = {InputNormalize.nodeWidth(this)}
-      override def simplifyNode: Unit = {SymplifyNode.binaryTakeOther(this)}
+      override def normalizeInputs: Unit = InputNormalize.resizedOrUnfixedLit(this)
+      override private[core] def checkInferedWidth: Unit = CheckWidth.allSame(this)
+      override def simplifyNode: Unit = {SymplifyNode.binaryTakeOther(this,true)}
     }
 
     abstract class Add extends BinaryOperatorWidthableInputs with Widthable{
@@ -253,12 +256,35 @@ object Operator{
     }
 
 
-    abstract class RotateLeftByUInt extends BinaryOperatorWidthableInputs with Widthable{
-      override def calcWidth(): Int = left.getWidth
+    abstract class ShiftRightByIntFixedWidth(val shift : Int) extends ConstantOperatorWidthableInputs with Widthable{
+      assert(shift >= 0)
+      override def calcWidth(): Int = input.getWidth
       override def normalizeInputs: Unit = {}
-      override def simplifyNode: Unit = {SymplifyNode.rotateImpl(getLiteralFactory,this)}
+      override def simplifyNode: Unit = {SymplifyNode.shiftRightFixedWidthImpl(this)}
+    }
+
+    abstract class ShiftLeftByIntFixedWidth(val shift : Int) extends ConstantOperatorWidthableInputs with Widthable{
+      assert(shift >= 0)
+      override def calcWidth(): Int = input.getWidth
+      override def normalizeInputs: Unit = {}
+      override def simplifyNode: Unit = {SymplifyNode.shiftLeftFixedWidthImpl(getLiteralFactory,this)}
       def getLiteralFactory : (BigInt, BitCount) => Node
     }
+
+    abstract class ShiftLeftByUIntFixedWidth extends BinaryOperatorWidthableInputs with Widthable{
+      override def calcWidth(): Int = left.getWidth
+      override def normalizeInputs: Unit = {}
+      override def simplifyNode: Unit = {SymplifyNode.shiftLeftFixedWidthImpl(getLiteralFactory,this)}
+      def getLiteralFactory : (BigInt, BitCount) => Node
+    }
+
+
+    //    abstract class RotateLeftByUInt extends BinaryOperatorWidthableInputs with Widthable{
+//      override def calcWidth(): Int = left.getWidth
+//      override def normalizeInputs: Unit = {}
+//      override def simplifyNode: Unit = {SymplifyNode.rotateImpl(getLiteralFactory,this)}
+//      def getLiteralFactory : (BigInt, BitCount) => Node
+//    }
 
     abstract class AllByBool(val theConsumer : Node) extends UnaryOperator with Widthable {
       override def calcWidth: Int = theConsumer.asInstanceOf[WidthProvider].getWidth
@@ -294,11 +320,31 @@ object Operator{
       override def opName: String = "b^b"
     }
 
-    class Equal extends BitVector.Equal{
+    class Equal extends BitVector.Equal with CheckWidth{
+      override def normalizeInputs: Unit = {
+        if(this.left.getWidth < this.right.getWidth)
+          InputNormalize.resizedOrUnfixedLit(this, 0, this.right.getWidth)
+        if(this.left.getWidth > this.right.getWidth)
+          InputNormalize.resizedOrUnfixedLit(this, 1, this.left.getWidth)
+      }
+      override private[core] def checkInferedWidth: Unit = {
+        if(this.left.getWidth != this.right.getWidth)
+          PendingError(s"${this} inputs doesn't have the same width\n${this.getScalaLocationLong}")
+      }
       override def opName: String = "b==b"
     }
 
-    class NotEqual extends BitVector.NotEqual{
+    class NotEqual extends BitVector.NotEqual with CheckWidth{
+      override def normalizeInputs: Unit = {
+        if(this.left.getWidth < this.right.getWidth)
+          InputNormalize.resizedOrUnfixedLit(this, 0, this.right.getWidth)
+        if(this.left.getWidth > this.right.getWidth)
+          InputNormalize.resizedOrUnfixedLit(this, 1, this.left.getWidth)
+      }
+      override private[core] def checkInferedWidth: Unit = {
+        if(this.left.getWidth != this.right.getWidth)
+          PendingError(s"${this} inputs doesn't have the same width\n${this.getScalaLocationLong}")
+      }
       override def opName: String = "b!=b"
     }
 
@@ -320,10 +366,25 @@ object Operator{
       override def getLiteralFactory: (BigInt, BitCount) => Node = B.apply
     }
 
-    class RotateLeftByUInt extends BitVector.RotateLeftByUInt{
-      override def opName: String = "brotlu"
-      def getLiteralFactory : (BigInt, BitCount) => Node = B.apply
+
+    class ShiftRightByIntFixedWidth(shift : Int) extends BitVector.ShiftRightByIntFixedWidth(shift){
+      override def opName: String = "b|>>i"
     }
+
+    class ShiftLeftByIntFixedWidth(shift : Int) extends BitVector.ShiftLeftByIntFixedWidth(shift){
+      override def opName: String = "b|<<i"
+      override def getLiteralFactory: (BigInt, BitCount) => Node = B.apply
+    }
+
+    class ShiftLeftByUIntFixedWidth extends BitVector.ShiftLeftByUIntFixedWidth{
+      override def opName: String = "b|<<u"
+      override def getLiteralFactory: (BigInt, BitCount) => Node = B.apply
+    }
+
+//    class RotateLeftByUInt extends BitVector.RotateLeftByUInt{
+//      override def opName: String = "brotlu"
+//      def getLiteralFactory : (BigInt, BitCount) => Node = B.apply
+//    }
 
     class AllByBool(theConsumer : Node) extends BitVector.AllByBool(theConsumer) {
       override def opName: String = "bAllByB"
@@ -411,6 +472,20 @@ object Operator{
 
     class ShiftLeftByUInt extends BitVector.ShiftLeftByUInt{
       override def opName: String = "u<<u"
+      override def getLiteralFactory: (BigInt, BitCount) => Node = U.apply
+    }
+
+    class ShiftRightByIntFixedWidth(shift : Int) extends BitVector.ShiftRightByIntFixedWidth(shift){
+      override def opName: String = "u|>>i"
+    }
+
+    class ShiftLeftByIntFixedWidth(shift : Int) extends BitVector.ShiftLeftByIntFixedWidth(shift){
+      override def opName: String = "u|<<i"
+      override def getLiteralFactory: (BigInt, BitCount) => Node = U.apply
+    }
+
+    class ShiftLeftByUIntFixedWidth extends BitVector.ShiftLeftByUIntFixedWidth{
+      override def opName: String = "u|<<u"
       override def getLiteralFactory: (BigInt, BitCount) => Node = U.apply
     }
 
@@ -506,6 +581,21 @@ object Operator{
 
     class ShiftLeftByUInt extends BitVector.ShiftLeftByUInt{
       override def opName: String = "s<<u"
+      override def getLiteralFactory: (BigInt, BitCount) => Node = S.apply
+    }
+
+
+    class ShiftRightByIntFixedWidth(shift : Int) extends BitVector.ShiftRightByIntFixedWidth(shift){
+      override def opName: String = "s|>>i"
+    }
+
+    class ShiftLeftByIntFixedWidth(shift : Int) extends BitVector.ShiftLeftByIntFixedWidth(shift){
+      override def opName: String = "s|<<i"
+      override def getLiteralFactory: (BigInt, BitCount) => Node = S.apply
+    }
+
+    class ShiftLeftByUIntFixedWidth extends BitVector.ShiftLeftByUIntFixedWidth{
+      override def opName: String = "s|<<u"
       override def getLiteralFactory: (BigInt, BitCount) => Node = S.apply
     }
 
@@ -647,13 +737,13 @@ abstract class Multiplexer extends Modifier {
   }
 }
 
-abstract class MultiplexedWidthable extends Multiplexer with Widthable{
+abstract class MultiplexedWidthable extends Multiplexer with Widthable with CheckWidth{
   override type T = Node with Widthable
   override def calcWidth: Int = Math.max(whenTrue.getWidth, whenFalse.getWidth)
-
-  override def normalizeInputs: Unit = {
-    Misc.normalizeResize(this, 1, this.getWidth)
-    Misc.normalizeResize(this, 2, this.getWidth)
+  override private[core] def checkInferedWidth: Unit = {
+    if(whenTrue.getWidth != whenFalse.getWidth){
+      PendingError(s"${this} inputs doesn't have the same width at \n${this.getScalaLocationLong}")
+    }
   }
 }
 
@@ -662,12 +752,24 @@ class MultiplexerBool extends Multiplexer{
 }
 class MultiplexerBits extends MultiplexedWidthable{
   override def opName: String = "mux(B,b,b)"
+  override def normalizeInputs: Unit = {
+    InputNormalize.resizedOrUnfixedLitDeepOne(this, 1, this.getWidth)
+    InputNormalize.resizedOrUnfixedLitDeepOne(this, 2, this.getWidth)
+  }
 }
 class MultiplexerUInt extends MultiplexedWidthable{
   override def opName: String = "mux(B,u,u)"
+  override def normalizeInputs: Unit = {
+    Misc.normalizeResize(this, 1, this.getWidth)
+    Misc.normalizeResize(this, 2, this.getWidth)
+  }
 }
 class MultiplexerSInt extends MultiplexedWidthable{
   override def opName: String = "mux(B,s,s)"
+  override def normalizeInputs: Unit = {
+    Misc.normalizeResize(this, 1, this.getWidth)
+    Misc.normalizeResize(this, 2, this.getWidth)
+  }
 }
 class MultiplexerEnum(enumDef : SpinalEnum) extends Multiplexer with InferableEnumEncodingImpl{
   override type T = Node with EnumEncoded
@@ -709,11 +811,10 @@ object Sel{
 }
 
 object SpinalMap {
-  def apply[K <: Data, T <: Data](addr: K, default: T, mappings: (Any, T)*): T = list(addr,default,mappings)
   def apply[K <: Data, T <: Data](addr: K, mappings: (Any, T)*): T = list(addr,mappings)
 
-  def list[K <: Data, T <: Data](addr: K, defaultValue: T, mappings: Seq[(Any, T)]): T = {
-    val result : T = cloneOf(defaultValue)
+  def list[K <: Data, T <: Data](addr: K, mappings: Seq[(Any, T)]): T = {
+    val result : T = weakCloneOf(mappings.head._2)
 
     switch(addr){
       for ((cond, value) <- mappings) {
@@ -725,6 +826,11 @@ object SpinalMap {
             }
             //   }
           }
+          case `default` => {
+            default {
+              result := value
+            }
+          }
           case _ => {
             is(cond) {
               result := value
@@ -732,17 +838,8 @@ object SpinalMap {
           }
         }
       }
-      default{
-        result := defaultValue
-      }
     }
     result
-  }
-
-  def list[K <: Data, T <: Data](addr: K, mappings: Seq[(Any, T)]): T = {
-    val defaultValue = mappings.find(_._1 == default)
-    if(!defaultValue.isDefined) new Exception("No default element in SpinalMap (default -> xxx)")
-    list(addr,defaultValue.get._2,mappings.filter(_._1 != default))
   }
 }
 
@@ -799,11 +896,7 @@ private[spinal] object Multiplex {
     else throw new Exception("can't mux that")
 
 
-    val muxOut = cloneOf(outType)
-    muxOut.flatten.foreach(_ match{
-      case bv : BitVector => bv.fixedWidth = -1
-      case _ =>
-    })
+    val muxOut = weakCloneOf(outType)
     val muxInTrue = cloneOf(muxOut)
     val muxInFalse = cloneOf(muxOut)
 
@@ -1340,7 +1433,7 @@ class RangedAssignmentFixed(out: BitVector, in: Node, hi: Int, lo: Int) extends 
 
   override def checkInferedWidth: Unit = {
     if (input.component != null && hi + 1 - lo != input.getWidth) {
-      PendingError(s"Assignment bit count mismatch. ${this} := ${input}} at\n${getScalaLocationLong}")
+      PendingError(s"Assignment bit count mismatch. ${AssignementTree.getDrivedBaseType(this)}($hi downto $lo) := ${input}} at\n${getScalaLocationLong}")
       return
     }
 
@@ -1352,7 +1445,7 @@ class RangedAssignmentFixed(out: BitVector, in: Node, hi: Int, lo: Int) extends 
   }
 
   override def normalizeInputs: Unit = {
-    InputNormalize.bitVectoreAssignement(this,0,hi + 1 - lo)
+    InputNormalize.resizedOrUnfixedLit(this,0,hi + 1 - lo)
   }
 
 
@@ -1461,12 +1554,12 @@ class RangedAssignmentFloating(out: BitVector, in_ : Node, offset_ : Node, bitCo
   override def checkInferedWidth: Unit = {
     val input = getInput
     if (input.component != null && bitCount.value != input.asInstanceOf[Node with WidthProvider].getWidth) {
-      PendingError(s"Assignement bit count missmatch. ${this} := ${input}} at\n${getScalaLocationLong}")
+      PendingError(s"Assignement bit count missmatch. ${AssignementTree.getDrivedBaseType((this))}(${bitCount.value} bits) := ${input}} at\n${getScalaLocationLong}")
     }
   }
 
   override def normalizeInputs: Unit = {
-    InputNormalize.bitVectoreAssignement(this,0,bitCount.value)
+    InputNormalize.resizedOrUnfixedLit(this,0,bitCount.value)
   }
 
 
@@ -1534,14 +1627,14 @@ class MultipleAssignmentNodeWidthable extends MultipleAssignmentNode with Widtha
   override def calcWidth: Int = WidthInfer.multipleAssignmentNodeWidth(this)
   override def normalizeInputs: Unit = {
     for (i <- 0 until inputs.length)
-      InputNormalize.bitVectoreAssignement(this,i,this.getWidth)
+      InputNormalize.resizedOrUnfixedLit(this,i,this.getWidth)
   }
 
   override private[core] def checkInferedWidth: Unit = {
     for(i <- 0 until inputs.length){
       val input = inputs(i)
       if (input != null && input.component != null && this.getWidth !=input.getWidth) {
-        PendingError(s"Assignement bit count missmatch. ${this} := ${input}} at\n${ScalaLocated.long(getAssignementContext(i))}")
+        PendingError(s"Assignement bit count missmatch. ${AssignementTree.getDrivedBaseType(this)} := ${input}} at\n${ScalaLocated.long(getAssignementContext(i))}")
       }
     }
   }

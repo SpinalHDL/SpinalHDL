@@ -22,6 +22,7 @@ import scala.collection.mutable.ArrayBuffer
 
 abstract class BitVector extends BaseType with Widthable with CheckWidth {
   private[core] var fixedWidth = -1
+  type T <: BitVector
 
   def high = getWidth - 1
   def msb = this (high)
@@ -31,7 +32,39 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
   def andR = this.asBits === ((BigInt(1) << getWidth) - 1)
   def xorR = this.asBools.reduce(_ ^ _)
 
+  def rotateLeft(that: Int): T
+  def rotateRight(that: Int): T
+
+  def rotateLeft(that: UInt): T = {
+    val thatWidth = widthOf(that)
+    val thisWidth = widthOf(this)
+    require(thatWidth <= log2Up(thisWidth))
+    var result = cloneOf(this).asInstanceOf[T]
+    result := this.asInstanceOf[T]
+    for(i <- that.range){
+      result \= (that(i) ? result.rotateLeft(1<<i).asInstanceOf[T] | result)
+    }
+    result
+  }
+
+  def rotateRight(that: UInt): T = {
+    val thatWidth = widthOf(that)
+    val thisWidth = widthOf(this)
+    require(thatWidth <= log2Up(thisWidth))
+    var result = cloneOf(this).asInstanceOf[T]
+    result := this.asInstanceOf[T]
+    for(i <- that.range){
+      result \= (that(i) ? result.rotateRight(1<<i).asInstanceOf[T] | result)
+    }
+    result
+  }
+
   private[core] def isFixedWidth = fixedWidth != -1
+  private[core] def unfixWidth() = {
+    fixedWidth = -1
+    widthWhenNotInferred = -1
+    inferredWidth = -1
+  }
 
   def setWidth(width: Int): this.type = {
     if(width < 0){
@@ -50,9 +83,11 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
     res
   }
 
-  private[core] override def normalizeInputs: Unit = InputNormalize.bitVectoreAssignement(this, 0, this.getWidth)
+  private[core] override def normalizeInputs: Unit = InputNormalize.resizedOrUnfixedLit(this, 0, this.getWidth)
 
   def resize(width: Int): this.type
+
+
 
   private[core] override def calcWidth: Int = {
     if (isFixedWidth) return fixedWidth
@@ -66,6 +101,17 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
     if (bitCount == -1) SpinalError("Can't convert to bools a Bit that has unspecified width value")
     for (i <- 0 until bitCount) vec += this (i)
     Vec(vec)
+  }
+
+  def subdivideIn(sliceCount : SlicesCount) : Vec[T] = {
+    require(this.getWidth % sliceCount.value == 0)
+    val sliceWidth = widthOf(this)/sliceCount.value
+    Vec((0 until sliceCount.value).map(i =>this(i*sliceWidth,sliceWidth bits).asInstanceOf[T]))
+  }
+
+  def subdivideIn(sliceWidth : BitCount) : Vec[T] = {
+    require(this.getWidth % sliceWidth.value == 0)
+    subdivideIn(this.getWidth / sliceWidth.value slices)
   }
 
   //extract bit

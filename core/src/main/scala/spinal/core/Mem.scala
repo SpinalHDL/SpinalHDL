@@ -102,9 +102,9 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
 
   var initialContent: Seq[T] = null
 
-  def init(initialContant: Seq[T]): this.type = {
-    assert(initialContant.length == wordCount, s"The initial content if the rom doesn't fit with it word count, ${initialContant.length} vs $wordCount " + this.getScalaLocationLong)
-    this.initialContent = initialContant
+  def init(initialContent: Seq[T]): this.type = {
+    assert(initialContent.length == wordCount, s"The initial content array size (${initialContent.length}) is not equals to the memory size ($wordCount).\n" + this.getScalaLocationLong)
+    this.initialContent = initialContent
     this
   }
 

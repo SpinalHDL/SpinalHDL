@@ -1,12 +1,8 @@
-import random
-from Queue import Queue
-
 import cocotb
 from cocotb.result import TestFailure
-from cocotb.triggers import Timer, Edge, RisingEdge, Join, Event, FallingEdge
+from cocotb.triggers import Timer
 
-from spinal.common.misc import setBit, randSignal, assertEquals, truncUInt, sint, ClockDomainAsyncReset, randBoolSignal, \
-    BoolRandomizer, simulationSpeedPrinter, truncSInt
+from cocotblib.misc import randSignal, truncUInt, sint, truncSInt
 
 
 def check(signal,bitCount,value):
@@ -29,20 +25,26 @@ def test1(dut):
     for i in range(0,2000):
         randSignal(dut.uint4)
         randSignal(dut.uint8)
+        randSignal(dut.uint32)
         randSignal(dut.sint4)
         randSignal(dut.sint8)
+        randSignal(dut.sint32)
         randSignal(dut.bits4)
         randSignal(dut.bits8)
+        randSignal(dut.bits32)
         randSignal(dut.boolA)
         randSignal(dut.boolB)
         randSignal(dut.boolC)
         yield Timer(1000)
         uint4 = int(dut.uint4)
         uint8 = int(dut.uint8)
+        uint32 = int(dut.uint32)
         sint4 = sint(dut.sint4)
         sint8 = sint(dut.sint8)
+        sint32 = sint(dut.sint32)
         bits4 = int(dut.bits4)
         bits8 = int(dut.bits8)
+        bits32 = int(dut.bits32)
         boolA = int(dut.boolA)
         boolB = int(dut.boolB)
         boolC = int(dut.boolC)
@@ -65,20 +67,31 @@ def test1(dut):
         check(dut.uintShiftLeftUint , 23, uint8 << uint4)
         check(dut.uintShiftRightInt , 4, uint8 >> 4)
         check(dut.uintShiftRightUint, 8, uint8 >> uint4)
+        check(dut.uintShiftLeftIntFixedWidth  , 8, uint8 << 4)
+        check(dut.uintShiftLeftUintFixedWidth , 8, uint8 << uint4)
+        check(dut.uintShiftRightIntFixedWidth , 8, uint8 >> 4)
+        check(dut.uintShiftRightUintFixedWidth, 8, uint8 >> uint4)
 
         check(dut.sintNot, 4, ~sint4)
         checkSigned(dut.sintMinus, 4, -sint4)
         check(dut.sintShiftLeftInt  , 12, sint8 << 4)
         check(dut.sintShiftLeftUint , 23, sint8 << uint4)
         check(dut.sintShiftRightInt , 4, sint8 >> 4)
-        check(dut.sintShiftRightUint, 8, sint8 >> uint4)
+        checkSigned(dut.sintShiftRightUint, 8, sint8 >> uint4)
+        check(dut.sintShiftLeftIntFixedWidth  , 8, sint8 << 4)
+        check(dut.sintShiftLeftUintFixedWidth , 8, sint8 << uint4)
+        checkSigned(dut.sintShiftRightIntFixedWidth , 8, sint8 >> 4)
+        checkSigned(dut.sintShiftRightUintFixedWidth, 8, sint8 >> uint4)
 
         check(dut.bitsNot, 4, ~bits4)
         check(dut.bitsShiftLeftInt  , 12, bits8 << 4)
         check(dut.bitsShiftLeftUint , 23, bits8 << uint4)
         check(dut.bitsShiftRightInt , 4, bits8 >> 4)
         check(dut.bitsShiftRightUint, 8, bits8 >> uint4)
-
+        check(dut.bitsShiftLeftIntFixedWidth  , 8, bits8 << 4)
+        check(dut.bitsShiftLeftUintFixedWidth , 8, bits8 << uint4)
+        check(dut.bitsShiftRightIntFixedWidth , 8, bits8 >> 4)
+        check(dut.bitsShiftRightUintFixedWidth, 8, bits8 >> uint4)
 
 
 
@@ -243,21 +256,31 @@ def test1(dut):
             check(dut.stateBinaryOneHotIsNotA,1,bits8StateHO != 1)
             check(dut.stateBinaryOneHotIsNotB, 1, bits8StateHO != 2)
             check(dut.stateBinaryOneHotIsNotC, 1, bits8StateHO != 4)
-        #  B(7 -> false,(6 downto 5) -> true,(4 downto 3) -> bits8(1 downto 0),(2 downto 1) -> boolA,0 -> True)
-        aggregateValue = (3 << 5) | ((bits8 & 3) << 3) |(boolA << 2) | (boolA << 1) | (1 << 0)
-        check(dut.bitsAggregateFixed, 8, aggregateValue)
-        check(dut.uintAggregateFixed, 8, aggregateValue)
-        check(dut.sintAggregateFixed, 8, aggregateValue)
 
-        aggregateValue = (3 << 5) | ((bits8 & 3) << 3) |(boolA << 2) | (3 << 1) | (1 << 0)
-        check(dut.bitsAggregateUnfixedWidthFixedDefault, 8, aggregateValue)
-        check(dut.uintAggregateUnfixedWidthFixedDefault, 8, aggregateValue)
-        check(dut.sintAggregateUnfixedWidthFixedDefault, 8, aggregateValue)
+        check(dut.bitsAggregateFixed, 8, (3 << 5) | ((bits8 & 3) << 3) |(boolA << 2) | (boolA << 1) | (1 << 0))
+        check(dut.uintAggregateFixed, 8, (3 << 5) | ((uint8 & 3) << 3) |(boolA << 2) | (boolA << 1) | (1 << 0))
+        check(dut.sintAggregateFixed, 8, (3 << 5) | ((sint8 & 3) << 3) |(boolA << 2) | (boolA << 1) | (1 << 0))
 
-        aggregateValue = (3 << 5) | ((bits8 & 3) << 3) |(boolA << 2) | (boolA << 1) | (1 << 0)
-        check(dut.bitsAggregateUnfixedWidthUnfixedDefault, 8, aggregateValue)
-        check(dut.uintAggregateUnfixedWidthUnfixedDefault, 8, aggregateValue)
-        check(dut.sintAggregateUnfixedWidthUnfixedDefault, 8, aggregateValue)
 
+        check(dut.bitsAggregateUnfixedWidthFixedDefault, 8, (3 << 5) | ((bits8 & 3) << 3) |(boolA << 2) | (3 << 1) | (1 << 0))
+        check(dut.uintAggregateUnfixedWidthFixedDefault, 8, (3 << 5) | ((uint8 & 3) << 3) |(boolA << 2) | (3 << 1) | (1 << 0))
+        check(dut.sintAggregateUnfixedWidthFixedDefault, 8, (3 << 5) | ((sint8 & 3) << 3) |(boolA << 2) | (3 << 1) | (1 << 0))
+
+
+        check(dut.bitsAggregateUnfixedWidthUnfixedDefault, 8, (3 << 5) | ((bits8 & 3) << 3) |(boolA << 2) | (boolA << 1) | (1 << 0))
+        check(dut.uintAggregateUnfixedWidthUnfixedDefault, 8, (3 << 5) | ((uint8 & 3) << 3) |(boolA << 2) | (boolA << 1) | (1 << 0))
+        check(dut.sintAggregateUnfixedWidthUnfixedDefault, 8, (3 << 5) | ((sint8 & 3) << 3) |(boolA << 2) | (boolA << 1) | (1 << 0))
+
+        bits27 = bits32 & ((1 << 27) - 1)
+        uint5  = uint8 & 0x1F
+        uint5mod27 = uint5 % 27
+        rotateLeftValue = (bits27 << uint5mod27) | (bits27 >> (27-uint5mod27))
+        rotateRightValue = (bits27 >> uint5mod27) | (bits27 << (27-uint5mod27))
+        check(dut.bitsRotateLeftUInt,27,rotateLeftValue)
+        check(dut.uintRotateLeftUInt, 27, rotateLeftValue)
+        check(dut.sintRotateLeftUInt, 27, rotateLeftValue)
+        check(dut.bitsRotateRightUInt,27,rotateRightValue)
+        check(dut.uintRotateRightUInt, 27, rotateRightValue)
+        check(dut.sintRotateRightUInt, 27, rotateRightValue)
 
     dut.log.info("Cocotb test done")

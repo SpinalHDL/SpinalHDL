@@ -26,7 +26,7 @@ class EventFactory extends MSFactory {
 class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with DataCarrier[T] {
   val valid = Bool
   val ready = Bool
-  val payload: T = cloneOf(_dataType)
+  val payload = cloneOf(_dataType)
 
 
   def dataType : T  = _dataType
@@ -45,6 +45,8 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
     this
   }
 
+/** @return Return a flow drived by this stream. Ready of ths stream is always high
+  */
   def toFlow: Flow[T] = {
     freeRun()
     val ret = Flow(_dataType)
@@ -53,35 +55,54 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
     ret
   }
 
+/** Connect that to this
+  */
   def <<(that: Stream[T]): Stream[T] = connectFrom(that)
-  //def <<[T2 <: Data](that : Stream[T2])(dataAssignement : (T,T2) => Unit): Stream[T2]  = connectFrom(that)(dataAssignement)
 
+/** Connect this to that
+  */
   def >>(into: Stream[T]): Stream[T] = {
     into << this;
     into
   }
 
+/** Connect that to this. The valid/payload path are cut by an register stage
+  */
   def <-<(that: Stream[T]): Stream[T] = {
-    this << that.m2sPipe()
+    this << that.stage()
     that
   }
+
+/** Connect this to that. The valid/payload path are cut by an register stage
+  */
   def >->(into: Stream[T]): Stream[T] = {
     into <-< this;
     into
   }
 
+/** Connect that to this. The ready path is cut by an register stage
+  */
   def </<(that: Stream[T]): Stream[T] = {
     this << that.s2mPipe
     that
   }
+
+/** Connect this to that. The ready path is cut by an register stage
+  */
   def >/>(that: Stream[T]): Stream[T] = {
     that </< this
     that
   }
+
+/** Connect that to this. The valid/payload/ready path are cut by an register stage
+  */
   def <-/<(that: Stream[T]): Stream[T] = {
     this << that.s2mPipe.m2sPipe()
     that
   }
+
+/** Connect that to this. The valid/payload/ready path are cut by an register stage
+  */
   def >/->(into: Stream[T]): Stream[T] = {
     into <-/< this;
     into
@@ -93,7 +114,8 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
     (this ~ translate(this.payload))
   }
 
-
+/** Connect this to a fifo and return its pop stream
+  */
   def queue(size: Int): Stream[T] = {
     val fifo = new StreamFifo(dataType, size)
     fifo.setPartialName(this,"fifo")
@@ -101,18 +123,24 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
     fifo.io.pop
   }
 
+/** Connect this to an clock crossing fifo and return its pop stream
+  */
   def queue(size: Int, pushClock: ClockDomain, popClock: ClockDomain): Stream[T] = {
     val fifo = new StreamFifoCC(dataType, size, pushClock, popClock)
     fifo.io.push << this
     return fifo.io.pop
   }
 
+/** Connect this to a fifo and return its pop stream and its occupancy
+  */
   def queueWithOccupancy(size: Int): (Stream[T], UInt) = {
     val fifo = new StreamFifo(dataType, size)
     fifo.io.push << this
     return (fifo.io.pop, fifo.io.occupancy)
   }
 
+/** Connect this to a cross clock domain fifo and return its pop stream and its push side occupancy
+  */
   def queueWithPushOccupancy(size: Int, pushClock: ClockDomain, popClock: ClockDomain): (Stream[T], UInt) = {
     val fifo = new StreamFifoCC(dataType, size, pushClock, popClock)
     fifo.io.push << this
@@ -120,7 +148,8 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
   }
 
 
-
+  /** Connect this to a zero latency fifo and return its pop stream
+    */
   def queueZeroLatency(size: Int): Stream[T] = {
     val fifo = new StreamFifoZeroLatency(dataType, size)
     fifo.setPartialName(this,"fifo")
@@ -128,8 +157,14 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
     fifo.io.pop
   }
 
+/** Return True when a transaction is present on the bus but the ready is low
+    */
   def isStall : Bool = valid && !ready
+
+/** Return True when a transaction occure on the bus (Valid && ready)
+  */
   override def fire: Bool = valid & ready
+
   def isFree: Bool = !valid || ready
   def connectFrom(that: Stream[T]): Stream[T] = {
     this.valid := that.valid
@@ -138,6 +173,8 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
     that
   }
 
+  /** Drive arbitration signals of this from that
+    */
   def arbitrationFrom[T2 <: Data](that : Stream[T2]) : Unit = {
     this.valid := that.valid
     that.ready := this.ready
@@ -157,6 +194,8 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
     into
   }
 
+/** Connect this to a valid/payload register stage and return its output stream
+  */
   def stage() : Stream[T] = this.m2sPipe()
 
   //! if collapsBubble is enable then ready is not "don't care" during valid low !
@@ -209,7 +248,8 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
     }
   }
 
-  // cut all path, but divide the bandwidth by 2, 1 cycle latency
+/** cut all path, but divide the bandwidth by 2, 1 cycle latency
+  */
   def halfPipe(): Stream[T] = {
     val ret = Stream(_dataType)
 
@@ -240,6 +280,8 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
     next
   }
 
+/** Block this when cond is False. Return the resulting stream
+  */
   def continueWhen(cond: Bool): Stream[T] = {
     val next = new Stream(_dataType)
     next.valid := this.valid && cond
@@ -248,6 +290,8 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
     return next
   }
 
+/** Drop transactions of this when cond is True. Return the resulting stream
+  */
   def throwWhen(cond: Bool): Stream[T] = {
     val next = cloneOf(this)
 
@@ -259,7 +303,12 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
     next
   }
 
+  /** Stop transactions on this when cond is True. Return the resulting stream
+    */
   def haltWhen(cond: Bool): Stream[T] = continueWhen(!cond)
+
+/** Drop transaction of this when cond is False. Return the resulting stream
+  */
   def takeWhen(cond: Bool): Stream[T] = throwWhen(!cond)
 
 
@@ -802,6 +851,7 @@ object StreamJoin{
     sources.foreach(_.ready := eventFire)
     event
   }
+  def apply[T <: Data](sources : Seq[Stream[_]],payload : T) : Stream[T] = StreamJoin(sources).translateWith(payload)
 }
 
 
@@ -819,7 +869,7 @@ object StreamWidthAdapter{
       val factor = inputWidth / outputWidth
       val counter = Counter(factor,inc = output.fire)
       output.valid := input.valid
-      output.payload.assignFromBits(input.payload.asBits.subdivide(factor).read(counter))
+      output.payload.assignFromBits(input.payload.asBits.subdivideIn(factor slices).read(counter))
       input.ready := output.ready && counter.willOverflowIfInc
     } else{
       SpinalError("Currently not implemented")
@@ -839,7 +889,7 @@ object StreamFragmentWidthAdapter{
       val factor = inputWidth / outputWidth
       val counter = Counter(factor,inc = output.fire)
       output.valid := input.valid
-      output.fragment.assignFromBits(input.fragment.asBits.subdivide(factor).read(counter))
+      output.fragment.assignFromBits(input.fragment.asBits.subdivideIn(factor slices).read(counter))
       output.last := input.last && counter.willOverflowIfInc
       input.ready := output.ready && counter.willOverflowIfInc
     } else{

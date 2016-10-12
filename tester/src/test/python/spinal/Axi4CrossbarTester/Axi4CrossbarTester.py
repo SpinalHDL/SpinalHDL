@@ -3,10 +3,10 @@ from Queue import Queue
 
 import cocotb
 from cocotb.triggers import Timer, RisingEdge
+from cocotblib.Axi4 import Axi4
+from cocotblib.misc import ClockDomainAsyncReset, simulationSpeedPrinter, randBits, BoolRandomizer, assertEquals
 
-from spinal.common.Axi4 import Axi4
-from spinal.common.Stream import StreamDriverSlave, StreamDriverMaster, Transaction, StreamMonitor
-from spinal.common.misc import ClockDomainAsyncReset, simulationSpeedPrinter, randBits, BoolRandomizer, assertEquals
+from cocotblib.Stream import StreamDriverSlave, StreamDriverMaster, Transaction, StreamMonitor
 
 
 class MasterHandle:

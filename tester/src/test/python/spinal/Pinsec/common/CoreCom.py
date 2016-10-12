@@ -2,7 +2,7 @@ import cocotb
 from cocotb.result import ReturnValue
 from cocotb.triggers import RisingEdge
 
-from spinal.common.misc import assertEquals
+from cocotblib.misc import assertEquals
 
 
 @cocotb.coroutine

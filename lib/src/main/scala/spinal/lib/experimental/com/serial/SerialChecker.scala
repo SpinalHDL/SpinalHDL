@@ -1,4 +1,4 @@
-package spinal.lib.com.serial
+package spinal.lib.experimental.com.serial
 
 import spinal.core._
 import spinal.lib._
@@ -202,7 +202,7 @@ class SerialCheckerRx(wordCountMax: Int) extends Component {
     val lastWriteData = RegNextWhen(io.input.bits(bitsWidth - 1, 0), pushFlag)
 
     when(pushFlag || flushFlag) {
-      ram((writePtr - asUInt(flushFlag)).resized) := (Mux(pushFlag, io.input.bits, True ## lastWriteData)).resized
+      ram((writePtr - asUInt(flushFlag)).resized) := (Mux(pushFlag, io.input.bits.resized, True ## lastWriteData)).resized
     }
 
     when(pushFlag) {
@@ -230,10 +230,10 @@ class SerialCheckerRx(wordCountMax: Int) extends Component {
     }
 
 
-    val readPtr = Counter(wordCountMax)
+    val readPtr = Counter(wordCountMax << 1)
     val readCmd = Stream(UInt(log2Up(wordCountMax) bit))
     readCmd.valid := (validPtr =/= readPtr)
-    readCmd.payload := readPtr
+    readCmd.payload := readPtr.resized
     readPtr.willIncrement := readCmd.fire
     io.output.translateFrom(ram.streamReadSync(readCmd))((to, from) => {
       to.last := from.msb

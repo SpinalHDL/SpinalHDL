@@ -20,6 +20,9 @@ case class Floating(exponentSize: Int,
   /** Sign field (true when negative) */
   val sign = Bool
 
+  /** Value of the exponent bias for this float configuration */
+  def getExponentBias = ((1 << (exponentSize - 1)) - 1)
+
   private def isExponentZero = exponent === 0
   private def isMantissaZero = mantissa === 0
 
@@ -29,6 +32,35 @@ case class Floating(exponentSize: Int,
   /** Return true if the number is positive */
   def isPositive = !sign
 
+  /**
+    * Assign decimal value to the Floating
+    * @param that BigDecimal value
+    */
+  def := (that: BigDecimal) = {
+    // Handle zero case
+    if (that == 0) {
+      this.exponent := B(0)
+      this.mantissa := B(0)
+      this.sign := False
+
+    } else {
+
+      val inputValue = that.abs
+
+      var shiftAmount = 0
+      var shiftedMantissa = inputValue
+      while ((shiftedMantissa.toBigInt() & (BigInt(1) << mantissaSize)) == 0) {
+        shiftedMantissa *= 2
+        shiftAmount += 1
+      }
+
+      def firstBitIndex = mantissaSize - shiftAmount
+      this.mantissa := B(shiftedMantissa.toBigInt()).resized
+      this.exponent := (getExponentBias + firstBitIndex)
+      this.sign := Bool(that < 0)
+    }
+  }
+
   /** return this number recoded into Berkeley encoding */
   def toRecFloating = {
     val recExponentSize = exponentSize + 1
@@ -37,14 +69,14 @@ case class Floating(exponentSize: Int,
     val firstMantissaBit = mantissaSize - OHToUInt(OHMasking.last(mantissa))
     val normalizedMantissa = (mantissa << firstMantissaBit)(mantissaSize-1 downto 0)
 
-    val denormExponent = B(recExponentSize bits, default -> True) ^ firstMantissaBit.asBits
-    val recodedExponent = (Mux(isExponentZero, denormExponent, exponent).asUInt +
-      ((1 << recExponentSize - 2) | Mux(isExponentZero, U(3), U(1)))).asBits
+    val denormExponent = B(recExponentSize bits, default -> True) ^ firstMantissaBit.asBits.resized
+    val recodedExponent = (Mux(isExponentZero, denormExponent, B(0, 1 bit) ## exponent).asUInt +
+      ((1 << recExponentSize - 2) | Mux(isExponentZero, U(3), U(1)).resized)).asBits
 
     val isNaN = recodedExponent(recExponentSize -1 downto recExponentSize - 2) === 3 && !isMantissaZero
     val finalExponent = ((recodedExponent(recExponentSize - 1 downto recExponentSize - 3) &
       B(3 bits, default -> !isZero)) ## recodedExponent(recExponentSize - 4 downto 0)) |
-      isNaN.asBits << (recExponentSize - 3)
+      (isNaN.asBits << (recExponentSize - 3)).resized
 
     recoded.sign := sign
     recoded.exponent := finalExponent
@@ -54,6 +86,24 @@ case class Floating(exponentSize: Int,
 
   /** Import number from a Berkeley encoded float number */
   def fromRecFloating(that: RecFloating) = that.toFloating
+
+  /**
+    * Initialization function
+    * @param that initialization value
+    * @return returns initialized object
+    */
+  def init(that: BigDecimal): this.type = {
+    val initValue = cloneOf(this)
+    initValue := that
+    this init (initValue)
+    this
+  }
+
+  /**
+    * Absolute value
+    * @return Absolute value of this float
+    */
+  def abs: Floating = FloatingAbs(this)
 
 }
 
@@ -94,6 +144,12 @@ case class RecFloating(exponentSize: Int,
 
   /** Sign field (true when negative) */
   val sign = Bool
+
+  /** Value of the recoded exponent corresponding to the smallest exponent */
+  def getExponentZero = (1 << (exponentSize - 2)) + 1
+
+  /** Value of the exponent bias for this float configuration */
+  def getExponentBias = ((1 << (exponentSize - 2)) - 1)
 
   private def isHighSubnormal = exponent(exponentSize - 3 downto 0).asUInt < 2
 
@@ -146,17 +202,33 @@ case class RecFloating(exponentSize: Int,
   def fromFloating(that: Floating) = that.toRecFloating
 
   /** Import from UInt */
-  def fromUInt(that: UInt) = {
+  def fromUInt(that: UInt) = fromUnsignedInteger(that, 0)
+
+  /** Import from UFix */
+  def fromUFix(that: UFix) = fromUnsignedInteger(that.raw, that.minExp)
+
+  /**
+    * Import from unsigned integer
+    * @param that input signed integer value
+    * @param offset exponent offset value
+    * @return Recoded Floating value
+    */
+  private def fromUnsignedInteger(that: UInt, offset: Int) = {
     this.sign := False
 
     val exponentValue = OHToUInt(OHMasking.last(that))
     val normalizationOffset = that.getWidth - exponentValue
 
-    val normalizedInt = (that << normalizationOffset)(that.getWidth-1 downto that.getWidth - mantissaSize)
+    val inputValue = if (that.getWidth >= mantissaSize) that
+    else that.resize(mantissaSize)
+
+    val inputSize = if (that.getWidth >= mantissaSize) that.getWidth
+    else mantissaSize
+
+    val normalizedInt = (inputValue << normalizationOffset)(inputSize - 1 downto inputSize - mantissaSize)
     this.mantissa := normalizedInt.asBits
 
-    // 0x81 is the reencoded exponent value corresponding to 0 offset in IEEE 754
-    val exponent = (U(0x81 + ((1 << (exponentSize - 2)) - 1), exponentSize bits) + exponentValue.resize(exponentSize)).asBits
+    val exponent = (U(getExponentZero + getExponentBias + offset, exponentSize bits) + exponentValue.resize(exponentSize)).asBits
     val isZero = that.orR
     this.exponent := (exponent(exponent.high) && isZero) ## (exponent(exponent.high - 1) && isZero) ##
       (exponent(exponent.high - 2) && isZero) ##
@@ -165,20 +237,21 @@ case class RecFloating(exponentSize: Int,
     this
   }
 
+  /** Convert floating point to UInt */
+  def toUInt(width: Int): UInt = FloatingToUInt(this, width, 0)
 
-  /**
-    * Convert the Floating number to an unsigned integer
-    * @param width Width of the output intger
-    * @return Unsigned integer corresponding to the floating point value (truncated)
-    */
-  def toUInt(width: Int): UInt = {
-    val isNotZero = exponent(exponentSize-1 downto exponentSize-3).orR
-    val extendedMantissa = Bits(width bits)
-    extendedMantissa := isNotZero ## mantissa ## B(0, width - mantissaSize - 1 bits)
-    val exponentOffset = exponent.asUInt - U(0x81 + ((1 << (exponentSize - 2)) - 1))
-    val shift = width - 1 - exponentOffset
-    val outputMantissa = (extendedMantissa >> shift)
-    outputMantissa.asUInt
+  /** Convert floating point to SFix with width */
+  def toUFix(peak: ExpNumber, width: BitCount) = {
+    val UFixValue = UFix(peak, width)
+    UFixValue.raw := FloatingToUInt(this, width.value, peak.value - width.value)
+    UFixValue
+  }
+
+  /** Convert floating point to SFix with resolution */
+  def toUFix(peak: ExpNumber, resolution: ExpNumber) = {
+    val UFixValue = UFix(peak, resolution)
+    UFixValue.raw := FloatingToUInt(this, peak.value - resolution.value, resolution.value)
+    UFixValue
   }
 
   /**
@@ -190,17 +263,34 @@ case class RecFloating(exponentSize: Int,
   }
 
   /** Import from SInt */
-  def fromSInt(that: SInt) = {
+  def fromSInt(that: SInt) = fromSignedInteger(that, 0)
+
+  /** Import from SFix */
+  def fromSFix(that: SFix) = fromSignedInteger(that.raw, that.minExp)
+
+  /**
+    * Import from signed integer
+    * @param that input signed integer value
+    * @param offset exponent offset value
+    * @return Recoded Floating value
+    */
+  private def fromSignedInteger(that: SInt, offset: Int) = {
     this.sign := that(that.getWidth - 1)
 
     val absValue = that.abs
     val exponentValue = OHToUInt(OHMasking.last(absValue))
     val normalizationOffset = that.getWidth - exponentValue
-    val normalizedInt = (absValue << normalizationOffset)(that.getWidth-1 downto that.getWidth - mantissaSize)
-    this.mantissa := normalizedInt.asBits
 
-    // 0x81 is the reencoded exponent value corresponding to 0 offset in IEEE 754
-    def exponent = (U(0x81 + ((1 << (exponentSize - 2)) - 1), exponentSize bits) + exponentValue.resize(exponentSize)).asBits
+    val inputValue = if (that.getWidth >= mantissaSize) absValue
+    else absValue.resize(mantissaSize)
+
+    val inputSize = if (that.getWidth >= mantissaSize) that.getWidth
+    else mantissaSize
+
+    val normalizedInt = (inputValue << normalizationOffset)(inputSize - 1 downto inputSize - mantissaSize)
+    this.mantissa := normalizedInt.asBits
+    
+    def exponent = (U(getExponentZero + getExponentBias + offset, exponentSize bits) + exponentValue.resize(exponentSize)).asBits
     val isZero = that.orR
     this.exponent := (exponent(exponent.high) && isZero) ## (exponent(exponent.high - 1) && isZero) ##
       (exponent(exponent.high - 2) && isZero) ##
@@ -209,20 +299,50 @@ case class RecFloating(exponentSize: Int,
     this
   }
 
+  /** Convert floating point to SInt */
+  def toSInt(width: Int): SInt = FloatingToSInt(this, width, 0)
+
+  /** Convert floating point to SFix with width */
+  def toSFix(peak: ExpNumber, width: BitCount) = {
+    val SFixValue = SFix(peak, width)
+    SFixValue.raw := FloatingToSInt(this, width.value, peak.value - width.value)
+    SFixValue
+  }
+
+  /** Convert floating point to SFix with resolution */
+  def toSFix(peak: ExpNumber, resolution: ExpNumber) = {
+    val SFixValue = SFix(peak, resolution)
+    SFixValue.raw := FloatingToSInt(this, peak.value - resolution.value, resolution.value)
+    SFixValue
+  }
+
   /**
-    * Convert the Floating number to a signed integer
-    * @param width Width ouf the output integer
-    * @return Signed integer corresponding to the Floating point value (truncated)
+    * Assign double value to the Floating
+    * @param that BigDecimal value
     */
-  def toSInt(width: Int): SInt = {
-    val isNotZero = exponent(exponentSize-1 downto exponentSize-3).orR
-    val extendedMantissa = Bits(32 bits)
-    extendedMantissa := isNotZero ## mantissa ## B(0, width - mantissaSize - 1 bits)
-    val exponentOffset = exponent.asUInt - U(0x81 + ((1 << (exponentSize - 2)) - 1))
-    val shift = 31 - exponentOffset
-    val outputMantissa = (extendedMantissa >> shift)
-    val signedMantissa = (outputMantissa ^ B(width bits, (default -> sign))).asSInt - sign.asSInt
-    signedMantissa
+  def := (that: BigDecimal) = {
+    // Handle zero case
+    if (that == 0) {
+      this.exponent := B(0)
+      this.mantissa := B(0)
+      this.sign := False
+
+    } else {
+
+      val inputValue = that.abs
+
+      var shiftAmount = 0
+      var shiftedMantissa = inputValue
+      while ((shiftedMantissa.toBigInt() & (BigInt(1) << mantissaSize)) == 0) {
+        shiftedMantissa *= 2
+        shiftAmount += 1
+      }
+
+      def firstBitIndex = mantissaSize - shiftAmount
+      this.mantissa := B(shiftedMantissa.toBigInt()).resized
+      this.exponent := (getExponentBias + getExponentZero + firstBitIndex)
+      this.sign := Bool(that < 0)
+    }
   }
 
   /**
@@ -233,6 +353,134 @@ case class RecFloating(exponentSize: Int,
     that := this.toSInt(that.getWidth)
   }
 
+  /**
+    * Initialization function
+    * @param that initialization value
+    * @return returns initialized object
+    */
+  def init(that: BigDecimal): this.type = {
+    val initValue = cloneOf(this)
+    initValue := that
+    this init (initValue)
+    this
+  }
+
+  /**
+    * Absolute value
+    * @return Absolute value of this float
+    */
+  def abs: RecFloating = FloatingAbs(this)
+
+
+  /**
+    * Less than
+    * @param that other side of the comparison
+    * @return true is this value is smaller than that
+    */
+  def < (that: RecFloating): Bool = {
+    val compare = FloatingCompare(this, that)
+    compare.lessThan
+  }
+
+  /**
+    * Less than constant
+    * @param that other side of the comparison
+    * @return true is this value is smaller than that
+    */
+  def < (that: BigDecimal): Bool = {
+    val constValue = cloneOf(this)
+    constValue := that
+    val compare = FloatingCompare(this, constValue)
+    compare.lessThan
+  }
+
+  /**
+    * Less than or equal
+    * @param that other side of the comparison
+    * @return true is this value is smaller or equal to that
+    */
+  def <= (that: RecFloating): Bool = {
+    val compare = FloatingCompare(this, that)
+    compare.lessThanEqual
+  }
+
+  /**
+    * Less than or equal to constant
+    * @param that other side of the comparison
+    * @return true is this value is smaller or equal to that
+    */
+  def <= (that: BigDecimal): Bool = {
+    val constValue = cloneOf(this)
+    constValue := that
+    val compare = FloatingCompare(this, constValue)
+    compare.lessThanEqual
+  }
+
+  /**
+    * Equals
+    * @param that other side of the comparison
+    * @return true is this value equals to that
+    */
+  def === (that: RecFloating): Bool = {
+    val compare = FloatingCompare(this, that)
+    compare.equals
+  }
+
+  /**
+    * Equals to constant
+    * @param that other side of the comparison
+    * @return true is this value equals to that
+    */
+  def === (that: BigDecimal): Bool = {
+    val constValue = cloneOf(this)
+    constValue := that
+    val compare = FloatingCompare(this, constValue)
+    compare.equals
+  }
+
+  /**
+    * Greater than
+    * @param that other side of the comparison
+    * @return true is this value is greater than that
+    */
+  def > (that: RecFloating): Bool = {
+    val compare = FloatingCompare(this, that)
+    compare.greaterThan
+  }
+
+  /**
+    * Greater than constant
+    * @param that other side of the comparison
+    * @return true is this value is greater than that
+    */
+  def > (that: BigDecimal): Bool = {
+    val constValue = cloneOf(this)
+    constValue := that
+    val compare = FloatingCompare(this, constValue)
+    compare.greaterThan
+  }
+
+  /**
+    * Greater than or equal
+    * @param that other side of the comparison
+    * @return true is this value is greater of equal to that
+    */
+  def >= (that: RecFloating): Bool = {
+    val compare = FloatingCompare(this, that)
+    compare.greaterThanEqual
+  }
+
+  /**
+    * Greater than or equal to constant
+    * @param that other side of the comparison
+    * @return true is this value is greater of equal to that
+    */
+  def >= (that: BigDecimal): Bool = {
+    val constValue = cloneOf(this)
+    constValue := that
+    val compare = FloatingCompare(this, constValue)
+    compare.greaterThanEqual
+  }
 }
 
 /** Half precision recoded Floating */

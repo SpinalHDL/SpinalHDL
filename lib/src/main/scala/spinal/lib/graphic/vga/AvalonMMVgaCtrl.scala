@@ -4,7 +4,7 @@ package spinal.lib.graphic.vga
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.avalon.{AvalonMM, AvalonMMConfig}
-import spinal.lib.bus.neutral.NeutralStreamDma
+import spinal.lib.experimental.bus.neutral.NeutralStreamDma
 import spinal.lib.eda.altera.QSysify
 import spinal.lib.graphic._
 

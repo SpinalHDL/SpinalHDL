@@ -1,16 +1,13 @@
 import random
-from Queue import Queue
 
 import cocotb
-from cocotb.result import TestFailure, TestSuccess
-from cocotb.triggers import Timer, Edge, RisingEdge, Join, FallingEdge
+from cocotb.result import TestFailure
+from cocotb.triggers import Timer, RisingEdge, FallingEdge
 
-from spinal.Pinsec.common.CoreCom import readCoreValue, readCoreValueAssert
+from cocotblib.misc import simulationSpeedPrinter
+from spinal.Pinsec.common.CoreCom import readCoreValueAssert
 from spinal.Pinsec.common.HexLoader import loadIHex
 from spinal.Pinsec.common.Misc import pinsecClockGen
-from spinal.common.AhbLite3 import AhbLite3MasterDriver, AhbLite3SlaveMemory, AhbLite3MasterIdle, AhbLite3TraficGenerator, AhbLite3MasterReadChecker, AhbLite3Terminaison
-from spinal.common.misc import setBit, randSignal, assertEquals, truncUInt, sint, ClockDomainAsyncReset, randBoolSignal, \
-    BoolRandomizer, StreamRandomizer,StreamReader, FlowRandomizer, Bundle, simulationSpeedPrinter, readIHex, log2Up
 
 
 @cocotb.coroutine

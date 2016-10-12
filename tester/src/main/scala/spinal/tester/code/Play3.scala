@@ -8,6 +8,9 @@ import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config}
 import spinal.lib.bus.amba4.axi._
 import spinal.lib.crypto.symmetric._
 
+import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
+
 object PlayAhbLite3{
   class TopLevel extends Component{
     val ahbConfig = AhbLite3Config(addressWidth = 16,dataWidth = 32)
@@ -445,6 +448,11 @@ object PlayApb3{
   val apbY = Apb3(apbConfig)
 
   apbX >> apbY
+  val myUInt = UInt(8 bits)
+  myUInt := (0 -> true, default -> false)
+  when(myUInt === U(0 -> true, (myUInt.high downto 1) -> false)){
+
+  }
 
   when(apbY.PENABLE){
     //...
@@ -460,12 +468,301 @@ object PlayRotateInt{
     }
 
     io.result := io.a.rotateLeft(4)
+    val yolo = out(B"".resized | B"000")
+    val register = out(Reg(UInt(4 bits)))init(U"0000")
+
+    when(True){
+      io.result := "0000"
+      when(True){
+        io.result(1 downto 0)  := "00000"
+        when(True){
+      io.result := "000"
+      }
+     }
+    }
+
   }
 
   def main(args: Array[String]) {
     println("MIAOU")
     println(100 MHz)
     SpinalVhdl(new TopLevel)
+  }
+}
+
+
+
+object PlayVecAssign{
+  class TopLevel extends Component {
+    val sel = in UInt(2 bits)
+    val outputs = out Vec(Reg(Bool) init(False),4)
+
+    outputs.foreach(_ := False)
+    outputs(sel) := True
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl({
+      val toplevel = new TopLevel
+      ClockDomain.current.reset.setName("areset")
+      toplevel
+    })
+  }
+}
+
+
+object PlayMuxBits{
+  class TopLevel extends Component {
+    val sel = in Bool
+    val result = out(sel ? U(2) | U(1,1 bits))
+    val result2 = out SInt(4 bits)
+    result2 := S(-9,4 bits)
+  }
+
+  def main(args: Array[String]) {
+    SpinalConfig(genVhdlPkg = false).generateVhdl(new TopLevel)
+    BigDecimal(2).toDouble
+  }
+}
+
+
+
+object PlayImplicitParameter{
+  def yolo(implicit x : Int = 0) = x + 1
+
+  def main(args: Array[String]) {
+    println(yolo)
+    implicit val newImplicit = 10
+    println(yolo)
+  }
+}
+
+
+
+object PlayTypedef{
+  class TopLevel(t : HardType[Data]) extends Component {
+    val input = in(t())
+    val output = out(t())
+    output := input
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel(UInt(3 bits)))
+  }
+}
+
+
+object PlayRamInfer{
+  class TopLevel() extends Component {
+    val a = out(U(8 bits,1 -> True,default -> False))
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel())
+    SpinalVerilog(new TopLevel())
+  }
+}
+
+object PlayRoundRobin{
+  class TopLevel() extends Component {
+    val requests,ohPriority = in Bits(4 bits)
+    val roundrobin = out(OHMasking.roundRobin(requests,ohPriority))
+    val dummy = out(RegNext(U"111") init(0))
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel())
+    SpinalVerilog(new TopLevel())
+  }
+}
+
+
+object PlayFifoVerilog{
+  def main(args: Array[String]) {
+    SpinalVerilog(new StreamFifo(Bits(8 bits),16))
+  }
+
+  class Ram_1w_1r(wordWidth: Int, wordCount: Int) extends BlackBox {
+
+    // SpinalHDL will lock at Generic classes to get attributes which
+    // should be used ad VHDL gererics / Verilog parameter
+    val generic = new Generic {
+      val wordCount = Ram_1w_1r.this.wordCount
+      val wordWidth = Ram_1w_1r.this.wordWidth
+    }
+
+    // Define io of the VHDL entiry / Verilog module
+    val io = new Bundle {
+      val clk = in Bool
+      val wr = new Bundle {
+        val en   = in Bool
+        val addr = in UInt (log2Up(wordCount) bit)
+        val data = in Bits (wordWidth bit)
+      }
+      val rd = new Bundle {
+        val en   = in Bool
+        val addr = in UInt (log2Up(wordCount) bit)
+        val data = out Bits (wordWidth bit)
+      }
+    }
+
+    //Map the current clock domain to the io.clk pin
+    mapClockDomain(clock=io.clk)
+  }
+}
+
+
+object PlayhashMap{
+  def main(args: Array[String]) {
+    val dic = mutable.HashMap[String,String]()
+    dic += ("miaou" -> "toto")
+    dic += ("miaou2" -> "toto2")
+
+    println(dic("miaou"))
+
+    val set = mutable.HashSet[String]()
+    set += "yolo"
+    set += "yili"
+
+    println(set.contains("yolo"))
+  }
+}
+
+
+
+
+object PlayNodeAnalyse{
+  class TopLevel() extends Component {
+    val a,b,c,d = in Bool
+    val result = out Bool
+
+    var b_and_c = b && c
+    result := a || b_and_c || d
+    b_and_c = null //b_and_c will not be named by the reflection
+  }
+
+  def main(args: Array[String]) {
+    val toplevel = SpinalVhdl(new TopLevel()).toplevel
+
+    iterateOverBaseTypeInputs(toplevel.result.input)(baseType => {
+      println(baseType)
+    })
+  }
+
+  def iterateOverBaseTypeInputs(node : Node)(gen : BaseType => Unit): Unit = node match {
+    case bt : BaseType if bt.isNamed => gen(bt)
+    case null =>
+    case _ => node.onEachInput(iterateOverBaseTypeInputs(_)(gen))
+  }
+}
+
+
+object PlayRomRam{
+  class TopLevel() extends Component {
+    def initialContent = List(
+      B"1000_0000_0000_0111",
+      B"0000_0000_0000_0001"
+    )
+
+    val ram = Mem(Bits(16 bits),initialContent ++ List.fill((1<<15) - initialContent.length)(B"x0000"))
+    ram.write(
+      address = in UInt(15 bits),
+      data = in Bits(16 bits),
+      enable = in Bool
+    )
+
+
+    out(ram.readAsync(
+      address = in UInt(15 bits)
+    ))
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
+
+object PlayRomRam2{
+  class Assembler{
+    val array = ArrayBuffer[Bits]()
+
+    def jump(address : Int) = array += B(address,16 bits)
+    def push(value : Int)   = array += B((1 << 15) | value,16 bits)
+    // ...
+
+    def build(ramSize : Int) = array ++ List.fill(ramSize - array.length)(B"x0000")
+  }
+
+  class TopLevel() extends Component {
+    def asm = new Assembler()
+    asm.push(7)
+    asm.jump(1)
+
+
+    M"111_3"
+    val ram = Mem(Bits(16 bits),asm.build(1 << 15))
+
+    ram.write(
+      address = in UInt(15 bits),
+      data = in Bits(16 bits),
+      enable = in Bool
+    )
+
+
+    out(ram.readAsync(
+      address = in UInt(15 bits)
+    ))
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
+
+object PlayPruned{
+  class TopLevel() extends Component {
+    val io = new Bundle{
+      val a,b = in UInt(8 bits)
+      val result = out UInt(8 bits)
+    }
+
+    io.result := io.a + io.b
+
+    val unusedSignal = UInt(8 bits)
+    val unusedSignal2 = UInt(8 bits)
+
+    unusedSignal2 := unusedSignal
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel).printPruned()
+  }
+}
+
+
+
+object PlayPruned2{
+  class TopLevel() extends Component {
+    val io = new Bundle{
+      val a,b = in UInt(8 bits)
+      val result = out UInt(8 bits)
+    }
+
+    io.result := io.a + io.b
+
+    val unusedSignal = UInt(8 bits)
+    val unusedSignal2 = UInt(8 bits).keep()
+
+    unusedSignal := 0
+    unusedSignal2 := unusedSignal
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel).printPruned()
   }
 }
 

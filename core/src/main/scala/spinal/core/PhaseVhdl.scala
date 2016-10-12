@@ -913,6 +913,11 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
       return temp
   }
 
+  def moduloImpl(op: Modifier): String = {
+    val mod = op.asInstanceOf[Operator.BitVector.Mod]
+    s"resize(${emitLogic(mod.left)} mod ${emitLogic(mod.right)},${mod.getWidth})"
+  }
+
   def operatorImplAsUnaryOperator(vhd: String)(op: Modifier): String = {
     s"($vhd ${emitLogic(op.getInput(0))})"
   }
@@ -930,6 +935,39 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     val node = func.asInstanceOf[Operator.BitVector.ShiftLeftByInt]
     s"pkg_shiftLeft(${emitLogic(node.input)},${node.shift})"
   }
+
+  def shiftRightByIntFixedWidthImpl(func: Modifier): String = {
+    val node = func.asInstanceOf[Operator.BitVector.ShiftRightByIntFixedWidth]
+    s"shift_right(${emitLogic(node.input)},${node.shift})"
+  }
+
+  def shiftLeftByIntFixedWidthImpl(func: Modifier): String = {
+    val node = func.asInstanceOf[Operator.BitVector.ShiftLeftByIntFixedWidth]
+    s"shift_left(${emitLogic(node.input)},${node.shift})"
+  }
+
+  def shiftRightBitsByIntFixedWidthImpl(func: Modifier): String = {
+    val node = func.asInstanceOf[Operator.BitVector.ShiftRightByIntFixedWidth]
+    s"std_logic_vector(shift_right(unsigned(${emitLogic(node.input)}),${node.shift}))"
+  }
+
+  def shiftLeftBitsByIntFixedWidthImpl(func: Modifier): String = {
+    val node = func.asInstanceOf[Operator.BitVector.ShiftLeftByIntFixedWidth]
+    s"std_logic_vector(shift_left(unsigned(${emitLogic(node.input)}),${node.shift}))"
+  }
+
+
+  def shiftLeftByUIntFixedWidthImpl(func: Modifier): String = {
+    val node = func.asInstanceOf[Operator.BitVector.ShiftLeftByUIntFixedWidth]
+    s"shift_left(${emitLogic(node.left)},to_integer(${emitLogic(node.right)}))"
+  }
+
+  def shiftLeftBitsByUIntFixedWidthImpl(func: Modifier): String = {
+    val node = func.asInstanceOf[Operator.BitVector.ShiftLeftByUIntFixedWidth]
+    s"std_logic_vector(shift_left(unsigned(${emitLogic(node.left)}),to_integer(${emitLogic(node.right)})))"
+  }
+
+
 
   def resizeFunction(vhdlFunc : String)(func: Modifier): String = {
     val resize = func.asInstanceOf[Resize]
@@ -1016,7 +1054,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
   modifierImplMap.put("u-u", operatorImplAsBinaryOperator("-"))
   modifierImplMap.put("u*u", operatorImplAsBinaryOperator("*"))
   modifierImplMap.put("u/u", operatorImplAsBinaryOperator("/"))
-  modifierImplMap.put("u%u", operatorImplAsBinaryOperator("rem"))
+  modifierImplMap.put("u%u", moduloImpl)
 
   modifierImplMap.put("u|u", operatorImplAsBinaryOperator("or"))
   modifierImplMap.put("u&u", operatorImplAsBinaryOperator("and"))
@@ -1033,6 +1071,9 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
   modifierImplMap.put("u<<i", shiftLeftByIntImpl)
   modifierImplMap.put("u>>u", operatorImplAsFunction("pkg_shiftRight"))
   modifierImplMap.put("u<<u", operatorImplAsFunction("pkg_shiftLeft"))
+  modifierImplMap.put("u|>>i",  shiftRightByIntFixedWidthImpl)
+  modifierImplMap.put("u|<<i",  shiftLeftByIntFixedWidthImpl)
+  modifierImplMap.put("u|<<u",  shiftLeftByUIntFixedWidthImpl)
 
 
   //signed
@@ -1040,7 +1081,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
   modifierImplMap.put("s-s", operatorImplAsBinaryOperator("-"))
   modifierImplMap.put("s*s", operatorImplAsBinaryOperator("*"))
   modifierImplMap.put("s/s", operatorImplAsBinaryOperator("/"))
-  modifierImplMap.put("s%s", operatorImplAsBinaryOperator("rem"))
+  modifierImplMap.put("s%s", moduloImpl)
 
   modifierImplMap.put("s|s", operatorImplAsBinaryOperator("or"))
   modifierImplMap.put("s&s", operatorImplAsBinaryOperator("and"))
@@ -1058,6 +1099,9 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
   modifierImplMap.put("s<<i", shiftLeftByIntImpl)
   modifierImplMap.put("s>>u", operatorImplAsFunction("pkg_shiftRight"))
   modifierImplMap.put("s<<u", operatorImplAsFunction("pkg_shiftLeft"))
+  modifierImplMap.put("s|>>i",  shiftRightByIntFixedWidthImpl)
+  modifierImplMap.put("s|<<i",  shiftLeftByIntFixedWidthImpl)
+  modifierImplMap.put("s|<<u",  shiftLeftByUIntFixedWidthImpl)
 
 
 
@@ -1076,7 +1120,11 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
   modifierImplMap.put("b<<i", shiftLeftByIntImpl)
   modifierImplMap.put("b>>u", operatorImplAsFunction("pkg_shiftRight"))
   modifierImplMap.put("b<<u", operatorImplAsFunction("pkg_shiftLeft"))
-  modifierImplMap.put("brotlu", operatorImplAsFunction("pkg_rotateLeft"))
+  modifierImplMap.put("b|>>i",  shiftRightBitsByIntFixedWidthImpl)
+  modifierImplMap.put("b|<<i",  shiftLeftBitsByIntFixedWidthImpl)
+  modifierImplMap.put("b|<<u",  shiftLeftBitsByUIntFixedWidthImpl)
+
+//  modifierImplMap.put("brotlu", operatorImplAsFunction("pkg_rotateLeft"))
 
 
 

@@ -1,9 +1,9 @@
-import cocotb
 import random
 
-from cocotb.triggers import Timer, Edge, RisingEdge, FallingEdge
+import cocotb
+from cocotb.triggers import Timer, RisingEdge, FallingEdge
 
-from spinal.common.misc import setBit, randSignal, assertEquals, truncUInt, sint, ClockDomainAsyncReset
+from cocotblib.misc import assertEquals
 
 
 @cocotb.coroutine

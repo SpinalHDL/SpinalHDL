@@ -87,7 +87,8 @@ object SpinalBuild extends Build {
   lazy val defaultSettings = Defaults.defaultSettings ++ xerial.sbt.Sonatype.sonatypeSettings ++ Seq(
     organization := "com.github.spinalhdl",
     scalaVersion := SpinalVersion.compiler,
-    scalacOptions ++= Seq("-unchecked"/*, "-feature" ,"-deprecation"*/),
+    scalacOptions ++= Seq("-unchecked","-target:jvm-1.7"/*, "-feature" ,"-deprecation"*/),
+    javacOptions ++= Seq("-source", "1.7", "-target", "1.7"),
     baseDirectory in test := file("/out/"),
     profileName := "Dolu1990",
     publishMavenStyle := true,

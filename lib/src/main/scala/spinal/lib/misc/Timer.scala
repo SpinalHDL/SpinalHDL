@@ -10,19 +10,19 @@ case class Timer(width : Int) extends Component{
     val clear     = in Bool
     val limit     = in UInt(width bits)
 
-    val overflow  = out Bool
+    val full      = out Bool
     val value     = out UInt(width bits)
   }
   
   val counter = Reg(UInt(width bits))
-  when(io.tick && !io.overflow){
+  when(io.tick && !io.full){
     counter := counter + 1
   }
   when(io.clear){
     counter := 0
   }
 
-  io.overflow := counter === io.limit
+  io.full := counter === io.limit
   io.value := counter
 
 

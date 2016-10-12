@@ -78,7 +78,7 @@ object when {
   }
 }
 
-class WhenContext(val cond: Bool) extends ConditionalContext {
+class WhenContext(val cond: Bool) extends ConditionalContext with ScalaLocated {
   var isTrue: Boolean = true;
   var parentElseWhen: WhenContext = null
   var childElseWhen: WhenContext = null
@@ -143,7 +143,7 @@ object WhenNode {
   }
 }
 
-class WhenNode (val w: WhenContext) extends Node with AssignementTreePart {
+class WhenNode (val w: WhenContext) extends Node with AssignementTreePart  {
   type T <: Node
   var cond      : Node = null
   var whenTrue  : T = null.asInstanceOf[T]
@@ -202,21 +202,28 @@ class WhenNode (val w: WhenContext) extends Node with AssignementTreePart {
   def cloneWhenNode : this.type = new WhenNode(w).asInstanceOf[this.type]
 }
 
-
+object AssignementTree{
+  def getDrivedBaseType(that : Node): BaseType ={
+    that match{
+      case that : BaseType => that
+      case _ => getDrivedBaseType(that.consumers.head)
+    }
+  }
+}
 class WhenNodeWidthable (w: WhenContext) extends WhenNode(w) with Widthable with CheckWidth{
   override type T = Node with WidthProvider
 
   override def calcWidth: Int = Math.max(if(whenTrue != null) whenTrue.getWidth else -1, if(whenFalse != null) whenFalse.getWidth else -1)
 
   override def normalizeInputs: Unit = {
-    if(whenTrue != null)  InputNormalize.bitVectoreAssignement(this,1,this.getWidth)
-    if(whenFalse != null) InputNormalize.bitVectoreAssignement(this,2,this.getWidth)
+    if(whenTrue != null)  InputNormalize.resizedOrUnfixedLit(this,1,this.getWidth)
+    if(whenFalse != null) InputNormalize.resizedOrUnfixedLit(this,2,this.getWidth)
   }
 
   override private[core] def checkInferedWidth: Unit = {
     def doit(input : T,i : Int) : Unit = {
       if (input != null && input.component != null && this.getWidth != input.getWidth) {
-        PendingError(s"Assignement bit count missmatch. ${this} := ${input}} at\n${ScalaLocated.long(getAssignementContext(i))}")
+        PendingError(s"Assignement bit count missmatch. ${AssignementTree.getDrivedBaseType(this)} := ${input}} at\n${ScalaLocated.long(getAssignementContext(i))}")
       }
     }
 

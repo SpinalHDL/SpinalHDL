@@ -12,11 +12,11 @@ class MemPimped[T <: Data](mem: Mem[T]) {
 
   //def streamReadSync[T2 <: Data](event : Event,address: UInt, linkedData: T2) : (Event,T,T2) = {
 
-  def streamReadSync[T2 <: Data](cmd: Stream[UInt], linkedData: T2) : Stream[ReadRetLinked[T,T2]] = {
+  def streamReadSync[T2 <: Data](cmd: Stream[UInt], linkedData: T2, crossClock:Boolean = false) : Stream[ReadRetLinked[T,T2]] = {
     val ret = Stream(new ReadRetLinked(mem.wordType, linkedData))
 
     val retValid = RegInit(False)
-    val retData = mem.readSync(cmd.payload, cmd.ready)
+    val retData = mem.readSync(cmd.payload, cmd.ready, clockCrossing = crossClock)
     val retLinked = RegNextWhen(linkedData, cmd.ready)
 
     when(ret.ready) {

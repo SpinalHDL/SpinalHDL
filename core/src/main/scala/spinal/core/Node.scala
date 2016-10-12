@@ -18,7 +18,7 @@
 
 package spinal.core
 
-import spinal.core.Operator.BitVector.{ShiftLeftByUInt, ShiftLeftByInt, ShiftRightByUInt, ShiftRightByInt}
+import spinal.core.Operator.BitVector._
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -58,13 +58,15 @@ object SymplifyNode {
     return null
   }
 
-  def binaryTakeOther(node: Node): Unit = {
+  def binaryTakeOther(node: Node,strictResize : Boolean = false): Unit = {
     val w0 = node.getInput(0).asInstanceOf[WidthProvider].getWidth
     val w1 = node.getInput(1).asInstanceOf[WidthProvider].getWidth
     if (w0 == 0) {
-      replaceNode(node, 1)
+      if(!strictResize || InputNormalize.isStrictlyResizable(node.getInput(0)))
+        replaceNode(node, 1)
     } else if (w1 == 0) {
-      replaceNode(node, 0)
+      if(!strictResize || InputNormalize.isStrictlyResizable(node.getInput(1)))
+        replaceNode(node, 0)
     }
   }
 
@@ -141,6 +143,7 @@ object SymplifyNode {
   }
 
 
+
   def binaryMinus(zeroFactory: (BigInt, BitCount) => Node)(node: Node): Unit = {
     val w0 = node.getInput(0).asInstanceOf[WidthProvider].getWidth
     val w1 = node.getInput(1).asInstanceOf[WidthProvider].getWidth
@@ -153,9 +156,9 @@ object SymplifyNode {
     }
   }
 
-  def binaryInductZeroWithOtherWidth(zeroFactory: (BigInt, BitCount) => Node)(node: Node): Unit = {
+  def binaryInductZeroWithOtherWidth(zeroFactory: (BigInt, BitCount) => Node,strictResize : Boolean = false)(node: Node): Unit = {
     val partition = binaryPartition(node)
-    if (partition != null) {
+    if (partition != null && (!strictResize || InputNormalize.isStrictlyResizable(partition._1))) {
       Component.push(node.component)
       replaceNode(node, zeroFactory(0, partition._2.asInstanceOf[WidthProvider].getWidth bit))
       Component.pop(node.component)
@@ -190,6 +193,15 @@ object SymplifyNode {
     }
   }
 
+
+  def shiftRightFixedWidthImpl(node: ShiftRightByIntFixedWidth): Unit = {
+    if (node.shift == 0) {
+      Component.push(node.component)
+      replaceNode(node, 0)
+      Component.pop(node.component)
+    }
+  }
+
   def shiftLeftImpl(zeroFactory: (BigInt, BitCount) => Node,node: ShiftLeftByUInt): Unit = {
     if (node.left.asInstanceOf[WidthProvider].getWidth == 0) {
       Component.push(node.component)
@@ -206,6 +218,30 @@ object SymplifyNode {
     if (node.input.asInstanceOf[WidthProvider].getWidth == 0) {
       Component.push(node.component)
       replaceNode(node, zeroFactory(0, node.asInstanceOf[WidthProvider].getWidth bit))
+      Component.pop(node.component)
+    } else if (node.shift == 0) {
+      Component.push(node.component)
+      replaceNode(node, 0)
+      Component.pop(node.component)
+    }
+  }
+
+  def shiftLeftFixedWidthImpl(zeroFactory: (BigInt, BitCount) => Node,node: ShiftLeftByUIntFixedWidth): Unit = {
+    if (node.left.asInstanceOf[WidthProvider].getWidth == 0) {
+      Component.push(node.component)
+      replaceNode(node, 0)
+      Component.pop(node.component)
+    } else if (node.right.asInstanceOf[WidthProvider].getWidth == 0) {
+      Component.push(node.component)
+      replaceNode(node, 0)
+      Component.pop(node.component)
+    }
+  }
+
+  def shiftLeftFixedWidthImpl(zeroFactory: (BigInt, BitCount) => Node,node: ShiftLeftByIntFixedWidth): Unit = {
+    if (node.input.asInstanceOf[WidthProvider].getWidth == 0) {
+      Component.push(node.component)
+      replaceNode(node, 0)
       Component.pop(node.component)
     } else if (node.shift == 0) {
       Component.push(node.component)
@@ -275,19 +311,58 @@ object InputNormalize {
     })
   }
 
-  def bitVectoreAssignement(parent : Node,inputId : Int,targetWidth : Int): Unit ={
+  def resizedOrUnfixedLit(node : Node): Unit ={
+    val targetWidth = node.asInstanceOf[WidthProvider].getWidth
+    node.onEachInput((input,i) => {
+      resizedOrUnfixedLit(node, i, targetWidth)
+    })
+  }
+
+  def isStrictlyResizable(that : Node) : Boolean = {
+    that match{
+      case bitVector : BitVector => {
+        bitVector.getInput(0) match {
+          case lit: BitVectorLiteral if (!lit.hasSpecifiedBitCount) =>
+            true
+          case _ if (that.hasTag(tagAutoResize)) =>
+            true
+          case _ =>
+            false
+        }
+      }
+      case _ =>
+        false
+    }
+  }
+
+  def resizedOrUnfixedLit(parent : Node,inputId : Int,targetWidth : Int): Unit ={
     val input = parent.getInput(inputId)
     if(input == null) return
       input match{
       case bitVector : BitVector => {
         bitVector.getInput(0) match{
-          case lit : BitVectorLiteral if (! lit.hasSpecifiedBitCount) =>{
+          case lit : BitVectorLiteral if (! lit.hasSpecifiedBitCount) =>
             Misc.normalizeResize(parent, inputId, Math.max(lit.minimalValueBitWidth,targetWidth)) //Allow resize on direct literal with unfixed values
-          }
-
+          case _ if(input.hasTag(tagAutoResize)) =>
+            Misc.normalizeResize(parent, inputId, targetWidth)
           case _ =>
-            if(input.hasTag(tagAutoResize))
-              Misc.normalizeResize(parent, inputId, targetWidth)
+        }
+      }
+      case _ =>
+    }
+  }
+
+  def resizedOrUnfixedLitDeepOne(parent : Node,inputId : Int,targetWidth : Int): Unit ={
+    val input = parent.getInput(inputId).getInput(0)
+    if(input == null) return
+    input match{
+      case bitVector : BitVector => {
+        bitVector.getInput(0) match{
+          case lit : BitVectorLiteral if (! lit.hasSpecifiedBitCount) =>
+            Misc.normalizeResize(parent, inputId, Math.max(lit.minimalValueBitWidth,targetWidth)) //Allow resize on direct literal with unfixed values
+          case _ if(input.hasTag(tagAutoResize)) =>
+            Misc.normalizeResize(parent, inputId, targetWidth)
+          case _ =>
         }
       }
       case _ =>
@@ -457,6 +532,18 @@ abstract class NodeWithoutInputs extends Node{
 trait WidthProvider{
   def getWidth : Int
 }
+
+object CheckWidth{
+  def allSame(node : Node with Widthable): Unit ={
+    node.onEachInput((_input,id) => {
+      val input = _input.asInstanceOf[Node with Widthable]
+      if (input != null && input.component != null && node.getWidth != input.asInstanceOf[WidthProvider].getWidth) {
+        PendingError(s"${node} inputs doesn't have the same width (${input}) at \n${node.getScalaLocationLong}")
+      }
+    })
+  }
+}
+
 trait CheckWidth{
   private[core] def checkInferedWidth: Unit
 }

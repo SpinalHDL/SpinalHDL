@@ -1,18 +1,12 @@
 import random
-from Queue import Queue
 
 import cocotb
-from cocotb.result import TestFailure
-from cocotb.triggers import Timer, RisingEdge
+from cocotb.triggers import Timer
+from cocotblib.Phase import PhaseManager, Infrastructure, PHASE_WAIT_TASKS_END
+from cocotblib.Scorboard import ScorboardInOrder
+from cocotblib.misc import simulationSpeedPrinter, randBits, BoolRandomizer
 
-from spinal.Axi4CrossbarTester2.MasterDriver import WriteOnlyMasterDriver, ReadOnlyMasterDriver, SharedMasterDriver
-from spinal.Axi4CrossbarTester2.MasterMonitor import ReadOnlyMasterMonitor, WriteOnlyMasterMonitor, SharedMasterMonitor
-from spinal.Axi4CrossbarTester2.SlaveMonitor import WriteDataMonitor, SharedDataMonitor
-from spinal.Axi4CrossbarTester2.SlavesDriver import ReadOnlySlaveDriver, WriteOnlySlaveDriver, SharedSlaveDriver
-from spinal.common.Axi4 import Axi4, Axi4ReadOnly, Axi4WriteOnly, Axi4Shared
-from spinal.common.Phase import PhaseManager, Infrastructure, PHASE_CHECK_SCORBOARDS, PHASE_WAIT_TASKS_END
-from spinal.common.Stream import StreamDriverSlave, StreamDriverMaster, Transaction, StreamMonitor, Stream, StreamFifoTester, StreamScorboardInOrder
-from spinal.common.misc import ClockDomainAsyncReset, simulationSpeedPrinter, randBits, BoolRandomizer, assertEquals
+from cocotblib.Stream import StreamDriverSlave, StreamDriverMaster, Transaction, StreamMonitor, Stream
 
 
 class SdramTester(Infrastructure):
@@ -26,7 +20,7 @@ class SdramTester(Infrastructure):
         self.lastAddr = 0
         self.closeIt = False
         self.ram = bytearray(b'\x00' * (1 << (9+2+2+1)))
-        self.scorboard = StreamScorboardInOrder("scoreboard", self)
+        self.scorboard = ScorboardInOrder("scoreboard", self)
         StreamDriverSlave(rsp, clk, reset)
         # rsp.ready <= 1
         StreamMonitor(rsp, self.scorboard.uutPush, clk, reset)

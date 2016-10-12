@@ -801,9 +801,9 @@ class PhaseAllowNodesToReadOutputs(pc: PhaseContext) extends PhaseNetlist{
                 buffer.input = baseTypeInput.input
                 baseTypeInput.input = buffer
                 buffer.component = baseTypeInput.component
-                if(baseTypeInput.isNamed){
-                  buffer.setWeakName(baseTypeInput.getName() + "_readableBuffer")
-                }
+//                if(baseTypeInput.isNamed){
+//                  buffer.setWeakName(baseTypeInput.getName() + "_readableBuffer")
+//                }
                 SpinalTagReady.splitNewSink(source=baseTypeInput,sink=buffer)
                 buffer
               })
@@ -1034,7 +1034,7 @@ class PhaseNormalizeNodeInputs(pc: PhaseContext) extends PhaseNetlist{
 }
 
 class PhaseCheckInferredWidth(pc: PhaseContext) extends PhaseCheck{
-  override def useNodeConsumers = false
+  override def useNodeConsumers = true
   override def impl(pc : PhaseContext): Unit = {
     import pc._
     val errors = mutable.ArrayBuffer[String]()
@@ -1547,6 +1547,126 @@ class PhaseDummy(doThat : => Unit) extends PhaseMisc{
   }
 }
 
+class PhaseCompletSwitchCases extends PhaseNetlist{
+  override def useNodeConsumers = false
+  override def impl(pc : PhaseContext): Unit = {
+    import pc._
+
+    object Exclusion{
+      def apply(size : BigInt) : Exclusion = {
+        if(size < 4096) new ExclusionByArray((size))
+        else new ExclusionByNothing(size)
+      }
+    }
+
+    abstract class Exclusion(val size : BigInt){
+      var remaining = size
+      def allocate(id : Int): Boolean
+    }
+
+    class ExclusionByNothing(size : BigInt) extends Exclusion(size){ //TODO better than nothing
+    override def allocate(id: Int): Boolean = true
+    }
+
+    class ExclusionByArray(size : BigInt) extends Exclusion(size){
+      val occupancy = new Array[Boolean](size.toInt)
+
+      def allocate(id : Int): Boolean ={
+        if(occupancy(id)) return false
+        occupancy(id) = true
+        remaining -= 1
+        return true
+      }
+    }
+
+    def walkAssignementTree(output : BaseType,node : Node,excludedIn : collection.immutable.Map[BaseType,Exclusion],previous : Node,previousId : Int): Unit = node match {
+      case node : MultipleAssignmentNode => node.onEachInput((input,id) => walkAssignementTree(output,input,excludedIn,node,id))
+      case node : WhenNode => {
+        def bypassBastType(that : Node) : Node = if(that.isInstanceOf[BaseType]) that.asInstanceOf[BaseType].input else that
+        walkAssignementTree(output,node.whenTrue,excludedIn,node,1)
+        var excludedOut = excludedIn
+
+        def checkAndApplyCond(bt : BaseType,value : Int): Unit = {
+          val hit = excludedOut(bt)
+          if (!hit.allocate(value)) {
+            PendingError(s"Condition duplication to drive the $output signal\n" + node.w.getScalaLocationLong)
+          }
+          if (hit.remaining == 0 && node.whenFalse == null) {
+            previous.setInput(previousId, node.whenTrue)
+          }
+        }
+        bypassBastType(node.cond) match {
+          case op : Operator.BitVector.Equal => {
+            val opRightByp = bypassBastType(op.right)
+            if (opRightByp.isInstanceOf[Literal]) {
+              op.left match {
+                case bt: BitVector => {
+                  val value = opRightByp match {
+                    case lit: SIntLiteral => lit.value + (BigInt(1) << (op.right.getWidth - 1))
+                    case lit: BitVectorLiteral => {
+                      lit.value
+                    }
+                    case lit: BitsAllToLiteral => {
+                      if (lit.value) (BigInt(1) << lit.getWidth) - 1 else BigInt(0)
+                    }
+                  }
+                  if (!excludedOut.contains(bt)) {
+                    excludedOut += (bt -> Exclusion(BigInt(1) << bt.getWidth))
+                  }
+
+                  checkAndApplyCond(bt,value.toInt)
+                }
+                case _ =>
+              }
+            }
+          }
+          case op : Operator.Enum.Equal => {
+            (op.left, bypassBastType(op.right)) match {
+              case (craft: SpinalEnumCraft[_], lit: EnumLiteral[_]) => {
+                val value = lit.enum.position
+                if (!excludedOut.contains(craft)) {
+                  excludedOut += (craft -> Exclusion(lit.enum.blueprint.values.length))
+                }
+                checkAndApplyCond(craft,value.toInt)
+              }
+              case _ =>
+            }
+          }
+          case op : Operator.Bool.Equal => {
+            (op.left, bypassBastType(op.right)) match {
+              case (craft: Bool, lit: BoolLiteral) => {
+                val value = if(lit.value) 1 else 0
+                if (!excludedOut.contains(craft)) {
+                  excludedOut += (craft -> Exclusion(2))
+                }
+                checkAndApplyCond(craft,value)
+              }
+              case _ =>
+            }
+          }
+          case _ =>
+        }
+        walkAssignementTree(output,node.whenFalse,excludedOut,node,2)
+      }
+      case _ =>
+    }
+
+    Node.walk(walkNodesDefautStack,_ match{
+      case baseType : BaseType => {
+        baseType.input match{
+          case reg : Reg => {
+            walkAssignementTree(baseType,reg.dataInput   ,collection.immutable.Map[BaseType,Exclusion](),reg,RegS.getDataInputId)
+            walkAssignementTree(baseType,reg.initialValue,collection.immutable.Map[BaseType,Exclusion](),reg,RegS.getInitialValueId)
+          }
+          case _ => walkAssignementTree(baseType,baseType.input,collection.immutable.Map[BaseType,Exclusion](),baseType,0)
+        }
+      }
+      case _ =>
+    })
+  }
+}
+
+
 object SpinalVhdlBoot{
   def apply[T <: Component](config : SpinalConfig)(gen : => T) : SpinalReport[T] ={
     try {
@@ -1627,6 +1747,8 @@ object SpinalVhdlBoot{
     phases += new PhaseDummy(SpinalProgress("Simplify graph's nodes"))
     phases += new PhaseDontSymplifyBasetypeWithComplexAssignement(pc)
     phases += new PhaseDeleteUselessBaseTypes(pc)
+
+    phases += new PhaseCompletSwitchCases
 
     phases += new PhaseDummy(SpinalProgress("Check that there is no incomplete assignment"))
     phases += new PhaseCheck_noAsyncNodeWithIncompleteAssignment(pc)
@@ -1793,6 +1915,8 @@ object SpinalVerilogBoot{
     phases += new PhaseDontSymplifyBasetypeWithComplexAssignement(pc)
     phases += new PhaseDontSymplifyVerilogMismatchingWidth(pc)    //VERILOG
     phases += new PhaseDeleteUselessBaseTypes(pc)
+
+    phases += new PhaseCompletSwitchCases
 
     phases += new PhaseDummy(SpinalProgress("Check that there is no incomplete assignment"))
     phases += new PhaseCheck_noAsyncNodeWithIncompleteAssignment(pc)

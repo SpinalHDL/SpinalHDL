@@ -1,14 +1,7 @@
-import random
-from Queue import Queue
-
 import cocotb
-from cocotb.triggers import Timer, Edge, RisingEdge, Join, Event, FallingEdge
+from cocotb.triggers import RisingEdge
 
-from spinal.common.misc import setBit, randSignal, assertEquals, truncUInt, sint, ClockDomainAsyncReset, randBoolSignal, \
-    BoolRandomizer, simulationSpeedPrinter
-
-
-
+from cocotblib.misc import randSignal, assertEquals, truncUInt, ClockDomainAsyncReset
 
 
 @cocotb.test()

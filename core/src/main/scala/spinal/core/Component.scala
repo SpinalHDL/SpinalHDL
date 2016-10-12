@@ -50,7 +50,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
       this.nameElements()
 
       for(t <- prePopTasks){
-        t()
+        t.clockDomain(t.task())
       }
       prePopTasks.clear()
 
@@ -66,7 +66,8 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
   private[core] var ioPrefixEnable = true
   val userCache = mutable.Map[Object, mutable.Map[Object, Object]]()
   private[core] val localScope = new Scope()
-  private[core] val prePopTasks = mutable.ArrayBuffer[() => Unit]()
+  case class PrePopTask(task : () => Unit,clockDomain: ClockDomain)
+  private[core] val prePopTasks = mutable.ArrayBuffer[PrePopTask]()
   private[core] val kindsOutputsToBindings = mutable.Map[BaseType, BaseType]()
   private[core] val kindsOutputsBindings = mutable.Set[BaseType]()
   private[core] val additionalNodesRoot = mutable.Set[Node]()
@@ -82,7 +83,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
     setWeakName("toplevel")
   }
 
-  def addPrePopTask(task : () => Unit) = prePopTasks += task
+  def addPrePopTask(task : () => Unit) = prePopTasks += PrePopTask(task,ClockDomain.current)
 //  def addPrePopTask(task :  => Unit) = prePopTasks += (() => {task; println("asd")})
 
   val clockDomain = ClockDomain.current

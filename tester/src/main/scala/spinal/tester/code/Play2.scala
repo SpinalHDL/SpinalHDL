@@ -9,7 +9,7 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.avalon._
 import spinal.lib.bus.amba4.axilite.{AxiLite4SpecRenamer, AxiLite4Config, AxiLite4}
-import spinal.lib.bus.neutral.NeutralStreamDma
+import spinal.lib.experimental.bus.neutral.NeutralStreamDma
 import spinal.lib.com.uart.UartCtrl
 import spinal.lib.eda.mentor.MentorDo
 import spinal.lib.fsm._
@@ -793,24 +793,38 @@ object PlaySwitch4 {
 
   class TopLevel extends Component {
     val sel = in (MyEnum())
+    val sel2 = in UInt(2 bits)
+    val sel3 = in Bool
     val result = out UInt(8 bits)
 
-    result := 5
+//    result := 5
     switch(sel){
       is(MyEnum.a){
         result := 0
       }
       is(MyEnum.b){
-        result := 1
+        switch(sel2){
+          is(0){
+            result := 0
+          }
+          is(1){
+            result := 1
+          }
+          is(2) {
+            result := 2
+          }
+          is(3){
+            result := 3
+          }
+        }
       }
-//      default{
-//        result := 2
-//      }
+      is(MyEnum.c){
+        result := 2
+      }
     }
 
-    val sel2 = in UInt(8 bits)
+
     val result2 = out UInt(8 bits)
-    result2 := 3
     switch(sel2){
       is(0){
         result2 := 0
@@ -818,10 +832,47 @@ object PlaySwitch4 {
       is(1){
         result2 := 1
       }
+
+//      is(1){
+//        result2 := 1
+//      }
       is(2){
         result2 := 2
       }
+//      is(1){
+//        result2 := 1
+//      }
+      is(3){
+        result2 := 3
+      }
     }
+
+
+
+    val result3 = out UInt(8 bits)
+    result3 := sel2.mux(
+      0 -> U"x00",
+      1 -> U"x01",
+      2 -> U"x02",
+//      2 -> U"x02",
+//      default -> U"xFF",
+//      default -> U"xFF"
+      3 -> U"x03"
+    )
+
+
+    val result4 = out UInt(8 bits)
+    switch(sel3){
+      is(False){
+        result4 := 0
+      }
+      is(True){
+        result4 := 1
+      }
+
+    }
+
+
   }
 
 

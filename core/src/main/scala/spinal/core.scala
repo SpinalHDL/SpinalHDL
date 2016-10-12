@@ -42,6 +42,7 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     def bits = new BitCount(i)
     def exp = new ExpNumber(i)
     def pos = new PosCount(i)
+    def slices = new SlicesCount(i)
 
     def hr = (i * BigDecimal(3600.0))
     def mn = (i * BigDecimal(60.0))
@@ -69,8 +70,10 @@ package object core extends BaseTypeFactory with BaseTypeCast {
 
   case class BigIntBuilder(i: BigInt) {
     def bit = new BitCount(i.toInt)
+    def bits = new BitCount(i.toInt)
     def exp = new ExpNumber(i.toInt)
     def pos = new PosCount(i.toInt)
+    def slices = new SlicesCount(i.toInt)
   }
 
   case class DoubleBuilder(d: Double) {

@@ -113,15 +113,10 @@ object DES{
   }
 }
 
-// TODO : Implement the decrypt function
-case class DESConfig() extends Bundle{
-  val encDec = Bool
-}
-
-
 case class DEScmd(g : DESGenerics) extends Bundle{
-  val key   = Bits(g.keyWidth.value + g.keyWidthParity.value bits)
-  val block = Bits(g.blockWidth)
+  val key    = Bits(g.keyWidth.value + g.keyWidthParity.value bits)
+  val block  = Bits(g.blockWidth)
+  val encDec = Bool
 }
 
 
@@ -137,13 +132,16 @@ class DES(g : DESGenerics) extends Component{
     val res  = master Flow(DESrsp(g))
   }
 
-  io.cmd.ready  := False
+
 
   val roundNbr    = UInt(log2Up(g.nbrRound) bits)
+  val lastRound   = roundNbr === (g.nbrRound-2)
   val init        = io.cmd.valid.rise(False)
-  val nextRound   = Reg(Bool) init(False) setWhen(init) clearWhen(roundNbr === (g.nbrRound-2))
-  val rspValid    = Reg(Bool) init(False) setWhen(roundNbr === (g.nbrRound-2)) clearWhen(init)
+  val nextRound   = Reg(Bool) init(False) setWhen(init) clearWhen(lastRound)
+  val rspValid    = Reg(Bool) init(False) setWhen(lastRound) clearWhen(init)
 
+
+  io.cmd.ready  := lastRound.rise(False)
 
   /**
     * Count the number of round
@@ -179,9 +177,19 @@ class DES(g : DESGenerics) extends Component{
     // rotate left the key (key is divided into two groups of 28 bits)
     val shiftRes   = Bits(g.keyWidth)
     when(g.oneShiftRound.map(index => ctnRound.round === (index-1)).reduce(_ || _) ){
-      shiftRes  := shiftKey(55 downto 28).rotateLeft(1) ## shiftKey(27 downto 0).rotateLeft(1)
+
+      when(io.cmd.encDec){
+        shiftRes  := shiftKey(55 downto 28).rotateLeft(1) ## shiftKey(27 downto 0).rotateLeft(1)
+      }otherwise{
+        shiftRes  := shiftKey(55 downto 28).rotateRight(1) ## shiftKey(27 downto 0).rotateRight(1)
+      }
+
     }otherwise{
-      shiftRes  := shiftKey(55 downto 28).rotateLeft(2) ## shiftKey(27 downto 0).rotateLeft(2)
+      when(io.cmd.encDec){
+        shiftRes  := shiftKey(55 downto 28).rotateLeft(2) ## shiftKey(27 downto 0).rotateLeft(2)
+      }otherwise{
+        shiftRes  := shiftKey(55 downto 28).rotateRight(2) ## shiftKey(27 downto 0).rotateRight(2)
+      }
     }
 
     // update key shift

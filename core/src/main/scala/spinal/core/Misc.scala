@@ -54,9 +54,29 @@ object cloneOf {
   def apply[T <: Data](that: T): T = that.clone().asInstanceOf[T]
 }
 
+object weakCloneOf {
+  //Return a new data with the same data structure than the given parameter (execept bit width)
+  def apply[T <: Data](that: T): T = {
+    val ret = cloneOf(that)
+    ret.flatten.foreach(_ match {
+      case bv : BitVector => bv.unfixWidth()
+      case _ =>
+    })
+    ret
+  }
+}
+
 object widthOf {
   //Return the number of bit of the given data
   def apply[T <: Data](that: T): Int = that.getBitsWidth
+}
+
+object HardType{
+  implicit def implFactory[T <: Data](t : T) = new HardType(t)
+}
+
+class HardType[T <: Data](t : T){
+  def apply() = cloneOf(t)
 }
 
 object signalCache {
@@ -382,9 +402,11 @@ object ifGen {
 object MaskedLiteral{
 
   def apply(str : String) : MaskedLiteral = {
-    val careAbout = str.map(c => if(c == '-') '0' else '1')
-    val value = str.map(c => if(c == '-') '0' else c)
-    new MaskedLiteral(BigInt(value,2),BigInt(careAbout,2),str.length())
+    val strCleaned = str.replace("_","")
+    for(c <- strCleaned) assert(c == '1' || c == '0' || c == '-', s"""M"$str" is not correctly formated.""")
+    val careAbout = strCleaned.map(c => if(c == '-') '0' else '1')
+    val value = strCleaned.map(c => if(c == '-') '0' else c)
+    new MaskedLiteral(BigInt(value,2),BigInt(careAbout,2),strCleaned.length())
   }
 }
 

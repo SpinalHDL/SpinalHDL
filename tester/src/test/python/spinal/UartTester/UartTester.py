@@ -2,10 +2,9 @@ import random
 from Queue import Queue
 
 import cocotb
-from cocotb.triggers import Timer, Edge, RisingEdge, Join, Event, FallingEdge
+from cocotb.triggers import Edge, RisingEdge, FallingEdge
 
-from spinal.common.misc import setBit, randSignal, assertEquals, truncUInt, sint, ClockDomainAsyncReset, randBoolSignal, \
-    BoolRandomizer, simulationSpeedPrinter
+from cocotblib.misc import assertEquals, ClockDomainAsyncReset, simulationSpeedPrinter
 
 UartParityType_NONE = 0
 UartParityType_EVEN = 1

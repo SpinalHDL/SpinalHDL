@@ -1,7 +1,7 @@
 import cocotb
-from cocotb.triggers import Timer, Edge, RisingEdge
+from cocotb.triggers import Timer
 
-from spinal.common.misc import setBit, randSignal, assertEquals, truncUInt, sint, ClockDomainAsyncReset
+from cocotblib.misc import randSignal, assertEquals, ClockDomainAsyncReset
 
 
 class Ref:

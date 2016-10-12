@@ -113,11 +113,8 @@ case class Axi4(config: Axi4Config) extends Bundle with IMasterSlave with Axi4Bu
 
 
   override def asMaster(): Unit = {
-    master(aw,w)
-    slave(b)
-
-    master(ar)
-    slave(r)
+    master(ar,aw,w)
+    slave(r,b)
   }
 
   def toReadOnly(): Axi4ReadOnly ={

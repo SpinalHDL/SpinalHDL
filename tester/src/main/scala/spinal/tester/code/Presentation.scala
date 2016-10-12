@@ -1354,6 +1354,67 @@ object SinFir {
 
 
 
+object SinFir2{
+  class TopLevel(resolutionWidth : Int,sampleCount : Int,firLength : Int) extends Component {
+    val io = new Bundle {
+      val sin = out SInt(resolutionWidth bit)
+      val sinFiltred = out SInt(resolutionWidth bit)
+    }
+
+    def sinTable = for(sampleIndex <- 0 until sampleCount) yield {
+      val sinValue = Math.sin(2 * Math.PI * sampleIndex / sampleCount)
+      S((sinValue * ((1<<resolutionWidth)/2-1)).toInt,resolutionWidth bits)
+    }
+
+    val rom =  Mem(SInt(resolutionWidth bit),initialContent = sinTable)
+    val phase = Reg(UInt(log2Up(sampleCount) bits)) init(0)
+    phase := phase + 1
+
+    io.sin := rom.readSync(phase)
+    io.sinFiltred := RegNext(io.sinFiltred  - (io.sinFiltred  >> 5) + (io.sin >> 5)) init(0)
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel(
+      resolutionWidth=16,
+      sampleCount=64,
+      firLength=16
+    ))
+
+    SpinalVerilog(new TopLevel(
+      resolutionWidth=16,
+      sampleCount=64,
+      firLength=16
+    ))
+  }
+
+  //  class TopLevel(resolutionWidth : Int,sampleCount : Int,firLength : Int) extends Component {
+  //    val io = new Bundle {
+  //      val square = out Bool
+  //      val sin = out SInt(resolutionWidth bit)
+  //      val mixed = out SInt(resolutionWidth bit)
+  //      val filtred = out SInt(resolutionWidth bit)
+  //    }
+  //
+  //    def sinTable = for(sampleIndex <- 0 until sampleCount) yield {
+  //      val sinValue = Math.sin(2 * Math.PI * sampleIndex / sampleCount)
+  //      S((sinValue * ((1<<resolutionWidth)/2-1)).toInt,resolutionWidth bits)
+  //    }
+  //
+  //    val rom =  Mem(SInt(resolutionWidth bit),initialContent = sinTable)
+  //    val phase = Reg(UInt(log2Up(sampleCount) bits)) init(0)
+  //    phase := phase + 1
+  //
+  //    io.sin := rom.readSync(phase)
+  //    io.square := phase.msb
+  //    io.mixed := (io.sin >> 1) + S((resolutionWidth-1 downto resolutionWidth-2) -> False,(resolutionWidth-3 downto 0) -> io.square)
+  //    io.filtred := RegNext(io.filtred  - (io.filtred  >> 5) + (io.mixed >> 5)) init(0)
+  //  }
+
+
+}
+
+
 object c99{
 
 
@@ -1521,12 +1582,12 @@ object c4828{
       val sin = out SInt (resolutionWidth bits)
     }
 
-    def sinTable = (0 until sampleCount).map(sampleIndex => {
+    def sinTable() = (0 until sampleCount).map(sampleIndex => {
       val sinValue = Math.sin(2 * Math.PI * sampleIndex / sampleCount)
       S((sinValue * ((1 << resolutionWidth) / 2 - 1)).toInt, resolutionWidth bits)
     })
 
-    val rom   = Mem(SInt(resolutionWidth bit), initialContent = sinTable)
+    val rom   = Mem(SInt(resolutionWidth bit), initialContent = sinTable())
     val phase = CounterFreeRun(sampleCount)
     val sin   = rom.readSync(phase)
   }
@@ -1568,5 +1629,30 @@ object c9482 {
   def main(args: Array[String]) {
     SpinalVhdl(new TopLevel)
   }
+
+}
+
+
+
+object CheatSheet{
+//  object myEnum extends SpinalEnum([encoding]){
+//    val IDLE, STATE1 = newElement()
+//  }
+object State extends SpinalEnum{
+
+    val IDLE, S0,S1,S2 = newElement()
+  }
+
+//  val myBool = Bool(4 < 2 )
+  val myBool = True
+  val myUInt = U(13, 32 bits)
+//  val myBits = B"8'hA3" // h,d,b,x,o
+  val myBits = B"0110"
+  val itMatch = myBits === M"00--10--"
+
+
+
+
+
 
 }

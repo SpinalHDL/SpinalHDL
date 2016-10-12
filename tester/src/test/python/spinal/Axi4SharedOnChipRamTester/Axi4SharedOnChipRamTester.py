@@ -1,10 +1,10 @@
 import random
 
 import cocotb
+from cocotblib.Phase import PhaseManager
+from cocotblib.misc import ClockDomainAsyncReset, simulationSpeedPrinter
 
-from spinal.common.Axi4 import Axi4Shared, Axi4SharedMemoryChecker
-from spinal.common.Phase import PhaseManager
-from spinal.common.misc import ClockDomainAsyncReset, simulationSpeedPrinter
+from cocotblib.Axi4 import Axi4Shared, Axi4SharedMemoryChecker
 
 
 @cocotb.test()

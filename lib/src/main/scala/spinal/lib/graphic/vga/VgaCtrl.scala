@@ -3,7 +3,7 @@ package spinal.lib.graphic.vga
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.misc.BusSlaveFactory
-import spinal.lib.bus.neutral.NeutralStreamDma
+import spinal.lib.experimental.bus.neutral.NeutralStreamDma
 import spinal.lib.eda.altera.QSysify
 import spinal.lib.graphic.{RgbConfig, Rgb}
 
@@ -58,13 +58,13 @@ case class VgaTimings(timingsWidth: Int) extends Bundle {
 case class VgaCtrl(rgbConfig: RgbConfig, timingsWidth: Int = 12) extends Component {
   val io = new Bundle {
     val softReset = in Bool() default(False)
-    val timings = in(VgaTimings(timingsWidth))
+    val timings   = in(VgaTimings(timingsWidth))
 
     val frameStart = out Bool
-    val pixels = slave Stream (Rgb(rgbConfig))
-    val vga = master(Vga(rgbConfig))
+    val pixels     = slave Stream (Rgb(rgbConfig))
+    val vga        = master(Vga(rgbConfig))
 
-    val error = out Bool
+    val error      = out Bool
   }
 
   case class HVArea(timingsHV: VgaTimingsHV, enable: Bool) extends Area {

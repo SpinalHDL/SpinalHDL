@@ -16,9 +16,7 @@ object Apb3{
     new Apb3(
       Apb3Config(
         addressWidth = addressWidth,
-        dataWidth = dataWidth,
-        selWidth = 1,
-        useSlaveError = false
+        dataWidth = dataWidth
       )
     )
   }
@@ -29,7 +27,7 @@ case class Apb3(config: Apb3Config) extends Bundle with IMasterSlave {
   val PSEL       = Bits(config.selWidth bits)
   val PENABLE    = Bool
   val PREADY     = Bool
-  val PWRITE     = Bool
+  val PWRITE     = Bool 
   val PWDATA     = Bits(config.dataWidth bit)
   val PRDATA     = Bits(config.dataWidth bit)
   val PSLVERROR  = if(config.useSlaveError) Bool else null

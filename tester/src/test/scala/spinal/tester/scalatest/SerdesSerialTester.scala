@@ -2,7 +2,7 @@ package spinal.tester.scalatest
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.com.serial._
+import spinal.lib.experimental.com.serial._
 
 object SerdesSerialTester {
 

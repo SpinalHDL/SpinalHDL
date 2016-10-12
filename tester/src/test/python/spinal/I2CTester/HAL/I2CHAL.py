@@ -1,7 +1,7 @@
 import cocotb
-from cocotb.triggers import RisingEdge, FallingEdge, Event, Timer
-from spinal.common.misc import assertEquals, randInt
-import math
+from cocotb.triggers import RisingEdge, FallingEdge, Event
+
+from cocotblib.misc import assertEquals, randInt
 
 
 ###############################################################################

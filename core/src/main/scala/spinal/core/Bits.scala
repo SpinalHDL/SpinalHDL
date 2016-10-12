@@ -19,8 +19,6 @@
 package spinal.core
 
 import spinal.core.Operator.BitVector.AllByBool
-import spinal.core.Operator.Bits.RotateLeftByUInt
-
 /**
   * Created by PIC18F on 16.01.2015.
   */
@@ -43,6 +41,9 @@ trait BitsFactory {
 class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
   private[core] def prefix: String = "b"
 
+
+  override type T = Bits
+
   override private[spinal] def _data: Bits = this
 
   def ===(that: MaskedLiteral): Bool = this.isEguals(that)
@@ -56,25 +57,26 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
   def <<(that: Int): Bits  = wrapConstantOperator(new Operator.Bits.ShiftLeftByInt(that))
   def >>(that: UInt): Bits = wrapBinaryOperator(that,new Operator.Bits.ShiftRightByUInt)
   def <<(that: UInt): Bits = wrapBinaryOperator(that,new Operator.Bits.ShiftLeftByUInt)
-  def rotateLeft(that: UInt): Bits = wrapBinaryOperator(that,new RotateLeftByUInt)
-  def rotateLeft(that: Int): Bits = {
+
+  def |>>(that: Int): Bits  = wrapConstantOperator(new Operator.Bits.ShiftRightByIntFixedWidth(that))
+  def |<<(that: Int): Bits  = wrapConstantOperator(new Operator.Bits.ShiftLeftByIntFixedWidth(that))
+  def |>>(that: UInt): Bits = this >> that
+  def |<<(that: UInt): Bits = wrapBinaryOperator(that,new Operator.Bits.ShiftLeftByUIntFixedWidth)
+
+
+
+
+  override def rotateLeft(that: Int): Bits = {
     val width = widthOf(this)
     val thatMod = that % width
     this(this.high - thatMod downto 0) ## this(this.high downto this.high - thatMod + 1)
   }
 
-//  def rotateLeft(that: UInt): Bits = {
-//    val width = widthOf(this)
-//    val stageCount = log2Up(width)
-//    require(that.getWidth)
-//    var result = cloneOf(that)
-//    result := that
-//    for(stage <- 0 until stageCount){
-//      result =
-//    }
-//    result
-//  }
-
+  override def rotateRight(that: Int): Bits = {
+    val width = widthOf(this)
+    val thatMod = that % width
+    this(thatMod - 1 downto 0) ## this(this.high downto thatMod)
+  }
 
   def :=(rangesValue : Tuple2[Any,Any],_rangesValues: Tuple2[Any,Any]*) : Unit = {
     val rangesValues = rangesValue +: _rangesValues
@@ -91,6 +93,22 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
     node.size = width
     node
   })
+
+  /**
+    * Resize by keeping MSB at the same place
+    * If the final size is bigger than the original size, the leftmost bits are filled with zeroes
+    * if the final size is smaller, only width MSB are kept
+    * @param width Final width
+    * @return Resized bits vector
+    */
+  def resizeLeft(width: Int): Bits = {
+    val lengthDifference = width - this.getWidth
+    if (lengthDifference >= 0) {
+      this ## B(0, lengthDifference bits)
+    } else {
+      this(width - 1 downto 0)
+    }
+  }
 
   def asSInt: SInt = wrapCast(SInt(),new CastBitsToSInt)
   def asUInt: UInt = wrapCast(UInt(),new CastBitsToUInt)
@@ -127,11 +145,7 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
     ret
   }
 
-  def subdivide(sliceCount : Int) : Vec[Bits] = {
-    require(this.getWidth % sliceCount == 0)
-    val sliceWidth = widthOf(this)/sliceCount
-    Vec((0 until sliceCount).map(i =>this(i*sliceWidth,sliceWidth bits)))
-  }
+
 
 
   def apply(bitId: Int) : Bool = newExtract(bitId,new ExtractBoolFixedFromBits)
