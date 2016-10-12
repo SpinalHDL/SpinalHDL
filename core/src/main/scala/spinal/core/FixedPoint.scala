@@ -369,3 +369,29 @@ class UFix2D(val maxExp: Int, val bitCount: Int) extends Bundle {
 
   override def clone(): UFix2D.this.type = new UFix2D(maxExp, bitCount).asInstanceOf[this.type]
 }
+
+object SF{
+  def apply(value:Double, peak: ExpNumber, width: BitCount) : SFix = {
+    val tmp = SFix(peak,width)
+    tmp := value
+    tmp
+  }
+  def apply(value:Double, peak: ExpNumber, resolution: ExpNumber) : SFix = {
+    val tmp = SFix(peak,resolution)
+    tmp := value
+    tmp
+  }
+}
+
+object UF{
+  def apply(value:Double, peak: ExpNumber, width: BitCount) : UFix = {
+    val tmp = UFix(peak,width)
+    tmp := value
+    tmp
+  }
+  def apply(value:Double, peak: ExpNumber, resolution: ExpNumber) : UFix = {
+    val tmp = UFix(peak,resolution)
+    tmp := value
+    tmp
+  }
+}
