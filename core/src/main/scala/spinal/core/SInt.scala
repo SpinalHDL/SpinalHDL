@@ -82,6 +82,13 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   def >>(that: UInt): SInt         = wrapBinaryOperator(that,new Operator.SInt.ShiftRightByUInt)
   def <<(that: UInt): SInt         = wrapBinaryOperator(that,new Operator.SInt.ShiftLeftByUInt)
 
+  def |>>(that: Int): SInt  = wrapConstantOperator(new Operator.SInt.ShiftRightByIntFixedWidth(that))
+  def |<<(that: Int): SInt  = wrapConstantOperator(new Operator.SInt.ShiftLeftByIntFixedWidth(that))
+  def |>>(that: UInt): SInt = this >> that
+  def |<<(that: UInt): SInt = wrapBinaryOperator(that,new Operator.SInt.ShiftLeftByUIntFixedWidth)
+
+
+
   override def rotateLeft(that: Int): SInt = {
     val width = widthOf(this)
     val thatMod = that % width

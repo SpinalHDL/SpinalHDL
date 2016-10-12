@@ -19,7 +19,6 @@
 package spinal.core
 
 import spinal.core.Operator.BitVector.AllByBool
-
 /**
   * Created by PIC18F on 16.01.2015.
   */
@@ -58,6 +57,13 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
   def <<(that: Int): Bits  = wrapConstantOperator(new Operator.Bits.ShiftLeftByInt(that))
   def >>(that: UInt): Bits = wrapBinaryOperator(that,new Operator.Bits.ShiftRightByUInt)
   def <<(that: UInt): Bits = wrapBinaryOperator(that,new Operator.Bits.ShiftLeftByUInt)
+
+  def |>>(that: Int): Bits  = wrapConstantOperator(new Operator.Bits.ShiftRightByIntFixedWidth(that))
+  def |<<(that: Int): Bits  = wrapConstantOperator(new Operator.Bits.ShiftLeftByIntFixedWidth(that))
+  def |>>(that: UInt): Bits = this >> that
+  def |<<(that: UInt): Bits = wrapBinaryOperator(that,new Operator.Bits.ShiftLeftByUIntFixedWidth)
+
+
 
 
   override def rotateLeft(that: Int): Bits = {

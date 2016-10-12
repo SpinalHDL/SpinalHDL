@@ -331,6 +331,7 @@ end
 
   def operatorImplAsBinaryOperator(vhd: String)(op: Modifier): String = s"(${emitLogic(op.getInput(0))} $vhd ${emitLogic(op.getInput(1))})"
   def operatorImplAsBinaryOperatorSigned(vhd: String)(op: Modifier): String = s"($$signed(${emitLogic(op.getInput(0))}) $vhd $$signed(${emitLogic(op.getInput(1))}))"
+  def operatorImplAsBinaryOperatorLeftSigned(vhd: String)(op: Modifier): String = s"($$signed(${emitLogic(op.getInput(0))}) $vhd ${emitLogic(op.getInput(1))})"
 
 
   def operatorImplAsUnaryOperator(vhd: String)(op: Modifier): String = {
@@ -363,6 +364,21 @@ end
     val node = func.asInstanceOf[Operator.BitVector.ShiftLeftByInt]
     s"(${emitLogic(node.input)} <<< ${node.shift})"
   }
+
+  def shiftRightByIntFixedWidthImpl(func: Modifier): String = {
+    val node = func.asInstanceOf[Operator.BitVector.ShiftRightByIntFixedWidth]
+    s"(${emitLogic(node.input)} >>> ${node.shift})"
+  }
+  def shiftRightSignedByIntFixedWidthImpl(func: Modifier): String = {
+    val node = func.asInstanceOf[Operator.BitVector.ShiftRightByIntFixedWidth]
+    s"($$signed(${emitLogic(node.input)}) >>> ${node.shift})"
+  }
+
+  def shiftLeftByIntFixedWidthImpl(func: Modifier): String = {
+    val node = func.asInstanceOf[Operator.BitVector.ShiftLeftByIntFixedWidth]
+    s"(${emitLogic(node.input)} <<< ${node.shift})"
+  }
+
 
   def operatorImplAsCat(op : Modifier) : String = {
     val cat = op.asInstanceOf[Operator.Bits.Cat]
@@ -420,6 +436,9 @@ end
   modifierImplMap.put("u<<i", shiftLeftByIntImpl)
   modifierImplMap.put("u>>u", operatorImplAsBinaryOperator(">>>"))
   modifierImplMap.put("u<<u", operatorImplAsBinaryOperator("<<<"))
+  modifierImplMap.put("u|>>i",  shiftRightByIntFixedWidthImpl)
+  modifierImplMap.put("u|<<i",  shiftLeftByIntFixedWidthImpl)
+  modifierImplMap.put("u|<<u",  operatorImplAsBinaryOperator("<<<"))
 
 
   //signed
@@ -443,8 +462,11 @@ end
 
   modifierImplMap.put("s>>i", shiftRightByIntImpl)
   modifierImplMap.put("s<<i", shiftLeftByIntImpl)
-  modifierImplMap.put("s>>u", operatorImplAsBinaryOperatorSigned(">>>"))
-  modifierImplMap.put("s<<u", operatorImplAsBinaryOperatorSigned("<<<"))
+  modifierImplMap.put("s>>u", operatorImplAsBinaryOperatorLeftSigned(">>>"))
+  modifierImplMap.put("s<<u", operatorImplAsBinaryOperatorLeftSigned("<<<"))
+  modifierImplMap.put("s|>>i",  shiftRightSignedByIntFixedWidthImpl)
+  modifierImplMap.put("s|<<i",  shiftLeftByIntFixedWidthImpl)
+  modifierImplMap.put("s|<<u",  operatorImplAsBinaryOperatorLeftSigned("<<<"))
 
 
 
@@ -463,7 +485,9 @@ end
   modifierImplMap.put("b<<i",  shiftLeftByIntImpl)
   modifierImplMap.put("b>>u",  operatorImplAsBinaryOperator(">>>"))
   modifierImplMap.put("b<<u",  operatorImplAsBinaryOperator("<<<"))
-  modifierImplMap.put("brotlu", unimplementedModifier("Currently UInt rotate left is not implemented in the Verilog Backend") /*operatorImplAsFunction("pkg_rotateLeft")*/) //TODO
+  modifierImplMap.put("b|>>i",  shiftRightByIntFixedWidthImpl)
+  modifierImplMap.put("b|<<i",  shiftLeftByIntFixedWidthImpl)
+  modifierImplMap.put("b|<<u",  operatorImplAsBinaryOperator("<<<"))
 
 
 

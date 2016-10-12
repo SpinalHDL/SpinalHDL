@@ -256,7 +256,30 @@ object Operator{
     }
 
 
-//    abstract class RotateLeftByUInt extends BinaryOperatorWidthableInputs with Widthable{
+    abstract class ShiftRightByIntFixedWidth(val shift : Int) extends ConstantOperatorWidthableInputs with Widthable{
+      assert(shift >= 0)
+      override def calcWidth(): Int = input.getWidth
+      override def normalizeInputs: Unit = {}
+      override def simplifyNode: Unit = {SymplifyNode.shiftRightFixedWidthImpl(this)}
+    }
+
+    abstract class ShiftLeftByIntFixedWidth(val shift : Int) extends ConstantOperatorWidthableInputs with Widthable{
+      assert(shift >= 0)
+      override def calcWidth(): Int = input.getWidth
+      override def normalizeInputs: Unit = {}
+      override def simplifyNode: Unit = {SymplifyNode.shiftLeftFixedWidthImpl(getLiteralFactory,this)}
+      def getLiteralFactory : (BigInt, BitCount) => Node
+    }
+
+    abstract class ShiftLeftByUIntFixedWidth extends BinaryOperatorWidthableInputs with Widthable{
+      override def calcWidth(): Int = left.getWidth
+      override def normalizeInputs: Unit = {}
+      override def simplifyNode: Unit = {SymplifyNode.shiftLeftFixedWidthImpl(getLiteralFactory,this)}
+      def getLiteralFactory : (BigInt, BitCount) => Node
+    }
+
+
+    //    abstract class RotateLeftByUInt extends BinaryOperatorWidthableInputs with Widthable{
 //      override def calcWidth(): Int = left.getWidth
 //      override def normalizeInputs: Unit = {}
 //      override def simplifyNode: Unit = {SymplifyNode.rotateImpl(getLiteralFactory,this)}
@@ -340,6 +363,21 @@ object Operator{
 
     class ShiftLeftByUInt extends BitVector.ShiftLeftByUInt{
       override def opName: String = "b<<u"
+      override def getLiteralFactory: (BigInt, BitCount) => Node = B.apply
+    }
+
+
+    class ShiftRightByIntFixedWidth(shift : Int) extends BitVector.ShiftRightByIntFixedWidth(shift){
+      override def opName: String = "b|>>i"
+    }
+
+    class ShiftLeftByIntFixedWidth(shift : Int) extends BitVector.ShiftLeftByIntFixedWidth(shift){
+      override def opName: String = "b|<<i"
+      override def getLiteralFactory: (BigInt, BitCount) => Node = B.apply
+    }
+
+    class ShiftLeftByUIntFixedWidth extends BitVector.ShiftLeftByUIntFixedWidth{
+      override def opName: String = "b|<<u"
       override def getLiteralFactory: (BigInt, BitCount) => Node = B.apply
     }
 
@@ -437,6 +475,20 @@ object Operator{
       override def getLiteralFactory: (BigInt, BitCount) => Node = U.apply
     }
 
+    class ShiftRightByIntFixedWidth(shift : Int) extends BitVector.ShiftRightByIntFixedWidth(shift){
+      override def opName: String = "u|>>i"
+    }
+
+    class ShiftLeftByIntFixedWidth(shift : Int) extends BitVector.ShiftLeftByIntFixedWidth(shift){
+      override def opName: String = "u|<<i"
+      override def getLiteralFactory: (BigInt, BitCount) => Node = U.apply
+    }
+
+    class ShiftLeftByUIntFixedWidth extends BitVector.ShiftLeftByUIntFixedWidth{
+      override def opName: String = "u|<<u"
+      override def getLiteralFactory: (BigInt, BitCount) => Node = U.apply
+    }
+
     class AllByBool(theConsumer : Node) extends BitVector.AllByBool(theConsumer) {
       override def opName: String = "uAllByB"
     }
@@ -529,6 +581,21 @@ object Operator{
 
     class ShiftLeftByUInt extends BitVector.ShiftLeftByUInt{
       override def opName: String = "s<<u"
+      override def getLiteralFactory: (BigInt, BitCount) => Node = S.apply
+    }
+
+
+    class ShiftRightByIntFixedWidth(shift : Int) extends BitVector.ShiftRightByIntFixedWidth(shift){
+      override def opName: String = "s|>>i"
+    }
+
+    class ShiftLeftByIntFixedWidth(shift : Int) extends BitVector.ShiftLeftByIntFixedWidth(shift){
+      override def opName: String = "s|<<i"
+      override def getLiteralFactory: (BigInt, BitCount) => Node = S.apply
+    }
+
+    class ShiftLeftByUIntFixedWidth extends BitVector.ShiftLeftByUIntFixedWidth{
+      override def opName: String = "s|<<u"
       override def getLiteralFactory: (BigInt, BitCount) => Node = S.apply
     }
 

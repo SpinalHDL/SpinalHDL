@@ -97,6 +97,12 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   def >>(that: UInt): UInt         = wrapBinaryOperator(that,new Operator.UInt.ShiftRightByUInt)
   def <<(that: UInt): UInt         = wrapBinaryOperator(that,new Operator.UInt.ShiftLeftByUInt)
 
+  def |>>(that: Int): UInt  = wrapConstantOperator(new Operator.UInt.ShiftRightByIntFixedWidth(that))
+  def |<<(that: Int): UInt  = wrapConstantOperator(new Operator.UInt.ShiftLeftByIntFixedWidth(that))
+  def |>>(that: UInt): UInt = this >> that
+  def |<<(that: UInt): UInt = wrapBinaryOperator(that,new Operator.UInt.ShiftLeftByUIntFixedWidth)
+
+
   override def rotateLeft(that: Int): UInt = {
     val width = widthOf(this)
     val thatMod = that % width

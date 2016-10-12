@@ -72,7 +72,7 @@ abstract class BitVectorLiteralFactory[T <: BitVector] {
         }
       )
       case (range : Range,value : String) => on(range) := apply(value)
-      case (range : Range,value : T) => on(range) := value
+      case (range : Range,value : BitVector) if value.getClass == on.getClass => on(range) := value.asInstanceOf[T]
       case (`default`,value : Boolean) =>
       case (`default`,value : Bool) =>
     }

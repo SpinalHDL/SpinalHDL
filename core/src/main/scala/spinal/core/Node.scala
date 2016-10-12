@@ -18,7 +18,7 @@
 
 package spinal.core
 
-import spinal.core.Operator.BitVector.{ShiftLeftByUInt, ShiftLeftByInt, ShiftRightByUInt, ShiftRightByInt}
+import spinal.core.Operator.BitVector._
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -193,6 +193,15 @@ object SymplifyNode {
     }
   }
 
+
+  def shiftRightFixedWidthImpl(node: ShiftRightByIntFixedWidth): Unit = {
+    if (node.shift == 0) {
+      Component.push(node.component)
+      replaceNode(node, 0)
+      Component.pop(node.component)
+    }
+  }
+
   def shiftLeftImpl(zeroFactory: (BigInt, BitCount) => Node,node: ShiftLeftByUInt): Unit = {
     if (node.left.asInstanceOf[WidthProvider].getWidth == 0) {
       Component.push(node.component)
@@ -209,6 +218,30 @@ object SymplifyNode {
     if (node.input.asInstanceOf[WidthProvider].getWidth == 0) {
       Component.push(node.component)
       replaceNode(node, zeroFactory(0, node.asInstanceOf[WidthProvider].getWidth bit))
+      Component.pop(node.component)
+    } else if (node.shift == 0) {
+      Component.push(node.component)
+      replaceNode(node, 0)
+      Component.pop(node.component)
+    }
+  }
+
+  def shiftLeftFixedWidthImpl(zeroFactory: (BigInt, BitCount) => Node,node: ShiftLeftByUIntFixedWidth): Unit = {
+    if (node.left.asInstanceOf[WidthProvider].getWidth == 0) {
+      Component.push(node.component)
+      replaceNode(node, 0)
+      Component.pop(node.component)
+    } else if (node.right.asInstanceOf[WidthProvider].getWidth == 0) {
+      Component.push(node.component)
+      replaceNode(node, 0)
+      Component.pop(node.component)
+    }
+  }
+
+  def shiftLeftFixedWidthImpl(zeroFactory: (BigInt, BitCount) => Node,node: ShiftLeftByIntFixedWidth): Unit = {
+    if (node.input.asInstanceOf[WidthProvider].getWidth == 0) {
+      Component.push(node.component)
+      replaceNode(node, 0)
       Component.pop(node.component)
     } else if (node.shift == 0) {
       Component.push(node.component)

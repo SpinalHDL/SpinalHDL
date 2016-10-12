@@ -67,20 +67,31 @@ def test1(dut):
         check(dut.uintShiftLeftUint , 23, uint8 << uint4)
         check(dut.uintShiftRightInt , 4, uint8 >> 4)
         check(dut.uintShiftRightUint, 8, uint8 >> uint4)
+        check(dut.uintShiftLeftIntFixedWidth  , 8, uint8 << 4)
+        check(dut.uintShiftLeftUintFixedWidth , 8, uint8 << uint4)
+        check(dut.uintShiftRightIntFixedWidth , 8, uint8 >> 4)
+        check(dut.uintShiftRightUintFixedWidth, 8, uint8 >> uint4)
 
         check(dut.sintNot, 4, ~sint4)
         checkSigned(dut.sintMinus, 4, -sint4)
         check(dut.sintShiftLeftInt  , 12, sint8 << 4)
         check(dut.sintShiftLeftUint , 23, sint8 << uint4)
         check(dut.sintShiftRightInt , 4, sint8 >> 4)
-        check(dut.sintShiftRightUint, 8, sint8 >> uint4)
+        checkSigned(dut.sintShiftRightUint, 8, sint8 >> uint4)
+        check(dut.sintShiftLeftIntFixedWidth  , 8, sint8 << 4)
+        check(dut.sintShiftLeftUintFixedWidth , 8, sint8 << uint4)
+        checkSigned(dut.sintShiftRightIntFixedWidth , 8, sint8 >> 4)
+        checkSigned(dut.sintShiftRightUintFixedWidth, 8, sint8 >> uint4)
 
         check(dut.bitsNot, 4, ~bits4)
         check(dut.bitsShiftLeftInt  , 12, bits8 << 4)
         check(dut.bitsShiftLeftUint , 23, bits8 << uint4)
         check(dut.bitsShiftRightInt , 4, bits8 >> 4)
         check(dut.bitsShiftRightUint, 8, bits8 >> uint4)
-
+        check(dut.bitsShiftLeftIntFixedWidth  , 8, bits8 << 4)
+        check(dut.bitsShiftLeftUintFixedWidth , 8, bits8 << uint4)
+        check(dut.bitsShiftRightIntFixedWidth , 8, bits8 >> 4)
+        check(dut.bitsShiftRightUintFixedWidth, 8, bits8 >> uint4)
 
 
 

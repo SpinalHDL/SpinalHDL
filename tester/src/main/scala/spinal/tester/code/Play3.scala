@@ -719,3 +719,48 @@ object PlayRomRam2{
     SpinalVhdl(new TopLevel)
   }
 }
+
+
+
+object PlayPruned{
+  class TopLevel() extends Component {
+    val io = new Bundle{
+      val a,b = in UInt(8 bits)
+      val result = out UInt(8 bits)
+    }
+
+    io.result := io.a + io.b
+
+    val unusedSignal = UInt(8 bits)
+    val unusedSignal2 = UInt(8 bits)
+
+    unusedSignal2 := unusedSignal
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel).printPruned()
+  }
+}
+
+
+
+object PlayPruned2{
+  class TopLevel() extends Component {
+    val io = new Bundle{
+      val a,b = in UInt(8 bits)
+      val result = out UInt(8 bits)
+    }
+
+    io.result := io.a + io.b
+
+    val unusedSignal = UInt(8 bits)
+    val unusedSignal2 = UInt(8 bits).keep()
+
+    unusedSignal := 0
+    unusedSignal2 := unusedSignal
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel).printPruned()
+  }
+}

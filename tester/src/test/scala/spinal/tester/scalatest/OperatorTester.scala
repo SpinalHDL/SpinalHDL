@@ -20,6 +20,7 @@ package spinal.tester.scalatest
 
 import spinal.core._
 import spinal.lib._
+import spinal.tester.scalatest.OperatorTester.OperatorTester
 
 object OperatorTester {
   object State extends SpinalEnum{
@@ -55,12 +56,20 @@ object OperatorTester {
     val uintShiftLeftUint = out(uint8 << uint4)
     val uintShiftRightInt = out(uint8 >> 4)
     val uintShiftRightUint = out(uint8 >> uint4)
+    val uintShiftLeftIntFixedWidth   = out(uint8 |<< 4)
+    val uintShiftLeftUintFixedWidth  = out(uint8 |<< uint4)
+    val uintShiftRightIntFixedWidth  = out(uint8 |>> 4)
+    val uintShiftRightUintFixedWidth = out(uint8 |>> uint4)
 
     val sintNot = out(~sint4)
     val sintShiftLeftInt = out(sint8 << 4)
     val sintShiftLeftUint = out(sint8 << uint4)
     val sintShiftRightInt = out(sint8 >> 4)
     val sintShiftRightUint = out(sint8 >> uint4)
+    val sintShiftLeftIntFixedWidth   = out(sint8 |<< 4)
+    val sintShiftLeftUintFixedWidth  = out(sint8 |<< uint4)
+    val sintShiftRightIntFixedWidth  = out(sint8 |>> 4)
+    val sintShiftRightUintFixedWidth = out(sint8 |>> uint4)
     val sintMinus = out(-sint4)
 
     val bitsNot = out(~bits4)
@@ -68,6 +77,10 @@ object OperatorTester {
     val bitsShiftLeftUint = out(bits8 << uint4)
     val bitsShiftRightInt = out(bits8 >> 4)
     val bitsShiftRightUint = out(bits8 >> uint4)
+    val bitsShiftLeftIntFixedWidth = out(bits8 |<< 4)
+    val bitsShiftLeftUintFixedWidth = out(bits8 |<< uint4)
+    val bitsShiftRightIntFixedWidth = out(bits8 |>> 4)
+    val bitsShiftRightUintFixedWidth = out(bits8 |>> uint4)
 
     val uintSbEquals= out(uint4 === uint8)
     val uintSbNotEquals = out(uint4 =/= uint8)
@@ -245,20 +258,20 @@ object OperatorTester {
 
 
     val bitsAggregateFixed = out(B(7 -> false,(6 downto 5) -> true,(4 downto 3) -> bits8(1 downto 0),(2 downto 1) -> boolA,0 -> True))
-    val uintAggregateFixed = out(U(7 -> false,(6 downto 5) -> true,(4 downto 3) -> bits8(1 downto 0),(2 downto 1) -> boolA,0 -> True))
-    val sintAggregateFixed = out(S(7 -> false,(6 downto 5) -> true,(4 downto 3) -> bits8(1 downto 0),(2 downto 1) -> boolA,0 -> True))
+    val uintAggregateFixed = out(U(7 -> false,(6 downto 5) -> true,(4 downto 3) -> uint8(1 downto 0),(2 downto 1) -> boolA,0 -> True))
+    val sintAggregateFixed = out(S(7 -> false,(6 downto 5) -> true,(4 downto 3) -> sint8(1 downto 0),(2 downto 1) -> boolA,0 -> True))
 
     val bitsAggregateUnfixedWidthFixedDefault = out(B(7 -> false,(6 downto 5) -> true,(4 downto 3) -> bits8(1 downto 0),0 -> True,(2 downto 1) -> true))
-    val uintAggregateUnfixedWidthFixedDefault = out(U(7 -> false,(6 downto 5) -> true,(4 downto 3) -> bits8(1 downto 0),0 -> True,(2 downto 1) -> true))
-    val sintAggregateUnfixedWidthFixedDefault = out(S(7 -> false,(6 downto 5) -> true,(4 downto 3) -> bits8(1 downto 0),0 -> True,(2 downto 1) -> true))
+    val uintAggregateUnfixedWidthFixedDefault = out(U(7 -> false,(6 downto 5) -> true,(4 downto 3) -> uint8(1 downto 0),0 -> True,(2 downto 1) -> true))
+    val sintAggregateUnfixedWidthFixedDefault = out(S(7 -> false,(6 downto 5) -> true,(4 downto 3) -> sint8(1 downto 0),0 -> True,(2 downto 1) -> true))
 
     val bitsAggregateUnfixedWidthUnfixedDefault = out Bits(8 bits)
     val uintAggregateUnfixedWidthUnfixedDefault = out UInt(8 bits)
     val sintAggregateUnfixedWidthUnfixedDefault = out SInt(8 bits)
 
     bitsAggregateUnfixedWidthUnfixedDefault := (7 -> false,(6 downto 5) -> true,(4 downto 3) -> bits8(1 downto 0),0 -> True,default -> boolA)
-    uintAggregateUnfixedWidthUnfixedDefault := (7 -> false,(6 downto 5) -> true,(4 downto 3) -> bits8(1 downto 0),0 -> True,default -> boolA)
-    sintAggregateUnfixedWidthUnfixedDefault := (7 -> false,(6 downto 5) -> true,(4 downto 3) -> bits8(1 downto 0),0 -> True,default -> boolA)
+    uintAggregateUnfixedWidthUnfixedDefault := (7 -> false,(6 downto 5) -> true,(4 downto 3) -> uint8(1 downto 0),0 -> True,default -> boolA)
+    sintAggregateUnfixedWidthUnfixedDefault := (7 -> false,(6 downto 5) -> true,(4 downto 3) -> sint8(1 downto 0),0 -> True,default -> boolA)
 
 
 
@@ -276,4 +289,10 @@ class OperatorTesterCocotbBoot extends SpinalTesterCocotbBase {
   override def getName: String = "OperatorTester"
   override def createToplevel: Component =  new OperatorTester.OperatorTester
   override def pythonTestLocation: String = "tester/src/test/python/spinal/OperatorTester"
+}
+
+object OperatorTesterGenVhdl{
+  def main(args: Array[String]) {
+    SpinalVhdl(new OperatorTester)
+  }
 }
