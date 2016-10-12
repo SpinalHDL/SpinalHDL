@@ -45,8 +45,10 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
 
   def rise() = this && ! RegNext(this)
   def fall() = ! this && RegNext(this)
+  def edge() = this ^ RegNext(this)
   def rise(initAt : Bool) = this && ! RegNext(this).init(initAt)
   def fall(initAt : Bool) = ! this && RegNext(this).init(initAt)
+  def edge(initAt : Bool) = this ^ RegNext(this).init(initAt)
 
   private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse,new MultiplexerBool)
 
