@@ -135,7 +135,7 @@ class DES(g : DESGenerics) extends Component{
 
 
   val roundNbr    = UInt(log2Up(g.nbrRound) bits)
-  val lastRound   = roundNbr === (g.nbrRound-2)
+  val lastRound   = io.cmd.encDec ? (roundNbr === (g.nbrRound-2)) | (roundNbr === 1)
   val init        = io.cmd.valid.rise(False)
   val nextRound   = Reg(Bool) init(False) setWhen(init) clearWhen(lastRound)
   val rspValid    = Reg(Bool) init(False) setWhen(lastRound) clearWhen(init)
@@ -149,8 +149,21 @@ class DES(g : DESGenerics) extends Component{
   val ctnRound = new Area{
     val round = Reg(UInt(log2Up(g.nbrRound) bits))
 
-    when(nextRound){ round := round + 1 }
-    when(init){ round := 0}
+    when(nextRound){
+      when(io.cmd.encDec){
+        round := round + 1
+      }otherwise{
+        round := round - 1
+      }
+
+    }
+    when(init){
+      when(io.cmd.encDec){
+        round := 0
+      }otherwise{
+        round := g.nbrRound-1
+      }
+    }
 
     roundNbr := round
   }

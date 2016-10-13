@@ -33,9 +33,10 @@ class DES_Block_Helper:
             self.resetn = dut.resetn
 
         def init(self):
-            self.cmd.valid         <= 0
-            self.cmd.payload.block <= 0
-            self.cmd.payload.key   <= 0
+            self.cmd.valid          <= 0
+            self.cmd.payload.block  <= 0
+            self.cmd.payload.key    <= 0
+            self.cmd.payload.encDec <= 0
 
 
 class KeyTmp:
@@ -83,11 +84,15 @@ def test_DES_Block(dut):
 
     key  = 0xAABB09182736CCDD
     data = 0x123456ABCD132536
+    data = 0xC0B7A8D05F3A829C
 
-    #
-    helperDES.io.cmd.valid         <= 1
-    helperDES.io.cmd.payload.key   <= key #keyDrop
-    helperDES.io.cmd.payload.block <= data
+    # Encrpytion
+    helperDES.io.cmd.valid          <= 1
+    helperDES.io.cmd.payload.key    <= key #keyDrop
+    helperDES.io.cmd.payload.block  <= data
+    helperDES.io.cmd.payload.encDec <= 0
+
+
 
 
     yield RisingEdge(helperDES.io.clk)
