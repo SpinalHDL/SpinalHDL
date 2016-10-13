@@ -764,3 +764,16 @@ object PlayPruned2{
     SpinalVhdl(new TopLevel).printPruned()
   }
 }
+
+
+object PlaySumBig{
+  def main(args: Array[String]) {
+    var idx = 0l
+    var sum = 0l
+    while(idx < 10000000l){
+      sum += idx;
+      idx += 1
+    }
+    printf("%x%x",(sum >> 32).toInt,(sum >> 0).toInt)
+  }
+}

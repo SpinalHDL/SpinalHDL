@@ -35,7 +35,7 @@ class SimpleInterruptExtension(exceptionVector : Int) extends CoreExtension{
       else
         irqValue(id) := writeBack.irq.masked(id)
     }
-    when(!inIrq) {
+    when(!inIrq && !writeBack.irq.inhibate) {
       when((writeBack.irq.masked & irqExceptionMask) =/= 0) {
         writeBack.throwIt := True
         writeBack.flushMemoryResponse := True

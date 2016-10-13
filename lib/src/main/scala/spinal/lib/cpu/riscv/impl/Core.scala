@@ -824,6 +824,7 @@ class Core(implicit val c : CoreConfig) extends Component{
       val sources = B(0,irqWidth bit)
       val mask = Reg(Bits(irqWidth bit)) init(0)
       val masked = sources & mask
+      val inhibate = False
       when(((sources & ~mask) & irqExceptionMask) =/= 0){
         halt := True
       }
