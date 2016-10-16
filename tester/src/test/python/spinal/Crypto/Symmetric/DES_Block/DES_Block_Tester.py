@@ -86,6 +86,7 @@ def test_DES_Block(dut):
     data = 0x123456ABCD132536
     data = 0xC0B7A8D05F3A829C
 
+
     # Encrpytion
     helperDES.io.cmd.valid          <= 1
     helperDES.io.cmd.payload.key    <= key #keyDrop
@@ -95,6 +96,9 @@ def test_DES_Block(dut):
 
 
 
+    yield RisingEdge(helperDES.io.clk)
+    yield RisingEdge(helperDES.io.clk)
+    yield RisingEdge(helperDES.io.clk)
     yield RisingEdge(helperDES.io.clk)
     yield RisingEdge(helperDES.io.clk)
     yield RisingEdge(helperDES.io.clk)

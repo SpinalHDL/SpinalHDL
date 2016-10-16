@@ -114,9 +114,9 @@ object DES{
 }
 
 case class DEScmd(g : DESGenerics) extends Bundle{
-  val key    = Bits(g.keyWidth.value + g.keyWidthParity.value bits)
+  val key    = Bits(g.keyWidth + g.keyWidthParity)
   val block  = Bits(g.blockWidth)
-  val encDec = Bool
+  val encDec = Bool // enc = 1 , dec = 0
 }
 
 
@@ -132,10 +132,8 @@ class DES(g : DESGenerics) extends Component{
     val res  = master Flow(DESrsp(g))
   }
 
-
-
-  val roundNbr    = UInt(log2Up(g.nbrRound) bits)
-  val lastRound   = io.cmd.encDec ? (roundNbr === (g.nbrRound-2)) | (roundNbr === 1)
+  val roundNbr    = UInt(log2Up(g.nbrRound) + 1 bits)
+  val lastRound   = io.cmd.encDec ? (roundNbr === (g.nbrRound-2)) | (roundNbr === 2)
   val init        = io.cmd.valid.rise(False)
   val nextRound   = Reg(Bool) init(False) setWhen(init) clearWhen(lastRound)
   val rspValid    = Reg(Bool) init(False) setWhen(lastRound) clearWhen(init)
@@ -147,7 +145,7 @@ class DES(g : DESGenerics) extends Component{
     * Count the number of round
     */
   val ctnRound = new Area{
-    val round = Reg(UInt(log2Up(g.nbrRound) bits))
+    val round = Reg(UInt(log2Up(g.nbrRound) + 1 bits))
 
     when(nextRound){
       when(io.cmd.encDec){
@@ -155,14 +153,10 @@ class DES(g : DESGenerics) extends Component{
       }otherwise{
         round := round - 1
       }
-
     }
+
     when(init){
-      when(io.cmd.encDec){
-        round := 0
-      }otherwise{
-        round := g.nbrRound-1
-      }
+      round := io.cmd.encDec ? U(0) | g.nbrRound
     }
 
     roundNbr := round
@@ -187,21 +181,25 @@ class DES(g : DESGenerics) extends Component{
     // parity drop : 64bits -> 56 bits
     when(init){ shiftKey := DES.compression(g.pc_1, io.cmd.key) }
 
-    // rotate left the key (key is divided into two groups of 28 bits)
+    // rotate (left for encryption and right for decryption) the key (key is divided into two groups of 28 bits)
     val shiftRes   = Bits(g.keyWidth)
-    when(g.oneShiftRound.map(index => ctnRound.round === (index-1)).reduce(_ || _) ){
 
+    when(g.oneShiftRound.map(index => ctnRound.round === (index-1)).reduce(_ || _) ){
       when(io.cmd.encDec){
         shiftRes  := shiftKey(55 downto 28).rotateLeft(1) ## shiftKey(27 downto 0).rotateLeft(1)
       }otherwise{
         shiftRes  := shiftKey(55 downto 28).rotateRight(1) ## shiftKey(27 downto 0).rotateRight(1)
       }
-
     }otherwise{
       when(io.cmd.encDec){
         shiftRes  := shiftKey(55 downto 28).rotateLeft(2) ## shiftKey(27 downto 0).rotateLeft(2)
       }otherwise{
-        shiftRes  := shiftKey(55 downto 28).rotateRight(2) ## shiftKey(27 downto 0).rotateRight(2)
+        when(ctnRound.round === g.nbrRound){
+          shiftRes  := shiftKey
+        }otherwise{
+          shiftRes  := shiftKey(55 downto 28).rotateRight(2) ## shiftKey(27 downto 0).rotateRight(2)
+        }
+
       }
     }
 
@@ -220,15 +218,15 @@ class DES(g : DESGenerics) extends Component{
 
     // list of SBox ROM 1 to 8
     val sBox     = List(Mem(Bits(4 bits), g.sBox_8.map(B(_))),
-                        Mem(Bits(4 bits), g.sBox_7.map(B(_))),
-                        Mem(Bits(4 bits), g.sBox_6.map(B(_))),
-                        Mem(Bits(4 bits), g.sBox_5.map(B(_))),
-                        Mem(Bits(4 bits), g.sBox_4.map(B(_))),
-                        Mem(Bits(4 bits), g.sBox_3.map(B(_))),
-                        Mem(Bits(4 bits), g.sBox_2.map(B(_))),
-                        Mem(Bits(4 bits), g.sBox_1.map(B(_))))
+      Mem(Bits(4 bits), g.sBox_7.map(B(_))),
+      Mem(Bits(4 bits), g.sBox_6.map(B(_))),
+      Mem(Bits(4 bits), g.sBox_5.map(B(_))),
+      Mem(Bits(4 bits), g.sBox_4.map(B(_))),
+      Mem(Bits(4 bits), g.sBox_3.map(B(_))),
+      Mem(Bits(4 bits), g.sBox_2.map(B(_))),
+      Mem(Bits(4 bits), g.sBox_1.map(B(_))))
 
-    val rightRound   = Bits(32 bits) // set in feistelNetwork
+    val rightRound   = Bits(32 bits) // set in feistelNetwork Area
 
     // xor the key with the right block expanded(32 bits -> 48 bits)
     val xorRes = keyScheduling.keyRound ^ DES.expansion(g.expansion, rightRound)
@@ -255,7 +253,7 @@ class DES(g : DESGenerics) extends Component{
 
     val xorLeft = inBlock(63 downto 32) ^ funcDES.rResult
 
-    when(roundNbr === g.nbrRound-1){ // last round
+    when(((roundNbr === g.nbrRound-1) && io.cmd.encDec) ||  ((roundNbr === 1) && !io.cmd.encDec)){
       outBlock := xorLeft ## inBlock(31 downto 0)
     }otherwise{
       outBlock := inBlock(31 downto 0) ## xorLeft
@@ -275,6 +273,6 @@ class DES(g : DESGenerics) extends Component{
     val perm = DES.permutation(g.finalPermutation, feistelNetwork.outBlock)
   }
 
-  io.res.block := finalBlockPermutation.perm // TODO : regNext output ??
-  io.res.valid := rspValid
+  io.res.block := RegNextWhen( finalBlockPermutation.perm , RegNext(lastRound) )
+  io.res.valid := RegNext(rspValid.rise())
 }
