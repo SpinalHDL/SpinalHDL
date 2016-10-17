@@ -342,7 +342,7 @@ case class CoreDataBus(implicit p : CoreConfig) extends Bundle with IMasterSlave
     val area = new Area {
       val Axi4SharedConfig = CoreDataBus.getAxi4Config(p)
       val mm = Axi4Shared(Axi4SharedConfig)
-      val pendingMax = 3
+      val pendingMax = 7
       val pendingCmd = CounterUpDown(
         stateCount = pendingMax + 1,
         incWhen = mm.sharedCmd.fire,
@@ -359,7 +359,7 @@ case class CoreDataBus(implicit p : CoreConfig) extends Bundle with IMasterSlave
       mm.sharedCmd.size := cmdFork.size.resized
       mm.sharedCmd.addr := cmdFork.address
 
-      val dataStage = dataFork.throwWhen(!dataFork.wr).stage()
+      val dataStage = dataFork.throwWhen(!dataFork.wr)
       mm.writeData.arbitrationFrom(dataStage)
       mm.writeData.last := True
       mm.writeData.data := dataStage.size.mux(
