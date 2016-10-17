@@ -27,8 +27,9 @@ class Flow:
     # Start to monitor the valid signal
     #==========================================================================
     def startMonitoringValid(self, clk):
-        self.fork_valid = cocotb.fork(self.monitor_valid())
         self.clk  = clk
+        self.fork_valid = cocotb.fork(self.monitor_valid())
+
 
 
     #==========================================================================
@@ -39,4 +40,4 @@ class Flow:
         while True:
             yield RisingEdge(self.clk)
             if int(self.valid) == 1:
-                self.event_valid.set( self.io.payload )
+                self.event_valid.set( self.payload )

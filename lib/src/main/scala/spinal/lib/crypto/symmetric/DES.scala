@@ -14,6 +14,7 @@ package spinal.lib.crypto.symmetric
 import spinal.core._
 import spinal.lib._
 
+
 case class DESGenerics(){
 
   val initialPermutation = Seq(58, 50, 42, 34, 26, 18, 10, 2, 60, 52, 44, 36, 28, 20, 12, 4,
@@ -97,6 +98,7 @@ case class DESGenerics(){
   val oneShiftRound = List(1,2,9,16)  // 1 left rotation for round 1,2,9,16 and others 2 left shift rotation
 }
 
+
 object DES{
 
   /** Permutation
@@ -112,6 +114,7 @@ object DES{
     Cat(table.reverse.map(index => vector(vector.getWidth - index)))
   }
 }
+
 
 case class DEScmd(g : DESGenerics) extends Bundle{
   val key    = Bits(g.keyWidth + g.keyWidthParity)
@@ -129,7 +132,7 @@ class DES(g : DESGenerics) extends Component{
 
   val io = new Bundle{
     val cmd  = slave  Stream(DEScmd(g))
-    val res  = master Flow(DESrsp(g))
+    val rsp  = master Flow(DESrsp(g))
   }
 
   val roundNbr    = UInt(log2Up(g.nbrRound) + 1 bits)
@@ -273,6 +276,6 @@ class DES(g : DESGenerics) extends Component{
     val perm = DES.permutation(g.finalPermutation, feistelNetwork.outBlock)
   }
 
-  io.res.block := RegNextWhen( finalBlockPermutation.perm , RegNext(lastRound) )
-  io.res.valid := RegNext(rspValid.rise())
+  io.rsp.block := RegNextWhen( finalBlockPermutation.perm , RegNext(lastRound) )
+  io.rsp.valid := RegNext(rspValid.rise())
 }

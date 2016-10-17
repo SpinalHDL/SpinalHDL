@@ -1,14 +1,13 @@
 import cocotb
 from cocotb.triggers import Timer, Edge, RisingEdge
 
-from spinal.common.ClockDomain import ClockDomain, RESET_ACTIVE_LEVEL
-from spinal.common.Stream import Stream
-from spinal.common.Flow import Flow
-
-
-from spinal.common.misc import assertEquals, randInt
+from cocotblib.ClockDomain import ClockDomain, RESET_ACTIVE_LEVEL
+from cocotblib.Stream import Stream
+from cocotblib.Flow import Flow
+from cocotblib.misc import randBits, assertEquals
 
 from spinal.crypto.symmetric.pyDES import *
+
 
 ###############################################################################
 # DES Block Helper
@@ -19,7 +18,6 @@ class DES_Block_Helper:
 
         # IO definition -----------------------------------
         self.io = DES_Block_Helper.IO(dut)
-
 
     #==========================================================================
     # Rename IO
@@ -39,25 +37,13 @@ class DES_Block_Helper:
             self.cmd.payload.encDec <= 0
 
 
-class KeyTmp:
 
-
-    def __init__(self):
-       self.__pc1 = [57, 49, 41, 33, 25, 17,  9,  1, 58, 50, 42, 34, 26, 18,
-                     10,  2, 59, 51, 43, 35, 27, 19, 11,  3, 60, 52, 44, 36,
-                     63, 55, 47, 39, 31, 23, 15,  7, 62, 54, 46, 38, 30, 22,
-                     14,  6, 61, 53, 45, 37, 29, 21, 13,  5, 28, 20, 12,  4]
-
-
-    def keyDropParity(self, binList):
-
-        """Permutate this block with the specified table"""
-        return list(map(lambda x: binList[x], self.__pc1))
-
-
+###############################################################################
+# Convert an integer to a String
+#
 def int_2_String(integer):
 
-    kesList = [int(x) for x in '{0:064b}'.format(integer)]#[::-1]
+    kesList = [int(x) for x in '{0:064b}'.format(integer)]
 
     k = des("DESCRYPT", CBC, "\0\0\0\0\0\0\0\0", pad=None, padmode=PAD_PKCS5)
     return k.bitList2String(kesList)
@@ -81,55 +67,69 @@ def test_DES_Block(dut):
     helperDES.io.init()
     yield clockDomain.event_endReset.wait()
 
-
-    key  = 0xAABB09182736CCDD
-    data = 0x123456ABCD132536
-    data = 0xC0B7A8D05F3A829C
+    # start monitoring the Valid signal
+    helperDES.io.rsp.startMonitoringValid(helperDES.io.clk)
 
 
-    # Encrpytion
-    helperDES.io.cmd.valid          <= 1
-    helperDES.io.cmd.payload.key    <= key #keyDrop
-    helperDES.io.cmd.payload.block  <= data
-    helperDES.io.cmd.payload.encDec <= 0
+    for _ in range(0,4):
+
+        # Vector test ...
+        #key  = 0xAABB09182736CCDD
+        #data = 0x123456ABCD132536
+        #data = 0xC0B7A8D05F3A829C
+
+        # Gen random value
+        key    = randBits(64)
+        data   = randBits(64)
+
+        # Encrpytion
+        helperDES.io.cmd.valid          <= 1
+        helperDES.io.cmd.payload.key    <= key
+        helperDES.io.cmd.payload.block  <= data
+        helperDES.io.cmd.payload.encDec <= 1  # do an encryption
 
 
+        # Wait the end of the process and read the result
+        yield helperDES.io.rsp.event_valid.wait()
+
+        rtlEncryptedBlock = int(helperDES.io.rsp.event_valid.data.block)
+
+        #print("RTL encrypted", hex(rtlEncryptedBlock))
+
+        helperDES.io.cmd.valid         <= 0
+
+        yield RisingEdge(helperDES.io.clk)
+
+        # Encrpytion
+        helperDES.io.cmd.valid          <= 1
+        helperDES.io.cmd.payload.key    <= key
+        helperDES.io.cmd.payload.block  <= rtlEncryptedBlock
+        helperDES.io.cmd.payload.encDec <= 0 # do a decryption
 
 
-    yield RisingEdge(helperDES.io.clk)
-    yield RisingEdge(helperDES.io.clk)
-    yield RisingEdge(helperDES.io.clk)
-    yield RisingEdge(helperDES.io.clk)
-    yield RisingEdge(helperDES.io.clk)
-    yield RisingEdge(helperDES.io.clk)
-    yield RisingEdge(helperDES.io.clk)
-    yield RisingEdge(helperDES.io.clk)
-    yield RisingEdge(helperDES.io.clk)
-    yield RisingEdge(helperDES.io.clk)
-    yield RisingEdge(helperDES.io.clk)
-    yield RisingEdge(helperDES.io.clk)
-    yield RisingEdge(helperDES.io.clk)
-    yield RisingEdge(helperDES.io.clk)
-    yield RisingEdge(helperDES.io.clk)
-    yield RisingEdge(helperDES.io.clk)
-    yield RisingEdge(helperDES.io.clk)
-    yield RisingEdge(helperDES.io.clk)
-    yield RisingEdge(helperDES.io.clk)
-    yield RisingEdge(helperDES.io.clk)
+        # Wait the end of the process and read the result
+        yield helperDES.io.rsp.event_valid.wait()
+
+        rtlDecryptedBlock = int(helperDES.io.rsp.event_valid.data.block)
+
+        #print("RTL decrypted", hex(rtlDecryptedBlock))
+
+        helperDES.io.cmd.valid         <= 0
+
+        yield RisingEdge(helperDES.io.clk)
 
 
-    helperDES.io.cmd.valid         <= 0
-
-    yield RisingEdge(helperDES.io.clk)
-
-
-    # model DES
-    #data = "Please encrypt my data"
-    #sdata =
-    k    = des(int_2_String(key), CBC, "\0\0\0\0\0\0\0\0", pad=None, padmode=PAD_PKCS5)
+        # Encrypted data with the model
+        k    = des(int_2_String(key), CBC, "\0\0\0\0\0\0\0\0", pad=None, padmode=PAD_PKCS5)
+        refEncryptedOutput = (k.encrypt(int_2_String(data))).encode('hex')[:16]
 
 
-    print("Encrypted message", (k.encrypt(int_2_String(data))).encode('hex') )
+        # print("Ref encrypted ", refEncryptedOutput)
+
+
+        # compare result
+        assertEquals(int(refEncryptedOutput, 16), rtlEncryptedBlock, "Encryption data wrong ")
+        assertEquals(rtlDecryptedBlock, data, "Decryption data wrong ")
 
 
     dut.log.info("Cocotb end test DES Block")
