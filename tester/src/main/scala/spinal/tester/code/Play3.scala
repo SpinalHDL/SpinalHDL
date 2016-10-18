@@ -771,14 +771,14 @@ object PlayDesBlock{
 
   class DES_Block_Tester() extends Component{
 
-    val g  = DESGenerics()
+    val g  = DESBlockGenerics()
 
     val io = new Bundle{
-      val cmd  = slave  Stream(DEScmd(g))
-      val res  = master Flow(DESrsp(g))
+      val cmd  = slave  Stream(DESBlockCmd(g))
+      val rsp  = master Flow(DESBlockRsp(g))
     }
 
-    val des = new DES(g)
+    val des = new DESBlock(g)
 
     des.io <> io
   }
