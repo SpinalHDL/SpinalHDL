@@ -20,15 +20,8 @@ package spinal.core
 
 import scala.collection.mutable.ArrayBuffer
 
-object MultiData {
-  // var tab = 0
-}
 abstract class MultiData extends Data {
-
-
-
   def elements: ArrayBuffer[(String, Data)]
-
 
   override def addTag(spinalTag: SpinalTag): this.type = {
     super.addTag(spinalTag)
@@ -95,9 +88,6 @@ abstract class MultiData extends Data {
     result // for fun elements.map{case (localName,e) => e.flattenLocalName.map(name => if(name == "") localName else localName + "_" + name)}.reduce(_ ++: _)
   }
 
-
-  // = (this.flatten, that.flatten).zipped.map((a, b) => a.isNotEguals(b)).reduceLeft(_ || _)
-
   override def assignFromBits(bits: Bits): Unit = {
     var offset = 0
     for ((_, e) <- elements) {
@@ -124,22 +114,22 @@ abstract class MultiData extends Data {
 
   }
 
-  private[core] def isEguals(that: Any): Bool = {
+  private[core] def isEquals(that: Any): Bool = {
     that match {
       case that: MultiData => {
         zippedMap(that, _ === _).reduce(_ && _)
       }
-      case _ => SpinalError("Can't do that")
+      case _ => SpinalError(s"Function isEquals is not implemented between $this and $that")
     }
   }
 
 
-  private[core] def isNotEguals(that: Any): Bool = {
+  private[core] def isNotEquals(that: Any): Bool = {
     that match {
       case that: MultiData => {
         zippedMap(that, _ =/= _).reduce(_ || _)
       }
-      case _ => SpinalError("Can't do that")
+      case _ => SpinalError(s"Function isNotEquals is not implemented between $this and $that")
     }
   }
 
@@ -148,19 +138,22 @@ abstract class MultiData extends Data {
       case that: MultiData => {
         zippedMap(that, _ autoConnect _)
       }
-      case _ => SpinalError("Can't do that")
+      case _ => SpinalError(s"Function autoConnect is not implemented between $this and $that")
     }
   }
 
+  def elementsString = this.elements.map(_.toString()).reduce(_ + "\n" + _)
+
   private[core] def zippedMap[T](that: MultiData, task: (Data, Data) => T): Seq[T] = {
-    if (that.elements.length != this.elements.length) SpinalError("Can't do that")
+    if (that.elements.length != this.elements.length) SpinalError(s"Can't zip [$this] with [$that]  because they don't have the same number of elements.\nFirst one has :\n${this.elementsString}\nSeconde one has :\n${that.elementsString}\n")
     this.elements.map(x => {
       val (n, e) = x
       val other = that.find(n)
-      if (e == null) SpinalError("Can't do that")
+      if (other == null) SpinalError(s"Can't zip [$this] with [$that] because the element named '${n}' is missing in the second one")
       task(e, other)
     })
   }
+
   override def getZero: this.type = {
     val ret = cloneOf(this)
     ret.elements.foreach(e => {

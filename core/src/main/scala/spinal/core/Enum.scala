@@ -61,14 +61,14 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T/*, encoding: SpinalEnumE
     }
   }
 
-  override def isEguals(that: Any): Bool = {
+  override def isEquals(that: Any): Bool = {
     that match{
       case that : SpinalEnumCraft[_] if that.blueprint == blueprint =>  wrapLogicalOperator(that,new Operator.Enum.Equal(blueprint));
       case that : SpinalEnumElement[_] if that.parent == blueprint =>  wrapLogicalOperator(that(),new Operator.Enum.Equal(blueprint));
       case _ => SpinalError("Incompatible test")
     }
   }
-  override def isNotEguals(that: Any): Bool = {
+  override def isNotEquals(that: Any): Bool = {
     that match{
       case that : SpinalEnumCraft[_] if that.blueprint == blueprint =>  wrapLogicalOperator(that,new Operator.Enum.NotEqual(blueprint));
       case that :SpinalEnumElement[_] if that.parent == blueprint => wrapLogicalOperator(that(),new Operator.Enum.NotEqual(blueprint));

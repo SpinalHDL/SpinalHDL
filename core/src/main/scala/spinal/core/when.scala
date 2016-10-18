@@ -301,7 +301,7 @@ object is {
 
     def analyse(key: Any): Bool = {
       key match {
-        case key: Data => switchValue.isEguals(key)
+        case key: Data => switchValue.isEquals(key)
         case key: Seq[_] => key.map(d => analyse(d)).reduce(_ || _)
         case key: Int => {
           switchValue match {
@@ -311,7 +311,7 @@ object is {
             case _ => SpinalError("The switch is not a Bits, UInt or SInt")
           }
         }
-        case that : SpinalEnumElement[_] => switchValue.isEguals(that())
+        case that : SpinalEnumElement[_] => switchValue.isEquals(that())
         case key : MaskedLiteral => switchValue match {
           case switchValue: Bits => switchValue === key
           case switchValue: UInt => switchValue === key

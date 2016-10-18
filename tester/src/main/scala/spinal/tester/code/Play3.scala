@@ -777,3 +777,26 @@ object PlaySumBig{
     printf("%x%x",(sum >> 32).toInt,(sum >> 0).toInt)
   }
 }
+
+
+
+object PlayConnectBundle{
+  case class Inputs(mode : Int) extends Bundle{
+    val a,b = in UInt(8 bits)
+    val c = if(mode == 1) in UInt(8 bits) else null
+    val d = if(mode == 2) in UInt(8 bits) else null
+  }
+
+  case class Outputs() extends Bundle{
+    val a,b = in UInt(8 bits)
+  }
+  class TopLevel() extends Component {
+    val inputs = Inputs(1)
+    val outputs = Inputs(2).flip
+    outputs <> inputs
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}

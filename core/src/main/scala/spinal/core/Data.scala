@@ -132,8 +132,8 @@ object Data {
 trait DataPrimitives[T <: Data]{
   private[spinal] def _data : T
 
-  def ===(that: T): Bool = _data.isEguals(that)
-  def =/=(that: T): Bool = _data.isNotEguals(that)
+  def ===(that: T): Bool = _data.isEquals(that)
+  def =/=(that: T): Bool = _data.isNotEquals(that)
   @deprecated("Use =/= instead")
   def !==(that: T): Bool = this =/= that
 
@@ -261,10 +261,9 @@ trait Data extends ContextUser with NameableByComponent with Assignable  with Sp
     this
   }
 
-  private[core] def isEguals(that: Any): Bool// = (this.flatten, that.flatten).zipped.map((a, b) => a.isEguals(b)).reduceLeft(_ && _)
-  private[core] def isNotEguals(that: Any): Bool// = (this.flatten, that.flatten).zipped.map((a, b) => a.isNotEguals(b)).reduceLeft(_ || _)
-  @deprecated("Use resized instead")
-  def autoResize() : this.type = this.resized
+  private[core] def isEquals(that: Any): Bool
+  private[core] def isNotEquals(that: Any): Bool
+
   def resized : this.type ={
     val ret = cloneOf(this)
     ret.assignFrom(this,false)
@@ -513,12 +512,12 @@ trait DataWrapper extends Data{
   override def asBits: Bits = ???
   override def flatten: Seq[BaseType] = ???
   override def getBitsWidth: Int = ???
-  override private[core] def isEguals(that: Any): Bool = ???
+  override private[core] def isEquals(that: Any): Bool = ???
   override private[core] def autoConnect(that: Data): Unit = ???
   override def assignFromBits(bits: Bits): Unit = ???
   override def assignFromBits(bits: Bits, hi: Int, low: Int): Unit = ???
   override def getZero: DataWrapper.this.type = ???
-  override private[core] def isNotEguals(that: Any): Bool = ???
+  override private[core] def isNotEquals(that: Any): Bool = ???
   override def flattenLocalName: Seq[String] = ???
   override private[core] def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = ???
 }

@@ -63,8 +63,8 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     }
   }
 
-  def ===(that : MaskedLiteral) : Bool = this.isEguals(that)
-  def =/=(that : MaskedLiteral) : Bool = this.isNotEguals(that)
+  def ===(that : MaskedLiteral) : Bool = this.isEquals(that)
+  def =/=(that : MaskedLiteral) : Bool = this.isNotEquals(that)
 
   def @@(that : UInt) : UInt = (this ## that).asUInt
   def @@(that : Bool) : UInt = (this ## that).asUInt
@@ -121,7 +121,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   }
 
   private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse,new MultiplexerUInt)
-  private[core] override def isEguals(that: Any): Bool = {
+  private[core] override def isEquals(that: Any): Bool = {
     that match {
       case that: UInt =>  wrapLogicalOperator(that,new Operator.UInt.Equal)
       case that : MaskedLiteral => that === this
@@ -130,7 +130,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
       case _ => SpinalError(s"Don't know how compare $this with $that"); null
     }
   }
-  private[core] override def isNotEguals(that: Any): Bool = {
+  private[core] override def isNotEquals(that: Any): Bool = {
     that match {
       case that: UInt =>  wrapLogicalOperator(that,new Operator.UInt.NotEqual)
       case that : MaskedLiteral => that === this

@@ -65,14 +65,14 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
   def ?[T <: SpinalEnum](whenTrue : SpinalEnumElement[T]) = MuxBuilderEnum(whenTrue())
   def ?[T <: SpinalEnum](whenTrue : SpinalEnumCraft[T])   = MuxBuilderEnum(whenTrue)
 
-  private[core] override def isEguals(that: Any): Bool = {
+  private[core] override def isEquals(that: Any): Bool = {
     that match {
       case that: Bool => wrapLogicalOperator(that,new Operator.Bool.Equal);
       case _ => SpinalError(s"Don't know how compare $this with $that"); null
     }
   }
 
-  private[core] override def isNotEguals(that: Any): Bool = {
+  private[core] override def isNotEquals(that: Any): Bool = {
     that match {
       case that: Bool => wrapLogicalOperator(that,new Operator.Bool.NotEqual);
       case _ => SpinalError(s"Don't know how compare $this with $that"); null

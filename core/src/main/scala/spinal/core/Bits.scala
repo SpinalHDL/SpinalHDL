@@ -46,8 +46,8 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
 
   override private[spinal] def _data: Bits = this
 
-  def ===(that: MaskedLiteral): Bool = this.isEguals(that)
-  def =/=(that: MaskedLiteral): Bool = this.isNotEguals(that)
+  def ===(that: MaskedLiteral): Bool = this.isEquals(that)
+  def =/=(that: MaskedLiteral): Bool = this.isNotEquals(that)
   def ##(right: Bits): Bits = wrapBinaryOperator(right,new Operator.Bits.Cat)
   def |(right: Bits) : Bits = wrapBinaryOperator(right,new Operator.Bits.Or)
   def &(right: Bits) : Bits = wrapBinaryOperator(right,new Operator.Bits.And)
@@ -123,7 +123,7 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
 
   override def assignFromBits(bits: Bits, hi: Int, lo: Int): Unit = this (hi, lo).assignFromBits(bits)
 
-  private[core] override def isEguals(that: Any): Bool = {
+  private[core] override def isEquals(that: Any): Bool = {
     that match {
       case that: Bits => wrapLogicalOperator(that,new Operator.Bits.Equal)
       case that: MaskedLiteral => that === this
@@ -131,7 +131,7 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
     }
   }
 
-  private[core] override def isNotEguals(that: Any): Bool = {
+  private[core] override def isNotEquals(that: Any): Bool = {
     that match {
       case that: Bits => wrapLogicalOperator(that,new Operator.Bits.NotEqual)
       case that: MaskedLiteral => that =/= this
