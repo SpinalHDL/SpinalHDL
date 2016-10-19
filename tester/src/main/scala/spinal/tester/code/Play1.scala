@@ -713,6 +713,17 @@ object PlayFix {
     val sintBack = toSInt(sfix)
 
 
+    val ast = BigDecimal(2)
+    val toto = ast * 2
+    val tata = ast * 2.0
+    val ypli : BigDecimal = 4
+    val a : BigInt = 2
+    ufix.:=(2)
+    ufix := 2.0
+    ufix := 2f
+    ufix := toto
+    sfix > (1)
+
     in(uint)
     out(ufix)
     out(uintBack)

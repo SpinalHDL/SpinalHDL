@@ -170,7 +170,7 @@ class SFix(maxExp: Int, bitCount: Int) extends XFix[SFix, SInt](maxExp, bitCount
   def >(that: SFix): Bool = that.doSmaller(this)
   def <=(that: SFix): Bool = doSmallerEguals(that)
   def >=(that: SFix): Bool = that.doSmallerEguals(this)
-  def >=(that: Double): Bool = {
+  def >=(that: BigDecimal): Bool = {
     if (that > maxValue) {
       SpinalWarning("Impossible comparison at " + ScalaLocated.long)
       return False
@@ -179,7 +179,7 @@ class SFix(maxExp: Int, bitCount: Int) extends XFix[SFix, SInt](maxExp, bitCount
     other := that
     this >= other
   }
-  def >(that: Double): Bool = {
+  def >(that: BigDecimal): Bool = {
     if (that > maxValue) {
       SpinalWarning("Impossible comparison at " + ScalaLocated.long)
       return False
@@ -188,7 +188,7 @@ class SFix(maxExp: Int, bitCount: Int) extends XFix[SFix, SInt](maxExp, bitCount
     other := that
     this > other
   }
-  def <(that: Double): Bool = {
+  def <(that: BigDecimal): Bool = {
     if (that < minValue) {
       SpinalWarning("Impossible comparison at " + ScalaLocated.long)
       return False
@@ -197,7 +197,7 @@ class SFix(maxExp: Int, bitCount: Int) extends XFix[SFix, SInt](maxExp, bitCount
     other := that
     this < other
   }
-  def <=(that: Double): Bool = {
+  def <=(that: BigDecimal): Bool = {
     if (that < minValue) {
       SpinalWarning("Impossible comparison at " + ScalaLocated.long)
       return False
@@ -206,8 +206,18 @@ class SFix(maxExp: Int, bitCount: Int) extends XFix[SFix, SInt](maxExp, bitCount
     other := that
     this <= other
   }
-  def :=(that: Double): Unit = {
-    val value = BigDecimal.valueOf(that * math.pow(2.0, bitCount - maxExp - 1)).toBigInt()
+
+  def :=(that: Int): Unit = this := BigInt(that)
+  def :=(that: Long): Unit = this := BigInt(that)
+  def :=(that: Float): Unit = this := BigDecimal(that)
+
+
+  def :=(that: BigDecimal): Unit = {
+    val shift = (bitCount - maxExp - 1)
+    val value = if(shift >= 0)
+      (that * BigDecimal(BigInt(1) << shift)).toBigInt()
+    else
+      (that / BigDecimal(BigInt(1) << -shift)).toBigInt()
     this.raw := value
   }
 
@@ -219,7 +229,7 @@ class SFix(maxExp: Int, bitCount: Int) extends XFix[SFix, SInt](maxExp, bitCount
       this.raw := that << -minExp
   }
 
-  def init(that: Double): this.type = {
+  def init(that: BigDecimal): this.type = {
     val initValue = cloneOf(this)
     initValue := that
     this init (initValue)
@@ -291,7 +301,7 @@ class UFix(maxExp: Int, bitCount: Int) extends XFix[UFix, UInt](maxExp, bitCount
   def <=(that: UFix): Bool = doSmallerEguals(that)
   def >=(that: UFix): Bool = that.doSmallerEguals(this)
 
-  def >=(that: Double): Bool = {
+  def >=(that: BigDecimal): Bool = {
     if (that > maxValue) {
       SpinalWarning("Impossible comparison at " + ScalaLocated.long)
       return False
@@ -301,9 +311,17 @@ class UFix(maxExp: Int, bitCount: Int) extends XFix[UFix, UInt](maxExp, bitCount
     this >= other
   }
 
-  def :=(that: Double): Unit = {
+  def :=(that: Int): Unit = this := BigInt(that)
+  def :=(that: Long): Unit = this := BigInt(that)
+  def :=(that: Float): Unit = this := BigDecimal(that)
+
+  def :=(that: BigDecimal): Unit = {
     assert(that >= 0)
-    val value = BigDecimal.valueOf(that * math.pow(2.0, bitCount - maxExp)).toBigInt()
+    val shift = (bitCount - maxExp)
+    val value = if(shift >= 0)
+      (that * BigDecimal(BigInt(1) << shift)).toBigInt()
+    else
+      (that / BigDecimal(BigInt(1) << -shift)).toBigInt()
     this.raw := value
   }
 
@@ -316,7 +334,7 @@ class UFix(maxExp: Int, bitCount: Int) extends XFix[UFix, UInt](maxExp, bitCount
       this.raw := that << -minExp
   }
 
-  def init(that: Double): this.type = {
+  def init(that: BigDecimal): this.type = {
     val initValue = cloneOf(this)
     initValue := that
     this init (initValue)
@@ -371,12 +389,12 @@ class UFix2D(val maxExp: Int, val bitCount: Int) extends Bundle {
 }
 
 object SF{
-  def apply(value:Double, peak: ExpNumber, width: BitCount) : SFix = {
+  def apply(value:BigDecimal, peak: ExpNumber, width: BitCount) : SFix = {
     val tmp = SFix(peak,width)
     tmp := value
     tmp
   }
-  def apply(value:Double, peak: ExpNumber, resolution: ExpNumber) : SFix = {
+  def apply(value:BigDecimal, peak: ExpNumber, resolution: ExpNumber) : SFix = {
     val tmp = SFix(peak,resolution)
     tmp := value
     tmp
@@ -384,12 +402,12 @@ object SF{
 }
 
 object UF{
-  def apply(value:Double, peak: ExpNumber, width: BitCount) : UFix = {
+  def apply(value:BigDecimal, peak: ExpNumber, width: BitCount) : UFix = {
     val tmp = UFix(peak,width)
     tmp := value
     tmp
   }
-  def apply(value:Double, peak: ExpNumber, resolution: ExpNumber) : UFix = {
+  def apply(value:BigDecimal, peak: ExpNumber, resolution: ExpNumber) : UFix = {
     val tmp = UFix(peak,resolution)
     tmp := value
     tmp
