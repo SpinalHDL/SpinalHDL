@@ -1,5 +1,6 @@
 /******************************************************************************
   * Data Encryption Standard (DES)
+  *
   *                      _________
   *                     |         |
   *    -- Plaintext --->|   DES   |-- Ciphertext -->
@@ -8,6 +9,7 @@
   *                      Key (56 bits)
   *                          |
   *                 Key + parity (64 bits)
+  *
   */
 package spinal.lib.crypto.symmetric
 
@@ -167,11 +169,7 @@ class DESBlock(g : DESBlockGenerics = DESBlockGenerics()) extends Component{
     }
 
     when(nextRound){
-      when(io.cmd.encDec){
-        round := round + 1
-      }otherwise{
-        round := round - 1
-      }
+      round := io.cmd.encDec ? (round + 1) | (round - 1)
     }
   }
 
@@ -274,14 +272,14 @@ class DESBlock(g : DESBlockGenerics = DESBlockGenerics()) extends Component{
   val funcDES = new Area{
 
     // list of SBox ROM 1 to 8
-    val sBox     = List(Mem(Bits(4 bits), g.sBox_8.map(B(_))),
-                        Mem(Bits(4 bits), g.sBox_7.map(B(_))),
-                        Mem(Bits(4 bits), g.sBox_6.map(B(_))),
-                        Mem(Bits(4 bits), g.sBox_5.map(B(_))),
-                        Mem(Bits(4 bits), g.sBox_4.map(B(_))),
-                        Mem(Bits(4 bits), g.sBox_3.map(B(_))),
-                        Mem(Bits(4 bits), g.sBox_2.map(B(_))),
-                        Mem(Bits(4 bits), g.sBox_1.map(B(_))))
+    val sBox     = List(Mem(Bits(4 bits), g.sBox_8.map(B(_, 4 bits))),
+                        Mem(Bits(4 bits), g.sBox_7.map(B(_, 4 bits))),
+                        Mem(Bits(4 bits), g.sBox_6.map(B(_, 4 bits))),
+                        Mem(Bits(4 bits), g.sBox_5.map(B(_, 4 bits))),
+                        Mem(Bits(4 bits), g.sBox_4.map(B(_, 4 bits))),
+                        Mem(Bits(4 bits), g.sBox_3.map(B(_, 4 bits))),
+                        Mem(Bits(4 bits), g.sBox_2.map(B(_, 4 bits))),
+                        Mem(Bits(4 bits), g.sBox_1.map(B(_, 4 bits))))
 
     val rightRound   = Bits(32 bits) // set in feistelNetwork Area
 

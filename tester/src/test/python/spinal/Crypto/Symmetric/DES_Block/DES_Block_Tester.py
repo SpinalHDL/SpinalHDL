@@ -74,13 +74,13 @@ def test_DES_Block(dut):
     for _ in range(0,1):
 
         # Vector test ...
-        key  = 0xAABB09182736CCDD
-        data = 0x123456ABCD132536
+        #key  = 0xAABB09182736CCDD
+        #data = 0x123456ABCD132536
         #data = 0xC0B7A8D05F3A829C
 
         # Gen random value
-        #key    = randBits(64)
-        #data   = randBits(64)
+        key    = randBits(64)
+        data   = randBits(64)
 
         # Encrpytion
         helperDES.io.cmd.valid          <= 1
@@ -118,7 +118,6 @@ def test_DES_Block(dut):
 
         yield RisingEdge(helperDES.io.clk)
 
-
         # Encrypted data with the model
         k    = des(int_2_String(key), CBC, "\0\0\0\0\0\0\0\0", pad=None, padmode=PAD_PKCS5)
         refEncryptedOutput = (k.encrypt(int_2_String(data))).encode('hex')[:16]
@@ -126,10 +125,9 @@ def test_DES_Block(dut):
 
         # print("Ref encrypted ", refEncryptedOutput)
 
-
         # compare result
-        #assertEquals(int(refEncryptedOutput, 16), rtlEncryptedBlock, "Encryption data wrong ")
-        #assertEquals(rtlDecryptedBlock, data, "Decryption data wrong ")
+        assertEquals(int(refEncryptedOutput, 16), rtlEncryptedBlock, "Encryption data wrong ")
+        assertEquals(rtlDecryptedBlock, data, "Decryption data wrong ")
 
 
     dut.log.info("Cocotb end test DES Block")
