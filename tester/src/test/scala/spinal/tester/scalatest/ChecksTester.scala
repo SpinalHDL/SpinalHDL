@@ -26,6 +26,36 @@ class ChecksTester extends FunSuite  {
     assert(!checkFailure{SpinalVerilog(gen)})
   }
 
+  test("reflectionNamming") {
+    val t = SpinalVhdl(new Component{
+      val a = new Area{
+        val aa = Bool
+        val bb = new Area{
+          val aaa = Bool
+          val bbb = Vec(Bool,4)
+          val ccc = Vec(new Bundle{
+            val aaaa = Bool
+            val bbbb = Vec(Bool,8)
+            val cccc = Vec( Vec( Vec(Bool,8),8),8)
+            val dddd = List.fill(4)(Bool)
+            val eeee = List.fill(4)(List.fill(4)(Bool))
+          },4)
+        }
+      }
+      val b = Bool
+    }).toplevel
+
+    assert(t.b.getName() == "b")
+    assert(t.a.aa.getName() == "a_aa")
+    assert(t.a.bb.aaa.getName() == "a_bb_aaa")
+    assert(t.a.bb.bbb(2).getName() == "a_bb_bbb_2")
+    assert(t.a.bb.ccc(3).aaaa.getName() == "a_bb_ccc_3_aaaa")
+    assert(t.a.bb.ccc(3).bbbb(6).getName() == "a_bb_ccc_3_bbbb_6")
+    assert(t.a.bb.ccc(3).cccc(6)(5)(4).getName() == "a_bb_ccc_3_cccc_6_5_4")
+    assert(t.a.bb.ccc(3).dddd(3).getName() == "a_bb_ccc_3_dddd_3")
+    assert(t.a.bb.ccc(3).eeee(3)(2).getName() == "a_bb_ccc_3_eeee_3_2")
+  }
+
   test("checkWidthAssignment") {
     generationShouldFaild(new Component{
       val output = out Bits(8 bits)

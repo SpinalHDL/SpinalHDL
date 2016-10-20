@@ -121,8 +121,35 @@ object Misc {
   addReflectionExclusion(new Area{})
 
 
+
+
   def reflect(o: Object, onEach: (String, Object) => Unit, namePrefix: String = ""): Unit = {
     val refs = mutable.Set[Object]()
+
+    def applyNameTo(name : String,fieldRef : Object): Unit ={
+      if (fieldRef != null && (!refs.isInstanceOf[Data] || !refs.contains(fieldRef))) {
+        fieldRef match {
+          case range : Range =>
+          case vec: Vec[_] =>
+          case seq: Seq[_] => {
+            for ((obj, i) <- seq.zipWithIndex) {
+              applyNameTo(name + "_" + i, obj.asInstanceOf[Object])
+              refs += fieldRef
+            }
+          }
+          case seq: Array[_] => {
+            for ((obj, i) <- seq.zipWithIndex) {
+              applyNameTo(name + "_" + i, obj.asInstanceOf[Object])
+              refs += fieldRef
+            }
+          }
+          case _ =>
+        }
+        onEach(name, fieldRef)
+        refs += fieldRef
+      }
+    }
+
     explore(o.getClass)
     def explore(c: Class[_]): Unit = {
       if (c == null) return
@@ -149,31 +176,7 @@ object Misc {
           else
             methodName.substring(firstCharIndex+1)
           val name = namePrefix + postFix
-          fieldRef match {
-            case range : Range =>
-            case vec: Vec[_] =>
-            case seq: Seq[_] => {
-              for ((obj, i) <- seq.zipWithIndex) {
-                onEach(name + i, obj.asInstanceOf[Object])
-                refs += fieldRef
-              }
-            }
-            case seq: Array[_] => {
-              for ((obj, i) <- seq.zipWithIndex) {
-                onEach(name + i, obj.asInstanceOf[Object])
-                refs += fieldRef
-              }
-//              for ((obj, i) <- seq.zipWithIndex) {
-//                reflect(obj.asInstanceOf[Object], onEach, name  + "_" + i + "_"  )
-//              }
-            }
-//            case zone: Area => {
-//              reflect(zone, onEach, name + "_")
-//            }
-            case _ =>
-          }
-          onEach(name, fieldRef)
-          refs += fieldRef
+          applyNameTo(name,fieldRef)
         }
       }
     }
