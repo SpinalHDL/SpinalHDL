@@ -22,7 +22,7 @@ case class Timer(width : Int) extends Component{
     counter := 0
   }
 
-  io.full := counter === io.limit
+  io.full := counter === io.limit && io.tick
   io.value := counter
 
 
