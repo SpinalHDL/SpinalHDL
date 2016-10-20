@@ -156,8 +156,8 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
 
   def apply(bitId: Int) : Bool = newExtract(bitId,new ExtractBoolFixedFromUInt)
   def apply(bitId: UInt): Bool = newExtract(bitId,new ExtractBoolFloatingFromUInt)
-  def apply(offset: Int, bitCount: BitCount): this.type  = newExtract(offset+bitCount.value-1,offset,new ExtractBitsVectorFixedFromUInt)
-  def apply(offset: UInt, bitCount: BitCount): this.type = newExtract(offset,bitCount.value,new ExtractBitsVectorFloatingFromUInt)
+  def apply(offset: Int, bitCount: BitCount): this.type  = newExtract(offset+bitCount.value-1,offset,new ExtractBitsVectorFixedFromUInt).setWidth(bitCount.value)
+  def apply(offset: UInt, bitCount: BitCount): this.type = newExtract(offset,bitCount.value,new ExtractBitsVectorFloatingFromUInt).setWidth(bitCount.value)
 
   override private[core] def weakClone: this.type = new UInt().asInstanceOf[this.type]
   override def getZero: this.type = U(0,this.getWidth bits).asInstanceOf[this.type]

@@ -142,8 +142,8 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
 
   def apply(bitId: Int) : Bool = newExtract(bitId,new ExtractBoolFixedFromSInt)
   def apply(bitId: UInt): Bool = newExtract(bitId,new ExtractBoolFloatingFromSInt)
-  def apply(offset: Int, bitCount: BitCount): this.type  = newExtract(offset+bitCount.value-1,offset,new ExtractBitsVectorFixedFromSInt)
-  def apply(offset: UInt, bitCount: BitCount): this.type = newExtract(offset,bitCount.value,new ExtractBitsVectorFloatingFromSInt)
+  def apply(offset: Int, bitCount: BitCount): this.type  = newExtract(offset+bitCount.value-1,offset,new ExtractBitsVectorFixedFromSInt).setWidth(bitCount.value)
+  def apply(offset: UInt, bitCount: BitCount): this.type = newExtract(offset,bitCount.value,new ExtractBitsVectorFloatingFromSInt).setWidth(bitCount.value)
 
   override private[core] def weakClone: this.type = new SInt().asInstanceOf[this.type]
   override def getZero: this.type = S(0,this.getWidth bits).asInstanceOf[this.type]

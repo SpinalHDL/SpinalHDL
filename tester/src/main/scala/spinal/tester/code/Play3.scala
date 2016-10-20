@@ -4,7 +4,7 @@ import spinal.core
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba3.ahblite._
-import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config}
+import spinal.lib.bus.amba3.apb.{Apb3SlaveFactory, Apb3, Apb3Config}
 import spinal.lib.bus.amba4.axi._
 
 import scala.collection.mutable
@@ -800,6 +800,24 @@ object PlayConnectBundle{
     SpinalVhdl(new TopLevel)
   }
 }
+
+
+
+object PlayBusSlaveFactory42{
+  class TopLevel extends Component {
+    val bus = slave(Apb3(8,32))
+    val busCtrl = (Apb3SlaveFactory(bus))
+    val a = out(UInt(40 bits))
+    a := 0
+    busCtrl.drive(a.apply(31 downto 0),0)
+   // busCtrl.drive(a(39 downto 32),4)
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
 
 
 
