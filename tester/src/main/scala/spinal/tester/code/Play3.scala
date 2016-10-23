@@ -792,3 +792,29 @@ object PlayDesBlock{
     ).generate(new DES_Block_Tester).printPruned()
   }
 }
+
+object Play3DES{
+
+  class TripleDESTester extends Component{
+
+    val g = DESBlockGenerics()
+
+    val io = new Bundle{
+      val cmd = slave Stream(TripleDESBlockCmd(g))
+      val rsp = master Flow(TripleDESBlockRsp(g))
+    }
+
+    val des3 = new TripleDESBlock()
+    des3.io <> io
+  }
+
+  def main(args: Array[String]) {
+    SpinalConfig(
+      mode = VHDL,
+      dumpWave = DumpWaveConfig(depth = 0),
+      defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
+      defaultClockDomainFrequency  = FixedFrequency(50e6)
+    ).generate(new TripleDESTester).printPruned
+  }
+}
+
