@@ -130,24 +130,15 @@ object DESBlock{
 }
 
 
-case class DESBlockCmd(g : DESBlockGenerics) extends Bundle{
-  val key    = Bits(g.keyWidth + g.keyWidthParity)
-  val block  = Bits(g.blockWidth)
-  val encDec = Bool // enc = 1 , dec = 0
-}
-
-
-case class DESBlockRsp(g: DESBlockGenerics) extends Bundle{
-  val block = Bits(g.blockWidth)
-}
-
 
 class DESBlock(g : DESBlockGenerics = DESBlockGenerics()) extends Component{
 
-  val io = new Bundle{
-    val cmd  = slave  Stream(DESBlockCmd(g))
-    val rsp  = master Flow(DESBlockRsp(g))
-  }
+  val gIO  = SymmetricCryptoBlockGeneric(keyWidth    = g.keyWidth + g.keyWidthParity,
+                                         blockWidth  = g.blockWidth,
+                                         useEncDec   = true)
+
+  val io = new SymmetricCryptoBlockIO(gIO)
+
 
   val roundNbr    = UInt(log2Up(g.nbrRound) + 1 bits)
   val lastRound   = io.cmd.encDec ? (roundNbr === (g.nbrRound-2)) | (roundNbr === 2)

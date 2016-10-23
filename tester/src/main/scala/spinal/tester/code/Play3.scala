@@ -772,12 +772,12 @@ object PlayDesBlock{
   class DES_Block_Tester() extends Component{
 
     val g  = DESBlockGenerics()
+    val gIO  = SymmetricCryptoBlockGeneric(keyWidth    = g.keyWidth + g.keyWidthParity,
+      blockWidth  = g.blockWidth,
+      useEncDec   = true)
 
-    val io = new Bundle{
-      val cmd  = slave  Stream(DESBlockCmd(g))
-      val rsp  = master Flow(DESBlockRsp(g))
-    }
-
+    val io = new SymmetricCryptoBlockIO(gIO)
+    
     val des = new DESBlock(g)
 
     des.io <> io
@@ -797,12 +797,12 @@ object Play3DES{
 
   class TripleDESTester extends Component{
 
-    val g = DESBlockGenerics()
+    val gDES = DESBlockGenerics()
+    val gIO  = SymmetricCryptoBlockGeneric(keyWidth    = ((gDES.keyWidth.value + gDES.keyWidthParity.value) * 3) bits, // TODO remove .value
+                                           blockWidth  = gDES.blockWidth,
+                                           useEncDec   = true)
 
-    val io = new Bundle{
-      val cmd = slave Stream(TripleDESBlockCmd(g))
-      val rsp = master Flow(TripleDESBlockRsp(g))
-    }
+    val io = new SymmetricCryptoBlockIO(gIO)
 
     val des3 = new TripleDESBlock()
     des3.io <> io
@@ -810,7 +810,7 @@ object Play3DES{
 
   def main(args: Array[String]) {
     SpinalConfig(
-      mode = VHDL,
+      mode = Verilog,
       dumpWave = DumpWaveConfig(depth = 0),
       defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
       defaultClockDomainFrequency  = FixedFrequency(50e6)

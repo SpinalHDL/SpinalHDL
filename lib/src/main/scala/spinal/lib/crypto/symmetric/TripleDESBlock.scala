@@ -27,30 +27,18 @@
 package spinal.lib.crypto.symmetric
 
 import spinal.core._
-import spinal.lib._
 import spinal.lib.fsm._
 
-
-case class TripleDESBlockCmd(g : DESBlockGenerics) extends Bundle{
-  val block  = Bits(g.blockWidth)
-  val key    = Bits(3 * (g.keyWidth + g.keyWidthParity))
-  val encDec = Bool // enc=1, dec=0
-}
-
-
-case class TripleDESBlockRsp(g : DESBlockGenerics) extends Bundle{
-  val block = Bits(g.blockWidth)
-}
 
 
 class TripleDESBlock() extends Component{
 
-  val g = DESBlockGenerics()
+  val gDES = DESBlockGenerics()
+  val gIO  = SymmetricCryptoBlockGeneric(keyWidth    = ((gDES.keyWidth.value + gDES.keyWidthParity.value) * 3) bits, // TODO remove .value
+                                         blockWidth  = gDES.blockWidth,
+                                         useEncDec   = true)
 
-  val io = new Bundle{
-    val cmd = slave Stream(TripleDESBlockCmd(g))
-    val rsp = master Flow(TripleDESBlockRsp(g))
-  }
+  val io = new SymmetricCryptoBlockIO(gIO)
 
   val block    = Reg(Bits(64 bits))
   val rspValid = Reg(Bool) init(False)
