@@ -777,7 +777,7 @@ object PlayDesBlock{
       useEncDec   = true)
 
     val io = new SymmetricCryptoBlockIO(gIO)
-    
+
     val des = new DESBlock(g)
 
     des.io <> io
@@ -793,9 +793,10 @@ object PlayDesBlock{
   }
 }
 
-object Play3DES{
 
-  class TripleDESTester extends Component{
+object Play3DESBlock{
+
+  class Triple_DES_Tester extends Component{
 
     val gDES = DESBlockGenerics()
     val gIO  = SymmetricCryptoBlockGeneric(keyWidth    = ((gDES.keyWidth.value + gDES.keyWidthParity.value) * 3) bits, // TODO remove .value
@@ -814,7 +815,7 @@ object Play3DES{
       dumpWave = DumpWaveConfig(depth = 0),
       defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
       defaultClockDomainFrequency  = FixedFrequency(50e6)
-    ).generate(new TripleDESTester).printPruned
+    ).generate(new Triple_DES_Tester).printPruned
   }
 }
 
