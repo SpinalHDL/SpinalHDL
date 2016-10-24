@@ -1,8 +1,5 @@
 package spinal.lib.soc.pinsec
 
-import java.io.File
-import java.nio.file.Files
-
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba3.apb._
@@ -18,7 +15,66 @@ import spinal.lib.io.TriStateArray
 import spinal.lib.memory.sdram._
 import spinal.lib.system.debugger.{JtagAxi4SharedDebugger, SystemDebuggerConfig}
 
-class Pinsec(axiFrequency : BigDecimal) extends Component{
+
+case class PinsecConfig(axiFrequency : BigDecimal,
+                        onChipRamSize : BigInt,
+                        sdramLayout: SdramLayout,
+                        sdramTimings: SdramTimings,
+                        cpu : CoreConfig,
+                        iCache : InstructionCacheConfig
+                         )
+
+object PinsecConfig{
+  def default = {
+    val config = PinsecConfig(
+      axiFrequency = 100 MHz,
+      onChipRamSize  = 4 kB,
+      sdramLayout = IS42x320D.layout,
+      sdramTimings = IS42x320D.timingGrade7,
+      cpu = CoreConfig(
+        pcWidth = 32,
+        addrWidth = 32,
+        startAddress = 0x00000000,
+        regFileReadyKind = sync,
+        branchPrediction = dynamic,
+        bypassExecute0 = true,
+        bypassExecute1 = true,
+        bypassWriteBack = true,
+        bypassWriteBackBuffer = true,
+        collapseBubble = false,
+        fastFetchCmdPcCalculation = true,
+        dynamicBranchPredictorCacheSizeLog2 = 7
+      ),
+      iCache = InstructionCacheConfig(
+        cacheSize =4096,
+        bytePerLine =32,
+        wayCount = 1,  //Can only be one for the moment
+        wrappedMemAccess = true,
+        addressWidth = 32,
+        cpuDataWidth = 32,
+        memDataWidth = 32
+      )
+    )
+    //The CPU has a systems of plugin which allow to add new feature into the core.
+    //Those extension are not directly implemented into the core, but are kind of additive logic patch defined in a separated area.
+    config.cpu.add(new MulExtension)
+    config.cpu.add(new DivExtension)
+    config.cpu.add(new BarrelShifterFullExtension)
+
+    config
+  }
+}
+
+
+
+class Pinsec(config: PinsecConfig) extends Component{
+
+  //Legacy constructor
+  def this(axiFrequency: BigDecimal) {
+    this(PinsecConfig.default.copy(axiFrequency = axiFrequency))
+  }
+
+  import config._
   val debug = true
   val interruptCount = 4
   def vgaRgbConfig = RgbConfig(5,6,5)
@@ -31,7 +87,7 @@ class Pinsec(axiFrequency : BigDecimal) extends Component{
 
     //Main components IO
     val jtag       = slave(Jtag())
-    val sdram      = master(SdramInterface(IS42x320D.layout))
+    val sdram      = master(SdramInterface(sdramLayout))
 
     //Peripherals IO
     val gpioA      = master(TriStateArray(32 bits))
@@ -96,41 +152,10 @@ class Pinsec(axiFrequency : BigDecimal) extends Component{
 
   val axi = new ClockingArea(axiClockDomain) {
     val core = coreClockDomain{
-      val coreConfig = CoreConfig(
-        pcWidth = 32,
-        addrWidth = 32,
-        startAddress = 0x00000000,
-        regFileReadyKind = sync,
-        branchPrediction = dynamic,
-        bypassExecute0 = true,
-        bypassExecute1 = true,
-        bypassWriteBack = true,
-        bypassWriteBackBuffer = true,
-        collapseBubble = false,
-        fastFetchCmdPcCalculation = true,
-        dynamicBranchPredictorCacheSizeLog2 = 7
-      )
-
-      //The CPU has a systems of plugin which allow to add new feature into the core.
-      //Those extension are not directly implemented into the core, but are kind of additive logic patch defined in a separated area.
-      coreConfig.add(new MulExtension)
-      coreConfig.add(new DivExtension)
-      coreConfig.add(new BarrelShifterFullExtension)
-      //  p.add(new BarrelShifterLightExtension)
-
-      val iCacheConfig = InstructionCacheConfig(
-        cacheSize =4096,
-        bytePerLine =32,
-        wayCount = 1,  //Can only be one for the moment
-        wrappedMemAccess = true,
-        addressWidth = 32,
-        cpuDataWidth = 32,
-        memDataWidth = 32
-      )
 
       new RiscvAxi4(
-        coreConfig = coreConfig,
-        iCacheConfig = iCacheConfig,
+        coreConfig = config.cpu,
+        iCacheConfig = config.iCache,
         dCacheConfig = null,
         debug = debug,
         interruptCount = interruptCount
@@ -139,15 +164,15 @@ class Pinsec(axiFrequency : BigDecimal) extends Component{
 
     val ram = Axi4SharedOnChipRam(
       dataWidth = 32,
-      byteCount = 4 kB,
+      byteCount = onChipRamSize,
       idWidth = 4
     )
 
     val sdramCtrl = Axi4SharedSdramCtrl(
       axiDataWidth = 32,
       axiIdWidth   = 4,
-      layout       = IS42x320D.layout,
-      timing       = IS42x320D.timingGrade7,
+      layout       = sdramLayout,
+      timing       = sdramTimings,
       CAS          = 3
     )
 
@@ -200,8 +225,8 @@ class Pinsec(axiFrequency : BigDecimal) extends Component{
     val axiCrossbar = Axi4CrossbarFactory()
 
     axiCrossbar.addSlaves(
-      ram.io.axi       -> (0x00000000L,   4 kB),
-      sdramCtrl.io.axi -> (0x40000000L,  64 MB),
+      ram.io.axi       -> (0x00000000L,   onChipRamSize),
+      sdramCtrl.io.axi -> (0x40000000L,   sdramLayout.capacity),
       apbBridge.io.axi -> (0xF0000000L,   1 MB)
     )
 
@@ -268,7 +293,7 @@ class Pinsec(axiFrequency : BigDecimal) extends Component{
 object Pinsec{
   def main(args: Array[String]) {
     val config = SpinalConfig().dumpWave()
-    config.generateVerilog(new Pinsec(100 MHz))
-    config.generateVhdl(new Pinsec(100 MHz))
+    config.generateVerilog(new Pinsec(PinsecConfig.default))
+    config.generateVhdl(new Pinsec(PinsecConfig.default))
   }
 }

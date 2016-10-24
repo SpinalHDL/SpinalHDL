@@ -320,14 +320,7 @@ object PlayClockAndArea{
   }
 }
 
-import spinal.lib.soc.pinsec._
 
-object PinsecMain{
-  def main(args: Array[String]) {
-    SpinalVhdl(new Pinsec(100 MHz))
-    SpinalVerilog(new Pinsec(100 MHz))
-  }
-}
 
 
 
@@ -821,3 +814,17 @@ object PlayBusSlaveFactory42{
 
 
 
+
+object PlaySFixInit{
+  class TopLevel extends Component {
+    val x = out SFix(4 exp, -3 exp)
+    x := 0.3
+
+    val rom = Mem(SFix(4 exp, -3 exp),List(SF(0.3,4 exp, -3 exp),SF(0.3,4 exp, -3 exp),SF(0.3,4 exp, -3 exp),SF(0.3,4 exp, -3 exp)))
+    val y = out(rom(in UInt(2 bits)))
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
