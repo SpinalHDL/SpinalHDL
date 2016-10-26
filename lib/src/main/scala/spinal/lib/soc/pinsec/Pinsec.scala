@@ -21,8 +21,7 @@ case class PinsecConfig(axiFrequency : BigDecimal,
                         sdramLayout: SdramLayout,
                         sdramTimings: SdramTimings,
                         cpu : CoreConfig,
-                        iCache : InstructionCacheConfig
-                         )
+                        iCache : InstructionCacheConfig)
 
 object PinsecConfig{
   def default = {

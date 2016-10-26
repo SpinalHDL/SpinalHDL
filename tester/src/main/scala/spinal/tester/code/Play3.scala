@@ -6,6 +6,8 @@ import spinal.lib._
 import spinal.lib.bus.amba3.ahblite._
 import spinal.lib.bus.amba3.apb.{Apb3SlaveFactory, Apb3, Apb3Config}
 import spinal.lib.bus.amba4.axi._
+import spinal.lib.memory.sdram.W9825G6JH6
+import spinal.lib.soc.pinsec.{Pinsec, PinsecConfig}
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -828,3 +830,56 @@ object PlaySFixInit{
     SpinalVhdl(new TopLevel)
   }
 }
+
+
+object PinsecSpartan6Plus{
+  def main(args: Array[String]) {
+    val config = PinsecConfig.default.copy(
+      axiFrequency = 50 MHz,
+      onChipRamSize = 36 kB,
+      sdramLayout = W9825G6JH6.layout,
+      sdramTimings = W9825G6JH6.timingGrade7
+    )
+    
+    SpinalVerilog(new Pinsec(config))
+  }
+}
+
+object PinsecSmall{
+  def main(args: Array[String]) {
+    val config = PinsecConfig.default.copy(
+      axiFrequency = 50 MHz,
+      onChipRamSize = 36 kB,
+      sdramLayout = W9825G6JH6.layout,
+      sdramTimings = W9825G6JH6.timingGrade7
+    )
+
+    SpinalVerilog(new Pinsec(config))
+  }
+}
+
+object PinsecTest34{
+  def main(args: Array[String]) {
+    SpinalVerilog(new Pinsec(100 MHz))
+  }
+}
+
+object PlayMasked232{
+  class TopLevel extends Component {
+    val sel = in UInt(7 bits)
+    val result = out Bool
+
+    result := False
+    switch(sel){
+      is(M"011-0111") {result := True}
+      is(M"011_1000") {result := True}
+      is(M"011_1000") {result := True}
+    }
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
