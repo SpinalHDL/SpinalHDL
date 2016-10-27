@@ -11,6 +11,7 @@ import spinal.lib._
 import spinal.lib.bus.amba3.apb.{Apb3SlaveFactory, Apb3, Apb3Config}
 import spinal.lib.bus.avalon.{AvalonMM, AvalonMMSlaveFactory}
 import spinal.lib.com.uart._
+import spinal.lib.misc.{Prescaler, Timer}
 
 import scala.util.Random
 
@@ -1655,4 +1656,95 @@ object State extends SpinalEnum{
 
 
 
+}
+
+object StreamDemo{
+
+  case class RGB(redWidth : Int,greenWidth : Int,blueWidth : Int) extends Bundle{
+    val r = UInt(redWidth bits)
+    val g = UInt(greenWidth bits)
+    val b = UInt(blueWidth bits)
+
+    def isBlack() : Bool = (r === 0 && g === 0 && b === 0)
+  }
+
+  val source,sink = Stream(RGB(5,6,5))
+  sink <-< source.throwWhen(source.payload.isBlack())
+
+}
+
+object TimerDemo{
+  val apb = Apb3(addressWidth = 8, dataWidth = 32)
+  val external = new Bundle{
+    val clear,tick = Bool
+  }
+
+  val prescaler = Prescaler(16)
+  val timerA = Timer(32)
+  val timerB,timerC,timerD = Timer(16)
+
+  val busCtrl = Apb3SlaveFactory(apb)
+  val prescalerBridge = prescaler.driveFrom(busCtrl,0x00)
+
+  val timerABridge = timerA.driveFrom(busCtrl,0x40)(
+    ticks  = List(True, prescaler.io.overflow),
+    clears = List(timerA.io.full)
+  )
+
+  val timerBBridge = timerB.driveFrom(busCtrl,0x50)(
+    ticks  = List(True, prescaler.io.overflow, external.tick),
+    clears = List(timerB.io.full, external.clear)
+  )
+
+  val timerCBridge = timerC.driveFrom(busCtrl,0x60)(
+    ticks  = List(True, prescaler.io.overflow, external.tick),
+    clears = List(timerC.io.full, external.clear)
+  )
+
+  val timerDBridge = timerD.driveFrom(busCtrl,0x70)(
+    ticks  = List(True, prescaler.io.overflow, external.tick),
+    clears = List(timerD.io.full, external.clear)
+  )
+}
+
+
+object DemoMusc564{
+  case class Apb3Config(addressWidth  : Int,
+                        dataWidth     : Int,
+                        selWidth      : Int     = 1,
+                        useSlaveError : Boolean = true)
+
+  case class Apb3(config: Apb3Config) extends Bundle with IMasterSlave {
+    val PADDR      = UInt(config.addressWidth bit)
+    val PSEL       = Bits(config.selWidth bits)
+    val PENABLE    = Bool
+    val PREADY     = Bool
+    val PWRITE     = Bool
+    val PWDATA     = Bits(config.dataWidth bit)
+    val PRDATA     = Bits(config.dataWidth bit)
+    val PSLVERROR  = if(config.useSlaveError) Bool else null
+
+    override def asMaster(): Unit = {
+      out(PADDR,PSEL,PENABLE,PWRITE,PWDATA)
+      in(PREADY,PRDATA)
+      if(config.useSlaveError) in(PSLVERROR)
+    }
+  }
+
+
+  val apbConfig = Apb3Config(
+    addressWidth  = 16,
+    dataWidth     = 32,
+    selWidth      = 1,
+    useSlaveError = false
+  )
+
+  val io = new Bundle{
+    val apb = slave(Apb3(apbConfig))
+  }
+
+  io.apb.PREADY := True
+  when(io.apb.PSEL(0) && io.apb.PENABLE){
+    //...
+  }
 }
