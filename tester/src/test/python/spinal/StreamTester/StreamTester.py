@@ -337,7 +337,8 @@ class ArbiterLowIdPortFragmentLockFirst:
 def test1(dut):
     dut.log.info("Cocotb test boot")
     random.seed(0)
-
+    from cocotblib.misc import cocotbXHack
+    cocotbXHack()
 
     cocotb.fork(ClockDomainAsyncReset(dut.clk, dut.reset))
 
