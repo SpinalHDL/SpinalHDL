@@ -11,6 +11,8 @@ class Ref:
 @cocotb.test()
 def test1(dut):
     dut.log.info("Cocotb test boot")
+    from cocotblib.misc import cocotbXHack
+    cocotbXHack()
     #random.seed(0)
 
     cocotb.fork(ClockDomainAsyncReset(dut.clk, dut.reset))

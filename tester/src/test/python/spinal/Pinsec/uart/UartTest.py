@@ -12,7 +12,7 @@ from spinal.Pinsec.common.Misc import pinsecClockGen
 @cocotb.coroutine
 def txToRxBypass(dut):
     while True:
-        dut.io_uart_rxd <= int(dut.uut.io_uart_txd)
+        dut.io_uart_rxd <= int(dut.io_uart_txd)
         yield Edge(dut.io_uart_txd)
 
 @cocotb.coroutine
@@ -40,6 +40,8 @@ def assertions(dut):
 @cocotb.test()
 def test1(dut):
     random.seed(0)
+    from cocotblib.misc import cocotbXHack
+    cocotbXHack()
     uut = dut.uut
 
     cocotb.fork(simulationSpeedPrinter(uut.io_axiClk))

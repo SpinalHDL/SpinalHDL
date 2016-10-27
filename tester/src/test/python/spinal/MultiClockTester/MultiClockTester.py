@@ -69,6 +69,8 @@ def clockProcess(dut):
 @cocotb.test()
 def test1(dut):
     dut.log.info("Cocotb test boot")
+    from cocotblib.misc import cocotbXHack
+    cocotbXHack()
     #random.seed(0)
 
     queue = Queue()
