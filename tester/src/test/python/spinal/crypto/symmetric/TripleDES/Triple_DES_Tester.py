@@ -41,9 +41,12 @@ class TripleDES_Block_Helper:
 ###############################################################################
 # Convert an integer to a String
 #
-def int_2_String(integer):
+def int_2_String(integer, size):
 
-    kesList = [int(x) for x in '{0:064b}'.format(integer)]
+    if size == 192 :
+        kesList = [int(x) for x in '{0:0192b}'.format(integer)]
+    else:
+        kesList = [int(x) for x in '{0:064b}'.format(integer)]
 
     k = des("DESCRYPT", CBC, "\0\0\0\0\0\0\0\0", pad=None, padmode=PAD_PKCS5)
     return k.bitList2String(kesList)
@@ -69,17 +72,17 @@ def test_TripleDES(dut):
 
     # start monitoring the Valid signal
     helperDES.io.rsp.startMonitoringValid(helperDES.io.clk)
+    helperDES.io.cmd.startMonitoringReady(helperDES.io.clk)
 
 
-    for _ in range(0,1):
+    for _ in range(0,3):
 
         # Vector test ...
-        #key  = 0xAABB09182736CCDD
+        #key  = 0xAABB09182736CCDDAABB09182736CCDDAABB09182736CCDD
         #data = 0x123456ABCD132536
-        #data = 0xC0B7A8D05F3A829C
 
         # Gen random value
-        key    = randBits(64)
+        key    = randBits(3*64)
         data   = randBits(64)
 
         # Encrpytion
@@ -88,16 +91,17 @@ def test_TripleDES(dut):
         helperDES.io.cmd.payload.block  <= data
         helperDES.io.cmd.payload.encDec <= 1  # do an encryption
 
-
         # Wait the end of the process and read the result
+        yield helperDES.io.cmd.event_ready.wait()
+        helperDES.io.cmd.valid         <= 0
         yield helperDES.io.rsp.event_valid.wait()
 
         rtlEncryptedBlock = int(helperDES.io.rsp.event_valid.data.block)
 
         #print("RTL encrypted", hex(rtlEncryptedBlock))
 
-        helperDES.io.cmd.valid         <= 0
-
+        yield RisingEdge(helperDES.io.clk)
+        yield RisingEdge(helperDES.io.clk)
         yield RisingEdge(helperDES.io.clk)
 
         # Encrpytion
@@ -106,24 +110,25 @@ def test_TripleDES(dut):
         helperDES.io.cmd.payload.block  <= rtlEncryptedBlock
         helperDES.io.cmd.payload.encDec <= 0 # do a decryption
 
+        yield RisingEdge(helperDES.io.clk)
 
         # Wait the end of the process and read the result
+        yield helperDES.io.cmd.event_ready.wait()
+        helperDES.io.cmd.valid         <= 0
         yield helperDES.io.rsp.event_valid.wait()
+
 
         rtlDecryptedBlock = int(helperDES.io.rsp.event_valid.data.block)
 
         #print("RTL decrypted", hex(rtlDecryptedBlock))
 
-        helperDES.io.cmd.valid         <= 0
-
         yield RisingEdge(helperDES.io.clk)
 
         # Encrypted data with the model
-        k    = des(int_2_String(key), CBC, "\0\0\0\0\0\0\0\0", pad=None, padmode=PAD_PKCS5)
-        refEncryptedOutput = (k.encrypt(int_2_String(data))).encode('hex')[:16]
+        k    = triple_des(int_2_String(key, 192), CBC, "\0\0\0\0\0\0\0\0", pad=None, padmode=PAD_PKCS5)
+        refEncryptedOutput = (k.encrypt(int_2_String(data, 64))).encode('hex')[:16]
 
-
-        # print("Ref encrypted ", refEncryptedOutput)
+        #print("Ref encrypted ", refEncryptedOutput)
 
         # compare result
         assertEquals(int(refEncryptedOutput, 16), rtlEncryptedBlock, "Encryption data wrong ")

@@ -17,6 +17,8 @@ import spinal.core._
 import spinal.lib._
 
 
+// TODO : Maintain the rspvalid as long as the des is not used....
+
 case class DESBlockGenerics(){
 
   val initialPermutation = Seq(

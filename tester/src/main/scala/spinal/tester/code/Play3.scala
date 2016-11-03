@@ -771,10 +771,10 @@ object PlayDesBlock{
 
   class DES_Block_Tester() extends Component{
 
-    val g  = DESBlockGenerics()
-    val gIO  = SymmetricCryptoBlockGeneric(keyWidth    = g.keyWidth + g.keyWidthParity,
-      blockWidth  = g.blockWidth,
-      useEncDec   = true)
+    val g    = DESBlockGenerics()
+    val gIO  = SymmetricCryptoBlockGeneric(   keyWidth    = g.keyWidth + g.keyWidthParity,
+                                              blockWidth  = g.blockWidth,
+                                              useEncDec   = true)
 
     val io = new SymmetricCryptoBlockIO(gIO)
 

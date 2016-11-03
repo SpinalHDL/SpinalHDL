@@ -30,7 +30,6 @@ import spinal.core._
 import spinal.lib.fsm._
 
 
-
 class TripleDESBlock() extends Component{
 
   val gDES = DESBlockGenerics()
@@ -71,7 +70,7 @@ class TripleDESBlock() extends Component{
       whenIsActive{
         desEncDec   := io.cmd.encDec ? True | False
         desCmdValid := True
-        desKey      := io.cmd.key(191 downto 128)
+        desKey      := io.cmd.encDec ? io.cmd.key(191 downto 128) | io.cmd.key(63 downto 0)
 
         when(blockDES.io.rsp.valid){
           desCmdValid := False
@@ -100,7 +99,7 @@ class TripleDESBlock() extends Component{
       whenIsActive{
         inSel       := True
         desEncDec   := io.cmd.encDec ? True | False
-        desKey      := io.cmd.key(63 downto 0)
+        desKey      := io.cmd.encDec ? io.cmd.key(63 downto 0) | io.cmd.key(191 downto 128)
         desCmdValid := True
 
         when(blockDES.io.rsp.valid){
@@ -124,15 +123,12 @@ class TripleDESBlock() extends Component{
   blockDES.io.cmd.block  <> (sm3DES.inSel ? block | io.cmd.block)
 
 
-
   /**
     * Output
     */
   io.rsp.valid := rspValid
   io.rsp.block := block
   io.cmd.ready := sm3DES.cmdReady
-
-
 }
 
 
