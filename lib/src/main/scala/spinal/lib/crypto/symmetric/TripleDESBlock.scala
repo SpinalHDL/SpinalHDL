@@ -3,7 +3,7 @@
   *
   *           Encrpytion :                Decrytpion :
   *
-  *           plaintext                   ciphertext      (64 bits)
+  *           plaintext                   plaintext      (64 bits)
   *               |                           |
   *       -----------------            ----------------
   *      |   DES encrypt   |<-- K1 -->|  DES decrypt   |
@@ -17,7 +17,7 @@
   *      |   DES encrypt   |<-- K3 -->|  DES decrypt   |
   *       -----------------            ----------------
   *               |                           |
-  *           ciphertext                   plaintext      (64 bits)
+  *           ciphertext                   ciphertext      (64 bits)
   *
   *
   *    key = Concatenation(k1 , k2 , k3) = 3*64 bits = 192 bits

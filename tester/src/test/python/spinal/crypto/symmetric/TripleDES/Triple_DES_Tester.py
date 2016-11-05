@@ -75,7 +75,7 @@ def test_TripleDES(dut):
     helperDES.io.cmd.startMonitoringReady(helperDES.io.clk)
 
 
-    for _ in range(0,3):
+    for _ in range(0,5):
 
         # Vector test ...
         #key  = 0xAABB09182736CCDDAABB09182736CCDDAABB09182736CCDD

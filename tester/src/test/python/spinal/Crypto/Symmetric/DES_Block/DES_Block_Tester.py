@@ -71,7 +71,7 @@ def test_DES_Block(dut):
     helperDES.io.rsp.startMonitoringValid(helperDES.io.clk)
 
 
-    for _ in range(0,1):
+    for _ in range(0,5):
 
         # Vector test ...
         #key  = 0xAABB09182736CCDD
