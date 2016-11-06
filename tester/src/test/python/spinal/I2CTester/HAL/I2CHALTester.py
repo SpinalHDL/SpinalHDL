@@ -16,6 +16,8 @@ from spinal.I2CTester.HAL.I2CSlaveHAL import I2CSlaveHAL
 def test_scenario_1(dut):
 
     dut.log.info("Cocotb I2C HAL - Basic test")
+    from cocotblib.misc import cocotbXHack
+    cocotbXHack()
 
 
     delay = 300000

@@ -180,6 +180,8 @@ class DebugExtension(val clockDomain: ClockDomain) extends CoreExtension{
     }
 
     io.resetOut := RegNext(resetIt)
+
+    core.writeBack.irq.inhibate setWhen(haltIt || stepIt)
   })
 
   override def needTag: Boolean = true

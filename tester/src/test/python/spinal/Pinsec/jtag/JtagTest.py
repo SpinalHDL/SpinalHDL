@@ -50,6 +50,8 @@ def jtagBridgeReadAssert(ctrl, address, size,value,mask = -1):
 
 @cocotb.test()
 def jtagTest(dut):
+    from cocotblib.misc import cocotbXHack
+    cocotbXHack()
     uut = dut.uut
     log = open('uartTx.log', 'w')
 

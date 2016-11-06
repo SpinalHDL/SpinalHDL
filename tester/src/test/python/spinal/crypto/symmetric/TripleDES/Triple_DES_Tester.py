@@ -59,6 +59,8 @@ def int_2_String(integer, size):
 def test_TripleDES(dut):
 
     dut.log.info("Cocotb test Triple DES Block")
+    from cocotblib.misc import cocotbXHack
+    cocotbXHack()
 
     helperDES    = TripleDES_Block_Helper(dut)
     clockDomain  = ClockDomain(helperDES.io.clk, 200, helperDES.io.resetn , RESET_ACTIVE_LEVEL.LOW)

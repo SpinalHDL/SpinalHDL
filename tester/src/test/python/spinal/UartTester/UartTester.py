@@ -104,6 +104,9 @@ def checkTx(dut,queue):
 def test1(dut):
     dut.log.info("Cocotb test boot")
 
+    from cocotblib.misc import cocotbXHack
+    cocotbXHack()
+
     queueTx = Queue()
     queueRx = Queue()
 

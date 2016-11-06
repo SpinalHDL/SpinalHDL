@@ -7,7 +7,7 @@ import spinal.lib.com.uart.Uart
 import spinal.lib.io.TriStateArray
 import spinal.lib.memory.sdram.{IS42x320D, SdramInterface}
 import spinal.lib.{master, slave}
-import spinal.lib.soc.pinsec.{PinsecTimerCtrlExternal, Pinsec}
+import spinal.lib.soc.pinsec.{PinsecConfig, PinsecTimerCtrlExternal, Pinsec}
 
 /**
  * Created by PIC32F_USER on 22/08/2016.
@@ -60,7 +60,7 @@ class PinsecTesterCocotbBoot extends SpinalTesterCocotbBase {
     "uart" -> "tester/src/test/python/spinal/Pinsec/uart"
   )
   override def createToplevel: Component = {
-    val pinsec = new Pinsec(133 MHz)
+    val pinsec = new Pinsec(PinsecConfig.default.copy(axiFrequency = 133 MHz))
 //    pinsec.axi.rom.ram.randBoot()
     pinsec.axi.ram.ram.randBoot()
     val sdramPowerupCounter = pinsec.axi.sdramCtrl.ctrl.powerup.counter

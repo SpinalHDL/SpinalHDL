@@ -91,25 +91,25 @@ class UartCtrl(g : UartCtrlGenerics = UartCtrlGenerics()) extends Component {
       val streamUnbuffered = busCtrl.createAndDriveFlow(Bits(g.dataWidthMax bits), address = 0).toStream
       val (stream, fifoOccupancy) = streamUnbuffered.queueWithOccupancy(config.txFifoDepth)
       io.write << stream
-      busCtrl.read(config.txFifoDepth - fifoOccupancy, 4, 16)
+      busCtrl.read(config.txFifoDepth - fifoOccupancy,address = 4,bitOffset = 16)
     }
 
     //manage RX
     val read = new Area {
       val (stream, fofoOccupancy) = io.read.toStream.queueWithOccupancy(config.rxFifoDepth)
       busCtrl.readStreamNonBlocking(stream, address = 0, validBitOffset = 16, payloadBitOffset = 0)
-      busCtrl.read(fofoOccupancy, 4, 24)
+      busCtrl.read(fofoOccupancy,address = 4, 24)
     }
 
     //manage interrupts
     val interruptCtrl = new Area {
-      val writeIntEnable = busCtrl.createReadWrite(Bool, 4, 0) init(False)
-      val readIntEnable  = busCtrl.createReadWrite(Bool, 4, 1) init(False)
+      val writeIntEnable = busCtrl.createReadWrite(Bool, address = 4, 0) init(False)
+      val readIntEnable  = busCtrl.createReadWrite(Bool, address = 4, 1) init(False)
       val readInt   = readIntEnable & read.stream.valid
       val writeInt  = writeIntEnable & write.stream.valid
       val interrupt = readInt || writeInt
-      busCtrl.read(writeInt, 4, 8)
-      busCtrl.read(readInt , 4, 9)
+      busCtrl.read(writeInt, address = 4, 8)
+      busCtrl.read(readInt , address = 4, 9)
     }
   }
 }

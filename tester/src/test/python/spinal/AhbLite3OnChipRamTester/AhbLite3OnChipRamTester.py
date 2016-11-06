@@ -42,6 +42,8 @@ class AhbLite3TraficGeneratorWithMemory(AhbLite3TraficGenerator):
 @cocotb.test()
 def test1(dut):
     dut.log.info("Cocotb test boot")
+    from cocotblib.misc import cocotbXHack
+    cocotbXHack()
     random.seed(0)
 
     cocotb.fork(simulationSpeedPrinter(dut.clk))

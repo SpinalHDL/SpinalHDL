@@ -85,6 +85,7 @@ abstract class SpinalTesterCocotbBase extends FunSuite /* with BeforeAndAfterAll
   }
 
   def getCocotbPass(location : String) : Boolean = {
+    Thread.sleep(500)
     import scala.io.Source
     for(line <- Source.fromFile(location + "/results.xml").getLines()) {
       if (line.contains("failure") || line.contains("skipped")){

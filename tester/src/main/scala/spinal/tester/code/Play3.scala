@@ -4,8 +4,10 @@ import spinal.core
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba3.ahblite._
-import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config}
+import spinal.lib.bus.amba3.apb.{Apb3SlaveFactory, Apb3, Apb3Config}
 import spinal.lib.bus.amba4.axi._
+import spinal.lib.memory.sdram.W9825G6JH6
+import spinal.lib.soc.pinsec.{Pinsec, PinsecConfig}
 import spinal.lib.crypto.symmetric._
 
 import scala.collection.mutable
@@ -765,6 +767,130 @@ object PlayPruned2{
     SpinalVhdl(new TopLevel).printPruned()
   }
 }
+
+
+object PlaySumBig{
+  def main(args: Array[String]) {
+    var idx = 0l
+    var sum = 0l
+    while(idx < 10000000l){
+      sum += idx;
+      idx += 1
+    }
+    printf("%x%x",(sum >> 32).toInt,(sum >> 0).toInt)
+  }
+}
+
+
+
+object PlayConnectBundle{
+  case class Inputs(mode : Int) extends Bundle{
+    val a,b = in UInt(8 bits)
+    val c = if(mode == 1) in UInt(8 bits) else null
+    val d = if(mode == 2) in UInt(8 bits) else null
+  }
+
+  case class Outputs() extends Bundle{
+    val a,b = in UInt(8 bits)
+  }
+  class TopLevel() extends Component {
+    val inputs = Inputs(1)
+    val outputs = Inputs(2).flip
+    outputs <> inputs
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
+
+object PlayBusSlaveFactory42{
+  class TopLevel extends Component {
+    val bus = slave(Apb3(8,32))
+    val busCtrl = (Apb3SlaveFactory(bus))
+    val a = out(UInt(40 bits))
+    a := 0
+    busCtrl.drive(a.apply(31 downto 0),0)
+   // busCtrl.drive(a(39 downto 32),4)
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
+
+
+
+object PlaySFixInit{
+  class TopLevel extends Component {
+    val x = out SFix(4 exp, -3 exp)
+    x := 0.3
+
+    val rom = Mem(SFix(4 exp, -3 exp),List(SF(0.3,4 exp, -3 exp),SF(0.3,4 exp, -3 exp),SF(0.3,4 exp, -3 exp),SF(0.3,4 exp, -3 exp)))
+    val y = out(rom(in UInt(2 bits)))
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
+object PinsecSpartan6Plus{
+  def main(args: Array[String]) {
+    val config = PinsecConfig.default.copy(
+      axiFrequency = 50 MHz,
+      onChipRamSize = 36 kB,
+      sdramLayout = W9825G6JH6.layout,
+      sdramTimings = W9825G6JH6.timingGrade7
+    )
+
+    SpinalVerilog(new Pinsec(config))
+  }
+}
+
+object PinsecSmall{
+  def main(args: Array[String]) {
+    val config = PinsecConfig.default.copy(
+      axiFrequency = 50 MHz,
+      onChipRamSize = 36 kB,
+      sdramLayout = W9825G6JH6.layout,
+      sdramTimings = W9825G6JH6.timingGrade7
+    )
+
+    SpinalVerilog(new Pinsec(config))
+  }
+}
+
+object PinsecTest34{
+  def main(args: Array[String]) {
+    SpinalVerilog(new Pinsec(100 MHz))
+  }
+}
+
+object PlayMasked232{
+  class TopLevel extends Component {
+    val sel = in UInt(7 bits)
+    val result = out Bool
+
+    result := False
+    switch(sel){
+      is(M"011-0111") {result := True}
+      is(M"011_1000") {result := True}
+      is(M"011_1000") {result := True}
+    }
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
 
 
 object PlayDesBlock{

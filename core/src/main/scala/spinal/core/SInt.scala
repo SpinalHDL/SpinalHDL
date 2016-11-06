@@ -50,8 +50,8 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   def @@(that : UInt) : SInt = (this ## that).asSInt
   def @@(that : Bool) : SInt = (this ## that).asSInt
 
-  def ===(that : MaskedLiteral) : Bool = this.isEguals(that)
-  def =/=(that : MaskedLiteral) : Bool = this.isNotEguals(that)
+  def ===(that : MaskedLiteral) : Bool = this.isEquals(that)
+  def =/=(that : MaskedLiteral) : Bool = this.isNotEquals(that)
 
   override def +(right : SInt): SInt = wrapBinaryOperator(right,new Operator.SInt.Add)
   override def -(right : SInt): SInt = wrapBinaryOperator(right,new Operator.SInt.Sub)
@@ -107,14 +107,14 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   }
 
   private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse,new MultiplexerSInt)
-  private[core] override def isEguals(that: Any): Bool = {
+  private[core] override def isEquals(that: Any): Bool = {
     that match {
       case that: SInt =>  wrapLogicalOperator(that,new Operator.SInt.Equal)
       case that : MaskedLiteral => that === this
       case _ => SpinalError(s"Don't know how compare $this with $that"); null
     }
   }
-  private[core] override def isNotEguals(that: Any): Bool = {
+  private[core] override def isNotEquals(that: Any): Bool = {
     that match {
       case that: SInt =>  wrapLogicalOperator(that,new Operator.SInt.NotEqual)
       case that : MaskedLiteral => that =/= this
@@ -142,8 +142,8 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
 
   def apply(bitId: Int) : Bool = newExtract(bitId,new ExtractBoolFixedFromSInt)
   def apply(bitId: UInt): Bool = newExtract(bitId,new ExtractBoolFloatingFromSInt)
-  def apply(offset: Int, bitCount: BitCount): this.type  = newExtract(offset+bitCount.value-1,offset,new ExtractBitsVectorFixedFromSInt)
-  def apply(offset: UInt, bitCount: BitCount): this.type = newExtract(offset,bitCount.value,new ExtractBitsVectorFloatingFromSInt)
+  def apply(offset: Int, bitCount: BitCount): this.type  = newExtract(offset+bitCount.value-1,offset,new ExtractBitsVectorFixedFromSInt).setWidth(bitCount.value)
+  def apply(offset: UInt, bitCount: BitCount): this.type = newExtract(offset,bitCount.value,new ExtractBitsVectorFloatingFromSInt).setWidth(bitCount.value)
 
   override private[core] def weakClone: this.type = new SInt().asInstanceOf[this.type]
   override def getZero: this.type = S(0,this.getWidth bits).asInstanceOf[this.type]

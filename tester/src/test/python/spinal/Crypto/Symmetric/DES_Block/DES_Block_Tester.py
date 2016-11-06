@@ -56,6 +56,8 @@ def int_2_String(integer):
 def test_DES_Block(dut):
 
     dut.log.info("Cocotb test DES Block")
+    from cocotblib.misc import cocotbXHack
+    cocotbXHack()
 
     helperDES    = DES_Block_Helper(dut)
     clockDomain  = ClockDomain(helperDES.io.clk, 200, helperDES.io.resetn , RESET_ACTIVE_LEVEL.LOW)

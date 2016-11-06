@@ -39,7 +39,7 @@ class TripleDESBlock() extends Component{
 
   val io = new SymmetricCryptoBlockIO(gIO)
 
-  val block    = Reg(Bits(64 bits))
+  val block    = Reg(Bits(gDES.blockWidth))
   val rspValid = Reg(Bool) init(False)
 
   // DES Block
@@ -53,7 +53,7 @@ class TripleDESBlock() extends Component{
 
     val desCmdValid = False
     val desEncDec   = False
-    val desKey      = B(0, 64 bits)
+    val desKey      = B(0, gDES.keyWidthParity + gDES.keyWidth)
     val inSel       = False
     val cmdReady    = False
 

@@ -24,6 +24,8 @@ def ClockDomainAsyncResetCustom(clk,reset):
 @cocotb.test()
 def test1(dut):
     random.seed(0)
+    from cocotblib.misc import cocotbXHack
+    cocotbXHack()
 
     cocotb.fork(ClockDomainAsyncResetCustom(dut.clk, dut.reset))
     cocotb.fork(simulationSpeedPrinter(dut.clk))
