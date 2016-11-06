@@ -40,7 +40,6 @@ class TripleDESBlock() extends Component{
   val io = new SymmetricCryptoBlockIO(gIO)
 
   val block    = Reg(Bits(gDES.blockWidth))
-  val rspValid = Reg(Bool) init(False)
 
   // DES Block
   val blockDES = new DESBlock()
@@ -60,7 +59,6 @@ class TripleDESBlock() extends Component{
     val sIdle : State = new State with EntryPoint{
       whenIsActive{
         when(io.cmd.valid){
-          rspValid.clear()
           goto(sStage1)
         }
       }
@@ -106,7 +104,6 @@ class TripleDESBlock() extends Component{
           desCmdValid := False
           cmdReady    := True
           block       := blockDES.io.rsp.block
-          rspValid.set()
           goto(sIdle)
         }
       }
@@ -126,8 +123,8 @@ class TripleDESBlock() extends Component{
   /**
     * Output
     */
-  io.rsp.valid := rspValid
   io.rsp.block := block
+  io.rsp.valid := sm3DES.cmdReady
   io.cmd.ready := sm3DES.cmdReady
 }
 

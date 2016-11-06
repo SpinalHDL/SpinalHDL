@@ -87,6 +87,8 @@ def test_TripleDES(dut):
         key    = randBits(3*64)
         data   = randBits(64)
 
+        print("Origin data", hex(data))
+
         # Encrpytion
         helperDES.io.cmd.valid          <= 1
         helperDES.io.cmd.payload.key    <= key
@@ -96,11 +98,12 @@ def test_TripleDES(dut):
         # Wait the end of the process and read the result
         yield helperDES.io.cmd.event_ready.wait()
         helperDES.io.cmd.valid         <= 0
-        yield helperDES.io.rsp.event_valid.wait()
+        yield RisingEdge(helperDES.io.clk)
+
 
         rtlEncryptedBlock = int(helperDES.io.rsp.event_valid.data.block)
 
-        #print("RTL encrypted", hex(rtlEncryptedBlock))
+        print("RTL encrypted", hex(rtlEncryptedBlock))
 
         yield RisingEdge(helperDES.io.clk)
         yield RisingEdge(helperDES.io.clk)
@@ -117,12 +120,12 @@ def test_TripleDES(dut):
         # Wait the end of the process and read the result
         yield helperDES.io.cmd.event_ready.wait()
         helperDES.io.cmd.valid         <= 0
-        yield helperDES.io.rsp.event_valid.wait()
+        yield RisingEdge(helperDES.io.clk)
 
 
         rtlDecryptedBlock = int(helperDES.io.rsp.event_valid.data.block)
 
-        #print("RTL decrypted", hex(rtlDecryptedBlock))
+        print("RTL decrypted", hex(rtlDecryptedBlock))
 
         yield RisingEdge(helperDES.io.clk)
 
@@ -130,7 +133,7 @@ def test_TripleDES(dut):
         k    = triple_des(int_2_String(key, 192), CBC, "\0\0\0\0\0\0\0\0", pad=None, padmode=PAD_PKCS5)
         refEncryptedOutput = (k.encrypt(int_2_String(data, 64))).encode('hex')[:16]
 
-        #print("Ref encrypted ", refEncryptedOutput)
+        print("Ref encrypted ", refEncryptedOutput)
 
         # compare result
         assertEquals(int(refEncryptedOutput, 16), rtlEncryptedBlock, "Encryption data wrong ")
