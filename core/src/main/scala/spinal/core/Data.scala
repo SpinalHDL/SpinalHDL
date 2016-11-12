@@ -426,6 +426,11 @@ trait Data extends ContextUser with NameableByComponent with Assignable  with Sp
       //No param =>
       if (constrParamCount == 0) return constructor.newInstance().asInstanceOf[this.type]
 
+      def cleanCopy[T <: Data](that : T) : T = {
+        that.asDirectionLess()
+        that.flatten.foreach(_.input = null)
+        that
+      }
 
       def constructorParamsAreVal: this.type = {
         val outer = clazz.getFields.find(_.getName == "$outer")
@@ -443,15 +448,15 @@ trait Data extends ContextUser with NameableByComponent with Assignable  with Sp
           }
         }
         if (outer.isEmpty)
-          return constructor.newInstance(arguments: _*).asInstanceOf[this.type].asDirectionLess()
+          return cleanCopy(constructor.newInstance(arguments: _*).asInstanceOf[this.type])
         else {
           val args = (outer.get.get(this) :: Nil) ++ arguments
-          return constructor.newInstance(args: _*).asInstanceOf[this.type].asDirectionLess()
+          return cleanCopy(constructor.newInstance(args: _*).asInstanceOf[this.type])
         }
       }
       //Case class =>
       if (ScalaUniverse.isCaseClass(this)) {
-        return constructorParamsAreVal.asDirectionLess()
+        return cleanCopy(constructorParamsAreVal)
       }
 
       //Inner class with no user parameters
@@ -461,15 +466,15 @@ trait Data extends ContextUser with NameableByComponent with Assignable  with Sp
         if(outerField.isDefined){
           val outer = outerField.get
           outer.setAccessible(true)
-          return constructor.newInstance(outer.get(this)).asInstanceOf[this.type].asDirectionLess()
+          return cleanCopy(constructor.newInstance(outer.get(this)).asInstanceOf[this.type])
         }
         val c = clazz.getMethod("getComponent").invoke(this).asInstanceOf[Component]
         val pt = constructor.getParameterTypes.apply(0)
         if(c.getClass.isAssignableFrom(pt)){
-          val copy =  constructor.newInstance(c).asInstanceOf[this.type].asDirectionLess()
+          val copy =  constructor.newInstance(c).asInstanceOf[this.type]
           if(copy.isInstanceOf[Bundle])
-            copy.asInstanceOf[Bundle].cloneFunc = (() => constructor.newInstance(c).asInstanceOf[this.type].asDirectionLess())
-          return copy
+            copy.asInstanceOf[Bundle].cloneFunc = (() => constructor.newInstance(c).asInstanceOf[this.type])
+          return cleanCopy(copy)
         }
         //        val a = c.areaClassSet.get(pt)
         //        if(a.isDefined && a.get != null){
