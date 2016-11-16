@@ -1,27 +1,27 @@
-/*
- * SpinalHDL
- * Copyright (c) Dolu, All rights reserved.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 3.0 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library.
- */
-
+/*                                                                           *\
+**        _____ ____  _____   _____    __                                    **
+**       / ___// __ \/  _/ | / /   |  / /   SpinalHDL Core                   **
+**       \__ \/ /_/ // //  |/ / /| | / /    (c) Dolu, All rights reserved    **
+**      ___/ / ____// // /|  / ___ |/ /___                                   **
+**     /____/_/   /___/_/ |_/_/  |_/_____/                                   **
+**                                                                           **
+**      This library is free software; you can redistribute it and/or        **
+**    modify it under the terms of the GNU Lesser General Public             **
+**    License as published by the Free Software Foundation; either           **
+**    version 3.0 of the License, or (at your option) any later version.     **
+**                                                                           **
+**      This library is distributed in the hope that it will be useful,      **
+**    but WITHOUT ANY WARRANTY; without even the implied warranty of         **
+**    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU      **
+**    Lesser General Public License for more details.                        **
+**                                                                           **
+**      You should have received a copy of the GNU Lesser General Public     **
+**    License along with this library.                                       **
+\*                                                                           */
 package spinal.core
 
 import spinal.core.Operator.BitVector.AllByBool
-/**
-  * Created by PIC18F on 16.01.2015.
-  */
+
 
 trait BitsCast {
   @deprecated
@@ -39,32 +39,62 @@ trait BitsFactory {
 }
 
 class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
-  private[core] def prefix: String = "b"
 
+  private[core] override def prefix: String = "b"
 
   override type T = Bits
 
   override private[spinal] def _data: Bits = this
 
+  /** Compare a Bits with a MaskedLiteral
+    * @example {{{ val myBool = myBits === M"0-1" }}}
+    * @param that the maskedLiteral
+    * @return a Bool containing the result
+    */
   def ===(that: MaskedLiteral): Bool = this.isEquals(that)
+  /** Bits is not equal to MaskedLiteral */
   def =/=(that: MaskedLiteral): Bool = this.isNotEquals(that)
+
+  /** Concatenation
+    * @example{{{ val myBits2 = bits1 ## bits2 }}}
+    * @param right Bits to append
+    * @return a new Bits of width (width(this) + width(right))
+    */
   def ##(right: Bits): Bits = wrapBinaryOperator(right,new Operator.Bits.Cat)
-  def |(right: Bits) : Bits = wrapBinaryOperator(right,new Operator.Bits.Or)
-  def &(right: Bits) : Bits = wrapBinaryOperator(right,new Operator.Bits.And)
-  def ^(right: Bits) : Bits = wrapBinaryOperator(right,new Operator.Bits.Xor)
-  def unary_~(): Bits = wrapUnaryOperator(new Operator.Bits.Not)
+
+  override def |(right: Bits) : Bits = wrapBinaryOperator(right,new Operator.Bits.Or)
+  override def &(right: Bits) : Bits = wrapBinaryOperator(right,new Operator.Bits.And)
+  override def ^(right: Bits) : Bits = wrapBinaryOperator(right,new Operator.Bits.Xor)
+  override def unary_~(): Bits = wrapUnaryOperator(new Operator.Bits.Not)
+
+  /** Logical shift right with a Int
+    * @example{{{ val result = myBits >> 4 }}}
+    * @param that
+    * @return a Bits of width w(this) - that bits
+    */
   def >>(that: Int): Bits  = wrapConstantOperator(new Operator.Bits.ShiftRightByInt(that))
+
+  /** Logical shift left with a Int
+    * @example{{{ val result = myBits << 4 }}}
+    * @param that
+    * @return a Bits of width w(this) + that bits
+    */
   def <<(that: Int): Bits  = wrapConstantOperator(new Operator.Bits.ShiftLeftByInt(that))
+
+  /** Logical shift right with an UInt */
   def >>(that: UInt): Bits = wrapBinaryOperator(that,new Operator.Bits.ShiftRightByUInt)
+  /** Logical shift left with an UInt */
   def <<(that: UInt): Bits = wrapBinaryOperator(that,new Operator.Bits.ShiftLeftByUInt)
 
+  /** Logical shift right with a Int
+    * @example{{{ val result = myBits >> 4 }}}
+    * @param that
+    * @return a Bits of width w(this) - that bits
+    */
   def |>>(that: Int): Bits  = wrapConstantOperator(new Operator.Bits.ShiftRightByIntFixedWidth(that))
   def |<<(that: Int): Bits  = wrapConstantOperator(new Operator.Bits.ShiftLeftByIntFixedWidth(that))
   def |>>(that: UInt): Bits = this >> that
   def |<<(that: UInt): Bits = wrapBinaryOperator(that,new Operator.Bits.ShiftLeftByUIntFixedWidth)
-
-
-
 
   override def rotateLeft(that: Int): Bits = {
     val width = widthOf(this)
@@ -145,13 +175,10 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
     ret
   }
 
-
-
-
-  def apply(bitId: Int) : Bool = newExtract(bitId,new ExtractBoolFixedFromBits)
-  def apply(bitId: UInt): Bool = newExtract(bitId,new ExtractBoolFloatingFromBits)
-  def apply(offset: Int, bitCount: BitCount): this.type  = newExtract(offset+bitCount.value-1,offset,new ExtractBitsVectorFixedFromBits).setWidth(bitCount.value)
-  def apply(offset: UInt, bitCount: BitCount): this.type = newExtract(offset,bitCount.value,new ExtractBitsVectorFloatingFromBits).setWidth(bitCount.value)
+  override def apply(bitId: Int) : Bool = newExtract(bitId,new ExtractBoolFixedFromBits)
+  override def apply(bitId: UInt): Bool = newExtract(bitId,new ExtractBoolFloatingFromBits)
+  override def apply(offset: Int, bitCount: BitCount): this.type  = newExtract(offset+bitCount.value-1,offset,new ExtractBitsVectorFixedFromBits).setWidth(bitCount.value)
+  override def apply(offset: UInt, bitCount: BitCount): this.type = newExtract(offset,bitCount.value,new ExtractBitsVectorFloatingFromBits).setWidth(bitCount.value)
 
   override private[core] def weakClone: this.type = new Bits().asInstanceOf[this.type]
   override def getZero: this.type = B(0,this.getWidth bits).asInstanceOf[this.type]
