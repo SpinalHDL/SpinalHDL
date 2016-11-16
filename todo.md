@@ -15,7 +15,8 @@
 - [X] Function for compinent without the io_ prefix on IO
 - [X] Add option to disable the pkg generation in VHDL
 - [X] naming rules transformator in SpinalConfig
-- [ ] Check xilinx and altera FF about syncronus reset + clock enable interaction kind 
+- [ ] Check xilinx and altera FF about syncronus reset + clock enable interaction kind
+- [ ] Check errors message when hearchy violation (names)  
 - [X] Add rotate left support in the verilog backend
 - [ ] Better mux Nodes (more than two inputs)
 - [ ] Remove the generation of when nodes condition when they are emited as a case statments

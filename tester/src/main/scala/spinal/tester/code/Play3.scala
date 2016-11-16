@@ -6,6 +6,7 @@ import spinal.lib._
 import spinal.lib.bus.amba3.ahblite._
 import spinal.lib.bus.amba3.apb.{Apb3SlaveFactory, Apb3, Apb3Config}
 import spinal.lib.bus.amba4.axi._
+import spinal.lib.bus.misc.BusSlaveFactory
 import spinal.lib.memory.sdram.W9825G6JH6
 import spinal.lib.soc.pinsec.{Pinsec, PinsecConfig}
 import spinal.lib.crypto.symmetric._
@@ -812,7 +813,7 @@ object PlayBusSlaveFactory42{
     val busCtrl = (Apb3SlaveFactory(bus))
     val a = out(UInt(40 bits))
     a := 0
-    busCtrl.drive(a.apply(31 downto 0),0)
+    busCtrl.drive(a.apply(39 downto 0),0)
    // busCtrl.drive(a(39 downto 32),4)
   }
 
@@ -944,4 +945,115 @@ object Play3DESBlock{
     ).generate(new Triple_DES_Tester).printPruned
   }
 }
+
+
+object PlayPatch{
+  class LEDBank(width     : Int = 16,
+                lowActive : Bool = False) extends Component {
+
+    val io = new Bundle {
+
+      // I/O signals for memory data port
+      val writeEnable = in Bool
+      val ledState = in Bits(width bits)
+      val leds = out Bits(width bits)
+    }
+
+    // Register for holding the bit-vector storing the LED states
+    val ledReg = Reg(Bits(width bits)) init(0)
+
+    // Check for write mode
+    when(io.writeEnable) {
+
+      // Set register value
+      ledReg := io.ledState
+
+    }
+
+    // Set output for the leds (invert it if asked for by the generic parameter)
+    io.leds := lowActive ? ~ledReg | ledReg
+
+    // Implement the bus interface
+    def driveFrom(busCtrl : BusSlaveFactory, baseAddress : BigInt) = new Area {
+      // The register is mapped at Address 0 and is of type r/w
+      busCtrl.read(io.leds,baseAddress + 0)
+      busCtrl.nonStopWrite(io.ledState, 0) //ledState will be constantly drived by the data of the memory bus
+      io.writeEnable := busCtrl.isWriting(baseAddress + 0)
+    }
+
+  }
+
+
+  object LEDBank{
+    def apply(busCtrl : BusSlaveFactory,
+              baseAddress : BigInt)
+             (width     : Int = 16,
+              lowActive : Bool = False): Bits ={
+      val leds = busCtrl.createReadWrite(Bits(width bits),baseAddress) init(0)
+      return lowActive ? ~leds | leds
+    }
+  }
+
+  class YourTopLevel extends Component {
+    //...
+    val leds = LEDBank(???, 0x40)(
+      width = 16,
+      lowActive = False
+    )
+  }
+
+  case class SimpleBus(addressWidth : Int, dataWidth : Int) extends Bundle with IMasterSlave {
+    // Check the generic parameters
+    val enable     = Bool // Bus can be used when 'enable' is high
+    val writeMode  = Bool // High to write data, low to read data
+    val address    = UInt(addressWidth bits) // Address (byte-aligned)
+    val writeData  = Bits(dataWidth bits)
+    val readData   = Bits(dataWidth bits)
+
+    def delayed(delayCnt : Int = 1): SimpleBus = {
+      require (delayCnt >= 0, "Error: delayCnt has to be at least 0")
+      val ret = cloneOf(this)
+
+      ret.enable    := Delay(this.enable    ,delayCnt)
+      ret.writeMode := Delay(this.writeMode ,delayCnt)
+      ret.address   := Delay(this.address   ,delayCnt)
+      ret.writeData := Delay(this.writeData ,delayCnt)
+      this.readData := Delay(ret.readData   ,delayCnt)
+
+      return ret
+    }
+
+    //Can be used to connect that to this
+    def << (that : SimpleBus): Unit ={
+      that.enable    := this.enable
+      that.writeMode := this.writeMode
+      that.address   := this.address
+      that.writeData := this.writeData
+      this.readData  := that.readData
+    }
+    def >>(that : SimpleBus): Unit = that << this
+
+    // This is called by 'apply' when the master-object is called with data (-> side effect write/read data)
+    override def asMaster() : Unit = {
+
+      // Write data to the bus
+      out(enable, writeMode, address, writeData)
+
+      // Read data from the bus
+      in(readData)
+
+    }
+
+  }
+
+
+  val cpuBus = SimpleBus(32,32)
+  val peripheralBus = cpuBus.delayed(4)   //This instance of the bus will be drived by the cpuBus with 4 cycle delay in each directions
+  val somewereElse = SimpleBus(32,32)
+  somewereElse << peripheralBus
+
+
+}
+
+
 

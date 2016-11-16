@@ -736,6 +736,7 @@ class TraversableOncePimped[T <: Data](pimped: Seq[T]) {
 
 object Delay {
   def apply[T <: Data](that: T, cycleCount: Int,when : Bool = null,init : T = null.asInstanceOf[T]): T = {
+    require(cycleCount >= 0,"Negative cycleCount is not allowed in Delay")
     cycleCount match {
       case 0 => that
       case _ => {
