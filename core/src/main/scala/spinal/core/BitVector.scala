@@ -32,6 +32,16 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
   def andR = this.asBits === ((BigInt(1) << getWidth) - 1)
   def xorR = this.asBools.reduce(_ ^ _)
 
+  /**
+    * Compare a BitVector data with a MaskedLiteral (M"110--0")
+    * @example {{{ val myBool = myBits === M"0-1" }}}
+    * @param that the maskedLiteral
+    * @return a Bool data containing the result of the comparison
+    */
+  def ===(that: MaskedLiteral): Bool = this.isEquals(that)
+  /** BitVector is not equal to MaskedLiteral */
+  def =/=(that : MaskedLiteral) : Bool = this.isNotEquals(that)
+
   def rotateLeft(that: Int): T
   def rotateRight(that: Int): T
 
