@@ -19,18 +19,7 @@
 package spinal.core
 
 import spinal.core.Operator.BitVector.AllByBool
-/**
-  * Created by PIC18F on 16.01.2015.
-  */
 
-trait BitsCast {
-  @deprecated
-  def asBits(that: Data): Bits = that.asBits
-}
-
-object BitsSet {
-  def apply(bitCount: BitCount) = B((BigInt(1) << bitCount.value) - 1, bitCount)
-}
 
 trait BitsFactory {
   def Bits() = new Bits()
@@ -144,8 +133,6 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
     ret.assignFromBits(this)
     ret
   }
-
-
 
 
   def apply(bitId: Int) : Bool = newExtract(bitId,new ExtractBoolFixedFromBits)

@@ -29,6 +29,8 @@ class TagDefault(val default : Tuple2[Any,Any],val litFacto : (BigInt,Int) => Bi
 
 abstract class BitVectorLiteralFactory[T <: BitVector] {
   def apply(): T
+  def apply(value: Int): T = this(BigInt(value))
+  def apply(value: Int, width: BitCount): T = this(BigInt(value),width)
   def apply(value: BigInt): T = getFactory(value, -1, this())
   def apply(value: BigInt, width: BitCount): T = getFactory(value, width.value, this().setWidth(width.value))
   def apply(value: String): T = bitVectorStringParser(this,value,isSigned)
@@ -101,6 +103,7 @@ abstract class BitVectorLiteralFactory[T <: BitVector] {
 
 object B extends BitVectorLiteralFactory[Bits] {
   def apply() : Bits = new Bits()
+  def apply(that: Data) : Bits = that.asBits
   override private[core] def newInstance(bitCount: BitCount): Bits = Bits(bitCount)
   override def isSigned: Boolean = false
   override def getFactory: (BigInt, Int, Bits) => Bits = BitsLiteral.apply[Bits]
@@ -108,6 +111,10 @@ object B extends BitVectorLiteralFactory[Bits] {
 
 object U extends BitVectorLiteralFactory[UInt] {
   def apply() : UInt = new UInt()
+  def apply(that: Bool): UInt = that.asUInt
+  def apply(that: Bits): UInt = that.asUInt
+  def apply(that: SInt): UInt = that.asUInt
+  def apply(that: UFix) : UInt = that.toUInt
   override private[core] def newInstance(bitCount: BitCount): UInt = UInt(bitCount)
   override def isSigned: Boolean = false
   override def getFactory: (BigInt, Int, UInt) => UInt = UIntLiteral.apply[UInt]
@@ -115,6 +122,10 @@ object U extends BitVectorLiteralFactory[UInt] {
 
 object S extends BitVectorLiteralFactory[SInt] {
   def apply() : SInt = new SInt()
+  def apply(that : Bool) : SInt = that.asSInt
+  def apply(that : Bits) : SInt = that.asSInt
+  def apply(that : UInt) : SInt = that.asSInt
+  def apply(that : SFix) : SInt = that.toSInt
   override private[core] def newInstance(bitCount: BitCount): SInt = SInt(bitCount)
   override def isSigned: Boolean = true
   override def getFactory: (BigInt, Int, SInt) => SInt = SIntLiteral.apply[SInt]

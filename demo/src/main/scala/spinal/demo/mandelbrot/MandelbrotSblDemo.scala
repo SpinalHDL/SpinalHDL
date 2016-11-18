@@ -80,7 +80,7 @@ class MandelbrotSblDemo(frameAddressOffset: Int, p: MandelbrotCoreParameters, co
       }
       io.mandelbrotWriteCmd.translateFrom(colorResult)((to, from) => {
         to.address := counter
-        to.data := (asBits(from.value)).resized
+        to.data := (B(from.value)).resized
       })
     }
   }

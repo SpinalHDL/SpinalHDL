@@ -20,16 +20,6 @@ package spinal.core
 
 import spinal.core.Operator.BitVector.AllByBool
 
-trait UIntCast{
-  @deprecated
-  def asUInt(that : Bool) : UInt = that.asUInt
-  @deprecated
-  def asUInt(that : Bits) : UInt = that.asUInt
-  @deprecated
-  def asUInt(that : SInt) : UInt = that.asUInt
-  @deprecated
-  def toUInt(that : UFix) : UInt = that.toUInt
-}
 
 trait UIntFactory{
   def UInt() = new UInt()

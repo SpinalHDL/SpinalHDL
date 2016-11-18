@@ -62,7 +62,7 @@ class SerialCheckerTx(bitsWidth: Int) extends Component {
         io.output.bits := io.input.fragment
         io.input.ready := io.output.ready
         when(io.output.fire) {
-          checksum := checksum + asUInt(io.input.fragment)
+          checksum := checksum + U(io.input.fragment)
           when(io.input.last) {
             state := eEnd
           }
@@ -77,14 +77,14 @@ class SerialCheckerTx(bitsWidth: Int) extends Component {
       }
       is(eCheck0) {
         io.output.valid := True
-        io.output.bits := asBits(checksum(7, 0))
+        io.output.bits := B(checksum(7, 0))
         when(io.output.ready) {
           state := eCheck1
         }
       }
       is(eCheck1) {
         io.output.valid := True
-        io.output.bits := asBits(checksum(15, 8))
+        io.output.bits := B(checksum(15, 8))
         when(io.output.ready) {
           state := eStart
         }
@@ -202,11 +202,11 @@ class SerialCheckerRx(wordCountMax: Int) extends Component {
     val lastWriteData = RegNextWhen(io.input.bits(bitsWidth - 1, 0), pushFlag)
 
     when(pushFlag || flushFlag) {
-      ram((writePtr - asUInt(flushFlag)).resized) := (Mux(pushFlag, io.input.bits.resized, True ## lastWriteData)).resized
+      ram((writePtr - U(flushFlag)).resized) := (Mux(pushFlag, io.input.bits.resized, True ## lastWriteData)).resized
     }
 
     when(pushFlag) {
-      checksum := checksum + asUInt(io.input.bits) //TODO better checksum
+      checksum := checksum + U(io.input.bits) //TODO better checksum
       writePtr.increment()
     }
     when(flushFlag) {
@@ -253,14 +253,14 @@ class SerialCheckerRx(wordCountMax: Int) extends Component {
             overflow := overflow | !buffer.push
           }
           is(eCheck0) {
-            when(io.input.bits === asBits(buffer.checksum(7, 0))) {
+            when(io.input.bits === B(buffer.checksum(7, 0))) {
               state := eCheck1
             } otherwise {
               state := eIdle
             }
           }
           is(eCheck1) {
-            when(!overflow && io.input.bits === asBits(buffer.checksum(15, 8))) {
+            when(!overflow && io.input.bits === B(buffer.checksum(15, 8))) {
               buffer.flush
             }
             state := eIdle
