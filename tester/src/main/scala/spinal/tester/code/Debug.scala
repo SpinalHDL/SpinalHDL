@@ -104,7 +104,7 @@ object Debug {
     //
     val s0Reg = RegNext(MyEnum.s0())
 
-    io.boolToUnsigned := asUInt(True)
+    io.boolToUnsigned := U(True)
 
     val forks = StreamFork(io.input, 3)
     io.output << StreamArbiterFactory.lowerFirst.transactionLock.on(forks)

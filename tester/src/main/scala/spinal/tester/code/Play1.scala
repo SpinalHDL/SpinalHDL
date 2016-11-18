@@ -705,12 +705,12 @@ object PlayFix {
     val ufix = UFix(8 exp, 12 bit)
     val uint = UInt(3 bit)
     ufix := toUFix(uint)
-    val uintBack = toUInt(ufix)
+    val uintBack = U(ufix)
 
     val sfix = SFix(7 exp, 12 bit)
     val sint = SInt(3 bit)
     sfix := toSFix(sint)
-    val sintBack = toSInt(sfix)
+    val sintBack = S(sfix)
 
 
     val ast = BigDecimal(2)

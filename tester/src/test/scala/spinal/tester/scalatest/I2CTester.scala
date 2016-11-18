@@ -58,16 +58,13 @@ class I2CHALTester extends Component{
     io.scl := i2cMaster.io.i2c.scl.read
     i2cSlave.io.config.setFrequencySampling(5 MHz)
 
-
     interconnect(Seq(i2cMaster.io.i2c.scl, i2cSlave.io.i2c.scl))
     interconnect(Seq(i2cMaster.io.i2c.sda, i2cSlave.io.i2c.sda))
-
 
     def interconnect(elements : Seq[ReadableOpenDrain[Bool]]) : Unit = {
       val readValue = elements.map(_.write).reduce(_ & _)
       elements.foreach(_.read := readValue)
     }
-
 }
 
 class I2CHALCocotbBoot extends SpinalTesterCocotbBase {

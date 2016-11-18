@@ -456,7 +456,7 @@ class StreamToStreamFragmentBits[T <: Data](dataType: T, bitsWidth: Int) extends
     val output = master Stream Fragment(Bits(bitsWidth bit))
   }
   val counter = Counter((widthOf(dataType) - 1) / bitsWidth + 1)
-  val inputBits = B(0, bitsWidth bit) ## asBits(io.input.payload) //The ## allow to mux inputBits
+  val inputBits = B(0, bitsWidth bit) ## B(io.input.payload) //The ## allow to mux inputBits
 
   io.input.ready := counter.willOverflow
   io.output.last := counter.willOverflowIfInc
