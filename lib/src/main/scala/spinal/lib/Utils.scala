@@ -146,7 +146,7 @@ object LeastSignificantBitSet{
 
 object toGray {
   def apply(uint: UInt): Bits = {
-    asBits((uint >> U(1)) ^ uint)
+    B((uint >> U(1)) ^ uint)
   }
 }
 
@@ -398,7 +398,7 @@ class Counter(val stateCount: BigInt) extends ImplicitArea[UInt] {
   val willOverflow = willOverflowIfInc && willIncrement
 
   if (isPow2(stateCount)) {
-    valueNext := (value + asUInt(willIncrement)).resized
+    valueNext := (value + U(willIncrement)).resized
   }
   else {
     when(willIncrement) {

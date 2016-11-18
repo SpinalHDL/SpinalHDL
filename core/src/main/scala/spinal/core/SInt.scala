@@ -20,20 +20,6 @@ package spinal.core
 
 import spinal.core.Operator.BitVector.AllByBool
 
-/**
- * Created by PIC18F on 21.08.2014.
- */
-
-trait SIntCast{
-  @deprecated
-  def asSInt(that : Bool) : SInt = that.asSInt
-  @deprecated
-  def asSInt(that : Bits) : SInt = that.asSInt
-  @deprecated
-  def asSInt(that : UInt) : SInt = that.asSInt
-  @deprecated
-  def toSInt(that : SFix) : SInt = that.toSInt
-}
 
 trait SIntFactory{
   def SInt() = new SInt()
