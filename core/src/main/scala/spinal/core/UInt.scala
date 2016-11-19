@@ -47,7 +47,6 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
 
   override def _data: UInt = this
 
-
   /**
     * Concatenation between two UInt
     * @example{{{ val myUInt = uint1 @@ uint2 }}}
@@ -84,13 +83,13 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   override def <<(that: Int): UInt = wrapConstantOperator(new Operator.UInt.ShiftLeftByInt(that))
 
   /**
-    * Logical shift Right (output width will increase)
-    * @example{{{ val result = myUInt >> 4 }}}
+    * Logical shift Right (output width = input width)
+    * @example{{{ val result = myUInt >> myUIntShift }}}
     * @param that the number of shift
-    * @return a Bits of width : w(this) + that bits
+    * @return a Bits of width : w(this)
     */
   def >>(that: UInt): UInt = wrapBinaryOperator(that, new Operator.UInt.ShiftRightByUInt)
-  /** Logical shift Left (output width will increase of w(this) + max(that) bits*/
+  /** Logical shift Left (output width will increase of w(this) + max(that) bits */
   def <<(that: UInt): UInt = wrapBinaryOperator(that, new Operator.UInt.ShiftLeftByUInt)
 
 
@@ -174,7 +173,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
 
 
   /**
-    *
+    * ???
     * @param maskedLiteral
     */
   def assignMask(maskedLiteral: MaskedLiteral): Unit = {

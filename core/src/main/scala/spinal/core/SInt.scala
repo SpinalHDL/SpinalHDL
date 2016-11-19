@@ -47,9 +47,16 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
 
   private[spinal] override  def _data: SInt = this
 
-
+  /**
+    * Concatenation between two SInt
+    * @example{{{ val mySInt = sint1 @@ sint2 }}}
+    * @param that an SInt to append
+    * @return a new SInt of width (width(this) + width(right))
+    */
   def @@(that: SInt): SInt = S(this ## that)
+  /** Concatenation between a SInt and UInt */
   def @@(that: UInt): SInt = S(this ## that)
+  /** Concatenation between a SInt and a Bool */
   def @@(that: Bool): SInt = S(this ## that)
 
   override def +(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.Add)
@@ -58,13 +65,23 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   override def /(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.Div)
   override def %(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.Mod)
 
+  /**
+    * Absolute value of a SInt
+    * @return a UInt assign with the absolute value of the SInt
+    */
   def abs: UInt = Mux(this.msb,~this,this).asUInt + this.msb.asUInt
+  /** Return the absolute value of the SInt when enable is True */
   def abs(enable: Bool): UInt = Mux(this.msb && enable, ~this, this).asUInt + (this.msb && enable).asUInt
 
   override def |(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.Or)
   override def &(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.And)
   override def ^(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.Xor)
   override def unary_~(): SInt = wrapUnaryOperator(new Operator.SInt.Not)
+
+  /**
+    * Negative number
+    * @return return a negative number
+    */
   def unary_-(): SInt = wrapUnaryOperator(new Operator.SInt.Minus)
 
   override def < (right: SInt): Bool = wrapLogicalOperator(right, new Operator.SInt.Smaller)
@@ -72,14 +89,32 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   override def <=(right: SInt): Bool = wrapLogicalOperator(right, new Operator.SInt.SmallerOrEqual)
   override def >=(right: SInt): Bool = right <= this
 
+
+  /**
+    * Logical shift Right (output width == input width)
+    * @example{{{ val result = mySInt >> myUIntShift }}}
+    * @param that the number of shift
+    * @return a Bits of width : w(this)
+    */
+  def >>(that: UInt): SInt         = wrapBinaryOperator(that, new Operator.SInt.ShiftRightByUInt)
+  /** Logical shift Left (output width will increase of w(this) + max(that) bits  */
+  def <<(that: UInt): SInt         = wrapBinaryOperator(that, new Operator.SInt.ShiftLeftByUInt)
   override def >>(that: Int): SInt = wrapConstantOperator(new Operator.SInt.ShiftRightByInt(that))
   override def <<(that: Int): SInt = wrapConstantOperator(new Operator.SInt.ShiftLeftByInt(that))
-  def >>(that: UInt): SInt         = wrapBinaryOperator(that, new Operator.SInt.ShiftRightByUInt)
-  def <<(that: UInt): SInt         = wrapBinaryOperator(that, new Operator.SInt.ShiftLeftByUInt)
 
+
+  /**
+    * Logical shift right (output width = input width)
+    * @example{{{ val result = myUInt |>> 4 }}}
+    * @param that the number of shift
+    * @return a Bits of width : w(this)
+    */
   def |>>(that: Int): SInt  = wrapConstantOperator(new Operator.SInt.ShiftRightByIntFixedWidth(that))
+  /** Logical shift left (output width = input width) */
   def |<<(that: Int): SInt  = wrapConstantOperator(new Operator.SInt.ShiftLeftByIntFixedWidth(that))
+  /** Logical shift Right (output width = input width) */
   def |>>(that: UInt): SInt = this >> that
+  /** Logical shift left (output width = input width) */
   def |<<(that: UInt): SInt = wrapBinaryOperator(that, new Operator.SInt.ShiftLeftByUIntFixedWidth)
 
   override def rotateLeft(that: Int): SInt = {
@@ -94,22 +129,30 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
     this(thatMod - 1 downto 0) @@ this(this.high downto thatMod)
   }
 
+  /**
+    * Assign a range value to a SInt
+    * @example{{{ core.io.interrupt = (0 -> uartCtrl.io.interrupt, 1 -> timerCtrl.io.interrupt, default -> false)}}}
+    * @param rangesValue The first range value
+    * @param _rangesValues Others range values
+    */
   def :=(rangesValue : Tuple2[Any, Any],_rangesValues: Tuple2[Any, Any]*) : Unit = {
     val rangesValues = rangesValue +: _rangesValues
     S.applyTuples(this, rangesValues)
   }
 
   private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse, new MultiplexerSInt)
+
   private[core] override def isEquals(that: Any): Bool = {
     that match {
-      case that: SInt           =>  wrapLogicalOperator(that,new Operator.SInt.Equal)
+      case that: SInt           => wrapLogicalOperator(that,new Operator.SInt.Equal)
       case that: MaskedLiteral  => that === this
       case _                    => SpinalError(s"Don't know how compare $this with $that"); null
     }
   }
+
   private[core] override def isNotEquals(that: Any): Bool = {
     that match {
-      case that: SInt          =>  wrapLogicalOperator(that,new Operator.SInt.NotEqual)
+      case that: SInt          => wrapLogicalOperator(that,new Operator.SInt.NotEqual)
       case that: MaskedLiteral => that =/= this
       case _                   => SpinalError(s"Don't know how compare $this with $that"); null
     }
@@ -119,6 +162,10 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   override def assignFromBits(bits: Bits): Unit = this := bits.asSInt
   override def assignFromBits(bits: Bits, hi: Int, lo: Int): Unit = this(hi, lo).assignFromBits(bits)
 
+  /**
+    * Convert an SInt into an UInt
+    * @return a UInt data
+    */
   def asUInt: UInt = wrapCast(UInt(), new CastSIntToUInt)
 
   override def resize(width: Int): this.type = wrapWithWeakClone({
@@ -129,7 +176,7 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   })
 
   override def minValue: BigInt = -(BigInt(1) << (getWidth - 1))
-  override def maxValue: BigInt = (BigInt(1) << (getWidth - 1)) - 1
+  override def maxValue: BigInt =  (BigInt(1) << (getWidth - 1)) - 1
 
   override def apply(bitId: Int): Bool = newExtract(bitId, new ExtractBoolFixedFromSInt)
   override def apply(bitId: UInt): Bool = newExtract(bitId, new ExtractBoolFloatingFromSInt)

@@ -1,35 +1,60 @@
-/*
- * SpinalHDL
- * Copyright (c) Dolu, All rights reserved.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 3.0 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library.
- */
-
+/*                                                                           *\
+**        _____ ____  _____   _____    __                                    **
+**       / ___// __ \/  _/ | / /   |  / /   HDL Core                         **
+**       \__ \/ /_/ // //  |/ / /| | / /    (c) Dolu, All rights reserved    **
+**      ___/ / ____// // /|  / ___ |/ /___                                   **
+**     /____/_/   /___/_/ |_/_/  |_/_____/                                   **
+**                                                                           **
+**      This library is free software; you can redistribute it and/or        **
+**    modify it under the terms of the GNU Lesser General Public             **
+**    License as published by the Free Software Foundation; either           **
+**    version 3.0 of the License, or (at your option) any later version.     **
+**                                                                           **
+**      This library is distributed in the hope that it will be useful,      **
+**    but WITHOUT ANY WARRANTY; without even the implied warranty of         **
+**    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU      **
+**    Lesser General Public License for more details.                        **
+**                                                                           **
+**      You should have received a copy of the GNU Lesser General Public     **
+**    License along with this library.                                       **
+\*                                                                           */
 package spinal.core
 
 import scala.collection.mutable.ArrayBuffer
 
+
+/**
+  * BitVector is a family of types for storing multiple bits of information in a single value.
+  * This type has three subtypes that can be used to model different behaviours:
+  *     - Bits
+  *     - UInt (unsigned integer)
+  *     - SInt (signed integer)
+  */
 abstract class BitVector extends BaseType with Widthable with CheckWidth {
+
+  /** ??? */
+  private[core] def prefix: String
+
+  /** Width of the BitVector (-1 = undefined) */
   private[core] var fixedWidth = -1
+
+  /** Used to know the data type of the children class of BitVector */
   type T <: BitVector
 
+  /** Return the upper bound */
   def high = getWidth - 1
-  def msb = this (high)
-  def lsb = this (0)
+  /** Return the most significant bit */
+  def msb = this(high)
+  /** Return the least significant bit */
+  def lsb = this(0)
+  /** Return the range */
   def range = 0 until getWidth
+
+  /** Logical OR of all bits */
   def orR = this.asBits =/= 0
+  /** Logical AND of all bits */
   def andR = this.asBits === ((BigInt(1) << getWidth) - 1)
+  /** Logical XOR of all bits */
   def xorR = this.asBools.reduce(_ ^ _)
 
   /**
@@ -40,11 +65,10 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
     */
   def ===(that: MaskedLiteral): Bool = this.isEquals(that)
   /** BitVector is not equal to MaskedLiteral */
-  def =/=(that : MaskedLiteral) : Bool = this.isNotEquals(that)
+  def =/=(that: MaskedLiteral): Bool = this.isNotEquals(that)
 
-  def rotateLeft(that: Int): T
-  def rotateRight(that: Int): T
 
+  /** Left rotation of that Bits */
   def rotateLeft(that: UInt): T = {
     val thatWidth = widthOf(that)
     val thisWidth = widthOf(this)
@@ -57,6 +81,7 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
     result
   }
 
+  /** Right rotation of that Bits */
   def rotateRight(that: UInt): T = {
     val thatWidth = widthOf(that)
     val thisWidth = widthOf(this)
@@ -69,6 +94,12 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
     result
   }
 
+  /** Left rotation of that bits */
+  def rotateLeft(that: Int): T
+  /** Right rotation of that bits */
+  def rotateRight(that: Int): T
+
+
   private[core] def isFixedWidth = fixedWidth != -1
   private[core] def unfixWidth() = {
     fixedWidth = -1
@@ -76,6 +107,11 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
     inferredWidth = -1
   }
 
+  /**
+    * Set the width of the BitVector
+    * @param width the width of the data
+    * @return the BitVector of a given size
+    */
   def setWidth(width: Int): this.type = {
     if(width < 0){
       LocatedPendingError(s"Width of $this is set by a negative number")
@@ -95,9 +131,8 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
 
   private[core] override def normalizeInputs: Unit = InputNormalize.resizedOrUnfixedLit(this, 0, this.getWidth)
 
+  /** Resize the bitVector to width */
   def resize(width: Int): this.type
-
-
 
   private[core] override def calcWidth: Int = {
     if (isFixedWidth) return fixedWidth
@@ -105,6 +140,10 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
     return input.asInstanceOf[WidthProvider].getWidth
   }
 
+  /**
+    * Transform the BitVector into a Vector of Bool
+    * @return a vector of Bool
+    */
   def asBools: Vec[Bool] = {
     val vec = ArrayBuffer[Bool]()
     val bitCount = getWidth
@@ -113,19 +152,37 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
     Vec(vec)
   }
 
-  def subdivideIn(sliceCount : SlicesCount) : Vec[T] = {
+  /**
+    * Split the BitVector into slice of x bits
+    * @example {{{ val res = myBits.subdiviedIn(3 slices) }}}
+    * @param sliceCount the width of the slice
+    * @return a Vector of slices
+    */
+  def subdivideIn(sliceCount: SlicesCount): Vec[T] = {
     require(this.getWidth % sliceCount.value == 0)
-    val sliceWidth = widthOf(this)/sliceCount.value
-    Vec((0 until sliceCount.value).map(i =>this(i*sliceWidth,sliceWidth bits).asInstanceOf[T]))
+    val sliceWidth = widthOf(this) / sliceCount.value
+    Vec((0 until sliceCount.value).map(i => this(i * sliceWidth, sliceWidth bits).asInstanceOf[T]))
   }
 
-  def subdivideIn(sliceWidth : BitCount) : Vec[T] = {
+  /**
+    * Split the BitVector into slice of x bits
+    * * @example {{{ val res = myBits.subdiviedIn(3 bits) }}}
+    * @param sliceWidth the width of the slice
+    * @return a Vector of slices
+    */
+  def subdivideIn(sliceWidth: BitCount): Vec[T] = {
     require(this.getWidth % sliceWidth.value == 0)
     subdivideIn(this.getWidth / sliceWidth.value slices)
   }
 
   //extract bit
-  def newExtract(bitId : Int,extract : ExtractBoolFixed): Bool = {
+  /**
+    * Extract a bit of the BitVector
+    * @param bitId the bit id to extract
+    * @param extract
+    * @return
+    */
+  def newExtract(bitId: Int, extract: ExtractBoolFixed): Bool = {
     extract.input = this
     extract.bitId = bitId
     val bool = new Bool
@@ -133,17 +190,16 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
 
     bool.compositeAssign = new Assignable {
       override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = that match {
-        case that: Bool => BitVector.this.assignFrom(new BitAssignmentFixed(BitVector.this, that, bitId), true)
+        case that: Bool         => BitVector.this.assignFrom(new BitAssignmentFixed(BitVector.this, that, bitId), true)
         case that: DontCareNode => BitVector.this.assignFrom(new BitAssignmentFixed(BitVector.this, new DontCareNodeFixed(Bool(), 1), bitId), true)
       }
     }
-
     bool
   }
 
 
   //extract bit
-  def newExtract(bitId: UInt,extract: ExtractBoolFloating): Bool = {
+  def newExtract(bitId: UInt, extract: ExtractBoolFloating): Bool = {
     extract.input = this
     extract.bitId = bitId
     val bool = new Bool
@@ -151,7 +207,7 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
 
     bool.compositeAssign = new Assignable {
       override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = that match {
-        case that: Bool => BitVector.this.assignFrom(new BitAssignmentFloating(BitVector.this, that, bitId), true)
+        case that: Bool         => BitVector.this.assignFrom(new BitAssignmentFloating(BitVector.this, that, bitId), true)
         case that: DontCareNode => BitVector.this.assignFrom(new BitAssignmentFloating(BitVector.this, new DontCareNodeFixed(Bool(), 1), bitId), true)
       }
     }
@@ -169,11 +225,11 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
       val ret = wrapWithWeakClone(extract)
       ret.compositeAssign = new Assignable {
         override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = that match {
-          case that: BitVector => BitVector.this.assignFrom(new RangedAssignmentFixed(BitVector.this, that, hi, lo), true)
-          case that: DontCareNode => BitVector.this.assignFrom(new RangedAssignmentFixed(BitVector.this, new DontCareNodeFixed(BitVector.this, hi - lo + 1), hi, lo), true)
-          case that: BitAssignmentFixed => BitVector.this.apply(lo + that.getBitId).assignFrom(that.getInput, true)
-          case that: BitAssignmentFloating => BitVector.this.apply(lo + that.getBitId.asInstanceOf[UInt]).assignFrom(that.getInput, true)
-          case that: RangedAssignmentFixed => BitVector.this.apply(lo + that.getHi, lo + that.getLo).assignFrom(that.getInput, true)
+          case that: BitVector                => BitVector.this.assignFrom(new RangedAssignmentFixed(BitVector.this, that, hi, lo), true)
+          case that: DontCareNode             => BitVector.this.assignFrom(new RangedAssignmentFixed(BitVector.this, new DontCareNodeFixed(BitVector.this, hi - lo + 1), hi, lo), true)
+          case that: BitAssignmentFixed       => BitVector.this.apply(lo + that.getBitId).assignFrom(that.getInput, true)
+          case that: BitAssignmentFloating    => BitVector.this.apply(lo + that.getBitId.asInstanceOf[UInt]).assignFrom(that.getInput, true)
+          case that: RangedAssignmentFixed    => BitVector.this.apply(lo + that.getHi, lo + that.getLo).assignFrom(that.getInput, true)
           case that: RangedAssignmentFloating => BitVector.this.apply(lo + that.getOffset.asInstanceOf[UInt], that.getBitCount).assignFrom(that.getInput, true)
         }
       }
@@ -192,11 +248,11 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
       val ret = wrapWithWeakClone(extract)
       ret.compositeAssign = new Assignable {
         override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = that match {
-          case that: BitVector => BitVector.this.assignFrom(new RangedAssignmentFloating(BitVector.this, that, offset, size bit), true)
-          case that: DontCareNode => BitVector.this.assignFrom(new RangedAssignmentFloating(BitVector.this, new DontCareNodeFixed(BitVector.this, size), offset, size bit), true)
-          case that: BitAssignmentFixed => BitVector.this.apply(offset + that.getBitId).assignFrom(that.getInput, true)
-          case that: BitAssignmentFloating => BitVector.this.apply(offset + that.getBitId.asInstanceOf[UInt]).assignFrom(that.getInput, true)
-          case that: RangedAssignmentFixed => BitVector.this.apply(offset + that.getLo, that.getHi - that.getLo + 1 bit).assignFrom(that.getInput, true)
+          case that: BitVector                => BitVector.this.assignFrom(new RangedAssignmentFloating(BitVector.this, that, offset, size bit), true)
+          case that: DontCareNode             => BitVector.this.assignFrom(new RangedAssignmentFloating(BitVector.this, new DontCareNodeFixed(BitVector.this, size), offset, size bit), true)
+          case that: BitAssignmentFixed       => BitVector.this.apply(offset + that.getBitId).assignFrom(that.getInput, true)
+          case that: BitAssignmentFloating    => BitVector.this.apply(offset + that.getBitId.asInstanceOf[UInt]).assignFrom(that.getInput, true)
+          case that: RangedAssignmentFixed    => BitVector.this.apply(offset + that.getLo, that.getHi - that.getLo + 1 bit).assignFrom(that.getInput, true)
           case that: RangedAssignmentFloating => BitVector.this.apply(offset + that.getOffset.asInstanceOf[UInt], that.getBitCount).assignFrom(that.getInput, true)
         }
       }
@@ -208,22 +264,28 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
 
   def getZeroUnconstrained() : this.type
 
+  /** Return the bit at index bitId */
   def apply(bitId: Int) : Bool
+  /** Return the bit at index bitId */
   def apply(bitId: UInt): Bool
+  /** Return a range of bits at offset and of width bitCount */
   def apply(offset: Int, bitCount: BitCount): this.type
+  /** Return a range of bits at offset and of width bitCount */
   def apply(offset: UInt, bitCount: BitCount): this.type
-
+  /** Return a range of bits form hi index to lo index */
   def apply(hi: Int, lo: Int): this.type = this.apply(lo, hi-lo+1 bit)
-  def apply(range: Range): this.type = this.apply(range.high,range.low)
+  /** Return a range of bits */
+  def apply(range: Range): this.type = this.apply(range.high, range.low)
 
-  def setAllTo(value: Boolean) : Unit = {
+  /** Set all bits to value */
+  def setAllTo(value: Boolean): Unit = {
     val litBt = weakClone
     litBt.input = new BitsAllToLiteral(this, value)
     this := litBt
   }
 
-  protected def getAllToBoolNode() : Operator.BitVector.AllByBool
-  def setAllTo(value: Bool) : Unit = {
+  /** Set all bits to value */
+  def setAllTo(value: Bool): Unit = {
     val litBt = weakClone
     val node = getAllToBoolNode()
     node.input = value.asInstanceOf[node.T]
@@ -231,31 +293,28 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
     this := litBt
   }
 
+  /** Set all bits */
   def setAll() = setAllTo(true)
-
+  /** Clear all bits */
   def clearAll() = setAllTo(false)
+
+  protected def getAllToBoolNode(): Operator.BitVector.AllByBool
+
+
 
   private[core] override def wrapWithWeakClone(node: Node): this.type = {
     val typeNode = super.wrapWithWeakClone(node)
     typeNode
   }
 
-  private[core] def prefix: String
 
 
-  def getWidthNoInferation: Int = {
-    if (inferredWidth != -1)
-      inferredWidth
-    else
-      fixedWidth
-  }
-  def getWidthStringNoInferation : String = {
-    val width = getWidthNoInferation
-    if(width == -1) return "?"
-    else width.toString
-  }
+  def getWidthNoInferation: Int = if (inferredWidth != -1 ) inferredWidth else fixedWidth
 
-  override private[core] def checkInferedWidth: Unit = {
+  def getWidthStringNoInferation: String = if (getWidthNoInferation == -1 ) "?" else getWidthNoInferation.toString
+
+
+  private[core] override def checkInferedWidth: Unit = {
     val input = this.input
     if (input != null && input.component != null && this.getWidth != input.asInstanceOf[WidthProvider].getWidth) {
       PendingError(s"Assignment bit count mismatch. ${this} := ${input} at \n${ScalaLocated.long(getAssignementContext(0))}")

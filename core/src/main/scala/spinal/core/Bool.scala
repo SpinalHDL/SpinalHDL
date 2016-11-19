@@ -58,10 +58,6 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
   def ||(b: Bool): Bool = wrapLogicalOperator(b, new Operator.Bool.Or)
   override def |(b: Bool): Bool = this || b
 
-  /**
-    * Logical XOR
-    * @return a Bool assign with the XOR result
-    */
   override def ^(b: Bool): Bool  = wrapLogicalOperator(b, new Operator.Bool.Xor)
 
   /**
