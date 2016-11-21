@@ -1,5 +1,7 @@
 package spinal.tester.code
 
+import scala.collection.mutable.ArrayBuffer
+
 
 /**
  * Created by PIC32F_USER on 13/11/2016.
@@ -35,6 +37,36 @@ object PresentationDSL{
     val result = Bool
     result := (a || b) && c
   }
+
+  object AST2{
+    class Node{
+      val inputs = ArrayBuffer[Node]()
+    }
+    class Bool extends Node{
+      def &&(right : Bool) : Bool = ???
+      def ||(right : Bool) : Bool = ???
+      def unary_! : Bool = ???
+    }
+    class And extends Node
+    class Or extends Node
+    class Not extends Node
+
+  }
+
+  object AST3{
+    import spinal.core._
+    val bools = List.fill(3)(in Bool)
+
+    var boolsAnd = bools.head
+    for(bool <- bools.tail){
+      boolsAnd = boolsAnd && bool
+    }
+
+    val output = out Bool()
+    output := boolsAnd
+
+  }
+
 
   object BuilderPattern{
 
@@ -208,5 +240,12 @@ object PresentationDSL{
 
     def foo(i : Int) = 3
     foo{3}
+  }
+
+
+
+
+  object Pinsec{
+    
   }
 }
