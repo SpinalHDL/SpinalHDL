@@ -73,9 +73,9 @@ class UartCtrl(g : UartCtrlGenerics = UartCtrlGenerics()) extends Component {
   io.uart.rxd <> rx.io.rxd
 
 
-  def driveFrom32(busCtrl : BusSlaveFactory,config : UartCtrlMemoryMappedConfig,addressOffset : Int = 0) = new Area {
+  def driveFrom32(busCtrl : BusSlaveFactory,config : UartCtrlMemoryMappedConfig,baseAddress : Int = 0) = new Area {
     require(busCtrl.busDataWidth == 32)
-    val busCtrlWrapped = new BusSlaveFactoryAddressWrapper(busCtrl,addressOffset)
+    val busCtrlWrapped = new BusSlaveFactoryAddressWrapper(busCtrl,baseAddress)
     //Manage config
     val uartConfigReg = Reg(io.config)
     uartConfigReg.clockDivider init(0)
@@ -116,9 +116,9 @@ class UartCtrl(g : UartCtrlGenerics = UartCtrlGenerics()) extends Component {
   }
 
 
-  def driveFrom16(busCtrl : BusSlaveFactory,config : UartCtrlMemoryMappedConfig,addressOffset : Int = 0) = new Area {
+  def driveFrom16(busCtrl : BusSlaveFactory,config : UartCtrlMemoryMappedConfig,baseAddress : Int = 0) = new Area {
     require(busCtrl.busDataWidth == 16)
-    val busCtrlWrapped = new BusSlaveFactoryAddressWrapper(busCtrl,addressOffset)
+    val busCtrlWrapped = new BusSlaveFactoryAddressWrapper(busCtrl,baseAddress)
 
     //Manage config
     val uartConfigReg = Reg(io.config)
