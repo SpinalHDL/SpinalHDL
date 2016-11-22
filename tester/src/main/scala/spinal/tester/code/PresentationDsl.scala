@@ -215,8 +215,24 @@ object PresentationDSL{
     a := b  //It is strongly typed and only accept RGB := RGB
   }
 
+  object DataTypes2 {
+    class Data
+    class Bundle[T] extends Data{
+      def := (that : T) : Unit = ???
+    }
+    class RGB extends Bundle[RGB]
+  }
 
-
+  object DataTypes3 {
+    class Data
+    class Bundle extends Data{
+      type T <: Bundle
+      def := (that : T) : Unit = ???
+    }
+    class RGB extends Bundle{
+      override type T = RGB
+    }
+  }
   object Color{
     import spinal.core._
     case class Color(channelWidth: Int) extends Bundle {
