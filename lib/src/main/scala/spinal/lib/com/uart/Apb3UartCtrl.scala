@@ -26,7 +26,7 @@ case class Apb3UartCtrl(config : UartCtrlMemoryMappedConfig) extends Component{
   io.uart <> uartCtrl.io.uart
 
   val busCtrl = Apb3SlaveFactory(io.apb)
-  val bridge = uartCtrl.driveFrom(busCtrl,config)
+  val bridge = uartCtrl.driveFrom32(busCtrl,config)
   io.interrupt := bridge.interruptCtrl.interrupt
 }
 

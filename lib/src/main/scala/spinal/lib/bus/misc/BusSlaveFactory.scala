@@ -52,10 +52,11 @@ trait BusSlaveFactory  extends Area{
   def readMultiWord(that : Data,
                 address : BigInt) : Unit  = {
     val wordCount = (widthOf(that) - 1) / busDataWidth + 1
-    val valueBits = that.asBits.resize(wordCount*busDataWidth)
-    val words = (0 until wordCount).map(id => valueBits(id * busDataWidth , busDataWidth bit))
+    val valueBits = that.asBits
+    var pos = 0
     for (wordId <- (0 until wordCount)) {
-      read(words(wordId), address + wordId*busDataWidth/8)
+      read(valueBits(pos,Math.min(widthOf(that)-pos, busDataWidth) bits), address + wordId*busDataWidth/8)
+      pos += busDataWidth
     }
   }
 
@@ -162,6 +163,14 @@ trait BusSlaveFactory  extends Area{
   }
 }
 
+class BusSlaveFactoryAddressWrapper(f : BusSlaveFactory,addressOffset : Int) extends BusSlaveFactory{
+  override def busDataWidth: Int = f.busDataWidth
+  override def read(that: Data, address: BigInt, bitOffset: Int): Unit = f.read(that,address + addressOffset,bitOffset)
+  override def write[T <: Data](that: T, address: BigInt, bitOffset: Int): T = f.write(that,address + addressOffset,bitOffset)
+  override def onWrite(address: BigInt)(doThat: => Unit): Unit = f.onWrite(address + addressOffset)(doThat)
+  override def onRead(address: BigInt)(doThat: => Unit): Unit = f.onRead(address + addressOffset)(doThat)
+  override def nonStopWrite(that: Data, bitOffset: Int): Unit = f.nonStopWrite(that,bitOffset)
+}
 
 
 trait BusSlaveFactoryElement
