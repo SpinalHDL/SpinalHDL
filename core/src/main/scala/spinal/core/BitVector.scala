@@ -29,10 +29,12 @@ import scala.collection.mutable.ArrayBuffer
   *     - Bits
   *     - UInt (unsigned integer)
   *     - SInt (signed integer)
+  *
+  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/TypeIntroduction "BitVector Documentation"]]
   */
 abstract class BitVector extends BaseType with Widthable with CheckWidth {
 
-  /** ??? */
+  /** Prefix that define the corresponding class (Currently not used) */
   private[core] def prefix: String
 
   /** Width of the BitVector (-1 = undefined) */
@@ -58,7 +60,7 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
   def xorR = this.asBools.reduce(_ ^ _)
 
   /**
-    * Compare a BitVector data with a MaskedLiteral (M"110--0")
+    * Compare a BitVector with a MaskedLiteral (M"110--0")
     * @example {{{ val myBool = myBits === M"0-1" }}}
     * @param that the maskedLiteral
     * @return a Bool data containing the result of the comparison
@@ -100,7 +102,10 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
   def rotateRight(that: Int): T
 
 
+  /** Return true if the BitVector has a fixed width */
   private[core] def isFixedWidth = fixedWidth != -1
+
+  /** Unfix the width of the BitVector*/
   private[core] def unfixWidth() = {
     fixedWidth = -1
     widthWhenNotInferred = -1
@@ -141,7 +146,7 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
   }
 
   /**
-    * Transform the BitVector into a Vector of Bool
+    * Cast the BitVector into a Vector of Bool
     * @return a vector of Bool
     */
   def asBools: Vec[Bool] = {
@@ -175,13 +180,7 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
     subdivideIn(this.getWidth / sliceWidth.value slices)
   }
 
-  //extract bit
-  /**
-    * Extract a bit of the BitVector
-    * @param bitId the bit id to extract
-    * @param extract
-    * @return
-    */
+  /** Extract a bit of the BitVector */
   def newExtract(bitId: Int, extract: ExtractBoolFixed): Bool = {
     extract.input = this
     extract.bitId = bitId
@@ -198,7 +197,7 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
   }
 
 
-  //extract bit
+  /** Extract a bit of the BitVector */
   def newExtract(bitId: UInt, extract: ExtractBoolFloating): Bool = {
     extract.input = this
     extract.bitId = bitId
@@ -215,8 +214,8 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
     bool
   }
 
-  //extract bits     that(8,2)
-  def newExtract(hi: Int, lo: Int,extract: ExtractBitsVectorFixed): this.type = {
+  /** Extract a range of bits of the BitVector */
+  def newExtract(hi: Int, lo: Int, extract: ExtractBitsVectorFixed): this.type = {
     if (hi - lo + 1 != 0) {
       extract.input = this
       extract.hi = hi
@@ -239,7 +238,8 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
       getZeroUnconstrained
   }
 
-  def newExtract(offset: UInt, size: Int,extract : ExtractBitsVectorFloating): this.type = {
+  /** Extract a range of bits of the BitVector */
+  def newExtract(offset: UInt, size: Int, extract : ExtractBitsVectorFloating): this.type = {
     if (size != 0) {
       extract.input = this
       extract.size = size
@@ -300,19 +300,15 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
 
   protected def getAllToBoolNode(): Operator.BitVector.AllByBool
 
-
-
   private[core] override def wrapWithWeakClone(node: Node): this.type = {
     val typeNode = super.wrapWithWeakClone(node)
     typeNode
   }
 
-
-
+  /** Return the width */
   def getWidthNoInferation: Int = if (inferredWidth != -1 ) inferredWidth else fixedWidth
 
   def getWidthStringNoInferation: String = if (getWidthNoInferation == -1 ) "?" else getWidthNoInferation.toString
-
 
   private[core] override def checkInferedWidth: Unit = {
     val input = this.input
@@ -320,7 +316,6 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
       PendingError(s"Assignment bit count mismatch. ${this} := ${input} at \n${ScalaLocated.long(getAssignementContext(0))}")
     }
   }
-
 
   override def assignDontCare(): this.type = {
     this.assignFrom(new DontCareNodeInfered(this), false)

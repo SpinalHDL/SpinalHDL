@@ -65,30 +65,23 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   override def /(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.Div)
   override def %(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.Mod)
 
-  /**
-    * Absolute value of a SInt
-    * @return a UInt assign with the absolute value of the SInt
-    */
-  def abs: UInt = Mux(this.msb,~this,this).asUInt + this.msb.asUInt
-  /** Return the absolute value of the SInt when enable is True */
-  def abs(enable: Bool): UInt = Mux(this.msb && enable, ~this, this).asUInt + (this.msb && enable).asUInt
 
   override def |(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.Or)
   override def &(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.And)
   override def ^(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.Xor)
   override def unary_~(): SInt = wrapUnaryOperator(new Operator.SInt.Not)
 
-  /**
-    * Negative number
-    * @return return a negative number
-    */
-  def unary_-(): SInt = wrapUnaryOperator(new Operator.SInt.Minus)
-
   override def < (right: SInt): Bool = wrapLogicalOperator(right, new Operator.SInt.Smaller)
   override def > (right: SInt): Bool = right < this
   override def <=(right: SInt): Bool = wrapLogicalOperator(right, new Operator.SInt.SmallerOrEqual)
   override def >=(right: SInt): Bool = right <= this
 
+
+  /**
+    * Negative number
+    * @return return a negative number
+    */
+  def unary_-(): SInt = wrapUnaryOperator(new Operator.SInt.Minus)
 
   /**
     * Logical shift Right (output width == input width)
@@ -116,6 +109,16 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   def |>>(that: UInt): SInt = this >> that
   /** Logical shift left (output width = input width) */
   def |<<(that: UInt): SInt = wrapBinaryOperator(that, new Operator.SInt.ShiftLeftByUIntFixedWidth)
+
+
+  /**
+    * Absolute value of a SInt
+    * @return a UInt assign with the absolute value of the SInt
+    */
+  def abs: UInt = Mux(this.msb,~this,this).asUInt + this.msb.asUInt
+  /** Return the absolute value of the SInt when enable is True */
+  def abs(enable: Bool): UInt = Mux(this.msb && enable, ~this, this).asUInt + (this.msb && enable).asUInt
+
 
   override def rotateLeft(that: Int): SInt = {
     val width = widthOf(this)
@@ -163,7 +166,7 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   override def assignFromBits(bits: Bits, hi: Int, lo: Int): Unit = this(hi, lo).assignFromBits(bits)
 
   /**
-    * Convert an SInt into an UInt
+    * Cast a SInt into an UInt
     * @return a UInt data
     */
   def asUInt: UInt = wrapCast(UInt(), new CastSIntToUInt)

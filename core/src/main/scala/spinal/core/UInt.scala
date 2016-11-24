@@ -162,7 +162,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   })
 
   /**
-    * Convert an UInt to a SInt
+    * Cast an UInt to a SInt
     * @return a SInt data
     */
   def asSInt: SInt = wrapCast(SInt(), new CastUIntToSInt)
@@ -173,7 +173,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
 
 
   /**
-    * ???
+    * Assign a mask to the signal
     * @param maskedLiteral
     */
   def assignMask(maskedLiteral: MaskedLiteral): Unit = {

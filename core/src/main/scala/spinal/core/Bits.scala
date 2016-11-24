@@ -146,13 +146,13 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
   }
 
   /**
-    * Convert a Bits to a SInt
+    * Cast a Bits to a SInt
     * @return a SInt data
     */
   def asSInt: SInt = wrapCast(SInt(), new CastBitsToSInt)
 
   /**
-    * Convert a Bits to an UInt
+    * Cast a Bits to an UInt
     * @return an UInt data
     */
   def asUInt: UInt = wrapCast(UInt(), new CastBitsToUInt)
@@ -160,6 +160,17 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
   override def asBits: Bits = {
     val ret = new Bits()
     ret := this
+    ret
+  }
+
+  /**
+    * Cast a Bits to a given data type
+    * @param dataType the wanted data type
+    * @return a new data type assign with the value of Bits
+    */
+  def toDataType[T <: Data](dataType: T): T = {
+    val ret = cloneOf(dataType)
+    ret.assignFromBits(this)
     ret
   }
 
@@ -180,17 +191,6 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
       case that: MaskedLiteral => that =/= this
       case _                   => SpinalError(s"Don't know how to compare $this with $that"); null
     }
-  }
-
-  /**
-    * Transform a Bits to a given data type
-    * @param dataType the wanted data type
-    * @return a new data type assign with the value of Bits
-    */
-  def toDataType[T <: Data](dataType: T): T = {
-    val ret = cloneOf(dataType)
-    ret.assignFromBits(this)
-    ret
   }
 
   override def apply(bitId: Int) : Bool = newExtract(bitId, new ExtractBoolFixedFromBits)

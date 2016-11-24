@@ -68,22 +68,22 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
 
   override def unary_~(): Bool = ! this
 
-  /** Bool is assigned to True */
+  /** this is assigned to True */
   def set() = this := True
-  /** Bool is assigned to False */
+  /** this is assigned to False */
   def clear() = this := False
 
   /**
-    * Bool is assigned to True when cond is True
+    * this is assigned to True when cond is True
     * @param cond a Bool condition
-    * @return a Bool assign to True when cond is True
+    * @return this is assigned to True when cond is True
     */
   def setWhen(cond: Bool): Bool   = { when(cond){ this := True }; this }
-  /** Bool is assigned to False when cond is True */
+  /** this is assigned to False when cond is True */
   def clearWhen(cond: Bool): Bool = { when(cond){ this := False }; this }
 
   /**
-    * Rising edge detection with an initial value
+    * Rising edge detection of this with an initial value
     * @param initAt the initial value
     * @return a Bool
     */
@@ -92,7 +92,7 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
   def rise() = this && ! RegNext(this)
 
   /**
-    * Falling edge detection with an initial value
+    * Falling edge detection of this with an initial value
     * @param initAt the initial value
     * @return a Bool
     */
@@ -101,7 +101,7 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
   def fall() = ! this && RegNext(this)
 
   /**
-    * Edge detection with an initial value
+    * Edge detection of this with an initial value
     * @param initAt the initial value
     * @return a Bool
     */
@@ -126,26 +126,26 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
   }
 
   /**
-    * Transform a Bool to an UInt
-    * @return a UInt data
+    * Cast a Bool to an UInt
+    * @return an UInt data
     */
   def asUInt: UInt = asBits.asUInt
 
   /**
-    * Transform a Bool to an SInt
+    * Cast a Bool to an SInt
     * @return a SInt data
     */
   def asSInt: SInt = asBits.asSInt
 
   /**
-    * Transform a Bool to an UInt of a given width
+    * Cast a Bool to an UInt of a given width
     * @param bitCount the width of the UInt
-    * @return a UInt data
+    * @return an UInt data
     */
   def asUInt(bitCount: BitCount): UInt = asBits.asUInt.resize(bitCount.value)
 
   /**
-    * Transform a Bool to an Bits of a given width
+    * Cast a Bool to an Bits of a given width
     * @param bitCount the width of the Bits
     * @return a Bits data
     */
@@ -171,6 +171,7 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
   case class MuxBuilder[T <: Data](whenTrue: T){
     def |(whenFalse: T): T = Mux(Bool.this, whenTrue, whenFalse)
   }
+
   /** Conditional operation for Data value */
   def ?[T <: Data](whenTrue: T) = MuxBuilder(whenTrue)
 
@@ -182,6 +183,7 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
   case class MuxBuilderEnum[T <: SpinalEnum](whenTrue: SpinalEnumCraft[T]){
     def |(whenFalse: SpinalEnumCraft[T]): SpinalEnumCraft[T]   = Mux(Bool.this, whenTrue, whenFalse)
   }
+
   /** Conditional operation for Enumeration value */
   def ?[T <: SpinalEnum](whenTrue: SpinalEnumCraft[T])   = MuxBuilderEnum(whenTrue)
 }
