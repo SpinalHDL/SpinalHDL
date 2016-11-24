@@ -1257,7 +1257,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     case dc: DontCareNode => {
       dc.getBaseType match {
         case to: Bool => s"'-'"
-        case to: BitVector => s"(${'"'}${"-" * to.getWidth}${'"'})"
+        case to: BitVector => s"(${'"'}${"-" * dc.asInstanceOf[Widthable].getWidth}${'"'})"
       }
     }
 

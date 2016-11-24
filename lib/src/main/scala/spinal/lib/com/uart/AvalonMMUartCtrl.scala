@@ -27,7 +27,7 @@ class AvalonMMUartCtrl(config : UartCtrlMemoryMappedConfig) extends Component{
   io.uart <> uartCtrl.io.uart
 
   val busCtrl = AvalonMMSlaveFactory(io.bus)
-  val bridge = uartCtrl.driveFrom(busCtrl,config)
+  val bridge = uartCtrl.driveFrom32(busCtrl,config)
   io.interrupt := bridge.interruptCtrl.interrupt
 }
 

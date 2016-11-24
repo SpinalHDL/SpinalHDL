@@ -611,7 +611,7 @@ end
     case dc: DontCareNode => {
       dc.getBaseType match {
         case to: Bool => "1'bx"
-        case to: BitVector => s"(${to.getWidth}'b${"x" * to.getWidth})"
+        case to: BitVector => s"(${dc.asInstanceOf[Widthable].getWidth}'b${"x" * to.getWidth})"
       }
     }
 

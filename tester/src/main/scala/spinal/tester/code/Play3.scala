@@ -7,6 +7,7 @@ import spinal.lib.bus.amba3.ahblite._
 import spinal.lib.bus.amba3.apb.{Apb3SlaveFactory, Apb3, Apb3Config}
 import spinal.lib.bus.amba4.axi._
 import spinal.lib.bus.misc.BusSlaveFactory
+import spinal.lib.io.TriState
 import spinal.lib.memory.sdram.W9825G6JH6
 import spinal.lib.soc.pinsec.{Pinsec, PinsecConfig}
 import spinal.lib.crypto.symmetric._
@@ -1052,8 +1053,77 @@ object PlayPatch{
   val somewereElse = SimpleBus(32,32)
   somewereElse << peripheralBus
 
+  case class HandShake(payloadWidth : Int) extends Bundle with IMasterSlave{
+    val valid = Bool
+    val ready = Bool
+    val payload = Bits(payloadWidth bits)
+
+    override def asMaster(): Unit = {
+      out(valid,payload)
+      in(ready)
+    }
+  }
+
+  val io = new Bundle{
+    val input  = slave(HandShake(8))
+    val output = master(HandShake(8))
+  }
+
+
 
 }
 
 
+object Play3ExternalPull{
+  def external[T <: Data](that : T,name : String): T ={
+    var ptr = that
+    while(ptr.component.parent != null){
+      ptr.component.parent.rework {
+        val stage = cloneOf(that)
+        for ((p, s) <- (ptr.flatten, stage.flatten).zipped) {
+          if (p.isOutput) out(s)
+          else if (p.isInput) in(s)
+          else ???
+        }
+        stage <> ptr
+        ptr = stage
+      }
+    }
+    ptr.setName(name)
+    that
+  }
 
+  class SubLevel extends Component{
+    val bus = external(master(TriState(Bits(32 bits))),"PORTB")
+
+    //Do some logic/connections for the fun
+    bus.writeEnable := True
+    bus.write := bus.read
+  }
+
+  class TopLevel extends Component{
+    val sub = new SubLevel
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+
+  val a = Bits(4 bits)
+  a.subdivideIn(3 bits).foreach(_ === 4)
+}
+
+
+
+
+object Play3MissingWarning43{
+
+
+  class TopLevel extends Component{
+    val output = out (B("x000F"))
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}

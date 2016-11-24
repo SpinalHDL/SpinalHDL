@@ -7,10 +7,11 @@ import java.util
 import spinal.core.Operator.UInt.Add
 import spinal.core._
 import spinal.lib._
+import spinal.lib.bus.amba3.apb.{Apb3SlaveFactory, Apb3}
 import spinal.lib.bus.avalon._
 import spinal.lib.bus.amba4.axilite.{AxiLite4SpecRenamer, AxiLite4Config, AxiLite4}
 import spinal.lib.experimental.bus.neutral.NeutralStreamDma
-import spinal.lib.com.uart.UartCtrl
+import spinal.lib.com.uart._
 import spinal.lib.eda.mentor.MentorDo
 import spinal.lib.fsm._
 import spinal.lib.graphic.{Rgb, RgbConfig}
@@ -2789,5 +2790,62 @@ object PlayDualPort{
     SpinalConfig()
      // .addStandardMemBlackboxing(blackboxAll)
       .generateVhdl(new TopLevel(wordWidth = 32,wordCount = 1024))
+  }
+}
+
+object Play2DEbug{
+
+
+  class TopLevel extends Component{
+    val io = new Bundle{
+
+      val out1 = out UInt(8 bits)
+    }
+    val in1 = UInt(8 bits)
+    in1.assignMask(M"----0011")
+
+    io.out1 := in1
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+object PlyBusSlaveFactory32{
+
+
+  class TopLevel extends Component{
+    val apb = slave(Apb3(addressWidth = 8,dataWidth = 16))
+    val ctrl = Apb3SlaveFactory(apb)
+    val r = Reg(UInt(20 bits))
+    ctrl.writeMultiWord(r,4)
+    ctrl.readMultiWord(r,4)
+
+   val uartCtrlConfig = UartCtrlMemoryMappedConfig(
+      uartCtrlConfig = UartCtrlGenerics(
+        dataWidthMax      = 8,
+        clockDividerWidth = 20,
+        preSamplingSize   = 1,
+        samplingSize      = 5,
+        postSamplingSize  = 2
+      ),
+      txFifoDepth = 16,
+      rxFifoDepth = 16
+    )
+  val uart = master(Uart())
+  val interrupt = out Bool
+
+
+  val uartCtrl = new UartCtrl(uartCtrlConfig.uartCtrlConfig)
+  uart <> uartCtrl.io.uart
+
+  val bridge = uartCtrl.driveFrom16(ctrl,uartCtrlConfig,0x80)
+  interrupt := bridge.interruptCtrl.interrupt
+
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
   }
 }
