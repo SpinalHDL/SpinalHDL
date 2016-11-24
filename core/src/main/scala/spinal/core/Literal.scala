@@ -42,11 +42,11 @@ abstract class BitVectorLiteralFactory[T <: BitVector] {
 
   private def aggregate(bitCount : BitCount,rangesValues: Seq[Tuple2[Any,Any]]) : T = {
     val ret : T = this.newInstance(bitCount.value bit)
-    applyTupples(ret,rangesValues)
+    applyTuples(ret,rangesValues)
     ret
   }
 
-  def applyTupples(on : T,rangesValues : Seq[Tuple2[Any,Any]]) : Unit = {
+  def applyTuples(on : T, rangesValues : Seq[Tuple2[Any,Any]]) : Unit = {
     //Apply default
     rangesValues.foreach(_ match{
       case (`default`,value : Boolean) =>  on.setAllTo(value)

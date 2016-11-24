@@ -19,10 +19,8 @@
 
 package spinal.core
 
-import java.util
-
 import scala.collection.mutable
-import scala.collection.mutable.{Stack, ArrayBuffer}
+import scala.collection.mutable.{ArrayBuffer, Stack}
 
 case class BitCount(val value: Int) {
   def +(right : BitCount) = BitCount(this.value + right.value)
@@ -737,9 +735,22 @@ trait Num[T <: Data] {
   def max(right: T): T = Mux(this < right, right, this.asInstanceOf[T])
 }
 
+
+/**
+  * Bitwise Operation
+  * @tparam T the type which is associated with the bitwise operation
+  */
 trait BitwiseOp[T <: Data]{
-  def & (right: T): T
-  def |  (right: T): T
-  def ^  (right: T): T
-  def unary_~  : T
+
+  /** Logical AND operator */
+  def &(right: T): T
+
+  /** Logical OR operator */
+  def |(right: T): T
+
+  /** Logical XOR operator */
+  def ^(right: T): T
+
+  /** Inverse operator */
+  def unary_~ : T
 }
