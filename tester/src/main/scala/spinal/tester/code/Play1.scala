@@ -1095,14 +1095,14 @@ object PlayEnum {
     val input = in(MyEnum)
 
 
-    val tmp = Reg(MyEnum(binarySequancial))
+    val tmp = Reg(MyEnum(binarySequential))
 
     tmp := MyEnum.s3
     when(input === MyEnum.s4) {
       tmp := MyEnum.s7
     }
     when(input === MyEnum.s5) {
-      tmp := Mux(cond, MyEnum.s6(binarySequancial), MyEnum.s8(binarySequancial))
+      tmp := Mux(cond, MyEnum.s6(binarySequential), MyEnum.s8(binarySequential))
     }
 //    val output = out(MyEnum())
 //    output := tmp

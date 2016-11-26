@@ -110,7 +110,7 @@ object AvalonMMConfig{
 }
 
 object AvalonMM{
-  object Response extends SpinalEnum(binarySequancial){
+  object Response extends SpinalEnum(binarySequential){
     val OKAY,RESERVED,SLAVEERROR,DECODEERROR = newElement()
   }
 }

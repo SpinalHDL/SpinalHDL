@@ -21,30 +21,105 @@ package spinal.core
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-
+/**
+  * Component companion
+  */
 object Component {
+
+  /**
+    * Push a new component on the stack
+    * @param c new component to add
+    */
   def push(c: Component): Unit = {
     //  if (when.stack.size() != 0) throw new Exception("Creating a component into hardware conditional expression")
     GlobalData.get.componentStack.push(c)
   }
 
+  /**
+    * Remove component of the stack if it is the same as c
+    * @param c component to remove
+    */
   def pop(c: Component): Unit = {
     GlobalData.get.componentStack.pop(c)
   }
 
-  //var lastPoped : Component = null
-
+  /** Get the current component on the stack */
   def current: Component = current(GlobalData.get)
 
+  /** Get the current component on the stack of the given globalData*/
   def current(globalData: GlobalData): Component = globalData.componentStack.head()
 }
 
 
+/**
+  * Abstract class used to create a new Component
+  *
+  * @example {{{
+  *         class MyAndGate extends Component {
+  *           val io = new Bundle{
+  *             val a,b = in Bool
+  *             val res = out Bool
+  *           }
+  *           io.res := io.a & io.b
+  *         }
+  * }}}
+  *
+  *
+  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/components_hierarchy "Component Documentation"]]
+  */
 abstract class Component extends NameableByComponent with GlobalDataUser with ScalaLocated with DelayedInit with Stackable with OwnableRef{
 
-  override def delayedInit(body: => Unit) = {
-    body
+  /** Contains all in/out signals of the component */
+  private[core] val ioSet = mutable.Set[BaseType]()
+  /** enable/disable "io_" prefix in front of the in/out signals in the RTL */
+  private[core] var ioPrefixEnable = true
+  /** Used to store arbitrary object related to the component */
+  val userCache = mutable.Map[Object, mutable.Map[Object, Object]]()
+  /** ?? */
+  private[core] val localScope = new Scope()
 
+  /** Class used to create a task that must be executed after the creation of the component */
+  case class PrePopTask(task : () => Unit, clockDomain: ClockDomain)
+  /** Array of PrePopTask */
+  private[core] val prePopTasks = mutable.ArrayBuffer[PrePopTask]()
+
+  /** ?? */
+  private[core] val kindsOutputsToBindings = mutable.Map[BaseType, BaseType]()
+  /** ?? */
+  private[core] val kindsOutputsBindings = mutable.Set[BaseType]()
+  /** ?? */
+  private[core] val additionalNodesRoot = mutable.Set[Node]()
+  /** Definition Name (name of the entity (VHDL) or module (Verilog))*/
+  var definitionName: String = null
+  /** Hierarchy level of the component */
+  private[core] val level = globalData.componentStack.size()
+  /** Contains an array of all children Component */
+  val children = ArrayBuffer[Component]()
+  /** Reference owner type */
+  override type RefOwnerType = Component
+  /** Contins all nodes of the components */
+  var nodes: ArrayBuffer[Node] = null
+
+  /** Get the parent component (null if there is no parent)*/
+  val parent = Component.current
+  /** Get the current clock domain (null if there is no clock domain already set )*/
+  val clockDomain = ClockDomain.current
+
+  // Check if it is a top level component or a children of another component
+  if (parent != null) {
+    parent.children += this
+  } else {
+    setWeakName("toplevel")
+  }
+
+  // Push component on the stack
+  Component.push(this)
+
+  /** Initialization class delay */
+  override def delayedInit(body: => Unit) = {
+    body // evaluate the initialization code of body
+
+    // prePopTasks are executed after the creation of the inherited component
     if ((body _).getClass.getDeclaringClass == this.getClass) {
 
       this.nameElements()
@@ -54,45 +129,20 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
       }
       prePopTasks.clear()
 
-
       Component.pop(this)
-      this.userParentCalledDef
     }
   }
 
+  /** Add a new prePopTask */
+  def addPrePopTask(task : () => Unit) = prePopTasks += PrePopTask(task, ClockDomain.current)
 
-
-  private[core] val ioSet = mutable.Set[BaseType]()
-  private[core] var ioPrefixEnable = true
-  val userCache = mutable.Map[Object, mutable.Map[Object, Object]]()
-  private[core] val localScope = new Scope()
-  case class PrePopTask(task : () => Unit,clockDomain: ClockDomain)
-  private[core] val prePopTasks = mutable.ArrayBuffer[PrePopTask]()
-  private[core] val kindsOutputsToBindings = mutable.Map[BaseType, BaseType]()
-  private[core] val kindsOutputsBindings = mutable.Set[BaseType]()
-  private[core] val additionalNodesRoot = mutable.Set[Node]()
-  var definitionName: String = null
-  private[core] val level = globalData.componentStack.size()
-  val children = ArrayBuffer[Component]()
-  override type RefOwnerType = Component
-  val parent = Component.current
-
-  if (parent != null) {
-    parent.children += this;
-  } else {
-    setWeakName("toplevel")
-  }
-
-  def addPrePopTask(task : () => Unit) = prePopTasks += PrePopTask(task,ClockDomain.current)
-//  def addPrePopTask(task :  => Unit) = prePopTasks += (() => {task; println("asd")})
-
-  val clockDomain = ClockDomain.current
-
+  /** Set the definition name of the component */
   def setDefinitionName(name: String): this.type = {
     definitionName = name
     this
   }
 
+  /** No "io_" prefix in front of the in/out signals */
   def noIoPrefix() : this.type = {
     val io = reflectIo
     if(io != null) {
@@ -102,19 +152,25 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
     this
   }
 
+  /** Check if this component is the top level */
   private[core] def isTopLevel: Boolean = parent == null
-  private[core] val initialAssignementCondition = globalData.conditionalAssignStack.head()
-  var nodes: ArrayBuffer[Node] = null
 
+  /** ?? */
+  private[core] val initialAssignementCondition = globalData.conditionalAssignStack.head()
+
+  /** ?? */
   private[core] var pulledDataCache = mutable.Map[Data, Data]()
 
-  Component.push(this)
-
+  /** Return a list of all parents of the components */
   def parents(of: Component = this, list: List[Component] = Nil): List[Component] = {
     if (of.parent == null) return list
     parents(of.parent, of.parent :: list)
   }
 
+  /**
+    * Get the IO definition of the component
+    * @example {{{ val io = new Bundle { ... } }}}
+    */
   private[core] def reflectIo: Data = {
     try {
       val clazz = this.getClass
@@ -125,8 +181,10 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
     }
   }
 
+  /** Name all Nameable object */
   def nameElements(): Unit = {
     val io = reflectIo
+
     if(io != null) {
       if(io.isUnnamed || io.isWeak) {
         if (ioPrefixEnable)
@@ -136,10 +194,8 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
       }
       OwnableRef.proposal(io,this)
     }
-//    if(io != null) {
-//      io.setName("io")
-//      OwnableRef.set(io,this)
-//    }
+
+
     Misc.reflect(this, (name, obj) => {
       if(obj != io) {
         obj match {
@@ -172,7 +228,9 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
     })
   }
 
+  /** ?? */
   private[core] def allocateNames(): Unit = {
+
     localScope.allocateName("zz")
     for (node <- nodes) node match {
       case nameable: Nameable => {
@@ -181,7 +239,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
           nameable.setWeakName("zz")
         }
         if (nameable.isWeak)
-          nameable.setName(localScope.allocateName(nameable.getName()));
+          nameable.setName(localScope.allocateName(nameable.getName()))
         else
           localScope.iWantIt(nameable.getName())
       }
@@ -191,15 +249,15 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
       OwnableRef.proposal(child,this)
       if (child.isUnnamed) {
         var name = child.getClass.getSimpleName
-        name = Character.toLowerCase(name.charAt(0)) + (if (name.length() > 1) name.substring(1) else "");
+        name = Character.toLowerCase(name.charAt(0)) + (if (name.length() > 1) name.substring(1) else "")
         child.unsetName()
         child.setWeakName(name)
       }
-      child.setName(localScope.allocateName(child.getName()));
+      child.setName(localScope.allocateName(child.getName()))
     }
   }
 
-
+  /** Get a set of all IO available in the component */
   def getAllIo: mutable.Set[BaseType] = {
 
     if (nodes == null) {
@@ -207,42 +265,55 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
     } else {
       val nodeIo = mutable.Set[BaseType]()
       nodes.foreach(node => node match {
-        case b: BaseType => if (b.isIo) nodeIo += b
-        case _ =>
+        case b: BaseType if (b.isIo) => nodeIo += b
+        case _                       =>
       })
       nodeIo
     }
-
   }
 
-
-
+  /** Sort all IO regarding instanceCounter */
   def getOrdredNodeIo = getAllIo.toList.sortWith(_.instanceCounter < _.instanceCounter)
 
+
+  /** Get an array of all SyncNode of the Component */
   private[core] def getDelays = {
     val delays = new ArrayBuffer[SyncNode]()
+
     nodes.foreach(node => node match {
       case delay: SyncNode => delays += delay
-      case _ =>
+      case _               =>
     })
+
     delays
   }
 
-  private[core] def userParentCalledDef: Unit = {
 
-  }
-
+  /** ?? */
   private[core] def isInBlackBoxTree: Boolean = if (parent == null) false else parent.isInBlackBoxTree
+
 
   private[core] override def getComponent(): Component = parent
 
 
   override def getDisplayName(): String = if (isNamed) super.getDisplayName() else "[" + getClass.getSimpleName + "]"
 
+  /**
+    * Return the path of the parent
+    *
+    * @example{{{ toplevel/[myComponent1] // Current component is myComponent2 }}}
+    */
   def getParentsPath(sep: String = "/"): String = if (parent == null) "" else parents().map(_.getDisplayName()).reduce(_ + sep + _)
 
+  /**
+    * Return the path of the component
+    *
+    * @example{{{ toplevel/[myComponent1]/[myComponent2] // Current component is myComponent2 }}}
+    */
   def getPath(sep: String = "/"): String = (if (parent == null) "" else (getParentsPath(sep) + sep)) + this.getDisplayName()
 
+
+  /** ?? */
   def getGroupedIO(ioBundleBypass: Boolean): Seq[Data] = {
     val ret = mutable.Set[Data]()
     val ioBundle = if (ioBundleBypass) reflectIo else null
@@ -253,24 +324,11 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
     ret.toSeq.sortBy(_.instanceCounter)
   }
 
-  override def postPushEvent(): Unit = {
-  //  println("push " + this.getClass.getSimpleName)
-  }
-  override def prePopEvent(): Unit = {
-   // println("pop " + this.getClass.getSimpleName)
+  override def postPushEvent(): Unit = {}
+  override def prePopEvent(): Unit = {}
 
-  }
-
-//  def keepAll() : Unit = {
-//    Misc.reflect(this, (name, obj) => {
-//      obj match {
-//        case data : Data => data.keep()
-//        case area : Area => area.keepAll()
-//      }
-//    }
-//  }
-
-  def rework[T](gen : => T) : T = {
+  /** Rework the component */
+  def rework[T](gen: => T) : T = {
     Component.push(this)
     val ret = gen
     Component.pop(this)
