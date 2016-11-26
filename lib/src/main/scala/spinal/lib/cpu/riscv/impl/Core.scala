@@ -1106,14 +1106,14 @@ class Core(implicit val c : CoreConfig) extends Component{
   }
 
 
-  decode.outInst.ctrl.unused
-  execute0.inInst.ctrl.unused
-  execute0.outInst.ctrl.unused
-  execute1.inInst.ctrl.unused
-  execute1.outInst.ctrl.unused
-  writeBack.inInst.ctrl.unused
+  decode.outInst.ctrl.allowPruning
+  execute0.inInst.ctrl.allowPruning
+  execute0.outInst.ctrl.allowPruning
+  execute1.inInst.ctrl.allowPruning
+  execute1.outInst.ctrl.allowPruning
+  writeBack.inInst.ctrl.allowPruning
 
-  decode.ctrl.extensionData.unused
+  decode.ctrl.extensionData.allowPruning
 
 
 }

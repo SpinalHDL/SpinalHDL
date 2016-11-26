@@ -22,7 +22,7 @@ case class UartCtrlGenerics( dataWidthMax: Int = 8,
 
 
 case class UartCtrlFrameConfig(g: UartCtrlGenerics) extends Bundle {
-  val dataLength = UInt(log2Up(g.dataWidthMax) bit) //Bit count = dataLength + 1
+  val dataLength = UInt(log2Up(g.dataWidthMax) bits) //Bit count = dataLength + 1
   val stop       = UartStopType()
   val parity     = UartParityType()
 }

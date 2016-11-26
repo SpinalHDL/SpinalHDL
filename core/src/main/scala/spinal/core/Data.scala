@@ -410,8 +410,11 @@ trait Data extends ContextUser with NameableByComponent with Assignable  with Sp
     flatten.foreach(_.addTag(spinal.core.randomBoot))
     this
   }
-  
-  def unused = {
+
+  @deprecated("use allowPruning instead")
+  def unused = allowPruning()
+
+  def allowPruning() = {
     flatten.foreach(_.addTag(unusedTag))
   }
 
