@@ -2849,3 +2849,32 @@ object PlyBusSlaveFactory32{
     SpinalVhdl(new TopLevel)
   }
 }
+
+
+
+object PlayMissingSensitivity{
+  object State extends SpinalEnum{
+    val a,b,c = newElement()
+  }
+
+  class TopLevel extends Component{
+    val state = in(State)
+    val output = out UInt(8 bits)
+    output := 0
+    switch(state){
+      is(State.a){
+        output := 1
+      }
+      is(State.b){
+        output := 2
+      }
+      is(State.c){
+        output := 3
+      }
+    }
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}

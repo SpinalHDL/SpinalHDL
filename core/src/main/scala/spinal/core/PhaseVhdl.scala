@@ -873,10 +873,12 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
       val context = new AssignementLevel(process.nodes.map(n => AssignementLevelCmd(n,n.getInput(0))))
 
       if (process.sensitivity.size != 0) {
+        val tmp = new StringBuilder
+        emitAssignementLevel(context,tmp, "    ", "<=",false,process.sensitivity)
 
         ret ++= s"  process(${process.sensitivity.toList.sortWith(_.instanceCounter < _.instanceCounter).map(emitReference(_)).reduceLeft(_ + "," + _)})\n"
         ret ++= "  begin\n"
-        emitAssignementLevel(context,ret, "    ", "<=")
+        ret ++= tmp
         ret ++= "  end process;\n\n"
       } else {
         //emit func as logic
@@ -1563,7 +1565,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     }
   }
 
-  def emitAssignementLevel(context : AssignementLevel,ret: mutable.StringBuilder, tab: String, assignementKind: String, isElseIf: Boolean = false): Unit = {
+  def emitAssignementLevel(context : AssignementLevel,ret: mutable.StringBuilder, tab: String, assignementKind: String, isElseIf: Boolean = false,hiddenSensitivity : mutable.Set[Node] = null): Unit = {
     val firstTab = if (isElseIf) "" else tab
 
     context.content.foreach(_ match {
@@ -1592,6 +1594,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
         }
       }
       case switchTree : AssignementLevelSwitch => {
+        if(hiddenSensitivity != null) hiddenSensitivity += switchTree.key
         ret ++= s"${tab}case ${emitLogic(switchTree.key)} is\n"
         switchTree.cases.foreach(c => {
           val litString = c.const match {
