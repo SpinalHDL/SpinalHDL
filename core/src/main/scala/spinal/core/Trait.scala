@@ -533,14 +533,21 @@ trait SpinalTag {
   def moveToSyncNode = false //When true, Spinal will automaticaly move the tag to the driving syncNode
   def duplicative = false
   def driverShouldNotChange = false
+  def canSymplifyHost = false
 }
 
 object unusedTag extends SpinalTag
 object crossClockDomain extends SpinalTag{override def moveToSyncNode = true}
 object crossClockBuffer extends SpinalTag{override def moveToSyncNode = true}
 object randomBoot extends SpinalTag{override def moveToSyncNode = true}
-object tagAutoResize extends SpinalTag{override def duplicative = true}
-object tagTruncated extends SpinalTag{override def duplicative = true}
+object tagAutoResize extends SpinalTag{
+  override def duplicative = true
+  override def canSymplifyHost: Boolean = true
+}
+object tagTruncated extends SpinalTag{
+  override def duplicative = true
+  override def canSymplifyHost: Boolean = true
+}
 
 trait Area extends Nameable with ContextUser with OwnableRef with ScalaLocated{
   component.addPrePopTask(reflectNames)

@@ -8,6 +8,7 @@ import spinal.core.Operator.UInt.Add
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba3.apb.{Apb3SlaveFactory, Apb3}
+import spinal.lib.bus.amba4.axi.{Axi4, Axi4Config}
 import spinal.lib.bus.avalon._
 import spinal.lib.bus.amba4.axilite.{AxiLite4SpecRenamer, AxiLite4Config, AxiLite4}
 import spinal.lib.experimental.bus.neutral.NeutralStreamDma
@@ -2793,24 +2794,7 @@ object PlayDualPort{
   }
 }
 
-object Play2DEbug{
 
-
-  class TopLevel extends Component{
-    val io = new Bundle{
-
-      val out1 = out UInt(8 bits)
-    }
-    val in1 = UInt(8 bits)
-    in1.assignMask(M"----0011")
-
-    io.out1 := in1
-  }
-
-  def main(args: Array[String]) {
-    SpinalVhdl(new TopLevel)
-  }
-}
 
 object PlyBusSlaveFactory32{
 
@@ -2871,6 +2855,40 @@ object PlayMissingSensitivity{
       is(State.c){
         output := 3
       }
+    }
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
+
+
+
+
+object PlaySlowArea{
+  object SlowArea{
+    def getClockDomain(factor : Int): ClockDomain ={
+      val counter = Reg(UInt(log2Up(factor) bits)) init(0)
+      val tick = RegNext(counter === factor-2) init(False)
+      counter := counter + 1
+      when(tick){
+        counter := 0
+      }
+      ClockDomain.current.clone(clockEnable = tick,config = ClockDomain.current.config.copy(clockEnableActiveLevel = HIGH))
+    }
+  }
+
+  class SlowArea(factor : Int) extends ClockingArea(SlowArea.getClockDomain(factor))
+
+  class TopLevel extends Component{
+    val fastArea = new Area {
+      val counter = out(CounterFreeRun(16).value)
+    }
+    val slowArea = new SlowArea(4){
+      val counter = out(CounterFreeRun(16).value)
     }
   }
 

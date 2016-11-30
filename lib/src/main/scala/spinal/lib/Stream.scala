@@ -62,7 +62,7 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
 /** Connect this to that
   */
   def >>(into: Stream[T]): Stream[T] = {
-    into << this;
+    into << this
     into
   }
 
@@ -76,7 +76,7 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
 /** Connect this to that. The valid/payload path are cut by an register stage
   */
   def >->(into: Stream[T]): Stream[T] = {
-    into <-< this;
+    into <-< this
     into
   }
 

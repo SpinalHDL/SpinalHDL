@@ -167,7 +167,7 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
   override def getInputs: Iterator[Node] = Iterator(input)
   override def getInput(id: Int): Node = {assert(id == 0); input}
 
-  private[core] def canSymplifyIt = !dontSimplify && isEmptyOfTag
+  private[core] def canSymplifyIt = !dontSimplify && !existsTag(!_.canSymplifyHost)
 
   private[core] var dontSimplify = false
   private[core] var dontCareAboutNameForSymplify = false
