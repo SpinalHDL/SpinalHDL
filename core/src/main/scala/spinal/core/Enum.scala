@@ -1,20 +1,23 @@
-/*
- * SpinalHDL
- * Copyright (c) Dolu, All rights reserved.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 3.0 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library.
- */
+/*                                                                           *\
+**        _____ ____  _____   _____    __                                    **
+**       / ___// __ \/  _/ | / /   |  / /   HDL Core                         **
+**       \__ \/ /_/ // //  |/ / /| | / /    (c) Dolu, All rights reserved    **
+**      ___/ / ____// // /|  / ___ |/ /___                                   **
+**     /____/_/   /___/_/ |_/_/  |_/_____/                                   **
+**                                                                           **
+**      This library is free software; you can redistribute it and/or        **
+**    modify it under the terms of the GNU Lesser General Public             **
+**    License as published by the Free Software Foundation; either           **
+**    version 3.0 of the License, or (at your option) any later version.     **
+**                                                                           **
+**      This library is distributed in the hope that it will be useful,      **
+**    but WITHOUT ANY WARRANTY; without even the implied warranty of         **
+**    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU      **
+**    Lesser General Public License for more details.                        **
+**                                                                           **
+**      You should have received a copy of the GNU Lesser General Public     **
+**    License along with this library.                                       **
+\*                                                                           */
 package spinal.core
 
 import scala.collection.mutable.ArrayBuffer
@@ -23,15 +26,16 @@ import scala.collection.mutable.ArrayBuffer
 /**
   * Base class for creating enumeration
   *
+  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Enum "Enumeration Documentation"]]
+  *
   * @example {{{
   *         class MyEnum extends SpinalEnum(binarySequancial){
   *           val s1, s2, s3, s4 = newElement()
   *         }
   *         }}}
   *
-  * SpinalEnum contains a list of SpinalEnumElement that represent an Element
-  *
-  * @todo : Speak about Craft and element ....
+  * SpinalEnum contains a list of SpinalEnumElement that is the definition of an element. SpinalEnumCraft is the
+  * hardware representation of the the element.
   *
   * @param defaultEncoding encoding of the enum
   */
@@ -77,7 +81,7 @@ class SpinalEnum(var defaultEncoding: SpinalEnumEncoding = native) extends Namea
 
 
 /**
-  * Represent an element of the enumeration
+  * Definition of an element of the enumeration
   */
 class SpinalEnumElement[T <: SpinalEnum](val parent: T, val position: Int) extends Nameable {
 
@@ -108,7 +112,7 @@ class SpinalEnumElement[T <: SpinalEnum](val parent: T, val position: Int) exten
 
 
 /**
-  *
+  * Hardware representation of an enumeration
   */
 class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T/*, encoding: SpinalEnumEncoding*/) extends BaseType with InferableEnumEncodingImpl with DataPrimitives[SpinalEnumCraft[T]] {
 
@@ -179,7 +183,7 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T/*, encoding: SpinalEnumE
     this.initImpl(enumElement())
   }
 
-  /** Rethrn the name of the parent */
+  /** Return the name of the parent */
   private[core] def getParentName: String = blueprint.getName()
 
   override def getZero: this.type = {
@@ -199,7 +203,7 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T/*, encoding: SpinalEnumE
 
 
 /**
-  *
+  * Node representation which contains the value of an SpinalEnumElement
   */
 class EnumLiteral[T <: SpinalEnum](val enum: SpinalEnumElement[T]) extends Literal with InferableEnumEncodingImpl {
 
@@ -232,6 +236,7 @@ trait SpinalEnumEncoding extends Nameable{
   /** ???  */
   def isNative: Boolean
 }
+
 
 /**
   * ??
