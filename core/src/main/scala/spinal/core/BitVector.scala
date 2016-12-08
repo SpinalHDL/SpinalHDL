@@ -29,10 +29,12 @@ import scala.collection.mutable.ArrayBuffer
   *     - Bits
   *     - UInt (unsigned integer)
   *     - SInt (signed integer)
+  *
+  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/TypeIntroduction BitVector Documentation]]
   */
 abstract class BitVector extends BaseType with Widthable with CheckWidth {
 
-  /** ??? */
+  /** Prefix that define the corresponding class (Currently not used) */
   private[core] def prefix: String
 
   /** Width of the BitVector (-1 = undefined) */
@@ -42,23 +44,23 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
   type T <: BitVector
 
   /** Return the upper bound */
-  def high = getWidth - 1
+  def high: Int = getWidth - 1
   /** Return the most significant bit */
-  def msb = this(high)
+  def msb: Bool = this(high)
   /** Return the least significant bit */
-  def lsb = this(0)
+  def lsb: Bool = this(0)
   /** Return the range */
-  def range = 0 until getWidth
+  def range: Range = 0 until getWidth
 
   /** Logical OR of all bits */
-  def orR = this.asBits =/= 0
+  def orR: Bool = this.asBits =/= 0
   /** Logical AND of all bits */
-  def andR = this.asBits === ((BigInt(1) << getWidth) - 1)
+  def andR: Bool = this.asBits === ((BigInt(1) << getWidth) - 1)
   /** Logical XOR of all bits */
-  def xorR = this.asBools.reduce(_ ^ _)
+  def xorR: Bool = this.asBools.reduce(_ ^ _)
 
   /**
-    * Compare a BitVector data with a MaskedLiteral (M"110--0")
+    * Compare a BitVector with a MaskedLiteral (M"110--0")
     * @example {{{ val myBool = myBits === M"0-1" }}}
     * @param that the maskedLiteral
     * @return a Bool data containing the result of the comparison
@@ -100,7 +102,10 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
   def rotateRight(that: Int): T
 
 
+  /** Return true if the BitVector has a fixed width */
   private[core] def isFixedWidth = fixedWidth != -1
+
+  /** Unfix the width of the BitVector */
   private[core] def unfixWidth() = {
     fixedWidth = -1
     widthWhenNotInferred = -1
@@ -131,7 +136,11 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
 
   private[core] override def normalizeInputs: Unit = InputNormalize.resizedOrUnfixedLit(this, 0, this.getWidth)
 
-  /** Resize the bitVector to width */
+  /**
+    * Resize the bitVector to width
+    * @example{{{ val res = myBits.resize(10) }}}
+    * @return a resized bitVector
+    */
   def resize(width: Int): this.type
 
   private[core] override def calcWidth: Int = {
@@ -141,7 +150,7 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
   }
 
   /**
-    * Transform the BitVector into a Vector of Bool
+    * Cast the BitVector into a Vector of Bool
     * @return a vector of Bool
     */
   def asBools: Vec[Bool] = {
@@ -153,7 +162,7 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
   }
 
   /**
-    * Split the BitVector into slice of x bits
+    * Split the BitVector into x slice
     * @example {{{ val res = myBits.subdiviedIn(3 slices) }}}
     * @param sliceCount the width of the slice
     * @return a Vector of slices
@@ -175,13 +184,7 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
     subdivideIn(this.getWidth / sliceWidth.value slices)
   }
 
-  //extract bit
-  /**
-    * Extract a bit of the BitVector
-    * @param bitId the bit id to extract
-    * @param extract
-    * @return
-    */
+  /** Extract a bit of the BitVector */
   def newExtract(bitId: Int, extract: ExtractBoolFixed): Bool = {
     extract.input = this
     extract.bitId = bitId
@@ -197,8 +200,7 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
     bool
   }
 
-
-  //extract bit
+  /** Extract a bit of the BitVector */
   def newExtract(bitId: UInt, extract: ExtractBoolFloating): Bool = {
     extract.input = this
     extract.bitId = bitId
@@ -211,12 +213,11 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
         case that: DontCareNode => BitVector.this.assignFrom(new BitAssignmentFloating(BitVector.this, new DontCareNodeFixed(Bool(), 1), bitId), true)
       }
     }
-
     bool
   }
 
-  //extract bits     that(8,2)
-  def newExtract(hi: Int, lo: Int,extract: ExtractBitsVectorFixed): this.type = {
+  /** Extract a range of bits of the BitVector */
+  def newExtract(hi: Int, lo: Int, extract: ExtractBitsVectorFixed): this.type = {
     if (hi - lo + 1 != 0) {
       extract.input = this
       extract.hi = hi
@@ -239,7 +240,8 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
       getZeroUnconstrained
   }
 
-  def newExtract(offset: UInt, size: Int,extract : ExtractBitsVectorFloating): this.type = {
+  /** Extract a range of bits of the BitVector */
+  def newExtract(offset: UInt, size: Int, extract : ExtractBitsVectorFloating): this.type = {
     if (size != 0) {
       extract.input = this
       extract.size = size
@@ -264,17 +266,40 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
 
   def getZeroUnconstrained() : this.type
 
-  /** Return the bit at index bitId */
+  /**
+    * Return the bit at index bitId
+    * @example{{{ val myBool = myBits(3) }}}
+    */
   def apply(bitId: Int) : Bool
-  /** Return the bit at index bitId */
+
+  /**
+    * Return the bit at index bitId
+    * @example{{{ val myBool = myBits(myUInt) }}}
+    */
   def apply(bitId: UInt): Bool
-  /** Return a range of bits at offset and of width bitCount */
+
+  /**
+    * Return a range of bits at offset and of width bitCount
+    * @example{{{ val myBool = myBits(3, 2 bits) }}}
+    */
   def apply(offset: Int, bitCount: BitCount): this.type
-  /** Return a range of bits at offset and of width bitCount */
+
+  /**
+    * Return a range of bits at offset and of width bitCount
+    * @example{{{ val myBool = myBits(myUInt, 2 bits) }}}
+    */
   def apply(offset: UInt, bitCount: BitCount): this.type
-  /** Return a range of bits form hi index to lo index */
-  def apply(hi: Int, lo: Int): this.type = this.apply(lo, hi-lo+1 bit)
-  /** Return a range of bits */
+
+  /**
+    * Return a range of bits form hi index to lo index
+    * @example{{{ val myBool = myBits(3, 1) }}}
+    */
+  def apply(hi: Int, lo: Int): this.type = this.apply(lo, hi - lo + 1 bit)
+
+  /**
+    * Return a range of bits
+    * @example{{{ val myBool = myBits(3 downto 1) }}}
+    */
   def apply(range: Range): this.type = this.apply(range.high, range.low)
 
   /** Set all bits to value */
@@ -300,19 +325,15 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
 
   protected def getAllToBoolNode(): Operator.BitVector.AllByBool
 
-
-
   private[core] override def wrapWithWeakClone(node: Node): this.type = {
     val typeNode = super.wrapWithWeakClone(node)
     typeNode
   }
 
-
-
+  /** Return the width */
   def getWidthNoInferation: Int = if (inferredWidth != -1 ) inferredWidth else fixedWidth
 
   def getWidthStringNoInferation: String = if (getWidthNoInferation == -1 ) "?" else getWidthNoInferation.toString
-
 
   private[core] override def checkInferedWidth: Unit = {
     val input = this.input
@@ -320,7 +341,6 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
       PendingError(s"Assignment bit count mismatch. ${this} := ${input} at \n${ScalaLocated.long(getAssignementContext(0))}")
     }
   }
-
 
   override def assignDontCare(): this.type = {
     this.assignFrom(new DontCareNodeInfered(this), false)
