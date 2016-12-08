@@ -78,6 +78,7 @@ case class SpinalConfig(
   onlyStdLogicVectorAtTopLevelIo : Boolean = false,
   defaultClockDomainFrequency : IClockDomainFrequency = UnknownFrequency(),
   targetDirectory : String = ".",
+  netlistFileName : String = null,
   dumpWave : DumpWaveConfig = null,
   globalPrefix : String = "",
   device: Device = Device(),
@@ -142,11 +143,12 @@ class SpinalReport[T <: Component](val toplevel: T) {
 
 
 object Spinal{
+  def version = "0.10.8"
   def apply[T <: Component](config : SpinalConfig)(gen : => T) : SpinalReport[T]  = {
 
     println({
       SpinalLog.tag("Runtime", Console.YELLOW)
-    } + s" SpinalHDL 0.10.8")
+    } + s" SpinalHDL $version")
 
 
     val runtime = Runtime.getRuntime

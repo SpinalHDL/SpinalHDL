@@ -23,6 +23,8 @@
 - [X] Rework Namable trait, to allow it to be named by composition + postfix, and maybe to work with Ownable trait for hearchical naming
 - [X] bool/bits/uint/sint should extends dataimper to avoid implicites and allow implicite area to uint
 - [ ] Range generator 
+- [ ] add SlowArea
+- [ ] Add git commit number in logs
 
 ## spinal.lib
 

@@ -26,7 +26,8 @@ class PhaseVerilog(pc : PhaseContext) extends PhaseMisc with VerilogBase {
     import pc._
     SpinalProgress("Write Verilog")
 
-    outFile = new java.io.FileWriter(pc.config.targetDirectory + "/" +  topLevel.definitionName + ".v")
+    outFile = new java.io.FileWriter(pc.config.targetDirectory + "/" +  (if(pc.config.netlistFileName == null)(topLevel.definitionName + ".v") else pc.config.netlistFileName))
+    outFile.write(VhdlVerilogBase.getHeader("//",topLevel))
     emitEnumPackage(outFile)
 
     for (c <- sortedComponents) {

@@ -25,7 +25,8 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     import pc._
     SpinalProgress("Write VHDL")
     
-    outFile = new java.io.FileWriter(pc.config.targetDirectory + "/" +  topLevel.definitionName + ".vhd")
+    outFile = new java.io.FileWriter(pc.config.targetDirectory + "/" +  (if(pc.config.netlistFileName == null)(topLevel.definitionName + ".vhd") else pc.config.netlistFileName))
+    outFile.write(VhdlVerilogBase.getHeader("--",topLevel))
     emitEnumPackage(outFile)
     if(pc.config.genVhdlPkg)
       emitPackage(outFile)

@@ -2794,7 +2794,66 @@ object PlayDualPort{
   }
 }
 
+object Play2DEbug{
 
+
+//  class TopLevel extends Component{
+//    val a = in Bits(4 bits)
+//    val x = out Bits(4 bits)
+//
+//    x := a.resized
+//
+//    val b = in UFix(8 exp,4 bits)
+//    val y = out UFix(8 exp,4 bits)
+//
+//    y := b.truncated
+//
+//  }
+
+  object AluOpcode extends SpinalEnum {
+    val ADDA,MUL,MAC,NOP = newElement
+  }
+  class TopLevel(Dwidth: Int, FracWidth:Int) extends Component {
+
+    val io = new Bundle {
+      val a = in SInt (Dwidth bits)
+      val b = in SInt (Dwidth bits)
+      val opcode = in(AluOpcode)
+      val P = out SInt (Dwidth bits)
+    }
+    val a, b = Reg(SFix(6 exp, 18 bits)) init (0)
+    val P = Reg(SFix(12 exp, -12 exp)) init (0) //accumulator register up to 2*Input width
+    a.raw := io.a
+    b.raw := io.b
+    val opcode = Reg(AluOpcode) init (AluOpcode.NOP)
+    opcode := io.opcode
+    switch(opcode) {
+      is(AluOpcode.ADDA) {
+        P := a
+        io.P := P.raw(Dwidth - 1 downto 0)
+      }
+      is(AluOpcode.MUL) {
+        P := (a * b).truncated
+        io.P := P.raw(Dwidth - 1 downto 0)
+      }
+      is(AluOpcode.MAC) {
+        P := (P + a * b).truncated
+        io.P := P.raw(Dwidth - 1 downto 0)
+      }
+      is(AluOpcode.NOP) {
+        P := P
+        io.P := P.raw(Dwidth - 1 downto 0)
+      }
+      default {
+        P := P
+        io.P := P.raw(Dwidth - 1 downto 0)
+      }
+    }
+  }
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel(18,10))
+  }
+}
 
 object PlyBusSlaveFactory32{
 
@@ -2896,3 +2955,32 @@ object PlaySlowArea{
     SpinalVhdl(new TopLevel)
   }
 }
+
+
+
+object PlayAutoconncetRec{
+
+  class Inner extends Component {
+    val a = in Bits(8 bits)
+    val result = out Bits(8 bits)
+    a <> result
+  }
+  class TopLevel extends Component{
+    val a,b = in Bits(8 bits)
+    val result = out Bits(8 bits)
+
+    val x = new Inner
+
+    x.a(7 downto 1) <> a(7 downto 1)
+    x.a(0) <> True
+
+    val c = Bool
+    result := b & x.result
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+

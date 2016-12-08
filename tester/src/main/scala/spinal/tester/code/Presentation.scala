@@ -1861,3 +1861,36 @@ object PlayRgbToGray34{
              coefMul(g, 0.4f) +
              coefMul(b, 0.3f)
 }
+
+
+
+object TrololOOP{
+  abstract class BusSlaveFactory {
+    def read(that: Data,
+             address: BigInt,
+             bitOffset: Int): Unit
+
+    def write[T <: Data](that: T,
+                         address: BigInt,
+                         bitOffset: Int): T
+
+    def onWrite(address: BigInt)(doThat: => Unit): Unit
+    def onRead(address: BigInt)(doThat: => Unit): Unit
+
+    def createReadWrite[T <: Data](dataType: T,
+                                   address: BigInt,
+                                   bitOffset : Int = 0): T = {
+      val reg = Reg(dataType)
+      write(reg,address,bitOffset)
+      read(reg,address,bitOffset)
+      reg
+    }
+  }
+
+  class Apb3SlaveFactory(bus: Apb3) extends BusSlaveFactory{
+    override def read(that: Data, address: BigInt, bitOffset: Int): Unit = {???}
+    override def write[T <: Data](that: T, address: BigInt, bitOffset: Int): T = {???}
+    override def onWrite(address: BigInt)(doThat: => Unit): Unit = {???}
+    override def onRead(address: BigInt)(doThat: => Unit): Unit = {???}
+  }
+}
