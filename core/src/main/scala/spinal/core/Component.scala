@@ -67,29 +67,28 @@ object Component {
   *         }
   * }}}
   *
-  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/components_hierarchy "Component Documentation"]]
+  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/components_hierarchy Component Documentation]]
   */
 abstract class Component extends NameableByComponent with GlobalDataUser with ScalaLocated with DelayedInit with Stackable with OwnableRef{
 
+  /** Class used to create a task that must be executed after the creation of the component */
+  case class PrePopTask(task : () => Unit, clockDomain: ClockDomain)
+
+  /** Array of PrePopTask */
+  private[core] val prePopTasks = mutable.ArrayBuffer[PrePopTask]()
   /** Contains all in/out signals of the component */
   private[core] val ioSet = mutable.Set[BaseType]()
   /** enable/disable "io_" prefix in front of the in/out signals in the RTL */
   private[core] var ioPrefixEnable = true
   /** Used to store arbitrary object related to the component */
   val userCache = mutable.Map[Object, mutable.Map[Object, Object]]()
-  /** ?? */
+  /** */
   private[core] val localScope = new Scope()
-
-  /** Class used to create a task that must be executed after the creation of the component */
-  case class PrePopTask(task : () => Unit, clockDomain: ClockDomain)
-  /** Array of PrePopTask */
-  private[core] val prePopTasks = mutable.ArrayBuffer[PrePopTask]()
-
-  /** ?? */
+  /** */
   private[core] val kindsOutputsToBindings = mutable.Map[BaseType, BaseType]()
-  /** ?? */
+  /** */
   private[core] val kindsOutputsBindings = mutable.Set[BaseType]()
-  /** ?? */
+  /** */
   private[core] val additionalNodesRoot = mutable.Set[Node]()
   /** Definition Name (name of the entity (VHDL) or module (Verilog))*/
   var definitionName: String = null
@@ -99,13 +98,17 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
   val children = ArrayBuffer[Component]()
   /** Reference owner type */
   override type RefOwnerType = Component
-  /** Contins all nodes of the components */
+  /** Contains all nodes of the components */
   var nodes: ArrayBuffer[Node] = null
 
   /** Get the parent component (null if there is no parent)*/
   val parent = Component.current
   /** Get the current clock domain (null if there is no clock domain already set )*/
   val clockDomain = ClockDomain.current
+  /**  */
+  private[core] val initialAssignementCondition = globalData.conditionalAssignStack.head()
+  /**  */
+  private[core] var pulledDataCache = mutable.Map[Data, Data]()
 
   // Check if it is a top level component or a children of another component
   if (parent != null) {
@@ -156,12 +159,6 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
 
   /** Check if this component is the top level */
   private[core] def isTopLevel: Boolean = parent == null
-
-  /** ?? */
-  private[core] val initialAssignementCondition = globalData.conditionalAssignStack.head()
-
-  /** ?? */
-  private[core] var pulledDataCache = mutable.Map[Data, Data]()
 
   /** Return a list of all parents of the components */
   def parents(of: Component = this, list: List[Component] = Nil): List[Component] = {
@@ -230,10 +227,11 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
     })
   }
 
-  /** ?? */
+  /**  */
   private[core] def allocateNames(): Unit = {
 
     localScope.allocateName("zz")
+
     for (node <- nodes) node match {
       case nameable: Nameable => {
         if (nameable.isUnnamed || nameable.getName() == "") {
@@ -247,6 +245,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
       }
       case _ =>
     }
+
     for (child <- children) {
       OwnableRef.proposal(child,this)
       if (child.isUnnamed) {
@@ -291,12 +290,10 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
   }
 
 
-  /** ?? */
+  /**  */
   private[core] def isInBlackBoxTree: Boolean = if (parent == null) false else parent.isInBlackBoxTree
 
-
   private[core] override def getComponent(): Component = parent
-
 
   override def getDisplayName(): String = if (isNamed) super.getDisplayName() else "[" + getClass.getSimpleName + "]"
 
@@ -315,7 +312,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
   def getPath(sep: String = "/"): String = (if (parent == null) "" else (getParentsPath(sep) + sep)) + this.getDisplayName()
 
 
-  /** ?? */
+  /** */
   def getGroupedIO(ioBundleBypass: Boolean): Seq[Data] = {
     val ret = mutable.Set[Data]()
     val ioBundle = if (ioBundleBypass) reflectIo else null
@@ -328,6 +325,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
 
   override def postPushEvent(): Unit = {}
   override def prePopEvent(): Unit = {}
+
 
   /** Rework the component */
   def rework[T](gen: => T) : T = {

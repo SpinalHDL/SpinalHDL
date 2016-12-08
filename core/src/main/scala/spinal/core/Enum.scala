@@ -26,7 +26,7 @@ import scala.collection.mutable.ArrayBuffer
 /**
   * Base class for creating enumeration
   *
-  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Enum "Enumeration Documentation"]]
+  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Enum Enumeration Documentation]]
   *
   * @example {{{
   *         class MyEnum extends SpinalEnum(binarySequancial){
@@ -46,20 +46,15 @@ class SpinalEnum(var defaultEncoding: SpinalEnumEncoding = native) extends Namea
   type C = SpinalEnumCraft[this.type]
   type E = SpinalEnumElement[this.type]
 
-  /** Contains all elments of the enumeration */
+  /** Contains all elements of the enumeration */
   val values = ArrayBuffer[SpinalEnumElement[this.type]]()
 
 
-  /** Return the coresponding craft */
   def apply() = craft()
-  /** Return the corresponding craft with a given encoding */
   def apply(encoding: SpinalEnumEncoding) = craft(encoding)
 
 
-  /** Return the corresponding craft */
   def craft(): SpinalEnumCraft[this.type] = craft(defaultEncoding)
-
-  /** Return the corresponding craft with a given encoding */
   def craft(enumEncoding: SpinalEnumEncoding): SpinalEnumCraft[this.type] = {
     val ret = new SpinalEnumCraft[this.type](this)
     if(enumEncoding != `inferred`) ret.fixEncoding(enumEncoding)
@@ -70,7 +65,6 @@ class SpinalEnum(var defaultEncoding: SpinalEnumEncoding = native) extends Namea
   /** Create a new Element */
   def newElement(): SpinalEnumElement[this.type] = newElement(null)
 
-  /** Create a new Element with a name */
   def newElement(name: String): SpinalEnumElement[this.type] = {
     val v = new SpinalEnumElement(this,values.size).asInstanceOf[SpinalEnumElement[this.type]]
     if (name != null) v.setName(name)
@@ -82,12 +76,13 @@ class SpinalEnum(var defaultEncoding: SpinalEnumEncoding = native) extends Namea
 
 /**
   * Definition of an element of the enumeration
+  *
+  * @param parent parent of the element (SpinalEnum)
+  * @param position position of the element
   */
 class SpinalEnumElement[T <: SpinalEnum](val parent: T, val position: Int) extends Nameable {
 
-
   def ===(that: SpinalEnumCraft[T]): Bool = that === this
-
   def =/=(that: SpinalEnumCraft[T]): Bool = that =/= this
 
   def apply(): SpinalEnumCraft[T] = craft()
@@ -133,9 +128,8 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T/*, encoding: SpinalEnumE
 
 
   private[core] override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = that match{
-    case that : SpinalEnumCraft[T] => {
-      super.assignFromImpl(that, conservative)
-    }
+    case that : SpinalEnumCraft[T] => super.assignFromImpl(that, conservative)
+
   }
 
   override def isEquals(that: Any): Bool = {
@@ -191,6 +185,7 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T/*, encoding: SpinalEnumE
     ret.assignFromBits(B(0))
     ret
   }
+
   private[core] override def weakClone: this.type = {
     val ret = new SpinalEnumCraft(blueprint).asInstanceOf[this.type]
     ret
@@ -233,13 +228,13 @@ trait SpinalEnumEncoding extends Nameable{
   def getWidth(enum: SpinalEnum): Int
   /** Return the value of the encoding */
   def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt
-  /** ???  */
+
   def isNative: Boolean
 }
 
 
 /**
-  * ??
+  * Inferred encoding
   */
 object inferred extends SpinalEnumEncoding{
   override def getWidth(enum: SpinalEnum): Int = ???
@@ -249,7 +244,7 @@ object inferred extends SpinalEnumEncoding{
 
 
 /**
-  *
+  * Native encoding
   */
 object native extends SpinalEnumEncoding{
   override def getWidth(enum: SpinalEnum): Int = log2Up(enum.values.length)
@@ -292,7 +287,19 @@ object binaryOneHot extends SpinalEnumEncoding{
 
 
 /**
-  * ??
+  * Used to create a custom encoding
+  *
+  * @example {{{
+  *   object BR extends SpinalEnum{
+  *     val NE, EQ, J, JR = newElement()
+  *     defaultEncoding = Encoding("opt")(
+  *         EQ -> 0,
+  *         NE -> 1,
+  *         J  -> 2,
+  *         JR -> 3 )
+  *   }
+  * }}}
+  *
   */
 object Encoding{
 
@@ -302,15 +309,19 @@ object Encoding{
   }
 
   def list[X <: SpinalEnum](name: String)(spec: Map[SpinalEnumElement[X],BigInt]): SpinalEnumEncoding = {
+
     if(spec.size != spec.head._1.blueprint.values.size){
       SpinalError("All elements of the enumeration should be mapped")
     }
+
     return new SpinalEnumEncoding {
       val width = log2Up(spec.values.foldLeft(BigInt(0))((a, b) => if(a > b) a else b) + 1)
+
       override def getWidth(enum: SpinalEnum): Int = width
 
       override def isNative: Boolean = false
-      override def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]) : BigInt = {
+
+      override def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt = {
         return spec(element.asInstanceOf[SpinalEnumElement[X]])
       }
       setWeakName(name)
