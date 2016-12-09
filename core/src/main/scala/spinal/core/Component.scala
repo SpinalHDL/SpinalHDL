@@ -198,13 +198,11 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
     Misc.reflect(this, (name, obj) => {
       if(obj != io) {
         obj match {
-          case component: Component => {
-            if (component.parent == this) {
+          case component: Component if (component.parent == this) =>
               OwnableRef.proposal(obj, this)
               component.setWeakName(name)
-            }
-          }
-          case nameable: Nameable => {
+
+          case nameable: Nameable =>
             if (!nameable.isInstanceOf[ContextUser]) {
               nameable.setWeakName(name)
               OwnableRef.proposal(obj, this)
@@ -220,7 +218,6 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
                 }
               }
             }
-          }
           case _ =>
         }
       }
@@ -233,7 +230,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
     localScope.allocateName("zz")
 
     for (node <- nodes) node match {
-      case nameable: Nameable => {
+      case nameable: Nameable =>
         if (nameable.isUnnamed || nameable.getName() == "") {
           nameable.unsetName()
           nameable.setWeakName("zz")
@@ -242,7 +239,6 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
           nameable.setName(localScope.allocateName(nameable.getName()))
         else
           localScope.iWantIt(nameable.getName())
-      }
       case _ =>
     }
 
@@ -265,10 +261,10 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
       ioSet
     } else {
       val nodeIo = mutable.Set[BaseType]()
-      nodes.foreach(node => node match {
+      nodes.foreach {
         case b: BaseType if (b.isIo) => nodeIo += b
-        case _                       =>
-      })
+        case _ =>
+      }
       nodeIo
     }
   }
@@ -281,10 +277,10 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
   private[core] def getDelays = {
     val delays = new ArrayBuffer[SyncNode]()
 
-    nodes.foreach(node => node match {
+    nodes.foreach {
       case delay: SyncNode => delays += delay
-      case _               =>
-    })
+      case _ =>
+    }
 
     delays
   }
