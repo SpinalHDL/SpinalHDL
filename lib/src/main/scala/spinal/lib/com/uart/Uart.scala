@@ -15,12 +15,12 @@ case class Uart() extends Bundle with IMasterSlave {
 }
 
 
-object UartParityType extends SpinalEnum(binarySequancial) {
+object UartParityType extends SpinalEnum(binarySequential) {
   val NONE, EVEN, ODD = newElement()
 }
 
 
-object UartStopType extends SpinalEnum(binarySequancial) {
+object UartStopType extends SpinalEnum(binarySequential) {
   val ONE, TWO = newElement()
   def toBitCount(that : C) : UInt = (that === ONE) ? U"0" | U"1"
 }

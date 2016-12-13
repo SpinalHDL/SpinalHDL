@@ -1896,7 +1896,7 @@ object SpinalVerilogBoot{
 
     phases += new PhaseDummy(SpinalProgress("Infer nodes's bit width"))
     phases += new PhasePreInferationChecks(pc)
-    phases += new PhaseInferEnumEncodings(pc,e => if(e == `native`) binarySequancial else e)
+    phases += new PhaseInferEnumEncodings(pc,e => if(e == `native`) binarySequential else e)
     phases += new PhaseInferWidth(pc)
     phases += new PhaseSimplifyNodes(pc)
     phases += new PhaseInferWidth(pc)
