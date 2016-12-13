@@ -37,14 +37,14 @@ class VhdlTestBenchBackend(pc : PhaseContext) extends VhdlBase with PhaseMisc {
 
 
 
-  def outputFilePath = config.targetDirectory + "/" +  topLevel.definitionName + "_tb.vhd"
+  def outputFilePath = config.targetDirectory + "/" +  (if(pc.config.netlistFileName == null)(topLevel.definitionName + "_tb.vhd") else pc.config.netlistFileName.replace(".","_tb."))
   
   override def impl(pc : PhaseContext) : Unit = {
     if (tbName == null) tbName = topLevel.definitionName + "_tb"
     extractUserCodes
 
     val tbFile = new java.io.FileWriter(outputFilePath)
-
+    tbFile.write(VhdlVerilogBase.getHeader("--",topLevel))
     val ret = new StringBuilder()
 
 

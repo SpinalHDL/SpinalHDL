@@ -15,8 +15,8 @@ trait BusSlaveFactory  extends Area{
            bitOffset : Int = 0) : Unit
   
   def write[T <: Data](that : T,
-            address : BigInt,
-            bitOffset : Int = 0) : T
+                       address : BigInt,
+                       bitOffset : Int = 0) : T
 
   def onWrite(address : BigInt)(doThat : => Unit) : Unit
   def onRead (address : BigInt)(doThat : => Unit) : Unit

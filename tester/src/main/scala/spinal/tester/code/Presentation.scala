@@ -9,8 +9,10 @@ import spinal.debugger.LogicAnalyserBuilder
 import spinal.demo.mandelbrot._
 import spinal.lib._
 import spinal.lib.bus.amba3.apb.{Apb3SlaveFactory, Apb3, Apb3Config}
+import spinal.lib.bus.amba4.axi.{Axi4, Axi4Config}
 import spinal.lib.bus.avalon.{AvalonMM, AvalonMMSlaveFactory}
 import spinal.lib.com.uart._
+import spinal.lib.graphic.Rgb
 import spinal.lib.misc.{Prescaler, Timer}
 
 import scala.util.Random
@@ -1749,3 +1751,146 @@ object DemoMusc564{
   }
 }
 
+
+object P636{
+  class TopLevel extends Component{
+    val source, sink = Stream(Rgb(5,6,5))
+
+    source.queue(16) >> sink
+
+    slave(source)
+    master(sink)
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+object P6364{
+  class TopLevel extends Component{
+    val source, sink = Stream(Rgb(5,6,5))
+    val fifo = StreamFifo(
+      dataType = Rgb(5,6,5),
+      depth = 16
+    )
+    fifo.io.push << source
+    fifo.io.pop >> sink
+
+    slave(source)
+    master(sink)
+  }
+  {
+    case class Stream[T <: Data](payloadType : HardType[T]) extends Bundle with IMasterSlave{
+      val valid   = Bool
+      val ready   = Bool
+      val payload = payloadType()
+
+      override def asMaster(): Unit = {
+        out(valid,payload)
+        in(ready)
+      }
+
+      def >>(sink: Stream[T]): Unit ={
+        sink.valid   := this.valid
+        this.ready   := sink.ready
+        sink.payload := this.payload
+      }
+      def <<(source: Stream[T]): Unit = source >> this
+      def queue(depth : Int) : Stream[T] = ???
+    }
+
+    case class RGB( rWidth : Int,
+                    gWidth : Int,
+                    bWidth : Int){
+      val r = UInt(rWidth bits)
+      val g = UInt(gWidth bits)
+      val b = UInt(bWidth bits)
+    }
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
+object PlayAxiConnect{
+  case class Axi4Config(addressWidth : Int,
+                        dataWidth    : Int,
+                        idWidth      : Int)
+
+  case class Axi4(config: Axi4Config) extends Bundle {
+    val ar_valid = Bool
+    val ar_ready = Bool
+    val ar_addr  = UInt(config.addressWidth bits)
+    // ...
+  }
+}
+
+object PlayAxiConnect2{
+  case class Axi4Config(addressWidth : Int,
+                        dataWidth    : Int,
+                        idWidth      : Int)
+
+  case class Axi4(config: Axi4Config) extends Bundle {
+    // ...
+
+    def >> (slave : Axi4): Unit = {
+      // connect this to slave
+      // ...
+    }
+  }
+}
+
+
+
+object PlayRgbToGray34{
+  // Input RGB color
+  val r,g,b = UInt(8 bits)
+
+  // Define a function to multiply a UInt by a scala Float value.
+  def coefMul(value : UInt,by : Float) : UInt = {
+    val resultReg = Reg(UInt(8 bits))
+    resultReg := value * U((255*by).toInt,8 bits) >> 8
+    return resultReg
+  }
+
+  //Calculate the gray level
+  val gray = coefMul(r, 0.3f) +
+             coefMul(g, 0.4f) +
+             coefMul(b, 0.3f)
+}
+
+
+
+object TrololOOP{
+  abstract class BusSlaveFactory {
+    def read(that: Data,
+             address: BigInt,
+             bitOffset: Int): Unit
+
+    def write[T <: Data](that: T,
+                         address: BigInt,
+                         bitOffset: Int): T
+
+    def onWrite(address: BigInt)(doThat: => Unit): Unit
+    def onRead(address: BigInt)(doThat: => Unit): Unit
+
+    def createReadWrite[T <: Data](dataType: T,
+                                   address: BigInt,
+                                   bitOffset : Int = 0): T = {
+      val reg = Reg(dataType)
+      write(reg,address,bitOffset)
+      read(reg,address,bitOffset)
+      reg
+    }
+  }
+
+  class Apb3SlaveFactory(bus: Apb3) extends BusSlaveFactory{
+    override def read(that: Data, address: BigInt, bitOffset: Int): Unit = {???}
+    override def write[T <: Data](that: T, address: BigInt, bitOffset: Int): T = {???}
+    override def onWrite(address: BigInt)(doThat: => Unit): Unit = {???}
+    override def onRead(address: BigInt)(doThat: => Unit): Unit = {???}
+  }
+}

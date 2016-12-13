@@ -26,7 +26,8 @@ class PhaseVerilog(pc : PhaseContext) extends PhaseMisc with VerilogBase {
     import pc._
     SpinalProgress("Write Verilog")
 
-    outFile = new java.io.FileWriter(pc.config.targetDirectory + "/" +  topLevel.definitionName + ".v")
+    outFile = new java.io.FileWriter(pc.config.targetDirectory + "/" +  (if(pc.config.netlistFileName == null)(topLevel.definitionName + ".v") else pc.config.netlistFileName))
+    outFile.write(VhdlVerilogBase.getHeader("//",topLevel))
     emitEnumPackage(outFile)
 
     for (c <- sortedComponents) {
@@ -308,10 +309,12 @@ end
 
 
       if (process.sensitivity.size != 0) {
+        val tmp = new StringBuilder
+        emitAssignementLevel(context,tmp, "    ", "<=",false,process.sensitivity)
 
         ret ++= s"  always @ (${process.sensitivity.toList.sortWith(_.instanceCounter < _.instanceCounter).map(emitReference(_)).reduceLeft(_ + " or " + _)})\n"
         ret ++= "  begin\n"
-        emitAssignementLevel(context,ret, "    ", "<=")
+        ret ++= tmp
 //        val senList = process.sensitivity.toList
 //        ret ++= s"""    $$display("$component $idx :${(senList.map(emitReference(_) + "=%b")).reduce(_+ " " +_)}",${(senList.map(emitReference(_))).reduce(_+ "," +_)});\n"""
         ret ++= "  end\n\n"
@@ -913,7 +916,7 @@ end
     }
   }
 
-   def emitAssignementLevel(context : AssignementLevel,ret: mutable.StringBuilder, tab: String, assignementKind: String, isElseIf: Boolean = false): Unit = {
+   def emitAssignementLevel(context : AssignementLevel,ret: mutable.StringBuilder, tab: String, assignementKind: String, isElseIf: Boolean = false,hiddenSensitivity : mutable.Set[Node] = null): Unit = {
     val firstTab = if (isElseIf) "" else tab
 
     context.content.foreach(_ match {
@@ -942,6 +945,7 @@ end
       }
 
       case switchTree : AssignementLevelSwitch => {
+        if(hiddenSensitivity != null) hiddenSensitivity += switchTree.key
         ret ++= s"${tab}case(${emitLogic(switchTree.key)})\n"
         switchTree.cases.foreach(c => {
           ret ++= s"${tab}  ${emitLogic(c.const)} : begin\n"

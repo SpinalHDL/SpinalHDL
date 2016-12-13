@@ -1,6 +1,8 @@
 package spinal.core
 
+import java.text.SimpleDateFormat
 import java.util
+import java.util.{Calendar, Date}
 
 import scala.StringBuilder
 import scala.collection.mutable
@@ -208,6 +210,15 @@ class AssignementLevel(inTasks : Seq[AssignementLevelCmd]) {
 trait MemBitsMaskKind
 object MULTIPLE_RAM extends MemBitsMaskKind
 object SINGLE_RAM extends MemBitsMaskKind
+
+object VhdlVerilogBase{
+  def getHeader(commentSymbole : String,toplevel : Component): String =
+    s"""$commentSymbole Generator : SpinalHDL v${Spinal.version}
+       |$commentSymbole Date      : ${new SimpleDateFormat("dd/MM/yyyy, HH:mm:ss").format(Calendar.getInstance().getTime)}
+       |$commentSymbole Component : ${toplevel.definitionName}
+       |
+       |""".stripMargin
+}
 
 
 trait VhdlVerilogBase {
