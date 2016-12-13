@@ -23,8 +23,16 @@ trait TypeFactory{
   def postTypeFactory[T <: Data](that: T) = that
 }
 
+
+/**
+  * Base type factory
+  */
 trait BaseTypeFactory extends BoolFactory with BitsFactory with UIntFactory with SIntFactory with VecFactory with SFixFactory with UFixFactory
 
+
+/**
+  *
+  */
 trait BaseTypeCast extends SFixCast with UFixCast
 
 
@@ -79,15 +87,14 @@ object BaseType {
         conditionalAssign match {
           case when: WhenContext => {
             consumer.getInput(consumerInputId) match {
-              case null => {
+              case null =>
                 val whenNode = WhenNode(baseType,when)
                 if(consumer.isInstanceOf[AssignementTreePart]){
                   consumer.asInstanceOf[AssignementTreePart].setAssignementContext(consumerInputId,globalData.getThrowable())
                 }
                 consumer.setInput(consumerInputId,whenNode)
                 consumer = whenNode
-              }
-              case man: MultipleAssignmentNode => {
+              case man: MultipleAssignmentNode =>
                 man.inputs.last match {
                   case whenNode: WhenNode if whenNode.w == when => consumer = whenNode
                   case _ => {
@@ -96,16 +103,14 @@ object BaseType {
                     consumer = whenNode
                   }
                 }
-              }
               case whenNode: WhenNode if whenNode.w == when => consumer = whenNode
-              case that => {
+              case that =>
                 val man = MultipleAssignmentNode.newFor(baseType)
                 val whenNode = WhenNode(baseType,when)
                 initMan(man, that)
                 man.inputs += whenNode.asInstanceOf[man.T]
                 consumer.setInput(consumerInputId, man)
                 consumer = whenNode
-              }
             }
 
             consumerInputId = if (when.isTrue) 1 else 2
@@ -122,19 +127,17 @@ object BaseType {
     if (conservative) {
       consumer.getInput(consumerInputId) match {
         case null =>
-        case man: MultipleAssignmentNode => {
+        case man: MultipleAssignmentNode =>
           consumer = man
           consumerInputId = man.inputs.length
           man.inputs += null.asInstanceOf[man.T]
-        }
-        case that => {
+        case that =>
           val man = MultipleAssignmentNode.newFor(baseType)
           initMan(man, that)
           man.inputs += null.asInstanceOf[man.T]
           consumer.setInput(consumerInputId,man)
           consumerInputId = 1
           consumer = man
-        }
       }
     } else {
       val overrided = consumer.getInput(consumerInputId)
@@ -325,7 +328,7 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
   //Create a new instance of the same datatype without any configuration (width, direction)
   private[core] def weakClone: this.type
 
-  override def toString(): String = s"${component.getPath() + "/" + this.getDisplayName()} : ${if(isInput) "in " else if(isOutput) "out " else ""}${getClassIdentifier}"
+  override def toString(): String = s"${component.getPath() + "/" + this.getDisplayName()} : ${if(isInput) "in " else if(isOutput) "out " else ""}$getClassIdentifier"
 
 
 
