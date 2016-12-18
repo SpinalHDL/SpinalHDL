@@ -6,7 +6,7 @@ import spinal.lib._
 import spinal.lib.bus.amba3.ahblite._
 import spinal.lib.bus.amba3.apb.{Apb3SlaveFactory, Apb3, Apb3Config}
 import spinal.lib.bus.amba4.axi._
-import spinal.lib.bus.misc.BusSlaveFactory
+import spinal.lib.bus.misc.{LITTLE, BIG, BusSlaveFactoryConfig, BusSlaveFactory}
 import spinal.lib.io.TriState
 import spinal.lib.memory.sdram.W9825G6JH6
 import spinal.lib.soc.pinsec.{Pinsec, PinsecConfig}
@@ -1124,6 +1124,31 @@ object Play3MissingWarning43{
   }
 
   def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
+object PlayWithBusSlaveFacotry{
+
+  class TopLevel extends Component {
+    val io = new Bundle{
+      val apb3 = slave(Apb3(32, 32))
+      val key  = out Bits(128 bits)
+    }
+
+    val key_reg = Reg(cloneOf(io.key))
+
+    val factoryConfig = new BusSlaveFactoryConfig(BIG)
+    val factory = new Apb3SlaveFactory(io.apb3, 0, factoryConfig)
+
+    factory.writeMultiWord(key_reg, 0x1000l)
+    factory.readMultiWord(key_reg, 0x1000l)
+
+    io.key := key_reg
+  }
+
+  def main(args: Array[String]): Unit ={
     SpinalVhdl(new TopLevel)
   }
 }

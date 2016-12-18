@@ -30,6 +30,17 @@ import spinal.lib._
 import scala.collection.mutable.ArrayBuffer
 
 
+sealed trait EndiannessBusSlaveFactory
+object LITTLE extends EndiannessBusSlaveFactory
+object BIG    extends EndiannessBusSlaveFactory
+
+/**
+  * Configuration of the bus Slave Factory
+  *
+  * @param multiWordEndianness Endianness for the multiWrite or multiRead operations
+  */
+case class BusSlaveFactoryConfig(multiWordEndianness: EndiannessBusSlaveFactory = BIG)
+
 /**
   * Bus slave factory is a tool that provide an abstract and smooth way to define register bank
   */
@@ -37,6 +48,17 @@ trait BusSlaveFactory extends Area{
 
   /** Return the data width of the bus */
   def busDataWidth: Int
+
+  /** ....  */
+  var config: BusSlaveFactoryConfig = BusSlaveFactoryConfig(multiWordEndianness = BIG)
+
+  /** .... */
+  def multiWordAddressInc: Int = busDataWidth / 8
+
+  private def isBigEndianness: Boolean = config.multiWordEndianness match{
+    case LITTLE => false
+    case BIG    => true
+  }
 
   /**
     * When the bus read the address, fill the response with that at bitOffset
@@ -106,14 +128,18 @@ trait BusSlaveFactory extends Area{
     * Create the memory mapping to read that from address
     * If that  is bigger than one word it extends the register on followings addresses
     */
-  def readMultiWord(that: Data,
-                    address: BigInt): Unit  = {
+  def readMultiWord(that: Data, address: BigInt): Unit  = {
     val wordCount = (widthOf(that) - 1) / busDataWidth + 1
     val valueBits = that.asBits
-    var pos = 0
+    var pos = if(isBigEndianness) 0 else widthOf(that) - busDataWidth
     for (wordId <- 0 until wordCount) {
-      read(valueBits(pos, Math.min(widthOf(that)-pos, busDataWidth) bits), address + wordId*busDataWidth / 8)
-      pos += busDataWidth
+      if (isBigEndianness){
+        read(valueBits(pos, Math.min(widthOf(that) - pos, busDataWidth) bits), address + wordId * multiWordAddressInc)
+        pos += busDataWidth
+      }else{
+        read(valueBits(pos, Math.min(widthOf(that) - pos, busDataWidth) bits), address + wordId * multiWordAddressInc)
+        pos -= busDataWidth
+      }
     }
   }
 
@@ -121,8 +147,7 @@ trait BusSlaveFactory extends Area{
     * Create the memory mapping to write that at address.
     * If that  is bigger than one word it extends the register on followings addresses
     */
-  def writeMultiWord(that: Data,
-                     address: BigInt): Unit  = {
+  def writeMultiWord(that: Data, address: BigInt): Unit  = {
     val wordCount = (widthOf(that) - 1) / busDataWidth + 1
     for (wordId <- 0 until wordCount) {
       write(
@@ -137,8 +162,7 @@ trait BusSlaveFactory extends Area{
               bitCount = getBitsWidth bits)
           }
         },
-        address = address + wordId * busDataWidth / 8,0
-      )
+        address = address + wordId * multiWordAddressInc, 0)
     }
   }
 
