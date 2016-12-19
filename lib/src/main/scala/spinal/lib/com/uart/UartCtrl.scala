@@ -142,9 +142,9 @@ class UartCtrl(g : UartCtrlGenerics = UartCtrlGenerics()) extends Component {
 
     //manage RX
     val read = new Area {
-      val (stream, fofoOccupancy) = io.read.toStream.queueWithOccupancy(config.rxFifoDepth)
+      val (stream, fifoOccupancy) = io.read.toStream.queueWithOccupancy(config.rxFifoDepth)
       busCtrlWrapped.readStreamNonBlocking(stream, address = 0, validBitOffset = 15, payloadBitOffset = 0)
-      busCtrlWrapped.read(fofoOccupancy,address = 6, 8)
+      busCtrlWrapped.read(fifoOccupancy,address = 6, 8)
     }
 
     //manage interrupts

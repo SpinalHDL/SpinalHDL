@@ -2983,4 +2983,47 @@ object PlayAutoconncetRec{
   }
 }
 
+object Debug425{
+  class Wrapper() extends Component{
+
+    val io = new Bundle{
+
+      val bus_clk = in Bool
+      val bus_rst = in Bool
+    }
+
+    val axiClockDomain = ClockDomain.external("axi")
+    val busClockDonmain = ClockDomain(io.bus_clk, io.bus_rst)
+
+
+    val axiReg = axiClockDomain{
+      Counter(8).value.keep()
+    }
+
+    val busReg = busClockDonmain{
+      Counter(8).value.keep()
+    }
+  }
+
+
+  class TopLevel extends Component{
+
+    val io = new Bundle{
+      val user_clk = in Vec(Bool, 7)
+      val user_rstn  = in Vec(Bool, 7)
+
+    }
+
+    val wrapper = new Wrapper()
+    wrapper.io.bus_clk <> io.user_clk(4)
+    wrapper.io.bus_rst <> io.user_rstn(4)
+
+
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
 

@@ -12,6 +12,8 @@ import spinal.lib.bus.amba3.apb.{Apb3SlaveFactory, Apb3, Apb3Config}
 import spinal.lib.bus.amba4.axi.{Axi4, Axi4Config}
 import spinal.lib.bus.avalon.{AvalonMM, AvalonMMSlaveFactory}
 import spinal.lib.com.uart._
+import spinal.lib.cpu.riscv.impl.extension._
+import spinal.lib.cpu.riscv.impl.{InstructionCacheConfig, dynamic, sync, CoreConfig}
 import spinal.lib.graphic.Rgb
 import spinal.lib.misc.{Prescaler, Timer}
 
@@ -611,6 +613,8 @@ object C15 {
     val g = UInt(gWidth bit)
     val b = UInt(bWidth bit)
 
+    def isBlack : Bool = r === 0 && g === 0 && b === 0
+
     //Define the + operator to allow the summation of 2 RGB
     def +(that: RGB): RGB = {
       val result = cloneOf(this)
@@ -620,6 +624,9 @@ object C15 {
       result
     }
   }
+
+  val source = spinal.lib.Stream(RGB(5,6,5))
+  val sink = source.throwWhen(source.payload.isBlack).stage()
 
   // Define a component that take "srcCount" slave Stream of RGB
   // and product an "sumPort" that is the summation of all "srcPort" with the correct arbitration
@@ -1893,4 +1900,22 @@ object TrololOOP{
     override def onWrite(address: BigInt)(doThat: => Unit): Unit = {???}
     override def onRead(address: BigInt)(doThat: => Unit): Unit = {???}
   }
+
+
+
+
+  val cpuConfig = CoreConfig(
+    pcWidth = 32,
+    addrWidth = 32,
+    startAddress = 0x00000000,
+    branchPrediction = dynamic,
+    bypassExecute0 = true,
+    bypassExecute1 = true,
+    bypassWriteBack = true
+    // ...
+  )
+
+  cpuConfig.add(new MulExtension)
+  cpuConfig.add(new DivExtension)
+  cpuConfig.add(new BarrelShifterFullExtension)
 }

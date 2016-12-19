@@ -143,12 +143,12 @@ class SpinalReport[T <: Component](val toplevel: T) {
 
 
 object Spinal{
-  def version = "0.10.8"
+  def version = spinal.core.Info.version
   def apply[T <: Component](config : SpinalConfig)(gen : => T) : SpinalReport[T]  = {
 
     println({
       SpinalLog.tag("Runtime", Console.YELLOW)
-    } + s" SpinalHDL $version")
+    } + s" SpinalHDL v$version    git head : ${spinal.core.Info.gitHash}")
 
 
     val runtime = Runtime.getRuntime
