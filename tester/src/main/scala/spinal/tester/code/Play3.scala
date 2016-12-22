@@ -1139,7 +1139,7 @@ object PlayWithBusSlaveFacotry{
 
     val key_reg = Reg(cloneOf(io.key))
 
-    val factoryConfig = new BusSlaveFactoryConfig(BIG)
+    val factoryConfig = new BusSlaveFactoryConfig(LITTLE)
     val factory = new Apb3SlaveFactory(io.apb3, 0, factoryConfig)
 
     factory.writeMultiWord(key_reg, 0x1000l)

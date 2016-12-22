@@ -46,4 +46,6 @@ class Apb3SlaveFactory(bus: Apb3, selId: Int, config: BusSlaveFactoryConfig = Bu
   override def busDataWidth: Int = bus.config.dataWidth
 
   override def multiWordAddressInc: Int = busDataWidth / 8
+
+  override def configFactory: BusSlaveFactoryConfig = config
 }

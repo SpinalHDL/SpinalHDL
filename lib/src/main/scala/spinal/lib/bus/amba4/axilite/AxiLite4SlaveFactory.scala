@@ -60,4 +60,8 @@ class AxiLite4SlaveFactory(bus : AxiLite4) extends BusSlaveFactoryDelayed{
   }
 
   override def busDataWidth: Int = bus.config.dataWidth
+
+  override def multiWordAddressInc: Int = busDataWidth / 8
+
+  override def configFactory: BusSlaveFactoryConfig = BusSlaveFactoryConfig()
 }
