@@ -25,6 +25,7 @@
 - [ ] Range generator 
 - [ ] add SlowArea
 - [X] Add git commit number in logs
+- [X] Fix name allocation scopes
 
 ## spinal.lib
 

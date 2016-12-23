@@ -40,20 +40,7 @@ object SpinalBuild extends Build {
       }
     )
   )
-//
-//  lazy val root = (core in file(".")).
-//    enablePlugins(BuildInfoPlugin).
-//    settings(
-//      buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion),
-//      buildInfoPackage := "hello"
-//    )
 
-//  lazy val root = (project in file(".")).
-//    enablePlugins(BuildInfoPlugin).
-//    settings(
-//      buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion),
-//      buildInfoPackage := "hello"
-//    )
 
   lazy val lib = Project(
     id = "SpinalHDL-lib",

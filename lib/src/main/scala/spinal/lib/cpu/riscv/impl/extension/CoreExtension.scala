@@ -6,7 +6,7 @@ import spinal.lib.cpu.riscv.impl.Utils._
 
 abstract class CoreExtension {
   def getName : String
-  def applyIt(core : Core) : Area
+  def applyIt(core : RiscvCore) : Area
   def instructionCtrlExtension(instruction : Bits,ctrl: InstructionCtrl) : Unit = {}
 
   var tag : Int = -1

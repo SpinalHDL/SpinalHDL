@@ -13,7 +13,7 @@ import spinal.lib.bus.amba4.axi.{Axi4, Axi4Config}
 import spinal.lib.bus.avalon.{AvalonMM, AvalonMMSlaveFactory}
 import spinal.lib.com.uart._
 import spinal.lib.cpu.riscv.impl.extension._
-import spinal.lib.cpu.riscv.impl.{InstructionCacheConfig, dynamic, sync, CoreConfig}
+import spinal.lib.cpu.riscv.impl.{InstructionCacheConfig, dynamic, sync, RiscvCoreConfig}
 import spinal.lib.graphic.Rgb
 import spinal.lib.misc.{Prescaler, Timer}
 
@@ -1904,7 +1904,7 @@ object TrololOOP{
 
 
 
-  val cpuConfig = CoreConfig(
+  val cpuConfig = RiscvCoreConfig(
     pcWidth = 32,
     addrWidth = 32,
     startAddress = 0x00000000,
@@ -1918,4 +1918,61 @@ object TrololOOP{
   cpuConfig.add(new MulExtension)
   cpuConfig.add(new DivExtension)
   cpuConfig.add(new BarrelShifterFullExtension)
+}
+
+object SementicAA{
+  val inc, clear = Bool
+  val counter = Reg(UInt(8 bits))
+  
+  when(inc){
+    counter := counter + 1
+  }
+  when(clear){
+    counter := 0
+  }
+}
+
+object SementicAB{
+  val inc, clear = Bool
+  val counter = Reg(UInt(8 bits))
+
+  def setCounter(value : UInt): Unit = {
+    counter := value
+  }
+
+  when(inc){
+    setCounter(counter + 1)
+  }
+  when(clear){
+    counter := 0
+  }
+}
+
+
+object SementicAC{
+  val inc, clear = Bool
+  val counter = Reg(UInt(8 bits))
+
+  def setCounterWhen(cond : Bool,value : UInt): Unit = {
+    when(cond) {
+      counter := value
+    }
+  }
+
+  setCounterWhen(cond = inc,   value = counter + 1)
+  setCounterWhen(cond = clear, value = 0)
+}
+
+object SementicAD{
+  val inc, clear = Bool
+  val counter = Reg(UInt(8 bits))
+
+  def setSomethingWhen(something : UInt,cond : Bool,value : UInt): Unit = {
+    when(cond) {
+      something := value
+    }
+  }
+
+  setSomethingWhen(something = counter, cond = inc,   value = counter + 1)
+  setSomethingWhen(something = counter, cond = clear, value = 0)
 }

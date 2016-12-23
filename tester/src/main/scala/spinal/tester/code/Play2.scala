@@ -195,14 +195,14 @@ object PlayBlackBox3 {
         val data = out Bits (8 bit)
       }
     }
-    val ram = new Ram_1w_1r(8,16)
+    val ram_1w_1r = new Ram_1w_1r(8,16)
 
-    io.wr.en <> ram.io.wr.en
-    io.wr.addr <> ram.io.wr.addr
-    io.wr.data <> ram.io.wr.data
-    io.rd.en   <> ram.io.rd.en
-    io.rd.addr <> ram.io.rd.addr
-    io.rd.data <> ram.io.rd.data
+    io.wr.en <> ram_1w_1r.io.wr.en
+    io.wr.addr <> ram_1w_1r.io.wr.addr
+    io.wr.data <> ram_1w_1r.io.wr.data
+    io.rd.en   <> ram_1w_1r.io.rd.en
+    io.rd.addr <> ram_1w_1r.io.rd.addr
+    io.rd.data <> ram_1w_1r.io.rd.data
 
   }
 

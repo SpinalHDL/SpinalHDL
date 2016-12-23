@@ -558,8 +558,9 @@ class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
     if (topLevel.getName() == null) topLevel.setWeakName("toplevel")
     for (c <- sortedComponents) {
       c.nameElements()
-      if(c.definitionName == null)
+      if(c.definitionName == null) {
         c.definitionName = pc.config.globalPrefix + c.getClass.getSimpleName
+      }
       c match {
         case bb: BlackBox => {
           bb.getGeneric.genNames
@@ -581,7 +582,7 @@ class PhaseCollectAndNameEnum(pc: PhaseContext) extends PhaseMisc{
       }
     })
 
-    val scope = pc.globalScope.copy()
+    val scope = pc.globalScope.newChild
     enums.keys.foreach(e => {
       val name = if(e.isNamed)
         e.getName()
@@ -1494,13 +1495,16 @@ class PhaseAllocateNames(pc: PhaseContext) extends PhaseMisc{
         globalScope.iWantIt(enumDef.getName())
     }
     for (c <- sortedComponents) {
-      reservedKeyWords.foreach(c.localScope.allocateName(_))
-      c.allocateNames
-
       if (c.isInstanceOf[BlackBox])
         globalScope.lockName(c.definitionName)
       else
         c.definitionName = globalScope.allocateName(c.definitionName)
+    }
+
+    globalScope.lockScope()
+
+    for (c <- sortedComponents) {
+      c.allocateNames(pc.globalScope)
     }
   }
 }

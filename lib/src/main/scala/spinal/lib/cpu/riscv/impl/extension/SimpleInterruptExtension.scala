@@ -19,7 +19,7 @@ class SimpleInterruptExtension(exceptionVector : Int) extends CoreExtension{
     }
     this
   }
-  override def applyIt(core: Core): Area = new Area {
+  override def applyIt(core: RiscvCore): Area = new Area {
 
     import core._
     for((id,(pin,name,exeption)) <- interruptUsage){

@@ -11,7 +11,7 @@ import spinal.lib.eda.altera.{InterruptReceiverTag, QSysify, ResetEmitterTag}
 import cpu.riscv.impl.extension._
 
 
-class RiscvAxi4(coreConfig : CoreConfig,iCacheConfig : InstructionCacheConfig, dCacheConfig : DataCacheConfig,debug : Boolean,interruptCount : Int) extends Component{
+class RiscvAxi4(coreConfig : RiscvCoreConfig,iCacheConfig : InstructionCacheConfig, dCacheConfig : DataCacheConfig,debug : Boolean,interruptCount : Int) extends Component{
   val iCached = iCacheConfig != null
   val dCached = dCacheConfig != null
 
@@ -53,7 +53,7 @@ class RiscvAxi4(coreConfig : CoreConfig,iCacheConfig : InstructionCacheConfig, d
     extension
   } else null
 
-  val core = new Core()(coreConfig)
+  val core = new RiscvCore()(coreConfig)
 
   if(debug) {
     DebugExtension.Apb3ToDebugBus(io.debugBus,debugExtension.io.bus)
@@ -126,7 +126,7 @@ object RiscvAxi4{
       //         memDataWidth = 32
       //       )
       //
-      val coreConfig = CoreConfig(
+      val coreConfig = RiscvCoreConfig(
         pcWidth = 32,
         addrWidth = 32,
         startAddress = 0x200,

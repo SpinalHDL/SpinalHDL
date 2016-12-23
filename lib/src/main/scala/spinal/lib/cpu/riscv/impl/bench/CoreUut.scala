@@ -7,7 +7,7 @@ import spinal.lib.cpu.riscv.impl._
 object CoreUut{
   import spinal.lib.cpu.riscv.impl.extension._
 
-  class TopLevel(p : CoreConfig,iCacheConfig : InstructionCacheConfig, dCacheConfig : DataCacheConfig,debug : Boolean,interruptCount : Int) extends Component{
+  class TopLevel(p : RiscvCoreConfig,iCacheConfig : InstructionCacheConfig, dCacheConfig : DataCacheConfig,debug : Boolean,interruptCount : Int) extends Component{
     implicit val toto = p
     val oneCycleInstrPip = true
     val iCached = iCacheConfig != null
@@ -47,7 +47,7 @@ object CoreUut{
 
     def StreamDelay[T <: Data](that : Stream[T]) = that.s2mPipe().s2mPipe().s2mPipe().s2mPipe().s2mPipe().s2mPipe()
     def InstStreamDelay[T <: Data](that : Stream[T]) = if(oneCycleInstrPip) that else that.s2mPipe().s2mPipe().s2mPipe().s2mPipe().s2mPipe().s2mPipe()
-    val core = new Core
+    val core = new RiscvCore
 
 
 
@@ -221,7 +221,7 @@ object CoreUut{
           memDataWidth = 32
         )
 
-        implicit val p = CoreConfig(
+        implicit val p = RiscvCoreConfig(
           pcWidth = 32,
           addrWidth = 32,
           startAddress = 0x200,

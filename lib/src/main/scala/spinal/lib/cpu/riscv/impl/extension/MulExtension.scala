@@ -15,7 +15,7 @@ import spinal.lib.cpu.riscv.impl.Utils._
 class MulExtension extends CoreExtension{
   override def needTag: Boolean = true
   override def getName: String = "MulExtension"
-  override def applyIt(core: Core): Area = new Area{
+  override def applyIt(core: RiscvCore): Area = new Area{
     import core._
 
     var sample : Bool = null
