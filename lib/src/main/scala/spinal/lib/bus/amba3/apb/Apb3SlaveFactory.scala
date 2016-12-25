@@ -7,7 +7,7 @@ object Apb3SlaveFactory {
   def apply(bus: Apb3, selId: Int = 0) = new Apb3SlaveFactory(bus, selId)
 }
 
-class Apb3SlaveFactory(bus: Apb3, selId: Int, config: BusSlaveFactoryConfig = BusSlaveFactoryConfig()) extends BusSlaveFactoryDelayed{
+class Apb3SlaveFactory(bus: Apb3, selId: Int, configBus: BusSlaveFactoryConfig = BusSlaveFactoryConfig()) extends BusSlaveFactoryDelayed{
 
   bus.PREADY := True
   bus.PRDATA := 0
@@ -20,7 +20,7 @@ class Apb3SlaveFactory(bus: Apb3, selId: Int, config: BusSlaveFactoryConfig = Bu
 
     for(element <- elements) element match {
       case element: BusSlaveFactoryNonStopWrite => element.that.assignFromBits(bus.PWDATA(element.bitOffset, element.that.getBitsWidth bits))
-      case _                                    =>
+      case _ =>
     }
 
     for((address, jobs) <- elementsPerAddress){
@@ -29,14 +29,14 @@ class Apb3SlaveFactory(bus: Apb3, selId: Int, config: BusSlaveFactoryConfig = Bu
           for(element <- jobs) element match{
             case element: BusSlaveFactoryWrite   => element.that.assignFromBits(bus.PWDATA(element.bitOffset, element.that.getBitsWidth bits))
             case element: BusSlaveFactoryOnWrite => element.doThat()
-            case _                               =>
+            case _ =>
           }
         }
         when(doRead){
           for(element <- jobs) element match{
             case element: BusSlaveFactoryRead   => bus.PRDATA(element.bitOffset, element.that.getBitsWidth bits) := element.that.asBits
             case element: BusSlaveFactoryOnRead => element.doThat()
-            case _                              =>
+            case _ =>
           }
         }
       }
@@ -46,4 +46,6 @@ class Apb3SlaveFactory(bus: Apb3, selId: Int, config: BusSlaveFactoryConfig = Bu
   override def busDataWidth: Int = bus.config.dataWidth
 
   override def multiWordAddressInc: Int = busDataWidth / 8
+
+  override def configFactory: BusSlaveFactoryConfig = configBus
 }

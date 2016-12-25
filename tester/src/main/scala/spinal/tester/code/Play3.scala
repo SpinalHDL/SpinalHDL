@@ -1134,18 +1134,23 @@ object PlayWithBusSlaveFacotry{
   class TopLevel extends Component {
     val io = new Bundle{
       val apb3 = slave(Apb3(32, 32))
-      val key  = out Bits(128 bits)
+     // val key  = out Bits(160 bits)
+      val value = out Bits(150 bits)
     }
 
-    val key_reg = Reg(cloneOf(io.key))
+   // val key_reg = Reg(cloneOf(io.key)) init(0)
+    val value_reg = Reg(cloneOf(io.value))
 
     val factoryConfig = new BusSlaveFactoryConfig(BIG)
     val factory = new Apb3SlaveFactory(io.apb3, 0, factoryConfig)
 
-    factory.writeMultiWord(key_reg, 0x1000l)
-    factory.readMultiWord(key_reg, 0x1000l)
+   // factory.writeMultiWord(key_reg, 0x100l)
+   // factory.readMultiWord(key_reg, 0x100l)
 
-    io.key := key_reg
+    factory.readAndWriteMultiWord(value_reg, 0x200l)
+
+   // io.key   := key_reg
+    io.value := value_reg
   }
 
   def main(args: Array[String]): Unit ={
