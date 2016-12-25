@@ -64,4 +64,6 @@ class AvalonMMSlaveFactory(bus: AvalonMM, configBus: BusSlaveFactoryConfig = Bus
   override def busDataWidth: Int = bus.config.dataWidth
 
   override def configFactory: BusSlaveFactoryConfig = configBus
+
+  override def multiWordAddressInc: Int = busDataWidth / 8
 }

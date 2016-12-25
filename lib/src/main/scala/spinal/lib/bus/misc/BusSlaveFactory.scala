@@ -33,7 +33,9 @@ import scala.collection.mutable.ArrayBuffer
   * Endianness of the BusSlaveFactory
   */
 sealed trait EndiannessBusSlaveFactory
+/** Little-Endian */
 object LITTLE extends EndiannessBusSlaveFactory
+/** Big-Endian */
 object BIG    extends EndiannessBusSlaveFactory
 
 
@@ -423,4 +425,6 @@ class BusSlaveFactoryAddressWrapper(f: BusSlaveFactory, addressOffset: Int) exte
   override def nonStopWrite(that: Data, bitOffset: Int): Unit = f.nonStopWrite(that, bitOffset)
   override def onWriteCondition(condition: => Bool)(doThat: => Unit) = f.onWriteCondition(condition)(doThat)
   override def onReadCondition(condition: => Bool)(doThat: => Unit) = f.onReadCondition(condition)(doThat)
+  override def multiWordAddressInc: Int = busDataWidth / 8
+  override def configFactory = BusSlaveFactoryConfig()
 }

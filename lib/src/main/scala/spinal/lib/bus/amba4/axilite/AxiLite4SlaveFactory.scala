@@ -15,6 +15,7 @@ class AxiLite4SlaveFactory(bus : AxiLite4, configBus: BusSlaveFactoryConfig = Bu
   val readRsp = AxiLite4R(bus.config)
   bus.readRsp << readDataStage.translateWith(readRsp)
 
+
   writeRsp.setOKAY()
   readRsp.setOKAY()
   readRsp.data := 0
@@ -59,4 +60,6 @@ class AxiLite4SlaveFactory(bus : AxiLite4, configBus: BusSlaveFactoryConfig = Bu
   override def busDataWidth: Int = bus.config.dataWidth
 
   override def configFactory: BusSlaveFactoryConfig = configBus
+
+  override def multiWordAddressInc: Int = busDataWidth / 8
 }
