@@ -231,42 +231,53 @@ object cloneable{
   }
 }
 
-class Scope {
+class Scope(parent : Scope = null) {
+  var lock = false
   val map = mutable.Map[String, Int]()
-
-
   def allocateName(name: String): String = {
+    assert(!lock)
+    if(name == "core"){
+      println("miaou")
+    }
     val lowerCase = name.toLowerCase
     val count = map.get(lowerCase).getOrElse(0)
     map(lowerCase) = count + 1
-    if (count == 0) name else name + "_" + count
+    val finalCount =  (count + (if(parent != null) parent.map.get(lowerCase).getOrElse(0) else 0))
+    if (finalCount == 0) name else name + "_" + finalCount
   }
 
   def getUnusedName(name: String): String = {
     val lowerCase = name.toLowerCase
-    val count = map.get(lowerCase).getOrElse(0)
+    val count = (map.get(lowerCase).getOrElse(0) + (if(parent != null) parent.map.get(lowerCase).getOrElse(0) else 0))
     if (count == 0) name else name + "_" + count
   }
 
 
   def lockName(name: String): Unit = {
+    assert(!lock)
     val lowerCase = name.toLowerCase
     val count = map.get(lowerCase).getOrElse(1)
     map(lowerCase) = count
   }
 
   def iWantIt(name: String): Unit = {
+    assert(!lock)
     val lowerCase = name.toLowerCase
-    if (map.contains(lowerCase))
+    if (map.contains(lowerCase) ||  (parent != null && parent.map.contains(lowerCase)))
       SpinalError(s"Reserved name $name is not free")
     map(lowerCase) = 1
   }
 
-  def copy() : Scope = {
-    val cpy = new Scope
-    map.foreach{case (n,i) => cpy.map.put(n,i)}
-    cpy
+  def lockScope(): Unit ={
+    this.lock = true
   }
+
+  def newChild = new Scope(this)
+//  def copy() : Scope = {
+//    val cpy = new Scope
+//    map.foreach{case (n,i) => cpy.map.put(n,i)}
+//    cpy
+//  }
 }
 
 /*

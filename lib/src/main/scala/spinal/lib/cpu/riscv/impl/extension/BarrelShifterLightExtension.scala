@@ -9,7 +9,7 @@ import spinal.lib.cpu.riscv.impl.Utils._
 class BarrelShifterLightExtension extends CoreExtension{
   override def needTag: Boolean = false
   override def getName: String = "barrelShifterLight"
-  override def applyIt(core: Core): Area = new Area{
+  override def applyIt(core: RiscvCore): Area = new Area{
     import core._
 
     val s1 = new Area {

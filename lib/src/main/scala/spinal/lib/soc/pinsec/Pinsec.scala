@@ -20,7 +20,7 @@ case class PinsecConfig(axiFrequency : BigDecimal,
                         onChipRamSize : BigInt,
                         sdramLayout: SdramLayout,
                         sdramTimings: SdramTimings,
-                        cpu : CoreConfig,
+                        cpu : RiscvCoreConfig,
                         iCache : InstructionCacheConfig)
 
 object PinsecConfig{
@@ -30,7 +30,7 @@ object PinsecConfig{
       onChipRamSize  = 4 kB,
       sdramLayout = IS42x320D.layout,
       sdramTimings = IS42x320D.timingGrade7,
-      cpu = CoreConfig(
+      cpu = RiscvCoreConfig(
         pcWidth = 32,
         addrWidth = 32,
         startAddress = 0x00000000,

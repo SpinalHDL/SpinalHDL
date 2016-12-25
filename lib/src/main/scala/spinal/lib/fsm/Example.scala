@@ -357,6 +357,27 @@ object StateMachineTry2Example {
 
 
 
+object StateMachineTry6Example {
+  class TopLevel extends Component {
+
+
+    def InnerFsm(stateBDelay : Int) = new StateMachine {
+      //...
+    }
+
+    val fsm = new StateMachine{
+      val stateA = new State with EntryPoint
+      val stateB = new StateFsm(InnerFsm(5))
+    }
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
+
 
 
 

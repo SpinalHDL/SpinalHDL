@@ -195,14 +195,14 @@ object PlayBlackBox3 {
         val data = out Bits (8 bit)
       }
     }
-    val ram = new Ram_1w_1r(8,16)
+    val ram_1w_1r = new Ram_1w_1r(8,16)
 
-    io.wr.en <> ram.io.wr.en
-    io.wr.addr <> ram.io.wr.addr
-    io.wr.data <> ram.io.wr.data
-    io.rd.en   <> ram.io.rd.en
-    io.rd.addr <> ram.io.rd.addr
-    io.rd.data <> ram.io.rd.data
+    io.wr.en <> ram_1w_1r.io.wr.en
+    io.wr.addr <> ram_1w_1r.io.wr.addr
+    io.wr.data <> ram_1w_1r.io.wr.data
+    io.rd.en   <> ram_1w_1r.io.rd.en
+    io.rd.addr <> ram_1w_1r.io.rd.addr
+    io.rd.data <> ram_1w_1r.io.rd.data
 
   }
 
@@ -2976,6 +2976,49 @@ object PlayAutoconncetRec{
 
     val c = Bool
     result := b & x.result
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+object Debug425{
+  class Wrapper() extends Component{
+
+    val io = new Bundle{
+
+      val bus_clk = in Bool
+      val bus_rst = in Bool
+    }
+
+    val axiClockDomain = ClockDomain.external("axi")
+    val busClockDonmain = ClockDomain(io.bus_clk, io.bus_rst)
+
+
+    val axiReg = axiClockDomain{
+      Counter(8).value.keep()
+    }
+
+    val busReg = busClockDonmain{
+      Counter(8).value.keep()
+    }
+  }
+
+
+  class TopLevel extends Component{
+
+    val io = new Bundle{
+      val user_clk = in Vec(Bool, 7)
+      val user_rstn  = in Vec(Bool, 7)
+
+    }
+
+    val wrapper = new Wrapper()
+    wrapper.io.bus_clk <> io.user_clk(4)
+    wrapper.io.bus_rst <> io.user_rstn(4)
+
+
   }
 
   def main(args: Array[String]) {

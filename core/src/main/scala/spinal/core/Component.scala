@@ -65,7 +65,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
   private[core] val ioSet = mutable.Set[BaseType]()
   private[core] var ioPrefixEnable = true
   val userCache = mutable.Map[Object, mutable.Map[Object, Object]]()
-  private[core] val localScope = new Scope()
+//  private[core] val localScope = new Scope()
   case class PrePopTask(task : () => Unit,clockDomain: ClockDomain)
   private[core] val prePopTasks = mutable.ArrayBuffer[PrePopTask]()
   private[core] val kindsOutputsToBindings = mutable.Map[BaseType, BaseType]()
@@ -172,7 +172,8 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
     })
   }
 
-  private[core] def allocateNames(): Unit = {
+  private[core] def allocateNames(globalScope : Scope): Unit = {
+    val localScope = globalScope.newChild
     localScope.allocateName("zz")
     for (node <- nodes) node match {
       case nameable: Nameable => {

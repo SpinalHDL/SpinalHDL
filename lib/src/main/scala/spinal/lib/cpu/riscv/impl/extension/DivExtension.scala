@@ -9,7 +9,7 @@ import spinal.lib.math.MixedDivider
 class DivExtension extends CoreExtension{
   override def needTag: Boolean = true
   override def getName: String = "DivExtension"
-  override def applyIt(core: Core): Area = new Area{
+  override def applyIt(core: RiscvCore): Area = new Area{
     import core._
 
     val divider = new MixedDivider(32,32,true)

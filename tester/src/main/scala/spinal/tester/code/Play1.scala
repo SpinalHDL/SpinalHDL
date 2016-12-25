@@ -1649,7 +1649,7 @@ object OverloadPlay2 {
         memDataWidth = 32
       )
 
-      val coreConfig = CoreConfig(
+      val coreConfig = RiscvCoreConfig(
         pcWidth = 32,
         addrWidth = 32,
         startAddress = 0x200,

@@ -11,7 +11,7 @@ import spinal.lib._
 class NativeDataBusExtension extends CoreExtension with AvalonProvider with AhbLite3Provider{
   override def getName: String = "NativeInstructionBus"
   var memBus : CoreDataBus = null
-  override def applyIt(core: Core): Area = new Area{
+  override def applyIt(core: RiscvCore): Area = new Area{
     memBus = master(CoreDataBus()(core.c)).setName("io_d")
     memBus.cmd << core.dCmd
     memBus.rsp >> core.dRsp
@@ -30,7 +30,7 @@ class NativeDataBusExtension extends CoreExtension with AvalonProvider with AhbL
 class CachedDataBusExtension(c : DataCacheConfig,cutCpuCmdReady : Boolean = false) extends CoreExtension with AvalonProvider{
   override def getName: String = "CachedDataBus"
   var memBus : DataCacheMemBus = null
-  override def applyIt(core: Core): Area = new Area{
+  override def applyIt(core: RiscvCore): Area = new Area{
     val cache = new DataCache()(c)
     val cacheDCmd = cloneOf(cache.io.cpu.cmd)
     val coreDRsp = cloneOf(core.dRsp)

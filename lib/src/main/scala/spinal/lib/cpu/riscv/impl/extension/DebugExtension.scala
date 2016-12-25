@@ -79,7 +79,7 @@ case class DebugExtensionIo() extends Bundle with IMasterSlave{
 
 class DebugExtension(val clockDomain: ClockDomain) extends CoreExtension{
   var io : DebugExtensionIo = null
-  override def applyIt(core: Core): Area = clockDomain(new Area{ //Can't use Clocking area because of scala error
+  override def applyIt(core: RiscvCore): Area = clockDomain(new Area{ //Can't use Clocking area because of scala error
     io = slave(DebugExtensionIo())
 
     val busReadDataReg = Reg(Bits(32 bit))
