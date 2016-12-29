@@ -29,6 +29,23 @@ import spinal.core._
 import spinal.lib._
 import scala.collection.mutable.ArrayBuffer
 
+/**
+  * Endianness of the BusSlaveFactory
+  */
+sealed trait EndiannessBusSlaveFactory
+/** Little-Endian */
+object LITTLE extends EndiannessBusSlaveFactory
+/** Big-Endian */
+object BIG    extends EndiannessBusSlaveFactory
+
+
+/**
+  * Configuration of the bus Slave Factory
+  *
+  * @param multiWordEndianness Endianness for the multiWrite or multiRead operations
+  */
+case class BusSlaveFactoryConfig(multiWordEndianness: EndiannessBusSlaveFactory = BIG)
+
 
 /**
   * Bus slave factory is a tool that provide an abstract and smooth way to define register bank
@@ -37,6 +54,20 @@ trait BusSlaveFactory extends Area{
 
   /** Return the data width of the bus */
   def busDataWidth: Int
+
+  /** Configuration of the BusSlaveFactory (default value : BIG-endian)  */
+  def configFactory: BusSlaveFactoryConfig = BusSlaveFactoryConfig(multiWordEndianness = BIG)
+
+  /** Address incrementation used by the read and write multi words  */
+  def multiWordAddressInc: Int = busDataWidth / 8
+
+  /**
+    * Return true if the configuration if set to little-endian
+    */
+  private def isLittleEndianness: Boolean = configFactory.multiWordEndianness match{
+    case LITTLE => true
+    case BIG    => false
+  }
 
   /**
     * When the bus read the address, fill the response with that at bitOffset
@@ -106,14 +137,18 @@ trait BusSlaveFactory extends Area{
     * Create the memory mapping to read that from address
     * If that  is bigger than one word it extends the register on followings addresses
     */
-  def readMultiWord(that: Data,
-                    address: BigInt): Unit  = {
+  def readMultiWord(that: Data, address: BigInt): Unit  = {
     val wordCount = (widthOf(that) - 1) / busDataWidth + 1
     val valueBits = that.asBits
-    var pos = 0
+    var pos = if(isLittleEndianness) 0 else widthOf(that) - busDataWidth
     for (wordId <- 0 until wordCount) {
-      read(valueBits(pos, Math.min(widthOf(that)-pos, busDataWidth) bits), address + wordId*busDataWidth / 8)
-      pos += busDataWidth
+      if (isLittleEndianness){
+        read(valueBits(pos, Math.min(widthOf(that) - pos, busDataWidth) bits), address + wordId * multiWordAddressInc)
+        pos += busDataWidth
+      }else{
+        read(valueBits(pos, Math.min(widthOf(that) - wordId * busDataWidth, busDataWidth) bits), address + wordId * multiWordAddressInc)
+        pos -= Math.min(pos, busDataWidth)
+      }
     }
   }
 
@@ -121,25 +156,30 @@ trait BusSlaveFactory extends Area{
     * Create the memory mapping to write that at address.
     * If that  is bigger than one word it extends the register on followings addresses
     */
-  def writeMultiWord(that: Data,
-                     address: BigInt): Unit  = {
+  def writeMultiWord(that: Data, address: BigInt): Unit  = {
     val wordCount = (widthOf(that) - 1) / busDataWidth + 1
     for (wordId <- 0 until wordCount) {
       write(
         that = new DataWrapper{
-          override def getBitsWidth: Int =
-            Math.min(busDataWidth, widthOf(that) - wordId * busDataWidth)
+          override def getBitsWidth: Int = Math.min(busDataWidth, widthOf(that) - wordId * busDataWidth)
 
           override def assignFromBits(value: Bits): Unit = {
             that.assignFromBits(
-              bits     = value.resized,
-              offset   = wordId * busDataWidth,
+              bits     = value.resize(getBitsWidth),
+              offset   = if(isLittleEndianness) wordId * busDataWidth else Math.max(0, widthOf(that) - (busDataWidth * (wordId + 1))),
               bitCount = getBitsWidth bits)
           }
         },
-        address = address + wordId * busDataWidth / 8,0
-      )
+        address = address + wordId * multiWordAddressInc, 0)
     }
+  }
+
+  /**
+    * Create the memory mapping to write/read that from address
+    */
+  def readAndWriteMultiWord(that: Data, address: BigInt): Unit = {
+    writeMultiWord(that, address)
+    readMultiWord(that, address)
   }
 
   /**
@@ -385,4 +425,6 @@ class BusSlaveFactoryAddressWrapper(f: BusSlaveFactory, addressOffset: Int) exte
   override def nonStopWrite(that: Data, bitOffset: Int): Unit = f.nonStopWrite(that, bitOffset)
   override def onWriteCondition(condition: => Bool)(doThat: => Unit) = f.onWriteCondition(condition)(doThat)
   override def onReadCondition(condition: => Bool)(doThat: => Unit) = f.onReadCondition(condition)(doThat)
+  override def multiWordAddressInc: Int = busDataWidth / 8
+  override def configFactory = BusSlaveFactoryConfig()
 }
