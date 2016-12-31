@@ -293,9 +293,9 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
 /** Drop transactions of this when cond is True. Return the resulting stream
   */
   def throwWhen(cond: Bool): Stream[T] = {
-    val next = cloneOf(this)
+    val next = Stream(dataType)
 
-    next connectFrom this
+    next << this
     when(cond) {
       next.valid := False
       this.ready := True

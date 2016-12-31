@@ -657,7 +657,7 @@ object C15 {
 
 
 object T1 {
-  val cond                = Bool
+  val cond                =  in Bool
   val mySignal            = Bool
   val myRegister          = Reg(UInt(4 bit))
   val myRegisterWithReset = Reg(UInt(4 bit)) init (3)
