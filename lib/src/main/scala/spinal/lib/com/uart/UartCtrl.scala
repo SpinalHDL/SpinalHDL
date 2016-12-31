@@ -31,7 +31,7 @@ case class UartCtrlConfig(g: UartCtrlGenerics) extends Bundle {
   val frame        = UartCtrlFrameConfig(g)
   val clockDivider = UInt (g.clockDividerWidth bit) //see UartCtrlGenerics.clockDividerWidth for calculation
 
-  def setClockDivider(baudrate : BigDecimal,clkFrequency : BigDecimal = ClockDomain.current.frequency.getValue) : Unit = {
+  def setClockDivider(baudrate : HertzNumber,clkFrequency : HertzNumber = ClockDomain.current.frequency.getValue) : Unit = {
     clockDivider := (clkFrequency / baudrate / g.rxSamplePerBit).toInt
   }
 }
@@ -200,7 +200,7 @@ class UartCtrlUsageExample extends Component{
   }
 
   val uartCtrl = new UartCtrl()
-  uartCtrl.io.config.setClockDivider(921600)
+  uartCtrl.io.config.setClockDivider(921.6 kHz)
   uartCtrl.io.config.frame.dataLength := 7  //8 bits
   uartCtrl.io.config.frame.parity := UartParityType.NONE
   uartCtrl.io.config.frame.stop := UartStopType.ONE
@@ -228,7 +228,7 @@ object UartCtrlUsageExample{
   def main(args: Array[String]) {
     SpinalConfig(
       mode = VHDL,
-      defaultClockDomainFrequency=FixedFrequency(50e6)
+      defaultClockDomainFrequency=FixedFrequency(50 MHz)
     ).generate(new UartCtrlUsageExample)
   }
 }

@@ -1179,7 +1179,7 @@ object PlayI2CMasterHAL {
       mode = Verilog,
       dumpWave = DumpWaveConfig(depth = 0),
       defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
-      defaultClockDomainFrequency = FixedFrequency(50e6)
+      defaultClockDomainFrequency = FixedFrequency(50 MHz)
     ).generate(new I2CMasterHALTester).printPruned
   }
 }
@@ -1207,7 +1207,7 @@ object PlayI2CSlaveHAL {
       mode = Verilog,
       dumpWave = DumpWaveConfig(depth = 0),
       defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
-      defaultClockDomainFrequency  = FixedFrequency(50e6)
+      defaultClockDomainFrequency  = FixedFrequency(50 MHz)
     ).generate(new I2CSlaveHALTester).printPruned
   }
 }
@@ -1266,7 +1266,7 @@ object PlayI2CHAL{
         mode = VHDL,
         dumpWave = DumpWaveConfig(depth = 0),
         defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
-        defaultClockDomainFrequency  = FixedFrequency(50e6)
+        defaultClockDomainFrequency  = FixedFrequency(50 MHz)
     ).generate(new I2CHALTester()).printPruned()
   }
 }
@@ -1356,7 +1356,7 @@ object PlayI2CHALTest{
     SpinalConfig(
       mode = Verilog,
       defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
-      defaultClockDomainFrequency  = FixedFrequency(50e6)
+      defaultClockDomainFrequency  = FixedFrequency(50 MHz)
     ).generate(new I2CHAL_App()).printPruned()
   }
 
@@ -1746,7 +1746,7 @@ object PlayAuto{
     i2cSlave.io.rsp  <> io.ioSlave.rsp
     i2cMaster.io.cmd <> io.ioMaster.cmd
     i2cMaster.io.rsp <> io.ioMaster.rsp
-    i2cMaster.io.config.setSCLFrequency(2e6)
+    i2cMaster.io.config.setSCLFrequency(2 MHz)
 
     simSDA.io.input     <> i2cMaster.io.i2c.sda
 
@@ -1784,7 +1784,7 @@ object PlayAuto{
       mode = Verilog,
       dumpWave = DumpWaveConfig(depth = 0),
       defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
-      defaultClockDomainFrequency  = FixedFrequency(50e6)
+      defaultClockDomainFrequency  = FixedFrequency(50 MHz)
     ).generate(new I2CHAL()).printPruned()
   }
 }

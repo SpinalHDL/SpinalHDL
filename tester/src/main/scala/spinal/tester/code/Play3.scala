@@ -53,6 +53,11 @@ object PlayAhbLite3{
 
 
 object PlayAhbLite3_2{
+  (43 MHz) * (1 kHz)
+  (43 MHz) * (1 kHz)
+  val f = 54 MHz
+  val i = f * 4
+  val x : BigDecimal = f
   class TopLevel extends Component{
     val ahbConfig = AhbLite3Config(addressWidth = 16,dataWidth = 32)
 //    val apbConfig = Apb3Config(addressWidth = 16,dataWidth = 32)
@@ -73,7 +78,7 @@ object PlayAhbLite3_2{
         ahbMasters(2).toAhbLite3() -> List(ahbSlaves(0),ahbSlaves(3))
       )
       .build()
-    (ClockDomain.current.frequency.getValue) sec
+    (ClockDomain.current.frequency.getValue)
   }
 
   def main(args: Array[String]) {
@@ -916,7 +921,7 @@ object PlayDesBlock{
       mode = Verilog,
       dumpWave = DumpWaveConfig(depth = 0),
       defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
-      defaultClockDomainFrequency = FixedFrequency(50e6)
+      defaultClockDomainFrequency = FixedFrequency(50 MHz)
     ).generate(new DES_Block_Tester).printPruned()
   }
 }
@@ -942,7 +947,7 @@ object Play3DESBlock{
       mode = Verilog,
       dumpWave = DumpWaveConfig(depth = 0),
       defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
-      defaultClockDomainFrequency  = FixedFrequency(50e6)
+      defaultClockDomainFrequency  = FixedFrequency(50 MHz)
     ).generate(new Triple_DES_Tester).printPruned
   }
 }

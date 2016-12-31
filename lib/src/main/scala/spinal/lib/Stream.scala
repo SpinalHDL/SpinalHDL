@@ -24,8 +24,8 @@ class EventFactory extends MSFactory {
 
 
 class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with DataCarrier[T] {
-  val valid = Bool
-  val ready = Bool
+  val valid   = Bool
+  val ready   = Bool
   val payload = cloneOf(_dataType)
 
 
