@@ -57,7 +57,8 @@ object PlayAhbLite3_2{
   (43 MHz) * (1 kHz)
   val f = 54 MHz
   val i = f * 4
-  val x : BigDecimal = f
+  val timeout = Timeout(100 ms)
+//  val x : BigDecimal = f
   class TopLevel extends Component{
     val ahbConfig = AhbLite3Config(addressWidth = 16,dataWidth = 32)
 //    val apbConfig = Apb3Config(addressWidth = 16,dataWidth = 32)

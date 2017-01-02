@@ -41,14 +41,14 @@ object CyclesCount{
 case class CyclesCount(val value : BigInt)
 
 object PhysicalNumber{
-  implicit def impConv(value : PhysicalNumber[_]) = value.value
+//  implicit def impConv(value : PhysicalNumber[_]) = value.value
 //  implicit def impConv(value : PhysicalNumber[_]) = value.value.toInt
 //  implicit def impConv(value : PhysicalNumber[_]) = value.value.toLong
 //  implicit def impConv(value : PhysicalNumber[_]) = value.value.toFloat
 //  implicit def impConv(value : PhysicalNumber[_]) = value.value.toDouble
 }
 
-abstract class PhysicalNumber[T <: PhysicalNumber[_]](val value : BigDecimal) {
+abstract class PhysicalNumber[T <: PhysicalNumber[_]](protected val value : BigDecimal) {
   def newInstance(value : BigDecimal) : T
 
   def +(that : T) = newInstance(this.value + that.value)
@@ -68,28 +68,29 @@ abstract class PhysicalNumber[T <: PhysicalNumber[_]](val value : BigDecimal) {
   def toInt = value.toInt
   def toLong = value.toLong
   def toDouble = value.toDouble
+  def toBigDecimal = value
 }
 
 case class TimeNumber(private val v : BigDecimal) extends PhysicalNumber[TimeNumber](v){
   override def newInstance(value: BigDecimal): TimeNumber = TimeNumber(value)
 
 
-  def +(that : HertzNumber) = (this.value + that.value)
-  def -(that : HertzNumber) = (this.value - that.value)
-  def *(that : HertzNumber) = (this.value * that.value)
-  def /(that : HertzNumber) = (this.value / that.value)
-  def %(that : HertzNumber) = (this.value % that.value)
+  def +(that : HertzNumber) = (this.value + that.toBigDecimal)
+  def -(that : HertzNumber) = (this.value - that.toBigDecimal)
+  def *(that : HertzNumber) = (this.value * that.toBigDecimal)
+  def /(that : HertzNumber) = (this.value / that.toBigDecimal)
+  def %(that : HertzNumber) = (this.value % that.toBigDecimal)
 }
 
 case class HertzNumber(private val v : BigDecimal) extends PhysicalNumber[HertzNumber](v){
   override def newInstance(value: BigDecimal): HertzNumber = HertzNumber(value)
 
 
-  def +(that : TimeNumber) = (this.value + that.value)
-  def -(that : TimeNumber) = (this.value - that.value)
-  def *(that : TimeNumber) = (this.value * that.value)
-  def /(that : TimeNumber) = (this.value / that.value)
-  def %(that : TimeNumber) = (this.value % that.value)
+  def +(that : TimeNumber) = (this.value + that.toBigDecimal)
+  def -(that : TimeNumber) = (this.value - that.toBigDecimal)
+  def *(that : TimeNumber) = (this.value * that.toBigDecimal)
+  def /(that : TimeNumber) = (this.value / that.toBigDecimal)
+  def %(that : TimeNumber) = (this.value % that.toBigDecimal)
 }
 
 
