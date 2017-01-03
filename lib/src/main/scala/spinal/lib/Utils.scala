@@ -367,14 +367,17 @@ class BitAggregator {
 
 object CounterFreeRun {
   def apply(stateCount: BigInt): Counter = {
-    val c = new Counter(stateCount)
+    val c = Counter(stateCount)
+    c.willIncrement.removeAssignements()
     c.increment()
     c
   }
 }
 
 object Counter {
-  def apply(stateCount: BigInt): Counter = new Counter(stateCount)
+  def apply(low: BigInt,high: BigInt) = new Counter(start = low, end = high)
+  def apply(stateCount: BigInt): Counter = Counter(low = 0, high = stateCount-1)
+  def apply(range : Range) = Counter(low = range.start, high = range.end)
   def apply(stateCount: BigInt, inc: Bool): Counter = {
     val counter = Counter(stateCount)
     when(inc) {
@@ -385,34 +388,32 @@ object Counter {
 //  implicit def implicitValue(c: Counter) = c.value
 }
 
-class Counter(val stateCount: BigInt) extends ImplicitArea[UInt] {
+// start and end inclusive, up counter
+class Counter(val start: BigInt,val end: BigInt) extends ImplicitArea[UInt] {
+  require(start <= end)
   val willIncrement = False
   val willClear = False
 
   def clear(): Unit = willClear := True
   def increment(): Unit = willIncrement := True
 
-  val valueNext = UInt(log2Up(stateCount) bit)
-  val value = RegNext(valueNext) init(0)
-  val willOverflowIfInc = value === stateCount - 1
+  val valueNext = UInt(log2Up(end + 1) bit)
+  val value = RegNext(valueNext) init(start)
+  val willOverflowIfInc = value === end
   val willOverflow = willOverflowIfInc && willIncrement
 
-  if (isPow2(stateCount)) {
+  if (isPow2(end + 1) && start == 0) {   //Check if using overflow follow the spec
     valueNext := (value + U(willIncrement)).resized
   }
   else {
-    when(willIncrement) {
-      when(willOverflowIfInc) {
-        valueNext := U(0)
-      } otherwise {
-        valueNext := value + U(1)
-      }
+    when(willIncrement && willOverflowIfInc){
+      valueNext := U(start)
     } otherwise {
-      valueNext := value
+      valueNext := (value + U(willIncrement)).resized
     }
   }
   when(willClear) {
-    valueNext := 0
+    valueNext := start
   }
 
   willOverflowIfInc.allowPruning
