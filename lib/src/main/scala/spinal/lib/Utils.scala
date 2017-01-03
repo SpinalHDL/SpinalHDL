@@ -375,9 +375,9 @@ object CounterFreeRun {
 }
 
 object Counter {
-  def apply(low: BigInt,high: BigInt) = new Counter(start = low, end = high)
-  def apply(stateCount: BigInt): Counter = Counter(low = 0, high = stateCount-1)
-  def apply(range : Range) = Counter(low = range.start, high = range.end)
+  def apply(low: BigInt,high: BigInt) : Counter  = new Counter(start = low, end = high)
+  def apply(stateCount: BigInt): Counter = new Counter(start = 0, end = stateCount-1)
+  def apply(range : Range) : Counter = Counter(low = range.start, high = range.end)
   def apply(stateCount: BigInt, inc: Bool): Counter = {
     val counter = Counter(stateCount)
     when(inc) {
