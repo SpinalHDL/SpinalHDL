@@ -1163,3 +1163,24 @@ object PlayWithBusSlaveFacotry{
     SpinalVhdl(new TopLevel)
   }
 }
+
+
+object PlayMuxInfer{
+  class TopLevel extends Component {
+    val sel = in Bool
+    val a = in UInt (4 bits)
+    val b = in UInt (8 bits)
+    val result = out UInt (4 bits)
+    val x = 0 until 10
+    val y = 0 to 10
+
+
+    val z = 5 until 0 by -1
+    val zz = 5 to 0 by -1
+    result := sel ? a | b
+  }
+
+  def main(args: Array[String]): Unit ={
+    SpinalVhdl(new TopLevel)
+  }
+}

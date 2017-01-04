@@ -375,17 +375,25 @@ object CounterFreeRun {
 }
 
 object Counter {
-  def apply(low: BigInt,high: BigInt) : Counter  = new Counter(start = low, end = high)
+  def apply(start: BigInt,end: BigInt) : Counter  = new Counter(start = start, end = end)
+  def apply(range : Range) : Counter = {
+    require(range.step == 1)
+    Counter(start = range.low, end = range.high)
+  }
   def apply(stateCount: BigInt): Counter = new Counter(start = 0, end = stateCount-1)
-  def apply(range : Range) : Counter = Counter(low = range.start, high = range.end)
-  def apply(stateCount: BigInt, inc: Bool): Counter = {
-    val counter = Counter(stateCount)
+
+  def apply(start: BigInt,end: BigInt, inc: Bool) : Counter  = {
+    val counter = Counter(start,end)
     when(inc) {
       counter.increment()
     }
     counter
   }
-//  implicit def implicitValue(c: Counter) = c.value
+  def apply(range : Range, inc: Bool) : Counter  = {
+    require(range.step == 1)
+    Counter(start = range.low, end = range.high,inc = inc)
+  }
+  def apply(stateCount: BigInt, inc: Bool): Counter = Counter(start = 0, end = stateCount-1,inc = inc)
 }
 
 // start and end inclusive, up counter
@@ -406,7 +414,7 @@ class Counter(val start: BigInt,val end: BigInt) extends ImplicitArea[UInt] {
     valueNext := (value + U(willIncrement)).resized
   }
   else {
-    when(willIncrement && willOverflowIfInc){
+    when(willOverflow){
       valueNext := U(start)
     } otherwise {
       valueNext := (value + U(willIncrement)).resized
