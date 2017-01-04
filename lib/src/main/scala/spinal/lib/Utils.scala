@@ -434,8 +434,9 @@ class Counter(val start: BigInt,val end: BigInt) extends ImplicitArea[UInt] {
 
 
 object Timeout {
-  def apply(limit: BigInt) = new Timeout(limit)
-  def apply(limit: TimeNumber) = new Timeout((limit*ClockDomain.current.frequency.getValue).toBigInt())
+  def apply(cycles: BigInt) : Timeout = new Timeout(cycles)
+  def apply(time: TimeNumber) : Timeout = new Timeout((time*ClockDomain.current.frequency.getValue).toBigInt())
+  def apply(frequency: HertzNumber) : Timeout = Timeout(frequency.toTime)
 }
 
 class Timeout(val limit: BigInt) extends ImplicitArea[Bool] {

@@ -74,23 +74,25 @@ abstract class PhysicalNumber[T <: PhysicalNumber[_]](protected val value : BigD
 case class TimeNumber(private val v : BigDecimal) extends PhysicalNumber[TimeNumber](v){
   override def newInstance(value: BigDecimal): TimeNumber = TimeNumber(value)
 
-
   def +(that : HertzNumber) = (this.value + that.toBigDecimal)
   def -(that : HertzNumber) = (this.value - that.toBigDecimal)
   def *(that : HertzNumber) = (this.value * that.toBigDecimal)
   def /(that : HertzNumber) = (this.value / that.toBigDecimal)
   def %(that : HertzNumber) = (this.value % that.toBigDecimal)
+
+  def toHertz = HertzNumber(1/this.value)
 }
 
 case class HertzNumber(private val v : BigDecimal) extends PhysicalNumber[HertzNumber](v){
   override def newInstance(value: BigDecimal): HertzNumber = HertzNumber(value)
-
 
   def +(that : TimeNumber) = (this.value + that.toBigDecimal)
   def -(that : TimeNumber) = (this.value - that.toBigDecimal)
   def *(that : TimeNumber) = (this.value * that.toBigDecimal)
   def /(that : TimeNumber) = (this.value / that.toBigDecimal)
   def %(that : TimeNumber) = (this.value % that.toBigDecimal)
+
+  def toTime = TimeNumber(1/this.value)
 }
 
 
