@@ -72,7 +72,7 @@ class I2CHALCocotbBoot extends SpinalTesterCocotbBase {
   override def pythonTestLocation: String = "tester/src/test/python/spinal/I2CTester/HAL"
   override def createToplevel: Component = new I2CHALTester
   override def backendConfig(config: SpinalConfig) : SpinalConfig = {
-    config.copy(defaultClockDomainFrequency  = FixedFrequency(50e6),
+    config.copy(defaultClockDomainFrequency  = FixedFrequency(50 MHz),
       defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW))
   }
 }

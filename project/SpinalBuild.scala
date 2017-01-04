@@ -1,7 +1,7 @@
 import sbt.Keys._
 import sbt._
-import xerial.sbt.Sonatype.SonatypeKeys
 import xerial.sbt.Sonatype.SonatypeKeys._
+
 
 object SpinalBuild extends Build {
   lazy val all = Project(
@@ -15,17 +15,32 @@ object SpinalBuild extends Build {
     aggregate = Seq(core, lib, debugger, tester)
   )
 
+  import sys.process._
+  def gitHash = ("git rev-parse HEAD".!!).linesIterator.next()
+
   lazy val core = Project(
     id = "SpinalHDL-core",
     base = file("core"),
-    settings = defaultSettings ++ Seq(
+    settings = defaultSettings  ++  Seq(
       name := "SpinalHDL Core",
       libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value,
       libraryDependencies += "com.github.scopt" %% "scopt" % "3.4.0",
       resolvers += Resolver.sonatypeRepo("public"),
-      version := SpinalVersion.core
+      version := SpinalVersion.core,
+      sourceGenerators in Compile <+= (sourceManaged in Compile, version, name) map { (d, v, n) =>
+        val file = d / "Info.scala"
+        IO.write(file, """package spinal.core
+                         |object Info {
+                         |  val version = "%s"
+                         |  val name = "%s"
+                         |  val gitHash = "%s"
+                         |}
+                         |""".stripMargin.format(v, n,gitHash))
+        Seq(file)
+      }
     )
   )
+
 
   lazy val lib = Project(
     id = "SpinalHDL-lib",

@@ -31,21 +31,21 @@ object cmdStream_rspStream extends InstructionBusKind with DataBusKind
 object cmdStream_rspFlow extends InstructionBusKind with DataBusKind
 
 
-case class CoreConfig(val pcWidth : Int = 32,
-                      val addrWidth : Int = 32,
-                      val startAddress : Int = 0,
-                      val bypassExecute0 : Boolean = true,
-                      val bypassExecute1 : Boolean = true,
-                      val bypassWriteBack : Boolean = true,
-                      val bypassWriteBackBuffer : Boolean = true,
-                      val collapseBubble : Boolean = true,
-                      val branchPrediction : BranchPrediction = static,
-                      val regFileReadyKind : RegFileReadKind = sync,
-                      val fastFetchCmdPcCalculation : Boolean = true,
-                      val dynamicBranchPredictorCacheSizeLog2 : Int = 4,
-                      val branchPredictorHistoryWidth : Int = 2,
-                      val invalidInstructionIrqId : Int = 0,
-                      val unalignedMemoryAccessIrqId : Int = 1
+case class RiscvCoreConfig(val pcWidth : Int = 32,
+                           val addrWidth : Int = 32,
+                           val startAddress : Int = 0,
+                           val bypassExecute0 : Boolean = true,
+                           val bypassExecute1 : Boolean = true,
+                           val bypassWriteBack : Boolean = true,
+                           val bypassWriteBackBuffer : Boolean = true,
+                           val collapseBubble : Boolean = true,
+                           val branchPrediction : BranchPrediction = static,
+                           val regFileReadyKind : RegFileReadKind = sync,
+                           val fastFetchCmdPcCalculation : Boolean = true,
+                           val dynamicBranchPredictorCacheSizeLog2 : Int = 4,
+                           val branchPredictorHistoryWidth : Int = 2,
+                           val invalidInstructionIrqId : Int = 0,
+                           val unalignedMemoryAccessIrqId : Int = 1
                        ) {
   val extensions = ArrayBuffer[CoreExtension]()
   def add[T <: CoreExtension](that : T) : T= {
@@ -56,11 +56,11 @@ case class CoreConfig(val pcWidth : Int = 32,
   def needExecute0PcPlus4 = true //branchPrediction != disable
 }
 
-case class CoreInstructionCmd(implicit p : CoreConfig) extends Bundle{
+case class CoreInstructionCmd(implicit p : RiscvCoreConfig) extends Bundle{
   val pc = UInt(p.addrWidth bit)
 }
 
-case class CoreInstructionRsp(implicit p : CoreConfig) extends Bundle{
+case class CoreInstructionRsp(implicit p : RiscvCoreConfig) extends Bundle{
   val instruction = Bits(32 bit)
   val pc = UInt(p.addrWidth bit)
   val branchCacheLine = if(p.branchPrediction == dynamic) BranchPredictorLine() else null
@@ -68,19 +68,19 @@ case class CoreInstructionRsp(implicit p : CoreConfig) extends Bundle{
 
 
 object CoreInstructionBus{
-  def getAvalonConfig(p : CoreConfig) = AvalonMMConfig.pipelined(
+  def getAvalonConfig(p : RiscvCoreConfig) = AvalonMMConfig.pipelined(
     addressWidth = p.addrWidth,
     dataWidth = 32
   ).getReadOnlyConfig.copy(
     maximumPendingReadTransactions = 1
   )
 
-  def getAhbLite3Config(p : CoreConfig) = AhbLite3Config(
+  def getAhbLite3Config(p : RiscvCoreConfig) = AhbLite3Config(
     addressWidth = p.addrWidth,
     dataWidth = 32
   )
 
-  def getAxi4Config(p : CoreConfig) = Axi4Config(
+  def getAxi4Config(p : RiscvCoreConfig) = Axi4Config(
     addressWidth = p.addrWidth,
     dataWidth = 32,
     useId = false,
@@ -94,7 +94,7 @@ object CoreInstructionBus{
   )
 }
 
-case class CoreInstructionBus(implicit val p : CoreConfig) extends Bundle with IMasterSlave{
+case class CoreInstructionBus(implicit val p : RiscvCoreConfig) extends Bundle with IMasterSlave{
   val cmd = Stream (CoreInstructionCmd())
   val branchCachePort = if(p.branchPrediction == dynamic) MemReadPort(BranchPredictorLine(),p.dynamicBranchPredictorCacheSizeLog2) else null
   val rsp = Stream (CoreInstructionRsp())
@@ -219,7 +219,7 @@ case class CoreInstructionBus(implicit val p : CoreConfig) extends Bundle with I
 }
 
 object CoreDataBus{
-  def getAvalonConfig(p : CoreConfig) = AvalonMMConfig.pipelined(
+  def getAvalonConfig(p : RiscvCoreConfig) = AvalonMMConfig.pipelined(
     addressWidth = 32,
     dataWidth = 32).copy(
       useByteEnable = true,
@@ -227,12 +227,12 @@ object CoreDataBus{
     )
 
 
-  def getAhbLite3Config(p : CoreConfig) = AhbLite3Config(
+  def getAhbLite3Config(p : RiscvCoreConfig) = AhbLite3Config(
     addressWidth = p.addrWidth,
     dataWidth = 32
   )
 
-  def getAxi4Config(p : CoreConfig) = Axi4Config(
+  def getAxi4Config(p : RiscvCoreConfig) = Axi4Config(
     addressWidth = p.addrWidth,
     dataWidth = 32,
     useId = false,
@@ -245,7 +245,7 @@ object CoreDataBus{
   )
 }
 
-case class CoreDataBus(implicit p : CoreConfig) extends Bundle with IMasterSlave{
+case class CoreDataBus(implicit p : RiscvCoreConfig) extends Bundle with IMasterSlave{
   val cmd = Stream (CoreDataCmd())
   val rsp = Stream (Bits(32 bit))
 
@@ -405,25 +405,25 @@ case class CoreDataBus(implicit p : CoreConfig) extends Bundle with IMasterSlave
   }
 }
 
-case class CoreDataCmd(implicit p : CoreConfig) extends Bundle{
+case class CoreDataCmd(implicit p : RiscvCoreConfig) extends Bundle{
   val wr = Bool
   val address = UInt(p.addrWidth bit)
   val data = Bits(32 bit)
   val size = UInt(2 bit)
 }
 
-case class BranchPredictorLine(implicit p : CoreConfig)  extends Bundle{
+case class BranchPredictorLine(implicit p : RiscvCoreConfig)  extends Bundle{
   val pc = UInt(p.pcWidth-p.dynamicBranchPredictorCacheSizeLog2-2 bit)
   val history = SInt(p.branchPredictorHistoryWidth bit)
 }
 
-case class CoreFetchOutput(implicit p : CoreConfig) extends Bundle{
+case class CoreFetchOutput(implicit p : RiscvCoreConfig) extends Bundle{
   val pc = UInt(p.pcWidth bit)
   val instruction = Bits(32 bit)
   val branchCacheLine = BranchPredictorLine()
 }
 
-case class CoreDecodeOutput(implicit p : CoreConfig) extends Bundle{
+case class CoreDecodeOutput(implicit p : RiscvCoreConfig) extends Bundle{
   val pc = UInt(p.pcWidth bit)
   val instruction = Bits(32 bit)
   val ctrl = InstructionCtrl()
@@ -436,7 +436,7 @@ case class CoreDecodeOutput(implicit p : CoreConfig) extends Bundle{
   val branchHistory = Flow(SInt(p.branchPredictorHistoryWidth bit))
 }
 
-case class CoreExecute0Output(implicit p : CoreConfig) extends Bundle{
+case class CoreExecute0Output(implicit p : RiscvCoreConfig) extends Bundle{
   val pc = UInt(p.pcWidth bit)
   val instruction = Bits(32 bit)
   val ctrl = InstructionCtrl()
@@ -455,7 +455,7 @@ case class CoreExecute0Output(implicit p : CoreConfig) extends Bundle{
   val dCmdAddress = UInt(p.addrWidth bits)
 }
 
-case class CoreExecute1Output(implicit p : CoreConfig) extends Bundle{
+case class CoreExecute1Output(implicit p : RiscvCoreConfig) extends Bundle{
   val pc = UInt(p.pcWidth bit)
   val instruction = Bits(32 bit)
   val ctrl = InstructionCtrl()
@@ -467,12 +467,12 @@ case class CoreExecute1Output(implicit p : CoreConfig) extends Bundle{
   val dCmdAddress = UInt(p.addrWidth bits)
 }
 
-case class CoreWriteBack0Output(implicit p : CoreConfig) extends Bundle{
+case class CoreWriteBack0Output(implicit p : RiscvCoreConfig) extends Bundle{
   val addr = UInt(5 bit)
   val data = Bits(32 bit)
 }
 
-class Core(implicit val c : CoreConfig) extends Component{
+class RiscvCore(implicit val c : RiscvCoreConfig) extends Component{
   import c._
 
   //Instruction bus
@@ -1106,14 +1106,14 @@ class Core(implicit val c : CoreConfig) extends Component{
   }
 
 
-  decode.outInst.ctrl.unused
-  execute0.inInst.ctrl.unused
-  execute0.outInst.ctrl.unused
-  execute1.inInst.ctrl.unused
-  execute1.outInst.ctrl.unused
-  writeBack.inInst.ctrl.unused
+  decode.outInst.ctrl.allowPruning
+  execute0.inInst.ctrl.allowPruning
+  execute0.outInst.ctrl.allowPruning
+  execute1.inInst.ctrl.allowPruning
+  execute1.outInst.ctrl.allowPruning
+  writeBack.inInst.ctrl.allowPruning
 
-  decode.ctrl.extensionData.unused
+  decode.ctrl.extensionData.allowPruning
 
 
 }

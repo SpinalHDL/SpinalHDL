@@ -82,13 +82,8 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
   private[core] var ioPrefixEnable = true
   /** Used to store arbitrary object related to the component */
   val userCache = mutable.Map[Object, mutable.Map[Object, Object]]()
-  /** */
-  private[core] val localScope = new Scope()
-  /** */
   private[core] val kindsOutputsToBindings = mutable.Map[BaseType, BaseType]()
-  /** */
   private[core] val kindsOutputsBindings = mutable.Set[BaseType]()
-  /** */
   private[core] val additionalNodesRoot = mutable.Set[Node]()
   /** Definition Name (name of the entity (VHDL) or module (Verilog))*/
   var definitionName: String = null
@@ -101,14 +96,14 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
   /** Contains all nodes of the components */
   var nodes: ArrayBuffer[Node] = null
 
+  private[core] var pulledDataCache = mutable.Map[Data, Data]()
+  private[core] val initialAssignementCondition = globalData.conditionalAssignStack.head()
+
   /** Get the parent component (null if there is no parent)*/
   val parent = Component.current
   /** Get the current clock domain (null if there is no clock domain already set )*/
   val clockDomain = ClockDomain.current
-  /**  */
-  private[core] val initialAssignementCondition = globalData.conditionalAssignStack.head()
-  /**  */
-  private[core] var pulledDataCache = mutable.Map[Data, Data]()
+
 
   // Check if it is a top level component or a children of another component
   if (parent != null) {
@@ -194,7 +189,6 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
       OwnableRef.proposal(io,this)
     }
 
-
     Misc.reflect(this, (name, obj) => {
       if(obj != io) {
         obj match {
@@ -227,9 +221,11 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
     })
   }
 
-  /**  */
-  private[core] def allocateNames(): Unit = {
-
+  /**
+    * Name allocation
+    */
+  private[core] def allocateNames(globalScope : Scope): Unit = {
+    val localScope = globalScope.newChild
     localScope.allocateName("zz")
 
     for (node <- nodes) node match {
@@ -271,6 +267,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
       })
       nodeIo
     }
+
   }
 
   /** Sort all IO regarding instanceCounter */
@@ -289,8 +286,8 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
     delays
   }
 
+  private[core] def userParentCalledDef: Unit = {}
 
-  /**  */
   private[core] def isInBlackBoxTree: Boolean = if (parent == null) false else parent.isInBlackBoxTree
 
   private[core] override def getComponent(): Component = parent
@@ -312,7 +309,6 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
   def getPath(sep: String = "/"): String = (if (parent == null) "" else (getParentsPath(sep) + sep)) + this.getDisplayName()
 
 
-  /** */
   def getGroupedIO(ioBundleBypass: Boolean): Seq[Data] = {
     val ret = mutable.Set[Data]()
     val ioBundle = if (ioBundleBypass) reflectIo else null

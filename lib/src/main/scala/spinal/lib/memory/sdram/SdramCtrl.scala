@@ -127,7 +127,7 @@ case class SdramCtrl[T <: Data](l : SdramLayout,t : SdramTimings,CAS : Int,conte
   }
 
   val clkFrequancy = ClockDomain.current.frequency.getValue
-  def timeToCycles(time : BigDecimal): BigInt = (clkFrequancy * time).setScale(0, RoundingMode.UP).toBigInt()
+  def timeToCycles(time : TimeNumber): BigInt = (clkFrequancy * time).setScale(0, RoundingMode.UP).toBigInt()
 
   val refresh = new Area{
     val counter = CounterFreeRun(timeToCycles(t.tREF/(1 << l.rowWidth)))
@@ -259,9 +259,9 @@ case class SdramCtrl[T <: Data](l : SdramLayout,t : SdramTimings,CAS : Int,conte
             counter := cycles - 1
           }
       }
-      def setTime(time : BigDecimal) = setCycles(timeToCycles(time).max(1))
+      def setTime(time : TimeNumber) = setCycles(timeToCycles(time).max(1))
     }
-    def timeCounter(timeMax : BigDecimal,assignCheck : Boolean = false) = cycleCounter(timeToCycles(timeMax),assignCheck)
+    def timeCounter(timeMax : TimeNumber,assignCheck : Boolean = false) = cycleCounter(timeToCycles(timeMax),assignCheck)
 
 
     val timings = new Area{
@@ -270,7 +270,7 @@ case class SdramCtrl[T <: Data](l : SdramLayout,t : SdramTimings,CAS : Int,conte
 
       val banks = (0 until l.bankCount).map(i =>  new Area{
         val precharge = timeCounter(t.tRC,true)
-        val active    = cycleCounter(timeToCycles(t.tRC.max(t.tRFC).max(t.cMRD)),true)
+        val active    = cycleCounter(timeToCycles(t.tRC.max(t.tRFC)).max(t.cMRD),true)
       })
     }
 

@@ -8,6 +8,7 @@ import spinal.core.Operator.UInt.Add
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba3.apb.{Apb3SlaveFactory, Apb3}
+import spinal.lib.bus.amba4.axi.{Axi4, Axi4Config}
 import spinal.lib.bus.avalon._
 import spinal.lib.bus.amba4.axilite.{AxiLite4SpecRenamer, AxiLite4Config, AxiLite4}
 import spinal.lib.experimental.bus.neutral.NeutralStreamDma
@@ -194,14 +195,14 @@ object PlayBlackBox3 {
         val data = out Bits (8 bit)
       }
     }
-    val ram = new Ram_1w_1r(8,16)
+    val ram_1w_1r = new Ram_1w_1r(8,16)
 
-    io.wr.en <> ram.io.wr.en
-    io.wr.addr <> ram.io.wr.addr
-    io.wr.data <> ram.io.wr.data
-    io.rd.en   <> ram.io.rd.en
-    io.rd.addr <> ram.io.rd.addr
-    io.rd.data <> ram.io.rd.data
+    io.wr.en <> ram_1w_1r.io.wr.en
+    io.wr.addr <> ram_1w_1r.io.wr.addr
+    io.wr.data <> ram_1w_1r.io.wr.data
+    io.rd.en   <> ram_1w_1r.io.rd.en
+    io.rd.addr <> ram_1w_1r.io.rd.addr
+    io.rd.data <> ram_1w_1r.io.rd.data
 
   }
 
@@ -1178,7 +1179,7 @@ object PlayI2CMasterHAL {
       mode = Verilog,
       dumpWave = DumpWaveConfig(depth = 0),
       defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
-      defaultClockDomainFrequency = FixedFrequency(50e6)
+      defaultClockDomainFrequency = FixedFrequency(50 MHz)
     ).generate(new I2CMasterHALTester).printPruned
   }
 }
@@ -1206,7 +1207,7 @@ object PlayI2CSlaveHAL {
       mode = Verilog,
       dumpWave = DumpWaveConfig(depth = 0),
       defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
-      defaultClockDomainFrequency  = FixedFrequency(50e6)
+      defaultClockDomainFrequency  = FixedFrequency(50 MHz)
     ).generate(new I2CSlaveHALTester).printPruned
   }
 }
@@ -1265,7 +1266,7 @@ object PlayI2CHAL{
         mode = VHDL,
         dumpWave = DumpWaveConfig(depth = 0),
         defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
-        defaultClockDomainFrequency  = FixedFrequency(50e6)
+        defaultClockDomainFrequency  = FixedFrequency(50 MHz)
     ).generate(new I2CHALTester()).printPruned()
   }
 }
@@ -1355,7 +1356,7 @@ object PlayI2CHALTest{
     SpinalConfig(
       mode = Verilog,
       defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
-      defaultClockDomainFrequency  = FixedFrequency(50e6)
+      defaultClockDomainFrequency  = FixedFrequency(50 MHz)
     ).generate(new I2CHAL_App()).printPruned()
   }
 
@@ -1745,7 +1746,7 @@ object PlayAuto{
     i2cSlave.io.rsp  <> io.ioSlave.rsp
     i2cMaster.io.cmd <> io.ioMaster.cmd
     i2cMaster.io.rsp <> io.ioMaster.rsp
-    i2cMaster.io.config.setSCLFrequency(2e6)
+    i2cMaster.io.config.setSCLFrequency(2 MHz)
 
     simSDA.io.input     <> i2cMaster.io.i2c.sda
 
@@ -1783,7 +1784,7 @@ object PlayAuto{
       mode = Verilog,
       dumpWave = DumpWaveConfig(depth = 0),
       defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
-      defaultClockDomainFrequency  = FixedFrequency(50e6)
+      defaultClockDomainFrequency  = FixedFrequency(50 MHz)
     ).generate(new I2CHAL()).printPruned()
   }
 }
@@ -2796,19 +2797,61 @@ object PlayDualPort{
 object Play2DEbug{
 
 
-  class TopLevel extends Component{
-    val io = new Bundle{
+//  class TopLevel extends Component{
+//    val a = in Bits(4 bits)
+//    val x = out Bits(4 bits)
+//
+//    x := a.resized
+//
+//    val b = in UFix(8 exp,4 bits)
+//    val y = out UFix(8 exp,4 bits)
+//
+//    y := b.truncated
+//
+//  }
 
-      val out1 = out UInt(8 bits)
-    }
-    val in1 = UInt(8 bits)
-    in1.assignMask(M"----0011")
-
-    io.out1 := in1
+  object AluOpcode extends SpinalEnum {
+    val ADDA,MUL,MAC,NOP = newElement
   }
+  class TopLevel(Dwidth: Int, FracWidth:Int) extends Component {
 
+    val io = new Bundle {
+      val a = in SInt (Dwidth bits)
+      val b = in SInt (Dwidth bits)
+      val opcode = in(AluOpcode)
+      val P = out SInt (Dwidth bits)
+    }
+    val a, b = Reg(SFix(6 exp, 18 bits)) init (0)
+    val P = Reg(SFix(12 exp, -12 exp)) init (0) //accumulator register up to 2*Input width
+    a.raw := io.a
+    b.raw := io.b
+    val opcode = Reg(AluOpcode) init (AluOpcode.NOP)
+    opcode := io.opcode
+    switch(opcode) {
+      is(AluOpcode.ADDA) {
+        P := a
+        io.P := P.raw(Dwidth - 1 downto 0)
+      }
+      is(AluOpcode.MUL) {
+        P := (a * b).truncated
+        io.P := P.raw(Dwidth - 1 downto 0)
+      }
+      is(AluOpcode.MAC) {
+        P := (P + a * b).truncated
+        io.P := P.raw(Dwidth - 1 downto 0)
+      }
+      is(AluOpcode.NOP) {
+        P := P
+        io.P := P.raw(Dwidth - 1 downto 0)
+      }
+      default {
+        P := P
+        io.P := P.raw(Dwidth - 1 downto 0)
+      }
+    }
+  }
   def main(args: Array[String]) {
-    SpinalVhdl(new TopLevel)
+    SpinalVhdl(new TopLevel(18,10))
   }
 }
 
@@ -2849,3 +2892,138 @@ object PlyBusSlaveFactory32{
     SpinalVhdl(new TopLevel)
   }
 }
+
+
+
+object PlayMissingSensitivity{
+  object State extends SpinalEnum{
+    val a,b,c = newElement()
+  }
+
+  class TopLevel extends Component{
+    val state = in(State)
+    val output = out UInt(8 bits)
+    output := 0
+    switch(state){
+      is(State.a){
+        output := 1
+      }
+      is(State.b){
+        output := 2
+      }
+      is(State.c){
+        output := 3
+      }
+    }
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
+
+
+
+
+object PlaySlowArea{
+  object SlowArea{
+    def getClockDomain(factor : Int): ClockDomain ={
+      val counter = Reg(UInt(log2Up(factor) bits)) init(0)
+      val tick = RegNext(counter === factor-2) init(False)
+      counter := counter + 1
+      when(tick){
+        counter := 0
+      }
+      ClockDomain.current.clone(clockEnable = tick,config = ClockDomain.current.config.copy(clockEnableActiveLevel = HIGH))
+    }
+  }
+
+  class SlowArea(factor : Int) extends ClockingArea(SlowArea.getClockDomain(factor))
+
+  class TopLevel extends Component{
+    val fastArea = new Area {
+      val counter = out(CounterFreeRun(16).value)
+    }
+    val slowArea = new SlowArea(4){
+      val counter = out(CounterFreeRun(16).value)
+    }
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
+
+object PlayAutoconncetRec{
+
+  class Inner extends Component {
+    val a = in Bits(8 bits)
+    val result = out Bits(8 bits)
+    a <> result
+  }
+  class TopLevel extends Component{
+    val a,b = in Bits(8 bits)
+    val result = out Bits(8 bits)
+
+    val x = new Inner
+
+    x.a(7 downto 1) <> a(7 downto 1)
+    x.a(0) <> True
+
+    val c = Bool
+    result := b & x.result
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+object Debug425{
+  class Wrapper() extends Component{
+
+    val io = new Bundle{
+
+      val bus_clk = in Bool
+      val bus_rst = in Bool
+    }
+
+    val axiClockDomain = ClockDomain.external("axi")
+    val busClockDonmain = ClockDomain(io.bus_clk, io.bus_rst)
+
+
+    val axiReg = axiClockDomain{
+      Counter(8).value.keep()
+    }
+
+    val busReg = busClockDonmain{
+      Counter(8).value.keep()
+    }
+  }
+
+
+  class TopLevel extends Component{
+
+    val io = new Bundle{
+      val user_clk = in Vec(Bool, 7)
+      val user_rstn  = in Vec(Bool, 7)
+
+    }
+
+    val wrapper = new Wrapper()
+    wrapper.io.bus_clk <> io.user_clk(4)
+    wrapper.io.bus_rst <> io.user_rstn(4)
+
+
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+

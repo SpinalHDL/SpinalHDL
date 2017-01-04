@@ -24,8 +24,8 @@ class EventFactory extends MSFactory {
 
 
 class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with DataCarrier[T] {
-  val valid = Bool
-  val ready = Bool
+  val valid   = Bool
+  val ready   = Bool
   val payload = cloneOf(_dataType)
 
 
@@ -62,7 +62,7 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
 /** Connect this to that
   */
   def >>(into: Stream[T]): Stream[T] = {
-    into << this;
+    into << this
     into
   }
 
@@ -76,7 +76,7 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
 /** Connect this to that. The valid/payload path are cut by an register stage
   */
   def >->(into: Stream[T]): Stream[T] = {
-    into <-< this;
+    into <-< this
     into
   }
 
@@ -293,9 +293,9 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
 /** Drop transactions of this when cond is True. Return the resulting stream
   */
   def throwWhen(cond: Bool): Stream[T] = {
-    val next = cloneOf(this)
+    val next = Stream(dataType)
 
-    next connectFrom this
+    next << this
     when(cond) {
       next.valid := False
       this.ready := True

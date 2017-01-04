@@ -35,7 +35,68 @@ case class SlicesCount(val value: Int) {
 case class ExpNumber(val value: Int) {}
 case class PosCount(val value: Int) {}
 
-case class LiteralInt(val value: BigInt) {}
+object CyclesCount{
+  implicit def impConv(value : CyclesCount) = value.value
+}
+case class CyclesCount(val value : BigInt)
+
+object PhysicalNumber{
+//  implicit def impConv(value : PhysicalNumber[_]) = value.value
+//  implicit def impConv(value : PhysicalNumber[_]) = value.value.toInt
+//  implicit def impConv(value : PhysicalNumber[_]) = value.value.toLong
+//  implicit def impConv(value : PhysicalNumber[_]) = value.value.toFloat
+//  implicit def impConv(value : PhysicalNumber[_]) = value.value.toDouble
+}
+
+abstract class PhysicalNumber[T <: PhysicalNumber[_]](protected val value : BigDecimal) {
+  def newInstance(value : BigDecimal) : T
+
+  def +(that : T) = newInstance(this.value + that.value)
+  def -(that : T) = newInstance(this.value - that.value)
+  def *(that : T) = newInstance(this.value * that.value)
+  def /(that : T) = newInstance(this.value / that.value)
+  def %(that : T) = newInstance(this.value % that.value)
+
+  def +(that : BigDecimal) = newInstance(this.value + that)
+  def -(that : BigDecimal) = newInstance(this.value - that)
+  def *(that : BigDecimal) = newInstance(this.value * that)
+  def /(that : BigDecimal) = newInstance(this.value / that)
+  def %(that : BigDecimal) = newInstance(this.value % that)
+
+  def max(that : T) = newInstance(value.max(that.value))
+
+  def toInt = value.toInt
+  def toLong = value.toLong
+  def toDouble = value.toDouble
+  def toBigDecimal = value
+}
+
+case class TimeNumber(private val v : BigDecimal) extends PhysicalNumber[TimeNumber](v){
+  override def newInstance(value: BigDecimal): TimeNumber = TimeNumber(value)
+
+  def +(that : HertzNumber) = (this.value + that.toBigDecimal)
+  def -(that : HertzNumber) = (this.value - that.toBigDecimal)
+  def *(that : HertzNumber) = (this.value * that.toBigDecimal)
+  def /(that : HertzNumber) = (this.value / that.toBigDecimal)
+  def %(that : HertzNumber) = (this.value % that.toBigDecimal)
+
+  def toHertz = HertzNumber(1/this.value)
+}
+
+case class HertzNumber(private val v : BigDecimal) extends PhysicalNumber[HertzNumber](v){
+  override def newInstance(value: BigDecimal): HertzNumber = HertzNumber(value)
+
+  def +(that : TimeNumber) = (this.value + that.toBigDecimal)
+  def -(that : TimeNumber) = (this.value - that.toBigDecimal)
+  def *(that : TimeNumber) = (this.value * that.toBigDecimal)
+  def /(that : TimeNumber) = (this.value / that.toBigDecimal)
+  def %(that : TimeNumber) = (this.value % that.toBigDecimal)
+
+  def toTime = TimeNumber(1/this.value)
+}
+
+
+
 
 trait IODirection extends BaseTypeFactory {
   def applyIt[T <: Data](data: T): T
@@ -533,14 +594,21 @@ trait SpinalTag {
   def moveToSyncNode = false //When true, Spinal will automaticaly move the tag to the driving syncNode
   def duplicative = false
   def driverShouldNotChange = false
+  def canSymplifyHost = false
 }
 
 object unusedTag extends SpinalTag
 object crossClockDomain extends SpinalTag{override def moveToSyncNode = true}
 object crossClockBuffer extends SpinalTag{override def moveToSyncNode = true}
 object randomBoot extends SpinalTag{override def moveToSyncNode = true}
-object tagAutoResize extends SpinalTag{override def duplicative = true}
-object tagTruncated extends SpinalTag{override def duplicative = true}
+object tagAutoResize extends SpinalTag{
+  override def duplicative = true
+  override def canSymplifyHost: Boolean = true
+}
+object tagTruncated extends SpinalTag{
+  override def duplicative = true
+  override def canSymplifyHost: Boolean = true
+}
 
 trait Area extends Nameable with ContextUser with OwnableRef with ScalaLocated{
   component.addPrePopTask(reflectNames)

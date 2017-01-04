@@ -367,56 +367,65 @@ class BitAggregator {
 
 object CounterFreeRun {
   def apply(stateCount: BigInt): Counter = {
-    val c = new Counter(stateCount)
+    val c = Counter(stateCount)
+    c.willIncrement.removeAssignements()
     c.increment()
     c
   }
 }
 
 object Counter {
-  def apply(stateCount: BigInt): Counter = new Counter(stateCount)
-  def apply(stateCount: BigInt, inc: Bool): Counter = {
-    val counter = Counter(stateCount)
+  def apply(start: BigInt,end: BigInt) : Counter  = new Counter(start = start, end = end)
+  def apply(range : Range) : Counter = {
+    require(range.step == 1)
+    Counter(start = range.low, end = range.high)
+  }
+  def apply(stateCount: BigInt): Counter = new Counter(start = 0, end = stateCount-1)
+
+  def apply(start: BigInt,end: BigInt, inc: Bool) : Counter  = {
+    val counter = Counter(start,end)
     when(inc) {
       counter.increment()
     }
     counter
   }
-//  implicit def implicitValue(c: Counter) = c.value
+  def apply(range : Range, inc: Bool) : Counter  = {
+    require(range.step == 1)
+    Counter(start = range.low, end = range.high,inc = inc)
+  }
+  def apply(stateCount: BigInt, inc: Bool): Counter = Counter(start = 0, end = stateCount-1,inc = inc)
 }
 
-class Counter(val stateCount: BigInt) extends ImplicitArea[UInt] {
+// start and end inclusive, up counter
+class Counter(val start: BigInt,val end: BigInt) extends ImplicitArea[UInt] {
+  require(start <= end)
   val willIncrement = False
   val willClear = False
 
   def clear(): Unit = willClear := True
   def increment(): Unit = willIncrement := True
 
-  val valueNext = UInt(log2Up(stateCount) bit)
-  val value = RegNext(valueNext) init(0)
-  val willOverflowIfInc = value === stateCount - 1
+  val valueNext = UInt(log2Up(end + 1) bit)
+  val value = RegNext(valueNext) init(start)
+  val willOverflowIfInc = value === end
   val willOverflow = willOverflowIfInc && willIncrement
 
-  if (isPow2(stateCount)) {
+  if (isPow2(end + 1) && start == 0) {   //Check if using overflow follow the spec
     valueNext := (value + U(willIncrement)).resized
   }
   else {
-    when(willIncrement) {
-      when(willOverflowIfInc) {
-        valueNext := U(0)
-      } otherwise {
-        valueNext := value + U(1)
-      }
+    when(willOverflow){
+      valueNext := U(start)
     } otherwise {
-      valueNext := value
+      valueNext := (value + U(willIncrement)).resized
     }
   }
   when(willClear) {
-    valueNext := 0
+    valueNext := start
   }
 
-  willOverflowIfInc.unused
-  willOverflow.unused
+  willOverflowIfInc.allowPruning
+  willOverflow.allowPruning
 
   override def implicitValue: UInt = this.value
 }
@@ -425,7 +434,9 @@ class Counter(val stateCount: BigInt) extends ImplicitArea[UInt] {
 
 
 object Timeout {
-  def apply(limit: BigInt) = new Timeout(limit)
+  def apply(cycles: BigInt) : Timeout = new Timeout(cycles)
+  def apply(time: TimeNumber) : Timeout = new Timeout((time*ClockDomain.current.frequency.getValue).toBigInt())
+  def apply(frequency: HertzNumber) : Timeout = Timeout(frequency.toTime)
 }
 
 class Timeout(val limit: BigInt) extends ImplicitArea[Bool] {

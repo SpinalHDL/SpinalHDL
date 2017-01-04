@@ -44,28 +44,28 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     def pos = new PosCount(i)
     def slices = new SlicesCount(i)
 
-    def hr = (i * BigDecimal(3600.0))
-    def mn = (i * BigDecimal(60.0))
-    def sec = (i * BigDecimal(1.0))
-    def ms = (i * BigDecimal(1e-3))
-    def us = (i * BigDecimal(1e-6))
-    def ns = (i * BigDecimal(1e-9))
-    def ps = (i * BigDecimal(1e-12))
-    def fs = (i * BigDecimal(1e-15))
+    def hr = TimeNumber(i * BigDecimal(3600.0))
+    def mn = TimeNumber(i * BigDecimal(60.0))
+    def sec = TimeNumber(i * BigDecimal(1.0))
+    def ms = TimeNumber(i * BigDecimal(1e-3))
+    def us = TimeNumber(i * BigDecimal(1e-6))
+    def ns = TimeNumber(i * BigDecimal(1e-9))
+    def ps = TimeNumber(i * BigDecimal(1e-12))
+    def fs = TimeNumber(i * BigDecimal(1e-15))
 
 
-    def THz = (i * BigDecimal(1e12))
-    def GHz = (i * BigDecimal(1e9))
-    def MHz = (i * BigDecimal(1e6))
-    def kHz = (i * BigDecimal(1e3))
-    def Hz = (i * BigDecimal(1e0))
+    def THz = HertzNumber(i * BigDecimal(1e12))
+    def GHz = HertzNumber(i * BigDecimal(1e9))
+    def MHz = HertzNumber(i * BigDecimal(1e6))
+    def kHz = HertzNumber(i * BigDecimal(1e3))
+    def Hz = HertzNumber(i * BigDecimal(1e0))
 
     def Byte = BigInt(i)
     def kB = BigInt(i) << 10
     def MB = BigInt(i) << 20
     def GB = BigInt(i) << 30
     def TB = BigInt(i) << 40
-
+    def cycles = new CyclesCount(i)
   }
 
   case class BigIntBuilder(i: BigInt) {
@@ -74,42 +74,43 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     def exp = new ExpNumber(i.toInt)
     def pos = new PosCount(i.toInt)
     def slices = new SlicesCount(i.toInt)
+    def cycles = new CyclesCount(i)
   }
 
   case class DoubleBuilder(d: Double) {
-    def hr =  (d  * BigDecimal(3600.0))
-    def mn = (d * BigDecimal(60.0))
-    def sec = (d * BigDecimal(1.0))
-    def ms =  (d  * BigDecimal(1e-3))
-    def us =  (d  * BigDecimal(1e-6))
-    def ns =  (d  * BigDecimal(1e-9))
-    def ps =  (d  * BigDecimal(1e-12))
-    def fs =  (d  * BigDecimal(1e-15))
+    def hr =  TimeNumber(d  * BigDecimal(3600.0))
+    def mn =  TimeNumber(d * BigDecimal(60.0))
+    def sec = TimeNumber(d * BigDecimal(1.0))
+    def ms =  TimeNumber(d  * BigDecimal(1e-3))
+    def us =  TimeNumber(d  * BigDecimal(1e-6))
+    def ns =  TimeNumber(d  * BigDecimal(1e-9))
+    def ps =  TimeNumber(d  * BigDecimal(1e-12))
+    def fs =  TimeNumber(d  * BigDecimal(1e-15))
 
 
-    def THz = (d * BigDecimal(1e12))
-    def GHz = (d * BigDecimal(1e9))
-    def MHz = (d * BigDecimal(1e6))
-    def kHz = (d * BigDecimal(1e3))
-    def  Hz = (d * BigDecimal(1e0))
+    def THz = HertzNumber(d * BigDecimal(1e12))
+    def GHz = HertzNumber(d * BigDecimal(1e9))
+    def MHz = HertzNumber(d * BigDecimal(1e6))
+    def kHz = HertzNumber(d * BigDecimal(1e3))
+    def  Hz = HertzNumber(d * BigDecimal(1e0))
   }
 
   implicit class BigDecimalBuilder(d: BigDecimal) {
-    def hr =  (d  * BigDecimal(3600.0))
-    def mn = (d * BigDecimal(60.0))
-    def sec = (d * BigDecimal(1.0))
-    def ms =  (d  * BigDecimal(1e-3))
-    def us =  (d  * BigDecimal(1e-6))
-    def ns =  (d  * BigDecimal(1e-9))
-    def ps =  (d  * BigDecimal(1e-12))
-    def fs =  (d  * BigDecimal(1e-15))
+    def hr =  TimeNumber(d  * BigDecimal(3600.0))
+    def mn =  TimeNumber(d * BigDecimal(60.0))
+    def sec = TimeNumber(d * BigDecimal(1.0))
+    def ms =  TimeNumber(d  * BigDecimal(1e-3))
+    def us =  TimeNumber(d  * BigDecimal(1e-6))
+    def ns =  TimeNumber(d  * BigDecimal(1e-9))
+    def ps =  TimeNumber(d  * BigDecimal(1e-12))
+    def fs =  TimeNumber(d  * BigDecimal(1e-15))
 
 
-    def THz = (d * BigDecimal(1e12))
-    def GHz = (d * BigDecimal(1e9))
-    def MHz = (d * BigDecimal(1e6))
-    def kHz = (d * BigDecimal(1e3))
-    def  Hz = (d * BigDecimal(1e0))
+    def THz = HertzNumber(d * BigDecimal(1e12))
+    def GHz = HertzNumber(d * BigDecimal(1e9))
+    def MHz = HertzNumber(d * BigDecimal(1e6))
+    def kHz = HertzNumber(d * BigDecimal(1e3))
+    def  Hz = HertzNumber(d * BigDecimal(1e0))
   }
 
   def True = Bool(true) //Should be def, not val, else it will create cross hierarchy usage of the same instance

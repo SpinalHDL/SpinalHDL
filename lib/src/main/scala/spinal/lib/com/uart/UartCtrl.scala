@@ -22,7 +22,7 @@ case class UartCtrlGenerics( dataWidthMax: Int = 8,
 
 
 case class UartCtrlFrameConfig(g: UartCtrlGenerics) extends Bundle {
-  val dataLength = UInt(log2Up(g.dataWidthMax) bit) //Bit count = dataLength + 1
+  val dataLength = UInt(log2Up(g.dataWidthMax) bits) //Bit count = dataLength + 1
   val stop       = UartStopType()
   val parity     = UartParityType()
 }
@@ -31,7 +31,7 @@ case class UartCtrlConfig(g: UartCtrlGenerics) extends Bundle {
   val frame        = UartCtrlFrameConfig(g)
   val clockDivider = UInt (g.clockDividerWidth bit) //see UartCtrlGenerics.clockDividerWidth for calculation
 
-  def setClockDivider(baudrate : BigDecimal,clkFrequency : BigDecimal = ClockDomain.current.frequency.getValue) : Unit = {
+  def setClockDivider(baudrate : HertzNumber,clkFrequency : HertzNumber = ClockDomain.current.frequency.getValue) : Unit = {
     clockDivider := (clkFrequency / baudrate / g.rxSamplePerBit).toInt
   }
 }
@@ -142,17 +142,17 @@ class UartCtrl(g : UartCtrlGenerics = UartCtrlGenerics()) extends Component {
 
     //manage RX
     val read = new Area {
-      val (stream, fofoOccupancy) = io.read.toStream.queueWithOccupancy(config.rxFifoDepth)
+      val (stream, fifoOccupancy) = io.read.toStream.queueWithOccupancy(config.rxFifoDepth)
       busCtrlWrapped.readStreamNonBlocking(stream, address = 0, validBitOffset = 15, payloadBitOffset = 0)
-      busCtrlWrapped.read(fofoOccupancy,address = 6, 8)
+      busCtrlWrapped.read(fifoOccupancy,address = 6, 8)
     }
 
     //manage interrupts
     val interruptCtrl = new Area {
       val writeIntEnable = busCtrlWrapped.createReadWrite(Bool, address = 4, 0) init(False)
       val readIntEnable  = busCtrlWrapped.createReadWrite(Bool, address = 4, 1) init(False)
-      val readInt   = readIntEnable & read.stream.valid
-      val writeInt  = writeIntEnable & write.stream.valid
+      val readInt   = readIntEnable  &  read.stream.valid
+      val writeInt  = writeIntEnable & !write.stream.valid
       val interrupt = readInt || writeInt
       busCtrlWrapped.read(writeInt, address = 4, 8)
       busCtrlWrapped.read(readInt , address = 4, 9)
@@ -200,7 +200,7 @@ class UartCtrlUsageExample extends Component{
   }
 
   val uartCtrl = new UartCtrl()
-  uartCtrl.io.config.setClockDivider(921600)
+  uartCtrl.io.config.setClockDivider(921.6 kHz)
   uartCtrl.io.config.frame.dataLength := 7  //8 bits
   uartCtrl.io.config.frame.parity := UartParityType.NONE
   uartCtrl.io.config.frame.stop := UartStopType.ONE
@@ -228,7 +228,7 @@ object UartCtrlUsageExample{
   def main(args: Array[String]) {
     SpinalConfig(
       mode = VHDL,
-      defaultClockDomainFrequency=FixedFrequency(50e6)
+      defaultClockDomainFrequency=FixedFrequency(50 MHz)
     ).generate(new UartCtrlUsageExample)
   }
 }

@@ -16,13 +16,16 @@
 - [X] Add option to disable the pkg generation in VHDL
 - [X] naming rules transformator in SpinalConfig
 - [ ] Check xilinx and altera FF about syncronus reset + clock enable interaction kind
-- [ ] Check errors message when hearchy violation (names)  
 - [X] Add rotate left support in the verilog backend
 - [ ] Better mux Nodes (more than two inputs)
 - [ ] Remove the generation of when nodes condition when they are emited as a case statments
 - [X] Rework Namable trait, to allow it to be named by composition + postfix, and maybe to work with Ownable trait for hearchical naming
 - [X] bool/bits/uint/sint should extends dataimper to avoid implicites and allow implicite area to uint
 - [ ] Range generator 
+- [ ] add SlowArea
+- [X] Add git commit number in logs
+- [X] Fix name allocation scopes
+- [X] Rework Hz and times DSL with strongly typed classes
 
 ## spinal.lib
 

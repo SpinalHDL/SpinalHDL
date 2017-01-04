@@ -16,11 +16,11 @@ import spinal.lib.memory.sdram._
 import spinal.lib.system.debugger.{JtagAxi4SharedDebugger, SystemDebuggerConfig}
 
 
-case class PinsecConfig(axiFrequency : BigDecimal,
+case class PinsecConfig(axiFrequency : HertzNumber,
                         onChipRamSize : BigInt,
                         sdramLayout: SdramLayout,
                         sdramTimings: SdramTimings,
-                        cpu : CoreConfig,
+                        cpu : RiscvCoreConfig,
                         iCache : InstructionCacheConfig)
 
 object PinsecConfig{
@@ -30,7 +30,7 @@ object PinsecConfig{
       onChipRamSize  = 4 kB,
       sdramLayout = IS42x320D.layout,
       sdramTimings = IS42x320D.timingGrade7,
-      cpu = CoreConfig(
+      cpu = RiscvCoreConfig(
         pcWidth = 32,
         addrWidth = 32,
         startAddress = 0x00000000,
@@ -69,7 +69,7 @@ object PinsecConfig{
 class Pinsec(config: PinsecConfig) extends Component{
 
   //Legacy constructor
-  def this(axiFrequency: BigDecimal) {
+  def this(axiFrequency: HertzNumber) {
     this(PinsecConfig.default.copy(axiFrequency = axiFrequency))
   }
 

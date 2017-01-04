@@ -272,35 +272,50 @@ trait Data extends ContextUser with NameableByComponent with Assignable  with Sp
   }
 
   private[core] def autoConnect(that: Data): Unit// = (this.flatten, that.flatten).zipped.foreach(_ autoConnect _)
+
   private[core] def autoConnectBaseImpl(that: Data): Unit = {
+
     def error(message : String) = {
       val locationString = ScalaLocated.long
       globalData.pendingErrors += (() => (message + "\n" + this + "\n" + that + "\n" + locationString))
     }
-    if (this.component == that.component) {
-      if (this.component == Component.current) {
+    def getTrueIoBaseType(that : Data) : Data = that match {
+      case that : BaseType => that.input match{
+          case input : Extract => getTrueIoBaseType(input.getBitVector.asInstanceOf[BaseType])
+          case _ => that
+      }
+      case _ => that
+    }
+
+
+    val thisTrue = getTrueIoBaseType(this)
+    val thatTrue = getTrueIoBaseType(that)
+
+    if (thisTrue.component == thatTrue.component) {
+      if (thisTrue.component == Component.current) {
         sameFromInside
-      } else if (this.component.parent == Component.current) {
+      } else if (thisTrue.component.parent == Component.current) {
         sameFromOutside
       } else error("You cant autoconnect from here")
-    } else if (this.component.parent == that.component.parent) {
+    } else if (thisTrue.component.parent == thatTrue.component.parent) {
       childAndChild
-    } else if (this.component == that.component.parent) {
+    } else if (thisTrue.component == thatTrue.component.parent) {
       parentAndChild(this, that)
-    } else if (this.component.parent == that.component) {
+    } else if (thisTrue.component.parent == thatTrue.component) {
       parentAndChild(that, this)
     } else error("Don't know how autoconnect")
 
 
+
     def sameFromOutside: Unit = {
-      if (this.isOutput && that.isInput) {
+      if (thisTrue.isOutput && thatTrue.isInput) {
         that := this
-      } else if (this.isInput && that.isOutput) {
+      } else if (thisTrue.isInput && thatTrue.isOutput) {
         this := that
       } else error("Bad input output specification for autoconnect")
     }
     def sameFromInside: Unit = {
-      (this.dir,that.dir) match {
+      (thisTrue.dir,thatTrue.dir) match {
         case (`out`,`in`) => this := that
         case (`out`,null) => this := that
         case (null,`in`) => this := that
@@ -312,17 +327,17 @@ trait Data extends ContextUser with NameableByComponent with Assignable  with Sp
     }
 
     def childAndChild: Unit = {
-      if (this.isOutput && that.isInput) {
+      if (thisTrue.isOutput && thatTrue.isInput) {
         that := this
-      } else if (this.isInput && that.isOutput) {
+      } else if (thisTrue.isInput && thatTrue.isOutput) {
         this := that
       } else error("Bad input output specification for autoconnect")
     }
 
     def parentAndChild(p: Data, k: Data): Unit = {
-      if (k.isOutput) {
+      if (getTrueIoBaseType(k).isOutput) {
         p := k
-      } else if (k.isInput) {
+      } else if (getTrueIoBaseType(k).isInput) {
         k := p
       } else error("Bad input output specification for autoconnect")
     }
@@ -410,8 +425,11 @@ trait Data extends ContextUser with NameableByComponent with Assignable  with Sp
     flatten.foreach(_.addTag(spinal.core.randomBoot))
     this
   }
-  
-  def unused = {
+
+  @deprecated("use allowPruning instead")
+  def unused = allowPruning()
+
+  def allowPruning() = {
     flatten.foreach(_.addTag(unusedTag))
   }
 
