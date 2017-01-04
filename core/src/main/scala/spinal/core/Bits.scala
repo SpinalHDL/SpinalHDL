@@ -37,7 +37,14 @@ trait BitsFactory {
 /**
   * The Bits type corresponds to a vector of bits that does not convey any arithmetic meaning.
   *
-  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Bits "Bits Documentation"]]
+  * @example {{{
+  *     val myBits1 = Bits(32 bits)
+  *     val myBits2 = B(25, 8 bits)
+  *     val myBits3 = B"8'xFF"
+  *     val myBits4 = B"1001_0011
+  * }}}
+  *
+  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Bits Bits Documentation]]
   */
 class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
 
@@ -51,7 +58,7 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
     * Concatenation between two Bits
     * @example{{{ val myBits2 = bits1 ## bits2 }}}
     * @param right a Bits to append
-    * @return a new Bits of width (width(this) + width(right))
+    * @return a new Bits of width (w(this) + w(right))
     */
   def ##(right: Bits): Bits = wrapBinaryOperator(right, new Operator.Bits.Cat)
 
@@ -82,17 +89,17 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
   def <<(that: UInt): Bits = wrapBinaryOperator(that, new Operator.Bits.ShiftLeftByUInt)
 
   /**
-    * Logical shift right (output width = input width)
+    * Logical shift right (output width == input width)
     * @example{{{ val result = myBits |>> 4 }}}
     * @param that the number of shift
     * @return a Bits of width : w(this)
     */
   def |>>(that: Int): Bits  = wrapConstantOperator(new Operator.Bits.ShiftRightByIntFixedWidth(that))
-  /** Logical shift left (output width = input width) */
+  /** Logical shift left (output width == input width) */
   def |<<(that: Int): Bits  = wrapConstantOperator(new Operator.Bits.ShiftLeftByIntFixedWidth(that))
-  /** Logical shift Right (output width = input width) */
+  /** Logical shift Right (output width == input width) */
   def |>>(that: UInt): Bits = this >> that
-  /** Logical shift left (output width = input width) */
+  /** Logical shift left (output width == input width) */
   def |<<(that: UInt): Bits = wrapBinaryOperator(that, new Operator.Bits.ShiftLeftByUIntFixedWidth)
 
   override def rotateLeft(that: Int): Bits = {
@@ -116,6 +123,57 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
   def :=(rangesValue : Tuple2[Any, Any], _rangesValues: Tuple2[Any, Any]*): Unit = {
     val rangesValues = rangesValue +: _rangesValues
     B.applyTuples(this, rangesValues)
+  }
+
+  override def assignFromBits(bits: Bits): Unit = this := bits
+  override def assignFromBits(bits: Bits, hi: Int, lo: Int): Unit = this (hi, lo).assignFromBits(bits)
+
+  /**
+    * Cast a Bits to a SInt
+    * @example {{{ val mySInt = myBits.asSInt }}}
+    * @return a SInt data
+    */
+  def asSInt: SInt = wrapCast(SInt(), new CastBitsToSInt)
+
+  /**
+    * Cast a Bits to an UInt
+    * @example {{{ val myUInt = myBits.asUInt }}}
+    * @return an UInt data
+    */
+  def asUInt: UInt = wrapCast(UInt(), new CastBitsToUInt)
+
+  override def asBits: Bits = {
+    val ret = new Bits()
+    ret := this
+    ret
+  }
+
+  /**
+    * Cast a Bits to a given data type
+    * @example{{{ val myUInt = myBits.toDataType(UInt) }}}
+    * @param dataType the wanted data type
+    * @return a new data type assign with the value of Bits
+    */
+  def toDataType[T <: Data](dataType: T): T = {
+    val ret = cloneOf(dataType)
+    ret.assignFromBits(this)
+    ret
+  }
+
+  private[core] override def isEquals(that: Any): Bool = {
+    that match {
+      case that: Bits          => wrapLogicalOperator(that, new Operator.Bits.Equal)
+      case that: MaskedLiteral => that === this
+      case _                   => SpinalError(s"Don't know how to compare $this with $that"); null
+    }
+  }
+
+  private[core] override def isNotEquals(that: Any): Bool = {
+    that match {
+      case that: Bits          => wrapLogicalOperator(that, new Operator.Bits.NotEqual)
+      case that: MaskedLiteral => that =/= this
+      case _                   => SpinalError(s"Don't know how to compare $this with $that"); null
+    }
   }
 
   private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse,new MultiplexerBits)
@@ -143,54 +201,6 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
     } else {
       this(width - 1 downto 0)
     }
-  }
-
-  /**
-    * Convert a Bits to a SInt
-    * @return a SInt data
-    */
-  def asSInt: SInt = wrapCast(SInt(), new CastBitsToSInt)
-
-  /**
-    * Convert a Bits to an UInt
-    * @return an UInt data
-    */
-  def asUInt: UInt = wrapCast(UInt(), new CastBitsToUInt)
-
-  override def asBits: Bits = {
-    val ret = new Bits()
-    ret := this
-    ret
-  }
-
-  override def assignFromBits(bits: Bits): Unit = this := bits
-  override def assignFromBits(bits: Bits, hi: Int, lo: Int): Unit = this (hi, lo).assignFromBits(bits)
-
-  private[core] override def isEquals(that: Any): Bool = {
-    that match {
-      case that: Bits          => wrapLogicalOperator(that, new Operator.Bits.Equal)
-      case that: MaskedLiteral => that === this
-      case _                   => SpinalError(s"Don't know how to compare $this with $that"); null
-    }
-  }
-
-  private[core] override def isNotEquals(that: Any): Bool = {
-    that match {
-      case that: Bits          => wrapLogicalOperator(that, new Operator.Bits.NotEqual)
-      case that: MaskedLiteral => that =/= this
-      case _                   => SpinalError(s"Don't know how to compare $this with $that"); null
-    }
-  }
-
-  /**
-    * Transform a Bits to a given data type
-    * @param dataType the wanted data type
-    * @return a new data type assign with the value of Bits
-    */
-  def toDataType[T <: Data](dataType: T): T = {
-    val ret = cloneOf(dataType)
-    ret.assignFromBits(this)
-    ret
   }
 
   override def apply(bitId: Int) : Bool = newExtract(bitId, new ExtractBoolFixedFromBits)

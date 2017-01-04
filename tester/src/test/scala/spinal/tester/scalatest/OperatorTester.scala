@@ -231,7 +231,7 @@ object OperatorTester {
     val stateNativeMux = out(stateNativeMuxInternal.asBits)
 
 
-    val stateBinarySequancial,stateBinarySequancialMux = State(binarySequancial)
+    val stateBinarySequancial,stateBinarySequancialMux = State(binarySequential)
     stateBinarySequancial.assignFromBits(bits8(1 downto 0))
     val stateBinarySequancialBits   = out(stateBinarySequancial.asBits)
     val stateBinarySequancialIsA    = out(stateBinarySequancial === State.a)

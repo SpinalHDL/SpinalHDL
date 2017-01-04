@@ -113,9 +113,9 @@ trait IODirection extends BaseTypeFactory {
 
 
 
-//  object Vec extends VecFactory {
-//    override def apply[T <: Data](elements: TraversableOnce[T]): Vec[T] = applyIt(super.apply(elements))
-//  }
+  //  object Vec extends VecFactory {
+  //    override def apply[T <: Data](elements: TraversableOnce[T]): Vec[T] = applyIt(super.apply(elements))
+  //  }
   override def postTypeFactory[T <: Data](that: T): T = applyIt(that)
 }
 
@@ -275,7 +275,7 @@ abstract class SyncNode(_clockDomain: ClockDomain = ClockDomain.current) extends
 }
 
 trait Assignable {
- /* private[core] */var compositeAssign: Assignable = null
+  /* private[core] */var compositeAssign: Assignable = null
 
   /*private[core] */final def assignFrom(that: AnyRef, conservative: Boolean): Unit = {
     if (compositeAssign != null) {
@@ -410,7 +410,7 @@ trait Nameable extends OwnableRef{
   def setPartialName(name: String) : this.type = setPartialName(name,false)
 
 
-    def setPartialName(owner : Nameable,name: String,weak : Boolean) : this.type = {
+  def setPartialName(owner : Nameable,name: String,weak : Boolean) : this.type = {
     if (!weak || (mode == UNANMED)) {
       setRefOwner(owner)
       this.name = name
@@ -645,14 +645,14 @@ trait Area extends Nameable with ContextUser with OwnableRef with ScalaLocated{
   }
 
 
-//  def keepAll() : Unit = {
-//    Misc.reflect(this, (name, obj) => {
-//      obj match {
-//        case data : Data => data.keep()
-//        case area : Area => area.keepAll()
-//      }
-//    }
-//  }
+  //  def keepAll() : Unit = {
+  //    Misc.reflect(this, (name, obj) => {
+  //      obj match {
+  //        case data : Data => data.keep()
+  //        case area : Area => area.keepAll()
+  //      }
+  //    }
+  //  }
   override def toString(): String = component.getPath() + "/" + super.toString()
 }
 
@@ -716,26 +716,33 @@ class ResetArea(reset: Bool, cumulative: Boolean) extends Area with DelayedInit 
 
 
 object GlobalData {
-  //Per thread implementation
+
+  /** Provide a thread local variable (Create a GlobalData for each thread) */
   private val it = new ThreadLocal[GlobalData]
+
+  /** Return the GlobalData of the current thread */
   def get = it.get()
+
+  /** Reset the GlobalData of the current thread */
   def reset = {
     it.set(new GlobalData)
     get
   }
 }
 
-//object GlobalData { //Per application implementation
-//  var it : GlobalData = null
-//  def get = it
-//  def reset = {
-//    it = new GlobalData
-//    get
-//  }
-//}
+
+/**
+  *
+  */
 class GlobalData {
+
   var algoId = 1
-  def allocateAlgoId() : Int = {algoId += 1; return algoId-1}
+
+  def allocateAlgoId(): Int = {
+    algoId += 1
+    return algoId - 1
+  }
+
   var commonClockConfig = ClockDomainConfig()
   var overridingAssignementWarnings = true
   var nodeAreNamed = false
@@ -743,7 +750,9 @@ class GlobalData {
   var nodeAreInferringEnumEncoding = false
   val nodeGetWidthWalkedSet = mutable.Set[Widthable]()
   val clockSyncronous = mutable.HashMap[Bool,ArrayBuffer[Bool]]()
+  /** Stack to store all clocDomain */
   val clockDomainStack = new SafeStack[ClockDomain]
+  /** Stack to store all components */
   val componentStack = new SafeStackWithStackable[Component]
   val switchStack = new SafeStack[SwitchStack]
   val conditionalAssignStack = new SafeStack[ConditionalContext]
@@ -752,12 +761,18 @@ class GlobalData {
   val pendingErrors = mutable.ArrayBuffer[() => String]()
   val postBackendTask = mutable.ArrayBuffer[() => Unit]()
   var netlistLockError = new Stack[() => Unit]()
+
   netlistLockError.push(null)
-  def pushNetlistLock(error : () => Unit) : Unit = netlistLockError.push(error)
-  def popNetlistLock() : Unit = netlistLockError.pop
-  def pushNetlistUnlock() : Unit = netlistLockError.push(null)
-  def popNetlistUnlock() : Unit = netlistLockError.pop
-  def netlistUpdate() : Unit = {
+
+  def pushNetlistLock(error: () => Unit): Unit = netlistLockError.push(error)
+
+  def popNetlistLock(): Unit = netlistLockError.pop
+
+  def pushNetlistUnlock(): Unit = netlistLockError.push(null)
+
+  def popNetlistUnlock(): Unit = netlistLockError.pop
+
+  def netlistUpdate(): Unit = {
     if(netlistLockError.head != null){
       netlistLockError.head()
     }
@@ -773,8 +788,8 @@ class GlobalData {
 
   def getThrowable() = if(scalaLocatedEnable) new Throwable else null
 
-  def addPostBackendTask(task :  => Unit) : Unit = postBackendTask += (() => task)
-  def addJsonReport(report : String) : Unit = jsonReports += report
+  def addPostBackendTask(task: => Unit): Unit = postBackendTask += (() => task)
+  def addJsonReport(report: String): Unit = jsonReports += report
 }
 
 
@@ -784,22 +799,40 @@ trait OverridedEqualsHashCode{
 }
 
 
+/**
+  * Base operations for numbers
+  * @tparam T the type which is associated with the base operation
+  */
 trait Num[T <: Data] {
+
+  /** Addition */
   def +  (right: T): T
+  /** Substraction */
   def -  (right: T): T
+  /** Multiplication */
   def *  (right: T): T
+  /** Division */
   def /  (right: T): T
+  /** Modulo */
   def %  (right: T): T
 
+  /** Is less than right */
   def <  (right: T): Bool
+  /** Is equal or less than right */
   def <= (right: T): Bool
+  /** Is greater than right */
   def >  (right: T): Bool
+  /** Is equal or greater than right */
   def >= (right: T): Bool
 
+  /** Logical left shift (w(T) = w(this) + shift)*/
   def << (shift : Int) : T
+  /** Logical right shift (w(T) = w(this) - shift)*/
   def >> (shift : Int) : T
 
+  /** Return the minimum value between this and right  */
   def min(right: T): T = Mux(this < right, this.asInstanceOf[T], right)
+  /** Return the maximum value between this and right  */
   def max(right: T): T = Mux(this < right, right, this.asInstanceOf[T])
 }
 
@@ -819,6 +852,6 @@ trait BitwiseOp[T <: Data]{
   /** Logical XOR operator */
   def ^(right: T): T
 
-  /** Inverse operator */
+  /** Inverse bitwise operator */
   def unary_~ : T
 }

@@ -37,7 +37,15 @@ trait UIntFactory{
 /**
   * The UInt type corresponds to a vector of bits that can be used for unsigned integer arithmetic.
   *
-  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Int "UInt Documentation"]]
+  * @example {{{
+  *    val myUInt = UInt(8 bits)
+  *     myUInt := U(2,8 bits)
+  *     myUInt := U(2)
+  *     myUInt := U"0000_0101"
+  *     myUInt := U"h1A"
+  * }}}
+  *
+  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Int UInt Documentation]]
   */
 class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimitives[UInt] with BitwiseOp[UInt]{
 
@@ -49,18 +57,13 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
 
   /**
     * Concatenation between two UInt
-    * @example{{{ val myUInt = uint1 @@ uint2 }}}
+    * @example{{{ val myUInt = uInt1 @@ uInt2 }}}
     * @param that an UInt to append
-    * @return a new UInt of width (width(this) + width(right))
+    * @return a new UInt of width (w(this) + w(right))
     */
   def @@(that: UInt): UInt = U(this ## that)
   /** Append a Bool to an UInt */
   def @@(that: Bool): UInt = U(this ## that)
-
-  /**
-    * 2'Complement
-    */
-  def twoComplement(enable: Bool): SInt = ((False ## Mux(enable, ~this, this)).asUInt + enable.asUInt).asSInt
 
   override def +(right: UInt): UInt = wrapBinaryOperator(right, new Operator.UInt.Add)
   override def -(right: UInt): UInt = wrapBinaryOperator(right, new Operator.UInt.Sub)
@@ -77,7 +80,6 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   override def >(right: UInt): Bool = right < this
   override def <=(right: UInt): Bool = wrapLogicalOperator(right, new Operator.UInt.SmallerOrEqual)
   override def >=(right: UInt): Bool = right <= this
-
 
   override def >>(that: Int): UInt = wrapConstantOperator(new Operator.UInt.ShiftRightByInt(that))
   override def <<(that: Int): UInt = wrapConstantOperator(new Operator.UInt.ShiftLeftByInt(that))
@@ -100,11 +102,11 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     * @return a Bits of width : w(this)
     */
   def |>>(that: Int): UInt  = wrapConstantOperator(new Operator.UInt.ShiftRightByIntFixedWidth(that))
-  /** Logical shift left (output width = input width) */
+  /** Logical shift left (output width == input width) */
   def |<<(that: Int): UInt  = wrapConstantOperator(new Operator.UInt.ShiftLeftByIntFixedWidth(that))
-  /** Logical shift Right (output width = input width) */
+  /** Logical shift Right (output width == input width) */
   def |>>(that: UInt): UInt = this >> that
-  /** Logical shift left (output width = input width) */
+  /** Logical shift left (output width == input width) */
   def |<<(that: UInt): UInt = wrapBinaryOperator(that, new Operator.UInt.ShiftLeftByUIntFixedWidth)
 
 
@@ -121,6 +123,13 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   }
 
   /**
+    * 2'Complement
+    * @param enable enable the 2'complement
+    * @return Return the 2'Complement of the number
+    */
+  def twoComplement(enable: Bool): SInt = ((False ## Mux(enable, ~this, this)).asUInt + enable.asUInt).asSInt
+
+  /**
     * Assign a range value to an UInt
     * @example{{{ core.io.interrupt = (0 -> uartCtrl.io.interrupt, 1 -> timerCtrl.io.interrupt, default -> false)}}}
     * @param rangesValue The first range value
@@ -131,7 +140,17 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     U.applyTuples(this, rangesValues)
   }
 
-  private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse, new MultiplexerUInt)
+  override def assignFromBits(bits: Bits): Unit = this := bits.asUInt
+  override def assignFromBits(bits: Bits, hi : Int, lo : Int): Unit = this(hi,lo).assignFromBits(bits)
+
+  /**
+    * Cast an UInt to a SInt
+    * @example {{{ mySInt := myUInt.asSInt }}}
+    * @return a SInt data
+    */
+  def asSInt: SInt = wrapCast(SInt(), new CastUIntToSInt)
+
+  override def asBits: Bits = wrapCast(Bits(), new CastUIntToBits)
 
   private[core] override def isEquals(that: Any): Bool = {
     that match {
@@ -151,8 +170,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     }
   }
 
-  override def minValue: BigInt = BigInt(0)
-  override def maxValue: BigInt = (BigInt(1) << getWidth) - 1
+  private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse, new MultiplexerUInt)
 
   override def resize(width: Int): this.type = wrapWithWeakClone({
     val node = new ResizeUInt
@@ -161,20 +179,13 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     node
   })
 
-  /**
-    * Convert an UInt to a SInt
-    * @return a SInt data
-    */
-  def asSInt: SInt = wrapCast(SInt(), new CastUIntToSInt)
-
-  override def asBits: Bits = wrapCast(Bits(), new CastUIntToBits)
-  override def assignFromBits(bits: Bits): Unit = this := bits.asUInt
-  override def assignFromBits(bits: Bits, hi : Int, lo : Int): Unit = this(hi,lo).assignFromBits(bits)
-
+  override def minValue: BigInt = BigInt(0)
+  override def maxValue: BigInt = (BigInt(1) << getWidth) - 1
 
   /**
-    * ???
-    * @param maskedLiteral
+    * Assign a mask to the output signal
+    * @example {{{ output4 assignMask M"1111 }}}
+    * @param maskedLiteral masked litteral value
     */
   def assignMask(maskedLiteral: MaskedLiteral): Unit = {
     //TODO width assert
@@ -204,12 +215,13 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   override private[core] def weakClone: this.type = new UInt().asInstanceOf[this.type]
   override def getZero: this.type = U(0, this.getWidth bits).asInstanceOf[this.type]
   override def getZeroUnconstrained: this.type = U(0).asInstanceOf[this.type]
-  override protected def getAllToBoolNode(): AllByBool = new Operator.UInt.AllByBool(this)
+  protected override def getAllToBoolNode(): AllByBool = new Operator.UInt.AllByBool(this)
 }
 
 
 /**
   * Define an UInt 2D point
+  * @example{{{ val positionOnScreen = Reg(UInt2D(log2Up(p.screenResX) bits, log2Up(p.screenResY) bits)) }}}
   * @param xBitCount width of the x point
   * @param yBitCount width of the y point
   */
@@ -224,7 +236,7 @@ object UInt2D{
   /**
     * Construct a UInt2D with x and y of the same width
     * @param commonBitCount the width of the x and y
-    * @return a UInt2 with x and y of the same width
+    * @return an UInt2 with x and y of the same width
     */
   def apply(commonBitCount: BitCount) : UInt2D = UInt2D(commonBitCount, commonBitCount)
 }
