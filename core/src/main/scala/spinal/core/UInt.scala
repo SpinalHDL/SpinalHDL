@@ -124,7 +124,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
 
   /**
     * 2'Complement
-    * @param enable
+    * @param enable enable the 2'complement
     * @return Return the 2'Complement of the number
     */
   def twoComplement(enable: Bool): SInt = ((False ## Mux(enable, ~this, this)).asUInt + enable.asUInt).asSInt
@@ -185,7 +185,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   /**
     * Assign a mask to the output signal
     * @example {{{ output4 assignMask M"1111 }}}
-    * @param maskedLiteral
+    * @param maskedLiteral masked litteral value
     */
   def assignMask(maskedLiteral: MaskedLiteral): Unit = {
     //TODO width assert

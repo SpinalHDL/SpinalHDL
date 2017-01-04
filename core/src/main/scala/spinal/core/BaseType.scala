@@ -18,21 +18,30 @@
 
 package spinal.core
 
-/**
-  * Created by PIC18F on 21.08.2014.
-  */
 
 trait TypeFactory{
-  def postTypeFactory[T <: Data] (that : T) = that
+  def postTypeFactory[T <: Data](that: T) = that
 }
 
+
+/**
+  * Base type factory
+  */
 trait BaseTypeFactory extends BoolFactory with BitsFactory with UIntFactory with SIntFactory with VecFactory with SFixFactory with UFixFactory
 
+
+/**
+  *
+  */
 trait BaseTypeCast extends SFixCast with UFixCast
 
+
 object BaseType {
-  def checkAssignability(dst : BaseType,src : Node) : Unit = {
+
+  def checkAssignability(dst: BaseType, src: Node): Unit = {
+
     val globalData = dst.globalData
+
     dst.dir match{
       case null => if(globalData.componentStack.head() != dst.component) {
         val trace = ScalaLocated.long
@@ -49,7 +58,7 @@ object BaseType {
     }
   }
 
-  def walkWhenNodes(baseType: BaseType, initialConsumer: Node, initialConsumerInputId: Int, conservative: Boolean = false) : (Node,Int) = {
+  def walkWhenNodes(baseType: BaseType, initialConsumer: Node, initialConsumerInputId: Int, conservative: Boolean = false) : (Node, Int) = {
     var consumer = initialConsumer
     var consumerInputId: Int = initialConsumerInputId
     val globalData = baseType.globalData
@@ -71,9 +80,6 @@ object BaseType {
       }
     }
 
-
-
-
     for (conditionalAssign <- globalData.conditionalAssignStack.stack.reverseIterator) {
       if (!initialConditionalAssignHit) {
         if (conditionalAssign == baseType.conditionalAssignScope) initialConditionalAssignHit = true
@@ -81,15 +87,14 @@ object BaseType {
         conditionalAssign match {
           case when: WhenContext => {
             consumer.getInput(consumerInputId) match {
-              case null => {
+              case null =>
                 val whenNode = WhenNode(baseType,when)
                 if(consumer.isInstanceOf[AssignementTreePart]){
                   consumer.asInstanceOf[AssignementTreePart].setAssignementContext(consumerInputId,globalData.getThrowable())
                 }
                 consumer.setInput(consumerInputId,whenNode)
                 consumer = whenNode
-              }
-              case man: MultipleAssignmentNode => {
+              case man: MultipleAssignmentNode =>
                 man.inputs.last match {
                   case whenNode: WhenNode if whenNode.w == when => consumer = whenNode
                   case _ => {
@@ -98,16 +103,14 @@ object BaseType {
                     consumer = whenNode
                   }
                 }
-              }
               case whenNode: WhenNode if whenNode.w == when => consumer = whenNode
-              case that => {
+              case that =>
                 val man = MultipleAssignmentNode.newFor(baseType)
                 val whenNode = WhenNode(baseType,when)
                 initMan(man, that)
                 man.inputs += whenNode.asInstanceOf[man.T]
                 consumer.setInput(consumerInputId, man)
                 consumer = whenNode
-              }
             }
 
             consumerInputId = if (when.isTrue) 1 else 2
@@ -115,6 +118,7 @@ object BaseType {
         }
       }
     }
+
     if (!initialConditionalAssignHit){
       val location = ScalaLocated.long
       SpinalError(s"$baseType is assigned outside the when statements where it is declared.\n Assignement there :\n $location The signal is declared there :\n${baseType.getScalaLocationLong}")
@@ -123,19 +127,17 @@ object BaseType {
     if (conservative) {
       consumer.getInput(consumerInputId) match {
         case null =>
-        case man: MultipleAssignmentNode => {
+        case man: MultipleAssignmentNode =>
           consumer = man
-          consumerInputId = man.inputs.length;
+          consumerInputId = man.inputs.length
           man.inputs += null.asInstanceOf[man.T]
-        }
-        case that => {
+        case that =>
           val man = MultipleAssignmentNode.newFor(baseType)
           initMan(man, that)
           man.inputs += null.asInstanceOf[man.T]
           consumer.setInput(consumerInputId,man)
           consumerInputId = 1
           consumer = man
-        }
       }
     } else {
       val overrided = consumer.getInput(consumerInputId)
@@ -151,57 +153,63 @@ object BaseType {
 
     consumer match {
       case consumer : AssignementTreePart => consumer.setAssignementContext(consumerInputId,consumer.globalData.getThrowable())
-      case _ =>
+      case _                              =>
     }
     (consumer, consumerInputId)
   }
 }
 
-
+/**
+  * Abstract base class of all Spinal types
+  */
 abstract class BaseType extends Node with Data with Nameable with AssignementTreePart{
-  var input : Node = null
-  override def onEachInput(doThat: (Node, Int) => Unit): Unit = doThat(input,0)
-  override def onEachInput(doThat: (Node) => Unit): Unit = doThat(input)
-  override def setInput(id: Int, node: Node): Unit = {assert(id == 0); this.input = node}
-  override def getInputsCount: Int = 1
-  override def getInputs: Iterator[Node] = Iterator(input)
-  override def getInput(id: Int): Node = {assert(id == 0); input}
 
-  private[core] def canSymplifyIt = !dontSimplify && !existsTag(!_.canSymplifyHost)
+  var input: Node = null
+
+  var defaultValue: BaseType = null
 
   private[core] var dontSimplify = false
   private[core] var dontCareAboutNameForSymplify = false
 
+  override def onEachInput(doThat: (Node, Int) => Unit): Unit = doThat(input,0)
+  override def onEachInput(doThat: (Node) => Unit): Unit = doThat(input)
+  override def setInput(id: Int, node: Node): Unit = { assert(id == 0); this.input = node }
+  override def getInputsCount: Int = 1
+  override def getInputs: Iterator[Node] = Iterator(input)
+  override def getInput(id: Int): Node = { assert(id == 0); input }
+
+  private[core] def canSymplifyIt = !dontSimplify && !existsTag(!_.canSymplifyHost)
+
+
   def removeAssignements() : Unit = {
     input match {
-      case reg : Reg => reg.dataInput = null.asInstanceOf[reg.T]
-      case _ => input = null
+      case reg: Reg => reg.dataInput = null.asInstanceOf[reg.T]
+      case _        => input = null
     }
   }
 
   override def dontSimplifyIt(): this.type = {
-    dontSimplify = true;
+    dontSimplify = true
     this
   }
 
   override def allowSimplifyIt(): this.type = {
-    dontSimplify = false;
+    dontSimplify = false
     this
   }
 
   private[core] def getLiteral[T <: Literal]: T = input match {
     case lit: Literal => lit.asInstanceOf[T]
     case bt: BaseType => bt.getLiteral[T]
-    case _ => null.asInstanceOf[T]
+    case _            => null.asInstanceOf[T]
   }
 
-  var defaultValue: BaseType = null
-
   override def isReg = input.isInstanceOf[Reg]
-  def getDrivingReg : this.type = input match{
-    case reg : Reg => this
-    case bt : BaseType => bt.getDrivingReg.asInstanceOf[this.type]
-    case _ => SpinalError("Driver is not a register")
+
+  def getDrivingReg: this.type = input match{
+    case reg: Reg     => this
+    case bt: BaseType => bt.getDrivingReg.asInstanceOf[this.type]
+    case _            => SpinalError("Driver is not a register")
   }
 
   def isDelay = input.isInstanceOf[SyncNode]
@@ -215,7 +223,6 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
     component.ioSet += this
     super.asOutput()
   }
-
 
   override def asDirectionLess(): BaseType.this.type = {
     if(dir == null) return this
@@ -236,21 +243,22 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
   // def castThatInSame(that: BaseType): this.type = throw new Exception("Not defined")
 
   override def assignDontCare(): this.type = {
-    this.assignFrom(new DontCareNode(this), false)
+    this.assignFrom(new DontCareNode(this), conservative=false)
     this
   }
 
   // = (this.flatten, that.flatten).zipped.map((a, b) => a.isNotEguals(b)).reduceLeft(_ || _)
   private[core] override def autoConnect(that: Data): Unit = autoConnectBaseImpl(that)
 
-  override def flatten: Seq[BaseType] = Seq(this);
+  override def flatten: Seq[BaseType] = Seq(this)
 
   override def flattenLocalName: Seq[String] = Seq("")
 
   override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
+
   def instanceAndSyncNodeAttributes : Iterable[Attribute] = {
     if(input.isInstanceOf[SyncNode])
-      return input.instanceAttributes ++ this.instanceAttributes
+      input.instanceAttributes ++ this.instanceAttributes
     else
       this.instanceAttributes
   }
@@ -263,7 +271,7 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
   }
 
   private[core] def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer
-  private[core] def newMultiplexer(cond : Node,whenTrue : Node,whenFalse : Node,mux : Multiplexer): Multiplexer = {
+  private[core] def newMultiplexer(cond: Node, whenTrue: Node, whenFalse: Node, mux: Multiplexer): Multiplexer = {
     mux.cond      = cond
     mux.whenTrue  = whenTrue.asInstanceOf[mux.T]
     mux.whenFalse = whenFalse.asInstanceOf[mux.T]
@@ -277,33 +285,37 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
     typeNode
   }
 
-  def wrapCast[T <: BaseType](result : T,node : Cast) : T = {
+  def wrapCast[T <: BaseType](result: T, node: Cast): T = {
     node.input = this.asInstanceOf[node.T]
     result.input = node
     result
   }
 
-  private[core] def wrapConstantOperator(op : ConstantOperator): this.type = {
+  private[core] def wrapConstantOperator(op: ConstantOperator): this.type = {
     op.input = this.asInstanceOf[op.T]
     wrapWithWeakClone(op)
   }
-  private[core] def wrapUnaryOperator(op : UnaryOperator): this.type = {
+
+  private[core] def wrapUnaryOperator(op: UnaryOperator): this.type = {
     op.input = this.asInstanceOf[op.T]
     wrapWithWeakClone(op)
   }
-  private[core] def wrapBinaryOperator(right : Node,op : BinaryOperator): this.type = {
+
+  private[core] def wrapBinaryOperator(right: Node, op: BinaryOperator): this.type = {
     op.left = this.asInstanceOf[op.T]
     op.right = right.asInstanceOf[op.T]
     wrapWithWeakClone(op)
   }
-  private[core] def wrapLogicalOperator(right : Node,op : BinaryOperator):  Bool = {
+
+  private[core] def wrapLogicalOperator(right: Node, op: BinaryOperator):  Bool = {
     op.left = this.asInstanceOf[op.T]
     op.right = right.asInstanceOf[op.T]
     val ret = new Bool
     ret.input = op
     ret
   }
-  private[core] def wrapMultiplexer(cond : Node,whenTrue : Node,whenFalse : Node,mux : Multiplexer): this.type = {
+
+  private[core] def wrapMultiplexer(cond: Node, whenTrue: Node, whenFalse: Node, mux: Multiplexer): this.type = {
     mux.cond      = cond
     mux.whenTrue  = whenTrue.asInstanceOf[mux.T]
     mux.whenFalse = whenFalse.asInstanceOf[mux.T]
@@ -316,16 +328,17 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
   //Create a new instance of the same datatype without any configuration (width, direction)
   private[core] def weakClone: this.type
 
-  override def toString(): String = s"${component.getPath() + "/" + this.getDisplayName()} : ${if(isInput) "in " else if(isOutput) "out " else ""}${getClassIdentifier}"
+  override def toString(): String = s"${component.getPath() + "/" + this.getDisplayName()} : ${if(isInput) "in " else if(isOutput) "out " else ""}$getClassIdentifier"
 
 
 
-  var assignementThrowable : Throwable = null
+  var assignementThrowable: Throwable = null
 
   override def getAssignementContext(id: Int): Throwable = {
     assert(id == 0)
     assignementThrowable
   }
+
   override def setAssignementContext(id: Int,that : Throwable): Unit =  {
     assert(id == 0)
     assignementThrowable =that

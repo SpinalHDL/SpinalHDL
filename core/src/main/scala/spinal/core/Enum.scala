@@ -120,8 +120,8 @@ class SpinalEnumCraft[T <: SpinalEnum](val blueprint: T/*, encoding: SpinalEnumE
   private[core] def assertSameType(than: SpinalEnumCraft[_]): Unit = if (blueprint != than.blueprint) SpinalError("Enum is assigned by a incompatible enum")
 
   def :=(that: SpinalEnumElement[T]): Unit = new DataPimper(this) := that.craft()
-  def ===(that: SpinalEnumElement[T]): Bool = this === (that.craft())
-  def =/=(that: SpinalEnumElement[T]): Bool = this =/= (that.craft())
+  def ===(that: SpinalEnumElement[T]): Bool = this === that.craft()
+  def =/=(that: SpinalEnumElement[T]): Bool = this =/= that.craft()
 
   @deprecated("Use =/= instead")
   def !==(that: SpinalEnumElement[T]): Bool = this =/= that
@@ -210,7 +210,7 @@ class EnumLiteral[T <: SpinalEnum](val enum: SpinalEnumElement[T]) extends Liter
 
   private[core] override def getBitsStringOn(bitCount: Int): String = {
     val str = encoding.getValue(enum).toString(2)
-    return "0" * (bitCount - str.length) + str
+    "0" * (bitCount - str.length) + str
   }
 
   override def getDefinition: SpinalEnum = enum.parent
@@ -248,9 +248,8 @@ object inferred extends SpinalEnumEncoding{
   */
 object native extends SpinalEnumEncoding{
   override def getWidth(enum: SpinalEnum): Int = log2Up(enum.values.length)
-  override def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]) : BigInt = {
-    return element.position
-  }
+  override def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]) : BigInt = element.position
+
   override def isNative = true
   setWeakName("native")
 }
@@ -263,10 +262,7 @@ object native extends SpinalEnumEncoding{
   */
 object binarySequential extends SpinalEnumEncoding{
   override def getWidth(enum: SpinalEnum): Int = log2Up(enum.values.length)
-  override def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt = {
-    return element.position
-  }
-
+  override def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt = element.position
   override def isNative = false
   setWeakName("binary_sequancial")
 }
@@ -278,9 +274,7 @@ object binarySequential extends SpinalEnumEncoding{
   */
 object binaryOneHot extends SpinalEnumEncoding{
   override def getWidth(enum: SpinalEnum): Int = enum.values.length
-  override def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt = {
-    return BigInt(1) << element.position
-  }
+  override def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt = BigInt(1) << element.position
   override def isNative = false
   setWeakName("binary_one_hot")
 }
