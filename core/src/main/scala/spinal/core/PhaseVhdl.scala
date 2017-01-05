@@ -686,12 +686,12 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
       ret ++= s"    generic( \n"
       for ((name, e) <- genericFlat) {
         e match {
-          case baseType: BaseType => ret ++= s"      ${emitReference(baseType)} : ${blackBoxRemplaceULogic(component, emitDataType(baseType, false))};\n"
+          case baseType: BaseType => ret ++= s"      ${emitReference(baseType)} : ${blackBoxRemplaceULogic(component, emitDataType(baseType, true))};\n"
           case s: String => ret ++= s"      $name : string;\n"
           case i: Int => ret ++= s"      $name : integer;\n"
           case d: Double => ret ++= s"      $name : real;\n"
           case b: Boolean => ret ++= s"      $name : boolean;\n"
-//          case b: STime => ret ++= s"      $name : time;\n"
+          case b: TimeNumber => ret ++= s"      $name : time;\n"
         }
       }
 
@@ -702,7 +702,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     component.nodes.foreach(_ match {
       case baseType: BaseType => {
         if (baseType.isIo) {
-          ret ++= s"      ${baseType.getName()} : ${emitDirection(baseType)} ${blackBoxRemplaceULogic(component, emitDataType(baseType, false))};\n"
+          ret ++= s"      ${baseType.getName()} : ${emitDirection(baseType)} ${blackBoxRemplaceULogic(component, emitDataType(baseType, true))};\n"
         }
       }
       case _ =>
@@ -1651,8 +1651,8 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
             }
           } else if (dir == spinal.core.out) {
             bt match {
-              case _: Bool => return s"      std_ulogic($io) => $logic,\n"
-              case _: Bits => return s"      std_ulogic_vector($io) => $logic,\n"
+              case _: Bool => return s"      std_logic($io) => $logic,\n"
+              case _: Bits => return s"      std_logic_vector($io) => $logic,\n"
               case _ => return s"      $io => $logic,\n"
             }
           } else SpinalError("???")
@@ -1676,10 +1676,10 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
               case i: Int => ret ++= s"      ${name} => $i,\n"
               case d: Double => ret ++= s"      ${name} => $d,\n"
               case b: Boolean => ret ++= s"      ${name} => $b,\n"
-//              case t: STime => {
-//                val d = t.decompose
-//                ret ++= s"      ${name} => ${d._1} ${d._2},\n"
-//              }
+              case t: TimeNumber => {
+                val d = t.decompose
+                ret ++= s"      ${name} => ${d._1} ${d._2},\n"
+              }
             }
           }
           ret.setCharAt(ret.size - 2, ' ')

@@ -381,6 +381,7 @@ object Counter {
     Counter(start = range.low, end = range.high)
   }
   def apply(stateCount: BigInt): Counter = new Counter(start = 0, end = stateCount-1)
+  def apply(bitCount: BitCount): Counter = new Counter(start = 0, end = (BigInt(1)<<bitCount.value)-1)
 
   def apply(start: BigInt,end: BigInt, inc: Bool) : Counter  = {
     val counter = Counter(start,end)
@@ -394,6 +395,7 @@ object Counter {
     Counter(start = range.low, end = range.high,inc = inc)
   }
   def apply(stateCount: BigInt, inc: Bool): Counter = Counter(start = 0, end = stateCount-1,inc = inc)
+  def apply(bitCount: BitCount, inc: Bool): Counter = Counter(start = 0, end = (BigInt(1)<<bitCount.value)-1,inc = inc)
 }
 
 // start and end inclusive, up counter
