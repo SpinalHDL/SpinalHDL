@@ -1184,3 +1184,33 @@ object PlayMuxInfer{
     SpinalVhdl(new TopLevel)
   }
 }
+
+object PlayWithCustomEnumEncoding{
+
+  object MyEnum extends SpinalEnum{
+    val e0, e1, e2, e3 = newElement()
+    defaultEncoding = Encoding("custom")(
+             e0 -> 0,
+             e1 -> 4,
+             e2  -> 4,
+             e3 -> 16 )
+  }
+
+  class TopLevel extends Component{
+    val io = new Bundle{
+      val state = in(MyEnum)
+      val result = out Bool
+    }
+
+    io.result := False
+    when(io.state === MyEnum.e1){
+      io.result := True
+    }
+  }
+
+  def main(args: Array[String]): Unit ={
+    SpinalVhdl(new TopLevel)
+  }
+
+}
+
