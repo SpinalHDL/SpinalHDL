@@ -260,11 +260,11 @@ class Scope(parent : Scope = null) {
     map(lowerCase) = count
   }
 
-  def iWantIt(name: String): Unit = {
+  def iWantIt(name: String,errorMessage : => String): Unit = {
     assert(!lock)
     val lowerCase = name.toLowerCase
     if (map.contains(lowerCase) ||  (parent != null && parent.map.contains(lowerCase)))
-      SpinalError(s"Reserved name $name is not free")
+      SpinalError(errorMessage)
     map(lowerCase) = 1
   }
 
@@ -343,6 +343,7 @@ object SpinalExit {
   def apply(message: String = "") = {
     throw new SpinalExit("\n" + message)
   }
+  val errorsMessagesSeparator = "*" * 120 + "\n" + "*" * 120
 }
 object SpinalLog{
   def tag(name: String, color: String): String =
@@ -364,7 +365,7 @@ object SpinalWarning {
   def apply(message: String) = println(s"${SpinalLog.tag("Warning", Console.YELLOW)} $message")
 }
 
-class SpinalExit(message: String) extends Exception("\n\n" + (Seq(message)++ GlobalData.get.pendingErrors.map(_.apply())).reduceLeft(_ + "\n\n" + _));
+class SpinalExit(message: String) extends Exception("\n\n" + (Seq(message)++ GlobalData.get.pendingErrors.map(_.apply())).map(_ + "\n" + SpinalExit.errorsMessagesSeparator + "\n\n").mkString("") + "Design's errors are listed above.\nSpinalHDL compiler exit stack : \n");
 
 object PendingError {
   def apply(error : => String) = GlobalData.get.pendingErrors += (() => error)

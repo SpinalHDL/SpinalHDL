@@ -39,7 +39,7 @@ import scala.collection.mutable.ArrayBuffer
   *
   * @param defaultEncoding encoding of the enum
   */
-class SpinalEnum(var defaultEncoding: SpinalEnumEncoding = native) extends Nameable {
+class SpinalEnum(var defaultEncoding: SpinalEnumEncoding = native) extends Nameable with ScalaLocated {
 
   assert(defaultEncoding != inferred, "Enum definition should not have 'inferred' as default encoding")
 
@@ -223,7 +223,7 @@ class EnumLiteral[T <: SpinalEnum](val enum: SpinalEnumElement[T]) extends Liter
 /**
   * Trait to define an encoding
   */
-trait SpinalEnumEncoding extends Nameable{
+trait SpinalEnumEncoding extends Nameable with ScalaLocated{
   /** Return the width of the encoding  */
   def getWidth(enum: SpinalEnum): Int
   /** Return the value of the encoding */
