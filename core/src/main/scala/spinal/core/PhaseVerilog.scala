@@ -140,7 +140,7 @@ end
         val bitCount = encoding.getWidth(enumDef)
         val vhdlEnumType = emitEnumType(enumDef, encoding,"")
         ret ++= s"`define $vhdlEnumType [${bitCount - 1}:0]\n"
-        for (element <- enumDef.values) {
+        for (element <- enumDef.elements) {
           ret ++= s"`define ${emitEnumLiteral(element, encoding,"")} ${idToBits(element, encoding)}\n"
         }
         ret ++= "\n"
@@ -149,7 +149,7 @@ end
 
     def idToBits[T <: SpinalEnum](enum: SpinalEnumElement[T], encoding: SpinalEnumEncoding): String = {
       val str = encoding.getValue(enum).toString(2)
-      "'b" + ("0" * (encoding.getWidth(enum.parent) - str.length)) + str
+      "'b" + ("0" * (encoding.getWidth(enum.spinalEnum) - str.length)) + str
     }
 
 
@@ -169,10 +169,10 @@ end
             ret ++= s"  function $fName(${emitEnumType(enumDef, encodingSrc)} that);\n"
             ret ++= "  begin\n"
             ret ++= "    case(that) \n"
-            for (e <- enumDef.values) {
+            for (e <- enumDef.elements) {
               ret ++= s"      ${emitEnumLiteral(e, encodingSrc)} : $fName =  ${emitEnumLiteral(e, encodingDst)};\n"
             }
-            ret ++= s"      default : $fName =  ${emitEnumLiteral(enumDef.values.head, encodingDst)};\n"
+            ret ++= s"      default : $fName =  ${emitEnumLiteral(enumDef.elements.head, encodingDst)};\n"
             ret ++= "    endcase\n"
             ret ++= "  end\n"
             ret ++= "  endfunction\n\n"
@@ -202,7 +202,7 @@ end
             " = " + bv.getWidth + "'b" + "0" * (bv.getWidth - rand.length) + rand
           }
           case e: SpinalEnumCraft[_] => {
-            val vec = e.blueprint.values.toVector
+            val vec = e.spinalEnum.elements.toVector
             val rand = vec(Random.nextInt(vec.size))
             " = " + emitEnumLiteral(rand, e.getEncoding)
           }
@@ -623,7 +623,7 @@ end
 
   def emitDebug(component: Component, ret: StringBuilder, enumDebugSignals: ArrayBuffer[SpinalEnumCraft[_]]): Unit = {
     for (signal <- enumDebugSignals) {
-      ret ++= s"  ${emitReference(signal)}_debug <= ${getEnumToDebugFuntion(toSpinalEnumCraft(signal).blueprint, signal.getEncoding)}(${emitReference(signal)});\n"
+      ret ++= s"  ${emitReference(signal)}_debug <= ${getEnumToDebugFuntion(toSpinalEnumCraft(signal).spinalEnum, signal.getEncoding)}(${emitReference(signal)});\n"
     }
   }
 

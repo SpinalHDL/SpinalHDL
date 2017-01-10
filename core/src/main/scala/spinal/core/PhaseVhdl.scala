@@ -116,8 +116,8 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
          |package $enumPackageName is
                                     |""".stripMargin
     for (enumDef <- enums.keys) {
-      ret ++= s"  type ${enumDef.getName()} is (${enumDef.values.map(_.getName()).reduce(_ + "," + _)});\n"
-      ret ++= s"  type ${getEnumDebugType(enumDef)} is (${enumDef.values.foldLeft("XXX")((str, e) => str + "," + e.getName())});\n"
+      ret ++= s"  type ${enumDef.getName()} is (${enumDef.elements.map(_.getName()).reduce(_ + "," + _)});\n"
+      ret ++= s"  type ${getEnumDebugType(enumDef)} is (${enumDef.elements.foldLeft("XXX")((str, e) => str + "," + e.getName())});\n"
     }
 
     ret ++= "\n"
@@ -131,7 +131,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
         val bitCount = encoding.getWidth(enumDef)
         val vhdlEnumType = emitEnumType(enumDef, encoding)
         ret ++= s"  subtype $vhdlEnumType is std_logic_vector(${bitCount - 1} downto 0);\n"
-        for (element <- enumDef.values) {
+        for (element <- enumDef.elements) {
           ret ++= s"  constant ${emitEnumLiteral(element, encoding)} : $vhdlEnumType := ${idToBits(element, encoding)};\n"
         }
         ret ++= "\n"
@@ -153,7 +153,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
     def idToBits[T <: SpinalEnum](enum: SpinalEnumElement[T], encoding: SpinalEnumEncoding): String = {
       val str = encoding.getValue(enum).toString(2)
-      "\"" + ("0" * (encoding.getWidth(enum.parent) - str.length)) + str + "\""
+      "\"" + ("0" * (encoding.getWidth(enum.spinalEnum) - str.length)) + str + "\""
     }
 
 
@@ -181,7 +181,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
                                                                                                                                                            |    case value is
                                                                                                                                                            |${
                 {
-                  for (e <- enumDef.values) yield s"      when ${emitEnumLiteral(e, encoding)} => return ${e.getName()};"
+                  for (e <- enumDef.elements) yield s"      when ${emitEnumLiteral(e, encoding)} => return ${e.getName()};"
                 }.reduce(_ + "\n" + _)
               }
                   |      when others => return XXX;
@@ -195,10 +195,10 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
                                                                                                                                                               |    case value is
                                                                                                                                                               |${
                 {
-                  for (e <- enumDef.values) yield s"      when ${idToBits(e, encoding)} => return ${e.getName()};"
+                  for (e <- enumDef.elements) yield s"      when ${idToBits(e, encoding)} => return ${e.getName()};"
                 }.reduce(_ + "\n" + _)
               }
-                  |      when others => return ${enumDef.values.head.getName()};
+                  |      when others => return ${enumDef.elements.head.getName()};
                                                                                  |    end case;
                                                                                  |  end;
                                                                                  |""".stripMargin
@@ -209,10 +209,10 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
                                                                                             |    case value is
                                                                                             |${
                 {
-                  for (e <- enumDef.values) yield s"      when ${e.getName()} => return ${idToBits(e, encoding)};"
+                  for (e <- enumDef.elements) yield s"      when ${e.getName()} => return ${idToBits(e, encoding)};"
                 }.reduce(_ + "\n" + _)
               }
-                  |      when others => return ${idToBits(enumDef.values.head, encoding)};
+                  |      when others => return ${idToBits(enumDef.elements.head, encoding)};
                                                                                            |    end case;
                                                                                            |  end;
                                                                                            |""".stripMargin
@@ -224,10 +224,10 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
             ret ++= s"  function ${getReEncodingFuntion(enumDef, encoding, targetEncoding)} (that : ${emitEnumType(enumDef, encoding)}) return ${emitEnumType(enumDef, targetEncoding)} is\n"
             ret ++= "  begin\n"
             ret ++= "    case that is \n"
-            for (e <- enumDef.values) {
+            for (e <- enumDef.elements) {
               ret ++= s"      when ${emitEnumLiteral(e, encoding)} => return ${emitEnumLiteral(e, targetEncoding)};\n"
             }
-            ret ++= s"      when others => return ${emitEnumLiteral(enumDef.values.head, targetEncoding)};\n"
+            ret ++= s"      when others => return ${emitEnumLiteral(enumDef.elements.head, targetEncoding)};\n"
             ret ++= "    end case;\n"
             ret ++= "  end;\n\n"
           }
@@ -754,7 +754,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
             " := \"" + "0" * (bv.getWidth - rand.length) + rand + "\""
           }
           case e: SpinalEnumCraft[_] => {
-            val vec = e.blueprint.values.toVector
+            val vec = e.spinalEnum.elements.toVector
             val rand = vec(Random.nextInt(vec.size))
             " := " + emitEnumLiteral(rand, e.getEncoding)
           }
@@ -774,7 +774,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
             if (signal.isInstanceOf[SpinalEnumCraft[_]]) {
               val craft = toSpinalEnumCraft(signal)
               if (!craft.getEncoding.isNative) {
-                ret ++= s"  signal ${emitReference(signal)}_debug : ${getEnumDebugType(craft.blueprint)};\n"
+                ret ++= s"  signal ${emitReference(signal)}_debug : ${getEnumDebugType(craft.spinalEnum)};\n"
                 enumDebugSignals += toSpinalEnumCraft(signal)
               }
             }
@@ -1269,7 +1269,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
   def emitDebug(component: Component, ret: StringBuilder, enumDebugSignals: ArrayBuffer[SpinalEnumCraft[_]]): Unit = {
     for (signal <- enumDebugSignals) {
-      ret ++= s"  ${emitReference(signal)}_debug <= ${getEnumToDebugFuntion(toSpinalEnumCraft(signal).blueprint, signal.getEncoding)}(${emitReference(signal)});\n"
+      ret ++= s"  ${emitReference(signal)}_debug <= ${getEnumToDebugFuntion(toSpinalEnumCraft(signal).spinalEnum, signal.getEncoding)}(${emitReference(signal)});\n"
     }
   }
 

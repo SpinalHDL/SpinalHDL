@@ -1576,7 +1576,7 @@ class RangedAssignmentFloating(out: BitVector, in_ : Node, offset_ : Node, bitCo
 object MultipleAssignmentNode{
   def newFor(that : BaseType) : MultipleAssignmentNode = that match{
     case that : BitVector => new MultipleAssignmentNodeWidthable
-    case that : SpinalEnumCraft[_] => new MultipleAssignmentNodeEnum(that.blueprint)
+    case that : SpinalEnumCraft[_] => new MultipleAssignmentNodeEnum(that.spinalEnum)
     case _ => new MultipleAssignmentNode
   }
 }

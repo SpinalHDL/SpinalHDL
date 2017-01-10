@@ -577,7 +577,7 @@ class PhaseCollectAndNameEnum(pc: PhaseContext) extends PhaseMisc{
     import pc._
     Node.walk(walkNodesDefautStack,node => {
       node match {
-        case enum: SpinalEnumCraft[_] => enums.getOrElseUpdate(enum.blueprint,null) //Encodings will be added later
+        case enum: SpinalEnumCraft[_] => enums.getOrElseUpdate(enum.spinalEnum,null) //Encodings will be added later
         case _ =>
       }
     })
@@ -599,7 +599,7 @@ class PhaseCollectAndNameEnum(pc: PhaseContext) extends PhaseMisc{
           case _ =>
         }
       })
-      for (e <- enumDef.values) {
+      for (e <- enumDef.elements) {
         if (e.isUnnamed) {
           e.setWeakName(scope.getUnusedName("e" + e.position))
         }
@@ -947,7 +947,7 @@ class PhaseInferEnumEncodings(pc: PhaseContext,encodingSwap : (SpinalEnumEncodin
     for((enum,encodings) <- enums){
       for(encoding <- encodings) {
         val reserveds = mutable.Map[BigInt, ArrayBuffer[SpinalEnumElement[_]]]()
-        for(element <- enum.values){
+        for(element <- enum.elements){
           val key = encoding.getValue(element)
           reserveds.getOrElseUpdate(key,ArrayBuffer[SpinalEnumElement[_]]()) += element
         }
@@ -1661,7 +1661,7 @@ class PhaseCompletSwitchCases extends PhaseNetlist{
               case (craft: SpinalEnumCraft[_], lit: EnumLiteral[_]) => {
                 val value = lit.enum.position
                 if (!excludedOut.contains(craft)) {
-                  excludedOut += (craft -> Exclusion(lit.enum.blueprint.values.length))
+                  excludedOut += (craft -> Exclusion(lit.enum.spinalEnum.elements.length))
                 }
                 checkAndApplyCond(craft,value.toInt)
               }
