@@ -42,7 +42,7 @@ object Reg {
 
   private[core] def newFor(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) : Reg = outType match{
     case that : BitVector => new RegWidthable(outType,clockDomain)
-    case that : SpinalEnumCraft[_] => new RegEnum(outType,that.blueprint,clockDomain)
+    case that : SpinalEnumCraft[_] => new RegEnum(outType,that.spinalEnum,clockDomain)
     case _ => new Reg(outType,clockDomain)
   }
 }
