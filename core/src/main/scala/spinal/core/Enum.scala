@@ -286,7 +286,7 @@ object binaryOneHot extends SpinalEnumEncoding{
   * @example {{{
   *   object BR extends SpinalEnum{
   *     val NE, EQ, J, JR = newElement()
-  *     defaultEncoding = Encoding("opt")(
+  *     defaultEncoding = SpinalEnumEncoding("opt")(
   *         EQ -> 0,
   *         NE -> 1,
   *         J  -> 2,
@@ -295,7 +295,7 @@ object binaryOneHot extends SpinalEnumEncoding{
   * }}}
   *
   */
-object Encoding{
+object SpinalEnumEncoding{
   def apply[X <: SpinalEnum](name: String)(spec: (SpinalEnumElement[X],BigInt)*): SpinalEnumEncoding = {
     val map: Map[SpinalEnumElement[X],BigInt] = spec.toMap
     list(name)(map)
@@ -325,8 +325,4 @@ object Encoding{
       }
     }
   }
-
-
-
-
 }

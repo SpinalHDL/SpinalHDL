@@ -3042,7 +3042,7 @@ object PlayEnumEncoding{
     def isNative: Boolean = false
   }
 
-  val EncodingC = Encoding("Yolo",_ * 2 + 1)
+  val EncodingC = SpinalEnumEncoding("Yolo",_ * 2 + 1)
 
   object State extends SpinalEnum(EncodingA){
     val A,B,C,D,E,F = newElement()
