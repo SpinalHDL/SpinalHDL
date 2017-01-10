@@ -577,7 +577,7 @@ class PhaseCollectAndNameEnum(pc: PhaseContext) extends PhaseMisc{
     import pc._
     Node.walk(walkNodesDefautStack,node => {
       node match {
-        case enum: SpinalEnumCraft[_] => enums.getOrElseUpdate(enum.blueprint,mutable.Set[SpinalEnumEncoding]()) //Encodings will be added later
+        case enum: SpinalEnumCraft[_] => enums.getOrElseUpdate(enum.blueprint,null) //Encodings will be added later
         case _ =>
       }
     })
@@ -933,10 +933,31 @@ class PhaseInferEnumEncodings(pc: PhaseContext,encodingSwap : (SpinalEnumEncodin
       }
     })
 
-
+    //Feed enums with encodings
+    enums.keySet.foreach(enums(_) = mutable.Set[SpinalEnumEncoding]())
     nodes.foreach(enum => {
-      enums.getOrElseUpdate(enum.getDefinition, mutable.Set[SpinalEnumEncoding]()).add(enum.getEncoding)
+      enums(enum.getDefinition) += enum.getEncoding
     })
+
+
+    //give a name to unamed encodings
+    val unamedEncodings = enums.valuesIterator.flatten.toSet.withFilter(_.isUnnamed).foreach(_.setWeakName("anonymousEnc"))
+
+    //Check that there is no encoding overlaping
+    for((enum,encodings) <- enums){
+      for(encoding <- encodings) {
+        val reserveds = mutable.Map[BigInt, ArrayBuffer[SpinalEnumElement[_]]]()
+        for(element <- enum.values){
+          val key = encoding.getValue(element)
+          reserveds.getOrElseUpdate(key,ArrayBuffer[SpinalEnumElement[_]]()) += element
+        }
+        for((key,elements) <- reserveds){
+          if(elements.length != 1){
+            PendingError(s"Conflict in the $enum enumeration with the '$encoding' encoding with the key $key' and following elements:.\n${elements.mkString(", ")}\n\nEnumeration defined at :\n${enum.getScalaLocationLong}Encoding defined at :\n${encoding.getScalaLocationLong}")
+          }
+        }
+      }
+    }
   }
 }
 
@@ -1492,8 +1513,19 @@ class PhaseAllocateNames(pc: PhaseContext) extends PhaseMisc{
       if (enumDef.isWeak)
         enumDef.setName(globalScope.allocateName(enumDef.getName()));
       else
-        globalScope.iWantIt(enumDef.getName())
+        globalScope.iWantIt(enumDef.getName(),s"Reserved name ${enumDef.getName()} is not free for ${enumDef.toString()}")
     }
+
+
+    for((enum,encodings) <- enums;
+         encodingsScope = new Scope();
+         encoding <- encodings){
+      if (encoding.isWeak)
+        encoding.setName(encodingsScope.allocateName(encoding.getName()));
+      else
+        encodingsScope.iWantIt(encoding.getName(),s"Reserved name ${encoding.getName()} is not free for ${encoding.toString()}")
+    }
+
     for (c <- sortedComponents) {
       if (c.isInstanceOf[BlackBox])
         globalScope.lockName(c.definitionName)

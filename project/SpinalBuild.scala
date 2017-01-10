@@ -16,7 +16,11 @@ object SpinalBuild extends Build {
   )
 
   import sys.process._
-  def gitHash = ("git rev-parse HEAD".!!).linesIterator.next()
+  def gitHash = (try {
+      "git rev-parse HEAD".!!
+    } catch{
+      case e : java.io.IOException => "???"
+    }).linesIterator.next()
 
   lazy val core = Project(
     id = "SpinalHDL-core",

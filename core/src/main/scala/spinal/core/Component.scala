@@ -234,7 +234,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
         if (nameable.isWeak)
           nameable.setName(localScope.allocateName(nameable.getName()))
         else
-          localScope.iWantIt(nameable.getName())
+          localScope.iWantIt(nameable.getName(),s"Reserved name ${nameable.getName()} is not free for ${nameable.toString()}")
       case _ =>
     }
 
