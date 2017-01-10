@@ -505,7 +505,7 @@ object ScalaLocated {
 //}
 
 trait ScalaLocated extends GlobalDataUser {
-  private[core] var scalaTrace = if (!globalData.scalaLocatedEnable) null else new Throwable()
+  private[core] var scalaTrace = if (globalData != null && !globalData.scalaLocatedEnable) null else new Throwable()
 
   def getScalaLocationLong: String = ScalaLocated.long(scalaTrace)
   def getScalaLocationShort: String = ScalaLocated.short(scalaTrace)

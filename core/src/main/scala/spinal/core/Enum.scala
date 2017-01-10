@@ -296,29 +296,37 @@ object binaryOneHot extends SpinalEnumEncoding{
   *
   */
 object Encoding{
-
   def apply[X <: SpinalEnum](name: String)(spec: (SpinalEnumElement[X],BigInt)*): SpinalEnumEncoding = {
     val map: Map[SpinalEnumElement[X],BigInt] = spec.toMap
     list(name)(map)
   }
 
-  def list[X <: SpinalEnum](name: String)(spec: Map[SpinalEnumElement[X],BigInt]): SpinalEnumEncoding = {
+  def apply(name: String,spec: BigInt => BigInt): SpinalEnumEncoding = apply(spec).setName(name)
+  def apply(spec: BigInt => BigInt): SpinalEnumEncoding = {
+    return new SpinalEnumEncoding {
+      override def getWidth(enum: SpinalEnum): Int = log2Up(enum.values.map(getValue(_)).max)
+      override def isNative: Boolean = false
+      override def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt = spec(element.position)
+    }
+  }
 
+  def list[X <: SpinalEnum](name: String)(spec: Map[SpinalEnumElement[X],BigInt]): SpinalEnumEncoding = list(spec).setName(name)
+  def list[X <: SpinalEnum](spec: Map[SpinalEnumElement[X],BigInt]): SpinalEnumEncoding = {
     if(spec.size != spec.head._1.blueprint.values.size){
       SpinalError("All elements of the enumeration should be mapped")
     }
 
     return new SpinalEnumEncoding {
       val width = log2Up(spec.values.foldLeft(BigInt(0))((a, b) => if(a > b) a else b) + 1)
-
       override def getWidth(enum: SpinalEnum): Int = width
-
       override def isNative: Boolean = false
-
       override def getValue[T <: SpinalEnum](element: SpinalEnumElement[T]): BigInt = {
         return spec(element.asInstanceOf[SpinalEnumElement[X]])
       }
-      setWeakName(name)
     }
   }
+
+
+
+
 }
