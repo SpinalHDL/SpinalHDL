@@ -296,12 +296,14 @@ object binaryOneHot extends SpinalEnumEncoding{
   *
   */
 object SpinalEnumEncoding{
+
   def apply[X <: SpinalEnum](name: String)(spec: (SpinalEnumElement[X],BigInt)*): SpinalEnumEncoding = {
     val map: Map[SpinalEnumElement[X],BigInt] = spec.toMap
     list(name)(map)
   }
 
-  def apply(name: String,spec: BigInt => BigInt): SpinalEnumEncoding = apply(spec).setName(name)
+  def apply(name: String, spec: BigInt => BigInt): SpinalEnumEncoding = apply(spec).setName(name)
+
   def apply(spec: BigInt => BigInt): SpinalEnumEncoding = {
     return new SpinalEnumEncoding {
       override def getWidth(enum: SpinalEnum): Int = log2Up(enum.values.map(getValue(_)).max)
@@ -310,8 +312,9 @@ object SpinalEnumEncoding{
     }
   }
 
-  def list[X <: SpinalEnum](name: String)(spec: Map[SpinalEnumElement[X],BigInt]): SpinalEnumEncoding = list(spec).setName(name)
-  def list[X <: SpinalEnum](spec: Map[SpinalEnumElement[X],BigInt]): SpinalEnumEncoding = {
+  def list[X <: SpinalEnum](name: String)(spec: Map[SpinalEnumElement[X], BigInt]): SpinalEnumEncoding = list(spec).setName(name)
+
+  def list[X <: SpinalEnum](spec: Map[SpinalEnumElement[X], BigInt]): SpinalEnumEncoding = {
     if(spec.size != spec.head._1.blueprint.values.size){
       SpinalError("All elements of the enumeration should be mapped")
     }

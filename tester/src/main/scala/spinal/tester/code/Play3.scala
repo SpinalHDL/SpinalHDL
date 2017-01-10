@@ -1187,23 +1187,30 @@ object PlayMuxInfer{
 
 object PlayWithCustomEnumEncoding{
 
-  object MyEnum extends SpinalEnum{
+  object MyEnumStatic extends SpinalEnum{
     val e0, e1, e2, e3 = newElement()
-    defaultEncoding = Encoding("custom")(
+    defaultEncoding = SpinalEnumEncoding("static")(
              e0 -> 0,
-             e1 -> 4,
-             e2  -> 4,
+             e1 -> 2,
+             e2 -> 4,
              e3 -> 16 )
   }
 
+  val encodingDynamic = SpinalEnumEncoding("dynamic", _ * 2 + 1)
+  object MyEnumDynamic extends SpinalEnum(encodingDynamic){
+    val e0, e1, e2, e3 = newElement()
+  }
+
+
   class TopLevel extends Component{
     val io = new Bundle{
-      val state = in(MyEnum)
+      val state  = in(MyEnumStatic)
+      val state1 = in(MyEnumDynamic)
       val result = out Bool
     }
 
     io.result := False
-    when(io.state === MyEnum.e1){
+    when(io.state === MyEnumStatic.e1 || io.state1 === MyEnumDynamic.e3){
       io.result := True
     }
   }
