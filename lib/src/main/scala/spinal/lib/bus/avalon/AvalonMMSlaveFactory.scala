@@ -20,8 +20,7 @@ object AvalonMMSlaveFactory{
 }
 
 
-class AvalonMMSlaveFactory(bus: AvalonMM, configBus: BusSlaveFactoryConfig = BusSlaveFactoryConfig()) extends BusSlaveFactoryDelayed{
-
+class AvalonMMSlaveFactory(bus: AvalonMM) extends BusSlaveFactoryDelayed{
   assert(bus.config == AvalonMMSlaveFactory.getAvalonConfig(bus.config.addressWidth, bus.config.dataWidth))
 
   val readAtCmd = Flow(Bits(bus.config.dataWidth bits))
@@ -63,7 +62,8 @@ class AvalonMMSlaveFactory(bus: AvalonMM, configBus: BusSlaveFactoryConfig = Bus
 
   override def busDataWidth: Int = bus.config.dataWidth
 
-  override def configFactory: BusSlaveFactoryConfig = configBus
-
-  override def multiWordAddressInc: Int = busDataWidth / 8
+  override def wordAddressInc: Int = bus.config.addressUnits match {
+    case WORDS   => 1
+    case SYMBOLS => busDataWidth / 8
+  }
 }

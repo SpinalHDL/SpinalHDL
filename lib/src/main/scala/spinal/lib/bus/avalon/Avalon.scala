@@ -10,8 +10,8 @@ trait ScalaEnumeration{
 }
 
 trait AddressUnits extends ScalaEnumeration
-object words extends AddressUnits
-object symbols extends AddressUnits
+object WORDS extends AddressUnits
+object SYMBOLS extends AddressUnits
 
 case class AvalonMMConfig( addressWidth : Int,
                            dataWidth : Int,
@@ -27,8 +27,8 @@ case class AvalonMMConfig( addressWidth : Int,
                            useBurstCount : Boolean,
                            //useEndOfPacket : Boolean,
 
-                           addressUnits : AddressUnits = symbols,
-                           burstCountUnits : AddressUnits = words,
+                           addressUnits : AddressUnits = SYMBOLS,
+                           burstCountUnits : AddressUnits = WORDS,
                            burstOnBurstBoundariesOnly : Boolean = false,
                            constantBurstBehavior : Boolean = false,
                            holdTime : Int = 0,

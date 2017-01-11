@@ -282,7 +282,7 @@ object LFSR{
 /******************************************************************************
   * Big-Endian <-> Little-Endian
   */
-object Endianness{
+object EndiannessSwap{
   def apply[T <: BitVector](that : T, base:BitCount = 8 bits) : T = {
 
     val nbrBase = that.getWidth / base.value

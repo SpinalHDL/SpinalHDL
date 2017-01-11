@@ -19,7 +19,7 @@ object DebugExtension{
     readLatency = 1
   ).copy(
     useByteEnable = false,
-    addressUnits = words
+    addressUnits = WORDS
   )
 
   def avalonToDebugBus(avalon: AvalonMM,debug : DebugExtensionBus): Unit ={

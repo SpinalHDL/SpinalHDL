@@ -5,7 +5,7 @@ import spinal.lib._
 import spinal.lib.bus.misc._
 
 
-class AxiLite4SlaveFactory(bus : AxiLite4, configBus: BusSlaveFactoryConfig = BusSlaveFactoryConfig()) extends BusSlaveFactoryDelayed{
+class AxiLite4SlaveFactory(bus : AxiLite4) extends BusSlaveFactoryDelayed{
 
   val writeJoinEvent = StreamJoin.arg(bus.writeCmd,bus.writeData)
   val writeRsp = AxiLite4B(bus.config)
@@ -59,7 +59,5 @@ class AxiLite4SlaveFactory(bus : AxiLite4, configBus: BusSlaveFactoryConfig = Bu
 
   override def busDataWidth: Int = bus.config.dataWidth
 
-  override def configFactory: BusSlaveFactoryConfig = configBus
-
-  override def multiWordAddressInc: Int = busDataWidth / 8
+  override def wordAddressInc: Int = busDataWidth / 8
 }

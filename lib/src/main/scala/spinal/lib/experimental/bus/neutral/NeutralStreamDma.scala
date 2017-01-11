@@ -23,7 +23,7 @@ object NeutralStreamDma {
       dataWidth = dataWidth,
       burstCountWidth = burstWidth
     ).getReadOnlyConfig.copy(
-      addressUnits = words,
+      addressUnits = WORDS,
       maximumPendingReadTransactions = pendingRequetMax
     )
   }

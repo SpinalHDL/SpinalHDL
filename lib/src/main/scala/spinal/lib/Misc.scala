@@ -16,3 +16,11 @@ class BoolPimped(pimped : Bool){
   }
 }
 
+/**
+ * Endianness enumeration
+ */
+sealed trait Endianness
+/** Little-Endian */
+object LITTLE extends Endianness
+/** Big-Endian */
+object BIG    extends Endianness

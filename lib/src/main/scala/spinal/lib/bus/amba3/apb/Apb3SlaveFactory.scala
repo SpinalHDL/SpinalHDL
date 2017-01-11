@@ -7,7 +7,7 @@ object Apb3SlaveFactory {
   def apply(bus: Apb3, selId: Int = 0) = new Apb3SlaveFactory(bus, selId)
 }
 
-class Apb3SlaveFactory(bus: Apb3, selId: Int, configBus: BusSlaveFactoryConfig = BusSlaveFactoryConfig()) extends BusSlaveFactoryDelayed{
+class Apb3SlaveFactory(bus: Apb3, selId: Int) extends BusSlaveFactoryDelayed{
 
   bus.PREADY := True
   bus.PRDATA := 0
@@ -45,7 +45,5 @@ class Apb3SlaveFactory(bus: Apb3, selId: Int, configBus: BusSlaveFactoryConfig =
 
   override def busDataWidth: Int = bus.config.dataWidth
 
-  override def multiWordAddressInc: Int = busDataWidth / 8
-
-  override def configFactory: BusSlaveFactoryConfig = configBus
+  override def wordAddressInc: Int = busDataWidth / 8
 }

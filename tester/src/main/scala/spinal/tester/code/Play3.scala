@@ -6,7 +6,7 @@ import spinal.lib._
 import spinal.lib.bus.amba3.ahblite._
 import spinal.lib.bus.amba3.apb.{Apb3SlaveFactory, Apb3, Apb3Config}
 import spinal.lib.bus.amba4.axi._
-import spinal.lib.bus.misc.{LITTLE, BIG, BusSlaveFactoryConfig, BusSlaveFactory}
+import spinal.lib.bus.misc.{BusSlaveFactoryConfig, BusSlaveFactory}
 import spinal.lib.io.TriState
 import spinal.lib.memory.sdram.W9825G6JH6
 import spinal.lib.soc.pinsec.{Pinsec, PinsecConfig}
@@ -1148,7 +1148,7 @@ object PlayWithBusSlaveFacotry{
     val value_reg = Reg(cloneOf(io.value))
 
     val factoryConfig = new BusSlaveFactoryConfig(BIG)
-    val factory = new Apb3SlaveFactory(io.apb3, 0, factoryConfig)
+    val factory = Apb3SlaveFactory(io.apb3, 0).setConfig(factoryConfig)
 
     factory.writeMultiWord(key_reg, 0x100l)
     factory.readMultiWord(key_reg, 0x100l)

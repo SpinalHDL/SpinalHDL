@@ -41,7 +41,7 @@ abstract class MultiData extends Data {
       if (ret == null.asInstanceOf[Object]) ret = e.asBits
       else ret = e.asBits ## ret
     }
-    if (ret.asInstanceOf[Object] == null) ret = Bits(0 bit)
+    if (ret.asInstanceOf[Object] == null) ret = Bits(0 bits)
     ret
   }
 
