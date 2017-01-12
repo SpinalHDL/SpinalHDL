@@ -1708,6 +1708,21 @@ object SpinalVhdlBoot{
     try {
       singleShot(config)(gen)
     } catch {
+      case e : NullPointerException => {
+        Thread.sleep(100)
+        println(
+          """
+            |ERROR !
+            |A null pointer access was detected in the JVM
+            |It could happen when in your SpinalHDL description, you access an signal which is only defined further.
+            |As instance :
+            |  val result = Bool
+            |  result := a ^ b  //a and b can't be accessed there because they are only defined one line bellow (Software rule of execution order)
+            |  val a,b = Bool
+          """.stripMargin)
+        Thread.sleep(100)
+        throw e
+      }
       case e: Throwable => {
         if(!config.debug){
           Thread.sleep(100)
@@ -1877,6 +1892,21 @@ object SpinalVerilogBoot{
     try {
       singleShot(config)(gen)
     } catch {
+      case e : NullPointerException => {
+        Thread.sleep(100)
+        println(
+          """
+            |ERROR !
+            |A null pointer access was detected in the JVM
+            |It could happen when in your SpinalHDL description, you access an signal which is only defined further.
+            |As instance :
+            |  val result = Bool
+            |  result := a ^ b  //a and b can't be accessed there because they are only defined one line bellow (Software rule of execution order)
+            |  val a,b = Bool
+          """.stripMargin)
+        Thread.sleep(100)
+        throw e
+      }
       case e: Throwable => {
         if(!config.debug){
           Thread.sleep(100)

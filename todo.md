@@ -26,6 +26,8 @@
 - [X] Add git commit number in logs
 - [X] Fix name allocation scopes
 - [X] Rework Hz and times DSL with strongly typed classes
+- [X] Catch null pointer exception and document it
+- [ ] start in FSM
 
 ## spinal.lib
 

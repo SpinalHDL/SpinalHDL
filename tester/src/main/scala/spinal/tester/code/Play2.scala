@@ -3060,3 +3060,17 @@ object PlayEnumEncoding{
     SpinalConfig(debug = true).generateVhdl(new TopLevel)
   }
 }
+
+
+object PlayNullPointer{
+
+  class TopLevel extends Component{
+    val result = Bool
+    result := a & b
+    val a,b = Bool
+  }
+
+  def main(args: Array[String]) {
+    SpinalConfig(debug = true).generateVhdl(new TopLevel)
+  }
+}
