@@ -57,13 +57,16 @@ class UartCtrlRx(g : UartCtrlGenerics) extends Component {
     val state   = RegInit(IDLE)
     val parity  = Reg(Bool)
     val shifter = Reg(io.read.payload)
+    val validReg = RegNext(False) init(False)
+    io.read.valid := validReg
 
     //Parity calculation
     when(bitTimer.tick) {
       parity := parity ^ sampler.value
     }
 
-    io.read.valid := False
+
+
     switch(state) {
       is(IDLE) {
         when(sampler.value === False) {
@@ -88,6 +91,7 @@ class UartCtrlRx(g : UartCtrlGenerics) extends Component {
             bitCounter.reset()
             when(io.configFrame.parity === UartParityType.NONE) {
               state := STOP
+              validReg := True
             } otherwise {
               state := PARITY
             }
@@ -96,9 +100,11 @@ class UartCtrlRx(g : UartCtrlGenerics) extends Component {
       }
       is(PARITY) {
         when(bitTimer.tick) {
-          state := STOP
           bitCounter.reset()
-          when(parity =/= sampler.value) {
+          when(parity === sampler.value) {
+            state := STOP
+            validReg := True
+          } otherwise {
             state := IDLE
           }
         }
@@ -109,7 +115,6 @@ class UartCtrlRx(g : UartCtrlGenerics) extends Component {
             state := IDLE
           }.elsewhen(bitCounter.value === toBitCount(io.configFrame.stop)) {
             state := IDLE
-            io.read.valid := True
           }
         }
       }

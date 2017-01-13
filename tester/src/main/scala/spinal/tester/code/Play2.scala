@@ -3066,7 +3066,7 @@ object PlayNullPointer{
 
   class TopLevel extends Component{
     val result = Bool
-    result := a & b
+//    result := a & b
     val a,b = Bool
   }
 
@@ -3074,3 +3074,31 @@ object PlayNullPointer{
     SpinalConfig(debug = true).generateVhdl(new TopLevel)
   }
 }
+
+object PlayCrossHearchy{
+
+//  class TopLevel extends Component{
+//    val a,b = in Bool
+//    val result = out Bool()
+//    result := a & b
+//
+//    a := True
+//  }
+  class ComponentX extends Component{
+
+    val X = Bool
+
+  }
+
+  class ComponentY extends Component{
+
+    val componentX = new ComponentX
+    val Y = Bool
+    componentX.X := Y //This assignement is not legal
+
+  }
+  def main(args: Array[String]) {
+    SpinalConfig(debug = true).generateVhdl(new ComponentY)
+  }
+}
+
