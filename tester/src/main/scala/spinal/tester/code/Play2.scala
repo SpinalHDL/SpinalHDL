@@ -3102,3 +3102,46 @@ object PlayCrossHearchy{
   }
 }
 
+
+object PlayPll{
+  class PLL extends BlackBox{
+    val io = new Bundle{
+      val clk_in = in Bool
+      val clk_out = out Vec(Bool,3)
+    }
+
+    noIoPrefix()
+  }
+
+  class TopLevel extends Component{
+    val io = new Bundle {
+      val aReset     = in Bool
+      val clk_100Mhz = in Bool
+    }
+    val pllBB = new PLL
+    pllBB.io.clk_in := io.clk_100Mhz
+    val clockDomains = pllBB.io.clk_out.map(c => ClockDomain(c))
+
+    val pllClk0Area = new ClockingArea(clockDomains(0)){
+      val counter = CounterFreeRun(4)
+    }
+
+    val pllClk1Area = new ClockingArea(clockDomains(1)){
+      val counter = CounterFreeRun(8)
+    }
+
+    val pllClk2Area = new ClockingArea(clockDomains(2)){
+      val counter = CounterFreeRun(16)
+    }
+  }
+  
+  def main(args: Array[String]) {
+    SpinalVhdl({
+      val toplevel = new TopLevel
+      toplevel.pllClk0Area.counter.value.keep()
+      toplevel.pllClk1Area.counter.value.keep()
+      toplevel.pllClk2Area.counter.value.keep()
+      toplevel
+    })
+  }
+}

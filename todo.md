@@ -27,7 +27,9 @@
 - [X] Fix name allocation scopes
 - [X] Rework Hz and times DSL with strongly typed classes
 - [X] Catch null pointer exception and document it
-- [ ] start in FSM
+- [X] start in FSM
+- [ ] Usage of binary array for Rom initialization instead of BaseType + literals
+- [ ] Emit HTML from BusSlaveFactory
 
 ## spinal.lib
 

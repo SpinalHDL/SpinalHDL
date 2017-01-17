@@ -134,6 +134,5 @@ object SpinalBuild extends Build {
           </developer>
         </developers>
     }
-
   )
 }

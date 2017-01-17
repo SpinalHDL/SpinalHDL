@@ -148,4 +148,13 @@ class ChecksTester extends FunSuite  {
   }
 
 
+  test("checkNoResetFail") {
+    generationShouldFaild(new Component{
+      ClockDomain(in Bool) {
+        val output = out(RegInit(False))
+      }
+    })
+  }
+
+
 }
