@@ -713,7 +713,7 @@ abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady wi
     case _ => (0,0)
   }
 
-  private[core] def getClassIdentifier: String = this.getClass.getSimpleName
+  private[core] def getClassIdentifier: String = this.getClass.getName.split('.').last.replace("$","")
 
   private[core] def isInBlackBoxTree = component.isInBlackBoxTree
 

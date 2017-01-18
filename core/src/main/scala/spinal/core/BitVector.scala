@@ -347,5 +347,5 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
     this
   }
 
-  override def toString(): String = s"${component.getPath() + "/" + this.getDisplayName()} : $getClassIdentifier[$getWidthStringNoInferation bits]"
+  override def toString(): String = s"(${component.getPath() + "/" + this.getDisplayName()} : $getClassIdentifier[$getWidthStringNoInferation bits])"
 }

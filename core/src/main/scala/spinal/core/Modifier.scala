@@ -116,6 +116,11 @@ abstract class BinaryOperator extends Operator{
     case 0 => left
     case 1 => right
   }
+
+//  override def toString(): String = {
+//    def inStr(that : T) = (if (that == null) "null" else that.nonRecursiveToString())
+//    s"(${inStr(left)} $opName ${inStr(right)})"
+//  }
 }
 
 
@@ -634,7 +639,7 @@ abstract class Modifier extends Node {
   def opName : String
 
   override def toString(): String = {
-    s"($opName ${this.getInputs.map(in => if (in == null) "null" else in.nonRecursiveToString()).reduceLeft(_ + " " + _)})"
+    s"($getClassIdentifier : $opName, defined in ${if(this.component != null)this.component.getPath() else "root"} with inputs : ${this.getInputs.map(in => if (in == null) "null" else in.nonRecursiveToString()).reduceLeft(_ + ", " + _)})"
   }
 
   override def nonRecursiveToString(): String = opName

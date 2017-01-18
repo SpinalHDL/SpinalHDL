@@ -662,7 +662,7 @@ class PhaseCheck_noNull_noCrossHierarchy_noInputRegister_noDirectionLessIo(pc: P
           val nodeInput0 = node.input
           if (nodeInput0 != null) {
             if (node.isInput && nodeInput0.isInstanceOf[Reg] && nodeInput0.component == node.component) {
-              errors += s"Input register are not allowed \n${node.getScalaLocationLong}"
+              errors += s"Input register are not allowed ($node) \n${node.getScalaLocationLong}"
             } else {
               val nodeInput0IsIo = nodeInput0.isInstanceOf[BaseType] && nodeInput0.asInstanceOf[BaseType].isIo
               if (node.isIo) {
@@ -691,14 +691,14 @@ class PhaseCheck_noNull_noCrossHierarchy_noInputRegister_noDirectionLessIo(pc: P
         case _ => {
           node.onEachInput((in,idx) => {
             if (in == null) {
-              errors += s"No driver on ${node.getScalaLocationLong}"
+              errors += s"No driver on $node at ${node.getScalaLocationLong}"
             } else {
               if (in.component != node.component && !(in.isInstanceOf[BaseType] && in.asInstanceOf[BaseType].isIo && node.component == in.component.parent)) {
                 val throwable = node match{
                   case node : AssignementTreePart => node.getAssignementContext(idx)
                   case _ => node.scalaTrace
                 }
-                errors += s"Node is driven outside his component \n${ScalaLocated.long(throwable)}"
+                errors += s"$node is driven by $in, which is a hierarchy violation\n${ScalaLocated.long(throwable)}"
               }
             }
           })
