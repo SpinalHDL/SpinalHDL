@@ -3120,7 +3120,7 @@ object PlayPll{
     }
     val pllBB = new PLL
     pllBB.io.clk_in := io.clk_100Mhz
-    val clockDomains = pllBB.io.clk_out.map(c => ClockDomain(c))
+    val clockDomains = pllBB.io.clk_out.map(c => ClockDomain(c,io.aReset))
 
     val pllClk0Area = new ClockingArea(clockDomains(0)){
       val counter = CounterFreeRun(4)
@@ -3145,3 +3145,39 @@ object PlayPll{
     })
   }
 }
+
+
+object PlayPll2{
+  class PLL extends BlackBox{
+    val io = new Bundle{
+      val clk_in = in Bool
+      val clk_out = out Bool
+    }
+
+    noIoPrefix()
+  }
+
+  class TopLevel extends Component{
+    val io = new Bundle {
+      val aReset     = in Bool
+      val clk_100Mhz = in Bool
+    }
+    val pllBB = new PLL
+    pllBB.io.clk_in := io.clk_100Mhz
+
+    val clkYolo = Bool
+    clkYolo := pllBB.io.clk_out
+    val pllClk0Area = new ClockingArea(ClockDomain(clkYolo,io.aReset)){
+      val reg = RegInit(False)
+    }
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl({
+      val toplevel = new TopLevel
+      toplevel.pllClk0Area.reg.keep()
+      toplevel
+    })
+  }
+}
+

@@ -752,6 +752,11 @@ class PhaseAddInOutBinding(pc: PhaseContext) extends PhaseNetlist{
               })
 
               node.setInput(i,bind)
+
+              //Update pulledDataCache with the output binding to make it consistent
+              if(node.component.pulledDataCache.contains(nodeInput)){
+                node.component.pulledDataCache(nodeInput) = bind
+              }
             }
           }
           case _ =>
