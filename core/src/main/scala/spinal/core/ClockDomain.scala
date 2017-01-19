@@ -54,10 +54,11 @@ object ClockDomain {
     new ClockDomain(config, clock, reset,dummyArg,softReset,clockEnable, frequency)
   }
 
-  // To use when you want to define a new ClockDomain that thank signals outside the toplevel.
-  // (it create input clock, reset, clockenable in the top level)
-  def external(name: String,config: ClockDomainConfig = GlobalData.get.commonClockConfig,withReset : Boolean = true, dummyArg : DummyTrait = null,withSoftReset : Boolean = false,withClockEnable : Boolean = false,frequency: IClockDomainFrequency = UnknownFrequency()): ClockDomain = {
-    Component.push(null)
+  /**
+   *  Create a local clock domain with `name` as prefix. clock, reset, clockEnable signals should be assigned by your care.
+   * @param name Name of the ClockDomain signals
+   */
+  def local(name: String,config: ClockDomainConfig = GlobalData.get.commonClockConfig,withReset : Boolean = true, dummyArg : DummyTrait = null,withSoftReset : Boolean = false,withClockEnable : Boolean = false,frequency: IClockDomainFrequency = UnknownFrequency()): ClockDomain = {
     val clock = Bool()
     clock.setName(if (name != "") name + "_clk" else "clk")
 
@@ -80,6 +81,23 @@ object ClockDomain {
     }
 
     val clockDomain = ClockDomain(clock, reset,dummyArg,softReset, clockEnable, frequency,config)
+    clockDomain
+  }
+
+
+  // To use when you want to define a new ClockDomain that thank signals outside the toplevel.
+  // (it create input clock, reset, clockenable in the top level)
+  def external(name: String,config: ClockDomainConfig = GlobalData.get.commonClockConfig,withReset : Boolean = true, dummyArg : DummyTrait = null,withSoftReset : Boolean = false,withClockEnable : Boolean = false,frequency: IClockDomainFrequency = UnknownFrequency()): ClockDomain = {
+    Component.push(null)
+    val clockDomain = local(
+      name = name,
+      config = config,
+      withReset = withReset,
+      dummyArg = dummyArg,
+      withSoftReset = withSoftReset,
+      withClockEnable = withClockEnable,
+      frequency = frequency
+    )
     Component.pop(null)
     clockDomain
   }
