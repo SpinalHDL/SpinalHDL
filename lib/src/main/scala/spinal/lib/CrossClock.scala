@@ -71,3 +71,54 @@ class PulseCCByToggle(clockIn: ClockDomain, clockOut: ClockDomain) extends Compo
     io.pulseOut := (target =/= hit)
   }
 }
+
+
+object ResetCtrl{
+
+  /**
+   *
+   * @param input Input reset signal
+   * @param clockDomain ClockDomain which will use the synchronised reset.
+   * @param inputPolarity (HIGH/LOW)
+   * @param outputPolarity (HIGH/LOW)
+   * @param bufferDepth Number of register stages used to avoid metastability (default=2)
+   * @return Filtred Bool which is asynchronously asserted asynchronously deaserted
+   */
+  def asyncAssertSyncDeassert(input : Bool,
+                              clockDomain : ClockDomain,
+                              inputPolarity : ActiveKind = HIGH,
+                              outputPolarity : ActiveKind = null, //null => inferred from the clockDomain
+                              bufferDepth : Int = 2) : Bool = {
+    val samplerCD = ClockDomain(
+      clock = clockDomain.clock,
+      reset = input,
+      clockEnable = clockDomain.clockEnable,
+      config = clockDomain.config.copy(
+        resetKind = ASYNC,
+        resetActiveLevel = inputPolarity
+      )
+    )
+
+    val solvedOutputPolarity = if(outputPolarity == null) clockDomain.config.resetActiveLevel else outputPolarity
+    samplerCD(BufferCC(
+      input       = if(solvedOutputPolarity == HIGH) False else True,
+      init        = if(solvedOutputPolarity == HIGH) True  else False,
+      bufferDepth = bufferDepth)
+    )
+  }
+
+  /**
+   * As asyncAssertSyncDeassert but directly drive the clockDomain reset with the syncronised signal.
+   */
+  def asyncAssertSyncDeassertDrive(input : Bool,
+                                   clockDomain : ClockDomain,
+                                   inputPolarity : ActiveKind = HIGH,
+                                   outputPolarity : ActiveKind = null, //null => inferred from the clockDomain
+                                   bufferDepth : Int = 2) : Unit = clockDomain.reset := asyncAssertSyncDeassert(
+    input = input ,
+    clockDomain = clockDomain ,
+    inputPolarity = inputPolarity ,
+    outputPolarity = outputPolarity ,
+    bufferDepth = bufferDepth
+  )
+}
