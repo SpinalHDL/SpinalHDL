@@ -23,12 +23,13 @@ object PllAAssertSDeassertTester{
     val pllBB = new PLL
     pllBB.io.clk_in := clk_100Mhz
 
-    val coreClockDomain = ClockDomain(
-      clock = pllBB.io.clk_out,
-      reset = Bool.setName("coreReset")
-    )
-
-    ResetCtrl.asyncAssertSyncDeassertDrive(
+//    val coreClockDomain = ClockDomain(
+//      clock = pllBB.io.clk_out,
+//      reset = Bool.setName("coreReset")
+//    )
+    val coreClockDomain = ClockDomain.internal("core")
+    coreClockDomain.clock := pllBB.io.clk_out
+    coreClockDomain.reset := ResetCtrl.asyncAssertSyncDeassert(
       input       = aReset,
       clockDomain = coreClockDomain
     )

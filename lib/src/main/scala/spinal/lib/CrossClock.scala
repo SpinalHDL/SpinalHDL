@@ -74,7 +74,6 @@ class PulseCCByToggle(clockIn: ClockDomain, clockOut: ClockDomain) extends Compo
 
 
 object ResetCtrl{
-
   /**
    *
    * @param input Input reset signal
@@ -82,12 +81,12 @@ object ResetCtrl{
    * @param inputPolarity (HIGH/LOW)
    * @param outputPolarity (HIGH/LOW)
    * @param bufferDepth Number of register stages used to avoid metastability (default=2)
-   * @return Filtred Bool which is asynchronously asserted asynchronously deaserted
+   * @return Filtred Bool which is asynchronously asserted synchronously deaserted
    */
   def asyncAssertSyncDeassert(input : Bool,
                               clockDomain : ClockDomain,
-                              inputPolarity : ActiveKind = HIGH,
-                              outputPolarity : ActiveKind = null, //null => inferred from the clockDomain
+                              inputPolarity : Polarity = HIGH,
+                              outputPolarity : Polarity = null, //null => inferred from the clockDomain
                               bufferDepth : Int = 2) : Bool = {
     val samplerCD = ClockDomain(
       clock = clockDomain.clock,
@@ -112,8 +111,8 @@ object ResetCtrl{
    */
   def asyncAssertSyncDeassertDrive(input : Bool,
                                    clockDomain : ClockDomain,
-                                   inputPolarity : ActiveKind = HIGH,
-                                   outputPolarity : ActiveKind = null, //null => inferred from the clockDomain
+                                   inputPolarity : Polarity = HIGH,
+                                   outputPolarity : Polarity = null, //null => inferred from the clockDomain
                                    bufferDepth : Int = 2) : Unit = clockDomain.reset := asyncAssertSyncDeassert(
     input = input ,
     clockDomain = clockDomain ,

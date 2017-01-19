@@ -33,15 +33,15 @@ object ASYNC extends ResetKind
 object SYNC extends ResetKind
 object BOOT extends ResetKind
 
-trait ActiveKind
-object HIGH extends ActiveKind
-object LOW extends ActiveKind
+trait Polarity
+object HIGH extends Polarity
+object LOW extends Polarity
 
 
 
 // Default configuration of clock domain is :
 // Rising edge clock with optional asyncronous reset active high and optional active high clockEnable
-case class ClockDomainConfig(clockEdge: EdgeKind = RISING, resetKind: ResetKind = ASYNC, resetActiveLevel: ActiveKind = HIGH, softResetActiveLevel: ActiveKind = HIGH, clockEnableActiveLevel: ActiveKind = HIGH) {
+case class ClockDomainConfig(clockEdge: EdgeKind = RISING, resetKind: ResetKind = ASYNC, resetActiveLevel: Polarity = HIGH, softResetActiveLevel: Polarity = HIGH, clockEnableActiveLevel: Polarity = HIGH) {
   val useResetPin = resetKind match{
     case `ASYNC` | `SYNC` => true
     case _ => false
@@ -50,7 +50,12 @@ case class ClockDomainConfig(clockEdge: EdgeKind = RISING, resetKind: ResetKind 
 
 //To use when you want to define a new clock domain by using internal signals
 object ClockDomain {
-  def apply(clock: Bool, reset: Bool = null, dummyArg : DummyTrait = null,softReset : Bool = null,clockEnable: Bool = null, frequency: IClockDomainFrequency = UnknownFrequency(),config: ClockDomainConfig = GlobalData.get.commonClockConfig): ClockDomain = {
+  def apply(clock: Bool,
+            reset: Bool = null, dummyArg : DummyTrait = null, // dummyArg is here to force the user to use an explicit argument specification
+            softReset : Bool = null,
+            clockEnable: Bool = null,
+            frequency: IClockDomainFrequency = UnknownFrequency(),
+            config: ClockDomainConfig = GlobalData.get.commonClockConfig): ClockDomain = {
     new ClockDomain(config, clock, reset,dummyArg,softReset,clockEnable, frequency)
   }
 
@@ -58,7 +63,12 @@ object ClockDomain {
    *  Create a local clock domain with `name` as prefix. clock, reset, clockEnable signals should be assigned by your care.
    * @param name Name of the ClockDomain signals
    */
-  def local(name: String,config: ClockDomainConfig = GlobalData.get.commonClockConfig,withReset : Boolean = true, dummyArg : DummyTrait = null,withSoftReset : Boolean = false,withClockEnable : Boolean = false,frequency: IClockDomainFrequency = UnknownFrequency()): ClockDomain = {
+  def internal(name: String,
+            config: ClockDomainConfig = GlobalData.get.commonClockConfig,
+            withReset : Boolean = true, dummyArg : DummyTrait = null, // dummyArg is here to force the user to use an explicit argument specification
+            withSoftReset : Boolean = false,
+            withClockEnable : Boolean = false,
+            frequency: IClockDomainFrequency = UnknownFrequency()): ClockDomain = {
     val clock = Bool()
     clock.setName(if (name != "") name + "_clk" else "clk")
 
@@ -87,9 +97,15 @@ object ClockDomain {
 
   // To use when you want to define a new ClockDomain that thank signals outside the toplevel.
   // (it create input clock, reset, clockenable in the top level)
-  def external(name: String,config: ClockDomainConfig = GlobalData.get.commonClockConfig,withReset : Boolean = true, dummyArg : DummyTrait = null,withSoftReset : Boolean = false,withClockEnable : Boolean = false,frequency: IClockDomainFrequency = UnknownFrequency()): ClockDomain = {
+  def external(name: String,
+               config: ClockDomainConfig = GlobalData.get.commonClockConfig,
+               withReset : Boolean = true,
+               dummyArg : DummyTrait = null, // dummyArg is here to force the user to use an explicit argument specification
+               withSoftReset : Boolean = false,
+               withClockEnable : Boolean = false,
+               frequency: IClockDomainFrequency = UnknownFrequency()): ClockDomain = {
     Component.push(null)
-    val clockDomain = local(
+    val clockDomain = internal(
       name = name,
       config = config,
       withReset = withReset,

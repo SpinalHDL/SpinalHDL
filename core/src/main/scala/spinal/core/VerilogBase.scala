@@ -41,7 +41,7 @@ trait VerilogBase extends VhdlVerilogBase{
     } ${emitReference(clock)}"
   }
 
-  def emitResetEdge(reset: Bool, polarity: ActiveKind): String = {
+  def emitResetEdge(reset: Bool, polarity: Polarity): String = {
     s"${
       polarity match {
         case HIGH => "posedge"

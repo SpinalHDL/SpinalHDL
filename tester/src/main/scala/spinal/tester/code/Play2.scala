@@ -3150,8 +3150,9 @@ object PlayPll{
 object PlayPll2{
   class PLL extends BlackBox{
     val io = new Bundle{
-      val clk_in = in Bool
-      val clk_out = out Bool
+      val clkIn    = in Bool
+      val clkOut   = out Bool
+      val isLocked = out Bool
     }
 
     noIoPrefix()
@@ -3159,23 +3160,40 @@ object PlayPll2{
 
   class TopLevel extends Component{
     val io = new Bundle {
-      val aReset     = in Bool
-      val clk_100Mhz = in Bool
+      val aReset    = in Bool
+      val clk100Mhz = in Bool
+      val result    = out UInt(4 bits)
     }
-    val pllBB = new PLL
-    pllBB.io.clk_in := io.clk_100Mhz
 
-    val clkYolo = Bool
-    clkYolo := pllBB.io.clk_out
-    val pllClk0Area = new ClockingArea(ClockDomain(clkYolo,io.aReset)){
-      val reg = RegInit(False)
+    // Create an Area to manage all clocks and reset things
+    val clkCtrl = new Area {
+      //Instanciate and drive the PLL
+      val pll = new PLL
+      pll.io.clkIn := io.clk100Mhz
+
+      //Create a new clock domain named 'core'
+      val coreClockDomain = ClockDomain.internal("core")
+
+      //Drive clock and reset signals of the coreClockDomain previously created
+      coreClockDomain.clock := pll.io.clkOut
+      coreClockDomain.reset := ResetCtrl.asyncAssertSyncDeassert(
+        input = io.aReset || ! pll.io.isLocked,
+        clockDomain = coreClockDomain
+      )
+    }
+
+    //Create an ClockingArea which will be under the effect of the clkCtrl.coreClockDomain
+    val core = new ClockingArea(clkCtrl.coreClockDomain){
+      //Do your stuff which use coreClockDomain here
+      val counter = Reg(UInt(4 bits)) init(0)
+      counter := counter + 1
+      io.result := counter
     }
   }
 
   def main(args: Array[String]) {
     SpinalVhdl({
       val toplevel = new TopLevel
-      toplevel.pllClk0Area.reg.keep()
       toplevel
     })
   }
