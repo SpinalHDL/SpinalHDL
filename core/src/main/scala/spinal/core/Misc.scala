@@ -231,42 +231,53 @@ object cloneable{
   }
 }
 
-class Scope {
+class Scope(parent : Scope = null) {
+  var lock = false
   val map = mutable.Map[String, Int]()
-
-
   def allocateName(name: String): String = {
+    assert(!lock)
+    if(name == "core"){
+      println("miaou")
+    }
     val lowerCase = name.toLowerCase
     val count = map.get(lowerCase).getOrElse(0)
     map(lowerCase) = count + 1
-    if (count == 0) name else name + "_" + count
+    val finalCount =  (count + (if(parent != null) parent.map.get(lowerCase).getOrElse(0) else 0))
+    if (finalCount == 0) name else name + "_" + finalCount
   }
 
   def getUnusedName(name: String): String = {
     val lowerCase = name.toLowerCase
-    val count = map.get(lowerCase).getOrElse(0)
+    val count = (map.get(lowerCase).getOrElse(0) + (if(parent != null) parent.map.get(lowerCase).getOrElse(0) else 0))
     if (count == 0) name else name + "_" + count
   }
 
 
   def lockName(name: String): Unit = {
+    assert(!lock)
     val lowerCase = name.toLowerCase
     val count = map.get(lowerCase).getOrElse(1)
     map(lowerCase) = count
   }
 
-  def iWantIt(name: String): Unit = {
+  def iWantIt(name: String,errorMessage : => String): Unit = {
+    assert(!lock)
     val lowerCase = name.toLowerCase
-    if (map.contains(lowerCase))
-      SpinalError(s"Reserved name $name is not free")
+    if (map.contains(lowerCase) ||  (parent != null && parent.map.contains(lowerCase)))
+      SpinalError(errorMessage)
     map(lowerCase) = 1
   }
 
-  def copy() : Scope = {
-    val cpy = new Scope
-    map.foreach{case (n,i) => cpy.map.put(n,i)}
-    cpy
+  def lockScope(): Unit ={
+    this.lock = true
   }
+
+  def newChild = new Scope(this)
+//  def copy() : Scope = {
+//    val cpy = new Scope
+//    map.foreach{case (n,i) => cpy.map.put(n,i)}
+//    cpy
+//  }
 }
 
 /*
@@ -332,6 +343,7 @@ object SpinalExit {
   def apply(message: String = "") = {
     throw new SpinalExit("\n" + message)
   }
+  val errorsMessagesSeparator = "*" * 120 + "\n" + "*" * 120
 }
 object SpinalLog{
   def tag(name: String, color: String): String =
@@ -353,7 +365,7 @@ object SpinalWarning {
   def apply(message: String) = println(s"${SpinalLog.tag("Warning", Console.YELLOW)} $message")
 }
 
-class SpinalExit(message: String) extends Exception("\n\n" + (Seq(message)++ GlobalData.get.pendingErrors.map(_.apply())).reduceLeft(_ + "\n\n" + _));
+class SpinalExit(message: String) extends Exception("\n\n" + (Seq(message)++ GlobalData.get.pendingErrors.map(_.apply())).map(_ + "\n" + SpinalExit.errorsMessagesSeparator + "\n\n").mkString("") + "Design's errors are listed above.\nSpinalHDL compiler exit stack : \n");
 
 object PendingError {
   def apply(error : => String) = GlobalData.get.pendingErrors += (() => error)

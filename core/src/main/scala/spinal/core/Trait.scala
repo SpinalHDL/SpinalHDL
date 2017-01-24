@@ -35,7 +35,79 @@ case class SlicesCount(val value: Int) {
 case class ExpNumber(val value: Int) {}
 case class PosCount(val value: Int) {}
 
-case class LiteralInt(val value: BigInt) {}
+object CyclesCount{
+  implicit def impConv(value : CyclesCount) = value.value
+}
+case class CyclesCount(val value : BigInt)
+
+object PhysicalNumber{
+//  implicit def impConv(value : PhysicalNumber[_]) = value.value
+//  implicit def impConv(value : PhysicalNumber[_]) = value.value.toInt
+//  implicit def impConv(value : PhysicalNumber[_]) = value.value.toLong
+//  implicit def impConv(value : PhysicalNumber[_]) = value.value.toFloat
+//  implicit def impConv(value : PhysicalNumber[_]) = value.value.toDouble
+}
+
+abstract class PhysicalNumber[T <: PhysicalNumber[_]](protected val value : BigDecimal) {
+  def newInstance(value : BigDecimal) : T
+
+  def +(that : T) = newInstance(this.value + that.value)
+  def -(that : T) = newInstance(this.value - that.value)
+  def *(that : T) = newInstance(this.value * that.value)
+  def /(that : T) = newInstance(this.value / that.value)
+  def %(that : T) = newInstance(this.value % that.value)
+
+  def +(that : BigDecimal) = newInstance(this.value + that)
+  def -(that : BigDecimal) = newInstance(this.value - that)
+  def *(that : BigDecimal) = newInstance(this.value * that)
+  def /(that : BigDecimal) = newInstance(this.value / that)
+  def %(that : BigDecimal) = newInstance(this.value % that)
+
+  def max(that : T) = newInstance(value.max(that.value))
+
+  def toInt = value.toInt
+  def toLong = value.toLong
+  def toDouble = value.toDouble
+  def toBigDecimal = value
+}
+
+case class TimeNumber(private val v : BigDecimal) extends PhysicalNumber[TimeNumber](v){
+  override def newInstance(value: BigDecimal): TimeNumber = TimeNumber(value)
+
+  def +(that : HertzNumber) = (this.value + that.toBigDecimal)
+  def -(that : HertzNumber) = (this.value - that.toBigDecimal)
+  def *(that : HertzNumber) = (this.value * that.toBigDecimal)
+  def /(that : HertzNumber) = (this.value / that.toBigDecimal)
+  def %(that : HertzNumber) = (this.value % that.toBigDecimal)
+
+  def toHertz = HertzNumber(1/this.value)
+
+  def decompose: (BigDecimal,String) = {
+    if(value > 3600.0) return (value/3600.0,"hr")
+    if(value > 60.0) return (value/60.0,"min")
+    if(value > 1.0) return (value/1.0,"sec")
+    if(value > 1.0e-3) return (value/1.0e-3,"ms")
+    if(value > 1.0e-6) return (value/1.0e-6,"us")
+    if(value > 1.0e-9) return (value/1.0e-9,"ns")
+    if(value > 1.0e-12) return (value/1.0e-12,"ps")
+    (value/1.0e-15,"fs")
+  }
+}
+
+case class HertzNumber(private val v : BigDecimal) extends PhysicalNumber[HertzNumber](v){
+  override def newInstance(value: BigDecimal): HertzNumber = HertzNumber(value)
+
+  def +(that : TimeNumber) = (this.value + that.toBigDecimal)
+  def -(that : TimeNumber) = (this.value - that.toBigDecimal)
+  def *(that : TimeNumber) = (this.value * that.toBigDecimal)
+  def /(that : TimeNumber) = (this.value / that.toBigDecimal)
+  def %(that : TimeNumber) = (this.value % that.toBigDecimal)
+
+  def toTime = TimeNumber(1/this.value)
+}
+
+
+
 
 trait IODirection extends BaseTypeFactory {
   def applyIt[T <: Data](data: T): T
@@ -433,7 +505,7 @@ object ScalaLocated {
 //}
 
 trait ScalaLocated extends GlobalDataUser {
-  private[core] var scalaTrace = if (!globalData.scalaLocatedEnable) null else new Throwable()
+  private[core] var scalaTrace = if (globalData != null && !globalData.scalaLocatedEnable) null else new Throwable()
 
   def getScalaLocationLong: String = ScalaLocated.long(scalaTrace)
   def getScalaLocationShort: String = ScalaLocated.short(scalaTrace)
@@ -668,6 +740,7 @@ object GlobalData {
     get
   }
 }
+
 
 /**
   *

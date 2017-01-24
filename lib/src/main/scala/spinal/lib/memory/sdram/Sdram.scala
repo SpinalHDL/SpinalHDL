@@ -18,15 +18,15 @@ case class SdramLayout( bankWidth : Int,
 
 case class SdramTimings(
   bootRefreshCount : Int, // Number of refresh command done in the boot sequence
-  tPOW  : BigDecimal,     // Powerup time
-  tREF  : BigDecimal,     // Refresh Cycle Time (that cover all row)
-  tRC   : BigDecimal,     // Command Period (ACT to ACT)   Per bank
-  tRFC  : BigDecimal,     // Command Period (REF to REF)   Per bank
-  tRAS  : BigDecimal,     // Command Period (ACT to PRE)                Per bank
-  tRP   : BigDecimal,     // Command Period (PRE to ACT)
-  tRCD  : BigDecimal,     // Active Command To Read / Write Command Delay Time
+  tPOW  : TimeNumber,     // Powerup time
+  tREF  : TimeNumber,     // Refresh Cycle Time (that cover all row)
+  tRC   : TimeNumber,     // Command Period (ACT to ACT)   Per bank
+  tRFC  : TimeNumber,     // Command Period (REF to REF)   Per bank
+  tRAS  : TimeNumber,     // Command Period (ACT to PRE)                Per bank
+  tRP   : TimeNumber,     // Command Period (PRE to ACT)
+  tRCD  : TimeNumber,     // Active Command To Read / Write Command Delay Time
   cMRD  : Int,            // Mode Register Program Time
-  tWR   : BigDecimal,     // WRITE recovery time
+  tWR   : TimeNumber,     // WRITE recovery time
   cWR   : Int             // WRITE recovery cycle
 )
 

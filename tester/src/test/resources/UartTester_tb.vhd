@@ -82,6 +82,31 @@ begin
       uartCtrlWrite(std_logic_vector(to_unsigned(i,8)));
     end loop;
 
+    wait for 50 us;
+
+    reset <= '1';
+    io_uart_config_frame_dataLength <= "111";
+    io_uart_config_frame_stop <= UartStopType_binary_sequancial_ONE;
+    io_uart_config_frame_parity <= UartParityType_binary_sequancial_NONE;
+    io_uart_config_clockDivider <= to_unsigned(clockDivider,20);
+
+    io_uart_write_valid <= '0';
+
+    wait for 10 us;
+    wait until rising_edge(clk);
+    reset <= '0';
+    wait for 10 us;
+    wait until rising_edge(clk);
+    uartCtrlWrite(X"30");
+    wait for 10 us;
+    wait until rising_edge(clk);
+    uartCtrlWrite(X"AB");
+    wait for 10 us;
+    for i in 0 to 255 loop
+      uartCtrlWrite(std_logic_vector(to_unsigned(i,8)));
+    end loop;
+
+
     wait;
   end process;
 
@@ -121,8 +146,10 @@ begin
           checkBit(that(i));
           parity := parity xor that(i);
         end loop;
-        
-        checkBit(parity);
+
+        if io_uart_config_frame_parity /= UartParityType_binary_sequancial_NONE then
+          checkBit(parity);
+        end if;
         
         checkBit('1');
         if io_uart_config_frame_stop = UartStopType_binary_sequancial_TWO then
@@ -137,6 +164,11 @@ begin
       checkTx(std_logic_vector(to_unsigned(i,8)));
     end loop;
 
+    checkTx(X"30");
+    checkTx(X"AB");
+    for i in 0 to 255 loop
+      checkTx(std_logic_vector(to_unsigned(i,8)));
+    end loop;
     done := done + 1;
     wait;
   end process;
@@ -150,6 +182,12 @@ begin
     end checkRx;
   begin
     wait until rising_edge(clk) and reset = '0';
+    checkRx(X"30");
+    checkRx(X"AB");
+    for i in 0 to 255 loop
+      checkRx(std_logic_vector(to_unsigned(i,8)));
+    end loop;
+
     checkRx(X"30");
     checkRx(X"AB");
     for i in 0 to 255 loop

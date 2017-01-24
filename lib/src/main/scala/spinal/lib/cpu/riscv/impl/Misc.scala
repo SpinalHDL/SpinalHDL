@@ -15,7 +15,7 @@ object Utils{
   object BR extends SpinalEnum{
     val N, NE, EQ, GE, GEU, LT, LTU, J, JR = newElement()
 
-    defaultEncoding = Encoding("opt")(
+    defaultEncoding = SpinalEnumEncoding("opt")(
       EQ -> 0,
       NE -> 1,
       J -> 2,
@@ -70,7 +70,7 @@ object Utils{
   object ALU extends SpinalEnum{
     val ADD, SLL1, SLT, SLTU, XOR, SRL, OR, AND, SUB, COPY, SRA = newElement()
 
-    defaultEncoding = Encoding("opt")(
+    defaultEncoding = SpinalEnumEncoding("opt")(
       ADD -> 0,
       SLL1 -> 1,
       SLT -> 2,

@@ -78,7 +78,7 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
     var result = cloneOf(this).asInstanceOf[T]
     result := this.asInstanceOf[T]
     for(i <- that.range){
-      result \= (that(i) ? result.rotateLeft(1<<i).asInstanceOf[T] | result)
+      result \= (that(i) ? result.rotateLeft(1 << i).asInstanceOf[T] | result)
     }
     result
   }
@@ -193,8 +193,8 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
 
     bool.compositeAssign = new Assignable {
       override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = that match {
-        case that: Bool         => BitVector.this.assignFrom(new BitAssignmentFixed(BitVector.this, that, bitId), true)
-        case that: DontCareNode => BitVector.this.assignFrom(new BitAssignmentFixed(BitVector.this, new DontCareNodeFixed(Bool(), 1), bitId), true)
+        case that: Bool         => BitVector.this.assignFrom(new BitAssignmentFixed(BitVector.this, that, bitId), conservative = true)
+        case that: DontCareNode => BitVector.this.assignFrom(new BitAssignmentFixed(BitVector.this, new DontCareNodeFixed(Bool(), 1), bitId), conservative = true)
       }
     }
     bool
@@ -237,7 +237,7 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
       ret
     }
     else
-      getZeroUnconstrained
+      getZeroUnconstrained()
   }
 
   /** Extract a range of bits of the BitVector */
@@ -261,7 +261,7 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
       ret
     }
     else
-      getZeroUnconstrained
+      getZeroUnconstrained()
   }
 
   def getZeroUnconstrained() : this.type
@@ -338,7 +338,7 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
   private[core] override def checkInferedWidth: Unit = {
     val input = this.input
     if (input != null && input.component != null && this.getWidth != input.asInstanceOf[WidthProvider].getWidth) {
-      PendingError(s"Assignment bit count mismatch. ${this} := ${input} at \n${ScalaLocated.long(getAssignementContext(0))}")
+      PendingError(s"Assignment bit count mismatch. ${this} := $input at \n${ScalaLocated.long(getAssignementContext(0))}")
     }
   }
 
@@ -347,5 +347,5 @@ abstract class BitVector extends BaseType with Widthable with CheckWidth {
     this
   }
 
-  override def toString(): String = s"${component.getPath() + "/" + this.getDisplayName()} : ${getClassIdentifier}[${getWidthStringNoInferation} bits]"
+  override def toString(): String = s"(${component.getPath() + "/" + this.getDisplayName()} : $getClassIdentifier[$getWidthStringNoInferation bits])"
 }

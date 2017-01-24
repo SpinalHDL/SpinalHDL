@@ -138,7 +138,7 @@ object WhenNode {
 
   def newFor(that : BaseType,w: WhenContext) : WhenNode = that match{
     case that : BitVector => new WhenNodeWidthable(w)
-    case that : SpinalEnumCraft[_] => new WhenNodeEnum(w,that.blueprint)
+    case that : SpinalEnumCraft[_] => new WhenNodeEnum(w,that.spinalEnum)
     case _ => new WhenNode(w)
   }
 }

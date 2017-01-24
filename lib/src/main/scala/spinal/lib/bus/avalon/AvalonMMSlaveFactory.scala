@@ -5,8 +5,8 @@ import spinal.lib._
 import spinal.lib.bus.misc._
 
 object AvalonMMSlaveFactory{
-  def getAvalonConfig( addressWidth : Int,
-                       dataWidth : Int) = {
+  def getAvalonConfig(addressWidth: Int,
+                      dataWidth: Int) = {
     AvalonMMConfig.pipelined(
       addressWidth = addressWidth,
       dataWidth = dataWidth
@@ -16,11 +16,12 @@ object AvalonMMSlaveFactory{
     )
   }
 
-  def apply(bus : AvalonMM) = new AvalonMMSlaveFactory(bus)
+  def apply(bus: AvalonMM) = new AvalonMMSlaveFactory(bus)
 }
 
-class AvalonMMSlaveFactory(bus : AvalonMM) extends BusSlaveFactoryDelayed{
-  assert(bus.config == AvalonMMSlaveFactory.getAvalonConfig(bus.config.addressWidth,bus.config.dataWidth))
+
+class AvalonMMSlaveFactory(bus: AvalonMM) extends BusSlaveFactoryDelayed{
+  assert(bus.config == AvalonMMSlaveFactory.getAvalonConfig(bus.config.addressWidth, bus.config.dataWidth))
 
   val readAtCmd = Flow(Bits(bus.config.dataWidth bits))
   val readAtRsp = readAtCmd.stage()
@@ -33,28 +34,25 @@ class AvalonMMSlaveFactory(bus : AvalonMM) extends BusSlaveFactoryDelayed{
 
   override def build(): Unit = {
     for(element <- elements) element match {
-      case element : BusSlaveFactoryNonStopWrite =>
-        element.that.assignFromBits(bus.writeData(element.bitOffset, element.that.getBitsWidth bits))
+      case element: BusSlaveFactoryNonStopWrite => element.that.assignFromBits(bus.writeData(element.bitOffset, element.that.getBitsWidth bits))
       case _ =>
     }
 
-    for((address,jobs) <- elementsPerAddress){
+    for((address, jobs) <- elementsPerAddress){
       when(bus.address === address){
+
         when(bus.write){
           for(element <- jobs) element match{
-            case element : BusSlaveFactoryWrite => {
-              element.that.assignFromBits(bus.writeData(element.bitOffset, element.that.getBitsWidth bits))
-            }
-            case element : BusSlaveFactoryOnWrite => element.doThat()
+            case element: BusSlaveFactoryWrite   => element.that.assignFromBits(bus.writeData(element.bitOffset, element.that.getBitsWidth bits))
+            case element: BusSlaveFactoryOnWrite => element.doThat()
             case _ =>
           }
         }
+
         when(bus.read){
           for(element <- jobs) element match{
-            case element : BusSlaveFactoryRead => {
-              readAtCmd.payload(element.bitOffset, element.that.getBitsWidth bits) := element.that.asBits
-            }
-            case element : BusSlaveFactoryOnRead => element.doThat()
+            case element: BusSlaveFactoryRead   => readAtCmd.payload(element.bitOffset, element.that.getBitsWidth bits) := element.that.asBits
+            case element: BusSlaveFactoryOnRead => element.doThat()
             case _ =>
           }
         }
@@ -63,4 +61,9 @@ class AvalonMMSlaveFactory(bus : AvalonMM) extends BusSlaveFactoryDelayed{
   }
 
   override def busDataWidth: Int = bus.config.dataWidth
+
+  override def wordAddressInc: Int = bus.config.addressUnits match {
+    case WORDS   => 1
+    case SYMBOLS => busDataWidth / 8
+  }
 }

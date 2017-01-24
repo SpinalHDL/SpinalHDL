@@ -53,7 +53,7 @@ case class I2CSlaveHALConfig(g : I2CSlaveHALGenerics) extends Bundle {
 
   val clockDividerSampling = UInt(g.clockDividerSamplingWidth )
 
-  def setFrequencySampling(frequencySampling : BigDecimal, clkFrequency : BigDecimal = ClockDomain.current.frequency.getValue): Unit = {
+  def setFrequencySampling(frequencySampling : HertzNumber, clkFrequency : HertzNumber = ClockDomain.current.frequency.getValue): Unit = {
     clockDividerSampling := (clkFrequency / frequencySampling).toInt
   }
 }

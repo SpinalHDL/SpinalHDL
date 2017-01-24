@@ -61,7 +61,7 @@ class State(implicit stateMachineAccessor : StateMachineAccessor) extends Area w
  // def goto(state : SpinalEnumCraft[StateMachineEnum]) = ??? //stateMachineAccessor.goto(state)
  // def enumOf(state : State) : SpinalEnumElement[StateMachineEnum] = ???
   def innerFsm(that : => StateMachine) : Unit = innerFsm += that
-  def exit() : Unit = stateMachineAccessor.exit()
+  def exit() : Unit = stateMachineAccessor.exitFsm()
   def getStateMachineAccessor() = stateMachineAccessor
   val stateId = stateMachineAccessor.add(this)
 
@@ -74,7 +74,7 @@ class State(implicit stateMachineAccessor : StateMachineAccessor) extends Area w
 
 class StateFsm[T <: StateMachineAccessor] (val fsm :  T)(implicit stateMachineAccessor : StateMachineAccessor) extends State with StateCompletionTrait{
   onEntry{
-    fsm.start()
+    fsm.startFsm()
   }
   whenIsActive{
     when(fsm.wantExit()){
@@ -109,7 +109,7 @@ object StatesSerialFsm{
 
 class StateParallelFsm(val fsms :  StateMachineAccessor*)(implicit stateMachineAccessor : StateMachineAccessor) extends State with StateCompletionTrait{
   onEntry{
-    fsms.foreach(_.start())
+    fsms.foreach(_.startFsm())
   }
   whenIsActive{
     val readys = fsms.map(fsm => fsm.isStateRegBoot() || fsm.wantExit())

@@ -16,7 +16,6 @@
 - [X] Add option to disable the pkg generation in VHDL
 - [X] naming rules transformator in SpinalConfig
 - [ ] Check xilinx and altera FF about syncronus reset + clock enable interaction kind
-- [ ] Check errors message when hearchy violation (names)  
 - [X] Add rotate left support in the verilog backend
 - [ ] Better mux Nodes (more than two inputs)
 - [ ] Remove the generation of when nodes condition when they are emited as a case statments
@@ -24,7 +23,13 @@
 - [X] bool/bits/uint/sint should extends dataimper to avoid implicites and allow implicite area to uint
 - [ ] Range generator 
 - [ ] add SlowArea
-- [ ] Add git commit number in logs
+- [X] Add git commit number in logs
+- [X] Fix name allocation scopes
+- [X] Rework Hz and times DSL with strongly typed classes
+- [X] Catch null pointer exception and document it
+- [X] start in FSM
+- [ ] Usage of binary array for Rom initialization instead of BaseType + literals
+- [ ] Emit HTML from BusSlaveFactory
 
 ## spinal.lib
 

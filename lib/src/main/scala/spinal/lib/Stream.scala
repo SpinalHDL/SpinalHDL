@@ -24,8 +24,8 @@ class EventFactory extends MSFactory {
 
 
 class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with DataCarrier[T] {
-  val valid = Bool
-  val ready = Bool
+  val valid   = Bool
+  val ready   = Bool
   val payload = cloneOf(_dataType)
 
 
@@ -293,9 +293,9 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
 /** Drop transactions of this when cond is True. Return the resulting stream
   */
   def throwWhen(cond: Bool): Stream[T] = {
-    val next = cloneOf(this)
+    val next = Stream(dataType)
 
-    next connectFrom this
+    next << this
     when(cond) {
       next.valid := False
       this.ready := True
@@ -668,7 +668,7 @@ class StreamFifoCC[T <: Data](dataType: T, val depth: Int, pushClock: ClockDomai
 
   val pushCC = new ClockingArea(pushClock) {
     val pushPtr = Counter(depth << 1)
-    val pushPtrGray = RegNext(toGray(pushPtr.valueNext))
+    val pushPtrGray = RegNext(toGray(pushPtr.valueNext)) init(0)
     val popPtrGray = BufferCC(popToPushGray, B(0,ptrWidth bit))
     val full = isFull(pushPtrGray, popPtrGray)
 
@@ -683,7 +683,7 @@ class StreamFifoCC[T <: Data](dataType: T, val depth: Int, pushClock: ClockDomai
 
   val popCC = new ClockingArea(popClock) {
     val popPtr = Counter(depth << 1)
-    val popPtrGray = RegNext(toGray(popPtr.valueNext))
+    val popPtrGray = RegNext(toGray(popPtr.valueNext)) init(0)
     val pushPtrGray = BufferCC(pushToPopGray, B(0,ptrWidth bit))
     val empty = isEmpty(popPtrGray, pushPtrGray)
 

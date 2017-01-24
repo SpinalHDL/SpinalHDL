@@ -558,8 +558,9 @@ class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
     if (topLevel.getName() == null) topLevel.setWeakName("toplevel")
     for (c <- sortedComponents) {
       c.nameElements()
-      if(c.definitionName == null)
+      if(c.definitionName == null) {
         c.definitionName = pc.config.globalPrefix + c.getClass.getSimpleName
+      }
       c match {
         case bb: BlackBox => {
           bb.getGeneric.genNames
@@ -576,12 +577,12 @@ class PhaseCollectAndNameEnum(pc: PhaseContext) extends PhaseMisc{
     import pc._
     Node.walk(walkNodesDefautStack,node => {
       node match {
-        case enum: SpinalEnumCraft[_] => enums.getOrElseUpdate(enum.blueprint,mutable.Set[SpinalEnumEncoding]()) //Encodings will be added later
+        case enum: SpinalEnumCraft[_] => enums.getOrElseUpdate(enum.spinalEnum,null) //Encodings will be added later
         case _ =>
       }
     })
 
-    val scope = pc.globalScope.copy()
+    val scope = pc.globalScope.newChild
     enums.keys.foreach(e => {
       val name = if(e.isNamed)
         e.getName()
@@ -598,7 +599,7 @@ class PhaseCollectAndNameEnum(pc: PhaseContext) extends PhaseMisc{
           case _ =>
         }
       })
-      for (e <- enumDef.values) {
+      for (e <- enumDef.elements) {
         if (e.isUnnamed) {
           e.setWeakName(scope.getUnusedName("e" + e.position))
         }
@@ -661,7 +662,7 @@ class PhaseCheck_noNull_noCrossHierarchy_noInputRegister_noDirectionLessIo(pc: P
           val nodeInput0 = node.input
           if (nodeInput0 != null) {
             if (node.isInput && nodeInput0.isInstanceOf[Reg] && nodeInput0.component == node.component) {
-              errors += s"Input register are not allowed \n${node.getScalaLocationLong}"
+              errors += s"Input register are not allowed ($node) \n${node.getScalaLocationLong}"
             } else {
               val nodeInput0IsIo = nodeInput0.isInstanceOf[BaseType] && nodeInput0.asInstanceOf[BaseType].isIo
               if (node.isIo) {
@@ -690,14 +691,14 @@ class PhaseCheck_noNull_noCrossHierarchy_noInputRegister_noDirectionLessIo(pc: P
         case _ => {
           node.onEachInput((in,idx) => {
             if (in == null) {
-              errors += s"No driver on ${node.getScalaLocationLong}"
+              errors += s"No driver on $node at ${node.getScalaLocationLong}"
             } else {
               if (in.component != node.component && !(in.isInstanceOf[BaseType] && in.asInstanceOf[BaseType].isIo && node.component == in.component.parent)) {
                 val throwable = node match{
                   case node : AssignementTreePart => node.getAssignementContext(idx)
                   case _ => node.scalaTrace
                 }
-                errors += s"Node is driven outside his component \n${ScalaLocated.long(throwable)}"
+                errors += s"$node is driven by $in, which is a hierarchy violation\n${ScalaLocated.long(throwable)}"
               }
             }
           })
@@ -751,6 +752,11 @@ class PhaseAddInOutBinding(pc: PhaseContext) extends PhaseNetlist{
               })
 
               node.setInput(i,bind)
+
+              //Update pulledDataCache with the output binding to make it consistent
+              if(node.component.pulledDataCache.contains(nodeInput)){
+                node.component.pulledDataCache(nodeInput) = bind
+              }
             }
           }
           case _ =>
@@ -932,10 +938,31 @@ class PhaseInferEnumEncodings(pc: PhaseContext,encodingSwap : (SpinalEnumEncodin
       }
     })
 
-
+    //Feed enums with encodings
+    enums.keySet.foreach(enums(_) = mutable.Set[SpinalEnumEncoding]())
     nodes.foreach(enum => {
-      enums.getOrElseUpdate(enum.getDefinition, mutable.Set[SpinalEnumEncoding]()).add(enum.getEncoding)
+      enums(enum.getDefinition) += enum.getEncoding
     })
+
+
+    //give a name to unamed encodings
+    val unamedEncodings = enums.valuesIterator.flatten.toSet.withFilter(_.isUnnamed).foreach(_.setWeakName("anonymousEnc"))
+
+    //Check that there is no encoding overlaping
+    for((enum,encodings) <- enums){
+      for(encoding <- encodings) {
+        val reserveds = mutable.Map[BigInt, ArrayBuffer[SpinalEnumElement[_]]]()
+        for(element <- enum.elements){
+          val key = encoding.getValue(element)
+          reserveds.getOrElseUpdate(key,ArrayBuffer[SpinalEnumElement[_]]()) += element
+        }
+        for((key,elements) <- reserveds){
+          if(elements.length != 1){
+            PendingError(s"Conflict in the $enum enumeration with the '$encoding' encoding with the key $key' and following elements:.\n${elements.mkString(", ")}\n\nEnumeration defined at :\n${enum.getScalaLocationLong}Encoding defined at :\n${encoding.getScalaLocationLong}")
+          }
+        }
+      }
+    }
   }
 }
 
@@ -1491,16 +1518,30 @@ class PhaseAllocateNames(pc: PhaseContext) extends PhaseMisc{
       if (enumDef.isWeak)
         enumDef.setName(globalScope.allocateName(enumDef.getName()));
       else
-        globalScope.iWantIt(enumDef.getName())
+        globalScope.iWantIt(enumDef.getName(),s"Reserved name ${enumDef.getName()} is not free for ${enumDef.toString()}")
     }
-    for (c <- sortedComponents) {
-      reservedKeyWords.foreach(c.localScope.allocateName(_))
-      c.allocateNames
 
+
+    for((enum,encodings) <- enums;
+         encodingsScope = new Scope();
+         encoding <- encodings){
+      if (encoding.isWeak)
+        encoding.setName(encodingsScope.allocateName(encoding.getName()));
+      else
+        encodingsScope.iWantIt(encoding.getName(),s"Reserved name ${encoding.getName()} is not free for ${encoding.toString()}")
+    }
+
+    for (c <- sortedComponents) {
       if (c.isInstanceOf[BlackBox])
         globalScope.lockName(c.definitionName)
       else
         c.definitionName = globalScope.allocateName(c.definitionName)
+    }
+
+    globalScope.lockScope()
+
+    for (c <- sortedComponents) {
+      c.allocateNames(pc.globalScope)
     }
   }
 }
@@ -1625,7 +1666,7 @@ class PhaseCompletSwitchCases extends PhaseNetlist{
               case (craft: SpinalEnumCraft[_], lit: EnumLiteral[_]) => {
                 val value = lit.enum.position
                 if (!excludedOut.contains(craft)) {
-                  excludedOut += (craft -> Exclusion(lit.enum.blueprint.values.length))
+                  excludedOut += (craft -> Exclusion(lit.enum.spinalEnum.elements.length))
                 }
                 checkAndApplyCond(craft,value.toInt)
               }
@@ -1672,23 +1713,35 @@ object SpinalVhdlBoot{
     try {
       singleShot(config)(gen)
     } catch {
+      case e : NullPointerException => {
+        println(
+          """
+            |ERROR !
+            |A null pointer access has been detected in the JVM.
+            |This could happen when in your SpinalHDL description, you access an signal which is only defined further.
+            |For instance :
+            |  val result = Bool
+            |  result := a ^ b  //a and b can't be accessed there because they are only defined one line below (Software rule of execution order)
+            |  val a,b = Bool
+          """.stripMargin)
+        System.out.flush()
+        throw e
+      }
       case e: Throwable => {
         if(!config.debug){
-          Thread.sleep(100)
           println("\n**********************************************************************************************")
           val errCnt = SpinalError.getErrorCount()
           SpinalWarning(s"Elaboration failed (${errCnt} error" + (if(errCnt > 1){s"s"} else {s""}) + s").\n" +
             s"          Spinal will restart with scala trace to help you to find the problem.")
           println("**********************************************************************************************\n")
-          Thread.sleep(100)
+          System.out.flush()
           return singleShot(config.copy(debug = true))(gen)
         }else{
-          Thread.sleep(100)
           println("\n**********************************************************************************************")
           val errCnt = SpinalError.getErrorCount()
           SpinalWarning(s"Elaboration failed (${errCnt} error" + (if(errCnt > 1){s"s"} else {s""}) + ").")
           println("**********************************************************************************************")
-          Thread.sleep(100)
+          System.out.flush()
           throw e
         }
       }
@@ -1841,23 +1894,36 @@ object SpinalVerilogBoot{
     try {
       singleShot(config)(gen)
     } catch {
+      case e : NullPointerException => {
+        println(
+          """
+            |ERROR !
+            |A null pointer access has been detected in the JVM.
+            |This could happen when in your SpinalHDL description, you access an signal which is only defined further.
+            |For instance :
+            |  val result = Bool
+            |  result := a ^ b  //a and b can't be accessed there because they are only defined one line below (Software rule of execution order)
+            |  val a,b = Bool
+          """.stripMargin)
+        System.out.flush()
+        throw e
+      }
       case e: Throwable => {
         if(!config.debug){
-          Thread.sleep(100)
           println("\n**********************************************************************************************")
           val errCnt = SpinalError.getErrorCount()
           SpinalWarning(s"Elaboration failed (${errCnt} error" + (if(errCnt > 1){s"s"} else {s""}) + s").\n" +
             s"          Spinal will restart with scala trace to help you to find the problem.")
           println("**********************************************************************************************\n")
-          Thread.sleep(100)
+          System.out.flush()
           return singleShot(config.copy(debug = true))(gen)
         }else{
-          Thread.sleep(100)
+
           println("\n**********************************************************************************************")
           val errCnt = SpinalError.getErrorCount()
           SpinalWarning(s"Elaboration failed (${errCnt} error" + (if(errCnt > 1){s"s"} else {s""}) + ").")
           println("**********************************************************************************************")
-          Thread.sleep(100)
+          System.out.flush()
           throw e
         }
       }

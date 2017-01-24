@@ -30,13 +30,44 @@ import spinal.lib._
 import scala.collection.mutable.ArrayBuffer
 
 
+
 /**
-  * Bus slave factory is a tool that provide an abstaract and smooth way to define register bank
+  * Configuration of the bus Slave Factory
+  *
+  * @param wordEndianness Endianness for the multiWrite or multiRead operations
+  */
+case class BusSlaveFactoryConfig(wordEndianness: Endianness = LITTLE){
+
+}
+
+
+/**
+  * Bus slave factory is a tool that provide an abstract and smooth way to define register bank
   */
 trait BusSlaveFactory extends Area{
+  /** Configuration of the BusSlaveFactory */
+  protected var _config = BusSlaveFactoryConfig()
+  def getConfig : BusSlaveFactoryConfig = _config
+  def setConfig(value : BusSlaveFactoryConfig) : this.type = {
+    _config = value
+    this
+  }
 
   /** Return the data width of the bus */
   def busDataWidth: Int
+
+  /** Address incrementation used by the read and write multi words registers */
+  def wordAddressInc: Int = busDataWidth / 8
+
+  def setWordEndianness(value : Endianness) = setConfig(getConfig.copy(wordEndianness = value))
+
+  /**
+    * Return true if the configuration if set to little-endian
+    */
+  private def isLittleWordEndianness: Boolean = getConfig.wordEndianness match{
+    case LITTLE => true
+    case BIG    => false
+  }
 
   /**
     * When the bus read the address, fill the response with that at bitOffset
@@ -63,14 +94,14 @@ trait BusSlaveFactory extends Area{
   def onRead(address: BigInt)(doThat: => Unit): Unit
 
   /**
-    * Call doThat when a write transaction occurs in a given range of address
+    * Call doThat when a write transaction occurs and the condition is true
     */
-  def onWriteRange(low:BigInt, high:BigInt)(doThat: => Unit): Unit
+  def onWriteCondition(condition: => Bool)(doThat: => Unit): Unit
 
   /**
-    * Call doThat when a read transcation occurs in a given range of address
+    * Call doThat when a read transaction occurs and the condition is true
     */
-  def onReadRange(low:BigInt, high:BigInt)(doThat: => Unit): Unit
+  def onReadCondition(condition: => Bool)(doThat: => Unit): Unit
 
   /**
     * Permanently assign that by the bus write data from bitOffset
@@ -89,32 +120,35 @@ trait BusSlaveFactory extends Area{
   }
 
   /** Return true if the bus is writing */
-  def isWriting(address : BigInt) : Bool = {
+  def isWriting(address: BigInt): Bool = {
     val ret = False
     onWrite(address){ ret := True }
     ret
   }
 
   /** Return true if the bus is reading */
-  def isReading (address : BigInt) : Bool = {
+  def isReading (address: BigInt): Bool = {
     val ret = False
     onRead(address){ ret := True }
     ret
   }
 
-
   /**
     * Create the memory mapping to read that from address
     * If that  is bigger than one word it extends the register on followings addresses
     */
-  def readMultiWord(that: Data,
-                    address: BigInt): Unit  = {
+  def readMultiWord(that: Data, address: BigInt): Unit  = {
     val wordCount = (widthOf(that) - 1) / busDataWidth + 1
     val valueBits = that.asBits
-    var pos = 0
+    var pos = if(isLittleWordEndianness) 0 else widthOf(that) - busDataWidth
     for (wordId <- 0 until wordCount) {
-      read(valueBits(pos, Math.min(widthOf(that)-pos, busDataWidth) bits), address + wordId*busDataWidth / 8)
-      pos += busDataWidth
+      if (isLittleWordEndianness){
+        read(valueBits(pos, Math.min(widthOf(that) - pos, busDataWidth) bits), address + wordId * wordAddressInc)
+        pos += busDataWidth
+      }else{
+        read(valueBits(pos, Math.min(widthOf(that) - wordId * busDataWidth, busDataWidth) bits), address + wordId * wordAddressInc)
+        pos -= Math.min(pos, busDataWidth)
+      }
     }
   }
 
@@ -122,25 +156,30 @@ trait BusSlaveFactory extends Area{
     * Create the memory mapping to write that at address.
     * If that  is bigger than one word it extends the register on followings addresses
     */
-  def writeMultiWord(that: Data,
-                     address: BigInt): Unit  = {
+  def writeMultiWord(that: Data, address: BigInt): Unit  = {
     val wordCount = (widthOf(that) - 1) / busDataWidth + 1
     for (wordId <- 0 until wordCount) {
       write(
         that = new DataWrapper{
-          override def getBitsWidth: Int =
-            Math.min(busDataWidth, widthOf(that) - wordId * busDataWidth)
+          override def getBitsWidth: Int = Math.min(busDataWidth, widthOf(that) - wordId * busDataWidth)
 
           override def assignFromBits(value: Bits): Unit = {
             that.assignFromBits(
-              bits     = value.resized,
-              offset   = wordId * busDataWidth,
+              bits     = value.resize(getBitsWidth),
+              offset   = if(isLittleWordEndianness) wordId * busDataWidth else Math.max(0, widthOf(that) - (busDataWidth * (wordId + 1))),
               bitCount = getBitsWidth bits)
           }
         },
-        address = address + wordId * busDataWidth / 8,0
-      )
+        address = address + wordId * wordAddressInc, 0)
     }
+  }
+
+  /**
+    * Create the memory mapping to write/read that from address
+    */
+  def readAndWriteMultiWord(that: Data, address: BigInt): Unit = {
+    writeMultiWord(that, address)
+    readMultiWord(that, address)
   }
 
   /**
@@ -281,16 +320,14 @@ case class BusSlaveFactoryOnRead(address: BigInt,
 /**
   * Ask to execute doThat when a write access is done in a given range of address
   */
-case class BusSlaveFactoryOnWriteRange(lowAddr: BigInt,
-                                       highAddr: BigInt,
-                                       doThat: () => Unit) extends BusSlaveFactoryElement
+case class BusSlaveFactoryOnWriteCondition(condition: () => Bool,
+                                           doThat: () => Unit) extends BusSlaveFactoryElement
 
 /**
   * Ask to execute doThat when a read access is done in a given range of address
   */
-case class BusSlaveFactoryOnReadRange(lowAddr: BigInt,
-                                      highAddr: BigInt,
-                                      doThat: () => Unit) extends BusSlaveFactoryElement
+case class BusSlaveFactoryOnReadCondition(condition: () => Bool,
+                                          doThat: () => Unit) extends BusSlaveFactoryElement
 
 /**
   * Ask to constantly drive that with the data bus
@@ -318,17 +355,14 @@ trait BusSlaveFactoryDelayed extends BusSlaveFactory{
   val elements = ArrayBuffer[BusSlaveFactoryElement]()
   /** Contains all elements related to an address */
   val elementsPerAddress = collection.mutable.HashMap[BigInt, ArrayBuffer[BusSlaveFactoryElement]]()
-  /** Contains all elements related to a range of address */
-  val elementsPerRangeAddress = collection.mutable.HashMap[(BigInt, BigInt), ArrayBuffer[BusSlaveFactoryElement]]()
 
   private def addAddressableElement(e: BusSlaveFactoryElement, address: BigInt) = {
     elements += e
     elementsPerAddress.getOrElseUpdate(address, ArrayBuffer[BusSlaveFactoryElement]()) += e
   }
 
-  private def addRangeAddressableElement(e: BusSlaveFactoryElement, lowAddress: BigInt, highAddress: BigInt) = {
+  private def addElement(e: BusSlaveFactoryElement) = {
     elements += e
-    elementsPerRangeAddress.getOrElseUpdate((lowAddress, highAddress), ArrayBuffer[BusSlaveFactoryElement]()) += e
   }
 
   override def read(that: Data,
@@ -354,14 +388,12 @@ trait BusSlaveFactoryDelayed extends BusSlaveFactory{
     addAddressableElement(BusSlaveFactoryOnRead(address, () => doThat), address)
   }
 
-  override def onWriteRange(low: BigInt, high: BigInt)(doThat: => Unit) = {
-    assert(low < high)
-    addRangeAddressableElement(BusSlaveFactoryOnWriteRange(low, high, () => doThat), low, high)
+  override def onWriteCondition(condition: => Bool)(doThat: => Unit) = {
+    addElement(BusSlaveFactoryOnWriteCondition(() => condition, () => doThat))
   }
 
-  override def onReadRange(low: BigInt, high: BigInt)(doThat: => Unit) = {
-    assert(low < high)
-    addRangeAddressableElement(BusSlaveFactoryOnReadRange(low, high, () => doThat), low, high)
+  override def onReadCondition(condition: => Bool)(doThat: => Unit) = {
+    addElement(BusSlaveFactoryOnReadCondition(() => condition, () => doThat))
   }
 
   override def nonStopWrite(that: Data,
@@ -377,7 +409,7 @@ trait BusSlaveFactoryDelayed extends BusSlaveFactory{
     */
   def build(): Unit
 
-  // add build to prepoptask
+  // add build function to prepoptask
   component.addPrePopTask(() => build())
 }
 
@@ -391,6 +423,12 @@ class BusSlaveFactoryAddressWrapper(f: BusSlaveFactory, addressOffset: Int) exte
   override def onWrite(address: BigInt)(doThat: => Unit): Unit = f.onWrite(address + addressOffset)(doThat)
   override def onRead(address: BigInt)(doThat: => Unit): Unit = f.onRead(address + addressOffset)(doThat)
   override def nonStopWrite(that: Data, bitOffset: Int): Unit = f.nonStopWrite(that, bitOffset)
-  override def onWriteRange(low: BigInt, high: BigInt)(doThat: => Unit): Unit = f.onWriteRange(low, high)(doThat)
-  override def onReadRange(low: BigInt, high: BigInt)(doThat: => Unit): Unit = f.onReadRange(low, high)(doThat)
+  override def onWriteCondition(condition: => Bool)(doThat: => Unit) = ???
+  override def onReadCondition(condition: => Bool)(doThat: => Unit) = ???
+  override def wordAddressInc: Int = f.wordAddressInc
+  override def getConfig = f.getConfig
+  override def setConfig(value : BusSlaveFactoryConfig) : this.type = {
+    f.setConfig(value)
+    this
+  }
 }

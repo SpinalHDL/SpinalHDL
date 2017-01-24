@@ -6,7 +6,7 @@ import spinal.lib._
 import spinal.lib.bus.amba3.ahblite._
 import spinal.lib.bus.amba3.apb.{Apb3SlaveFactory, Apb3, Apb3Config}
 import spinal.lib.bus.amba4.axi._
-import spinal.lib.bus.misc.BusSlaveFactory
+import spinal.lib.bus.misc.{BusSlaveFactoryConfig, BusSlaveFactory}
 import spinal.lib.io.TriState
 import spinal.lib.memory.sdram.W9825G6JH6
 import spinal.lib.soc.pinsec.{Pinsec, PinsecConfig}
@@ -53,6 +53,12 @@ object PlayAhbLite3{
 
 
 object PlayAhbLite3_2{
+  (43 MHz) * (1 kHz)
+  (43 MHz) * (1 kHz)
+  val f = 54 MHz
+  val i = f * 4
+  val timeout = Timeout(100 ms)
+//  val x : BigDecimal = f
   class TopLevel extends Component{
     val ahbConfig = AhbLite3Config(addressWidth = 16,dataWidth = 32)
 //    val apbConfig = Apb3Config(addressWidth = 16,dataWidth = 32)
@@ -73,7 +79,7 @@ object PlayAhbLite3_2{
         ahbMasters(2).toAhbLite3() -> List(ahbSlaves(0),ahbSlaves(3))
       )
       .build()
-    (ClockDomain.current.frequency.getValue) sec
+    (ClockDomain.current.frequency.getValue)
   }
 
   def main(args: Array[String]) {
@@ -916,7 +922,7 @@ object PlayDesBlock{
       mode = Verilog,
       dumpWave = DumpWaveConfig(depth = 0),
       defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
-      defaultClockDomainFrequency = FixedFrequency(50e6)
+      defaultClockDomainFrequency = FixedFrequency(50 MHz)
     ).generate(new DES_Block_Tester).printPruned()
   }
 }
@@ -942,7 +948,7 @@ object Play3DESBlock{
       mode = Verilog,
       dumpWave = DumpWaveConfig(depth = 0),
       defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
-      defaultClockDomainFrequency  = FixedFrequency(50e6)
+      defaultClockDomainFrequency  = FixedFrequency(50 MHz)
     ).generate(new Triple_DES_Tester).printPruned
   }
 }
@@ -1127,3 +1133,91 @@ object Play3MissingWarning43{
     SpinalVhdl(new TopLevel)
   }
 }
+
+
+object PlayWithBusSlaveFacotry{
+
+  class TopLevel extends Component {
+    val io = new Bundle{
+      val apb3 = slave(Apb3(32, 32))
+      val key  = out Bits(160 bits)
+      val value = out Bits(150 bits)
+    }
+
+    val key_reg = Reg(cloneOf(io.key)) init(0)
+    val value_reg = Reg(cloneOf(io.value))
+
+    val factoryConfig = new BusSlaveFactoryConfig(BIG)
+    val factory = Apb3SlaveFactory(io.apb3, 0).setConfig(factoryConfig)
+
+    factory.writeMultiWord(key_reg, 0x100l)
+    factory.readMultiWord(key_reg, 0x100l)
+
+    factory.readAndWriteMultiWord(value_reg, 0x200l)
+
+    io.key   := key_reg
+    io.value := value_reg
+  }
+
+  def main(args: Array[String]): Unit ={
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
+object PlayMuxInfer{
+  class TopLevel extends Component {
+    val sel = in Bool
+    val a = in UInt (4 bits)
+    val b = in UInt (8 bits)
+    val result = out UInt (4 bits)
+    val x = 0 until 10
+    val y = 0 to 10
+
+
+    val z = 5 until 0 by -1
+    val zz = 5 to 0 by -1
+    result := sel ? a | b
+  }
+
+  def main(args: Array[String]): Unit ={
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+object PlayWithCustomEnumEncoding{
+
+  object MyEnumStatic extends SpinalEnum{
+    val e0, e1, e2, e3 = newElement()
+    defaultEncoding = SpinalEnumEncoding("static")(
+             e0 -> 0,
+             e1 -> 2,
+             e2 -> 4,
+             e3 -> 16 )
+  }
+
+  val encodingDynamic = SpinalEnumEncoding("dynamic", _ * 2 + 1)
+  object MyEnumDynamic extends SpinalEnum(encodingDynamic){
+    val e0, e1, e2, e3 = newElement()
+  }
+
+
+  class TopLevel extends Component{
+    val io = new Bundle{
+      val state  = in(MyEnumStatic)
+      val state1 = in(MyEnumDynamic)
+      val result = out Bool
+    }
+
+    io.result := False
+    when(io.state === MyEnumStatic.e1 || io.state1 === MyEnumDynamic.e3){
+      io.result := True
+    }
+  }
+
+  def main(args: Array[String]): Unit ={
+    SpinalVhdl(new TopLevel)
+  }
+
+}
+

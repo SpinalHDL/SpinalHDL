@@ -12,6 +12,8 @@ import spinal.lib.bus.amba3.apb.{Apb3SlaveFactory, Apb3, Apb3Config}
 import spinal.lib.bus.amba4.axi.{Axi4, Axi4Config}
 import spinal.lib.bus.avalon.{AvalonMM, AvalonMMSlaveFactory}
 import spinal.lib.com.uart._
+import spinal.lib.cpu.riscv.impl.extension._
+import spinal.lib.cpu.riscv.impl.{InstructionCacheConfig, dynamic, sync, RiscvCoreConfig}
 import spinal.lib.graphic.Rgb
 import spinal.lib.misc.{Prescaler, Timer}
 
@@ -611,6 +613,8 @@ object C15 {
     val g = UInt(gWidth bit)
     val b = UInt(bWidth bit)
 
+    def isBlack : Bool = r === 0 && g === 0 && b === 0
+
     //Define the + operator to allow the summation of 2 RGB
     def +(that: RGB): RGB = {
       val result = cloneOf(this)
@@ -620,6 +624,9 @@ object C15 {
       result
     }
   }
+
+  val source = spinal.lib.Stream(RGB(5,6,5))
+  val sink = source.throwWhen(source.payload.isBlack).stage()
 
   // Define a component that take "srcCount" slave Stream of RGB
   // and product an "sumPort" that is the summation of all "srcPort" with the correct arbitration
@@ -650,7 +657,7 @@ object C15 {
 
 
 object T1 {
-  val cond                = Bool
+  val cond                =  in Bool
   val mySignal            = Bool
   val myRegister          = Reg(UInt(4 bit))
   val myRegisterWithReset = Reg(UInt(4 bit)) init (3)
@@ -1893,4 +1900,79 @@ object TrololOOP{
     override def onWrite(address: BigInt)(doThat: => Unit): Unit = {???}
     override def onRead(address: BigInt)(doThat: => Unit): Unit = {???}
   }
+
+
+
+
+  val cpuConfig = RiscvCoreConfig(
+    pcWidth = 32,
+    addrWidth = 32,
+    startAddress = 0x00000000,
+    branchPrediction = dynamic,
+    bypassExecute0 = true,
+    bypassExecute1 = true,
+    bypassWriteBack = true
+    // ...
+  )
+
+  cpuConfig.add(new MulExtension)
+  cpuConfig.add(new DivExtension)
+  cpuConfig.add(new BarrelShifterFullExtension)
+}
+
+object SementicAA{
+  val inc, clear = Bool
+  val counter = Reg(UInt(8 bits))
+  
+  when(inc){
+    counter := counter + 1
+  }
+  when(clear){
+    counter := 0
+  }
+}
+
+object SementicAB{
+  val inc, clear = Bool
+  val counter = Reg(UInt(8 bits))
+
+  def setCounter(value : UInt): Unit = {
+    counter := value
+  }
+
+  when(inc){
+    setCounter(counter + 1)
+  }
+  when(clear){
+    counter := 0
+  }
+}
+
+
+object SementicAC{
+  val inc, clear = Bool
+  val counter = Reg(UInt(8 bits))
+
+  def setCounterWhen(cond : Bool,value : UInt): Unit = {
+    when(cond) {
+      counter := value
+    }
+  }
+
+  setCounterWhen(cond = inc,   value = counter + 1)
+  setCounterWhen(cond = clear, value = 0)
+}
+
+object SementicAD{
+  val inc, clear = Bool
+  val counter = Reg(UInt(8 bits))
+
+  def setSomethingWhen(something : UInt,cond : Bool,value : UInt): Unit = {
+    when(cond) {
+      something := value
+    }
+  }
+
+  setSomethingWhen(something = counter, cond = inc,   value = counter + 1)
+  setSomethingWhen(something = counter, cond = clear, value = 0)
 }

@@ -38,7 +38,7 @@ class RiscvTesterCachedCocotbBoot extends SpinalTesterCocotbBase {
       memDataWidth = 32
     )
 
-    implicit val p = CoreConfig(
+    implicit val p = RiscvCoreConfig(
       pcWidth = 32,
       addrWidth = 32,
       startAddress = 0x200,
@@ -72,7 +72,7 @@ class RiscvTesterUncachedCocotbBoot extends SpinalTesterCocotbBase {
     val iCacheConfig = null
     val dCacheConfig = null
 
-    implicit val p = CoreConfig(
+    implicit val p = RiscvCoreConfig(
       pcWidth = 32,
       addrWidth = 32,
       startAddress = 0x200,

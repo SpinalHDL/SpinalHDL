@@ -41,7 +41,7 @@ trait VerilogBase extends VhdlVerilogBase{
     } ${emitReference(clock)}"
   }
 
-  def emitResetEdge(reset: Bool, polarity: ActiveKind): String = {
+  def emitResetEdge(reset: Bool, polarity: Polarity): String = {
     s"${
       polarity match {
         case HIGH => "posedge"
@@ -51,9 +51,9 @@ trait VerilogBase extends VhdlVerilogBase{
   }
 
   def emitEnumLiteral[T <: SpinalEnum](enum : SpinalEnumElement[T],encoding : SpinalEnumEncoding,prefix : String = "`") : String = {
-    return prefix + enum.parent.getName() + "_" + encoding.getName() + "_" + enum.getName()
+    return prefix + enum.spinalEnum.getName() + "_" + encoding.getName() + "_" + enum.getName()
   }
-  def emitEnumType[T <: SpinalEnum](enum : SpinalEnumCraft[T],prefix : String) : String = emitEnumType(enum.blueprint,enum.getEncoding,prefix)
+  def emitEnumType[T <: SpinalEnum](enum : SpinalEnumCraft[T],prefix : String) : String = emitEnumType(enum.spinalEnum,enum.getEncoding,prefix)
   def emitEnumType(enum : SpinalEnum,encoding : SpinalEnumEncoding,prefix : String = "`") : String = {
     return prefix + enum.getName() + "_" + encoding.getName() + "_type"
   }

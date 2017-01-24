@@ -24,8 +24,8 @@ trait StateMachineAccessor{
 //  def goto(state : SpinalEnumElement[StateMachineEnum]) : Unit
   def add(state : State) : Int
   def add(stateMachine: StateMachineAccessor) : Unit
-  def start() : Unit
-  def exit() : Unit
+  def startFsm() : Unit
+  def exitFsm() : Unit
   def wantExit() : Bool
   def disableAutoStart() : Unit
   def getName() : String
@@ -51,7 +51,7 @@ trait StateMachineAccessor{
 class StateBoot(autoStart : Boolean)(implicit stateMachineAccessor : StateMachineAccessor) extends State{
   if(autoStart) {
     whenIsActive {
-      stateMachineAccessor.start()
+      stateMachineAccessor.startFsm()
     }
   }
 }
@@ -196,13 +196,13 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated{
     stateMachine.setParentStateMachine(this)
   }
 
-  def start() : Unit = {
+  def startFsm() : Unit = {
     if(entryState == null)
       globalData.pendingErrors += (() => (s"$this as no entry point set. val yourState : State = new State with EntryPoint{...}   should solve the situation at \n${getScalaLocationLong}"))
     else
       goto(entryState)
   }
-  def exit() : Unit = {
+  def exitFsm() : Unit = {
     wantExit := True
     goto(stateBoot)
   }
