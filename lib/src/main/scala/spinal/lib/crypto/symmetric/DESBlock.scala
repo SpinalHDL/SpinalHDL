@@ -1,24 +1,36 @@
-/******************************************************************************
-  * Data Encryption Standard (DES)
-  *
-  *                      _________
-  *                     |         |
-  *    -- Plaintext --->|   DES   |-- Ciphertext -->
-  *       (64 bits)     |_________|   (64 bits)
-  *                          |
-  *                      Key (56 bits)
-  *                          |
-  *                 Key + parity (64 bits)
-  *
-  */
+/*                                                                           *\
+**        _____ ____  _____   _____    __                                    **
+**       / ___// __ \/  _/ | / /   |  / /   HDL Lib                          **
+**       \__ \/ /_/ // //  |/ / /| | / /    (c) Dolu, All rights reserved    **
+**      ___/ / ____// // /|  / ___ |/ /___                                   **
+**     /____/_/   /___/_/ |_/_/  |_/_____/  MIT Licence                      **
+**                                                                           **
+** Permission is hereby granted, free of charge, to any person obtaining a   **
+** copy of this software and associated documentation files (the "Software"),**
+** to deal in the Software without restriction, including without limitation **
+** the rights to use, copy, modify, merge, publish, distribute, sublicense,  **
+** and/or sell copies of the Software, and to permit persons to whom the     **
+** Software is furnished to do so, subject to the following conditions:      **
+**                                                                           **
+** The above copyright notice and this permission notice shall be included   **
+** in all copies or substantial portions of the Software.                    **
+**                                                                           **
+** THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS   **
+** OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF                **
+** MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.    **
+** IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY      **
+** CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT **
+** OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR  **
+** THE USE OR OTHER DEALINGS IN THE SOFTWARE.                                **
+\*                                                                           */
 package spinal.lib.crypto.symmetric
 
 import spinal.core._
-import spinal.lib._
 
 
-// TODO : Maintain the rspvalid as long as the des is not used....
-
+/**
+  * Contains all constants for the DES Block
+  */
 case class DESBlockGenerics(){
 
   val initialPermutation = Seq(
@@ -117,23 +129,37 @@ case class DESBlockGenerics(){
 }
 
 
+/**
+  * Define some usefull funtion
+  */
 object DESBlock{
 
   /** Permutation, Compression and expansion
     *  These functions permute a vector thanks to the table (!! The table is given for a software application !!)
     */
-  def permutation(table:Seq[Int], vector:Bits):Bits={ expansion(table.toList, vector) }
+  def permutation(table:Seq[Int], vector:Bits): Bits = expansion(table.toList, vector)
 
-  def compression(table:Seq[Int], vector:Bits):Bits={ expansion(table.toList,vector)  }
+  def compression(table:Seq[Int], vector:Bits): Bits = expansion(table.toList,vector)
 
-  def expansion(table:List[Int], vector:Bits):Bits={
-    Cat(table.reverse.map(index => vector(vector.getWidth - index)))
-  }
+  def expansion(table:List[Int], vector:Bits): Bits = Cat(table.reverse.map(index => vector(vector.getWidth - index)))
 }
 
 
-
-class DESBlock(g : DESBlockGenerics = DESBlockGenerics()) extends Component{
+/**
+  * Data Encryption Standard (DES)
+  *
+  *                      _________
+  *                     |         |
+  *    -- Plaintext --->|   DES   |-- Ciphertext -->
+  *       (64 bits)     |_________|   (64 bits)
+  *                          |
+  *                      Key (56 bits)
+  *                          |
+  *                 Key + parity (64 bits)
+  *
+  *
+  */
+class DESBlock(g: DESBlockGenerics = DESBlockGenerics()) extends Component{
 
   val gIO  = SymmetricCryptoBlockGeneric(keyWidth    = g.keyWidth + g.keyWidthParity,
                                          blockWidth  = g.blockWidth,
@@ -143,7 +169,7 @@ class DESBlock(g : DESBlockGenerics = DESBlockGenerics()) extends Component{
 
 
   val roundNbr    = UInt(log2Up(g.nbrRound) + 1 bits)
-  val lastRound   = io.cmd.encDec ? (roundNbr === (g.nbrRound-2)) | (roundNbr === 2)
+  val lastRound   = io.cmd.enc ? (roundNbr === (g.nbrRound-2)) | (roundNbr === 2)
   val init        = io.cmd.valid.rise(False)
   val nextRound   = Reg(Bool) init(False) setWhen(init) clearWhen(lastRound)
   val rspValid    = Reg(Bool) init(False) setWhen(lastRound) clearWhen(init)
@@ -158,11 +184,11 @@ class DESBlock(g : DESBlockGenerics = DESBlockGenerics()) extends Component{
     val round = Reg(UInt(log2Up(g.nbrRound) + 1 bits))
 
     when(init){
-      round := io.cmd.encDec ? U(0) | g.nbrRound
+      round := io.cmd.enc ? U(0) | g.nbrRound
     }
 
     when(nextRound){
-      round := io.cmd.encDec ? (round + 1) | (round - 1)
+      round := io.cmd.enc ? (round + 1) | (round - 1)
     }
   }
 
@@ -216,13 +242,13 @@ class DESBlock(g : DESBlockGenerics = DESBlockGenerics()) extends Component{
     val shiftRes   = Bits(g.keyWidth)
 
     when(g.oneShiftRound.map(index => ctnRound.round === (index-1)).reduce(_ || _) ){
-      when(io.cmd.encDec){
+      when(io.cmd.enc){
         shiftRes  := shiftKey(55 downto 28).rotateLeft(1) ## shiftKey(27 downto 0).rotateLeft(1)
       }otherwise{
         shiftRes  := shiftKey(55 downto 28).rotateRight(1) ## shiftKey(27 downto 0).rotateRight(1)
       }
     }otherwise{
-      when(io.cmd.encDec){
+      when(io.cmd.enc){
         shiftRes  := shiftKey(55 downto 28).rotateLeft(2) ## shiftKey(27 downto 0).rotateLeft(2)
       }otherwise{
 
@@ -330,11 +356,11 @@ class DESBlock(g : DESBlockGenerics = DESBlockGenerics()) extends Component{
   }
 
 
-  /**
-    * Update the output
-    */
+  /*
+   * Update the output
+   */
   val cmdReady  = RegNext(rspValid.rise())
-  io.rsp.block := RegNext( finalBlockPermutation.perm  )
+  io.rsp.block := RegNext(finalBlockPermutation.perm)
   io.rsp.valid := cmdReady
 
   io.cmd.ready  := cmdReady

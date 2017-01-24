@@ -16,7 +16,7 @@ case class SymmetricCryptoBlockGeneric(keyWidth    : BitCount,
 case class SymmetricCryptoBlockCmd(g : SymmetricCryptoBlockGeneric) extends Bundle{
   val key    = Bits(g.keyWidth)
   val block  = Bits(g.blockWidth)
-  val encDec = if(g.useEncDec) Bool else null
+  val enc    = if(g.useEncDec) Bool else null
 }
 
 
