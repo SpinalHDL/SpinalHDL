@@ -236,9 +236,6 @@ class Scope(parent : Scope = null) {
   val map = mutable.Map[String, Int]()
   def allocateName(name: String): String = {
     assert(!lock)
-    if(name == "core"){
-      println("miaou")
-    }
     val lowerCase = name.toLowerCase
     val count = map.get(lowerCase).getOrElse(0)
     map(lowerCase) = count + 1
