@@ -1,5 +1,6 @@
 package spinal.tester.scalatest
 
+import java.io.File
 import java.nio.charset.Charset
 
 import org.scalatest._
@@ -87,7 +88,9 @@ abstract class SpinalTesterCocotbBase extends FunSuite /* with BeforeAndAfterAll
   def getCocotbPass(location : String) : Boolean = {
     Thread.sleep(500)
     import scala.io.Source
-    for(line <- Source.fromFile(location + "/results.xml").getLines()) {
+    val resultPath = location + "/results.xml"
+    new File(resultPath).delete()
+    for(line <- Source.fromFile(resultPath).getLines()) {
       if (line.contains("failure") || line.contains("skipped")){
         return false
       }
