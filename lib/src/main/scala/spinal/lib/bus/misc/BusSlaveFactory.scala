@@ -37,7 +37,6 @@ import scala.collection.mutable.ArrayBuffer
   * @param wordEndianness Endianness for the multiWrite or multiRead operations
   */
 case class BusSlaveFactoryConfig(wordEndianness: Endianness = LITTLE){
-
 }
 
 
@@ -45,6 +44,7 @@ case class BusSlaveFactoryConfig(wordEndianness: Endianness = LITTLE){
   * Bus slave factory is a tool that provide an abstract and smooth way to define register bank
   */
 trait BusSlaveFactory extends Area{
+
   /** Configuration of the BusSlaveFactory */
   protected var _config = BusSlaveFactoryConfig()
   def getConfig : BusSlaveFactoryConfig = _config
@@ -59,6 +59,7 @@ trait BusSlaveFactory extends Area{
   /** Address incrementation used by the read and write multi words registers */
   def wordAddressInc: Int = busDataWidth / 8
 
+  /** Set the endianness during write/read multiword */
   def setWordEndianness(value : Endianness) = setConfig(getConfig.copy(wordEndianness = value))
 
   /**
@@ -89,19 +90,19 @@ trait BusSlaveFactory extends Area{
   def onWrite(address: BigInt)(doThat: => Unit): Unit
 
   /**
+    * Call doThat when a write transcation occurs
+    */
+  def onWrite(doThat: => Unit): Unit
+
+  /**
     * Call doThat when a read transaction occurs on address
     */
   def onRead(address: BigInt)(doThat: => Unit): Unit
 
   /**
-    * Call doThat when a write transaction occurs and the condition is true
+    * Call doThat when a read transaction occurs
     */
-  def onWriteCondition(condition: => Bool)(doThat: => Unit): Unit
-
-  /**
-    * Call doThat when a read transaction occurs and the condition is true
-    */
-  def onReadCondition(condition: => Bool)(doThat: => Unit): Unit
+  def onRead(doThat: => Unit): Unit
 
   /**
     * Permanently assign that by the bus write data from bitOffset
@@ -182,6 +183,7 @@ trait BusSlaveFactory extends Area{
     readMultiWord(that, address)
   }
 
+
   /**
     * Create a write only register of type dataType at address and placed at bitOffset in the word
     */
@@ -190,6 +192,18 @@ trait BusSlaveFactory extends Area{
                                  bitOffset: Int = 0): T = {
     val ret = Reg(dataType)
     write(ret, address, bitOffset)
+    ret
+  }
+
+
+  /**
+    * Create a read only register of type dataType at address and placed at bitOffset in the word
+    */
+  def createReadOnly[T <: Data](dataType: T,
+                                address: BigInt,
+                                bitOffset: Int = 0): T = {
+    val ret = Reg(dataType)
+    read(ret, address, bitOffset)
     ret
   }
 
@@ -217,18 +231,34 @@ trait BusSlaveFactory extends Area{
   }
 
   /**
-    * Instanciate an internal register which at each cycle do : reg := reg | that
-    * Then when a read occur, the register is cleared. This register is readable at address and placed at bitOffset in the word
+    * Create multi-words write register of type dataType
     */
-  def doBitsAccumulationAndClearOnRead(that: Bits,
-                                       address: BigInt,
-                                       bitOffset: Int = 0): Unit = {
-    assert(that.getWidth <= busDataWidth)
+  def createWriteMultiWord[T <: Data](that: T, address: BigInt): T = {
     val reg = Reg(that)
-    reg := reg | that
-    read(reg, address, bitOffset)
-    onRead(address){ reg := that }
+    writeMultiWord(reg, address)
+    reg
   }
+
+  /**
+    * Create multi-words read register of type dataType
+    */
+  def createReadMultiWord[T <: Data](that: T, address: BigInt): T = {
+    val reg = Reg(that)
+    readMultiWord(reg, address)
+    reg
+  }
+
+  /**
+    * Create multi-words write and read register of type dataType
+    */
+  def createWriteAndReadMultiWord[T <: Data](that: T, address: BigInt): T = {
+    val reg = Reg(that)
+    writeMultiWord(reg, address)
+    readMultiWord(reg, address)
+    reg
+  }
+
+
 
   /**
     * Drive that with a register writable at address placed at bitOffset in the word
@@ -255,6 +285,29 @@ trait BusSlaveFactory extends Area{
     reg
   }
 
+
+  /**
+    * Drive that on multi-words
+    */
+  def driveMultiWord[T <: Data](that: T, address: BigInt): T = {
+    val reg = Reg(that)
+    writeMultiWord(reg, address)
+    that := reg
+    reg
+  }
+
+
+  /**
+    * Drive and read that on multi-word
+    */
+  def driveAndReadMultiWord[T <: Data](that: T, address: BigInt): T = {
+    val reg = Reg(that)
+    writeMultiWord(reg, address)
+    readMultiWord(reg, address)
+    that := reg
+    reg
+  }
+
   /**
     * Emit on that a transaction when a write happen at address by using data placed at bitOffset in the word
     */
@@ -273,12 +326,30 @@ trait BusSlaveFactory extends Area{
                                        address: BigInt,
                                        validBitOffset: Int,
                                        payloadBitOffset: Int): Unit = {
+
+    val wordCount = (widthOf(that.payload) - 1 ) / busDataWidth + 1
+
     that.ready := False
     onRead(address){
       that.ready := True
     }
     read(that.valid,   address, validBitOffset)
     read(that.payload, address, payloadBitOffset)
+  }
+
+
+  /**
+    * Instanciate an internal register which at each cycle do : reg := reg | that
+    * Then when a read occur, the register is cleared. This register is readable at address and placed at bitOffset in the word
+    */
+  def doBitsAccumulationAndClearOnRead(that: Bits,
+                                       address: BigInt,
+                                       bitOffset: Int = 0): Unit = {
+    assert(that.getWidth <= busDataWidth)
+    val reg = Reg(that)
+    reg := reg | that
+    read(reg, address, bitOffset)
+    onRead(address){ reg := that }
   }
 }
 
@@ -320,14 +391,6 @@ case class BusSlaveFactoryOnRead(address: BigInt,
 /**
   * Ask to execute doThat when a write access is done in a given range of address
   */
-case class BusSlaveFactoryOnWriteCondition(condition: () => Bool,
-                                           doThat: () => Unit) extends BusSlaveFactoryElement
-
-/**
-  * Ask to execute doThat when a read access is done in a given range of address
-  */
-case class BusSlaveFactoryOnReadCondition(condition: () => Bool,
-                                          doThat: () => Unit) extends BusSlaveFactoryElement
 
 /**
   * Ask to constantly drive that with the data bus
@@ -388,13 +451,14 @@ trait BusSlaveFactoryDelayed extends BusSlaveFactory{
     addAddressableElement(BusSlaveFactoryOnRead(address, () => doThat), address)
   }
 
-  override def onWriteCondition(condition: => Bool)(doThat: => Unit) = {
-    addElement(BusSlaveFactoryOnWriteCondition(() => condition, () => doThat))
+  override def onWrite(doThat: => Unit) = {
+
   }
 
-  override def onReadCondition(condition: => Bool)(doThat: => Unit) = {
-    addElement(BusSlaveFactoryOnReadCondition(() => condition, () => doThat))
+  override def onRead(doThat: => Unit) = {
+
   }
+
 
   override def nonStopWrite(that: Data,
                             bitOffset: Int = 0): Unit = {
@@ -423,8 +487,6 @@ class BusSlaveFactoryAddressWrapper(f: BusSlaveFactory, addressOffset: Int) exte
   override def onWrite(address: BigInt)(doThat: => Unit): Unit = f.onWrite(address + addressOffset)(doThat)
   override def onRead(address: BigInt)(doThat: => Unit): Unit = f.onRead(address + addressOffset)(doThat)
   override def nonStopWrite(that: Data, bitOffset: Int): Unit = f.nonStopWrite(that, bitOffset)
-  override def onWriteCondition(condition: => Bool)(doThat: => Unit) = ???
-  override def onReadCondition(condition: => Bool)(doThat: => Unit) = ???
   override def wordAddressInc: Int = f.wordAddressInc
   override def getConfig = f.getConfig
   override def setConfig(value : BusSlaveFactoryConfig) : this.type = {
