@@ -6,7 +6,7 @@ from cocotblib.Stream import Stream
 from cocotblib.Flow import Flow
 from cocotblib.misc import randBits, assertEquals
 
-from spinal.Crypto.Symmetric.pyDES import *
+from spinal.crypto.symmetric.pyDES import *
 
 
 ###############################################################################
