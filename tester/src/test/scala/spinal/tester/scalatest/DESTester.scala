@@ -21,16 +21,15 @@ class DESBlockTester extends Component {
     des.io <> io
 }
 
-//TODO
-//class DESBlockCocotbBoot extends SpinalTesterCocotbBase {
-//  override def getName: String = "DESTester"
-//  override def pythonTestLocation: String = "tester/src/test/python/spinal/crypto/symmetric/DES_Block"
-//  override def createToplevel: Component = new DESBlockTester
-//  override def backendConfig(config: SpinalConfig) : SpinalConfig = {
-//       config.copy(defaultClockDomainFrequency  = FixedFrequency(50e6),
-//      defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW))
-//  }
-//}
+class DESBlockCocotbBoot extends SpinalTesterCocotbBase {
+  override def getName: String = "DESTester"
+  override def pythonTestLocation: String = "tester/src/test/python/spinal/crypto/symmetric/DES_Block"
+  override def createToplevel: Component = new DESBlockTester
+  override def backendConfig(config: SpinalConfig) : SpinalConfig = {
+       config.copy(defaultClockDomainFrequency  = FixedFrequency(50 MHz),
+      defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW))
+  }
+}
 
 
 
@@ -50,15 +49,15 @@ class TripleDESBlockTester extends Component {
   des3.io <> io
 }
 
-//TODO
-//class TripleDESBlockCocotbBoot extends SpinalTesterCocotbBase {
-//  override def getName: String = "TripleDESTester"
-//  override def pythonTestLocation: String = "tester/src/test/python/spinal/crypto/symmetric/TripleDES"
-//  override def createToplevel: Component = new TripleDESBlockTester
-//  override def backendConfig(config: SpinalConfig) : SpinalConfig = {
-//    config.copy(defaultClockDomainFrequency  = FixedFrequency(50e6),
-//      defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW))
-//  }
-//}
+
+class TripleDESBlockCocotbBoot extends SpinalTesterCocotbBase {
+  override def getName: String = "TripleDESTester"
+  override def pythonTestLocation: String = "tester/src/test/python/spinal/crypto/symmetric/TripleDES"
+  override def createToplevel: Component = new TripleDESBlockTester
+  override def backendConfig(config: SpinalConfig) : SpinalConfig = {
+    config.copy(defaultClockDomainFrequency  = FixedFrequency(50 MHz),
+      defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW))
+  }
+}
 
 
