@@ -28,8 +28,8 @@ case class Timer(width : Int) extends Component{
   def driveFrom(busCtrl : BusSlaveFactory,baseAddress : BigInt)
                (ticks : Seq[Bool],clears : Seq[Bool]) = new Area {
     //Address 0 => clear/tick masks + bus
-    val ticksEnable  = busCtrl.createReadWrite(Bits(ticks.length bits) ,baseAddress + 0,0) init(0)
-    val clearsEnable = busCtrl.createReadWrite(Bits(clears.length bits),baseAddress + 0,16) init(0)
+    val ticksEnable  = busCtrl.createReadAndWrite(Bits(ticks.length bits) ,baseAddress + 0,0) init(0)
+    val clearsEnable = busCtrl.createReadAndWrite(Bits(clears.length bits),baseAddress + 0,16) init(0)
     val busClearing  = False
 
     //Address 4 => read/write limit (+ auto clear)

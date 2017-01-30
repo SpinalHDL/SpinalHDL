@@ -996,7 +996,7 @@ object PlayPatch{
               baseAddress : BigInt)
              (width     : Int = 16,
               lowActive : Bool = False): Bits ={
-      val leds = busCtrl.createReadWrite(Bits(width bits),baseAddress) init(0)
+      val leds = busCtrl.createReadAndWrite(Bits(width bits),baseAddress) init(0)
       return lowActive ? ~leds | leds
     }
   }

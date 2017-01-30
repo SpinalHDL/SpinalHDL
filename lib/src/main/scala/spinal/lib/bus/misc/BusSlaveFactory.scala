@@ -210,9 +210,9 @@ trait BusSlaveFactory extends Area{
   /**
     * Create a read write register of type dataType at address and placed at bitOffset in the word
     */
-  def createReadWrite[T <: Data](dataType: T,
-                                 address: BigInt,
-                                 bitOffset: Int = 0): T = {
+  def createReadAndWrite[T <: Data](dataType: T,
+                                    address: BigInt,
+                                    bitOffset: Int = 0): T = {
     val reg = Reg(dataType)
     write(reg, address, bitOffset)
     read(reg, address, bitOffset)
@@ -314,9 +314,19 @@ trait BusSlaveFactory extends Area{
   def driveFlow[T <: Data](that: Flow[T],
                            address: BigInt,
                            bitOffset: Int = 0): Unit = {
-    that.valid := False
-    onWrite(address){ that.valid := True }
-    nonStopWrite(that.payload, bitOffset)
+
+    val wordCount = (widthOf(that.payload) - 1 ) / busDataWidth + 1
+
+    if (wordCount == 1){
+      that.valid := False
+      onWrite(address){ that.valid := True }
+      nonStopWrite(that.payload, bitOffset)
+    }else{
+      val regValid = Reg(that.valid) init(False)
+      onWrite(address + ((wordCount-1) * wordAddressInc)){ regValid := True }
+      driveMultiWord(that.payload, address)
+      that.valid := regValid
+    }
   }
 
   /**
@@ -328,13 +338,20 @@ trait BusSlaveFactory extends Area{
                                        payloadBitOffset: Int): Unit = {
 
     val wordCount = (widthOf(that.payload) - 1 ) / busDataWidth + 1
-
+/*
     that.ready := False
     onRead(address){
       that.ready := True
     }
     read(that.valid,   address, validBitOffset)
     read(that.payload, address, payloadBitOffset)
+    */
+
+    that.ready := False
+    onRead(address + ((wordCount-1) * wordAddressInc)){
+      that.ready := True
+    }
+    readMultiWord(that.valid ## that.payload, address)
   }
 
 
@@ -452,11 +469,11 @@ trait BusSlaveFactoryDelayed extends BusSlaveFactory{
   }
 
   override def onWrite(doThat: => Unit) = {
-
+    addElement(BusSlaveFactoryOnWrite(null, () => doThat))
   }
 
   override def onRead(doThat: => Unit) = {
-
+    addElement(BusSlaveFactoryOnRead(null, () => doThat))
   }
 
 
@@ -486,6 +503,8 @@ class BusSlaveFactoryAddressWrapper(f: BusSlaveFactory, addressOffset: Int) exte
   override def write[T <: Data](that: T, address: BigInt, bitOffset: Int): T = f.write(that, address + addressOffset, bitOffset)
   override def onWrite(address: BigInt)(doThat: => Unit): Unit = f.onWrite(address + addressOffset)(doThat)
   override def onRead(address: BigInt)(doThat: => Unit): Unit = f.onRead(address + addressOffset)(doThat)
+  override def onWrite(doThat: => Unit): Unit = ???
+  override def onRead(doThat: => Unit): Unit = ???
   override def nonStopWrite(that: Data, bitOffset: Int): Unit = f.nonStopWrite(that, bitOffset)
   override def wordAddressInc: Int = f.wordAddressInc
   override def getConfig = f.getConfig
