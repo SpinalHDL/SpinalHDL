@@ -336,7 +336,7 @@ trait BusSlaveFactory extends Area{
   }
 
   /**
-    * Read that and consume the transaction when a read happen at address.
+    * Read that (that is bigger than the busWidth) and consume the transaction when a read happen at address.
     * @note in order to avoid to read wrong data read first the address which contains the
     *       valid signal.
     *       Little : payload - valid at address 0x00
@@ -358,7 +358,22 @@ trait BusSlaveFactory extends Area{
     }else{
       readMultiWord(that.valid ## that.payload, address)
     }
+  }
 
+
+  /**
+    * Read that and consume the transaction when a read happen at address.
+    */
+  def readStreamNonBlocking[T <: Data](that: Stream[T],
+                                       address: BigInt,
+                                       validBitOffset: Int,
+                                       payloadBitOffset: Int): Unit = {
+    that.ready := False
+    onRead(address){
+      that.ready := True
+    }
+    read(that.valid,   address, validBitOffset)
+    read(that.payload, address, payloadBitOffset)
   }
 
 
