@@ -1310,7 +1310,7 @@ object PlayI2CHALTest{
 
     busCtrl.driveAndRead(masterI2C.io.config,    0x00)
     busCtrl.createAndDriveFlow(I2CMasteHALCmd(masterI2CGeneric), 0x04).toStream >-> masterI2C.io.cmd
-    busCtrl.readStreamNonBlocking(masterStreamRSP, address = 0x0C, validBitOffset=0, payloadBitOffset=1)
+    busCtrl.readStreamNonBlocking(masterStreamRSP, address = 0x0C)
     busCtrl.readAndWrite (masterStatusCMD, 0x08)
     //  busCtrl.readAndWrite (masterStatusRSP, 0x0C)
 

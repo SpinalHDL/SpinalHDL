@@ -1135,28 +1135,73 @@ object Play3MissingWarning43{
 }
 
 
+object PlayWithBusSlaveFacotry11{
+
+  class TopLevel extends Component {
+    val io = new Bundle{
+      val apb3  = slave(Apb3(32, 32))
+      val tata     = out Bits(20 bits)
+    }
+
+
+
+    val factoryConfig = new BusSlaveFactoryConfig(BIG)
+    val factory = Apb3SlaveFactory(io.apb3, 0).setConfig(factoryConfig)
+
+
+    val d = factory.createWriteOnly(io.tata, 0x50l)
+    io.tata := d
+  }
+
+  def main(args: Array[String]): Unit ={
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
 object PlayWithBusSlaveFacotry{
 
   class TopLevel extends Component {
     val io = new Bundle{
-      val apb3 = slave(Apb3(32, 32))
-      val key  = out Bits(160 bits)
-      val value = out Bits(150 bits)
+      val apb3  = slave(Apb3(32, 32))
+      val key   = out Bits(160 bits)
+      val value = out Bits(40 bits)
+      val cnt   = out UInt(32 bits)
+      val toto  = out Bits(12 bits)
+      val myStream = slave Stream(Bits(90 bits))
+      val myFlow   = master Flow(Bits(90 bits))
+      val tata     = out Bits(20 bits)
     }
+
+
 
     val key_reg = Reg(cloneOf(io.key)) init(0)
     val value_reg = Reg(cloneOf(io.value))
 
-    val factoryConfig = new BusSlaveFactoryConfig(BIG)
-    val factory = Apb3SlaveFactory(io.apb3, 0).setConfig(factoryConfig)
+
+    val factory = Apb3SlaveFactory(io.apb3, 0)
+    factory.setWordEndianness(LITTLE)
 
     factory.writeMultiWord(key_reg, 0x100l)
     factory.readMultiWord(key_reg, 0x100l)
 
     factory.readAndWriteMultiWord(value_reg, 0x200l)
 
+    val regToto = factory.createReadAndWrite(Bits(12 bits), 0x300l)
+    io.toto := regToto
+
+    val cnt = Reg(UInt(32 bits)) init(0)
+    factory.onWrite{ cnt := cnt + 1 }
+    io.cnt := cnt
+
+    factory.readStreamNonBlocking(io.myStream, 0x0l)
+
+    factory.driveFlow(io.myFlow, 0x700l)
+
     io.key   := key_reg
     io.value := value_reg
+
+    factory.drive(io.tata, 0x50l)
   }
 
   def main(args: Array[String]): Unit ={

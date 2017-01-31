@@ -107,10 +107,10 @@ class UartCtrl(g : UartCtrlGenerics = UartCtrlGenerics()) extends Component {
       val (stream, fifoOccupancy) = io.read.toStream.queueWithOccupancy(config.rxFifoDepth)
       busCtrl.busDataWidth match {
         case 16 =>
-          busCtrlWrapped.readStreamNonBlocking(stream, address = 0, validBitOffset = 15, payloadBitOffset = 0)
+          busCtrlWrapped.readStreamNonBlocking(stream, address = 0)
           busCtrlWrapped.read(fifoOccupancy,address = 6, 8)
         case 32 =>
-          busCtrlWrapped.readStreamNonBlocking(stream, address = 0, validBitOffset = 16, payloadBitOffset = 0)
+          busCtrlWrapped.readStreamNonBlocking(stream, address = 0)
           busCtrlWrapped.read(fifoOccupancy,address = 4, 24)
       }
       def genCTS(freeThreshold : Int) = RegNext(fifoOccupancy <= config.rxFifoDepth - freeThreshold) init(False)  // freeThreshold => how many remaining space should be in the fifo before allowing transfer

@@ -139,15 +139,16 @@ trait BusSlaveFactory extends Area{
     * If that  is bigger than one word it extends the register on followings addresses
     */
   def readMultiWord(that: Data, address: BigInt): Unit  = {
+
     val wordCount = (widthOf(that) - 1) / busDataWidth + 1
     val valueBits = that.asBits
-    var pos = if(isLittleWordEndianness) 0 else widthOf(that) - busDataWidth
+    var pos = if(isLittleWordEndianness) 0 else widthOf(that) - (if (widthOf(that) % busDataWidth  == 0)  busDataWidth else widthOf(that) % busDataWidth  )
     for (wordId <- 0 until wordCount) {
       if (isLittleWordEndianness){
         read(valueBits(pos, Math.min(widthOf(that) - pos, busDataWidth) bits), address + wordId * wordAddressInc)
         pos += busDataWidth
       }else{
-        read(valueBits(pos, Math.min(widthOf(that) - wordId * busDataWidth, busDataWidth) bits), address + wordId * wordAddressInc)
+        read(valueBits(pos, Math.min(widthOf(that) - ((wordCount-1) - wordId) * busDataWidth, busDataWidth) bits), address + wordId * wordAddressInc)
         pos -= Math.min(pos, busDataWidth)
       }
     }
@@ -162,12 +163,16 @@ trait BusSlaveFactory extends Area{
     for (wordId <- 0 until wordCount) {
       write(
         that = new DataWrapper{
-          override def getBitsWidth: Int = Math.min(busDataWidth, widthOf(that) - wordId * busDataWidth)
+          override def getBitsWidth: Int = if(isLittleWordEndianness){
+            Math.min(busDataWidth, widthOf(that) - wordId * busDataWidth)
+          }else{
+            Math.min(busDataWidth, widthOf(that) - ((wordCount-1) - wordId) * busDataWidth)
+          }
 
           override def assignFromBits(value: Bits): Unit = {
             that.assignFromBits(
               bits     = value.resize(getBitsWidth),
-              offset   = if(isLittleWordEndianness) wordId * busDataWidth else Math.max(0, widthOf(that) - (busDataWidth * (wordId + 1))),
+              offset   = if(isLittleWordEndianness) wordId * busDataWidth else ((wordCount-1) - wordId) * busDataWidth,
               bitCount = getBitsWidth bits)
           }
         },
@@ -322,6 +327,7 @@ trait BusSlaveFactory extends Area{
       onWrite(address){ that.valid := True }
       nonStopWrite(that.payload, bitOffset)
     }else{
+      assert(bitOffset == 0)
       val regValid = Reg(that.valid) init(False)
       onWrite(address + ((wordCount-1) * wordAddressInc)){ regValid := True }
       driveMultiWord(that.payload, address)
@@ -331,27 +337,28 @@ trait BusSlaveFactory extends Area{
 
   /**
     * Read that and consume the transaction when a read happen at address.
+    * @note in order to avoid to read wrong data read first the address which contains the
+    *       valid signal.
+    *       Little : payload - valid at address 0x00
+    *       Big    : valid - payload at address 0x00
+    *       Once the valid signal is true you can read all registers
     */
   def readStreamNonBlocking[T <: Data](that: Stream[T],
-                                       address: BigInt,
-                                       validBitOffset: Int,
-                                       payloadBitOffset: Int): Unit = {
+                                       address: BigInt): Unit = {
 
     val wordCount = (widthOf(that.payload) - 1 ) / busDataWidth + 1
-/*
-    that.ready := False
-    onRead(address){
-      that.ready := True
-    }
-    read(that.valid,   address, validBitOffset)
-    read(that.payload, address, payloadBitOffset)
-    */
 
     that.ready := False
     onRead(address + ((wordCount-1) * wordAddressInc)){
       that.ready := True
     }
-    readMultiWord(that.valid ## that.payload, address)
+
+    if(isLittleWordEndianness){
+      readMultiWord(that.payload ## that.valid, address)
+    }else{
+      readMultiWord(that.valid ## that.payload, address)
+    }
+
   }
 
 
@@ -393,21 +400,19 @@ case class BusSlaveFactoryWrite(that: Data,
                                 address: BigInt,
                                 bitOffset: Int) extends BusSlaveFactoryElement
 
-/**
-  * Ask to execute doThat when a write access is done on address
-  */
-case class BusSlaveFactoryOnWrite(address: BigInt,
-                                  doThat: () => Unit) extends BusSlaveFactoryElement
+/** Ask to execute doThat when a write access is done on address */
+case class BusSlaveFactoryOnWriteAtAddress(address: BigInt,
+                                           doThat: () => Unit) extends BusSlaveFactoryElement
 
-/**
-  * Ask to execute doThat when a read access is done on address
-  */
-case class BusSlaveFactoryOnRead(address: BigInt,
-                                 doThat: () => Unit) extends BusSlaveFactoryElement
+/**  Ask to execute doThat when a read access is done on address */
+case class BusSlaveFactoryOnReadAtAddress(address: BigInt,
+                                          doThat: () => Unit) extends BusSlaveFactoryElement
 
-/**
-  * Ask to execute doThat when a write access is done in a given range of address
-  */
+/**  Ask to execute doThat when a write access is done  */
+case class BusSlaveFactoryOnWrite(doThat: () => Unit) extends BusSlaveFactoryElement
+
+/**  Ask to execute doThat when a read access is done  */
+case class BusSlaveFactoryOnRead(doThat: () => Unit) extends BusSlaveFactoryElement
 
 /**
   * Ask to constantly drive that with the data bus
@@ -461,19 +466,19 @@ trait BusSlaveFactoryDelayed extends BusSlaveFactory{
   }
 
   override def onWrite(address: BigInt)(doThat: => Unit): Unit = {
-    addAddressableElement(BusSlaveFactoryOnWrite(address, () => doThat), address)
+    addAddressableElement(BusSlaveFactoryOnWriteAtAddress(address, () => doThat), address)
   }
 
   override def onRead(address: BigInt)(doThat: => Unit): Unit = {
-    addAddressableElement(BusSlaveFactoryOnRead(address, () => doThat), address)
+    addAddressableElement(BusSlaveFactoryOnReadAtAddress(address, () => doThat), address)
   }
 
   override def onWrite(doThat: => Unit) = {
-    addElement(BusSlaveFactoryOnWrite(null, () => doThat))
+    addElement(BusSlaveFactoryOnWrite(() => doThat))
   }
 
   override def onRead(doThat: => Unit) = {
-    addElement(BusSlaveFactoryOnRead(null, () => doThat))
+    addElement(BusSlaveFactoryOnRead(() => doThat))
   }
 
 
