@@ -34,7 +34,7 @@ class DES_Block_Helper:
             self.cmd.valid          <= 0
             self.cmd.payload.block  <= 0
             self.cmd.payload.key    <= 0
-            self.cmd.payload.encDec <= 0
+            self.cmd.payload.enc    <= 0
 
 
 
@@ -88,7 +88,7 @@ def test_DES_Block(dut):
         helperDES.io.cmd.valid          <= 1
         helperDES.io.cmd.payload.key    <= key
         helperDES.io.cmd.payload.block  <= data
-        helperDES.io.cmd.payload.encDec <= 1  # do an encryption
+        helperDES.io.cmd.payload.enc    <= 1  # do an encryption
 
 
         # Wait the end of the process and read the result
@@ -106,7 +106,7 @@ def test_DES_Block(dut):
         helperDES.io.cmd.valid          <= 1
         helperDES.io.cmd.payload.key    <= key
         helperDES.io.cmd.payload.block  <= rtlEncryptedBlock
-        helperDES.io.cmd.payload.encDec <= 0 # do a decryption
+        helperDES.io.cmd.payload.enc    <= 0 # do a decryption
 
 
         # Wait the end of the process and read the result

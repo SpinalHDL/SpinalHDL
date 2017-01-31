@@ -1,8 +1,8 @@
 TOPLEVEL_LANG ?= verilog
 
-VERILOG_SOURCES += $(SPINALROOT)/DES_Block_Tester.v
+VERILOG_SOURCES += $(SPINALROOT)/DESBlockTester.v
 
-TOPLEVEL=DES_Block_Tester
+TOPLEVEL=DESBlockTester
 MODULE=DES_Block_Tester
 
 include ../../../common/Makefile.sim

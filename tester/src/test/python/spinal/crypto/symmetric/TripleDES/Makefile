@@ -1,8 +1,8 @@
 TOPLEVEL_LANG ?= verilog
 
-VERILOG_SOURCES += $(SPINALROOT)/Triple_DES_Tester.v
+VERILOG_SOURCES += $(SPINALROOT)/TripleDESBlockTester.v
 
-TOPLEVEL=Triple_DES_Tester
+TOPLEVEL=TripleDESBlockTester
 MODULE=Triple_DES_Tester
 
 include ../../../common/Makefile.sim
