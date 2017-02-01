@@ -106,15 +106,6 @@ case class I2CMasterHALRsp(g : I2CMasterHALGenerics) extends Bundle{
 }
 
 
-/**
-  * Define the interface of the I2C Master HAL
-  */
-case class I2CMasterHALio(g : I2CMasterHALGenerics) extends Bundle{
-  val i2c    = master( I2C() )
-  val config = in( I2CMasterHALConfig(g) )
-  val cmd    = slave  Stream( I2CMasteHALCmd(g)  )
-  val rsp    = master Flow  ( I2CMasterHALRsp(g) )
-}
 
 
 /**
@@ -126,7 +117,12 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
   import spinal.lib.com.i2c.{I2CMasterHALCmdMode => CmdMode}
 
 
-  val io = I2CMasterHALio(g)
+  val io = new Bundle{
+    val i2c    = master( I2C() )
+    val config = in( I2CMasterHALConfig(g) )
+    val cmd    = slave  Stream( I2CMasteHALCmd(g)  )
+    val rsp    = master Flow  ( I2CMasterHALRsp(g) )
+  }
 
 
   /**
@@ -142,7 +138,7 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
   /**
     * Detect the rising and falling edge of the scl signal
     */
-  val sclEdge = new SCLEdgeDetector(sampler.scl)
+  val sclEdge = new I2CSCLEdgeDetector(sampler.scl)
 
 
 

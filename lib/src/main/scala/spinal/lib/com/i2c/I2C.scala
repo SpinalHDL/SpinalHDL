@@ -69,9 +69,24 @@ class I2CBitCounter(sclFallingEdge: Bool, dataWidth: BitCount) extends Area {
 
 
 /**
+  * Detect the start and stop condition
+  */
+class I2CStartStopDetector(sda: Bool, scl: Bool, scl_prev: Bool) extends Area {
+
+  val sda_prev = RegNext(sda)  init(True)
+
+  val sclHighLevel = scl && scl_prev
+
+  val start = sclHighLevel && !sda && sda_prev
+  val stop  = sclHighLevel && sda  && !sda_prev
+
+}
+
+/**
   * Detect the rising and falling Edge of the SCL signals
   */
-class SCLEdgeDetector(scl: Bool) extends Area{
+class I2CSCLEdgeDetector(scl: Bool) extends Area {
+
   val scl_prev = RegNext(scl) init(True)
 
   val rising  =  scl && !scl_prev

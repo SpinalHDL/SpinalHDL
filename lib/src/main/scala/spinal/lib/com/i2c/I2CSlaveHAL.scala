@@ -70,9 +70,9 @@ case class I2CSlaveHALCmd() extends Bundle{
 
 
 /**
-  *    DATA  : Send a bit data to the master
-  *    NONE  : None operation / NACK / Read data from the master
-  *   (FREEZE) is done with the response stream.
+  *  DATA  : Send a bit data to the master
+  *  NONE  : None operation / NACK / Read data from the master
+  *  (FREEZE) is done with the response stream.
   */
 object I2CSlaveHALRspMode extends SpinalEnum{
   val DATA, NONE = newElement()
@@ -140,21 +140,16 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
   /**
     * Detect the rising and falling edge of the scl signal
     */
-  val sclEdge = new SCLEdgeDetector(sampler.scl)
+  val sclEdge = new I2CSCLEdgeDetector(sampler.scl)
 
 
   /**
     * Detect the start/restart and the stop sequences
     */
-  val detector = new Area{
+  val detector = new I2CStartStopDetector(sda      = sampler.sda,
+                                          scl      = sampler.scl,
+                                          scl_prev = sclEdge.scl_prev)
 
-    val sda_prev = RegNext(sampler.sda)  init(True)
-
-    val sclHighLevel = sampler.scl && sclEdge.scl_prev
-
-    val start = sclHighLevel && !sampler.sda && sda_prev
-    val stop  = sclHighLevel && sampler.sda  && !sda_prev
-  }
 
 
   val smSlave = new Area{
@@ -172,6 +167,7 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
     io.cmd.mode  := CmdMode.STOP
 
 
+    // Detect a start condition
     when(detector.start){
       io.rsp.ready  := io.rsp.valid
       io.cmd.valid  := True
@@ -180,11 +176,12 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
     }
 
     // After detecting the start wait the falling edge of
-    //  the clock before start to read/send bit data
+    //  the clock before starting to read/send bit data
     when(transactionWillStart && sclEdge.falling){
       onTransaction := True
     }
 
+    // Detect the stop condition
     when(detector.stop){
       io.cmd.valid  := True
       io.cmd.mode   := CmdMode.STOP
@@ -194,6 +191,7 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
     }
 
 
+    // Send & Receive bit data
     when(onTransaction){
       // Freeze the bus if no response received
       wr_scl := io.rsp.valid
@@ -221,4 +219,5 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
    */
   io.i2c.scl.write := RegNext(smSlave.wr_scl) randBoot()
   io.i2c.sda.write := RegNext(smSlave.wr_sda) randBoot()
+
 }
