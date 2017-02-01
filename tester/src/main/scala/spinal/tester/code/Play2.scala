@@ -1194,8 +1194,8 @@ object PlayI2CSlaveHAL {
     val io = new Bundle {
       val i2c    = slave( I2C() )
       val config = in(I2CSlaveHALConfig(generic))
-      val cmd    = master  Flow ( I2CSlaveHALCmd(generic) )
-      val rsp    = slave Stream ( I2CSlaveHALRsp(generic) )
+      val cmd    = master  Flow ( I2CSlaveHALCmd() )
+      val rsp    = slave Stream ( I2CSlaveHALRsp() )
     }
 
     val mySlave = new I2CSlaveHAL(generic)
@@ -1204,7 +1204,7 @@ object PlayI2CSlaveHAL {
 
   def main(args: Array[String]) {
     SpinalConfig(
-      mode = Verilog,
+      mode = VHDL,
       dumpWave = DumpWaveConfig(depth = 0),
       defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
       defaultClockDomainFrequency  = FixedFrequency(50 MHz)
@@ -1220,8 +1220,8 @@ object PlayI2CHAL{
 
     val io = new Bundle{
       val ioSlave = new Bundle {
-        val cmd  = master  Flow ( I2CSlaveHALCmd(slaveGeneric) )
-        val rsp  = slave Stream ( I2CSlaveHALRsp(slaveGeneric) )
+        val cmd  = master  Flow ( I2CSlaveHALCmd() )
+        val rsp  = slave Stream ( I2CSlaveHALRsp() )
       }
       val ioMaster = new Bundle {
         val cmd    = slave Stream(I2CMasteHALCmd(masterGeneric))
@@ -1336,7 +1336,7 @@ object PlayI2CHALTest{
     slaveI2C.io.i2c  <> io.i2cSlave
 
     slaveI2C.io.rsp.mode.assignFromBits( slaveRSP(1 downto 0) )
-    slaveI2C.io.rsp.data  := slaveRSP(9 downto 2)
+    slaveI2C.io.rsp.data  := slaveRSP(2)
     slaveI2C.io.rsp.valid  := salveRSP_valid
 
 
@@ -1348,7 +1348,7 @@ object PlayI2CHALTest{
       slaveStatusCMD := 0
       slaveStatusCMD(0) := True
       slaveStatusCMD(2 downto 0)  := slaveI2C.io.cmd.mode.asBits
-      slaveStatusCMD(10 downto 3) := slaveI2C.io.cmd.data
+      slaveStatusCMD(3)           := slaveI2C.io.cmd.data
     }
   }
 
@@ -1728,8 +1728,8 @@ object PlayAuto{
 
     val io = new Bundle{
       val ioSlave = new Bundle {
-        val cmd  = master  Flow ( I2CSlaveHALCmd(slaveGeneric) )
-        val rsp  = slave Stream ( I2CSlaveHALRsp(slaveGeneric) )
+        val cmd  = master  Flow ( I2CSlaveHALCmd() )
+        val rsp  = slave Stream ( I2CSlaveHALRsp() )
       }
       val ioMaster = new Bundle {
         val cmd    = slave Stream(I2CMasteHALCmd(masterGeneric))
