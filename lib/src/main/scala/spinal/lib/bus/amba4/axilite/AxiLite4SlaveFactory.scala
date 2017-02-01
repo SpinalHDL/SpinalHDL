@@ -36,7 +36,7 @@ class AxiLite4SlaveFactory(bus : AxiLite4) extends BusSlaveFactoryDelayed{
           //TODO writeRsp.resp := OKAY
           for (element <- jobs) element match {
             case element: BusSlaveFactoryWrite   =>  element.that.assignFromBits(bus.writeData.data(element.bitOffset, element.that.getBitsWidth bits))
-            case element: BusSlaveFactoryOnWrite => element.doThat()
+            case element: BusSlaveFactoryOnWriteAtAddress => element.doThat()
             case _ =>
           }
         }
@@ -49,7 +49,7 @@ class AxiLite4SlaveFactory(bus : AxiLite4) extends BusSlaveFactoryDelayed{
         }
         when(readOccur) {
           for (element <- jobs) element match {
-            case element: BusSlaveFactoryOnRead => element.doThat()
+            case element: BusSlaveFactoryOnReadAtAddress => element.doThat()
             case _ =>
           }
         }

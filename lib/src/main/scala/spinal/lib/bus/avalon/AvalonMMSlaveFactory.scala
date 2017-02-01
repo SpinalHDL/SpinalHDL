@@ -44,7 +44,7 @@ class AvalonMMSlaveFactory(bus: AvalonMM) extends BusSlaveFactoryDelayed{
         when(bus.write){
           for(element <- jobs) element match{
             case element: BusSlaveFactoryWrite   => element.that.assignFromBits(bus.writeData(element.bitOffset, element.that.getBitsWidth bits))
-            case element: BusSlaveFactoryOnWrite => element.doThat()
+            case element: BusSlaveFactoryOnWriteAtAddress => element.doThat()
             case _ =>
           }
         }
@@ -52,7 +52,7 @@ class AvalonMMSlaveFactory(bus: AvalonMM) extends BusSlaveFactoryDelayed{
         when(bus.read){
           for(element <- jobs) element match{
             case element: BusSlaveFactoryRead   => readAtCmd.payload(element.bitOffset, element.that.getBitsWidth bits) := element.that.asBits
-            case element: BusSlaveFactoryOnRead => element.doThat()
+            case element: BusSlaveFactoryOnReadAtAddress => element.doThat()
             case _ =>
           }
         }

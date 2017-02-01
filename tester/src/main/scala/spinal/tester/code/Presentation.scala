@@ -478,9 +478,9 @@ object C11 {
     .probe(somewhere.signalC)
     .build
 
-//    val uartCtrl = new UartCtrl()
-//    uartCtrl.io.read >> logicAnalyser.io.slavePort
-//    uartCtrl.io.write << logicAnalyser.io.masterPort
+  //    val uartCtrl = new UartCtrl()
+  //    uartCtrl.io.read >> logicAnalyser.io.slavePort
+  //    uartCtrl.io.write << logicAnalyser.io.masterPort
 }
 
 object C12 {
@@ -867,41 +867,41 @@ object t8_a {
     // some logic ..
   }
 
-//  class ApbUartCtrl(apbConfig: Apb3Config) extends Component {
-//    val io = new Bundle {
-//      val bus = slave(new Apb3(apbConfig))
-//      val uart = master(Uart())
-//    }
-//    val busCtrl = new Apb3SlaveController(io.bus) //This is a APB3 slave controller builder tool
-//
-//    val config = busCtrl.writeOnlyRegOf(UartCtrlConfig(), 0x10) //Create a write only configuration register at address 0x10
-//    val writeStream = busCtrl.writeStreamOf(Bits(8 bit), 0x20)
-//    val readStream = busCtrl.readStreamOf(Bits(8 bit), 0x30)
-//
-//    val uartCtrl = new UartCtrl()
-//    uartCtrl.io.config := config
-//    uartCtrl.io.write <-< writeStream //Pipelined connection
-//    uartCtrl.io.read.toStream.queue(16) >> readStream  //Queued connection
-//    uartCtrl.io.uart <> io.uart
-//  }
+  //  class ApbUartCtrl(apbConfig: Apb3Config) extends Component {
+  //    val io = new Bundle {
+  //      val bus = slave(new Apb3(apbConfig))
+  //      val uart = master(Uart())
+  //    }
+  //    val busCtrl = new Apb3SlaveController(io.bus) //This is a APB3 slave controller builder tool
+  //
+  //    val config = busCtrl.writeOnlyRegOf(UartCtrlConfig(), 0x10) //Create a write only configuration register at address 0x10
+  //    val writeStream = busCtrl.writeStreamOf(Bits(8 bit), 0x20)
+  //    val readStream = busCtrl.readStreamOf(Bits(8 bit), 0x30)
+  //
+  //    val uartCtrl = new UartCtrl()
+  //    uartCtrl.io.config := config
+  //    uartCtrl.io.write <-< writeStream //Pipelined connection
+  //    uartCtrl.io.read.toStream.queue(16) >> readStream  //Queued connection
+  //    uartCtrl.io.uart <> io.uart
+  //  }
 }
 
 
 object t8_B2 {
-//
-//  class ApbUartCtrl(apbConfig: Apb3Config) extends Component {
-//    val io = new Bundle {
-//      val apb = slave(new Apb3(apbConfig))
-//      val uart = master(Uart())
-//    }
-//    val uartCtrl = new UartCtrl()
-//    uartCtrl.io.uart <> io.uart
-//
-//    val busCtrl = new Apb3SlaveController(io.apb)
-//    busCtrl.writeOnlyRegOf(uartCtrl.io.config, 0x10)
-//    busCtrl.writeStream(uartCtrl.io.write, 0x20)
-//    busCtrl.readStream(uartCtrl.io.read.toStream.queue(16), 0x30)
-//  }
+  //
+  //  class ApbUartCtrl(apbConfig: Apb3Config) extends Component {
+  //    val io = new Bundle {
+  //      val apb = slave(new Apb3(apbConfig))
+  //      val uart = master(Uart())
+  //    }
+  //    val uartCtrl = new UartCtrl()
+  //    uartCtrl.io.uart <> io.uart
+  //
+  //    val busCtrl = new Apb3SlaveController(io.apb)
+  //    busCtrl.writeOnlyRegOf(uartCtrl.io.config, 0x10)
+  //    busCtrl.writeStream(uartCtrl.io.write, 0x20)
+  //    busCtrl.readStream(uartCtrl.io.read.toStream.queue(16), 0x30)
+  //  }
 
 }
 
@@ -978,7 +978,7 @@ object t12 {
 
 object t13 {
   val normalVec = Vec(UInt(4 bit), 10)
-//  val variableVec = Vec(UInt(5 bit), UInt(9 bit), UInt(16 bit))
+  //  val variableVec = Vec(UInt(5 bit), UInt(9 bit), UInt(16 bit))
 
   val containZero = normalVec.sContains(0)
   val existOne = normalVec.sExist(_ === 1)
@@ -1086,9 +1086,9 @@ import spinal.core._
 class AND_Gate extends Component {
 
   /**
-   * This is the component definition that corresponds to
-   * the VHDL entity of the component
-   */
+    * This is the component definition that corresponds to
+    * the VHDL entity of the component
+    */
   val io = new Bundle {
     val a = in Bool
     val b = in Bool
@@ -1175,8 +1175,8 @@ object RgbToGray{
     def coef(value : UInt,by : Float) : UInt = (value * U((255*by).toInt,8 bits) >> 8)
     val gray = RegNext(
       coef(io.r,0.3f) +
-      coef(io.g,0.4f) +
-      coef(io.b,0.3f)
+        coef(io.g,0.4f) +
+        coef(io.b,0.3f)
     )
 
     val address = CounterFreeRun(stateCount = 1 << 16)
@@ -1207,8 +1207,8 @@ object RgbToGray2{
 
   //Calculate the gray level
   val gray = coefMul(r,0.3f) +
-             coefMul(g,0.4f) +
-             coefMul(b,0.3f)
+    coefMul(g,0.4f) +
+    coefMul(b,0.3f)
 
 
   class RgbToGray extends Component{
@@ -1226,8 +1226,8 @@ object RgbToGray2{
 
     val gray = RegNext(
       coef(io.r,0.3f) +
-      coef(io.g,0.4f) +
-      coef(io.b,0.3f)
+        coef(io.g,0.4f) +
+        coef(io.b,0.3f)
     )
 
     val address = Reg(UInt(8 bits)) init(0)
@@ -1645,18 +1645,18 @@ object c9482 {
 
 
 object CheatSheet{
-//  object myEnum extends SpinalEnum([encoding]){
-//    val IDLE, STATE1 = newElement()
-//  }
-object State extends SpinalEnum{
+  //  object myEnum extends SpinalEnum([encoding]){
+  //    val IDLE, STATE1 = newElement()
+  //  }
+  object State extends SpinalEnum{
 
     val IDLE, S0,S1,S2 = newElement()
   }
 
-//  val myBool = Bool(4 < 2 )
+  //  val myBool = Bool(4 < 2 )
   val myBool = True
   val myUInt = U(13, 32 bits)
-//  val myBits = B"8'hA3" // h,d,b,x,o
+  //  val myBits = B"8'hA3" // h,d,b,x,o
   val myBits = B"0110"
   val itMatch = myBits === M"00--10--"
 
@@ -1865,8 +1865,8 @@ object PlayRgbToGray34{
 
   //Calculate the gray level
   val gray = coefMul(r, 0.3f) +
-             coefMul(g, 0.4f) +
-             coefMul(b, 0.3f)
+    coefMul(g, 0.4f) +
+    coefMul(b, 0.3f)
 }
 
 
@@ -1923,7 +1923,7 @@ object TrololOOP{
 object SementicAA{
   val inc, clear = Bool
   val counter = Reg(UInt(8 bits))
-  
+
   when(inc){
     counter := counter + 1
   }

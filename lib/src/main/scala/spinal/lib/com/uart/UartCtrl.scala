@@ -118,8 +118,8 @@ class UartCtrl(g : UartCtrlGenerics = UartCtrlGenerics()) extends Component {
 
     //manage interrupts
     val interruptCtrl = new Area {
-      val writeIntEnable = busCtrlWrapped.createReadWrite(Bool, address = 4, 0) init(False)
-      val readIntEnable  = busCtrlWrapped.createReadWrite(Bool, address = 4, 1) init(False)
+      val writeIntEnable = busCtrlWrapped.createReadAndWrite(Bool, address = 4, 0) init(False)
+      val readIntEnable  = busCtrlWrapped.createReadAndWrite(Bool, address = 4, 1) init(False)
       val readInt   = readIntEnable  &  read.stream.valid
       val writeInt  = writeIntEnable & !write.stream.valid
       val interrupt = readInt || writeInt
