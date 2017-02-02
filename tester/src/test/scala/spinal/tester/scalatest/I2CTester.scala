@@ -35,8 +35,8 @@ class I2CHALTester extends Component{
         val rsp  = slave Stream ( I2CSlaveHALRsp() )
       }
       val ioMaster = new Bundle {
-        val cmd    = slave Stream(I2CMasteHALCmd(masterGeneric))
-        val rsp    = master Flow (I2CMasterHALRsp (masterGeneric))
+        val cmd    = slave Stream(I2CMasteHALCmd())
+        val rsp    = master Flow (I2CMasterHALRsp ())
       }
 
       val sda = out Bool

@@ -1,4 +1,102 @@
-/******************************************************************************
+/*                                                                           *\
+**        _____ ____  _____   _____    __                                    **
+**       / ___// __ \/  _/ | / /   |  / /   HDL Lib                          **
+**       \__ \/ /_/ // //  |/ / /| | / /    (c) Dolu, All rights reserved    **
+**      ___/ / ____// // /|  / ___ |/ /___                                   **
+**     /____/_/   /___/_/ |_/_/  |_/_____/  MIT Licence                      **
+**                                                                           **
+** Permission is hereby granted, free of charge, to any person obtaining a   **
+** copy of this software and associated documentation files (the "Software"),**
+** to deal in the Software without restriction, including without limitation **
+** the rights to use, copy, modify, merge, publish, distribute, sublicense,  **
+** and/or sell copies of the Software, and to permit persons to whom the     **
+** Software is furnished to do so, subject to the following conditions:      **
+**                                                                           **
+** The above copyright notice and this permission notice shall be included   **
+** in all copies or substantial portions of the Software.                    **
+**                                                                           **
+** THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS   **
+** OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF                **
+** MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.    **
+** IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY      **
+** CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT **
+** OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR  **
+** THE USE OR OTHER DEALINGS IN THE SOFTWARE.                                **
+\*                                                                           */
+package spinal.lib.com.i2c
+
+
+import spinal.core._
+import spinal.lib._
+import spinal.lib.fsm._
+
+
+/**
+  * Global configuration of the I2C Master
+  *
+  * @param samplingSize              : Number of sampler to generate a bit
+  * @param clockDividerSamplingWidth : Width of the clockDivider value
+  * @param clockDividerSCLWidth      : Width of the clockDivider value
+  */
+case class I2CMasterHALGenerics(samplingSize              : Int = 3,
+                                clockDividerSamplingWidth : BitCount = 10 bits,
+                                clockDividerSCLWidth      : BitCount = 20 bits){}
+
+
+/**
+  * Runtime configuration of the I2C master
+  */
+case class I2CMasterHALConfig(g: I2CMasterHALGenerics) extends Bundle {
+
+  val clockDividerSampling = UInt(g.clockDividerSamplingWidth)
+  val clockDividerSCL      = UInt (g.clockDividerSCLWidth)
+  val enCollision          = Bool
+
+  def setSCLFrequency(sclFrequency : HertzNumber, clkFrequency : HertzNumber = ClockDomain.current.frequency.getValue) : Unit = {
+    clockDividerSCL := (clkFrequency / sclFrequency * 2).toInt
+  }
+
+  def setFrequencySampling(frequencySampling : HertzNumber, clkFrequency : HertzNumber = ClockDomain.current.frequency.getValue): Unit = {
+    clockDividerSampling := (clkFrequency / frequencySampling).toInt
+  }
+}
+
+/**
+  * Modes used to manage the master
+  */
+object I2CMasterHALCmdMode extends SpinalEnum{
+  val START, DATA, STOP = newElement()
+}
+
+/**
+  * Define the command interface
+  */
+case class I2CMasteHALCmd() extends Bundle{
+  val mode = I2CMasterHALCmdMode()
+  val data = Bool
+}
+
+
+/**
+  * 4 different modes are available for a response
+  *    DATA      : Data read on the bus
+  *    COLLISION : Collision detected during a write
+  */
+object I2CMasterHALRspMode extends SpinalEnum{
+  val DATA, COLLISION = newElement()
+}
+
+
+/**
+  * Define the response interface
+  */
+case class I2CMasterHALRsp() extends Bundle{
+  val mode  = I2CMasterHALRspMode()
+  val data  = Bool
+}
+
+
+/**
   * I2C Master HAL
   *                ________                       _______
   *               |        |<------- I2C ------->|       |
@@ -26,92 +124,7 @@
   *   Slave  :   |       | READ |      |       |       | ACK |      |
   *   RSP    :                 DATA                   DATA  ACK
   */
-
-package spinal.lib.com.i2c
-
-
-import spinal.core._
-import spinal.lib._
-import spinal.lib.fsm._
-
-
-/**
-  * Global configuration of the I2C Master
-  *
-  * @param dataWidth                 : Width of the data send
-  * @param samplingSize              : Number of sampler to generate a bit
-  * @param clockDividerSamplingWidth : Width of the clockDivider value
-  * @param clockDividerSCLWidth      : Width of the clockDivider value
-  */
-case class I2CMasterHALGenerics(dataWidth                 : BitCount =  8 bits,
-                                samplingSize              : Int = 3,
-                                clockDividerSamplingWidth : BitCount = 10 bits,
-                                clockDividerSCLWidth      : BitCount = 20 bits){}
-
-
-/**
-  * Runtime configuartion of the I2C master
-  */
-case class I2CMasterHALConfig(g: I2CMasterHALGenerics) extends Bundle {
-
-  val clockDividerSampling = UInt(g.clockDividerSamplingWidth)
-  val clockDividerSCL      = UInt (g.clockDividerSCLWidth)
-  val enCollision          = Bool
-
-  def setSCLFrequency(sclFrequency : HertzNumber, clkFrequency : HertzNumber = ClockDomain.current.frequency.getValue) : Unit = {
-    clockDividerSCL := (clkFrequency / sclFrequency * 2).toInt
-  }
-
-  def setFrequencySampling(frequencySampling : HertzNumber, clkFrequency : HertzNumber = ClockDomain.current.frequency.getValue): Unit = {
-    clockDividerSampling := (clkFrequency / frequencySampling).toInt
-  }
-}
-
-
-/**
-  * Modes used to manage the master
-  */
-object I2CMasterHALCmdMode extends SpinalEnum{
-  val START, WRITE, READ, ACK, NACK, STOP = newElement()
-}
-
-
-/**
-  * Define the command interface
-  */
-case class I2CMasteHALCmd(g : I2CMasterHALGenerics) extends Bundle{
-  val mode   = I2CMasterHALCmdMode()
-  val data   = Bits(g.dataWidth )
-}
-
-
-/**
-  * 4 different modes are available for a response
-  *    ACK       : ACK received after writting
-  *    NACK      : NACK recieved after writting
-  *    DATA      : Data read on the bus
-  *    COLLISION : Collision detected during a write
-  */
-object I2CMasterHALRspMode extends SpinalEnum{
-  val ACK, NACK, DATA, COLLISION = newElement()
-}
-
-
-/**
-  * Define the response interface
-  */
-case class I2CMasterHALRsp(g : I2CMasterHALGenerics) extends Bundle{
-  val mode  = I2CMasterHALRspMode()
-  val data  = Bits(g.dataWidth )
-}
-
-
-
-
-/**
-  * Definition of the component I2C Master HAL
-  */
-class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
+class I2CMasterHAL(g: I2CMasterHALGenerics) extends Component {
 
   import spinal.lib.com.i2c.{I2CMasterHALRspMode => RspMode}
   import spinal.lib.com.i2c.{I2CMasterHALCmdMode => CmdMode}
@@ -120,8 +133,8 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
   val io = new Bundle{
     val i2c    = master( I2C() )
     val config = in( I2CMasterHALConfig(g) )
-    val cmd    = slave  Stream( I2CMasteHALCmd(g)  )
-    val rsp    = master Flow  ( I2CMasterHALRsp(g) )
+    val cmd    = slave  Stream( I2CMasteHALCmd()  )
+    val rsp    = master Flow  ( I2CMasterHALRsp() )
   }
 
 
@@ -129,17 +142,16 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
     * Filter SDA and SCL input
     */
   val sampler = new I2CFilterInput(i2c_sda           = io.i2c.sda.read,
-    i2c_scl           = io.i2c.scl.read,
-    clockDivider      = io.config.clockDividerSampling,
-    samplingSize      = g.samplingSize,
-    clockDividerWidth = g.clockDividerSamplingWidth)
+                                   i2c_scl           = io.i2c.scl.read,
+                                   clockDivider      = io.config.clockDividerSampling,
+                                   samplingSize      = g.samplingSize,
+                                   clockDividerWidth = g.clockDividerSamplingWidth)
 
 
   /**
     * Detect the rising and falling edge of the scl signal
     */
   val sclEdge = new I2CSCLEdgeDetector(sampler.scl)
-
 
 
   /**
@@ -194,14 +206,9 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
     * when start is detected, block all others master
     */
   val busState = new Area{
-    val busy = Reg(Bool).init(False).setWhen(detector.start).clearWhen(detector.stop)
+    val busy = Reg(Bool) init(False) setWhen(detector.start) clearWhen(detector.stop)
   }
 
-
-  /**
-    * Counter of bit write/read
-    */
-  val bitCounter = new I2CBitCounter(sclEdge.falling, g.dataWidth)
 
 
   /**
@@ -209,7 +216,7 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
     */
   val smMaster = new StateMachine{
 
-    val dataReceived = Reg(Bits(g.dataWidth)) randBoot()
+    val dataReceived = Reg(Bool) randBoot()
     val getBus       = Reg(Bool) init(False)
 
     val wr_sda = True
@@ -219,29 +226,26 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
     sclGenerator.scl_en       := False
     io.cmd.ready := False
     io.rsp.valid := False
-    io.rsp.mode  := RspMode.ACK
+    io.rsp.mode  := RspMode.DATA
     io.rsp.data  := dataReceived
 
     always{
-      when(io.cmd.valid && io.cmd.mode === CmdMode.STOP){
-        io.cmd.ready := True
-        goto(sStop)
-      }
 
       when(io.cmd.valid && io.cmd.mode === CmdMode.START && (!busState.busy | getBus) ){
-        io.cmd.ready   := True
-        getBus.set()
+        io.cmd.ready := True
+        getBus       := True
         goto(sStart)
       }
+
     }
 
-    val sIdle : State = new State with EntryPoint {
+    val sIdle: State = new State with EntryPoint {
       whenIsActive {
-        getBus.clear()
+        getBus := False
       }
     }
 
-    val sStart : State = new State {
+    val sStart: State = new State {
       whenIsActive{
         sclGenerator.scl_en := True
         wr_sda := !sclGenerator.triggerStartStop
@@ -251,17 +255,15 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
       }
     }
 
-    val sData : State = new State{
-      onEntry{
-        bitCounter.clear()
-      }
+    val sData: State = new State{
+
       whenIsActive{
         sclGenerator.scl_en := True
         sclGenerator.masterFreeze := !io.cmd.valid
 
         // write data and check collision
-        when(io.cmd.mode === CmdMode.WRITE){
-          wr_sda := io.cmd.data(bitCounter.index)
+        when(io.cmd.mode === CmdMode.DATA){
+          wr_sda := io.cmd.data
 
           when(sampler.sda =/= wr_sda && sclEdge.rising && io.config.enCollision){
             io.rsp.mode  := RspMode.COLLISION
@@ -271,41 +273,23 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
         }
 
         // Read data
-        when(sclEdge.rising){ dataReceived(bitCounter.index) := sampler.sda }
-
-        // data sequence is done ?
-        when(bitCounter.isDone){
+        when(sclEdge.rising){
+          dataReceived := sampler.sda
           io.rsp.mode  := RspMode.DATA
           io.rsp.valid := True
-          io.cmd.ready := !(io.cmd.mode === CmdMode.WRITE)
-          goto(sACK)
-        }
-      }
-    }
-
-    val sACK : State = new State{
-      whenIsActive{
-        sclGenerator.scl_en       := True
-        sclGenerator.masterFreeze := !io.cmd.valid
-
-        // write ACK
-        wr_sda := !(io.cmd.mode === CmdMode.ACK)
-
-        // read ACK
-        when(sclEdge.rising){
-          io.rsp.mode  := (sampler.sda) ? RspMode.NACK | RspMode.ACK
-          io.rsp.valid := True
+          io.cmd.ready := !(io.cmd.mode === CmdMode.DATA)
         }
 
-        // end of the ACK sequence ?
-        when(sclEdge.falling){
+        when(io.cmd.valid && io.cmd.mode === CmdMode.STOP){
           io.cmd.ready := True
-          goto(sData)
+          goto(sStop)
         }
+
       }
     }
 
-    val sStop : State = new State {
+
+    val sStop: State = new State {
       whenIsActive{
         sclGenerator.scl_en := True
         wr_sda := False
@@ -314,6 +298,6 @@ class I2CMasterHAL(g : I2CMasterHALGenerics) extends Component {
     }
   }
 
-  io.i2c.sda.write := RegNext(smMaster.wr_sda)
-  io.i2c.scl.write := RegNext(sclGenerator.scl)
+  io.i2c.sda.write := RegNext(smMaster.wr_sda)  randBoot()
+  io.i2c.scl.write := RegNext(sclGenerator.scl) randBoot()
 }

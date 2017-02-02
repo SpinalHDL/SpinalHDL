@@ -90,7 +90,7 @@ case class I2CSlaveHALRsp() extends Bundle{
   *
   * Write sequence :
   *
-  *   RSP    :           NONE    DATA   NONE    NONE    NONE
+  *   RSP    :           DATA    DATA   DATA    DATA    DATA
   *   Master :   | START | DATA  |       | DATA  | DATA  | STOP |
   *   Slave  :   |       |       | DATA  |       |       |      |
   *   CMD    :        START    DATA    DATA    DATA    DATA    STOP
@@ -98,7 +98,7 @@ case class I2CSlaveHALRsp() extends Bundle{
   *
   * Restart sequence :
   *
-  *   RSP    :           DATA   NONE   NONE    DATA   NONE
+  *   RSP    :           DATA   DATA   DATA    DATA   DATA
   *   Master :   | START |      | DATA | START | DATA  | STOP |
   *   Slave  :   |       | DATA |      |       |       |      |
   *   CMD    :       START   DATA    DATA    START   DATA   STOP
@@ -135,13 +135,20 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
   /**
     * Detect the start/restart and the stop sequences
     */
-  val detector = new I2CStartStopDetector(sda      = sampler.sda,
-                                          scl      = sampler.scl,
-                                          scl_prev = sclEdge.scl_prev)
+  val detector = new Area{
+    val sda_prev = RegNext(sampler.sda)  init(True)
+
+    val sclHighLevel = sampler.scl && sclEdge.scl_prev
+
+    val start = sclHighLevel && !sampler.sda && sda_prev
+    val stop  = sclHighLevel && sampler.sda  && !sda_prev
+  }
 
 
-
-  val smSlave = new Area{
+  /**
+    * Slave controller
+    */
+  val ctrlSlave = new Area{
 
     val bitReceived   = Reg(Bool) randBoot()
     val onTransaction = Reg(Bool) init(False)
@@ -203,7 +210,7 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
   /*
    * Drive SCL & SDA signals
    */
-  io.i2c.scl.write := RegNext(smSlave.wr_scl) randBoot()
-  io.i2c.sda.write := RegNext(smSlave.wr_sda) randBoot()
+  io.i2c.scl.write := RegNext(ctrlSlave.wr_scl) randBoot()
+  io.i2c.sda.write := RegNext(ctrlSlave.wr_sda) randBoot()
 
 }

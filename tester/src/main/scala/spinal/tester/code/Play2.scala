@@ -1165,8 +1165,8 @@ object PlayI2CMasterHAL {
     val io = new Bundle {
       val i2c    = master( I2C() )
       val config = in( I2CMasterHALConfig(generic) )
-      val cmd    = slave Stream(I2CMasteHALCmd(generic))
-      val rsp    = master Flow(I2CMasterHALRsp (generic))
+      val cmd    = slave Stream(I2CMasteHALCmd())
+      val rsp    = master Flow(I2CMasterHALRsp ())
     }
 
 
@@ -1224,8 +1224,8 @@ object PlayI2CHAL{
         val rsp  = slave Stream ( I2CSlaveHALRsp() )
       }
       val ioMaster = new Bundle {
-        val cmd    = slave Stream(I2CMasteHALCmd(masterGeneric))
-        val rsp    = master Flow (I2CMasterHALRsp (masterGeneric))
+        val cmd    = slave Stream(I2CMasteHALCmd())
+        val rsp    = master Flow (I2CMasterHALRsp ())
       }
 
       val sda = out Bool
@@ -1294,7 +1294,7 @@ object PlayI2CHALTest{
       */
     val masterStatusCMD = Reg(Bits(32 bits)) randBoot()
     val masterStatusRSP = Reg(Bits(32 bits)) randBoot()
-    val masterStreamRSP = Stream(I2CMasterHALRsp(masterI2CGeneric))
+    val masterStreamRSP = Stream(I2CMasterHALRsp())
 
     val slaveRSP       = Reg(Bits(32 bits)) randBoot()
     val slaveStatusCMD = Reg(Bits(32 bits)) randBoot()
@@ -1309,7 +1309,7 @@ object PlayI2CHALTest{
     val busCtrl = AvalonMMSlaveFactory(io.bus)
 
     busCtrl.driveAndRead(masterI2C.io.config,    0x00)
-    busCtrl.createAndDriveFlow(I2CMasteHALCmd(masterI2CGeneric), 0x04).toStream >-> masterI2C.io.cmd
+    busCtrl.createAndDriveFlow(I2CMasteHALCmd(), 0x04).toStream >-> masterI2C.io.cmd
     busCtrl.readStreamNonBlocking(masterStreamRSP, address = 0x0C, validBitOffset=0, payloadBitOffset=1)
     busCtrl.readAndWrite (masterStatusCMD, 0x08)
     //  busCtrl.readAndWrite (masterStatusRSP, 0x0C)
@@ -1732,8 +1732,8 @@ object PlayAuto{
         val rsp  = slave Stream ( I2CSlaveHALRsp() )
       }
       val ioMaster = new Bundle {
-        val cmd    = slave Stream(I2CMasteHALCmd(masterGeneric))
-        val rsp    = master Flow (I2CMasterHALRsp (masterGeneric))
+        val cmd    = slave Stream(I2CMasteHALCmd())
+        val rsp    = master Flow (I2CMasterHALRsp ())
       }
     }
 

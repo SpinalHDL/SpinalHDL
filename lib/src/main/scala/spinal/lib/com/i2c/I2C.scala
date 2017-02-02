@@ -50,37 +50,6 @@ case class I2C() extends Bundle with IMasterSlave {
 }
 
 
-/**
-  * Counter of bit write/read.
-  * MSB is send first on the I2C bus so the counter goes from dataWdith-1 to 0
-  */
-class I2CBitCounter(sclFallingEdge: Bool, dataWidth: BitCount) extends Area {
-
-  val index  = Reg(UInt(log2Up(dataWidth.value) bits)) randBoot()
-  val isDone = False
-
-  def clear() : Unit = index := dataWidth.value - 1
-
-  when(sclFallingEdge) {
-    index  := index - 1
-    isDone := index === 0
-  }
-}
-
-
-/**
-  * Detect the start and stop condition
-  */
-class I2CStartStopDetector(sda: Bool, scl: Bool, scl_prev: Bool) extends Area {
-
-  val sda_prev = RegNext(sda)  init(True)
-
-  val sclHighLevel = scl && scl_prev
-
-  val start = sclHighLevel && !sda && sda_prev
-  val stop  = sclHighLevel && sda  && !sda_prev
-
-}
 
 /**
   * Detect the rising and falling Edge of the SCL signals
