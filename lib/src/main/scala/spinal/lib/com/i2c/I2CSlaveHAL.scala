@@ -68,22 +68,12 @@ case class I2CSlaveHALCmd() extends Bundle{
   val data  = Bool
 }
 
-
-/**
-  *  DATA  : Send a bit data to the master
-  *  NONE  : None operation / NACK / Read data from the master
-  *  (FREEZE) is done with the response stream.
-  */
-object I2CSlaveHALRspMode extends SpinalEnum{
-  val DATA, NONE = newElement()
-}
-
-
 /**
   * Define the response interface
+  *  If you want to read data, set data = True
+  * (FREEZE) is done with the response stream.
   */
 case class I2CSlaveHALRsp() extends Bundle{
-  val mode = I2CSlaveHALRspMode()
   val data = Bool
 }
 
@@ -115,7 +105,6 @@ case class I2CSlaveHALRsp() extends Bundle{
   */
 class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
 
-  import spinal.lib.com.i2c.{I2CSlaveHALRspMode => RspMode}
   import spinal.lib.com.i2c.{I2CSlaveHALCmdMode => CmdMode}
 
   /**
@@ -196,11 +185,8 @@ class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
       // Freeze the bus if no response received
       wr_scl := io.rsp.valid
 
-      // Read data
-      when(io.rsp.mode === RspMode.DATA){
-        // index change at each falling edge
-        wr_sda := io.rsp.data
-      }
+      // Write data
+      wr_sda := io.rsp.data
 
       // Always write
       when(sclEdge.rising) {

@@ -1335,7 +1335,7 @@ object PlayI2CHALTest{
 
     slaveI2C.io.i2c  <> io.i2cSlave
 
-    slaveI2C.io.rsp.mode.assignFromBits( slaveRSP(1 downto 0) )
+
     slaveI2C.io.rsp.data  := slaveRSP(2)
     slaveI2C.io.rsp.valid  := salveRSP_valid
 
