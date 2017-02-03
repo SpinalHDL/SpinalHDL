@@ -224,6 +224,11 @@ trait BusSlaveFactory extends Area{
     reg
   }
 
+  @deprecated("Use createReadAndWrite instead")
+  def createReadWrite[T <: Data](dataType: T,
+                                 address: BigInt,
+                                 bitOffset: Int = 0): T = createReadAndWrite(dataType,address,bitOffset)
+
   /**
     * Create a writable Flow register of type dataType at address and placed at bitOffset in the word
     */

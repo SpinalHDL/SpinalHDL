@@ -25,6 +25,12 @@ import spinal.lib._
   */
 object AxiLite4 {
 
+  def apply(addressWidth : Int,
+            dataWidth    : Int) = new AxiLite4(AxiLite4Config(
+    addressWidth = addressWidth,
+    dataWidth = dataWidth
+  ))
+
   /**
     * Read Write response
     */
