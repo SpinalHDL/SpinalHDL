@@ -78,20 +78,9 @@ case class I2CMasteHALCmd() extends Bundle{
 
 
 /**
-  * 4 different modes are available for a response
-  *    DATA      : Data read on the bus
-  *    COLLISION : Collision detected during a write
-  */
-object I2CMasterHALRspMode extends SpinalEnum{
-  val DATA, COLLISION = newElement()
-}
-
-
-/**
   * Define the response interface
   */
 case class I2CMasterHALRsp() extends Bundle{
-  val mode  = I2CMasterHALRspMode()
   val data  = Bool
 }
 
@@ -103,30 +92,15 @@ case class I2CMasterHALRsp() extends Bundle{
   *               | Master |                     | Slave |
   *  CMD Stream ->|________|-> RSP Flow          |_______|
   *
-  * Write sequence :
+  * Sequence :
   *
-  *   CMD    : START   WRITE           WRITE         STOP
-  *   Master :   | START | WRITE |     | WRITE |     | STOP |
-  *   Slave  :   |       |       | ACK |       | ACK |      |
-  *   RSP    :                  DATA  ACK     DATA  ACK
-  *
-  * Read sequence :
-  *
-  *   CMD    : START   READ     ACK   READ   NACK   STOP
-  *   Master :   | START |      | ACK |      | NACK | STOP |
-  *   Slave  :   |       | READ |     | READ |      |      |
-  *   RSP    :                DATA        DATA
-  *
-  * Restart sequence :
-  *
-  *   CMD    : START   READ   NACK   RESTART  WRITE         STOP
-  *   Master :   | START |      | NACK | START | WRITE |     | STOP |
-  *   Slave  :   |       | READ |      |       |       | ACK |      |
-  *   RSP    :                 DATA                   DATA  ACK
+  *   CMD    : START   DATA     DATA   DATA   DATA    STOP
+  *   Master :   | START | DATA  |      | DATA  |      | STOP |
+  *   Slave  :   |       |       | DATA |       | DATA |      |
+  *   RSP    :                 DATA    DATA    DATA   DATA
   */
 class I2CMasterHAL(g: I2CMasterHALGenerics) extends Component {
 
-  import spinal.lib.com.i2c.{I2CMasterHALRspMode => RspMode}
   import spinal.lib.com.i2c.{I2CMasterHALCmdMode => CmdMode}
 
 
@@ -210,7 +184,6 @@ class I2CMasterHAL(g: I2CMasterHALGenerics) extends Component {
   }
 
 
-
   /**
     * Main state machine of the Master HAL
     */
@@ -226,7 +199,6 @@ class I2CMasterHAL(g: I2CMasterHALGenerics) extends Component {
     sclGenerator.scl_en       := False
     io.cmd.ready := False
     io.rsp.valid := False
-    io.rsp.mode  := RspMode.DATA
     io.rsp.data  := dataReceived
 
     always{
@@ -264,36 +236,32 @@ class I2CMasterHAL(g: I2CMasterHALGenerics) extends Component {
         // write data and check collision
         when(io.cmd.mode === CmdMode.DATA){
           wr_sda := io.cmd.data
-
-          when(sampler.sda =/= wr_sda && sclEdge.rising && io.config.enCollision){
-            io.rsp.mode  := RspMode.COLLISION
-            io.rsp.valid := True
-            goto(sIdle)
-          }
         }
 
         // Read data
         when(sclEdge.rising){
           dataReceived := sampler.sda
-          io.rsp.mode  := RspMode.DATA
           io.rsp.valid := True
+          io.rsp.data  := sampler.sda
           io.cmd.ready := !(io.cmd.mode === CmdMode.DATA)
         }
 
+        // check if a stop command occurs
         when(io.cmd.valid && io.cmd.mode === CmdMode.STOP){
-          io.cmd.ready := True
           goto(sStop)
         }
 
       }
     }
 
-
     val sStop: State = new State {
       whenIsActive{
         sclGenerator.scl_en := True
         wr_sda := False
-        when(sclGenerator.triggerStartStop){ goto(sIdle) }
+        when(sclGenerator.triggerStartStop){
+          io.cmd.ready := True
+          goto(sIdle)
+        }
       }
     }
   }
