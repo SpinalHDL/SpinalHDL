@@ -27,7 +27,7 @@ package spinal.lib.com.i2c
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.io._
+import spinal.lib.io.ReadableOpenDrain
 
 
 /**
@@ -43,11 +43,39 @@ case class I2C() extends Bundle with IMasterSlave {
     master(sda)
   }
 
+  // @TODO check why asSlave and asMaster as the same interface
   override def asSlave(): Unit = {
     master(scl)
     master(sda)
   }
 }
+
+/**
+  * Mode used to manage the slave
+  */
+object I2CIoLayerCmdMode extends SpinalEnum{
+  val START, DATA, STOP = newElement()
+}
+
+
+/**
+  * Define the command interface
+  */
+case class I2CIoLayerCmd() extends Bundle{
+  val mode = I2CIoLayerCmdMode()
+  val data  = Bool
+}
+
+/**
+  * Define the response interface
+  *  If you want to read data, set data = True
+  *
+  *  For the slave : (FREEZE) is done with the response stream.
+  */
+case class I2CIoLayerRsp() extends Bundle{
+  val data = Bool
+}
+
 
 
 

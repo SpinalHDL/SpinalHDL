@@ -1160,17 +1160,17 @@ object PlayI2CMasterHAL {
 
   class I2CMasterHALTester extends Component {
 
-    val generic = I2CMasterHALGenerics()
+    val generic = I2CMasterIoLayerGenerics()
 
     val io = new Bundle {
       val i2c    = master( I2C() )
-      val config = in( I2CMasterHALConfig(generic) )
-      val cmd    = slave Stream(I2CMasteHALCmd())
-      val rsp    = master Flow(I2CMasterHALRsp ())
+      val config = in( I2CMasterIoLayerConfig(generic) )
+      val cmd    = slave Stream(I2CIoLayerCmd())
+      val rsp    = master Flow(I2CIoLayerRsp ())
     }
 
 
-    val myMasterI2C = new I2CMasterHAL(generic)
+    val myMasterI2C = new I2CMasterIoLayer(generic)
     io <> myMasterI2C.io
   }
 
@@ -1189,16 +1189,16 @@ object PlayI2CSlaveHAL {
 
   class I2CSlaveHALTester extends Component {
 
-    val generic = I2CSlaveHALGenerics()
+    val generic = I2CSlaveIoLayerGenerics()
 
     val io = new Bundle {
       val i2c    = slave( I2C() )
-      val config = in(I2CSlaveHALConfig(generic))
-      val cmd    = master  Flow ( I2CSlaveHALCmd() )
-      val rsp    = slave Stream ( I2CSlaveHALRsp() )
+      val config = in(I2CSlaveIoLayerConfig(generic))
+      val cmd    = master  Flow ( I2CIoLayerCmd() )
+      val rsp    = slave Stream ( I2CIoLayerRsp() )
     }
 
-    val mySlave = new I2CSlaveHAL(generic)
+    val mySlave = new I2CSlaveIoLayer(generic)
     io <> mySlave.io
   }
 
@@ -1215,25 +1215,25 @@ object PlayI2CHAL{
 
   class I2CHALTester extends Component{
 
-    val slaveGeneric  = I2CSlaveHALGenerics()
-    val masterGeneric = I2CMasterHALGenerics()
+    val slaveGeneric  = I2CSlaveIoLayerGenerics()
+    val masterGeneric = I2CMasterIoLayerGenerics()
 
     val io = new Bundle{
       val ioSlave = new Bundle {
-        val cmd  = master  Flow ( I2CSlaveHALCmd() )
-        val rsp  = slave Stream ( I2CSlaveHALRsp() )
+        val cmd  = master  Flow ( I2CIoLayerCmd() )
+        val rsp  = slave Stream ( I2CIoLayerRsp() )
       }
       val ioMaster = new Bundle {
-        val cmd    = slave Stream(I2CMasteHALCmd())
-        val rsp    = master Flow (I2CMasterHALRsp ())
+        val cmd    = slave Stream(I2CIoLayerCmd())
+        val rsp    = master Flow (I2CIoLayerRsp ())
       }
 
       val sda = out Bool
       val scl = out Bool
     }
 
-    val i2cSlave  = new I2CSlaveHAL(slaveGeneric)
-    val i2cMaster = new I2CMasterHAL(masterGeneric)
+    val i2cSlave  = new I2CSlaveIoLayer(slaveGeneric)
+    val i2cMaster = new I2CMasterIoLayer(masterGeneric)
 
 
     i2cSlave.io.cmd  <> io.ioSlave.cmd
@@ -1241,7 +1241,7 @@ object PlayI2CHAL{
     i2cMaster.io.cmd <> io.ioMaster.cmd
     i2cMaster.io.rsp <> io.ioMaster.rsp
     i2cMaster.io.config.setSCLFrequency(2 MHz)
-    i2cMaster.io.config.enCollision := True
+    //i2cMaster.io.config.enCollision := True
     i2cMaster.io.config.setFrequencySampling(5 MHz)
 
 
@@ -1284,9 +1284,9 @@ object PlayI2CHALTest{
     /**
       * Create the master and the slave
       */
-    val masterI2CGeneric = I2CMasterHALGenerics()
-    val masterI2C     = new I2CMasterHAL(masterI2CGeneric)
-    val slaveI2C      = new I2CSlaveHAL(I2CSlaveHALGenerics())
+    val masterI2CGeneric = I2CMasterIoLayerGenerics()
+    val masterI2C     = new I2CMasterIoLayer(masterI2CGeneric)
+    val slaveI2C      = new I2CSlaveIoLayer(I2CSlaveIoLayerGenerics())
 
 
     /**
@@ -1294,7 +1294,7 @@ object PlayI2CHALTest{
       */
     val masterStatusCMD = Reg(Bits(32 bits)) randBoot()
     val masterStatusRSP = Reg(Bits(32 bits)) randBoot()
-    val masterStreamRSP = Stream(I2CMasterHALRsp())
+    val masterStreamRSP = Stream(I2CIoLayerRsp())
 
     val slaveRSP       = Reg(Bits(32 bits)) randBoot()
     val slaveStatusCMD = Reg(Bits(32 bits)) randBoot()
@@ -1309,7 +1309,7 @@ object PlayI2CHALTest{
     val busCtrl = AvalonMMSlaveFactory(io.bus)
 
     busCtrl.driveAndRead(masterI2C.io.config,    0x00)
-    busCtrl.createAndDriveFlow(I2CMasteHALCmd(), 0x04).toStream >-> masterI2C.io.cmd
+    busCtrl.createAndDriveFlow(I2CIoLayerCmd(), 0x04).toStream >-> masterI2C.io.cmd
     busCtrl.readStreamNonBlocking(masterStreamRSP, address = 0x0C, validBitOffset=0, payloadBitOffset=1)
     busCtrl.readAndWrite (masterStatusCMD, 0x08)
     //  busCtrl.readAndWrite (masterStatusRSP, 0x0C)
@@ -1723,22 +1723,22 @@ object PlayMentorDo{
 object PlayAuto{
   class I2CHAL extends Component{
 
-    val slaveGeneric  = I2CSlaveHALGenerics()
-    val masterGeneric = I2CMasterHALGenerics()
+    val slaveGeneric  = I2CSlaveIoLayerGenerics()
+    val masterGeneric = I2CMasterIoLayerGenerics()
 
     val io = new Bundle{
       val ioSlave = new Bundle {
-        val cmd  = master  Flow ( I2CSlaveHALCmd() )
-        val rsp  = slave Stream ( I2CSlaveHALRsp() )
+        val cmd  = master  Flow ( I2CIoLayerCmd() )
+        val rsp  = slave Stream ( I2CIoLayerRsp() )
       }
       val ioMaster = new Bundle {
-        val cmd    = slave Stream(I2CMasteHALCmd())
-        val rsp    = master Flow (I2CMasterHALRsp ())
+        val cmd    = slave Stream(I2CIoLayerCmd())
+        val rsp    = master Flow (I2CIoLayerRsp ())
       }
     }
 
-    val i2cSlave  = new I2CSlaveHAL(slaveGeneric)
-    val i2cMaster = new I2CMasterHAL(masterGeneric)
+    val i2cSlave  = new I2CSlaveIoLayer(slaveGeneric)
+    val i2cMaster = new I2CMasterIoLayer(masterGeneric)
     val simSDA    = new SimOpenDrain()
     val simSCL    = new SimOpenDrain()
 
@@ -1752,6 +1752,7 @@ object PlayAuto{
 
     simSDA.io.output.read     := i2cSlave.io.i2c.sda.write
     i2cSlave.io.i2c.sda.read  := simSDA.io.output.write
+
 
     simSCL.io.input.read      := i2cMaster.io.i2c.scl.write
     i2cMaster.io.i2c.scl.read := simSCL.io.input.write

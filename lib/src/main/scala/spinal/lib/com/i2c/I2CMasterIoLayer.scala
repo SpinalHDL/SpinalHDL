@@ -38,19 +38,18 @@ import spinal.lib.fsm._
   * @param clockDividerSamplingWidth : Width of the clockDivider value
   * @param clockDividerSCLWidth      : Width of the clockDivider value
   */
-case class I2CMasterHALGenerics(samplingSize              : Int = 3,
-                                clockDividerSamplingWidth : BitCount = 10 bits,
-                                clockDividerSCLWidth      : BitCount = 20 bits){}
+case class I2CMasterIoLayerGenerics(samplingSize              : Int = 3,
+                                    clockDividerSamplingWidth : BitCount = 10 bits,
+                                    clockDividerSCLWidth      : BitCount = 20 bits){}
 
 
 /**
   * Runtime configuration of the I2C master
   */
-case class I2CMasterHALConfig(g: I2CMasterHALGenerics) extends Bundle {
+case class I2CMasterIoLayerConfig(g: I2CMasterIoLayerGenerics) extends Bundle {
 
   val clockDividerSampling = UInt(g.clockDividerSamplingWidth)
   val clockDividerSCL      = UInt (g.clockDividerSCLWidth)
-  val enCollision          = Bool
 
   def setSCLFrequency(sclFrequency : HertzNumber, clkFrequency : HertzNumber = ClockDomain.current.frequency.getValue) : Unit = {
     clockDividerSCL := (clkFrequency / sclFrequency * 2).toInt
@@ -59,29 +58,6 @@ case class I2CMasterHALConfig(g: I2CMasterHALGenerics) extends Bundle {
   def setFrequencySampling(frequencySampling : HertzNumber, clkFrequency : HertzNumber = ClockDomain.current.frequency.getValue): Unit = {
     clockDividerSampling := (clkFrequency / frequencySampling).toInt
   }
-}
-
-/**
-  * Modes used to manage the master
-  */
-object I2CMasterHALCmdMode extends SpinalEnum{
-  val START, DATA, STOP = newElement()
-}
-
-/**
-  * Define the command interface
-  */
-case class I2CMasteHALCmd() extends Bundle{
-  val mode = I2CMasterHALCmdMode()
-  val data = Bool
-}
-
-
-/**
-  * Define the response interface
-  */
-case class I2CMasterHALRsp() extends Bundle{
-  val data  = Bool
 }
 
 
@@ -99,16 +75,16 @@ case class I2CMasterHALRsp() extends Bundle{
   *   Slave  :   |       |       | DATA |       | DATA |      |
   *   RSP    :                 DATA    DATA    DATA   DATA
   */
-class I2CMasterHAL(g: I2CMasterHALGenerics) extends Component {
+class I2CMasterIoLayer(g: I2CMasterIoLayerGenerics) extends Component {
 
-  import spinal.lib.com.i2c.{I2CMasterHALCmdMode => CmdMode}
+  import spinal.lib.com.i2c.{I2CIoLayerCmdMode => CmdMode}
 
 
   val io = new Bundle{
     val i2c    = master( I2C() )
-    val config = in( I2CMasterHALConfig(g) )
-    val cmd    = slave  Stream( I2CMasteHALCmd()  )
-    val rsp    = master Flow  ( I2CMasterHALRsp() )
+    val config = in( I2CMasterIoLayerConfig(g) )
+    val cmd    = slave  Stream( I2CIoLayerCmd()  )
+    val rsp    = master Flow  ( I2CIoLayerRsp() )
   }
 
 

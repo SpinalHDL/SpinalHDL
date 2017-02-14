@@ -26,32 +26,32 @@ import spinal.lib.com.i2c._
 
 class I2CHALTester extends Component{
 
-    val slaveGeneric  = I2CSlaveHALGenerics()
-    val masterGeneric = I2CMasterHALGenerics()
+    val slaveGeneric  = I2CSlaveIoLayerGenerics()
+    val masterGeneric = I2CMasterIoLayerGenerics()
 
     val io = new Bundle{
       val ioSlave = new Bundle {
-        val cmd  = master  Flow ( I2CSlaveHALCmd() )
-        val rsp  = slave Stream ( I2CSlaveHALRsp() )
+        val cmd  = master  Flow ( I2CIoLayerCmd() )
+        val rsp  = slave Stream ( I2CIoLayerRsp() )
       }
       val ioMaster = new Bundle {
-        val cmd    = slave Stream(I2CMasteHALCmd())
-        val rsp    = master Flow (I2CMasterHALRsp ())
+        val cmd    = slave Stream(I2CIoLayerCmd())
+        val rsp    = master Flow (I2CIoLayerRsp ())
       }
 
       val sda = out Bool
       val scl = out Bool
     }
 
-    val i2cSlave  = new I2CSlaveHAL(slaveGeneric)
-    val i2cMaster = new I2CMasterHAL(masterGeneric)
+    val i2cSlave  = new I2CSlaveIoLayer(slaveGeneric)
+    val i2cMaster = new I2CMasterIoLayer(masterGeneric)
 
     i2cSlave.io.cmd  <> io.ioSlave.cmd
     i2cSlave.io.rsp  <> io.ioSlave.rsp
     i2cMaster.io.cmd <> io.ioMaster.cmd
     i2cMaster.io.rsp <> io.ioMaster.rsp
     i2cMaster.io.config.setSCLFrequency(1 MHz)
-    i2cMaster.io.config.enCollision := True
+   // i2cMaster.io.config.enCollision := True
     i2cMaster.io.config.setFrequencySampling(5 MHz)
 
     io.sda := i2cMaster.io.i2c.sda.read

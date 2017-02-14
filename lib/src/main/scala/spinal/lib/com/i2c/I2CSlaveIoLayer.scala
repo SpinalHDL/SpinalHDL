@@ -35,46 +35,20 @@ import spinal.lib._
   * @param samplingSize              : deepth sampling
   * @param clockDividerSamplingWidth : Width of the clock divider
   */
-case class I2CSlaveHALGenerics(samplingSize             : Int = 3,
-                               clockDividerSamplingWidth: BitCount = 10 bits ){}
+case class I2CSlaveIoLayerGenerics(samplingSize             : Int = 3,
+                                   clockDividerSamplingWidth: BitCount = 10 bits ){}
 
 
 /**
   * Run-time configuration for the I2CSlave
   */
-case class I2CSlaveHALConfig(g: I2CSlaveHALGenerics) extends Bundle {
+case class I2CSlaveIoLayerConfig(g: I2CSlaveIoLayerGenerics) extends Bundle {
 
   val clockDividerSampling = UInt(g.clockDividerSamplingWidth )
 
   def setFrequencySampling(frequencySampling : HertzNumber, clkFrequency : HertzNumber = ClockDomain.current.frequency.getValue): Unit = {
     clockDividerSampling := (clkFrequency / frequencySampling).toInt
   }
-}
-
-
-/**
-  * Mode used to manage the slave
-  */
-object I2CSlaveHALCmdMode extends SpinalEnum{
-  val START, DATA, STOP = newElement()
-}
-
-
-/**
-  * Define the command interface
-  */
-case class I2CSlaveHALCmd() extends Bundle{
-  val mode = I2CSlaveHALCmdMode()
-  val data  = Bool
-}
-
-/**
-  * Define the response interface
-  *  If you want to read data, set data = True
-  * (FREEZE) is done with the response stream.
-  */
-case class I2CSlaveHALRsp() extends Bundle{
-  val data = Bool
 }
 
 
@@ -103,18 +77,18 @@ case class I2CSlaveHALRsp() extends Bundle{
   *   Slave  :   |       | DATA |      |       |       |      |
   *   CMD    :       START   DATA    DATA    START   DATA   STOP
   */
-class I2CSlaveHAL(g : I2CSlaveHALGenerics) extends Component{
+class I2CSlaveIoLayer(g : I2CSlaveIoLayerGenerics) extends Component{
 
-  import spinal.lib.com.i2c.{I2CSlaveHALCmdMode => CmdMode}
+  import spinal.lib.com.i2c.{I2CIoLayerCmdMode => CmdMode}
 
   /**
     * Interface of the I2C Hal slave
     */
   val io = new Bundle{
     val i2c    = slave( I2C() )
-    val config = in( I2CSlaveHALConfig(g) )
-    val cmd    = master Flow  ( I2CSlaveHALCmd() )
-    val rsp    = slave  Stream( I2CSlaveHALRsp() )
+    val config = in( I2CSlaveIoLayerConfig(g) )
+    val cmd    = master Flow  ( I2CIoLayerCmd() )
+    val rsp    = slave  Stream( I2CIoLayerRsp() )
   }
 
   /**
