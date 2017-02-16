@@ -1419,7 +1419,7 @@ class PhaseSimplifyBlacBoxGenerics(pc: PhaseContext) extends PhaseNetlist{
   }
 }
 
-class PhasePrintUnUsedSignals(prunedSignals : mutable.Set[BaseType])(pc: PhaseContext) extends PhaseCheck{
+class PhasePrintUnUsedSignals(prunedSignals : mutable.Set[BaseType],unusedSignals : mutable.Set[BaseType])(pc: PhaseContext) extends PhaseCheck{
   override def useNodeConsumers = false
   override def impl(pc : PhaseContext): Unit = {
     import pc._
@@ -1447,6 +1447,18 @@ class PhasePrintUnUsedSignals(prunedSignals : mutable.Set[BaseType])(pc: PhaseCo
     if(!prunedSignals.isEmpty){
       SpinalWarning(s"${prunedSignals.size} signals were pruned. You can call printPruned on the backend report to get more informations.")
     }
+
+
+    val targetAlgoId2 = GlobalData.get.allocateAlgoId()
+    def walkPruned(node : Node) : Unit = node.onEachInput(input => {
+      if(input != null && input.algoId != targetAlgoId2){
+        input.algoId = targetAlgoId2
+        walkPruned(input)
+      }
+    })
+
+    prunedSignals.foreach(source => walkPruned(source))
+    unusedSignals ++= (prunedSignals.filter(_.algoId != targetAlgoId2))
   }
 }
 
@@ -1751,7 +1763,7 @@ object SpinalVhdlBoot{
   def singleShot[T <: Component](config : SpinalConfig)(gen : => T): SpinalReport[T] ={
     val pc = new PhaseContext(config)
     val prunedSignals = mutable.Set[BaseType]()
-
+    val unusedSignals = mutable.Set[BaseType]()
 
 
     SpinalProgress("Start elaboration")
@@ -1808,7 +1820,7 @@ object SpinalVhdlBoot{
     phases += new PhaseSimplifyBlacBoxGenerics(pc)
 
     phases += new PhaseDummy(SpinalProgress("Collect signals not used in the graph"))
-    phases += new PhasePrintUnUsedSignals(prunedSignals)(pc)
+    phases += new PhasePrintUnUsedSignals(prunedSignals,unusedSignals)(pc)
 
     phases += new PhaseDummy(SpinalProgress("Finalise"))
     phases += new PhaseAddNodesIntoComponent(pc)
@@ -1847,6 +1859,7 @@ object SpinalVhdlBoot{
 
     val report = new SpinalReport[T](pc.topLevel.asInstanceOf[T])
     report.prunedSignals ++= prunedSignals
+    report.unusedSignals ++= unusedSignals
 
     report
   }
@@ -1933,6 +1946,7 @@ object SpinalVerilogBoot{
   def singleShot[T <: Component](config : SpinalConfig)(gen : => T): SpinalReport[T] ={
     val pc = new PhaseContext(config)
     val prunedSignals = mutable.Set[BaseType]()
+    val unusedSignals = mutable.Set[BaseType]()
 
     SpinalProgress("Start elaboration")
 
@@ -1989,7 +2003,7 @@ object SpinalVerilogBoot{
     phases += new PhaseSimplifyBlacBoxGenerics(pc)
 
     phases += new PhaseDummy(SpinalProgress("Collect signals not used in the graph"))
-    phases += new PhasePrintUnUsedSignals(prunedSignals)(pc)
+    phases += new PhasePrintUnUsedSignals(prunedSignals,unusedSignals)(pc)
 
     phases += new PhaseDummy(SpinalProgress("Finalise"))
     phases += new PhaseAddNodesIntoComponent(pc)
@@ -2014,6 +2028,7 @@ object SpinalVerilogBoot{
 
     val report = new SpinalReport[T](pc.topLevel.asInstanceOf[T])
     report.prunedSignals ++= prunedSignals
+    report.unusedSignals ++= unusedSignals
 
     report
   }
