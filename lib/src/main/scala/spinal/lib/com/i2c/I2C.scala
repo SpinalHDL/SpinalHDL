@@ -43,7 +43,6 @@ case class I2C() extends Bundle with IMasterSlave {
     master(sda)
   }
 
-  // @TODO check why asSlave and asMaster as the same interface
   override def asSlave(): Unit = {
     master(scl)
     master(sda)
@@ -75,8 +74,6 @@ case class I2CIoLayerCmd() extends Bundle{
 case class I2CIoLayerRsp() extends Bundle{
   val data = Bool
 }
-
-
 
 
 /**

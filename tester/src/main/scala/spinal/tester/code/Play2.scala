@@ -1156,64 +1156,11 @@ object PlayNodeWithoutWidth{
   }
 }
 
-object PlayI2CMasterHAL {
-
-  class I2CMasterHALTester extends Component {
-
-    val generic = I2CMasterIoLayerGenerics()
-
-    val io = new Bundle {
-      val i2c    = master( I2C() )
-      val config = in( I2CMasterIoLayerConfig(generic) )
-      val cmd    = slave Stream(I2CIoLayerCmd())
-      val rsp    = master Flow(I2CIoLayerRsp ())
-    }
 
 
-    val myMasterI2C = new I2CMasterIoLayer(generic)
-    io <> myMasterI2C.io
-  }
+object PlayI2CIoLayer{
 
-  def main(args: Array[String]) {
-    SpinalConfig(
-      mode = Verilog,
-      dumpWave = DumpWaveConfig(depth = 0),
-      defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
-      defaultClockDomainFrequency = FixedFrequency(50 MHz)
-    ).generate(new I2CMasterHALTester).printPruned
-  }
-}
-
-
-object PlayI2CSlaveHAL {
-
-  class I2CSlaveHALTester extends Component {
-
-    val generic = I2CSlaveIoLayerGenerics()
-
-    val io = new Bundle {
-      val i2c    = slave( I2C() )
-      val config = in(I2CSlaveIoLayerConfig(generic))
-      val cmd    = master  Flow ( I2CIoLayerCmd() )
-      val rsp    = slave Stream ( I2CIoLayerRsp() )
-    }
-
-    val mySlave = new I2CSlaveIoLayer(generic)
-    io <> mySlave.io
-  }
-
-  def main(args: Array[String]) {
-    SpinalConfig(
-      mode = VHDL,
-      dumpWave = DumpWaveConfig(depth = 0),
-      defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
-      defaultClockDomainFrequency  = FixedFrequency(50 MHz)
-    ).generate(new I2CSlaveHALTester).printPruned
-  }
-}
-object PlayI2CHAL{
-
-  class I2CHALTester extends Component{
+  class I2CIoLayerTester extends Component{
 
     val slaveGeneric  = I2CSlaveIoLayerGenerics()
     val masterGeneric = I2CMasterIoLayerGenerics()
@@ -1228,6 +1175,7 @@ object PlayI2CHAL{
         val rsp    = master Flow (I2CIoLayerRsp ())
       }
 
+      // output sda and scl in order to monitor the i2c bus
       val sda = out Bool
       val scl = out Bool
     }
@@ -1241,20 +1189,18 @@ object PlayI2CHAL{
     i2cMaster.io.cmd <> io.ioMaster.cmd
     i2cMaster.io.rsp <> io.ioMaster.rsp
     i2cMaster.io.config.setSCLFrequency(2 MHz)
-    //i2cMaster.io.config.enCollision := True
     i2cMaster.io.config.setFrequencySampling(5 MHz)
-
+    i2cSlave.io.config.setFrequencySampling(5 MHz)
 
     io.sda := i2cMaster.io.i2c.sda.read
     io.scl := i2cMaster.io.i2c.scl.read
-    i2cSlave.io.config.setFrequencySampling(5 MHz)
 
 
     interconnect(Seq(i2cMaster.io.i2c.scl, i2cSlave.io.i2c.scl))
     interconnect(Seq(i2cMaster.io.i2c.sda, i2cSlave.io.i2c.sda))
 
 
-    //def interconnect[T <: Data](elements : Seq[ReadableOpenDrain[T]]) : Unit = {
+
     def interconnect(elements : Seq[ReadableOpenDrain[Bool]]) : Unit = {
       val readValue = elements.map(_.write).reduce(_ & _)
       elements.foreach(_.read := readValue)
@@ -1267,100 +1213,10 @@ object PlayI2CHAL{
         dumpWave = DumpWaveConfig(depth = 0),
         defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
         defaultClockDomainFrequency  = FixedFrequency(50 MHz)
-    ).generate(new I2CHALTester()).printPruned()
+    ).generate(new I2CIoLayerTester()).printPruned()
   }
 }
 
-object PlayI2CHALTest{
-
-  class I2CHAL_App extends Component {
-
-    val io = new Bundle{
-      val bus       = slave(AvalonMM(AvalonMMSlaveFactory.getAvalonConfig(4,32)))
-      val i2cSlave  = master( I2C() )
-      val i2cMaster = slave( I2C() )
-    }
-
-    /**
-      * Create the master and the slave
-      */
-    val masterI2CGeneric = I2CMasterIoLayerGenerics()
-    val masterI2C     = new I2CMasterIoLayer(masterI2CGeneric)
-    val slaveI2C      = new I2CSlaveIoLayer(I2CSlaveIoLayerGenerics())
-
-
-    /**
-      * Define all register needed to manage the master and the slave
-      */
-    val masterStatusCMD = Reg(Bits(32 bits)) randBoot()
-    val masterStatusRSP = Reg(Bits(32 bits)) randBoot()
-    val masterStreamRSP = Stream(I2CIoLayerRsp())
-
-    val slaveRSP       = Reg(Bits(32 bits)) randBoot()
-    val slaveStatusCMD = Reg(Bits(32 bits)) randBoot()
-    val slaveStatusRSP = Reg(Bits(32 bits)) randBoot()
-    val salveRSP_valid = Reg(Bool) init(False)
-
-    masterI2C.io.rsp.toStream >-> masterStreamRSP
-
-    /**
-      * Create the Avalon bus and the rigister bank
-      */
-    val busCtrl = AvalonMMSlaveFactory(io.bus)
-
-    busCtrl.driveAndRead(masterI2C.io.config,    0x00)
-    busCtrl.createAndDriveFlow(I2CIoLayerCmd(), 0x04).toStream >-> masterI2C.io.cmd
-    busCtrl.readStreamNonBlocking(masterStreamRSP, address = 0x0C, validBitOffset=0, payloadBitOffset=1)
-    busCtrl.readAndWrite (masterStatusCMD, 0x08)
-    //  busCtrl.readAndWrite (masterStatusRSP, 0x0C)
-
-    busCtrl.driveAndRead(slaveI2C.io.config.clockDividerSampling,    0x10)
-    busCtrl.write(slaveRSP,       0x14)
-    busCtrl.readAndWrite (slaveStatusCMD, 0x18)
-    busCtrl.readAndWrite (slaveStatusRSP, 0x1C)
-    busCtrl.onWrite(0x14){ salveRSP_valid.set() }
-
-
-
-    // Master connection
-
-    masterI2C.io.i2c <> io.i2cMaster
-
-
-    when(masterI2C.io.cmd.ready){
-      masterStatusCMD(0) := True
-    }
-
-    // Slave connection
-
-    slaveI2C.io.i2c  <> io.i2cSlave
-
-
-    slaveI2C.io.rsp.data  := slaveRSP(2)
-    slaveI2C.io.rsp.valid  := salveRSP_valid
-
-
-    when(slaveI2C.io.rsp.ready){
-      slaveStatusRSP(0) := True
-      salveRSP_valid    := False
-    }
-    when(slaveI2C.io.cmd.valid){
-      slaveStatusCMD := 0
-      slaveStatusCMD(0) := True
-      slaveStatusCMD(2 downto 0)  := slaveI2C.io.cmd.mode.asBits
-      slaveStatusCMD(3)           := slaveI2C.io.cmd.data
-    }
-  }
-
-  def main(args : Array[String]): Unit ={
-    SpinalConfig(
-      mode = Verilog,
-      defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
-      defaultClockDomainFrequency  = FixedFrequency(50 MHz)
-    ).generate(new I2CHAL_App()).printPruned()
-  }
-
-}
 
 
 

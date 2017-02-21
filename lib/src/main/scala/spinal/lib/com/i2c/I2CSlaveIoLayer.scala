@@ -44,7 +44,7 @@ case class I2CSlaveIoLayerGenerics(samplingSize             : Int = 3,
   */
 case class I2CSlaveIoLayerConfig(g: I2CSlaveIoLayerGenerics) extends Bundle {
 
-  val clockDividerSampling = UInt(g.clockDividerSamplingWidth )
+  val clockDividerSampling = UInt(g.clockDividerSamplingWidth)
 
   def setFrequencySampling(frequencySampling : HertzNumber, clkFrequency : HertzNumber = ClockDomain.current.frequency.getValue): Unit = {
     clockDividerSampling := (clkFrequency / frequencySampling).toInt
@@ -53,7 +53,7 @@ case class I2CSlaveIoLayerConfig(g: I2CSlaveIoLayerGenerics) extends Bundle {
 
 
 /**
-  * I2C Slave HAL :
+  * I2C Slave IO Layer :
   *
   *  This component manages the low level of the I2C protocol. (START, STOP, Send & Receive bit data)
   *
@@ -124,7 +124,7 @@ class I2CSlaveIoLayer(g : I2CSlaveIoLayerGenerics) extends Component{
     */
   val ctrlSlave = new Area{
 
-    val bitReceived   = Reg(Bool) randBoot()
+    val bitReceived   = Reg(Bool)
     val onTransaction = Reg(Bool) init(False)
     val transactionWillStart = Reg(Bool) init(False)
     val wr_sda = True
@@ -184,7 +184,6 @@ class I2CSlaveIoLayer(g : I2CSlaveIoLayerGenerics) extends Component{
   /*
    * Drive SCL & SDA signals
    */
-  io.i2c.scl.write := RegNext(ctrlSlave.wr_scl) randBoot()
-  io.i2c.sda.write := RegNext(ctrlSlave.wr_sda) randBoot()
-
+  io.i2c.scl.write := RegNext(ctrlSlave.wr_scl)
+  io.i2c.sda.write := RegNext(ctrlSlave.wr_sda)
 }

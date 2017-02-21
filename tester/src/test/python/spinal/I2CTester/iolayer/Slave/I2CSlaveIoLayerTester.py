@@ -4,7 +4,7 @@
 ###############################################################################
 from cocotb.triggers import Timer
 
-from I2CMasterModelHAL import I2CMasterModelHAL
+from I2CMasterModelIoLayer import I2CMasterModelHAL
 from cocotblib.ClockDomain import ClockDomain, RESET_ACTIVE_LEVEL
 from spinal.I2CTester.HAL.I2CHAL      import *
 from spinal.I2CTester.HAL.I2CSlaveHAL import I2CSlaveHAL

@@ -7,12 +7,12 @@ from spinal.I2CTester.HAL.I2CHAL import *
 ###############################################################################
 # I2C Slave HAL Helper class
 #
-class I2CSlaveHAL:
+class I2CSlaveIoLayer:
 
-    def __init__(self,dut, fullTest=False):
+    def __init__(self, dut):
 
         # IO definition -----------------------------------
-        self.io = I2CSlaveHAL.IO(dut, fullTest)
+        self.io = I2CSlaveIoLayer.IO(dut)
 
         # Event -------------------------------------------
         self.event_cmd_valid = Event()
@@ -36,21 +36,20 @@ class I2CSlaveHAL:
     #==========================================================================
     class IO:
 
-        def __init__ (self, dut, fullTest):
+        def __init__ (self, dut):
             # I2C ---------------------------------------------
-            self.sda_wr   = dut.io_i2c_sda_write if not fullTest else 0
-            self.sda_rd   = dut.io_i2c_sda_read  if not fullTest else dut.io_sda
-            self.scl_wr   = dut.io_i2c_scl_write if not fullTest else 0
-            self.scl_rd   = dut.io_i2c_scl_read  if not fullTest else dut.io_scl
+            self.sda_wr   = dut.io_i2c_sda_write
+            self.sda_rd   = dut.io_i2c_sda_read
+            self.scl_wr   = dut.io_i2c_scl_write
+            self.scl_rd   = dut.io_i2c_scl_read
             # CMD ---------------------------------------------
-            self.cmd_valid = dut.io_cmd_valid         if not fullTest else dut.io_ioSlave_cmd_valid
-            self.cmd_mode  = dut.io_cmd_payload_mode  if not fullTest else dut.io_ioSlave_cmd_payload_mode
-            self.cmd_data  = dut.io_cmd_payload_data  if not fullTest else dut.io_ioSlave_cmd_payload_data
+            self.cmd_valid = dut.io_cmd_valid
+            self.cmd_mode  = dut.io_cmd_payload_mode
+            self.cmd_data  = dut.io_cmd_payload_data
             # RSP ---------------------------------------------
-            self.rsp_ready = dut.io_rsp_ready         if not fullTest else dut.io_ioSlave_rsp_ready
-            self.rsp_valid = dut.io_rsp_valid         if not fullTest else dut.io_ioSlave_rsp_valid
-            self.rsp_mode  = dut.io_rsp_payload_mode  if not fullTest else dut.io_ioSlave_rsp_payload_mode
-            self.rsp_data  = dut.io_rsp_payload_data  if not fullTest else dut.io_ioSlave_rsp_payload_data
+            self.rsp_ready = dut.io_rsp_ready
+            self.rsp_valid = dut.io_rsp_valid
+            self.rsp_data  = dut.io_rsp_payload_data
             # Clk & Rst ---------------------------------------
             self.clk       = dut.clk
             self.resetn    = dut.resetn
@@ -64,23 +63,12 @@ class I2CSlaveHAL:
 
 
     #==========================================================================
-    # RSP mode
-    #==========================================================================
-    class RSP:
-        DATA = 0
-        NONE = 1
-        ACK  = 2
-
-
-    #==========================================================================
     # CMD  mode
     #==========================================================================
     class CMD:
         START = 0
-        NACK  = 1
-        ACK   = 2
-        STOP  = 3
-        DATA  = 4
+        DATA  = 1
+        STOP  = 2
 
 
     #==========================================================================
@@ -123,39 +111,39 @@ class I2CSlaveHAL:
 
                 yield self.event_cmd_valid.wait()
                 (payload_mode, payload_data) = self.event_cmd_valid.data
-                assertEquals(payload_mode, I2CSlaveHAL.CMD.START, "DATA START : Rsp mode received is wrong")
+                assertEquals(payload_mode, I2CSlaveIoLayer.CMD.START, "DATA START : Rsp mode received is wrong")
 
             # Write -----------------------------------------------------------
             elif isinstance(operation, WRITE):
                 yield self.event_cmd_valid.wait()
                 (payload_mode, payload_data) = self.event_cmd_valid.data
-                assertEquals(payload_mode, I2CSlaveHAL.CMD.DATA, "DATA : Rsp mode received is wrong")
+                assertEquals(payload_mode, I2CSlaveIoLayer.CMD.DATA, "DATA : Rsp mode received is wrong")
                 assertEquals(payload_data, operation.data, "DATA : Rsp mode received is wrong")
 
             # Read -----------------------------------------------------------
             elif isinstance(operation,READ):
                 yield self.event_cmd_valid.wait()
                 (payload_mode, payload_data) = self.event_cmd_valid.data
-                assertEquals(payload_mode, I2CSlaveHAL.CMD.DATA, "DATA : Rsp mode received is wrong")
+                assertEquals(payload_mode, I2CSlaveIoLayer.CMD.DATA, "DATA : Rsp mode received is wrong")
                 assertEquals(payload_data, operation.data, "DATA : Rsp mode received is wrong")
 
             # ACK/NACK --------------------------------------------------------
             elif isinstance(operation,ACK):
                 yield self.event_cmd_valid.wait()
                 (payload_mode, payload_data) = self.event_cmd_valid.data
-                assertEquals(payload_mode, I2CSlaveHAL.CMD.ACK, "DATA ACK : Rsp mode received is wrong")
+                assertEquals(payload_mode, I2CSlaveIoLayer.CMD.ACK, "DATA ACK : Rsp mode received is wrong")
 
 
             elif isinstance(operation, NACK):
                 yield self.event_cmd_valid.wait()
                 (payload_mode, payload_data) = self.event_cmd_valid.data
-                assertEquals(payload_mode, I2CSlaveHAL.CMD.NACK, "DATA NACK : Rsp mode received is wrong")
+                assertEquals(payload_mode, I2CSlaveIoLayer.CMD.NACK, "DATA NACK : Rsp mode received is wrong")
 
             # Stop ------------------------------------------------------------
             if isinstance(operation, STOP):
                 yield self.event_cmd_valid.wait()
                 (payload_mode, payload_data) = self.event_cmd_valid.data
-                assertEquals(payload_mode, I2CSlaveHAL.CMD.STOP, "DATA STOP : Rsp mode received is wrong")
+                assertEquals(payload_mode, I2CSlaveIoLayer.CMD.STOP, "DATA STOP : Rsp mode received is wrong")
 
 
     #==========================================================================
@@ -178,7 +166,7 @@ class I2CSlaveHAL:
                 if index != 0 :
                     yield Timer(operation.delayRSP)
                     io.rsp_valid <= 1
-                    io.rsp_mode <= I2CSlaveHAL.RSP.NONE
+                    io.rsp_mode <= I2CSlaveIoLayer.RSP.NONE
                     io.rsp_data  <= 0
                     yield RisingEdge(io.clk)
 
@@ -194,7 +182,7 @@ class I2CSlaveHAL:
                 yield Timer(operation.delayRSP)
 
                 io.rsp_valid <= 1
-                io.rsp_mode <= I2CSlaveHAL.RSP.NONE
+                io.rsp_mode <= I2CSlaveIoLayer.RSP.NONE
                 io.rsp_data  <= 0
 
                 yield self.event_rsp_ready.wait()
@@ -209,7 +197,7 @@ class I2CSlaveHAL:
                 yield Timer(operation.delayRSP)
 
                 io.rsp_valid <= 1
-                io.rsp_mode <= I2CSlaveHAL.RSP.DATA
+                io.rsp_mode <= I2CSlaveIoLayer.RSP.DATA
                 io.rsp_data  <= operation.data
 
                 yield self.event_rsp_ready.wait()
@@ -227,12 +215,12 @@ class I2CSlaveHAL:
 
                 if isinstance(prevOperation, WRITE):
                     io.rsp_valid <= 1
-                    io.rsp_mode <= I2CSlaveHAL.RSP.ACK if isinstance(operation,ACK) else I2CSlaveHAL.RSP.NONE
+                    io.rsp_mode <= I2CSlaveIoLayer.RSP.ACK if isinstance(operation, ACK) else I2CSlaveIoLayer.RSP.NONE
                     io.rsp_data  <= 0
 
                 elif isinstance(prevOperation, READ):
                     io.rsp_valid <= 1
-                    io.rsp_mode <= I2CSlaveHAL.RSP.NONE
+                    io.rsp_mode <= I2CSlaveIoLayer.RSP.NONE
                     io.rsp_data  <= 0
 
                 yield self.event_rsp_ready.wait()
@@ -247,7 +235,7 @@ class I2CSlaveHAL:
                 yield Timer(operation.delayRSP)
 
                 io.rsp_valid <= 1
-                io.rsp_mode <= I2CSlaveHAL.RSP.NONE
+                io.rsp_mode <= I2CSlaveIoLayer.RSP.NONE
                 io.rsp_data  <= 0
 
                 yield self.event_rsp_ready.wait()

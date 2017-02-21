@@ -62,7 +62,7 @@ case class I2CMasterIoLayerConfig(g: I2CMasterIoLayerGenerics) extends Bundle {
 
 
 /**
-  * I2C Master HAL
+  * I2C Master IO Layer
   *                ________                       _______
   *               |        |<------- I2C ------->|       |
   *               | Master |                     | Slave |
