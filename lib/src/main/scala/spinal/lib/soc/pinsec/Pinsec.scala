@@ -293,6 +293,6 @@ object Pinsec{
   def main(args: Array[String]) {
     val config = SpinalConfig().dumpWave()
     config.generateVerilog(new Pinsec(PinsecConfig.default))
-    config.generateVhdl(new Pinsec(PinsecConfig.default))
+    config.generateVhdl(new Pinsec(PinsecConfig.default)).printUnused().printPruned()
   }
 }

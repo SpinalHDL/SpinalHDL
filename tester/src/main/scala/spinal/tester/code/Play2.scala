@@ -74,7 +74,10 @@ object Play74 {
 
 
 object PlayB6 {
-
+  val myBits = Bits()
+  val myBool = Bool
+  val yolo =  myBits.asBools.map(_ ^ myBool).asBits()
+  val yolo2 = myBits ^ B(myBits.range -> myBool)
   class TopLevel extends Component {
     val notUsed = False
 
@@ -177,7 +180,7 @@ object PlayBlackBox3 {
         val addr = in UInt (log2Up(_wordCount) bit)
         val data = out Bits (_wordWidth bit)
       }
-    }.setName("")
+    }
 
     mapClockDomain(clock=io.clk)
   }
@@ -1693,24 +1696,33 @@ object PlayMentorDo{
   case class Packet() extends Bundle{
     val e1,e2 = Bool
   }
-  class TopLevel extends Component {
-    val io = new Bundle{
-      val a,b    = in UInt(8 bits)
-      val result = out UInt(8 bits)
-
-      val cmd = slave Stream(Packet())
-      val rsp = master Stream(Packet())
-    }
-
-    io.result := io.a + io.b
-
-    val fifo = new StreamFifo(Packet(),64)
-    fifo.io.push << io.cmd
-    fifo.io.pop  >> io.rsp
-
-    fifo.noIoPrefix()
+//  class TopLevel extends Component {
+//    val io = new Bundle{
+//      val a,b    = in UInt(8 bits)
+//      val result = out UInt(8 bits)
+//
+//      val cmd = slave Stream(Packet())
+//      val rsp = master Stream(Packet())
+//    }
+//
+//    io.result := io.a + io.b
+//
+//    val fifo = new StreamFifo(Packet(),64)
+//    fifo.io.push << io.cmd
+//    fifo.io.pop  >> io.rsp
+//
+//    fifo.noIoPrefix()
+//  }
+  class Sub extends Component{
+    val a =  True.keep()
   }
-
+  class TopLevel extends Component{
+    val areaList = List.fill(2)( new Area{
+      val area = new Area {
+        val subs = List.fill(4)(new Sub)
+      }
+    })
+  }
   def main(args: Array[String]) {
     val report = SpinalVhdl(new TopLevel)
     val toplevel = report.toplevel
@@ -2928,31 +2940,23 @@ object PlayMissingSensitivity{
 
 
 object PlaySlowArea{
-  object SlowArea{
-    def getClockDomain(factor : Int): ClockDomain ={
-      val counter = Reg(UInt(log2Up(factor) bits)) init(0)
-      val tick = RegNext(counter === factor-2) init(False)
-      counter := counter + 1
-      when(tick){
-        counter := 0
-      }
-      ClockDomain.current.clone(clockEnable = tick,config = ClockDomain.current.config.copy(clockEnableActiveLevel = HIGH))
-    }
-  }
-
-  class SlowArea(factor : Int) extends ClockingArea(SlowArea.getClockDomain(factor))
-
   class TopLevel extends Component{
-    val fastArea = new Area {
+    val areaStd = new Area {
       val counter = out(CounterFreeRun(16).value)
     }
-    val slowArea = new SlowArea(4){
+    val areaDiv4 = new SlowArea(4){
+      val counter = out(CounterFreeRun(16).value)
+    }
+
+    val area50Mhz = new SlowArea(50 MHz){
       val counter = out(CounterFreeRun(16).value)
     }
   }
 
   def main(args: Array[String]) {
-    SpinalVhdl(new TopLevel)
+    new SpinalConfig(
+      defaultClockDomainFrequency = FixedFrequency(100 MHz)
+    ).generateVhdl(new TopLevel)
   }
 }
 
@@ -3061,7 +3065,45 @@ object PlayEnumEncoding{
   }
 }
 
+object PlayMuxDyn{
 
+  class TopLevel extends Component{
+    val inputs = in Vec(UInt(8 bits),8)
+    val sel    = in UInt(log2Up(inputs.length) bits)
+    val output = out(inputs(sel))
+  }
+
+  def main(args: Array[String]) {
+    SpinalConfig(debug = true).generateVhdl(new TopLevel)
+  }
+}
+
+object PlayMuxDynX{
+
+  class TopLevel extends Component{
+    val inputs = in Vec(UInt(8 bits),8)
+    val sel    = in UInt(log2Up(inputs.length) bits)
+    val output = out UInt(8 bits)
+    output := inputs(sel)
+  }
+
+  def main(args: Array[String]) {
+    SpinalConfig(debug = true).generateVhdl(new TopLevel)
+  }
+}
+
+object PlayMuxDyn2{
+
+  class TopLevel extends Component{
+    val a,b,c,d = in UInt(8 bits)
+    val sel     = in UInt(2 bits)
+    val output  = out(Vec(a,b,c,d)(sel))
+  }
+
+  def main(args: Array[String]) {
+    SpinalConfig(debug = true).generateVhdl(new TopLevel)
+  }
+}
 object PlayNullPointer{
 
   class TopLevel extends Component{
@@ -3072,6 +3114,20 @@ object PlayNullPointer{
 
   def main(args: Array[String]) {
     SpinalConfig(debug = true).generateVhdl(new TopLevel)
+  }
+}
+
+object PlayForLoop{
+
+
+  def main(args: Array[String]) {
+    val (x,xSquare) = (for(i <- 0 to 4) yield{
+      val iSquare = i*i
+      (i,iSquare)
+    }).unzip
+
+    println(s"x=$x")
+    println(s"xSquare=$xSquare")
   }
 }
 
@@ -3199,3 +3255,71 @@ object PlayPll2{
   }
 }
 
+
+object PlaRamMux{
+
+  case class J1Config(adrWidth : Int, wordSize : Int)
+  class TopLevel(cfg : J1Config) extends Component {
+
+    // Check the generic parameters
+    assert(Bool(cfg.wordSize >= cfg.adrWidth), "Error: The width of an address is too large", FAILURE)
+
+    // I/O ports
+    val io = new Bundle {
+
+      // Instruction port
+      val memInstrAdr = in UInt(cfg.adrWidth bits)
+      val memInstr    = out Bits(cfg.wordSize bits)
+
+      // Memory port
+      val memWriteEnable = in Bool
+      val memAdr         = in UInt(cfg.wordSize bits)
+      val memWrite       = in Bits(cfg.wordSize bits)
+      val memRead        = out Bits(cfg.wordSize bits)
+
+    }.setName("")
+
+    // Generate a list holding the lowest memory block (holding the instructions to be executed)
+    val lowMem = Mem(Bits(cfg.wordSize bits),1 << 16)
+
+    // Create the instruction port (read only) for the instruction memory
+    io.memInstr := lowMem.readSync(address = io.memInstrAdr, readUnderWrite = readFirst)
+
+    // Calculate the number of needed rams
+    def noOfRAMs = (1 << (cfg.wordSize - cfg.adrWidth))
+
+    // Holds a complete list of memory blocks (start with first block)
+    val ramList = if (noOfRAMs >= 1) {
+
+      // Add the additional memory blocks into a list
+      List(lowMem) ++ List.fill(noOfRAMs - 1)(Mem(Bits(cfg.wordSize bits), 1 << cfg.adrWidth))
+
+    } else {
+
+      // We have only one memory block
+      List(lowMem)
+
+    }
+
+    // Convert the list to a spinal vector
+    val rPortsVec = Vec(for((ram,i) <- ramList.zipWithIndex) yield {
+
+      // Create the write port of the ith RAM
+      ram.write(enable  = io.memWriteEnable && (U(i) === io.memAdr(cfg.wordSize - 1 downto cfg.adrWidth)),
+                address = io.memAdr(cfg.adrWidth - 1 downto 0),
+                data    = io.memWrite)
+
+      // Create the read port of the ith RAM
+      ram.readSync(address   = io.memAdr(cfg.adrWidth - 1 downto 0),
+                   readUnderWrite = readFirst)
+    })
+
+    // Multiplex the output
+    io.memRead := rPortsVec(RegNext(io.memAdr(cfg.wordSize - 1 downto cfg.adrWidth)))
+
+
+  }
+  def main(args: Array[String]) {
+    SpinalConfig(debug = true).generateVhdl(new TopLevel(J1Config(16,16)))
+  }
+}

@@ -10,12 +10,14 @@ import spinal.demo.mandelbrot._
 import spinal.lib._
 import spinal.lib.bus.amba3.apb.{Apb3SlaveFactory, Apb3, Apb3Config}
 import spinal.lib.bus.amba4.axi.{Axi4, Axi4Config}
+import spinal.lib.bus.amba4.axilite.{AxiLite4SlaveFactory, AxiLite4Config, AxiLite4}
 import spinal.lib.bus.avalon.{AvalonMM, AvalonMMSlaveFactory}
 import spinal.lib.com.uart._
 import spinal.lib.cpu.riscv.impl.extension._
 import spinal.lib.cpu.riscv.impl.{InstructionCacheConfig, dynamic, sync, RiscvCoreConfig}
 import spinal.lib.graphic.Rgb
 import spinal.lib.misc.{Prescaler, Timer}
+
 
 import scala.util.Random
 
@@ -1975,4 +1977,27 @@ object SementicAD{
 
   setSomethingWhen(something = counter, cond = inc,   value = counter + 1)
   setSomethingWhen(something = counter, cond = clear, value = 0)
+}
+
+
+object PlayAxiLiteFactory{
+  //Create a new AxiLite4 bus
+  val axiLiteConfig = AxiLite4Config(
+    addressWidth =  12,
+    dataWidth = 32
+  )
+  val bus = AxiLite4(axiLiteConfig)
+
+  //Create the factory which is able to create some bridging logic between the bus and some hardware
+  val factory = new AxiLite4SlaveFactory(bus)
+
+  //Create 'a' and 'b' as write only register
+  val a = factory.createWriteOnly(UInt(32 bits), address = 0)
+  val b = factory.createWriteOnly(UInt(32 bits), address = 4)
+
+  //Do some calculation
+  val result = a * b
+
+  //Make 'result' readable by the bus
+  factory.read(result(31 downto 0), address = 8)
 }

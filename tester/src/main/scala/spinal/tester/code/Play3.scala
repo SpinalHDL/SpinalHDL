@@ -745,11 +745,11 @@ object PlayPruned{
     val unusedSignal = UInt(8 bits)
     val unusedSignal2 = UInt(8 bits)
 
-    unusedSignal2 := unusedSignal
+    unusedSignal2 := unusedSignal + io.a
   }
 
   def main(args: Array[String]) {
-    SpinalVhdl(new TopLevel).printPruned()
+    SpinalVhdl(new TopLevel).printPruned().printUnused()
   }
 }
 
@@ -762,7 +762,7 @@ object PlayPruned2{
       val result = out UInt(8 bits)
     }
 
-    io.result := io.a + io.b
+    io.result := io.a + io.a
 
     val unusedSignal = UInt(8 bits)
     val unusedSignal2 = UInt(8 bits).keep()
