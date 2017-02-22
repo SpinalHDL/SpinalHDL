@@ -421,18 +421,18 @@ case class BusSlaveFactoryWrite(that: Data,
                                 bitOffset: Int) extends BusSlaveFactoryElement
 
 /** Ask to execute doThat when a write access is done on address */
-case class BusSlaveFactoryOnWriteAtAddress(address: BigInt,
+case class BusSlaveFactoryOnWrite(address: BigInt,
                                            doThat: () => Unit) extends BusSlaveFactoryElement
 
 /**  Ask to execute doThat when a read access is done on address */
-case class BusSlaveFactoryOnReadAtAddress(address: BigInt,
+case class BusSlaveFactoryOnRead(address: BigInt,
                                           doThat: () => Unit) extends BusSlaveFactoryElement
 
 /**  Ask to execute doThat when a write access is done  */
-case class BusSlaveFactoryOnWrite(doThat: () => Unit) extends BusSlaveFactoryElement
+case class BusSlaveFactoryOnWriteAnyAddress(doThat: () => Unit) extends BusSlaveFactoryElement
 
 /**  Ask to execute doThat when a read access is done  */
-case class BusSlaveFactoryOnRead(doThat: () => Unit) extends BusSlaveFactoryElement
+case class BusSlaveFactoryOnReadAnyAddress(doThat: () => Unit) extends BusSlaveFactoryElement
 
 /**
   * Ask to constantly drive that with the data bus
@@ -486,19 +486,19 @@ trait BusSlaveFactoryDelayed extends BusSlaveFactory{
   }
 
   override def onWrite(address: BigInt)(doThat: => Unit): Unit = {
-    addAddressableElement(BusSlaveFactoryOnWriteAtAddress(address, () => doThat), address)
+    addAddressableElement(BusSlaveFactoryOnWrite(address, () => doThat), address)
   }
 
   override def onRead(address: BigInt)(doThat: => Unit): Unit = {
-    addAddressableElement(BusSlaveFactoryOnReadAtAddress(address, () => doThat), address)
+    addAddressableElement(BusSlaveFactoryOnRead(address, () => doThat), address)
   }
 
   override def onWrite(doThat: => Unit) = {
-    addElement(BusSlaveFactoryOnWrite(() => doThat))
+    addElement(BusSlaveFactoryOnWriteAnyAddress(() => doThat))
   }
 
   override def onRead(doThat: => Unit) = {
-    addElement(BusSlaveFactoryOnRead(() => doThat))
+    addElement(BusSlaveFactoryOnReadAnyAddress(() => doThat))
   }
 
 

@@ -2963,6 +2963,25 @@ object PlaySlowArea{
 
 
 object PlayAutoconncetRec{
+  case class MemConfig(dualPorted : Boolean)
+
+  case class MyBus() extends Bundle with IMasterSlave{
+    val adr = UInt(16 bits)
+    val writeData = Bits(16 bits)
+    val readData = Bits(16 bits)
+
+    override def asMaster(): Unit = {
+      out(adr,writeData)
+      in(readData)
+
+    }
+  }
+
+  case class CoreMem(cfg : MemConfig) extends Component{
+    val io = new Bundle{
+      val ports = Vec(MyBus(),if(cfg.dualPorted) 2 else 1)
+    }
+  }
 
   class Inner extends Component {
     val a = in Bits(8 bits)
