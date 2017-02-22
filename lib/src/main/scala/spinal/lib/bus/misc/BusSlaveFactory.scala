@@ -429,10 +429,10 @@ case class BusSlaveFactoryOnReadAtAddress(address: BigInt,
                                           doThat: () => Unit) extends BusSlaveFactoryElement
 
 /**  Ask to execute doThat when a write access is done  */
-case class BusSlaveFactoryOnWrite(doThat: () => Unit) extends BusSlaveFactoryElement
+case class BusSlaveFactoryOnWriteAnyAddress(doThat: () => Unit) extends BusSlaveFactoryElement
 
 /**  Ask to execute doThat when a read access is done  */
-case class BusSlaveFactoryOnRead(doThat: () => Unit) extends BusSlaveFactoryElement
+case class BusSlaveFactoryOnReadAnyAddress(doThat: () => Unit) extends BusSlaveFactoryElement
 
 /**
   * Ask to constantly drive that with the data bus
@@ -494,11 +494,11 @@ trait BusSlaveFactoryDelayed extends BusSlaveFactory{
   }
 
   override def onWrite(doThat: => Unit) = {
-    addElement(BusSlaveFactoryOnWrite(() => doThat))
+    addElement(BusSlaveFactoryOnWriteAnyAddress(() => doThat))
   }
 
   override def onRead(doThat: => Unit) = {
-    addElement(BusSlaveFactoryOnRead(() => doThat))
+    addElement(BusSlaveFactoryOnReadAnyAddress(() => doThat))
   }
 
 

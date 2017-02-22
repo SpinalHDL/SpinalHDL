@@ -44,14 +44,14 @@ class Apb3SlaveFactory(bus: Apb3, selId: Int) extends BusSlaveFactoryDelayed{
 
     when(doWrite){
       for(jobs <- elements) jobs match{
-        case element: BusSlaveFactoryOnWrite => element.doThat()
+        case element: BusSlaveFactoryOnWriteAnyAddress => element.doThat()
         case _ =>
       }
     }
 
     when(doRead){
       for(jobs <- elements) jobs match{
-        case element: BusSlaveFactoryOnRead => element.doThat()
+        case element: BusSlaveFactoryOnReadAnyAddress => element.doThat()
         case _ =>
       }
     }
