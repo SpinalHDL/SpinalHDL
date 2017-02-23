@@ -13,9 +13,10 @@ class I2CConfig:
 ###############################################################################
 # I2C - Analyse data passing on the i2c bus
 #
-class I2CHALAnalyser:
+class I2CIoLayerAnalyser:
 
     def __init__(self, helperSlave, listOperation):
+
         self.sda = helperSlave.io.sda_rd
         self.scl = helperSlave.io.scl_rd
         self.clk = helperSlave.io.clk
@@ -182,49 +183,29 @@ class START(I2COperation):
     def __repr__(self):
         return "Start - "
 
-class WRITE(I2COperation):
-    def __init__(self, data=-1, delayCmd=0, delayRsp=0, genCollision=False):
+class WRITE_BIT(I2COperation):
+    def __init__(self, data=-1):
         if data == -1 :
-            self.data = randInt(0,2**I2CConfig.dataWdith-1)
+            self.data = randInt(0,1)
         else:
             self.data = data
-        self.delayCMD = delayCmd
-        self.delayRSP = delayRsp
-        self.enCollision = genCollision
 
     def __repr__(self):
         return "Write %08X - " % (self.data)
 
-class READ(I2COperation):
-    def __init__(self, data=-1, delayCmd=0, delayRsp=0):
+class READ_BIT(I2COperation):
+
+    def __init__(self, data=-1):
         if data == -1 :
-            self.data = randInt(0,2**I2CConfig.dataWdith-1)
+            self.data = randInt(0,1)
         else:
             self.data = data
-        self.delayCMD = delayCmd
-        self.delayRSP = delayRsp
-        self.enCollision = False
 
     def __repr__(self):
         return "Read %08X - " % (self.data)
 
-class ACK(I2COperation):
-    def __repr__(self):
-        return "ACK - "
-
-class NACK(I2COperation):
-    def __repr__(self):
-        return "NACK - "
 
 class STOP(I2COperation):
     def __repr__(self):
         return "STOP"
-
-class DATA(I2COperation): # used by the analyser
-    def __init__(self, data):
-        self.data = data
-
-    def __repr__(self):
-        return "DATA %08X" % (self.data)
-
 

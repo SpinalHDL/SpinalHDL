@@ -1,8 +1,8 @@
 TOPLEVEL_LANG ?= verilog
 
-VERILOG_SOURCES += $(SPINALROOT)/I2CHALTester.v
+VERILOG_SOURCES += $(SPINALROOT)/I2CIoLayerTester.v
 
-TOPLEVEL=I2CHALTester
-MODULE=I2CHALTester
+TOPLEVEL=I2CIoLayerTester
+MODULE=I2CIoLayerTester
 
 include ../../common/Makefile.sim
