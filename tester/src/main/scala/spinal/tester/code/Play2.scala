@@ -1209,7 +1209,7 @@ object PlayI2CIoLayer{
 
   def main(args : Array[String]): Unit ={
     SpinalConfig(
-        mode = VHDL,
+        mode = Verilog,
         dumpWave = DumpWaveConfig(depth = 0),
         defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
         defaultClockDomainFrequency  = FixedFrequency(50 MHz)

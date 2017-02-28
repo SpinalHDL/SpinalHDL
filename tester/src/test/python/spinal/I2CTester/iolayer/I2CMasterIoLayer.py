@@ -15,17 +15,16 @@ class I2CMasterIoLayer:
         self.io = I2CMasterIoLayer.IO(dut)
 
         # Start process -----------------------------------
-        self.fork_cmdReady = self.io.cmd.startMonitoringReady()
-        self.fork_rspValid = self.io.rsp.startMonitoringValid()
+        self.io.cmd.startMonitoringReady(self.io.clk)
+        self.io.rsp.startMonitoringValid(self.io.clk)
 
 
     #==========================================================================
     # Stop all processes
     #==========================================================================
     def stop(self):
-
-        self.fork_cmdReady.kill()
-        self.fork_rspValid.kill()
+        self.io.cmd.stopMonitoring()
+        self.io.rsp.stopMonitoring()
 
 
     #==========================================================================
@@ -35,12 +34,12 @@ class I2CMasterIoLayer:
 
         def __init__ (self, dut):
             # I2C ---------------------------------------------
-            self.sda     = dut.io_i2c_sda
-            self.scl     = dut.io_i2c_scl
+            self.sda     = dut.io_sda
+            self.scl     = dut.io_scl
             # CMD ---------------------------------------------
-            self.cmd     = Stream(dut, "ioMaster")
+            self.cmd     = Stream(dut, "io_ioMaster_cmd")
             # RSP ---------------------------------------------
-            self.rsp     = Flow(dut, "ioMaster")
+            self.rsp     = Flow(dut, "io_ioMaster_rsp")
             # Clk & Rst ---------------------------------------
             self.clk     = dut.clk
             self.resetn  = dut.resetn
@@ -59,98 +58,78 @@ class I2CMasterIoLayer:
         DATA  = 1
         STOP  = 2
 
-    # #==========================================================================
-    # # Execute a list of operations
-    # #==========================================================================
-    # @cocotb.coroutine
-    # def execOperations(self, listOperation):
-    #
-    #     # get all io of the master
-    #     io = self.io
-    #
-    #     # execute all operations
-    #     for index in range(0, len(listOperation)):
-    #
-    #         operation = listOperation[index]
-    #
-    #         # START ---------------------------------------------------------------
-    #         if isinstance(operation, START):
-    #
-    #             yield Timer(operation.delayCMD)
-    #
-    #             io.cmd_valid  <= 1
-    #             io.cmd_mode   <= I2CMasterHAL.CMD.START
-    #             io.cmd_data   <= 0x0
-    #
-    #             yield self.event_cmd_ready.wait()
-    #             io.cmd_valid  <= 0
-    #
-    #             yield RisingEdge(io.clk)
-    #
-    #         # WRITE ---------------------------------------------------------------
-    #         elif isinstance(operation, WRITE):
-    #
-    #             yield Timer(operation.delayCMD)
-    #
-    #             io.cmd_valid  <= 1
-    #             io.cmd_mode   <= I2CMasterHAL.CMD.WRITE
-    #             io.cmd_data   <= operation.data
-    #
-    #             yield self.event_cmd_ready.wait()
-    #             io.cmd_valid  <= 0
-    #
-    #             yield RisingEdge(io.clk)
-    #
-    #         # READ ----------------------------------------------------------------
-    #         elif isinstance(operation, READ):
-    #
-    #             yield Timer(operation.delayCMD)
-    #
-    #             io.cmd_valid  <= 1
-    #             io.cmd_mode   <= I2CMasterHAL.CMD.READ
-    #             io.cmd_data   <= 0
-    #
-    #             yield self.event_cmd_ready.wait()
-    #             io.cmd_valid  <= 0
-    #
-    #             yield RisingEdge(io.clk)
-    #
-    #         # ACK/NACK  -----------------------------------------------------------
-    #         elif isinstance(operation, ACK) or isinstance(operation, NACK):
-    #
-    #             prevOperation = listOperation[index-1]
-    #
-    #             if isinstance(prevOperation, READ):
-    #
-    #                 yield Timer(operation.delayCMD)
-    #
-    #                 io.cmd_valid  <= 1
-    #                 io.cmd_mode   <= I2CMasterHAL.CMD.ACK if isinstance(operation,ACK) else I2CMasterHAL.CMD.NACK
-    #                 io.cmd_data   <= 0
-    #
-    #                 yield self.event_cmd_ready.wait()
-    #                 io.cmd_valid  <= 0
-    #
-    #                 yield RisingEdge(io.clk)
-    #             #else:
-    #                 #yield FallingEdge(io.scl_rd)
-    #
-    #         # STOP ----------------------------------------------------------------
-    #         elif isinstance(operation, STOP):
-    #
-    #             yield Timer(operation.delayCMD)
-    #
-    #             io.cmd_valid  <= 1
-    #             io.cmd_mode   <= I2CMasterHAL.CMD.STOP
-    #             io.cmd_data   <= 0
-    #             yield RisingEdge(io.clk)
-    #
-    #             yield self.event_cmd_ready.wait()
-    #             io.cmd_valid  <= 0
-    #
-    #             yield RisingEdge(io.clk)
-    #
-    #
+
+    #==========================================================================
+    # Execute a list of operations
+    #==========================================================================
+    @cocotb.coroutine
+    def execOperations(self, listOperation):
+
+        # get all io of the master
+        io = self.io
+
+        # execute all operations
+        for index in range(0, len(listOperation)):
+
+            operation = listOperation[index]
+
+            # START ---------------------------------------------------------------
+            if isinstance(operation, START):
+
+                #yield Timer(operation.delayCMD)
+
+                io.cmd.valid        <= 1
+                io.cmd.payload.mode <= I2CMasterIoLayer.CMD.START
+                io.cmd.payload.data <= 0x0
+
+                yield io.cmd.event_ready.wait()
+                io.cmd.valid        <= 0
+
+                yield RisingEdge(io.clk)
+
+            # WRITE ---------------------------------------------------------------
+            elif isinstance(operation, WRITE_BIT):
+
+                #yield Timer(operation.delayCMD)
+
+                io.cmd.valid        <= 1
+                io.cmd.payload.mode <= I2CMasterIoLayer.CMD.DATA
+                io.cmd.payload.data <= operation.data
+
+                yield io.cmd.event_ready.wait()
+                io.cmd.valid        <= 0
+
+                yield RisingEdge(io.clk)
+
+            # READ  ---------------------------------------------------------------
+            elif isinstance(operation, READ_BIT):
+
+                #yield Timer(operation.delayCMD)
+
+                io.cmd.valid        <= 1
+                io.cmd.payload.mode <= I2CMasterIoLayer.CMD.DATA
+                io.cmd.payload.data <= 1
+
+                yield io.cmd.event_ready.wait()
+                io.cmd.valid        <= 0
+
+                yield RisingEdge(io.clk)
+
+            # STOP ----------------------------------------------------------------
+            elif isinstance(operation, STOP):
+
+                #yield Timer(operation.delayCMD)
+
+                io.cmd.valid        <= 1
+                io.cmd.payload.mode <= I2CMasterIoLayer.CMD.STOP
+                io.cmd.payload.data <= 0x0
+
+                yield io.cmd.event_ready.wait()
+                io.cmd.valid        <= 0
+
+                yield RisingEdge(io.clk)
+
+
     # #==========================================================================
     # # Check the response received from the master
     # #==========================================================================
