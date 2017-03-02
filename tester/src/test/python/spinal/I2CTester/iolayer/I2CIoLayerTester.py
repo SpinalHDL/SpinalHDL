@@ -23,10 +23,11 @@ def test_scenario(dut):
 
     listOperation = list()
 
-    listOperation.append( [START(), WRITE_BIT(), WRITE_BIT(), STOP()] )
-    listOperation.append( [START(), READ_BIT(),  READ_BIT(),  STOP()] )
+    listOperation.append( [START(), WRITE_BIT(0), WRITE_BIT(1), WRITE_BIT(0), STOP()] )
+    listOperation.append( [START(), READ_BIT(0),  READ_BIT(1),  STOP()] )
     listOperation.append( [START(), WRITE_BIT(), READ_BIT(),  STOP()] )
-    listOperation.append( [START(), READ_BIT(),  WRITE_BIT(), STOP()] )
+    listOperation.append( [START(), READ_BIT(0), START(), WRITE_BIT(0), STOP()] )
+
 
 
     for operationSeq in listOperation:
@@ -50,7 +51,7 @@ def test_scenario(dut):
         cocotb.fork(helperSlave.execOperations(operationSeq))
         #yield helperSlave.checkResponse(operationSeq)
 
-        yield Timer(250000)
+        yield Timer(500000)
 
         # Stop all processes
         clockDomain.stop()

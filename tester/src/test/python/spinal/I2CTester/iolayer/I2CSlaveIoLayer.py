@@ -128,13 +128,18 @@ class I2CSlaveIoLayer:
             # Start -----------------------------------------------------------
             if isinstance(operation, START):
 
+                if index != 0:
+                    io.rsp.valid        <= 1
+                    io.rsp.payload.data <= 1
                 #yield Timer(operation.delayRSP)
-                io.rsp.valid         <= 1
-                io.rsp.payload.data  <= 0
+                #io.rsp.valid         <= 1
+                #io.rsp.payload.data  <= 0
 
-                yield io.rsp.event_ready.wait()
+                # wait recepetion of the start
+                yield self.io.cmd.event_valid.wait()
 
                 io.rsp.valid <= 0
+
 
 
             # Write -----------------------------------------------------------

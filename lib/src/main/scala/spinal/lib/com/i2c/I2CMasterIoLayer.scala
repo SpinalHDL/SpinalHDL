@@ -219,7 +219,10 @@ class I2CMasterIoLayer(g: I2CMasterIoLayerGenerics) extends Component {
           dataReceived := sampler.sda
           io.rsp.valid := True
           io.rsp.data  := sampler.sda
-          io.cmd.ready := !(io.cmd.mode === CmdMode.DATA)
+        }
+
+        when(sclEdge.falling){
+          io.cmd.ready := (io.cmd.mode === CmdMode.DATA)
         }
 
         // check if a stop command occurs

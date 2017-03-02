@@ -172,10 +172,13 @@ class I2CSlaveIoLayer(g : I2CSlaveIoLayerGenerics) extends Component{
       // Always write
       when(sclEdge.rising) {
         bitReceived  := sampler.sda
-        io.cmd.valid := True
-        io.cmd.mode  := CmdMode.DATA
+      }
+
+      when(sclEdge.falling){
         when(io.rsp.valid){
           io.rsp.ready := True
+          io.cmd.valid := True
+          io.cmd.mode  := CmdMode.DATA
         }
       }
     }
