@@ -182,7 +182,7 @@ class SpinalEnumCraft[T <: SpinalEnum](val spinalEnum: T/*, encoding: SpinalEnum
 
   override def getZero: this.type = {
     val ret = clone
-    ret.assignFromBits(B(0))
+    ret.assignFromBits(B(0,getEncoding.getWidth(spinalEnum) bits))
     ret
   }
 
@@ -207,6 +207,9 @@ class EnumLiteral[T <: SpinalEnum](val enum: SpinalEnumElement[T]) extends Liter
     ret.copyEncodingConfig(this)
     ret
   }
+
+
+  override private[core] def getValue(): BigInt = encoding.getValue(enum)
 
   private[core] override def getBitsStringOn(bitCount: Int): String = {
     val str = encoding.getValue(enum).toString(2)
