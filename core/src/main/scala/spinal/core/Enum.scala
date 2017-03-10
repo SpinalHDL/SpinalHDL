@@ -209,7 +209,7 @@ class EnumLiteral[T <: SpinalEnum](val enum: SpinalEnumElement[T]) extends Liter
   }
 
 
-  override private[core] def getValue(): BigInt = encoding.getValue(enum)
+//  override private[core] def getValue(): BigInt = encoding.getValue(enum)
 
   private[core] override def getBitsStringOn(bitCount: Int): String = {
     val str = encoding.getValue(enum).toString(2)
