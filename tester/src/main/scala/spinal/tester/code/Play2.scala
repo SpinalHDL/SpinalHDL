@@ -3374,6 +3374,8 @@ object PlayDontCareEnum{
     val x = out(State()).assignDontCare()
     val y = out(State(binarySequential)).assignDontCare()
     val z = out(State(binaryOneHot)).assignDontCare()
+    z := State.A
+    addPrePopTask(() => z := State.B)
   }
   def main(args: Array[String]) {
     SpinalConfig(debug = true).generateVhdl(new TopLevel)
