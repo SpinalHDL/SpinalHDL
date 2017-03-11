@@ -129,7 +129,7 @@ class SpinalEnumCraft[T <: SpinalEnum](val spinalEnum: T/*, encoding: SpinalEnum
 
   private[core] override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = that match{
     case that : SpinalEnumCraft[T] => super.assignFromImpl(that, conservative)
-
+    case that : DontCareNodeEnum => super.assignFromImpl(that, conservative)
   }
 
   override def isEquals(that: Any): Bool = {
@@ -194,6 +194,11 @@ class SpinalEnumCraft[T <: SpinalEnum](val spinalEnum: T/*, encoding: SpinalEnum
   override private[core] def normalizeInputs: Unit = {
     InputNormalize.enumImpl(this)
   }
+
+  override def assignDontCare(): this.type = {
+    this.assignFrom(new DontCareNodeEnum(spinalEnum), conservative=false)
+    this
+  }
 }
 
 
@@ -209,7 +214,7 @@ class EnumLiteral[T <: SpinalEnum](val enum: SpinalEnumElement[T]) extends Liter
   }
 
 
-//  override private[core] def getValue(): BigInt = encoding.getValue(enum)
+  override private[core] def getValue(): BigInt = encoding.getValue(enum)
 
   private[core] override def getBitsStringOn(bitCount: Int): String = {
     val str = encoding.getValue(enum).toString(2)

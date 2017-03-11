@@ -793,12 +793,9 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
           var initAssignementBuilder = new StringBuilder()
           if (mem.initialContent != null) {
             initAssignementBuilder ++= " := ("
-            val values = mem.initialContent.map(e => {
-              e.hashCode()
-            })
 
             var first = true
-            for ((e, index) <- mem.initialContent.zipWithIndex) {
+            for ((value, index) <- mem.initialContent.zipWithIndex) {
               if (!first)
                 initAssignementBuilder ++= ","
               else
@@ -808,11 +805,9 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
                 initAssignementBuilder ++= "\n     "
               }
 
-              val values = (e.flatten, mem._widths).zipped.map((e, width) => {
-                e.getLiteral.getBitsStringOn(width)
-              })
-
-              initAssignementBuilder ++= "\"" + values.reduceLeft((l, r) => r + l) + "\""
+              val unfilledValue = value.toString(2)
+              val filledValue = "0" * (mem.getWidth-unfilledValue.length) + unfilledValue
+              initAssignementBuilder ++= "\"" + filledValue + "\""
             }
 
             initAssignementBuilder ++= ")"
@@ -1257,12 +1252,19 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
         (0 until symbolCount).reverse.map(i => (s"${emitReference(memRead.getMem)}_symbol$i(to_integer(${emitReference(memRead.getAddress)}))")).reduce(_ + " & " + _)
     }
     case whenNode: WhenNode => s"pkg_mux(${whenNode.getInputs.map(emitLogic(_)).reduce(_ + "," + _)})" //Exeptional case with asyncrouns of literal
+    case dc : DontCareNodeEnum => {
+      if(dc.encoding.isNative)
+        return "pkg_enum." + dc.enum.elements.head.getName()
+      else
+        return s"(${'"'}${"-" * dc.encoding.getWidth(dc.enum)}${'"'})"
+    }
     case dc: DontCareNode => {
       dc.getBaseType match {
         case to: Bool => s"'-'"
         case to: BitVector => s"(${'"'}${"-" * dc.asInstanceOf[Widthable].getWidth}${'"'})"
       }
     }
+
 
     case o => throw new Exception("Don't know how emit logic of " + o.getClass.getSimpleName)
   }

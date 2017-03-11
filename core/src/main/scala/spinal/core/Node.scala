@@ -741,6 +741,14 @@ class DontCareNode(target : BaseType) extends NodeWithoutInputs{
   override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
 }
 
+class DontCareNodeEnum(val enum: SpinalEnum) extends DontCareNode(null) with InferableEnumEncodingImpl {
+  override def getDefinition: SpinalEnum = enum
+
+  private[core] override def getDefaultEncoding(): SpinalEnumEncoding = enum.defaultEncoding
+}
+
+
+
 //TODO remove base type and add WidthProvider
 class DontCareNodeInfered(target : BaseType) extends DontCareNode(target) with Widthable{
   override def calcWidth: Int = target.asInstanceOf[WidthProvider].getWidth

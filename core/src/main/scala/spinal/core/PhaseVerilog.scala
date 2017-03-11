@@ -242,12 +242,11 @@ end
 
           if (mem.initialContent != null) {
             ret ++= "  initial begin\n"
-            for ((e, index) <- mem.initialContent.zipWithIndex) {
-              val values = (e.flatten, mem._widths).zipped.map((e, width) => {
-                e.getLiteral.getBitsStringOn(width)
-              })
+            for ((value, index) <- mem.initialContent.zipWithIndex) {
+              val unfilledValue = value.toString(2)
+              val filledValue = "0" * (mem.getWidth-unfilledValue.length) + unfilledValue
 
-              ret ++= s"    ${emitReference(mem)}[$index] = 'b${values.reduceLeft((l, r) => r + l)};\n"
+              ret ++= s"    ${emitReference(mem)}[$index] = 'b$filledValue;\n"
             }
 
             ret ++= "  end\n"
@@ -611,6 +610,10 @@ end
         "{" + (0 until symbolCount).reverse.map(i => (s"${emitReference(memRead.getMem)}_symbol$i[${emitReference(memRead.getAddress)}]")).reduce(_ + " , " + _) + "}"
     }
     case whenNode: WhenNode => s"(${emitLogic(whenNode.cond)} ? ${emitLogic(whenNode.whenTrue)} : ${emitLogic(whenNode.whenFalse)})" //Exeptional case with asyncrouns of literal
+    case dc : DontCareNodeEnum => {
+      val width = dc.encoding.getWidth(dc.enum)
+      s"(${width}'b${"x" * width})"
+    }
     case dc: DontCareNode => {
       dc.getBaseType match {
         case to: Bool => "1'bx"

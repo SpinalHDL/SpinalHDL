@@ -1859,6 +1859,26 @@ object PlayMinMax{
 
 
 object PlayMask{
+  case class MemConfig(dualPorted : Boolean)
+  case class MyBus() extends Bundle with IMasterSlave{
+    val adr = UInt(16 bits)
+    val writeData = Bits(16 bits)
+    val readData = Bits(16 bits)
+
+    override def asMaster(): Unit = {
+      out(adr,writeData)
+      in(readData)
+
+    }
+  }
+
+  case class CoreMem(cfg : MemConfig) extends Component{
+    val io = new Bundle{
+      val portA = MyBus()
+      val portB = if(cfg.dualPorted) MyBus() else null
+    }
+  }
+
   case class MyBundle() extends Bundle{
     val a,b,c = SInt(3 bits)
   }
@@ -3323,3 +3343,41 @@ object PlaRamMux{
     SpinalConfig(debug = true).generateVhdl(new TopLevel(J1Config(16,16)))
   }
 }
+
+
+object PlayAlu{
+
+  class TopLevel extends Component{
+    val a,b = in Bits(32 bits)
+    val doSub = in Bool
+    val doUnsignedLess = in Bool
+    val addSub = out((a.asSInt + Mux(doSub, ~b, b).asSInt + Mux(doSub,S(1),S(0))).asBits)
+
+
+    // SLT, SLTU
+    val less  = out(Mux(a.msb === b.msb, addSub.msb,
+      Mux(doUnsignedLess, b.msb, a.msb)))
+
+
+  }
+  def main(args: Array[String]) {
+    SpinalConfig(debug = true).generateVhdl(new TopLevel)
+  }
+}
+
+object PlayDontCareEnum{
+  object State extends SpinalEnum{
+    val A,B,C = newElement()
+  }
+
+  class TopLevel extends Component{
+    val x = out(State()).assignDontCare()
+    val y = out(State(binarySequential)).assignDontCare()
+    val z = out(State(binaryOneHot)).assignDontCare()
+  }
+  def main(args: Array[String]) {
+    SpinalConfig(debug = true).generateVhdl(new TopLevel)
+    SpinalConfig(debug = true).generateVerilog(new TopLevel)
+  }
+}
+
