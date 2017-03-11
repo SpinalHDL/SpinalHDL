@@ -309,7 +309,7 @@ end
 
       if (process.sensitivity.size != 0) {
         val tmp = new StringBuilder
-        emitAssignementLevel(context,tmp, "    ", "<=",false,process.sensitivity)
+        emitAssignementLevel(context,tmp, "    ", "=",false,process.sensitivity)
 
         ret ++= s"  always @ (${process.sensitivity.toList.sortWith(_.instanceCounter < _.instanceCounter).map(emitReference(_)).reduceLeft(_ + " or " + _)})\n"
         ret ++= "  begin\n"
