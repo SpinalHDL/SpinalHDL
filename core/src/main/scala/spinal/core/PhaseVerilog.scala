@@ -234,10 +234,10 @@ end
 
              for(i <- 0 until symbolCount) {
               val postfix = "_symbol" + i
-              ret ++= s"  ${emitAttributes(mem.instanceAttributes)}reg [${symbolWidth- 1}:0] ${emitReference(mem)}$postfix [0:${mem.wordCount - 1}];\n"
+              ret ++= s"  reg [${symbolWidth- 1}:0] ${emitReference(mem)}$postfix [0:${mem.wordCount - 1}]${emitAttributes(mem.instanceAttributes)};\n"
             }
           }else{
-            ret ++= s"  ${emitAttributes(mem.instanceAttributes)}reg ${emitRange(mem)} ${emitReference(mem)} [0:${mem.wordCount - 1}];\n"
+            ret ++= s"  reg ${emitRange(mem)} ${emitReference(mem)} [0:${mem.wordCount - 1}]${emitAttributes(mem.instanceAttributes)};\n"
           }
 
           if (mem.initialContent != null) {
@@ -283,7 +283,7 @@ end
       case attribute: AttributeFlag => attribute.getName
     }
     if(values.isEmpty) return ""
-    "(* " + values.reduce(_ + " , " + _) + " *) "
+    "/* " + values.reduce(_ + " , " + _) + " */ "
   }
 
   def signalNeedProcess(baseType: BaseType) : Boolean = {
