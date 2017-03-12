@@ -89,7 +89,7 @@ class PhaseVerilog(pc : PhaseContext) extends PhaseMisc with VerilogBase {
     ret = builder.newPart(true)
     ret ++= s"( \n"
     component.getOrdredNodeIo.foreach(baseType => {
-      ret ++= s"  ${emitAttributes(baseType.instanceAndSyncNodeAttributes)}${emitDirection(baseType)} ${if(signalNeedProcess(baseType)) "reg " else ""}${emitDataType(baseType)} ${baseType.getName()}${getBaseTypeSignalInitialisation(baseType)},\n"
+      ret ++= s"  ${emitDirection(baseType)} ${if(signalNeedProcess(baseType)) "reg " else ""}${emitDataType(baseType)} ${baseType.getName()}${getBaseTypeSignalInitialisation(baseType)}${emitAttributes(baseType.instanceAndSyncNodeAttributes)},\n"
     })
 
     ret.setCharAt(ret.size - 2, ' ')
@@ -219,7 +219,7 @@ end
       node match {
         case signal: BaseType => {
           if (!signal.isIo) {
-            ret ++= s"  ${emitAttributes(signal.instanceAndSyncNodeAttributes)}${if(signalNeedProcess(signal)) "reg " else "wire "}${emitDataType(signal)} ${emitReference(signal)}${getBaseTypeSignalInitialisation(signal)};\n"
+            ret ++= s"  ${if(signalNeedProcess(signal)) "reg " else "wire "}${emitDataType(signal)} ${emitReference(signal)}${getBaseTypeSignalInitialisation(signal)}${emitAttributes(signal.instanceAndSyncNodeAttributes)};\n"
           }
         }
 
