@@ -85,6 +85,8 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
   private[core] val kindsOutputsToBindings = mutable.Map[BaseType, BaseType]()
   private[core] val kindsOutputsBindings = mutable.Set[BaseType]()
   private[core] val additionalNodesRoot = mutable.Set[Node]()
+  def getAdditionalNodesRoot : mutable.Set[Node] = additionalNodesRoot
+
   /** Definition Name (name of the entity (VHDL) or module (Verilog))*/
   var definitionName: String = null
   /** Hierarchy level of the component */
