@@ -135,7 +135,7 @@ object S extends BitVectorLiteralFactory[SInt] {
 trait Literal extends Node {
   override def clone: this.type = ???
   private[core] def getBitsStringOn(bitCount : Int) : String
-  private[core] def getValue() : BigInt
+  def getValue() : BigInt
 
   override def getInput(id: Int): Node = ???
   override def getInputs: Iterator[Node] = Iterator()
@@ -205,7 +205,7 @@ abstract class BitVectorLiteral(val value: BigInt, val bitCount: Integer,val has
   if(globalData.nodeAreInferringWidth) inferredWidth = bitCount
 
 
-  override private[core] def getValue(): BigInt = value
+  override def getValue(): BigInt = value
 
   override def getBitsStringOn(bitCount: Int): String = {
     def makeIt(fillWidth : Boolean) : String = {
@@ -241,7 +241,7 @@ class SIntLiteral(value: BigInt, bitCount: Integer,hasSpecifiedBitCount : Boolea
 class BitsAllToLiteral(val theConsumer : Node,val value: Boolean) extends Literal with Widthable {
   override def calcWidth: Int = theConsumer.asInstanceOf[WidthProvider].getWidth
   override def getBitsStringOn(bitCount: Int): String = (if(value) "1" else "0" ) * bitCount
-  override private[core] def getValue(): BigInt = if(value) (BigInt(1) << getWidth) - 1 else 0
+  override def getValue(): BigInt = if(value) (BigInt(1) << getWidth) - 1 else 0
 }
 
 
@@ -256,7 +256,7 @@ object BoolLiteral {
 class BoolLiteral(val value: Boolean) extends Literal {
   override def clone(): this.type = new BoolLiteral(value).asInstanceOf[this.type]
 
-  override private[core] def getValue(): BigInt = if(value) 1 else 0
+  override def getValue(): BigInt = if(value) 1 else 0
   override def getBitsStringOn(bitCount: Int): String = {
     assert(bitCount == 1)
     (if(value) "1" else "0")
