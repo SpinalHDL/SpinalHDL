@@ -1615,11 +1615,11 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
             case lit: EnumLiteral[_] => emitEnumLiteral(lit.enum, lit.encoding)
           }
           ret ++= s"${tab}  when $litString =>\n"
-          emitAssignementLevel(c.doThat,ret,tab + "    ","<=")
+          emitAssignementLevel(c.doThat,ret,tab + "    ",assignementKind)
         })
         ret ++= s"${tab}  when others =>\n"
         if(switchTree.default != null){
-          emitAssignementLevel(switchTree.default.doThat,ret,tab + "    ","<=")
+          emitAssignementLevel(switchTree.default.doThat,ret,tab + "    ",assignementKind)
         }
         ret ++= s"${tab}end case;\n"
       }

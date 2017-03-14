@@ -952,12 +952,12 @@ end
         ret ++= s"${tab}case(${emitLogic(switchTree.key)})\n"
         switchTree.cases.foreach(c => {
           ret ++= s"${tab}  ${emitLogic(c.const)} : begin\n"
-          emitAssignementLevel(c.doThat,ret,tab + "    ","<=")
+          emitAssignementLevel(c.doThat,ret,tab + "    ",assignementKind)
           ret ++= s"${tab}  end\n"
         })
         ret ++= s"${tab}  default : begin\n"
         if(switchTree.default != null){
-          emitAssignementLevel(switchTree.default.doThat,ret,tab + "    ","<=")
+          emitAssignementLevel(switchTree.default.doThat,ret,tab + "    ",assignementKind)
         }
         ret ++= s"${tab}  end\n"
         ret ++= s"${tab}endcase\n"
