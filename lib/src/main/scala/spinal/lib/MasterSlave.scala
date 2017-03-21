@@ -3,6 +3,9 @@ package spinal.lib
 import spinal.core.Data
 
 trait IMasterSlave {
+
+  var isMasterInterface: Boolean = false
+
   def asMaster(): Unit
   def asSlave(): Unit = master(this).asInstanceOf[Data].flip
 }
@@ -64,6 +67,7 @@ trait MS{
 object master extends MS{
   override def apply[T <: IMasterSlave](i: T) = {
     i.asMaster()
+    i.isMasterInterface = true
     i
   }
 }
@@ -71,6 +75,7 @@ object master extends MS{
 object slave extends MS {
   def apply[T <: IMasterSlave](i: T) = {
     i.asSlave()
+    i.isMasterInterface = false
     i
   }
 }
