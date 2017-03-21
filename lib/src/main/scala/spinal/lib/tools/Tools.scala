@@ -7,11 +7,11 @@ import spinal.core._
   * Convert a BigInt into a List of Boolean
   * @example {{{
   *
-  *    BigInt2ListBoolean(14, 4 bits)
+  *    BigIntToListBoolean(14, 4 bits)
   *    // List(false, true, true, true)
   * }}}
   */
-object BigInt2ListBoolean{
+object BigIntToListBoolean{
 
   def apply(value: BigInt, size: BitCount): List[Boolean] = {
     def bigInt2ListBool(that: BigInt): List[Boolean] = {
