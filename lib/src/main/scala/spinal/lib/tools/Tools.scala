@@ -14,12 +14,23 @@ import spinal.core._
 object BigIntToListBoolean{
 
   def apply(value: BigInt, size: BitCount): List[Boolean] = {
+
+    assert(size.value >= 0, "The size must be bigger than 0")
+
     def bigInt2ListBool(that: BigInt): List[Boolean] = {
       if(that == 0)  Nil
       else List(that.testBit(0)) ::: bigInt2ListBool(that >> 1)
     }
 
-    castListBool(bigInt2ListBool(value), size.value)
+    var listBoolean = List[Boolean]()
+
+    if(value < 0){
+      listBoolean = bigInt2ListBool((value.abs ^ ((BigInt(1) << size.value) - 1)) + 1)
+    }else{
+      listBoolean = bigInt2ListBool(value)
+    }
+
+    castListBool(listBoolean, size.value)
   }
 
   private def castListBool(l: List[Boolean], size: Int): List[Boolean] = {
@@ -28,3 +39,4 @@ object BigIntToListBoolean{
     else                      l ::: List.fill(size - l.length)(false)
   }
 }
+
