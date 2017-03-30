@@ -56,6 +56,11 @@ object BaseType {
         globalData.pendingErrors += (() => (s"Hierarchy violation : Output signal $dst can't be assigned by $src\n$trace"))
       }
     }
+
+    if(dst.hasTag(tagAutoResize)){
+      val trace = ScalaLocated.long
+      globalData.pendingErrors += (() => (s"${dst.input}.resized := ${src} doesn't make sense.\n$trace"))
+    }
   }
 
   def walkWhenNodes(baseType: BaseType, initialConsumer: Node, initialConsumerInputId: Int, conservative: Boolean = false) : (Node, Int) = {
