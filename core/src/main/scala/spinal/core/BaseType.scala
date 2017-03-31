@@ -59,7 +59,7 @@ object BaseType {
 
     if(dst.hasTag(tagAutoResize)){
       val trace = ScalaLocated.long
-      globalData.pendingErrors += (() => (s"${dst.input}.resized := ${src} doesn't make sense.\n$trace"))
+      globalData.pendingErrors += (() => (s"xxx.resized := yyy is not something legal. You can do xxx := yyy.resized to automaticaly resize yyy to the correct size, OR this : \nxxx := SomePaddedValue\nxxx(yyy.range) := yyy\n$trace"))
     }
   }
 
