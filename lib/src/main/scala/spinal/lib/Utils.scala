@@ -683,7 +683,7 @@ class TraversableOnceAnyPimped[T <: Any](pimped: Seq[T]) {
   def apply(id : UInt)(gen : (T) => Unit): Unit ={
     assert(widthOf(id) == log2Up(pimped.size))
     for((e,i) <- pimped.zipWithIndex) {
-      when(i === id){
+      when(id === i){
         gen(e)
       }
     }
