@@ -922,7 +922,6 @@ private[spinal] object Multiplex {
 abstract class Extract extends Modifier{
   def getBitVector: Node
   def getParameterNodes: List[Node]
-  def getInputData: Node
 }
 
 abstract class ExtractBoolFixed extends Extract with CheckWidth{
@@ -952,7 +951,6 @@ abstract class ExtractBoolFixed extends Extract with CheckWidth{
         (-1,0)
   }
   def getParameterNodes: List[Node] = Nil
-  def getInputData: Node = getBitVector
 }
 
 class ExtractBoolFixedFromBits extends ExtractBoolFixed{
@@ -994,7 +992,6 @@ abstract class ExtractBoolFloating extends Extract {
   def getBitId = bitId
 
   def getParameterNodes: List[Node] = getInput(1) :: Nil
-  def getInputData: Node = getBitVector
   override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
     case 0 =>
       if(outHi >= 0 && outLo == 0)
@@ -1052,7 +1049,6 @@ abstract class ExtractBitsVectorFixed extends Extract with WidthProvider with Ch
   override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
     case 0 => (lo+outHi, lo+outLo)
   }
-  def getInputData: Node = getBitVector
 }
 
 class ExtractBitsVectorFixedFromBits extends ExtractBitsVectorFixed{
@@ -1112,7 +1108,6 @@ abstract class ExtractBitsVectorFloating extends Extract with WidthProvider {
         (-1,0)
     case 2 => (-1,0)
   }
-  def getInputData: Node = getBitVector
 }
 
 class ExtractBitsVectorFloatingFromBits extends ExtractBitsVectorFloating{

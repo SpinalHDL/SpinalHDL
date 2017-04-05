@@ -1867,7 +1867,7 @@ object SpinalVhdlBoot{
 
 
 
-class PhaseDontSymplifyVerilogMismatchingWidth(pc: PhaseContext) extends PhaseMisc{
+class PhaseDontSymplifySomeNodesVerilog(pc: PhaseContext) extends PhaseMisc{
   override def useNodeConsumers = true
   override def impl(pc : PhaseContext): Unit = {
     def applyTo(that : Node): Unit ={
@@ -1880,9 +1880,14 @@ class PhaseDontSymplifyVerilogMismatchingWidth(pc: PhaseContext) extends PhaseMi
     import pc._
     Node.walk(walkNodesDefautStack,node => {
       node match {
-        case node: Resize => applyTo(node)
-        case node: Modifier => applyTo(node) // .....
+        case node: Resize  => applyTo(node)
+        case node: Extract => node.getBitVector.asInstanceOf[BitVector].dontSimplifyIt()
         case node: Literal => applyTo(node)
+//        case node: Cast    => applyTo(node)
+        case node: SInt    => node.dontSimplifyIt()
+        case node: UInt    => node.dontSimplifyIt()
+//        case node: Bool    => node.dontSimplifyIt()
+//        case node: Modifier if node.consumers.size == 1 && node.consumers(0).isInstanceOf[SInt] => applyTo(node) // .....
 //        case node: Operator.BitVector.Add => applyTo(node)
 //        case node: Operator.BitVector.Sub => applyTo(node)
 //        case node: Operator.BitVector.ShiftRightByInt => applyTo(node)
@@ -1993,7 +1998,7 @@ object SpinalVerilogBoot{
 
     phases += new PhaseDummy(SpinalProgress("Simplify graph's nodes"))
     phases += new PhaseDontSymplifyBasetypeWithComplexAssignement(pc)
-    phases += new PhaseDontSymplifyVerilogMismatchingWidth(pc)    //VERILOG
+    phases += new PhaseDontSymplifySomeNodesVerilog(pc)    //VERILOG
     phases += new PhaseDeleteUselessBaseTypes(pc)
 
     phases += new PhaseCompletSwitchCases
