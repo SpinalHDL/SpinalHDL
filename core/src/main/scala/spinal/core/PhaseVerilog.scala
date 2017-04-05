@@ -89,7 +89,7 @@ class PhaseVerilog(pc : PhaseContext) extends PhaseMisc with VerilogBase {
     ret = builder.newPart(true)
     ret ++= s"( \n"
     component.getOrdredNodeIo.foreach(baseType => {
-      ret ++= s"  ${emitDirection(baseType)} ${if(signalNeedProcess(baseType)) "reg " else ""}${emitDataType(baseType)} ${baseType.getName()}${getBaseTypeSignalInitialisation(baseType)}${emitAttributes(baseType.instanceAndSyncNodeAttributes)},\n"
+      ret ++= s"  ${emitSyntaxAttributes(baseType.instanceAndSyncNodeAttributes)}${emitDirection(baseType)} ${if(signalNeedProcess(baseType)) "reg " else ""}${emitDataType(baseType)} ${baseType.getName()}${getBaseTypeSignalInitialisation(baseType)}${emitCommentAttributes(baseType.instanceAndSyncNodeAttributes)},\n"
     })
 
     ret.setCharAt(ret.size - 2, ' ')
@@ -219,7 +219,7 @@ end
       node match {
         case signal: BaseType => {
           if (!signal.isIo) {
-            ret ++= s"  ${if(signalNeedProcess(signal)) "reg " else "wire "}${emitDataType(signal)} ${emitReference(signal)}${getBaseTypeSignalInitialisation(signal)}${emitAttributes(signal.instanceAndSyncNodeAttributes)};\n"
+            ret ++= s"  ${emitSyntaxAttributes(signal.instanceAndSyncNodeAttributes)}${if(signalNeedProcess(signal)) "reg " else "wire "}${emitDataType(signal)} ${emitReference(signal)}${getBaseTypeSignalInitialisation(signal)}${emitCommentAttributes(signal.instanceAndSyncNodeAttributes)};\n"
           }
         }
 
@@ -234,10 +234,10 @@ end
 
              for(i <- 0 until symbolCount) {
               val postfix = "_symbol" + i
-              ret ++= s"  reg [${symbolWidth- 1}:0] ${emitReference(mem)}$postfix [0:${mem.wordCount - 1}]${emitAttributes(mem.instanceAttributes)};\n"
+              ret ++= s"  ${emitSyntaxAttributes(mem.instanceAttributes)}reg [${symbolWidth- 1}:0] ${emitReference(mem)}$postfix [0:${mem.wordCount - 1}]${emitCommentAttributes(mem.instanceAttributes)};\n"
             }
           }else{
-            ret ++= s"  reg ${emitRange(mem)} ${emitReference(mem)} [0:${mem.wordCount - 1}]${emitAttributes(mem.instanceAttributes)};\n"
+            ret ++= s"  ${emitSyntaxAttributes(mem.instanceAttributes)}reg ${emitRange(mem)} ${emitReference(mem)} [0:${mem.wordCount - 1}]${emitCommentAttributes(mem.instanceAttributes)};\n"
           }
 
           if (mem.initialContent != null) {
@@ -276,9 +276,17 @@ end
     }
   }
 
+  def emitSyntaxAttributes(attributes: Iterable[Attribute]): String = {
+    val values = for (attribute <- attributes if attribute.attributeKind() == DEFAULT_ATTRIBUTE) yield attribute match {
+      case attribute: AttributeString => attribute.getName + " = \"" + attribute.value + "\""
+      case attribute: AttributeFlag => attribute.getName
+    }
+    if(values.isEmpty) return ""
+    "(* " + values.reduce(_ + " , " + _) + " *) "
+  }
 
-  def emitAttributes(attributes: Iterable[Attribute]): String = {
-    val values = for (attribute <- attributes) yield attribute match {
+  def emitCommentAttributes(attributes: Iterable[Attribute]): String = {
+    val values = for (attribute <- attributes if attribute.attributeKind() == COMMENT_ATTRIBUTE) yield attribute match {
       case attribute: AttributeString => attribute.getName + " = \"" + attribute.value + "\""
       case attribute: AttributeFlag => attribute.getName
     }
