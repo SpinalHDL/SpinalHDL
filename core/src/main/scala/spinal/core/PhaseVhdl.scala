@@ -684,14 +684,14 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     val genericFlat = component.getGeneric.flatten
     if (genericFlat.size != 0) {
       ret ++= s"    generic( \n"
-      for ((name, e) <- genericFlat) {
+      for (e <- genericFlat) {
         e match {
           case baseType: BaseType => ret ++= s"      ${emitReference(baseType)} : ${blackBoxRemplaceULogic(component, emitDataType(baseType, true))};\n"
-          case s: String => ret ++= s"      $name : string;\n"
-          case i: Int => ret ++= s"      $name : integer;\n"
-          case d: Double => ret ++= s"      $name : real;\n"
-          case b: Boolean => ret ++= s"      $name : boolean;\n"
-          case b: TimeNumber => ret ++= s"      $name : time;\n"
+          case (name : String,s: String) => ret ++= s"      $name : string;\n"
+          case (name : String,i : Int) => ret ++= s"      $name : integer;\n"
+          case (name : String,d: Double) => ret ++= s"      $name : real;\n"
+          case (name : String,b: Boolean) => ret ++= s"      $name : boolean;\n"
+          case (name : String,t: TimeNumber) => ret ++= s"      $name : time;\n"
         }
       }
 
@@ -1671,14 +1671,14 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
           ret ++= s"    generic map( \n"
 
 
-          for ((name, e) <- genericFlat) {
+          for (e <- genericFlat) {
             e match {
               case baseType: BaseType => ret ++= addULogicCast(baseType, emitReference(baseType), emitLogic(baseType.getInput(0)), in)
-              case s: String => ret ++= s"      ${name} => ${"\""}${s}${"\""},\n"
-              case i: Int => ret ++= s"      ${name} => $i,\n"
-              case d: Double => ret ++= s"      ${name} => $d,\n"
-              case b: Boolean => ret ++= s"      ${name} => $b,\n"
-              case t: TimeNumber => {
+              case (name : String,s: String) => ret ++= s"      ${name} => ${"\""}${s}${"\""},\n"
+              case (name : String,i : Int) => ret ++= s"      ${name} => $i,\n"
+              case (name : String,d: Double) => ret ++= s"      ${name} => $d,\n"
+              case (name : String,b: Boolean) => ret ++= s"      ${name} => $b,\n"
+              case (name : String,t: TimeNumber) => {
                 val d = t.decompose
                 ret ++= s"      ${name} => ${d._1} ${d._2},\n"
               }

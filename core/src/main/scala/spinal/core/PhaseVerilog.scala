@@ -987,18 +987,13 @@ end
 
         if (genericFlat.size != 0) {
           ret ++= s"#( \n"
-
-
-          for ((name, e) <- genericFlat) {
+          for (e <- genericFlat) {
             e match {
-              case baseType: BaseType => ret ++= s"    .${name}(${emitLogic(baseType.getInput(0))}),\n"
-              case s: String => ret ++= s"    .${name}(${"\""}${s}${"\""}),\n"
-              case i: Int => ret ++= s"    .${name}($i),\n"
-              case d: Double => ret ++= s"    .${name}($d),\n"
-              case b: Boolean => ret ++= s"    .${name}($b),\n"
-//              case t: STime => {
-//                ???
-//              }
+              case baseType: BaseType => ret ++= s"    .${emitReference(baseType)}(${emitLogic(baseType.getInput(0))}),\n"
+              case (name : String,s : String) => ret ++= s"    .${name}(${"\""}${s}${"\""}),\n"
+              case (name : String,i : Int) => ret ++= s"    .${name}($i),\n"
+              case (name : String,d : Double) => ret ++= s"    .${name}($d),\n"
+              case (name : String,b : Boolean) => ret ++= s"    .${name}($b),\n"
             }
           }
           ret.setCharAt(ret.size - 2, ' ')
