@@ -111,7 +111,6 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
       s"""library IEEE;
          |use IEEE.STD_LOGIC_1164.ALL;
          |use IEEE.NUMERIC_STD.all;
-         |use ieee.math_real.all;
          |
          |package $enumPackageName is
                                     |""".stripMargin
