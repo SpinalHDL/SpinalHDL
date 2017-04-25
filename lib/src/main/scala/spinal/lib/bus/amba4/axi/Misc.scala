@@ -21,7 +21,7 @@ object  Axi4SpecRenamer{
 
     that
   }
-  
+
   def main(args: Array[String]) {
     SpinalVhdl(new Component{
       val c = Axi4Config(32,32,4)
