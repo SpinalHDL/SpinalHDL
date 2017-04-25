@@ -1,6 +1,5 @@
 package spinal.tester.code
 
-import spinal.core
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba3.ahblite._
@@ -10,7 +9,6 @@ import spinal.lib.bus.misc.{BusSlaveFactoryConfig, BusSlaveFactory}
 import spinal.lib.io.TriState
 import spinal.lib.memory.sdram.W9825G6JH6
 import spinal.lib.soc.pinsec.{Pinsec, PinsecConfig}
-import spinal.lib.crypto.symmetric._
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -895,61 +893,6 @@ object PlayMasked232{
 
   def main(args: Array[String]) {
     SpinalVhdl(new TopLevel)
-  }
-}
-
-
-
-
-object PlayDesBlock{
-
-  class DES_Block_Tester() extends Component{
-
-    val g    = DESBlockGenerics()
-    val gIO  = SymmetricCryptoBlockGeneric(   keyWidth    = g.keyWidth + g.keyWidthParity,
-                                              blockWidth  = g.blockWidth,
-                                              useEncDec   = true)
-
-    val io = new SymmetricCryptoBlockIO(gIO)
-
-    val des = new DESBlock(g)
-
-    des.io <> io
-  }
-
-  def main(args: Array[String]) {
-    SpinalConfig(
-      mode = Verilog,
-      dumpWave = DumpWaveConfig(depth = 0),
-      defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
-      defaultClockDomainFrequency = FixedFrequency(50 MHz)
-    ).generate(new DES_Block_Tester).printPruned()
-  }
-}
-
-
-object Play3DESBlock{
-
-  class Triple_DES_Tester extends Component{
-
-    val gDES = DESBlockGenerics()
-    val gIO  = SymmetricCryptoBlockGeneric(keyWidth    = ((gDES.keyWidth.value + gDES.keyWidthParity.value) * 3) bits, // TODO remove .value
-                                           blockWidth  = gDES.blockWidth,
-                                           useEncDec   = true)
-
-    val io = new SymmetricCryptoBlockIO(gIO)
-
-    val des3 = new TripleDESBlock()
-    des3.io <> io
-  }
-
-  def main(args: Array[String]) {
-    SpinalConfig(
-      mode = Verilog,
-      dumpWave = DumpWaveConfig(depth = 0),
-      defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
-      defaultClockDomainFrequency  = FixedFrequency(50 MHz)
-    ).generate(new Triple_DES_Tester).printPruned
   }
 }
 
