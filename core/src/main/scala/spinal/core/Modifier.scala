@@ -232,20 +232,21 @@ object Operator{
       override def simplifyNode: Unit = {SymplifyNode.binaryThatIfBoth(False)(this)}
     }
 
-    abstract class ShiftRightByInt(val shift : Int) extends ConstantOperatorWidthableInputs with Widthable{
+    trait ShiftOperator
+    abstract class ShiftRightByInt(val shift : Int) extends ConstantOperatorWidthableInputs with Widthable with ShiftOperator{
       assert(shift >= 0)
       override def calcWidth(): Int = Math.max(0, input.getWidth - shift)
       override def normalizeInputs: Unit = {}
       override def simplifyNode: Unit = {SymplifyNode.shiftRightImpl(this)}
     }
 
-    abstract class ShiftRightByUInt extends BinaryOperatorWidthableInputs with Widthable{
+    abstract class ShiftRightByUInt extends BinaryOperatorWidthableInputs with Widthable with ShiftOperator{
       override def calcWidth(): Int = left.getWidth
       override def normalizeInputs: Unit = {}
       override def simplifyNode: Unit = {SymplifyNode.shiftRightImpl(this)}
     }
 
-    abstract class ShiftLeftByInt(val shift : Int) extends ConstantOperatorWidthableInputs with Widthable{
+    abstract class ShiftLeftByInt(val shift : Int) extends ConstantOperatorWidthableInputs with Widthable with ShiftOperator{
       assert(shift >= 0)
       override def calcWidth(): Int = input.getWidth + shift
       override def normalizeInputs: Unit = {}
@@ -253,7 +254,7 @@ object Operator{
       def getLiteralFactory : (BigInt, BitCount) => Node
     }
 
-    abstract class ShiftLeftByUInt extends BinaryOperatorWidthableInputs with Widthable{
+    abstract class ShiftLeftByUInt extends BinaryOperatorWidthableInputs with Widthable with ShiftOperator{
       override def calcWidth(): Int = left.getWidth + (1 << right.getWidth) - 1
       override def normalizeInputs: Unit = {}
       override def simplifyNode: Unit = {SymplifyNode.shiftLeftImpl(getLiteralFactory,this)}
@@ -261,14 +262,14 @@ object Operator{
     }
 
 
-    abstract class ShiftRightByIntFixedWidth(val shift : Int) extends ConstantOperatorWidthableInputs with Widthable{
+    abstract class ShiftRightByIntFixedWidth(val shift : Int) extends ConstantOperatorWidthableInputs with Widthable with ShiftOperator{
       assert(shift >= 0)
       override def calcWidth(): Int = input.getWidth
       override def normalizeInputs: Unit = {}
       override def simplifyNode: Unit = {SymplifyNode.shiftRightFixedWidthImpl(this)}
     }
 
-    abstract class ShiftLeftByIntFixedWidth(val shift : Int) extends ConstantOperatorWidthableInputs with Widthable{
+    abstract class ShiftLeftByIntFixedWidth(val shift : Int) extends ConstantOperatorWidthableInputs with Widthable with ShiftOperator{
       assert(shift >= 0)
       override def calcWidth(): Int = input.getWidth
       override def normalizeInputs: Unit = {}
@@ -276,7 +277,7 @@ object Operator{
       def getLiteralFactory : (BigInt, BitCount) => Node
     }
 
-    abstract class ShiftLeftByUIntFixedWidth extends BinaryOperatorWidthableInputs with Widthable{
+    abstract class ShiftLeftByUIntFixedWidth extends BinaryOperatorWidthableInputs with Widthable with ShiftOperator{
       override def calcWidth(): Int = left.getWidth
       override def normalizeInputs: Unit = {}
       override def simplifyNode: Unit = {SymplifyNode.shiftLeftFixedWidthImpl(getLiteralFactory,this)}

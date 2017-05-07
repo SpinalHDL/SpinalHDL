@@ -1890,7 +1890,7 @@ class PhaseDontSymplifySomeNodesVerilog(pc: PhaseContext) extends PhaseMisc{
 //        case node: Modifier if node.consumers.size == 1 && node.consumers(0).isInstanceOf[SInt] => applyTo(node) // .....
 //        case node: Operator.BitVector.Add => applyTo(node)
 //        case node: Operator.BitVector.Sub => applyTo(node)
-//        case node: Operator.BitVector.ShiftRightByInt => applyTo(node)
+        case node: Operator.BitVector.ShiftOperator => applyTo(node)
 //        case node: Operator.Bits.Cat => applyTo(node)
 //        case node : Extract => applyTo(node)
         case _ =>
