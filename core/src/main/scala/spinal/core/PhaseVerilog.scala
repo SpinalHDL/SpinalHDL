@@ -309,6 +309,7 @@ end
       }
     }
 
+    referenceSet = mutable.Set[Node with Nameable with ContextUser]()
     for ((process,idx) <- processList.zipWithIndex if process.needProcessDef) {
       process.genSensitivity
 
@@ -317,9 +318,10 @@ end
 
       if (process.sensitivity.size != 0) {
         val tmp = new StringBuilder
+        referenceSet.clear()
         emitAssignementLevel(context,tmp, "    ", "=",false,process.sensitivity)
 
-        ret ++= s"  always @ (${process.sensitivity.toList.sortWith(_.instanceCounter < _.instanceCounter).map(emitReference(_)).reduceLeft(_ + " or " + _)})\n"
+        ret ++= s"  always @ (${referenceSet.toList.sortWith(_.instanceCounter < _.instanceCounter).map(emitReference(_)).reduceLeft(_ + " or " + _)})\n"
         ret ++= "  begin\n"
         ret ++= tmp
 //        val senList = process.sensitivity.toList
@@ -335,7 +337,7 @@ end
         }
       }
     }
-
+    referenceSet = null
   }
 
 
@@ -897,7 +899,7 @@ end
               ret ++= s"${tab}if (!$cond) begin\n"
               ret ++= s"""${tab}  $$display("$severity $message");\n"""
               if(assertNode.severity == `FAILURE`) ret ++= tab + "  $finish;\n"
-              ret ++= s"end\n"
+              ret ++= s"${tab}end\n"
             }
           }
           val rootContext = new AssignementLevel(assignementTasks)
@@ -911,10 +913,10 @@ end
     from match {
       case from: AssignementNode => {
         from match {
-          case assign: BitAssignmentFixed => ret ++= s"$tab${emitReference(to)}[${assign.getBitId}] ${assignementKind} ${emitLogic(assign.getInput)};\n"
-          case assign: BitAssignmentFloating => ret ++= s"$tab${emitReference(to)}[${emitLogic(assign.getBitId)}] ${assignementKind} ${emitLogic(assign.getInput)};\n"
-          case assign: RangedAssignmentFixed => ret ++= s"$tab${emitReference(to)}[${assign.getHi} : ${assign.getLo}] ${assignementKind} ${emitLogic(assign.getInput)};\n"
-          case assign: RangedAssignmentFloating => ret ++= s"$tab${emitReference(to)}[${emitLogic(assign.getOffset)} +: ${assign.getBitCount.value}] ${assignementKind} ${emitLogic(assign.getInput)};\n"
+          case assign: BitAssignmentFixed => ret ++= s"$tab${emitAssignedReference(to)}[${assign.getBitId}] ${assignementKind} ${emitLogic(assign.getInput)};\n"
+          case assign: BitAssignmentFloating => ret ++= s"$tab${emitAssignedReference(to)}[${emitLogic(assign.getBitId)}] ${assignementKind} ${emitLogic(assign.getInput)};\n"
+          case assign: RangedAssignmentFixed => ret ++= s"$tab${emitAssignedReference(to)}[${assign.getHi} : ${assign.getLo}] ${assignementKind} ${emitLogic(assign.getInput)};\n"
+          case assign: RangedAssignmentFloating => ret ++= s"$tab${emitAssignedReference(to)}[${emitLogic(assign.getOffset)} +: ${assign.getBitCount.value}] ${assignementKind} ${emitLogic(assign.getInput)};\n"
         }
       }
       case man: MultipleAssignmentNode => {
@@ -923,7 +925,7 @@ end
           emitAssignement(to, assign, ret, tab, assignementKind)
         })
       }
-      case _ => ret ++= s"$tab${emitReference(to)} ${assignementKind} ${emitLogic(from)};\n"
+      case _ => ret ++= s"$tab${emitAssignedReference(to)} ${assignementKind} ${emitLogic(from)};\n"
     }
   }
 
