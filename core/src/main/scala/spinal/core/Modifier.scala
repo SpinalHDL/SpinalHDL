@@ -825,7 +825,7 @@ object SpinalMap {
     switch(addr){
       for ((cond, value) <- mappings) {
         cond match {
-          case product : Product => {
+          case product: Product => {
             //  for(cond <- product.productIterator){
             is.list(product.productIterator) {
               result := value

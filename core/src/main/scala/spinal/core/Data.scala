@@ -174,6 +174,11 @@ trait DataPrimitives[T <: Data]{
   def muxList[T <: Data](mappings: Seq[(Any, T)]): T = {
     SpinalMap.list(_data,mappings)
   }
+
+  def muxList[T <: Data](defaultValue: T, mappings: Seq[(Any, T)]): T = {
+    SpinalMap.list(_data, mappings :+ (spinal.core.default , defaultValue) )
+  }
+
   def mux[T <: Data](mappings: (Any, T)*): T = {
     SpinalMap.list(_data,mappings)
   }
