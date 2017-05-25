@@ -1209,3 +1209,20 @@ object PlayWithCustomEnumEncoding{
 
 }
 
+
+object PlayWithMuxListDefault{
+  class TopLevel extends Component{
+    val io = new Bundle{
+      val sel     = in UInt(4 bits)
+      val outData = out Bits(8 bits)
+      val inData  = in Bits(128 bits)
+    }
+
+    io.outData := io.sel.muxList(io.inData(7 downto 0) ,for(index <- 0 until 4) yield (index, io.inData(index*8+8-1 downto index*8)))
+
+  }
+
+  def main(args: Array[String]): Unit ={
+    SpinalVhdl(new TopLevel)
+  }
+}
