@@ -15,7 +15,7 @@ class PhaseVerilog(pc : PhaseContext) extends PhaseMisc with VerilogBase {
 
   override def useNodeConsumers: Boolean = true
 
-  var outFile: java.io.FileWriter = null
+
   var memBitsMaskKind : MemBitsMaskKind = MULTIPLE_RAM
 
   val emitedComponent = mutable.Map[ComponentBuilder, ComponentBuilder]()
@@ -25,26 +25,47 @@ class PhaseVerilog(pc : PhaseContext) extends PhaseMisc with VerilogBase {
   override def impl(pc : PhaseContext): Unit = {
     import pc._
     SpinalProgress("Write Verilog")
+    if(!pc.config.oneFilePerComponent) {
+      val outFile = new java.io.FileWriter(pc.config.targetDirectory + "/" + (if (pc.config.netlistFileName == null) (topLevel.definitionName + ".v") else pc.config.netlistFileName))
+      outFile.write(VhdlVerilogBase.getHeader("//", topLevel))
+      emitEnumPackage(outFile)
 
-    outFile = new java.io.FileWriter(pc.config.targetDirectory + "/" +  (if(pc.config.netlistFileName == null)(topLevel.definitionName + ".v") else pc.config.netlistFileName))
-    outFile.write(VhdlVerilogBase.getHeader("//",topLevel))
-    emitEnumPackage(outFile)
-
-    for (c <- sortedComponents) {
-      if (!c.isInBlackBoxTree) {
-        SpinalProgress(s"${"  " * (1 + c.level)}emit ${c.definitionName}")
-        compile(c)
+      for (c <- sortedComponents) {
+        if (!c.isInBlackBoxTree) {
+          SpinalProgress(s"${"  " * (1 + c.level)}emit ${c.definitionName}")
+          compile(c,outFile)
+        }
       }
-    }
 
-    outFile.flush();
-    outFile.close();
+      outFile.flush();
+      outFile.close();
+    } else {
+      assert(pc.config.netlistFileName == null)
+      val enumFile = new java.io.FileWriter(pc.config.targetDirectory + "/" + (if (pc.config.netlistFileName == null) (topLevel.definitionName + ".vh") else pc.config.netlistFileName))
+      enumFile.write(VhdlVerilogBase.getHeader("//", topLevel))
+      emitEnumPackage(enumFile)
+      enumFile.flush();
+      enumFile.close();
+
+      for (c <- sortedComponents) {
+        if (!c.isInBlackBoxTree) {
+          SpinalProgress(s"${"  " * (1 + c.level)}emit ${c.definitionName}")
+          val outFile = new java.io.FileWriter(pc.config.targetDirectory + "/" + (if (pc.config.netlistFileName == null) (c.definitionName + ".v") else pc.config.netlistFileName))
+          outFile.write(VhdlVerilogBase.getHeader("//", topLevel))
+          outFile.write("`include \"" + topLevel.definitionName + ".vh" + "\"\n")
+          compile(c,outFile)
+          outFile.flush();
+          outFile.close();
+        }
+      }
+
+    }
   }
 
 
 
 
-  def compile(component: Component): Unit = {
+  def compile(component: Component,outFile : java.io.FileWriter): Unit = {
     val text = emit(component)
     outFile.write(text)
   }
