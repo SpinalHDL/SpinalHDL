@@ -78,6 +78,7 @@ case class SpinalConfig(
   onlyStdLogicVectorAtTopLevelIo : Boolean = false,
   defaultClockDomainFrequency : IClockDomainFrequency = UnknownFrequency(),
   targetDirectory : String = ".",
+  oneFilePerComponent : Boolean = false,
   netlistFileName : String = null,
   dumpWave : DumpWaveConfig = null,
   globalPrefix : String = "",
