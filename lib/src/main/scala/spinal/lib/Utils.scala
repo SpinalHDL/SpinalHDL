@@ -152,12 +152,12 @@ object toGray {
 
 object fromGray {
   def apply(gray: Bits): UInt = {
-    val ret = UInt(widthOf(gray) bit)
+    val ret = List.fill(widthOf(gray)) (Bool)
     for (i <- 0 until widthOf(gray) - 1) {
       ret(i) := gray(i) ^ ret(i + 1)
     }
-    ret.msb := gray.msb
-    ret
+    ret.last := gray.msb
+    ret.asBits().asUInt
   }
 }
 
