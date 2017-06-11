@@ -238,14 +238,14 @@ class Pinsec(config: PinsecConfig) extends Component{
       vgaCtrl.io.axi  -> List(                              sdramCtrl.io.axi)
     )
 
-    axiCrossbar.addPipelining(apbBridge.io.axi,(crossbar,bridge) => {
+    axiCrossbar.addPipelining(apbBridge.io.axi)((crossbar,bridge) => {
       crossbar.sharedCmd.halfPipe() >> bridge.sharedCmd
       crossbar.writeData.halfPipe() >> bridge.writeData
       crossbar.writeRsp             << bridge.writeRsp
       crossbar.readRsp              << bridge.readRsp
     })
 
-    axiCrossbar.addPipelining(sdramCtrl.io.axi,(crossbar,ctrl) => {
+    axiCrossbar.addPipelining(sdramCtrl.io.axi)((crossbar,ctrl) => {
       crossbar.sharedCmd.halfPipe()  >>  ctrl.sharedCmd
       crossbar.writeData            >/-> ctrl.writeData
       crossbar.writeRsp              <<  ctrl.writeRsp
