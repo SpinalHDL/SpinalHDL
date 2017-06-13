@@ -22,7 +22,7 @@ object StreamTester2 {
     assert(1 == LatencyAnalysis(fifoAPop.ready,fifoAPush.ready))
 
 
-    val fifoB = new StreamFifoZeroLatency(BundleA(),16)
+    val fifoB = new StreamFifoLowLatency(BundleA(),16)
     val fifoBPush = slave(cloneOf(fifoB.io.push))
     val fifoBPop = master(cloneOf(fifoB.io.pop))
     val fifoBOccupancy = out(cloneOf(fifoB.io.occupancy))
