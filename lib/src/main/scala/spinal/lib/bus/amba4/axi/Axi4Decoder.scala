@@ -17,12 +17,19 @@ case class Axi4ReadOnlyDecoder(axiConfig: Axi4Config,decodings : Seq[SizeMapping
     decWhen = io.input.readRsp.fire && io.input.readRsp.last
   )
   val decodedCmdSels = decodings.map(_.hit(io.input.readCmd.addr) && io.input.readCmd.valid).asBits
+  val decodedCmdError = decodedCmdSels === 0
   val pendingSels  = RegNextWhen(decodedCmdSels,io.input.readCmd.ready)  init(0)
+  val pendingError = RegNextWhen(decodedCmdError,io.input.readCmd.ready)  init(False)
   val allowCmd    = pendingCmdCounter === 0 || (pendingCmdCounter =/= pendingMax && pendingSels === decodedCmdSels)
 
-  
+  //Decoding error managment
+  val decodingErrorPossible = decodings.map(_.size).sum < (BigInt(1) << axiConfig.addressWidth)
+  val errorSlave = if(decodingErrorPossible) Axi4ReadOnlyErrorSlave(axiConfig) else null
+
   //Wire readCmd
-  io.input.readCmd.ready := (decodedCmdSels & io.outputs.map(_.readCmd.ready).asBits).orR  && allowCmd
+  io.input.readCmd.ready := ((decodedCmdSels & io.outputs.map(_.readCmd.ready).asBits).orR || (decodedCmdError && errorSlave.io.axi.readCmd.ready))  && allowCmd
+  errorSlave.io.axi.readCmd.valid := io.input.readCmd.valid && decodedCmdError && allowCmd
+  errorSlave.io.axi.readCmd.payload := io.input.readCmd.payload
   for((output,sel) <- (io.outputs,decodedCmdSels.asBools).zipped){
     output.readCmd.valid := io.input.readCmd.valid && sel && allowCmd
     output.readCmd.payload := io.input.readCmd.payload
@@ -30,42 +37,16 @@ case class Axi4ReadOnlyDecoder(axiConfig: Axi4Config,decodings : Seq[SizeMapping
 
   //Wire ReadRsp
   val readRspIndex = OHToUInt(pendingSels)
-  io.input.readRsp.valid := io.outputs.map(_.readRsp.valid).asBits.orR
-  io.input.readRsp.payload := io.outputs(readRspIndex).readRsp.payload
-  io.outputs.foreach(_.readRsp.ready := io.input.readRsp.ready)
 
-  //Decoding error managment
-  val decodingErrorPossible = decodings.map(_.size).sum < (BigInt(1) << axiConfig.addressWidth)
-  val decodingError = if(decodingErrorPossible) new Area{
-    val detected = io.input.readCmd.valid && decodedCmdSels === 0 && allowCmd
-    val sendRsp = RegInit(False)
-    val id = if(axiConfig.useId) Reg(UInt(axiConfig.idWidth bits)) else null
-    val remaining = Reg(UInt(8 bits))
-    val remainingZero = remaining === 0
-
-    //Wait until all pending commands are done
-    when(detected){
-      io.input.readCmd.ready := True
-      if(id != null)id := io.input.readCmd.id
-      remaining := (if(axiConfig.useLen) io.input.readCmd.len else U(0))
-      sendRsp := True
-    }
-
-    //Send a DECERR readRsp
-    when(sendRsp) {
-      io.input.readRsp.valid := True
-      if(axiConfig.useResp) io.input.readRsp.setDECERR
-      if(id != null) io.input.readRsp.id := id
-      if(io.input.readRsp.last != null) io.input.readRsp.last := remainingZero
-      when(io.input.readRsp.ready) {
-        remaining := remaining - 1
-        when(remainingZero) {
-          sendRsp := False
-        }
-      }
-      allowCmd := False
-    }
+  io.input.readRsp.valid := io.outputs.map(_.readRsp.valid).asBits.orR || errorSlave.io.axi.readRsp.valid
+  io.input.readRsp.payload := MuxOH(pendingSels,io.outputs.map(_.readRsp.payload))
+  when(pendingError){
+    if(axiConfig.useId)   io.input.readRsp.id := errorSlave.io.axi.readRsp.id
+    if(axiConfig.useResp) io.input.readRsp.resp := errorSlave.io.axi.readRsp.resp
+    if(axiConfig.useLast) io.input.readRsp.last := errorSlave.io.axi.readRsp.last
   }
+  errorSlave.io.axi.readRsp.ready := io.input.readRsp.ready
+  io.outputs.foreach(_.readRsp.ready := io.input.readRsp.ready)
 }
 
 
@@ -90,21 +71,30 @@ case class Axi4WriteOnlyDecoder(axiConfig: Axi4Config,decodings : Seq[SizeMappin
   )
 
   val decodedCmdSels = decodings.map(_.hit(io.input.writeCmd.addr) && io.input.writeCmd.valid).asBits
+  val decodedCmdError = decodedCmdSels === 0
   val pendingSels  = RegNextWhen(decodedCmdSels,cmdAllowedStart)  init(0)
+  val pendingError = RegNextWhen(decodedCmdError,cmdAllowedStart)  init(False)
   val allowCmd    = pendingCmdCounter === 0 || (pendingCmdCounter =/= pendingMax && pendingSels === decodedCmdSels)
   val allowData   = pendingDataCounter =/= 0
-
   cmdAllowedStart := io.input.writeCmd.valid && allowCmd && (RegInit(True) clearWhen(cmdAllowedStart) setWhen(io.input.writeCmd.ready))
 
+  //Decoding error managment
+  val decodingErrorPossible = decodings.map(_.size).sum < (BigInt(1) << axiConfig.addressWidth)
+  val errorSlave = if(decodingErrorPossible) Axi4WriteOnlyErrorSlave(axiConfig) else null
+
   //Wire writeCmd
-  io.input.writeCmd.ready := (decodedCmdSels & io.outputs.map(_.writeCmd.ready).asBits).orR && allowCmd
+  io.input.writeCmd.ready := ((decodedCmdSels & io.outputs.map(_.writeCmd.ready).asBits).orR || (decodedCmdError && errorSlave.io.axi.writeCmd.ready)) && allowCmd
+  errorSlave.io.axi.writeCmd.valid := io.input.writeCmd.valid && decodedCmdError && allowCmd
+  errorSlave.io.axi.writeCmd.payload := io.input.writeCmd.payload
   for((output,sel) <- (io.outputs,decodedCmdSels.asBools).zipped){
     output.writeCmd.valid := io.input.writeCmd.valid && sel && allowCmd
     output.writeCmd.payload := io.input.writeCmd.payload
   }
 
   //Wire writeData
-  io.input.writeData.ready := (pendingSels & io.outputs.map(_.writeData.ready).asBits).orR && allowData
+  io.input.writeData.ready := ((pendingSels & io.outputs.map(_.writeData.ready).asBits).orR || (pendingError && errorSlave.io.axi.writeData.ready)) && allowData
+  errorSlave.io.axi.writeData.valid := io.input.writeData.valid && pendingError && allowData
+  errorSlave.io.axi.writeData.payload := io.input.writeData.payload
   for((output,sel) <- (io.outputs,pendingSels.asBools).zipped){
     output.writeData.valid   := io.input.writeData.valid && sel && allowData
     output.writeData.payload := io.input.writeData.payload
@@ -112,46 +102,14 @@ case class Axi4WriteOnlyDecoder(axiConfig: Axi4Config,decodings : Seq[SizeMappin
 
   //Wire writeRsp
   val writeRspIndex = OHToUInt(pendingSels)
-  io.input.writeRsp.valid := io.outputs.map(_.writeRsp.valid).asBits.orR
-  io.input.writeRsp.payload := io.outputs(writeRspIndex).writeRsp.payload
-  io.outputs.foreach(_.writeRsp.ready := io.input.writeRsp.ready)
-
-
-  //Decoding error managment
-  val decodingErrorPossible = decodings.map(_.size).sum < (BigInt(1) << axiConfig.addressWidth)
-  val decodingError = if(decodingErrorPossible) new Area{
-    val detected = io.input.writeCmd.valid && decodedCmdSels === 0 && allowCmd
-    val sendRsp = RegInit(False)
-    val id = if(axiConfig.useId) Reg(UInt(axiConfig.idWidth bits)) else null
-
-    //Stall CMD
-    when(detected){
-      io.input.writeCmd.ready := False
-    }
-
-    //Flush all DATA
-    when((RegNext(detected) init(False)) && !sendRsp){  // !sendRsp for consecutive access errors
-      when(pendingDataCounter =/= 0) {
-        io.input.writeData.ready := True
-      } otherwise {
-        io.input.writeData.ready := False
-        io.input.writeCmd.ready := True
-        if(id != null) id := io.input.writeCmd.id
-        sendRsp := True;
-      }
-    }
-
-    //Send a DECERR
-    when(sendRsp) {
-      allowCmd := False  //Allow consecutive decoding error
-      io.input.writeRsp.valid := True
-      if(axiConfig.useResp) io.input.writeRsp.setDECERR
-      if(id != null) io.input.writeRsp.id := id
-      when(io.input.writeRsp.ready) {
-        sendRsp := False
-      }
-    }
+  io.input.writeRsp.valid := io.outputs.map(_.writeRsp.valid).asBits.orR || errorSlave.io.axi.writeRsp.valid
+  io.input.writeRsp.payload := MuxOH(pendingSels,io.outputs.map(_.writeRsp.payload))
+  when(pendingError){
+    if(axiConfig.useId)   io.input.writeRsp.id := errorSlave.io.axi.writeRsp.id
+    if(axiConfig.useResp) io.input.writeRsp.resp := errorSlave.io.axi.writeRsp.resp
   }
+  errorSlave.io.axi.writeRsp.ready := io.input.writeRsp.ready
+  io.outputs.foreach(_.writeRsp.ready := io.input.writeRsp.ready)
 }
 
 
@@ -195,13 +153,21 @@ case class Axi4SharedDecoder(axiConfig: Axi4Config,
     writeDecodings.map(_.hit(io.input.sharedCmd.addr) &&  io.input.sharedCmd.write).asBits,
     readDecodings.map(_.hit(io.input.sharedCmd.addr)  && !io.input.sharedCmd.write).asBits
   )
+  val decodedCmdError = decodedCmdSels === 0
   val pendingSels  = RegNextWhen(decodedCmdSels,cmdAllowedStart)  init(0)
+  val pendingError = RegNextWhen(decodedCmdError,cmdAllowedStart)  init(False)
   val allowCmd    = pendingCmdCounter === 0 || (pendingCmdCounter =/= pendingMax && pendingSels === decodedCmdSels)
   val allowData   = pendingDataCounter =/= 0
   cmdAllowedStart := io.input.sharedCmd.valid && allowCmd && (RegInit(True) clearWhen(cmdAllowedStart) setWhen(io.input.sharedCmd.ready))
 
+  //Decoding error managment
+  val decodingErrorPossible = decodings.map(_.size).sum < (BigInt(1) << axiConfig.addressWidth)
+  val errorSlave = if(decodingErrorPossible) Axi4SharedErrorSlave(axiConfig) else null
 
-  io.input.sharedCmd.ready := (decodedCmdSels & (io.readOutputs.map(_.readCmd.ready) ++ io.writeOutputs.map(_.writeCmd.ready) ++ io.sharedOutputs.map(_.sharedCmd.ready)).asBits).orR && allowCmd
+  io.input.sharedCmd.ready := ((decodedCmdSels & (io.readOutputs.map(_.readCmd.ready) ++ io.writeOutputs.map(_.writeCmd.ready) ++ io.sharedOutputs.map(_.sharedCmd.ready)).asBits).orR || (decodedCmdError && errorSlave.io.axi.sharedCmd.ready)) && allowCmd
+  errorSlave.io.axi.sharedCmd.valid := io.input.sharedCmd.valid && decodedCmdError && allowCmd
+  errorSlave.io.axi.sharedCmd.payload := io.input.sharedCmd.payload
+
   //Wire readCmd
   for((output,sel) <- (io.readOutputs,decodedCmdSels(readRange).asBools).zipped){
     output.readCmd.valid := io.input.sharedCmd.valid && sel && allowCmd
@@ -218,8 +184,10 @@ case class Axi4SharedDecoder(axiConfig: Axi4Config,
     output.sharedCmd.payload.assignSomeByName(io.input.sharedCmd.payload)
   }
 
-  io.input.writeData.ready := (pendingSels(sharedRange) ## (pendingSels(writeRange)) & (io.writeOutputs.map(_.writeData.ready) ++ io.sharedOutputs.map(_.writeData.ready)).asBits).orR && allowData
+  io.input.writeData.ready := ((pendingSels(sharedRange) ## (pendingSels(writeRange)) & (io.writeOutputs.map(_.writeData.ready) ++ io.sharedOutputs.map(_.writeData.ready)).asBits).orR || (pendingError && errorSlave.io.axi.writeData.ready)) && allowData
   //Wire writeWriteData
+  errorSlave.io.axi.writeData.valid := io.input.writeData.valid && pendingError && allowData
+  errorSlave.io.axi.writeData.payload := io.input.writeData.payload
   for((output,sel) <- (io.writeOutputs,pendingSels(writeRange).asBools).zipped){
     output.writeData.valid   := io.input.writeData.valid && sel && allowData
     output.writeData.payload := io.input.writeData.payload
@@ -232,73 +200,26 @@ case class Axi4SharedDecoder(axiConfig: Axi4Config,
 
   //Wire writeRsp
   val writeRspIndex = OHToUInt(pendingSels(sharedRange) ## pendingSels(writeRange))
-  io.input.writeRsp.valid :=   (io.writeOutputs.map(_.writeRsp.valid)   ++ io.sharedOutputs.map(_.writeRsp.valid)).asBits.orR
+  io.input.writeRsp.valid :=   (io.writeOutputs.map(_.writeRsp.valid)   ++ io.sharedOutputs.map(_.writeRsp.valid)).asBits.orR || errorSlave.io.axi.writeRsp.valid
   io.input.writeRsp.payload := (io.writeOutputs.map(_.writeRsp.payload) ++ io.sharedOutputs.map(_.writeRsp.payload)).apply(writeRspIndex)
+  when(pendingError){
+    if(axiConfig.useId)   io.input.writeRsp.id := errorSlave.io.axi.writeRsp.id
+    if(axiConfig.useResp) io.input.writeRsp.resp := errorSlave.io.axi.writeRsp.resp
+  }
+  errorSlave.io.axi.writeRsp.ready := io.input.writeRsp.ready
   io.writeOutputs.foreach(_.writeRsp.ready := io.input.writeRsp.ready)
   io.sharedOutputs.foreach(_.writeRsp.ready := io.input.writeRsp.ready)
 
   //Wire ReadRsp
   val readRspIndex = OHToUInt(pendingSels(sharedRange) ## pendingSels(readRange))
-  io.input.readRsp.valid   := (io.readOutputs.map(_.readRsp.valid)   ++ io.sharedOutputs.map(_.readRsp.valid)).asBits.orR
+  io.input.readRsp.valid   := (io.readOutputs.map(_.readRsp.valid)   ++ io.sharedOutputs.map(_.readRsp.valid)).asBits.orR || errorSlave.io.axi.readRsp.valid
   io.input.readRsp.payload := (io.readOutputs.map(_.readRsp.payload) ++ io.sharedOutputs.map(_.readRsp.payload)).apply(readRspIndex)
+  when(pendingError){
+    if(axiConfig.useId)   io.input.readRsp.id := errorSlave.io.axi.readRsp.id
+    if(axiConfig.useResp) io.input.readRsp.resp := errorSlave.io.axi.readRsp.resp
+    if(axiConfig.useLast) io.input.readRsp.last := errorSlave.io.axi.readRsp.last
+  }
+  errorSlave.io.axi.readRsp.ready := io.input.readRsp.ready
   io.readOutputs.foreach(_.readRsp.ready := io.input.readRsp.ready)
   io.sharedOutputs.foreach(_.readRsp.ready := io.input.readRsp.ready)
-
-
-  //Decoding error managment
-  val decodingErrorPossible = (writeDecodings ++ sharedDecodings).map(_.size).sum < (BigInt(1) << axiConfig.addressWidth) || (readDecodings ++ sharedDecodings).map(_.size).sum < (BigInt(1) << axiConfig.addressWidth)
-  val decodingError = if(decodingErrorPossible) new Area{
-    val detected = io.input.sharedCmd.valid && decodedCmdSels === 0 && allowCmd
-    val sendWriteRsp = RegInit(False)
-    val id = if(axiConfig.useId) Reg(UInt(axiConfig.idWidth bits)) else null
-    val sendReadRsp = RegInit(False)
-    val remaining = Reg(UInt(8 bits))
-    val remainingZero = remaining === 0
-
-    //Stall CMD
-    when(detected){
-      io.input.sharedCmd.ready := False
-    }
-
-
-    //Flush all DATA
-    when((RegNext(detected) init(False)) && !sendWriteRsp && !sendReadRsp){  // !sendRsp for consecutive access errors
-      when(pendingDataCounter =/= 0) {
-        io.input.writeData.ready := True
-      } otherwise {
-        io.input.writeData.ready := False
-        io.input.sharedCmd.ready := True
-        if(id != null) id := io.input.sharedCmd.id
-        remaining := (if(axiConfig.useLen) io.input.sharedCmd.len else U(0))
-        sendWriteRsp :=  io.input.sharedCmd.write
-        sendReadRsp  := !io.input.sharedCmd.write
-      }
-    }
-
-    //Send a DECERR writeRsp
-    when(sendWriteRsp) {
-      io.input.writeRsp.valid := True
-      if(axiConfig.useResp) io.input.writeRsp.setDECERR
-      if(id != null) io.input.writeRsp.id := id
-      when(io.input.writeRsp.ready) {
-        sendWriteRsp := False
-      }
-      allowCmd := False
-    }
-
-    //Send a DECERR readRsp
-    when(sendReadRsp) {
-      io.input.readRsp.valid := True
-      if(axiConfig.useResp) io.input.readRsp.setDECERR
-      if(id != null) io.input.readRsp.id := id
-      if(io.input.readRsp.last != null) io.input.readRsp.last := remainingZero
-      when(io.input.readRsp.ready) {
-        remaining := remaining - 1
-        when(remainingZero) {
-          sendReadRsp := False
-        }
-      }
-      allowCmd := False
-    }
-  }
 }
