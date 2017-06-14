@@ -110,7 +110,15 @@ case class Axi4(config: Axi4Config) extends Bundle with IMasterSlave with Axi4Bu
     that.readRsp drive this.readRsp
   }
 
-
+  def axValidPipe() : Axi4 = {
+    val sink = Axi4(config)
+    sink.ar << this.ar.validPipe()
+    sink.aw << this.aw.validPipe()
+    sink.w  << this.w
+    sink.r  >> this.r
+    sink.b  >> this.b
+    sink
+  }
 
   override def asMaster(): Unit = {
     master(ar,aw,w)

@@ -2,7 +2,6 @@ package spinal.lib.bus.amba4.axi
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.amba4.axi.Axi4Bus
 import spinal.lib.bus.misc.SizeMapping
 
 import scala.collection.mutable
@@ -101,6 +100,13 @@ case class Axi4CrossbarFactory(/*decoderToArbiterConnection : (Axi4Bus, Axi4Bus)
   def build(): Unit ={
     val masterToDecodedSlave = mutable.HashMap[Axi4Bus,Map[Axi4Bus,Axi4Bus]]()
 
+    def applyName(bus : Bundle,name : String, onThat : Nameable) : Unit = {
+      if(bus.component == Component.current)
+        onThat.setCompositeName(bus,name)
+      else if(bus.isNamed)
+        onThat.setCompositeName(bus.component,bus.getName() + "_" + name)
+    }
+
     val decoders = for(master <- masters) yield master match {
       case master : Axi4ReadOnly => new Area{
         val slaves = slavesConfigs.filter{
@@ -111,11 +117,10 @@ case class Axi4CrossbarFactory(/*decoderToArbiterConnection : (Axi4Bus, Axi4Bus)
           axiConfig = master.config,
           decodings = slaves.map(_._2.mapping)
         )
+        applyName(master,"decoder",decoder)
   
         masterToDecodedSlave(master) = (slaves.map(_._1),decoder.io.outputs.map(_.arValidPipe())).zipped.toMap
         readOnlyBridger.getOrElse[(Axi4ReadOnly,Axi4ReadOnly) => Unit](master,_ >> _).apply(master,decoder.io.input)
-  
-        decoder.setPartialName(master,"readDecoder")
       }
       case master : Axi4WriteOnly => new Area{
         val slaves = slavesConfigs.filter{
@@ -125,11 +130,10 @@ case class Axi4CrossbarFactory(/*decoderToArbiterConnection : (Axi4Bus, Axi4Bus)
           axiConfig = master.config,
           decodings = slaves.map(_._2.mapping)
         )
+        applyName(master,"decoder",decoder)
 
         masterToDecodedSlave(master) = (slaves.map(_._1),decoder.io.outputs.map(_.awValidPipe())).zipped.toMap
         writeOnlyBridger.getOrElse[(Axi4WriteOnly,Axi4WriteOnly) => Unit](master,_ >> _).apply(master,decoder.io.input)
-
-        decoder.setPartialName(master,"writeDecoder")
       }
       case master : Axi4Shared => new Area{
         val slaves = slavesConfigs.filter{
@@ -144,6 +148,7 @@ case class Axi4CrossbarFactory(/*decoderToArbiterConnection : (Axi4Bus, Axi4Bus)
           writeDecodings = writeOnlySlaves.map(_._2.mapping),
           sharedDecodings = sharedSlaves.map(_._2.mapping)
         )
+        applyName(master,"decoder",decoder)
 
         masterToDecodedSlave(master) = (
           readOnlySlaves.map(_._1) ++ writeOnlySlaves.map(_._1) ++ sharedSlaves.map(_._1)
@@ -176,6 +181,7 @@ case class Axi4CrossbarFactory(/*decoderToArbiterConnection : (Axi4Bus, Axi4Bus)
               outputConfig = slave.config,
               inputsCount = readConnections.length
             )
+            applyName(slave,"arbiter",arbiter)
             for ((input, master) <- (arbiter.io.inputs, readConnections).zipped) {
               if(!masterToDecodedSlave(master.master)(slave).isInstanceOf[Axi4ReadOnly])
                 println("???")
@@ -196,6 +202,7 @@ case class Axi4CrossbarFactory(/*decoderToArbiterConnection : (Axi4Bus, Axi4Bus)
               inputsCount = writeConnections.length,
               routeBufferSize = 4
             )
+            applyName(slave,"arbiter",arbiter)
             for ((input, master) <- (arbiter.io.inputs, writeConnections).zipped) {
               input << masterToDecodedSlave(master.master)(slave).asInstanceOf[Axi4WriteOnly]
             }
@@ -229,6 +236,7 @@ case class Axi4CrossbarFactory(/*decoderToArbiterConnection : (Axi4Bus, Axi4Bus)
               sharedInputsCount = sharedConnections.size,
               routeBufferSize = 4
             )
+            applyName(slave,"arbiter",arbiter)
 
             for ((input, master) <- (arbiter.io.readInputs, readConnections).zipped) {
               input << masterToDecodedSlave(master.master)(slave).asInstanceOf[Axi4ReadOnly]
