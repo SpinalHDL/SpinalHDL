@@ -29,6 +29,14 @@ case class Axi4WriteOnly(config: Axi4Config) extends Bundle with IMasterSlave wi
     that.writeRsp drive this.writeRsp
   }
 
+  def awValidPipe() : Axi4WriteOnly = {
+    val sink = Axi4WriteOnly(config)
+    sink.aw << this.aw.validPipe()
+    sink.w  << this.w
+    sink.b  >> this.b
+    sink
+  }
+
 
   override def asMaster(): Unit = {
     master(aw, w)

@@ -252,6 +252,15 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
     }
   }
 
+  def validPipe() : Stream[T] = {
+    val sink = Stream(_dataType)
+    val validReg = RegInit(False) setWhen(this.valid) clearWhen(sink.fire)
+    sink.valid := validReg
+    sink.payload := this.payload
+    this.ready := sink.ready && validReg
+    sink
+  }
+
 /** cut all path, but divide the bandwidth by 2, 1 cycle latency
   */
   def halfPipe(): Stream[T] = {

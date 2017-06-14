@@ -2,6 +2,7 @@ package spinal.lib.bus.amba4.axi
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.bus.amba4.axi.Axi4Bus
 import spinal.lib.bus.misc.SizeMapping
 
 import scala.collection.mutable
@@ -12,8 +13,14 @@ case class Axi4CrossbarSlaveConfig(mapping : SizeMapping){
   val connections = ArrayBuffer[Axi4CrossbarSlaveConnection]()
 }
 
+/*
+object Axi4CrossbarFactory{
+    def defaultDecoderToArbiterConnection(masterSlave : (Axi4Bus,Axi4Bus), decoderArbiter : (Axi4Bus,Axi4Bus)) : Axi4Bus = bus match {
 
-case class Axi4CrossbarFactory(/*axiConfig: Axi4Config*/){
+    }
+}*/
+
+case class Axi4CrossbarFactory(/*decoderToArbiterConnection : (Axi4Bus, Axi4Bus) => Axi4Bus = Axi4CrossbarFactory.defaultDecoderToArbiterConnection*/){
   val slavesConfigs = mutable.HashMap[Axi4Bus,Axi4CrossbarSlaveConfig]()
   val axi4SlaveToReadWriteOnly = mutable.HashMap[Axi4,Seq[Axi4Bus]]()
   val sharedBridger = mutable.HashMap[Axi4Shared,(Axi4Shared,Axi4Shared) => Unit]()
@@ -105,7 +112,7 @@ case class Axi4CrossbarFactory(/*axiConfig: Axi4Config*/){
           decodings = slaves.map(_._2.mapping)
         )
   
-        masterToDecodedSlave(master) = (slaves.map(_._1),decoder.io.outputs).zipped.toMap
+        masterToDecodedSlave(master) = (slaves.map(_._1),decoder.io.outputs.map(_.arValidPipe())).zipped.toMap
         readOnlyBridger.getOrElse[(Axi4ReadOnly,Axi4ReadOnly) => Unit](master,_ >> _).apply(master,decoder.io.input)
   
         decoder.setPartialName(master,"readDecoder")
@@ -119,7 +126,7 @@ case class Axi4CrossbarFactory(/*axiConfig: Axi4Config*/){
           decodings = slaves.map(_._2.mapping)
         )
 
-        masterToDecodedSlave(master) = (slaves.map(_._1),decoder.io.outputs).zipped.toMap
+        masterToDecodedSlave(master) = (slaves.map(_._1),decoder.io.outputs.map(_.awValidPipe())).zipped.toMap
         writeOnlyBridger.getOrElse[(Axi4WriteOnly,Axi4WriteOnly) => Unit](master,_ >> _).apply(master,decoder.io.input)
 
         decoder.setPartialName(master,"writeDecoder")
@@ -140,7 +147,7 @@ case class Axi4CrossbarFactory(/*axiConfig: Axi4Config*/){
 
         masterToDecodedSlave(master) = (
           readOnlySlaves.map(_._1) ++ writeOnlySlaves.map(_._1) ++ sharedSlaves.map(_._1)
-            -> List(decoder.io.readOutputs.toSeq , decoder.io.writeOutputs.toSeq , decoder.io.sharedOutputs.toSeq).flatten
+            -> List(decoder.io.readOutputs.map(_.arValidPipe()).toSeq , decoder.io.writeOutputs.map(_.awValidPipe()).toSeq , decoder.io.sharedOutputs.map(_.arwValidPipe()).toSeq).flatten
         ).zipped.toMap
 
         sharedBridger.getOrElse[(Axi4Shared,Axi4Shared) => Unit](master,_ >> _).apply(master,decoder.io.input)
@@ -148,6 +155,13 @@ case class Axi4CrossbarFactory(/*axiConfig: Axi4Config*/){
     }
 
 
+//    for((master,pair) <- masterToDecodedSlave){
+//      val newList = for((slave, interconnect) <- pair) yield{
+//        val pipeplined = cloneOf(interconnect)
+//        (slave -> interconnect)
+//      }
+//      masterToDecodedSlave(master) = newList.toMap
+//    }
 
 
 

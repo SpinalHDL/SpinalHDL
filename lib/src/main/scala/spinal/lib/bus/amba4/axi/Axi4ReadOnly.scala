@@ -23,6 +23,13 @@ case class Axi4ReadOnly(config: Axi4Config) extends Bundle with IMasterSlave wit
     that.readRsp drive this.readRsp
   }
 
+  def arValidPipe() : Axi4ReadOnly = {
+    val sink = Axi4ReadOnly(config)
+    sink.ar << this.ar.validPipe()
+    sink.r  >> this.r
+    sink
+  }
+
 
   override def asMaster(): Unit = {
     master(ar)
