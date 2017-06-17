@@ -14,14 +14,17 @@ case class Timer(width : Int) extends Component{
     val value = out UInt (width bits)
   }
   val counter = Reg(UInt(width bits))
-  val limitReached = counter === io.limit
-  when(io.tick && !limitReached){
-    counter := counter + 1
+  val limitHit = counter === io.limit
+  val inhibitFull = RegInit(False)
+  when(io.tick){
+    inhibitFull := limitHit
+    counter := counter + (!limitHit).asUInt
   }
   when(io.clear){
     counter := 0
+    inhibitFull := False
   }
-  io.full  := limitReached && io.tick
+  io.full  := limitHit && io.tick && !inhibitFull
   io.value := counter
 
 
