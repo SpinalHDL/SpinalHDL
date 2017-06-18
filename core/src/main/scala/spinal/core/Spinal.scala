@@ -82,6 +82,7 @@ case class SpinalConfig(
   netlistFileName : String = null,
   dumpWave : DumpWaveConfig = null,
   globalPrefix : String = "",
+  anonymSignalPrefix : String = null,
   device: Device = Device(),
   genVhdlPkg : Boolean = true,
   phasesInserters : ArrayBuffer[(ArrayBuffer[Phase]) => Unit] = ArrayBuffer[(ArrayBuffer[Phase]) => Unit](),

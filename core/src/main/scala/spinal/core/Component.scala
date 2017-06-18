@@ -228,13 +228,13 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
     */
   private[core] def allocateNames(globalScope : Scope): Unit = {
     val localScope = globalScope.newChild
-    localScope.allocateName("zz")
+    localScope.allocateName(globalData.anonymSignalPrefix)
 
     for (node <- nodes) node match {
       case nameable: Nameable =>
         if (nameable.isUnnamed || nameable.getName() == "") {
           nameable.unsetName()
-          nameable.setWeakName("zz")
+          nameable.setWeakName(globalData.anonymSignalPrefix)
         }
         if (nameable.isWeak)
           nameable.setName(localScope.allocateName(nameable.getName()))

@@ -1762,6 +1762,7 @@ object SpinalVhdlBoot{
 
   def singleShot[T <: Component](config : SpinalConfig)(gen : => T): SpinalReport[T] ={
     val pc = new PhaseContext(config)
+    pc.globalData.anonymSignalPrefix = if(config.anonymSignalPrefix == null) "zz" else config.anonymSignalPrefix
     val prunedSignals = mutable.Set[BaseType]()
     val unusedSignals = mutable.Set[BaseType]()
 
@@ -1950,6 +1951,8 @@ object SpinalVerilogBoot{
 
   def singleShot[T <: Component](config : SpinalConfig)(gen : => T): SpinalReport[T] ={
     val pc = new PhaseContext(config)
+    pc.globalData.anonymSignalPrefix = if(config.anonymSignalPrefix == null) "" else config.anonymSignalPrefix
+
     val prunedSignals = mutable.Set[BaseType]()
     val unusedSignals = mutable.Set[BaseType]()
 

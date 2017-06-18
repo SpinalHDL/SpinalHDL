@@ -769,6 +769,7 @@ class GlobalData {
     return algoId - 1
   }
 
+  var anonymSignalPrefix : String = null
   var commonClockConfig = ClockDomainConfig()
   var overridingAssignementWarnings = true
   var nodeAreNamed = false
