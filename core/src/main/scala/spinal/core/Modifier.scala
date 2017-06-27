@@ -232,20 +232,21 @@ object Operator{
       override def simplifyNode: Unit = {SymplifyNode.binaryThatIfBoth(False)(this)}
     }
 
-    abstract class ShiftRightByInt(val shift : Int) extends ConstantOperatorWidthableInputs with Widthable{
+    trait ShiftOperator
+    abstract class ShiftRightByInt(val shift : Int) extends ConstantOperatorWidthableInputs with Widthable with ShiftOperator{
       assert(shift >= 0)
       override def calcWidth(): Int = Math.max(0, input.getWidth - shift)
       override def normalizeInputs: Unit = {}
       override def simplifyNode: Unit = {SymplifyNode.shiftRightImpl(this)}
     }
 
-    abstract class ShiftRightByUInt extends BinaryOperatorWidthableInputs with Widthable{
+    abstract class ShiftRightByUInt extends BinaryOperatorWidthableInputs with Widthable with ShiftOperator{
       override def calcWidth(): Int = left.getWidth
       override def normalizeInputs: Unit = {}
       override def simplifyNode: Unit = {SymplifyNode.shiftRightImpl(this)}
     }
 
-    abstract class ShiftLeftByInt(val shift : Int) extends ConstantOperatorWidthableInputs with Widthable{
+    abstract class ShiftLeftByInt(val shift : Int) extends ConstantOperatorWidthableInputs with Widthable with ShiftOperator{
       assert(shift >= 0)
       override def calcWidth(): Int = input.getWidth + shift
       override def normalizeInputs: Unit = {}
@@ -253,7 +254,7 @@ object Operator{
       def getLiteralFactory : (BigInt, BitCount) => Node
     }
 
-    abstract class ShiftLeftByUInt extends BinaryOperatorWidthableInputs with Widthable{
+    abstract class ShiftLeftByUInt extends BinaryOperatorWidthableInputs with Widthable with ShiftOperator{
       override def calcWidth(): Int = left.getWidth + (1 << right.getWidth) - 1
       override def normalizeInputs: Unit = {}
       override def simplifyNode: Unit = {SymplifyNode.shiftLeftImpl(getLiteralFactory,this)}
@@ -261,14 +262,14 @@ object Operator{
     }
 
 
-    abstract class ShiftRightByIntFixedWidth(val shift : Int) extends ConstantOperatorWidthableInputs with Widthable{
+    abstract class ShiftRightByIntFixedWidth(val shift : Int) extends ConstantOperatorWidthableInputs with Widthable with ShiftOperator{
       assert(shift >= 0)
       override def calcWidth(): Int = input.getWidth
       override def normalizeInputs: Unit = {}
       override def simplifyNode: Unit = {SymplifyNode.shiftRightFixedWidthImpl(this)}
     }
 
-    abstract class ShiftLeftByIntFixedWidth(val shift : Int) extends ConstantOperatorWidthableInputs with Widthable{
+    abstract class ShiftLeftByIntFixedWidth(val shift : Int) extends ConstantOperatorWidthableInputs with Widthable with ShiftOperator{
       assert(shift >= 0)
       override def calcWidth(): Int = input.getWidth
       override def normalizeInputs: Unit = {}
@@ -276,7 +277,7 @@ object Operator{
       def getLiteralFactory : (BigInt, BitCount) => Node
     }
 
-    abstract class ShiftLeftByUIntFixedWidth extends BinaryOperatorWidthableInputs with Widthable{
+    abstract class ShiftLeftByUIntFixedWidth extends BinaryOperatorWidthableInputs with Widthable with ShiftOperator{
       override def calcWidth(): Int = left.getWidth
       override def normalizeInputs: Unit = {}
       override def simplifyNode: Unit = {SymplifyNode.shiftLeftFixedWidthImpl(getLiteralFactory,this)}
@@ -824,7 +825,7 @@ object SpinalMap {
     switch(addr){
       for ((cond, value) <- mappings) {
         cond match {
-          case product : Product => {
+          case product: Product => {
             //  for(cond <- product.productIterator){
             is.list(product.productIterator) {
               result := value
@@ -922,7 +923,6 @@ private[spinal] object Multiplex {
 abstract class Extract extends Modifier{
   def getBitVector: Node
   def getParameterNodes: List[Node]
-  def getInputData: Node
 }
 
 abstract class ExtractBoolFixed extends Extract with CheckWidth{
@@ -952,7 +952,6 @@ abstract class ExtractBoolFixed extends Extract with CheckWidth{
         (-1,0)
   }
   def getParameterNodes: List[Node] = Nil
-  def getInputData: Node = getBitVector
 }
 
 class ExtractBoolFixedFromBits extends ExtractBoolFixed{
@@ -994,7 +993,6 @@ abstract class ExtractBoolFloating extends Extract {
   def getBitId = bitId
 
   def getParameterNodes: List[Node] = getInput(1) :: Nil
-  def getInputData: Node = getBitVector
   override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
     case 0 =>
       if(outHi >= 0 && outLo == 0)
@@ -1052,7 +1050,6 @@ abstract class ExtractBitsVectorFixed extends Extract with WidthProvider with Ch
   override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
     case 0 => (lo+outHi, lo+outLo)
   }
-  def getInputData: Node = getBitVector
 }
 
 class ExtractBitsVectorFixedFromBits extends ExtractBitsVectorFixed{
@@ -1112,7 +1109,6 @@ abstract class ExtractBitsVectorFloating extends Extract with WidthProvider {
         (-1,0)
     case 2 => (-1,0)
   }
-  def getInputData: Node = getBitVector
 }
 
 class ExtractBitsVectorFloatingFromBits extends ExtractBitsVectorFloating{

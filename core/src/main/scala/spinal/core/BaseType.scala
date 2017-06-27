@@ -56,6 +56,11 @@ object BaseType {
         globalData.pendingErrors += (() => (s"Hierarchy violation : Output signal $dst can't be assigned by $src\n$trace"))
       }
     }
+
+    if(dst.hasTag(tagAutoResize)){
+      val trace = ScalaLocated.long
+      globalData.pendingErrors += (() => (s"xxx.resized := yyy is not something legal. You can do xxx := yyy.resized to automaticaly resize yyy to the correct size, OR this : \nxxx := SomePaddedValue\nxxx(yyy.range) := yyy\n$trace"))
+    }
   }
 
   def walkWhenNodes(baseType: BaseType, initialConsumer: Node, initialConsumerInputId: Int, conservative: Boolean = false) : (Node, Int) = {
@@ -181,11 +186,12 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
   private[core] def canSymplifyIt = !dontSimplify && !existsTag(!_.canSymplifyHost)
 
 
-  def removeAssignements() : Unit = {
+  def removeAssignements() : this.type = {
     input match {
       case reg: Reg => reg.dataInput = null.asInstanceOf[reg.T]
       case _        => input = null
     }
+    this
   }
 
   override def dontSimplifyIt(): this.type = {

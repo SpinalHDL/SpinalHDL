@@ -18,6 +18,7 @@
 
 package spinal.core
 
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 /**
@@ -100,11 +101,38 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
     this
   }
 
-  var initialContent: Seq[T] = null
+  var initialContent : Array[BigInt] = null
 
   def init(initialContent: Seq[T]): this.type = {
     assert(initialContent.length == wordCount, s"The initial content array size (${initialContent.length}) is not equals to the memory size ($wordCount).\n" + this.getScalaLocationLong)
-    this.initialContent = initialContent
+//    val bytePerWord = (getWidth + 7)/8
+    this.initialContent = new Array[BigInt](initialContent.length)
+
+    val widthsMasks = _widths.map(w => ((BigInt(1) << w) - 1))
+    var nextOffset = 0
+    val offsets = _widths.map(width => {
+      val w = nextOffset
+      nextOffset += width
+      w
+    })
+    for((word,wordIndex) <- initialContent.zipWithIndex){
+      val elements = word.flatten
+      var builder = BigInt(0)
+      for(elementId <- (0 until _widths.length)) {
+        val element = elements(elementId)
+        val offset = offsets(elementId)
+        val width = _widths(elementId)
+        val mask = widthsMasks(elementId)
+        val literal = element.getLiteral[Literal]
+        val value = (((literal match {
+          case literal : EnumLiteral[_] => elements(elementId).asInstanceOf[SpinalEnumCraft[_]].encoding.getValue(literal.enum)
+          case literal : Literal => literal.getValue()
+        }) & mask) << offset)
+
+        builder += value
+      }
+      this.initialContent(wordIndex) = builder
+    }
     this
   }
 

@@ -94,12 +94,20 @@ trait VhdlBase extends VhdlVerilogBase{
 
   def emitRange(node: Widthable) = s"(${node.getWidth - 1} downto 0)"
 
+  var referenceSet : mutable.Set[Node with Nameable with ContextUser] = null
   def emitReference(node: Node): String = {
     node match {
-      case n: Nameable => {
+      case n: Nameable with ContextUser => {
+        if(referenceSet != null) referenceSet.add(n)
         n.getNameElseThrow
       }
     }
   }
-
+  def emitAssignedReference(node: Node): String = {
+    node match {
+      case n: Nameable with ContextUser => {
+        n.getNameElseThrow
+      }
+    }
+  }
 }

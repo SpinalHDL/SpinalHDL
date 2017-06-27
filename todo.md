@@ -57,6 +57,7 @@
 - [ ] spinal.lib.FlowCCByToggle
 
 ## http://spinalhdl.github.io/SpinalDoc/
+- [ ] Document @dontName + val vs def for rom init pruned stuff
 - [ ] component.rework
 - [X] MemBlackboxers
 - [ ] Custom phases

@@ -53,7 +53,7 @@ case class Axi4VgaCtrl(g : Axi4VgaCtrlGenerics) extends Component{
 
   val apbCtrl = Apb3SlaveFactory(io.apb)
 
-  val run = apbCtrl.createReadWrite(Bool,0x00) init(False)
+  val run = apbCtrl.createReadAndWrite(Bool,0x00) init(False)
 
 
   val dma  = VideoDma(dmaGenerics)

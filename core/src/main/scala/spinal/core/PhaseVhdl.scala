@@ -111,7 +111,6 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
       s"""library IEEE;
          |use IEEE.STD_LOGIC_1164.ALL;
          |use IEEE.NUMERIC_STD.all;
-         |use ieee.math_real.all;
          |
          |package $enumPackageName is
                                     |""".stripMargin
@@ -684,14 +683,14 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     val genericFlat = component.getGeneric.flatten
     if (genericFlat.size != 0) {
       ret ++= s"    generic( \n"
-      for ((name, e) <- genericFlat) {
+      for (e <- genericFlat) {
         e match {
           case baseType: BaseType => ret ++= s"      ${emitReference(baseType)} : ${blackBoxRemplaceULogic(component, emitDataType(baseType, true))};\n"
-          case s: String => ret ++= s"      $name : string;\n"
-          case i: Int => ret ++= s"      $name : integer;\n"
-          case d: Double => ret ++= s"      $name : real;\n"
-          case b: Boolean => ret ++= s"      $name : boolean;\n"
-          case b: TimeNumber => ret ++= s"      $name : time;\n"
+          case (name : String,s: String) => ret ++= s"      $name : string;\n"
+          case (name : String,i : Int) => ret ++= s"      $name : integer;\n"
+          case (name : String,d: Double) => ret ++= s"      $name : real;\n"
+          case (name : String,b: Boolean) => ret ++= s"      $name : boolean;\n"
+          case (name : String,t: TimeNumber) => ret ++= s"      $name : time;\n"
         }
       }
 
@@ -793,12 +792,9 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
           var initAssignementBuilder = new StringBuilder()
           if (mem.initialContent != null) {
             initAssignementBuilder ++= " := ("
-            val values = mem.initialContent.map(e => {
-              e.hashCode()
-            })
 
             var first = true
-            for ((e, index) <- mem.initialContent.zipWithIndex) {
+            for ((value, index) <- mem.initialContent.zipWithIndex) {
               if (!first)
                 initAssignementBuilder ++= ","
               else
@@ -808,11 +804,9 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
                 initAssignementBuilder ++= "\n     "
               }
 
-              val values = (e.flatten, mem._widths).zipped.map((e, width) => {
-                e.getLiteral.getBitsStringOn(width)
-              })
-
-              initAssignementBuilder ++= "\"" + values.reduceLeft((l, r) => r + l) + "\""
+              val unfilledValue = value.toString(2)
+              val filledValue = "0" * (mem.getWidth-unfilledValue.length) + unfilledValue
+              initAssignementBuilder ++= "\"" + filledValue + "\""
             }
 
             initAssignementBuilder ++= ")"
@@ -868,6 +862,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
       }
     }
 
+    referenceSet = mutable.Set[Node with Nameable with ContextUser]()
     for (process <- processList if process.needProcessDef) {
       process.genSensitivity
 
@@ -875,9 +870,12 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
       if (process.sensitivity.size != 0) {
         val tmp = new StringBuilder
+        referenceSet.clear()
         emitAssignementLevel(context,tmp, "    ", "<=",false,process.sensitivity)
 
-        ret ++= s"  process(${process.sensitivity.toList.sortWith(_.instanceCounter < _.instanceCounter).map(emitReference(_)).reduceLeft(_ + "," + _)})\n"
+        //TODO sensitivity list generation no more required
+//        ret ++= s"  process(${process.sensitivity.toList.sortWith(_.instanceCounter < _.instanceCounter).map(emitReference(_)).reduceLeft(_ + "," + _)})\n"
+        ret ++= s"  process(${referenceSet.toList.sortWith(_.instanceCounter < _.instanceCounter).map(emitReference(_)).reduceLeft(_ + "," + _)})\n"
         ret ++= "  begin\n"
         ret ++= tmp
         ret ++= "  end process;\n\n"
@@ -892,6 +890,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
         }
       }
     }
+    referenceSet = null
 
   }
 
@@ -1257,12 +1256,19 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
         (0 until symbolCount).reverse.map(i => (s"${emitReference(memRead.getMem)}_symbol$i(to_integer(${emitReference(memRead.getAddress)}))")).reduce(_ + " & " + _)
     }
     case whenNode: WhenNode => s"pkg_mux(${whenNode.getInputs.map(emitLogic(_)).reduce(_ + "," + _)})" //Exeptional case with asyncrouns of literal
+    case dc : DontCareNodeEnum => {
+      if(dc.encoding.isNative)
+        return "pkg_enum." + dc.enum.elements.head.getName()
+      else
+        return s"(${'"'}${"-" * dc.encoding.getWidth(dc.enum)}${'"'})"
+    }
     case dc: DontCareNode => {
       dc.getBaseType match {
         case to: Bool => s"'-'"
         case to: BitVector => s"(${'"'}${"-" * dc.asInstanceOf[Widthable].getWidth}${'"'})"
       }
     }
+
 
     case o => throw new Exception("Don't know how emit logic of " + o.getClass.getSimpleName)
   }
@@ -1550,10 +1556,10 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     from match {
       case from: AssignementNode => {
         from match {
-          case assign: BitAssignmentFixed => ret ++= s"$tab${emitReference(to)}(${assign.getBitId}) ${assignementKind} ${emitLogic(assign.getInput)};\n"
-          case assign: BitAssignmentFloating => ret ++= s"$tab${emitReference(to)}(to_integer(${emitLogic(assign.getBitId)})) ${assignementKind} ${emitLogic(assign.getInput)};\n"
-          case assign: RangedAssignmentFixed => ret ++= s"$tab${emitReference(to)}(${assign.getHi} downto ${assign.getLo}) ${assignementKind} ${emitLogic(assign.getInput)};\n"
-          case assign: RangedAssignmentFloating => ret ++= s"$tab${emitReference(to)}(${assign.getBitCount.value - 1} + to_integer(${emitLogic(assign.getOffset)}) downto to_integer(${emitLogic(assign.getOffset)})) ${assignementKind} ${emitLogic(assign.getInput)};\n"
+          case assign: BitAssignmentFixed => ret ++= s"$tab${emitAssignedReference(to)}(${assign.getBitId}) ${assignementKind} ${emitLogic(assign.getInput)};\n"
+          case assign: BitAssignmentFloating => ret ++= s"$tab${emitAssignedReference(to)}(to_integer(${emitLogic(assign.getBitId)})) ${assignementKind} ${emitLogic(assign.getInput)};\n"
+          case assign: RangedAssignmentFixed => ret ++= s"$tab${emitAssignedReference(to)}(${assign.getHi} downto ${assign.getLo}) ${assignementKind} ${emitLogic(assign.getInput)};\n"
+          case assign: RangedAssignmentFloating => ret ++= s"$tab${emitAssignedReference(to)}(${assign.getBitCount.value - 1} + to_integer(${emitLogic(assign.getOffset)}) downto to_integer(${emitLogic(assign.getOffset)})) ${assignementKind} ${emitLogic(assign.getInput)};\n"
         }
       }
       case man: MultipleAssignmentNode => {
@@ -1562,7 +1568,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
           emitAssignement(to, assign, ret, tab, assignementKind)
         })
       }
-      case _ => ret ++= s"$tab${emitReference(to)} ${assignementKind} ${emitLogic(from)};\n"
+      case _ => ret ++= s"$tab${emitAssignedReference(to)} ${assignementKind} ${emitLogic(from)};\n"
     }
   }
 
@@ -1613,11 +1619,11 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
             case lit: EnumLiteral[_] => emitEnumLiteral(lit.enum, lit.encoding)
           }
           ret ++= s"${tab}  when $litString =>\n"
-          emitAssignementLevel(c.doThat,ret,tab + "    ","<=")
+          emitAssignementLevel(c.doThat,ret,tab + "    ",assignementKind)
         })
         ret ++= s"${tab}  when others =>\n"
         if(switchTree.default != null){
-          emitAssignementLevel(switchTree.default.doThat,ret,tab + "    ","<=")
+          emitAssignementLevel(switchTree.default.doThat,ret,tab + "    ",assignementKind)
         }
         ret ++= s"${tab}end case;\n"
       }
@@ -1669,14 +1675,14 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
           ret ++= s"    generic map( \n"
 
 
-          for ((name, e) <- genericFlat) {
+          for (e <- genericFlat) {
             e match {
               case baseType: BaseType => ret ++= addULogicCast(baseType, emitReference(baseType), emitLogic(baseType.getInput(0)), in)
-              case s: String => ret ++= s"      ${name} => ${"\""}${s}${"\""},\n"
-              case i: Int => ret ++= s"      ${name} => $i,\n"
-              case d: Double => ret ++= s"      ${name} => $d,\n"
-              case b: Boolean => ret ++= s"      ${name} => $b,\n"
-              case t: TimeNumber => {
+              case (name : String,s: String) => ret ++= s"      ${name} => ${"\""}${s}${"\""},\n"
+              case (name : String,i : Int) => ret ++= s"      ${name} => $i,\n"
+              case (name : String,d: Double) => ret ++= s"      ${name} => $d,\n"
+              case (name : String,b: Boolean) => ret ++= s"      ${name} => $b,\n"
+              case (name : String,t: TimeNumber) => {
                 val d = t.decompose
                 ret ++= s"      ${name} => ${d._1} ${d._2},\n"
               }

@@ -9,7 +9,7 @@ import spinal.lib.bus.avalon._
 import spinal.lib.bus.avalon._
 import spinal.lib.bus.amba4.axi._
 import spinal.lib.cpu.riscv.impl.Utils._
-import spinal.lib.cpu.riscv.impl.extension.CoreExtension
+import spinal.lib.cpu.riscv.impl.extension.{NativeDataBusExtension, NativeInstructionBusExtension, BarrelShifterLightExtension, CoreExtension}
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
@@ -1118,7 +1118,33 @@ class RiscvCore(implicit val c : RiscvCoreConfig) extends Component{
 
 }
 
+object RiscvCore{
+  def main(args: Array[String]) {
+    SpinalVhdl{
+      implicit val p = RiscvCoreConfig(
+        pcWidth = 32,
+        addrWidth = 32,
+        startAddress = 0x000,
+        regFileReadyKind = sync,
+        branchPrediction = disable,
+        bypassExecute0 = false,
+        bypassExecute1 = false,
+        bypassWriteBack = false,
+        bypassWriteBackBuffer = false,
+        collapseBubble = false,
+        fastFetchCmdPcCalculation = false
+      )
 
+//      p.add(new MulExtension)
+//      p.add(new DivExtension)
+      //p.add(new BarrelShifterFullExtension)
+      p.add(new BarrelShifterLightExtension)
+      p.add(new NativeInstructionBusExtension)
+      p.add(new NativeDataBusExtension)
+      (new RiscvCore).setDefinitionName("TopLevel")   //765 4lut   482reg
+    }
+  }
+}
 
 
 

@@ -150,8 +150,8 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
 
   /** Connect this to a zero latency fifo and return its pop stream
     */
-  def queueZeroLatency(size: Int): Stream[T] = {
-    val fifo = new StreamFifoZeroLatency(dataType, size)
+  def queueLowLatency(size: Int, latency : Int = 0): Stream[T] = {
+    val fifo = new StreamFifoLowLatency(dataType, size, latency)
     fifo.setPartialName(this,"fifo")
     fifo.io.push << this
     fifo.io.pop
@@ -160,6 +160,10 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
 /** Return True when a transaction is present on the bus but the ready is low
     */
   def isStall : Bool = valid && !ready
+
+  /** Return True when a transaction is appear (first cycle)
+    */
+  def isNew : Bool = valid && !(RegNext(isStall) init(False))
 
 /** Return True when a transaction occure on the bus (Valid && ready)
   */
@@ -246,6 +250,15 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
       case 0 => this
       case _ => this.s2mPipe().s2mPipe(stagesCount-1)
     }
+  }
+
+  def validPipe() : Stream[T] = {
+    val sink = Stream(_dataType)
+    val validReg = RegInit(False) setWhen(this.valid) clearWhen(sink.fire)
+    sink.valid := validReg
+    sink.payload := this.payload
+    this.ready := sink.ready && validReg
+    sink
   }
 
 /** cut all path, but divide the bandwidth by 2, 1 cycle latency
@@ -580,11 +593,11 @@ class StreamFifo[T <: Data](dataType: T, depth: Int) extends Component {
   }
 }
 
-object StreamFifoZeroLatency{
-  def apply[T <: Data](dataType: T, depth: Int) = new StreamFifoZeroLatency(dataType,depth)
+object StreamFifoLowLatency{
+  def apply[T <: Data](dataType: T, depth: Int) = new StreamFifoLowLatency(dataType,depth)
 }
 
-class StreamFifoZeroLatency[T <: Data](dataType: T, depth: Int) extends Component {
+class StreamFifoLowLatency[T <: Data](dataType: T, depth: Int, latency : Int = 0) extends Component {
   require(depth >= 1)
   val io = new Bundle {
     val push = slave Stream (dataType)
@@ -605,14 +618,21 @@ class StreamFifoZeroLatency[T <: Data](dataType: T, depth: Int) extends Componen
 
   io.push.ready := !full
 
-  when(!empty){
-    io.pop.valid := !empty
-    io.pop.payload := ram.readAsync(popPtr.value)
-  } otherwise{
-    io.pop.valid := io.push.valid
-    io.pop.payload := io.push.payload
+  latency match{
+    case 0 => {
+      when(!empty){
+        io.pop.valid := True
+        io.pop.payload := ram.readAsync(popPtr.value)
+      } otherwise{
+        io.pop.valid := io.push.valid
+        io.pop.payload := io.push.payload
+      }
+    }
+    case 1 => {
+      io.pop.valid := !empty
+      io.pop.payload := ram.readAsync(popPtr.value)
+    }
   }
-
   when(pushing =/= popping) {
     risingOccupancy := pushing
   }

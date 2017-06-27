@@ -1,6 +1,5 @@
 package spinal.tester.code
 
-import spinal.core
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba3.ahblite._
@@ -10,7 +9,6 @@ import spinal.lib.bus.misc.{BusSlaveFactoryConfig, BusSlaveFactory}
 import spinal.lib.io.TriState
 import spinal.lib.memory.sdram.W9825G6JH6
 import spinal.lib.soc.pinsec.{Pinsec, PinsecConfig}
-import spinal.lib.crypto.symmetric._
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -745,11 +743,11 @@ object PlayPruned{
     val unusedSignal = UInt(8 bits)
     val unusedSignal2 = UInt(8 bits)
 
-    unusedSignal2 := unusedSignal
+    unusedSignal2 := unusedSignal + io.a
   }
 
   def main(args: Array[String]) {
-    SpinalVhdl(new TopLevel).printPruned()
+    SpinalVhdl(new TopLevel).printPruned().printUnused()
   }
 }
 
@@ -762,7 +760,7 @@ object PlayPruned2{
       val result = out UInt(8 bits)
     }
 
-    io.result := io.a + io.b
+    io.result := io.a + io.a
 
     val unusedSignal = UInt(8 bits)
     val unusedSignal2 = UInt(8 bits).keep()
@@ -899,61 +897,6 @@ object PlayMasked232{
 }
 
 
-
-
-object PlayDesBlock{
-
-  class DES_Block_Tester() extends Component{
-
-    val g    = DESBlockGenerics()
-    val gIO  = SymmetricCryptoBlockGeneric(   keyWidth    = g.keyWidth + g.keyWidthParity,
-                                              blockWidth  = g.blockWidth,
-                                              useEncDec   = true)
-
-    val io = new SymmetricCryptoBlockIO(gIO)
-
-    val des = new DESBlock(g)
-
-    des.io <> io
-  }
-
-  def main(args: Array[String]) {
-    SpinalConfig(
-      mode = Verilog,
-      dumpWave = DumpWaveConfig(depth = 0),
-      defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
-      defaultClockDomainFrequency = FixedFrequency(50 MHz)
-    ).generate(new DES_Block_Tester).printPruned()
-  }
-}
-
-
-object Play3DESBlock{
-
-  class Triple_DES_Tester extends Component{
-
-    val gDES = DESBlockGenerics()
-    val gIO  = SymmetricCryptoBlockGeneric(keyWidth    = ((gDES.keyWidth.value + gDES.keyWidthParity.value) * 3) bits, // TODO remove .value
-                                           blockWidth  = gDES.blockWidth,
-                                           useEncDec   = true)
-
-    val io = new SymmetricCryptoBlockIO(gIO)
-
-    val des3 = new TripleDESBlock()
-    des3.io <> io
-  }
-
-  def main(args: Array[String]) {
-    SpinalConfig(
-      mode = Verilog,
-      dumpWave = DumpWaveConfig(depth = 0),
-      defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
-      defaultClockDomainFrequency  = FixedFrequency(50 MHz)
-    ).generate(new Triple_DES_Tester).printPruned
-  }
-}
-
-
 object PlayPatch{
   class LEDBank(width     : Int = 16,
                 lowActive : Bool = False) extends Component {
@@ -996,7 +939,7 @@ object PlayPatch{
               baseAddress : BigInt)
              (width     : Int = 16,
               lowActive : Bool = False): Bits ={
-      val leds = busCtrl.createReadWrite(Bits(width bits),baseAddress) init(0)
+      val leds = busCtrl.createReadAndWrite(Bits(width bits),baseAddress) init(0)
       return lowActive ? ~leds | leds
     }
   }
@@ -1135,28 +1078,73 @@ object Play3MissingWarning43{
 }
 
 
+object PlayWithBusSlaveFacotry11{
+
+  class TopLevel extends Component {
+    val io = new Bundle{
+      val apb3  = slave(Apb3(32, 32))
+      val tata     = out Bits(20 bits)
+    }
+
+
+
+    val factoryConfig = new BusSlaveFactoryConfig(BIG)
+    val factory = Apb3SlaveFactory(io.apb3, 0).setConfig(factoryConfig)
+
+
+    val d = factory.createWriteOnly(io.tata, 0x50l)
+    io.tata := d
+  }
+
+  def main(args: Array[String]): Unit ={
+    SpinalVhdl(new TopLevel)
+  }
+}
+
+
 object PlayWithBusSlaveFacotry{
 
   class TopLevel extends Component {
     val io = new Bundle{
-      val apb3 = slave(Apb3(32, 32))
-      val key  = out Bits(160 bits)
-      val value = out Bits(150 bits)
+      val apb3  = slave(Apb3(32, 32))
+      val key   = out Bits(160 bits)
+      val value = out Bits(40 bits)
+      val cnt   = out UInt(32 bits)
+      val toto  = out Bits(12 bits)
+      val myStream = slave Stream(Bits(90 bits))
+      val myFlow   = master Flow(Bits(90 bits))
+      val tata     = out Bits(20 bits)
     }
+
+
 
     val key_reg = Reg(cloneOf(io.key)) init(0)
     val value_reg = Reg(cloneOf(io.value))
 
-    val factoryConfig = new BusSlaveFactoryConfig(BIG)
-    val factory = Apb3SlaveFactory(io.apb3, 0).setConfig(factoryConfig)
+
+    val factory = Apb3SlaveFactory(io.apb3, 0)
+    factory.setWordEndianness(LITTLE)
 
     factory.writeMultiWord(key_reg, 0x100l)
     factory.readMultiWord(key_reg, 0x100l)
 
     factory.readAndWriteMultiWord(value_reg, 0x200l)
 
+    val regToto = factory.createReadAndWrite(Bits(12 bits), 0x300l)
+    io.toto := regToto
+
+    val cnt = Reg(UInt(32 bits)) init(0)
+    factory.onWrite{ cnt := cnt + 1 }
+    io.cnt := cnt
+
+    factory.readStreamNonBlocking(io.myStream, 0x0l)
+
+    factory.driveFlow(io.myFlow, 0x700l)
+
     io.key   := key_reg
     io.value := value_reg
+
+    factory.drive(io.tata, 0x50l)
   }
 
   def main(args: Array[String]): Unit ={
@@ -1221,3 +1209,20 @@ object PlayWithCustomEnumEncoding{
 
 }
 
+
+object PlayWithMuxListDefault{
+  class TopLevel extends Component{
+    val io = new Bundle{
+      val sel     = in UInt(4 bits)
+      val outData = out Bits(8 bits)
+      val inData  = in Bits(128 bits)
+    }
+
+    io.outData := io.sel.muxList(io.inData(7 downto 0) ,for(index <- 0 until 4) yield (index, io.inData(index*8+8-1 downto index*8)))
+
+  }
+
+  def main(args: Array[String]): Unit ={
+    SpinalVhdl(new TopLevel)
+  }
+}

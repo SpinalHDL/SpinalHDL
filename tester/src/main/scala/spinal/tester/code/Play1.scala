@@ -831,15 +831,45 @@ object PlaySymplify {
 
 
 object PlayBug {
+  case class LUT5(INIT : Bits) extends BlackBox {
+    val generic = new Generic {
+      val INIT = LUT5.this.INIT
+    }
+    val io = new Bundle {
+      val I0 = in Bool
+      val I1 = in Bool
+      val I2 = in Bool
+      val I3 = in Bool
+      val I4 = in Bool
+      val O = out Bool
+    }
+
+    noIoPrefix()
+  }
 
   class TopLevel extends Component {
-    val a, b = in UInt (4 bit)
-    val result = out UInt (4 bit)
-    result := RegNext(a) + b
+    val io = new Bundle {
+      val I0 = in Bool
+      val I1 = in Bool
+      val I2 = in Bool
+      val I3 = in Bool
+      val I4 = in Bool
+      val O = out Bool
+    }
+
+    val lut5Inst = LUT5(B"x96696996")
+
+    lut5Inst.io.I0 <> io.I0
+    lut5Inst.io.I1 <> io.I1
+    lut5Inst.io.I2 <> io.I2
+    lut5Inst.io.I3 <> io.I3
+    lut5Inst.io.I4 <> io.I4
+    lut5Inst.io.O  <> io.O
   }
 
   def main(args: Array[String]): Unit = {
     SpinalVhdl(new TopLevel)
+    SpinalVerilog(new TopLevel)
   }
 }
 

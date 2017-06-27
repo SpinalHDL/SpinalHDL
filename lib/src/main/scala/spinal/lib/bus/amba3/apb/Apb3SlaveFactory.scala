@@ -28,19 +28,34 @@ class Apb3SlaveFactory(bus: Apb3, selId: Int) extends BusSlaveFactoryDelayed{
         when(doWrite){
           for(element <- jobs) element match{
             case element: BusSlaveFactoryWrite   => element.that.assignFromBits(bus.PWDATA(element.bitOffset, element.that.getBitsWidth bits))
-            case element: BusSlaveFactoryOnWrite => element.doThat()
+            case element: BusSlaveFactoryOnWriteAtAddress => element.doThat()
             case _ =>
           }
         }
         when(doRead){
           for(element <- jobs) element match{
             case element: BusSlaveFactoryRead   => bus.PRDATA(element.bitOffset, element.that.getBitsWidth bits) := element.that.asBits
-            case element: BusSlaveFactoryOnRead => element.doThat()
+            case element: BusSlaveFactoryOnReadAtAddress => element.doThat()
             case _ =>
           }
         }
       }
     }
+
+    when(doWrite){
+      for(jobs <- elements) jobs match{
+        case element: BusSlaveFactoryOnWriteAnyAddress => element.doThat()
+        case _ =>
+      }
+    }
+
+    when(doRead){
+      for(jobs <- elements) jobs match{
+        case element: BusSlaveFactoryOnReadAnyAddress => element.doThat()
+        case _ =>
+      }
+    }
+
   }
 
   override def busDataWidth: Int = bus.config.dataWidth

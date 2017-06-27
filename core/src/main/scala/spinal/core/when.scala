@@ -311,6 +311,14 @@ object is {
             case _ => SpinalError("The switch is not a Bits, UInt or SInt")
           }
         }
+        case key: BigInt => {
+          switchValue match {
+            case switchValue: Bits => switchValue === B(key)
+            case switchValue: UInt => switchValue === U(key)
+            case switchValue: SInt => switchValue === S(key)
+            case _ => SpinalError("The switch is not a Bits, UInt or SInt")
+          }
+        }
         case that : SpinalEnumElement[_] => switchValue.isEquals(that())
         case key : MaskedLiteral => switchValue match {
           case switchValue: Bits => switchValue === key

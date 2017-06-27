@@ -1419,7 +1419,7 @@ class PhaseSimplifyBlacBoxGenerics(pc: PhaseContext) extends PhaseNetlist{
   }
 }
 
-class PhasePrintUnUsedSignals(prunedSignals : mutable.Set[BaseType])(pc: PhaseContext) extends PhaseCheck{
+class PhasePrintUnUsedSignals(prunedSignals : mutable.Set[BaseType],unusedSignals : mutable.Set[BaseType])(pc: PhaseContext) extends PhaseCheck{
   override def useNodeConsumers = false
   override def impl(pc : PhaseContext): Unit = {
     import pc._
@@ -1447,6 +1447,18 @@ class PhasePrintUnUsedSignals(prunedSignals : mutable.Set[BaseType])(pc: PhaseCo
     if(!prunedSignals.isEmpty){
       SpinalWarning(s"${prunedSignals.size} signals were pruned. You can call printPruned on the backend report to get more informations.")
     }
+
+
+    val targetAlgoId2 = GlobalData.get.allocateAlgoId()
+    def walkPruned(node : Node) : Unit = node.onEachInput(input => {
+      if(input != null && input.algoId != targetAlgoId2){
+        input.algoId = targetAlgoId2
+        walkPruned(input)
+      }
+    })
+
+    prunedSignals.foreach(source => walkPruned(source))
+    unusedSignals ++= (prunedSignals.filter(_.algoId != targetAlgoId2))
   }
 }
 
@@ -1750,8 +1762,9 @@ object SpinalVhdlBoot{
 
   def singleShot[T <: Component](config : SpinalConfig)(gen : => T): SpinalReport[T] ={
     val pc = new PhaseContext(config)
+    pc.globalData.anonymSignalPrefix = if(config.anonymSignalPrefix == null) "zz" else config.anonymSignalPrefix
     val prunedSignals = mutable.Set[BaseType]()
-
+    val unusedSignals = mutable.Set[BaseType]()
 
 
     SpinalProgress("Start elaboration")
@@ -1808,7 +1821,7 @@ object SpinalVhdlBoot{
     phases += new PhaseSimplifyBlacBoxGenerics(pc)
 
     phases += new PhaseDummy(SpinalProgress("Collect signals not used in the graph"))
-    phases += new PhasePrintUnUsedSignals(prunedSignals)(pc)
+    phases += new PhasePrintUnUsedSignals(prunedSignals,unusedSignals)(pc)
 
     phases += new PhaseDummy(SpinalProgress("Finalise"))
     phases += new PhaseAddNodesIntoComponent(pc)
@@ -1847,6 +1860,7 @@ object SpinalVhdlBoot{
 
     val report = new SpinalReport[T](pc.topLevel.asInstanceOf[T])
     report.prunedSignals ++= prunedSignals
+    report.unusedSignals ++= unusedSignals
 
     report
   }
@@ -1854,7 +1868,7 @@ object SpinalVhdlBoot{
 
 
 
-class PhaseDontSymplifyVerilogMismatchingWidth(pc: PhaseContext) extends PhaseMisc{
+class PhaseDontSymplifySomeNodesVerilog(pc: PhaseContext) extends PhaseMisc{
   override def useNodeConsumers = true
   override def impl(pc : PhaseContext): Unit = {
     def applyTo(that : Node): Unit ={
@@ -1867,12 +1881,17 @@ class PhaseDontSymplifyVerilogMismatchingWidth(pc: PhaseContext) extends PhaseMi
     import pc._
     Node.walk(walkNodesDefautStack,node => {
       node match {
-        case node: Resize => applyTo(node)
-        case node: Modifier => applyTo(node) // .....
+        case node: Resize  => applyTo(node)
+        case node: Extract => node.getBitVector.asInstanceOf[BitVector].dontSimplifyIt()
         case node: Literal => applyTo(node)
+//        case node: Cast    => applyTo(node)
+        case node: SInt    => node.dontSimplifyIt()
+        case node: UInt    => node.dontSimplifyIt()
+//        case node: Bool    => node.dontSimplifyIt()
+//        case node: Modifier if node.consumers.size == 1 && node.consumers(0).isInstanceOf[SInt] => applyTo(node) // .....
 //        case node: Operator.BitVector.Add => applyTo(node)
 //        case node: Operator.BitVector.Sub => applyTo(node)
-//        case node: Operator.BitVector.ShiftRightByInt => applyTo(node)
+        case node: Operator.BitVector.ShiftOperator => applyTo(node)
 //        case node: Operator.Bits.Cat => applyTo(node)
 //        case node : Extract => applyTo(node)
         case _ =>
@@ -1932,7 +1951,10 @@ object SpinalVerilogBoot{
 
   def singleShot[T <: Component](config : SpinalConfig)(gen : => T): SpinalReport[T] ={
     val pc = new PhaseContext(config)
+    pc.globalData.anonymSignalPrefix = if(config.anonymSignalPrefix == null) "" else config.anonymSignalPrefix
+
     val prunedSignals = mutable.Set[BaseType]()
+    val unusedSignals = mutable.Set[BaseType]()
 
     SpinalProgress("Start elaboration")
 
@@ -1979,7 +2001,7 @@ object SpinalVerilogBoot{
 
     phases += new PhaseDummy(SpinalProgress("Simplify graph's nodes"))
     phases += new PhaseDontSymplifyBasetypeWithComplexAssignement(pc)
-    phases += new PhaseDontSymplifyVerilogMismatchingWidth(pc)    //VERILOG
+    phases += new PhaseDontSymplifySomeNodesVerilog(pc)    //VERILOG
     phases += new PhaseDeleteUselessBaseTypes(pc)
 
     phases += new PhaseCompletSwitchCases
@@ -1989,7 +2011,7 @@ object SpinalVerilogBoot{
     phases += new PhaseSimplifyBlacBoxGenerics(pc)
 
     phases += new PhaseDummy(SpinalProgress("Collect signals not used in the graph"))
-    phases += new PhasePrintUnUsedSignals(prunedSignals)(pc)
+    phases += new PhasePrintUnUsedSignals(prunedSignals,unusedSignals)(pc)
 
     phases += new PhaseDummy(SpinalProgress("Finalise"))
     phases += new PhaseAddNodesIntoComponent(pc)
@@ -2014,6 +2036,7 @@ object SpinalVerilogBoot{
 
     val report = new SpinalReport[T](pc.topLevel.asInstanceOf[T])
     report.prunedSignals ++= prunedSignals
+    report.unusedSignals ++= unusedSignals
 
     report
   }

@@ -72,13 +72,13 @@ class AssignementLevelWhen(val cond: Node,val context : WhenContext) extends Ass
   def isSwitchable: (Node,Node,AssignementLevelWhen) = {
     (if(cond.isInstanceOf[Bool]) cond.asInstanceOf[Bool].input else cond) match {
       case cond : Operator.Enum.Equal => {
-        (cond.left,cond.right) match {
+        (cond.left,if(cond.right.isInstanceOf[SpinalEnumCraft[_]]) cond.right.asInstanceOf[SpinalEnumCraft[_]].input else cond.right) match {
           case (c : SpinalEnumCraft[_],l : EnumLiteral[_]) => return (c,l,this)
           case _ =>
         }
       }
       case cond : Operator.BitVector.Equal => {
-        (cond.left,cond.right) match {
+        (cond.left,if(cond.right.isInstanceOf[BitVector]) cond.right.asInstanceOf[BitVector].input else cond.right) match {
           case (c : BitVector,l : BitVectorLiteral) => return (c,l,this)
           case _ =>
         }

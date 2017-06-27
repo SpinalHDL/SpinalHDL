@@ -77,10 +77,10 @@ case class Axi4B(config: Axi4Config) extends Bundle {
   def setEXOKAY() : Unit = resp := EXOKAY
   def setSLVERR() : Unit = resp := SLVERR
   def setDECERR() : Unit = resp := DECERR
-  def isOKAY()   : Unit = resp === OKAY
-  def isEXOKAY() : Unit = resp === EXOKAY
-  def isSLVERR() : Unit = resp === SLVERR
-  def isDECERR() : Unit = resp === DECERR
+  def isOKAY()   : Bool = resp === OKAY
+  def isEXOKAY() : Bool = resp === EXOKAY
+  def isSLVERR() : Bool = resp === SLVERR
+  def isDECERR() : Bool = resp === DECERR
 }
 
 
@@ -101,10 +101,10 @@ case class Axi4R(config: Axi4Config) extends Bundle {
   def setEXOKAY() : Unit = resp := EXOKAY
   def setSLVERR() : Unit = resp := SLVERR
   def setDECERR() : Unit = resp := DECERR
-  def isOKAY()   : Unit = resp === OKAY
-  def isEXOKAY() : Unit = resp === EXOKAY
-  def isSLVERR() : Unit = resp === SLVERR
-  def isDECERR() : Unit = resp === DECERR
+  def isOKAY()   : Bool = resp === OKAY
+  def isEXOKAY() : Bool = resp === EXOKAY
+  def isSLVERR() : Bool = resp === SLVERR
+  def isDECERR() : Bool = resp === DECERR
 }
 
 

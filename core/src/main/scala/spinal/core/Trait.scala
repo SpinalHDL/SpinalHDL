@@ -53,9 +53,15 @@ abstract class PhysicalNumber[T <: PhysicalNumber[_]](protected val value : BigD
 
   def +(that : T) = newInstance(this.value + that.value)
   def -(that : T) = newInstance(this.value - that.value)
-  def *(that : T) = newInstance(this.value * that.value)
-  def /(that : T) = newInstance(this.value / that.value)
-  def %(that : T) = newInstance(this.value % that.value)
+//  def *(that : T) = newInstance(this.value * that.value)
+//  def /(that : T) = newInstance(this.value / that.value)
+//  def %(that : T) = newInstance(this.value % that.value)
+
+//  def +(that : PhysicalNumber) = (this.value + that.value)
+//  def -(that : PhysicalNumber) = (this.value - that.value)
+  def *(that : PhysicalNumber[_]) = (this.value * that.value)
+  def /(that : PhysicalNumber[_]) = (this.value / that.value)
+  def %(that : PhysicalNumber[_]) = (this.value % that.value)
 
   def +(that : BigDecimal) = newInstance(this.value + that)
   def -(that : BigDecimal) = newInstance(this.value - that)
@@ -705,6 +711,15 @@ class ClockEnableArea(clockEnable: Bool) extends Area with DelayedInit {
   }
 }
 
+class SlowArea(factor : BigInt) extends ClockingArea(ClockDomain.current.newClockDomainSlowedBy(factor)){
+  def this(frequency : HertzNumber)  {
+    this((ClockDomain.current.frequency.getValue / frequency).toBigInt())
+    val factor = ClockDomain.current.frequency.getValue / frequency
+    require(factor.toBigInt() == factor)
+  }
+}
+
+
 
 class ResetArea(reset: Bool, cumulative: Boolean) extends Area with DelayedInit {
 
@@ -754,6 +769,7 @@ class GlobalData {
     return algoId - 1
   }
 
+  var anonymSignalPrefix : String = null
   var commonClockConfig = ClockDomainConfig()
   var overridingAssignementWarnings = true
   var nodeAreNamed = false

@@ -422,15 +422,48 @@ object MaskedLiteral{
   }
 }
 
-class MaskedLiteral(val value : BigInt,val careAbout : BigInt,val width : Int){
-  def ===(that : BitVector) : Bool = {
+class MaskedLiteral(val value: BigInt, val careAbout: BigInt, val width: Int){
+
+  def ===(that: BitVector): Bool = {
     if(that.getWidth != width){
       SpinalError(s"Masked literal width=$width doesn't match the one of $that")
     }
     return (that.asBits & careAbout) === value
   }
-  def =/=(that : BitVector) : Bool = !(this === that)
+
+  def =/=(that: BitVector): Bool = !(this === that)
+
+  override def toString(): String = {
+
+    def bigInt2ListBoolean(value: BigInt, size: BitCount): List[Boolean] = {
+      def bigInt2ListBool(that: BigInt): List[Boolean] = {
+        if(that == 0)  Nil
+        else List(that.testBit(0)) ::: bigInt2ListBool(that >> 1)
+      }
+
+      castListBool(bigInt2ListBool(value), size.value)
+    }
+
+    def castListBool(l: List[Boolean], size: Int): List[Boolean] = {
+      if (l.length == size)     l
+      else if (l.length > size) l.drop( l.length - size)
+      else                      l ::: List.fill(size - l.length)(false)
+    }
+
+    val valueList = bigInt2ListBoolean(this.value, this.width bits)
+    val careList  = bigInt2ListBoolean(this.careAbout, this.width bits)
+
+    val maskStr = careList.zip(valueList).map{ x => x match{
+      case (false, x)    => "-"
+      case (true, true)  => "1"
+      case (true, false) => "0"
+    }
+    }.reverse.mkString("")
+
+    "M\"" + maskStr + "\""
+  }
 }
+
 
 object ArrayManager{
   def setAllocate[T](array : Array[T],idx : Int,value : T,initialSize : Int = 4)(implicit m: ClassTag[T]) : Array[T] = {

@@ -12,11 +12,19 @@ case class Axi4CrossbarSlaveConfig(mapping : SizeMapping){
   val connections = ArrayBuffer[Axi4CrossbarSlaveConnection]()
 }
 
+/*
+object Axi4CrossbarFactory{
+    def defaultDecoderToArbiterConnection(masterSlave : (Axi4Bus,Axi4Bus), decoderArbiter : (Axi4Bus,Axi4Bus)) : Axi4Bus = bus match {
 
-case class Axi4CrossbarFactory(/*axiConfig: Axi4Config*/){
+    }
+}*/
+
+case class Axi4CrossbarFactory(/*decoderToArbiterConnection : (Axi4Bus, Axi4Bus) => Axi4Bus = Axi4CrossbarFactory.defaultDecoderToArbiterConnection*/){
   val slavesConfigs = mutable.HashMap[Axi4Bus,Axi4CrossbarSlaveConfig]()
   val axi4SlaveToReadWriteOnly = mutable.HashMap[Axi4,Seq[Axi4Bus]]()
   val sharedBridger = mutable.HashMap[Axi4Shared,(Axi4Shared,Axi4Shared) => Unit]()
+  val readOnlyBridger = mutable.HashMap[Axi4ReadOnly,(Axi4ReadOnly,Axi4ReadOnly) => Unit]()
+  val writeOnlyBridger = mutable.HashMap[Axi4WriteOnly,(Axi4WriteOnly,Axi4WriteOnly) => Unit]()
   val masters = ArrayBuffer[Axi4Bus]()
   def addSlave(axi: Axi4Bus,mapping: SizeMapping) : this.type = {
     axi match {
@@ -75,14 +83,29 @@ case class Axi4CrossbarFactory(/*axiConfig: Axi4Config*/){
     this
   }
 
-  def addPipelining(axi : Axi4Shared,bridger : (Axi4Shared,Axi4Shared) => Unit): this.type ={
+  def addPipelining(axi : Axi4Shared)(bridger : (Axi4Shared,Axi4Shared) => Unit): this.type ={
     this.sharedBridger(axi) = bridger
+    this
+  }
+  def addPipelining(axi : Axi4ReadOnly)(bridger : (Axi4ReadOnly,Axi4ReadOnly) => Unit): this.type ={
+    this.readOnlyBridger(axi) = bridger
+    this
+  }
+  def addPipelining(axi : Axi4WriteOnly)(bridger : (Axi4WriteOnly,Axi4WriteOnly) => Unit): this.type ={
+    this.writeOnlyBridger(axi) = bridger
     this
   }
 
 
   def build(): Unit ={
     val masterToDecodedSlave = mutable.HashMap[Axi4Bus,Map[Axi4Bus,Axi4Bus]]()
+
+    def applyName(bus : Bundle,name : String, onThat : Nameable) : Unit = {
+      if(bus.component == Component.current)
+        onThat.setCompositeName(bus,name)
+      else if(bus.isNamed)
+        onThat.setCompositeName(bus.component,bus.getName() + "_" + name)
+    }
 
     val decoders = for(master <- masters) yield master match {
       case master : Axi4ReadOnly => new Area{
@@ -94,11 +117,10 @@ case class Axi4CrossbarFactory(/*axiConfig: Axi4Config*/){
           axiConfig = master.config,
           decodings = slaves.map(_._2.mapping)
         )
+        applyName(master,"decoder",decoder)
   
-        masterToDecodedSlave(master) = (slaves.map(_._1),decoder.io.outputs).zipped.toMap
-        decoder.io.input << master
-  
-        decoder.setPartialName(master,"readDecoder")
+        masterToDecodedSlave(master) = (slaves.map(_._1),decoder.io.outputs.map(_.arValidPipe())).zipped.toMap
+        readOnlyBridger.getOrElse[(Axi4ReadOnly,Axi4ReadOnly) => Unit](master,_ >> _).apply(master,decoder.io.input)
       }
       case master : Axi4WriteOnly => new Area{
         val slaves = slavesConfigs.filter{
@@ -108,11 +130,10 @@ case class Axi4CrossbarFactory(/*axiConfig: Axi4Config*/){
           axiConfig = master.config,
           decodings = slaves.map(_._2.mapping)
         )
+        applyName(master,"decoder",decoder)
 
-        masterToDecodedSlave(master) = (slaves.map(_._1),decoder.io.outputs).zipped.toMap
-        decoder.io.input << master
-
-        decoder.setPartialName(master,"writeDecoder")
+        masterToDecodedSlave(master) = (slaves.map(_._1),decoder.io.outputs.map(_.awValidPipe())).zipped.toMap
+        writeOnlyBridger.getOrElse[(Axi4WriteOnly,Axi4WriteOnly) => Unit](master,_ >> _).apply(master,decoder.io.input)
       }
       case master : Axi4Shared => new Area{
         val slaves = slavesConfigs.filter{
@@ -127,10 +148,11 @@ case class Axi4CrossbarFactory(/*axiConfig: Axi4Config*/){
           writeDecodings = writeOnlySlaves.map(_._2.mapping),
           sharedDecodings = sharedSlaves.map(_._2.mapping)
         )
+        applyName(master,"decoder",decoder)
 
         masterToDecodedSlave(master) = (
           readOnlySlaves.map(_._1) ++ writeOnlySlaves.map(_._1) ++ sharedSlaves.map(_._1)
-            -> List(decoder.io.readOutputs.toSeq , decoder.io.writeOutputs.toSeq , decoder.io.sharedOutputs.toSeq).flatten
+            -> List(decoder.io.readOutputs.map(_.arValidPipe()).toSeq , decoder.io.writeOutputs.map(_.awValidPipe()).toSeq , decoder.io.sharedOutputs.map(_.arwValidPipe()).toSeq).flatten
         ).zipped.toMap
 
         sharedBridger.getOrElse[(Axi4Shared,Axi4Shared) => Unit](master,_ >> _).apply(master,decoder.io.input)
@@ -138,6 +160,13 @@ case class Axi4CrossbarFactory(/*axiConfig: Axi4Config*/){
     }
 
 
+//    for((master,pair) <- masterToDecodedSlave){
+//      val newList = for((slave, interconnect) <- pair) yield{
+//        val pipeplined = cloneOf(interconnect)
+//        (slave -> interconnect)
+//      }
+//      masterToDecodedSlave(master) = newList.toMap
+//    }
 
 
 
@@ -152,12 +181,13 @@ case class Axi4CrossbarFactory(/*axiConfig: Axi4Config*/){
               outputConfig = slave.config,
               inputsCount = readConnections.length
             )
+            applyName(slave,"arbiter",arbiter)
             for ((input, master) <- (arbiter.io.inputs, readConnections).zipped) {
               if(!masterToDecodedSlave(master.master)(slave).isInstanceOf[Axi4ReadOnly])
                 println("???")
               input << masterToDecodedSlave(master.master)(slave).asInstanceOf[Axi4ReadOnly]
             }
-            arbiter.io.output >> slave
+            readOnlyBridger.getOrElse[(Axi4ReadOnly,Axi4ReadOnly) => Unit](slave,_ >> _).apply(arbiter.io.output,slave)
           }
         }
       }
@@ -172,10 +202,11 @@ case class Axi4CrossbarFactory(/*axiConfig: Axi4Config*/){
               inputsCount = writeConnections.length,
               routeBufferSize = 4
             )
+            applyName(slave,"arbiter",arbiter)
             for ((input, master) <- (arbiter.io.inputs, writeConnections).zipped) {
               input << masterToDecodedSlave(master.master)(slave).asInstanceOf[Axi4WriteOnly]
             }
-            arbiter.io.output >> slave
+            writeOnlyBridger.getOrElse[(Axi4WriteOnly,Axi4WriteOnly) => Unit](slave,_ >> _).apply(arbiter.io.output,slave)
           }
         }
       }
@@ -205,6 +236,7 @@ case class Axi4CrossbarFactory(/*axiConfig: Axi4Config*/){
               sharedInputsCount = sharedConnections.size,
               routeBufferSize = 4
             )
+            applyName(slave,"arbiter",arbiter)
 
             for ((input, master) <- (arbiter.io.readInputs, readConnections).zipped) {
               input << masterToDecodedSlave(master.master)(slave).asInstanceOf[Axi4ReadOnly]

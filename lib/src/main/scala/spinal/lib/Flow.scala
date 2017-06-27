@@ -112,6 +112,14 @@ class Flow[T <: Data](_dataType: T) extends Bundle with IMasterSlave with DataCa
     valid := False
     payload := that
   }
+
+  def queueWithOccupancy(size: Int): (Stream[T], UInt) = {
+    val fifo = new StreamFifo(dataType, size)
+    fifo.io.push << this.toStream
+    fifo.io.push.ready.allowPruning()
+    return (fifo.io.pop, fifo.io.occupancy)
+  }
+
 }
 
 

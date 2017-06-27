@@ -15,7 +15,7 @@ class PhaseVerilog(pc : PhaseContext) extends PhaseMisc with VerilogBase {
 
   override def useNodeConsumers: Boolean = true
 
-  var outFile: java.io.FileWriter = null
+
   var memBitsMaskKind : MemBitsMaskKind = MULTIPLE_RAM
 
   val emitedComponent = mutable.Map[ComponentBuilder, ComponentBuilder]()
@@ -25,26 +25,47 @@ class PhaseVerilog(pc : PhaseContext) extends PhaseMisc with VerilogBase {
   override def impl(pc : PhaseContext): Unit = {
     import pc._
     SpinalProgress("Write Verilog")
+    if(!pc.config.oneFilePerComponent) {
+      val outFile = new java.io.FileWriter(pc.config.targetDirectory + "/" + (if (pc.config.netlistFileName == null) (topLevel.definitionName + ".v") else pc.config.netlistFileName))
+      outFile.write(VhdlVerilogBase.getHeader("//", topLevel))
+      emitEnumPackage(outFile)
 
-    outFile = new java.io.FileWriter(pc.config.targetDirectory + "/" +  (if(pc.config.netlistFileName == null)(topLevel.definitionName + ".v") else pc.config.netlistFileName))
-    outFile.write(VhdlVerilogBase.getHeader("//",topLevel))
-    emitEnumPackage(outFile)
-
-    for (c <- sortedComponents) {
-      if (!c.isInBlackBoxTree) {
-        SpinalProgress(s"${"  " * (1 + c.level)}emit ${c.definitionName}")
-        compile(c)
+      for (c <- sortedComponents) {
+        if (!c.isInBlackBoxTree) {
+          SpinalProgress(s"${"  " * (1 + c.level)}emit ${c.definitionName}")
+          compile(c,outFile)
+        }
       }
-    }
 
-    outFile.flush();
-    outFile.close();
+      outFile.flush();
+      outFile.close();
+    } else {
+      assert(pc.config.netlistFileName == null)
+      val enumFile = new java.io.FileWriter(pc.config.targetDirectory + "/" + (if (pc.config.netlistFileName == null) (topLevel.definitionName + ".vh") else pc.config.netlistFileName))
+      enumFile.write(VhdlVerilogBase.getHeader("//", topLevel))
+      emitEnumPackage(enumFile)
+      enumFile.flush();
+      enumFile.close();
+
+      for (c <- sortedComponents) {
+        if (!c.isInBlackBoxTree) {
+          SpinalProgress(s"${"  " * (1 + c.level)}emit ${c.definitionName}")
+          val outFile = new java.io.FileWriter(pc.config.targetDirectory + "/" + (if (pc.config.netlistFileName == null) (c.definitionName + ".v") else pc.config.netlistFileName))
+          outFile.write(VhdlVerilogBase.getHeader("//", topLevel))
+          outFile.write("`include \"" + topLevel.definitionName + ".vh" + "\"\n")
+          compile(c,outFile)
+          outFile.flush();
+          outFile.close();
+        }
+      }
+
+    }
   }
 
 
 
 
-  def compile(component: Component): Unit = {
+  def compile(component: Component,outFile : java.io.FileWriter): Unit = {
     val text = emit(component)
     outFile.write(text)
   }
@@ -89,7 +110,7 @@ class PhaseVerilog(pc : PhaseContext) extends PhaseMisc with VerilogBase {
     ret = builder.newPart(true)
     ret ++= s"( \n"
     component.getOrdredNodeIo.foreach(baseType => {
-      ret ++= s"  ${emitAttributes(baseType.instanceAndSyncNodeAttributes)}${emitDirection(baseType)} ${if(signalNeedProcess(baseType)) "reg " else ""}${emitDataType(baseType)} ${baseType.getName()}${getBaseTypeSignalInitialisation(baseType)},\n"
+      ret ++= s"  ${emitSyntaxAttributes(baseType.instanceAndSyncNodeAttributes)}${emitDirection(baseType)} ${if(signalNeedProcess(baseType)) "reg " else ""}${emitDataType(baseType)} ${baseType.getName()}${getBaseTypeSignalInitialisation(baseType)}${emitCommentAttributes(baseType.instanceAndSyncNodeAttributes)},\n"
     })
 
     ret.setCharAt(ret.size - 2, ' ')
@@ -219,7 +240,7 @@ end
       node match {
         case signal: BaseType => {
           if (!signal.isIo) {
-            ret ++= s"  ${emitAttributes(signal.instanceAndSyncNodeAttributes)}${if(signalNeedProcess(signal)) "reg " else "wire "}${emitDataType(signal)} ${emitReference(signal)}${getBaseTypeSignalInitialisation(signal)};\n"
+            ret ++= s"  ${emitSyntaxAttributes(signal.instanceAndSyncNodeAttributes)}${if(signalNeedProcess(signal)) "reg " else "wire "}${emitDataType(signal)} ${emitReference(signal)}${getBaseTypeSignalInitialisation(signal)}${emitCommentAttributes(signal.instanceAndSyncNodeAttributes)};\n"
           }
         }
 
@@ -234,20 +255,19 @@ end
 
              for(i <- 0 until symbolCount) {
               val postfix = "_symbol" + i
-              ret ++= s"  ${emitAttributes(mem.instanceAttributes)}reg [${symbolWidth- 1}:0] ${emitReference(mem)}$postfix [0:${mem.wordCount - 1}];\n"
+              ret ++= s"  ${emitSyntaxAttributes(mem.instanceAttributes)}reg [${symbolWidth- 1}:0] ${emitReference(mem)}$postfix [0:${mem.wordCount - 1}]${emitCommentAttributes(mem.instanceAttributes)};\n"
             }
           }else{
-            ret ++= s"  ${emitAttributes(mem.instanceAttributes)}reg ${emitRange(mem)} ${emitReference(mem)} [0:${mem.wordCount - 1}];\n"
+            ret ++= s"  ${emitSyntaxAttributes(mem.instanceAttributes)}reg ${emitRange(mem)} ${emitReference(mem)} [0:${mem.wordCount - 1}]${emitCommentAttributes(mem.instanceAttributes)};\n"
           }
 
           if (mem.initialContent != null) {
             ret ++= "  initial begin\n"
-            for ((e, index) <- mem.initialContent.zipWithIndex) {
-              val values = (e.flatten, mem._widths).zipped.map((e, width) => {
-                e.getLiteral.getBitsStringOn(width)
-              })
+            for ((value, index) <- mem.initialContent.zipWithIndex) {
+              val unfilledValue = value.toString(2)
+              val filledValue = "0" * (mem.getWidth-unfilledValue.length) + unfilledValue
 
-              ret ++= s"    ${emitReference(mem)}[$index] = 'b${values.reduceLeft((l, r) => r + l)};\n"
+              ret ++= s"    ${emitReference(mem)}[$index] = 'b$filledValue;\n"
             }
 
             ret ++= "  end\n"
@@ -277,14 +297,22 @@ end
     }
   }
 
-
-  def emitAttributes(attributes: Iterable[Attribute]): String = {
-    val values = for (attribute <- attributes) yield attribute match {
+  def emitSyntaxAttributes(attributes: Iterable[Attribute]): String = {
+    val values = for (attribute <- attributes if attribute.attributeKind() == DEFAULT_ATTRIBUTE) yield attribute match {
       case attribute: AttributeString => attribute.getName + " = \"" + attribute.value + "\""
       case attribute: AttributeFlag => attribute.getName
     }
     if(values.isEmpty) return ""
     "(* " + values.reduce(_ + " , " + _) + " *) "
+  }
+
+  def emitCommentAttributes(attributes: Iterable[Attribute]): String = {
+    val values = for (attribute <- attributes if attribute.attributeKind() == COMMENT_ATTRIBUTE) yield attribute match {
+      case attribute: AttributeString => attribute.getName + " = \"" + attribute.value + "\""
+      case attribute: AttributeFlag => attribute.getName
+    }
+    if(values.isEmpty) return ""
+    "/* " + values.reduce(_ + " , " + _) + " */ "
   }
 
   def signalNeedProcess(baseType: BaseType) : Boolean = {
@@ -302,6 +330,7 @@ end
       }
     }
 
+    referenceSet = mutable.Set[Node with Nameable with ContextUser]()
     for ((process,idx) <- processList.zipWithIndex if process.needProcessDef) {
       process.genSensitivity
 
@@ -310,9 +339,10 @@ end
 
       if (process.sensitivity.size != 0) {
         val tmp = new StringBuilder
-        emitAssignementLevel(context,tmp, "    ", "<=",false,process.sensitivity)
+        referenceSet.clear()
+        emitAssignementLevel(context,tmp, "    ", "=",false,process.sensitivity)
 
-        ret ++= s"  always @ (${process.sensitivity.toList.sortWith(_.instanceCounter < _.instanceCounter).map(emitReference(_)).reduceLeft(_ + " or " + _)})\n"
+        ret ++= s"  always @ (${referenceSet.toList.sortWith(_.instanceCounter < _.instanceCounter).map(emitReference(_)).reduceLeft(_ + " or " + _)})\n"
         ret ++= "  begin\n"
         ret ++= tmp
 //        val senList = process.sensitivity.toList
@@ -328,7 +358,7 @@ end
         }
       }
     }
-
+    referenceSet = null
   }
 
 
@@ -611,6 +641,10 @@ end
         "{" + (0 until symbolCount).reverse.map(i => (s"${emitReference(memRead.getMem)}_symbol$i[${emitReference(memRead.getAddress)}]")).reduce(_ + " , " + _) + "}"
     }
     case whenNode: WhenNode => s"(${emitLogic(whenNode.cond)} ? ${emitLogic(whenNode.whenTrue)} : ${emitLogic(whenNode.whenFalse)})" //Exeptional case with asyncrouns of literal
+    case dc : DontCareNodeEnum => {
+      val width = dc.encoding.getWidth(dc.enum)
+      s"(${width}'b${"x" * width})"
+    }
     case dc: DontCareNode => {
       dc.getBaseType match {
         case to: Bool => "1'bx"
@@ -886,7 +920,7 @@ end
               ret ++= s"${tab}if (!$cond) begin\n"
               ret ++= s"""${tab}  $$display("$severity $message");\n"""
               if(assertNode.severity == `FAILURE`) ret ++= tab + "  $finish;\n"
-              ret ++= s"end\n"
+              ret ++= s"${tab}end\n"
             }
           }
           val rootContext = new AssignementLevel(assignementTasks)
@@ -900,10 +934,10 @@ end
     from match {
       case from: AssignementNode => {
         from match {
-          case assign: BitAssignmentFixed => ret ++= s"$tab${emitReference(to)}[${assign.getBitId}] ${assignementKind} ${emitLogic(assign.getInput)};\n"
-          case assign: BitAssignmentFloating => ret ++= s"$tab${emitReference(to)}[${emitLogic(assign.getBitId)}] ${assignementKind} ${emitLogic(assign.getInput)};\n"
-          case assign: RangedAssignmentFixed => ret ++= s"$tab${emitReference(to)}[${assign.getHi} : ${assign.getLo}] ${assignementKind} ${emitLogic(assign.getInput)};\n"
-          case assign: RangedAssignmentFloating => ret ++= s"$tab${emitReference(to)}[${emitLogic(assign.getOffset)} +: ${assign.getBitCount.value}] ${assignementKind} ${emitLogic(assign.getInput)};\n"
+          case assign: BitAssignmentFixed => ret ++= s"$tab${emitAssignedReference(to)}[${assign.getBitId}] ${assignementKind} ${emitLogic(assign.getInput)};\n"
+          case assign: BitAssignmentFloating => ret ++= s"$tab${emitAssignedReference(to)}[${emitLogic(assign.getBitId)}] ${assignementKind} ${emitLogic(assign.getInput)};\n"
+          case assign: RangedAssignmentFixed => ret ++= s"$tab${emitAssignedReference(to)}[${assign.getHi} : ${assign.getLo}] ${assignementKind} ${emitLogic(assign.getInput)};\n"
+          case assign: RangedAssignmentFloating => ret ++= s"$tab${emitAssignedReference(to)}[${emitLogic(assign.getOffset)} +: ${assign.getBitCount.value}] ${assignementKind} ${emitLogic(assign.getInput)};\n"
         }
       }
       case man: MultipleAssignmentNode => {
@@ -912,7 +946,7 @@ end
           emitAssignement(to, assign, ret, tab, assignementKind)
         })
       }
-      case _ => ret ++= s"$tab${emitReference(to)} ${assignementKind} ${emitLogic(from)};\n"
+      case _ => ret ++= s"$tab${emitAssignedReference(to)} ${assignementKind} ${emitLogic(from)};\n"
     }
   }
 
@@ -949,12 +983,12 @@ end
         ret ++= s"${tab}case(${emitLogic(switchTree.key)})\n"
         switchTree.cases.foreach(c => {
           ret ++= s"${tab}  ${emitLogic(c.const)} : begin\n"
-          emitAssignementLevel(c.doThat,ret,tab + "    ","<=")
+          emitAssignementLevel(c.doThat,ret,tab + "    ",assignementKind)
           ret ++= s"${tab}  end\n"
         })
         ret ++= s"${tab}  default : begin\n"
         if(switchTree.default != null){
-          emitAssignementLevel(switchTree.default.doThat,ret,tab + "    ","<=")
+          emitAssignementLevel(switchTree.default.doThat,ret,tab + "    ",assignementKind)
         }
         ret ++= s"${tab}  end\n"
         ret ++= s"${tab}endcase\n"
@@ -976,18 +1010,13 @@ end
 
         if (genericFlat.size != 0) {
           ret ++= s"#( \n"
-
-
-          for ((name, e) <- genericFlat) {
+          for (e <- genericFlat) {
             e match {
-              case baseType: BaseType => ret ++= s"    .${name}(${emitLogic(baseType.getInput(0))}),\n"
-              case s: String => ret ++= s"    .${name}(${"\""}${s}${"\""}),\n"
-              case i: Int => ret ++= s"    .${name}($i),\n"
-              case d: Double => ret ++= s"    .${name}($d),\n"
-              case b: Boolean => ret ++= s"    .${name}($b),\n"
-//              case t: STime => {
-//                ???
-//              }
+              case baseType: BaseType => ret ++= s"    .${emitReference(baseType)}(${emitLogic(baseType.getInput(0))}),\n"
+              case (name : String,s : String) => ret ++= s"    .${name}(${"\""}${s}${"\""}),\n"
+              case (name : String,i : Int) => ret ++= s"    .${name}($i),\n"
+              case (name : String,d : Double) => ret ++= s"    .${name}($d),\n"
+              case (name : String,b : Boolean) => ret ++= s"    .${name}($b),\n"
             }
           }
           ret.setCharAt(ret.size - 2, ' ')

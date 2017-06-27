@@ -24,6 +24,14 @@ case class Axi4Shared(config: Axi4Config) extends Bundle with IMasterSlave with 
   }
 
 
+  def arwValidPipe() : Axi4Shared = {
+    val sink = Axi4Shared(config)
+    sink.arw << this.arw.validPipe()
+    sink.w  << this.w
+    sink.r  >> this.r
+    sink.b  >> this.b
+    sink
+  }
 
   override def asMaster(): Unit = {
     master(arw,w)

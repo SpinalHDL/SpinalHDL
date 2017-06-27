@@ -75,7 +75,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
   case class PrePopTask(task : () => Unit, clockDomain: ClockDomain)
 
   /** Array of PrePopTask */
-  private[core] val prePopTasks = mutable.ArrayBuffer[PrePopTask]()
+  private[core] var prePopTasks = mutable.ArrayBuffer[PrePopTask]()
   /** Contains all in/out signals of the component */
   private[core] val ioSet = mutable.Set[BaseType]()
   /** enable/disable "io_" prefix in front of the in/out signals in the RTL */
@@ -85,6 +85,8 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
   private[core] val kindsOutputsToBindings = mutable.Map[BaseType, BaseType]()
   private[core] val kindsOutputsBindings = mutable.Set[BaseType]()
   private[core] val additionalNodesRoot = mutable.Set[Node]()
+  def getAdditionalNodesRoot : mutable.Set[Node] = additionalNodesRoot
+
   /** Definition Name (name of the entity (VHDL) or module (Verilog))*/
   var definitionName: String = null
   /** Hierarchy level of the component */
@@ -124,10 +126,13 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
 
       this.nameElements()
 
-      for(t <- prePopTasks){
-        t.clockDomain(t.task())
+      while(prePopTasks.nonEmpty){
+        val prePopTasksToDo = prePopTasks
+        prePopTasks = mutable.ArrayBuffer[PrePopTask]()
+        for(t <- prePopTasksToDo){
+          t.clockDomain(t.task())
+        }
       }
-      prePopTasks.clear()
 
       Component.pop(this)
     }
@@ -223,13 +228,13 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
     */
   private[core] def allocateNames(globalScope : Scope): Unit = {
     val localScope = globalScope.newChild
-    localScope.allocateName("zz")
+    localScope.allocateName(globalData.anonymSignalPrefix)
 
     for (node <- nodes) node match {
       case nameable: Nameable =>
         if (nameable.isUnnamed || nameable.getName() == "") {
           nameable.unsetName()
-          nameable.setWeakName("zz")
+          nameable.setWeakName(globalData.anonymSignalPrefix)
         }
         if (nameable.isWeak)
           nameable.setName(localScope.allocateName(nameable.getName()))

@@ -256,3 +256,21 @@ object CoreFMaxQuartusBench {
     }
   }
 }
+
+
+//Big core ->
+//Cyclone II -> 86 Mhz
+//Cyclone IV -> 112 Mhz
+//Cyclone V -> 126 Mhz
+//Small core ->
+//Cyclone II -> 143 Mhz
+//Cyclone IV -> 169 Mhz
+//Cyclone V -> 193 Mhz
+//Fast core ->
+//Cyclone II -> 150 Mhz
+//Cyclone IV -> 171 Mhz
+//Cyclone V -> 179 Mhz
+//Big core without caches ->
+//Cyclone II -> 102 Mhz
+//Cyclone IV -> 117 Mhz
+//Cyclone V -> 134 Mhz

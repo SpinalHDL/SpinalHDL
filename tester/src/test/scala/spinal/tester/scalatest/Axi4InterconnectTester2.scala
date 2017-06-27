@@ -51,4 +51,5 @@ class Axi4CrossbarTester2CocotbBoot extends SpinalTesterCocotbBase {
   override def getName: String = "Axi4CrossbarTester2"
   override def pythonTestLocation: String = "tester/src/test/python/spinal/Axi4CrossbarTester2"
   override def createToplevel: Component = new Axi4CrossbarTester2.Axi4CrossbarTester2
+  override def backendConfig(config: SpinalConfig): SpinalConfig = super.backendConfig(config)
 }

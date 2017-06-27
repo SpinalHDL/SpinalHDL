@@ -100,11 +100,14 @@ class UartCtrl(g : UartCtrlGenerics = UartCtrlGenerics()) extends Component {
         case 16 => busCtrlWrapped.read(config.txFifoDepth - fifoOccupancy,address = 6,bitOffset = 0)
         case 32 => busCtrlWrapped.read(config.txFifoDepth - fifoOccupancy,address = 4,bitOffset = 16)
       }
+
+      streamUnbuffered.ready.allowPruning()
+      streamUnbuffered.ready.input.addTag(unusedTag)
     }
 
     //manage RX
     val read = new Area {
-      val (stream, fifoOccupancy) = io.read.toStream.queueWithOccupancy(config.rxFifoDepth)
+      val (stream, fifoOccupancy) = io.read.queueWithOccupancy(config.rxFifoDepth)
       busCtrl.busDataWidth match {
         case 16 =>
           busCtrlWrapped.readStreamNonBlocking(stream, address = 0, validBitOffset = 15, payloadBitOffset = 0)
@@ -118,8 +121,8 @@ class UartCtrl(g : UartCtrlGenerics = UartCtrlGenerics()) extends Component {
 
     //manage interrupts
     val interruptCtrl = new Area {
-      val writeIntEnable = busCtrlWrapped.createReadWrite(Bool, address = 4, 0) init(False)
-      val readIntEnable  = busCtrlWrapped.createReadWrite(Bool, address = 4, 1) init(False)
+      val writeIntEnable = busCtrlWrapped.createReadAndWrite(Bool, address = 4, 0) init(False)
+      val readIntEnable  = busCtrlWrapped.createReadAndWrite(Bool, address = 4, 1) init(False)
       val readInt   = readIntEnable  &  read.stream.valid
       val writeInt  = writeIntEnable & !write.stream.valid
       val interrupt = readInt || writeInt

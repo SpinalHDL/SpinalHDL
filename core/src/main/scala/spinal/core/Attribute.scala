@@ -31,22 +31,31 @@ package spinal.core
 //  def addAttribute(name: String,value : String): this.type = addAttribute(new AttributeString(name,value))
 //}
 
+trait AttributeKind
+object COMMENT_ATTRIBUTE extends AttributeKind
+object DEFAULT_ATTRIBUTE extends AttributeKind
+
 trait Attribute extends SpinalTag{
   def getName: String
   def sameType(that: Attribute): Boolean
 
+  def attributeKind() : AttributeKind
   override def toString: String = getName
 }
 
-class AttributeString(name: String, val value: String) extends Attribute {
+class AttributeString(name: String, val value: String, kind : AttributeKind = DEFAULT_ATTRIBUTE) extends Attribute {
   override def getName: String = name
   override def sameType(that: Attribute): Boolean = that.isInstanceOf[AttributeString]
+  override def attributeKind() = kind
 }
 
-class AttributeFlag(name: String) extends Attribute {
+class AttributeFlag(name: String, kind : AttributeKind = DEFAULT_ATTRIBUTE) extends Attribute {
   override def getName: String = name
   override def sameType(that: Attribute): Boolean = that.isInstanceOf[AttributeFlag]
+  override def attributeKind() = kind
 }
 
-
+object Verilator{
+  object public extends AttributeFlag("verilator public", COMMENT_ATTRIBUTE)
+}
 

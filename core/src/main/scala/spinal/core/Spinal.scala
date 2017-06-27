@@ -78,9 +78,11 @@ case class SpinalConfig(
   onlyStdLogicVectorAtTopLevelIo : Boolean = false,
   defaultClockDomainFrequency : IClockDomainFrequency = UnknownFrequency(),
   targetDirectory : String = ".",
+  oneFilePerComponent : Boolean = false,
   netlistFileName : String = null,
   dumpWave : DumpWaveConfig = null,
   globalPrefix : String = "",
+  anonymSignalPrefix : String = null,
   device: Device = Device(),
   genVhdlPkg : Boolean = true,
   phasesInserters : ArrayBuffer[(ArrayBuffer[Phase]) => Unit] = ArrayBuffer[(ArrayBuffer[Phase]) => Unit](),
@@ -129,14 +131,20 @@ object SpinalConfig{
 
 class SpinalReport[T <: Component](val toplevel: T) {
   val prunedSignals = mutable.Set[BaseType]()
+  val unusedSignals = mutable.Set[BaseType]()
+
+  def printUnused() : this.type = {
+    unusedSignals.foreach(bt => SpinalWarning(s"Unused wire detected : $bt"))
+    this
+  }
 
   def printPruned() : this.type = {
-    prunedSignals.foreach(bt => SpinalWarning(s"Unused wire detected : $bt"))
+    prunedSignals.foreach(bt => SpinalWarning(s"Pruned wire detected : $bt"))
     this
   }
 
   def printPrunedIo() : this.type = {
-    prunedSignals.filter(_.dir != null).foreach(bt => SpinalWarning(s"Unused wire detected : $bt"))
+    prunedSignals.filter(_.dir != null).foreach(bt => SpinalWarning(s"Pruned wire detected : $bt"))
     this
   }
 }
