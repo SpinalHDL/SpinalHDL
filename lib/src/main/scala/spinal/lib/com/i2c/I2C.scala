@@ -1,8 +1,33 @@
+/*                                                                           *\
+**        _____ ____  _____   _____    __                                    **
+**       / ___// __ \/  _/ | / /   |  / /   HDL Lib                          **
+**       \__ \/ /_/ // //  |/ / /| | / /    (c) Dolu, All rights reserved    **
+**      ___/ / ____// // /|  / ___ |/ /___                                   **
+**     /____/_/   /___/_/ |_/_/  |_/_____/  MIT Licence                      **
+**                                                                           **
+** Permission is hereby granted, free of charge, to any person obtaining a   **
+** copy of this software and associated documentation files (the "Software"),**
+** to deal in the Software without restriction, including without limitation **
+** the rights to use, copy, modify, merge, publish, distribute, sublicense,  **
+** and/or sell copies of the Software, and to permit persons to whom the     **
+** Software is furnished to do so, subject to the following conditions:      **
+**                                                                           **
+** The above copyright notice and this permission notice shall be included   **
+** in all copies or substantial portions of the Software.                    **
+**                                                                           **
+** THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS   **
+** OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF                **
+** MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.    **
+** IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY      **
+** CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT **
+** OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR  **
+** THE USE OR OTHER DEALINGS IN THE SOFTWARE.                                **
+\*                                                                           */
 package spinal.lib.com.i2c
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.io._
+import spinal.lib.io.ReadableOpenDrain
 
 
 /**
@@ -24,29 +49,38 @@ case class I2C() extends Bundle with IMasterSlave {
   }
 }
 
+/**
+  * Mode used to manage the slave
+  */
+object I2CIoLayerCmdMode extends SpinalEnum{
+  val START, DATA, STOP = newElement()
+}
+
 
 /**
-  * Counter of bit write/read.
-  * MSB is send first on the I2C bus so the counter goes from dataWdith-1 to 0
+  * Define the command interface
   */
-class I2CBitCounter(sclFallingEdge:Bool, dataWidth:BitCount) extends Area {
+case class I2CIoLayerCmd() extends Bundle{
+  val mode = I2CIoLayerCmdMode()
+  val data  = Bool
+}
 
-  val index  = Reg(UInt(log2Up(dataWidth.value) bits)) randBoot()
-  val isDone = False
-
-  def clear() : Unit = index := dataWidth.value - 1
-
-  when(sclFallingEdge) {
-    index  := index - 1
-    isDone := index === 0
-  }
+/**
+  * Define the response interface
+  *  If you want to read data, set data = True
+  *
+  *  For the slave : (FREEZE) is done with the response stream.
+  */
+case class I2CIoLayerRsp() extends Bundle{
+  val data = Bool
 }
 
 
 /**
   * Detect the rising and falling Edge of the SCL signals
   */
-class SCLEdgeDetector(scl:Bool) extends Area{
+class I2CSCLEdgeDetector(scl: Bool) extends Area {
+
   val scl_prev = RegNext(scl) init(True)
 
   val rising  =  scl && !scl_prev
@@ -57,7 +91,7 @@ class SCLEdgeDetector(scl:Bool) extends Area{
 /**
   * Filter the SCL and SDA input signals
   */
-class I2CFilterInput(i2c_sda:Bool, i2c_scl:Bool, clockDivider:UInt, samplingSize:Int, clockDividerWidth:BitCount) extends Area{
+class I2CFilterInput(i2c_sda: Bool, i2c_scl: Bool, clockDivider: UInt, samplingSize: Int, clockDividerWidth: BitCount) extends Area{
 
   // Clock divider for sampling the input signals
   val samplingClockDivider = new Area{
