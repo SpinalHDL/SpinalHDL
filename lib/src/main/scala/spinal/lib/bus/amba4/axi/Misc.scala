@@ -1,8 +1,33 @@
 package spinal.lib.bus.amba4.axi
 
 import spinal.core._
-import spinal.lib.{IMasterSlave, slave, master}
+import spinal.lib._
 
+
+
+object Axi4ToAxi4Shared{
+  def apply(axi : Axi4): Axi4Shared ={
+    val axiShared = new Axi4Shared(axi.config)
+    val arbiter = StreamArbiterFactory.roundRobin.build(new Axi4Ax(axi.config),2)
+    arbiter.io.inputs(0) << axi.ar.asInstanceOf[Stream[Axi4Ax]]
+    arbiter.io.inputs(1) << axi.aw.asInstanceOf[Stream[Axi4Ax]]
+
+    axiShared.arw.arbitrationFrom(arbiter.io.output)
+    axiShared.arw.payload.assignSomeByName(arbiter.io.output.payload)
+    axiShared.arw.write := arbiter.io.chosenOH(1)
+    axi.w >> axiShared.w
+    axi.b << axiShared.b
+    axi.r << axiShared.r
+    axiShared
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new Component{
+      val axi = slave(Axi4(Axi4Config(32,32,2)))
+      val axiShared = master(Axi4ToAxi4Shared(axi))
+    })
+  }
+}
 
 object  Axi4SpecRenamer{
   def apply[T <: Bundle with Axi4Bus](that : T): T ={

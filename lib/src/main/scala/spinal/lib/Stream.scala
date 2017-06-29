@@ -114,6 +114,12 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
     (this ~ translate(this.payload))
   }
 
+  def toEvent() : Event = {
+    val ret = Event
+    ret.arbitrationFrom(this)
+    ret
+  }
+
 /** Connect this to a fifo and return its pop stream
   */
   def queue(size: Int): Stream[T] = {

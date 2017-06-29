@@ -32,6 +32,7 @@ class Axi4Ax(val config: Axi4Config) extends Bundle {
   def setLock(lockType :Bits) : Unit = if(config.useLock) lock := lockType
   def setCache(cacheType : Bits) : Unit = if (config.useCache ) cache := cacheType
 
+  override def clone: this.type = new Axi4Ax(config).asInstanceOf[this.type]
 }
 
 
