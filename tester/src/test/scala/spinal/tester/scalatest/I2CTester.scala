@@ -26,25 +26,25 @@ import spinal.lib.com.i2c._
 
 class I2CHALTester extends Component{
 
-    val slaveGeneric  = I2CSlaveIoLayerGenerics()
-    val masterGeneric = I2CMasterIoLayerGenerics()
+    val slaveGeneric  = I2CIoSlaveGenerics()
+    val masterGeneric = I2CIoMasterGenerics()
 
     val io = new Bundle{
       val ioSlave = new Bundle {
-        val cmd  = master  Flow ( I2CIoLayerCmd() )
-        val rsp  = slave Stream ( I2CIoLayerRsp() )
+        val cmd  = master  Flow ( I2CIoCmd() )
+        val rsp  = slave Stream ( I2CIoRsp() )
       }
       val ioMaster = new Bundle {
-        val cmd    = slave Stream(I2CIoLayerCmd())
-        val rsp    = master Flow (I2CIoLayerRsp ())
+        val cmd    = slave Stream(I2CIoCmd())
+        val rsp    = master Flow (I2CIoRsp ())
       }
 
       val sda = out Bool
       val scl = out Bool
     }
 
-    val i2cSlave  = new I2CSlaveIoLayer(slaveGeneric)
-    val i2cMaster = new I2CMasterIoLayer(masterGeneric)
+    val i2cSlave  = new I2CIoSlave(slaveGeneric)
+    val i2cMaster = new I2CIoMaster(masterGeneric)
 
     i2cSlave.io.cmd  <> io.ioSlave.cmd
     i2cSlave.io.rsp  <> io.ioSlave.rsp

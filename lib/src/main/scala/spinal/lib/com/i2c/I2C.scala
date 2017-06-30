@@ -44,15 +44,15 @@ case class I2C() extends Bundle with IMasterSlave {
   }
 
   override def asSlave(): Unit = {
-    master(scl)
-    master(sda)
+    slave(scl)
+    slave(sda)
   }
 }
 
 /**
   * Mode used to manage the slave
   */
-object I2CIoLayerCmdMode extends SpinalEnum{
+object I2CIoCmdMode extends SpinalEnum{
   val START, DATA, STOP = newElement()
 }
 
@@ -60,8 +60,8 @@ object I2CIoLayerCmdMode extends SpinalEnum{
 /**
   * Define the command interface
   */
-case class I2CIoLayerCmd() extends Bundle{
-  val mode = I2CIoLayerCmdMode()
+case class I2CIoCmd() extends Bundle{
+  val mode = I2CIoCmdMode()
   val data  = Bool
 }
 
@@ -71,7 +71,8 @@ case class I2CIoLayerCmd() extends Bundle{
   *
   *  For the slave : (FREEZE) is done with the response stream.
   */
-case class I2CIoLayerRsp() extends Bundle{
+case class I2CIoRsp() extends Bundle{
+  val enable = Bool
   val data = Bool
 }
 
@@ -79,42 +80,40 @@ case class I2CIoLayerRsp() extends Bundle{
 /**
   * Detect the rising and falling Edge of the SCL signals
   */
-class I2CSCLEdgeDetector(scl: Bool) extends Area {
+class I2CEdgeDetector(value: Bool) extends Area {
+  val oldValue = RegNext(value) init(True)
 
-  val scl_prev = RegNext(scl) init(True)
-
-  val rising  =  scl && !scl_prev
-  val falling = !scl && scl_prev
+  val rising  =  value && !oldValue
+  val falling = !value &&  oldValue
 }
 
 
 /**
   * Filter the SCL and SDA input signals
   */
-class I2CFilterInput(i2c_sda: Bool, i2c_scl: Bool, clockDivider: UInt, samplingSize: Int, clockDividerWidth: BitCount) extends Area{
+class I2CIoFilter(i2c_sda: Bool, i2c_scl: Bool, clockDivider: UInt, samplingSize: Int, clockDividerWidth: BitCount) extends Area{
 
   // Clock divider for sampling the input signals
-  val samplingClockDivider = new Area{
+  val timer = new Area{
     val counter = Reg(UInt(clockDividerWidth)) init(0)
     val tick    = counter === 0
 
     counter := counter - 1
-    when(tick){ counter := clockDivider }
+    when(tick){ 
+      counter := clockDivider 
+    }
   }
 
   // Input sampling
-  val samplingInput = new Area {
-    val cc_scl = BufferCC(i2c_scl)
-    val cc_sda = BufferCC(i2c_sda)
+  val sampler = new Area {
+    val sclSync = BufferCC(i2c_scl)
+    val sdaSync = BufferCC(i2c_sda)
 
-    val sdaSamples = History(that = cc_sda, length = samplingSize, when = samplingClockDivider.tick, init = True)
-    val sclSamples = History(that = cc_scl, length = samplingSize, when = samplingClockDivider.tick, init = True)
-
-    val sdaMajority = MajorityVote(sdaSamples)
-    val sclMajority = MajorityVote(sclSamples)
+    val sclSamples = History(that = sclSync, range = 1 to samplingSize, when = timer.tick, init = True)
+    val sdaSamples = History(that = sdaSync, range = 1 to samplingSize, when = timer.tick, init = True)
   }
 
-  val sda = RegNext(samplingInput.sdaMajority)
-  val scl = RegNext(samplingInput.sclMajority)
+  val sda = MajorityVote(sampler.sdaSamples)
+  val scl = MajorityVote(sampler.sclSamples)
 }
 

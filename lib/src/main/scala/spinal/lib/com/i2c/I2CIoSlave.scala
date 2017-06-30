@@ -35,14 +35,14 @@ import spinal.lib._
   * @param samplingSize              : deepth sampling
   * @param clockDividerSamplingWidth : Width of the clock divider
   */
-case class I2CSlaveIoLayerGenerics(samplingSize             : Int = 3,
-                                   clockDividerSamplingWidth: BitCount = 10 bits ){}
+case class I2CIoSlaveGenerics(samplingSize             : Int = 3,
+                              clockDividerSamplingWidth: BitCount = 10 bits ){}
 
 
 /**
   * Run-time configuration for the I2CSlave
   */
-case class I2CSlaveIoLayerConfig(g: I2CSlaveIoLayerGenerics) extends Bundle {
+case class I2CIoSlaveConfig(g: I2CIoSlaveGenerics) extends Bundle {
 
   val clockDividerSampling = UInt(g.clockDividerSamplingWidth)
 
@@ -77,45 +77,42 @@ case class I2CSlaveIoLayerConfig(g: I2CSlaveIoLayerGenerics) extends Bundle {
   *   Slave  :   |       | DATA |      |       |       |      |
   *   CMD    :       START   DATA    DATA    START   DATA   STOP
   */
-class I2CSlaveIoLayer(g : I2CSlaveIoLayerGenerics) extends Component{
+class I2CIoSlave(g : I2CIoSlaveGenerics) extends Component{
 
-  import spinal.lib.com.i2c.{I2CIoLayerCmdMode => CmdMode}
+  import spinal.lib.com.i2c.{I2CIoCmdMode => CmdMode}
 
   /**
     * Interface of the I2C Hal slave
     */
   val io = new Bundle{
-    val i2c    = slave( I2C() )
-    val config = in( I2CSlaveIoLayerConfig(g) )
-    val cmd    = master Flow  ( I2CIoLayerCmd() )
-    val rsp    = slave  Stream( I2CIoLayerRsp() )
+    val i2c    = master( I2C() )
+    val config = in( I2CIoSlaveConfig(g) )
+    val cmd    = master Flow  ( I2CIoCmd() )
+    val rsp    = slave  Stream( I2CIoRsp() )
   }
 
   /**
     * Filter SDA and SCL input
     */
-  val sampler = new I2CFilterInput(i2c_sda           = io.i2c.sda.read,
-                                   i2c_scl           = io.i2c.scl.read,
-                                   clockDivider      = io.config.clockDividerSampling,
-                                   samplingSize      = g.samplingSize,
-                                   clockDividerWidth = g.clockDividerSamplingWidth)
+  val filter = new I2CIoFilter(i2c_sda           = io.i2c.sda.read,
+                               i2c_scl           = io.i2c.scl.read,
+                               clockDivider      = io.config.clockDividerSampling,
+                               samplingSize      = g.samplingSize,
+                               clockDividerWidth = g.clockDividerSamplingWidth)
 
   /**
     * Detect the rising and falling edge of the scl signal
     */
-  val sclEdge = new I2CSCLEdgeDetector(sampler.scl)
+  val sclEdge = new I2CEdgeDetector(filter.scl)
+  val sdaEdge = new I2CEdgeDetector(filter.sda)
 
 
   /**
     * Detect the start/restart and the stop sequences
     */
   val detector = new Area{
-    val sda_prev = RegNext(sampler.sda)  init(True)
-
-    val sclHighLevel = sampler.scl && sclEdge.scl_prev
-
-    val start = sclHighLevel && !sampler.sda && sda_prev
-    val stop  = sclHighLevel && sampler.sda  && !sda_prev
+    val start = filter.scl && sdaEdge.falling
+    val stop  = filter.scl && sdaEdge.rising
   }
 
 
@@ -123,70 +120,55 @@ class I2CSlaveIoLayer(g : I2CSlaveIoLayerGenerics) extends Component{
     * Slave controller
     */
   val ctrlSlave = new Area{
-
-    val bitReceived   = Reg(Bool)
-    val onTransaction = Reg(Bool) init(False)
-    val transactionWillStart = Reg(Bool) init(False)
-    val wr_sda = True
-    val wr_scl = True
+    val inFrame, inFrameData = Reg(Bool) init(False)
+    val sdaWrite, sclWrite = True
 
     // default value
-    io.rsp.ready := False
-    io.cmd.data  := bitReceived
     io.cmd.valid := False
-    io.cmd.mode  := CmdMode.STOP
-
+    io.cmd.data  := RegNextWhen(filter.sda, sclEdge.rising)
+    io.cmd.mode  := CmdMode.DATA
+    io.rsp.ready := False
 
     // Detect a start condition
     when(detector.start){
-      io.rsp.ready  := io.rsp.valid
       io.cmd.valid  := True
       io.cmd.mode   := CmdMode.START
-      transactionWillStart := True
+      inFrame := True
+      inFrameData := False //Allow restart
     }
 
     // After detecting the start wait the falling edge of
     //  the clock before starting to read/send bit data
-    when(transactionWillStart && sclEdge.falling){
-      onTransaction := True
+    when(inFrame && sclEdge.falling){
+      inFrameData := True
     }
 
-    // Detect the stop condition
     when(detector.stop){
       io.cmd.valid  := True
       io.cmd.mode   := CmdMode.STOP
-      io.rsp.ready  := io.rsp.valid
-      onTransaction := False
-      transactionWillStart := False
+      inFrameData := False
+      inFrame := False
     }
 
-
     // Send & Receive bit data
-    when(onTransaction){
+    when(inFrameData) {
       // Freeze the bus if no response received
-      wr_scl := io.rsp.valid
+      sclWrite clearWhen(!io.rsp.valid)
 
-      // Write data
-      wr_sda := io.rsp.data
-
-      // Always write
-      when(sclEdge.rising) {
-        bitReceived  := sampler.sda
+      // Manage enabled io.rsp
+      when(io.rsp.valid && io.rsp.enable){
+        sclWrite clearWhen(filter.sda =/= io.rsp.data)
+        sdaWrite := io.rsp.data
       }
 
-      when(sclEdge.falling){
-        when(io.rsp.valid){
-          io.rsp.ready := True
-          io.cmd.valid := True
-          io.cmd.mode  := CmdMode.DATA
-        }
-      }
+      io.cmd.valid := sclEdge.falling
+      io.rsp.ready := sclEdge.falling
     }
   }
 
   /*
    * Drive SCL & SDA signals
    */
-  io.i2c.scl.write := RegNext(ctrlSlave.wr_scl)
-  io.i2c.sda.write := RegNext(ctrlSlave.wr_sda)
+  io.i2c.scl.write := RegNext(ctrlSlave.sclWrite)
+  io.i2c.sda.write := RegNext(ctrlSlave.sdaWrite)
 }

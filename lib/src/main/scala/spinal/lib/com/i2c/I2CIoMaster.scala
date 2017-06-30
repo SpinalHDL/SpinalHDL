@@ -38,15 +38,15 @@ import spinal.lib.fsm._
   * @param clockDividerSamplingWidth : Width of the clockDivider value
   * @param clockDividerSCLWidth      : Width of the clockDivider value
   */
-case class I2CMasterIoLayerGenerics(samplingSize              : Int = 3,
-                                    clockDividerSamplingWidth : BitCount = 10 bits,
-                                    clockDividerSCLWidth      : BitCount = 20 bits){}
+case class I2CIoMasterGenerics(samplingSize              : Int = 3,
+                               clockDividerSamplingWidth : BitCount = 10 bits,
+                               clockDividerSCLWidth      : BitCount = 20 bits){}
 
 
 /**
   * Runtime configuration of the I2C master
   */
-case class I2CMasterIoLayerConfig(g: I2CMasterIoLayerGenerics) extends Bundle {
+case class I2CIoMasterConfig(g: I2CIoMasterGenerics) extends Bundle {
 
   val clockDividerSampling = UInt(g.clockDividerSamplingWidth)
   val clockDividerSCL      = UInt (g.clockDividerSCLWidth)
@@ -75,23 +75,23 @@ case class I2CMasterIoLayerConfig(g: I2CMasterIoLayerGenerics) extends Bundle {
   *   Slave  :   |       |       | DATA |       | DATA |      |
   *   RSP    :                 DATA    DATA    DATA   DATA
   */
-class I2CMasterIoLayer(g: I2CMasterIoLayerGenerics) extends Component {
+class I2CIoMaster(g: I2CIoMasterGenerics) extends Component {
 
-  import spinal.lib.com.i2c.{I2CIoLayerCmdMode => CmdMode}
+  import spinal.lib.com.i2c.{I2CIoCmdMode => CmdMode}
 
 
   val io = new Bundle{
     val i2c    = master( I2C() )
-    val config = in( I2CMasterIoLayerConfig(g) )
-    val cmd    = slave  Stream( I2CIoLayerCmd()  )
-    val rsp    = master Flow  ( I2CIoLayerRsp() )
+    val config = in( I2CIoMasterConfig(g) )
+    val cmd    = slave  Stream( I2CIoCmd()  )
+    val rsp    = master Flow  ( I2CIoRsp() )
   }
 
 
   /**
     * Filter SDA and SCL input
     */
-  val sampler = new I2CFilterInput(i2c_sda           = io.i2c.sda.read,
+  val sampler = new I2CIoFilter(i2c_sda           = io.i2c.sda.read,
                                    i2c_scl           = io.i2c.scl.read,
                                    clockDivider      = io.config.clockDividerSampling,
                                    samplingSize      = g.samplingSize,
@@ -101,7 +101,7 @@ class I2CMasterIoLayer(g: I2CMasterIoLayerGenerics) extends Component {
   /**
     * Detect the rising and falling edge of the scl signal
     */
-  val sclEdge = new I2CSCLEdgeDetector(sampler.scl)
+  val sclEdge = new I2CEdgeDetector(sampler.scl)
 
 
   /**

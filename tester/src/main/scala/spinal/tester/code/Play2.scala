@@ -1165,17 +1165,17 @@ object PlayI2CIoLayer{
 
   class I2CIoLayerTester extends Component{
 
-    val slaveGeneric  = I2CSlaveIoLayerGenerics()
-    val masterGeneric = I2CMasterIoLayerGenerics()
+    val slaveGeneric  = I2CIoSlaveGenerics()
+    val masterGeneric = I2CIoMasterGenerics()
 
     val io = new Bundle{
       val ioSlave = new Bundle {
-        val cmd  = master  Flow ( I2CIoLayerCmd() )
-        val rsp  = slave Stream ( I2CIoLayerRsp() )
+        val cmd  = master  Flow ( I2CIoCmd() )
+        val rsp  = slave Stream ( I2CIoRsp() )
       }
       val ioMaster = new Bundle {
-        val cmd    = slave Stream(I2CIoLayerCmd())
-        val rsp    = master Flow (I2CIoLayerRsp ())
+        val cmd    = slave Stream(I2CIoCmd())
+        val rsp    = master Flow (I2CIoRsp ())
       }
 
       // output sda and scl in order to monitor the i2c bus
@@ -1183,8 +1183,8 @@ object PlayI2CIoLayer{
       val scl = out Bool
     }
 
-    val i2cSlave  = new I2CSlaveIoLayer(slaveGeneric)
-    val i2cMaster = new I2CMasterIoLayer(masterGeneric)
+    val i2cSlave  = new I2CIoSlave(slaveGeneric)
+    val i2cMaster = new I2CIoMaster(masterGeneric)
 
 
     i2cSlave.io.cmd  <> io.ioSlave.cmd
@@ -1591,22 +1591,22 @@ object PlayMentorDo{
 object PlayAuto{
   class I2CHAL extends Component{
 
-    val slaveGeneric  = I2CSlaveIoLayerGenerics()
-    val masterGeneric = I2CMasterIoLayerGenerics()
+    val slaveGeneric  = I2CIoSlaveGenerics()
+    val masterGeneric = I2CIoMasterGenerics()
 
     val io = new Bundle{
       val ioSlave = new Bundle {
-        val cmd  = master  Flow ( I2CIoLayerCmd() )
-        val rsp  = slave Stream ( I2CIoLayerRsp() )
+        val cmd  = master  Flow ( I2CIoCmd() )
+        val rsp  = slave Stream ( I2CIoRsp() )
       }
       val ioMaster = new Bundle {
-        val cmd    = slave Stream(I2CIoLayerCmd())
-        val rsp    = master Flow (I2CIoLayerRsp ())
+        val cmd    = slave Stream(I2CIoCmd())
+        val rsp    = master Flow (I2CIoRsp ())
       }
     }
 
-    val i2cSlave  = new I2CSlaveIoLayer(slaveGeneric)
-    val i2cMaster = new I2CMasterIoLayer(masterGeneric)
+    val i2cSlave  = new I2CIoSlave(slaveGeneric)
+    val i2cMaster = new I2CIoMaster(masterGeneric)
     val simSDA    = new SimOpenDrain()
     val simSCL    = new SimOpenDrain()
 
