@@ -35,12 +35,13 @@ import spinal.lib.fsm._
   * Global configuration of the I2C Master
   *
   * @param samplingSize              : Number of sampler to generate a bit
-  * @param clockDividerSamplingWidth : Width of the clockDivider value
-  * @param clockDividerSCLWidth      : Width of the clockDivider value
+  * @param samplingClockDividerWidth : Width of the clockDivider value
+  * @param timerClockDividerWidth      : Width of the clockDivider value
   */
-case class I2CIoMasterGenerics(samplingSize              : Int = 3,
-                               clockDividerSamplingWidth : BitCount = 10 bits,
-                               clockDividerSCLWidth      : BitCount = 20 bits){}
+case class I2CIoMasterGenerics( samplingSize              : Int = 3,
+                                samplingClockDividerWidth : BitCount = 10 bits,
+                                timerClockDividerWidth    : BitCount = 20 bits,
+                                timeoutBaudRatioLog2      : Int = 9){} // 9 => 1.28 ms timeout for 400 Khz i2c   (1/400Khz*2^9)
 
 
 /**
@@ -48,18 +49,44 @@ case class I2CIoMasterGenerics(samplingSize              : Int = 3,
   */
 case class I2CIoMasterConfig(g: I2CIoMasterGenerics) extends Bundle {
 
-  val clockDividerSampling = UInt(g.clockDividerSamplingWidth)
-  val clockDividerSCL      = UInt (g.clockDividerSCLWidth)
+  val samplingClockDivider = UInt(g.samplingClockDividerWidth)
+  val timerClockDivider      = UInt (g.timerClockDividerWidth)
 
-  def setSCLFrequency(sclFrequency : HertzNumber, clkFrequency : HertzNumber = ClockDomain.current.frequency.getValue) : Unit = {
-    clockDividerSCL := (clkFrequency / sclFrequency * 2).toInt
+  def setTimerFrequency(sclFrequency : HertzNumber, clkFrequency : HertzNumber = ClockDomain.current.frequency.getValue) : Unit = {
+    timerClockDivider := (clkFrequency / sclFrequency * 2).toInt
   }
 
   def setFrequencySampling(frequencySampling : HertzNumber, clkFrequency : HertzNumber = ClockDomain.current.frequency.getValue): Unit = {
-    clockDividerSampling := (clkFrequency / frequencySampling).toInt
+    samplingClockDivider := (clkFrequency / frequencySampling).toInt
   }
 }
 
+
+/**
+ * Mode used to manage the slave
+ */
+object I2CIoMasterCmdMode extends SpinalEnum{
+  val START, DATA, STOP, DROP = newElement()
+}
+
+
+/**
+ * Define the command interface
+ */
+case class I2CIoMasterCmd() extends Bundle{
+  val mode = I2CIoMasterCmdMode()
+  val data  = Bool
+}
+
+/**
+ * Define the response interface
+ *  If you want to read data, set data = True
+ *
+ *  For the slave : (FREEZE) is done with the response stream.
+ */
+case class I2CIoMasterRsp() extends Bundle{
+  val data = Bool
+}
 
 /**
   * I2C Master IO Layer
@@ -75,176 +102,172 @@ case class I2CIoMasterConfig(g: I2CIoMasterGenerics) extends Bundle {
   *   Slave  :   |       |       | DATA |       | DATA |      |
   *   RSP    :                 DATA    DATA    DATA   DATA
   */
+
+
 class I2CIoMaster(g: I2CIoMasterGenerics) extends Component {
-
-  import spinal.lib.com.i2c.{I2CIoCmdMode => CmdMode}
-
+  import spinal.lib.com.i2c.{I2CIoMasterCmdMode => CmdMode}
 
   val io = new Bundle{
     val i2c    = master( I2C() )
     val config = in( I2CIoMasterConfig(g) )
-    val cmd    = slave  Stream( I2CIoCmd()  )
-    val rsp    = master Flow  ( I2CIoRsp() )
+    val cmd    = slave  Stream( I2CIoMasterCmd()  )
+    val rsp    = master Flow  ( I2CIoMasterRsp() )
   }
 
 
   /**
-    * Filter SDA and SCL input
-    */
-  val sampler = new I2CIoFilter(i2c_sda           = io.i2c.sda.read,
-                                   i2c_scl           = io.i2c.scl.read,
-                                   clockDivider      = io.config.clockDividerSampling,
-                                   samplingSize      = g.samplingSize,
-                                   clockDividerWidth = g.clockDividerSamplingWidth)
+   * Filter SDA and SCL input
+   */
+  val filter = new I2CIoFilter(i2c               = io.i2c,
+    clockDivider      = io.config.samplingClockDivider,
+    samplingSize      = g.samplingSize,
+    clockDividerWidth = g.samplingClockDividerWidth)
 
 
   /**
-    * Detect the rising and falling edge of the scl signal
-    */
-  val sclEdge = new I2CEdgeDetector(sampler.scl)
+   * Detect the rising and falling edge of the scl signal
+   */
+  val sclEdge = new I2CEdgeDetector(filter.scl)
+  val sdaEdge = new I2CEdgeDetector(filter.sda)
 
 
   /**
-    * Generate and manage the scl clock
-    */
-  val sclGenerator = new Area{
-
-    val cntValue        = Reg(UInt(g.clockDividerSCLWidth)) init(0)
-    val scl             = RegInit(True)
-    val scl_en          = Bool // set in the state machine "smMaster"
-    val masterFreeze    = Bool // set in the state machine "smMaster"
-    val stopDetected    = Bool // set in the area "detector"
-
-    // detect if the slave freeze the bus
-    val slaveFreeze = scl && !sampler.scl
-
-    // start / stop the counter clock
-    when(scl_en && !masterFreeze && !slaveFreeze){
-
-      cntValue := cntValue + 1
-      when(cntValue >= io.config.clockDividerSCL ){ cntValue := 0 }
-
-    }.elsewhen(stopDetected){
-      cntValue := 0
-    }
-
-    // SCL generation
-    when(cntValue === io.config.clockDividerSCL){ scl := !scl }
-
-    // Used to indicate when to generate the start/restart/stop sequence
-    val triggerStartStop = scl && cntValue >= (io.config.clockDividerSCL >> 1)
-  }
-
-
-  /**
-    * Detect the start/restart and the stop sequence
-    */
+   * Detect the start/restart and the stop sequence
+   */
   val detector = new Area{
-
-    val sda_prev = RegNext(sampler.sda)
-
-    val sclLevelHigh = sclGenerator.triggerStartStop && sampler.scl
-
-    val start = sclLevelHigh && !sampler.sda  && sda_prev
-    val stop  = sclLevelHigh && sampler.sda   && !sda_prev
-
-    sclGenerator.stopDetected := stop
+    val start = filter.scl && sdaEdge.falling
+    val stop  = filter.scl && sdaEdge.rising
   }
 
-
-  /**
-    * when start is detected, block all others master
-    */
-  val busState = new Area{
-    val busy = Reg(Bool) init(False) setWhen(detector.start) clearWhen(detector.stop)
+  val timer = new Area{
+    val counter = Reg(UInt(g.timerClockDividerWidth)) init(0)
+    val tick = counter === 0
+    val reset = tick  || !io.cmd.valid
+    counter := counter - 1
+    when(reset){
+      counter := io.config.timerClockDivider
+    }
   }
 
+  val timeout = new Area{
+    val counter = Reg(UInt(g.timerClockDividerWidth.value << g.timeoutBaudRatioLog2 bits)) init(0)
+    val tick = counter === 0
+    val reset = False setWhen(sclEdge.toogle)
+    counter := counter - 1
+    when(reset){
+      counter := io.config.timerClockDivider << g.timeoutBaudRatioLog2
+    }
+    when(detector.stop){
+      counter := io.config.timerClockDivider  //Apply tBuf
+    }
+  }
+
+  val arbitration = new Area{
+    val taken = RegInit(False)
+    val losed = RegInit(False) setWhen(detector.start && !taken)
+    when(timeout.tick){
+      losed := False
+      taken := False
+    }
+    when(!losed && !taken){
+      timeout.reset := True
+    }
+  }
 
   /**
-    * Main state machine of the Master HAL
-    */
-  val smMaster = new StateMachine{
-
-    val dataReceived = Reg(Bool) randBoot()
-    val getBus       = Reg(Bool) init(False)
-
-    val wr_sda = True
-
-    // default value
-    sclGenerator.masterFreeze := False
-    sclGenerator.scl_en       := False
-    io.cmd.ready := False
-    io.rsp.valid := False
-    io.rsp.data  := dataReceived
-
-    always{
-
-      when(io.cmd.valid && io.cmd.mode === CmdMode.START && (!busState.busy | getBus) ){
+   * Main state machine of the Master HAL
+   */
+  val state = RegInit(U"00")
+  val startSuccessor = Reg(Bool) clearWhen(io.cmd.valid) //Keep the SDA low after a START until the next CMD
+  val sclWrite, sdaWrite = True
+  sclWrite.clearWhen(arbitration.taken)
+  sdaWrite.clearWhen(startSuccessor)
+  when(io.cmd.valid && !arbitration.losed) {
+    switch(io.cmd.mode) {
+      is(CmdMode.START){
+        arbitration.losed := False
+        when(!arbitration.taken) { //Normal start
+          sdaWrite := False
+          when(timer.tick) {
+            arbitration.taken := True
+            startSuccessor := True
+            io.cmd.ready := True
+          }
+        } otherwise{             //Restart
+          switch(state){
+            is(0){
+              when(timer.tick){
+                state := 1
+              }
+            }
+            is(1){
+              sclWrite := True
+              when(timer.tick){
+                state := 2
+              }
+            }
+            is(2){
+              sdaWrite := False
+              sclWrite := True
+              when(timer.tick){
+                io.cmd.ready := True
+                startSuccessor := True
+              }
+            }
+          }
+        }
+      }
+      is(CmdMode.DATA){
+        when(!filter.scl) {
+          sdaWrite := io.cmd.data
+        }
+        switch(state){
+          is(0){
+            when(timer.tick){
+              state := 1
+            }
+          }
+          is(1){
+            sclWrite := True
+            when(timer.tick){
+              io.cmd.ready := True
+            }
+          }
+        }
+      }
+      is(CmdMode.STOP){
+        switch(state){
+          is(0){
+            sdaWrite clearWhen(filter.scl === False)
+            when(timer.tick){
+              state := 1
+            }
+          }
+          is(1){
+            sclWrite := True
+            sdaWrite := False
+            when(timer.tick){
+              io.cmd.ready := True
+              arbitration.taken := False
+              arbitration.losed := True
+            }
+          }
+        }
+      }
+      is(CmdMode.DROP){
+        arbitration.losed := True
+        arbitration.taken := False
         io.cmd.ready := True
-        getBus       := True
-        goto(sStart)
-      }
-
-    }
-
-    val sIdle: State = new State with EntryPoint {
-      whenIsActive {
-        getBus := False
-      }
-    }
-
-    val sStart: State = new State {
-      whenIsActive{
-        sclGenerator.scl_en := True
-        wr_sda := !sclGenerator.triggerStartStop
-
-        // end of the stop sequence
-        when(sclEdge.falling){ goto(sData) }
-      }
-    }
-
-    val sData: State = new State{
-
-      whenIsActive{
-        sclGenerator.scl_en := True
-        sclGenerator.masterFreeze := !io.cmd.valid
-
-        // write data and check collision
-        when(io.cmd.mode === CmdMode.DATA){
-          wr_sda := io.cmd.data
-        }
-
-        // Read data
-        when(sclEdge.rising){
-          dataReceived := sampler.sda
-          io.rsp.valid := True
-          io.rsp.data  := sampler.sda
-        }
-
-        when(sclEdge.falling){
-          io.cmd.ready := (io.cmd.mode === CmdMode.DATA)
-        }
-
-        // check if a stop command occurs
-        when(io.cmd.valid && io.cmd.mode === CmdMode.STOP){
-          goto(sStop)
-        }
-
-      }
-    }
-
-    val sStop: State = new State {
-      whenIsActive{
-        sclGenerator.scl_en := True
-        wr_sda := False
-        when(sclGenerator.triggerStartStop){
-          io.cmd.ready := True
-          goto(sIdle)
-        }
       }
     }
   }
 
-  io.i2c.sda.write := RegNext(smMaster.wr_sda)  randBoot()
-  io.i2c.scl.write := RegNext(sclGenerator.scl) randBoot()
+  when(io.cmd.ready){
+    state := 0
+  }
+
+
+
+  io.i2c.scl.write := RegNext(sclWrite) init(True)
+  io.i2c.sda.write := RegNext(sdaWrite) init(True)
 }

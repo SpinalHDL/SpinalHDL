@@ -973,10 +973,38 @@ object PlayDebug22{
     */
   }
 
-
-    def main(args: Array[String]): Unit = {
-      SpinalVhdl(new KeyManagerCore_Std(128 bits)).printPruned().printUnused()
+  case class FirPolyPhaseConfig(Fsin : HertzNumber, Fsout : HertzNumber, Fcut : HertzNumber, nbtaps : Int){
+    lazy val coef = {
+      val values = new Array[Double](nbtaps)
+      for(i <- 0 until nbtaps){
+        Fsin / Fsout * 2.0 * Math.sin(Math.PI * i / 12)
+        val myDouble = Fsin.toDouble
+        values(i) = ???
+      }
+      values
     }
+  }
+
+  class FirPolyPhaseImpl(config : FirPolyPhaseConfig, bitWidth : Int) extends Component {
+    val io = new Bundle {
+      //...
+    }
+    config.coef(???)
+    // ...
+  }
+
+  object Main {
+    def main(args: Array[String]): Unit = {
+      val config = FirPolyPhaseConfig(
+        Fsin = 100 MHz,
+        Fsout = 10 MHz,
+        Fcut = 2 MHz,
+        nbtaps = 8
+      )
+      SpinalVhdl(new FirPolyPhaseImpl(config, 10))
+      //SpinalVhdl(new KeyManagerCore_Std(128 bits)).printPruned().printUnused()
+    }
+  }
 }
 
 object PlayBug {

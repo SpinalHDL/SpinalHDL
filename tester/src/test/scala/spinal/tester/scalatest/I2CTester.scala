@@ -50,7 +50,7 @@ class I2CHALTester extends Component{
     i2cSlave.io.rsp  <> io.ioSlave.rsp
     i2cMaster.io.cmd <> io.ioMaster.cmd
     i2cMaster.io.rsp <> io.ioMaster.rsp
-    i2cMaster.io.config.setSCLFrequency(1 MHz)
+    i2cMaster.io.config.setTimerFrequency(1 MHz)
    // i2cMaster.io.config.enCollision := True
     i2cMaster.io.config.setFrequencySampling(5 MHz)
 

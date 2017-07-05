@@ -27,6 +27,8 @@ package spinal.lib.com.i2c
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.com.i2c.I2CIoInitiatorCmdMode._
+import spinal.lib.fsm.{EntryPoint, State, StateMachine}
 import spinal.lib.io.ReadableOpenDrain
 
 
@@ -49,32 +51,7 @@ case class I2C() extends Bundle with IMasterSlave {
   }
 }
 
-/**
-  * Mode used to manage the slave
-  */
-object I2CIoCmdMode extends SpinalEnum{
-  val START, DATA, STOP = newElement()
-}
 
-
-/**
-  * Define the command interface
-  */
-case class I2CIoCmd() extends Bundle{
-  val mode = I2CIoCmdMode()
-  val data  = Bool
-}
-
-/**
-  * Define the response interface
-  *  If you want to read data, set data = True
-  *
-  *  For the slave : (FREEZE) is done with the response stream.
-  */
-case class I2CIoRsp() extends Bundle{
-  val enable = Bool
-  val data = Bool
-}
 
 
 /**
@@ -85,13 +62,14 @@ class I2CEdgeDetector(value: Bool) extends Area {
 
   val rising  =  value && !oldValue
   val falling = !value &&  oldValue
+  val toogle  =  value =/= oldValue
 }
 
 
 /**
   * Filter the SCL and SDA input signals
   */
-class I2CIoFilter(i2c_sda: Bool, i2c_scl: Bool, clockDivider: UInt, samplingSize: Int, clockDividerWidth: BitCount) extends Area{
+class I2CIoFilter(i2c: I2C, clockDivider: UInt, samplingSize: Int, clockDividerWidth: BitCount) extends Area{
 
   // Clock divider for sampling the input signals
   val timer = new Area{
@@ -106,8 +84,8 @@ class I2CIoFilter(i2c_sda: Bool, i2c_scl: Bool, clockDivider: UInt, samplingSize
 
   // Input sampling
   val sampler = new Area {
-    val sclSync = BufferCC(i2c_scl)
-    val sdaSync = BufferCC(i2c_sda)
+    val sclSync = BufferCC(i2c.scl.read)
+    val sdaSync = BufferCC(i2c.sda.read)
 
     val sclSamples = History(that = sclSync, range = 1 to samplingSize, when = timer.tick, init = True)
     val sdaSamples = History(that = sdaSync, range = 1 to samplingSize, when = timer.tick, init = True)
@@ -116,4 +94,3 @@ class I2CIoFilter(i2c_sda: Bool, i2c_scl: Bool, clockDivider: UInt, samplingSize
   val sda = MajorityVote(sampler.sdaSamples)
   val scl = MajorityVote(sampler.sclSamples)
 }
-

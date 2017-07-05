@@ -1191,7 +1191,7 @@ object PlayI2CIoLayer{
     i2cSlave.io.rsp  <> io.ioSlave.rsp
     i2cMaster.io.cmd <> io.ioMaster.cmd
     i2cMaster.io.rsp <> io.ioMaster.rsp
-    i2cMaster.io.config.setSCLFrequency(2 MHz)
+    i2cMaster.io.config.setTimerFrequency(2 MHz)
     i2cMaster.io.config.setFrequencySampling(5 MHz)
     i2cSlave.io.config.setFrequencySampling(5 MHz)
 
@@ -1614,7 +1614,7 @@ object PlayAuto{
     i2cSlave.io.rsp  <> io.ioSlave.rsp
     i2cMaster.io.cmd <> io.ioMaster.cmd
     i2cMaster.io.rsp <> io.ioMaster.rsp
-    i2cMaster.io.config.setSCLFrequency(2 MHz)
+    i2cMaster.io.config.setTimerFrequency(2 MHz)
 
     simSDA.io.input     <> i2cMaster.io.i2c.sda
 
