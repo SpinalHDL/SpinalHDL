@@ -36,7 +36,8 @@ import spinal.lib._
   * @param samplingClockDividerWidth : Width of the clock divider
   */
 case class I2CIoSlaveGenerics(samplingWindowSize        : Int = 3,
-                              samplingClockDividerWidth : BitCount = 10 bits ){}
+                              samplingClockDividerWidth : BitCount = 10 bits,
+                              timeoutWidth              : BitCount = 20 bits){}
 
 
 /**
@@ -45,6 +46,7 @@ case class I2CIoSlaveGenerics(samplingWindowSize        : Int = 3,
 case class I2CIoSlaveConfig(g: I2CIoSlaveGenerics) extends Bundle {
 
   val samplingClockDivider = UInt(g.samplingClockDividerWidth)
+  val timeout              = UInt(g.timeoutWidth)
 
   def setFrequencySampling(frequencySampling : HertzNumber, clkFrequency : HertzNumber = ClockDomain.current.frequency.getValue): Unit = {
     samplingClockDivider := (clkFrequency / frequencySampling).toInt
@@ -191,7 +193,18 @@ class I2CIoSlave(g : I2CIoSlaveGenerics) extends Component{
     }
   }
 
-
+  val timeout = new Area{
+    val counter = Reg(UInt(g.timeoutWidth)) init(0)
+    val tick = counter === 0
+    counter := counter - 1
+    when(sclEdge.toogle || !ctrl.inFrame){
+      counter := io.config.timeout
+    }
+    when(tick){
+      ctrl.inFrame     := False
+      ctrl.inFrameData := False
+    }
+  }
 
   /*
    * Drive SCL & SDA signals

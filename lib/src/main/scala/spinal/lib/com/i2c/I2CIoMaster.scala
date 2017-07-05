@@ -169,7 +169,7 @@ class I2CIoMaster(g: I2CIoMasterGenerics) extends Component {
       losed := False
       taken := False
     }
-    when(!losed && !taken){
+    when(!losed){
       timeout.reset := True
     }
   }
@@ -178,7 +178,7 @@ class I2CIoMaster(g: I2CIoMasterGenerics) extends Component {
    * Main state machine of the Master HAL
    */
   val state = RegInit(U"00")
-  val startSuccessor = Reg(Bool) clearWhen(io.cmd.valid) //Keep the SDA low after a START until the next CMD
+  val startSuccessor = Reg(Bool) clearWhen(io.cmd.valid)  //Keep the SDA low after a START until the next CMD
   val sclWrite, sdaWrite = True
   sclWrite.clearWhen(arbitration.taken)
   sdaWrite.clearWhen(startSuccessor)
