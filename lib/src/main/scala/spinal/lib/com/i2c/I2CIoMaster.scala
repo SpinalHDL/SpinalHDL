@@ -56,7 +56,7 @@ case class I2CIoMasterConfig(g: I2CIoMasterGenerics) extends Bundle {
     timerClockDivider := (clkFrequency / sclFrequency * 2).toInt
   }
 
-  def setFrequencySampling(frequencySampling : HertzNumber, clkFrequency : HertzNumber = ClockDomain.current.frequency.getValue): Unit = {
+  def setSamplingFrequency(frequencySampling : HertzNumber, clkFrequency : HertzNumber = ClockDomain.current.frequency.getValue): Unit = {
     samplingClockDivider := (clkFrequency / frequencySampling).toInt
   }
 }
@@ -118,10 +118,10 @@ class I2CIoMaster(g: I2CIoMasterGenerics) extends Component {
   /**
    * Filter SDA and SCL input
    */
-  val filter = new I2CIoFilter(i2c               = io.i2c,
-    clockDivider      = io.config.samplingClockDivider,
-    samplingSize      = g.samplingSize,
-    clockDividerWidth = g.samplingClockDividerWidth)
+  val filter = new I2CIoFilter(i2c  = io.i2c,
+                               clockDivider      = io.config.samplingClockDivider,
+                               samplingSize      = g.samplingSize,
+                               clockDividerWidth = g.samplingClockDividerWidth)
 
 
   /**
@@ -150,7 +150,7 @@ class I2CIoMaster(g: I2CIoMasterGenerics) extends Component {
   }
 
   val timeout = new Area{
-    val counter = Reg(UInt(g.timerClockDividerWidth.value << g.timeoutBaudRatioLog2 bits)) init(0)
+    val counter = Reg(UInt(g.timerClockDividerWidth.value + g.timeoutBaudRatioLog2 bits)) init(0)
     val tick = counter === 0
     val reset = False setWhen(sclEdge.toogle)
     counter := counter - 1
@@ -158,7 +158,7 @@ class I2CIoMaster(g: I2CIoMasterGenerics) extends Component {
       counter := io.config.timerClockDivider << g.timeoutBaudRatioLog2
     }
     when(detector.stop){
-      counter := io.config.timerClockDivider  //Apply tBuf
+      counter := io.config.timerClockDivider.resized  //Apply tBuf
     }
   }
 
@@ -182,6 +182,11 @@ class I2CIoMaster(g: I2CIoMasterGenerics) extends Component {
   val sclWrite, sdaWrite = True
   sclWrite.clearWhen(arbitration.taken)
   sdaWrite.clearWhen(startSuccessor)
+  timer.reset.setWhen(arbitration.taken && sclWrite =/= filter.scl)
+
+  io.cmd.ready := False
+  io.rsp.valid := False
+  io.rsp.data  := filter.sda
   when(io.cmd.valid && !arbitration.losed) {
     switch(io.cmd.mode) {
       is(CmdMode.START){
@@ -229,6 +234,12 @@ class I2CIoMaster(g: I2CIoMasterGenerics) extends Component {
           }
           is(1){
             sclWrite := True
+            when(filter.scl){
+              state := 2
+            }
+          }
+          is(2){
+            sclWrite := True
             when(timer.tick){
               io.cmd.ready := True
             }
@@ -255,8 +266,8 @@ class I2CIoMaster(g: I2CIoMasterGenerics) extends Component {
         }
       }
       is(CmdMode.DROP){
-        arbitration.losed := True
         arbitration.taken := False
+        arbitration.losed := True
         io.cmd.ready := True
       }
     }
@@ -265,8 +276,6 @@ class I2CIoMaster(g: I2CIoMasterGenerics) extends Component {
   when(io.cmd.ready){
     state := 0
   }
-
-
 
   io.i2c.scl.write := RegNext(sclWrite) init(True)
   io.i2c.sda.write := RegNext(sdaWrite) init(True)

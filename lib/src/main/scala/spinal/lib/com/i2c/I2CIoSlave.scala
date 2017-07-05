@@ -51,6 +51,9 @@ case class I2CIoSlaveConfig(g: I2CIoSlaveGenerics) extends Bundle {
   def setFrequencySampling(frequencySampling : HertzNumber, clkFrequency : HertzNumber = ClockDomain.current.frequency.getValue): Unit = {
     samplingClockDivider := (clkFrequency / frequencySampling).toInt
   }
+  def setTimeoutPeriod(period : TimeNumber, clkFrequency : HertzNumber = ClockDomain.current.frequency.getValue): Unit = {
+    timeout := (period*clkFrequency).toInt
+  }
 }
 
 /**
