@@ -1160,7 +1160,7 @@ object PlayNodeWithoutWidth{
 }
 
 
-
+/*
 object PlayI2CIoLayer{
 
   class I2CIoLayerTester extends Component{
@@ -1170,12 +1170,12 @@ object PlayI2CIoLayer{
 
     val io = new Bundle{
       val ioSlave = new Bundle {
-        val cmd  = master  Flow ( I2CIoCmd() )
-        val rsp  = slave Stream ( I2CIoRsp() )
+        val cmd  = master  Flow ( I2CIoSlaveCmd() )
+        val rsp  = slave Stream ( I2CIoSlaveRsp() )
       }
       val ioMaster = new Bundle {
-        val cmd    = slave Stream(I2CIoCmd())
-        val rsp    = master Flow (I2CIoRsp ())
+        val cmd    = slave Stream(I2CIoMasterCmd())
+        val rsp    = master Flow (I2CIoMasterRsp ())
       }
 
       // output sda and scl in order to monitor the i2c bus
@@ -1218,7 +1218,7 @@ object PlayI2CIoLayer{
         defaultClockDomainFrequency  = FixedFrequency(50 MHz)
     ).generate(new I2CIoLayerTester()).printPruned()
   }
-}
+}*/
 
 
 
@@ -1589,19 +1589,19 @@ object PlayMentorDo{
 }
 
 object PlayAuto{
-  class I2CHAL extends Component{
+  /*class I2CHAL extends Component{
 
     val slaveGeneric  = I2CIoSlaveGenerics()
     val masterGeneric = I2CIoMasterGenerics()
 
     val io = new Bundle{
       val ioSlave = new Bundle {
-        val cmd  = master  Flow ( I2CIoCmd() )
-        val rsp  = slave Stream ( I2CIoRsp() )
+        val cmd  = master  Flow ( I2CIoSlaveCmd() )
+        val rsp  = slave Stream ( I2CIoSlaveRsp() )
       }
       val ioMaster = new Bundle {
-        val cmd    = slave Stream(I2CIoCmd())
-        val rsp    = master Flow (I2CIoRsp ())
+        val cmd    = slave Stream(I2CIoMasterCmd())
+        val rsp    = master Flow (I2CIoMasterRsp ())
       }
     }
 
@@ -1655,7 +1655,7 @@ object PlayAuto{
       defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW),
       defaultClockDomainFrequency  = FixedFrequency(50 MHz)
     ).generate(new I2CHAL()).printPruned()
-  }
+  }*/
 }
 
 object PlayImplicitArg{

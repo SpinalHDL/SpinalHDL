@@ -27,7 +27,6 @@ package spinal.lib.com.i2c
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.com.i2c.I2CIoInitiatorCmdMode._
 import spinal.lib.fsm.{EntryPoint, State, StateMachine}
 import spinal.lib.io.ReadableOpenDrain
 
