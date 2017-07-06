@@ -23,7 +23,7 @@ import spinal.lib._
 import spinal.lib.io._
 import spinal.lib.com.i2c._
 
-
+/*
 class I2CHALTester extends Component{
 
     val slaveGeneric  = I2CIoSlaveGenerics()
@@ -75,5 +75,5 @@ class I2CHALCocotbBoot extends SpinalTesterCocotbBase {
     config.copy(defaultClockDomainFrequency  = FixedFrequency(50 MHz),
       defaultConfigForClockDomains = ClockDomainConfig(clockEdge = RISING, resetKind = ASYNC, resetActiveLevel = LOW))
   }
-}
+}*/
 
