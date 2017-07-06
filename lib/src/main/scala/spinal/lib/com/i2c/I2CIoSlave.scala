@@ -37,6 +37,7 @@ import spinal.lib._
   */
 case class I2CIoSlaveGenerics(samplingWindowSize        : Int = 3,
                               samplingClockDividerWidth : BitCount = 10 bits,
+                              tsuDatWidth               : BitCount = 6 bits, //Data set-up time width
                               timeoutWidth              : BitCount = 20 bits){}
 
 
@@ -47,6 +48,8 @@ case class I2CIoSlaveConfig(g: I2CIoSlaveGenerics) extends Bundle {
 
   val samplingClockDivider = UInt(g.samplingClockDividerWidth)
   val timeout              = UInt(g.timeoutWidth)
+  val tsuDat               = UInt(g.tsuDatWidth)
+
 
   def setFrequencySampling(frequencySampling : HertzNumber, clkFrequency : HertzNumber = ClockDomain.current.frequency.getValue): Unit = {
     samplingClockDivider := (clkFrequency / frequencySampling).toInt
@@ -60,7 +63,7 @@ case class I2CIoSlaveConfig(g: I2CIoSlaveGenerics) extends Bundle {
  * Mode used to manage the slave
  */
 object I2CIoSlaveCmdMode extends SpinalEnum{
-  val START, DATA, STOP = newElement()
+  val START, DRIVE, READ, STOP = newElement()
 }
 
 
@@ -118,8 +121,8 @@ class I2CIoSlave(g : I2CIoSlaveGenerics) extends Component{
   val io = new Bundle{
     val i2c    = master( I2C() )
     val config = in( I2CIoSlaveConfig(g) )
-    val cmd    = master Flow  ( I2CIoSlaveCmd() )
-    val rsp    = slave  Stream( I2CIoSlaveRsp() )
+    val cmd    = master Flow(I2CIoSlaveCmd())
+    val rsp    = slave Flow(I2CIoSlaveRsp())
   }
 
   /**
@@ -145,6 +148,18 @@ class I2CIoSlave(g : I2CIoSlaveGenerics) extends Component{
     val stop  = filter.scl && sdaEdge.rising
   }
 
+  val tsuDat = new Area{
+    val counter = Reg(UInt(g.tsuDatWidth)) init(0)
+    val done = counter === 0
+    val reset = False
+    when(!done) {
+      counter := counter - 1
+    }
+    when(reset){
+      counter := io.config.tsuDat
+    }
+  }
+
 
   /**
     * Slave controller
@@ -152,34 +167,37 @@ class I2CIoSlave(g : I2CIoSlaveGenerics) extends Component{
   val ctrl = new Area{
     val inFrame, inFrameData = Reg(Bool) init(False)
     val sdaWrite, sclWrite = True
+    val rspBuffer = io.rsp.toStream.stage()
+    rspBuffer.ready := False
 
     // default value
     io.cmd.valid := False
-    io.cmd.data  := RegNextWhen(filter.sda, sclEdge.rising)
-    io.cmd.mode  := CmdMode.DATA
-    io.rsp.ready := False
-
-
-    // After detecting the start wait the falling edge of
-    //  the clock before starting to read/send bit data
-    when(inFrame && sclEdge.falling){
-      inFrameData := True
-    }
+    io.cmd.data  := filter.sda
+    io.cmd.mode.assignDontCare()
 
     // Send & Receive bit data
-    when(inFrameData) {
-      // Freeze the bus if no response received
-      sclWrite clearWhen(!io.rsp.valid)
-
-      // Manage enabled io.rsp
-      when(io.rsp.valid && io.rsp.enable){
-       // sclWrite clearWhen(filter.sda =/= io.rsp.data) //TODO Tsu dat
-        sdaWrite := io.rsp.data
+    when(inFrame) {
+      when(sclEdge.rising) {
+        io.cmd.valid := True
+        io.cmd.mode := CmdMode.READ
       }
 
-      when(sclEdge.falling){
+      when(sclEdge.falling) {
         io.cmd.valid := True
-        io.rsp.ready := True
+        io.cmd.mode  := CmdMode.DRIVE
+        inFrameData  := True
+        rspBuffer.ready := True //Flush
+        tsuDat.reset := True
+      }
+    }
+
+    when(inFrameData) {
+      tsuDat.reset setWhen(!rspBuffer.valid)
+      when(!rspBuffer.valid  || (rspBuffer.enable && !tsuDat.done)) {
+        sclWrite := False
+      }
+      when(rspBuffer.valid && rspBuffer.enable){
+        sdaWrite := io.rsp.data
       }
     }
 
@@ -187,16 +205,7 @@ class I2CIoSlave(g : I2CIoSlaveGenerics) extends Component{
       io.cmd.valid  := True
       io.cmd.mode   := CmdMode.START
       inFrame := True
-      inFrameData := False //Allow restart
-      io.rsp.ready := True //Consume the dummy rsp
-    }
-
-    when(detector.stop){
-      io.cmd.valid  := True
-      io.cmd.mode   := CmdMode.STOP
       inFrameData := False
-      inFrame := False
-      io.rsp.ready := True //Consume the dummy rsp
     }
   }
 
@@ -206,11 +215,15 @@ class I2CIoSlave(g : I2CIoSlaveGenerics) extends Component{
     counter := counter - 1
     when(sclEdge.toogle || !ctrl.inFrame){
       counter := io.config.timeout
+      tick := False
     }
-    when(tick){
-      ctrl.inFrame     := False
-      ctrl.inFrameData := False
-    }
+  }
+
+  when(detector.stop || timeout.tick){
+    io.cmd.valid  := True
+    io.cmd.mode   := CmdMode.STOP
+    ctrl.inFrame     := False
+    ctrl.inFrameData := False
   }
 
   /*
