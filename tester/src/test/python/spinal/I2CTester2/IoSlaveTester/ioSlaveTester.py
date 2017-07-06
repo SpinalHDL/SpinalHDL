@@ -17,6 +17,8 @@ def i2cMasterThread(master, cmds, rsps):
             yield master.sendStart()
         elif cmd == "restart":
             yield master.sendRestart()
+        elif cmd == "drop":
+            yield master.sendDrop()
         elif cmd == "stop":
             yield master.sendStop()
         elif isinstance(cmd,bool):
@@ -78,7 +80,7 @@ def test1(dut):
     sdaInterconnect.addHardReader(dut.io_i2c_sda_read)
 
     dut.io_config_samplingClockDivider <= 3
-    dut.io_config_timeout <= 2000
+    dut.io_config_timeout <= 25*10-1
     dut.io_config_tsuDat <= 4
 
     softMaster = I2cSoftMaster(sclInterconnect.newSoftConnection(), sdaInterconnect.newSoftConnection(), 2500000,dut.clk)
@@ -90,7 +92,7 @@ def test1(dut):
     masterRsps = []
 
     masterCmds.append(10)
-    for frameId in range(30):
+    for frameId in range(50):
         masterCmds.append("start")
         slaveCmds.append("start")
         while True:
@@ -104,14 +106,25 @@ def test1(dut):
                 slaveCmds.append("drive")
                 slaveCmds.append(value)
                 masterRsps.append(value)
+
+            if random.uniform(0,1) < 0.1:
+                slaveCmds.append("drive")
+                slaveRsps.append(random.uniform(0,1) > 0.5)
+                masterCmds.append(20)
+                masterCmds.append("drop")
+                masterCmds.append(randInt(1,10))
+                slaveCmds.append("stop")
+                break
+
             slaveRsps.append("Z")
-            if random.uniform(0,1) < 0.7:
+            if random.uniform(0,1) < 0.5:
                 masterCmds.append("stop")
                 slaveCmds.append("drive")
                 slaveCmds.append(False)
                 slaveCmds.append("stop")
                 masterCmds.append(randInt(1,10))
                 break
+
             masterCmds.append("restart")
             slaveCmds.append("drive")
             slaveCmds.append(True)

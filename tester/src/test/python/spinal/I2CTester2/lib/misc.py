@@ -117,5 +117,12 @@ class I2cSoftMaster:
         yield Timer(self.period)
 
     @coroutine
+    def sendDrop(self):
+        yield Timer(self.period/2)
+        self.sda.write(True)
+        yield Timer(self.period/2)
+        self.scl.write(True)
+
+    @coroutine
     def wait(self,bauds):
         yield Timer(self.period*bauds)
