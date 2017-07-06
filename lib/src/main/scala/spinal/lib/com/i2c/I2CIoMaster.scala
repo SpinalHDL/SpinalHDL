@@ -182,7 +182,7 @@ class I2CIoMaster(g: I2CIoMasterGenerics) extends Component {
   val sclWrite, sdaWrite = True
   sclWrite.clearWhen(arbitration.taken)
   sdaWrite.clearWhen(startSuccessor)
-  timer.reset.setWhen(arbitration.taken && sclWrite =/= filter.scl)
+  timer.reset.setWhen(arbitration.taken && sclWrite && !filter.scl)
 
   io.cmd.ready := False
   io.rsp.valid := False
@@ -193,7 +193,7 @@ class I2CIoMaster(g: I2CIoMasterGenerics) extends Component {
         arbitration.losed := False
         when(!arbitration.taken) { //Normal start
           sdaWrite := False
-          when(timer.tick) {
+          when(timer.tick || !filter.scl) {
             arbitration.taken := True
             startSuccessor := True
             io.cmd.ready := True

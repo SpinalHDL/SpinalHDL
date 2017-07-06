@@ -83,8 +83,8 @@ class I2CIoFilter(i2c: I2C, clockDivider: UInt, samplingSize: Int, clockDividerW
 
   // Input sampling
   val sampler = new Area {
-    val sclSync = BufferCC(i2c.scl.read)
-    val sdaSync = BufferCC(i2c.sda.read)
+    val sclSync = BufferCC(i2c.scl.read, True)
+    val sdaSync = BufferCC(i2c.sda.read, True)
 
     val sclSamples = History(that = sclSync, range = 1 to samplingSize, when = timer.tick, init = True)
     val sdaSamples = History(that = sdaSync, range = 1 to samplingSize, when = timer.tick, init = True)

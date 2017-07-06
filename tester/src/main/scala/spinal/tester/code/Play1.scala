@@ -1008,33 +1008,20 @@ object PlaySymplify {
 //}
 
 object PlayBug {
-  case class LUT5(INIT : Bits) extends BlackBox {
-    val generic = new Generic {
-      val INIT = LUT5.this.INIT
-    }
-    val io = new Bundle {
-      val I0 = in Bool
-      val I1 = in Bool
-      val I2 = in Bool
-      val I3 = in Bool
-      val I4 = in Bool
-      val O = out Bool
-    }
 
-    noIoPrefix()
-  }
 
   class TopLevel extends Component {
-    val a = in UInt(32 bits)
-    val histories = History(a,1 to 3)
-    histories.foreach(_.init(0))
-    val results = out(cloneOf(histories))
-    results := histories
+    val a,b = in Bool;
+    val result = slave Stream( Bool);
+
+    when(a){
+      result.ready := True
+    }
+
   }
 
   def main(args: Array[String]): Unit = {
     SpinalVhdl(new TopLevel)
-    SpinalVerilog(new TopLevel)     .printUnused()
   }
 }
 

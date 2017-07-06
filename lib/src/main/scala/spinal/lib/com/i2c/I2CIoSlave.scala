@@ -159,25 +159,11 @@ class I2CIoSlave(g : I2CIoSlaveGenerics) extends Component{
     io.cmd.mode  := CmdMode.DATA
     io.rsp.ready := False
 
-    // Detect a start condition
-    when(detector.start){
-      io.cmd.valid  := True
-      io.cmd.mode   := CmdMode.START
-      inFrame := True
-      inFrameData := False //Allow restart
-    }
 
     // After detecting the start wait the falling edge of
     //  the clock before starting to read/send bit data
     when(inFrame && sclEdge.falling){
       inFrameData := True
-    }
-
-    when(detector.stop){
-      io.cmd.valid  := True
-      io.cmd.mode   := CmdMode.STOP
-      inFrameData := False
-      inFrame := False
     }
 
     // Send & Receive bit data
@@ -187,12 +173,30 @@ class I2CIoSlave(g : I2CIoSlaveGenerics) extends Component{
 
       // Manage enabled io.rsp
       when(io.rsp.valid && io.rsp.enable){
-        sclWrite clearWhen(filter.sda =/= io.rsp.data)
+       // sclWrite clearWhen(filter.sda =/= io.rsp.data) //TODO Tsu dat
         sdaWrite := io.rsp.data
       }
 
-      io.cmd.valid := sclEdge.falling
-      io.rsp.ready := sclEdge.falling
+      when(sclEdge.falling){
+        io.cmd.valid := True
+        io.rsp.ready := True
+      }
+    }
+
+    when(detector.start){
+      io.cmd.valid  := True
+      io.cmd.mode   := CmdMode.START
+      inFrame := True
+      inFrameData := False //Allow restart
+      io.rsp.ready := True //Consume the dummy rsp
+    }
+
+    when(detector.stop){
+      io.cmd.valid  := True
+      io.cmd.mode   := CmdMode.STOP
+      inFrameData := False
+      inFrame := False
+      io.rsp.ready := True //Consume the dummy rsp
     }
   }
 
