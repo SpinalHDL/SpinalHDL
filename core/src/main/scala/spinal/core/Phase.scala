@@ -1885,8 +1885,8 @@ class PhaseDontSymplifySomeNodesVerilog(pc: PhaseContext) extends PhaseMisc{
         case node: Extract => node.getBitVector.asInstanceOf[BitVector].dontSimplifyIt()
         case node: Literal => applyTo(node)
 //        case node: Cast    => applyTo(node)
-        case node: SInt    => node.dontSimplifyIt()
-        case node: UInt    => node.dontSimplifyIt()
+        case node: SInt    => if(!node.input.isInstanceOf[SInt]) node.dontSimplifyIt()
+        case node: UInt    => if(!node.input.isInstanceOf[UInt]) node.dontSimplifyIt()
 //        case node: Bool    => node.dontSimplifyIt()
 //        case node: Modifier if node.consumers.size == 1 && node.consumers(0).isInstanceOf[SInt] => applyTo(node) // .....
 //        case node: Operator.BitVector.Add => applyTo(node)
