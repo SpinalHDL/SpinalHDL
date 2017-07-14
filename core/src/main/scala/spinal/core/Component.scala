@@ -117,6 +117,16 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
   // Push component on the stack
   Component.push(this)
 
+
+  def prePop(): Unit ={
+    while(prePopTasks.nonEmpty){
+      val prePopTasksToDo = prePopTasks
+      prePopTasks = mutable.ArrayBuffer[PrePopTask]()
+      for(t <- prePopTasksToDo){
+        t.clockDomain(t.task())
+      }
+    }
+  }
   /** Initialization class delay */
   override def delayedInit(body: => Unit) = {
     body // evaluate the initialization code of body
@@ -126,13 +136,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
 
       this.nameElements()
 
-      while(prePopTasks.nonEmpty){
-        val prePopTasksToDo = prePopTasks
-        prePopTasks = mutable.ArrayBuffer[PrePopTask]()
-        for(t <- prePopTasksToDo){
-          t.clockDomain(t.task())
-        }
-      }
+      prePop()
 
       Component.pop(this)
     }
@@ -328,6 +332,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
   def rework[T](gen: => T) : T = {
     Component.push(this)
     val ret = gen
+    prePop()
     Component.pop(this)
     ret
   }

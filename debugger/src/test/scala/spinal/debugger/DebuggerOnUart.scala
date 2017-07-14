@@ -27,6 +27,7 @@ object DebuggerOnUart {
     subComponentA.io.input := io.input
     io.output := subComponentA.io.output
 
+
     val condsParity = io.conds.asBools.reduceLeft(_ ^ _)
 
     val counter = CounterFreeRun(1024)

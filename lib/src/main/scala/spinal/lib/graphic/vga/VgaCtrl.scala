@@ -96,7 +96,7 @@ case class VgaCtrl(rgbConfig: RgbConfig, timingsWidth: Int = 12) extends Compone
   val v = HVArea(io.timings.v, h.syncEnd)
   val colorEn = h.colorEn && v.colorEn
   io.pixels.ready := colorEn
-  io.error := colorEn && ! io.pixels.valid
+  io.error := colorEn && !io.pixels.valid
 
   io.frameStart := v.syncStart && h.syncStart
 
