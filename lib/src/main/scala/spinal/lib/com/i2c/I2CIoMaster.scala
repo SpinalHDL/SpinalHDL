@@ -149,25 +149,29 @@ class I2CIoMaster(g: I2CIoMasterGenerics) extends Component {
     }
   }
 
-  val timeout = new Area{
-    val counter = Reg(UInt(g.timerClockDividerWidth.value + g.timeoutBaudRatioLog2 bits)) init(0)
-    val tick = counter === 0
-    val reset = False setWhen(sclEdge.toogle)
-    counter := counter - 1
-    when(reset){
-      counter := io.config.timerClockDivider << g.timeoutBaudRatioLog2
-    }
-    when(detector.stop){
-      counter := io.config.timerClockDivider.resized  //Apply tBuf
-    }
-  }
 
   val arbitration = new Area{
+    val timeout = new Area{
+      val counter = Reg(UInt(g.timerClockDividerWidth.value + g.timeoutBaudRatioLog2 bits)) init(0)
+      val tick = counter === 0
+      val reset = False setWhen(sclEdge.toogle || sdaEdge.toogle)
+      counter := counter - 1
+      when(reset){
+        counter := io.config.timerClockDivider << g.timeoutBaudRatioLog2
+      }
+      when(detector.stop){
+        counter := io.config.timerClockDivider.resized  //Apply tBuf
+      }
+    }
+
     val taken = RegInit(False)
-    val losed = RegInit(False) setWhen(detector.start && !taken)
+    val losed = RegInit(False)
     when(timeout.tick){
       losed := False
       taken := False
+    }
+    when(detector.start && !taken){
+      losed := True
     }
     when(!losed){
       timeout.reset := True
@@ -178,97 +182,109 @@ class I2CIoMaster(g: I2CIoMasterGenerics) extends Component {
    * Main state machine of the Master HAL
    */
   val state = RegInit(U"00")
-  val startSuccessor = Reg(Bool) clearWhen(io.cmd.valid)  //Keep the SDA low after a START until the next CMD
   val sclWrite, sdaWrite = True
+  val keepSda = False setWhen(arbitration.taken && !io.cmd.valid)
   sclWrite.clearWhen(arbitration.taken)
-  sdaWrite.clearWhen(startSuccessor)
+  when(keepSda){
+    sdaWrite := io.i2c.sda.write
+  }
   timer.reset.setWhen(arbitration.taken && sclWrite && !filter.scl)
 
   io.cmd.ready := False
   io.rsp.valid := False
   io.rsp.data  := filter.sda
-  when(io.cmd.valid && !arbitration.losed) {
-    switch(io.cmd.mode) {
-      is(CmdMode.START){
-        arbitration.losed := False
-        when(!arbitration.taken) { //Normal start
-          sdaWrite := False
-          when(timer.tick || !filter.scl) {
-            arbitration.taken := True
-            startSuccessor := True
-            io.cmd.ready := True
+  when(io.cmd.valid) {
+    when(arbitration.losed){
+      timer.reset := True
+    } otherwise {
+      switch(io.cmd.mode) {
+        is(CmdMode.START) {
+          arbitration.losed := False
+          when(!arbitration.taken) {
+            //Normal start
+            sdaWrite := False
+            when(timer.tick || !filter.scl) {
+              arbitration.taken := True
+              io.cmd.ready := True
+            }
+          } otherwise {
+            //Restart
+            switch(state) {
+              is(0) {
+                when(timer.tick) {
+                  state := 1
+                }
+              }
+              is(1) {
+                sclWrite := True
+                when(timer.tick) {
+                  state := 2
+                }
+              }
+              is(2) {
+                sdaWrite := False
+                sclWrite := True
+                when(timer.tick) {
+                  io.cmd.ready := True
+                }
+              }
+            }
           }
-        } otherwise{             //Restart
-          switch(state){
-            is(0){
-              when(timer.tick){
+        }
+        is(CmdMode.DATA) {
+          switch(state) {
+            is(0) {
+              when(!filter.scl) {
+                sdaWrite := io.cmd.data
+              } otherwise {
+                keepSda := True
+              }
+              when(timer.tick) {
                 state := 1
               }
             }
-            is(1){
+            is(1) {
               sclWrite := True
-              when(timer.tick){
+              sdaWrite := io.cmd.data
+              when(filter.scl) {
                 state := 2
+                io.rsp.valid := True
               }
             }
-            is(2){
-              sdaWrite := False
+            is(2) {
               sclWrite := True
-              when(timer.tick){
+              sdaWrite := io.cmd.data
+              when(timer.tick) {
                 io.cmd.ready := True
-                startSuccessor := True
               }
             }
           }
         }
-      }
-      is(CmdMode.DATA){
-        when(!filter.scl) {
-          sdaWrite := io.cmd.data
-        }
-        switch(state){
-          is(0){
-            when(timer.tick){
-              state := 1
+        is(CmdMode.STOP) {
+          switch(state) {
+            is(0) {
+              sdaWrite clearWhen (filter.scl === False)
+              when(timer.tick) {
+                state := 1
+              }
             }
-          }
-          is(1){
-            sclWrite := True
-            when(filter.scl){
-              state := 2
-            }
-          }
-          is(2){
-            sclWrite := True
-            when(timer.tick){
-              io.cmd.ready := True
+            is(1) {
+              sclWrite := True
+              sdaWrite := False
+              when(timer.tick) {
+                io.cmd.ready := True
+                arbitration.taken := False
+                arbitration.losed := True
+              }
             }
           }
         }
-      }
-      is(CmdMode.STOP){
-        switch(state){
-          is(0){
-            sdaWrite clearWhen(filter.scl === False)
-            when(timer.tick){
-              state := 1
-            }
-          }
-          is(1){
-            sclWrite := True
-            sdaWrite := False
-            when(timer.tick){
-              io.cmd.ready := True
-              arbitration.taken := False
-              arbitration.losed := True
-            }
-          }
+        is(CmdMode.DROP) {
+          arbitration.taken := False
+          arbitration.losed := True
+          sclWrite := True
+          io.cmd.ready := True
         }
-      }
-      is(CmdMode.DROP){
-        arbitration.taken := False
-        arbitration.losed := True
-        io.cmd.ready := True
       }
     }
   }
