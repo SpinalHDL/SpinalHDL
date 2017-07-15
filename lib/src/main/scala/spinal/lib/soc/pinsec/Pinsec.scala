@@ -296,6 +296,5 @@ object Pinsec{
     val config = SpinalConfig().dumpWave()
     config.generateVerilog(new Pinsec(PinsecConfig.default))
     config.generateVhdl(new Pinsec(PinsecConfig.default))
-    config.copy(oneFilePerComponent = true,targetDirectory = "pinsec").generateVerilog(new Pinsec(PinsecConfig.default))
   }
 }

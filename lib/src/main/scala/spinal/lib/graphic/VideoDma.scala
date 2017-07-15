@@ -4,7 +4,6 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba4.axi.{Axi4Config, Axi4ReadOnly}
 
-
 case class VideoDmaMem[T <: Data](g: VideoDmaGeneric[T]) extends Bundle with IMasterSlave{
   val cmd = Stream(UInt(g.addressWidth bit))
   val rsp = Flow Fragment(Bits(g.dataWidth bit))
@@ -100,9 +99,11 @@ case class VideoDma[T <: Data](g : VideoDmaGeneric[T]) extends Component{
     }
   } otherwise {
     when(cmdActive){
-      io.mem.cmd.valid := !toManyPendingCmd && !toManyPendingRsp
-      when(memCmdLast && io.mem.cmd.ready){
-        cmdActive := False
+      when(!toManyPendingCmd && !toManyPendingRsp){
+        io.mem.cmd.valid := True
+        when(memCmdLast && io.mem.cmd.ready){
+          cmdActive := False
+        }
       }
     }.elsewhen(pendingMemRsp === 0) {
       isActive := False
@@ -131,11 +132,27 @@ case class VideoDma[T <: Data](g : VideoDmaGeneric[T]) extends Component{
     )
     toManyPendingRsp := pendingMemToFifo > fifoSize-beatPerAccess
   } else new Area{
+    require(isPow2(fifoSize))
     val fifo = new StreamFifoCC(Fragment(Bits(dataWidth bit)),fifoSize,pushClock = ClockDomain.current,popClock = frameClock)
     fifo.io.push << memRsp.toStream
     fifo.io.pop >> fifoPop
 
-    toManyPendingRsp := RegNext(fifo.io.pushOccupancy) + pendingMemRsp > fifoSize-beatPerAccess-1    //-1 because of regnext fifo occupancy
+    val grayWidth = log2Up(fifoSize/beatPerAccess)+1
+    require(grayWidth >= 3)
+
+    val frameClockArea = new ClockingArea(frameClock){
+      val popBeatCounter = Counter(beatPerAccess)
+      when(fifo.io.pop.fire){
+        popBeatCounter.increment()
+      }
+
+      val popCmdGray = GrayCounter(grayWidth, popBeatCounter.willOverflow)
+    }
+
+    val popCmdGray  = BufferCC(frameClockArea.popCmdGray)
+    val pushCmdGray = GrayCounter(grayWidth,io.mem.cmd.fire)
+
+    toManyPendingRsp :=  pushCmdGray(grayWidth - 1, grayWidth - 2) === ~popCmdGray(grayWidth - 1, grayWidth - 2) && pushCmdGray(grayWidth - 3, 0) === popCmdGray(grayWidth - 3, 0)
   }
 
   val fifoPopArea = new ClockingArea(frameClock){
