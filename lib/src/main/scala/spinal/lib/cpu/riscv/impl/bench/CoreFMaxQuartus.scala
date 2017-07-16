@@ -8,7 +8,7 @@ import spinal.lib.cpu.riscv.impl.build.RiscvAvalon
 import spinal.lib.cpu.riscv.impl._
 import spinal.lib.cpu.riscv.impl.extension.{BarrelShifterLightExtension, BarrelShifterFullExtension, DivExtension, MulExtension}
 import spinal.lib.eda.altera.QuartusFlow
-import spinal.lib.eda.altera.QuartusFlow.Report
+import spinal.lib.eda.bench.Report
 
 
 import scala.concurrent.duration.Duration
@@ -251,7 +251,7 @@ object CoreFMaxQuartusBench {
       println(s"${core.getName()} ->")
       for (target <- targets) {
         val report = results(core)(target).value.get.get
-        println(s"${target.getFamily} -> ${(report.fMax / 1e6).toInt} Mhz")
+        println(s"${target.getFamily} -> ${(report.getFMax() / 1e6).toInt} Mhz")
       }
     }
   }

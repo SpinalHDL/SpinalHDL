@@ -149,7 +149,7 @@ class MasterThread:
         global normalTransactionCounter
         yield Timer(self.baudPeriod * 10)
 
-        while crapyConflictCounter < 2 or normalConflictCounter < 3 or normalTransactionCounter < 2000:
+        while crapyConflictCounter < 2 or normalConflictCounter < 3 or normalTransactionCounter < 40:
             while True:
                 colision = False
 

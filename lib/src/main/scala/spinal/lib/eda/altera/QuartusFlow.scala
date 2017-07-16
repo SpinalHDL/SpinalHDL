@@ -1,5 +1,7 @@
 package spinal.lib.eda.altera
 
+import spinal.lib.eda.bench.Report
+
 import scala.sys.process._
 /**
  * Created by PIC32F_USER on 18/05/2016.
@@ -31,7 +33,24 @@ object QuartusFlow {
     return fMax*1e6
   }
 
-  case class Report(fMax : Double)
+  def getArea(reportPath : String, family : String): String ={
+    import scala.io.Source
+    val report = Source.fromFile(reportPath).getLines.mkString
+    val intFind = "(\\d+,?)+".r
+    val leArea = try {
+      family match {
+        case "Cyclone V" => intFind.findFirstIn("Logic utilization \\(in ALMs\\)[ ]*;[ ]*(\\d+,?)+".r.findFirstIn(report).get).get + " ALMs"
+        case "Cyclone IV" | "Cyclone II" =>
+          intFind.findFirstIn("Total combinational functions[ ]*;[ ]*(\\d+,?)+".r.findFirstIn(report).get).get + " LUT " +
+          intFind.findFirstIn("Dedicated logic registers[ ]*;[ ]*(\\d+,?)+".r.findFirstIn(report).get).get + " FF "
+      }
+    }catch{
+      case e : Exception => "???"
+    }
+    return leArea
+  }
+
+
   def apply(quartusPath : String,workspacePath : String,toplevelPath : String,family : String,device : String,fmax : Double = 0,processorCount : Int = 1) : Report = {
     val projectName = toplevelPath.split("/").last.split("[.]").head
     val correctedWorkspacePath = workspacePath.replace("/","\\")
@@ -44,7 +63,10 @@ object QuartusFlow {
     doCmd(s"""$quartusPath/quartus_fit $workspacePath/$projectName --parallel=$processorCount""")
     doCmd(s"$quartusPath/quartus_sta $workspacePath/$projectName")
 
-    Report(getFMax(s"$correctedWorkspacePath/$projectName.sta.rpt"))
+    new Report{
+      override def getFMax(): Double =  (QuartusFlow.getFMax(s"$correctedWorkspacePath/$projectName.sta.rpt"))
+      override def getArea(): String =  (QuartusFlow.getArea(s"$correctedWorkspacePath/$projectName.flow.rpt", family))
+    }
   }
 
   def main(args: Array[String]) {
