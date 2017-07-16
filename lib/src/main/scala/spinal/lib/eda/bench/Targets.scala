@@ -1,6 +1,7 @@
 package spinal.lib.eda.bench
 
 import spinal.lib.eda.altera.QuartusFlow
+import spinal.lib.eda.xilinx.VivadoFlow
 
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.Future
@@ -17,7 +18,6 @@ object AlteraStdTargets {
     if(quartusCycloneIIPath != null) {
       targets += new Target {
         override def getFamilyName(): String = "Cyclone V"
-
         override def synthesise(rtl: Rtl, workspace: String): Report = {
           QuartusFlow(
             quartusPath = quartusCycloneVPath,
@@ -33,7 +33,6 @@ object AlteraStdTargets {
     if(quartusCycloneIIPath != null) {
       targets += new Target {
         override def getFamilyName(): String = "Cyclone IV"
-
         override def synthesise(rtl: Rtl, workspace: String):  Report = {
           QuartusFlow(
             quartusPath = quartusCycloneIVPath,
@@ -48,7 +47,6 @@ object AlteraStdTargets {
     if(quartusCycloneIIPath != null) {
       targets += new Target {
         override def getFamilyName(): String = "Cyclone II"
-
         override def synthesise(rtl: Rtl, workspace: String): Report = {
           QuartusFlow(
             quartusPath = quartusCycloneIIPath,
@@ -56,6 +54,30 @@ object AlteraStdTargets {
             toplevelPath = rtl.getRtlPath(),
             family = getFamilyName(),
             device = "EP2C35F672C6"
+          )
+        }
+      }
+    }
+
+    targets
+  }
+}
+
+
+object XilinxStdTargets {
+  def apply(vivadoArtix7Path : String = null): Seq[Target] = {
+    val targets = ArrayBuffer[Target]()
+
+    if(vivadoArtix7Path != null) {
+      targets += new Target {
+        override def getFamilyName(): String = "Artix 7"
+        override def synthesise(rtl: Rtl, workspace: String): Report = {
+          VivadoFlow(
+            vivadoPath=vivadoArtix7Path,
+            workspacePath=workspace,
+            toplevelPath=rtl.getRtlPath(),
+            family=getFamilyName(),
+            device="xc7k70t-fbg676-3"
           )
         }
       }

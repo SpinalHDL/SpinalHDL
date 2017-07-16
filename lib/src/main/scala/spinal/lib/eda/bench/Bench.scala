@@ -53,18 +53,18 @@ object Bench{
   def main(args: Array[String]) {
     val fifo128 = new Rtl {
       override def getName(): String = "Fifo 128"
-      override def getRtlPath(): String = "fifo128.vhd"
+      override def getRtlPath(): String = "fifo128.v"
 
-      SpinalVhdl({
+      SpinalVerilog({
         StreamFifo(Bits(32 bits), 128).setDefinitionName(getRtlPath().split("\\.").head)
       })
     }
 
     val fifo1024 = new Rtl {
       override def getName(): String = "Fifo 1024"
-      override def getRtlPath(): String = "fifo1024.vhd"
+      override def getRtlPath(): String = "fifo1024.v"
 
-      SpinalVhdl({
+      SpinalVerilog({
         StreamFifo(Bits(32 bits), 1024).setDefinitionName(getRtlPath().split("\\.").head)
       })
     }
@@ -75,6 +75,8 @@ object Bench{
       quartusCycloneIIPath = "D:/altera/13.0sp1/quartus/bin64",
       quartusCycloneIVPath = "D:/altera_lite/15.1/quartus/bin64",
       quartusCycloneVPath  = "D:/altera_lite/15.1/quartus/bin64"
+    ) ++ XilinxStdTargets(
+      vivadoArtix7Path = "E:\\Xilinx\\Vivado\\2016.3\\bin"
     )
 
     Bench(rtls, targets, "E:/tmp/")
