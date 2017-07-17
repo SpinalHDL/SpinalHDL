@@ -716,7 +716,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     val map = mutable.Map[String, Attribute]()
 
     for (node <- component.nodes) {
-      for (attribute <- node.instanceAttributes) {
+      for (attribute <- node.instanceAttributes(Language.VHDL)) {
         val mAttribute = map.getOrElseUpdate(attribute.getName, attribute)
         if (!mAttribute.sameType(attribute)) SpinalError(s"There is some attributes with different nature (${attribute} and ${mAttribute} at\n${node.component}})")
       }
@@ -780,7 +780,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
           }
 
 
-          emitAttributes(signal,signal.instanceAndSyncNodeAttributes, "signal", ret)
+          emitAttributes(signal,signal.instanceAndSyncNodeAttributes(Language.VHDL), "signal", ret)
         }
 //        case readSync : MemReadSync => {
 //          if(readSync.writeToReadKind == `writeFirst`){
@@ -824,12 +824,12 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
             for(i <- 0 until symbolCount) {
               val postfix = "_symbol" + i
               ret ++= s"  signal ${emitReference(mem)}$postfix : ${emitDataType(mem)};\n"
-              emitAttributes(mem,mem.instanceAttributes, "signal", ret,postfix = postfix)
+              emitAttributes(mem,mem.instanceAttributes(Language.VHDL), "signal", ret,postfix = postfix)
             }
           }else{
             ret ++= s"  type ${emitReference(mem)}_type is array (0 to ${mem.wordCount - 1}) of std_logic_vector(${mem.getWidth - 1} downto 0);\n"
             ret ++= s"  signal ${emitReference(mem)} : ${emitDataType(mem)}${initAssignementBuilder.toString()};\n"
-            emitAttributes(mem, mem.instanceAttributes, "signal", ret)
+            emitAttributes(mem, mem.instanceAttributes(Language.VHDL), "signal", ret)
           }
         }
         case _ =>

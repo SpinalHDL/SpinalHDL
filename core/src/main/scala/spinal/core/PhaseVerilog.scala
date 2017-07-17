@@ -255,10 +255,10 @@ end
 
              for(i <- 0 until symbolCount) {
               val postfix = "_symbol" + i
-              ret ++= s"  ${emitSyntaxAttributes(mem.instanceAttributes)}reg [${symbolWidth- 1}:0] ${emitReference(mem)}$postfix [0:${mem.wordCount - 1}]${emitCommentAttributes(mem.instanceAttributes)};\n"
+              ret ++= s"  ${emitSyntaxAttributes(mem.instanceAttributes(Language.VERILOG))}reg [${symbolWidth- 1}:0] ${emitReference(mem)}$postfix [0:${mem.wordCount - 1}]${emitCommentAttributes(mem.instanceAttributes(Language.VERILOG))};\n"
             }
           }else{
-            ret ++= s"  ${emitSyntaxAttributes(mem.instanceAttributes)}reg ${emitRange(mem)} ${emitReference(mem)} [0:${mem.wordCount - 1}]${emitCommentAttributes(mem.instanceAttributes)};\n"
+            ret ++= s"  ${emitSyntaxAttributes(mem.instanceAttributes(Language.VERILOG))}reg ${emitRange(mem)} ${emitReference(mem)} [0:${mem.wordCount - 1}]${emitCommentAttributes(mem.instanceAttributes(Language.VERILOG))};\n"
           }
 
           if (mem.initialContent != null) {

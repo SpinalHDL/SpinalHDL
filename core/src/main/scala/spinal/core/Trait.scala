@@ -594,6 +594,13 @@ trait SpinalTagReady {
     _spinalTags.foreach(e => if(e.isInstanceOf[Attribute])array += e.asInstanceOf[Attribute])
     array
   }
+
+  def instanceAttributes(language: Language) : Iterable[Attribute] = {
+    if(_spinalTags == null) return Nil
+    val array = ArrayBuffer[Attribute]()
+    _spinalTags.foreach(e => if(e.isInstanceOf[Attribute] && e.asInstanceOf[Attribute].isLanguageReady(language))array += e.asInstanceOf[Attribute])
+    array
+  }
 }
 
 object SpinalTagReady{

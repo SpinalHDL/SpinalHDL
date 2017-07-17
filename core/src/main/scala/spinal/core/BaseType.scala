@@ -269,6 +269,13 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
       this.instanceAttributes
   }
 
+  def instanceAndSyncNodeAttributes(language: Language) : Iterable[Attribute] = {
+    if(input.isInstanceOf[SyncNode])
+      input.instanceAttributes(language) ++ this.instanceAttributes(language)
+    else
+      this.instanceAttributes(language)
+  }
+
 
   override def clone: this.type = {
     val res = this.getClass.newInstance.asInstanceOf[this.type]

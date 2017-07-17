@@ -35,12 +35,21 @@ trait AttributeKind
 object COMMENT_ATTRIBUTE extends AttributeKind
 object DEFAULT_ATTRIBUTE extends AttributeKind
 
+trait Language
+object Language {
+  object VERILOG extends Language
+  object SYSTEM_VERILOG extends Language
+  object VHDL extends Language
+}
+
+
 trait Attribute extends SpinalTag{
   def getName: String
   def sameType(that: Attribute): Boolean
 
   def attributeKind() : AttributeKind
   override def toString: String = getName
+  def isLanguageReady(language: Language) : Boolean = true
 }
 
 class AttributeString(name: String, val value: String, kind : AttributeKind = DEFAULT_ATTRIBUTE) extends Attribute {
@@ -56,6 +65,9 @@ class AttributeFlag(name: String, kind : AttributeKind = DEFAULT_ATTRIBUTE) exte
 }
 
 object Verilator{
-  object public extends AttributeFlag("verilator public", COMMENT_ATTRIBUTE)
+  object public extends AttributeFlag("verilator public", COMMENT_ATTRIBUTE){
+    override def isLanguageReady(language: Language) : Boolean =
+      language == Language.VERILOG || language == Language.SYSTEM_VERILOG
+  }
 }
 

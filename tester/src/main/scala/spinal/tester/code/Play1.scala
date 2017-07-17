@@ -1012,16 +1012,20 @@ object PlayBug {
 
   class TopLevel extends Component {
     val a,b = in Bool;
-    val result = slave Stream( Bool);
+    val result = out Bool
 
-    when(a){
-      result.ready := True
-    }
+
+    val temp = a && b
+    result := temp
+
+    temp.addAttribute(Verilator.public)
+    temp.addAttribute("Miaou")
 
   }
 
   def main(args: Array[String]): Unit = {
     SpinalVhdl(new TopLevel)
+    SpinalVerilog(new TopLevel)
   }
 }
 
