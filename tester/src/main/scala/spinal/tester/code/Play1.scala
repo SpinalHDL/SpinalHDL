@@ -244,56 +244,17 @@ class BundleBase {
 }
 
 class Play5(p: Int) extends Component {
-  var cnt = 0
-  val stream = new Bundle {
-    outer =>
-    val a = UInt(p bit)
-    //def b = print(Play5.this)
-    val c = new BundleBase with Cloneable {
-      val e = UInt()
-      val f = cnt
-      cnt += 1
-
-      // def b = print(Play5.this)
-      override def clone(): AnyRef = super.clone()
-
-      def clone2(): this.type = clone().asInstanceOf[this.type]
-    }
-  }
-
-
-  //val stream = new Bundle{ val a = UInt()}
-
-  println(stream.c.clone2().f)
-  println(stream.c.clone2().f)
-  println(stream.c.clone2().f)
-  println(stream.c.clone2().f)
-  println(cnt)
-
-
-  def toto: Bundle = {
-    val x = "yolo"
-    val y = new Bundle {
-      val a = Bits()
-
-      def pp = x + Math.sin(2.0)
-    }
-    return y
-  }
-
-  val xx = toto
-
-  xx.clone()
-
+  SFix(4 exp, -4 exp) := 16.2
 }
 
 object Play5 {
   def main(args: Array[String]): Unit = {
-    def a() = 2
-    def b = 3
+
 
     SpinalVhdl(new Play5(5))
   }
+
+
 }
 
 object PlayFifo {
