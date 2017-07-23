@@ -15,7 +15,7 @@ object AlteraStdTargets {
   def apply(quartusCycloneIIPath : String = null, quartusCycloneIVPath : String = null, quartusCycloneVPath : String = null): Seq[Target] = {
     val targets = ArrayBuffer[Target]()
 
-    if(quartusCycloneIIPath != null) {
+    if(quartusCycloneVPath != null) {
       targets += new Target {
         override def getFamilyName(): String = "Cyclone V"
         override def synthesise(rtl: Rtl, workspace: String): Report = {
@@ -30,7 +30,7 @@ object AlteraStdTargets {
       }
     }
 
-    if(quartusCycloneIIPath != null) {
+    if(quartusCycloneIVPath != null) {
       targets += new Target {
         override def getFamilyName(): String = "Cyclone IV"
         override def synthesise(rtl: Rtl, workspace: String):  Report = {

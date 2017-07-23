@@ -2,6 +2,7 @@
 - [X] Fix B(default -> True)
 
 ## spinal.core
+- [ ] Ram with only 1 line are emitted with zero width removed address
 - [X] Add more double comparaison into fixedpoints
 - [X] Fixedpoints, check construction arguments
 - [X] Bits reg with init to big error message

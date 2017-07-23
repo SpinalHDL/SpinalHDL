@@ -2,6 +2,7 @@ package spinal.tester.temp
 import spinal.core._
 import spinal.lib._ 
 import spinal.lib.bus.amba4.axilite._
+import spinal.tester.code.temp._
 
 class ZynqTest extends Component {
   val io = new Bundle {
@@ -23,6 +24,8 @@ class ZynqTest extends Component {
 object MyMain {
   def main(args: Array[String]) {
     SpinalVhdl(new ZynqTest)
+    SFix(2 exp, 3 exp).miaou(4)
+
   }
 }
 
