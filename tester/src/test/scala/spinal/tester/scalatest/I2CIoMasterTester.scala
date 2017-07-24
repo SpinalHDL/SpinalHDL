@@ -24,9 +24,9 @@ import spinal.lib.com.i2c._
 
 
 class I2CIoMasterTester extends SpinalTesterCocotbBase {
-  override def getName: String = "I2CIoMasterTester"
+  override def getName: String = "I2cIoMasterTester"
   override def pythonTestLocation: String = "tester/src/test/python/spinal/I2CTester2/IoMasterTester"
-  override def createToplevel: Component = new I2CIoMaster(I2CIoMasterGenerics(
+  override def createToplevel: Component = new I2cIoMaster(I2cIoMasterGenerics(
     samplingSize              = 3,
     samplingClockDividerWidth = 10 bits,
     timerClockDividerWidth    = 20 bits,

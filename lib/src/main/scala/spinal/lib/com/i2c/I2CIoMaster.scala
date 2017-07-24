@@ -38,7 +38,7 @@ import spinal.lib.fsm._
   * @param samplingClockDividerWidth : Width of the clockDivider value
   * @param timerClockDividerWidth      : Width of the clockDivider value
   */
-case class I2CIoMasterGenerics( samplingSize              : Int = 3,
+case class I2cIoMasterGenerics( samplingSize              : Int = 3,
                                 samplingClockDividerWidth : BitCount = 10 bits,
                                 timerClockDividerWidth    : BitCount = 20 bits,
                                 timeoutBaudRatioLog2      : Int = 9){} // 9 => 1.28 ms timeout for 400 Khz i2c   (1/400Khz*2^9)
@@ -47,7 +47,7 @@ case class I2CIoMasterGenerics( samplingSize              : Int = 3,
 /**
   * Runtime configuration of the I2C master
   */
-case class I2CIoMasterConfig(g: I2CIoMasterGenerics) extends Bundle {
+case class I2cIoMasterConfig(g: I2cIoMasterGenerics) extends Bundle {
 
   val samplingClockDivider = UInt(g.samplingClockDividerWidth)
   val timerClockDivider      = UInt (g.timerClockDividerWidth)
@@ -65,7 +65,7 @@ case class I2CIoMasterConfig(g: I2CIoMasterGenerics) extends Bundle {
 /**
  * Mode used to manage the slave
  */
-object I2CIoMasterCmdMode extends SpinalEnum{
+object I2cIoMasterCmdMode extends SpinalEnum{
   val START, DATA, STOP, DROP = newElement()
 }
 
@@ -73,8 +73,8 @@ object I2CIoMasterCmdMode extends SpinalEnum{
 /**
  * Define the command interface
  */
-case class I2CIoMasterCmd() extends Bundle{
-  val mode = I2CIoMasterCmdMode()
+case class I2cIoMasterCmd() extends Bundle{
+  val mode = I2cIoMasterCmdMode()
   val data  = Bool
 }
 
@@ -84,7 +84,7 @@ case class I2CIoMasterCmd() extends Bundle{
  *
  *  For the slave : (FREEZE) is done with the response stream.
  */
-case class I2CIoMasterRsp() extends Bundle{
+case class I2cIoMasterRsp() extends Bundle{
   val data = Bool
 }
 
@@ -104,21 +104,21 @@ case class I2CIoMasterRsp() extends Bundle{
   */
 
 
-class I2CIoMaster(g: I2CIoMasterGenerics) extends Component {
-  import spinal.lib.com.i2c.{I2CIoMasterCmdMode => CmdMode}
+class I2cIoMaster(g: I2cIoMasterGenerics) extends Component {
+  import spinal.lib.com.i2c.{I2cIoMasterCmdMode => CmdMode}
 
   val io = new Bundle{
-    val i2c    = master( I2C() )
-    val config = in( I2CIoMasterConfig(g) )
-    val cmd    = slave  Stream( I2CIoMasterCmd()  )
-    val rsp    = master Flow  ( I2CIoMasterRsp() )
+    val i2c    = master( I2c() )
+    val config = in( I2cIoMasterConfig(g) )
+    val cmd    = slave  Stream( I2cIoMasterCmd()  )
+    val rsp    = master Flow  ( I2cIoMasterRsp() )
   }
 
 
   /**
    * Filter SDA and SCL input
    */
-  val filter = new I2CIoFilter(i2c  = io.i2c,
+  val filter = new I2cIoFilter(i2c  = io.i2c,
                                clockDivider      = io.config.samplingClockDivider,
                                samplingSize      = g.samplingSize,
                                clockDividerWidth = g.samplingClockDividerWidth)
@@ -127,8 +127,8 @@ class I2CIoMaster(g: I2CIoMasterGenerics) extends Component {
   /**
    * Detect the rising and falling edge of the scl signal
    */
-  val sclEdge = new I2CEdgeDetector(filter.scl)
-  val sdaEdge = new I2CEdgeDetector(filter.sda)
+  val sclEdge = new I2cEdgeDetector(filter.scl)
+  val sdaEdge = new I2cEdgeDetector(filter.sda)
 
 
   /**

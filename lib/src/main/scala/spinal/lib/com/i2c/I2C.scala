@@ -34,7 +34,7 @@ import spinal.lib.io.ReadableOpenDrain
 /**
   * I2C interface definition
   */
-case class I2C() extends Bundle with IMasterSlave {
+case class I2c() extends Bundle with IMasterSlave {
 
   val sda   = ReadableOpenDrain(Bool)
   val scl   = ReadableOpenDrain(Bool)
@@ -56,7 +56,7 @@ case class I2C() extends Bundle with IMasterSlave {
 /**
   * Detect the rising and falling Edge of the SCL signals
   */
-class I2CEdgeDetector(value: Bool) extends Area {
+class I2cEdgeDetector(value: Bool) extends Area {
   val oldValue = RegNext(value) init(True)
 
   val rising  =  value && !oldValue
@@ -68,7 +68,7 @@ class I2CEdgeDetector(value: Bool) extends Area {
 /**
   * Filter the SCL and SDA input signals
   */
-class I2CIoFilter(i2c: I2C, clockDivider: UInt, samplingSize: Int, clockDividerWidth: BitCount) extends Area{
+class I2cIoFilter(i2c: I2c, clockDivider: UInt, samplingSize: Int, clockDividerWidth: BitCount) extends Area{
 
   // Clock divider for sampling the input signals
   val timer = new Area{
