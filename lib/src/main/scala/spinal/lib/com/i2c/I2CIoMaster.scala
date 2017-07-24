@@ -108,10 +108,10 @@ class I2cIoMaster(g: I2cIoMasterGenerics) extends Component {
   import spinal.lib.com.i2c.{I2cIoMasterCmdMode => CmdMode}
 
   val io = new Bundle{
-    val i2c    = master( I2c() )
-    val config = in( I2cIoMasterConfig(g) )
-    val cmd    = slave  Stream( I2cIoMasterCmd()  )
-    val rsp    = master Flow  ( I2cIoMasterRsp() )
+    val i2c    = master(I2c())
+    val config = in(I2cIoMasterConfig(g))
+    val cmd    = slave  Stream(I2cIoMasterCmd())
+    val rsp    = master Flow  (I2cIoMasterRsp())
   }
 
 

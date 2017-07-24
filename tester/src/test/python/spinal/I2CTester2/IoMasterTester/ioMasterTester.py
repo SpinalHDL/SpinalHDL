@@ -19,6 +19,13 @@ normalConflictCounter = 0
 normalTransactionCounter = 0
 
 @coroutine
+def clockedFuncWaitTrue(clk,that):
+    while True:
+        yield RisingEdge(clk)
+        if that() == True:
+            break
+
+@coroutine
 def SlaveThread(scl,sda,clk,baudPeriod):
     global crapyConflictCounter
     global normalConflictCounter
@@ -65,6 +72,7 @@ def SlaveThread(scl,sda,clk,baudPeriod):
                         sda.write((cmdToData[address] >> (15-dataState)) & 1)
                         yield Timer(baudPeriod/4);
                         scl.write(True)
+                        yield clockedFuncWaitTrue(clk, scl.read)
                         sclLast = False
                     else:
                         sda.write((cmdToData[address] >> (15 - dataState)) & 1)
@@ -76,6 +84,7 @@ def SlaveThread(scl,sda,clk,baudPeriod):
                     sda.write(False)
                     yield Timer(baudPeriod / 2)
                     scl.write(True)
+                    yield clockedFuncWaitTrue(clk, scl.read)
                     yield Timer(baudPeriod)
 
                     if random.random() < 0.5:
@@ -88,6 +97,7 @@ def SlaveThread(scl,sda,clk,baudPeriod):
                             sda.write(rand)
                             yield Timer(baudPeriod/2)
                             scl.write(True)
+                            yield clockedFuncWaitTrue(clk, scl.read)
                             yield Timer(baudPeriod)
                             assert sda.read() == rand
 
@@ -96,6 +106,7 @@ def SlaveThread(scl,sda,clk,baudPeriod):
                         sda.write(False)
                         yield Timer(baudPeriod / 2)
                         scl.write(True)
+                        yield clockedFuncWaitTrue(clk, scl.read)
                         yield Timer(baudPeriod)
                         sda.write(True)
                     else:
@@ -106,6 +117,7 @@ def SlaveThread(scl,sda,clk,baudPeriod):
                         sda.write(True)
                         yield Timer(baudPeriod / 2)
                         scl.write(True)
+                        yield clockedFuncWaitTrue(clk, scl.read)
                         yield Timer(baudPeriod)
                     state = IDLE
                     continue
@@ -138,7 +150,7 @@ class MasterThread:
         self.baudPeriod = baudPeriod
         self.softMaster = softMaster
         self.cmdQueue = []
-        self.cmdDriver = StreamDriverMaster(cmd,lambda  : self.cmdQueue.pop(0) if self.cmdQueue else None,clk,reset)
+        self.cmdDriver = StreamDriverMaster(cmd,lambda  : self.cmdQueue.pop(0) if self.cmdQueue and (random.random() < (1.0/10.0)) else None,clk,reset)
 
 
 
