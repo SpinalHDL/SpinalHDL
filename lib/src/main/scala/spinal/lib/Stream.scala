@@ -145,6 +145,12 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
     return (fifo.io.pop, fifo.io.occupancy)
   }
 
+  def queueWithAvailability(size: Int): (Stream[T], UInt) = {
+    val fifo = new StreamFifo(dataType, size)
+    fifo.io.push << this
+    return (fifo.io.pop, fifo.io.availability)
+  }
+
 /** Connect this to a cross clock domain fifo and return its pop stream and its push side occupancy
   */
   def queueWithPushOccupancy(size: Int, pushClock: ClockDomain, popClock: ClockDomain): (Stream[T], UInt) = {
@@ -554,7 +560,8 @@ class StreamFifo[T <: Data](dataType: T, depth: Int) extends Component {
     val push = slave Stream (dataType)
     val pop = master Stream (dataType)
     val flush = in Bool() default(False)
-    val occupancy = out UInt (log2Up(depth + 1) bit)
+    val occupancy    = out UInt (log2Up(depth + 1) bits)
+    val availability = out UInt (log2Up(depth + 1) bits)
   }
   val ram = Mem(dataType, depth)
   val pushPtr = Counter(depth)
@@ -582,13 +589,16 @@ class StreamFifo[T <: Data](dataType: T, depth: Int) extends Component {
   }
 
   val ptrDif = pushPtr - popPtr
-  if (isPow2(depth))
+  if (isPow2(depth)) {
     io.occupancy := ((risingOccupancy && ptrMatch) ## ptrDif).asUInt
-  else {
+    io.availability := ((!risingOccupancy && ptrMatch) ## (popPtr - pushPtr)).asUInt
+  } else {
     when(ptrMatch) {
-      io.occupancy := Mux(risingOccupancy, U(depth), U(0))
+      io.occupancy    := Mux(risingOccupancy, U(depth), U(0))
+      io.availability := Mux(risingOccupancy, U(0), U(depth))
     } otherwise {
       io.occupancy := Mux(pushPtr > popPtr, ptrDif, U(depth) + ptrDif)
+      io.availability := Mux(pushPtr > popPtr, U(depth) + (popPtr - pushPtr), (popPtr - pushPtr))
     }
   }
 
@@ -886,20 +896,38 @@ object StreamJoin{
 
 object StreamWidthAdapter{
   def apply[T <: Data,T2 <: Data](input : Stream[T],output : Stream[T2]): Unit = {
-    val inputWidth = widthOf(input)
-    val outputWidth = widthOf(output)
+    val inputWidth = widthOf(input.payload)
+    val outputWidth = widthOf(output.payload)
     if(inputWidth == outputWidth){
       output.arbitrationFrom(input)
       output.assignFromBits(input.asBits)
     } else if(inputWidth > outputWidth){
+      require(inputWidth % outputWidth == 0)
       val factor = inputWidth / outputWidth
       val counter = Counter(factor,inc = output.fire)
       output.valid := input.valid
       output.payload.assignFromBits(input.payload.asBits.subdivideIn(factor slices).read(counter))
       input.ready := output.ready && counter.willOverflowIfInc
     } else{
-      SpinalError("Currently not implemented")
+      require(outputWidth % inputWidth == 0)
+      val factor  = outputWidth / inputWidth
+      val counter = Counter(factor,inc = input.fire)
+      val buffer  = Reg(Bits(outputWidth - inputWidth bits))
+      when(input.fire){
+        buffer := input.payload ## (buffer >> inputWidth)
+      }
+      output.valid := input.valid && counter.willOverflowIfInc
+      output.payload.assignFromBits(input.payload ## buffer)
+      input.ready := !(!output.ready && counter.willOverflowIfInc)
     }
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new Component{
+      val input = slave(Stream(Bits(4 bits)))
+      val output = master(Stream(Bits(32 bits)))
+      StreamWidthAdapter(input,output)
+    })
   }
 }
 
