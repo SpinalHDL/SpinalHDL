@@ -2786,15 +2786,16 @@ object PlayRam {
   class TopLevel extends Component {
     val mem = Mem(Bits(32 bit),128)
 
-    val wr = in(mem.writePort)
-
-    val addr = RegNextWhen(in(mem.addressType),in Bool)
-    val data = out (mem(addr))
+    val address = in(mem.addressType)
+    val writeData = in(mem.wordType)
+    val writeMask = in Bits(4 bits)
+    val enable,write = in Bool()
+    val readData = out(mem.readWriteSync(address,writeData,enable,write,writeMask))
 
   }
 
   def main(args: Array[String]) {
-    SpinalVhdl(new TopLevel)
+    SpinalVerilog(new TopLevel)
     println("Done")
   }
 }

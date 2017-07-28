@@ -125,10 +125,10 @@ class PhaseVerilog(pc : PhaseContext) extends PhaseMisc with VerilogBase {
     val enumDebugSignals = ArrayBuffer[SpinalEnumCraft[_]]()
     emitFunctions(component,ret)
     emitSignals(component, ret, enumDebugSignals)
-    val retTemp = new StringBuilder
+    val retTemp,retTemp2,retTemp3 = new StringBuilder
     emitComponentInstances(component, retTemp)
     emitAsyncronous(component, retTemp, ret)
-    emitSyncronous(component, retTemp)
+    emitSyncronous(component, retTemp3, retTemp2)
     if(component == topLevel && pc.config.dumpWave != null){
       ret ++= s"""
 initial begin
@@ -137,12 +137,14 @@ initial begin
 end
 """
     }
-    retTemp ++= s"endmodule\n"
-    retTemp ++= s"\n"
 
 
     ret ++= retTemp
+    ret ++= retTemp2
+    ret ++= retTemp3
 
+    ret ++= s"endmodule\n"
+    ret ++= s"\n"
   }
 
 
@@ -661,7 +663,7 @@ end
     }
   }
 
-  def emitSyncronous(component: Component, ret: StringBuilder): Unit = {
+  def emitSyncronous(component: Component, ret: StringBuilder, preDeclarations : StringBuilder): Unit = {
     val syncNodes = component.getDelays
 
     val clockDomainMap = mutable.Map[ClockDomain, ArrayBuffer[SyncNode]]()
@@ -855,13 +857,13 @@ end
               if (memReadSync.readUnderWrite == writeFirst) SpinalError(s"Can't translate a MemWriteOrRead with writeFirst into Verilog $memReadSync")
               if (memReadSync.readUnderWrite == dontCare) SpinalWarning(s"MemWriteOrRead with dontCare is as readFirst into Verilog $memReadSync")
 
-              ret ++= s"${tab}if(${emitReference(memWrite.getChipSelect)}) begin\n"
-              ret ++= s"${tab}  if(${emitReference(memWrite.getWriteEnable)}) begin\n"
-              emitWrite(tab + "    ")
-              ret ++= s"${tab}  end\n"
+              //ret ++= s"${tab}if(${emitReference(memWrite.getChipSelect)}) begin\n"
+              //ret ++= s"${tab}  if(${emitReference(memWrite.getWriteEnable)}) begin\n"
+              emitWrite(tab)
+              //ret ++= s"${tab}  end\n"
               if (memReadSync.component.nodes.contains(memReadSync))
-                emitRead(tab + "  ")
-              ret ++= s"${tab}end\n"
+                emitRead(tab)
+              //ret ++= s"${tab}end\n"
 
               def emitWrite(tab: String) = {
 //                ret ++= s"$tab${emitReference(memWrite.getMem)}[${emitReference(memWrite.getAddress)}] <= ${emitReference(memWrite.getData)};\n"
@@ -869,19 +871,26 @@ end
                 val bitPerSymbole = memWrite.getMem.getMemSymbolWidth()
 
                 if(memWrite.getMask == null) {
-                  if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
-                    ret ++= s"$tab${emitReference(memWrite.getMem)}[${emitReference(memWrite.getAddress)}] <= ${emitReference(memWrite.getData)};\n"
-                  else
-                    for(i <- 0 until symbolCount) {
+                  val condName = emitReference(memWrite.getChipSelect) + "_AND_" + emitReference(memWrite.getWriteEnable) + "_WRITE"
+                  preDeclarations ++= s"  wire $condName = ${emitReference(memWrite.getChipSelect)} && ${emitReference(memWrite.getWriteEnable)};\n"
+                  ret ++= s"${tab}if($condName) begin\n"
+                  if (memBitsMaskKind == SINGLE_RAM || symbolCount == 1) {
+
+                    ret ++= s"$tab$tab${emitReference(memWrite.getMem)}[${emitReference(memWrite.getAddress)}] <= ${emitReference(memWrite.getData)};\n"
+                  } else {
+                    for (i <- 0 until symbolCount) {
                       val range = s"[${(i + 1) * bitPerSymbole - 1} : ${i * bitPerSymbole}]"
                       ret ++= s"$tab  ${emitReference(memWrite.getMem)}_symbol${i}[${emitReference(memWrite.getAddress)}] <= ${emitReference(memWrite.getData)}$range;\n"
                     }
+                  }
+                  ret ++= s"${tab}  end\n"
                 }else{
-
                   val maskCount = memWrite.getMask.getWidth
                   for(i <- 0 until maskCount){
                     val range = s"[${(i+1)*bitPerSymbole-1} : ${i*bitPerSymbole}]"
-                    ret ++= s"${tab}if(${emitReference(memWrite.getMask)}[$i])begin\n"
+                    val condName = emitReference(memWrite.getChipSelect) + "_AND_" + emitReference(memWrite.getWriteEnable) + "_AND_" + emitReference(memWrite.getMask) + i
+                    preDeclarations ++= s"  wire $condName = ${emitReference(memWrite.getChipSelect)} && ${emitReference(memWrite.getWriteEnable)} && ${emitReference(memWrite.getMask)}[$i];\n"
+                    ret ++= s"${tab}if($condName) begin\n"
                     if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
                       ret ++= s"$tab  ${emitReference(memWrite.getMem)}[${emitReference(memWrite.getAddress)}))$range <= ${emitReference(memWrite.getData)}$range;\n"
                     else
@@ -894,12 +903,34 @@ end
 
               def emitRamRead() = {
                 val symbolCount = memReadSync.getMem.getMemSymbolCount
+
                 if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
                   s"${emitReference(memReadSync.getMem)}[${emitReference(memReadSync.getAddress)}]"
                 else
                   "{" + (0 until symbolCount).reverse.map(i => (s"${emitReference(memReadSync.getMem)}_symbol$i[${emitReference(memReadSync.getAddress)}]")).reduce(_ + "," + _) + "}"
+
               }
-              def emitRead(tab: String) = ret ++= s"$tab${emitReference(memReadSync.consumers(0))} <= ${emitRamRead()};\n"
+              def emitRead(tab: String) = {
+                val symbolCount = memReadSync.getMem.getMemSymbolCount
+                ret ++= s"${tab}if(${emitReference(memWrite.getChipSelect)}) begin\n"
+                if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
+                  ret ++= s"$tab  ${emitReference(memReadSync.consumers(0))} <= ${emitReference(memReadSync.getMem)}[${emitReference(memReadSync.getAddress)}];\n"
+                else{
+                  val symboleReadDataNames = for(i <- 0 until symbolCount) yield {
+                    val symboleReadDataName = s"${emitReference(memReadSync.getMem)}_symbol${i}_${emitReference(memReadSync.getAddress)}"
+                    preDeclarations ++= s"  reg [${memReadSync.getMem.getMemSymbolWidth()-1}:0] $symboleReadDataName;\n"
+                    ret ++= s"$tab  $symboleReadDataName <= ${emitReference(memReadSync.getMem)}_symbol$i[${emitReference(memReadSync.getAddress)}];\n"
+                    symboleReadDataName
+                  }
+
+
+                  preDeclarations ++= s"  always @ (${symboleReadDataNames.mkString(" or " )}) begin\n"
+                  preDeclarations ++= s"    ${emitReference(memReadSync.consumers(0))} = {${symboleReadDataNames.reverse.mkString(", " )}};\n"
+                  preDeclarations ++= s"  end\n"
+                }
+
+                ret ++= s"${tab}end\n"
+              }
 //              def emitRead(tab: String) = {
 //                ret ++= s"$tab${emitReference(memReadSync.consumers(0))} <= ${emitReference(memReadSync.getMem)}[${emitReference(memReadSync.getAddress)}];\n"
 //              }
