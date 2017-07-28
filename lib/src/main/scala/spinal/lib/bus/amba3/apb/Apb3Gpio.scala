@@ -17,9 +17,8 @@ case class Apb3Gpio(gpioWidth : Int) extends Component{
   }
 
   val ctrl = Apb3SlaveFactory(io.apb)
-  ctrl.drive(io.gpio.write,0)
   ctrl.read(io.gpio.read,0)
-  ctrl.read(io.gpio.write,4)
+  ctrl.driveAndRead(io.gpio.write,4)
   ctrl.driveAndRead(io.gpio.writeEnable,8)
   io.gpio.writeEnable.getDrivingReg init(0)
 }

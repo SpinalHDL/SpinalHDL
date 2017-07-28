@@ -74,6 +74,11 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     def exp = new ExpNumber(i.toInt)
     def pos = new PosCount(i.toInt)
     def slices = new SlicesCount(i.toInt)
+    def Byte = (i)
+    def kB = (i) << 10
+    def MB = (i) << 20
+    def GB = (i) << 30
+    def TB = (i) << 40
     def cycles = new CyclesCount(i)
   }
 
