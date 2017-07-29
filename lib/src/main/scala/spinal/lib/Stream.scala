@@ -895,7 +895,7 @@ object StreamJoin{
 
 
 object StreamWidthAdapter{
-  def apply[T <: Data,T2 <: Data](input : Stream[T],output : Stream[T2]): Unit = {
+  def apply[T <: Data,T2 <: Data](input : Stream[T],output : Stream[T2], endianness: Endianness = LITTLE): Unit = {
     val inputWidth = widthOf(input.payload)
     val outputWidth = widthOf(output.payload)
     if(inputWidth == outputWidth){
@@ -906,7 +906,10 @@ object StreamWidthAdapter{
       val factor = inputWidth / outputWidth
       val counter = Counter(factor,inc = output.fire)
       output.valid := input.valid
-      output.payload.assignFromBits(input.payload.asBits.subdivideIn(factor slices).read(counter))
+      endianness match {
+        case `LITTLE` => output.payload.assignFromBits(input.payload.asBits.subdivideIn(factor slices).read(counter))
+        case `BIG`    => output.payload.assignFromBits(input.payload.asBits.subdivideIn(factor slices).reverse.read(counter))
+      }
       input.ready := output.ready && counter.willOverflowIfInc
     } else{
       require(outputWidth % inputWidth == 0)
@@ -917,7 +920,10 @@ object StreamWidthAdapter{
         buffer := input.payload ## (buffer >> inputWidth)
       }
       output.valid := input.valid && counter.willOverflowIfInc
-      output.payload.assignFromBits(input.payload ## buffer)
+      endianness match {
+        case `LITTLE` => output.payload.assignFromBits(input.payload ## buffer)
+        case `BIG`    => output.payload.assignFromBits((input.payload ## buffer).subdivideIn(factor slices).reverse.asBits())
+      }
       input.ready := !(!output.ready && counter.willOverflowIfInc)
     }
   }
