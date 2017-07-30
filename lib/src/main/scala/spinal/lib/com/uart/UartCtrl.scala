@@ -14,8 +14,6 @@ case class UartCtrlGenerics( dataWidthMax: Int = 8,
                              samplingSize: Int = 5,
                              postSamplingSize: Int = 2) {
   val rxSamplePerBit = preSamplingSize + samplingSize + postSamplingSize
-
-  assert(isPow2(rxSamplePerBit))
   if ((samplingSize % 2) == 0)
     SpinalWarning(s"It's not nice to have a even samplingSize value at ${ScalaLocated.short} (because of the majority vote)")
 }
@@ -151,7 +149,7 @@ case class UartCtrlInitConfig(
 ){
   def initReg(reg : UartCtrlConfig): Unit ={
     require(reg.isReg)
-    if(baudrate != 0) reg.clockDivider init((ClockDomain.current.frequency.getValue / baudrate / reg.g.rxSamplePerBit).toInt)
+    if(baudrate != 0) reg.clockDivider init((ClockDomain.current.frequency.getValue / baudrate / reg.g.rxSamplePerBit).toInt-1)
     if(dataLength != 0) reg.frame.dataLength init(dataLength)
     if(parity != null) reg.frame.parity init(parity)
     if(stop != null) reg.frame.stop init(stop)

@@ -2791,6 +2791,7 @@ object PlayRam {
     val writeMask = in Bits(4 bits)
     val enable,write = in Bool()
     val readData = out(mem.readWriteSync(address,writeData,enable,write,writeMask))
+    report("miaou")
 
   }
 

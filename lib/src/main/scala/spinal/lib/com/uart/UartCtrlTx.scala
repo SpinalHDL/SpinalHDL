@@ -2,7 +2,7 @@ package spinal.lib.com.uart
 
 import spinal.core._
 import spinal.lib.com.uart.UartStopType._
-import spinal.lib.slave
+import spinal.lib.{Counter, slave}
 import spinal.lib.fsm._
 
 object UartCtrlTxState extends SpinalEnum {
@@ -22,11 +22,10 @@ class UartCtrlTx(g : UartCtrlGenerics) extends Component {
   // Provide one clockDivider.tick each rxSamplePerBit pulse of io.samplingTick
   // Used by the stateMachine as a baud rate time reference
   val clockDivider = new Area {
-    val counter = Reg(UInt(log2Up(rxSamplePerBit) bits)) init(0)
-    val tick = False
+    val counter = Counter(rxSamplePerBit)
+    val tick = counter.willOverflow
     when(io.samplingTick) {
-      counter := counter - 1
-      tick := counter === 0
+      counter.increment()
     }
   }
 

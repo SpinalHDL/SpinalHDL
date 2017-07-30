@@ -36,6 +36,8 @@ class UartCtrlRx(g : UartCtrlGenerics) extends Component {
       counter := counter - 1
       when(counter === 0) {
         tick := True
+        if(!isPow2(rxSamplePerBit))
+          counter := rxSamplePerBit-1
       }
     }
   }
