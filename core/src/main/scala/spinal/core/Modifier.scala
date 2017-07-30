@@ -1654,13 +1654,20 @@ class MultipleAssignmentNodeEnum(enumDef : SpinalEnum) extends MultipleAssignmen
 }
 
 object AssertNode{
-  def apply(cond : Bool,message : String,severity: AssertNodeSeverity) : Unit = {
+  def apply(cond : Bool,message : Seq[Any],severity: AssertNodeSeverity) : Unit = {
     val node = new AssertNode
     node.cond = cond || ! when.getWhensCond(node.component.initialAssignementCondition)
-    node.message = message
+    for(m <- message) m match {
+      case m : String =>
+        node.message += m
+      case m : BaseType =>
+        node.message += m
+        node.signals += m
+    }
     node.severity = severity
     node.component.additionalNodesRoot += node
   }
+  def apply(cond : Bool,message : String,severity: AssertNodeSeverity) : Unit = AssertNode(cond, List(message),severity)
 }
 
 trait AssertNodeSeverity
@@ -1671,7 +1678,8 @@ object FAILURE  extends AssertNodeSeverity
 
 class AssertNode extends SyncNode(){
   var cond : Node = null
-  var message : String = null
+  val message = ArrayBuffer[Any]()
+  val signals = ArrayBuffer[Node]()
   var severity : AssertNodeSeverity = null
 
 
@@ -1681,21 +1689,29 @@ class AssertNode extends SyncNode(){
   override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
     super.onEachInput(doThat)
     doThat(cond,4)
+    for(i <- 0 until signals.length){
+      doThat(signals(i),i + 4)
+    }
   }
   override def onEachInput(doThat: (Node) => Unit): Unit = {
     super.onEachInput(doThat)
     doThat(cond)
+    for(i <- 0 until signals.length){
+      doThat(signals(i))
+    }
   }
 
   override def setInput(id: Int, node: Node): Unit = id match{
     case 4 => cond = node
+    case _ if id > 4 => signals(id-4) = node.asInstanceOf[Node]
     case _ => super.setInput(id,node)
   }
 
-  override def getInputsCount: Int = 1 + super.getInputsCount
-  override def getInputs: Iterator[Node] = super.getInputs ++ Iterator(cond)
+  override def getInputsCount: Int = 1 + signals.length + super.getInputsCount
+  override def getInputs: Iterator[Node] = super.getInputs ++ Iterator(cond) ++ signals
   override def getInput(id: Int): Node = id match{
     case 4 => cond
+    case _ if id > 4 => signals(id -4)
     case _ => super.getInput(id)
   }
 

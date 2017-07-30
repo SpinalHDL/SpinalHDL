@@ -1535,7 +1535,8 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
             }
             case assertNode : AssertNode => {
               val cond = emitLogic(assertNode.cond)
-              val message = if(assertNode.message != null) s"""report "${assertNode.message}" """ else ""
+              require(assertNode.message.size == 0 || (assertNode.message.size == 1 && assertNode.message(0).isInstanceOf[String]))
+              val message = if(assertNode.message.size == 1) s"""report "${assertNode.message(0)}" """ else ""
               val severity = "severity " +  (assertNode.severity match{
                 case `NOTE`     => "NOTE"
                 case `WARNING`  => "WARNING"

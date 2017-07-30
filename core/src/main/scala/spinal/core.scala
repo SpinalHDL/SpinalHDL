@@ -281,8 +281,13 @@ package object core extends BaseTypeFactory with BaseTypeCast {
 
   def assert(assertion: Bool) = AssertNode(assertion,null,ERROR)
   def assert(assertion: Bool,message : String) = AssertNode(assertion,message,ERROR)
+  def assert(assertion: Bool,message : Seq[Any]) = AssertNode(assertion,message,ERROR)
   def assert(assertion: Bool,severity: AssertNodeSeverity) = AssertNode(assertion,null,severity)
   def assert(assertion: Bool,message : String,severity: AssertNodeSeverity) = AssertNode(assertion,message,severity)
-  def report(message : String,severity: AssertNodeSeverity=NOTE) = assert(True,message,severity)
+  def assert(assertion: Bool,message : Seq[Any],severity: AssertNodeSeverity) = AssertNode(assertion,message,severity)
+  def report(message : String) = assert(True,message,NOTE)
+  def report(message : Seq[Any]) = assert(True,message,NOTE)
+  def report(message : String,severity: AssertNodeSeverity) = assert(True,message,severity)
+  def report(message : Seq[Any],severity: AssertNodeSeverity) = assert(True,message,severity)
 
 }

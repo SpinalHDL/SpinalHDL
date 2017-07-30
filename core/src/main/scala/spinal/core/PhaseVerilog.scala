@@ -940,7 +940,6 @@ end
             }
             case assertNode : AssertNode => {
               val cond = emitLogic(assertNode.cond)
-              val message = if(assertNode.message != null) s""":   ${assertNode.message} """ else ""
               val severity = assertNode.severity match{
                 case `NOTE`     => "NOTE"
                 case `WARNING`  => "WARNING"
@@ -948,8 +947,19 @@ end
                 case `FAILURE`  => "FAILURE"
               }
 
+
+              val frontString = (for(m <- assertNode.message) yield m match{
+                case m : String => m
+                case m : Node => "%x"
+              }).mkString
+
+              val backString = (for(m <- assertNode.signals) yield m match{
+                case m : Node => ", " + emitLogic(m)
+              }).mkString
+
+
               ret ++= s"${tab}if (!$cond) begin\n"
-              ret ++= s"""${tab}  $$display("$severity $message");\n"""
+              ret ++= s"""${tab}  $$display("$severity $frontString"$backString);\n"""
               if(assertNode.severity == `FAILURE`) ret ++= tab + "  $finish;\n"
               ret ++= s"${tab}end\n"
             }

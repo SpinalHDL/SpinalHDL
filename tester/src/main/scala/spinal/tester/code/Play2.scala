@@ -313,16 +313,19 @@ object PlayAssert {
   class TopLevel extends Component {
     val a,b = in UInt(4 bits)
     val tmp = a + 2
+    val x = in Bits(5 bits)
     when(a.lsb) {
       when(a.msb) {
-        assert(tmp === 8, "Yolo", NOTE)
+       assert(tmp === 8, "Yolo" :: tmp :: a ::" miaou" :: Nil, NOTE)
+        report("Yolo" :: tmp :: a ::" miaou" ::  "   " :: (x | x) ::Nil)
+       report("misou")
       }
     }
   }
 
   def main(args: Array[String]): Unit = {
-    //SpinalVhdl(new TopLevel)
-    SpinalVhdl(new TopLevel)
+   // SpinalVhdl(new TopLevel)
+    SpinalVerilog(new TopLevel)
   }
 }
 
