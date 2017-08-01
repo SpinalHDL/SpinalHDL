@@ -71,7 +71,7 @@ class UartCtrlRx(g : UartCtrlGenerics) extends Component {
 
     switch(state) {
       is(IDLE) {
-        when(sampler.value === False) {
+        when(sampler.tick && !sampler.value) {
           state := START
           bitTimer.reset()
         }
