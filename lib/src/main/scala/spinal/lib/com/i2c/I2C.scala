@@ -86,10 +86,17 @@ class I2cIoFilter(i2c: I2c, clockDivider: UInt, samplingSize: Int, clockDividerW
     val sclSync = BufferCC(i2c.scl.read, True)
     val sdaSync = BufferCC(i2c.sda.read, True)
 
-    val sclSamples = History(that = sclSync, range = 1 to samplingSize, when = timer.tick, init = True)
-    val sdaSamples = History(that = sdaSync, range = 1 to samplingSize, when = timer.tick, init = True)
+    val sclSamples = History(that = sclSync, range = 0 until samplingSize, when = timer.tick, init = True)
+    val sdaSamples = History(that = sdaSync, range = 0 until samplingSize, when = timer.tick, init = True)
   }
 
-  val sda = MajorityVote(sampler.sdaSamples)
-  val scl = MajorityVote(sampler.sclSamples)
+  val sda, scl = RegInit(True)
+  when(timer.tick){
+    when(sampler.sdaSamples.map(_ =/= sda).andR){
+      sda := sampler.sdaSamples.last
+    }
+    when(sampler.sclSamples.map(_ =/= scl).andR){
+      scl := sampler.sclSamples.last
+    }
+  }
 }

@@ -1133,16 +1133,17 @@ object PlaySwitch {
     result := 1
     switch(a) {
       is(1) {
-
+        //switch(b) {
+        //  is (1){
+            result := 2
+      //    }
+       // }
       }
-      is(2) {
-
-      }
-      is(3) {
-
-      }
-      is(4) {
+      is (2) {
         result := 2
+      }
+      default{
+        result := 4
       }
     }
 

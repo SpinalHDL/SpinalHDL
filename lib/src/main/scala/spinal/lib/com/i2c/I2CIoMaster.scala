@@ -104,7 +104,7 @@ case class I2cIoMasterRsp() extends Bundle{
   */
 
 
-class I2cIoMaster(g: I2cIoMasterGenerics) extends Component {
+case class I2cIoMaster(g: I2cIoMasterGenerics) extends Component {
   import spinal.lib.com.i2c.{I2cIoMasterCmdMode => CmdMode}
 
   val io = new Bundle{
