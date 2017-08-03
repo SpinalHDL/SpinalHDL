@@ -253,7 +253,7 @@ end
           val symbolWidth = mem.getMemSymbolWidth()
           val symbolCount = mem.getMemSymbolCount
           if(memBitsMaskKind == MULTIPLE_RAM && symbolCount != 1) {
-            if(mem.initialContent != null) SpinalError("Memory with multiple symbol per line + initial contant are not suported currently")
+            //if(mem.initialContent != null) SpinalError("Memory with multiple symbol per line + initial contant are not suported currently")
 
              for(i <- 0 until symbolCount) {
               val postfix = "_symbol" + i
@@ -268,8 +268,13 @@ end
             for ((value, index) <- mem.initialContent.zipWithIndex) {
               val unfilledValue = value.toString(2)
               val filledValue = "0" * (mem.getWidth-unfilledValue.length) + unfilledValue
-
-              ret ++= s"    ${emitReference(mem)}[$index] = 'b$filledValue;\n"
+              if(memBitsMaskKind == MULTIPLE_RAM && symbolCount != 1) {
+                for(i <- (0 until symbolCount)){
+                  ret ++= s"    ${emitReference(mem)}_symbol$i[$index] = 'b${filledValue.substring(symbolWidth*(symbolCount-i-1), symbolWidth*(symbolCount-i))};\n"
+                }
+              }else{
+                ret ++= s"    ${emitReference(mem)}[$index] = 'b$filledValue;\n"
+              }
             }
 
             ret ++= "  end\n"

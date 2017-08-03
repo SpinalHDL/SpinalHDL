@@ -81,7 +81,7 @@ case class MemWriteOrReadSync(write : MemReadWrite_writePart,read : MemReadWrite
 
 object AllowMixedWidth extends SpinalTag
 
-class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableInputsCount  with Nameable with Widthable{
+class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableInputsCount  with Nameable with Widthable with CheckWidth{
   var forceMemToBlackboxTranslation = false
   val _widths = _wordType.flatten.map(t => t.getBitsWidth).toVector //Force to fix width of each wire
 
@@ -106,6 +106,19 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NodeWithVariableI
   }
 
   var initialContent : Array[BigInt] = null
+  private[core] def checkInferedWidth: Unit = {
+    val maxLit = (BigInt(1) << getWidth)-1
+    if(initialContent != null && initialContent.filter(v => v > maxLit || v < 0).nonEmpty){
+      PendingError(s"$this as some initial content values doesn't fit in memory words.\n${getScalaLocationLong}")
+    }
+  }
+
+
+  def initBigInt(initialContent : Seq[BigInt]): this.type ={
+    assert(initialContent.length == wordCount, s"The initial content array size (${initialContent.length}) is not equals to the memory size ($wordCount).\n" + this.getScalaLocationLong)
+    this.initialContent = initialContent.toArray
+    this
+  }
 
   def init(initialContent: Seq[T]): this.type = {
     assert(initialContent.length == wordCount, s"The initial content array size (${initialContent.length}) is not equals to the memory size ($wordCount).\n" + this.getScalaLocationLong)

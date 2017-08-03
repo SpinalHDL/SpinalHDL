@@ -789,46 +789,51 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 //        }
         case mem: Mem[_] => {
           //ret ++= emitSignal(mem, mem);
-          var initAssignementBuilder = new StringBuilder()
-          if (mem.initialContent != null) {
-            initAssignementBuilder ++= " := ("
-
-            var first = true
-            for ((value, index) <- mem.initialContent.zipWithIndex) {
-              if (!first)
-                initAssignementBuilder ++= ","
-              else
-                first = false
-
-              if ((index & 15) == 0) {
-                initAssignementBuilder ++= "\n     "
-              }
-
-              val unfilledValue = value.toString(2)
-              val filledValue = "0" * (mem.getWidth-unfilledValue.length) + unfilledValue
-              initAssignementBuilder ++= "\"" + filledValue + "\""
-            }
-
-            initAssignementBuilder ++= ")"
-          }else if(mem.hasTag(randomBoot)){
-            initAssignementBuilder ++= " := (others => (others => '1'))"
-          }
-
           val symbolWidth = mem.getMemSymbolWidth()
           val symbolCount = mem.getMemSymbolCount
 
+          val initAssignementBuilder = for(i <- 0 until symbolCount) yield {
+            val builder = new StringBuilder()
+            val mask = (BigInt(1) << symbolWidth)-1
+            if (mem.initialContent != null) {
+              builder ++= " := ("
+
+              var first = true
+              for ((value, index) <- mem.initialContent.zipWithIndex) {
+                if (!first)
+                  builder ++= ","
+                else
+                  first = false
+
+                if ((index & 15) == 0) {
+                  builder ++= "\n     "
+                }
+
+                val unfilledValue = ((value>>(i*symbolWidth)) & mask).toString(2)
+                val filledValue = "0" * (symbolWidth-unfilledValue.length) + unfilledValue
+                builder ++= "\"" + filledValue + "\""
+              }
+
+              builder ++= ")"
+            }else if(mem.hasTag(randomBoot)){
+              builder ++= " := (others => (others => '1'))"
+            }
+            builder
+          }
+
+
           if(memBitsMaskKind == MULTIPLE_RAM && symbolCount != 1) {
-            if(mem.initialContent != null) SpinalError("Memory with multiple symbol per line + initial contant are not suported currently")
+            //if(mem.initialContent != null) SpinalError("Memory with multiple symbol per line + initial contant are not suported currently")
 
             ret ++= s"  type ${emitReference(mem)}_type is array (0 to ${mem.wordCount - 1}) of std_logic_vector(${symbolWidth - 1} downto 0);\n"
             for(i <- 0 until symbolCount) {
               val postfix = "_symbol" + i
-              ret ++= s"  signal ${emitReference(mem)}$postfix : ${emitDataType(mem)};\n"
+              ret ++= s"  signal ${emitReference(mem)}$postfix : ${emitDataType(mem)}${initAssignementBuilder(i).toString()};\n"
               emitAttributes(mem,mem.instanceAttributes(Language.VHDL), "signal", ret,postfix = postfix)
             }
           }else{
             ret ++= s"  type ${emitReference(mem)}_type is array (0 to ${mem.wordCount - 1}) of std_logic_vector(${mem.getWidth - 1} downto 0);\n"
-            ret ++= s"  signal ${emitReference(mem)} : ${emitDataType(mem)}${initAssignementBuilder.toString()};\n"
+            ret ++= s"  signal ${emitReference(mem)} : ${emitDataType(mem)}${initAssignementBuilder.head.toString()};\n"
             emitAttributes(mem, mem.instanceAttributes(Language.VHDL), "signal", ret)
           }
         }

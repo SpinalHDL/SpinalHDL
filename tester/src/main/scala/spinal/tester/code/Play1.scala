@@ -2784,19 +2784,20 @@ object PlayAxiLite4 {
 object PlayRam {
 
   class TopLevel extends Component {
-    val mem = Mem(Bits(32 bit),128)
+    val mem = Mem(Bits(32 bit),8)
 
     val address = in(mem.addressType)
     val writeData = in(mem.wordType)
     val writeMask = in Bits(4 bits)
     val enable,write = in Bool()
     val readData = out(mem.readWriteSync(address,writeData,enable,write,writeMask))
-    report("miaou")
 
+    mem.initBigInt((0 until 8).map(i => BigInt((i*0x40302010l)&0xFFFFFFFFl)))
   }
 
   def main(args: Array[String]) {
     SpinalVerilog(new TopLevel)
+    SpinalVhdl(new TopLevel)
     println("Done")
   }
 }
