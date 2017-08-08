@@ -41,8 +41,9 @@ case class SpiMasterCmdSs(generics : SpiMasterGenerics) extends Bundle{
 }
 
 case class SpiMasterCmd(generics : SpiMasterGenerics) extends Bundle{
-  val mode = SpiMasterCmdMode()
+  val mode = if(generics.ssGen) SpiMasterCmdMode() else null
   val args = Bits(Math.max(widthOf(SpiMasterCmdData(generics)), log2Up(generics.ssWidth) + 1 ) bits)
+  def isData = if(generics.ssGen) mode === SpiMasterCmdMode.DATA else True
   def argsData = {
     val ret = SpiMasterCmdData(generics)
     ret.assignFromBits(args)
@@ -131,40 +132,39 @@ case class SpiMaster(generics : SpiMasterGenerics) extends Component{
     io.spi.sio.writeEnable := 0
     io.cmd.ready := False
     when(io.cmd.valid){
-      switch(io.cmd.mode){
-        is(SpiMasterCmdMode.DATA){
-          when(!io.cmd.argsData.halfDuplex) {
-            io.spi.sio.writeEnable := 1
-          } otherwise {
-            for (i <- 0 to cmdSioUsageMax if i != 0) {
-              io.spi.sio.writeEnable(1 << i - 1 downto 0) :=  B((1 << i - 1 downto 0) -> true)
-            }
+      when(io.cmd.isData) {
+        when(!io.cmd.argsData.halfDuplex) {
+          io.spi.sio.writeEnable := 1
+        } otherwise {
+          for (i <- 0 to cmdSioUsageMax if i != 0) {
+            io.spi.sio.writeEnable(1 << i - 1 downto 0) := B((1 << i - 1 downto 0) -> true)
           }
-          when(timer.sclkToogleHit) {
-            timer.reset := True
-            counterInc := True
-            io.cmd.ready := counterWillOverflow
-            when(counter.lsb) { //Sample data
-              counterIncValue := io.cmd.argsData.sioUsage.muxList((0 to io.cmd.argsData.sioUsage.maxValue.toInt).map(v => v -> U((1 << v) - 1))).resized
-              when(!io.cmd.argsData.halfDuplex) {
-                buffer := (buffer ## misoSample(0)).resized
-              } otherwise {
-                switch(io.cmd.argsData.sioUsage) {
-                 /* default{
-                    buffer := (buffer ## misoSample(0)).resized
-                  }*/
-                  for (i <- 0 to cmdSioUsageMax) {
-                    is(i) {
-                      buffer := (buffer ## misoSample((1 << i) - 1 downto 0)).resized
-                    }
+        }
+        when(timer.sclkToogleHit) {
+          timer.reset := True
+          counterInc := True
+          io.cmd.ready := counterWillOverflow
+          when(counter.lsb) {
+            //Sample data
+            counterIncValue := io.cmd.argsData.sioUsage.muxList((0 to io.cmd.argsData.sioUsage.maxValue.toInt).map(v => v -> U((1 << v) - 1))).resized
+            when(!io.cmd.argsData.halfDuplex) {
+              buffer := (buffer ## misoSample(0)).resized
+            } otherwise {
+              switch(io.cmd.argsData.sioUsage) {
+                default{
+                  buffer := (buffer ## misoSample(0)).resized
+                }
+                for (i <- 0 to cmdSioUsageMax if i != 0) {
+                  is(i) {
+                    buffer := (buffer ## misoSample((1 << i) - 1 downto 0)).resized
                   }
                 }
               }
             }
           }
         }
-        if(ssGen)
-        is(SpiMasterCmdMode.SS){
+      } otherwise{
+        if(ssGen){
           when(io.cmd.argsSs.enable){
             ss(io.cmd.argsSs.index) := False
             when(timer.ss.setupHit){
@@ -188,7 +188,7 @@ case class SpiMaster(generics : SpiMasterGenerics) extends Component{
     }
 
     //CMD responses
-    io.rsp.valid   := io.cmd.fire && io.cmd.mode === SpiMasterCmdMode.DATA && io.cmd.argsData.read
+    io.rsp.valid   := io.cmd.fire && io.cmd.isData&& io.cmd.argsData.read
     io.rsp.payload := (buffer ## misoSample).resized
 
     //Idle states
@@ -199,7 +199,7 @@ case class SpiMaster(generics : SpiMasterGenerics) extends Component{
 
     //SPI connections
     if(ssGen) io.spi.ss   := ss
-    io.spi.sclk := RegNext(((io.cmd.valid && io.cmd.mode === SpiMasterCmdMode.DATA) && (counter.lsb ^ io.config.kind.cpha)) ^ io.config.kind.cpol)
+    io.spi.sclk := RegNext(((io.cmd.valid && io.cmd.isData) && (counter.lsb ^ io.config.kind.cpha)) ^ io.config.kind.cpol)
     for(i <- 0 until sioCount){
       val minimalSioUsage = 1 << log2Up(i+1)    //1 2 4 4 8 8 8 8
       val bitsIndexes = (0 until dataWidth).filter(_ % minimalSioUsage == 0)

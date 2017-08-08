@@ -22,6 +22,7 @@ object QSysify{
 }
 
 trait QSysifyInterfaceEmiter{
+  //Check the 'i' interface, if it reconize something, should return true and complette the TCL `builder` with corresponding things.
   def emit(i : Data,builder : StringBuilder) : Boolean
 }
 
