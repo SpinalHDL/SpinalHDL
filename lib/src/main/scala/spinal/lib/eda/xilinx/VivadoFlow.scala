@@ -27,9 +27,11 @@ object VivadoFlow {
     doCmd(s"mkdir $correctedWorkspacePath")
     doCmd(s"copy $toplevelPath $correctedWorkspacePath")
 
+    val isVhdl = toplevelPath.endsWith(".vhd") || toplevelPath.endsWith(".vhdl")
+
     val tcl = new java.io.FileWriter(workspacePath + "/doit.tcl")
     tcl.write(
-s"""read_verilog $toplevelPath
+s"""read_${if(isVhdl) "vhdl" else "verilog"} $toplevelPath
 read_xdc doit.xdc
 
 synth_design -part $device -top ${toplevelPath.split("\\.").head}
