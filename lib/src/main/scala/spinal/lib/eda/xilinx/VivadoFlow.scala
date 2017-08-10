@@ -1,5 +1,6 @@
 package spinal.lib.eda.xilinx
 
+import spinal.core._
 import spinal.lib.eda.bench.Report
 
 import scala.sys.process._
@@ -18,10 +19,10 @@ object VivadoFlow {
     Process(cmds.map(cmd => "cmd /K /C " + cmd)) !
   }
 
-  def apply(vivadoPath : String,workspacePath : String,toplevelPath : String,family : String,device : String,fmax : Double = 0,processorCount : Int = 1) : Report = {
+  def apply(vivadoPath : String,workspacePath : String,toplevelPath : String,family : String,device : String,frequencyTarget : HertzNumber = null,processorCount : Int = 1) : Report = {
     val projectName = toplevelPath.split("/").last.split("[.]").head
     val correctedWorkspacePath = workspacePath.replace("/","\\")
-    val targetPeriod = 2.5
+    val targetPeriod = (if(frequencyTarget != null) frequencyTarget else 400 MHz).toTime
 
     doCmd(s"rmdir /S /Q $correctedWorkspacePath")
     doCmd(s"mkdir $correctedWorkspacePath")
@@ -48,7 +49,7 @@ report_timing"""
 
 
     val xdc = new java.io.FileWriter(workspacePath + "/doit.xdc")
-    xdc.write(s"""create_clock -period $targetPeriod [get_ports clk]""")
+    xdc.write(s"""create_clock -period ${(targetPeriod*1e9) toBigDecimal} [get_ports clk]""")
 
     xdc.flush();
     xdc.close();
@@ -68,7 +69,7 @@ report_timing"""
         }catch{
           case e : Exception => -1.0
         }
-        return 1e9/(targetPeriod-slack)
+        return 1.0/(targetPeriod.toDouble-slack*1e-9)
       }
       override def getArea(): String =  {
         import scala.io.Source
@@ -94,7 +95,8 @@ report_timing"""
       workspacePath="E:/tmp/test1",
       toplevelPath="fifo128.v",
       family="Artix 7",
-      device="xc7k70t-fbg676-3"
+      device="xc7k70t-fbg676-3",
+      frequencyTarget = 1 MHz
     )
     println(report.getArea())
     println(report.getFMax())
