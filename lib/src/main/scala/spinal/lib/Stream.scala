@@ -938,9 +938,9 @@ object StreamWidthAdapter{
 }
 
 object StreamFragmentWidthAdapter{
-  def apply[T <: Data,T2 <: Data](input : Stream[Fragment[T]],output : Stream[Fragment[T2]]): Unit = {
-    val inputWidth = widthOf(input.fragment)
-    val outputWidth = widthOf(output.fragment)
+  def apply[T <: Data,T2 <: Data](input : Stream[Fragment[T]],output : Stream[Fragment[T2]], endianness: Endianness = LITTLE): Unit = {
+    val inputWidth = widthOf(input.payload)
+    val outputWidth = widthOf(output.payload)
     if(inputWidth == outputWidth){
       output.arbitrationFrom(input)
       output.assignFromBits(input.asBits)
@@ -949,11 +949,27 @@ object StreamFragmentWidthAdapter{
       val factor = inputWidth / outputWidth
       val counter = Counter(factor,inc = output.fire)
       output.valid := input.valid
-      output.fragment.assignFromBits(input.fragment.asBits.subdivideIn(factor slices).read(counter))
+      endianness match {
+        case `LITTLE` => output.fragment.assignFromBits(input.payload.asBits.subdivideIn(factor slices).read(counter))
+        case `BIG`    => output.fragment.assignFromBits(input.payload.asBits.subdivideIn(factor slices).reverse.read(counter))
+      }
       output.last := input.last && counter.willOverflowIfInc
       input.ready := output.ready && counter.willOverflowIfInc
     } else{
-      SpinalError("Currently not implemented")
+      require(outputWidth % inputWidth == 0)
+      val factor  = outputWidth / inputWidth
+      val counter = Counter(factor,inc = input.fire)
+      val buffer  = Reg(Bits(outputWidth - inputWidth bits))
+      when(input.fire){
+        buffer := input.payload ## (buffer >> inputWidth)
+      }
+      output.valid := input.valid && counter.willOverflowIfInc
+      endianness match {
+        case `LITTLE` => output.fragment.assignFromBits(input.payload ## buffer)
+        case `BIG`    => output.fragment.assignFromBits((input.payload ## buffer).subdivideIn(factor slices).reverse.asBits())
+      }
+      output.last := input.last
+      input.ready := !(!output.ready && counter.willOverflowIfInc)
     }
   }
 }

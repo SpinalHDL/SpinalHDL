@@ -1,0 +1,208 @@
+package spinal.lib.com.i2c
+
+import spinal.core._
+import spinal.lib._
+import spinal.lib.bus.amba3.apb.{Apb3Config, Apb3SlaveFactory, Apb3}
+import spinal.lib.bus.misc.BusSlaveFactory
+
+/**
+ * Created by PIC32F_USER on 24/07/2017.
+ */
+
+object I2cCtrlMasterCmdMode extends SpinalEnum(binarySequential){
+  val START, BIT, BYTE, STOP, DROP = newElement()
+}
+
+case class I2cCtrlMasterCmd() extends Bundle{
+  val data  = Bits(8 bits)
+  val mode  = I2cCtrlMasterCmdMode()
+  val read  = Bool //also collect data when mode === BIT || BYTE        (Always write data)
+  val check = Bool
+  val flushToStopOnError = Bool 
+  val dropEmitOnError  = Bool
+  val stopEmitOnError  = Bool
+}
+
+case class I2cCtrlMasterRsp() extends Bundle{
+  val data  = Bits(8 bits)
+}
+
+
+//case class I2cCtrlMasterDriveConfig( cmdFifoSize : Int = 64,
+//                                     rspFifoSize : Int = 64)
+
+case class I2cCtrlMaster(ioGenerics : I2cIoMasterGenerics) extends Component{
+  val io = new Bundle{
+    val cmd = slave(Stream(I2cCtrlMasterCmd()))
+    val rsp = master(Flow(I2cCtrlMasterRsp()))
+    val errorPulse = out Bool
+    val config = in(I2cIoMasterConfig(ioGenerics))
+    val i2c = master(I2c())
+
+
+    def driveFrom(busCtrl : BusSlaveFactory,baseAddress : BigInt)(cmdFifoSize : Int = 64,
+                                                                  rspFifoSize : Int = 64) = new Area {
+      //Address 0 => push cmd, pop rsp
+      val cmdQueuePush = busCtrl.createAndDriveFlow(I2cCtrlMasterCmd(), baseAddress + 0).toStream
+      val (cmdQueuePop, cmdQueueAvailability) = cmdQueuePush.queueWithAvailability(cmdFifoSize)
+      cmd << cmdQueuePop
+
+      val (rspQueuePop, rspQueueAvailability) = rsp.toStream.queueWithAvailability(rspFifoSize)
+      busCtrl.readStreamNonBlocking(
+        that = rspQueuePop,
+        address = baseAddress + 0,
+        validBitOffset = 15,
+        payloadBitOffset = 0
+      )
+
+      //Address 4 => samplingClockDivider
+      busCtrl.drive(config.samplingClockDivider, baseAddress + 4)
+
+      //Address 8 => samplingClockDivider
+      busCtrl.drive(config.timerClockDivider, baseAddress + 8)
+
+      //Address 12 => availabilities
+      require(cmdFifoSize <= 0xFFFF)
+      require(rspFifoSize <= 0xFFFF)
+      busCtrl.read(cmdQueueAvailability, baseAddress + 12, 0)
+      busCtrl.read(rspQueueAvailability, baseAddress + 12, 16)
+
+      //Address 16 => flags
+      val interruptCtrl = new Area {
+        //Enables
+        val cmdEmptyIntEnable = busCtrl.createReadAndWrite(Bool, address = 16, 0) init(False)
+        val rspPendingIntEnable  = busCtrl.createReadAndWrite(Bool, address = 16, 1) init(False)
+        val errorIntEnable  = busCtrl.createReadAndWrite(Bool, address = 16, 2) init(False)
+
+        //Error pending stuff
+        val errorPending = RegInit(False)
+        busCtrl.read(errorPending, address = baseAddress + 16, 24)
+        val errorPendingClear = busCtrl.write(False, address = baseAddress + 16, 24)
+        errorPending clearWhen(errorPendingClear) setWhen(errorPulse)
+
+        //Interrupts
+        val cmdEmptyInt   = cmdEmptyIntEnable && !cmd.valid
+        val rspPendingInt = rspPendingIntEnable && rspQueuePop.valid
+        val errorInt      = errorIntEnable && errorPending
+        val interrupt     = rspPendingInt || cmdEmptyInt || errorInt
+
+        busCtrl.read(cmdEmptyInt, address = 4, 8)
+        busCtrl.read(rspPendingInt , address = 4, 9)
+        busCtrl.read(errorInt , address = 4, 10)
+      }
+    }
+  }
+
+
+  val ioMaster = I2cIoMaster(ioGenerics)
+  ioMaster.io.i2c <> io.i2c
+  ioMaster.io.config := io.config
+
+  val forceDrop      = RegInit(False)
+  val forceStop      = RegInit(False)
+  val flushUntilStop = RegInit(False)
+
+  val errorDetected = RegInit(False)
+    .setWhen(!flushUntilStop && ioMaster.io.rsp.valid && ioMaster.io.rsp.data =/= ioMaster.io.cmd.data && io.cmd.check)
+    .clearWhen(io.cmd.ready)
+
+  io.errorPulse := False
+  when(ioMaster.io.cmd.ready && errorDetected){
+    io.errorPulse := True
+    when(io.cmd.flushToStopOnError) {
+      flushUntilStop := True
+    }
+    when(io.cmd.dropEmitOnError) {
+      forceDrop := True
+    }
+    when(io.cmd.stopEmitOnError) {
+      forceStop := True
+    }
+  }
+
+  val bitCounter = RegInit(U"000")
+  when(ioMaster.io.cmd.ready){
+    bitCounter := bitCounter + 1
+  }
+  when(io.cmd.ready){
+    bitCounter := 0
+  }
+
+  ioMaster.io.cmd.valid := io.cmd.valid
+  io.cmd.ready := (ioMaster.io.cmd.ready && !(io.cmd.mode === I2cCtrlMasterCmdMode.BYTE && bitCounter =/= 7))
+  ioMaster.io.cmd.data := Reverse(io.cmd.data)(bitCounter)
+  ioMaster.io.cmd.mode := io.cmd.mode.mux[I2cIoMasterCmdMode.C](
+    I2cCtrlMasterCmdMode.START -> I2cIoMasterCmdMode.START,
+    I2cCtrlMasterCmdMode.BIT -> I2cIoMasterCmdMode.DATA,
+    I2cCtrlMasterCmdMode.BYTE -> I2cIoMasterCmdMode.DATA,
+    I2cCtrlMasterCmdMode.STOP -> I2cIoMasterCmdMode.STOP,
+    I2cCtrlMasterCmdMode.DROP -> I2cIoMasterCmdMode.DROP
+  )
+
+  val ioMasterRspDataBuffer = Reg(Bits(8 bits))
+  when(ioMaster.io.rsp.valid){
+    ioMasterRspDataBuffer := (ioMasterRspDataBuffer ## ioMaster.io.rsp.data).resized
+  }
+
+  io.rsp.valid := io.cmd.fire && io.cmd.read
+  io.rsp.data  := ioMasterRspDataBuffer
+
+  when(flushUntilStop){
+    ioMaster.io.cmd.valid := False
+    io.cmd.ready := True
+    io.rsp.valid := False
+    when(io.cmd.valid && io.cmd.mode === I2cCtrlMasterCmdMode.STOP){
+      flushUntilStop := False
+    }
+  }
+
+  when(forceDrop || forceStop){
+    io.cmd.ready := False
+    ioMaster.io.cmd.valid := True
+    ioMaster.io.cmd.mode := forceStop ? I2cIoMasterCmdMode.STOP | I2cIoMasterCmdMode.DROP
+    io.rsp.valid := False
+    when(ioMaster.io.cmd.ready){
+      forceStop := False
+      forceDrop := False
+    }
+  }
+}
+
+
+object Apb3I2cCtrl {
+  def getApb3Config = Apb3Config(
+    addressWidth = 8,
+    dataWidth = 32,
+    selWidth = 1,
+    useSlaveError = false
+  )
+
+  def main(args: Array[String]) {
+    SpinalVhdl(Apb3I2cCtrl(I2cIoMasterGenerics()).setDefinitionName("TopLevel"))
+  }
+}
+
+case class Apb3I2cCtrl(ioGenerics : I2cIoMasterGenerics) extends Component{
+  val io = new Bundle{
+    val apb =  slave(Apb3(Apb3I2cCtrl.getApb3Config))
+    val i2c = master(I2c())
+    val interrupt = out Bool
+  }
+
+  val i2cCtrl = I2cCtrlMaster(ioGenerics)
+  io.i2c <> i2cCtrl.io.i2c
+
+  val busCtrl = Apb3SlaveFactory(io.apb)
+  val bridge = i2cCtrl.io.driveFrom(busCtrl,0)()
+  io.interrupt := bridge.interruptCtrl.interrupt
+}
+
+
+
+
+object I2cCtrlMaster {
+  def main(args: Array[String]) {
+    SpinalVhdl(I2cCtrlMaster(I2cIoMasterGenerics()).setDefinitionName("TopLevel"))
+
+  }
+}

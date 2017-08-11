@@ -12,6 +12,7 @@ import spinal.lib.bus.amba3.apb.{ Apb3Config, Apb3}
 import spinal.lib.bus.amba4.axilite.AxiLite4.prot
 import spinal.lib.bus.amba4.axilite._
 import spinal.lib.bus.avalon.AvalonMM
+import spinal.lib.eda.bench.{Bench, AlteraStdTargets, XilinxStdTargets, Rtl}
 import spinal.lib.experimental.bus.sbl.{SblConfig, SblReadRet, SblReadCmd, SblWriteCmd}
 import spinal.lib.com.uart._
 import spinal.lib.cpu.riscv.impl.build.RiscvAvalon
@@ -969,19 +970,25 @@ object PlaySymplify {
 //}
 
 object PlayBug {
+  class TopLevel(g : UartCtrlGenerics = UartCtrlGenerics()) extends Component{
+    val io = new Bundle{
+      val ctrlUart = new UartCtrlIo(g)
+      val done     = out Bool
+    }
 
+    val ctrl = new UartCtrl()
+    io.ctrlUart <> ctrl.io
 
-  class TopLevel extends Component {
-    val a,b = in Bool;
-    val result = out Bool
+    val reworkedArea = ctrl rework new Area{
+      val cnt = Reg(UInt(32 bits))
+      val done = out(cnt === 45)
 
+      when(ctrl.clockDivider.tick){
+        cnt := cnt + 1
+      }
+    }
 
-    val temp = a && b
-    result := temp
-
-    temp.addAttribute(Verilator.public)
-    temp.addAttribute("Miaou")
-
+    io.done := reworkedArea.done
   }
 
   def main(args: Array[String]): Unit = {
@@ -990,6 +997,33 @@ object PlayBug {
   }
 }
 
+object PlaySynth{
+  def main(args: Array[String]) {
+    val v = new Rtl {
+      override def getName(): String = "ReedSolomonEncoderVerilog"
+      override def getRtlPath(): String = "ReedSolomonEncoder.v"
+
+    }
+
+
+    val vhd = new Rtl {
+      override def getName(): String = "ReedSolomonEncoderVhdl"
+      override def getRtlPath(): String = "ReedSolomonEncoder.vhd"
+    }
+
+    val rtls = List(vhd, v)
+
+    val targets = XilinxStdTargets(
+      vivadoArtix7Path = "E:\\Xilinx\\Vivado\\2016.3\\bin"
+    ) ++ AlteraStdTargets(
+      quartusCycloneIIPath = "D:/altera/13.0sp1/quartus/bin64",
+      quartusCycloneIVPath = "D:/altera_lite/15.1/quartus/bin64",
+      quartusCycloneVPath  = "D:/altera_lite/15.1/quartus/bin64"
+    )
+
+    Bench(rtls, targets, "E:/tmp/")
+  }
+}
 
 object PlayOpt {
 
@@ -1133,16 +1167,17 @@ object PlaySwitch {
     result := 1
     switch(a) {
       is(1) {
-
+        //switch(b) {
+        //  is (1){
+            result := 2
+      //    }
+       // }
       }
-      is(2) {
-
-      }
-      is(3) {
-
-      }
-      is(4) {
+      is (2) {
         result := 2
+      }
+      default{
+        result := 4
       }
     }
 

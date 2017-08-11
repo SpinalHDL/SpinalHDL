@@ -318,6 +318,7 @@ object PlayAssert {
       when(a.msb) {
        assert(tmp === 8, "Yolo" :: tmp :: a ::" miaou" :: Nil, NOTE)
         report("Yolo" :: tmp :: a ::" miaou" ::  "   " :: (x | x) ::Nil)
+        report("miaou " :: tmp :: Nil)
        report("misou")
       }
     }
