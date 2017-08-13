@@ -1139,11 +1139,12 @@ class PhaseCheckCombinationalLoops(pc: PhaseContext) extends PhaseCheck{
         if (bitsAlreadyUsed.isIntersecting(AssignedRange(outHi, outLo))) {
           val ordred = newStack.reverseIterator
           val filtred = ordred.dropWhile((e) => (e._1 != node || e._2 < outLo || e._3 > outHi)).drop(1).toArray
-          // val filtredNode = filtred.map(_._1)
-
-          val wellNameLoop = filtred.reverseIterator.filter{case (n,hi,lo) => n.isInstanceOf[Nameable] && n.asInstanceOf[Nameable].isNamed}.map{case (n,hi,lo)  => n.asInstanceOf[Nameable].toString() + s"[$hi:$lo]"}.foldLeft("")(_ + _ + " ->\n      ")
-          val multiLineLoop = filtred.reverseIterator.map(n => "      " + n.toString).reduceLeft(_ + "\n" + _)
-          errors += s"  Combinatorial loop !\n      Partial chain :\n      ${wellNameLoop}\n      Full chain :\n${multiLineLoop}"
+          if(!filtred.exists(_._1.hasTag(noCombinatorialLoopCheck))) {
+            // val filtredNode = filtred.map(_._1)
+            val wellNameLoop = filtred.reverseIterator.filter { case (n, hi, lo) => n.isInstanceOf[Nameable] && n.asInstanceOf[Nameable].isNamed }.map { case (n, hi, lo) => n.asInstanceOf[Nameable].toString() + s"[$hi:$lo]" }.foldLeft("")(_ + _ + " ->\n      ")
+            val multiLineLoop = filtred.reverseIterator.map(n => "      " + n.toString).foldLeft("") (_ + "\n" + _)
+            errors += s"  Combinatorial loop !\n      Partial chain :\n      ${wellNameLoop}\n      Full chain :\n${multiLineLoop}"
+          }
         }else if (!isNodeCompleted(node)) {
           node match {
             case syncNode: SyncNode => {

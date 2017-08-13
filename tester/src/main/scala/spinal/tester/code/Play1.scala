@@ -1025,6 +1025,23 @@ object PlaySynth{
   }
 }
 
+
+object PlayFragment{
+  class TopLevel() extends Component{
+    val io = new Bundle{
+      val input  = slave(Stream(Fragment(Bits(8 bits))))
+      val output = master(Stream(Fragment(Bits(8 bits))))
+    }
+
+    io.output << Vec[Bits](0x11, 0x22, 0x33, 0x44).reverse.foldLeft(io.input)(_.insertHeader(_))
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+    SpinalVerilog(new TopLevel)
+  }
+}
+
 object PlayOpt {
 
   class TopLevel extends Component {
@@ -1058,6 +1075,29 @@ object PlayOpt {
 }
 
 
+object PlayCombLoop {
+
+  class TopLevel extends Component {
+    val input = in Bits(16 bits)
+
+    val a,b = Bits(32 bits)
+
+//    a.addTag(noCombinatorialLoopCheck)
+    a := b(15 downto 0)  ## input(15 downto 0) //PASS
+    b := a(31 downto 16) ## a(15 downto 0)    //PASS
+
+//    a := b
+
+//    b := a
+
+    val output = out(Bits(16 bits))
+    output := b(31 downto 16)
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalVhdl(new TopLevel)
+  }
+}
 
 
 
@@ -2357,7 +2397,7 @@ object PlayMaskedLiteral {
   }
 }
 
-object PlayCombLoop {
+object PlayCombLoop2 {
 
   class TopLevel extends Component {
     val input = in Bits(4 bit)
@@ -2422,7 +2462,7 @@ object PlayCombLoop {
 
 
 
-object PlayCombLoop2 {
+object PlayCombLoop23 {
 
   class TopLevel extends Component {
 

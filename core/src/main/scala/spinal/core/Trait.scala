@@ -622,6 +622,7 @@ trait SpinalTag {
 }
 
 object unusedTag extends SpinalTag
+object noCombinatorialLoopCheck extends SpinalTag
 object crossClockDomain extends SpinalTag{override def moveToSyncNode = true}
 object crossClockBuffer extends SpinalTag{override def moveToSyncNode = true}
 object randomBoot extends SpinalTag{override def moveToSyncNode = true}

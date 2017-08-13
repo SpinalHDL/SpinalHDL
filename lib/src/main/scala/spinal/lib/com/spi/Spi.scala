@@ -6,8 +6,8 @@ import spinal.lib.io.{TriStateArray, TriState}
 
 
 case class SpiKind() extends Bundle {
-  val cpol = in Bool
-  val cpha = in Bool
+  val cpol = Bool
+  val cpha = Bool
 }
 
 case class Spi(ssWidth : Int = 1,
@@ -35,6 +35,12 @@ case class SpiSio( sioCount : Int,
     out(sclk)
     master(sio)
     if(ssWidth != 0) out(ss)
+  }
+
+  override def asSlave(): Unit = {
+    in(sclk)
+    master(sio)
+    if(ssWidth != 0) in(ss)
   }
 }
 

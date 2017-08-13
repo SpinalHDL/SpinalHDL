@@ -82,6 +82,38 @@ class StreamFragmentPimped[T <: Data](pimped: Stream[Fragment[T]]) {
     ret
   }
 
+  //not tested
+  def insertHeader(header: Vec[T]): Stream[Fragment[T]] = {
+    val ret = cloneOf(pimped)
+    val packetWait = RegInit(True)
+    val counter = Counter(header.size)
+
+    pimped.ready := ret.ready && !packetWait
+    ret.valid := False
+    ret.last := False
+    ret.fragment := header(counter)
+
+    when(pimped.valid) {
+      ret.valid := True
+      when(!packetWait) {
+        ret.payload := pimped.payload
+      }
+    }
+
+    when(ret.fire) {
+      when(packetWait){
+        counter.increment()
+        when(counter.willOverflowIfInc) {
+          packetWait := False
+        }
+      }
+      when(ret.last) {
+        packetWait := True
+      }
+    }
+
+    ret
+  }
 
   def toFragmentBits(bitsWidth: Int): Stream[Fragment[Bits]] = {
     val pimpedWidhoutLast = (Stream(pimped.fragment)).translateFrom(pimped)((to, from) => {

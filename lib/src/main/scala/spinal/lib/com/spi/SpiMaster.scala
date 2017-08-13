@@ -2,6 +2,7 @@ package spinal.lib.com.spi
 
 import spinal.core._
 import spinal.lib._
+import spinal.lib.bus.amba3.apb.{Apb3, Apb3SlaveFactory}
 import spinal.lib.bus.misc.BusSlaveFactory
 
 /**
@@ -12,16 +13,18 @@ case class SpiMasterGenerics( sioCount : Int,
                               ssWidth : Int,
                               timerWidth : Int,
                               dataWidth : Int = 8){
-  val ssGen = ssWidth != 0
+  def ssGen = ssWidth != 0
   require(isPow2(sioCount))
 }
 
 case class SpiMasterConfig(generics : SpiMasterGenerics) extends Bundle{
   val kind = SpiKind()
   val sclkToogle = UInt(generics.timerWidth bits)
-  val ssSetup    = if(generics.ssGen) UInt(generics.timerWidth bits) else null
-  val ssHold     = if(generics.ssGen) UInt(generics.timerWidth bits) else null
-  val ssDisable  = if(generics.ssGen) UInt(generics.timerWidth bits) else null
+  val ss = if(generics.ssGen) new Bundle {
+    val setup   = UInt(generics.timerWidth bits)
+    val hold    = UInt(generics.timerWidth bits)
+    val disable = UInt(generics.timerWidth bits)
+  } else null
 }
 
 object SpiMasterCmdMode extends SpinalEnum(binarySequential){
@@ -43,7 +46,9 @@ case class SpiMasterCmdSs(generics : SpiMasterGenerics) extends Bundle{
 case class SpiMasterCmd(generics : SpiMasterGenerics) extends Bundle{
   val mode = if(generics.ssGen) SpiMasterCmdMode() else null
   val args = Bits(Math.max(widthOf(SpiMasterCmdData(generics)), log2Up(generics.ssWidth) + 1 ) bits)
+
   def isData = if(generics.ssGen) mode === SpiMasterCmdMode.DATA else True
+
   def argsData = {
     val ret = SpiMasterCmdData(generics)
     ret.assignFromBits(args)
@@ -63,12 +68,12 @@ case class SpiMaster(generics : SpiMasterGenerics) extends Component{
     val config = in(SpiMasterConfig(generics))
     val cmd = slave Stream(SpiMasterCmd(generics))
     val rsp = master Flow(Bits(dataWidth bits))
-    val spi = master(SpiSio(sioCount, ssWidth))
+    val spiSio = master(SpiSio(sioCount, ssWidth))
 
     def driveFrom(bus : BusSlaveFactory)(cmdFifoSize : Int, rspFifoSize : Int) = new Area {
       //CMD
       val cmdLogic = new Area {
-        val streamUnbuffered = bus.createAndDriveFlow(SpiMasterCmd(generics), 0).toStream
+        val streamUnbuffered = bus.createAndDriveFlow(SpiMasterCmd(generics),address =  0).toStream
         val (stream, fifoAvailability) = streamUnbuffered.queueWithAvailability(cmdFifoSize)
         cmd << stream
         bus.read(fifoAvailability, address = 4, 16)
@@ -95,6 +100,11 @@ case class SpiMaster(generics : SpiMasterGenerics) extends Component{
       //Configs
       bus.drive(config.kind, 8)
       bus.drive(config.sclkToogle, 12)
+      if(ssGen) new Bundle {
+        bus.drive(config.ss.setup,   address = 16)
+        bus.drive(config.ss.hold,    address = 20)
+        bus.drive(config.ss.disable, address = 24)
+      } else null
     }
   }
 
@@ -104,9 +114,9 @@ case class SpiMaster(generics : SpiMasterGenerics) extends Component{
     val counter = Reg(UInt(timerWidth bits))
     val reset = False
     val ss = if(ssGen) new Area{
-      val setupHit    = counter === io.config.ssSetup
-      val holdHit     = counter === io.config.ssHold
-      val disableHit  = counter === io.config.ssDisable
+      val setupHit    = counter === io.config.ss.setup
+      val holdHit     = counter === io.config.ss.hold
+      val disableHit  = counter === io.config.ss.disable
     } else null
     val sclkToogleHit = counter === io.config.sclkToogle
 
@@ -123,21 +133,21 @@ case class SpiMaster(generics : SpiMasterGenerics) extends Component{
     val (counterIncResult, counterWillOverflow) = AddWithCarry(counter, (counterIncValue @@ True))
     val buffer = Reg(Bits(dataWidth bits))
     val ss = RegInit(B((1 << ssWidth)-1, ssWidth bits))
-    val misoSample = RegNext(io.spi.sio.read)
+    val misoSample = RegNext(io.spiSio.sio.read)
 
     when(counterInc){
       counter := counterIncResult
     }
 
-    io.spi.sio.writeEnable := 0
+    io.spiSio.sio.writeEnable := 0
     io.cmd.ready := False
     when(io.cmd.valid){
       when(io.cmd.isData) {
         when(!io.cmd.argsData.halfDuplex) {
-          io.spi.sio.writeEnable := 1
+          io.spiSio.sio.writeEnable := 1
         } otherwise {
           for (i <- 0 to cmdSioUsageMax if i != 0) {
-            io.spi.sio.writeEnable(1 << i - 1 downto 0) := B((1 << i - 1 downto 0) -> true)
+            io.spiSio.sio.writeEnable(1 << i - 1 downto 0) := B((1 << i - 1 downto 0) -> true)
           }
         }
         when(timer.sclkToogleHit) {
@@ -198,12 +208,12 @@ case class SpiMaster(generics : SpiMasterGenerics) extends Component{
     }
 
     //SPI connections
-    if(ssGen) io.spi.ss   := ss
-    io.spi.sclk := RegNext(((io.cmd.valid && io.cmd.isData) && (counter.lsb ^ io.config.kind.cpha)) ^ io.config.kind.cpol)
+    if(ssGen) io.spiSio.ss   := ss
+    io.spiSio.sclk := RegNext(((io.cmd.valid && io.cmd.isData) && (counter.lsb ^ io.config.kind.cpha)) ^ io.config.kind.cpol)
     for(i <- 0 until sioCount){
       val minimalSioUsage = 1 << log2Up(i+1)    //1 2 4 4 8 8 8 8
       val bitsIndexes = (0 until dataWidth).filter(_ % minimalSioUsage == 0)
-      io.spi.sio.write(i) := RegNext(bitsIndexes.map(io.cmd.argsData.data(_)).read(counter >> (1 + log2Up(minimalSioUsage))))
+      io.spiSio.sio.write(i) := RegNext(bitsIndexes.map(io.cmd.argsData.data(_)).read(counter >> (1 + log2Up(minimalSioUsage))))
     }
   }
 }
@@ -211,6 +221,14 @@ case class SpiMaster(generics : SpiMasterGenerics) extends Component{
 
 object SpiMaster{
   def main(args: Array[String]) {
-    SpinalVerilog(new SpiMaster(SpiMasterGenerics(4,8,16)).setDefinitionName("TopLevelV"))
+    SpinalVerilog({
+      new Component{
+        val ctrl = new SpiMaster(SpiMasterGenerics(4,8,16)).setDefinitionName("TopLevelV")
+        val factory = Apb3SlaveFactory(slave(Apb3(8,32)))
+        ctrl.io.driveFrom(factory)(cmdFifoSize = 32, rspFifoSize = 32)
+        master(cloneOf(ctrl.io.spiSio)) <> ctrl.io.spiSio
+      }
+    })
+   // SpinalVerilog(new SpiMaster(SpiMasterGenerics(2,0,16)).setDefinitionName("TopLevelV"))
   }
 }
