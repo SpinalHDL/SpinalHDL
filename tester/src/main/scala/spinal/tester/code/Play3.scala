@@ -3,12 +3,13 @@ package spinal.tester.code
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba3.ahblite._
-import spinal.lib.bus.amba3.apb.{Apb3SlaveFactory, Apb3, Apb3Config}
+import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config, Apb3SlaveFactory}
 import spinal.lib.bus.amba4.axi._
-import spinal.lib.bus.misc.{BusSlaveFactoryConfig, BusSlaveFactory}
+import spinal.lib.bus.misc.{BusSlaveFactory, BusSlaveFactoryConfig}
 import spinal.lib.io.TriState
 import spinal.lib.memory.sdram.W9825G6JH6
 import spinal.lib.soc.pinsec.{Pinsec, PinsecConfig}
+import spinal.tester.code.t8_a.UartCtrl
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -1224,5 +1225,23 @@ object PlayWithMuxListDefault{
 
   def main(args: Array[String]): Unit ={
     SpinalVhdl(new TopLevel)
+  }
+}
+
+object PlayNetlistFileName{
+  class FakeNetlist extends Component{
+    val io = new Bundle{
+      val a = in Bool
+      val b = in Bool
+      val c = out Bool
+    }
+    io.c := io.a & io.b
+  }
+
+  def main(args: Array[String]): Unit = {
+    SpinalConfig(
+      mode = Verilog,
+      netlistFileName = "FakeNetlist."
+    ).generate(new FakeNetlist)
   }
 }
