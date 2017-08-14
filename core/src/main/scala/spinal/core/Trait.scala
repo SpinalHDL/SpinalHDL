@@ -769,6 +769,9 @@ object GlobalData {
   *
   */
 class GlobalData {
+  val context = new Stack[DslContext]
+  def contextHead = if(context.nonEmpty) context.head else new DslContext(null,null,null)
+
 
   var algoId = 1
 

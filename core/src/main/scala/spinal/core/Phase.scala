@@ -1564,7 +1564,7 @@ class PhaseRemoveComponentThatNeedNoHdlEmit(pc: PhaseContext) extends PhaseNetli
   override def impl(pc : PhaseContext): Unit = {
     import pc._
    components.foreach(c => {
-      if (c.nodes.size == 0) {
+      if (c.nameables.size == 0) { //TODO IR speed
         if (c.parent != null) c.parent.children -= c
       }
     })
@@ -1586,10 +1586,9 @@ class PhaseCreateComponent(gen : => Component)(pc: PhaseContext) extends PhaseNe
   override def impl(pc : PhaseContext): Unit = {
     import pc._
     val defaultClockDomain = ClockDomain.external("",frequency = config.defaultClockDomainFrequency)
-    ClockDomain.push(defaultClockDomain)
+    globalData.context.push(globalData.contextHead.copy(clockDomain = defaultClockDomain))
     pc.topLevel = gen
-    ClockDomain.pop(defaultClockDomain)
-
+    globalData.context.pop()
     pc.checkGlobalData()
   }
 }
@@ -1774,8 +1773,26 @@ object SpinalVhdlBoot{
     val phases = ArrayBuffer[Phase]()
 
     phases += new PhaseCreateComponent(gen)(pc)
-    phases += new PhaseDummy(SpinalProgress("Start analysis and transform"))
-    if(config.keepAll) phases  += new PhaseKeepAll(pc)
+
+
+    phases += new PhaseDummy(SpinalProgress("Get names from reflection"))
+    phases += new PhaseNameNodesByReflection(pc)
+    phases += new PhaseCollectAndNameEnum(pc)
+
+    phases += new PhaseAllocateNames(pc)
+    phases += new PhaseRemoveComponentThatNeedNoHdlEmit(pc)
+
+    def initVhdlBase[T <: VhdlBase](base : T) = {
+      base.packageName     = pc.config.globalPrefix + base.packageName
+      base.enumPackageName = pc.config.globalPrefix + base.enumPackageName
+      base
+    }
+
+   // phases += initVhdlBase(new PhaseVhdl2(pc))
+
+
+
+ /*   if(config.keepAll) phases  += new PhaseKeepAll(pc)
     phases ++= config.transformationPhases
     phases ++= config.memBlackBoxers
     phases += new PhaseApplyIoDefault(pc)
@@ -1842,7 +1859,7 @@ object SpinalVhdlBoot{
     phases += initVhdlBase(new PhaseVhdl(pc))
     phases += initVhdlBase(new VhdlTestBenchBackend(pc))
 
-
+*/
     for(inserter <-config.phasesInserters){
       inserter(phases)
     }

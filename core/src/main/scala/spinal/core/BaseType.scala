@@ -237,10 +237,10 @@ abstract class BaseType extends Node with Data with Nameable with AssignementTre
   }
 
   private[core] def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
+    // TODO IR that.isInstanceOf[AssignementNode] || that.isInstanceOf[DontCareNode]
     if (that.isInstanceOf[BaseType] || that.isInstanceOf[AssignementNode] || that.isInstanceOf[DontCareNode]) {
       BaseType.checkAssignability(this,that.asInstanceOf[Node])
-      val (consumer, inputId) = BaseType.walkWhenNodes(this, this, 0, conservative)
-      consumer.setInput(inputId,that.asInstanceOf[Node])
+      component.addStatement(new AssignementStatement(target = this, source = new RefExpression(that.asInstanceOf[Nameable])))
     } else {
       throw new Exception("Undefined assignment")
     }

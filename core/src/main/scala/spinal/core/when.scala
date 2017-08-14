@@ -27,7 +27,6 @@ import scala.collection.mutable.ArrayBuffer
 
 
 trait ConditionalContext extends GlobalDataUser{
-
   def push: Unit = {
     globalData.conditionalAssignStack.push(this)
   }
@@ -38,19 +37,70 @@ trait ConditionalContext extends GlobalDataUser{
 }
 
 
+class WhenContext2(whenStatement: WhenStatement) extends ConditionalContext with ScalaLocated {
+  def otherwise(block: => Unit): Unit = {
+    val dslContext = GlobalData.get.contextHead
+    val oldAddStatement = dslContext.component.addStatement
+    dslContext.component.addStatement = whenStatement.addFalse
+    block
+    dslContext.component.addStatement = oldAddStatement
+  }
+
+  def elseWhen(cond: Bool)(block: => Unit): WhenContext2 = {
+    var newWhenContext : WhenContext2 = null
+    otherwise {
+      newWhenContext = when2(cond)(block)
+    }
+    newWhenContext
+  }
+}
+
+
+
+object when2 {
+  def apply(cond: Bool)(block: => Unit): WhenContext2 = {
+    val dslContext = GlobalData.get.contextHead
+    val whenStatement = new WhenStatement(new RefExpression(cond), null,null)
+    val whenContext = new WhenContext2(whenStatement)
+    dslContext.component.addStatement(whenStatement)
+    val oldAddStatement = dslContext.component.addStatement
+    dslContext.component.addStatement = whenStatement.addTrue
+    block
+    dslContext.component.addStatement = oldAddStatement
+    whenContext
+  }
+
+//  def getWhensCond(scope: ConditionalContext): Bool = {
+//    ???
+////    var ret: Bool = null
+////    for (conditionalAssign <- GlobalData.get.conditionalAssignStack.stack) conditionalAssign match {
+////      case w : WhenContext => {
+////        if (w == scope) return returnFunc
+////        val newCond = if (w.isTrue) w.cond else !w.cond
+////        if (ret == null) {
+////          ret = newCond
+////        } else {
+////          ret = ret && newCond
+////        }
+////      }
+////    }
+////
+////
+////    def returnFunc = if (ret == null) True else ret
+////
+////    returnFunc
+//  }
+}
+
 object when {
 
 
-  def doWhen(w: WhenContext, isTrue: Boolean)(block: => Unit): WhenContext = {
-    w.isTrue = isTrue
-    w.push
-    block
-    w.pop
+  def doWhen(w: WhenContext, xx : Boolean)(block: => Unit): WhenContext = {
     w
   }
 
   def apply(cond: Bool)(block: => Unit): WhenContext = {
-    doWhen(new WhenContext(cond), true)(block)
+    null
   }
 
   //Allow the user to get a Bool that represent the  aggregation of all condition to the current context
@@ -262,25 +312,26 @@ class CaseContext(val switchContext: SwitchContext,val cond : Bool) extends Cond
 
 object switch {
   def apply[T <: Data](value: T)(block: => Unit): Unit = {
-    //value.globalData.pushNetlistLock(() => {
-//      SpinalError(s"You should not use 'general statments' in the 'switch' scope, but only 'is' statments.\n${ScalaLocated.long}")
-//    })
-    val s = new SwitchStack(value)
-    value.globalData.switchStack.push(s)
-    block
-
-    //value.globalData.pushNetlistUnlock()
-    if (s.defaultBlock != null) {
-      if (s.lastWhen == null) {
-        block
-      } else {
-        s.lastWhen.otherwise(s.defaultBlock())
-      }
-    }
-
-    //value.globalData.popNetlistUnlock()
-    value.globalData.switchStack.pop(s)
-    //value.globalData.popNetlistLock
+    ??? //TODO IR
+//    //value.globalData.pushNetlistLock(() => {
+////      SpinalError(s"You should not use 'general statments' in the 'switch' scope, but only 'is' statments.\n${ScalaLocated.long}")
+////    })
+//    val s = new SwitchStack(value)
+//    value.globalData.switchStack.push(s)
+//    block
+//
+//    //value.globalData.pushNetlistUnlock()
+//    if (s.defaultBlock != null) {
+//      if (s.lastWhen == null) {
+//        block
+//      } else {
+//        s.lastWhen.otherwise(s.defaultBlock())
+//      }
+//    }
+//
+//    //value.globalData.popNetlistUnlock()
+//    value.globalData.switchStack.pop(s)
+//    //value.globalData.popNetlistLock
   }
 }
 
@@ -289,69 +340,71 @@ object is {
   def apply(values:  Any*)(block: => Unit): Unit = list(values.iterator)(block)
 
   def list(values: Iterator[Any])(block: => Unit): Unit = {
-    val globalData = GlobalData.get
-    if (globalData.switchStack.isEmpty) SpinalError("Use 'is' statement outside the 'switch'")
-    globalData.pushNetlistUnlock()
-
-    val value = globalData.switchStack.head()
-    if (value.whenStackHead != globalData.conditionalAssignStack.head())
-      SpinalError("'is' statement is not at the top level of the 'switch'")
-    val e = ArrayBuffer[Bool]()
-    val switchValue = value.value
-
-    def analyse(key: Any): Bool = {
-      key match {
-        case key: Data => switchValue.isEquals(key)
-        case key: Seq[_] => key.map(d => analyse(d)).reduce(_ || _)
-        case key: Int => {
-          switchValue match {
-            case switchValue: Bits => switchValue === B(key)
-            case switchValue: UInt => switchValue === U(key)
-            case switchValue: SInt => switchValue === S(key)
-            case _ => SpinalError("The switch is not a Bits, UInt or SInt")
-          }
-        }
-        case key: BigInt => {
-          switchValue match {
-            case switchValue: Bits => switchValue === B(key)
-            case switchValue: UInt => switchValue === U(key)
-            case switchValue: SInt => switchValue === S(key)
-            case _ => SpinalError("The switch is not a Bits, UInt or SInt")
-          }
-        }
-        case that : SpinalEnumElement[_] => switchValue.isEquals(that())
-        case key : MaskedLiteral => switchValue match {
-          case switchValue: Bits => switchValue === key
-          case switchValue: UInt => switchValue === key
-          case switchValue: SInt => switchValue === key
-          case _ => SpinalError("The switch is not a Bits, UInt or SInt")
-        }
-      }
-    }
-
-
-    val cond = values.map(analyse(_)).reduce(_ || _)
-    if (value.lastWhen == null) {
-      value.lastWhen = when(cond)(block)
-    } else {
-      value.lastWhen = value.lastWhen.elsewhen(cond)(block)
-    }
-    globalData.popNetlistUnlock()
+    ??? //TODO IR
+//    val globalData = GlobalData.get
+//    if (globalData.switchStack.isEmpty) SpinalError("Use 'is' statement outside the 'switch'")
+//    globalData.pushNetlistUnlock()
+//
+//    val value = globalData.switchStack.head()
+//    if (value.whenStackHead != globalData.conditionalAssignStack.head())
+//      SpinalError("'is' statement is not at the top level of the 'switch'")
+//    val e = ArrayBuffer[Bool]()
+//    val switchValue = value.value
+//
+//    def analyse(key: Any): Bool = {
+//      key match {
+//        case key: Data => switchValue.isEquals(key)
+//        case key: Seq[_] => key.map(d => analyse(d)).reduce(_ || _)
+//        case key: Int => {
+//          switchValue match {
+//            case switchValue: Bits => switchValue === B(key)
+//            case switchValue: UInt => switchValue === U(key)
+//            case switchValue: SInt => switchValue === S(key)
+//            case _ => SpinalError("The switch is not a Bits, UInt or SInt")
+//          }
+//        }
+//        case key: BigInt => {
+//          switchValue match {
+//            case switchValue: Bits => switchValue === B(key)
+//            case switchValue: UInt => switchValue === U(key)
+//            case switchValue: SInt => switchValue === S(key)
+//            case _ => SpinalError("The switch is not a Bits, UInt or SInt")
+//          }
+//        }
+//        case that : SpinalEnumElement[_] => switchValue.isEquals(that())
+//        case key : MaskedLiteral => switchValue match {
+//          case switchValue: Bits => switchValue === key
+//          case switchValue: UInt => switchValue === key
+//          case switchValue: SInt => switchValue === key
+//          case _ => SpinalError("The switch is not a Bits, UInt or SInt")
+//        }
+//      }
+//    }
+//
+//
+//    val cond = values.map(analyse(_)).reduce(_ || _)
+//    if (value.lastWhen == null) {
+//      value.lastWhen = when(cond)(block)
+//    } else {
+//      value.lastWhen = value.lastWhen.elsewhen(cond)(block)
+//    }
+//    globalData.popNetlistUnlock()
   }
 }
 
 object default {
   def apply(block: => Unit): Unit = {
-    val globalData = GlobalData.get
-    if (globalData.switchStack.isEmpty) SpinalError("Use 'default' statement outside the 'switch'")
-    globalData.pushNetlistUnlock()
-    val value = globalData.switchStack.head()
-
-    if (value.whenStackHead != globalData.conditionalAssignStack.head()) SpinalError("'default' statement is not at the top level of the 'switch'")
-    if (value.defaultBlock != null) SpinalError("'default' statement must appear only one time in the 'switch'")
-    value.defaultBlock = () => {
-      block
-    }
-    globalData.popNetlistUnlock()
+    ???
+//    val globalData = GlobalData.get
+//    if (globalData.switchStack.isEmpty) SpinalError("Use 'default' statement outside the 'switch'")
+//    globalData.pushNetlistUnlock()
+//    val value = globalData.switchStack.head()
+//
+//    if (value.whenStackHead != globalData.conditionalAssignStack.head()) SpinalError("'default' statement is not at the top level of the 'switch'")
+//    if (value.defaultBlock != null) SpinalError("'default' statement must appear only one time in the 'switch'")
+//    value.defaultBlock = () => {
+//      block
+//    }
+//    globalData.popNetlistUnlock()
   }
 }

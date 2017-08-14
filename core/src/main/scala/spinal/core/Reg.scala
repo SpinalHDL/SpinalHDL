@@ -166,6 +166,7 @@ class Reg (outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) ex
   def getOutputByConsumers = consumers.find(_.isInstanceOf[BaseType]).get.asInstanceOf[BaseType]
 
 
+  //TODO IR !
   override def assignFromImpl(that: AnyRef,conservative : Boolean): Unit = {
     that match {
       case that: BaseType => {

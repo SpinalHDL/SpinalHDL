@@ -34,6 +34,11 @@ object Component {
     * @param c new component to add
     */
   def push(c: Component): Unit = {
+    val globalData = if(c != null) c.globalData else GlobalData.get
+    globalData.context.push(globalData.contextHead.copy(component = c))
+
+
+
     //  if (when.stack.size() != 0) throw new Exception("Creating a component into hardware conditional expression")
     GlobalData.get.componentStack.push(c)
   }
@@ -43,6 +48,10 @@ object Component {
     * @param c component to remove
     */
   def pop(c: Component): Unit = {
+    val globalData = if(c != null) c.globalData else GlobalData.get
+    globalData.context.pop()
+
+
     GlobalData.get.componentStack.pop(c)
   }
 
@@ -52,6 +61,9 @@ object Component {
   /** Get the current component on the stack of the given globalData*/
   def current(globalData: GlobalData): Component = globalData.componentStack.head()
 }
+
+
+
 
 
 /**
@@ -70,6 +82,36 @@ object Component {
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/components_hierarchy Component Documentation]]
   */
 abstract class Component extends NameableByComponent with GlobalDataUser with ScalaLocated with DelayedInit with Stackable with OwnableRef{
+  private[core] val dslContext = globalData.context.head
+  private[core] val dslBody = new BlockStatement()
+//  private[core] var dslBodyLocation : Statement = dslBody
+
+  var addStatement : (Statement) => Unit = dslBody.asInstanceOf[BlockStatement].add
+
+  def nameables = {
+    val nameablesSet = mutable.HashSet[Nameable]()
+    nameablesSet ++= children
+    nameablesSet ++= ioSet
+
+    def expressionWalker(s : Expression): Unit = s match {
+      case s : RefExpression => nameablesSet += s.source
+      case _ => s.foreachExpression(expressionWalker)
+    }
+
+    def statementWalker(s : Statement): Unit ={
+      s.foreachExpression(expressionWalker)
+      s.foreachStatements(statementWalker)
+      s match {
+        case a : AssignementStatement => nameablesSet += a.target
+        case _ =>
+      }
+    }
+
+    statementWalker(dslBody)
+
+    nameablesSet
+  }
+
 
   /** Class used to create a task that must be executed after the creation of the component */
   case class PrePopTask(task : () => Unit, clockDomain: ClockDomain)
@@ -102,9 +144,9 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
   private[core] val initialAssignementCondition = globalData.conditionalAssignStack.head()
 
   /** Get the parent component (null if there is no parent)*/
-  val parent = Component.current
+  def parent = dslContext.component
   /** Get the current clock domain (null if there is no clock domain already set )*/
-  val clockDomain = ClockDomain.current
+  def clockDomain = dslContext.clockDomain
 
 
   // Check if it is a top level component or a children of another component
@@ -234,8 +276,17 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
     val localScope = globalScope.newChild
     localScope.allocateName(globalData.anonymSignalPrefix)
 
-    for (node <- nodes) node match {
-      case nameable: Nameable =>
+    for (nameable <- nameables) nameable match {
+      case child : Component =>
+        OwnableRef.proposal(child,this)
+        if (child.isUnnamed) {
+          var name = child.getClass.getSimpleName
+          name = Character.toLowerCase(name.charAt(0)) + (if (name.length() > 1) name.substring(1) else "")
+          child.unsetName()
+          child.setWeakName(name)
+        }
+        child.setName(localScope.allocateName(child.getName()))
+      case _ =>
         if (nameable.isUnnamed || nameable.getName() == "") {
           nameable.unsetName()
           nameable.setWeakName(globalData.anonymSignalPrefix)
@@ -244,19 +295,8 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
           nameable.setName(localScope.allocateName(nameable.getName()))
         else
           localScope.iWantIt(nameable.getName(),s"Reserved name ${nameable.getName()} is not free for ${nameable.toString()}")
-      case _ =>
     }
 
-    for (child <- children) {
-      OwnableRef.proposal(child,this)
-      if (child.isUnnamed) {
-        var name = child.getClass.getSimpleName
-        name = Character.toLowerCase(name.charAt(0)) + (if (name.length() > 1) name.substring(1) else "")
-        child.unsetName()
-        child.setWeakName(name)
-      }
-      child.setName(localScope.allocateName(child.getName()))
-    }
   }
 
   /** Get a set of all IO available in the component */
