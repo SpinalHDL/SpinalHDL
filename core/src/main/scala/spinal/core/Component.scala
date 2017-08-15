@@ -126,8 +126,8 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
   val userCache = mutable.Map[Object, mutable.Map[Object, Object]]()
   private[core] val kindsOutputsToBindings = mutable.Map[BaseType, BaseType]()
   private[core] val kindsOutputsBindings = mutable.Set[BaseType]()
-  private[core] val additionalNodesRoot = mutable.Set[Node]()
-  def getAdditionalNodesRoot : mutable.Set[Node] = additionalNodesRoot
+//  private[core] val additionalNodesRoot = mutable.Set[Node]()
+//  def getAdditionalNodesRoot : mutable.Set[Node] = additionalNodesRoot
 
   /** Definition Name (name of the entity (VHDL) or module (Verilog))*/
   var definitionName: String = null
@@ -138,7 +138,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
   /** Reference owner type */
   override type RefOwnerType = Component
   /** Contains all nodes of the components */
-  var nodes: ArrayBuffer[Node] = null
+//  var nodes: ArrayBuffer[Node] = null
 
   private[core] var pulledDataCache = mutable.Map[Data, Data]()
   private[core] val initialAssignementCondition = globalData.conditionalAssignStack.head()
@@ -300,36 +300,36 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
   }
 
   /** Get a set of all IO available in the component */
-  def getAllIo: mutable.Set[BaseType] = {
-
-    if (nodes == null) {
-      ioSet
-    } else {
-      val nodeIo = mutable.Set[BaseType]()
-      nodes.foreach {
-        case b: BaseType if (b.isIo) => nodeIo += b
-        case _ =>
-      }
-      nodeIo
-    }
-
-  }
+//  def getAllIo: mutable.Set[BaseType] = {
+//
+//    if (nodes == null) {
+//      ioSet
+//    } else {
+//      val nodeIo = mutable.Set[BaseType]()
+//      nodes.foreach {
+//        case b: BaseType if (b.isIo) => nodeIo += b
+//        case _ =>
+//      }
+//      nodeIo
+//    }
+//
+//  }
 
   /** Sort all IO regarding instanceCounter */
-  def getOrdredNodeIo = getAllIo.toList.sortWith(_.instanceCounter < _.instanceCounter)
-
-
-  /** Get an array of all SyncNode of the Component */
-  private[core] def getDelays = {
-    val delays = new ArrayBuffer[SyncNode]()
-
-    nodes.foreach {
-      case delay: SyncNode => delays += delay
-      case _ =>
-    }
-
-    delays
-  }
+//  def getOrdredNodeIo = getAllIo.toList.sortWith(_.instanceCounter < _.instanceCounter)
+//
+//
+//  /** Get an array of all SyncNode of the Component */
+//  private[core] def getDelays = {
+//    val delays = new ArrayBuffer[SyncNode]()
+//
+//    nodes.foreach {
+//      case delay: SyncNode => delays += delay
+//      case _ =>
+//    }
+//
+//    delays
+//  }
 
   private[core] def userParentCalledDef: Unit = {}
 
@@ -354,15 +354,15 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
   def getPath(sep: String = "/"): String = (if (parent == null) "" else (getParentsPath(sep) + sep)) + this.getDisplayName()
 
 
-  def getGroupedIO(ioBundleBypass: Boolean): Seq[Data] = {
-    val ret = mutable.Set[Data]()
-    val ioBundle = if (ioBundleBypass) reflectIo else null
-    def getRootParent(that: Data): Data = if (that.parent == null || that.parent == ioBundle) that else getRootParent(that.parent)
-    for (e <- getOrdredNodeIo) {
-      ret += getRootParent(e)
-    }
-    ret.toSeq.sortBy(_.instanceCounter)
-  }
+//  def getGroupedIO(ioBundleBypass: Boolean): Seq[Data] = {
+//    val ret = mutable.Set[Data]()
+//    val ioBundle = if (ioBundleBypass) reflectIo else null
+//    def getRootParent(that: Data): Data = if (that.parent == null || that.parent == ioBundle) that else getRootParent(that.parent)
+//    for (e <- getOrdredNodeIo) {
+//      ret += getRootParent(e)
+//    }
+//    ret.toSeq.sortBy(_.instanceCounter)
+//  }
 
   override def postPushEvent(): Unit = {}
   override def prePopEvent(): Unit = {}

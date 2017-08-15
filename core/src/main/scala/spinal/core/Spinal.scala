@@ -31,44 +31,44 @@ object Verilog extends SpinalMode
 
 case class DumpWaveConfig(depth : Int = 0, vcdPath : String = "wave.vcd")
 case class Device(vendor : String = "?", family : String = "?", name : String = "?")
-
-trait MemBlackboxingPolicy{
-  def translationInterest(topology: MemTopology) : Boolean
-  def onUnblackboxable(topology: MemTopology,who : Any,message : String) : Unit
-  
-  def generateUnblackboxableError(topology: MemTopology,who : Any,message : String) : Unit = {
-    PendingError(s"${this.getClass} is not able to blackbox ${topology.mem}\n  write ports : ${topology.writes.size} \n  readAsync ports : ${topology.readsAsync.size} \n  readSync ports : ${topology.readsSync.size} \n  readRrite ports : ${topology.readWriteSync.size}\n  -> $message")
-  }
-}
-
-object blackboxAllWhatsYouCan extends MemBlackboxingPolicy{
-  override def translationInterest(topology: MemTopology): Boolean = true
-  override def onUnblackboxable(topology: MemTopology,who : Any,message : String): Unit = {}
-}
-
-
-object blackboxAll extends MemBlackboxingPolicy{
-  override def translationInterest(topology: MemTopology): Boolean = true
-  override def onUnblackboxable(topology: MemTopology,who : Any,message : String): Unit = {generateUnblackboxableError(topology,who,message)}
-}
-
-object blackboxRequestedAndUninferable extends MemBlackboxingPolicy{
-  override def translationInterest(topology: MemTopology): Boolean = {
-    if(blackboxOnlyIfRequested.translationInterest(topology)) return true
-    if(topology.readsAsync.exists(_.readUnderWrite != writeFirst)) return true
-    if(topology.readsSync.exists(_.readUnderWrite != readFirst)) return true
-    if(topology.writeReadSameAddressSync.exists(_._2.readUnderWrite != readFirst)) return true
-    if(topology.readWriteSync.exists(_._2.readUnderWrite != readFirst)) return true
-    return false
-  }
-  override def onUnblackboxable(topology: MemTopology,who : Any,message : String): Unit = {generateUnblackboxableError(topology,who,message)}
-}
-object blackboxOnlyIfRequested extends MemBlackboxingPolicy{
-  override def translationInterest(topology: MemTopology): Boolean = {
-    topology.mem.forceMemToBlackboxTranslation
-  }
-  override def onUnblackboxable(topology: MemTopology,who : Any,message : String): Unit = {generateUnblackboxableError(topology,who,message)}
-}
+//
+//trait MemBlackboxingPolicy{
+//  def translationInterest(topology: MemTopology) : Boolean
+//  def onUnblackboxable(topology: MemTopology,who : Any,message : String) : Unit
+//
+//  def generateUnblackboxableError(topology: MemTopology,who : Any,message : String) : Unit = {
+//    PendingError(s"${this.getClass} is not able to blackbox ${topology.mem}\n  write ports : ${topology.writes.size} \n  readAsync ports : ${topology.readsAsync.size} \n  readSync ports : ${topology.readsSync.size} \n  readRrite ports : ${topology.readWriteSync.size}\n  -> $message")
+//  }
+//}
+//
+//object blackboxAllWhatsYouCan extends MemBlackboxingPolicy{
+//  override def translationInterest(topology: MemTopology): Boolean = true
+//  override def onUnblackboxable(topology: MemTopology,who : Any,message : String): Unit = {}
+//}
+//
+//
+//object blackboxAll extends MemBlackboxingPolicy{
+//  override def translationInterest(topology: MemTopology): Boolean = true
+//  override def onUnblackboxable(topology: MemTopology,who : Any,message : String): Unit = {generateUnblackboxableError(topology,who,message)}
+//}
+//
+//object blackboxRequestedAndUninferable extends MemBlackboxingPolicy{
+//  override def translationInterest(topology: MemTopology): Boolean = {
+//    if(blackboxOnlyIfRequested.translationInterest(topology)) return true
+//    if(topology.readsAsync.exists(_.readUnderWrite != writeFirst)) return true
+//    if(topology.readsSync.exists(_.readUnderWrite != readFirst)) return true
+//    if(topology.writeReadSameAddressSync.exists(_._2.readUnderWrite != readFirst)) return true
+//    if(topology.readWriteSync.exists(_._2.readUnderWrite != readFirst)) return true
+//    return false
+//  }
+//  override def onUnblackboxable(topology: MemTopology,who : Any,message : String): Unit = {generateUnblackboxableError(topology,who,message)}
+//}
+//object blackboxOnlyIfRequested extends MemBlackboxingPolicy{
+//  override def translationInterest(topology: MemTopology): Boolean = {
+//    topology.mem.forceMemToBlackboxTranslation
+//  }
+//  override def onUnblackboxable(topology: MemTopology,who : Any,message : String): Unit = {generateUnblackboxableError(topology,who,message)}
+//}
 
 case class SpinalConfig(
   mode: SpinalMode = null,
@@ -84,10 +84,10 @@ case class SpinalConfig(
   globalPrefix : String = "",
   anonymSignalPrefix : String = null,
   device: Device = Device(),
-  genVhdlPkg : Boolean = true,
-  phasesInserters : ArrayBuffer[(ArrayBuffer[Phase]) => Unit] = ArrayBuffer[(ArrayBuffer[Phase]) => Unit](),
-  transformationPhases : ArrayBuffer[Phase] = ArrayBuffer[Phase](),
-  memBlackBoxers : ArrayBuffer[Phase] =  ArrayBuffer[Phase](/*new PhaseMemBlackBoxerDefault(blackboxNothing)*/)
+  genVhdlPkg : Boolean = true
+//  phasesInserters : ArrayBuffer[(ArrayBuffer[Phase]) => Unit] = ArrayBuffer[(ArrayBuffer[Phase]) => Unit](),
+//  transformationPhases : ArrayBuffer[Phase] = ArrayBuffer[Phase](),
+//  memBlackBoxers : ArrayBuffer[Phase] =  ArrayBuffer[Phase](/*new PhaseMemBlackBoxerDefault(blackboxNothing)*/)
                          ){
   def generate[T <: Component](gen : => T) : SpinalReport[T] = Spinal(this)(gen)
   def generateVhdl[T <: Component](gen : => T) : SpinalReport[T] = Spinal(this.copy(mode = VHDL))(gen)
@@ -98,19 +98,19 @@ case class SpinalConfig(
     globalData.commonClockConfig = defaultConfigForClockDomains
   }
   def dumpWave(depth : Int = 0, vcdPath : String = "wave.vcd") : SpinalConfig = this.copy(dumpWave=DumpWaveConfig(depth,vcdPath))
-  def addTransformationPhase(phase : Phase): SpinalConfig = {
-    transformationPhases += phase
-//    def inserter(p : ArrayBuffer[Phase]) : Unit = {
-//      p.insertAll(p.indexWhere(_.isInstanceOf[PhaseCreateComponent]) + 1,phases)
-//    }
-//    phasesInserters += inserter
-    this
-  }
-
-  def addStandardMemBlackboxing(policy: MemBlackboxingPolicy) : this.type = {
-    memBlackBoxers += new PhaseMemBlackBoxingDefault(policy)
-    this
-  }
+//  def addTransformationPhase(phase : Phase): SpinalConfig = {
+//    transformationPhases += phase
+////    def inserter(p : ArrayBuffer[Phase]) : Unit = {
+////      p.insertAll(p.indexWhere(_.isInstanceOf[PhaseCreateComponent]) + 1,phases)
+////    }
+////    phasesInserters += inserter
+//    this
+//  }
+//
+//  def addStandardMemBlackboxing(policy: MemBlackboxingPolicy) : this.type = {
+//    memBlackBoxers += new PhaseMemBlackBoxingDefault(policy)
+//    this
+//  }
 }
 
 object SpinalConfig{
@@ -172,7 +172,7 @@ object Spinal{
 
     val report = config.mode match {
       case `VHDL` => SpinalVhdlBoot(config)(gen)
-      case `Verilog` => SpinalVerilogBoot(config)(gen)
+//      case `Verilog` => SpinalVerilogBoot(config)(gen)
     }
 
     println({SpinalLog.tag("Done", Console.GREEN)} + s" at ${f"${Driver.executionTime}%1.3f"}")

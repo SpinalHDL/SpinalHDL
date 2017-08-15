@@ -119,21 +119,21 @@ trait IODirection extends BaseTypeFactory {
   def applyIt[T <: Data](data: T): T
   def apply[T <: Data](data: T): T = applyIt(data)
   def apply[T <: Data](datas: T*): Unit = datas.foreach(applyIt(_))
-  def apply(enum: SpinalEnum) = applyIt(enum.craft())
-  def cloneOf[T <: Data](that: T): T = applyIt(spinal.core.cloneOf(that))
+//  def apply(enum: SpinalEnum) = applyIt(enum.craft())
+//  def cloneOf[T <: Data](that: T): T = applyIt(spinal.core.cloneOf(that))
   def apply(b : Int) = 10
-  override def Bool = applyIt(super.Bool)
-  override def Bits = applyIt(super.Bits)
-  override def UInt = applyIt(super.UInt)
-  override def SInt = applyIt(super.SInt)
-  override def Vec[T <: Data](elements: TraversableOnce[T]): Vec[T] = applyIt(super.Vec(elements))
+//  override def Bool = applyIt(super.Bool)
+//  override def Bits = applyIt(super.Bits)
+//  override def UInt = applyIt(super.UInt)
+//  override def SInt = applyIt(super.SInt)
+//  override def Vec[T <: Data](elements: TraversableOnce[T]): Vec[T] = applyIt(super.Vec(elements))
 
 
 
   //  object Vec extends VecFactory {
   //    override def apply[T <: Data](elements: TraversableOnce[T]): Vec[T] = applyIt(super.apply(elements))
   //  }
-  override def postTypeFactory[T <: Data](that: T): T = applyIt(that)
+//  override def postTypeFactory[T <: Data](that: T): T = applyIt(that)
 }
 
 object in extends IODirection {
@@ -200,109 +200,109 @@ object SyncNode {
   val getClockResetId: Int = 2
   val getClockSoftResetId: Int = 3
 }
-
-abstract class SyncNode(_clockDomain: ClockDomain = ClockDomain.current) extends Node {
-  var clockDomain: ClockDomain = _clockDomain
-  def setClockDomain(clockDomain: ClockDomain) : this.type = {
-    this.clockDomain = clockDomain
-    this
-  }
-
-  var clock      : Bool = null
-  var enable     : Bool = null
-  var reset      : Bool = null
-  var softReset  : Bool = null
-
-
-  override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
-    doThat(clock,SyncNode.getClockInputId)
-    if(isUsingEnableSignal)doThat(enable,SyncNode.getClockEnableId)
-    if(isUsingResetSignal) doThat(reset,SyncNode.getClockResetId)
-    if(isUsingSoftResetSignal) doThat(softReset,SyncNode.getClockSoftResetId)
-  }
-  override def onEachInput(doThat: (Node) => Unit): Unit = {
-    doThat(clock)
-    if(isUsingEnableSignal)doThat(enable)
-    if(isUsingResetSignal) doThat(reset)
-    if(isUsingSoftResetSignal) doThat(softReset)
-  }
-
-  override def setInput(id: Int, node: Node): Unit = id match{
-    case SyncNode.getClockInputId => clock = node.asInstanceOf[Bool]
-    case SyncNode.getClockEnableId if(isUsingEnableSignal) => enable = node.asInstanceOf[Bool]
-    case SyncNode.getClockResetId if(isUsingResetSignal)  => reset = node.asInstanceOf[Bool]
-    case SyncNode.getClockSoftResetId if(isUsingSoftResetSignal)  => softReset = node.asInstanceOf[Bool]
-  }
-
-  override def getInputsCount: Int = 1 + (if(isUsingEnableSignal) 1 else 0) + (if(isUsingResetSignal) 1 else 0) + (if(isUsingSoftResetSignal) 1 else 0)
-  override def getInputs: Iterator[Node] = {
-    val itr = (isUsingEnableSignal,isUsingResetSignal) match{
-      case (false,false) => Iterator(clock             )
-      case (false,true)  => Iterator(clock,       reset)
-      case (true,false)  => Iterator(clock,enable      )
-      case (true,true)   => Iterator(clock,enable,reset)
-    }
-    if(isUsingSoftResetSignal)
-      itr ++ List(softReset)
-    else
-      itr
-  }
-
-  override def getInput(id: Int): Node = id match{
-    case SyncNode.getClockInputId => clock
-    case SyncNode.getClockEnableId if(isUsingEnableSignal) => enable
-    case SyncNode.getClockResetId if(isUsingResetSignal)  => reset
-    case SyncNode.getClockSoftResetId if(isUsingSoftResetSignal)  => softReset
-  }
-
-
-  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
-    case SyncNode.getClockInputId =>  (0,0)
-    case SyncNode.getClockEnableId => (0,0)
-    case SyncNode.getClockResetId =>  (0,0)
-    case SyncNode.getClockSoftResetId =>  (0,0)
-  }
-
-  final def getLatency = 1 //if not final => update latencyAnalyser
-
-  def getSynchronousInputs = {
-    var ret : List[Node] = Nil
-    if(clockDomain.config.resetKind == SYNC  && isUsingResetSignal) ret = getResetStyleInputs ++ ret
-    if(isUsingEnableSignal) ret = getClockEnable :: ret
-    if(isUsingSoftResetSignal) ret = getSoftReset :: ret
-    ret
-  }
-
-  def getAsynchronousInputs : List[Node] = (if (clockDomain.config.resetKind == ASYNC && isUsingResetSignal) getResetStyleInputs else Nil)
-
-  def getResetStyleInputs = List[Node](getReset)
-
-  def isUsingSoftResetSignal : Boolean
-  def isUsingResetSignal: Boolean
-  def isUsingEnableSignal: Boolean = clockDomain.clockEnable != null
-  def setUseReset = {
-    reset = clockDomain.reset
-  }
-  def getClockDomain: ClockDomain = clockDomain
-
-  def getClock: Bool = clock
-  def getClockEnable: Bool = enable
-  def getReset: Bool = reset
-  def getSoftReset: Bool = softReset
-}
+//
+//abstract class SyncNode(_clockDomain: ClockDomain = ClockDomain.current) extends Node {
+//  var clockDomain: ClockDomain = _clockDomain
+//  def setClockDomain(clockDomain: ClockDomain) : this.type = {
+//    this.clockDomain = clockDomain
+//    this
+//  }
+//
+//  var clock      : Bool = null
+//  var enable     : Bool = null
+//  var reset      : Bool = null
+//  var softReset  : Bool = null
+//
+//
+//  override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
+//    doThat(clock,SyncNode.getClockInputId)
+//    if(isUsingEnableSignal)doThat(enable,SyncNode.getClockEnableId)
+//    if(isUsingResetSignal) doThat(reset,SyncNode.getClockResetId)
+//    if(isUsingSoftResetSignal) doThat(softReset,SyncNode.getClockSoftResetId)
+//  }
+//  override def onEachInput(doThat: (Node) => Unit): Unit = {
+//    doThat(clock)
+//    if(isUsingEnableSignal)doThat(enable)
+//    if(isUsingResetSignal) doThat(reset)
+//    if(isUsingSoftResetSignal) doThat(softReset)
+//  }
+//
+//  override def setInput(id: Int, node: Node): Unit = id match{
+//    case SyncNode.getClockInputId => clock = node.asInstanceOf[Bool]
+//    case SyncNode.getClockEnableId if(isUsingEnableSignal) => enable = node.asInstanceOf[Bool]
+//    case SyncNode.getClockResetId if(isUsingResetSignal)  => reset = node.asInstanceOf[Bool]
+//    case SyncNode.getClockSoftResetId if(isUsingSoftResetSignal)  => softReset = node.asInstanceOf[Bool]
+//  }
+//
+//  override def getInputsCount: Int = 1 + (if(isUsingEnableSignal) 1 else 0) + (if(isUsingResetSignal) 1 else 0) + (if(isUsingSoftResetSignal) 1 else 0)
+//  override def getInputs: Iterator[Node] = {
+//    val itr = (isUsingEnableSignal,isUsingResetSignal) match{
+//      case (false,false) => Iterator(clock             )
+//      case (false,true)  => Iterator(clock,       reset)
+//      case (true,false)  => Iterator(clock,enable      )
+//      case (true,true)   => Iterator(clock,enable,reset)
+//    }
+//    if(isUsingSoftResetSignal)
+//      itr ++ List(softReset)
+//    else
+//      itr
+//  }
+//
+//  override def getInput(id: Int): Node = id match{
+//    case SyncNode.getClockInputId => clock
+//    case SyncNode.getClockEnableId if(isUsingEnableSignal) => enable
+//    case SyncNode.getClockResetId if(isUsingResetSignal)  => reset
+//    case SyncNode.getClockSoftResetId if(isUsingSoftResetSignal)  => softReset
+//  }
+//
+//
+//  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
+//    case SyncNode.getClockInputId =>  (0,0)
+//    case SyncNode.getClockEnableId => (0,0)
+//    case SyncNode.getClockResetId =>  (0,0)
+//    case SyncNode.getClockSoftResetId =>  (0,0)
+//  }
+//
+//  final def getLatency = 1 //if not final => update latencyAnalyser
+//
+//  def getSynchronousInputs = {
+//    var ret : List[Node] = Nil
+//    if(clockDomain.config.resetKind == SYNC  && isUsingResetSignal) ret = getResetStyleInputs ++ ret
+//    if(isUsingEnableSignal) ret = getClockEnable :: ret
+//    if(isUsingSoftResetSignal) ret = getSoftReset :: ret
+//    ret
+//  }
+//
+//  def getAsynchronousInputs : List[Node] = (if (clockDomain.config.resetKind == ASYNC && isUsingResetSignal) getResetStyleInputs else Nil)
+//
+//  def getResetStyleInputs = List[Node](getReset)
+//
+//  def isUsingSoftResetSignal : Boolean
+//  def isUsingResetSignal: Boolean
+//  def isUsingEnableSignal: Boolean = clockDomain.clockEnable != null
+//  def setUseReset = {
+//    reset = clockDomain.reset
+//  }
+//  def getClockDomain: ClockDomain = clockDomain
+//
+//  def getClock: Bool = clock
+//  def getClockEnable: Bool = enable
+//  def getReset: Bool = reset
+//  def getSoftReset: Bool = softReset
+//}
 
 trait Assignable {
   /* private[core] */var compositeAssign: Assignable = null
 
-  /*private[core] */final def assignFrom(that: AnyRef, conservative: Boolean): Unit = {
+  /*private[core] */final def assignFrom(that: AnyRef): Unit = {
     if (compositeAssign != null) {
-      compositeAssign.assignFrom(that, conservative)
+      compositeAssign.assignFrom(that)
     } else {
-      assignFromImpl(that, conservative)
+      assignFromImpl(that)
     }
   }
 
-  private[core] def assignFromImpl(that: AnyRef, conservative: Boolean): Unit
+  private[core] def assignFromImpl(that: AnyRef): Unit
 }
 
 object OwnableRef{
@@ -700,52 +700,52 @@ class ClockingArea(clockDomain: ClockDomain) extends Area with DelayedInit {
   }
 }
 
-class ClockEnableArea(clockEnable: Bool) extends Area with DelayedInit {
-  val newClockEnable : Bool = if (ClockDomain.current.config.clockEnableActiveLevel == HIGH)
-    ClockDomain.current.readClockEnableWire & clockEnable
-  else
-    ClockDomain.current.readClockEnableWire | !clockEnable
-
-  val clockDomain = ClockDomain.current.clone(clockEnable = newClockEnable)
-
-  clockDomain.push
-
-  override def delayedInit(body: => Unit) = {
-    body
-
-    if ((body _).getClass.getDeclaringClass == this.getClass) {
-      clockDomain.pop
-    }
-  }
-}
-
-class SlowArea(factor : BigInt) extends ClockingArea(ClockDomain.current.newClockDomainSlowedBy(factor)){
-  def this(frequency : HertzNumber)  {
-    this((ClockDomain.current.frequency.getValue / frequency).toBigInt())
-    val factor = ClockDomain.current.frequency.getValue / frequency
-    require(factor.toBigInt() == factor)
-  }
-}
-
-
-
-class ResetArea(reset: Bool, cumulative: Boolean) extends Area with DelayedInit {
-
-  val newReset : Bool = if (ClockDomain.current.config.resetActiveLevel == HIGH)
-    (if (cumulative) (ClockDomain.current.readResetWire & reset) else reset)
-  else
-    (if (cumulative) (ClockDomain.current.readResetWire | !reset) else reset)
-  val clockDomain = ClockDomain.current.clone(reset = newReset)
-  clockDomain.push
-
-  override def delayedInit(body: => Unit) = {
-    body
-
-    if ((body _).getClass.getDeclaringClass == this.getClass) {
-      clockDomain.pop
-    }
-  }
-}
+//class ClockEnableArea(clockEnable: Bool) extends Area with DelayedInit {
+////  val newClockEnable : Bool = if (ClockDomain.current.config.clockEnableActiveLevel == HIGH)
+////    ClockDomain.current.readClockEnableWire & clockEnable
+////  else
+////    ClockDomain.current.readClockEnableWire | !clockEnable
+//
+//  val clockDomain = ClockDomain.current.clone(clockEnable = newClockEnable)
+//
+//  clockDomain.push
+//
+//  override def delayedInit(body: => Unit) = {
+//    body
+//
+//    if ((body _).getClass.getDeclaringClass == this.getClass) {
+//      clockDomain.pop
+//    }
+//  }
+//}
+//
+//class SlowArea(factor : BigInt) extends ClockingArea(ClockDomain.current.newClockDomainSlowedBy(factor)){
+//  def this(frequency : HertzNumber)  {
+//    this((ClockDomain.current.frequency.getValue / frequency).toBigInt())
+//    val factor = ClockDomain.current.frequency.getValue / frequency
+//    require(factor.toBigInt() == factor)
+//  }
+//}
+//
+//
+//
+//class ResetArea(reset: Bool, cumulative: Boolean) extends Area with DelayedInit {
+//
+//  val newReset : Bool = if (ClockDomain.current.config.resetActiveLevel == HIGH)
+//    (if (cumulative) (ClockDomain.current.readResetWire & reset) else reset)
+//  else
+//    (if (cumulative) (ClockDomain.current.readResetWire | !reset) else reset)
+//  val clockDomain = ClockDomain.current.clone(reset = newReset)
+//  clockDomain.push
+//
+//  override def delayedInit(body: => Unit) = {
+//    body
+//
+//    if ((body _).getClass.getDeclaringClass == this.getClass) {
+//      clockDomain.pop
+//    }
+//  }
+//}
 
 
 
@@ -786,13 +786,13 @@ class GlobalData {
   var nodeAreNamed = false
   var nodeAreInferringWidth = false
   var nodeAreInferringEnumEncoding = false
-  val nodeGetWidthWalkedSet = mutable.Set[Widthable]()
+//  val nodeGetWidthWalkedSet = mutable.Set[Widthable]()
   val clockSyncronous = mutable.HashMap[Bool,ArrayBuffer[Bool]]()
   /** Stack to store all clocDomain */
   val clockDomainStack = new SafeStack[ClockDomain]
   /** Stack to store all components */
   val componentStack = new SafeStackWithStackable[Component]
-  val switchStack = new SafeStack[SwitchStack]
+//  val switchStack = new SafeStack[SwitchStack]
   val conditionalAssignStack = new SafeStack[ConditionalContext]
   var scalaLocatedEnable = false
   var instanceCounter = 0
@@ -868,10 +868,10 @@ trait Num[T <: Data] {
   /** Logical right shift (w(T) = w(this) - shift)*/
   def >> (shift : Int) : T
 
-  /** Return the minimum value between this and right  */
-  def min(right: T): T = Mux(this < right, this.asInstanceOf[T], right)
-  /** Return the maximum value between this and right  */
-  def max(right: T): T = Mux(this < right, right, this.asInstanceOf[T])
+//  /** Return the minimum value between this and right  */
+//  def min(right: T): T = Mux(this < right, this.asInstanceOf[T], right)
+//  /** Return the maximum value between this and right  */
+//  def max(right: T): T = Mux(this < right, right, this.asInstanceOf[T])
 }
 
 

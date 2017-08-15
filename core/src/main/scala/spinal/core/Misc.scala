@@ -49,35 +49,35 @@ object roundUp {
   }
 }
 
-object cloneOf {
-  //Return a new data with the same data structure than the given parameter (including bit width)
-  def apply[T <: Data](that: T): T = that.clone().asInstanceOf[T]
-}
-
-object weakCloneOf {
-  //Return a new data with the same data structure than the given parameter (execept bit width)
-  def apply[T <: Data](that: T): T = {
-    val ret = cloneOf(that)
-    ret.flatten.foreach(_ match {
-      case bv : BitVector => bv.unfixWidth()
-      case _ =>
-    })
-    ret
-  }
-}
+//object cloneOf {
+//  //Return a new data with the same data structure than the given parameter (including bit width)
+//  def apply[T <: Data](that: T): T = that.clone().asInstanceOf[T]
+//}
+//
+//object weakCloneOf {
+//  //Return a new data with the same data structure than the given parameter (execept bit width)
+//  def apply[T <: Data](that: T): T = {
+//    val ret = cloneOf(that)
+//    ret.flatten.foreach(_ match {
+//      case bv : BitVector => bv.unfixWidth()
+//      case _ =>
+//    })
+//    ret
+//  }
+//}
 
 object widthOf {
   //Return the number of bit of the given data
-  def apply[T <: Data](that: T): Int = that.getBitsWidth
+//  def apply[T <: Data](that: T): Int = that.getBitsWidth
 }
 
-object HardType{
-  implicit def implFactory[T <: Data](t : T) = new HardType(t)
-}
+//object HardType{
+//  implicit def implFactory[T <: Data](t : T) = new HardType(t)
+//}
 
-class HardType[T <: Data](t : T){
-  def apply() = cloneOf(t)
-}
+//class HardType[T <: Data](t : T){
+//  def apply() = cloneOf(t)
+//}
 
 object signalCache {
   def apply[T <: Data](key: Object, subKey: Object, factory: () => T): T = {
@@ -86,14 +86,14 @@ object signalCache {
   }
 }
 
-object Cat {
-  def apply(data: Data*): Bits = apply(data.toList.reverse)
-
-  def apply[T <: Data](data: Iterable[T]) = {
-    if (data.isEmpty) B(0, 0 bit)
-    else data.map(_.asBits).reduce((a,b) => b ## a)
-  }
-}
+//object Cat {
+//  def apply(data: Data*): Bits = apply(data.toList.reverse)
+//
+//  def apply[T <: Data](data: Iterable[T]) = {
+//    if (data.isEmpty) B(0, 0 bit)
+//    else data.map(_.asBits).reduce((a,b) => b ## a)
+//  }
+//}
 
 
 object ScalaUniverse {
@@ -109,15 +109,15 @@ object Misc {
 
   val reflectExclusion = mutable.Set[Class[_]]()
 
-  addReflectionExclusion(new Bundle())
-  addReflectionExclusion(new Vec(Bool, Vector[Bool]()))
+//  addReflectionExclusion(new Bundle())
+//  addReflectionExclusion(new Vec(Bool, Vector[Bool]()))
   addReflectionExclusion(new Bool)
-  addReflectionExclusion(new Bits)
-  addReflectionExclusion(new UInt)
-  addReflectionExclusion(new SInt)
-  addReflectionExclusion(new Generic)
-  addReflectionExclusion(new SpinalEnum)
-  addReflectionExclusion(new SpinalEnumCraft(null))
+//  addReflectionExclusion(new Bits)
+//  addReflectionExclusion(new UInt)
+//  addReflectionExclusion(new SInt)
+//  addReflectionExclusion(new Generic)
+//  addReflectionExclusion(new SpinalEnum)
+//  addReflectionExclusion(new SpinalEnumCraft(null))
   addReflectionExclusion(new Area{})
 
 
@@ -130,7 +130,7 @@ object Misc {
       if (fieldRef != null && (!refs.isInstanceOf[Data] || !refs.contains(fieldRef))) {
         fieldRef match {
           case range : Range =>
-          case vec: Vec[_] =>
+//          case vec: Vec[_] =>
           case seq: Seq[_] => {
             for ((obj, i) <- seq.zipWithIndex) {
               applyNameTo(name + "_" + i, obj.asInstanceOf[Object])
@@ -182,54 +182,54 @@ object Misc {
     }
   }
 
-  def normalizeResize(to: Node, inputId: Integer, width: Int) {
-    val input = to.getInput(inputId)
-    if (input == null || input.asInstanceOf[WidthProvider].getWidth == width) return;
-
-    input match{
-      case bitVector : BitVector => {
-        bitVector.getInput(0) match{
-          case lit : BitVectorLiteral if (! lit.hasSpecifiedBitCount) =>{
-            Component.push(input.component)
-            val sizedLit = lit.clone()
-            sizedLit.asInstanceOf[Widthable].inferredWidth = width
-            to.setInput(inputId,sizedLit)
-            Component.pop(input.component)
-            Misc.normalizeResize(to, inputId, Math.max(lit.minimalValueBitWidth,width)) //Allow resize on direct literal with unfixed values
-
-          }
-
-          case _ => {
-            val that = input.asInstanceOf[BitVector]
-            Component.push(that.component)
-            val resize = that.resize(width)
-            resize.inferredWidth = width
-            resize.input.asInstanceOf[Widthable].inferredWidth = width
-            to.setInput(inputId,resize)
-            Component.pop(that.component)
-          }
-        }
-      }
-      case _ =>
-    }
-  }
+//  def normalizeResize(to: Node, inputId: Integer, width: Int) {
+//    val input = to.getInput(inputId)
+//    if (input == null || input.asInstanceOf[WidthProvider].getWidth == width) return;
+//
+//    input match{
+//      case bitVector : BitVector => {
+//        bitVector.getInput(0) match{
+//          case lit : BitVectorLiteral if (! lit.hasSpecifiedBitCount) =>{
+//            Component.push(input.component)
+//            val sizedLit = lit.clone()
+//            sizedLit.asInstanceOf[Widthable].inferredWidth = width
+//            to.setInput(inputId,sizedLit)
+//            Component.pop(input.component)
+//            Misc.normalizeResize(to, inputId, Math.max(lit.minimalValueBitWidth,width)) //Allow resize on direct literal with unfixed values
+//
+//          }
+//
+//          case _ => {
+//            val that = input.asInstanceOf[BitVector]
+//            Component.push(that.component)
+//            val resize = that.resize(width)
+//            resize.inferredWidth = width
+//            resize.input.asInstanceOf[Widthable].inferredWidth = width
+//            to.setInput(inputId,resize)
+//            Component.pop(that.component)
+//          }
+//        }
+//      }
+//      case _ =>
+//    }
+//  }
 }
 
-@deprecated("Use cloneable instead")
-object wrap{
-  def apply[T <: Bundle](that : => T) : T = {
-    val ret : T = that
-    ret.cloneFunc = (() => that)
-    ret
-  }
-}
-object cloneable{
-  def apply[T <: Bundle](that : => T) : T = {
-    val ret : T = that
-    ret.cloneFunc = (() => that)
-    ret
-  }
-}
+//@deprecated("Use cloneable instead")
+//object wrap{
+//  def apply[T <: Bundle](that : => T) : T = {
+//    val ret : T = that
+//    ret.cloneFunc = (() => that)
+//    ret
+//  }
+//}
+//object cloneable{
+//  def apply[T <: Bundle](that : => T) : T = {
+//    val ret : T = that
+//    ret.cloneFunc = (() => that)
+//    ret
+//  }
+//}
 
 class Scope(parent : Scope = null) {
   var lock = false
@@ -413,56 +413,56 @@ object ifGen {
 
 object MaskedLiteral{
 
-  def apply(str : String) : MaskedLiteral = {
-    val strCleaned = str.replace("_","")
-    for(c <- strCleaned) assert(c == '1' || c == '0' || c == '-', s"""M"$str" is not correctly formated.""")
-    val careAbout = strCleaned.map(c => if(c == '-') '0' else '1')
-    val value = strCleaned.map(c => if(c == '-') '0' else c)
-    new MaskedLiteral(BigInt(value,2),BigInt(careAbout,2),strCleaned.length())
-  }
+//  def apply(str : String) : MaskedLiteral = {
+//    val strCleaned = str.replace("_","")
+//    for(c <- strCleaned) assert(c == '1' || c == '0' || c == '-', s"""M"$str" is not correctly formated.""")
+//    val careAbout = strCleaned.map(c => if(c == '-') '0' else '1')
+//    val value = strCleaned.map(c => if(c == '-') '0' else c)
+//    new MaskedLiteral(BigInt(value,2),BigInt(careAbout,2),strCleaned.length())
+//  }
 }
 
-class MaskedLiteral(val value: BigInt, val careAbout: BigInt, val width: Int){
-
-  def ===(that: BitVector): Bool = {
-    if(that.getWidth != width){
-      SpinalError(s"Masked literal width=$width doesn't match the one of $that")
-    }
-    return (that.asBits & careAbout) === value
-  }
-
-  def =/=(that: BitVector): Bool = !(this === that)
-
-  override def toString(): String = {
-
-    def bigInt2ListBoolean(value: BigInt, size: BitCount): List[Boolean] = {
-      def bigInt2ListBool(that: BigInt): List[Boolean] = {
-        if(that == 0)  Nil
-        else List(that.testBit(0)) ::: bigInt2ListBool(that >> 1)
-      }
-
-      castListBool(bigInt2ListBool(value), size.value)
-    }
-
-    def castListBool(l: List[Boolean], size: Int): List[Boolean] = {
-      if (l.length == size)     l
-      else if (l.length > size) l.drop( l.length - size)
-      else                      l ::: List.fill(size - l.length)(false)
-    }
-
-    val valueList = bigInt2ListBoolean(this.value, this.width bits)
-    val careList  = bigInt2ListBoolean(this.careAbout, this.width bits)
-
-    val maskStr = careList.zip(valueList).map{ x => x match{
-      case (false, x)    => "-"
-      case (true, true)  => "1"
-      case (true, false) => "0"
-    }
-    }.reverse.mkString("")
-
-    "M\"" + maskStr + "\""
-  }
-}
+//class MaskedLiteral(val value: BigInt, val careAbout: BigInt, val width: Int){
+//
+//  def ===(that: BitVector): Bool = {
+//    if(that.getWidth != width){
+//      SpinalError(s"Masked literal width=$width doesn't match the one of $that")
+//    }
+//    return (that.asBits & careAbout) === value
+//  }
+//
+//  def =/=(that: BitVector): Bool = !(this === that)
+//
+//  override def toString(): String = {
+//
+//    def bigInt2ListBoolean(value: BigInt, size: BitCount): List[Boolean] = {
+//      def bigInt2ListBool(that: BigInt): List[Boolean] = {
+//        if(that == 0)  Nil
+//        else List(that.testBit(0)) ::: bigInt2ListBool(that >> 1)
+//      }
+//
+//      castListBool(bigInt2ListBool(value), size.value)
+//    }
+//
+//    def castListBool(l: List[Boolean], size: Int): List[Boolean] = {
+//      if (l.length == size)     l
+//      else if (l.length > size) l.drop( l.length - size)
+//      else                      l ::: List.fill(size - l.length)(false)
+//    }
+//
+//    val valueList = bigInt2ListBoolean(this.value, this.width bits)
+//    val careList  = bigInt2ListBoolean(this.careAbout, this.width bits)
+//
+//    val maskStr = careList.zip(valueList).map{ x => x match{
+//      case (false, x)    => "-"
+//      case (true, true)  => "1"
+//      case (true, false) => "0"
+//    }
+//    }.reverse.mkString("")
+//
+//    "M\"" + maskStr + "\""
+//  }
+//}
 
 
 object ArrayManager{
