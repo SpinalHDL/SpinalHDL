@@ -35,7 +35,7 @@ object Component {
     */
   def push(c: Component): Unit = {
     val globalData = if(c != null) c.globalData else GlobalData.get
-    globalData.context.push(globalData.contextHead.copy(component = c))
+    globalData.context.push(globalData.contextHead.copy(component = c, scope = if(c != null) c.dslBody else null))
 
 
 
@@ -83,10 +83,10 @@ object Component {
   */
 abstract class Component extends NameableByComponent with GlobalDataUser with ScalaLocated with DelayedInit with Stackable with OwnableRef{
   private[core] val dslContext = globalData.context.head
-  private[core] val dslBody = new BlockStatement()
+  private[core] val dslBody = new ScopeStatement()
 //  private[core] var dslBodyLocation : Statement = dslBody
 
-  var addStatement : (Statement) => Unit = dslBody.asInstanceOf[BlockStatement].add
+  def addStatement(s : Statement) : Unit = globalData.context.head.scope.add(s)
 
   def nameables = {
     val nameablesSet = mutable.HashSet[Nameable]()

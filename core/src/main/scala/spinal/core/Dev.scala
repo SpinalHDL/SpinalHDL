@@ -4,7 +4,7 @@ package spinal.core
 import scala.collection.mutable.ArrayBuffer
 
 
-case class DslContext(clockDomain: ClockDomain, component: Component, conditionalContext: ConditionalContext)
+case class DslContext(clockDomain: ClockDomain, component: Component, scope: ScopeStatement)
 
 
 trait Expression{
@@ -15,15 +15,6 @@ trait Expression{
       e.walkExpression(func)
     })
   }
-
-
-//  def walkLeafExpression(func : (Expression) => Unit) : Unit = {
-//    foreachExpression(e => {
-//      e.walkLeafExpression(func)
-//    })
-//  }
-
-
 }
 
 case class RefExpression(source : Nameable) extends Expression{
@@ -50,7 +41,9 @@ class AssignementStatement(val target : Nameable,val  source : Expression) exten
   def foreachStatements(func : (Statement) => Unit) = Unit
   def foreachExpression(func : (Expression) => Unit) : Unit = func(source)
 }
-class WhenStatement(val cond : Expression,var  whenTrue : Statement,var  whenFalse : Statement) extends Statement{
+class WhenStatement(val cond : Expression) extends Statement{
+  val whenTrue, whenFalse = new ScopeStatement
+
   def foreachStatements(func : (Statement) => Unit) = {
     if(whenTrue != null) func(whenTrue)
     if(whenFalse != null) func(whenFalse)
@@ -59,29 +52,9 @@ class WhenStatement(val cond : Expression,var  whenTrue : Statement,var  whenFal
   def foreachExpression(func : (Expression) => Unit) = {
     func(cond)
   }
-
-  def addTrue(that : Statement) : Unit = whenTrue match {
-    case null => whenTrue = that
-    case block : BlockStatement => block.add(that)
-    case _ =>
-      val block = new BlockStatement
-      block.add(whenTrue)
-      block.add(that)
-      whenTrue = block
-  }
-
-  def addFalse(that : Statement) : Unit = whenFalse match {
-    case null => whenFalse = that
-    case block : BlockStatement => block.add(that)
-    case _ =>
-      val block = new BlockStatement
-      block.add(whenFalse)
-      block.add(that)
-      whenTrue = block
-  }
 }
 
-class BlockStatement() extends Statement{
+class ScopeStatement() extends Statement{
   val content = ArrayBuffer[Statement]()
 
   def foreachStatements(func : (Statement) => Unit) = {
@@ -91,21 +64,3 @@ class BlockStatement() extends Statement{
 
   def add(that : Statement) : Unit = content += that
 }
-
-//trait StatementLocation{
-//  def add(s : Statement)
-//}
-//
-//class BlockStatementLocation(block : BlockStatement) extends StatementLocation{
-//  override def add(s: Statement): Unit = block.content += s
-//}
-//
-//class WhenTrueStatementLocation(w : WhenStatement) extends StatementLocation{
-//  override def add(s: Statement): Unit = w.whenTrue match {
-//    case null => w.whenTrue = s
-//    case block : BlockStatement => block.
-//  }
-//    if(w.whenTrue == null){
-//    w.whenTrue = s
-//  } else if()
-//}

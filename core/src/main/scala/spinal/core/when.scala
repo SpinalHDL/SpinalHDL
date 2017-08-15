@@ -39,14 +39,13 @@ trait ConditionalContext extends GlobalDataUser{
 
 class WhenContext2(whenStatement: WhenStatement) extends ConditionalContext with ScalaLocated {
   def otherwise(block: => Unit): Unit = {
-    val dslContext = GlobalData.get.contextHead
-    val oldAddStatement = dslContext.component.addStatement
-    dslContext.component.addStatement = whenStatement.addFalse
+    val dslContext = GlobalData.get.context
+    dslContext.push(dslContext.head.copy(scope = whenStatement.whenFalse))
     block
-    dslContext.component.addStatement = oldAddStatement
+    dslContext.pop()
   }
 
-  def elseWhen(cond: Bool)(block: => Unit): WhenContext2 = {
+  def elsewhen(cond: Bool)(block: => Unit): WhenContext2 = {
     var newWhenContext : WhenContext2 = null
     otherwise {
       newWhenContext = when2(cond)(block)
@@ -60,13 +59,12 @@ class WhenContext2(whenStatement: WhenStatement) extends ConditionalContext with
 object when2 {
   def apply(cond: Bool)(block: => Unit): WhenContext2 = {
     val dslContext = GlobalData.get.contextHead
-    val whenStatement = new WhenStatement(new RefExpression(cond), null,null)
+    val whenStatement = new WhenStatement(new RefExpression(cond))
     val whenContext = new WhenContext2(whenStatement)
     dslContext.component.addStatement(whenStatement)
-    val oldAddStatement = dslContext.component.addStatement
-    dslContext.component.addStatement = whenStatement.addTrue
+    cond.globalData.context.push(cond.globalData.contextHead.copy(scope = whenStatement.whenTrue))
     block
-    dslContext.component.addStatement = oldAddStatement
+    cond.globalData.context.pop()
     whenContext
   }
 

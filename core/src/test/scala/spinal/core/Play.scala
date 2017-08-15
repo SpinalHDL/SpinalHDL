@@ -5,21 +5,23 @@ package spinal.core
  */
 object Play1 {
   class TopLevel extends Component{
-    val a,b,c,d,e,f,g,h,i,j = Bool()
-    b := a
-    c := b
+//    for(i <- 0 until 100000) {
+      val a, b, c, d, e, f, g, h, i, j = Bool()
+      b := a
+      c := b
 
-    when2(c){
-      e := d
-      when2(d){
-        f := e
+      when2(c) {
+        e := d
+        when2(d) {
+          f := e
+        }
+        b := f
+      }.elsewhen(a) {
+        i := g
+      } otherwise {
+        b := j
       }
-      b := f
-    }.elseWhen(a){
-      i := g
-    } otherwise {
-      b := j
-    }
+//    }
   }
 
   def main(args: Array[String]) {
