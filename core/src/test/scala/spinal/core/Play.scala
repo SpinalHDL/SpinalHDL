@@ -7,6 +7,8 @@ object Play1 {
   class TopLevel extends Component{
 //    for(i <- 0 until 1000000) {
       val a, b, c, d, e, f, g, h, i, j = Bool()
+
+      b := True
       b := a || c
       c := b
 
@@ -14,6 +16,7 @@ object Play1 {
         e := d
         when2(d) {
           f := e
+          f := ConditionalContext.isTrue
         }
         b := f
       }.elsewhen(a) {

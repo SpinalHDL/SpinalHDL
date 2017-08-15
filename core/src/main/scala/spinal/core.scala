@@ -118,8 +118,8 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     def  Hz = HertzNumber(d * BigDecimal(1e0))
   }
 
-//  def True = Bool(true) //Should be def, not val, else it will create cross hierarchy usage of the same instance
-//  def False = Bool(false)
+  def True = Bool(true) //Should be def, not val, else it will create cross hierarchy usage of the same instance
+  def False = Bool(false)
 
   // implicit def RegRefToReg[T <: Data](that : RegRef[T]) : T = that.getReg
 //  implicit def IntToUInt(that: Int) : UInt = U(that)

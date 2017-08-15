@@ -16,7 +16,7 @@
 // * License along with this library.
 // */
 //
-//package spinal.core
+package spinal.core
 //
 ///**
 // * Created by PIC18F on 21.08.2014.
@@ -131,21 +131,16 @@
 //  override def getFactory: (BigInt, Int, SInt) => SInt = SIntLiteral.apply[SInt]
 //}
 //
-//
-//trait Literal extends Node {
-//  override def clone: this.type = ???
-//  private[core] def getBitsStringOn(bitCount : Int) : String
-//  def getValue() : BigInt
-//
-//  override def getInput(id: Int): Node = ???
-//  override def getInputs: Iterator[Node] = Iterator()
-//  override def getInputsCount: Int = 0
-//  override def onEachInput(doThat: (Node) => Unit): Unit = {}
-//  override def onEachInput(doThat: (Node, Int) => Unit): Unit = {}
-//  override def setInput(id: Int, node: Node): Unit = ???
-//
+
+trait Literal extends Expression {
+  override def clone: this.type = ???
+  override def foreachExpression(func: (Expression) => Unit): Unit = {}
+  private[core] def getBitsStringOn(bitCount : Int) : String
+  def getValue() : BigInt
+
+
 //  override def addAttribute(attribute: Attribute): Literal.this.type = addTag(attribute)
-//}
+}
 //
 //object BitsLiteral {
 //  def apply(value: BigInt, specifiedBitCount: Int): BitsLiteral = {
@@ -246,22 +241,22 @@
 //
 //
 //
-//object BoolLiteral {
-//  def apply(value: Boolean, on: Bool): Bool = {
-//    on.input = new BoolLiteral(value)
-//    on
-//  }
-//}
-//
-//class BoolLiteral(val value: Boolean) extends Literal {
-//  override def clone(): this.type = new BoolLiteral(value).asInstanceOf[this.type]
-//
-//  override def getValue(): BigInt = if(value) 1 else 0
-//  override def getBitsStringOn(bitCount: Int): String = {
-//    assert(bitCount == 1)
-//    (if(value) "1" else "0")
-//  }
-//}
+object BoolLiteral {
+  def apply(value: Boolean, on: Bool): Bool = {
+    on.assignFrom(new BoolLiteral(value))
+    on
+  }
+}
+
+class BoolLiteral(val value: Boolean) extends Literal {
+  override def clone(): this.type = new BoolLiteral(value).asInstanceOf[this.type]
+
+  override def getValue(): BigInt = if(value) 1 else 0
+  override def getBitsStringOn(bitCount: Int): String = {
+    assert(bitCount == 1)
+    (if(value) "1" else "0")
+  }
+}
 //
 //
 //

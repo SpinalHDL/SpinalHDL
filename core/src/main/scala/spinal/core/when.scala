@@ -54,7 +54,26 @@ class WhenContext2(whenStatement: WhenStatement) extends ConditionalContext with
   }
 }
 
+object ConditionalContext{
+  def isTrue: Bool ={
+    val globalData = GlobalData.get
+    val originalContext = globalData.contextHead
+    val componentContextStack = mutable.Stack[DslContext]()
+    while(globalData.context.head.component == originalContext.component){
+      componentContextStack.push(globalData.context.pop())
+    }
+    globalData.context.push(componentContextStack.pop())
+    val cond = Bool()
+    originalContext.component.dslBody.content.insert(0, new AssignementStatement(cond, new BoolLiteral(false))) //TODO IR ! insert 0 pas propre
 
+    while(componentContextStack.nonEmpty){
+      globalData.context.push(componentContextStack.pop())
+    }
+
+    cond := True
+    cond
+  }
+}
 
 object when2 {
   def apply(cond: Bool)(block: => Unit): WhenContext2 = {
@@ -67,27 +86,6 @@ object when2 {
     cond.globalData.context.pop()
     whenContext
   }
-
-//  def getWhensCond(scope: ConditionalContext): Bool = {
-//    ???
-////    var ret: Bool = null
-////    for (conditionalAssign <- GlobalData.get.conditionalAssignStack.stack) conditionalAssign match {
-////      case w : WhenContext => {
-////        if (w == scope) return returnFunc
-////        val newCond = if (w.isTrue) w.cond else !w.cond
-////        if (ret == null) {
-////          ret = newCond
-////        } else {
-////          ret = ret && newCond
-////        }
-////      }
-////    }
-////
-////
-////    def returnFunc = if (ret == null) True else ret
-////
-////    returnFunc
-//  }
 }
 
 //
