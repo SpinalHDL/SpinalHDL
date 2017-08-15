@@ -1,3 +1,4 @@
+
 ///*
 // * SpinalHDL
 // * Copyright (c) Dolu, All rights reserved.
@@ -16,9 +17,9 @@
 // * License along with this library.
 // */
 //
-//package spinal.core
+package spinal.core
 //
-//import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.ArrayBuffer
 //
 //
 //
@@ -55,7 +56,7 @@
 //
 //
 //
-//abstract class Operator extends Modifier
+abstract class Operator extends Modifier
 //
 //abstract class UnaryOperator extends Operator{
 //  type T <: Node
@@ -92,57 +93,41 @@
 //
 //
 //
-//abstract class BinaryOperator extends Operator{
-//  type T <: Node
-//  var left,right  : T = null.asInstanceOf[T]
-//
-//  override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
-//    doThat(left,0)
-//    doThat(right,1)
+abstract class BinaryOperator extends Operator{
+  type T <: Expression
+  var left,right  : T = null.asInstanceOf[T]
+
+  def foreachExpression(func : (Expression) => Unit) : Unit = {
+    func(left)
+    func(right)
+  }
+
+//  override def toString(): String = {
+//    def inStr(that : T) = (if (that == null) "null" else that.nonRecursiveToString())
+//    s"(${inStr(left)} $opName ${inStr(right)})"
 //  }
-//  override def onEachInput(doThat: (Node) => Unit): Unit = {
-//    doThat(left)
-//    doThat(right)
-//  }
-//
-//  override def setInput(id: Int, node: Node): Unit = id match{
-//    case 0 => left = node.asInstanceOf[T]
-//    case 1 => right = node.asInstanceOf[T]
-//  }
-//
-//  override def getInputsCount: Int = 2
-//  override def getInputs: Iterator[Node] = Iterator(left,right)
-//  override def getInput(id: Int): Node = id match{
-//    case 0 => left
-//    case 1 => right
-//  }
-//
-////  override def toString(): String = {
-////    def inStr(that : T) = (if (that == null) "null" else that.nonRecursiveToString())
-////    s"(${inStr(left)} $opName ${inStr(right)})"
-////  }
-//}
-//
-//
+}
+
+
 //abstract class BinaryOperatorWidthableInputs extends BinaryOperator{
 //  override type T = Node with WidthProvider
 //}
 //
 //
 //
-//object Operator{
-//  object Bool{
+object Operator{
+  object Bool{
 //    class And extends BinaryOperator{
 //      override def opName: String = "&&"
 //      override def normalizeInputs: Unit = {}
 //      override def simplifyNode: Unit = {}
 //    }
 //
-//    class Or extends BinaryOperator{
-//      override def opName: String = "||"
+    class Or extends BinaryOperator{
+      override def opName: String = "||"
 //      override def normalizeInputs: Unit = {}
 //      override def simplifyNode: Unit = {}
-//    }
+    }
 //
 //    class Xor extends BinaryOperator{
 //      override def opName: String = "B^B"
@@ -167,7 +152,7 @@
 //      override def normalizeInputs: Unit = {}
 //      override def simplifyNode: Unit = {}
 //    }
-//  }
+  }
 //
 //  object BitVector{
 //    abstract class And extends BinaryOperatorWidthableInputs with Widthable with CheckWidth{
@@ -632,21 +617,21 @@
 //    }
 //
 //  }
-//}
+}
 //
 //
 //
-//abstract class Modifier extends Node {
-//  def opName : String
-//
+abstract class Modifier extends Expression {
+  def opName : String
+
 //  override def toString(): String = {
 //    s"($getClassIdentifier : $opName, defined in ${if(this.component != null)this.component.getPath() else "root"} with inputs : ${this.getInputs.map(in => if (in == null) "null" else in.nonRecursiveToString()).reduceLeft(_ + ", " + _)})"
 //  }
-//
+
 //  override def nonRecursiveToString(): String = opName
-//
+
 //  override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
-//}
+}
 //
 //
 //abstract class Cast extends Modifier {

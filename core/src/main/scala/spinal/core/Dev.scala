@@ -17,7 +17,7 @@ trait Expression{
   }
 }
 
-case class RefExpression(source : Nameable) extends Expression{
+class RefExpression(val source : Nameable) extends Expression{
   def foreachExpression(func : (Expression) => Unit) : Unit = {
 
   }

@@ -62,7 +62,7 @@ class Bool extends BaseType /*with DataPrimitives[Bool]*//* with BitwiseOp[Bool]
 //    * @example{{{ val result = myBool1 || myBool2 }}}
 //    * @return a Bool assign with the OR result
 //    */
-//  def ||(b: Bool): Bool = wrapLogicalOperator(b, new Operator.Bool.Or)
+  def ||(b: Bool): Bool = wrapLogicalOperator(b, new Operator.Bool.Or)
 //  override def |(b: Bool): Bool = this || b
 //
 //  override def ^(b: Bool): Bool  = wrapLogicalOperator(b, new Operator.Bool.Xor)

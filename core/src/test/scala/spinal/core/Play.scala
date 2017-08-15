@@ -5,9 +5,9 @@ package spinal.core
  */
 object Play1 {
   class TopLevel extends Component{
-//    for(i <- 0 until 100000) {
+//    for(i <- 0 until 1000000) {
       val a, b, c, d, e, f, g, h, i, j = Bool()
-      b := a
+      b := a || c
       c := b
 
       when2(c) {
@@ -17,7 +17,10 @@ object Play1 {
         }
         b := f
       }.elsewhen(a) {
-        i := g
+        val x = Bool()
+        x := a || b
+        i := g || x
+
       } otherwise {
         b := j
       }

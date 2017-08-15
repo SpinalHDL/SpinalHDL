@@ -239,13 +239,22 @@ abstract class BaseType extends Data with Nameable {
 //  }
 //
   private[core] def assignFromImpl(that: AnyRef): Unit = {
-    // TODO IR that.isInstanceOf[AssignementNode] || that.isInstanceOf[DontCareNode]
-    if (that.isInstanceOf[BaseType]/* || that.isInstanceOf[AssignementNode] || that.isInstanceOf[DontCareNode]*/) {
-//      BaseType.checkAssignability(this,that.asInstanceOf[Node])
-      component.addStatement(new AssignementStatement(target = this, source = new RefExpression(that.asInstanceOf[Nameable])))
-    } else {
-      throw new Exception("Undefined assignment")
+    that match {
+      case that : BaseType =>
+        component.addStatement(new AssignementStatement(target = this, source = new RefExpression(that.asInstanceOf[Nameable])))
+      case that : Expression =>
+        component.addStatement(new AssignementStatement(target = this, source = that))
+      case _ =>
+        throw new Exception("Undefined assignment")
     }
+
+    // TODO IR that.isInstanceOf[AssignementNode] || that.isInstanceOf[DontCareNode]
+//    if (that.isInstanceOf[BaseType]/* || that.isInstanceOf[AssignementNode] || that.isInstanceOf[DontCareNode]*/) {
+////      BaseType.checkAssignability(this,that.asInstanceOf[Node])
+//
+//    } else {
+//      throw new Exception("Undefined assignment")
+//    }
   }
 //
 //  // def castThatInSame(that: BaseType): this.type = throw new Exception("Not defined")
@@ -322,13 +331,13 @@ abstract class BaseType extends Data with Nameable {
 //    wrapWithWeakClone(op)
 //  }
 //
-//  private[core] def wrapLogicalOperator(right: Node, op: BinaryOperator):  Bool = {
-//    op.left = this.asInstanceOf[op.T]
-//    op.right = right.asInstanceOf[op.T]
-//    val ret = new Bool
-//    ret.input = op
-//    ret
-//  }
+  private[core] def wrapLogicalOperator(right: Nameable, op: BinaryOperator):  Bool = {
+    op.left = new RefExpression(this).asInstanceOf[op.T]
+    op.right = new RefExpression(right).asInstanceOf[op.T]
+    val ret = new Bool
+    ret.assignFrom(op)
+    ret
+  }
 //
 //  private[core] def wrapMultiplexer(cond: Node, whenTrue: Node, whenFalse: Node, mux: Multiplexer): this.type = {
 //    mux.cond      = cond
