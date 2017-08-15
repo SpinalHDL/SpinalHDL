@@ -22,9 +22,10 @@ class PhaseVerilog(pc : PhaseContext) extends PhaseMisc with VerilogBase {
   val emitedComponentRef = mutable.Map[Component, Component]()
 
 
-  override def impl(pc : PhaseContext): Unit = {
+  override def impl(pc: PhaseContext): Unit = {
     import pc._
     SpinalProgress("Write Verilog")
+
     if(!pc.config.oneFilePerComponent) {
       val outFile = new java.io.FileWriter(pc.config.targetDirectory + "/" + (if (pc.config.netlistFileName == null) (topLevel.definitionName + ".v") else pc.config.netlistFileName))
       outFile.write(VhdlVerilogBase.getHeader("//", topLevel))
@@ -37,15 +38,15 @@ class PhaseVerilog(pc : PhaseContext) extends PhaseMisc with VerilogBase {
         }
       }
 
-      outFile.flush();
-      outFile.close();
+      outFile.flush()
+      outFile.close()
     } else {
       assert(pc.config.netlistFileName == null)
       val enumFile = new java.io.FileWriter(pc.config.targetDirectory + "/" + (if (pc.config.netlistFileName == null) (topLevel.definitionName + ".vh") else pc.config.netlistFileName))
       enumFile.write(VhdlVerilogBase.getHeader("//", topLevel))
       emitEnumPackage(enumFile)
-      enumFile.flush();
-      enumFile.close();
+      enumFile.flush()
+      enumFile.close()
 
       for (c <- sortedComponents) {
         if (!c.isInBlackBoxTree) {
@@ -54,8 +55,8 @@ class PhaseVerilog(pc : PhaseContext) extends PhaseMisc with VerilogBase {
           outFile.write(VhdlVerilogBase.getHeader("//", topLevel))
           outFile.write("`include \"" + topLevel.definitionName + ".vh" + "\"\n")
           compile(c,outFile)
-          outFile.flush();
-          outFile.close();
+          outFile.flush()
+          outFile.close()
         }
       }
 

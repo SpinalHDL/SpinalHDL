@@ -10,18 +10,18 @@ import scala.util.Random
 
 
 
-class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
+class PhaseVhdl(pc: PhaseContext) extends PhaseMisc with VhdlBase{
   import pc._
   override def useNodeConsumers: Boolean = true
 
   var outFile: java.io.FileWriter = null
-  var memBitsMaskKind : MemBitsMaskKind = MULTIPLE_RAM
+  var memBitsMaskKind: MemBitsMaskKind = MULTIPLE_RAM
 
   val emitedComponent = mutable.Map[ComponentBuilder, ComponentBuilder]()
   val emitedComponentRef = mutable.Map[Component, Component]()
 
 
-  override def impl(pc : PhaseContext): Unit = {
+  override def impl(pc: PhaseContext): Unit = {
     import pc._
     SpinalProgress("Write VHDL")
     
@@ -38,8 +38,8 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
       }
     }
 
-    outFile.flush();
-    outFile.close();
+    outFile.flush()
+    outFile.close()
   }
 
 
