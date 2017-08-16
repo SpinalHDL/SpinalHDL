@@ -164,6 +164,8 @@ trait BaseTypeCast /*extends SFixCast with UFixCast*/
 //  }
 //}
 
+
+
 /**
   * Abstract base class of all Spinal types
   */

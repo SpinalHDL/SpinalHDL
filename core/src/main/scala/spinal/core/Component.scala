@@ -102,7 +102,10 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
       s.foreachExpression(expressionWalker)
       s.foreachStatements(statementWalker)
       s match {
-        case a : AssignementStatement => nameablesSet += a.target
+        case a : AssignementStatement => a.target match {
+          case target : Nameable => nameablesSet += target
+          case _ =>
+        }
         case _ =>
       }
     }

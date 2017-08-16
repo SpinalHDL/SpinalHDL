@@ -37,7 +37,8 @@ trait Statement{
   }
   def foreachExpression(func : (Expression) => Unit) : Unit
 }
-class AssignementStatement(val target : Nameable,val  source : Expression) extends Statement{
+class AssignementStatement(val target : Any
+                           ,val  source : Expression) extends Statement{
   def foreachStatements(func : (Statement) => Unit) = Unit
   def foreachExpression(func : (Expression) => Unit) : Unit = func(source)
 }

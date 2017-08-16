@@ -16,9 +16,9 @@
 // * License along with this library.
 // */
 //
-//package spinal.core
+package spinal.core
 //
-//import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.ArrayBuffer
 //
 //
 //object Reg {
@@ -84,6 +84,21 @@
 //  }
 //}*/
 //
+
+
+
+class Reg{
+//  type T <: BaseType
+//  var dataInput : T = null
+//  var initialValue : T = null
+
+//  override def foreachExpression(func: (Expression) => Unit): Unit = {
+//    //    func(dataInput)
+//    //    func(initialValue)
+//  }
+}
+
+
 //object RegS {
 //  val getDataInputId: Int = 4
 //  val getInitialValueId: Int = 5
