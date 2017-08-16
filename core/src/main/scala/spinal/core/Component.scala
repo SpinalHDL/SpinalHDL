@@ -86,7 +86,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
   private[core] val dslBody = new ScopeStatement()
 //  private[core] var dslBodyLocation : Statement = dslBody
 
-  def addStatement(s : Statement) : Unit = globalData.context.head.scope.add(s)
+  def addStatement(s : Statement) : Unit = globalData.context.head.scope.append(s)
 
   def nameables = {
     val nameablesSet = mutable.HashSet[Nameable]()
@@ -102,15 +102,12 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
       s.foreachExpression(expressionWalker)
       s.foreachStatements(statementWalker)
       s match {
-        case a : AssignementStatement => a.target match {
-          case target : Nameable => nameablesSet += target
-          case _ =>
-        }
+        case a : AssignementStatement => nameablesSet += a.target.nameable
         case _ =>
       }
     }
 
-    statementWalker(dslBody)
+    dslBody.foreachStatements(statementWalker)
 
     nameablesSet
   }

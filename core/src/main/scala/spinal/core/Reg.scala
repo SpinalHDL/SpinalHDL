@@ -21,31 +21,34 @@ package spinal.core
 import scala.collection.mutable.ArrayBuffer
 //
 //
-//object Reg {
-//  //def apply[T <: SpinalEnum](enumKind: T, init: T = null.asInstanceOf[T],next : T = null.asInstanceOf[T]): SpinalEnumCraft[T] = Reg(enumKind.craft(),init,next).asInstanceOf[SpinalEnumCraft[T]]
-//
-//  def apply[T <: Data](dataType: T, init: T = null.asInstanceOf[T],next : T = null.asInstanceOf[T]): T = {
-//    val regOut = cloneOf(dataType)//.dontSimplifyIt
-//    for ( e <- regOut.flatten) {
-//      val reg = newFor(e)
-//      e.input = reg;
-//      e.compositeAssign = reg
-//    }
-//
-//    if (init != null) regOut.init(init)
-//    if(next != null) regOut := next
-//    regOut
-//  }
+object Reg {
+  //def apply[T <: SpinalEnum](enumKind: T, init: T = null.asInstanceOf[T],next : T = null.asInstanceOf[T]): SpinalEnumCraft[T] = Reg(enumKind.craft(),init,next).asInstanceOf[SpinalEnumCraft[T]]
+
+  def apply[T <: Data](dataType: T, init: T = null.asInstanceOf[T],next : T = null.asInstanceOf[T]): T = {
+    val regOut = cloneOf(dataType)//.dontSimplifyIt
+    for ( e <- regOut.flatten) {
+      val reg = newFor(e)
+      e.compositeAssign = reg
+    }
+
+//    if (init != null) regOut.init(init) //TODO IR !!
+    if(next != null) regOut := next
+    regOut
+  }
 //  def apply[T <: SpinalEnum](enumType: T): enumType.C = Reg(enumType())
-//
-// // def apply[T <: Data](dataType: T)(init: T = null.asInstanceOf[T],next : T = null.asInstanceOf[T]): T = Reg(dataType,init,next)
-//
-//  private[core] def newFor(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) : Reg = outType match{
+
+ // def apply[T <: Data](dataType: T)(init: T = null.asInstanceOf[T],next : T = null.asInstanceOf[T]): T = Reg(dataType,init,next)
+
+  private[core] def newFor(outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) : RegDataComposite = outType match{
 //    case that : BitVector => new RegWidthable(outType,clockDomain)
 //    case that : SpinalEnumCraft[_] => new RegEnum(outType,that.spinalEnum,clockDomain)
-//    case _ => new Reg(outType,clockDomain)
-//  }
-//}
+    case _ => {
+      val reg = new RegDataComposite()
+      reg.baseType = outType.asInstanceOf[reg.T]
+      reg
+    }
+  }
+}
 //
 //
 //object RegNext {
@@ -87,15 +90,23 @@ import scala.collection.mutable.ArrayBuffer
 
 
 
-class Reg{
-//  type T <: BaseType
-//  var dataInput : T = null
-//  var initialValue : T = null
+class RegDataComposite extends Assignable with AssignementStatementTarget{
+  type T <: BaseType
+  var baseType : T = null.asInstanceOf[T]
 
-//  override def foreachExpression(func: (Expression) => Unit): Unit = {
-//    //    func(dataInput)
-//    //    func(initialValue)
-//  }
+
+  override def assignFromImpl(that: AnyRef): Unit = {
+    that match {
+      case that: BaseType =>
+        baseType.component.addStatement(new AssignementStatement(target = this, source = new RefExpression(that.asInstanceOf[Nameable])))
+      case that: Expression =>
+        baseType.component.addStatement(new AssignementStatement(target = this, source = that))
+      case _ =>
+        throw new Exception("Undefined assignment")
+    }
+  }
+
+  override private[core] def nameable: Nameable = baseType
 }
 
 

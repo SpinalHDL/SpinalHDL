@@ -1,6 +1,7 @@
 package spinal.core
 
 
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 
@@ -28,6 +29,8 @@ class RefExpression(val source : Nameable) extends Expression{
 }
 
 trait Statement{
+//  var previous, next : Statement = null
+  
   def foreachStatements(func : (Statement) => Unit)
   def walkStatements(func : (Statement) => Unit): Unit ={
     foreachStatements(s => {
@@ -37,8 +40,10 @@ trait Statement{
   }
   def foreachExpression(func : (Expression) => Unit) : Unit
 }
-class AssignementStatement(val target : Any
-                           ,val  source : Expression) extends Statement{
+trait AssignementStatementTarget {
+  private [core] def nameable : Nameable
+}
+class AssignementStatement(val target : AssignementStatementTarget ,val  source : Expression) extends Statement{
   def foreachStatements(func : (Statement) => Unit) = Unit
   def foreachExpression(func : (Expression) => Unit) : Unit = func(source)
 }
@@ -46,8 +51,8 @@ class WhenStatement(val cond : Expression) extends Statement{
   val whenTrue, whenFalse = new ScopeStatement
 
   def foreachStatements(func : (Statement) => Unit) = {
-    if(whenTrue != null) func(whenTrue)
-    if(whenFalse != null) func(whenFalse)
+    whenTrue.foreachStatements(func)
+    whenFalse.foreachStatements(func)
   }
 
   def foreachExpression(func : (Expression) => Unit) = {
@@ -55,13 +60,58 @@ class WhenStatement(val cond : Expression) extends Statement{
   }
 }
 
-class ScopeStatement() extends Statement{
-  val content = ArrayBuffer[Statement]()
+class ScopeStatement(){
+  val content = mutable.ListBuffer[Statement]() //TODO IR ! linkedlist  hard
+  def append(that : Statement) : this.type = {
+    content += that
+    this
+  }
+
+  def prepend(that : Statement) : this.type = {
+    content.prepend(that)
+    this
+  }
 
   def foreachStatements(func : (Statement) => Unit) = {
     content.foreach(func)
   }
-  def foreachExpression(func : (Expression) => Unit) : Unit = Unit
-
-  def add(that : Statement) : Unit = content += that
 }
+
+
+//class ScopeStatement(){
+//  var head, last : Statement = null
+//
+//
+//  def prepend(that : Statement) : this.type = {
+//    if(head != null){
+//      head.previous = that
+//    }
+//    that.next = head
+//    that.previous = null
+//
+//    head = that
+//
+//    this
+//  }
+//
+//  def append(that : Statement) : this.type = {
+//    that.next = null
+//    if(last != null){
+//      last.next = that
+//      that.previous = last
+//    }else{
+//      that.previous = null
+//    }
+//
+//    last = that
+//    this
+//  }
+//
+//  def foreachStatements(func : (Statement) => Unit) = {
+//    var ptr = head
+//    while(ptr != null){
+//      func(ptr)
+//      ptr = ptr.next
+//    }
+//  }
+//}

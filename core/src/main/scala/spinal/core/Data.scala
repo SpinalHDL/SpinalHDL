@@ -192,7 +192,7 @@ class DataPimper[T <: Data](val _data: T) extends DataPrimitives[T]{
 }
 
 
-trait Data extends ContextUser with NameableByComponent with Assignable  with SpinalTagReady with GlobalDataUser with ScalaLocated with OwnableRef {
+trait Data extends ContextUser with NameableByComponent with Assignable  with Initable with SpinalTagReady with GlobalDataUser with ScalaLocated with OwnableRef {
   private[core] var dir: IODirection = null
   private[core] def isIo = dir != null
 
@@ -240,8 +240,8 @@ trait Data extends ContextUser with NameableByComponent with Assignable  with Sp
   def asData = this.asInstanceOf[Data]
 //  def getZero: this.type
 
-//  def flatten: Seq[BaseType]
-//  def flattenLocalName: Seq[String]
+  def flatten: Seq[BaseType]
+  def flattenLocalName: Seq[String]
 
   def pull(): this.type = Data.doPull(this, Component.current, false, false)
 
@@ -431,96 +431,87 @@ trait Data extends ContextUser with NameableByComponent with Assignable  with Sp
 
   override def getComponent(): Component = component
 
-//  override def clone: Data = {
-//    try {
-//      val clazz = this.getClass
-//      val constructor = clazz.getConstructors.head
-//      val constrParamCount = constructor.getParameterTypes.size
-//      //No param =>
-//      if (constrParamCount == 0) return constructor.newInstance().asInstanceOf[this.type]
-//
-//      def cleanCopy[T <: Data](that : T) : T = {
-//        that.asDirectionLess()
+  override def clone: Data = {
+    try {
+      val clazz = this.getClass
+      val constructor = clazz.getConstructors.head
+      val constrParamCount = constructor.getParameterTypes.size
+      //No param =>
+      if (constrParamCount == 0) return constructor.newInstance().asInstanceOf[this.type]
+
+      def cleanCopy[T <: Data](that : T) : T = {
+        that.asDirectionLess()
 //        that.flatten.foreach(_.input = null)
-//        that
-//      }
-//
-//      def constructorParamsAreVal: this.type = {
-//        val outer = clazz.getFields.find(_.getName == "$outer")
-//        val constructor = clazz.getDeclaredConstructors.head
-//        val argumentCount = constructor.getParameterTypes.size - (if (outer.isDefined) 1 else 0)
-//        val fields = clazz.getDeclaredFields
-//        val arguments = (0 until argumentCount) map { i =>
-//          val fieldName = fields(i).getName
-//          val getter = clazz.getMethod(fieldName)
-//          val arg = getter.invoke(this)
-//          if(arg.isInstanceOf[Data]){
-//            cloneOf(arg.asInstanceOf[Data])
-//          } else{
-//            arg
-//          }
-//        }
-//        if (outer.isEmpty)
-//          return cleanCopy(constructor.newInstance(arguments: _*).asInstanceOf[this.type])
-//        else {
-//          val args = (outer.get.get(this) :: Nil) ++ arguments
-//          return cleanCopy(constructor.newInstance(args: _*).asInstanceOf[this.type])
-//        }
-//      }
-//      //Case class =>
-//      if (ScalaUniverse.isCaseClass(this)) {
-//        return cleanCopy(constructorParamsAreVal)
-//      }
-//
-//      //Inner class with no user parameters
-//      if (constrParamCount == 1) {
-//        var outerField = clazz.getFields.find(_.getName == "$outer")
-//        if(!outerField.isDefined) outerField = clazz.getDeclaredFields.find(_.getName == "$outer")
-//        if(outerField.isDefined){
-//          val outer = outerField.get
-//          outer.setAccessible(true)
-//          return cleanCopy(constructor.newInstance(outer.get(this)).asInstanceOf[this.type])
-//        }
-//        val c = clazz.getMethod("getComponent").invoke(this).asInstanceOf[Component]
-//        val pt = constructor.getParameterTypes.apply(0)
-//        if(c.getClass.isAssignableFrom(pt)){
-//          val copy =  constructor.newInstance(c).asInstanceOf[this.type]
-//          if(copy.isInstanceOf[Bundle])
+        that
+      }
+
+      def constructorParamsAreVal: this.type = {
+        val outer = clazz.getFields.find(_.getName == "$outer")
+        val constructor = clazz.getDeclaredConstructors.head
+        val argumentCount = constructor.getParameterTypes.size - (if (outer.isDefined) 1 else 0)
+        val fields = clazz.getDeclaredFields
+        val arguments = (0 until argumentCount) map { i =>
+          val fieldName = fields(i).getName
+          val getter = clazz.getMethod(fieldName)
+          val arg = getter.invoke(this)
+          if(arg.isInstanceOf[Data]){
+            cloneOf(arg.asInstanceOf[Data])
+          } else{
+            arg
+          }
+        }
+        if (outer.isEmpty)
+          return cleanCopy(constructor.newInstance(arguments: _*).asInstanceOf[this.type])
+        else {
+          val args = (outer.get.get(this) :: Nil) ++ arguments
+          return cleanCopy(constructor.newInstance(args: _*).asInstanceOf[this.type])
+        }
+      }
+      //Case class =>
+      if (ScalaUniverse.isCaseClass(this)) {
+        return cleanCopy(constructorParamsAreVal)
+      }
+
+      //Inner class with no user parameters
+      if (constrParamCount == 1) {
+        var outerField = clazz.getFields.find(_.getName == "$outer")
+        if(!outerField.isDefined) outerField = clazz.getDeclaredFields.find(_.getName == "$outer")
+        if(outerField.isDefined){
+          val outer = outerField.get
+          outer.setAccessible(true)
+          return cleanCopy(constructor.newInstance(outer.get(this)).asInstanceOf[this.type])
+        }
+        val c = clazz.getMethod("getComponent").invoke(this).asInstanceOf[Component]
+        val pt = constructor.getParameterTypes.apply(0)
+        if(c.getClass.isAssignableFrom(pt)){
+          val copy =  constructor.newInstance(c).asInstanceOf[this.type]
+//          if(copy.isInstanceOf[Bundle]) //TODO IR !!
 //            copy.asInstanceOf[Bundle].cloneFunc = (() => constructor.newInstance(c).asInstanceOf[this.type])
-//          return cleanCopy(copy)
-//        }
-//        //        val a = c.areaClassSet.get(pt)
-//        //        if(a.isDefined && a.get != null){
-//        //          return constructor.newInstance(a.get).asInstanceOf[this.type]
-//        //        }
-//      }
-//
-//
-//      //      if (clazz.getAnnotations.find(_.isInstanceOf[valClone]).isDefined) {
-//      //        return constructorParamsAreVal
-//      //      }
-//
-//      needCloneImpl()
-//
-//    } catch {
-//      case npe: java.lang.reflect.InvocationTargetException if npe.getCause.isInstanceOf[java.lang.NullPointerException] =>
-//        needCloneImpl()
-//      case e: java.lang.Exception =>
-//        needCloneImpl()
-//    }
-//
-//    def needCloneImpl(): this.type = {
-//      SpinalError(
-//        s"""
-//           |*** Spinal can't clone ${this.getClass} datatype
-//                                                     |*** You have two way to solve that :
-//                                                     |*** In place to declare a "class Bundle(args){}", create a "case class Bundle(args){}"
-//                                                     |*** Or override by your self the bundle clone function
-//                                                     |*** The error is """.stripMargin + this.getScalaLocationLong);
-//      null
-//    }
-//    null
-//  }
+          return cleanCopy(copy)
+        }
+      }
+
+      needCloneImpl()
+
+    } catch {
+      case npe: java.lang.reflect.InvocationTargetException if npe.getCause.isInstanceOf[java.lang.NullPointerException] =>
+        needCloneImpl()
+      case e: java.lang.Exception =>
+        needCloneImpl()
+    }
+
+    def needCloneImpl(): this.type = {
+      SpinalError(
+        s"""
+           |*** Spinal can't clone ${this.getClass} datatype
+                                                     |*** You have two way to solve that :
+                                                     |*** In place to declare a "class Bundle(args){}", create a "case class Bundle(args){}"
+                                                     |*** Or override by your self the bundle clone function
+                                                     |*** The error is """.stripMargin + this.getScalaLocationLong);
+      null
+    }
+    null
+  }
   def getComponents() : Seq[Component] = if(component == null) Nil else (component.parents() ++ Seq(component))
 
   def genIf(cond : Boolean) : this.type = if(cond) this else null

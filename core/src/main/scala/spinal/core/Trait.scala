@@ -291,6 +291,20 @@ object SyncNode {
 //  def getSoftReset: Bool = softReset
 //}
 
+trait Initable {
+  var compositeInitable: Initable = null
+
+  final def initFrom(that: AnyRef): Unit = {
+    if (compositeInitable != null) {
+      compositeInitable.initFrom(that)
+    } else {
+      initFromImpl(that)
+    }
+  }
+
+  private[core] def initFromImpl(that: AnyRef): Unit
+}
+
 trait Assignable {
   /* private[core] */var compositeAssign: Assignable = null
 
@@ -342,6 +356,10 @@ object Nameable{
   val OWNER_PREFIXED : Byte = 3
   val NAMEABLE_REF_PREFIXED : Byte = 4
 }
+
+//trait NameableComposite{
+//  def nameable : Nameable
+//}
 
 trait Nameable extends OwnableRef{
   import Nameable._

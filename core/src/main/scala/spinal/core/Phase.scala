@@ -1773,6 +1773,14 @@ object SpinalVhdlBoot{
 
     val phases = ArrayBuffer[Phase]()
 
+    phases +=new PhaseDummy({
+      var stack = 0
+      GlobalData.get.algoId = 1
+      for(i <- 0 until 1000000){
+        stack += GlobalData.get.algoId
+      }
+      SpinalProgress("BENCH" + stack)
+    })
     phases += new PhaseCreateComponent(gen)(pc)
 
 

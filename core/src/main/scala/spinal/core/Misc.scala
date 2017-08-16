@@ -49,10 +49,10 @@ object roundUp {
   }
 }
 
-//object cloneOf {
-//  //Return a new data with the same data structure than the given parameter (including bit width)
-//  def apply[T <: Data](that: T): T = that.clone().asInstanceOf[T]
-//}
+object cloneOf {
+  //Return a new data with the same data structure than the given parameter (including bit width)
+  def apply[T <: Data](that: T): T = that.clone().asInstanceOf[T]
+}
 //
 //object weakCloneOf {
 //  //Return a new data with the same data structure than the given parameter (execept bit width)

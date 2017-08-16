@@ -37,7 +37,7 @@ trait ConditionalContext extends GlobalDataUser{
 }
 
 
-class WhenContext2(whenStatement: WhenStatement) extends ConditionalContext with ScalaLocated {
+class WhenContext(whenStatement: WhenStatement) extends ConditionalContext with ScalaLocated {
   def otherwise(block: => Unit): Unit = {
     val dslContext = GlobalData.get.context
     dslContext.push(dslContext.head.copy(scope = whenStatement.whenFalse))
@@ -45,10 +45,10 @@ class WhenContext2(whenStatement: WhenStatement) extends ConditionalContext with
     dslContext.pop()
   }
 
-  def elsewhen(cond: Bool)(block: => Unit): WhenContext2 = {
-    var newWhenContext : WhenContext2 = null
+  def elsewhen(cond: Bool)(block: => Unit): WhenContext = {
+    var newWhenContext : WhenContext = null
     otherwise {
-      newWhenContext = when2(cond)(block)
+      newWhenContext = when(cond)(block)
     }
     newWhenContext
   }
@@ -64,7 +64,7 @@ object ConditionalContext{
     }
     globalData.context.push(componentContextStack.pop())
     val cond = Bool()
-    originalContext.component.dslBody.content.insert(0, new AssignementStatement(cond, new BoolLiteral(false))) //TODO IR ! insert 0 pas propre
+    originalContext.component.dslBody.prepend(new AssignementStatement(cond, new BoolLiteral(false)))
 
     while(componentContextStack.nonEmpty){
       globalData.context.push(componentContextStack.pop())
@@ -75,11 +75,11 @@ object ConditionalContext{
   }
 }
 
-object when2 {
-  def apply(cond: Bool)(block: => Unit): WhenContext2 = {
-    val dslContext = GlobalData.get.contextHead
+object when {
+  def apply(cond: Bool)(block: => Unit): WhenContext = {
+    val dslContext = cond.globalData.contextHead
     val whenStatement = new WhenStatement(new RefExpression(cond))
-    val whenContext = new WhenContext2(whenStatement)
+    val whenContext = new WhenContext(whenStatement)
     dslContext.component.addStatement(whenStatement)
     cond.globalData.context.push(cond.globalData.contextHead.copy(scope = whenStatement.whenTrue))
     block

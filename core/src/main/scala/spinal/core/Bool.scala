@@ -49,7 +49,8 @@ class Bool extends BaseType /*with DataPrimitives[Bool]*//* with BitwiseOp[Bool]
 
 //  private[spinal] override def _data: Bool = this
 
-//  /**
+
+  //  /**
 //    * Logical AND
 //    * @example{{{ val result = myBool1 && myBool2 }}}
 //    * @return a Bool assign with the AND result

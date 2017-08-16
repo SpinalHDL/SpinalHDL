@@ -169,10 +169,13 @@ trait BaseTypeCast /*extends SFixCast with UFixCast*/
 /**
   * Abstract base class of all Spinal types
   */
-abstract class BaseType extends Data with Nameable {
+abstract class BaseType extends Data with Nameable with AssignementStatementTarget {
 
 
-//
+  override private[core] def nameable: Nameable = this
+
+
+  //
 //  var input: Node = null
 //
 //  var defaultValue: BaseType = null
@@ -250,6 +253,8 @@ abstract class BaseType extends Data with Nameable {
         throw new Exception("Undefined assignment")
     }
 
+
+
     // TODO IR that.isInstanceOf[AssignementNode] || that.isInstanceOf[DontCareNode]
 //    if (that.isInstanceOf[BaseType]/* || that.isInstanceOf[AssignementNode] || that.isInstanceOf[DontCareNode]*/) {
 ////      BaseType.checkAssignability(this,that.asInstanceOf[Node])
@@ -258,6 +263,12 @@ abstract class BaseType extends Data with Nameable {
 //      throw new Exception("Undefined assignment")
 //    }
   }
+
+
+  override private[core] def initFromImpl(that: AnyRef): Unit =
+    LocatedPendingError(s"Try to set initial value of a data that is not a register ($this)")
+
+
 //
 //  // def castThatInSame(that: BaseType): this.type = throw new Exception("Not defined")
 //
@@ -268,11 +279,11 @@ abstract class BaseType extends Data with Nameable {
 //
 //  // = (this.flatten, that.flatten).zipped.map((a, b) => a.isNotEguals(b)).reduceLeft(_ || _)
 //  private[core] override def autoConnect(that: Data): Unit = autoConnectBaseImpl(that)
-//
-//  override def flatten: Seq[BaseType] = Seq(this)
-////
-//  override def flattenLocalName: Seq[String] = Seq("")
-//
+
+  override def flatten: Seq[BaseType] = Seq(this)
+
+  override def flattenLocalName: Seq[String] = Seq("")
+
   override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
 //
 //  def instanceAndSyncNodeAttributes : Iterable[Attribute] = {
@@ -290,11 +301,10 @@ abstract class BaseType extends Data with Nameable {
 //  }
 //
 //
-//  override def clone: this.type = {
-//    val res = this.getClass.newInstance.asInstanceOf[this.type]
-//    //res.dir = this.dir
-//    res
-//  }
+  override def clone: this.type = {
+    val res = this.getClass.newInstance.asInstanceOf[this.type]
+    res
+  }
 //
 //  private[core] def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer
 //  private[core] def newMultiplexer(cond: Node, whenTrue: Node, whenFalse: Node, mux: Multiplexer): Multiplexer = {

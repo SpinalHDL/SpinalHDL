@@ -1,37 +1,51 @@
 package spinal.core
 
+import scala.collection.mutable.ArrayBuffer
+
 /**
  * Created by PIC32F_USER on 14/08/2017.
  */
 object Play1 {
-  class TopLevel extends Component{
-//    for(i <- 0 until 1000000) {
-      val a, b, c, d, e, f, g, h, i, j = Bool()
 
-      b := True
-      b := a || c
-      c := b
+  class Logic {
+    val a, b, c, d, e, f, g, h, i, j = Bool()
+    val x,y,z = Reg(Bool())
+    b := True
+    b := a || c
+    x := d || y
+    c := b
 
-      when2(c) {
-        e := d
-        when2(d) {
-          f := e
-          f := ConditionalContext.isTrue
-        }
-        b := f
-      }.elsewhen(a) {
-        val x = Bool()
-        x := a || b
-        i := g || x
-
-      } otherwise {
-        b := j
+    when(c) {
+      e := d
+      when(d) {
+        f := e
+        f := f
       }
-//    }
+      b := f
+    }.elsewhen(a) {
+      val x = Bool()
+      x := a || b
+      i := g || x
+
+    } otherwise {
+      b := j
+    }
+  }
+  class TopLevel extends Component{
+    var l = ArrayBuffer[Logic]()
+    l.sizeHint(1100000)
+    SpinalProgress("TOP START")
+    var idx = 0
+    while(idx < 1) {
+      idx += 1
+      l += new Logic
+      if(idx % 10000 == 0) println(idx)
+    }
+    SpinalProgress("TOP END")
   }
 
   def main(args: Array[String]) {
     val toplevel = SpinalVhdl(new TopLevel()).toplevel
-     print(toplevel)
+     print("DONE " + toplevel.getName())
   }
 }
