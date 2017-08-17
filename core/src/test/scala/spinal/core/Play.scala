@@ -11,7 +11,7 @@ object Play1 {
     val a, b, c, d, e, f, g, h, i, j = Bool()
     val x,y,z = Reg(Bool())
     b := True
-    b := a || c
+    a := a || c
     x := d || y
     c := b
 
@@ -19,7 +19,7 @@ object Play1 {
       e := d
       when(d) {
         f := e
-        f := f
+        e := f
       }
       b := f
     }.elsewhen(a) {
@@ -36,11 +36,12 @@ object Play1 {
     l.sizeHint(1100000)
     SpinalProgress("TOP START")
     var idx = 0
-    while(idx < 1) {
+    while(idx < 500000) {
       idx += 1
       l += new Logic
       if(idx % 10000 == 0) println(idx)
     }
+    l = null
     SpinalProgress("TOP END")
   }
 
