@@ -797,7 +797,7 @@ end
               }
             }
             case memWrite: MemWrite => {
-              if(memWrite.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${memWrite.getMem} because of its mixed width ports")
+              if(memWrite.aspectRatio != 1) SpinalError(s"Verilog backend can't emit ${memWrite.getMem} because of its mixed width ports")
 
               if (memWrite.useWriteEnable) {
                 ret ++= s"${tab}if(${emitReference(memWrite.getEnable)})begin\n"
@@ -836,7 +836,7 @@ end
               }
             }
             case memReadSync: MemReadSync => {
-              if(memReadSync.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${memReadSync.getMem} because of its mixed width ports")
+              if(memReadSync.aspectRatio != 1) SpinalError(s"Verilog backend can't emit ${memReadSync.getMem} because of its mixed width ports")
               if(memReadSync.readUnderWrite == writeFirst) SpinalError(s"Can't translate a memReadSync with writeFirst into Verilog $memReadSync")
               if(memReadSync.readUnderWrite == dontCare) SpinalWarning(s"memReadSync with dontCare is as readFirst into Verilog $memReadSync")
               if(memReadSync.useReadEnable) {
@@ -859,7 +859,7 @@ end
 
             case memWrite: MemReadWrite_writePart => {
               val memReadSync = memWrite.readPart
-              if(memWrite.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${memWrite.getMem} because of its mixed width ports")
+              if(memWrite.aspectRatio != 1) SpinalError(s"Verilog backend can't emit ${memWrite.getMem} because of its mixed width ports")
               if (memReadSync.readUnderWrite == writeFirst) SpinalError(s"Can't translate a MemWriteOrRead with writeFirst into Verilog $memReadSync")
               if (memReadSync.readUnderWrite == dontCare) SpinalWarning(s"MemWriteOrRead with dontCare is as readFirst into Verilog $memReadSync")
 
