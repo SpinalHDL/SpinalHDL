@@ -271,10 +271,10 @@ end
               val filledValue = "0" * (mem.getWidth-unfilledValue.length) + unfilledValue
               if(memBitsMaskKind == MULTIPLE_RAM && symbolCount != 1) {
                 for(i <- (0 until symbolCount)){
-                  ret ++= s"    ${emitReference(mem)}_symbol$i[$index] = 'b${filledValue.substring(symbolWidth*(symbolCount-i-1), symbolWidth*(symbolCount-i))};\n"
+                  ret ++= s"    ${emitReference(mem)}_symbol$i[$index] = ${symbolWidth}'b${filledValue.substring(symbolWidth*(symbolCount-i-1), symbolWidth*(symbolCount-i))};\n"
                 }
               }else{
-                ret ++= s"    ${emitReference(mem)}[$index] = 'b$filledValue;\n"
+                ret ++= s"    ${emitReference(mem)}[$index] = ${symbolWidth}'b$filledValue;\n"
               }
             }
 
