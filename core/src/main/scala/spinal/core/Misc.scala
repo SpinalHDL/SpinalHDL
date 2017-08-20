@@ -261,7 +261,7 @@ class Scope(parent : Scope = null) {
     assert(!lock)
     val lowerCase = name.toLowerCase
     if (map.contains(lowerCase) ||  (parent != null && parent.map.contains(lowerCase)))
-      SpinalError(errorMessage)
+      PendingError(errorMessage)
     map(lowerCase) = 1
   }
 

@@ -173,7 +173,7 @@ abstract class BaseType extends Data with Nameable with AssignementStatementTarg
 
 
   override private[core] def nameable: Nameable = this
-
+  override def isReg = compositeAssign.isInstanceOf[RegDataComposite]
 
   //
 //  var input: Node = null
@@ -217,7 +217,7 @@ abstract class BaseType extends Data with Nameable with AssignementStatementTarg
 //    case _            => null.asInstanceOf[T]
 //  }
 //
-//  override def isReg = input.isInstanceOf[Reg]
+
 //
 //  def getDrivingReg: this.type = input match{
 //    case reg: Reg     => this

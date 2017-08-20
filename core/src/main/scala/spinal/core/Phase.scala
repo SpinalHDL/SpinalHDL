@@ -1798,7 +1798,7 @@ object SpinalVhdlBoot{
 //    }
 
    // phases += initVhdlBase(new PhaseVhdl2(pc))
-
+    phases += new PhaseVhdl(pc)
 
 
  /*   if(config.keepAll) phases  += new PhaseKeepAll(pc)

@@ -16,7 +16,7 @@
 // * License along with this library.
 // */
 //
-//package spinal.core
+package spinal.core
 //
 //import scala.collection.mutable
 //import scala.collection.mutable.{StringBuilder, ArrayBuffer}
@@ -26,7 +26,7 @@
 // */
 //
 //
-//trait VhdlBase extends VhdlVerilogBase{
+trait VhdlBase extends VhdlVerilogBase{
 //
 //  var enumPackageName = "pkg_enum"
 //  var packageName = "pkg_scala2hdl"
@@ -110,4 +110,4 @@
 //      }
 //    }
 //  }
-//}
+}

@@ -168,8 +168,10 @@ trait MinMaxProvider {
 
 
 trait ContextUser extends GlobalDataUser {
-  var component = Component.current(globalData)
-  private[core] var conditionalAssignScope = globalData.conditionalAssignStack.head()
+  private[core] val dslContext = globalData.context.head
+  def component = dslContext.component
+
+//  private[core] var conditionalAssignScope = globalData.conditionalAssignStack.head()
   private[core] var instanceCounter = globalData.getInstanceCounter
 
   def getInstanceCounter = instanceCounter
@@ -361,7 +363,7 @@ object Nameable{
 //  def nameable : Nameable
 //}
 
-trait Nameable extends OwnableRef{
+trait Nameable extends OwnableRef with ContextUser{
   import Nameable._
   private var name : String = null
   private var nameableRef : Nameable = null

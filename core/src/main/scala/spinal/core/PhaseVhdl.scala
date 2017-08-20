@@ -1,4 +1,8 @@
-//package spinal.core
+package spinal.core
+
+import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
+
 //
 //import scala.collection.mutable
 //import scala.collection.mutable.{ArrayBuffer, StringBuilder, HashMap}
@@ -10,8 +14,120 @@
 //
 //
 //
-//class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
-//  import pc._
+class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
+  import pc._
+
+  override def useNodeConsumers: Boolean = false
+
+  override def impl(pc: PhaseContext): Unit = {
+
+    for (c <- sortedComponents) {
+      if (!c.isInBlackBoxTree) {
+        SpinalProgress(s"${"  " * (1 + c.level)}emit ${c.definitionName}")
+        compile(c)
+      }
+    }
+
+  }
+
+  def compile(component: Component): Unit = {
+    val text = emit(component)
+//    outFile.write(text)
+  }
+
+  class Process(){
+    val leafStatements = ArrayBuffer[LeafStatement]()
+    val treeStatements = ArrayBuffer[TreeStatement]()
+    val nameableTargets = ArrayBuffer[Nameable]()
+  }
+
+  //all non conditional statments
+  //regroupe per target
+  //regroupe per shared root conditional statments, should have same root scope
+  def emit(component: Component): String = {
+
+    val scopeSplits = GraphUtils.splitByScope(component.nameables)
+
+    val asyncStatement = ArrayBuffer[Statement]()
+    component.dslBody.walkStatements(s => if(s.isInstanceOf[LeafStatement]) asyncStatement += s)
+
+    //process per target
+    val processPerTarget = mutable.HashMap[Any,Process]()
+    val rootTreeStatementPerProcess = mutable.HashMap[TreeStatement,Process]()
+    for(s <- asyncStatement) s match{
+      case s : AssignementStatement => {
+        var rootTreeStatement: TreeStatement = null
+        var scopePtr = s.parentScope
+        val rootScope = s.rootScopeStatement
+
+        while (scopePtr != rootScope) {
+          rootTreeStatement = scopePtr.parentStatement
+          scopePtr = scopePtr.parentStatement.parentScope
+        }
+        if (rootTreeStatement != null) {
+          val preExistingTargetProcess = processPerTarget.getOrElse(s.target, null)
+          val preExistingRootTreeProcess = rootTreeStatementPerProcess.getOrElse(rootTreeStatement, null)
+
+          if(preExistingTargetProcess == null && preExistingRootTreeProcess == null){ //Create new process
+            val process = new Process()
+            processPerTarget(s.target) = process
+            rootTreeStatementPerProcess(rootTreeStatement) = process
+            process.nameableTargets += s.target.nameable
+            process.treeStatements += rootTreeStatement
+          } else if(preExistingTargetProcess != null && preExistingRootTreeProcess == null){
+            val process = preExistingTargetProcess
+            rootTreeStatementPerProcess(rootTreeStatement) = process
+            process.treeStatements += rootTreeStatement
+          } else if(preExistingTargetProcess == null && preExistingRootTreeProcess != null){
+            val process = preExistingRootTreeProcess
+            processPerTarget(s.target) = process
+            process.nameableTargets += s.target.nameable
+          } else if(preExistingTargetProcess != preExistingRootTreeProcess) { //Merge
+            val process = preExistingRootTreeProcess
+            processPerTarget(s.target) = process
+            process.treeStatements ++= preExistingTargetProcess.treeStatements
+            process.nameableTargets ++= preExistingTargetProcess.nameableTargets
+            preExistingTargetProcess.nameableTargets.foreach(processPerTarget(_) = process)
+          }
+        }
+      }
+    }
+
+
+//    //regroup per target
+//    val groupPerTarget = mutable.HashMap[Any,ArrayBuffer[Statement]]()
+//    for(s <- asyncStatement) s match{
+//      case s : AssignementStatement => groupPerTarget.getOrElseUpdate(s.target.nameable, ArrayBuffer[Statement]()) += s
+//    }
+
+    //regroup per shared conditional statments
+    val grapPerCondStatments = mutable.HashMap[Any,ArrayBuffer[Statement]]()
+    for((rootScopes, nameables) <- scopeSplits) {
+      val processSplits = mutable.HashMap[Statement, Process]()
+      for(nameable <- nameables){
+
+      }
+    }
+
+//    val ret = new StringBuilder()
+//    val builder = new ComponentBuilder(component)
+//
+//    emitLibrary(builder)
+//    emitEntity(component, builder)
+//    emitArchitecture(component, builder)
+//
+//    val oldBuilder = emitedComponent.getOrElse(builder, null)
+//    if (oldBuilder == null) {
+//      emitedComponent += (builder -> builder)
+//      return builder.result
+//    } else {
+//      emitedComponentRef += (component -> oldBuilder.component)
+//      return s"\n--${component.definitionName} remplaced by ${oldBuilder.component.definitionName}\n\n"
+//    }
+    ""
+  }
+
+
 //  override def useNodeConsumers: Boolean = true
 //
 //  var outFile: java.io.FileWriter = null
@@ -44,10 +160,7 @@
 //
 //
 //
-//  def compile(component: Component): Unit = {
-//    val text = emit(component)
-//    outFile.write(text)
-//  }
+
 //
 //
 //
@@ -1715,4 +1828,4 @@
 //      ret ++= s"\n"
 //    }
 //  }
-//}
+}

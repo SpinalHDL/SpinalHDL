@@ -1,4 +1,4 @@
-//package spinal.core
+package spinal.core
 //
 //import java.text.SimpleDateFormat
 //import java.util
@@ -221,7 +221,7 @@
 //}
 //
 //
-//trait VhdlVerilogBase {
+trait VhdlVerilogBase {
 //  def isReferenceable(node: Node) = node.isInstanceOf[Nameable]
 //
 //  def getSensitivity(nodes: Iterable[Node], includeNodes: Boolean): mutable.Set[Node] = {
@@ -344,4 +344,4 @@
 //    processList
 //  }
 //
-//}
+}

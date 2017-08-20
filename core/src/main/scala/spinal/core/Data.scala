@@ -369,7 +369,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable  with In
 //    this
 //  }
 
-//  def isReg: Boolean = flatten.foldLeft(true)(_ && _.isReg)
+  def isReg: Boolean = flatten.foldLeft(true)(_ && _.isReg)
 
 
   /*private[core] */

@@ -81,20 +81,27 @@ object Component {
   *
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/components_hierarchy Component Documentation]]
   */
-abstract class Component extends NameableByComponent with GlobalDataUser with ScalaLocated with DelayedInit with Stackable with OwnableRef{
-  private[core] val dslContext = globalData.context.head
-  private[core] val dslBody = new ScopeStatement()
-//  private[core] var dslBodyLocation : Statement = dslBody
+abstract class Component extends NameableByComponent with ContextUser with ScalaLocated with DelayedInit with Stackable with OwnableRef{
+  private[core] val dslBody = new ScopeStatement(null)
 
-  def addStatement(s : Statement) : Unit = globalData.context.head.scope.append(s)
+  /** Contains all in/out signals of the component */
+  private[core] val ioSet = mutable.Set[BaseType]()
 
+
+  def addStatement(statement : Statement) : Unit = {
+    val scope = globalData.context.head.scope
+    statement.parentScope = scope
+    scope.append(statement)
+  }
+  def ownNameables = nameables.withFilter(_.component == this)
   def nameables = {
     val nameablesSet = mutable.HashSet[Nameable]()
     nameablesSet ++= children
     nameablesSet ++= ioSet
 
+
     def expressionWalker(s : Expression): Unit = s match {
-      case s : RefExpression => nameablesSet += s.source
+      case s : RefExpression => nameablesSet += (s.source)
       case _ => s.foreachExpression(expressionWalker)
     }
 
@@ -102,13 +109,12 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
       s.foreachExpression(expressionWalker)
       s.foreachStatements(statementWalker)
       s match {
-        case a : AssignementStatement => nameablesSet += a.target.nameable
+        case a : AssignementStatement => nameablesSet += (a.target.nameable)
         case _ =>
       }
     }
 
     dslBody.foreachStatements(statementWalker)
-
     nameablesSet
   }
 
@@ -118,8 +124,6 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
 
   /** Array of PrePopTask */
   private[core] var prePopTasks = mutable.ArrayBuffer[PrePopTask]()
-  /** Contains all in/out signals of the component */
-  private[core] val ioSet = mutable.Set[BaseType]()
   /** enable/disable "io_" prefix in front of the in/out signals in the RTL */
   private[core] var ioPrefixEnable = true
   /** Used to store arbitrary object related to the component */
@@ -276,7 +280,7 @@ abstract class Component extends NameableByComponent with GlobalDataUser with Sc
     val localScope = globalScope.newChild
     localScope.allocateName(globalData.anonymSignalPrefix)
 
-    for (nameable <- nameables) nameable match {
+    for (nameable <- ownNameables) nameable match {
       case child : Component =>
         OwnableRef.proposal(child,this)
         if (child.isUnnamed) {

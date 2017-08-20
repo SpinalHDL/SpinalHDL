@@ -28,9 +28,14 @@ class RefExpression(val source : Nameable) extends Expression{
   }
 }
 
+
+
 trait Statement{
+  var parentScope : ScopeStatement = null
+  def rootScopeStatement : ScopeStatement
+//  def isConditionalStatement : Boolean
 //  var previous, next : Statement = null
-  
+
   def foreachStatements(func : (Statement) => Unit)
   def walkStatements(func : (Statement) => Unit): Unit ={
     foreachStatements(s => {
@@ -39,16 +44,29 @@ trait Statement{
     })
   }
   def foreachExpression(func : (Expression) => Unit) : Unit
+  def walkExpression(func : (Expression) => Unit): Unit ={
+    foreachExpression(e => {
+      func(e)
+      e.walkExpression(func)
+    })
+  }
 }
+trait LeafStatement extends Statement
+trait TreeStatement extends Statement
+
 trait AssignementStatementTarget {
   private [core] def nameable : Nameable
 }
-class AssignementStatement(val target : AssignementStatementTarget ,val  source : Expression) extends Statement{
+class AssignementStatement(val target : AssignementStatementTarget ,val  source : Expression) extends LeafStatement{
+  override def rootScopeStatement = target.nameable.dslContext.scope
+//  override def isConditionalStatement: Boolean = false
   def foreachStatements(func : (Statement) => Unit) = Unit
   def foreachExpression(func : (Expression) => Unit) : Unit = func(source)
 }
-class WhenStatement(val cond : Expression) extends Statement{
-  val whenTrue, whenFalse = new ScopeStatement
+class WhenStatement(val cond : Expression) extends TreeStatement{
+  val whenTrue, whenFalse = new ScopeStatement(this)
+  override def rootScopeStatement: ScopeStatement = ??? //doesn't make sense
+//  override def isConditionalStatement: Boolean = true
 
   def foreachStatements(func : (Statement) => Unit) = {
     whenTrue.foreachStatements(func)
@@ -60,8 +78,9 @@ class WhenStatement(val cond : Expression) extends Statement{
   }
 }
 
-class ScopeStatement(){
+class ScopeStatement(var parentStatement : TreeStatement){
   val content = mutable.ListBuffer[Statement]() //TODO IR ! linkedlist  hard
+
   def append(that : Statement) : this.type = {
     content += that
     this
@@ -74,6 +93,13 @@ class ScopeStatement(){
 
   def foreachStatements(func : (Statement) => Unit) = {
     content.foreach(func)
+  }
+
+  def walkStatements(func : (Statement) => Unit): Unit ={
+    foreachStatements(s => {
+      func(s)
+      s.walkStatements(func)
+    })
   }
 }
 
@@ -115,3 +141,14 @@ class ScopeStatement(){
 //    }
 //  }
 //}
+
+
+object GraphUtils{
+  def splitByScope(nameables : TraversableOnce[Nameable]): mutable.HashMap[ScopeStatement,mutable.HashSet[Nameable]] = {
+    val dic = mutable.HashMap[ScopeStatement,mutable.HashSet[Nameable]]()
+    for(n <- nameables){
+      dic.getOrElseUpdate(n.dslContext.scope, new mutable.HashSet[Nameable]) += n
+    }
+    dic
+  }
+}
