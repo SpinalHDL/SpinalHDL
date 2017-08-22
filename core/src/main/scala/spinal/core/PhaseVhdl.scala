@@ -1,7 +1,7 @@
 package spinal.core
 
 import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.{ListBuffer, ArrayBuffer}
 
 //
 //import scala.collection.mutable
@@ -35,24 +35,27 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 //    outFile.write(text)
   }
 
-  class Process(){
+  class Process(val scope : ScopeStatement){
     val leafStatements = ArrayBuffer[LeafStatement]()
-    val treeStatements = ArrayBuffer[TreeStatement]()
-    val nameableTargets = ArrayBuffer[Nameable]()
+    var treeStatements = List[TreeStatement]()
+    var nameableTargets = List[Nameable]()
   }
 
-  //all non conditional statments
-  //regroupe per target
-  //regroupe per shared root conditional statments, should have same root scope
-  def emit(component: Component): String = {
 
+  class ComponentBuilder{
+    val entity = new StringBuilder()
+    val declarations = new StringBuilder()
+    val logics = new StringBuilder()
+  }
+  def emit(component: Component): String = {
+    val b = new ComponentBuilder()
     val scopeSplits = GraphUtils.splitByScope(component.nameables)
 
-    val asyncStatement = ArrayBuffer[Statement]()
-    component.dslBody.walkStatements(s => if(s.isInstanceOf[LeafStatement]) asyncStatement += s)
+    val asyncStatement = ArrayBuffer[LeafStatement]()
+    component.dslBody.walkLeafStatements(s => asyncStatement += s)
 
     //process per target
-    val processPerTarget = mutable.HashMap[Any,Process]()
+    val processFromNameableTarget = mutable.HashMap[Nameable,Process]()
     val rootTreeStatementPerProcess = mutable.HashMap[TreeStatement,Process]()
     for(s <- asyncStatement) s match{
       case s : AssignementStatement => {
@@ -65,49 +68,66 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
           scopePtr = scopePtr.parentStatement.parentScope
         }
         if (rootTreeStatement != null) {
-          val preExistingTargetProcess = processPerTarget.getOrElse(s.target, null)
+          val preExistingTargetProcess = processFromNameableTarget.getOrElse(s.target.nameable, null)
           val preExistingRootTreeProcess = rootTreeStatementPerProcess.getOrElse(rootTreeStatement, null)
 
           if(preExistingTargetProcess == null && preExistingRootTreeProcess == null){ //Create new process
-            val process = new Process()
-            processPerTarget(s.target) = process
+            val process = new Process(rootScope)
+            processFromNameableTarget(s.target.nameable) = process
             rootTreeStatementPerProcess(rootTreeStatement) = process
-            process.nameableTargets += s.target.nameable
-            process.treeStatements += rootTreeStatement
+            process.nameableTargets = s.target.nameable :: process.nameableTargets
+            process.treeStatements = rootTreeStatement :: process.treeStatements
           } else if(preExistingTargetProcess != null && preExistingRootTreeProcess == null){
             val process = preExistingTargetProcess
             rootTreeStatementPerProcess(rootTreeStatement) = process
-            process.treeStatements += rootTreeStatement
+            process.treeStatements = rootTreeStatement :: process.treeStatements
           } else if(preExistingTargetProcess == null && preExistingRootTreeProcess != null){
             val process = preExistingRootTreeProcess
-            processPerTarget(s.target) = process
-            process.nameableTargets += s.target.nameable
+            processFromNameableTarget(s.target.nameable) = process
+            process.nameableTargets = s.target.nameable :: process.nameableTargets
           } else if(preExistingTargetProcess != preExistingRootTreeProcess) { //Merge
             val process = preExistingRootTreeProcess
-            processPerTarget(s.target) = process
+            processFromNameableTarget(s.target.nameable) = process
             process.treeStatements ++= preExistingTargetProcess.treeStatements
             process.nameableTargets ++= preExistingTargetProcess.nameableTargets
-            preExistingTargetProcess.nameableTargets.foreach(processPerTarget(_) = process)
+            preExistingTargetProcess.nameableTargets.foreach(processFromNameableTarget(_) = process)
           }
         }
       }
     }
 
-
-//    //regroup per target
-//    val groupPerTarget = mutable.HashMap[Any,ArrayBuffer[Statement]]()
-//    for(s <- asyncStatement) s match{
-//      case s : AssignementStatement => groupPerTarget.getOrElseUpdate(s.target.nameable, ArrayBuffer[Statement]()) += s
-//    }
-
-    //regroup per shared conditional statments
-    val grapPerCondStatments = mutable.HashMap[Any,ArrayBuffer[Statement]]()
-    for((rootScopes, nameables) <- scopeSplits) {
-      val processSplits = mutable.HashMap[Statement, Process]()
-      for(nameable <- nameables){
-
+    //add assignement into processes
+    val processes = mutable.HashSet[Process]() ++= rootTreeStatementPerProcess.valuesIterator
+    for(s <- asyncStatement) s match {
+      case s: AssignementStatement => {
+        var process = processFromNameableTarget.getOrElse(s.target.nameable,null)
+        if(process == null){
+          process = new Process(s.rootScopeStatement)
+          process.nameableTargets = s.target.nameable :: process.nameableTargets
+        }
+        process.leafStatements += s
+        processes += process
       }
     }
+
+    //identify processes duplicated expression
+    val algoId = GlobalData.get.allocateAlgoId()
+    val wrappedExpressionToName = mutable.HashMap[Expression, String]()
+    for(process <- processes){
+      for(treeStatement <- process.treeStatements){
+//        leafStatement.walkParentTreeStatements(treeStatement => {
+          treeStatement.walkExpression(e => {
+            if(e.algoId == algoId){
+              wrappedExpressionToName(e) = "AlocateAName"
+            }
+            e.algoId = algoId
+          })
+//        })
+      }
+    }
+
+
+    processes.foreach(emitAsyncronous(b, _))
 
 //    val ret = new StringBuilder()
 //    val builder = new ComponentBuilder(component)
@@ -124,9 +144,193 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 //      emitedComponentRef += (component -> oldBuilder.component)
 //      return s"\n--${component.definitionName} remplaced by ${oldBuilder.component.definitionName}\n\n"
 //    }
+
+
+    println(b.logics.toString)
     ""
   }
 
+
+  def emitAsyncronous(b : ComponentBuilder, process: Process): Unit = {
+    process match {
+      case _ if process.leafStatements.size == 1 => {
+        b.logics ++= emitAssignement(process.leafStatements.head.asInstanceOf[AssignementStatement], "  ", "<=")
+      }
+      case _ => {
+        val tmp = new StringBuilder
+
+       // val sensitivity =  process.leafStatements.foreach(_.walkExpression(_.))
+//        emitAssignementLevel(context,tmp, "    ", "<=",false,process.sensitivity)
+//
+//        //TODO sensitivity list generation no more required
+////        ret ++= s"  process(${process.sensitivity.toList.sortWith(_.instanceCounter < _.instanceCounter).map(emitReference(_)).reduceLeft(_ + "," + _)})\n"
+//        ret ++= s"  process(${referenceSet.toList.sortWith(_.instanceCounter < _.instanceCounter).map(emitReference(_)).reduceLeft(_ + "," + _)})\n"
+        tmp ++= "  begin\n"
+        emitLeafStatements(process.leafStatements, 0, process.scope, "<=",tmp, "    ")
+//        var scopePtr = process.scope
+//        process.leafStatements.foreach(leaf => {
+//          val assignement = leaf.asInstanceOf[AssignementStatement]
+//          val targetScope = assignement.parentScope
+//          if(targetScope != scopePtr){
+//
+//          }
+//          tmp ++= emitAssignement(assignement,"  ", "<=")
+//        })
+        tmp ++= "  end process;\n\n"
+
+        b.logics ++= tmp.toString()
+      }
+    }
+  }
+
+
+  def emitLeafStatements(statements : ArrayBuffer[LeafStatement], statementIndexInit : Int, scope : ScopeStatement, assignementKind : String, b : StringBuilder, tab : String): Int ={
+    var statementIndex = statementIndexInit
+    var lastWhen : WhenStatement = null
+    def closeSubs() : Unit = {
+      if(lastWhen != null) {
+        b ++= s"${tab}end if;\n"
+        lastWhen = null
+      }
+    }
+    while(statementIndex < statements.length){
+      val leaf = statements(statementIndex)
+      val assignement = leaf.asInstanceOf[AssignementStatement]
+      val targetScope = assignement.parentScope
+      if(targetScope == scope){
+        closeSubs()
+        b ++= emitAssignement(assignement,tab, assignementKind)
+        statementIndex += 1
+      } else {
+        var scopePtr = targetScope
+        while(scopePtr.parentStatement != null && scopePtr.parentStatement.parentScope != scope){
+          scopePtr = scopePtr.parentStatement.parentScope
+        }
+        if(scopePtr.parentStatement == null) {
+          closeSubs()
+          return statementIndex
+        }
+        val treeStatement = scopePtr.parentStatement
+        if(treeStatement != lastWhen)
+          closeSubs()
+        treeStatement match {
+          case treeStatement : WhenStatement => {
+            if(scopePtr == treeStatement.whenTrue){
+              b ++= s"${tab}if ${emitExpression(treeStatement.cond)} = '1' then\n"
+            } else if(lastWhen == treeStatement){
+//              if(scopePtr.sizeIsOne && scopePtr.head.isInstanceOf[WhenStatement]){
+//                b ++= s"${tab}if ${emitExpression(treeStatement.cond)} = '1' then\n"
+//              } else {
+                b ++= s"${tab}else\n"
+//              }
+            } else {
+              b ++= s"${tab}if ${emitExpression(treeStatement.cond)} = '0' then\n"
+            }
+            lastWhen = treeStatement
+          }
+        }
+
+        statementIndex = emitLeafStatements(statements,statementIndex, scopePtr, assignementKind,b, tab + "  ")
+      }
+    }
+    closeSubs()
+    return statementIndex
+  }
+//        for (process <- processList if !process.needProcessDef) {
+//          for (node <- process.nodes) {
+//            emitAssignement(node, node.getInput(0), ret, "  ", "<=")
+//          }
+//        }
+//
+//        referenceSet = mutable.Set[Node with Nameable with ContextUser]()
+//        for (process <- processList if process.needProcessDef) {
+//          process.genSensitivity
+//
+//          val context = new AssignementLevel(process.nodes.map(n => AssignementLevelCmd(n,n.getInput(0))))
+//
+//          if (process.sensitivity.size != 0) {
+//            val tmp = new StringBuilder
+//            referenceSet.clear()
+//            emitAssignementLevel(context,tmp, "    ", "<=",false,process.sensitivity)
+//
+//            //TODO sensitivity list generation no more required
+//    //        ret ++= s"  process(${process.sensitivity.toList.sortWith(_.instanceCounter < _.instanceCounter).map(emitReference(_)).reduceLeft(_ + "," + _)})\n"
+//            ret ++= s"  process(${referenceSet.toList.sortWith(_.instanceCounter < _.instanceCounter).map(emitReference(_)).reduceLeft(_ + "," + _)})\n"
+//            ret ++= "  begin\n"
+//            ret ++= tmp
+//            ret ++= "  end process;\n\n"
+//          } else {
+//            //emit func as logic
+//            assert(process.nodes.size == 1)
+//            for (node <- process.nodes) {
+//              val funcName = "zz_" + emitReference(node)
+//              funcRet ++= emitFuncDef(funcName, node, context)
+//              ret ++= s"  ${emitReference(node)} <= ${funcName};\n"
+//              //          ret ++= s"  ${emitReference(node)} <= ${emitLogic(node.getInput(0))};\n"
+//            }
+//          }
+//        }
+//        referenceSet = null
+
+
+  def emitAssignement(assignement : AssignementStatement, tab: String, assignementKind: String): String = {
+    assignement match {
+//      case from: AssignementNode => {
+//        from match {
+//          case assign: BitAssignmentFixed => ret ++= s"$tab${emitAssignedReference(to)}(${assign.getBitId}) ${assignementKind} ${emitLogic(assign.getInput)};\n"
+//          case assign: BitAssignmentFloating => ret ++= s"$tab${emitAssignedReference(to)}(to_integer(${emitLogic(assign.getBitId)})) ${assignementKind} ${emitLogic(assign.getInput)};\n"
+//          case assign: RangedAssignmentFixed => ret ++= s"$tab${emitAssignedReference(to)}(${assign.getHi} downto ${assign.getLo}) ${assignementKind} ${emitLogic(assign.getInput)};\n"
+//          case assign: RangedAssignmentFloating => ret ++= s"$tab${emitAssignedReference(to)}(${assign.getBitCount.value - 1} + to_integer(${emitLogic(assign.getOffset)}) downto to_integer(${emitLogic(assign.getOffset)})) ${assignementKind} ${emitLogic(assign.getInput)};\n"
+//        }
+//      }
+      case _ => s"$tab${emitReference(assignement.target.nameable)} ${assignementKind} ${emitExpression(assignement.source)};\n"
+    }
+  }
+
+  def emitReference(that : Nameable): String ={
+    that.getNameElseThrow
+  }
+
+  def emitExpression(that : Expression) : String = modifierImplMap.getOrElse(that.opName, throw new Exception("can't find " + that.opName))(that)
+  //
+  //    case lit: BitsLiteral => s"pkg_stdLogicVector(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
+  //    case lit: UIntLiteral => s"pkg_unsigned(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
+  //    case lit: SIntLiteral => s"pkg_signed(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
+  //
+  //    case lit: BitsAllToLiteral => lit.theConsumer match {
+  //      case _: Bits => s"pkg_stdLogicVector(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
+  //      case _: UInt => s"pkg_unsigned(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
+  //      case _: SInt => s"pkg_signed(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
+  //    }
+  //    case lit: BoolLiteral => s"pkg_toStdLogic(${lit.value})"
+  //    //  case lit: BoolLiteral => if(lit.value) "'1'" else "'0'" //Invalid VHDL when '1' = '1'
+  //    case lit: EnumLiteral[_] => emitEnumLiteral(lit.enum, lit.encoding)
+  //    case memRead: MemReadAsync => {
+  //      if(memRead.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${memRead.getMem} because of its mixed width ports")
+  //      if (memRead.readUnderWrite == dontCare) SpinalWarning(s"memReadAsync with dontCare is as writeFirst into VHDL")
+  //      val symbolCount = memRead.getMem.getMemSymbolCount
+  //      if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
+  //        s"${emitReference(memRead.getMem)}(to_integer(${emitReference(memRead.getAddress)}))"
+  //      else
+  //        (0 until symbolCount).reverse.map(i => (s"${emitReference(memRead.getMem)}_symbol$i(to_integer(${emitReference(memRead.getAddress)}))")).reduce(_ + " & " + _)
+  //    }
+  //    case whenNode: WhenNode => s"pkg_mux(${whenNode.getInputs.map(emitLogic(_)).reduce(_ + "," + _)})" //Exeptional case with asyncrouns of literal
+  //    case dc : DontCareNodeEnum => {
+  //      if(dc.encoding.isNative)
+  //        return "pkg_enum." + dc.enum.elements.head.getName()
+  //      else
+  //        return s"(${'"'}${"-" * dc.encoding.getWidth(dc.enum)}${'"'})"
+  //    }
+  //    case dc: DontCareNode => {
+  //      dc.getBaseType match {
+  //        case to: Bool => s"'-'"
+  //        case to: BitVector => s"(${'"'}${"-" * dc.asInstanceOf[Widthable].getWidth}${'"'})"
+  //      }
+//      }
+
+
+    //case o => throw new Exception("Don't know how emit logic of " + o.getClass.getSimpleName)
+ // }
 
 //  override def useNodeConsumers: Boolean = true
 //
@@ -1025,13 +1229,20 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 //  }
 //
 //
-//  def operatorImplAsBinaryOperator(vhd: String)(op: Modifier): String = {
-//    val temp = s"(${emitLogic(op.getInput(0))} $vhd ${emitLogic(op.getInput(1))})"
-//    if (opThatNeedBoolCast.contains(op.opName))
-//      return s"pkg_toStdLogic$temp"
-//    else
-//      return temp
-//  }
+
+  def refImpl(op: Expression): String = op.asInstanceOf[RefExpression].source.getName()
+
+
+  def operatorImplAsBinaryOperator(vhd: String)(op: Expression): String = {
+    val binaryOp = op.asInstanceOf[BinaryOperator]
+    val temp = s"(${emitExpression(binaryOp.left)} $vhd ${emitExpression(binaryOp.right)})"
+    if (opThatNeedBoolCast.contains(binaryOp.opName))
+      return "pkg_toStdLogic" + temp
+    else
+      return temp
+  }
+
+  def boolLiteralImpl(op: Expression) : String = s"pkg_toStdLogic(${op.asInstanceOf[BoolLiteral].value})"
 //
 //  def moduloImpl(op: Modifier): String = {
 //    val mod = op.asInstanceOf[Operator.BitVector.Mod]
@@ -1166,9 +1377,11 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 //
 //
 //
-//  val modifierImplMap = mutable.Map[String, Modifier => String]()
-//
-//
+  val modifierImplMap = mutable.Map[String, Expression => String]()
+
+  modifierImplMap.put("(x)", refImpl)
+  modifierImplMap.put("Bool(x)", boolLiteralImpl)
+
 //  //unsigned
 //  modifierImplMap.put("u+u", operatorImplAsBinaryOperator("+"))
 //  modifierImplMap.put("u-u", operatorImplAsBinaryOperator("-"))
@@ -1255,7 +1468,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 //
 //  modifierImplMap.put("!", operatorImplAsUnaryOperator("not"))
 //  modifierImplMap.put("&&", operatorImplAsBinaryOperator("and"))
-//  modifierImplMap.put("||", operatorImplAsBinaryOperator("or"))
+  modifierImplMap.put("||", operatorImplAsBinaryOperator("or"))
 //  modifierImplMap.put("B^B", operatorImplAsBinaryOperator("xor"))
 //
 //
@@ -1336,16 +1549,17 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 //  }
 //
 //
-//  def opThatNeedBoolCastGen(a: String, b: String): List[String] = {
-//    ("==" :: "!=" :: "<" :: "<=" :: Nil).map(a + _ + b)
-//  }
-//
-//  val opThatNeedBoolCast = mutable.Set[String]()
-//  opThatNeedBoolCast ++= opThatNeedBoolCastGen("B", "B")
-//  opThatNeedBoolCast ++= opThatNeedBoolCastGen("b", "b")
-//  opThatNeedBoolCast ++= opThatNeedBoolCastGen("u", "u")
-//  opThatNeedBoolCast ++= opThatNeedBoolCastGen("s", "s")
-//  opThatNeedBoolCast ++= opThatNeedBoolCastGen("e", "e")
+  def opThatNeedBoolCastGen(a: String, b: String): List[String] = {
+    ("==" :: "!=" :: "<" :: "<=" :: Nil).map(a + _ + b)
+  }
+
+  //TODO remove for something faster
+  val opThatNeedBoolCast = mutable.Set[String]()
+  opThatNeedBoolCast ++= opThatNeedBoolCastGen("B", "B")
+  opThatNeedBoolCast ++= opThatNeedBoolCastGen("b", "b")
+  opThatNeedBoolCast ++= opThatNeedBoolCastGen("u", "u")
+  opThatNeedBoolCast ++= opThatNeedBoolCastGen("s", "s")
+  opThatNeedBoolCast ++= opThatNeedBoolCastGen("e", "e")
 //
 //
 //  def emitLogic(node: Node): String = node match {

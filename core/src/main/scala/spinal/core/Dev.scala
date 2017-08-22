@@ -8,7 +8,14 @@ import scala.collection.mutable.ArrayBuffer
 case class DslContext(clockDomain: ClockDomain, component: Component, scope: ScopeStatement)
 
 
-trait Expression{
+trait BaseNode {
+    private[core] var algoId = 0
+}
+
+trait NameableNode extends BaseNode with Nameable
+
+trait Expression extends BaseNode{
+  def opName : String
   def foreachExpression(func : (Expression) => Unit) : Unit
   def walkExpression(func : (Expression) => Unit) : Unit = {
     foreachExpression(e => {
@@ -19,6 +26,7 @@ trait Expression{
 }
 
 class RefExpression(val source : Nameable) extends Expression{
+  def opName : String ="(x)"
   def foreachExpression(func : (Expression) => Unit) : Unit = {
 
   }
@@ -49,6 +57,22 @@ trait Statement{
       func(e)
       e.walkExpression(func)
     })
+  }
+
+  def walkLeafStatements(func : (LeafStatement) => Unit): Unit ={
+    foreachStatements(s => {
+      s match {
+        case s : LeafStatement => func(s)
+        case _ =>  s.walkLeafStatements(func)
+      }
+    })
+  }
+
+  def walkParentTreeStatements(func : (TreeStatement) => Unit) : Unit = {
+    if(parentScope.parentStatement != null){
+      func(parentScope.parentStatement)
+      parentScope.parentStatement.walkParentTreeStatements(func)
+    }
   }
 }
 trait LeafStatement extends Statement
@@ -81,6 +105,8 @@ class WhenStatement(val cond : Expression) extends TreeStatement{
 class ScopeStatement(var parentStatement : TreeStatement){
   val content = mutable.ListBuffer[Statement]() //TODO IR ! linkedlist  hard
 
+  def sizeIsOne = content.length == 1 //TODO faster
+  def head = content.head
   def append(that : Statement) : this.type = {
     content += that
     this
@@ -99,6 +125,15 @@ class ScopeStatement(var parentStatement : TreeStatement){
     foreachStatements(s => {
       func(s)
       s.walkStatements(func)
+    })
+  }
+
+  def walkLeafStatements(func : (LeafStatement) => Unit): Unit ={
+    foreachStatements(s => {
+      s match {
+        case s : LeafStatement => func(s)
+        case _ =>  s.walkLeafStatements(func)
+      }
     })
   }
 }

@@ -622,7 +622,7 @@ object Operator{
 //
 //
 abstract class Modifier extends Expression {
-  def opName : String
+
 
 //  override def toString(): String = {
 //    s"($getClassIdentifier : $opName, defined in ${if(this.component != null)this.component.getPath() else "root"} with inputs : ${this.getInputs.map(in => if (in == null) "null" else in.nonRecursiveToString()).reduceLeft(_ + ", " + _)})"

@@ -249,6 +249,8 @@ object BoolLiteral {
 }
 
 class BoolLiteral(val value: Boolean) extends Literal {
+  override def opName: String = "Bool(x)"
+
   override def clone(): this.type = new BoolLiteral(value).asInstanceOf[this.type]
 
   override def getValue(): BigInt = if(value) 1 else 0
