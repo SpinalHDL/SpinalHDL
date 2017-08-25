@@ -37,7 +37,6 @@ case class SystemDebuggerConfig(memAddressWidth : Int = 32,
 //    useLast    = false,
     useResp    = false,
     useProt    = false,
-    useUser    = false,
     useStrb    = true
   )
 }

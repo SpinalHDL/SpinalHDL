@@ -49,13 +49,23 @@ case class Axi4Config(addressWidth : Int,
                       useResp      : Boolean = true,
                       useProt      : Boolean = true,
                       useStrb      : Boolean = true,
-                      useUser      : Boolean = false,
-                      userWidth    : Int = -1) {
+                      arUserWidth   : Int = -1,
+                      awUserWidth   : Int = -1,
+                      rUserWidth   : Int = -1,
+                      wUserWidth   : Int = -1,
+                      bUserWidth   : Int = -1) {
+
+
+  def useArUser = arUserWidth >= 0
+  def useAwUser = awUserWidth >= 0
+  def useRUser = rUserWidth >= 0
+  def useWUser = wUserWidth >= 0
+  def useBUser = bUserWidth >= 0
+  def useArwUser = arwUserWidth >= 0 //Shared AR/AW channel
+  def arwUserWidth = Math.max(arUserWidth, awUserWidth)
+
   if(useId)
     require(idWidth >= 0,"You need to set idWidth")
-
-  if(useUser)
-    require(userWidth >= 0,"You need to set userWidth")
 
   def addressType = UInt(addressWidth bits)
   def dataType = Bits(dataWidth bits)

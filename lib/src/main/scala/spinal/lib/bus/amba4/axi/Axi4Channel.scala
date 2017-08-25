@@ -9,17 +9,17 @@ import spinal.lib._
  * Definition of the Write/Read address channel
  * @param config Axi4 configuration class
  */
-class Axi4Ax(val config: Axi4Config) extends Bundle {
+class Axi4Ax(val config: Axi4Config,val userWidth : Int) extends Bundle {
   val addr   = UInt(config.addressWidth bits)
   val id     = if(config.useId)     UInt(config.idWidth bits)   else null
   val region = if(config.useRegion) Bits(4 bits)                else null
-  val len    = if(config.useLen)    UInt(8 bits)  else null
+  val len    = if(config.useLen)    UInt(8 bits)                else null
   val size   = if(config.useSize)   UInt(3 bits)                else null
   val burst  = if(config.useBurst)  Bits(2 bits)                else null
   val lock   = if(config.useLock)   Bits(1 bits)                else null
   val cache  = if(config.useCache)  Bits(4 bits)                else null
   val qos    = if(config.useQos)    Bits(4 bits)                else null
-  val user   = if(config.useUser)   Bits(config.userWidth bits) else null
+  val user   = if(userWidth >= 0)   Bits(userWidth bits)        else null
   val prot   = if(config.useProt)   Bits(3 bits)                else null
 
   import Axi4.burst._
@@ -32,17 +32,17 @@ class Axi4Ax(val config: Axi4Config) extends Bundle {
   def setLock(lockType :Bits) : Unit = if(config.useLock) lock := lockType
   def setCache(cacheType : Bits) : Unit = if (config.useCache ) cache := cacheType
 
-  override def clone: this.type = new Axi4Ax(config).asInstanceOf[this.type]
+  override def clone: this.type = new Axi4Ax(config,userWidth).asInstanceOf[this.type]
 }
 
 
-class Axi4Aw(config: Axi4Config) extends Axi4Ax(config){
+class Axi4Aw(config: Axi4Config) extends Axi4Ax(config, config.awUserWidth){
   override def clone: this.type = new Axi4Aw(config).asInstanceOf[this.type]
 }
-class Axi4Ar(config: Axi4Config) extends Axi4Ax(config){
+class Axi4Ar(config: Axi4Config) extends Axi4Ax(config, config.arUserWidth){
   override def clone: this.type = new Axi4Ar(config).asInstanceOf[this.type]
 }
-class Axi4Arw(config: Axi4Config) extends Axi4Ax(config){
+class Axi4Arw(config: Axi4Config) extends Axi4Ax(config, config.arwUserWidth){
   val write = Bool
   override def clone: this.type = new Axi4Arw(config).asInstanceOf[this.type]
 }
@@ -55,7 +55,7 @@ class Axi4Arw(config: Axi4Config) extends Axi4Ax(config){
 case class Axi4W(config: Axi4Config) extends Bundle {
   val data = Bits(config.dataWidth bits)
   val strb = if(config.useStrb) Bits(config.bytePerWord bits) else null
-  val user = if(config.useUser) Bits(config.userWidth bits)     else null
+  val user = if(config.useWUser) Bits(config.wUserWidth bits)     else null
   val last = if(config.useLast)  Bool                            else null
 
   def setStrb() : Unit = if(config.useStrb) strb := (1 << widthOf(strb))-1
@@ -70,7 +70,7 @@ case class Axi4W(config: Axi4Config) extends Bundle {
 case class Axi4B(config: Axi4Config) extends Bundle {
   val id   = if(config.useId)   UInt(config.idWidth bits)   else null
   val resp = if(config.useResp) Bits(2 bits)                else null
-  val user = if(config.useUser) Bits(config.userWidth bits) else null
+  val user = if(config.useBUser) Bits(config.bUserWidth bits) else null
 
   import Axi4.resp._
 
@@ -94,7 +94,7 @@ case class Axi4R(config: Axi4Config) extends Bundle {
   val id   = if(config.useId)   UInt(config.idWidth bits)   else null
   val resp = if(config.useResp) Bits(2 bits)               else null
   val last = if(config.useLast)  Bool                       else null
-  val user = if(config.useUser) Bits(config.userWidth bits) else null
+  val user = if(config.useRUser) Bits(config.rUserWidth bits) else null
 
   import Axi4.resp._
 
@@ -113,7 +113,7 @@ case class Axi4R(config: Axi4Config) extends Bundle {
 
 
 
-class Axi4AxUnburstified(val config : Axi4Config) extends Bundle {
+class Axi4AxUnburstified(val config : Axi4Config, userWidth : Int) extends Bundle {
   val addr   = UInt(config.addressWidth bits)
   val id     = if(config.useId)     UInt(config.idWidth bits)   else null
   val region = if(config.useRegion) Bits(4 bits)                else null
@@ -122,7 +122,7 @@ class Axi4AxUnburstified(val config : Axi4Config) extends Bundle {
   val lock   = if(config.useLock)   Bits(1 bits)                else null
   val cache  = if(config.useCache)  Bits(4 bits)                else null
   val qos    = if(config.useQos)    Bits(4 bits)                else null
-  val user   = if(config.useUser)   Bits(config.userWidth bits) else null
+  val user   = if(userWidth >= 0)   Bits(userWidth bits)        else null
   val prot   = if(config.useProt)   Bits(3 bits)                else null
 }
 
@@ -192,13 +192,13 @@ object Axi4AxUnburstified{
   }
 }
 
-class Axi4ArUnburstified(axiConfig : Axi4Config) extends Axi4AxUnburstified(axiConfig){
+class Axi4ArUnburstified(axiConfig : Axi4Config) extends Axi4AxUnburstified(axiConfig, axiConfig.arUserWidth){
   override def clone: this.type = new Axi4ArUnburstified(axiConfig).asInstanceOf[this.type]
 }
-class Axi4AwUnburstified(axiConfig : Axi4Config) extends Axi4AxUnburstified(axiConfig){
+class Axi4AwUnburstified(axiConfig : Axi4Config) extends Axi4AxUnburstified(axiConfig, axiConfig.awUserWidth){
   override def clone: this.type = new Axi4AwUnburstified(axiConfig).asInstanceOf[this.type]
 }
-class Axi4ArwUnburstified(axiConfig : Axi4Config) extends Axi4AxUnburstified(axiConfig){
+class Axi4ArwUnburstified(axiConfig : Axi4Config) extends Axi4AxUnburstified(axiConfig, axiConfig.arwUserWidth){
   val write = Bool
   override def clone: this.type = new Axi4ArwUnburstified(axiConfig).asInstanceOf[this.type]
 }
@@ -239,7 +239,7 @@ object Axi4Priv{
     driveWeak(stream,sink,stream.lock,sink.lock,() => Axi4.lock.NORMAL,false,true)
     driveWeak(stream,sink,stream.cache,sink.cache,() => B"0000",false,true)
     driveWeak(stream,sink,stream.qos,sink.qos,() => B"0000",false,true)
-    driveWeak(stream,sink,stream.user,sink.user,() => B(sink.user.range -> false),false,true)
+    driveWeak(stream,sink,stream.user,sink.user,() => B(sink.user.range -> false),true,true)
     driveWeak(stream,sink,stream.prot,sink.prot,null,false,true)
   }
 
