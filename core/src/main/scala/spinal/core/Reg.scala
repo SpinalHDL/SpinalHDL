@@ -106,7 +106,7 @@ class RegDataComposite extends Assignable with AssignementStatementTarget{
     }
   }
 
-  override private[core] def nameable: Nameable = baseType
+  override private[core] def nameableNode: NameableNode = baseType
 }
 
 

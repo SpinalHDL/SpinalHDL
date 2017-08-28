@@ -28,20 +28,20 @@ package spinal.core
 //
 trait VhdlBase extends VhdlVerilogBase{
 //
-//  var enumPackageName = "pkg_enum"
-//  var packageName = "pkg_scala2hdl"
-//
-//
-//  def emitLibrary(ret: StringBuilder): Unit = {
-//    ret ++= "library ieee;\n"
-//    ret ++= "use ieee.std_logic_1164.all;\n"
-//    ret ++= "use ieee.numeric_std.all;\n"
-//    ret ++= "\n"
-//    ret ++= s"library work;\n"
-//    ret ++= s"use work.$packageName.all;\n"
-//    ret ++= s"use work.all;\n"
-//    ret ++= s"use work.$enumPackageName.all;\n\n"
-//  }
+  var enumPackageName = "pkg_enum"
+  var packageName = "pkg_scala2hdl"
+
+
+  def emitLibrary(ret: StringBuilder): Unit = {
+    ret ++= "library ieee;\n"
+    ret ++= "use ieee.std_logic_1164.all;\n"
+    ret ++= "use ieee.numeric_std.all;\n"
+    ret ++= "\n"
+    ret ++= s"library work;\n"
+    ret ++= s"use work.$packageName.all;\n"
+    ret ++= s"use work.all;\n"
+    ret ++= s"use work.$enumPackageName.all;\n\n"
+  }
 //
 //
 //  def emitSignal(ref: Node, typeNode: Node): String = {
@@ -75,21 +75,21 @@ trait VhdlBase extends VhdlVerilogBase{
 //      return enum.getName() + "_" + encoding.getName() + "_type"
 //  }
 //
-//  def emitDataType(node: Node, constrained: Boolean = true) = node match {
-//    case bool: Bool => "std_logic"
+  def emitDataType(node: NameableNode, constrained: Boolean = true) = node match {
+    case bool: Bool => "std_logic"
 //    case uint: UInt => s"unsigned${if (constrained) emitRange(uint) else ""}"
 //    case sint: SInt => s"signed${if (constrained) emitRange(sint) else ""}"
 //    case bits: Bits => s"std_logic_vector${if (constrained) emitRange(bits) else ""}"
 //    case mem: Mem[_] => s"${emitReference(mem)}_type"
 //    case enum: SpinalEnumCraft[_] => emitEnumType(enum)
-//    case _ => throw new Exception("Unknown datatype"); ""
-//  }
+    case _ => throw new Exception("Unknown datatype"); ""
+  }
 //
-//  def emitDirection(baseType: BaseType) = baseType.dir match {
-//    case `in` => "in"
-//    case `out` => "out"
-//    case _ => throw new Exception("Unknown direction"); ""
-//  }
+  def emitDirection(baseType: BaseType) = baseType.dir match {
+    case `in` => "in"
+    case `out` => "out"
+    case _ => throw new Exception("Unknown direction"); ""
+  }
 //
 //
 //  def emitRange(node: Widthable) = s"(${node.getWidth - 1} downto 0)"

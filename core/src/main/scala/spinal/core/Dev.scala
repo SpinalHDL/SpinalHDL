@@ -79,10 +79,10 @@ trait LeafStatement extends Statement
 trait TreeStatement extends Statement
 
 trait AssignementStatementTarget {
-  private [core] def nameable : Nameable
+  private [core] def nameableNode : NameableNode
 }
 class AssignementStatement(val target : AssignementStatementTarget ,val  source : Expression) extends LeafStatement{
-  override def rootScopeStatement = target.nameable.dslContext.scope
+  override def rootScopeStatement = target.nameableNode.dslContext.scope
 //  override def isConditionalStatement: Boolean = false
   def foreachStatements(func : (Statement) => Unit) = Unit
   def foreachExpression(func : (Expression) => Unit) : Unit = func(source)

@@ -122,7 +122,7 @@ trait IODirection extends BaseTypeFactory {
 //  def apply(enum: SpinalEnum) = applyIt(enum.craft())
 //  def cloneOf[T <: Data](that: T): T = applyIt(spinal.core.cloneOf(that))
   def apply(b : Int) = 10
-//  override def Bool = applyIt(super.Bool)
+  override def Bool = applyIt(super.Bool)
 //  override def Bits = applyIt(super.Bits)
 //  override def UInt = applyIt(super.UInt)
 //  override def SInt = applyIt(super.SInt)

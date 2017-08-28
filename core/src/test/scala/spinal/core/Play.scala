@@ -11,7 +11,9 @@ object PlayScope{
 
 
   class TopLevel extends Component {
-    val a, b, c, d, e, f, g, h, i, j = Bool()
+    val a, b, c = in Bool()
+    val d, e, f = out Bool()
+    val g, h, i, j = Bool()
     val x,y,z = Reg(Bool())
     b := True
     a := a || c

@@ -169,10 +169,10 @@ trait BaseTypeCast /*extends SFixCast with UFixCast*/
 /**
   * Abstract base class of all Spinal types
   */
-abstract class BaseType extends Data with Nameable with AssignementStatementTarget {
+abstract class BaseType extends Data with NameableNode with AssignementStatementTarget {
 
 
-  override private[core] def nameable: Nameable = this
+  override private[core] def nameableNode: NameableNode = this
   override def isReg = compositeAssign.isInstanceOf[RegDataComposite]
 
   //
@@ -227,22 +227,22 @@ abstract class BaseType extends Data with Nameable with AssignementStatementTarg
 //
 //  def isDelay = input.isInstanceOf[SyncNode]
 //
-//  override def asInput(): this.type = {
-//    component.ioSet += this
-//    super.asInput()
-//  }
-//
-//  override def asOutput(): this.type = {
-//    component.ioSet += this
-//    super.asOutput()
-//  }
-//
-//  override def asDirectionLess(): BaseType.this.type = {
-//    if(dir == null) return this
-//    component.ioSet -= this
-//    super.asDirectionLess()
-//  }
-//
+  override def asInput(): this.type = {
+    component.ioSet += this
+    super.asInput()
+  }
+
+  override def asOutput(): this.type = {
+    component.ioSet += this
+    super.asOutput()
+  }
+
+  override def asDirectionLess(): BaseType.this.type = {
+    if(dir == null) return this
+    component.ioSet -= this
+    super.asDirectionLess()
+  }
+
   private[core] def assignFromImpl(that: AnyRef): Unit = {
     that match {
       case that : BaseType =>
@@ -299,7 +299,7 @@ abstract class BaseType extends Data with Nameable with AssignementStatementTarg
 //    else
 //      this.instanceAttributes(language)
 //  }
-//
+
 //
   override def clone: this.type = {
     val res = this.getClass.newInstance.asInstanceOf[this.type]

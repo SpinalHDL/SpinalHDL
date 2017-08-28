@@ -93,8 +93,8 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     statement.parentScope = scope
     scope.append(statement)
   }
-  def ownNameables = nameables.withFilter(_.component == this)
-  def nameables = {
+  def ownNameableNodes = nameableNodes.withFilter(_.component == this)
+  def nameableNodes = {
     val nameablesSet = mutable.HashSet[Nameable]()
     nameablesSet ++= children
     nameablesSet ++= ioSet
@@ -109,7 +109,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
       s.foreachExpression(expressionWalker)
       s.foreachStatements(statementWalker)
       s match {
-        case a : AssignementStatement => nameablesSet += (a.target.nameable)
+        case a : AssignementStatement => nameablesSet += (a.target.nameableNode)
         case _ =>
       }
     }
@@ -280,7 +280,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     val localScope = globalScope.newChild
     localScope.allocateName(globalData.anonymSignalPrefix)
 
-    for (nameable <- ownNameables) nameable match {
+    for (nameable <- ownNameableNodes) nameable match {
       case child : Component =>
         OwnableRef.proposal(child,this)
         if (child.isUnnamed) {
@@ -304,10 +304,10 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   }
 
   /** Get a set of all IO available in the component */
-//  def getAllIo: mutable.Set[BaseType] = {
-//
+  def getAllIo: mutable.Set[BaseType] = {
+
 //    if (nodes == null) {
-//      ioSet
+      ioSet
 //    } else {
 //      val nodeIo = mutable.Set[BaseType]()
 //      nodes.foreach {
@@ -316,11 +316,11 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
 //      }
 //      nodeIo
 //    }
-//
-//  }
+
+  }
 
   /** Sort all IO regarding instanceCounter */
-//  def getOrdredNodeIo = getAllIo.toList.sortWith(_.instanceCounter < _.instanceCounter)
+  def getOrdredNodeIo = getAllIo.toList.sortWith(_.instanceCounter < _.instanceCounter)
 //
 //
 //  /** Get an array of all SyncNode of the Component */

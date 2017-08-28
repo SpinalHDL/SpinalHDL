@@ -31,27 +31,110 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
   }
 
   def compile(component: Component): Unit = {
-    val text = emit(component)
+    val text = emitComponent(component)
+    println(text)
 //    outFile.write(text)
   }
 
   class Process(val scope : ScopeStatement){
     val leafStatements = ArrayBuffer[LeafStatement]()
     var treeStatements = List[TreeStatement]()
-    var nameableTargets = List[Nameable]()
+    var nameableTargets = List[NameableNode]()
   }
 
 
-  class ComponentBuilder{
-    val entity = new StringBuilder()
+  class ComponentBuilder(val c : Component){
+    val portMap = ArrayBuffer[String]()
     val declarations = new StringBuilder()
     val logics = new StringBuilder()
-  }
-  def emit(component: Component): String = {
-    val b = new ComponentBuilder()
-    val scopeSplits = GraphUtils.splitByScope(component.nameables)
 
+
+    def result : String = {
+      val ret = new StringBuilder()
+      emitLibrary(ret)
+      ret ++= s"\nentity ${c.definitionName} is\n"
+      ret ++= s"  port("
+      var first = false
+      for(portMap <- portMap){
+        if(first){
+          ret ++= s"\n    $portMap"
+        } else {
+          ret ++= s",\n    $portMap"
+        }
+      }
+      ret ++= "\n  );\n"
+
+      ret ++= s"end ${c.definitionName};\n"
+      ret ++= s"\n"
+
+      ret ++= s"architecture arch of ${c.definitionName} is\n"
+      ret ++= declarations
+      ret ++= s"begin\n"
+      ret ++= logics
+      ret ++= s"end arch;\n"
+      ret ++= s"\n"
+      ret.toString()
+    }
+
+    var hash: Integer = null
+
+    override def hashCode(): Int = {
+      if (hash == null) {
+        hash = declarations.hashCode() + logics.hashCode() + portMap.foldLeft(0)(_ + _.hashCode)
+      }
+      hash
+    }
+
+    override def equals(obj: scala.Any): Boolean = {
+      if (this.hashCode() != obj.hashCode()) return false //Colision into hashmap implementation don't check it XD
+      obj match {
+        case that: ComponentBuilder => {
+          return this.declarations == that.declarations && this.logics == that.logics && (this.portMap.length == that.portMap.length && (this.portMap, that.portMap).zipped.map(_ == _).reduce(_ && _))
+        }
+        case _ => return ???
+      }
+    }
+  }
+
+  val emitedComponent = mutable.Map[ComponentBuilder, ComponentBuilder]()
+  val emitedComponentRef = mutable.Map[Component, Component]()
+//  val emitedComponent = mutable.HashSet[ComponentBuilder]()
+
+  def emitComponent(component: Component): String = {
+    val ret = new StringBuilder()
+    val b = new ComponentBuilder(component)
+
+//    emitLibrary(builder)
+    emitEntity(component, b)
+    emitArchitecture(component, b)
+
+
+//
+    val oldBuilder = emitedComponent.getOrElse(b, null)
+    if (oldBuilder == null) {
+      emitedComponent += (b -> b)
+      return b.result
+    } else {
+      emitedComponentRef += (component -> oldBuilder.c)
+      return s"\n--${component.definitionName} remplaced by ${oldBuilder.c.definitionName}\n\n"
+    }
+
+
+    println(b.declarations.toString + b.logics.toString)
+    ""
+  }
+
+
+  def emitEntity(component: Component, builder: ComponentBuilder): Unit = {
+    component.getOrdredNodeIo.foreach(baseType =>
+      builder.portMap += s"    ${baseType.getName()} : ${emitDirection(baseType)} ${emitDataType(baseType)}${getBaseTypeSignalInitialisation(baseType)}"
+    )
+  }
+
+  def emitArchitecture(component: Component, b : ComponentBuilder): Unit = {
+    emitSignals(component,b)
     val asyncStatement = ArrayBuffer[LeafStatement]()
+
     component.dslBody.walkLeafStatements(s => asyncStatement += s)
 
     //process per target
@@ -68,14 +151,14 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
           scopePtr = scopePtr.parentStatement.parentScope
         }
         if (rootTreeStatement != null) {
-          val preExistingTargetProcess = processFromNameableTarget.getOrElse(s.target.nameable, null)
+          val preExistingTargetProcess = processFromNameableTarget.getOrElse(s.target.nameableNode, null)
           val preExistingRootTreeProcess = rootTreeStatementPerProcess.getOrElse(rootTreeStatement, null)
 
           if(preExistingTargetProcess == null && preExistingRootTreeProcess == null){ //Create new process
-            val process = new Process(rootScope)
-            processFromNameableTarget(s.target.nameable) = process
+          val process = new Process(rootScope)
+            processFromNameableTarget(s.target.nameableNode) = process
             rootTreeStatementPerProcess(rootTreeStatement) = process
-            process.nameableTargets = s.target.nameable :: process.nameableTargets
+            process.nameableTargets = s.target.nameableNode :: process.nameableTargets
             process.treeStatements = rootTreeStatement :: process.treeStatements
           } else if(preExistingTargetProcess != null && preExistingRootTreeProcess == null){
             val process = preExistingTargetProcess
@@ -83,11 +166,11 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
             process.treeStatements = rootTreeStatement :: process.treeStatements
           } else if(preExistingTargetProcess == null && preExistingRootTreeProcess != null){
             val process = preExistingRootTreeProcess
-            processFromNameableTarget(s.target.nameable) = process
-            process.nameableTargets = s.target.nameable :: process.nameableTargets
+            processFromNameableTarget(s.target.nameableNode) = process
+            process.nameableTargets = s.target.nameableNode :: process.nameableTargets
           } else if(preExistingTargetProcess != preExistingRootTreeProcess) { //Merge
-            val process = preExistingRootTreeProcess
-            processFromNameableTarget(s.target.nameable) = process
+          val process = preExistingRootTreeProcess
+            processFromNameableTarget(s.target.nameableNode) = process
             process.treeStatements ++= preExistingTargetProcess.treeStatements
             process.nameableTargets ++= preExistingTargetProcess.nameableTargets
             preExistingTargetProcess.nameableTargets.foreach(processFromNameableTarget(_) = process)
@@ -100,10 +183,10 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     val processes = mutable.HashSet[Process]() ++= rootTreeStatementPerProcess.valuesIterator
     for(s <- asyncStatement) s match {
       case s: AssignementStatement => {
-        var process = processFromNameableTarget.getOrElse(s.target.nameable,null)
+        var process = processFromNameableTarget.getOrElse(s.target.nameableNode,null)
         if(process == null){
           process = new Process(s.rootScopeStatement)
-          process.nameableTargets = s.target.nameable :: process.nameableTargets
+          process.nameableTargets = s.target.nameableNode :: process.nameableTargets
         }
         process.leafStatements += s
         processes += process
@@ -115,70 +198,41 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     val wrappedExpressionToName = mutable.HashMap[Expression, String]()
     for(process <- processes){
       for(treeStatement <- process.treeStatements){
-//        leafStatement.walkParentTreeStatements(treeStatement => {
-          treeStatement.walkExpression(e => {
-            if(e.algoId == algoId){
-              wrappedExpressionToName(e) = "AlocateAName"
-            }
-            e.algoId = algoId
-          })
-//        })
+        //        leafStatement.walkParentTreeStatements(treeStatement => {
+        treeStatement.walkExpression(e => {
+          if(e.algoId == algoId){
+            wrappedExpressionToName(e) = "AlocateAName"
+          }
+          e.algoId = algoId
+        })
+        //        })
       }
     }
 
 
     processes.foreach(emitAsyncronous(b, _))
-
-//    val ret = new StringBuilder()
-//    val builder = new ComponentBuilder(component)
-//
-//    emitLibrary(builder)
-//    emitEntity(component, builder)
-//    emitArchitecture(component, builder)
-//
-//    val oldBuilder = emitedComponent.getOrElse(builder, null)
-//    if (oldBuilder == null) {
-//      emitedComponent += (builder -> builder)
-//      return builder.result
-//    } else {
-//      emitedComponentRef += (component -> oldBuilder.component)
-//      return s"\n--${component.definitionName} remplaced by ${oldBuilder.component.definitionName}\n\n"
-//    }
-
-
-    println(b.logics.toString)
-    ""
   }
-
 
   def emitAsyncronous(b : ComponentBuilder, process: Process): Unit = {
     process match {
-      case _ if process.leafStatements.size == 1 => {
-        b.logics ++= emitAssignement(process.leafStatements.head.asInstanceOf[AssignementStatement], "  ", "<=")
+      case _ if process.leafStatements.size == 1 => process.leafStatements.head match {
+        case s : AssignementStatement =>
+          b.logics ++= emitAssignement(s, "  ", "<=")
       }
       case _ => {
         val tmp = new StringBuilder
+        referenceSet = mutable.Set[String]()
+        emitLeafStatements(process.leafStatements, 0, process.scope, "<=", tmp, "    ")
 
-       // val sensitivity =  process.leafStatements.foreach(_.walkExpression(_.))
-//        emitAssignementLevel(context,tmp, "    ", "<=",false,process.sensitivity)
-//
-//        //TODO sensitivity list generation no more required
-////        ret ++= s"  process(${process.sensitivity.toList.sortWith(_.instanceCounter < _.instanceCounter).map(emitReference(_)).reduceLeft(_ + "," + _)})\n"
-//        ret ++= s"  process(${referenceSet.toList.sortWith(_.instanceCounter < _.instanceCounter).map(emitReference(_)).reduceLeft(_ + "," + _)})\n"
-        tmp ++= "  begin\n"
-        emitLeafStatements(process.leafStatements, 0, process.scope, "<=",tmp, "    ")
-//        var scopePtr = process.scope
-//        process.leafStatements.foreach(leaf => {
-//          val assignement = leaf.asInstanceOf[AssignementStatement]
-//          val targetScope = assignement.parentScope
-//          if(targetScope != scopePtr){
-//
-//          }
-//          tmp ++= emitAssignement(assignement,"  ", "<=")
-//        })
-        tmp ++= "  end process;\n\n"
-
-        b.logics ++= tmp.toString()
+        if (referenceSet.nonEmpty) {
+          b.logics ++= s"  process(${referenceSet.mkString(",")})\n"; referenceSet = null
+          b.logics ++= "  begin\n"
+          b.logics ++= tmp.toString()
+          b.logics ++= "  end process;\n\n"
+        } else {
+          //TODO IR ! process without sensitivity !
+          ???
+        }
       }
     }
   }
@@ -283,13 +337,17 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 //          case assign: RangedAssignmentFloating => ret ++= s"$tab${emitAssignedReference(to)}(${assign.getBitCount.value - 1} + to_integer(${emitLogic(assign.getOffset)}) downto to_integer(${emitLogic(assign.getOffset)})) ${assignementKind} ${emitLogic(assign.getInput)};\n"
 //        }
 //      }
-      case _ => s"$tab${emitReference(assignement.target.nameable)} ${assignementKind} ${emitExpression(assignement.source)};\n"
+      case _ => s"$tab${emitReference(assignement.target.nameableNode, false)} ${assignementKind} ${emitExpression(assignement.source)};\n"
     }
   }
-
-  def emitReference(that : Nameable): String ={
-    that.getNameElseThrow
+  var referenceSet : mutable.Set[String] = null
+  def emitReference(that : Nameable, sensitive : Boolean): String ={
+    val name = that.getNameElseThrow
+    if(sensitive && referenceSet != null) referenceSet.add(name)
+    name
   }
+
+
 
   def emitExpression(that : Expression) : String = modifierImplMap.getOrElse(that.opName, throw new Exception("can't find " + that.opName))(that)
   //
@@ -1052,7 +1110,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 //
 //  def toSpinalEnumCraft[T <: SpinalEnum](that: Any) = that.asInstanceOf[SpinalEnumCraft[T]]
 //
-//  def getBaseTypeSignalInitialisation(signal : BaseType) : String = {
+  def getBaseTypeSignalInitialisation(signal : BaseType) : String = {
 //    val reg = if(signal.isReg) signal.input.asInstanceOf[Reg] else null
 //    if(reg != null){
 //      if(reg.initialValue != null && reg.getClockDomain.config.resetKind == BOOT) {
@@ -1077,16 +1135,16 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 //        }
 //      }
 //    }
-//    ""
-//  }
+    "" //TODO IR !
+  }
 //
-//  def emitSignals(component: Component, ret: StringBuilder, enumDebugSignals: ArrayBuffer[SpinalEnumCraft[_]]): Unit = {
-//    for (node <- component.nodes) {
-//      node match {
-//        case signal: BaseType => {
-//          if (!signal.isIo) {
-//            ret ++= s"  signal ${emitReference(signal)} : ${emitDataType(signal)}${getBaseTypeSignalInitialisation(signal)};\n"
-//
+  def emitSignals(component: Component, b: ComponentBuilder): Unit = {
+    for (node <- component.ownNameableNodes) {
+      node match {
+        case signal: BaseType => {
+          if (!signal.isIo) {
+            b.declarations ++= s"  signal ${emitReference(signal, false)} : ${emitDataType(signal)}${getBaseTypeSignalInitialisation(signal)};\n"
+
 //            if (signal.isInstanceOf[SpinalEnumCraft[_]]) {
 //              val craft = toSpinalEnumCraft(signal)
 //              if (!craft.getEncoding.isNative) {
@@ -1094,16 +1152,16 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 //                enumDebugSignals += toSpinalEnumCraft(signal)
 //              }
 //            }
+          }
+
+
+          emitAttributes(signal,signal.instanceAttributes(Language.VHDL), "signal", b.declarations)
+        }
+//        case readSync : MemReadSync => {
+//          if(readSync.writeToReadKind == `writeFirst`){
+//            ret ++= s"  signal ${emitReference(readSync.consumers(0))}_mem_addr : unsigned(${readSync.mem.addressWidth-1}} downto 0);\n"
 //          }
-//
-//
-//          emitAttributes(signal,signal.instanceAndSyncNodeAttributes(Language.VHDL), "signal", ret)
 //        }
-////        case readSync : MemReadSync => {
-////          if(readSync.writeToReadKind == `writeFirst`){
-////            ret ++= s"  signal ${emitReference(readSync.consumers(0))}_mem_addr : unsigned(${readSync.mem.addressWidth-1}} downto 0);\n"
-////          }
-////        }
 //        case mem: Mem[_] => {
 //          //ret ++= emitSignal(mem, mem);
 //          val symbolWidth = mem.getMemSymbolWidth()
@@ -1154,24 +1212,24 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 //            emitAttributes(mem, mem.instanceAttributes(Language.VHDL), "signal", ret)
 //          }
 //        }
-//        case _ =>
-//      }
+        case _ =>
+      }
+
+
+    }
+  }
 //
 //
-//    }
-//  }
-//
-//
-//  def emitAttributes(node : Node,attributes: Iterable[Attribute], vhdlType: String, ret: StringBuilder,postfix : String = ""): Unit = {
-//    for (attribute <- attributes){
-//      val value = attribute match {
-//        case attribute: AttributeString => "\"" + attribute.value + "\""
-//        case attribute: AttributeFlag => "true"
-//      }
-//
-//      ret ++= s"  attribute ${attribute.getName} of ${emitReference(node)}: signal is $value;\n"
-//    }
-//  }
+  def emitAttributes(node : NameableNode,attributes: Iterable[Attribute], vhdlType: String, ret: StringBuilder,postfix : String = ""): Unit = {
+    for (attribute <- attributes){
+      val value = attribute match {
+        case attribute: AttributeString => "\"" + attribute.value + "\""
+        case attribute: AttributeFlag => "true"
+      }
+
+      ret ++= s"  attribute ${attribute.getName} of ${emitReference(node, false)}: signal is $value;\n"
+    }
+  }
 //
 //
 //
@@ -1230,7 +1288,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 //
 //
 
-  def refImpl(op: Expression): String = op.asInstanceOf[RefExpression].source.getName()
+  def refImpl(op: Expression): String = emitReference(op.asInstanceOf[RefExpression].source, true)
 
 
   def operatorImplAsBinaryOperator(vhd: String)(op: Expression): String = {
