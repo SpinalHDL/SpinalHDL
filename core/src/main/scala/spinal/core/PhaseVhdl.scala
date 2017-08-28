@@ -44,7 +44,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
 
   class ComponentBuilder(val c : Component){
-    val portMap = ArrayBuffer[String]()
+    val portMaps = ArrayBuffer[String]()
     val declarations = new StringBuilder()
     val logics = new StringBuilder()
 
@@ -54,10 +54,11 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
       emitLibrary(ret)
       ret ++= s"\nentity ${c.definitionName} is\n"
       ret ++= s"  port("
-      var first = false
-      for(portMap <- portMap){
+      var first = true
+      for(portMap <- portMaps){
         if(first){
           ret ++= s"\n    $portMap"
+          first = false
         } else {
           ret ++= s",\n    $portMap"
         }
@@ -80,7 +81,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
     override def hashCode(): Int = {
       if (hash == null) {
-        hash = declarations.hashCode() + logics.hashCode() + portMap.foldLeft(0)(_ + _.hashCode)
+        hash = declarations.hashCode() + logics.hashCode() + portMaps.foldLeft(0)(_ + _.hashCode)
       }
       hash
     }
@@ -89,21 +90,22 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
       if (this.hashCode() != obj.hashCode()) return false //Colision into hashmap implementation don't check it XD
       obj match {
         case that: ComponentBuilder => {
-          return this.declarations == that.declarations && this.logics == that.logics && (this.portMap.length == that.portMap.length && (this.portMap, that.portMap).zipped.map(_ == _).reduce(_ && _))
+          return this.declarations == that.declarations && this.logics == that.logics && (this.portMaps.length == that.portMaps.length && (this.portMaps, that.portMaps).zipped.map(_ == _).reduce(_ && _))
         }
         case _ => return ???
       }
     }
   }
 
+  val referencesOverrides = mutable.HashMap[NameableNode,String]()
   val emitedComponent = mutable.Map[ComponentBuilder, ComponentBuilder]()
   val emitedComponentRef = mutable.Map[Component, Component]()
 //  val emitedComponent = mutable.HashSet[ComponentBuilder]()
 
   def emitComponent(component: Component): String = {
+    referencesOverrides.clear()
     val ret = new StringBuilder()
     val b = new ComponentBuilder(component)
-
 //    emitLibrary(builder)
     emitEntity(component, b)
     emitArchitecture(component, b)
@@ -127,12 +129,14 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
   def emitEntity(component: Component, builder: ComponentBuilder): Unit = {
     component.getOrdredNodeIo.foreach(baseType =>
-      builder.portMap += s"    ${baseType.getName()} : ${emitDirection(baseType)} ${emitDataType(baseType)}${getBaseTypeSignalInitialisation(baseType)}"
+      builder.portMaps += s"${baseType.getName()} : ${emitDirection(baseType)} ${emitDataType(baseType)}${getBaseTypeSignalInitialisation(baseType)}"
     )
   }
 
   def emitArchitecture(component: Component, b : ComponentBuilder): Unit = {
     emitSignals(component,b)
+    emitSubComponents(component,b)
+
     val asyncStatement = ArrayBuffer[LeafStatement]()
 
     component.dslBody.walkLeafStatements(s => asyncStatement += s)
@@ -211,6 +215,78 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
 
     processes.foreach(emitAsyncronous(b, _))
+  }
+
+
+  def emitSubComponents(component: Component, b: ComponentBuilder): Unit = {
+    for (children <- component.children) {
+//      val isBB = children.isInstanceOf[BlackBox]
+//      val isBBUsingULogic = isBB && children.asInstanceOf[BlackBox].isUsingULogic
+      val definitionString = /*if (isBB) */children.definitionName
+//      else s"entity work.${
+//        emitedComponentRef.getOrElse(children, children).definitionName
+//      }"
+      b.logics ++= s"  ${
+        children.getName()
+      } : $definitionString\n"
+
+
+
+      def addULogicCast(bt: BaseType, io: String, logic: String, dir: IODirection): String = {
+
+//        if (isBBUsingULogic)
+//          if (dir == in) {
+//            bt match {
+//              case _: Bool => return s"      $io => std_ulogic($logic),\n"
+////              case _: Bits => return s"      $io => std_ulogic_vector($logic),\n"
+//              case _ => return s"      $io => $logic,\n"
+//            }
+//          } else if (dir == spinal.core.out) {
+//            bt match {
+//              case _: Bool => return s"      std_logic($io) => $logic,\n"
+////              case _: Bits => return s"      std_logic_vector($io) => $logic,\n"
+//              case _ => return s"      $io => $logic,\n"
+//            }
+//          } else SpinalError("???")
+//
+//        else
+          return s"      $io => $logic,\n"
+      }
+
+//      if (kind.isInstanceOf[BlackBox]) {
+//        val bb = kind.asInstanceOf[BlackBox]
+//        val genericFlat = bb.getGeneric.flatten
+//
+//        if (genericFlat.size != 0) {
+//          ret ++= s"    generic map( \n"
+//
+//
+//          for (e <- genericFlat) {
+//            e match {
+//              case baseType: BaseType => ret ++= addULogicCast(baseType, emitReference(baseType), emitLogic(baseType.getInput(0)), in)
+//              case (name : String,s: String) => ret ++= s"      ${name} => ${"\""}${s}${"\""},\n"
+//              case (name : String,i : Int) => ret ++= s"      ${name} => $i,\n"
+//              case (name : String,d: Double) => ret ++= s"      ${name} => $d,\n"
+//              case (name : String,b: Boolean) => ret ++= s"      ${name} => $b,\n"
+//              case (name : String,t: TimeNumber) => {
+//                val d = t.decompose
+//                ret ++= s"      ${name} => ${d._1} ${d._2},\n"
+//              }
+//            }
+//          }
+//          ret.setCharAt(ret.size - 2, ' ')
+//          ret ++= s"    )\n"
+//        }
+//      }
+      b.logics ++= s"    port map ( \n"
+      for (data <- children.getOrdredNodeIo) {
+        b.logics ++= addULogicCast(data, emitReferenceNoOverrides(data), emitReference(data, false), data.dir)
+      }
+      b.logics.setCharAt(b.logics.size - 2, ' ')
+
+      b.logics ++= s"    );"
+      b.logics ++= s"\n"
+    }
   }
 
   def emitAsyncronous(b : ComponentBuilder, process: Process): Unit = {
@@ -341,12 +417,15 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     }
   }
   var referenceSet : mutable.Set[String] = null
-  def emitReference(that : Nameable, sensitive : Boolean): String ={
-    val name = that.getNameElseThrow
+  def emitReference(that : NameableNode, sensitive : Boolean): String ={
+    val name = referencesOverrides.getOrElse(that, that.getNameElseThrow)
     if(sensitive && referenceSet != null) referenceSet.add(name)
     name
   }
 
+  def emitReferenceNoOverrides(that : NameableNode): String ={
+    that.getNameElseThrow
+  }
 
 
   def emitExpression(that : Expression) : String = modifierImplMap.getOrElse(that.opName, throw new Exception("can't find " + that.opName))(that)
@@ -1138,7 +1217,17 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     "" //TODO IR !
   }
 //
+
+
   def emitSignals(component: Component, b: ComponentBuilder): Unit = {
+    for(child <- component.children){
+      for(io <- child.getOrdredNodeIo){
+        val name = component.localNamingScope.allocateName(globalData.anonymSignalPrefix)
+        b.declarations ++= s"  signal $name : ${emitDataType(io)};\n"
+        referencesOverrides(io) = name
+      }
+    }
+
     for (node <- component.ownNameableNodes) {
       node match {
         case signal: BaseType => {

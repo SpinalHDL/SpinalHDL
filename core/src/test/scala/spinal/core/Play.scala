@@ -8,17 +8,29 @@ import scala.collection.mutable.ArrayBuffer
 
 
 object PlayScope{
-
-
+  class SubSubA extends Component{
+    val a,b = in Bool()
+    val result = out Bool()
+    val temp = a || b
+    result := temp
+  }
+  class SubA extends Component{
+    val a,b = in Bool()
+    val result = out Bool()
+    val subSubA = new SubSubA()
+    subSubA.a := a
+    subSubA.b := b
+    result := subSubA.result
+  }
   class TopLevel extends Component {
     val a, b, c = in Bool()
     val d, e, f = out Bool()
     val g, h, i, j = Bool()
     val x,y,z = Reg(Bool())
-    b := True
-    a := a || c
+    h := True
+    e := a || c
     x := d || y
-    c := b
+    y := b
 
     when(c) {
       e := d
@@ -26,14 +38,14 @@ object PlayScope{
         f := e
         e := f
       }
-      b := f
+      e := f
     }.elsewhen(a) {
       val x = Bool()
       x := a || b
       i := g || x
 
     } otherwise {
-      b := j
+      d := j
     }
 
     when(a){
@@ -41,8 +53,16 @@ object PlayScope{
     }
 
     when(b){
-      a := False
+      d := False
     }
+
+    when(c) {
+      val subA = new SubA()
+      subA.a := x
+      subA.b := y || z
+      i := subA.result
+    }
+
   }
 
   def main(args: Array[String]) {

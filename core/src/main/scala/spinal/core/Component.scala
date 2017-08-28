@@ -276,9 +276,10 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   /**
     * Name allocation
     */
+  var localNamingScope : Scope = null
   private[core] def allocateNames(globalScope : Scope): Unit = {
-    val localScope = globalScope.newChild
-    localScope.allocateName(globalData.anonymSignalPrefix)
+    localNamingScope = globalScope.newChild
+    localNamingScope.allocateName(globalData.anonymSignalPrefix)
 
     for (nameable <- ownNameableNodes) nameable match {
       case child : Component =>
@@ -289,16 +290,16 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
           child.unsetName()
           child.setWeakName(name)
         }
-        child.setName(localScope.allocateName(child.getName()))
+        child.setName(localNamingScope.allocateName(child.getName()))
       case _ =>
         if (nameable.isUnnamed || nameable.getName() == "") {
           nameable.unsetName()
           nameable.setWeakName(globalData.anonymSignalPrefix)
         }
         if (nameable.isWeak)
-          nameable.setName(localScope.allocateName(nameable.getName()))
+          nameable.setName(localNamingScope.allocateName(nameable.getName()))
         else
-          localScope.iWantIt(nameable.getName(),s"Reserved name ${nameable.getName()} is not free for ${nameable.toString()}")
+          localNamingScope.iWantIt(nameable.getName(),s"Reserved name ${nameable.getName()} is not free for ${nameable.toString()}")
     }
 
   }

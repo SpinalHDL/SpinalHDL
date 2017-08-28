@@ -98,7 +98,7 @@ class RegDataComposite extends Assignable with AssignementStatementTarget{
   override def assignFromImpl(that: AnyRef): Unit = {
     that match {
       case that: BaseType =>
-        baseType.component.addStatement(new AssignementStatement(target = this, source = new RefExpression(that.asInstanceOf[Nameable])))
+        baseType.component.addStatement(new AssignementStatement(target = this, source = new RefExpression(that.asInstanceOf[NameableNode])))
       case that: Expression =>
         baseType.component.addStatement(new AssignementStatement(target = this, source = that))
       case _ =>

@@ -246,7 +246,7 @@ abstract class BaseType extends Data with NameableNode with AssignementStatement
   private[core] def assignFromImpl(that: AnyRef): Unit = {
     that match {
       case that : BaseType =>
-        component.addStatement(new AssignementStatement(target = this, source = new RefExpression(that.asInstanceOf[Nameable])))
+        component.addStatement(new AssignementStatement(target = this, source = new RefExpression(that.asInstanceOf[NameableNode])))
       case that : Expression =>
         component.addStatement(new AssignementStatement(target = this, source = that))
       case _ =>
@@ -301,6 +301,8 @@ abstract class BaseType extends Data with NameableNode with AssignementStatement
 //  }
 
 //
+  override def rootScopeStatement = if(isInput) component.dslContext.scope else dslContext.scope
+
   override def clone: this.type = {
     val res = this.getClass.newInstance.asInstanceOf[this.type]
     res
@@ -343,7 +345,7 @@ abstract class BaseType extends Data with NameableNode with AssignementStatement
 //    wrapWithWeakClone(op)
 //  }
 //
-  private[core] def wrapLogicalOperator(right: Nameable, op: BinaryOperator):  Bool = {
+  private[core] def wrapLogicalOperator(right: NameableNode, op: BinaryOperator):  Bool = {
     op.left = new RefExpression(this).asInstanceOf[op.T]
     op.right = new RefExpression(right).asInstanceOf[op.T]
     val ret = new Bool

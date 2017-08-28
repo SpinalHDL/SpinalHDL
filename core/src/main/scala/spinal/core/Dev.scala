@@ -12,7 +12,9 @@ trait BaseNode {
     private[core] var algoId = 0
 }
 
-trait NameableNode extends BaseNode with Nameable
+trait NameableNode extends BaseNode with Nameable{
+  def rootScopeStatement : ScopeStatement = dslContext.scope
+}
 
 trait Expression extends BaseNode{
   def opName : String
@@ -25,7 +27,7 @@ trait Expression extends BaseNode{
   }
 }
 
-class RefExpression(val source : Nameable) extends Expression{
+class RefExpression(val source : NameableNode) extends Expression{
   def opName : String ="(x)"
   def foreachExpression(func : (Expression) => Unit) : Unit = {
 
@@ -82,7 +84,7 @@ trait AssignementStatementTarget {
   private [core] def nameableNode : NameableNode
 }
 class AssignementStatement(val target : AssignementStatementTarget ,val  source : Expression) extends LeafStatement{
-  override def rootScopeStatement = target.nameableNode.dslContext.scope
+  override def rootScopeStatement = target.nameableNode.rootScopeStatement
 //  override def isConditionalStatement: Boolean = false
   def foreachStatements(func : (Statement) => Unit) = Unit
   def foreachExpression(func : (Expression) => Unit) : Unit = func(source)
