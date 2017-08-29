@@ -11,7 +11,7 @@ class PhaseContext(val config : SpinalConfig){
   var globalData = GlobalData.reset
   config.applyToGlobalData(globalData)
   var dirtyConsumers = true
-  val globalScope = new Scope()
+  val globalScope = new NamingScope()
   var topLevel: Component = null
 //  val enums = mutable.Map[SpinalEnum,mutable.Set[SpinalEnumEncoding]]()
   val reservedKeyWords = mutable.Set[String](

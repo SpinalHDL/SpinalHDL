@@ -6,6 +6,27 @@ import scala.collection.mutable.ArrayBuffer
  * Created by PIC32F_USER on 14/08/2017.
  */
 
+object PlayReg{
+
+  class TopLevel extends Component {
+    val a, b, c = in Bool()
+    val d, e, f = out Bool()
+    val g, h, i, j = Bool()
+    val x,y,z = Reg(Bool())
+
+    val l,m,n = Reg(Bool)
+    n init(False)
+    l := a
+    m := a || b
+    n := m || l
+  }
+
+  def main(args: Array[String]) {
+    val toplevel = SpinalVhdl(new TopLevel()).toplevel
+
+  }
+}
+
 
 object PlayScope{
   class SubSubA extends Component{
@@ -41,7 +62,9 @@ object PlayScope{
       e := f
     }.elsewhen(a) {
       val x = Bool()
+      val y = Reg(Bool())
       x := a || b
+      y := True
       i := g || x
 
     } otherwise {
@@ -63,6 +86,10 @@ object PlayScope{
       i := subA.result
     }
 
+    val l,m,n = Reg(Bool)
+    l := a
+    m := a || b
+    n := m || l
   }
 
   def main(args: Array[String]) {
@@ -151,12 +178,12 @@ object PlayHeavyload {
   }
   
   
-  class TopLevel extends Component{
+  class TopLevel(size : Int) extends Component{
     var l = ArrayBuffer[Logic]()
     l.sizeHint(1100000)
     SpinalProgress("TOP START")
     var idx = 0
-    while(idx < 500000) {
+    while(idx < size) {
       idx += 1
       l += new Logic
       if(idx % 10000 == 0) println(idx)
@@ -166,15 +193,17 @@ object PlayHeavyload {
   }
 
   def main(args: Array[String]) {
-    val toplevel = SpinalVhdl(new TopLevel()).toplevel
-
-    var statementCount, expressionCount = 0
-    toplevel.dslBody.walkStatements(s => {
-      statementCount += 1
-      s.walkExpression(e => {
-        expressionCount += 1
-      })
-    })
-     print("DONE " + toplevel.getName() + " " + statementCount + " " + expressionCount)
+    var toplevel = SpinalVhdl(new TopLevel(10000)).toplevel
+    toplevel = SpinalVhdl(new TopLevel(50000)).toplevel
+    toplevel = SpinalVhdl(new TopLevel(10000)).toplevel
+//
+//    var statementCount, expressionCount = 0
+//    toplevel.dslBody.walkStatements(s => {
+//      statementCount += 1
+//      s.walkExpression(e => {
+//        expressionCount += 1
+//      })
+//    })
+//     print("DONE " + toplevel.getName() + " " + statementCount + " " + expressionCount)
   }
 }

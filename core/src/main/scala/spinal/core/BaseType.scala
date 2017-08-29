@@ -171,9 +171,11 @@ trait BaseTypeCast /*extends SFixCast with UFixCast*/
   */
 abstract class BaseType extends Data with NameableNode with AssignementStatementTarget {
 
-
+  var _isReg = false
   override private[core] def nameableNode: NameableNode = this
-  override def isReg = compositeAssign.isInstanceOf[RegDataComposite]
+  override def isReg = _isReg
+  override def isComb = !_isReg
+  def setAsReg() : this.type = {_isReg = true; this}
 
   //
 //  var input: Node = null
@@ -246,14 +248,12 @@ abstract class BaseType extends Data with NameableNode with AssignementStatement
   private[core] def assignFromImpl(that: AnyRef): Unit = {
     that match {
       case that : BaseType =>
-        component.addStatement(new AssignementStatement(target = this, source = new RefExpression(that.asInstanceOf[NameableNode])))
+        component.addStatement(new AssignementStatement(target = this, source = new RefExpression(that.asInstanceOf[NameableNode]), AssignementKind.DATA))
       case that : Expression =>
-        component.addStatement(new AssignementStatement(target = this, source = that))
+        component.addStatement(new AssignementStatement(target = this, source = that, AssignementKind.DATA))
       case _ =>
         throw new Exception("Undefined assignment")
     }
-
-
 
     // TODO IR that.isInstanceOf[AssignementNode] || that.isInstanceOf[DontCareNode]
 //    if (that.isInstanceOf[BaseType]/* || that.isInstanceOf[AssignementNode] || that.isInstanceOf[DontCareNode]*/) {
@@ -265,8 +265,18 @@ abstract class BaseType extends Data with NameableNode with AssignementStatement
   }
 
 
-  override private[core] def initFromImpl(that: AnyRef): Unit =
-    LocatedPendingError(s"Try to set initial value of a data that is not a register ($this)")
+  override private[core] def initFromImpl(that: AnyRef): Unit = {
+    if(!isReg)
+      LocatedPendingError(s"Try to set initial value of a data that is not a register ($this)")
+    else that match {
+      case that : BaseType =>
+        component.addStatement(new AssignementStatement(target = this, source = new RefExpression(that.asInstanceOf[NameableNode]), AssignementKind.INIT))
+      case that : Expression =>
+        component.addStatement(new AssignementStatement(target = this, source = that, AssignementKind.INIT))
+      case _ =>
+        throw new Exception("Undefined assignment")
+    }
+  }
 
 
 //

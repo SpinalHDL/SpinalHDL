@@ -18,6 +18,7 @@
 
 package spinal.core
 
+
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
@@ -64,7 +65,7 @@ object ConditionalContext{
     }
     globalData.context.push(componentContextStack.pop())
     val cond = Bool()
-    originalContext.component.dslBody.prepend(new AssignementStatement(cond, new BoolLiteral(false)))
+    originalContext.component.dslBody.prepend(new AssignementStatement(cond, new BoolLiteral(false), AssignementKind.INIT))
 
     while(componentContextStack.nonEmpty){
       globalData.context.push(componentContextStack.pop())

@@ -276,8 +276,8 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   /**
     * Name allocation
     */
-  var localNamingScope : Scope = null
-  private[core] def allocateNames(globalScope : Scope): Unit = {
+  var localNamingScope : NamingScope = null
+  private[core] def allocateNames(globalScope : NamingScope): Unit = {
     localNamingScope = globalScope.newChild
     localNamingScope.allocateName(globalData.anonymSignalPrefix)
 

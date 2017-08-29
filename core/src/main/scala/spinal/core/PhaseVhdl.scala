@@ -32,16 +32,21 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
   def compile(component: Component): Unit = {
     val text = emitComponent(component)
+//    println("SIZE " + text.length + "   " + text.lines.length)
     println(text)
 //    outFile.write(text)
   }
 
-  class Process(val scope : ScopeStatement){
+  class AsyncProcess(val scope : ScopeStatement){
     val leafStatements = ArrayBuffer[LeafStatement]()
     var treeStatements = List[TreeStatement]()
     var nameableTargets = List[NameableNode]()
   }
 
+  class SyncGroup(val clockDomain: ClockDomain, val scope: ScopeStatement){
+    val initStatements = ArrayBuffer[LeafStatement]()
+    val dataStatements = ArrayBuffer[LeafStatement]()
+  }
 
   class ComponentBuilder(val c : Component){
     val portMaps = ArrayBuffer[String]()
@@ -97,6 +102,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     }
   }
 
+  val wrappedExpressionToName = mutable.HashMap[Expression, String]()
   val referencesOverrides = mutable.HashMap[NameableNode,String]()
   val emitedComponent = mutable.Map[ComponentBuilder, ComponentBuilder]()
   val emitedComponentRef = mutable.Map[Component, Component]()
@@ -104,6 +110,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
   def emitComponent(component: Component): String = {
     referencesOverrides.clear()
+    wrappedExpressionToName.clear()
     val ret = new StringBuilder()
     val b = new ComponentBuilder(component)
 //    emitLibrary(builder)
@@ -137,13 +144,27 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     emitSignals(component,b)
     emitSubComponents(component,b)
 
+
+    val syncGroups = mutable.HashMap[(ClockDomain, ScopeStatement), SyncGroup]()
     val asyncStatement = ArrayBuffer[LeafStatement]()
 
-    component.dslBody.walkLeafStatements(s => asyncStatement += s)
+    //Sort all statements into their kinds
+    component.dslBody.walkLeafStatements(_ match {
+      case s : AssignementStatement => s.target.nameableNode match {
+        case target : BaseType if target.isComb => asyncStatement += s
+        case target : BaseType if target.isReg  => {
+          val group = syncGroups.getOrElseUpdate((target.dslContext.clockDomain,s.rootScopeStatement) , new SyncGroup(target.dslContext.clockDomain ,s.rootScopeStatement))
+          s.kind match {
+            case AssignementKind.INIT => group.initStatements += s
+            case AssignementKind.DATA => group.dataStatements += s
+          }
+        }
+      }
+    })
 
-    //process per target
-    val processFromNameableTarget = mutable.HashMap[Nameable,Process]()
-    val rootTreeStatementPerProcess = mutable.HashMap[TreeStatement,Process]()
+    //Generate AsyncProcess per target
+    val asyncProcessFromNameableTarget = mutable.HashMap[Nameable,AsyncProcess]()
+    val rootTreeStatementPerAsyncProcess = mutable.HashMap[TreeStatement,AsyncProcess]()
     for(s <- asyncStatement) s match{
       case s : AssignementStatement => {
         var rootTreeStatement: TreeStatement = null
@@ -155,41 +176,42 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
           scopePtr = scopePtr.parentStatement.parentScope
         }
         if (rootTreeStatement != null) {
-          val preExistingTargetProcess = processFromNameableTarget.getOrElse(s.target.nameableNode, null)
-          val preExistingRootTreeProcess = rootTreeStatementPerProcess.getOrElse(rootTreeStatement, null)
+          val preExistingTargetProcess = asyncProcessFromNameableTarget.getOrElse(s.target.nameableNode, null)
+          val preExistingRootTreeProcess = rootTreeStatementPerAsyncProcess.getOrElse(rootTreeStatement, null)
 
           if(preExistingTargetProcess == null && preExistingRootTreeProcess == null){ //Create new process
-          val process = new Process(rootScope)
-            processFromNameableTarget(s.target.nameableNode) = process
-            rootTreeStatementPerProcess(rootTreeStatement) = process
+          val process = new AsyncProcess(rootScope)
+            asyncProcessFromNameableTarget(s.target.nameableNode) = process
+            rootTreeStatementPerAsyncProcess(rootTreeStatement) = process
             process.nameableTargets = s.target.nameableNode :: process.nameableTargets
             process.treeStatements = rootTreeStatement :: process.treeStatements
           } else if(preExistingTargetProcess != null && preExistingRootTreeProcess == null){
             val process = preExistingTargetProcess
-            rootTreeStatementPerProcess(rootTreeStatement) = process
+            rootTreeStatementPerAsyncProcess(rootTreeStatement) = process
             process.treeStatements = rootTreeStatement :: process.treeStatements
           } else if(preExistingTargetProcess == null && preExistingRootTreeProcess != null){
             val process = preExistingRootTreeProcess
-            processFromNameableTarget(s.target.nameableNode) = process
+            asyncProcessFromNameableTarget(s.target.nameableNode) = process
             process.nameableTargets = s.target.nameableNode :: process.nameableTargets
           } else if(preExistingTargetProcess != preExistingRootTreeProcess) { //Merge
           val process = preExistingRootTreeProcess
-            processFromNameableTarget(s.target.nameableNode) = process
+            //TODO merge to smallest into the bigger (faster)
+            asyncProcessFromNameableTarget(s.target.nameableNode) = process
             process.treeStatements ++= preExistingTargetProcess.treeStatements
             process.nameableTargets ++= preExistingTargetProcess.nameableTargets
-            preExistingTargetProcess.nameableTargets.foreach(processFromNameableTarget(_) = process)
+            preExistingTargetProcess.nameableTargets.foreach(asyncProcessFromNameableTarget(_) = process)
           }
         }
       }
     }
 
-    //add assignement into processes
-    val processes = mutable.HashSet[Process]() ++= rootTreeStatementPerProcess.valuesIterator
+    //Add statements into AsyncProcesses
+    val processes = mutable.HashSet[AsyncProcess]() ++= rootTreeStatementPerAsyncProcess.valuesIterator
     for(s <- asyncStatement) s match {
       case s: AssignementStatement => {
-        var process = processFromNameableTarget.getOrElse(s.target.nameableNode,null)
+        var process = asyncProcessFromNameableTarget.getOrElse(s.target.nameableNode,null)
         if(process == null){
-          process = new Process(s.rootScopeStatement)
+          process = new AsyncProcess(s.rootScopeStatement)
           process.nameableTargets = s.target.nameableNode :: process.nameableTargets
         }
         process.leafStatements += s
@@ -197,24 +219,23 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
       }
     }
 
-    //identify processes duplicated expression
+    //identify duplicated expression due to `when` spliting/duplication
+    //TODO IR include sync stuff
     val algoId = GlobalData.get.allocateAlgoId()
-    val wrappedExpressionToName = mutable.HashMap[Expression, String]()
     for(process <- processes){
       for(treeStatement <- process.treeStatements){
-        //        leafStatement.walkParentTreeStatements(treeStatement => {
         treeStatement.walkExpression(e => {
           if(e.algoId == algoId){
             wrappedExpressionToName(e) = "AlocateAName"
           }
           e.algoId = algoId
         })
-        //        })
       }
     }
 
-
+    //Flush all that mess out ^^
     processes.foreach(emitAsyncronous(b, _))
+    syncGroups.values.foreach(emitSyncronous(b, _))
   }
 
 
@@ -289,7 +310,12 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     }
   }
 
-  def emitAsyncronous(b : ComponentBuilder, process: Process): Unit = {
+    def emitSyncronous(b : ComponentBuilder, group: SyncGroup): Unit = {
+      b.logics ++= "CLOOOOOCK\n"
+      emitLeafStatements(group.dataStatements, 0, group.scope, "<=", b.logics , "    ")
+    }
+
+    def emitAsyncronous(b : ComponentBuilder, process: AsyncProcess): Unit = {
     process match {
       case _ if process.leafStatements.size == 1 => process.leafStatements.head match {
         case s : AssignementStatement =>
@@ -428,7 +454,9 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
   }
 
 
-  def emitExpression(that : Expression) : String = modifierImplMap.getOrElse(that.opName, throw new Exception("can't find " + that.opName))(that)
+  def emitExpression(that : Expression) : String = {
+    wrappedExpressionToName.getOrElse(that, modifierImplMap.getOrElse(that.opName, throw new Exception("can't find " + that.opName))(that))
+  }
   //
   //    case lit: BitsLiteral => s"pkg_stdLogicVector(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
   //    case lit: UIntLiteral => s"pkg_unsigned(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"

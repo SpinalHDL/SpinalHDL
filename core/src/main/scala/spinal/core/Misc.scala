@@ -231,7 +231,7 @@ object Misc {
 //  }
 //}
 
-class Scope(parent : Scope = null) {
+class NamingScope(parent : NamingScope = null) {
   var lock = false
   val map = mutable.Map[String, Int]()
   def allocateName(name: String): String = {
@@ -269,7 +269,7 @@ class Scope(parent : Scope = null) {
     this.lock = true
   }
 
-  def newChild = new Scope(this)
+  def newChild = new NamingScope(this)
 //  def copy() : Scope = {
 //    val cpy = new Scope
 //    map.foreach{case (n,i) => cpy.map.put(n,i)}

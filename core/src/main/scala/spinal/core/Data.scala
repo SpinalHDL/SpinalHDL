@@ -157,7 +157,10 @@ trait DataPrimitives[T <: Data]{
 //  }
 
 //  def <>(that: T): Unit = _data autoConnect that
-//  def init(that: T): T = _data.initImpl(that)
+  def init(that: T): T = {
+    _data.initFrom(that)
+    _data
+  }
 //  def default(that : => T) : T ={
 //    val c = if(_data.dir == in)
 //      Component.current.parent
@@ -192,7 +195,7 @@ class DataPimper[T <: Data](val _data: T) extends DataPrimitives[T]{
 }
 
 
-trait Data extends ContextUser with NameableByComponent with Assignable  with Initable with SpinalTagReady with GlobalDataUser with ScalaLocated with OwnableRef {
+trait Data extends ContextUser with NameableByComponent with Assignable with SpinalTagReady with GlobalDataUser with ScalaLocated with OwnableRef {
   private[core] var dir: IODirection = null
   private[core] def isIo = dir != null
 
@@ -370,6 +373,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable  with In
 //  }
 
   def isReg: Boolean = flatten.foldLeft(true)(_ && _.isReg)
+  def isComb: Boolean = flatten.foldLeft(true)(_ && _.isComb)
 
 
   /*private[core] */

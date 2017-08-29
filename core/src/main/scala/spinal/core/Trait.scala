@@ -293,19 +293,19 @@ object SyncNode {
 //  def getSoftReset: Bool = softReset
 //}
 
-trait Initable {
-  var compositeInitable: Initable = null
-
-  final def initFrom(that: AnyRef): Unit = {
-    if (compositeInitable != null) {
-      compositeInitable.initFrom(that)
-    } else {
-      initFromImpl(that)
-    }
-  }
-
-  private[core] def initFromImpl(that: AnyRef): Unit
-}
+//trait Initable {
+//  var compositeInitable: Initable = null
+//
+//  final def initFrom(that: AnyRef): Unit = {
+//    if (compositeInitable != null) {
+//      compositeInitable.initFrom(that)
+//    } else {
+//      initFromImpl(that)
+//    }
+//  }
+//
+//  private[core] def initFromImpl(that: AnyRef): Unit
+//}
 
 trait Assignable {
   /* private[core] */var compositeAssign: Assignable = null
@@ -318,7 +318,16 @@ trait Assignable {
     }
   }
 
+  final def initFrom(that: AnyRef): Unit = {
+    if (compositeAssign != null) {
+      compositeAssign.initFrom(that)
+    } else {
+      initFromImpl(that)
+    }
+  }
+
   private[core] def assignFromImpl(that: AnyRef): Unit
+  private[core] def initFromImpl(that: AnyRef): Unit
 }
 
 object OwnableRef{
