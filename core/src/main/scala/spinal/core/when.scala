@@ -28,13 +28,7 @@ import scala.collection.mutable.ArrayBuffer
 
 
 trait ConditionalContext extends GlobalDataUser{
-  def push: Unit = {
-    globalData.conditionalAssignStack.push(this)
-  }
 
-  def pop: Unit = {
-    globalData.conditionalAssignStack.pop(this)
-  }
 }
 
 

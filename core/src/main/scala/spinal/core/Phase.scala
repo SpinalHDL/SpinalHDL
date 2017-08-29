@@ -142,10 +142,6 @@ class PhaseContext(val config : SpinalConfig){
 
   def checkGlobalData() : Unit = {
     if (!GlobalData.get.context.isEmpty) SpinalError("context stack is not empty :(")
-    if (!GlobalData.get.clockDomainStack.isEmpty) SpinalError("clockDomain stack is not empty :(")
-    if (!GlobalData.get.componentStack.isEmpty) SpinalError("componentStack stack is not empty :(")
-//    if (!GlobalData.get.switchStack.isEmpty) SpinalError("switchStack stack is not empty :(")
-    if (!GlobalData.get.conditionalAssignStack.isEmpty) SpinalError("conditionalAssignStack stack is not empty :(")
   }
 
   def checkPendingErrors() = if(!globalData.pendingErrors.isEmpty) SpinalError()
@@ -272,12 +268,12 @@ trait PhaseCheck extends Phase{
 //              node.dir match{
 //                case `in` =>  {
 //                  Component.push(c.parent)
-//                  node.assignFrom(node.defaultValue, false)
+//                  node.assignFrom(node.defaultValue)
 //                  Component.pop(c.parent)
 //                }
 //                case _ => {
 //                  Component.push(c)
-//                  node.assignFrom(node.defaultValue, false)
+//                  node.assignFrom(node.defaultValue)
 //                  Component.pop(c)
 //                }
 //              }
@@ -609,10 +605,33 @@ class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
 //  }
 //}
 //
-//class PhasePullClockDomains(pc: PhaseContext) extends PhaseNetlist{
-//  override def useNodeConsumers = false
-//  override def impl(pc : PhaseContext): Unit = {
-//    import pc._
+class PhasePullClockDomains(pc: PhaseContext) extends PhaseNetlist{
+  override def useNodeConsumers = false
+  override def impl(pc : PhaseContext): Unit = {
+    import pc._
+
+    GraphUtils.walkAllComponents(pc.topLevel,c => {
+      val cds = mutable.HashSet[ClockDomain]()
+      c.ownNameableNodes.foreach(_ match {
+        case bt : BaseType if bt.isReg => {
+          val cd = bt.dslContext.clockDomain
+          if(bt.isUsingResetSignal && (!cd.hasResetSignal && !cd.hasSoftResetSignal))
+            SpinalError(s"Clock domain without reset contain a register which needs one\n ${bt.getScalaLocationLong}")
+
+          cds += cd
+        }
+        case _ =>
+      })
+
+      c.rework{
+        for(cd <- cds){
+          cd.readClockWire
+          if(cd.hasResetSignal) cd.readResetWire
+          if(cd.hasSoftResetSignal) cd.readSoftResetWire
+          if(cd.hasClockEnableSignal) cd.readClockEnableWire
+        }
+      }
+    })
 //    Node.walk(walkNodesDefautStack,(node, push) =>  {
 //      node match {
 //        case delay: SyncNode => {
@@ -632,8 +651,8 @@ class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
 //      }
 //      node.onEachInput(push(_))
 //    })
-//  }
-//}
+  }
+}
 //
 //class PhaseCheck_noNull_noCrossHierarchy_noInputRegister_noDirectionLessIo(pc: PhaseContext) extends PhaseCheck{
 //  override def useNodeConsumers = false
@@ -1787,6 +1806,9 @@ object SpinalVhdlBoot{
     phases += new PhaseDummy(SpinalProgress("Get names from reflection"))
     phases += new PhaseNameNodesByReflection(pc)
 //    phases += new PhaseCollectAndNameEnum(pc)
+
+    phases += new PhaseDummy(SpinalProgress("Transform connections"))
+    phases += new PhasePullClockDomains(pc)
 
     phases += new PhaseAllocateNames(pc)
 //    phases += new PhaseRemoveComponentThatNeedNoHdlEmit(pc)

@@ -32,7 +32,7 @@ object PlayScope{
   class SubSubA extends Component{
     val a,b = in Bool()
     val result = out Bool()
-    val temp = a || b
+    val temp = RegNext(a || b)
     result := temp
   }
   class SubA extends Component{
@@ -48,6 +48,10 @@ object PlayScope{
     val d, e, f = out Bool()
     val g, h, i, j = Bool()
     val x,y,z = Reg(Bool())
+    y.init(True)
+    when(a){
+      z init(False)
+    }
     h := True
     e := a || c
     x := d || y

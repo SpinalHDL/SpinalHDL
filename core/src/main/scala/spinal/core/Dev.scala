@@ -14,21 +14,21 @@ trait BaseNode {
 
 trait NameableNode extends BaseNode with Nameable{
   def rootScopeStatement : ScopeStatement = dslContext.scope
-  val statements = mutable.ListBuffer[Statement]() //TODO IR ! linkedlist  hard
+  val statements = mutable.ListBuffer[AssignementStatement]() //TODO IR ! linkedlist  hard
 
   def sizeIsOne = statements.length == 1 //TODO faster
   def head = statements.head
-  def append(that : Statement) : this.type = {
+  def append(that : AssignementStatement) : this.type = {
     statements += that
     this
   }
 
-  def prepend(that : Statement) : this.type = {
+  def prepend(that : AssignementStatement) : this.type = {
     statements.prepend(that)
     this
   }
 
-  def foreachStatements(func : (Statement) => Unit) = {
+  def foreachStatements(func : (AssignementStatement) => Unit) = {
     statements.foreach(func)
   }
 
@@ -207,11 +207,8 @@ class ScopeStatement(var parentStatement : TreeStatement){
 
 
 object GraphUtils{
-  def splitByScope(nameables : TraversableOnce[Nameable]): mutable.HashMap[ScopeStatement,mutable.HashSet[Nameable]] = {
-    val dic = mutable.HashMap[ScopeStatement,mutable.HashSet[Nameable]]()
-    for(n <- nameables){
-      dic.getOrElseUpdate(n.dslContext.scope, new mutable.HashSet[Nameable]) += n
-    }
-    dic
+  def walkAllComponents(root : Component, func : Component => Unit) : Unit = {
+    func(root)
+    root.children.foreach(walkAllComponents(_, func))
   }
 }

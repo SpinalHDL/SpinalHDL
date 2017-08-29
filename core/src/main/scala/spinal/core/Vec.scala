@@ -110,7 +110,7 @@
 //          case that: AssignementNode => that.clone(to)
 //          case _ => that
 //        }
-//        to.assignFrom(thatSafe, conservative)
+//        to.assignFrom(thatSafe)
 //      }
 //    }
 //  }

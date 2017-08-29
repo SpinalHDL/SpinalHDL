@@ -43,7 +43,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     var nameableTargets = List[NameableNode]()
   }
 
-  class SyncGroup(val clockDomain: ClockDomain, val scope: ScopeStatement){
+  class SyncGroup(val clockDomain: ClockDomain, val scope: ScopeStatement, val hasInit : Boolean){
     val initStatements = ArrayBuffer[LeafStatement]()
     val dataStatements = ArrayBuffer[LeafStatement]()
   }
@@ -145,7 +145,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     emitSubComponents(component,b)
 
 
-    val syncGroups = mutable.HashMap[(ClockDomain, ScopeStatement), SyncGroup]()
+    val syncGroups = mutable.HashMap[(ClockDomain, ScopeStatement, Boolean), SyncGroup]()
     val asyncStatement = ArrayBuffer[LeafStatement]()
 
     //Sort all statements into their kinds
@@ -153,7 +153,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
       case s : AssignementStatement => s.target.nameableNode match {
         case target : BaseType if target.isComb => asyncStatement += s
         case target : BaseType if target.isReg  => {
-          val group = syncGroups.getOrElseUpdate((target.dslContext.clockDomain,s.rootScopeStatement) , new SyncGroup(target.dslContext.clockDomain ,s.rootScopeStatement))
+          val group = syncGroups.getOrElseUpdate((target.dslContext.clockDomain, s.rootScopeStatement, target.hasInit) , new SyncGroup(target.dslContext.clockDomain ,s.rootScopeStatement, target.hasInit))
           s.kind match {
             case AssignementKind.INIT => group.initStatements += s
             case AssignementKind.DATA => group.dataStatements += s
@@ -173,6 +173,8 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
         while (scopePtr != rootScope) {
           rootTreeStatement = scopePtr.parentStatement
+          if(scopePtr.parentStatement == null)
+            println("miaou")
           scopePtr = scopePtr.parentStatement.parentScope
         }
         if (rootTreeStatement != null) {
@@ -235,7 +237,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
     //Flush all that mess out ^^
     processes.foreach(emitAsyncronous(b, _))
-    syncGroups.values.foreach(emitSyncronous(b, _))
+    syncGroups.values.foreach(emitSyncronous(component, b, _))
   }
 
 
@@ -310,9 +312,101 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     }
   }
 
-    def emitSyncronous(b : ComponentBuilder, group: SyncGroup): Unit = {
-      b.logics ++= "CLOOOOOCK\n"
-      emitLeafStatements(group.dataStatements, 0, group.scope, "<=", b.logics , "    ")
+    def emitSyncronous(component : Component, b : ComponentBuilder, group: SyncGroup): Unit = {
+      import group._
+      def withReset = hasInit
+
+//      val clock = component.pulledDataCache.getOrElse(clockDomain.clock, throw new Exception("???")).asInstanceOf[Bool]
+//      val reset = if (null == clockDomain.reset || !withReset) null else component.pulledDataCache.getOrElse(clockDomain.reset, throw new Exception("???")).asInstanceOf[Bool]
+//      val softReset = if (null == clockDomain.softReset || !withReset) null else component.pulledDataCache.getOrElse(clockDomain.softReset, throw new Exception("???")).asInstanceOf[Bool]
+//      val clockEnable = if (null == clockDomain.clockEnable) null else component.pulledDataCache.getOrElse(clockDomain.clockEnable, throw new Exception("???")).asInstanceOf[Bool]
+
+      val clock = clockDomain.clock
+      val reset = if (null == clockDomain.reset || !withReset) null else clockDomain.reset
+      val softReset = if (null == clockDomain.softReset || !withReset) null else clockDomain.softReset
+      val clockEnable = if (null == clockDomain.clockEnable) null else clockDomain.clockEnable
+
+      val asyncReset = (null != reset) && clockDomain.config.resetKind == ASYNC
+      val syncReset = (null != reset) && clockDomain.config.resetKind == SYNC
+      var tabLevel = 1
+      def tabStr = "  " * tabLevel
+      def inc = {
+        tabLevel = tabLevel + 1
+      }
+      def dec = {
+        tabLevel = tabLevel - 1
+      }
+
+
+
+      val initialStatlementsGeneration =  new StringBuilder()
+      referenceSet = mutable.Set[String]()
+      emitRegsInitialValue("      ", initialStatlementsGeneration)
+      referenceSet += emitReference(clock,false)
+
+      if (asyncReset) {
+        referenceSet += emitReference(reset,false)
+        b.logics ++= s"${tabStr}process(${referenceSet.mkString(", ")})\n"
+      } else {
+        b.logics ++= s"${tabStr}process(${referenceSet.mkString(", ")})\n"
+      }
+
+      b.logics ++= s"${tabStr}begin\n"
+      inc
+      if (asyncReset) {
+        b.logics ++= s"${tabStr}if ${emitReference(reset, false)} = \'${if (clockDomain.config.resetActiveLevel == HIGH) 1 else 0}\' then\n";
+        inc
+        b.logics ++= initialStatlementsGeneration
+        dec
+        b.logics ++= s"${tabStr}elsif ${emitClockEdge(emitReference(clock,false), clockDomain.config.clockEdge)}"
+        inc
+      } else {
+        b.logics ++= s"${tabStr}if ${emitClockEdge(emitReference(clock,false), clockDomain.config.clockEdge)}"
+        inc
+      }
+      if (clockEnable != null) {
+        b.logics ++= s"${tabStr}if ${emitReference(clockEnable,false)} = \'${if (clockDomain.config.clockEnableActiveLevel == HIGH) 1 else 0}\' then\n"
+        inc
+      }
+
+      if (syncReset || softReset != null) {
+        var condList = ArrayBuffer[String]()
+        if(syncReset) condList += s"${emitReference(reset,false)} = \'${if (clockDomain.config.resetActiveLevel == HIGH) 1 else 0}\'"
+        if(softReset != null) condList += s"${emitReference(softReset,false)} = \'${if (clockDomain.config.softResetActiveLevel == HIGH) 1 else 0}\'"
+
+        b.logics ++= s"${tabStr}if ${condList.reduce(_ + " or " + _)} then\n"
+        inc
+        b.logics ++= initialStatlementsGeneration
+        dec
+        b.logics ++= s"${tabStr}else\n"
+        inc
+        emitRegsLogic(tabStr,b.logics)
+        dec
+        b.logics ++= s"${tabStr}end if;\n"
+        dec
+      } else {
+        emitRegsLogic(tabStr,b.logics)
+        dec
+      }
+
+      while (tabLevel != 1) {
+        b.logics ++= s"${tabStr}end if;\n"
+        dec
+      }
+      b.logics ++= s"${tabStr}end process;\n"
+      dec
+      b.logics ++= s"${tabStr}\n"
+
+
+      def emitRegsInitialValue(tab: String, b : StringBuilder): Unit = {
+        emitLeafStatements(group.initStatements, 0, group.scope, "<=", b , tab)
+      }
+      def emitRegsLogic(tab: String, b : StringBuilder): Unit = {
+        emitLeafStatements(group.dataStatements, 0, group.scope, "<=", b , tab)
+      }
+
+
+
     }
 
     def emitAsyncronous(b : ComponentBuilder, process: AsyncProcess): Unit = {

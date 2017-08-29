@@ -23,110 +23,120 @@ package spinal.core
 object Data {
 
   def doPull[T <: Data](srcData: T, finalComponent: Component, useCache: Boolean = false, propagateName: Boolean = false): T = {
-    ???
-//    val startComponent = srcData.component
-//    if (useCache) {
-//      val finalComponentCacheState = finalComponent.pulledDataCache.getOrElse(srcData, null)
-//      if (finalComponentCacheState != null)
-//        return finalComponentCacheState.asInstanceOf[srcData.type]
-//    }
-//
-//    if (startComponent == finalComponent || (startComponent != null && finalComponent == startComponent.parent && srcData.isIo)) {
-//      finalComponent.pulledDataCache.put(srcData, srcData)
-//      return srcData
-//    }
-//
-//
-//    //val targetPath = finalComponent.parents()
-//    var finalData : T = null.asInstanceOf[T]
-//    val srcPath = null +: srcData.getComponents()
-//    var currentData : T = null.asInstanceOf[T]
-//    var currentComponent = finalComponent
-//
-//    //Rise path
-//    if(!srcPath.contains(currentComponent)){
-//      Component.push(finalComponent)
-//      finalData = cloneOf(srcData)
-//      if (propagateName)
-//        finalData.setCompositeName(srcData,true)
-//      finalData.asInput()
-//      if (useCache) currentComponent.pulledDataCache.put(srcData, finalData)
-//      Component.pop(finalComponent)
-//
-//      currentComponent = currentComponent.parent
-//      currentData = finalData
-//
-//      while(!srcPath.contains(currentComponent)){
-//        if (useCache && currentComponent.pulledDataCache.contains(srcData)) {
-//          val cachedNode = currentComponent.pulledDataCache.get(srcData).get
-//          Component.push(currentComponent)
-//          currentData.assignFrom(cachedNode,false)
-//          Component.pop(currentComponent)
-//          return finalData
-//        }else{
-//          Component.push(currentComponent)
-//          val copy = cloneOf(srcData)
-//          if (propagateName)
-//            copy.setCompositeName(srcData,true)
-//          copy.asInput()
-//          currentData.assignFrom(copy,false)
-//          Component.pop(currentComponent)
-//          if (useCache) currentComponent.pulledDataCache.put(srcData, copy)
-//
-//          currentData = copy
-//          currentComponent = currentComponent.parent
-//        }
-//      }
-//    }
-//
-//    //fall path
-//    var fallPath = srcPath.drop(srcPath.indexOf(currentComponent) + 1)
-//    if(!fallPath.isEmpty && srcData.isOutput) fallPath = fallPath.dropRight(1)
-//    while(!fallPath.isEmpty){
-//      if (useCache && currentComponent.pulledDataCache.contains(srcData)) {
-//        val cachedNode = currentComponent.pulledDataCache.get(srcData).get
-//        Component.push(currentComponent)
-//        currentData.assignFrom(cachedNode,false)
-//        Component.pop(currentComponent)
-//        return finalData
-//      }else{
-//        Component.push(fallPath.head)
-//        val copy = cloneOf(srcData)
-//        if (propagateName)
-//          copy.setCompositeName(srcData,true)
-//        copy.asOutput()
-//        Component.pop(fallPath.head)
-//
-//        if(currentData != null) {
-//          Component.push(currentComponent)
-//          currentData.assignFrom(copy, false)
-//          Component.pop(currentComponent)
-//        }else{
-//          finalData = copy
-//        }
-//        if (useCache) currentComponent.pulledDataCache.put(srcData, copy)
-//
-//        currentData = copy
-//      }
-//
-//      currentComponent = fallPath.head
-//      fallPath = fallPath.tail
-//    }
-//
-//    srcData.dir match{
-//      case `in`=> {
-//        Component.push(srcData.component)
-//        currentData := srcData
-//        Component.pop(srcData.component)
-//      }
-//      case _ => {
-//        Component.push(currentData.component)
-//        currentData := srcData
-//        Component.pop(currentData.component)
-//      }
-//    }
-//
-//    finalData
+    val startComponent = srcData.component
+    if (useCache) {
+      val finalComponentCacheState = finalComponent.pulledDataCache.getOrElse(srcData, null)
+      if (finalComponentCacheState != null)
+        return finalComponentCacheState.asInstanceOf[srcData.type]
+    }
+
+    if (startComponent == finalComponent || (startComponent != null && finalComponent == startComponent.parent && srcData.isIo)) {
+      finalComponent.pulledDataCache.put(srcData, srcData)
+      return srcData
+    }
+
+
+    //val targetPath = finalComponent.parents()
+    var finalData : T = null.asInstanceOf[T]
+    val srcPath = null +: srcData.getComponents()
+    var currentData : T = null.asInstanceOf[T]
+    var currentComponent = finalComponent
+
+    def push(c : Component, scope : ScopeStatement) : Unit = {
+      c.globalData.context.push(c.dslContext.copy(component = c, scope = scope))
+    }
+
+    def pop(c : Component) : Unit = {
+      assert(c.globalData.context.head.component == c)
+      c.globalData.context.pop()
+    }
+
+    //Rise path
+    if(!srcPath.contains(currentComponent)){
+      push(finalComponent,finalComponent.dslBody)
+      finalData = cloneOf(srcData)
+      if (propagateName)
+        finalData.setCompositeName(srcData,true)
+      finalData.asInput()
+      if (useCache) currentComponent.pulledDataCache.put(srcData, finalData)
+      pop(finalComponent)
+
+      currentComponent = currentComponent.parent
+      currentData = finalData
+
+      while(!srcPath.contains(currentComponent)){
+        if (useCache && currentComponent.pulledDataCache.contains(srcData)) {
+          val cachedNode = currentComponent.pulledDataCache.get(srcData).get
+          push(cachedNode.component, currentData.component.dslContext.scope)
+          currentData.assignFrom(cachedNode)
+          pop(cachedNode.component)
+          return finalData
+        }else{
+          push(currentComponent, currentData.component.dslContext.scope)
+          val copy = cloneOf(srcData)
+          if (propagateName)
+            copy.setCompositeName(srcData,true)
+          copy.asInput()
+          currentData.assignFrom(copy)
+          pop(currentComponent)
+          if (useCache) currentComponent.pulledDataCache.put(srcData, copy)
+
+          currentData = copy
+          currentComponent = currentComponent.parent
+        }
+      }
+    }
+
+    //fall path
+    var fallPath = srcPath.drop(srcPath.indexOf(currentComponent) + 1)
+    if(!fallPath.isEmpty && srcData.isOutput) fallPath = fallPath.dropRight(1)
+    while(!fallPath.isEmpty){
+      if (useCache && currentComponent.pulledDataCache.contains(srcData)) {
+        val cachedNode = currentComponent.pulledDataCache.get(srcData).get
+        push(currentComponent, currentComponent.dslBody)
+        currentData.assignFrom(cachedNode)
+        pop(currentComponent)
+        return finalData
+      }else{
+        push(fallPath.head, fallPath.head.dslBody)
+        val copy = cloneOf(srcData)
+        if (propagateName)
+          copy.setCompositeName(srcData)
+        copy.asOutput()
+        pop(fallPath.head)
+
+        if(currentData != null) {
+          push(currentComponent,currentComponent.dslBody)
+          currentData.assignFrom(copy)
+          pop(currentComponent)
+        }else{
+          finalData = copy
+        }
+        if (useCache) currentComponent.pulledDataCache.put(srcData, copy)
+
+        currentData = copy
+      }
+
+      currentComponent = fallPath.head
+      fallPath = fallPath.tail
+    }
+
+
+    srcData.dir match{
+      case `in`=> {
+        push(srcData.component, currentData.dslContext.scope)
+        currentData := srcData
+        pop(srcData.component)
+      }
+      case _ if srcData.component != null => {
+        push(srcData.component,  currentData.dslContext.scope)
+        currentData := srcData
+        pop(srcData.component)
+      }
+      case _ =>
+    }
+
+    finalData
   }
 }
 
@@ -143,7 +153,7 @@ trait DataPrimitives[T <: Data]{
   }
 
 
-  //  def := [T2 <: T](that: T2): Unit = pimpIt assignFrom(that, false)
+  //  def := [T2 <: T](that: T2): Unit = pimpIt assignFrom(that)
 
   //Use as \= to have the same behavioral than VHDL variable
 //  def \(that: T) : T = {
@@ -273,7 +283,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
 
 //  def resized : this.type ={
 //    val ret = cloneOf(this)
-//    ret.assignFrom(this,false)
+//    ret.assignFrom(this)
 //    ret.addTag(tagAutoResize)
 //    return ret.asInstanceOf[this.type]
 //  }

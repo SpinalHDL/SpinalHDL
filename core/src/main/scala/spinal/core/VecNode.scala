@@ -43,7 +43,7 @@ package spinal.core
 //  def write(data : T,sels : Seq[Int]) : Unit = {
 //    val assign = new VecBaseTypeAssignFixed(this,sels)
 //    assign.setIn3putWrap(0) = data
-//    this.assignFrom(assign,true)
+//    this.assignFrom(assign)
 //  }
 //
 //  def read(sels : Seq[Int]) : T = {

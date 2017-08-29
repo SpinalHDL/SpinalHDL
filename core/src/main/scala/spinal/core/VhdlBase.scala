@@ -49,14 +49,14 @@ trait VhdlBase extends VhdlVerilogBase{
 //  }
 //
 //
-//  def emitClockEdge(clock: Bool, edgeKind: EdgeKind): String = {
-//    s"${
-//      edgeKind match {
-//        case RISING => "rising_edge"
-//        case FALLING => "falling_edge"
-//      }
-//    }(${emitReference(clock)}) then\n"
-//  }
+  def emitClockEdge(clock: String, edgeKind: EdgeKind): String = {
+    s"${
+      edgeKind match {
+        case RISING => "rising_edge"
+        case FALLING => "falling_edge"
+      }
+    }($clock) then\n"
+  }
 //
 //
 //  def emitEnumLiteral[T <: SpinalEnum](enum : SpinalEnumElement[T],encoding: SpinalEnumEncoding) : String = {

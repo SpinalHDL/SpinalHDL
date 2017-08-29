@@ -203,10 +203,10 @@ class ClockDomain(val config: ClockDomainConfig, val clock: Bool, val reset: Boo
 //    else
 //      True
 //  }
-//  def readClockWire = if (null == clock) Bool(config.clockEdge == FALLING) else Data.doPull(clock, Component.current, true, true)
-//  def readResetWire = if (null == reset) Bool(config.resetActiveLevel == LOW) else Data.doPull(reset, Component.current, true, true)
-//  def readSoftResetWire = if (null == softReset) Bool(config.softResetActiveLevel == LOW) else Data.doPull(softReset, Component.current, true, true)
-//  def readClockEnableWire = if (null == clockEnable) Bool(config.clockEnableActiveLevel == HIGH) else Data.doPull(clockEnable, Component.current, true, true)
+  def readClockWire = if (null == clock) Bool(config.clockEdge == FALLING) else Data.doPull(clock, Component.current, true, true)
+  def readResetWire = if (null == reset) Bool(config.resetActiveLevel == LOW) else Data.doPull(reset, Component.current, true, true)
+  def readSoftResetWire = if (null == softReset) Bool(config.softResetActiveLevel == LOW) else Data.doPull(softReset, Component.current, true, true)
+  def readClockEnableWire = if (null == clockEnable) Bool(config.clockEnableActiveLevel == HIGH) else Data.doPull(clockEnable, Component.current, true, true)
 
   val syncroneWith = ArrayBuffer[ClockDomain]()
 

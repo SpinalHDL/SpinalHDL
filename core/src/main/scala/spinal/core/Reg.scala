@@ -50,27 +50,28 @@ object Reg {
 }
 //
 //
-//object RegNext {
-//  def apply[T <: Data](next: T, init: T = null.asInstanceOf[T]): T = Reg(next, init,next)
-//}
-//object RegNextWhen {
-//  def apply[T <: Data](next: T,cond : Bool, init: T = null.asInstanceOf[T]): T = {
-//    val reg = Reg(next,init)
-//    when(cond){
-//      reg := next
-//    }
-//    reg
-//  }
-//}
-//
-//
-//object RegInit {
-//  def apply[T <: Data](init: T): T = {
-//    Reg(init, init)
-//  }
-//
+object RegNext {
+  def apply[T <: Data](next: T, init: T = null.asInstanceOf[T]): T = Reg(next, init,next)
+}
+object RegNextWhen {
+  def apply[T <: Data](next: T,cond : Bool, init: T = null.asInstanceOf[T]): T = {
+    val reg = Reg(next,init)
+    when(cond){
+      reg := next
+    }
+    reg
+  }
+}
+
+
+object RegInit {
+  def apply[T <: Data](init: T): T = {
+    Reg(init, init)
+  }
+
+  //TODO IR
 //  def apply[T <: SpinalEnum](init : SpinalEnumElement[T]) : SpinalEnumCraft[T] = apply(init())
-//}
+}
 //
 ///*
 //object BoolReg{

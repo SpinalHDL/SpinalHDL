@@ -196,7 +196,7 @@
 //  }
 //
 //  override def assignDontCare(): this.type = {
-//    this.assignFrom(new DontCareNodeEnum(spinalEnum), conservative=false)
+//    this.assignFrom(new DontCareNodeEnum(spinalEnum))
 //    this
 //  }
 //}

@@ -2481,32 +2481,32 @@ object PlayRegTriplify{
         val r0 = regs(0).asInstanceOf[Bool]
         val r1 = regs(1).asInstanceOf[Bool]
         val r2 = regs(2).asInstanceOf[Bool]
-        regOutput.assignFrom((r0 & r1) | (r0 & r2) | (r1 & r2) ,false)
+        regOutput.assignFrom((r0 & r1) | (r0 & r2) | (r1 & r2))
       }
       case regOutput : Bits => {
         val r0 = regs(0).asInstanceOf[Bits]
         val r1 = regs(1).asInstanceOf[Bits]
         val r2 = regs(2).asInstanceOf[Bits]
-        regOutput.assignFrom((r0 & r1) | (r0 & r2) | (r1 & r2) ,false)
+        regOutput.assignFrom((r0 & r1) | (r0 & r2) | (r1 & r2))
       }
       case regOutput : UInt => {
         val r0 = regs(0).asInstanceOf[UInt]
         val r1 = regs(1).asInstanceOf[UInt]
         val r2 = regs(2).asInstanceOf[UInt]
-        regOutput.assignFrom((r0 & r1) | (r0 & r2) | (r1 & r2) ,false)
+        regOutput.assignFrom((r0 & r1) | (r0 & r2) | (r1 & r2))
       }
       case regOutput : SInt => {
         val r0 = regs(0).asInstanceOf[SInt]
         val r1 = regs(1).asInstanceOf[SInt]
         val r2 = regs(2).asInstanceOf[SInt]
-        regOutput.assignFrom((r0 & r1) | (r0 & r2) | (r1 & r2) ,false)
+        regOutput.assignFrom((r0 & r1) | (r0 & r2) | (r1 & r2))
       }
     }
 
     //Allow to reassign the triplified register even after this call
     regOutput.compositeAssign = new Assignable {
       override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
-        regs.foreach(_.input.asInstanceOf[Reg].assignFrom(that,conservative))
+        regs.foreach(_.input.asInstanceOf[Reg].assignFrom(that))
       }
     }
   }

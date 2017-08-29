@@ -36,11 +36,6 @@ object Component {
   def push(c: Component): Unit = {
     val globalData = if(c != null) c.globalData else GlobalData.get
     globalData.context.push(globalData.contextHead.copy(component = c, scope = if(c != null) c.dslBody else null))
-
-
-
-    //  if (when.stack.size() != 0) throw new Exception("Creating a component into hardware conditional expression")
-    GlobalData.get.componentStack.push(c)
   }
 
   /**
@@ -50,16 +45,13 @@ object Component {
   def pop(c: Component): Unit = {
     val globalData = if(c != null) c.globalData else GlobalData.get
     globalData.context.pop()
-
-
-    GlobalData.get.componentStack.pop(c)
   }
 
   /** Get the current component on the stack */
   def current: Component = current(GlobalData.get)
 
   /** Get the current component on the stack of the given globalData*/
-  def current(globalData: GlobalData): Component = globalData.componentStack.head()
+  def current(globalData: GlobalData): Component = globalData.contextHead.component
 }
 
 
@@ -136,7 +128,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   /** Definition Name (name of the entity (VHDL) or module (Verilog))*/
   var definitionName: String = null
   /** Hierarchy level of the component */
-  private[core] val level = globalData.componentStack.size()
+  private[core] val level : Int = if(parent == null) 0 else parent.level + 1
   /** Contains an array of all children Component */
   val children = ArrayBuffer[Component]()
   /** Reference owner type */
@@ -145,7 +137,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
 //  var nodes: ArrayBuffer[Node] = null
 
   private[core] var pulledDataCache = mutable.Map[Data, Data]()
-  private[core] val initialAssignementCondition = globalData.conditionalAssignStack.head()
+
 
   /** Get the parent component (null if there is no parent)*/
   def parent = dslContext.component

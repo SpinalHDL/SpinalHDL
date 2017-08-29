@@ -176,6 +176,15 @@ abstract class BaseType extends Data with NameableNode with AssignementStatement
   override def isReg = _isReg
   override def isComb = !_isReg
   def setAsReg() : this.type = {_isReg = true; this}
+  def isUsingResetSignal: Boolean = clockDomain.config.resetKind != BOOT && (clockDomain.reset != null || clockDomain.softReset == null) && hasInit
+  def isUsingSoftResetSignal: Boolean = clockDomain.softReset != null  && hasInit
+
+  def clockDomain = dslContext.clockDomain
+
+  def hasInit : Boolean = {
+    foreachStatements(s => if(s.kind == AssignementKind.INIT) return true)
+    return false
+  }
 
   //
 //  var input: Node = null
@@ -252,7 +261,7 @@ abstract class BaseType extends Data with NameableNode with AssignementStatement
       case that : Expression =>
         component.addStatement(new AssignementStatement(target = this, source = that, AssignementKind.DATA))
       case _ =>
-        throw new Exception("Undefined assignment")
+        throw new Exception(s"Undefined assignment $this := $that")
     }
 
     // TODO IR that.isInstanceOf[AssignementNode] || that.isInstanceOf[DontCareNode]
@@ -283,7 +292,7 @@ abstract class BaseType extends Data with NameableNode with AssignementStatement
 //  // def castThatInSame(that: BaseType): this.type = throw new Exception("Not defined")
 //
 //  override def assignDontCare(): this.type = {
-//    this.assignFrom(new DontCareNode(this), conservative=false)
+//    this.assignFrom(new DontCareNode(this))
 //    this
 //  }
 //
