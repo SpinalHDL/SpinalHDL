@@ -1319,10 +1319,14 @@ class PhasePullClockDomains(pc: PhaseContext) extends PhaseNetlist{
 //
 //
 //
-//class PhaseDeleteUselessBaseTypes(pc: PhaseContext) extends PhaseNetlist{
-//  override def useNodeConsumers = true
-//  override def impl(pc : PhaseContext): Unit = {
-//    import pc._
+class PhaseDeleteUselessBaseTypes(pc: PhaseContext) extends PhaseNetlist{
+  override def useNodeConsumers = true
+  override def impl(pc : PhaseContext): Unit = {
+    import pc._
+
+//    GraphUtils.walkAllComponents(pc.topLevel, c => {
+//
+//    })
 //    Node.walk(walkNodesDefautStack,(node, push) => {
 //      node match {
 //        case node: BaseType => {
@@ -1359,8 +1363,8 @@ class PhasePullClockDomains(pc: PhaseContext) extends PhaseNetlist{
 //      }
 //      node.onEachInput(push(_))
 //    })
-//  }
-//}
+  }
+}
 //
 //class PhaseCheck_noAsyncNodeWithIncompleteAssignment(pc: PhaseContext) extends PhaseCheck{
 //  override def useNodeConsumers = false
@@ -1809,6 +1813,9 @@ object SpinalVhdlBoot{
 
     phases += new PhaseDummy(SpinalProgress("Transform connections"))
     phases += new PhasePullClockDomains(pc)
+
+//    phases += new PhaseDummy(SpinalProgress("Simplify graph's nodes"))
+    phases += new PhaseDeleteUselessBaseTypes(pc)
 
     phases += new PhaseAllocateNames(pc)
 //    phases += new PhaseRemoveComponentThatNeedNoHdlEmit(pc)

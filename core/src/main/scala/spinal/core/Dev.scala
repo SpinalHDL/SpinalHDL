@@ -16,8 +16,8 @@ trait NameableNode extends BaseNode with Nameable{
   def rootScopeStatement : ScopeStatement = dslContext.scope
   val statements = mutable.ListBuffer[AssignementStatement]() //TODO IR ! linkedlist  hard
 
-  def sizeIsOne = statements.length == 1 //TODO faster
-  def head = statements.head
+  def hasOnlyOneStatement = statements.length == 1 //TODO faster
+  def headStatement = statements.head
   def append(that : AssignementStatement) : this.type = {
     statements += that
     this
@@ -98,9 +98,9 @@ trait Statement{
 trait LeafStatement extends Statement
 trait TreeStatement extends Statement
 
-trait AssignementStatementTarget {
-  private [core] def nameableNode : NameableNode
-}
+//trait AssignementStatementTarget {
+//  private [core] def nameableNode : NameableNode
+//}
 
 trait AssignementKind
 object AssignementKind{
@@ -108,9 +108,9 @@ object AssignementKind{
   object INIT extends AssignementKind
 }
 
-class AssignementStatement(val target : AssignementStatementTarget ,val  source : Expression, val kind : AssignementKind) extends LeafStatement{
-  if(target != null) target.nameableNode.append(this)
-  override def rootScopeStatement = target.nameableNode.rootScopeStatement
+class AssignementStatement(val target : NameableNode ,val  source : Expression, val kind : AssignementKind) extends LeafStatement{
+  if(target != null) target.append(this)
+  override def rootScopeStatement = target.rootScopeStatement
 //  override def isConditionalStatement: Boolean = false
   def foreachStatements(func : (Statement) => Unit) = Unit
   def foreachExpression(func : (Expression) => Unit) : Unit = func(source)

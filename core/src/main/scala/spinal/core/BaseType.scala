@@ -169,10 +169,9 @@ trait BaseTypeCast /*extends SFixCast with UFixCast*/
 /**
   * Abstract base class of all Spinal types
   */
-abstract class BaseType extends Data with NameableNode with AssignementStatementTarget {
+abstract class BaseType extends Data with NameableNode {
 
   var _isReg = false
-  override private[core] def nameableNode: NameableNode = this
   override def isReg = _isReg
   override def isComb = !_isReg
   def setAsReg() : this.type = {_isReg = true; this}

@@ -38,7 +38,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
   }
 
   class AsyncProcess(val scope : ScopeStatement){
-    val leafStatements = ArrayBuffer[LeafStatement]()
+    val leafStatements = ArrayBuffer[LeafStatement]() //.length should be Oc
     var treeStatements = List[TreeStatement]()
     var nameableTargets = List[NameableNode]()
   }
@@ -141,8 +141,6 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
   }
 
   def emitArchitecture(component: Component, b : ComponentBuilder): Unit = {
-    emitSignals(component,b)
-    emitSubComponents(component,b)
 
 
     val syncGroups = mutable.HashMap[(ClockDomain, ScopeStatement, Boolean), SyncGroup]()
@@ -150,7 +148,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
     //Sort all statements into their kinds
     component.dslBody.walkLeafStatements(_ match {
-      case s : AssignementStatement => s.target.nameableNode match {
+      case s : AssignementStatement => s.target match {
         case target : BaseType if target.isComb => asyncStatement += s
         case target : BaseType if target.isReg  => {
           val group = syncGroups.getOrElseUpdate((target.dslContext.clockDomain, s.rootScopeStatement, target.hasInit) , new SyncGroup(target.dslContext.clockDomain ,s.rootScopeStatement, target.hasInit))
@@ -178,14 +176,14 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
           scopePtr = scopePtr.parentStatement.parentScope
         }
         if (rootTreeStatement != null) {
-          val preExistingTargetProcess = asyncProcessFromNameableTarget.getOrElse(s.target.nameableNode, null)
+          val preExistingTargetProcess = asyncProcessFromNameableTarget.getOrElse(s.target, null)
           val preExistingRootTreeProcess = rootTreeStatementPerAsyncProcess.getOrElse(rootTreeStatement, null)
 
           if(preExistingTargetProcess == null && preExistingRootTreeProcess == null){ //Create new process
           val process = new AsyncProcess(rootScope)
-            asyncProcessFromNameableTarget(s.target.nameableNode) = process
+            asyncProcessFromNameableTarget(s.target) = process
             rootTreeStatementPerAsyncProcess(rootTreeStatement) = process
-            process.nameableTargets = s.target.nameableNode :: process.nameableTargets
+            process.nameableTargets = s.target :: process.nameableTargets
             process.treeStatements = rootTreeStatement :: process.treeStatements
           } else if(preExistingTargetProcess != null && preExistingRootTreeProcess == null){
             val process = preExistingTargetProcess
@@ -193,12 +191,12 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
             process.treeStatements = rootTreeStatement :: process.treeStatements
           } else if(preExistingTargetProcess == null && preExistingRootTreeProcess != null){
             val process = preExistingRootTreeProcess
-            asyncProcessFromNameableTarget(s.target.nameableNode) = process
-            process.nameableTargets = s.target.nameableNode :: process.nameableTargets
+            asyncProcessFromNameableTarget(s.target) = process
+            process.nameableTargets = s.target :: process.nameableTargets
           } else if(preExistingTargetProcess != preExistingRootTreeProcess) { //Merge
           val process = preExistingRootTreeProcess
             //TODO merge to smallest into the bigger (faster)
-            asyncProcessFromNameableTarget(s.target.nameableNode) = process
+            asyncProcessFromNameableTarget(s.target) = process
             process.treeStatements ++= preExistingTargetProcess.treeStatements
             process.nameableTargets ++= preExistingTargetProcess.nameableTargets
             preExistingTargetProcess.nameableTargets.foreach(asyncProcessFromNameableTarget(_) = process)
@@ -211,10 +209,10 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     val processes = mutable.HashSet[AsyncProcess]() ++= rootTreeStatementPerAsyncProcess.valuesIterator
     for(s <- asyncStatement) s match {
       case s: AssignementStatement => {
-        var process = asyncProcessFromNameableTarget.getOrElse(s.target.nameableNode,null)
+        var process = asyncProcessFromNameableTarget.getOrElse(s.target,null)
         if(process == null){
           process = new AsyncProcess(s.rootScopeStatement)
-          process.nameableTargets = s.target.nameableNode :: process.nameableTargets
+          process.nameableTargets = s.target :: process.nameableTargets
         }
         process.leafStatements += s
         processes += process
@@ -235,7 +233,39 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
       }
     }
 
+    //Manage subcomponents bindings
+    for(sub <- component.children){
+      for(io <- sub.ioSet){
+        var subInputBinded = isSubComponentInputBinded(io)
+        if(subInputBinded != null) {
+          def walkInputBindings(that : NameableNode) = { //Manage the case then sub input is drived by sub input
+            val next = isSubComponentInputBinded(that.asInstanceOf[BaseType])
+            if(next != null)
+              next
+            else
+              that
+          }
+          referencesOverrides(io) = walkInputBindings(subInputBinded).getName()
+        } else {
+          val name = component.localNamingScope.allocateName(globalData.anonymSignalPrefix)
+          b.declarations ++= s"  signal $name : ${emitDataType(io)};\n"
+          referencesOverrides(io) = name
+        }
+      }
+    }
+//    isSubComponentInputBinded
+    //Identify outputs drived by subcomponent
+//    for(process <- processes){
+//      if(process.leafStatements.length == 1 && process.nameableTargets.length == 1) process.nameableTargets.head match {
+//        case bt : BaseType if bt.component == component && process.leafStatements.head.parentScope == bt.rootScopeStatement =>
+//        case =>
+//
+//      }
+//    }
+
     //Flush all that mess out ^^
+    emitSignals(component,b)
+    emitSubComponents(component,b)
     processes.foreach(emitAsyncronous(b, _))
     syncGroups.values.foreach(emitSyncronous(component, b, _))
   }
@@ -312,108 +342,120 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     }
   }
 
-    def emitSyncronous(component : Component, b : ComponentBuilder, group: SyncGroup): Unit = {
-      import group._
-      def withReset = hasInit
+  def isSubComponentInputBinded(data : BaseType) = {
+    if(data.isInput && data.hasOnlyOneStatement && data.headStatement.parentScope == data.rootScopeStatement && data.headStatement.source.isInstanceOf[RefExpression])
+      data.headStatement.source.asInstanceOf[RefExpression].source
+    else
+      null
+  }
+
+  val isSubComponentOutputBindedSet = mutable.HashSet[BaseType]()
+  def isSubComponentOutputBinded(data : BaseType) =
+    isSubComponentOutputBindedSet.contains(data)
+
+  def emitSyncronous(component : Component, b : ComponentBuilder, group: SyncGroup): Unit = {
+    import group._
+    def withReset = hasInit
 
 //      val clock = component.pulledDataCache.getOrElse(clockDomain.clock, throw new Exception("???")).asInstanceOf[Bool]
 //      val reset = if (null == clockDomain.reset || !withReset) null else component.pulledDataCache.getOrElse(clockDomain.reset, throw new Exception("???")).asInstanceOf[Bool]
 //      val softReset = if (null == clockDomain.softReset || !withReset) null else component.pulledDataCache.getOrElse(clockDomain.softReset, throw new Exception("???")).asInstanceOf[Bool]
 //      val clockEnable = if (null == clockDomain.clockEnable) null else component.pulledDataCache.getOrElse(clockDomain.clockEnable, throw new Exception("???")).asInstanceOf[Bool]
 
-      val clock = clockDomain.clock
-      val reset = if (null == clockDomain.reset || !withReset) null else clockDomain.reset
-      val softReset = if (null == clockDomain.softReset || !withReset) null else clockDomain.softReset
-      val clockEnable = if (null == clockDomain.clockEnable) null else clockDomain.clockEnable
+    val clock = clockDomain.clock
+    val reset = if (null == clockDomain.reset || !withReset) null else clockDomain.reset
+    val softReset = if (null == clockDomain.softReset || !withReset) null else clockDomain.softReset
+    val clockEnable = if (null == clockDomain.clockEnable) null else clockDomain.clockEnable
 
-      val asyncReset = (null != reset) && clockDomain.config.resetKind == ASYNC
-      val syncReset = (null != reset) && clockDomain.config.resetKind == SYNC
-      var tabLevel = 1
-      def tabStr = "  " * tabLevel
-      def inc = {
-        tabLevel = tabLevel + 1
-      }
-      def dec = {
-        tabLevel = tabLevel - 1
-      }
-
-
-
-      val initialStatlementsGeneration =  new StringBuilder()
-      referenceSet = mutable.Set[String]()
-      emitRegsInitialValue("      ", initialStatlementsGeneration)
-      referenceSet += emitReference(clock,false)
-
-      if (asyncReset) {
-        referenceSet += emitReference(reset,false)
-        b.logics ++= s"${tabStr}process(${referenceSet.mkString(", ")})\n"
-      } else {
-        b.logics ++= s"${tabStr}process(${referenceSet.mkString(", ")})\n"
-      }
-
-      b.logics ++= s"${tabStr}begin\n"
-      inc
-      if (asyncReset) {
-        b.logics ++= s"${tabStr}if ${emitReference(reset, false)} = \'${if (clockDomain.config.resetActiveLevel == HIGH) 1 else 0}\' then\n";
-        inc
-        b.logics ++= initialStatlementsGeneration
-        dec
-        b.logics ++= s"${tabStr}elsif ${emitClockEdge(emitReference(clock,false), clockDomain.config.clockEdge)}"
-        inc
-      } else {
-        b.logics ++= s"${tabStr}if ${emitClockEdge(emitReference(clock,false), clockDomain.config.clockEdge)}"
-        inc
-      }
-      if (clockEnable != null) {
-        b.logics ++= s"${tabStr}if ${emitReference(clockEnable,false)} = \'${if (clockDomain.config.clockEnableActiveLevel == HIGH) 1 else 0}\' then\n"
-        inc
-      }
-
-      if (syncReset || softReset != null) {
-        var condList = ArrayBuffer[String]()
-        if(syncReset) condList += s"${emitReference(reset,false)} = \'${if (clockDomain.config.resetActiveLevel == HIGH) 1 else 0}\'"
-        if(softReset != null) condList += s"${emitReference(softReset,false)} = \'${if (clockDomain.config.softResetActiveLevel == HIGH) 1 else 0}\'"
-
-        b.logics ++= s"${tabStr}if ${condList.reduce(_ + " or " + _)} then\n"
-        inc
-        b.logics ++= initialStatlementsGeneration
-        dec
-        b.logics ++= s"${tabStr}else\n"
-        inc
-        emitRegsLogic(tabStr,b.logics)
-        dec
-        b.logics ++= s"${tabStr}end if;\n"
-        dec
-      } else {
-        emitRegsLogic(tabStr,b.logics)
-        dec
-      }
-
-      while (tabLevel != 1) {
-        b.logics ++= s"${tabStr}end if;\n"
-        dec
-      }
-      b.logics ++= s"${tabStr}end process;\n"
-      dec
-      b.logics ++= s"${tabStr}\n"
-
-
-      def emitRegsInitialValue(tab: String, b : StringBuilder): Unit = {
-        emitLeafStatements(group.initStatements, 0, group.scope, "<=", b , tab)
-      }
-      def emitRegsLogic(tab: String, b : StringBuilder): Unit = {
-        emitLeafStatements(group.dataStatements, 0, group.scope, "<=", b , tab)
-      }
-
-
-
+    val asyncReset = (null != reset) && clockDomain.config.resetKind == ASYNC
+    val syncReset = (null != reset) && clockDomain.config.resetKind == SYNC
+    var tabLevel = 1
+    def tabStr = "  " * tabLevel
+    def inc = {
+      tabLevel = tabLevel + 1
+    }
+    def dec = {
+      tabLevel = tabLevel - 1
     }
 
-    def emitAsyncronous(b : ComponentBuilder, process: AsyncProcess): Unit = {
+
+
+    val initialStatlementsGeneration =  new StringBuilder()
+    referenceSet = mutable.Set[String]()
+    emitRegsInitialValue("      ", initialStatlementsGeneration)
+    referenceSet += emitReference(clock,false)
+
+    if (asyncReset) {
+      referenceSet += emitReference(reset,false)
+      b.logics ++= s"${tabStr}process(${referenceSet.mkString(", ")})\n"
+    } else {
+      b.logics ++= s"${tabStr}process(${referenceSet.mkString(", ")})\n"
+    }
+
+    b.logics ++= s"${tabStr}begin\n"
+    inc
+    if (asyncReset) {
+      b.logics ++= s"${tabStr}if ${emitReference(reset, false)} = \'${if (clockDomain.config.resetActiveLevel == HIGH) 1 else 0}\' then\n";
+      inc
+      b.logics ++= initialStatlementsGeneration
+      dec
+      b.logics ++= s"${tabStr}elsif ${emitClockEdge(emitReference(clock,false), clockDomain.config.clockEdge)}"
+      inc
+    } else {
+      b.logics ++= s"${tabStr}if ${emitClockEdge(emitReference(clock,false), clockDomain.config.clockEdge)}"
+      inc
+    }
+    if (clockEnable != null) {
+      b.logics ++= s"${tabStr}if ${emitReference(clockEnable,false)} = \'${if (clockDomain.config.clockEnableActiveLevel == HIGH) 1 else 0}\' then\n"
+      inc
+    }
+
+    if (syncReset || softReset != null) {
+      var condList = ArrayBuffer[String]()
+      if(syncReset) condList += s"${emitReference(reset,false)} = \'${if (clockDomain.config.resetActiveLevel == HIGH) 1 else 0}\'"
+      if(softReset != null) condList += s"${emitReference(softReset,false)} = \'${if (clockDomain.config.softResetActiveLevel == HIGH) 1 else 0}\'"
+
+      b.logics ++= s"${tabStr}if ${condList.reduce(_ + " or " + _)} then\n"
+      inc
+      b.logics ++= initialStatlementsGeneration
+      dec
+      b.logics ++= s"${tabStr}else\n"
+      inc
+      emitRegsLogic(tabStr,b.logics)
+      dec
+      b.logics ++= s"${tabStr}end if;\n"
+      dec
+    } else {
+      emitRegsLogic(tabStr,b.logics)
+      dec
+    }
+
+    while (tabLevel != 1) {
+      b.logics ++= s"${tabStr}end if;\n"
+      dec
+    }
+    b.logics ++= s"${tabStr}end process;\n"
+    dec
+    b.logics ++= s"${tabStr}\n"
+
+
+    def emitRegsInitialValue(tab: String, b : StringBuilder): Unit = {
+      emitLeafStatements(group.initStatements, 0, group.scope, "<=", b , tab)
+    }
+    def emitRegsLogic(tab: String, b : StringBuilder): Unit = {
+      emitLeafStatements(group.dataStatements, 0, group.scope, "<=", b , tab)
+    }
+
+
+
+  }
+
+  def emitAsyncronous(b : ComponentBuilder, process: AsyncProcess): Unit = {
     process match {
       case _ if process.leafStatements.size == 1 => process.leafStatements.head match {
         case s : AssignementStatement =>
-          b.logics ++= emitAssignement(s, "  ", "<=")
+          if(!s.target.isInstanceOf[BaseType] || isSubComponentInputBinded(s.target.asInstanceOf[BaseType]) == null)
+            b.logics ++= emitAssignement(s, "  ", "<=")
       }
       case _ => {
         val tmp = new StringBuilder
@@ -533,7 +575,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 //          case assign: RangedAssignmentFloating => ret ++= s"$tab${emitAssignedReference(to)}(${assign.getBitCount.value - 1} + to_integer(${emitLogic(assign.getOffset)}) downto to_integer(${emitLogic(assign.getOffset)})) ${assignementKind} ${emitLogic(assign.getInput)};\n"
 //        }
 //      }
-      case _ => s"$tab${emitReference(assignement.target.nameableNode, false)} ${assignementKind} ${emitExpression(assignement.source)};\n"
+      case _ => s"$tab${emitReference(assignement.target, false)} ${assignementKind} ${emitExpression(assignement.source)};\n"
     }
   }
   var referenceSet : mutable.Set[String] = null
@@ -1342,14 +1384,6 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
 
   def emitSignals(component: Component, b: ComponentBuilder): Unit = {
-    for(child <- component.children){
-      for(io <- child.getOrdredNodeIo){
-        val name = component.localNamingScope.allocateName(globalData.anonymSignalPrefix)
-        b.declarations ++= s"  signal $name : ${emitDataType(io)};\n"
-        referencesOverrides(io) = name
-      }
-    }
-
     for (node <- component.ownNameableNodes) {
       node match {
         case signal: BaseType => {

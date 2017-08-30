@@ -48,52 +48,55 @@ object PlayScope{
     val d, e, f = out Bool()
     val g, h, i, j = Bool()
     val x,y,z = Reg(Bool())
-    y.init(True)
-    when(a){
-      z init(False)
-    }
-    h := True
-    e := a || c
-    x := d || y
-    y := b
-
-    when(c) {
-      e := d
-      when(d) {
-        f := e
-        e := f
-      }
-      e := f
-    }.elsewhen(a) {
-      val x = Bool()
-      val y = Reg(Bool())
-      x := a || b
-      y := True
-      i := g || x
-
-    } otherwise {
-      d := j
-    }
-
-    when(a){
-      i := c
-    }
-
-    when(b){
-      d := False
-    }
+//    y.init(True)
+//    when(a){
+//      z init(False)
+//    }
+//    h := True
+//    e := a || c
+//    x := d || y
+//    y := b
+//
+//    when(c) {
+//      e := d
+//      when(d) {
+//        f := e
+//        e := f
+//      }
+//      e := f
+//    }.elsewhen(a) {
+//      val x = Bool()
+//      val y = Reg(Bool())
+//      x := a || b
+//      y := True
+//      i := g || x
+//      z := False
+//    } otherwise {
+//      d := j
+//    }
+//
+//    when(a){
+//      i := c
+//    }
+//
+//    when(b){
+//      d := False
+//    }
 
     when(c) {
       val subA = new SubA()
       subA.a := x
+      subA.a := j
       subA.b := y || z
       i := subA.result
+
+      d := subA.a
     }
 
-    val l,m,n = Reg(Bool)
-    l := a
-    m := a || b
-    n := m || l
+//    val l,m,n = Reg(Bool)
+//    l := a
+//    m := a || b
+//    n := m || l
   }
 
   def main(args: Array[String]) {
