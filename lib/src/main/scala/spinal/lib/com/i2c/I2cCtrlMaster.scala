@@ -4,6 +4,7 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba3.apb.{Apb3Config, Apb3SlaveFactory, Apb3}
 import spinal.lib.bus.misc.BusSlaveFactory
+import spinal.lib.fsm._
 
 /**
  * Created by PIC32F_USER on 24/07/2017.
@@ -205,4 +206,53 @@ object I2cCtrlMaster {
     SpinalVhdl(I2cCtrlMaster(I2cIoMasterGenerics()).setDefinitionName("TopLevel"))
 
   }
+}
+
+
+
+case class I2cCtrlMaster2(ioGenerics : I2cSlaveGenerics) extends Component{
+  val io = new Bundle{
+    val cmd = slave(Stream(I2cCtrlMasterCmd()))
+    val rsp = master(Flow(I2cCtrlMasterRsp()))
+    val errorPulse = out Bool
+    val config = in(I2cSlaveConfig(ioGenerics))
+    val i2c = master(I2c())
+  }
+
+
+  val ioSlave = new I2cSlave(ioGenerics)
+  ioSlave.io.i2c <> io.i2c
+  ioSlave.io.config <> io.config
+
+
+
+  switch(ioSlave.io.bus.cmd.kind){
+    is(I2cSlaveCmdMode.START){
+
+    }
+    is(I2cSlaveCmdMode.RESTART){
+
+    }
+    is(I2cSlaveCmdMode.STOP){
+
+    }
+    is(I2cSlaveCmdMode.DROP){
+
+    }
+    is(I2cSlaveCmdMode.DRIVE){
+
+    }
+    is(I2cSlaveCmdMode.READ){
+
+    }
+  }
+//  object StateEnum extends SpinalEnum{
+//    val IDLE, START, DATA, STOP = newElement()
+//  }
+//
+//  val fsm = new StateMachine{
+//    val IDLE, START, DATA, STOP = new State
+//    setEntry(IDLE)
+//
+//  }
 }

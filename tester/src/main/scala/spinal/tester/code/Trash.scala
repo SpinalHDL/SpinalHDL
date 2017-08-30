@@ -102,7 +102,7 @@ object toto {
 import spinal.core._
 
 //A simple component definition
-class MyTopLevel extends Component {
+class MyTopLevelX extends Component {
   //Define some input/output. Bundle like a VHDL record or a verilog struct.
   val io = new Bundle {
     val a = in Bool
@@ -118,7 +118,7 @@ class MyTopLevel extends Component {
 //call the SpinalHDL library to flush it into a VHDL file.
 object MyMain {
   def main(args: Array[String]) {
-    SpinalVhdl(new MyTopLevel)
+    SpinalVhdl(new MyTopLevelX)
   }
 }
 

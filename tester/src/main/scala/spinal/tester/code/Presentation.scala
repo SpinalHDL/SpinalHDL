@@ -2001,3 +2001,162 @@ object PlayAxiLiteFactory{
   //Make 'result' readable by the bus
   factory.read(result(31 downto 0), address = 8)
 }
+
+object PlayAdder2{
+  import spinal.core._
+
+  class Adder(width : Int) extends Component{
+    val io = new Bundle {
+      val a,b = in UInt(width bits)
+      val result = out UInt(width bits)
+    }
+    val a_add_b = UInt(width bits)
+    a_add_b := io.a + io.b
+    io.result := a_add_b
+  }
+
+  def dummy2: Unit ={
+    val adder8 = new Adder(8)
+    adder8.io.a := 21
+    adder8.io.b := 21
+    when(adder8.io.result > 32){
+      //...
+    }
+
+
+    val landaLogic = new Area{
+      val a,b = UInt(8 bits)
+      val result = a + b
+      val flag = False
+    }
+
+    val somethereElse = new Area{
+      val flag = False || landaLogic.result.lsb
+    }
+
+    when(landaLogic.result === 88){
+      somethereElse.flag := False
+    }
+  }
+
+  class Yolo(width : Int) extends Component{
+    val myBool = False
+    when(in.Bool.setName("something")){
+      myBool := True
+    }
+
+    myBool.asOutput()
+
+    val myUInt = out UInt(8 bits)
+    myUInt := ((3 downto 0) -> myBool,default -> true)
+
+
+  }
+  def sinus(size:Int, res:BitCount) = {
+    (0 to size).map (i =>
+      U(((Math.sin(i)+1) * Math.pow(2,res.value)/2).toInt)
+    )
+  }
+  // memory initialised with a sinus
+  val mySinus = Mem(UInt(16 bits), sinus(1024, 16 bits))
+  def dummy() = {
+    val uint8 = UInt(8 bits)
+    val uint12 = UInt(8 bits)
+    uint8 := uint12 //Error
+    uint12 := uint8 //Error
+    uint8 := uint12.resize(8)
+    uint8 := uint12.resized
+    uint8 := uint12(7 downto 0)
+    uint8 := uint12(uint8.range)
+
+    val bits4 = Bits(4 bits)
+    uint8 := bits4.asUInt.resized
+
+    case class RGB(channelWidth : Int) extends Bundle{
+      val r,g,b = UInt(channelWidth bits)
+    }
+
+    val bitsIn, bitsOut = Bits(12 bits)
+    val color = RGB(4)
+    color.assignFromBits(bitsIn)
+    bitsOut := color.asBits
+
+    val something,somethingElse = Bool
+
+    val result = UInt(8 bits)
+    result := 0
+    when(something){
+      result := 42
+      when(somethingElse){
+        result := 0xEE
+      }
+    }
+
+    val clearFlag = False
+
+    val counter = Reg(UInt(8 bits))
+    when(something){
+      counter := counter + 1
+    }
+    when(clearFlag){
+      counter := 0
+    }
+
+    val softReset = False
+
+    when(softReset){
+      counter := 0
+      result := 0x88
+    }
+
+
+
+    val isZero = Bool()
+    val shifted = UInt(9 bits)
+    val square  = UInt(16 bits)
+    def load(value : UInt) : Unit = {
+      require(widthOf(value) == 8)
+      isZero := value === 0
+      shifted := value << 1
+      square := value * value
+    }
+
+    when(something){
+      load(U"1110_0000")
+    } otherwise {
+      load(U"0010_0010")
+    }
+  }
+
+  def main(args: Array[String]) {
+    SpinalVhdl(new Adder(8))
+    SpinalVerilog(new Adder(8))
+    SpinalVhdl(new Yolo(8))
+  }
+
+//  {
+//    val myBool = Bool
+//    myBool := False
+//    myBool := True
+//    myBool := Bool(4 > 7)
+//
+//    val myUInt = UInt(8 bits)
+//    myUInt := "0001_1100"
+//    myUInt := "xEE"
+//    myUInt := 42
+//    myUInt := U(54, 8 bits)
+//    myUInt :=((3 downto 0) -> myBool, default -> true)
+//    when(myUInt === U(myUInt.range -> true)) {
+//      myUInt(3) := False
+//    }
+//
+//    val myConstant = U"0001_1100"
+//  }
+//
+//  {
+//    val myBool = False
+//    when(???){
+//      myBool := True
+//    }
+//  }
+}

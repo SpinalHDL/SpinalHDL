@@ -369,6 +369,7 @@ class PhaseMemBlackBoxingDefault(policy : MemBlackboxingPolicy) extends PhaseMem
 
   def doBlackboxing(topo: MemTopology) : String = {
     val mem = topo.mem
+
     mem.component.rework {
       if (mem.initialContent != null) {
         return "Can't blackbox ROM"//TODO
@@ -413,6 +414,8 @@ class PhaseMemBlackBoxingDefault(policy : MemBlackboxingPolicy) extends PhaseMem
         for (rd <- topo.readsSync) {
           rd.checkInferedWidth
           wr.checkInferedWidth
+          val clockDomain = wr.getClockDomain
+          clockDomain.push()
           val ram = new Ram_1w_1rs(
             wordWidth = mem.getWidth,
             wordCount = mem.wordCount,
@@ -446,6 +449,7 @@ class PhaseMemBlackBoxingDefault(policy : MemBlackboxingPolicy) extends PhaseMem
           }
 
           ram.setName(mem.getName())
+          clockDomain.pop()
         }
 
 //      } else if (topo.writes.isEmpty && topo.readsAsync.isEmpty && topo.readsSync.isEmpty && topo.writeReadSameAddressSync.size == 1 && topo.readWriteSync.isEmpty) {
@@ -483,6 +487,8 @@ class PhaseMemBlackBoxingDefault(policy : MemBlackboxingPolicy) extends PhaseMem
         wr.checkInferedWidth
         rd.checkInferedWidth
 
+        val clockDomain = wr.getClockDomain
+        clockDomain.push()
         val ram = new Ram_1wrs(mem.getWidth, mem.wordCount,mem.technology, rd.readUnderWrite)
 
         ram.io.addr := wr.getAddress.allowSimplifyIt()
@@ -493,7 +499,9 @@ class PhaseMemBlackBoxingDefault(policy : MemBlackboxingPolicy) extends PhaseMem
         rd.getData.allowSimplifyIt() := ram.io.rdData
 
         ram.setName(mem.getName())
+        clockDomain.pop()
       } else if (topo.writes.isEmpty && topo.readsAsync.isEmpty && topo.readsSync.isEmpty && topo.writeReadSameAddressSync.isEmpty && topo.readWriteSync.size == 2) {
+
         val portA_wr = topo.readWriteSync(0)._1
         val portA_rd = topo.readWriteSync(0)._2
 
@@ -507,6 +515,8 @@ class PhaseMemBlackBoxingDefault(policy : MemBlackboxingPolicy) extends PhaseMem
         portB_rd.checkInferedWidth
 
 
+        val clockDomain = portA_wr.getClockDomain
+        clockDomain.push()
         val ram = new Ram_2wrs(
           wordWidth = mem.getWidth,
           wordCount = mem.wordCount,
@@ -542,6 +552,7 @@ class PhaseMemBlackBoxingDefault(policy : MemBlackboxingPolicy) extends PhaseMem
         portB_rd.getData.allowSimplifyIt() := ram.io.portB.rdData
 
         ram.setName(mem.getName())
+        clockDomain.pop()
       } else {
         return "Unblackboxable memory topology"//TODO
       }
