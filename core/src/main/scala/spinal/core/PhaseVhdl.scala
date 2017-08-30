@@ -171,8 +171,6 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
         while (scopePtr != rootScope) {
           rootTreeStatement = scopePtr.parentStatement
-          if(scopePtr.parentStatement == null)
-            println("miaou")
           scopePtr = scopePtr.parentStatement.parentScope
         }
         if (rootTreeStatement != null) {
@@ -180,7 +178,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
           val preExistingRootTreeProcess = rootTreeStatementPerAsyncProcess.getOrElse(rootTreeStatement, null)
 
           if(preExistingTargetProcess == null && preExistingRootTreeProcess == null){ //Create new process
-          val process = new AsyncProcess(rootScope)
+            val process = new AsyncProcess(rootScope)
             asyncProcessFromNameableTarget(s.target) = process
             rootTreeStatementPerAsyncProcess(rootTreeStatement) = process
             process.nameableTargets = s.target :: process.nameableTargets
@@ -194,12 +192,20 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
             asyncProcessFromNameableTarget(s.target) = process
             process.nameableTargets = s.target :: process.nameableTargets
           } else if(preExistingTargetProcess != preExistingRootTreeProcess) { //Merge
-          val process = preExistingRootTreeProcess
+            val process = preExistingRootTreeProcess
             //TODO merge to smallest into the bigger (faster)
             asyncProcessFromNameableTarget(s.target) = process
             process.treeStatements ++= preExistingTargetProcess.treeStatements
             process.nameableTargets ++= preExistingTargetProcess.nameableTargets
             preExistingTargetProcess.nameableTargets.foreach(asyncProcessFromNameableTarget(_) = process)
+          }
+        } else {
+          val preExistingTargetProcess = asyncProcessFromNameableTarget.getOrElse(s.target, null)
+          if(preExistingTargetProcess == null) {
+            //Create new process
+            val process = new AsyncProcess(rootScope)
+            asyncProcessFromNameableTarget(s.target) = process
+            process.nameableTargets = s.target :: process.nameableTargets
           }
         }
       }
