@@ -1638,68 +1638,26 @@ abstract class Modifier extends Expression {
 //  override def cloneMultipleAssignmentNode : this.type = new MultipleAssignmentNodeEnum(enumDef).asInstanceOf[this.type]
 //}
 //
-//object AssertNode{
-//  def apply(cond : Bool,message : Seq[Any],severity: AssertNodeSeverity) : Unit = {
-//    val node = new AssertNode
-//    node.cond = cond || ! when.getWhensCond(node.component.initialAssignementCondition)
-//    for(m <- message) m match {
-//      case m : String =>
-//        node.message += m
-//      case m : BaseType =>
-//        node.message += m
-//        node.signals += m
-//    }
-//    node.severity = severity
-//    node.component.additionalNodesRoot += node
-//  }
-//  def apply(cond : Bool,message : String,severity: AssertNodeSeverity) : Unit = AssertNode(cond, List(message),severity)
-//}
+object AssertNode{
+  def apply(cond : Bool,message : Seq[Any],severity: AssertNodeSeverity) : Unit = {
+    val node = AssertStatement(RefExpression(cond), message,severity)
+    Component.current.addStatement(node)
+  }
+  def apply(cond : Bool,message : String,severity: AssertNodeSeverity) : Unit = AssertNode(cond, List(message),severity)
+}
 //
-//trait AssertNodeSeverity
-//object NOTE     extends AssertNodeSeverity
-//object WARNING  extends AssertNodeSeverity
-//object ERROR    extends AssertNodeSeverity
-//object FAILURE  extends AssertNodeSeverity
-//
-//class AssertNode extends SyncNode(){
-//  var cond : Node = null
-//  val message = ArrayBuffer[Any]()
-//  val signals = ArrayBuffer[Node]()
-//  var severity : AssertNodeSeverity = null
-//
-//
-//  override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
-//
-//
-//  override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
-//    super.onEachInput(doThat)
-//    doThat(cond,4)
-//    for(i <- 0 until signals.length){
-//      doThat(signals(i),i + 4)
-//    }
-//  }
-//  override def onEachInput(doThat: (Node) => Unit): Unit = {
-//    super.onEachInput(doThat)
-//    doThat(cond)
-//    for(i <- 0 until signals.length){
-//      doThat(signals(i))
-//    }
-//  }
-//
-//  override def setInput(id: Int, node: Node): Unit = id match{
-//    case 4 => cond = node
-//    case _ if id > 4 => signals(id-4) = node.asInstanceOf[Node]
-//    case _ => super.setInput(id,node)
-//  }
-//
-//  override def getInputsCount: Int = 1 + signals.length + super.getInputsCount
-//  override def getInputs: Iterator[Node] = super.getInputs ++ Iterator(cond) ++ signals
-//  override def getInput(id: Int): Node = id match{
-//    case 4 => cond
-//    case _ if id > 4 => signals(id -4)
-//    case _ => super.getInput(id)
-//  }
-//
-//  override def isUsingResetSignal: Boolean = false
-//  override def isUsingSoftResetSignal: Boolean = false
-//}
+trait AssertNodeSeverity
+object NOTE     extends AssertNodeSeverity
+object WARNING  extends AssertNodeSeverity
+object ERROR    extends AssertNodeSeverity
+object FAILURE  extends AssertNodeSeverity
+
+case class AssertStatement(cond : Expression, message : Seq[Any],severity : AssertNodeSeverity) extends LeafStatement with ContextUser {
+  override def foreachExpression(func: (Expression) => Unit): Unit = {
+    func(cond)
+    message.foreach(_ match {
+      case e : Expression => func(e)
+      case _ =>
+    })
+  }
+}

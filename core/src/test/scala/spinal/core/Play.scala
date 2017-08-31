@@ -41,6 +41,7 @@ object PlayScope{
     val subSubA = new SubSubA()
     subSubA.a := a
     subSubA.b := b
+    assert(a,"MIAOU")
     result := subSubA.result
   }
   class TopLevel extends Component {
@@ -62,6 +63,7 @@ object PlayScope{
     when(c) {
       e := d
       when(d) {
+        assert(b,"MIAOU")
         f := e
         e := f
       }

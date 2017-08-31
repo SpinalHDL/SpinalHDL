@@ -158,6 +158,10 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
           }
         }
       }
+      case assertStatement : AssertStatement => {
+        val group = syncGroups.getOrElseUpdate((assertStatement.dslContext.clockDomain, assertStatement.rootScopeStatement, false) , new SyncGroup(assertStatement.dslContext.clockDomain ,assertStatement.rootScopeStatement, false))
+        group.dataStatements += assertStatement
+      }
     })
 
     //Generate AsyncProcess per target
@@ -232,7 +236,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
       for(treeStatement <- process.treeStatements){
         treeStatement.walkExpression(e => {
           if(e.algoId == algoId){
-            wrappedExpressionToName(e) = "AlocateAName"
+            wrappedExpressionToName(e) = component.localNamingScope.allocateName(globalData.anonymSignalPrefix)
           }
           e.algoId = algoId
         })
@@ -564,11 +568,26 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     }
     while(statementIndex < statements.length){
       val leaf = statements(statementIndex)
-      val assignement = leaf.asInstanceOf[AssignementStatement]
-      val targetScope = assignement.parentScope
+      val statement = leaf
+      val targetScope = statement.parentScope
       if(targetScope == scope){
         closeSubs()
-        b ++= emitAssignement(assignement,tab, assignementKind)
+        statement match {
+          case assignement : AssignementStatement => b ++= emitAssignement(assignement,tab, assignementKind)
+          case assertStatement : AssertStatement => {
+            val cond = emitExpression(assertStatement.cond)
+            require(assertStatement.message.size == 0 || (assertStatement.message.size == 1 && assertStatement.message(0).isInstanceOf[String]))
+            val message = if(assertStatement.message.size == 1) s"""report "${assertStatement.message(0)}" """ else ""
+            val severity = "severity " +  (assertStatement.severity match{
+              case `NOTE`     => "NOTE"
+              case `WARNING`  => "WARNING"
+              case `ERROR`    => "ERROR"
+              case `FAILURE`  => "FAILURE"
+            })
+            b ++= s"${tab}assert $cond = '1' $message $severity;\n"
+          }
+        }
+
         statementIndex += 1
       } else {
         var scopePtr = targetScope

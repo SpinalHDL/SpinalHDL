@@ -60,7 +60,7 @@ case class RefExpression(source : NameableNode) extends Expression{
 
 trait Statement{
   var parentScope : ScopeStatement = null
-  def rootScopeStatement : ScopeStatement
+  def rootScopeStatement: ScopeStatement = if(parentScope.parentStatement != null) parentScope.parentStatement.rootScopeStatement else parentScope
 //  def isConditionalStatement : Boolean
 //  var previous, next : Statement = null
 
@@ -95,7 +95,10 @@ trait Statement{
     }
   }
 }
-trait LeafStatement extends Statement
+trait LeafStatement extends Statement{
+  final override def foreachStatements(func: (Statement) => Unit): Unit = {}
+
+}
 trait TreeStatement extends Statement
 
 //trait AssignementStatementTarget {
@@ -112,12 +115,11 @@ case class AssignementStatement(val target : NameableNode ,val  source : Express
   if(target != null) target.append(this)
   override def rootScopeStatement = target.rootScopeStatement
 //  override def isConditionalStatement: Boolean = false
-  def foreachStatements(func : (Statement) => Unit) = Unit
   def foreachExpression(func : (Expression) => Unit) : Unit = func(source)
 }
 class WhenStatement(val cond : Expression) extends TreeStatement{
   val whenTrue, whenFalse = new ScopeStatement(this)
-  override def rootScopeStatement: ScopeStatement = ??? //doesn't make sense
+
 //  override def isConditionalStatement: Boolean = true
 
   def foreachStatements(func : (Statement) => Unit) = {
