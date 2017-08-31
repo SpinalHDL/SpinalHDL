@@ -45,7 +45,7 @@ trait Expression extends BaseNode{
   }
 }
 
-class RefExpression(val source : NameableNode) extends Expression{
+case class RefExpression(source : NameableNode) extends Expression{
   def opName : String ="(x)"
   def foreachExpression(func : (Expression) => Unit) : Unit = {
 
@@ -108,7 +108,7 @@ object AssignementKind{
   object INIT extends AssignementKind
 }
 
-class AssignementStatement(val target : NameableNode ,val  source : Expression, val kind : AssignementKind) extends LeafStatement{
+case class AssignementStatement(val target : NameableNode ,val  source : Expression, val kind : AssignementKind) extends LeafStatement{
   if(target != null) target.append(this)
   override def rootScopeStatement = target.rootScopeStatement
 //  override def isConditionalStatement: Boolean = false
@@ -162,6 +162,12 @@ class ScopeStatement(var parentStatement : TreeStatement){
         case s : LeafStatement => func(s)
         case _ =>  s.walkLeafStatements(func)
       }
+    })
+  }
+
+  def walkExpression(func : (Expression) => Unit): Unit ={
+    foreachStatements(s => {
+      s.walkExpression(func)
     })
   }
 }

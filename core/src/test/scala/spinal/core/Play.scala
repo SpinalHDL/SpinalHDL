@@ -48,7 +48,7 @@ object PlayScope{
     val d, e, f = out Bool()
     val g, h, i, j = Bool()
     val x,y,z = Reg(Bool())
-    d := a
+    d := e
     d := a
     y.init(True)
     when(a){
@@ -214,5 +214,126 @@ object PlayHeavyload {
 //      })
 //    })
 //     print("DONE " + toplevel.getName() + " " + statementCount + " " + expressionCount)
+  }
+}
+
+
+
+
+object PlayDebug{
+  object Miaou{
+    def unapply(yolo : Yolo) : Option[Int] = yolo.x match {
+      case v : Int => Some(v)
+      case _ => None
+    }
+  }
+
+  case class Yolo(a : Any){
+    val x = a
+    println(x)
+    def getX = x
+  }
+
+  def main(args: Array[String]) {
+    val l : List[Any] = List(1,2,"asd", Yolo("miaou"), Yolo(1), Yolo(1), Yolo(Yolo(1)), Yolo(Yolo(1)))
+    println("START")
+    l.foreach(_ match {
+      case Miaou(x: Int) => println(x)
+      case _ =>
+    })
+
+
+    println("START A")
+    for(i <- 0 until 10) {
+      {
+        val startAt = System.nanoTime()
+        var count = 0
+        var idx = 0
+        while (idx < 5000000) {
+          idx += 1
+          l.foreach(_ match {
+            case Yolo(x: Int) => count += x
+            case _ =>
+          })
+        }
+        val endAt = System.nanoTime()
+        println(s"${(endAt - startAt) / 1e6}      $count")
+      }
+    }
+    println("START B")
+
+    for(i <- 0 until 5) {
+      {
+        val startAt = System.nanoTime()
+        var count = 0
+        var idx = 0
+        while (idx < 5000000) {
+          idx += 1
+          l.foreach(_ match {
+            case yolo : Yolo => if(yolo.a.isInstanceOf[Int]) count += yolo.a.asInstanceOf[Int]
+            case _ =>
+          })
+        }
+        val endAt = System.nanoTime()
+        println(s"${(endAt - startAt) / 1e6}      $count")
+      }
+    }
+
+    println("START C")
+
+    for(i <- 0 until 5) {
+      {
+        val startAt = System.nanoTime()
+        var count = 0
+        var idx = 0
+        while (idx < 5000000) {
+          idx += 1
+          l.foreach(_ match {
+            case yolo : Yolo =>  yolo.a match {
+              case i : Int => count += i
+              case _ =>
+            }
+            case _ =>
+          })
+        }
+        val endAt = System.nanoTime()
+        println(s"${(endAt - startAt) / 1e6}      $count")
+      }
+    }
+    println("START D")
+    for(i <- 0 until 5) {
+      {
+        val startAt = System.nanoTime()
+        var count = 0
+        var idx = 0
+        while (idx < 5000000) {
+          idx += 1
+          l.foreach(_ match {
+            case Yolo(Yolo(x : Int)) => count += x
+            case _ =>
+          })
+        }
+        val endAt = System.nanoTime()
+        println(s"${(endAt - startAt) / 1e6}      $count")
+      }
+    }
+
+    println("START E")
+    for(i <- 0 until 5) {
+      {
+        val startAt = System.nanoTime()
+        var count = 0
+        var idx = 0
+        while (idx < 5000000) {
+          idx += 1
+          l.foreach(_ match {
+            case Miaou(x) => count += x
+            case _ =>
+          })
+        }
+        val endAt = System.nanoTime()
+        println(s"${(endAt - startAt) / 1e6}      $count")
+      }
+    }
   }
 }

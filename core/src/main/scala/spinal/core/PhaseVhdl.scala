@@ -239,15 +239,15 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
       }
     }
 
-    //Manage subcomponents bindings
+    //Manage subcomponents input bindings
     for(sub <- component.children){
-      for(io <- sub.ioSet){
+      for(io <- sub.getAllIo if io.isInput){
         var subInputBinded = isSubComponentInputBinded(io)
         if(subInputBinded != null) {
-          def walkInputBindings(that : NameableNode) = { //Manage the case then sub input is drived by sub input
+          def walkInputBindings(that : NameableNode) : NameableNode = { //Manage the case then sub input is drived by sub input
             val next = isSubComponentInputBinded(that.asInstanceOf[BaseType])
-            if(next != null)
-              next
+            if(next != null && next.component.parent == component)
+              walkInputBindings(next)
             else
               that
           }
@@ -259,20 +259,91 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
         }
       }
     }
-//    isSubComponentInputBinded
-    //Identify outputs drived by subcomponent
-//    for(process <- processes){
-//      if(process.leafStatements.length == 1 && process.nameableTargets.length == 1) process.nameableTargets.head match {
-//        case bt : BaseType if bt.component == component && process.leafStatements.head.parentScope == bt.rootScopeStatement =>
-//        case =>
-//
-//      }
-//    }
+
+    //Check if there is a reference to an output pin
+    val outputsToBufferize = mutable.HashSet[BaseType]()
+    val subComponentOutputsToNotBufferize = mutable.HashSet[Any]()
+    val subComponentOutputsToBufferize = mutable.HashSet[BaseType]()
+
+    //Get all component outputs which are read internaly
+    component.dslBody.walkExpression(_ match {
+      case RefExpression(bt : BaseType) => {
+        if(bt.component == component && bt.isOutput){
+          outputsToBufferize += bt
+        }
+      }
+      case _ =>
+    })
+
+    component.dslBody.walkLeafStatements(ls => ls match {
+      //Identify direct combinatorial assignements
+      case AssignementStatement(target : BaseType,RefExpression(source : BaseType),_)
+       if(target.isComb && source.component.parent == component && source.isOutput && target.hasOnlyOneStatement &&  ls.parentScope == target.rootScopeStatement)=> {
+        if(subComponentOutputsToNotBufferize.contains(source)){
+          subComponentOutputsToBufferize += source
+        }
+        subComponentOutputsToNotBufferize += source
+      }
+      //Add all referenced sub component outputs into the KO list
+      case _ => ls.walkExpression(_ match {
+        case RefExpression(source : BaseType) => {
+          if(source.component.parent == component && source.isOutput){
+            subComponentOutputsToBufferize += source
+          }
+        }
+        case _ =>
+      })
+    })
+    for(syncGroup <- syncGroups.valuesIterator){
+      val clockDomain = syncGroup.clockDomain
+      val clock = component.pulledDataCache.getOrElse(clockDomain.clock, throw new Exception("???")).asInstanceOf[Bool]
+      val reset = if (null == clockDomain.reset) null else component.pulledDataCache.getOrElse(clockDomain.reset, throw new Exception("???")).asInstanceOf[Bool]
+      val softReset = if (null == clockDomain.softReset) null else component.pulledDataCache.getOrElse(clockDomain.softReset, throw new Exception("???")).asInstanceOf[Bool]
+      val clockEnable = if (null == clockDomain.clockEnable) null else component.pulledDataCache.getOrElse(clockDomain.clockEnable, throw new Exception("???")).asInstanceOf[Bool]
+      def addRefUsage(bt: BaseType): Unit ={
+        if(bt == null) return
+        if(bt.component == component && bt.isOutput){
+          outputsToBufferize += bt
+        }
+        if(bt.component.parent == component && bt.isOutput){
+          subComponentOutputsToBufferize += bt
+        }
+      }
+      addRefUsage(clock)
+      addRefUsage(reset)
+      addRefUsage(softReset)
+      addRefUsage(clockEnable)
+    }
+
+    subComponentOutputsToNotBufferize --= subComponentOutputsToBufferize
+
+    for(output <- outputsToBufferize){
+      val name = component.localNamingScope.allocateName(globalData.anonymSignalPrefix)
+      b.declarations ++= s"  signal $name : ${emitDataType(output)};\n"
+      b.logics ++= s"  ${emitReference(output, false)} <= $name;\n"
+      referencesOverrides(output) = name
+    }
+
+    for(subOutput <- subComponentOutputsToBufferize){
+      val name = component.localNamingScope.allocateName(globalData.anonymSignalPrefix)
+      b.declarations ++= s"  signal $name : ${emitDataType(subOutput)};\n"
+      referencesOverrides(subOutput) = name
+    }
+
 
     //Flush all that mess out ^^
     emitSignals(component,b)
     emitSubComponents(component,b)
-    processes.foreach(emitAsyncronous(b, _))
+    processes.foreach(p => {
+      if(p.leafStatements.nonEmpty ) {
+        p.leafStatements.head match {
+          case AssignementStatement(_, RefExpression(source),_) if subComponentOutputsToNotBufferize.contains(source) =>
+          case _ => emitAsyncronous(b, p)
+        }
+      } else {
+        emitAsyncronous(b, p)
+      }
+    })
     syncGroups.values.foreach(emitSyncronous(component, b, _))
   }
 
@@ -349,29 +420,29 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
   }
 
   def isSubComponentInputBinded(data : BaseType) = {
-    if(data.isInput && data.hasOnlyOneStatement && data.headStatement.parentScope == data.rootScopeStatement && data.headStatement.source.isInstanceOf[RefExpression])
+    if(data.isInput && data.isComb && data.hasOnlyOneStatement && data.headStatement.parentScope == data.rootScopeStatement && data.headStatement.source.isInstanceOf[RefExpression])
       data.headStatement.source.asInstanceOf[RefExpression].source
     else
       null
   }
 
-  val isSubComponentOutputBindedSet = mutable.HashSet[BaseType]()
-  def isSubComponentOutputBinded(data : BaseType) =
-    isSubComponentOutputBindedSet.contains(data)
+//  val isSubComponentOutputBindedSet = mutable.HashSet[BaseType]()
+//  def isSubComponentOutputBinded(data : BaseType) =
+//    isSubComponentOutputBindedSet.contains(data)
 
   def emitSyncronous(component : Component, b : ComponentBuilder, group: SyncGroup): Unit = {
     import group._
     def withReset = hasInit
 
-//      val clock = component.pulledDataCache.getOrElse(clockDomain.clock, throw new Exception("???")).asInstanceOf[Bool]
-//      val reset = if (null == clockDomain.reset || !withReset) null else component.pulledDataCache.getOrElse(clockDomain.reset, throw new Exception("???")).asInstanceOf[Bool]
-//      val softReset = if (null == clockDomain.softReset || !withReset) null else component.pulledDataCache.getOrElse(clockDomain.softReset, throw new Exception("???")).asInstanceOf[Bool]
-//      val clockEnable = if (null == clockDomain.clockEnable) null else component.pulledDataCache.getOrElse(clockDomain.clockEnable, throw new Exception("???")).asInstanceOf[Bool]
+    val clock = component.pulledDataCache.getOrElse(clockDomain.clock, throw new Exception("???")).asInstanceOf[Bool]
+    val reset = if (null == clockDomain.reset || !withReset) null else component.pulledDataCache.getOrElse(clockDomain.reset, throw new Exception("???")).asInstanceOf[Bool]
+    val softReset = if (null == clockDomain.softReset || !withReset) null else component.pulledDataCache.getOrElse(clockDomain.softReset, throw new Exception("???")).asInstanceOf[Bool]
+    val clockEnable = if (null == clockDomain.clockEnable) null else component.pulledDataCache.getOrElse(clockDomain.clockEnable, throw new Exception("???")).asInstanceOf[Bool]
 
-    val clock = clockDomain.clock
-    val reset = if (null == clockDomain.reset || !withReset) null else clockDomain.reset
-    val softReset = if (null == clockDomain.softReset || !withReset) null else clockDomain.softReset
-    val clockEnable = if (null == clockDomain.clockEnable) null else clockDomain.clockEnable
+//    val clock = clockDomain.clock
+//    val reset = if (null == clockDomain.reset || !withReset) null else clockDomain.reset
+//    val softReset = if (null == clockDomain.softReset || !withReset) null else clockDomain.softReset
+//    val clockEnable = if (null == clockDomain.clockEnable) null else clockDomain.clockEnable
 
     val asyncReset = (null != reset) && clockDomain.config.resetKind == ASYNC
     val syncReset = (null != reset) && clockDomain.config.resetKind == SYNC
