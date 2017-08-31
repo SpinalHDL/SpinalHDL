@@ -26,3 +26,13 @@ case class TriStateArray(width : Int) extends Bundle with IMasterSlave{
     in(read)
   }
 }
+
+
+case class TriStateOutput[T <: Data](dataType : HardType[T]) extends Bundle with IMasterSlave{
+  val write : T = dataType()
+  val writeEnable = Bool
+
+  override def asMaster(): Unit = {
+    out(write,writeEnable)
+  }
+}

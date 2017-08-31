@@ -121,6 +121,24 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
   /** Edge detection */
   def edge() = this ^ RegNext(this)
 
+  def edges() : BoolEdges = {
+    val ret = BoolEdges()
+    val old = RegNext(this)
+    ret.rise := !old && this
+    ret.fall := old && !this
+    ret.toogle := old =/= this
+    ret
+  }
+
+  def edges(initAt: Bool) : BoolEdges = {
+    val ret = BoolEdges()
+    val old = RegNext(this) init(initAt)
+    ret.rise := !old && this
+    ret.fall := old && !this
+    ret.toogle := old =/= this
+    ret
+  }
+
   override def assignFromBits(bits: Bits): Unit = this := bits(0)
 
   override def assignFromBits(bits: Bits, hi: Int, low: Int): Unit = {
@@ -201,4 +219,9 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
 
   /** Conditional operation for Enumeration value */
   def ?[T <: SpinalEnum](whenTrue: SpinalEnumCraft[T])   = MuxBuilderEnum(whenTrue)
+}
+
+
+case class BoolEdges() extends Bundle{
+  val rise, fall, toogle = Bool
 }
