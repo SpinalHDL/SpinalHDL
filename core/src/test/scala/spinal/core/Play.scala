@@ -15,10 +15,12 @@ object PlayReg{
     val x,y,z = Reg(Bool())
 
     val l,m,n = Reg(Bool)
-    n init(False)
-    l := a
-    m := a || b
-    n := m || l
+//    n init(False)
+//    l := a
+    when(a || b || c) {
+      m := a || b  || a || b
+    }
+//    n := m || l
   }
 
   def main(args: Array[String]) {
@@ -230,7 +232,7 @@ object PlayDebug{
     }
   }
 
-  case class Yolo(a : Any){
+  case class Yolo(var a : Any){
     val x = a
     println(x)
     def getX = x
@@ -243,6 +245,7 @@ object PlayDebug{
       case Miaou(x: Int) => println(x)
       case _ =>
     })
+
 
 
     println("START A")

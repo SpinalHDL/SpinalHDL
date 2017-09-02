@@ -177,8 +177,11 @@ abstract class BaseType extends Data with NameableNode {
   def setAsReg() : this.type = {_isReg = true; this}
   def isUsingResetSignal: Boolean = clockDomain.config.resetKind != BOOT && (clockDomain.reset != null || clockDomain.softReset == null) && hasInit
   def isUsingSoftResetSignal: Boolean = clockDomain.softReset != null  && hasInit
-
   def clockDomain = dslContext.clockDomain
+
+//  def isDrivedIn(c : Component) = dir match {
+//    case `in` => c.parent == component
+//  }
 
   def hasInit : Boolean = {
     foreachStatements(s => if(s.kind == AssignementKind.INIT) return true)
@@ -256,7 +259,7 @@ abstract class BaseType extends Data with NameableNode {
   private[core] def assignFromImpl(that: AnyRef): Unit = {
     that match {
       case that : BaseType =>
-        component.addStatement(new AssignementStatement(target = this, source = new RefExpression(that.asInstanceOf[NameableNode]), AssignementKind.DATA))
+        component.addStatement(new AssignementStatement(target = this, source = new RefExpression(that), AssignementKind.DATA))
       case that : Expression =>
         component.addStatement(new AssignementStatement(target = this, source = that, AssignementKind.DATA))
       case _ =>
@@ -278,7 +281,7 @@ abstract class BaseType extends Data with NameableNode {
       LocatedPendingError(s"Try to set initial value of a data that is not a register ($this)")
     else that match {
       case that : BaseType =>
-        component.addStatement(new AssignementStatement(target = this, source = new RefExpression(that.asInstanceOf[NameableNode]), AssignementKind.INIT))
+        component.addStatement(new AssignementStatement(target = this, source = new RefExpression(that), AssignementKind.INIT))
       case that : Expression =>
         component.addStatement(new AssignementStatement(target = this, source = that, AssignementKind.INIT))
       case _ =>
@@ -363,7 +366,7 @@ abstract class BaseType extends Data with NameableNode {
 //    wrapWithWeakClone(op)
 //  }
 //
-  private[core] def wrapLogicalOperator(right: NameableNode, op: BinaryOperator):  Bool = {
+  private[core] def wrapLogicalOperator(right: BaseType, op: BinaryOperator):  Bool = {
     op.left = new RefExpression(this).asInstanceOf[op.T]
     op.right = new RefExpression(right).asInstanceOf[op.T]
     val ret = new Bool

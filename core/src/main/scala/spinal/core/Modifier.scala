@@ -102,6 +102,11 @@ abstract class BinaryOperator extends Operator{
     func(right)
   }
 
+  override def remapOwnedExpression(func: (Expression) => Expression): Unit = {
+    left = func(left).asInstanceOf[T]
+    right = func(right).asInstanceOf[T]
+  }
+
 //  override def toString(): String = {
 //    def inStr(that : T) = (if (that == null) "null" else that.nonRecursiveToString())
 //    s"(${inStr(left)} $opName ${inStr(right)})"
@@ -1652,12 +1657,16 @@ object WARNING  extends AssertNodeSeverity
 object ERROR    extends AssertNodeSeverity
 object FAILURE  extends AssertNodeSeverity
 
-case class AssertStatement(cond : Expression, message : Seq[Any],severity : AssertNodeSeverity) extends LeafStatement with ContextUser {
+case class AssertStatement(var cond : Expression, message : Seq[Any],severity : AssertNodeSeverity) extends LeafStatement with ContextUser {
   override def foreachExpression(func: (Expression) => Unit): Unit = {
     func(cond)
     message.foreach(_ match {
       case e : Expression => func(e)
       case _ =>
     })
+  }
+
+  override def remapOwnedExpression(func: (Expression) => Expression): Unit = {
+    cond = func(cond) //TODO message
   }
 }

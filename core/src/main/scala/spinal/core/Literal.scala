@@ -258,6 +258,8 @@ class BoolLiteral(val value: Boolean) extends Literal {
     assert(bitCount == 1)
     (if(value) "1" else "0")
   }
+
+  override def remapOwnedExpression(func: (Expression) => Expression): Unit = {}
 }
 //
 //

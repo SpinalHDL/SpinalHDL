@@ -1324,9 +1324,39 @@ class PhaseDeleteUselessBaseTypes(pc: PhaseContext) extends PhaseNetlist{
   override def impl(pc : PhaseContext): Unit = {
     import pc._
 
-//    GraphUtils.walkAllComponents(pc.topLevel, c => {
-//
-//    })
+    GraphUtils.walkAllComponents(pc.topLevel, c => {
+      c.dslBody.walkExpression(_ match {
+        case ref : RefExpression => {
+          ref.source.algoId = 0
+        }
+        case _ =>
+      })
+
+      c.dslBody.walkExpression(_ match {
+        case ref : RefExpression => {
+          ref.source.algoId += 1
+        }
+        case _ =>
+      })
+
+      c.dslBody.walkStatements(s => s.walkRemapOwnedExpression(_ match {
+        case ref : RefExpression => {
+          val source = ref.source
+          if(source.algoId == 1 && source.isComb && source.isDirectionLess && source.isUnnamed && source.hasOnlyOneStatement){ //TODO IR keep it
+            source.algoId = 0
+            source.headStatement.removeStatement()
+            source.headStatement.source
+          } else {
+            source.algoId = 0
+            ref
+          }
+        }
+        case e => e
+      }))
+
+
+    })
+
 //    Node.walk(walkNodesDefautStack,(node, push) => {
 //      node match {
 //        case node: BaseType => {
