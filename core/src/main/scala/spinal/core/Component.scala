@@ -101,7 +101,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
       s.foreachExpression(expressionWalker)
       s.foreachStatements(statementWalker)
       s match {
-        case a : AssignementStatement => nameablesSet += (a.target)
+        case a : AssignementStatement => nameablesSet += (a.finalTarget)
         case _ =>
       }
     }

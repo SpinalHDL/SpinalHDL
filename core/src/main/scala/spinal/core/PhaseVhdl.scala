@@ -148,7 +148,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
     //Sort all statements into their kinds
     component.dslBody.walkLeafStatements(_ match {
-      case s : AssignementStatement => s.target match {
+      case s : AssignementStatement => s.finalTarget match {
         case target : BaseType if target.isComb => asyncStatement += s
         case target : BaseType if target.isReg  => {
           val group = syncGroups.getOrElseUpdate((target.dslContext.clockDomain, s.rootScopeStatement, target.hasInit) , new SyncGroup(target.dslContext.clockDomain ,s.rootScopeStatement, target.hasInit))
@@ -171,21 +171,22 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
       case s : AssignementStatement => {
         var rootTreeStatement: TreeStatement = null
         var scopePtr = s.parentScope
-        val rootScope = s.rootScopeStatement
+        val finalTarget = s.finalTarget
+        val rootScope = finalTarget.rootScopeStatement
 
         while (scopePtr != rootScope) {
           rootTreeStatement = scopePtr.parentStatement
           scopePtr = scopePtr.parentStatement.parentScope
         }
         if (rootTreeStatement != null) {
-          val preExistingTargetProcess = asyncProcessFromNameableTarget.getOrElse(s.target, null)
+          val preExistingTargetProcess = asyncProcessFromNameableTarget.getOrElse(finalTarget, null)
           val preExistingRootTreeProcess = rootTreeStatementPerAsyncProcess.getOrElse(rootTreeStatement, null)
 
           if(preExistingTargetProcess == null && preExistingRootTreeProcess == null){ //Create new process
             val process = new AsyncProcess(rootScope)
-            asyncProcessFromNameableTarget(s.target) = process
+            asyncProcessFromNameableTarget(finalTarget) = process
             rootTreeStatementPerAsyncProcess(rootTreeStatement) = process
-            process.nameableTargets = s.target :: process.nameableTargets
+            process.nameableTargets = finalTarget :: process.nameableTargets
             process.treeStatements = rootTreeStatement :: process.treeStatements
           } else if(preExistingTargetProcess != null && preExistingRootTreeProcess == null){
             val process = preExistingTargetProcess
@@ -193,23 +194,23 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
             process.treeStatements = rootTreeStatement :: process.treeStatements
           } else if(preExistingTargetProcess == null && preExistingRootTreeProcess != null){
             val process = preExistingRootTreeProcess
-            asyncProcessFromNameableTarget(s.target) = process
-            process.nameableTargets = s.target :: process.nameableTargets
+            asyncProcessFromNameableTarget(finalTarget) = process
+            process.nameableTargets = finalTarget :: process.nameableTargets
           } else if(preExistingTargetProcess != preExistingRootTreeProcess) { //Merge
             val process = preExistingRootTreeProcess
             //TODO merge to smallest into the bigger (faster)
-            asyncProcessFromNameableTarget(s.target) = process
+            asyncProcessFromNameableTarget(finalTarget) = process
             process.treeStatements ++= preExistingTargetProcess.treeStatements
             process.nameableTargets ++= preExistingTargetProcess.nameableTargets
             preExistingTargetProcess.nameableTargets.foreach(asyncProcessFromNameableTarget(_) = process)
           }
         } else {
-          val preExistingTargetProcess = asyncProcessFromNameableTarget.getOrElse(s.target, null)
+          val preExistingTargetProcess = asyncProcessFromNameableTarget.getOrElse(finalTarget, null)
           if(preExistingTargetProcess == null) {
             //Create new process
             val process = new AsyncProcess(rootScope)
-            asyncProcessFromNameableTarget(s.target) = process
-            process.nameableTargets = s.target :: process.nameableTargets
+            asyncProcessFromNameableTarget(finalTarget) = process
+            process.nameableTargets = finalTarget :: process.nameableTargets
           }
         }
       }
@@ -219,10 +220,10 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     val processes = mutable.HashSet[AsyncProcess]() ++= rootTreeStatementPerAsyncProcess.valuesIterator
     for(s <- asyncStatement) s match {
       case s: AssignementStatement => {
-        var process = asyncProcessFromNameableTarget.getOrElse(s.target,null)
+        var process = asyncProcessFromNameableTarget.getOrElse(s.finalTarget,null)
         if(process == null){
           process = new AsyncProcess(s.rootScopeStatement)
-          process.nameableTargets = s.target :: process.nameableTargets
+          process.nameableTargets = s.finalTarget :: process.nameableTargets
         }
         process.leafStatements += s
         processes += process
@@ -234,7 +235,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     val algoId = GlobalData.get.allocateAlgoId()
     for(process <- processes){
       for(treeStatement <- process.treeStatements){
-        treeStatement.walkExpression(e => {
+        treeStatement.walkDrivingExpressions(e => {
           if(e.algoId == algoId){
             wrappedExpressionToName(e) = component.localNamingScope.allocateName(globalData.anonymSignalPrefix)
           }
@@ -244,6 +245,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     }
 
     //Manage subcomponents input bindings
+    val subComponentInputToNotBufferize = mutable.HashSet[Any]()
     for(sub <- component.children){
       for(io <- sub.getAllIo if io.isInput){
         var subInputBinded = isSubComponentInputBinded(io)
@@ -256,6 +258,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
               that
           }
           referencesOverrides(io) = walkInputBindings(subInputBinded).getName()
+          subComponentInputToNotBufferize += io
         } else {
           val name = component.localNamingScope.allocateName(globalData.anonymSignalPrefix)
           b.declarations ++= s"  signal $name : ${emitDataType(io)};\n"
@@ -270,18 +273,18 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     val subComponentOutputsToBufferize = mutable.HashSet[BaseType]()
 
     //Get all component outputs which are read internaly
-    component.dslBody.walkExpression(_ match {
+    component.dslBody.walkStatements(s => s.walkDrivingExpressions(_ match {
       case RefExpression(bt : BaseType) => {
         if(bt.component == component && bt.isOutput){
           outputsToBufferize += bt
         }
       }
       case _ =>
-    })
+    }))
 
     component.dslBody.walkLeafStatements(ls => ls match {
       //Identify direct combinatorial assignements
-      case AssignementStatement(target : BaseType,RefExpression(source : BaseType),_)
+      case AssignementStatement(RefExpression(target : BaseType),RefExpression(source : BaseType),_)
        if(target.isComb && source.component.parent == component && source.isOutput && target.hasOnlyOneStatement &&  ls.parentScope == target.rootScopeStatement)=> {
         if(subComponentOutputsToNotBufferize.contains(source)){
           subComponentOutputsToBufferize += source
@@ -289,7 +292,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
         subComponentOutputsToNotBufferize += source
       }
       //Add all referenced sub component outputs into the KO list
-      case _ => ls.walkExpression(_ match {
+      case _ => ls.walkDrivingExpressions(_ match {
         case RefExpression(source : BaseType) => {
           if(source.component.parent == component && source.isOutput){
             subComponentOutputsToBufferize += source
@@ -342,6 +345,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
       if(p.leafStatements.nonEmpty ) {
         p.leafStatements.head match {
           case AssignementStatement(_, RefExpression(source),_) if subComponentOutputsToNotBufferize.contains(source) =>
+          case AssignementStatement(RefExpression(target), _,_) if subComponentInputToNotBufferize.contains(target) =>
           case _ => emitAsyncronous(b, p)
         }
       } else {
@@ -424,7 +428,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
   }
 
   def isSubComponentInputBinded(data : BaseType) = {
-    if(data.isInput && data.isComb && data.hasOnlyOneStatement && data.headStatement.parentScope == data.rootScopeStatement && data.headStatement.source.isInstanceOf[RefExpression])
+    if(data.isInput && data.isComb && data.hasOnlyOneStatement && data.headStatement.parentScope == data.rootScopeStatement && Statement.isFullToFullStatement(data.headStatement))
       data.headStatement.source.asInstanceOf[RefExpression].source
     else
       null
@@ -535,8 +539,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     process match {
       case _ if process.leafStatements.size == 1 => process.leafStatements.head match {
         case s : AssignementStatement =>
-          if(!s.target.isInstanceOf[BaseType] || isSubComponentInputBinded(s.target.asInstanceOf[BaseType]) == null)
-            b.logics ++= emitAssignement(s, "  ", "<=")
+          b.logics ++= emitAssignement(s, "  ", "<=")
       }
       case _ => {
         val tmp = new StringBuilder
@@ -671,7 +674,13 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 //          case assign: RangedAssignmentFloating => ret ++= s"$tab${emitAssignedReference(to)}(${assign.getBitCount.value - 1} + to_integer(${emitLogic(assign.getOffset)}) downto to_integer(${emitLogic(assign.getOffset)})) ${assignementKind} ${emitLogic(assign.getInput)};\n"
 //        }
 //      }
-      case _ => s"$tab${emitReference(assignement.target, false)} ${assignementKind} ${emitExpression(assignement.source)};\n"
+      case _ => {
+        val referenceSetBack = referenceSet
+        referenceSet = null
+        val targetStr = emitExpression(assignement.target)
+        referenceSet = referenceSetBack
+        s"$tab${targetStr} ${assignementKind} ${emitExpression(assignement.source)};\n"
+      }
     }
   }
   var referenceSet : mutable.Set[String] = null

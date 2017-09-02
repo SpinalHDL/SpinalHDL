@@ -102,7 +102,7 @@ abstract class BinaryOperator extends Operator{
     func(right)
   }
 
-  override def remapOwnedExpression(func: (Expression) => Expression): Unit = {
+  override def remapExpressions(func: (Expression) => Expression): Unit = {
     left = func(left).asInstanceOf[T]
     right = func(right).asInstanceOf[T]
   }
@@ -1666,7 +1666,7 @@ case class AssertStatement(var cond : Expression, message : Seq[Any],severity : 
     })
   }
 
-  override def remapOwnedExpression(func: (Expression) => Expression): Unit = {
+  override def remapExpressions(func: (Expression) => Expression): Unit = {
     cond = func(cond) //TODO message
   }
 }

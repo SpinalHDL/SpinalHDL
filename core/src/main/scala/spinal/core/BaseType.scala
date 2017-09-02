@@ -259,9 +259,9 @@ abstract class BaseType extends Data with NameableNode {
   private[core] def assignFromImpl(that: AnyRef): Unit = {
     that match {
       case that : BaseType =>
-        component.addStatement(new AssignementStatement(target = this, source = new RefExpression(that), AssignementKind.DATA))
+        component.addStatement(new AssignementStatement(target = RefExpression(this), source = new RefExpression(that), AssignementKind.DATA))
       case that : Expression =>
-        component.addStatement(new AssignementStatement(target = this, source = that, AssignementKind.DATA))
+        component.addStatement(new AssignementStatement(target = RefExpression(this), source = that, AssignementKind.DATA))
       case _ =>
         throw new Exception(s"Undefined assignment $this := $that")
     }
@@ -281,9 +281,9 @@ abstract class BaseType extends Data with NameableNode {
       LocatedPendingError(s"Try to set initial value of a data that is not a register ($this)")
     else that match {
       case that : BaseType =>
-        component.addStatement(new AssignementStatement(target = this, source = new RefExpression(that), AssignementKind.INIT))
+        component.addStatement(new AssignementStatement(target = RefExpression(this), source = new RefExpression(that), AssignementKind.INIT))
       case that : Expression =>
-        component.addStatement(new AssignementStatement(target = this, source = that, AssignementKind.INIT))
+        component.addStatement(new AssignementStatement(target = RefExpression(this), source = that, AssignementKind.INIT))
       case _ =>
         throw new Exception("Undefined assignment")
     }

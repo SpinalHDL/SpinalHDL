@@ -259,7 +259,7 @@ class BoolLiteral(val value: Boolean) extends Literal {
     (if(value) "1" else "0")
   }
 
-  override def remapOwnedExpression(func: (Expression) => Expression): Unit = {}
+  override def remapExpressions(func: (Expression) => Expression): Unit = {}
 }
 //
 //

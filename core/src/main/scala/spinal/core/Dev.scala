@@ -36,18 +36,32 @@ trait NameableNode extends BaseNode with Nameable{
 
 
 trait ExpressionContainer{
-  def remapOwnedExpression(func : (Expression) => Expression) : Unit
+  def remapExpressions(func : (Expression) => Expression) : Unit
+  def remapDrivingExpressions(func : (Expression) => Expression) : Unit = remapExpressions(func)
   def foreachExpression(func : (Expression) => Unit) : Unit
+  def foreachDrivingExpression(func : (Expression) => Unit) : Unit = foreachExpression(func)
   def walkExpression(func : (Expression) => Unit) : Unit = {
     foreachExpression(e => {
       func(e)
       e.walkExpression(func)
     })
   }
-  def walkRemapOwnedExpression(func : (Expression) => Expression) : Unit = {
-    remapOwnedExpression(func)
+  def walkDrivingExpressions(func : (Expression) => Unit) : Unit = {
+    foreachDrivingExpression(e => {
+      func(e)
+      e.walkDrivingExpressions(func)
+    })
+  }
+  def walkRemapExpressions(func : (Expression) => Expression) : Unit = {
+    remapExpressions(func)
     foreachExpression(e => {
-      e.walkRemapOwnedExpression(func)
+      e.walkRemapExpressions(func)
+    })
+  }
+  def walkRemapDrivingExpressions(func : (Expression) => Expression) : Unit = {
+    remapDrivingExpressions(func)
+    foreachDrivingExpression(e => {
+      e.walkRemapDrivingExpressions(func)
     })
   }
 }
@@ -63,7 +77,7 @@ case class RefExpression(source : BaseType) extends Expression{
   }
 
 
-  override def remapOwnedExpression(func: (Expression) => Expression): Unit = {}
+  override def remapExpressions(func: (Expression) => Expression): Unit = {}
 
   def foreachLeafExpression(func : (Expression) => Unit) : Unit = {
     func(this)
@@ -71,7 +85,12 @@ case class RefExpression(source : BaseType) extends Expression{
 }
 
 
-
+object Statement{
+  def isFullToFullStatement(s : Statement) = s match {
+    case  AssignementStatement(RefExpression(_),RefExpression(_),_) => true
+    case _ => false
+  }
+}
 trait Statement extends ExpressionContainer{
   var parentScope : ScopeStatement = null
   def rootScopeStatement: ScopeStatement = if(parentScope.parentStatement != null) parentScope.parentStatement.rootScopeStatement else parentScope
@@ -119,13 +138,34 @@ object AssignementKind{
   object INIT extends AssignementKind
 }
 
-case class AssignementStatement(var target : BaseType ,var  source : Expression, var kind : AssignementKind) extends LeafStatement{
-  if(target != null) target.append(this)
-  override def rootScopeStatement = target.rootScopeStatement
+case class AssignementStatement(var target : Expression ,var  source : Expression, var kind : AssignementKind) extends LeafStatement{
+  if(target != null) finalTarget.append(this)
+  override def rootScopeStatement = finalTarget.rootScopeStatement
+  def finalTarget = target match{
+    case ref : RefExpression => ref.source
+  }
 //  override def isConditionalStatement: Boolean = false
-  def foreachExpression(func : (Expression) => Unit) : Unit = func(source)
+  def foreachExpression(func : (Expression) => Unit) : Unit = {
+    func(target)
+    func(source)
+  }
+  override def foreachDrivingExpression(func : (Expression) => Unit) : Unit = {
+    target match {
+      case ref : RefExpression =>
+    }
+    func(source)
+  }
 
-  override def remapOwnedExpression(func: (Expression) => Expression): Unit = {
+
+  override def remapDrivingExpressions(func: (Expression) => Expression): Unit = {
+    target match {
+      case ref : RefExpression =>
+    }
+    source = func(source)
+  }
+
+  override def remapExpressions(func: (Expression) => Expression): Unit = {
+    target = func(target)
     source = func(source)
   }
 }
@@ -143,12 +183,12 @@ class WhenStatement(var cond : Expression) extends TreeStatement{
     func(cond)
   }
 
-  override def remapOwnedExpression(func: (Expression) => Expression): Unit = {
+  override def remapExpressions(func: (Expression) => Expression): Unit = {
     cond = func(cond)
   }
 }
 
-class ScopeStatement(var parentStatement : TreeStatement){
+class ScopeStatement(var parentStatement : TreeStatement)/* extends ExpressionContainer*/{
   val content = mutable.ListBuffer[Statement]() //TODO IR ! linkedlist  hard
 
   def sizeIsOne = content.length == 1 //TODO faster
@@ -183,11 +223,13 @@ class ScopeStatement(var parentStatement : TreeStatement){
     })
   }
 
-  def walkExpression(func : (Expression) => Unit): Unit ={
-    walkStatements(s => {
-      s.walkExpression(func)
-    })
-  }
+//  def walkExpression(func : (Expression) => Unit): Unit ={
+//    walkStatements(s => {
+//      s.walkExpression(func)
+//    })
+//  }
+//  override def remapOwnedExpression(func: (Expression) => Expression): Unit = ???
+//  override def foreachExpression(func: (Expression) => Unit): Unit = ???
 }
 
 
