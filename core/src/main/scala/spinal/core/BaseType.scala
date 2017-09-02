@@ -193,7 +193,7 @@ abstract class BaseType extends Data with NameableNode {
 //
 //  var defaultValue: BaseType = null
 //
-//  private[core] var dontSimplify = false
+  private[core] var dontSimplify = false
 //  private[core] var dontCareAboutNameForSymplify = false
 //
 //  override def onEachInput(doThat: (Node, Int) => Unit): Unit = doThat(input,0)
@@ -203,7 +203,7 @@ abstract class BaseType extends Data with NameableNode {
 //  override def getInputs: Iterator[Node] = Iterator(input)
 //  override def getInput(id: Int): Node = { assert(id == 0); input }
 //
-//  private[core] def canSymplifyIt = !dontSimplify && !existsTag(!_.canSymplifyHost)
+  private[core] def canSymplifyIt = !dontSimplify && isUnnamed//&& !existsTag(!_.canSymplifyHost)
 //
 //
 //  def removeAssignements() : this.type = {

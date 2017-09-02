@@ -1324,75 +1324,56 @@ class PhaseDeleteUselessBaseTypes(pc: PhaseContext) extends PhaseNetlist{
   override def impl(pc : PhaseContext): Unit = {
     import pc._
 
+    //Reset algoId of all referenced driving things
     GraphUtils.walkAllComponents(pc.topLevel, c => {
       c.dslBody.walkStatements(_.walkDrivingExpressions(_ match {
-        case ref : RefExpression => {
+        case ref: RefExpression => {
           ref.source.algoId = 0
         }
         case _ =>
       }))
+    })
 
+    //Count the number of driving reference done on each ref.source
+    GraphUtils.walkAllComponents(pc.topLevel, c => {
       c.dslBody.walkStatements(_.walkDrivingExpressions(_ match {
         case ref : RefExpression => {
           ref.source.algoId += 1
         }
         case _ =>
       }))
-
-      c.dslBody.walkStatements(s => s.walkRemapDrivingExpressions(_ match {
-        case ref : RefExpression => {
-          val source = ref.source
-          if(source.algoId == 1 && source.isComb && source.isDirectionLess && source.isUnnamed && source.hasOnlyOneStatement){ //TODO IR keep it
-            source.algoId = 0
-            source.headStatement.removeStatement()
-            source.headStatement.source
-          } else {
-            source.algoId = 0
-            ref
-          }
-        }
-        case e => e
-      }))
-
-
     })
 
-//    Node.walk(walkNodesDefautStack,(node, push) => {
-//      node match {
-//        case node: BaseType => {
-//          if ((node.isUnnamed || node.dontCareAboutNameForSymplify) && !node.isIo && node.consumers.size == 1 && node.canSymplifyIt) {
-//            val consumer = node.consumers(0)
-//            val input = node.input
-//            if (!node.isDelay || consumer.isInstanceOf[BaseType]) {
-//              // don't allow to put a non base type on component inputss
-//              if (input.isInstanceOf[BaseType] || !consumer.isInstanceOf[BaseType] || !consumer.asInstanceOf[BaseType].isInput) {
-//                //don't allow to jump from kind to kind
-//                val isKindOutputBinding = node.component.kindsOutputsBindings.contains(node)
-//                if (!(isKindOutputBinding && (!consumer.isInstanceOf[BaseType] || node.component == consumer.component.parent))) {
-//
-//                  val inputConsumer = input.consumers
-//
-//                  if (isKindOutputBinding) {
-//                    val newBind = consumer.asInstanceOf[BaseType]
-//                    node.component.kindsOutputsBindings += newBind
-//                    node.component.kindsOutputsToBindings += (input.asInstanceOf[BaseType] -> newBind)
-//                  }
-//                  consumer.onEachInput((consumerInput,idx) => {
-//                    if (consumerInput == node)
-//                      consumer.setInput(idx,input)
-//                  })
-//                  inputConsumer -= node
-//                  inputConsumer += consumer
-//                }
-//              }
-//            }
-//          }
-//        }
-//
-//        case _ =>
-//      }
-//      node.onEachInput(push(_))
-//    })
+    GraphUtils.walkAllComponents(pc.topLevel, c => {
+      c.dslBody.walkStatements(s => {
+        //Bypass useless basetypes (referenced only once)
+        s.walkRemapDrivingExpressions(_ match {
+          case ref : RefExpression => {
+            val source = ref.source
+            if(source.algoId == 1 && source.isComb && source.isDirectionLess && source.canSymplifyIt && source.hasOnlyOneStatement){ //TODO IR keep it
+              source.algoId = 0
+              source.headStatement.removeStatement()
+              source.headStatement.source
+            } else {
+              source.algoId = 0
+              ref
+            }
+          }
+          case e => e
+        })
+
+        //Remove assignement which drive useless base types
+        s match {
+          case s : AssignementStatement => {
+            val target = s.finalTarget
+            if(target.algoId == 0 && target.isDirectionLess && target.canSymplifyIt){
+              s.removeStatement()
+            }
+          }
+          case _ =>
+        }
+      })
+    })
   }
 }
 //

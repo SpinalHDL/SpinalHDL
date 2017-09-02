@@ -30,6 +30,32 @@ object PlayReg{
 }
 
 
+
+object PlaySimple{
+
+  class TopLevel extends Component {
+    val a, b, c = in Bool()
+    val d, e, f = out Bool()
+    val g, h, i, j = Bool()
+    val x,y,z = Reg(Bool())
+
+    def useless(): Unit ={
+      a || b || c
+      c || b
+      True
+      False
+    }
+
+    useless()
+  }
+
+  def main(args: Array[String]) {
+    val toplevel = SpinalVhdl(new TopLevel()).toplevel
+
+  }
+}
+
+
 object PlayScope{
   class SubSubA extends Component{
     val a,b = in Bool()
