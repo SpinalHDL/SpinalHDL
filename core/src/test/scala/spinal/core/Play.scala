@@ -39,9 +39,24 @@ object PlaySimple{
     val d, e, f = out Bool()
     val g, h, i, j = Bool()
     val x,y,z = Reg(Bool())
-    ~a
-    d := ~a
-    d := ((a || b && c ^ (~g)) === True) =/= False
+
+//    g := False
+    when(a || b && c){
+      g := True
+      x := True
+    }
+
+//    when(c || c && c){
+//      f := True
+//      f := False
+//    }
+
+
+//    ~a
+//    d := ~a
+//    d := ((a || b && c ^ (~g)) === True) =/= False
+
+
 //    def useless(): Unit ={
 //      a || b || c
 //      c || b

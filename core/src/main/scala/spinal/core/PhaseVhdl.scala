@@ -39,7 +39,6 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
   class AsyncProcess(val scope : ScopeStatement){
     val leafStatements = ArrayBuffer[LeafStatement]() //.length should be Oc
-    var treeStatements = List[TreeStatement]()
     var nameableTargets = List[NameableNode]()
   }
 
@@ -187,11 +186,9 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
             asyncProcessFromNameableTarget(finalTarget) = process
             rootTreeStatementPerAsyncProcess(rootTreeStatement) = process
             process.nameableTargets = finalTarget :: process.nameableTargets
-            process.treeStatements = rootTreeStatement :: process.treeStatements
           } else if(preExistingTargetProcess != null && preExistingRootTreeProcess == null){
             val process = preExistingTargetProcess
             rootTreeStatementPerAsyncProcess(rootTreeStatement) = process
-            process.treeStatements = rootTreeStatement :: process.treeStatements
           } else if(preExistingTargetProcess == null && preExistingRootTreeProcess != null){
             val process = preExistingRootTreeProcess
             asyncProcessFromNameableTarget(finalTarget) = process
@@ -200,7 +197,6 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
             val process = preExistingRootTreeProcess
             //TODO merge to smallest into the bigger (faster)
             asyncProcessFromNameableTarget(finalTarget) = process
-            process.treeStatements ++= preExistingTargetProcess.treeStatements
             process.nameableTargets ++= preExistingTargetProcess.nameableTargets
             preExistingTargetProcess.nameableTargets.foreach(asyncProcessFromNameableTarget(_) = process)
           }
@@ -232,18 +228,75 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
     //identify duplicated expression due to `when` spliting/duplication
     //TODO IR include sync stuff
-    val algoId = GlobalData.get.allocateAlgoId()
-    for(process <- processes){
-      for(treeStatement <- process.treeStatements){
-        treeStatement.walkDrivingExpressions(e => {
-          if(e.algoId == algoId){
-            wrappedExpressionToName(e) = component.localNamingScope.allocateName(globalData.anonymSignalPrefix)
+
+    val expressionToWrap = mutable.HashSet[Expression]();
+    {
+      val whenCondOccurences = mutable.HashMap[Expression, Int]()
+
+
+      def walker(statements : ArrayBuffer[LeafStatement], statementIndexInit : Int, scope : ScopeStatement): Int ={
+        var statementIndex = statementIndexInit
+
+        while(statementIndex < statements.length){
+          val statement = statements(statementIndex)
+          val targetScope = statement.parentScope
+          if(targetScope == scope){
+            statementIndex += 1
+          } else {
+            var scopePtr = targetScope
+            while(scopePtr.parentStatement != null && scopePtr.parentStatement.parentScope != scope){
+              scopePtr = scopePtr.parentStatement.parentScope
+            }
+            if(scopePtr.parentStatement == null) {
+              return statementIndex
+            }
+            val treeStatement = scopePtr.parentStatement
+            treeStatement match {
+              case w : WhenStatement => {
+                if(!w.cond.isInstanceOf[RefExpression]){
+                  val counter = whenCondOccurences.getOrElseUpdate(w.cond, 0)
+                  if(counter < 2){
+                    whenCondOccurences(w.cond) = counter + 1
+                  }
+                }
+              }
+            }
+            statementIndex = walker(statements,statementIndex, scopePtr)
           }
-          e.algoId = algoId
-        })
+        }
+        return statementIndex
+      }
+//      def walker(that : TreeStatement, rootScope : ScopeStatement) : Unit = {
+//        if(that != null){
+//          that match {
+//            case w : WhenStatement => {
+//              if(!w.cond.isInstanceOf[RefExpression]){
+//                val counter = whenCondOccurences.getOrElseUpdate(w.cond, 0)
+//                if(counter < 2){
+//                  whenCondOccurences(w.cond) = counter + 1
+//                }
+//              }
+//            }
+//          }
+//          if(that.parentScope != rootScope) {
+//            walker(that.parentScope.parentStatement, rootScope)
+//          }
+//        }
+//      }
+
+      for (process <- processes) {
+        walker(process.leafStatements, 0, process.scope)
+      }
+
+      syncGroups.valuesIterator.foreach(group => {
+        walker(group.initStatements, 0, group.scope)
+        walker(group.dataStatements, 0, group.scope)
+      })
+
+      for ((c, n) <- whenCondOccurences if n > 1) {
+        expressionToWrap += c
       }
     }
-
     //Manage subcomponents input bindings
     val subComponentInputToNotBufferize = mutable.HashSet[Any]()
     for(sub <- component.children){
@@ -335,6 +388,19 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
       val name = component.localNamingScope.allocateName(globalData.anonymSignalPrefix)
       b.declarations ++= s"  signal $name : ${emitDataType(subOutput)};\n"
       referencesOverrides(subOutput) = name
+    }
+
+
+
+    //Wrap expression which need it
+    for(e <- expressionToWrap){
+      val name = component.localNamingScope.allocateName(globalData.anonymSignalPrefix)
+      b.declarations ++= s"  signal $name : ${"TODO"};\n"
+      wrappedExpressionToName(e) = name
+    }
+
+    for(e <- expressionToWrap){
+      b.logics ++= s"  ${wrappedExpressionToName(e)} <= ${emitExpressionNoWrappeForFirstOne(e)};\n"
     }
 
 
@@ -537,7 +603,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
   def emitAsyncronous(b : ComponentBuilder, process: AsyncProcess): Unit = {
     process match {
-      case _ if process.leafStatements.size == 1 => process.leafStatements.head match {
+      case _ if process.leafStatements.size == 1 && process.leafStatements.head.parentScope == process.nameableTargets.head.rootScopeStatement => process.leafStatements.head match {
         case s : AssignementStatement =>
           b.logics ++= emitAssignement(s, "  ", "<=")
       }
@@ -696,7 +762,17 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
 
   def emitExpression(that : Expression) : String = {
-    wrappedExpressionToName.getOrElse(that, modifierImplMap.getOrElse(that.opName, throw new Exception("can't find " + that.opName))(that))
+    wrappedExpressionToName.get(that) match {
+      case Some(name) => {
+        if(referenceSet != null) referenceSet.add(name)
+        name
+      }
+      case None => modifierImplMap.getOrElse(that.opName, throw new Exception("can't find " + that.opName))(that)
+    }
+  }
+
+  def emitExpressionNoWrappeForFirstOne(that : Expression) : String = {
+    modifierImplMap.getOrElse(that.opName, throw new Exception("can't find " + that.opName))(that)
   }
   //
   //    case lit: BitsLiteral => s"pkg_stdLogicVector(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
