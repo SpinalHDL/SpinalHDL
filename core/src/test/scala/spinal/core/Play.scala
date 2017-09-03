@@ -1,5 +1,6 @@
 package spinal.core
 
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 /**
@@ -38,15 +39,17 @@ object PlaySimple{
     val d, e, f = out Bool()
     val g, h, i, j = Bool()
     val x,y,z = Reg(Bool())
-
-    def useless(): Unit ={
-      a || b || c
-      c || b
-      True
-      False
-    }
-
-    useless()
+    ~a
+    d := ~a
+    d := ((a || b && c ^ (~g)) === True) =/= False
+//    def useless(): Unit ={
+//      a || b || c
+//      c || b
+//      True
+//      False
+//    }
+//
+//    useless()
   }
 
   def main(args: Array[String]) {
@@ -263,17 +266,308 @@ object PlayDebug{
     println(x)
     def getX = x
   }
+  trait A { def key : Int}
+  case class A0 (x : Int) extends A {def key = 0 }
+  case class A1 (x : Int) extends A {def key = 1 }
+  case class A2 (x : Int) extends A {def key = 2 }
+  case class A3 (x : Int) extends A {def key = 3 }
+  case class A4 (x : Int) extends A {def key = 4 }
+  case class A5 (x : Int) extends A {def key = 5 }
+  case class A6 (x : Int) extends A {def key = 6 }
+  case class A7 (x : Int) extends A {def key = 7 }
+  case class A8 (x : Int) extends A {def key = 8 }
+  case class A9 (x : Int) extends A {def key = 9 }
+  case class A10(x : Int) extends A {def key = 10}
+  case class A11(x : Int) extends A {def key = 11}
+  case class A12(x : Int) extends A {def key = 12}
+  case class A13(x : Int) extends A {def key = 13}
+  case class A14(x : Int) extends A {def key = 14}
+  case class A15(x : Int) extends A {def key = 15}
+  case class A16(x : Int) extends A {def key = 16}
+  case class A17(x : Int) extends A {def key = 17}
+  case class A18(x : Int) extends A {def key = 18}
+  case class A19(x : Int) extends A {def key = 19}
+  case class A20(x : Int) extends A {def key = 20}
+  case class A21(x : Int) extends A {def key = 21}
+  case class A22(x : Int) extends A {def key = 22}
+  case class A23(x : Int) extends A {def key = 23}
+  case class A24(x : Int) extends A {def key = 24}
+  case class A25(x : Int) extends A {def key = 25}
+  case class A26(x : Int) extends A {def key = 26}
+  case class A27(x : Int) extends A {def key = 27}
+  case class A28(x : Int) extends A {def key = 28}
+  case class A29(x : Int) extends A {def key = 29}
+  case class A30(x : Int) extends A {def key = 30}
+  case class A31(x : Int) extends A {def key = 31}
+  case class A32(x : Int) extends A {def key = 32}
+  case class A33(x : Int) extends A {def key = 33}
+  case class A34(x : Int) extends A {def key = 34}
+  case class A35(x : Int) extends A {def key = 35}
+  case class A36(x : Int) extends A {def key = 36}
+  case class A37(x : Int) extends A {def key = 37}
+  case class A38(x : Int) extends A {def key = 38}
+  case class A39(x : Int) extends A {def key = 39}
+  case class A100 (x : Int) extends A {def key = 40 }
+  case class A101 (x : Int) extends A {def key = 41 }
+  case class A102 (x : Int) extends A {def key = 42 }
+  case class A103 (x : Int) extends A {def key = 43 }
+  case class A104 (x : Int) extends A {def key = 44 }
+  case class A105 (x : Int) extends A {def key = 45 }
+  case class A106 (x : Int) extends A {def key = 46 }
+  case class A107 (x : Int) extends A {def key = 47 }
+  case class A108 (x : Int) extends A {def key = 48 }
+  case class A109 (x : Int) extends A {def key = 49 }
+  case class A110(x : Int) extends A {def key = 50}
+  case class A111(x : Int) extends A {def key = 51}
+  case class A112(x : Int) extends A {def key = 52}
+  case class A113(x : Int) extends A {def key = 53}
+  case class A114(x : Int) extends A {def key = 54}
+  case class A115(x : Int) extends A {def key = 55}
+  case class A116(x : Int) extends A {def key = 56}
+  case class A117(x : Int) extends A {def key = 57}
+  case class A118(x : Int) extends A {def key = 58}
+  case class A119(x : Int) extends A {def key = 59}
+  case class A120(x : Int) extends A {def key = 60}
+  case class A121(x : Int) extends A {def key = 61}
+  case class A122(x : Int) extends A {def key = 62}
+  case class A123(x : Int) extends A {def key = 63}
+  case class A124(x : Int) extends A {def key = 64}
+  case class A125(x : Int) extends A {def key = 65}
+  case class A126(x : Int) extends A {def key = 66}
+  case class A127(x : Int) extends A {def key = 67}
+  case class A128(x : Int) extends A {def key = 68}
+  case class A129(x : Int) extends A {def key = 69}
+  case class A130(x : Int) extends A {def key = 70}
+  case class A131(x : Int) extends A {def key = 71}
+  case class A132(x : Int) extends A {def key = 72}
+  case class A133(x : Int) extends A {def key = 73}
+  case class A134(x : Int) extends A {def key = 74}
+  case class A135(x : Int) extends A {def key = 75}
+  case class A136(x : Int) extends A {def key = 76}
+  case class A137(x : Int) extends A {def key = 77}
+  case class A138(x : Int) extends A {def key = 78}
+  case class A139(x : Int) extends A {def key = 79}
+
 
   def main(args: Array[String]) {
     val l : List[Any] = List(1,2,"asd", Yolo("miaou"), Yolo(1), Yolo(1), Yolo(Yolo(1)), Yolo(Yolo(1)))
-    println("START")
-    l.foreach(_ match {
-      case Miaou(x: Int) => println(x)
-      case _ =>
-    })
+    val l2 : List[A] = scala.util.Random.shuffle(List(
+      A0 (1),
+      A1 (1),
+      A2 (1),
+      A3 (1),
+      A4 (1),
+      A5 (1),
+      A6 (1),
+      A7 (1),
+      A8 (1),
+      A9 (1),
+      A10(1),
+      A11(1),
+      A12(1),
+      A13(1),
+      A14(1),
+      A15(1),
+      A16(1),
+      A17(1),
+      A18(1),
+      A19(1),
+      A20(1),
+      A21(1),
+      A22(1),
+      A23(1),
+      A24(1),
+      A25(1),
+      A26(1),
+      A27(1),
+      A28(1),
+      A29(1),
+      A30(1),
+      A31(1),
+      A32(1),
+      A33(1),
+      A34(1),
+      A35(1),
+      A36(1),
+      A37(1),
+      A38(1),
+      A39(1),
+      A101 (1),
+      A102 (1),
+      A103 (1),
+      A104 (1),
+      A105 (1),
+      A106 (1),
+      A107 (1),
+      A108 (1),
+      A109 (1),
+      A110(1),
+      A111(1),
+      A112(1),
+      A113(1),
+      A114(1),
+      A115(1),
+      A116(1),
+      A117(1),
+      A118(1),
+      A119(1),
+      A120(1),
+      A121(1),
+      A122(1),
+      A123(1),
+      A124(1),
+      A125(1),
+      A126(1),
+      A127(1),
+      A128(1),
+      A129(1),
+      A130(1),
+      A131(1),
+      A132(1),
+      A133(1),
+      A134(1),
+      A135(1),
+      A136(1),
+      A137(1),
+      A138(1),
+      A139(1)))
+
+    val dic = mutable.HashMap[Class[_ <: A], (A) => Int]()
+    l2.foreach(e => dic(e.getClass) = e => e.key)
+    val dic2 = new Array[(A) => Int](l2.length+1)
+    l2.foreach(e => dic2(e.key) = e => e.key)
+    l2.foreach(e => println(Integer.toHexString(e.getClass.hashCode())))
+    println("START B")
+    for(i <- 0 until 5) {
+      {
+        val startAt = System.nanoTime()
+        var count = 0
+        var idx = 0
+        while (idx < 500000) {
+          idx += 1
+          l2.foreach(e => count += dic(e.getClass)(e))
+        }
+        val endAt = System.nanoTime()
+        println(s"${(endAt - startAt) / 1e6}      $count")
+      }
+    }
+
+    println("START 0")
+    for(i <- 0 until 5) {
+      {
+        val startAt = System.nanoTime()
+        var count = 0
+        var idx = 0
+        while (idx < 500000) {
+          idx += 1
+          l2.foreach(e => count += dic2(e.key)(e))
+        }
+        val endAt = System.nanoTime()
+        println(s"${(endAt - startAt) / 1e6}      $count")
+      }
+    }
+
+    println("START A")
+    for(i <- 0 until 5) {
+      {
+        val startAt = System.nanoTime()
+        var count = 0
+        var idx = 0
+        while (idx < 500000) {
+          idx += 1
+          l2.foreach(_ match {
+            case A0 (x : Int) => count += x + 0
+            case A1 (x : Int) => count += x + 1
+            case A2 (x : Int) => count += x + 2
+            case A3 (x : Int) => count += x + 3
+            case A4 (x : Int) => count += x + 4
+            case A5 (x : Int) => count += x + 5
+            case A6 (x : Int) => count += x + 6
+            case A7 (x : Int) => count += x + 7
+            case A8 (x : Int) => count += x + 8
+            case A9 (x : Int) => count += x + 9
+            case A10(x : Int) => count += x + 10
+            case A11(x : Int) => count += x + 11
+            case A12(x : Int) => count += x + 12
+            case A13(x : Int) => count += x + 13
+            case A14(x : Int) => count += x + 14
+            case A15(x : Int) => count += x + 15
+            case A16(x : Int) => count += x + 16
+            case A17(x : Int) => count += x + 17
+            case A18(x : Int) => count += x + 18
+            case A19(x : Int) => count += x + 19
+            case A20(x : Int) => count += x + 20
+            case A21(x : Int) => count += x + 21
+            case A22(x : Int) => count += x + 22
+            case A23(x : Int) => count += x + 23
+            case A24(x : Int) => count += x + 24
+            case A25(x : Int) => count += x + 25
+            case A26(x : Int) => count += x + 26
+            case A27(x : Int) => count += x + 27
+            case A28(x : Int) => count += x + 28
+            case A29(x : Int) => count += x + 29
+            case A30(x : Int) => count += x + 30
+            case A31(x : Int) => count += x + 31
+            case A32(x : Int) => count += x + 32
+            case A33(x : Int) => count += x + 33
+            case A34(x : Int) => count += x + 34
+            case A35(x : Int) => count += x + 35
+            case A36(x : Int) => count += x + 36
+            case A37(x : Int) => count += x + 37
+            case A38(x : Int) => count += x + 38
+            case A39(x : Int) => count += x + 39
+            case A100 (x : Int) => count += x + 0
+            case A101 (x : Int) => count += x + 1
+            case A102 (x : Int) => count += x + 2
+            case A103 (x : Int) => count += x + 3
+            case A104 (x : Int) => count += x + 4
+            case A105 (x : Int) => count += x + 5
+            case A106 (x : Int) => count += x + 6
+            case A107 (x : Int) => count += x + 7
+            case A108 (x : Int) => count += x + 8
+            case A109 (x : Int) => count += x + 9
+            case A110(x : Int) => count += x + 10
+            case A111(x : Int) => count += x + 11
+            case A112(x : Int) => count += x + 12
+            case A113(x : Int) => count += x + 13
+            case A114(x : Int) => count += x + 14
+            case A115(x : Int) => count += x + 15
+            case A116(x : Int) => count += x + 16
+            case A117(x : Int) => count += x + 17
+            case A118(x : Int) => count += x + 18
+            case A119(x : Int) => count += x + 19
+            case A120(x : Int) => count += x + 20
+            case A121(x : Int) => count += x + 21
+            case A122(x : Int) => count += x + 22
+            case A123(x : Int) => count += x + 23
+            case A124(x : Int) => count += x + 24
+            case A125(x : Int) => count += x + 25
+            case A126(x : Int) => count += x + 26
+            case A127(x : Int) => count += x + 27
+            case A128(x : Int) => count += x + 28
+            case A129(x : Int) => count += x + 29
+            case A130(x : Int) => count += x + 30
+            case A131(x : Int) => count += x + 31
+            case A132(x : Int) => count += x + 32
+            case A133(x : Int) => count += x + 33
+            case A134(x : Int) => count += x + 34
+            case A135(x : Int) => count += x + 35
+            case A136(x : Int) => count += x + 36
+            case A137(x : Int) => count += x + 37
+            case A138(x : Int) => count += x + 38
+            case A139(x : Int) => count += x + 39
+
+            case _ =>
+          })
+        }
+        val endAt = System.nanoTime()
+        println(s"${(endAt - startAt) / 1e6}      $count")
+      }
+    }
 
 
 
+/*
     println("START A")
     for(i <- 0 until 10) {
       {
@@ -365,6 +659,6 @@ object PlayDebug{
         val endAt = System.nanoTime()
         println(s"${(endAt - startAt) / 1e6}      $count")
       }
-    }
+    }*/
   }
 }

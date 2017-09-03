@@ -1657,9 +1657,10 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 //    s"resize(${emitLogic(mod.left)} mod ${emitLogic(mod.right)},${mod.getWidth})"
 //  }
 //
-//  def operatorImplAsUnaryOperator(vhd: String)(op: Modifier): String = {
-//    s"($vhd ${emitLogic(op.getInput(0))})"
-//  }
+  def operatorImplAsUnaryOperator(vhd: String)(op: Expression): String = {
+    val unary = op.asInstanceOf[UnaryOperator]
+    s"($vhd ${emitExpression(unary.source)})"
+  }
 //
 //  def operatorImplAsFunction(vhd: String)(func: Modifier): String = {
 //    s"$vhd(${func.getInputs.map(emitLogic(_)).reduce(_ + "," + _)})"
@@ -1870,16 +1871,16 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 //
 //
 //  //bool
-//  modifierImplMap.put("B==B", operatorImplAsBinaryOperator("="))
-//  modifierImplMap.put("B!=B", operatorImplAsBinaryOperator("/="))
-//
-//
-//  modifierImplMap.put("!", operatorImplAsUnaryOperator("not"))
-//  modifierImplMap.put("&&", operatorImplAsBinaryOperator("and"))
+  modifierImplMap.put("B==B", operatorImplAsBinaryOperator("="))
+  modifierImplMap.put("B!=B", operatorImplAsBinaryOperator("/="))
+
+
+  modifierImplMap.put("!", operatorImplAsUnaryOperator("not"))
+  modifierImplMap.put("&&", operatorImplAsBinaryOperator("and"))
   modifierImplMap.put("||", operatorImplAsBinaryOperator("or"))
-//  modifierImplMap.put("B^B", operatorImplAsBinaryOperator("xor"))
-//
-//
+  modifierImplMap.put("B^B", operatorImplAsBinaryOperator("xor"))
+
+
 //  //enum
 //  modifierImplMap.put("e==e", enumEgualsImpl(true))
 //  modifierImplMap.put("e!=e", enumEgualsImpl(false))

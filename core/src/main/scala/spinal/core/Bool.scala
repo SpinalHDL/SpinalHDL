@@ -43,84 +43,84 @@ trait BoolFactory {
   *
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Bool Bool Documentation]]
   */
-class Bool extends BaseType /*with DataPrimitives[Bool]*//* with BitwiseOp[Bool]*/{
+class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
 
 //  override def getBitsWidth: Int = 1
 
-//  private[spinal] override def _data: Bool = this
+  private[spinal] override def _data: Bool = this
 
 
-  //  /**
-//    * Logical AND
-//    * @example{{{ val result = myBool1 && myBool2 }}}
-//    * @return a Bool assign with the AND result
-//    */
-//  def &&(b: Bool): Bool = wrapLogicalOperator(b, new Operator.Bool.And)
-//  override def &(b: Bool): Bool = this && b
-//
-//  /**
-//    * Logical OR
-//    * @example{{{ val result = myBool1 || myBool2 }}}
-//    * @return a Bool assign with the OR result
-//    */
+    /**
+    * Logical AND
+    * @example{{{ val result = myBool1 && myBool2 }}}
+    * @return a Bool assign with the AND result
+    */
+  def &&(b: Bool): Bool = wrapLogicalOperator(b, new Operator.Bool.And)
+  override def &(b: Bool): Bool = this && b
+
+  /**
+    * Logical OR
+    * @example{{{ val result = myBool1 || myBool2 }}}
+    * @return a Bool assign with the OR result
+    */
   def ||(b: Bool): Bool = wrapLogicalOperator(b, new Operator.Bool.Or)
-//  override def |(b: Bool): Bool = this || b
-//
-//  override def ^(b: Bool): Bool  = wrapLogicalOperator(b, new Operator.Bool.Xor)
-//
-//  /**
-//    * Logical NOT
-//    * @example{{{ val result = !myBool1 }}}
-//    * @return a Bool assign with the NOT result
-//    */
-//  def unary_!(): Bool = wrapUnaryOperator(new Operator.Bool.Not)
-//
-//  override def unary_~(): Bool = ! this
-//
-//  /** this is assigned to True */
-//  def set() = this := True
-//  /** this is assigned to False */
-//  def clear() = this := False
-//
-//  /**
-//    * this is assigned to True when cond is True
-//    * @example{{{ myBool.setWhen(cond) }}}
-//    * @param cond a Bool condition
-//    * @return this is assigned to True when cond is True
-//    */
-//  def setWhen(cond: Bool): Bool   = { when(cond){ this := True }; this }
-//  /** this is assigned to False when cond is True */
-//  def clearWhen(cond: Bool): Bool = { when(cond){ this := False }; this }
-//
-//  /**
-//    * Rising edge detection of this with an initial value
-//    * @example{{{ val res = myBool.rise(False) }}}
-//    * @param initAt the initial value
-//    * @return a Bool
-//    */
-//  def rise(initAt: Bool) = this && ! RegNext(this).init(initAt)
-//  /** Rising edge detection */
-//  def rise() = this && ! RegNext(this)
-//
-//  /**
-//    * Falling edge detection of this with an initial value
-//    * @example{{{ val res = myBool.fall(False) }}}
-//    * @param initAt the initial value
-//    * @return a Bool
-//    */
-//  def fall(initAt: Bool) = ! this && RegNext(this).init(initAt)
-//  /** Falling edge detection */
-//  def fall() = ! this && RegNext(this)
-//
-//  /**
-//    * Edge detection of this with an initial value
-//    * @example{{{ val res = myBool.edge(False) }}}
-//    * @param initAt the initial value
-//    * @return a Bool
-//    */
-//  def edge(initAt: Bool) = this ^ RegNext(this).init(initAt)
-//  /** Edge detection */
-//  def edge() = this ^ RegNext(this)
+  override def |(b: Bool): Bool = this || b
+
+  override def ^(b: Bool): Bool  = wrapLogicalOperator(b, new Operator.Bool.Xor)
+
+  /**
+    * Logical NOT
+    * @example{{{ val result = !myBool1 }}}
+    * @return a Bool assign with the NOT result
+    */
+  def unary_!(): Bool = wrapUnaryOperator(new Operator.Bool.Not)
+
+  override def unary_~(): Bool = ! this
+
+  /** this is assigned to True */
+  def set() = this := True
+  /** this is assigned to False */
+  def clear() = this := False
+
+  /**
+    * this is assigned to True when cond is True
+    * @example{{{ myBool.setWhen(cond) }}}
+    * @param cond a Bool condition
+    * @return this is assigned to True when cond is True
+    */
+  def setWhen(cond: Bool): Bool   = { when(cond){ this := True }; this }
+  /** this is assigned to False when cond is True */
+  def clearWhen(cond: Bool): Bool = { when(cond){ this := False }; this }
+
+  /**
+    * Rising edge detection of this with an initial value
+    * @example{{{ val res = myBool.rise(False) }}}
+    * @param initAt the initial value
+    * @return a Bool
+    */
+  def rise(initAt: Bool) = this && ! RegNext(this).init(initAt)
+  /** Rising edge detection */
+  def rise() = this && ! RegNext(this)
+
+  /**
+    * Falling edge detection of this with an initial value
+    * @example{{{ val res = myBool.fall(False) }}}
+    * @param initAt the initial value
+    * @return a Bool
+    */
+  def fall(initAt: Bool) = ! this && RegNext(this).init(initAt)
+  /** Falling edge detection */
+  def fall() = ! this && RegNext(this)
+
+  /**
+    * Edge detection of this with an initial value
+    * @example{{{ val res = myBool.edge(False) }}}
+    * @param initAt the initial value
+    * @return a Bool
+    */
+  def edge(initAt: Bool) = this ^ RegNext(this).init(initAt)
+  /** Edge detection */
+  def edge() = this ^ RegNext(this)
 //
 //  override def assignFromBits(bits: Bits): Unit = this := bits(0)
 //
@@ -161,25 +161,25 @@ class Bool extends BaseType /*with DataPrimitives[Bool]*//* with BitwiseOp[Bool]
 //
 //  override def asBits: Bits = wrapCast(Bits(), new CastBoolToBits)
 //
-//  private[core] override def isEquals(that: Any): Bool = {
-//    that match {
-//      case that: Bool => wrapLogicalOperator(that,new Operator.Bool.Equal);
-//      case _          => SpinalError(s"Don't know how compare $this with $that"); null
-//    }
-//  }
-//
-//  private[core] override def isNotEquals(that: Any): Bool = {
-//    that match {
-//      case that: Bool => wrapLogicalOperator(that,new Operator.Bool.NotEqual);
-//      case _          => SpinalError(s"Don't know how compare $this with $that"); null
-//    }
-//  }
+  private[core] override def isEquals(that: Any): Bool = {
+    that match {
+      case that: Bool => wrapLogicalOperator(that,new Operator.Bool.Equal);
+      case _          => SpinalError(s"Don't know how compare $this with $that"); null
+    }
+  }
+
+  private[core] override def isNotEquals(that: Any): Bool = {
+    that match {
+      case that: Bool => wrapLogicalOperator(that,new Operator.Bool.NotEqual);
+      case _          => SpinalError(s"Don't know how compare $this with $that"); null
+    }
+  }
 //
 //  private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse, new MultiplexerBool)
 //
-//  private[core] override def weakClone: this.type = new Bool().asInstanceOf[this.type]
+  private[core] override def weakClone: this.type = new Bool().asInstanceOf[this.type]
 //  override def getZero: this.type = False.asInstanceOf[this.type]
-//
+
 //  /**
 //    * Class used to write conditional operation on Data value
 //    * @example {{{ val res = myBool ? myBits1 | myBits2 }}}

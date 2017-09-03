@@ -338,11 +338,11 @@ abstract class BaseType extends Data with NameableNode {
 //  }
 //
 //
-//  private[core] def wrapWithWeakClone(node: Node): this.type = {
-//    val typeNode = weakClone
-//    typeNode.input = node
-//    typeNode
-//  }
+  private[core] def wrapWithWeakClone(e: Expression): this.type = {
+    val typeNode = weakClone
+    typeNode.assignFrom(e)
+    typeNode
+  }
 //
 //  def wrapCast[T <: BaseType](result: T, node: Cast): T = {
 //    node.input = this.asInstanceOf[node.T]
@@ -355,10 +355,10 @@ abstract class BaseType extends Data with NameableNode {
 //    wrapWithWeakClone(op)
 //  }
 //
-//  private[core] def wrapUnaryOperator(op: UnaryOperator): this.type = {
-//    op.input = this.asInstanceOf[op.T]
-//    wrapWithWeakClone(op)
-//  }
+  private[core] def wrapUnaryOperator(op: UnaryOperator): this.type = {
+    op.source = new RefExpression(this).asInstanceOf[op.T]
+    wrapWithWeakClone(op)
+  }
 //
 //  private[core] def wrapBinaryOperator(right: Node, op: BinaryOperator): this.type = {
 //    op.left = this.asInstanceOf[op.T]
@@ -366,12 +366,10 @@ abstract class BaseType extends Data with NameableNode {
 //    wrapWithWeakClone(op)
 //  }
 //
-  private[core] def wrapLogicalOperator(right: BaseType, op: BinaryOperator):  Bool = {
+  private[core] def wrapLogicalOperator(right: BaseType, op: BinaryOperator):  this.type = {
     op.left = new RefExpression(this).asInstanceOf[op.T]
     op.right = new RefExpression(right).asInstanceOf[op.T]
-    val ret = new Bool
-    ret.assignFrom(op)
-    ret
+    wrapWithWeakClone(op)
   }
 //
 //  private[core] def wrapMultiplexer(cond: Node, whenTrue: Node, whenFalse: Node, mux: Multiplexer): this.type = {
@@ -384,9 +382,9 @@ abstract class BaseType extends Data with NameableNode {
 //
 //  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = (outHi, outLo)
 //
-//  //Create a new instance of the same datatype without any configuration (width, direction)
-//  private[core] def weakClone: this.type
-//
+  //Create a new instance of the same datatype without any configuration (width, direction)
+  private[core] def weakClone: this.type
+
 //  override def toString(): String = s"(${(if(component != null) component.getPath() + "/" else "") + this.getDisplayName()} : ${if(isInput) "in " else if(isOutput) "out " else ""}$getClassIdentifier)"
 //
 //

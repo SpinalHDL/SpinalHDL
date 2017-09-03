@@ -143,8 +143,8 @@ object Data {
 trait DataPrimitives[T <: Data]{
   private[spinal] def _data : T
 
-//  def ===(that: T): Bool = _data.isEquals(that)
-//  def =/=(that: T): Bool = _data.isNotEquals(that)
+  def ===(that: T): Bool = _data.isEquals(that)
+  def =/=(that: T): Bool = _data.isNotEquals(that)
 
 
 
@@ -278,8 +278,8 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
 //    this
 //  }
 
-//  private[core] def isEquals(that: Any): Bool
-//  private[core] def isNotEquals(that: Any): Bool
+  private[core] def isEquals(that: Any): Bool
+  private[core] def isNotEquals(that: Any): Bool
 
 //  def resized : this.type ={
 //    val ret = cloneOf(this)

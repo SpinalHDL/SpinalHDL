@@ -1319,6 +1319,8 @@ class PhasePullClockDomains(pc: PhaseContext) extends PhaseNetlist{
 //
 //
 //
+
+//TODO IR ClockDomains
 class PhaseDeleteUselessBaseTypes(pc: PhaseContext) extends PhaseNetlist{
   override def useNodeConsumers = true
   override def impl(pc : PhaseContext): Unit = {

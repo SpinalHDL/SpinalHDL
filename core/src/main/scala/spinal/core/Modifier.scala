@@ -58,8 +58,19 @@ import scala.collection.mutable.ArrayBuffer
 //
 abstract class Operator extends Modifier
 //
-//abstract class UnaryOperator extends Operator{
-//  type T <: Node
+abstract class UnaryOperator extends Operator{
+  type T <: Expression
+  var source  : T = null.asInstanceOf[T]
+
+  def foreachExpression(func : (Expression) => Unit) : Unit = {
+    func(source)
+  }
+
+  override def remapExpressions(func: (Expression) => Expression): Unit = {
+    source = func(source).asInstanceOf[T]
+  }
+
+  //  type T <: Node
 //  var input : T = null.asInstanceOf[T]
 //  override def onEachInput(doThat: (Node, Int) => Unit): Unit = doThat(input,0)
 //  override def onEachInput(doThat: (Node) => Unit): Unit = doThat(input)
@@ -67,7 +78,7 @@ abstract class Operator extends Modifier
 //  override def getInputsCount: Int = 1
 //  override def getInputs: Iterator[Node] = Iterator(input)
 //  override def getInput(id: Int): Node = {assert(id == 0); input}
-//}
+}
 //
 //abstract class UnaryOperatorWidthableInputs extends UnaryOperator{
 //  override type T = Node with WidthProvider
@@ -122,41 +133,41 @@ abstract class BinaryOperator extends Operator{
 //
 object Operator{
   object Bool{
-//    class And extends BinaryOperator{
-//      override def opName: String = "&&"
+    class And extends BinaryOperator{
+      override def opName: String = "&&"
 //      override def normalizeInputs: Unit = {}
 //      override def simplifyNode: Unit = {}
-//    }
-//
+    }
+
     class Or extends BinaryOperator{
       override def opName: String = "||"
 //      override def normalizeInputs: Unit = {}
 //      override def simplifyNode: Unit = {}
     }
 //
-//    class Xor extends BinaryOperator{
-//      override def opName: String = "B^B"
+    class Xor extends BinaryOperator{
+      override def opName: String = "B^B"
 //      override def normalizeInputs: Unit = {}
 //      override def simplifyNode: Unit = {}
-//    }
-//
-//    class Not extends UnaryOperator{
-//      override def opName: String = "!"
+    }
+
+    class Not extends UnaryOperator{
+      override def opName: String = "!"
 //      override def normalizeInputs: Unit = {}
 //      override def simplifyNode: Unit = {}
-//    }
-//
-//    class Equal extends BinaryOperator{
-//      override def opName: String = "B==B"
+    }
+
+    class Equal extends BinaryOperator{
+      override def opName: String = "B==B"
 //      override def normalizeInputs: Unit = {}
 //      override def simplifyNode: Unit = {}
-//    }
-//
-//    class NotEqual extends BinaryOperator{
-//      override def opName: String = "B!=B"
+    }
+
+    class NotEqual extends BinaryOperator{
+      override def opName: String = "B!=B"
 //      override def normalizeInputs: Unit = {}
 //      override def simplifyNode: Unit = {}
-//    }
+    }
   }
 //
 //  object BitVector{
