@@ -188,7 +188,11 @@ class StateMachine extends Area with StateMachineAccessor with ScalaLocated{
 //  override def goto(state: SpinalEnumElement[StateMachineEnum]): Unit = ??? //stateNext := state
 
   override def add(state: State): Int = {
-    states += state
+    if (state.isInstanceOf[StateBoot]) {
+      states.+=:(state)
+    } else {
+      states += state
+    }
     states.length-1
   }
   override def add(stateMachine : StateMachineAccessor) : Unit = {
