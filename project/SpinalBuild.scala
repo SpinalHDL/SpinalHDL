@@ -72,7 +72,7 @@ object SpinalBuild extends Build {
       version := SpinalVersion.debugger,
       resolvers += "sparetimelabs" at "http://www.sparetimelabs.com/maven2/",
       //libraryDependencies += "org.scalafx" %% "scalafx" % "8.0.40-R8",
-      libraryDependencies += "com.sparetimelabs" % "purejavacomm" % "0.0.22",
+      libraryDependencies += "com.github.purejavacomm" % "purejavacomm" % "1.0.2.RELEASE",
       libraryDependencies += "net.liftweb" %% "lift-json" % "3.1.0-M2",
       publishTo := None
     )
