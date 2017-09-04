@@ -55,7 +55,15 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
     ret
   }
 
-/** Connect that to this
+  def asFlow: Flow[T] = {
+    val ret = Flow(_dataType)
+    ret.valid := this.valid
+    ret.payload := this.payload
+    ret
+  }
+
+
+  /** Connect that to this
   */
   def <<(that: Stream[T]): Stream[T] = connectFrom(that)
 

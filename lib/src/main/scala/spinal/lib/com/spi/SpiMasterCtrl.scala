@@ -10,8 +10,8 @@ import spinal.lib.bus.misc.BusSlaveFactory
  */
 
 case class SpiMasterCtrlGenerics( ssWidth : Int,
-                              timerWidth : Int,
-                              dataWidth : Int = 8){
+                                  timerWidth : Int,
+                                  dataWidth : Int = 8){
   def ssGen = ssWidth != 0
 }
 
@@ -56,6 +56,9 @@ case class SpiMasterCmd(generics : SpiMasterCtrlGenerics) extends Bundle{
     ret
   }
 }
+case class SpiMasterCtrlMemoryMappedConfig(ctrlGenerics : SpiMasterCtrlGenerics,
+                                           cmdFifoDepth : Int = 32,
+                                           rspFifoDepth : Int = 32)
 
 case class SpiMasterCtrl(generics : SpiMasterCtrlGenerics) extends Component{
   import generics._
@@ -66,40 +69,69 @@ case class SpiMasterCtrl(generics : SpiMasterCtrlGenerics) extends Component{
     val rsp = master Flow(Bits(dataWidth bits))
     val spi = master(SpiMaster(ssWidth))
 
-    def driveFrom(bus : BusSlaveFactory)(cmdFifoSize : Int, rspFifoSize : Int) = new Area {
+    def driveFrom(bus : BusSlaveFactory, baseAddress : Int = 0)(generics : SpiMasterCtrlMemoryMappedConfig) = new Area {
+      import generics._
+      require(cmdFifoDepth >= 1)
+      require(rspFifoDepth >= 1)
+
+      require(cmdFifoDepth <= 32.kB)
+      require(rspFifoDepth <= 32.kB)
+
       //CMD
       val cmdLogic = new Area {
-        val streamUnbuffered = bus.createAndDriveFlow(SpiMasterCmd(generics),address =  0).toStream
-        val (stream, fifoAvailability) = streamUnbuffered.queueWithAvailability(cmdFifoSize)
+        val streamUnbuffered = Stream(SpiMasterCmd(ctrlGenerics))
+        streamUnbuffered.valid := bus.isWriting(address = baseAddress + 0)
+        val dataCmd = SpiMasterCtrlCmdData(ctrlGenerics)
+        bus.nonStopWrite(dataCmd.data, bitOffset = 0)
+        bus.nonStopWrite(dataCmd.read, bitOffset = 24)
+        if(ctrlGenerics.ssGen) {
+          val ssCmd = SpiMasterCtrlCmdSs(ctrlGenerics)
+          bus.nonStopWrite(ssCmd.index, bitOffset = 0)
+          bus.nonStopWrite(ssCmd.enable, bitOffset = 24)
+          bus.nonStopWrite(streamUnbuffered.mode, bitOffset = 28)
+          switch(streamUnbuffered.mode){
+            is(SpiMasterCtrlCmdMode.DATA){
+              streamUnbuffered.args.assignFromBits(dataCmd.asBits)
+            }
+            is(SpiMasterCtrlCmdMode.SS){
+              streamUnbuffered.args.assignFromBits(ssCmd.asBits.resized)
+            }
+          }
+        } else {
+          streamUnbuffered.args.assignFromBits(dataCmd.asBits)
+        }
+
+        bus.createAndDriveFlow(SpiMasterCmd(ctrlGenerics),address = baseAddress + 0).toStream
+        val (stream, fifoAvailability) = streamUnbuffered.queueWithAvailability(cmdFifoDepth)
         cmd << stream
-        bus.read(fifoAvailability, address = 4, 16)
+        bus.read(fifoAvailability, address = baseAddress + 4, 16)
       }
 
       //RSP
       val rspLogic = new Area {
-        val (stream, fifoOccupancy) = rsp.queueWithOccupancy(rspFifoSize)
-        bus.readStreamNonBlocking(stream, address = 0, validBitOffset = 31, payloadBitOffset = 0)
-        bus.read(fifoOccupancy, address = 0, 16)
+        val (stream, fifoOccupancy) = rsp.queueWithOccupancy(rspFifoDepth)
+        bus.readStreamNonBlocking(stream, address = baseAddress + 0, validBitOffset = 31, payloadBitOffset = 0)
+        bus.read(fifoOccupancy, address = baseAddress + 0, 16)
       }
 
       //Status
       val interruptCtrl = new Area {
-        val cmdIntEnable = bus.createReadAndWrite(Bool, address = 4, 0) init(False)
-        val rspIntEnable  = bus.createReadAndWrite(Bool, address = 4, 1) init(False)
+        val cmdIntEnable = bus.createReadAndWrite(Bool, address = baseAddress + 4, 0) init(False)
+        val rspIntEnable  = bus.createReadAndWrite(Bool, address = baseAddress + 4, 1) init(False)
         val cmdInt  = cmdIntEnable & !cmdLogic.stream.valid
         val rspInt   = rspIntEnable  &  rspLogic.stream.valid
         val interrupt = rspInt || cmdInt
-        bus.read(cmdInt, address = 4, 8)
-        bus.read(rspInt , address = 4, 9)
+        bus.read(cmdInt, address = baseAddress + 4, 8)
+        bus.read(rspInt , address = baseAddress + 4, 9)
       }
 
       //Configs
       bus.drive(config.kind, 8)
       bus.drive(config.sclkToogle, 12)
       if(ssGen) new Bundle {
-        bus.drive(config.ss.setup,   address = 16)
-        bus.drive(config.ss.hold,    address = 20)
-        bus.drive(config.ss.disable, address = 24)
+        bus.drive(config.ss.setup,   address = baseAddress + 16)
+        bus.drive(config.ss.hold,    address = baseAddress + 20)
+        bus.drive(config.ss.disable, address = baseAddress + 24)
       } else null
     }
   }
@@ -178,16 +210,18 @@ case class SpiMasterCtrl(generics : SpiMasterCtrlGenerics) extends Component{
 }
 
 
-object SpiMasterCtrl{
-  def main(args: Array[String]) {
-    SpinalVerilog({
-      new Component{
-        val ctrl = new SpiMasterCtrl(SpiMasterCtrlGenerics(8,16))
-        val factory = Apb3SlaveFactory(slave(Apb3(8,32)))
-        ctrl.io.driveFrom(factory)(cmdFifoSize = 32, rspFifoSize = 32)
-        master(cloneOf(ctrl.io.spi)) <> ctrl.io.spi
-      }.setDefinitionName("TopLevel")
-    })
-   // SpinalVerilog(new SpiMaster(SpiMasterGenerics(2,0,16)).setDefinitionName("TopLevelV"))
-  }
-}
+
+
+//object SpiMasterCtrl{
+//  def main(args: Array[String]) {
+//    SpinalVerilog({
+//      new Component{
+//        val ctrl = new SpiMasterCtrl(SpiMasterCtrlGenerics(8,16))
+//        val factory = Apb3SlaveFactory(slave(Apb3(8,32)))
+//        ctrl.io.driveFrom(factory)(cmdFifoSize = 32, rspFifoSize = 32)
+//        master(cloneOf(ctrl.io.spi)) <> ctrl.io.spi
+//      }.setDefinitionName("TopLevel")
+//    })
+//   // SpinalVerilog(new SpiMaster(SpiMasterGenerics(2,0,16)).setDefinitionName("TopLevelV"))
+//  }
+//}

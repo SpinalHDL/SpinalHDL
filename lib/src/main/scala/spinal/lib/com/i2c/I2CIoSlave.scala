@@ -200,7 +200,7 @@ case class I2cSlaveIo(g : I2cSlaveGenerics) extends Bundle {
       }
       is(I2cSlaveCmdMode.DRIVE){
         when(!inAckState) {
-          when(txData.valid) {
+          when(txData.valid && dataCounter === 7) {
             when(!txData.repeat) {
               txData.valid := False
             }
@@ -358,8 +358,11 @@ class I2cSlave(g : I2cSlaveGenerics) extends Component{
   val ctrl = new Area{
     val inFrame, inFrameData = Reg(Bool) init(False)
     val sdaWrite, sclWrite = True
+
+    //Create a bus RSP buffer
     val rspBufferIn = Stream(I2cSlaveRsp())
-    val rspBuffer = rspBufferIn.s2mPipe()
+    val rspBuffer = rspBufferIn.stage() //Store rsp transaction
+    val rspAhead = rspBuffer.valid ? rspBuffer.asFlow | rspBufferIn.asFlow
     rspBufferIn.valid := io.bus.rsp.valid
     rspBufferIn.payload := io.bus.rsp
     rspBuffer.ready := False
@@ -387,11 +390,11 @@ class I2cSlave(g : I2cSlaveGenerics) extends Component{
         io.bus.cmd.kind := CmdMode.DRIVE
       }
 
-      when(!rspBuffer.valid  || (rspBuffer.enable && !tsuDat.done)) {
+      when(!rspAhead.valid  || (rspAhead.enable && !tsuDat.done)) {
         sclWrite := False
       }
-      when(rspBuffer.valid && rspBuffer.enable){
-        sdaWrite := rspBuffer.data
+      when(rspAhead.valid && rspAhead.enable){
+        sdaWrite := rspAhead.data
       }
     }
 

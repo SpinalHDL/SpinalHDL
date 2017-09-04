@@ -9,8 +9,15 @@ import spinal.lib.bus.misc.BusSlaveFactory
  * Created by PIC32F_USER on 02/08/2017.
  */
 
+
+
+
 case class SpiSlaveCtrlGenerics(dataWidth : Int = 8){
 }
+
+case class SpiSlaveCtrlMemoryMappedConfig(ctrlGenerics : SpiSlaveCtrlGenerics,
+                                          rxFifoDepth : Int = 32,
+                                          txFifoDepth : Int = 32)
 
 case class SpiSlaveCtrlIo(generics : SpiSlaveCtrlGenerics) extends Bundle{
   import generics._
@@ -21,19 +28,25 @@ case class SpiSlaveCtrlIo(generics : SpiSlaveCtrlGenerics) extends Bundle{
   val ssFilted = out Bool
   val spi = master(SpiSlave())
 
-  def driveFrom(bus : BusSlaveFactory)(cmdFifoSize : Int, rspFifoSize : Int) = new Area {
+  def driveFrom(bus : BusSlaveFactory)(generics : SpiSlaveCtrlMemoryMappedConfig) = new Area {
+    import generics._
+    require(rxFifoDepth >= 1)
+    require(txFifoDepth >= 1)
+
+    require(rxFifoDepth <= 32.kB)
+    require(txFifoDepth <= 32.kB)
     //TX
     val txLogic = new Area {
       val streamUnbuffered = bus.createAndDriveFlow(Bits(8 bits),address =  0).toStream
-      val (stream, fifoAvailability) = streamUnbuffered.queueWithAvailability(cmdFifoSize)
+      val (stream, fifoAvailability) = streamUnbuffered.queueWithAvailability(rxFifoDepth)
       tx << stream
       bus.read(fifoAvailability, address = 4, 16)
     }
 
     //RX
     val rxLogic = new Area {
-      val listen = bus.createReadAndWrite(Bool, address = 4, bitOffset = 15)
-      val (stream, fifoOccupancy) = rx.takeWhen(listen).queueWithOccupancy(rspFifoSize)
+      val listen = bus.createReadAndWrite(Bool, address = 4, bitOffset = 15) init(False)
+      val (stream, fifoOccupancy) = rx.takeWhen(listen).queueWithOccupancy(txFifoDepth)
       bus.readStreamNonBlocking(stream, address = 0, validBitOffset = 31, payloadBitOffset = 0)
       bus.read(fifoOccupancy, address = 0, 16)
     }
@@ -77,7 +90,7 @@ case class SpiSlaveCtrl(generics : SpiSlaveCtrlGenerics) extends Component{
     counter.clear()
   } otherwise {
     when(normalizedSclkEdges.rise){
-      buffer := spi.mosi ## (buffer >> 1)
+      buffer := (buffer ## spi.mosi).resized
     }
     when(normalizedSclkEdges.toogle){
       counter.increment()
@@ -105,7 +118,7 @@ object SpiSlaveCtrl{
       new Component{
         val ctrl = new SpiSlaveCtrl(SpiSlaveCtrlGenerics(8))
         val factory = Apb3SlaveFactory(slave(Apb3(8,32)))
-        ctrl.io.driveFrom(factory)(cmdFifoSize = 32, rspFifoSize = 32)
+        ctrl.io.driveFrom(factory)(SpiSlaveCtrlMemoryMappedConfig(SpiSlaveCtrlGenerics(8)))
         master(cloneOf(ctrl.io.spi)) <> ctrl.io.spi
       }
 //      ctrl

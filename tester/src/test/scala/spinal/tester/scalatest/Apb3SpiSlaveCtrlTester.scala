@@ -19,17 +19,21 @@
 package spinal.tester.scalatest
 
 import spinal.core._
-import spinal.lib._
-import spinal.lib.com.i2c._
+import spinal.lib.com.spi.{Apb3SpiSlaveCtrl, SpiSlaveCtrlGenerics, SpiSlaveCtrlMemoryMappedConfig}
 
 
-class I2cSlaveTester extends SpinalTesterCocotbBase {
-  override def getName: String = "I2cSlaveTester"
-  override def pythonTestLocation: String = "tester/src/test/python/spinal/I2CTester2/I2cSlaveTester"
-  override def createToplevel: Component = new I2cSlave(I2cSlaveGenerics(
-    samplingWindowSize        = 3,
-    samplingClockDividerWidth = 10 bits,
-    timeoutWidth              = 20 bits
-  ))
+class Apb3SpiSlaveCtrlTester extends SpinalTesterCocotbBase {
+  override def getName: String = "Apb3SpiSlaveCtrlTester"
+  override def pythonTestLocation: String = "tester/src/test/python/spinal/SpiTester/Apb3SpiSlaveCtrlTester"
+  override def createToplevel: Component = new Apb3SpiSlaveCtrl(
+    SpiSlaveCtrlMemoryMappedConfig(
+      ctrlGenerics = SpiSlaveCtrlGenerics(
+        dataWidth   = 8
+      ),
+      rxFifoDepth = 32,
+      txFifoDepth = 32
+    )
+  )
+  waveDepth = 99
 }
 

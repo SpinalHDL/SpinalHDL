@@ -16,10 +16,11 @@ abstract class SpinalTesterCocotbBase extends FunSuite /* with BeforeAndAfterAll
   var spinalMustPass = true
   var cocotbMustPass = true
   var genHdlSuccess = false
+  var waveDepth = 1
   def genHdl: Unit ={
     try {
       val waveFolder = sys.env.getOrElse("WAVES_DIR",".")
-      backendConfig(SpinalConfig(mode = Verilog,dumpWave = DumpWaveConfig(depth = 1,vcdPath = waveFolder + "/" + getName + ".vcd"))).generate(createToplevel)
+      backendConfig(SpinalConfig(mode = Verilog,dumpWave = DumpWaveConfig(depth = waveDepth,vcdPath = waveFolder + "/" + getName + ".vcd"))).generate(createToplevel)
       genHdlSuccess = true
     } catch {
       case e: Throwable => {
