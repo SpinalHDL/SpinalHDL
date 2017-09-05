@@ -395,7 +395,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     //Wrap expression which need it
     for(e <- expressionToWrap){
       val name = component.localNamingScope.allocateName(globalData.anonymSignalPrefix)
-      b.declarations ++= s"  signal $name : ${"TODO"};\n"
+      b.declarations ++= s"  signal $name : ${expressionTypeMap(e.getClass)(e)};\n"
       wrappedExpressionToName(e) = name
     }
 
@@ -767,12 +767,12 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
         if(referenceSet != null) referenceSet.add(name)
         name
       }
-      case None => modifierImplMap.getOrElse(that.opName, throw new Exception("can't find " + that.opName))(that)
+      case None => expressionImplMap.getOrElse(that.getClass, throw new Exception("can't find " + that.opName))(that)
     }
   }
 
   def emitExpressionNoWrappeForFirstOne(that : Expression) : String = {
-    modifierImplMap.getOrElse(that.opName, throw new Exception("can't find " + that.opName))(that)
+    expressionImplMap.getOrElse(that.getClass, throw new Exception("can't find " + that.opName))(that)
   }
   //
   //    case lit: BitsLiteral => s"pkg_stdLogicVector(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
@@ -1862,154 +1862,163 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 //
 //
 //
-  val modifierImplMap = mutable.Map[String, Expression => String]()
+  val expressionImplMap = mutable.Map[Class[_ <: Expression], Expression => String]()
+  val expressionTypeMap = mutable.Map[Class[_ <: Expression], Expression => String]()
 
-  modifierImplMap.put("(x)", refImpl)
-  modifierImplMap.put("Bool(x)", boolLiteralImpl)
+
+  def expressionMapAdd(c : Class[_ <: Expression], impl : Expression => String, t : Expression => String): Unit ={
+    expressionImplMap(c) = impl
+    expressionTypeMap(c) = t
+  }
+
+  expressionMapAdd(classOf[RefExpression], refImpl, e => "std_logic")
+  expressionMapAdd(classOf[BoolLiteral], boolLiteralImpl, e => "std_logic")
 
 //  //unsigned
-//  modifierImplMap.put("u+u", operatorImplAsBinaryOperator("+"))
-//  modifierImplMap.put("u-u", operatorImplAsBinaryOperator("-"))
-//  modifierImplMap.put("u*u", operatorImplAsBinaryOperator("*"))
-//  modifierImplMap.put("u/u", operatorImplAsBinaryOperator("/"))
-//  modifierImplMap.put("u%u", moduloImpl)
+//  expressionImplMap.put("u+u", operatorImplAsBinaryOperator("+"))
+//  expressionImplMap.put("u-u", operatorImplAsBinaryOperator("-"))
+//  expressionImplMap.put("u*u", operatorImplAsBinaryOperator("*"))
+//  expressionImplMap.put("u/u", operatorImplAsBinaryOperator("/"))
+//  expressionImplMap.put("u%u", moduloImpl)
 //
-//  modifierImplMap.put("u|u", operatorImplAsBinaryOperator("or"))
-//  modifierImplMap.put("u&u", operatorImplAsBinaryOperator("and"))
-//  modifierImplMap.put("u^u", operatorImplAsBinaryOperator("xor"))
-//  modifierImplMap.put("~u",  operatorImplAsUnaryOperator("not"))
+//  expressionImplMap.put("u|u", operatorImplAsBinaryOperator("or"))
+//  expressionImplMap.put("u&u", operatorImplAsBinaryOperator("and"))
+//  expressionImplMap.put("u^u", operatorImplAsBinaryOperator("xor"))
+//  expressionImplMap.put("~u",  operatorImplAsUnaryOperator("not"))
 //
-//  modifierImplMap.put("u==u", operatorImplAsBinaryOperator("="))
-//  modifierImplMap.put("u!=u", operatorImplAsBinaryOperator("/="))
-//  modifierImplMap.put("u<u",  operatorImplAsBinaryOperator("<"))
-//  modifierImplMap.put("u<=u", operatorImplAsBinaryOperator("<="))
+//  expressionImplMap.put("u==u", operatorImplAsBinaryOperator("="))
+//  expressionImplMap.put("u!=u", operatorImplAsBinaryOperator("/="))
+//  expressionImplMap.put("u<u",  operatorImplAsBinaryOperator("<"))
+//  expressionImplMap.put("u<=u", operatorImplAsBinaryOperator("<="))
 //
 //
-//  modifierImplMap.put("u>>i", shiftRightByIntImpl)
-//  modifierImplMap.put("u<<i", shiftLeftByIntImpl)
-//  modifierImplMap.put("u>>u", operatorImplAsFunction("pkg_shiftRight"))
-//  modifierImplMap.put("u<<u", operatorImplAsFunction("pkg_shiftLeft"))
-//  modifierImplMap.put("u|>>i",  shiftRightByIntFixedWidthImpl)
-//  modifierImplMap.put("u|<<i",  shiftLeftByIntFixedWidthImpl)
-//  modifierImplMap.put("u|<<u",  shiftLeftByUIntFixedWidthImpl)
+//  expressionImplMap.put("u>>i", shiftRightByIntImpl)
+//  expressionImplMap.put("u<<i", shiftLeftByIntImpl)
+//  expressionImplMap.put("u>>u", operatorImplAsFunction("pkg_shiftRight"))
+//  expressionImplMap.put("u<<u", operatorImplAsFunction("pkg_shiftLeft"))
+//  expressionImplMap.put("u|>>i",  shiftRightByIntFixedWidthImpl)
+//  expressionImplMap.put("u|<<i",  shiftLeftByIntFixedWidthImpl)
+//  expressionImplMap.put("u|<<u",  shiftLeftByUIntFixedWidthImpl)
 //
 //
 //  //signed
-//  modifierImplMap.put("s+s", operatorImplAsBinaryOperator("+"))
-//  modifierImplMap.put("s-s", operatorImplAsBinaryOperator("-"))
-//  modifierImplMap.put("s*s", operatorImplAsBinaryOperator("*"))
-//  modifierImplMap.put("s/s", operatorImplAsBinaryOperator("/"))
-//  modifierImplMap.put("s%s", moduloImpl)
+//  expressionImplMap.put("s+s", operatorImplAsBinaryOperator("+"))
+//  expressionImplMap.put("s-s", operatorImplAsBinaryOperator("-"))
+//  expressionImplMap.put("s*s", operatorImplAsBinaryOperator("*"))
+//  expressionImplMap.put("s/s", operatorImplAsBinaryOperator("/"))
+//  expressionImplMap.put("s%s", moduloImpl)
 //
-//  modifierImplMap.put("s|s", operatorImplAsBinaryOperator("or"))
-//  modifierImplMap.put("s&s", operatorImplAsBinaryOperator("and"))
-//  modifierImplMap.put("s^s", operatorImplAsBinaryOperator("xor"))
-//  modifierImplMap.put("~s", operatorImplAsUnaryOperator("not"))
-//  modifierImplMap.put("-s", operatorImplAsUnaryOperator("-"))
+//  expressionImplMap.put("s|s", operatorImplAsBinaryOperator("or"))
+//  expressionImplMap.put("s&s", operatorImplAsBinaryOperator("and"))
+//  expressionImplMap.put("s^s", operatorImplAsBinaryOperator("xor"))
+//  expressionImplMap.put("~s", operatorImplAsUnaryOperator("not"))
+//  expressionImplMap.put("-s", operatorImplAsUnaryOperator("-"))
 //
-//  modifierImplMap.put("s==s", operatorImplAsBinaryOperator("="))
-//  modifierImplMap.put("s!=s", operatorImplAsBinaryOperator("/="))
-//  modifierImplMap.put("s<s", operatorImplAsBinaryOperator("<"))
-//  modifierImplMap.put("s<=s", operatorImplAsBinaryOperator("<="))
+//  expressionImplMap.put("s==s", operatorImplAsBinaryOperator("="))
+//  expressionImplMap.put("s!=s", operatorImplAsBinaryOperator("/="))
+//  expressionImplMap.put("s<s", operatorImplAsBinaryOperator("<"))
+//  expressionImplMap.put("s<=s", operatorImplAsBinaryOperator("<="))
 //
 //
-//  modifierImplMap.put("s>>i", shiftRightByIntImpl)
-//  modifierImplMap.put("s<<i", shiftLeftByIntImpl)
-//  modifierImplMap.put("s>>u", operatorImplAsFunction("pkg_shiftRight"))
-//  modifierImplMap.put("s<<u", operatorImplAsFunction("pkg_shiftLeft"))
-//  modifierImplMap.put("s|>>i",  shiftRightByIntFixedWidthImpl)
-//  modifierImplMap.put("s|<<i",  shiftLeftByIntFixedWidthImpl)
-//  modifierImplMap.put("s|<<u",  shiftLeftByUIntFixedWidthImpl)
+//  expressionImplMap.put("s>>i", shiftRightByIntImpl)
+//  expressionImplMap.put("s<<i", shiftLeftByIntImpl)
+//  expressionImplMap.put("s>>u", operatorImplAsFunction("pkg_shiftRight"))
+//  expressionImplMap.put("s<<u", operatorImplAsFunction("pkg_shiftLeft"))
+//  expressionImplMap.put("s|>>i",  shiftRightByIntFixedWidthImpl)
+//  expressionImplMap.put("s|<<i",  shiftLeftByIntFixedWidthImpl)
+//  expressionImplMap.put("s|<<u",  shiftLeftByUIntFixedWidthImpl)
 //
 //
 //
 //  //bits
-//  modifierImplMap.put("b##b", operatorImplAsFunction("pkg_cat"))
+//  expressionImplMap.put("b##b", operatorImplAsFunction("pkg_cat"))
 //
-//  modifierImplMap.put("b|b", operatorImplAsBinaryOperator("or"))
-//  modifierImplMap.put("b&b", operatorImplAsBinaryOperator("and"))
-//  modifierImplMap.put("b^b", operatorImplAsBinaryOperator("xor"))
-//  modifierImplMap.put("~b",  operatorImplAsUnaryOperator("not"))
+//  expressionImplMap.put("b|b", operatorImplAsBinaryOperator("or"))
+//  expressionImplMap.put("b&b", operatorImplAsBinaryOperator("and"))
+//  expressionImplMap.put("b^b", operatorImplAsBinaryOperator("xor"))
+//  expressionImplMap.put("~b",  operatorImplAsUnaryOperator("not"))
 //
-//  modifierImplMap.put("b==b", operatorImplAsBinaryOperator("="))
-//  modifierImplMap.put("b!=b", operatorImplAsBinaryOperator("/="))
+//  expressionImplMap.put("b==b", operatorImplAsBinaryOperator("="))
+//  expressionImplMap.put("b!=b", operatorImplAsBinaryOperator("/="))
 //
-//  modifierImplMap.put("b>>i", shiftRightByIntImpl)
-//  modifierImplMap.put("b<<i", shiftLeftByIntImpl)
-//  modifierImplMap.put("b>>u", operatorImplAsFunction("pkg_shiftRight"))
-//  modifierImplMap.put("b<<u", operatorImplAsFunction("pkg_shiftLeft"))
-//  modifierImplMap.put("b|>>i",  shiftRightBitsByIntFixedWidthImpl)
-//  modifierImplMap.put("b|<<i",  shiftLeftBitsByIntFixedWidthImpl)
-//  modifierImplMap.put("b|<<u",  shiftLeftBitsByUIntFixedWidthImpl)
+//  expressionImplMap.put("b>>i", shiftRightByIntImpl)
+//  expressionImplMap.put("b<<i", shiftLeftByIntImpl)
+//  expressionImplMap.put("b>>u", operatorImplAsFunction("pkg_shiftRight"))
+//  expressionImplMap.put("b<<u", operatorImplAsFunction("pkg_shiftLeft"))
+//  expressionImplMap.put("b|>>i",  shiftRightBitsByIntFixedWidthImpl)
+//  expressionImplMap.put("b|<<i",  shiftLeftBitsByIntFixedWidthImpl)
+//  expressionImplMap.put("b|<<u",  shiftLeftBitsByUIntFixedWidthImpl)
 //
-////  modifierImplMap.put("brotlu", operatorImplAsFunction("pkg_rotateLeft"))
+////  expressionImplMap.put("brotlu", operatorImplAsFunction("pkg_rotateLeft"))
 //
 //
 //
 //  //bool
-  modifierImplMap.put("B==B", operatorImplAsBinaryOperator("="))
-  modifierImplMap.put("B!=B", operatorImplAsBinaryOperator("/="))
+
+  expressionMapAdd(classOf[BoolLiteral], boolLiteralImpl, e => "std_logic")
+  expressionMapAdd(classOf[Operator.Bool.Equal], operatorImplAsBinaryOperator("="), e => "std_logic")
+  expressionMapAdd(classOf[Operator.Bool.NotEqual], operatorImplAsBinaryOperator("/="), e => "std_logic")
 
 
-  modifierImplMap.put("!", operatorImplAsUnaryOperator("not"))
-  modifierImplMap.put("&&", operatorImplAsBinaryOperator("and"))
-  modifierImplMap.put("||", operatorImplAsBinaryOperator("or"))
-  modifierImplMap.put("B^B", operatorImplAsBinaryOperator("xor"))
+  expressionMapAdd(classOf[Operator.Bool.Not], operatorImplAsUnaryOperator("not"), e => "std_logic")
+  expressionMapAdd(classOf[Operator.Bool.And], operatorImplAsBinaryOperator("and"), e => "std_logic")
+  expressionMapAdd(classOf[Operator.Bool.Or], operatorImplAsBinaryOperator("or"), e => "std_logic")
+  expressionMapAdd(classOf[Operator.Bool.Xor], operatorImplAsBinaryOperator("xor"), e => "std_logic")
 
 
 //  //enum
-//  modifierImplMap.put("e==e", enumEgualsImpl(true))
-//  modifierImplMap.put("e!=e", enumEgualsImpl(false))
+//  expressionImplMap.put("e==e", enumEgualsImpl(true))
+//  expressionImplMap.put("e!=e", enumEgualsImpl(false))
 //
 //  //cast
-//  modifierImplMap.put("s->b", operatorImplAsFunction("std_logic_vector"))
-//  modifierImplMap.put("u->b", operatorImplAsFunction("std_logic_vector"))
-//  modifierImplMap.put("B->b", operatorImplAsFunction("pkg_toStdLogicVector"))
-//  modifierImplMap.put("e->b", operatorImplAsEnumToBits)
+//  expressionImplMap.put("s->b", operatorImplAsFunction("std_logic_vector"))
+//  expressionImplMap.put("u->b", operatorImplAsFunction("std_logic_vector"))
+//  expressionImplMap.put("B->b", operatorImplAsFunction("pkg_toStdLogicVector"))
+//  expressionImplMap.put("e->b", operatorImplAsEnumToBits)
 //
-//  modifierImplMap.put("b->s", operatorImplAsFunction("signed"))
-//  modifierImplMap.put("u->s", operatorImplAsFunction("signed"))
+//  expressionImplMap.put("b->s", operatorImplAsFunction("signed"))
+//  expressionImplMap.put("u->s", operatorImplAsFunction("signed"))
 //
-//  modifierImplMap.put("b->u", operatorImplAsFunction("unsigned"))
-//  modifierImplMap.put("s->u", operatorImplAsFunction("unsigned"))
+//  expressionImplMap.put("b->u", operatorImplAsFunction("unsigned"))
+//  expressionImplMap.put("s->u", operatorImplAsFunction("unsigned"))
 //
-//  modifierImplMap.put("b->e", operatorImplAsBitsToEnum)
-//  modifierImplMap.put("e->e", operatorImplAsEnumToEnum)
+//  expressionImplMap.put("b->e", operatorImplAsBitsToEnum)
+//  expressionImplMap.put("e->e", operatorImplAsEnumToEnum)
 //
 //
 //  //misc
 //
-//  modifierImplMap.put("resize(s,i)", resizeFunction("pkg_signed"))
-//  modifierImplMap.put("resize(u,i)", resizeFunction("pkg_unsigned"))
-//  modifierImplMap.put("resize(b,i)", resizeFunction("pkg_stdLogicVector"))
+//  expressionImplMap.put("resize(s,i)", resizeFunction("pkg_signed"))
+//  expressionImplMap.put("resize(u,i)", resizeFunction("pkg_unsigned"))
+//  expressionImplMap.put("resize(b,i)", resizeFunction("pkg_stdLogicVector"))
 //
-//  modifierImplMap.put("bAllByB", unaryAllBy("std_logic_vector"))
-//  modifierImplMap.put("uAllByB", unaryAllBy("unsigned"))
-//  modifierImplMap.put("sAllByB", unaryAllBy("signed"))
+//  expressionImplMap.put("bAllByB", unaryAllBy("std_logic_vector"))
+//  expressionImplMap.put("uAllByB", unaryAllBy("unsigned"))
+//  expressionImplMap.put("sAllByB", unaryAllBy("signed"))
 //
 //
 //  //Memo whenNode hardcode emitlogic
-//  modifierImplMap.put("mux(B,B,B)", operatorImplAsFunction("pkg_mux"))
-//  modifierImplMap.put("mux(B,b,b)", operatorImplAsFunction("pkg_mux"))
-//  modifierImplMap.put("mux(B,u,u)", operatorImplAsFunction("pkg_mux"))
-//  modifierImplMap.put("mux(B,s,s)", operatorImplAsFunction("pkg_mux"))
-//  modifierImplMap.put("mux(B,e,e)", operatorImplAsFunction("pkg_mux"))
+//  expressionImplMap.put("mux(B,B,B)", operatorImplAsFunction("pkg_mux"))
+//  expressionImplMap.put("mux(B,b,b)", operatorImplAsFunction("pkg_mux"))
+//  expressionImplMap.put("mux(B,u,u)", operatorImplAsFunction("pkg_mux"))
+//  expressionImplMap.put("mux(B,s,s)", operatorImplAsFunction("pkg_mux"))
+//  expressionImplMap.put("mux(B,e,e)", operatorImplAsFunction("pkg_mux"))
 //
-//  modifierImplMap.put("extract(b,i)", extractBoolFixed)
-//  modifierImplMap.put("extract(u,i)", extractBoolFixed)
-//  modifierImplMap.put("extract(s,i)", extractBoolFixed)
+//  expressionImplMap.put("extract(b,i)", extractBoolFixed)
+//  expressionImplMap.put("extract(u,i)", extractBoolFixed)
+//  expressionImplMap.put("extract(s,i)", extractBoolFixed)
 //
-//  modifierImplMap.put("extract(b,u)", extractBoolFloating)
-//  modifierImplMap.put("extract(u,u)", extractBoolFloating)
-//  modifierImplMap.put("extract(s,u)", extractBoolFloating)
+//  expressionImplMap.put("extract(b,u)", extractBoolFloating)
+//  expressionImplMap.put("extract(u,u)", extractBoolFloating)
+//  expressionImplMap.put("extract(s,u)", extractBoolFloating)
 //
-//  modifierImplMap.put("extract(b,i,i)", extractBitVectorFixed)
-//  modifierImplMap.put("extract(u,i,i)", extractBitVectorFixed)
-//  modifierImplMap.put("extract(s,i,i)", extractBitVectorFixed)
+//  expressionImplMap.put("extract(b,i,i)", extractBitVectorFixed)
+//  expressionImplMap.put("extract(u,i,i)", extractBitVectorFixed)
+//  expressionImplMap.put("extract(s,i,i)", extractBitVectorFixed)
 //
-//  modifierImplMap.put("extract(b,u,w)", extractBitVectorFloating)
-//  modifierImplMap.put("extract(u,u,w)", extractBitVectorFloating)
-//  modifierImplMap.put("extract(s,u,w)", extractBitVectorFloating)
+//  expressionImplMap.put("extract(b,u,w)", extractBitVectorFloating)
+//  expressionImplMap.put("extract(u,u,w)", extractBitVectorFloating)
+//  expressionImplMap.put("extract(s,u,w)", extractBitVectorFloating)
 //
 //
 //
@@ -2049,7 +2058,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 //
 //  def emitLogic(node: Node): String = node match {
 //    case baseType: BaseType => emitReference(baseType)
-//    case node: Modifier => modifierImplMap.getOrElse(node.opName, throw new Exception("can't find " + node.opName))(node)
+//    case node: Modifier => expressionImplMap.getOrElse(node.opName, throw new Exception("can't find " + node.opName))(node)
 //
 //    case lit: BitsLiteral => s"pkg_stdLogicVector(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
 //    case lit: UIntLiteral => s"pkg_unsigned(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"

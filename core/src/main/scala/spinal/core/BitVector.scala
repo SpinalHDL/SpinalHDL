@@ -1,44 +1,44 @@
-///*                                                                           *\
-//**        _____ ____  _____   _____    __                                    **
-//**       / ___// __ \/  _/ | / /   |  / /   HDL Core                         **
-//**       \__ \/ /_/ // //  |/ / /| | / /    (c) Dolu, All rights reserved    **
-//**      ___/ / ____// // /|  / ___ |/ /___                                   **
-//**     /____/_/   /___/_/ |_/_/  |_/_____/                                   **
-//**                                                                           **
-//**      This library is free software; you can redistribute it and/or        **
-//**    modify it under the terms of the GNU Lesser General Public             **
-//**    License as published by the Free Software Foundation; either           **
-//**    version 3.0 of the License, or (at your option) any later version.     **
-//**                                                                           **
-//**      This library is distributed in the hope that it will be useful,      **
-//**    but WITHOUT ANY WARRANTY; without even the implied warranty of         **
-//**    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU      **
-//**    Lesser General Public License for more details.                        **
-//**                                                                           **
-//**      You should have received a copy of the GNU Lesser General Public     **
-//**    License along with this library.                                       **
-//\*                                                                           */
-//package spinal.core
-//
-//import scala.collection.mutable.ArrayBuffer
-//
-//
-///**
-//  * BitVector is a family of types for storing multiple bits of information in a single value.
-//  * This type has three subtypes that can be used to model different behaviours:
-//  *     - Bits
-//  *     - UInt (unsigned integer)
-//  *     - SInt (signed integer)
-//  *
-//  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/TypeIntroduction BitVector Documentation]]
-//  */
-//abstract class BitVector extends BaseType with Widthable with CheckWidth {
+/*                                                                           *\
+**        _____ ____  _____   _____    __                                    **
+**       / ___// __ \/  _/ | / /   |  / /   HDL Core                         **
+**       \__ \/ /_/ // //  |/ / /| | / /    (c) Dolu, All rights reserved    **
+**      ___/ / ____// // /|  / ___ |/ /___                                   **
+**     /____/_/   /___/_/ |_/_/  |_/_____/                                   **
+**                                                                           **
+**      This library is free software; you can redistribute it and/or        **
+**    modify it under the terms of the GNU Lesser General Public             **
+**    License as published by the Free Software Foundation; either           **
+**    version 3.0 of the License, or (at your option) any later version.     **
+**                                                                           **
+**      This library is distributed in the hope that it will be useful,      **
+**    but WITHOUT ANY WARRANTY; without even the implied warranty of         **
+**    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU      **
+**    Lesser General Public License for more details.                        **
+**                                                                           **
+**      You should have received a copy of the GNU Lesser General Public     **
+**    License along with this library.                                       **
+\*                                                                           */
+package spinal.core
+
+import scala.collection.mutable.ArrayBuffer
+
+
+/**
+  * BitVector is a family of types for storing multiple bits of information in a single value.
+  * This type has three subtypes that can be used to model different behaviours:
+  *     - Bits
+  *     - UInt (unsigned integer)
+  *     - SInt (signed integer)
+  *
+  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/TypeIntroduction BitVector Documentation]]
+  */
+abstract class BitVector extends BaseType with Widthable /*with CheckWidth*/ {
 //
 //  /** Prefix that define the corresponding class (Currently not used) */
 //  private[core] def prefix: String
 //
-//  /** Width of the BitVector (-1 = undefined) */
-//  private[core] var fixedWidth = -1
+  /** Width of the BitVector (-1 = undefined) */
+  private[core] var fixedWidth = -1
 //
 //  /** Used to know the data type of the children class of BitVector */
 //  type T <: BitVector
@@ -103,36 +103,36 @@
 //
 //
 //  /** Return true if the BitVector has a fixed width */
-//  private[core] def isFixedWidth = fixedWidth != -1
-//
-//  /** Unfix the width of the BitVector */
-//  private[core] def unfixWidth() = {
-//    fixedWidth = -1
-//    widthWhenNotInferred = -1
-//    inferredWidth = -1
-//  }
-//
-//  /**
-//    * Set the width of the BitVector
-//    * @param width the width of the data
-//    * @return the BitVector of a given size
-//    */
-//  def setWidth(width: Int): this.type = {
-//    if(width < 0){
-//      LocatedPendingError(s"Width of $this is set by a negative number")
-//    }
-//    fixedWidth = width
-//    if (globalData.nodeAreInferringWidth) inferredWidth = fixedWidth
-//    this
-//  }
-//
+  private[core] def isFixedWidth = fixedWidth != -1
+
+  /** Unfix the width of the BitVector */
+  private[core] def unfixWidth() = {
+    fixedWidth = -1
+    widthWhenNotInferred = -1
+    inferredWidth = -1
+  }
+
+  /**
+    * Set the width of the BitVector
+    * @param width the width of the data
+    * @return the BitVector of a given size
+    */
+  def setWidth(width: Int): this.type = {
+    if(width < 0){
+      LocatedPendingError(s"Width of $this is set by a negative number")
+    }
+    fixedWidth = width
+    if (globalData.nodeAreInferringWidth) inferredWidth = fixedWidth
+    this
+  }
+
 //  override def getBitsWidth: Int = getWidth
-//
-//  override def clone: this.type = {
-//    val res = super.clone
-//    res.fixedWidth = this.fixedWidth
-//    res
-//  }
+
+  override def clone: this.type = {
+    val res = super.clone
+    res.fixedWidth = this.fixedWidth
+    res
+  }
 //
 //  private[core] override def normalizeInputs: Unit = InputNormalize.resizedOrUnfixedLit(this, 0, this.getWidth)
 //
@@ -142,12 +142,47 @@
 //    * @return a resized bitVector
 //    */
 //  def resize(width: Int): this.type
-//
-//  private[core] override def calcWidth: Int = {
-//    if (isFixedWidth) return fixedWidth
-//    if (input == null) return -1
-//    return input.asInstanceOf[WidthProvider].getWidth
+
+  private[core] override def calcWidth: Int = {
+    if (isFixedWidth) return fixedWidth
+    var w = -1
+    foreachStatements(_ match{
+      case s : AssignementStatement =>{
+        s.source match {
+          case e : WidthProvider => w = Math.max(w, e.getWidth)
+        }
+      }
+    })
+    w
+  }
+
+
+
+//  override private[core] def assignFromImpl(that: AnyRef): Unit = {
+//    that match {
+//      case that : BaseType =>
+//        component.addStatement(new AssignementStatement(target = RefExpression(this), source = new RefExpression(that), AssignementKind.DATA))
+//      case that : Expression =>
+//        component.addStatement(new AssignementStatement(target = RefExpression(this), source = that, AssignementKind.DATA))
+//      case _ =>
+//        throw new Exception(s"Undefined assignment $this := $that")
+//    }
 //  }
+//
+//
+//  override private[core] def initFromImpl(that: AnyRef): Unit = {
+//    if(!isReg)
+//      LocatedPendingError(s"Try to set initial value of a data that is not a register ($this)")
+//    else that match {
+//      case that : BaseType =>
+//        component.addStatement(new AssignementStatement(target = RefExpression(this), source = new RefExpression(that), AssignementKind.INIT))
+//      case that : Expression =>
+//        component.addStatement(new AssignementStatement(target = RefExpression(this), source = that, AssignementKind.INIT))
+//      case _ =>
+//        throw new Exception("Undefined assignment")
+//    }
+//  }
+
 //
 //  /**
 //    * Cast the BitVector into a Vector of Bool
@@ -348,4 +383,5 @@
 //  }
 //
 //  override def toString(): String = s"(${component.getPath() + "/" + this.getDisplayName()} : $getClassIdentifier[$getWidthStringNoInferation bits])"
-//}
+  override def newRef(): RefExpression = new WidthableRefExpression(this)
+}

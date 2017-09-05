@@ -70,7 +70,12 @@ trait Expression extends BaseNode with ExpressionContainer{
   def opName : String
 }
 
-case class RefExpression(source : BaseType) extends Expression{
+object RefExpression{
+  //def apply(s : BaseType) = new RefExpression(s)
+  def unapply(ref : RefExpression) : Option[BaseType] = Some(ref.source)
+}
+
+class RefExpression(val source : BaseType) extends Expression{
   def opName : String ="(x)"
   def foreachExpression(func : (Expression) => Unit) : Unit = {
 
@@ -84,6 +89,9 @@ case class RefExpression(source : BaseType) extends Expression{
   }
 }
 
+case class WidthableRefExpression(override val source : BitVector) extends RefExpression(source) with WidthProvider{
+  override def getWidth: Int = source.getWidth
+}
 
 object Statement{
   def isFullToFullStatement(s : Statement) = s match {

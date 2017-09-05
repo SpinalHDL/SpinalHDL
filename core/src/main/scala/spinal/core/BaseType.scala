@@ -178,7 +178,7 @@ abstract class BaseType extends Data with NameableNode {
   def isUsingResetSignal: Boolean = clockDomain.config.resetKind != BOOT && (clockDomain.reset != null || clockDomain.softReset == null) && hasInit
   def isUsingSoftResetSignal: Boolean = clockDomain.softReset != null  && hasInit
   def clockDomain = dslContext.clockDomain
-
+  def newRef() = new RefExpression(this)
 //  def isDrivedIn(c : Component) = dir match {
 //    case `in` => c.parent == component
 //  }
@@ -256,23 +256,15 @@ abstract class BaseType extends Data with NameableNode {
     super.asDirectionLess()
   }
 
-  private[core] def assignFromImpl(that: AnyRef): Unit = {
+  override private[core] def assignFromImpl(that: AnyRef): Unit = {
     that match {
       case that : BaseType =>
-        component.addStatement(new AssignementStatement(target = RefExpression(this), source = new RefExpression(that), AssignementKind.DATA))
+        component.addStatement(new AssignementStatement(target = this.newRef(), source = that.newRef(), AssignementKind.DATA))
       case that : Expression =>
-        component.addStatement(new AssignementStatement(target = RefExpression(this), source = that, AssignementKind.DATA))
+        component.addStatement(new AssignementStatement(target = this.newRef(), source = that, AssignementKind.DATA))
       case _ =>
         throw new Exception(s"Undefined assignment $this := $that")
     }
-
-    // TODO IR that.isInstanceOf[AssignementNode] || that.isInstanceOf[DontCareNode]
-//    if (that.isInstanceOf[BaseType]/* || that.isInstanceOf[AssignementNode] || that.isInstanceOf[DontCareNode]*/) {
-////      BaseType.checkAssignability(this,that.asInstanceOf[Node])
-//
-//    } else {
-//      throw new Exception("Undefined assignment")
-//    }
   }
 
 
@@ -281,9 +273,9 @@ abstract class BaseType extends Data with NameableNode {
       LocatedPendingError(s"Try to set initial value of a data that is not a register ($this)")
     else that match {
       case that : BaseType =>
-        component.addStatement(new AssignementStatement(target = RefExpression(this), source = new RefExpression(that), AssignementKind.INIT))
+        component.addStatement(new AssignementStatement(target = this.newRef(), source = that.newRef(), AssignementKind.INIT))
       case that : Expression =>
-        component.addStatement(new AssignementStatement(target = RefExpression(this), source = that, AssignementKind.INIT))
+        component.addStatement(new AssignementStatement(target = this.newRef(), source = that, AssignementKind.INIT))
       case _ =>
         throw new Exception("Undefined assignment")
     }

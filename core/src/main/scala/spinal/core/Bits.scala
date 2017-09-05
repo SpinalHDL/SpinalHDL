@@ -1,24 +1,24 @@
-///*                                                                           *\
-//**        _____ ____  _____   _____    __                                    **
-//**       / ___// __ \/  _/ | / /   |  / /   HDL Core                         **
-//**       \__ \/ /_/ // //  |/ / /| | / /    (c) Dolu, All rights reserved    **
-//**      ___/ / ____// // /|  / ___ |/ /___                                   **
-//**     /____/_/   /___/_/ |_/_/  |_/_____/                                   **
-//**                                                                           **
-//**      This library is free software; you can redistribute it and/or        **
-//**    modify it under the terms of the GNU Lesser General Public             **
-//**    License as published by the Free Software Foundation; either           **
-//**    version 3.0 of the License, or (at your option) any later version.     **
-//**                                                                           **
-//**      This library is distributed in the hope that it will be useful,      **
-//**    but WITHOUT ANY WARRANTY; without even the implied warranty of         **
-//**    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU      **
-//**    Lesser General Public License for more details.                        **
-//**                                                                           **
-//**      You should have received a copy of the GNU Lesser General Public     **
-//**    License along with this library.                                       **
-//\*                                                                           */
-//package spinal.core
+/*                                                                           *\
+**        _____ ____  _____   _____    __                                    **
+**       / ___// __ \/  _/ | / /   |  / /   HDL Core                         **
+**       \__ \/ /_/ // //  |/ / /| | / /    (c) Dolu, All rights reserved    **
+**      ___/ / ____// // /|  / ___ |/ /___                                   **
+**     /____/_/   /___/_/ |_/_/  |_/_____/                                   **
+**                                                                           **
+**      This library is free software; you can redistribute it and/or        **
+**    modify it under the terms of the GNU Lesser General Public             **
+**    License as published by the Free Software Foundation; either           **
+**    version 3.0 of the License, or (at your option) any later version.     **
+**                                                                           **
+**      This library is distributed in the hope that it will be useful,      **
+**    but WITHOUT ANY WARRANTY; without even the implied warranty of         **
+**    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU      **
+**    Lesser General Public License for more details.                        **
+**                                                                           **
+**      You should have received a copy of the GNU Lesser General Public     **
+**    License along with this library.                                       **
+\*                                                                           */
+package spinal.core
 //
 //import spinal.core.Operator.BitVector.AllByBool
 //
@@ -26,12 +26,12 @@
 ///**
 //  * Bits factory used for instance by the IODirection to create a in/out Bits
 //  */
-//trait BitsFactory {
-//  /** Create a new Bits */
-//  def Bits() = new Bits()
-//  /** Create a new Bits of a given width */
-//  def Bits(width: BitCount): Bits = Bits.setWidth(width.value)
-//}
+trait BitsFactory {
+  /** Create a new Bits */
+  def Bits() = new Bits()
+  /** Create a new Bits of a given width */
+  def Bits(width: BitCount): Bits = Bits.setWidth(width.value)
+}
 //
 //
 ///**
@@ -46,7 +46,9 @@
 //  *
 //  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Bits Bits Documentation]]
 //  */
-//class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
+class Bits extends BitVector /*with DataPrimitives[Bits] with BitwiseOp[Bits]*/{
+
+
 //
 //  private[core] override def prefix: String = "b"
 //
@@ -160,21 +162,23 @@
 //    ret
 //  }
 //
-//  private[core] override def isEquals(that: Any): Bool = {
+  private[core] override def isEquals(that: Any): Bool = {
+    ???
 //    that match {
 //      case that: Bits          => wrapLogicalOperator(that, new Operator.Bits.Equal)
 //      case that: MaskedLiteral => that === this
 //      case _                   => SpinalError(s"Don't know how to compare $this with $that"); null
 //    }
-//  }
-//
-//  private[core] override def isNotEquals(that: Any): Bool = {
+  }
+
+  private[core] override def isNotEquals(that: Any): Bool = {
+    ???
 //    that match {
 //      case that: Bits          => wrapLogicalOperator(that, new Operator.Bits.NotEqual)
 //      case that: MaskedLiteral => that =/= this
 //      case _                   => SpinalError(s"Don't know how to compare $this with $that"); null
 //    }
-//  }
+  }
 //
 //  private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse,new MultiplexerBits)
 //
@@ -208,7 +212,7 @@
 //  override def apply(offset: Int, bitCount: BitCount): this.type  = newExtract(offset+bitCount.value-1,offset, new ExtractBitsVectorFixedFromBits).setWidth(bitCount.value)
 //  override def apply(offset: UInt, bitCount: BitCount): this.type = newExtract(offset,bitCount.value, new ExtractBitsVectorFloatingFromBits).setWidth(bitCount.value)
 //
-//  private[core] override def weakClone: this.type = new Bits().asInstanceOf[this.type]
+  private[core] override def weakClone: this.type = new Bits().asInstanceOf[this.type]
 //  override def getZero: this.type = B(0, this.getWidth bits).asInstanceOf[this.type]
 //  override def getZeroUnconstrained: this.type = B(0).asInstanceOf[this.type]
-//}
+}

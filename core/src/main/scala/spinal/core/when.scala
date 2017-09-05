@@ -59,7 +59,7 @@ object ConditionalContext{
     }
     globalData.context.push(componentContextStack.pop())
     val cond = Bool()
-    originalContext.component.dslBody.prepend(new AssignementStatement(RefExpression(cond), new BoolLiteral(false), AssignementKind.DATA))
+    originalContext.component.dslBody.prepend(new AssignementStatement(cond.newRef(), new BoolLiteral(false), AssignementKind.DATA))
 
     while(componentContextStack.nonEmpty){
       globalData.context.push(componentContextStack.pop())
