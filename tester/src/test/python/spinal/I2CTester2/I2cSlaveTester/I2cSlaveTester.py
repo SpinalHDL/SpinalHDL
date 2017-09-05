@@ -87,6 +87,7 @@ def i2cSlaveThread(cmdBus, rspBus, cmds, rsps, clk):
 
 @cocotb.test()
 def test1(dut):
+    # random.seed(13)
     cocotb.fork(ClockDomainAsyncReset(dut.clk, dut.reset,100000))
     cocotb.fork(simulationSpeedPrinter(dut.clk))
 

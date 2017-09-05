@@ -11,7 +11,8 @@ from cocotblib.Apb3 import Apb3
 from cocotblib.Flow import Flow
 from cocotblib.Spi import SpiMaster
 from cocotblib.Stream import Stream, StreamDriverMaster, Transaction
-from cocotblib.misc import assertEquals, randInt, ClockDomainAsyncReset, simulationSpeedPrinter, clockedWaitTrue, Bundle, randBits, randBool, SimulationTimeout, TimerClk, testBit
+from cocotblib.misc import assertEquals, randInt, ClockDomainAsyncReset, simulationSpeedPrinter, clockedWaitTrue, Bundle, randBits, randBool, SimulationTimeout, TimerClk, testBit, \
+    setBit
 
 
 class SlaveCmdData:
@@ -27,6 +28,16 @@ class SlaveCmdSs:
 
 
 
+class SpiConfig:
+    def __init__(self):
+        self.sclkToogle = None
+        self.ssSetup = None
+        self.ssHold = None
+        self.ssDisable = None
+        self.cpha = None
+        self.cpol = None
+
+spiConfig = SpiConfig()
 
 @coroutine
 def apbAgent(apb, slaveQueue):
@@ -45,78 +56,120 @@ def apbAgent(apb, slaveQueue):
         slaveQueue.put(SlaveCmdSs(index, enable))
         yield apb.write(0, 0x10000000 | (0x01000000 if enable else 0) | index)
 
-
-    yield apb.write(8, 0)
-    yield apb.write(12, 9)
-    yield apb.write(16, 23)
-    yield apb.write(20, 27)
-    yield apb.write(24, 31)
-
-    # yield apb.readAssert(8, 0)
-    # yield apb.readAssert(12, 20)
-    # yield apb.readAssert(16, 24)
-    # yield apb.readAssert(20, 28)
-    # yield apb.readAssert(24, 32)
+    @coroutine
+    def rspData(expected):
+        yield apb.pull(4, 32 << 16, 0xFF << 16)
+        yield apb.readAssertMasked(0,0x80000000 | expected, 0x8000FFFF)
 
 
-    yield cmdData(0x00, None)
-    yield cmdData(0xFF, 0x00)
-    yield cmdData(0x02, 0x42)
-    yield cmdData(0xAA, None)
-    yield cmdData(0x55, 0xFF)
+    @coroutine
+    def setConfig(cpol, cpha, sclkToogle, ssSetup, ssHold, ssDisable):
+        yield apb.write(8, cpol + cpha*2)
+        yield apb.write(12, sclkToogle)
+        yield apb.write(16, ssSetup)
+        yield apb.write(20, ssHold)
+        yield apb.write(24, ssDisable)
+        global spiConfig
 
-    yield cmdSs(2, True)
-    yield cmdData(0xAA, None)
-    yield cmdData(0xAA, 0xAA)
-    yield cmdSs(2, False)
+        spiConfig.clockDivider = sclkToogle+1
+        spiConfig.ssSetup = ssSetup + 1
+        spiConfig.ssHold = ssHold + 1
+        spiConfig.ssDisable = ssDisable + 1
+        spiConfig.cpol = cpol
+        spiConfig.cpha = cpha
 
-    yield cmdSs(1, True)
-    yield cmdData(0xAA, None)
-    yield cmdData(0xAA, 0xEE)
-    yield cmdSs(1, False)
+    @coroutine
+    def testIt():
+        yield TimerClk(apb.clk, 50)
 
-    yield TimerClk(apb.clk, 5000)
+        yield cmdData(0x00, None)
+        yield cmdData(0xFF, 0x00)
+        yield rspData(0x00)
+        yield cmdData(0x02, 0x42)
+        yield cmdData(0xAA, None)
+        yield cmdData(0x55, 0xFF)
+        yield rspData(0x42)
 
+        yield cmdSs(2, True)
+        yield cmdData(0xAA, None)
+        yield cmdData(0xAA, 0xAA)
+        yield cmdSs(2, False)
+
+        yield cmdSs(1, True)
+        yield cmdData(0xAA, None)
+        yield cmdData(0xAA, 0xEE)
+        yield cmdSs(1, False)
+
+        yield rspData(0xFF)
+        yield rspData(0xAA)
+        yield rspData(0xEE)
+
+        yield TimerClk(apb.clk, 50)
+
+
+    yield setConfig(cpol=0, cpha=0, sclkToogle=9, ssSetup=23, ssHold=27, ssDisable=31)
+    yield testIt()
+    yield setConfig(cpol=0, cpha=1, sclkToogle=9, ssSetup=23, ssHold=27, ssDisable=31)
+    yield testIt()
+    yield setConfig(cpol=1, cpha=0, sclkToogle=9, ssSetup=23, ssHold=27, ssDisable=31)
+    yield testIt()
+    yield setConfig(cpol=1, cpha=1, sclkToogle=9, ssSetup=23, ssHold=27, ssDisable=31)
+    yield testIt()
 
 sclkStable = 0
 mosiStable = 0
 ssStable = 0
+sclkStableLast = 0
+mosiStableLast = 0
+ssStableLast = 0
 
 @coroutine
 def spiSlaveAgent(spi, queue, clk):
     global sclkStable
     global mosiStable
     global ssStable
+    global sclkStableLast
+    global mosiStableLast
+    global ssStableLast
 
     @coroutine
     def wait(cycles):
         global sclkStable
         global mosiStable
         global ssStable
-        sclkLast = bool(spi.sclk)
-        mosiLast = bool(spi.mosi)
-        ssLast = bool(spi.ss)
+        global sclkStableLast
+        global mosiStableLast
+        global ssStableLast
+
+        sclkLast = str(spi.sclk)
+        mosiLast = str(spi.mosi)
+        ssLast = str(spi.ss)
         for i in xrange(cycles):
             yield RisingEdge(clk)
-            sclkNew = bool(spi.sclk)
-            mosiNew = bool(spi.mosi)
-            ssNew = bool(spi.ss)
-
-            if sclkNew != sclkLast:
-                sclkStable = 0
-            if mosiNew != mosiLast:
-                mosiStable = 0
-            if ssNew != ssLast:
-                ssStable = 0
+            sclkNew = str(spi.sclk)
+            mosiNew = str(spi.mosi)
+            ssNew = str(spi.ss)
 
             sclkStable += 1
             mosiStable += 1
             ssStable += 1
 
+            if sclkNew != sclkLast:
+                sclkStableLast = sclkStable
+                sclkStable = 0
+            if mosiNew != mosiLast:
+                mosiStableLast = mosiStable
+                mosiStable = 0
+            if ssNew != ssLast:
+                ssStableLast = ssStable
+                ssStable = 0
+
+
             sclkLast = sclkNew
             mosiLast = mosiNew
             ssLast = ssNew
 
+    ssValue = 0xF
     while True:
         if queue.empty():
             yield wait(1)
@@ -127,20 +180,59 @@ def spiSlaveAgent(spi, queue, clk):
             head = queue.get()
             if isinstance(head, SlaveCmdData):
                 for i in xrange(8):
-                    spi.miso <= testBit(head.slaveData, 7-i) if head.slaveData != None else randBool()
-                    while True:
-                        yield wait(1)
-                        if spi.sclk == True:
-                            break
-
-                    while True:
-                        yield wait(1)
-                        if spi.sclk == False:
-                            break
+                    if spiConfig.cpha == False:
+                        spi.miso <= testBit(head.slaveData, 7-i) if head.slaveData != None else randBool()
+                        while True:
+                            yield wait(1)
+                            if spi.sclk == (not spiConfig.cpol):
+                                break
+                        assert sclkStableLast >= spiConfig.sclkToogle
+                        assert mosiStable >= spiConfig.sclkToogle
+                        assertEquals(spi.mosi, testBit(head.masterData, 7-i),"MOSI missmatch")
+                        while True:
+                            yield wait(1)
+                            if spi.sclk == (spiConfig.cpol):
+                                break
+                        assert sclkStableLast >= spiConfig.sclkToogle
+                    else:
+                        while True:
+                            yield wait(1)
+                            if spi.sclk == (not spiConfig.cpol):
+                                break
+                        spi.miso <= testBit(head.slaveData, 7 - i) if head.slaveData != None else randBool()
+                        assert sclkStableLast >= spiConfig.sclkToogle
+                        while True:
+                            yield wait(1)
+                            if spi.sclk == (spiConfig.cpol):
+                                break
+                        assert mosiStable >= spiConfig.sclkToogle
+                        assert sclkStableLast >= spiConfig.sclkToogle
+                        assertEquals(spi.mosi, testBit(head.masterData, 7 - i), "MOSI missmatch")
 
 
             elif isinstance(head, SlaveCmdSs):
-                pass
+                while True:
+                    yield wait(1)
+                    assert sclkStable > 0
+                    if spi.ss != ssValue:
+                        break
+                if head.enable:
+                    yield wait(spiConfig.ssSetup-1)
+                    print str(ssStable) + " " + str(sclkStable)
+                    assert ssStable >= spiConfig.ssSetup-1
+                    assert sclkStable >= spiConfig.ssSetup-1
+                else:
+                    print str(ssStableLast) + " " + str(sclkStable)
+                    assert ssStableLast >= spiConfig.ssHold
+                    assert sclkStable >= spiConfig.ssHold
+                    yield wait(spiConfig.ssDisable-1)
+                    print str(ssStable) + " " + str(sclkStable)
+                    assert ssStable >= spiConfig.ssDisable-1
+                    assert sclkStable >= spiConfig.ssDisable-1
+
+
+                assertEquals(spi.ss, setBit(ssValue, head.index, not head.enable), "SS mismatch")
+                ssValue = int(spi.ss)
 
 
 

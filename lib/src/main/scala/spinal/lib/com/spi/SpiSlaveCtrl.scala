@@ -33,8 +33,8 @@ case class SpiSlaveCtrlIo(generics : SpiSlaveCtrlGenerics) extends Bundle{
     require(rxFifoDepth >= 1)
     require(txFifoDepth >= 1)
 
-    require(rxFifoDepth <= 32.kB)
-    require(txFifoDepth <= 32.kB)
+    require(rxFifoDepth < 32.kB)
+    require(txFifoDepth < 32.kB)
     //TX
     val txLogic = new Area {
       val streamUnbuffered = bus.createAndDriveFlow(Bits(8 bits),address =  0).toStream

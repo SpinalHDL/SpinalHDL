@@ -84,6 +84,12 @@ trait BusSlaveFactory extends Area{
                        address: BigInt,
                        bitOffset: Int = 0): T
 
+  def write[T <: Data](address: BigInt,
+                       bitMapping : (Int, Data)*): Unit = {
+    bitMapping.foreach{case (bitId, that) => write(that,address,bitId)}
+  }
+
+
   /**
     * Call doThat when a write transaction occurs on address
     */
