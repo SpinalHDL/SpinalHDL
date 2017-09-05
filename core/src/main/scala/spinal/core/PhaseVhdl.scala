@@ -1704,6 +1704,8 @@ class PhaseVhdl(pc: PhaseContext) extends PhaseMisc with VhdlBase{
           val bind = component.kindsOutputsToBindings.getOrElse(data, null)
           if (bind != null) {
             ret ++= addULogicCast(data, emitReference(data), emitReference(bind), data.dir)
+          } else {
+            ret ++= addULogicCast(data, emitReference(data), s"open", data.dir)
           }
         }
         else if (data.isInput)
