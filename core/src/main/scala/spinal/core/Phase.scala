@@ -217,7 +217,7 @@ trait PhaseCheck extends Phase{
 
 
 
-class PhaseNodesBlackBoxGenerics(pc: PhaseContext) extends PhaseMisc{
+class PhaseNodesBlackBoxGenericsAndOutputKeep(pc: PhaseContext) extends PhaseMisc{
   override def useNodeConsumers = false
   override def impl(pc : PhaseContext): Unit = {
     val nodeStack = mutable.Stack[Node]()
@@ -227,6 +227,7 @@ class PhaseNodesBlackBoxGenerics(pc: PhaseContext) extends PhaseMisc{
           case bt: BaseType => nodeStack.push(bt)
           case _ =>
         })
+        blackBox.getAllIo.foreach(_.keep())
       }
       case _ =>
     })
@@ -1791,7 +1792,7 @@ object SpinalVhdlBoot{
     phases ++= config.memBlackBoxers
     phases += new PhaseApplyIoDefault(pc)
     phases += new PhaseMoveLogicTags(pc)
-    phases += new PhaseNodesBlackBoxGenerics(pc)
+    phases += new PhaseNodesBlackBoxGenericsAndOutputKeep(pc)
 
     phases += new PhaseDummy(SpinalProgress("Get names from reflection"))
     phases += new PhaseNameNodesByReflection(pc)
@@ -1980,7 +1981,7 @@ object SpinalVerilogBoot{
     phases ++= config.memBlackBoxers
     phases += new PhaseApplyIoDefault(pc)
     phases += new PhaseMoveLogicTags(pc)
-    phases += new PhaseNodesBlackBoxGenerics(pc)
+    phases += new PhaseNodesBlackBoxGenericsAndOutputKeep(pc)
 
     phases += new PhaseDummy(SpinalProgress("Get names from reflection"))
     phases += new PhaseNameNodesByReflection(pc)

@@ -195,7 +195,7 @@ object PlayBlackBox3 {
       val rd = new Bundle {
         val en = in Bool
         val addr = in UInt (log2Up(16) bit)
-        val data = out Bits (8 bit)
+//        val data = out Bits (8 bit)
       }
     }
     val ram_1w_1r = new Ram_1w_1r(8,16)
@@ -205,7 +205,7 @@ object PlayBlackBox3 {
     io.wr.data <> ram_1w_1r.io.wr.data
     io.rd.en   <> ram_1w_1r.io.rd.en
     io.rd.addr <> ram_1w_1r.io.rd.addr
-    io.rd.data <> ram_1w_1r.io.rd.data
+//    io.rd.data <> ram_1w_1r.io.rd.data
 
   }
 
