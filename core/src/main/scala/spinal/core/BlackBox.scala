@@ -154,6 +154,21 @@ abstract class BlackBox extends Component with SpinalTagReady {
 
   /** Replace std_logic by std_ulogic */
   def replaceStdLogicByStdULogic = this.addTag(uLogic)
+
+  /** Keep all in/out signals */
+  def keepAllIo() : this.type = {
+    val io = reflectIo
+    if(io != null) {
+      io.keep()
+    }
+    this
+  }
+
+  /** Initialization class delay */
+  override def delayedInit(body: => Unit) = {
+    super.delayedInit(body)
+    keepAllIo()
+  }
 }
 
 
