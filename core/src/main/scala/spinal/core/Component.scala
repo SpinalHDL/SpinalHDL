@@ -93,7 +93,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
 
 
     def expressionWalker(s : Expression): Unit = s match {
-      case s : RefExpression => nameablesSet += (s.source)
+      case n : NameableExpression => nameablesSet += n
       case _ => s.foreachExpression(expressionWalker)
     }
 

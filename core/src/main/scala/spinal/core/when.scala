@@ -59,7 +59,7 @@ object ConditionalContext{
     }
     globalData.context.push(componentContextStack.pop())
     val cond = Bool()
-    originalContext.component.dslBody.prepend(new AssignementStatement(cond.newRef(), new BoolLiteral(false), AssignementKind.DATA))
+    originalContext.component.dslBody.prepend(new AssignementStatement(cond, new BoolLiteral(false), AssignementKind.DATA))
 
     while(componentContextStack.nonEmpty){
       globalData.context.push(componentContextStack.pop())
@@ -73,7 +73,7 @@ object ConditionalContext{
 object when {
   def apply(cond: Bool)(block: => Unit): WhenContext = {
     val dslContext = cond.globalData.contextHead
-    val whenStatement = new WhenStatement(new RefExpression(cond))
+    val whenStatement = new WhenStatement(cond)
     val whenContext = new WhenContext(whenStatement)
     dslContext.component.addStatement(whenStatement)
     cond.globalData.context.push(cond.globalData.contextHead.copy(scope = whenStatement.whenTrue))

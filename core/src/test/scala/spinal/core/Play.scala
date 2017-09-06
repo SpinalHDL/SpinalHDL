@@ -67,7 +67,8 @@ object PlaySimple{
 //    g := False
     when(a || b && c){
       g := True
-      x := True
+      h := True
+//      x := True
     }
 
 //    when(c || c && c){

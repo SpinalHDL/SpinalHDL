@@ -12,7 +12,15 @@ trait BaseNode {
     private[core] var algoId = 0
 }
 
-trait NameableNode extends BaseNode with Nameable{
+//object NameableNode{
+//  def unapply(that : NameableNode) : Option[Unit] = Some()
+//}
+
+trait NameableExpression extends Expression with Nameable{
+  override def foreachExpression(func: (Expression) => Unit): Unit = {}
+  override def remapExpressions(func: (Expression) => Expression): Unit = {}
+
+
   def rootScopeStatement : ScopeStatement = dslContext.scope
   val statements = mutable.ListBuffer[AssignementStatement]() //TODO IR ! linkedlist  hard
 
@@ -70,32 +78,37 @@ trait Expression extends BaseNode with ExpressionContainer{
   def opName : String
 }
 
-object RefExpression{
-  //def apply(s : BaseType) = new RefExpression(s)
-  def unapply(ref : RefExpression) : Option[BaseType] = Some(ref.source)
-}
+//object RefExpression{
+//  //def apply(s : BaseType) = new RefExpression(s)
+//  def unapply(ref : RefExpression) : Option[BaseType] = Some(ref.source)
+//}
+//
+//class RefExpression(val source : BaseType) extends Expression{
+//  def opName : String ="(x)"
+//  def foreachExpression(func : (Expression) => Unit) : Unit = {
+//
+//  }
+//
+//
+//  override def remapExpressions(func: (Expression) => Expression): Unit = {}
+//
+//  def foreachLeafExpression(func : (Expression) => Unit) : Unit = {
+//    func(this)
+//  }
+//}
+//
+//case class WidthableRefExpression(override val source : BitVector) extends RefExpression(source) with WidthProvider{
+//  override def getWidth: Int = source.getWidth
+//}
 
-class RefExpression(val source : BaseType) extends Expression{
-  def opName : String ="(x)"
-  def foreachExpression(func : (Expression) => Unit) : Unit = {
-
-  }
-
-
-  override def remapExpressions(func: (Expression) => Expression): Unit = {}
-
-  def foreachLeafExpression(func : (Expression) => Unit) : Unit = {
-    func(this)
-  }
-}
-
-case class WidthableRefExpression(override val source : BitVector) extends RefExpression(source) with WidthProvider{
-  override def getWidth: Int = source.getWidth
-}
-
+//TODO IR check same scope
 object Statement{
   def isFullToFullStatement(s : Statement) = s match {
-    case  AssignementStatement(RefExpression(_),RefExpression(_),_) => true
+    case  AssignementStatement(a : NameableExpression,b : NameableExpression,_) => true
+    case _ => false
+  }
+  def isSomethingToFullStatement(s : Statement) = s match {
+    case  AssignementStatement(a : NameableExpression,_,_) => true
     case _ => false
   }
 }
@@ -150,7 +163,7 @@ case class AssignementStatement(var target : Expression ,var  source : Expressio
   if(target != null) finalTarget.append(this)
   override def rootScopeStatement = finalTarget.rootScopeStatement
   def finalTarget = target match{
-    case ref : RefExpression => ref.source
+    case n : NameableExpression => n
   }
 //  override def isConditionalStatement: Boolean = false
   def foreachExpression(func : (Expression) => Unit) : Unit = {
@@ -159,7 +172,7 @@ case class AssignementStatement(var target : Expression ,var  source : Expressio
   }
   override def foreachDrivingExpression(func : (Expression) => Unit) : Unit = {
     target match {
-      case ref : RefExpression =>
+      case ref : NameableExpression =>
     }
     func(source)
   }
@@ -167,7 +180,7 @@ case class AssignementStatement(var target : Expression ,var  source : Expressio
 
   override def remapDrivingExpressions(func: (Expression) => Expression): Unit = {
     target match {
-      case ref : RefExpression =>
+      case ref : NameableExpression =>
     }
     source = func(source)
   }

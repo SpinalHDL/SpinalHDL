@@ -1332,8 +1332,8 @@ class PhaseDeleteUselessBaseTypes(pc: PhaseContext) extends PhaseNetlist{
     //Reset algoId of all referenced driving things
     GraphUtils.walkAllComponents(pc.topLevel, c => {
       c.dslBody.walkStatements(_.walkDrivingExpressions(_ match {
-        case ref: RefExpression => {
-          ref.source.algoId = 0
+        case ref: NameableExpression => {
+          ref.algoId = 0
         }
         case _ =>
       }))
@@ -1342,8 +1342,8 @@ class PhaseDeleteUselessBaseTypes(pc: PhaseContext) extends PhaseNetlist{
     //Count the number of driving reference done on each ref.source
     GraphUtils.walkAllComponents(pc.topLevel, c => {
       c.dslBody.walkStatements(_.walkDrivingExpressions(_ match {
-        case ref : RefExpression => {
-          ref.source.algoId += 1
+        case ref : NameableExpression => {
+          ref.algoId += 1
         }
         case _ =>
       }))
@@ -1352,15 +1352,14 @@ class PhaseDeleteUselessBaseTypes(pc: PhaseContext) extends PhaseNetlist{
     GraphUtils.walkAllComponents(pc.topLevel, c => {
       c.dslBody.walkStatements(s => {
         //Bypass useless basetypes (referenced only once)
-        s.walkRemapDrivingExpressions(_ match {
-          case ref : RefExpression => {
-            val source = ref.source
-            if(source.algoId == 1 && source.isComb && source.isDirectionLess && source.canSymplifyIt && source.hasOnlyOneStatement){ //TODO IR keep it
-              source.algoId = 0
-              source.headStatement.removeStatement()
-              source.headStatement.source
+        s.walkRemapDrivingExpressions(e => e match {
+          case ref : BaseType => {
+            if(ref.algoId == 1 && ref.isComb && ref.isDirectionLess && ref.canSymplifyIt && ref.hasOnlyOneStatement && Statement.isSomethingToFullStatement(ref.headStatement)){ //TODO IR keep it
+              ref.algoId = 0
+              ref.headStatement.removeStatement()
+              ref.headStatement.source
             } else {
-              source.algoId = 0
+              ref.algoId = 0
               ref
             }
           }
@@ -1370,10 +1369,13 @@ class PhaseDeleteUselessBaseTypes(pc: PhaseContext) extends PhaseNetlist{
         //Remove assignement which drive useless base types
         s match {
           case s : AssignementStatement => {
-            val target = s.finalTarget
-            if(target.algoId == 0 && target.isDirectionLess && target.canSymplifyIt){
-              s.removeStatement()
+            s.finalTarget match {
+              case target : BaseType => if(target.algoId == 0 && target.isDirectionLess && target.canSymplifyIt){
+                s.removeStatement()
+              }
+              case _ =>
             }
+
           }
           case _ =>
         }

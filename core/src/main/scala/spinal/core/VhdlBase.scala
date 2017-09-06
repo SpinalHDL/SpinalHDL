@@ -75,7 +75,7 @@ trait VhdlBase extends VhdlVerilogBase{
 //      return enum.getName() + "_" + encoding.getName() + "_type"
 //  }
 //
-  def emitDataType(node: NameableNode, constrained: Boolean = true) = node match {
+  def emitDataType(node: NameableExpression, constrained: Boolean = true) = node match {
     case bool: Bool => "std_logic"
 //    case uint: UInt => s"unsigned${if (constrained) emitRange(uint) else ""}"
 //    case sint: SInt => s"signed${if (constrained) emitRange(sint) else ""}"

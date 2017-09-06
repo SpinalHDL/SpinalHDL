@@ -47,6 +47,8 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
 
 //  override def getBitsWidth: Int = 1
 
+  override def opName: String = "Bool"
+
   private[spinal] override def _data: Bool = this
 
 

@@ -49,7 +49,9 @@ trait BitsFactory {
 class Bits extends BitVector /*with DataPrimitives[Bits] with BitwiseOp[Bits]*/{
 
 
-//
+  override def opName: String = "Bits"
+
+  //
 //  private[core] override def prefix: String = "b"
 //
 //  override type T = Bits

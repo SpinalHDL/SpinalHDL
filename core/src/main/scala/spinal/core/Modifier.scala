@@ -1656,7 +1656,7 @@ abstract class Modifier extends Expression {
 //
 object AssertNode{
   def apply(cond : Bool,message : Seq[Any],severity: AssertNodeSeverity) : Unit = {
-    val node = AssertStatement(cond.newRef(), message,severity)
+    val node = AssertStatement(cond, message,severity)
     Component.current.addStatement(node)
   }
   def apply(cond : Bool,message : String,severity: AssertNodeSeverity) : Unit = AssertNode(cond, List(message),severity)
