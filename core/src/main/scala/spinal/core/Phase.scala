@@ -874,15 +874,18 @@ class PhasePullClockDomains(pc: PhaseContext) extends PhaseNetlist{
 //}
 //
 //class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
-//  override def useNodeConsumers = false
+////  override def useNodeConsumers = false
 //  override def impl(pc : PhaseContext): Unit = {
 //    import pc._
 //    globalData.nodeAreInferringWidth = true
-//    val nodes = ArrayBuffer[Node with Widthable]()
-//    Node.walk(walkNodesDefautStack ++ walkNodesBlackBoxGenerics,node => {
-//      if(node.isInstanceOf[Node with Widthable]) nodes += node.asInstanceOf[Node with Widthable]
-//    })
 //
+//    GraphUtils.walkAllComponents(pc.topLevel, c => {
+//      c.dslBody.foreachStatements(s => s match{
+//        case s : AssignementStatement if s.finalTarget.isInstanceOf[Widthable] =>{
+//
+//        }
+//      })
+//    })
 //
 //    def checkAll(): Unit = {
 //      val errors = mutable.ArrayBuffer[String]()
@@ -1826,6 +1829,17 @@ object SpinalVhdlBoot{
 
     phases += new PhaseDummy(SpinalProgress("Transform connections"))
     phases += new PhasePullClockDomains(pc)
+
+    phases += new PhaseDummy(SpinalProgress("Infer nodes's bit width"))
+//    phases += new PhasePreInferationChecks(pc)
+//    phases += new PhaseInferEnumEncodings(pc,e => e)
+//    phases += new PhaseInferWidth(pc)
+//    phases += new PhaseSimplifyNodes(pc)
+//    phases += new PhaseInferWidth(pc)
+//    phases += new PhasePropagateBaseTypeWidth(pc)
+//    phases += new PhaseNormalizeNodeInputs(pc)
+//    phases += new PhaseResizeLiteralSimplify(pc)
+//    phases += new PhaseCheckInferredWidth(pc)
 
 //    phases += new PhaseDummy(SpinalProgress("Simplify graph's nodes"))
     phases += new PhaseDeleteUselessBaseTypes(pc)

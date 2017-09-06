@@ -7,6 +7,30 @@ import scala.collection.mutable.ArrayBuffer
  * Created by PIC32F_USER on 14/08/2017.
  */
 
+
+
+object PlayBits{
+
+  class TopLevel extends Component {
+    val a, b, c = in Bits(8 bits)
+    val d, e, f = out Bool()
+    val g, h, i, j = Bits(8 bits)
+    val x,y,z = out Bits(8 bits)
+
+    h := g & a
+    i := h
+    x := x & a
+  }
+
+  def main(args: Array[String]) {
+    val toplevel = SpinalVhdl(new TopLevel()).toplevel
+
+  }
+}
+
+
+
+
 object PlayReg{
 
   class TopLevel extends Component {

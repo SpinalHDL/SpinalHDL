@@ -125,9 +125,9 @@ abstract class BinaryOperator extends Operator{
 }
 
 
-//abstract class BinaryOperatorWidthableInputs extends BinaryOperator{
-//  override type T = Node with WidthProvider
-//}
+abstract class BinaryOperatorWidthableInputs extends BinaryOperator{
+  override type T = Expression with WidthProvider
+}
 //
 //
 //
@@ -170,14 +170,14 @@ object Operator{
     }
   }
 //
-//  object BitVector{
-//    abstract class And extends BinaryOperatorWidthableInputs with Widthable with CheckWidth{
-//      override def calcWidth(): Int = Math.max(left.getWidth,right.getWidth)
+  object BitVector{
+    abstract class And extends BinaryOperatorWidthableInputs with Widthable{
+      override def calcWidth(): Int = Math.max(left.getWidth,right.getWidth)
 //      override def normalizeInputs: Unit = InputNormalize.resizedOrUnfixedLit(this)
 //      override private[core] def checkInferedWidth: Unit = CheckWidth.allSame(this)
 //      override def simplifyNode: Unit = SymplifyNode.binaryInductZeroWithOtherWidth(getLiteralFactory,true)(this)
 //      def getLiteralFactory : (BigInt, BitCount) => Node
-//    }
+    }
 //
 //    abstract class Or extends BinaryOperatorWidthableInputs with Widthable with CheckWidth{
 //      override def calcWidth(): Int = Math.max(left.getWidth,right.getWidth)
@@ -297,9 +297,9 @@ object Operator{
 //      override def calcWidth: Int = theConsumer.asInstanceOf[WidthProvider].getWidth
 //    }
 //
-//  }
-//
-//  object Bits{
+  }
+
+  object Bits{
 //    class Cat extends BinaryOperatorWidthableInputs with Widthable{
 //      override def opName: String = "b##b"
 //      override def calcWidth(): Int = left.getWidth + right.getWidth
@@ -314,10 +314,10 @@ object Operator{
 //      override def simplifyNode: Unit = {SymplifyNode.unaryZero(this)}
 //    }
 //
-//    class And extends BitVector.And{
-//      override def opName: String = "b&b"
-//      override def getLiteralFactory: (BigInt, BitCount) => Node = B.apply
-//    }
+    class And extends BitVector.And{
+      override def opName: String = "b&b"
+      //override def getLiteralFactory: (BigInt, BitCount) => Node = B.apply
+    }
 //
 //    class Or extends BitVector.Or{
 //      override def opName: String = "b|b"
@@ -396,7 +396,7 @@ object Operator{
 //    class AllByBool(theConsumer : Node) extends BitVector.AllByBool(theConsumer) {
 //      override def opName: String = "bAllByB"
 //    }
-//  }
+  }
 //
 //
 //  object UInt{

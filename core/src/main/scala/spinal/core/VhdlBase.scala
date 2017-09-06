@@ -79,7 +79,7 @@ trait VhdlBase extends VhdlVerilogBase{
     case bool: Bool => "std_logic"
 //    case uint: UInt => s"unsigned${if (constrained) emitRange(uint) else ""}"
 //    case sint: SInt => s"signed${if (constrained) emitRange(sint) else ""}"
-//    case bits: Bits => s"std_logic_vector${if (constrained) emitRange(bits) else ""}"
+    case bits: Bits => s"std_logic_vector${if (constrained) emitRange(bits) else ""}"
 //    case mem: Mem[_] => s"${emitReference(mem)}_type"
 //    case enum: SpinalEnumCraft[_] => emitEnumType(enum)
     case _ => throw new Exception("Unknown datatype"); ""
@@ -92,7 +92,7 @@ trait VhdlBase extends VhdlVerilogBase{
   }
 //
 //
-//  def emitRange(node: Widthable) = s"(${node.getWidth - 1} downto 0)"
+  def emitRange(node: Widthable) = s"(${node.getWidth - 1} downto 0)"
 //
 //  var referenceSet : mutable.Set[Node with Nameable with ContextUser] = null
 //  def emitReference(node: Node): String = {

@@ -1868,10 +1868,12 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
   def expressionMapAdd(c : Class[_ <: Expression], impl : Expression => String, t : Expression => String): Unit ={
     expressionImplMap(c) = impl
-    expressionTypeMap(c) = t
+    if(t != null) expressionTypeMap(c) = t
   }
 
-  expressionMapAdd(classOf[RefExpression], refImpl, e => "std_logic")
+  expressionMapAdd(classOf[RefExpression], refImpl, null)
+  expressionMapAdd(classOf[WidthableRefExpression], refImpl, null)
+
   expressionMapAdd(classOf[BoolLiteral], boolLiteralImpl, e => "std_logic")
 
 //  //unsigned
@@ -1931,10 +1933,11 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 //
 //
 //  //bits
+  def bitsTypeMapper(e : Expression) = "std_logic_vector" + emitRange(e.asInstanceOf[Widthable])
 //  expressionImplMap.put("b##b", operatorImplAsFunction("pkg_cat"))
 //
 //  expressionImplMap.put("b|b", operatorImplAsBinaryOperator("or"))
-//  expressionImplMap.put("b&b", operatorImplAsBinaryOperator("and"))
+  expressionMapAdd(classOf[Operator.Bits.And], operatorImplAsBinaryOperator("and"),bitsTypeMapper)
 //  expressionImplMap.put("b^b", operatorImplAsBinaryOperator("xor"))
 //  expressionImplMap.put("~b",  operatorImplAsUnaryOperator("not"))
 //

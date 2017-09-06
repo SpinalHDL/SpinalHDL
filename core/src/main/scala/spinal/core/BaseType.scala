@@ -27,7 +27,7 @@ trait TypeFactory{
 /**
   * Base type factory
   */
-trait BaseTypeFactory extends BoolFactory/* with BitsFactory with UIntFactory with SIntFactory with VecFactory with SFixFactory with UFixFactory*/
+trait BaseTypeFactory extends BoolFactory with BitsFactory /*with UIntFactory with SIntFactory with VecFactory with SFixFactory with UFixFactory*/
 
 
 /**
@@ -348,19 +348,19 @@ abstract class BaseType extends Data with NameableNode {
 //  }
 //
   private[core] def wrapUnaryOperator(op: UnaryOperator): this.type = {
-    op.source = new RefExpression(this).asInstanceOf[op.T]
+    op.source = this.newRef().asInstanceOf[op.T]
     wrapWithWeakClone(op)
   }
-//
-//  private[core] def wrapBinaryOperator(right: Node, op: BinaryOperator): this.type = {
-//    op.left = this.asInstanceOf[op.T]
-//    op.right = right.asInstanceOf[op.T]
-//    wrapWithWeakClone(op)
-//  }
-//
+
+  private[core] def wrapBinaryOperator(right: BaseType, op: BinaryOperator): this.type = {
+    op.left = this.newRef().asInstanceOf[op.T]
+    op.right = right.newRef().asInstanceOf[op.T]
+    wrapWithWeakClone(op)
+  }
+
   private[core] def wrapLogicalOperator(right: BaseType, op: BinaryOperator):  this.type = {
-    op.left = new RefExpression(this).asInstanceOf[op.T]
-    op.right = new RefExpression(right).asInstanceOf[op.T]
+    op.left = this.newRef().asInstanceOf[op.T]
+    op.right = right.newRef().asInstanceOf[op.T]
     wrapWithWeakClone(op)
   }
 //
