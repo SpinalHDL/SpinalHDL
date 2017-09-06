@@ -15,88 +15,74 @@ from cocotblib.misc import assertEquals, randInt, ClockDomainAsyncReset, simulat
 
 
 
-
-
 @coroutine
-def apbAgent(apb, slaveQueue):
+def testIt(apb,spiCtrl, cpol, cpha):
+    @coroutine
+    def txFifo(data):
+        yield apb.write(0,data)
 
-    yield apb.write(8,0)
-    yield TimerClk(apb.clk, 5000)
-#
-#
-@coroutine
-def spiSlaveAgent(spiCtrl):
-    spiCtrl.init(0,0,10000,8)
-    yield Timer(50e3)
+    @coroutine
+    def rxFifo(expected):
+        yield apb.readAssertMasked(0,0x80000000 | expected, 0x8000FFFF)
+
+        # while True:
+        #     readThread = apb.read(0)
+        #     yield readThread
+        #     data = readThread.retval
+        #     if testBit(data,31):
+        #         assertEquals(data & 0xFF, expected, " APB readAssert failure")
+
+
+    spiCtrl.init(cpol,cpha,10000,8)
+    yield apb.write(8,cpol + cpha*2)
+    yield TimerClk(apb.clk, 50)
+    yield spiCtrl.exchange(0x23)
+    yield spiCtrl.enable()
+    yield spiCtrl.exchange(0x64)
+    yield apb.writeMasked(4, 0x8000, 0x8000)
+    yield spiCtrl.disable()
+    yield spiCtrl.enable()
     yield spiCtrl.exchange(0xAA)
-    yield Timer(50e3)
+    yield txFifo(0x32)
+    yield spiCtrl.exchangeCheck(0x55,0x32)
+    yield spiCtrl.exchange(0xFF)
+    yield rxFifo(0xAA)
+    yield spiCtrl.disable()
+    yield rxFifo(0x55)
+    yield rxFifo(0xFF)
+    yield spiCtrl.exchange(0x54)
     yield spiCtrl.enable()
-    yield spiCtrl.exchange(0x55)
+    yield spiCtrl.exchange(0x00)
+    yield rxFifo(0x00)
     yield spiCtrl.disable()
     yield spiCtrl.enable()
-    yield spiCtrl.exchange(0x2)
-    yield spiCtrl.exchange(0x3)
+    yield txFifo(0x00)
+    yield txFifo(0xFF)
+    yield txFifo(0x42)
+    yield spiCtrl.exchangeCheck(0x11,0x00)
+    yield spiCtrl.exchangeCheck(0x22,0xFF)
+    yield txFifo(0xAA)
+    yield txFifo(0x55)
+    yield spiCtrl.exchangeCheck(0x33,0x42)
+    yield spiCtrl.exchangeCheck(0x44,0xAA)
+    yield spiCtrl.exchangeCheck(0x55,0x55)
     yield spiCtrl.disable()
-    yield Timer(50e3)
-#     global sclkStable
-#     global mosiStable
-#     global ssStable
-#
-#     @coroutine
-#     def wait(cycles):
-#         global sclkStable
-#         global mosiStable
-#         global ssStable
-#         sclkLast = bool(spi.sclk)
-#         mosiLast = bool(spi.mosi)
-#         ssLast = bool(spi.ss)
-#         for i in xrange(cycles):
-#             yield RisingEdge(clk)
-#             sclkNew = bool(spi.sclk)
-#             mosiNew = bool(spi.mosi)
-#             ssNew = bool(spi.ss)
-#
-#             if sclkNew != sclkLast:
-#                 sclkStable = 0
-#             if mosiNew != mosiLast:
-#                 mosiStable = 0
-#             if ssNew != ssLast:
-#                 ssStable = 0
-#
-#             sclkStable += 1
-#             mosiStable += 1
-#             ssStable += 1
-#
-#             sclkLast = sclkNew
-#             mosiLast = mosiNew
-#             ssLast = ssNew
-#
-#     while True:
-#         if queue.empty():
-#             yield wait(1)
-#             # assert(sclkStable > 1)
-#             # assert(mosiStable > 1)
-#             # assert(ssStable > 1)
-#         else:
-#             head = queue.get()
-#             if isinstance(head, SlaveCmdData):
-#                 for i in xrange(8):
-#                     spi.miso <= testBit(head.slaveData, 7-i) if head.slaveData != None else randBool()
-#                     while True:
-#                         yield wait(1)
-#                         if spi.sclk == True:
-#                             break
-#
-#                     while True:
-#                         yield wait(1)
-#                         if spi.sclk == False:
-#                             break
-#
-#
-#             elif isinstance(head, SlaveCmdSs):
-#                 pass
-#
 
+    yield rxFifo(0x11)
+    yield rxFifo(0x22)
+    yield rxFifo(0x33)
+    yield rxFifo(0x44)
+    yield rxFifo(0x55)
+
+    yield TimerClk(apb.clk, 50)
+
+
+@coroutine
+def restart(dut):
+    dut.reset <= 1
+    yield Timer(10e3)
+    dut.reset <= 0
+    yield Timer(10e3)
 
 @cocotb.test()
 def test1(dut):
@@ -110,14 +96,18 @@ def test1(dut):
     spi = SpiSlave(dut, "io_spi")
     spiCtrl = SpiSlaveMaster(spi)
 
-    slaveQueue = Queue()
-
     yield Timer(5000)
     yield RisingEdge(dut.clk)
 
-    apbThread = fork(apbAgent(apb,slaveQueue))
-    spiThread = fork(spiSlaveAgent(spiCtrl))
 
-    yield apbThread.join()
-    yield spiThread.join()
+    yield testIt(apb, spiCtrl, 0, 0)
+
+    yield restart(dut)
+    yield testIt(apb, spiCtrl, 0, 1)
+
+    yield restart(dut)
+    yield testIt(apb, spiCtrl, 1, 0)
+
+    yield restart(dut)
+    yield testIt(apb, spiCtrl, 1, 1)
 
