@@ -1873,7 +1873,7 @@ def refImpl(op: Expression): String = emitReference(op.asInstanceOf[NameableExpr
 
   expressionMapAdd(classOf[Bool], refImpl, null)
   expressionMapAdd(classOf[Bits], refImpl, null)
-//  expressionMapAdd(classOf[WidthableRefExpression], refImpl, null)
+
 
   expressionMapAdd(classOf[BoolLiteral], boolLiteralImpl, e => "std_logic")
 

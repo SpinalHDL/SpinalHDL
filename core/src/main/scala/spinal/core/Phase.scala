@@ -873,51 +873,60 @@ class PhasePullClockDomains(pc: PhaseContext) extends PhaseNetlist{
 //  }
 //}
 //
-//class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
-////  override def useNodeConsumers = false
-//  override def impl(pc : PhaseContext): Unit = {
-//    import pc._
-//    globalData.nodeAreInferringWidth = true
-//
-//    GraphUtils.walkAllComponents(pc.topLevel, c => {
-//      c.dslBody.foreachStatements(s => s match{
-//        case s : AssignementStatement if s.finalTarget.isInstanceOf[Widthable] =>{
-//
-//        }
-//      })
-//    })
-//
-//    def checkAll(): Unit = {
-//      val errors = mutable.ArrayBuffer[String]()
-//      for (node <- nodes) {
-//        if (node.inferWidth && !node.isInstanceOf[Reg]) {
-//          //Don't care about Reg width inference
-//          errors += s"Can't infer width on ${node.getScalaLocationLong}"
-//        }
-//        if (node.widthWhenNotInferred != -1 && node.widthWhenNotInferred != node.getWidth) {
-//          errors += s"getWidth call result during elaboration differ from inferred width on\n${node.getScalaLocationLong}"
-//        }
-//      }
-//      if (errors.nonEmpty)
-//        SpinalError(errors)
-//    }
-//
-//    var iterationCounter = 0
-//    while (true) {
-//      iterationCounter = iterationCounter + 1
-//      var somethingChange = false
-//      for (node <- nodes) {
-//        val hasChange = node.inferWidth
-//        somethingChange = somethingChange || hasChange
-//      }
-//
-//      if (!somethingChange || iterationCounter == nodes.size) {
-//        checkAll()
-//        return
-//      }
-//    }
-//  }
-//}
+class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
+  override def useNodeConsumers = false
+  override def impl(pc : PhaseContext): Unit = {
+    import pc._
+    globalData.nodeAreInferringWidth = true
+
+    var algoId = 1
+    GraphUtils.walkAllComponents(pc.topLevel, c => {
+      c.dslBody.walkStatements(s => s.walkExpression(e => {
+        e.algoId = 0
+      }))
+    })
+
+
+    var iterationCounter = 0
+    while (true) {
+      iterationCounter = iterationCounter + 1
+      var somethingChange = false
+      GraphUtils.walkAllComponents(pc.topLevel, c => {
+        c.dslBody.walkStatements(s => s.walkExpression(e => e match {
+          case e : Widthable =>
+          if(e.algoId < algoId){
+            val hasChange = e.inferWidth
+            somethingChange = somethingChange || hasChange
+            e.algoId = algoId
+          }
+        }))
+      })
+      algoId += 1
+
+      if (!somethingChange || iterationCounter == 10000) {
+        val errors = mutable.ArrayBuffer[String]()
+        GraphUtils.walkAllComponents(pc.topLevel, c => {
+          c.dslBody.walkStatements(s => s.walkExpression(e => e match {
+            case e : Widthable =>
+              if(e.algoId < algoId){
+                if (e.inferWidth) {
+                  //Don't care about Reg width inference
+                  errors += s"Can't infer width on ${e.getScalaLocationLong}"
+                }
+                if (e.widthWhenNotInferred != -1 && e.widthWhenNotInferred != e.getWidth) {
+                  errors += s"getWidth call result during elaboration differ from inferred width on\n${e.getScalaLocationLong}"
+                }
+              }
+          }))
+        })
+        algoId += 1
+        if (errors.nonEmpty)
+          SpinalError(errors)
+        return
+      }
+    }
+  }
+}
 //
 //
 //class PhaseInferEnumEncodings(pc: PhaseContext,encodingSwap : (SpinalEnumEncoding) => SpinalEnumEncoding) extends PhaseMisc{
@@ -1837,7 +1846,7 @@ object SpinalVhdlBoot{
 //    phases += new PhaseInferEnumEncodings(pc,e => e)
 //    phases += new PhaseInferWidth(pc)
 //    phases += new PhaseSimplifyNodes(pc)
-//    phases += new PhaseInferWidth(pc)
+    phases += new PhaseInferWidth(pc)
 //    phases += new PhasePropagateBaseTypeWidth(pc)
 //    phases += new PhaseNormalizeNodeInputs(pc)
 //    phases += new PhaseResizeLiteralSimplify(pc)

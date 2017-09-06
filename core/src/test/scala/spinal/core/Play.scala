@@ -16,7 +16,7 @@ object PlayBits{
     val d, e, f = out Bool()
     val g, h, i, j = Bits(8 bits)
     val x,y,z = out Bits(8 bits)
-
+    val tmp = a & b & c
     h := g & a
     i := h
     x := x & a
@@ -63,6 +63,7 @@ object PlaySimple{
     val d, e, f = out Bool()
     val g, h, i, j = Bool()
     val x,y,z = Reg(Bool())
+
 
 //    g := False
     when(a || b && c){
