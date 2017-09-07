@@ -20,6 +20,11 @@ object PlayBits{
     h := g & a
     i := h
     x := x & a
+    val bits4 = Bits(4 bits)
+    bits4 := a(3 downto 0)
+    bits4 := (a(5 downto 0) & b(5 downto 0))(3 downto 0)
+
+    g(3 downto 0) := a
   }
 
   def main(args: Array[String]) {

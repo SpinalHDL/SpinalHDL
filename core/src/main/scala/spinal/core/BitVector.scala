@@ -252,28 +252,43 @@ abstract class BitVector extends BaseType with Widthable /*with CheckWidth*/ {
 //  }
 //
 //  /** Extract a range of bits of the BitVector */
-//  def newExtract(hi: Int, lo: Int, extract: ExtractBitsVectorFixed): this.type = {
-//    if (hi - lo + 1 != 0) {
-//      extract.input = this
-//      extract.hi = hi
-//      extract.lo = lo
-//      extract.checkHiLo
-//      val ret = wrapWithWeakClone(extract)
-//      ret.compositeAssign = new Assignable {
-//        override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = that match {
-//          case that: BitVector                => BitVector.this.assignFrom(new RangedAssignmentFixed(BitVector.this, that, hi, lo), true)
+  def newExtract(hi: Int, lo: Int, accessFactory: => BitVectorRangedAccessFixed): this.type = {
+    if (hi - lo + 1 != 0) {
+      def makeIt = {
+        val e = accessFactory
+        e.source = this
+        e.hi = hi
+        e.lo = lo
+        e.checkHiLo
+        e
+      }
+
+      val ret = wrapWithWeakClone(makeIt)
+      ret.compositeAssign = new Assignable {
+        override def assignFromImpl(that: AnyRef): Unit = that match {
+          case that: BitVector                => BitVector.this.assignFrom(makeIt)
 //          case that: DontCareNode             => BitVector.this.assignFrom(new RangedAssignmentFixed(BitVector.this, new DontCareNodeFixed(BitVector.this, hi - lo + 1), hi, lo), true)
 //          case that: BitAssignmentFixed       => BitVector.this.apply(lo + that.getBitId).assignFrom(that.getInput, true)
 //          case that: BitAssignmentFloating    => BitVector.this.apply(lo + that.getBitId.asInstanceOf[UInt]).assignFrom(that.getInput, true)
 //          case that: RangedAssignmentFixed    => BitVector.this.apply(lo + that.getHi, lo + that.getLo).assignFrom(that.getInput, true)
 //          case that: RangedAssignmentFloating => BitVector.this.apply(lo + that.getOffset.asInstanceOf[UInt], that.getBitCount).assignFrom(that.getInput, true)
-//        }
-//      }
-//      ret
-//    }
-//    else
+        }
+
+        override private[core] def initFromImpl(that: AnyRef): Unit = that match {
+          case that: BitVector                => BitVector.this.initFrom(makeIt)
+          //          case that: DontCareNode             => BitVector.this.assignFrom(new RangedAssignmentFixed(BitVector.this, new DontCareNodeFixed(BitVector.this, hi - lo + 1), hi, lo), true)
+          //          case that: BitAssignmentFixed       => BitVector.this.apply(lo + that.getBitId).assignFrom(that.getInput, true)
+          //          case that: BitAssignmentFloating    => BitVector.this.apply(lo + that.getBitId.asInstanceOf[UInt]).assignFrom(that.getInput, true)
+          //          case that: RangedAssignmentFixed    => BitVector.this.apply(lo + that.getHi, lo + that.getLo).assignFrom(that.getInput, true)
+          //          case that: RangedAssignmentFloating => BitVector.this.apply(lo + that.getOffset.asInstanceOf[UInt], that.getBitCount).assignFrom(that.getInput, true)
+        }
+      }
+      ret
+    }
+    else
+      ???
 //      getZeroUnconstrained()
-//  }
+  }
 //
 //  /** Extract a range of bits of the BitVector */
 //  def newExtract(offset: UInt, size: Int, extract : ExtractBitsVectorFloating): this.type = {
@@ -313,29 +328,29 @@ abstract class BitVector extends BaseType with Widthable /*with CheckWidth*/ {
 //    */
 //  def apply(bitId: UInt): Bool
 //
-//  /**
-//    * Return a range of bits at offset and of width bitCount
-//    * @example{{{ val myBool = myBits(3, 2 bits) }}}
-//    */
-//  def apply(offset: Int, bitCount: BitCount): this.type
+  /**
+    * Return a range of bits at offset and of width bitCount
+    * @example{{{ val myBool = myBits(3, 2 bits) }}}
+    */
+  def apply(offset: Int, bitCount: BitCount): this.type
 //
-//  /**
-//    * Return a range of bits at offset and of width bitCount
-//    * @example{{{ val myBool = myBits(myUInt, 2 bits) }}}
-//    */
+  /**
+    * Return a range of bits at offset and of width bitCount
+    * @example{{{ val myBool = myBits(myUInt, 2 bits) }}}
+    */
 //  def apply(offset: UInt, bitCount: BitCount): this.type
-//
-//  /**
-//    * Return a range of bits form hi index to lo index
-//    * @example{{{ val myBool = myBits(3, 1) }}}
-//    */
-//  def apply(hi: Int, lo: Int): this.type = this.apply(lo, hi - lo + 1 bit)
-//
-//  /**
-//    * Return a range of bits
-//    * @example{{{ val myBool = myBits(3 downto 1) }}}
-//    */
-//  def apply(range: Range): this.type = this.apply(range.high, range.low)
+
+  /**
+    * Return a range of bits form hi index to lo index
+    * @example{{{ val myBool = myBits(3, 1) }}}
+    */
+  def apply(hi: Int, lo: Int): this.type = this.apply(lo, hi - lo + 1 bits)
+
+  /**
+    * Return a range of bits
+    * @example{{{ val myBool = myBits(3 downto 1) }}}
+    */
+  def apply(range: Range): this.type = this.apply(range.high, range.low)
 //
 //  /** Set all bits to value */
 //  def setAllTo(value: Boolean): Unit = {

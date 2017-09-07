@@ -921,10 +921,9 @@ abstract class Modifier extends Expression {
 //    muxOut
 //  }
 //}
-//abstract class Extract extends Modifier{
-//  def getBitVector: Node
-//  def getParameterNodes: List[Node]
-//}
+abstract class SubAccess extends Modifier{
+//  def getBitVector: Expression
+}
 //
 //abstract class ExtractBoolFixed extends Extract with CheckWidth{
 //  var input : Node with WidthProvider = null
@@ -1019,43 +1018,36 @@ abstract class Modifier extends Expression {
 //}
 //
 //
-//abstract class ExtractBitsVectorFixed extends Extract with WidthProvider with CheckWidth{
-//  def checkHiLo : Unit = if (hi - lo < -1)
-//    SpinalError(s"Static bits extraction with a negative size ($hi downto $lo)")
-//
-//  var hi,lo : Int = -1
-//  var input : Node with WidthProvider = null
-//  override def onEachInput(doThat: (Node, Int) => Unit): Unit = doThat(input,0)
-//  override def onEachInput(doThat: (Node) => Unit): Unit = doThat(input)
-//  override def setInput(id: Int, node: Node): Unit = {assert(id == 0); this.input = node.asInstanceOf[Node with WidthProvider]}
-//  override def getInputsCount: Int = 1
-//  override def getInputs: Iterator[Node] = Iterator(input)
-//  override def getInput(id: Int): Node = {assert(id == 0); input}
-//
-//
-//
-//  def getBitVector = input
-//  def getHi = hi
-//  def getLo = lo
-//
-//  override def getWidth: Int = hi - lo + 1
-//
+abstract class BitVectorRangedAccessFixed extends SubAccess with WidthProvider{
+  var source : Expression = null
+  var hi, lo = -1
+  def checkHiLo : Unit = if (hi - lo < -1)
+    SpinalError(s"Static bits extraction with a negative size ($hi downto $lo)")
+
+  override def getWidth: Int = hi - lo + 1
+
+  override def remapExpressions(func: (Expression) => Expression): Unit = {
+    source = func(source)
+  }
+
+  override def foreachExpression(func: (Expression) => Unit): Unit = {
+    func(source)
+  }
 //  override def checkInferedWidth: Unit = {
 //    val width = input.getWidth
 //    if (hi >= width || lo < 0) {
 //      PendingError(s"Static bits extraction ($hi downto $lo) is outside the range (${width - 1} downto 0) of ${getBitVector} at\n${getScalaLocationLong}")
 //    }
 //  }
-//
-//  def getParameterNodes: List[Node] =  Nil
+
 //  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
 //    case 0 => (lo+outHi, lo+outLo)
 //  }
-//}
+}
 //
-//class ExtractBitsVectorFixedFromBits extends ExtractBitsVectorFixed{
-//  override def opName: String = "extract(b,i,i)"
-//}
+class BitsRangedAccessFixed extends BitVectorRangedAccessFixed{
+  override def opName: String = "extract(b,i,i)"
+}
 //class ExtractBitsVectorFixedFromUInt extends ExtractBitsVectorFixed{
 //  override def opName: String = "extract(u,i,i)"
 //}

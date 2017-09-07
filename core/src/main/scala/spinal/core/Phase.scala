@@ -873,6 +873,9 @@ class PhasePullClockDomains(pc: PhaseContext) extends PhaseNetlist{
 //  }
 //}
 //
+
+
+//TODO IR infer with on IO (even if they aren't assigned on top level)
 class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
   override def useNodeConsumers = false
   override def impl(pc : PhaseContext): Unit = {
@@ -894,11 +897,12 @@ class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
       GraphUtils.walkAllComponents(pc.topLevel, c => {
         c.dslBody.walkStatements(s => s.walkExpression(e => e match {
           case e : Widthable =>
-          if(e.algoId < algoId){
-            val hasChange = e.inferWidth
-            somethingChange = somethingChange || hasChange
-            e.algoId = algoId
-          }
+            if(e.algoId < algoId){
+              val hasChange = e.inferWidth
+              somethingChange = somethingChange || hasChange
+              e.algoId = algoId
+            }
+          case _ =>
         }))
       })
       algoId += 1
@@ -917,6 +921,7 @@ class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
                   errors += s"getWidth call result during elaboration differ from inferred width on\n${e.getScalaLocationLong}"
                 }
               }
+            case _ =>
           }))
         })
         algoId += 1
@@ -1340,7 +1345,7 @@ class PhaseDeleteUselessBaseTypes(pc: PhaseContext) extends PhaseNetlist{
 
     //Reset algoId of all referenced driving things
     GraphUtils.walkAllComponents(pc.topLevel, c => {
-      c.dslBody.walkStatements(_.walkDrivingExpressions(_ match {
+      c.dslBody.walkStatements(_.walkExpression(_ match {
         case ref: NameableExpression => {
           ref.algoId = 0
         }
@@ -1350,7 +1355,7 @@ class PhaseDeleteUselessBaseTypes(pc: PhaseContext) extends PhaseNetlist{
 
     //Count the number of driving reference done on each ref.source
     GraphUtils.walkAllComponents(pc.topLevel, c => {
-      c.dslBody.walkStatements(_.walkDrivingExpressions(_ match {
+      c.dslBody.walkStatements(s => s.walkDrivingExpressions(e => e match {
         case ref : NameableExpression => {
           ref.algoId += 1
         }

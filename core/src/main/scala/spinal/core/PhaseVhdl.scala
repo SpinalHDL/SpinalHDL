@@ -2016,7 +2016,7 @@ def refImpl(op: Expression): String = emitReference(op.asInstanceOf[NameableExpr
 //  expressionImplMap.put("extract(u,u)", extractBoolFloating)
 //  expressionImplMap.put("extract(s,u)", extractBoolFloating)
 //
-//  expressionImplMap.put("extract(b,i,i)", extractBitVectorFixed)
+  expressionMapAdd(classOf[BitsRangedAccessFixed], accessBitVectorFixed, bitsTypeMapper)
 //  expressionImplMap.put("extract(u,i,i)", extractBitVectorFixed)
 //  expressionImplMap.put("extract(s,i,i)", extractBitVectorFixed)
 //
@@ -2036,10 +2036,10 @@ def refImpl(op: Expression): String = emitReference(op.asInstanceOf[NameableExpr
 //    s"pkg_extract(${emitLogic(that.getBitVector)},to_integer(${emitLogic(that.getBitId)}))"
 //  }
 //
-//  def extractBitVectorFixed(func: Modifier): String = {
-//    val that = func.asInstanceOf[ExtractBitsVectorFixed]
-//    s"pkg_extract(${emitLogic(that.getBitVector)},${that.getHi},${that.getLo})"
-//  }
+  def accessBitVectorFixed(func: Expression): String = {
+    val that = func.asInstanceOf[BitsRangedAccessFixed]
+    s"pkg_extract(${emitExpression(that.source)},${that.hi},${that.lo})"
+  }
 //
 //  def extractBitVectorFloating(func: Modifier): String = {
 //    val that = func.asInstanceOf[ExtractBitsVectorFloating]

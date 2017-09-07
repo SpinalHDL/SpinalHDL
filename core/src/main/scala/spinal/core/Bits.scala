@@ -211,7 +211,7 @@ class Bits extends BitVector /*with DataPrimitives[Bits] with BitwiseOp[Bits]*/{
 //
 //  override def apply(bitId: Int) : Bool = newExtract(bitId, new ExtractBoolFixedFromBits)
 //  override def apply(bitId: UInt): Bool = newExtract(bitId, new ExtractBoolFloatingFromBits)
-//  override def apply(offset: Int, bitCount: BitCount): this.type  = newExtract(offset+bitCount.value-1,offset, new ExtractBitsVectorFixedFromBits).setWidth(bitCount.value)
+  override def apply(offset: Int, bitCount: BitCount): this.type  = newExtract(offset+bitCount.value-1,offset, new BitsRangedAccessFixed).setWidth(bitCount.value)
 //  override def apply(offset: UInt, bitCount: BitCount): this.type = newExtract(offset,bitCount.value, new ExtractBitsVectorFloatingFromBits).setWidth(bitCount.value)
 //
   private[core] override def weakClone: this.type = new Bits().asInstanceOf[this.type]
