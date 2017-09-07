@@ -106,6 +106,13 @@ class I2cSoftMaster:
         self.scl.write(False)
 
     @coroutine
+    def sendBitCheck(self, value, expected):
+        buffer = [0]
+        yield self.sendBit(value, buffer)
+        assert buffer[0] == expected
+
+
+    @coroutine
     def sendByte(self, value ,ret = None):
         if ret != None :
             ret[0] = 0
@@ -114,6 +121,12 @@ class I2cSoftMaster:
             yield self.sendBit(testBit(value,7-i),buffer)
             if ret != None:
                 ret[0] |= buffer[0] << (7-i)
+
+    @coroutine
+    def sendByteCheck(self, value, expected):
+        buffer = [0]
+        yield self.sendByte(value, buffer)
+        assert buffer[0] == expected
 
     @coroutine
     def sendStop(self):
