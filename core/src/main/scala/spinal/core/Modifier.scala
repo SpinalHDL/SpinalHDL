@@ -922,6 +922,7 @@ abstract class Modifier extends Expression {
 //  }
 //}
 abstract class SubAccess extends Modifier{
+//  def finalTarget : NameableExpression
 //  def getBitVector: Expression
 }
 //
@@ -1021,6 +1022,8 @@ abstract class SubAccess extends Modifier{
 abstract class BitVectorRangedAccessFixed extends SubAccess with WidthProvider{
   var source : Expression = null
   var hi, lo = -1
+
+
   def checkHiLo : Unit = if (hi - lo < -1)
     SpinalError(s"Static bits extraction with a negative size ($hi downto $lo)")
 
@@ -1347,16 +1350,17 @@ class BitsRangedAccessFixed extends BitVectorRangedAccessFixed{
 //  }
 //}
 //
-//abstract class AssignementNode extends Node {
+abstract class AssignementExpression extends Expression {
+  def finalTarget: NameableExpression
+  override def foreachDrivingExpression(func : (Expression) => Unit) : Unit
+  override def remapDrivingExpressions(func: (Expression) => Expression): Unit
 //  def getAssignedBits: AssignedRange //Bit that are allwas assigned
 //  def getScopeBits: AssignedRange //Bit tht could be assigned
 //  def getOutBaseType: BaseType
 //
 //  def clone(out : Node) : this.type
-//}
-//abstract class AssignementNodeWidthable extends AssignementNode with Widthable{
-//  override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
-//}
+}
+
 //
 //class BitAssignmentFixed(out: BitVector, in: Node, bitId: Int) extends AssignementNodeWidthable with CheckWidth{
 //  var input : Node = in
@@ -1401,30 +1405,14 @@ class BitsRangedAccessFixed extends BitVectorRangedAccessFixed{
 //
 //
 //
-////TODO remove BitVector
-//class RangedAssignmentFixed(out: BitVector, in: Node, hi: Int, lo: Int) extends AssignementNodeWidthable with CheckWidth {
-//  var input : Node with WidthProvider = in.asInstanceOf[Node with WidthProvider]
-//
-//  override def onEachInput(doThat: (Node, Int) => Unit): Unit = doThat(input,0)
-//  override def onEachInput(doThat: (Node) => Unit): Unit = doThat(input)
-//
-//  override def setInput(id: Int, node: Node): Unit = {
-//    assert(id == 0)
-//    this.input = node.asInstanceOf[Node with WidthProvider]
-//  }
-//  override def getInputsCount: Int = 1
-//  override def getInputs: Iterator[Node] = Iterator(input)
-//  override def getInput(id: Int): Node = {
-//    assert(id == 0)
-//    input
-//  }
-//
-//  def getInput : Node = input
-//  def getHi = hi
-//  def getLo = lo
-//
-//  override def calcWidth: Int = hi + 1
-//
+
+class RangedAssignmentFixed(var out: BitVector,var hi: Int,var lo: Int) extends AssignementExpression with WidthProvider {
+  override def getWidth: Int = hi + 1
+  override def finalTarget: NameableExpression = out
+
+  override def foreachDrivingExpression(func : (Expression) => Unit) : Unit = {}
+  override def remapDrivingExpressions(func: (Expression) => Expression): Unit = {}
+
 //  override def checkInferedWidth: Unit = {
 //    if (input.component != null && hi + 1 - lo != input.getWidth) {
 //      PendingError(s"Assignment bit count mismatch. ${AssignementTree.getDrivedBaseType(this)}($hi downto $lo) := ${input}} at\n${getScalaLocationLong}")
@@ -1437,13 +1425,13 @@ class BitsRangedAccessFixed extends BitVectorRangedAccessFixed{
 //      return
 //    }
 //  }
-//
+
 //  override def normalizeInputs: Unit = {
 //    InputNormalize.resizedOrUnfixedLit(this,0,hi + 1 - lo)
 //  }
-//
-//
-//
+
+
+
 //  def getAssignedBits: AssignedRange = AssignedRange(hi, lo)
 //  def getScopeBits: AssignedRange = getAssignedBits
 //  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = {
@@ -1456,9 +1444,19 @@ class BitsRangedAccessFixed extends BitVectorRangedAccessFixed{
 //  }
 //  def getOutBaseType: BaseType = out
 //  override def clone(out: Node): this.type = new RangedAssignmentFixed(out.asInstanceOf[BitVector],in,hi,lo).asInstanceOf[this.type]
-//
-//  override def toString(): String = s"${out.toString()}[$hi downto $lo]"
-//}
+
+  override def opName: String = "x(hi:lo) <="
+
+  override def remapExpressions(func: (Expression) => Expression): Unit = {
+    out = func(out).asInstanceOf[BitVector]
+  }
+
+  override def foreachExpression(func: (Expression) => Unit): Unit = {
+    func(out)
+  }
+
+  override def toString(): String = s"${out.toString()}[$hi downto $lo]"
+}
 //
 //
 //class BitAssignmentFloating(out: BitVector, in_ : Node, bitId_ : Node) extends AssignementNodeWidthable{

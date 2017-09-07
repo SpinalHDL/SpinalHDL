@@ -164,6 +164,7 @@ case class AssignementStatement(var target : Expression ,var  source : Expressio
   override def rootScopeStatement = finalTarget.rootScopeStatement
   def finalTarget = target match{
     case n : NameableExpression => n
+    case a : AssignementExpression => a.finalTarget
   }
 //  override def isConditionalStatement: Boolean = false
   def foreachExpression(func : (Expression) => Unit) : Unit = {
@@ -173,6 +174,7 @@ case class AssignementStatement(var target : Expression ,var  source : Expressio
   override def foreachDrivingExpression(func : (Expression) => Unit) : Unit = {
     target match {
       case ref : NameableExpression =>
+      case a : AssignementExpression => a.foreachDrivingExpression(func)
     }
     func(source)
   }
@@ -181,6 +183,7 @@ case class AssignementStatement(var target : Expression ,var  source : Expressio
   override def remapDrivingExpressions(func: (Expression) => Expression): Unit = {
     target match {
       case ref : NameableExpression =>
+      case a : AssignementExpression => a.remapDrivingExpressions(func)
     }
     source = func(source)
   }

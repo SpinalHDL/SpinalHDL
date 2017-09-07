@@ -741,11 +741,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 //        }
 //      }
       case _ => {
-        val referenceSetBack = referenceSet
-        referenceSet = null
-        val targetStr = emitExpression(assignement.target)
-        referenceSet = referenceSetBack
-        s"$tab${targetStr} ${assignementKind} ${emitExpression(assignement.source)};\n"
+        s"$tab${emitAssignedExpression(assignement.target)} ${assignementKind} ${emitExpression(assignement.source)};\n"
       }
     }
   }
@@ -760,6 +756,10 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     that.getNameElseThrow
   }
 
+  def emitAssignedExpression(that : Expression): String = that match{
+    case that : BaseType => emitReference(that, false)
+    case that : RangedAssignmentFixed => s"${emitReference(that.out, false)}(${that.hi} downto ${that.lo})"
+  }
 
   def emitExpression(that : Expression) : String = {
     wrappedExpressionToName.get(that) match {

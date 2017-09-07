@@ -310,24 +310,24 @@ object SyncNode {
 trait Assignable {
   /* private[core] */var compositeAssign: Assignable = null
 
-  /*private[core] */final def assignFrom(that: AnyRef): Unit = {
+  /*private[core] */final def assignFrom(that: AnyRef, target : AnyRef = this): Unit = {
     if (compositeAssign != null) {
-      compositeAssign.assignFrom(that)
+      compositeAssign.assignFrom(that,target)
     } else {
-      assignFromImpl(that)
+      assignFromImpl(that, target)
     }
   }
 
-  final def initFrom(that: AnyRef): Unit = {
+  final def initFrom(that: AnyRef, target : AnyRef = this): Unit = {
     if (compositeAssign != null) {
-      compositeAssign.initFrom(that)
+      compositeAssign.initFrom(that, target)
     } else {
-      initFromImpl(that)
+      initFromImpl(that, target)
     }
   }
 
-  private[core] def assignFromImpl(that: AnyRef): Unit
-  private[core] def initFromImpl(that: AnyRef): Unit
+  private[core] def assignFromImpl(that: AnyRef, target : AnyRef): Unit
+  private[core] def initFromImpl(that: AnyRef, target : AnyRef): Unit
 }
 
 object OwnableRef{
