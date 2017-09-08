@@ -151,9 +151,9 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
         case target : BaseType if target.isComb => asyncStatement += s
         case target : BaseType if target.isReg  => {
           val group = syncGroups.getOrElseUpdate((target.dslContext.clockDomain, s.rootScopeStatement, target.hasInit) , new SyncGroup(target.dslContext.clockDomain ,s.rootScopeStatement, target.hasInit))
-          s.kind match {
-            case AssignementKind.INIT => group.initStatements += s
-            case AssignementKind.DATA => group.dataStatements += s
+          s match {
+            case s : InitAssignementStatement => group.initStatements += s
+            case s : DataAssignementStatement => group.dataStatements += s
           }
         }
       }
@@ -337,7 +337,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
     component.dslBody.walkLeafStatements(ls => ls match {
       //Identify direct combinatorial assignements
-      case AssignementStatement(target : BaseType,source : BaseType,_)
+      case AssignementStatement(target : BaseType,source : BaseType)
        if(target.isComb && source.component.parent == component && source.isOutput && target.hasOnlyOneStatement &&  ls.parentScope == target.rootScopeStatement)=> {
         if(subComponentOutputsToNotBufferize.contains(source)){
           subComponentOutputsToBufferize += source
@@ -410,8 +410,8 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     processes.foreach(p => {
       if(p.leafStatements.nonEmpty ) {
         p.leafStatements.head match {
-          case AssignementStatement(_, source : NameableExpression,_) if subComponentOutputsToNotBufferize.contains(source) =>
-          case AssignementStatement(target: NameableExpression, _,_) if subComponentInputToNotBufferize.contains(target) =>
+          case AssignementStatement(_, source : NameableExpression) if subComponentOutputsToNotBufferize.contains(source) =>
+          case AssignementStatement(target: NameableExpression, _) if subComponentInputToNotBufferize.contains(target) =>
           case _ => emitAsyncronous(b, p)
         }
       } else {

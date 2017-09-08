@@ -184,7 +184,7 @@ abstract class BaseType extends Data with NameableExpression{
 //  }
 
   def hasInit : Boolean = {
-    foreachStatements(s => if(s.kind == AssignementKind.INIT) return true)
+    foreachStatements(s => if(s.isInstanceOf[InitAssignementStatement]) return true)
     return false
   }
 
@@ -259,12 +259,13 @@ abstract class BaseType extends Data with NameableExpression{
   override private[core] def assignFromImpl(that: AnyRef, target : AnyRef): Unit = {
     that match {
       case that : BaseType =>
-        component.addStatement(new AssignementStatement(target = target.asInstanceOf[Expression], source = that, AssignementKind.DATA))
+        component.addStatement(DataAssignementStatement(target = target.asInstanceOf[Expression], source = that))
       case that : Expression =>
-        component.addStatement(new AssignementStatement(target = target.asInstanceOf[Expression], source = that, AssignementKind.DATA))
+        component.addStatement(DataAssignementStatement(target = target.asInstanceOf[Expression], source = that))
       case _ =>
         throw new Exception(s"Undefined assignment $this := $that")
     }
+
   }
 
 
@@ -273,9 +274,9 @@ abstract class BaseType extends Data with NameableExpression{
       LocatedPendingError(s"Try to set initial value of a data that is not a register ($this)")
     else that match {
       case that : BaseType =>
-        component.addStatement(new AssignementStatement(target = target.asInstanceOf[Expression], source = that, AssignementKind.INIT))
+        component.addStatement(InitAssignementStatement(target = target.asInstanceOf[Expression], source = that))
       case that : Expression =>
-        component.addStatement(new AssignementStatement(target = target.asInstanceOf[Expression], source = that, AssignementKind.INIT))
+        component.addStatement(InitAssignementStatement(target = target.asInstanceOf[Expression], source = that))
       case _ =>
         throw new Exception("Undefined assignment")
     }

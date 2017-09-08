@@ -104,11 +104,11 @@ trait Expression extends BaseNode with ExpressionContainer{
 //TODO IR check same scope
 object Statement{
   def isFullToFullStatement(s : Statement) = s match {
-    case  AssignementStatement(a : NameableExpression,b : NameableExpression,_) => true
+    case  AssignementStatement(a : NameableExpression,b : NameableExpression) => true
     case _ => false
   }
   def isSomethingToFullStatement(s : Statement) = s match {
-    case  AssignementStatement(a : NameableExpression,_,_) => true
+    case  AssignementStatement(a : NameableExpression,_) => true
     case _ => false
   }
 }
@@ -153,14 +153,14 @@ trait TreeStatement extends Statement
 //  private [core] def nameableNode : NameableNode
 //}
 
-trait AssignementKind
-object AssignementKind{
-  object DATA extends AssignementKind
-  object INIT extends AssignementKind
+
+object AssignementStatement{
+  def unapply(x : AssignementStatement) : Option[(Expression, Expression)] = Some(x.target, x.source)
 }
 
-case class AssignementStatement(var target : Expression ,var  source : Expression, var kind : AssignementKind) extends LeafStatement{
-  if(target != null) finalTarget.append(this)
+class AssignementStatement extends LeafStatement{
+  var target, source : Expression = null
+
   override def rootScopeStatement = finalTarget.rootScopeStatement
   def finalTarget = target match{
     case n : NameableExpression => n
@@ -193,6 +193,35 @@ case class AssignementStatement(var target : Expression ,var  source : Expressio
     source = func(source)
   }
 }
+
+object DataAssignementStatement{
+  def apply(target : Expression, source : Expression) = {
+    val ret = new DataAssignementStatement
+    ret.target = target
+    ret.source = source
+    ret.finalTarget.append(ret)
+    ret
+  }
+}
+
+class DataAssignementStatement extends AssignementStatement{
+
+}
+
+object InitAssignementStatement{
+  def apply(target : Expression, source : Expression) = {
+    val ret = new InitAssignementStatement
+    ret.target = target
+    ret.source = source
+    ret.finalTarget.append(ret)
+    ret
+  }
+}
+
+class InitAssignementStatement extends AssignementStatement{
+
+}
+
 class WhenStatement(var cond : Expression) extends TreeStatement{
   val whenTrue, whenFalse = new ScopeStatement(this)
 

@@ -17,7 +17,7 @@ object PlayBits{
     val g, h, i, j = Bits(8 bits)
     val x,y,z = out( Reg(Bits(8 bits)))
 //    val tmp = a & b & c
-//    h := g & a
+    val xx = g & a
 //    i := h
 //    x := x & a
 //    val bits4 = Bits(4 bits)
@@ -28,9 +28,9 @@ object PlayBits{
 //    g(2 downto 0) := a
 //    g(7 downto 3)(3 downto 1)(1 downto 1) := a
 
-    val tmp2 = Bits()
-    tmp2(3 downto 0) := a(1 downto 0)
-    tmp2(5 downto 2) := a(5 downto 2)
+//    val tmp2 = Bits()
+//    tmp2(3 downto 0) := a(1 downto 0)
+//    tmp2(5 downto 2) := a(5 downto 2)
 
   }
 
