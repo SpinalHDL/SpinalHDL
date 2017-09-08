@@ -1406,10 +1406,14 @@ abstract class AssignementExpression extends Expression {
 //
 //
 
-class RangedAssignmentFixed(var out: BitVector,var hi: Int,var lo: Int) extends AssignementExpression with WidthProvider {
+abstract class BitVectorAssignementExpression extends AssignementExpression{
+  def minimalTargetWidth : Int
+}
+
+class RangedAssignmentFixed(var out: BitVector,var hi: Int,var lo: Int) extends BitVectorAssignementExpression with WidthProvider {
   override def getWidth: Int = hi + 1
   override def finalTarget: NameableExpression = out
-
+  override def minimalTargetWidth: Int = hi+1
   override def foreachDrivingExpression(func : (Expression) => Unit) : Unit = {}
   override def remapDrivingExpressions(func: (Expression) => Expression): Unit = {}
 

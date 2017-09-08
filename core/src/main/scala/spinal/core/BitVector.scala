@@ -148,8 +148,11 @@ abstract class BitVector extends BaseType with Widthable /*with CheckWidth*/ {
     var w = -1
     foreachStatements(_ match{
       case s : AssignementStatement =>{
-        s.source match {
-          case e : WidthProvider => w = Math.max(w, e.getWidth)
+        s.target match {
+          case target : BitVector => s.source match {
+            case e : WidthProvider => w = Math.max(w, e.getWidth)
+          }
+          case target : BitVectorAssignementExpression => w = Math.max(w, target.minimalTargetWidth)
         }
       }
     })

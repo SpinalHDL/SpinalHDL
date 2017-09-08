@@ -876,7 +876,6 @@ class PhasePullClockDomains(pc: PhaseContext) extends PhaseNetlist{
 
 
 //TODO IR infer with on IO (even if they aren't assigned on top level)
-//TODO IR infer with of tmp2(5 downto 2) := a(5 downto 2)  correctly
 class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
   override def useNodeConsumers = false
   override def impl(pc : PhaseContext): Unit = {
