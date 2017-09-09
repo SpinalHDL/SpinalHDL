@@ -1791,6 +1791,11 @@ def refImpl(op: Expression): String = emitReference(op.asInstanceOf[NameableExpr
   }
 
 
+  def emitBitsLiteral(e : Expression) : String = {
+    val lit = e.asInstanceOf[BitsLiteral]
+    s"pkg_stdLogicVector(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
+  }
+
 //  def enumEgualsImpl(eguals: Boolean)(op: Modifier): String = {
 //    val enumDef = op.asInstanceOf[EnumEncoded].getDefinition
 //    val encoding = op.asInstanceOf[EnumEncoded].getEncoding
@@ -1847,6 +1852,11 @@ def refImpl(op: Expression): String = emitReference(op.asInstanceOf[NameableExpr
 //
 //
 //
+
+  def boolTypeMapper(e : Expression) = "std_logic"
+  def bitsTypeMapper(e : Expression) = "std_logic_vector" + emitRange(e.asInstanceOf[Widthable])
+
+
   val expressionImplMap = mutable.Map[Class[_ <: Expression], Expression => String]()
   val expressionTypeMap = mutable.Map[Class[_ <: Expression], Expression => String]()
 
@@ -1860,7 +1870,8 @@ def refImpl(op: Expression): String = emitReference(op.asInstanceOf[NameableExpr
   expressionMapAdd(classOf[Bits], refImpl, null)
 
 
-  expressionMapAdd(classOf[BoolLiteral], boolLiteralImpl, e => "std_logic")
+  expressionMapAdd(classOf[BoolLiteral], boolLiteralImpl, boolTypeMapper)
+  expressionMapAdd(classOf[BitsLiteral], emitBitsLiteral, bitsTypeMapper)
 
 //  //unsigned
 //  expressionImplMap.put("u+u", operatorImplAsBinaryOperator("+"))
@@ -1919,7 +1930,6 @@ def refImpl(op: Expression): String = emitReference(op.asInstanceOf[NameableExpr
 //
 //
 //  //bits
-  def bitsTypeMapper(e : Expression) = "std_logic_vector" + emitRange(e.asInstanceOf[Widthable])
 //  expressionImplMap.put("b##b", operatorImplAsFunction("pkg_cat"))
 //
 //  expressionImplMap.put("b|b", operatorImplAsBinaryOperator("or"))
@@ -1944,15 +1954,15 @@ def refImpl(op: Expression): String = emitReference(op.asInstanceOf[NameableExpr
 //
 //  //bool
 
-  expressionMapAdd(classOf[BoolLiteral], boolLiteralImpl, e => "std_logic")
-  expressionMapAdd(classOf[Operator.Bool.Equal], operatorImplAsBinaryOperator("="), e => "std_logic")
-  expressionMapAdd(classOf[Operator.Bool.NotEqual], operatorImplAsBinaryOperator("/="), e => "std_logic")
+  expressionMapAdd(classOf[BoolLiteral], boolLiteralImpl, boolTypeMapper)
+  expressionMapAdd(classOf[Operator.Bool.Equal], operatorImplAsBinaryOperator("="), boolTypeMapper)
+  expressionMapAdd(classOf[Operator.Bool.NotEqual], operatorImplAsBinaryOperator("/="), boolTypeMapper)
 
 
-  expressionMapAdd(classOf[Operator.Bool.Not], operatorImplAsUnaryOperator("not"), e => "std_logic")
-  expressionMapAdd(classOf[Operator.Bool.And], operatorImplAsBinaryOperator("and"), e => "std_logic")
-  expressionMapAdd(classOf[Operator.Bool.Or], operatorImplAsBinaryOperator("or"), e => "std_logic")
-  expressionMapAdd(classOf[Operator.Bool.Xor], operatorImplAsBinaryOperator("xor"), e => "std_logic")
+  expressionMapAdd(classOf[Operator.Bool.Not], operatorImplAsUnaryOperator("not"), boolTypeMapper)
+  expressionMapAdd(classOf[Operator.Bool.And], operatorImplAsBinaryOperator("and"), boolTypeMapper)
+  expressionMapAdd(classOf[Operator.Bool.Or], operatorImplAsBinaryOperator("or"), boolTypeMapper)
+  expressionMapAdd(classOf[Operator.Bool.Xor], operatorImplAsBinaryOperator("xor"), boolTypeMapper)
 
 
 //  //enum

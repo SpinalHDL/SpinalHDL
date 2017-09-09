@@ -176,8 +176,8 @@ object Operator{
       }
       def resizeFactory : Resize
 //      override private[core] def checkInferedWidth: Unit = CheckWidth.allSame(this)
-//      override def simplifyNode: Unit = SymplifyNode.binaryInductZeroWithOtherWidth(getLiteralFactory,true)(this)
-//      def getLiteralFactory : (BigInt, BitCount) => Node
+      override def simplifyNode: Expression = SymplifyNode.binaryInductZeroWithOtherWidth(getLiteralFactory,true)(this)
+      def getLiteralFactory : (BigInt, Int) => Expression
     }
 //
 //    abstract class Or extends BinaryOperatorWidthableInputs with Widthable with CheckWidth{
@@ -318,7 +318,7 @@ object Operator{
     class And extends BitVector.And{
       override def opName: String = "b&b"
       def resizeFactory : Resize = new ResizeBits
-      //override def getLiteralFactory: (BigInt, BitCount) => Node = B.apply
+      override def getLiteralFactory: (BigInt, Int) => Expression = BitsLiteral.apply
     }
 //
 //    class Or extends BitVector.Or{

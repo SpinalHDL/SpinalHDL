@@ -39,7 +39,10 @@ object PlayBits{
     val yy = bits4.resized & c.resized
     bits4 := a.resized
     bits4 := (a & b).resized
+    bits4 := B"11"
 
+    val aa = a & 0
+    val bb = B(0) & a
   }
 
   def main(args: Array[String]) {

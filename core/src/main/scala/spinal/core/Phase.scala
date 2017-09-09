@@ -103,9 +103,12 @@ class PhaseContext(val config : SpinalConfig){
   }
 
   def walkExpression(func : Expression => Unit): Unit ={
-    GraphUtils.walkAllComponents(topLevel, c => c.dslBody.walkStatements(s => s .walkExpression(func)))
+    GraphUtils.walkAllComponents(topLevel, c => c.dslBody.walkStatements(s => s.walkExpression(func)))
   }
 
+  def walkRemapExpressions(func : Expression => Expression): Unit ={
+    GraphUtils.walkAllComponents(topLevel, c => c.dslBody.walkStatements(s => s.walkRemapExpressions(func)))
+  }
 
   def walkDrivingExpression(func : Expression => Unit): Unit ={
     GraphUtils.walkAllComponents(topLevel, c => c.dslBody.walkStatements(s => s.walkDrivingExpressions(func)))
@@ -1010,13 +1013,13 @@ class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
 //}
 //
 //
-//class PhaseSimplifyNodes(pc: PhaseContext) extends PhaseNetlist{
-//  override def useNodeConsumers = true
-//  override def impl(pc : PhaseContext): Unit = {
-//    import pc._
-//    Node.walk(walkNodesDefautStack,_.simplifyNode)
-//  }
-//}
+class PhaseSimplifyNodes(pc: PhaseContext) extends PhaseNetlist{
+  override def useNodeConsumers = true
+  override def impl(pc : PhaseContext): Unit = {
+    import pc._
+    walkRemapExpressions(_.simplifyNode)
+  }
+}
 //
 //class PhaseResizeLiteralSimplify(pc: PhaseContext) extends PhaseNetlist{
 //  override def useNodeConsumers = false
@@ -1873,9 +1876,9 @@ object SpinalVhdlBoot{
     phases += new PhaseDummy(SpinalProgress("Infer nodes's bit width"))
 //    phases += new PhasePreInferationChecks(pc)
 //    phases += new PhaseInferEnumEncodings(pc,e => e)
-//    phases += new PhaseInferWidth(pc)
-//    phases += new PhaseSimplifyNodes(pc)
     phases += new PhaseInferWidth(pc)
+    phases += new PhaseSimplifyNodes(pc)
+//    phases += new PhaseInferWidth(pc)
 //    phases += new PhasePropagateBaseTypeWidth(pc)
     phases += new PhaseNormalizeNodeInputs(pc)
 //    phases += new PhaseResizeLiteralSimplify(pc)

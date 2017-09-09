@@ -24,7 +24,7 @@ import scala.collection.mutable
 //import scala.collection.mutable.ArrayBuffer
 //
 //
-//object SymplifyNode {
+object SymplifyNode {
 //  def replaceNode(it: Node, by: Node): Unit = {
 //    for (consumer <- it.consumers) {
 //      consumer.onEachInput((input,i) => {
@@ -47,17 +47,9 @@ import scala.collection.mutable
 //  }
 //
 //  def none(node: Node): Unit = {}
-//
-//  def binaryPartition(node: Node): (Node, Node) = {
-//    if (node.getInput(0).asInstanceOf[WidthProvider].getWidth == 0) {
-//      return (node.getInput(0), node.getInput(1))
-//    }
-//    if (node.getInput(1).asInstanceOf[WidthProvider].getWidth == 0) {
-//      return (node.getInput(1), node.getInput(0))
-//    }
-//    return null
-//  }
-//
+
+
+
 //  def binaryTakeOther(node: Node,strictResize : Boolean = false): Unit = {
 //    val w0 = node.getInput(0).asInstanceOf[WidthProvider].getWidth
 //    val w1 = node.getInput(1).asInstanceOf[WidthProvider].getWidth
@@ -156,14 +148,25 @@ import scala.collection.mutable
 //    }
 //  }
 //
-//  def binaryInductZeroWithOtherWidth(zeroFactory: (BigInt, BitCount) => Node,strictResize : Boolean = false)(node: Node): Unit = {
-//    val partition = binaryPartition(node)
-//    if (partition != null && (!strictResize || InputNormalize.isStrictlyResizable(partition._1))) {
-//      Component.push(node.component)
-//      replaceNode(node, zeroFactory(0, partition._2.asInstanceOf[WidthProvider].getWidth bit))
-//      Component.pop(node.component)
-//    }
-//  }
+
+
+  def binaryInductZeroWithOtherWidth(zeroFactory: (BigInt, Int) => Expression,strictResize : Boolean = false)(op : BinaryOperatorWidthableInputs): Expression = {
+    def doIt(left : Expression with WidthProvider, right : Expression with WidthProvider) : Expression = {
+      if(!strictResize || InputNormalize.isStrictlyResizable(left)) {
+        zeroFactory(0, right.getWidth)
+      } else {
+        op
+      }
+    }
+
+    if (op.left.getWidth == 0) {
+      return doIt(op.left, op.right)
+    }
+    if (op.right.getWidth == 0) {
+      return doIt(op.right,op.left)
+    }
+    op
+  }
 //
 //
 //
@@ -288,8 +291,8 @@ import scala.collection.mutable
 //      Component.pop(node.component)
 //    }
 //  }
-//}
-//
+}
+
 object InputNormalize {
 //  def none(node: Node): Unit = {
 //
@@ -316,22 +319,16 @@ object InputNormalize {
 //    node.remapExpressions(e => resizedOrUnfixedLit(e, targetWidth,))
 //  }
 //
-//  def isStrictlyResizable(that : Node) : Boolean = {
-//    that match{
-//      case bitVector : BitVector => {
-//        bitVector.getInput(0) match {
-//          case lit: BitVectorLiteral if (!lit.hasSpecifiedBitCount) =>
-//            true
-//          case _ if (that.hasTag(tagAutoResize)) =>
-//            true
-//          case _ =>
-//            false
-//        }
-//      }
-//      case _ =>
-//        false
-//    }
-//  }
+  def isStrictlyResizable(that : Expression) : Boolean = {
+    that match{
+      case lit: BitVectorLiteral if (!lit.hasSpecifiedBitCount) =>
+        true
+      case bv : BitVector if (bv.hasTag(tagAutoResize)) =>
+        true
+      case _ =>
+        false
+    }
+  }
 
   def resizedOrUnfixedLit(input : Expression, targetWidth : Int, factory : => Resize): Expression = {
     input match{

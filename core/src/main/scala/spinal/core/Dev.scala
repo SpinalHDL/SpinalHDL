@@ -77,6 +77,7 @@ trait ExpressionContainer{
 
 trait Expression extends BaseNode with ExpressionContainer{
   def opName : String
+  def simplifyNode: Expression = this
 }
 
 //object RefExpression{
@@ -134,6 +135,8 @@ trait Statement extends ExpressionContainer{
     previous = null
     next = null
     parentScope = null
+
+  //TODO IR remove statement from Nameable
   }
 
   def foreachStatements(func : (Statement) => Unit)

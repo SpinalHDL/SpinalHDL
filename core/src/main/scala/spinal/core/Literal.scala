@@ -27,19 +27,19 @@ package spinal.core
 //
 //
 //
-//abstract class BitVectorLiteralFactory[T <: BitVector] {
-//  def apply(): T
-//  def apply(value: Int): T = this(BigInt(value))
-//  def apply(value: Int, width: BitCount): T = this(BigInt(value),width)
-//  def apply(value: BigInt): T = getFactory(value, -1, this())
-//  def apply(value: BigInt, width: BitCount): T = getFactory(value, width.value, this().setWidth(width.value))
-//  def apply(value: String): T = bitVectorStringParser(this,value,isSigned)
-//  def getFactory : (BigInt,Int,T) => T
-//  def isSigned : Boolean
-//
-//  private[core] def newInstance(bitCount : BitCount) : T
+abstract class BitVectorLiteralFactory[T <: BitVector] {
+  def apply(): T
+  def apply(value: Int): T = this(BigInt(value))
+  def apply(value: Int, width: BitCount): T = this(BigInt(value),width)
+  def apply(value: BigInt): T = getFactory(value, -1, this())
+  def apply(value: BigInt, width: BitCount): T = getFactory(value, width.value, this().setWidth(width.value))
+  def apply(value: String): T = bitVectorStringParser(this,value,isSigned)
+  def getFactory : (BigInt,Int,T) => T
+  def isSigned : Boolean
+
+  private[core] def newInstance(bitCount : BitCount) : T
 //  def apply(bitCount : BitCount,rangesValue : Tuple2[Any,Any], _rangesValues: Tuple2[Any,Any]*) : T = this.aggregate(bitCount,rangesValue +: _rangesValues)
-//
+
 //  private def aggregate(bitCount : BitCount,rangesValues: Seq[Tuple2[Any,Any]]) : T = {
 //    val ret : T = this.newInstance(bitCount.value bit)
 //    applyTuples(ret,rangesValues)
@@ -99,15 +99,18 @@ package spinal.core
 //
 //    this.aggregate(hig + 1 bit,rangesValues)
 //  }
-//}
-//
-//object B extends BitVectorLiteralFactory[Bits] {
-//  def apply() : Bits = new Bits()
-//  def apply(that: Data) : Bits = that.asBits
-//  override private[core] def newInstance(bitCount: BitCount): Bits = Bits(bitCount)
-//  override def isSigned: Boolean = false
-//  override def getFactory: (BigInt, Int, Bits) => Bits = BitsLiteral.apply[Bits]
-//}
+}
+
+object B extends BitVectorLiteralFactory[Bits] {
+  def apply() : Bits = new Bits()
+//  def apply(that: Data) : Bits = that.asBits //TODO IR
+  override private[core] def newInstance(bitCount: BitCount): Bits = Bits(bitCount)
+  override def isSigned: Boolean = false
+
+  override def getFactory: (BigInt, Int, Bits) => Bits = {
+    BitsLiteral.apply[Bits]
+  }
+}
 //
 //object U extends BitVectorLiteralFactory[UInt] {
 //  def apply() : UInt = new UInt()
@@ -142,25 +145,25 @@ trait Literal extends Expression {
 
 //  override def addAttribute(attribute: Attribute): Literal.this.type = addTag(attribute)
 }
-//
-//object BitsLiteral {
-//  def apply(value: BigInt, specifiedBitCount: Int): BitsLiteral = {
-//    val valueBitCount = value.bitLength
-//    var bitCount = specifiedBitCount
-//    if (value < 0) throw new Exception("literal value is negative and can be represented")
-//    if (bitCount != -1) {
-//      if (valueBitCount > bitCount) throw new Exception("literal width specification is to small")
-//    } else {
-//      bitCount = valueBitCount
-//    }
-//    new BitsLiteral(value, bitCount,specifiedBitCount != -1)
-//  }
-//  def apply[T <: Node](value: BigInt, specifiedBitCount: Int,on : T) : T ={
-//    on.setInput(0,apply(value,specifiedBitCount))
-//    on
-//  }
-//}
-//
+
+object BitsLiteral {
+  def apply(value: BigInt, specifiedBitCount: Int): BitsLiteral = {
+    val valueBitCount = value.bitLength
+    var bitCount = specifiedBitCount
+    if (value < 0) throw new Exception("literal value is negative and can be represented")
+    if (bitCount != -1) {
+      if (valueBitCount > bitCount) throw new Exception("literal width specification is to small")
+    } else {
+      bitCount = valueBitCount
+    }
+    new BitsLiteral(value, bitCount,specifiedBitCount != -1)
+  }
+  def apply[T <: BitVector](value: BigInt, specifiedBitCount: Int,on : T) : T ={
+    on.assignFrom(apply(value,specifiedBitCount))
+    on
+  }
+}
+
 //object UIntLiteral {
 //  def apply(value: BigInt, specifiedBitCount: Int): UIntLiteral = {
 //    val valueBitCount = value.bitLength

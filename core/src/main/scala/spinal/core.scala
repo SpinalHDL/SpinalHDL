@@ -126,18 +126,18 @@ package object core extends BaseTypeFactory with BaseTypeCast {
 //  implicit def BigIntToUInt(that: BigInt) : UInt = U(that)
 //  implicit def IntToSInt(that: Int) : SInt = S(that)
 //  implicit def BigIntToSInt(that: BigInt) : SInt = S(that)
-//  implicit def IntToBits(that: Int) : Bits = B(that)
-//  implicit def BigIntToBits(that: BigInt) : Bits = B(that)
-//  implicit def StringToBits(that: String) : Bits = bitVectorStringParser(spinal.core.B, that, signed = false)
+  implicit def IntToBits(that: Int) : Bits = B(that)
+  implicit def BigIntToBits(that: BigInt) : Bits = B(that)
+  implicit def StringToBits(that: String) : Bits = bitVectorStringParser(spinal.core.B, that, signed = false)
 //  implicit def StringToUInt(that: String) : UInt = bitVectorStringParser(spinal.core.U, that, signed = false)
 //  implicit def StringToSInt(that: String) : SInt = bitVectorStringParser(spinal.core.S, that, signed = true)
 //
   implicit class LiteralBuilder(private val sc: StringContext) {
-//    def B(args: Any*): Bits = bitVectorStringParser(spinal.core.B, getString(args), signed = false)
+    def B(args: Any*): Bits = bitVectorStringParser(spinal.core.B, getString(args), signed = false)
 //    def U(args: Any*): UInt = bitVectorStringParser(spinal.core.U, getString(args), signed = false)
 //    def S(args: Any*): SInt = bitVectorStringParser(spinal.core.S, getString(args), signed = true)
 //    def M(args: Any*): MaskedLiteral = MaskedLiteral(sc.parts(0))
-//    def Bits(args: Any*): Bits = B(args)
+    def Bits(args: Any*): Bits = B(args)
 //    def UInt(args: Any*): UInt = U(args)
 //    def SInt(args: Any*): SInt = S(args)
 
@@ -160,72 +160,72 @@ package object core extends BaseTypeFactory with BaseTypeCast {
     }
   }
 
-//  private[core] def bitVectorStringParser[T <: BitVector](builder: BitVectorLiteralFactory[T], arg: String, signed: Boolean): T = {
-//    def error() = SpinalError(s"$arg literal is not well formed [bitCount'][radix]value")
-//
-//    def strBinToInt(valueStr: String, radix: Int, bitCount: Int) = if (!signed) {
-//      BigInt(valueStr, radix)
-//    } else {
-//      val v = BigInt(valueStr, radix)
-//      val bitCountPow2 = BigInt(1) << bitCount
-//      if (v >= bitCountPow2) SpinalError("Value is bigger than bit count")
-//      if (!v.testBit(bitCount - 1)) v else -bitCountPow2 + v
-//    }
-//
-//    var str = arg.replace("_", "").toLowerCase
-//    if (str == "") return builder(0, 0 bit)
-//
-//    var bitCount = -1
-//
-//    if (str.contains(''')) {
-//      val split = str.split(''')
-//      bitCount = split(0).toInt
-//      str = split(1)
-//    }
-//
-//    var radix = -1
-//
-//    if ("01".contains(str.charAt(0))) {
-//      radix = 2
-//    } else {
-//      radix = str.charAt(0) match {
-//        case 'x' => 16
-//        case 'h' => 16
-//        case 'd' => 10
-//        case 'o' => 8
-//        case 'b' => 2
-//        case c => SpinalError(s"$c is not a valid radix specification. x-d-o-b are allowed")
-//      }
-//      str = str.tail
-//    }
-//
-//    val minus = if (str.charAt(0) == '-') {
-//      str = str.tail
-//      if (radix != 10) SpinalError("Can't have minus on non decimal values")
-//      true
-//    } else {
-//      false
-//    }
-//
-//    val digitCount = str.length
-//    if (bitCount == -1) bitCount = radix match {
-//      case 16 => digitCount * 4
-//      case 8 => digitCount * 3
-//      case 2 => digitCount
-//      case _ => -1
-//    }
-//
-//    val value = radix match {
-//      case 10 => if (minus) -BigInt(str, radix) else BigInt(str, radix)
-//      case _ => strBinToInt(str, radix, bitCount)
-//    }
-//
-//    if (bitCount == -1) {
-//      builder(value)
-//    } else {
-//      builder(value, bitCount bit)
-//    }
-//  }
+  private[core] def bitVectorStringParser[T <: BitVector](builder: BitVectorLiteralFactory[T], arg: String, signed: Boolean): T = {
+    def error() = SpinalError(s"$arg literal is not well formed [bitCount'][radix]value")
+
+    def strBinToInt(valueStr: String, radix: Int, bitCount: Int) = if (!signed) {
+      BigInt(valueStr, radix)
+    } else {
+      val v = BigInt(valueStr, radix)
+      val bitCountPow2 = BigInt(1) << bitCount
+      if (v >= bitCountPow2) SpinalError("Value is bigger than bit count")
+      if (!v.testBit(bitCount - 1)) v else -bitCountPow2 + v
+    }
+
+    var str = arg.replace("_", "").toLowerCase
+    if (str == "") return builder(0, 0 bit)
+
+    var bitCount = -1
+
+    if (str.contains(''')) {
+      val split = str.split(''')
+      bitCount = split(0).toInt
+      str = split(1)
+    }
+
+    var radix = -1
+
+    if ("01".contains(str.charAt(0))) {
+      radix = 2
+    } else {
+      radix = str.charAt(0) match {
+        case 'x' => 16
+        case 'h' => 16
+        case 'd' => 10
+        case 'o' => 8
+        case 'b' => 2
+        case c => SpinalError(s"$c is not a valid radix specification. x-d-o-b are allowed")
+      }
+      str = str.tail
+    }
+
+    val minus = if (str.charAt(0) == '-') {
+      str = str.tail
+      if (radix != 10) SpinalError("Can't have minus on non decimal values")
+      true
+    } else {
+      false
+    }
+
+    val digitCount = str.length
+    if (bitCount == -1) bitCount = radix match {
+      case 16 => digitCount * 4
+      case 8 => digitCount * 3
+      case 2 => digitCount
+      case _ => -1
+    }
+
+    val value = radix match {
+      case 10 => if (minus) -BigInt(str, radix) else BigInt(str, radix)
+      case _ => strBinToInt(str, radix, bitCount)
+    }
+
+    if (bitCount == -1) {
+      builder(value)
+    } else {
+      builder(value, bitCount bit)
+    }
+  }
 
   implicit def DataPimped[T <: Data](that: T) : DataPimper[T] = new DataPimper(that)
 
