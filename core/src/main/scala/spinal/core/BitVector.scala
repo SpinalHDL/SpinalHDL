@@ -100,8 +100,9 @@ abstract class BitVector extends BaseType with Widthable /*with CheckWidth*/ {
 //  def rotateLeft(that: Int): T
 //  /** Right rotation of that bits */
 //  def rotateRight(that: Int): T
-//
-//
+
+  private[core] def resizeFactory : Resize
+
 //  /** Return true if the BitVector has a fixed width */
   private[core] def isFixedWidth = fixedWidth != -1
 
@@ -136,12 +137,12 @@ abstract class BitVector extends BaseType with Widthable /*with CheckWidth*/ {
 //
 //  private[core] override def normalizeInputs: Unit = InputNormalize.resizedOrUnfixedLit(this, 0, this.getWidth)
 //
-//  /**
-//    * Resize the bitVector to width
-//    * @example{{{ val res = myBits.resize(10) }}}
-//    * @return a resized bitVector
-//    */
-//  def resize(width: Int): this.type
+  /**
+    * Resize the bitVector to width
+    * @example{{{ val res = myBits.resize(10) }}}
+    * @return a resized bitVector
+    */
+  def resize(width: Int): BitVector
 
   private[core] override def calcWidth: Int = {
     if (isFixedWidth) return fixedWidth
@@ -269,7 +270,7 @@ abstract class BitVector extends BaseType with Widthable /*with CheckWidth*/ {
 //          case x: DontCareNode             => BitVector.this.assignFrom(new RangedAssignmentFixed(BitVector.this, new DontCareNodeFixed(BitVector.this, hi - lo + 1), hi, lo), true)
 //          case x: BitAssignmentFixed       => BitVector.this.apply(lo + that.getBitId).assignFrom(that.getInput, true)
 //          case x: BitAssignmentFloating    => BitVector.this.apply(lo + that.getBitId.asInstanceOf[UInt]).assignFrom(that.getInput, true)
-          case x: RangedAssignmentFixed    => BitVector.this.apply(lo + x.hi, lo + x.lo).assignFrom(x.out)
+          case x: RangedAssignmentFixed    => BitVector.this.apply(lo + x.hi, lo + x.lo).assignFrom(that)
 //          case x: RangedAssignmentFloating => BitVector.this.apply(lo + that.getOffset.asInstanceOf[UInt], that.getBitCount).assignFrom(that.getInput, true)
         }
 

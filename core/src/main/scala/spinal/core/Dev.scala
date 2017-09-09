@@ -44,6 +44,7 @@ trait NameableExpression extends Expression with Nameable{
 
 
 trait ExpressionContainer{
+  def normalizeInputs: Unit = {}
   def remapExpressions(func : (Expression) => Expression) : Unit
   def remapDrivingExpressions(func : (Expression) => Expression) : Unit = remapExpressions(func)
   def foreachExpression(func : (Expression) => Unit) : Unit
@@ -114,11 +115,27 @@ object Statement{
 }
 trait Statement extends ExpressionContainer{
   var parentScope : ScopeStatement = null
+  var previous, next : Statement = null
   def rootScopeStatement: ScopeStatement = if(parentScope.parentStatement != null) parentScope.parentStatement.rootScopeStatement else parentScope
 //  def isConditionalStatement : Boolean
-//  var previous, next : Statement = null
 
-  def removeStatement() : Unit = parentScope.content -= this
+//  def removeStatement() : Unit = parentScope.content -= this
+  def removeStatement() : Unit = {
+    if(previous != null){
+      previous.next = next
+    } else {
+      parentScope.head = next
+    }
+    if(next != null){
+      next.previous = previous
+    } else {
+      parentScope.last = previous
+    }
+    previous = null
+    next = null
+    parentScope = null
+  }
+
   def foreachStatements(func : (Statement) => Unit)
   def walkStatements(func : (Statement) => Unit): Unit ={
     foreachStatements(s => {
@@ -158,9 +175,8 @@ object AssignementStatement{
   def unapply(x : AssignementStatement) : Option[(Expression, Expression)] = Some(x.target, x.source)
 }
 
-class AssignementStatement extends LeafStatement{
+abstract class AssignementStatement extends LeafStatement{
   var target, source : Expression = null
-
   override def rootScopeStatement = finalTarget.rootScopeStatement
   def finalTarget = target match{
     case n : NameableExpression => n
@@ -227,6 +243,8 @@ class WhenStatement(var cond : Expression) extends TreeStatement{
 
 //  override def isConditionalStatement: Boolean = true
 
+  override def normalizeInputs: Unit = {}
+
   def foreachStatements(func : (Statement) => Unit) = {
     whenTrue.foreachStatements(func)
     whenFalse.foreachStatements(func)
@@ -242,22 +260,59 @@ class WhenStatement(var cond : Expression) extends TreeStatement{
 }
 
 class ScopeStatement(var parentStatement : TreeStatement)/* extends ExpressionContainer*/{
-  val content = mutable.ListBuffer[Statement]() //TODO IR ! linkedlist  hard
+//  val content = mutable.ListBuffer[Statement]() //TODO IR ! linkedlist  hard
+//
+//  def sizeIsOne = content.length == 1 //TODO faster
+//  def head = content.head
+//  def append(that : Statement) : this.type = {
+//    content += that
+//    this
+//  }
+//
+//  def prepend(that : Statement) : this.type = {
+//    content.prepend(that)
+//    this
+//  }
+//
+//  def foreachStatements(func : (Statement) => Unit) = {
+//    content.foreach(func)
+//  }
+  var head, last : Statement = null
 
-  def sizeIsOne = content.length == 1 //TODO faster
-  def head = content.head
-  def append(that : Statement) : this.type = {
-    content += that
+  def sizeIsOne = head != null && head == last
+  def prepend(that : Statement) : this.type = {
+    if(head != null){
+      head.previous = that
+    } else {
+      last = that
+    }
+    that.next = head
+    that.previous = null
+
+    head = that
+
     this
   }
 
-  def prepend(that : Statement) : this.type = {
-    content.prepend(that)
+  def append(that : Statement) : this.type = {
+    that.next = null
+    that.previous = last
+    if(last != null){
+      last.next = that
+    } else {
+      head = that
+    }
+
+    last = that
     this
   }
 
   def foreachStatements(func : (Statement) => Unit) = {
-    content.foreach(func)
+    var ptr = head
+    while(ptr != null){
+      func(ptr)
+      ptr = ptr.next
+    }
   }
 
   def walkStatements(func : (Statement) => Unit): Unit ={

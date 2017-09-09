@@ -179,9 +179,12 @@ abstract class BaseType extends Data with NameableExpression{
   def isUsingSoftResetSignal: Boolean = clockDomain.softReset != null  && hasInit
   def clockDomain = dslContext.clockDomain
 
+
 //  def isDrivedIn(c : Component) = dir match {
 //    case `in` => c.parent == component
 //  }
+
+  override def normalizeInputs: Unit = {}
 
   def hasInit : Boolean = {
     foreachStatements(s => if(s.isInstanceOf[InitAssignementStatement]) return true)
@@ -203,7 +206,7 @@ abstract class BaseType extends Data with NameableExpression{
 //  override def getInputs: Iterator[Node] = Iterator(input)
 //  override def getInput(id: Int): Node = { assert(id == 0); input }
 //
-  private[core] def canSymplifyIt = !dontSimplify && isUnnamed//&& !existsTag(!_.canSymplifyHost)
+  private[core] def canSymplifyIt = !dontSimplify && isUnnamed && !existsTag(!_.canSymplifyHost)
 //
 //
 //  def removeAssignements() : this.type = {

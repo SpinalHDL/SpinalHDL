@@ -16,21 +16,29 @@ object PlayBits{
     val d, e, f = out Bool()
     val g, h, i, j = Bits(8 bits)
     val x,y,z = out( Reg(Bits(8 bits)))
-    val tmp = a & b & c
-    val xx = g & a
-    i := h
-    x := x & a
+//    val tmp = a & b & c
+//    val xx = g & a
+//    i := h
+//    x := x & a
     val bits4 = Bits(4 bits)
-    bits4 := a(3 downto 0)
-    bits4 := (a(5 downto 0) & b(5 downto 0))(3 downto 0)
+//    bits4 := a(3 downto 0)
+//    bits4 := (a(5 downto 0) & b(5 downto 0))(3 downto 0)
+//
+//    g(3 downto 0) := a
+//    g(2 downto 0) := a
+//    g(7 downto 3)(3 downto 1)(1 downto 1) := a
+//
+//    val tmp2 = Bits()
+//    tmp2(3 downto 0) := a(1 downto 0)
+//    tmp2(5 downto 2) := a(5 downto 2)
+//
+//    val miaou = a.resize(2)
+//    miaou := b.resize(4)
+//    miaou := c.resize(3)
 
-    g(3 downto 0) := a
-    g(2 downto 0) := a
-    g(7 downto 3)(3 downto 1)(1 downto 1) := a
-
-    val tmp2 = Bits()
-    tmp2(3 downto 0) := a(1 downto 0)
-    tmp2(5 downto 2) := a(5 downto 2)
+    val yy = bits4.resized & c.resized
+    bits4 := a.resized
+    bits4 := (a & b).resized
 
   }
 
@@ -288,18 +296,21 @@ object PlayHeavyload {
   }
 
   def main(args: Array[String]) {
-    var toplevel = SpinalVhdl(new TopLevel(10000)).toplevel
-    toplevel = SpinalVhdl(new TopLevel(50000)).toplevel
-    toplevel = SpinalVhdl(new TopLevel(10000)).toplevel
-//
-//    var statementCount, expressionCount = 0
-//    toplevel.dslBody.walkStatements(s => {
-//      statementCount += 1
-//      s.walkExpression(e => {
-//        expressionCount += 1
-//      })
-//    })
-//     print("DONE " + toplevel.getName() + " " + statementCount + " " + expressionCount)
+    def printInfo(toplevel : Component): Unit ={
+      var statementCount, expressionCount = 0
+      toplevel.dslBody.walkStatements(s => {
+        statementCount += 1
+        s.walkExpression(e => {
+          expressionCount += 1
+        })
+      })
+      print("DONE " + toplevel.getName() + " " + statementCount + " " + expressionCount)
+    }
+    printInfo(SpinalVhdl(new TopLevel(10000)).toplevel)
+    printInfo(SpinalVhdl(new TopLevel(50000)).toplevel)
+    printInfo(SpinalVhdl(new TopLevel(10000)).toplevel)
+
+
   }
 }
 

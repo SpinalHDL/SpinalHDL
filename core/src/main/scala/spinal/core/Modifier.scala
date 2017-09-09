@@ -18,32 +18,29 @@
 // */
 //
 package spinal.core
-//
+
 import scala.collection.mutable.ArrayBuffer
-//
-//
-//
-//
-//
-//
-//
-//abstract class Resize extends Modifier with Widthable{
-//  var size : Int = -1
-//  var input : Node with WidthProvider = null
-//  override def onEachInput(doThat: (Node, Int) => Unit): Unit = doThat(input,0)
-//  override def onEachInput(doThat: (Node) => Unit): Unit = doThat(input)
-//  override def setInput(id: Int, node: Node): Unit = {assert(id == 0); this.input = node.asInstanceOf[Node with WidthProvider]}
-//  override def getInputsCount: Int = 1
-//  override def getInputs: Iterator[Node] = Iterator(input)
-//  override def getInput(id: Int): Node = {assert(id == 0); input}
-//
-//  override def calcWidth(): Int = size
-//}
-//
-//class ResizeBits extends Resize{
-//  override def opName: String = "resize(b,i)"
+
+
+
+
+
+
+
+abstract class Resize extends Expression with WidthProvider{
+  var size : Int = -1
+  var input : Expression with WidthProvider = null
+
+  override def getWidth(): Int = size
+
+  override def foreachExpression(func: (Expression) => Unit): Unit = func(input)
+  override def remapExpressions(func: (Expression) => Expression): Unit = input = func(input).asInstanceOf[Expression with WidthProvider]
+}
+
+class ResizeBits extends Resize{
+  override def opName: String = "resize(b,i)"
 //  override def simplifyNode: Unit = SymplifyNode.resizeImpl2(B.apply,this)
-//}
+}
 //class ResizeUInt extends Resize{
 //  override def opName: String = "resize(u,i)"
 //  override def simplifyNode: Unit = SymplifyNode.resizeImpl2(U.apply,this)
@@ -135,37 +132,37 @@ object Operator{
   object Bool{
     class And extends BinaryOperator{
       override def opName: String = "&&"
-//      override def normalizeInputs: Unit = {}
+      override def normalizeInputs: Unit = {}
 //      override def simplifyNode: Unit = {}
     }
 
     class Or extends BinaryOperator{
       override def opName: String = "||"
-//      override def normalizeInputs: Unit = {}
+      override def normalizeInputs: Unit = {}
 //      override def simplifyNode: Unit = {}
     }
 //
     class Xor extends BinaryOperator{
       override def opName: String = "B^B"
-//      override def normalizeInputs: Unit = {}
+      override def normalizeInputs: Unit = {}
 //      override def simplifyNode: Unit = {}
     }
 
     class Not extends UnaryOperator{
       override def opName: String = "!"
-//      override def normalizeInputs: Unit = {}
+      override def normalizeInputs: Unit = {}
 //      override def simplifyNode: Unit = {}
     }
 
     class Equal extends BinaryOperator{
       override def opName: String = "B==B"
-//      override def normalizeInputs: Unit = {}
+      override def normalizeInputs: Unit = {}
 //      override def simplifyNode: Unit = {}
     }
 
     class NotEqual extends BinaryOperator{
       override def opName: String = "B!=B"
-//      override def normalizeInputs: Unit = {}
+      override def normalizeInputs: Unit = {}
 //      override def simplifyNode: Unit = {}
     }
   }
@@ -173,7 +170,11 @@ object Operator{
   object BitVector{
     abstract class And extends BinaryOperatorWidthableInputs with Widthable{
       override def calcWidth(): Int = Math.max(left.getWidth,right.getWidth)
-//      override def normalizeInputs: Unit = InputNormalize.resizedOrUnfixedLit(this)
+      override def normalizeInputs: Unit = {
+        left = InputNormalize.resizedOrUnfixedLit(left, getWidth,resizeFactory).asInstanceOf[T]
+        right = InputNormalize.resizedOrUnfixedLit(right, getWidth,resizeFactory).asInstanceOf[T]
+      }
+      def resizeFactory : Resize
 //      override private[core] def checkInferedWidth: Unit = CheckWidth.allSame(this)
 //      override def simplifyNode: Unit = SymplifyNode.binaryInductZeroWithOtherWidth(getLiteralFactory,true)(this)
 //      def getLiteralFactory : (BigInt, BitCount) => Node
@@ -316,6 +317,7 @@ object Operator{
 //
     class And extends BitVector.And{
       override def opName: String = "b&b"
+      def resizeFactory : Resize = new ResizeBits
       //override def getLiteralFactory: (BigInt, BitCount) => Node = B.apply
     }
 //
@@ -1023,6 +1025,8 @@ abstract class BitVectorRangedAccessFixed extends SubAccess with WidthProvider{
   var source : Expression = null
   var hi, lo = -1
 
+  //TODO IR
+  override def normalizeInputs: Unit = {}
 
   def checkHiLo : Unit = if (hi - lo < -1)
     SpinalError(s"Static bits extraction with a negative size ($hi downto $lo)")
@@ -1449,6 +1453,8 @@ class RangedAssignmentFixed(var out: BitVector,var hi: Int,var lo: Int) extends 
 //  def getOutBaseType: BaseType = out
 //  override def clone(out: Node): this.type = new RangedAssignmentFixed(out.asInstanceOf[BitVector],in,hi,lo).asInstanceOf[this.type]
 
+  override def normalizeInputs: Unit = {}
+
   override def opName: String = "x(hi:lo) <="
 
   override def remapExpressions(func: (Expression) => Expression): Unit = {
@@ -1663,6 +1669,8 @@ object ERROR    extends AssertNodeSeverity
 object FAILURE  extends AssertNodeSeverity
 
 case class AssertStatement(var cond : Expression, message : Seq[Any],severity : AssertNodeSeverity) extends LeafStatement with ContextUser {
+  override def normalizeInputs: Unit = {}
+
   override def foreachExpression(func: (Expression) => Unit): Unit = {
     func(cond)
     message.foreach(_ match {

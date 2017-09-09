@@ -98,6 +98,19 @@ class PhaseContext(val config : SpinalConfig){
   }
   def sortedComponents = components.sortWith(_.level > _.level)
 
+  def walkStatements(func : Statement => Unit): Unit ={
+    GraphUtils.walkAllComponents(topLevel, c => c.dslBody.walkStatements(func))
+  }
+
+  def walkExpression(func : Expression => Unit): Unit ={
+    GraphUtils.walkAllComponents(topLevel, c => c.dslBody.walkStatements(s => s .walkExpression(func)))
+  }
+
+
+  def walkDrivingExpression(func : Expression => Unit): Unit ={
+    GraphUtils.walkAllComponents(topLevel, c => c.dslBody.walkStatements(s => s.walkDrivingExpressions(func)))
+  }
+
 //  def walkNodesDefautStack = {
 //    val nodeStack = mutable.Stack[Node]()
 //
@@ -883,46 +896,39 @@ class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
     globalData.nodeAreInferringWidth = true
 
     var algoId = 1
-    GraphUtils.walkAllComponents(pc.topLevel, c => {
-      c.dslBody.walkStatements(s => s.walkExpression(e => {
-        e.algoId = 0
-      }))
-    })
+    walkExpression(_.algoId = 0)
+
 
 
     var iterationCounter = 0
     while (true) {
       iterationCounter = iterationCounter + 1
       var somethingChange = false
-      GraphUtils.walkAllComponents(pc.topLevel, c => {
-        c.dslBody.walkStatements(s => s.walkExpression(e => e match {
-          case e : Widthable =>
-            if(e.algoId < algoId){
-              val hasChange = e.inferWidth
-              somethingChange = somethingChange || hasChange
-              e.algoId = algoId
-            }
-          case _ =>
-        }))
+      walkExpression(e => e match {
+        case e : Widthable =>
+          if(e.algoId < algoId){
+            val hasChange = e.inferWidth
+            somethingChange = somethingChange || hasChange
+            e.algoId = algoId
+          }
+        case _ =>
       })
       algoId += 1
 
       if (!somethingChange || iterationCounter == 10000) {
         val errors = mutable.ArrayBuffer[String]()
-        GraphUtils.walkAllComponents(pc.topLevel, c => {
-          c.dslBody.walkStatements(s => s.walkExpression(e => e match {
-            case e : Widthable =>
-              if(e.algoId < algoId){
-                if (e.inferWidth) {
-                  //Don't care about Reg width inference
-                  errors += s"Can't infer width on ${e.getScalaLocationLong}"
-                }
-                if (e.widthWhenNotInferred != -1 && e.widthWhenNotInferred != e.getWidth) {
-                  errors += s"getWidth call result during elaboration differ from inferred width on\n${e.getScalaLocationLong}"
-                }
+        walkExpression(e => e match {
+          case e : Widthable =>
+            if(e.algoId < algoId){
+              if (e.inferWidth) {
+                //Don't care about Reg width inference
+                errors += s"Can't infer width on ${e.getScalaLocationLong}"
               }
-            case _ =>
-          }))
+              if (e.widthWhenNotInferred != -1 && e.widthWhenNotInferred != e.getWidth) {
+                errors += s"getWidth call result during elaboration differ from inferred width on\n${e.getScalaLocationLong}"
+              }
+            }
+          case _ =>
         })
         algoId += 1
         if (errors.nonEmpty)
@@ -1086,17 +1092,36 @@ class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
 //  }
 //}
 //
-//class PhaseNormalizeNodeInputs(pc: PhaseContext) extends PhaseNetlist{
-//  override def useNodeConsumers = false
-//  override def impl(pc : PhaseContext): Unit = {
-//    import pc._
+class PhaseNormalizeNodeInputs(pc: PhaseContext) extends PhaseNetlist{
+  override def useNodeConsumers = false
+  override def impl(pc : PhaseContext): Unit = {
+    import pc._
+
+    walkStatements(s => {
+      s.walkExpression(e => {
+        e.normalizeInputs
+      })
+      s match {
+        case s : AssignementStatement => {
+          val finalTarget = s.finalTarget
+          finalTarget match {
+            case finalTarget : BitVector => {
+              s.source = InputNormalize.resizedOrUnfixedLit(s.source, finalTarget.getWidth, finalTarget.resizeFactory)
+            }
+            case _ =>
+          }
+        }
+        case _ =>
+      }
+    })
+
 //    Node.walk(walkNodesDefautStack,(node,push) => {
 //      node.onEachInput(push(_))
 //      node.normalizeInputs
 //    })
-//  }
-//}
-//
+  }
+}
+
 //class PhaseCheckInferredWidth(pc: PhaseContext) extends PhaseCheck{
 //  override def useNodeConsumers = true
 //  override def impl(pc : PhaseContext): Unit = {
@@ -1338,62 +1363,58 @@ class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
 //
 
 //TODO IR ClockDomains
-class PhaseDeleteUselessBaseTypes(pc: PhaseContext) extends PhaseNetlist{
+class PhaseDeleteUselessBaseTypes(pc: PhaseContext, removeResizedTag : Boolean) extends PhaseNetlist{
   override def useNodeConsumers = true
   override def impl(pc : PhaseContext): Unit = {
     import pc._
 
     //Reset algoId of all referenced driving things
-    GraphUtils.walkAllComponents(pc.topLevel, c => {
-      c.dslBody.walkStatements(_.walkExpression(_ match {
-        case ref: NameableExpression => {
-          ref.algoId = 0
-        }
-        case _ =>
-      }))
+    walkExpression(_ match {
+      case ref: NameableExpression => {
+        ref.algoId = 0
+        if(removeResizedTag && ref.isInstanceOf[SpinalTagReady])
+          ref.asInstanceOf[SpinalTagReady].removeTag(tagAutoResize)
+      }
+      case _ =>
     })
 
     //Count the number of driving reference done on each ref.source
-    GraphUtils.walkAllComponents(pc.topLevel, c => {
-      c.dslBody.walkStatements(s => s.walkDrivingExpressions(e => e match {
-        case ref : NameableExpression => {
-          ref.algoId += 1
-        }
-        case _ =>
-      }))
+    walkDrivingExpression(e => e match {
+      case ref : NameableExpression => {
+        ref.algoId += 1
+      }
+      case _ =>
     })
 
-    GraphUtils.walkAllComponents(pc.topLevel, c => {
-      c.dslBody.walkStatements(s => {
-        //Bypass useless basetypes (referenced only once)
-        s.walkRemapDrivingExpressions(e => e match {
-          case ref : BaseType => {
-            if(ref.algoId == 1 && ref.isComb && ref.isDirectionLess && ref.canSymplifyIt && ref.hasOnlyOneStatement && Statement.isSomethingToFullStatement(ref.headStatement)){ //TODO IR keep it
-              ref.algoId = 0
-              ref.headStatement.removeStatement()
-              ref.headStatement.source
-            } else {
-              ref.algoId = 0
-              ref
-            }
+    walkStatements(s => {
+      //Bypass useless basetypes (referenced only once)
+      s.walkRemapDrivingExpressions(e => e match {
+        case ref : BaseType => {
+          if(ref.algoId == 1 && ref.isComb && ref.isDirectionLess && ref.canSymplifyIt && ref.hasOnlyOneStatement && Statement.isSomethingToFullStatement(ref.headStatement)){ //TODO IR keep it
+            ref.algoId = 0
+            ref.headStatement.removeStatement()
+            ref.headStatement.source
+          } else {
+            ref.algoId = 0
+            ref
           }
-          case e => e
-        })
-
-        //Remove assignement which drive useless base types
-        s match {
-          case s : AssignementStatement => {
-            s.finalTarget match {
-              case target : BaseType => if(target.algoId == 0 && target.isDirectionLess && target.canSymplifyIt){
-                s.removeStatement()
-              }
-              case _ =>
-            }
-
-          }
-          case _ =>
         }
+        case e => e
       })
+
+      //Remove assignement which drive useless base types
+      s match {
+        case s : AssignementStatement => {
+          s.finalTarget match {
+            case target : BaseType => if(target.algoId == 0 && target.isDirectionLess && target.canSymplifyIt){
+              s.removeStatement()
+            }
+            case _ =>
+          }
+
+        }
+        case _ =>
+      }
     })
   }
 }
@@ -1846,6 +1867,9 @@ object SpinalVhdlBoot{
     phases += new PhaseDummy(SpinalProgress("Transform connections"))
     phases += new PhasePullClockDomains(pc)
 
+    phases += new PhaseDeleteUselessBaseTypes(pc, false)
+
+
     phases += new PhaseDummy(SpinalProgress("Infer nodes's bit width"))
 //    phases += new PhasePreInferationChecks(pc)
 //    phases += new PhaseInferEnumEncodings(pc,e => e)
@@ -1853,12 +1877,13 @@ object SpinalVhdlBoot{
 //    phases += new PhaseSimplifyNodes(pc)
     phases += new PhaseInferWidth(pc)
 //    phases += new PhasePropagateBaseTypeWidth(pc)
-//    phases += new PhaseNormalizeNodeInputs(pc)
+    phases += new PhaseNormalizeNodeInputs(pc)
 //    phases += new PhaseResizeLiteralSimplify(pc)
 //    phases += new PhaseCheckInferredWidth(pc)
 
+
 //    phases += new PhaseDummy(SpinalProgress("Simplify graph's nodes"))
-    phases += new PhaseDeleteUselessBaseTypes(pc)
+    phases += new PhaseDeleteUselessBaseTypes(pc, true)
 
     phases += new PhaseAllocateNames(pc)
 //    phases += new PhaseRemoveComponentThatNeedNoHdlEmit(pc)
@@ -1947,6 +1972,7 @@ object SpinalVhdlBoot{
 
 
     for(phase <- phases){
+      SpinalProgress(phase.getClass.getName)
       pc.doPhase(phase)
     }
 

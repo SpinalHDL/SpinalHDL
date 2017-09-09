@@ -134,7 +134,8 @@ package spinal.core
 
 trait Literal extends Expression {
   override def clone: this.type = ???
-  override def foreachExpression(func: (Expression) => Unit): Unit = {}
+  final override def foreachExpression(func: (Expression) => Unit): Unit = {}
+  final override def remapExpressions(func: (Expression) => Expression): Unit = {}
   private[core] def getBitsStringOn(bitCount : Int) : String
   def getValue() : BigInt
 
@@ -194,36 +195,37 @@ trait Literal extends Expression {
 //  }
 //}
 //
-////WARNING if flatten it into bits,uint,sint variation, need to patch caseify isSwitchable
-//abstract class BitVectorLiteral(val value: BigInt, val bitCount: Integer,val hasSpecifiedBitCount : Boolean) extends Literal with Widthable {
-//  override def calcWidth: Int = bitCount
-//  if(globalData.nodeAreInferringWidth) inferredWidth = bitCount
-//
-//
-//  override def getValue(): BigInt = value
-//
-//  override def getBitsStringOn(bitCount: Int): String = {
-//    def makeIt(fillWidth : Boolean) : String = {
-//      val str = (if(value > 0) value else ((BigInt(1) << bitCount) + value)).toString(2)
-//      val filling = if(fillWidth) "1" else "0"
-//      return (filling * (bitCount - str.length) + str).takeRight(bitCount)
-//    }
-//
-//    makeIt(isSignedKind && value < 0)
-//  }
-//
-//
-//  def minimalValueBitWidth : Int = {
-//    value.bitLength + (if(isSignedKind && value != 0) 1 else 0)
-//  }
-//
-//  def isSignedKind : Boolean
-//}
-//
-//class BitsLiteral(value: BigInt, bitCount: Integer,hasSpecifiedBitCount : Boolean) extends BitVectorLiteral(value,bitCount,hasSpecifiedBitCount){
-//  override def isSignedKind: Boolean = false
-//  override def clone(): this.type = new BitsLiteral(value, bitCount,hasSpecifiedBitCount).asInstanceOf[this.type]
-//}
+
+abstract class BitVectorLiteral(var value: BigInt, var bitCount: Integer,val hasSpecifiedBitCount : Boolean) extends Literal with WidthProvider {
+  override def getWidth: Int = bitCount
+  override def getValue(): BigInt = value
+
+  override def getBitsStringOn(bitCount: Int): String = {
+    def makeIt(fillWidth : Boolean) : String = {
+      val str = (if(value > 0) value else ((BigInt(1) << bitCount) + value)).toString(2)
+      val filling = if(fillWidth) "1" else "0"
+      return (filling * (bitCount - str.length) + str).takeRight(bitCount)
+    }
+
+    makeIt(isSignedKind && value < 0)
+  }
+
+
+  def minimalValueBitWidth : Int = {
+    value.bitLength + (if(isSignedKind && value != 0) 1 else 0)
+  }
+
+  def isSignedKind : Boolean
+}
+
+class BitsLiteral(value: BigInt, bitCount: Integer,hasSpecifiedBitCount : Boolean) extends BitVectorLiteral(value,bitCount,hasSpecifiedBitCount){
+  override def isSignedKind: Boolean = false
+  override def clone(): this.type = new BitsLiteral(value, bitCount,hasSpecifiedBitCount).asInstanceOf[this.type]
+
+  override def opName: String = "B\"xxx\""
+
+
+}
 //class UIntLiteral(value: BigInt, bitCount: Integer,hasSpecifiedBitCount : Boolean) extends BitVectorLiteral(value,bitCount,hasSpecifiedBitCount){
 //  override def isSignedKind: Boolean = false
 //  override def clone(): this.type = new UIntLiteral(value, bitCount,hasSpecifiedBitCount).asInstanceOf[this.type]
@@ -251,6 +253,9 @@ object BoolLiteral {
 class BoolLiteral(val value: Boolean) extends Literal {
   override def opName: String = "Bool(x)"
 
+
+  override def normalizeInputs: Unit = {}
+
   override def clone(): this.type = new BoolLiteral(value).asInstanceOf[this.type]
 
   override def getValue(): BigInt = if(value) 1 else 0
@@ -258,8 +263,6 @@ class BoolLiteral(val value: Boolean) extends Literal {
     assert(bitCount == 1)
     (if(value) "1" else "0")
   }
-
-  override def remapExpressions(func: (Expression) => Expression): Unit = {}
 }
 //
 //

@@ -1782,30 +1782,15 @@ def refImpl(op: Expression): String = emitReference(op.asInstanceOf[NameableExpr
 //    val node = func.asInstanceOf[Operator.BitVector.ShiftLeftByUIntFixedWidth]
 //    s"std_logic_vector(shift_left(unsigned(${emitLogic(node.left)}),to_integer(${emitLogic(node.right)})))"
 //  }
-//
-//
-//
-//  def resizeFunction(vhdlFunc : String)(func: Modifier): String = {
-//    val resize = func.asInstanceOf[Resize]
-//    resize.input.getWidth match{
-//      case 0 => {
-//        func.getInput(0) match {
-//          /*case lit: BitsLiteral => {
-//            val bitString =  '"' + "0" ASFASF* func.getWidth + '"'
-//            lit.kind match {
-//              case _: Bits => s"pkg_stdLogicVector($bitString)"
-//              case _: UInt => s"pkg_unsigned($bitString)"
-//              case _: SInt => s"pkg_signed($bitString)"
-//            }
-//          }*/
-//          case _ => s"pkg_resize(${emitLogic(resize.input)},${resize.size})"
-//        }
-//      }
-//      case _ => s"pkg_resize(${emitLogic(resize.input)},${resize.size})"
-//    }
-//  }
-//
-//
+
+
+
+  def resizeFunction(vhdlFunc : String)(func: Expression): String = {
+    val resize = func.asInstanceOf[Resize]
+    s"pkg_resize(${emitExpression(resize.input)},${resize.size})"
+  }
+
+
 //  def enumEgualsImpl(eguals: Boolean)(op: Modifier): String = {
 //    val enumDef = op.asInstanceOf[EnumEncoded].getDefinition
 //    val encoding = op.asInstanceOf[EnumEncoded].getEncoding
@@ -1994,7 +1979,7 @@ def refImpl(op: Expression): String = emitReference(op.asInstanceOf[NameableExpr
 //
 //  expressionImplMap.put("resize(s,i)", resizeFunction("pkg_signed"))
 //  expressionImplMap.put("resize(u,i)", resizeFunction("pkg_unsigned"))
-//  expressionImplMap.put("resize(b,i)", resizeFunction("pkg_stdLogicVector"))
+  expressionMapAdd(classOf[ResizeBits], resizeFunction("pkg_stdLogicVector"), bitsTypeMapper)
 //
 //  expressionImplMap.put("bAllByB", unaryAllBy("std_logic_vector"))
 //  expressionImplMap.put("uAllByB", unaryAllBy("unsigned"))

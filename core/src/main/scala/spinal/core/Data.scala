@@ -281,12 +281,12 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   private[core] def isEquals(that: Any): Bool
   private[core] def isNotEquals(that: Any): Bool
 
-//  def resized : this.type ={
-//    val ret = cloneOf(this)
-//    ret.assignFrom(this)
-//    ret.addTag(tagAutoResize)
-//    return ret.asInstanceOf[this.type]
-//  }
+  def resized : this.type ={
+    val ret = cloneOf(this)
+    ret.assignFrom(this)
+    ret.addTag(tagAutoResize)
+    return ret.asInstanceOf[this.type]
+  }
 
 //  private[core] def autoConnect(that: Data): Unit// = (this.flatten, that.flatten).zipped.foreach(_ autoConnect _)
 

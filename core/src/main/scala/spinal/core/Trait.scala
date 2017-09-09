@@ -657,7 +657,7 @@ object crossClockBuffer extends SpinalTag{override def moveToSyncNode = true}
 object randomBoot extends SpinalTag{override def moveToSyncNode = true}
 object tagAutoResize extends SpinalTag{
   override def duplicative = true
-  override def canSymplifyHost: Boolean = true
+//  override def canSymplifyHost: Boolean = true
 }
 object tagTruncated extends SpinalTag{
   override def duplicative = true

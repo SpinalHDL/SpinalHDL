@@ -185,15 +185,18 @@ class Bits extends BitVector /*with DataPrimitives[Bits] with BitwiseOp[Bits]*/{
 //  private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse,new MultiplexerBits)
 //
 //  protected override def getAllToBoolNode(): AllByBool = new Operator.Bits.AllByBool(this)
-//
-//  override def resize(width: Int): this.type = wrapWithWeakClone({
-//    val node = new ResizeBits
-//    node.input = this
-//    node.size = width
-//    node
-//  })
-//
-//  /**
+
+  override def resize(width: Int): Bits = wrapWithWeakClone({
+    val node = new ResizeBits
+    node.input = this
+    node.size = width
+    node
+  })
+
+
+  override def resizeFactory: Resize = new ResizeBits
+
+  //  /**
 //    * Resize by keeping MSB at the same place
 //    * If the final size is bigger than the original size, the leftmost bits are filled with zeroes
 //    * if the final size is smaller, only width MSB are kept

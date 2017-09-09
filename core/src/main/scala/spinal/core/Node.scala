@@ -290,7 +290,7 @@ import scala.collection.mutable
 //  }
 //}
 //
-//object InputNormalize {
+object InputNormalize {
 //  def none(node: Node): Unit = {
 //
 //  }
@@ -311,11 +311,9 @@ import scala.collection.mutable
 //    })
 //  }
 //
-//  def resizedOrUnfixedLit(node : Node): Unit ={
+//  def resizedOrUnfixedLit(node : Expression): Unit ={
 //    val targetWidth = node.asInstanceOf[WidthProvider].getWidth
-//    node.onEachInput((input,i) => {
-//      resizedOrUnfixedLit(node, i, targetWidth)
-//    })
+//    node.remapExpressions(e => resizedOrUnfixedLit(e, targetWidth,))
 //  }
 //
 //  def isStrictlyResizable(that : Node) : Boolean = {
@@ -334,24 +332,22 @@ import scala.collection.mutable
 //        false
 //    }
 //  }
-//
-//  def resizedOrUnfixedLit(parent : Node,inputId : Int,targetWidth : Int): Unit ={
-//    val input = parent.getInput(inputId)
-//    if(input == null) return
-//      input match{
-//      case bitVector : BitVector => {
-//        bitVector.getInput(0) match{
-//          case lit : BitVectorLiteral if (! lit.hasSpecifiedBitCount) =>
-//            Misc.normalizeResize(parent, inputId, Math.max(lit.minimalValueBitWidth,targetWidth)) //Allow resize on direct literal with unfixed values
-//          case _ if(input.hasTag(tagAutoResize)) =>
-//            Misc.normalizeResize(parent, inputId, targetWidth)
-//          case _ =>
-//        }
-//      }
-//      case _ =>
-//    }
-//  }
-//
+
+  def resizedOrUnfixedLit(input : Expression, targetWidth : Int, factory : => Resize): Expression = {
+    input match{
+      case lit : BitVectorLiteral if (! lit.hasSpecifiedBitCount) =>
+        lit.bitCount = targetWidth
+        lit
+      case bt : BitVector if(bt.hasTag(tagAutoResize) && bt.getWidth != targetWidth) =>
+        val ret = factory
+        ret.input = input.asInstanceOf[Expression with WidthProvider]
+        ret.size = targetWidth
+        ret
+      case _ =>
+        input
+    }
+  }
+
 //  def resizedOrUnfixedLitDeepOne(parent : Node,inputId : Int,targetWidth : Int): Unit ={
 //    val input = parent.getInput(inputId).getInput(0)
 //    if(input == null) return
@@ -393,7 +389,7 @@ import scala.collection.mutable
 //      Misc.normalizeResize(node, i, targetWidth)
 //    })
 //  }
-//}
+}
 //
 //object WidthInfer {
 //  def multipleAssignmentNodeWidth(node: Node): Int = {
