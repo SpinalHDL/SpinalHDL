@@ -333,7 +333,7 @@ object InputNormalize {
   def resizedOrUnfixedLit(input : Expression, targetWidth : Int, factory : => Resize): Expression = {
     input match{
       case lit : BitVectorLiteral if (! lit.hasSpecifiedBitCount) =>
-        lit.bitCount = targetWidth
+        lit.bitCount = targetWidth //TODO IR check new width ok ?
         lit
       case bt : BitVector if(bt.hasTag(tagAutoResize) && bt.getWidth != targetWidth) =>
         val ret = factory

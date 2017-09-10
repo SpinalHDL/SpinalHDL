@@ -33,12 +33,22 @@ abstract class Resize extends Expression with WidthProvider{
 
   override def getWidth(): Int = size
 
+
+  override def simplifyNode: Expression = {
+    if(input.getWidth == 0){
+      getLiteralFactory(0,size)
+    } else {
+      this
+    }
+  }
+  def getLiteralFactory : (BigInt, Int) => Expression
   override def foreachExpression(func: (Expression) => Unit): Unit = func(input)
   override def remapExpressions(func: (Expression) => Expression): Unit = input = func(input).asInstanceOf[Expression with WidthProvider]
 }
 
 class ResizeBits extends Resize{
   override def opName: String = "resize(b,i)"
+  override def getLiteralFactory: (BigInt, Int) => Expression = BitsLiteral.apply
 //  override def simplifyNode: Unit = SymplifyNode.resizeImpl2(B.apply,this)
 }
 //class ResizeUInt extends Resize{

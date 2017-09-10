@@ -1877,10 +1877,10 @@ object SpinalVhdlBoot{
 //    phases += new PhasePreInferationChecks(pc)
 //    phases += new PhaseInferEnumEncodings(pc,e => e)
     phases += new PhaseInferWidth(pc)
+    phases += new PhaseNormalizeNodeInputs(pc)
     phases += new PhaseSimplifyNodes(pc)
 //    phases += new PhaseInferWidth(pc)
 //    phases += new PhasePropagateBaseTypeWidth(pc)
-    phases += new PhaseNormalizeNodeInputs(pc)
 //    phases += new PhaseResizeLiteralSimplify(pc)
 //    phases += new PhaseCheckInferredWidth(pc)
 
