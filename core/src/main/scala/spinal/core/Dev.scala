@@ -9,7 +9,7 @@ case class DslContext(clockDomain: ClockDomain, component: Component, scope: Sco
 
 
 trait BaseNode {
-    private[core] var algoId = 0
+    private[core] var algoInt, algoIncrement = 0
 }
 
 //object NameableNode{
@@ -114,7 +114,7 @@ object Statement{
     case _ => false
   }
 }
-trait Statement extends ExpressionContainer{
+trait Statement extends ExpressionContainer with ScalaLocated{
   var parentScope : ScopeStatement = null
   var previous, next : Statement = null
   def rootScopeStatement: ScopeStatement = if(parentScope.parentStatement != null) parentScope.parentStatement.rootScopeStatement else parentScope

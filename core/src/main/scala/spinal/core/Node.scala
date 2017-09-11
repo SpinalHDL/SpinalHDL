@@ -330,17 +330,20 @@ object InputNormalize {
     }
   }
 
-  def resizedOrUnfixedLit(input : Expression, targetWidth : Int, factory : => Resize): Expression = {
+  def resizedOrUnfixedLit(input : Expression with WidthProvider, targetWidth : Int, factory : => Resize,target : Expression,where : ScalaLocated): Expression with WidthProvider = {
     input match{
       case lit : BitVectorLiteral if (! lit.hasSpecifiedBitCount) =>
         lit.bitCount = targetWidth //TODO IR check new width ok ?
         lit
       case bt : BitVector if(bt.hasTag(tagAutoResize) && bt.getWidth != targetWidth) =>
         val ret = factory
-        ret.input = input.asInstanceOf[Expression with WidthProvider]
+        ret.input = input
         ret.size = targetWidth
         ret
       case _ =>
+        if(input.getWidth != targetWidth){
+          PendingError(s"${input} doesn't have the same width than $target at \n${where.getScalaLocationLong}")
+        }
         input
     }
   }
@@ -522,11 +525,13 @@ object InputNormalize {
 //  override def setInput(id: Int, node: Node): Unit = ???
 //}
 //
-trait WidthProvider{
+trait WidthProvider {
   def getWidth : Int
 }
 //
-//object CheckWidth{
+object CheckWidth{
+
+//  def allSame(op : BinaryOperatorWidthableInputs)
 //  def allSame(node : Node with Widthable): Unit ={
 //    node.onEachInput((_input,id) => {
 //      val input = _input.asInstanceOf[Node with Widthable]
@@ -535,13 +540,13 @@ trait WidthProvider{
 //      }
 //    })
 //  }
-//}
+}
 //
 //trait CheckWidth{
 //  private[core] def checkInferedWidth: Unit
 //}
 //
-trait Widthable extends WidthProvider with ScalaLocated{
+trait Widthable extends WidthProvider with ScalaLocated {
   private[core] var widthWhenNotInferred = -1
   private[core] var inferredWidth = -1
 

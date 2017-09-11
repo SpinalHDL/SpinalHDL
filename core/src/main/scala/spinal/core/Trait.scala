@@ -802,11 +802,11 @@ class GlobalData {
   def contextHead = if(context.nonEmpty) context.head else new DslContext(null,null,null)
 
 
-  var algoId = 1
+  var algoIncrement = 1
 
-  def allocateAlgoId(): Int = {
-    algoId += 1
-    return algoId - 1
+  def allocateAlgoIncrement(): Int = {
+    algoIncrement += 1
+    return algoIncrement - 1
   }
 
   var anonymSignalPrefix : String = null

@@ -899,7 +899,7 @@ class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
     globalData.nodeAreInferringWidth = true
 
     var algoId = 1
-    walkExpression(_.algoId = 0)
+    walkExpression(_.algoInt = 0)
 
 
 
@@ -909,10 +909,10 @@ class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
       var somethingChange = false
       walkExpression(e => e match {
         case e : Widthable =>
-          if(e.algoId < algoId){
+          if(e.algoInt < algoId){
             val hasChange = e.inferWidth
             somethingChange = somethingChange || hasChange
-            e.algoId = algoId
+            e.algoInt = algoId
           }
         case _ =>
       })
@@ -922,13 +922,17 @@ class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
         val errors = mutable.ArrayBuffer[String]()
         walkExpression(e => e match {
           case e : Widthable =>
-            if(e.algoId < algoId){
+            if(e.algoInt < algoId){
               if (e.inferWidth) {
                 //Don't care about Reg width inference
                 errors += s"Can't infer width on ${e.getScalaLocationLong}"
               }
               if (e.widthWhenNotInferred != -1 && e.widthWhenNotInferred != e.getWidth) {
                 errors += s"getWidth call result during elaboration differ from inferred width on\n${e.getScalaLocationLong}"
+              }
+
+              if(e.inferredWidth < -1){
+                errors += s"Negative width on $e at ${e.getScalaLocationLong}"
               }
             }
           case _ =>
@@ -1109,7 +1113,7 @@ class PhaseNormalizeNodeInputs(pc: PhaseContext) extends PhaseNetlist{
           val finalTarget = s.finalTarget
           finalTarget match {
             case finalTarget : BitVector => {
-              s.source = InputNormalize.resizedOrUnfixedLit(s.source, finalTarget.getWidth, finalTarget.resizeFactory)
+              s.source = InputNormalize.resizedOrUnfixedLit(s.source.asInstanceOf[Expression with WidthProvider], finalTarget.getWidth, finalTarget.resizeFactory, finalTarget, s)
             }
             case _ =>
           }
@@ -1372,9 +1376,9 @@ class PhaseDeleteUselessBaseTypes(pc: PhaseContext, removeResizedTag : Boolean) 
     import pc._
 
     //Reset algoId of all referenced driving things
-    walkExpression(_ match {
+    walkExpression(e => e match {
       case ref: NameableExpression => {
-        ref.algoId = 0
+        ref.algoInt = 0
         if(removeResizedTag && ref.isInstanceOf[SpinalTagReady])
           ref.asInstanceOf[SpinalTagReady].removeTag(tagAutoResize)
       }
@@ -1384,21 +1388,27 @@ class PhaseDeleteUselessBaseTypes(pc: PhaseContext, removeResizedTag : Boolean) 
     //Count the number of driving reference done on each ref.source
     walkDrivingExpression(e => e match {
       case ref : NameableExpression => {
-        ref.algoId += 1
+        ref.algoInt += 1
       }
       case _ =>
     })
 
+    var statementToRemove : Statement = null //Allow post iteration remove
+    def setStatementToRemove(s : Statement): Unit ={
+      if(statementToRemove != null) statementToRemove.removeStatement()
+      statementToRemove = s
+    }
     walkStatements(s => {
+      println(s)
       //Bypass useless basetypes (referenced only once)
       s.walkRemapDrivingExpressions(e => e match {
         case ref : BaseType => {
-          if(ref.algoId == 1 && ref.isComb && ref.isDirectionLess && ref.canSymplifyIt && ref.hasOnlyOneStatement && Statement.isSomethingToFullStatement(ref.headStatement)){ //TODO IR keep it
-            ref.algoId = 0
+          if(ref.algoInt == 1 && ref.isComb && ref.isDirectionLess && ref.canSymplifyIt && ref.hasOnlyOneStatement && Statement.isSomethingToFullStatement(ref.headStatement)){ //TODO IR keep it
+            ref.algoInt = 0
             ref.headStatement.removeStatement()
             ref.headStatement.source
           } else {
-            ref.algoId = 0
+            ref.algoInt = 0
             ref
           }
         }
@@ -1409,8 +1419,8 @@ class PhaseDeleteUselessBaseTypes(pc: PhaseContext, removeResizedTag : Boolean) 
       s match {
         case s : AssignementStatement => {
           s.finalTarget match {
-            case target : BaseType => if(target.algoId == 0 && target.isDirectionLess && target.canSymplifyIt){
-              s.removeStatement()
+            case target : BaseType => if(target.algoInt == 0 && target.isDirectionLess && target.canSymplifyIt){
+              setStatementToRemove(s)
             }
             case _ =>
           }
@@ -1419,6 +1429,7 @@ class PhaseDeleteUselessBaseTypes(pc: PhaseContext, removeResizedTag : Boolean) 
         case _ =>
       }
     })
+    setStatementToRemove(null)
   }
 }
 //
@@ -1854,9 +1865,9 @@ object SpinalVhdlBoot{
 
     phases +=new PhaseDummy({
       var stack = 0
-      GlobalData.get.algoId = 1
+      GlobalData.get.algoIncrement = 1
       for(i <- 0 until 1000000){
-        stack += GlobalData.get.algoId
+        stack += GlobalData.get.algoIncrement
       }
       SpinalProgress("BENCH" + stack)
     })
@@ -1874,15 +1885,10 @@ object SpinalVhdlBoot{
 
 
     phases += new PhaseDummy(SpinalProgress("Infer nodes's bit width"))
-//    phases += new PhasePreInferationChecks(pc)
 //    phases += new PhaseInferEnumEncodings(pc,e => e)
     phases += new PhaseInferWidth(pc)
     phases += new PhaseNormalizeNodeInputs(pc)
     phases += new PhaseSimplifyNodes(pc)
-//    phases += new PhaseInferWidth(pc)
-//    phases += new PhasePropagateBaseTypeWidth(pc)
-//    phases += new PhaseResizeLiteralSimplify(pc)
-//    phases += new PhaseCheckInferredWidth(pc)
 
 
 //    phases += new PhaseDummy(SpinalProgress("Simplify graph's nodes"))

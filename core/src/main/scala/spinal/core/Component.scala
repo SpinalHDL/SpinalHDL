@@ -74,7 +74,7 @@ object Component {
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/components_hierarchy Component Documentation]]
   */
 abstract class Component extends NameableByComponent with ContextUser with ScalaLocated with DelayedInit with Stackable with OwnableRef{
-  private[core] val dslBody = new ScopeStatement(null)
+  val dslBody = new ScopeStatement(null)
 
   /** Contains all in/out signals of the component */
   private[core] val ioSet = mutable.Set[BaseType]()
@@ -137,7 +137,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
 //  var nodes: ArrayBuffer[Node] = null
 
   private[core] var pulledDataCache = mutable.Map[Data, Data]()
-
+//  def flyingNameableStatements = getAllIo.withFilter(_)
 
   /** Get the parent component (null if there is no parent)*/
   def parent = dslContext.component

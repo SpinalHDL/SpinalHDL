@@ -181,8 +181,10 @@ object Operator{
     abstract class And extends BinaryOperatorWidthableInputs with Widthable{
       override def calcWidth(): Int = Math.max(left.getWidth,right.getWidth)
       override def normalizeInputs: Unit = {
-        left = InputNormalize.resizedOrUnfixedLit(left, getWidth,resizeFactory).asInstanceOf[T]
-        right = InputNormalize.resizedOrUnfixedLit(right, getWidth,resizeFactory).asInstanceOf[T]
+        val targetWidth = getWidth
+        left = InputNormalize.resizedOrUnfixedLit(left, targetWidth, resizeFactory, this, this)
+        right = InputNormalize.resizedOrUnfixedLit(right, targetWidth, resizeFactory, this, this)
+
       }
       def resizeFactory : Resize
 //      override private[core] def checkInferedWidth: Unit = CheckWidth.allSame(this)

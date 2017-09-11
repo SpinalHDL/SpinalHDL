@@ -1,8 +1,8 @@
-package spinal.core
+package spinal.dev
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
-
+import spinal.core._
 /**
  * Created by PIC32F_USER on 14/08/2017.
  */
@@ -39,12 +39,13 @@ object PlayBits{
     val yy = bits4.resized & c.resized
     bits4 := a.resized
     bits4 := (a & b).resized
-    bits4 := B"11"
+    bits4 := B"111".resized
     bits4 := (B(0) & B(0)).resized
+
 
     val aa = a & 0
     val bb = B(0) & a
-
+    val cc = B"11" & a
   }
 
   def main(args: Array[String]) {
