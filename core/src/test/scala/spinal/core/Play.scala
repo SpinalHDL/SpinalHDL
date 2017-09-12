@@ -45,7 +45,7 @@ object PlayBits{
 
     val aa = a & 0
     val bb = B(0) & a
-    val cc = B"11" & a
+    val cc = B"11".resized & a
   }
 
   def main(args: Array[String]) {

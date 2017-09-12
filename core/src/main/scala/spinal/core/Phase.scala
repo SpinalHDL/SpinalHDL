@@ -898,31 +898,30 @@ class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
     import pc._
     globalData.nodeAreInferringWidth = true
 
-    var algoId = 1
-    walkExpression(_.algoInt = 0)
 
 
 
     var iterationCounter = 0
     while (true) {
-      iterationCounter = iterationCounter + 1
+      val algoIncrementale = globalData.allocateAlgoIncrementale()
       var somethingChange = false
       walkExpression(e => e match {
         case e : Widthable =>
-          if(e.algoInt < algoId){
+          if(e.algoIncrementale < algoIncrementale){
             val hasChange = e.inferWidth
             somethingChange = somethingChange || hasChange
-            e.algoInt = algoId
+            e.algoIncrementale = algoIncrementale
           }
         case _ =>
       })
-      algoId += 1
 
+      iterationCounter += 1
       if (!somethingChange || iterationCounter == 10000) {
+        val algoIncrementale = globalData.allocateAlgoIncrementale()
         val errors = mutable.ArrayBuffer[String]()
         walkExpression(e => e match {
           case e : Widthable =>
-            if(e.algoInt < algoId){
+            if(e.algoIncrementale < algoIncrementale){
               if (e.inferWidth) {
                 //Don't care about Reg width inference
                 errors += s"Can't infer width on ${e.getScalaLocationLong}"
@@ -937,7 +936,7 @@ class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
             }
           case _ =>
         })
-        algoId += 1
+
         if (errors.nonEmpty)
           SpinalError(errors)
         return
@@ -1399,7 +1398,6 @@ class PhaseDeleteUselessBaseTypes(pc: PhaseContext, removeResizedTag : Boolean) 
       statementToRemove = s
     }
     walkStatements(s => {
-      println(s)
       //Bypass useless basetypes (referenced only once)
       s.walkRemapDrivingExpressions(e => e match {
         case ref : BaseType => {
@@ -1424,7 +1422,6 @@ class PhaseDeleteUselessBaseTypes(pc: PhaseContext, removeResizedTag : Boolean) 
             }
             case _ =>
           }
-
         }
         case _ =>
       }
@@ -1865,9 +1862,9 @@ object SpinalVhdlBoot{
 
     phases +=new PhaseDummy({
       var stack = 0
-      GlobalData.get.algoIncrement = 1
+      GlobalData.get.algoIncrementale = 1
       for(i <- 0 until 1000000){
-        stack += GlobalData.get.algoIncrement
+        stack += GlobalData.get.algoIncrementale
       }
       SpinalProgress("BENCH" + stack)
     })
