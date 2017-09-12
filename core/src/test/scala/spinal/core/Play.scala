@@ -228,7 +228,6 @@ object PlayComponent{
     val a,b = in Bool()
     val result = out Bool()
 
-
     val subBA = new SubBA
     subBA.a := a || a
     subBA.b := b
@@ -236,6 +235,7 @@ object PlayComponent{
     result := a || b || subBA.result
 
 
+//    val io = out Bool()
 //    subBA.result := a
 //    a := b
 //    a := result

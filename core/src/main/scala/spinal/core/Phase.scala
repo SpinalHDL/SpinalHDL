@@ -1438,7 +1438,25 @@ class PhaseDeleteUselessBaseTypes(pc: PhaseContext, removeResizedTag : Boolean) 
   }
 }
 
+class PhaseCheckIoBundle extends PhaseCheck{
+  override def impl(pc: PhaseContext): Unit = {
+    import pc._
+    walkComponents(c => {
+      try{
+        val io = c.reflectIo
+        for(bt <- io.flatten){
+          if(bt.isDirectionLess){
+           PendingError(s"IO BUNDLE ERROR : A direction less $bt signal was defined into $c component's io bundle\n${bt.getScalaLocationLong}")
+          }
+        }
+      }catch{
+        case _ : Throwable =>
+      }
+    })
+  }
 
+  override def useNodeConsumers: Boolean = false
+}
 class PhaseCheckHiearchy extends PhaseCheck{
   override def impl(pc: PhaseContext): Unit = {
     import pc._
@@ -1467,7 +1485,7 @@ class PhaseCheckHiearchy extends PhaseCheck{
 
   override def useNodeConsumers: Boolean = false
 }
-//
+
 //class PhaseCheck_noAsyncNodeWithIncompleteAssignment(pc: PhaseContext) extends PhaseCheck{
 //  override def useNodeConsumers = false
 //  override def impl(pc : PhaseContext): Unit = {
@@ -1920,6 +1938,7 @@ object SpinalVhdlBoot{
     phases += new PhaseDeleteUselessBaseTypes(pc, false)
 
 
+    phases += new PhaseCheckIoBundle()
     phases += new PhaseCheckHiearchy()
 
     phases += new PhaseDummy(SpinalProgress("Infer nodes's bit width"))
