@@ -228,8 +228,28 @@ object PlayComponent{
     val a,b = in Bool()
     val result = out Bool()
 
-    result := a || b
+
+    val subBA = new SubBA
+    subBA.a := a || a
+    subBA.b := b
+
+    result := a || b || subBA.result
+
   }
+
+  class SubBA extends BlackBox{
+    val generic = new Generic{
+      val x = 2
+      val y = "asd"
+      val z = True
+      val xx = B"1100"
+    }
+
+    val a,b = in Bool()
+    val result = out Bool()
+
+  }
+
 
   class TopLevel extends Component {
     val a, b = in Bool()

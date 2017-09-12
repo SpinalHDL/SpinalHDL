@@ -227,13 +227,13 @@ trait PhaseCheck extends Phase{
 ////    pc.fillComponentList()
 ////  }
 ////}
-//
-//
-//
+
+
+
 //class PhaseNodesBlackBoxGenerics(pc: PhaseContext) extends PhaseMisc{
 //  override def useNodeConsumers = false
 //  override def impl(pc : PhaseContext): Unit = {
-//    val nodeStack = mutable.Stack[Node]()
+//    val nodeStack = mutable.Stack[BaseType]()
 //    pc.components.foreach(_ match {
 //      case blackBox: BlackBox => {
 //        blackBox.getGeneric.flatten.foreach(_ match {
@@ -245,7 +245,7 @@ trait PhaseCheck extends Phase{
 //    })
 //  }
 //}
-//
+
 //class PhaseMoveLogicTags(pc: PhaseContext) extends PhaseMisc{
 //  override def useNodeConsumers = false
 //  override def impl(pc : PhaseContext): Unit = {
@@ -575,9 +575,9 @@ class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
         c.definitionName = pc.config.globalPrefix + c.getClass.getSimpleName
       }
       c match {
-//        case bb: BlackBox => {
-//          bb.getGeneric.genNames
-//        }
+        case bb: BlackBox => {
+          bb.getGeneric.genNames
+        }
         case _ =>
       }
     }
@@ -1633,9 +1633,9 @@ class PhaseAllocateNames(pc: PhaseContext) extends PhaseMisc{
 //    }
 
     for (c <- sortedComponents) {
-//      if (c.isInstanceOf[BlackBox])
-//        globalScope.lockName(c.definitionName)
-//      else
+      if (c.isInstanceOf[BlackBox])
+        globalScope.lockName(c.definitionName)
+      else
         c.definitionName = globalScope.allocateName(c.definitionName)
     }
 
@@ -1872,6 +1872,7 @@ object SpinalVhdlBoot{
 
 
     phases += new PhaseDummy(SpinalProgress("Get names from reflection"))
+//    phases += new PhaseNodesBlackBoxGenerics(pc)
     phases += new PhaseNameNodesByReflection(pc)
 //    phases += new PhaseCollectAndNameEnum(pc)
 

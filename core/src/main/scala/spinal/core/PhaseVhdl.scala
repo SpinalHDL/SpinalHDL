@@ -405,6 +405,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
 
     //Flush all that mess out ^^
+    emitBlackBoxComponents(component, b)
     emitSignals(component,b)
     emitSubComponents(component,b)
     processes.foreach(p => {
@@ -424,12 +425,9 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
   def emitSubComponents(component: Component, b: ComponentBuilder): Unit = {
     for (children <- component.children) {
-//      val isBB = children.isInstanceOf[BlackBox]
+      val isBB = children.isInstanceOf[BlackBox]
 //      val isBBUsingULogic = isBB && children.asInstanceOf[BlackBox].isUsingULogic
-      val definitionString = /*if (isBB) */children.definitionName
-//      else s"entity work.${
-//        emitedComponentRef.getOrElse(children, children).definitionName
-//      }"
+      val definitionString = if (isBB) children.definitionName else s"entity work.${emitedComponentRef.getOrElse(children, children).definitionName}"
       b.logics ++= s"  ${
         children.getName()
       } : $definitionString\n"
@@ -457,31 +455,31 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
           return s"      $io => $logic,\n"
       }
 
-//      if (kind.isInstanceOf[BlackBox]) {
-//        val bb = kind.asInstanceOf[BlackBox]
-//        val genericFlat = bb.getGeneric.flatten
-//
-//        if (genericFlat.size != 0) {
-//          ret ++= s"    generic map( \n"
-//
-//
-//          for (e <- genericFlat) {
-//            e match {
-//              case baseType: BaseType => ret ++= addULogicCast(baseType, emitReference(baseType), emitLogic(baseType.getInput(0)), in)
-//              case (name : String,s: String) => ret ++= s"      ${name} => ${"\""}${s}${"\""},\n"
-//              case (name : String,i : Int) => ret ++= s"      ${name} => $i,\n"
-//              case (name : String,d: Double) => ret ++= s"      ${name} => $d,\n"
-//              case (name : String,b: Boolean) => ret ++= s"      ${name} => $b,\n"
-//              case (name : String,t: TimeNumber) => {
-//                val d = t.decompose
-//                ret ++= s"      ${name} => ${d._1} ${d._2},\n"
-//              }
-//            }
-//          }
-//          ret.setCharAt(ret.size - 2, ' ')
-//          ret ++= s"    )\n"
-//        }
-//      }
+      if (children.isInstanceOf[BlackBox]) {
+        val bb = children.asInstanceOf[BlackBox]
+        val genericFlat = bb.getGeneric.flatten
+
+        if (genericFlat.size != 0) {
+          b.logics ++= s"    generic map( \n"
+
+
+          for (e <- genericFlat) {
+            e match {
+              case bt : BaseType => b.logics ++= addULogicCast(bt, emitReference(bt,false), emitExpression(bt.headStatement.source), in)
+              case (name : String,s: String) => b.logics ++= s"      ${name} => ${"\""}${s}${"\""},\n"
+              case (name : String,i : Int) => b.logics ++= s"      ${name} => $i,\n"
+              case (name : String,d: Double) => b.logics ++= s"      ${name} => $d,\n"
+              case (name : String,boolean: Boolean) => b.logics ++= s"      ${name} => $b,\n"
+              case (name : String,t: TimeNumber) => {
+                val d = t.decompose
+                b.logics ++= s"      ${name} => ${d._1} ${d._2},\n"
+              }
+            }
+          }
+          b.logics.setCharAt(b.logics.size - 2, ' ')
+          b.logics ++= s"    )\n"
+        }
+      }
       b.logics ++= s"    port map ( \n"
       for (data <- children.getOrdredNodeIo) {
         b.logics ++= addULogicCast(data, emitReferenceNoOverrides(data), emitReference(data, false), data.dir)
@@ -1457,59 +1455,59 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 //    }
 //  }
 //
-//  def emitBlackBoxComponents(component: Component, ret: StringBuilder): Unit = {
-//    val emited = mutable.Set[String]()
-//    for (c <- component.children) c match {
-//      case blackBox: BlackBox => {
-//        if (!emited.contains(blackBox.definitionName)) {
-//          emited += blackBox.definitionName
-//          emitBlackBoxComponent(blackBox, ret)
-//        }
-//      }
-//      case _ =>
-//    }
-//  }
+  def emitBlackBoxComponents(component: Component, b: ComponentBuilder): Unit = {
+    val emited = mutable.Set[String]()
+    for (c <- component.children) c match {
+      case blackBox: BlackBox => {
+        if (!emited.contains(blackBox.definitionName)) {
+          emited += blackBox.definitionName
+          emitBlackBoxComponent(blackBox, b)
+        }
+      }
+      case _ =>
+    }
+  }
 //
-//  def blackBoxRemplaceULogic(b: BlackBox, str: String): String = {
-//    if (b.isUsingULogic)
-//      str.replace("std_logic", "std_ulogic")
-//    else
-//      str
-//  }
-//
-//  def emitBlackBoxComponent(component: BlackBox, ret: StringBuilder): Unit = {
-//    ret ++= s"\n  component ${component.definitionName} is\n"
-//    val genericFlat = component.getGeneric.flatten
-//    if (genericFlat.size != 0) {
-//      ret ++= s"    generic( \n"
-//      for (e <- genericFlat) {
-//        e match {
-//          case baseType: BaseType => ret ++= s"      ${emitReference(baseType)} : ${blackBoxRemplaceULogic(component, emitDataType(baseType, true))};\n"
-//          case (name : String,s: String) => ret ++= s"      $name : string;\n"
-//          case (name : String,i : Int) => ret ++= s"      $name : integer;\n"
-//          case (name : String,d: Double) => ret ++= s"      $name : real;\n"
-//          case (name : String,b: Boolean) => ret ++= s"      $name : boolean;\n"
-//          case (name : String,t: TimeNumber) => ret ++= s"      $name : time;\n"
-//        }
-//      }
-//
-//      ret.setCharAt(ret.size - 2, ' ')
-//      ret ++= s"    );\n"
-//    }
-//    ret ++= s"    port( \n"
-//    component.nodes.foreach(_ match {
-//      case baseType: BaseType => {
-//        if (baseType.isIo) {
-//          ret ++= s"      ${baseType.getName()} : ${emitDirection(baseType)} ${blackBoxRemplaceULogic(component, emitDataType(baseType, true))};\n"
-//        }
-//      }
-//      case _ =>
-//    })
-//    ret.setCharAt(ret.size - 2, ' ')
-//    ret ++= s"    );\n"
-//    ret ++= s"  end component;\n"
-//    ret ++= s"  \n"
-//  }
+  def blackBoxRemplaceULogic(b: BlackBox, str: String): String = {
+    if (b.isUsingULogic)
+      str.replace("std_logic", "std_ulogic")
+    else
+      str
+  }
+
+  def emitBlackBoxComponent(component: BlackBox, b: ComponentBuilder): Unit = {
+    b.declarations ++= s"\n  component ${component.definitionName} is\n"
+    val genericFlat = component.getGeneric.flatten
+    if (genericFlat.size != 0) {
+      b.declarations ++= s"    generic( \n"
+      for (e <- genericFlat) {
+        e match {
+          case baseType: BaseType => b.declarations ++= s"      ${emitReference(baseType, false)} : ${blackBoxRemplaceULogic(component, emitDataType(baseType, true))};\n"
+          case (name : String,s: String) => b.declarations ++= s"      $name : string;\n"
+          case (name : String,i : Int) => b.declarations ++= s"      $name : integer;\n"
+          case (name : String,d: Double) => b.declarations ++= s"      $name : real;\n"
+          case (name : String,boolean: Boolean) => b.declarations ++= s"      $name : boolean;\n"
+          case (name : String,t: TimeNumber) => b.declarations ++= s"      $name : time;\n"
+        }
+      }
+
+      b.declarations.setCharAt(b.declarations.size - 2, ' ')
+      b.declarations ++= s"    );\n"
+    }
+    b.declarations ++= s"    port( \n"
+    component.getOrdredNodeIo.foreach(_ match {
+      case baseType: BaseType => {
+        if (baseType.isIo) {
+          b.declarations ++= s"      ${baseType.getName()} : ${emitDirection(baseType)} ${blackBoxRemplaceULogic(component, emitDataType(baseType, true))};\n"
+        }
+      }
+      case _ =>
+    })
+    b.declarations.setCharAt(b.declarations.size - 2, ' ')
+    b.declarations ++= s"    );\n"
+    b.declarations ++= s"  end component;\n"
+    b.declarations ++= s"  \n"
+  }
 //
 //  def emitAttributesDef(component: Component, ret: StringBuilder): Unit = {
 //    val map = mutable.Map[String, Attribute]()

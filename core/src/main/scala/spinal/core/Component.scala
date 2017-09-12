@@ -73,7 +73,7 @@ object Component {
   *
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/components_hierarchy Component Documentation]]
   */
-abstract class Component extends NameableByComponent with ContextUser with ScalaLocated with DelayedInit with Stackable with OwnableRef{
+abstract class Component extends NameableByComponent with ContextUser with ScalaLocated with DelayedInit with Stackable with OwnableRef with SpinalTagReady{
   val dslBody = new ScopeStatement(null)
 
   /** Contains all in/out signals of the component */
@@ -85,8 +85,9 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     statement.parentScope = scope
     scope.append(statement)
   }
-  def ownNameableNodes = nameableNodes.withFilter(_.component == this)
-  def nameableNodes = {
+
+  def ownNameableNodes = nameableNodes.toIterator.withFilter(_.component == this)
+  private def nameableNodes = { //TODO IR don't use hashset for it (speed)
     val nameablesSet = mutable.HashSet[Nameable]()
     nameablesSet ++= children
     nameablesSet ++= ioSet
@@ -110,6 +111,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     nameablesSet
   }
 
+  override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
 
   /** Class used to create a task that must be executed after the creation of the component */
   case class PrePopTask(task : () => Unit, clockDomain: ClockDomain)
