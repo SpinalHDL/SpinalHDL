@@ -181,8 +181,8 @@ object AssignementStatement{
 abstract class AssignementStatement extends LeafStatement{
   var target, source : Expression = null
   override def rootScopeStatement = finalTarget.rootScopeStatement
-  def finalTarget = target match{
-    case n : NameableExpression => n
+  def finalTarget : BaseType = target match{
+    case n : BaseType => n
     case a : AssignementExpression => a.finalTarget
   }
 //  override def isConditionalStatement: Boolean = false

@@ -235,6 +235,11 @@ object PlayComponent{
 
     result := a || b || subBA.result
 
+
+//    subBA.result := a
+//    a := b
+//    a := result
+//    a := True
   }
 
   class SubBA extends BlackBox{

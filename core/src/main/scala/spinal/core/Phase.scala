@@ -114,6 +114,10 @@ class PhaseContext(val config : SpinalConfig){
     GraphUtils.walkAllComponents(topLevel, c => c.dslBody.walkStatements(s => s.walkDrivingExpressions(func)))
   }
 
+  def walkComponents(func : Component => Unit): Unit ={
+    GraphUtils.walkAllComponents(topLevel, c => func(c))
+  }
+
 //  def walkNodesDefautStack = {
 //    val nodeStack = mutable.Stack[Node]()
 //
@@ -922,6 +926,7 @@ class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
         walkExpression(e => e match {
           case e : Widthable =>
             if(e.algoIncrementale < algoIncrementale){
+              e.algoIncrementale = algoIncrementale
               if (e.inferWidth) {
                 //Don't care about Reg width inference
                 errors += s"Can't infer width on ${e.getScalaLocationLong}"
@@ -934,6 +939,9 @@ class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
                 errors += s"Negative width on $e at ${e.getScalaLocationLong}"
               }
             }
+          case e : WidthProvider => if(e.getWidth < 0){
+            errors += s"Negative width on $e at ${e.getScalaLocationLong}"
+          }
           case _ =>
         })
 
@@ -1429,6 +1437,36 @@ class PhaseDeleteUselessBaseTypes(pc: PhaseContext, removeResizedTag : Boolean) 
     setStatementToRemove(null)
   }
 }
+
+
+class PhaseCheckHiearchy extends PhaseCheck{
+  override def impl(pc: PhaseContext): Unit = {
+    import pc._
+    walkComponents(c => {
+      c.dslBody.walkStatements(s => {
+        var error = false
+        s match {
+          case s : AssignementStatement =>{
+            val bt = s.finalTarget
+            if(!(bt.isDirectionLess && bt.component == c) && !(bt.isOutput && bt.component == c) && !(bt.isInput && bt.component.parent == c)){
+              PendingError(s"HIERARCHY VIOLATION : $bt is drived by the $s statement, but isn't accessible in the $c component.\n${s.getScalaLocationLong}")
+              error = true
+            }
+          }
+          case _ =>
+        }
+        if(!error) s.walkExpression(e => e match{
+          case bt : BaseType => if(!(bt.component == c) && !(bt.isInput && bt.component.parent == c) && !(bt.isOutput && bt.component.parent == c)){
+            PendingError(s"HIERARCHY VIOLATION : $bt is used to drive the $s statement, but isn't readable in the $c component\n${s.getScalaLocationLong}")
+          }
+          case _ =>
+        })
+      })
+    })
+  }
+
+  override def useNodeConsumers: Boolean = false
+}
 //
 //class PhaseCheck_noAsyncNodeWithIncompleteAssignment(pc: PhaseContext) extends PhaseCheck{
 //  override def useNodeConsumers = false
@@ -1881,6 +1919,8 @@ object SpinalVhdlBoot{
 
     phases += new PhaseDeleteUselessBaseTypes(pc, false)
 
+
+    phases += new PhaseCheckHiearchy()
 
     phases += new PhaseDummy(SpinalProgress("Infer nodes's bit width"))
 //    phases += new PhaseInferEnumEncodings(pc,e => e)

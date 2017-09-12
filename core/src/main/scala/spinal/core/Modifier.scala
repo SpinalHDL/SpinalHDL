@@ -1367,7 +1367,7 @@ class BitsRangedAccessFixed extends BitVectorRangedAccessFixed{
 //}
 //
 abstract class AssignementExpression extends Expression {
-  def finalTarget: NameableExpression
+  def finalTarget: BaseType
   override def foreachDrivingExpression(func : (Expression) => Unit) : Unit
   override def remapDrivingExpressions(func: (Expression) => Expression): Unit
 //  def getAssignedBits: AssignedRange //Bit that are allwas assigned
@@ -1428,7 +1428,7 @@ abstract class BitVectorAssignementExpression extends AssignementExpression{
 
 class RangedAssignmentFixed(var out: BitVector,var hi: Int,var lo: Int) extends BitVectorAssignementExpression with WidthProvider {
   override def getWidth: Int = hi + 1
-  override def finalTarget: NameableExpression = out
+  override def finalTarget: BaseType = out
   override def minimalTargetWidth: Int = hi+1
   override def foreachDrivingExpression(func : (Expression) => Unit) : Unit = {}
   override def remapDrivingExpressions(func: (Expression) => Expression): Unit = {}

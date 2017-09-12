@@ -525,7 +525,7 @@ object InputNormalize {
 //  override def setInput(id: Int, node: Node): Unit = ???
 //}
 //
-trait WidthProvider {
+trait WidthProvider extends ScalaLocated  {
   def getWidth : Int
 }
 //
@@ -546,7 +546,7 @@ object CheckWidth{
 //  private[core] def checkInferedWidth: Unit
 //}
 //
-trait Widthable extends WidthProvider with ScalaLocated {
+trait Widthable extends WidthProvider{
   private[core] var widthWhenNotInferred = -1
   private[core] var inferredWidth = -1
 
