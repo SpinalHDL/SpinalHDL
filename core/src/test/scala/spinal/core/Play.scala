@@ -234,7 +234,7 @@ object PlayComponent{
 
     result := a || b || subBA.result
 
-
+//    val yolo = in(Reg(Bool()))
 //    val io = out Bool()
 //    subBA.result := a
 //    a := b

@@ -1460,13 +1460,15 @@ class PhaseCheckIoBundle extends PhaseCheck{
 class PhaseCheckHiearchy extends PhaseCheck{
   override def impl(pc: PhaseContext): Unit = {
     import pc._
+
+    //Check hierarchy read/write violation
     walkComponents(c => {
       c.dslBody.walkStatements(s => {
         var error = false
         s match {
-          case s : AssignementStatement =>{
+          case s : AssignementStatement => {
             val bt = s.finalTarget
-            if(!(bt.isDirectionLess && bt.component == c) && !(bt.isOutput && bt.component == c) && !(bt.isInput && bt.component.parent == c)){
+            if (!(bt.isDirectionLess && bt.component == c) && !(bt.isOutput && bt.component == c) && !(bt.isInput && bt.component.parent == c)) {
               PendingError(s"HIERARCHY VIOLATION : $bt is drived by the $s statement, but isn't accessible in the $c component.\n${s.getScalaLocationLong}")
               error = true
             }
@@ -1474,11 +1476,18 @@ class PhaseCheckHiearchy extends PhaseCheck{
           case _ =>
         }
         if(!error) s.walkExpression(e => e match{
-          case bt : BaseType => if(!(bt.component == c) && !(bt.isInput && bt.component.parent == c) && !(bt.isOutput && bt.component.parent == c)){
-            PendingError(s"HIERARCHY VIOLATION : $bt is used to drive the $s statement, but isn't readable in the $c component\n${s.getScalaLocationLong}")
+          case bt : BaseType => {
+            if(!(bt.component == c) && !(bt.isInput && bt.component.parent == c) && !(bt.isOutput && bt.component.parent == c)){
+              PendingError(s"HIERARCHY VIOLATION : $bt is used to drive the $s statement, but isn't readable in the $c component\n${s.getScalaLocationLong}")
+            }
           }
           case _ =>
         })
+      })
+
+      //Check register defined as component inputs
+      c.getAllIo.foreach(bt => if(bt.isInput && bt.isReg){
+        PendingError(s"REGISTER DEFINED AS COMPONENT INPUT : $bt is defined as a registered input of the $c component, but isn't allowed.\n${bt.getScalaLocationLong}")
       })
     })
   }
