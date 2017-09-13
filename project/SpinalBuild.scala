@@ -51,6 +51,7 @@ object SpinalBuild extends Build {
     base = file("lib"),
     settings = defaultSettings ++ Seq(
       name := "SpinalHDL Lib",
+      libraryDependencies += "commons-io" % "commons-io" % "2.4",
       version := SpinalVersion.lib
     )
   ) dependsOn (core)
