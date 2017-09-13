@@ -16,11 +16,11 @@ object PlayBits{
     val d, e, f = out Bool()
     val g, h, i, j = Bits(8 bits)
     val x,y,z = out( Reg(Bits(8 bits)))
+    val bits4 = Bits(4 bits)
 //    val tmp = a & b & c
 //    val xx = g & a
 //    i := h
 //    x := x & a
-    val bits4 = Bits(4 bits)
 //    bits4 := a(3 downto 0)
 //    bits4 := (a(5 downto 0) & b(5 downto 0))(3 downto 0)
 //
@@ -36,6 +36,9 @@ object PlayBits{
 //    miaou := b.resize(4)
 //    miaou := c.resize(3)
 
+    a & c & b
+    True
+    False
     val yy = bits4.resized & c.resized
     bits4 := a.resized
     bits4 := (a & b).resized
@@ -290,26 +293,25 @@ object PlayHeavyload {
     val a, b, c, d, e, f, g, h, i, j = Bool()
     val x,y,z = Reg(Bool())
     b := True
-    a := a || c
+    a := b || c
     x := d || y
     c := b
 
     when(c) {
-      e := d
-      when(d) {
-        f := e
-        e := f
+       e := d
+       when(d) {
+         f := e
+         e := f
+       }
+       b := f
+      }.elsewhen(a) {
+        val x = Bool()
+        x := a || b
+        i := g || x
+      } otherwise {
+        b := j
       }
-      b := f
-    }.elsewhen(a) {
-      val x = Bool()
-      x := a || b
-      i := g || x
-
-    } otherwise {
-      b := j
     }
-  }
   
   
   class TopLevel(size : Int) extends Component{
@@ -338,8 +340,8 @@ object PlayHeavyload {
       print("DONE " + toplevel.getName() + " " + statementCount + " " + expressionCount)
     }
     printInfo(SpinalVhdl(new TopLevel(10000)).toplevel)
-    printInfo(SpinalVhdl(new TopLevel(50000)).toplevel)
-    printInfo(SpinalVhdl(new TopLevel(10000)).toplevel)
+//    printInfo(SpinalVhdl(new TopLevel(1)).toplevel)
+//    printInfo(SpinalVhdl(new TopLevel(1)).toplevel)
 
 
   }

@@ -1400,41 +1400,107 @@ class PhaseDeleteUselessBaseTypes(pc: PhaseContext, removeResizedTag : Boolean) 
       case _ =>
     })
 
-    var statementToRemove : Statement = null //Allow post iteration remove
-    def setStatementToRemove(s : Statement): Unit ={
-      if(statementToRemove != null) statementToRemove.removeStatement()
-      statementToRemove = s
-    }
-    walkStatements(s => {
-      //Bypass useless basetypes (referenced only once)
-      s.walkRemapDrivingExpressions(e => e match {
-        case ref : BaseType => {
-          if(ref.algoInt == 1 && ref.isComb && ref.isDirectionLess && ref.canSymplifyIt && ref.hasOnlyOneStatement && Statement.isSomethingToFullStatement(ref.headStatement)){ //TODO IR keep it
-            ref.algoInt = 0
-            ref.headStatement.removeStatement()
-            ref.headStatement.source
-          } else {
-            ref.algoInt = 0
-            ref
-          }
-        }
-        case e => e
-      })
 
+
+    walkComponents(c => {
+      //Need dedicated loop + recursion + check to avoid removing multiple times
       //Remove assignement which drive useless base types
-      s match {
-        case s : AssignementStatement => {
-          s.finalTarget match {
-            case target : BaseType => if(target.algoInt == 0 && target.isDirectionLess && target.canSymplifyIt){
-              setStatementToRemove(s)
-            }
-            case _ =>
+      c.foreachNameable(n => {
+        n match {
+          case target : BaseType => if(target.algoInt == 0 && target.isDirectionLess && target.canSymplifyIt){
+            n.removeNameable()
+            n.foreachStatements(s => s.removeStatement())
+            //TODO propagate stmamente removals on algoId + recursion
           }
+          case _ =>
         }
-        case _ =>
-      }
+      })
     })
-    setStatementToRemove(null)
+
+    val statementsToRemove = ArrayBuffer[Statement]()
+    def addStatementToRemove(s : Statement): Unit ={
+      //      if(s.parentScope == null){
+      //        println("???") //TODO IR pure comb loop fix   (a := a || c)s
+      //      }
+      statementsToRemove += s
+    }
+
+    val algoIncrementale = globalData.allocateAlgoIncrementale()
+    walkComponents(c => {
+      statementsToRemove.clear()
+
+      def walker(s : Statement): Unit ={
+
+      }
+
+
+      c.dslBody.walkStatements(s => {
+//        val excepted = s match {
+//          case s : AssignementStatement => s.finalTarget
+//          case _ => null
+//        }
+
+        //Need deditacted loop + recursion + algoIncremental to avoid over working ?
+        //Bypass useless basetypes (referenced only once)
+        s.walkRemapDrivingExpressions(e => e match {
+          case ref : BaseType => {
+            if(ref.algoInt == 1 && ref.isComb && ref.isDirectionLess && ref.canSymplifyIt && ref.hasOnlyOneStatement && Statement.isSomethingToFullStatement(ref.headStatement) /*&& ref != excepted*/){ //TODO IR keep it
+              ref.algoInt = 0
+              val head = ref.headStatement
+              ref.removeNameable()
+              addStatementToRemove(head)
+              head.source
+            } else {
+              ref.algoInt = 0
+              ref
+            }
+          }
+          case e => e
+        })
+      })
+      statementsToRemove.foreach(s => s.removeStatement())
+    })
+//    println(statementsToRemove.toSet.size)
+//    println(statementsToRemove.size)
+//    println(statementsToRemove.count(s => s.parentScope == null))
+//    statementsToRemove.foreach(s => s.removeStatement())
+
+//    var statementToRemove : Statement = null //Allow post iteration remove
+//    def setStatementToRemove(s : Statement): Unit ={
+//      if(statementToRemove != null) statementToRemove.removeStatement()
+//      statementToRemove = s
+//    }
+//    walkStatements(s => {
+        //Bypass useless basetypes (referenced only once)
+//      s.walkRemapDrivingExpressions(e => e match {
+//        case ref : BaseType => {
+//          if(ref.algoInt == 1 && ref.isComb && ref.isDirectionLess && ref.canSymplifyIt && ref.hasOnlyOneStatement && Statement.isSomethingToFullStatement(ref.headStatement)){ //TODO IR keep it
+//            ref.algoInt = 0
+//            val head = ref.headStatement
+//            if(statementToRemove != head) head.removeStatement()
+//            head.source
+//          } else {
+//            ref.algoInt = 0
+//            ref
+//          }
+//        }
+//        case e => e
+//      })
+//
+//      //Remove assignement which drive useless base types
+//      s match {
+//        case s : AssignementStatement => {
+//          s.finalTarget match {
+//            case target : BaseType => if(target.algoInt == 0 && target.isDirectionLess && target.canSymplifyIt){
+//              setStatementToRemove(s)
+//            }
+//            case _ =>
+//          }
+//        }
+//        case _ =>
+//      }
+//    })
+//    setStatementToRemove(null)
   }
 }
 
@@ -1942,13 +2008,14 @@ object SpinalVhdlBoot{
 //    phases += new PhaseCollectAndNameEnum(pc)
 
     phases += new PhaseDummy(SpinalProgress("Transform connections"))
-    phases += new PhasePullClockDomains(pc)
-
-    phases += new PhaseDeleteUselessBaseTypes(pc, false)
-
 
     phases += new PhaseCheckIoBundle()
     phases += new PhaseCheckHiearchy()
+    phases += new PhaseDeleteUselessBaseTypes(pc, false)
+
+    phases += new PhasePullClockDomains(pc)
+
+
 
     phases += new PhaseDummy(SpinalProgress("Infer nodes's bit width"))
 //    phases += new PhaseInferEnumEncodings(pc,e => e)

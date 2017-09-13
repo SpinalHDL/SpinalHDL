@@ -170,6 +170,8 @@ trait BaseTypeCast /*extends SFixCast with UFixCast*/
   * Abstract base class of all Spinal types
   */
 abstract class BaseType extends Data with NameableExpression{
+  if(component != null)component.append(this)
+
 
   var _isReg = false
   override def isReg = _isReg

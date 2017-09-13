@@ -1,6 +1,7 @@
 package spinal.core
 
 
+import scala.collection.immutable.Iterable
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
@@ -16,11 +17,29 @@ trait BaseNode {
 //  def unapply(that : NameableNode) : Option[Unit] = Some()
 //}
 
-trait NameableExpression extends Expression with Nameable{
+trait NameableExpression extends Expression with Nameable with ContextUser{
   override def foreachExpression(func: (Expression) => Unit): Unit = {}
   override def remapExpressions(func: (Expression) => Expression): Unit = {}
 
+  var nextNameable, previousNameable : NameableExpression = null
+  def removeNameable() : Unit = {
+    if(previousNameable != null){
+      previousNameable.nextNameable = nextNameable
+    } else {
+      dslContext.component.headNameable = nextNameable
+    }
+    if(nextNameable != null){
+      nextNameable.previousNameable = previousNameable
+    } else {
+      dslContext.component.lastNameable = previousNameable
+    }
+    previousNameable = null
+    nextNameable = null
 
+    //TODO IR remove statement from Nameable
+  }
+  
+  
   def rootScopeStatement : ScopeStatement = dslContext.scope
   val statements = mutable.ListBuffer[AssignementStatement]() //TODO IR ! linkedlist  hard
 
@@ -282,7 +301,7 @@ class ScopeStatement(var parentStatement : TreeStatement)/* extends ExpressionCo
 //  }
   var head, last : Statement = null
 
-  def sizeIsOne = head != null && head == last
+//  def sizeIsOne = head != null && head == last
   def prepend(that : Statement) : this.type = {
     if(head != null){
       head.previous = that
@@ -310,11 +329,28 @@ class ScopeStatement(var parentStatement : TreeStatement)/* extends ExpressionCo
     this
   }
 
+  def statementIterable = new Iterable[Statement] {
+    override def iterator: Iterator[Statement] = statementIterator
+  }
+
+  def statementIterator = new Iterator[Statement] {
+    var ptr = head
+    override def hasNext: Boolean = ptr != null
+
+    override def next(): Statement = {
+      val ret = ptr
+      ptr = ret.next
+      ret
+    }
+  }
+
+
   def foreachStatements(func : (Statement) => Unit) = {
     var ptr = head
     while(ptr != null){
-      func(ptr)
+      val current = ptr
       ptr = ptr.next
+      func(current)
     }
   }
 
