@@ -1563,7 +1563,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
 
   def emitSignals(component: Component, b: ComponentBuilder): Unit = {
-    for (node <- component.ownNameableNodes) {
+    component.foreachNameable(node => {
       node match {
         case signal: BaseType => {
           if (!signal.isIo) {
@@ -1636,11 +1636,10 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 //            emitAttributes(mem, mem.instanceAttributes(Language.VHDL), "signal", ret)
 //          }
 //        }
-        case _ =>
       }
 
 
-    }
+    })
   }
 //
 //

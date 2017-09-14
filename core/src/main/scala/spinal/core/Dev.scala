@@ -74,6 +74,12 @@ trait ExpressionContainer{
       e.walkExpression(func)
     })
   }
+
+  def walkNameableExpression(func : (NameableExpression) => Unit) = walkExpression(e => e match {
+    case e : NameableExpression => func(e)
+    case _ =>
+  })
+
   def walkDrivingExpressions(func : (Expression) => Unit) : Unit = {
     foreachDrivingExpression(e => {
       func(e)
@@ -133,7 +139,7 @@ object Statement{
     case _ => false
   }
 }
-trait Statement extends ExpressionContainer with ScalaLocated{
+trait Statement extends ExpressionContainer with ScalaLocated with BaseNode{
   var parentScope : ScopeStatement = null
   var previous, next : Statement = null
   def rootScopeStatement: ScopeStatement = if(parentScope.parentStatement != null) parentScope.parentStatement.rootScopeStatement else parentScope
@@ -300,7 +306,7 @@ class ScopeStatement(var parentStatement : TreeStatement)/* extends ExpressionCo
 //    content.foreach(func)
 //  }
   var head, last : Statement = null
-
+  def isEmpty = head == null
 //  def sizeIsOne = head != null && head == last
   def prepend(that : Statement) : this.type = {
     if(head != null){

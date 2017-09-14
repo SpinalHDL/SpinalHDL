@@ -46,9 +46,15 @@ object PlayBits{
     bits4 := (B(0) & B(0)).resized
 
 
-    val aa = a & 0
-    val bb = B(0) & a
+    val aa = a & 0.resized
+    val bb = B(0).resized & a
     val cc = B"11".resized & a
+    a & b & c
+
+
+    var ano = False
+    ano := ano & True & False & ano
+    ano = null
   }
 
   def main(args: Array[String]) {
@@ -93,13 +99,18 @@ object PlaySimple{
     val g, h, i, j = Bool()
     val x,y,z = Reg(Bool())
 
+    g := a & b & c
+    when(c & c & c){
+      g & h & i & g
+    }
+
 
 //    g := False
-    when(a || b && c){
-      g := True
-      h := True
+//    when(a || b && c){
+//      g := True
+//      h := True
 //      x := True
-    }
+//    }
 
 //    when(c || c && c){
 //      f := True

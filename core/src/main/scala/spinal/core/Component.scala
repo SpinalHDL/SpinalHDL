@@ -143,30 +143,31 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     scope.append(statement)
   }
 
-  def ownNameableNodes = nameableNodes.toIterator.withFilter(_.component == this)
-  private def nameableNodes = { //TODO IR don't use hashset for it (speed)
-    val nameablesSet = mutable.HashSet[Nameable]()
-    nameablesSet ++= children
-    nameablesSet ++= ioSet
 
-
-    def expressionWalker(s : Expression): Unit = s match {
-      case n : NameableExpression => nameablesSet += n
-      case _ => s.foreachExpression(expressionWalker)
-    }
-
-    def statementWalker(s : Statement): Unit ={
-      s.foreachExpression(expressionWalker)
-      s.foreachStatements(statementWalker)
-      s match {
-        case a : AssignementStatement => nameablesSet += (a.finalTarget)
-        case _ =>
-      }
-    }
-
-    dslBody.foreachStatements(statementWalker)
-    nameablesSet
-  }
+//  def ownNameableNodes = nameableNodes.toIterator.withFilter(_.component == this)
+//  private def nameableNodes = { //TODO IR don't use hashset for it (speed)
+//    val nameablesSet = mutable.HashSet[Nameable]()
+//    nameablesSet ++= children
+//    nameablesSet ++= ioSet
+//
+//
+//    def expressionWalker(s : Expression): Unit = s match {
+//      case n : NameableExpression => nameablesSet += n
+//      case _ => s.foreachExpression(expressionWalker)
+//    }
+//
+//    def statementWalker(s : Statement): Unit ={
+//      s.foreachExpression(expressionWalker)
+//      s.foreachStatements(statementWalker)
+//      s match {
+//        case a : AssignementStatement => nameablesSet += (a.finalTarget)
+//        case _ =>
+//      }
+//    }
+//
+//    dslBody.foreachStatements(statementWalker)
+//    nameablesSet
+//  }
 
   override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
 
@@ -332,17 +333,18 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     localNamingScope = globalScope.newChild
     localNamingScope.allocateName(globalData.anonymSignalPrefix)
 
-    for (nameable <- ownNameableNodes) nameable match {
-      case child : Component =>
-        OwnableRef.proposal(child,this)
-        if (child.isUnnamed) {
-          var name = child.getClass.getSimpleName
-          name = Character.toLowerCase(name.charAt(0)) + (if (name.length() > 1) name.substring(1) else "")
-          child.unsetName()
-          child.setWeakName(name)
-        }
-        child.setName(localNamingScope.allocateName(child.getName()))
-      case _ =>
+    for (child <- children) {
+      OwnableRef.proposal(child, this)
+      if (child.isUnnamed) {
+        var name = child.getClass.getSimpleName
+        name = Character.toLowerCase(name.charAt(0)) + (if (name.length() > 1) name.substring(1) else "")
+        child.unsetName()
+        child.setWeakName(name)
+      }
+      child.setName(localNamingScope.allocateName(child.getName()))
+    }
+
+    foreachNameable(nameable => {
         if (nameable.isUnnamed || nameable.getName() == "") {
           nameable.unsetName()
           nameable.setWeakName(globalData.anonymSignalPrefix)
@@ -351,8 +353,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
           nameable.setName(localNamingScope.allocateName(nameable.getName()))
         else
           localNamingScope.iWantIt(nameable.getName(),s"Reserved name ${nameable.getName()} is not free for ${nameable.toString()}")
-    }
-
+    })
   }
 
   /** Get a set of all IO available in the component */
