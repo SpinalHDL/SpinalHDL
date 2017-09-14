@@ -207,6 +207,7 @@ object PlayBlackBox3 {
     io.rd.addr <> ram_1w_1r.io.rd.addr
 //    io.rd.data <> ram_1w_1r.io.rd.data
 
+
   }
 
   def main(args: Array[String]): Unit = {
@@ -231,6 +232,10 @@ object PlayB1 {
       }
     }
     io.output := carry.asUInt
+    val yolo = Vec(Bits(32 bits), 4)
+    val titi = yolo.map(_)
+    (yolo,titi).zipped.foreach(_ := _.resized)
+    titi
 
   }
 

@@ -159,5 +159,4 @@ def test1(dut):
     while True:
         if not slaveCmds and not slaveRsps and not masterRsps:
             break
-        # print str(not slaveRsps) + " " + str(not slaveRsps) + " " + str(not masterCmds) + " " + str(not masterRsps)
         yield Timer(10000)

@@ -32,8 +32,6 @@ def test1(dut):
     softMaster = I2cSoftMaster(sclInterconnect.newSoftConnection(), sdaInterconnect.newSoftConnection(), 2500000,dut.clk)
 
 
-
-
     apb = Apb3(dut, "io_apb", dut.clk)
     apb.idle()
 
@@ -45,7 +43,6 @@ def test1(dut):
     @coroutine
     def txAck(valid=False, enable=False, value=0x1, repeat=False, startDrop=False, disableOnConflict=False):
         yield apb.write(4, (valid << 8) | (enable << 9) | (value << 0) | (repeat << 10) | (startDrop << 11) | (disableOnConflict << 12))
-
 
     @coroutine
     def rxDataConfig(listen = False):
@@ -97,7 +94,7 @@ def test1(dut):
 
 
     # Check simple txData
-    yield idle();
+    yield idle()
     yield txData(valid = True, enable = True, value = 0x0F)
     yield rxDataConfig(listen=True)
     yield softMaster.wait(2)
@@ -111,7 +108,7 @@ def test1(dut):
 
 
     # Check simple txAck
-    yield idle();
+    yield idle()
     yield txAck(valid=True, enable=True, value=False)
     yield rxAckConfig(listen=True)
     yield softMaster.wait(2)
@@ -128,7 +125,7 @@ def test1(dut):
 
 
     # Check explicit idle controller
-    yield idle();
+    yield idle()
     yield softMaster.wait(2)
     yield softMaster.sendStart()
     yield softMaster.sendByteCheck(0xAA, 0xAA)
@@ -140,7 +137,7 @@ def test1(dut):
 
 
     # Check tx clock stretching
-    yield idle();
+    yield idle()
     yield txData(valid=False)
     yield txAck(valid=False)
     yield softMaster.wait(2)
@@ -173,7 +170,7 @@ def test1(dut):
 
 
     # Check rxData clock streching
-    yield idle();
+    yield idle()
     yield rxDataConfig(listen=True)
     yield softMaster.wait(2)
     yield softMaster.sendStart()
@@ -190,7 +187,7 @@ def test1(dut):
 
 
     # Check rxAck clock streching
-    yield idle();
+    yield idle()
     yield rxAckConfig(listen=True)
     yield softMaster.wait(2)
     yield softMaster.sendStart()
@@ -207,7 +204,7 @@ def test1(dut):
 
 
     #check txData repeat
-    yield idle();
+    yield idle()
     yield txData(valid = True, enable = True, value = 0x0F,repeat = True)
     yield softMaster.wait(2)
     yield softMaster.sendStart()
@@ -222,7 +219,7 @@ def test1(dut):
 
 
     # check txAck repeat
-    yield idle();
+    yield idle()
     yield txAck(valid=True, enable=True, value=0x0, repeat=True)
     yield softMaster.wait(2)
     yield softMaster.sendStart()

@@ -93,7 +93,15 @@ case class I2cSlaveBus() extends Bundle with IMasterSlave{
 }
 
 
-case class I2cSlaveMemoryMappedGenerics(ctrlGenerics : I2cSlaveGenerics)
+case class I2cSlaveMemoryMappedGenerics(ctrlGenerics : I2cSlaveGenerics,
+                                         masterGenerics : I2cMasterMemoryMappedGenerics = null){
+  def genMaster = masterGenerics != null
+}
+
+
+case class I2cMasterMemoryMappedGenerics( timerWidth : Int)
+
+
 
 case class I2cSlaveIo(g : I2cSlaveGenerics) extends Bundle {
   val i2c = master(I2c())
@@ -101,6 +109,7 @@ case class I2cSlaveIo(g : I2cSlaveGenerics) extends Bundle {
   val bus = master(I2cSlaveBus())
 
   def driveFrom(busCtrl: BusSlaveFactory, baseAddress: BigInt)(generics : I2cSlaveMemoryMappedGenerics) = new Area{
+    import generics._
     val rxData = new Area{
       val listen = RegInit(False)
 //      val listenOnStart = Reg(Bool)
@@ -141,6 +150,13 @@ case class I2cSlaveIo(g : I2cSlaveGenerics) extends Bundle {
       val value  = Reg(Bool)
     }
 
+    val masterLogic = if(genMaster) new Area{
+      val valid = RegInit(False)
+      val restart = RegInit(False)
+      val timer = Reg(UInt(masterGenerics.timerWidth bits)) init(0)
+      val tHigh = busCtrl.createWriteOnly(timer, address = 56)
+      val tLow = busCtrl.createWriteOnly(timer, address = 60)
+    } else null
 
     val dataCounter = RegInit(U"000")
     val inAckState = RegInit(False)
@@ -263,8 +279,6 @@ case class I2cSlaveIo(g : I2cSlaveGenerics) extends Bundle {
     busCtrl.drive(config.samplingClockDivider, baseAddress + 40) init(0)
     busCtrl.drive(config.timeout, baseAddress + 44) randBoot()
     busCtrl.drive(config.tsuDat, baseAddress + 48) randBoot()
-
-
   }
 }
 
