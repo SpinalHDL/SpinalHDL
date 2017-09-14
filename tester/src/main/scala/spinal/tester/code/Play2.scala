@@ -215,7 +215,7 @@ object PlayBlackBox3 {
   }
 }
 
-
+/*
 object PlayB1 {
 
   class TopLevel extends Component {
@@ -243,7 +243,7 @@ object PlayB1 {
     //SpinalVhdl(new TopLevel)
     SpinalVhdl(new TopLevel)
   }
-}
+}*/
 
 object PlayB2 {
 
