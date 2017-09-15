@@ -107,6 +107,10 @@ class PhaseContext(val config : SpinalConfig){
     GraphUtils.walkAllComponents(topLevel, c => c.dslBody.walkStatements(s => s.walkExpression(func)))
   }
 
+  def walkNameableExpression(func : NameableExpression => Unit) : Unit = {
+    walkComponents(c => c.foreachNameable(e => func(e)))
+  }
+
   def walkRemapExpressions(func : Expression => Expression): Unit ={
     GraphUtils.walkAllComponents(topLevel, c => c.dslBody.walkStatements(s => s.walkRemapExpressions(func)))
   }
@@ -908,41 +912,51 @@ class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
 
     var iterationCounter = 0
     while (true) {
-      val algoIncrementale = globalData.allocateAlgoIncrementale()
       var somethingChange = false
       walkExpression(e => e match {
+        case e : NameableExpression =>
         case e : Widthable =>
-          if(e.algoIncrementale < algoIncrementale){
-            val hasChange = e.inferWidth
-            somethingChange = somethingChange || hasChange
-            e.algoIncrementale = algoIncrementale
-          }
+          val hasChange = e.inferWidth
+          somethingChange = somethingChange || hasChange
+        case _ =>
+      })
+      walkNameableExpression(e => e match{
+        case e : Widthable =>
+          val hasChange = e.inferWidth
+          somethingChange = somethingChange || hasChange
         case _ =>
       })
 
       iterationCounter += 1
       if (!somethingChange || iterationCounter == 10000) {
-        val algoIncrementale = globalData.allocateAlgoIncrementale()
         val errors = mutable.ArrayBuffer[String]()
-        walkExpression(e => e match {
-          case e : Widthable =>
-            if(e.algoIncrementale < algoIncrementale){
-              e.algoIncrementale = algoIncrementale
-              if (e.inferWidth) {
-                //Don't care about Reg width inference
-                errors += s"Can't infer width on ${e.getScalaLocationLong}"
-              }
-              if (e.widthWhenNotInferred != -1 && e.widthWhenNotInferred != e.getWidth) {
-                errors += s"getWidth call result during elaboration differ from inferred width on\n${e.getScalaLocationLong}"
-              }
 
-              if(e.inferredWidth < -1){
-                errors += s"Negative width on $e at ${e.getScalaLocationLong}"
-              }
-            }
+        def widthableCheck(e : Widthable) : Unit = {
+          if (e.inferWidth) {
+            //Don't care about Reg width inference
+            errors += s"Can't infer width on ${e.getScalaLocationLong}"
+          }
+          if (e.widthWhenNotInferred != -1 &&
+            e.widthWhenNotInferred != e.getWidth) {
+            errors += s"getWidth call result during elaboration differ from inferred width on\n${e.getScalaLocationLong}"
+          }
+
+          if(e.inferredWidth < -1){
+            errors += s"Negative width on $e at ${e.getScalaLocationLong}"
+          }
+        }
+
+        walkExpression(e => e match {
+          case e : NameableExpression =>
+          case e : Widthable => widthableCheck(e)
           case e : WidthProvider => if(e.getWidth < 0){
             errors += s"Negative width on $e at ${e.getScalaLocationLong}"
           }
+          case _ =>
+        })
+
+        walkNameableExpression(e => e match{
+          case e : Widthable => widthableCheck(e)
           case _ =>
         })
 
@@ -2116,14 +2130,6 @@ object SpinalVhdlBoot{
 
     val phases = ArrayBuffer[Phase]()
 
-    phases +=new PhaseDummy({
-      var stack = 0
-      GlobalData.get.algoIncrementale = 1
-      for(i <- 0 until 1000000){
-        stack += GlobalData.get.algoIncrementale
-      }
-      SpinalProgress("BENCH" + stack)
-    })
     phases += new PhaseCreateComponent(gen)(pc)
 
 

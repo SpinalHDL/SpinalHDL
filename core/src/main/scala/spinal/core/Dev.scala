@@ -41,24 +41,64 @@ trait NameableExpression extends Expression with Nameable with ContextUser{
   
   
   def rootScopeStatement : ScopeStatement = dslContext.scope
-  val statements = mutable.ListBuffer[AssignementStatement]() //TODO IR ! linkedlist  hard
 
-  def hasOnlyOneStatement = statements.length == 1 //TODO faster
-  def headStatement = statements.head
-  def append(that : AssignementStatement) : this.type = {
-    statements += that
-    this
-  }
 
+
+  var headStatement, lastStatement : AssignementStatement = null
+  def hasOnlyOneStatement = headStatement == lastStatement && headStatement != null
+  def isEmpty = headStatement == null
+  //  def sizeIsOne = head != null && head == last
   def prepend(that : AssignementStatement) : this.type = {
-    statements.prepend(that)
+    if(headStatement != null){
+      headStatement.previousNameableStatement = that
+    } else {
+      lastStatement = that
+    }
+    that.nextNameableStatement = headStatement
+    that.previousNameableStatement = null
+
+    headStatement = that
+
     this
   }
+
+  def append(that : AssignementStatement) : this.type = {
+    that.nextNameableStatement = null
+    that.previousNameableStatement = lastStatement
+    if(lastStatement != null){
+      lastStatement.nextNameableStatement = that
+    } else {
+      headStatement = that
+    }
+
+    lastStatement = that
+    this
+  }
+
+  def statementIterable = new Iterable[AssignementStatement] {
+    override def iterator: Iterator[AssignementStatement] = statementIterator
+  }
+
+  def statementIterator = new Iterator[AssignementStatement] {
+    var ptr = headStatement
+    override def hasNext: Boolean = ptr != null
+
+    override def next(): AssignementStatement = {
+      val ret = ptr
+      ptr = ret.nextNameableStatement
+      ret
+    }
+  }
+
 
   def foreachStatements(func : (AssignementStatement) => Unit) = {
-    statements.foreach(func)
+    var ptr = headStatement
+    while(ptr != null){
+      val current = ptr
+      ptr = ptr.nextNameableStatement
+      func(current)
+    }
   }
-
 }
 
 
@@ -105,28 +145,6 @@ trait Expression extends BaseNode with ExpressionContainer{
   def simplifyNode: Expression = this
 }
 
-//object RefExpression{
-//  //def apply(s : BaseType) = new RefExpression(s)
-//  def unapply(ref : RefExpression) : Option[BaseType] = Some(ref.source)
-//}
-//
-//class RefExpression(val source : BaseType) extends Expression{
-//  def opName : String ="(x)"
-//  def foreachExpression(func : (Expression) => Unit) : Unit = {
-//
-//  }
-//
-//
-//  override def remapExpressions(func: (Expression) => Expression): Unit = {}
-//
-//  def foreachLeafExpression(func : (Expression) => Unit) : Unit = {
-//    func(this)
-//  }
-//}
-//
-//case class WidthableRefExpression(override val source : BitVector) extends RefExpression(source) with WidthProvider{
-//  override def getWidth: Int = source.getWidth
-//}
 
 //TODO IR check same scope
 object Statement{
@@ -139,26 +157,27 @@ object Statement{
     case _ => false
   }
 }
+
 trait Statement extends ExpressionContainer with ScalaLocated with BaseNode{
   var parentScope : ScopeStatement = null
-  var previous, next : Statement = null
+  var previousScopeStatement, nextScopeStatement : Statement = null
   def rootScopeStatement: ScopeStatement = if(parentScope.parentStatement != null) parentScope.parentStatement.rootScopeStatement else parentScope
 //  def isConditionalStatement : Boolean
 
 //  def removeStatement() : Unit = parentScope.content -= this
   def removeStatement() : Unit = {
-    if(previous != null){
-      previous.next = next
+    if(previousScopeStatement != null){
+      previousScopeStatement.nextScopeStatement = nextScopeStatement
     } else {
-      parentScope.head = next
+      parentScope.head = nextScopeStatement
     }
-    if(next != null){
-      next.previous = previous
+    if(nextScopeStatement != null){
+      nextScopeStatement.previousScopeStatement = previousScopeStatement
     } else {
-      parentScope.last = previous
+      parentScope.last = previousScopeStatement
     }
-    previous = null
-    next = null
+    previousScopeStatement = null
+    nextScopeStatement = null
     parentScope = null
 
   //TODO IR remove statement from Nameable
@@ -205,16 +224,18 @@ object AssignementStatement{
 
 abstract class AssignementStatement extends LeafStatement{
   var target, source : Expression = null
+  var previousNameableStatement, nextNameableStatement : AssignementStatement = null
   override def rootScopeStatement = finalTarget.rootScopeStatement
   def finalTarget : BaseType = target match{
     case n : BaseType => n
     case a : AssignementExpression => a.finalTarget
   }
-//  override def isConditionalStatement: Boolean = false
+
   def foreachExpression(func : (Expression) => Unit) : Unit = {
     func(target)
     func(source)
   }
+  
   override def foreachDrivingExpression(func : (Expression) => Unit) : Unit = {
     target match {
       case ref : NameableExpression =>
@@ -235,6 +256,24 @@ abstract class AssignementStatement extends LeafStatement{
   override def remapExpressions(func: (Expression) => Expression): Unit = {
     target = func(target)
     source = func(source)
+  }
+
+  override def removeStatement(): Unit = {
+    super.removeStatement()
+
+    //Remove from BaseType
+    if(previousNameableStatement != null){
+      previousNameableStatement.nextNameableStatement = nextNameableStatement
+    } else {
+      finalTarget.headStatement = nextNameableStatement
+    }
+    if(nextNameableStatement != null){
+      nextNameableStatement.previousNameableStatement = previousNameableStatement
+    } else {
+      finalTarget.lastStatement = previousNameableStatement
+    }
+    previousNameableStatement = null
+    nextNameableStatement = null
   }
 }
 
@@ -310,12 +349,12 @@ class ScopeStatement(var parentStatement : TreeStatement)/* extends ExpressionCo
 //  def sizeIsOne = head != null && head == last
   def prepend(that : Statement) : this.type = {
     if(head != null){
-      head.previous = that
+      head.previousScopeStatement = that
     } else {
       last = that
     }
-    that.next = head
-    that.previous = null
+    that.nextScopeStatement = head
+    that.previousScopeStatement = null
 
     head = that
 
@@ -323,10 +362,10 @@ class ScopeStatement(var parentStatement : TreeStatement)/* extends ExpressionCo
   }
 
   def append(that : Statement) : this.type = {
-    that.next = null
-    that.previous = last
+    that.nextScopeStatement = null
+    that.previousScopeStatement = last
     if(last != null){
-      last.next = that
+      last.nextScopeStatement = that
     } else {
       head = that
     }
@@ -345,7 +384,7 @@ class ScopeStatement(var parentStatement : TreeStatement)/* extends ExpressionCo
 
     override def next(): Statement = {
       val ret = ptr
-      ptr = ret.next
+      ptr = ret.nextScopeStatement
       ret
     }
   }
@@ -355,7 +394,7 @@ class ScopeStatement(var parentStatement : TreeStatement)/* extends ExpressionCo
     var ptr = head
     while(ptr != null){
       val current = ptr
-      ptr = ptr.next
+      ptr = ptr.nextScopeStatement
       func(current)
     }
   }

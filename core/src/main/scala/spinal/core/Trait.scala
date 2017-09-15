@@ -488,7 +488,7 @@ trait Nameable extends OwnableRef with ContextUser{
 
   def setWeakName(name: String) : this.type = setName(name, true)
 
-  def forEachNameables(doThat : (Any) => Unit) : Unit = {
+  def foreachReflectableNameables(doThat : (Any) => Unit) : Unit = {
     Misc.reflect(this, (name, obj) => {
       doThat(obj)
     })

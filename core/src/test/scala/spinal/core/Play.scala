@@ -16,6 +16,7 @@ object PlayBits{
     val d, e, f = out Bool()
     val g, h, i, j = Bits(8 bits)
     val x,y,z = out( Reg(Bits(8 bits)))
+
     val bits4 = Bits(4 bits)
 //    val tmp = a & b & c
 //    val xx = g & a
@@ -350,7 +351,7 @@ object PlayHeavyload {
       })
       print("DONE " + toplevel.getName() + " " + statementCount + " " + expressionCount)
     }
-    printInfo(SpinalVhdl(new TopLevel(10000)).toplevel)
+    printInfo(SpinalVhdl(new TopLevel(500000)).toplevel)
 //    printInfo(SpinalVhdl(new TopLevel(1)).toplevel)
 //    printInfo(SpinalVhdl(new TopLevel(1)).toplevel)
 
