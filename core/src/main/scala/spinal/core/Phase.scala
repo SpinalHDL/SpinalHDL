@@ -913,6 +913,8 @@ class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
     var iterationCounter = 0
     while (true) {
       var somethingChange = false
+
+      //Infer width on all expressions
       walkExpression(e => e match {
         case e : NameableExpression =>
         case e : Widthable =>
@@ -920,6 +922,8 @@ class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
           somethingChange = somethingChange || hasChange
         case _ =>
       })
+
+      //Infer width on all nameable expression (BitVector)
       walkNameableExpression(e => e match{
         case e : Widthable =>
           val hasChange = e.inferWidth
@@ -927,7 +931,7 @@ class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
         case _ =>
       })
 
-      iterationCounter += 1
+      //Check in the width inferation is done, then check it and generate errors
       if (!somethingChange || iterationCounter == 10000) {
         val errors = mutable.ArrayBuffer[String]()
 
@@ -964,6 +968,7 @@ class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
           SpinalError(errors)
         return
       }
+      iterationCounter += 1
     }
   }
 }
@@ -1544,9 +1549,17 @@ class PhaseDeleteUselessBaseTypes(pc: PhaseContext, removeResizedTag : Boolean) 
       def statementWalker(s : Statement) : Unit = {
         s match {
           case s : WhenStatement => {
-//            s.removeStatement() TODO
             if(s.whenTrue.isEmpty && s.whenFalse.isEmpty){
-              s.cond.walkExpression(e => e match {
+              s.walkExpression(e => e match {
+                case n : NameableExpression => nameableWalker(n)
+                case _ =>
+              })
+            }
+            statementWalker(s.parentScope.parentStatement)
+          }
+          case s : SwitchStatement => {
+            if(s.defaultScope.isEmpty && !s.elements.exists(e => e.scopeStatement.nonEmpty)){
+              s.walkExpression(e => e match {
                 case n : NameableExpression => nameableWalker(n)
                 case _ =>
               })

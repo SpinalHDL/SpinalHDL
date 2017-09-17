@@ -817,6 +817,7 @@ class GlobalData {
   var nodeAreInferringEnumEncoding = false
   val nodeGetWidthWalkedSet = mutable.Set[Widthable]()
   val clockSyncronous = mutable.HashMap[Bool,ArrayBuffer[Bool]]()
+  val switchStack = Stack[SwitchContext]()
 
   var scalaLocatedEnable = false
   var instanceCounter = 0

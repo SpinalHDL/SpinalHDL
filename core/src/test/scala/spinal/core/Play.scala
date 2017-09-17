@@ -99,11 +99,29 @@ object PlaySimple{
     val d, e, f = out Bool()
     val g, h, i, j = Bool()
     val x,y,z = Reg(Bool())
+    val sel = Bits(4 bits)
 
-    g := a & b & c
-    when(c & c & c){
-      g & h & i & g
+
+    when(a){
+      d := b || c
+      switch(sel){
+        default{
+          d := c
+        }
+        is(B"0000"){
+          d := c || c
+          d := g || g
+        }
+        is(B"0001"){
+          d := h || h
+        }
+        is(B"0010"){
+          d := i || i
+          d := j || j
+        }
+      }
     }
+
 
 
 //    g := False

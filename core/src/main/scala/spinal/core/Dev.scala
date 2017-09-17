@@ -235,7 +235,7 @@ abstract class AssignementStatement extends LeafStatement{
     func(target)
     func(source)
   }
-  
+
   override def foreachDrivingExpression(func : (Expression) => Unit) : Unit = {
     target match {
       case ref : NameableExpression =>
@@ -326,6 +326,32 @@ class WhenStatement(var cond : Expression) extends TreeStatement{
   }
 }
 
+
+class SwitchStatementElement(var keys : ArrayBuffer[Expression],var scopeStatement: ScopeStatement)
+class SwitchStatement(var value : Expression) extends TreeStatement{
+  val elements = ArrayBuffer[SwitchStatementElement]()
+  var defaultScope : ScopeStatement = null
+
+  override def foreachStatements(func: (Statement) => Unit): Unit = {
+    elements.foreach(x => x.scopeStatement.foreachStatements(func))
+    defaultScope.foreachStatements(func)
+  }
+
+  override def remapExpressions(func: (Expression) => Expression): Unit = {
+    value = func(value)
+    elements.foreach(x => {
+      for(i <- 0 until x.keys.length){
+        x.keys(i) = func(x.keys(i))
+      }
+    })
+  }
+
+  override def foreachExpression(func: (Expression) => Unit): Unit = {
+    func(value)
+    elements.foreach(x => x.keys.foreach(func))
+  }
+}
+
 class ScopeStatement(var parentStatement : TreeStatement)/* extends ExpressionContainer*/{
 //  val content = mutable.ListBuffer[Statement]() //TODO IR ! linkedlist  hard
 //
@@ -346,6 +372,7 @@ class ScopeStatement(var parentStatement : TreeStatement)/* extends ExpressionCo
 //  }
   var head, last : Statement = null
   def isEmpty = head == null
+  def nonEmpty = head != null
 //  def sizeIsOne = head != null && head == last
   def prepend(that : Statement) : this.type = {
     if(head != null){

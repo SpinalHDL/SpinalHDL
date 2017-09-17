@@ -260,6 +260,14 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
                   }
                 }
               }
+              case s : SwitchStatement => {
+                if(!s.value.isInstanceOf[NameableExpression]){
+                  val counter = whenCondOccurences.getOrElseUpdate(s.value, 0)
+                  if(counter < 2){
+                    whenCondOccurences(s.value) = counter + 1
+                  }
+                }
+              }
             }
             statementIndex = walker(statements,statementIndex, scopePtr)
           }
@@ -682,10 +690,52 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
               b ++= s"${tab}if ${emitExpression(treeStatement.cond)} = '0' then\n"
             }
             lastWhen = treeStatement
+            statementIndex = emitLeafStatements(statements,statementIndex, scopePtr, assignementKind,b, tab + "  ")
+          }
+          case switchStatement : SwitchStatement => {
+            class Task(val element : SwitchStatementElement, val statementIndex : Int)
+            val tasks = mutable.HashMap[ScopeStatement, Task]()
+            var afterSwitchIndex = statementIndex
+            var continue = true
+            //Fill tasks list
+            do {
+              val statement = statements(afterSwitchIndex)
+              def findSwitchScope(scope: ScopeStatement): ScopeStatement = scope.parentStatement match {
+                case null => null
+                case s if s == switchStatement => scope
+                case s => findSwitchScope(s.parentScope)
+              }
+              val isScope = findSwitchScope(statement.parentScope)
+              if (isScope == null) {
+                continue = false
+              } else {
+                if (!tasks.contains(isScope)) {
+                  if(isScope == switchStatement.defaultScope) {
+                    tasks(isScope) = new Task(null, afterSwitchIndex) //TODO find is O^2 complexity
+                  } else {
+                    tasks(isScope) = new Task(switchStatement.elements.find(_.scopeStatement == isScope).get, afterSwitchIndex) //TODO find is O^2 complexity
+                  }
+                }
+                afterSwitchIndex += 1
+              }
+            } while(continue && afterSwitchIndex < statements.length)
+
+            //Generate the code
+            b ++= s"${tab}case ${emitExpression(switchStatement.value)} is\n"
+            tasks.foreach{case (scope, task) => task match {
+              case _ if task.element == null =>
+                b ++= s"${tab}  default =>\n"
+                emitLeafStatements(statements,task.statementIndex, scope, assignementKind,b, tab + "    ")
+              case _ =>
+                b ++= s"${tab}  when ${emitExpression(task.element.keys.head)} =>\n"
+                emitLeafStatements(statements,task.statementIndex, scope, assignementKind,b, tab + "    ")
+            }}
+
+            statementIndex += 1
+            b ++= s"${tab}end case;\n"
+            return afterSwitchIndex
           }
         }
-
-        statementIndex = emitLeafStatements(statements,statementIndex, scopePtr, assignementKind,b, tab + "  ")
       }
     }
     closeSubs()

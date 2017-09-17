@@ -83,6 +83,120 @@ object when {
   }
 }
 
+
+class SwitchContext(val statement : SwitchStatement) {
+
+}
+
+object switch{
+    def apply[T <: BaseType](value: T)(block: => Unit): Unit = {
+      val globalData = value.globalData
+      val dslContext = value.globalData.contextHead
+      val switchStatement = new SwitchStatement(value)
+      val switchContext = new SwitchContext(switchStatement)
+      globalData.switchStack.push(switchContext)
+//      globalData.context.push(globalData.contextHead.copy(scope = null))
+      block
+//      globalData.context.pop()
+      globalData.switchStack.pop()
+      dslContext.component.addStatement(switchStatement)
+
+      //    //value.globalData.pushNetlistLock(() => {
+  ////      SpinalError(s"You should not use 'general statments' in the 'switch' scope, but only 'is' statments.\n${ScalaLocated.long}")
+  ////    })
+  //    val s = new SwitchStack(value)
+  //    value.globalData.switchStack.push(s)
+  //    block
+  //
+  //    //value.globalData.pushNetlistUnlock()
+  //    if (s.defaultBlock != null) {
+  //      if (s.lastWhen == null) {
+  //        block
+  //      } else {
+  //        s.lastWhen.otherwise(s.defaultBlock())
+  //      }
+  //    }
+  //
+  //    //value.globalData.popNetlistUnlock()
+  //    value.globalData.switchStack.pop(s)
+  //    //value.globalData.popNetlistLock
+  }
+}
+
+object is{
+  def apply(values:  Any*)(block: => Unit): Unit = list(values.iterator)(block)
+  def list(values: Iterator[Any])(block: => Unit): Unit = {
+    val globalData = GlobalData.get
+    val switchContext = globalData.switchStack.head
+    val switchElement = new SwitchStatementElement(ArrayBuffer[Expression](), new ScopeStatement(switchContext.statement))
+    val switchValue = switchContext.statement.value
+    values.foreach(value => value match {
+      case value : BaseType =>
+        if(value.getClass == switchValue.getClass){
+          switchElement.keys += value
+        }else{
+          SpinalError("is(xxx) doesn't match switch(yyy) type")
+        }
+//              case key: Data => switchValue.isEquals(key)
+//              case key: Seq[_] => key.map(d => analyse(d)).reduce(_ || _)
+//              case key: Int => {
+//                switchValue match {
+//                  case switchValue: Bits => switchValue === B(key)
+//                  case switchValue: UInt => switchValue === U(key)
+//                  case switchValue: SInt => switchValue === S(key)
+//                  case _ => SpinalError("The switch is not a Bits, UInt or SInt")
+//                }
+//              }
+//              case key: BigInt => {
+//                switchValue match {
+//                  case switchValue: Bits => switchValue === B(key)
+//                  case switchValue: UInt => switchValue === U(key)
+//                  case switchValue: SInt => switchValue === S(key)
+//                  case _ => SpinalError("The switch is not a Bits, UInt or SInt")
+//                }
+//              }
+//              case that : SpinalEnumElement[_] => switchValue.isEquals(that())
+//              case key : MaskedLiteral => switchValue match {
+//                case switchValue: Bits => switchValue === key
+//                case switchValue: UInt => switchValue === key
+//                case switchValue: SInt => switchValue === key
+//                case _ => SpinalError("The switch is not a Bits, UInt or SInt")
+//              }
+//            }
+    })
+    require(switchElement.keys.length == 1)
+
+    switchContext.statement.elements += switchElement
+    globalData.context.push(globalData.contextHead.copy(scope = switchElement.scopeStatement))
+    block
+    globalData.context.pop()
+  }
+}
+
+object default {
+  def apply(block: => Unit): Unit = {
+    val globalData = GlobalData.get
+    val switchContext = globalData.switchStack.head
+    val defaultScope =  new ScopeStatement(switchContext.statement)
+    switchContext.statement.defaultScope = defaultScope
+    globalData.context.push(globalData.contextHead.copy(scope = defaultScope))
+    block
+    globalData.context.pop()
+    //    val globalData = GlobalData.get
+//    if (globalData.switchStack.isEmpty) SpinalError("Use 'default' statement outside the 'switch'")
+//    globalData.pushNetlistUnlock()
+//    val value = globalData.switchStack.head()
+//
+//    if (value.whenStackHead != globalData.conditionalAssignStack.head()) SpinalError("'default' statement is not at the top level of the 'switch'")
+//    if (value.defaultBlock != null) SpinalError("'default' statement must appear only one time in the 'switch'")
+//    value.defaultBlock = () => {
+//      block
+//    }
+//    globalData.popNetlistUnlock()
+  }
+}
+
+
 //
 //class SwitchStack(val value: Data) {
 //  var lastWhen: WhenContext = null
