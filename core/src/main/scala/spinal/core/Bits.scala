@@ -46,7 +46,7 @@ trait BitsFactory {
 //  *
 //  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Bits Bits Documentation]]
 //  */
-class Bits extends BitVector /*with DataPrimitives[Bits] with BitwiseOp[Bits]*/{
+class Bits extends BitVector /*with DataPrimitives[Bits] */with BitwiseOp[Bits]{
 
 
   override def opName: String = "Bits"
@@ -64,12 +64,12 @@ class Bits extends BitVector /*with DataPrimitives[Bits] with BitwiseOp[Bits]*/{
 //    * @param right a Bits to append
 //    * @return a new Bits of width (w(this) + w(right))
 //    */
-//  def ##(right: Bits): Bits = wrapBinaryOperator(right, new Operator.Bits.Cat)
-//
-//  override def |(right: Bits): Bits = wrapBinaryOperator(right, new Operator.Bits.Or)
-  /*override */def &(right: Bits): Bits = wrapBinaryOperator(right, new Operator.Bits.And)
-//  override def ^(right: Bits): Bits = wrapBinaryOperator(right, new Operator.Bits.Xor)
-//  override def unary_~(): Bits = wrapUnaryOperator(new Operator.Bits.Not)
+  def ##(right: Bits): Bits = wrapBinaryOperator(right, new Operator.Bits.Cat)
+
+  override def |(right: Bits): Bits = wrapBinaryOperator(right, new Operator.Bits.Or)
+  override def &(right: Bits): Bits = wrapBinaryOperator(right, new Operator.Bits.And)
+  override def ^(right: Bits): Bits = wrapBinaryOperator(right, new Operator.Bits.Xor)
+  override def unary_~(): Bits = wrapUnaryOperator(new Operator.Bits.Not)
 //
 //  /**
 //    * Logical shift right (output width will decrease)
@@ -164,22 +164,16 @@ class Bits extends BitVector /*with DataPrimitives[Bits] with BitwiseOp[Bits]*/{
 //    ret
 //  }
 //
-  private[core] override def isEquals(that: Any): Bool = {
-    ???
-//    that match {
-//      case that: Bits          => wrapLogicalOperator(that, new Operator.Bits.Equal)
+  private[core] override def isEquals(that: Any): Bool = that match {
+    case that: Bits          => wrapLogicalOperator(that, new Operator.Bits.Equal)
 //      case that: MaskedLiteral => that === this
-//      case _                   => SpinalError(s"Don't know how to compare $this with $that"); null
-//    }
+    case _                   => SpinalError(s"Don't know how to compare $this with $that"); null
   }
 
-  private[core] override def isNotEquals(that: Any): Bool = {
-    ???
-//    that match {
-//      case that: Bits          => wrapLogicalOperator(that, new Operator.Bits.NotEqual)
+  private[core] override def isNotEquals(that: Any): Bool = that match {
+    case that: Bits          => wrapLogicalOperator(that, new Operator.Bits.NotEqual)
 //      case that: MaskedLiteral => that =/= this
-//      case _                   => SpinalError(s"Don't know how to compare $this with $that"); null
-//    }
+    case _                   => SpinalError(s"Don't know how to compare $this with $that"); null
   }
 //
 //  private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse,new MultiplexerBits)

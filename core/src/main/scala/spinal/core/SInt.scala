@@ -1,57 +1,61 @@
-///*                                                                           *\
-//**        _____ ____  _____   _____    __                                    **
-//**       / ___// __ \/  _/ | / /   |  / /   HDL Core                         **
-//**       \__ \/ /_/ // //  |/ / /| | / /    (c) Dolu, All rights reserved    **
-//**      ___/ / ____// // /|  / ___ |/ /___                                   **
-//**     /____/_/   /___/_/ |_/_/  |_/_____/                                   **
-//**                                                                           **
-//**      This library is free software; you can redistribute it and/or        **
-//**    modify it under the terms of the GNU Lesser General Public             **
-//**    License as published by the Free Software Foundation; either           **
-//**    version 3.0 of the License, or (at your option) any later version.     **
-//**                                                                           **
-//**      This library is distributed in the hope that it will be useful,      **
-//**    but WITHOUT ANY WARRANTY; without even the implied warranty of         **
-//**    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU      **
-//**    Lesser General Public License for more details.                        **
-//**                                                                           **
-//**      You should have received a copy of the GNU Lesser General Public     **
-//**    License along with this library.                                       **
-//\*                                                                           */
-//package spinal.core
-//
+/*                                                                           *\
+**        _____ ____  _____   _____    __                                    **
+**       / ___// __ \/  _/ | / /   |  / /   HDL Core                         **
+**       \__ \/ /_/ // //  |/ / /| | / /    (c) Dolu, All rights reserved    **
+**      ___/ / ____// // /|  / ___ |/ /___                                   **
+**     /____/_/   /___/_/ |_/_/  |_/_____/                                   **
+**                                                                           **
+**      This library is free software; you can redistribute it and/or        **
+**    modify it under the terms of the GNU Lesser General Public             **
+**    License as published by the Free Software Foundation; either           **
+**    version 3.0 of the License, or (at your option) any later version.     **
+**                                                                           **
+**      This library is distributed in the hope that it will be useful,      **
+**    but WITHOUT ANY WARRANTY; without even the implied warranty of         **
+**    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU      **
+**    Lesser General Public License for more details.                        **
+**                                                                           **
+**      You should have received a copy of the GNU Lesser General Public     **
+**    License along with this library.                                       **
+\*                                                                           */
+package spinal.core
+
 //import spinal.core.Operator.BitVector.AllByBool
-//
-//
-///**
-//  * SInt factory used for instance by the IODirection to create a in/out SInt
-//  */
-//trait SIntFactory{
-//  /** Create a new SInt */
-//  def SInt() = new SInt()
-//  /** Create a new SInt of a given width */
-//  def SInt(width: BitCount): SInt = SInt.setWidth(width.value)
-//}
-//
-//
-///**
-//  * The SInt type corresponds to a vector of bits that can be used for signed integer arithmetic.
-//  *
-//  * @example{{{
-//  *     val mySInt = SInt(8 bits)
-//  *     mySInt    := S(4, 8 bits) + S"0000_1111"
-//  *     mySInt    := S(4) - S"h1A"
-//  * }}}
-//  *
-//  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Int SInt Documentation]]
-//  */
-//class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimitives[SInt] with BitwiseOp[SInt] {
-//
-//  private[core] override def prefix : String = "s"
+
+
+/**
+  * SInt factory used for instance by the IODirection to create a in/out SInt
+  */
+trait SIntFactory{
+  /** Create a new SInt */
+  def SInt() = new SInt()
+  /** Create a new SInt of a given width */
+  def SInt(width: BitCount): SInt = SInt.setWidth(width.value)
+}
+
+
+/**
+  * The SInt type corresponds to a vector of bits that can be used for signed integer arithmetic.
+  *
+  * @example{{{
+  *     val mySInt = SInt(8 bits)
+  *     mySInt    := S(4, 8 bits) + S"0000_1111"
+  *     mySInt    := S(4) - S"h1A"
+  * }}}
+  *
+  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Int SInt Documentation]]
+  */
+class SInt extends BitVector /*with Num[SInt] with MinMaxProvider */with DataPrimitives[SInt] with BitwiseOp[SInt] {
+
+  override private[core] def resizeFactory: Resize = new ResizeSInt
+
+  override def opName: String = "SInt"
+
+  //  private[core] override def prefix : String = "s"
 //
 //  override type T = SInt
 //
-//  private[spinal] override  def _data: SInt = this
+  private[spinal] override  def _data: SInt = this
 //
 //  /**
 //    * Concatenation between two SInt
@@ -64,30 +68,30 @@
 //  def @@(that: UInt): SInt = S(this ## that)
 //  /** Concatenation between a SInt and a Bool */
 //  def @@(that: Bool): SInt = S(this ## that)
-//
-//  override def +(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.Add)
-//  override def -(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.Sub)
-//  override def *(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.Mul)
-//  override def /(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.Div)
-//  override def %(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.Mod)
-//
-//  override def |(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.Or)
-//  override def &(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.And)
-//  override def ^(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.Xor)
-//  override def unary_~(): SInt = wrapUnaryOperator(new Operator.SInt.Not)
-//
+
+  def +(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.Add)
+  def -(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.Sub)
+  def *(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.Mul)
+  def /(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.Div)
+  def %(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.Mod)
+
+  override def |(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.Or)
+  override def &(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.And)
+  override def ^(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.Xor)
+  override def unary_~(): SInt = wrapUnaryOperator(new Operator.SInt.Not)
+
 //  override def < (right: SInt): Bool = wrapLogicalOperator(right, new Operator.SInt.Smaller)
 //  override def > (right: SInt): Bool = right < this
 //  override def <=(right: SInt): Bool = wrapLogicalOperator(right, new Operator.SInt.SmallerOrEqual)
 //  override def >=(right: SInt): Bool = right <= this
-//
-//  /**
-//    * Negative number
-//    * @example{{{ val result = -mySInt }}}
-//    * @return return a negative number
-//    */
-//  def unary_-(): SInt = wrapUnaryOperator(new Operator.SInt.Minus)
-//
+
+  /**
+    * Negative number
+    * @example{{{ val result = -mySInt }}}
+    * @return return a negative number
+    */
+  def unary_-(): SInt = wrapUnaryOperator(new Operator.SInt.Minus)
+
 //  /**
 //    * Logical shift Right (output width == input width)
 //    * @example{{{ val result = mySInt >> myUIntShift }}}
@@ -157,42 +161,40 @@
 //  def asUInt: UInt = wrapCast(UInt(), new CastSIntToUInt)
 //
 //  override def asBits: Bits = wrapCast(Bits(), new CastSIntToBits)
-//
-//  private[core] override def isEquals(that: Any): Bool = {
-//    that match {
-//      case that: SInt           => wrapLogicalOperator(that,new Operator.SInt.Equal)
+
+  private[core] override def isEquals(that: Any): Bool = that match {
+      case that: SInt           => wrapLogicalOperator(that,new Operator.SInt.Equal)
 //      case that: MaskedLiteral  => that === this
-//      case _                    => SpinalError(s"Don't know how compare $this with $that"); null
-//    }
-//  }
-//
-//  private[core] override def isNotEquals(that: Any): Bool = {
-//    that match {
-//      case that: SInt          => wrapLogicalOperator(that,new Operator.SInt.NotEqual)
-//      case that: MaskedLiteral => that =/= this
-//      case _                   => SpinalError(s"Don't know how compare $this with $that"); null
-//    }
-//  }
-//
+      case _                    => SpinalError(s"Don't know how compare $this with $that"); null
+    }
+
+
+  private[core] override def isNotEquals(that: Any): Bool = that match {
+    case that: SInt          => wrapLogicalOperator(that,new Operator.SInt.NotEqual)
+//    case that: MaskedLiteral => that =/= this
+    case _                   => SpinalError(s"Don't know how compare $this with $that"); null
+  }
+
+
 //  private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse, new MultiplexerSInt)
-//
-//  override def resize(width: Int): this.type = wrapWithWeakClone({
-//    val node = new ResizeSInt
-//    node.input = this
-//    node.size = width
-//    node
-//  })
-//
+
+  override def resize(width: Int): this.type = wrapWithWeakClone({
+    val node = new ResizeSInt
+    node.input = this
+    node.size = width
+    node
+  })
+
 //  override def minValue: BigInt = -(BigInt(1) << (getWidth - 1))
 //  override def maxValue: BigInt =  (BigInt(1) << (getWidth - 1)) - 1
-//
+
 //  override def apply(bitId: Int): Bool = newExtract(bitId, new ExtractBoolFixedFromSInt)
 //  override def apply(bitId: UInt): Bool = newExtract(bitId, new ExtractBoolFloatingFromSInt)
-//  override def apply(offset: Int, bitCount: BitCount): this.type  = newExtract(offset + bitCount.value - 1, offset, new ExtractBitsVectorFixedFromSInt).setWidth(bitCount.value)
+  override def apply(offset: Int, bitCount: BitCount): this.type  = newExtract(offset + bitCount.value - 1, offset, new SIntRangedAccessFixed).setWidth(bitCount.value)
 //  override def apply(offset: UInt, bitCount: BitCount): this.type = newExtract(offset, bitCount.value, new ExtractBitsVectorFloatingFromSInt).setWidth(bitCount.value)
-//
-//  private[core] override def weakClone: this.type = new SInt().asInstanceOf[this.type]
+
+  private[core] override def weakClone: this.type = new SInt().asInstanceOf[this.type]
 //  override def getZero: this.type = S(0, this.getWidth bits).asInstanceOf[this.type]
 //  override def getZeroUnconstrained: this.type = S(0).asInstanceOf[this.type]
 //  protected override def getAllToBoolNode(): AllByBool = new Operator.SInt.AllByBool(this)
-//}
+}

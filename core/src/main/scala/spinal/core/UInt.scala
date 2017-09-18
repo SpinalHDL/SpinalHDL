@@ -1,81 +1,85 @@
-///*                                                                           *\
-//**        _____ ____  _____   _____    __                                    **
-//**       / ___// __ \/  _/ | / /   |  / /   HDL Core                         **
-//**       \__ \/ /_/ // //  |/ / /| | / /    (c) Dolu, All rights reserved    **
-//**      ___/ / ____// // /|  / ___ |/ /___                                   **
-//**     /____/_/   /___/_/ |_/_/  |_/_____/                                   **
-//**                                                                           **
-//**      This library is free software; you can redistribute it and/or        **
-//**    modify it under the terms of the GNU Lesser General Public             **
-//**    License as published by the Free Software Foundation; either           **
-//**    version 3.0 of the License, or (at your option) any later version.     **
-//**                                                                           **
-//**      This library is distributed in the hope that it will be useful,      **
-//**    but WITHOUT ANY WARRANTY; without even the implied warranty of         **
-//**    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU      **
-//**    Lesser General Public License for more details.                        **
-//**                                                                           **
-//**      You should have received a copy of the GNU Lesser General Public     **
-//**    License along with this library.                                       **
-//\*                                                                           */
-//package spinal.core
-//
+/*                                                                           *\
+**        _____ ____  _____   _____    __                                    **
+**       / ___// __ \/  _/ | / /   |  / /   HDL Core                         **
+**       \__ \/ /_/ // //  |/ / /| | / /    (c) Dolu, All rights reserved    **
+**      ___/ / ____// // /|  / ___ |/ /___                                   **
+**     /____/_/   /___/_/ |_/_/  |_/_____/                                   **
+**                                                                           **
+**      This library is free software; you can redistribute it and/or        **
+**    modify it under the terms of the GNU Lesser General Public             **
+**    License as published by the Free Software Foundation; either           **
+**    version 3.0 of the License, or (at your option) any later version.     **
+**                                                                           **
+**      This library is distributed in the hope that it will be useful,      **
+**    but WITHOUT ANY WARRANTY; without even the implied warranty of         **
+**    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU      **
+**    Lesser General Public License for more details.                        **
+**                                                                           **
+**      You should have received a copy of the GNU Lesser General Public     **
+**    License along with this library.                                       **
+\*                                                                           */
+package spinal.core
+
 //import spinal.core.Operator.BitVector.AllByBool
-//
-//
-///**
-//  * UInt factory used for instance by the IODirection to create a in/out UInt
-//  */
-//trait UIntFactory{
-//  /** Create a new UInt */
-//  def UInt() = new UInt()
-//  /** Create a new UInt of a given width */
-//  def UInt(width: BitCount): UInt = UInt().setWidth(width.value)
-//}
-//
-//
-///**
-//  * The UInt type corresponds to a vector of bits that can be used for unsigned integer arithmetic.
-//  *
-//  * @example {{{
-//  *    val myUInt = UInt(8 bits)
-//  *     myUInt := U(2,8 bits)
-//  *     myUInt := U(2)
-//  *     myUInt := U"0000_0101"
-//  *     myUInt := U"h1A"
-//  * }}}
-//  *
-//  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Int UInt Documentation]]
-//  */
-//class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimitives[UInt] with BitwiseOp[UInt]{
-//
+
+
+/**
+  * UInt factory used for instance by the IODirection to create a in/out UInt
+  */
+trait UIntFactory{
+  /** Create a new UInt */
+  def UInt() = new UInt()
+  /** Create a new UInt of a given width */
+  def UInt(width: BitCount): UInt = UInt().setWidth(width.value)
+}
+
+
+/**
+  * The UInt type corresponds to a vector of bits that can be used for unsigned integer arithmetic.
+  *
+  * @example {{{
+  *    val myUInt = UInt(8 bits)
+  *     myUInt := U(2,8 bits)
+  *     myUInt := U(2)
+  *     myUInt := U"0000_0101"
+  *     myUInt := U"h1A"
+  * }}}
+  *
+  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Int UInt Documentation]]
+  */
+class UInt extends BitVector/* with Num[UInt] with MinMaxProvider */with DataPrimitives[UInt] with BitwiseOp[UInt]{
+
 //  private[core] override def prefix: String = "u"
 //
 //  override type T = UInt
 //
-//  override def _data: UInt = this
-//
-//  /**
-//    * Concatenation between two UInt
-//    * @example{{{ val myUInt = uInt1 @@ uInt2 }}}
-//    * @param that an UInt to append
-//    * @return a new UInt of width (w(this) + w(right))
-//    */
+  override def _data: UInt = this
+
+  /**
+    * Concatenation between two UInt
+    * @example{{{ val myUInt = uInt1 @@ uInt2 }}}
+    * @param that an UInt to append
+    * @return a new UInt of width (w(this) + w(right))
+    */
 //  def @@(that: UInt): UInt = U(this ## that)
-//  /** Append a Bool to an UInt */
+  override private[core] def resizeFactory: Resize = new ResizeUInt
+
+  override def opName: String = "UInt"
+
+  /** Append a Bool to an UInt */
 //  def @@(that: Bool): UInt = U(this ## that)
-//
-//  override def +(right: UInt): UInt = wrapBinaryOperator(right, new Operator.UInt.Add)
-//  override def -(right: UInt): UInt = wrapBinaryOperator(right, new Operator.UInt.Sub)
-//  override def *(right: UInt): UInt = wrapBinaryOperator(right, new Operator.UInt.Mul)
-//  override def /(right: UInt): UInt = wrapBinaryOperator(right, new Operator.UInt.Div)
-//  override def %(right: UInt): UInt = wrapBinaryOperator(right, new Operator.UInt.Mod)
-//
-//  override def |(right: UInt): UInt = wrapBinaryOperator(right, new Operator.UInt.Or)
-//  override def &(right: UInt): UInt = wrapBinaryOperator(right, new Operator.UInt.And)
-//  override def ^(right: UInt): UInt = wrapBinaryOperator(right, new Operator.UInt.Xor)
-//  override def unary_~(): UInt = wrapUnaryOperator(new Operator.UInt.Not)
-//
+
+  def +(right: UInt): UInt = wrapBinaryOperator(right, new Operator.UInt.Add)
+  def -(right: UInt): UInt = wrapBinaryOperator(right, new Operator.UInt.Sub)
+  def *(right: UInt): UInt = wrapBinaryOperator(right, new Operator.UInt.Mul)
+  def /(right: UInt): UInt = wrapBinaryOperator(right, new Operator.UInt.Div)
+  def %(right: UInt): UInt = wrapBinaryOperator(right, new Operator.UInt.Mod)
+
+  override def |(right: UInt): UInt = wrapBinaryOperator(right, new Operator.UInt.Or)
+  override def &(right: UInt): UInt = wrapBinaryOperator(right, new Operator.UInt.And)
+  override def ^(right: UInt): UInt = wrapBinaryOperator(right, new Operator.UInt.Xor)
+  override def unary_~(): UInt = wrapUnaryOperator(new Operator.UInt.Not)
+
 //  override def <(right: UInt): Bool = wrapLogicalOperator(right, new Operator.UInt.Smaller)
 //  override def >(right: UInt): Bool = right < this
 //  override def <=(right: UInt): Bool = wrapLogicalOperator(right, new Operator.UInt.SmallerOrEqual)
@@ -151,33 +155,31 @@
 //  def asSInt: SInt = wrapCast(SInt(), new CastUIntToSInt)
 //
 //  override def asBits: Bits = wrapCast(Bits(), new CastUIntToBits)
-//
-//  private[core] override def isEquals(that: Any): Bool = {
-//    that match {
-//      case that: UInt           => wrapLogicalOperator(that,new Operator.UInt.Equal)
-//      case that: MaskedLiteral  => that === this
-//      case that: Int            => this === that
-//      case that: BigInt         => this === that
-//      case _                    => SpinalError(s"Don't know how compare $this with $that"); null
-//    }
-//  }
-//
-//  private[core] override def isNotEquals(that: Any): Bool = {
-//    that match {
-//      case that: UInt           => wrapLogicalOperator(that,new Operator.UInt.NotEqual)
-//      case that: MaskedLiteral  => that === this
-//      case _                    => SpinalError(s"Don't know how compare $this with $that"); null
-//    }
-//  }
-//
+
+  private[core] override def isEquals(that: Any): Bool = that match {
+    case that: UInt           => wrapLogicalOperator(that,new Operator.UInt.Equal)
+//    case that: MaskedLiteral  => that === this
+    case that: Int            => this === that
+    case that: BigInt         => this === that
+    case _                    => SpinalError(s"Don't know how compare $this with $that"); null
+  }
+
+
+  private[core] override def isNotEquals(that: Any): Bool = that match {
+    case that: UInt           => wrapLogicalOperator(that,new Operator.UInt.NotEqual)
+//    case that: MaskedLiteral  => that === this
+    case _                    => SpinalError(s"Don't know how compare $this with $that"); null
+  }
+
+
 //  private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse, new MultiplexerUInt)
 //
-//  override def resize(width: Int): this.type = wrapWithWeakClone({
-//    val node = new ResizeUInt
-//    node.input = this
-//    node.size = width
-//    node
-//  })
+  override def resize(width: Int): this.type = wrapWithWeakClone({
+    val node = new ResizeUInt
+    node.input = this
+    node.size = width
+    node
+  })
 //
 //  override def minValue: BigInt = BigInt(0)
 //  override def maxValue: BigInt = (BigInt(1) << getWidth) - 1
@@ -209,10 +211,10 @@
 //
 //  override def apply(bitId: Int) : Bool = newExtract(bitId, new ExtractBoolFixedFromUInt)
 //  override def apply(bitId: UInt): Bool = newExtract(bitId, new ExtractBoolFloatingFromUInt)
-//  override def apply(offset: Int, bitCount: BitCount): this.type  = newExtract(offset+bitCount.value-1, offset, new ExtractBitsVectorFixedFromUInt).setWidth(bitCount.value)
+  override def apply(offset: Int, bitCount: BitCount): this.type  = newExtract(offset+bitCount.value-1, offset, new UIntRangedAccessFixed).setWidth(bitCount.value)
 //  override def apply(offset: UInt, bitCount: BitCount): this.type = newExtract(offset, bitCount.value, new ExtractBitsVectorFloatingFromUInt).setWidth(bitCount.value)
 //
-//  override private[core] def weakClone: this.type = new UInt().asInstanceOf[this.type]
+private[core] override def weakClone: this.type = new UInt().asInstanceOf[this.type]
 //  override def getZero: this.type = U(0, this.getWidth bits).asInstanceOf[this.type]
 //  override def getZeroUnconstrained: this.type = U(0).asInstanceOf[this.type]
 //  protected override def getAllToBoolNode(): AllByBool = new Operator.UInt.AllByBool(this)
@@ -228,7 +230,7 @@
 //case class UInt2D(xBitCount: BitCount, yBitCount: BitCount) extends Bundle {
 //  val x = UInt(xBitCount)
 //  val y = UInt(yBitCount)
-//}
+}
 //
 //
 //object UInt2D{

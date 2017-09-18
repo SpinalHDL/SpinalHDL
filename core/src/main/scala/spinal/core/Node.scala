@@ -50,17 +50,15 @@ object SymplifyNode {
 
 
 
-//  def binaryTakeOther(node: Node,strictResize : Boolean = false): Unit = {
-//    val w0 = node.getInput(0).asInstanceOf[WidthProvider].getWidth
-//    val w1 = node.getInput(1).asInstanceOf[WidthProvider].getWidth
-//    if (w0 == 0) {
-//      if(!strictResize || InputNormalize.isStrictlyResizable(node.getInput(0)))
-//        replaceNode(node, 1)
-//    } else if (w1 == 0) {
-//      if(!strictResize || InputNormalize.isStrictlyResizable(node.getInput(1)))
-//        replaceNode(node, 0)
-//    }
-//  }
+  def binaryTakeOther(node: BinaryOperatorWidthableInputs): Expression = {
+    if (node.left.getWidth == 0) {
+        node.right
+    } else if (node.right.getWidth == 0) {
+        node.left
+    } else {
+      node
+    }
+  }
 //
 //  def binaryUIntSmaller(node: Node): Unit = {
 //    val w0 = node.getInput(0).asInstanceOf[WidthProvider].getWidth
@@ -270,14 +268,13 @@ object SymplifyNode {
 //
 //
 //
-//  def binaryThatIfBoth(thatFactory: => Node)(node: Node): Unit = {
-//    if (node.getInput(0).asInstanceOf[WidthProvider].getWidth == 0 && node.getInput(1).asInstanceOf[WidthProvider].getWidth == 0) {
-//      Component.push(node.component)
-//      replaceNode(node, thatFactory)
-//      Component.pop(node.component)
-//    }
-//  }
-//
+  def binaryThatIfBoth(thatFactory: => Expression)(node: BinaryOperatorWidthableInputs): Expression = {
+    if (node.left.getWidth == 0 && node.right.getWidth == 0)
+      thatFactory
+    else
+      node
+  }
+
 //
 //  def unaryShortCut(node: Node): Unit = {
 //    if (node.getInput(0).asInstanceOf[WidthProvider].getWidth == 0) {
@@ -342,11 +339,34 @@ object InputNormalize {
         ret
       case _ =>
         if(input.getWidth != targetWidth){
-          PendingError(s"${input} doesn't have the same width than $target at \n${where.getScalaLocationLong}")
+          PendingError(s"${input} don't have the same width than $target at \n${where.getScalaLocationLong}")
         }
         input
     }
   }
+
+
+  def resize(input : Expression with WidthProvider, targetWidth : Int, factory : => Resize): Expression with WidthProvider = {
+    input match{
+      case lit : BitVectorLiteral if (! lit.hasSpecifiedBitCount) =>
+        lit.bitCount = targetWidth //TODO IR check new width ok ?
+        lit
+      case _ if input.getWidth != targetWidth =>
+        val ret = factory
+        ret.input = input
+        ret.size = targetWidth
+        ret
+      case _ =>
+        input
+    }
+  }
+
+  //  def inputWidthMax(node: Node): Unit = {
+  //    val targetWidth = Math.max(node.getInput(0).asInstanceOf[WidthProvider].getWidth, node.getInput(1).asInstanceOf[WidthProvider].getWidth)
+  //    node.onEachInput((input,i) => {
+  //      Misc.normalizeResize(node, i, targetWidth)
+  //    })
+  //  }
 
 //  def resizedOrUnfixedLitDeepOne(parent : Node,inputId : Int,targetWidth : Int): Unit ={
 //    val input = parent.getInput(inputId).getInput(0)
@@ -383,12 +403,7 @@ object InputNormalize {
 //    })
 //  }
 //
-//  def inputWidthMax(node: Node): Unit = {
-//    val targetWidth = Math.max(node.getInput(0).asInstanceOf[WidthProvider].getWidth, node.getInput(1).asInstanceOf[WidthProvider].getWidth)
-//    node.onEachInput((input,i) => {
-//      Misc.normalizeResize(node, i, targetWidth)
-//    })
-//  }
+
 }
 //
 //object WidthInfer {

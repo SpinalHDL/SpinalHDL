@@ -27,7 +27,7 @@ trait TypeFactory{
 /**
   * Base type factory
   */
-trait BaseTypeFactory extends BoolFactory with BitsFactory /*with UIntFactory with SIntFactory with VecFactory with SFixFactory with UFixFactory*/
+trait BaseTypeFactory extends BoolFactory with BitsFactory with UIntFactory with SIntFactory /*with VecFactory with SFixFactory with UFixFactory*/
 
 
 /**
@@ -341,6 +341,12 @@ abstract class BaseType extends Data with NameableExpression{
     typeNode.assignFrom(e)
     typeNode
   }
+
+  private[core] def wrapWithBool(e: Expression): Bool = {
+    val typeNode = Bool()
+    typeNode.assignFrom(e)
+    typeNode
+  }
 //
 //  def wrapCast[T <: BaseType](result: T, node: Cast): T = {
 //    node.input = this.asInstanceOf[node.T]
@@ -358,16 +364,17 @@ abstract class BaseType extends Data with NameableExpression{
     wrapWithWeakClone(op)
   }
 
+
   private[core] def wrapBinaryOperator(right: BaseType, op: BinaryOperator): this.type = {
     op.left = this.asInstanceOf[op.T]
     op.right = right.asInstanceOf[op.T]
     wrapWithWeakClone(op)
   }
 
-  private[core] def wrapLogicalOperator(right: BaseType, op: BinaryOperator):  this.type = {
+  private[core] def wrapLogicalOperator(right: BaseType, op: BinaryOperator):  Bool = {
     op.left = this.asInstanceOf[op.T]
     op.right = right.asInstanceOf[op.T]
-    wrapWithWeakClone(op)
+    wrapWithBool(op)
   }
 //
 //  private[core] def wrapMultiplexer(cond: Node, whenTrue: Node, whenFalse: Node, mux: Multiplexer): this.type = {

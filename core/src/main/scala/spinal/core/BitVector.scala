@@ -316,12 +316,12 @@ abstract class BitVector extends BaseType with Widthable /*with CheckWidth*/ {
 //
 //  def getZeroUnconstrained() : this.type
 //
-//  /**
-//    * Return the bit at index bitId
-//    * @example{{{ val myBool = myBits(3) }}}
-//    */
+  /**
+    * Return the bit at index bitId
+    * @example{{{ val myBool = myBits(3) }}}
+    */
 //  def apply(bitId: Int) : Bool
-//
+
 //  /**
 //    * Return the bit at index bitId
 //    * @example{{{ val myBool = myBits(myUInt) }}}
@@ -333,7 +333,7 @@ abstract class BitVector extends BaseType with Widthable /*with CheckWidth*/ {
     * @example{{{ val myBool = myBits(3, 2 bits) }}}
     */
   def apply(offset: Int, bitCount: BitCount): this.type
-//
+
   /**
     * Return a range of bits at offset and of width bitCount
     * @example{{{ val myBool = myBits(myUInt, 2 bits) }}}
@@ -381,9 +381,9 @@ abstract class BitVector extends BaseType with Widthable /*with CheckWidth*/ {
 //  }
 //
 //  /** Return the width */
-//  def getWidthNoInferation: Int = if (inferredWidth != -1 ) inferredWidth else fixedWidth
+  def getWidthNoInferation: Int = if (inferredWidth != -1 ) inferredWidth else fixedWidth
 //
-//  def getWidthStringNoInferation: String = if (getWidthNoInferation == -1 ) "?" else getWidthNoInferation.toString
+  def getWidthStringNoInferation: String = if (getWidthNoInferation == -1 ) "?" else getWidthNoInferation.toString
 //
 //  private[core] override def checkInferedWidth: Unit = {
 //    val input = this.input
@@ -397,5 +397,5 @@ abstract class BitVector extends BaseType with Widthable /*with CheckWidth*/ {
 //    this
 //  }
 //
-//  override def toString(): String = s"(${component.getPath() + "/" + this.getDisplayName()} : $getClassIdentifier[$getWidthStringNoInferation bits])"
+  override def toString(): String = s"(${component.getPath() + "/" + this.getDisplayName()} : $getClassIdentifier[$getWidthStringNoInferation bits])"
 }

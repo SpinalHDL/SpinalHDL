@@ -1,5 +1,6 @@
 package spinal.core
 
+
 import scala.collection.mutable
 import scala.collection.mutable.{ListBuffer, ArrayBuffer}
 
@@ -1784,11 +1785,12 @@ def refImpl(op: Expression): String = emitReference(op.asInstanceOf[NameableExpr
     val unary = op.asInstanceOf[UnaryOperator]
     s"($vhd ${emitExpression(unary.source)})"
   }
-//
-//  def operatorImplAsFunction(vhd: String)(func: Modifier): String = {
-//    s"$vhd(${func.getInputs.map(emitLogic(_)).reduce(_ + "," + _)})"
-//  }
-//
+
+  def binaryOperatorImplAsFunction(vhd: String)(e: Expression): String = {
+    val bo = e.asInstanceOf[BinaryOperator]
+    s"$vhd(${emitExpression(bo.left)},${emitExpression(bo.right)})"
+  }
+
 //  def shiftRightByIntImpl(func: Modifier): String = {
 //    val node = func.asInstanceOf[Operator.BitVector.ShiftRightByInt]
 //    s"pkg_shiftRight(${emitLogic(node.input)},${node.shift})"
@@ -1976,16 +1978,16 @@ def refImpl(op: Expression): String = emitReference(op.asInstanceOf[NameableExpr
 //
 //
 //
-//  //bits
-//  expressionImplMap.put("b##b", operatorImplAsFunction("pkg_cat"))
-//
-//  expressionImplMap.put("b|b", operatorImplAsBinaryOperator("or"))
+  //bits
+  expressionMapAdd(classOf[Operator.Bits.Cat], binaryOperatorImplAsFunction("pkg_cat"),bitsTypeMapper)
+
+  expressionMapAdd(classOf[Operator.Bits.Or], operatorImplAsBinaryOperator("or"),bitsTypeMapper)
   expressionMapAdd(classOf[Operator.Bits.And], operatorImplAsBinaryOperator("and"),bitsTypeMapper)
-//  expressionImplMap.put("b^b", operatorImplAsBinaryOperator("xor"))
-//  expressionImplMap.put("~b",  operatorImplAsUnaryOperator("not"))
-//
-//  expressionImplMap.put("b==b", operatorImplAsBinaryOperator("="))
-//  expressionImplMap.put("b!=b", operatorImplAsBinaryOperator("/="))
+  expressionMapAdd(classOf[Operator.Bits.Xor], operatorImplAsBinaryOperator("xor"),bitsTypeMapper)
+  expressionMapAdd(classOf[Operator.Bits.Not],  operatorImplAsUnaryOperator("not"),bitsTypeMapper)
+
+  expressionMapAdd(classOf[Operator.Bits.Equal], operatorImplAsBinaryOperator("="),boolTypeMapper)
+  expressionMapAdd(classOf[Operator.Bits.NotEqual], operatorImplAsBinaryOperator("/="),boolTypeMapper)
 //
 //  expressionImplMap.put("b>>i", shiftRightByIntImpl)
 //  expressionImplMap.put("b<<i", shiftLeftByIntImpl)

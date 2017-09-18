@@ -47,7 +47,7 @@ object PlayBits{
     bits4 := (B(0) & B(0)).resized
 
 
-    val aa = a & 0.resized
+    val aa = a & B(0).resized
     val bb = B(0).resized & a
     val cc = B"11".resized & a
     a & b & c
@@ -122,7 +122,9 @@ object PlaySimple{
       }
     }
 
-
+    val l,m,n,o, p, q, r,s = Bits(4 bits)
+    l := ~(m | (n & (o ## (p ^ q)).resized))
+    e := (l === n) && (o =/= q)
 
 //    g := False
 //    when(a || b && c){

@@ -122,15 +122,15 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   def False = Bool(false)
 
   // implicit def RegRefToReg[T <: Data](that : RegRef[T]) : T = that.getReg
-//  implicit def IntToUInt(that: Int) : UInt = U(that)
-//  implicit def BigIntToUInt(that: BigInt) : UInt = U(that)
-//  implicit def IntToSInt(that: Int) : SInt = S(that)
-//  implicit def BigIntToSInt(that: BigInt) : SInt = S(that)
+  implicit def IntToUInt(that: Int) : UInt = U(that)
+  implicit def BigIntToUInt(that: BigInt) : UInt = U(that)
+  implicit def IntToSInt(that: Int) : SInt = S(that)
+  implicit def BigIntToSInt(that: BigInt) : SInt = S(that)
   implicit def IntToBits(that: Int) : Bits = B(that)
   implicit def BigIntToBits(that: BigInt) : Bits = B(that)
   implicit def StringToBits(that: String) : Bits = bitVectorStringParser(spinal.core.B, that, signed = false)
-//  implicit def StringToUInt(that: String) : UInt = bitVectorStringParser(spinal.core.U, that, signed = false)
-//  implicit def StringToSInt(that: String) : SInt = bitVectorStringParser(spinal.core.S, that, signed = true)
+  implicit def StringToUInt(that: String) : UInt = bitVectorStringParser(spinal.core.U, that, signed = false)
+  implicit def StringToSInt(that: String) : SInt = bitVectorStringParser(spinal.core.S, that, signed = true)
 //
   implicit class LiteralBuilder(private val sc: StringContext) {
     def B(args: Any*): Bits = bitVectorStringParser(spinal.core.B, getString(args), signed = false)

@@ -10,7 +10,8 @@ case class DslContext(clockDomain: ClockDomain, component: Component, scope: Sco
 
 
 trait BaseNode {
-    private[core] var algoInt, algoIncrementale = 0
+  private[core] var algoInt, algoIncrementale = 0
+  private[core] def getClassIdentifier: String = this.getClass.getName.split('.').last.replace("$","")
 }
 
 //object NameableNode{
