@@ -52,11 +52,11 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
   override def getTypeObject = TypeBits
   override def opName: String = "Bits"
 
-  //
+
 //  private[core] override def prefix: String = "b"
-//
-//  override type T = Bits
-//
+
+  override type T = Bits
+
   private[spinal] override def _data: Bits = this
 //
 //  /**
@@ -106,19 +106,19 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
   def |>>(that: UInt): Bits = this >> that
   /** Logical shift left (output width == input width) */
   def |<<(that: UInt): Bits = wrapBinaryOperator(that, new Operator.Bits.ShiftLeftByUIntFixedWidth)
-//
-//  override def rotateLeft(that: Int): Bits = {
-//    val width = widthOf(this)
-//    val thatMod = that % width
-//    this(this.high - thatMod downto 0) ## this(this.high downto this.high - thatMod + 1)
-//  }
-//
-//  override def rotateRight(that: Int): Bits = {
-//    val width = widthOf(this)
-//    val thatMod = that % width
-//    this(thatMod - 1 downto 0) ## this(this.high downto thatMod)
-//  }
-//
+
+  override def rotateLeft(that: Int): Bits = {
+    val width = widthOf(this)
+    val thatMod = that % width
+    this(this.high - thatMod downto 0) ## this(this.high downto this.high - thatMod + 1)
+  }
+
+  override def rotateRight(that: Int): Bits = {
+    val width = widthOf(this)
+    val thatMod = that % width
+    this(thatMod - 1 downto 0) ## this(this.high downto thatMod)
+  }
+
 //  /**
 //    * Assign a range value to a Bits
 //    * @example{{{ core.io.interrupt = (0 -> uartCtrl.io.interrupt, 1 -> timerCtrl.io.interrupt, default -> false)}}}
@@ -130,8 +130,8 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
 //    B.applyTuples(this, rangesValues)
 //  }
 //
-//  override def assignFromBits(bits: Bits): Unit = this := bits
-//  override def assignFromBits(bits: Bits, hi: Int, lo: Int): Unit = this (hi, lo).assignFromBits(bits)
+  override def assignFromBits(bits: Bits): Unit = this := bits
+  override def assignFromBits(bits: Bits, hi: Int, lo: Int): Unit = this (hi, lo).assignFromBits(bits)
 
   /**
     * Cast a Bits to a SInt
@@ -152,19 +152,19 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
     ret := this
     ret
   }
-//
-//  /**
-//    * Cast a Bits to a given data type
-//    * @example{{{ val myUInt = myBits.toDataType(UInt) }}}
-//    * @param dataType the wanted data type
-//    * @return a new data type assign with the value of Bits
-//    */
-//  def toDataType[T <: Data](dataType: T): T = {
-//    val ret = cloneOf(dataType)
-//    ret.assignFromBits(this)
-//    ret
-//  }
-//
+
+  /**
+    * Cast a Bits to a given data type
+    * @example{{{ val myUInt = myBits.toDataType(UInt) }}}
+    * @param dataType the wanted data type
+    * @return a new data type assign with the value of Bits
+    */
+  def toDataType[T <: Data](dataType: T): T = {
+    val ret = cloneOf(dataType)
+    ret.assignFromBits(this)
+    ret
+  }
+
   private[core] override def isEquals(that: Any): Bool = that match {
     case that: Bits          => wrapLogicalOperator(that, new Operator.Bits.Equal)
 //      case that: MaskedLiteral => that === this
@@ -177,8 +177,8 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
     case _                   => SpinalError(s"Don't know how to compare $this with $that"); null
   }
 //
-//  private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse,new MultiplexerBits)
-//
+  private[core] override def newMultiplexer(sel: Bool, whenTrue: Expression, whenFalse: Expression): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse,new MultiplexerBits)
+
 //  protected override def getAllToBoolNode(): AllByBool = new Operator.Bits.AllByBool(this)
 
   override def resize(width: Int): Bits = wrapWithWeakClone({
@@ -191,28 +191,28 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
 
   override def resizeFactory: Resize = new ResizeBits
 
-  //  /**
-//    * Resize by keeping MSB at the same place
-//    * If the final size is bigger than the original size, the leftmost bits are filled with zeroes
-//    * if the final size is smaller, only width MSB are kept
-//    * @param width Final width
-//    * @return Resized bits vector
-//    */
-//  def resizeLeft(width: Int): Bits = {
-//    val lengthDifference = width - this.getWidth
-//    if (lengthDifference >= 0) {
-//      this ## B(0, lengthDifference bits)
-//    } else {
-//      this(width - 1 downto 0)
-//    }
-//  }
-//
+    /**
+    * Resize by keeping MSB at the same place
+    * If the final size is bigger than the original size, the leftmost bits are filled with zeroes
+    * if the final size is smaller, only width MSB are kept
+    * @param width Final width
+    * @return Resized bits vector
+    */
+  def resizeLeft(width: Int): Bits = {
+    val lengthDifference = width - this.getWidth
+    if (lengthDifference >= 0) {
+      this ## B(0, lengthDifference bits)
+    } else {
+      this(width - 1 downto 0)
+    }
+  }
+
   override def apply(bitId: Int) : Bool = newExtract(bitId, new BitsBitAccessFixed)
   override def apply(bitId: UInt): Bool = newExtract(bitId, new BitsBitAccessFloating)
   override def apply(offset: Int, bitCount: BitCount): this.type  = newExtract(offset+bitCount.value-1,offset, new BitsRangedAccessFixed).setWidth(bitCount.value)
   override def apply(offset: UInt, bitCount: BitCount): this.type = newExtract(offset,bitCount.value, new BitsRangedAccessFloating).setWidth(bitCount.value)
 //
   private[core] override def weakClone: this.type = new Bits().asInstanceOf[this.type]
-//  override def getZero: this.type = B(0, this.getWidth bits).asInstanceOf[this.type]
-//  override def getZeroUnconstrained: this.type = B(0).asInstanceOf[this.type]
+  override def getZero: this.type = B(0, this.getWidth bits).asInstanceOf[this.type]
+  override def getZeroUnconstrained: this.type = B(0).asInstanceOf[this.type]
 }

@@ -174,6 +174,10 @@ trait Statement extends ExpressionContainer with ScalaLocated with BaseNode{
 
 //  def removeStatement() : Unit = parentScope.content -= this
   def removeStatement() : Unit = {
+    removeStatementFromScope()
+  }
+
+  def removeStatementFromScope() : Unit = {
     if(previousScopeStatement != null){
       previousScopeStatement.nextScopeStatement = nextScopeStatement
     } else {
@@ -406,6 +410,7 @@ class ScopeStatement(var parentStatement : TreeStatement)/* extends ExpressionCo
   }
 
   def append(that : Statement) : this.type = {
+    that.parentScope = this
     that.nextScopeStatement = null
     that.previousScopeStatement = last
     if(last != null){

@@ -156,15 +156,21 @@ trait DataPrimitives[T <: Data]{
   //  def := [T2 <: T](that: T2): Unit = pimpIt assignFrom(that)
 
   //Use as \= to have the same behavioral than VHDL variable
-//  def \(that: T) : T = {
-//    val ret = cloneOf(that)
-//    ret := _data
-//    ret.flatten.foreach(_.conditionalAssignScope = _data.conditionalAssignScope)
+  def \(that: T) : T = {
+    val globalData = GlobalData.get
+    globalData.context.push(_data.dslContext)
+    val lastStatement = _data.dslContext.scope.last
+    val manageLastStatement = lastStatement.isInstanceOf[TreeStatement]
+    if(manageLastStatement) lastStatement.removeStatementFromScope()
+    val ret = cloneOf(that)
+    ret := _data
+    if(manageLastStatement) _data.dslContext.scope.append(lastStatement)
+    globalData.context.pop()
 //    ret.globalData.overridingAssignementWarnings = false
-//    ret := that
+    ret := that
 //    ret.globalData.overridingAssignementWarnings = true
-//    ret
-//  }
+    ret
+  }
 
 //  def <>(that: T): Unit = _data autoConnect that
   def init(that: T): T = {
@@ -257,7 +263,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   final def initFrom(that : AnyRef, target : AnyRef = this) = compositAssignFrom(that,target,InitAssign)
 
   def asData = this.asInstanceOf[Data]
-//  def getZero: this.type
+  def getZero: this.type
 
   def flatten: Seq[BaseType]
   def flattenLocalName: Seq[String]
@@ -276,13 +282,13 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   def ##(right: Data): Bits = this.asBits ## right.asBits
 
   def asBits: Bits
-//  def assignFromBits(bits: Bits): Unit
-//  def assignFromBits(bits: Bits,hi : Int,low : Int): Unit
-//  def assignFromBits(bits: Bits,offset: Int, bitCount: BitCount): Unit = this.assignFromBits(bits,offset + bitCount.value -1,offset)
-//  def assignDontCare() : this.type = {
-//    flatten.foreach(_.assignDontCare())
-//    this
-//  }
+  def assignFromBits(bits: Bits): Unit
+  def assignFromBits(bits: Bits,hi : Int,low : Int): Unit
+  def assignFromBits(bits: Bits,offset: Int, bitCount: BitCount): Unit = this.assignFromBits(bits,offset + bitCount.value -1,offset)
+  def assignDontCare() : this.type = {
+    flatten.foreach(_.assignDontCare())
+    this
+  }
 
   private[core] def isEquals(that: Any): Bool
   private[core] def isNotEquals(that: Any): Bool

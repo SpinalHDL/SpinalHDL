@@ -39,9 +39,9 @@ abstract class BitVector extends BaseType with Widthable /*with CheckWidth*/ {
 //
   /** Width of the BitVector (-1 = undefined) */
   private[core] var fixedWidth = -1
-//
-//  /** Used to know the data type of the children class of BitVector */
-//  type T <: BitVector
+
+  /** Used to know the data type of the children class of BitVector */
+  type T <: BitVector
 
   /** Return the upper bound */
   def high: Int = getWidth - 1
@@ -69,37 +69,37 @@ abstract class BitVector extends BaseType with Widthable /*with CheckWidth*/ {
 //  /** BitVector is not equal to MaskedLiteral */
 //  def =/=(that: MaskedLiteral): Bool = this.isNotEquals(that)
 
-//
-//  /** Left rotation of that Bits */
-//  def rotateLeft(that: UInt): T = {
-//    val thatWidth = widthOf(that)
-//    val thisWidth = widthOf(this)
-//    require(thatWidth <= log2Up(thisWidth))
-//    var result = cloneOf(this).asInstanceOf[T]
-//    result := this.asInstanceOf[T]
-//    for(i <- that.range){
-//      result \= (that(i) ? result.rotateLeft(1 << i).asInstanceOf[T] | result)
-//    }
-//    result
-//  }
-//
-//  /** Right rotation of that Bits */
-//  def rotateRight(that: UInt): T = {
-//    val thatWidth = widthOf(that)
-//    val thisWidth = widthOf(this)
-//    require(thatWidth <= log2Up(thisWidth))
-//    var result = cloneOf(this).asInstanceOf[T]
-//    result := this.asInstanceOf[T]
-//    for(i <- that.range){
-//      result \= (that(i) ? result.rotateRight(1<<i).asInstanceOf[T] | result)
-//    }
-//    result
-//  }
-//
-//  /** Left rotation of that bits */
-//  def rotateLeft(that: Int): T
-//  /** Right rotation of that bits */
-//  def rotateRight(that: Int): T
+
+  /** Left rotation of that Bits */
+  def rotateLeft(that: UInt): T = {
+    val thatWidth = widthOf(that)
+    val thisWidth = widthOf(this)
+    require(thatWidth <= log2Up(thisWidth))
+    var result = cloneOf(this).asInstanceOf[T]
+    result := this.asInstanceOf[T]
+    for(i <- that.range){
+      result \= (that(i) ? result.rotateLeft(1 << i).asInstanceOf[T] | result)
+    }
+    result
+  }
+
+  /** Right rotation of that Bits */
+  def rotateRight(that: UInt): T = {
+    val thatWidth = widthOf(that)
+    val thisWidth = widthOf(this)
+    require(thatWidth <= log2Up(thisWidth))
+    var result = cloneOf(this).asInstanceOf[T]
+    result := this.asInstanceOf[T]
+    for(i <- that.range){
+      result \= (that(i) ? result.rotateRight(1<<i).asInstanceOf[T] | result)
+    }
+    result
+  }
+
+  /** Left rotation of that bits */
+  def rotateLeft(that: Int): T
+  /** Right rotation of that bits */
+  def rotateRight(that: Int): T
 
   private[core] def resizeFactory : Resize
 
@@ -272,8 +272,7 @@ abstract class BitVector extends BaseType with Widthable /*with CheckWidth*/ {
       ret
     }
     else
-      ???
-//      getZeroUnconstrained()
+      getZeroUnconstrained()
   }
 
   /** Extract a range of bits of the BitVector */
@@ -296,11 +295,10 @@ abstract class BitVector extends BaseType with Widthable /*with CheckWidth*/ {
       ret
     }
     else
-      ???
-//      getZeroUnconstrained()
+      getZeroUnconstrained()
   }
 
-//  def getZeroUnconstrained() : this.type
+  def getZeroUnconstrained() : this.type
 
   /**
     * Return the bit at index bitId

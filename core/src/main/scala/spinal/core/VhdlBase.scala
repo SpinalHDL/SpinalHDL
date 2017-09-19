@@ -84,8 +84,8 @@ trait VhdlBase extends VhdlVerilogBase{
 //
   def emitDataType(node: NameableExpression, constrained: Boolean = true) = node match {
     case bool: Bool => "std_logic"
-//    case uint: UInt => s"unsigned${if (constrained) emitRange(uint) else ""}"
-//    case sint: SInt => s"signed${if (constrained) emitRange(sint) else ""}"
+    case uint: UInt => s"unsigned${if (constrained) emitRange(uint) else ""}"
+    case sint: SInt => s"signed${if (constrained) emitRange(sint) else ""}"
     case bits: Bits => s"std_logic_vector${if (constrained) emitRange(bits) else ""}"
 //    case mem: Mem[_] => s"${emitReference(mem)}_type"
 //    case enum: SpinalEnumCraft[_] => emitEnumType(enum)

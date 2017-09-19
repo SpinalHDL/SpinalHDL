@@ -45,7 +45,7 @@ trait SIntFactory{
   *
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Int SInt Documentation]]
   */
-class SInt extends BitVector with Num[SInt] /*with MinMaxProvider */with DataPrimitives[SInt] with BitwiseOp[SInt] {
+class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimitives[SInt] with BitwiseOp[SInt] {
 
   override def getTypeObject = TypeSInt
   override private[core] def resizeFactory: Resize = new ResizeSInt
@@ -53,9 +53,9 @@ class SInt extends BitVector with Num[SInt] /*with MinMaxProvider */with DataPri
   override def opName: String = "SInt"
 
   //  private[core] override def prefix : String = "s"
-//
-//  override type T = SInt
-//
+
+  override type T = SInt
+
   private[spinal] override  def _data: SInt = this
 
   /**
@@ -119,27 +119,27 @@ class SInt extends BitVector with Num[SInt] /*with MinMaxProvider */with DataPri
   /** Logical shift left (output width == input width) */
   def |<<(that: UInt): SInt = wrapBinaryOperator(that, new Operator.SInt.ShiftLeftByUIntFixedWidth)
 
-//  override def rotateLeft(that: Int): SInt = {
-//    val width = widthOf(this)
-//    val thatMod = that % width
-//    this(this.high - thatMod downto 0) @@ this(this.high downto this.high - thatMod + 1)
-//  }
-//
-//  override def rotateRight(that: Int): SInt = {
-//    val width = widthOf(this)
-//    val thatMod = that % width
-//    this(thatMod - 1 downto 0) @@ this(this.high downto thatMod)
-//  }
-//
-//  /**
-//    * Absolute value of a SInt
-//    * @example {{{ myUInt := mySInt.abs }}}
-//    * @return a UInt assign with the absolute value of the SInt
-//    */
-//  def abs: UInt = Mux(this.msb, ~this, this).asUInt + this.msb.asUInt
-//  /** Return the absolute value of the SInt when enable is True */
-//  def abs(enable: Bool): UInt = Mux(this.msb && enable, ~this, this).asUInt + (this.msb && enable).asUInt
-//
+  override def rotateLeft(that: Int): SInt = {
+    val width = widthOf(this)
+    val thatMod = that % width
+    this(this.high - thatMod downto 0) @@ this(this.high downto this.high - thatMod + 1)
+  }
+
+  override def rotateRight(that: Int): SInt = {
+    val width = widthOf(this)
+    val thatMod = that % width
+    this(thatMod - 1 downto 0) @@ this(this.high downto thatMod)
+  }
+
+  /**
+    * Absolute value of a SInt
+    * @example {{{ myUInt := mySInt.abs }}}
+    * @return a UInt assign with the absolute value of the SInt
+    */
+  def abs: UInt = Mux(this.msb, ~this, this).asUInt + this.msb.asUInt
+  /** Return the absolute value of the SInt when enable is True */
+  def abs(enable: Bool): UInt = Mux(this.msb && enable, ~this, this).asUInt + (this.msb && enable).asUInt
+
 //  /**
 //    * Assign a range value to a SInt
 //    * @example{{{ core.io.interrupt = (0 -> uartCtrl.io.interrupt, 1 -> timerCtrl.io.interrupt, default -> false)}}}
@@ -151,8 +151,8 @@ class SInt extends BitVector with Num[SInt] /*with MinMaxProvider */with DataPri
 //    S.applyTuples(this, rangesValues)
 //  }
 //
-//  override def assignFromBits(bits: Bits): Unit = this := bits.asSInt
-//  override def assignFromBits(bits: Bits, hi: Int, lo: Int): Unit = this(hi, lo).assignFromBits(bits)
+  override def assignFromBits(bits: Bits): Unit = this := bits.asSInt
+  override def assignFromBits(bits: Bits, hi: Int, lo: Int): Unit = this(hi, lo).assignFromBits(bits)
 
   /**
     * Cast a SInt into an UInt
@@ -177,7 +177,7 @@ class SInt extends BitVector with Num[SInt] /*with MinMaxProvider */with DataPri
   }
 
 
-//  private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse, new MultiplexerSInt)
+  private[core] override def newMultiplexer(sel: Bool, whenTrue: Expression, whenFalse: Expression): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse, new MultiplexerSInt)
 
   override def resize(width: Int): this.type = wrapWithWeakClone({
     val node = new ResizeSInt
@@ -186,8 +186,8 @@ class SInt extends BitVector with Num[SInt] /*with MinMaxProvider */with DataPri
     node
   })
 
-//  override def minValue: BigInt = -(BigInt(1) << (getWidth - 1))
-//  override def maxValue: BigInt =  (BigInt(1) << (getWidth - 1)) - 1
+  override def minValue: BigInt = -(BigInt(1) << (getWidth - 1))
+  override def maxValue: BigInt =  (BigInt(1) << (getWidth - 1)) - 1
 
   override def apply(bitId: Int): Bool = newExtract(bitId, new SIntBitAccessFixed)
   override def apply(bitId: UInt): Bool = newExtract(bitId, new SIntBitAccessFloating)
@@ -195,7 +195,7 @@ class SInt extends BitVector with Num[SInt] /*with MinMaxProvider */with DataPri
   override def apply(offset: UInt, bitCount: BitCount): this.type = newExtract(offset, bitCount.value, new SIntRangedAccessFloating).setWidth(bitCount.value)
 
   private[core] override def weakClone: this.type = new SInt().asInstanceOf[this.type]
-//  override def getZero: this.type = S(0, this.getWidth bits).asInstanceOf[this.type]
-//  override def getZeroUnconstrained: this.type = S(0).asInstanceOf[this.type]
+  override def getZero: this.type = S(0, this.getWidth bits).asInstanceOf[this.type]
+  override def getZeroUnconstrained: this.type = S(0).asInstanceOf[this.type]
 //  protected override def getAllToBoolNode(): AllByBool = new Operator.SInt.AllByBool(this)
 }

@@ -318,16 +318,16 @@ abstract class BaseType extends Data with NameableExpression{
     val res = this.getClass.newInstance.asInstanceOf[this.type]
     res
   }
-//
-//  private[core] def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer
-//  private[core] def newMultiplexer(cond: Node, whenTrue: Node, whenFalse: Node, mux: Multiplexer): Multiplexer = {
-//    mux.cond      = cond
-//    mux.whenTrue  = whenTrue.asInstanceOf[mux.T]
-//    mux.whenFalse = whenFalse.asInstanceOf[mux.T]
-//    mux
-//  }
-//
-//
+
+  private[core] def newMultiplexer(sel: Bool, whenTrue: Expression, whenFalse: Expression): Multiplexer
+  private[core] def newMultiplexer(cond: Expression, whenTrue: Expression, whenFalse: Expression, mux: Multiplexer): Multiplexer = {
+    mux.cond      = cond
+    mux.whenTrue  = whenTrue.asInstanceOf[mux.T]
+    mux.whenFalse = whenFalse.asInstanceOf[mux.T]
+    mux
+  }
+
+
   private[core] def wrapWithWeakClone(e: Expression): this.type = {
     val typeNode = weakClone
     typeNode.assignFrom(e)

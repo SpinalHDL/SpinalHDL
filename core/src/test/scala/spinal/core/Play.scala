@@ -36,7 +36,7 @@ object PlayBits{
 //    val miaou = a.resize(2)
 //    miaou := b.resize(4)
 //    miaou := c.resize(3)
-
+    val sel = in UInt(6 bits)
     a & c & b
     True
     False
@@ -65,6 +65,31 @@ object PlayBits{
     when(a === b){
       x init(c)
       bits4 := 0
+      bits4(sel) := Mux(c === a, a(2), False)
+    }
+
+
+    var v = B"00000000"
+//    e := False
+    v \= a
+    when(a === 0){
+      v \= 1
+    }
+    when(a === 1){
+      v \= 2
+    }
+    when(a === 2){
+      v \= 3
+      when(a === 3){
+        v \= 4
+      }
+    }
+    when(a === 4){
+      v \= 5
+    }
+    v \= 6
+    when(a === 5){
+      v \= 7
     }
   }
 

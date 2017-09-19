@@ -47,13 +47,13 @@ trait UIntFactory{
   *
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Int UInt Documentation]]
   */
-class UInt extends BitVector with Num[UInt] /*with MinMaxProvider */with DataPrimitives[UInt] with BitwiseOp[UInt]{
+class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimitives[UInt] with BitwiseOp[UInt]{
 
   override def getTypeObject = TypeUInt
 //  private[core] override def prefix: String = "u"
-//
-//  override type T = UInt
-//
+
+  override type T = UInt
+
   override def _data: UInt = this
 
   /**
@@ -62,13 +62,13 @@ class UInt extends BitVector with Num[UInt] /*with MinMaxProvider */with DataPri
     * @param that an UInt to append
     * @return a new UInt of width (w(this) + w(right))
     */
-//  def @@(that: UInt): UInt = U(this ## that)
+  def @@(that: UInt): UInt = U(this ## that)
+  def @@(that: Bool): UInt = U(this ## that)
   override private[core] def resizeFactory: Resize = new ResizeUInt
 
   override def opName: String = "UInt"
 
   /** Append a Bool to an UInt */
-//  def @@(that: Bool): UInt = U(this ## that)
 
   override def +(right: UInt): UInt = wrapBinaryOperator(right, new Operator.UInt.Add)
   override def -(right: UInt): UInt = wrapBinaryOperator(right, new Operator.UInt.Sub)
@@ -115,18 +115,18 @@ class UInt extends BitVector with Num[UInt] /*with MinMaxProvider */with DataPri
   def |<<(that: UInt): UInt = wrapBinaryOperator(that, new Operator.UInt.ShiftLeftByUIntFixedWidth)
 
 
-//  override def rotateLeft(that: Int): UInt = {
-//    val width = widthOf(this)
-//    val thatMod = that % width
-//    this(this.high - thatMod downto 0) @@ this(this.high downto this.high - thatMod + 1)
-//  }
-//
-//  override def rotateRight(that: Int): UInt = {
-//    val width = widthOf(this)
-//    val thatMod = that % width
-//    this(thatMod - 1 downto 0) @@ this(this.high downto thatMod)
-//  }
-//
+  override def rotateLeft(that: Int): UInt = {
+    val width = widthOf(this)
+    val thatMod = that % width
+    this(this.high - thatMod downto 0) @@ this(this.high downto this.high - thatMod + 1)
+  }
+
+  override def rotateRight(that: Int): UInt = {
+    val width = widthOf(this)
+    val thatMod = that % width
+    this(thatMod - 1 downto 0) @@ this(this.high downto thatMod)
+  }
+
 //  /**
 //    * 2'Complement
 //    * @param enable enable the 2'complement
@@ -144,9 +144,9 @@ class UInt extends BitVector with Num[UInt] /*with MinMaxProvider */with DataPri
 //    val rangesValues = rangesValue +: _rangesValues
 //    U.applyTuples(this, rangesValues)
 //  }
-//
-//  override def assignFromBits(bits: Bits): Unit = this := bits.asUInt
-//  override def assignFromBits(bits: Bits, hi : Int, lo : Int): Unit = this(hi,lo).assignFromBits(bits)
+
+  override def assignFromBits(bits: Bits): Unit = this := bits.asUInt
+  override def assignFromBits(bits: Bits, hi : Int, lo : Int): Unit = this(hi,lo).assignFromBits(bits)
 
   /**
     * Cast an UInt to a SInt
@@ -173,18 +173,18 @@ class UInt extends BitVector with Num[UInt] /*with MinMaxProvider */with DataPri
   }
 
 
-//  private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse, new MultiplexerUInt)
-//
+  private[core] override def newMultiplexer(sel: Bool, whenTrue: Expression, whenFalse: Expression): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse, new MultiplexerUInt)
+
   override def resize(width: Int): this.type = wrapWithWeakClone({
     val node = new ResizeUInt
     node.input = this
     node.size = width
     node
   })
-//
-//  override def minValue: BigInt = BigInt(0)
-//  override def maxValue: BigInt = (BigInt(1) << getWidth) - 1
-//
+
+  override def minValue: BigInt = BigInt(0)
+  override def maxValue: BigInt = (BigInt(1) << getWidth) - 1
+
 //  /**
 //    * Assign a mask to the output signal
 //    * @example {{{ output4 assignMask M"1111 }}}
@@ -216,8 +216,8 @@ class UInt extends BitVector with Num[UInt] /*with MinMaxProvider */with DataPri
   override def apply(offset: UInt, bitCount: BitCount): this.type = newExtract(offset, bitCount.value, new UIntRangedAccessFloating).setWidth(bitCount.value)
 //
 private[core] override def weakClone: this.type = new UInt().asInstanceOf[this.type]
-//  override def getZero: this.type = U(0, this.getWidth bits).asInstanceOf[this.type]
-//  override def getZeroUnconstrained: this.type = U(0).asInstanceOf[this.type]
+  override def getZero: this.type = U(0, this.getWidth bits).asInstanceOf[this.type]
+  override def getZeroUnconstrained: this.type = U(0).asInstanceOf[this.type]
 //  protected override def getAllToBoolNode(): AllByBool = new Operator.UInt.AllByBool(this)
 //}
 //

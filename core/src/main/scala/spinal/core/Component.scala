@@ -139,7 +139,6 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
 
   def addStatement(statement : Statement) : Unit = {
     val scope = globalData.context.head.scope
-    statement.parentScope = scope
     scope.append(statement)
   }
 

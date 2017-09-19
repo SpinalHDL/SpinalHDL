@@ -126,14 +126,14 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
   def edge(initAt: Bool) = this ^ RegNext(this).init(initAt)
   /** Edge detection */
   def edge() = this ^ RegNext(this)
-//
-//  override def assignFromBits(bits: Bits): Unit = this := bits(0)
-//
-//  override def assignFromBits(bits: Bits, hi: Int, low: Int): Unit = {
-//    assert(hi == 0, "assignFromBits hi != 0")
-//    assert(low == 0, "assignFromBits low != 0")
-//    assignFromBits(bits)
-//  }
+
+  override def assignFromBits(bits: Bits): Unit = this := bits(0)
+
+  override def assignFromBits(bits: Bits, hi: Int, low: Int): Unit = {
+    assert(hi == 0, "assignFromBits hi != 0")
+    assert(low == 0, "assignFromBits low != 0")
+    assignFromBits(bits)
+  }
 
   /**
     * Cast a Bool to an UInt
@@ -179,23 +179,23 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
       case _          => SpinalError(s"Don't know how compare $this with $that"); null
     }
   }
-//
-//  private[core] override def newMultiplexer(sel: Bool, whenTrue: Node, whenFalse: Node): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse, new MultiplexerBool)
-//
-  private[core] override def weakClone: this.type = new Bool().asInstanceOf[this.type]
-//  override def getZero: this.type = False.asInstanceOf[this.type]
 
-//  /**
-//    * Class used to write conditional operation on Data value
-//    * @example {{{ val res = myBool ? myBits1 | myBits2 }}}
-//    */
-//  case class MuxBuilder[T <: Data](whenTrue: T){
-//    def |(whenFalse: T): T = Mux(Bool.this, whenTrue, whenFalse)
-//  }
-//
-//  /** Conditional operation for Data value */
-//  def ?[T <: Data](whenTrue: T) = MuxBuilder(whenTrue)
-//
+  private[core] override def newMultiplexer(sel: Bool, whenTrue: Expression, whenFalse: Expression): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse, new MultiplexerBool)
+
+  private[core] override def weakClone: this.type = new Bool().asInstanceOf[this.type]
+  override def getZero: this.type = False.asInstanceOf[this.type]
+
+  /**
+    * Class used to write conditional operation on Data value
+    * @example {{{ val res = myBool ? myBits1 | myBits2 }}}
+    */
+  case class MuxBuilder[T <: Data](whenTrue: T){
+    def |(whenFalse: T): T = Mux(Bool.this, whenTrue, whenFalse)
+  }
+
+  /** Conditional operation for Data value */
+  def ?[T <: Data](whenTrue: T) = MuxBuilder(whenTrue)
+
 //  /**
 //    * Class used to write conditional operation on Enumeration value
 //    * @example {{{ val res = myBool ? myEnum1 | myEnum2 }}}

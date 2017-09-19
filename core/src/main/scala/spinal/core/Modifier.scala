@@ -158,6 +158,16 @@ object InferWidth{
       Math.max(op.left.getWidth, op.right.getWidth)
     }
   }
+
+  def notResizableElseMax(op : MultiplexedWidthable) : Int = {
+    val leftR = canBeResized(op.whenTrue)
+    val rightR = canBeResized(op.whenFalse)
+    if(leftR != rightR){
+      if(leftR) op.whenFalse.getWidth else op.whenTrue.getWidth
+    } else {
+      Math.max(op.whenTrue.getWidth, op.whenFalse.getWidth)
+    }
+  }
 }
 //
 //
@@ -814,75 +824,63 @@ class CastBoolToBits extends Cast with Widthable{
 //  override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
 //  override def getDefinition: SpinalEnum = enumDef
 //}
-//
-//
-//
-//abstract class Multiplexer extends Modifier {
-//  type T <: Node
-//  var cond      : Node = null
-//  var whenTrue  : T = null.asInstanceOf[T]
-//  var whenFalse : T = null.asInstanceOf[T]
-//
-//  override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
-//    doThat(cond,0)
-//    doThat(whenTrue,1)
-//    doThat(whenFalse,2)
-//  }
-//  override def onEachInput(doThat: (Node) => Unit): Unit = {
-//    doThat(cond)
-//    doThat(whenTrue)
-//    doThat(whenFalse)
-//  }
-//
-//  override def setInput(id: Int, node: Node): Unit = id match{
-//    case 0 => cond = node
-//    case 1 => whenTrue = node.asInstanceOf[T]
-//    case 2 => whenFalse = node.asInstanceOf[T]
-//  }
-//
-//  override def getInputsCount: Int = 3
-//  override def getInputs: Iterator[Node] = Iterator(cond,whenTrue,whenFalse)
-//  override def getInput(id: Int): Node = id match{
-//    case 0 => cond
-//    case 1 => whenTrue
-//    case 2 => whenFalse
-//  }
-//}
-//
-//abstract class MultiplexedWidthable extends Multiplexer with Widthable with CheckWidth{
-//  override type T = Node with Widthable
-//  override def calcWidth: Int = Math.max(whenTrue.getWidth, whenFalse.getWidth)
-//  override private[core] def checkInferedWidth: Unit = {
-//    if(whenTrue.getWidth != whenFalse.getWidth){
-//      PendingError(s"${this} inputs doesn't have the same width at \n${this.getScalaLocationLong}")
-//    }
-//  }
-//}
-//
-//class MultiplexerBool extends Multiplexer{
-//  override def opName: String = "mux(B,B,B)"
-//}
-//class MultiplexerBits extends MultiplexedWidthable{
-//  override def opName: String = "mux(B,b,b)"
-//  override def normalizeInputs: Unit = {
-//    InputNormalize.resizedOrUnfixedLitDeepOne(this, 1, this.getWidth)
-//    InputNormalize.resizedOrUnfixedLitDeepOne(this, 2, this.getWidth)
-//  }
-//}
-//class MultiplexerUInt extends MultiplexedWidthable{
-//  override def opName: String = "mux(B,u,u)"
-//  override def normalizeInputs: Unit = {
-//    Misc.normalizeResize(this, 1, this.getWidth)
-//    Misc.normalizeResize(this, 2, this.getWidth)
-//  }
-//}
-//class MultiplexerSInt extends MultiplexedWidthable{
-//  override def opName: String = "mux(B,s,s)"
-//  override def normalizeInputs: Unit = {
-//    Misc.normalizeResize(this, 1, this.getWidth)
-//    Misc.normalizeResize(this, 2, this.getWidth)
-//  }
-//}
+
+
+
+abstract class Multiplexer extends Modifier {
+  type T <: Expression
+  var cond      : Expression = null
+  var whenTrue  : T = null.asInstanceOf[T]
+  var whenFalse : T = null.asInstanceOf[T]
+
+  override def remapExpressions(func: (Expression) => Expression): Unit = {
+    cond = func(cond)
+    whenTrue = func(whenTrue).asInstanceOf[T]
+    whenFalse = func(whenFalse).asInstanceOf[T]
+  }
+  override def foreachExpression(func: (Expression) => Unit): Unit = {
+    func(cond)
+    func(whenTrue)
+    func(whenFalse)
+  }
+}
+
+abstract class MultiplexedWidthable extends Multiplexer with Widthable{
+  override type T = Expression with WidthProvider
+  override def calcWidth: Int = InferWidth.notResizableElseMax(this)
+}
+
+class MultiplexerBool extends Multiplexer{
+  override def getTypeObject: Any = TypeBool
+  override def opName: String = "mux(B,B,B)"
+}
+class MultiplexerBits extends MultiplexedWidthable {
+  override def getTypeObject: Any = TypeBits
+  override def opName: String = "mux(B,b,b)"
+  override def normalizeInputs: Unit = {
+    val targetWidth = getWidth
+    whenTrue = InputNormalize.resizedOrUnfixedLit(whenTrue, targetWidth, new ResizeBits, this, this)
+    whenFalse = InputNormalize.resizedOrUnfixedLit(whenFalse, targetWidth, new ResizeBits, this, this)
+  }
+}
+class MultiplexerUInt extends MultiplexedWidthable{
+  override def getTypeObject: Any = TypeUInt
+  override def opName: String = "mux(B,u,u)"
+  override def normalizeInputs: Unit = {
+    val targetWidth = getWidth
+    whenTrue = InputNormalize.resize(whenTrue, targetWidth, new ResizeUInt)
+    whenFalse = InputNormalize.resize(whenFalse, targetWidth, new ResizeUInt)
+  }
+}
+class MultiplexerSInt extends MultiplexedWidthable{
+  override def getTypeObject: Any = TypeSInt
+  override def opName: String = "mux(B,s,s)"
+  override def normalizeInputs: Unit = {
+    val targetWidth = getWidth
+    whenTrue = InputNormalize.resize(whenTrue, targetWidth, new ResizeSInt)
+    whenFalse = InputNormalize.resize(whenFalse, targetWidth, new ResizeSInt)
+  }
+}
 //class MultiplexerEnum(enumDef : SpinalEnum) extends Multiplexer with InferableEnumEncodingImpl{
 //  override type T = Node with EnumEncoded
 //  override def opName: String = "mux(B,e,e)"
@@ -892,11 +890,11 @@ class CastBoolToBits extends Cast with Widthable{
 //    InputNormalize.enumImpl(this)
 //  }
 //}
-//
-//object Mux {
-//  def apply[T <: Data](sel: Bool, whenTrue: T, whenFalse: T): T = {
-//    Multiplex.complexData(sel, whenTrue, whenFalse)
-//  }
+
+object Mux {
+  def apply[T <: Data](sel: Bool, whenTrue: T, whenFalse: T): T = {
+    Multiplex.complexData(sel, whenTrue, whenFalse)
+  }
 //  def apply[T <: SpinalEnum](sel: Bool, whenTrue: SpinalEnumElement[T], whenFalse: SpinalEnumElement[T]): SpinalEnumCraft[T] = {
 //    Multiplex.complexData(sel, whenTrue(), whenFalse())
 //  }
@@ -906,7 +904,7 @@ class CastBoolToBits extends Cast with Widthable{
 //  def apply[T <: SpinalEnum](sel: Bool, whenTrue: SpinalEnumElement[T], whenFalse: SpinalEnumCraft[T]): SpinalEnumCraft[T] = {
 //    Multiplex.complexData(sel, whenTrue(), whenFalse)
 //  }
-//}
+}
 //
 //object Sel{
 //  def apply[T <: Data](default : T,mappings : (Bool,T)*) :T = seq(default,mappings)
@@ -995,37 +993,37 @@ class CastBoolToBits extends Cast with Widthable{
 //  }
 //}
 //
-//private[spinal] object Multiplex {
-//
-//  def baseType[T <: BaseType](sel: Bool, whenTrue: T, whenFalse: T): Multiplexer = {
-//    whenTrue.newMultiplexer(sel, whenTrue, whenFalse)
-//  }
-//
-//
-//  def complexData[T <: Data](sel: Bool, whenTrue: T, whenFalse: T): T = {
-//    val outType = if (whenTrue.getClass.isAssignableFrom(whenFalse.getClass)) whenTrue
-//    else if (whenFalse.getClass.isAssignableFrom(whenTrue.getClass)) whenFalse
-//    else throw new Exception("can't mux that")
-//
-//
-//    val muxOut = weakCloneOf(outType)
-//    val muxInTrue = cloneOf(muxOut)
-//    val muxInFalse = cloneOf(muxOut)
-//
-//
-//    muxInTrue := whenTrue
-//    muxInFalse := whenFalse
-//
-//
-//    for ((out, t,  f) <- (muxOut.flatten, muxInTrue.flatten, muxInFalse.flatten).zipped) {
-//      if (t == null) SpinalError("Create a mux with incompatible true input type")
-//      if (f == null) SpinalError("Create a mux with incompatible false input type")
-//
-//      out.input = Multiplex.baseType(sel, t, f)
-//    }
-//    muxOut
-//  }
-//}
+private[spinal] object Multiplex {
+
+  def baseType[T <: BaseType](sel: Bool, whenTrue: T, whenFalse: T): Multiplexer = {
+    whenTrue.newMultiplexer(sel, whenTrue, whenFalse)
+  }
+
+
+  def complexData[T <: Data](sel: Bool, whenTrue: T, whenFalse: T): T = {
+    val outType = if (whenTrue.getClass.isAssignableFrom(whenFalse.getClass)) whenTrue
+    else if (whenFalse.getClass.isAssignableFrom(whenTrue.getClass)) whenFalse
+    else throw new Exception("can't mux that")
+
+
+    val muxOut = weakCloneOf(outType)
+    val muxInTrue = cloneOf(muxOut)
+    val muxInFalse = cloneOf(muxOut)
+
+
+    muxInTrue := whenTrue
+    muxInFalse := whenFalse
+
+
+    for ((out, t,  f) <- (muxOut.flatten, muxInTrue.flatten, muxInFalse.flatten).zipped) {
+      if (t == null) SpinalError("Create a mux with incompatible true input type")
+      if (f == null) SpinalError("Create a mux with incompatible false input type")
+
+      out.assignFrom(Multiplex.baseType(sel, t, f))
+    }
+    muxOut
+  }
+}
 abstract class SubAccess extends Modifier{
 //  def finalTarget : NameableExpression
 //  def getBitVector: Expression

@@ -806,7 +806,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
   def emitAssignedExpression(that : Expression): String = that match{
     case that : BaseType => emitReference(that, false)
     case that : BitAssignmentFixed => s"${emitReference(that.out, false)}(${that.bitId})"
-    case that : BitAssignmentFloating => s"${emitReference(that.out, false)}(${that.bitId})"
+    case that : BitAssignmentFloating => s"${emitReference(that.out, false)}(${emitExpression(that.bitId)})"
     case that : RangedAssignmentFixed => s"${emitReference(that.out, false)}(${that.hi} downto ${that.lo})"
     case that : RangedAssignmentFloating => s"${emitReference(that.out, false)}(${that.bitCount - 1} + to_integer(${emitExpression(that.offset)}) downto to_integer(${emitExpression(that.offset)}))"
   }
@@ -1776,15 +1776,20 @@ def refImpl(op: Expression): String = emitReference(op.asInstanceOf[NameableExpr
   }
 
   def boolLiteralImpl(op: Expression) : String = s"pkg_toStdLogic(${op.asInstanceOf[BoolLiteral].value})"
-//
-//  def moduloImpl(op: Modifier): String = {
-//    val mod = op.asInstanceOf[Operator.BitVector.Mod]
-//    s"resize(${emitLogic(mod.left)} mod ${emitLogic(mod.right)},${mod.getWidth})"
-//  }
-//
+
+  def moduloImpl(op: Expression): String = {
+    val mod = op.asInstanceOf[Operator.BitVector.Mod]
+    s"resize(${emitExpression(mod.left)} mod ${emitExpression(mod.right)},${mod.getWidth})"
+  }
+
   def operatorImplAsUnaryOperator(vhd: String)(op: Expression): String = {
     val unary = op.asInstanceOf[UnaryOperator]
     s"($vhd ${emitExpression(unary.source)})"
+  }
+
+  def opImplAsCast(vhd: String)(e: Expression): String = {
+    val bo = e.asInstanceOf[Cast]
+    s"$vhd(${emitExpression(bo.input)})"
   }
 
   def binaryOperatorImplAsFunction(vhd: String)(e: Expression): String = {
@@ -1792,46 +1797,53 @@ def refImpl(op: Expression): String = emitReference(op.asInstanceOf[NameableExpr
     s"$vhd(${emitExpression(bo.left)},${emitExpression(bo.right)})"
   }
 
-//  def shiftRightByIntImpl(func: Modifier): String = {
-//    val node = func.asInstanceOf[Operator.BitVector.ShiftRightByInt]
-//    s"pkg_shiftRight(${emitLogic(node.input)},${node.shift})"
-//  }
-//
-//  def shiftLeftByIntImpl(func: Modifier): String = {
-//    val node = func.asInstanceOf[Operator.BitVector.ShiftLeftByInt]
-//    s"pkg_shiftLeft(${emitLogic(node.input)},${node.shift})"
-//  }
-//
-//  def shiftRightByIntFixedWidthImpl(func: Modifier): String = {
-//    val node = func.asInstanceOf[Operator.BitVector.ShiftRightByIntFixedWidth]
-//    s"shift_right(${emitLogic(node.input)},${node.shift})"
-//  }
-//
-//  def shiftLeftByIntFixedWidthImpl(func: Modifier): String = {
-//    val node = func.asInstanceOf[Operator.BitVector.ShiftLeftByIntFixedWidth]
-//    s"shift_left(${emitLogic(node.input)},${node.shift})"
-//  }
-//
-//  def shiftRightBitsByIntFixedWidthImpl(func: Modifier): String = {
-//    val node = func.asInstanceOf[Operator.BitVector.ShiftRightByIntFixedWidth]
-//    s"std_logic_vector(shift_right(unsigned(${emitLogic(node.input)}),${node.shift}))"
-//  }
-//
-//  def shiftLeftBitsByIntFixedWidthImpl(func: Modifier): String = {
-//    val node = func.asInstanceOf[Operator.BitVector.ShiftLeftByIntFixedWidth]
-//    s"std_logic_vector(shift_left(unsigned(${emitLogic(node.input)}),${node.shift}))"
-//  }
-//
-//
-//  def shiftLeftByUIntFixedWidthImpl(func: Modifier): String = {
-//    val node = func.asInstanceOf[Operator.BitVector.ShiftLeftByUIntFixedWidth]
-//    s"shift_left(${emitLogic(node.left)},to_integer(${emitLogic(node.right)}))"
-//  }
-//
-//  def shiftLeftBitsByUIntFixedWidthImpl(func: Modifier): String = {
-//    val node = func.asInstanceOf[Operator.BitVector.ShiftLeftByUIntFixedWidth]
-//    s"std_logic_vector(shift_left(unsigned(${emitLogic(node.left)}),to_integer(${emitLogic(node.right)})))"
-//  }
+
+  def muxImplAsFunction(vhd: String)(e: Expression): String = {
+    val bo = e.asInstanceOf[Multiplexer]
+    s"$vhd(${emitExpression(bo.cond)},${emitExpression(bo.whenTrue)},${emitExpression(bo.whenFalse)})"
+  }
+
+
+  def shiftRightByIntImpl(func: Expression): String = {
+    val node = func.asInstanceOf[Operator.BitVector.ShiftRightByInt]
+    s"pkg_shiftRight(${emitExpression(node.source)},${node.shift})"
+  }
+
+  def shiftLeftByIntImpl(func: Expression): String = {
+    val node = func.asInstanceOf[Operator.BitVector.ShiftLeftByInt]
+    s"pkg_shiftLeft(${emitExpression(node.source)},${node.shift})"
+  }
+
+  def shiftRightByIntFixedWidthImpl(func: Expression): String = {
+    val node = func.asInstanceOf[Operator.BitVector.ShiftRightByIntFixedWidth]
+    s"shift_right(${emitExpression(node.source)},${node.shift})"
+  }
+
+  def shiftLeftByIntFixedWidthImpl(func: Expression): String = {
+    val node = func.asInstanceOf[Operator.BitVector.ShiftLeftByIntFixedWidth]
+    s"shift_left(${emitExpression(node.source)},${node.shift})"
+  }
+
+  def shiftRightBitsByIntFixedWidthImpl(func: Expression): String = {
+    val node = func.asInstanceOf[Operator.BitVector.ShiftRightByIntFixedWidth]
+    s"std_logic_vector(shift_right(unsigned(${emitExpression(node.source)}),${node.shift}))"
+  }
+
+  def shiftLeftBitsByIntFixedWidthImpl(func: Expression): String = {
+    val node = func.asInstanceOf[Operator.BitVector.ShiftLeftByIntFixedWidth]
+    s"std_logic_vector(shift_left(unsigned(${emitExpression(node.source)}),${node.shift}))"
+  }
+
+
+  def shiftLeftByUIntFixedWidthImpl(func: Expression): String = {
+    val node = func.asInstanceOf[Operator.BitVector.ShiftLeftByUIntFixedWidth]
+    s"shift_left(${emitExpression(node.left)},to_integer(${emitExpression(node.right)}))"
+  }
+
+  def shiftLeftBitsByUIntFixedWidthImpl(func: Expression): String = {
+    val node = func.asInstanceOf[Operator.BitVector.ShiftLeftByUIntFixedWidth]
+    s"std_logic_vector(shift_left(unsigned(${emitExpression(node.left)}),to_integer(${emitExpression(node.right)})))"
+  }
 
 
 
@@ -1846,7 +1858,17 @@ def refImpl(op: Expression): String = emitReference(op.asInstanceOf[NameableExpr
     s"pkg_stdLogicVector(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
   }
 
-//  def enumEgualsImpl(eguals: Boolean)(op: Modifier): String = {
+  def emitUIntLiteral(e : Expression) : String = {
+    val lit = e.asInstanceOf[BitsLiteral]
+    s"pkg_unsigned(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
+  }
+
+  def emitSIntLiteral(e : Expression) : String = {
+    val lit = e.asInstanceOf[BitsLiteral]
+    s"pkg_signed(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
+  }
+
+  //  def enumEgualsImpl(eguals: Boolean)(op: Modifier): String = {
 //    val enumDef = op.asInstanceOf[EnumEncoded].getDefinition
 //    val encoding = op.asInstanceOf[EnumEncoded].getEncoding
 //
@@ -1904,76 +1926,81 @@ def refImpl(op: Expression): String = emitReference(op.asInstanceOf[NameableExpr
 //
 
   val expressionImplMap = mutable.Map[Class[_ <: Expression], Expression => String]()
-  val expressionTypeMap = mutable.Map[Class[_ <: Expression], Expression => String]()
 
 
   def expressionMapAdd(c : Class[_ <: Expression], impl : Expression => String): Unit ={
+    assert(!expressionImplMap.contains(c))
     expressionImplMap(c) = impl
   }
 
   expressionMapAdd(classOf[Bool], refImpl)
   expressionMapAdd(classOf[Bits], refImpl)
+  expressionMapAdd(classOf[UInt], refImpl)
+  expressionMapAdd(classOf[SInt], refImpl)
 
 
   expressionMapAdd(classOf[BoolLiteral], boolLiteralImpl)
   expressionMapAdd(classOf[BitsLiteral], emitBitsLiteral)
+  expressionMapAdd(classOf[UIntLiteral], emitUIntLiteral)
+  expressionMapAdd(classOf[SIntLiteral], emitSIntLiteral)
 
-//  //unsigned
-//  expressionImplMap.put("u+u", operatorImplAsBinaryOperator("+"))
-//  expressionImplMap.put("u-u", operatorImplAsBinaryOperator("-"))
-//  expressionImplMap.put("u*u", operatorImplAsBinaryOperator("*"))
-//  expressionImplMap.put("u/u", operatorImplAsBinaryOperator("/"))
-//  expressionImplMap.put("u%u", moduloImpl)
-//
-//  expressionImplMap.put("u|u", operatorImplAsBinaryOperator("or"))
-//  expressionImplMap.put("u&u", operatorImplAsBinaryOperator("and"))
-//  expressionImplMap.put("u^u", operatorImplAsBinaryOperator("xor"))
-//  expressionImplMap.put("~u",  operatorImplAsUnaryOperator("not"))
-//
-//  expressionImplMap.put("u==u", operatorImplAsBinaryOperator("="))
-//  expressionImplMap.put("u!=u", operatorImplAsBinaryOperator("/="))
-//  expressionImplMap.put("u<u",  operatorImplAsBinaryOperator("<"))
-//  expressionImplMap.put("u<=u", operatorImplAsBinaryOperator("<="))
-//
-//
-//  expressionImplMap.put("u>>i", shiftRightByIntImpl)
-//  expressionImplMap.put("u<<i", shiftLeftByIntImpl)
-//  expressionImplMap.put("u>>u", operatorImplAsFunction("pkg_shiftRight"))
-//  expressionImplMap.put("u<<u", operatorImplAsFunction("pkg_shiftLeft"))
-//  expressionImplMap.put("u|>>i",  shiftRightByIntFixedWidthImpl)
-//  expressionImplMap.put("u|<<i",  shiftLeftByIntFixedWidthImpl)
-//  expressionImplMap.put("u|<<u",  shiftLeftByUIntFixedWidthImpl)
-//
-//
-//  //signed
-//  expressionImplMap.put("s+s", operatorImplAsBinaryOperator("+"))
-//  expressionImplMap.put("s-s", operatorImplAsBinaryOperator("-"))
-//  expressionImplMap.put("s*s", operatorImplAsBinaryOperator("*"))
-//  expressionImplMap.put("s/s", operatorImplAsBinaryOperator("/"))
-//  expressionImplMap.put("s%s", moduloImpl)
-//
-//  expressionImplMap.put("s|s", operatorImplAsBinaryOperator("or"))
-//  expressionImplMap.put("s&s", operatorImplAsBinaryOperator("and"))
-//  expressionImplMap.put("s^s", operatorImplAsBinaryOperator("xor"))
-//  expressionImplMap.put("~s", operatorImplAsUnaryOperator("not"))
-//  expressionImplMap.put("-s", operatorImplAsUnaryOperator("-"))
-//
-//  expressionImplMap.put("s==s", operatorImplAsBinaryOperator("="))
-//  expressionImplMap.put("s!=s", operatorImplAsBinaryOperator("/="))
-//  expressionImplMap.put("s<s", operatorImplAsBinaryOperator("<"))
-//  expressionImplMap.put("s<=s", operatorImplAsBinaryOperator("<="))
-//
-//
-//  expressionImplMap.put("s>>i", shiftRightByIntImpl)
-//  expressionImplMap.put("s<<i", shiftLeftByIntImpl)
-//  expressionImplMap.put("s>>u", operatorImplAsFunction("pkg_shiftRight"))
-//  expressionImplMap.put("s<<u", operatorImplAsFunction("pkg_shiftLeft"))
-//  expressionImplMap.put("s|>>i",  shiftRightByIntFixedWidthImpl)
-//  expressionImplMap.put("s|<<i",  shiftLeftByIntFixedWidthImpl)
-//  expressionImplMap.put("s|<<u",  shiftLeftByUIntFixedWidthImpl)
-//
-//
-//
+  //unsigned
+  expressionMapAdd(classOf[Operator.UInt.Add], operatorImplAsBinaryOperator("+"))
+  expressionMapAdd(classOf[Operator.UInt.Sub], operatorImplAsBinaryOperator("-"))
+  expressionMapAdd(classOf[Operator.UInt.Mul], operatorImplAsBinaryOperator("*"))
+  expressionMapAdd(classOf[Operator.UInt.Div], operatorImplAsBinaryOperator("/"))
+  expressionMapAdd(classOf[Operator.UInt.Mod], moduloImpl)
+
+  expressionMapAdd(classOf[Operator.UInt.Or], operatorImplAsBinaryOperator("or"))
+  expressionMapAdd(classOf[Operator.UInt.And], operatorImplAsBinaryOperator("and"))
+  expressionMapAdd(classOf[Operator.UInt.Xor], operatorImplAsBinaryOperator("xor"))
+  expressionMapAdd(classOf[Operator.UInt.Not],  operatorImplAsUnaryOperator("not"))
+
+  expressionMapAdd(classOf[Operator.UInt.Equal], operatorImplAsBinaryOperator("="))
+  expressionMapAdd(classOf[Operator.UInt.NotEqual], operatorImplAsBinaryOperator("/="))
+  expressionMapAdd(classOf[Operator.UInt.Smaller],  operatorImplAsBinaryOperator("<"))
+  expressionMapAdd(classOf[Operator.UInt.SmallerOrEqual], operatorImplAsBinaryOperator("<="))
+
+
+  expressionMapAdd(classOf[Operator.UInt.ShiftRightByInt], shiftRightByIntImpl)
+  expressionMapAdd(classOf[Operator.UInt.ShiftLeftByInt], shiftLeftByIntImpl)
+  expressionMapAdd(classOf[Operator.UInt.ShiftRightByUInt], binaryOperatorImplAsFunction("pkg_shiftRight"))
+  expressionMapAdd(classOf[Operator.UInt.ShiftLeftByUInt], binaryOperatorImplAsFunction("pkg_shiftLeft"))
+  expressionMapAdd(classOf[Operator.UInt.ShiftRightByIntFixedWidth],  shiftRightByIntFixedWidthImpl)
+  expressionMapAdd(classOf[Operator.UInt.ShiftLeftByIntFixedWidth],  shiftLeftByIntFixedWidthImpl)
+  expressionMapAdd(classOf[Operator.UInt.ShiftLeftByUIntFixedWidth],  shiftLeftByUIntFixedWidthImpl)
+
+
+  //signed
+  expressionMapAdd(classOf[Operator.SInt.Add], operatorImplAsBinaryOperator("+"))
+  expressionMapAdd(classOf[Operator.SInt.Sub], operatorImplAsBinaryOperator("-"))
+  expressionMapAdd(classOf[Operator.SInt.Mul], operatorImplAsBinaryOperator("*"))
+  expressionMapAdd(classOf[Operator.SInt.Div], operatorImplAsBinaryOperator("/"))
+  expressionMapAdd(classOf[Operator.SInt.Mod], moduloImpl)
+
+  expressionMapAdd(classOf[Operator.SInt.Or], operatorImplAsBinaryOperator("or"))
+  expressionMapAdd(classOf[Operator.SInt.And], operatorImplAsBinaryOperator("and"))
+  expressionMapAdd(classOf[Operator.SInt.Xor], operatorImplAsBinaryOperator("xor"))
+  expressionMapAdd(classOf[Operator.SInt.Not],  operatorImplAsUnaryOperator("not"))
+  expressionMapAdd(classOf[Operator.SInt.Minus], operatorImplAsUnaryOperator("-"))
+
+  expressionMapAdd(classOf[Operator.SInt.Equal], operatorImplAsBinaryOperator("="))
+  expressionMapAdd(classOf[Operator.SInt.NotEqual], operatorImplAsBinaryOperator("/="))
+  expressionMapAdd(classOf[Operator.SInt.Smaller],  operatorImplAsBinaryOperator("<"))
+  expressionMapAdd(classOf[Operator.SInt.SmallerOrEqual], operatorImplAsBinaryOperator("<="))
+
+
+  expressionMapAdd(classOf[Operator.SInt.ShiftRightByInt], shiftRightByIntImpl)
+  expressionMapAdd(classOf[Operator.SInt.ShiftLeftByInt], shiftLeftByIntImpl)
+  expressionMapAdd(classOf[Operator.SInt.ShiftRightByUInt], binaryOperatorImplAsFunction("pkg_shiftRight"))
+  expressionMapAdd(classOf[Operator.SInt.ShiftLeftByUInt], binaryOperatorImplAsFunction("pkg_shiftLeft"))
+  expressionMapAdd(classOf[Operator.SInt.ShiftRightByIntFixedWidth],  shiftRightByIntFixedWidthImpl)
+  expressionMapAdd(classOf[Operator.SInt.ShiftLeftByIntFixedWidth],  shiftLeftByIntFixedWidthImpl)
+  expressionMapAdd(classOf[Operator.SInt.ShiftLeftByUIntFixedWidth],  shiftLeftByUIntFixedWidthImpl)
+
+
+
+
   //bits
   expressionMapAdd(classOf[Operator.Bits.Cat], binaryOperatorImplAsFunction("pkg_cat"))
 
@@ -1984,22 +2011,18 @@ def refImpl(op: Expression): String = emitReference(op.asInstanceOf[NameableExpr
 
   expressionMapAdd(classOf[Operator.Bits.Equal], operatorImplAsBinaryOperator("="))
   expressionMapAdd(classOf[Operator.Bits.NotEqual], operatorImplAsBinaryOperator("/="))
-//
-//  expressionImplMap.put("b>>i", shiftRightByIntImpl)
-//  expressionImplMap.put("b<<i", shiftLeftByIntImpl)
-//  expressionImplMap.put("b>>u", operatorImplAsFunction("pkg_shiftRight"))
-//  expressionImplMap.put("b<<u", operatorImplAsFunction("pkg_shiftLeft"))
-//  expressionImplMap.put("b|>>i",  shiftRightBitsByIntFixedWidthImpl)
-//  expressionImplMap.put("b|<<i",  shiftLeftBitsByIntFixedWidthImpl)
-//  expressionImplMap.put("b|<<u",  shiftLeftBitsByUIntFixedWidthImpl)
-//
-////  expressionImplMap.put("brotlu", operatorImplAsFunction("pkg_rotateLeft"))
-//
-//
-//
+
+  expressionMapAdd(classOf[Operator.Bits.ShiftRightByInt], shiftRightByIntImpl)
+  expressionMapAdd(classOf[Operator.Bits.ShiftLeftByInt], shiftLeftByIntImpl)
+  expressionMapAdd(classOf[Operator.Bits.ShiftRightByUInt], binaryOperatorImplAsFunction("pkg_shiftRight"))
+  expressionMapAdd(classOf[Operator.Bits.ShiftLeftByUInt], binaryOperatorImplAsFunction("pkg_shiftLeft"))
+  expressionMapAdd(classOf[Operator.Bits.ShiftRightByIntFixedWidth],  shiftRightByIntFixedWidthImpl)
+  expressionMapAdd(classOf[Operator.Bits.ShiftLeftByIntFixedWidth],  shiftLeftByIntFixedWidthImpl)
+  expressionMapAdd(classOf[Operator.Bits.ShiftLeftByUIntFixedWidth],  shiftLeftByUIntFixedWidthImpl)
+
+
 //  //bool
 
-  expressionMapAdd(classOf[BoolLiteral], boolLiteralImpl)
   expressionMapAdd(classOf[Operator.Bool.Equal], operatorImplAsBinaryOperator("="))
   expressionMapAdd(classOf[Operator.Bool.NotEqual], operatorImplAsBinaryOperator("/="))
 
@@ -2011,82 +2034,82 @@ def refImpl(op: Expression): String = emitReference(op.asInstanceOf[NameableExpr
 
 
 //  //enum
-//  expressionImplMap.put("e==e", enumEgualsImpl(true))
-//  expressionImplMap.put("e!=e", enumEgualsImpl(false))
+//  expressionMapAdd("e==e", enumEgualsImpl(true))
+//  expressionMapAdd("e!=e", enumEgualsImpl(false))
 //
-//  //cast
-//  expressionImplMap.put("s->b", operatorImplAsFunction("std_logic_vector"))
-//  expressionImplMap.put("u->b", operatorImplAsFunction("std_logic_vector"))
-//  expressionImplMap.put("B->b", operatorImplAsFunction("pkg_toStdLogicVector"))
-//  expressionImplMap.put("e->b", operatorImplAsEnumToBits)
-//
-//  expressionImplMap.put("b->s", operatorImplAsFunction("signed"))
-//  expressionImplMap.put("u->s", operatorImplAsFunction("signed"))
-//
-//  expressionImplMap.put("b->u", operatorImplAsFunction("unsigned"))
-//  expressionImplMap.put("s->u", operatorImplAsFunction("unsigned"))
-//
-//  expressionImplMap.put("b->e", operatorImplAsBitsToEnum)
-//  expressionImplMap.put("e->e", operatorImplAsEnumToEnum)
-//
+  //cast
+  expressionMapAdd(classOf[CastSIntToBits], opImplAsCast("std_logic_vector"))
+  expressionMapAdd(classOf[CastUIntToBits], opImplAsCast("std_logic_vector"))
+  expressionMapAdd(classOf[CastBoolToBits], opImplAsCast("pkg_toStdLogicVector"))
+//  expressionMapAdd("e->b"classOf[CastEnumToBits], operatorImplAsEnumToBits)
+
+  expressionMapAdd(classOf[CastBitsToSInt], opImplAsCast("signed"))
+  expressionMapAdd(classOf[CastUIntToSInt], opImplAsCast("signed"))
+
+  expressionMapAdd(classOf[CastBitsToUInt], opImplAsCast("unsigned"))
+  expressionMapAdd(classOf[CastSIntToUInt], opImplAsCast("unsigned"))
+
+//  expressionMapAdd("b->e", operatorImplAsBitsToEnum)
+//  expressionMapAdd("e->e", operatorImplAsEnumToEnum)
+
 //
 //  //misc
 //
-//  expressionImplMap.put("resize(s,i)", resizeFunction("pkg_signed"))
-//  expressionImplMap.put("resize(u,i)", resizeFunction("pkg_unsigned"))
+//  expressionMapAdd("resize(s,i)", resizeFunction("pkg_signed"))
+//  expressionMapAdd("resize(u,i)", resizeFunction("pkg_unsigned"))
   expressionMapAdd(classOf[ResizeBits], resizeFunction("pkg_stdLogicVector"))
 //
-//  expressionImplMap.put("bAllByB", unaryAllBy("std_logic_vector"))
-//  expressionImplMap.put("uAllByB", unaryAllBy("unsigned"))
-//  expressionImplMap.put("sAllByB", unaryAllBy("signed"))
+//  expressionMapAdd("bAllByB", unaryAllBy("std_logic_vector"))
+//  expressionMapAdd("uAllByB", unaryAllBy("unsigned"))
+//  expressionMapAdd("sAllByB", unaryAllBy("signed"))
 //
 //
-//  //Memo whenNode hardcode emitlogic
-//  expressionImplMap.put("mux(B,B,B)", operatorImplAsFunction("pkg_mux"))
-//  expressionImplMap.put("mux(B,b,b)", operatorImplAsFunction("pkg_mux"))
-//  expressionImplMap.put("mux(B,u,u)", operatorImplAsFunction("pkg_mux"))
-//  expressionImplMap.put("mux(B,s,s)", operatorImplAsFunction("pkg_mux"))
-//  expressionImplMap.put("mux(B,e,e)", operatorImplAsFunction("pkg_mux"))
-//
-//  expressionImplMap.put("extract(b,i)", extractBoolFixed)
-//  expressionImplMap.put("extract(u,i)", extractBoolFixed)
-//  expressionImplMap.put("extract(s,i)", extractBoolFixed)
-//
-//  expressionImplMap.put("extract(b,u)", extractBoolFloating)
-//  expressionImplMap.put("extract(u,u)", extractBoolFloating)
-//  expressionImplMap.put("extract(s,u)", extractBoolFloating)
-//
+  //Memo whenNode hardcode emitlogic
+  expressionMapAdd(classOf[MultiplexerBool], muxImplAsFunction("pkg_mux"))
+  expressionMapAdd(classOf[MultiplexerBits], muxImplAsFunction("pkg_mux"))
+  expressionMapAdd(classOf[MultiplexerUInt], muxImplAsFunction("pkg_mux"))
+  expressionMapAdd(classOf[MultiplexerSInt], muxImplAsFunction("pkg_mux"))
+//  expressionMapAdd("mux(B,e,e)", muxImplAsFunction("pkg_mux"))
+
+  expressionMapAdd(classOf[BitsBitAccessFixed], accessBoolFixed)
+  expressionMapAdd(classOf[UIntBitAccessFixed], accessBoolFixed)
+  expressionMapAdd(classOf[SIntBitAccessFixed], accessBoolFixed)
+
+  expressionMapAdd(classOf[BitsBitAccessFloating], accessBoolFloating)
+  expressionMapAdd(classOf[UIntBitAccessFloating], accessBoolFloating)
+  expressionMapAdd(classOf[SIntBitAccessFloating], accessBoolFloating)
+
   expressionMapAdd(classOf[BitsRangedAccessFixed], accessBitVectorFixed)
-//  expressionImplMap.put("extract(u,i,i)", extractBitVectorFixed)
-//  expressionImplMap.put("extract(s,i,i)", extractBitVectorFixed)
-//
-//  expressionImplMap.put("extract(b,u,w)", extractBitVectorFloating)
-//  expressionImplMap.put("extract(u,u,w)", extractBitVectorFloating)
-//  expressionImplMap.put("extract(s,u,w)", extractBitVectorFloating)
-//
-//
-//
-//  def extractBoolFixed(func: Modifier): String = {
-//    val that = func.asInstanceOf[ExtractBoolFixed]
-//    s"pkg_extract(${emitLogic(that.getBitVector)},${that.getBitId})"
-//  }
-//
-//  def extractBoolFloating(func: Modifier): String = {
-//    val that = func.asInstanceOf[ExtractBoolFloating]
-//    s"pkg_extract(${emitLogic(that.getBitVector)},to_integer(${emitLogic(that.getBitId)}))"
-//  }
-//
+  expressionMapAdd(classOf[UIntRangedAccessFixed], accessBitVectorFixed)
+  expressionMapAdd(classOf[SIntRangedAccessFixed], accessBitVectorFixed)
+
+  expressionMapAdd(classOf[BitsRangedAccessFloating], accessBitVectorFloating)
+  expressionMapAdd(classOf[UIntRangedAccessFloating], accessBitVectorFloating)
+  expressionMapAdd(classOf[SIntRangedAccessFloating], accessBitVectorFloating)
+
+
+
+  def accessBoolFixed(func: Expression): String = {
+    val that = func.asInstanceOf[BitVectorBitAccessFixed]
+    s"pkg_extract(${emitExpression(that.source)},${that.bitId})"
+  }
+
+  def accessBoolFloating(func: Expression): String = {
+    val that = func.asInstanceOf[BitVectorBitAccessFloating]
+    s"pkg_extract(${emitExpression(that.source)},to_integer(${emitExpression(that.bitId)}))"
+  }
+
   def accessBitVectorFixed(func: Expression): String = {
-    val that = func.asInstanceOf[BitsRangedAccessFixed]
+    val that = func.asInstanceOf[BitVectorRangedAccessFixed]
     s"pkg_extract(${emitExpression(that.source)},${that.hi},${that.lo})"
   }
-//
-//  def extractBitVectorFloating(func: Modifier): String = {
-//    val that = func.asInstanceOf[ExtractBitsVectorFloating]
-//    s"pkg_extract(${emitLogic(that.getBitVector)},${emitLogic(that.getOffset)},${that.getBitCount})"
-//  }
-//
-//
+
+  def accessBitVectorFloating(func: Expression): String = {
+    val that = func.asInstanceOf[BitVectorRangedAccessFloating]
+    s"pkg_extract(${emitExpression(that.source)},${emitExpression(that.offset)},${that.size})"
+  }
+
+
   def opThatNeedBoolCastGen(a: String, b: String): List[String] = {
     ("==" :: "!=" :: "<" :: "<=" :: Nil).map(a + _ + b)
   }
