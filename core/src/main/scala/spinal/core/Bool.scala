@@ -47,6 +47,8 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
 
 //  override def getBitsWidth: Int = 1
 
+  override def getBitsWidth: Int = 1
+
   override def opName: String = "Bool"
 
   private[spinal] override def _data: Bool = this
@@ -131,38 +133,38 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
 //    assert(low == 0, "assignFromBits low != 0")
 //    assignFromBits(bits)
 //  }
-//
-//  /**
-//    * Cast a Bool to an UInt
-//    * @example{{{ myUInt := myBool.asUInt }}}
-//    * @return an UInt data
-//    */
-//  def asUInt: UInt = asBits.asUInt
-//
-//  /**
-//    * Cast a Bool to an SInt
-//    * @example{{{ mySInt := myBool.asSInt }}}
-//    * @return a SInt data
-//    */
-//  def asSInt: SInt = asBits.asSInt
-//
-//  /**
-//    * Cast a Bool to an UInt of a given width
-//    * @example{{{ myUInt := myBool.asUInt(8 bits) }}}
-//    * @param bitCount the width of the UInt
-//    * @return an UInt data of a given length initialize to this
-//    */
-//  def asUInt(bitCount: BitCount): UInt = asBits.asUInt.resize(bitCount.value)
-//
-//  /**
-//    * Cast a Bool to an Bits of a given width
-//    * @param bitCount the width of the Bits
-//    * @return a Bits data of a given length initialize to this
-//    */
-//  def asBits(bitCount: BitCount): Bits = asBits.resize(bitCount.value)
-//
-//  override def asBits: Bits = wrapCast(Bits(), new CastBoolToBits)
-//
+
+  /**
+    * Cast a Bool to an UInt
+    * @example{{{ myUInt := myBool.asUInt }}}
+    * @return an UInt data
+    */
+  def asUInt: UInt = asBits.asUInt
+
+  /**
+    * Cast a Bool to an SInt
+    * @example{{{ mySInt := myBool.asSInt }}}
+    * @return a SInt data
+    */
+  def asSInt: SInt = asBits.asSInt
+
+  /**
+    * Cast a Bool to an UInt of a given width
+    * @example{{{ myUInt := myBool.asUInt(8 bits) }}}
+    * @param bitCount the width of the UInt
+    * @return an UInt data of a given length initialize to this
+    */
+  def asUInt(bitCount: BitCount): UInt = asBits.asUInt.resize(bitCount.value)
+
+  /**
+    * Cast a Bool to an Bits of a given width
+    * @param bitCount the width of the Bits
+    * @return a Bits data of a given length initialize to this
+    */
+  def asBits(bitCount: BitCount): Bits = asBits.resize(bitCount.value)
+
+  override def asBits: Bits = wrapCast(Bits(), new CastBoolToBits)
+
   private[core] override def isEquals(that: Any): Bool = {
     that match {
       case that: Bool => wrapLogicalOperator(that,new Operator.Bool.Equal);

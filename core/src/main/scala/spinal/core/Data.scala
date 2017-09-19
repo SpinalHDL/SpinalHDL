@@ -267,9 +267,9 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   //    this
   //  }
 
-//  def ##(right: Data): Bits = this.asBits ## right.asBits
-//
-//  def asBits: Bits
+  def ##(right: Data): Bits = this.asBits ## right.asBits
+
+  def asBits: Bits
 //  def assignFromBits(bits: Bits): Unit
 //  def assignFromBits(bits: Bits,hi : Int,low : Int): Unit
 //  def assignFromBits(bits: Bits,offset: Int, bitCount: BitCount): Unit = this.assignFromBits(bits,offset + bitCount.value -1,offset)
@@ -360,7 +360,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
 //    }
 //  }
 
-//  def getBitsWidth: Int
+  def getBitsWidth: Int
 
 //  def keep(): this.type = {
 //    flatten.foreach(t => t.component.additionalNodesRoot += t);

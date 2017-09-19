@@ -1135,18 +1135,7 @@ class PhaseNormalizeNodeInputs(pc: PhaseContext) extends PhaseNetlist{
       s.walkExpression(e => {
         e.normalizeInputs
       })
-      s match {
-        case s : AssignementStatement => {
-          val finalTarget = s.finalTarget
-          finalTarget match {
-            case finalTarget : BitVector => {
-              s.source = InputNormalize.resizedOrUnfixedLit(s.source.asInstanceOf[Expression with WidthProvider], finalTarget.getWidth, finalTarget.resizeFactory, finalTarget, s)
-            }
-            case _ =>
-          }
-        }
-        case _ =>
-      }
+      s.normalizeInputs
     })
 
     walkComponents(c => {
@@ -1155,11 +1144,6 @@ class PhaseNormalizeNodeInputs(pc: PhaseContext) extends PhaseNetlist{
         case _ =>
       })
     })
-
-//    Node.walk(walkNodesDefautStack,(node,push) => {
-//      node.onEachInput(push(_))
-//      node.normalizeInputs
-//    })
   }
 }
 

@@ -67,17 +67,17 @@ object cloneOf {
 //}
 
 object widthOf {
-  //Return the number of bit of the given data
-//  def apply[T <: Data](that: T): Int = that.getBitsWidth
+//  Return the number of bit of the given data
+  def apply[T <: Data](that: T): Int = that.getBitsWidth
 }
 
-//object HardType{
-//  implicit def implFactory[T <: Data](t : T) = new HardType(t)
-//}
+object HardType{
+  implicit def implFactory[T <: Data](t : T) = new HardType(t)
+}
 
-//class HardType[T <: Data](t : T){
-//  def apply() = cloneOf(t)
-//}
+class HardType[T <: Data](t : T){
+  def apply() = cloneOf(t)
+}
 
 //object signalCache {
 //  def apply[T <: Data](key: Object, subKey: Object, factory: () => T): T = {

@@ -180,8 +180,6 @@ trait Statement extends ExpressionContainer with ScalaLocated with BaseNode{
     previousScopeStatement = null
     nextScopeStatement = null
     parentScope = null
-
-  //TODO IR remove statement from Nameable
   }
 
   def foreachStatements(func : (Statement) => Unit)
@@ -227,6 +225,17 @@ abstract class AssignementStatement extends LeafStatement{
   var target, source : Expression = null
   var previousNameableStatement, nextNameableStatement : AssignementStatement = null
   override def rootScopeStatement = finalTarget.rootScopeStatement
+
+
+  override def normalizeInputs: Unit = {
+    target match {
+      case t : WidthProvider =>
+        val finalTarget = this.finalTarget
+        source = InputNormalize.resizedOrUnfixedLit(source.asInstanceOf[Expression with WidthProvider], t.getWidth, finalTarget.asInstanceOf[BitVector].resizeFactory, finalTarget, this)
+      case _ =>
+    }
+  }
+
   def finalTarget : BaseType = target match{
     case n : BaseType => n
     case a : AssignementExpression => a.finalTarget

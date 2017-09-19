@@ -240,6 +240,12 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
         while(statementIndex < statements.length){
           val statement = statements(statementIndex)
+
+          statement match {
+            case AssignementStatement(target : RangedAssignmentFloating, _) => expressionToWrap += target.offset
+            case _ =>
+          }
+
           val targetScope = statement.parentScope
           if(targetScope == scope){
             statementIndex += 1
@@ -781,14 +787,6 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
   def emitAssignement(assignement : AssignementStatement, tab: String, assignementKind: String): String = {
     assignement match {
-//      case from: AssignementNode => {
-//        from match {
-//          case assign: BitAssignmentFixed => ret ++= s"$tab${emitAssignedReference(to)}(${assign.getBitId}) ${assignementKind} ${emitLogic(assign.getInput)};\n"
-//          case assign: BitAssignmentFloating => ret ++= s"$tab${emitAssignedReference(to)}(to_integer(${emitLogic(assign.getBitId)})) ${assignementKind} ${emitLogic(assign.getInput)};\n"
-//          case assign: RangedAssignmentFixed => ret ++= s"$tab${emitAssignedReference(to)}(${assign.getHi} downto ${assign.getLo}) ${assignementKind} ${emitLogic(assign.getInput)};\n"
-//          case assign: RangedAssignmentFloating => ret ++= s"$tab${emitAssignedReference(to)}(${assign.getBitCount.value - 1} + to_integer(${emitLogic(assign.getOffset)}) downto to_integer(${emitLogic(assign.getOffset)})) ${assignementKind} ${emitLogic(assign.getInput)};\n"
-//        }
-//      }
       case _ => {
         s"$tab${emitAssignedExpression(assignement.target)} ${assignementKind} ${emitExpression(assignement.source)};\n"
       }
@@ -807,7 +805,10 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
   def emitAssignedExpression(that : Expression): String = that match{
     case that : BaseType => emitReference(that, false)
+    case that : BitAssignmentFixed => s"${emitReference(that.out, false)}(${that.bitId})"
+    case that : BitAssignmentFloating => s"${emitReference(that.out, false)}(${that.bitId})"
     case that : RangedAssignmentFixed => s"${emitReference(that.out, false)}(${that.hi} downto ${that.lo})"
+    case that : RangedAssignmentFloating => s"${emitReference(that.out, false)}(${that.bitCount - 1} + to_integer(${emitExpression(that.offset)}) downto to_integer(${emitExpression(that.offset)}))"
   }
 
   def emitExpression(that : Expression) : String = {

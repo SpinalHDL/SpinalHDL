@@ -347,18 +347,18 @@ abstract class BaseType extends Data with NameableExpression{
     typeNode.assignFrom(e)
     typeNode
   }
-//
-//  def wrapCast[T <: BaseType](result: T, node: Cast): T = {
-//    node.input = this.asInstanceOf[node.T]
-//    result.input = node
-//    result
-//  }
-//
-//  private[core] def wrapConstantOperator(op: ConstantOperator): this.type = {
-//    op.input = this.asInstanceOf[op.T]
-//    wrapWithWeakClone(op)
-//  }
-//
+
+  def wrapCast[T <: BaseType](result: T, node: Cast): T = {
+    node.input = this.asInstanceOf[node.T]
+    result.assignFrom(node)
+    result
+  }
+
+  private[core] def wrapConstantOperator(op: ConstantOperator): this.type = {
+    op.source = this.asInstanceOf[op.T]
+    wrapWithWeakClone(op)
+  }
+
   private[core] def wrapUnaryOperator(op: UnaryOperator): this.type = {
     op.source = this.asInstanceOf[op.T]
     wrapWithWeakClone(op)

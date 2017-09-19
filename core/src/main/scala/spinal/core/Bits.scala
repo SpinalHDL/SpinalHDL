@@ -46,7 +46,7 @@ trait BitsFactory {
 //  *
 //  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Bits Bits Documentation]]
 //  */
-class Bits extends BitVector /*with DataPrimitives[Bits] */with BitwiseOp[Bits]{
+class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
 
 
   override def opName: String = "Bits"
@@ -56,7 +56,7 @@ class Bits extends BitVector /*with DataPrimitives[Bits] */with BitwiseOp[Bits]{
 //
 //  override type T = Bits
 //
-//  private[spinal] override def _data: Bits = this
+  private[spinal] override def _data: Bits = this
 //
 //  /**
 //    * Concatenation between two Bits
@@ -70,41 +70,41 @@ class Bits extends BitVector /*with DataPrimitives[Bits] */with BitwiseOp[Bits]{
   override def &(right: Bits): Bits = wrapBinaryOperator(right, new Operator.Bits.And)
   override def ^(right: Bits): Bits = wrapBinaryOperator(right, new Operator.Bits.Xor)
   override def unary_~(): Bits = wrapUnaryOperator(new Operator.Bits.Not)
-//
-//  /**
-//    * Logical shift right (output width will decrease)
-//    * @example{{{ val result = myBits >> 4 }}}
-//    * @param that the number of shift
-//    * @return a Bits of width : w(this) - that bits
-//    */
-//  def >>(that: Int): Bits = wrapConstantOperator(new Operator.Bits.ShiftRightByInt(that))
-//
-//  /**
-//    * Logical shift left (output width will increase)
-//    * @example{{{ val result = myBits << 4 }}}
-//    * @param that the number of shift
-//    * @return a Bits of width : w(this) + that bits
-//    */
-//  def <<(that: Int): Bits = wrapConstantOperator(new Operator.Bits.ShiftLeftByInt(that))
-//
-//  /** Logical shift right (output width == input width) */
-//  def >>(that: UInt): Bits = wrapBinaryOperator(that, new Operator.Bits.ShiftRightByUInt)
-//  /** Logical shift left (output width will increase of w(this) + max(that) bits */
-//  def <<(that: UInt): Bits = wrapBinaryOperator(that, new Operator.Bits.ShiftLeftByUInt)
-//
-//  /**
-//    * Logical shift right (output width == input width)
-//    * @example{{{ val result = myBits |>> 4 }}}
-//    * @param that the number of shift
-//    * @return a Bits of width : w(this)
-//    */
-//  def |>>(that: Int): Bits  = wrapConstantOperator(new Operator.Bits.ShiftRightByIntFixedWidth(that))
-//  /** Logical shift left (output width == input width) */
-//  def |<<(that: Int): Bits  = wrapConstantOperator(new Operator.Bits.ShiftLeftByIntFixedWidth(that))
-//  /** Logical shift Right (output width == input width) */
-//  def |>>(that: UInt): Bits = this >> that
-//  /** Logical shift left (output width == input width) */
-//  def |<<(that: UInt): Bits = wrapBinaryOperator(that, new Operator.Bits.ShiftLeftByUIntFixedWidth)
+
+  /**
+    * Logical shift right (output width will decrease)
+    * @example{{{ val result = myBits >> 4 }}}
+    * @param that the number of shift
+    * @return a Bits of width : w(this) - that bits
+    */
+  def >>(that: Int): Bits = wrapConstantOperator(new Operator.Bits.ShiftRightByInt(that))
+
+  /**
+    * Logical shift left (output width will increase)
+    * @example{{{ val result = myBits << 4 }}}
+    * @param that the number of shift
+    * @return a Bits of width : w(this) + that bits
+    */
+  def <<(that: Int): Bits = wrapConstantOperator(new Operator.Bits.ShiftLeftByInt(that))
+
+  /** Logical shift right (output width == input width) */
+  def >>(that: UInt): Bits = wrapBinaryOperator(that, new Operator.Bits.ShiftRightByUInt)
+  /** Logical shift left (output width will increase of w(this) + max(that) bits */
+  def <<(that: UInt): Bits = wrapBinaryOperator(that, new Operator.Bits.ShiftLeftByUInt)
+
+  /**
+    * Logical shift right (output width == input width)
+    * @example{{{ val result = myBits |>> 4 }}}
+    * @param that the number of shift
+    * @return a Bits of width : w(this)
+    */
+  def |>>(that: Int): Bits  = wrapConstantOperator(new Operator.Bits.ShiftRightByIntFixedWidth(that))
+  /** Logical shift left (output width == input width) */
+  def |<<(that: Int): Bits  = wrapConstantOperator(new Operator.Bits.ShiftLeftByIntFixedWidth(that))
+  /** Logical shift Right (output width == input width) */
+  def |>>(that: UInt): Bits = this >> that
+  /** Logical shift left (output width == input width) */
+  def |<<(that: UInt): Bits = wrapBinaryOperator(that, new Operator.Bits.ShiftLeftByUIntFixedWidth)
 //
 //  override def rotateLeft(that: Int): Bits = {
 //    val width = widthOf(this)
@@ -131,26 +131,26 @@ class Bits extends BitVector /*with DataPrimitives[Bits] */with BitwiseOp[Bits]{
 //
 //  override def assignFromBits(bits: Bits): Unit = this := bits
 //  override def assignFromBits(bits: Bits, hi: Int, lo: Int): Unit = this (hi, lo).assignFromBits(bits)
-//
-//  /**
-//    * Cast a Bits to a SInt
-//    * @example {{{ val mySInt = myBits.asSInt }}}
-//    * @return a SInt data
-//    */
-//  def asSInt: SInt = wrapCast(SInt(), new CastBitsToSInt)
-//
-//  /**
-//    * Cast a Bits to an UInt
-//    * @example {{{ val myUInt = myBits.asUInt }}}
-//    * @return an UInt data
-//    */
-//  def asUInt: UInt = wrapCast(UInt(), new CastBitsToUInt)
-//
-//  override def asBits: Bits = {
-//    val ret = new Bits()
-//    ret := this
-//    ret
-//  }
+
+  /**
+    * Cast a Bits to a SInt
+    * @example {{{ val mySInt = myBits.asSInt }}}
+    * @return a SInt data
+    */
+  def asSInt: SInt = wrapCast(SInt(), new CastBitsToSInt)
+
+  /**
+    * Cast a Bits to an UInt
+    * @example {{{ val myUInt = myBits.asUInt }}}
+    * @return an UInt data
+    */
+  def asUInt: UInt = wrapCast(UInt(), new CastBitsToUInt)
+
+  override def asBits: Bits = {
+    val ret = new Bits()
+    ret := this
+    ret
+  }
 //
 //  /**
 //    * Cast a Bits to a given data type
@@ -206,10 +206,10 @@ class Bits extends BitVector /*with DataPrimitives[Bits] */with BitwiseOp[Bits]{
 //    }
 //  }
 //
-//  override def apply(bitId: Int) : Bool = newExtract(bitId, new ExtractBoolFixedFromBits)
-//  override def apply(bitId: UInt): Bool = newExtract(bitId, new ExtractBoolFloatingFromBits)
+  override def apply(bitId: Int) : Bool = newExtract(bitId, new BitsBitAccessFixed)
+  override def apply(bitId: UInt): Bool = newExtract(bitId, new BitsBitAccessFloating)
   override def apply(offset: Int, bitCount: BitCount): this.type  = newExtract(offset+bitCount.value-1,offset, new BitsRangedAccessFixed).setWidth(bitCount.value)
-//  override def apply(offset: UInt, bitCount: BitCount): this.type = newExtract(offset,bitCount.value, new ExtractBitsVectorFloatingFromBits).setWidth(bitCount.value)
+  override def apply(offset: UInt, bitCount: BitCount): this.type = newExtract(offset,bitCount.value, new BitsRangedAccessFloating).setWidth(bitCount.value)
 //
   private[core] override def weakClone: this.type = new Bits().asInstanceOf[this.type]
 //  override def getZero: this.type = B(0, this.getWidth bits).asInstanceOf[this.type]

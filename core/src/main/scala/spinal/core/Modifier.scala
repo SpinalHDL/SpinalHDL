@@ -19,6 +19,7 @@
 //
 package spinal.core
 
+
 import scala.collection.mutable.ArrayBuffer
 
 
@@ -90,27 +91,29 @@ abstract class UnaryOperator extends Operator{
 abstract class UnaryOperatorWidthableInputs extends UnaryOperator with Widthable{
   override type T = Expression with WidthProvider
 }
-//
-//
-//abstract class ConstantOperator extends Operator{
-//  type T <: Node
-//  var input : T = null.asInstanceOf[T]
-//  override def onEachInput(doThat: (Node, Int) => Unit): Unit = doThat(input,0)
-//  override def onEachInput(doThat: (Node) => Unit): Unit = doThat(input)
-//  override def setInput(id: Int, node: Node): Unit = {assert(id == 0); this.input = node.asInstanceOf[T]}
-//  override def getInputsCount: Int = 1
-//  override def getInputs: Iterator[Node] = Iterator(input)
-//  override def getInput(id: Int): Node = {assert(id == 0); input}
-//}
-//
-//
-//
-//abstract class ConstantOperatorWidthableInputs extends ConstantOperator{
-//  override type T = Node with WidthProvider
-//}
-//
-//
-//
+
+
+abstract class ConstantOperator extends Operator{
+  type T <: Expression
+  var source  : T = null.asInstanceOf[T]
+
+  def foreachExpression(func : (Expression) => Unit) : Unit = {
+    func(source)
+  }
+
+  override def remapExpressions(func: (Expression) => Expression): Unit = {
+    source = func(source).asInstanceOf[T]
+  }
+}
+
+
+
+abstract class ConstantOperatorWidthableInputs extends ConstantOperator{
+  override type T = Expression with WidthProvider
+}
+
+
+
 abstract class BinaryOperator extends Operator{
   type T <: Expression
   var left,right  : T = null.asInstanceOf[T]
@@ -277,59 +280,46 @@ object Operator{
       override def normalizeInputs: Unit
       override def simplifyNode: Expression = {SymplifyNode.binaryThatIfBoth(new BoolLiteral(false))(this)}
     }
-//
-//    trait ShiftOperator
-//    abstract class ShiftRightByInt(val shift : Int) extends ConstantOperatorWidthableInputs with Widthable with ShiftOperator{
-//      assert(shift >= 0)
-//      override def calcWidth(): Int = Math.max(0, input.getWidth - shift)
-//      override def normalizeInputs: Unit = {}
-//      override def simplifyNode: Unit = {SymplifyNode.shiftRightImpl(this)}
-//    }
-//
-//    abstract class ShiftRightByUInt extends BinaryOperatorWidthableInputs with Widthable with ShiftOperator{
-//      override def calcWidth(): Int = left.getWidth
-//      override def normalizeInputs: Unit = {}
-//      override def simplifyNode: Unit = {SymplifyNode.shiftRightImpl(this)}
-//    }
-//
-//    abstract class ShiftLeftByInt(val shift : Int) extends ConstantOperatorWidthableInputs with Widthable with ShiftOperator{
-//      assert(shift >= 0)
-//      override def calcWidth(): Int = input.getWidth + shift
-//      override def normalizeInputs: Unit = {}
-//      override def simplifyNode: Unit = {SymplifyNode.shiftLeftImpl(getLiteralFactory,this)}
-//      def getLiteralFactory : (BigInt, BitCount) => Node
-//    }
-//
-//    abstract class ShiftLeftByUInt extends BinaryOperatorWidthableInputs with Widthable with ShiftOperator{
-//      override def calcWidth(): Int = left.getWidth + (1 << right.getWidth) - 1
-//      override def normalizeInputs: Unit = {}
-//      override def simplifyNode: Unit = {SymplifyNode.shiftLeftImpl(getLiteralFactory,this)}
-//      def getLiteralFactory : (BigInt, BitCount) => Node
-//    }
-//
-//
-//    abstract class ShiftRightByIntFixedWidth(val shift : Int) extends ConstantOperatorWidthableInputs with Widthable with ShiftOperator{
-//      assert(shift >= 0)
-//      override def calcWidth(): Int = input.getWidth
-//      override def normalizeInputs: Unit = {}
-//      override def simplifyNode: Unit = {SymplifyNode.shiftRightFixedWidthImpl(this)}
-//    }
-//
-//    abstract class ShiftLeftByIntFixedWidth(val shift : Int) extends ConstantOperatorWidthableInputs with Widthable with ShiftOperator{
-//      assert(shift >= 0)
-//      override def calcWidth(): Int = input.getWidth
-//      override def normalizeInputs: Unit = {}
-//      override def simplifyNode: Unit = {SymplifyNode.shiftLeftFixedWidthImpl(getLiteralFactory,this)}
-//      def getLiteralFactory : (BigInt, BitCount) => Node
-//    }
-//
-//    abstract class ShiftLeftByUIntFixedWidth extends BinaryOperatorWidthableInputs with Widthable with ShiftOperator{
-//      override def calcWidth(): Int = left.getWidth
-//      override def normalizeInputs: Unit = {}
-//      override def simplifyNode: Unit = {SymplifyNode.shiftLeftFixedWidthImpl(getLiteralFactory,this)}
-//      def getLiteralFactory : (BigInt, BitCount) => Node
-//    }
-//
+
+    trait ShiftOperator
+    abstract class ShiftRightByInt(val shift : Int) extends ConstantOperatorWidthableInputs with Widthable with ShiftOperator{
+      assert(shift >= 0)
+      override def calcWidth(): Int = Math.max(0, source.getWidth - shift)
+    }
+
+    abstract class ShiftRightByUInt extends BinaryOperatorWidthableInputs with Widthable with ShiftOperator{
+      override def calcWidth(): Int = left.getWidth
+      override def normalizeInputs: Unit = {}
+      override def simplifyNode: Expression = if(right.getWidth == 0) left else this
+    }
+
+    abstract class ShiftLeftByInt(val shift : Int) extends ConstantOperatorWidthableInputs with Widthable with ShiftOperator{
+      assert(shift >= 0)
+      override def calcWidth(): Int = source.getWidth + shift
+    }
+
+    abstract class ShiftLeftByUInt extends BinaryOperatorWidthableInputs with Widthable with ShiftOperator{
+      override def calcWidth(): Int = left.getWidth + (1 << right.getWidth) - 1
+      override def simplifyNode: Expression = if(right.getWidth == 0) left else this
+    }
+
+
+    abstract class ShiftRightByIntFixedWidth(val shift : Int) extends ConstantOperatorWidthableInputs with Widthable with ShiftOperator{
+      assert(shift >= 0)
+      override def calcWidth(): Int = source.getWidth
+    }
+
+    abstract class ShiftLeftByIntFixedWidth(val shift : Int) extends ConstantOperatorWidthableInputs with Widthable with ShiftOperator{
+      assert(shift >= 0)
+      override def calcWidth(): Int = source.getWidth
+      override def normalizeInputs: Unit = {}
+    }
+
+    abstract class ShiftLeftByUIntFixedWidth extends BinaryOperatorWidthableInputs with Widthable with ShiftOperator{
+      override def calcWidth(): Int = left.getWidth
+      override def simplifyNode: Expression = if(right.getWidth == 0) left else this
+    }
+
 //
 //    //    abstract class RotateLeftByUInt extends BinaryOperatorWidthableInputs with Widthable{
 ////      override def calcWidth(): Int = left.getWidth
@@ -391,40 +381,35 @@ object Operator{
       }
       override def opName: String = "b!=b"
     }
-//
-//    class ShiftRightByInt(shift : Int) extends BitVector.ShiftRightByInt(shift){
-//      override def opName: String = "b>>i"
-//    }
-//
-//    class ShiftRightByUInt extends BitVector.ShiftRightByUInt{
-//      override def opName: String = "b>>u"
-//    }
-//
-//    class ShiftLeftByInt(shift : Int) extends BitVector.ShiftLeftByInt(shift){
-//      override def opName: String = "b<<i"
-//      override def getLiteralFactory: (BigInt, BitCount) => Node = B.apply
-//    }
-//
-//    class ShiftLeftByUInt extends BitVector.ShiftLeftByUInt{
-//      override def opName: String = "b<<u"
-//      override def getLiteralFactory: (BigInt, BitCount) => Node = B.apply
-//    }
-//
-//
-//    class ShiftRightByIntFixedWidth(shift : Int) extends BitVector.ShiftRightByIntFixedWidth(shift){
-//      override def opName: String = "b|>>i"
-//    }
-//
-//    class ShiftLeftByIntFixedWidth(shift : Int) extends BitVector.ShiftLeftByIntFixedWidth(shift){
-//      override def opName: String = "b|<<i"
-//      override def getLiteralFactory: (BigInt, BitCount) => Node = B.apply
-//    }
-//
-//    class ShiftLeftByUIntFixedWidth extends BitVector.ShiftLeftByUIntFixedWidth{
-//      override def opName: String = "b|<<u"
-//      override def getLiteralFactory: (BigInt, BitCount) => Node = B.apply
-//    }
-//
+
+    class ShiftRightByInt(shift : Int) extends BitVector.ShiftRightByInt(shift){
+      override def opName: String = "b>>i"
+    }
+
+    class ShiftRightByUInt extends BitVector.ShiftRightByUInt{
+      override def opName: String = "b>>u"
+    }
+
+    class ShiftLeftByInt(shift : Int) extends BitVector.ShiftLeftByInt(shift){
+      override def opName: String = "b<<i"
+    }
+
+    class ShiftLeftByUInt extends BitVector.ShiftLeftByUInt{
+      override def opName: String = "b<<u"
+    }
+
+    class ShiftRightByIntFixedWidth(shift : Int) extends BitVector.ShiftRightByIntFixedWidth(shift){
+      override def opName: String = "b|>>i"
+    }
+
+    class ShiftLeftByIntFixedWidth(shift : Int) extends BitVector.ShiftLeftByIntFixedWidth(shift){
+      override def opName: String = "b|<<i"
+    }
+
+    class ShiftLeftByUIntFixedWidth extends BitVector.ShiftLeftByUIntFixedWidth{
+      override def opName: String = "b|<<u"
+    }
+
 ////    class RotateLeftByUInt extends BitVector.RotateLeftByUInt{
 ////      override def opName: String = "brotlu"
 ////      def getLiteralFactory : (BigInt, BitCount) => Node = B.apply
@@ -480,19 +465,23 @@ object Operator{
       override def opName: String = "u%u"
     }
 
-//    class Smaller extends BinaryOperator with Widthable{
-//      override def opName: String = "u<u"
-//      override def calcWidth(): Int = 1
-//      override def normalizeInputs: Unit = {InputNormalize.inputWidthMax(this)}
-//      override def simplifyNode: Unit = {SymplifyNode.binaryUIntSmaller(this)}
-//    }
-//
-//    class SmallerOrEqual extends BinaryOperator with Widthable{
-//      override def opName: String = "u<=u"
-//      override def calcWidth(): Int = 1
-//      override def normalizeInputs: Unit = {InputNormalize.inputWidthMax(this)}
-//      override def simplifyNode: Unit = {SymplifyNode.binaryUIntSmallerOrEgual(this)}
-//    }
+    class Smaller extends BinaryOperatorWidthableInputs{
+      override def opName: String = "u<u"
+      override def normalizeInputs: Unit = {
+        val targetWidth = InferWidth.notResizableElseMax(this)
+        left = InputNormalize.resize(left, targetWidth, new ResizeUInt)
+        right = InputNormalize.resize(right, targetWidth, new ResizeUInt)
+      }
+    }
+
+    class SmallerOrEqual extends BinaryOperatorWidthableInputs{
+      override def opName: String = "u<=u"
+      override def normalizeInputs: Unit = {
+        val targetWidth = InferWidth.notResizableElseMax(this)
+        left = InputNormalize.resize(left, targetWidth, new ResizeUInt)
+        right = InputNormalize.resize(right, targetWidth, new ResizeUInt)
+      }
+    }
 
     class Equal extends BitVector.Equal{
       override def opName: String = "u==u"
@@ -512,38 +501,34 @@ object Operator{
       }
     }
 
-//    class ShiftRightByInt(shift : Int) extends BitVector.ShiftRightByInt(shift){
-//      override def opName: String = "u>>i"
-//    }
-//
-//    class ShiftRightByUInt extends BitVector.ShiftRightByUInt{
-//      override def opName: String = "u>>u"
-//    }
-//
-//    class ShiftLeftByInt(shift : Int) extends BitVector.ShiftLeftByInt(shift){
-//      override def opName: String = "u<<i"
-//      override def getLiteralFactory: (BigInt, BitCount) => Node = U.apply
-//    }
-//
-//    class ShiftLeftByUInt extends BitVector.ShiftLeftByUInt{
-//      override def opName: String = "u<<u"
-//      override def getLiteralFactory: (BigInt, BitCount) => Node = U.apply
-//    }
-//
-//    class ShiftRightByIntFixedWidth(shift : Int) extends BitVector.ShiftRightByIntFixedWidth(shift){
-//      override def opName: String = "u|>>i"
-//    }
-//
-//    class ShiftLeftByIntFixedWidth(shift : Int) extends BitVector.ShiftLeftByIntFixedWidth(shift){
-//      override def opName: String = "u|<<i"
-//      override def getLiteralFactory: (BigInt, BitCount) => Node = U.apply
-//    }
-//
-//    class ShiftLeftByUIntFixedWidth extends BitVector.ShiftLeftByUIntFixedWidth{
-//      override def opName: String = "u|<<u"
-//      override def getLiteralFactory: (BigInt, BitCount) => Node = U.apply
-//    }
-//
+    class ShiftRightByInt(shift : Int) extends BitVector.ShiftRightByInt(shift){
+      override def opName: String = "u>>i"
+    }
+
+    class ShiftRightByUInt extends BitVector.ShiftRightByUInt{
+      override def opName: String = "u>>u"
+    }
+
+    class ShiftLeftByInt(shift : Int) extends BitVector.ShiftLeftByInt(shift){
+      override def opName: String = "u<<i"
+    }
+
+    class ShiftLeftByUInt extends BitVector.ShiftLeftByUInt{
+      override def opName: String = "u<<u"
+    }
+
+    class ShiftRightByIntFixedWidth(shift : Int) extends BitVector.ShiftRightByIntFixedWidth(shift){
+      override def opName: String = "u|>>i"
+    }
+
+    class ShiftLeftByIntFixedWidth(shift : Int) extends BitVector.ShiftLeftByIntFixedWidth(shift){
+      override def opName: String = "u|<<i"
+    }
+
+    class ShiftLeftByUIntFixedWidth extends BitVector.ShiftLeftByUIntFixedWidth{
+      override def opName: String = "u|<<u"
+    }
+
 //    class AllByBool(theConsumer : Node) extends BitVector.AllByBool(theConsumer) {
 //      override def opName: String = "uAllByB"
 //    }
@@ -598,19 +583,23 @@ object Operator{
       override def opName: String = "s%s"
     }
 
-//    class Smaller extends BinaryOperator with Widthable{
-//      override def opName: String = "s<s"
-//      override def calcWidth(): Int = 1
-//      override def normalizeInputs: Unit = {InputNormalize.inputWidthMax(this)}
-//      override def simplifyNode: Unit = {SymplifyNode.binarySIntSmaller(this)}
-//    }
-//
-//    class SmallerOrEqual extends BinaryOperator with Widthable{
-//      override def opName: String = "s<=s"
-//      override def calcWidth(): Int = 1
-//      override def normalizeInputs: Unit = {InputNormalize.inputWidthMax(this)}
-//      override def simplifyNode: Unit = {SymplifyNode.binarySIntSmallerOrEgual(this)}
-//    }
+    class Smaller extends BinaryOperatorWidthableInputs{
+      override def opName: String = "s<s"
+      override def normalizeInputs: Unit = {
+        val targetWidth = InferWidth.notResizableElseMax(this)
+        left = InputNormalize.resize(left, targetWidth, new ResizeUInt)
+        right = InputNormalize.resize(right, targetWidth, new ResizeUInt)
+      }
+    }
+
+    class SmallerOrEqual extends BinaryOperatorWidthableInputs{
+      override def opName: String = "s<=s"
+      override def normalizeInputs: Unit = {
+        val targetWidth = InferWidth.notResizableElseMax(this)
+        left = InputNormalize.resize(left, targetWidth, new ResizeUInt)
+        right = InputNormalize.resize(right, targetWidth, new ResizeUInt)
+      }
+    }
 
     class Equal extends BitVector.Equal{
       override def opName: String = "s==s"
@@ -630,38 +619,33 @@ object Operator{
       }
     }
 
-//    class ShiftRightByInt(shift : Int) extends BitVector.ShiftRightByInt(shift){
-//      override def opName: String = "s>>i"
-//    }
-//
-//    class ShiftRightByUInt extends BitVector.ShiftRightByUInt{
-//      override def opName: String = "s>>u"
-//    }
-//
-//    class ShiftLeftByInt(shift : Int) extends BitVector.ShiftLeftByInt(shift){
-//      override def opName: String = "s<<i"
-//      override def getLiteralFactory: (BigInt, BitCount) => Node = S.apply
-//    }
-//
-//    class ShiftLeftByUInt extends BitVector.ShiftLeftByUInt{
-//      override def opName: String = "s<<u"
-//      override def getLiteralFactory: (BigInt, BitCount) => Node = S.apply
-//    }
-//
-//
-//    class ShiftRightByIntFixedWidth(shift : Int) extends BitVector.ShiftRightByIntFixedWidth(shift){
-//      override def opName: String = "s|>>i"
-//    }
-//
-//    class ShiftLeftByIntFixedWidth(shift : Int) extends BitVector.ShiftLeftByIntFixedWidth(shift){
-//      override def opName: String = "s|<<i"
-//      override def getLiteralFactory: (BigInt, BitCount) => Node = S.apply
-//    }
-//
-//    class ShiftLeftByUIntFixedWidth extends BitVector.ShiftLeftByUIntFixedWidth{
-//      override def opName: String = "s|<<u"
-//      override def getLiteralFactory: (BigInt, BitCount) => Node = S.apply
-//    }
+    class ShiftRightByInt(shift : Int) extends BitVector.ShiftRightByInt(shift){
+      override def opName: String = "s>>i"
+    }
+
+    class ShiftRightByUInt extends BitVector.ShiftRightByUInt{
+      override def opName: String = "s>>u"
+    }
+
+    class ShiftLeftByInt(shift : Int) extends BitVector.ShiftLeftByInt(shift){
+      override def opName: String = "s<<i"
+    }
+
+    class ShiftLeftByUInt extends BitVector.ShiftLeftByUInt{
+      override def opName: String = "s<<u"
+    }
+
+    class ShiftRightByIntFixedWidth(shift : Int) extends BitVector.ShiftRightByIntFixedWidth(shift){
+      override def opName: String = "s|>>i"
+    }
+
+    class ShiftLeftByIntFixedWidth(shift : Int) extends BitVector.ShiftLeftByIntFixedWidth(shift){
+      override def opName: String = "s|<<i"
+    }
+
+    class ShiftLeftByUIntFixedWidth extends BitVector.ShiftLeftByUIntFixedWidth{
+      override def opName: String = "s|<<u"
+    }
 //
 //    class AllByBool(theConsumer : Node) extends BitVector.AllByBool(theConsumer) {
 //      override def opName: String = "sAllByB"
@@ -707,44 +691,41 @@ abstract class Modifier extends Expression {
 }
 //
 //
-//abstract class Cast extends Modifier {
-//  type T <: Node
-//  var input : T = null.asInstanceOf[T]
-//  override def onEachInput(doThat: (Node, Int) => Unit): Unit = doThat(input,0)
-//  override def onEachInput(doThat: (Node) => Unit): Unit = doThat(input)
-//  override def setInput(id: Int, node: Node): Unit = {assert(id == 0); this.input = node.asInstanceOf[T]}
-//  override def getInputsCount: Int = 1
-//  override def getInputs: Iterator[Node] = Iterator(input)
-//  override def getInput(id: Int): Node = {assert(id == 0); input}
-//}
-//
-//abstract class CastBitVectorToBitVector extends Cast with Widthable{
-//  override type T <: Node with WidthProvider
-//  override private[core] def calcWidth: Int = input.getWidth
-//}
-//
-//class CastSIntToBits extends CastBitVectorToBitVector{
-//  override def opName: String = "s->b"
-//}
-//class CastUIntToBits extends CastBitVectorToBitVector{
-//  override def opName: String = "u->b"
-//}
-//class CastBitsToUInt extends CastBitVectorToBitVector{
-//  override def opName: String = "b->u"
-//}
-//class CastSIntToUInt extends CastBitVectorToBitVector{
-//  override def opName: String = "s->u"
-//}
-//class CastBitsToSInt extends CastBitVectorToBitVector{
-//  override def opName: String = "b->s"
-//}
-//class CastUIntToSInt extends CastBitVectorToBitVector{
-//  override def opName: String = "u->s"
-//}
-//class CastBoolToBits extends Cast with Widthable{
-//  override def opName: String = "B->b"
-//  override private[core] def calcWidth: Int = 1
-//}
+abstract class Cast extends Modifier {
+  type T <: Expression
+  var input : T = null.asInstanceOf[T]
+
+  override def remapExpressions(func: (Expression) => Expression): Unit = input = func(input).asInstanceOf[T]
+  override def foreachExpression(func: (Expression) => Unit): Unit = func(input)
+}
+
+abstract class CastBitVectorToBitVector extends Cast with Widthable{
+  override type T <: Expression with WidthProvider
+  override private[core] def calcWidth: Int = input.getWidth
+}
+
+class CastSIntToBits extends CastBitVectorToBitVector{
+override def opName: String = "s->b"
+}
+class CastUIntToBits extends CastBitVectorToBitVector{
+  override def opName: String = "u->b"
+}
+class CastBitsToUInt extends CastBitVectorToBitVector{
+  override def opName: String = "b->u"
+}
+class CastSIntToUInt extends CastBitVectorToBitVector{
+  override def opName: String = "s->u"
+}
+class CastBitsToSInt extends CastBitVectorToBitVector{
+  override def opName: String = "b->s"
+}
+class CastUIntToSInt extends CastBitVectorToBitVector{
+  override def opName: String = "u->s"
+}
+class CastBoolToBits extends Cast with Widthable{
+  override def opName: String = "B->b"
+  override private[core] def calcWidth: Int = 1
+}
 //
 //class CastEnumToBits extends Cast with Widthable{
 //  override type T <: Node with EnumEncoded
@@ -983,19 +964,24 @@ abstract class SubAccess extends Modifier{
 //  def getBitVector: Expression
 }
 //
-//abstract class ExtractBoolFixed extends Extract with CheckWidth{
-//  var input : Node with WidthProvider = null
-//  var bitId : Int = -1
-//  override def onEachInput(doThat: (Node, Int) => Unit): Unit = doThat(input,0)
-//  override def onEachInput(doThat: (Node) => Unit): Unit = doThat(input)
-//  override def setInput(id: Int, node: Node): Unit = {assert(id == 0); this.input = node.asInstanceOf[Node with WidthProvider]}
-//  override def getInputsCount: Int = 1
-//  override def getInputs: Iterator[Node] = Iterator(input)
-//  override def getInput(id: Int): Node = {assert(id == 0); input}
-//
-//  def getBitVector = input
-//  def getBitId = bitId
-//
+abstract class BitVectorBitAccessFixed extends SubAccess with ScalaLocated {
+  var source : Expression with WidthProvider = null
+  var bitId : Int = -1
+
+  override def normalizeInputs: Unit = {
+    if (bitId < 0 || bitId >= source.getWidth) {
+      PendingError(s"Static bool extraction (bit ${bitId}) is outside the range (${source.getWidth - 1} downto 0) of ${source} at\n${getScalaLocationLong}")
+    }
+  }
+
+  override def remapExpressions(func: (Expression) => Expression): Unit = {
+    source = func(source).asInstanceOf[Expression with WidthProvider]
+  }
+
+  override def foreachExpression(func: (Expression) => Unit): Unit = {
+    func(source)
+  }
+
 //  override def checkInferedWidth: Unit = {
 //    if (bitId < 0 || bitId >= getBitVector.getWidth) {
 //      PendingError(s"Static bool extraction (bit ${bitId}) is outside the range (${getBitVector.getWidth - 1} downto 0) of ${getBitVector} at\n${getScalaLocationLong}")
@@ -1010,47 +996,52 @@ abstract class SubAccess extends Modifier{
 //        (-1,0)
 //  }
 //  def getParameterNodes: List[Node] = Nil
-//}
-//
-//class ExtractBoolFixedFromBits extends ExtractBoolFixed{
-//  override def opName: String = "extract(b,i)"
-//}
-//class ExtractBoolFixedFromUInt extends ExtractBoolFixed{
-//  override def opName: String = "extract(u,i)"
-//}
-//class ExtractBoolFixedFromSInt extends ExtractBoolFixed{
-//  override def opName: String = "extract(s,i)"
-//}
-//
-//abstract class ExtractBoolFloating extends Extract {
-//  var input  : Node with WidthProvider = null.asInstanceOf[Node with WidthProvider]
-//  var bitId  : Node with WidthProvider = null.asInstanceOf[Node with WidthProvider]
-//
-//  override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
-//    doThat(input,0)
-//    doThat(bitId,1)
-//  }
-//  override def onEachInput(doThat: (Node) => Unit): Unit = {
-//    doThat(input)
-//    doThat(bitId)
-//  }
-//
-//  override def setInput(id: Int, node: Node): Unit = id match{
-//    case 0 => input = node.asInstanceOf[Node with WidthProvider]
-//    case 1 => bitId = node.asInstanceOf[Node with WidthProvider]
-//  }
-//
-//  override def getInputsCount: Int = 2
-//  override def getInputs: Iterator[Node] = Iterator(input,bitId)
-//  override def getInput(id: Int): Node = id match{
-//    case 0 => input
-//    case 1 => bitId
-//  }
-//
-//  def getBitVector = input
-//  def getBitId = bitId
-//
-//  def getParameterNodes: List[Node] = getInput(1) :: Nil
+}
+
+class BitsBitAccessFixed extends BitVectorBitAccessFixed{
+  override def opName: String = "extract(b,i)"
+}
+class UIntBitAccessFixed extends BitVectorBitAccessFixed{
+  override def opName: String = "extract(u,i)"
+}
+class SIntBitAccessFixed extends BitVectorBitAccessFixed{
+  override def opName: String = "extract(s,i)"
+}
+
+abstract class BitVectorBitAccessFloating extends SubAccess with ScalaLocated {
+  var source  : Expression with WidthProvider = null
+  var bitId  : Expression with WidthProvider = null
+
+
+  override def normalizeInputs: Unit = {
+    if(source.getWidth == 0){
+      PendingError(s"Can't access ${source} bits, as it has none")
+    }
+  }
+
+  def bitVectorBitAccessFixedFactory : BitVectorBitAccessFixed
+  override def simplifyNode: Expression = {
+    if(bitId.getWidth == 0){
+      val access = bitVectorBitAccessFixedFactory
+      access.bitId = 0
+      access.source = source
+      access
+    }else{
+      this
+    }
+  }
+
+  override def remapExpressions(func: (Expression) => Expression): Unit = {
+    source = func(source).asInstanceOf[Expression with WidthProvider]
+    bitId = func(bitId).asInstanceOf[Expression with WidthProvider]
+  }
+
+  override def foreachExpression(func: (Expression) => Unit): Unit = {
+    func(source)
+    func(bitId)
+  }
+
+  //  def getParameterNodes: List[Node] = getInput(1) :: Nil
 //  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
 //    case 0 =>
 //      if(outHi >= 0 && outLo == 0)
@@ -1063,25 +1054,31 @@ abstract class SubAccess extends Modifier{
 //      else
 //        (-1,0)
 //  }
-//}
-//
-//class ExtractBoolFloatingFromBits extends ExtractBoolFloating{
-//  override def opName: String = "extract(b,u)"
-//}
-//class ExtractBoolFloatingFromUInt extends ExtractBoolFloating{
-//  override def opName: String = "extract(u,u)"
-//}
-//class ExtractBoolFloatingFromSInt extends ExtractBoolFloating{
-//  override def opName: String = "extract(s,u)"
-//}
-//
-//
+}
+
+class BitsBitAccessFloating extends BitVectorBitAccessFloating{
+  override def opName: String = "extract(b,u)"
+  override def bitVectorBitAccessFixedFactory: BitVectorBitAccessFixed = new BitsBitAccessFixed
+}
+class UIntBitAccessFloating extends BitVectorBitAccessFloating{
+  override def opName: String = "extract(u,u)"
+  override def bitVectorBitAccessFixedFactory: BitVectorBitAccessFixed = new UIntBitAccessFixed
+}
+class SIntBitAccessFloating extends BitVectorBitAccessFloating{
+  override def opName: String = "extract(s,u)"
+  override def bitVectorBitAccessFixedFactory: BitVectorBitAccessFixed = new SIntBitAccessFixed
+}
+
+
 abstract class BitVectorRangedAccessFixed extends SubAccess with WidthProvider{
-  var source : Expression = null
+  var source : Expression with WidthProvider = null
   var hi, lo = -1
 
-  //TODO IR
-  override def normalizeInputs: Unit = {}
+  override def normalizeInputs: Unit = {
+    if (hi >= source.getWidth || lo < 0) {
+      PendingError(s"Static bits extraction ($hi downto $lo) is outside the range (${source.getWidth - 1} downto 0) of ${source} at\n${getScalaLocationLong}")
+    }
+  }
 
   def checkHiLo : Unit = if (hi - lo < -1)
     SpinalError(s"Static bits extraction with a negative size ($hi downto $lo)")
@@ -1089,24 +1086,19 @@ abstract class BitVectorRangedAccessFixed extends SubAccess with WidthProvider{
   override def getWidth: Int = hi - lo + 1
 
   override def remapExpressions(func: (Expression) => Expression): Unit = {
-    source = func(source)
+    source = func(source).asInstanceOf[Expression with Widthable]
   }
 
   override def foreachExpression(func: (Expression) => Unit): Unit = {
     func(source)
   }
-//  override def checkInferedWidth: Unit = {
-//    val width = input.getWidth
-//    if (hi >= width || lo < 0) {
-//      PendingError(s"Static bits extraction ($hi downto $lo) is outside the range (${width - 1} downto 0) of ${getBitVector} at\n${getScalaLocationLong}")
-//    }
-//  }
+
 
 //  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
 //    case 0 => (lo+outHi, lo+outLo)
 //  }
 }
-//
+
 class BitsRangedAccessFixed extends BitVectorRangedAccessFixed{
   override def opName: String = "extract(b,i,i)"
 }
@@ -1118,40 +1110,41 @@ class SIntRangedAccessFixed extends BitVectorRangedAccessFixed{
 }
 //
 ////WHen used offset.dontSimplifyIt() Because it can appear at multipe location (o+bc-1 downto o)
-//abstract class ExtractBitsVectorFloating extends Extract with WidthProvider {
-//  var size    : Int = -1
-//  var input   : Node with WidthProvider = null
-//  var offset  : Node with WidthProvider = null
-//
-//  override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
-//    doThat(input,0)
-//    doThat(offset,1)
-//  }
-//  override def onEachInput(doThat: (Node) => Unit): Unit = {
-//    doThat(input)
-//    doThat(offset)
-//  }
-//
-//  override def setInput(id: Int, node: Node): Unit = id match{
-//    case 0 => input = node.asInstanceOf[Node with WidthProvider]
-//    case 1 => offset = node.asInstanceOf[Node with WidthProvider]
-//  }
-//
-//  override def getInputsCount: Int = 2
-//  override def getInputs: Iterator[Node] = Iterator(input,offset)
-//  override def getInput(id: Int): Node = id match{
-//    case 0 => input
-//    case 1 => offset
-//  }
-//
-//  override def getWidth: Int = size
-//
-//  def getBitVector = input
-//  def getOffset = offset
-//  def getBitCount = size
-//
-//  def getParameterNodes: List[Node] = getInput(1) :: Nil
-//  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
+abstract class BitVectorRangedAccessFloating extends SubAccess with WidthProvider {
+  var size    : Int = -1
+  var source  : Expression with WidthProvider = null
+  var offset  : Expression with WidthProvider = null
+
+  override def getWidth: Int = size
+
+  override def normalizeInputs: Unit = {
+    if(source.getWidth < size){
+      PendingError(s"Can't access ${source} bits, as it has less than $size")
+    }
+  }
+
+  def bitVectorRangedAccessFixedFactory : BitVectorRangedAccessFixed
+  override def simplifyNode: Expression = {
+    if(offset.getWidth == 0){
+      val access = bitVectorRangedAccessFixedFactory
+      access.lo = 0
+      access.hi = size-1
+      access.source = source
+      access
+    }else{
+      this
+    }
+  }
+
+  override def remapExpressions(func: (Expression) => Expression): Unit = {
+    source = func(source).asInstanceOf[Expression with WidthProvider]
+  }
+
+  override def foreachExpression(func: (Expression) => Unit): Unit = {
+    func(source)
+  }
+
+  //  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
 //    case 0 =>
 //      if(outHi >= outLo) //Not exact
 //        (Math.min(getBitVector.getWidth-1,(1 << Math.min(20,offset.getWidth))+ size - 1), 0)
@@ -1164,18 +1157,21 @@ class SIntRangedAccessFixed extends BitVectorRangedAccessFixed{
 //        (-1,0)
 //    case 2 => (-1,0)
 //  }
-//}
-//
-//class ExtractBitsVectorFloatingFromBits extends ExtractBitsVectorFloating{
-//  override def opName: String = "extract(b,u,w)"
-//}
-//class ExtractBitsVectorFloatingFromUInt extends ExtractBitsVectorFloating{
-//  override def opName: String = "extract(u,u,w)"
-//}
-//class ExtractBitsVectorFloatingFromSInt extends ExtractBitsVectorFloating{
-//  override def opName: String = "extract(s,u,w)"
-//}
-//
+}
+
+class BitsRangedAccessFloating extends BitVectorRangedAccessFloating{
+  override def opName: String = "extract(b,u,w)"
+  override def bitVectorRangedAccessFixedFactory: BitVectorRangedAccessFixed = new BitsRangedAccessFixed
+}
+class UIntRangedAccessFloating extends BitVectorRangedAccessFloating{
+  override def opName: String = "extract(u,u,w)"
+  override def bitVectorRangedAccessFixedFactory: BitVectorRangedAccessFixed = new UIntRangedAccessFixed
+}
+class SIntRangedAccessFloating extends BitVectorRangedAccessFloating{
+  override def opName: String = "extract(s,u,w)"
+  override def bitVectorRangedAccessFixedFactory: BitVectorRangedAccessFixed = new SIntRangedAccessFixed
+}
+
 ////object AssignedBits {
 ////  def apply() = new AssignedBits
 ////  def apply(bitId: Int): AssignedBits = {
@@ -1420,141 +1416,151 @@ abstract class AssignementExpression extends Expression {
 //  def clone(out : Node) : this.type
 }
 
-//
-//class BitAssignmentFixed(out: BitVector, in: Node, bitId: Int) extends AssignementNodeWidthable with CheckWidth{
-//  var input : Node = in
-//
-//  override def onEachInput(doThat: (Node, Int) => Unit): Unit = doThat(input,0)
-//  override def onEachInput(doThat: (Node) => Unit): Unit = doThat(input)
-//
-//  override def setInput(id: Int, node: Node): Unit = {
-//    assert(id == 0)
-//    this.input = node
-//  }
-//  override def getInputsCount: Int = 1
-//  override def getInputs: Iterator[Node] = Iterator(input)
-//  override def getInput(id: Int): Node = {
-//    assert(id == 0)
-//    input
-//  }
-//
-//
-//  def getInput : Node = input
-//  def getBitId = bitId
-//  override def calcWidth: Int = bitId + 1
-//
-//  override def checkInferedWidth: Unit = {
-//    if (bitId < 0 || bitId >= out.getWidth) {
-//      PendingError(s"Static bool extraction (bit ${bitId}) is outside the range (${out.getWidth - 1} downto 0) of ${out} at\n${getScalaLocationLong}")
-//    }
-//  }
-//
-//  def getAssignedBits: AssignedRange = AssignedRange(bitId)
-//  def getScopeBits: AssignedRange = getAssignedBits
-//  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = {
-//    if(outHi >= bitId && bitId >= outLo)
-//      (0,0)
-//    else
-//      (-1,0)
-//  }
-//  def getOutBaseType: BaseType = out
-//
-//  override def clone(out: Node): this.type = new BitAssignmentFixed(out.asInstanceOf[BitVector],in,bitId).asInstanceOf[this.type]
-//}
-//
-//
-//
+
+
 
 abstract class BitVectorAssignementExpression extends AssignementExpression{
   def minimalTargetWidth : Int
 }
 
-class RangedAssignmentFixed(var out: BitVector,var hi: Int,var lo: Int) extends BitVectorAssignementExpression with WidthProvider {
-  override def getWidth: Int = hi + 1
+object BitAssignmentFixed{
+  def apply(out: BitVector, bitId: Int ) = {
+    val ret = new BitAssignmentFixed
+    ret.out = out
+    ret.bitId = bitId
+    ret
+  }
+}
+class BitAssignmentFixed() extends BitVectorAssignementExpression with ScalaLocated{
+  var out: BitVector = null
+  var bitId: Int = -1
+
+  override def finalTarget: BaseType = out
+
+  override def minimalTargetWidth: Int = bitId + 1
+
+  override def normalizeInputs: Unit = {
+    if (bitId < 0 || bitId >= out.getWidth) {
+      PendingError(s"Static bool extraction (bit ${bitId}) is outside the range (${out.getWidth - 1} downto 0) of ${out} at\n${getScalaLocationLong}")
+    }
+  }
+
+  override def foreachExpression(func: (Expression) => Unit): Unit = func(out)
+  override def remapExpressions(func: (Expression) => Expression): Unit = {out = func(out).asInstanceOf[BitVector]}
+  override def foreachDrivingExpression(func: (Expression) => Unit): Unit = {}
+  override def remapDrivingExpressions(func: (Expression) => Expression): Unit = {}
+  override def toString(): String = s"${out.toString()}[$bitId]"
+  override def opName: String = "x(index) <="
+
+
+  //  override def checkInferedWidth: Unit = {
+  //    if (bitId < 0 || bitId >= out.getWidth) {
+  //      PendingError(s"Static bool extraction (bit ${bitId}) is outside the range (${out.getWidth - 1} downto 0) of ${out} at\n${getScalaLocationLong}")
+  //    }
+  //  }
+  //
+  //  def getAssignedBits: AssignedRange = AssignedRange(bitId)
+  //  def getScopeBits: AssignedRange = getAssignedBits
+  //  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = {
+  //    if(outHi >= bitId && bitId >= outLo)
+  //      (0,0)
+  //    else
+  //      (-1,0)
+  //  }
+  //  def getOutBaseType: BaseType = out
+  //
+  //  override def clone(out: Node): this.type = new BitAssignmentFixed(out.asInstanceOf[BitVector],in,bitId).asInstanceOf[this.type]
+
+}
+
+
+object RangedAssignmentFixed{
+  def apply(out: BitVector,hi: Int,lo: Int): RangedAssignmentFixed ={
+    val assign = new RangedAssignmentFixed
+    assign.out = out
+    assign.hi = hi
+    assign.lo = lo
+    assign
+  }
+}
+
+class RangedAssignmentFixed() extends BitVectorAssignementExpression with WidthProvider {
+  var out: BitVector = null
+  var hi = -1
+  var lo = 0
+  override def getWidth: Int = hi + 1 - lo
   override def finalTarget: BaseType = out
   override def minimalTargetWidth: Int = hi+1
+
+  override def normalizeInputs: Unit = {
+    if (hi >= out.getWidth || lo < 0) {
+      PendingError(s"Static bits assignment ($hi downto $lo) is outside the range (${out.getWidth - 1} downto 0) of ${out} at\n${getScalaLocationLong}")
+      return
+    }
+  }
+
+  override def foreachExpression(func: (Expression) => Unit): Unit = func(out)
+  override def remapExpressions(func: (Expression) => Expression): Unit = {out = func(out).asInstanceOf[BitVector]}
   override def foreachDrivingExpression(func : (Expression) => Unit) : Unit = {}
   override def remapDrivingExpressions(func: (Expression) => Expression): Unit = {}
-
-//  override def checkInferedWidth: Unit = {
-//    if (input.component != null && hi + 1 - lo != input.getWidth) {
-//      PendingError(s"Assignment bit count mismatch. ${AssignementTree.getDrivedBaseType(this)}($hi downto $lo) := ${input}} at\n${getScalaLocationLong}")
-//      return
-//    }
-//
-//    val width = out.getWidth
-//    if (hi >= width || lo < 0) {
-//      PendingError(s"Static bits assignment ($hi downto $lo) is outside the range (${width - 1} downto 0) of ${out} at\n${getScalaLocationLong}")
-//      return
-//    }
-//  }
-
-//  override def normalizeInputs: Unit = {
-//    InputNormalize.resizedOrUnfixedLit(this,0,hi + 1 - lo)
-//  }
-
-
-
-//  def getAssignedBits: AssignedRange = AssignedRange(hi, lo)
-//  def getScopeBits: AssignedRange = getAssignedBits
-//  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = {
-//    val relativeLo = outLo-lo
-//    val relativeHi = outHi-lo
-//    if(relativeHi >= 0 && hi-lo >= relativeLo)
-//      super.getOutToInUsage(inputId,Math.min(relativeHi,hi-lo),Math.max(relativeLo,0))
-//    else
-//      (-1,0)
-//  }
-//  def getOutBaseType: BaseType = out
-//  override def clone(out: Node): this.type = new RangedAssignmentFixed(out.asInstanceOf[BitVector],in,hi,lo).asInstanceOf[this.type]
-
-  override def normalizeInputs: Unit = {}
-
+  override def toString(): String = s"${out.toString()}[$hi downto $lo]"
   override def opName: String = "x(hi:lo) <="
 
-  override def remapExpressions(func: (Expression) => Expression): Unit = {
-    out = func(out).asInstanceOf[BitVector]
-  }
 
+
+  //  def getAssignedBits: AssignedRange = AssignedRange(hi, lo)
+  //  def getScopeBits: AssignedRange = getAssignedBits
+  //  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = {
+  //    val relativeLo = outLo-lo
+  //    val relativeHi = outHi-lo
+  //    if(relativeHi >= 0 && hi-lo >= relativeLo)
+  //      super.getOutToInUsage(inputId,Math.min(relativeHi,hi-lo),Math.max(relativeLo,0))
+  //    else
+  //      (-1,0)
+  //  }
+  //  def getOutBaseType: BaseType = out
+  //  override def clone(out: Node): this.type = new RangedAssignmentFixed(out.asInstanceOf[BitVector],in,hi,lo).asInstanceOf[this.type]
+}
+
+
+object BitAssignmentFloating{
+  def apply(out: BitVector,bitId: UInt): BitAssignmentFloating ={
+    val assign = new BitAssignmentFloating
+    assign.out = out
+    assign.bitId = bitId
+    assign
+  }
+}
+class BitAssignmentFloating() extends BitVectorAssignementExpression{
+  var out  : BitVector = null
+  var bitId  : Expression with WidthProvider = null
+
+  override def finalTarget: BaseType = out
+  override def minimalTargetWidth: Int = 1 << Math.min(20,bitId.getWidth)
   override def foreachExpression(func: (Expression) => Unit): Unit = {
     func(out)
+    func(bitId)
   }
+  override def remapExpressions(func: (Expression) => Expression): Unit = {
+    out = func(out).asInstanceOf[BitVector]
+    bitId = func(bitId).asInstanceOf[Expression with WidthProvider]
 
-  override def toString(): String = s"${out.toString()}[$hi downto $lo]"
-}
-//
-//
-//class BitAssignmentFloating(out: BitVector, in_ : Node, bitId_ : Node) extends AssignementNodeWidthable{
-//  var input  : Node with WidthProvider = in_.asInstanceOf[Node with WidthProvider]
-//  var bitId  : Node with WidthProvider = bitId_.asInstanceOf[Node with WidthProvider]
-//
-//  override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
-//    doThat(input,0)
-//    doThat(bitId,1)
-//  }
-//  override def onEachInput(doThat: (Node) => Unit): Unit = {
-//    doThat(input)
-//    doThat(bitId)
-//  }
-//
-//  override def setInput(id: Int, node: Node): Unit = id match{
-//    case 0 => input = node.asInstanceOf[Node with WidthProvider]
-//    case 1 => bitId = node.asInstanceOf[Node with WidthProvider]
-//  }
-//
-//  override def getInputsCount: Int = 2
-//  override def getInputs: Iterator[Node] = Iterator(input,bitId)
-//  override def getInput(id: Int): Node = id match{
-//    case 0 => input
-//    case 1 => bitId
-//  }
-//
-//
-//  def getInput  : Node = input
-//  def getBitId  : Node = bitId
-//
-//  override def calcWidth: Int = 1 << Math.min(20,bitId.getWidth)
-//
+  }
+  override def foreachDrivingExpression(func: (Expression) => Unit): Unit = {
+    func(bitId)
+  }
+  override def remapDrivingExpressions(func: (Expression) => Expression): Unit = {
+    bitId = func(bitId).asInstanceOf[Expression with WidthProvider]
+  }
+  override def toString(): String = s"${out.toString()}[$bitId]"
+  override def opName: String = "x(uIndex) <="
+
+  override def simplifyNode: Expression = {
+    if(bitId.getWidth == 0) {
+      BitAssignmentFixed(out, 0)
+    }else
+      this
+  }
 //  def getAssignedBits: AssignedRange = AssignedRange()
 //  def getScopeBits: AssignedRange = AssignedRange(Math.min(out.getWidth-1,(1 << Math.min(20,bitId.getWidth)) - 1), 0)
 //
@@ -1572,49 +1578,58 @@ class RangedAssignmentFixed(var out: BitVector,var hi: Int,var lo: Int) extends 
 //  }
 //  def getOutBaseType: BaseType = out
 //  override def clone(out: Node): this.type = new BitAssignmentFloating(out.asInstanceOf[BitVector],in_,bitId_).asInstanceOf[this.type]
-//}
-//
-//class RangedAssignmentFloating(out: BitVector, in_ : Node, offset_ : Node, bitCount: BitCount) extends AssignementNodeWidthable  with CheckWidth {
-//  var input  : Node with WidthProvider = in_.asInstanceOf[Node with WidthProvider]
-//  var offset  : Node with WidthProvider = offset_.asInstanceOf[Node with WidthProvider]
-//
-//  override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
-//    doThat(input,0)
-//    doThat(offset,1)
-//  }
-//  override def onEachInput(doThat: (Node) => Unit): Unit = {
-//    doThat(input)
-//    doThat(offset)
-//  }
-//
-//  override def setInput(id: Int, node: Node): Unit = id match{
-//    case 0 => input = node.asInstanceOf[Node with WidthProvider]
-//    case 1 => offset = node.asInstanceOf[Node with WidthProvider]
-//  }
-//
-//  override def getInputsCount: Int = 2
-//  override def getInputs: Iterator[Node] = Iterator(input,offset)
-//  override def getInput(id: Int): Node = id match{
-//    case 0 => input
-//    case 1 => offset
-//  }
-//
-//
-//  def getInput : Node = input
-//  def getOffset = offset
-//  def getBitCount = bitCount
-//
-//  //TODO should not use constructor node ref
-//  override def calcWidth: Int = 1 << Math.min(20,offset_.asInstanceOf[Node with WidthProvider].getWidth) + bitCount.value
-//
-//  //TODO should not use constructor node ref
-//  override def checkInferedWidth: Unit = {
-//    val input = getInput
-//    if (input.component != null && bitCount.value != input.asInstanceOf[Node with WidthProvider].getWidth) {
-//      PendingError(s"Assignement bit count missmatch. ${AssignementTree.getDrivedBaseType((this))}(${bitCount.value} bits) := ${input}} at\n${getScalaLocationLong}")
-//    }
-//  }
-//
+}
+
+object RangedAssignmentFloating{
+  def apply(out: BitVector,offset: UInt,bitCount: Int): RangedAssignmentFloating ={
+    val assign = new RangedAssignmentFloating
+    assign.out = out
+    assign.offset = offset
+    assign.bitCount = bitCount
+    assign
+  }
+}
+
+class RangedAssignmentFloating() extends BitVectorAssignementExpression with WidthProvider {
+  var out  : BitVector = null
+  var offset  : Expression with WidthProvider = null
+  var bitCount : Int = -1
+
+  override def normalizeInputs: Unit = {
+    if (out.getWidth < bitCount) {
+      PendingError(s"Dynamic bits assignment of $bitCount bits is outside the range (${out.getWidth - 1} downto 0) of ${out} at\n${getScalaLocationLong}")
+      return
+    }
+  }
+
+  override def simplifyNode: Expression = {
+    if(offset.getWidth == 0) {
+      RangedAssignmentFixed(out, bitCount-1, 0)
+    }else
+      this
+  }
+
+  override def getWidth: Int = bitCount
+  override def finalTarget: BaseType = out
+  override def minimalTargetWidth: Int = 1 << Math.min(20,offset.getWidth) + bitCount
+  override def foreachExpression(func: (Expression) => Unit): Unit = {
+    func(out)
+    func(offset)
+  }
+  override def remapExpressions(func: (Expression) => Expression): Unit = {
+    out = func(out).asInstanceOf[BitVector]
+    offset = func(offset).asInstanceOf[Expression with WidthProvider]
+
+  }
+  override def foreachDrivingExpression(func: (Expression) => Unit): Unit = {
+    func(offset)
+  }
+  override def remapDrivingExpressions(func: (Expression) => Expression): Unit = {
+    offset = func(offset).asInstanceOf[Expression with WidthProvider]
+  }
+
+  override def opName: String = "x(hi:lo) <="
+
 //  override def normalizeInputs: Unit = {
 //    InputNormalize.resizedOrUnfixedLit(this,0,bitCount.value)
 //  }
@@ -1627,9 +1642,9 @@ class RangedAssignmentFixed(var out: BitVector,var hi: Int,var lo: Int) extends 
 //  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = super.getOutToInUsage(inputId,outHi,outLo) //TODO
 //  def getOutBaseType: BaseType = out
 //  override def clone(out: Node): this.type = new RangedAssignmentFloating(out.asInstanceOf[BitVector],in_,offset_,bitCount).asInstanceOf[this.type]
-//}
-//
-//
+}
+
+
 //object MultipleAssignmentNode{
 //  def newFor(that : BaseType) : MultipleAssignmentNode = that match{
 //    case that : BitVector => new MultipleAssignmentNodeWidthable
