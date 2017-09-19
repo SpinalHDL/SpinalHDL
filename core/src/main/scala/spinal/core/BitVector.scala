@@ -228,12 +228,8 @@ abstract class BitVector extends BaseType with Widthable /*with CheckWidth*/ {
     val bool = wrapWithBool(extract)
 
     bool.compositeAssign = new Assignable {
-      override private[core] def assignFromImpl(that: AnyRef, target: AnyRef): Unit = that match {
-        case that: Bool         => BitVector.this.assignFrom(that,BitAssignmentFixed(BitVector.this, bitId))
-        //        case that: DontCareNode => BitVector.this.assignFrom(that, BitAssignmentFixed(BitVector.this, new DontCareNodeFixed(Bool(), 1), bitId), conservative = true)
-      }
-      override private[core] def initFromImpl(that: AnyRef, target: AnyRef): Unit = that match {
-        case that: Bool         => BitVector.this.assignFrom(that,BitAssignmentFixed(BitVector.this, bitId))
+      override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind : AnyRef): Unit = that match {
+        case that: Bool         => BitVector.this.compositAssignFrom(that,BitAssignmentFixed(BitVector.this, bitId), kind)
         //        case that: DontCareNode => BitVector.this.assignFrom(that, BitAssignmentFixed(BitVector.this, new DontCareNodeFixed(Bool(), 1), bitId), conservative = true)
       }
     }
@@ -246,11 +242,10 @@ abstract class BitVector extends BaseType with Widthable /*with CheckWidth*/ {
     extract.bitId = bitId
     val bool =  wrapWithBool(extract)
     bool.compositeAssign = new Assignable {
-      override private[core] def assignFromImpl(that: AnyRef, target: AnyRef): Unit = that match {
-        case x: Bool         => BitVector.this.assignFrom(that, BitAssignmentFloating(BitVector.this, bitId))
+      override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind : AnyRef): Unit = that match {
+        case x: Bool         => BitVector.this.compositAssignFrom(that, BitAssignmentFloating(BitVector.this, bitId), kind)
 //        case x: DontCareNode => BitVector.this.assignFrom(that,BitAssignmentFloating(BitVector.this, new DontCareNodeFixed(Bool(), 1), bitId), true)
       }
-      override private[core] def initFromImpl(that: AnyRef, target: AnyRef): Unit = ???
     }
     bool
   }
@@ -265,22 +260,13 @@ abstract class BitVector extends BaseType with Widthable /*with CheckWidth*/ {
       access.checkHiLo
       val ret = wrapWithWeakClone(access)
       ret.compositeAssign = new Assignable {
-        override def assignFromImpl(that: AnyRef, target : AnyRef): Unit = target match {
-          case x: BitVector                => BitVector.this.assignFrom(that, RangedAssignmentFixed(BitVector.this, hi, lo))
+        override def assignFromImpl(that: AnyRef, target : AnyRef, kind : AnyRef): Unit = target match {
+          case x: BitVector                => BitVector.this.compositAssignFrom(that, RangedAssignmentFixed(BitVector.this, hi, lo), kind)
 //          case x: DontCareNode             => BitVector.this.assignFrom(that,new RangedAssignmentFixed(BitVector.this, new DontCareNodeFixed(BitVector.this, hi - lo + 1), hi, lo), true)
-          case x: BitAssignmentFixed       => BitVector.this.apply(lo + x.bitId).assignFrom(that)
-          case x: BitAssignmentFloating    => BitVector.this.apply(lo + x.bitId.asInstanceOf[UInt]).assignFrom(that)
-          case x: RangedAssignmentFixed    => BitVector.this.apply(lo + x.hi, lo + x.lo).assignFrom(that)
-          case x: RangedAssignmentFloating => BitVector.this.apply(lo + x.offset.asInstanceOf[UInt], x.bitCount bits).assignFrom(that)
-        }
-
-        override private[core] def initFromImpl(that: AnyRef, target : AnyRef): Unit = target match {
-          case x: BitVector                => BitVector.this.initFrom(that, RangedAssignmentFixed(BitVector.this, hi, lo))
-          //          case that: DontCareNode             => BitVector.this.assignFrom(that,new RangedAssignmentFixed(BitVector.this, new DontCareNodeFixed(BitVector.this, hi - lo + 1), hi, lo), true)
-          case x: BitAssignmentFixed       => BitVector.this.apply(lo + x.bitId).initFrom(that)
-          case x: BitAssignmentFloating    => BitVector.this.apply(lo + x.bitId.asInstanceOf[UInt]).initFrom(that)
-          case x: RangedAssignmentFixed    => BitVector.this.apply(lo + x.hi, lo + x.lo).initFrom(that)
-          case x: RangedAssignmentFloating => BitVector.this.apply(lo + x.offset.asInstanceOf[UInt], x.bitCount bits).initFrom(that)
+          case x: BitAssignmentFixed       => BitVector.this.apply(lo + x.bitId).compositAssignFrom(that, target, kind)
+          case x: BitAssignmentFloating    => BitVector.this.apply(lo + x.bitId.asInstanceOf[UInt]).compositAssignFrom(that, target, kind)
+          case x: RangedAssignmentFixed    => BitVector.this.apply(lo + x.hi, lo + x.lo).compositAssignFrom(that, target, kind)
+          case x: RangedAssignmentFloating => BitVector.this.apply(lo + x.offset.asInstanceOf[UInt], x.bitCount bits).compositAssignFrom(that, target, kind)
         }
       }
       ret
@@ -298,15 +284,14 @@ abstract class BitVector extends BaseType with Widthable /*with CheckWidth*/ {
       extract.offset = offset
       val ret = wrapWithWeakClone(extract)
       ret.compositeAssign = new Assignable {
-        override private[core] def assignFromImpl(that: AnyRef, target: AnyRef): Unit = that match {
-          case that: BitVector                => BitVector.this.assignFrom(that,RangedAssignmentFloating(BitVector.this, offset, size))
-//          case that: DontCareNode             => BitVector.this.assignFrom(that,new RangedAssignmentFloating(BitVector.this, new DontCareNodeFixed(BitVector.this, size), offset, size bit), true)
-//          case that: BitAssignmentFixed       => BitVector.this.apply(offset + that.getBitId).assignFrom(that.getInput, true)
-//          case that: BitAssignmentFloating    => BitVector.this.apply(offset + that.getBitId.asInstanceOf[UInt]).assignFrom(that.getInput, true)
-//          case that: RangedAssignmentFixed    => BitVector.this.apply(offset + that.getLo, that.getHi - that.getLo + 1 bit).assignFrom(that.getInput, true)
-//          case that: RangedAssignmentFloating => BitVector.this.apply(offset + that.getOffset.asInstanceOf[UInt], that.getBitCount).assignFrom(that.getInput, true)
+        override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind : AnyRef): Unit = that match {
+          case x: BitVector                => BitVector.this.compositAssignFrom(that,RangedAssignmentFloating(BitVector.this, offset, size), kind)
+//          case x: DontCareNode             => BitVector.this.assignFrom(that,new RangedAssignmentFloating(BitVector.this, new DontCareNodeFixed(BitVector.this, size), offset, size bit), true)
+          case x: BitAssignmentFixed       => BitVector.this.apply(offset + x.bitId).compositAssignFrom(that, target, kind)
+          case x: BitAssignmentFloating    => BitVector.this.apply(offset + x.bitId.asInstanceOf[UInt]).compositAssignFrom(that, target, kind)
+          case x: RangedAssignmentFixed    => BitVector.this.apply(offset + x.lo, x.hi - x.lo + 1 bits).compositAssignFrom(that, target, kind)
+          case x: RangedAssignmentFloating => BitVector.this.apply(offset + x.offset.asInstanceOf[UInt], x.bitCount bits).compositAssignFrom(that, target, kind)
         }
-        override private[core] def initFromImpl(that: AnyRef, target: AnyRef): Unit = ???
       }
       ret
     }

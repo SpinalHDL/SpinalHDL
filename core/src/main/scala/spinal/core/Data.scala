@@ -204,6 +204,8 @@ class DataPimper[T <: Data](val _data: T) extends DataPrimitives[T]{
 
 }
 
+object DataAssign
+object InitAssign
 
 trait Data extends ContextUser with NameableByComponent with Assignable with SpinalTagReady with GlobalDataUser with ScalaLocated with OwnableRef {
   private[core] var dir: IODirection = null
@@ -249,6 +251,10 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     }
     this
   }
+
+
+  final def assignFrom(that : AnyRef, target : AnyRef = this) = compositAssignFrom(that,target,DataAssign)
+  final def initFrom(that : AnyRef, target : AnyRef = this) = compositAssignFrom(that,target,InitAssign)
 
   def asData = this.asInstanceOf[Data]
 //  def getZero: this.type

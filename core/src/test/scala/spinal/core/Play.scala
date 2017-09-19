@@ -37,28 +37,34 @@ object PlayBits{
 //    miaou := b.resize(4)
 //    miaou := c.resize(3)
 
-//    a & c & b
-//    True
-//    False
-//    val yy = bits4.resized & c.resized
-//    bits4 := a.resized
-//    bits4 := (a & b).resized
-//    bits4 := B"111".resized
-//    bits4 := (B(0) & B(0)).resized
-//
-//
-//    val aa = a & B(0).resized
-//    val bb = B(0).resized & a
-//    val cc = B"11".resized & a
-//    a & b & c
-//
-//
-//    var ano = False
-//    ano := ano & True & False & ano
-//    ano = null
+    a & c & b
+    True
+    False
+    val yy = bits4.resized & c.resized
+    bits4 := a.resized
+    bits4 := (a & b).resized
+    bits4 := B"111".resized
+    bits4 := (B(0) & B(0)).resized
+
+
+    val aa = a & B(0).resized
+    val bb = B(0).resized & a
+    val cc = B"11".resized & a
+    a & b & c
+
+
+    var ano = False
+    ano := ano & True & False & ano
+    ano = null
 
     bits4 := B"101010".resized
     bits4(3 downto 1)(2) := in.Bool()
+    x(2) := True
+    x := a
+    x := (bits4 | bits4).resized
+    when(a === b){
+      x init(c)
+    }
   }
 
   def main(args: Array[String]) {

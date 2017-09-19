@@ -261,32 +261,24 @@ abstract class BaseType extends Data with NameableExpression{
     super.asDirectionLess()
   }
 
-  override private[core] def assignFromImpl(that: AnyRef, target : AnyRef): Unit = {
+  override private[core] def assignFromImpl(that: AnyRef, target : AnyRef, kind : AnyRef): Unit = {
+    def statement(that : Expression) = kind match {
+      case `DataAssign` =>
+        DataAssignementStatement(target = target.asInstanceOf[Expression], source = that)
+      case `InitAssign` =>
+        if(!isReg)
+          LocatedPendingError(s"Try to set initial value of a data that is not a register ($this)")
+        InitAssignementStatement(target = target.asInstanceOf[Expression], source = that)
+    }
     that match {
       case that : BaseType =>
-        component.addStatement(DataAssignementStatement(target = target.asInstanceOf[Expression], source = that))
+        component.addStatement(statement(that))
       case that : Expression =>
-        component.addStatement(DataAssignementStatement(target = target.asInstanceOf[Expression], source = that))
+        component.addStatement(statement(that))
       case _ =>
         throw new Exception(s"Undefined assignment $this := $that")
     }
-
   }
-
-
-  override private[core] def initFromImpl(that: AnyRef, target : AnyRef): Unit = {
-    if(!isReg)
-      LocatedPendingError(s"Try to set initial value of a data that is not a register ($this)")
-    else that match {
-      case that : BaseType =>
-        component.addStatement(InitAssignementStatement(target = target.asInstanceOf[Expression], source = that))
-      case that : Expression =>
-        component.addStatement(InitAssignementStatement(target = target.asInstanceOf[Expression], source = that))
-      case _ =>
-        throw new Exception("Undefined assignment")
-    }
-  }
-
 
 //
 //  // def castThatInSame(that: BaseType): this.type = throw new Exception("Not defined")
