@@ -46,13 +46,10 @@ trait SIntFactory{
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Int SInt Documentation]]
   */
 class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimitives[SInt] with BitwiseOp[SInt] {
-
   override def getTypeObject = TypeSInt
   override private[core] def resizeFactory: Resize = new ResizeSInt
-
   override def opName: String = "SInt"
 
-  //  private[core] override def prefix : String = "s"
 
   override type T = SInt
 
@@ -140,17 +137,17 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   /** Return the absolute value of the SInt when enable is True */
   def abs(enable: Bool): UInt = Mux(this.msb && enable, ~this, this).asUInt + (this.msb && enable).asUInt
 
-//  /**
-//    * Assign a range value to a SInt
-//    * @example{{{ core.io.interrupt = (0 -> uartCtrl.io.interrupt, 1 -> timerCtrl.io.interrupt, default -> false)}}}
-//    * @param rangesValue The first range value
-//    * @param _rangesValues Others range values
-//    */
-//  def :=(rangesValue : Tuple2[Any, Any],_rangesValues: Tuple2[Any, Any]*) : Unit = {
-//    val rangesValues = rangesValue +: _rangesValues
-//    S.applyTuples(this, rangesValues)
-//  }
-//
+  /**
+    * Assign a range value to a SInt
+    * @example{{{ core.io.interrupt = (0 -> uartCtrl.io.interrupt, 1 -> timerCtrl.io.interrupt, default -> false)}}}
+    * @param rangesValue The first range value
+    * @param _rangesValues Others range values
+    */
+  def :=(rangesValue : Tuple2[Any, Any],_rangesValues: Tuple2[Any, Any]*) : Unit = {
+    val rangesValues = rangesValue +: _rangesValues
+    S.applyTuples(this, rangesValues)
+  }
+
   override def assignFromBits(bits: Bits): Unit = this := bits.asSInt
   override def assignFromBits(bits: Bits, hi: Int, lo: Int): Unit = this(hi, lo).assignFromBits(bits)
 
@@ -188,6 +185,7 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
 
   override def minValue: BigInt = -(BigInt(1) << (getWidth - 1))
   override def maxValue: BigInt =  (BigInt(1) << (getWidth - 1)) - 1
+  override def setAll(): Unit = this := (BigInt(1) << this.getWidth)-1
 
   override def apply(bitId: Int): Bool = newExtract(bitId, new SIntBitAccessFixed)
   override def apply(bitId: UInt): Bool = newExtract(bitId, new SIntBitAccessFloating)
@@ -197,5 +195,4 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   private[core] override def weakClone: this.type = new SInt().asInstanceOf[this.type]
   override def getZero: this.type = S(0, this.getWidth bits).asInstanceOf[this.type]
   override def getZeroUnconstrained: this.type = S(0).asInstanceOf[this.type]
-//  protected override def getAllToBoolNode(): AllByBool = new Operator.SInt.AllByBool(this)
 }

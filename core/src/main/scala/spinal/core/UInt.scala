@@ -50,10 +50,7 @@ trait UIntFactory{
 class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimitives[UInt] with BitwiseOp[UInt]{
 
   override def getTypeObject = TypeUInt
-//  private[core] override def prefix: String = "u"
-
   override type T = UInt
-
   override def _data: UInt = this
 
   /**
@@ -127,23 +124,23 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     this(thatMod - 1 downto 0) @@ this(this.high downto thatMod)
   }
 
-//  /**
-//    * 2'Complement
-//    * @param enable enable the 2'complement
-//    * @return Return the 2'Complement of the number
-//    */
-//  def twoComplement(enable: Bool): SInt = ((False ## Mux(enable, ~this, this)).asUInt + enable.asUInt).asSInt
-//
-//  /**
-//    * Assign a range value to an UInt
-//    * @example{{{ core.io.interrupt = (0 -> uartCtrl.io.interrupt, 1 -> timerCtrl.io.interrupt, default -> false)}}}
-//    * @param rangesValue The first range value
-//    * @param _rangesValues Others range values
-//    */
-//  def :=(rangesValue: Tuple2[Any, Any], _rangesValues: Tuple2[Any, Any]*): Unit = {
-//    val rangesValues = rangesValue +: _rangesValues
-//    U.applyTuples(this, rangesValues)
-//  }
+  /**
+    * 2'Complement
+    * @param enable enable the 2'complement
+    * @return Return the 2'Complement of the number
+    */
+  def twoComplement(enable: Bool): SInt = ((False ## Mux(enable, ~this, this)).asUInt + enable.asUInt).asSInt
+
+  /**
+    * Assign a range value to an UInt
+    * @example{{{ core.io.interrupt = (0 -> uartCtrl.io.interrupt, 1 -> timerCtrl.io.interrupt, default -> false)}}}
+    * @param rangesValue The first range value
+    * @param _rangesValues Others range values
+    */
+  def :=(rangesValue: Tuple2[Any, Any], _rangesValues: Tuple2[Any, Any]*): Unit = {
+    val rangesValues = rangesValue +: _rangesValues
+    U.applyTuples(this, rangesValues)
+  }
 
   override def assignFromBits(bits: Bits): Unit = this := bits.asUInt
   override def assignFromBits(bits: Bits, hi : Int, lo : Int): Unit = this(hi,lo).assignFromBits(bits)
@@ -184,6 +181,8 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
 
   override def minValue: BigInt = BigInt(0)
   override def maxValue: BigInt = (BigInt(1) << getWidth) - 1
+
+  override def setAll(): Unit = this := maxValue
 
 //  /**
 //    * Assign a mask to the output signal

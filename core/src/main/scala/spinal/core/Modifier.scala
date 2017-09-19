@@ -341,18 +341,11 @@ object Operator{
       override def simplifyNode: Expression = if(right.getWidth == 0) left else this
     }
 
-//
-//    //    abstract class RotateLeftByUInt extends BinaryOperatorWidthableInputs with Widthable{
-////      override def calcWidth(): Int = left.getWidth
-////      override def normalizeInputs: Unit = {}
-////      override def simplifyNode: Unit = {SymplifyNode.rotateImpl(getLiteralFactory,this)}
-////      def getLiteralFactory : (BigInt, BitCount) => Node
-////    }
-//
-//    abstract class AllByBool(val theConsumer : Node) extends UnaryOperator with Widthable {
+//    abstract class AllByBool() extends UnaryOperator with Widthable {
+//      val theConsumer : Expression = null
 //      override def calcWidth: Int = theConsumer.asInstanceOf[WidthProvider].getWidth
 //    }
-//
+
   }
 
   object Bits{

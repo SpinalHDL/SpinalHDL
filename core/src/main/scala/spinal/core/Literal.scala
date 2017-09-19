@@ -38,67 +38,67 @@ abstract class BitVectorLiteralFactory[T <: BitVector] {
   def isSigned : Boolean
 
   private[core] def newInstance(bitCount : BitCount) : T
-//  def apply(bitCount : BitCount,rangesValue : Tuple2[Any,Any], _rangesValues: Tuple2[Any,Any]*) : T = this.aggregate(bitCount,rangesValue +: _rangesValues)
+  def apply(bitCount : BitCount,rangesValue : Tuple2[Any,Any], _rangesValues: Tuple2[Any,Any]*) : T = this.aggregate(bitCount,rangesValue +: _rangesValues)
 
-//  private def aggregate(bitCount : BitCount,rangesValues: Seq[Tuple2[Any,Any]]) : T = {
-//    val ret : T = this.newInstance(bitCount.value bit)
-//    applyTuples(ret,rangesValues)
-//    ret
-//  }
-//
-//  def applyTuples(on : T, rangesValues : Seq[Tuple2[Any,Any]]) : Unit = {
-//    //Apply default
-//    rangesValues.foreach(_ match{
-//      case (`default`,value : Boolean) =>  on.setAllTo(value)
-//      case (`default`,value : Bool)    => on.setAllTo(value)
-//      case _ =>
-//    })
-//
-//    //Apply specific access in order
-//    for(e <- rangesValues) e match{
-//      case (pos : Int,value : Boolean) => on(pos) := Bool(value)
-//      case (pos : Int,value : Bool) => on(pos) := value //literal extraction
-//      case (range : Range,value : Bool) => {
-//        for(i <- range)
-//          on(i) := value
-//      }
-//      case (range : Range,value : Boolean) => on(range) := apply(
-//        if(! value)
-//          BigInt(0)
-//        else {
-//          if(!on.isInstanceOf[SInt])
-//            (BigInt(1) << range.size) - 1
-//          else
-//            BigInt(-1)
-//
-//        }
-//      )
-//      case (range : Range,value : String) => on(range) := apply(value)
-//      case (range : Range,value : BitVector) if value.getClass == on.getClass => on(range) := value.asInstanceOf[T]
-//      case (`default`,value : Boolean) =>
-//      case (`default`,value : Bool) =>
-//    }
-//  }
-//
-//  def apply(rangesValue : Tuple2[Any,Any],_rangesValues: Tuple2[Any,Any]*) : T = {
-//    val rangesValues = rangesValue +: _rangesValues
-//    var hig = -1
-//    rangesValues.foreach(_ match{
-//      case (pos : Int,_) => {
-//        hig = Math.max(hig,pos)
-//      }
-//      case (range : Range,_) => {
-//        hig = Math.max(hig,range.high)
-//      }
-//      case (`default`,_) => {
-//        val where = ScalaLocated.long
-//        GlobalData.get.pendingErrors += (() => s"You can't use default -> ??? in this case. \nBut you can use it in the following case : myBits := (???,default -> ???, ???)\n${where}")
-//      }
-//      case _ =>
-//    })
-//
-//    this.aggregate(hig + 1 bit,rangesValues)
-//  }
+  private def aggregate(bitCount : BitCount,rangesValues: Seq[Tuple2[Any,Any]]) : T = {
+    val ret : T = this.newInstance(bitCount.value bit)
+    applyTuples(ret,rangesValues)
+    ret
+  }
+
+  def applyTuples(on : T, rangesValues : Seq[Tuple2[Any,Any]]) : Unit = {
+    //Apply default
+    rangesValues.foreach(_ match{
+      case (`default`,value : Boolean) =>  on.setAllTo(value)
+      case (`default`,value : Bool)    => on.setAllTo(value)
+      case _ =>
+    })
+
+    //Apply specific access in order
+    for(e <- rangesValues) e match{
+      case (pos : Int,value : Boolean) => on(pos) := Bool(value)
+      case (pos : Int,value : Bool) => on(pos) := value //literal extraction
+      case (range : Range,value : Bool) => {
+        for(i <- range)
+          on(i) := value
+      }
+      case (range : Range,value : Boolean) => on(range) := apply(
+        if(! value)
+          BigInt(0)
+        else {
+          if(!on.isInstanceOf[SInt])
+            (BigInt(1) << range.size) - 1
+          else
+            BigInt(-1)
+
+        }
+      )
+      case (range : Range,value : String) => on(range) := apply(value)
+      case (range : Range,value : BitVector) if value.getClass == on.getClass => on(range) := value.asInstanceOf[T]
+      case (`default`,value : Boolean) =>
+      case (`default`,value : Bool) =>
+    }
+  }
+
+  def apply(rangesValue : Tuple2[Any,Any],_rangesValues: Tuple2[Any,Any]*) : T = {
+    val rangesValues = rangesValue +: _rangesValues
+    var hig = -1
+    rangesValues.foreach(_ match{
+      case (pos : Int,_) => {
+        hig = Math.max(hig,pos)
+      }
+      case (range : Range,_) => {
+        hig = Math.max(hig,range.high)
+      }
+      case (`default`,_) => {
+        val where = ScalaLocated.long
+        GlobalData.get.pendingErrors += (() => s"You can't use default -> ??? in this case. \nBut you can use it in the following case : myBits := (???,default -> ???, ???)\n${where}")
+      }
+      case _ =>
+    })
+
+    this.aggregate(hig + 1 bit,rangesValues)
+  }
 }
 
 object B extends BitVectorLiteralFactory[Bits] {

@@ -49,12 +49,9 @@ trait BitsFactory {
 class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
 
 
+  /** Set all bits */
   override def getTypeObject = TypeBits
   override def opName: String = "Bits"
-
-
-//  private[core] override def prefix: String = "b"
-
   override type T = Bits
 
   private[spinal] override def _data: Bits = this
@@ -119,17 +116,17 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
     this(thatMod - 1 downto 0) ## this(this.high downto thatMod)
   }
 
-//  /**
-//    * Assign a range value to a Bits
-//    * @example{{{ core.io.interrupt = (0 -> uartCtrl.io.interrupt, 1 -> timerCtrl.io.interrupt, default -> false)}}}
-//    * @param rangesValue The first range value
-//    * @param _rangesValues Others range values
-//    */
-//  def :=(rangesValue : Tuple2[Any, Any], _rangesValues: Tuple2[Any, Any]*): Unit = {
-//    val rangesValues = rangesValue +: _rangesValues
-//    B.applyTuples(this, rangesValues)
-//  }
-//
+  /**
+    * Assign a range value to a Bits
+    * @example{{{ core.io.interrupt = (0 -> uartCtrl.io.interrupt, 1 -> timerCtrl.io.interrupt, default -> false)}}}
+    * @param rangesValue The first range value
+    * @param _rangesValues Others range values
+    */
+  def :=(rangesValue : Tuple2[Any, Any], _rangesValues: Tuple2[Any, Any]*): Unit = {
+    val rangesValues = rangesValue +: _rangesValues
+    B.applyTuples(this, rangesValues)
+  }
+
   override def assignFromBits(bits: Bits): Unit = this := bits
   override def assignFromBits(bits: Bits, hi: Int, lo: Int): Unit = this (hi, lo).assignFromBits(bits)
 
@@ -179,7 +176,6 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
 //
   private[core] override def newMultiplexer(sel: Bool, whenTrue: Expression, whenFalse: Expression): Multiplexer = newMultiplexer(sel, whenTrue, whenFalse,new MultiplexerBits)
 
-//  protected override def getAllToBoolNode(): AllByBool = new Operator.Bits.AllByBool(this)
 
   override def resize(width: Int): Bits = wrapWithWeakClone({
     val node = new ResizeBits
@@ -211,8 +207,9 @@ class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
   override def apply(bitId: UInt): Bool = newExtract(bitId, new BitsBitAccessFloating)
   override def apply(offset: Int, bitCount: BitCount): this.type  = newExtract(offset+bitCount.value-1,offset, new BitsRangedAccessFixed).setWidth(bitCount.value)
   override def apply(offset: UInt, bitCount: BitCount): this.type = newExtract(offset,bitCount.value, new BitsRangedAccessFloating).setWidth(bitCount.value)
-//
+
   private[core] override def weakClone: this.type = new Bits().asInstanceOf[this.type]
   override def getZero: this.type = B(0, this.getWidth bits).asInstanceOf[this.type]
   override def getZeroUnconstrained: this.type = B(0).asInstanceOf[this.type]
+  override def setAll(): Unit = this := (BigInt(1) << this.getWidth)-1
 }

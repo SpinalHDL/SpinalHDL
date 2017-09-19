@@ -281,23 +281,6 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
         }
         return statementIndex
       }
-//      def walker(that : TreeStatement, rootScope : ScopeStatement) : Unit = {
-//        if(that != null){
-//          that match {
-//            case w : WhenStatement => {
-//              if(!w.cond.isInstanceOf[RefExpression]){
-//                val counter = whenCondOccurences.getOrElseUpdate(w.cond, 0)
-//                if(counter < 2){
-//                  whenCondOccurences(w.cond) = counter + 1
-//                }
-//              }
-//            }
-//          }
-//          if(that.parentScope != rootScope) {
-//            walker(that.parentScope.parentStatement, rootScope)
-//          }
-//        }
-//      }
 
       for (process <- processes) {
         walker(process.leafStatements, 0, process.scope)

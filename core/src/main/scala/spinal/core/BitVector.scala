@@ -335,30 +335,25 @@ abstract class BitVector extends BaseType with Widthable /*with CheckWidth*/ {
     * @example{{{ val myBool = myBits(3 downto 1) }}}
     */
   def apply(range: Range): this.type = this.apply(range.high, range.low)
-//
-//  /** Set all bits to value */
-//  def setAllTo(value: Boolean): Unit = {
-//    val litBt = weakClone
-//    litBt.input = new BitsAllToLiteral(this, value)
-//    this := litBt
-//  }
-//
-//  /** Set all bits to value */
-//  def setAllTo(value: Bool): Unit = {
-//    val litBt = weakClone
-//    val node = getAllToBoolNode()
-//    node.input = value.asInstanceOf[node.T]
-//    litBt.input = node
-//    this := litBt
-//  }
-//
-//  /** Set all bits */
-//  def setAll() = setAllTo(true)
-//  /** Clear all bits */
-//  def clearAll() = setAllTo(false)
-//
+
+  /** Set all bits to value */
+  def setAllTo(value: Boolean): Unit = if(value) setAll() else clearAll()
+
+  /** Set all bits to value */
+  def setAllTo(value: Bool): Unit = when(value){
+    setAll()
+  }otherwise{
+    clearAll()
+  }
+
+  /** Set all bits */
+  def setAll() : Unit
+  /** Clear all bits */
+  def clearAll() : Unit = this := this.getZeroUnconstrained()
+
 //  protected def getAllToBoolNode(): Operator.BitVector.AllByBool
-//
+//  protected def getAllToBooleanNode(): Operator.BitVector.AllByBoolean
+
 //  private[core] override def wrapWithWeakClone(node: Node): this.type = {
 //    val typeNode = super.wrapWithWeakClone(node)
 //    typeNode
