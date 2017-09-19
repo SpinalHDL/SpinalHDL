@@ -370,15 +370,6 @@ object StreamArbiter {
       maskProposal := OHMasking.first(Vec(io.inputs.map(_.valid)))
     }
 
-    def roundRobin(core: StreamArbiter[_ <: Data]) = new Area {
-      import core._
-      for(bitId  <- maskLocked.range){
-        maskLocked(bitId) init(Bool(bitId == maskLocked.length-1))
-      }
-      //maskProposal := maskLocked
-      maskProposal := OHMasking.roundRobin(Vec(io.inputs.map(_.valid)),Vec(maskLocked.last +: maskLocked.take(maskLocked.length-1)))
-    }
-
     def sequentialOrder(core: StreamArbiter[_]) = new Area {
       import core._
       val counter = Counter(core.portCount, io.output.fire)
@@ -386,6 +377,15 @@ object StreamArbiter {
         maskProposal(i) := False
       }
       maskProposal(counter) := True
+    }
+
+    def roundRobin(core: StreamArbiter[_ <: Data]) = new Area {
+      import core._
+      for(bitId  <- maskLocked.range){
+        maskLocked(bitId) init(Bool(bitId == maskLocked.length-1))
+      }
+      //maskProposal := maskLocked
+      maskProposal := OHMasking.roundRobin(Vec(io.inputs.map(_.valid)),Vec(maskLocked.last +: maskLocked.take(maskLocked.length-1)))
     }
   }
 
@@ -903,37 +903,47 @@ object StreamJoin{
 
 
 object StreamWidthAdapter{
-  def apply[T <: Data,T2 <: Data](input : Stream[T],output : Stream[T2], endianness: Endianness = LITTLE): Unit = {
+  def apply[T <: Data,T2 <: Data](input : Stream[T],output : Stream[T2], endianness: Endianness = LITTLE, padding : Boolean = false): Unit = {
     val inputWidth = widthOf(input.payload)
     val outputWidth = widthOf(output.payload)
     if(inputWidth == outputWidth){
       output.arbitrationFrom(input)
       output.assignFromBits(input.asBits)
     } else if(inputWidth > outputWidth){
-      require(inputWidth % outputWidth == 0)
-      val factor = inputWidth / outputWidth
+      require(inputWidth % outputWidth == 0 || padding)
+      val factor = (inputWidth + outputWidth - 1) / outputWidth
+      val paddedInputWidth = factor * outputWidth
       val counter = Counter(factor,inc = output.fire)
       output.valid := input.valid
       endianness match {
-        case `LITTLE` => output.payload.assignFromBits(input.payload.asBits.subdivideIn(factor slices).read(counter))
-        case `BIG`    => output.payload.assignFromBits(input.payload.asBits.subdivideIn(factor slices).reverse.read(counter))
+        case `LITTLE` => output.payload.assignFromBits(input.payload.asBits.resize(paddedInputWidth).subdivideIn(factor slices).read(counter))
+        case `BIG`    => output.payload.assignFromBits(input.payload.asBits.resize(paddedInputWidth).subdivideIn(factor slices).reverse.read(counter))
       }
       input.ready := output.ready && counter.willOverflowIfInc
     } else{
-      require(outputWidth % inputWidth == 0)
-      val factor  = outputWidth / inputWidth
+      require(outputWidth % inputWidth == 0 || padding)
+      val factor  = (outputWidth + inputWidth - 1) / inputWidth
+      val paddedOutputWidth = factor * inputWidth
       val counter = Counter(factor,inc = input.fire)
-      val buffer  = Reg(Bits(outputWidth - inputWidth bits))
+      val buffer  = Reg(Bits(paddedOutputWidth - inputWidth bits))
       when(input.fire){
         buffer := input.payload ## (buffer >> inputWidth)
       }
       output.valid := input.valid && counter.willOverflowIfInc
       endianness match {
-        case `LITTLE` => output.payload.assignFromBits(input.payload ## buffer)
-        case `BIG`    => output.payload.assignFromBits((input.payload ## buffer).subdivideIn(factor slices).reverse.asBits())
+        case `LITTLE` => output.payload.assignFromBits((input.payload ## buffer).resized)
+        case `BIG`    => output.payload.assignFromBits((input.payload ## buffer).subdivideIn(factor slices).reverse.asBits().resized)
       }
       input.ready := !(!output.ready && counter.willOverflowIfInc)
     }
+  }
+
+
+
+  def apply[T <: Data, T2 <: Data](input : Stream[T], outputPayloadType : HardType[T2], endianness: Endianness = LITTLE, padding : Boolean = false) : Stream[T2] = {
+    val ret = Stream(outputPayloadType())
+    StreamWidthAdapter(input,ret,endianness,padding)
+    ret
   }
 
   def main(args: Array[String]) {
@@ -946,38 +956,46 @@ object StreamWidthAdapter{
 }
 
 object StreamFragmentWidthAdapter{
-  def apply[T <: Data,T2 <: Data](input : Stream[Fragment[T]],output : Stream[Fragment[T2]], endianness: Endianness = LITTLE): Unit = {
+  def apply[T <: Data,T2 <: Data](input : Stream[Fragment[T]],output : Stream[Fragment[T2]], endianness: Endianness = LITTLE, padding : Boolean = false): Unit = {
     val inputWidth = widthOf(input.fragment)
     val outputWidth = widthOf(output.fragment)
     if(inputWidth == outputWidth){
       output.arbitrationFrom(input)
       output.assignFromBits(input.asBits)
     } else if(inputWidth > outputWidth){
-      require(inputWidth % outputWidth == 0)
-      val factor = inputWidth / outputWidth
+      require(inputWidth % outputWidth == 0 || padding)
+      val factor = (inputWidth + outputWidth - 1) / outputWidth
+      val paddedInputWidth = factor * outputWidth
       val counter = Counter(factor,inc = output.fire)
       output.valid := input.valid
       endianness match {
-        case `LITTLE` => output.fragment.assignFromBits(input.fragment.asBits.subdivideIn(factor slices).read(counter))
-        case `BIG`    => output.fragment.assignFromBits(input.fragment.asBits.subdivideIn(factor slices).reverse.read(counter))
+        case `LITTLE` => output.fragment.assignFromBits(input.fragment.asBits.resize(paddedInputWidth).subdivideIn(factor slices).read(counter))
+        case `BIG`    => output.fragment.assignFromBits(input.fragment.asBits.resize(paddedInputWidth).subdivideIn(factor slices).reverse.read(counter))
       }
       output.last := input.last && counter.willOverflowIfInc
       input.ready := output.ready && counter.willOverflowIfInc
     } else{
-      require(outputWidth % inputWidth == 0)
-      val factor  = outputWidth / inputWidth
+      require(outputWidth % inputWidth == 0 || padding)
+      val factor  = (outputWidth + inputWidth - 1) / inputWidth
+      val paddedOutputWidth = factor * inputWidth
       val counter = Counter(factor,inc = input.fire)
-      val buffer  = Reg(Bits(outputWidth - inputWidth bits))
+      val buffer  = Reg(Bits(paddedOutputWidth - inputWidth bits))
       when(input.fire){
         buffer := input.fragment ## (buffer >> inputWidth)
       }
       output.valid := input.valid && counter.willOverflowIfInc
       endianness match {
-        case `LITTLE` => output.fragment.assignFromBits(input.fragment ## buffer)
-        case `BIG`    => output.fragment.assignFromBits((input.fragment ## buffer).subdivideIn(factor slices).reverse.asBits())
+        case `LITTLE` => output.fragment.assignFromBits((input.fragment ## buffer).resized)
+        case `BIG`    => output.fragment.assignFromBits((input.fragment ## buffer).subdivideIn(factor slices).reverse.asBits().resized)
       }
       output.last := input.last
       input.ready := !(!output.ready && counter.willOverflowIfInc)
     }
+  }
+
+  def apply[T <: Data, T2 <: Data](input : Stream[Fragment[T]], outputPayloadType : HardType[T2], endianness: Endianness = LITTLE, padding : Boolean = false) : Stream[Fragment[T2]] = {
+    val ret = Stream(Fragment(outputPayloadType()))
+    StreamFragmentWidthAdapter(input,ret,endianness,padding)
+    ret
   }
 }
