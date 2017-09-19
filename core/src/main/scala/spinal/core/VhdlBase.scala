@@ -57,6 +57,13 @@ trait VhdlBase extends VhdlVerilogBase{
       }
     }($clock) then\n"
   }
+
+  def emitType(e : Expression) : String = e.getTypeObject match {
+    case `TypeBool` => "std_logic"
+    case `TypeBits` => s"std_logic_vector${emitRange(e.asInstanceOf[WidthProvider])}"
+    case `TypeUInt` => s"unsigned${emitRange(e.asInstanceOf[WidthProvider])}"
+    case `TypeSInt` => s"signed${emitRange(e.asInstanceOf[WidthProvider])}"
+  }
 //
 //
 //  def emitEnumLiteral[T <: SpinalEnum](enum : SpinalEnumElement[T],encoding: SpinalEnumEncoding) : String = {
@@ -90,14 +97,14 @@ trait VhdlBase extends VhdlVerilogBase{
     case `out` => "out"
     case _ => throw new Exception("Unknown direction"); ""
   }
-//
-//
-  def emitRange(node: Widthable) = s"(${node.getWidth - 1} downto 0)"
-//
-//  var referenceSet : mutable.Set[Node with Nameable with ContextUser] = null
-//  def emitReference(node: Node): String = {
-//    node match {
-//      case n: Nameable with ContextUser => {
+  //    node match {
+  //  def emitReference(node: Node): String = {
+  //  var referenceSet : mutable.Set[Node with Nameable with ContextUser] = null
+  //
+  //
+  //
+  def emitRange(node: WidthProvider) = s"(${node.getWidth - 1} downto 0)"
+  //      case n: Nameable with ContextUser => {
 //        if(referenceSet != null) referenceSet.add(n)
 //        n.getNameElseThrow
 //      }

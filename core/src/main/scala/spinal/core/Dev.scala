@@ -141,9 +141,16 @@ trait ExpressionContainer{
   }
 }
 
+object TypeBool
+object TypeBits
+object TypeUInt
+object TypeSInt
+object TypeEnum
+
 trait Expression extends BaseNode with ExpressionContainer{
   def opName : String
   def simplifyNode: Expression = this
+  def getTypeObject : Any
 }
 
 

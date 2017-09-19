@@ -49,6 +49,7 @@ trait UIntFactory{
   */
 class UInt extends BitVector with Num[UInt] /*with MinMaxProvider */with DataPrimitives[UInt] with BitwiseOp[UInt]{
 
+  override def getTypeObject = TypeUInt
 //  private[core] override def prefix: String = "u"
 //
 //  override type T = UInt

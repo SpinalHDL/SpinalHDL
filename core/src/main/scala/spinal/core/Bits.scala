@@ -49,6 +49,7 @@ trait BitsFactory {
 class Bits extends BitVector with DataPrimitives[Bits] with BitwiseOp[Bits]{
 
 
+  override def getTypeObject = TypeBits
   override def opName: String = "Bits"
 
   //

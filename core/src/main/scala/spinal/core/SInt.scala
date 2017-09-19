@@ -47,6 +47,7 @@ trait SIntFactory{
   */
 class SInt extends BitVector with Num[SInt] /*with MinMaxProvider */with DataPrimitives[SInt] with BitwiseOp[SInt] {
 
+  override def getTypeObject = TypeSInt
   override private[core] def resizeFactory: Resize = new ResizeSInt
 
   override def opName: String = "SInt"
@@ -56,18 +57,18 @@ class SInt extends BitVector with Num[SInt] /*with MinMaxProvider */with DataPri
 //  override type T = SInt
 //
   private[spinal] override  def _data: SInt = this
-//
-//  /**
-//    * Concatenation between two SInt
-//    * @example{{{ val mySInt = sInt1 @@ sInt2 }}}
-//    * @param that an SInt to append
-//    * @return a new SInt of width (width(this) + width(right))
-//    */
-//  def @@(that: SInt): SInt = S(this ## that)
-//  /** Concatenation between a SInt and UInt */
-//  def @@(that: UInt): SInt = S(this ## that)
-//  /** Concatenation between a SInt and a Bool */
-//  def @@(that: Bool): SInt = S(this ## that)
+
+  /**
+    * Concatenation between two SInt
+    * @example{{{ val mySInt = sInt1 @@ sInt2 }}}
+    * @param that an SInt to append
+    * @return a new SInt of width (width(this) + width(right))
+    */
+  def @@(that: SInt): SInt = S(this ## that)
+  /** Concatenation between a SInt and UInt */
+  def @@(that: UInt): SInt = S(this ## that)
+  /** Concatenation between a SInt and a Bool */
+  def @@(that: Bool): SInt = S(this ## that)
 
   override def +(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.Add)
   override def -(right: SInt): SInt = wrapBinaryOperator(right, new Operator.SInt.Sub)

@@ -410,7 +410,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     //Wrap expression which need it
     for(e <- expressionToWrap){
       val name = component.localNamingScope.allocateName(globalData.anonymSignalPrefix)
-      b.declarations ++= s"  signal $name : ${expressionTypeMap(e.getClass)(e)};\n"
+      b.declarations ++= s"  signal $name : ${emitType(e)};\n"
       wrappedExpressionToName(e) = name
     }
 
@@ -1903,25 +1903,20 @@ def refImpl(op: Expression): String = emitReference(op.asInstanceOf[NameableExpr
 //
 //
 
-  def boolTypeMapper(e : Expression) = "std_logic"
-  def bitsTypeMapper(e : Expression) = "std_logic_vector" + emitRange(e.asInstanceOf[Widthable])
-
-
   val expressionImplMap = mutable.Map[Class[_ <: Expression], Expression => String]()
   val expressionTypeMap = mutable.Map[Class[_ <: Expression], Expression => String]()
 
 
-  def expressionMapAdd(c : Class[_ <: Expression], impl : Expression => String, t : Expression => String): Unit ={
+  def expressionMapAdd(c : Class[_ <: Expression], impl : Expression => String): Unit ={
     expressionImplMap(c) = impl
-    if(t != null) expressionTypeMap(c) = t
   }
 
-  expressionMapAdd(classOf[Bool], refImpl, null)
-  expressionMapAdd(classOf[Bits], refImpl, null)
+  expressionMapAdd(classOf[Bool], refImpl)
+  expressionMapAdd(classOf[Bits], refImpl)
 
 
-  expressionMapAdd(classOf[BoolLiteral], boolLiteralImpl, boolTypeMapper)
-  expressionMapAdd(classOf[BitsLiteral], emitBitsLiteral, bitsTypeMapper)
+  expressionMapAdd(classOf[BoolLiteral], boolLiteralImpl)
+  expressionMapAdd(classOf[BitsLiteral], emitBitsLiteral)
 
 //  //unsigned
 //  expressionImplMap.put("u+u", operatorImplAsBinaryOperator("+"))
@@ -1980,15 +1975,15 @@ def refImpl(op: Expression): String = emitReference(op.asInstanceOf[NameableExpr
 //
 //
   //bits
-  expressionMapAdd(classOf[Operator.Bits.Cat], binaryOperatorImplAsFunction("pkg_cat"),bitsTypeMapper)
+  expressionMapAdd(classOf[Operator.Bits.Cat], binaryOperatorImplAsFunction("pkg_cat"))
 
-  expressionMapAdd(classOf[Operator.Bits.Or], operatorImplAsBinaryOperator("or"),bitsTypeMapper)
-  expressionMapAdd(classOf[Operator.Bits.And], operatorImplAsBinaryOperator("and"),bitsTypeMapper)
-  expressionMapAdd(classOf[Operator.Bits.Xor], operatorImplAsBinaryOperator("xor"),bitsTypeMapper)
-  expressionMapAdd(classOf[Operator.Bits.Not],  operatorImplAsUnaryOperator("not"),bitsTypeMapper)
+  expressionMapAdd(classOf[Operator.Bits.Or], operatorImplAsBinaryOperator("or"))
+  expressionMapAdd(classOf[Operator.Bits.And], operatorImplAsBinaryOperator("and"))
+  expressionMapAdd(classOf[Operator.Bits.Xor], operatorImplAsBinaryOperator("xor"))
+  expressionMapAdd(classOf[Operator.Bits.Not],  operatorImplAsUnaryOperator("not"))
 
-  expressionMapAdd(classOf[Operator.Bits.Equal], operatorImplAsBinaryOperator("="),boolTypeMapper)
-  expressionMapAdd(classOf[Operator.Bits.NotEqual], operatorImplAsBinaryOperator("/="),boolTypeMapper)
+  expressionMapAdd(classOf[Operator.Bits.Equal], operatorImplAsBinaryOperator("="))
+  expressionMapAdd(classOf[Operator.Bits.NotEqual], operatorImplAsBinaryOperator("/="))
 //
 //  expressionImplMap.put("b>>i", shiftRightByIntImpl)
 //  expressionImplMap.put("b<<i", shiftLeftByIntImpl)
@@ -2004,15 +1999,15 @@ def refImpl(op: Expression): String = emitReference(op.asInstanceOf[NameableExpr
 //
 //  //bool
 
-  expressionMapAdd(classOf[BoolLiteral], boolLiteralImpl, boolTypeMapper)
-  expressionMapAdd(classOf[Operator.Bool.Equal], operatorImplAsBinaryOperator("="), boolTypeMapper)
-  expressionMapAdd(classOf[Operator.Bool.NotEqual], operatorImplAsBinaryOperator("/="), boolTypeMapper)
+  expressionMapAdd(classOf[BoolLiteral], boolLiteralImpl)
+  expressionMapAdd(classOf[Operator.Bool.Equal], operatorImplAsBinaryOperator("="))
+  expressionMapAdd(classOf[Operator.Bool.NotEqual], operatorImplAsBinaryOperator("/="))
 
 
-  expressionMapAdd(classOf[Operator.Bool.Not], operatorImplAsUnaryOperator("not"), boolTypeMapper)
-  expressionMapAdd(classOf[Operator.Bool.And], operatorImplAsBinaryOperator("and"), boolTypeMapper)
-  expressionMapAdd(classOf[Operator.Bool.Or], operatorImplAsBinaryOperator("or"), boolTypeMapper)
-  expressionMapAdd(classOf[Operator.Bool.Xor], operatorImplAsBinaryOperator("xor"), boolTypeMapper)
+  expressionMapAdd(classOf[Operator.Bool.Not], operatorImplAsUnaryOperator("not"))
+  expressionMapAdd(classOf[Operator.Bool.And], operatorImplAsBinaryOperator("and"))
+  expressionMapAdd(classOf[Operator.Bool.Or], operatorImplAsBinaryOperator("or"))
+  expressionMapAdd(classOf[Operator.Bool.Xor], operatorImplAsBinaryOperator("xor"))
 
 
 //  //enum
@@ -2039,7 +2034,7 @@ def refImpl(op: Expression): String = emitReference(op.asInstanceOf[NameableExpr
 //
 //  expressionImplMap.put("resize(s,i)", resizeFunction("pkg_signed"))
 //  expressionImplMap.put("resize(u,i)", resizeFunction("pkg_unsigned"))
-  expressionMapAdd(classOf[ResizeBits], resizeFunction("pkg_stdLogicVector"), bitsTypeMapper)
+  expressionMapAdd(classOf[ResizeBits], resizeFunction("pkg_stdLogicVector"))
 //
 //  expressionImplMap.put("bAllByB", unaryAllBy("std_logic_vector"))
 //  expressionImplMap.put("uAllByB", unaryAllBy("unsigned"))
@@ -2061,7 +2056,7 @@ def refImpl(op: Expression): String = emitReference(op.asInstanceOf[NameableExpr
 //  expressionImplMap.put("extract(u,u)", extractBoolFloating)
 //  expressionImplMap.put("extract(s,u)", extractBoolFloating)
 //
-  expressionMapAdd(classOf[BitsRangedAccessFixed], accessBitVectorFixed, bitsTypeMapper)
+  expressionMapAdd(classOf[BitsRangedAccessFixed], accessBitVectorFixed)
 //  expressionImplMap.put("extract(u,i,i)", extractBitVectorFixed)
 //  expressionImplMap.put("extract(s,i,i)", extractBitVectorFixed)
 //

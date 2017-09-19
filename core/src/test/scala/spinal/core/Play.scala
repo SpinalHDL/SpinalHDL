@@ -64,6 +64,7 @@ object PlayBits{
     x := (bits4 | bits4).resized
     when(a === b){
       x init(c)
+      bits4 := 0
     }
   }
 

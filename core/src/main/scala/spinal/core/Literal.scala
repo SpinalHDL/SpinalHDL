@@ -103,7 +103,7 @@ abstract class BitVectorLiteralFactory[T <: BitVector] {
 
 object B extends BitVectorLiteralFactory[Bits] {
   def apply() : Bits = new Bits()
-//  def apply(that: Data) : Bits = that.asBits //TODO IR
+  def apply(that: Data) : Bits = that.asBits
   override private[core] def newInstance(bitCount: BitCount): Bits = Bits(bitCount)
   override def isSigned: Boolean = false
 
@@ -114,9 +114,9 @@ object B extends BitVectorLiteralFactory[Bits] {
 
 object U extends BitVectorLiteralFactory[UInt] {
   def apply() : UInt = new UInt()
-//  def apply(that: Bool): UInt = that.asUInt
-//  def apply(that: Bits): UInt = that.asUInt
-//  def apply(that: SInt): UInt = that.asUInt
+  def apply(that: Bool): UInt = that.asUInt
+  def apply(that: Bits): UInt = that.asUInt
+  def apply(that: SInt): UInt = that.asUInt
 //  def apply(that: UFix) : UInt = that.toUInt
   override private[core] def newInstance(bitCount: BitCount): UInt = UInt(bitCount)
   override def isSigned: Boolean = false
@@ -125,9 +125,9 @@ object U extends BitVectorLiteralFactory[UInt] {
 
 object S extends BitVectorLiteralFactory[SInt] {
   def apply() : SInt = new SInt()
-//  def apply(that : Bool) : SInt = that.asSInt
-//  def apply(that : Bits) : SInt = that.asSInt
-//  def apply(that : UInt) : SInt = that.asSInt
+  def apply(that : Bool) : SInt = that.asSInt
+  def apply(that : Bits) : SInt = that.asSInt
+  def apply(that : UInt) : SInt = that.asSInt
 //  def apply(that : SFix) : SInt = that.toSInt
   override private[core] def newInstance(bitCount: BitCount): SInt = SInt(bitCount)
   override def isSigned: Boolean = true
@@ -222,18 +222,21 @@ abstract class BitVectorLiteral(var value: BigInt, var bitCount: Integer,val has
 }
 
 class BitsLiteral(value: BigInt, bitCount: Int ,hasSpecifiedBitCount : Boolean) extends BitVectorLiteral(value,bitCount,hasSpecifiedBitCount){
+  override def getTypeObject = TypeBits
   override def isSignedKind: Boolean = false
   override def clone(): this.type = new BitsLiteral(value, bitCount,hasSpecifiedBitCount).asInstanceOf[this.type]
   override def opName: String = "B\"xxx\""
 }
 
 class UIntLiteral(value: BigInt, bitCount: Int,hasSpecifiedBitCount : Boolean) extends BitVectorLiteral(value,bitCount,hasSpecifiedBitCount){
+  override def getTypeObject = TypeUInt
   override def isSignedKind: Boolean = false
   override def clone(): this.type = new UIntLiteral(value, bitCount,hasSpecifiedBitCount).asInstanceOf[this.type]
   override def opName: String = "U\"xxx\""
 }
 
 class SIntLiteral(value: BigInt, bitCount: Int,hasSpecifiedBitCount : Boolean) extends BitVectorLiteral(value,bitCount,hasSpecifiedBitCount){
+  override def getTypeObject = TypeSInt
   override def isSignedKind: Boolean = true
   override def clone(): this.type = new SIntLiteral(value, bitCount,hasSpecifiedBitCount).asInstanceOf[this.type]
   override def opName: String = "S\"xxx\""
@@ -255,6 +258,7 @@ object BoolLiteral {
 }
 
 class BoolLiteral(val value: Boolean) extends Literal {
+  override def getTypeObject = TypeBool
   override def opName: String = "Bool(x)"
 
 
