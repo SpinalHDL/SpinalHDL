@@ -940,7 +940,7 @@ object StreamWidthAdapter{
 
 
 
-  def apply[T <: Data, T2 <: Data](input : Stream[T], outputPayloadType : HardType[T2], endianness: Endianness = LITTLE, padding : Boolean = false) : Stream[T2] = {
+  def make[T <: Data, T2 <: Data](input : Stream[T], outputPayloadType : HardType[T2], endianness: Endianness = LITTLE, padding : Boolean = false) : Stream[T2] = {
     val ret = Stream(outputPayloadType())
     StreamWidthAdapter(input,ret,endianness,padding)
     ret
@@ -993,7 +993,7 @@ object StreamFragmentWidthAdapter{
     }
   }
 
-  def apply[T <: Data, T2 <: Data](input : Stream[Fragment[T]], outputPayloadType : HardType[T2], endianness: Endianness = LITTLE, padding : Boolean = false) : Stream[Fragment[T2]] = {
+  def make[T <: Data, T2 <: Data](input : Stream[Fragment[T]], outputPayloadType : HardType[T2], endianness: Endianness = LITTLE, padding : Boolean = false) : Stream[Fragment[T2]] = {
     val ret = Stream(Fragment(outputPayloadType()))
     StreamFragmentWidthAdapter(input,ret,endianness,padding)
     ret

@@ -16,11 +16,11 @@ class Apb3OverStream {
     val cmdApb = Stream(ApbCmd(apb.config))
     cmdApb.valid  := apb.PSEL.lsb && apb.PENABLE
     cmdApb.payload.assignSomeByName(apb)
-    val cmd : Stream[Bits] = StreamWidthAdapter(cmdApb, Bits(cmdWidth bits), padding = true)
+    val cmd : Stream[Bits] = StreamWidthAdapter.make(cmdApb, Bits(cmdWidth bits), padding = true)
 
     val rsp = Flow(Bits(rspWidth bits))
-    val rspApb = StreamWidthAdapter(rsp.toStream,apb.PRDATA, padding = true).freeRun()
-    apb.PREADY := rsp.valid 
+    val rspApb = StreamWidthAdapter.make(rsp.toStream,apb.PRDATA, padding = true).freeRun()
+    apb.PREADY := rsp.valid
 
     val cmdSent = RegInit(False) setWhen(cmdApb.fire) clearWhen(apb.PREADY)
     cmdApb.valid clearWhen(cmdSent)
@@ -30,7 +30,7 @@ class Apb3OverStream {
   //(apb)
   def deserialize(cmd : Flow[Bits], rsp : Stream[Bits], apbConfig : Apb3Config) = new Area {
     val apb = Apb3(apbConfig)
-    val cmdApb = StreamWidthAdapter(cmd.toStream, ApbCmd(apbConfig), padding = true).stage()
+    val cmdApb = StreamWidthAdapter.make(cmd.toStream, ApbCmd(apbConfig), padding = true).stage()
 
     apb.assignSomeByName(cmdApb.payload)
     val state = Counter(2)
