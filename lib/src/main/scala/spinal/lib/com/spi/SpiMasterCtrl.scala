@@ -69,6 +69,40 @@ case class SpiMasterCtrl(generics : SpiMasterCtrlGenerics) extends Component{
     val rsp = master Flow(Bits(dataWidth bits))
     val spi = master(SpiMaster(ssWidth))
 
+
+    /*
+      In short, it has one command fifo (for send/read/ss order) and one read fifo.
+      [0] :
+        write only:
+          0x000000xx =>  Send byte xx
+          0x001000xx =>  Send byte xx and also push the read data into the FIFO
+          0x1100000X =>  Enable the SS line X
+          0x1000000X =>  Disable the SS line X
+        read only:
+          bits[7:0]    => Read fifo value
+          bits[23: 16] => Read fifo occupancy (including the bits[7:0] read value)
+          bits[31]     => Read fifo not empty (meaning that bits[7:0] are valid)
+      [4] :
+        read write:
+          bit[0]      => Command fifo empty interrupt enable
+          bit[1]      => Read fifo not empty interrupt enable
+        read only:
+          bit[8]      => Command fifo empty interrupt pending
+          bit[9]      => Read fifo not empty interrupt pending
+          bits[23:16] => Command fifo space availability (SS commands + send byte commands)
+      [8] Read only :
+        bit[0] => cpol
+        bit[1] => cpha
+      [12] Read only :
+        spi clock divider, frequancy = FCLK / (2 * [12])
+      [16] Read only :
+        ssSetup, time between chip select enable and the next byte
+      [20] Read only :
+        ssHold, time between the last byte transmition and the chip select disable
+      [24] Read only :
+        ssDisable, time between chip select disable and chip select enable
+     */
+
     def driveFrom(bus : BusSlaveFactory, baseAddress : Int = 0)(generics : SpiMasterCtrlMemoryMappedConfig) = new Area {
       import generics._
       require(cmdFifoDepth >= 1)
