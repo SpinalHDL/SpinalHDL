@@ -4,7 +4,7 @@ import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba3.apb.{Apb3, Apb3Config}
 
-class Apb3OverStream {
+object Apb3OverStream {
   case class ApbCmd(config : Apb3Config) extends Bundle{
     val PADDR      = UInt(config.addressWidth bits)
     val PWRITE     = Bool
@@ -20,7 +20,8 @@ class Apb3OverStream {
 
     val rsp = Flow(Bits(rspWidth bits))
     val rspApb = StreamWidthAdapter.make(rsp.toStream,apb.PRDATA, padding = true).freeRun()
-    apb.PREADY := rsp.valid
+    apb.PREADY := rspApb.valid
+    apb.PRDATA := rspApb.payload
 
     val cmdSent = RegInit(False) setWhen(cmdApb.fire) clearWhen(apb.PREADY)
     cmdApb.valid clearWhen(cmdSent)
