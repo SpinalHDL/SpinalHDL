@@ -134,12 +134,12 @@ package object core extends BaseTypeFactory with BaseTypeCast {
 //
   implicit class LiteralBuilder(private val sc: StringContext) {
     def B(args: Any*): Bits = bitVectorStringParser(spinal.core.B, getString(args), signed = false)
-//    def U(args: Any*): UInt = bitVectorStringParser(spinal.core.U, getString(args), signed = false)
-//    def S(args: Any*): SInt = bitVectorStringParser(spinal.core.S, getString(args), signed = true)
+    def U(args: Any*): UInt = bitVectorStringParser(spinal.core.U, getString(args), signed = false)
+    def S(args: Any*): SInt = bitVectorStringParser(spinal.core.S, getString(args), signed = true)
 //    def M(args: Any*): MaskedLiteral = MaskedLiteral(sc.parts(0))
     def Bits(args: Any*): Bits = B(args)
-//    def UInt(args: Any*): UInt = U(args)
-//    def SInt(args: Any*): SInt = S(args)
+    def UInt(args: Any*): UInt = U(args)
+    def SInt(args: Any*): SInt = S(args)
 
     private def getString(args: Any*): String = {
       // println(sc.parts.size + " " + args.size)
@@ -230,23 +230,23 @@ package object core extends BaseTypeFactory with BaseTypeCast {
   implicit def DataPimped[T <: Data](that: T) : DataPimper[T] = new DataPimper(that)
 
 
-//  implicit class SIntPimper(pimped: SInt) {
-//    def toSFix: SFix = {
-//      val width = pimped.getWidth
-//      val fix = SFix(width - 1 exp, width bit)
-//      fix.raw := pimped
-//      fix
-//    }
-//  }
-//
-//  implicit class UIntPimper(pimped: UInt) {
-//    def toUFix: UFix = {
-//      val width = pimped.getWidth
-//      val fix = UFix(width exp, width bit)
-//      fix.raw := pimped
-//      fix
-//    }
-//  }
+  implicit class SIntPimper(pimped: SInt) {
+    def toSFix: SFix = {
+      val width = pimped.getWidth
+      val fix = SFix(width - 1 exp, width bit)
+      fix.raw := pimped
+      fix
+    }
+  }
+
+  implicit class UIntPimper(pimped: UInt) {
+    def toUFix: UFix = {
+      val width = pimped.getWidth
+      val fix = UFix(width exp, width bit)
+      fix.raw := pimped
+      fix
+    }
+  }
 
   implicit class RangePimper(pimped: Range) {
     def high: Int = {

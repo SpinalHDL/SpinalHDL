@@ -153,7 +153,7 @@ trait DataPrimitives[T <: Data]{
   }
 
 
-  //  def := [T2 <: T](that: T2): Unit = pimpIt assignFrom(that)
+//    def := [T2 <: T](that: T2): Unit = pimpIt assignFrom(that)
 
   //Use as \= to have the same behavioral than VHDL variable
   def \(that: T) : T = {
@@ -172,7 +172,7 @@ trait DataPrimitives[T <: Data]{
     ret
   }
 
-//  def <>(that: T): Unit = _data autoConnect that
+  def <>(that: T): Unit = _data autoConnect that
   def init(that: T): T = {
     _data.initFrom(that)
     _data
@@ -187,18 +187,6 @@ trait DataPrimitives[T <: Data]{
 //    _data.defaultImpl(that)
 //    Component.pop(c)
 //    _data
-//  }
-
-//  def muxList[T <: Data](mappings: Seq[(Any, T)]): T = {
-//    SpinalMap.list(_data,mappings)
-//  }
-//
-//  def muxList[T <: Data](defaultValue: T, mappings: Seq[(Any, T)]): T = {
-//    SpinalMap.list(_data, mappings :+ (spinal.core.default , defaultValue) )
-//  }
-//
-//  def mux[T <: Data](mappings: (Any, T)*): T = {
-//    SpinalMap.list(_data,mappings)
 //  }
 
 }
@@ -300,77 +288,71 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     return ret.asInstanceOf[this.type]
   }
 
-//  private[core] def autoConnect(that: Data): Unit// = (this.flatten, that.flatten).zipped.foreach(_ autoConnect _)
+  private[core] def autoConnect(that: Data): Unit// = (this.flatten, that.flatten).zipped.foreach(_ autoConnect _)
 
-//  private[core] def autoConnectBaseImpl(that: Data): Unit = {
-//
-//    def error(message : String) = {
-//      val locationString = ScalaLocated.long
-//      globalData.pendingErrors += (() => (message + "\n" + this + "\n" + that + "\n" + locationString))
-//    }
-//    def getTrueIoBaseType(that : Data) : Data = that match {
-//      case that : BaseType => that.input match{
-//          case input : Extract => getTrueIoBaseType(input.getBitVector.asInstanceOf[BaseType])
-//          case _ => that
-//      }
-//      case _ => that
-//    }
-//
-//
-//    val thisTrue = getTrueIoBaseType(this)
-//    val thatTrue = getTrueIoBaseType(that)
-//
-//    if (thisTrue.component == thatTrue.component) {
-//      if (thisTrue.component == Component.current) {
-//        sameFromInside
-//      } else if (thisTrue.component.parent == Component.current) {
-//        sameFromOutside
-//      } else error("You cant autoconnect from here")
-//    } else if (thisTrue.component.parent == thatTrue.component.parent) {
-//      childAndChild
-//    } else if (thisTrue.component == thatTrue.component.parent) {
-//      parentAndChild(this, that)
-//    } else if (thisTrue.component.parent == thatTrue.component) {
-//      parentAndChild(that, this)
-//    } else error("Don't know how autoconnect")
-//
-//
-//
-//    def sameFromOutside: Unit = {
-//      if (thisTrue.isOutput && thatTrue.isInput) {
-//        that := this
-//      } else if (thisTrue.isInput && thatTrue.isOutput) {
-//        this := that
-//      } else error("Bad input output specification for autoconnect")
-//    }
-//    def sameFromInside: Unit = {
-//      (thisTrue.dir,thatTrue.dir) match {
-//        case (`out`,`in`) => this := that
-//        case (`out`,null) => this := that
-//        case (null,`in`) => this := that
-//        case (`in`,`out`) => that := this
-//        case (`in`,null) => that := this
-//        case (null,`out`) => that := this
-//        case _ =>  error("Bad input output specification for autoconnect")
-//      }
-//    }
-//
-//    def childAndChild: Unit = {
-//      if (thisTrue.isOutput && thatTrue.isInput) {
-//        that := this
-//      } else if (thisTrue.isInput && thatTrue.isOutput) {
-//        this := that
-//      } else error("Bad input output specification for autoconnect")
-//    }
-//
-//    def parentAndChild(p: Data, k: Data): Unit = {
-//      if (getTrueIoBaseType(k).isOutput) {
-//        p := k
-//      } else if (getTrueIoBaseType(k).isInput) {
-//        k := p
-//      } else error("Bad input output specification for autoconnect")
-//    }
-//  }
+  private[core] def autoConnectBaseImpl(that: Data): Unit = {
+
+    def error(message : String) = {
+      val locationString = ScalaLocated.long
+      globalData.pendingErrors += (() => (message + "\n" + this + "\n" + that + "\n" + locationString))
+    }
+    def getTrueIoBaseType(that : Data) : Data = that.getRealSource.asInstanceOf[Data]
+
+
+    val thisTrue = getTrueIoBaseType(this)
+    val thatTrue = getTrueIoBaseType(that)
+
+    if (thisTrue.component == thatTrue.component) {
+      if (thisTrue.component == Component.current) {
+        sameFromInside
+      } else if (thisTrue.component.parent == Component.current) {
+        sameFromOutside
+      } else error("You cant autoconnect from here")
+    } else if (thisTrue.component.parent == thatTrue.component.parent) {
+      childAndChild
+    } else if (thisTrue.component == thatTrue.component.parent) {
+      parentAndChild(this, that)
+    } else if (thisTrue.component.parent == thatTrue.component) {
+      parentAndChild(that, this)
+    } else error("Don't know how autoconnect")
+
+
+
+    def sameFromOutside: Unit = {
+      if (thisTrue.isOutput && thatTrue.isInput) {
+        that := this
+      } else if (thisTrue.isInput && thatTrue.isOutput) {
+        this := that
+      } else error("Bad input output specification for autoconnect")
+    }
+    def sameFromInside: Unit = {
+      (thisTrue.dir,thatTrue.dir) match {
+        case (`out`,`in`) => this := that
+        case (`out`,null) => this := that
+        case (null,`in`) => this := that
+        case (`in`,`out`) => that := this
+        case (`in`,null) => that := this
+        case (null,`out`) => that := this
+        case _ =>  error("Bad input output specification for autoconnect")
+      }
+    }
+
+    def childAndChild: Unit = {
+      if (thisTrue.isOutput && thatTrue.isInput) {
+        that := this
+      } else if (thisTrue.isInput && thatTrue.isOutput) {
+        this := that
+      } else error("Bad input output specification for autoconnect")
+    }
+
+    def parentAndChild(p: Data, k: Data): Unit = {
+      if (getTrueIoBaseType(k).isOutput) {
+        p := k
+      } else if (getTrueIoBaseType(k).isInput) {
+        k := p
+      } else error("Bad input output specification for autoconnect")
+    }
+  }
 
   def getBitsWidth: Int
 
@@ -389,14 +371,15 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
 //    this
 //  }
 
-//  override def addAttribute(attribute: Attribute): this.type = {
-//    flatten.foreach(_.addAttribute(attribute))
-//    this
-//  }
+  override def addAttribute(attribute: Attribute): this.type = {
+    flatten.foreach(_.addAttribute(attribute))
+    this
+  }
 
   def isReg: Boolean = flatten.foldLeft(true)(_ && _.isReg)
   def isComb: Boolean = flatten.foldLeft(true)(_ && _.isComb)
 
+  override def getRealSourceNoRec: Any = this
 
   /*private[core] */
 //  private[core] def initImpl(init: Data): this.type = {
@@ -541,6 +524,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   def getComponents() : Seq[Component] = if(component == null) Nil else (component.parents() ++ Seq(component))
 
   def genIf(cond : Boolean) : this.type = if(cond) this else null
+
 }
 
 //trait DataWrapper extends Data{

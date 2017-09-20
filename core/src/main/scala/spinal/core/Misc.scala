@@ -109,16 +109,16 @@ object Misc {
 
   val reflectExclusion = mutable.Set[Class[_]]()
 
-//  addReflectionExclusion(new Bundle())
-//  addReflectionExclusion(new Vec(Bool, Vector[Bool]()))
-  addReflectionExclusion(new Bool)
-  addReflectionExclusion(new Bits)
-//  addReflectionExclusion(new UInt)
-//  addReflectionExclusion(new SInt)
-  addReflectionExclusion(new Generic)
+  addReflectionExclusion(classOf[Bundle])
+  addReflectionExclusion(classOf[Vec])
+  addReflectionExclusion(classOf[Bool])
+  addReflectionExclusion(classOf[Bits])
+  addReflectionExclusion(classOf[UInt])
+  addReflectionExclusion(classOf[SInt])
+  addReflectionExclusion(classOf[Generic])
 //  addReflectionExclusion(new SpinalEnum)
 //  addReflectionExclusion(new SpinalEnumCraft(null))
-  addReflectionExclusion(new Area{})
+  addReflectionExclusion(classOf[Area])
 
 
 
@@ -215,21 +215,21 @@ object Misc {
 //  }
 }
 
-//@deprecated("Use cloneable instead")
-//object wrap{
-//  def apply[T <: Bundle](that : => T) : T = {
-//    val ret : T = that
-//    ret.cloneFunc = (() => that)
-//    ret
-//  }
-//}
-//object cloneable{
-//  def apply[T <: Bundle](that : => T) : T = {
-//    val ret : T = that
-//    ret.cloneFunc = (() => that)
-//    ret
-//  }
-//}
+@deprecated("Use cloneable instead")
+object wrap{
+  def apply[T <: Bundle](that : => T) : T = {
+    val ret : T = that
+    ret.cloneFunc = (() => that)
+    ret
+  }
+}
+object cloneable{
+  def apply[T <: Bundle](that : => T) : T = {
+    val ret : T = that
+    ret.cloneFunc = (() => that)
+    ret
+  }
+}
 
 class NamingScope(parent : NamingScope = null) {
   var lock = false

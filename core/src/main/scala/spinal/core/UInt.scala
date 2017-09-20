@@ -213,12 +213,12 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   override def apply(bitId: UInt): Bool = newExtract(bitId, new UIntBitAccessFloating)
   override def apply(offset: Int, bitCount: BitCount): this.type  = newExtract(offset+bitCount.value-1, offset, new UIntRangedAccessFixed).setWidth(bitCount.value)
   override def apply(offset: UInt, bitCount: BitCount): this.type = newExtract(offset, bitCount.value, new UIntRangedAccessFloating).setWidth(bitCount.value)
-//
-private[core] override def weakClone: this.type = new UInt().asInstanceOf[this.type]
+
+  private[core] override def weakClone: this.type = new UInt().asInstanceOf[this.type]
   override def getZero: this.type = U(0, this.getWidth bits).asInstanceOf[this.type]
   override def getZeroUnconstrained: this.type = U(0).asInstanceOf[this.type]
-//  protected override def getAllToBoolNode(): AllByBool = new Operator.UInt.AllByBool(this)
-//}
+  override def getAllTrue: this.type = U(maxValue, this.getWidth bits).asInstanceOf[this.type]
+}
 //
 //
 ///**
@@ -230,7 +230,7 @@ private[core] override def weakClone: this.type = new UInt().asInstanceOf[this.t
 //case class UInt2D(xBitCount: BitCount, yBitCount: BitCount) extends Bundle {
 //  val x = UInt(xBitCount)
 //  val y = UInt(yBitCount)
-}
+//}
 //
 //
 //object UInt2D{

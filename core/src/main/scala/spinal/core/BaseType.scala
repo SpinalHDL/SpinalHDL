@@ -27,13 +27,13 @@ trait TypeFactory{
 /**
   * Base type factory
   */
-trait BaseTypeFactory extends BoolFactory with BitsFactory with UIntFactory with SIntFactory /*with VecFactory with SFixFactory with UFixFactory*/
+trait BaseTypeFactory extends BoolFactory with BitsFactory with UIntFactory with SIntFactory with VecFactory with SFixFactory with UFixFactory
 
 
 /**
   *
   */
-trait BaseTypeCast /*extends SFixCast with UFixCast*/
+trait BaseTypeCast extends SFixCast with UFixCast
 
 
 //object BaseType {
@@ -289,7 +289,7 @@ abstract class BaseType extends Data with NameableExpression{
 //  }
 //
 //  // = (this.flatten, that.flatten).zipped.map((a, b) => a.isNotEguals(b)).reduceLeft(_ || _)
-//  private[core] override def autoConnect(that: Data): Unit = autoConnectBaseImpl(that)
+  private[core] override def autoConnect(that: Data): Unit = autoConnectBaseImpl(that)
 
   override def flatten: Seq[BaseType] = Seq(this)
 
@@ -398,6 +398,18 @@ abstract class BaseType extends Data with NameableExpression{
 //    assignementThrowable =that
 //  }
 
+
+  def muxList[T2 <: Data](mappings: Seq[(Any, T2)]): T2 = {
+    SpinalMap.list(this,mappings)
+  }
+
+  def muxList[T2 <: Data](defaultValue: T2, mappings: Seq[(Any, T2)]): T2 = {
+    SpinalMap.list(this, mappings :+ (spinal.core.default , defaultValue) )
+  }
+
+  def mux[T2 <: Data](mappings: (Any, T2)*): T2 = {
+    SpinalMap.list(this,mappings)
+  }
 
 
 }

@@ -899,93 +899,93 @@ object Mux {
 //  }
 }
 //
-//object Sel{
-//  def apply[T <: Data](default : T,mappings : (Bool,T)*) :T = seq(default,mappings)
-//  def seq[T <: Data](default : T,mappings : Seq[(Bool,T)]): T ={
-//    val result = cloneOf(default)
-//    result := default
-//    for((cond,value) <- mappings.reverseIterator){
-//      when(cond){
-//        result := value
-//      }
-//    }
-//    result
-//  }
-//}
-//
-//object SpinalMap {
-//  def apply[K <: Data, T <: Data](addr: K, mappings: (Any, T)*): T = list(addr,mappings)
-//
-//  def list[K <: Data, T <: Data](addr: K, mappings: Seq[(Any, T)]): T = {
-//    val result : T = weakCloneOf(mappings.head._2)
-//
-//    switch(addr){
-//      for ((cond, value) <- mappings) {
-//        cond match {
-//          case product: Product => {
-//            //  for(cond <- product.productIterator){
-//            is.list(product.productIterator) {
-//              result := value
-//            }
-//            //   }
-//          }
-//          case `default` => {
-//            default {
-//              result := value
-//            }
-//          }
-//          case _ => {
-//            is(cond) {
-//              result := value
-//            }
-//          }
-//        }
-//      }
-//    }
-//    result
-//  }
-//}
-//
-////TODO DOC
-//object Select{
-//  def apply[T <: Data](default: T, mappings: (Bool, T)*): T = list(default,mappings)
-//  def apply[T <: Data](mappings: (Any, T)*): T = list(mappings)
-//
-//  def list[ T <: Data]( defaultValue: T, mappings: Seq[(Bool, T)]): T = {
-//    val result : T = cloneOf(defaultValue)
-//
-//    var ptr : WhenContext = null
-//
-//    mappings.foreach{case (cond,that) => {
-//      if(ptr == null){
-//        ptr = when(cond){
-//          result := that
-//        }
-//      }else{
-//        ptr = ptr.elsewhen(cond){
-//          result := that
-//        }
-//      }
-//    }}
-//
-//    if(ptr == null){
-//      result := defaultValue
-//    }else{
-//      ptr.otherwise{
-//        result := defaultValue
-//      }
-//    }
-//    result
-//  }
-//
-//  def list[T <: Data](mappings: Seq[(Any, T)]): T = {
-//    val defaultValue = mappings.find(_._1 == default)
-//    if(!defaultValue.isDefined) new Exception("No default element in SpinalMap (default -> xxx)")
-//    val filterd = mappings.filter(_._1 != default).map(t => (t._1.asInstanceOf[Bool] -> t._2))
-//    list(defaultValue.get._2,filterd)
-//  }
-//}
-//
+object Sel{
+  def apply[T <: Data](default : T,mappings : (Bool,T)*) :T = seq(default,mappings)
+  def seq[T <: Data](default : T,mappings : Seq[(Bool,T)]): T ={
+    val result = cloneOf(default)
+    result := default
+    for((cond,value) <- mappings.reverseIterator){
+      when(cond){
+        result := value
+      }
+    }
+    result
+  }
+}
+
+object SpinalMap {
+  def apply[K <: BaseType, T <: Data](addr: K, mappings: (Any, T)*): T = list(addr,mappings)
+
+  def list[K <: BaseType, T <: Data](addr: K, mappings: Seq[(Any, T)]): T = {
+    val result : T = weakCloneOf(mappings.head._2)
+
+    switch(addr){
+      for ((cond, value) <- mappings) {
+        cond match {
+          case product: Product => {
+            //  for(cond <- product.productIterator){
+            is.list(product.productIterator) {
+              result := value
+            }
+            //   }
+          }
+          case `default` => {
+            default {
+              result := value
+            }
+          }
+          case _ => {
+            is(cond) {
+              result := value
+            }
+          }
+        }
+      }
+    }
+    result
+  }
+}
+
+//TODO DOC
+object Select{
+  def apply[T <: Data](default: T, mappings: (Bool, T)*): T = list(default,mappings)
+  def apply[T <: Data](mappings: (Any, T)*): T = list(mappings)
+
+  def list[ T <: Data]( defaultValue: T, mappings: Seq[(Bool, T)]): T = {
+    val result : T = cloneOf(defaultValue)
+
+    var ptr : WhenContext = null
+
+    mappings.foreach{case (cond,that) => {
+      if(ptr == null){
+        ptr = when(cond){
+          result := that
+        }
+      }else{
+        ptr = ptr.elsewhen(cond){
+          result := that
+        }
+      }
+    }}
+
+    if(ptr == null){
+      result := defaultValue
+    }else{
+      ptr.otherwise{
+        result := defaultValue
+      }
+    }
+    result
+  }
+
+  def list[T <: Data](mappings: Seq[(Any, T)]): T = {
+    val defaultValue = mappings.find(_._1 == default)
+    if(!defaultValue.isDefined) new Exception("No default element in SpinalMap (default -> xxx)")
+    val filterd = mappings.filter(_._1 != default).map(t => (t._1.asInstanceOf[Bool] -> t._2))
+    list(defaultValue.get._2,filterd)
+  }
+}
+
 private[spinal] object Multiplex {
 
   def baseType[T <: BaseType](sel: Bool, whenTrue: T, whenFalse: T): Multiplexer = {
@@ -1017,14 +1017,18 @@ private[spinal] object Multiplex {
     muxOut
   }
 }
+
+
 abstract class SubAccess extends Modifier{
 //  def finalTarget : NameableExpression
-//  def getBitVector: Expression
+  def getBitVector: Expression
 }
-//
+
 abstract class BitVectorBitAccessFixed extends SubAccess with ScalaLocated {
   var source : Expression with WidthProvider = null
   var bitId : Int = -1
+
+  override def getBitVector: Expression = source
 
   override def normalizeInputs: Unit = {
     if (bitId < 0 || bitId >= source.getWidth) {
@@ -1072,7 +1076,7 @@ class SIntBitAccessFixed extends BitVectorBitAccessFixed{
 abstract class BitVectorBitAccessFloating extends SubAccess with ScalaLocated {
   var source  : Expression with WidthProvider = null
   var bitId  : Expression with WidthProvider = null
-
+  override def getBitVector: Expression = source
 
   override def normalizeInputs: Unit = {
     if(source.getWidth == 0){
@@ -1137,6 +1141,7 @@ class SIntBitAccessFloating extends BitVectorBitAccessFloating{
 abstract class BitVectorRangedAccessFixed extends SubAccess with WidthProvider{
   var source : Expression with WidthProvider = null
   var hi, lo = -1
+  override def getBitVector: Expression = source
 
   override def normalizeInputs: Unit = {
     if (hi >= source.getWidth || lo < 0) {
@@ -1181,6 +1186,7 @@ abstract class BitVectorRangedAccessFloating extends SubAccess with WidthProvide
   var size    : Int = -1
   var source  : Expression with WidthProvider = null
   var offset  : Expression with WidthProvider = null
+  override def getBitVector: Expression = source
 
   override def getWidth: Int = size
 

@@ -120,19 +120,19 @@ trait IODirection extends BaseTypeFactory {
   def apply[T <: Data](data: T): T = applyIt(data)
   def apply[T <: Data](datas: T*): Unit = datas.foreach(applyIt(_))
 //  def apply(enum: SpinalEnum) = applyIt(enum.craft())
-//  def cloneOf[T <: Data](that: T): T = applyIt(spinal.core.cloneOf(that))
+  def cloneOf[T <: Data](that: T): T = applyIt(spinal.core.cloneOf(that))
   def apply(b : Int) = 10
   override def Bool = applyIt(super.Bool)
   override def Bits = applyIt(super.Bits)
-//  override def UInt = applyIt(super.UInt)
-//  override def SInt = applyIt(super.SInt)
-//  override def Vec[T <: Data](elements: TraversableOnce[T]): Vec[T] = applyIt(super.Vec(elements))
+  override def UInt = applyIt(super.UInt)
+  override def SInt = applyIt(super.SInt)
+  override def Vec[T <: Data](elements: TraversableOnce[T]): Vec[T] = applyIt(super.Vec(elements))
 
 
 
-  //  object Vec extends VecFactory {
-  //    override def apply[T <: Data](elements: TraversableOnce[T]): Vec[T] = applyIt(super.apply(elements))
-  //  }
+//  object Vec extends VecFactory {
+//    override def apply[T <: Data](elements: TraversableOnce[T]): Vec[T] = applyIt(super.apply(elements))
+//  }
 //  override def postTypeFactory[T <: Data](that: T): T = applyIt(that)
 }
 
@@ -319,6 +319,12 @@ trait Assignable {
   }
 
   private[core] def assignFromImpl(that: AnyRef, target : AnyRef, kind : AnyRef): Unit
+
+  def getRealSourceNoRec : Any
+  def getRealSource : Any = compositeAssign match {
+    case null => this.getRealSourceNoRec
+    case that => that.getRealSource
+  }
 }
 
 object OwnableRef{
@@ -796,6 +802,7 @@ class GlobalData {
   var algoIncrementale = 1
 
   def allocateAlgoIncrementale(): Int = {
+    assert(algoIncrementale != Integer.MAX_VALUE)
     algoIncrementale += 1
     return algoIncrementale - 1
   }

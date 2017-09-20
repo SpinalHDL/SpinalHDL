@@ -185,7 +185,7 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
 
   override def minValue: BigInt = -(BigInt(1) << (getWidth - 1))
   override def maxValue: BigInt =  (BigInt(1) << (getWidth - 1)) - 1
-  override def setAll(): Unit = this := (BigInt(1) << this.getWidth)-1
+  override def setAll(): Unit = this := (if(getWidth != 0) -1 else 0)
 
   override def apply(bitId: Int): Bool = newExtract(bitId, new SIntBitAccessFixed)
   override def apply(bitId: UInt): Bool = newExtract(bitId, new SIntBitAccessFloating)
@@ -195,4 +195,5 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
   private[core] override def weakClone: this.type = new SInt().asInstanceOf[this.type]
   override def getZero: this.type = S(0, this.getWidth bits).asInstanceOf[this.type]
   override def getZeroUnconstrained: this.type = S(0).asInstanceOf[this.type]
+  override def getAllTrue: this.type = S(if(getWidth != 0) -1 else 0, this.getWidth bits).asInstanceOf[this.type]
 }

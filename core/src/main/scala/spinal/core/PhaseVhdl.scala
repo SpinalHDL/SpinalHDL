@@ -235,7 +235,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
       val whenCondOccurences = mutable.HashMap[Expression, Int]()
 
 
-      def walker(statements : ArrayBuffer[LeafStatement], statementIndexInit : Int, scope : ScopeStatement): Int ={
+      def walker(statements : ArrayBuffer[LeafStatement], statementIndexInit : Int, scope : ScopeStatement, algoId : Int): Int ={
         var statementIndex = statementIndexInit
 
         while(statementIndex < statements.length){
@@ -258,37 +258,40 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
               return statementIndex
             }
             val treeStatement = scopePtr.parentStatement
-            treeStatement match {
-              case w : WhenStatement => {
-                if(!w.cond.isInstanceOf[NameableExpression]){
-                  val counter = whenCondOccurences.getOrElseUpdate(w.cond, 0)
-                  if(counter < 2){
-                    whenCondOccurences(w.cond) = counter + 1
+            if(treeStatement.algoIncrementale != algoId) {
+              treeStatement.algoIncrementale = algoId
+              treeStatement match {
+                case w: WhenStatement => {
+                  if (!w.cond.isInstanceOf[NameableExpression]) {
+                    val counter = whenCondOccurences.getOrElseUpdate(w.cond, 0)
+                    if (counter < 2) {
+                      whenCondOccurences(w.cond) = counter + 1
+                    }
                   }
                 }
-              }
-              case s : SwitchStatement => {
-                if(!s.value.isInstanceOf[NameableExpression]){
-                  val counter = whenCondOccurences.getOrElseUpdate(s.value, 0)
-                  if(counter < 2){
-                    whenCondOccurences(s.value) = counter + 1
+                case s: SwitchStatement => {
+                  if (!s.value.isInstanceOf[NameableExpression]) {
+                    val counter = whenCondOccurences.getOrElseUpdate(s.value, 0)
+                    if (counter < 2) {
+                      whenCondOccurences(s.value) = counter + 1
+                    }
                   }
                 }
               }
             }
-            statementIndex = walker(statements,statementIndex, scopePtr)
+            statementIndex = walker(statements,statementIndex, scopePtr, algoId)
           }
         }
         return statementIndex
       }
 
       for (process <- processes) {
-        walker(process.leafStatements, 0, process.scope)
+        walker(process.leafStatements, 0, process.scope, globalData.allocateAlgoIncrementale())
       }
 
       syncGroups.valuesIterator.foreach(group => {
-        walker(group.initStatements, 0, group.scope)
-        walker(group.dataStatements, 0, group.scope)
+        walker(group.initStatements, 0, group.scope, globalData.allocateAlgoIncrementale())
+        walker(group.dataStatements, 0, group.scope, globalData.allocateAlgoIncrementale())
       })
 
       for ((c, n) <- whenCondOccurences if n > 1) {
