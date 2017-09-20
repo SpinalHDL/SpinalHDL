@@ -126,8 +126,8 @@ case class SpiMasterCtrl(generics : SpiMasterCtrlGenerics) extends Component{
       }
 
       //Configs
-      bus.drive(config.kind, 8)
-      bus.drive(config.sclkToogle, 12)
+      bus.drive(config.kind, baseAddress +  8)
+      bus.drive(config.sclkToogle, baseAddress +  12)
       if(ssGen) new Bundle {
         bus.drive(config.ss.setup,   address = baseAddress + 16)
         bus.drive(config.ss.hold,    address = baseAddress + 20)
