@@ -103,7 +103,6 @@ case class I2cSlaveMemoryMappedGenerics(ctrlGenerics : I2cSlaveGenerics,
 case class I2cMasterMemoryMappedGenerics( timerWidth : Int)
 
 
-
 case class I2cSlaveIo(g : I2cSlaveGenerics) extends Bundle {
   val i2c = master(I2c())
   val config = in(I2cSlaveConfig(g))
@@ -113,9 +112,15 @@ case class I2cSlaveIo(g : I2cSlaveGenerics) extends Bundle {
     val sdaRead, sclRead = Bool
   })
 
-  def driveFrom(busCtrl: BusSlaveFactory, baseAddress: BigInt)(generics : I2cSlaveMemoryMappedGenerics) = new Area{
-    import generics._
+  def driveFrom(busCtrl: BusSlaveFactory, baseAddress: BigInt)(generics: I2cSlaveMemoryMappedGenerics) = I2cSlaveIo.driveFrom(this, busCtrl, baseAddress)(generics)
+}
 
+object I2cSlaveIo{
+  def driveFrom(io : I2cSlaveIo,busCtrl: BusSlaveFactory, baseAddress: BigInt)(generics : I2cSlaveMemoryMappedGenerics) = new Area{
+    import generics._
+    import io._
+
+    
     val busCtrlWithOffset = new BusSlaveFactoryAddressWrapper(busCtrl, baseAddress)
 
     val i2cBuffer = I2c()
@@ -160,12 +165,6 @@ case class I2cSlaveIo(g : I2cSlaveGenerics) extends Bundle {
     }
 
     val masterLogic = if(genMaster) new Area{
-      object State extends SpinalEnum{
-        val IDLE, BUSY, START, LOW, HIGH, STOP = newElement()
-      }
-      val state = Reg(State) init(State.IDLE)
-
-      busCtrlWithOffset.read(state =/= State.IDLE, 64, 0)
       val start = busCtrlWithOffset.createReadAndWrite(Bool, 64, 4) init(False)
       val stop = busCtrlWithOffset.createReadAndWrite(Bool, 64, 5) init(False)
       val drop = busCtrlWithOffset.createReadAndWrite(Bool, 64, 6) init(False)
@@ -178,12 +177,14 @@ case class I2cSlaveIo(g : I2cSlaveGenerics) extends Bundle {
         value := value - done.asUInt
       }
 
-     // val sclWrite, sdaWrite = True
+      // val sclWrite, sdaWrite = True
       val txReady = Bool //Say if the tx buffer is ready to continue
 
       val fsm = new StateMachine{
         val IDLE, BUSY, START, LOW, HIGH, RESTART, STOP1, STOP2, TBUF = new State
         setEntry(IDLE)
+
+        busCtrlWithOffset.read(this.isActive(IDLE), 64, 0)
 
         IDLE.onEntry{
           start := False
@@ -363,7 +364,6 @@ case class I2cSlaveIo(g : I2cSlaveGenerics) extends Bundle {
       wasntAck := False
     }
 
-
     when(bus.cmd.kind === I2cSlaveCmdMode.STOP || bus.cmd.kind === I2cSlaveCmdMode.DROP){
       txData.valid := True
       txData.enable := False
@@ -390,14 +390,14 @@ case class I2cSlaveIo(g : I2cSlaveGenerics) extends Bundle {
 
 
       val interrupt = (rxDataEnable && rxData.valid) || (rxAckEnable && rxAck.valid) ||
-                      (txDataEnable && !txData.valid) || (txAckEnable && !txAck.valid) ||
-                      (start.flag || restart.flag || end.flag || drop.flag)
+        (txDataEnable && !txData.valid) || (txAckEnable && !txAck.valid) ||
+        (start.flag || restart.flag || end.flag || drop.flag)
 
-//      val master = if(genMaster) new Area{
-//        val onBusEnable = busCtrlWithOffset.createReadAndWrite(Bool, address = 32, bitOffset = 16)
-//        val onBusEnable = busCtrlWithOffset.createReadAndWrite(Bool, address = 32, bitOffset = 16)
-//
-//      } else null
+      //      val master = if(genMaster) new Area{
+      //        val onBusEnable = busCtrlWithOffset.createReadAndWrite(Bool, address = 32, bitOffset = 16)
+      //        val onBusEnable = busCtrlWithOffset.createReadAndWrite(Bool, address = 32, bitOffset = 16)
+      //
+      //      } else null
     }
 
 
