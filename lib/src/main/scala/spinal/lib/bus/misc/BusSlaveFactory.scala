@@ -528,7 +528,7 @@ trait BusSlaveFactoryDelayed extends BusSlaveFactory{
 
 
 
-class BusSlaveFactoryAddressWrapper(f: BusSlaveFactory, addressOffset: Int) extends BusSlaveFactory {
+class BusSlaveFactoryAddressWrapper(f: BusSlaveFactory, addressOffset: BigInt) extends BusSlaveFactory {
   override def busDataWidth: Int = f.busDataWidth
   override def read(that: Data, address: BigInt, bitOffset: Int): Unit = f.read(that, address + addressOffset, bitOffset)
   override def write[T <: Data](that: T, address: BigInt, bitOffset: Int): T = f.write(that, address + addressOffset, bitOffset)

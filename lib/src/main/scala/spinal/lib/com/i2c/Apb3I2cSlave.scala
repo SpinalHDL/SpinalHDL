@@ -15,13 +15,16 @@ object Apb3I2cSlave{
 
 
   def main(args: Array[String]) {
-    SpinalVhdl(
+    SpinalVerilog(
       new Apb3I2cSlave(
         I2cSlaveMemoryMappedGenerics(
-          I2cSlaveGenerics(
+          ctrlGenerics = I2cSlaveGenerics(
             samplingWindowSize = 3,
             samplingClockDividerWidth = 10 bits,
             timeoutWidth = 20 bits
+          ),
+          masterGenerics = I2cMasterMemoryMappedGenerics(
+            timerWidth = 12
           )
         )
       ).setDefinitionName("TopLevel")
@@ -38,10 +41,10 @@ case class Apb3I2cSlave(generics : I2cSlaveMemoryMappedGenerics) extends Compone
   }
 
   val i2cCtrl = new I2cSlave(generics.ctrlGenerics)
-  io.i2c <> i2cCtrl.io.i2c
 
   val busCtrl = Apb3SlaveFactory(io.apb)
   val bridge = i2cCtrl.io.driveFrom(busCtrl,0)(generics)
+  io.i2c <> bridge.i2cBuffer
   io.interrupt := bridge.interruptCtrl.interrupt
 }
 
