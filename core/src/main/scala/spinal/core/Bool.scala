@@ -196,16 +196,16 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
   /** Conditional operation for Data value */
   def ?[T <: Data](whenTrue: T) = MuxBuilder(whenTrue)
 
-//  /**
-//    * Class used to write conditional operation on Enumeration value
-//    * @example {{{ val res = myBool ? myEnum1 | myEnum2 }}}
-//    * @note implicit conversion is used to send SpinalEnumElement
-//    */
-//  case class MuxBuilderEnum[T <: SpinalEnum](whenTrue: SpinalEnumCraft[T]){
-//    def |(whenFalse: SpinalEnumCraft[T]): SpinalEnumCraft[T]   = Mux(Bool.this, whenTrue, whenFalse)
-//  }
-//
-//  /** Conditional operation for Enumeration value */
-//  def ?[T <: SpinalEnum](whenTrue: SpinalEnumCraft[T])   = MuxBuilderEnum(whenTrue)
+  /**
+    * Class used to write conditional operation on Enumeration value
+    * @example {{{ val res = myBool ? myEnum1 | myEnum2 }}}
+    * @note implicit conversion is used to send SpinalEnumElement
+    */
+  case class MuxBuilderEnum[T <: SpinalEnum](whenTrue: SpinalEnumCraft[T]){
+    def |(whenFalse: SpinalEnumCraft[T]): SpinalEnumCraft[T]   = Mux(Bool.this, whenTrue, whenFalse)
+  }
+
+  /** Conditional operation for Enumeration value */
+  def ?[T <: SpinalEnum](whenTrue: SpinalEnumCraft[T])   = MuxBuilderEnum(whenTrue)
 
 }

@@ -714,29 +714,30 @@ object Operator{
 //      override def opName: String = "sAllByB"
 //    }
   }
-//
-//  object Enum{
-//    class Equal(enumDef : SpinalEnum) extends BinaryOperator with InferableEnumEncodingImpl{
-//      override def opName: String = "e==e"
-//      override def normalizeInputs: Unit = {InputNormalize.enumImpl(this)}
-//      override def simplifyNode: Unit = {}
-//
-//      override type T = Node with EnumEncoded
-//      override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
-//      override def getDefinition: SpinalEnum = enumDef
-//    }
-//
-//    class NotEqual(enumDef : SpinalEnum) extends BinaryOperator with InferableEnumEncodingImpl{
-//      override def opName: String = "e!=e"
-//      override def normalizeInputs: Unit = {InputNormalize.enumImpl(this)}
-//      override def simplifyNode: Unit = {}
-//
-//      override type T = Node with EnumEncoded
-//      override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
-//      override def getDefinition: SpinalEnum = enumDef
-//    }
-//
-//  }
+
+  object Enum{
+    class Equal(enumDef : SpinalEnum) extends BinaryOperator with InferableEnumEncodingImpl{
+      override def getTypeObject: Any = TypeEnum
+
+      override def opName: String = "e==e"
+      override def normalizeInputs: Unit = {InputNormalize.enumImpl(this)}
+
+      override type T = Expression with EnumEncoded
+      override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
+      override def getDefinition: SpinalEnum = enumDef
+    }
+
+    class NotEqual(enumDef : SpinalEnum) extends BinaryOperator with InferableEnumEncodingImpl{
+      override def getTypeObject: Any = TypeEnum
+      override def opName: String = "e!=e"
+      override def normalizeInputs: Unit = {InputNormalize.enumImpl(this)}
+
+      override type T = Expression with EnumEncoded
+      override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
+      override def getDefinition: SpinalEnum = enumDef
+    }
+
+  }
 }
 //
 //
@@ -796,27 +797,35 @@ class CastBoolToBits extends Cast with Widthable{
   override def opName: String = "B->b"
   override private[core] def calcWidth: Int = 1
 }
-//
-//class CastEnumToBits extends Cast with Widthable{
-//  override type T <: Node with EnumEncoded
-//  override def opName: String = "e->b"
-//  override private[core] def calcWidth: Int = input.getEncoding.getWidth(input.getDefinition)
-//}
-//class CastBitsToEnum(val enumDef: SpinalEnum) extends Cast with InferableEnumEncodingImpl with CheckWidth{
-//  override type T <: Node with WidthProvider
-//  override def opName: String = "b->e"
-//  override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
-//  override def getDefinition: SpinalEnum = enumDef
-//  override private[core] def checkInferedWidth: Unit = if(input.getWidth !=  getEncoding.getWidth(enumDef))
-//    PendingError(s"$input has ${input.getWidth} bits in place of ${getEncoding.getWidth(enumDef)} bits at ${input.getScalaLocationLong}")
-//}
-//class CastEnumToEnum(enumDef: SpinalEnum) extends Cast with  InferableEnumEncodingImpl{
-//  override type T <: Node with EnumEncoded
-//  override def opName: String = "e->e"
-//
-//  override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
-//  override def getDefinition: SpinalEnum = enumDef
-//}
+
+class CastEnumToBits extends Cast with Widthable{
+  override type T <: Expression with EnumEncoded
+  override def opName: String = "e->b"
+  override private[core] def calcWidth: Int = input.getEncoding.getWidth(input.getDefinition)
+  override def getTypeObject: Any = TypeBits
+}
+
+class CastBitsToEnum(val enumDef: SpinalEnum) extends Cast with InferableEnumEncodingImpl{
+  override type T <: Expression with WidthProvider
+  override def opName: String = "b->e"
+  override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
+  override def getDefinition: SpinalEnum = enumDef
+
+  override def normalizeInputs: Unit = {
+    input = InputNormalize.resizedOrUnfixedLit(input, getEncoding.getWidth(enumDef), new ResizeBits, this, this).asInstanceOf[T]
+  }
+
+  override def getTypeObject: Any = TypeEnum
+}
+
+class CastEnumToEnum(enumDef: SpinalEnum) extends Cast with  InferableEnumEncodingImpl{
+  override type T <: Expression with EnumEncoded
+  override def opName: String = "e->e"
+
+  override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
+  override def getDefinition: SpinalEnum = enumDef
+  override def getTypeObject: Any = TypeEnum
+}
 
 
 
@@ -874,31 +883,32 @@ class MultiplexerSInt extends MultiplexedWidthable{
     whenFalse = InputNormalize.resize(whenFalse, targetWidth, new ResizeSInt)
   }
 }
-//class MultiplexerEnum(enumDef : SpinalEnum) extends Multiplexer with InferableEnumEncodingImpl{
-//  override type T = Node with EnumEncoded
-//  override def opName: String = "mux(B,e,e)"
-//  override def getDefinition: SpinalEnum = enumDef
-//  override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
-//  override private[core] def normalizeInputs: Unit = {
-//    InputNormalize.enumImpl(this)
-//  }
-//}
+class MultiplexerEnum(enumDef : SpinalEnum) extends Multiplexer with InferableEnumEncodingImpl{
+  override type T = Expression with EnumEncoded
+  override def opName: String = "mux(B,e,e)"
+  override def getDefinition: SpinalEnum = enumDef
+  override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
+  override def normalizeInputs: Unit = {
+    InputNormalize.enumImpl(this)
+  }
+  override def getTypeObject: Any = TypeEnum
+}
 
 object Mux {
   def apply[T <: Data](sel: Bool, whenTrue: T, whenFalse: T): T = {
     Multiplex.complexData(sel, whenTrue, whenFalse)
   }
-//  def apply[T <: SpinalEnum](sel: Bool, whenTrue: SpinalEnumElement[T], whenFalse: SpinalEnumElement[T]): SpinalEnumCraft[T] = {
-//    Multiplex.complexData(sel, whenTrue(), whenFalse())
-//  }
-//  def apply[T <: SpinalEnum](sel: Bool, whenTrue: SpinalEnumCraft[T], whenFalse: SpinalEnumElement[T]): SpinalEnumCraft[T] = {
-//    Multiplex.complexData(sel, whenTrue, whenFalse())
-//  }
-//  def apply[T <: SpinalEnum](sel: Bool, whenTrue: SpinalEnumElement[T], whenFalse: SpinalEnumCraft[T]): SpinalEnumCraft[T] = {
-//    Multiplex.complexData(sel, whenTrue(), whenFalse)
-//  }
+  def apply[T <: SpinalEnum](sel: Bool, whenTrue: SpinalEnumElement[T], whenFalse: SpinalEnumElement[T]): SpinalEnumCraft[T] = {
+    Multiplex.complexData(sel, whenTrue(), whenFalse())
+  }
+  def apply[T <: SpinalEnum](sel: Bool, whenTrue: SpinalEnumCraft[T], whenFalse: SpinalEnumElement[T]): SpinalEnumCraft[T] = {
+    Multiplex.complexData(sel, whenTrue, whenFalse())
+  }
+  def apply[T <: SpinalEnum](sel: Bool, whenTrue: SpinalEnumElement[T], whenFalse: SpinalEnumCraft[T]): SpinalEnumCraft[T] = {
+    Multiplex.complexData(sel, whenTrue(), whenFalse)
+  }
 }
-//
+
 object Sel{
   def apply[T <: Data](default : T,mappings : (Bool,T)*) :T = seq(default,mappings)
   def seq[T <: Data](default : T,mappings : Seq[(Bool,T)]): T ={

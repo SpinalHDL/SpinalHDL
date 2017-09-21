@@ -22,14 +22,14 @@ package object core extends BaseTypeFactory with BaseTypeCast {
 //  def enum(param: Symbol*): Any = macro MacroTest.enum_impl
   //def enum(param: Symbol*) = MacroTest.enum(param)
 
-//  implicit def EnumEtoEnumE2[T <: SpinalEnum,T2 <: T](element : SpinalEnumElement[T2])  = element.asInstanceOf[SpinalEnumElement[T]]
-//  implicit def EnumCtoEnumC2[T <: SpinalEnum,T2 <: T](craft : SpinalEnumCraft[T2])  = craft.asInstanceOf[SpinalEnumCraft[T]]
-//
-//  implicit def EnumEtoEnumE3[T <: SpinalEnum,T2 <: T](element : SpinalEnumElement[T])  = element.asInstanceOf[SpinalEnumElement[T2]]
-//  implicit def EnumCtoEnumC3[T <: SpinalEnum,T2 <: T](craft : SpinalEnumCraft[T])  = craft.asInstanceOf[SpinalEnumCraft[T2]]
+  implicit def EnumEtoEnumE2[T <: SpinalEnum,T2 <: T](element : SpinalEnumElement[T2])  = element.asInstanceOf[SpinalEnumElement[T]]
+  implicit def EnumCtoEnumC2[T <: SpinalEnum,T2 <: T](craft : SpinalEnumCraft[T2])  = craft.asInstanceOf[SpinalEnumCraft[T]]
+
+  implicit def EnumEtoEnumE3[T <: SpinalEnum,T2 <: T](element : SpinalEnumElement[T])  = element.asInstanceOf[SpinalEnumElement[T2]]
+  implicit def EnumCtoEnumC3[T <: SpinalEnum,T2 <: T](craft : SpinalEnumCraft[T])  = craft.asInstanceOf[SpinalEnumCraft[T2]]
 
 
-//  implicit def EnumElementToCraft[T <: SpinalEnum](element: SpinalEnumElement[T]): SpinalEnumCraft[T] = element()
+  implicit def EnumElementToCraft[T <: SpinalEnum](element: SpinalEnumElement[T]): SpinalEnumCraft[T] = element()
   //  implicit def EnumElementToCraft[T <: SpinalEnum](enumDef : T) : SpinalEnumCraft[T] = enumDef.craft().asInstanceOf[SpinalEnumCraft[T]]
   //  implicit def EnumElementToCraft2[T <: SpinalEnum](enumDef : SpinalEnumElement[T]) : SpinalEnumCraft[T] = enumDef.craft().asInstanceOf[SpinalEnumCraft[T]]
 

@@ -82,7 +82,7 @@ class Bundle extends MultiData with Nameable with OverridedEqualsHashCode {
             PendingError(s"Bundle assignement is not complete. $this need '$name' but $that doesn't provide it.\n$trace ")
           }
           else
-            element.compositAssignFrom(that,target,kind)
+            element.compositAssignFrom(other,element,kind)
         }
       }
       case _ => throw new Exception("Undefined assignment")

@@ -295,22 +295,18 @@ object InputNormalize {
 //
 //  }
 //
-//  def enumImpl(node : Node with EnumEncoded) : Unit = {
-//    node.onEachInput((input,id) => input match{
-//      case input : Node with EnumEncoded => {
-//        if(node.getEncoding != input.getEncoding){
-//          Component.push(input.component)
-//          val cast = new CastEnumToEnum(node.getDefinition)
-//          cast.input = input.asInstanceOf[cast.T]
-//          node.setInput(id,cast)
-//          cast.fixEncoding(node.getEncoding)
-//          Component.pop(input.component)
-//        }
-//      }
-//      case _ =>
-//    })
-//  }
-//
+  def enumImpl(node : Expression with EnumEncoded) : Unit = {
+    node.remapExpressions(input => input match {
+      case input : Expression with EnumEncoded if node.getEncoding != input.getEncoding => {
+        val cast = new CastEnumToEnum(node.getDefinition)
+        cast.input = input.asInstanceOf[cast.T]
+        cast.fixEncoding(node.getEncoding)
+        cast
+      }
+      case _ => input
+    })
+  }
+
 //  def resizedOrUnfixedLit(node : Expression): Unit ={
 //    val targetWidth = node.asInstanceOf[WidthProvider].getWidth
 //    node.remapExpressions(e => resizedOrUnfixedLit(e, targetWidth,))
@@ -618,91 +614,91 @@ trait Widthable extends WidthProvider{
     }
   }
 }
-//
-//trait EnumEncoded{
-//  def getEncoding : SpinalEnumEncoding
-//  def propagateEncoding = false
-//  def getDefinition : SpinalEnum
-//  //Only used in the inferation phase
-//  def swapEncoding(encoding : SpinalEnumEncoding)
-//}
-//
-//trait InferableEnumEncoding{
-//  private[core] def encodingProposal(e : SpinalEnumEncoding) : Boolean
-//  def bootInferration() : Unit
-//}
-//
-//
-//
-//trait InferableEnumEncodingImplChoice
-//object InferableEnumEncodingImplChoiceUndone      extends InferableEnumEncodingImplChoice
-//object InferableEnumEncodingImplChoiceFixed       extends InferableEnumEncodingImplChoice
-//object InferableEnumEncodingImplChoiceAnticipated extends InferableEnumEncodingImplChoice
-//object InferableEnumEncodingImplChoiceInferred    extends InferableEnumEncodingImplChoice
-//
-//trait InferableEnumEncodingImpl extends EnumEncoded  with InferableEnumEncoding with ContextUser with ScalaLocated{
-//  private[core] var encodingChoice : InferableEnumEncodingImplChoice = InferableEnumEncodingImplChoiceUndone
-//  private[core] var encoding  : SpinalEnumEncoding = null
-//
-//  override def swapEncoding(encoding: SpinalEnumEncoding): Unit = this.encoding = encoding
-//
-//  override def propagateEncoding = encodingChoice == InferableEnumEncodingImplChoiceFixed
-//  override def bootInferration(): Unit = {
-//    if(encodingChoice == InferableEnumEncodingImplChoiceUndone){
-//      encodingChoice = InferableEnumEncodingImplChoiceInferred
-//      encoding = getDefaultEncoding()
-//    }
-//  }
-//
-//  private[core] def getDefaultEncoding() : SpinalEnumEncoding
-//  def fixEncoding(e : SpinalEnumEncoding) : Unit = {
-//    encoding = e
-//    encodingChoice = InferableEnumEncodingImplChoiceFixed
-//  }
-//  def copyEncodingConfig(that : InferableEnumEncodingImpl) : Unit = {
-//    this.encoding       = that.encoding
-//    this.encodingChoice = that.encodingChoice
-//  }
-//
-//  private[core] override def encodingProposal(e : SpinalEnumEncoding) : Boolean = {
-//    def takeIt: Boolean ={
-//      if(encoding != e) {
-//        encoding = e
-//        encodingChoice = InferableEnumEncodingImplChoiceInferred
-//        true
-//      }else{
-//        false
-//      }
-//    }
-//
-//    encodingChoice match {
-//      case `InferableEnumEncodingImplChoiceUndone`   => takeIt
-//      case `InferableEnumEncodingImplChoiceInferred` => takeIt
-//      case `InferableEnumEncodingImplChoiceAnticipated` => {
-//        if(encoding != e){
-//          globalData.pendingErrors += (() => (s"$this encoding has change between the elaboration phase and the compilation phase\n${this.getScalaLocationLong}"))
-//        }
-//        false
-//      }
-//      case `InferableEnumEncodingImplChoiceFixed` => false
-//    }
-//  }
-//
-//  override def getEncoding: SpinalEnumEncoding = {
-//    if (globalData.nodeAreInferringEnumEncoding) {
-//      encoding
-//    } else {
-//      if(encodingChoice == InferableEnumEncodingImplChoiceUndone){
-//        encoding = getDefaultEncoding
-//        encodingChoice = InferableEnumEncodingImplChoiceAnticipated
-//      }
-//      encoding
-//    }
-//  }
-//}
-//
-//
-//
+
+trait EnumEncoded{
+  def getEncoding : SpinalEnumEncoding
+  def propagateEncoding = false
+  def getDefinition : SpinalEnum
+  //Only used in the inferation phase
+  def swapEncoding(encoding : SpinalEnumEncoding)
+}
+
+trait InferableEnumEncoding{
+  private[core] def encodingProposal(e : SpinalEnumEncoding) : Boolean
+  def bootInferration() : Unit
+}
+
+
+
+trait InferableEnumEncodingImplChoice
+object InferableEnumEncodingImplChoiceUndone      extends InferableEnumEncodingImplChoice
+object InferableEnumEncodingImplChoiceFixed       extends InferableEnumEncodingImplChoice
+object InferableEnumEncodingImplChoiceAnticipated extends InferableEnumEncodingImplChoice
+object InferableEnumEncodingImplChoiceInferred    extends InferableEnumEncodingImplChoice
+
+trait InferableEnumEncodingImpl extends EnumEncoded  with InferableEnumEncoding with ContextUser with ScalaLocated{
+  private[core] var encodingChoice : InferableEnumEncodingImplChoice = InferableEnumEncodingImplChoiceUndone
+  private[core] var encoding  : SpinalEnumEncoding = null
+
+  override def swapEncoding(encoding: SpinalEnumEncoding): Unit = this.encoding = encoding
+
+  override def propagateEncoding = encodingChoice == InferableEnumEncodingImplChoiceFixed
+  override def bootInferration(): Unit = {
+    if(encodingChoice == InferableEnumEncodingImplChoiceUndone){
+      encodingChoice = InferableEnumEncodingImplChoiceInferred
+      encoding = getDefaultEncoding()
+    }
+  }
+
+  private[core] def getDefaultEncoding() : SpinalEnumEncoding
+  def fixEncoding(e : SpinalEnumEncoding) : Unit = {
+    encoding = e
+    encodingChoice = InferableEnumEncodingImplChoiceFixed
+  }
+  def copyEncodingConfig(that : InferableEnumEncodingImpl) : Unit = {
+    this.encoding       = that.encoding
+    this.encodingChoice = that.encodingChoice
+  }
+
+  private[core] override def encodingProposal(e : SpinalEnumEncoding) : Boolean = {
+    def takeIt: Boolean ={
+      if(encoding != e) {
+        encoding = e
+        encodingChoice = InferableEnumEncodingImplChoiceInferred
+        true
+      }else{
+        false
+      }
+    }
+
+    encodingChoice match {
+      case `InferableEnumEncodingImplChoiceUndone`   => takeIt
+      case `InferableEnumEncodingImplChoiceInferred` => takeIt
+      case `InferableEnumEncodingImplChoiceAnticipated` => {
+        if(encoding != e){
+          globalData.pendingErrors += (() => (s"$this encoding has change between the elaboration phase and the compilation phase\n${this.getScalaLocationLong}"))
+        }
+        false
+      }
+      case `InferableEnumEncodingImplChoiceFixed` => false
+    }
+  }
+
+  override def getEncoding: SpinalEnumEncoding = {
+    if (globalData.nodeAreInferringEnumEncoding) {
+      encoding
+    } else {
+      if(encodingChoice == InferableEnumEncodingImplChoiceUndone){
+        encoding = getDefaultEncoding
+        encodingChoice = InferableEnumEncodingImplChoiceAnticipated
+      }
+      encoding
+    }
+  }
+}
+
+
+
 //abstract class Node extends ContextUser with ScalaLocated with SpinalTagReady with GlobalDataUser {
 //  globalData.netlistUpdate()
 //  val consumers = new ArrayBuffer[Node](4)

@@ -18,6 +18,15 @@ object PlayBits{
     val x,y,z = out( Reg(Bits(8 bits)))
 
     val bits4 = Bits(4 bits)
+
+    class Struct extends Bundle{
+      val a,b,c = Bits(32 bits)
+    }
+
+    val structA, structB = new Struct
+
+    structA.a := 1
+    structB := structA
 //    val tmp = a & b & c
 //    val xx = g & a
 //    i := h

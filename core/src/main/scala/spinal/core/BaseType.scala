@@ -320,7 +320,7 @@ abstract class BaseType extends Data with NameableExpression{
   }
 
   private[core] def newMultiplexer(sel: Bool, whenTrue: Expression, whenFalse: Expression): Multiplexer
-  private[core] def newMultiplexer(cond: Expression, whenTrue: Expression, whenFalse: Expression, mux: Multiplexer): Multiplexer = {
+  final private[core] def newMultiplexer(cond: Expression, whenTrue: Expression, whenFalse: Expression, mux: Multiplexer): Multiplexer = {
     mux.cond      = cond
     mux.whenTrue  = whenTrue.asInstanceOf[mux.T]
     mux.whenFalse = whenFalse.asInstanceOf[mux.T]

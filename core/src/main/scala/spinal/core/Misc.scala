@@ -110,14 +110,14 @@ object Misc {
   val reflectExclusion = mutable.Set[Class[_]]()
 
   addReflectionExclusion(classOf[Bundle])
-  addReflectionExclusion(classOf[Vec])
+  addReflectionExclusion(classOf[Vec[_]])
   addReflectionExclusion(classOf[Bool])
   addReflectionExclusion(classOf[Bits])
   addReflectionExclusion(classOf[UInt])
   addReflectionExclusion(classOf[SInt])
   addReflectionExclusion(classOf[Generic])
-//  addReflectionExclusion(new SpinalEnum)
-//  addReflectionExclusion(new SpinalEnumCraft(null))
+  addReflectionExclusion(classOf[SpinalEnum])
+  addReflectionExclusion(classOf[SpinalEnumCraft[_]])
   addReflectionExclusion(classOf[Area])
 
 
