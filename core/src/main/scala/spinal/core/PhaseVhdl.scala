@@ -1841,17 +1841,17 @@ def refImpl(op: Expression): String = emitReference(op.asInstanceOf[NameableExpr
 
   def emitBitsLiteral(e : Expression) : String = {
     val lit = e.asInstanceOf[BitsLiteral]
-    s"pkg_stdLogicVector(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
+    s"pkg_stdLogicVector(${'\"'}${lit.getBitsStringOn(lit.getWidth, 'X')}${'\"'})"
   }
 
   def emitUIntLiteral(e : Expression) : String = {
     val lit = e.asInstanceOf[BitsLiteral]
-    s"pkg_unsigned(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
+    s"pkg_unsigned(${'\"'}${lit.getBitsStringOn(lit.getWidth, 'X')}${'\"'})"
   }
 
   def emitSIntLiteral(e : Expression) : String = {
     val lit = e.asInstanceOf[BitsLiteral]
-    s"pkg_signed(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
+    s"pkg_signed(${'\"'}${lit.getBitsStringOn(lit.getWidth, 'X')}${'\"'})"
   }
 
   def emitEnumLiteralWrap(e : Expression) : String = {
@@ -1909,6 +1909,15 @@ def refImpl(op: Expression): String = emitReference(op.asInstanceOf[NameableExpr
     }
   }
 
+
+  def emitEnumPoison(e : Expression) : String = {
+    val dc = e.asInstanceOf[EnumPoison]
+    if(dc.encoding.isNative)
+      enumPackageName + "." + dc.enum.elements.head.getName()
+    else
+      s"(${'"'}${"X" * dc.encoding.getWidth(dc.enum)}${'"'})"
+  }
+
 //  def unaryAllBy(cast : String)(func: Modifier): String = {
 //    val node = func.asInstanceOf[Operator.BitVector.AllByBool]
 //    s"${cast}'(${node.getWidth-1} downto 0 => ${emitLogic(node.input)})"
@@ -1937,6 +1946,10 @@ def refImpl(op: Expression): String = emitReference(op.asInstanceOf[NameableExpr
   expressionMapAdd(classOf[UIntLiteral], emitUIntLiteral)
   expressionMapAdd(classOf[SIntLiteral], emitSIntLiteral)
   expressionMapAdd(classOf[EnumLiteral[_]], emitEnumLiteralWrap)
+
+
+  expressionMapAdd(classOf[BoolPoison], e => "'X'")
+  expressionMapAdd(classOf[EnumPoison], emitEnumPoison)
 
   //unsigned
   expressionMapAdd(classOf[Operator.UInt.Add], operatorImplAsBinaryOperator("+"))

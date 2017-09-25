@@ -44,9 +44,6 @@ trait BoolFactory {
   * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Bool Bool Documentation]]
   */
 class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
-
-//  override def getBitsWidth: Int = 1
-
   override def getTypeObject = TypeBool
   override def getBitsWidth: Int = 1
 
@@ -207,5 +204,10 @@ class Bool extends BaseType with DataPrimitives[Bool] with BitwiseOp[Bool]{
 
   /** Conditional operation for Enumeration value */
   def ?[T <: SpinalEnum](whenTrue: SpinalEnumCraft[T])   = MuxBuilderEnum(whenTrue)
+
+  override def assignDontCare(): this.type = {
+    this.assignFrom(new BoolPoison())
+    this
+  }
 
 }

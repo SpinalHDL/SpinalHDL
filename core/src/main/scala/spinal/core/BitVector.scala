@@ -357,10 +357,6 @@ abstract class BitVector extends BaseType with Widthable /*with CheckWidth*/ {
 //
   def getWidthStringNoInferation: String = if (getWidthNoInferation == -1 ) "?" else getWidthNoInferation.toString
 
-//  override def assignDontCare(): this.type = {
-//    this.assignFrom(new DontCareNodeInfered(this), false)
-//    this
-//  }
-//
+
   override def toString(): String = s"(${component.getPath() + "/" + this.getDisplayName()} : $getClassIdentifier[$getWidthStringNoInferation bits])"
 }

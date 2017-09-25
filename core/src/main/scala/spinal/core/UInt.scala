@@ -218,6 +218,11 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
   override def getZero: this.type = U(0, this.getWidth bits).asInstanceOf[this.type]
   override def getZeroUnconstrained: this.type = U(0).asInstanceOf[this.type]
   override def getAllTrue: this.type = U(maxValue, this.getWidth bits).asInstanceOf[this.type]
+
+  override def assignDontCare(): this.type = {
+    this.assignFrom(UIntLiteral(BigInt(0), (BigInt(1) << this.getWidth)-1, widthOf(this)))
+    this
+  }
 }
 //
 //

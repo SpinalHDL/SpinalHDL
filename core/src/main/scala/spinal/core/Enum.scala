@@ -200,10 +200,10 @@ class SpinalEnumCraft[T <: SpinalEnum](val spinalEnum: T/*, encoding: SpinalEnum
     InputNormalize.enumImpl(this)
   }
 
-//  override def assignDontCare(): this.type = {
-//    this.assignFrom(new DontCareNodeEnum(spinalEnum))
-//    this
-//  }
+  override def assignDontCare(): this.type = {
+    this.assignFrom(new EnumPoison(spinalEnum))
+    this
+  }
 }
 
 
@@ -225,7 +225,7 @@ class EnumLiteral[T <: SpinalEnum](val enum: SpinalEnumElement[T]) extends Liter
 
   override def getValue(): BigInt = encoding.getValue(enum)
 
-  private[core] override def getBitsStringOn(bitCount: Int): String = {
+  private[core] override def getBitsStringOn(bitCount: Int, poisonSymbol : Char): String = {
     val str = encoding.getValue(enum).toString(2)
     "0" * (bitCount - str.length) + str
   }
@@ -233,6 +233,31 @@ class EnumLiteral[T <: SpinalEnum](val enum: SpinalEnumElement[T]) extends Liter
   override def getDefinition: SpinalEnum = enum.spinalEnum
 
   private[core] override def getDefaultEncoding(): SpinalEnumEncoding = enum.spinalEnum.defaultEncoding
+}
+
+
+class EnumPoison(val enum: SpinalEnum) extends Literal with InferableEnumEncodingImpl {
+  override def getTypeObject: Any = TypeEnum
+
+  override def opName: String = "E?"
+
+  override def clone: this.type = {
+    val ret = new EnumPoison(enum).asInstanceOf[this.type]
+    ret.copyEncodingConfig(this)
+    ret
+  }
+
+
+  override def getValue(): BigInt = throw new Exception("EnumPoison has no value")
+
+  private[core] override def getBitsStringOn(bitCount: Int, poisonSymbol : Char): String = {
+    val str = poisonSymbol.toString * encoding.getWidth(enum)
+    "0" * (bitCount - str.length) + str
+  }
+
+  override def getDefinition: SpinalEnum = enum
+
+  private[core] override def getDefaultEncoding(): SpinalEnumEncoding = enum.defaultEncoding
 }
 
 

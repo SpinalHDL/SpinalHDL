@@ -17,6 +17,10 @@
 // */
 //
 package spinal.core
+
+import scala.StringBuilder
+import scala.collection.mutable
+
 //
 ///**
 // * Created by PIC18F on 21.08.2014.
@@ -139,7 +143,7 @@ trait Literal extends Expression {
   override def clone: this.type = ???
   final override def foreachExpression(func: (Expression) => Unit): Unit = {}
   final override def remapExpressions(func: (Expression) => Expression): Unit = {}
-  private[core] def getBitsStringOn(bitCount : Int) : String
+  private[core] def getBitsStringOn(bitCount : Int, poisonSymbol : Char) : String
   def getValue() : BigInt
 
 
@@ -147,67 +151,97 @@ trait Literal extends Expression {
 }
 
 object BitsLiteral {
-  def apply(value: BigInt, specifiedBitCount: Int): BitsLiteral = {
+  def apply(value: BigInt, poisonMask : BigInt, specifiedBitCount: Int): BitsLiteral = {
     val valueBitCount = value.bitLength
+    val poisonBitCount = if(poisonMask != null) poisonMask.bitLength else 0
+    val minimalWidth = Math.max(poisonBitCount,valueBitCount)
     var bitCount = specifiedBitCount
     if (value < 0) throw new Exception("literal value is negative and can be represented")
     if (bitCount != -1) {
-      if (valueBitCount > bitCount) throw new Exception("literal width specification is to small")
+      if (minimalWidth > bitCount) throw new Exception("literal width specification is to small")
     } else {
-      bitCount = valueBitCount
+      bitCount = minimalWidth
     }
-    new BitsLiteral(value, bitCount,specifiedBitCount != -1)
+    new BitsLiteral(value, poisonMask, bitCount,specifiedBitCount != -1)
   }
   def apply[T <: BitVector](value: BigInt, specifiedBitCount: Int,on : T) : T ={
-    on.assignFrom(apply(value,specifiedBitCount))
+    on.assignFrom(apply(value, null, specifiedBitCount))
     on
   }
+  def apply[T <: BitVector](value: BigInt, specifiedBitCount: Int) : BitsLiteral  = apply(value, null, specifiedBitCount)
 }
 
 object UIntLiteral {
-  def apply(value: BigInt, specifiedBitCount: Int): UIntLiteral = {
+  def apply(value: BigInt, poisonMask : BigInt, specifiedBitCount: Int): UIntLiteral = {
     val valueBitCount = value.bitLength
+    val poisonBitCount = if(poisonMask != null) poisonMask.bitLength else 0
+    val minimalWidth = Math.max(poisonBitCount,valueBitCount)
     var bitCount = specifiedBitCount
     if (value < 0) throw new Exception("literal value is negative and can be represented")
     if (bitCount != -1) {
-      if (valueBitCount > bitCount) throw new Exception("literal width specification is to small")
+      if (minimalWidth > bitCount) throw new Exception("literal width specification is to small")
     } else {
-      bitCount = valueBitCount
+      bitCount = minimalWidth
     }
-    new UIntLiteral(value, bitCount,specifiedBitCount != -1)
+    new UIntLiteral(value, poisonMask, bitCount,specifiedBitCount != -1)
   }
   def apply[T <: BitVector](value: BigInt, specifiedBitCount: Int,on : T):T={
-    on.assignFrom(apply(value,specifiedBitCount))
+    on.assignFrom(apply(value, null, specifiedBitCount))
     on
   }
+  def apply[T <: BitVector](value: BigInt, specifiedBitCount: Int) : UIntLiteral  = apply(value, null, specifiedBitCount)
 }
+
 object SIntLiteral{
-  def apply(value: BigInt, specifiedBitCount: Int): SIntLiteral = {
+  def apply(value: BigInt, poisonMask : BigInt, specifiedBitCount: Int): SIntLiteral = {
     val valueBitCount = value.bitLength + (if (value != 0) 1 else 0)
+    val poisonBitCount = if(poisonMask != null) poisonMask.bitLength else 0
+    val minimalWidth = Math.max(poisonBitCount,valueBitCount)
     var bitCount = specifiedBitCount
     if (bitCount != -1) {
-      if (valueBitCount > bitCount) throw new Exception("literal width specification is to small")
+      if (minimalWidth > bitCount ) throw new Exception("literal width specification is to small")
     } else {
-      bitCount = valueBitCount
+      bitCount = minimalWidth
     }
-    new SIntLiteral(value, bitCount,specifiedBitCount != -1)
+    new SIntLiteral(value, poisonMask, bitCount,specifiedBitCount != -1)
   }
   def apply[T <: BitVector](value: BigInt, specifiedBitCount: Int,on : T):T={
-    on.assignFrom(apply(value,specifiedBitCount))
+    on.assignFrom(apply(value,null,specifiedBitCount))
     on
   }
+  def apply[T <: BitVector](value: BigInt, specifiedBitCount: Int) : SIntLiteral = apply(value, null, specifiedBitCount)
 }
 
 
-abstract class BitVectorLiteral(var value: BigInt, var bitCount: Integer,val hasSpecifiedBitCount : Boolean) extends Literal with WidthProvider {
+abstract class BitVectorLiteral(var value: BigInt, poisonMask : BigInt, var bitCount: Integer,val hasSpecifiedBitCount : Boolean) extends Literal with WidthProvider {
   override def getWidth: Int = bitCount
-  override def getValue(): BigInt = value
+  def hasSomePoison = poisonMask != null && poisonMask != 0
+  override def getValue(): BigInt = if(hasSomePoison) throw new Exception("Poisoned value") else value
 
-  override def getBitsStringOn(bitCount: Int): String = {
-    def makeIt(fillWidth : Boolean) : String = {
-      val str = (if(value > 0) value else ((BigInt(1) << bitCount) + value)).toString(2)
-      val filling = if(fillWidth) "1" else "0"
-      return (filling * (bitCount - str.length) + str).takeRight(bitCount)
+
+  //TODO BigInt.toString(2) is probably very slow
+  override def getBitsStringOn(bitCount: Int, poisonSymbol : Char): String = {
+    def makeIt(fillWith : Boolean) : String = {
+      val str = new StringBuilder()
+      val unsignedValue = if(value >= 0) value else ((BigInt(1) << bitCount) + value)
+      val unsignedLength = unsignedValue.bitLength
+      val poisonLength = if(poisonMask != null) poisonMask.bitLength else 0
+
+      assert(bitCount >= unsignedLength)
+      assert(bitCount >= poisonLength)
+
+      val filling = if(fillWith) '1' else '0'
+      for(i <- 0 until (bitCount - str.length)) str += filling
+
+      for(i <-  unsignedLength - 1 to 0 by - 1){
+        str += (if(unsignedValue.testBit(i)) '1' else '0')
+      }
+
+      for(i <- poisonLength-1 to 0 by -1 if(poisonMask.testBit(i))){
+        str(bitCount-i-1) = poisonSymbol
+      }
+
+      str.toString()
     }
 
     makeIt(isSignedKind && value < 0)
@@ -215,30 +249,31 @@ abstract class BitVectorLiteral(var value: BigInt, var bitCount: Integer,val has
 
 
   def minimalValueBitWidth : Int = {
-    value.bitLength + (if(isSignedKind && value != 0) 1 else 0)
+    val pureWidth = value.bitLength + (if(isSignedKind && value != 0) 1 else 0)
+    if(hasSomePoison) Math.max(poisonMask.bitLength,pureWidth) else pureWidth
   }
 
   def isSignedKind : Boolean
 }
 
-class BitsLiteral(value: BigInt, bitCount: Int ,hasSpecifiedBitCount : Boolean) extends BitVectorLiteral(value,bitCount,hasSpecifiedBitCount){
+class BitsLiteral(value: BigInt, poisonMask : BigInt, bitCount: Int ,hasSpecifiedBitCount : Boolean) extends BitVectorLiteral(value, poisonMask,bitCount,hasSpecifiedBitCount){
   override def getTypeObject = TypeBits
   override def isSignedKind: Boolean = false
-  override def clone(): this.type = new BitsLiteral(value, bitCount,hasSpecifiedBitCount).asInstanceOf[this.type]
+  override def clone(): this.type = new BitsLiteral(value, poisonMask, bitCount,hasSpecifiedBitCount).asInstanceOf[this.type]
   override def opName: String = "B\"xxx\""
 }
 
-class UIntLiteral(value: BigInt, bitCount: Int,hasSpecifiedBitCount : Boolean) extends BitVectorLiteral(value,bitCount,hasSpecifiedBitCount){
+class UIntLiteral(value: BigInt, poisonMask : BigInt, bitCount: Int,hasSpecifiedBitCount : Boolean) extends BitVectorLiteral(value, poisonMask,bitCount,hasSpecifiedBitCount){
   override def getTypeObject = TypeUInt
   override def isSignedKind: Boolean = false
-  override def clone(): this.type = new UIntLiteral(value, bitCount,hasSpecifiedBitCount).asInstanceOf[this.type]
+  override def clone(): this.type = new UIntLiteral(value, poisonMask, bitCount,hasSpecifiedBitCount).asInstanceOf[this.type]
   override def opName: String = "U\"xxx\""
 }
 
-class SIntLiteral(value: BigInt, bitCount: Int,hasSpecifiedBitCount : Boolean) extends BitVectorLiteral(value,bitCount,hasSpecifiedBitCount){
+class SIntLiteral(value: BigInt, poisonMask : BigInt, bitCount: Int,hasSpecifiedBitCount : Boolean) extends BitVectorLiteral(value, poisonMask,bitCount,hasSpecifiedBitCount){
   override def getTypeObject = TypeSInt
   override def isSignedKind: Boolean = true
-  override def clone(): this.type = new SIntLiteral(value, bitCount,hasSpecifiedBitCount).asInstanceOf[this.type]
+  override def clone(): this.type = new SIntLiteral(value, poisonMask, bitCount,hasSpecifiedBitCount).asInstanceOf[this.type]
   override def opName: String = "S\"xxx\""
 }
 
@@ -267,11 +302,27 @@ class BoolLiteral(val value: Boolean) extends Literal {
   override def clone(): this.type = new BoolLiteral(value).asInstanceOf[this.type]
 
   override def getValue(): BigInt = if(value) 1 else 0
-  override def getBitsStringOn(bitCount: Int): String = {
+  override def getBitsStringOn(bitCount: Int, poisonSymbol : Char): String = {
     assert(bitCount == 1)
     (if(value) "1" else "0")
   }
 }
+
+class BoolPoison() extends Literal {
+  override def getValue(): BigInt = throw new Exception("Poison have no values")
+  override def getTypeObject = TypeBool
+  override def opName: String = "Bool(?)"
+
+  override def normalizeInputs: Unit = {}
+
+  override def clone(): this.type = new BoolPoison().asInstanceOf[this.type]
+
+  override def getBitsStringOn(bitCount: Int, poisonSymbol : Char): String = {
+    assert(bitCount == 1)
+    poisonSymbol.toString()
+  }
+}
+
 //
 //
 //

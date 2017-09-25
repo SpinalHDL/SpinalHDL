@@ -151,6 +151,26 @@ object PlayEnum{
   }
 }
 
+
+object PlayPoison{
+
+
+  class TopLevel extends Component {
+
+    val a = Bits(8 bits)
+    a.assignDontCare()
+    val b = Bool().assignDontCare()
+    val c = State().assignDontCare()
+    val d = State(binaryOneHot).assignDontCare()
+  }
+
+  def main(args: Array[String]) {
+    val toplevel = SpinalVhdl(new TopLevel()).toplevel
+
+  }
+}
+
+
 object PlayReg{
 
   class TopLevel extends Component {
