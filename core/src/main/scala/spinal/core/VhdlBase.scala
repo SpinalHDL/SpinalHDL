@@ -64,31 +64,31 @@ trait VhdlBase extends VhdlVerilogBase{
     case `TypeUInt` => s"unsigned${emitRange(e.asInstanceOf[WidthProvider])}"
     case `TypeSInt` => s"signed${emitRange(e.asInstanceOf[WidthProvider])}"
   }
-//
-//
-//  def emitEnumLiteral[T <: SpinalEnum](enum : SpinalEnumElement[T],encoding: SpinalEnumEncoding) : String = {
-//    if(encoding.isNative)
-//      return "pkg_enum." + enum.getName()
-//    else
-//      return enum.spinalEnum.getName() + "_" + encoding.getName() + "_" + enum.getName()
-//  }
-//
-//  def emitEnumType[T <: SpinalEnum](enum : SpinalEnumCraft[T]) : String = emitEnumType(enum.spinalEnum,enum.getEncoding)
-//
-//  def emitEnumType(enum : SpinalEnum,encoding: SpinalEnumEncoding) : String = {
-//    if(encoding.isNative)
-//      return enum.getName()
-//    else
-//      return enum.getName() + "_" + encoding.getName() + "_type"
-//  }
-//
+
+
+  def emitEnumLiteral[T <: SpinalEnum](enum : SpinalEnumElement[T],encoding: SpinalEnumEncoding) : String = {
+    if(encoding.isNative)
+      return enumPackageName + "." + enum.getName()
+    else
+      return enum.spinalEnum.getName() + "_" + encoding.getName() + "_" + enum.getName()
+  }
+
+  def emitEnumType[T <: SpinalEnum](enum : SpinalEnumCraft[T]) : String = emitEnumType(enum.spinalEnum,enum.getEncoding)
+
+  def emitEnumType(enum : SpinalEnum,encoding: SpinalEnumEncoding) : String = {
+    if(encoding.isNative)
+      return enum.getName()
+    else
+      return enum.getName() + "_" + encoding.getName() + "_type"
+  }
+
   def emitDataType(node: NameableExpression, constrained: Boolean = true) = node match {
     case bool: Bool => "std_logic"
     case uint: UInt => s"unsigned${if (constrained) emitRange(uint) else ""}"
     case sint: SInt => s"signed${if (constrained) emitRange(sint) else ""}"
     case bits: Bits => s"std_logic_vector${if (constrained) emitRange(bits) else ""}"
 //    case mem: Mem[_] => s"${emitReference(mem)}_type"
-//    case enum: SpinalEnumCraft[_] => emitEnumType(enum)
+    case enum: SpinalEnumCraft[_] => emitEnumType(enum)
     case _ => throw new Exception("Unknown datatype"); ""
   }
 //

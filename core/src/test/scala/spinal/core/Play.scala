@@ -123,7 +123,33 @@ object PlayBits{
 }
 
 
+object State extends SpinalEnum{
+  val A,B,C,D = newElement()
+}
 
+object PlayEnum{
+
+
+  class TopLevel extends Component {
+//    val a, b, c = in(State())
+//    val d, e, f = out(State())
+//    val i,j,k = out(State(binarySequential))
+    val j = out(State(binarySequential))
+    val cond = in Bool
+
+//    d := a
+//    d := cond ? a | b
+//    i := a
+    val t = State.B.apply()
+    j := cond ? t | State.C
+
+  }
+
+  def main(args: Array[String]) {
+    val toplevel = SpinalVhdl(new TopLevel()).toplevel
+
+  }
+}
 
 object PlayReg{
 

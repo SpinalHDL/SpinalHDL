@@ -130,7 +130,7 @@ object Misc {
       if (fieldRef != null && (!refs.isInstanceOf[Data] || !refs.contains(fieldRef))) {
         fieldRef match {
           case range : Range =>
-//          case vec: Vec[_] =>
+          case vec: Vec[_] =>
           case seq: Seq[_] => {
             for ((obj, i) <- seq.zipWithIndex) {
               applyNameTo(name + "_" + i, obj.asInstanceOf[Object])

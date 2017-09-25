@@ -927,9 +927,9 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 //    }
 //  }
 //
-//  def getReEncodingFuntion(spinalEnum: SpinalEnum, source: SpinalEnumEncoding, target: SpinalEnumEncoding): String = {
-//    s"${spinalEnum.getName()}_${source.getName()}_to_${target.getName()}"
-//  }
+  def getReEncodingFuntion(spinalEnum: SpinalEnum, source: SpinalEnumEncoding, target: SpinalEnumEncoding): String = {
+    s"${spinalEnum.getName()}_${source.getName()}_to_${target.getName()}"
+  }
 //
 //  def getEnumToDebugFuntion(spinalEnum: SpinalEnum, source: SpinalEnumEncoding): String = {
 //    assert(!source.isNative)
@@ -1854,55 +1854,61 @@ def refImpl(op: Expression): String = emitReference(op.asInstanceOf[NameableExpr
     s"pkg_signed(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
   }
 
-  //  def enumEgualsImpl(eguals: Boolean)(op: Modifier): String = {
-//    val enumDef = op.asInstanceOf[EnumEncoded].getDefinition
-//    val encoding = op.asInstanceOf[EnumEncoded].getEncoding
-//
-//    encoding match {
-//      case `binaryOneHot` => s"pkg_toStdLogic((${emitLogic(op.getInput(0))} and ${emitLogic(op.getInput(1))}) ${if (eguals) "/=" else "="} ${'"' + "0" * encoding.getWidth(enumDef) + '"'})"
-//      case _ => s"pkg_toStdLogic(${emitLogic(op.getInput(0))} ${if (eguals) "=" else "/="} ${emitLogic(op.getInput(1))})"
-//    }
-//  }
-//
-//
-//  def operatorImplAsBitsToEnum(func: Modifier): String = {
-//    val node = func.asInstanceOf[CastBitsToEnum]
-//    val enumDef = node.getDefinition
-//    val encoding = node.encoding
-//
-//    if (!encoding.isNative) {
-//      emitLogic(func.getInput(0))
-//    } else {
-//      s"pkg_to${enumDef.getName()}_${encoding.getName()}(${(emitLogic(func.getInput(0)))})"
-//    }
-//  }
-//
-//  def operatorImplAsEnumToBits(func: Modifier): String = {
-//    val cast = func.asInstanceOf[CastEnumToBits]
-//    val enumDef = cast.input.getDefinition
-//    val encoding = cast.input.getEncoding
-//
-//    if (!encoding.isNative) {
-//      emitLogic(func.getInput(0))
-//    } else {
-//      s"pkg_toStdLogicVector_${encoding.getName()}(${(emitLogic(func.getInput(0)))})"
-//    }
-//  }
-//
-//  def operatorImplAsEnumToEnum(func: Modifier): String = {
-//    val enumCast = func.asInstanceOf[CastEnumToEnum]
-//    val enumDefSrc = enumCast.input.getDefinition
-//    val encodingSrc = enumCast.input.getEncoding
-//    val enumDefDst = enumCast.getDefinition
-//    val encodingDst = enumCast.getEncoding
-//
-//    if (encodingDst.isNative && encodingSrc.isNative)
-//      emitLogic(func.getInput(0))
-//    else {
-//      s"${getReEncodingFuntion(enumDefDst, encodingSrc,encodingDst)}(${emitLogic(enumCast.input)})"
-//    }
-//  }
-//
+  def emitEnumLiteralWrap(e : Expression) : String = {
+    val lit = e.asInstanceOf[EnumLiteral[_  <: SpinalEnum]]
+    emitEnumLiteral(lit.enum, lit.encoding)
+  }
+
+  def enumEgualsImpl(eguals: Boolean)(op: Expression): String = {
+    val binOp = op.asInstanceOf[BinaryOperator]
+    val enumDef = op.asInstanceOf[EnumEncoded].getDefinition
+    val encoding = op.asInstanceOf[EnumEncoded].getEncoding
+
+    encoding match {
+      case `binaryOneHot` => s"pkg_toStdLogic((${emitExpression(binOp.left)} and ${emitExpression(binOp.right)}) ${if (eguals) "/=" else "="} ${'"' + "0" * encoding.getWidth(enumDef) + '"'})"
+      case _ => s"pkg_toStdLogic(${emitExpression(binOp.left)} ${if (eguals) "=" else "/="} ${emitExpression(binOp.right)})"
+    }
+  }
+
+
+  def operatorImplAsBitsToEnum(func: Expression): String = {
+    val node = func.asInstanceOf[CastBitsToEnum]
+    val enumDef = node.getDefinition
+    val encoding = node.encoding
+
+    if (!encoding.isNative) {
+      emitExpression(node.input)
+    } else {
+      s"pkg_to${enumDef.getName()}_${encoding.getName()}(${emitExpression(node.input)})"
+    }
+  }
+
+  def operatorImplAsEnumToBits(func: Expression): String = {
+    val cast = func.asInstanceOf[CastEnumToBits]
+    val enumDef = cast.input.getDefinition
+    val encoding = cast.input.getEncoding
+
+    if (!encoding.isNative) {
+      emitExpression(cast.input)
+    } else {
+      s"pkg_toStdLogicVector_${encoding.getName()}(${emitExpression(cast.input)})"
+    }
+  }
+
+  def operatorImplAsEnumToEnum(func: Expression): String = {
+    val enumCast = func.asInstanceOf[CastEnumToEnum]
+    val enumDefSrc = enumCast.input.getDefinition
+    val encodingSrc = enumCast.input.getEncoding
+    val enumDefDst = enumCast.getDefinition
+    val encodingDst = enumCast.getEncoding
+
+    if (encodingDst.isNative && encodingSrc.isNative)
+      emitExpression(enumCast.input)
+    else {
+      s"${getReEncodingFuntion(enumDefDst, encodingSrc,encodingDst)}(${emitExpression(enumCast.input)})"
+    }
+  }
+
 //  def unaryAllBy(cast : String)(func: Modifier): String = {
 //    val node = func.asInstanceOf[Operator.BitVector.AllByBool]
 //    s"${cast}'(${node.getWidth-1} downto 0 => ${emitLogic(node.input)})"
@@ -1923,12 +1929,14 @@ def refImpl(op: Expression): String = emitReference(op.asInstanceOf[NameableExpr
   expressionMapAdd(classOf[Bits], refImpl)
   expressionMapAdd(classOf[UInt], refImpl)
   expressionMapAdd(classOf[SInt], refImpl)
+  expressionMapAdd(classOf[SpinalEnumCraft[_]], refImpl)
 
 
   expressionMapAdd(classOf[BoolLiteral], boolLiteralImpl)
   expressionMapAdd(classOf[BitsLiteral], emitBitsLiteral)
   expressionMapAdd(classOf[UIntLiteral], emitUIntLiteral)
   expressionMapAdd(classOf[SIntLiteral], emitSIntLiteral)
+  expressionMapAdd(classOf[EnumLiteral[_]], emitEnumLiteralWrap)
 
   //unsigned
   expressionMapAdd(classOf[Operator.UInt.Add], operatorImplAsBinaryOperator("+"))
@@ -2007,7 +2015,7 @@ def refImpl(op: Expression): String = emitReference(op.asInstanceOf[NameableExpr
   expressionMapAdd(classOf[Operator.Bits.ShiftLeftByUIntFixedWidth],  shiftLeftByUIntFixedWidthImpl)
 
 
-//  //bool
+  //bool
 
   expressionMapAdd(classOf[Operator.Bool.Equal], operatorImplAsBinaryOperator("="))
   expressionMapAdd(classOf[Operator.Bool.NotEqual], operatorImplAsBinaryOperator("/="))
@@ -2019,15 +2027,15 @@ def refImpl(op: Expression): String = emitReference(op.asInstanceOf[NameableExpr
   expressionMapAdd(classOf[Operator.Bool.Xor], operatorImplAsBinaryOperator("xor"))
 
 
-//  //enum
-//  expressionMapAdd("e==e", enumEgualsImpl(true))
-//  expressionMapAdd("e!=e", enumEgualsImpl(false))
-//
+  //enum
+  expressionMapAdd(classOf[Operator.Enum.Equal], enumEgualsImpl(true))
+  expressionMapAdd(classOf[Operator.Enum.NotEqual], enumEgualsImpl(false))
+
   //cast
   expressionMapAdd(classOf[CastSIntToBits], opImplAsCast("std_logic_vector"))
   expressionMapAdd(classOf[CastUIntToBits], opImplAsCast("std_logic_vector"))
   expressionMapAdd(classOf[CastBoolToBits], opImplAsCast("pkg_toStdLogicVector"))
-//  expressionMapAdd("e->b"classOf[CastEnumToBits], operatorImplAsEnumToBits)
+  expressionMapAdd(classOf[CastEnumToBits], operatorImplAsEnumToBits)
 
   expressionMapAdd(classOf[CastBitsToSInt], opImplAsCast("signed"))
   expressionMapAdd(classOf[CastUIntToSInt], opImplAsCast("signed"))
@@ -2035,14 +2043,14 @@ def refImpl(op: Expression): String = emitReference(op.asInstanceOf[NameableExpr
   expressionMapAdd(classOf[CastBitsToUInt], opImplAsCast("unsigned"))
   expressionMapAdd(classOf[CastSIntToUInt], opImplAsCast("unsigned"))
 
-//  expressionMapAdd("b->e", operatorImplAsBitsToEnum)
-//  expressionMapAdd("e->e", operatorImplAsEnumToEnum)
+  expressionMapAdd(classOf[CastBitsToEnum], operatorImplAsBitsToEnum)
+  expressionMapAdd(classOf[CastEnumToEnum], operatorImplAsEnumToEnum)
 
 //
 //  //misc
 //
-//  expressionMapAdd("resize(s,i)", resizeFunction("pkg_signed"))
-//  expressionMapAdd("resize(u,i)", resizeFunction("pkg_unsigned"))
+  expressionMapAdd(classOf[ResizeSInt], resizeFunction("pkg_signed"))
+  expressionMapAdd(classOf[ResizeUInt], resizeFunction("pkg_unsigned"))
   expressionMapAdd(classOf[ResizeBits], resizeFunction("pkg_stdLogicVector"))
 //
 //  expressionMapAdd("bAllByB", unaryAllBy("std_logic_vector"))
@@ -2055,7 +2063,7 @@ def refImpl(op: Expression): String = emitReference(op.asInstanceOf[NameableExpr
   expressionMapAdd(classOf[MultiplexerBits], muxImplAsFunction("pkg_mux"))
   expressionMapAdd(classOf[MultiplexerUInt], muxImplAsFunction("pkg_mux"))
   expressionMapAdd(classOf[MultiplexerSInt], muxImplAsFunction("pkg_mux"))
-//  expressionMapAdd("mux(B,e,e)", muxImplAsFunction("pkg_mux"))
+  expressionMapAdd(classOf[MultiplexerEnum], muxImplAsFunction("pkg_mux"))
 
   expressionMapAdd(classOf[BitsBitAccessFixed], accessBoolFixed)
   expressionMapAdd(classOf[UIntBitAccessFixed], accessBoolFixed)

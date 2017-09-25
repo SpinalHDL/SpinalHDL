@@ -14,7 +14,7 @@ class PhaseContext(val config : SpinalConfig){
   var dirtyConsumers = true
   val globalScope = new NamingScope()
   var topLevel: Component = null
-//  val enums = mutable.Map[SpinalEnum,mutable.Set[SpinalEnumEncoding]]()
+  val enums = mutable.Map[SpinalEnum,mutable.Set[SpinalEnumEncoding]]()
   val reservedKeyWords = mutable.Set[String](
     //VHDL
     "abs", "access", "after", "alias", "all",
@@ -109,6 +109,11 @@ class PhaseContext(val config : SpinalConfig){
 
   def walkNameableExpression(func : NameableExpression => Unit) : Unit = {
     walkComponents(c => c.foreachNameable(e => func(e)))
+  }
+
+  def walkExpressionAndNameableExpression(func : Expression => Unit): Unit ={
+    walkExpression(func)
+    walkNameableExpression(func)
   }
 
   def walkRemapExpressions(func : Expression => Expression): Unit ={
@@ -593,43 +598,41 @@ class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
   }
 }
 
-//class PhaseCollectAndNameEnum(pc: PhaseContext) extends PhaseMisc{
-//  override def useNodeConsumers = false
-//  override def impl(pc : PhaseContext): Unit = {
-//    import pc._
-//    Node.walk(walkNodesDefautStack,node => {
-//      node match {
-//        case enum: SpinalEnumCraft[_] => enums.getOrElseUpdate(enum.spinalEnum,null) //Encodings will be added later
-//        case _ =>
-//      }
-//    })
-//
-//    val scope = pc.globalScope.newChild
-//    enums.keys.foreach(e => {
-//      val name = if(e.isNamed)
-//        e.getName()
-//      else
-//        e.getClass.getSimpleName.replace("$","")
-//
-//      e.setName(scope.allocateName(name))
-//    })
-//
-//    for (enumDef <- enums.keys) {
-//      Misc.reflect(enumDef, (name, obj) => {
-//        obj match {
-//          case obj: Nameable => obj.setWeakName(scope.getUnusedName(name))
-//          case _ =>
-//        }
-//      })
-//      for (e <- enumDef.elements) {
-//        if (e.isUnnamed) {
-//          e.setWeakName(scope.getUnusedName("e" + e.position))
-//        }
-//      }
-//    }
-//  }
-//}
-//
+class PhaseCollectAndNameEnum(pc: PhaseContext) extends PhaseMisc{
+  override def useNodeConsumers = false
+  override def impl(pc : PhaseContext): Unit = {
+    import pc._
+    walkNameableExpression(e => e match{
+      case enum: SpinalEnumCraft[_] => enums.getOrElseUpdate(enum.spinalEnum,null) //Encodings will be added later
+      case _ =>
+    })
+
+    val scope = pc.globalScope.newChild
+    enums.keys.foreach(e => {
+      val name = if(e.isNamed)
+        e.getName()
+      else
+        e.getClass.getSimpleName.replace("$","")
+
+      e.setName(scope.allocateName(name))
+    })
+
+    for (enumDef <- enums.keys) {
+      Misc.reflect(enumDef, (name, obj) => {
+        obj match {
+          case obj: Nameable => obj.setWeakName(scope.getUnusedName(name))
+          case _ =>
+        }
+      })
+      for (e <- enumDef.elements) {
+        if (e.isUnnamed) {
+          e.setWeakName(scope.getUnusedName("e" + e.position))
+        }
+      }
+    }
+  }
+}
+
 class PhasePullClockDomains(pc: PhaseContext) extends PhaseNetlist{
   override def useNodeConsumers = false
   override def impl(pc : PhaseContext): Unit = {
@@ -972,78 +975,117 @@ class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
     }
   }
 }
-//
-//
-//class PhaseInferEnumEncodings(pc: PhaseContext,encodingSwap : (SpinalEnumEncoding) => SpinalEnumEncoding) extends PhaseMisc{
-//  override def useNodeConsumers = true
-//  override def impl(pc : PhaseContext): Unit = {
-//    import pc._
-//    globalData.nodeAreInferringEnumEncoding = true
-//    val nodes = ArrayBuffer[Node with EnumEncoded]()
-//    val nodesInferrable = ArrayBuffer[Node with InferableEnumEncoding]()
-//    Node.walk(walkNodesDefautStack ++ walkNodesBlackBoxGenerics,node => {
-//      if(node.isInstanceOf[EnumEncoded]) nodes += node.asInstanceOf[Node with EnumEncoded]
-//      if(node.isInstanceOf[InferableEnumEncoding]) nodesInferrable += node.asInstanceOf[Node with InferableEnumEncoding]
-//    })
-//
-//    nodesInferrable.foreach(node => {
-//      node.bootInferration()
-//    })
-//
-//    nodes.foreach(enum => {
-//      enum.swapEncoding(encodingSwap(enum.getEncoding))
-//    })
-//
-//    nodes.foreach(enum => {
-//      if(enum.propagateEncoding){
-//        val alreadyWalkeds = mutable.Set[Node]()
-//        def propagateOn(that : Node): Unit = {
-//          that match {
-//            case that : InferableEnumEncoding => {
-//              if(alreadyWalkeds.contains(that)) return
-//              alreadyWalkeds += that
-//              if(that.encodingProposal(enum.getEncoding)) {
-//                that.onEachInput(propagateOn(_))
-//                that.consumers.foreach(propagateOn(_))
-//              }
-//            }
-//            case _ =>
-//          }
-//        }
-//        enum.onEachInput(propagateOn(_))
-//        enum.consumers.foreach(propagateOn(_))
-//      }
-//    })
-//
-//    //Feed enums with encodings
-//    enums.keySet.foreach(enums(_) = mutable.Set[SpinalEnumEncoding]())
-//    nodes.foreach(enum => {
-//      enums(enum.getDefinition) += enum.getEncoding
-//    })
-//
-//
-//    //give a name to unamed encodings
-//    val unamedEncodings = enums.valuesIterator.flatten.toSet.withFilter(_.isUnnamed).foreach(_.setWeakName("anonymousEnc"))
-//
-//    //Check that there is no encoding overlaping
-//    for((enum,encodings) <- enums){
-//      for(encoding <- encodings) {
-//        val reserveds = mutable.Map[BigInt, ArrayBuffer[SpinalEnumElement[_]]]()
-//        for(element <- enum.elements){
-//          val key = encoding.getValue(element)
-//          reserveds.getOrElseUpdate(key,ArrayBuffer[SpinalEnumElement[_]]()) += element
-//        }
-//        for((key,elements) <- reserveds){
-//          if(elements.length != 1){
-//            PendingError(s"Conflict in the $enum enumeration with the '$encoding' encoding with the key $key' and following elements:.\n${elements.mkString(", ")}\n\nEnumeration defined at :\n${enum.getScalaLocationLong}Encoding defined at :\n${encoding.getScalaLocationLong}")
-//          }
-//        }
-//      }
-//    }
-//  }
-//}
-//
-//
+
+
+class PhaseInferEnumEncodings(pc: PhaseContext,encodingSwap : (SpinalEnumEncoding) => SpinalEnumEncoding) extends PhaseMisc{
+  override def useNodeConsumers = true
+  override def impl(pc : PhaseContext): Unit = {
+    import pc._
+    globalData.nodeAreInferringEnumEncoding = true
+    val nodes = ArrayBuffer[Expression with EnumEncoded]()
+    val nodesInferrable = ArrayBuffer[Expression with InferableEnumEncoding]()
+    val consumers = mutable.HashMap[Expression , ArrayBuffer[Expression]]()
+    var algo = globalData.allocateAlgoIncrementale()
+
+    def walkExpression(node : Expression): Unit ={
+      if(node.algoIncrementale != algo) {
+        node.algoIncrementale = algo
+        if (node.isInstanceOf[EnumEncoded]) nodes += node.asInstanceOf[Expression with EnumEncoded]
+        if (node.isInstanceOf[InferableEnumEncoding]) nodesInferrable += node.asInstanceOf[Expression with InferableEnumEncoding]
+        node.foreachDrivingExpression(input => input match {
+          case input: Expression with EnumEncoded => consumers.getOrElseUpdate(input, ArrayBuffer[Expression]()) += node
+          case _ =>
+        })
+        node.foreachDrivingExpression(input => walkExpression(input))
+      }
+    }
+
+
+
+    walkStatements(s => s match {
+      case s : AssignementStatement =>
+        val finalTarget = s.finalTarget
+        s.source match {
+          case source : Expression with EnumEncoded => consumers.getOrElseUpdate(source,ArrayBuffer[Expression]()) += finalTarget
+          case _ =>
+        }
+        s.foreachDrivingExpression(e => walkExpression(e))
+      case _ =>
+        s.foreachDrivingExpression(e => walkExpression(e))
+    })
+
+    walkNameableExpression(walkExpression)
+
+    nodesInferrable.foreach(node => {
+      node.bootInferration()
+    })
+
+    nodes.foreach(enum => {
+      enum.swapEncoding(encodingSwap(enum.getEncoding))
+    })
+
+    algo = globalData.allocateAlgoIncrementale()
+    nodes.foreach(enum => {
+      if(enum.propagateEncoding){
+        def propagateOn(that : Expression): Unit = {
+          that match {
+            case that : InferableEnumEncoding => {
+              if(that.algoIncrementale == algo) return
+              that.algoIncrementale = algo
+              if(that.encodingProposal(enum.getEncoding)) {
+                that match {
+                  case that : SpinalEnumCraft[_] =>
+                    that.foreachStatements(s => propagateOn(s.source))
+                    consumers.getOrElse(that, Nil).foreach(propagateOn(_))
+                  case _ =>
+                    that.foreachExpression(propagateOn(_))
+                    consumers.getOrElse(that, Nil).foreach(propagateOn(_))
+                }
+              }
+            }
+            case _ =>
+          }
+        }
+        enum match {
+          case enum : SpinalEnumCraft[_] =>
+            enum.foreachStatements(s => propagateOn(s.source))
+            consumers.getOrElse(enum, Nil).foreach(propagateOn(_))
+          case _ =>
+            enum.foreachExpression(propagateOn(_))
+            consumers.getOrElse(enum, Nil).foreach(propagateOn(_))
+        }
+      }
+    })
+
+    //Feed enums with encodings
+    enums.keySet.foreach(enums(_) = mutable.Set[SpinalEnumEncoding]())
+    nodes.foreach(enum => {
+      enums(enum.getDefinition) += enum.getEncoding
+    })
+
+
+    //give a name to unamed encodings
+    val unamedEncodings = enums.valuesIterator.flatten.toSet.withFilter(_.isUnnamed).foreach(_.setWeakName("anonymousEnc"))
+
+    //Check that there is no encoding overlaping
+    for((enum,encodings) <- enums){
+      for(encoding <- encodings) {
+        val reserveds = mutable.Map[BigInt, ArrayBuffer[SpinalEnumElement[_]]]()
+        for(element <- enum.elements){
+          val key = encoding.getValue(element)
+          reserveds.getOrElseUpdate(key,ArrayBuffer[SpinalEnumElement[_]]()) += element
+        }
+        for((key,elements) <- reserveds){
+          if(elements.length != 1){
+            PendingError(s"Conflict in the $enum enumeration with the '$encoding' encoding with the key $key' and following elements:.\n${elements.mkString(", ")}\n\nEnumeration defined at :\n${enum.getScalaLocationLong}Encoding defined at :\n${encoding.getScalaLocationLong}")
+          }
+        }
+      }
+    }
+  }
+}
+
+
 class PhaseSimplifyNodes(pc: PhaseContext) extends PhaseNetlist{
   override def useNodeConsumers = true
   override def impl(pc : PhaseContext): Unit = {
@@ -2133,7 +2175,7 @@ object SpinalVhdlBoot{
     phases += new PhaseDummy(SpinalProgress("Get names from reflection"))
 //    phases += new PhaseNodesBlackBoxGenerics(pc)
     phases += new PhaseNameNodesByReflection(pc)
-//    phases += new PhaseCollectAndNameEnum(pc)
+    phases += new PhaseCollectAndNameEnum(pc)
 
     phases += new PhaseDummy(SpinalProgress("Transform connections"))
 
@@ -2149,7 +2191,7 @@ object SpinalVhdlBoot{
 
 
     phases += new PhaseDummy(SpinalProgress("Infer nodes's bit width"))
-//    phases += new PhaseInferEnumEncodings(pc,e => e)
+    phases += new PhaseInferEnumEncodings(pc,e => e)
     phases += new PhaseInferWidth(pc)
     phases += new PhaseNormalizeNodeInputs(pc)
     phases += new PhaseSimplifyNodes(pc)

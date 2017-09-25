@@ -24,57 +24,6 @@ import scala.collection.mutable.ArrayBuffer
 
 
 /**
-  * Base class for creating enumeration
-  *
-  * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Enum Enumeration Documentation]]
-  *
-  * @example {{{
-  *         class MyEnum extends SpinalEnum(binarySequancial){
-  *           val s1, s2, s3, s4 = newElement()
-  *         }
-  *         }}}
-  *
-  * SpinalEnum contains a list of SpinalEnumElement that is the definition of an element. SpinalEnumCraft is the
-  * hardware representation of the the element.
-  *
-  * @param defaultEncoding encoding of the enum
-  */
-class SpinalEnum(var defaultEncoding: SpinalEnumEncoding = native) extends Nameable with ScalaLocated {
-
-  assert(defaultEncoding != inferred, "Enum definition should not have 'inferred' as default encoding")
-
-  type C = SpinalEnumCraft[this.type]
-  type E = SpinalEnumElement[this.type]
-
-  /** Contains all elements of the enumeration */
-  val elements = ArrayBuffer[SpinalEnumElement[this.type]]()
-
-
-  def apply() = craft()
-  def apply(encoding: SpinalEnumEncoding) = craft(encoding)
-
-
-  def craft(): SpinalEnumCraft[this.type] = craft(defaultEncoding)
-  def craft(enumEncoding: SpinalEnumEncoding): SpinalEnumCraft[this.type] = {
-    val ret = new SpinalEnumCraft[this.type](this)
-    if(enumEncoding != `inferred`) ret.fixEncoding(enumEncoding)
-    ret
-  }
-
-
-  /** Create a new Element */
-  def newElement(): SpinalEnumElement[this.type] = newElement(null)
-
-  def newElement(name: String): SpinalEnumElement[this.type] = {
-    val v = new SpinalEnumElement(this,elements.size).asInstanceOf[SpinalEnumElement[this.type]]
-    if (name != null) v.setName(name)
-    elements += v
-    v
-  }
-}
-
-
-/**
   * Definition of an element of the enumeration
   *
   * @param spinalEnum parent of the element (SpinalEnum)
@@ -107,6 +56,57 @@ class SpinalEnumElement[T <: SpinalEnum](val spinalEnum: T, val position: Int) e
 
 
 /**
+ * Base class for creating enumeration
+ *
+ * @see  [[http://spinalhdl.github.io/SpinalDoc/spinal/core/types/Enum Enumeration Documentation]]
+ *
+ * @example {{{
+ *         class MyEnum extends SpinalEnum(binarySequancial){
+ *           val s1, s2, s3, s4 = newElement()
+ *         }
+ *         }}}
+ *
+ * SpinalEnum contains a list of SpinalEnumElement that is the definition of an element. SpinalEnumCraft is the
+ * hardware representation of the the element.
+ *
+ * @param defaultEncoding encoding of the enum
+ */
+class SpinalEnum(var defaultEncoding: SpinalEnumEncoding = native) extends Nameable with ScalaLocated {
+
+  assert(defaultEncoding != inferred, "Enum definition should not have 'inferred' as default encoding")
+
+  type C = SpinalEnumCraft[this.type]
+  type E = SpinalEnumElement[this.type]
+
+  /** Contains all elements of the enumeration */
+  @dontName val elements = ArrayBuffer[SpinalEnumElement[this.type]]()
+
+
+  def apply() = craft()
+  def apply(encoding: SpinalEnumEncoding) = craft(encoding)
+
+
+  def craft(): SpinalEnumCraft[this.type] = craft(defaultEncoding)
+  def craft(enumEncoding: SpinalEnumEncoding): SpinalEnumCraft[this.type] = {
+    val ret = new SpinalEnumCraft[this.type](this)
+    if(enumEncoding != `inferred`) ret.fixEncoding(enumEncoding)
+    ret
+  }
+
+
+  /** Create a new Element */
+  def newElement(): SpinalEnumElement[this.type] = newElement(null)
+
+  def newElement(name: String): SpinalEnumElement[this.type] = {
+    val v = new SpinalEnumElement(this,elements.size).asInstanceOf[SpinalEnumElement[this.type]]
+    if (name != null) v.setName(name)
+    elements += v
+    v
+  }
+}
+
+
+/**
   * Hardware representation of an enumeration
   */
 class SpinalEnumCraft[T <: SpinalEnum](val spinalEnum: T/*, encoding: SpinalEnumEncoding*/) extends BaseType with InferableEnumEncodingImpl with DataPrimitives[SpinalEnumCraft[T]] {
@@ -133,7 +133,8 @@ class SpinalEnumCraft[T <: SpinalEnum](val spinalEnum: T/*, encoding: SpinalEnum
 
   private[core] override def assignFromImpl(that: AnyRef, target : AnyRef, kind : AnyRef): Unit = that match{
     case that : SpinalEnumCraft[T] => super.assignFromImpl(that, target, kind)
-//    case that : DontCareNodeEnum => super.assignFromImpl(that, conservative)
+    case that : Expression with EnumEncoded => super.assignFromImpl(that, target, kind)
+    //    case that : DontCareNodeEnum => super.assignFromImpl(that, conservative)
   }
 
   override def isEquals(that: Any): Bool = {
