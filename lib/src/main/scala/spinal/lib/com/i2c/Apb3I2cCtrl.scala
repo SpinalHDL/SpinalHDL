@@ -5,7 +5,7 @@ import spinal.lib.bus.amba3.apb.{Apb3SlaveFactory, Apb3, Apb3Config}
 import spinal.lib.{master, slave}
 
 
-object Apb3I2cSlave{
+object Apb3I2cCtrl{
   def getApb3Config = Apb3Config(
     addressWidth = 8,
     dataWidth = 32,
@@ -16,7 +16,7 @@ object Apb3I2cSlave{
 
   def main(args: Array[String]) {
     SpinalVerilog(
-      new Apb3I2cSlave(
+      new Apb3I2cCtrl(
         I2cSlaveMemoryMappedGenerics(
           ctrlGenerics = I2cSlaveGenerics(
             samplingWindowSize = 3,
@@ -33,9 +33,9 @@ object Apb3I2cSlave{
 }
 
 
-case class Apb3I2cSlave(generics : I2cSlaveMemoryMappedGenerics) extends Component{
+case class Apb3I2cCtrl(generics : I2cSlaveMemoryMappedGenerics) extends Component{
   val io = new Bundle{
-    val apb =  slave(Apb3(Apb3I2cSlave.getApb3Config))
+    val apb =  slave(Apb3(Apb3I2cCtrl.getApb3Config))
     val i2c = master(I2c())
     val interrupt = out Bool
   }
