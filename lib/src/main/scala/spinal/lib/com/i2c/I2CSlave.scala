@@ -95,8 +95,10 @@ case class I2cSlaveBus() extends Bundle with IMasterSlave{
 
 
 case class I2cSlaveMemoryMappedGenerics(ctrlGenerics : I2cSlaveGenerics,
-                                         masterGenerics : I2cMasterMemoryMappedGenerics = null){
+                                        addressFilterCount : Int = 0,
+                                        masterGenerics : I2cMasterMemoryMappedGenerics = null){
   def genMaster = masterGenerics != null
+  def genAddressFilter = addressFilterCount > 0
 }
 
 
@@ -116,17 +118,24 @@ case class I2cSlaveIo(g : I2cSlaveGenerics) extends Bundle {
 }
 
 object I2cSlaveIo{
+  case class I2cAddress() extends Bundle{
+    val enable  = Bool
+    val value = Bits(10 bits)
+    val is10Bit = Bool
+  }
+
   def driveFrom(io : I2cSlaveIo,busCtrl: BusSlaveFactory, baseAddress: BigInt)(generics : I2cSlaveMemoryMappedGenerics) = new Area{
     import generics._
     import io._
 
     
     val busCtrlWithOffset = new BusSlaveFactoryAddressWrapper(busCtrl, baseAddress)
-
+    val frameReset = False
     val i2cBuffer = I2c()
     i2cBuffer <> i2c
 
     val rxData = new Area{
+      val event = RegNext(False) init(False)
       val listen = RegInit(False)
       val valid = RegInit(False)
       val value = Reg(Bits(8 bits))
@@ -154,6 +163,7 @@ object I2cSlaveIo{
       val enable = RegInit(False)
       val disableOnDataConflict = Reg(Bool)
       val value  = Reg(Bits(8 bits))
+      val forceDisable = False
     }
 
     val txAck = new Area {
@@ -162,7 +172,34 @@ object I2cSlaveIo{
       val enable = RegInit(False)
       val disableOnDataConflict = Reg(Bool)
       val value  = Reg(Bool)
+      val forceAck = False
     }
+
+    val addressFilter = if(genAddressFilter) new Area{
+      val addresses = Vec(Reg(I2cAddress()))
+
+      val state = RegInit(U"00")
+      val byte0, byte1 = Reg(Bits(8 bits))
+      val byte0Is10Bit = byte0(7 downto 3) === 0x1E
+      when(rxData.event){
+        switch(state){
+          is(0){
+            byte0 := rxData.value
+            state := 1
+          }
+          is(1){
+            byte1 := rxData.value
+            state := 2
+          }
+        }
+      }
+      when(frameReset){
+        state := 0
+      }
+
+      val hits = addresses.map(address => address.enable && Mux(!address.is10Bit,(byte0 >> 1) === address.value(6 downto 0) && state =/= 0, (byte0(2 downto 1) ## byte1) === address.value && state === 2))
+      txAck.forceAck :=  byte0Is10Bit && state === 1 && addresses.map(address => address.enable && address.is10Bit && byte0(2 downto 1) === address.value(9 downto 8)).orR
+    } else null
 
     val masterLogic = if(genMaster) new Area{
       val start = busCtrlWithOffset.createReadAndWrite(Bool, 64, 4) init(False)
@@ -177,7 +214,6 @@ object I2cSlaveIo{
         value := value - done.asUInt
       }
 
-      // val sclWrite, sdaWrite = True
       val txReady = Bool //Say if the tx buffer is ready to continue
 
       val fsm = new StateMachine{
@@ -214,10 +250,10 @@ object I2cSlaveIo{
         LOW.whenIsActive{
           when(timer.done){
             when(stop) {
-              stop := False
+              txData.forceDisable := True
               goto(STOP1)
             }.elsewhen(start){
-              start := False
+              txData.forceDisable := True
               goto(RESTART)
             }.elsewhen(internals.sclRead && txReady) {
               goto(HIGH)
@@ -240,11 +276,13 @@ object I2cSlaveIo{
           timer.value := timer.tHigh
         }
         RESTART.whenIsActive{
+          when(!internals.sclRead){ //Check for slave clock stretching
+            timer.value := timer.tHigh
+          }
           when(timer.done){
             goto(START)
           }
         }
-
 
         STOP1.onEntry{
           timer.value := timer.tHigh
@@ -286,7 +324,6 @@ object I2cSlaveIo{
 
     val dataCounter = RegInit(U"000")
     val inAckState = RegInit(False)
-    val frameReset = False
     val wasntAck = RegInit(False)
 
     if(genMaster) masterLogic.txReady :=  inAckState ? txAck.valid | txData.valid
@@ -294,10 +331,19 @@ object I2cSlaveIo{
       bus.rsp.valid  := txData.valid && !(rxData.valid && rxData.listen) && bus.cmd.kind === I2cSlaveCmdMode.DRIVE
       bus.rsp.enable := txData.enable
       bus.rsp.data   := txData.value(7 - dataCounter)
+      when(txData.forceDisable){
+        bus.rsp.valid := True
+        bus.rsp.enable := False
+      }
     } otherwise {
       bus.rsp.valid  := txAck.valid && !(rxAck.valid && rxAck.listen) && bus.cmd.kind === I2cSlaveCmdMode.DRIVE
       bus.rsp.enable := txAck.enable
       bus.rsp.data   := txAck.value
+      when(txAck.forceAck){
+        bus.rsp.valid := True
+        bus.rsp.enable := True
+        bus.rsp.data := False
+      }
     }
     when(wasntAck){
       bus.rsp.valid  := bus.cmd.kind === I2cSlaveCmdMode.DRIVE
@@ -345,6 +391,7 @@ object I2cSlaveIo{
             txAck.enable clearWhen(txAck.disableOnDataConflict)
           }
           when(dataCounter === U"111") {
+            rxData.event := True
             rxData.valid setWhen(rxData.listen)
             inAckState := True
           }
@@ -379,25 +426,19 @@ object I2cSlaveIo{
       val txDataEnable = busCtrlWithOffset.createReadAndWrite(Bool, address = 32, bitOffset = 2)
       val txAckEnable = busCtrlWithOffset.createReadAndWrite(Bool, address = 32, bitOffset = 3)
 
-      def eventBuild(enableBitId : Int, flagBitId : Int, busCmd : I2cSlaveCmdMode.E) = new Area{
+      def i2CSlaveEvent(enableBitId : Int, flagBitId : Int, busCmd : I2cSlaveCmdMode.E) = new Area{
         val enable = busCtrlWithOffset.createReadAndWrite(Bool, address = 32, bitOffset = enableBitId)
         val flag = busCtrlWithOffset.createReadAndWrite(Bool, address = 32, bitOffset = flagBitId) setWhen(bus.cmd.kind === busCmd) clearWhen(!enable)
       }
-      val start = eventBuild(4,8,I2cSlaveCmdMode.START)
-      val restart = eventBuild(5,9,I2cSlaveCmdMode.RESTART)
-      val end = eventBuild(6,10,I2cSlaveCmdMode.STOP)
-      val drop = eventBuild(7,11,I2cSlaveCmdMode.DROP)
 
+      val start = i2CSlaveEvent(4,8,I2cSlaveCmdMode.START)
+      val restart = i2CSlaveEvent(5,9,I2cSlaveCmdMode.RESTART)
+      val end = i2CSlaveEvent(6,10,I2cSlaveCmdMode.STOP)
+      val drop = i2CSlaveEvent(7,11,I2cSlaveCmdMode.DROP)
 
       val interrupt = (rxDataEnable && rxData.valid) || (rxAckEnable && rxAck.valid) ||
         (txDataEnable && !txData.valid) || (txAckEnable && !txAck.valid) ||
         (start.flag || restart.flag || end.flag || drop.flag)
-
-      //      val master = if(genMaster) new Area{
-      //        val onBusEnable = busCtrlWithOffset.createReadAndWrite(Bool, address = 32, bitOffset = 16)
-      //        val onBusEnable = busCtrlWithOffset.createReadAndWrite(Bool, address = 32, bitOffset = 16)
-      //
-      //      } else null
     }
 
 
