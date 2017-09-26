@@ -170,7 +170,7 @@ trait BaseTypeCast extends SFixCast with UFixCast
   * Abstract base class of all Spinal types
   */
 abstract class BaseType extends Data with NameableExpression{
-  if(component != null)component.append(this)
+  if(component != null) component.append(this)
 
 
   var _isReg = false
@@ -209,16 +209,15 @@ abstract class BaseType extends Data with NameableExpression{
 //  override def getInput(id: Int): Node = { assert(id == 0); input }
 //
   private[core] def canSymplifyIt = !dontSimplify && isUnnamed && !existsTag(!_.canSymplifyHost)
-//
-//
-//  def removeAssignements() : this.type = {
-//    input match {
-//      case reg: Reg => reg.dataInput = null.asInstanceOf[reg.T]
-//      case _        => input = null
-//    }
-//    this
-//  }
-//
+
+
+  def removeAssignements() : this.type = {
+    foreachStatements(s => {
+      s.removeStatement()
+    })
+    this
+  }
+
 //  override def dontSimplifyIt(): this.type = {
 //    dontSimplify = true
 //    this
@@ -236,13 +235,16 @@ abstract class BaseType extends Data with NameableExpression{
 //  }
 //
 
-//
-//  def getDrivingReg: this.type = input match{
-//    case reg: Reg     => this
-//    case bt: BaseType => bt.getDrivingReg.asInstanceOf[this.type]
-//    case _            => SpinalError("Driver is not a register")
-//  }
-//
+
+  def getDrivingReg: this.type = if(isReg)
+    this
+  else
+    this.getSingleDriver match {
+      case Some(t) => t.getDrivingReg
+      case _ => SpinalError("Driver is not a register")
+    }
+
+
 //  def isDelay = input.isInstanceOf[SyncNode]
 //
   override def asInput(): this.type = {
@@ -260,6 +262,12 @@ abstract class BaseType extends Data with NameableExpression{
     component.ioSet -= this
     super.asDirectionLess()
   }
+
+  def getSingleDriver : Option[this.type] = if(this.hasOnlyOneStatement) this.headStatement match {
+    case AssignementStatement(target, driver : BaseType) if target == this && driver.dslContext.scope == this.dslContext.scope =>
+      driver.getSingleDriver.asInstanceOf[Option[this.type]]
+    case _ => None
+  }else None
 
   override private[core] def assignFromImpl(that: AnyRef, target : AnyRef, kind : AnyRef): Unit = {
     def statement(that : Expression) = kind match {

@@ -119,7 +119,7 @@ trait IODirection extends BaseTypeFactory {
   def applyIt[T <: Data](data: T): T
   def apply[T <: Data](data: T): T = applyIt(data)
   def apply[T <: Data](datas: T*): Unit = datas.foreach(applyIt(_))
-//  def apply(enum: SpinalEnum) = applyIt(enum.craft())
+  def apply(enum: SpinalEnum) = applyIt(enum.craft())
   def cloneOf[T <: Data](that: T): T = applyIt(spinal.core.cloneOf(that))
   def apply(b : Int) = 10
   override def Bool = applyIt(super.Bool)
@@ -133,7 +133,7 @@ trait IODirection extends BaseTypeFactory {
 //  object Vec extends VecFactory {
 //    override def apply[T <: Data](elements: TraversableOnce[T]): Vec[T] = applyIt(super.apply(elements))
 //  }
-//  override def postTypeFactory[T <: Data](that: T): T = applyIt(that)
+  override def postTypeFactory[T <: Data](that: T): T = applyIt(that)
 }
 
 object in extends IODirection {
@@ -891,10 +891,10 @@ trait Num[T <: Data] {
   /** Logical right shift (w(T) = w(this) - shift)*/
   def >> (shift : Int) : T
 
-//  /** Return the minimum value between this and right  */
-//  def min(right: T): T = Mux(this < right, this.asInstanceOf[T], right)
-//  /** Return the maximum value between this and right  */
-//  def max(right: T): T = Mux(this < right, right, this.asInstanceOf[T])
+  /** Return the minimum value between this and right  */
+  def min(right: T): T = Mux(this < right, this.asInstanceOf[T], right)
+  /** Return the maximum value between this and right  */
+  def max(right: T): T = Mux(this < right, right, this.asInstanceOf[T])
 }
 
 

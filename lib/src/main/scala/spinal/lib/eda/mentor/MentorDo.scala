@@ -44,7 +44,7 @@ class MentorDo {
           }
         }
         val components = getComponents(task.c, 0)
-        val nodes = components.map(_.nodes).reduce(_ ++ _).filter(_.isInstanceOf[Node with ContextUser]).map(_.asInstanceOf[Node with ContextUser]).sortBy(_.getInstanceCounter)
+        val nodes = components.map(_.nameableIterable).reduce(_ ++ _).toList.sortBy(_.getInstanceCounter)
         for (node <- nodes) node match {
           case node: BaseType => {
             val componentPath = node.getComponents().tail.mkString("/")

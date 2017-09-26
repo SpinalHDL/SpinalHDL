@@ -277,46 +277,46 @@ trait PhaseCheck extends Phase{
 //  }
 //}
 //
-//
-//class PhaseApplyIoDefault(pc: PhaseContext) extends PhaseNetlist{
-//  override def useNodeConsumers = false
-//  override def impl(pc : PhaseContext): Unit = {
-//    import pc._
-//    Node.walk(pc.walkNodesDefautStack,node => {
-//      node match{
-//        case node : BaseType => {
-//          if(node.input == null && node.defaultValue != null){
-//            val c = node.dir match {
-//              case `in` => node.component
-//              case `out` => if(node.component.parent != null)
-//                node.component.parent
-//              else
-//                null
-//              case _ => node.component
-//            }
-//            if(c != null) {
-//              node.dir match{
-//                case `in` =>  {
-//                  Component.push(c.parent)
-//                  node.assignFrom(node.defaultValue)
-//                  Component.pop(c.parent)
-//                }
-//                case _ => {
-//                  Component.push(c)
-//                  node.assignFrom(node.defaultValue)
-//                  Component.pop(c)
-//                }
-//              }
-//            }
-//          }
-//        }
-//        case _ =>
-//      }
-//
-//    })
-//  }
-//}
-//
+
+class PhaseApplyIoDefault(pc: PhaseContext) extends PhaseNetlist{
+  override def useNodeConsumers = false
+  override def impl(pc : PhaseContext): Unit = {
+    import pc._
+    walkNameableExpression(e => {
+      e match{
+        case node : BaseType if node.isEmpty => node.getTag(classOf[DefaultTag]) match {
+          case Some(defaultValue) => {
+            val c = node.dir match {
+              case `in` => node.component
+              case `out` => if(node.component.parent != null)
+                node.component.parent
+              else
+                null
+              case _ => node.component
+            }
+            if(c != null) {
+              node.dir match{
+                case `in` =>  {
+                  Component.push(c.parent)
+                  node.assignFrom(defaultValue)
+                  Component.pop(c.parent)
+                }
+                case _ => {
+                  Component.push(c)
+                  node.assignFrom(defaultValue)
+                  Component.pop(c)
+                }
+              }
+            }
+          }
+          case _ =>
+        }
+        case _ =>
+      }
+    })
+  }
+}
+
 //class MemTopology(val mem: Mem[_]) {
 //  val writes = ArrayBuffer[MemWrite]()
 //  val readsAsync = ArrayBuffer[MemReadAsync]()
@@ -2170,6 +2170,7 @@ object SpinalVhdlBoot{
     val phases = ArrayBuffer[Phase]()
 
     phases += new PhaseCreateComponent(gen)(pc)
+    phases += new PhaseApplyIoDefault(pc)
 
 
     phases += new PhaseDummy(SpinalProgress("Get names from reflection"))

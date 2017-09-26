@@ -153,8 +153,6 @@ object PlayEnum{
 
 
 object PlayPoison{
-
-
   class TopLevel extends Component {
 
     val a = Bits(8 bits)
@@ -162,6 +160,20 @@ object PlayPoison{
     val b = Bool().assignDontCare()
     val c = State().assignDontCare()
     val d = State(binaryOneHot).assignDontCare()
+  }
+
+  def main(args: Array[String]) {
+    val toplevel = SpinalVhdl(new TopLevel()).toplevel
+
+  }
+}
+
+object PlayMem{
+  class TopLevel extends Component {
+    val mem = Mem(Bits(32 bits), 256)
+    val readAsyncAddress = in UInt(8 bits)
+    val readAsyncData = out Bits(32 bits)
+    readAsyncData := mem.readAsync(readAsyncAddress)
   }
 
   def main(args: Array[String]) {

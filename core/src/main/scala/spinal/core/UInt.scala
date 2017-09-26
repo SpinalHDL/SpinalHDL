@@ -156,7 +156,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
 
   private[core] override def isEquals(that: Any): Bool = that match {
     case that: UInt           => wrapLogicalOperator(that,new Operator.UInt.Equal)
-//    case that: MaskedLiteral  => that === this
+    case that: MaskedLiteral  => that === this
     case that: Int            => this === that
     case that: BigInt         => this === that
     case _                    => SpinalError(s"Don't know how compare $this with $that"); null
@@ -165,7 +165,7 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
 
   private[core] override def isNotEquals(that: Any): Bool = that match {
     case that: UInt           => wrapLogicalOperator(that,new Operator.UInt.NotEqual)
-//    case that: MaskedLiteral  => that === this
+    case that: MaskedLiteral  => that === this
     case _                    => SpinalError(s"Don't know how compare $this with $that"); null
   }
 

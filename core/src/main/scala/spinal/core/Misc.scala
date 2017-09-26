@@ -79,21 +79,21 @@ class HardType[T <: Data](t : T){
   def apply() = cloneOf(t)
 }
 
-//object signalCache {
-//  def apply[T <: Data](key: Object, subKey: Object, factory: () => T): T = {
-//    val cache = GlobalData.get.componentStack.head().userCache.getOrElseUpdate(key, scala.collection.mutable.Map[Object, Object]())
-//    cache.getOrElseUpdate(subKey, factory()).asInstanceOf[T]
-//  }
-//}
+object signalCache {
+  def apply[T <: Data](key: Object, subKey: Object, factory: () => T): T = {
+    val cache = Component.current.userCache.getOrElseUpdate(key, scala.collection.mutable.Map[Object, Object]())
+    cache.getOrElseUpdate(subKey, factory()).asInstanceOf[T]
+  }
+}
 
-//object Cat {
-//  def apply(data: Data*): Bits = apply(data.toList.reverse)
-//
-//  def apply[T <: Data](data: Iterable[T]) = {
-//    if (data.isEmpty) B(0, 0 bit)
-//    else data.map(_.asBits).reduce((a,b) => b ## a)
-//  }
-//}
+object Cat {
+  def apply(data: Data*): Bits = apply(data.toList.reverse)
+
+  def apply[T <: Data](data: Iterable[T]) = {
+    if (data.isEmpty) B(0, 0 bit)
+    else data.map(_.asBits).reduce((a,b) => b ## a)
+  }
+}
 
 
 object ScalaUniverse {

@@ -567,7 +567,7 @@ object CounterMultiRequest {
   }
 }
 
-
+/*
 
 object LatencyAnalysis {
   //Don't care about clock domain
@@ -621,7 +621,7 @@ object LatencyAnalysis {
     -1
   }
 }
-
+*/
 object DataCarrier{
   implicit def toImplicit[T <: Bundle](dataCarrier: DataCarrier[T]): T = dataCarrier.payload
   implicit def toImplicit2[T <: Bundle](dataCarrier: DataCarrier[Fragment[T]]): T = dataCarrier.fragment

@@ -162,14 +162,14 @@ class SInt extends BitVector with Num[SInt] with MinMaxProvider with DataPrimiti
 
   private[core] override def isEquals(that: Any): Bool = that match {
       case that: SInt           => wrapLogicalOperator(that,new Operator.SInt.Equal)
-//      case that: MaskedLiteral  => that === this
+      case that: MaskedLiteral  => that === this
       case _                    => SpinalError(s"Don't know how compare $this with $that"); null
     }
 
 
   private[core] override def isNotEquals(that: Any): Bool = that match {
     case that: SInt          => wrapLogicalOperator(that,new Operator.SInt.NotEqual)
-//    case that: MaskedLiteral => that =/= this
+    case that: MaskedLiteral => that =/= this
     case _                   => SpinalError(s"Don't know how compare $this with $that"); null
   }
 

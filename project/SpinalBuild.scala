@@ -12,7 +12,7 @@ object SpinalBuild extends Build {
       version := SpinalVersion.all,
       publishTo := None
     ),
-    aggregate = Seq(core/*, lib, debugger, tester*/)
+    aggregate = Seq(core, lib/*, debugger, tester*/)
   )
 
   import sys.process._
@@ -45,7 +45,7 @@ object SpinalBuild extends Build {
     )
   )
 
-/*
+
   lazy val lib = Project(
     id = "SpinalHDL-lib",
     base = file("lib"),
@@ -54,7 +54,7 @@ object SpinalBuild extends Build {
       version := SpinalVersion.lib
     )
   ) dependsOn (core)
-
+/*
   lazy val debugger = Project(
     id = "SpinalHDL-debugger",
     base = file("debugger"),

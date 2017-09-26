@@ -100,7 +100,7 @@ class UartCtrl(g : UartCtrlGenerics = UartCtrlGenerics()) extends Component {
       }
 
       streamUnbuffered.ready.allowPruning()
-      streamUnbuffered.ready.input.addTag(unusedTag)
+//      streamUnbuffered.ready.input.addTag(unusedTag)
     }
 
     //manage RX

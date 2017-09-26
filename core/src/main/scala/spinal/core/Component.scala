@@ -409,16 +409,16 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     */
   def getPath(sep: String = "/"): String = (if (parent == null) "" else (getParentsPath(sep) + sep)) + this.getDisplayName()
 
-
-//  def getGroupedIO(ioBundleBypass: Boolean): Seq[Data] = {
-//    val ret = mutable.Set[Data]()
-//    val ioBundle = if (ioBundleBypass) reflectIo else null
-//    def getRootParent(that: Data): Data = if (that.parent == null || that.parent == ioBundle) that else getRootParent(that.parent)
-//    for (e <- getOrdredNodeIo) {
-//      ret += getRootParent(e)
-//    }
-//    ret.toSeq.sortBy(_.instanceCounter)
-//  }
+  //TODO IR
+  def getGroupedIO(ioBundleBypass: Boolean): Seq[Data] = {
+    val ret = mutable.Set[Data]()
+    val ioBundle = if (ioBundleBypass) reflectIo else null
+    def getRootParent(that: Data): Data = if (that.parent == null || that.parent == ioBundle) that else getRootParent(that.parent)
+    for (e <- getOrdredNodeIo) {
+      ret += getRootParent(e)
+    }
+    ret.toSeq.sortBy(_.instanceCounter)
+  }
 
   override def postPushEvent(): Unit = {}
   override def prePopEvent(): Unit = {}

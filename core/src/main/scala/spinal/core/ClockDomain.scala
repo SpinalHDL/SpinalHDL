@@ -129,34 +129,34 @@ object ClockDomain {
     globalData.context.pop()
   }
 
-  def current = GlobalData.get.context.head.clockDomain
+  def current : ClockDomain = GlobalData.get.context.head.clockDomain
 
-//  def isResetActive = current.isResetActive
-//  def isClockEnableActive = current.isClockEnableActive
-//
-//  def readClockWire = current.readClockWire
-//  def readResetWire = current.readResetWire
-//  def readClockEnableWire = current.readClockEnableWire
+  def isResetActive = current.isResetActive
+  def isClockEnableActive = current.isClockEnableActive
 
-//  def getClockDomainDriver(that: Bool): Bool = {
-//    if (that.existsTag(_.isInstanceOf[ClockDomainBoolTag])) {
-//      that
-//    } else {
-//      that.input match {
-//        case input: Bool => getClockDomainDriver(input)
-//        case _ => null
-//      }
-//    }
-//  }
+  def readClockWire = current.readClockWire
+  def readResetWire = current.readResetWire
+  def readClockEnableWire = current.readClockEnableWire
 
-//  def getClockDomainTag(that: Bool): ClockDomainBoolTag = {
-//    val driver = getClockDomainDriver(that)
-//    if (driver == null) {
-//      null
-//    } else {
-//      driver.findTag(_.isInstanceOf[ClockDomainBoolTag]).get.asInstanceOf[ClockDomainBoolTag]
-//    }
-//  }
+  def getClockDomainDriver(that: Bool): Bool = {
+    if (that.existsTag(_.isInstanceOf[ClockDomainBoolTag])) {
+      that
+    } else {
+      that.getSingleDriver match {
+        case Some(driver) => getClockDomainDriver(driver)
+        case _ => null
+      }
+    }
+  }
+
+  def getClockDomainTag(that: Bool): ClockDomainBoolTag = {
+    val driver = getClockDomainDriver(that)
+    if (driver == null) {
+      null
+    } else {
+      driver.findTag(_.isInstanceOf[ClockDomainBoolTag]).get.asInstanceOf[ClockDomainBoolTag]
+    }
+  }
 }
 
 case class ClockDomainTag(clockDomain: ClockDomain) extends SpinalTag
@@ -185,24 +185,24 @@ class ClockDomain(val config: ClockDomainConfig, val clock: Bool, val reset: Boo
   def hasSoftResetSignal = softReset != null
   def push() : Unit = ClockDomain.push(this)
   def pop(): Unit = ClockDomain.pop(this)
-//  def isResetActive = {
-//    if(config.useResetPin && reset != null)
-//      if (config.resetActiveLevel == HIGH) readResetWire else !readResetWire
-//    else
-//      False
-//  }
-//  def isSoftResetActive = {
-//    if(softReset != null)
-//      if (config.softResetActiveLevel == HIGH) readSoftResetWire else ! readSoftResetWire
-//    else
-//      False
-//  }
-//  def isClockEnableActive = {
-//    if(clockEnable != null)
-//      if (config.clockEnableActiveLevel == HIGH) readClockEnableWire else !readClockEnableWire
-//    else
-//      True
-//  }
+  def isResetActive = {
+    if(config.useResetPin && reset != null)
+      if (config.resetActiveLevel == HIGH) readResetWire else !readResetWire
+    else
+      False
+  }
+  def isSoftResetActive = {
+    if(softReset != null)
+      if (config.softResetActiveLevel == HIGH) readSoftResetWire else ! readSoftResetWire
+    else
+      False
+  }
+  def isClockEnableActive = {
+    if(clockEnable != null)
+      if (config.clockEnableActiveLevel == HIGH) readClockEnableWire else !readClockEnableWire
+    else
+      True
+  }
   def readClockWire = if (null == clock) Bool(config.clockEdge == FALLING) else Data.doPull(clock, Component.current, true, true)
   def readResetWire = if (null == reset) Bool(config.resetActiveLevel == LOW) else Data.doPull(reset, Component.current, true, true)
   def readSoftResetWire = if (null == softReset) Bool(config.softResetActiveLevel == LOW) else Data.doPull(softReset, Component.current, true, true)

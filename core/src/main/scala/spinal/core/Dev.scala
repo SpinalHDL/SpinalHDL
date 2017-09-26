@@ -519,3 +519,6 @@ object GraphUtils{
     root.children.foreach(walkAllComponents(_, func))
   }
 }
+
+
+class DefaultTag(val that : BaseType) extends SpinalTag

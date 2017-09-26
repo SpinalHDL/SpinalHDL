@@ -177,17 +177,17 @@ trait DataPrimitives[T <: Data]{
     _data.initFrom(that)
     _data
   }
-//  def default(that : => T) : T ={
-//    val c = if(_data.dir == in)
-//      Component.current.parent
-//    else
-//      Component.current
-//
-//    Component.push(c)
-//    _data.defaultImpl(that)
-//    Component.pop(c)
-//    _data
-//  }
+  def default(that : => T) : T ={
+    val c = if(_data.dir == in)
+      Component.current.parent
+    else
+      Component.current
+
+    Component.push(c)
+    _data.defaultImpl(that)
+    Component.pop(c)
+    _data
+  }
 
 }
 
@@ -356,20 +356,20 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
 
   def getBitsWidth: Int
 
-//  def keep(): this.type = {
+  def keep(): this.type = {
 //    flatten.foreach(t => t.component.additionalNodesRoot += t);
-//    dontSimplifyIt()
-//    this
-//  }
+    dontSimplifyIt()
+    this
+  }
 
-//  def dontSimplifyIt(): this.type = {
-//    flatten.foreach(_.dontSimplifyIt())
-//    this
-//  }
-//  def allowSimplifyIt(): this.type = {
-//    flatten.foreach(_.allowSimplifyIt())
-//    this
-//  }
+  def dontSimplifyIt(): this.type = {
+    flatten.foreach(_.dontSimplifyIt())
+    this
+  }
+  def allowSimplifyIt(): this.type = {
+    flatten.foreach(_.allowSimplifyIt())
+    this
+  }
 
   override def addAttribute(attribute: Attribute): this.type = {
     flatten.foreach(_.addAttribute(attribute))
@@ -407,15 +407,14 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
 
 
 
-//  private[core] def defaultImpl(init: Data): this.type = {
-//    // if (!isReg) SpinalError(s"Try to set initial value of a data that is not a register ($this)")
-//    val regInit = clone()
-//    regInit := init
-//    for ((e, initElement) <- (this.flatten, regInit.flatten).zipped) {
-//      e.defaultValue = initElement
-//    }
-//    this
-//  }
+  private[core] def defaultImpl(init: Data): this.type = {
+    val regInit = clone()
+    regInit := init
+    for ((e, initElement) <- (this.flatten, regInit.flatten).zipped) {
+      e.addTag(new DefaultTag(initElement))
+    }
+    this
+  }
 
   /*private[core] */
   //  def next(next: SSelf): this.type = {
@@ -425,17 +424,17 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
   //  }
 
   //Usefull for register that doesn't need a reset value in RTL, but need a randome value for simulation (avoid x-propagation)
-//  def randBoot(): this.type = {
-//    flatten.foreach(_.addTag(spinal.core.randomBoot))
-//    this
-//  }
+  def randBoot(): this.type = {
+    flatten.foreach(_.addTag(spinal.core.randomBoot))
+    this
+  }
 
 //  @deprecated("use allowPruning instead")
 //  def unused = allowPruning()
 
-//  def allowPruning() = {
-//    flatten.foreach(_.addTag(unusedTag))
-//  }
+  def allowPruning() = {
+    flatten.foreach(_.addTag(unusedTag))
+  }
 
 
   override def getComponent(): Component = component
@@ -527,19 +526,19 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
 
 }
 
-//trait DataWrapper extends Data{
-//  override def asBits: Bits = ???
-//  override def flatten: Seq[BaseType] = ???
-//  override def getBitsWidth: Int = ???
-//  override private[core] def isEquals(that: Any): Bool = ???
-//  override private[core] def autoConnect(that: Data): Unit = ???
-//  override def assignFromBits(bits: Bits): Unit = ???
-//  override def assignFromBits(bits: Bits, hi: Int, low: Int): Unit = ???
-//  override def getZero: DataWrapper.this.type = ???
-//  override private[core] def isNotEquals(that: Any): Bool = ???
-//  override def flattenLocalName: Seq[String] = ???
-//  override private[core] def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = ???
-//}
+trait DataWrapper extends Data{
+  override def asBits: Bits = ???
+  override def flatten: Seq[BaseType] = ???
+  override def getBitsWidth: Int = ???
+  override private[core] def isEquals(that: Any): Bool = ???
+  override private[core] def autoConnect(that: Data): Unit = ???
+  override def assignFromBits(bits: Bits): Unit = ???
+  override def assignFromBits(bits: Bits, hi: Int, low: Int): Unit = ???
+  override def getZero: DataWrapper.this.type = ???
+  override private[core] def isNotEquals(that: Any): Bool = ???
+  override def flattenLocalName: Seq[String] = ???
+  override private[core] def assignFromImpl(that: AnyRef, target: AnyRef, kind: AnyRef): Unit = ???
+}
 
 //
 //abstract class CustomData extends Data{
