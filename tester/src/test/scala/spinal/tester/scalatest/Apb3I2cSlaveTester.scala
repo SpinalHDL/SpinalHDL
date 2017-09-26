@@ -27,13 +27,14 @@ class Apb3I2cSlaveTester extends SpinalTesterCocotbBase {
   override def pythonTestLocation: String = "tester/src/test/python/spinal/I2CTester2/Apb3I2cSlaveTester"
   override def createToplevel: Component = new Apb3I2cCtrl(
     I2cSlaveMemoryMappedGenerics(
-      I2cSlaveGenerics(
+      ctrlGenerics = I2cSlaveGenerics(
         samplingWindowSize = 3,
         samplingClockDividerWidth = 10 bits,
         timeoutWidth = 20 bits
-      )
+      ),
+      addressFilterCount = 4
     )
-  )
+  ).setDefinitionName("Apb3I2cSlave")
 
   waveDepth = 99
 }
