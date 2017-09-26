@@ -23,6 +23,7 @@ object Apb3I2cCtrl{
             samplingClockDividerWidth = 10 bits,
             timeoutWidth = 20 bits
           ),
+          addressFilterCount = 4,
           masterGenerics = I2cMasterMemoryMappedGenerics(
             timerWidth = 12
           )

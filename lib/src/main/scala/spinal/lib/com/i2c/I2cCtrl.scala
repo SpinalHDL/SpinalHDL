@@ -64,6 +64,12 @@ object I2cCtrl{
 
     val addressFilter = if(genAddressFilter) new Area{
       val addresses = Vec(Reg(I2cAddress()))
+      for((address, idx) <- addresses.zipWithIndex){
+        address.enable init(False)
+        busCtrlWithOffset.write(address.value, 132 + 4*idx, 0)
+        busCtrlWithOffset.write(address.is10Bit, 132 + 4*idx, 14)
+        busCtrlWithOffset.write(address.enable, 132 + 4*idx, 15)
+      }
 
       val state = RegInit(U"00")
       val byte0, byte1 = Reg(Bits(8 bits))
@@ -85,7 +91,8 @@ object I2cCtrl{
       }
 
       val hits = addresses.map(address => address.enable && Mux(!address.is10Bit,(byte0 >> 1) === address.value(6 downto 0) && state =/= 0, (byte0(2 downto 1) ## byte1) === address.value && state === 2))
-      txAck.forceAck :=  byte0Is10Bit && state === 1 && addresses.map(address => address.enable && address.is10Bit && byte0(2 downto 1) === address.value(9 downto 8)).orR
+      txAck.forceAck setWhen(byte0Is10Bit && state === 1 && addresses.map(address => address.enable && address.is10Bit && byte0(2 downto 1) === address.value(9 downto 8)).orR)
+      busCtrlWithOffset.read(hits.asBits, 128, 0)
     } else null
 
     val masterLogic = if(genMaster) new Area{
