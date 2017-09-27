@@ -155,7 +155,13 @@ object is{
 //                  case _ => SpinalError("The switch is not a Bits, UInt or SInt")
 //                }
 //              }
-//              case that : SpinalEnumElement[_] => switchValue.isEquals(that())
+    case value : SpinalEnumElement[_] =>
+      val craft = value()
+      if(craft.getClass == switchValue.getClass){
+        switchElement.keys += craft
+      }else{
+        SpinalError("is(xxx) doesn't match switch(yyy) type")
+      }
 //              case key : MaskedLiteral => switchValue match {
 //                case switchValue: Bits => switchValue === key
 //                case switchValue: UInt => switchValue === key

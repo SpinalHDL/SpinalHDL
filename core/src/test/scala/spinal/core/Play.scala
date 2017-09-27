@@ -159,7 +159,7 @@ object PlayPoison{
     a.assignDontCare()
     val b = Bool().assignDontCare()
     val c = State().assignDontCare()
-    val d = State(binaryOneHot).assignDontCare()
+   // val d = State(binaryOneHot).assignDontCare()
   }
 
   def main(args: Array[String]) {

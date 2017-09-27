@@ -355,7 +355,7 @@ class SwitchStatement(var value : Expression) extends TreeStatement{
 
   override def foreachStatements(func: (Statement) => Unit): Unit = {
     elements.foreach(x => x.scopeStatement.foreachStatements(func))
-    defaultScope.foreachStatements(func)
+    if(defaultScope != null) defaultScope.foreachStatements(func)
   }
 
   override def remapExpressions(func: (Expression) => Expression): Unit = {

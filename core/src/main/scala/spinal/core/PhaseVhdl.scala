@@ -1845,12 +1845,12 @@ def refImpl(op: Expression): String = emitReference(op.asInstanceOf[NameableExpr
   }
 
   def emitUIntLiteral(e : Expression) : String = {
-    val lit = e.asInstanceOf[BitsLiteral]
+    val lit = e.asInstanceOf[UIntLiteral]
     s"pkg_unsigned(${'\"'}${lit.getBitsStringOn(lit.getWidth, 'X')}${'\"'})"
   }
 
   def emitSIntLiteral(e : Expression) : String = {
-    val lit = e.asInstanceOf[BitsLiteral]
+    val lit = e.asInstanceOf[SIntLiteral]
     s"pkg_signed(${'\"'}${lit.getBitsStringOn(lit.getWidth, 'X')}${'\"'})"
   }
 
@@ -1863,9 +1863,9 @@ def refImpl(op: Expression): String = emitReference(op.asInstanceOf[NameableExpr
     val binOp = op.asInstanceOf[BinaryOperator]
     val enumDef = op.asInstanceOf[EnumEncoded].getDefinition
     val encoding = op.asInstanceOf[EnumEncoded].getEncoding
-
+    println(binaryOneHot)
     encoding match {
-      case `binaryOneHot` => s"pkg_toStdLogic((${emitExpression(binOp.left)} and ${emitExpression(binOp.right)}) ${if (eguals) "/=" else "="} ${'"' + "0" * encoding.getWidth(enumDef) + '"'})"
+    //  case `binaryOneHot` => s"pkg_toStdLogic((${emitExpression(binOp.left)} and ${emitExpression(binOp.right)}) ${if (eguals) "/=" else "="} ${'"' + "0" * encoding.getWidth(enumDef) + '"'})"
       case _ => s"pkg_toStdLogic(${emitExpression(binOp.left)} ${if (eguals) "=" else "/="} ${emitExpression(binOp.right)})"
     }
   }
