@@ -11,6 +11,67 @@ object I2cCtrl{
     val value = Bits(10 bits)
     val is10Bit = Bool
   }
+
+  /*
+   * To create an I2c controller which is master/slave ready, you basicaly only need an low level I2C bus driver (I2cSlave) and add on the top
+   * of it some clock generation logic/status/buffers. This is what driveI2cSlaveIo do.
+   *
+   * This controller logic can be instanciated as an I2C slave controller only, or as an I2C master/Slave controller.
+   * There are a list of features :
+   * - Slave only / Master Slave
+   * - Slave address filtering (7/10 bits)
+   * - Multimaster
+   * - Timeout
+   *
+   * Master initialisation :
+   * 1) Configure samplingClockDivider/timeout/tsuDat at x28/x2C/x30
+   * 2) Configure tLow/tHigh/tBuf at address x50/x54/x58 (WO).   tBuf is the idle time after a STOP transmition
+   *
+   * Master write:
+   * 1) Do a START by setting the start bit of the masterStatus register
+   *   Multimaster => You have to check that the master had catch the bus via the busy flag of the masterStatus register
+   * 2) Provide the address by feeding the txData/txAck register, then wait the txAck emptiness
+   *   Multimaster => Don't forget the txData disableOnDataConflict flag, then to know of the arbitration had pass, check the txData enable flag
+   *   Conflict => If you address negotiation had conflicted with another master, you have to set the drop flag of the masterStatus register
+   *   ack check => Should had enable the listen flag of the rxAck register
+   * 3) Provide the data by feeding the txData/txAck register, then wait the txAck emptiness
+   * 4) Do a STOP by setting the stop bit of the masterStatus register
+   *
+   * Master read :
+   *   Note : (multimaster operations and ack checking are the thame than the onf of 'master write')
+   * 1) Do a START by setting the start bit of the masterStatus register
+   * 2) Provide the address by feeding the txData/txAck register, then wait the txAck emptiness
+   *   Multimaster => Same as master write
+   * 3) Enable rxData then provide the data by feeding the txData/txAck register, then wait the txAck emptiness to read the rxData
+   * 4) Do a STOP by setting the stop bit of the masterStatus register
+   *
+   *
+   * Slave initialisation :
+   * 1) Configure samplingClockDivider/timeout/tsuDat at x28/x2C/x30
+   *
+   * Slave write without hardware address filtering :
+   * 1) Wait the start interrupt
+   * 2) Disable the rxAck register (! real time !)
+   * 3) Wait the rxData interrupt and check the rxData value.
+   *    - Address KO, put the rxAck in an NACK repeat mode and disable the rxData listen, then return to 1)
+   *    - Address OK, set the rxAck to ACK
+   * 4) wait for rxData interrupt, then set rxAck to NACK to end the transfer
+   *
+   *
+   * Slave read without hardware address filtering :
+   * 1) Wait the start interrupt
+   * 2) Disable the rxAck register (! real time !)
+   * 3) Wait the rxData interrupt and check the rxData value.
+   *    - Address KO, put the rxAck in an NACK repeat mode and disable the rxData listen, then return to 1)
+   *    - Address OK, disable the txData, set the rxAck to ACK
+   * 4) set the txData, set the rxAck to disable
+   *
+   * Slave address filtering
+   * 1) Set the address filtring registers
+   * 2) wait for a txAck interrupt, then check for the hits flags into the filteringStatus register to identify which filter had hit
+   * 3) Continue has the 3) address OK of Slave read/write without hardware address filtering. You can get the RW i2c frame bit in the hitContext register
+   *
+  **/
   def driveI2cSlaveIo(io : I2cSlaveIo,busCtrl: BusSlaveFactory, baseAddress: BigInt)(generics : I2cSlaveMemoryMappedGenerics) = new Area{
     import generics._
     import io._
@@ -20,6 +81,8 @@ object I2cCtrl{
     val frameReset = False
     val i2cBuffer = I2c()
     i2cBuffer <> i2c
+
+
 
     val rxData = new Area{
       val event = RegNext(False) init(False)
@@ -63,12 +126,12 @@ object I2cCtrl{
     }
 
     val addressFilter = if(genAddressFilter) new Area{
-      val addresses = Vec(Reg(I2cAddress()))
+      val addresses = Vec(Reg(I2cAddress()), addressFilterCount)
       for((address, idx) <- addresses.zipWithIndex){
         address.enable init(False)
-        busCtrlWithOffset.write(address.value, 132 + 4*idx, 0)
-        busCtrlWithOffset.write(address.is10Bit, 132 + 4*idx, 14)
-        busCtrlWithOffset.write(address.enable, 132 + 4*idx, 15)
+        busCtrlWithOffset.write(address.value, 136 + 4*idx, 0)
+        busCtrlWithOffset.write(address.is10Bit, 136 + 4*idx, 14)
+        busCtrlWithOffset.write(address.enable, 136 + 4*idx, 15)
       }
 
       val state = RegInit(U"00")
@@ -93,7 +156,15 @@ object I2cCtrl{
       val hits = addresses.map(address => address.enable && Mux(!address.is10Bit,(byte0 >> 1) === address.value(6 downto 0) && state =/= 0, (byte0(2 downto 1) ## byte1) === address.value && state === 2))
       txAck.forceAck setWhen(byte0Is10Bit && state === 1 && addresses.map(address => address.enable && address.is10Bit && byte0(2 downto 1) === address.value(9 downto 8)).orR)
       busCtrlWithOffset.read(hits.asBits, 128, 0)
+      busCtrlWithOffset.read(byte0.lsb, 132, 0)
+
+      when(hits.orR.rise()){
+        txAck.valid := False
+      }
     } else null
+
+
+
 
     val masterLogic = if(genMaster) new Area{
       val start = busCtrlWithOffset.createReadAndWrite(Bool, 64, 4) init(False)
@@ -111,10 +182,11 @@ object I2cCtrl{
       val txReady = Bool //Say if the tx buffer is ready to continue
 
       val fsm = new StateMachine{
-        val IDLE, BUSY, START, LOW, HIGH, RESTART, STOP1, STOP2, TBUF = new State
+        val IDLE, BUSY, START, LOW, HIGH, RESTART, STOP1, STOP2, TBUF = State()
         setEntry(IDLE)
 
-        busCtrlWithOffset.read(this.isActive(IDLE), 64, 0)
+        val isBusy = !this.isActive(IDLE)
+        busCtrlWithOffset.read(isBusy, 64, 0)
 
         IDLE.onEntry{
           start := False
@@ -143,7 +215,8 @@ object I2cCtrl{
         }
         LOW.whenIsActive{
           when(timer.done){
-            when(stop) {
+//            val couldBeEnd =  !inAckState && dataCounter === 0 && !txData.valid
+            when(stop ) {
               txData.forceDisable := True
               goto(STOP1)
             }.elsewhen(start){
@@ -216,9 +289,11 @@ object I2cCtrl{
       }
     } else null
 
+
     val dataCounter = RegInit(U"000")
     val inAckState = RegInit(False)
     val wasntAck = RegInit(False)
+
 
     if(genMaster) masterLogic.txReady :=  inAckState ? txAck.valid | txData.valid
     when(!inAckState) {
@@ -309,9 +384,14 @@ object I2cCtrl{
       txData.valid := True
       txData.enable := False
       txData.repeat := True
+
       txAck.valid := True
       txAck.enable := False
       txAck.repeat := True
+
+      rxData.listen := False
+
+      rxAck.listen := False
     }
 
     val interruptCtrl = new Area{
@@ -333,15 +413,22 @@ object I2cCtrl{
       val interrupt = (rxDataEnable && rxData.valid) || (rxAckEnable && rxAck.valid) ||
         (txDataEnable && !txData.valid) || (txAckEnable && !txAck.valid) ||
         (start.flag || restart.flag || end.flag || drop.flag)
+
+      val clockGen = if(genMaster) new Area{
+        val busyEnable = busCtrlWithOffset.createReadAndWrite(Bool, address = 32, bitOffset = 16)
+        interrupt setWhen((busyEnable && masterLogic.fsm.isBusy))
+      } else null
     }
 
 
 
-    busCtrlWithOffset.write(0, 0 -> txData.value, 8 -> txData.valid, 10 -> txData.repeat, 12 -> txData.disableOnDataConflict)
+    busCtrlWithOffset.write(0, 0 -> txData.value, 10 -> txData.repeat, 12 -> txData.disableOnDataConflict)
+    busCtrlWithOffset.readAndWrite(txData.valid, address = 0, bitOffset = 8)
     busCtrlWithOffset.readAndWrite(txData.enable, address = 0, bitOffset = 9)
 
-    busCtrlWithOffset.write(4, 0 -> txAck.value, 8 -> txAck.valid, 10 -> txAck.repeat, 12 -> txAck.disableOnDataConflict)
-    busCtrlWithOffset.readAndWrite(txAck.enable, address = 4, bitOffset = 9)
+    busCtrlWithOffset.write(4, 0 -> txAck.value, 9 -> txAck.enable, 10 -> txAck.repeat, 12 -> txAck.disableOnDataConflict)
+    busCtrlWithOffset.readAndWrite(txAck.valid, address = 4, bitOffset = 8)
+    busCtrlWithOffset.readAndWrite(txAck.enable, address = 0, bitOffset = 9)
 
     busCtrlWithOffset.drive(config.samplingClockDivider, 40) init(0)
     busCtrlWithOffset.drive(config.timeout, 44) randBoot()

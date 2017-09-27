@@ -68,6 +68,13 @@ def test1(dut):
     def rxAckNotValid():
         yield apb.readAssertMasked(12, 0, 0x100)
 
+    @coroutine
+    def addressFilter(index, enable = False, is10Bits = False, value = 0):
+        yield apb.write(136+index*4, (enable << 15) | (is10Bits << 14) | (value << 0))
+
+    @coroutine
+    def addressFilterHits(value):
+        yield apb.readAssertMasked(128, value, 0xFFFFFFFF)
 
     @coroutine
     def idle():
@@ -231,3 +238,63 @@ def test1(dut):
     yield softMaster.sendBitCheck(True, False)
     yield softMaster.sendStop()
     yield softMaster.wait(5)
+
+
+    #Check address filter
+    yield idle()
+    yield addressFilter(index = 2, enable = True, is10Bits = False, value = 0x63)
+    yield addressFilter(index = 1, enable = True, is10Bits = True, value = 0x123)
+    for i in xrange(2):
+        #7bits
+        yield softMaster.wait(2)
+        yield softMaster.sendStart()
+        yield softMaster.sendByteCheck(0x63*2, 0x63*2)
+        t = fork(softMaster.sendBitCheck(True, False))
+        yield softMaster.wait(5)
+        yield addressFilterHits(1 << 2)
+        yield txData(valid=True, enable=True, value=0xF0)
+        yield txAck(valid=True, enable=True, value=False)
+        yield t.join()
+        yield softMaster.sendByteCheck(0x44, 0x40)
+        yield txAck(valid=True, repeat=True)
+        yield softMaster.sendBitCheck(True, True)
+        yield softMaster.sendStop()
+        yield softMaster.wait(5)
+
+        #10bits
+        yield softMaster.wait(2)
+        yield softMaster.sendStart()
+        yield softMaster.sendByteCheck(0xF3,0xF3)
+        yield softMaster.sendBitCheck(True, False)
+        yield softMaster.sendByteCheck(0x23,0x23)
+        t = fork(softMaster.sendBitCheck(True, False))
+        yield softMaster.wait(5)
+        yield addressFilterHits(1 << 1)
+        yield txData(valid=True, enable=True, value=0xF0)
+        yield txAck(valid=True, enable=True, value=False)
+        yield t.join()
+        yield softMaster.sendByteCheck(0x44, 0x40)
+        yield txAck(valid=True, repeat=True)
+        yield softMaster.sendBitCheck(True, True)
+        yield softMaster.sendStop()
+        yield softMaster.wait(5)
+
+        #10bits no trigger
+        yield softMaster.wait(2)
+        yield softMaster.sendStart()
+        yield softMaster.sendByteCheck(0xF3,0xF3)
+        yield softMaster.sendBitCheck(True, False)
+        yield softMaster.sendByteCheck(0x54,0x54)
+        yield softMaster.sendBitCheck(True, True)
+        yield addressFilterHits(0 << 1)
+        yield softMaster.sendStop()
+        yield softMaster.wait(5)
+
+        #7bits no trigger
+        yield softMaster.wait(2)
+        yield softMaster.sendStart()
+        yield softMaster.sendByteCheck(0x13,0x13)
+        yield softMaster.sendBitCheck(True, True)
+        yield addressFilterHits(0 << 1)
+        yield softMaster.sendStop()
+        yield softMaster.wait(5)
