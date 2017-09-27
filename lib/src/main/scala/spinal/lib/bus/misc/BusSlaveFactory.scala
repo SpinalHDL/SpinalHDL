@@ -521,6 +521,22 @@ trait BusSlaveFactoryDelayed extends BusSlaveFactory{
     */
   def build(): Unit
 
+
+  def dataModelString() : String = {
+    val builder = new StringBuilder()
+    for((address,tasks) <- elementsPerAddress.toList.sortBy(_._1)){
+      builder ++= s"$address :\n"
+      for(task <- tasks) task match{
+        case task : BusSlaveFactoryRead => builder ++= s"  R[${task.bitOffset + widthOf(task.that)-1}:${task.bitOffset}] ${task.that.getName()}\n"
+        case task : BusSlaveFactoryWrite => builder ++= s"  W[${task.bitOffset + widthOf(task.that)-1}:${task.bitOffset}] ${task.that.getName()}\n"
+        case _ =>
+      }
+    }
+    builder.toString
+  }
+
+  def printDataModel() : Unit = print(dataModelString())
+
   // add build function to prepoptask
   component.addPrePopTask(() => build())
 }

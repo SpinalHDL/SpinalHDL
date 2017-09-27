@@ -37,20 +37,20 @@ def test1(dut):
 
 
     @coroutine
-    def txData(valid = False, enable = False, value = 0xFF, repeat = False, startDrop = False, disableOnConflict = False):
-        yield apb.write(0, (valid << 8) | (enable << 9) | (value << 0) | (repeat << 10) | (startDrop << 11) | (disableOnConflict << 12))
+    def txData(valid = False, enable = False, value = 0xFF, repeat = False,  disableOnConflict = False):
+        yield apb.write(0, (valid << 8) | (enable << 9) | (value << 0) | (repeat << 10) | (disableOnConflict << 11))
 
     @coroutine
-    def txAck(valid=False, enable=False, value=0x1, repeat=False, startDrop=False, disableOnConflict=False):
-        yield apb.write(4, (valid << 8) | (enable << 9) | (value << 0) | (repeat << 10) | (startDrop << 11) | (disableOnConflict << 12))
+    def txAck(valid=False, enable=False, value=0x1, repeat=False, disableOnConflict=False):
+        yield apb.write(4, (valid << 8) | (enable << 9) | (value << 0) | (repeat << 10) | (disableOnConflict << 11))
 
     @coroutine
     def rxDataConfig(listen = False):
-        yield apb.write(8, listen << 15)
+        yield apb.write(8, listen << 9)
 
     @coroutine
     def rxAckConfig(listen = False):
-        yield apb.write(12, listen << 15)
+        yield apb.write(12, listen << 9)
 
     @coroutine
     def rxDataValue(expected):

@@ -29,7 +29,7 @@ object Apb3I2cCtrl{
           )
         )
       ).setDefinitionName("TopLevel")
-    ).printPruned()
+    ).toplevel.busCtrl.printDataModel()
   }
 }
 
