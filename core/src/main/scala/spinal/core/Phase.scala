@@ -317,13 +317,13 @@ class PhaseApplyIoDefault(pc: PhaseContext) extends PhaseNetlist{
   }
 }
 
-//class MemTopology(val mem: Mem[_]) {
+class MemTopology(val mem: Mem[_]) {
 //  val writes = ArrayBuffer[MemWrite]()
 //  val readsAsync = ArrayBuffer[MemReadAsync]()
 //  val readsSync = ArrayBuffer[MemReadSync]()
 //  val writeReadSameAddressSync = ArrayBuffer[(MemWrite, MemReadSync)]() //DISABLED
 //  val readWriteSync = ArrayBuffer[(MemReadWrite_writePart, MemReadWrite_readPart)]()
-//}
+}
 //
 //
 //trait PhaseMemBlackboxing extends PhaseNetlist{

@@ -45,23 +45,23 @@ abstract class SpinalTesterCocotbBase extends FunSuite /* with BeforeAndAfterAll
     assert(cocotbMustPass || !pass,"Simulation has not fail :(")
   }
 
-  test("genVerilog") {genHdl}
+  //test("genVerilog") {genHdl}
   //  genHdl
   if(spinalMustPass) {
     val cocotbTests = ArrayBuffer[(String, String)]()
     if (pythonTestLocation != null) cocotbTests += ("cocotb" -> pythonTestLocation)
     cocotbTests ++= pythonTests
     for ((name, location) <- cocotbTests) {
-      test(name + "Verilog") {
-        doTest(location)
-      }
+//      test(name + "Verilog") {
+//        doTest(location)
+//      }
     }
   }
 
   if(postTest != null){
-    test("postTests"){
-      postTest()
-    }
+//    test("postTests"){
+//      postTest()
+//    }
   }
 
 

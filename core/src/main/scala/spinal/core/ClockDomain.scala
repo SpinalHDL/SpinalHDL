@@ -230,18 +230,18 @@ class ClockDomain(val config: ClockDomainConfig, val clock: Bool, val reset: Boo
   }
 
 
-//  def newClockDomainSlowedBy(factor : BigInt): ClockDomain = factor match {
-//    case x if x == 1 => this.clone()
-//    case x if x > 1 => this{
-//      val counter = Reg(UInt(log2Up(factor) bits)) init (0)
-//      val tick = counter === factor - 1
-//      counter := counter + 1
-//      when(tick) {
-//        counter := 0
-//      }
-//      this.clone(clockEnable = RegNext(tick) init(False), config = ClockDomain.current.config.copy(clockEnableActiveLevel = HIGH))
-//    }
-//  }
+  def newClockDomainSlowedBy(factor : BigInt): ClockDomain = factor match {
+    case x if x == 1 => this.clone()
+    case x if x > 1 => this{
+      val counter = Reg(UInt(log2Up(factor) bits)) init (0)
+      val tick = counter === factor - 1
+      counter := counter + 1
+      when(tick) {
+        counter := 0
+      }
+      this.clone(clockEnable = RegNext(tick) init(False), config = ClockDomain.current.config.copy(clockEnableActiveLevel = HIGH))
+    }
+  }
 
   def clone(config: ClockDomainConfig = config, clock: Bool = clock, reset: Bool = reset, dummyArg : DummyTrait = null,softReset : Bool = null,clockEnable: Bool = clockEnable): ClockDomain = new ClockDomain(config, clock, reset, dummyArg, softReset,  clockEnable, frequency)
 }

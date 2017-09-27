@@ -1790,146 +1790,6 @@ object PlayFsmRef {
 }
 
 
-object OverloadPlay {
-
-  class OverloadPlay(frameAddressOffset: Int, p: MandelbrotCoreParameters, coreClk: ClockDomain, vgaMemoryClk: ClockDomain, vgaClk: ClockDomain) extends Component {
-    for (i <- 0 until 10) {
-      val memoryBusConfig = SblConfig(30, 32)
-      val rgbType = RgbConfig(8, 8, 8)
-
-      val i = new MandelbrotSblDemo(frameAddressOffset, p, coreClk, vgaMemoryClk, vgaClk)
-      val uart = master(Uart())
-
-      val mandelbrotWriteCmd = master Stream SblWriteCmd(memoryBusConfig)
-
-      val vgaReadCmd = master Stream SblReadCmd(memoryBusConfig)
-      val vgaReadRet = slave Flow SblReadRet(memoryBusConfig)
-
-      val vga = master(Vga(rgbType))
-
-      i.io.uart <> uart
-      i.io.mandelbrotWriteCmd <> mandelbrotWriteCmd
-      i.io.vgaReadCmd <> vgaReadCmd
-      i.io.vgaReadRet <> vgaReadRet
-      i.io.uart <> uart
-      i.io.vga <> vga
-
-    }
-  }
-
-  def main(args: Array[String]): Unit = {
-    //    Console.in.read
-
-    for (i <- 0 until 1) {
-      val report = SpinalVhdl({
-        val vgaClock = ClockDomain.external("vga")
-        val vgaMemoryClock = ClockDomain.external("vgaMemory")
-        val coreClock = ClockDomain.external("core",frequency = FixedFrequency(100 MHz))
-        new OverloadPlay(0, new MandelbrotCoreParameters(256, 64, 640, 480, 7, 17 * 3), coreClock, vgaMemoryClock, vgaClock)
-      })
-      // Console.in.read
-      println(report.toplevel)
-      var entries = 0
-
-      val c = ArrayBuffer().getClass()
-      val f = c.getDeclaredField("array")
-      f.setAccessible(true)
-      Node.walk(report.toplevel.getAllIo.toSeq, node => {
-        entries += node.getInputs.size
-      })
-
-      println(entries)
-            while(true){
-              Thread.sleep(1000)
-              println(report.toplevel )
-            }
-    }
-  }
-}
-
-object OverloadPlay2 {
-
-  class OverloadPlay2 extends Component {
-    for (i <- 0 until 100) {
-      //replace wit null to disable instruction cache
-      val iCacheConfig = InstructionCacheConfig(
-        cacheSize =4096,
-        bytePerLine =32,
-        wayCount = 1,
-        wrappedMemAccess = true,
-        addressWidth = 32,
-        cpuDataWidth = 32,
-        memDataWidth = 32
-      )
-
-      //replace wit null to disable data cache
-      val dCacheConfig = DataCacheConfig(
-        cacheSize = 4096,
-        bytePerLine =32,
-        wayCount = 1,
-        addressWidth = 32,
-        cpuDataWidth = 32,
-        memDataWidth = 32
-      )
-
-      val coreConfig = RiscvCoreConfig(
-        pcWidth = 32,
-        addrWidth = 32,
-        startAddress = 0x200,
-        regFileReadyKind = sync,
-        branchPrediction = dynamic,
-        bypassExecute0 = true,
-        bypassExecute1 = true,
-        bypassWriteBack = true,
-        bypassWriteBackBuffer = true,
-        collapseBubble = false,
-        fastFetchCmdPcCalculation = true,
-        dynamicBranchPredictorCacheSizeLog2 = 7
-      )
-
-      coreConfig.add(new MulExtension)
-      coreConfig.add(new DivExtension)
-      coreConfig.add(new BarrelShifterFullExtension)
-      //  p.add(new BarrelShifterLightExtension)
-
-
-      val core = new RiscvAvalon(coreConfig,iCacheConfig,dCacheConfig,true,4)
-      val io = core.io.clone
-      io <> core.io
-      for((a,b) <- (io.flatten,core.io.flatten).zipped)if(b.isInput)
-        a.asInput
-      else
-        a.asOutput
-    }
-  }
-
-  def main(args: Array[String]): Unit = {
-    //    Console.in.read
-
-    for (i <- 0 until 1) {
-      val report = SpinalVhdl(new OverloadPlay2)
-      // Console.in.read
-      println(report.toplevel)
-      var entries = 0
-      var spinalTagSet = 0
-
-      val c = ArrayBuffer().getClass()
-      val f = c.getDeclaredField("array")
-      f.setAccessible(true)
-      Node.walk(report.toplevel.getAllIo.toSeq, node => {
-        entries += node.getInputs.size
-        if(node._spinalTags != null) spinalTagSet += 1
-      })
-
-      println(entries)
-      println(spinalTagSet)
-      while(true){
-        Thread.sleep(1000)
-        println(report.toplevel )
-      }
-    }
-  }
-}
 
 
 object MessagingPlay {
@@ -1960,17 +1820,6 @@ object MessagingPlay {
   }
 }
 
-object RIntPlay {
-
-  class TopLevel extends Component {
-    val a, b = in(RInt(max = 15, min = (-2)))
-    val c = out(a + b)
-  }
-
-  def main(args: Array[String]): Unit = {
-    SpinalVhdl(new TopLevel)
-  }
-}
 
 object BlueVgaPlay {
   class TopLevel extends Component {
@@ -2303,63 +2152,63 @@ object vhd_stdio_play3 {
   }
 }
 
-
-object PlayMacro {
-  import spinal.core.MacroTest._
-
-  class TopLevel extends Component {
-    val e = enum('s1, 's2, 's3)
-
-    import e._
-
-    val e2 = enum('s1, 's2, 's3)
-
-    import e2._
-
-
-    println("ASD3")
-    out(True)
-
-    val s = e()
-    s := e.s1
-    out(s)
-    val s2 = e2()
-    s2 := e2.s1
-    out(s2)
-  }
-
-  def main(args: Array[String]) {
-    //createEnum("asd")
-    val a = bar("toto")
-    println(a.asd)
-
-
-    SpinalVhdl(new TopLevel)
-    println("Done")
-  }
-}
-
-object PlayMacroLib {
-  import spinal.core.MacroTest._
-
-  class TopLevel extends Component {
-   
-  }
-
-  def main(args: Array[String]) {
-    var titi = 2
-    val a = new MacrosClass
-    val x = a.doit("asd")
-    print(x(2))
-    
-    val y = a.doit2((x : Int) => x + 1) 
-    print(y(2))
-   
-    val z = a.doit3((x : Int) => x + 1) 
-    print(z(2))
-   
-  }
-}
+//
+//object PlayMacro {
+//  import spinal.core.MacroTest._
+//
+//  class TopLevel extends Component {
+//    val e = enum('s1, 's2, 's3)
+//
+//    import e._
+//
+//    val e2 = enum('s1, 's2, 's3)
+//
+//    import e2._
+//
+//
+//    println("ASD3")
+//    out(True)
+//
+//    val s = e()
+//    s := e.s1
+//    out(s)
+//    val s2 = e2()
+//    s2 := e2.s1
+//    out(s2)
+//  }
+//
+//  def main(args: Array[String]) {
+//    //createEnum("asd")
+//    val a = bar("toto")
+//    println(a.asd)
+//
+//
+//    SpinalVhdl(new TopLevel)
+//    println("Done")
+//  }
+//}
+//
+//object PlayMacroLib {
+//  import spinal.core.MacroTest._
+//
+//  class TopLevel extends Component {
+//
+//  }
+//
+//  def main(args: Array[String]) {
+//    var titi = 2
+//    val a = new MacrosClass
+//    val x = a.doit("asd")
+//    print(x(2))
+//
+//    val y = a.doit2((x : Int) => x + 1)
+//    print(y(2))
+//
+//    val z = a.doit3((x : Int) => x + 1)
+//    print(z(2))
+//
+//  }
+//}
 
 object PlayMaskedLiteral {
 

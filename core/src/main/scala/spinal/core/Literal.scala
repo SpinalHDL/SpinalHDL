@@ -121,7 +121,7 @@ object U extends BitVectorLiteralFactory[UInt] {
   def apply(that: Bool): UInt = that.asUInt
   def apply(that: Bits): UInt = that.asUInt
   def apply(that: SInt): UInt = that.asUInt
-//  def apply(that: UFix) : UInt = that.toUInt
+  def apply(that: UFix) : UInt = that.toUInt
   override private[core] def newInstance(bitCount: BitCount): UInt = UInt(bitCount)
   override def isSigned: Boolean = false
   override def getFactory: (BigInt, Int, UInt) => UInt = UIntLiteral.apply[UInt]
@@ -132,7 +132,7 @@ object S extends BitVectorLiteralFactory[SInt] {
   def apply(that : Bool) : SInt = that.asSInt
   def apply(that : Bits) : SInt = that.asSInt
   def apply(that : UInt) : SInt = that.asSInt
-//  def apply(that : SFix) : SInt = that.toSInt
+  def apply(that : SFix) : SInt = that.toSInt
   override private[core] def newInstance(bitCount: BitCount): SInt = SInt(bitCount)
   override def isSigned: Boolean = true
   override def getFactory: (BigInt, Int, SInt) => SInt = SIntLiteral.apply[SInt]

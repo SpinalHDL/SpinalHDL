@@ -12,7 +12,7 @@ object SpinalBuild extends Build {
       version := SpinalVersion.all,
       publishTo := None
     ),
-    aggregate = Seq(core, lib/*, debugger, tester*/)
+    aggregate = Seq(core, lib, debugger, tester)
   )
 
   import sys.process._
@@ -54,7 +54,7 @@ object SpinalBuild extends Build {
       version := SpinalVersion.lib
     )
   ) dependsOn (core)
-/*
+
   lazy val debugger = Project(
     id = "SpinalHDL-debugger",
     base = file("debugger"),
@@ -90,7 +90,7 @@ object SpinalBuild extends Build {
       //libraryDependencies += "com.storm-enroute" %% "scalameter" % "latest.release",
       publishTo := None
     )
-  ) dependsOn(core, lib, debugger,demo)*/
+  ) dependsOn(core, lib, debugger,demo)
 
   //sbt clean reload publishSigned
   //https://oss.sonatype.org

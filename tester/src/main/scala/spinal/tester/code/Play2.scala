@@ -2461,84 +2461,84 @@ object PlayMasterSlave{
 
 
 
-object PlayRegTriplify{
-  def triplifyReg(regOutput : BaseType) : Unit = {
-    val originalReg = regOutput.input.asInstanceOf[Reg]
-
-    //Create 3 equivalent registers
-    val regs = for(i <- 0 to 2) yield {
-      val baseType = regOutput.clone()
-      baseType.input = Node.cloneReg(baseType,originalReg)
-      baseType.setPartialName(regOutput,i.toString)
-      baseType
-    }
-
-    regOutput.input = null
-    regOutput.compositeAssign = null
-
-    regOutput match {
-      case regOutput : Bool => {
-        val r0 = regs(0).asInstanceOf[Bool]
-        val r1 = regs(1).asInstanceOf[Bool]
-        val r2 = regs(2).asInstanceOf[Bool]
-        regOutput.assignFrom((r0 & r1) | (r0 & r2) | (r1 & r2))
-      }
-      case regOutput : Bits => {
-        val r0 = regs(0).asInstanceOf[Bits]
-        val r1 = regs(1).asInstanceOf[Bits]
-        val r2 = regs(2).asInstanceOf[Bits]
-        regOutput.assignFrom((r0 & r1) | (r0 & r2) | (r1 & r2))
-      }
-      case regOutput : UInt => {
-        val r0 = regs(0).asInstanceOf[UInt]
-        val r1 = regs(1).asInstanceOf[UInt]
-        val r2 = regs(2).asInstanceOf[UInt]
-        regOutput.assignFrom((r0 & r1) | (r0 & r2) | (r1 & r2))
-      }
-      case regOutput : SInt => {
-        val r0 = regs(0).asInstanceOf[SInt]
-        val r1 = regs(1).asInstanceOf[SInt]
-        val r2 = regs(2).asInstanceOf[SInt]
-        regOutput.assignFrom((r0 & r1) | (r0 & r2) | (r1 & r2))
-      }
-    }
-
-    //Allow to reassign the triplified register even after this call
-    regOutput.compositeAssign = new Assignable {
-      override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
-        regs.foreach(_.input.asInstanceOf[Reg].assignFrom(that))
-      }
-    }
-  }
-
-  class TopLevel extends Component {
-    val cond = in Bool
-    val a,b = in UInt(8 bits)
-    val result = out UInt(8 bits)
-    val counter = Reg(UInt(8 bits))
-
-
-    when(cond){
-      counter := a + b
-    }
-    when(counter > 54){
-      counter(4) := False
-    }
-
-    when(counter === 34){
-      counter := 3
-    }
-
-
-    triplifyReg(counter)
-
-    result := counter
-  }
-
-  def main(args: Array[String]) {
-    SpinalConfig().generateVhdl(new TopLevel)
-  }
-}
+//object PlayRegTriplify{
+//  def triplifyReg(regOutput : BaseType) : Unit = {
+//    val originalReg = regOutput.input.asInstanceOf[Reg]
+//
+//    //Create 3 equivalent registers
+//    val regs = for(i <- 0 to 2) yield {
+//      val baseType = regOutput.clone()
+//      baseType.input = Node.cloneReg(baseType,originalReg)
+//      baseType.setPartialName(regOutput,i.toString)
+//      baseType
+//    }
+//
+//    regOutput.input = null
+//    regOutput.compositeAssign = null
+//
+//    regOutput match {
+//      case regOutput : Bool => {
+//        val r0 = regs(0).asInstanceOf[Bool]
+//        val r1 = regs(1).asInstanceOf[Bool]
+//        val r2 = regs(2).asInstanceOf[Bool]
+//        regOutput.assignFrom((r0 & r1) | (r0 & r2) | (r1 & r2))
+//      }
+//      case regOutput : Bits => {
+//        val r0 = regs(0).asInstanceOf[Bits]
+//        val r1 = regs(1).asInstanceOf[Bits]
+//        val r2 = regs(2).asInstanceOf[Bits]
+//        regOutput.assignFrom((r0 & r1) | (r0 & r2) | (r1 & r2))
+//      }
+//      case regOutput : UInt => {
+//        val r0 = regs(0).asInstanceOf[UInt]
+//        val r1 = regs(1).asInstanceOf[UInt]
+//        val r2 = regs(2).asInstanceOf[UInt]
+//        regOutput.assignFrom((r0 & r1) | (r0 & r2) | (r1 & r2))
+//      }
+//      case regOutput : SInt => {
+//        val r0 = regs(0).asInstanceOf[SInt]
+//        val r1 = regs(1).asInstanceOf[SInt]
+//        val r2 = regs(2).asInstanceOf[SInt]
+//        regOutput.assignFrom((r0 & r1) | (r0 & r2) | (r1 & r2))
+//      }
+//    }
+//
+//    //Allow to reassign the triplified register even after this call
+//    regOutput.compositeAssign = new Assignable {
+//      override def assignFromImpl(that: AnyRef, conservative: Boolean): Unit = {
+//        regs.foreach(_.input.asInstanceOf[Reg].assignFrom(that))
+//      }
+//    }
+//  }
+//
+//  class TopLevel extends Component {
+//    val cond = in Bool
+//    val a,b = in UInt(8 bits)
+//    val result = out UInt(8 bits)
+//    val counter = Reg(UInt(8 bits))
+//
+//
+//    when(cond){
+//      counter := a + b
+//    }
+//    when(counter > 54){
+//      counter(4) := False
+//    }
+//
+//    when(counter === 34){
+//      counter := 3
+//    }
+//
+//
+//    triplifyReg(counter)
+//
+//    result := counter
+//  }
+//
+//  def main(args: Array[String]) {
+//    SpinalConfig().generateVhdl(new TopLevel)
+//  }
+//}
 
 object PlayBigDecimal{
   def main(args: Array[String]) {

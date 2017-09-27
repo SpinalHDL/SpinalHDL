@@ -2,7 +2,7 @@
 package spinal.tester.code
 
 
-import spinal.core.MacroTest._
+
 import spinal.core._
 import spinal.lib._
 
@@ -154,8 +154,6 @@ object Debug {
     nameElements()
 
     //MacroTest.mkObject("asd")
-    val yolo = bar("asd")
-
 
   }
 

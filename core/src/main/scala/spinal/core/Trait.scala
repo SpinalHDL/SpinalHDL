@@ -726,52 +726,52 @@ class ClockingArea(clockDomain: ClockDomain) extends Area with DelayedInit {
   }
 }
 
-//class ClockEnableArea(clockEnable: Bool) extends Area with DelayedInit {
-////  val newClockEnable : Bool = if (ClockDomain.current.config.clockEnableActiveLevel == HIGH)
-////    ClockDomain.current.readClockEnableWire & clockEnable
-////  else
-////    ClockDomain.current.readClockEnableWire | !clockEnable
-//
-//  val clockDomain = ClockDomain.current.clone(clockEnable = newClockEnable)
-//
-//  clockDomain.push
-//
-//  override def delayedInit(body: => Unit) = {
-//    body
-//
-//    if ((body _).getClass.getDeclaringClass == this.getClass) {
-//      clockDomain.pop
-//    }
-//  }
-//}
-//
-//class SlowArea(factor : BigInt) extends ClockingArea(ClockDomain.current.newClockDomainSlowedBy(factor)){
-//  def this(frequency : HertzNumber)  {
-//    this((ClockDomain.current.frequency.getValue / frequency).toBigInt())
-//    val factor = ClockDomain.current.frequency.getValue / frequency
-//    require(factor.toBigInt() == factor)
-//  }
-//}
-//
-//
-//
-//class ResetArea(reset: Bool, cumulative: Boolean) extends Area with DelayedInit {
-//
-//  val newReset : Bool = if (ClockDomain.current.config.resetActiveLevel == HIGH)
-//    (if (cumulative) (ClockDomain.current.readResetWire & reset) else reset)
-//  else
-//    (if (cumulative) (ClockDomain.current.readResetWire | !reset) else reset)
-//  val clockDomain = ClockDomain.current.clone(reset = newReset)
-//  clockDomain.push
-//
-//  override def delayedInit(body: => Unit) = {
-//    body
-//
-//    if ((body _).getClass.getDeclaringClass == this.getClass) {
-//      clockDomain.pop
-//    }
-//  }
-//}
+class ClockEnableArea(clockEnable: Bool) extends Area with DelayedInit {
+  val newClockEnable : Bool = if (ClockDomain.current.config.clockEnableActiveLevel == HIGH)
+    ClockDomain.current.readClockEnableWire & clockEnable
+  else
+    ClockDomain.current.readClockEnableWire | !clockEnable
+
+  val clockDomain = ClockDomain.current.clone(clockEnable = newClockEnable)
+
+  clockDomain.push
+
+  override def delayedInit(body: => Unit) = {
+    body
+
+    if ((body _).getClass.getDeclaringClass == this.getClass) {
+      clockDomain.pop
+    }
+  }
+}
+
+class SlowArea(factor : BigInt) extends ClockingArea(ClockDomain.current.newClockDomainSlowedBy(factor)){
+  def this(frequency : HertzNumber)  {
+    this((ClockDomain.current.frequency.getValue / frequency).toBigInt())
+    val factor = ClockDomain.current.frequency.getValue / frequency
+    require(factor.toBigInt() == factor)
+  }
+}
+
+
+
+class ResetArea(reset: Bool, cumulative: Boolean) extends Area with DelayedInit {
+
+  val newReset : Bool = if (ClockDomain.current.config.resetActiveLevel == HIGH)
+    (if (cumulative) (ClockDomain.current.readResetWire & reset) else reset)
+  else
+    (if (cumulative) (ClockDomain.current.readResetWire | !reset) else reset)
+  val clockDomain = ClockDomain.current.clone(reset = newReset)
+  clockDomain.push
+
+  override def delayedInit(body: => Unit) = {
+    body
+
+    if ((body _).getClass.getDeclaringClass == this.getClass) {
+      clockDomain.pop
+    }
+  }
+}
 
 
 

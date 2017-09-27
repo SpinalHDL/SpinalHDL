@@ -224,27 +224,27 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
     this
   }
 }
-//
-//
-///**
-//  * Define an UInt 2D point
-//  * @example{{{ val positionOnScreen = Reg(UInt2D(log2Up(p.screenResX) bits, log2Up(p.screenResY) bits)) }}}
-//  * @param xBitCount width of the x point
-//  * @param yBitCount width of the y point
-//  */
-//case class UInt2D(xBitCount: BitCount, yBitCount: BitCount) extends Bundle {
-//  val x = UInt(xBitCount)
-//  val y = UInt(yBitCount)
-//}
-//
-//
-//object UInt2D{
-//
-//  /**
-//    * Construct a UInt2D with x and y of the same width
-//    * @param commonBitCount the width of the x and y
-//    * @return an UInt2 with x and y of the same width
-//    */
-//  def apply(commonBitCount: BitCount) : UInt2D = UInt2D(commonBitCount, commonBitCount)
-//}
-//
+
+
+/**
+  * Define an UInt 2D point
+  * @example{{{ val positionOnScreen = Reg(UInt2D(log2Up(p.screenResX) bits, log2Up(p.screenResY) bits)) }}}
+  * @param xBitCount width of the x point
+  * @param yBitCount width of the y point
+  */
+case class UInt2D(xBitCount: BitCount, yBitCount: BitCount) extends Bundle {
+  val x = UInt(xBitCount)
+  val y = UInt(yBitCount)
+}
+
+
+object UInt2D{
+
+  /**
+    * Construct a UInt2D with x and y of the same width
+    * @param commonBitCount the width of the x and y
+    * @return an UInt2 with x and y of the same width
+    */
+  def apply(commonBitCount: BitCount) : UInt2D = UInt2D(commonBitCount, commonBitCount)
+}
+
