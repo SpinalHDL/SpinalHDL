@@ -109,16 +109,16 @@ object I2cCtrl{
    * - endEnable -> RW[6]
    * - dropEnable -> RW[7]
    *
-   * - startFlag -> RW[8]
-   * - restartFlag -> RW[9]
-   * - endFlag -> RW[10]
-   * - dropFlag -> RW[11]
+   * - startFlag -> RW[8] cleared when set
+   * - restartFlag -> RW[9] cleared when set
+   * - endFlag -> RW[10] cleared when set
+   * - dropFlag -> RW[11] cleared when set
    *
    * - clockGenBusyEnable -> RW[16]
    *
-   * samplingClockDivider -> 0x28
-   * timeout -> 0x2C
-   * tsuDat -> 0x30
+   * samplingClockDivider -> W 0x28
+   * timeout -> W 0x2C
+   * tsuDat -> W 0x30
    *
    * masterStatus -> 0x40
    * - isBusy -> R[0]
@@ -126,9 +126,9 @@ object I2cCtrl{
    * - stop -> W[5]
    * - drop -> W[6]
    *
-   * tLow -> 0x50
-   * tHigh -> 0x54
-   * tBuf -> 0x58
+   * tLow -> W 0x50
+   * tHigh -> W 0x54
+   * tBuf -> W 0x58
    *
    * filteringStatus -> 0x80
    * - hit_0 -> R[0]
@@ -477,7 +477,7 @@ object I2cCtrl{
 
       def i2CSlaveEvent(enableBitId : Int, flagBitId : Int, busCmd : I2cSlaveCmdMode.E) = new Area{
         val enable = busCtrlWithOffset.createReadAndWrite(Bool, address = 0x20, bitOffset = enableBitId)
-        val flag = busCtrlWithOffset.createReadAndWrite(Bool, address = 0x20, bitOffset = flagBitId) setWhen(bus.cmd.kind === busCmd) clearWhen(!enable)
+        val flag = busCtrlWithOffset.readAndClearOnSet(RegInit(False) setWhen(bus.cmd.kind === busCmd) clearWhen(!enable),  address = 0x20, bitOffset = flagBitId)
       }
 
       val start = i2CSlaveEvent(4,8,I2cSlaveCmdMode.START)

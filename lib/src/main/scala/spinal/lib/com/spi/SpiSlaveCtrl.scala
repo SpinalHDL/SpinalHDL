@@ -28,6 +28,30 @@ case class SpiSlaveCtrlIo(generics : SpiSlaveCtrlGenerics) extends Bundle{
   val ssFilted = out Bool
   val spi = master(SpiSlave())
 
+
+  /*
+   * In short, it has one command fifo (for send/read/ss order) and one read fifo.
+   * fifo -> 0x00 :
+   * - rxTxData -> RW[7:0]
+   * - rxOccupancy -> R[30:16]
+   * - rxValid -> R[31]
+   *
+   * status -> 0x04 :
+   * - txIntEnable -> RW[0]
+   * - rxIntEnable -> RW[1]
+   * - ssEnabledIntEnable -> RW[2]
+   * - ssDisabledIntEnable -> RW[3]
+   * - txInt -> RW[8]
+   * - rxInt -> RW[9]
+   * - ssLowInt -> RW[10] cleared when set
+   * - ssHighInt -> RW[11] cleared when set
+   * - txAvailability -> R[30:16]
+   *
+   * config -> 0x08
+   * - cpol -> W[0]
+   * - cpha -> W[1]
+   **/
+
   def driveFrom(bus : BusSlaveFactory, baseAddress : BigInt)(generics : SpiSlaveCtrlMemoryMappedConfig) = new Area {
     import generics._
     require(rxFifoDepth >= 1)
@@ -58,17 +82,16 @@ case class SpiSlaveCtrlIo(generics : SpiSlaveCtrlGenerics) extends Bundle{
     val interruptCtrl = new Area {
       val txIntEnable = busWithOffset.createReadAndWrite(Bool, address = 4, 0) init(False)
       val rxIntEnable = busWithOffset.createReadAndWrite(Bool, address = 4, 1) init(False)
-      val ssLowIntEnable = busWithOffset.createReadAndWrite(Bool, address = 4, 2) init(False)
-      val ssHighIntEnable = busWithOffset.createReadAndWrite(Bool, address = 4, 3) init(False)
-      val txInt  = txIntEnable & !txLogic.stream.valid
-      val rxInt   = rxIntEnable & rxLogic.stream.valid
-      val ssLowInt = ssLowIntEnable & ssFilted
-      val ssHighInt = ssHighIntEnable & ssFilted
-      val interrupt = rxInt || txInt
-      busWithOffset.read(txInt, address = 4, 8)
-      busWithOffset.read(rxInt , address = 4, 9)
-      busWithOffset.read(ssLowInt, address = 4, 10)
-      busWithOffset.read(ssHighInt , address = 4, 11)
+      val ssEnabledIntEnable = busWithOffset.createReadAndWrite(Bool, address = 4, 2) init(False)
+      val ssDisabledIntEnable = busWithOffset.createReadAndWrite(Bool, address = 4, 3) init(False)
+
+
+      val ssFiltedEdges = ssFilted.edges(True)
+      val txInt  = busWithOffset.read(txIntEnable & !txLogic.stream.valid, address = 4, 8)
+      val rxInt  = busWithOffset.read(rxIntEnable & rxLogic.stream.valid , address = 4, 9)
+      val ssLowInt = busWithOffset.readAndClearOnSet(RegInit(False) setWhen(ssFiltedEdges.fall) clearWhen(!ssEnabledIntEnable), address = 4, bitOffset = 10)
+      val ssHighInt = busWithOffset.readAndClearOnSet(RegInit(False) setWhen(ssFiltedEdges.rise) clearWhen(!ssDisabledIntEnable),  address = 4, bitOffset = 11)
+      val interrupt = rxInt || txInt || ssLowInt || ssHighInt
     }
 
     //Configs

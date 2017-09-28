@@ -34,6 +34,7 @@ object Apb3I2cCtrl{
 }
 
 
+//I2cCtrl.driveI2cSlaveIo for the memory mapping
 case class Apb3I2cCtrl(generics : I2cSlaveMemoryMappedGenerics) extends Component{
   val io = new Bundle{
     val apb =  slave(Apb3(Apb3I2cCtrl.getApb3Config))
