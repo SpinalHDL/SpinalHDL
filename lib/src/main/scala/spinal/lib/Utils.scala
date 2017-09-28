@@ -164,7 +164,7 @@ object fromGray {
 object GrayCounter {
   def apply(width: Int, enable: Bool): UInt = {
     val gray = RegInit(U(0, width bit))
-    var even = RegInit(True)
+    val even = RegInit(True)
     val word = Cat(True, gray(width - 3, 0), even)
     when(enable) {
       var found = False

@@ -10,7 +10,7 @@ import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.Await
 import scala.sys.process._
 
-abstract class SpinalTesterCocotbBase extends FunSuite /* with BeforeAndAfterAll with ParallelTestExecution*/ {
+abstract class SpinalTesterCocotbBase /*extends FunSuite *//* with BeforeAndAfterAll with ParallelTestExecution*/ {
 
   var withWaveform = false
   var spinalMustPass = true

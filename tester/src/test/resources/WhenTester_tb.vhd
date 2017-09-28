@@ -190,6 +190,7 @@ begin
       io_outDefault =>  io_outDefault,
       io_outComplex =>  io_outComplex,
       io_outRegComplex =>  io_outRegComplex,
-      clk =>  clk 
+      clk =>  clk ,
+      reset =>  '0'
     );
 end arch;

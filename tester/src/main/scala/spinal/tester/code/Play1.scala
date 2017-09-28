@@ -970,30 +970,14 @@ object PlaySymplify {
 //}
 
 object PlayBug {
-  class TopLevel(g : UartCtrlGenerics = UartCtrlGenerics()) extends Component{
-    val io = new Bundle{
-      val ctrlUart = new UartCtrlIo(g)
-      val done     = out Bool
-    }
-
-    val ctrl = new UartCtrl()
-    io.ctrlUart <> ctrl.io
-
-    val reworkedArea = ctrl rework new Area{
-      val cnt = Reg(UInt(32 bits))
-      val done = out(cnt === 45)
-
-      when(ctrl.clockDivider.tick){
-        cnt := cnt + 1
-      }
-    }
-
-    io.done := reworkedArea.done
+  class TopLevel() extends Component{
+    val result = Bits(16 bits)
+    result(15 downto 4) := 0x70
   }
 
   def main(args: Array[String]): Unit = {
     SpinalVhdl(new TopLevel)
-    SpinalVerilog(new TopLevel)
+    //SpinalVerilog(new TopLevel)
   }
 }
 

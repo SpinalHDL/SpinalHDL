@@ -130,38 +130,44 @@ object is{
     val switchContext = globalData.switchStack.head
     val switchElement = new SwitchStatementElement(ArrayBuffer[Expression](), new ScopeStatement(switchContext.statement))
     val switchValue = switchContext.statement.value
-    values.foreach(value => value match {
-      case value : BaseType =>
-        if(value.getClass == switchValue.getClass){
-          switchElement.keys += value
-        }else{
-          SpinalError("is(xxx) doesn't match switch(yyy) type")
-        }
-//              case key: Data => switchValue.isEquals(key)
-//              case key: Seq[_] => key.map(d => analyse(d)).reduce(_ || _)
-//              case key: Int => {
-//                switchValue match {
-//                  case switchValue: Bits => switchValue === B(key)
-//                  case switchValue: UInt => switchValue === U(key)
-//                  case switchValue: SInt => switchValue === S(key)
-//                  case _ => SpinalError("The switch is not a Bits, UInt or SInt")
-//                }
-//              }
-//              case key: BigInt => {
-//                switchValue match {
-//                  case switchValue: Bits => switchValue === B(key)
-//                  case switchValue: UInt => switchValue === U(key)
-//                  case switchValue: SInt => switchValue === S(key)
-//                  case _ => SpinalError("The switch is not a Bits, UInt or SInt")
-//                }
-//              }
-    case value : SpinalEnumElement[_] =>
-      val craft = value()
-      if(craft.getClass == switchValue.getClass){
-        switchElement.keys += craft
+
+    def onBaseType(value : BaseType): Unit ={
+      if(value.getClass == switchValue.getClass){
+        switchElement.keys += value
       }else{
         SpinalError("is(xxx) doesn't match switch(yyy) type")
       }
+    }
+    values.foreach(value => value match {
+      case value : BaseType => onBaseType(value)
+
+//              case key: Data => switchValue.isEquals(key)
+//              case key: Seq[_] => key.map(d => analyse(d)).reduce(_ || _)
+      case key: Int => {
+        switchValue match {
+          case switchValue: Bits => onBaseType(B(key))
+          case switchValue: UInt => onBaseType(U(key))
+          case switchValue: SInt => onBaseType(S(key))
+          case _ => SpinalError("The switch is not a Bits, UInt or SInt")
+        }
+      }
+      case key: Long => {
+        switchValue match {
+          case switchValue: Bits => onBaseType(B(key))
+          case switchValue: UInt => onBaseType(U(key))
+          case switchValue: SInt => onBaseType(S(key))
+          case _ => SpinalError("The switch is not a Bits, UInt or SInt")
+        }
+      }
+      case key: BigInt => {
+        switchValue match {
+          case switchValue: Bits => onBaseType(B(key))
+          case switchValue: UInt => onBaseType(U(key))
+          case switchValue: SInt => onBaseType(S(key))
+          case _ => SpinalError("The switch is not a Bits, UInt or SInt")
+        }
+      }
+      case value : SpinalEnumElement[_] => onBaseType(value())
 //              case key : MaskedLiteral => switchValue match {
 //                case switchValue: Bits => switchValue === key
 //                case switchValue: UInt => switchValue === key

@@ -8,7 +8,6 @@ import spinal.core._
  */
 
 
-
 object PlayBits{
 
   class TopLevel extends Component {
