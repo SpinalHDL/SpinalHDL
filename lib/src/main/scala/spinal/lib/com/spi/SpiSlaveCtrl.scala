@@ -45,6 +45,7 @@ case class SpiSlaveCtrlIo(generics : SpiSlaveCtrlGenerics) extends Bundle{
    * - rxInt -> RW[9]
    * - ssLowInt -> RW[10] cleared when set
    * - ssHighInt -> RW[11] cleared when set
+   * - rxListen -> RW[15]
    * - txAvailability -> R[30:16]
    *
    * config -> 0x08
@@ -89,9 +90,9 @@ case class SpiSlaveCtrlIo(generics : SpiSlaveCtrlGenerics) extends Bundle{
       val ssFiltedEdges = ssFilted.edges(True)
       val txInt  = busWithOffset.read(txIntEnable & !txLogic.stream.valid, address = 4, 8)
       val rxInt  = busWithOffset.read(rxIntEnable & rxLogic.stream.valid , address = 4, 9)
-      val ssLowInt = busWithOffset.readAndClearOnSet(RegInit(False) setWhen(ssFiltedEdges.fall) clearWhen(!ssEnabledIntEnable), address = 4, bitOffset = 10)
-      val ssHighInt = busWithOffset.readAndClearOnSet(RegInit(False) setWhen(ssFiltedEdges.rise) clearWhen(!ssDisabledIntEnable),  address = 4, bitOffset = 11)
-      val interrupt = rxInt || txInt || ssLowInt || ssHighInt
+      val ssEnabledInt = busWithOffset.readAndClearOnSet(RegInit(False) setWhen(ssFiltedEdges.fall) clearWhen(!ssEnabledIntEnable), address = 4, bitOffset = 10)
+      val ssDisabledInt = busWithOffset.readAndClearOnSet(RegInit(False) setWhen(ssFiltedEdges.rise) clearWhen(!ssDisabledIntEnable),  address = 4, bitOffset = 11)
+      val interrupt = rxInt || txInt || ssEnabledInt || ssDisabledInt
     }
 
     //Configs

@@ -148,11 +148,9 @@ case class SpiMasterCtrl(generics : SpiMasterCtrlGenerics) extends Component{
       val interruptCtrl = new Area {
         val cmdIntEnable = bus.createReadAndWrite(Bool, address = baseAddress + 4, 0) init(False)
         val rspIntEnable  = bus.createReadAndWrite(Bool, address = baseAddress + 4, 1) init(False)
-        val cmdInt  = cmdIntEnable & !cmdLogic.stream.valid
-        val rspInt   = rspIntEnable  &  rspLogic.stream.valid
+        val cmdInt = bus.read(cmdIntEnable & !cmdLogic.stream.valid, address = baseAddress + 4, 8)
+        val rspInt = bus.read(rspIntEnable &  rspLogic.stream.valid, address = baseAddress + 4, 9)
         val interrupt = rspInt || cmdInt
-        bus.read(cmdInt, address = baseAddress + 4, 8)
-        bus.read(rspInt , address = baseAddress + 4, 9)
       }
 
       //Configs
