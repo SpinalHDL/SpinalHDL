@@ -1435,17 +1435,19 @@ class PhaseRemoveUselessStuff extends PhaseNetlist{
     import pc._
     val okId = globalData.allocateAlgoIncrementale()
 
+    def propagateS(s : Statement): Unit = {
+      s.algoIncrementale = okId
+      s.walkNameableExpression(propagate)
+      s.walkParentTreeStatements(t => {
+        t.algoIncrementale = okId
+        t.walkNameableExpression(propagate)
+      })
+    }
+
     def propagate(n : NameableExpression): Unit ={
       if(n.algoIncrementale != okId){
         n.algoIncrementale = okId
-        n.foreachStatements(s => {
-          s.algoIncrementale = okId
-          s.walkNameableExpression(propagate)
-          s.walkParentTreeStatements(t => {
-            t.algoIncrementale = okId
-            t.walkNameableExpression(propagate)
-          })
-        })
+        n.foreachStatements(propagateS)
       }
     }
 
@@ -1455,6 +1457,10 @@ class PhaseRemoveUselessStuff extends PhaseNetlist{
         if(n.isNamed){
           propagate(n)
         }
+      })
+      c.dslBody.walkLeafStatements(s => s match {
+        case s : AssertStatement => propagateS(s)
+        case _ =>
       })
     })
 

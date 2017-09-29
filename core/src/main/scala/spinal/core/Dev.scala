@@ -5,7 +5,9 @@ import scala.collection.immutable.Iterable
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-
+//TODO IR
+// Add assert node into the clock pulling phase
+//Clock pulling phase could be more systematic ?
 case class DslContext(clockDomain: ClockDomain, component: Component, scope: ScopeStatement)
 
 
@@ -348,7 +350,7 @@ class WhenStatement(var cond : Expression) extends TreeStatement{
 }
 
 
-class SwitchStatementElement(var keys : ArrayBuffer[Expression],var scopeStatement: ScopeStatement)
+class SwitchStatementElement(var keys : ArrayBuffer[Expression],var scopeStatement: ScopeStatement) extends ScalaLocated
 class SwitchStatement(var value : Expression) extends TreeStatement{
   val elements = ArrayBuffer[SwitchStatementElement]()
   var defaultScope : ScopeStatement = null
@@ -360,6 +362,10 @@ class SwitchStatement(var value : Expression) extends TreeStatement{
 
   override def remapExpressions(func: (Expression) => Expression): Unit = {
     value = func(value)
+    remapElementsExpressions(func)
+  }
+
+  def remapElementsExpressions(func: (Expression) => Expression): Unit = {
     elements.foreach(x => {
       for(i <- 0 until x.keys.length){
         x.keys(i) = func(x.keys(i))
@@ -370,6 +376,29 @@ class SwitchStatement(var value : Expression) extends TreeStatement{
   override def foreachExpression(func: (Expression) => Unit): Unit = {
     func(value)
     elements.foreach(x => x.keys.foreach(func))
+  }
+
+  override def normalizeInputs: Unit = {
+    def bitVectorNormalize(factory : => Resize) : Unit =  {
+      val targetWidth = value.asInstanceOf[WidthProvider].getWidth
+
+      for(e <- elements; k <- e.keys){
+        for(i <- 0 until e.keys.length) {
+          val k = e.keys(i)
+          e.keys(i) = k match {
+            case k: Expression with WidthProvider => InputNormalize.resizedOrUnfixedLit(k, targetWidth, factory, value, e)
+          }
+        }
+      }
+    }
+
+    //TODO IR enum encoding stuff
+    value.getTypeObject match {
+      case `TypeBits` => bitVectorNormalize(new ResizeBits)
+      case `TypeUInt` => bitVectorNormalize(new ResizeUInt)
+      case `TypeSInt` => bitVectorNormalize(new ResizeSInt)
+      case _ =>
+    }
   }
 }
 

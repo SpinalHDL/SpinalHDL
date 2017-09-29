@@ -152,7 +152,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     val syncGroups = mutable.HashMap[(ClockDomain, ScopeStatement, Boolean), SyncGroup]()
     val asyncStatement = ArrayBuffer[LeafStatement]()
 
-    //Sort all statements into their kinds
+    //Sort all leaf statements into their nature (sync/async)
     component.dslBody.walkLeafStatements(_ match {
       case s : AssignementStatement => s.finalTarget match {
         case target : BaseType if target.isComb => asyncStatement += s
@@ -304,6 +304,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
         expressionToWrap += c
       }
     }
+
     //Manage subcomponents input bindings
     val subComponentInputToNotBufferize = mutable.HashSet[Any]()
     for(sub <- component.children){
@@ -327,10 +328,11 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
       }
     }
 
-    //Check if there is a reference to an output pin
-    val outputsToBufferize = mutable.HashSet[BaseType]()
+    //Outputs and subcomponent output stuff
+    val outputsToBufferize = mutable.HashSet[BaseType]() //Check if there is a reference to an output pin (read self outputed signal)
     val subComponentOutputsToNotBufferize = mutable.HashMap[Nameable,NameableExpression]()
     val subComponentOutputsToBufferize = mutable.HashSet[BaseType]()
+    val openSubIo = mutable.HashSet[BaseType]()
 
     //Get all component outputs which are read internaly
     component.dslBody.walkStatements(s => s.walkDrivingExpressions(_ match {
@@ -342,8 +344,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
       case _ =>
     }))
 
-    //TODO IR WARNING   when(cond)    =>   the cond will not be checked to generate the subComponentOutputToBufferize ! MISSING
-    component.dslBody.walkLeafStatements(ls => ls match {
+    component.dslBody.walkStatements(ls => ls match {
       //Identify direct combinatorial assignements
       case AssignementStatement(target : BaseType,source : BaseType)
        if(target.isComb && source.component.parent == component && source.isOutput && target.hasOnlyOneStatement &&  ls.parentScope == target.rootScopeStatement)=> {
@@ -385,6 +386,13 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
     subComponentOutputsToNotBufferize --= subComponentOutputsToBufferize
 
+
+    component.children.foreach(sub => sub.getAllIo.foreach(io =>
+      if (!subComponentInputToNotBufferize.contains(io) && !subComponentOutputsToBufferize.contains(io)) {
+        openSubIo += io
+      }
+    ))
+
     for((subOutput, target) <- subComponentOutputsToNotBufferize){
       referencesOverrides(subOutput) = emitReference(target, false)
     }
@@ -419,7 +427,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     //Flush all that mess out ^^
     emitBlackBoxComponents(component, b)
     emitSignals(component,b)
-    emitSubComponents(component,b)
+    emitSubComponents(component, openSubIo,b)
     processes.foreach(p => {
       if(p.leafStatements.nonEmpty ) {
         p.leafStatements.head match {
@@ -435,7 +443,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
   }
 
 
-  def emitSubComponents(component: Component, b: ComponentBuilder): Unit = {
+  def emitSubComponents(component: Component, openSubIo : mutable.HashSet[BaseType], b: ComponentBuilder): Unit = {
     for (children <- component.children) {
       val isBB = children.isInstanceOf[BlackBox]
 //      val isBBUsingULogic = isBB && children.asInstanceOf[BlackBox].isUsingULogic
@@ -494,7 +502,8 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
       }
       b.logics ++= s"    port map ( \n"
       for (data <- children.getOrdredNodeIo) {
-        b.logics ++= addULogicCast(data, emitReferenceNoOverrides(data), emitReference(data, false), data.dir)
+        val logic = if(openSubIo.contains(data)) "open" else emitReference(data, false)
+        b.logics ++= addULogicCast(data, emitReferenceNoOverrides(data),logic , data.dir)
       }
       b.logics.setCharAt(b.logics.size - 2, ' ')
 
