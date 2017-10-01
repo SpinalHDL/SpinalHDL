@@ -17,6 +17,8 @@
  */
 
 package spinal.core
+
+import scala.collection.mutable.ArrayBuffer
 //import scala.reflect.runtime.{universe => ru}
 
 
@@ -36,11 +38,34 @@ object Data {
     }
 
 
-    //val targetPath = finalComponent.parents()
-    var finalData : T = null.asInstanceOf[T]
-    val srcPath = null +: srcData.getComponents()
-    var currentData : T = null.asInstanceOf[T]
-    var currentComponent = finalComponent
+    //Find commonComponent and fill the risePath
+    val risePath = ArrayBuffer[Component]()
+    var commonComponent ={
+      var srcPtr = srcData.component
+      var dstPtr = finalComponent
+      if(dstPtr == null) {
+        null
+      } else if(srcPtr == null) {
+        while (dstPtr != null) {
+          risePath += dstPtr
+          dstPtr = dstPtr.parent
+        }
+        null
+      }else{
+        while (srcPtr.level > dstPtr.level) srcPtr = srcPtr.parent
+        while (srcPtr.level < dstPtr.level) {
+          risePath += dstPtr
+          dstPtr = dstPtr.parent
+        }
+        while (srcPtr != dstPtr) {
+          srcPtr = srcPtr.parent
+          risePath += dstPtr
+          dstPtr = dstPtr.parent
+        }
+        srcPtr
+      }
+    }
+
 
     def push(c : Component, scope : ScopeStatement) : Unit = {
       c.globalData.context.push(c.dslContext.copy(component = c, scope = scope))
@@ -51,92 +76,59 @@ object Data {
       c.globalData.context.pop()
     }
 
-    //Rise path
-    if(!srcPath.contains(currentComponent)){
-      push(finalComponent,finalComponent.dslBody)
-      finalData = cloneOf(srcData)
-      if (propagateName)
-        finalData.setCompositeName(srcData,true)
-      finalData.asInput()
-      if (useCache) currentComponent.pulledDataCache.put(srcData, finalData)
-      pop(finalComponent)
+    var currentData : T = srcData
+    var currentComponent : Component = srcData.component
 
-      currentComponent = currentComponent.parent
-      currentData = finalData
-
-      while(!srcPath.contains(currentComponent)){
-        if (useCache && currentComponent.pulledDataCache.contains(srcData)) {
-          val cachedNode = currentComponent.pulledDataCache.get(srcData).get
-          push(cachedNode.component, currentData.component.dslContext.scope)
-          currentData.assignFrom(cachedNode)
-          pop(cachedNode.component)
-          return finalData
-        }else{
-          push(currentComponent, currentData.component.dslContext.scope)
-          val copy = cloneOf(srcData)
+    //Fall path
+    while(currentComponent != commonComponent){
+      if(useCache && currentComponent.parent.pulledDataCache.contains(srcData)){
+        currentComponent = currentComponent.parent
+        currentData = currentComponent.parent.pulledDataCache(srcData).asInstanceOf[T]
+      } else {
+        if (currentData.component == currentComponent && currentData.isIo) {
+          //nothing to do
+        } else {
+          push(currentComponent, currentComponent.dslBody)
+          val copy = cloneOf(srcData).asOutput()
           if (propagateName)
-            copy.setCompositeName(srcData,true)
-          copy.asInput()
-          currentData.assignFrom(copy)
+            copy.setCompositeName(srcData,weak=true)
+          copy := currentData
           pop(currentComponent)
-          if (useCache) currentComponent.pulledDataCache.put(srcData, copy)
-
           currentData = copy
-          currentComponent = currentComponent.parent
         }
+        currentComponent = currentComponent.parent
+        if (useCache)
+          currentComponent.pulledDataCache.put(srcData, currentData)
       }
     }
 
-    //fall path
-    var fallPath = srcPath.drop(srcPath.indexOf(currentComponent) + 1)
-    if(!fallPath.isEmpty && srcData.isOutput) fallPath = fallPath.dropRight(1)
-    while(!fallPath.isEmpty){
-      if (useCache && currentComponent.pulledDataCache.contains(srcData)) {
-        val cachedNode = currentComponent.pulledDataCache.get(srcData).get
-        push(currentComponent, currentComponent.dslBody)
-        currentData.assignFrom(cachedNode)
-        pop(currentComponent)
-        return finalData
-      }else{
-        push(fallPath.head, fallPath.head.dslBody)
-        val copy = cloneOf(srcData)
+    //Rise path
+    for(riseTo <- risePath.reverseIterator){
+      if(useCache && riseTo.pulledDataCache.contains(srcData)){
+        currentComponent = riseTo
+        currentData = riseTo.pulledDataCache(srcData).asInstanceOf[T]
+      }else {
+        push(riseTo, riseTo.dslBody)
+        val copy = cloneOf(srcData).asInput()
         if (propagateName)
-          copy.setCompositeName(srcData)
-        copy.asOutput()
-        pop(fallPath.head)
-
-        if(currentData != null) {
-          push(currentComponent,currentComponent.dslBody)
-          currentData.assignFrom(copy)
+          copy.setCompositeName(srcData,weak=true)
+        pop(riseTo)
+        if (currentComponent != null) {
+          push(currentComponent, currentComponent.dslBody)
+          copy := currentData
           pop(currentComponent)
-        }else{
-          finalData = copy
         }
-        if (useCache) currentComponent.pulledDataCache.put(srcData, copy)
-
         currentData = copy
-      }
 
-      currentComponent = fallPath.head
-      fallPath = fallPath.tail
+        currentComponent = riseTo
+        if (useCache)
+          currentComponent.pulledDataCache.put(srcData, currentData)
+      }
     }
 
-
-    srcData.dir match{
-      case `in`=> {
-        push(srcData.component, currentData.dslContext.scope)
-        currentData := srcData
-        pop(srcData.component)
-      }
-      case _ if srcData.component != null => {
-        push(srcData.component,  currentData.dslContext.scope)
-        currentData := srcData
-        pop(srcData.component)
-      }
-      case _ =>
-    }
-
-    finalData
+    if (useCache)
+      currentComponent.pulledDataCache.put(srcData, currentData)
+    currentData
   }
 }
 

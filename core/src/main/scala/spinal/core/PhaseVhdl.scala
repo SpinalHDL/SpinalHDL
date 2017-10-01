@@ -311,14 +311,15 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
       for(io <- sub.getAllIo if io.isInput){
         var subInputBinded = isSubComponentInputBinded(io)
         if(subInputBinded != null) {
-          def walkInputBindings(that : NameableExpression) : NameableExpression = { //Manage the case then sub input is drived by sub input
-            val next = isSubComponentInputBinded(that.asInstanceOf[BaseType])
-            if(next != null && next.component.parent == component)
-              walkInputBindings(next)
-            else
-              that
-          }
-          referencesOverrides(io) = walkInputBindings(subInputBinded).getName()
+//          def walkInputBindings(that : NameableExpression) : NameableExpression = { //Manage the case then sub input is drived by sub input
+//            val next = isSubComponentInputBinded(that.asInstanceOf[BaseType])
+//            if(next != null && next.component.parent == component)
+//              walkInputBindings(next)
+//            else
+//              that
+//          }
+//          referencesOverrides(io) = walkInputBindings(subInputBinded).getName()
+          referencesOverrides(io) = subInputBinded.getName()
           subComponentInputToNotBufferize += io
         } else {
           val name = component.localNamingScope.allocateName(globalData.anonymSignalPrefix)
@@ -386,9 +387,9 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
     subComponentOutputsToNotBufferize --= subComponentOutputsToBufferize
 
-
+    //TODO undrived components inputs ?
     component.children.foreach(sub => sub.getAllIo.foreach(io =>
-      if (!subComponentInputToNotBufferize.contains(io) && !subComponentOutputsToBufferize.contains(io)) {
+      if (io.isOutput && !subComponentOutputsToNotBufferize.contains(io) && !subComponentOutputsToBufferize.contains(io)) {
         openSubIo += io
       }
     ))
@@ -502,7 +503,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
       }
       b.logics ++= s"    port map ( \n"
       for (data <- children.getOrdredNodeIo) {
-        val logic = if(openSubIo.contains(data)) "open" else emitReference(data, false)
+        val logic = if(openSubIo.contains(data)) "open" else emitReference(data, false) //TODO IR && false
         b.logics ++= addULogicCast(data, emitReferenceNoOverrides(data),logic , data.dir)
       }
       b.logics.setCharAt(b.logics.size - 2, ' ')
@@ -513,7 +514,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
   }
 
   def isSubComponentInputBinded(data : BaseType) = {
-    if(data.isInput && data.isComb && data.hasOnlyOneStatement && data.headStatement.parentScope == data.rootScopeStatement && Statement.isFullToFullStatement(data.headStatement))
+    if(data.isInput && data.isComb && data.hasOnlyOneStatement && data.headStatement.parentScope == data.rootScopeStatement && Statement.isFullToFullStatement(data.headStatement) && data.headStatement.asInstanceOf[AssignementStatement].source.asInstanceOf[BaseType].component == data.component.parent)
       data.headStatement.source.asInstanceOf[BaseType]
     else
       null

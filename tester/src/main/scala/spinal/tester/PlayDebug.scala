@@ -43,12 +43,18 @@ object PlayDebug{
 //    val x = RegNext(a)
 //  }
 
-  class TopLevel extends Component {
-    val a = in Bits(32 bits)
-    val enable = in Bool()
-    val x = ClockDomain(ClockDomain.current.clock,ClockDomain.current.reset,clockEnable = enable)(BufferCC(a))
-  }
+//  class TopLevel extends Component {
+//    val a = in Bits(32 bits)
+//    val enable = in Bool()
+//    val x = ClockDomain(ClockDomain.current.clock,ClockDomain.current.reset,clockEnable = enable)(BufferCC(a))
+//  }
 
+  class TopLevel extends Component {
+    val a,b = in Bits(32 bits)
+    val x = BufferCC(a)
+    val y = RegNext(a)
+//    val z = RegNext(a)
+  }
 
   def main(args: Array[String]) {
     val toplevel = SpinalVhdl(new TopLevel()).toplevel
