@@ -207,6 +207,7 @@ object PlayBlackBox3 {
     io.rd.addr <> ram_1w_1r.io.rd.addr
 //    io.rd.data <> ram_1w_1r.io.rd.data
 
+
   }
 
   def main(args: Array[String]): Unit = {
@@ -214,7 +215,7 @@ object PlayBlackBox3 {
   }
 }
 
-
+/*
 object PlayB1 {
 
   class TopLevel extends Component {
@@ -231,6 +232,10 @@ object PlayB1 {
       }
     }
     io.output := carry.asUInt
+    val yolo = Vec(Bits(32 bits), 4)
+    val titi = yolo.map(_)
+    (yolo,titi).zipped.foreach(_ := _.resized)
+    titi
 
   }
 
@@ -238,7 +243,7 @@ object PlayB1 {
     //SpinalVhdl(new TopLevel)
     SpinalVhdl(new TopLevel)
   }
-}
+}*/
 
 object PlayB2 {
 

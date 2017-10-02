@@ -27,7 +27,8 @@ package spinal.lib.com.i2c
 
 import spinal.core._
 import spinal.lib._
-import spinal.lib.bus.misc.BusSlaveFactory
+import spinal.lib.bus.misc.{BusSlaveFactoryAddressWrapper, BusSlaveFactory}
+import spinal.lib.fsm.{State, StateMachine}
 
 
 /**
@@ -93,179 +94,27 @@ case class I2cSlaveBus() extends Bundle with IMasterSlave{
 }
 
 
-case class I2cSlaveMemoryMappedGenerics(ctrlGenerics : I2cSlaveGenerics)
+case class I2cSlaveMemoryMappedGenerics(ctrlGenerics : I2cSlaveGenerics,
+                                        addressFilterCount : Int = 0,
+                                        masterGenerics : I2cMasterMemoryMappedGenerics = null){
+  def genMaster = masterGenerics != null
+  def genAddressFilter = addressFilterCount > 0
+}
+
+
+case class I2cMasterMemoryMappedGenerics( timerWidth : Int)
+
 
 case class I2cSlaveIo(g : I2cSlaveGenerics) extends Bundle {
   val i2c = master(I2c())
   val config = in(I2cSlaveConfig(g))
   val bus = master(I2cSlaveBus())
+  val internals = out(new Bundle {
+    val inFrame = Bool
+    val sdaRead, sclRead = Bool
+  })
 
-  def driveFrom(busCtrl: BusSlaveFactory, baseAddress: BigInt)(generics : I2cSlaveMemoryMappedGenerics) = new Area{
-    val rxData = new Area{
-      val listen = RegInit(False)
-//      val listenOnStart = Reg(Bool)
-      val valid = RegInit(False)
-      val value = Reg(Bits(8 bits))
-
-      busCtrl.write(listen, address = baseAddress + 8, bitOffset = 15)
-      busCtrl.read(valid, address = baseAddress + 8, bitOffset = 8)
-      busCtrl.read(value, address = baseAddress + 8, bitOffset = 0)
-      valid clearWhen(busCtrl.isReading(baseAddress + 8))
-    }
-
-    val rxAck = new Area{
-      val listen = RegInit(False)
-//      val listenOnStart = Reg(Bool)
-      val valid = RegInit(False)
-      val value = Reg(Bool)
-
-      busCtrl.write(listen, address = baseAddress + 12, bitOffset = 15)
-      busCtrl.read(valid, address = baseAddress + 12, bitOffset = 8)
-      busCtrl.read(value, address = baseAddress + 12, bitOffset = 0)
-      valid clearWhen(busCtrl.isReading(baseAddress + 12))
-    }
-
-    val txData = new Area {
-      val valid  = RegInit(True)
-      val repeat = RegInit(True)
-      val enable = RegInit(False)
-      val disableOnDataConflict = Reg(Bool)
-      val value  = Reg(Bits(8 bits))
-    }
-
-    val txAck = new Area {
-      val valid  = RegInit(True)
-      val repeat = RegInit(True)
-      val enable = RegInit(False)
-      val disableOnDataConflict = Reg(Bool)
-      val value  = Reg(Bool)
-    }
-
-
-    val dataCounter = RegInit(U"000")
-    val inAckState = RegInit(False)
-    val frameReset = False
-    val wasntAck = RegInit(False)
-
-    when(!inAckState) {
-      bus.rsp.valid  := txData.valid && !(rxData.valid && rxData.listen) && bus.cmd.kind === I2cSlaveCmdMode.DRIVE
-      bus.rsp.enable := txData.enable
-      bus.rsp.data   := txData.value(7 - dataCounter)
-    } otherwise {
-      bus.rsp.valid  := txAck.valid && !(rxAck.valid && rxAck.listen) && bus.cmd.kind === I2cSlaveCmdMode.DRIVE
-      bus.rsp.enable := txAck.enable
-      bus.rsp.data   := txAck.value
-    }
-    when(wasntAck){
-      bus.rsp.valid  := bus.cmd.kind === I2cSlaveCmdMode.DRIVE
-      bus.rsp.enable := False
-    }
-
-
-    switch(bus.cmd.kind){
-      is(I2cSlaveCmdMode.START){
-        frameReset := True
-      }
-      is(I2cSlaveCmdMode.RESTART){
-        frameReset := True
-      }
-      is(I2cSlaveCmdMode.STOP){
-        frameReset := True
-      }
-      is(I2cSlaveCmdMode.DROP){
-        rxData.listen := False
-        rxAck.listen := False
-        frameReset := True
-      }
-      is(I2cSlaveCmdMode.DRIVE){
-        when(!inAckState) {
-          when(txData.valid && dataCounter === 7) {
-            when(!txData.repeat) {
-              txData.valid := False
-            }
-          }
-        } otherwise {
-          when(txAck.valid) {
-            when(!txAck.repeat) {
-              txAck.valid := False
-            }
-          }
-        }
-      }
-      is(I2cSlaveCmdMode.READ){
-        when(!inAckState) {
-          rxData.value(7 - dataCounter) := bus.cmd.data
-          dataCounter := dataCounter + 1
-
-          when(bus.rsp.data =/= bus.cmd.data){
-            txData.enable clearWhen(txData.disableOnDataConflict)
-            txAck.enable clearWhen(txAck.disableOnDataConflict)
-          }
-          when(dataCounter === U"111") {
-            rxData.valid setWhen(rxData.listen)
-            inAckState := True
-          }
-
-        } otherwise {
-          rxAck.valid setWhen(rxAck.listen)
-          rxAck.value := bus.cmd.data
-          inAckState := False
-          wasntAck := bus.cmd.data
-        }
-      }
-    }
-
-    when(frameReset){
-      inAckState := False
-      dataCounter := 0
-      wasntAck := False
-    }
-
-
-    when(bus.cmd.kind === I2cSlaveCmdMode.STOP || bus.cmd.kind === I2cSlaveCmdMode.DROP){
-      txData.valid := True
-      txData.enable := False
-      txData.repeat := True
-      txAck.valid := True
-      txAck.enable := False
-      txAck.repeat := True
-    }
-
-    val interruptCtrl = new Area{
-      val rxDataEnable = busCtrl.createReadAndWrite(Bool, address = baseAddress + 32, bitOffset = 0)
-      val rxAckEnable = busCtrl.createReadAndWrite(Bool, address = baseAddress + 32, bitOffset = 1)
-      val txDataEnable = busCtrl.createReadAndWrite(Bool, address = baseAddress + 32, bitOffset = 2)
-      val txAckEnable = busCtrl.createReadAndWrite(Bool, address = baseAddress + 32, bitOffset = 3)
-
-      def eventBuild(enableBitId : Int, flagBitId : Int, busCmd : I2cSlaveCmdMode.E) = new Area{
-        val enable = busCtrl.createReadAndWrite(Bool, address = baseAddress + 32, bitOffset = enableBitId)
-        val flag = busCtrl.createReadAndWrite(Bool, address = baseAddress + 32, bitOffset = flagBitId) setWhen(bus.cmd.kind === busCmd) clearWhen(!enable)
-      }
-      val start = eventBuild(4,8,I2cSlaveCmdMode.START)
-      val restart = eventBuild(5,9,I2cSlaveCmdMode.RESTART)
-      val end = eventBuild(6,10,I2cSlaveCmdMode.STOP)
-      val drop = eventBuild(7,11,I2cSlaveCmdMode.DROP)
-
-
-      val interrupt = (rxDataEnable && rxData.valid) || (rxAckEnable && rxAck.valid) ||
-                      (txDataEnable && !txData.valid) || (txAckEnable && !txAck.valid) ||
-                      (start.flag || restart.flag || end.flag || drop.flag)
-    }
-
-
-
-    busCtrl.write(baseAddress + 0, 0 -> txData.value, 8 -> txData.valid, 10 -> txData.repeat, 12 -> txData.disableOnDataConflict)
-    busCtrl.readAndWrite(txData.enable, address = baseAddress + 0, bitOffset = 9)
-
-    busCtrl.write(baseAddress + 4, 0 -> txAck.value, 8 -> txAck.valid, 10 -> txAck.repeat, 12 -> txAck.disableOnDataConflict)
-    busCtrl.readAndWrite(txAck.enable, address = baseAddress + 4, bitOffset = 9)
-
-    busCtrl.drive(config.samplingClockDivider, baseAddress + 40) init(0)
-    busCtrl.drive(config.timeout, baseAddress + 44) randBoot()
-    busCtrl.drive(config.tsuDat, baseAddress + 48) randBoot()
-
-
-  }
+  def driveFrom(busCtrl: BusSlaveFactory, baseAddress: BigInt)(generics: I2cSlaveMemoryMappedGenerics) = I2cCtrl.driveI2cSlaveIo(this, busCtrl, baseAddress)(generics)
 }
 
 
@@ -408,6 +257,11 @@ class I2cSlave(g : I2cSlaveGenerics) extends Component{
     ctrl.inFrame     := False
     ctrl.inFrameData := False
   }
+
+  io.internals.inFrame := ctrl.inFrame
+  io.internals.sdaRead := filter.sda
+  io.internals.sclRead := filter.scl
+
 
   /*
    * Drive SCL & SDA signals

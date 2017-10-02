@@ -69,6 +69,36 @@ case class SpiMasterCtrl(generics : SpiMasterCtrlGenerics) extends Component{
     val rsp = master Flow(Bits(dataWidth bits))
     val spi = master(SpiMaster(ssWidth))
 
+
+    /*
+     * In short, it has one command fifo (for send/read/ss order) and one read fifo.
+     * data -> 0x00 :
+     *   rxData -> R[7:0]
+     *   rxOccupancy -> R[30:16]
+     *   rxValid -> R[31]
+     *   Write commands:
+     *     0x000000xx =>  Send byte xx
+     *     0x001000xx =>  Send byte xx and also push the read data into the FIFO
+     *     0x1100000X =>  Enable the SS line X
+     *     0x1000000X =>  Disable the SS line X
+     *
+     * status -> 0x04:
+     *   cmdIntEnable -> RW[0] Command fifo empty interrupt enable
+     *   rspIntEnable -> RW[1] Read fifo not empty interrupt enable
+     *   cmdInt -> RW[8] Command fifo empty interrupt pending
+     *   rspInt -> RW[9] Read fifo not empty interrupt pending
+     *   txAvailability -> R[31:16] Command fifo space availability (SS commands + send byte commands)
+     *
+     * config -> 0x08
+     *   cpol -> W[0]
+     *   cpha -> W[1]
+     *
+     * cloclDivider -> W 0x0C frequancy = FCLK / (2 * [12])
+     * ssSetup -> W 0x10 time between chip select enable and the next byte
+     * ssHold -> W 0x14 time between the last byte transmition and the chip select disable
+     * ssHold -> W 0x18 time between chip select disable and chip select enable
+     */
+
     def driveFrom(bus : BusSlaveFactory, baseAddress : Int = 0)(generics : SpiMasterCtrlMemoryMappedConfig) = new Area {
       import generics._
       require(cmdFifoDepth >= 1)
@@ -118,16 +148,14 @@ case class SpiMasterCtrl(generics : SpiMasterCtrlGenerics) extends Component{
       val interruptCtrl = new Area {
         val cmdIntEnable = bus.createReadAndWrite(Bool, address = baseAddress + 4, 0) init(False)
         val rspIntEnable  = bus.createReadAndWrite(Bool, address = baseAddress + 4, 1) init(False)
-        val cmdInt  = cmdIntEnable & !cmdLogic.stream.valid
-        val rspInt   = rspIntEnable  &  rspLogic.stream.valid
+        val cmdInt = bus.read(cmdIntEnable & !cmdLogic.stream.valid, address = baseAddress + 4, 8)
+        val rspInt = bus.read(rspIntEnable &  rspLogic.stream.valid, address = baseAddress + 4, 9)
         val interrupt = rspInt || cmdInt
-        bus.read(cmdInt, address = baseAddress + 4, 8)
-        bus.read(rspInt , address = baseAddress + 4, 9)
       }
 
       //Configs
-      bus.drive(config.kind, 8)
-      bus.drive(config.sclkToogle, 12)
+      bus.drive(config.kind, baseAddress +  8)
+      bus.drive(config.sclkToogle, baseAddress +  12)
       if(ssGen) new Bundle {
         bus.drive(config.ss.setup,   address = baseAddress + 16)
         bus.drive(config.ss.hold,    address = baseAddress + 20)

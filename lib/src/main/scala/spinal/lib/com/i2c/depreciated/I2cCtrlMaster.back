@@ -29,8 +29,6 @@ case class I2cCtrlMasterRsp() extends Bundle{
 }
 
 
-//case class I2cCtrlMasterDriveConfig( cmdFifoSize : Int = 64,
-//                                     rspFifoSize : Int = 64)
 
 case class I2cCtrlMaster(ioGenerics : I2cIoMasterGenerics) extends Component{
   val io = new Bundle{

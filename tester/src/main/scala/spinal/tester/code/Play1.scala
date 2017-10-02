@@ -971,24 +971,11 @@ object PlaySymplify {
 
 object PlayBug {
   class TopLevel(g : UartCtrlGenerics = UartCtrlGenerics()) extends Component{
-    val io = new Bundle{
-      val ctrlUart = new UartCtrlIo(g)
-      val done     = out Bool
-    }
-
-    val ctrl = new UartCtrl()
-    io.ctrlUart <> ctrl.io
-
-    val reworkedArea = ctrl rework new Area{
-      val cnt = Reg(UInt(32 bits))
-      val done = out(cnt === 45)
-
-      when(ctrl.clockDivider.tick){
-        cnt := cnt + 1
-      }
-    }
-
-    io.done := reworkedArea.done
+    val a = in Bits(64 bits)
+    val result = out Bits(8 bits)
+    result := a.subdivideIn(8 bits).apply(U(0))
+    val result2 = out Bool()
+    result2 := a(U(0))
   }
 
   def main(args: Array[String]): Unit = {

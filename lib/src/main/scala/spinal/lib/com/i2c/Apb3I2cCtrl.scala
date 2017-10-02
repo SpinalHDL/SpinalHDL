@@ -5,7 +5,7 @@ import spinal.lib.bus.amba3.apb.{Apb3SlaveFactory, Apb3, Apb3Config}
 import spinal.lib.{master, slave}
 
 
-object Apb3I2cSlave{
+object Apb3I2cCtrl{
   def getApb3Config = Apb3Config(
     addressWidth = 8,
     dataWidth = 32,
@@ -15,33 +15,38 @@ object Apb3I2cSlave{
 
 
   def main(args: Array[String]) {
-    SpinalVhdl(
-      new Apb3I2cSlave(
+    SpinalVerilog(
+      new Apb3I2cCtrl(
         I2cSlaveMemoryMappedGenerics(
-          I2cSlaveGenerics(
+          ctrlGenerics = I2cSlaveGenerics(
             samplingWindowSize = 3,
             samplingClockDividerWidth = 10 bits,
             timeoutWidth = 20 bits
+          ),
+          addressFilterCount = 4,
+          masterGenerics = I2cMasterMemoryMappedGenerics(
+            timerWidth = 12
           )
         )
       ).setDefinitionName("TopLevel")
-    ).printPruned()
+    ).toplevel.busCtrl.printDataModel()
   }
 }
 
 
-case class Apb3I2cSlave(generics : I2cSlaveMemoryMappedGenerics) extends Component{
+//I2cCtrl.driveI2cSlaveIo for the memory mapping
+case class Apb3I2cCtrl(generics : I2cSlaveMemoryMappedGenerics) extends Component{
   val io = new Bundle{
-    val apb =  slave(Apb3(Apb3I2cSlave.getApb3Config))
+    val apb =  slave(Apb3(Apb3I2cCtrl.getApb3Config))
     val i2c = master(I2c())
     val interrupt = out Bool
   }
 
   val i2cCtrl = new I2cSlave(generics.ctrlGenerics)
-  io.i2c <> i2cCtrl.io.i2c
 
   val busCtrl = Apb3SlaveFactory(io.apb)
   val bridge = i2cCtrl.io.driveFrom(busCtrl,0)(generics)
+  io.i2c <> bridge.i2cBuffer
   io.interrupt := bridge.interruptCtrl.interrupt
 }
 

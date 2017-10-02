@@ -3,7 +3,7 @@ package spinal.lib.com.spi
 import spinal.core._
 import spinal.lib._
 import spinal.lib.bus.amba3.apb.{Apb3, Apb3SlaveFactory}
-import spinal.lib.bus.misc.BusSlaveFactory
+import spinal.lib.bus.misc.{BusSlaveFactoryAddressWrapper, BusSlaveFactory}
 
 /**
  * Created by PIC32F_USER on 02/08/2017.
@@ -28,48 +28,75 @@ case class SpiSlaveCtrlIo(generics : SpiSlaveCtrlGenerics) extends Bundle{
   val ssFilted = out Bool
   val spi = master(SpiSlave())
 
-  def driveFrom(bus : BusSlaveFactory)(generics : SpiSlaveCtrlMemoryMappedConfig) = new Area {
+
+  /*
+   * In short, it has one command fifo (for send/read/ss order) and one read fifo.
+   * fifo -> 0x00 :
+   * - rxTxData -> RW[7:0]
+   * - rxOccupancy -> R[30:16]
+   * - rxValid -> R[31]
+   *
+   * status -> 0x04 :
+   * - txIntEnable -> RW[0]
+   * - rxIntEnable -> RW[1]
+   * - ssEnabledIntEnable -> RW[2]
+   * - ssDisabledIntEnable -> RW[3]
+   * - txInt -> RW[8]
+   * - rxInt -> RW[9]
+   * - ssLowInt -> RW[10] cleared when set
+   * - ssHighInt -> RW[11] cleared when set
+   * - rxListen -> RW[15]
+   * - txAvailability -> R[30:16]
+   *
+   * config -> 0x08
+   * - cpol -> W[0]
+   * - cpha -> W[1]
+   **/
+
+  def driveFrom(bus : BusSlaveFactory, baseAddress : BigInt)(generics : SpiSlaveCtrlMemoryMappedConfig) = new Area {
     import generics._
     require(rxFifoDepth >= 1)
     require(txFifoDepth >= 1)
 
     require(rxFifoDepth < 32.kB)
     require(txFifoDepth < 32.kB)
+
+    val busWithOffset = new BusSlaveFactoryAddressWrapper(bus, baseAddress)
+
     //TX
     val txLogic = new Area {
-      val streamUnbuffered = bus.createAndDriveFlow(Bits(8 bits),address =  0).toStream
+      val streamUnbuffered = busWithOffset.createAndDriveFlow(Bits(8 bits),address =  0).toStream
       val (stream, fifoAvailability) = streamUnbuffered.queueWithAvailability(rxFifoDepth)
       tx << stream
-      bus.read(fifoAvailability, address = 4, 16)
+      busWithOffset.read(fifoAvailability, address = 4, 16)
     }
 
     //RX
     val rxLogic = new Area {
-      val listen = bus.createReadAndWrite(Bool, address = 4, bitOffset = 15) init(False)
+      val listen = busWithOffset.createReadAndWrite(Bool, address = 4, bitOffset = 15) init(False)
       val (stream, fifoOccupancy) = rx.takeWhen(listen).queueWithOccupancy(txFifoDepth)
-      bus.readStreamNonBlocking(stream, address = 0, validBitOffset = 31, payloadBitOffset = 0)
-      bus.read(fifoOccupancy, address = 0, 16)
+      busWithOffset.readStreamNonBlocking(stream, address = 0, validBitOffset = 31, payloadBitOffset = 0)
+      busWithOffset.read(fifoOccupancy, address = 0, 16)
     }
 
     //Status
     val interruptCtrl = new Area {
-      val txIntEnable = bus.createReadAndWrite(Bool, address = 4, 0) init(False)
-      val rxIntEnable = bus.createReadAndWrite(Bool, address = 4, 1) init(False)
-      val ssLowIntEnable = bus.createReadAndWrite(Bool, address = 4, 2) init(False)
-      val ssHighIntEnable = bus.createReadAndWrite(Bool, address = 4, 3) init(False)
-      val txInt  = txIntEnable & !txLogic.stream.valid
-      val rxInt   = rxIntEnable & rxLogic.stream.valid
-      val ssLowInt = ssLowIntEnable & ssFilted
-      val ssHighInt = ssHighIntEnable & ssFilted
-      val interrupt = rxInt || txInt
-      bus.read(txInt, address = 4, 8)
-      bus.read(rxInt , address = 4, 9)
-      bus.read(ssLowInt, address = 4, 10)
-      bus.read(ssHighInt , address = 4, 11)
+      val txIntEnable = busWithOffset.createReadAndWrite(Bool, address = 4, 0) init(False)
+      val rxIntEnable = busWithOffset.createReadAndWrite(Bool, address = 4, 1) init(False)
+      val ssEnabledIntEnable = busWithOffset.createReadAndWrite(Bool, address = 4, 2) init(False)
+      val ssDisabledIntEnable = busWithOffset.createReadAndWrite(Bool, address = 4, 3) init(False)
+
+
+      val ssFiltedEdges = ssFilted.edges(True)
+      val txInt  = busWithOffset.read(txIntEnable & !txLogic.stream.valid, address = 4, 8)
+      val rxInt  = busWithOffset.read(rxIntEnable & rxLogic.stream.valid , address = 4, 9)
+      val ssEnabledInt = busWithOffset.readAndClearOnSet(RegInit(False) setWhen(ssFiltedEdges.fall) clearWhen(!ssEnabledIntEnable), address = 4, bitOffset = 10)
+      val ssDisabledInt = busWithOffset.readAndClearOnSet(RegInit(False) setWhen(ssFiltedEdges.rise) clearWhen(!ssDisabledIntEnable),  address = 4, bitOffset = 11)
+      val interrupt = rxInt || txInt || ssEnabledInt || ssDisabledInt
     }
 
     //Configs
-    bus.drive(kind, 8)
+    busWithOffset.drive(kind, 8)
   }
 }
 
@@ -118,7 +145,7 @@ object SpiSlaveCtrl{
       new Component{
         val ctrl = new SpiSlaveCtrl(SpiSlaveCtrlGenerics(8))
         val factory = Apb3SlaveFactory(slave(Apb3(8,32)))
-        ctrl.io.driveFrom(factory)(SpiSlaveCtrlMemoryMappedConfig(SpiSlaveCtrlGenerics(8)))
+        ctrl.io.driveFrom(factory, 0)(SpiSlaveCtrlMemoryMappedConfig(SpiSlaveCtrlGenerics(8)))
         master(cloneOf(ctrl.io.spi)) <> ctrl.io.spi
       }
 //      ctrl

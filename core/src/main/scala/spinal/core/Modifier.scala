@@ -1005,16 +1005,31 @@ abstract class ExtractBoolFloating extends Extract {
       else
         (-1,0)
   }
+
+  def extractBoolFixedFactory : ExtractBoolFixed
+  override def simplifyNode: Unit = {
+    if(bitId.getWidth == 0){
+      Component.push(component)
+      val newOne = extractBoolFixedFactory
+      newOne.input = this.input
+      newOne.bitId = 0
+      SymplifyNode.replaceNode(this, newOne)
+      Component.pop(component)
+    }
+  }
 }
 
 class ExtractBoolFloatingFromBits extends ExtractBoolFloating{
   override def opName: String = "extract(b,u)"
+  override def extractBoolFixedFactory: ExtractBoolFixed = new ExtractBoolFixedFromBits
 }
 class ExtractBoolFloatingFromUInt extends ExtractBoolFloating{
   override def opName: String = "extract(u,u)"
+  override def extractBoolFixedFactory: ExtractBoolFixed = new ExtractBoolFixedFromUInt
 }
 class ExtractBoolFloatingFromSInt extends ExtractBoolFloating{
   override def opName: String = "extract(s,u)"
+  override def extractBoolFixedFactory: ExtractBoolFixed = new ExtractBoolFixedFromSInt
 }
 
 
