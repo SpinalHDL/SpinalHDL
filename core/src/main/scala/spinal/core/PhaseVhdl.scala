@@ -1263,7 +1263,7 @@ class PhaseVhdl(pc: PhaseContext) extends PhaseMisc with VhdlBase{
     case whenNode: WhenNode => s"pkg_mux(${whenNode.getInputs.map(emitLogic(_)).reduce(_ + "," + _)})" //Exeptional case with asyncrouns of literal
     case dc : DontCareNodeEnum => {
       if(dc.encoding.isNative)
-        return enumPackageName + "." + dc.enum.elements.head.getName()
+        return dc.enum.elements.head.getName()
       else
         return s"(${'"'}${"-" * dc.encoding.getWidth(dc.enum)}${'"'})"
     }
