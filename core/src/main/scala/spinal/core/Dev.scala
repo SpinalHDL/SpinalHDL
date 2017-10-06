@@ -20,89 +20,106 @@ trait BaseNode {
 //  def unapply(that : NameableNode) : Option[Unit] = Some()
 //}
 
-trait NameableExpression extends Expression with Nameable with ContextUser{
-  override def foreachExpression(func: (Expression) => Unit): Unit = {}
-  override def remapExpressions(func: (Expression) => Expression): Unit = {}
 
-  var nextNameable, previousNameable : NameableExpression = null
-  def removeNameable() : Unit = {
-    if(previousNameable != null){
-      previousNameable.nextNameable = nextNameable
-    } else {
-      dslContext.component.headNameable = nextNameable
-    }
-    if(nextNameable != null){
-      nextNameable.previousNameable = previousNameable
-    } else {
-      dslContext.component.lastNameable = previousNameable
-    }
-    previousNameable = null
-    nextNameable = null
+trait DoubleLinkedContainerElement[SC  <: DoubleLinkedContainer[SC, SE], SE <: DoubleLinkedContainerElement[SC, SE]]{
+  def dlcParent : SC
+  var dlceLast, dlceNext : SE = null.asInstanceOf[SE]
+  def dlcRemove(): Unit = {
+    //super.removeStatement()
 
-    //TODO IR remove statement from Nameable
+    //Remove from BaseType
+    if(dlceLast != null){
+      dlceLast.dlceNext = dlceNext
+    } else {
+      dlcParent.dlcHead = dlceNext
+    }
+    if(dlceNext != null){
+      dlceNext.dlceLast = dlceLast
+    } else {
+      dlcParent.dlcLast = dlceLast
+    }
+    dlceLast = null.asInstanceOf[SE]
+    dlceNext = null.asInstanceOf[SE]
   }
-  
-  
-  def rootScopeStatement : ScopeStatement = dslContext.scope
+}
 
-
-
-  var headStatement, lastStatement : AssignementStatement = null
-  def hasOnlyOneStatement = headStatement == lastStatement && headStatement != null
-  def isEmpty = headStatement == null
+trait DoubleLinkedContainer[SC <: DoubleLinkedContainer[SC, SE], SE <: DoubleLinkedContainerElement[SC, SE]]{
+  var dlcHead, dlcLast : SE = null.asInstanceOf[SE]
+  def dlcHasOnlyOne = dlcHead == dlcLast && dlcHead != null
+  def dlcIsEmpty = dlcHead == null
   //  def sizeIsOne = head != null && head == last
-  def prepend(that : AssignementStatement) : this.type = {
-    if(headStatement != null){
-      headStatement.previousNameableStatement = that
+  def dlcPrepend(that : SE) : this.type = {
+    if(dlcHead != null){
+      dlcHead.dlceLast = dlcHead
     } else {
-      lastStatement = that
+      dlcLast = that
     }
-    that.nextNameableStatement = headStatement
-    that.previousNameableStatement = null
+    that.dlceNext = dlcHead
+    that.dlceLast = null.asInstanceOf[SE]
 
-    headStatement = that
+    dlcHead = that
 
     this
   }
 
-  def append(that : AssignementStatement) : this.type = {
-    that.nextNameableStatement = null
-    that.previousNameableStatement = lastStatement
-    if(lastStatement != null){
-      lastStatement.nextNameableStatement = that
+  def dlcAppend(that : SE) : this.type = {
+    that.dlceNext = null.asInstanceOf[SE]
+    that.dlceLast = dlcLast
+    if(dlcLast != null){
+      dlcLast.dlceNext = that
     } else {
-      headStatement = that
+      dlcHead = that
     }
 
-    lastStatement = that
+    dlcLast = that
     this
   }
+//
+//  def iterable = new Iterable[Any] {
+//    override def iterator: Iterator[SE] = iterator
+//  }
+//
+//  def iterator = new Iterator[Any] {
+//    var ptr = dlcHead
+//    override def hasNext: Boolean = ptr != null
+//
+//    override def next(): SE = {
+//      val ret = ptr
+//      ptr = ret.nextNameableStatement
+//      ret.asInstanceOf[SE]
+//    }
+//  }
 
-  def statementIterable = new Iterable[AssignementStatement] {
-    override def iterator: Iterator[AssignementStatement] = statementIterator
-  }
 
-  def statementIterator = new Iterator[AssignementStatement] {
-    var ptr = headStatement
-    override def hasNext: Boolean = ptr != null
-
-    override def next(): AssignementStatement = {
-      val ret = ptr
-      ptr = ret.nextNameableStatement
-      ret
-    }
-  }
-
-
-  def foreachStatements(func : (AssignementStatement) => Unit) = {
-    var ptr = headStatement
+  def dlcForeach[T >: SE](func : T => Unit) : Unit = {
+    var ptr = dlcHead
     while(ptr != null){
       val current = ptr
-      ptr = ptr.nextNameableStatement
+      ptr = ptr.dlceNext
       func(current)
     }
   }
 }
+
+trait StatementDoubleLinkedContainer[SC <: Statement with DoubleLinkedContainer[SC, SE], SE <: Statement with DoubleLinkedContainerElement[SC, SE]] extends Statement with DoubleLinkedContainer[SC,SE]{
+  def foreachStatements(func : SE => Unit) = dlcForeach(func)
+  def hasOnlyOneStatement = dlcHasOnlyOne
+  def head = dlcHead
+}
+
+trait StatementDoubleLinkedContainerElement[SC <: DoubleLinkedContainer[SC, SE], SE <: DoubleLinkedContainerElement[SC, SE]] extends Statement with DoubleLinkedContainerElement[SC,SE]{
+  override def removeStatement(): Unit = {
+    super.removeStatement()
+    dlcRemove()
+  }
+}
+
+
+trait DeclarationStatement extends Statement with Nameable {
+  override def foreachExpression(func: (Expression) => Unit): Unit = {}
+  override def remapExpressions(func: (Expression) => Expression): Unit = {}
+}
+
 
 
 trait ExpressionContainer{
@@ -118,10 +135,10 @@ trait ExpressionContainer{
     })
   }
 
-  def walkNameableExpression(func : (NameableExpression) => Unit) = walkExpression(e => e match {
-    case e : NameableExpression => func(e)
-    case _ =>
-  })
+//  def walkNameableExpression(func : (NameableExpression) => Unit) = walkExpression(e => e match {
+//    case e : NameableExpression => func(e)
+//    case _ =>
+//  })
 
   def walkDrivingExpressions(func : (Expression) => Unit) : Unit = {
     foreachDrivingExpression(e => {
@@ -159,71 +176,88 @@ trait Expression extends BaseNode with ExpressionContainer{
 //TODO IR check same scope
 object Statement{
   def isFullToFullStatement(s : Statement) = s match {
-    case  AssignementStatement(a : NameableExpression,b : NameableExpression) => true
+    case  AssignementStatement(a : DeclarationStatement,b : DeclarationStatement) => true
     case _ => false
   }
   def isSomethingToFullStatement(s : Statement) = s match {
-    case  AssignementStatement(a : NameableExpression,_) => true
+    case  AssignementStatement(a : DeclarationStatement,_) => true
     case _ => false
   }
 }
 
 trait Statement extends ExpressionContainer with ScalaLocated with BaseNode{
   var parentScope : ScopeStatement = null
-  var previousScopeStatement, nextScopeStatement : Statement = null
+  var lastScopeStatement, nextScopeStatement : Statement = null
   def rootScopeStatement: ScopeStatement = if(parentScope.parentStatement != null) parentScope.parentStatement.rootScopeStatement else parentScope
-//  def isConditionalStatement : Boolean
 
-//  def removeStatement() : Unit = parentScope.content -= this
   def removeStatement() : Unit = {
     removeStatementFromScope()
   }
 
   def removeStatementFromScope() : Unit = {
-    if(previousScopeStatement != null){
-      previousScopeStatement.nextScopeStatement = nextScopeStatement
+    if(lastScopeStatement != null){
+      lastScopeStatement.nextScopeStatement = nextScopeStatement
     } else {
       parentScope.head = nextScopeStatement
     }
     if(nextScopeStatement != null){
-      nextScopeStatement.previousScopeStatement = previousScopeStatement
+      nextScopeStatement.lastScopeStatement = lastScopeStatement
     } else {
-      parentScope.last = previousScopeStatement
+      parentScope.last = lastScopeStatement
     }
-    previousScopeStatement = null
+    lastScopeStatement = null
     nextScopeStatement = null
     parentScope = null
   }
 
-  def foreachStatements(func : (Statement) => Unit)
-  def walkStatements(func : (Statement) => Unit): Unit ={
-    foreachStatements(s => {
-      func(s)
-      s.walkStatements(func)
-    })
-  }
-
-  def walkLeafStatements(func : (LeafStatement) => Unit): Unit ={
-    foreachStatements(s => {
-      s match {
-        case s : LeafStatement => func(s)
-        case _ =>  s.walkLeafStatements(func)
-      }
-    })
-  }
 
   def walkParentTreeStatements(func : (TreeStatement) => Unit) : Unit = {
+    if(parentScope == null){
+      print("???")
+    }
     if(parentScope.parentStatement != null){
       func(parentScope.parentStatement)
       parentScope.parentStatement.walkParentTreeStatements(func)
     }
   }
 }
-trait LeafStatement extends Statement{
-  final override def foreachStatements(func: (Statement) => Unit): Unit = {}
 
+trait LeafStatement extends Statement{
 }
-trait TreeStatement extends Statement
+
+trait TreeStatement extends Statement{
+  def foreachStatements(func : Statement => Unit)
+  def walkStatements(func : Statement => Unit): Unit ={
+    foreachStatements{
+      case s : LeafStatement => func(s)
+      case s : TreeStatement => func(s); s.walkStatements(func)
+      case s => func(s)
+    }
+  }
+
+  def walkLeafStatements(func : LeafStatement => Unit): Unit ={
+    foreachStatements {
+      case s : LeafStatement => func(s)
+      case s : TreeStatement => s.walkLeafStatements(func)
+      case _ =>
+    }
+  }
+
+  def foreachDeclarations(func : DeclarationStatement => Unit): Unit ={
+    foreachStatements{
+      case s : DeclarationStatement => func(s)
+      case _ =>
+    }
+  }
+
+  def walkDeclarations(func : DeclarationStatement => Unit): Unit ={
+    foreachStatements{
+      case s : DeclarationStatement => func(s)
+      case s : TreeStatement => s.walkDeclarations(func)
+      case _ =>
+    }
+  }
+}
 
 //trait AssignementStatementTarget {
 //  private [core] def nameableNode : NameableNode
@@ -234,12 +268,11 @@ object AssignementStatement{
   def unapply(x : AssignementStatement) : Option[(Expression, Expression)] = Some(x.target, x.source)
 }
 
-abstract class AssignementStatement extends LeafStatement{
+abstract class AssignementStatement extends LeafStatement with StatementDoubleLinkedContainerElement[BaseType,AssignementStatement]{
   var target, source : Expression = null
-  var previousNameableStatement, nextNameableStatement : AssignementStatement = null
   override def rootScopeStatement = finalTarget.rootScopeStatement
 
-
+  override def dlcParent = finalTarget
   override def normalizeInputs: Unit = {
     target match {
       case t : WidthProvider =>
@@ -261,7 +294,7 @@ abstract class AssignementStatement extends LeafStatement{
 
   override def foreachDrivingExpression(func : (Expression) => Unit) : Unit = {
     target match {
-      case ref : NameableExpression =>
+      case ref : BaseType =>
       case a : AssignementExpression => a.foreachDrivingExpression(func)
     }
     func(source)
@@ -270,7 +303,7 @@ abstract class AssignementStatement extends LeafStatement{
 
   override def remapDrivingExpressions(func: (Expression) => Expression): Unit = {
     target match {
-      case ref : NameableExpression =>
+      case ref : BaseType =>
       case a : AssignementExpression => a.remapDrivingExpressions(func)
     }
     source = func(source)
@@ -281,23 +314,7 @@ abstract class AssignementStatement extends LeafStatement{
     source = func(source)
   }
 
-  override def removeStatement(): Unit = {
-    super.removeStatement()
 
-    //Remove from BaseType
-    if(previousNameableStatement != null){
-      previousNameableStatement.nextNameableStatement = nextNameableStatement
-    } else {
-      finalTarget.headStatement = nextNameableStatement
-    }
-    if(nextNameableStatement != null){
-      nextNameableStatement.previousNameableStatement = previousNameableStatement
-    } else {
-      finalTarget.lastStatement = previousNameableStatement
-    }
-    previousNameableStatement = null
-    nextNameableStatement = null
-  }
 }
 
 object DataAssignementStatement{
@@ -305,7 +322,7 @@ object DataAssignementStatement{
     val ret = new DataAssignementStatement
     ret.target = target
     ret.source = source
-    ret.finalTarget.append(ret)
+    ret.finalTarget.dlcAppend(ret)
     ret
   }
 }
@@ -319,7 +336,7 @@ object InitAssignementStatement{
     val ret = new InitAssignementStatement
     ret.target = target
     ret.source = source
-    ret.finalTarget.append(ret)
+    ret.finalTarget.dlcAppend(ret)
     ret
   }
 }
@@ -426,12 +443,12 @@ class ScopeStatement(var parentStatement : TreeStatement)/* extends ExpressionCo
 //  def sizeIsOne = head != null && head == last
   def prepend(that : Statement) : this.type = {
     if(head != null){
-      head.previousScopeStatement = that
+      head.lastScopeStatement = that
     } else {
       last = that
     }
     that.nextScopeStatement = head
-    that.previousScopeStatement = null
+    that.lastScopeStatement = null
 
     head = that
 
@@ -441,7 +458,7 @@ class ScopeStatement(var parentStatement : TreeStatement)/* extends ExpressionCo
   def append(that : Statement) : this.type = {
     that.parentScope = this
     that.nextScopeStatement = null
-    that.previousScopeStatement = last
+    that.lastScopeStatement = last
     if(last != null){
       last.nextScopeStatement = that
     } else {
@@ -477,20 +494,36 @@ class ScopeStatement(var parentStatement : TreeStatement)/* extends ExpressionCo
     }
   }
 
-  def walkStatements(func : (Statement) => Unit): Unit ={
-    foreachStatements(s => {
-      func(s)
-      s.walkStatements(func)
-    })
+
+  def walkStatements(func : Statement => Unit): Unit ={
+    foreachStatements{
+      case s : LeafStatement => func(s)
+      case s : TreeStatement => func(s); s.walkStatements(func)
+      case s => func(s)
+    }
   }
 
-  def walkLeafStatements(func : (LeafStatement) => Unit): Unit ={
-    foreachStatements(s => {
-      s match {
-        case s : LeafStatement => func(s)
-        case _ =>  s.walkLeafStatements(func)
-      }
-    })
+  def walkLeafStatements(func : LeafStatement => Unit): Unit ={
+    foreachStatements {
+      case s : LeafStatement => func(s)
+      case s : TreeStatement => s.walkLeafStatements(func)
+      case _ =>
+    }
+  }
+
+  def foreachDeclarations(func : DeclarationStatement => Unit): Unit ={
+    foreachStatements{
+      case s : DeclarationStatement => func(s)
+      case _ =>
+    }
+  }
+
+  def walkDeclarations(func : DeclarationStatement => Unit): Unit ={
+    foreachStatements{
+      case s : DeclarationStatement => func(s)
+      case s : TreeStatement => s.walkDeclarations(func)
+      case _ =>
+    }
   }
 
 //  def walkExpression(func : (Expression) => Unit): Unit ={

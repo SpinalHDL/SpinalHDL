@@ -435,8 +435,8 @@ object PlayComponent{
 }
 
 object PlayHeavyload {
-
-  class Logic {
+  new mutable.MutableList[Any]
+  class Logic extends Area{
     val a, b, c, d, e, f, g, h, i, j = Bool()
     val x,y,z = Reg(Bool())
     b := True
@@ -451,14 +451,15 @@ object PlayHeavyload {
          e := f
        }
        b := f
-      }.elsewhen(a) {
-        val x = Bool()
-        x := a || b
-        i := g || x
-      } otherwise {
-        b := j
-      }
+    }.elsewhen(a) {
+      val x = Bool()
+      x := a || b
+      i := g || x
+    } otherwise {
+      b := j
     }
+    setWeakName("asd")
+  }
   
   
   class TopLevel(size : Int) extends Component{

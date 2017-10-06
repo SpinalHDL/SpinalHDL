@@ -46,7 +46,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
   class AsyncProcess(val scope : ScopeStatement){
     val leafStatements = ArrayBuffer[LeafStatement]() //.length should be Oc
-    var nameableTargets = List[NameableExpression]()
+    var nameableTargets = List[DeclarationStatement]()
   }
 
   class SyncGroup(val clockDomain: ClockDomain, val scope: ScopeStatement, val hasInit : Boolean){
@@ -268,7 +268,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
               treeStatement.algoIncrementale = algoId
               treeStatement match {
                 case w: WhenStatement => {
-                  if (!w.cond.isInstanceOf[NameableExpression]) {
+                  if (!w.cond.isInstanceOf[DeclarationStatement]) {
                     val counter = whenCondOccurences.getOrElseUpdate(w.cond, 0)
                     if (counter < 2) {
                       whenCondOccurences(w.cond) = counter + 1
@@ -276,7 +276,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
                   }
                 }
                 case s: SwitchStatement => {
-                  if (!s.value.isInstanceOf[NameableExpression]) {
+                  if (!s.value.isInstanceOf[DeclarationStatement]) {
                     val counter = whenCondOccurences.getOrElseUpdate(s.value, 0)
                     if (counter < 2) {
                       whenCondOccurences(s.value) = counter + 1
@@ -331,7 +331,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
     //Outputs and subcomponent output stuff
     val outputsToBufferize = mutable.HashSet[BaseType]() //Check if there is a reference to an output pin (read self outputed signal)
-    val subComponentOutputsToNotBufferize = mutable.HashMap[Nameable,NameableExpression]()
+    val subComponentOutputsToNotBufferize = mutable.HashMap[Nameable,DeclarationStatement]()
     val subComponentOutputsToBufferize = mutable.HashSet[BaseType]()
     val openSubIo = mutable.HashSet[BaseType]()
 
@@ -432,8 +432,8 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     processes.foreach(p => {
       if(p.leafStatements.nonEmpty ) {
         p.leafStatements.head match {
-          case AssignementStatement(_, source : NameableExpression) if subComponentOutputsToNotBufferize.contains(source) =>
-          case AssignementStatement(target: NameableExpression, _) if subComponentInputToNotBufferize.contains(target) =>
+          case AssignementStatement(_, source : DeclarationStatement) if subComponentOutputsToNotBufferize.contains(source) =>
+          case AssignementStatement(target: DeclarationStatement, _) if subComponentInputToNotBufferize.contains(target) =>
           case _ => emitAsyncronous(b, p)
         }
       } else {
@@ -486,7 +486,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
           for (e <- genericFlat) {
             e match {
-              case bt : BaseType => b.logics ++= addULogicCast(bt, emitReference(bt,false), emitExpression(bt.headStatement.source), in)
+              case bt : BaseType => b.logics ++= addULogicCast(bt, emitReference(bt,false), emitExpression(bt.head.source), in)
               case (name : String,s: String) => b.logics ++= s"      ${name} => ${"\""}${s}${"\""},\n"
               case (name : String,i : Int) => b.logics ++= s"      ${name} => $i,\n"
               case (name : String,d: Double) => b.logics ++= s"      ${name} => $d,\n"
@@ -514,8 +514,8 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
   }
 
   def isSubComponentInputBinded(data : BaseType) = {
-    if(data.isInput && data.isComb && data.hasOnlyOneStatement && data.headStatement.parentScope == data.rootScopeStatement && Statement.isFullToFullStatement(data.headStatement) && data.headStatement.asInstanceOf[AssignementStatement].source.asInstanceOf[BaseType].component == data.component.parent)
-      data.headStatement.source.asInstanceOf[BaseType]
+    if(data.isInput && data.isComb && data.hasOnlyOneStatement && data.head.parentScope == data.rootScopeStatement && Statement.isFullToFullStatement(data.head) && data.head.asInstanceOf[AssignementStatement].source.asInstanceOf[BaseType].component == data.component.parent)
+      data.head.source.asInstanceOf[BaseType]
     else
       null
   }
@@ -639,16 +639,19 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
           b.logics ++= "  end process;\n\n"
         } else {
           //assert(process.nameableTargets.size == 1)
-          for(node <- process.nameableTargets) {
-            val funcName = "zz_" + emitReference(node, false)
-            b.declarations ++= s"  function $funcName return ${emitDataType(node, false)} is\n"
-            b.declarations ++= s"    variable ${emitReference(node, false)} : ${emitDataType(node, true)};\n"
-            b.declarations ++= s"  begin\n"
-            val statements = ArrayBuffer[LeafStatement]() ++ node.statementIterator
-            emitLeafStatements(statements, 0, process.scope, ":=", b.declarations, "    ")
-            b.declarations ++= s"    return ${emitReference(node, false)};\n"
-            b.declarations ++= s"  end function;\n"
-            b.logics ++= s"  ${emitReference(node, false)} <= ${funcName};\n"
+          for(node <- process.nameableTargets) node match {
+            case node : BaseType => {
+              val funcName = "zz_" + emitReference(node, false)
+              b.declarations ++= s"  function $funcName return ${emitDataType(node, false)} is\n"
+              b.declarations ++= s"    variable ${emitReference(node, false)} : ${emitDataType(node, true)};\n"
+              b.declarations ++= s"  begin\n"
+              val statements = ArrayBuffer[LeafStatement]()
+              node.foreachStatements(s => statements += s.asInstanceOf[LeafStatement])
+              emitLeafStatements(statements, 0, process.scope, ":=", b.declarations, "    ")
+              b.declarations ++= s"    return ${emitReference(node, false)};\n"
+              b.declarations ++= s"  end function;\n"
+              b.logics ++= s"  ${emitReference(node, false)} <= ${funcName};\n"
+            }
           }
         }
       }
@@ -830,13 +833,13 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     }
   }
   var referenceSet : mutable.Set[String] = null
-  def emitReference(that : NameableExpression, sensitive : Boolean): String ={
+  def emitReference(that : DeclarationStatement, sensitive : Boolean): String ={
     val name = referencesOverrides.getOrElse(that, that.getNameElseThrow)
     if(sensitive && referenceSet != null) referenceSet.add(name)
     name
   }
 
-  def emitReferenceNoOverrides(that : NameableExpression): String ={
+  def emitReferenceNoOverrides(that : DeclarationStatement): String ={
     that.getNameElseThrow
   }
 
@@ -1652,7 +1655,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
 
   def emitSignals(component: Component, b: ComponentBuilder): Unit = {
-    component.foreachNameable(node => {
+    component.dslBody.walkDeclarations(node => {
       node match {
         case signal: BaseType => {
           if (!signal.isIo) {
@@ -1732,7 +1735,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
   }
 //
 //
-  def emitAttributes(node : NameableExpression,attributes: Iterable[Attribute], vhdlType: String, ret: StringBuilder,postfix : String = ""): Unit = {
+  def emitAttributes(node : DeclarationStatement,attributes: Iterable[Attribute], vhdlType: String, ret: StringBuilder,postfix : String = ""): Unit = {
     for (attribute <- attributes){
       val value = attribute match {
         case attribute: AttributeString => "\"" + attribute.value + "\""
@@ -1801,7 +1804,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 //
 
 //  def refImpl(op: Expression): String = emitReference(op.asInstanceOf[RefExpression].source, true)
-def refImpl(op: Expression): String = emitReference(op.asInstanceOf[NameableExpression], true)
+def refImpl(op: Expression): String = emitReference(op.asInstanceOf[DeclarationStatement], true)
 
   def operatorImplAsBinaryOperator(vhd: String)(op: Expression): String = {
     val binaryOp = op.asInstanceOf[BinaryOperator]

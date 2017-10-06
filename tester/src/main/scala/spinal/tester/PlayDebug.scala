@@ -49,11 +49,42 @@ object PlayDebug{
 //    val x = ClockDomain(ClockDomain.current.clock,ClockDomain.current.reset,clockEnable = enable)(BufferCC(a))
 //  }
 
+//  class TopLevel extends Component {
+//    val a,b = in Bits(32 bits)
+//    val x = BufferCC(a)
+//    val y = RegNext(a)
+////    val z = RegNext(a)
+//  }
+
+//  class TopLevel extends Component {
+//    val a,b = in Bool()
+//    val result = out Bool()
+//    result := a
+//  }
+
+//  class TopLevel extends Component {
+//    val a,b = in Bits(32 bits)
+//    val x,y = out Bits(32 bits)
+//    x := 3
+//    val xx = {
+//      val tmp = Bits(8 bits)
+//      tmp := 5
+//      y := tmp
+//      null
+//    }
+//  }
+
   class TopLevel extends Component {
-    val a,b = in Bits(32 bits)
-    val x = BufferCC(a)
-    val y = RegNext(a)
-//    val z = RegNext(a)
+    val a,b = in Bool()
+    when(in Bool) {
+      var tmp = Bool()
+      tmp := a
+      tmp := b
+
+      var x = (out Bool()).setName("asd")
+      x := tmp
+      tmp = null
+    }
   }
 
   def main(args: Array[String]) {

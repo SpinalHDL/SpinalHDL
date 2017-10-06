@@ -81,8 +81,9 @@ class MemWritePayload[T <: Data](dataType: T, addressWidth: Int) extends Bundle 
 
 object AllowMixedWidth extends SpinalTag
 
-class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NameableExpression with WidthProvider with SpinalTagReady{
-  if(component != null) component.append(this)
+class Mem[T <: Data](_wordType: T, val wordCount: Int) extends DeclarationStatement with WidthProvider with SpinalTagReady{
+
+//  if(component != null) component.append(this)
 //  var forceMemToBlackboxTranslation = false
   val _widths = _wordType.flatten.map(t => t.getBitsWidth).toVector //Force to fix width of each wire
   val width = _widths.reduce(_ + _)
@@ -99,8 +100,10 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NameableExpressio
 //  def getReadAsyncPorts() = ports.filter(_.isInstanceOf[MemReadAsync]).map(_.asInstanceOf[MemReadAsync])
 //  def getMemWriteOrReadSyncPorts() = ports.filter(_.isInstanceOf[MemWriteOrReadSync]).map(_.asInstanceOf[MemWriteOrReadSync])
 
-  override def getTypeObject: Any = TypeBits
-  override def opName: String = "Mem"
+
+
+//  override def getTypeObject: Any = TypeBits
+//  override def opName: String = "Mem"
 
   override val getWidth : Int = width
 
@@ -193,18 +196,19 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NameableExpressio
 //  def readAsyncMixedWidth(address: UInt, data : Data, readUnderWrite: ReadUnderWritePolicy = dontCare): Unit =  readAsyncImpl(address,data,readUnderWrite,true)
 //
   def readAsyncImpl(address: UInt, data : Data,readUnderWrite : ReadUnderWritePolicy = dontCare,allowMixedWidth : Boolean): Unit = {
-    val readBits = (if(allowMixedWidth) Bits() else Bits(getWidth bits))
-    val addressBuffer = (if(allowMixedWidth) UInt() else UInt(addressWidth bits)) //Allow resized address when mixedMode is disable
-    addressBuffer := address
-    val readPort = MemReadAsync(this, addressBuffer, data.getBitsWidth, readUnderWrite)
-    if(allowMixedWidth) readPort.addTag(AllowMixedWidth)
-
-    readBits.assignFrom(readPort)
-    data.assignFromBits(readBits)
+???
+  //    val readBits = (if(allowMixedWidth) Bits() else Bits(getWidth bits))
+//    val addressBuffer = (if(allowMixedWidth) UInt() else UInt(addressWidth bits)) //Allow resized address when mixedMode is disable
+//    addressBuffer := address
+//    val readPort = MemReadAsync(this, addressBuffer, readBits, data.getBitsWidth, readUnderWrite)
+//    this.dslContext.scope.append(readPort)
+//    this.append(readPort)
+//    if(allowMixedWidth) readPort.addTag(AllowMixedWidth)
+//    data.assignFromBits(readBits)
   }
 
   def readSync(address: UInt, enable: Bool = null, readUnderWrite: ReadUnderWritePolicy = dontCare, clockCrossing: Boolean = false): T = {
-    val readWord = wordType
+        val readWord = wordType
     readSyncImpl(address,readWord,enable,readUnderWrite,clockCrossing,false)
     readWord
   }
@@ -233,9 +237,14 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NameableExpressio
   def write(address: UInt, data: T,enable : Bool = null, mask: Bits = null) : Unit = writeImpl(address,data,enable,mask,allowMixedWidth = false)
 
   def writeImpl(address: UInt, data: Data,enable : Bool = null, mask: Bits = null,allowMixedWidth : Boolean = false) : Unit = {
-    ???
-//    /*assert(mask == null, "Mem write mask currently not implemented by Spinal. You can either create a blackbox " +
-//      "or instantiate multiple memory instead")*/
+???
+    //    val whenCond =  if(enable == null) ConditionalContext.isTrue else enable
+//    val writePort = MemWrite(this, address, data.asBits, mask,whenCond, data.getBitsWidth,ClockDomain.current)
+//    this.dslContext.scope.append(writePort)
+//    this.append(writePort)
+
+
+    //    if(allowMixedWidth) writePort.addTag(AllowMixedWidth)
 //    val addressBuffer = (if(allowMixedWidth) UInt() else UInt(addressWidth bits)).dontSimplifyIt() //Allow resized address when mixedMode is disable
 //    addressBuffer := address
 //    val dataBuffer = (if(allowMixedWidth) Bits() else Bits(getWidth bits)).dontSimplifyIt()
@@ -404,41 +413,44 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends NameableExpressio
 object MemReadAsync{
   def apply( mem     : Mem[_],
              address : Expression with WidthProvider,
+             data : Expression with WidthProvider,
              width : Int,
              readUnderWrite: ReadUnderWritePolicy): MemReadAsync  = {
     val port = new MemReadAsync
     port.width = width
     port.readUnderWrite = readUnderWrite
     port.address = address
+    port.data = data
     port.mem = mem
     port
   }
 }
 
-class MemReadAsync extends Expression with WidthProvider with Nameable with SpinalTagReady {
+class MemReadAsync extends LeafStatement with WidthProvider with SpinalTagReady {
   override def getWidth: Int = width
 
   var width : Int = -1
   var readUnderWrite: ReadUnderWritePolicy = dontCare
   var address : Expression with WidthProvider = null
+  var data : Expression with WidthProvider = null
   var mem     : Mem[_] = null
 
 
 
-  override def opName: String = "Mem.asyncRead"
-
-  override def getTypeObject: Any = TypeBits
-
   override def addAttribute(attribute: Attribute): MemReadAsync.this.type = addTag(attribute)
 
   override def remapExpressions(func: (Expression) => Expression): Unit = {
-    address = func(address).asInstanceOf[Expression with WidthProvider]
-    mem = func(mem).asInstanceOf[Mem[_]]
+    ???
+//    address = func(address).asInstanceOf[Expression with WidthProvider]
+//    data = func(data).asInstanceOf[Expression with WidthProvider]
+//    mem = func(mem).asInstanceOf[Mem[_]]
   }
 
   override def foreachExpression(func: (Expression) => Unit): Unit = {
-    func(address)
-    func(mem)
+//    func(address)
+//    func(data)
+//    func(mem)
+    ???
   }
 
   override def normalizeInputs: Unit = {
@@ -564,117 +576,75 @@ class MemReadSync() extends Expression with WidthProvider with SpinalTagReady wi
 }*/
 
 
-//object MemWrite {
-//  val getAddressId: Int = 4
-//  val getDataId: Int = 5
-//  val getMaskId: Int = 6
-//  val getEnableId: Int = 7
-//}
-//
-//class MemWrite(mem: Mem[_], address_ : UInt, data_ : Bits, mask_ : Bits, enable_ : Bool, clockDomain: ClockDomain) extends SyncNode(clockDomain) with Widthable with CheckWidth with Nameable{
-//  var address  : Node with Widthable  = address_
-//  var data     : Node with Widthable = data_
-//  var mask     : Node with Widthable =  mask_
-//  var writeEnable  : Node  = enable_
-//
-//
-//
-//  override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
-//
-//  override def onEachInput(doThat: (Node, Int) => Unit): Unit = {
-//    super.onEachInput(doThat)
-//    doThat(address,MemWrite.getAddressId)
-//    doThat(data,MemWrite.getDataId)
-//    if(mask != null) doThat(mask,MemWrite.getMaskId)
-//    doThat(writeEnable,MemWrite.getEnableId)
-//  }
-//
-//  override def onEachInput(doThat: (Node) => Unit): Unit = {
-//    super.onEachInput(doThat)
-//    doThat(address)
-//    doThat(data)
-//    if(mask != null) doThat(mask)
-//    doThat(writeEnable)
-//  }
-//
-//  override def setInput(id: Int, node: Node): Unit = id match{
-//    case MemWrite.getAddressId => address = node.asInstanceOf[Node with Widthable]
-//    case MemWrite.getDataId => data = node.asInstanceOf[Node with Widthable]
-//    case MemWrite.getMaskId => mask = node.asInstanceOf[Node with Widthable]
-//    case MemWrite.getEnableId => writeEnable = node
-//    case _ => super.setInput(id,node)
-//  }
-//
-//  override def getInputsCount: Int = super.getInputsCount + 3 + (if(mask != null) 1 else 0)
-//  override def getInputs: Iterator[Node] = super.getInputs ++ Iterator(address,data,writeEnable) ++ (if(mask != null) List(mask) else Nil)
-//  override def getInput(id: Int): Node = id match{
-//    case MemWrite.getAddressId => address
-//    case MemWrite.getDataId => data
-//    case MemWrite.getMaskId => mask
-//    case MemWrite.getEnableId => writeEnable
-//    case _ => super.getInput(id)
-//  }
-//
-//
-//
-//  override def getSynchronousInputs: List[Node] = {
-//    val base = getAddress :: getData :: getEnable :: super.getSynchronousInputs
-//    if(mask != null)
-//      mask :: base
-//    else
-//      base
-//  }
-//
-//  override def isUsingResetSignal: Boolean = false
-//  override def isUsingSoftResetSignal: Boolean = false
-//
-//  def getMem = mem
-//  def getAddress = address.asInstanceOf[UInt]
-//  def getData = data.asInstanceOf[Bits]
-//  def getEnable = writeEnable.asInstanceOf[Bool]
-//
-//  def getMask: Bits = {
-//    if (mask.isInstanceOf[Bits])
-//      mask.asInstanceOf[Bits]
-//    else
-//      null
-//  }
-//
-//
-//  override def calcWidth: Int = data.getWidth
-//
-//  def useWriteEnable: Boolean = {
-//    val lit = getEnable.getLiteral[BoolLiteral]
-//    return lit == null || lit.value == false
-//  }
-//
-//  override private[core] def checkInferedWidth: Unit = {
-//    if(mem.getWidth != getWidth){
-//      if(!hasTag(AllowMixedWidth)) {
-//        PendingError(s"Write data width (${data.getWidth} bits) is not the same than the memory one ($mem) at\n${this.getScalaLocationLong}")
-//        return
-//      }
-//      if(mem.getWidth / getWidth * getWidth != mem.getWidth) {
-//        PendingError(s"The aspect ration between written data and the memory should be a power of two. currently it's ${mem.getWidth}/${getWidth}. Memory : $mem, written at\n${this.getScalaLocationLong}")
-//        return
-//      }
-//    }
-//
-//    if(getMask != null && getData.getWidth % getMask.getWidth != 0) {
-//      PendingError(s"Memory write_data_width % write_data_mask_width != 0 at\n${this.getScalaLocationLong}")
-//      return
-//    }
-//
-//
-//    if(address.getWidth != mem.addressWidth + log2Up(aspectRatio)) {
-//      PendingError(s"Address used to write $mem doesn't match the required width, ${address.getWidth} bits in place of ${mem.addressWidth + log2Up(aspectRatio)} bits\n${this.getScalaLocationLong}")
-//      return
-//    }
-//  }
-//
-//  def aspectRatio = mem.getWidth/getWidth
-//}
-//
+object MemWrite{
+  def apply(mem: Mem[_], address : UInt, data : Bits, mask : Bits, enable : Bool, width : Int, clockDomain: ClockDomain) : MemWrite = {
+    val ret = new MemWrite
+    ret.mem = mem
+    ret.address = address
+    ret.mask = mask
+    ret.writeEnable = enable
+    ret.clockDomain = clockDomain
+    ret.width = width
+    ret.data = data
+    ret
+  }
+}
+
+class MemWrite() extends LeafStatement with WidthProvider with SpinalTagReady {
+  var mem      : Mem[_] = null
+  var width     : Int = -1
+  var address  : Expression with WidthProvider  = null
+  var data     : Expression with WidthProvider = null
+  var mask     : Expression with WidthProvider =  null
+  var writeEnable  : Expression  = null
+  var clockDomain: ClockDomain = null
+
+
+  override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
+
+  override def getWidth = width
+
+  override def remapExpressions(func: Expression => Expression): Unit = {
+    address = func(address).asInstanceOf[Expression with WidthProvider]
+    data = func(data).asInstanceOf[Expression with WidthProvider]
+    if(mask != null) mask = func(mask).asInstanceOf[Expression with WidthProvider]
+    writeEnable = func(writeEnable)
+  }
+
+  override def foreachExpression(func: Expression => Unit): Unit = {
+    func(address)
+    func(data)
+    if(mask != null) func(mask)
+    func(writeEnable)
+  }
+
+  override def normalizeInputs: Unit = {
+    if(mem.getWidth != getWidth){
+      if(!hasTag(AllowMixedWidth)) {
+        PendingError(s"Write data width (${data.getWidth} bits) is not the same than the memory one ($mem) at\n${this.getScalaLocationLong}")
+        return
+      }
+      if(mem.getWidth / getWidth * getWidth != mem.getWidth) {
+        PendingError(s"The aspect ration between written data and the memory should be a power of two. currently it's ${mem.getWidth}/${getWidth}. Memory : $mem, written at\n${this.getScalaLocationLong}")
+        return
+      }
+    }
+
+    if(mask != null && getWidth % mask.getWidth != 0) {
+      PendingError(s"Memory write_data_width % write_data_mask_width != 0 at\n${this.getScalaLocationLong}")
+      return
+    }
+
+
+    if(address.getWidth != mem.addressWidth + log2Up(aspectRatio)) {
+      PendingError(s"Address used to write $mem doesn't match the required width, ${address.getWidth} bits in place of ${mem.addressWidth + log2Up(aspectRatio)} bits\n${this.getScalaLocationLong}")
+      return
+    }
+  }
+
+  def aspectRatio = mem.getWidth/getWidth
+}
+
 //object MemReadWrite_writePart {
 //  val getAddressId: Int = 4
 //  val getDataId: Int = 5

@@ -107,14 +107,17 @@ class PhaseContext(val config : SpinalConfig){
     GraphUtils.walkAllComponents(topLevel, c => c.dslBody.walkStatements(s => s.walkExpression(func)))
   }
 
-  def walkNameableExpression(func : NameableExpression => Unit) : Unit = {
-    walkComponents(c => c.foreachNameable(e => func(e)))
+//  def walkNameable(func : Nameable => Unit) : Unit = {
+//    walkComponents(c => c.foreachNameables(e => func(e)))
+//  }
+//
+  def walkDeclarations(func : DeclarationStatement => Unit) : Unit = {
+    walkComponents(c => c.dslBody.walkDeclarations(e => func(e)))
   }
-
-  def walkExpressionAndNameableExpression(func : Expression => Unit): Unit ={
-    walkExpression(func)
-    walkNameableExpression(func)
-  }
+//  def walkExpressionAndNameableExpression(func : Expression => Unit): Unit ={
+//    walkExpression(func)
+//    walkNameableExpression(func)
+//  }
 
   def walkRemapExpressions(func : Expression => Expression): Unit ={
     GraphUtils.walkAllComponents(topLevel, c => c.dslBody.walkStatements(s => s.walkRemapExpressions(func)))
@@ -282,9 +285,9 @@ class PhaseApplyIoDefault(pc: PhaseContext) extends PhaseNetlist{
   override def useNodeConsumers = false
   override def impl(pc : PhaseContext): Unit = {
     import pc._
-    walkNameableExpression(e => {
+    walkDeclarations(e => {
       e match{
-        case node : BaseType if node.isEmpty => node.getTag(classOf[DefaultTag]) match {
+        case node : BaseType if node.dlcIsEmpty => node.getTag(classOf[DefaultTag]) match {
           case Some(defaultValue) => {
             val c = node.dir match {
               case `in` => node.component
@@ -602,7 +605,7 @@ class PhaseCollectAndNameEnum(pc: PhaseContext) extends PhaseMisc{
   override def useNodeConsumers = false
   override def impl(pc : PhaseContext): Unit = {
     import pc._
-    walkNameableExpression(e => e match{
+    walkDeclarations(e => e match{
       case enum: SpinalEnumCraft[_] => enums.getOrElseUpdate(enum.spinalEnum,null) //Encodings will be added later
       case _ =>
     })
@@ -640,7 +643,7 @@ class PhasePullClockDomains(pc: PhaseContext) extends PhaseNetlist{
 
     walkComponents(c => {
       val cds = mutable.HashSet[ClockDomain]()
-      c.foreachNameable(_ match {
+      c.dslBody.walkDeclarations(_ match {
         case bt : BaseType if bt.isReg => {
           val cd = bt.dslContext.clockDomain
           if(bt.isUsingResetSignal && (!cd.hasResetSignal && !cd.hasSoftResetSignal))
@@ -919,7 +922,7 @@ class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
 
       //Infer width on all expressions
       walkExpression(e => e match {
-        case e : NameableExpression =>
+        case e : DeclarationStatement =>
         case e : Widthable =>
           val hasChange = e.inferWidth
           somethingChange = somethingChange || hasChange
@@ -927,7 +930,7 @@ class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
       })
 
       //Infer width on all nameable expression (BitVector)
-      walkNameableExpression(e => e match{
+      walkDeclarations(e => e match{
         case e : Widthable =>
           val hasChange = e.inferWidth
           somethingChange = somethingChange || hasChange
@@ -954,7 +957,7 @@ class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
         }
 
         walkExpression(e => e match {
-          case e : NameableExpression =>
+          case e : DeclarationStatement =>
           case e : Widthable => widthableCheck(e)
           case e : WidthProvider => if(e.getWidth < 0){
             errors += s"Negative width on $e at ${e.getScalaLocationLong}"
@@ -962,7 +965,7 @@ class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
           case _ =>
         })
 
-        walkNameableExpression(e => e match{
+        walkDeclarations(e => e match{
           case e : Widthable => widthableCheck(e)
           case _ =>
         })
@@ -1014,7 +1017,8 @@ class PhaseInferEnumEncodings(pc: PhaseContext,encodingSwap : (SpinalEnumEncodin
         s.foreachDrivingExpression(e => walkExpression(e))
     })
 
-    walkNameableExpression(walkExpression)
+    //???
+    walkDeclarations{case e : Expression => walkExpression(e) case _ => }
 
     nodesInferrable.foreach(node => {
       node.bootInferration()
@@ -1035,7 +1039,7 @@ class PhaseInferEnumEncodings(pc: PhaseContext,encodingSwap : (SpinalEnumEncodin
               if(that.encodingProposal(enum.getEncoding)) {
                 that match {
                   case that : SpinalEnumCraft[_] =>
-                    that.foreachStatements(s => propagateOn(s.source))
+                    that.dlcForeach(s => propagateOn(s.source))
                     consumers.getOrElse(that, Nil).foreach(propagateOn(_))
                   case _ =>
                     that.foreachExpression(propagateOn(_))
@@ -1048,7 +1052,7 @@ class PhaseInferEnumEncodings(pc: PhaseContext,encodingSwap : (SpinalEnumEncodin
         }
         enum match {
           case enum : SpinalEnumCraft[_] =>
-            enum.foreachStatements(s => propagateOn(s.source))
+            enum.dlcForeach(s => propagateOn(s.source))
             consumers.getOrElse(enum, Nil).foreach(propagateOn(_))
           case _ =>
             enum.foreachExpression(propagateOn(_))
@@ -1181,7 +1185,7 @@ class PhaseNormalizeNodeInputs(pc: PhaseContext) extends PhaseNetlist{
     })
 
     walkComponents(c => {
-      c.foreachNameable(n => n match {
+      c.dslBody.walkDeclarations(n => n match {
         case n : BitVector => n.removeTag(tagAutoResize)
         case _ =>
       })
@@ -1433,48 +1437,43 @@ class PhaseNormalizeNodeInputs(pc: PhaseContext) extends PhaseNetlist{
 class PhaseRemoveUselessStuff extends PhaseNetlist{
   override def impl(pc: PhaseContext): Unit = {
     import pc._
+
     val okId = globalData.allocateAlgoIncrementale()
 
-    def propagateS(s : Statement): Unit = {
-      s.algoIncrementale = okId
-      s.walkNameableExpression(propagate)
-      s.walkParentTreeStatements(t => {
-        t.algoIncrementale = okId
-        t.walkNameableExpression(propagate)
-      })
-    }
-
-    def propagate(n : NameableExpression): Unit ={
-      if(n.algoIncrementale != okId){
-        n.algoIncrementale = okId
-        n.foreachStatements(propagateS)
+    def propagate(s: Statement): Unit = {
+      if (s != null && s.algoIncrementale != okId) {
+        s.algoIncrementale = okId
+        s match {
+          case s: BaseType => {
+            s.foreachStatements(propagate)
+          }
+          case s: AssignementStatement => {
+            s.walkExpression{ case e : Statement => propagate(e) case _ => }
+            s.walkParentTreeStatements(propagate)
+          }
+          case s : WhenStatement => {
+            s.walkExpression{ case e : Statement => propagate(e) case _ => }
+          }
+          case s : SwitchStatement => {
+            s.walkExpression{ case e : Statement => propagate(e) case _ => }
+          }
+          case s : AssertStatement => {
+            s.walkExpression{ case e : Statement => propagate(e) case _ => }
+          }
+        }
       }
     }
 
-    //TODO include assert nodes
-    walkComponents(c => {
-      c.foreachNameable(n => {
-        if(n.isNamed){
-          propagate(n)
-        }
-      })
-      c.dslBody.walkLeafStatements(s => s match {
-        case s : AssertStatement => propagateS(s)
-        case _ =>
-      })
-    })
+    walkStatements{
+      case s : DeclarationStatement => if(s.isNamed) propagate(s)
+      case s : AssertStatement => propagate(s)
+      case _ =>
+    }
 
-    walkComponents(c => {
-      c.foreachNameable(n => {
-        if(n.algoIncrementale != okId){
-          n.removeNameable()
-        }
-      })
-      c.dslBody.walkStatements(s => {
-        if(s.algoIncrementale != okId){
-          s.removeStatement()
-        }
-      })
+    walkStatements(s => {
+      if(s.algoIncrementale != okId){
+        s.removeStatement()
+      }
     })
   }
 
@@ -1485,208 +1484,201 @@ class PhaseRemoveUselessStuff extends PhaseNetlist{
 class PhaseRemoveIntermediateUnameds extends PhaseNetlist{
   override def impl(pc: PhaseContext): Unit = {
     import pc._
-    val okId = globalData.allocateAlgoIncrementale()
+    val koId = globalData.allocateAlgoIncrementale()
 
-    walkExpression(e => e match {
-      case ref: NameableExpression => {
-        ref.algoInt = 0
-      }
-      case _ =>
-    })
+    walkDeclarations(e => e.algoInt = 0)
 
     //Count the number of driving reference done on each ref.source
     walkDrivingExpression(e => e match {
-      case ref : NameableExpression => {
+      case ref : DeclarationStatement => {
         ref.algoInt += 1
       }
       case _ =>
     })
 
-    walkComponents(c => {
-      c.dslBody.walkStatements(s => {
-        s.walkRemapDrivingExpressions(e => e match {
-          case ref : BaseType => {
-            if(ref.algoInt == 1 && ref.isComb && ref.isDirectionLess && ref.canSymplifyIt && ref.hasOnlyOneStatement && Statement.isSomethingToFullStatement(ref.headStatement) /*&& ref != excepted*/){ //TODO IR keep it
-              ref.algoInt = 0
-              val head = ref.headStatement
-              ref.removeNameable()
-              head.removeStatement()
-              head.source
-            } else {
-              ref.algoInt = 0
-              ref
-            }
+
+    walkStatements(s => {
+      s.walkRemapDrivingExpressions(e => e match {
+        case ref : BaseType => {
+          if(ref.algoInt == 1 && ref.isComb && ref.isDirectionLess && ref.canSymplifyIt && ref.hasOnlyOneStatement && Statement.isSomethingToFullStatement(ref.head) /*&& ref != excepted*/){ //TODO IR keep it
+            val head = ref.head
+            ref.algoIncrementale = koId
+            head.algoIncrementale = koId
+            head.source
+          } else {
+            ref
           }
-          case e => e
-        })
+        }
+        case e => e
       })
-    //  statementsToRemove.foreach(s => s.removeStatement())
     })
+
+    walkStatements{
+      case s if s.algoIncrementale == koId => s.removeStatement()
+      case s =>
+    }
   }
 
   override def useNodeConsumers: Boolean = false
 }
 
-
-//TODO IR ClockDomains
-class PhaseDeleteUselessBaseTypes(pc: PhaseContext, removeResizedTag : Boolean) extends PhaseNetlist{
-  override def useNodeConsumers = true
-  override def impl(pc : PhaseContext): Unit = {
-    import pc._
-
-    //Reset algoId of all referenced driving things
-    walkExpression(e => e match {
-      case ref: NameableExpression => {
-        ref.algoInt = 0
-        if(removeResizedTag && ref.isInstanceOf[SpinalTagReady])
-          ref.asInstanceOf[SpinalTagReady].removeTag(tagAutoResize)
-      }
-      case _ =>
-    })
-
-    //Count the number of driving reference done on each ref.source
-    walkDrivingExpression(e => e match {
-      case ref : NameableExpression => {
-        ref.algoInt += 1
-      }
-      case _ =>
-    })
-    val removeMeId = globalData.allocateAlgoIncrementale()
-    def nameableWalker(n: NameableExpression): Unit = {
-      n match {
-        case target: BaseType => if (target.algoInt == 0 && target.isDirectionLess && target.canSymplifyIt) {
-          n.algoIncrementale = removeMeId //n.removeNameable() //TODO
-          n.foreachStatements(s => {
-//            s.removeStatement()
-            s.walkExpression(e => e match {
-              case n: NameableExpression => {
-                n.algoInt -= 1
-                if (n.algoInt == 0) {
-                  nameableWalker(n)
-                }
-              }
-              case _ =>
-            })
-          })
-        }
-        case _ =>
-      }
-    }
-
-    walkComponents(c => {
-      c.foreachNameable(nameableWalker)
-    })
-
-    walkComponents(c => {
-      def statementWalker(s : Statement) : Unit = {
-        s match {
-          case s : WhenStatement => {
-            if(s.whenTrue.isEmpty && s.whenFalse.isEmpty){
-              s.walkExpression(e => e match {
-                case n : NameableExpression => nameableWalker(n)
-                case _ =>
-              })
-            }
-            statementWalker(s.parentScope.parentStatement)
-          }
-          case s : SwitchStatement => {
-            if(s.defaultScope.isEmpty && !s.elements.exists(e => e.scopeStatement.nonEmpty)){
-              s.walkExpression(e => e match {
-                case n : NameableExpression => nameableWalker(n)
-                case _ =>
-              })
-            }
-            statementWalker(s.parentScope.parentStatement)
-          }
-          case  _ =>
-        }
-      }
-      c.dslBody.walkStatements(statementWalker)
-    })
-
-    val statementsToRemove = ArrayBuffer[Statement]()
-    def addStatementToRemove(s : Statement): Unit ={
-      //      if(s.parentScope == null){
-      //        println("???") //TODO IR pure comb loop fix   (a := a || c)s
-      //      }
-      statementsToRemove += s
-    }
-
-    val algoIncrementale = globalData.allocateAlgoIncrementale()
-    walkComponents(c => {
-      statementsToRemove.clear()
-
-
-
-      c.dslBody.walkStatements(s => {
-//        val excepted = s match {
-//          case s : AssignementStatement => s.finalTarget
-//          case _ => null
-//        }
-
-        //Need deditacted loop + recursion + algoIncremental to avoid over working ?
-        //Bypass useless basetypes (referenced only once)
-        s.walkRemapDrivingExpressions(e => e match {
-          case ref : BaseType => {
-            if(ref.algoInt == 1 && ref.isComb && ref.isDirectionLess && ref.canSymplifyIt && ref.hasOnlyOneStatement && Statement.isSomethingToFullStatement(ref.headStatement) /*&& ref != excepted*/){ //TODO IR keep it
-              ref.algoInt = 0
-              val head = ref.headStatement
-              ref.removeNameable()
-              addStatementToRemove(head)
-              head.source
-            } else {
-              ref.algoInt = 0
-              ref
-            }
-          }
-          case e => e
-        })
-      })
-      statementsToRemove.foreach(s => s.removeStatement())
-    })
-//    println(statementsToRemove.toSet.size)
-//    println(statementsToRemove.size)
-//    println(statementsToRemove.count(s => s.parentScope == null))
-//    statementsToRemove.foreach(s => s.removeStatement())
-
-//    var statementToRemove : Statement = null //Allow post iteration remove
-//    def setStatementToRemove(s : Statement): Unit ={
-//      if(statementToRemove != null) statementToRemove.removeStatement()
-//      statementToRemove = s
-//    }
-//    walkStatements(s => {
-        //Bypass useless basetypes (referenced only once)
-//      s.walkRemapDrivingExpressions(e => e match {
-//        case ref : BaseType => {
-//          if(ref.algoInt == 1 && ref.isComb && ref.isDirectionLess && ref.canSymplifyIt && ref.hasOnlyOneStatement && Statement.isSomethingToFullStatement(ref.headStatement)){ //TODO IR keep it
-//            ref.algoInt = 0
-//            val head = ref.headStatement
-//            if(statementToRemove != head) head.removeStatement()
-//            head.source
-//          } else {
-//            ref.algoInt = 0
-//            ref
-//          }
-//        }
-//        case e => e
-//      })
 //
-//      //Remove assignement which drive useless base types
-//      s match {
-//        case s : AssignementStatement => {
-//          s.finalTarget match {
-//            case target : BaseType => if(target.algoInt == 0 && target.isDirectionLess && target.canSymplifyIt){
-//              setStatementToRemove(s)
-//            }
-//            case _ =>
-//          }
+////TODO IR ClockDomains
+//class PhaseDeleteUselessBaseTypes(pc: PhaseContext, removeResizedTag : Boolean) extends PhaseNetlist{
+//  override def useNodeConsumers = true
+//  override def impl(pc : PhaseContext): Unit = {
+//    import pc._
+//
+//    //Reset algoId of all referenced driving things
+//    walkDeclarations(e => {
+//      e.algoInt = 0
+//      if (removeResizedTag && e.isInstanceOf[SpinalTagReady])
+//        e.asInstanceOf[SpinalTagReady].removeTag(tagAutoResize)
+//    })
+//
+//    //Count the number of driving reference done on each ref.source
+//    walkDrivingExpression(e => e match {
+//      case ref : DeclarationStatement => {
+//        ref.algoInt += 1
+//      }
+//      case _ =>
+//    })
+//    val removeMeId = globalData.allocateAlgoIncrementale()
+//    def nameableWalker(target: DeclarationStatement): Unit = {
+//      target match {
+//        case target: BaseType => if (target.algoInt == 0 && target.isDirectionLess && target.canSymplifyIt) {
+//          target.algoIncrementale = removeMeId //n.removeNameable() //TODO
+//          target.foreachStatements(s => {
+////            s.removeStatement()
+//            s.walkExpression(e => e match {
+//              case n: DeclarationStatement => {
+//                n.algoInt -= 1
+//                if (n.algoInt == 0) {
+//                  nameableWalker(n)
+//                }
+//              }
+//              case _ =>
+//            })
+//          })
 //        }
 //        case _ =>
 //      }
+//    }
+//
+//    walkComponents(c => {
+//      c.dslBody.walkDeclarations(nameableWalker)
 //    })
-//    setStatementToRemove(null)
-  }
-}
+//
+//    walkComponents(c => {
+//      def statementWalker(s : Statement) : Unit = {
+//        s match {
+//          case s : WhenStatement => {
+//            if(s.whenTrue.isEmpty && s.whenFalse.isEmpty){
+//              s.walkExpression(e => e match {
+//                case n : DeclarationStatement => nameableWalker(n)
+//                case _ =>
+//              })
+//            }
+//            statementWalker(s.parentScope.parentStatement)
+//          }
+//          case s : SwitchStatement => {
+//            if(s.defaultScope.isEmpty && !s.elements.exists(e => e.scopeStatement.nonEmpty)){
+//              s.walkExpression(e => e match {
+//                case n : DeclarationStatement => nameableWalker(n)
+//                case _ =>
+//              })
+//            }
+//            statementWalker(s.parentScope.parentStatement)
+//          }
+//          case  _ =>
+//        }
+//      }
+//      c.dslBody.walkStatements(statementWalker)
+//    })
+//
+//    val statementsToRemove = ArrayBuffer[Statement]()
+//    def addStatementToRemove(s : Statement): Unit ={
+//      //      if(s.parentScope == null){
+//      //        println("???") //TODO IR pure comb loop fix   (a := a || c)s
+//      //      }
+//      statementsToRemove += s
+//    }
+//
+//    val algoIncrementale = globalData.allocateAlgoIncrementale()
+//    walkComponents(c => {
+//      statementsToRemove.clear()
+//
+//
+//
+//      c.dslBody.walkStatements(s => {
+////        val excepted = s match {
+////          case s : AssignementStatement => s.finalTarget
+////          case _ => null
+////        }
+//
+//        //Need deditacted loop + recursion + algoIncremental to avoid over working ?
+//        //Bypass useless basetypes (referenced only once)
+//        s.walkRemapDrivingExpressions(e => e match {
+//          case ref : BaseType => {
+//            if(ref.algoInt == 1 && ref.isComb && ref.isDirectionLess && ref.canSymplifyIt && ref.hasOnlyOneStatement && Statement.isSomethingToFullStatement(ref.head) /*&& ref != excepted*/){ //TODO IR keep it
+//              ref.algoInt = 0
+//              val head = ref.head
+//              ref.removeStatement()
+//              addStatementToRemove(head)
+//              head.source
+//            } else {
+//              ref.algoInt = 0
+//              ref
+//            }
+//          }
+//          case e => e
+//        })
+//      })
+//      statementsToRemove.foreach(s => s.removeStatement())
+//    })
+////    println(statementsToRemove.toSet.size)
+////    println(statementsToRemove.size)
+////    println(statementsToRemove.count(s => s.parentScope == null))
+////    statementsToRemove.foreach(s => s.removeStatement())
+//
+////    var statementToRemove : Statement = null //Allow post iteration remove
+////    def setStatementToRemove(s : Statement): Unit ={
+////      if(statementToRemove != null) statementToRemove.removeStatement()
+////      statementToRemove = s
+////    }
+////    walkStatements(s => {
+//        //Bypass useless basetypes (referenced only once)
+////      s.walkRemapDrivingExpressions(e => e match {
+////        case ref : BaseType => {
+////          if(ref.algoInt == 1 && ref.isComb && ref.isDirectionLess && ref.canSymplifyIt && ref.hasOnlyOneStatement && Statement.isSomethingToFullStatement(ref.headStatement)){ //TODO IR keep it
+////            ref.algoInt = 0
+////            val head = ref.headStatement
+////            if(statementToRemove != head) head.removeStatement()
+////            head.source
+////          } else {
+////            ref.algoInt = 0
+////            ref
+////          }
+////        }
+////        case e => e
+////      })
+////
+////      //Remove assignement which drive useless base types
+////      s match {
+////        case s : AssignementStatement => {
+////          s.finalTarget match {
+////            case target : BaseType => if(target.algoInt == 0 && target.isDirectionLess && target.canSymplifyIt){
+////              setStatementToRemove(s)
+////            }
+////            case _ =>
+////          }
+////        }
+////        case _ =>
+////      }
+////    })
+////    setStatementToRemove(null)
+//  }
+//}
 
 class PhaseCheckIoBundle extends PhaseCheck{
   override def impl(pc: PhaseContext): Unit = {
@@ -2190,9 +2182,8 @@ object SpinalVhdlBoot{
     phases += new PhaseCheckIoBundle()
     phases += new PhaseCheckHiearchy()
     phases += new PhaseRemoveUselessStuff()
-    phases += new PhaseRemoveIntermediateUnameds()
+    phases += new PhaseRemoveIntermediateUnameds() //TODO IR literal base type node type node etc
 
-//    phases += new PhaseDeleteUselessBaseTypes(pc, false)
 
     phases += new PhasePullClockDomains(pc)
 

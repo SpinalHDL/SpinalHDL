@@ -80,62 +80,62 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
   /** Contains all in/out signals of the component */
   private[core] val ioSet = mutable.Set[BaseType]()
 
-
-
-  var headNameable, lastNameable : NameableExpression = null
-
-  //  def sizeIsOne = headNameable != null && headNameable == last
-  def prepend(that : NameableExpression) : this.type = {
-    if(headNameable != null){
-      headNameable.previousNameable = that
-    } else {
-      lastNameable = that
-    }
-    that.nextNameable = headNameable
-    that.previousNameable = null
-
-    headNameable = that
-
-    this
-  }
-
-  def append(that : NameableExpression) : this.type = {
-    that.nextNameable = null
-    that.previousNameable = lastNameable
-    if(lastNameable != null){
-      lastNameable.nextNameable = that
-    } else {
-      headNameable = that
-    }
-
-    lastNameable = that
-    this
-  }
-
-  def foreachNameable(func : (NameableExpression) => Unit) = {
-    var ptr = headNameable
-    while(ptr != null){
-      val current = ptr
-      ptr = ptr.nextNameable
-      func(current)
-    }
-  }
-
-
-  def nameableIterable = new Iterable[NameableExpression] {
-    override def iterator: Iterator[NameableExpression] = nameableIterator
-  }
-
-  def nameableIterator = new Iterator[NameableExpression] {
-    var ptr = headNameable
-    override def hasNext: Boolean = ptr != null
-
-    override def next(): NameableExpression = {
-      val ret = ptr
-      ptr = ret.nextNameable
-      ret
-    }
-  }
+//
+//
+//  var headNameable, lastNameable : NameableExpression = null
+//
+//  //  def sizeIsOne = headNameable != null && headNameable == last
+//  def prepend(that : NameableExpression) : this.type = {
+//    if(headNameable != null){
+//      headNameable.previousNameable = that
+//    } else {
+//      lastNameable = that
+//    }
+//    that.nextNameable = headNameable
+//    that.previousNameable = null
+//
+//    headNameable = that
+//
+//    this
+//  }
+//
+//  def append(that : NameableExpression) : this.type = {
+//    that.nextNameable = null
+//    that.previousNameable = lastNameable
+//    if(lastNameable != null){
+//      lastNameable.nextNameable = that
+//    } else {
+//      headNameable = that
+//    }
+//
+//    lastNameable = that
+//    this
+//  }
+//
+//  def foreachNameable(func : (NameableExpression) => Unit) = {
+//    var ptr = headNameable
+//    while(ptr != null){
+//      val current = ptr
+//      ptr = ptr.nextNameable
+//      func(current)
+//    }
+//  }
+//
+//
+//  def nameableIterable = new Iterable[NameableExpression] {
+//    override def iterator: Iterator[NameableExpression] = nameableIterator
+//  }
+//
+//  def nameableIterator = new Iterator[NameableExpression] {
+//    var ptr = headNameable
+//    override def hasNext: Boolean = ptr != null
+//
+//    override def next(): NameableExpression = {
+//      val ret = ptr
+//      ptr = ret.nextNameable
+//      ret
+//    }
+//  }
 
   def addStatement(statement : Statement) : Unit = {
     val scope = globalData.context.head.scope
@@ -343,7 +343,8 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
       child.setName(localNamingScope.allocateName(child.getName()))
     }
 
-    foreachNameable(nameable => {
+    dslBody.walkStatements{
+      case nameable : Nameable =>
         if (nameable.isUnnamed || nameable.getName() == "") {
           nameable.unsetName()
           nameable.setWeakName(globalData.anonymSignalPrefix)
@@ -351,8 +352,9 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
         if (nameable.isWeak)
           nameable.setName(localNamingScope.allocateName(nameable.getName()))
         else
-          localNamingScope.iWantIt(nameable.getName(),s"Reserved name ${nameable.getName()} is not free for ${nameable.toString()}")
-    })
+          localNamingScope.iWantIt(nameable.getName(), s"Reserved name ${nameable.getName()} is not free for ${nameable.toString()}")
+      case _ =>
+    }
   }
 
   /** Get a set of all IO available in the component */

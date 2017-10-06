@@ -169,9 +169,10 @@ trait BaseTypeCast extends SFixCast with UFixCast
 /**
   * Abstract base class of all Spinal types
   */
-abstract class BaseType extends Data with NameableExpression{
-  if(component != null) component.append(this)
+abstract class BaseType extends Data with DeclarationStatement with StatementDoubleLinkedContainer[BaseType, AssignementStatement] with Expression {
+  if(component != null) dslContext.scope.append(this)
 
+  //  if(component != null) component.append(this)
 
   var _isReg = false
   override def isReg = _isReg
@@ -189,6 +190,7 @@ abstract class BaseType extends Data with NameableExpression{
   override def normalizeInputs: Unit = {}
 
   def hasInit : Boolean = {
+    require(isReg)
     foreachStatements(s => if(s.isInstanceOf[InitAssignementStatement]) return true)
     return false
   }
@@ -263,7 +265,7 @@ abstract class BaseType extends Data with NameableExpression{
     super.asDirectionLess()
   }
 
-  def getSingleDriver : Option[this.type] = if(this.hasOnlyOneStatement) this.headStatement match {
+  def getSingleDriver : Option[this.type] = if(this.hasOnlyOneStatement) this.head match {
     case AssignementStatement(target, driver : BaseType) if target == this && driver.dslContext.scope == this.dslContext.scope =>
       driver.getSingleDriver.asInstanceOf[Option[this.type]]
     case _ => None
