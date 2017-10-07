@@ -115,7 +115,7 @@ trait StatementDoubleLinkedContainerElement[SC <: DoubleLinkedContainer[SC, SE],
 }
 
 
-trait DeclarationStatement extends Statement with Nameable {
+trait DeclarationStatement extends LeafStatement with Nameable {
   override def foreachExpression(func: (Expression) => Unit): Unit = {}
   override def remapExpressions(func: (Expression) => Expression): Unit = {}
 }
@@ -231,7 +231,6 @@ trait TreeStatement extends Statement{
     foreachStatements{
       case s : LeafStatement => func(s)
       case s : TreeStatement => func(s); s.walkStatements(func)
-      case s => func(s)
     }
   }
 
@@ -239,7 +238,6 @@ trait TreeStatement extends Statement{
     foreachStatements {
       case s : LeafStatement => func(s)
       case s : TreeStatement => s.walkLeafStatements(func)
-      case _ =>
     }
   }
 
@@ -254,7 +252,7 @@ trait TreeStatement extends Statement{
     foreachStatements{
       case s : DeclarationStatement => func(s)
       case s : TreeStatement => s.walkDeclarations(func)
-      case _ =>
+      case s =>
     }
   }
 }
@@ -499,7 +497,6 @@ class ScopeStatement(var parentStatement : TreeStatement)/* extends ExpressionCo
     foreachStatements{
       case s : LeafStatement => func(s)
       case s : TreeStatement => func(s); s.walkStatements(func)
-      case s => func(s)
     }
   }
 
@@ -507,14 +504,13 @@ class ScopeStatement(var parentStatement : TreeStatement)/* extends ExpressionCo
     foreachStatements {
       case s : LeafStatement => func(s)
       case s : TreeStatement => s.walkLeafStatements(func)
-      case _ =>
     }
   }
 
   def foreachDeclarations(func : DeclarationStatement => Unit): Unit ={
     foreachStatements{
       case s : DeclarationStatement => func(s)
-      case _ =>
+      case s =>
     }
   }
 
@@ -522,7 +518,7 @@ class ScopeStatement(var parentStatement : TreeStatement)/* extends ExpressionCo
     foreachStatements{
       case s : DeclarationStatement => func(s)
       case s : TreeStatement => s.walkDeclarations(func)
-      case _ =>
+      case s =>
     }
   }
 

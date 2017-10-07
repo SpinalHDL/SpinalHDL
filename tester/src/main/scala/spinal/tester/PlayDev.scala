@@ -18,7 +18,7 @@ object PlayDevMem{
       val address = in(mem.addressType)
       val data = out(mem.wordType)
     }
-    p1.data := mem.readAsync(p1.address)
+    p1.data := mem.readSync(p1.address, True)
   }
 
   def main(args: Array[String]) {

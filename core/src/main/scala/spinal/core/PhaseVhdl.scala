@@ -147,8 +147,6 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
   }
 
   def emitArchitecture(component: Component, b : ComponentBuilder): Unit = {
-
-
     val syncGroups = mutable.HashMap[(ClockDomain, ScopeStatement, Boolean), SyncGroup]()
     val asyncStatement = ArrayBuffer[LeafStatement]()
 
@@ -168,6 +166,8 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
         val group = syncGroups.getOrElseUpdate((assertStatement.dslContext.clockDomain, assertStatement.rootScopeStatement, false) , new SyncGroup(assertStatement.dslContext.clockDomain ,assertStatement.rootScopeStatement, false))
         group.dataStatements += assertStatement
       }
+      case x : MemPortStatement =>
+      case x : DeclarationStatement =>
     })
 
     //Generate AsyncProcess per target
@@ -239,8 +239,6 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     val expressionToWrap = mutable.HashSet[Expression]();
     {
       val whenCondOccurences = mutable.HashMap[Expression, Int]()
-
-
       def walker(statements : ArrayBuffer[LeafStatement], statementIndexInit : Int, scope : ScopeStatement, algoId : Int): Int ={
         var statementIndex = statementIndexInit
 
@@ -410,8 +408,6 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
       b.declarations ++= s"  signal $name : ${emitDataType(subOutput)};\n"
       referencesOverrides(subOutput) = name
     }
-
-
 
     //Wrap expression which need it
     for(e <- expressionToWrap){

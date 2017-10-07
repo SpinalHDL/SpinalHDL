@@ -1460,6 +1460,16 @@ class PhaseRemoveUselessStuff extends PhaseNetlist{
           case s : AssertStatement => {
             s.walkExpression{ case e : Statement => propagate(e) case _ => }
           }
+          case s : Mem[_] => s.foreachStatements{
+            case p : MemWrite => propagate(p)
+            case p : MemReadSync =>
+          }
+          case s : MemWrite => {
+            s.walkExpression{ case e : Statement => propagate(e) case _ => }
+          }
+          case s : MemReadSync => {
+            s.walkExpression{ case e : Statement => propagate(e) case _ => }
+          }
         }
       }
     }
@@ -1467,7 +1477,10 @@ class PhaseRemoveUselessStuff extends PhaseNetlist{
     walkStatements{
       case s : DeclarationStatement => if(s.isNamed) propagate(s)
       case s : AssertStatement => propagate(s)
-      case _ =>
+      case s : TreeStatement =>
+      case s : AssignementStatement =>
+      case s : MemWrite =>
+      case s : MemReadSync =>
     }
 
     walkStatements(s => {
