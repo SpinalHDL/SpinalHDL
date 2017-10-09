@@ -301,12 +301,12 @@ class PhaseApplyIoDefault(pc: PhaseContext) extends PhaseNetlist{
               node.dir match{
                 case `in` =>  {
                   Component.push(c.parent)
-                  node.assignFrom(defaultValue)
+                  node.assignFrom(defaultValue.that)
                   Component.pop(c.parent)
                 }
                 case _ => {
                   Component.push(c)
-                  node.assignFrom(defaultValue)
+                  node.assignFrom(defaultValue.that)
                   Component.pop(c)
                 }
               }
@@ -636,6 +636,7 @@ class PhaseCollectAndNameEnum(pc: PhaseContext) extends PhaseMisc{
   }
 }
 
+//TODO IR pull ram clocks
 class PhasePullClockDomains(pc: PhaseContext) extends PhaseNetlist{
   override def useNodeConsumers = false
   override def impl(pc : PhaseContext): Unit = {
@@ -1515,10 +1516,11 @@ class PhaseRemoveIntermediateUnameds extends PhaseNetlist{
     })
 
 
-    walkStatements(s => {
+    walkStatements(s => if(s.algoIncrementale != koId){
       s.walkRemapDrivingExpressions(e => e match {
         case ref : BaseType => {
           if(ref.algoInt == 1 && ref.isComb && ref.isDirectionLess && ref.canSymplifyIt && ref.hasOnlyOneStatement && Statement.isSomethingToFullStatement(ref.head) /*&& ref != excepted*/){ //TODO IR keep it
+            ref.algoInt = 0
             val head = ref.head
             ref.algoIncrementale = koId
             head.algoIncrementale = koId
@@ -1530,6 +1532,7 @@ class PhaseRemoveIntermediateUnameds extends PhaseNetlist{
         case e => e
       })
     })
+
 
     walkStatements{
       case s if s.algoIncrementale == koId => s.removeStatement()

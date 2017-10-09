@@ -74,10 +74,25 @@ object PlayDebug{
 //    }
 //  }
 
+//  class TopLevel extends Component {
+//    val a,b = in Bool()
+//    val x = out Bool()
+//    x := ConditionalContext.isTrue
+//  }
+
+  case class Struct() extends Bundle {
+    val y = Bool
+    val x = Bool
+  }
   class TopLevel extends Component {
-    val a,b = in Bool()
-    val x = out Bool()
-    x := ConditionalContext.isTrue
+    val a,b = in (Struct())
+    val x = out (Struct())
+    val tmp = RegNext(a)
+    val tmp2 = Struct()
+    val tmp3 = Struct()
+    tmp2 := tmp
+    tmp3 := tmp2
+    tmp3.x init(True)
   }
 
   def main(args: Array[String]) {

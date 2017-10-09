@@ -240,7 +240,22 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
 
 
   final def assignFrom(that : AnyRef, target : AnyRef = this) = compositAssignFrom(that,target,DataAssign)
-  final def initFrom(that : AnyRef, target : AnyRef = this) = compositAssignFrom(that,target,InitAssign)
+  final def initFrom(that : AnyRef, target : AnyRef = this) = (that, target) match {
+    case (init : Data, target : Data) if ! target.isReg => {
+      for ((e, initElement) <- (target.flatten, init.flatten).zipped) {
+        def recursiveSearch(bt: BaseType): Unit = {
+          if (bt.isReg)
+            bt.init (initElement)
+          else if(bt.hasOnlyOneStatement && Statement.isFullToFullStatement(bt.head))
+            recursiveSearch(bt.head.source.asInstanceOf[BaseType])
+          else
+            LocatedPendingError(s"Try to set initial value of a data that is not a register ($this)")
+        }
+        recursiveSearch(e)
+      }
+    }
+    case _ => compositAssignFrom(that,target,InitAssign)
+  }
 
   def asData = this.asInstanceOf[Data]
   def getZero: this.type

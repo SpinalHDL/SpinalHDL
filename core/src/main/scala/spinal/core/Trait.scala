@@ -425,7 +425,14 @@ trait Nameable extends OwnableRef with ContextUser{
 
   override def toString(): String = name
 
-  private[core] def getNameElseThrow: String = getName(null)
+  private[core] def getNameElseThrow: String = {
+    getName(null) match {
+      case null =>
+        throw new Exception("Internal error")
+      case name =>
+        name
+    }
+  }
 
   def setCompositeName(nameable: Nameable) : this.type  = setCompositeName(nameable,false)
   def setCompositeName(nameable: Nameable,weak : Boolean) : this.type = {
@@ -799,7 +806,7 @@ class GlobalData {
   def contextHead = if(context.nonEmpty) context.head else new DslContext(null,null,null)
 
 
-  var algoIncrementale = 1
+  private var algoIncrementale = 1
 
   def allocateAlgoIncrementale(): Int = {
     assert(algoIncrementale != Integer.MAX_VALUE)

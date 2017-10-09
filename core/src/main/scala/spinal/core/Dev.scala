@@ -5,14 +5,16 @@ import scala.collection.immutable.Iterable
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-//TODO IR
+//TODO IR :
 // Add assert node into the clock pulling phase
-//Clock pulling phase could be more systematic ?
+// Clock pulling phase could be more systematic ?
+// Make the VHDL generation deterministic
+// only let's symplify nodes which are type nodes (don't lose bit width for instance)
 case class DslContext(clockDomain: ClockDomain, component: Component, scope: ScopeStatement)
 
 
 trait BaseNode {
-  private[core] var algoInt, algoIncrementale = 0
+  var algoInt, algoIncrementale = 0
   private[core] def getClassIdentifier: String = this.getClass.getName.split('.').last.replace("$","")
 }
 
@@ -128,6 +130,7 @@ trait ExpressionContainer{
   def remapDrivingExpressions(func : (Expression) => Expression) : Unit = remapExpressions(func)
   def foreachExpression(func : (Expression) => Unit) : Unit
   def foreachDrivingExpression(func : (Expression) => Unit) : Unit = foreachExpression(func)
+//  def foreachDrivingExpressionWithDelay(func : (Expression, Int) => Unit) : Unit = foreachExpression(func(_,0))
 
   def walkExpression(func : (Expression) => Unit) : Unit = {
     foreachExpression(e => {

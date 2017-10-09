@@ -74,6 +74,7 @@ begin
       io_inSIntA =>  io_inSIntA,
       io_inSIntB =>  io_inSIntB,
       io_outSInt =>  io_outSInt,
-      io_outSIntRef =>  io_outSIntRef 
+      io_outSIntRef =>  io_outSIntRef,
+      reset => '0'
     );
 end arch;

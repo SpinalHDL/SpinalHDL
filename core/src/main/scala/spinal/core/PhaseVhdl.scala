@@ -189,9 +189,6 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
         if (rootTreeStatement != null) {
           val preExistingTargetProcess = asyncProcessFromNameableTarget.getOrElse(finalTarget, null)
           val preExistingRootTreeProcess = rootTreeStatementPerAsyncProcess.getOrElse(rootTreeStatement, null)
-          if(finalTarget.getName() == "buffer_writePtr_valueNext"){
-            println("???")
-          }
           if(preExistingTargetProcess == null && preExistingRootTreeProcess == null){ //Create new process
             val process = new AsyncProcess(rootScope)
             asyncProcessFromNameableTarget(finalTarget) = process
@@ -970,6 +967,9 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     val name = referencesOverrides.getOrElse(that, that.getNameElseThrow) match {
       case x : String => x
       case x : DeclarationStatement => emitReference(x,false)
+      case null =>
+        print("???")
+        "asd"
     }
     if(sensitive && referenceSet != null) referenceSet.add(name)
     name

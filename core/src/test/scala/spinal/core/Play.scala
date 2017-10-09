@@ -487,7 +487,7 @@ object PlayHeavyload {
       })
       print("DONE " + toplevel.getName() + " " + statementCount + " " + expressionCount)
     }
-    printInfo(SpinalVhdl(new TopLevel(500000)).toplevel)
+    printInfo(SpinalVhdl(new TopLevel(50000)).toplevel)
 //    printInfo(SpinalVhdl(new TopLevel(1)).toplevel)
 //    printInfo(SpinalVhdl(new TopLevel(1)).toplevel)
 

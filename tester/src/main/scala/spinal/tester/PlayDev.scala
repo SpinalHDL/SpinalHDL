@@ -32,6 +32,33 @@ object PlayDevMem{
     }
     p2.data := mem.readAsync(p2.address)
     val xx = RegNext(True)
+
+    println(LatencyAnalysis(p0.address, p2.data))
+  }
+
+  def main(args: Array[String]) {
+    val toplevel = SpinalVhdl(new TopLevel()).toplevel
+  }
+}
+
+
+
+object PlayDevLatency{
+  class TopLevel extends Component {
+    val a,b = in Bool()
+    val tmp = Reg(Bool)
+    val tmp2 = Bool
+    val tmp3 = Reg(Bool)
+
+
+   // tmp := a
+    when(RegNext(!a)) {
+      tmp2 := RegNext(tmp)
+    }
+    tmp3 := Delay(tmp2,5)
+
+    println(LatencyAnalysis(a, tmp3))
+    System.exit(0)
   }
 
   def main(args: Array[String]) {

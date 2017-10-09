@@ -1221,10 +1221,12 @@ abstract class BitVectorRangedAccessFloating extends SubAccess with WidthProvide
 
   override def remapExpressions(func: (Expression) => Expression): Unit = {
     source = func(source).asInstanceOf[Expression with WidthProvider]
+    offset = func(offset).asInstanceOf[Expression with WidthProvider]
   }
 
   override def foreachExpression(func: (Expression) => Unit): Unit = {
     func(source)
+    func(offset)
   }
 
   //  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{

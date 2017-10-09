@@ -581,8 +581,99 @@ object LatencyAnalysis {
     stack
   }
 
+  //TODO mather about clock and reset wire
   def impl(from: Expression, to: Expression): Integer = {
-    ???
+    val walkedId = GlobalData.get.allocateAlgoIncrementale()
+    val pendingQueues = new Array[mutable.ArrayBuffer[BaseNode]](3)
+    for(i <- 0 until pendingQueues.length) pendingQueues(i) = new ArrayBuffer[BaseNode]
+    def walk(that: BaseNode): Boolean = {
+      if(that.algoIncrementale == walkedId)
+        return false
+      that.algoIncrementale = walkedId
+      if(that == from)
+        return true
+
+      that match{
+        case that : Mem[_] => {
+          that.foreachStatements{
+            case port : MemWrite =>
+              port.foreachDrivingExpression(input => {
+                pendingQueues(1) += input
+              })
+            case port : MemReadSync =>
+            case port : MemReadAsync =>
+              //TODO other ports
+          }
+          return false
+        }
+        case that : BaseType => { //TODO IR when conds
+          def walkInputs(func : (BaseNode) => Unit) = {
+            that.foreachStatements(s => s.foreachDrivingExpression(input => {
+              func(input)
+            }))
+            that.walkParentTreeStatements(tree => tree.walkDrivingExpressions(input => {
+              func(input)
+            }))
+          }
+          if(that.isReg){
+            walkInputs(input => pendingQueues(1) += input)
+            return false
+          } else {
+            walkInputs(input => {
+              if(walk(input))
+                return true
+            })
+          }
+          return false
+        }
+        case that : MemReadSync =>
+          that.foreachDrivingExpression(input => {
+            if(walk(input))
+              return true
+          })
+          pendingQueues(1) += that.mem
+          return false
+        //TODO other ports
+        case that : MemReadAsync =>
+          that.foreachDrivingExpression(input => {
+            if(walk(input))
+              return true
+          })
+          if(walk(that.mem))
+            return true
+          return false
+        case that : Expression => {
+          that.foreachDrivingExpression(input => {
+            if(walk(input))
+              return true
+          })
+          return false
+        }
+      }
+    }
+
+    var depth = 0
+    pendingQueues(0) += to
+    while(pendingQueues.exists(_.nonEmpty)){
+      pendingQueues(0).foreach(node => {
+        if(walk(node))
+          return depth
+      })
+
+
+      pendingQueues(0).clear()
+      pendingQueues(pendingQueues.length - 1) = pendingQueues(0)
+      for(i <- 0 until pendingQueues.length - 1){
+        pendingQueues(i) = pendingQueues(i + 1)
+      }
+
+      depth += 1
+    }
+
+
+
+    SpinalError("latencyAnalysis don't find any path")
+    -1
 //    val walked = mutable.Set[Expression]()
 //    var pendingStack = mutable.ArrayBuffer[Expression](to)
 //    var depth = 0;

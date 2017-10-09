@@ -220,16 +220,16 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
     this
   }
 
-//  override def dontSimplifyIt(): this.type = {
-//    dontSimplify = true
-//    this
-//  }
-//
-//  override def allowSimplifyIt(): this.type = {
-//    dontSimplify = false
-//    this
-//  }
-//
+  override def dontSimplifyIt(): this.type = {
+    dontSimplify = true
+    this
+  }
+
+  override def allowSimplifyIt(): this.type = {
+    dontSimplify = false
+    this
+  }
+
 //  private[core] def getLiteral[T <: Literal]: T = input match {
 //    case lit: Literal => lit.asInstanceOf[T]
 //    case bt: BaseType => bt.getLiteral[T]
@@ -290,7 +290,12 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
     }
   }
 
-//
+
+  override def removeStatement(): Unit = {
+    super.removeStatement()
+  }
+
+  //
 //  // def castThatInSame(that: BaseType): this.type = throw new Exception("Not defined")
 //
 //  override def assignDontCare(): this.type = {
