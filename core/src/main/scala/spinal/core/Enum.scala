@@ -229,6 +229,7 @@ class EnumLiteral[T <: SpinalEnum](val enum: SpinalEnumElement[T]) extends Liter
     val str = encoding.getValue(enum).toString(2)
     "0" * (bitCount - str.length) + str
   }
+  override def hasPoison() = false
 
   override def getDefinition: SpinalEnum = enum.spinalEnum
 
@@ -256,7 +257,7 @@ class EnumPoison(val enum: SpinalEnum) extends Literal with InferableEnumEncodin
   }
 
   override def getDefinition: SpinalEnum = enum
-
+  override def hasPoison() = true
   private[core] override def getDefaultEncoding(): SpinalEnumEncoding = enum.defaultEncoding
 }
 

@@ -12,13 +12,26 @@ object PlayDevMem{
       val data = in(mem.wordType)
       val enable = in Bool()
     }
-    mem.write(p0.address,p0.data,p0.enable)
+
+    mem.write(p0.address, p0.data)
+//    mem(p0.address) := p0.data
+//    when(p0.enable){
+//      mem(p0.address) := p0.data
+//    }
 
     val p1 = new Bundle{
       val address = in(mem.addressType)
       val data = out(mem.wordType)
     }
     p1.data := mem.readSync(p1.address, True)
+
+
+    val p2 = new Bundle{
+      val address = in(mem.addressType)
+      val data = out(mem.wordType)
+    }
+    p2.data := mem.readAsync(p2.address)
+    val xx = RegNext(True)
   }
 
   def main(args: Array[String]) {

@@ -1463,11 +1463,15 @@ class PhaseRemoveUselessStuff extends PhaseNetlist{
           case s : Mem[_] => s.foreachStatements{
             case p : MemWrite => propagate(p)
             case p : MemReadSync =>
+            case p : MemReadAsync =>
           }
           case s : MemWrite => {
             s.walkExpression{ case e : Statement => propagate(e) case _ => }
           }
           case s : MemReadSync => {
+            s.walkExpression{ case e : Statement => propagate(e) case _ => }
+          }
+          case s : MemReadAsync => {
             s.walkExpression{ case e : Statement => propagate(e) case _ => }
           }
         }
@@ -1481,6 +1485,7 @@ class PhaseRemoveUselessStuff extends PhaseNetlist{
       case s : AssignementStatement =>
       case s : MemWrite =>
       case s : MemReadSync =>
+      case s : MemReadAsync =>
     }
 
     walkStatements(s => {
@@ -2134,7 +2139,7 @@ object SpinalVhdlBoot{
     try {
       singleShot(config)(gen)
     } catch {
-      case e : NullPointerException => {
+      case e : NullPointerException if config.debug=> {
         println(
           """
             |ERROR !

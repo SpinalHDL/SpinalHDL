@@ -144,8 +144,12 @@ trait Literal extends Expression {
   final override def foreachExpression(func: (Expression) => Unit): Unit = {}
   final override def remapExpressions(func: (Expression) => Expression): Unit = {}
   private[core] def getBitsStringOn(bitCount : Int, poisonSymbol : Char) : String
+  private[core] def getBitsStringOnNoPoison(bitCount : Int) : String = {
+    require(!hasPoison)
+    getBitsStringOn(bitCount,'?')
+  }
   def getValue() : BigInt
-
+  def hasPoison() : Boolean
 
 //  override def addAttribute(attribute: Attribute): Literal.this.type = addTag(attribute)
 }
@@ -250,9 +254,10 @@ abstract class BitVectorLiteral() extends Literal with WidthProvider {
   var hasSpecifiedBitCount : Boolean = true
 
   override def getWidth: Int = bitCount
-  def hasSomePoison = poisonMask != null && poisonMask != 0
-  override def getValue(): BigInt = if(hasSomePoison) throw new Exception("Poisoned value") else value
+  override def getValue(): BigInt = if(hasPoison) throw new Exception("Poisoned value") else value
 
+
+  override def hasPoison() = poisonMask != null && poisonMask != 0
 
   //TODO BigInt.toString(2) is probably very slow
   override def getBitsStringOn(bitCount: Int, poisonSymbol : Char): String = {
@@ -285,7 +290,7 @@ abstract class BitVectorLiteral() extends Literal with WidthProvider {
 
   def minimalValueBitWidth : Int = {
     val pureWidth = value.bitLength + (if(isSignedKind && value != 0) 1 else 0)
-    if(hasSomePoison) Math.max(poisonMask.bitLength,pureWidth) else pureWidth
+    if(hasPoison) Math.max(poisonMask.bitLength,pureWidth) else pureWidth
   }
 
   def isSignedKind : Boolean
@@ -341,13 +346,14 @@ class BoolLiteral(val value: Boolean) extends Literal {
     assert(bitCount == 1)
     (if(value) "1" else "0")
   }
+  override def hasPoison() = false
 }
 
 class BoolPoison() extends Literal {
   override def getValue(): BigInt = throw new Exception("Poison have no values")
   override def getTypeObject = TypeBool
   override def opName: String = "Bool(?)"
-
+  override def hasPoison() = true
   override def normalizeInputs: Unit = {}
 
   override def clone(): this.type = new BoolPoison().asInstanceOf[this.type]

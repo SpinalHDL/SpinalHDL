@@ -207,10 +207,10 @@ import java.util.{Calendar, Date}
 //}
 //
 //
-//trait MemBitsMaskKind
-//object MULTIPLE_RAM extends MemBitsMaskKind
-//object SINGLE_RAM extends MemBitsMaskKind
-//
+trait MemBitsMaskKind
+object MULTIPLE_RAM extends MemBitsMaskKind
+object SINGLE_RAM extends MemBitsMaskKind
+
 object VhdlVerilogBase{
   def getHeader(commentSymbole : String,toplevel : Component): String =
     s"""$commentSymbole Generator : SpinalHDL v${Spinal.version}    git head : ${spinal.core.Info.gitHash}

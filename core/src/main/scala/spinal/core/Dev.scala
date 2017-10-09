@@ -128,18 +128,13 @@ trait ExpressionContainer{
   def remapDrivingExpressions(func : (Expression) => Expression) : Unit = remapExpressions(func)
   def foreachExpression(func : (Expression) => Unit) : Unit
   def foreachDrivingExpression(func : (Expression) => Unit) : Unit = foreachExpression(func)
+
   def walkExpression(func : (Expression) => Unit) : Unit = {
     foreachExpression(e => {
       func(e)
       e.walkExpression(func)
     })
   }
-
-//  def walkNameableExpression(func : (NameableExpression) => Unit) = walkExpression(e => e match {
-//    case e : NameableExpression => func(e)
-//    case _ =>
-//  })
-
   def walkDrivingExpressions(func : (Expression) => Unit) : Unit = {
     foreachDrivingExpression(e => {
       func(e)
@@ -212,9 +207,6 @@ trait Statement extends ExpressionContainer with ScalaLocated with BaseNode{
 
 
   def walkParentTreeStatements(func : (TreeStatement) => Unit) : Unit = {
-    if(parentScope == null){
-      print("???")
-    }
     if(parentScope.parentStatement != null){
       func(parentScope.parentStatement)
       parentScope.parentStatement.walkParentTreeStatements(func)
@@ -223,6 +215,7 @@ trait Statement extends ExpressionContainer with ScalaLocated with BaseNode{
 }
 
 trait LeafStatement extends Statement{
+
 }
 
 trait TreeStatement extends Statement{
@@ -447,6 +440,7 @@ class ScopeStatement(var parentStatement : TreeStatement)/* extends ExpressionCo
     }
     that.nextScopeStatement = head
     that.lastScopeStatement = null
+    that.parentScope = this
 
     head = that
 

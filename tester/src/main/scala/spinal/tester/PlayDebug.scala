@@ -76,15 +76,8 @@ object PlayDebug{
 
   class TopLevel extends Component {
     val a,b = in Bool()
-    when(in Bool) {
-      var tmp = Bool()
-      tmp := a
-      tmp := b
-
-      var x = (out Bool()).setName("asd")
-      x := tmp
-      tmp = null
-    }
+    val x = out Bool()
+    x := ConditionalContext.isTrue
   }
 
   def main(args: Array[String]) {

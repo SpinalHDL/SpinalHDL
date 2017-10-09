@@ -109,7 +109,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
   }
 
   val wrappedExpressionToName = mutable.HashMap[Expression, String]()
-  val referencesOverrides = mutable.HashMap[Nameable,String]()
+  val referencesOverrides = mutable.HashMap[Nameable,Any]()
   val emitedComponent = mutable.Map[ComponentBuilder, ComponentBuilder]()
   val emitedComponentRef = mutable.Map[Component, Component]()
 //  val emitedComponent = mutable.HashSet[ComponentBuilder]()
@@ -149,6 +149,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
   def emitArchitecture(component: Component, b : ComponentBuilder): Unit = {
     val syncGroups = mutable.HashMap[(ClockDomain, ScopeStatement, Boolean), SyncGroup]()
     val asyncStatement = ArrayBuffer[LeafStatement]()
+    val mems = ArrayBuffer[Mem[_]]()
 
     //Sort all leaf statements into their nature (sync/async)
     component.dslBody.walkLeafStatements(_ match {
@@ -167,6 +168,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
         group.dataStatements += assertStatement
       }
       case x : MemPortStatement =>
+      case x : Mem[_] => mems += x
       case x : DeclarationStatement =>
     })
 
@@ -187,7 +189,9 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
         if (rootTreeStatement != null) {
           val preExistingTargetProcess = asyncProcessFromNameableTarget.getOrElse(finalTarget, null)
           val preExistingRootTreeProcess = rootTreeStatementPerAsyncProcess.getOrElse(rootTreeStatement, null)
-
+          if(finalTarget.getName() == "buffer_writePtr_valueNext"){
+            println("???")
+          }
           if(preExistingTargetProcess == null && preExistingRootTreeProcess == null){ //Create new process
             val process = new AsyncProcess(rootScope)
             asyncProcessFromNameableTarget(finalTarget) = process
@@ -220,7 +224,8 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     }
 
     //Add statements into AsyncProcesses
-    val processes = mutable.HashSet[AsyncProcess]() ++= rootTreeStatementPerAsyncProcess.valuesIterator
+    val processes = mutable.HashSet[AsyncProcess]()// ++= rootTreeStatementPerAsyncProcess.valuesIterator
+    asyncProcessFromNameableTarget.valuesIterator.foreach(p => processes += p) //TODO IR better perf
     for(s <- asyncStatement) s match {
       case s: AssignementStatement => {
         var process = asyncProcessFromNameableTarget.getOrElse(s.finalTarget,null)
@@ -317,7 +322,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 //              that
 //          }
 //          referencesOverrides(io) = walkInputBindings(subInputBinded).getName()
-          referencesOverrides(io) = subInputBinded.getName()
+          referencesOverrides(io) = subInputBinded
           subComponentInputToNotBufferize += io
         } else {
           val name = component.localNamingScope.allocateName(globalData.anonymSignalPrefix)
@@ -343,54 +348,82 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
       case _ =>
     }))
 
-    component.dslBody.walkStatements(ls => ls match {
-      //Identify direct combinatorial assignements
-      case AssignementStatement(target : BaseType,source : BaseType)
-       if(target.isComb && source.component.parent == component && source.isOutput && target.hasOnlyOneStatement &&  ls.parentScope == target.rootScopeStatement)=> {
-        if(subComponentOutputsToNotBufferize.contains(source)){
-          subComponentOutputsToBufferize += source
-        }
-        subComponentOutputsToNotBufferize(source) = target
-      }
-      //Add all referenced sub component outputs into the KO list
-      case _ => ls.walkDrivingExpressions(_ match {
-        case source : BaseType => {
-          if(source.component.parent == component && source.isOutput){
-            subComponentOutputsToBufferize += source
-          }
-        }
-        case _ =>
-      })
-    })
-    for(syncGroup <- syncGroups.valuesIterator){
-      val clockDomain = syncGroup.clockDomain
-      val clock = component.pulledDataCache.getOrElse(clockDomain.clock, throw new Exception("???")).asInstanceOf[Bool]
-      val reset = if (null == clockDomain.reset) null else component.pulledDataCache.getOrElse(clockDomain.reset, throw new Exception("???")).asInstanceOf[Bool]
-      val softReset = if (null == clockDomain.softReset) null else component.pulledDataCache.getOrElse(clockDomain.softReset, throw new Exception("???")).asInstanceOf[Bool]
-      val clockEnable = if (null == clockDomain.clockEnable) null else component.pulledDataCache.getOrElse(clockDomain.clockEnable, throw new Exception("???")).asInstanceOf[Bool]
-      def addRefUsage(bt: BaseType): Unit ={
-        if(bt == null) return
-        if(bt.component == component && bt.isOutput){
-          outputsToBufferize += bt
-        }
-        if(bt.component.parent == component && bt.isOutput){
-          subComponentOutputsToBufferize += bt
-        }
-      }
-      addRefUsage(clock)
-      addRefUsage(reset)
-      addRefUsage(softReset)
-      addRefUsage(clockEnable)
-    }
+    component.children.foreach(sub => sub.getAllIo.foreach(io => if(io.isOutput) subComponentOutputsToBufferize += io))
 
-    subComponentOutputsToNotBufferize --= subComponentOutputsToBufferize
+//    component.dslBody.walkStatements(ls => ls match {
+//      //Identify direct combinatorial assignements
+//      case AssignementStatement(target : BaseType,source : BaseType)
+//       if(target.isComb && source.component.parent == component && source.isOutput && target.hasOnlyOneStatement &&  ls.parentScope == target.rootScopeStatement)=> {
+//        if(subComponentOutputsToNotBufferize.contains(source)){
+//          subComponentOutputsToBufferize += source
+//        }
+//        subComponentOutputsToNotBufferize(source) = target
+//      }
+//      //Add all referenced sub component outputs into the KO list
+//      case _ => ls.walkDrivingExpressions(_ match {
+//        case source : BaseType => {
+//          if(source.component.parent == component && source.isOutput){
+//            subComponentOutputsToBufferize += source
+//          }
+//        }
+//        case _ =>
+//      })
+//    })
+//    for(syncGroup <- syncGroups.valuesIterator){
+//      val clockDomain = syncGroup.clockDomain
+//      val clock = component.pulledDataCache.getOrElse(clockDomain.clock, throw new Exception("???")).asInstanceOf[Bool]
+//      val reset = if (null == clockDomain.reset) null else component.pulledDataCache.getOrElse(clockDomain.reset, throw new Exception("???")).asInstanceOf[Bool]
+//      val softReset = if (null == clockDomain.softReset) null else component.pulledDataCache.getOrElse(clockDomain.softReset, throw new Exception("???")).asInstanceOf[Bool]
+//      val clockEnable = if (null == clockDomain.clockEnable) null else component.pulledDataCache.getOrElse(clockDomain.clockEnable, throw new Exception("???")).asInstanceOf[Bool]
+//      def addRefUsage(bt: BaseType): Unit ={
+//        if(bt == null) return
+//        if(bt.component == component && bt.isOutput){
+//          outputsToBufferize += bt
+//        }
+//        if(bt.component.parent == component && bt.isOutput){
+//          subComponentOutputsToBufferize += bt
+//        }
+//      }
+//      addRefUsage(clock)
+//      addRefUsage(reset)
+//      addRefUsage(softReset)
+//      addRefUsage(clockEnable)
+//    }
+//
+//    subComponentOutputsToNotBufferize --= subComponentOutputsToBufferize
 
     //TODO undrived components inputs ?
-    component.children.foreach(sub => sub.getAllIo.foreach(io =>
-      if (io.isOutput && !subComponentOutputsToNotBufferize.contains(io) && !subComponentOutputsToBufferize.contains(io)) {
-        openSubIo += io
-      }
-    ))
+//    component.children.foreach(sub => sub.getAllIo.foreach(io =>
+//      if (io.isOutput && !subComponentOutputsToNotBufferize.contains(io) && !subComponentOutputsToBufferize.contains(io)) {
+//        openSubIo += io
+//      }
+//    ))
+
+
+    for(mem <- mems){
+      mem.foreachStatements(s => {
+        s.foreachDrivingExpression{
+          case e : BaseType =>
+          case e => expressionToWrap += e
+        }
+
+        s match {
+          case s : MemReadSync => {
+            val name = component.localNamingScope.allocateName(globalData.anonymSignalPrefix)
+            b.declarations ++= s"  signal $name : ${emitType(s)};\n"
+            wrappedExpressionToName(s) = name
+          }
+          case s : MemReadAsync => {
+            val name = component.localNamingScope.allocateName(globalData.anonymSignalPrefix)
+            b.declarations ++= s"  signal $name : ${emitType(s)};\n"
+            wrappedExpressionToName(s) = name
+          }
+          case s : MemWrite =>
+        }
+      })
+    }
+
+
 
     for((subOutput, target) <- subComponentOutputsToNotBufferize){
       referencesOverrides(subOutput) = emitReference(target, false)
@@ -410,13 +443,13 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     }
 
     //Wrap expression which need it
-    for(e <- expressionToWrap){
+    for(e <- expressionToWrap if !e.isInstanceOf[DeclarationStatement]){
       val name = component.localNamingScope.allocateName(globalData.anonymSignalPrefix)
       b.declarations ++= s"  signal $name : ${emitType(e)};\n"
       wrappedExpressionToName(e) = name
     }
 
-    for(e <- expressionToWrap){
+    for(e <- expressionToWrap  if !e.isInstanceOf[DeclarationStatement]){
       b.logics ++= s"  ${wrappedExpressionToName(e)} <= ${emitExpressionNoWrappeForFirstOne(e)};\n"
     }
 
@@ -424,6 +457,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     //Flush all that mess out ^^
     emitBlackBoxComponents(component, b)
     emitSignals(component,b)
+    emitMems(component,mems,b)
     emitSubComponents(component, openSubIo,b)
     processes.foreach(p => {
       if(p.leafStatements.nonEmpty ) {
@@ -438,6 +472,8 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     })
     syncGroups.values.foreach(emitSyncronous(component, b, _))
   }
+
+
 
 
   def emitSubComponents(component: Component, openSubIo : mutable.HashSet[BaseType], b: ComponentBuilder): Unit = {
@@ -510,7 +546,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
   }
 
   def isSubComponentInputBinded(data : BaseType) = {
-    if(data.isInput && data.isComb && data.hasOnlyOneStatement && data.head.parentScope == data.rootScopeStatement && Statement.isFullToFullStatement(data.head) && data.head.asInstanceOf[AssignementStatement].source.asInstanceOf[BaseType].component == data.component.parent)
+    if(data.isInput && data.isComb && data.hasOnlyOneStatement && data.head.parentScope == data.rootScopeStatement && Statement.isFullToFullStatement(data.head)/* && data.head.asInstanceOf[AssignementStatement].source.asInstanceOf[BaseType].component == data.component.parent*/)
       data.head.source.asInstanceOf[BaseType]
     else
       null
@@ -520,6 +556,102 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 //  def isSubComponentOutputBinded(data : BaseType) =
 //    isSubComponentOutputBindedSet.contains(data)
 
+  
+  def emitClockedProcess(emitRegsLogic : (String, StringBuilder) => Unit,
+                         emitRegsInitialValue : (String, StringBuilder) => Unit,
+                         b : mutable.StringBuilder,
+                         clockDomain: ClockDomain, withReset : Boolean, component : Component): Unit ={
+    val clock = component.pulledDataCache.getOrElse(clockDomain.clock, throw new Exception("???")).asInstanceOf[Bool]
+    val reset = if (null == clockDomain.reset || !withReset) null else component.pulledDataCache.getOrElse(clockDomain.reset, throw new Exception("???")).asInstanceOf[Bool]
+    val softReset = if (null == clockDomain.softReset || !withReset) null else component.pulledDataCache.getOrElse(clockDomain.softReset, throw new Exception("???")).asInstanceOf[Bool]
+    val clockEnable = if (null == clockDomain.clockEnable) null else component.pulledDataCache.getOrElse(clockDomain.clockEnable, throw new Exception("???")).asInstanceOf[Bool]
+
+    //    val clock = clockDomain.clock
+    //    val reset = if (null == clockDomain.reset || !withReset) null else clockDomain.reset
+    //    val softReset = if (null == clockDomain.softReset || !withReset) null else clockDomain.softReset
+    //    val clockEnable = if (null == clockDomain.clockEnable) null else clockDomain.clockEnable
+
+    val asyncReset = (null != reset) && clockDomain.config.resetKind == ASYNC
+    val syncReset = (null != reset) && clockDomain.config.resetKind == SYNC
+    var tabLevel = 1
+    def tabStr = "  " * tabLevel
+    def inc = {
+      tabLevel = tabLevel + 1
+    }
+    def dec = {
+      tabLevel = tabLevel - 1
+    }
+
+
+
+    val initialStatlementsGeneration =  new StringBuilder()
+    referenceSet = mutable.Set[String]()
+    if(withReset) emitRegsInitialValue("      ", initialStatlementsGeneration)
+    referenceSet += emitReference(clock,false)
+
+    if (asyncReset) {
+      referenceSet += emitReference(reset,false)
+      b ++= s"${tabStr}process(${referenceSet.mkString(", ")})\n"
+    } else {
+      b ++= s"${tabStr}process(${referenceSet.mkString(", ")})\n"
+    }
+
+    b ++= s"${tabStr}begin\n"
+    inc
+    if (asyncReset) {
+      b ++= s"${tabStr}if ${emitReference(reset, false)} = \'${if (clockDomain.config.resetActiveLevel == HIGH) 1 else 0}\' then\n";
+      inc
+      b ++= initialStatlementsGeneration
+      dec
+      b ++= s"${tabStr}elsif ${emitClockEdge(emitReference(clock,false), clockDomain.config.clockEdge)}"
+      inc
+    } else {
+      b ++= s"${tabStr}if ${emitClockEdge(emitReference(clock,false), clockDomain.config.clockEdge)}"
+      inc
+    }
+    if (clockEnable != null) {
+      b ++= s"${tabStr}if ${emitReference(clockEnable,false)} = \'${if (clockDomain.config.clockEnableActiveLevel == HIGH) 1 else 0}\' then\n"
+      inc
+    }
+
+    if (syncReset || softReset != null) {
+      var condList = ArrayBuffer[String]()
+      if(syncReset) condList += s"${emitReference(reset,false)} = \'${if (clockDomain.config.resetActiveLevel == HIGH) 1 else 0}\'"
+      if(softReset != null) condList += s"${emitReference(softReset,false)} = \'${if (clockDomain.config.softResetActiveLevel == HIGH) 1 else 0}\'"
+
+      b ++= s"${tabStr}if ${condList.reduce(_ + " or " + _)} then\n"
+      inc
+      b ++= initialStatlementsGeneration
+      dec
+      b ++= s"${tabStr}else\n"
+      inc
+      emitRegsLogic(tabStr,b)
+      dec
+      b ++= s"${tabStr}end if;\n"
+      dec
+    } else {
+      emitRegsLogic(tabStr,b)
+      dec
+    }
+
+    while (tabLevel != 1) {
+      b ++= s"${tabStr}end if;\n"
+      dec
+    }
+    b ++= s"${tabStr}end process;\n"
+    dec
+    b ++= s"${tabStr}\n"
+
+
+
+
+
+
+  }
+  
+  
+  
+  
   def emitSyncronous(component : Component, b : ComponentBuilder, group: SyncGroup): Unit = {
     import group._
     def withReset = hasInit
@@ -749,9 +881,14 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
             //Generate the code
             if(isPure) {
+              def emitIsCond(that : Expression): String = that match {
+                case lit : BitVectorLiteral => '"' + lit.getBitsStringOnNoPoison(lit.getWidth) + '"'
+                case lit : BoolLiteral => if(lit.value) "'1'" else "'0'"
+                case lit : EnumLiteral[_] => emitEnumLiteral(lit.enum, lit.encoding)
+              }
               b ++= s"${tab}case ${emitExpression(switchStatement.value)} is\n"
               tasks.foreach { case (scope, task) =>
-                b ++= s"${tab}  when ${emitExpression(task.element.keys.head)} =>\n"
+                b ++= s"${tab}  when ${emitIsCond(task.element.keys.head)} =>\n"
                 emitLeafStatements(statements, task.statementIndex, scope, assignementKind, b, tab + "    ")
               }
 
@@ -830,7 +967,10 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
   }
   var referenceSet : mutable.Set[String] = null
   def emitReference(that : DeclarationStatement, sensitive : Boolean): String ={
-    val name = referencesOverrides.getOrElse(that, that.getNameElseThrow)
+    val name = referencesOverrides.getOrElse(that, that.getNameElseThrow) match {
+      case x : String => x
+      case x : DeclarationStatement => emitReference(x,false)
+    }
     if(sensitive && referenceSet != null) referenceSet.add(name)
     name
   }
@@ -903,7 +1043,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 //  override def useNodeConsumers: Boolean = true
 //
 //  var outFile: java.io.FileWriter = null
-//  var memBitsMaskKind : MemBitsMaskKind = MULTIPLE_RAM
+  var memBitsMaskKind : MemBitsMaskKind = MULTIPLE_RAM
 //
 //  val emitedComponent = mutable.Map[ComponentBuilder, ComponentBuilder]()
 //  val emitedComponentRef = mutable.Map[Component, Component]()
@@ -1674,7 +1814,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 //            ret ++= s"  signal ${emitReference(readSync.consumers(0))}_mem_addr : unsigned(${readSync.mem.addressWidth-1}} downto 0);\n"
 //          }
 //        }
-//        case mem: Mem[_] => {
+        case mem: Mem[_] => // {
 //          //ret ++= emitSignal(mem, mem);
 //          val symbolWidth = mem.getMemSymbolWidth()
 //          val symbolCount = mem.getMemSymbolCount
@@ -1729,8 +1869,169 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
     })
   }
-//
-//
+
+  def emitMems(component: Component, mems: ArrayBuffer[Mem[_]], b: ComponentBuilder) : Unit = {
+    for(mem <- mems) emitMem(mem, b)
+  }
+
+  def emitMem(mem: Mem[_], b: ComponentBuilder): Unit ={
+    def emitDataType(mem: Mem[_], constrained: Boolean = true) =  s"${emitReference(mem, constrained)}_type"
+
+    //ret ++= emitSignal(mem, mem);
+    val symbolWidth = mem.getMemSymbolWidth()
+    val symbolCount = mem.getMemSymbolCount
+
+    val initAssignementBuilder = for(i <- 0 until symbolCount) yield {
+      val builder = new StringBuilder()
+      val mask = (BigInt(1) << symbolWidth)-1
+      if (mem.initialContent != null) {
+        builder ++= " := ("
+
+        var first = true
+        for ((value, index) <- mem.initialContent.zipWithIndex) {
+          if (!first)
+            builder ++= ","
+          else
+            first = false
+
+          if ((index & 15) == 0) {
+            builder ++= "\n     "
+          }
+
+          val unfilledValue = ((value>>(i*symbolWidth)) & mask).toString(2)
+          val filledValue = "0" * (symbolWidth-unfilledValue.length) + unfilledValue
+          builder ++= "\"" + filledValue + "\""
+        }
+
+        builder ++= ")"
+      }else if(mem.hasTag(randomBoot)){
+        builder ++= " := (others => (others => '1'))"
+      }
+      builder
+    }
+
+
+    if(memBitsMaskKind == MULTIPLE_RAM && symbolCount != 1) {
+      //if(mem.initialContent != null) SpinalError("Memory with multiple symbol per line + initial contant are not suported currently")
+
+      b.declarations ++= s"  type ${emitReference(mem,false)}_type is array (0 to ${mem.wordCount - 1}) of std_logic_vector(${symbolWidth - 1} downto 0);\n"
+      for(i <- 0 until symbolCount) {
+        val postfix = "_symbol" + i
+        b.declarations ++= s"  signal ${emitReference(mem,false)}$postfix : ${emitDataType(mem)}${initAssignementBuilder(i).toString()};\n"
+        emitAttributes(mem,mem.instanceAttributes(Language.VHDL), "signal", b.declarations,postfix = postfix)
+      }
+    }else{
+      b.declarations ++= s"  type ${emitReference(mem,false)}_type is array (0 to ${mem.wordCount - 1}) of std_logic_vector(${mem.getWidth - 1} downto 0);\n"
+      b.declarations ++= s"  signal ${emitReference(mem,false)} : ${emitDataType(mem)}${initAssignementBuilder.head.toString()};\n"
+      emitAttributes(mem, mem.instanceAttributes(Language.VHDL), "signal", b.declarations)
+    }
+
+
+
+    def emitPort(port : MemPortStatement,tab : String, b : mutable.StringBuilder) : Unit = port match {
+      case memWrite: MemWrite => {
+        if(memWrite.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${memWrite.mem} because of its mixed width ports")
+
+        if (memWrite.writeEnable != null) {
+          b ++= s"${tab}if ${emitExpression(memWrite.writeEnable)} = '1' then\n"
+          emitWrite(tab + "  ")
+          b ++= s"${tab}end if;\n"
+        } else {
+          emitWrite(tab)
+        }
+
+        def emitWrite(tab: String) = {
+          val symbolCount = memWrite.mem.getMemSymbolCount
+          val bitPerSymbole = memWrite.mem.getMemSymbolWidth()
+
+          if(memWrite.mask == null) {
+            if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
+              b ++= s"$tab${emitReference(memWrite.mem, false)}(to_integer(${emitExpression(memWrite.address)})) <= ${emitExpression(memWrite.data)};\n"
+            else
+              for(i <- 0 until symbolCount) {
+                val range = s"(${(i + 1) * bitPerSymbole - 1} downto ${i * bitPerSymbole})"
+                b ++= s"$tab  ${emitReference(memWrite.mem, false)}_symbol${i}(to_integer(${emitExpression(memWrite.address)})) <= ${emitExpression(memWrite.data)}$range;\n"
+              }
+          }else{
+
+            val maskCount = memWrite.mask.getWidth
+            for(i <- 0 until maskCount){
+              val range = s"(${(i+1)*bitPerSymbole-1} downto ${i*bitPerSymbole})"
+              b ++= s"${tab}if ${emitExpression(memWrite.mask)}($i) = '1' then\n"
+              if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
+                b ++= s"$tab  ${emitReference(memWrite.mem, false)}(to_integer(${emitExpression(memWrite.address)}))$range <= ${emitExpression(memWrite.data)}$range;\n"
+              else
+                b ++= s"$tab  ${emitReference(memWrite.mem, false)}_symbol${i}(to_integer(${emitExpression(memWrite.address)})) <= ${emitExpression(memWrite.data)}$range;\n"
+
+              b ++= s"${tab}end if;\n"
+            }
+          }
+        }
+      }
+      case memReadSync: MemReadSync => {
+        if(memReadSync.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${memReadSync.mem} because of its mixed width ports")
+        if(memReadSync.readUnderWrite == writeFirst) SpinalError(s"Can't translate a memReadSync with writeFirst into VHDL $memReadSync")
+        if(memReadSync.readUnderWrite == dontCare) SpinalWarning(s"memReadSync with dontCare is as readFirst into VHDL $memReadSync")
+        if(memReadSync.readEnable != null) {
+          b ++= s"${tab}if ${emitExpression(memReadSync.readEnable)} = '1' then\n"
+          emitRead(tab + "  ")
+          b ++= s"${tab}end if;\n"
+        } else {
+          emitRead(tab)
+        }
+        def emitRamRead() = {
+          val symbolCount = memReadSync.mem.getMemSymbolCount
+          if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
+            s"${emitReference(memReadSync.mem, false)}(to_integer(${emitExpression(memReadSync.address)}))"
+          else
+            (0 until symbolCount).reverse.map(i => (s"${emitReference(memReadSync.mem, false)}_symbol$i(to_integer(${emitExpression(memReadSync.address)}))")).reduce(_ + " & " + _)
+        }
+        def emitRead(tab: String) = b ++= s"$tab${emitExpression(memReadSync)} <= ${emitRamRead()};\n"
+
+      }
+    }
+
+
+    val cdTasks = mutable.HashMap[ClockDomain, ArrayBuffer[MemPortStatement]]()
+    mem.foreachStatements{
+      case port : MemWrite =>
+        cdTasks.getOrElseUpdate(port.clockDomain, ArrayBuffer[MemPortStatement]()) += port
+      case port : MemReadSync =>
+        if(port.readUnderWrite == readFirst)
+          cdTasks.getOrElseUpdate(port.clockDomain, ArrayBuffer[MemPortStatement]()) += port
+      case port : MemReadAsync =>
+    }
+
+    for((cd, ports) <- cdTasks){
+      def syncLogic(tab : String, b : StringBuilder): Unit ={
+        ports.foreach{
+          case port : MemWrite => emitPort(port, tab, b)
+          case port : MemReadSync => emitPort(port, tab, b)
+        }
+      }
+
+      emitClockedProcess(syncLogic,null,b.logics, cd, false, mem.component)
+    }
+
+    mem.foreachStatements{
+      case port : MemWrite =>
+      case port : MemReadSync =>
+        if(port.readUnderWrite == dontCare)
+          emitClockedProcess(emitPort(port,_,_),null,b.logics, port.clockDomain, false, mem.component)
+      case port : MemReadAsync =>
+        if(port.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${port.mem} because of its mixed width ports")
+        if (port.readUnderWrite == dontCare) SpinalWarning(s"memReadAsync with dontCare is as writeFirst into VHDL")
+        val symbolCount = port.mem.getMemSymbolCount
+        if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
+          b.logics ++= s"  ${emitExpression(port)} <= ${emitReference(port.mem, false)}(to_integer(${emitExpression(port.address)}));\n"
+        else
+          (0 until symbolCount).foreach(i => b.logics  ++= (s"${emitExpression(port)}(${(i + 1)*symbolWidth - 1} downto ${i*symbolWidth}) <= ${emitReference(port.mem, false)}_symbol$i(to_integer(${emitExpression(port.address)}));\n"))
+
+    }
+
+  }
+
+
   def emitAttributes(node : DeclarationStatement,attributes: Iterable[Attribute], vhdlType: String, ret: StringBuilder,postfix : String = ""): Unit = {
     for (attribute <- attributes){
       val value = attribute match {
