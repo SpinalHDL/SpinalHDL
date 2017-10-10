@@ -138,7 +138,7 @@ begin
           wait until io_uart_uart_txd'event;
         end if;
         
-        assert io_uart_uart_txd'DELAYED'LAST_ACTIVE >= stopTime and io_uart_uart_txd'DELAYED = '1' report "io_uart_uart_txd fail" severity failure;
+        assert io_uart_uart_txd'DELAYED'LAST_ACTIVE >= stopTime  and io_uart_uart_txd'DELAYED(1 ns) = '1' report "io_uart_uart_txd fail" severity failure;
         
         checkBit('0');
         
