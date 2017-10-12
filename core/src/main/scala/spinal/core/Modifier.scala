@@ -717,7 +717,7 @@ object Operator{
 
   object Enum{
     class Equal(enumDef : SpinalEnum) extends BinaryOperator with InferableEnumEncodingImpl{
-      override def getTypeObject: Any = TypeEnum
+      override def getTypeObject: Any = TypeBool
 
       override def opName: String = "e==e"
       override def normalizeInputs: Unit = {InputNormalize.enumImpl(this)}
@@ -728,7 +728,7 @@ object Operator{
     }
 
     class NotEqual(enumDef : SpinalEnum) extends BinaryOperator with InferableEnumEncodingImpl{
-      override def getTypeObject: Any = TypeEnum
+      override def getTypeObject: Any = TypeBool
       override def opName: String = "e!=e"
       override def normalizeInputs: Unit = {InputNormalize.enumImpl(this)}
 

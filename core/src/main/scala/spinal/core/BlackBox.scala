@@ -37,7 +37,7 @@ import scala.collection.mutable.ArrayBuffer
   */
 class Generic {
 
-  var flattenCache: ArrayBuffer[Any] = null
+  @dontName var flattenCache: ArrayBuffer[Any] = null
 
   def genNames: Unit = {
     Misc.reflect(this, (name, obj) => {

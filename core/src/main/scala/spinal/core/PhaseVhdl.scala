@@ -39,8 +39,6 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
   def compile(component: Component): Unit = {
     val text = emitComponent(component)
-//    println("SIZE " + text.length + "   " + text.lines.length)
-//    println(text)
     outFile.write(text)
   }
 
@@ -135,7 +133,6 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     }
 
 
-    println(b.declarations.toString + b.logics.toString)
     ""
   }
 
@@ -967,9 +964,6 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     val name = referencesOverrides.getOrElse(that, that.getNameElseThrow) match {
       case x : String => x
       case x : DeclarationStatement => emitReference(x,false)
-      case null =>
-        print("???")
-        "asd"
     }
     if(sensitive && referenceSet != null) referenceSet.add(name)
     name
@@ -2219,7 +2213,6 @@ def refImpl(op: Expression): String = emitReference(op.asInstanceOf[DeclarationS
     val binOp = op.asInstanceOf[BinaryOperator]
     val enumDef = op.asInstanceOf[EnumEncoded].getDefinition
     val encoding = op.asInstanceOf[EnumEncoded].getEncoding
-    println(binaryOneHot)
     encoding match {
     //  case `binaryOneHot` => s"pkg_toStdLogic((${emitExpression(binOp.left)} and ${emitExpression(binOp.right)}) ${if (eguals) "/=" else "="} ${'"' + "0" * encoding.getWidth(enumDef) + '"'})"
       case _ => s"pkg_toStdLogic(${emitExpression(binOp.left)} ${if (eguals) "=" else "/="} ${emitExpression(binOp.right)})"
@@ -2379,9 +2372,9 @@ def refImpl(op: Expression): String = emitReference(op.asInstanceOf[DeclarationS
   expressionMapAdd(classOf[Operator.Bits.ShiftLeftByInt], shiftLeftByIntImpl)
   expressionMapAdd(classOf[Operator.Bits.ShiftRightByUInt], binaryOperatorImplAsFunction("pkg_shiftRight"))
   expressionMapAdd(classOf[Operator.Bits.ShiftLeftByUInt], binaryOperatorImplAsFunction("pkg_shiftLeft"))
-  expressionMapAdd(classOf[Operator.Bits.ShiftRightByIntFixedWidth],  shiftRightByIntFixedWidthImpl)
-  expressionMapAdd(classOf[Operator.Bits.ShiftLeftByIntFixedWidth],  shiftLeftByIntFixedWidthImpl)
-  expressionMapAdd(classOf[Operator.Bits.ShiftLeftByUIntFixedWidth],  shiftLeftByUIntFixedWidthImpl)
+  expressionMapAdd(classOf[Operator.Bits.ShiftRightByIntFixedWidth],  shiftRightBitsByIntFixedWidthImpl)
+  expressionMapAdd(classOf[Operator.Bits.ShiftLeftByIntFixedWidth],  shiftLeftBitsByIntFixedWidthImpl)
+  expressionMapAdd(classOf[Operator.Bits.ShiftLeftByUIntFixedWidth],  shiftLeftBitsByUIntFixedWidthImpl)
 
 
   //bool
