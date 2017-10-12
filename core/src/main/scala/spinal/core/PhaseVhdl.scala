@@ -332,7 +332,7 @@ class PhaseVhdl(pc: PhaseContext) extends PhaseMisc with VhdlBase{
     ret ++= "  function pkg_shiftRight (that : signed; size : natural) return signed;\n"
     ret ++= "  function pkg_shiftRight (that : signed; size : unsigned) return signed;\n"
     ret ++= "  function pkg_shiftLeft (that : signed; size : natural) return signed;\n"
-    ret ++= "  function pkg_shiftLeft (that : signed; size : unsigned) return signed;\n"
+    ret ++= "  function pkg_shiftLeft (that : signed; size : unsigned; w : integer) return signed;\n"
     ret ++= "\n"
     ret ++= "  function pkg_rotateLeft (that : std_logic_vector; size : unsigned) return std_logic_vector;\n"
     ret ++= s"end  $packageName;\n"
@@ -403,9 +403,9 @@ class PhaseVhdl(pc: PhaseContext) extends PhaseMisc with VhdlBase{
     ret ++= "    return signed(pkg_shiftLeft(unsigned(that),size));\n"
     ret ++= "  end pkg_shiftLeft;\n"
     ret ++= "\n"
-    ret ++= "  function pkg_shiftLeft (that : signed; size : unsigned) return signed is\n"
+    ret ++= "  function pkg_shiftLeft (that : signed; size : unsigned; w : integer) return signed is\n"
     ret ++= "  begin\n"
-    ret ++= "    return signed(pkg_shiftLeft(unsigned(that),size));\n"
+    ret ++= "    return shift_left(resize(that,w),to_integer(size));\n"
     ret ++= "  end pkg_shiftLeft;\n"
     ret ++= "\n"
     ret ++= "  function pkg_rotateLeft (that : std_logic_vector; size : unsigned) return std_logic_vector is\n"
@@ -975,6 +975,11 @@ class PhaseVhdl(pc: PhaseContext) extends PhaseMisc with VhdlBase{
   }
 
 
+  def shiftSIntLeftByUInt(func: Modifier): String = {
+    val node = func.asInstanceOf[Operator.SInt.ShiftLeftByUInt]
+    s"pkg_shiftLeft(${emitLogic(node.left)}, ${emitLogic(node.right)}, ${node.getWidth})"
+  }
+
 
   def resizeFunction(vhdlFunc : String)(func: Modifier): String = {
     val resize = func.asInstanceOf[Resize]
@@ -1105,7 +1110,7 @@ class PhaseVhdl(pc: PhaseContext) extends PhaseMisc with VhdlBase{
   modifierImplMap.put("s>>i", shiftRightByIntImpl)
   modifierImplMap.put("s<<i", shiftLeftByIntImpl)
   modifierImplMap.put("s>>u", operatorImplAsFunction("pkg_shiftRight"))
-  modifierImplMap.put("s<<u", operatorImplAsFunction("pkg_shiftLeft"))
+  modifierImplMap.put("s<<u", shiftSIntLeftByUInt)
   modifierImplMap.put("s|>>i",  shiftRightByIntFixedWidthImpl)
   modifierImplMap.put("s|<<i",  shiftLeftByIntFixedWidthImpl)
   modifierImplMap.put("s|<<u",  shiftLeftByUIntFixedWidthImpl)

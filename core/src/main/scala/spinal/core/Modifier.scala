@@ -534,12 +534,12 @@ object Operator{
 
     class Sub extends BitVector.Sub{
       override def opName: String = "s-s"
-      override def getLiteralFactory: (BigInt, BitCount) => Node = U.apply
+      override def getLiteralFactory: (BigInt, BitCount) => Node = S.apply
     }
 
     class Mul extends BitVector.Mul{
       override def opName: String = "s*s"
-      override def getLiteralFactory: (BigInt, BitCount) => Node = U.apply
+      override def getLiteralFactory: (BigInt, BitCount) => Node = S.apply
     }
 
     class Div extends BitVector.Div{
