@@ -141,8 +141,6 @@ object is{
     values.foreach(value => value match {
       case value : BaseType => onBaseType(value)
 
-//              case key: Data => switchValue.isEquals(key)
-//              case key: Seq[_] => key.map(d => analyse(d)).reduce(_ || _)
       case key: Int => {
         switchValue match {
           case switchValue: Bits => onBaseType(B(key))
@@ -175,8 +173,10 @@ object is{
 //                case _ => SpinalError("The switch is not a Bits, UInt or SInt")
 //              }
 //            }
+//              case key: Data => switchValue.isEquals(key)
+//              case key: Seq[_] => key.map(d => analyse(d)).reduce(_ || _)
     })
-    require(switchElement.keys.length == 1)
+
 
     switchContext.statement.elements += switchElement
     globalData.context.push(globalData.contextHead.copy(scope = switchElement.scopeStatement))

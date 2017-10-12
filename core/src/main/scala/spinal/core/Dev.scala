@@ -10,6 +10,7 @@ import scala.collection.mutable.ArrayBuffer
 // Clock pulling phase could be more systematic ?
 // Make the VHDL generation deterministic
 // only let's symplify nodes which are type nodes (don't lose bit width for instance)
+// Emit signal attribut, carefull with outputs
 case class DslContext(clockDomain: ClockDomain, component: Component, scope: ScopeStatement)
 
 
@@ -213,6 +214,19 @@ trait Statement extends ExpressionContainer with ScalaLocated with BaseNode{
     if(parentScope.parentStatement != null){
       func(parentScope.parentStatement)
       parentScope.parentStatement.walkParentTreeStatements(func)
+    }
+  }
+
+  def walkParentTreeStatementsUntilRootScope(func : (TreeStatement) => Unit) : Unit = {
+    val root = rootScopeStatement
+    if(root == null) return //Input of top level
+    var ptr = parentScope
+    while(ptr != root){
+      if(ptr.parentStatement == null){
+        print("asd")
+      }
+      func(ptr.parentStatement)
+      ptr = ptr.parentStatement.parentScope
     }
   }
 }

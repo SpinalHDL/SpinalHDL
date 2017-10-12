@@ -7,7 +7,7 @@ import scala.collection.mutable.{ListBuffer, ArrayBuffer}
 //
 //import scala.collection.mutable
 //import scala.collection.mutable.{ArrayBuffer, StringBuilder, HashMap}
-//import scala.util.Random
+import scala.util.Random
 //
 ///**
 // * Created by PIC32F_USER on 05/06/2016.
@@ -333,14 +333,21 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     val openSubIo = mutable.HashSet[BaseType]()
 
     //Get all component outputs which are read internaly
-    component.dslBody.walkStatements(s => s.walkDrivingExpressions(_ match {
-      case bt : BaseType => {
-        if(bt.component == component && bt.isOutput){
-          outputsToBufferize += bt
-        }
+    //And also fill some expressionToWrap from switch(xx)
+    component.dslBody.walkStatements(s => {
+      s match {
+        case s : SwitchStatement => expressionToWrap += s.value
+        case _ =>
       }
-      case _ =>
-    }))
+      s.walkDrivingExpressions(_ match {
+        case bt: BaseType => {
+          if (bt.component == component && bt.isOutput) {
+            outputsToBufferize += bt
+          }
+        }
+        case _ =>
+      })
+    })
 
     component.children.foreach(sub => sub.getAllIo.foreach(io => if(io.isOutput) subComponentOutputsToBufferize += io))
 
@@ -425,7 +432,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
     for(output <- outputsToBufferize){
       val name = component.localNamingScope.allocateName(globalData.anonymSignalPrefix)
-      b.declarations ++= s"  signal $name : ${emitDataType(output)};\n"
+      b.declarations ++= s"  signal $name : ${emitDataType(output)}${getBaseTypeSignalInitialisation(output)};\n"
       b.logics ++= s"  ${emitReference(output, false)} <= $name;\n"
       referencesOverrides(output) = name
     }
@@ -880,9 +887,10 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
                 case lit : BoolLiteral => if(lit.value) "'1'" else "'0'"
                 case lit : EnumLiteral[_] => emitEnumLiteral(lit.enum, lit.encoding)
               }
+
               b ++= s"${tab}case ${emitExpression(switchStatement.value)} is\n"
               tasks.foreach { case (scope, task) =>
-                b ++= s"${tab}  when ${emitIsCond(task.element.keys.head)} =>\n"
+                b ++= s"${tab}  when ${task.element.keys.map(e => emitIsCond(e)).mkString(" | ")} =>\n"
                 emitLeafStatements(statements, task.statementIndex, scope, assignementKind, b, tab + "    ")
               }
 
@@ -892,11 +900,12 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
               }
               b ++= s"${tab}end case;\n"
             } else {
+              def emitIsCond(that : Expression): String = s"(${emitExpression(switchStatement.value)} = ${emitExpression(that)})"
               var index = 0
               var tasksCount = tasks.size
               for(e <- switchStatement.elements) tasks.get(e.scopeStatement) match {
                 case Some(task) =>
-                  b ++= s"${tab}${if(index == 0) "if" else "elsif"} ${emitExpression(switchStatement.value)} = ${emitExpression(task.element.keys.head)} then\n"
+                  b ++= s"${tab}${if(index == 0) "if" else "elsif"} ${task.element.keys.map(e => emitIsCond(e)).mkString(" or ")} then\n"
                   emitLeafStatements(statements, task.statementIndex, e.scopeStatement, assignementKind, b, tab + "  ")
                   index += 1
                 case _ =>
@@ -1755,31 +1764,42 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 //  def toSpinalEnumCraft[T <: SpinalEnum](that: Any) = that.asInstanceOf[SpinalEnumCraft[T]]
 //
   def getBaseTypeSignalInitialisation(signal : BaseType) : String = {
-//    val reg = if(signal.isReg) signal.input.asInstanceOf[Reg] else null
-//    if(reg != null){
-//      if(reg.initialValue != null && reg.getClockDomain.config.resetKind == BOOT) {
-//        return " := " + (reg.initialValue match {
-//          case init : BaseType => emitLogic(init.getLiteral)
-//          case init =>  emitLogic(init)
-//        })
-//      }else if (reg.hasTag(randomBoot)) {
-//        return signal match {
-//          case b: Bool => " := " + {
-//            if (Random.nextBoolean()) "'1'" else "'0'"
-//          }
-//          case bv: BitVector => {
-//            val rand = BigInt(bv.getWidth, Random).toString(2)
-//            " := \"" + "0" * (bv.getWidth - rand.length) + rand + "\""
-//          }
-//          case e: SpinalEnumCraft[_] => {
-//            val vec = e.spinalEnum.elements.toVector
-//            val rand = vec(Random.nextInt(vec.size))
-//            " := " + emitEnumLiteral(rand, e.getEncoding)
-//          }
-//        }
-//      }
-//    }
-    "" //TODO IR !
+    if(signal.isReg){
+      if(signal.clockDomain.config.resetKind == BOOT && signal.hasInit) {
+        var initStatement : AssignementStatement = null
+        var needFunc = false
+        signal.foreachStatements {
+          case s : InitAssignementStatement if s.source.isInstanceOf[Literal] =>
+            if(initStatement != null)
+              needFunc = true
+            initStatement = s
+          case s =>
+        }
+
+        if(needFunc)
+          ???
+        else {
+          assert(initStatement.parentScope == signal.parentScope)
+          return " := " + emitExpressionNoWrappeForFirstOne(initStatement.source)
+        }
+      }else if (signal.hasTag(randomBoot)) {
+        return signal match {
+          case b: Bool => " := " + {
+            if (Random.nextBoolean()) "'1'" else "'0'"
+          }
+          case bv: BitVector => {
+            val rand = BigInt(bv.getWidth, Random).toString(2)
+            " := \"" + "0" * (bv.getWidth - rand.length) + rand + "\""
+          }
+          case e: SpinalEnumCraft[_] => {
+            val vec = e.spinalEnum.elements.toVector
+            val rand = vec(Random.nextInt(vec.size))
+            " := " + emitEnumLiteral(rand, e.getEncoding)
+          }
+        }
+      }
+    }
+    ""
   }
 //
 

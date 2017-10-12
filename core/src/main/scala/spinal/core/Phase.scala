@@ -1450,7 +1450,7 @@ class PhaseRemoveUselessStuff extends PhaseNetlist{
           }
           case s: AssignementStatement => {
             s.walkExpression{ case e : Statement => propagate(e) case _ => }
-            s.walkParentTreeStatements(propagate)
+            s.walkParentTreeStatements(propagate) //Could be walkParentTreeStatementsUntilRootScope but then should symplify removed TreeStatements
           }
           case s : WhenStatement => {
             s.walkExpression{ case e : Statement => propagate(e) case _ => }

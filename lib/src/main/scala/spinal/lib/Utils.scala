@@ -492,12 +492,14 @@ object LatencyAnalysis {
         }
         case that : BaseType => { //TODO IR when conds
           def walkInputs(func : (BaseNode) => Unit) = {
-            that.foreachStatements(s => s.foreachDrivingExpression(input => {
-              func(input)
-            }))
-            that.walkParentTreeStatements(tree => tree.walkDrivingExpressions(input => {
-              func(input)
-            }))
+            that.foreachStatements(s => {
+              s.foreachDrivingExpression(input => {
+                func(input)
+              })
+              s.walkParentTreeStatementsUntilRootScope(tree => tree.walkDrivingExpressions(input => {
+                func(input)
+              }))
+            })
           }
           if(that.isReg){
             walkInputs(input => pendingQueues(1) += input)

@@ -266,8 +266,8 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
   }
 
   def getSingleDriver : Option[this.type] = if(this.hasOnlyOneStatement) this.head match {
-    case AssignementStatement(target, driver : BaseType) if target == this && driver.dslContext.scope == this.dslContext.scope =>
-      driver.getSingleDriver.asInstanceOf[Option[this.type]]
+    case AssignementStatement(target, driver : BaseType) if target == this && this.head.parentScope == this.rootScopeStatement =>
+      Some(driver.asInstanceOf[this.type])
     case _ => None
   }else None
 

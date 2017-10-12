@@ -642,8 +642,8 @@ object Operator{
       override def opName: String = "s<s"
       override def normalizeInputs: Unit = {
         val targetWidth = InferWidth.notResizableElseMax(this)
-        left = InputNormalize.resize(left, targetWidth, new ResizeUInt)
-        right = InputNormalize.resize(right, targetWidth, new ResizeUInt)
+        left = InputNormalize.resize(left, targetWidth, new ResizeSInt)
+        right = InputNormalize.resize(right, targetWidth, new ResizeSInt)
       }
     }
 
@@ -652,8 +652,8 @@ object Operator{
       override def opName: String = "s<=s"
       override def normalizeInputs: Unit = {
         val targetWidth = InferWidth.notResizableElseMax(this)
-        left = InputNormalize.resize(left, targetWidth, new ResizeUInt)
-        right = InputNormalize.resize(right, targetWidth, new ResizeUInt)
+        left = InputNormalize.resize(left, targetWidth, new ResizeSInt)
+        right = InputNormalize.resize(right, targetWidth, new ResizeSInt)
       }
     }
 
