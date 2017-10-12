@@ -59,12 +59,12 @@ object GrayCounterTester {
 }
 
 
-class GrayCounterTesterGhdlBoot extends SpinalTesterGhdlBase {
-  override def getName: String = "GrayCounterTester"
-
-  withWaveform = true
-  override def createToplevel: Component = new GrayCounterTester(8)
-}
+//class GrayCounterTesterGhdlBoot extends SpinalTesterGhdlBase {
+//  override def getName: String = "GrayCounterTester"
+//
+//  withWaveform = true
+//  override def createToplevel: Component = new GrayCounterTester(8)
+//}
 
 class GrayCounterTesterCocotbBoot extends SpinalTesterCocotbBase {
   override def getName: String = "GrayCounterTester"

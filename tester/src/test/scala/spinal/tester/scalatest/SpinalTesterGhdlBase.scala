@@ -64,7 +64,7 @@ abstract class SpinalTesterGhdlBase extends FunSuite  {
   def simulateHDLWithFail : Unit= simulateHDL(false)
 
   def simulateHDL(mustSuccess : Boolean): Unit = {
-    val run = s"ghdl -r --ieee=synopsys --work=$getLibraryName ${getName}_tb${if (!withWaveform) "" else s" --vcd=$getName.vcd"}"
+    val run = s"ghdl -r --ieee=synopsys --work=$getLibraryName ${getName}_tb --ieee-asserts=disable ${if (!withWaveform) "" else s" --vcd=$getName.vcd"}"
     println("GHDL run " + run)
     val ret = (run !)
     assert(!mustSuccess || ret == 0,"Simulation fail")

@@ -20,4 +20,5 @@ class AhbLite3OnChipRamTesterCocotbBoot extends SpinalTesterCocotbBase {
   override def pythonTestLocation: String = "tester/src/test/python/spinal/AhbLite3OnChipRamTester"
   override def createToplevel: Component = new AhbLite3OnChipRamTester.AhbLite3OnChipRamTester
   override def backendConfig(config: SpinalConfig): SpinalConfig = config.dumpWave()
+  override def noVhdl = true
 }

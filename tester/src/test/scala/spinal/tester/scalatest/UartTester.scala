@@ -13,10 +13,10 @@ class UartTester extends Component {
 
 
 
-class UartTesterGhdlBoot extends SpinalTesterGhdlBase {
-  override def getName: String = "UartTester"
-  override def createToplevel: Component = new UartTester
-}
+//class UartTesterGhdlBoot extends SpinalTesterGhdlBase {
+//  override def getName: String = "UartTesterGhdl"
+//  override def createToplevel: Component = new UartTester().setDefinitionName(getName)
+//}
 
 class UartTesterCocotbBoot extends SpinalTesterCocotbBase {
   override def getName: String = "UartTester"

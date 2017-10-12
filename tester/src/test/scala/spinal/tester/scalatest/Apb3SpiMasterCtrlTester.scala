@@ -37,6 +37,5 @@ class Apb3SpiMasterCtrlTester extends SpinalTesterCocotbBase {
       rspFifoDepth = 32
     )
   )
-  waveDepth = 99
 }
 

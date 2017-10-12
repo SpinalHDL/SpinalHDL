@@ -37,6 +37,7 @@ class SpiConfig:
         self.cpha = None
         self.cpol = None
 
+
 spiConfig = SpiConfig()
 
 @coroutine

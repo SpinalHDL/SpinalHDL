@@ -13,6 +13,12 @@ def checkSigned(signal,bitCount,value):
     if len(signal) != bitCount or sint(signal) != truncSInt(value,bitCount):
         raise TestFailure("FAIL %s    %d != %d" % (signal._path, sint(signal), truncSInt(value,bitCount)))
 
+def notZero(x):
+    if x == 0:
+        return 1
+    else:
+        return x
+
 @cocotb.test()
 def test1(dut):
     dut.log.info("Cocotb test boot")
@@ -102,8 +108,8 @@ def test1(dut):
         check(dut.uintSbSub, 8, uint4 - uint8)
         check(dut.uintSbMul, 12, uint4 * uint8)
         if uint8 != 0:
-            check(dut.uintSbDiv, 4, uint4 / uint8)
-            check(dut.uintSbRem, 4, uint4 % uint8)
+            check(dut.uintSbDiv, 4, uint4 / notZero(uint8))
+            check(dut.uintSbRem, 4, uint4 % notZero(uint8))
         check(dut.uintSbAnd, 8, uint4 & uint8)
         check(dut.uintSbOr , 8, uint4 | uint8)
         check(dut.uintSbXor, 8, uint4 ^ uint8)
@@ -123,8 +129,8 @@ def test1(dut):
         checkSigned(dut.sintSbSub, 8, sint4 - sint8)
         checkSigned(dut.sintSbMul, 12, sint4 * sint8)
         if sint8 != 0 and sint4 > 0 and sint8 > 0:
-            checkSigned(dut.sintSbDiv, 4,  int(sint4//sint8))
-            checkSigned(dut.sintSbRem, 4,  int(sint4%sint8))
+            checkSigned(dut.sintSbDiv, 4,  int(sint4//notZero(sint8)))
+            checkSigned(dut.sintSbRem, 4,  int(sint4%notZero(sint8)))
 
         checkSigned(dut.sintSbAnd, 8, sint4 & sint8)
         checkSigned(dut.sintSbOr, 8, sint4 | sint8)
@@ -159,8 +165,8 @@ def test1(dut):
         check(dut.uintBsSub, 8, uint8 - uint4)
         check(dut.uintBsMul, 12, uint8 * uint4)
         if uint4 != 0:
-            check(dut.uintBsDiv, 8, uint8 / uint4)
-            check(dut.uintBsRem, 8, uint8 % uint4)
+            check(dut.uintBsDiv, 8, uint8 / notZero(uint4))
+            check(dut.uintBsRem, 8, uint8 % notZero(uint4))
         check(dut.uintBsAnd, 8, uint8 & uint4)
         check(dut.uintBsOr , 8, uint8 | uint4)
         check(dut.uintBsXor, 8, uint8 ^ uint4)
@@ -180,8 +186,8 @@ def test1(dut):
         checkSigned(dut.sintBsSub, 8, sint8 - sint4)
         checkSigned(dut.sintBsMul, 12, sint8 * sint4)
         if sint4 != 0 and sint8 > 0 and sint4 > 0:
-            checkSigned(dut.sintBsDiv, 8,  int(sint8//sint4))
-            checkSigned(dut.sintBsRem, 8,  int(sint8%sint4))
+            checkSigned(dut.sintBsDiv, 8,  int(sint8//notZero(sint4)))
+            checkSigned(dut.sintBsRem, 8,  int(sint8%notZero(sint4)))
 
         checkSigned(dut.sintBsAnd, 8, sint8 & sint4)
         checkSigned(dut.sintBsOr, 8, sint8 | sint4)

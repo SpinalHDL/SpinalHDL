@@ -71,6 +71,8 @@ class PinsecTesterCocotbBoot extends SpinalTesterCocotbBase {
   }
 
   override def backendConfig(config: SpinalConfig): SpinalConfig = config.copy().copy(dumpWave = null)
+
+  override def noVhdl = true
 }
 
 

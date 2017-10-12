@@ -1,0 +1,3 @@
+TOPLEVEL_LANG ?= verilog
+
+SIM_ARGS += --ieee-asserts=disable

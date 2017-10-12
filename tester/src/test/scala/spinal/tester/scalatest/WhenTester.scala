@@ -73,10 +73,10 @@ class WhenTester extends Component {
 }
 
 
-class WhenTesterGhdlBoot extends SpinalTesterGhdlBase {
-  override def getName: String = "WhenTester"
-  override def createToplevel: Component = new WhenTester
-}
+//class WhenTesterGhdlBoot extends SpinalTesterGhdlBase {
+//  override def getName: String = "WhenTester"
+//  override def createToplevel: Component = new WhenTester
+//}
 
 class WhenTesterCocotbBoot extends SpinalTesterCocotbBase {
   override def getName: String = "WhenTester"

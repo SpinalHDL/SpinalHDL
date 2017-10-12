@@ -36,6 +36,5 @@ class Apb3I2cSlaveTester extends SpinalTesterCocotbBase {
     )
   ).setDefinitionName("Apb3I2cSlave")
 
-  waveDepth = 99
 }
 

@@ -164,5 +164,13 @@ class ZeroWidthTesterCocotbBoot extends SpinalTesterCocotbBase {
     }catch{
       case e : Exception =>
     }
+    try {
+      val iterator = Source.fromFile("ZeroWidthTester.vhd").getLines()
+      for (line <- iterator) {
+        assert(!line.contains("-1"))
+      }
+    }catch{
+      case e : Exception =>
+    }
   }
 }
