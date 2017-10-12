@@ -243,6 +243,15 @@ class ClockDomain(val config: ClockDomainConfig, val clock: Bool, val reset: Boo
     }
   }
 
+  def newSlowedClockDomain(freq : HertzNumber) : ClockDomain = {
+    val currentFreq = ClockDomain.current.frequency.getValue.toBigDecimal
+    freq match {
+      case x if x.toBigDecimal > currentFreq => SpinalError("To high frequancy")
+      case x => newClockDomainSlowedBy((currentFreq/freq.toBigDecimal).toBigInt())
+    }
+  }
+
+
   def clone(config: ClockDomainConfig = config, clock: Bool = clock, reset: Bool = reset, dummyArg : DummyTrait = null,softReset : Bool = null,clockEnable: Bool = clockEnable): ClockDomain = new ClockDomain(config, clock, reset, dummyArg, softReset,  clockEnable, frequency)
 }
 

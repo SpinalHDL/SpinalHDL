@@ -29,7 +29,7 @@ class LibTesterCocotbBoot extends SpinalTesterCocotbBase {
   override def createToplevel: Component = new LibTester.LibTester
 }
 
-class LibTesterGhdlBoot extends SpinalTesterGhdlBase {
-  override def getName: String = "LibTester"
-  override def createToplevel: Component = new LibTester.LibTester
-}
+//class LibTesterGhdlBoot extends SpinalTesterGhdlBase {
+//  override def getName: String = "LibTester"
+//  override def createToplevel: Component = new LibTester.LibTester
+//}

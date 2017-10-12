@@ -64,10 +64,10 @@ class InternalClockTester extends Component {
 
 
 
-class InternalClockTesterGhdlBoot extends SpinalTesterGhdlBase {
-  override def getName: String = "InternalClockTester"
-  override def createToplevel: Component = new InternalClockTester
-}
+//class InternalClockTesterGhdlBoot extends SpinalTesterGhdlBase {
+//  override def getName: String = "InternalClockTester"
+//  override def createToplevel: Component = new InternalClockTester
+//}
 
 class InternalClockTesterCocotbBoot extends SpinalTesterCocotbBase {
   override def getName: String = "InternalClockTester"

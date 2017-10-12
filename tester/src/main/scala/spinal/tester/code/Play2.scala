@@ -195,7 +195,7 @@ object PlayBlackBox3 {
       val rd = new Bundle {
         val en = in Bool
         val addr = in UInt (log2Up(16) bit)
-        val data = out Bits (8 bit)
+//        val data = out Bits (8 bit)
       }
     }
     val ram_1w_1r = new Ram_1w_1r(8,16)
@@ -205,7 +205,8 @@ object PlayBlackBox3 {
     io.wr.data <> ram_1w_1r.io.wr.data
     io.rd.en   <> ram_1w_1r.io.rd.en
     io.rd.addr <> ram_1w_1r.io.rd.addr
-    io.rd.data <> ram_1w_1r.io.rd.data
+//    io.rd.data <> ram_1w_1r.io.rd.data
+
 
   }
 
@@ -214,7 +215,7 @@ object PlayBlackBox3 {
   }
 }
 
-
+/*
 object PlayB1 {
 
   class TopLevel extends Component {
@@ -231,6 +232,10 @@ object PlayB1 {
       }
     }
     io.output := carry.asUInt
+    val yolo = Vec(Bits(32 bits), 4)
+    val titi = yolo.map(_)
+    (yolo,titi).zipped.foreach(_ := _.resized)
+    titi
 
   }
 
@@ -238,7 +243,7 @@ object PlayB1 {
     //SpinalVhdl(new TopLevel)
     SpinalVhdl(new TopLevel)
   }
-}
+}*/
 
 object PlayB2 {
 
@@ -2060,6 +2065,54 @@ object PlayBug544441{
 
   def main(args: Array[String]) {
     SpinalVhdl(new TopLevel())
+  }
+}
+object Play1adasd {
+
+  class Logic {
+    val a, b, c, d, e, f, g, h, i, j = Bool()
+    val x,y,z = Reg(Bool())
+    b := True
+    a := a || c
+    x := d || y
+    c := b
+
+    when(c) {
+      e := d
+      when(d) {
+        f := e
+        e := f
+      }
+      b := f
+    }.elsewhen(a) {
+      val x = Bool()
+      x := a || b
+      i := g || x
+
+    } otherwise {
+      b := j
+    }
+  }
+  class TopLevel extends Component{
+    var l = ArrayBuffer[Logic]()
+    l.sizeHint(1100000)
+    SpinalProgress("TOP START")
+    var idx = 0
+    while(idx < 500000) {
+      idx += 1
+      l += new Logic
+      if(idx % 10000 == 0) println(idx)
+    }
+    l = null
+    SpinalProgress("TOP END")
+  }
+
+  def main(args: Array[String]) {
+    val toplevel = SpinalVhdl(new TopLevel()).toplevel
+
+    var statementCount, expressionCount = 0
+
+    print("DONE " + toplevel.getName())
   }
 }
 

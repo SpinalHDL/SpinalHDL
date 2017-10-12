@@ -27,9 +27,14 @@ before_install:
   - cat /etc/hosts # optionally check the content *after*
 
   # GHDL
-  - sudo add-apt-repository -y ppa:pgavin/ghdl
-  - sudo apt-get update
-  - sudo apt-get install -y --force-yes ghdl
+  #- sudo add-apt-repository -y ppa:pgavin/ghdl
+  #- sudo apt-get update
+  #- sudo apt-get install -y --force-yes ghdl
+  - sudo apt-get install libgnat-4.8 -y
+  - wget https://github.com/tgingold/ghdl/releases/download/2017-03-01/ghdl-0.34-dev-llvm-3.5-2017-03-01-ubu1404.tgz
+  - mkdir ghdl
+  - tar -xvzf ghdl-0.34-dev-llvm-3.5-2017-03-01-ubu1404.tgz -C ghdl
+  - export PATH=$(pwd)/ghdl/bin:$PATH
 
   # iverilog (debian package 9.7 contain bugs)
   - sudo apt-get install -y gperf readline-common bison flex
@@ -50,7 +55,8 @@ before_install:
 
   # Force cocotb to compile VPI to avoid race condition when tests are start in parallel
   - cd tester/src/test/python/spinal/Dummy
-  - make
+  - make TOPLEVEL_LANG=verilog
+  - make TOPLEVEL_LANG=vhdl
   - cd ../../../../../..
 
 before_cache:

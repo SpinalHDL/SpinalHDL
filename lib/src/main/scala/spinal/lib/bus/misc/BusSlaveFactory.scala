@@ -73,9 +73,9 @@ trait BusSlaveFactory extends Area{
   /**
     * When the bus read the address, fill the response with that at bitOffset
     */
-  def read(that: Data,
+  def read[T <: Data](that: T,
            address: BigInt,
-           bitOffset: Int = 0): Unit
+           bitOffset: Int = 0): T
 
   /**
     * When the bus write the address, assign that with bus’s data from bitOffset
@@ -83,6 +83,12 @@ trait BusSlaveFactory extends Area{
   def write[T <: Data](that: T,
                        address: BigInt,
                        bitOffset: Int = 0): T
+
+  def write[T <: Data](address: BigInt,
+                       bitMapping : (Int, Data)*): Unit = {
+    bitMapping.foreach{case (bitId, that) => write(that,address,bitId)}
+  }
+
 
   /**
     * Call doThat when a write transaction occurs on address
@@ -107,8 +113,8 @@ trait BusSlaveFactory extends Area{
   /**
     * Permanently assign that by the bus write data from bitOffset
     */
-  def nonStopWrite(that: Data,
-                   bitOffset: Int = 0): Unit
+  def nonStopWrite[T <: Data](that: T,
+                   bitOffset: Int = 0): T
 
   /**
     * Make that readable and writable at address and placed at bitOffset in the word
@@ -223,6 +229,25 @@ trait BusSlaveFactory extends Area{
     read(reg, address, bitOffset)
     reg
   }
+
+
+  def createReadAndClearOnSet(dataType: Bool,
+                              address: BigInt,
+                              bitOffset: Int = 0):Bool = {
+    val reg = Reg(dataType)
+    dataType clearWhen(isWriting(address) && nonStopWrite(Bool(), bitOffset))
+    read(reg, address, bitOffset)
+    reg
+  }
+
+  def readAndClearOnSet(that: Bool,
+                        address: BigInt,
+                        bitOffset: Int = 0): Bool = {
+    that clearWhen(isWriting(address) && nonStopWrite(Bool(), bitOffset))
+    read(that, address, bitOffset)
+    that
+  }
+
 
   @deprecated("Use createReadAndWrite instead")
   def createReadWrite[T <: Data](dataType: T,
@@ -470,11 +495,12 @@ trait BusSlaveFactoryDelayed extends BusSlaveFactory{
     elements += e
   }
 
-  override def read(that: Data,
+  override def read[T <: Data](that: T,
                     address: BigInt,
-                    bitOffset: Int = 0): Unit  = {
+                    bitOffset: Int = 0): T  = {
     assert(bitOffset + that.getBitsWidth <= busDataWidth)
     addAddressableElement(BusSlaveFactoryRead(that, address, bitOffset), address)
+    that
   }
 
   override def write[T <: Data](that: T,
@@ -502,10 +528,11 @@ trait BusSlaveFactoryDelayed extends BusSlaveFactory{
   }
 
 
-  override def nonStopWrite(that: Data,
-                            bitOffset: Int = 0): Unit = {
+  override def nonStopWrite[T <: Data](that: T,
+                            bitOffset: Int = 0): T = {
     assert(bitOffset + that.getBitsWidth <= busDataWidth)
     elements += BusSlaveFactoryNonStopWrite(that, bitOffset)
+    that
   }
 
 
@@ -515,6 +542,22 @@ trait BusSlaveFactoryDelayed extends BusSlaveFactory{
     */
   def build(): Unit
 
+
+  def dataModelString() : String = {
+    val builder = new StringBuilder()
+    for((address,tasks) <- elementsPerAddress.toList.sortBy(_._1)){
+      builder ++= s"$address :\n"
+      for(task <- tasks) task match{
+        case task : BusSlaveFactoryRead => builder ++= s"  R[${task.bitOffset + widthOf(task.that)-1}:${task.bitOffset}] ${task.that.getName()}\n"
+        case task : BusSlaveFactoryWrite => builder ++= s"  W[${task.bitOffset + widthOf(task.that)-1}:${task.bitOffset}] ${task.that.getName()}\n"
+        case _ =>
+      }
+    }
+    builder.toString
+  }
+
+  def printDataModel() : Unit = print(dataModelString())
+
   // add build function to prepoptask
   component.addPrePopTask(() => build())
 }
@@ -522,15 +565,15 @@ trait BusSlaveFactoryDelayed extends BusSlaveFactory{
 
 
 
-class BusSlaveFactoryAddressWrapper(f: BusSlaveFactory, addressOffset: Int) extends BusSlaveFactory {
+class BusSlaveFactoryAddressWrapper(f: BusSlaveFactory, addressOffset: BigInt) extends BusSlaveFactory {
   override def busDataWidth: Int = f.busDataWidth
-  override def read(that: Data, address: BigInt, bitOffset: Int): Unit = f.read(that, address + addressOffset, bitOffset)
+  override def read[T <: Data](that: T, address: BigInt, bitOffset: Int): T = f.read(that, address + addressOffset, bitOffset)
   override def write[T <: Data](that: T, address: BigInt, bitOffset: Int): T = f.write(that, address + addressOffset, bitOffset)
   override def onWrite(address: BigInt)(doThat: => Unit): Unit = f.onWrite(address + addressOffset)(doThat)
   override def onRead(address: BigInt)(doThat: => Unit): Unit = f.onRead(address + addressOffset)(doThat)
   override def onWrite(doThat: => Unit): Unit = ???
   override def onRead(doThat: => Unit): Unit = ???
-  override def nonStopWrite(that: Data, bitOffset: Int): Unit = f.nonStopWrite(that, bitOffset)
+  override def nonStopWrite[T <: Data](that: T, bitOffset: Int): T = f.nonStopWrite(that, bitOffset)
   override def wordAddressInc: Int = f.wordAddressInc
   override def getConfig = f.getConfig
   override def setConfig(value : BusSlaveFactoryConfig) : this.type = {

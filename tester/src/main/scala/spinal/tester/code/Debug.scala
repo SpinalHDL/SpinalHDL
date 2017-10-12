@@ -10,7 +10,72 @@ import scala.collection.mutable.ArrayBuffer
 
 
 object Debug {
+  class halfadder () extends Component{
+    val io = new Bundle{
+      val a = in  Bits(1 bits)
+      val b = in  Bits(1 bits)
+      val s = out Bits(1 bits)
+      val c = out Bits(1 bits)
+    }
+    io.s := io.a ^ io.b
+    io.c := io.a & io.b
+  }
 
+  //---------------------------------------------------
+  //1-Bit Full Adder
+  //---------------------------------------------------
+  class fulladder () extends Component{
+    val io = new Bundle{
+      val a    = in  Bits(1 bits)
+      val b    = in  Bits(1 bits)
+      val cin  = in  Bits(1 bits)
+      val sum  = out Bits(1 bits)
+      val cout = out Bits(1 bits)
+    }
+    val cell0 = new halfadder
+    val cell1 = new halfadder
+
+    cell0.io.a := io.a
+    cell0.io.b := io.b
+
+    cell1.io.a := io.cin
+    cell1.io.b := cell0.io.s
+
+    io.sum     := cell1.io.s
+    io.cout    := cell0.io.c | cell1.io.c
+  }
+  //---------------------------------------------------
+  // 4-Bits carry adder
+  //---------------------------------------------------
+  class carryadder extends Component{
+    val io = new Bundle{
+      val cin   = in Bits (1 bits)
+      val op0   = in  Bits (4 bits)
+      val op1   = in  Bits (4 bits)
+      val sum   = out Bits (4 bits)
+      val cout  = out Bits (1 bits)
+    }
+    //val value = Bits(4 bits)
+
+    val cellArray = Array.fill(4)(new fulladder)
+
+    cellArray(0).io.cin <> io.cin
+    cellArray(0).io.a   <> io.op0(0).asBits
+    cellArray(0).io.b   <> io.op1(0).asBits
+    //io.sum(0).asBits    <> cellArray(0).io.sum
+
+    for (i <- 1 until 4){
+      cellArray(i).io.cin <> cellArray(i-1).io.cout
+      cellArray(i).io.a   <> io.op0(i).asBits
+      cellArray(i).io.b   <> io.op1(i).asBits
+      //io.sum(i).asBits    <> cellArray(i).io.sum
+    }
+
+    io.cout := cellArray(3).io.cout
+    for (i <- 0 until 4){
+      io.sum(i).asBits    <> cellArray(i).io.sum
+    }
+  }
   class A {
     val a = 1
     val aa = 2
@@ -164,7 +229,7 @@ object Debug {
     val b = new B
     val c = new C(2)
 
-    SpinalVhdl(new TopLevel(2))
+    SpinalVhdl(new carryadder())
     println("DONE")
 
 

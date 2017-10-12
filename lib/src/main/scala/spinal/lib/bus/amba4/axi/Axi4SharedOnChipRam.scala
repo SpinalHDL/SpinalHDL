@@ -49,12 +49,12 @@ case class Axi4SharedOnChipRam(dataWidth : Int,byteCount : BigInt,idWidth : Int)
   io.axi.readRsp.id  := stage1.id
   io.axi.readRsp.last := stage1.last
   io.axi.readRsp.setOKAY()
-  if(axiConfig.useUser) io.axi.readRsp.user  := stage1.user
+  if(axiConfig.useRUser) io.axi.readRsp.user  := stage1.user
 
   io.axi.writeRsp.valid := stage1.valid &&  stage1.write && stage1.last
   io.axi.writeRsp.setOKAY()
   io.axi.writeRsp.id := stage1.id
-  if(axiConfig.useUser) io.axi.writeRsp.user := stage1.user
+  if(axiConfig.useBUser) io.axi.writeRsp.user := stage1.user
 
 }
 

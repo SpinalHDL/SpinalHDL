@@ -63,12 +63,15 @@ trait VhdlBase extends VhdlVerilogBase{
     case `TypeBits` => s"std_logic_vector${emitRange(e.asInstanceOf[WidthProvider])}"
     case `TypeUInt` => s"unsigned${emitRange(e.asInstanceOf[WidthProvider])}"
     case `TypeSInt` => s"signed${emitRange(e.asInstanceOf[WidthProvider])}"
+    case `TypeEnum` => e match {
+      case e : EnumEncoded => emitEnumType(e.getDefinition, e.getEncoding)
+    }
   }
 
 
   def emitEnumLiteral[T <: SpinalEnum](enum : SpinalEnumElement[T],encoding: SpinalEnumEncoding) : String = {
     if(encoding.isNative)
-      return enumPackageName + "." + enum.getName()
+      return enum.getName()
     else
       return enum.spinalEnum.getName() + "_" + encoding.getName() + "_" + enum.getName()
   }

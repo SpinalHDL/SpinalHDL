@@ -2,18 +2,18 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
-library lib_UartTester;
-use lib_UartTester.pkg_scala2hdl.all;
-use lib_UartTester.pkg_enum.all;
+library lib_UartTesterGhdl;
+use lib_UartTesterGhdl.pkg_scala2hdl.all;
+use lib_UartTesterGhdl.pkg_enum.all;
 
 -- #spinalBegin userLibrary
 -- #spinalEnd userLibrary
 
 
-entity UartTester_tb is
-end UartTester_tb;
+entity UartTesterGhdl_tb is
+end UartTesterGhdl_tb;
 
-architecture arch of UartTester_tb is
+architecture arch of UartTesterGhdl_tb is
   signal io_uart_config_frame_dataLength : unsigned(2 downto 0);
   signal io_uart_config_frame_stop : UartStopType_binary_sequancial_type;
   signal io_uart_config_frame_parity : UartParityType_binary_sequancial_type;
@@ -138,7 +138,7 @@ begin
           wait until io_uart_uart_txd'event;
         end if;
         
-        assert io_uart_uart_txd'DELAYED'LAST_ACTIVE >= stopTime  and io_uart_uart_txd'DELAYED = '1' report "io_uart_uart_txd fail" severity failure;
+        assert io_uart_uart_txd'DELAYED'LAST_ACTIVE >= stopTime  and io_uart_uart_txd'DELAYED(1 ns) = '1' report "io_uart_uart_txd fail" severity failure;
         
         checkBit('0');
         
@@ -202,7 +202,7 @@ begin
   io_uart_uart_rxd <= io_uart_uart_txd;
   
   -- #spinalEnd userLogics
-  uut : entity lib_UartTester.UartTester
+  uut : entity lib_UartTesterGhdl.UartTesterGhdl
     port map (
       io_uart_config_frame_dataLength =>  io_uart_config_frame_dataLength,
       io_uart_config_frame_stop =>  io_uart_config_frame_stop,

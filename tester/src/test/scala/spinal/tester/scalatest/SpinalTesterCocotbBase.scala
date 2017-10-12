@@ -10,16 +10,20 @@ import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.Await
 import scala.sys.process._
 
-abstract class SpinalTesterCocotbBase /*extends FunSuite *//* with BeforeAndAfterAll with ParallelTestExecution*/ {
+abstract class SpinalTesterCocotbBase extends FunSuite /* with BeforeAndAfterAll with ParallelTestExecution*/ {
 
   var withWaveform = false
   var spinalMustPass = true
   var cocotbMustPass = true
   var genHdlSuccess = false
-  def genHdl: Unit ={
+  var waveDepth = 1
+  def noVhdl = false
+  def noVerilog = true
+
+  def genVhdl: Unit ={
     try {
       val waveFolder = sys.env.getOrElse("WAVES_DIR",".")
-      backendConfig(SpinalConfig(mode = Verilog,dumpWave = DumpWaveConfig(depth = 1,vcdPath = waveFolder + "/" + getName + ".vcd"))).generate(createToplevel)
+      backendConfig(SpinalConfig(mode = VHDL,dumpWave = DumpWaveConfig(depth = waveDepth,vcdPath = waveFolder + "/" + getName + ".vcd"))).generate(createToplevel)
       genHdlSuccess = true
     } catch {
       case e: Throwable => {
@@ -31,42 +35,71 @@ abstract class SpinalTesterCocotbBase /*extends FunSuite *//* with BeforeAndAfte
     assert(spinalMustPass,"Spinal has not fail :(")
   }
 
-  def doTest(testPath : String): Unit ={
+  def genVerilog: Unit ={
+    try {
+      val waveFolder = sys.env.getOrElse("WAVES_DIR",".")
+      backendConfig(SpinalConfig(mode = Verilog,dumpWave = DumpWaveConfig(depth = waveDepth,vcdPath = waveFolder + "/" + getName + ".vcd"))).generate(createToplevel)
+      genHdlSuccess = true
+    } catch {
+      case e: Throwable => {
+        if(spinalMustPass)
+          throw e
+        return
+      }
+    }
+    assert(spinalMustPass,"Spinal has not fail :(")
+  }
+
+
+  def doTest(testPath : String, lang : Language): Unit ={
     assert(genHdlSuccess)
+    val (langString, xmlPath) = lang match {
+      case Language.VHDL => ("vhdl", testPath + "/sim_build/results.xml")
+      case Language.VERILOG => ("verilog", testPath + "/results.xml")
+    }
     doCmd(Seq(
-      s"rm -f $testPath/results.xml"
+      s"rm -f $xmlPath"
     ))
-    doCmd(Seq(
+    val stdout = doCmd(Seq(
       s"cd $testPath",
-      "make"
+      s"make TOPLEVEL_LANG=${langString}"
     ))
-    val pass = getCocotbPass(testPath)
+//    val pass = getCocotbPass(xmlPath)
+    val pass = stdout.contains("**                                 ERRORS : 0                                      **")
     assert(!cocotbMustPass || pass,"Simulation fail")
     assert(cocotbMustPass || !pass,"Simulation has not fail :(")
   }
 
-  //test("genVerilog") {genHdl}
-  //  genHdl
+  if(!noVhdl)
+    test("genVhdl") {genVhdl}
+  if(!noVerilog)
+  test("genVerilog") {genVerilog}
+
   if(spinalMustPass) {
     val cocotbTests = ArrayBuffer[(String, String)]()
     if (pythonTestLocation != null) cocotbTests += ("cocotb" -> pythonTestLocation)
     cocotbTests ++= pythonTests
     for ((name, location) <- cocotbTests) {
-//      test(name + "Verilog") {
-//        doTest(location)
-//      }
+      if(!noVhdl)
+        test(name + "VHDL") {
+          doTest(location, Language.VHDL)
+        }
+      if(!noVerilog)
+        test(name + "Verilog") {
+          doTest(location, Language.VERILOG)
+        }
     }
   }
 
   if(postTest != null){
-//    test("postTests"){
-//      postTest()
-//    }
+    test("postTests"){
+      postTest()
+    }
   }
 
 
 
-  def doCmd(cmds : Seq[String]): Unit ={
+  def doCmd(cmds : Seq[String]): String ={
     var out,err : String = null
     val io = new ProcessIO(
       stdin  => {
@@ -86,13 +119,13 @@ abstract class SpinalTesterCocotbBase /*extends FunSuite *//* with BeforeAndAfte
     proc.exitValue()
     println(out)
     println(err)
+    out
   }
 
   def getCocotbPass(location : String) : Boolean = {
     Thread.sleep(500)
     import scala.io.Source
-    val resultPath = location + "/results.xml"
-    for(line <- Source.fromFile(resultPath).getLines()) {
+    for(line <- Source.fromFile(location).getLines()) {
       if (line.contains("failure") || line.contains("skipped")){
         return false
       }

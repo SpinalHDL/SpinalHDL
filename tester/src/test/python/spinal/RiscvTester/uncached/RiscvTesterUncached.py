@@ -6,5 +6,5 @@ from cocotblib.misc import cocotbXHack
 cocotbXHack()
 
 factory = TestFactory(testIsa)
-factory.add_option("iHexPath",  map(lambda x : "../" + x,reduce(operator.add, [isaTestsBase, isaTestsMemory, isaTestsMulDiv])))
+factory.add_option("iHexPath",  reduce(operator.add, [isaTestsBase, isaTestsMemory, isaTestsMulDiv]))
 factory.generate_tests()

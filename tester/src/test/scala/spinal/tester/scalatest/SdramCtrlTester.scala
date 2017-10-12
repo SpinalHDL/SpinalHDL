@@ -13,4 +13,5 @@ class SdramCtrlTesterCocotbBoot extends SpinalTesterCocotbBase {
     SdramCtrl(device.layout,device.timingGrade7.copy(tPOW = 5 us),CAS = 2,UInt(8 bits)).setDefinitionName(getName)
   }
   override def backendConfig(config: SpinalConfig): SpinalConfig = config.copy(defaultClockDomainFrequency = FixedFrequency(133 MHz))
+  override def noVhdl = true
 }

@@ -13,4 +13,5 @@ class Axi4SharedSdramCtrlTesterCocotbBoot extends SpinalTesterCocotbBase {
     Axi4SharedSdramCtrl(32,2,device.layout,device.timingGrade7.copy(tPOW = 5 us),CAS = 3).setDefinitionName(getName)
   }
   override def backendConfig(config: SpinalConfig): SpinalConfig = config.copy(defaultClockDomainFrequency = FixedFrequency(133 MHz))//.copy(dumpWave = null)
+  override def noVhdl = true
 }

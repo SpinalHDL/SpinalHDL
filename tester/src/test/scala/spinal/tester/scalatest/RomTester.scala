@@ -70,4 +70,5 @@ class RomTesterCocotbBoot extends SpinalTesterCocotbBase {
   override def getName: String = "RomTester"
   override def pythonTestLocation: String = "tester/src/test/python/spinal/RomTester"
   override def createToplevel: Component = new RomTester.RomTester
+  override def noVhdl = true
 }

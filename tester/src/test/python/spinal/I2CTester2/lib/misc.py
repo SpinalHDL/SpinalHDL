@@ -2,7 +2,7 @@ from cocotb import fork
 from cocotb.decorators import coroutine
 from cocotb.triggers import Timer, Edge, RisingEdge
 
-from cocotblib.misc import clockedWaitTrue
+from cocotblib.misc import clockedWaitTrue, testBit
 
 
 class OpenDrainSoftConnection:
@@ -104,6 +104,29 @@ class I2cSoftMaster:
         if ret:
             ret[0] = self.sda.read()
         self.scl.write(False)
+
+    @coroutine
+    def sendBitCheck(self, value, expected):
+        buffer = [0]
+        yield self.sendBit(value, buffer)
+        assert buffer[0] == expected
+
+
+    @coroutine
+    def sendByte(self, value ,ret = None):
+        if ret != None :
+            ret[0] = 0
+        buffer = [False]
+        for i in xrange(8):
+            yield self.sendBit(testBit(value,7-i),buffer)
+            if ret != None:
+                ret[0] |= buffer[0] << (7-i)
+
+    @coroutine
+    def sendByteCheck(self, value, expected):
+        buffer = [0]
+        yield self.sendByte(value, buffer)
+        assert buffer[0] == expected
 
     @coroutine
     def sendStop(self):

@@ -2,6 +2,12 @@ COMMON_PATH:=${abspath ${dir ${lastword ${MAKEFILE_LIST}}}}
 
 export PYTHONPATH:=$(COMMON_PATH)/../..
 SPINALROOT=${COMMON_PATH}/../../../../../..
+
+ifeq ($(TOPLEVEL_LANG),vhdl)
+	SIM ?= ghdl
+endif
+
+
 include $(COCOTB)/makefiles/Makefile.inc
 include $(COCOTB)/makefiles/Makefile.sim
 

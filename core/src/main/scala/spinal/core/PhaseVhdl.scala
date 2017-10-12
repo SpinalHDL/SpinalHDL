@@ -1357,7 +1357,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     ret ++= "  function pkg_shiftRight (that : signed; size : natural) return signed;\n"
     ret ++= "  function pkg_shiftRight (that : signed; size : unsigned) return signed;\n"
     ret ++= "  function pkg_shiftLeft (that : signed; size : natural) return signed;\n"
-    ret ++= "  function pkg_shiftLeft (that : signed; size : unsigned) return signed;\n"
+    ret ++= "  function pkg_shiftLeft (that : signed; size : unsigned; w : integer) return signed;\n"
     ret ++= "\n"
     ret ++= "  function pkg_rotateLeft (that : std_logic_vector; size : unsigned) return std_logic_vector;\n"
     ret ++= s"end  $packageName;\n"
@@ -1428,9 +1428,9 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     ret ++= "    return signed(pkg_shiftLeft(unsigned(that),size));\n"
     ret ++= "  end pkg_shiftLeft;\n"
     ret ++= "\n"
-    ret ++= "  function pkg_shiftLeft (that : signed; size : unsigned) return signed is\n"
+    ret ++= "  function pkg_shiftLeft (that : signed; size : unsigned; w : integer) return signed is\n"
     ret ++= "  begin\n"
-    ret ++= "    return signed(pkg_shiftLeft(unsigned(that),size));\n"
+    ret ++= "    return shift_left(resize(that,w),to_integer(size));\n"
     ret ++= "  end pkg_shiftLeft;\n"
     ret ++= "\n"
     ret ++= "  function pkg_rotateLeft (that : std_logic_vector; size : unsigned) return std_logic_vector is\n"
@@ -2183,6 +2183,11 @@ def refImpl(op: Expression): String = emitReference(op.asInstanceOf[DeclarationS
   }
 
 
+  def shiftSIntLeftByUInt(func: Expression): String = {
+    val node = func.asInstanceOf[Operator.SInt.ShiftLeftByUInt]
+    s"pkg_shiftLeft(${emitExpression(node.left)}, ${emitExpression(node.right)}, ${node.getWidth})"
+  }
+
 
   def resizeFunction(vhdlFunc : String)(func: Expression): String = {
     val resize = func.asInstanceOf[Resize]
@@ -2264,7 +2269,7 @@ def refImpl(op: Expression): String = emitReference(op.asInstanceOf[DeclarationS
   def emitEnumPoison(e : Expression) : String = {
     val dc = e.asInstanceOf[EnumPoison]
     if(dc.encoding.isNative)
-      enumPackageName + "." + dc.enum.elements.head.getName()
+      dc.enum.elements.head.getName()
     else
       s"(${'"'}${"X" * dc.encoding.getWidth(dc.enum)}${'"'})"
   }
@@ -2351,7 +2356,7 @@ def refImpl(op: Expression): String = emitReference(op.asInstanceOf[DeclarationS
   expressionMapAdd(classOf[Operator.SInt.ShiftRightByInt], shiftRightByIntImpl)
   expressionMapAdd(classOf[Operator.SInt.ShiftLeftByInt], shiftLeftByIntImpl)
   expressionMapAdd(classOf[Operator.SInt.ShiftRightByUInt], binaryOperatorImplAsFunction("pkg_shiftRight"))
-  expressionMapAdd(classOf[Operator.SInt.ShiftLeftByUInt], binaryOperatorImplAsFunction("pkg_shiftLeft"))
+  expressionMapAdd(classOf[Operator.SInt.ShiftLeftByUInt], shiftSIntLeftByUInt)
   expressionMapAdd(classOf[Operator.SInt.ShiftRightByIntFixedWidth],  shiftRightByIntFixedWidthImpl)
   expressionMapAdd(classOf[Operator.SInt.ShiftLeftByIntFixedWidth],  shiftLeftByIntFixedWidthImpl)
   expressionMapAdd(classOf[Operator.SInt.ShiftLeftByUIntFixedWidth],  shiftLeftByUIntFixedWidthImpl)

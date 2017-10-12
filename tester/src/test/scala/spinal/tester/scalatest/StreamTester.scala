@@ -86,5 +86,5 @@ class StreamTesterCocotbBoot extends SpinalTesterCocotbBase {
   override def getName: String = "StreamTester"
   override def pythonTestLocation: String = "tester/src/test/python/spinal/StreamTester"
   override def createToplevel: Component = new StreamTester
-  override def backendConfig(config: SpinalConfig): SpinalConfig = config.dumpWave()
+  override def noVhdl = true
 }

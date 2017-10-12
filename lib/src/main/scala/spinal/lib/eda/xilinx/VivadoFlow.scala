@@ -8,25 +8,37 @@ import scala.sys.process._
 object VivadoFlow {
   def doCmd(cmd : String): Unit ={
     println(cmd)
-    Process("cmd /C " + cmd) !
+    if(isWindows)
+      Process("cmd /C " + cmd) !
+    else
+      Process(cmd) !
   }
   def doCmd(cmd : String, path : String): Unit ={
     println(cmd)
-    Process("cmd /C " + cmd, new java.io.File(path)) !
+    if(isWindows)
+      Process("cmd /C " + cmd, new java.io.File(path)) !
+    else
+      Process(cmd, new java.io.File(path)) !
+
   }
-  def doCmd(cmds : Seq[String]): Unit ={
-    println(cmds.mkString)
-    Process(cmds.map(cmd => "cmd /K /C " + cmd)) !
-  }
+
+  val isWindows = System.getProperty("os.name").toLowerCase().contains("win")
 
   def apply(vivadoPath : String,workspacePath : String,toplevelPath : String,family : String,device : String,frequencyTarget : HertzNumber = null,processorCount : Int = 1) : Report = {
     val projectName = toplevelPath.split("/").last.split("[.]").head
-    val correctedWorkspacePath = workspacePath.replace("/","\\")
+    val correctedWorkspacePath =  if(isWindows) workspacePath.replace("/","\\") else workspacePath
     val targetPeriod = (if(frequencyTarget != null) frequencyTarget else 400 MHz).toTime
 
-    doCmd(s"rmdir /S /Q $correctedWorkspacePath")
-    doCmd(s"mkdir $correctedWorkspacePath")
-    doCmd(s"copy $toplevelPath $correctedWorkspacePath")
+
+    if(isWindows) {
+      doCmd(s"rmdir /S /Q $correctedWorkspacePath")
+      doCmd(s"mkdir $correctedWorkspacePath")
+      doCmd(s"copy $toplevelPath $correctedWorkspacePath")
+    } else {
+      doCmd(s"rm -rf $correctedWorkspacePath")
+      doCmd(s"mkdir $correctedWorkspacePath")
+      doCmd(s"cp $toplevelPath $correctedWorkspacePath")
+    }
 
     val isVhdl = toplevelPath.endsWith(".vhd") || toplevelPath.endsWith(".vhdl")
 

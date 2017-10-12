@@ -41,6 +41,10 @@ object OperatorTester {
     val boolA,boolB,boolC = in Bool
 
 
+    def notZero(x : UInt) = ((x === 0) ? (x + 1) | x)
+    def notZero(x : SInt) = ((x === 0) ? (x + 1) | x)
+
+
     val boolMux = out(Mux(boolC,boolA,boolB))
 
     val bitsBsMux = out(Mux(boolC,bits8,bits4.resized))
@@ -88,8 +92,8 @@ object OperatorTester {
     val uintSbAdd = out(uint4 + uint8)
     val uintSbSub = out(uint4 - uint8)
     val uintSbMul = out(uint4 * uint8)
-    val uintSbDiv = out(uint4 / uint8)
-    val uintSbRem = out(uint4 % uint8)
+    val uintSbDiv = out(uint4 / notZero(uint8))
+    val uintSbRem = out(uint4 % notZero(uint8))
 
     val uintSbAnd = out(uint4.resized & uint8)
     val uintSbOr = out(uint4.resized  | uint8)
@@ -106,8 +110,8 @@ object OperatorTester {
     val sintSbAdd = out(sint4 + sint8)
     val sintSbSub = out(sint4 - sint8)
     val sintSbMul = out(sint4 * sint8)
-    val sintSbDiv = out(sint4 / sint8)
-    val sintSbRem = out(sint4 % sint8)
+    val sintSbDiv = out(sint4 / notZero(sint8))
+    val sintSbRem = out(sint4 % notZero(sint8))
 
     val sintSbAnd = out(sint4.resized & sint8)
     val sintSbOr = out(sint4.resized | sint8)
@@ -135,8 +139,8 @@ object OperatorTester {
     val uintBsAdd = out(uint8 + uint4)
     val uintBsSub = out(uint8 - uint4)
     val uintBsMul = out(uint8 * uint4)
-    val uintBsDiv = out(uint8 / uint4)
-    val uintBsRem = out(uint8 % uint4)
+    val uintBsDiv = out(uint8 / notZero(uint4))
+    val uintBsRem = out(uint8 % notZero(uint4))
 
     val uintBsAnd = out(uint8 & uint4.resized)
     val uintBsOr = out(uint8 | uint4.resized)
@@ -154,8 +158,8 @@ object OperatorTester {
     val sintBsAdd = out(sint8 + sint4)
     val sintBsSub = out(sint8 - sint4)
     val sintBsMul = out(sint8 * sint4)
-    val sintBsDiv = out(sint8 / sint4)
-    val sintBsRem = out(sint8 % sint4)
+    val sintBsDiv = out(sint8 / notZero(sint4))
+    val sintBsRem = out(sint8 % notZero(sint4))
 
     val sintBsAnd = out(sint8 & sint4.resized)
     val sintBsOr = out(sint8 | sint4.resized)

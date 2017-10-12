@@ -161,8 +161,8 @@ case class UartCtrlMemoryMappedConfig(
   initConfig : UartCtrlInitConfig = null,
   busCanWriteClockDividerConfig : Boolean = true,
   busCanWriteFrameConfig : Boolean = true,
-  txFifoDepth : Int = 6,
-  rxFifoDepth : Int = 6
+  txFifoDepth : Int = 32,
+  rxFifoDepth : Int = 32
 ){
   require(txFifoDepth >= 1)
   require(rxFifoDepth >= 1)
