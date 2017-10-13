@@ -164,7 +164,10 @@ trait BaseTypeCast extends SFixCast with UFixCast
 //  }
 //}
 
-
+object BaseType{
+  final val isRegMask = 1
+  final val isTypeNodeMask = 2
+}
 
 /**
   * Abstract base class of all Spinal types
@@ -173,11 +176,12 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
   if(component != null) dslContext.scope.append(this)
 
   //  if(component != null) component.append(this)
-
-  var _isReg = false
-  override def isReg = _isReg
-  override def isComb = !_isReg
-  def setAsReg() : this.type = {_isReg = true; this}
+  private var btFlags = 0
+  override def isReg = (btFlags & BaseType.isRegMask) != 0
+  override def isComb = (btFlags & BaseType.isRegMask) == 0
+  def setAsReg() : this.type = {btFlags |= BaseType.isRegMask; this}
+  def isTypeNode = (btFlags & BaseType.isTypeNodeMask) == 0
+  def setAsTypeNode() : this.type = {btFlags |= BaseType.isTypeNodeMask; this}
   def isUsingResetSignal: Boolean = clockDomain.config.resetKind != BOOT && (clockDomain.reset != null || clockDomain.softReset == null) && hasInit
   def isUsingSoftResetSignal: Boolean = clockDomain.softReset != null  && hasInit
   def clockDomain = dslContext.clockDomain
@@ -344,13 +348,13 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
 
 
   private[core] def wrapWithWeakClone(e: Expression): this.type = {
-    val typeNode = weakClone
+    val typeNode = weakClone.setAsTypeNode()
     typeNode.assignFrom(e)
     typeNode
   }
 
   private[core] def wrapWithBool(e: Expression): Bool = {
-    val typeNode = Bool()
+    val typeNode = Bool().setAsTypeNode()
     typeNode.assignFrom(e)
     typeNode
   }
@@ -358,7 +362,7 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
   def wrapCast[T <: BaseType](result: T, node: Cast): T = {
     node.input = this.asInstanceOf[node.T]
     result.assignFrom(node)
-    result
+    result.setAsTypeNode()
   }
 
   private[core] def wrapConstantOperator(op: ConstantOperator): this.type = {

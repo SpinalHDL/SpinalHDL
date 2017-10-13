@@ -1441,39 +1441,45 @@ class PhaseRemoveUselessStuff extends PhaseNetlist{
 
     val okId = globalData.allocateAlgoIncrementale()
 
-    def propagate(s: Statement): Unit = {
-      if (s != null && s.algoIncrementale != okId) {
-        s.algoIncrementale = okId
-        s match {
-          case s: BaseType => {
-            s.foreachStatements(propagate)
-          }
-          case s: AssignementStatement => {
-            s.walkExpression{ case e : Statement => propagate(e) case _ => }
-            s.walkParentTreeStatements(propagate) //Could be walkParentTreeStatementsUntilRootScope but then should symplify removed TreeStatements
-          }
-          case s : WhenStatement => {
-            s.walkExpression{ case e : Statement => propagate(e) case _ => }
-          }
-          case s : SwitchStatement => {
-            s.walkExpression{ case e : Statement => propagate(e) case _ => }
-          }
-          case s : AssertStatement => {
-            s.walkExpression{ case e : Statement => propagate(e) case _ => }
-          }
-          case s : Mem[_] => s.foreachStatements{
-            case p : MemWrite => propagate(p)
-            case p : MemReadSync =>
-            case p : MemReadAsync =>
-          }
-          case s : MemWrite => {
-            s.walkExpression{ case e : Statement => propagate(e) case _ => }
-          }
-          case s : MemReadSync => {
-            s.walkExpression{ case e : Statement => propagate(e) case _ => }
-          }
-          case s : MemReadAsync => {
-            s.walkExpression{ case e : Statement => propagate(e) case _ => }
+    def propagate(root: Statement): Unit = {
+      val pending = mutable.ArrayStack[Statement](root)
+      def propagate(s : Statement) = pending.push(s)
+      while(pending.nonEmpty){
+        val s = pending.pop()
+        if (s != null && s.algoIncrementale != okId) {
+          s.algoIncrementale = okId
+          s match {
+            case s: BaseType => {
+              s.foreachStatements(propagate)
+              println(s.instanceCounter + "  " + s)
+            }
+            case s: AssignementStatement => {
+              s.walkExpression{ case e : Statement => propagate(e) case _ => }
+              s.walkParentTreeStatements(propagate) //Could be walkParentTreeStatementsUntilRootScope but then should symplify removed TreeStatements
+            }
+            case s : WhenStatement => {
+              s.walkExpression{ case e : Statement => propagate(e) case _ => }
+            }
+            case s : SwitchStatement => {
+              s.walkExpression{ case e : Statement => propagate(e) case _ => }
+            }
+            case s : AssertStatement => {
+              s.walkExpression{ case e : Statement => propagate(e) case _ => }
+            }
+            case s : Mem[_] => s.foreachStatements{
+              case p : MemWrite => propagate(p)
+              case p : MemReadSync =>
+              case p : MemReadAsync =>
+            }
+            case s : MemWrite => {
+              s.walkExpression{ case e : Statement => propagate(e) case _ => }
+            }
+            case s : MemReadSync => {
+              s.walkExpression{ case e : Statement => propagate(e) case _ => }
+            }
+            case s : MemReadAsync => {
+              s.walkExpression{ case e : Statement => propagate(e) case _ => }
+            }
           }
         }
       }
@@ -1500,7 +1506,7 @@ class PhaseRemoveUselessStuff extends PhaseNetlist{
 }
 
 
-class PhaseRemoveIntermediateUnameds extends PhaseNetlist{
+class PhaseRemoveIntermediateUnameds(onlyTypeNode : Boolean) extends PhaseNetlist{
   override def impl(pc: PhaseContext): Unit = {
     import pc._
     val koId = globalData.allocateAlgoIncrementale()
@@ -1519,7 +1525,7 @@ class PhaseRemoveIntermediateUnameds extends PhaseNetlist{
     walkStatements(s => if(s.algoIncrementale != koId){
       s.walkRemapDrivingExpressions(e => e match {
         case ref : BaseType => {
-          if(ref.algoInt == 1 && ref.isComb && ref.isDirectionLess && ref.canSymplifyIt && ref.hasOnlyOneStatement && Statement.isSomethingToFullStatement(ref.head) /*&& ref != excepted*/){ //TODO IR keep it
+          if(ref.algoInt == 1 && ref.isComb && ref.isDirectionLess && (!onlyTypeNode || ref.isTypeNode) && ref.canSymplifyIt && ref.hasOnlyOneStatement && Statement.isSomethingToFullStatement(ref.head) /*&& ref != excepted*/){ //TODO IR keep it
             ref.algoInt = 0
             val head = ref.head
             ref.algoIncrementale = koId
@@ -2203,7 +2209,7 @@ object SpinalVhdlBoot{
     phases += new PhaseCheckIoBundle()
     phases += new PhaseCheckHiearchy()
     phases += new PhaseRemoveUselessStuff()
-    phases += new PhaseRemoveIntermediateUnameds() //TODO IR literal base type node type node etc
+    phases += new PhaseRemoveIntermediateUnameds(true) //TODO IR literal base type node type node etc
 
 
     phases += new PhasePullClockDomains(pc)
@@ -2222,7 +2228,7 @@ object SpinalVhdlBoot{
 
 
     phases += new PhaseRemoveUselessStuff()
-    phases += new PhaseRemoveIntermediateUnameds()
+    phases += new PhaseRemoveIntermediateUnameds(false)
 
     phases += new PhaseAllocateNames(pc)
 //    phases += new PhaseRemoveComponentThatNeedNoHdlEmit(pc)

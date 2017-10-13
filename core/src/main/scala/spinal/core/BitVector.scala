@@ -131,7 +131,11 @@ abstract class BitVector extends BaseType with Widthable /*with CheckWidth*/ {
 
   override def clone: this.type = {
     val res = super.clone
-    res.fixedWidth = this.fixedWidth
+    if(this.fixedWidth == -1){
+      res.fixedWidth = this.widthWhenNotInferred
+    } else {
+      res.fixedWidth = this.fixedWidth
+    }
     res
   }
 
@@ -357,6 +361,8 @@ abstract class BitVector extends BaseType with Widthable /*with CheckWidth*/ {
 //
   def getWidthStringNoInferation: String = if (getWidthNoInferation == -1 ) "?" else getWidthNoInferation.toString
 
+
+  //override private[core] def canSymplifyIt = super.canSymplifyIt && (fixedWidth == -1 || inferredWidth != -1)
 
   override def toString(): String = s"(${component.getPath() + "/" + this.getDisplayName()} : $getClassIdentifier[$getWidthStringNoInferation bits])"
 }

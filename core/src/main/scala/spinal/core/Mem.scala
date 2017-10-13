@@ -200,16 +200,16 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends DeclarationStatem
 //  def readAsyncMixedWidth(address: UInt, data : Data, readUnderWrite: ReadUnderWritePolicy = dontCare): Unit =  readAsyncImpl(address,data,readUnderWrite,true)
 //
   def readAsyncImpl(address: UInt, data : Data,readUnderWrite : ReadUnderWritePolicy = dontCare,allowMixedWidth : Boolean): Unit = {
-  val readBits = (if(allowMixedWidth) Bits() else Bits(getWidth bits))
+    val readBits = (if(allowMixedWidth) Bits() else Bits(getWidth bits))
 
-  val readPort = MemReadAsync(this, address, data.getBitsWidth, readUnderWrite)
-  if(allowMixedWidth) readPort.addTag(AllowMixedWidth)
+    val readPort = MemReadAsync(this, address, data.getBitsWidth, readUnderWrite)
+    if(allowMixedWidth) readPort.addTag(AllowMixedWidth)
 
-  this.dslContext.scope.append(readPort)
-  this.dlcAppend(readPort)
+    this.dslContext.scope.append(readPort)
+    this.dlcAppend(readPort)
 
-  readBits.assignFrom(readPort)
-  data.assignFromBits(readBits)
+    readBits.assignFrom(readPort)
+    data.assignFromBits(readBits)
   }
 
   def readSync(address: UInt, enable: Bool = null, readUnderWrite: ReadUnderWritePolicy = dontCare, clockCrossing: Boolean = false): T = {
@@ -246,7 +246,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends DeclarationStatem
   def writeImpl(address: UInt, data: Data,enable : Bool = null, mask: Bits = null,allowMixedWidth : Boolean = false) : Unit = {
 
     val whenCond =  if(enable == null) ConditionalContext.isTrue else enable
-    val writePort = MemWrite(this, address, data.asBits, mask,whenCond, data.getBitsWidth,ClockDomain.current)
+    val writePort = MemWrite(this, address, data.asBits, mask,whenCond, if(allowMixedWidth) data.getBitsWidth else getWidth ,ClockDomain.current)
     this.dslContext.scope.append(writePort)
     this.dlcAppend(writePort)
 

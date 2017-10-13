@@ -735,7 +735,7 @@ class RiscvCore(implicit val c : RiscvCoreConfig) extends Component{
     )
     val pendingDataCmd = new Area{
       val pendingDataMax = 2
-      val readCount = Reg(UInt(log2Up(pendingDataMax) bit)) init(0)
+      val readCount = Reg(UInt(log2Up(pendingDataMax+1) bit)) init(0)
       val readCountInc = dCmd.fire && !dCmd.wr
       val readCountDec = dRsp.fire
 
