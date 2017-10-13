@@ -145,7 +145,6 @@ abstract class BinaryOperatorWidthableInputs extends BinaryOperator{
 
 object InferWidth{
   def canBeResized(that : Expression) = that match {
-    case that : BitVectorLiteral => !that.hasSpecifiedBitCount
     case that : SpinalTagReady => that.hasTag(tagAutoResize)
     case _ => false
   }

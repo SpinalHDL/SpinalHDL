@@ -79,21 +79,29 @@ object PlayDebug{
 //    val x = out Bool()
 //    x := ConditionalContext.isTrue
 //  }
+//
+//  case class Struct() extends Bundle {
+//    val y = Bool
+//    val x = Bool
+//  }
+//  class TopLevel extends Component {
+//    val a,b = in (Struct())
+//    val x = out (Struct())
+//    val tmp = RegNext(a)
+//    val tmp2 = Struct()
+//    val tmp3 = Struct()
+//    tmp2 := tmp
+//    tmp3 := tmp2
+//    tmp3.x init(True)
+//  }
 
-  case class Struct() extends Bundle {
-    val y = Bool
-    val x = Bool
-  }
+
   class TopLevel extends Component {
-    val a,b = in (Struct())
-    val x = out (Struct())
-    val tmp = RegNext(a)
-    val tmp2 = Struct()
-    val tmp3 = Struct()
-    tmp2 := tmp
-    tmp3 := tmp2
-    tmp3.x init(True)
+    val a = 32
+    val b = in(UInt(2 bits))
+    val result = b + 32
   }
+
 
   def main(args: Array[String]) {
     val toplevel = SpinalVhdl(new TopLevel()).toplevel

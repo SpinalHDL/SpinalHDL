@@ -11,6 +11,7 @@ import scala.collection.mutable.ArrayBuffer
 // Make the VHDL generation deterministic
 // only let's symplify nodes which are type nodes (don't lose bit width for instance)
 // Emit signal attribut, carefull with outputs
+// Add more check to bitvector literal width and minimal width
 case class DslContext(clockDomain: ClockDomain, component: Component, scope: ScopeStatement)
 
 

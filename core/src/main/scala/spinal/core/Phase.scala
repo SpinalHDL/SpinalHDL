@@ -1451,7 +1451,6 @@ class PhaseRemoveUselessStuff extends PhaseNetlist{
           s match {
             case s: BaseType => {
               s.foreachStatements(propagate)
-              println(s.instanceCounter + "  " + s)
             }
             case s: AssignementStatement => {
               s.walkExpression{ case e : Statement => propagate(e) case _ => }
