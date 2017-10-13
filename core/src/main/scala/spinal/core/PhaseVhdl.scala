@@ -457,6 +457,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
     //Flush all that mess out ^^
     emitBlackBoxComponents(component, b)
+    emitAttributesDef(component, b)
     emitSignals(component,b)
     emitMems(component,mems,b)
     emitSubComponents(component, openSubIo,b)
@@ -867,13 +868,15 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
               if (isScope == null) {
                 continue = false
               } else {
-                if (!tasks.contains(isScope)) {
-                  if(isScope == switchStatement.defaultScope) {
+                if(isScope == switchStatement.defaultScope) {
+                  if(defaultTask == null) {
                     defaultTask = new Task(null, afterSwitchIndex)
-                  } else {
+                  }
+                } else {
+                  if (!tasks.contains(isScope)) {
                     val e = switchStatement.elements.find(_.scopeStatement == isScope).get
                     tasks(isScope) = new Task(e, afterSwitchIndex) //TODO find is O^2 complexity
-                    if(e.keys.exists(!_.isInstanceOf[Literal])) isPure = false
+                    if (e.keys.exists(!_.isInstanceOf[Literal])) isPure = false
                   }
                 }
                 afterSwitchIndex += 1
@@ -1739,28 +1742,30 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     b.declarations ++= s"  end component;\n"
     b.declarations ++= s"  \n"
   }
-//
-//  def emitAttributesDef(component: Component, ret: StringBuilder): Unit = {
-//    val map = mutable.Map[String, Attribute]()
-//
-//    for (node <- component.nodes) {
-//      for (attribute <- node.instanceAttributes(Language.VHDL)) {
-//        val mAttribute = map.getOrElseUpdate(attribute.getName, attribute)
-//        if (!mAttribute.sameType(attribute)) SpinalError(s"There is some attributes with different nature (${attribute} and ${mAttribute} at\n${node.component}})")
-//      }
-//    }
-//
-//    for (attribute <- map.values) {
-//      val typeString = attribute match {
-//        case _: AttributeString => "string"
-//        case _: AttributeFlag => "boolean"
-//      }
-//      ret ++= s"  attribute ${attribute.getName} : $typeString;\n"
-//    }
-//
-//    ret ++= "\n"
-//  }
-//
+
+  def emitAttributesDef(component: Component, b: ComponentBuilder): Unit = {
+    val map = mutable.Map[String, Attribute]()
+
+    component.dslBody.walkStatements{
+      case s : SpinalTagReady =>
+        for (attribute <- s.instanceAttributes(Language.VHDL)) {
+          val mAttribute = map.getOrElseUpdate(attribute.getName, attribute)
+          if (!mAttribute.sameType(attribute)) SpinalError(s"There is some attributes with different nature (${attribute} and ${mAttribute} at\n${component}})")
+        }
+      case s =>
+    }
+
+    for (attribute <- map.values) {
+      val typeString = attribute match {
+        case _: AttributeString => "string"
+        case _: AttributeFlag => "boolean"
+      }
+      b.declarations ++= s"  attribute ${attribute.getName} : $typeString;\n"
+    }
+
+    b.declarations ++= "\n"
+  }
+
 //  def toSpinalEnumCraft[T <: SpinalEnum](that: Any) = that.asInstanceOf[SpinalEnumCraft[T]]
 //
   def getBaseTypeSignalInitialisation(signal : BaseType) : String = {
