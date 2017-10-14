@@ -10,7 +10,6 @@ import scala.collection.mutable.ArrayBuffer
 // Add more check to bitvector literal width and minimal width
 // Switch MaskedLiteral§
 // checkout dslContext stuff redondancy
-// Be sure that clocks aren't getting sympligider
 case class DslContext(clockDomain: ClockDomain, component: Component, scope: ScopeStatement)
 
 
@@ -184,14 +183,14 @@ object Statement{
   }
 }
 
-trait Statement extends ExpressionContainer with ScalaLocated with BaseNode{
+trait Statement extends ExpressionContainer with ContextUser with ScalaLocated with BaseNode{
   var parentScope : ScopeStatement = null
   var lastScopeStatement, nextScopeStatement : Statement = null
   def rootScopeStatement: ScopeStatement = if(parentScope.parentStatement != null) parentScope.parentStatement.rootScopeStatement else parentScope
-
   def removeStatement() : Unit = {
     removeStatementFromScope()
   }
+  def foreachClockDomain(func : ClockDomain => Unit) : Unit = {}
 
   def removeStatementFromScope() : Unit = {
     if(lastScopeStatement != null){
@@ -232,7 +231,6 @@ trait Statement extends ExpressionContainer with ScalaLocated with BaseNode{
 }
 
 trait LeafStatement extends Statement{
-  def foreachClockDomain(func : ClockDomain => Unit) : Unit = {}
 }
 
 trait TreeStatement extends Statement{

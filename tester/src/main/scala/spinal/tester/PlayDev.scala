@@ -65,3 +65,21 @@ object PlayDevLatency{
     val toplevel = SpinalVhdl(new TopLevel()).toplevel
   }
 }
+
+
+object PlayDevPullCkock{
+  class SubSub extends Component{
+    val x = RegNext(True) init(False)
+  }
+  class Sub extends Component{
+    val subsub = new SubSub
+  }
+  class TopLevel extends Component {
+    val cd = ClockDomain(Bool, Bool)
+    val sub = cd(new Sub)
+  }
+
+  def main(args: Array[String]) {
+    val toplevel = SpinalVhdl(new TopLevel()).toplevel
+  }
+}

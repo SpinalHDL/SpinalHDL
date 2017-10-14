@@ -1416,50 +1416,71 @@ class PhaseNormalizeNodeInputs(pc: PhaseContext) extends PhaseNetlist{
 //
 
 
-class PhaseRemoveUselessStuff extends PhaseNetlist{
+class PhaseRemoveUselessStuff(postClockPulling : Boolean) extends PhaseNetlist{
   override def impl(pc: PhaseContext): Unit = {
     import pc._
 
     val okId = globalData.allocateAlgoIncrementale()
 
     def propagate(root: Statement): Unit = {
+      if(root.algoIncrementale == okId) return
+      root.algoIncrementale = okId
       val pending = mutable.ArrayStack[Statement](root)
-      def propagate(s : Statement) = pending.push(s)
+      def propagate(s : Statement) = {
+        if(s.algoIncrementale != okId) {
+          s.algoIncrementale = okId
+          pending.push(s)
+        }
+      }
+
       while(pending.nonEmpty){
         val s = pending.pop()
-        if (s != null && s.algoIncrementale != okId) {
-          s.algoIncrementale = okId
-          s match {
-            case s: BaseType => {
-              s.foreachStatements(propagate)
-            }
-            case s: AssignementStatement => {
-              s.walkExpression{ case e : Statement => propagate(e) case _ => }
-              s.walkParentTreeStatements(propagate) //Could be walkParentTreeStatementsUntilRootScope but then should symplify removed TreeStatements
-            }
-            case s : WhenStatement => {
-              s.walkExpression{ case e : Statement => propagate(e) case _ => }
-            }
-            case s : SwitchStatement => {
-              s.walkExpression{ case e : Statement => propagate(e) case _ => }
-            }
-            case s : AssertStatement => {
-              s.walkExpression{ case e : Statement => propagate(e) case _ => }
-            }
-            case s : Mem[_] => s.foreachStatements{
-              case p : MemWrite => propagate(p)
-              case p : MemReadSync =>
-              case p : MemReadAsync =>
-            }
-            case s : MemWrite => {
-              s.walkExpression{ case e : Statement => propagate(e) case _ => }
-            }
-            case s : MemReadSync => {
-              s.walkExpression{ case e : Statement => propagate(e) case _ => }
-            }
-            case s : MemReadAsync => {
-              s.walkExpression{ case e : Statement => propagate(e) case _ => }
-            }
+        if(postClockPulling) {
+          s.foreachClockDomain(cd => {
+            propagate(s.component.pulledDataCache(cd.clock).asInstanceOf[Bool])
+            if(cd.hasResetSignal) propagate(s.component.pulledDataCache(cd.reset).asInstanceOf[Bool])
+            if(cd.hasSoftResetSignal) propagate(s.component.pulledDataCache(cd.softReset).asInstanceOf[Bool])
+            if(cd.hasClockEnableSignal) propagate(s.component.pulledDataCache(cd.clockEnable).asInstanceOf[Bool])
+          })
+        } else {
+          s.foreachClockDomain(cd => {
+            propagate(cd.clock)
+            if(cd.hasResetSignal) propagate(cd.reset)
+            if(cd.hasSoftResetSignal) propagate(cd.softReset)
+            if(cd.hasClockEnableSignal) propagate(cd.clockEnable)
+          })
+        }
+
+        s match {
+          case s: BaseType => {
+            s.foreachStatements(propagate)
+          }
+          case s: AssignementStatement => {
+            s.walkExpression{ case e : Statement => propagate(e) case _ => }
+            s.walkParentTreeStatements(propagate) //Could be walkParentTreeStatementsUntilRootScope but then should symplify removed TreeStatements
+          }
+          case s : WhenStatement => {
+            s.walkExpression{ case e : Statement => propagate(e) case _ => }
+          }
+          case s : SwitchStatement => {
+            s.walkExpression{ case e : Statement => propagate(e) case _ => }
+          }
+          case s : AssertStatement => {
+            s.walkExpression{ case e : Statement => propagate(e) case _ => }
+          }
+          case s : Mem[_] => s.foreachStatements{
+            case p : MemWrite => propagate(p)
+            case p : MemReadSync =>
+            case p : MemReadAsync =>
+          }
+          case s : MemWrite => {
+            s.walkExpression{ case e : Statement => propagate(e) case _ => }
+          }
+          case s : MemReadSync => {
+            s.walkExpression{ case e : Statement => propagate(e) case _ => }
+          }
+          case s : MemReadAsync => {
+            s.walkExpression{ case e : Statement => propagate(e) case _ => }
           }
         }
       }
@@ -2188,7 +2209,7 @@ object SpinalVhdlBoot{
 
     phases += new PhaseCheckIoBundle()
     phases += new PhaseCheckHiearchy()
-    phases += new PhaseRemoveUselessStuff()
+    phases += new PhaseRemoveUselessStuff(false)
     phases += new PhaseRemoveIntermediateUnameds(true) //TODO IR literal base type node type node etc
 
 
@@ -2207,7 +2228,7 @@ object SpinalVhdlBoot{
 //    phases += new PhaseDeleteUselessBaseTypes(pc, true)
 
 
-    phases += new PhaseRemoveUselessStuff()
+    phases += new PhaseRemoveUselessStuff(true)
     phases += new PhaseRemoveIntermediateUnameds(false)
 
     phases += new PhaseAllocateNames(pc)
