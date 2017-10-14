@@ -42,12 +42,13 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     outFile.write(text)
   }
 
-  class AsyncProcess(val scope : ScopeStatement){
+
+  class AsyncProcess(val scope : ScopeStatement, val instanceCounter : Int){
     val leafStatements = ArrayBuffer[LeafStatement]() //.length should be Oc
     var nameableTargets = List[DeclarationStatement]()
   }
 
-  class SyncGroup(val clockDomain: ClockDomain, val scope: ScopeStatement, val hasInit : Boolean){
+  class SyncGroup(val clockDomain: ClockDomain, val scope: ScopeStatement, val hasInit : Boolean, val instanceCounter : Int){
     val initStatements = ArrayBuffer[LeafStatement]()
     val dataStatements = ArrayBuffer[LeafStatement]()
   }
@@ -110,7 +111,6 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
   val referencesOverrides = mutable.HashMap[Nameable,Any]()
   val emitedComponent = mutable.Map[ComponentBuilder, ComponentBuilder]()
   val emitedComponentRef = mutable.Map[Component, Component]()
-//  val emitedComponent = mutable.HashSet[ComponentBuilder]()
 
   def emitComponent(component: Component): String = {
     referencesOverrides.clear()
@@ -149,11 +149,13 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     val mems = ArrayBuffer[Mem[_]]()
 
     //Sort all leaf statements into their nature (sync/async)
+    var syncGroupInstanceCounter = 0
     component.dslBody.walkLeafStatements(_ match {
       case s : AssignementStatement => s.finalTarget match {
         case target : BaseType if target.isComb => asyncStatement += s
         case target : BaseType if target.isReg  => {
-          val group = syncGroups.getOrElseUpdate((target.dslContext.clockDomain, s.rootScopeStatement, target.hasInit) , new SyncGroup(target.dslContext.clockDomain ,s.rootScopeStatement, target.hasInit))
+          val group = syncGroups.getOrElseUpdate((target.dslContext.clockDomain, s.rootScopeStatement, target.hasInit) , new SyncGroup(target.dslContext.clockDomain ,s.rootScopeStatement, target.hasInit, syncGroupInstanceCounter))
+          syncGroupInstanceCounter += 1
           s match {
             case s : InitAssignementStatement => group.initStatements += s
             case s : DataAssignementStatement => group.dataStatements += s
@@ -161,7 +163,8 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
         }
       }
       case assertStatement : AssertStatement => {
-        val group = syncGroups.getOrElseUpdate((assertStatement.dslContext.clockDomain, assertStatement.rootScopeStatement, false) , new SyncGroup(assertStatement.dslContext.clockDomain ,assertStatement.rootScopeStatement, false))
+        val group = syncGroups.getOrElseUpdate((assertStatement.dslContext.clockDomain, assertStatement.rootScopeStatement, false) , new SyncGroup(assertStatement.dslContext.clockDomain ,assertStatement.rootScopeStatement, false, syncGroupInstanceCounter))
+        syncGroupInstanceCounter += 1
         group.dataStatements += assertStatement
       }
       case x : MemPortStatement =>
@@ -172,6 +175,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     //Generate AsyncProcess per target
     val asyncProcessFromNameableTarget = mutable.HashMap[Nameable,AsyncProcess]()
     val rootTreeStatementPerAsyncProcess = mutable.HashMap[TreeStatement,AsyncProcess]()
+    var asyncGroupInstanceCounter = 0
     for(s <- asyncStatement) s match{
       case s : AssignementStatement => {
         var rootTreeStatement: TreeStatement = null
@@ -187,7 +191,8 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
           val preExistingTargetProcess = asyncProcessFromNameableTarget.getOrElse(finalTarget, null)
           val preExistingRootTreeProcess = rootTreeStatementPerAsyncProcess.getOrElse(rootTreeStatement, null)
           if(preExistingTargetProcess == null && preExistingRootTreeProcess == null){ //Create new process
-            val process = new AsyncProcess(rootScope)
+            val process = new AsyncProcess(rootScope, asyncGroupInstanceCounter)
+            asyncGroupInstanceCounter += 1
             asyncProcessFromNameableTarget(finalTarget) = process
             rootTreeStatementPerAsyncProcess(rootTreeStatement) = process
             process.nameableTargets = finalTarget :: process.nameableTargets
@@ -209,7 +214,8 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
           val preExistingTargetProcess = asyncProcessFromNameableTarget.getOrElse(finalTarget, null)
           if(preExistingTargetProcess == null) {
             //Create new process
-            val process = new AsyncProcess(rootScope)
+            val process = new AsyncProcess(rootScope,asyncGroupInstanceCounter)
+            asyncGroupInstanceCounter += 1
             asyncProcessFromNameableTarget(finalTarget) = process
             process.nameableTargets = finalTarget :: process.nameableTargets
           }
@@ -224,7 +230,8 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
       case s: AssignementStatement => {
         var process = asyncProcessFromNameableTarget.getOrElse(s.finalTarget,null)
         if(process == null){
-          process = new AsyncProcess(s.rootScopeStatement)
+          process = new AsyncProcess(s.rootScopeStatement,asyncGroupInstanceCounter)
+          asyncGroupInstanceCounter += 1
           process.nameableTargets = s.finalTarget :: process.nameableTargets
         }
         process.leafStatements += s
@@ -305,7 +312,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     //Manage subcomponents input bindings
     val subComponentInputToNotBufferize = mutable.HashSet[Any]()
     for(sub <- component.children){
-      for(io <- sub.getAllIo if io.isInput){
+      for(io <- sub.getOrdredNodeIo if io.isInput){
         var subInputBinded = isSubComponentInputBinded(io)
         if(subInputBinded != null) {
 //          def walkInputBindings(that : NameableExpression) : NameableExpression = { //Manage the case then sub input is drived by sub input
@@ -327,9 +334,9 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     }
 
     //Outputs and subcomponent output stuff
-    val outputsToBufferize = mutable.HashSet[BaseType]() //Check if there is a reference to an output pin (read self outputed signal)
-    val subComponentOutputsToNotBufferize = mutable.HashMap[Nameable,DeclarationStatement]()
-    val subComponentOutputsToBufferize = mutable.HashSet[BaseType]()
+    val outputsToBufferize = mutable.ArrayBuffer[BaseType]() //Check if there is a reference to an output pin (read self outputed signal)
+//    val subComponentOutputsToNotBufferize = mutable.HashMap[Nameable,DeclarationStatement]()
+//    val subComponentOutputsToBufferize = mutable.HashSet[BaseType]()
     val openSubIo = mutable.HashSet[BaseType]()
 
     //Get all component outputs which are read internaly
@@ -349,7 +356,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
       })
     })
 
-    component.children.foreach(sub => sub.getAllIo.foreach(io => if(io.isOutput) subComponentOutputsToBufferize += io))
+//    component.children.foreach(sub => sub.getAllIo.foreach(io => if(io.isOutput) subComponentOutputsToBufferize += io))
 
 //    component.dslBody.walkStatements(ls => ls match {
 //      //Identify direct combinatorial assignements
@@ -426,9 +433,9 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
 
 
-    for((subOutput, target) <- subComponentOutputsToNotBufferize){
-      referencesOverrides(subOutput) = emitReference(target, false)
-    }
+//    for((subOutput, target) <- subComponentOutputsToNotBufferize){
+//      referencesOverrides(subOutput) = emitReference(target, false)
+//    }
 
     for(output <- outputsToBufferize){
       val name = component.localNamingScope.allocateName(globalData.anonymSignalPrefix)
@@ -437,11 +444,11 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
       referencesOverrides(output) = name
     }
 
-    for(subOutput <- subComponentOutputsToBufferize){
+    component.children.foreach(sub => sub.getAllIo.foreach(io => if(io.isOutput) {
       val name = component.localNamingScope.allocateName(globalData.anonymSignalPrefix)
-      b.declarations ++= s"  signal $name : ${emitDataType(subOutput)};\n"
-      referencesOverrides(subOutput) = name
-    }
+      b.declarations ++= s"  signal $name : ${emitDataType(io)};\n"
+      referencesOverrides(io) = name
+    }))
 
     //Wrap expression which need it
     for(e <- expressionToWrap if !e.isInstanceOf[DeclarationStatement]){
@@ -461,10 +468,10 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     emitSignals(component,b)
     emitMems(component,mems,b)
     emitSubComponents(component, openSubIo,b)
-    processes.foreach(p => {
+    processes.toArray.sortWith(_.instanceCounter < _.instanceCounter).foreach(p => {
       if(p.leafStatements.nonEmpty ) {
         p.leafStatements.head match {
-          case AssignementStatement(_, source : DeclarationStatement) if subComponentOutputsToNotBufferize.contains(source) =>
+//          case AssignementStatement(_, source : DeclarationStatement) if subComponentOutputsToNotBufferize.contains(source) =>
           case AssignementStatement(target: DeclarationStatement, _) if subComponentInputToNotBufferize.contains(target) =>
           case _ => emitAsyncronous(b, p)
         }
@@ -472,7 +479,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
         emitAsyncronous(b, p)
       }
     })
-    syncGroups.values.foreach(emitSyncronous(component, b, _))
+    syncGroups.valuesIterator.toArray.sortWith(_.instanceCounter < _.instanceCounter).foreach(emitSyncronous(component, b, _))
   }
 
 
@@ -587,15 +594,15 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
 
     val initialStatlementsGeneration =  new StringBuilder()
-    referenceSet = mutable.Set[String]()
+    referenceSetStart()
     if(withReset) emitRegsInitialValue("      ", initialStatlementsGeneration)
-    referenceSet += emitReference(clock,false)
+    referenceSetAdd(emitReference(clock,false))
 
     if (asyncReset) {
-      referenceSet += emitReference(reset,false)
-      b ++= s"${tabStr}process(${referenceSet.mkString(", ")})\n"
+      referenceSetAdd(emitReference(reset,false))
+      b ++= s"${tabStr}process(${referehceSetSorted.toArray.mkString(", ")})\n"  //.toArray.sortWith(_.hashCode < _.hashCode)
     } else {
-      b ++= s"${tabStr}process(${referenceSet.mkString(", ")})\n"
+      b ++= s"${tabStr}process(${referehceSetSorted.mkString(", ")})\n"
     }
 
     b ++= s"${tabStr}begin\n"
@@ -682,15 +689,15 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
 
     val initialStatlementsGeneration =  new StringBuilder()
-    referenceSet = mutable.Set[String]()
+    referenceSetStart()
     emitRegsInitialValue("      ", initialStatlementsGeneration)
-    referenceSet += emitReference(clock,false)
+    referenceSetAdd(emitReference(clock,false))
 
     if (asyncReset) {
-      referenceSet += emitReference(reset,false)
-      b.logics ++= s"${tabStr}process(${referenceSet.mkString(", ")})\n"
+      referenceSetAdd(emitReference(reset,false))
+      b.logics ++= s"${tabStr}process(${referehceSetSorted.mkString(", ")})\n"
     } else {
-      b.logics ++= s"${tabStr}process(${referenceSet.mkString(", ")})\n"
+      b.logics ++= s"${tabStr}process(${referehceSetSorted.mkString(", ")})\n"
     }
 
     b.logics ++= s"${tabStr}begin\n"
@@ -759,11 +766,11 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
       }
       case _ => {
         val tmp = new StringBuilder
-        referenceSet = mutable.Set[String]()
+        referenceSetStart()
         emitLeafStatements(process.leafStatements, 0, process.scope, "<=", tmp, "    ")
 
-        if (referenceSet.nonEmpty) {
-          b.logics ++= s"  process(${referenceSet.mkString(",")})\n"; referenceSet = null
+        if (referehceSetSorted.nonEmpty) {
+          b.logics ++= s"  process(${referehceSetSorted.mkString(",")})\n";
           b.logics ++= "  begin\n"
           b.logics ++= tmp.toString()
           b.logics ++= "  end process;\n\n"
@@ -971,13 +978,39 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
       }
     }
   }
-  var referenceSet : mutable.Set[String] = null
+
+  def referenceSetStart(): Unit ={
+    _referenceSetEnabled = true
+    _referenceSet.clear()
+    _referenceSetSorted.clear()
+  }
+
+  def referenceSetStop(): Unit ={
+    _referenceSetEnabled = false
+    _referenceSet.clear()
+    _referenceSetSorted.clear()
+  }
+
+  def referenceSetAdd(str : String): Unit ={
+    if(_referenceSetEnabled) {
+      if (_referenceSet.add(str)) {
+        _referenceSetSorted += str
+      }
+    }
+  }
+
+  def referehceSetSorted() = _referenceSetSorted
+
+  var _referenceSetEnabled = false
+  val _referenceSet = mutable.Set[String]()
+  val _referenceSetSorted = mutable.ArrayBuffer[String]()
+
   def emitReference(that : DeclarationStatement, sensitive : Boolean): String ={
     val name = referencesOverrides.getOrElse(that, that.getNameElseThrow) match {
       case x : String => x
       case x : DeclarationStatement => emitReference(x,false)
     }
-    if(sensitive && referenceSet != null) referenceSet.add(name)
+    if(sensitive) referenceSetAdd(name)
     name
   }
 
@@ -996,7 +1029,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
   def emitExpression(that : Expression) : String = {
     wrappedExpressionToName.get(that) match {
       case Some(name) => {
-        if(referenceSet != null) referenceSet.add(name)
+        referenceSetAdd(name)
         name
       }
       case None => expressionImplMap.getOrElse(that.getClass, throw new Exception("can't find " + that.opName))(that)

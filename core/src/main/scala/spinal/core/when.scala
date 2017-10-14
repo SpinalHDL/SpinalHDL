@@ -166,7 +166,7 @@ object is{
         }
       }
       case value : SpinalEnumElement[_] => onBaseType(value())
-//              case key : MaskedLiteral => switchValue match {
+//              case key : MaskedLiteral => switchValue match { ???
 //                case switchValue: Bits => switchValue === key
 //                case switchValue: UInt => switchValue === key
 //                case switchValue: SInt => switchValue === key
