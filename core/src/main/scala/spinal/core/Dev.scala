@@ -6,8 +6,6 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 //TODO IR :
-// Add assert node into the clock pulling phase
-// Clock pulling phase could be more systematic ?
 // Make the VHDL generation deterministic
 // only let's symplify nodes which are type nodes (don't lose bit width for instance)
 // Emit signal attribut, carefull with outputs
@@ -233,7 +231,7 @@ trait Statement extends ExpressionContainer with ScalaLocated with BaseNode{
 }
 
 trait LeafStatement extends Statement{
-
+  def foreachClockDomain(func : ClockDomain => Unit) : Unit = {}
 }
 
 trait TreeStatement extends Statement{
@@ -533,54 +531,7 @@ class ScopeStatement(var parentStatement : TreeStatement)/* extends ExpressionCo
       case s =>
     }
   }
-
-//  def walkExpression(func : (Expression) => Unit): Unit ={
-//    walkStatements(s => {
-//      s.walkExpression(func)
-//    })
-//  }
-//  override def remapOwnedExpression(func: (Expression) => Expression): Unit = ???
-//  override def foreachExpression(func: (Expression) => Unit): Unit = ???
 }
-
-
-//class ScopeStatement(){
-//  var head, last : Statement = null
-//
-//
-//  def prepend(that : Statement) : this.type = {
-//    if(head != null){
-//      head.previous = that
-//    }
-//    that.next = head
-//    that.previous = null
-//
-//    head = that
-//
-//    this
-//  }
-//
-//  def append(that : Statement) : this.type = {
-//    that.next = null
-//    if(last != null){
-//      last.next = that
-//      that.previous = last
-//    }else{
-//      that.previous = null
-//    }
-//
-//    last = that
-//    this
-//  }
-//
-//  def foreachStatements(func : (Statement) => Unit) = {
-//    var ptr = head
-//    while(ptr != null){
-//      func(ptr)
-//      ptr = ptr.next
-//    }
-//  }
-//}
 
 
 object GraphUtils{

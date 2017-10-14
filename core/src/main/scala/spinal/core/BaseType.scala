@@ -430,5 +430,5 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
     SpinalMap.list(this,mappings)
   }
 
-
+  override def foreachClockDomain(func: (ClockDomain) => Unit): Unit = if(isReg) func(clockDomain)
 }

@@ -97,9 +97,7 @@ object PlayDebug{
 
 
   class TopLevel extends Component {
-    val a = 32
-    val b = in(UInt(2 bits))
-    val result = b + 32
+     assert(True === True)
   }
 
 

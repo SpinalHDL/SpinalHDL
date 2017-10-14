@@ -644,7 +644,7 @@ class PhasePullClockDomains(pc: PhaseContext) extends PhaseNetlist{
 
     walkComponents(c => {
       val cds = mutable.HashSet[ClockDomain]()
-      c.dslBody.walkDeclarations(_ match {
+      c.dslBody.walkLeafStatements{
         case bt : BaseType if bt.isReg => {
           val cd = bt.dslContext.clockDomain
           if(bt.isUsingResetSignal && (!cd.hasResetSignal && !cd.hasSoftResetSignal))
@@ -652,8 +652,8 @@ class PhasePullClockDomains(pc: PhaseContext) extends PhaseNetlist{
 
           cds += cd
         }
-        case _ =>
-      })
+        case ls => ls.foreachClockDomain(cd => cds += cd)
+      }
 
       c.rework{
         for(cd <- cds){
@@ -664,25 +664,6 @@ class PhasePullClockDomains(pc: PhaseContext) extends PhaseNetlist{
         }
       }
     })
-//    Node.walk(walkNodesDefautStack,(node, push) =>  {
-//      node match {
-//        case delay: SyncNode => {
-//          val clockDomain = delay.getClockDomain
-//          if(delay.isUsingResetSignal && (!clockDomain.hasResetSignal && !clockDomain.hasSoftResetSignal))
-//            SpinalError(s"Clock domain without reset contain a register which needs one\n ${delay.getScalaLocationLong}")
-//
-//          Component.push(delay.component)
-//          delay.setInput(SyncNode.getClockInputId,clockDomain.readClockWire)
-//
-//          if(delay.isUsingResetSignal)      delay.setInput(SyncNode.getClockResetId,clockDomain.readResetWire.dontSimplifyIt())
-//          if(delay.isUsingSoftResetSignal)  delay.setInput(SyncNode.getClockSoftResetId,clockDomain.readSoftResetWire.dontSimplifyIt())
-//          if(delay.isUsingEnableSignal)     delay.setInput(SyncNode.getClockEnableId,clockDomain.readClockEnableWire.dontSimplifyIt())
-//          Component.pop(delay.component)
-//        }
-//        case _ =>
-//      }
-//      node.onEachInput(push(_))
-//    })
   }
 }
 //

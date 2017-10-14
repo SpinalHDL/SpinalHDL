@@ -1840,4 +1840,6 @@ case class AssertStatement(var cond : Expression, message : Seq[Any],severity : 
   override def remapExpressions(func: (Expression) => Expression): Unit = {
     cond = func(cond) //TODO message
   }
+
+  override def foreachClockDomain(func: (ClockDomain) => Unit): Unit = func(dslContext.clockDomain)
 }
