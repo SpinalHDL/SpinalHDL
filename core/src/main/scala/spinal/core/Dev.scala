@@ -8,7 +8,9 @@ import scala.collection.mutable.ArrayBuffer
 //TODO IR :
 // Emit signal attribut, carefull with outputs
 // Add more check to bitvector literal width and minimal width
-// Switch MaskedLiteral
+// Switch MaskedLiteral§
+// checkout dslContext stuff redondancy
+// Be sure that clocks aren't getting sympligider
 case class DslContext(clockDomain: ClockDomain, component: Component, scope: ScopeStatement)
 
 
