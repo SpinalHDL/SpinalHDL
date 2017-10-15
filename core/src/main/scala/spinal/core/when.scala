@@ -166,13 +166,13 @@ object is{
         }
       }
       case value : SpinalEnumElement[_] => onBaseType(value())
-//              case key : MaskedLiteral => switchValue match { ???
-//                case switchValue: Bits => switchValue === key
-//                case switchValue: UInt => switchValue === key
-//                case switchValue: SInt => switchValue === key
-//                case _ => SpinalError("The switch is not a Bits, UInt or SInt")
-//              }
-//            }
+      case key : MaskedLiteral => switchValue match {
+        case switchValue: Bits => switchElement.keys += SwitchStatementKeyBool(switchValue === key)
+        case switchValue: UInt => switchElement.keys += SwitchStatementKeyBool(switchValue === key)
+        case switchValue: SInt => switchElement.keys += SwitchStatementKeyBool(switchValue === key)
+        case _ => SpinalError("The switch is not a Bits, UInt or SInt")
+      }
+//    }
 //              case key: Data => switchValue.isEquals(key)
 //              case key: Seq[_] => key.map(d => analyse(d)).reduce(_ || _)
     })

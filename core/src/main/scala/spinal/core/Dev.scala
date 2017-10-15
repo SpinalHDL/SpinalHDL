@@ -8,7 +8,6 @@ import scala.collection.mutable.ArrayBuffer
 //TODO IR :
 // Emit signal attribut, carefull with outputs
 // Add more check to bitvector literal width and minimal width
-// Switch MaskedLiteral§
 // checkout dslContext stuff redondancy
 case class DslContext(clockDomain: ClockDomain, component: Component, scope: ScopeStatement)
 
@@ -372,7 +371,21 @@ class WhenStatement(var cond : Expression) extends TreeStatement{
   }
 }
 
+object SwitchStatementKeyBool{
+  def apply(cond : Expression): SwitchStatementKeyBool ={
+    val ret = new SwitchStatementKeyBool
+    ret.cond = cond
+    ret
+  }
+}
+class SwitchStatementKeyBool extends Expression{
+  var cond : Expression = null
 
+  override def opName: String = "is(b)"
+  override def getTypeObject: Any = TypeBool
+  override def remapExpressions(func: (Expression) => Expression): Unit = cond = func(cond)
+  override def foreachExpression(func: (Expression) => Unit): Unit = func(cond)
+}
 class SwitchStatementElement(var keys : ArrayBuffer[Expression],var scopeStatement: ScopeStatement) extends ScalaLocated
 class SwitchStatement(var value : Expression) extends TreeStatement{
   val elements = ArrayBuffer[SwitchStatementElement]()
@@ -409,6 +422,7 @@ class SwitchStatement(var value : Expression) extends TreeStatement{
         for(i <- 0 until e.keys.length) {
           val k = e.keys(i)
           e.keys(i) = k match {
+            case k : SwitchStatementKeyBool => k
             case k: Expression with WidthProvider => InputNormalize.resizedOrUnfixedLit(k, targetWidth, factory, value, e)
           }
         }

@@ -83,3 +83,46 @@ object PlayDevPullCkock{
     val toplevel = SpinalVhdl(new TopLevel()).toplevel
   }
 }
+
+object PlayDevMaskedCase{
+
+  class TopLevel extends Component {
+    val sel = in Bits(4 bits)
+    val result = out Bits(8 bits)
+
+    switch(sel){
+      is(M"---1"){
+        result := 0
+      }
+      is(M"--1-"){
+        result := 1
+      }
+      is(M"-1--"){
+        result := 2
+      }
+      default{
+        result := 3
+      }
+    }
+  }
+
+  def main(args: Array[String]) {
+    val toplevel = SpinalVhdl(new TopLevel()).toplevel
+  }
+}
+
+
+object PlayDevMemReadWrite{
+
+  class TopLevel extends Component {
+    val mem = Mem(Bits(8 bits), 64)
+    val address = UInt(6 bits)
+    val wrData, rdData = Bits(8 bits)
+    val en, wr = Bool
+    rdData := mem.readWriteSync(address,wrData,en,wr)
+  }
+
+  def main(args: Array[String]) {
+    val toplevel = SpinalVhdl(new TopLevel()).toplevel
+  }
+}

@@ -1470,10 +1470,14 @@ class PhaseRemoveUselessStuff(postClockPulling : Boolean) extends PhaseNetlist{
           }
           case s : Mem[_] => s.foreachStatements{
             case p : MemWrite => propagate(p)
+            case p : MemReadWrite => propagate(p)
             case p : MemReadSync =>
             case p : MemReadAsync =>
           }
           case s : MemWrite => {
+            s.walkExpression{ case e : Statement => propagate(e) case _ => }
+          }
+          case s : MemReadWrite => {
             s.walkExpression{ case e : Statement => propagate(e) case _ => }
           }
           case s : MemReadSync => {
@@ -1492,6 +1496,7 @@ class PhaseRemoveUselessStuff(postClockPulling : Boolean) extends PhaseNetlist{
       case s : TreeStatement =>
       case s : AssignementStatement =>
       case s : MemWrite =>
+      case s : MemReadWrite =>
       case s : MemReadSync =>
       case s : MemReadAsync =>
     }

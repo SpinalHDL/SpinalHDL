@@ -426,6 +426,11 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
             b.declarations ++= s"  signal $name : ${emitType(s)};\n"
             wrappedExpressionToName(s) = name
           }
+          case s : MemReadWrite => {
+            val name = component.localNamingScope.allocateName(globalData.anonymSignalPrefix)
+            b.declarations ++= s"  signal $name : ${emitType(s)};\n"
+            wrappedExpressionToName(s) = name
+          }
           case s : MemWrite =>
         }
       })
@@ -910,7 +915,10 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
               }
               b ++= s"${tab}end case;\n"
             } else {
-              def emitIsCond(that : Expression): String = s"(${emitExpression(switchStatement.value)} = ${emitExpression(that)})"
+              def emitIsCond(that : Expression): String = that match {
+                case that : SwitchStatementKeyBool => s"(${emitExpression(that.cond)} = '1')"
+                case that => s"(${emitExpression(switchStatement.value)} = ${emitExpression(that)})"
+              }
               var index = 0
               var tasksCount = tasks.size
               for(e <- switchStatement.elements) tasks.get(e.scopeStatement) match {
@@ -1979,6 +1987,42 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     }
 
 
+    def emitWrite(b : StringBuilder, mem : Mem[_], address : Expression, data : Expression, mask : Expression with WidthProvider, symbolCount : Int, bitPerSymbole : Int, tab: String) = {
+      if(mask == null) {
+        if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
+          b ++= s"$tab${emitReference(mem, false)}(to_integer(${emitExpression(address)})) <= ${emitExpression(data)};\n"
+        else
+          for(i <- 0 until symbolCount) {
+            val range = s"(${(i + 1) * bitPerSymbole - 1} downto ${i * bitPerSymbole})"
+            b ++= s"$tab  ${emitReference(mem, false)}_symbol${i}(to_integer(${emitExpression(address)})) <= ${emitExpression(data)}$range;\n"
+          }
+      }else{
+
+        val maskCount = mask.getWidth
+        for(i <- 0 until maskCount){
+          val range = s"(${(i+1)*bitPerSymbole-1} downto ${i*bitPerSymbole})"
+          b ++= s"${tab}if ${emitExpression(mask)}($i) = '1' then\n"
+          if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
+            b ++= s"$tab  ${emitReference(mem, false)}(to_integer(${emitExpression(address)}))$range <= ${emitExpression(data)}$range;\n"
+          else
+            b ++= s"$tab  ${emitReference(mem, false)}_symbol${i}(to_integer(${emitExpression(address)})) <= ${emitExpression(data)}$range;\n"
+
+          b ++= s"${tab}end if;\n"
+        }
+      }
+    }
+
+    def emitRead(b : StringBuilder, mem : Mem[_], address : Expression, target : Expression, tab: String) = {
+      val ramRead = {
+        val symbolCount = mem.getMemSymbolCount
+        if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
+          s"${emitReference(mem, false)}(to_integer(${emitExpression(address)}))"
+        else
+          (0 until symbolCount).reverse.map(i => (s"${emitReference(mem, false)}_symbol$i(to_integer(${emitExpression(address)}))")).reduce(_ + " & " + _)
+      }
+
+      b ++= s"$tab${emitExpression(target)} <= ${ramRead};\n"
+    }
 
     def emitPort(port : MemPortStatement,tab : String, b : mutable.StringBuilder) : Unit = port match {
       case memWrite: MemWrite => {
@@ -1986,38 +2030,10 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
         if (memWrite.writeEnable != null) {
           b ++= s"${tab}if ${emitExpression(memWrite.writeEnable)} = '1' then\n"
-          emitWrite(tab + "  ")
+          emitWrite(b, memWrite.mem, memWrite.address, memWrite.data, memWrite.mask, memWrite.mem.getMemSymbolCount, memWrite.mem.getMemSymbolWidth(), tab + "  ")
           b ++= s"${tab}end if;\n"
         } else {
-          emitWrite(tab)
-        }
-
-        def emitWrite(tab: String) = {
-          val symbolCount = memWrite.mem.getMemSymbolCount
-          val bitPerSymbole = memWrite.mem.getMemSymbolWidth()
-
-          if(memWrite.mask == null) {
-            if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
-              b ++= s"$tab${emitReference(memWrite.mem, false)}(to_integer(${emitExpression(memWrite.address)})) <= ${emitExpression(memWrite.data)};\n"
-            else
-              for(i <- 0 until symbolCount) {
-                val range = s"(${(i + 1) * bitPerSymbole - 1} downto ${i * bitPerSymbole})"
-                b ++= s"$tab  ${emitReference(memWrite.mem, false)}_symbol${i}(to_integer(${emitExpression(memWrite.address)})) <= ${emitExpression(memWrite.data)}$range;\n"
-              }
-          }else{
-
-            val maskCount = memWrite.mask.getWidth
-            for(i <- 0 until maskCount){
-              val range = s"(${(i+1)*bitPerSymbole-1} downto ${i*bitPerSymbole})"
-              b ++= s"${tab}if ${emitExpression(memWrite.mask)}($i) = '1' then\n"
-              if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
-                b ++= s"$tab  ${emitReference(memWrite.mem, false)}(to_integer(${emitExpression(memWrite.address)}))$range <= ${emitExpression(memWrite.data)}$range;\n"
-              else
-                b ++= s"$tab  ${emitReference(memWrite.mem, false)}_symbol${i}(to_integer(${emitExpression(memWrite.address)})) <= ${emitExpression(memWrite.data)}$range;\n"
-
-              b ++= s"${tab}end if;\n"
-            }
-          }
+          emitWrite(b, memWrite.mem, memWrite.address, memWrite.data, memWrite.mask, memWrite.mem.getMemSymbolCount, memWrite.mem.getMemSymbolWidth(), tab)
         }
       }
       case memReadSync: MemReadSync => {
@@ -2026,21 +2042,27 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
         if(memReadSync.readUnderWrite == dontCare) SpinalWarning(s"memReadSync with dontCare is as readFirst into VHDL $memReadSync")
         if(memReadSync.readEnable != null) {
           b ++= s"${tab}if ${emitExpression(memReadSync.readEnable)} = '1' then\n"
-          emitRead(tab + "  ")
+          emitRead(b, memReadSync.mem, memReadSync.address, memReadSync, tab + "  ")
           b ++= s"${tab}end if;\n"
         } else {
-          emitRead(tab)
+          emitRead(b, memReadSync.mem, memReadSync.address, memReadSync, tab)
         }
-        def emitRamRead() = {
-          val symbolCount = memReadSync.mem.getMemSymbolCount
-          if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
-            s"${emitReference(memReadSync.mem, false)}(to_integer(${emitExpression(memReadSync.address)}))"
-          else
-            (0 until symbolCount).reverse.map(i => (s"${emitReference(memReadSync.mem, false)}_symbol$i(to_integer(${emitExpression(memReadSync.address)}))")).reduce(_ + " & " + _)
-        }
-        def emitRead(tab: String) = b ++= s"$tab${emitExpression(memReadSync)} <= ${emitRamRead()};\n"
-
       }
+
+      case memReadWrite : MemReadWrite => {
+        if(memReadWrite.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${memReadWrite.mem} because of its mixed width ports")
+//                    if (memReadWrite.readUnderWrite == writeFirst) SpinalError(s"Can't translate a MemWriteOrRead with writeFirst into VHDL $memReadWrite")
+//                    if (memReadWrite.readUnderWrite == dontCare) SpinalWarning(s"MemWriteOrRead with dontCare is as readFirst into VHDL $memReadWrite")
+
+        val symbolCount = memReadWrite.mem.getMemSymbolCount
+        b ++= s"${tab}if ${emitExpression(memReadWrite.chipSelect)} = '1' then\n"
+        b ++= s"${tab}  if ${emitExpression(memReadWrite.writeEnable)} = '1' then\n"
+        emitWrite(b, memReadWrite.mem, memReadWrite.address, memReadWrite.data, memReadWrite.mask, memReadWrite.mem.getMemSymbolCount, memReadWrite.mem.getMemSymbolWidth(),tab + "    ")
+        b ++= s"${tab}  end if;\n"
+        emitRead(b, memReadWrite.mem, memReadWrite.address, memReadWrite, tab + "  ")
+        b ++= s"${tab}end if;\n"
+      }
+
     }
 
 
@@ -2051,6 +2073,8 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
       case port : MemReadSync =>
         if(port.readUnderWrite == readFirst)
           cdTasks.getOrElseUpdate(port.clockDomain, ArrayBuffer[MemPortStatement]()) += port
+      case port : MemReadWrite =>
+        cdTasks.getOrElseUpdate(port.clockDomain, ArrayBuffer[MemPortStatement]()) += port
       case port : MemReadAsync =>
     }
 
@@ -2059,6 +2083,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
         ports.foreach{
           case port : MemWrite => emitPort(port, tab, b)
           case port : MemReadSync => emitPort(port, tab, b)
+          case port : MemReadWrite => emitPort(port, tab, b)
         }
       }
 
@@ -2067,6 +2092,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
     mem.foreachStatements{
       case port : MemWrite =>
+      case port : MemReadWrite =>
       case port : MemReadSync =>
         if(port.readUnderWrite == dontCare)
           emitClockedProcess(emitPort(port,_,_),null,b.logics, port.clockDomain, false, mem.component)
