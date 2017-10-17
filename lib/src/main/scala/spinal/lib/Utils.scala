@@ -303,8 +303,8 @@ object Counter {
 // start and end inclusive, up counter
 class Counter(val start: BigInt,val end: BigInt) extends ImplicitArea[UInt] {
   require(start <= end)
-  val willIncrement = False
-  val willClear = False
+  val willIncrement = False.allowOverride
+  val willClear = False.allowOverride
 
   def clear(): Unit = willClear := True
   def increment(): Unit = willIncrement := True

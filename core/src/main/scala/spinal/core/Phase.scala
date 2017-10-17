@@ -1779,7 +1779,7 @@ class PhaseCheckHiearchy extends PhaseCheck{
   override def useNodeConsumers: Boolean = false
 }
 
-class PhaseCheck_noAsyncNodeWithIncompleteAssignment(pc: PhaseContext) extends PhaseCheck{
+class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
   override def useNodeConsumers = false
   override def impl(pc : PhaseContext): Unit = {
     import pc._
@@ -1788,13 +1788,35 @@ class PhaseCheck_noAsyncNodeWithIncompleteAssignment(pc: PhaseContext) extends P
       def walkBody(body : ScopeStatement) : mutable.HashMap[BaseType, AssignedBits] = {
         val assigneds = mutable.HashMap[BaseType, AssignedBits]()
         def getOrEmpty(bt : BaseType) = assigneds.getOrElseUpdate(bt, new AssignedBits(bt.getBitsWidth))
+        def getOrEmptyAdd(bt : BaseType, src : AssignedBits): Boolean = {
+          val dst = getOrEmpty(bt)
+          val ret = src.isFull && !dst.isEmpty && !bt.hasTag(allowAssignementOverride)
+          dst.add(src)
+          ret
+        }
+        def getOrEmptyAdd2(bt : BaseType, src : AssignedRange): Boolean = {
+          val dst = getOrEmpty(bt)
+          val ret = src.hi == dst.width-1 && src.lo == 0 && !dst.isEmpty  && !bt.hasTag(allowAssignementOverride)
+          dst.add(src)
+          ret
+        }
+        def getOrEmptyAdd3(bt : BaseType, hi : Int, lo : Int): Boolean = {
+          val dst = getOrEmpty(bt)
+          val ret = hi == dst.width-1 && lo == 0 && !dst.isEmpty  && !bt.hasTag(allowAssignementOverride)
+          dst.add(hi, lo)
+          ret
+        }
         body.foreachStatements {
-          case s: AssignementStatement => {
+          case s: DataAssignementStatement => { //Omit InitAssignementStatement
             s.target match {
-              case bt : BaseType => if(bt.isComb) getOrEmpty(bt).add(bt.getBitsWidth - 1, 0)
+              case bt : BaseType => if(getOrEmptyAdd3(bt, bt.getBitsWidth - 1, 0)){
+                PendingError(s"The previous assignements of $bt are fully overridden at \n${s.getScalaLocationLong}")
+              }
               case e : BitVectorAssignementExpression => {
                 val bt = e.finalTarget
-                if(bt.isComb) getOrEmpty(bt).add(e.getAssignedBits)
+                if(getOrEmptyAdd2(bt,e.getAssignedBits)){
+                  PendingError(s"The previous assignements of $bt are fully overridden at \n${s.getScalaLocationLong}")
+                }
               }
             }
           }
@@ -1803,7 +1825,9 @@ class PhaseCheck_noAsyncNodeWithIncompleteAssignment(pc: PhaseContext) extends P
             val whenFalse = walkBody(s.whenFalse)
             for ((bt, assigned) <- whenTrue) {
               whenFalse.get(bt) match {
-                case Some(otherBt) => getOrEmpty(bt).add(assigned.intersect(otherBt))
+                case Some(otherBt) => if(getOrEmptyAdd(bt,assigned.intersect(otherBt))){
+                  PendingError(s"The previous assignements of $bt are fully overridden inside the when statement at \n ${s.getScalaLocationLong}")
+                }
                 case None =>
               }
             }
@@ -1828,27 +1852,29 @@ class PhaseCheck_noAsyncNodeWithIncompleteAssignment(pc: PhaseContext) extends P
               }
 
               for ((bt, assigned) <- head) {
-                getOrEmpty(bt).add(assigned)
+                if(getOrEmptyAdd(bt,assigned)){
+                  PendingError(s"The previous assignements of $bt are fully overridden inside the switch statement at \n ${s.getScalaLocationLong}")
+                }
               }
             }
           }
-          case signal : BaseType if signal.isComb && !(signal.component.isInBlackBoxTree && !signal.isInput) && !(signal.component.parent == null && signal.isInput)  => {
+          case signal : BaseType if !(signal.component.isInBlackBoxTree && !signal.isInput) && !(signal.component.parent == null && signal.isInput)  => {
             getOrEmpty(signal)
           }
           case s =>
          }
 
-        for((bt, assignedBits) <- assigneds if bt.rootScopeStatement == body && !assignedBits.isFull){
-            val unassignedBits = new AssignedBits(bt.getBitsWidth)
-            unassignedBits.add(bt.getBitsWidth-1, 0)
-            unassignedBits.remove(assignedBits)
-            if (!unassignedBits.isEmpty) {
-              if(unassignedBits.isFull)
-                PendingError(s"Combinatorial signal $bt has no default value => LATCH, defined at\n${bt.getScalaLocationLong}")
-              else
-                PendingError(s"Incomplete assignment is detected on the combinatorial signal $bt, unassigned bit mask " +
-                  s"is ${unassignedBits.toBinaryString}, declared at\n${bt.getScalaLocationLong}")
-            }
+        for((bt, assignedBits) <- assigneds if bt.isComb && bt.rootScopeStatement == body && !assignedBits.isFull){
+          val unassignedBits = new AssignedBits(bt.getBitsWidth)
+          unassignedBits.add(bt.getBitsWidth-1, 0)
+          unassignedBits.remove(assignedBits)
+          if (!unassignedBits.isEmpty) {
+            if(unassignedBits.isFull)
+              PendingError(s"Combinatorial signal $bt has no default value => LATCH, defined at\n${bt.getScalaLocationLong}")
+            else
+              PendingError(s"Incomplete assignment is detected on the combinatorial signal $bt, unassigned bit mask " +
+                s"is ${unassignedBits.toBinaryString}, declared at\n${bt.getScalaLocationLong}")
+          }
         }
 
         assigneds
@@ -2284,7 +2310,7 @@ object SpinalVhdlBoot{
     phases += new PhaseRemoveUselessStuff(true)
     phases += new PhaseRemoveIntermediateUnameds(false)
 
-    phases += new PhaseCheck_noAsyncNodeWithIncompleteAssignment(pc)
+    phases += new PhaseCheck_noLatchNoOverride(pc)
 
     phases += new PhaseAllocateNames(pc)
 //    phases += new PhaseRemoveComponentThatNeedNoHdlEmit(pc)

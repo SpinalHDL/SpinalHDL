@@ -121,18 +121,21 @@ object PlayDebug{
       switch(sel){
         is(0){
           result := 0
+//          result := 0
         }
         is(1){
-          result := 1
+          result(7 downto 4) := 2
         }
         is(2){
           result := 2
+          result := 0
         }
-//        is(3){
+        is(3){
 //        default{
-//          result := 3
-//          result.msb := True
-//        }
+          result := 3
+          result.msb := True
+          result := 3
+        }
 
       }
     }otherwise {

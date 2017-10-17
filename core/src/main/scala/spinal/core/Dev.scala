@@ -12,7 +12,6 @@ import scala.collection.mutable.ArrayBuffer
 // Mem blackboxify
 // Add transformation phases
 // Check what happend if you assign a signals outside it's scope
-// Check assignement overriding
 case class DslContext(clockDomain: ClockDomain, component: Component, scope: ScopeStatement)
 
 

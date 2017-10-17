@@ -136,6 +136,7 @@ object PlayDevFillSwitch{
     switch(sel){
       is(0){
         result := 0
+        result := 0
       }
       is(1){
         result := 1

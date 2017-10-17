@@ -158,9 +158,8 @@ trait DataPrimitives[T <: Data]{
     ret := _data
     if(manageLastStatement) _data.dslContext.scope.append(lastStatement)
     globalData.context.pop()
-//    ret.globalData.overridingAssignementWarnings = false
+    ret.allowOverride
     ret := that
-//    ret.globalData.overridingAssignementWarnings = true
     ret
   }
 
@@ -294,6 +293,10 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     ret.addTag(tagAutoResize)
     return ret.asInstanceOf[this.type]
   }
+  def allowOverride() : this.type ={
+    addTag(allowAssignementOverride)
+  }
+
 
   private[core] def autoConnect(that: Data): Unit// = (this.flatten, that.flatten).zipped.foreach(_ autoConnect _)
 

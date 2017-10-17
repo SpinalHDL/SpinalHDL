@@ -1462,6 +1462,19 @@ class AssignedBits(val width : Int) {
       this.value(idx) |= range.value(idx)
     }
   }
+  def addChangeReturn(range: AssignedBits): Boolean = {
+    assert(range.width == this.width)
+    var idx = Math.min(value.length,range.value.length)
+    var changed = false
+    while(idx != 0){
+      idx -= 1
+      val currentValue = this.value(idx)
+      val ored = currentValue | range.value(idx)
+      changed |= ored != currentValue
+      this.value(idx) = ored
+    }
+    return changed
+  }
   def remove(range: AssignedBits): Unit = {
     assert(range.width == this.width)
     var idx = Math.min(value.length,range.value.length)
