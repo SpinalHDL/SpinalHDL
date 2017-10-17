@@ -96,10 +96,49 @@ object PlayDebug{
 //  }
 
 
-  class TopLevel extends Component {
-     assert(True === True)
-  }
+//  class TopLevel extends Component {
+//     assert(True === True)
+//  }
 
+  class TopLevel extends Component {
+    val a,b = in Bool()
+    val sel = in UInt(2 bits)
+    val result = UInt(8 bits)
+//    result := 0
+    when(a){
+      result := 1
+    } otherwise {
+      result(2 downto 0) := 2
+//      when(b){
+//        result := 2
+//      }otherwise {
+//        result(7 downto 3) := 2
+//      }
+    }
+
+    result(3) := b
+    when(b){
+      switch(sel){
+        is(0){
+          result := 0
+        }
+        is(1){
+          result := 1
+        }
+        is(2){
+          result := 2
+        }
+//        is(3){
+//        default{
+//          result := 3
+//          result.msb := True
+//        }
+
+      }
+    }otherwise {
+      result(7 downto 4) := 2
+    }
+  }
 
   def main(args: Array[String]) {
     val toplevel = SpinalVhdl(new TopLevel()).toplevel

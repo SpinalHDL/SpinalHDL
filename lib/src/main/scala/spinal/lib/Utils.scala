@@ -484,6 +484,10 @@ object LatencyAnalysis {
               port.foreachDrivingExpression(input => {
                 pendingQueues(1) += input
               })
+            case port : MemReadWrite =>
+              port.foreachDrivingExpression(input => {
+                pendingQueues(1) += input
+              })
             case port : MemReadSync =>
             case port : MemReadAsync =>
               //TODO other ports
@@ -519,7 +523,16 @@ object LatencyAnalysis {
           })
           pendingQueues(1) += that.mem
           return false
-        //TODO other ports
+        case that : MemReadWrite =>
+          that.foreachDrivingExpression(input => {
+            if(walk(input))
+              return true
+          })
+          pendingQueues(1) += that.mem
+          that.foreachDrivingExpression(input => {
+            pendingQueues(2) += input
+          })
+          return false
         case that : MemReadAsync =>
           that.foreachDrivingExpression(input => {
             if(walk(input))

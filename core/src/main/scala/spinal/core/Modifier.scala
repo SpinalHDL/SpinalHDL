@@ -316,11 +316,28 @@ object Operator{
     abstract class ShiftLeftByInt(val shift : Int) extends ConstantOperatorWidthableInputs with Widthable with ShiftOperator{
       assert(shift >= 0)
       override def calcWidth(): Int = source.getWidth + shift
+      def getLiteralFactory : (BigInt, Int) => BitVectorLiteral
+      override def simplifyNode: Expression = {
+        if(source.getWidth == 0){
+          getLiteralFactory(0, this.getWidth)
+        } else {
+          this
+        }
+      }
     }
 
     abstract class ShiftLeftByUInt extends BinaryOperatorWidthableInputs with Widthable with ShiftOperator{
       override def calcWidth(): Int = left.getWidth + (1 << right.getWidth) - 1
-      override def simplifyNode: Expression = if(right.getWidth == 0) left else this
+      def getLiteralFactory : (BigInt, Int) => BitVectorLiteral
+      override def simplifyNode: Expression = {
+        if(left.getWidth == 0){
+          getLiteralFactory(0, this.getWidth)
+        }else if(right.getWidth == 0){
+          left
+        }else{
+          this
+        }
+      }
     }
 
 
@@ -413,11 +430,13 @@ object Operator{
     class ShiftLeftByInt(shift : Int) extends BitVector.ShiftLeftByInt(shift){
       override def getTypeObject = TypeBits
       override def opName: String = "b<<i"
+      override def getLiteralFactory : (BigInt, Int) => BitVectorLiteral = BitsLiteral.apply
     }
 
     class ShiftLeftByUInt extends BitVector.ShiftLeftByUInt{
       override def getTypeObject = TypeBits
       override def opName: String = "b<<u"
+      override def getLiteralFactory : (BigInt, Int) => BitVectorLiteral = BitsLiteral.apply
     }
 
     class ShiftRightByIntFixedWidth(shift : Int) extends BitVector.ShiftRightByIntFixedWidth(shift){
@@ -550,11 +569,13 @@ object Operator{
     class ShiftLeftByInt(shift : Int) extends BitVector.ShiftLeftByInt(shift){
       override def getTypeObject = TypeUInt
       override def opName: String = "u<<i"
+      override def getLiteralFactory : (BigInt, Int) => BitVectorLiteral = UIntLiteral.apply
     }
 
     class ShiftLeftByUInt extends BitVector.ShiftLeftByUInt{
       override def getTypeObject = TypeUInt
       override def opName: String = "u<<u"
+      override def getLiteralFactory : (BigInt, Int) => BitVectorLiteral = UIntLiteral.apply
     }
 
     class ShiftRightByIntFixedWidth(shift : Int) extends BitVector.ShiftRightByIntFixedWidth(shift){
@@ -687,11 +708,13 @@ object Operator{
     class ShiftLeftByInt(shift : Int) extends BitVector.ShiftLeftByInt(shift){
       override def getTypeObject = TypeSInt
       override def opName: String = "s<<i"
+      override def getLiteralFactory : (BigInt, Int) => BitVectorLiteral = SIntLiteral.apply
     }
 
     class ShiftLeftByUInt extends BitVector.ShiftLeftByUInt{
       override def getTypeObject = TypeSInt
       override def opName: String = "s<<u"
+      override def getLiteralFactory : (BigInt, Int) => BitVectorLiteral = SIntLiteral.apply
     }
 
     class ShiftRightByIntFixedWidth(shift : Int) extends BitVector.ShiftRightByIntFixedWidth(shift){
@@ -1291,59 +1314,59 @@ class SIntRangedAccessFloating extends BitVectorRangedAccessFloating{
 ////
 ////}
 //
-//object AssignedBits {
-//  //  def apply(bitId: Int): AssignedBits = {
-//  //    val ab = new AssignedBits
-//  //    ab.add(new AssignedRange(bitId, bitId))
-//  //    ab
-//  //  }
-//  //  def apply(hi: Int, lo: Int): AssignedBits = {
-//  //    val ab = new AssignedBits
-//  //    ab.add(new AssignedRange(hi, lo))
-//  //    ab
-//  //  }
-//  def union(a: AssignedBits, b: AssignedBits): AssignedBits = {
-//    val ret = new AssignedBits(a.width)
+object AssignedBits {
+  //  def apply(bitId: Int): AssignedBits = {
+  //    val ab = new AssignedBits
+  //    ab.add(new AssignedRange(bitId, bitId))
+  //    ab
+  //  }
+  //  def apply(hi: Int, lo: Int): AssignedBits = {
+  //    val ab = new AssignedBits
+  //    ab.add(new AssignedRange(hi, lo))
+  //    ab
+  //  }
+  def union(a: AssignedBits, b: AssignedBits): AssignedBits = {
+    val ret = new AssignedBits(a.width)
+
+    ret.add(a)
+    ret.add(b)
+
+    ret
+  }
+
+
+  def intersect(a: AssignedBits, b: AssignedBits): AssignedBits = {
+    val ret = a.clone()
+    ret.intersect(b)
+    ret
+  }
+
+
+  def intersect(a: AssignedRange, b: AssignedBits): AssignedBits = {
+    val ret = b.clone()
+    ret.intersect(a)
+    ret
+  }
+  def intersect(a: AssignedBits, b: AssignedRange): AssignedBits = intersect(b,a)
+
+
+
+}
 //
-//    ret.add(a)
-//    ret.add(b)
-//
-//    ret
-//  }
-//
-//
-//  def intersect(a: AssignedBits, b: AssignedBits): AssignedBits = {
-//    val ret = a.clone()
-//    ret.intersect(b)
-//    ret
-//  }
-//
-//
-//  def intersect(a: AssignedRange, b: AssignedBits): AssignedBits = {
-//    val ret = b.clone()
-//    ret.intersect(a)
-//    ret
-//  }
-//  def intersect(a: AssignedBits, b: AssignedRange): AssignedBits = intersect(b,a)
-//
-//
-//
-//}
-//
-//object AssignedRange{
-//  def apply(hi : Int,lo : Int) = new AssignedRange(hi,lo)
-//  def apply(bit : Int) = new AssignedRange(bit,bit)
-//  def apply() = new AssignedRange(-1,-1)
-//}
-//
-//class AssignedRange(val hi: Int, val lo: Int) {
-//  def toBigInt = ((BigInt(1) << (hi + 1 - lo)) - 1) << lo
-//  def toAssignedBits = {
-//    val ret = new AssignedBits(hi + 1)
-//    ret.add(this)
-//    ret
-//  }
-//}
+object AssignedRange{
+  def apply(hi : Int,lo : Int) = new AssignedRange(hi,lo)
+  def apply(bit : Int) = new AssignedRange(bit,bit)
+  def apply() = new AssignedRange(-1,-1)
+}
+
+class AssignedRange(val hi: Int, val lo: Int) {
+  def toBigInt = ((BigInt(1) << (hi + 1 - lo)) - 1) << lo
+  def toAssignedBits = {
+    val ret = new AssignedBits(hi + 1)
+    ret.add(this)
+    ret
+  }
+}
 ////
 ////class AssignedBits(val width : Int) {
 ////  var value: BigInt = 0
@@ -1375,128 +1398,137 @@ class SIntRangedAccessFloating extends BitVectorRangedAccessFloating{
 ////  def toBinaryString : String = value.toString(2)
 ////}
 ////
-//class AssignedBits(val width : Int) {
-//  def bitPerIndex = 32
-//  var value = new Array[Int]((width+bitPerIndex-1)/bitPerIndex)
-//
-//  override def clone() : AssignedBits = {
-//    val ret = new AssignedBits(width)
-//    var idx = value.length
-//    while(idx != 0){
-//      idx -= 1
-//      ret.value(idx) = this.value(idx)
-//    }
-//    ret
-//  }
-//
-//  def isIntersecting(range: AssignedRange): Boolean = {
-//    if(range.hi >= width)
-//      assert(false)
-//    var idx = value.length
-//    while(idx != 0){
-//      idx -= 1
-//      val hi = Math.min(range.hi - idx*bitPerIndex,bitPerIndex-1)
-//      val lo = Math.max(range.lo - idx*bitPerIndex,0)
-//      if(hi >= lo) {
-//        if((this.value(idx) & (((1l << (hi + 1)) - 1) - ((1l << lo) - 1)).toInt) != 0) {
-//          return true
-//        }
-//      }
-//    }
-//    return false
-//  }
-//
-//
-//
-//  def + (that : AssignedRange) : AssignedBits = {
-//    val ret = clone()
-//    ret.add(that)
-//    ret
-//  }
-//
-//  def intersect(range: AssignedBits): Unit = {
-//    assert(range.width == this.width)
-//    var idx = Math.min(value.length,range.value.length)
-//    while(idx != 0){
-//      idx -= 1
-//      this.value(idx) &= range.value(idx)
-//    }
-//  }
-//
-//  def add(range: AssignedBits): Unit = {
-//    assert(range.width == this.width)
-//    var idx = Math.min(value.length,range.value.length)
-//    while(idx != 0){
-//      idx -= 1
-//      this.value(idx) |= range.value(idx)
-//    }
-//  }
-//  def remove(range: AssignedBits): Unit = {
-//    assert(range.width == this.width)
-//    var idx = Math.min(value.length,range.value.length)
-//    while(idx != 0){
-//      idx -= 1
-//      this.value(idx) &= ~range.value(idx)
-//    }
-//  }
-//  def intersect(range: AssignedRange): Unit = {
-//    assert(range.hi < width)
-//    var idx = value.length
-//    while(idx != 0){
-//      idx -= 1
-//      val hi = Math.min(range.hi - idx*bitPerIndex,bitPerIndex-1)
-//      val lo = Math.max(range.lo - idx*bitPerIndex,0)
-//      if(hi >= lo)
-//        this.value(idx) &= (((1l << (hi+1))-1)-((1l << lo)-1)).toInt
-//    }
-//  }
-//  def add(range: AssignedRange): Unit = {
-//    assert(range.hi < width)
-//    var idx = value.length
-//    while(idx != 0){
-//      idx -= 1
-//      val hi = Math.min(range.hi - idx*bitPerIndex,bitPerIndex-1)
-//      val lo = Math.max(range.lo - idx*bitPerIndex,0)
-//      if(hi >= lo)
-//        this.value(idx) |= (((1l << (hi+1))-1)-((1l << lo)-1)).toInt
-//    }
-//  }
-//  def remove(range: AssignedRange): Unit = {
-//    assert(range.hi < width)
-//    var idx = value.length
-//    while(idx != 0){
-//      idx -= 1
-//      val hi = Math.min(range.hi - idx*bitPerIndex,bitPerIndex-1)
-//      val lo = Math.max(range.lo - idx*bitPerIndex,0)
-//      if(hi >= lo)
-//        this.value(idx) &= ~(((1l << (hi+1))-1)-((1l << lo)-1)).toInt
-//    }
-//  }
-//
-//  def toBinaryString : String = {
-//    val strs = for((e,idx) <- value.zipWithIndex.reverseIterator) yield {
-//      val str = e.toBinaryString
-//      val eWidth = if(idx == value.length-1) width-idx*bitPerIndex else 32
-//
-//      "0"*(eWidth-str.length) + str
-//    }
-//    strs.reduce(_ + "_" + _)
-//  }
-//  def isEmpty = value.foldLeft(true)((c,e) => c && (e == 0))
-//  def isFull : Boolean = {
-//    for(i <- 0 to value.length-2){
-//      if(value(i) != 0xFFFFFFFF) return false
-//    }
-//    if(value.last != (1 << (width.toLong % 32))-1) return false
-//    true
-//  }
-//}
-//
+class AssignedBits(val width : Int) {
+  def bitPerIndex = 32
+  var value = new Array[Int]((width+bitPerIndex-1)/bitPerIndex)
+
+  override def clone() : AssignedBits = {
+    val ret = new AssignedBits(width)
+    var idx = value.length
+    while(idx != 0){
+      idx -= 1
+      ret.value(idx) = this.value(idx)
+    }
+    ret
+  }
+
+  def isIntersecting(range: AssignedRange): Boolean = {
+    if(range.hi >= width)
+      assert(false)
+    var idx = value.length
+    while(idx != 0){
+      idx -= 1
+      val hi = Math.min(range.hi - idx*bitPerIndex,bitPerIndex-1)
+      val lo = Math.max(range.lo - idx*bitPerIndex,0)
+      if(hi >= lo) {
+        if((this.value(idx) & (((1l << (hi + 1)) - 1) - ((1l << lo) - 1)).toInt) != 0) {
+          return true
+        }
+      }
+    }
+    return false
+  }
+
+
+  def clear(): Unit ={
+    var idx = value.length
+    while(idx != 0){
+      idx -= 1
+      value(idx) = 0
+    }
+  }
+
+  def + (that : AssignedRange) : AssignedBits = {
+    val ret = clone()
+    ret.add(that)
+    ret
+  }
+
+  def intersect(range: AssignedBits): AssignedBits = {
+    assert(range.width == this.width)
+    var idx = Math.min(value.length,range.value.length)
+    while(idx != 0){
+      idx -= 1
+      this.value(idx) &= range.value(idx)
+    }
+    this
+  }
+
+  def add(range: AssignedBits): Unit = {
+    assert(range.width == this.width)
+    var idx = Math.min(value.length,range.value.length)
+    while(idx != 0){
+      idx -= 1
+      this.value(idx) |= range.value(idx)
+    }
+  }
+  def remove(range: AssignedBits): Unit = {
+    assert(range.width == this.width)
+    var idx = Math.min(value.length,range.value.length)
+    while(idx != 0){
+      idx -= 1
+      this.value(idx) &= ~range.value(idx)
+    }
+  }
+  def intersect(range: AssignedRange): Unit = {
+    assert(range.hi < width)
+    var idx = value.length
+    while(idx != 0){
+      idx -= 1
+      val hi = Math.min(range.hi - idx*bitPerIndex,bitPerIndex-1)
+      val lo = Math.max(range.lo - idx*bitPerIndex,0)
+      if(hi >= lo)
+        this.value(idx) &= (((1l << (hi+1))-1)-((1l << lo)-1)).toInt
+    }
+  }
+  def add(hi: Int, lo: Int): Unit = {
+    assert(hi < width)
+    var idx = value.length
+    while(idx != 0){
+      idx -= 1
+      val hiA = Math.min(hi - idx*bitPerIndex,bitPerIndex-1)
+      val loA = Math.max(lo - idx*bitPerIndex,0)
+      if(hiA >= loA)
+        this.value(idx) |= (((1l << (hiA+1))-1)-((1l << loA)-1)).toInt
+    }
+  }
+  def add(range: AssignedRange): Unit = add(range.hi, range.lo)
+  def remove(range: AssignedRange): Unit = {
+    assert(range.hi < width)
+    var idx = value.length
+    while(idx != 0){
+      idx -= 1
+      val hi = Math.min(range.hi - idx*bitPerIndex,bitPerIndex-1)
+      val lo = Math.max(range.lo - idx*bitPerIndex,0)
+      if(hi >= lo)
+        this.value(idx) &= ~(((1l << (hi+1))-1)-((1l << lo)-1)).toInt
+    }
+  }
+
+  def toBinaryString : String = {
+    val strs = for((e,idx) <- value.zipWithIndex.reverseIterator) yield {
+      val str = e.toBinaryString
+      val eWidth = if(idx == value.length-1) width-idx*bitPerIndex else 32
+
+      "0"*(eWidth-str.length) + str
+    }
+    strs.reduce(_ + "_" + _)
+  }
+  def isEmpty = value.foldLeft(true)((c,e) => c && (e == 0))
+  def isFull : Boolean = {
+    for(i <- 0 to value.length-2){
+      if(value(i) != 0xFFFFFFFF) return false
+    }
+    if(value.last != (1 << (width.toLong % 32))-1) return false
+    true
+  }
+}
+
 abstract class AssignementExpression extends Expression {
   def finalTarget: BaseType
   override def foreachDrivingExpression(func : (Expression) => Unit) : Unit
   override def remapDrivingExpressions(func: (Expression) => Expression): Unit
-//  def getAssignedBits: AssignedRange //Bit that are allwas assigned
+  def getAssignedBits: AssignedRange //Bit that are allwas assigned
 //  def getScopeBits: AssignedRange //Bit tht could be assigned
 //  def getOutBaseType: BaseType
 //
@@ -1546,8 +1578,7 @@ class BitAssignmentFixed() extends BitVectorAssignementExpression with ScalaLoca
   //      PendingError(s"Static bool extraction (bit ${bitId}) is outside the range (${out.getWidth - 1} downto 0) of ${out} at\n${getScalaLocationLong}")
   //    }
   //  }
-  //
-  //  def getAssignedBits: AssignedRange = AssignedRange(bitId)
+  override def getAssignedBits: AssignedRange = AssignedRange(bitId)
   //  def getScopeBits: AssignedRange = getAssignedBits
   //  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = {
   //    if(outHi >= bitId && bitId >= outLo)
@@ -1596,7 +1627,7 @@ class RangedAssignmentFixed() extends BitVectorAssignementExpression with WidthP
 
 
 
-  //  def getAssignedBits: AssignedRange = AssignedRange(hi, lo)
+  override def getAssignedBits: AssignedRange = AssignedRange(hi, lo)
   //  def getScopeBits: AssignedRange = getAssignedBits
   //  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = {
   //    val relativeLo = outLo-lo
@@ -1649,7 +1680,7 @@ class BitAssignmentFloating() extends BitVectorAssignementExpression{
     }else
       this
   }
-//  def getAssignedBits: AssignedRange = AssignedRange()
+  override def getAssignedBits: AssignedRange = AssignedRange()
 //  def getScopeBits: AssignedRange = AssignedRange(Math.min(out.getWidth-1,(1 << Math.min(20,bitId.getWidth)) - 1), 0)
 //
 //  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = inputId match{
@@ -1724,7 +1755,7 @@ class RangedAssignmentFloating() extends BitVectorAssignementExpression with Wid
 //
 //
 //
-//  def getAssignedBits: AssignedRange = AssignedRange()
+  override def getAssignedBits: AssignedRange = AssignedRange()
 //  //TODO should not use constructor node ref
 //  def getScopeBits: AssignedRange = AssignedRange(Math.min(out.getWidth-1,(1 << Math.min(20,offset_.asInstanceOf[Node with WidthProvider].getWidth))+ bitCount.value - 1), 0) //TODO dirty offset_
 //  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = super.getOutToInUsage(inputId,outHi,outLo) //TODO

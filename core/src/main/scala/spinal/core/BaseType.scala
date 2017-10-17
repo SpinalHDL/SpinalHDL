@@ -297,7 +297,7 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
 
   override def removeStatement(): Unit = {
     super.removeStatement()
-    component.ioSet.remove(this)
+    if(!isDirectionLess) component.ioSet.remove(this)
   }
 
   //

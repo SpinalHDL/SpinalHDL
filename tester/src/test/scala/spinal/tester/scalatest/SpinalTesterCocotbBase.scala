@@ -133,7 +133,7 @@ abstract class SpinalTesterCocotbBase extends FunSuite /* with BeforeAndAfterAll
     return true
   }
 
-  def postTest: () => Unit = null
+  def postTest : () => Unit = null
 
   def backendConfig(config: SpinalConfig) : SpinalConfig = config
   def getName: String = this.getClass.getName()

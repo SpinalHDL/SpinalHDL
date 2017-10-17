@@ -9,11 +9,16 @@ import scala.collection.mutable.ArrayBuffer
 // Emit signal attribut, carefull with outputs
 // Add more check to bitvector literal width and minimal width
 // checkout dslContext stuff redondancy
+// Mem blackboxify
+// Add transformation phases
+// Check what happend if you assign a signals outside it's scope
+// Check assignement overriding
 case class DslContext(clockDomain: ClockDomain, component: Component, scope: ScopeStatement)
 
 
 trait BaseNode {
   var algoInt, algoIncrementale = 0
+//  var algoAny : Any = null
   private[core] def getClassIdentifier: String = this.getClass.getName.split('.').last.replace("$","")
 }
 
@@ -436,6 +441,62 @@ class SwitchStatement(var value : Expression) extends TreeStatement{
       case `TypeSInt` => bitVectorNormalize(new ResizeSInt)
       case _ =>
     }
+  }
+
+
+  def isFullyCoveredWithoutDefault: Boolean ={
+    object Exclusion{
+      def apply(size : BigInt) : Exclusion = {
+        if(size < 4096) new ExclusionByArray((size))
+        else new ExclusionByNothing(size)
+      }
+    }
+
+    abstract class Exclusion(val size : BigInt){
+      var remaining = size
+      def allocate(id : BigInt): Boolean
+    }
+
+    class ExclusionByNothing(size : BigInt) extends Exclusion(size){ //TODO better than nothing
+      override def allocate(id: BigInt): Boolean = true
+    }
+
+    class ExclusionByArray(size : BigInt) extends Exclusion(size){
+      val occupancy = new Array[Boolean](size.toInt)
+
+      def allocate(id_ : BigInt): Boolean ={
+        val id = id_.toInt
+        if(id_ >= size){
+          println("???")
+        }
+        if(occupancy(id)) return false
+        occupancy(id) = true
+        remaining -= 1
+        return true
+      }
+    }
+
+
+    val coverage = Exclusion(value.getTypeObject match {
+      case TypeBool => BigInt(2)
+      case TypeBits => BigInt(1) << value.asInstanceOf[WidthProvider].getWidth
+      case TypeUInt => BigInt(1) << value.asInstanceOf[WidthProvider].getWidth
+      case TypeSInt => BigInt(1) << value.asInstanceOf[WidthProvider].getWidth
+      case TypeEnum => BigInt(value.asInstanceOf[EnumEncoded].getDefinition.elements.length)
+    })
+
+    var hadNonLiteralKey = false
+    elements.foreach(element => element.keys.foreach{
+      case lit : EnumLiteral[_] => if(!coverage.allocate(lit.enum.position)){
+        PendingError(s"Condition duplication in the switch statement at \n" + this.getScalaLocationLong)
+      }
+      case lit : Literal => if(!coverage.allocate(lit.getValue())){
+        PendingError(s"Condition duplication in the switch statement at \n" + this.getScalaLocationLong)
+      }
+      case _ => hadNonLiteralKey = true
+    })
+
+    return coverage.remaining == 0 && ! hadNonLiteralKey
   }
 }
 

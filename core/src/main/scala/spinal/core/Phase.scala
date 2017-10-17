@@ -1076,7 +1076,16 @@ class PhaseSimplifyNodes(pc: PhaseContext) extends PhaseNetlist{
   override def useNodeConsumers = true
   override def impl(pc : PhaseContext): Unit = {
     import pc._
-    walkRemapExpressions(_.simplifyNode)
+    val toRemove = mutable.ArrayBuffer[Statement]()
+    walkStatements{
+      case s : BitVector if s.getWidth == 0 => {
+        s.foreachStatements(toRemove += _)
+        s.removeStatement()
+      }
+      case s => s.walkRemapExpressions(_.simplifyNode)
+    }
+
+    toRemove.foreach(_.removeStatement())
   }
 }
 //
@@ -1770,53 +1779,86 @@ class PhaseCheckHiearchy extends PhaseCheck{
   override def useNodeConsumers: Boolean = false
 }
 
-//class PhaseCheck_noAsyncNodeWithIncompleteAssignment(pc: PhaseContext) extends PhaseCheck{
-//  override def useNodeConsumers = false
-//  override def impl(pc : PhaseContext): Unit = {
-//    import pc._
-//    val errors = mutable.ArrayBuffer[String]()
-//
-//    Node.walk(walkNodesDefautStack,node => node match {
-//      case signal: BaseType if !signal.isDelay && node.component != null && !(signal.component.isInBlackBoxTree && !signal.isInput) && !(signal.component.parent == null && signal.isInput) => {
-//        val signalRange = new AssignedRange(signal.getBitsWidth - 1, 0)
-//
-//        def walk(nodes: Iterator[Node]): AssignedBits = {
-//          val assignedBits = new AssignedBits(signal.getBitsWidth)
-//
-//          for (node <- nodes) node match {
-//            case wn: WhenNode => {
-//              assignedBits.add(AssignedBits.intersect(walk(Iterator(wn.whenTrue)), walk(Iterator(wn.whenFalse))))
-//            }
-//            case an: AssignementNode => {
-//              assignedBits.add(an.getAssignedBits)
-//            }
-//            case man: MultipleAssignmentNode => return walk(man.getInputs)
-//            case null =>
-//            case _ => assignedBits.add(signalRange)
-//          }
-//          assignedBits
-//        }
-//
-//        val assignedBits = walk(signal.getInputs)
-//
-//        val unassignedBits = new AssignedBits(signal.getBitsWidth)
-//        unassignedBits.add(signalRange)
-//        unassignedBits.remove(assignedBits)
-//        if (!unassignedBits.isEmpty) {
-//          if(unassignedBits.isFull)
-//            errors += s"Combinatorial signal $signal has no default value => LATCH, defined at\n${signal.getScalaLocationLong}"
-//          else
-//            errors += s"Incomplete assignment is detected on the combinatorial signal $signal, unassigned bit mask " +
-//              s"is ${unassignedBits.toBinaryString}, declared at\n${signal.getScalaLocationLong}"
-//        }
-//      }
-//      case _ =>
-//    })
-//
-//    if (errors.nonEmpty)
-//      SpinalError(errors)
-//  }
-//}
+class PhaseCheck_noAsyncNodeWithIncompleteAssignment(pc: PhaseContext) extends PhaseCheck{
+  override def useNodeConsumers = false
+  override def impl(pc : PhaseContext): Unit = {
+    import pc._
+    return
+    val errors = mutable.ArrayBuffer[String]()
+
+    walkComponents(c => {
+      def walkBody(body : ScopeStatement) : mutable.HashMap[BaseType, AssignedBits] = {
+        val assigneds = mutable.HashMap[BaseType, AssignedBits]()
+        def getOrEmpty(bt : BaseType) = assigneds.getOrElseUpdate(bt, new AssignedBits(bt.getBitsWidth))
+        body.foreachStatements {
+          case s: AssignementStatement => {
+            s.target match {
+              case bt : BaseType => if(bt.isComb) getOrEmpty(bt).add(bt.getBitsWidth - 1, 0)
+              case e : BitVectorAssignementExpression => {
+                val bt = e.finalTarget
+                if(bt.isComb) getOrEmpty(bt).add(e.getAssignedBits)
+              }
+            }
+          }
+          case s: WhenStatement => {
+            val whenTrue = walkBody(s.whenTrue)
+            val whenFalse = walkBody(s.whenFalse)
+            for ((bt, assigned) <- whenTrue) {
+              whenFalse.get(bt) match {
+                case Some(otherBt) => getOrEmpty(bt).add(assigned.intersect(otherBt))
+                case None =>
+              }
+            }
+          }
+          case s: SwitchStatement => {
+            val stuffs = if(s.isFullyCoveredWithoutDefault){
+              s.elements.map(e => walkBody(e.scopeStatement))
+            } else if(s.defaultScope != null){
+              s.elements.map(e => walkBody(e.scopeStatement)) += walkBody(s.defaultScope)
+            } else {
+              null
+            }
+            if(stuffs != null) {
+              val head = stuffs.head
+              for (tailStuff <- stuffs.tail) {
+                for ((bt, assigned) <- head) {
+                  tailStuff.get(bt) match {
+                    case Some(otherBt) => assigned.intersect(otherBt)
+                    case None => assigned.clear()
+                  }
+                }
+              }
+
+              for ((bt, assigned) <- head) {
+                getOrEmpty(bt).add(assigned)
+              }
+            }
+          }
+          case signal : BaseType if signal.isComb && !(signal.component.isInBlackBoxTree && !signal.isInput) && !(signal.component.parent == null && signal.isInput)  => {
+            getOrEmpty(signal)
+          }
+          case s =>
+         }
+
+        for((bt, assignedBits) <- assigneds if bt.rootScopeStatement == body && !assignedBits.isFull){
+            val unassignedBits = new AssignedBits(bt.getBitsWidth)
+            unassignedBits.add(bt.getBitsWidth-1, 0)
+            unassignedBits.remove(assignedBits)
+            if (!unassignedBits.isEmpty) {
+              if(unassignedBits.isFull)
+                PendingError(s"Combinatorial signal $bt has no default value => LATCH, defined at\n${bt.getScalaLocationLong}")
+              else
+                PendingError(s"Incomplete assignment is detected on the combinatorial signal $bt, unassigned bit mask " +
+                  s"is ${unassignedBits.toBinaryString}, declared at\n${bt.getScalaLocationLong}")
+            }
+        }
+
+        assigneds
+      }
+      walkBody(c.dslBody)
+    })
+  }
+}
 //
 //class PhaseSimplifyBlacBoxGenerics(pc: PhaseContext) extends PhaseNetlist{
 //  override def useNodeConsumers = false
@@ -2133,6 +2175,14 @@ class PhaseDummy(doThat : => Unit) extends PhaseMisc{
 //      case _ =>
 //    }
 //
+//
+//    walkStatements{
+//      case s : SwitchStatement if s.defaultScope == null => {
+//
+//      }
+//      case s =>
+//    }
+//
 //    Node.walk(walkNodesDefautStack,_ match{
 //      case baseType : BaseType => {
 //        baseType.input match{
@@ -2147,7 +2197,7 @@ class PhaseDummy(doThat : => Unit) extends PhaseMisc{
 //    })
 //  }
 //}
-//
+
 
 object SpinalVhdlBoot{
   def apply[T <: Component](config : SpinalConfig)(gen : => T) : SpinalReport[T] ={
@@ -2235,6 +2285,8 @@ object SpinalVhdlBoot{
 
     phases += new PhaseRemoveUselessStuff(true)
     phases += new PhaseRemoveIntermediateUnameds(false)
+
+    phases += new PhaseCheck_noAsyncNodeWithIncompleteAssignment(pc)
 
     phases += new PhaseAllocateNames(pc)
 //    phases += new PhaseRemoveComponentThatNeedNoHdlEmit(pc)
