@@ -1783,8 +1783,6 @@ class PhaseCheck_noAsyncNodeWithIncompleteAssignment(pc: PhaseContext) extends P
   override def useNodeConsumers = false
   override def impl(pc : PhaseContext): Unit = {
     import pc._
-    return
-    val errors = mutable.ArrayBuffer[String]()
 
     walkComponents(c => {
       def walkBody(body : ScopeStatement) : mutable.HashMap[BaseType, AssignedBits] = {
