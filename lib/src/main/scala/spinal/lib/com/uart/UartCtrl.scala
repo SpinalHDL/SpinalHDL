@@ -30,7 +30,7 @@ case class UartCtrlConfig(g: UartCtrlGenerics) extends Bundle {
   val clockDivider = UInt (g.clockDividerWidth bit) //see UartCtrlGenerics.clockDividerWidth for calculation
 
   def setClockDivider(baudrate : HertzNumber,clkFrequency : HertzNumber = ClockDomain.current.frequency.getValue) : Unit = {
-    clockDivider := (clkFrequency / baudrate / g.rxSamplePerBit).toInt
+    clockDivider := (clkFrequency / baudrate / g.rxSamplePerBit).setScale(0, BigDecimal.RoundingMode.HALF_DOWN).toBigInt() - 1
   }
 }
 
