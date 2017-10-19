@@ -167,6 +167,7 @@ trait BaseTypeCast extends SFixCast with UFixCast
 object BaseType{
   final val isRegMask = 1
   final val isTypeNodeMask = 2
+  final val isVitalMask = 4
 }
 
 /**
@@ -180,8 +181,10 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
   override def isReg = (btFlags & BaseType.isRegMask) != 0
   override def isComb = (btFlags & BaseType.isRegMask) == 0
   def setAsReg() : this.type = {btFlags |= BaseType.isRegMask; this}
-  def isTypeNode = (btFlags & BaseType.isTypeNodeMask) == 0
+  def isTypeNode = (btFlags & BaseType.isTypeNodeMask) != 0
   def setAsTypeNode() : this.type = {btFlags |= BaseType.isTypeNodeMask; this}
+  def isVital = (btFlags & BaseType.isVitalMask) != 0
+  def setAsVital() : this.type = {btFlags |= BaseType.isVitalMask; this}
   def isUsingResetSignal: Boolean = clockDomain.config.resetKind != BOOT && (clockDomain.reset != null || clockDomain.softReset == null) && hasInit
   def isUsingSoftResetSignal: Boolean = clockDomain.softReset != null  && hasInit
   def clockDomain = dslContext.clockDomain

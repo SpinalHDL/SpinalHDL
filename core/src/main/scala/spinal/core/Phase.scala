@@ -1425,13 +1425,13 @@ class PhaseNormalizeNodeInputs(pc: PhaseContext) extends PhaseNetlist{
 //
 
 
-class PhaseRemoveUselessStuff(postClockPulling : Boolean) extends PhaseNetlist{
+class PhaseRemoveUselessStuff(postClockPulling : Boolean, tagVitals : Boolean) extends PhaseNetlist{
   override def impl(pc: PhaseContext): Unit = {
     import pc._
 
     val okId = globalData.allocateAlgoIncrementale()
 
-    def propagate(root: Statement): Unit = {
+    def propagate(root: Statement, vital : Boolean): Unit = {
       if(root.algoIncrementale == okId) return
       root.algoIncrementale = okId
       val pending = mutable.ArrayStack[Statement](root)
@@ -1462,6 +1462,8 @@ class PhaseRemoveUselessStuff(postClockPulling : Boolean) extends PhaseNetlist{
 
         s match {
           case s: BaseType => {
+            if(vital)
+              s.setAsVital()
             s.foreachStatements(propagate)
           }
           case s: AssignementStatement => {
@@ -1499,9 +1501,16 @@ class PhaseRemoveUselessStuff(postClockPulling : Boolean) extends PhaseNetlist{
       }
     }
 
+    //Propagate all vital signals (drive toplevel output and blackboxes inputs)
+    topLevel.getAllIo.withFilter(_.isOutput).foreach(propagate(_, tagVitals))
+    walkComponents{
+      case c : BlackBox => c.getAllIo.withFilter(_.isInput).foreach(propagate(_, tagVitals))
+      case c =>
+    }
+
     walkStatements{
-      case s : DeclarationStatement => if(s.isNamed) propagate(s)
-      case s : AssertStatement => propagate(s)
+      case s : DeclarationStatement => if(s.isNamed) propagate(s, false)
+      case s : AssertStatement => propagate(s, false)
       case s : TreeStatement =>
       case s : AssignementStatement =>
       case s : MemWrite =>
@@ -1556,7 +1565,8 @@ class PhaseRemoveIntermediateUnameds(onlyTypeNode : Boolean) extends PhaseNetlis
 
 
     walkStatements{
-      case s if s.algoIncrementale == koId => s.removeStatement()
+      case s if s.algoIncrementale == koId =>
+        s.removeStatement()
       case s =>
     }
   }
@@ -1864,7 +1874,7 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
           case s =>
          }
 
-        for((bt, assignedBits) <- assigneds if bt.isComb && bt.rootScopeStatement == body && !assignedBits.isFull){
+        for((bt, assignedBits) <- assigneds if bt.isComb && bt.isVital && bt.rootScopeStatement == body && !assignedBits.isFull){
           val unassignedBits = new AssignedBits(bt.getBitsWidth)
           unassignedBits.add(bt.getBitsWidth-1, 0)
           unassignedBits.remove(assignedBits)
@@ -2288,7 +2298,7 @@ object SpinalVhdlBoot{
 
     phases += new PhaseCheckIoBundle()
     phases += new PhaseCheckHiearchy()
-    phases += new PhaseRemoveUselessStuff(false)
+    phases += new PhaseRemoveUselessStuff(false, false)
     phases += new PhaseRemoveIntermediateUnameds(true) //TODO IR literal base type node type node etc
 
 
@@ -2307,7 +2317,7 @@ object SpinalVhdlBoot{
 //    phases += new PhaseDeleteUselessBaseTypes(pc, true)
 
 
-    phases += new PhaseRemoveUselessStuff(true)
+    phases += new PhaseRemoveUselessStuff(true, true)
     phases += new PhaseRemoveIntermediateUnameds(false)
 
     phases += new PhaseCheck_noLatchNoOverride(pc)

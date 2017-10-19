@@ -100,47 +100,52 @@ object PlayDebug{
 //     assert(True === True)
 //  }
 
-  class TopLevel extends Component {
-    val a,b = in Bool()
-    val sel = in UInt(2 bits)
-    val result = UInt(8 bits)
-//    result := 0
-    when(a){
-      result := 1
-    } otherwise {
-      result(2 downto 0) := 2
-//      when(b){
-//        result := 2
-//      }otherwise {
-//        result(7 downto 3) := 2
-//      }
-    }
-
-    result(3) := b
-    when(b){
-      switch(sel){
-        is(0){
-          result := 0
+//  class TopLevel extends Component {
+//    val a,b = in Bool()
+//    val sel = in UInt(2 bits)
+//    val result = UInt(8 bits)
+////    result := 0
+//    when(a){
+//      result := 1
+//    } otherwise {
+//      result(2 downto 0) := 2
+////      when(b){
+////        result := 2
+////      }otherwise {
+////        result(7 downto 3) := 2
+////      }
+//    }
+//
+//    result(3) := b
+//    when(b){
+//      switch(sel){
+//        is(0){
 //          result := 0
-        }
-        is(1){
-          result(7 downto 4) := 2
-        }
-        is(2){
-          result := 2
-          result := 0
-        }
-        is(3){
-//        default{
-          result := 3
-          result.msb := True
-          result := 3
-        }
+////          result := 0
+//        }
+//        is(1){
+//          result(7 downto 4) := 2
+//        }
+//        is(2){
+//          result := 2
+//          result := 0
+//        }
+//        is(3){
+////        default{
+//          result := 3
+//          result.msb := True
+//          result := 3
+//        }
+//
+//      }
+//    }otherwise {
+//      result(7 downto 4) := 2
+//    }
+//  }
 
-      }
-    }otherwise {
-      result(7 downto 4) := 2
-    }
+  class TopLevel extends Component {
+     val a = Bits(32 bits)
+    a := True ? B(3).resized | B(54,32 bits)
   }
 
   def main(args: Array[String]) {

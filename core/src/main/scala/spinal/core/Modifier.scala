@@ -1044,7 +1044,8 @@ private[spinal] object Multiplex {
       if (t == null) SpinalError("Create a mux with incompatible true input type")
       if (f == null) SpinalError("Create a mux with incompatible false input type")
 
-      out.assignFrom(Multiplex.baseType(sel, t, f))
+      out.assignFrom(Multiplex.baseType(sel, t.setAsTypeNode(), f.setAsTypeNode()))
+      out.setAsTypeNode()
     }
     muxOut
   }
@@ -1529,10 +1530,18 @@ class AssignedBits(val width : Int) {
   }
   def isEmpty = value.foldLeft(true)((c,e) => c && (e == 0))
   def isFull : Boolean = {
-    for(i <- 0 to value.length-2){
-      if(value(i) != 0xFFFFFFFF) return false
+    if(width == 0) return true
+    var remainingBits = width
+    var i = 0
+    while(remainingBits > 0){
+      if(remainingBits > 31) {
+        if (value(i) != 0xFFFFFFFF) return false
+      }else{
+        if (value(i) !=  (1 << remainingBits)-1) return false
+      }
+      i += 1
+      remainingBits -= 32
     }
-    if(value.last != (1 << (width.toLong % 32))-1) return false
     true
   }
 }

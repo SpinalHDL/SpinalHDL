@@ -38,7 +38,7 @@ class SpinalEnumElement[T <: SpinalEnum](val spinalEnum: T, val position: Int) e
   def apply(encoding: SpinalEnumEncoding): SpinalEnumCraft[T] = craft(encoding)
 
   def craft(): SpinalEnumCraft[T] = {
-    val ret = spinalEnum.craft(inferred).asInstanceOf[SpinalEnumCraft[T]]
+    val ret = spinalEnum.craft(inferred).asInstanceOf[SpinalEnumCraft[T]].setAsTypeNode()
     ret.assignFrom(new EnumLiteral(this))
     ret
   }
