@@ -121,7 +121,7 @@ class VhdlTestBenchBackend(pc : PhaseContext) extends VhdlBase with PhaseMisc {
   def emitComponentInstance(c: Component, ret: StringBuilder): Unit = {
     val definitionString = s"entity work.${c.definitionName}"
     ret ++= s"  uut : $definitionString\n"
-    ret ++= s"    port map (\n"
+    ret ++= s"    port map (  \n"
     for (data <- c.getOrdredNodeIo) {
       ret ++= s"      ${emitReference(data)} =>  ${emitReference(data)},\n"
     }
