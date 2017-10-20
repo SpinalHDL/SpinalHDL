@@ -83,7 +83,7 @@ object AllowMixedWidth extends SpinalTag
 trait MemPortStatement extends LeafStatement with StatementDoubleLinkedContainerElement[Mem[_], MemPortStatement]
 
 class Mem[T <: Data](_wordType: T, val wordCount: Int) extends DeclarationStatement with StatementDoubleLinkedContainer[Mem[_], MemPortStatement] with WidthProvider with SpinalTagReady{
-  if(component != null) dslContext.scope.append(this)
+  if(parentScope != null) parentScope.append(this)
 //  var forceMemToBlackboxTranslation = false
   val _widths = _wordType.flatten.map(t => t.getBitsWidth).toVector //Force to fix width of each wire
   val width = _widths.reduce(_ + _)
@@ -205,7 +205,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends DeclarationStatem
     val readPort = MemReadAsync(this, address, data.getBitsWidth, readUnderWrite)
     if(allowMixedWidth) readPort.addTag(AllowMixedWidth)
 
-    this.dslContext.scope.append(readPort)
+    this.parentScope.append(readPort)
     this.dlcAppend(readPort)
 
     readBits.assignFrom(readPort)
@@ -227,7 +227,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends DeclarationStatem
     if(allowMixedWidth) readPort.addTag(AllowMixedWidth)
     if(clockCrossing) readPort.addTag(crossClockDomain)
 
-    this.dslContext.scope.append(readPort)
+    this.parentScope.append(readPort)
     this.dlcAppend(readPort)
 
     readBits.assignFrom(readPort)
@@ -247,7 +247,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends DeclarationStatem
 
     val whenCond =  if(enable == null) ConditionalContext.isTrue else enable
     val writePort = MemWrite(this, address, data.asBits, mask,whenCond, if(allowMixedWidth) data.getBitsWidth else getWidth ,ClockDomain.current)
-    this.dslContext.scope.append(writePort)
+    this.parentScope.append(writePort)
     this.dlcAppend(writePort)
 
 
@@ -321,7 +321,7 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends DeclarationStatem
 
     val readWritePort = MemReadWrite(this, address, data.asBits, mask,enable, write, if(allowMixedWidth) data.getBitsWidth else getWidth ,ClockDomain.current)
 
-    this.dslContext.scope.append(readWritePort)
+    this.parentScope.append(readWritePort)
     this.dlcAppend(readWritePort)
 
     val readWord = cloneOf(data)

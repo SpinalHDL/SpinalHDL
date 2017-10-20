@@ -154,3 +154,15 @@ object PlayDevFillSwitch{
     val toplevel = SpinalVhdl(new TopLevel()).toplevel
   }
 }
+
+object PlayDevStackTrace{
+
+  def main(args: Array[String]) {
+    for(i <- 0 to 1000000) {
+      val startAt = System.nanoTime()
+      val x = List.fill(1000000)(new Throwable)
+      val endAt = System.nanoTime()
+      println((endAt - startAt) * 1e-6)
+    }
+  }
+}

@@ -646,7 +646,7 @@ class PhasePullClockDomains(pc: PhaseContext) extends PhaseNetlist{
       val cds = mutable.HashSet[ClockDomain]()
       c.dslBody.walkLeafStatements{
         case bt : BaseType if bt.isReg => {
-          val cd = bt.dslContext.clockDomain
+          val cd = bt.clockDomain
           if(bt.isUsingResetSignal && (!cd.hasResetSignal && !cd.hasSoftResetSignal))
             SpinalError(s"Clock domain without reset contain a register which needs one\n ${bt.getScalaLocationLong}")
 
@@ -1373,7 +1373,7 @@ class PhaseNormalizeNodeInputs(pc: PhaseContext) extends PhaseNetlist{
 //  }
 //}
 //
-//
+
 //class PhaseCheckMisc(pc: PhaseContext) extends PhaseCheck{
 //  override def useNodeConsumers = false
 //  override def impl(pc : PhaseContext): Unit = {
@@ -1874,7 +1874,7 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
           case s =>
          }
 
-        for((bt, assignedBits) <- assigneds if bt.isComb && bt.isVital && bt.rootScopeStatement == body && !assignedBits.isFull){
+        for((bt, assignedBits) <- assigneds if bt.isComb && (bt.isVital || !bt.dlcIsEmpty) && bt.rootScopeStatement == body && !assignedBits.isFull){
           val unassignedBits = new AssignedBits(bt.getBitsWidth)
           unassignedBits.add(bt.getBitsWidth-1, 0)
           unassignedBits.remove(assignedBits)

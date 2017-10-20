@@ -168,10 +168,9 @@ trait MinMaxProvider {
 
 
 trait ContextUser extends GlobalDataUser {
-  private[core] val dslContext = globalData.context.head
-  def component = dslContext.component
-
 //  private[core] var conditionalAssignScope = globalData.conditionalAssignStack.head()
+  var parentScope = globalData.contextHead.scope
+  def component : Component = if(parentScope != null) parentScope.component else null
   private[core] var instanceCounter = globalData.getInstanceCounter
 
   def getInstanceCounter = instanceCounter

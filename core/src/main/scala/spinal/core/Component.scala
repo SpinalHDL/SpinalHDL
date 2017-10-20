@@ -76,6 +76,7 @@ object Component {
   */
 abstract class Component extends NameableByComponent with ContextUser with ScalaLocated with DelayedInit with Stackable with OwnableRef with SpinalTagReady{
   val dslBody = new ScopeStatement(null)
+  dslBody.component = this
 
   /** Contains all in/out signals of the component */
   private[core] val ioSet = mutable.Set[BaseType]()
@@ -136,13 +137,6 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
 //      ret
 //    }
 //  }
-
-  def addStatement(statement : Statement) : Unit = {
-    val scope = globalData.context.head.scope
-    scope.append(statement)
-  }
-
-
 //  def ownNameableNodes = nameableNodes.toIterator.withFilter(_.component == this)
 //  private def nameableNodes = { //TODO IR don't use hashset for it (speed)
 //    val nameablesSet = mutable.HashSet[Nameable]()
@@ -199,9 +193,9 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
 //  def flyingNameableStatements = getAllIo.withFilter(_)
 
   /** Get the parent component (null if there is no parent)*/
-  def parent = dslContext.component
+  def parent : Component = if(parentScope != null) parentScope.component else null
   /** Get the current clock domain (null if there is no clock domain already set )*/
-  def clockDomain = dslContext.clockDomain
+  val clockDomain = globalData.contextHead.clockDomain
 
 
   // Check if it is a top level component or a children of another component

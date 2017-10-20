@@ -174,7 +174,10 @@ object BaseType{
   * Abstract base class of all Spinal types
   */
 abstract class BaseType extends Data with DeclarationStatement with StatementDoubleLinkedContainer[BaseType, AssignementStatement] with Expression {
-  if(component != null) dslContext.scope.append(this)
+  globalData.contextHead.scope match {
+    case null =>
+    case scope =>  scope.append(this)
+  }
 
   //  if(component != null) component.append(this)
   private var btFlags = 0
@@ -187,7 +190,7 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
   def setAsVital() : this.type = {btFlags |= BaseType.isVitalMask; this}
   def isUsingResetSignal: Boolean = clockDomain.config.resetKind != BOOT && (clockDomain.reset != null || clockDomain.softReset == null) && hasInit
   def isUsingSoftResetSignal: Boolean = clockDomain.softReset != null  && hasInit
-  def clockDomain = dslContext.clockDomain
+  var clockDomain = globalData.contextHead.clockDomain
 
 
 //  def isDrivedIn(c : Component) = dir match {
@@ -289,9 +292,9 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
     }
     that match {
       case that : BaseType =>
-        component.addStatement(statement(that))
+        globalData.contextHead.scope.append(statement(that))
       case that : Expression =>
-        component.addStatement(statement(that))
+        globalData.contextHead.scope.append(statement(that))
       case _ =>
         throw new Exception(s"Undefined assignment $this := $that")
     }
@@ -335,7 +338,7 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
 //  }
 
 //
-  override def rootScopeStatement = if(isInput) component.dslContext.scope else dslContext.scope
+  override def rootScopeStatement = if(isInput) component.parentScope else parentScope
 
   override def clone: this.type = {
     val res = this.getClass.newInstance.asInstanceOf[this.type]

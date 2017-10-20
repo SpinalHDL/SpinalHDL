@@ -75,7 +75,7 @@ object when {
     val dslContext = cond.globalData.contextHead
     val whenStatement = new WhenStatement(cond)
     val whenContext = new WhenContext(whenStatement)
-    dslContext.component.addStatement(whenStatement)
+    dslContext.scope.append(whenStatement)
     cond.globalData.context.push(cond.globalData.contextHead.copy(scope = whenStatement.whenTrue))
     block
     cond.globalData.context.pop()
@@ -99,7 +99,7 @@ object switch{
       block
 //      globalData.context.pop()
       globalData.switchStack.pop()
-      dslContext.component.addStatement(switchStatement)
+      dslContext.scope.append(switchStatement)
 
       //    //value.globalData.pushNetlistLock(() => {
   ////      SpinalError(s"You should not use 'general statments' in the 'switch' scope, but only 'is' statments.\n${ScalaLocated.long}")

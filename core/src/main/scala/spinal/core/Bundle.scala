@@ -29,14 +29,19 @@ object Bundle {
 }
 
 class Bundle extends MultiData with Nameable with OverridedEqualsHashCode {
-
   var cloneFunc: () => Object = null
-  if(component != null) component.addPrePopTask(() => {
-    elements.foreach{case (n,e) => {
-      OwnableRef.proposal(e,this)
-      e.setPartialName(n,true)
-    }}
-  })
+  globalData.contextHead.component match {
+    case null =>
+    case component => {
+      component.addPrePopTask(() => {
+        elements.foreach { case (n, e) => {
+          OwnableRef.proposal(e, this)
+          e.setPartialName(n, true)
+        }}
+      })
+    }
+  }
+
   override def clone: Bundle = {
     if (cloneFunc != null) {
       val ret = cloneFunc().asInstanceOf[this.type].asDirectionLess

@@ -68,7 +68,7 @@ object Data {
 
 
     def push(c : Component, scope : ScopeStatement) : Unit = {
-      c.globalData.context.push(c.dslContext.copy(component = c, scope = scope))
+      c.globalData.context.push(DslContext(c.clockDomain, c, scope))
     }
 
     def pop(c : Component) : Unit = {
@@ -150,13 +150,13 @@ trait DataPrimitives[T <: Data]{
   //Use as \= to have the same behavioral than VHDL variable
   def \(that: T) : T = {
     val globalData = GlobalData.get
-    globalData.context.push(_data.dslContext)
-    val lastStatement = _data.dslContext.scope.last
+    globalData.context.push(DslContext(null, _data.component, _data.parentScope))
+    val lastStatement = _data.parentScope.last
     val manageLastStatement = lastStatement.isInstanceOf[TreeStatement]
     if(manageLastStatement) lastStatement.removeStatementFromScope()
     val ret = cloneOf(that)
     ret := _data
-    if(manageLastStatement) _data.dslContext.scope.append(lastStatement)
+    if(manageLastStatement) _data.parentScope.append(lastStatement)
     globalData.context.pop()
     ret.allowOverride
     ret := that
@@ -293,7 +293,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     ret.addTag(tagAutoResize)
     return ret.asInstanceOf[this.type]
   }
-  def allowOverride() : this.type ={
+  def allowOverride : this.type ={
     addTag(allowAssignementOverride)
   }
 

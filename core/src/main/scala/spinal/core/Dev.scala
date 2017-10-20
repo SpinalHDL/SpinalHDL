@@ -8,7 +8,6 @@ import scala.collection.mutable.ArrayBuffer
 //TODO IR :
 // Emit signal attribut, carefull with outputs
 // Add more check to bitvector literal width and minimal width
-// checkout dslContext stuff redondancy
 // Mem blackboxify
 // Add transformation phases
 // Check what happend if you assign a signals outside it's scope
@@ -187,7 +186,6 @@ object Statement{
 }
 
 trait Statement extends ExpressionContainer with ContextUser with ScalaLocated with BaseNode{
-  var parentScope : ScopeStatement = null
   var lastScopeStatement, nextScopeStatement : Statement = null
   def rootScopeStatement: ScopeStatement = if(parentScope.parentStatement != null) parentScope.parentStatement.rootScopeStatement else parentScope
   def removeStatement() : Unit = {
@@ -499,28 +497,12 @@ class SwitchStatement(var value : Expression) extends TreeStatement{
   }
 }
 
-class ScopeStatement(var parentStatement : TreeStatement)/* extends ExpressionContainer*/{
-//  val content = mutable.ListBuffer[Statement]() //TODO IR ! linkedlist  hard
-//
-//  def sizeIsOne = content.length == 1 //TODO faster
-//  def head = content.head
-//  def append(that : Statement) : this.type = {
-//    content += that
-//    this
-//  }
-//
-//  def prepend(that : Statement) : this.type = {
-//    content.prepend(that)
-//    this
-//  }
-//
-//  def foreachStatements(func : (Statement) => Unit) = {
-//    content.foreach(func)
-//  }
+class ScopeStatement(var parentStatement : TreeStatement){
+  var component : Component = if(parentStatement != null) parentStatement.component else null
   var head, last : Statement = null
   def isEmpty = head == null
   def nonEmpty = head != null
-//  def sizeIsOne = head != null && head == last
+
   def prepend(that : Statement) : this.type = {
     if(head != null){
       head.lastScopeStatement = that

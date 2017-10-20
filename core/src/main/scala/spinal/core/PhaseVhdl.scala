@@ -154,7 +154,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
       case s : AssignementStatement => s.finalTarget match {
         case target : BaseType if target.isComb => asyncStatement += s
         case target : BaseType if target.isReg  => {
-          val group = syncGroups.getOrElseUpdate((target.dslContext.clockDomain, s.rootScopeStatement, target.hasInit) , new SyncGroup(target.dslContext.clockDomain ,s.rootScopeStatement, target.hasInit, syncGroupInstanceCounter))
+          val group = syncGroups.getOrElseUpdate((target.clockDomain, s.rootScopeStatement, target.hasInit) , new SyncGroup(target.clockDomain ,s.rootScopeStatement, target.hasInit, syncGroupInstanceCounter))
           syncGroupInstanceCounter += 1
           s match {
             case s : InitAssignementStatement => group.initStatements += s
@@ -163,7 +163,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
         }
       }
       case assertStatement : AssertStatement => {
-        val group = syncGroups.getOrElseUpdate((assertStatement.dslContext.clockDomain, assertStatement.rootScopeStatement, false) , new SyncGroup(assertStatement.dslContext.clockDomain ,assertStatement.rootScopeStatement, false, syncGroupInstanceCounter))
+        val group = syncGroups.getOrElseUpdate((assertStatement.clockDomain, assertStatement.rootScopeStatement, false) , new SyncGroup(assertStatement.clockDomain ,assertStatement.rootScopeStatement, false, syncGroupInstanceCounter))
         syncGroupInstanceCounter += 1
         group.dataStatements += assertStatement
       }

@@ -144,12 +144,15 @@ object PlayDebug{
 //  }
 
   class TopLevel extends Component {
-     val a = Bits(32 bits)
+    val a = Bits(32 bits)
     a := True ? B(3).resized | B(54,32 bits)
+    val b = Bits(32 bits)
+    val c = Bits(32 bits)
+//    c.lsb := False
   }
 
   def main(args: Array[String]) {
-    val toplevel = SpinalVhdl(new TopLevel()).toplevel
+    val toplevel = SpinalConfig(debug=true).generateVhdl(new TopLevel()).toplevel
 
   }
 }

@@ -1868,7 +1868,7 @@ class RangedAssignmentFloating() extends BitVectorAssignementExpression with Wid
 object AssertNode{
   def apply(cond : Bool,message : Seq[Any],severity: AssertNodeSeverity) : Unit = {
     val node = AssertStatement(cond, message,severity)
-    Component.current.addStatement(node)
+    GlobalData.get.contextHead.scope.append(node)
   }
   def apply(cond : Bool,message : String,severity: AssertNodeSeverity) : Unit = AssertNode(cond, List(message),severity)
 }
@@ -1880,6 +1880,7 @@ object ERROR    extends AssertNodeSeverity
 object FAILURE  extends AssertNodeSeverity
 
 case class AssertStatement(var cond : Expression, message : Seq[Any],severity : AssertNodeSeverity) extends LeafStatement with ContextUser {
+  var clockDomain = globalData.contextHead.clockDomain
   override def normalizeInputs: Unit = {}
 
   override def foreachExpression(func: (Expression) => Unit): Unit = {
@@ -1894,5 +1895,5 @@ case class AssertStatement(var cond : Expression, message : Seq[Any],severity : 
     cond = func(cond) //TODO message
   }
 
-  override def foreachClockDomain(func: (ClockDomain) => Unit): Unit = func(dslContext.clockDomain)
+  override def foreachClockDomain(func: (ClockDomain) => Unit): Unit = func(clockDomain)
 }
