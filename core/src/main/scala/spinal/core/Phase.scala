@@ -1766,6 +1766,19 @@ class PhaseCheckHiearchy extends PhaseCheck{
               PendingError(s"HIERARCHY VIOLATION : $bt is drived by the $s statement, but isn't accessible in the $c component.\n${s.getScalaLocationLong}")
               error = true
             }
+
+            if(!error){
+              val rootScope = s.rootScopeStatement
+              var ptr = s.parentScope
+
+              while(ptr.parentStatement != null && ptr != rootScope){
+                ptr = ptr.parentStatement.parentScope
+              }
+
+              if(ptr != rootScope){
+                PendingError(s"SCOPE VIOLATION : $bt is assigned outside its declaration scope at \n${s.getScalaLocationLong}")
+              }
+            }
           }
           case _ =>
         }
