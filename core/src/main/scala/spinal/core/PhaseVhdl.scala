@@ -3,18 +3,8 @@ package spinal.core
 
 import scala.collection.mutable
 import scala.collection.mutable.{ListBuffer, ArrayBuffer}
-
-//
-//import scala.collection.mutable
-//import scala.collection.mutable.{ArrayBuffer, StringBuilder, HashMap}
 import scala.util.Random
-//
-///**
-// * Created by PIC32F_USER on 05/06/2016.
-// */
-//
-//
-//
+
 class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
   import pc._
 
@@ -117,7 +107,6 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     wrappedExpressionToName.clear()
     val ret = new StringBuilder()
     val b = new ComponentBuilder(component)
-//    emitLibrary(builder)
     emitEntity(component, b)
     emitArchitecture(component, b)
 
@@ -126,14 +115,11 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     val oldBuilder = emitedComponent.getOrElse(b, null)
     if (oldBuilder == null) {
       emitedComponent += (b -> b)
-      return b.result
+      b.result
     } else {
       emitedComponentRef += (component -> oldBuilder.c)
-      return s"\n--${component.definitionName} remplaced by ${oldBuilder.c.definitionName}\n\n"
+      s"\n--${component.definitionName} remplaced by ${oldBuilder.c.definitionName}\n\n"
     }
-
-
-    ""
   }
 
 
@@ -1047,136 +1033,14 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
   def emitExpressionNoWrappeForFirstOne(that : Expression) : String = {
     expressionImplMap.getOrElse(that.getClass, throw new Exception("can't find " + that.opName))(that)
   }
-  //
-  //    case lit: BitsLiteral => s"pkg_stdLogicVector(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
-  //    case lit: UIntLiteral => s"pkg_unsigned(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
-  //    case lit: SIntLiteral => s"pkg_signed(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
-  //
-  //    case lit: BitsAllToLiteral => lit.theConsumer match {
-  //      case _: Bits => s"pkg_stdLogicVector(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
-  //      case _: UInt => s"pkg_unsigned(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
-  //      case _: SInt => s"pkg_signed(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
-  //    }
-  //    case lit: BoolLiteral => s"pkg_toStdLogic(${lit.value})"
-  //    //  case lit: BoolLiteral => if(lit.value) "'1'" else "'0'" //Invalid VHDL when '1' = '1'
-  //    case lit: EnumLiteral[_] => emitEnumLiteral(lit.enum, lit.encoding)
-  //    case memRead: MemReadAsync => {
-  //      if(memRead.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${memRead.getMem} because of its mixed width ports")
-  //      if (memRead.readUnderWrite == dontCare) SpinalWarning(s"memReadAsync with dontCare is as writeFirst into VHDL")
-  //      val symbolCount = memRead.getMem.getMemSymbolCount
-  //      if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
-  //        s"${emitReference(memRead.getMem)}(to_integer(${emitReference(memRead.getAddress)}))"
-  //      else
-  //        (0 until symbolCount).reverse.map(i => (s"${emitReference(memRead.getMem)}_symbol$i(to_integer(${emitReference(memRead.getAddress)}))")).reduce(_ + " & " + _)
-  //    }
-  //    case whenNode: WhenNode => s"pkg_mux(${whenNode.getInputs.map(emitLogic(_)).reduce(_ + "," + _)})" //Exeptional case with asyncrouns of literal
-  //    case dc : DontCareNodeEnum => {
-  //      if(dc.encoding.isNative)
-  //        return "pkg_enum." + dc.enum.elements.head.getName()
-  //      else
-  //        return s"(${'"'}${"-" * dc.encoding.getWidth(dc.enum)}${'"'})"
-  //    }
-  //    case dc: DontCareNode => {
-  //      dc.getBaseType match {
-  //        case to: Bool => s"'-'"
-  //        case to: BitVector => s"(${'"'}${"-" * dc.asInstanceOf[Widthable].getWidth}${'"'})"
-  //      }
-//      }
 
-
-    //case o => throw new Exception("Don't know how emit logic of " + o.getClass.getSimpleName)
- // }
-
-//  override def useNodeConsumers: Boolean = true
-//
-//  var outFile: java.io.FileWriter = null
   var memBitsMaskKind : MemBitsMaskKind = MULTIPLE_RAM
-//
-//  val emitedComponent = mutable.Map[ComponentBuilder, ComponentBuilder]()
-//  val emitedComponentRef = mutable.Map[Component, Component]()
-//
-//
-//  override def impl(pc : PhaseContext): Unit = {
-//    import pc._
-//    SpinalProgress("Write VHDL")
-//
-//    outFile = new java.io.FileWriter(pc.config.targetDirectory + "/" +  (if(pc.config.netlistFileName == null)(topLevel.definitionName + ".vhd") else pc.config.netlistFileName))
-//    outFile.write(VhdlVerilogBase.getHeader("--",topLevel))
-//    emitEnumPackage(outFile)
-//    if(pc.config.genVhdlPkg)
-//      emitPackage(outFile)
-//
-//    for (c <- sortedComponents) {
-//      if (!c.isInBlackBoxTree) {
-//        SpinalProgress(s"${"  " * (1 + c.level)}emit ${c.definitionName}")
-//        compile(c)
-//      }
-//    }
-//
-//    outFile.flush();
-//    outFile.close();
-//  }
-//
-//
-//
-
-//
-//
-//
-//  case class WrappedStuff(originalName: String, newName: String)
-//
-//  def ioStdLogicVectorWrapNames(): HashMap[BaseType, WrappedStuff] = {
-//    val map = HashMap[BaseType, WrappedStuff]()
-//    def wrap(that: BaseType): Unit = {
-//      val newName = that.getName() + "_wrappedName"
-//      map(that) = WrappedStuff(that.getName, newName)
-//      that.setName(newName)
-//    }
-//    for (e <- topLevel.getOrdredNodeIo) e match {
-//      case e: UInt => wrap(e)
-//      case e: SInt => wrap(e)
-//      case _ =>
-//    }
-//    map
-//  }
-//
-//  def ioStdLogicVectorRestoreNames(map: HashMap[BaseType, WrappedStuff]): Unit = {
-//    if (map != null) {
-//      for ((e, w) <- map) e.setName(w.originalName)
-//    }
-//  }
-//
-//  def emit(component: Component): String = {
-//    val ret = new StringBuilder()
-//    val builder = new ComponentBuilder(component)
-//
-//    emitLibrary(builder)
-//    emitEntity(component, builder)
-//    emitArchitecture(component, builder)
-//
-//    val oldBuilder = emitedComponent.getOrElse(builder, null)
-//    if (oldBuilder == null) {
-//      emitedComponent += (builder -> builder)
-//      return builder.result
-//    } else {
-//      emitedComponentRef += (component -> oldBuilder.component)
-//      return s"\n--${component.definitionName} remplaced by ${oldBuilder.component.definitionName}\n\n"
-//    }
-//  }
 //
   def getReEncodingFuntion(spinalEnum: SpinalEnum, source: SpinalEnumEncoding, target: SpinalEnumEncoding): String = {
     s"${spinalEnum.getName()}_${source.getName()}_to_${target.getName()}"
   }
-//
-//  def getEnumToDebugFuntion(spinalEnum: SpinalEnum, source: SpinalEnumEncoding): String = {
-//    assert(!source.isNative)
-//    s"${spinalEnum.getName()}_${source.getName()}_to_debug"
-//  }
-//
-//  def getEnumDebugType(spinalEnum: SpinalEnum): String = {
-//    s"${spinalEnum.getName()}_debug"
-//  }
-//
+
+
   def emitEnumPackage(out: java.io.FileWriter): Unit = {
     val ret = new StringBuilder();
     ret ++=
@@ -1245,21 +1109,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
 
         for (encoding <- encodings) {
-          if (!encoding.isNative){}
-//            ret ++=
-//              s"""  function ${getEnumToDebugFuntion(enumDef, encoding)} (value : ${emitEnumType(enumDef, encoding)}) return ${getEnumDebugType(enumDef)} is
-//                                                                                                                                                           |  begin
-//                                                                                                                                                           |    case value is
-//                                                                                                                                                           |${
-//                {
-//                  for (e <- enumDef.elements) yield s"      when ${emitEnumLiteral(e, encoding)} => return ${e.getName()};"
-//                }.reduce(_ + "\n" + _)
-//              }
-//                  |      when others => return XXX;
-//                  |    end case;
-//                  |  end;
-//                  |""".stripMargin
-          else {
+          if (encoding.isNative){
             ret ++=
               s"""  function pkg_to${enumName}_${encoding.getName()} (value : std_logic_vector(${encoding.getWidth(enumDef) - 1} downto 0)) return $enumName is
                                                                                                                                                               |  begin
@@ -1640,96 +1490,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
     out.write(ret.result())
   }
-//
-//  def emitLibrary(builder: ComponentBuilder): Unit = {
-//    val ret = builder.newPart(true)
-//    emitLibrary(ret)
-//  }
-//
-//
-//
-//  def emitEntity(component: Component, builder: ComponentBuilder): Unit = {
-//    var ret = builder.newPart(false)
-//    ret ++= s"\nentity ${component.definitionName} is\n"
-//    ret = builder.newPart(true)
-//    ret ++= s"  port( \n"
-//    if (!(config.onlyStdLogicVectorAtTopLevelIo && component == topLevel)) {
-//      component.getOrdredNodeIo.foreach(baseType =>
-//        ret ++= s"    ${baseType.getName()} : ${emitDirection(baseType)} ${emitDataType(baseType)}${getBaseTypeSignalInitialisation(baseType)};\n"
-//      )
-//    } else {
-//      component.getOrdredNodeIo.foreach(baseType => {
-//        val originalType = emitDataType(baseType)
-//        val correctedType = originalType.replace("unsigned", "std_logic_vector").replace("signed", "std_logic_vector")
-//        ret ++= s"    ${baseType.getName()} : ${emitDirection(baseType)} ${correctedType};\n"
-//      })
-//    }
-//    /*component.getOrdredNodeIo.foreach(baseType =>
-//      ret ++= s"    ${baseType.getName()} : ${emitDirection(baseType)} ${emitDataType(baseType)};\n"
-//    )*/
-//    ret.setCharAt(ret.size - 2, ' ')
-//    ret ++= s"  );\n"
-//    ret = builder.newPart(false)
-//    ret ++= s"end ${component.definitionName};\n"
-//    ret ++= s"\n"
-//
-//  }
-//
-//
-//  def emitArchitecture(component: Component, builder: ComponentBuilder): Unit = {
-////    val buffer = ArrayBuffer[AssignementLevelCmd]()
-////    for(node <- component.nodes){
-////      node match{
-////        case node : BaseType => {
-////          if( (!((node.isIo && node.isInput) || component.kindsOutputsBindings.contains(node))))
-////            buffer += AssignementLevelCmd(node,node.getInput(0))
-////        }
-////        case _ =>
-////      }
-////    }
-////    val context = new AssignementLevel(buffer)
-//
-//    var ret = builder.newPart(false)
-//    val wrappedIo = if (config.onlyStdLogicVectorAtTopLevelIo && component == topLevel) ioStdLogicVectorWrapNames() else HashMap[BaseType, WrappedStuff]()
-//    ret ++= s"architecture arch of ${component.definitionName} is\n"
-//    ret = builder.newPart(true)
-//    emitBlackBoxComponents(component, ret)
-//    emitAttributesDef(component, ret)
-//    val enumDebugSignals = ArrayBuffer[SpinalEnumCraft[_]]()
-//    emitSignals(component, ret, enumDebugSignals)
-//    emitWrappedIoSignals(ret, wrappedIo)
-//    val retTemp = new StringBuilder
-//    retTemp ++= s"begin\n"
-//    emitComponentInstances(component, retTemp)
-//    emitAsyncronous(component, retTemp, ret)
-//    emitSyncronous(component, retTemp)
-//    emitWrappedIoConnection(retTemp, wrappedIo)
-//    emitDebug(component, retTemp, enumDebugSignals)
-//    retTemp ++= s"end arch;\n"
-//    retTemp ++= s"\n"
-//
-//    ioStdLogicVectorRestoreNames(wrappedIo)
-//
-//    ret ++= retTemp
-//
-//  }
-//
-//  def emitWrappedIoSignals(buff: StringBuilder, map: HashMap[BaseType, WrappedStuff]): Unit = {
-//    for ((e, w) <- map) {
-//      buff ++= s"  signal ${w.newName} : ${emitDataType(e)};\n"
-//    }
-//  }
-//
-//  def emitWrappedIoConnection(buff: StringBuilder, map: HashMap[BaseType, WrappedStuff]): Unit = {
-//    for ((e, w) <- map) e.dir match {
-//      case spinal.core.in => e match {
-//        case e: UInt => buff ++= s"  ${w.newName} <= unsigned(${w.originalName});\n"
-//        case e: SInt => buff ++= s"  ${w.newName} <= signed(${w.originalName});\n"
-//      }
-//      case spinal.core.out => buff ++= s"  ${w.originalName} <= std_logic_vector(${w.newName});\n"
-//    }
-//  }
-//
+
   def emitBlackBoxComponents(component: Component, b: ComponentBuilder): Unit = {
     val emited = mutable.Set[String]()
     for (c <- component.children) c match {
@@ -1742,7 +1503,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
       case _ =>
     }
   }
-//
+
   def blackBoxRemplaceULogic(b: BlackBox, str: String): String = {
     if (b.isUsingULogic)
       str.replace("std_logic", "std_ulogic")
@@ -1807,8 +1568,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     b.declarations ++= "\n"
   }
 
-//  def toSpinalEnumCraft[T <: SpinalEnum](that: Any) = that.asInstanceOf[SpinalEnumCraft[T]]
-//
+
   def getBaseTypeSignalInitialisation(signal : BaseType) : String = {
     if(signal.isReg){
       if(signal.clockDomain.config.resetKind == BOOT && signal.hasInit) {
@@ -1847,7 +1607,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
     }
     ""
   }
-//
+
 
 
   def emitSignals(component: Component, b: ComponentBuilder): Unit = {
@@ -1856,77 +1616,13 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
         case signal: BaseType => {
           if (!signal.isIo) {
             b.declarations ++= s"  signal ${emitReference(signal, false)} : ${emitDataType(signal)}${getBaseTypeSignalInitialisation(signal)};\n"
-
-//            if (signal.isInstanceOf[SpinalEnumCraft[_]]) {
-//              val craft = toSpinalEnumCraft(signal)
-//              if (!craft.getEncoding.isNative) {
-//                ret ++= s"  signal ${emitReference(signal)}_debug : ${getEnumDebugType(craft.spinalEnum)};\n"
-//                enumDebugSignals += toSpinalEnumCraft(signal)
-//              }
-//            }
           }
 
 
           emitAttributes(signal,signal.instanceAttributes(Language.VHDL), "signal", b.declarations)
         }
-//        case readSync : MemReadSync => {
-//          if(readSync.writeToReadKind == `writeFirst`){
-//            ret ++= s"  signal ${emitReference(readSync.consumers(0))}_mem_addr : unsigned(${readSync.mem.addressWidth-1}} downto 0);\n"
-//          }
-//        }
-        case mem: Mem[_] => // {
-//          //ret ++= emitSignal(mem, mem);
-//          val symbolWidth = mem.getMemSymbolWidth()
-//          val symbolCount = mem.getMemSymbolCount
-//
-//          val initAssignementBuilder = for(i <- 0 until symbolCount) yield {
-//            val builder = new StringBuilder()
-//            val mask = (BigInt(1) << symbolWidth)-1
-//            if (mem.initialContent != null) {
-//              builder ++= " := ("
-//
-//              var first = true
-//              for ((value, index) <- mem.initialContent.zipWithIndex) {
-//                if (!first)
-//                  builder ++= ","
-//                else
-//                  first = false
-//
-//                if ((index & 15) == 0) {
-//                  builder ++= "\n     "
-//                }
-//
-//                val unfilledValue = ((value>>(i*symbolWidth)) & mask).toString(2)
-//                val filledValue = "0" * (symbolWidth-unfilledValue.length) + unfilledValue
-//                builder ++= "\"" + filledValue + "\""
-//              }
-//
-//              builder ++= ")"
-//            }else if(mem.hasTag(randomBoot)){
-//              builder ++= " := (others => (others => '1'))"
-//            }
-//            builder
-//          }
-//
-//
-//          if(memBitsMaskKind == MULTIPLE_RAM && symbolCount != 1) {
-//            //if(mem.initialContent != null) SpinalError("Memory with multiple symbol per line + initial contant are not suported currently")
-//
-//            ret ++= s"  type ${emitReference(mem)}_type is array (0 to ${mem.wordCount - 1}) of std_logic_vector(${symbolWidth - 1} downto 0);\n"
-//            for(i <- 0 until symbolCount) {
-//              val postfix = "_symbol" + i
-//              ret ++= s"  signal ${emitReference(mem)}$postfix : ${emitDataType(mem)}${initAssignementBuilder(i).toString()};\n"
-//              emitAttributes(mem,mem.instanceAttributes(Language.VHDL), "signal", ret,postfix = postfix)
-//            }
-//          }else{
-//            ret ++= s"  type ${emitReference(mem)}_type is array (0 to ${mem.wordCount - 1}) of std_logic_vector(${mem.getWidth - 1} downto 0);\n"
-//            ret ++= s"  signal ${emitReference(mem)} : ${emitDataType(mem)}${initAssignementBuilder.head.toString()};\n"
-//            emitAttributes(mem, mem.instanceAttributes(Language.VHDL), "signal", ret)
-//          }
-//        }
+        case mem: Mem[_] =>
       }
-
-
     })
   }
 
@@ -2120,65 +1816,9 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
       ret ++= s"  attribute ${attribute.getName} of ${emitReference(node, false)}: signal is $value;\n"
     }
   }
-//
-//
-//
-//  def emitAsyncronous(component: Component, ret: StringBuilder, funcRet: StringBuilder): Unit = {
-//    val processList = getAsyncProcesses(component)
-//
-//    for (process <- processList if !process.needProcessDef) {
-//      for (node <- process.nodes) {
-//        emitAssignement(node, node.getInput(0), ret, "  ", "<=")
-//      }
-//    }
-//
-//    referenceSet = mutable.Set[Node with Nameable with ContextUser]()
-//    for (process <- processList if process.needProcessDef) {
-//      process.genSensitivity
-//
-//      val context = new AssignementLevel(process.nodes.map(n => AssignementLevelCmd(n,n.getInput(0))))
-//
-//      if (process.sensitivity.size != 0) {
-//        val tmp = new StringBuilder
-//        referenceSet.clear()
-//        emitAssignementLevel(context,tmp, "    ", "<=",false,process.sensitivity)
-//
-//        //TODO sensitivity list generation no more required
-////        ret ++= s"  process(${process.sensitivity.toList.sortWith(_.instanceCounter < _.instanceCounter).map(emitReference(_)).reduceLeft(_ + "," + _)})\n"
-//        ret ++= s"  process(${referenceSet.toList.sortWith(_.instanceCounter < _.instanceCounter).map(emitReference(_)).reduceLeft(_ + "," + _)})\n"
-//        ret ++= "  begin\n"
-//        ret ++= tmp
-//        ret ++= "  end process;\n\n"
-//      } else {
-//        //emit func as logic
-//        assert(process.nodes.size == 1)
-//        for (node <- process.nodes) {
-//          val funcName = "zz_" + emitReference(node)
-//          funcRet ++= emitFuncDef(funcName, node, context)
-//          ret ++= s"  ${emitReference(node)} <= ${funcName};\n"
-//          //          ret ++= s"  ${emitReference(node)} <= ${emitLogic(node.getInput(0))};\n"
-//        }
-//      }
-//    }
-//    referenceSet = null
-//
-//  }
-//
-//
-//  def emitFuncDef(funcName: String, node: Node, context: AssignementLevel): StringBuilder = {
-//    val ret = new StringBuilder
-//    //context.emitContext(ret, "    ",":=")
-//    ret ++= s"  function $funcName return ${emitDataType(node, false)} is\n"
-//    ret ++= s"    variable ${emitReference(node)} : ${emitDataType(node, true)};\n"
-//    ret ++= s"  begin\n"
-//    emitAssignementLevel(context,ret, "    ", ":=")
-//    ret ++= s"    return ${emitReference(node)};\n"
-//    ret ++= s"  end function;\n"
-//  }
-//
-//
 
-//  def refImpl(op: Expression): String = emitReference(op.asInstanceOf[RefExpression].source, true)
+
+
 def refImpl(op: Expression): String = emitReference(op.asInstanceOf[DeclarationStatement], true)
 
   def operatorImplAsBinaryOperator(vhd: String)(op: Expression): String = {
@@ -2561,486 +2201,4 @@ def refImpl(op: Expression): String = emitReference(op.asInstanceOf[DeclarationS
   opThatNeedBoolCast ++= opThatNeedBoolCastGen("u", "u")
   opThatNeedBoolCast ++= opThatNeedBoolCastGen("s", "s")
   opThatNeedBoolCast ++= opThatNeedBoolCastGen("e", "e")
-//
-//
-//  def emitLogic(node: Node): String = node match {
-//    case baseType: BaseType => emitReference(baseType)
-//    case node: Modifier => expressionImplMap.getOrElse(node.opName, throw new Exception("can't find " + node.opName))(node)
-//
-//    case lit: BitsLiteral => s"pkg_stdLogicVector(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
-//    case lit: UIntLiteral => s"pkg_unsigned(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
-//    case lit: SIntLiteral => s"pkg_signed(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
-//
-//    case lit: BitsAllToLiteral => lit.theConsumer match {
-//      case _: Bits => s"pkg_stdLogicVector(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
-//      case _: UInt => s"pkg_unsigned(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
-//      case _: SInt => s"pkg_signed(${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'})"
-//    }
-//    case lit: BoolLiteral => s"pkg_toStdLogic(${lit.value})"
-//    //  case lit: BoolLiteral => if(lit.value) "'1'" else "'0'" //Invalid VHDL when '1' = '1'
-//    case lit: EnumLiteral[_] => emitEnumLiteral(lit.enum, lit.encoding)
-//    case memRead: MemReadAsync => {
-//      if(memRead.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${memRead.getMem} because of its mixed width ports")
-//      if (memRead.readUnderWrite == dontCare) SpinalWarning(s"memReadAsync with dontCare is as writeFirst into VHDL")
-//      val symbolCount = memRead.getMem.getMemSymbolCount
-//      if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
-//        s"${emitReference(memRead.getMem)}(to_integer(${emitReference(memRead.getAddress)}))"
-//      else
-//        (0 until symbolCount).reverse.map(i => (s"${emitReference(memRead.getMem)}_symbol$i(to_integer(${emitReference(memRead.getAddress)}))")).reduce(_ + " & " + _)
-//    }
-//    case whenNode: WhenNode => s"pkg_mux(${whenNode.getInputs.map(emitLogic(_)).reduce(_ + "," + _)})" //Exeptional case with asyncrouns of literal
-//    case dc : DontCareNodeEnum => {
-//      if(dc.encoding.isNative)
-//        return "pkg_enum." + dc.enum.elements.head.getName()
-//      else
-//        return s"(${'"'}${"-" * dc.encoding.getWidth(dc.enum)}${'"'})"
-//    }
-//    case dc: DontCareNode => {
-//      dc.getBaseType match {
-//        case to: Bool => s"'-'"
-//        case to: BitVector => s"(${'"'}${"-" * dc.asInstanceOf[Widthable].getWidth}${'"'})"
-//      }
-//    }
-//
-//
-//    case o => throw new Exception("Don't know how emit logic of " + o.getClass.getSimpleName)
-//  }
-//
-//  def emitDebug(component: Component, ret: StringBuilder, enumDebugSignals: ArrayBuffer[SpinalEnumCraft[_]]): Unit = {
-//    for (signal <- enumDebugSignals) {
-//      ret ++= s"  ${emitReference(signal)}_debug <= ${getEnumToDebugFuntion(toSpinalEnumCraft(signal).spinalEnum, signal.getEncoding)}(${emitReference(signal)});\n"
-//    }
-//  }
-//
-//  def emitSyncronous(component: Component, ret: StringBuilder): Unit = {
-//    val syncNodes = component.getDelays
-//
-//    val clockDomainMap = mutable.Map[ClockDomain, ArrayBuffer[SyncNode]]()
-//
-//    for (syncNode <- syncNodes) {
-//      clockDomainMap.getOrElseUpdate(syncNode.getClockDomain, new ArrayBuffer[SyncNode]()) += syncNode
-//    }
-//
-//    for ((clockDomain, array) <- clockDomainMap.toList.sortWith(_._1.instanceCounter < _._1.instanceCounter)) {
-//      val arrayWithReset = ArrayBuffer[SyncNode]()
-//      val arrayWithoutReset = ArrayBuffer[SyncNode]()
-//
-//      for (syncNode <- array) {
-//        if (syncNode.isUsingResetSignal || syncNode.isUsingSoftResetSignal)
-//          arrayWithReset += syncNode
-//        else
-//          arrayWithoutReset += syncNode
-//      }
-//
-//      emitClockDomain(true)
-//      emitClockDomain(false)
-//
-//
-//
-//      def emitClockDomain(withReset: Boolean): Unit = {
-//        val activeArray = if (withReset) arrayWithReset else arrayWithoutReset
-//        if (activeArray.size == 0) return;
-//        val clock = component.pulledDataCache.getOrElse(clockDomain.clock, throw new Exception("???")).asInstanceOf[Bool]
-//        val reset = if (null == clockDomain.reset || !withReset) null else component.pulledDataCache.getOrElse(clockDomain.reset, throw new Exception("???")).asInstanceOf[Bool]
-//        val softReset = if (null == clockDomain.softReset || !withReset) null else component.pulledDataCache.getOrElse(clockDomain.softReset, throw new Exception("???")).asInstanceOf[Bool]
-//        val clockEnable = if (null == clockDomain.clockEnable) null else component.pulledDataCache.getOrElse(clockDomain.clockEnable, throw new Exception("???")).asInstanceOf[Bool]
-//        val asyncReset = (null != reset) && clockDomain.config.resetKind == ASYNC
-//        val syncReset = (null != reset) && clockDomain.config.resetKind == SYNC
-//        var tabLevel = 1
-//        def tabStr = "  " * tabLevel
-//        def inc = {
-//          tabLevel = tabLevel + 1
-//        }
-//        def dec = {
-//          tabLevel = tabLevel - 1
-//        }
-//
-//        val initialValues = ArrayBuffer[Node]()
-//        val initialTasks = ArrayBuffer[AssignementLevelCmd]()
-//        for (syncNode <- activeArray) syncNode match {
-//          case reg: Reg => {
-//            if (reg.hasInitialValue) {
-//              initialTasks += AssignementLevelCmd(reg.getOutputByConsumers, reg.getInitialValue)
-//              initialValues += reg.getInitialValue
-//            }
-//          }
-//          case _ =>
-//        }
-//        val initialValueAssignement = new AssignementLevel(initialTasks)
-//
-//
-//
-//        if (asyncReset) {
-//          val sensitivity = getSensitivity(initialValues, true)
-//          ret ++= s"${tabStr}process(${emitReference(clock)},${emitReference(reset)}${sensitivity.foldLeft("")(_ + "," + emitReference(_))})\n"
-//        } else {
-//          ret ++= s"${tabStr}process(${emitReference(clock)})\n"
-//        }
-//
-//        ret ++= s"${tabStr}begin\n"
-//        inc
-//        if (asyncReset) {
-//          ret ++= s"${tabStr}if ${emitReference(reset)} = \'${if (clockDomain.config.resetActiveLevel == HIGH) 1 else 0}\' then\n";
-//          inc
-//          emitRegsInitialValue(initialValueAssignement, tabStr)
-//          dec
-//          ret ++= s"${tabStr}elsif ${emitClockEdge(clock, clockDomain.config.clockEdge)}"
-//          inc
-//        } else {
-//          ret ++= s"${tabStr}if ${emitClockEdge(clock, clockDomain.config.clockEdge)}"
-//          inc
-//        }
-//        if (clockEnable != null) {
-//          ret ++= s"${tabStr}if ${emitReference(clockEnable)} = \'${if (clockDomain.config.clockEnableActiveLevel == HIGH) 1 else 0}\' then\n"
-//          inc
-//        }
-//
-//        if (syncReset || softReset != null) {
-//          var condList = ArrayBuffer[String]()
-//          if(syncReset) condList += s"${emitReference(reset)} = \'${if (clockDomain.config.resetActiveLevel == HIGH) 1 else 0}\'"
-//          if(softReset != null) condList += s"${emitReference(softReset)} = \'${if (clockDomain.config.softResetActiveLevel == HIGH) 1 else 0}\'"
-//
-//          ret ++= s"${tabStr}if ${condList.reduce(_ + " or " + _)} then\n"
-//          inc
-//          emitRegsInitialValue(initialValueAssignement, tabStr)
-//          dec
-//          ret ++= s"${tabStr}else\n"
-//          inc
-//          emitRegsLogic(tabStr)
-//          dec
-//          ret ++= s"${tabStr}end if;\n"
-//          dec
-//        } else {
-//          emitRegsLogic(tabStr)
-//          dec
-//        }
-//
-//        while (tabLevel != 1) {
-//          ret ++= s"${tabStr}end if;\n"
-//          dec
-//        }
-//        ret ++= s"${tabStr}end process;\n"
-//        dec
-//        ret ++= s"${tabStr}\n"
-//
-//
-//        def emitRegsInitialValue(assignementLevel: AssignementLevel, tab: String): Unit = {
-//          emitAssignementLevel(assignementLevel,ret, tab, "<=")
-//        }
-//
-//
-//        def emitRegsLogic(tab: String): Unit = {
-//
-//
-//          val assignementTasks = ArrayBuffer[AssignementLevelCmd]()
-//
-//
-//          for (syncNode <- activeArray) syncNode match {
-//            case reg: Reg => {
-//              val regSignal = reg.getOutputByConsumers
-//              if (!regSignal.isIo || !regSignal.isInput) {
-//                val in = reg.getDataInput
-//                if (in != reg)
-//                  assignementTasks += AssignementLevelCmd(regSignal, in)
-//              }
-//            }
-//            case memWrite: MemWrite => {
-//              if(memWrite.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${memWrite.getMem} because of its mixed width ports")
-//
-//              if (memWrite.useWriteEnable) {
-//                ret ++= s"${tab}if ${emitReference(memWrite.getEnable)} = '1' then\n"
-//                emitWrite(tab + "  ")
-//                ret ++= s"${tab}end if;\n"
-//              } else {
-//                emitWrite(tab)
-//              }
-//
-//              def emitWrite(tab: String) = {
-//                val symbolCount = memWrite.getMem.getMemSymbolCount
-//                val bitPerSymbole = memWrite.getMem.getMemSymbolWidth()
-//
-//                if(memWrite.getMask == null) {
-//                  if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
-//                    ret ++= s"$tab${emitReference(memWrite.getMem)}(to_integer(${emitReference(memWrite.getAddress)})) <= ${emitReference(memWrite.getData)};\n"
-//                  else
-//                    for(i <- 0 until symbolCount) {
-//                      val range = s"(${(i + 1) * bitPerSymbole - 1} downto ${i * bitPerSymbole})"
-//                      ret ++= s"$tab  ${emitReference(memWrite.getMem)}_symbol${i}(to_integer(${emitReference(memWrite.getAddress)})) <= ${emitReference(memWrite.getData)}$range;\n"
-//                    }
-//                }else{
-//
-//                  val maskCount = memWrite.getMask.getWidth
-//                  for(i <- 0 until maskCount){
-//                    val range = s"(${(i+1)*bitPerSymbole-1} downto ${i*bitPerSymbole})"
-//                    ret ++= s"${tab}if ${emitReference(memWrite.getMask)}($i) = '1' then\n"
-//                    if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
-//                      ret ++= s"$tab  ${emitReference(memWrite.getMem)}(to_integer(${emitReference(memWrite.getAddress)}))$range <= ${emitReference(memWrite.getData)}$range;\n"
-//                    else
-//                      ret ++= s"$tab  ${emitReference(memWrite.getMem)}_symbol${i}(to_integer(${emitReference(memWrite.getAddress)})) <= ${emitReference(memWrite.getData)}$range;\n"
-//
-//                    ret ++= s"${tab}end if;\n"
-//                  }
-//                }
-//              }
-//            }
-//            case memReadSync: MemReadSync => {
-//              if(memReadSync.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${memReadSync.getMem} because of its mixed width ports")
-//              if(memReadSync.readUnderWrite == writeFirst) SpinalError(s"Can't translate a memReadSync with writeFirst into VHDL $memReadSync")
-//              if(memReadSync.readUnderWrite == dontCare) SpinalWarning(s"memReadSync with dontCare is as readFirst into VHDL $memReadSync")
-//              if(memReadSync.useReadEnable) {
-//                ret ++= s"${tab}if ${emitReference(memReadSync.getReadEnable)} = '1' then\n"
-//                emitRead(tab + "  ")
-//                ret ++= s"${tab}end if;\n"
-//              } else {
-//                emitRead(tab)
-//              }
-//              def emitRamRead() = {
-//                val symbolCount = memReadSync.getMem.getMemSymbolCount
-//                if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
-//                  s"${emitReference(memReadSync.getMem)}(to_integer(${emitReference(memReadSync.getAddress)}))"
-//                else
-//                  (0 until symbolCount).reverse.map(i => (s"${emitReference(memReadSync.getMem)}_symbol$i(to_integer(${emitReference(memReadSync.getAddress)}))")).reduce(_ + " & " + _)
-//              }
-//              def emitRead(tab: String) = ret ++= s"$tab${emitReference(memReadSync.consumers(0))} <= ${emitRamRead()};\n"
-//
-//            }
-//
-//            case memWrite: MemReadWrite_writePart => {
-//              val memReadSync = memWrite.readPart
-//              if(memWrite.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${memWrite.getMem} because of its mixed width ports")
-//              if (memReadSync.readUnderWrite == writeFirst) SpinalError(s"Can't translate a MemWriteOrRead with writeFirst into VHDL $memReadSync")
-//              if (memReadSync.readUnderWrite == dontCare) SpinalWarning(s"MemWriteOrRead with dontCare is as readFirst into VHDL $memReadSync")
-//
-//              val symbolCount = memWrite.getMem.getMemSymbolCount
-//              ret ++= s"${tab}if ${emitReference(memWrite.getChipSelect)} = '1' then\n"
-//              ret ++= s"${tab}  if ${emitReference(memWrite.getWriteEnable)} = '1' then\n"
-//              emitWrite(tab + "    ")
-//              ret ++= s"${tab}  end if;\n"
-//              if (memReadSync.component.nodes.contains(memReadSync))
-//                emitRead(tab + "  ")
-//              ret ++= s"${tab}end if;\n"
-//
-//              def emitWrite(tab: String) = {
-////                ret ++= s"$tab${emitReference(memWrite.getMem)}(to_integer(${emitReference(memWrite.getAddress)})) <= ${emitReference(memWrite.getData)};\n"
-//
-//                val symbolCount = memWrite.getMem.getMemSymbolCount
-//                val bitPerSymbole = memWrite.getMem.getMemSymbolWidth()
-//
-//                if(memWrite.getMask == null) {
-//                  if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
-//                    ret ++= s"$tab${emitReference(memWrite.getMem)}(to_integer(${emitReference(memWrite.getAddress)})) <= ${emitReference(memWrite.getData)};\n"
-//                  else
-//                    for(i <- 0 until symbolCount) {
-//                      val range = s"(${(i + 1) * bitPerSymbole - 1} downto ${i * bitPerSymbole})"
-//                      ret ++= s"$tab  ${emitReference(memWrite.getMem)}_symbol${i}(to_integer(${emitReference(memWrite.getAddress)})) <= ${emitReference(memWrite.getData)}$range;\n"
-//                    }
-//                }else{
-//
-//                  val maskCount = memWrite.getMask.getWidth
-//                  for(i <- 0 until maskCount){
-//                    val range = s"(${(i+1)*bitPerSymbole-1} downto ${i*bitPerSymbole})"
-//                    ret ++= s"${tab}if ${emitReference(memWrite.getMask)}($i) = '1' then\n"
-//                    if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
-//                      ret ++= s"$tab  ${emitReference(memWrite.getMem)}(to_integer(${emitReference(memWrite.getAddress)}))$range <= ${emitReference(memWrite.getData)}$range;\n"
-//                    else
-//                      ret ++= s"$tab  ${emitReference(memWrite.getMem)}_symbol${i}(to_integer(${emitReference(memWrite.getAddress)})) <= ${emitReference(memWrite.getData)}$range;\n"
-//
-//                    ret ++= s"${tab}end if;\n"
-//                  }
-//                }
-//              }
-//              def emitRead(tab: String) = {
-////                ret ++= s"$tab${emitReference(memReadSync.consumers(0))} <= ${emitReference(memReadSync.getMem)}(to_integer(${emitReference(memReadSync.getAddress)}));\n"
-//                val symbolCount = memReadSync.getMem.getMemSymbolCount
-//                ret ++= s"$tab${emitReference(memReadSync.consumers(0))} <= ${
-//                  if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
-//                    s"${emitReference(memReadSync.getMem)}(to_integer(${emitReference(memReadSync.getAddress)}))"
-//                  else
-//                    (0 until symbolCount).reverse.map(i => (s"${emitReference(memReadSync.getMem)}_symbol$i(to_integer(${emitReference(memReadSync.getAddress)}))")).reduce(_ + " & " + _)
-//                };\n"
-//
-//
-//              }
-//
-//            }
-//            case memWriteRead_readPart: MemReadWrite_readPart => {
-//
-//            }
-//            case assertNode : AssertNode => {
-//              val cond = emitLogic(assertNode.cond)
-//              require(assertNode.message.size == 0 || (assertNode.message.size == 1 && assertNode.message(0).isInstanceOf[String]))
-//              val message = if(assertNode.message.size == 1) s"""report "${assertNode.message(0)}" """ else ""
-//              val severity = "severity " +  (assertNode.severity match{
-//                case `NOTE`     => "NOTE"
-//                case `WARNING`  => "WARNING"
-//                case `ERROR`    => "ERROR"
-//                case `FAILURE`  => "FAILURE"
-//              })
-//              ret ++= s"${tab}assert $cond = '1' $message $severity;\n"
-//            }
-//          }
-//          val rootContext = new AssignementLevel(assignementTasks)
-//          emitAssignementLevel(rootContext,ret, tab, "<=")
-//        }
-//      }
-//    }
-//  }
-//
-//  def emitAssignement(to: Node, from: Node, ret: StringBuilder, tab: String, assignementKind: String): Unit = {
-//    from match {
-//      case from: AssignementNode => {
-//        from match {
-//          case assign: BitAssignmentFixed => ret ++= s"$tab${emitAssignedReference(to)}(${assign.getBitId}) ${assignementKind} ${emitLogic(assign.getInput)};\n"
-//          case assign: BitAssignmentFloating => ret ++= s"$tab${emitAssignedReference(to)}(to_integer(${emitLogic(assign.getBitId)})) ${assignementKind} ${emitLogic(assign.getInput)};\n"
-//          case assign: RangedAssignmentFixed => ret ++= s"$tab${emitAssignedReference(to)}(${assign.getHi} downto ${assign.getLo}) ${assignementKind} ${emitLogic(assign.getInput)};\n"
-//          case assign: RangedAssignmentFloating => ret ++= s"$tab${emitAssignedReference(to)}(${assign.getBitCount.value - 1} + to_integer(${emitLogic(assign.getOffset)}) downto to_integer(${emitLogic(assign.getOffset)})) ${assignementKind} ${emitLogic(assign.getInput)};\n"
-//        }
-//      }
-//      case man: MultipleAssignmentNode => {
-//        //For some case with asyncronous partial assignement
-//        man.onEachInput(assign => {
-//          emitAssignement(to, assign, ret, tab, assignementKind)
-//        })
-//      }
-//      case _ => ret ++= s"$tab${emitAssignedReference(to)} ${assignementKind} ${emitLogic(from)};\n"
-//    }
-//  }
-//
-//  def emitAssignementLevel(context : AssignementLevel,ret: mutable.StringBuilder, tab: String, assignementKind: String, isElseIf: Boolean = false,hiddenSensitivity : mutable.Set[Node] = null): Unit = {
-//    val firstTab = if (isElseIf) "" else tab
-//
-//    context.content.foreach(_ match {
-//      case whenTree: AssignementLevelWhen => {
-//        def doTrue = whenTree.whenTrue.isNotEmpty
-//        def doFalse = whenTree.whenFalse.isNotEmpty
-//        val condLogic = emitLogic(whenTree.cond)
-//        val condLogicCleaned = if (condLogic.startsWith("pkg_toStdLogic(")) condLogic.substring("pkg_toStdLogic(".length, condLogic.length - 1) else condLogic + " = '1'"
-//
-//        if (doTrue && !doFalse) {
-//          ret ++= s"${firstTab}if $condLogicCleaned then\n"
-//          emitAssignementLevel(whenTree.whenTrue, ret, tab + "  ", assignementKind)
-//          ret ++= s"${tab}end if;\n"
-//        } else {
-//          ret ++= s"${firstTab}if $condLogicCleaned then\n"
-//          emitAssignementLevel(whenTree.whenTrue, ret, tab + "  ", assignementKind)
-//          val falseHead = if (whenTree.whenFalse.isOnlyAWhen) whenTree.whenFalse.content.head else null
-//          if (falseHead != null && falseHead.asInstanceOf[AssignementLevelWhen].context.parentElseWhen == whenTree.context) {
-//            ret ++= s"${tab}els"
-//            emitAssignementLevel(whenTree.whenFalse, ret, tab, assignementKind, true)
-//          } else {
-//            ret ++= s"${tab}else\n"
-//            emitAssignementLevel(whenTree.whenFalse, ret, tab + "  ", assignementKind)
-//            ret ++= s"${tab}end if;\n"
-//          }
-//        }
-//      }
-//      case switchTree : AssignementLevelSwitch => {
-//        if(hiddenSensitivity != null) hiddenSensitivity += switchTree.key
-//        ret ++= s"${tab}case ${emitLogic(switchTree.key)} is\n"
-//        switchTree.cases.foreach(c => {
-//          val litString = c.const match {
-//            case lit: BitsLiteral => s"${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'}"
-//            case lit: UIntLiteral => s"${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'}"
-//            case lit: SIntLiteral => s"${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'}"
-//
-//            case lit: BitsAllToLiteral => lit.theConsumer match {
-//              case _: Bits => s"${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'}"
-//              case _: UInt => s"${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'}"
-//              case _: SInt => s"${'\"'}${lit.getBitsStringOn(lit.getWidth)}${'\"'}"
-//            }
-//            case lit: BoolLiteral => s"${lit.value}"
-//            //  case lit: BoolLiteral => if(lit.value) "'1'" else "'0'" //Invalid VHDL when '1' = '1'
-//            case lit: EnumLiteral[_] => emitEnumLiteral(lit.enum, lit.encoding)
-//          }
-//          ret ++= s"${tab}  when $litString =>\n"
-//          emitAssignementLevel(c.doThat,ret,tab + "    ",assignementKind)
-//        })
-//        ret ++= s"${tab}  when others =>\n"
-//        if(switchTree.default != null){
-//          emitAssignementLevel(switchTree.default.doThat,ret,tab + "    ",assignementKind)
-//        }
-//        ret ++= s"${tab}end case;\n"
-//      }
-//      case task : AssignementLevelSimple => emitAssignement(task.that, task.by, ret, tab, assignementKind)
-//    })
-//
-//
-//  }
-//
-//  def emitComponentInstances(component: Component, ret: StringBuilder): Unit = {
-//    for (kind <- component.children) {
-//      val isBB = kind.isInstanceOf[BlackBox]
-//      val isBBUsingULogic = isBB && kind.asInstanceOf[BlackBox].isUsingULogic
-//      val definitionString = if (isBB) kind.definitionName
-//      else s"entity work.${
-//        emitedComponentRef.getOrElse(kind, kind).definitionName
-//      }"
-//      ret ++= s"  ${
-//        kind.getName()
-//      } : $definitionString\n"
-//
-//
-//      def addULogicCast(bt: BaseType, io: String, logic: String, dir: IODirection): String = {
-//
-//        if (isBBUsingULogic)
-//          if (dir == in) {
-//            bt match {
-//              case _: Bool => return s"      $io => std_ulogic($logic),\n"
-//              case _: Bits => return s"      $io => std_ulogic_vector($logic),\n"
-//              case _ => return s"      $io => $logic,\n"
-//            }
-//          } else if (dir == spinal.core.out) {
-//            bt match {
-//              case _: Bool => return s"      std_logic($io) => $logic,\n"
-//              case _: Bits => return s"      std_logic_vector($io) => $logic,\n"
-//              case _ => return s"      $io => $logic,\n"
-//            }
-//          } else SpinalError("???")
-//
-//        else
-//          return s"      $io => $logic,\n"
-//      }
-//
-//      if (kind.isInstanceOf[BlackBox]) {
-//        val bb = kind.asInstanceOf[BlackBox]
-//        val genericFlat = bb.getGeneric.flatten
-//
-//        if (genericFlat.size != 0) {
-//          ret ++= s"    generic map( \n"
-//
-//
-//          for (e <- genericFlat) {
-//            e match {
-//              case baseType: BaseType => ret ++= addULogicCast(baseType, emitReference(baseType), emitLogic(baseType.getInput(0)), in)
-//              case (name : String,s: String) => ret ++= s"      ${name} => ${"\""}${s}${"\""},\n"
-//              case (name : String,i : Int) => ret ++= s"      ${name} => $i,\n"
-//              case (name : String,d: Double) => ret ++= s"      ${name} => $d,\n"
-//              case (name : String,b: Boolean) => ret ++= s"      ${name} => $b,\n"
-//              case (name : String,t: TimeNumber) => {
-//                val d = t.decompose
-//                ret ++= s"      ${name} => ${d._1} ${d._2},\n"
-//              }
-//            }
-//          }
-//          ret.setCharAt(ret.size - 2, ' ')
-//          ret ++= s"    )\n"
-//        }
-//      }
-//      ret ++= s"    port map ( \n"
-//      for (data <- kind.getOrdredNodeIo) {
-//        if (data.isOutput) {
-//          val bind = component.kindsOutputsToBindings.getOrElse(data, null)
-//          if (bind != null) {
-//            ret ++= addULogicCast(data, emitReference(data), emitReference(bind), data.dir)
-//          }
-//        }
-//        else if (data.isInput)
-//          ret ++= addULogicCast(data, emitReference(data), emitReference(data.getInput(0)), data.dir)
-//      }
-//      ret.setCharAt(ret.size - 2, ' ')
-//
-//      ret ++= s"    );"
-//      ret ++= s"\n"
-//    }
-//  }
 }

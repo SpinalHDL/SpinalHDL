@@ -1424,7 +1424,6 @@ object SpinalVhdlBoot{
 
 
     phases += new PhaseDummy(SpinalProgress("Get names from reflection"))
-//    phases += new PhaseNodesBlackBoxGenerics(pc)
     phases += new PhaseNameNodesByReflection(pc)
     phases += new PhaseCollectAndNameEnum(pc)
 
@@ -1445,10 +1444,6 @@ object SpinalVhdlBoot{
     phases += new PhaseInferWidth(pc)
     phases += new PhaseNormalizeNodeInputs(pc)
     phases += new PhaseSimplifyNodes(pc)
-
-
-//    phases += new PhaseDummy(SpinalProgress("Simplify graph's nodes"))
-//    phases += new PhaseDeleteUselessBaseTypes(pc, true)
 
 
     phases += new PhaseRemoveUselessStuff(true, true)

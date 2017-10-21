@@ -17,15 +17,7 @@
 // */
 //
 package spinal.core
-//
-//import scala.collection.mutable
-//import scala.collection.mutable.{StringBuilder, ArrayBuffer}
-//
-///**
-// * Created by PIC18F on 07.01.2015.
-// */
-//
-//
+
 trait VhdlBase extends VhdlVerilogBase{
 //
   var enumPackageName = "pkg_enum"
@@ -42,13 +34,7 @@ trait VhdlBase extends VhdlVerilogBase{
     ret ++= s"use work.all;\n"
     ret ++= s"use work.$enumPackageName.all;\n\n"
   }
-//
-//
-//  def emitSignal(ref: Node, typeNode: Node): String = {
-//    s"  signal ${emitReference(ref)} : ${emitDataType(typeNode)};\n"
-//  }
-//
-//
+
   def emitClockEdge(clock: String, edgeKind: EdgeKind): String = {
     s"${
       edgeKind match {
@@ -98,24 +84,7 @@ trait VhdlBase extends VhdlVerilogBase{
     case `out` => "out"
     case _ => throw new Exception("Unknown direction"); ""
   }
-  //    node match {
-  //  def emitReference(node: Node): String = {
-  //  var referenceSet : mutable.Set[Node with Nameable with ContextUser] = null
-  //
-  //
-  //
+
   def emitRange(node: WidthProvider) = s"(${node.getWidth - 1} downto 0)"
-  //      case n: Nameable with ContextUser => {
-//        if(referenceSet != null) referenceSet.add(n)
-//        n.getNameElseThrow
-//      }
-//    }
-//  }
-//  def emitAssignedReference(node: Node): String = {
-//    node match {
-//      case n: Nameable with ContextUser => {
-//        n.getNameElseThrow
-//      }
-//    }
-//  }
+
 }
