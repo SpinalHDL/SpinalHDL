@@ -6,9 +6,10 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 //TODO IR :
-// Add more check to bitvector literal width and minimal width
 // Mem blackboxify
 // Add transformation phases
+// Implement check combinatorioal loops
+// Implement check cross clock
 case class DslContext(clockDomain: ClockDomain, component: Component, scope: ScopeStatement)
 
 

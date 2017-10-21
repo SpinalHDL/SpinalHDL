@@ -145,12 +145,13 @@ object PlayDebug{
 
   class TopLevel extends Component {
     val a,b,c = Bool()
-    var x : UInt = null
+    var x : UInt = UInt(8 bits)
 
+    x := U(555, 11 bits)
     when(a){
-      x = U(8, 8 bits)
+      x := U(555)
     }
-    x := 0
+//    x := 0
   }
 
   def main(args: Array[String]) {

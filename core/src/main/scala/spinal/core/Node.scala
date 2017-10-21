@@ -325,8 +325,8 @@ object InputNormalize {
 
   def resizedOrUnfixedLit(input : Expression with WidthProvider, targetWidth : Int, factory : => Resize,target : Expression,where : ScalaLocated): Expression with WidthProvider = {
     input match{
-      case lit : BitVectorLiteral if (! lit.hasSpecifiedBitCount) =>
-        lit.bitCount = targetWidth //TODO IR check new width ok ?
+      case lit : BitVectorLiteral if (! lit.hasSpecifiedBitCount && lit.minimalValueBitWidth <= targetWidth) =>
+        lit.bitCount = targetWidth
         lit
       case bt : BitVector if(bt.hasTag(tagAutoResize) && bt.getWidth != targetWidth) =>
         val ret = factory
@@ -344,8 +344,8 @@ object InputNormalize {
 
   def resize(input : Expression with WidthProvider, targetWidth : Int, factory : => Resize): Expression with WidthProvider = {
     input match{
-      case lit : BitVectorLiteral if (! lit.hasSpecifiedBitCount) =>
-        lit.bitCount = targetWidth //TODO IR check new width ok ?
+      case lit : BitVectorLiteral if (! lit.hasSpecifiedBitCount && lit.minimalValueBitWidth <= targetWidth) =>
+        lit.bitCount = targetWidth
         lit
       case _ if input.getWidth != targetWidth =>
         val ret = factory
@@ -356,50 +356,6 @@ object InputNormalize {
         input
     }
   }
-
-  //  def inputWidthMax(node: Node): Unit = {
-  //    val targetWidth = Math.max(node.getInput(0).asInstanceOf[WidthProvider].getWidth, node.getInput(1).asInstanceOf[WidthProvider].getWidth)
-  //    node.onEachInput((input,i) => {
-  //      Misc.normalizeResize(node, i, targetWidth)
-  //    })
-  //  }
-
-//  def resizedOrUnfixedLitDeepOne(parent : Node,inputId : Int,targetWidth : Int): Unit ={
-//    val input = parent.getInput(inputId).getInput(0)
-//    if(input == null) return
-//    input match{
-//      case bitVector : BitVector => {
-//        bitVector.getInput(0) match{
-//          case lit : BitVectorLiteral if (! lit.hasSpecifiedBitCount) =>
-//            Misc.normalizeResize(parent, inputId, Math.max(lit.minimalValueBitWidth,targetWidth)) //Allow resize on direct literal with unfixed values
-//          case _ if(input.hasTag(tagAutoResize)) =>
-//            Misc.normalizeResize(parent, inputId, targetWidth)
-//          case _ =>
-//        }
-//      }
-//      case _ =>
-//    }
-//  }
-//
-//  def memReadImpl(node: Node): Unit = {
-//    //not here
-//    //Misc.normalizeResize(node, MemReadSync.getAddressId, node.asInstanceOf[].addressWidth)
-//  }
-//
-//  def memWriteImpl(node: Node): Unit = {
-//    Misc.normalizeResize(node, MemWrite.getDataId, node.asInstanceOf[WidthProvider].getWidth)
-//    Misc.normalizeResize(node, MemWrite.getAddressId, node.asInstanceOf[Mem[_]].addressWidth)
-//  }
-//
-//
-//  def nodeWidth(node: Node): Unit = {
-//    val targetWidth = node.asInstanceOf[WidthProvider].getWidth
-//    node.onEachInput((input,i) => {
-//      Misc.normalizeResize(node, i, targetWidth)
-//    })
-//  }
-//
-
 }
 //
 //object WidthInfer {

@@ -294,6 +294,8 @@ abstract class BitVectorLiteral() extends Literal with WidthProvider {
   }
 
   def isSignedKind : Boolean
+
+  override def toString: String =  s"${'"'}${getBitsStringOn(bitCount, 'x')}${'"'} $bitCount bits)"
 }
 
 class BitsLiteral extends BitVectorLiteral{
@@ -301,6 +303,7 @@ class BitsLiteral extends BitVectorLiteral{
   override def isSignedKind: Boolean = false
   override def clone(): this.type = BitsLiteral(value, poisonMask, bitCount,hasSpecifiedBitCount).asInstanceOf[this.type]
   override def opName: String = "B\"xxx\""
+  override def toString = "(B" + super.toString
 }
 
 class UIntLiteral extends BitVectorLiteral{
@@ -308,6 +311,7 @@ class UIntLiteral extends BitVectorLiteral{
   override def isSignedKind: Boolean = false
   override def clone(): this.type = UIntLiteral(value, poisonMask, bitCount,hasSpecifiedBitCount).asInstanceOf[this.type]
   override def opName: String = "U\"xxx\""
+  override def toString = "(U" + super.toString
 }
 
 class SIntLiteral extends BitVectorLiteral{
@@ -315,6 +319,7 @@ class SIntLiteral extends BitVectorLiteral{
   override def isSignedKind: Boolean = true
   override def clone(): this.type = SIntLiteral(value, poisonMask, bitCount,hasSpecifiedBitCount).asInstanceOf[this.type]
   override def opName: String = "S\"xxx\""
+  override def toString = "(S" + super.toString
 }
 
 //class BitsAllToLiteral(val theConsumer : Node,val value: Boolean) extends Literal with Widthable {
