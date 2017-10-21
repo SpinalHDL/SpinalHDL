@@ -11,7 +11,6 @@ import scala.collection.mutable.ArrayBuffer
 class PhaseContext(val config : SpinalConfig){
   var globalData = GlobalData.reset
   config.applyToGlobalData(globalData)
-  var dirtyConsumers = true
   val globalScope = new NamingScope()
   var topLevel: Component = null
   val enums = mutable.Map[SpinalEnum,mutable.Set[SpinalEnumEncoding]]()
@@ -107,17 +106,11 @@ class PhaseContext(val config : SpinalConfig){
     GraphUtils.walkAllComponents(topLevel, c => c.dslBody.walkStatements(s => s.walkExpression(func)))
   }
 
-//  def walkNameable(func : Nameable => Unit) : Unit = {
-//    walkComponents(c => c.foreachNameables(e => func(e)))
-//  }
-//
+
   def walkDeclarations(func : DeclarationStatement => Unit) : Unit = {
     walkComponents(c => c.dslBody.walkDeclarations(e => func(e)))
   }
-//  def walkExpressionAndNameableExpression(func : Expression => Unit): Unit ={
-//    walkExpression(func)
-//    walkNameableExpression(func)
-//  }
+
 
   def walkRemapExpressions(func : Expression => Expression): Unit ={
     GraphUtils.walkAllComponents(topLevel, c => c.dslBody.walkStatements(s => s.walkRemapExpressions(func)))
@@ -131,45 +124,6 @@ class PhaseContext(val config : SpinalConfig){
     GraphUtils.walkAllComponents(topLevel, c => func(c))
   }
 
-//  def walkNodesDefautStack = {
-//    val nodeStack = mutable.Stack[Node]()
-//
-//    topLevel.getOrdredNodeIo.foreach(nodeStack.push(_))
-//    components.foreach(c => {
-//      c match {
-//        case blackBox: BlackBox => blackBox.getOrdredNodeIo.filter(_.isInput).foreach(nodeStack.push(_))
-//        case _ =>
-//      }
-//      c.additionalNodesRoot.foreach(nodeStack.push(_))
-//    })
-//    nodeStack
-//  }
-//
-//  def walkNodesBlackBoxGenerics() = {
-//    val nodeStack = mutable.Stack[Node]()
-//    components.foreach(_ match {
-//      case blackBox: BlackBox => {
-//        blackBox.getGeneric.flatten.foreach(_ match {
-//          case bt: BaseType => nodeStack.push(bt)
-//          case _ =>
-//        })
-//      }
-//      case _ =>
-//    })
-//    nodeStack
-//  }
-//
-//  def fillNodeConsumer(): Unit = {
-//    Node.walk(walkNodesDefautStack,(node)=>{
-//      node.onEachInput(input => {
-//        if (input != null) input.consumers += node
-//      })
-//    })
-//  }
-//
-//  def removeNodeConsumer() : Unit = {
-//    Node.walk(walkNodesDefautStack,_.consumers.clear())
-//  }
 
 
 
@@ -181,32 +135,9 @@ class PhaseContext(val config : SpinalConfig){
 
 
 
-//  def checkNoZeroWidth(): Unit ={
-//    def zeroCheck (that : WidthProvider): Unit ={
-//      if (that.getWidth < 1) {
-//        println(that)
-//      }
-//    }
-//
-//    Node.walk(walkNodesDefautStack,_ match {
-//      case node : WidthProvider => {
-//        zeroCheck(node)
-//      }
-//      case _ =>
-//    })
-//  }
-//
   def doPhase(phase: Phase): Unit ={
-    if(phase.useNodeConsumers && dirtyConsumers){
-//      removeNodeConsumer()
-//      fillNodeConsumer()
-      dirtyConsumers = false
-    }
     phase.impl(this)
     checkPendingErrors()
-//    if(phase.hasNetlistImpact){
-//      dirtyConsumers = true
-//    }
   }
 
 }
@@ -230,56 +161,8 @@ trait PhaseCheck extends Phase{
   override def hasNetlistImpact : Boolean = false
 }
 
-//class MultiPhase(pc: PhaseContext) extends Phase{
-//  val phases = ArrayBuffer[Phase]()
-//
-//  override def impl(pc : PhaseContext): Unit = {
-//    phases.foreach(_.impl(pc : PhaseContext))
-//  }
-//}
-//
-//
-////class PhaseFillComponentList(pc: PhaseContext) extends Phase{
-////  override def impl(pc : PhaseContext): Unit = {
-////    pc.fillComponentList()
-////  }
-////}
 
 
-
-//class PhaseNodesBlackBoxGenerics(pc: PhaseContext) extends PhaseMisc{
-//  override def useNodeConsumers = false
-//  override def impl(pc : PhaseContext): Unit = {
-//    val nodeStack = mutable.Stack[BaseType]()
-//    pc.components.foreach(_ match {
-//      case blackBox: BlackBox => {
-//        blackBox.getGeneric.flatten.foreach(_ match {
-//          case bt: BaseType => nodeStack.push(bt)
-//          case _ =>
-//        })
-//      }
-//      case _ =>
-//    })
-//  }
-//}
-
-//class PhaseMoveLogicTags(pc: PhaseContext) extends PhaseMisc{
-//  override def useNodeConsumers = false
-//  override def impl(pc : PhaseContext): Unit = {
-//    import pc._
-//    Node.walk(pc.walkNodesDefautStack,_ match{
-//        case node : BaseType => {
-//          if(node.input.isInstanceOf[SyncNode]){
-//            val moves = node.filterTag(_.moveToSyncNode)
-//            node.removeTags(moves)
-//            node.input.addTags(moves)
-//          }
-//        }
-//        case _ =>
-//    })
-//  }
-//}
-//
 
 class PhaseApplyIoDefault(pc: PhaseContext) extends PhaseNetlist{
   override def useNodeConsumers = false
@@ -666,226 +549,7 @@ class PhasePullClockDomains(pc: PhaseContext) extends PhaseNetlist{
     })
   }
 }
-//
-//class PhaseCheck_noNull_noCrossHierarchy_noInputRegister_noDirectionLessIo(pc: PhaseContext) extends PhaseCheck{
-//  override def useNodeConsumers = false
-//  override def impl(pc : PhaseContext): Unit = {
-//    import pc._
-//    val errors = mutable.ArrayBuffer[String]()
-//
-//    for(c <- components){
-//      try{
-//        val io = c.reflectIo
-//        for(bt <- io.flatten){
-//          if(bt.isDirectionLess){
-//            errors += s"Direction less signal into io def ${bt.getScalaLocationLong}"
-//          }
-//        }
-//      }catch{
-//        case _ : Throwable =>
-//      }
-//
-//    }
-//    if(!errors.isEmpty)
-//      SpinalError(errors)
-//
-//    Node.walk(walkNodesDefautStack,node => {
-//      node match {
-//        case node: BaseType => {
-//          val nodeInput0 = node.input
-//          if (nodeInput0 != null) {
-//            if (node.isInput && nodeInput0.isInstanceOf[Reg] && nodeInput0.component == node.component) {
-//              errors += s"Input register are not allowed ($node) \n${node.getScalaLocationLong}"
-//            } else {
-//              val nodeInput0IsIo = nodeInput0.isInstanceOf[BaseType] && nodeInput0.asInstanceOf[BaseType].isIo
-//              if (node.isIo) {
-//                if (node.isInput) {
-//                  if (nodeInput0.component != node.component.parent && !(!nodeInput0.component.isTopLevel && nodeInput0IsIo && nodeInput0.component.parent == node.component.parent)) {
-//                    if (nodeInput0.component == node.component)
-//                      errors += s"Input $node can't be assigned from inside at\n${ScalaLocated.long(node.assignementThrowable)}"
-//                    else
-//                      errors += s"Input $node is not assigned by parent component but another at\n${ScalaLocated.long(node.assignementThrowable)}"
-//                  }
-//                } else if (node.isOutput) {
-//                  if (nodeInput0.component != node.component && !(nodeInput0IsIo && node.component == nodeInput0.component.parent))
-//                    errors += s"Output $node is not assigned by his component but an other at\n${ScalaLocated.long(node.assignementThrowable)}"
-//                } else
-//                  errors += s"No direction specified on IO \n${node.getScalaLocationLong}"
-//              } else {
-//                if (nodeInput0.component != node.component && !(nodeInput0IsIo && node.component == nodeInput0.component.parent))
-//                  errors += s"Node $node is assigned outside his component at\n${ScalaLocated.long(node.assignementThrowable)}"
-//              }
-//            }
-//          } else {
-//            if (!(node.isInput && node.component.isTopLevel) && !(node.isOutput && node.component.isInstanceOf[BlackBox]))
-//              errors += s"No driver on $node at \n${node.getScalaLocationLong}"
-//          }
-//        }
-//        case _ => {
-//          node.onEachInput((in,idx) => {
-//            if (in == null) {
-//              errors += s"No driver on $node at ${node.getScalaLocationLong}"
-//            } else {
-//              if (in.component != node.component && !(in.isInstanceOf[BaseType] && in.asInstanceOf[BaseType].isIo && node.component == in.component.parent)) {
-//                val throwable = node match{
-//                  case node : AssignementTreePart => node.getAssignementContext(idx)
-//                  case _ => node.scalaTrace
-//                }
-//                errors += s"$node is driven by $in, which is a hierarchy violation\n${ScalaLocated.long(throwable)}"
-//              }
-//            }
-//          })
-//        }
-//      }
-//    })
-//    if (!errors.isEmpty)
-//      SpinalError(errors)
-//  }
-//
-//}
-//
-//class PhaseAddInOutBinding(pc: PhaseContext) extends PhaseNetlist{
-//  override def useNodeConsumers = false
-//  override def impl(pc : PhaseContext): Unit = {
-//    import pc._
-//    Node.walk(walkNodesDefautStack,(node,push) => {
-//      //Create inputss bindings, usefull if the node is driven by when statments
-//      if (node.isInstanceOf[BaseType] && node.component.parent != null) {
-//        val baseType = node.asInstanceOf[BaseType]
-//        if (baseType.isInput) {
-//          val inBinding = cloneOf(baseType) //To be sure that there is no need of resize between it and node
-//          inBinding.assignementThrowable = baseType.assignementThrowable
-//          inBinding.scalaTrace = baseType.scalaTrace
-//          inBinding.input = baseType.input
-//          baseType.input = inBinding
-//          inBinding.component = node.component.parent
-//          inBinding.dontCareAboutNameForSymplify = true
-//        }
-//      }
-//
-//      node.onEachInput(push(_))
-//
-//      //Create outputs bindings
-//      node.onEachInput((nodeInput,i) => {
-//        val nodeInput = node.getInput(i)
-//        nodeInput match {
-//          case nodeInput: BaseType => {
-//            if (nodeInput.isOutput && (nodeInput.component.parent == node.component || (nodeInput.component.parent == node.component.parent && nodeInput.component != node.component))) {
-//              val into = nodeInput.component.parent
-//              val bind = into.kindsOutputsToBindings.getOrElseUpdate(nodeInput, {
-//                val bind = cloneOf(nodeInput)
-//                bind.scalaTrace = nodeInput.scalaTrace
-//                bind.assignementThrowable = nodeInput.assignementThrowable
-//                into.kindsOutputsToBindings.put(nodeInput, bind)
-//                into.kindsOutputsBindings += bind
-//                bind.component = into
-//                bind.input = nodeInput
-//                bind.dontCareAboutNameForSymplify = true
-//                bind
-//              })
-//
-//              node.setInput(i,bind)
-//
-//              //Update pulledDataCache with the output binding to make it consistent
-//              if(node.component.pulledDataCache.contains(nodeInput)){
-//                node.component.pulledDataCache(nodeInput) = bind
-//              }
-//            }
-//          }
-//          case _ =>
-//        }
-//      })
-//    })
-//  }
-//}
-//
-//class PhaseNameBinding(pc: PhaseContext) extends PhaseMisc{
-//  override def useNodeConsumers = false
-//  override def impl(pc : PhaseContext): Unit = {
-//  import pc._
-//    for (c <- components) {
-//      for ((bindedOut, bind) <- c.kindsOutputsToBindings) {
-//        if (bind.isUnnamed && bindedOut.component.isNamed && bindedOut.isNamed) {
-//          bind.setWeakName(bindedOut.component.getName() + "_" + bindedOut.getName())
-//        }
-//      }
-//    }
-//
-//    Node.walk(walkNodesDefautStack,node => node match {
-//      case node: BaseType => {
-//        if (node.isInput && node.input != null && node.input.isInstanceOf[Nameable]) {
-//          val nameable = node.input.asInstanceOf[Nameable]
-//          if (nameable.isUnnamed && node.component.isNamed && node.isNamed) {
-//            nameable.setWeakName(node.component.getName() + "_" + node.getName())
-//          }
-//        }
-//      }
-//      case _ =>
-//    })
-//  }
-//}
-//
-//class PhaseAllowNodesToReadOutputs(pc: PhaseContext) extends PhaseNetlist{
-//  override def useNodeConsumers = false
-//  override def impl(pc : PhaseContext): Unit = {
-//    import pc._
-//    val outputsBuffers = mutable.Map[BaseType, BaseType]()
-//    Node.walk(walkNodesDefautStack,node => {
-//      node.onEachInput((nodeInput,i) => {
-//        nodeInput match {
-//          case baseTypeInput: BaseType => {
-//            if (baseTypeInput.isOutput && baseTypeInput.component.parent != node.component) {
-//              val buffer = outputsBuffers.getOrElseUpdate(baseTypeInput, {
-//                val buffer = cloneOf(baseTypeInput)
-//                buffer.input = baseTypeInput.input
-//                baseTypeInput.input = buffer
-//                buffer.component = baseTypeInput.component
-////                if(baseTypeInput.isNamed){
-////                  buffer.setWeakName(baseTypeInput.getName() + "_readableBuffer")
-////                }
-//                SpinalTagReady.splitNewSink(source=baseTypeInput,sink=buffer)
-//                buffer
-//              })
-//              node.setInput(i,buffer)
-//            }
-//          }
-//          case _ =>
-//        }
-//      })
-//    })
-//  }
-//}
-//
-//class PhaseAllowNodesToReadInputOfKindComponent(pc: PhaseContext) extends PhaseNetlist{
-//  override def useNodeConsumers = false
-//  override def impl(pc : PhaseContext): Unit = {
-//    import pc._
-//    Node.walk(walkNodesDefautStack,node => {
-//      node.onEachInput((input,i) => {
-//        input match {
-//          case baseTypeInput: BaseType => {
-//            if (baseTypeInput.isInput && baseTypeInput.component.parent == node.component) {
-//              node.setInput(i,baseTypeInput.input)
-//            }
-//          }
-//          case _ =>
-//        }
-//      })
-//    })
-//  }
-//}
-//
-//class PhasePreInferationChecks(pc: PhaseContext) extends PhaseMisc{
-//  override def useNodeConsumers = false
-//  override def impl(pc : PhaseContext): Unit = {
-//    import pc._
-//    val errors = mutable.ArrayBuffer[String]()
-//    Node.walk(walkNodesDefautStack ++ walkNodesBlackBoxGenerics,_.preInferationCheck())
-//    if(!errors.isEmpty)
-//      SpinalError(errors)
-//  }
-//}
-//
+
 
 
 //TODO IR infer with on IO (even if they aren't assigned on top level)
@@ -1088,81 +752,7 @@ class PhaseSimplifyNodes(pc: PhaseContext) extends PhaseNetlist{
     toRemove.foreach(_.removeStatement())
   }
 }
-//
-//class PhaseResizeLiteralSimplify(pc: PhaseContext) extends PhaseNetlist{
-//  override def useNodeConsumers = false
-//  override def impl(pc : PhaseContext): Unit = {
-//    import pc._
-//    Node.walk(walkNodesDefautStack,node => node.onEachInput((input,id) => input match{
-//      case resize : Resize => {
-//        if(resize.input.getWidth == 0){
-//          val newNode = resize match{
-//            case _ : ResizeBits => BitsLiteral(0,resize.getWidth)
-//            case _ : ResizeUInt => UIntLiteral(0,resize.getWidth)
-//            case _ : ResizeSInt => SIntLiteral(0,resize.getWidth)
-//          }
-//          newNode.inferredWidth = resize.getWidth
-//          node.setInput(id,newNode)
-//        }
-//      }
-//      case _ =>
-//    }))
-//
-//  }
-//}
-//
-//class PhasePropagateBaseTypeWidth(pc: PhaseContext) extends PhaseMisc{
-//  override def useNodeConsumers = false
-//  override def impl(pc : PhaseContext): Unit = {
-//    import pc._
-//    Node.walk(walkNodesDefautStack,node => {
-//      node match {
-//        case node: BitVector => {
-//          val width = node.getWidth
-//
-//          node.input match {
-//            case that: RegWidthable => {
-//              that.inferredWidth = width
-//              if(that.initialValue != null) walk(that,RegS.getInitialValueId)
-//              walk(that,RegS.getDataInputId)
-//            }
-//            case _ => walk(node,0)
-//          }
-//          walk(node,0)
-//
-//          def walk(parent: Node,inputId : Int): Unit = {
-//            val that = parent.getInput(inputId)
-//            def walkChildren() : Unit = that.onEachInput((input,id) => walk(that,id))
-//
-//            that match {
-//              case that: WhenNodeWidthable => {
-//                that.inferredWidth = width
-//                walk(that,1)
-//                walk(that,2)
-//              }
-//              case that: MultipleAssignmentNodeWidthable => {
-//                that.inferredWidth = width
-//                walkChildren()
-//              }
-//              case that : AssignementNodeWidthable => that.inferredWidth = width
-//              case dontCare : DontCareNodeFixed =>{
-//                dontCare.inferredWidth = width
-//              }
-//              case dontCare : DontCareNodeInfered =>{
-//                dontCare.inferredWidth = width
-//              }
-//              case _ =>
-//            }
-//          }
-//
-//        }
-//        case _ =>
-//      }
-//    })
-//
-//  }
-//}
-//
+
 class PhaseNormalizeNodeInputs(pc: PhaseContext) extends PhaseNetlist{
   override def useNodeConsumers = false
   override def impl(pc : PhaseContext): Unit = {
@@ -1184,48 +774,6 @@ class PhaseNormalizeNodeInputs(pc: PhaseContext) extends PhaseNetlist{
   }
 }
 
-//class PhaseCheckInferredWidth(pc: PhaseContext) extends PhaseCheck{
-//  override def useNodeConsumers = true
-//  override def impl(pc : PhaseContext): Unit = {
-//    import pc._
-//    val errors = mutable.ArrayBuffer[String]()
-//
-//    def checker(node : Node) : Unit = {
-//      node match {
-//        case node: Node with Widthable if (node.getWidth < 0) =>
-//          PendingError(s"$node has a negative number of bits\n${node.getScalaLocationLong}")
-//        case node: CheckWidth =>
-//          node.checkInferedWidth
-//        case _ =>
-//      }
-//    }
-//    Node.walk(walkNodesDefautStack,checker(_))
-//  }
-//}
-//
-//class PhaseKeepAll(pc: PhaseContext) extends PhaseMisc{
-//  override def useNodeConsumers = false
-//  override def impl(pc : PhaseContext): Unit = {
-//    import pc._
-//    def walker(that : Any): Unit ={
-//      Misc.reflect(that.asInstanceOf[Object], (name, obj) => {
-//        obj match {
-//          case area: Area => walker(area)
-//          case data: Data => data.keep()
-//          case _ =>
-//        }
-//      })
-//    }
-//
-//    for(c <- components()){
-//      walker(c)
-//    }
-//  }
-//}
-//
-//
-//
-//
 //class PhaseCheckCombinationalLoops(pc: PhaseContext) extends PhaseCheck{
 //  override def useNodeConsumers = false
 //  override def impl(pc : PhaseContext): Unit = {
@@ -1373,57 +921,6 @@ class PhaseNormalizeNodeInputs(pc: PhaseContext) extends PhaseNetlist{
 //  }
 //}
 //
-
-//class PhaseCheckMisc(pc: PhaseContext) extends PhaseCheck{
-//  override def useNodeConsumers = false
-//  override def impl(pc : PhaseContext): Unit = {
-//    import pc._
-//    Node.walk(walkNodesDefautStack,node => {
-//      node match {
-//        case baseType: BaseType => {
-//          if(baseType.hasTag(randomBoot)){
-//            if(!baseType.isReg){
-//              pc.globalData.pendingErrors += (() => s"$baseType has the randBoot tag set but is not a register\n ${baseType.getScalaLocationLong}")
-//            }
-//          }
-//        }
-//        case _ =>
-//      }
-//    })
-//  }
-//}
-//
-////class PhaseFillNodesConsumers(pc: PhaseContext) extends Phase{
-////  override def impl(pc : PhaseContext): Unit = {
-////    pc.fillNodeConsumer()
-////  }
-////}
-//
-//
-//
-//class PhaseDontSymplifyBasetypeWithComplexAssignement(pc: PhaseContext) extends PhaseMisc{
-//  override def useNodeConsumers = false
-//  override def impl(pc : PhaseContext): Unit = {
-//    import pc._
-//    Node.walk(walkNodesDefautStack,node => {
-//      node match {
-//        case baseType: BaseType => {
-//          baseType.input match {
-//            case wn: WhenNode => baseType.dontSimplifyIt()
-//            case an: AssignementNode => baseType.dontSimplifyIt()
-//            case man: MultipleAssignmentNode => baseType.dontSimplifyIt()
-//            case _ =>
-//          }
-//        }
-//        case _ =>
-//      }
-//    })
-//  }
-//}
-//
-//
-//
-
 
 class PhaseRemoveUselessStuff(postClockPulling : Boolean, tagVitals : Boolean) extends PhaseNetlist{
   override def impl(pc: PhaseContext): Unit = {
@@ -1573,164 +1070,6 @@ class PhaseRemoveIntermediateUnameds(onlyTypeNode : Boolean) extends PhaseNetlis
 
   override def useNodeConsumers: Boolean = false
 }
-
-//
-////TODO IR ClockDomains
-//class PhaseDeleteUselessBaseTypes(pc: PhaseContext, removeResizedTag : Boolean) extends PhaseNetlist{
-//  override def useNodeConsumers = true
-//  override def impl(pc : PhaseContext): Unit = {
-//    import pc._
-//
-//    //Reset algoId of all referenced driving things
-//    walkDeclarations(e => {
-//      e.algoInt = 0
-//      if (removeResizedTag && e.isInstanceOf[SpinalTagReady])
-//        e.asInstanceOf[SpinalTagReady].removeTag(tagAutoResize)
-//    })
-//
-//    //Count the number of driving reference done on each ref.source
-//    walkDrivingExpression(e => e match {
-//      case ref : DeclarationStatement => {
-//        ref.algoInt += 1
-//      }
-//      case _ =>
-//    })
-//    val removeMeId = globalData.allocateAlgoIncrementale()
-//    def nameableWalker(target: DeclarationStatement): Unit = {
-//      target match {
-//        case target: BaseType => if (target.algoInt == 0 && target.isDirectionLess && target.canSymplifyIt) {
-//          target.algoIncrementale = removeMeId //n.removeNameable() //TODO
-//          target.foreachStatements(s => {
-////            s.removeStatement()
-//            s.walkExpression(e => e match {
-//              case n: DeclarationStatement => {
-//                n.algoInt -= 1
-//                if (n.algoInt == 0) {
-//                  nameableWalker(n)
-//                }
-//              }
-//              case _ =>
-//            })
-//          })
-//        }
-//        case _ =>
-//      }
-//    }
-//
-//    walkComponents(c => {
-//      c.dslBody.walkDeclarations(nameableWalker)
-//    })
-//
-//    walkComponents(c => {
-//      def statementWalker(s : Statement) : Unit = {
-//        s match {
-//          case s : WhenStatement => {
-//            if(s.whenTrue.isEmpty && s.whenFalse.isEmpty){
-//              s.walkExpression(e => e match {
-//                case n : DeclarationStatement => nameableWalker(n)
-//                case _ =>
-//              })
-//            }
-//            statementWalker(s.parentScope.parentStatement)
-//          }
-//          case s : SwitchStatement => {
-//            if(s.defaultScope.isEmpty && !s.elements.exists(e => e.scopeStatement.nonEmpty)){
-//              s.walkExpression(e => e match {
-//                case n : DeclarationStatement => nameableWalker(n)
-//                case _ =>
-//              })
-//            }
-//            statementWalker(s.parentScope.parentStatement)
-//          }
-//          case  _ =>
-//        }
-//      }
-//      c.dslBody.walkStatements(statementWalker)
-//    })
-//
-//    val statementsToRemove = ArrayBuffer[Statement]()
-//    def addStatementToRemove(s : Statement): Unit ={
-//      //      if(s.parentScope == null){
-//      //        println("???") //TODO IR pure comb loop fix   (a := a || c)s
-//      //      }
-//      statementsToRemove += s
-//    }
-//
-//    val algoIncrementale = globalData.allocateAlgoIncrementale()
-//    walkComponents(c => {
-//      statementsToRemove.clear()
-//
-//
-//
-//      c.dslBody.walkStatements(s => {
-////        val excepted = s match {
-////          case s : AssignementStatement => s.finalTarget
-////          case _ => null
-////        }
-//
-//        //Need deditacted loop + recursion + algoIncremental to avoid over working ?
-//        //Bypass useless basetypes (referenced only once)
-//        s.walkRemapDrivingExpressions(e => e match {
-//          case ref : BaseType => {
-//            if(ref.algoInt == 1 && ref.isComb && ref.isDirectionLess && ref.canSymplifyIt && ref.hasOnlyOneStatement && Statement.isSomethingToFullStatement(ref.head) /*&& ref != excepted*/){ //TODO IR keep it
-//              ref.algoInt = 0
-//              val head = ref.head
-//              ref.removeStatement()
-//              addStatementToRemove(head)
-//              head.source
-//            } else {
-//              ref.algoInt = 0
-//              ref
-//            }
-//          }
-//          case e => e
-//        })
-//      })
-//      statementsToRemove.foreach(s => s.removeStatement())
-//    })
-////    println(statementsToRemove.toSet.size)
-////    println(statementsToRemove.size)
-////    println(statementsToRemove.count(s => s.parentScope == null))
-////    statementsToRemove.foreach(s => s.removeStatement())
-//
-////    var statementToRemove : Statement = null //Allow post iteration remove
-////    def setStatementToRemove(s : Statement): Unit ={
-////      if(statementToRemove != null) statementToRemove.removeStatement()
-////      statementToRemove = s
-////    }
-////    walkStatements(s => {
-//        //Bypass useless basetypes (referenced only once)
-////      s.walkRemapDrivingExpressions(e => e match {
-////        case ref : BaseType => {
-////          if(ref.algoInt == 1 && ref.isComb && ref.isDirectionLess && ref.canSymplifyIt && ref.hasOnlyOneStatement && Statement.isSomethingToFullStatement(ref.headStatement)){ //TODO IR keep it
-////            ref.algoInt = 0
-////            val head = ref.headStatement
-////            if(statementToRemove != head) head.removeStatement()
-////            head.source
-////          } else {
-////            ref.algoInt = 0
-////            ref
-////          }
-////        }
-////        case e => e
-////      })
-////
-////      //Remove assignement which drive useless base types
-////      s match {
-////        case s : AssignementStatement => {
-////          s.finalTarget match {
-////            case target : BaseType => if(target.algoInt == 0 && target.isDirectionLess && target.canSymplifyIt){
-////              setStatementToRemove(s)
-////            }
-////            case _ =>
-////          }
-////        }
-////        case _ =>
-////      }
-////    })
-////    setStatementToRemove(null)
-//  }
-//}
 
 class PhaseCheckIoBundle extends PhaseCheck{
   override def impl(pc: PhaseContext): Unit = {
@@ -1906,37 +1245,7 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
     })
   }
 }
-//
-//class PhaseSimplifyBlacBoxGenerics(pc: PhaseContext) extends PhaseNetlist{
-//  override def useNodeConsumers = false
-//  override def impl(pc : PhaseContext): Unit = {
-//    import pc._
-//    components.foreach(_ match {
-//      case blackBox: BlackBox => {
-//        blackBox.getGeneric.flatten.foreach(tuple => {
-//          val signal = tuple
-//          if (signal.isInstanceOf[BaseType]) {
-//            val baseType = signal.asInstanceOf[BaseType]
-//            walk(baseType, baseType)
-//            def walk(node: Node, first: Node): Unit = node match {
-//              case node: BaseType => {
-//                first.setInput(0,node.input)
-//                if(node.input.isInstanceOf[Widthable])
-//                  first.getInput(0).asInstanceOf[Widthable].inferredWidth = first.asInstanceOf[Widthable].inferredWidth
-//                walk(node.input, first)
-//              }
-//              case lit: Literal =>
-//              case _ => throw new Exception("BlackBox generic must be literal")
-//            }
-//          }
-//
-//        })
-//      }
-//      case _ =>
-//    })
-//  }
-//}
-//
+
 //class PhasePrintUnUsedSignals(prunedSignals : mutable.Set[BaseType],unusedSignals : mutable.Set[BaseType])(pc: PhaseContext) extends PhaseCheck{
 //  override def useNodeConsumers = false
 //  override def impl(pc : PhaseContext): Unit = {
@@ -1979,87 +1288,26 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
 //    unusedSignals ++= (prunedSignals.filter(_.algoId != targetAlgoId2))
 //  }
 //}
-//
-////class PhaseCompletSwitchCases extends PhaseCheck{
-////  override def useNodeConsumers = false
-////  override def impl(pc : PhaseContext): Unit = {
-////    import pc._
-////
-////    def walkAssignementTree(output : BaseType,node : Node): Unit = node match {
-////      case node : MultipleAssignmentNode => node.onEachInput(input => walkAssignementTree(output,input))
-////      case node : Reg => {
-////        walkAssignementTree(output,node.dataInput)
-////        walkAssignementTree(output,node.initialValue)
-////      }
-////      case node : WhenNode => {
-////
-////      }
-////      case _ =>
-////    }
-////
-////    Node.walk(walkNodesDefautStack,_ match{
-////      case baseType : BaseType => {
-////        walkAssignementTree(baseType,baseType.input)
-////      }
-////    })
-////
-////  }
-////}
-//
-//class PhaseAddNodesIntoComponent(pc: PhaseContext) extends PhaseMisc{
-//  override def useNodeConsumers = false
-//  override def impl(pc : PhaseContext): Unit = {
-//    import pc._
-//    Node.walk({
-//      val stack = walkNodesDefautStack
-//      for (c <- components) {
-//        c.nodes = ArrayBuffer[Node]()
-//      }
-//      stack
-//    },node => {
-//      node match{
-//        case node : Node with Widthable =>{
-//          if(node.getWidth > 0){
-//            node.component.nodes += node
-//          }
-//        }
-//        case _ => node.component.nodes += node
-//      }
-//
-//    })
-//  }
-//}
-//
-//class PhaseOrderComponentsNodes(pc: PhaseContext) extends PhaseMisc{
-//  override def useNodeConsumers = false
-//  override def impl(pc : PhaseContext): Unit = {
-//    import pc._
-//    for (c <- components) {
-//      c.nodes = c.nodes.sortWith(_.instanceCounter < _.instanceCounter)
-//    }
-//  }
-//}
-//
 class PhaseAllocateNames(pc: PhaseContext) extends PhaseMisc{
   override def useNodeConsumers = false
   override def impl(pc : PhaseContext): Unit = {
     import pc._
-//    for (enumDef <- enums.keys) {
-//      if (enumDef.isWeak)
-//        enumDef.setName(globalScope.allocateName(enumDef.getName()));
-//      else
-//        globalScope.iWantIt(enumDef.getName(),s"Reserved name ${enumDef.getName()} is not free for ${enumDef.toString()}")
-//    }
-//
-//
-//    for((enum,encodings) <- enums;
-//         encodingsScope = new Scope();
-//         encoding <- encodings){
-//      if (encoding.isWeak)
-//        encoding.setName(encodingsScope.allocateName(encoding.getName()));
-//      else
-//        encodingsScope.iWantIt(encoding.getName(),s"Reserved name ${encoding.getName()} is not free for ${encoding.toString()}")
-//    }
+    for (enumDef <- enums.keys) {
+      if (enumDef.isWeak)
+        enumDef.setName(globalScope.allocateName(enumDef.getName()));
+      else
+        globalScope.iWantIt(enumDef.getName(),s"Reserved name ${enumDef.getName()} is not free for ${enumDef.toString()}")
+    }
+
+
+    for((enum,encodings) <- enums;
+       encodingsScope = new NamingScope();
+       encoding <- encodings){
+      if (encoding.isWeak)
+        encoding.setName(encodingsScope.allocateName(encoding.getName()));
+      else
+        encodingsScope.iWantIt(encoding.getName(),s"Reserved name ${encoding.getName()} is not free for ${encoding.toString()}")
+    }
 
     for (c <- sortedComponents) {
       if (c.isInstanceOf[BlackBox])
@@ -2075,7 +1323,7 @@ class PhaseAllocateNames(pc: PhaseContext) extends PhaseMisc{
     }
   }
 }
-//
+
 //class PhaseRemoveComponentThatNeedNoHdlEmit(pc: PhaseContext) extends PhaseNetlist{
 //  override def useNodeConsumers = false
 //  override def impl(pc : PhaseContext): Unit = {
@@ -2117,133 +1365,6 @@ class PhaseDummy(doThat : => Unit) extends PhaseMisc{
     doThat
   }
 }
-
-//class PhaseCompletSwitchCases extends PhaseNetlist{
-//  override def useNodeConsumers = false
-//  override def impl(pc : PhaseContext): Unit = {
-//    import pc._
-//
-//    object Exclusion{
-//      def apply(size : BigInt) : Exclusion = {
-//        if(size < 4096) new ExclusionByArray((size))
-//        else new ExclusionByNothing(size)
-//      }
-//    }
-//
-//    abstract class Exclusion(val size : BigInt){
-//      var remaining = size
-//      def allocate(id : Int): Boolean
-//    }
-//
-//    class ExclusionByNothing(size : BigInt) extends Exclusion(size){ //TODO better than nothing
-//    override def allocate(id: Int): Boolean = true
-//    }
-//
-//    class ExclusionByArray(size : BigInt) extends Exclusion(size){
-//      val occupancy = new Array[Boolean](size.toInt)
-//
-//      def allocate(id : Int): Boolean ={
-//        if(occupancy(id)) return false
-//        occupancy(id) = true
-//        remaining -= 1
-//        return true
-//      }
-//    }
-//
-//    def walkAssignementTree(output : BaseType,node : Node,excludedIn : collection.immutable.Map[BaseType,Exclusion],previous : Node,previousId : Int): Unit = node match {
-//      case node : MultipleAssignmentNode => node.onEachInput((input,id) => walkAssignementTree(output,input,excludedIn,node,id))
-//      case node : WhenNode => {
-//        def bypassBastType(that : Node) : Node = if(that.isInstanceOf[BaseType]) that.asInstanceOf[BaseType].input else that
-//        walkAssignementTree(output,node.whenTrue,excludedIn,node,1)
-//        var excludedOut = excludedIn
-//
-//        def checkAndApplyCond(bt : BaseType,value : Int): Unit = {
-//          val hit = excludedOut(bt)
-//          if (!hit.allocate(value)) {
-//            PendingError(s"Condition duplication to drive the $output signal\n" + node.w.getScalaLocationLong)
-//          }
-//          if (hit.remaining == 0 && node.whenFalse == null) {
-//            previous.setInput(previousId, node.whenTrue)
-//          }
-//        }
-//        bypassBastType(node.cond) match {
-//          case op : Operator.BitVector.Equal => {
-//            val opRightByp = bypassBastType(op.right)
-//            if (opRightByp.isInstanceOf[Literal]) {
-//              op.left match {
-//                case bt: BitVector => {
-//                  val value = opRightByp match {
-//                    case lit: SIntLiteral => lit.value + (BigInt(1) << (op.right.getWidth - 1))
-//                    case lit: BitVectorLiteral => {
-//                      lit.value
-//                    }
-//                    case lit: BitsAllToLiteral => {
-//                      if (lit.value) (BigInt(1) << lit.getWidth) - 1 else BigInt(0)
-//                    }
-//                  }
-//                  if (!excludedOut.contains(bt)) {
-//                    excludedOut += (bt -> Exclusion(BigInt(1) << bt.getWidth))
-//                  }
-//
-//                  checkAndApplyCond(bt,value.toInt)
-//                }
-//                case _ =>
-//              }
-//            }
-//          }
-//          case op : Operator.Enum.Equal => {
-//            (op.left, bypassBastType(op.right)) match {
-//              case (craft: SpinalEnumCraft[_], lit: EnumLiteral[_]) => {
-//                val value = lit.enum.position
-//                if (!excludedOut.contains(craft)) {
-//                  excludedOut += (craft -> Exclusion(lit.enum.spinalEnum.elements.length))
-//                }
-//                checkAndApplyCond(craft,value.toInt)
-//              }
-//              case _ =>
-//            }
-//          }
-//          case op : Operator.Bool.Equal => {
-//            (op.left, bypassBastType(op.right)) match {
-//              case (craft: Bool, lit: BoolLiteral) => {
-//                val value = if(lit.value) 1 else 0
-//                if (!excludedOut.contains(craft)) {
-//                  excludedOut += (craft -> Exclusion(2))
-//                }
-//                checkAndApplyCond(craft,value)
-//              }
-//              case _ =>
-//            }
-//          }
-//          case _ =>
-//        }
-//        walkAssignementTree(output,node.whenFalse,excludedOut,node,2)
-//      }
-//      case _ =>
-//    }
-//
-//
-//    walkStatements{
-//      case s : SwitchStatement if s.defaultScope == null => {
-//
-//      }
-//      case s =>
-//    }
-//
-//    Node.walk(walkNodesDefautStack,_ match{
-//      case baseType : BaseType => {
-//        baseType.input match{
-//          case reg : Reg => {
-//            walkAssignementTree(baseType,reg.dataInput   ,collection.immutable.Map[BaseType,Exclusion](),reg,RegS.getDataInputId)
-//            walkAssignementTree(baseType,reg.initialValue,collection.immutable.Map[BaseType,Exclusion](),reg,RegS.getInitialValueId)
-//          }
-//          case _ => walkAssignementTree(baseType,baseType.input,collection.immutable.Map[BaseType,Exclusion](),baseType,0)
-//        }
-//      }
-//      case _ =>
-//    })
-//  }
-//}
 
 
 object SpinalVhdlBoot{
@@ -2440,49 +1561,7 @@ object SpinalVhdlBoot{
     report
   }
 }
-//
-//
-//
-//class PhaseDontSymplifySomeNodesVerilog(pc: PhaseContext) extends PhaseMisc{
-//  override def useNodeConsumers = true
-//  override def impl(pc : PhaseContext): Unit = {
-//    def applyTo(that : Node): Unit ={
-//      assert(that.consumers.size == 1)
-//      that.consumers(0) match {
-//        case consumer: BaseType => consumer.dontSimplifyIt()
-//        case _ =>
-//      }
-//    }
-//    import pc._
-//    Node.walk(walkNodesDefautStack,node => {
-//      node match {
-//        case node: Resize  => applyTo(node)
-//        case node: Extract => node.getBitVector.asInstanceOf[BitVector].dontSimplifyIt()
-//        case node: Literal => applyTo(node)
-////        case node: Cast    => applyTo(node)
-//        case node: SInt    => if(!node.input.isInstanceOf[SInt]) node.dontSimplifyIt()
-//        case node: UInt    => if(!node.input.isInstanceOf[UInt]) node.dontSimplifyIt()
-////        case node: Bool    => node.dontSimplifyIt()
-////        case node: Modifier if node.consumers.size == 1 && node.consumers(0).isInstanceOf[SInt] => applyTo(node) // .....
-////        case node: Operator.BitVector.Add => applyTo(node)
-////        case node: Operator.BitVector.Sub => applyTo(node)
-//        case node: Operator.BitVector.ShiftOperator => applyTo(node)
-////        case node: Operator.Bits.Cat => applyTo(node)
-////        case node : Extract => applyTo(node)
-//        case _ =>
-//      }
-//    })
-////    import pc._
-////    Node.walk(walkNodesDefautStack,node => node match{
-////      case bt : BaseType => bt.dontSimplifyIt()
-////      case _ =>
-////    })
-//  }
-//}
-//
-//
-//
-//
+
 //object SpinalVerilogBoot{
 //  def apply[T <: Component](config : SpinalConfig)(gen : => T) : SpinalReport[T] ={
 //    try {

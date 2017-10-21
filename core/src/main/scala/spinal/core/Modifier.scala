@@ -63,12 +63,12 @@ class ResizeSInt extends Resize{
   override def opName: String = "resize(s,i)"
   override def getLiteralFactory: (BigInt, Int) => Expression = SIntLiteral.apply
 }
-//
-//
-//
-//
+
+
+
+
 abstract class Operator extends Modifier
-//
+
 abstract class UnaryOperator extends Operator{
   type T <: Expression
   var source  : T = null.asInstanceOf[T]
@@ -80,17 +80,8 @@ abstract class UnaryOperator extends Operator{
   override def remapExpressions(func: (Expression) => Expression): Unit = {
     source = func(source).asInstanceOf[T]
   }
-
-  //  type T <: Node
-//  var input : T = null.asInstanceOf[T]
-//  override def onEachInput(doThat: (Node, Int) => Unit): Unit = doThat(input,0)
-//  override def onEachInput(doThat: (Node) => Unit): Unit = doThat(input)
-//  override def setInput(id: Int, node: Node): Unit = {assert(id == 0); this.input = node.asInstanceOf[T]}
-//  override def getInputsCount: Int = 1
-//  override def getInputs: Iterator[Node] = Iterator(input)
-//  override def getInput(id: Int): Node = {assert(id == 0); input}
 }
-//
+
 abstract class UnaryOperatorWidthableInputs extends UnaryOperator with Widthable{
   override type T = Expression with WidthProvider
 }
@@ -168,89 +159,71 @@ object InferWidth{
     }
   }
 }
-//
-//
-//
+
+
+
 object Operator{
   object Bool{
     class And extends BinaryOperator{
       override def getTypeObject = TypeBool
       override def opName: String = "&&"
-      override def normalizeInputs: Unit = {}
-//      override def simplifyNode: Unit = {}
     }
 
     class Or extends BinaryOperator{
       override def getTypeObject = TypeBool
       override def opName: String = "||"
-      override def normalizeInputs: Unit = {}
-//      override def simplifyNode: Unit = {}
     }
-//
+
     class Xor extends BinaryOperator{
-  override def getTypeObject = TypeBool
+      override def getTypeObject = TypeBool
       override def opName: String = "B^B"
-      override def normalizeInputs: Unit = {}
-//      override def simplifyNode: Unit = {}
     }
 
     class Not extends UnaryOperator{
       override def getTypeObject = TypeBool
       override def opName: String = "!"
-      override def normalizeInputs: Unit = {}
-//      override def simplifyNode: Unit = {}
     }
 
     class Equal extends BinaryOperator{
       override def getTypeObject = TypeBool
       override def opName: String = "B==B"
-      override def normalizeInputs: Unit = {}
-//      override def simplifyNode: Unit = {}
     }
 
     class NotEqual extends BinaryOperator{
       override def getTypeObject = TypeBool
       override def opName: String = "B!=B"
-      override def normalizeInputs: Unit = {}
-//      override def simplifyNode: Unit = {}
     }
   }
 //
   object BitVector{
     abstract class And extends BinaryOperatorWidthableInputs with Widthable{
       def resizeFactory : Resize
-//      def getLiteralFactory : (BigInt, Int) => Expression
       override def calcWidth(): Int = InferWidth.notResizableElseMax(this)
       override def normalizeInputs: Unit = {
         val targetWidth = getWidth
         left = InputNormalize.resizedOrUnfixedLit(left, targetWidth, resizeFactory, this, this)
         right = InputNormalize.resizedOrUnfixedLit(right, targetWidth, resizeFactory, this, this)
       }
-      //override def simplifyNode: Expression = SymplifyNode.binaryInductZeroWithOtherWidth(getLiteralFactory,true)(this)
     }
 
     abstract class Or extends BinaryOperatorWidthableInputs with Widthable{
       def resizeFactory : Resize
-//      def getLiteralFactory : (BigInt, Int) => Expression
       override def calcWidth(): Int = InferWidth.notResizableElseMax(this)
       override def normalizeInputs: Unit = {
         val targetWidth = getWidth
         left = InputNormalize.resizedOrUnfixedLit(left, targetWidth, resizeFactory, this, this)
         right = InputNormalize.resizedOrUnfixedLit(right, targetWidth, resizeFactory, this, this)
       }
-      //override def simplifyNode: Expression = SymplifyNode.binaryInductZeroWithOtherWidth(getLiteralFactory,true)(this)
     }
 
     abstract class Xor extends BinaryOperatorWidthableInputs with Widthable {
       def resizeFactory : Resize
-//      def getLiteralFactory : (BigInt, Int) => Expression
       override def calcWidth(): Int = InferWidth.notResizableElseMax(this)
       override def normalizeInputs: Unit = {
         val targetWidth = getWidth
         left = InputNormalize.resizedOrUnfixedLit(left, targetWidth, resizeFactory, this, this)
         right = InputNormalize.resizedOrUnfixedLit(right, targetWidth, resizeFactory, this, this)
       }
-      //override def simplifyNode: Expression = SymplifyNode.binaryInductZeroWithOtherWidth(getLiteralFactory,true)(this)
     }
 
     abstract class Add extends BinaryOperatorWidthableInputs with Widthable{
@@ -261,7 +234,6 @@ object Operator{
         left = InputNormalize.resize(left, targetWidth, resizeFactory)
         right = InputNormalize.resize(right, targetWidth, resizeFactory)
       }
-      //override def simplifyNode: Expression = SymplifyNode.binaryTakeOther(this)
     }
 
     abstract class Sub extends BinaryOperatorWidthableInputs with Widthable{
@@ -272,7 +244,6 @@ object Operator{
         left = InputNormalize.resize(left, targetWidth, resizeFactory)
         right = InputNormalize.resize(right, targetWidth, resizeFactory)
       }
-//      override def simplifyNode: Unit = {SymplifyNode.binaryMinus(getLiteralFactory)(this)}
     }
 
     abstract class Mul extends BinaryOperatorWidthableInputs with Widthable{
@@ -309,7 +280,7 @@ object Operator{
 
     abstract class ShiftRightByUInt extends BinaryOperatorWidthableInputs with Widthable with ShiftOperator{
       override def calcWidth(): Int = left.getWidth
-      override def normalizeInputs: Unit = {}
+      
       override def simplifyNode: Expression = if(right.getWidth == 0) left else this
     }
 
@@ -349,19 +320,13 @@ object Operator{
     abstract class ShiftLeftByIntFixedWidth(val shift : Int) extends ConstantOperatorWidthableInputs with Widthable with ShiftOperator{
       assert(shift >= 0)
       override def calcWidth(): Int = source.getWidth
-      override def normalizeInputs: Unit = {}
+      
     }
 
     abstract class ShiftLeftByUIntFixedWidth extends BinaryOperatorWidthableInputs with Widthable with ShiftOperator{
       override def calcWidth(): Int = left.getWidth
       override def simplifyNode: Expression = if(right.getWidth == 0) left else this
     }
-
-//    abstract class AllByBool() extends UnaryOperator with Widthable {
-//      val theConsumer : Expression = null
-//      override def calcWidth: Int = theConsumer.asInstanceOf[WidthProvider].getWidth
-//    }
-
   }
 
   object Bits{
@@ -382,21 +347,18 @@ object Operator{
       override def getTypeObject = TypeBits
       override def opName: String = "b&b"
       def resizeFactory : Resize = new ResizeBits
-//      override def getLiteralFactory: (BigInt, Int) => Expression = BitsLiteral.apply
     }
 
     class Or extends BitVector.Or{
       override def getTypeObject = TypeBits
       override def opName: String = "b|b"
       def resizeFactory : Resize = new ResizeBits
-//      override def getLiteralFactory: (BigInt, Int) => Expression = BitsLiteral.apply
     }
 
     class Xor extends BitVector.Xor{
       override def getTypeObject = TypeBits
       override def opName: String = "b^b"
       def resizeFactory : Resize = new ResizeBits
-//      override def getLiteralFactory: (BigInt, Int) => Expression = BitsLiteral.apply
     }
 
     class Equal extends BitVector.Equal{
@@ -453,18 +415,9 @@ object Operator{
       override def getTypeObject = TypeBits
       override def opName: String = "b|<<u"
     }
-
-////    class RotateLeftByUInt extends BitVector.RotateLeftByUInt{
-////      override def opName: String = "brotlu"
-////      def getLiteralFactory : (BigInt, BitCount) => Node = B.apply
-////    }
-//
-//    class AllByBool(theConsumer : Node) extends BitVector.AllByBool(theConsumer) {
-//      override def opName: String = "bAllByB"
-//    }
   }
-//
-//
+
+
   object UInt{
     class Not extends UnaryOperatorWidthableInputs{
       override def getTypeObject = TypeUInt
@@ -592,12 +545,8 @@ object Operator{
       override def getTypeObject = TypeUInt
       override def opName: String = "u|<<u"
     }
-
-//    class AllByBool(theConsumer : Node) extends BitVector.AllByBool(theConsumer) {
-//      override def opName: String = "uAllByB"
-//    }
   }
-//
+
   object SInt{
     class Not extends UnaryOperatorWidthableInputs with Widthable{
       override def getTypeObject = TypeSInt
@@ -731,10 +680,6 @@ object Operator{
       override def getTypeObject = TypeSInt
       override def opName: String = "s|<<u"
     }
-//
-//    class AllByBool(theConsumer : Node) extends BitVector.AllByBool(theConsumer) {
-//      override def opName: String = "sAllByB"
-//    }
   }
 
   object Enum{
@@ -761,22 +706,12 @@ object Operator{
 
   }
 }
-//
-//
-//
+
 abstract class Modifier extends Expression {
 
-
-//  override def toString(): String = {
-//    s"($getClassIdentifier : $opName, defined in ${if(this.component != null)this.component.getPath() else "root"} with inputs : ${this.getInputs.map(in => if (in == null) "null" else in.nonRecursiveToString()).reduceLeft(_ + ", " + _)})"
-//  }
-
-//  override def nonRecursiveToString(): String = opName
-
-//  override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
 }
-//
-//
+
+
 abstract class Cast extends Modifier {
   type T <: Expression
   var input : T = null.asInstanceOf[T]
@@ -955,11 +890,9 @@ object SpinalMap {
       for ((cond, value) <- mappings) {
         cond match {
           case product: Product => {
-            //  for(cond <- product.productIterator){
             is.list(product.productIterator) {
               result := value
             }
-            //   }
           }
           case `default` => {
             default {
@@ -1786,85 +1719,6 @@ class RangedAssignmentFloating() extends BitVectorAssignementExpression with Wid
 }
 
 
-//object MultipleAssignmentNode{
-//  def newFor(that : BaseType) : MultipleAssignmentNode = that match{
-//    case that : BitVector => new MultipleAssignmentNodeWidthable
-//    case that : SpinalEnumCraft[_] => new MultipleAssignmentNodeEnum(that.spinalEnum)
-//    case _ => new MultipleAssignmentNode
-//  }
-//}
-//
-//class MultipleAssignmentNode extends Node with AssignementTreePart{
-//  type T <: Node
-//  val inputs = new ArrayBuffer[T](4)
-//
-//  override def addAttribute(attribute: Attribute): this.type = addTag(attribute)
-//
-//  override def getInputsCount = inputs.length
-//  override def getInput(id : Int) : Node = inputs(id)
-//  override def setInput(id : Int,node : Node) : Unit = inputs(id) = node.asInstanceOf[T]
-//
-//  override def getInputs : Iterator[Node] = inputs.iterator
-//
-//  override def onEachInput(doThat : (Node,Int) => Unit) : Unit = {
-//    var idx = inputs.length
-//    while(idx != 0){
-//      idx -= 1
-//      doThat(getInput(idx),idx)
-//    }
-//  }
-//
-//  override def onEachInput(doThat : (Node) => Unit) : Unit = {
-//    var idx = inputs.length
-//    while(idx != 0){
-//      idx -= 1
-//      doThat(getInput(idx))
-//    }
-//  }
-//
-//  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = (outHi,outLo)
-//
-//  var inputsThrowable : Array[Throwable] = null
-//  override def getAssignementContext(id: Int): Throwable =
-//    ArrayManager.getElseNull(inputsThrowable,id)
-//  override def setAssignementContext(id: Int,that : Throwable = globalData.getThrowable()): Unit =
-//    inputsThrowable = ArrayManager.setAllocate(inputsThrowable,id,that)
-//
-//
-//  def cloneMultipleAssignmentNode : this.type = new MultipleAssignmentNode().asInstanceOf[this.type]
-//}
-//
-//
-//class MultipleAssignmentNodeWidthable extends MultipleAssignmentNode with Widthable with CheckWidth{
-//  override type T = Node with WidthProvider
-//  override def calcWidth: Int = WidthInfer.multipleAssignmentNodeWidth(this)
-//  override def normalizeInputs: Unit = {
-//    for (i <- 0 until inputs.length)
-//      InputNormalize.resizedOrUnfixedLit(this,i,this.getWidth)
-//  }
-//
-//  override private[core] def checkInferedWidth: Unit = {
-//    for(i <- 0 until inputs.length){
-//      val input = inputs(i)
-//      if (input != null && input.component != null && this.getWidth !=input.getWidth) {
-//        PendingError(s"Assignement bit count missmatch. ${AssignementTree.getDrivedBaseType(this)} := ${input}} at\n${ScalaLocated.long(getAssignementContext(i))}")
-//      }
-//    }
-//  }
-//
-//  override def cloneMultipleAssignmentNode : this.type = new MultipleAssignmentNodeWidthable().asInstanceOf[this.type]
-//}
-//
-//class MultipleAssignmentNodeEnum(enumDef : SpinalEnum) extends MultipleAssignmentNode with InferableEnumEncodingImpl{
-//  override type T = Node with EnumEncoded
-//  override private[core] def getDefaultEncoding(): SpinalEnumEncoding = enumDef.defaultEncoding
-//  override def getDefinition: SpinalEnum = enumDef
-//  override private[core] def normalizeInputs: Unit = {
-//    InputNormalize.enumImpl(this)
-//  }
-//  override def cloneMultipleAssignmentNode : this.type = new MultipleAssignmentNodeEnum(enumDef).asInstanceOf[this.type]
-//}
-//
 object AssertNode{
   def apply(cond : Bool,message : Seq[Any],severity: AssertNodeSeverity) : Unit = {
     val node = AssertStatement(cond, message,severity)
@@ -1881,7 +1735,7 @@ object FAILURE  extends AssertNodeSeverity
 
 case class AssertStatement(var cond : Expression, message : Seq[Any],severity : AssertNodeSeverity) extends LeafStatement with ContextUser {
   var clockDomain = globalData.contextHead.clockDomain
-  override def normalizeInputs: Unit = {}
+  
 
   override def foreachExpression(func: (Expression) => Unit): Unit = {
     func(cond)

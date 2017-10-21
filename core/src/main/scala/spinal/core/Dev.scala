@@ -10,6 +10,7 @@ import scala.collection.mutable.ArrayBuffer
 // Add transformation phases
 // Implement check combinatorioal loops
 // Implement check cross clock
+// pruned stuff
 case class DslContext(clockDomain: ClockDomain, component: Component, scope: ScopeStatement)
 
 
