@@ -8,7 +8,6 @@ import scala.util.Random
 class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
   import pc._
 
-  override def useNodeConsumers: Boolean = false
   var outFile: java.io.FileWriter = null
 
   override def impl(pc: PhaseContext): Unit = {

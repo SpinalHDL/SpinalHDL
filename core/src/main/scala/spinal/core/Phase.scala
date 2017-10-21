@@ -144,9 +144,7 @@ class PhaseContext(val config : SpinalConfig){
 
 trait Phase{
   def impl(pc: PhaseContext): Unit
-
   def hasNetlistImpact : Boolean
-  def useNodeConsumers : Boolean
 }
 
 trait PhaseNetlist extends Phase{
@@ -165,7 +163,6 @@ trait PhaseCheck extends Phase{
 
 
 class PhaseApplyIoDefault(pc: PhaseContext) extends PhaseNetlist{
-  override def useNodeConsumers = false
   override def impl(pc : PhaseContext): Unit = {
     import pc._
     walkDeclarations(e => {
@@ -464,7 +461,6 @@ class MemTopology(val mem: Mem[_]) {
 //}
 //
 class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
-  override def useNodeConsumers = false
   override def impl(pc : PhaseContext): Unit = {
     import pc._
     globalData.nodeAreNamed = true
@@ -485,7 +481,6 @@ class PhaseNameNodesByReflection(pc: PhaseContext) extends PhaseMisc{
 }
 
 class PhaseCollectAndNameEnum(pc: PhaseContext) extends PhaseMisc{
-  override def useNodeConsumers = false
   override def impl(pc : PhaseContext): Unit = {
     import pc._
     walkDeclarations(e => e match{
@@ -521,7 +516,6 @@ class PhaseCollectAndNameEnum(pc: PhaseContext) extends PhaseMisc{
 
 //TODO IR pull ram clocks
 class PhasePullClockDomains(pc: PhaseContext) extends PhaseNetlist{
-  override def useNodeConsumers = false
   override def impl(pc : PhaseContext): Unit = {
     import pc._
 
@@ -554,7 +548,6 @@ class PhasePullClockDomains(pc: PhaseContext) extends PhaseNetlist{
 
 //TODO IR infer with on IO (even if they aren't assigned on top level)
 class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
-  override def useNodeConsumers = false
   override def impl(pc : PhaseContext): Unit = {
     import pc._
     globalData.nodeAreInferringWidth = true
@@ -627,7 +620,6 @@ class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
 
 
 class PhaseInferEnumEncodings(pc: PhaseContext,encodingSwap : (SpinalEnumEncoding) => SpinalEnumEncoding) extends PhaseMisc{
-  override def useNodeConsumers = true
   override def impl(pc : PhaseContext): Unit = {
     import pc._
     globalData.nodeAreInferringEnumEncoding = true
@@ -737,7 +729,6 @@ class PhaseInferEnumEncodings(pc: PhaseContext,encodingSwap : (SpinalEnumEncodin
 
 
 class PhaseSimplifyNodes(pc: PhaseContext) extends PhaseNetlist{
-  override def useNodeConsumers = true
   override def impl(pc : PhaseContext): Unit = {
     import pc._
     val toRemove = mutable.ArrayBuffer[Statement]()
@@ -754,7 +745,6 @@ class PhaseSimplifyNodes(pc: PhaseContext) extends PhaseNetlist{
 }
 
 class PhaseNormalizeNodeInputs(pc: PhaseContext) extends PhaseNetlist{
-  override def useNodeConsumers = false
   override def impl(pc : PhaseContext): Unit = {
     import pc._
 
@@ -1022,8 +1012,6 @@ class PhaseRemoveUselessStuff(postClockPulling : Boolean, tagVitals : Boolean) e
       }
     })
   }
-
-  override def useNodeConsumers: Boolean = false
 }
 
 
@@ -1067,8 +1055,6 @@ class PhaseRemoveIntermediateUnameds(onlyTypeNode : Boolean) extends PhaseNetlis
       case s =>
     }
   }
-
-  override def useNodeConsumers: Boolean = false
 }
 
 class PhaseCheckIoBundle extends PhaseCheck{
@@ -1088,7 +1074,6 @@ class PhaseCheckIoBundle extends PhaseCheck{
     })
   }
 
-  override def useNodeConsumers: Boolean = false
 }
 class PhaseCheckHiearchy extends PhaseCheck{
   override def impl(pc: PhaseContext): Unit = {
@@ -1137,12 +1122,9 @@ class PhaseCheckHiearchy extends PhaseCheck{
       })
     })
   }
-
-  override def useNodeConsumers: Boolean = false
 }
 
 class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
-  override def useNodeConsumers = false
   override def impl(pc : PhaseContext): Unit = {
     import pc._
 
@@ -1289,7 +1271,6 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
 //  }
 //}
 class PhaseAllocateNames(pc: PhaseContext) extends PhaseMisc{
-  override def useNodeConsumers = false
   override def impl(pc : PhaseContext): Unit = {
     import pc._
     for (enumDef <- enums.keys) {
@@ -1347,7 +1328,6 @@ class PhaseAllocateNames(pc: PhaseContext) extends PhaseMisc{
 //}
 //
 class PhaseCreateComponent(gen : => Component)(pc: PhaseContext) extends PhaseNetlist{
-  override def useNodeConsumers = false
   override def impl(pc : PhaseContext): Unit = {
     import pc._
     val defaultClockDomain = ClockDomain.external("",frequency = config.defaultClockDomainFrequency)
@@ -1360,7 +1340,6 @@ class PhaseCreateComponent(gen : => Component)(pc: PhaseContext) extends PhaseNe
 }
 
 class PhaseDummy(doThat : => Unit) extends PhaseMisc{
-  override def useNodeConsumers = false
   override def impl(pc : PhaseContext): Unit = {
     doThat
   }
