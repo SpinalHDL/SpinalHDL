@@ -32,15 +32,16 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
   val allocateAlgoIncrementaleBase = globalData.allocateAlgoIncrementale()
   def compile(component: Component): Unit = {
-    val componentBuilderVhdl = new ComponentBuilderVhdl(component, this, allocateAlgoIncrementaleBase, globalData.anonymSignalPrefix, emitedComponentRef)
+    val componentBuilderVhdl = new ComponentEmiterVhdl(component, this, allocateAlgoIncrementaleBase, globalData.anonymSignalPrefix, emitedComponentRef)
 
-    val oldBuilder = emitedComponent.getOrElse(componentBuilderVhdl, null)
-    val text = if (oldBuilder == null) {
-      emitedComponent += (componentBuilderVhdl -> componentBuilderVhdl)
+    val trace = componentBuilderVhdl.getTrace()
+    val oldComponent = emitedComponent.getOrElse(trace, null)
+    val text = if (oldComponent == null) {
+      emitedComponent += (trace -> component)
       componentBuilderVhdl.result
     } else {
-      emitedComponentRef.put(component, oldBuilder.c)
-      s"\n--${component.definitionName} remplaced by ${oldBuilder.c.definitionName}\n\n"
+      emitedComponentRef.put(component, oldComponent)
+      s"\n--${component.definitionName} remplaced by ${oldComponent.definitionName}\n\n"
     }
 
     outFile.write(text)
@@ -49,8 +50,7 @@ class PhaseVhdl(pc : PhaseContext) extends PhaseMisc with VhdlBase {
 
 
 
-
-  val emitedComponent = mutable.Map[ComponentBuilderVhdl, ComponentBuilderVhdl]()
+  val emitedComponent = mutable.Map[ComponentEmiterTrace, Component]()
   val emitedComponentRef = new java.util.concurrent.ConcurrentHashMap[Component,Component]()
 
 

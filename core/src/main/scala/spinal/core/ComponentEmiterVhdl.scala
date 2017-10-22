@@ -6,28 +6,20 @@ import scala.collection.mutable.{ListBuffer, ArrayBuffer}
 import scala.util.Random
 
 
-class ComponentBuilderVhdl(val c : Component,
-                           vhdlBase: VhdlBase,
-                           algoIdIncrementalBase : Int,
-                           anonymSignalPrefix : String,
-                           emitedComponentRef : java.util.concurrent.ConcurrentHashMap[Component,Component]){
+class ComponentEmiterVhdl(val c : Component,
+                          vhdlBase: VhdlBase,
+                          override val algoIdIncrementalBase : Int,
+                          anonymSignalPrefix : String,
+                          emitedComponentRef : java.util.concurrent.ConcurrentHashMap[Component,Component]) extends ComponentEmiter{
   import vhdlBase._
 
-  def component = c
+  override def component = c
 
   val portMaps = ArrayBuffer[String]()
   val declarations = new StringBuilder()
   val logics = new StringBuilder()
 
-  val wrappedExpressionToName = mutable.HashMap[Expression, String]()
-  val referencesOverrides = mutable.HashMap[Nameable,Any]()
 
-  var algoIdIncrementalOffset = 0
-  def allocateAlgoIncrementale() : Int = {
-    val ret = algoIdIncrementalBase + algoIdIncrementalOffset
-    algoIdIncrementalOffset += 1
-    ret
-  }
 
   def result : String = {
     val ret = new StringBuilder()
@@ -57,24 +49,6 @@ class ComponentBuilderVhdl(val c : Component,
     ret.toString()
   }
 
-  var hash: Integer = null
-
-  override def hashCode(): Int = {
-    if (hash == null) {
-      hash = declarations.hashCode() + logics.hashCode() + portMaps.foldLeft(0)(_ + _.hashCode)
-    }
-    hash
-  }
-
-  override def equals(obj: scala.Any): Boolean = {
-    if (this.hashCode() != obj.hashCode()) return false //Colision into hashmap implementation don't check it XD
-    obj match {
-      case that: ComponentBuilderVhdl => {
-        return this.declarations == that.declarations && this.logics == that.logics && (this.portMaps.length == that.portMaps.length && (this.portMaps, that.portMaps).zipped.map(_ == _).reduce(_ && _))
-      }
-      case _ => return ???
-    }
-  }
 
 
 
@@ -84,271 +58,14 @@ class ComponentBuilderVhdl(val c : Component,
     )
   }
 
+
+  override def wrapSubInput(io: BaseType): Unit = {
+    val name = component.localNamingScope.allocateName(anonymSignalPrefix)
+    declarations ++= s"  signal $name : ${emitDataType(io)};\n"
+    referencesOverrides(io) = name
+  }
+
   def emitArchitecture(): Unit = {
-    val syncGroups = mutable.HashMap[(ClockDomain, ScopeStatement, Boolean), SyncGroup]()
-    val asyncStatement = ArrayBuffer[LeafStatement]()
-    val mems = ArrayBuffer[Mem[_]]()
-
-    //Sort all leaf statements into their nature (sync/async)
-    var syncGroupInstanceCounter = 0
-    component.dslBody.walkLeafStatements(_ match {
-      case s : AssignementStatement => s.finalTarget match {
-        case target : BaseType if target.isComb => asyncStatement += s
-        case target : BaseType if target.isReg  => {
-          val group = syncGroups.getOrElseUpdate((target.clockDomain, s.rootScopeStatement, target.hasInit) , new SyncGroup(target.clockDomain ,s.rootScopeStatement, target.hasInit, syncGroupInstanceCounter))
-          syncGroupInstanceCounter += 1
-          s match {
-            case s : InitAssignementStatement => group.initStatements += s
-            case s : DataAssignementStatement => group.dataStatements += s
-          }
-        }
-      }
-      case assertStatement : AssertStatement => {
-        val group = syncGroups.getOrElseUpdate((assertStatement.clockDomain, assertStatement.rootScopeStatement, false) , new SyncGroup(assertStatement.clockDomain ,assertStatement.rootScopeStatement, false, syncGroupInstanceCounter))
-        syncGroupInstanceCounter += 1
-        group.dataStatements += assertStatement
-      }
-      case x : MemPortStatement =>
-      case x : Mem[_] => mems += x
-      case x : DeclarationStatement =>
-    })
-
-    //Generate AsyncProcess per target
-    val asyncProcessFromNameableTarget = mutable.HashMap[Nameable,AsyncProcess]()
-    val rootTreeStatementPerAsyncProcess = mutable.HashMap[TreeStatement,AsyncProcess]()
-    var asyncGroupInstanceCounter = 0
-    for(s <- asyncStatement) s match{
-      case s : AssignementStatement => {
-        var rootTreeStatement: TreeStatement = null
-        var scopePtr = s.parentScope
-        val finalTarget = s.finalTarget
-        val rootScope = finalTarget.rootScopeStatement
-
-        while (scopePtr != rootScope) {
-          rootTreeStatement = scopePtr.parentStatement
-          scopePtr = scopePtr.parentStatement.parentScope
-        }
-        if (rootTreeStatement != null) {
-          val preExistingTargetProcess = asyncProcessFromNameableTarget.getOrElse(finalTarget, null)
-          val preExistingRootTreeProcess = rootTreeStatementPerAsyncProcess.getOrElse(rootTreeStatement, null)
-          if(preExistingTargetProcess == null && preExistingRootTreeProcess == null){ //Create new process
-            val process = new AsyncProcess(rootScope, asyncGroupInstanceCounter)
-            asyncGroupInstanceCounter += 1
-            asyncProcessFromNameableTarget(finalTarget) = process
-            rootTreeStatementPerAsyncProcess(rootTreeStatement) = process
-            process.nameableTargets = finalTarget :: process.nameableTargets
-          } else if(preExistingTargetProcess != null && preExistingRootTreeProcess == null){
-            val process = preExistingTargetProcess
-            rootTreeStatementPerAsyncProcess(rootTreeStatement) = process
-          } else if(preExistingTargetProcess == null && preExistingRootTreeProcess != null){
-            val process = preExistingRootTreeProcess
-            asyncProcessFromNameableTarget(finalTarget) = process
-            process.nameableTargets = finalTarget :: process.nameableTargets
-          } else if(preExistingTargetProcess != preExistingRootTreeProcess) { //Merge
-            val process = preExistingRootTreeProcess
-            //TODO merge to smallest into the bigger (faster)
-            asyncProcessFromNameableTarget(finalTarget) = process
-            process.nameableTargets ++= preExistingTargetProcess.nameableTargets
-            preExistingTargetProcess.nameableTargets.foreach(asyncProcessFromNameableTarget(_) = process)
-          }
-        } else {
-          val preExistingTargetProcess = asyncProcessFromNameableTarget.getOrElse(finalTarget, null)
-          if(preExistingTargetProcess == null) {
-            //Create new process
-            val process = new AsyncProcess(rootScope,asyncGroupInstanceCounter)
-            asyncGroupInstanceCounter += 1
-            asyncProcessFromNameableTarget(finalTarget) = process
-            process.nameableTargets = finalTarget :: process.nameableTargets
-          }
-        }
-      }
-    }
-
-    //Add statements into AsyncProcesses
-    val processes = mutable.HashSet[AsyncProcess]()// ++= rootTreeStatementPerAsyncProcess.valuesIterator
-    asyncProcessFromNameableTarget.valuesIterator.foreach(p => processes += p) //TODO IR better perf
-    for(s <- asyncStatement) s match {
-      case s: AssignementStatement => {
-        var process = asyncProcessFromNameableTarget.getOrElse(s.finalTarget,null)
-        if(process == null){
-          process = new AsyncProcess(s.rootScopeStatement,asyncGroupInstanceCounter)
-          asyncGroupInstanceCounter += 1
-          process.nameableTargets = s.finalTarget :: process.nameableTargets
-        }
-        process.leafStatements += s
-        processes += process
-      }
-    }
-
-    //identify duplicated expression due to `when` spliting/duplication
-    //TODO IR include sync stuff
-
-    val expressionToWrap = mutable.HashSet[Expression]();
-    {
-      val whenCondOccurences = mutable.HashMap[Expression, Int]()
-      def walker(statements : ArrayBuffer[LeafStatement], statementIndexInit : Int, scope : ScopeStatement, algoId : Int): Int ={
-        var statementIndex = statementIndexInit
-
-        while(statementIndex < statements.length){
-          val statement = statements(statementIndex)
-
-          statement match {
-            case AssignementStatement(target : RangedAssignmentFloating, _) => expressionToWrap += target.offset
-            case _ =>
-          }
-
-          val targetScope = statement.parentScope
-          if(targetScope == scope){
-            statementIndex += 1
-          } else {
-            var scopePtr = targetScope
-            while(scopePtr.parentStatement != null && scopePtr.parentStatement.parentScope != scope){
-              scopePtr = scopePtr.parentStatement.parentScope
-            }
-            if(scopePtr.parentStatement == null) {
-              return statementIndex
-            }
-            val treeStatement = scopePtr.parentStatement
-            if(treeStatement.algoIncrementale != algoId) {
-              treeStatement.algoIncrementale = algoId
-              treeStatement match {
-                case w: WhenStatement => {
-                  if (!w.cond.isInstanceOf[DeclarationStatement]) {
-                    val counter = whenCondOccurences.getOrElseUpdate(w.cond, 0)
-                    if (counter < 2) {
-                      whenCondOccurences(w.cond) = counter + 1
-                    }
-                  }
-                }
-                case s: SwitchStatement => {
-                  if (!s.value.isInstanceOf[DeclarationStatement]) {
-                    val counter = whenCondOccurences.getOrElseUpdate(s.value, 0)
-                    if (counter < 2) {
-                      whenCondOccurences(s.value) = counter + 1
-                    }
-                  }
-                }
-              }
-            }
-            statementIndex = walker(statements,statementIndex, scopePtr, algoId)
-          }
-        }
-        return statementIndex
-      }
-
-      for (process <- processes) {
-        walker(process.leafStatements, 0, process.scope, allocateAlgoIncrementale())
-      }
-
-      syncGroups.valuesIterator.foreach(group => {
-        walker(group.initStatements, 0, group.scope, allocateAlgoIncrementale())
-        walker(group.dataStatements, 0, group.scope, allocateAlgoIncrementale())
-      })
-
-      for ((c, n) <- whenCondOccurences if n > 1) {
-        expressionToWrap += c
-      }
-    }
-
-    //Manage subcomponents input bindings
-    val subComponentInputToNotBufferize = mutable.HashSet[Any]()
-    for(sub <- component.children){
-      for(io <- sub.getOrdredNodeIo if io.isInput){
-        var subInputBinded = isSubComponentInputBinded(io)
-        if(subInputBinded != null) {
-          //          def walkInputBindings(that : NameableExpression) : NameableExpression = { //Manage the case then sub input is drived by sub input
-          //            val next = isSubComponentInputBinded(that.asInstanceOf[BaseType])
-          //            if(next != null && next.component.parent == component)
-          //              walkInputBindings(next)
-          //            else
-          //              that
-          //          }
-          //          referencesOverrides(io) = walkInputBindings(subInputBinded).getName()
-          referencesOverrides(io) = subInputBinded
-          subComponentInputToNotBufferize += io
-        } else {
-          val name = component.localNamingScope.allocateName(anonymSignalPrefix)
-          declarations ++= s"  signal $name : ${emitDataType(io)};\n"
-          referencesOverrides(io) = name
-        }
-      }
-    }
-
-    //Outputs and subcomponent output stuff
-    val outputsToBufferize = mutable.ArrayBuffer[BaseType]() //Check if there is a reference to an output pin (read self outputed signal)
-    //    val subComponentOutputsToNotBufferize = mutable.HashMap[Nameable,DeclarationStatement]()
-    //    val subComponentOutputsToBufferize = mutable.HashSet[BaseType]()
-    val openSubIo = mutable.HashSet[BaseType]()
-
-    //Get all component outputs which are read internaly
-    //And also fill some expressionToWrap from switch(xx)
-    component.dslBody.walkStatements(s => {
-      s match {
-        case s : SwitchStatement => expressionToWrap += s.value
-        case _ =>
-      }
-      s.walkDrivingExpressions(_ match {
-        case bt: BaseType => {
-          if (bt.component == component && bt.isOutput) {
-            outputsToBufferize += bt
-          }
-        }
-        case _ =>
-      })
-    })
-
-    //    component.children.foreach(sub => sub.getAllIo.foreach(io => if(io.isOutput) subComponentOutputsToBufferize += io))
-
-    //    component.dslBody.walkStatements(ls => ls match {
-    //      //Identify direct combinatorial assignements
-    //      case AssignementStatement(target : BaseType,source : BaseType)
-    //       if(target.isComb && source.component.parent == component && source.isOutput && target.hasOnlyOneStatement &&  ls.parentScope == target.rootScopeStatement)=> {
-    //        if(subComponentOutputsToNotBufferize.contains(source)){
-    //          subComponentOutputsToBufferize += source
-    //        }
-    //        subComponentOutputsToNotBufferize(source) = target
-    //      }
-    //      //Add all referenced sub component outputs into the KO list
-    //      case _ => ls.walkDrivingExpressions(_ match {
-    //        case source : BaseType => {
-    //          if(source.component.parent == component && source.isOutput){
-    //            subComponentOutputsToBufferize += source
-    //          }
-    //        }
-    //        case _ =>
-    //      })
-    //    })
-    //    for(syncGroup <- syncGroups.valuesIterator){
-    //      val clockDomain = syncGroup.clockDomain
-    //      val clock = component.pulledDataCache.getOrElse(clockDomain.clock, throw new Exception("???")).asInstanceOf[Bool]
-    //      val reset = if (null == clockDomain.reset) null else component.pulledDataCache.getOrElse(clockDomain.reset, throw new Exception("???")).asInstanceOf[Bool]
-    //      val softReset = if (null == clockDomain.softReset) null else component.pulledDataCache.getOrElse(clockDomain.softReset, throw new Exception("???")).asInstanceOf[Bool]
-    //      val clockEnable = if (null == clockDomain.clockEnable) null else component.pulledDataCache.getOrElse(clockDomain.clockEnable, throw new Exception("???")).asInstanceOf[Bool]
-    //      def addRefUsage(bt: BaseType): Unit ={
-    //        if(bt == null) return
-    //        if(bt.component == component && bt.isOutput){
-    //          outputsToBufferize += bt
-    //        }
-    //        if(bt.component.parent == component && bt.isOutput){
-    //          subComponentOutputsToBufferize += bt
-    //        }
-    //      }
-    //      addRefUsage(clock)
-    //      addRefUsage(reset)
-    //      addRefUsage(softReset)
-    //      addRefUsage(clockEnable)
-    //    }
-    //
-    //    subComponentOutputsToNotBufferize --= subComponentOutputsToBufferize
-
-    //TODO undrived components inputs ?
-    //    component.children.foreach(sub => sub.getAllIo.foreach(io =>
-    //      if (io.isOutput && !subComponentOutputsToNotBufferize.contains(io) && !subComponentOutputsToBufferize.contains(io)) {
-    //        openSubIo += io
-    //      }
-    //    ))
-
-
     for(mem <- mems){
       mem.foreachStatements(s => {
         s.foreachDrivingExpression{
@@ -377,11 +94,6 @@ class ComponentBuilderVhdl(val c : Component,
       })
     }
 
-
-
-    //    for((subOutput, target) <- subComponentOutputsToNotBufferize){
-    //      referencesOverrides(subOutput) = emitReference(target, false)
-    //    }
 
     for(output <- outputsToBufferize){
       val name = component.localNamingScope.allocateName(anonymSignalPrefix)
@@ -505,27 +217,18 @@ class ComponentBuilderVhdl(val c : Component,
     }
   }
 
-  def isSubComponentInputBinded(data : BaseType) = {
-    if(data.isInput && data.isComb && data.hasOnlyOneStatement && data.head.parentScope == data.rootScopeStatement && Statement.isFullToFullStatement(data.head)/* && data.head.asInstanceOf[AssignementStatement].source.asInstanceOf[BaseType].component == data.component.parent*/)
-      data.head.source.asInstanceOf[BaseType]
-    else
-      null
-  }
+
 
 
   def emitClockedProcess(emitRegsLogic : (String, StringBuilder) => Unit,
                          emitRegsInitialValue : (String, StringBuilder) => Unit,
                          b : mutable.StringBuilder,
-                         clockDomain: ClockDomain, withReset : Boolean, component : Component): Unit ={
+                         clockDomain: ClockDomain,
+                         withReset : Boolean): Unit ={
     val clock = component.pulledDataCache.getOrElse(clockDomain.clock, throw new Exception("???")).asInstanceOf[Bool]
     val reset = if (null == clockDomain.reset || !withReset) null else component.pulledDataCache.getOrElse(clockDomain.reset, throw new Exception("???")).asInstanceOf[Bool]
     val softReset = if (null == clockDomain.softReset || !withReset) null else component.pulledDataCache.getOrElse(clockDomain.softReset, throw new Exception("???")).asInstanceOf[Bool]
     val clockEnable = if (null == clockDomain.clockEnable) null else component.pulledDataCache.getOrElse(clockDomain.clockEnable, throw new Exception("???")).asInstanceOf[Bool]
-
-    //    val clock = clockDomain.clock
-    //    val reset = if (null == clockDomain.reset || !withReset) null else clockDomain.reset
-    //    val softReset = if (null == clockDomain.softReset || !withReset) null else clockDomain.softReset
-    //    val clockEnable = if (null == clockDomain.clockEnable) null else clockDomain.clockEnable
 
     val asyncReset = (null != reset) && clockDomain.config.resetKind == ASYNC
     val syncReset = (null != reset) && clockDomain.config.resetKind == SYNC
@@ -607,100 +310,11 @@ class ComponentBuilderVhdl(val c : Component,
 
 
 
-  class AsyncProcess(val scope : ScopeStatement, val instanceCounter : Int){
-    val leafStatements = ArrayBuffer[LeafStatement]() //.length should be Oc
-    var nameableTargets = List[DeclarationStatement]()
-  }
 
-  class SyncGroup(val clockDomain: ClockDomain, val scope: ScopeStatement, val hasInit : Boolean, val instanceCounter : Int){
-    val initStatements = ArrayBuffer[LeafStatement]()
-    val dataStatements = ArrayBuffer[LeafStatement]()
-  }
 
   def emitSyncronous(component : Component, group: SyncGroup): Unit = {
     import group._
     def withReset = hasInit
-
-    val clock = component.pulledDataCache.getOrElse(clockDomain.clock, throw new Exception("???")).asInstanceOf[Bool]
-    val reset = if (null == clockDomain.reset || !withReset) null else component.pulledDataCache.getOrElse(clockDomain.reset, throw new Exception("???")).asInstanceOf[Bool]
-    val softReset = if (null == clockDomain.softReset || !withReset) null else component.pulledDataCache.getOrElse(clockDomain.softReset, throw new Exception("???")).asInstanceOf[Bool]
-    val clockEnable = if (null == clockDomain.clockEnable) null else component.pulledDataCache.getOrElse(clockDomain.clockEnable, throw new Exception("???")).asInstanceOf[Bool]
-
-    //    val clock = clockDomain.clock
-    //    val reset = if (null == clockDomain.reset || !withReset) null else clockDomain.reset
-    //    val softReset = if (null == clockDomain.softReset || !withReset) null else clockDomain.softReset
-    //    val clockEnable = if (null == clockDomain.clockEnable) null else clockDomain.clockEnable
-
-    val asyncReset = (null != reset) && clockDomain.config.resetKind == ASYNC
-    val syncReset = (null != reset) && clockDomain.config.resetKind == SYNC
-    var tabLevel = 1
-    def tabStr = "  " * tabLevel
-    def inc = {
-      tabLevel = tabLevel + 1
-    }
-    def dec = {
-      tabLevel = tabLevel - 1
-    }
-
-
-
-    val initialStatlementsGeneration =  new StringBuilder()
-    referenceSetStart()
-    emitRegsInitialValue("      ", initialStatlementsGeneration)
-    referenceSetAdd(emitReference(clock,false))
-
-    if (asyncReset) {
-      referenceSetAdd(emitReference(reset,false))
-      logics ++= s"${tabStr}process(${referehceSetSorted.mkString(", ")})\n"
-    } else {
-      logics ++= s"${tabStr}process(${referehceSetSorted.mkString(", ")})\n"
-    }
-
-    logics ++= s"${tabStr}begin\n"
-    inc
-    if (asyncReset) {
-      logics ++= s"${tabStr}if ${emitReference(reset, false)} = \'${if (clockDomain.config.resetActiveLevel == HIGH) 1 else 0}\' then\n";
-      inc
-      logics ++= initialStatlementsGeneration
-      dec
-      logics ++= s"${tabStr}elsif ${emitClockEdge(emitReference(clock,false), clockDomain.config.clockEdge)}"
-      inc
-    } else {
-      logics ++= s"${tabStr}if ${emitClockEdge(emitReference(clock,false), clockDomain.config.clockEdge)}"
-      inc
-    }
-    if (clockEnable != null) {
-      logics ++= s"${tabStr}if ${emitReference(clockEnable,false)} = \'${if (clockDomain.config.clockEnableActiveLevel == HIGH) 1 else 0}\' then\n"
-      inc
-    }
-
-    if (syncReset || softReset != null) {
-      var condList = ArrayBuffer[String]()
-      if(syncReset) condList += s"${emitReference(reset,false)} = \'${if (clockDomain.config.resetActiveLevel == HIGH) 1 else 0}\'"
-      if(softReset != null) condList += s"${emitReference(softReset,false)} = \'${if (clockDomain.config.softResetActiveLevel == HIGH) 1 else 0}\'"
-
-      logics ++= s"${tabStr}if ${condList.reduce(_ + " or " + _)} then\n"
-      inc
-      logics ++= initialStatlementsGeneration
-      dec
-      logics ++= s"${tabStr}else\n"
-      inc
-      emitRegsLogic(tabStr,logics)
-      dec
-      logics ++= s"${tabStr}end if;\n"
-      dec
-    } else {
-      emitRegsLogic(tabStr,logics)
-      dec
-    }
-
-    while (tabLevel != 1) {
-      logics ++= s"${tabStr}end if;\n"
-      dec
-    }
-    logics ++= s"${tabStr}end process;\n"
-    dec
-    logics ++= s"${tabStr}\n"
 
 
     def emitRegsInitialValue(tab: String, b : StringBuilder): Unit = {
@@ -711,8 +325,15 @@ class ComponentBuilderVhdl(val c : Component,
     }
 
 
-
+    emitClockedProcess(
+      emitRegsLogic = emitRegsLogic,
+      emitRegsInitialValue = emitRegsInitialValue,
+      b = logics,
+      clockDomain = group.clockDomain,
+      withReset = withReset
+    )
   }
+
 
   def emitAsyncronous(process: AsyncProcess): Unit = {
     process match {
@@ -1205,7 +826,7 @@ class ComponentBuilderVhdl(val c : Component,
         }
       }
 
-      emitClockedProcess(syncLogic,null,logics, cd, false, mem.component)
+      emitClockedProcess(syncLogic,null,logics, cd, false)
     }
 
     mem.foreachStatements{
@@ -1213,7 +834,7 @@ class ComponentBuilderVhdl(val c : Component,
       case port : MemReadWrite =>
       case port : MemReadSync =>
         if(port.readUnderWrite == dontCare)
-          emitClockedProcess(emitPort(port,_,_),null,logics, port.clockDomain, false, mem.component)
+          emitClockedProcess(emitPort(port,_,_),null,logics, port.clockDomain, false)
       case port : MemReadAsync =>
         if(port.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${port.mem} because of its mixed width ports")
         if (port.readUnderWrite == dontCare) SpinalWarning(s"memReadAsync with dontCare is as writeFirst into VHDL")
@@ -1648,10 +1269,11 @@ class ComponentBuilderVhdl(val c : Component,
   }
 
 
+  def getTrace() = new ComponentEmiterTrace(declarations :: logics :: Nil, portMaps)
 
-  referencesOverrides.clear()
-  wrappedExpressionToName.clear()
+
   val ret = new StringBuilder()
+  elaborate()
   emitEntity()
   emitArchitecture()
 
