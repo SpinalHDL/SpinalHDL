@@ -32,8 +32,8 @@ abstract class ComponentEmiter {
   val referencesOverrides = mutable.HashMap[Nameable,Any]()
   var algoIdIncrementalOffset = 0
 
-  val syncGroups = mutable.HashMap[(ClockDomain, ScopeStatement, Boolean), SyncGroup]()
-  val processes = mutable.HashSet[AsyncProcess]()
+  val syncGroups = mutable.LinkedHashMap[(ClockDomain, ScopeStatement, Boolean), SyncGroup]()
+  val processes = mutable.LinkedHashSet[AsyncProcess]()
   val mems = ArrayBuffer[Mem[_]]()
   val expressionToWrap = mutable.HashSet[Expression]()
   val outputsToBufferize = mutable.ArrayBuffer[BaseType]() //Check if there is a reference to an output pin (read self outputed signal)
@@ -100,8 +100,8 @@ abstract class ComponentEmiter {
     })
 
     //Generate AsyncProcess per target
-    val asyncProcessFromNameableTarget = mutable.HashMap[Nameable,AsyncProcess]()
-    val rootTreeStatementPerAsyncProcess = mutable.HashMap[TreeStatement,AsyncProcess]()
+    val asyncProcessFromNameableTarget = mutable.LinkedHashMap[Nameable,AsyncProcess]()
+    val rootTreeStatementPerAsyncProcess = mutable.LinkedHashMap[TreeStatement,AsyncProcess]()
     var asyncGroupInstanceCounter = 0
     for(s <- asyncStatement) s match{
       case s : AssignementStatement => {

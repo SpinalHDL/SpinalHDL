@@ -126,10 +126,9 @@ class ComponentEmiterVhdl(val c : Component,
     emitSignals()
     emitMems(mems)
     emitSubComponents(openSubIo)
-    processes.toArray.sortWith(_.instanceCounter < _.instanceCounter).foreach(p => {
+    processes.foreach(p => {
       if(p.leafStatements.nonEmpty ) {
         p.leafStatements.head match {
-          //          case AssignementStatement(_, source : DeclarationStatement) if subComponentOutputsToNotBufferize.contains(source) =>
           case AssignementStatement(target: DeclarationStatement, _) if subComponentInputToNotBufferize.contains(target) =>
           case _ => emitAsyncronous(p)
         }
@@ -137,7 +136,7 @@ class ComponentEmiterVhdl(val c : Component,
         emitAsyncronous(p)
       }
     })
-    syncGroups.valuesIterator.toArray.sortWith(_.instanceCounter < _.instanceCounter).foreach(emitSyncronous(component, _))
+    syncGroups.valuesIterator.foreach(emitSyncronous(component, _))
 
     component.dslBody.walkStatements{
       case s : TreeStatement => s.algoIncrementale = algoIdIncrementalBase
@@ -435,7 +434,7 @@ class ComponentEmiterVhdl(val c : Component,
           }
           case switchStatement : SwitchStatement => {
             class Task(val element : SwitchStatementElement, val statementIndex : Int)
-            val tasks = mutable.HashMap[ScopeStatement, Task]()
+            val tasks = mutable.LinkedHashMap[ScopeStatement, Task]()
             var defaultTask : Task = null
             var afterSwitchIndex = statementIndex
             var continue = true
@@ -527,28 +526,23 @@ class ComponentEmiterVhdl(val c : Component,
   def referenceSetStart(): Unit ={
     _referenceSetEnabled = true
     _referenceSet.clear()
-    _referenceSetSorted.clear()
   }
 
   def referenceSetStop(): Unit ={
     _referenceSetEnabled = false
     _referenceSet.clear()
-    _referenceSetSorted.clear()
   }
 
   def referenceSetAdd(str : String): Unit ={
     if(_referenceSetEnabled) {
-      if (_referenceSet.add(str)) {
-        _referenceSetSorted += str
-      }
+      _referenceSet.add(str)
     }
   }
 
-  def referehceSetSorted() = _referenceSetSorted
+  def referehceSetSorted() = _referenceSet
 
   var _referenceSetEnabled = false
-  val _referenceSet = mutable.Set[String]()
-  val _referenceSetSorted = mutable.ArrayBuffer[String]()
+  val _referenceSet = mutable.LinkedHashSet[String]()
 
   def emitReference(that : DeclarationStatement, sensitive : Boolean): String ={
     val name = referencesOverrides.getOrElse(that, that.getNameElseThrow) match {
@@ -805,7 +799,7 @@ class ComponentEmiterVhdl(val c : Component,
     }
 
 
-    val cdTasks = mutable.HashMap[ClockDomain, ArrayBuffer[MemPortStatement]]()
+    val cdTasks = mutable.LinkedHashMap[ClockDomain, ArrayBuffer[MemPortStatement]]()
     mem.foreachStatements{
       case port : MemWrite =>
         cdTasks.getOrElseUpdate(port.clockDomain, ArrayBuffer[MemPortStatement]()) += port
