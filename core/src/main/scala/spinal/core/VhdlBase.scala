@@ -54,6 +54,9 @@ trait VhdlBase extends VhdlVerilogBase{
     }
   }
 
+  def getReEncodingFuntion(spinalEnum: SpinalEnum, source: SpinalEnumEncoding, target: SpinalEnumEncoding): String = {
+    s"${spinalEnum.getName()}_${source.getName()}_to_${target.getName()}"
+  }
 
   def emitEnumLiteral[T <: SpinalEnum](enum : SpinalEnumElement[T],encoding: SpinalEnumEncoding) : String = {
     if(encoding.isNative)
