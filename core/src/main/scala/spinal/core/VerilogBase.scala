@@ -28,7 +28,7 @@ import scala.collection.mutable
 trait VerilogBase extends VhdlVerilogBase{
 
   def emitExpressionWrap(e : Expression, name : String) : String = {
-    s"  ${emitType(e)} ${name};\n"
+    s"  wire ${emitType(e)} ${name};\n"
   }
 
 

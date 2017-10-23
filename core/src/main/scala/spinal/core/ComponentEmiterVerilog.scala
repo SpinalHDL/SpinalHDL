@@ -23,8 +23,7 @@ class ComponentEmiterVerilog(val c : Component,
 
   def result : String = {
     val ret = new StringBuilder()
-    ret ++= s"module ${component.definitionName}\n"
-    ret ++= s"( \n"
+    ret ++= s"module ${component.definitionName} ("
     var first = true
     for(portMap <- portMaps){
       if(first){
@@ -47,7 +46,7 @@ class ComponentEmiterVerilog(val c : Component,
 
   def emitEntity(): Unit = {
     component.getOrdredNodeIo.foreach(baseType =>
-      portMaps += s"  ${emitSyntaxAttributes(baseType.instanceAttributes)}${emitDirection(baseType)} ${if(signalNeedProcess(baseType)) "reg " else ""}${emitType(baseType)} ${baseType.getName()}${getBaseTypeSignalInitialisation(baseType)}${emitCommentAttributes(baseType.instanceAttributes)}\n"
+      portMaps += s"  ${emitSyntaxAttributes(baseType.instanceAttributes)}${emitDirection(baseType)} ${if(signalNeedProcess(baseType)) "reg " else ""}${emitType(baseType)} ${baseType.getName()}${getBaseTypeSignalInitialisation(baseType)}${emitCommentAttributes(baseType.instanceAttributes)}"
     )
   }
 
@@ -97,7 +96,7 @@ class ComponentEmiterVerilog(val c : Component,
 
     component.children.foreach(sub => sub.getAllIo.foreach(io => if(io.isOutput) {
       val name = component.localNamingScope.allocateName(anonymSignalPrefix)
-      declarations ++= emitBaseTypeWrap(io, name)
+      declarations ++= emitExpressionWrap(io, name)
       referencesOverrides(io) = name
     }))
 
@@ -167,7 +166,7 @@ class ComponentEmiterVerilog(val c : Component,
 
       logics ++= s"${child.getName()} ( \n"
       for (data <- child.getOrdredNodeIo) {
-        val logic = if(openSubIo.contains(data)) "open" else emitReference(data, false) //TODO IR && false
+        val logic = if(openSubIo.contains(data)) "" else emitReference(data, false) //TODO IR && false
         logics ++= s"    .${emitReferenceNoOverrides(data)}($logic),\n"
       }
       logics.setCharAt(logics.size - 2, ' ')
@@ -212,10 +211,9 @@ class ComponentEmiterVerilog(val c : Component,
 
     if (asyncReset) {
       referenceSetAdd(emitResetEdge(emitReference(reset,false),clockDomain.config.resetActiveLevel))
-      b ++= s"${tabStr}always @ (${referehceSetSorted.toArray.mkString(" or ")})\n"  //.toArray.sortWith(_.hashCode < _.hashCode)
     }
     
-    b ++= s"${tabStr}always @ (${referehceSetSorted.mkString(" or  ")})\n"
+    b ++= s"${tabStr}always @ (${referehceSetSorted.mkString(" or ")})\n"
     b ++= s"${tabStr}begin\n"
     inc
     if (asyncReset) {
@@ -336,7 +334,7 @@ class ComponentEmiterVerilog(val c : Component,
       if(targetScope == scope){
         closeSubs()
         statement match {
-          case assignement : AssignementStatement => b ++= logics ++= s"${tab}${emitAssignedExpression(assignement.target)} ${assignementKind} ${emitExpression(assignement.source)};\n"
+          case assignement : AssignementStatement => b ++= s"${tab}${emitAssignedExpression(assignement.target)} ${assignementKind} ${emitExpression(assignement.source)};\n"
           case assertStatement : AssertStatement => {
             val cond = emitExpression(assertStatement.cond)
             val severity = assertStatement.severity match{
@@ -385,7 +383,7 @@ class ComponentEmiterVerilog(val c : Component,
               //              if(scopePtr.sizeIsOne && scopePtr.head.isInstanceOf[WhenStatement]){
               //                b ++= s"${tab}if ${emitExpression(treeStatement.cond)} = '1' then\n"
               //              } else {
-              b ++= s"${tab}end else\n"
+              b ++= s"${tab}end else begin\n"
               //              }
             } else {
               b ++= s"${tab}if(! ${emitExpression(treeStatement.cond)}) begin\n"
@@ -435,9 +433,9 @@ class ComponentEmiterVerilog(val c : Component,
                 case lit : EnumLiteral[_] => emitEnumLiteral(lit.enum, lit.encoding)
               }
 
-              b ++= s"${tab}case ${emitExpression(switchStatement.value)})\n"
+              b ++= s"${tab}case(${emitExpression(switchStatement.value)})\n"
               tasks.foreach { case (scope, task) =>
-                b ++= s"${tab}  case ${task.element.keys.map(e => emitIsCond(e)).mkString(", ")} : begin\n"
+                b ++= s"${tab}  ${task.element.keys.map(e => emitIsCond(e)).mkString(", ")} : begin\n"
                 emitLeafStatements(statements, task.statementIndex, scope, assignementKind, b, tab + "    ")
                 b ++= s"${tab}  end\n"
               }
@@ -514,7 +512,7 @@ class ComponentEmiterVerilog(val c : Component,
 
   def emitAssignedExpression(that : Expression): String = that match{
     case that : BaseType => emitReference(that, false)
-    case that : BitAssignmentFixed => s"${emitReference(that.out, false)}[${that.bitId})"
+    case that : BitAssignmentFixed => s"${emitReference(that.out, false)}[${that.bitId}]"
     case that : BitAssignmentFloating => s"${emitReference(that.out, false)}[${emitExpression(that.bitId)}]"
     case that : RangedAssignmentFixed => s"${emitReference(that.out, false)}[${that.hi} : ${that.lo}]"
     case that : RangedAssignmentFloating => s"${emitReference(that.out, false)}[${emitExpression(that.offset)} +: ${that.bitCount}]"
@@ -536,10 +534,10 @@ class ComponentEmiterVerilog(val c : Component,
 
 
   def emitBaseTypeSignal(baseType : BaseType, name : String) : String = {
-    s"  ${emitSyntaxAttributes(baseType.instanceAttributes)}${if(signalNeedProcess(baseType)) "reg " else ""}${emitType(baseType)} ${baseType.getName()}${getBaseTypeSignalInitialisation(baseType)}${emitCommentAttributes(baseType.instanceAttributes)};\n"
+    s"  ${emitSyntaxAttributes(baseType.instanceAttributes)}${if(signalNeedProcess(baseType)) "reg " else "wire "}${emitType(baseType)} ${name}${getBaseTypeSignalInitialisation(baseType)}${emitCommentAttributes(baseType.instanceAttributes)};\n"
   }
   def emitBaseTypeWrap(baseType : BaseType, name : String) : String = {
-    s"  ${if(signalNeedProcess(baseType)) "reg " else ""}${emitType(baseType)} ${baseType.getName()};\n"
+    s"  ${if(signalNeedProcess(baseType)) "reg " else "wire "}${emitType(baseType)} ${name};\n"
   }
 
 
@@ -785,7 +783,7 @@ class ComponentEmiterVerilog(val c : Component,
     def applyTo(that : Expression) = expressionToWrap += that
     component.dslBody.walkStatements(s => s.walkDrivingExpressions{
       case node: Resize  => applyTo(node)
-      case node: SubAccess => node.getBitVector.asInstanceOf[BitVector].dontSimplifyIt()
+      case node: SubAccess => applyTo(node.getBitVector)
       case node: Literal => applyTo(node)
 //      case node: SInt    => if(!node.input.isInstanceOf[SInt]) node.dontSimplifyIt()
 //      case node: UInt    => if(!node.input.isInstanceOf[UInt]) node.dontSimplifyIt()
@@ -854,7 +852,7 @@ class ComponentEmiterVerilog(val c : Component,
   }
 
   def shiftLeftByIntFixedWidthImpl(e: Operator.BitVector.ShiftLeftByIntFixedWidth): String = {
-    s"(${emitExpression(e.source)} >>> ${e.shift})"
+    s"(${emitExpression(e.source)} <<< ${e.shift})"
   }
 
   def emitBitVectorLiteral(e : BitVectorLiteral) : String = {

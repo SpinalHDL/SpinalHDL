@@ -295,8 +295,8 @@ class OperatorTesterCocotbBoot extends SpinalTesterCocotbBase {
   override def pythonTestLocation: String = "tester/src/test/python/spinal/OperatorTester"
 }
 
-object OperatorTesterGenVhdl{
-  def main(args: Array[String]) {
-    SpinalVhdl(new OperatorTester)
-  }
-}
+//object OperatorTesterGenVhdl{
+//  def main(args: Array[String]) {
+//    SpinalVhdl(new OperatorTester)
+//  }
+//}
