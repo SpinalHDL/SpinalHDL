@@ -176,7 +176,7 @@ object Spinal{
 
     val report = config.mode match {
       case `VHDL` => SpinalVhdlBoot(config)(gen)
-//      case `Verilog` => SpinalVerilogBoot(config)(gen)
+      case `Verilog` => SpinalVerilogBoot(config)(gen)
     }
 
     println({SpinalLog.tag("Done", Console.GREEN)} + s" at ${f"${Driver.executionTime}%1.3f"}")

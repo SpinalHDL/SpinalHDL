@@ -136,7 +136,6 @@ object PlayDevFillSwitch{
     switch(sel){
       is(0){
         result := 0
-        result := 0
       }
       is(1){
         result := 1
@@ -152,6 +151,7 @@ object PlayDevFillSwitch{
 
   def main(args: Array[String]) {
     val toplevel = SpinalVhdl(new TopLevel()).toplevel
+    SpinalVerilog(new TopLevel())
   }
 }
 

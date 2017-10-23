@@ -1,17 +1,16 @@
 package spinal.core
 
-
 import scala.collection.mutable
-import scala.collection.mutable.{ListBuffer, ArrayBuffer}
+import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
 
-class ComponentEmiterVhdl(val c : Component,
-                          vhdlBase: VhdlBase,
-                          override val algoIdIncrementalBase : Int,
-                          anonymSignalPrefix : String,
-                          emitedComponentRef : java.util.concurrent.ConcurrentHashMap[Component,Component]) extends ComponentEmiter{
-  import vhdlBase._
+class ComponentEmiterVerilog(val c : Component,
+                             verilogBase : VerilogBase,
+                             override val algoIdIncrementalBase : Int,
+                             anonymSignalPrefix : String,
+                             emitedComponentRef : java.util.concurrent.ConcurrentHashMap[Component,Component]) extends ComponentEmiter{
+  import verilogBase._
 
   override def component = c
 
@@ -24,28 +23,21 @@ class ComponentEmiterVhdl(val c : Component,
 
   def result : String = {
     val ret = new StringBuilder()
-    emitLibrary(ret)
-    ret ++= s"\nentity ${c.definitionName} is\n"
-    ret ++= s"  port("
+    ret ++= s"module ${component.definitionName}\n"
+    ret ++= s"( \n"
     var first = true
     for(portMap <- portMaps){
       if(first){
         ret ++= s"\n    $portMap"
         first = false
       } else {
-        ret ++= s";\n    $portMap"
+        ret ++= s",\n    $portMap"
       }
     }
-    ret ++= "\n  );\n"
-
-    ret ++= s"end ${c.definitionName};\n"
-    ret ++= s"\n"
-
-    ret ++= s"architecture arch of ${c.definitionName} is\n"
+    ret ++= s");\n"
     ret ++= declarations
-    ret ++= s"begin\n"
     ret ++= logics
-    ret ++= s"end arch;\n"
+    ret ++= s"endmodule\n"
     ret ++= s"\n"
     ret.toString()
   }
@@ -55,14 +47,14 @@ class ComponentEmiterVhdl(val c : Component,
 
   def emitEntity(): Unit = {
     component.getOrdredNodeIo.foreach(baseType =>
-      portMaps += s"${baseType.getName()} : ${emitDirection(baseType)} ${emitDataType(baseType)}${getBaseTypeSignalInitialisation(baseType)}"
+      portMaps += s"  ${emitSyntaxAttributes(baseType.instanceAttributes)}${emitDirection(baseType)} ${if(signalNeedProcess(baseType)) "reg " else ""}${emitType(baseType)} ${baseType.getName()}${getBaseTypeSignalInitialisation(baseType)}${emitCommentAttributes(baseType.instanceAttributes)}\n"
     )
   }
 
 
   override def wrapSubInput(io: BaseType): Unit = {
     val name = component.localNamingScope.allocateName(anonymSignalPrefix)
-    declarations ++= s"  signal $name : ${emitDataType(io)};\n"
+    declarations ++= emitBaseTypeWrap(io, name)
     referencesOverrides(io) = name
   }
 
@@ -77,17 +69,17 @@ class ComponentEmiterVhdl(val c : Component,
         s match {
           case s : MemReadSync => {
             val name = component.localNamingScope.allocateName(anonymSignalPrefix)
-            declarations ++= s"  signal $name : ${emitType(s)};\n"
+            declarations ++= emitExpressionWrap(s, name)
             wrappedExpressionToName(s) = name
           }
           case s : MemReadAsync => {
             val name = component.localNamingScope.allocateName(anonymSignalPrefix)
-            declarations ++= s"  signal $name : ${emitType(s)};\n"
+            declarations ++= emitExpressionWrap(s, name)
             wrappedExpressionToName(s) = name
           }
           case s : MemReadWrite => {
             val name = component.localNamingScope.allocateName(anonymSignalPrefix)
-            declarations ++= s"  signal $name : ${emitType(s)};\n"
+            declarations ++= emitExpressionWrap(s, name)
             wrappedExpressionToName(s) = name
           }
           case s : MemWrite =>
@@ -98,32 +90,30 @@ class ComponentEmiterVhdl(val c : Component,
 
     for(output <- outputsToBufferize){
       val name = component.localNamingScope.allocateName(anonymSignalPrefix)
-      declarations ++= s"  signal $name : ${emitDataType(output)}${getBaseTypeSignalInitialisation(output)};\n"
-      logics ++= s"  ${emitReference(output, false)} <= $name;\n"
+      declarations ++= emitBaseTypeSignal(output, name)
+      logics ++= s"  assign ${emitReference(output, false)} = $name;\n"
       referencesOverrides(output) = name
     }
 
     component.children.foreach(sub => sub.getAllIo.foreach(io => if(io.isOutput) {
       val name = component.localNamingScope.allocateName(anonymSignalPrefix)
-      declarations ++= s"  signal $name : ${emitDataType(io)};\n"
+      declarations ++= emitBaseTypeWrap(io, name)
       referencesOverrides(io) = name
     }))
 
     //Wrap expression which need it
     for(e <- expressionToWrap if !e.isInstanceOf[DeclarationStatement]){
       val name = component.localNamingScope.allocateName(anonymSignalPrefix)
-      declarations ++= s"  signal $name : ${emitType(e)};\n"
+      declarations ++= emitExpressionWrap(e, name)
       wrappedExpressionToName(e) = name
     }
 
     for(e <- expressionToWrap  if !e.isInstanceOf[DeclarationStatement]){
-      logics ++= s"  ${wrappedExpressionToName(e)} <= ${emitExpressionNoWrappeForFirstOne(e)};\n"
+      logics ++= s"  assign ${wrappedExpressionToName(e)} = ${emitExpressionNoWrappeForFirstOne(e)};\n"
     }
 
 
     //Flush all that mess out ^^
-    emitBlackBoxComponents()
-    emitAttributesDef()
     emitSignals()
     emitMems(mems)
     emitSubComponents(openSubIo)
@@ -149,73 +139,44 @@ class ComponentEmiterVhdl(val c : Component,
 
 
   def emitSubComponents( openSubIo : mutable.HashSet[BaseType]): Unit = {
-    for (children <- component.children) {
-      val isBB = children.isInstanceOf[BlackBox]
-      //      val isBBUsingULogic = isBB && children.asInstanceOf[BlackBox].isUsingULogic
-      val definitionString = if (isBB) children.definitionName else s"entity work.${emitedComponentRef.getOrDefault(children, children).definitionName}"
-      logics ++= s"  ${
-        children.getName()
-      } : $definitionString\n"
+    for (child <- component.children) {
+      val isBB = child.isInstanceOf[BlackBox]
+      val isBBUsingULogic = isBB && child.asInstanceOf[BlackBox].isUsingULogic
+      val definitionString =  if (isBB) child.definitionName else emitedComponentRef.getOrDefault(child, child).definitionName
+      logics ++= s"  $definitionString "
 
-
-
-      def addULogicCast(bt: BaseType, io: String, logic: String, dir: IODirection): String = {
-
-        //        if (isBBUsingULogic)
-        //          if (dir == in) {
-        //            bt match {
-        //              case _: Bool => return s"      $io => std_ulogic($logic),\n"
-        ////              case _: Bits => return s"      $io => std_ulogic_vector($logic),\n"
-        //              case _ => return s"      $io => $logic,\n"
-        //            }
-        //          } else if (dir == spinal.core.out) {
-        //            bt match {
-        //              case _: Bool => return s"      std_logic($io) => $logic,\n"
-        ////              case _: Bits => return s"      std_logic_vector($io) => $logic,\n"
-        //              case _ => return s"      $io => $logic,\n"
-        //            }
-        //          } else SpinalError("???")
-        //
-        //        else
-        return s"      $io => $logic,\n"
-      }
-
-      if (children.isInstanceOf[BlackBox]) {
-        val bb = children.asInstanceOf[BlackBox]
+      if (child.isInstanceOf[BlackBox]) {
+        val bb = child.asInstanceOf[BlackBox]
         val genericFlat = bb.getGeneric.flatten
 
         if (genericFlat.size != 0) {
-          logics ++= s"    generic map( \n"
-
-
+          logics ++= s"#( \n"
           for (e <- genericFlat) {
             e match {
-              case bt : BaseType => logics ++= addULogicCast(bt, emitReference(bt,false), emitExpression(bt.head.source), in)
-              case (name : String,s: String) => logics ++= s"      ${name} => ${"\""}${s}${"\""},\n"
-              case (name : String,i : Int) => logics ++= s"      ${name} => $i,\n"
-              case (name : String,d: Double) => logics ++= s"      ${name} => $d,\n"
-              case (name : String,boolean: Boolean) => logics ++= s"      ${name} => $boolean,\n"
-              case (name : String,t: TimeNumber) => {
-                val d = t.decompose
-                logics ++= s"      ${name} => ${d._1} ${d._2},\n"
-              }
+              case bt: BaseType => logics ++= s"    .${emitReference(bt, false)}(${emitExpression(bt.head.source)}),\n"
+              case (name : String,s : String) => logics ++= s"    .${name}(${"\""}${s}${"\""}),\n"
+              case (name : String,i : Int) => logics ++= s"    .${name}($i),\n"
+              case (name : String,d : Double) => logics ++= s"    .${name}($d),\n"
+              case (name : String,b : Boolean) => logics ++= s"    .${name}($b),\n"
             }
           }
           logics.setCharAt(logics.size - 2, ' ')
-          logics ++= s"    )\n"
+          logics ++= s") "
         }
       }
-      logics ++= s"    port map ( \n"
-      for (data <- children.getOrdredNodeIo) {
+
+      logics ++= s"${child.getName()} ( \n"
+      for (data <- child.getOrdredNodeIo) {
         val logic = if(openSubIo.contains(data)) "open" else emitReference(data, false) //TODO IR && false
-        logics ++= addULogicCast(data, emitReferenceNoOverrides(data),logic , data.dir)
+        logics ++= s"    .${emitReferenceNoOverrides(data)}($logic),\n"
       }
       logics.setCharAt(logics.size - 2, ' ')
 
-      logics ++= s"    );"
+      logics ++= s"  );"
       logics ++= s"\n"
     }
   }
+
 
 
 
@@ -245,46 +206,45 @@ class ComponentEmiterVhdl(val c : Component,
 
     val initialStatlementsGeneration =  new StringBuilder()
     referenceSetStart()
+    referenceSetAdd(emitClockEdge(emitReference(clock,false),clockDomain.config.clockEdge))
+
     if(withReset) emitRegsInitialValue("      ", initialStatlementsGeneration)
-    referenceSetAdd(emitReference(clock,false))
 
     if (asyncReset) {
-      referenceSetAdd(emitReference(reset,false))
+      referenceSetAdd(emitResetEdge(emitReference(reset,false),clockDomain.config.resetActiveLevel))
+      b ++= s"${tabStr}always @ (${referehceSetSorted.toArray.mkString(" or ")})\n"  //.toArray.sortWith(_.hashCode < _.hashCode)
     }
-
-    b ++= s"${tabStr}process(${referehceSetSorted.mkString(", ")})\n"
+    
+    b ++= s"${tabStr}always @ (${referehceSetSorted.mkString(" or  ")})\n"
     b ++= s"${tabStr}begin\n"
     inc
     if (asyncReset) {
-      b ++= s"${tabStr}if ${emitReference(reset, false)} = \'${if (clockDomain.config.resetActiveLevel == HIGH) 1 else 0}\' then\n";
+      b ++= s"${tabStr}if (${if (clockDomain.config.resetActiveLevel == HIGH) "" else "!"}${emitReference(reset, false)}) begin\n";
       inc
       b ++= initialStatlementsGeneration
       dec
-      b ++= s"${tabStr}elsif ${emitClockEdge(emitReference(clock,false), clockDomain.config.clockEdge)}"
-      inc
-    } else {
-      b ++= s"${tabStr}if ${emitClockEdge(emitReference(clock,false), clockDomain.config.clockEdge)}"
-      inc
-    }
-    if (clockEnable != null) {
-      b ++= s"${tabStr}if ${emitReference(clockEnable,false)} = \'${if (clockDomain.config.clockEnableActiveLevel == HIGH) 1 else 0}\' then\n"
+      b ++= s"${tabStr}end else begin\n"
       inc
     }
 
+    if (clockEnable != null) {
+      b ++= s"${tabStr}if(${if (clockDomain.config.clockEnableActiveLevel == HIGH) "" else "!"}${emitReference(clockEnable, false)}) begin\n"
+      inc
+    }
     if (syncReset || softReset != null) {
       var condList = ArrayBuffer[String]()
-      if(syncReset) condList += s"${emitReference(reset,false)} = \'${if (clockDomain.config.resetActiveLevel == HIGH) 1 else 0}\'"
-      if(softReset != null) condList += s"${emitReference(softReset,false)} = \'${if (clockDomain.config.softResetActiveLevel == HIGH) 1 else 0}\'"
+      if(syncReset) condList += s"${if (clockDomain.config.resetActiveLevel == HIGH) "" else "!"}${emitReference(reset, false)}"
+      if(softReset != null) condList += s"${if (clockDomain.config.softResetActiveLevel == HIGH) "" else "!"}${emitReference(softReset, false)}"
 
-      b ++= s"${tabStr}if ${condList.reduce(_ + " or " + _)} then\n"
+      b ++= s"${tabStr}if(${condList.reduce(_ + " || " + _)}) begin\n"
       inc
       b ++= initialStatlementsGeneration
       dec
-      b ++= s"${tabStr}else\n"
+      b ++= s"${tabStr}end else begin\n"
       inc
       emitRegsLogic(tabStr,b)
       dec
-      b ++= s"${tabStr}end if;\n"
+      b ++= s"${tabStr}end\n"
       dec
     } else {
       emitRegsLogic(tabStr,b)
@@ -292,18 +252,12 @@ class ComponentEmiterVhdl(val c : Component,
     }
 
     while (tabLevel != 1) {
-      b ++= s"${tabStr}end if;\n"
+      b ++= s"${tabStr}end\n"
       dec
     }
-    b ++= s"${tabStr}end process;\n"
+    b ++= s"${tabStr}end\n"
     dec
     b ++= s"${tabStr}\n"
-
-
-
-
-
-
   }
 
 
@@ -337,32 +291,27 @@ class ComponentEmiterVhdl(val c : Component,
     process match {
       case _ if process.leafStatements.size == 1 && process.leafStatements.head.parentScope == process.nameableTargets.head.rootScopeStatement => process.leafStatements.head match {
         case s : AssignementStatement =>
-          logics ++= emitAssignement(s, "  ", "<=")
+          logics ++= s"  assign ${emitAssignedExpression(s.target)} = ${emitExpression(s.source)};\n"
       }
       case _ => {
         val tmp = new StringBuilder
         referenceSetStart()
-        emitLeafStatements(process.leafStatements, 0, process.scope, "<=", tmp, "    ")
+        emitLeafStatements(process.leafStatements, 0, process.scope, "=", tmp, "    ")
 
         if (referehceSetSorted.nonEmpty) {
-          logics ++= s"  process(${referehceSetSorted.mkString(",")})\n";
+          logics ++= s"  always @ (${referehceSetSorted.mkString(" or ")})\n";
           logics ++= "  begin\n"
           logics ++= tmp.toString()
-          logics ++= "  end process;\n\n"
+          logics ++= "  end\n\n"
         } else {
           //assert(process.nameableTargets.size == 1)
           for(node <- process.nameableTargets) node match {
             case node : BaseType => {
-              val funcName = "zz_" + emitReference(node, false)
-              declarations ++= s"  function $funcName return ${emitDataType(node, false)} is\n"
-              declarations ++= s"    variable ${emitReference(node, false)} : ${emitDataType(node, true)};\n"
-              declarations ++= s"  begin\n"
               val statements = ArrayBuffer[LeafStatement]()
               node.foreachStatements(s => statements += s.asInstanceOf[LeafStatement])
-              emitLeafStatements(statements, 0, process.scope, ":=", declarations, "    ")
-              declarations ++= s"    return ${emitReference(node, false)};\n"
-              declarations ++= s"  end function;\n"
-              logics ++= s"  ${emitReference(node, false)} <= ${funcName};\n"
+              declarations ++= s"  initial begin\n"
+              emitLeafStatements(statements, 0, process.scope, "=", declarations, "    ")
+              declarations ++= s"  end\n"
             }
           }
         }
@@ -376,7 +325,7 @@ class ComponentEmiterVhdl(val c : Component,
     var lastWhen : WhenStatement = null
     def closeSubs() : Unit = {
       if(lastWhen != null) {
-        b ++= s"${tab}end if;\n"
+        b ++= s"${tab}end\n"
         lastWhen = null
       }
     }
@@ -387,18 +336,31 @@ class ComponentEmiterVhdl(val c : Component,
       if(targetScope == scope){
         closeSubs()
         statement match {
-          case assignement : AssignementStatement => b ++= emitAssignement(assignement,tab, assignementKind)
+          case assignement : AssignementStatement => b ++= logics ++= s"${tab}${emitAssignedExpression(assignement.target)} ${assignementKind} ${emitExpression(assignement.source)};\n"
           case assertStatement : AssertStatement => {
             val cond = emitExpression(assertStatement.cond)
-            require(assertStatement.message.size == 0 || (assertStatement.message.size == 1 && assertStatement.message(0).isInstanceOf[String]))
-            val message = if(assertStatement.message.size == 1) s"""report "${assertStatement.message(0)}" """ else ""
-            val severity = "severity " +  (assertStatement.severity match{
+            val severity = assertStatement.severity match{
               case `NOTE`     => "NOTE"
               case `WARNING`  => "WARNING"
               case `ERROR`    => "ERROR"
               case `FAILURE`  => "FAILURE"
-            })
-            b ++= s"${tab}assert $cond = '1' $message $severity;\n"
+            }
+
+
+            val frontString = (for(m <- assertStatement.message) yield m match{
+              case m : String => m
+              case m : Expression => "%x"
+            }).mkString
+
+            val backString = (for(m <- assertStatement.message) yield m match{
+              case m : Expression => ", " + emitExpression(m)
+            }).mkString
+
+
+            b ++= s"${tab}if (!$cond) begin\n"
+            b ++= s"""${tab}  $$display("$severity $frontString"$backString);\n"""
+            if(assertStatement.severity == `FAILURE`) b ++= tab + "  $finish;\n"
+            b ++= s"${tab}end\n"
           }
         }
 
@@ -418,15 +380,15 @@ class ComponentEmiterVhdl(val c : Component,
         treeStatement match {
           case treeStatement : WhenStatement => {
             if(scopePtr == treeStatement.whenTrue){
-              b ++= s"${tab}if ${emitExpression(treeStatement.cond)} = '1' then\n"
+              b ++= s"${tab}if(${emitExpression(treeStatement.cond)})begin\n"
             } else if(lastWhen == treeStatement){
               //              if(scopePtr.sizeIsOne && scopePtr.head.isInstanceOf[WhenStatement]){
               //                b ++= s"${tab}if ${emitExpression(treeStatement.cond)} = '1' then\n"
               //              } else {
-              b ++= s"${tab}else\n"
+              b ++= s"${tab}end else\n"
               //              }
             } else {
-              b ++= s"${tab}if ${emitExpression(treeStatement.cond)} = '0' then\n"
+              b ++= s"${tab}if(! ${emitExpression(treeStatement.cond)}) begin\n"
             }
             lastWhen = treeStatement
             statementIndex = emitLeafStatements(statements,statementIndex, scopePtr, assignementKind,b, tab + "  ")
@@ -473,36 +435,38 @@ class ComponentEmiterVhdl(val c : Component,
                 case lit : EnumLiteral[_] => emitEnumLiteral(lit.enum, lit.encoding)
               }
 
-              b ++= s"${tab}case ${emitExpression(switchStatement.value)} is\n"
+              b ++= s"${tab}case ${emitExpression(switchStatement.value)})\n"
               tasks.foreach { case (scope, task) =>
-                b ++= s"${tab}  when ${task.element.keys.map(e => emitIsCond(e)).mkString(" | ")} =>\n"
+                b ++= s"${tab}  case ${task.element.keys.map(e => emitIsCond(e)).mkString(", ")} : begin\n"
                 emitLeafStatements(statements, task.statementIndex, scope, assignementKind, b, tab + "    ")
+                b ++= s"${tab}  end\n"
               }
 
-              b ++= s"${tab}  when others =>\n"
+              b ++= s"${tab}  default : begin\n"
               if (defaultTask != null) {
                 emitLeafStatements(statements, defaultTask.statementIndex, switchStatement.defaultScope, assignementKind, b, tab + "    ")
               }
-              b ++= s"${tab}end case;\n"
+              b ++= s"${tab}  end\n"
+              b ++= s"${tab}endcase\n"
             } else {
               def emitIsCond(that : Expression): String = that match {
-                case that : SwitchStatementKeyBool => s"(${emitExpression(that.cond)} = '1')"
-                case that => s"(${emitExpression(switchStatement.value)} = ${emitExpression(that)})"
+                case that : SwitchStatementKeyBool => s"(${emitExpression(that.cond)})"
+                case that => s"(${emitExpression(switchStatement.value)} == ${emitExpression(that)})"
               }
               var index = 0
               var tasksCount = tasks.size
               for(e <- switchStatement.elements) tasks.get(e.scopeStatement) match {
                 case Some(task) =>
-                  b ++= s"${tab}${if(index == 0) "if" else "elsif"} ${task.element.keys.map(e => emitIsCond(e)).mkString(" or ")} then\n"
+                  b ++= s"${tab}${if(index == 0) "if" else "else if"}(${task.element.keys.map(e => emitIsCond(e)).mkString(" || ")}) begin\n"
                   emitLeafStatements(statements, task.statementIndex, e.scopeStatement, assignementKind, b, tab + "  ")
                   index += 1
                 case _ =>
               }
               if(defaultTask != null){
-                b ++= s"${tab}else\n"
+                b ++= s"${tab}end else begin\n"
                 emitLeafStatements(statements, defaultTask.statementIndex, switchStatement.defaultScope, assignementKind, b, tab + "    ")
               }
-              b ++= s"${tab}end if;\n"
+              b ++= s"${tab}end\n"
             }
             statementIndex = afterSwitchIndex
           }
@@ -513,14 +477,6 @@ class ComponentEmiterVhdl(val c : Component,
     return statementIndex
   }
 
-
-  def emitAssignement(assignement : AssignementStatement, tab: String, assignementKind: String): String = {
-    assignement match {
-      case _ => {
-        s"$tab${emitAssignedExpression(assignement.target)} ${assignementKind} ${emitExpression(assignement.source)};\n"
-      }
-    }
-  }
 
   def referenceSetStart(): Unit ={
     _referenceSetEnabled = true
@@ -558,10 +514,10 @@ class ComponentEmiterVhdl(val c : Component,
 
   def emitAssignedExpression(that : Expression): String = that match{
     case that : BaseType => emitReference(that, false)
-    case that : BitAssignmentFixed => s"${emitReference(that.out, false)}(${that.bitId})"
-    case that : BitAssignmentFloating => s"${emitReference(that.out, false)}(to_integer(${emitExpression(that.bitId)}))"
-    case that : RangedAssignmentFixed => s"${emitReference(that.out, false)}(${that.hi} downto ${that.lo})"
-    case that : RangedAssignmentFloating => s"${emitReference(that.out, false)}(${that.bitCount - 1} + to_integer(${emitExpression(that.offset)}) downto to_integer(${emitExpression(that.offset)}))"
+    case that : BitAssignmentFixed => s"${emitReference(that.out, false)}[${that.bitId})"
+    case that : BitAssignmentFloating => s"${emitReference(that.out, false)}[${emitExpression(that.bitId)}]"
+    case that : RangedAssignmentFixed => s"${emitReference(that.out, false)}[${that.hi} : ${that.lo}]"
+    case that : RangedAssignmentFloating => s"${emitReference(that.out, false)}[${emitExpression(that.offset)} +: ${that.bitCount}]"
   }
 
   def emitExpression(that : Expression) : String = {
@@ -578,28 +534,14 @@ class ComponentEmiterVhdl(val c : Component,
     dispatchExpression(that)
   }
 
-  def emitAttributesDef(): Unit = {
-    val map = mutable.Map[String, Attribute]()
 
-    component.dslBody.walkStatements{
-      case s : SpinalTagReady =>
-        for (attribute <- s.instanceAttributes(Language.VHDL)) {
-          val mAttribute = map.getOrElseUpdate(attribute.getName, attribute)
-          if (!mAttribute.sameType(attribute)) SpinalError(s"There is some attributes with different nature (${attribute} and ${mAttribute} at\n${component}})")
-        }
-      case s =>
-    }
-
-    for (attribute <- map.values) {
-      val typeString = attribute match {
-        case _: AttributeString => "string"
-        case _: AttributeFlag => "boolean"
-      }
-      declarations ++= s"  attribute ${attribute.getName} : $typeString;\n"
-    }
-
-    declarations ++= "\n"
+  def emitBaseTypeSignal(baseType : BaseType, name : String) : String = {
+    s"  ${emitSyntaxAttributes(baseType.instanceAttributes)}${if(signalNeedProcess(baseType)) "reg " else ""}${emitType(baseType)} ${baseType.getName()}${getBaseTypeSignalInitialisation(baseType)}${emitCommentAttributes(baseType.instanceAttributes)};\n"
   }
+  def emitBaseTypeWrap(baseType : BaseType, name : String) : String = {
+    s"  ${if(signalNeedProcess(baseType)) "reg " else ""}${emitType(baseType)} ${baseType.getName()};\n"
+  }
+
 
 
   def getBaseTypeSignalInitialisation(signal : BaseType) : String = {
@@ -623,17 +565,16 @@ class ComponentEmiterVhdl(val c : Component,
         }
       }else if (signal.hasTag(randomBoot)) {
         return signal match {
-          case b: Bool => " := " + {
-            if (Random.nextBoolean()) "'1'" else "'0'"
-          }
+          case b: Bool => " = " + (if (Random.nextBoolean()) "1" else "0")
+
           case bv: BitVector => {
             val rand = BigInt(bv.getWidth, Random).toString(2)
-            " := \"" + "0" * (bv.getWidth - rand.length) + rand + "\""
+            " = " + bv.getWidth + "'b" + "0" * (bv.getWidth - rand.length) + rand
           }
           case e: SpinalEnumCraft[_] => {
             val vec = e.spinalEnum.elements.toVector
             val rand = vec(Random.nextInt(vec.size))
-            " := " + emitEnumLiteral(rand, e.getEncoding)
+            " = " + emitEnumLiteral(rand, e.getEncoding)
           }
         }
       }
@@ -651,11 +592,8 @@ class ComponentEmiterVhdl(val c : Component,
       node match {
         case signal: BaseType => {
           if (!signal.isIo) {
-            declarations ++= s"  signal ${emitReference(signal, false)} : ${emitDataType(signal)}${getBaseTypeSignalInitialisation(signal)};\n"
+            declarations ++= emitBaseTypeSignal(signal,emitReference(signal, false))
           }
-
-
-          emitAttributes(signal,signal.instanceAttributes(Language.VHDL), "signal", declarations)
         }
         case mem: Mem[_] =>
       }
@@ -667,6 +605,7 @@ class ComponentEmiterVhdl(val c : Component,
   }
 
   def emitMem(mem: Mem[_]): Unit ={
+    ???
     def emitDataType(mem: Mem[_], constrained: Boolean = true) =  s"${emitReference(mem, constrained)}_type"
 
     //ret ++= emitSignal(mem, mem);
@@ -710,12 +649,12 @@ class ComponentEmiterVhdl(val c : Component,
       for(i <- 0 until symbolCount) {
         val postfix = "_symbol" + i
         declarations ++= s"  signal ${emitReference(mem,false)}$postfix : ${emitDataType(mem)}${initAssignementBuilder(i).toString()};\n"
-        emitAttributes(mem,mem.instanceAttributes(Language.VHDL), "signal", declarations,postfix = postfix)
+    //////////    emitAttributes(mem,mem.instanceAttributes(Language.VHDL), "signal", declarations,postfix = postfix)
       }
     }else{
       declarations ++= s"  type ${emitReference(mem,false)}_type is array (0 to ${mem.wordCount - 1}) of std_logic_vector(${mem.getWidth - 1} downto 0);\n"
       declarations ++= s"  signal ${emitReference(mem,false)} : ${emitDataType(mem)}${initAssignementBuilder.head.toString()};\n"
-      emitAttributes(mem, mem.instanceAttributes(Language.VHDL), "signal", declarations)
+     /////// emitAttributes(mem, mem.instanceAttributes(Language.VHDL), "signal", declarations)
     }
 
 
@@ -842,163 +781,84 @@ class ComponentEmiterVhdl(val c : Component,
   }
 
 
-  def emitAttributes(node : DeclarationStatement,attributes: Iterable[Attribute], vhdlType: String, ret: StringBuilder,postfix : String = ""): Unit = {
-    for (attribute <- attributes){
-      val value = attribute match {
-        case attribute: AttributeString => "\"" + attribute.value + "\""
-        case attribute: AttributeFlag => "true"
-      }
-
-      ret ++= s"  attribute ${attribute.getName} of ${emitReference(node, false)}: signal is $value;\n"
-    }
-  }
-
-  def emitBlackBoxComponents(): Unit = {
-    val emited = mutable.Set[String]()
-    for (c <- component.children) c match {
-      case blackBox: BlackBox => {
-        if (!emited.contains(blackBox.definitionName)) {
-          emited += blackBox.definitionName
-          emitBlackBoxComponent(blackBox)
-        }
-      }
-      case _ =>
-    }
-  }
-
-  def blackBoxRemplaceULogic(b: BlackBox, str: String): String = {
-    if (b.isUsingULogic)
-      str.replace("std_logic", "std_ulogic")
-    else
-      str
-  }
-
-  def emitBlackBoxComponent(component: BlackBox): Unit = {
-    declarations ++= s"\n  component ${component.definitionName} is\n"
-    val genericFlat = component.getGeneric.flatten
-    if (genericFlat.size != 0) {
-      declarations ++= s"    generic( \n"
-      for (e <- genericFlat) {
-        e match {
-          case baseType: BaseType => declarations ++= s"      ${emitReference(baseType, false)} : ${blackBoxRemplaceULogic(component, emitDataType(baseType, true))};\n"
-          case (name : String,s: String) => declarations ++= s"      $name : string;\n"
-          case (name : String,i : Int) => declarations ++= s"      $name : integer;\n"
-          case (name : String,d: Double) => declarations ++= s"      $name : real;\n"
-          case (name : String,boolean: Boolean) => declarations ++= s"      $name : boolean;\n"
-          case (name : String,t: TimeNumber) => declarations ++= s"      $name : time;\n"
-        }
-      }
-
-      declarations.setCharAt(declarations.size - 2, ' ')
-      declarations ++= s"    );\n"
-    }
-    declarations ++= s"    port( \n"
-    component.getOrdredNodeIo.foreach(_ match {
-      case baseType: BaseType => {
-        if (baseType.isIo) {
-          declarations ++= s"      ${baseType.getName()} : ${emitDirection(baseType)} ${blackBoxRemplaceULogic(component, emitDataType(baseType, true))};\n"
-        }
-      }
+  def fillExpressionToWrap(): Unit = {
+    def applyTo(that : Expression) = expressionToWrap += that
+    component.dslBody.walkStatements(s => s.walkDrivingExpressions{
+      case node: Resize  => applyTo(node)
+      case node: SubAccess => node.getBitVector.asInstanceOf[BitVector].dontSimplifyIt()
+      case node: Literal => applyTo(node)
+//      case node: SInt    => if(!node.input.isInstanceOf[SInt]) node.dontSimplifyIt()
+//      case node: UInt    => if(!node.input.isInstanceOf[UInt]) node.dontSimplifyIt()
+      case node: Operator.BitVector.ShiftOperator => applyTo(node)
       case _ =>
     })
-    declarations.setCharAt(declarations.size - 2, ' ')
-    declarations ++= s"    );\n"
-    declarations ++= s"  end component;\n"
-    declarations ++= s"  \n"
   }
-
-
 
 
   def refImpl(e: BaseType): String = emitReference(e, true)
 
-  def operatorImplAsBinaryOperator(vhd: String)(e: BinaryOperator): String = {
-    s"(${emitExpression(e.left)} $vhd ${emitExpression(e.right)})"
+  def operatorImplAsBinaryOperator(verilog: String)(e: BinaryOperator): String = {
+    s"(${emitExpression(e.left)} $verilog ${emitExpression(e.right)})"
+  }
+
+  def operatorImplAsBinaryOperatorSigned(vhd: String)(op: BinaryOperator): String = {
+    s"($$signed(${emitExpression(op.left)}) $vhd $$signed(${emitExpression(op.right)}))"
+  }
+
+  def operatorImplAsBinaryOperatorLeftSigned(vhd: String)(op: BinaryOperator): String = {
+    s"($$signed(${emitExpression(op.left)}) $vhd ${emitExpression(op.right)})"
   }
 
 
-  def operatorImplAsBinaryOperatorStdCast(vhd: String)(e: BinaryOperator): String = {
-    s"pkg_toStdLogic(${emitExpression(e.left)} $vhd ${emitExpression(e.right)})"
+  def boolLiteralImpl(e: BoolLiteral) : String = if(e.value) "1'b1" else "1'b0"
+
+
+  def operatorImplAsUnaryOperator(verilog: String)(e: UnaryOperator): String = {
+    s"($verilog ${emitExpression(e.source)})"
   }
 
-  def boolLiteralImpl(e: BoolLiteral) : String = s"pkg_toStdLogic(${e.value})"
-
-  def moduloImpl(e: Operator.BitVector.Mod): String = {
-    s"resize(${emitExpression(e.left)} mod ${emitExpression(e.right)},${e.getWidth})"
+  def operatorImplAsMux(e: Multiplexer): String = {
+    s"(${emitExpression(e.cond)} ? ${emitExpression(e.whenTrue)} : ${emitExpression(e.whenFalse)})"
   }
 
-  def operatorImplAsUnaryOperator(vhd: String)(e: UnaryOperator): String = {
-    s"($vhd ${emitExpression(e.source)})"
+  def shiftRightSignedByIntFixedWidthImpl(e: Operator.BitVector.ShiftRightByIntFixedWidth): String = {
+    s"($$signed(${emitExpression(e.source)}) >>> ${e.shift})"
   }
 
-  def opImplAsCast(vhd: String)(e: Cast): String = {
-    s"$vhd(${emitExpression(e.input)})"
+  def operatorImplAsCat(e : Operator.Bits.Cat) : String = {
+    s"{${emitExpression(e.left)},${emitExpression(e.right)}}"
   }
 
-  def binaryOperatorImplAsFunction(vhd: String)(e: BinaryOperator): String = {
-    s"$vhd(${emitExpression(e.left)},${emitExpression(e.right)})"
+  def operatorImplAsNoTransformation(func: Cast): String = {
+    emitExpression(func.input)
   }
 
-
-  def muxImplAsFunction(vhd: String)(e: Multiplexer): String = {
-    s"$vhd(${emitExpression(e.cond)},${emitExpression(e.whenTrue)},${emitExpression(e.whenFalse)})"
+  def operatorImplAsNoTransformation(func: Resize): String = {
+    emitExpression(func.input)
   }
 
+  def operatorImplAsSigned(func: Resize): String = {
+    "$signed(" + emitExpression(func.input) + ")"
+  }
 
   def shiftRightByIntImpl(e: Operator.BitVector.ShiftRightByInt): String = {
-    s"pkg_shiftRight(${emitExpression(e.source)},${e.shift})"
+    s"(${emitExpression(e.source)} >>> ${e.shift})"
   }
 
   def shiftLeftByIntImpl(e: Operator.BitVector.ShiftLeftByInt): String = {
-    s"pkg_shiftLeft(${emitExpression(e.source)},${e.shift})"
+    s"(${emitExpression(e.source)} <<< ${e.shift})"
   }
 
   def shiftRightByIntFixedWidthImpl(e: Operator.BitVector.ShiftRightByIntFixedWidth): String = {
-    s"shift_right(${emitExpression(e.source)},${e.shift})"
+    s"(${emitExpression(e.source)} >>> ${e.shift})"
   }
 
   def shiftLeftByIntFixedWidthImpl(e: Operator.BitVector.ShiftLeftByIntFixedWidth): String = {
-    s"shift_left(${emitExpression(e.source)},${e.shift})"
+    s"(${emitExpression(e.source)} >>> ${e.shift})"
   }
 
-  def shiftRightBitsByIntFixedWidthImpl(e: Operator.BitVector.ShiftRightByIntFixedWidth): String = {
-    s"std_logic_vector(shift_right(unsigned(${emitExpression(e.source)}),${e.shift}))"
-  }
-
-  def shiftLeftBitsByIntFixedWidthImpl(e: Operator.BitVector.ShiftLeftByIntFixedWidth): String = {
-    s"std_logic_vector(shift_left(unsigned(${emitExpression(e.source)}),${e.shift}))"
-  }
-
-
-  def shiftLeftByUIntFixedWidthImpl(e: Operator.BitVector.ShiftLeftByUIntFixedWidth): String = {
-    s"shift_left(${emitExpression(e.left)},to_integer(${emitExpression(e.right)}))"
-  }
-
-  def shiftLeftBitsByUIntFixedWidthImpl(e: Operator.BitVector.ShiftLeftByUIntFixedWidth): String = {
-    s"std_logic_vector(shift_left(unsigned(${emitExpression(e.left)}),to_integer(${emitExpression(e.right)})))"
-  }
-
-
-  def shiftSIntLeftByUInt(e: Operator.SInt.ShiftLeftByUInt): String = {
-    s"pkg_shiftLeft(${emitExpression(e.left)}, ${emitExpression(e.right)}, ${e.getWidth})"
-  }
-
-
-  def resizeFunction(vhdlFunc : String)(e: Resize): String = {
-    s"pkg_resize(${emitExpression(e.input)},${e.size})"
-  }
-
-
-  def emitBitsLiteral(e : BitsLiteral) : String = {
-    s"pkg_stdLogicVector(${'\"'}${e.getBitsStringOn(e.getWidth, 'X')}${'\"'})"
-  }
-
-  def emitUIntLiteral(e : UIntLiteral) : String = {
-    s"pkg_unsigned(${'\"'}${e.getBitsStringOn(e.getWidth, 'X')}${'\"'})"
-  }
-
-  def emitSIntLiteral(e : SIntLiteral) : String = {
-    s"pkg_signed(${'\"'}${e.getBitsStringOn(e.getWidth, 'X')}${'\"'})"
+  def emitBitVectorLiteral(e : BitVectorLiteral) : String = {
+    s"(${e.getWidth}'b${e.getBitsStringOn(e.getWidth,'x')})"
   }
 
   def emitEnumLiteralWrap(e : EnumLiteral[_  <: SpinalEnum]) : String = {
@@ -1009,33 +869,11 @@ class ComponentEmiterVhdl(val c : Component,
     val enumDef = e.getDefinition
     val encoding = e.getEncoding
     encoding match {
-      //  case `binaryOneHot` => s"pkg_toStdLogic((${emitExpression(binOp.left)} and ${emitExpression(binOp.right)}) ${if (eguals) "/=" else "="} ${'"' + "0" * encoding.getWidth(enumDef) + '"'})"
-      case _ => s"pkg_toStdLogic(${emitExpression(e.left)} ${if (eguals) "=" else "/="} ${emitExpression(e.right)})"
+      case `binaryOneHot` => s"((${emitExpression(e.left)} & ${emitExpression(e.right)}) ${if (eguals) "!=" else "=="} 'b${"0" * encoding.getWidth(enumDef)})"
+      case _ => s"(${emitExpression(e.left)} ${if (eguals) "==" else "!="} ${emitExpression(e.right)})"
     }
   }
 
-
-  def operatorImplAsBitsToEnum(e: CastBitsToEnum): String = {
-    val enumDef = e.getDefinition
-    val encoding = e.encoding
-
-    if (!encoding.isNative) {
-      emitExpression(e.input)
-    } else {
-      s"pkg_to${enumDef.getName()}_${encoding.getName()}(${emitExpression(e.input)})"
-    }
-  }
-
-  def operatorImplAsEnumToBits(e: CastEnumToBits): String = {
-    val enumDef = e.input.getDefinition
-    val encoding = e.input.getEncoding
-
-    if (!encoding.isNative) {
-      emitExpression(e.input)
-    } else {
-      s"pkg_toStdLogicVector_${encoding.getName()}(${emitExpression(e.input)})"
-    }
-  }
 
   def operatorImplAsEnumToEnum(e: CastEnumToEnum): String = {
     val enumDefSrc = e.input.getDefinition
@@ -1043,53 +881,40 @@ class ComponentEmiterVhdl(val c : Component,
     val enumDefDst = e.getDefinition
     val encodingDst = e.getEncoding
 
-    if (encodingDst.isNative && encodingSrc.isNative)
-      emitExpression(e.input)
-    else {
-      s"${getReEncodingFuntion(enumDefDst, encodingSrc,encodingDst)}(${emitExpression(e.input)})"
-    }
+    s"${getReEncodingFuntion(enumDefDst, encodingSrc,encodingDst)}(${emitExpression(e.input)})"
   }
 
 
-  def emitEnumPoison(e : Expression) : String = {
-    val dc = e.asInstanceOf[EnumPoison]
-    if(dc.encoding.isNative)
-      dc.enum.elements.head.getName()
-    else
-      s"(${'"'}${"X" * dc.encoding.getWidth(dc.enum)}${'"'})"
+  def emitEnumPoison(e : EnumPoison) : String = {
+    val width = e.encoding.getWidth(e.enum)
+    s"(${width}'${"x" * width})"
   }
-
-
 
 
   def accessBoolFixed(e: BitVectorBitAccessFixed): String = {
-    s"pkg_extract(${emitExpression(e.source)},${e.bitId})"
+    s"${emitExpression(e.source)}[${e.bitId}]"
   }
 
   def accessBoolFloating(e: BitVectorBitAccessFloating): String = {
-    s"pkg_extract(${emitExpression(e.source)},to_integer(${emitExpression(e.bitId)}))"
+    s"${emitExpression(e.source)}[${emitExpression(e.bitId)}]"
   }
 
   def accessBitVectorFixed(e: BitVectorRangedAccessFixed): String = {
-    s"pkg_extract(${emitExpression(e.source)},${e.hi},${e.lo})"
+    s"${emitExpression(e.source)}[${e.hi} : ${e.lo}]"
   }
 
   def accessBitVectorFloating(e: BitVectorRangedAccessFloating): String = {
-    s"pkg_extract(${emitExpression(e.source)},${emitExpression(e.offset)},${e.size})"
+    s"${emitExpression(e.source)}[${emitExpression(e.offset)} +: ${e.size}]"
   }
-
 
   def dispatchExpression(e : Expression) :  String = e match {
     case  e : BaseType => refImpl(e)
 
     case  e : BoolLiteral => boolLiteralImpl(e)
-    case  e : BitsLiteral => emitBitsLiteral(e)
-    case  e : UIntLiteral => emitUIntLiteral(e)
-    case  e : SIntLiteral => emitSIntLiteral(e)
+    case  e : BitVectorLiteral => emitBitVectorLiteral(e)
     case  e : EnumLiteral[_] => emitEnumLiteralWrap(e)
 
-
-    case  e : BoolPoison => "'X'"
+    case  e : BoolPoison => "1'bx"
     case  e : EnumPoison => emitEnumPoison(e)
 
     //unsigned
@@ -1097,86 +922,86 @@ class ComponentEmiterVhdl(val c : Component,
     case  e : Operator.UInt.Sub => operatorImplAsBinaryOperator("-")(e)
     case  e : Operator.UInt.Mul => operatorImplAsBinaryOperator("*")(e)
     case  e : Operator.UInt.Div => operatorImplAsBinaryOperator("/")(e)
-    case  e : Operator.UInt.Mod => moduloImpl(e)
+    case  e : Operator.UInt.Mod => operatorImplAsBinaryOperator("%")(e)
 
-    case  e : Operator.UInt.Or => operatorImplAsBinaryOperator("or")(e)
-    case  e : Operator.UInt.And => operatorImplAsBinaryOperator("and")(e)
-    case  e : Operator.UInt.Xor => operatorImplAsBinaryOperator("xor")(e)
-    case  e : Operator.UInt.Not =>  operatorImplAsUnaryOperator("not")(e)
+    case  e : Operator.UInt.Or => operatorImplAsBinaryOperator("|")(e)
+    case  e : Operator.UInt.And => operatorImplAsBinaryOperator("&")(e)
+    case  e : Operator.UInt.Xor => operatorImplAsBinaryOperator("^")(e)
+    case  e : Operator.UInt.Not =>  operatorImplAsUnaryOperator("~")(e)
 
-    case  e : Operator.UInt.Equal => operatorImplAsBinaryOperatorStdCast("=")(e)
-    case  e : Operator.UInt.NotEqual => operatorImplAsBinaryOperatorStdCast("/=")(e)
-    case  e : Operator.UInt.Smaller =>  operatorImplAsBinaryOperatorStdCast("<")(e)
-    case  e : Operator.UInt.SmallerOrEqual => operatorImplAsBinaryOperatorStdCast("<=")(e)
+    case  e : Operator.UInt.Equal => operatorImplAsBinaryOperator("==")(e)
+    case  e : Operator.UInt.NotEqual => operatorImplAsBinaryOperator("!=")(e)
+    case  e : Operator.UInt.Smaller =>  operatorImplAsBinaryOperator("<")(e)
+    case  e : Operator.UInt.SmallerOrEqual => operatorImplAsBinaryOperator("<=")(e)
 
 
     case  e : Operator.UInt.ShiftRightByInt => shiftRightByIntImpl(e)
     case  e : Operator.UInt.ShiftLeftByInt => shiftLeftByIntImpl(e)
-    case  e : Operator.UInt.ShiftRightByUInt => binaryOperatorImplAsFunction("pkg_shiftRight")(e)
-    case  e : Operator.UInt.ShiftLeftByUInt => binaryOperatorImplAsFunction("pkg_shiftLeft")(e)
+    case  e : Operator.UInt.ShiftRightByUInt => operatorImplAsBinaryOperator(">>>")(e)
+    case  e : Operator.UInt.ShiftLeftByUInt => operatorImplAsBinaryOperator("<<<")(e)
     case  e : Operator.UInt.ShiftRightByIntFixedWidth =>  shiftRightByIntFixedWidthImpl(e)
     case  e : Operator.UInt.ShiftLeftByIntFixedWidth =>  shiftLeftByIntFixedWidthImpl(e)
-    case  e : Operator.UInt.ShiftLeftByUIntFixedWidth =>  shiftLeftByUIntFixedWidthImpl(e)
+    case  e : Operator.UInt.ShiftLeftByUIntFixedWidth =>  operatorImplAsBinaryOperator("<<<")(e)
 
 
     //signed
-    case  e : Operator.SInt.Add => operatorImplAsBinaryOperator("+")(e)
-    case  e : Operator.SInt.Sub => operatorImplAsBinaryOperator("-")(e)
-    case  e : Operator.SInt.Mul => operatorImplAsBinaryOperator("*")(e)
-    case  e : Operator.SInt.Div => operatorImplAsBinaryOperator("/")(e)
-    case  e : Operator.SInt.Mod => moduloImpl(e)
+    case  e : Operator.SInt.Add => operatorImplAsBinaryOperatorSigned("+")(e)
+    case  e : Operator.SInt.Sub => operatorImplAsBinaryOperatorSigned("-")(e)
+    case  e : Operator.SInt.Mul => operatorImplAsBinaryOperatorSigned("*")(e)
+    case  e : Operator.SInt.Div => operatorImplAsBinaryOperatorSigned("/")(e)
+    case  e : Operator.SInt.Mod => operatorImplAsBinaryOperatorSigned("%")(e)
 
-    case  e : Operator.SInt.Or => operatorImplAsBinaryOperator("or")(e)
-    case  e : Operator.SInt.And => operatorImplAsBinaryOperator("and")(e)
-    case  e : Operator.SInt.Xor => operatorImplAsBinaryOperator("xor")(e)
-    case  e : Operator.SInt.Not =>  operatorImplAsUnaryOperator("not")(e)
+    case  e : Operator.SInt.Or => operatorImplAsBinaryOperator("|")(e)
+    case  e : Operator.SInt.And => operatorImplAsBinaryOperator("&")(e)
+    case  e : Operator.SInt.Xor => operatorImplAsBinaryOperator("^")(e)
+    case  e : Operator.SInt.Not =>  operatorImplAsUnaryOperator("~")(e)
     case  e : Operator.SInt.Minus => operatorImplAsUnaryOperator("-")(e)
 
-    case  e : Operator.SInt.Equal => operatorImplAsBinaryOperatorStdCast("=")(e)
-    case  e : Operator.SInt.NotEqual => operatorImplAsBinaryOperatorStdCast("/=")(e)
-    case  e : Operator.SInt.Smaller =>  operatorImplAsBinaryOperatorStdCast("<")(e)
-    case  e : Operator.SInt.SmallerOrEqual => operatorImplAsBinaryOperatorStdCast("<=")(e)
+    case  e : Operator.SInt.Equal => operatorImplAsBinaryOperatorSigned("==")(e)
+    case  e : Operator.SInt.NotEqual => operatorImplAsBinaryOperatorSigned("!=")(e)
+    case  e : Operator.SInt.Smaller =>  operatorImplAsBinaryOperatorSigned("<")(e)
+    case  e : Operator.SInt.SmallerOrEqual => operatorImplAsBinaryOperatorSigned("<=")(e)
 
 
     case  e : Operator.SInt.ShiftRightByInt => shiftRightByIntImpl(e)
     case  e : Operator.SInt.ShiftLeftByInt => shiftLeftByIntImpl(e)
-    case  e : Operator.SInt.ShiftRightByUInt => binaryOperatorImplAsFunction("pkg_shiftRight")(e)
-    case  e : Operator.SInt.ShiftLeftByUInt => shiftSIntLeftByUInt(e)
-    case  e : Operator.SInt.ShiftRightByIntFixedWidth =>  shiftRightByIntFixedWidthImpl(e)
+    case  e : Operator.SInt.ShiftRightByUInt => operatorImplAsBinaryOperatorLeftSigned(">>>")(e)
+    case  e : Operator.SInt.ShiftLeftByUInt =>  operatorImplAsBinaryOperatorLeftSigned("<<<")(e)
+    case  e : Operator.SInt.ShiftRightByIntFixedWidth =>  shiftRightSignedByIntFixedWidthImpl(e)
     case  e : Operator.SInt.ShiftLeftByIntFixedWidth =>  shiftLeftByIntFixedWidthImpl(e)
-    case  e : Operator.SInt.ShiftLeftByUIntFixedWidth =>  shiftLeftByUIntFixedWidthImpl(e)
+    case  e : Operator.SInt.ShiftLeftByUIntFixedWidth =>  operatorImplAsBinaryOperatorLeftSigned("<<<")(e)
 
 
     //bits
-    case  e : Operator.Bits.Cat => binaryOperatorImplAsFunction("pkg_cat")(e)
+    case  e : Operator.Bits.Cat => operatorImplAsCat(e)
 
-    case  e : Operator.Bits.Or => operatorImplAsBinaryOperator("or")(e)
-    case  e : Operator.Bits.And => operatorImplAsBinaryOperator("and")(e)
-    case  e : Operator.Bits.Xor => operatorImplAsBinaryOperator("xor")(e)
-    case  e : Operator.Bits.Not =>  operatorImplAsUnaryOperator("not")(e)
+    case  e : Operator.Bits.Or => operatorImplAsBinaryOperator("|")(e)
+    case  e : Operator.Bits.And => operatorImplAsBinaryOperator("&")(e)
+    case  e : Operator.Bits.Xor => operatorImplAsBinaryOperator("^")(e)
+    case  e : Operator.Bits.Not =>  operatorImplAsUnaryOperator("~")(e)
 
-    case  e : Operator.Bits.Equal => operatorImplAsBinaryOperatorStdCast("=")(e)
-    case  e : Operator.Bits.NotEqual => operatorImplAsBinaryOperatorStdCast("/=")(e)
+    case  e : Operator.Bits.Equal => operatorImplAsBinaryOperator("==")(e)
+    case  e : Operator.Bits.NotEqual => operatorImplAsBinaryOperator("!=")(e)
 
     case  e : Operator.Bits.ShiftRightByInt => shiftRightByIntImpl(e)
     case  e : Operator.Bits.ShiftLeftByInt => shiftLeftByIntImpl(e)
-    case  e : Operator.Bits.ShiftRightByUInt => binaryOperatorImplAsFunction("pkg_shiftRight")(e)
-    case  e : Operator.Bits.ShiftLeftByUInt => binaryOperatorImplAsFunction("pkg_shiftLeft")(e)
-    case  e : Operator.Bits.ShiftRightByIntFixedWidth =>  shiftRightBitsByIntFixedWidthImpl(e)
-    case  e : Operator.Bits.ShiftLeftByIntFixedWidth =>  shiftLeftBitsByIntFixedWidthImpl(e)
-    case  e : Operator.Bits.ShiftLeftByUIntFixedWidth =>  shiftLeftBitsByUIntFixedWidthImpl(e)
+    case  e : Operator.Bits.ShiftRightByUInt => operatorImplAsBinaryOperator(">>>")(e)
+    case  e : Operator.Bits.ShiftLeftByUInt =>  operatorImplAsBinaryOperator("<<<")(e)
+    case  e : Operator.Bits.ShiftRightByIntFixedWidth =>  shiftRightByIntFixedWidthImpl(e)
+    case  e : Operator.Bits.ShiftLeftByIntFixedWidth =>  shiftLeftByIntFixedWidthImpl(e)
+    case  e : Operator.Bits.ShiftLeftByUIntFixedWidth =>  operatorImplAsBinaryOperator("<<<")(e)
 
 
     //bool
 
-    case  e : Operator.Bool.Equal => operatorImplAsBinaryOperatorStdCast("=")(e)
-    case  e : Operator.Bool.NotEqual => operatorImplAsBinaryOperatorStdCast("/=")(e)
+    case  e : Operator.Bool.Equal => operatorImplAsBinaryOperator("==")(e)
+    case  e : Operator.Bool.NotEqual => operatorImplAsBinaryOperator("!=")(e)
 
 
-    case  e : Operator.Bool.Not => operatorImplAsUnaryOperator("not")(e)
-    case  e : Operator.Bool.And => operatorImplAsBinaryOperator("and")(e)
-    case  e : Operator.Bool.Or => operatorImplAsBinaryOperator("or")(e)
-    case  e : Operator.Bool.Xor => operatorImplAsBinaryOperator("xor")(e)
+    case  e : Operator.Bool.Not => operatorImplAsUnaryOperator("!")(e)
+    case  e : Operator.Bool.And => operatorImplAsBinaryOperator("&&")(e)
+    case  e : Operator.Bool.Or => operatorImplAsBinaryOperator("||")(e)
+    case  e : Operator.Bool.Xor => operatorImplAsBinaryOperator("^")(e)
 
 
     //enum
@@ -1184,27 +1009,27 @@ class ComponentEmiterVhdl(val c : Component,
     case  e : Operator.Enum.NotEqual => enumEgualsImpl(false)(e)
 
     //cast
-    case  e : CastSIntToBits => opImplAsCast("std_logic_vector")(e)
-    case  e : CastUIntToBits => opImplAsCast("std_logic_vector")(e)
-    case  e : CastBoolToBits => opImplAsCast("pkg_toStdLogicVector")(e)
-    case  e : CastEnumToBits => operatorImplAsEnumToBits(e)
+    case  e : CastSIntToBits => operatorImplAsNoTransformation(e)
+    case  e : CastUIntToBits => operatorImplAsNoTransformation(e)
+    case  e : CastBoolToBits => operatorImplAsNoTransformation(e)
+    case  e : CastEnumToBits => operatorImplAsNoTransformation(e)
 
-    case  e : CastBitsToSInt => opImplAsCast("signed")(e)
-    case  e : CastUIntToSInt => opImplAsCast("signed")(e)
+    case  e : CastBitsToSInt => operatorImplAsNoTransformation(e)
+    case  e : CastUIntToSInt => operatorImplAsNoTransformation(e)
 
-    case  e : CastBitsToUInt => opImplAsCast("unsigned")(e)
-    case  e : CastSIntToUInt => opImplAsCast("unsigned")(e)
+    case  e : CastBitsToUInt => operatorImplAsNoTransformation(e)
+    case  e : CastSIntToUInt => operatorImplAsNoTransformation(e)
 
-    case  e : CastBitsToEnum => operatorImplAsBitsToEnum(e)
+    case  e : CastBitsToEnum => operatorImplAsNoTransformation(e)
     case  e : CastEnumToEnum => operatorImplAsEnumToEnum(e)
 
 
     //misc
-    case  e : ResizeSInt => resizeFunction("pkg_signed")(e)
-    case  e : ResizeUInt => resizeFunction("pkg_unsigned")(e)
-    case  e : ResizeBits => resizeFunction("pkg_stdLogicVector")(e)
+    case  e : ResizeSInt => operatorImplAsSigned(e)
+    case  e : ResizeUInt => operatorImplAsNoTransformation(e)
+    case  e : ResizeBits => operatorImplAsNoTransformation(e)
 
-    case  e : Multiplexer => muxImplAsFunction("pkg_mux")(e)
+    case  e : Multiplexer => operatorImplAsMux(e)
 
     case  e : BitVectorBitAccessFixed => accessBoolFixed(e)
     case  e : BitVectorBitAccessFloating => accessBoolFloating(e)
@@ -1212,8 +1037,8 @@ class ComponentEmiterVhdl(val c : Component,
     case  e : BitVectorRangedAccessFloating => accessBitVectorFloating(e)
   }
 
-
   elaborate()
+  fillExpressionToWrap()
   emitEntity()
   emitArchitecture()
 }

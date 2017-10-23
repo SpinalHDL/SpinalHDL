@@ -1411,7 +1411,7 @@ object SpinalVhdlBoot{
     phases += new PhaseCheckIoBundle()
     phases += new PhaseCheckHiearchy()
     phases += new PhaseRemoveUselessStuff(false, false)
-    phases += new PhaseRemoveIntermediateUnameds(true) //TODO IR literal base type node type node etc
+    phases += new PhaseRemoveIntermediateUnameds(true)
 
 
     phases += new PhasePullClockDomains(pc)
@@ -1431,75 +1431,6 @@ object SpinalVhdlBoot{
     phases += new PhaseCheck_noLatchNoOverride(pc)
 
     phases += new PhaseAllocateNames(pc)
-//    phases += new PhaseRemoveComponentThatNeedNoHdlEmit(pc)
-
-//    def initVhdlBase[T <: VhdlBase](base : T) = {
-//      base.packageName     = pc.config.globalPrefix + base.packageName
-//      base.enumPackageName = pc.config.globalPrefix + base.enumPackageName
-//      base
-//    }
-
-   // phases += initVhdlBase(new PhaseVhdl2(pc))
-    phases += new PhaseVhdl(pc)
-
-
- /*   if(config.keepAll) phases  += new PhaseKeepAll(pc)
-    phases ++= config.transformationPhases
-    phases ++= config.memBlackBoxers
-    phases += new PhaseApplyIoDefault(pc)
-    phases += new PhaseMoveLogicTags(pc)
-    phases += new PhaseNodesBlackBoxGenerics(pc)
-
-    phases += new PhaseDummy(SpinalProgress("Get names from reflection"))
-    phases += new PhaseNameNodesByReflection(pc)
-    phases += new PhaseCollectAndNameEnum(pc)
-
-    phases += new PhaseDummy(SpinalProgress("Transform connections"))
-    phases += new PhasePullClockDomains(pc)
-    phases += new PhaseCheck_noNull_noCrossHierarchy_noInputRegister_noDirectionLessIo(pc)
-    phases += new PhaseAddInOutBinding(pc)
-    phases += new PhaseNameBinding(pc)
-    phases += new PhaseAllowNodesToReadOutputs(pc)
-    phases += new PhaseAllowNodesToReadInputOfKindComponent(pc)
-
-    phases += new PhaseDummy(SpinalProgress("Infer nodes's bit width"))
-    phases += new PhasePreInferationChecks(pc)
-    phases += new PhaseInferEnumEncodings(pc,e => e)
-    phases += new PhaseInferWidth(pc)
-    phases += new PhaseSimplifyNodes(pc)
-    phases += new PhaseInferWidth(pc)
-    phases += new PhasePropagateBaseTypeWidth(pc)
-    phases += new PhaseNormalizeNodeInputs(pc)
-    phases += new PhaseResizeLiteralSimplify(pc)
-    phases += new PhaseCheckInferredWidth(pc)
-
-    phases += new PhaseDummy(SpinalProgress("Check combinatorial loops"))
-    phases += new PhaseCheckCombinationalLoops(pc)
-    phases += new PhaseDummy(SpinalProgress("Check cross clock domains"))
-    phases += new PhaseCheckCrossClockDomains(pc)
-    phases += new PhaseCheckMisc(pc)
-
-    phases += new PhaseDummy(SpinalProgress("Simplify graph's nodes"))
-    phases += new PhaseDontSymplifyBasetypeWithComplexAssignement(pc)
-    phases += new PhaseDeleteUselessBaseTypes(pc)
-
-    phases += new PhaseCompletSwitchCases
-
-    phases += new PhaseDummy(SpinalProgress("Check that there is no incomplete assignment"))
-    phases += new PhaseCheck_noAsyncNodeWithIncompleteAssignment(pc)
-    phases += new PhaseSimplifyBlacBoxGenerics(pc)
-
-    phases += new PhaseDummy(SpinalProgress("Collect signals not used in the graph"))
-    phases += new PhasePrintUnUsedSignals(prunedSignals,unusedSignals)(pc)
-
-    phases += new PhaseDummy(SpinalProgress("Finalise"))
-    phases += new PhaseAddNodesIntoComponent(pc)
-    phases += new PhaseOrderComponentsNodes(pc)
-    phases += new PhaseAllocateNames(pc)
-    phases += new PhaseRemoveComponentThatNeedNoHdlEmit(pc)
-
-    phases += new PhasePrintStates(pc)
-
 
     def initVhdlBase[T <: VhdlBase](base : T) = {
       base.packageName     = pc.config.globalPrefix + base.packageName
@@ -1507,13 +1438,11 @@ object SpinalVhdlBoot{
       base
     }
 
-    phases += initVhdlBase(new PhaseVhdl(pc))
-    phases += initVhdlBase(new VhdlTestBenchBackend(pc))
 
-*/
-//    for(inserter <-config.phasesInserters){
-//      inserter(phases)
-//    }
+    phases += initVhdlBase(new PhaseVhdl(pc))
+
+
+
 
 
     for(phase <- phases){
@@ -1536,136 +1465,120 @@ object SpinalVhdlBoot{
   }
 }
 
-//object SpinalVerilogBoot{
-//  def apply[T <: Component](config : SpinalConfig)(gen : => T) : SpinalReport[T] ={
-//    try {
-//      singleShot(config)(gen)
-//    } catch {
-//      case e : NullPointerException => {
-//        println(
-//          """
-//            |ERROR !
-//            |A null pointer access has been detected in the JVM.
-//            |This could happen when in your SpinalHDL description, you access an signal which is only defined further.
-//            |For instance :
-//            |  val result = Bool
-//            |  result := a ^ b  //a and b can't be accessed there because they are only defined one line below (Software rule of execution order)
-//            |  val a,b = Bool
-//          """.stripMargin)
-//        System.out.flush()
-//        throw e
-//      }
-//      case e: Throwable => {
-//        if(!config.debug){
-//          println("\n**********************************************************************************************")
-//          val errCnt = SpinalError.getErrorCount()
-//          SpinalWarning(s"Elaboration failed (${errCnt} error" + (if(errCnt > 1){s"s"} else {s""}) + s").\n" +
-//            s"          Spinal will restart with scala trace to help you to find the problem.")
-//          println("**********************************************************************************************\n")
-//          System.out.flush()
-//          return singleShot(config.copy(debug = true))(gen)
-//        }else{
-//
-//          println("\n**********************************************************************************************")
-//          val errCnt = SpinalError.getErrorCount()
-//          SpinalWarning(s"Elaboration failed (${errCnt} error" + (if(errCnt > 1){s"s"} else {s""}) + ").")
-//          println("**********************************************************************************************")
-//          System.out.flush()
-//          throw e
-//        }
-//      }
-//    }
-//  }
-//
-//  def singleShot[T <: Component](config : SpinalConfig)(gen : => T): SpinalReport[T] ={
-//    val pc = new PhaseContext(config)
-//    pc.globalData.anonymSignalPrefix = if(config.anonymSignalPrefix == null) "" else config.anonymSignalPrefix
-//
-//    val prunedSignals = mutable.Set[BaseType]()
-//    val unusedSignals = mutable.Set[BaseType]()
-//
-//    SpinalProgress("Start elaboration")
-//
-//
-//    val phases = ArrayBuffer[Phase]()
-//
-//    phases += new PhaseCreateComponent(gen)(pc)
-//    phases += new PhaseDummy(SpinalProgress("Start analysis and transform"))
-//    if(config.keepAll) phases  += new PhaseKeepAll(pc)
-//    phases ++= config.transformationPhases
-//    phases ++= config.memBlackBoxers
-//    phases += new PhaseApplyIoDefault(pc)
-//    phases += new PhaseMoveLogicTags(pc)
-//    phases += new PhaseNodesBlackBoxGenerics(pc)
-//
-//    phases += new PhaseDummy(SpinalProgress("Get names from reflection"))
-//    phases += new PhaseNameNodesByReflection(pc)
-//    phases += new PhaseCollectAndNameEnum(pc)
-//
-//    phases += new PhaseDummy(SpinalProgress("Transform connections"))
-//    phases += new PhasePullClockDomains(pc)
-//    phases += new PhaseCheck_noNull_noCrossHierarchy_noInputRegister_noDirectionLessIo(pc)
-//    phases += new PhaseAddInOutBinding(pc)
-//    phases += new PhaseNameBinding(pc)
-//    phases += new PhaseAllowNodesToReadOutputs(pc)
-//    phases += new PhaseAllowNodesToReadInputOfKindComponent(pc)
-//
-//    phases += new PhaseDummy(SpinalProgress("Infer nodes's bit width"))
-//    phases += new PhasePreInferationChecks(pc)
-//    phases += new PhaseInferEnumEncodings(pc,e => if(e == `native`) binarySequential else e)
-//    phases += new PhaseInferWidth(pc)
-//    phases += new PhaseSimplifyNodes(pc)
-//    phases += new PhaseInferWidth(pc)
-//    phases += new PhasePropagateBaseTypeWidth(pc)
-//    phases += new PhaseNormalizeNodeInputs(pc)
-//    phases += new PhaseResizeLiteralSimplify(pc)
-//    phases += new PhaseCheckInferredWidth(pc)
-//
-//    phases += new PhaseDummy(SpinalProgress("Check combinatorial loops"))
-//    phases += new PhaseCheckCombinationalLoops(pc)
-//    phases += new PhaseDummy(SpinalProgress("Check cross clock domains"))
-//    phases += new PhaseCheckCrossClockDomains(pc)
-//    phases += new PhaseCheckMisc(pc)
-//
-//    phases += new PhaseDummy(SpinalProgress("Simplify graph's nodes"))
-//    phases += new PhaseDontSymplifyBasetypeWithComplexAssignement(pc)
-//    phases += new PhaseDontSymplifySomeNodesVerilog(pc)    //VERILOG
-//    phases += new PhaseDeleteUselessBaseTypes(pc)
-//
-//    phases += new PhaseCompletSwitchCases
-//
-//    phases += new PhaseDummy(SpinalProgress("Check that there is no incomplete assignment"))
-//    phases += new PhaseCheck_noAsyncNodeWithIncompleteAssignment(pc)
-//    phases += new PhaseSimplifyBlacBoxGenerics(pc)
-//
-//    phases += new PhaseDummy(SpinalProgress("Collect signals not used in the graph"))
-//    phases += new PhasePrintUnUsedSignals(prunedSignals,unusedSignals)(pc)
-//
-//    phases += new PhaseDummy(SpinalProgress("Finalise"))
-//    phases += new PhaseAddNodesIntoComponent(pc)
-//    phases += new PhaseOrderComponentsNodes(pc)
-//    phases += new PhaseAllocateNames(pc)
-//    phases += new PhaseRemoveComponentThatNeedNoHdlEmit(pc)
-//
-//    phases += new PhasePrintStates(pc)
-//    phases += new PhaseVerilog(pc)
-//
-//
-//    for(inserter <-config.phasesInserters){
-//      inserter(phases)
-//    }
-//
-//    for(phase <- phases){
-//      pc.doPhase(phase)
-//    }
-//
-//
-//    pc.checkGlobalData()
-//
-//    val report = new SpinalReport[T](pc.topLevel.asInstanceOf[T])
-//    report.prunedSignals ++= prunedSignals
-//    report.unusedSignals ++= unusedSignals
-//
-//    report
-//  }
-//}
+
+
+object SpinalVerilogBoot{
+  def apply[T <: Component](config : SpinalConfig)(gen : => T) : SpinalReport[T] ={
+    try {
+      singleShot(config)(gen)
+    } catch {
+      case e : NullPointerException if config.debug=> {
+        println(
+          """
+            |ERROR !
+            |A null pointer access has been detected in the JVM.
+            |This could happen when in your SpinalHDL description, you access an signal which is only defined further.
+            |For instance :
+            |  val result = Bool
+            |  result := a ^ b  //a and b can't be accessed there because they are only defined one line below (Software rule of execution order)
+            |  val a,b = Bool
+          """.stripMargin)
+        System.out.flush()
+        throw e
+      }
+      case e: Throwable => {
+        if(!config.debug){
+          println("\n**********************************************************************************************")
+          val errCnt = SpinalError.getErrorCount()
+          SpinalWarning(s"Elaboration failed (${errCnt} error" + (if(errCnt > 1){s"s"} else {s""}) + s").\n" +
+            s"          Spinal will restart with scala trace to help you to find the problem.")
+          println("**********************************************************************************************\n")
+          System.out.flush()
+          return singleShot(config.copy(debug = true))(gen)
+        }else{
+          println("\n**********************************************************************************************")
+          val errCnt = SpinalError.getErrorCount()
+          SpinalWarning(s"Elaboration failed (${errCnt} error" + (if(errCnt > 1){s"s"} else {s""}) + ").")
+          println("**********************************************************************************************")
+          System.out.flush()
+          throw e
+        }
+      }
+    }
+  }
+
+  def singleShot[T <: Component](config : SpinalConfig)(gen : => T): SpinalReport[T] ={
+    val pc = new PhaseContext(config)
+    pc.globalData.anonymSignalPrefix = if(config.anonymSignalPrefix == null) "zz" else config.anonymSignalPrefix
+    val prunedSignals = mutable.Set[BaseType]()
+    val unusedSignals = mutable.Set[BaseType]()
+
+
+    SpinalProgress("Start elaboration")
+
+
+    val phases = ArrayBuffer[Phase]()
+
+    phases += new PhaseCreateComponent(gen)(pc)
+    phases += new PhaseApplyIoDefault(pc)
+
+
+    phases += new PhaseDummy(SpinalProgress("Get names from reflection"))
+    phases += new PhaseNameNodesByReflection(pc)
+    phases += new PhaseCollectAndNameEnum(pc)
+
+    phases += new PhaseDummy(SpinalProgress("Transform connections"))
+
+    phases += new PhaseCheckIoBundle()
+    phases += new PhaseCheckHiearchy()
+    phases += new PhaseRemoveUselessStuff(false, false)
+    phases += new PhaseRemoveIntermediateUnameds(true)
+
+
+    phases += new PhasePullClockDomains(pc)
+
+
+
+    phases += new PhaseDummy(SpinalProgress("Infer nodes's bit width"))
+    phases += new PhaseInferEnumEncodings(pc,e => if(e == `native`) binarySequential else e)
+    phases += new PhaseInferWidth(pc)
+    phases += new PhaseNormalizeNodeInputs(pc)
+    phases += new PhaseSimplifyNodes(pc)
+
+
+    phases += new PhaseRemoveUselessStuff(true, true)
+    phases += new PhaseRemoveIntermediateUnameds(false)
+
+    phases += new PhaseCheck_noLatchNoOverride(pc)
+
+    phases += new PhaseAllocateNames(pc)
+
+
+
+    phases += new PhaseVerilog(pc)
+
+
+
+
+
+    for(phase <- phases){
+      SpinalProgress(phase.getClass.getName)
+      pc.doPhase(phase)
+    }
+
+
+    pc.checkGlobalData()
+
+
+    //pc.checkNoZeroWidth() for debug
+
+
+    val report = new SpinalReport[T](pc.topLevel.asInstanceOf[T])
+    report.prunedSignals ++= prunedSignals
+    report.unusedSignals ++= unusedSignals
+
+    report
+  }
+}
+
+
