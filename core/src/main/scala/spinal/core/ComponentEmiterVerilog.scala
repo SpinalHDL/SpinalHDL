@@ -46,7 +46,10 @@ class ComponentEmiterVerilog(val c : Component,
 
   def emitEntity(): Unit = {
     component.getOrdredNodeIo.foreach(baseType =>
-      portMaps += s"  ${emitSyntaxAttributes(baseType.instanceAttributes)}${emitDirection(baseType)} ${if(signalNeedProcess(baseType)) "reg " else ""}${emitType(baseType)} ${baseType.getName()}${getBaseTypeSignalInitialisation(baseType)}${emitCommentAttributes(baseType.instanceAttributes)}"
+      if(outputsToBufferize.contains(baseType) || baseType.isInput)
+        portMaps += s"  ${emitSyntaxAttributes(baseType.instanceAttributes)}${emitDirection(baseType)} ${emitType(baseType)} ${baseType.getName()}${emitCommentAttributes(baseType.instanceAttributes)}"
+      else
+        portMaps += s"  ${emitSyntaxAttributes(baseType.instanceAttributes)}${emitDirection(baseType)} ${if(signalNeedProcess(baseType) && !outputsToBufferize.contains(baseType)) "reg " else ""}${emitType(baseType)} ${baseType.getName()}${if(outputsToBufferize.contains(baseType)) "" else getBaseTypeSignalInitialisation(baseType)}${emitCommentAttributes(baseType.instanceAttributes)}"
     )
   }
 
@@ -350,7 +353,7 @@ class ComponentEmiterVerilog(val c : Component,
               case m : Expression => "%x"
             }).mkString
 
-            val backString = (for(m <- assertStatement.message) yield m match{
+            val backString = (for(m <- assertStatement.message if m.isInstanceOf[Expression]) yield m match{
               case m : Expression => ", " + emitExpression(m)
             }).mkString
 
@@ -455,7 +458,7 @@ class ComponentEmiterVerilog(val c : Component,
               var tasksCount = tasks.size
               for(e <- switchStatement.elements) tasks.get(e.scopeStatement) match {
                 case Some(task) =>
-                  b ++= s"${tab}${if(index == 0) "if" else "else if"}(${task.element.keys.map(e => emitIsCond(e)).mkString(" || ")}) begin\n"
+                  b ++= s"${tab}${if(index == 0) "if" else "end else if"}(${task.element.keys.map(e => emitIsCond(e)).mkString(" || ")}) begin\n"
                   emitLeafStatements(statements, task.statementIndex, e.scopeStatement, assignementKind, b, tab + "  ")
                   index += 1
                 case _ =>
@@ -559,7 +562,7 @@ class ComponentEmiterVerilog(val c : Component,
           ???
         else {
           assert(initStatement.parentScope == signal.parentScope)
-          return " := " + emitExpressionNoWrappeForFirstOne(initStatement.source)
+          return " = " + emitExpressionNoWrappeForFirstOne(initStatement.source)
         }
       }else if (signal.hasTag(randomBoot)) {
         return signal match {
@@ -781,15 +784,31 @@ class ComponentEmiterVerilog(val c : Component,
 
   def fillExpressionToWrap(): Unit = {
     def applyTo(that : Expression) = expressionToWrap += that
-    component.dslBody.walkStatements(s => s.walkDrivingExpressions{
-      case node: Resize  => applyTo(node)
-      case node: SubAccess => applyTo(node.getBitVector)
-      case node: Literal => applyTo(node)
-//      case node: SInt    => if(!node.input.isInstanceOf[SInt]) node.dontSimplifyIt()
-//      case node: UInt    => if(!node.input.isInstanceOf[UInt]) node.dontSimplifyIt()
-      case node: Operator.BitVector.ShiftOperator => applyTo(node)
-      case _ =>
-    })
+    def onEachExpression(e : Expression) : Unit = {
+      e match {
+        case node: SubAccess => applyTo(node.getBitVector)
+        case _ =>
+      }
+    }
+    def onEachExpressionNotDrivingBaseType(e : Expression) : Unit = {
+      onEachExpression(e)
+      e match {
+        case node: Resize => applyTo(node)
+        case node: Literal => applyTo(node)
+        case node if node.getTypeObject == TypeUInt || node.getTypeObject == TypeSInt => applyTo(node)
+        case node: Operator.BitVector.ShiftOperator => applyTo(node)
+        case _ =>
+      }
+    }
+    component.dslBody.walkStatements{
+      case s : AssignementStatement => {
+        s.foreachExpression(e => {
+          onEachExpression(e)
+          e.walkDrivingExpressions(onEachExpressionNotDrivingBaseType)
+        })
+      }
+      case s => s.walkDrivingExpressions(onEachExpressionNotDrivingBaseType)
+    }
   }
 
 
