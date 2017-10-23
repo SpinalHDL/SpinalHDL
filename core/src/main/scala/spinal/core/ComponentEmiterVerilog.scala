@@ -71,7 +71,7 @@ class ComponentEmiterVerilog(val c : Component,
         s match {
           case s : MemReadSync => {
             val name = component.localNamingScope.allocateName(anonymSignalPrefix)
-            declarations ++= emitExpressionWrap(s, name)
+            declarations ++= emitExpressionWrap(s, name, "reg")
             wrappedExpressionToName(s) = name
           }
           case s : MemReadAsync => {
@@ -81,7 +81,7 @@ class ComponentEmiterVerilog(val c : Component,
           }
           case s : MemReadWrite => {
             val name = component.localNamingScope.allocateName(anonymSignalPrefix)
-            declarations ++= emitExpressionWrap(s, name)
+            declarations ++= emitExpressionWrap(s, name, "reg")
             wrappedExpressionToName(s) = name
           }
           case s : MemWrite =>
@@ -605,8 +605,8 @@ class ComponentEmiterVerilog(val c : Component,
     for(mem <- mems) emitMem(mem)
   }
 
+  var verilogIndexGenerated = false
   def emitMem(mem: Mem[_]): Unit ={
-    ???
     def emitDataType(mem: Mem[_], constrained: Boolean = true) =  s"${emitReference(mem, constrained)}_type"
 
     //ret ++= emitSignal(mem, mem);
@@ -644,42 +644,70 @@ class ComponentEmiterVerilog(val c : Component,
 
 
     if(memBitsMaskKind == MULTIPLE_RAM && symbolCount != 1) {
-      //if(mem.initialContent != null) SpinalError("Memory with multiple symbol per line + initial contant are not suported currently")
-
-      declarations ++= s"  type ${emitReference(mem,false)}_type is array (0 to ${mem.wordCount - 1}) of std_logic_vector(${symbolWidth - 1} downto 0);\n"
       for(i <- 0 until symbolCount) {
-        val postfix = "_symbol" + i
-        declarations ++= s"  signal ${emitReference(mem,false)}$postfix : ${emitDataType(mem)}${initAssignementBuilder(i).toString()};\n"
-    //////////    emitAttributes(mem,mem.instanceAttributes(Language.VHDL), "signal", declarations,postfix = postfix)
+          val postfix = "_symbol" + i
+        declarations ++= s"  ${emitSyntaxAttributes(mem.instanceAttributes(Language.VERILOG))}reg [${symbolWidth- 1}:0] ${emitReference(mem,false)}$postfix [0:${mem.wordCount - 1}]${emitCommentAttributes(mem.instanceAttributes(Language.VERILOG))};\n"
       }
     }else{
-      declarations ++= s"  type ${emitReference(mem,false)}_type is array (0 to ${mem.wordCount - 1}) of std_logic_vector(${mem.getWidth - 1} downto 0);\n"
-      declarations ++= s"  signal ${emitReference(mem,false)} : ${emitDataType(mem)}${initAssignementBuilder.head.toString()};\n"
-     /////// emitAttributes(mem, mem.instanceAttributes(Language.VHDL), "signal", declarations)
+      declarations ++= s"  ${emitSyntaxAttributes(mem.instanceAttributes(Language.VERILOG))}reg ${emitRange(mem)} ${emitReference(mem,false)} [0:${mem.wordCount - 1}]${emitCommentAttributes(mem.instanceAttributes(Language.VERILOG))};\n"
     }
 
-
-    def emitWrite(b : StringBuilder, mem : Mem[_], address : Expression, data : Expression, mask : Expression with WidthProvider, symbolCount : Int, bitPerSymbole : Int, tab: String) = {
-      if(mask == null) {
-        if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
-          b ++= s"$tab${emitReference(mem, false)}(to_integer(${emitExpression(address)})) <= ${emitExpression(data)};\n"
-        else
-          for(i <- 0 until symbolCount) {
-            val range = s"(${(i + 1) * bitPerSymbole - 1} downto ${i * bitPerSymbole})"
-            b ++= s"$tab  ${emitReference(mem, false)}_symbol${i}(to_integer(${emitExpression(address)})) <= ${emitExpression(data)}$range;\n"
+    if (mem.initialContent != null) {
+      logics ++= "  initial begin\n"
+      for ((value, index) <- mem.initialContent.zipWithIndex) {
+        val unfilledValue = value.toString(2)
+        val filledValue = "0" * (mem.getWidth-unfilledValue.length) + unfilledValue
+        if(memBitsMaskKind == MULTIPLE_RAM && symbolCount != 1) {
+          for(i <- (0 until symbolCount)){
+            logics ++= s"    ${emitReference(mem, false)}_symbol$i[$index] = 'b${filledValue.substring(symbolWidth*(symbolCount-i-1), symbolWidth*(symbolCount-i))};\n"
           }
-      }else{
+        }else{
+          logics ++= s"    ${emitReference(mem, false)}[$index] = 'b$filledValue;\n"
+        }
+      }
 
-        val maskCount = mask.getWidth
-        for(i <- 0 until maskCount){
-          val range = s"(${(i+1)*bitPerSymbole-1} downto ${i*bitPerSymbole})"
-          b ++= s"${tab}if ${emitExpression(mask)}($i) = '1' then\n"
-          if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
-            b ++= s"$tab  ${emitReference(mem, false)}(to_integer(${emitExpression(address)}))$range <= ${emitExpression(data)}$range;\n"
+      logics ++= "  end\n"
+    }else if(mem.hasTag(randomBoot)){
+      if(!verilogIndexGenerated) {
+        verilogIndexGenerated = true
+        logics ++= "integer verilogIndex;\n"
+      }
+      logics ++= s"""
+initial begin
+  for (verilogIndex = 0; verilogIndex < ${mem.wordCount}; verilogIndex = verilogIndex + 1)begin
+${
+  if(symbolCount == 1){
+    emitReference(mem,false) + "[verilogIndex] = -1;"
+  }  else {
+    (0 until symbolCount).map("    " + emitReference(mem,false)  + "_symbol" + _ + "[verilogIndex] = -1;").reduce(_ + "\n" +_)
+  }}
+  end
+end
+"""
+    }
+
+    def emitWrite(b : StringBuilder, mem : Mem[_], writeEnable : String, address : Expression, data : Expression, mask : Expression with WidthProvider, symbolCount : Int, bitPerSymbole : Int, tab: String) : Unit = {
+      if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1) {
+        val ramAssign = s"$tab${emitReference(mem, false)}[${emitExpression(address)}] <= ${emitExpression(data)};\n"
+        if (writeEnable != null) {
+          b ++= s"${tab}if(${writeEnable}) begin\n  "
+          b ++= ramAssign
+          b ++= s"${tab}end\n"
+        } else {
+          b ++= ramAssign
+        }
+      } else {
+        def maskCount = mask.getWidth
+        val writeEnableCat = if(writeEnable != null) writeEnable + " &&" else ""
+        for(i <- 0 until maskCount) {
+          val range = s"[${(i + 1) * bitPerSymbole - 1} : ${i * bitPerSymbole}]"
+          b ++= s"${tab}if($writeEnableCat ${emitExpression(mask)}[$i]) begin\n"
+          if (memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
+            b ++= s"$tab  ${emitReference(mem, false)}[${emitExpression(address)}]$range <= ${emitExpression(data)}$range;\n"
           else
-            b ++= s"$tab  ${emitReference(mem, false)}_symbol${i}(to_integer(${emitExpression(address)})) <= ${emitExpression(data)}$range;\n"
+            b ++= s"$tab  ${emitReference(mem, false)}_symbol${i}[${emitExpression(address)}] <= ${emitExpression(data)}$range;\n"
 
-          b ++= s"${tab}end if;\n"
+          b ++= s"${tab}end\n"
         }
       }
     }
@@ -688,53 +716,55 @@ class ComponentEmiterVerilog(val c : Component,
       val ramRead = {
         val symbolCount = mem.getMemSymbolCount
         if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
-          s"${emitReference(mem, false)}(to_integer(${emitExpression(address)}))"
-        else
-          (0 until symbolCount).reverse.map(i => (s"${emitReference(mem, false)}_symbol$i(to_integer(${emitExpression(address)}))")).reduce(_ + " & " + _)
+          b ++= s"$tab${emitExpression(target)} <= ${emitReference(mem, false)}[${emitExpression(address)}];\n"
+        else{
+          val symboleReadDataNames = for(i <- 0 until symbolCount) yield {
+            val symboleReadDataName = component.localNamingScope.allocateName(anonymSignalPrefix)
+            declarations ++= s"  reg [${mem.getMemSymbolWidth()-1}:0] $symboleReadDataName;\n"
+            b ++= s"$tab$symboleReadDataName <= ${emitReference(mem,false)}_symbol$i[${emitExpression(address)}];\n"
+            symboleReadDataName
+          }
+
+
+          logics ++= s"  always @ (${symboleReadDataNames.mkString(" or " )}) begin\n"
+          logics ++= s"    ${emitExpression(target)} = {${symboleReadDataNames.reverse.mkString(", " )}};\n"
+          logics ++= s"  end\n"
+        }
+        //          (0 until symbolCount).reverse.map(i => (s"${emitReference(mem, false)}_symbol$i(to_integer(${emitExpression(address)}))")).reduce(_ + " & " + _)
       }
 
-      b ++= s"$tab${emitExpression(target)} <= ${ramRead};\n"
+
     }
 
     def emitPort(port : MemPortStatement,tab : String, b : mutable.StringBuilder) : Unit = port match {
       case memWrite: MemWrite => {
-        if(memWrite.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${memWrite.mem} because of its mixed width ports")
-
-        if (memWrite.writeEnable != null) {
-          b ++= s"${tab}if ${emitExpression(memWrite.writeEnable)} = '1' then\n"
-          emitWrite(b, memWrite.mem, memWrite.address, memWrite.data, memWrite.mask, memWrite.mem.getMemSymbolCount, memWrite.mem.getMemSymbolWidth(), tab + "  ")
-          b ++= s"${tab}end if;\n"
-        } else {
-          emitWrite(b, memWrite.mem, memWrite.address, memWrite.data, memWrite.mask, memWrite.mem.getMemSymbolCount, memWrite.mem.getMemSymbolWidth(), tab)
-        }
+        if(memWrite.aspectRatio != 1) SpinalError(s"Verilog backend can't emit ${memWrite.mem} because of its mixed width ports")
+        emitWrite(b, memWrite.mem,  if (memWrite.writeEnable != null) emitExpression(memWrite.writeEnable) else null.asInstanceOf[String], memWrite.address, memWrite.data, memWrite.mask, memWrite.mem.getMemSymbolCount, memWrite.mem.getMemSymbolWidth(), tab)
       }
       case memReadSync: MemReadSync => {
-        if(memReadSync.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${memReadSync.mem} because of its mixed width ports")
-        if(memReadSync.readUnderWrite == writeFirst) SpinalError(s"Can't translate a memReadSync with writeFirst into VHDL $memReadSync")
-        if(memReadSync.readUnderWrite == dontCare) SpinalWarning(s"memReadSync with dontCare is as readFirst into VHDL $memReadSync")
+        if(memReadSync.aspectRatio != 1) SpinalError(s"Verilog backend can't emit ${memReadSync.mem} because of its mixed width ports")
+        if(memReadSync.readUnderWrite == writeFirst) SpinalError(s"Can't translate a memReadSync with writeFirst into Verilog $memReadSync")
+        if(memReadSync.readUnderWrite == dontCare) SpinalWarning(s"memReadSync with dontCare is as readFirst into Verilog $memReadSync")
         if(memReadSync.readEnable != null) {
-          b ++= s"${tab}if ${emitExpression(memReadSync.readEnable)} = '1' then\n"
+          b ++= s"${tab}if(${emitExpression(memReadSync.readEnable)}) begin\n"
           emitRead(b, memReadSync.mem, memReadSync.address, memReadSync, tab + "  ")
-          b ++= s"${tab}end if;\n"
+          b ++= s"${tab}end\n"
         } else {
           emitRead(b, memReadSync.mem, memReadSync.address, memReadSync, tab)
         }
       }
 
       case memReadWrite : MemReadWrite => {
-        if(memReadWrite.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${memReadWrite.mem} because of its mixed width ports")
-        //                    if (memReadWrite.readUnderWrite == writeFirst) SpinalError(s"Can't translate a MemWriteOrRead with writeFirst into VHDL $memReadWrite")
-        //                    if (memReadWrite.readUnderWrite == dontCare) SpinalWarning(s"MemWriteOrRead with dontCare is as readFirst into VHDL $memReadWrite")
+        if(memReadWrite.aspectRatio != 1) SpinalError(s"Verilog backend can't emit ${memReadWrite.mem} because of its mixed width ports")
+        //                    if (memReadWrite.readUnderWrite == writeFirst) SpinalError(s"Can't translate a MemWriteOrRead with writeFirst into VERILOG $memReadWrite")
+        //                    if (memReadWrite.readUnderWrite == dontCare) SpinalWarning(s"MemWriteOrRead with dontCare is as readFirst into VERILOG $memReadWrite")
 
         val symbolCount = memReadWrite.mem.getMemSymbolCount
-        b ++= s"${tab}if ${emitExpression(memReadWrite.chipSelect)} = '1' then\n"
-        b ++= s"${tab}  if ${emitExpression(memReadWrite.writeEnable)} = '1' then\n"
-        emitWrite(b, memReadWrite.mem, memReadWrite.address, memReadWrite.data, memReadWrite.mask, memReadWrite.mem.getMemSymbolCount, memReadWrite.mem.getMemSymbolWidth(),tab + "    ")
-        b ++= s"${tab}  end if;\n"
+        emitWrite(b, memReadWrite.mem,s"${emitExpression(memReadWrite.chipSelect)} && ${emitExpression(memReadWrite.writeEnable)} ", memReadWrite.address, memReadWrite.data, memReadWrite.mask, memReadWrite.mem.getMemSymbolCount, memReadWrite.mem.getMemSymbolWidth(),tab)
+        b ++= s"${tab}if(${emitExpression(memReadWrite.chipSelect)}) begin\n"
         emitRead(b, memReadWrite.mem, memReadWrite.address, memReadWrite, tab + "  ")
-        b ++= s"${tab}end if;\n"
+        b ++= s"${tab}end\n"
       }
-
     }
 
 
@@ -750,6 +780,8 @@ class ComponentEmiterVerilog(val c : Component,
       case port : MemReadAsync =>
     }
 
+
+    val tmpBuilder = new StringBuilder()
     for((cd, ports) <- cdTasks){
       def syncLogic(tab : String, b : StringBuilder): Unit ={
         ports.foreach{
@@ -759,7 +791,7 @@ class ComponentEmiterVerilog(val c : Component,
         }
       }
 
-      emitClockedProcess(syncLogic,null,logics, cd, false)
+      emitClockedProcess(syncLogic,null,tmpBuilder, cd, false)
     }
 
     mem.foreachStatements{
@@ -767,17 +799,20 @@ class ComponentEmiterVerilog(val c : Component,
       case port : MemReadWrite =>
       case port : MemReadSync =>
         if(port.readUnderWrite == dontCare)
-          emitClockedProcess(emitPort(port,_,_),null,logics, port.clockDomain, false)
+          emitClockedProcess(emitPort(port,_,_),null,tmpBuilder, port.clockDomain, false)
       case port : MemReadAsync =>
-        if(port.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${port.mem} because of its mixed width ports")
-        if (port.readUnderWrite == dontCare) SpinalWarning(s"memReadAsync with dontCare is as writeFirst into VHDL")
+        if(port.aspectRatio != 1) SpinalError(s"VERILOG backend can't emit ${port.mem} because of its mixed width ports")
+        if (port.readUnderWrite == dontCare) SpinalWarning(s"memReadAsync with dontCare is as writeFirst into VERILOG")
         val symbolCount = port.mem.getMemSymbolCount
         if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
-          logics ++= s"  ${emitExpression(port)} <= ${emitReference(port.mem, false)}(to_integer(${emitExpression(port.address)}));\n"
+          tmpBuilder ++= s"  assign ${emitExpression(port)} = ${emitReference(port.mem, false)}[${emitExpression(port.address)}];\n"
         else
-          (0 until symbolCount).foreach(i => logics  ++= (s"${emitExpression(port)}(${(i + 1)*symbolWidth - 1} downto ${i*symbolWidth}) <= ${emitReference(port.mem, false)}_symbol$i(to_integer(${emitExpression(port.address)}));\n"))
+          (0 until symbolCount).foreach(i => tmpBuilder  ++= (s"  assign ${emitExpression(port)}[${(i + 1)*symbolWidth - 1} : ${i*symbolWidth}] = ${emitReference(port.mem, false)}_symbol$i[${emitExpression(port.address)}];\n"))
 
     }
+
+
+    logics ++= tmpBuilder
 
   }
 

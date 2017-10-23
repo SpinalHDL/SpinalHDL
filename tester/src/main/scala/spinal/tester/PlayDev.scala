@@ -10,14 +10,12 @@ object PlayDevMem{
     val p0 = new Bundle{
       val address = in(mem.addressType)
       val data = in(mem.wordType)
+      val mask = in(Bits(4 bits))
       val enable = in Bool()
     }
 
-    mem.write(p0.address, p0.data)
-//    mem(p0.address) := p0.data
-//    when(p0.enable){
-//      mem(p0.address) := p0.data
-//    }
+    mem.write(p0.address, p0.data,mask = p0.mask)
+
 
     val p1 = new Bundle{
       val address = in(mem.addressType)
@@ -34,6 +32,23 @@ object PlayDevMem{
     val xx = RegNext(True)
 
     println(LatencyAnalysis(p0.address, p2.data))
+
+    val p3 = new Bundle{
+      val address = in(mem.addressType)
+      val data = in(mem.wordType)
+      val mask = in(Bits(4 bits))
+      val enable = in Bool()
+      val wr = in Bool()
+    }
+
+    mem.readWriteSync(
+      address = p3.address  ,
+      data = p3.data  ,
+      enable = p3.enable  ,
+      write = p3.wr  ,
+      mask = p3.mask
+    )
+
   }
 
   def main(args: Array[String]) {
@@ -166,3 +181,5 @@ object PlayDevStackTrace{
     }
   }
 }
+
+

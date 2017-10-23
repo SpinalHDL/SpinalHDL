@@ -53,10 +53,12 @@ object ConditionalContext{
   def isTrue: Bool ={
     val globalData = GlobalData.get
     val originalContext = globalData.contextHead
+    if(originalContext.scope == globalData.context.head.component.dslBody) return True
     val componentContextStack = mutable.Stack[DslContext]()
     while(globalData.context.head.component == originalContext.component){
       componentContextStack.push(globalData.context.pop())
     }
+
     globalData.context.push(componentContextStack.pop())
     val cond = Bool()
     originalContext.component.dslBody.prepend(DataAssignementStatement(cond, new BoolLiteral(false)))

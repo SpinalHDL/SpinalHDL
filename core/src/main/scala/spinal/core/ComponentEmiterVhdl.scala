@@ -719,22 +719,23 @@ class ComponentEmiterVhdl(val c : Component,
     }
 
 
-    def emitWrite(b : StringBuilder, mem : Mem[_], address : Expression, data : Expression, mask : Expression with WidthProvider, symbolCount : Int, bitPerSymbole : Int, tab: String) = {
-      if(mask == null) {
-        if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
-          b ++= s"$tab${emitReference(mem, false)}(to_integer(${emitExpression(address)})) <= ${emitExpression(data)};\n"
-        else
-          for(i <- 0 until symbolCount) {
-            val range = s"(${(i + 1) * bitPerSymbole - 1} downto ${i * bitPerSymbole})"
-            b ++= s"$tab  ${emitReference(mem, false)}_symbol${i}(to_integer(${emitExpression(address)})) <= ${emitExpression(data)}$range;\n"
-          }
-      }else{
-
-        val maskCount = mask.getWidth
-        for(i <- 0 until maskCount){
-          val range = s"(${(i+1)*bitPerSymbole-1} downto ${i*bitPerSymbole})"
-          b ++= s"${tab}if ${emitExpression(mask)}($i) = '1' then\n"
-          if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
+    def emitWrite(b : StringBuilder, mem : Mem[_], writeEnable : String, address : Expression, data : Expression, mask : Expression with WidthProvider, symbolCount : Int, bitPerSymbole : Int, tab: String) : Unit = {
+      if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1) {
+        val ramAssign = s"$tab${emitReference(mem, false)}(to_integer(${emitExpression(address)})) <= ${emitExpression(data)};\n"
+        if (writeEnable != null) {
+          b ++= s"${tab}if ${writeEnable} then\n  "
+          b ++= ramAssign
+          b ++= s"${tab}end if;\n"
+        } else {
+          b ++= ramAssign
+        }
+      } else {
+        def maskCount = mask.getWidth
+        val writeEnableCat = if(writeEnable != null) writeEnable + " and" else ""
+        for(i <- 0 until maskCount) {
+          val range = s"(${(i + 1) * bitPerSymbole - 1} downto ${i * bitPerSymbole})"
+          b ++= s"${tab}if $writeEnableCat ${emitExpression(mask)}($i) = '1' then\n"
+          if (memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
             b ++= s"$tab  ${emitReference(mem, false)}(to_integer(${emitExpression(address)}))$range <= ${emitExpression(data)}$range;\n"
           else
             b ++= s"$tab  ${emitReference(mem, false)}_symbol${i}(to_integer(${emitExpression(address)})) <= ${emitExpression(data)}$range;\n"
@@ -748,25 +749,31 @@ class ComponentEmiterVhdl(val c : Component,
       val ramRead = {
         val symbolCount = mem.getMemSymbolCount
         if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
-          s"${emitReference(mem, false)}(to_integer(${emitExpression(address)}))"
-        else
-          (0 until symbolCount).reverse.map(i => (s"${emitReference(mem, false)}_symbol$i(to_integer(${emitExpression(address)}))")).reduce(_ + " & " + _)
+          b ++= s"$tab${emitExpression(target)} <= ${emitReference(mem, false)}(to_integer(${emitExpression(address)}));\n"
+        else{
+          val symboleReadDataNames = for(i <- 0 until symbolCount) yield {
+            val symboleReadDataName = component.localNamingScope.allocateName(anonymSignalPrefix)
+            declarations ++= s"  signal $symboleReadDataName : std_logic_vector(${mem.getMemSymbolWidth()-1} downto 0);\n"
+            b ++= s"$tab$symboleReadDataName <= ${emitReference(mem,false)}_symbol$i(to_integer(${emitExpression(address)}));\n"
+            symboleReadDataName
+          }
+
+
+          logics ++= s"  process (${symboleReadDataNames.mkString(", " )})\n"
+          logics ++= s"  begin\n"
+          logics ++= s"    ${emitExpression(target)} <= ${symboleReadDataNames.reverse.mkString(" & " )};\n"
+          logics ++= s"  end process;\n"
+        }
+//          (0 until symbolCount).reverse.map(i => (s"${emitReference(mem, false)}_symbol$i(to_integer(${emitExpression(address)}))")).reduce(_ + " & " + _)
       }
 
-      b ++= s"$tab${emitExpression(target)} <= ${ramRead};\n"
+
     }
 
     def emitPort(port : MemPortStatement,tab : String, b : mutable.StringBuilder) : Unit = port match {
       case memWrite: MemWrite => {
         if(memWrite.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${memWrite.mem} because of its mixed width ports")
-
-        if (memWrite.writeEnable != null) {
-          b ++= s"${tab}if ${emitExpression(memWrite.writeEnable)} = '1' then\n"
-          emitWrite(b, memWrite.mem, memWrite.address, memWrite.data, memWrite.mask, memWrite.mem.getMemSymbolCount, memWrite.mem.getMemSymbolWidth(), tab + "  ")
-          b ++= s"${tab}end if;\n"
-        } else {
-          emitWrite(b, memWrite.mem, memWrite.address, memWrite.data, memWrite.mask, memWrite.mem.getMemSymbolCount, memWrite.mem.getMemSymbolWidth(), tab)
-        }
+        emitWrite(b, memWrite.mem,  if (memWrite.writeEnable != null) emitExpression(memWrite.writeEnable) + " = '1'" else null.asInstanceOf[String], memWrite.address, memWrite.data, memWrite.mask, memWrite.mem.getMemSymbolCount, memWrite.mem.getMemSymbolWidth(), tab)
       }
       case memReadSync: MemReadSync => {
         if(memReadSync.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${memReadSync.mem} because of its mixed width ports")
@@ -787,14 +794,11 @@ class ComponentEmiterVhdl(val c : Component,
         //                    if (memReadWrite.readUnderWrite == dontCare) SpinalWarning(s"MemWriteOrRead with dontCare is as readFirst into VHDL $memReadWrite")
 
         val symbolCount = memReadWrite.mem.getMemSymbolCount
+        emitWrite(b, memReadWrite.mem,s"${emitExpression(memReadWrite.chipSelect)} = '1' and ${emitExpression(memReadWrite.writeEnable)} = '1'", memReadWrite.address, memReadWrite.data, memReadWrite.mask, memReadWrite.mem.getMemSymbolCount, memReadWrite.mem.getMemSymbolWidth(),tab)
         b ++= s"${tab}if ${emitExpression(memReadWrite.chipSelect)} = '1' then\n"
-        b ++= s"${tab}  if ${emitExpression(memReadWrite.writeEnable)} = '1' then\n"
-        emitWrite(b, memReadWrite.mem, memReadWrite.address, memReadWrite.data, memReadWrite.mask, memReadWrite.mem.getMemSymbolCount, memReadWrite.mem.getMemSymbolWidth(),tab + "    ")
-        b ++= s"${tab}  end if;\n"
         emitRead(b, memReadWrite.mem, memReadWrite.address, memReadWrite, tab + "  ")
         b ++= s"${tab}end if;\n"
       }
-
     }
 
 
@@ -810,6 +814,8 @@ class ComponentEmiterVhdl(val c : Component,
       case port : MemReadAsync =>
     }
 
+
+    val tmpBuilder = new StringBuilder()
     for((cd, ports) <- cdTasks){
       def syncLogic(tab : String, b : StringBuilder): Unit ={
         ports.foreach{
@@ -819,7 +825,7 @@ class ComponentEmiterVhdl(val c : Component,
         }
       }
 
-      emitClockedProcess(syncLogic,null,logics, cd, false)
+      emitClockedProcess(syncLogic,null,tmpBuilder, cd, false)
     }
 
     mem.foreachStatements{
@@ -827,17 +833,20 @@ class ComponentEmiterVhdl(val c : Component,
       case port : MemReadWrite =>
       case port : MemReadSync =>
         if(port.readUnderWrite == dontCare)
-          emitClockedProcess(emitPort(port,_,_),null,logics, port.clockDomain, false)
+          emitClockedProcess(emitPort(port,_,_),null,tmpBuilder, port.clockDomain, false)
       case port : MemReadAsync =>
         if(port.aspectRatio != 1) SpinalError(s"VHDL backend can't emit ${port.mem} because of its mixed width ports")
         if (port.readUnderWrite == dontCare) SpinalWarning(s"memReadAsync with dontCare is as writeFirst into VHDL")
         val symbolCount = port.mem.getMemSymbolCount
         if(memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
-          logics ++= s"  ${emitExpression(port)} <= ${emitReference(port.mem, false)}(to_integer(${emitExpression(port.address)}));\n"
+          tmpBuilder ++= s"  ${emitExpression(port)} <= ${emitReference(port.mem, false)}(to_integer(${emitExpression(port.address)}));\n"
         else
-          (0 until symbolCount).foreach(i => logics  ++= (s"${emitExpression(port)}(${(i + 1)*symbolWidth - 1} downto ${i*symbolWidth}) <= ${emitReference(port.mem, false)}_symbol$i(to_integer(${emitExpression(port.address)}));\n"))
+          (0 until symbolCount).foreach(i => tmpBuilder  ++= (s"  ${emitExpression(port)}(${(i + 1)*symbolWidth - 1} downto ${i*symbolWidth}) <= ${emitReference(port.mem, false)}_symbol$i(to_integer(${emitExpression(port.address)}));\n"))
 
     }
+
+
+    logics ++= tmpBuilder
 
   }
 

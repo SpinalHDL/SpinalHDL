@@ -31,6 +31,9 @@ trait VerilogBase extends VhdlVerilogBase{
     s"  wire ${emitType(e)} ${name};\n"
   }
 
+  def emitExpressionWrap(e : Expression, name : String, nature : String) : String = {
+    s"  $nature ${emitType(e)} ${name};\n"
+  }
 
 //  def emitSignal(ref: Node, typeNode: Node): String = {
 //    s"  ${emitDataType(typeNode)} ${emitReference(ref)};\n"
