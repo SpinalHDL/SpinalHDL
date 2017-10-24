@@ -28,7 +28,7 @@ class PhaseVerilog(pc : PhaseContext) extends PhaseMisc with VerilogBase {
 
   val allocateAlgoIncrementaleBase = globalData.allocateAlgoIncrementale()
   def compile(component: Component): Unit = {
-    val componentBuilderVerilog = new ComponentEmiterVerilog(component, this, allocateAlgoIncrementaleBase, globalData.anonymSignalPrefix, emitedComponentRef)
+    val componentBuilderVerilog = new ComponentEmiterVerilog(component, this, allocateAlgoIncrementaleBase, config.mergeAsyncProcess, globalData.anonymSignalPrefix, emitedComponentRef)
     if(component.parentScope == null && pc.config.dumpWave != null) {
       componentBuilderVerilog.logics ++=
         s"""

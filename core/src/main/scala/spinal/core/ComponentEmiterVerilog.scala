@@ -8,6 +8,7 @@ import scala.util.Random
 class ComponentEmiterVerilog(val c : Component,
                              verilogBase : VerilogBase,
                              override val algoIdIncrementalBase : Int,
+                             override val mergeAsyncProcess : Boolean,
                              anonymSignalPrefix : String,
                              emitedComponentRef : java.util.concurrent.ConcurrentHashMap[Component,Component]) extends ComponentEmiter{
   import verilogBase._
@@ -144,7 +145,7 @@ class ComponentEmiterVerilog(val c : Component,
     for (child <- component.children) {
       val isBB = child.isInstanceOf[BlackBox]
       val isBBUsingULogic = isBB && child.asInstanceOf[BlackBox].isUsingULogic
-      val definitionString =  if (isBB) child.definitionName else emitedComponentRef.getOrDefault(child, child).definitionName
+      val definitionString =  if (isBB) child.definitionName else getOrDefault(emitedComponentRef,child, child).definitionName
       logics ++= s"  $definitionString "
 
       if (child.isInstanceOf[BlackBox]) {

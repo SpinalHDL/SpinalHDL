@@ -61,6 +61,11 @@ class RiscvTesterCachedCocotbBoot extends SpinalTesterCocotbBase {
 
     new CoreUut.TopLevel(p,iCacheConfig,dCacheConfig,true,4).setDefinitionName("RiscvTesterCached")
   }
+
+  override def backendConfig(config: SpinalConfig) = config.mode match {
+    case `Verilog` => config.copy(mergeAsyncProcess = false) // avoid iverilog bug
+    case _ => config
+  }
 }
 
 

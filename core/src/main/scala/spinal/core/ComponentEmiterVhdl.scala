@@ -9,6 +9,7 @@ import scala.util.Random
 class ComponentEmiterVhdl(val c : Component,
                           vhdlBase: VhdlBase,
                           override val algoIdIncrementalBase : Int,
+                          override val mergeAsyncProcess : Boolean,
                           anonymSignalPrefix : String,
                           emitedComponentRef : java.util.concurrent.ConcurrentHashMap[Component,Component]) extends ComponentEmiter{
   import vhdlBase._
@@ -152,7 +153,7 @@ class ComponentEmiterVhdl(val c : Component,
     for (children <- component.children) {
       val isBB = children.isInstanceOf[BlackBox]
       //      val isBBUsingULogic = isBB && children.asInstanceOf[BlackBox].isUsingULogic
-      val definitionString = if (isBB) children.definitionName else s"entity work.${emitedComponentRef.getOrDefault(children, children).definitionName}"
+      val definitionString = if (isBB) children.definitionName else s"entity work.${getOrDefault(emitedComponentRef, children, children).definitionName}"
       logics ++= s"  ${
         children.getName()
       } : $definitionString\n"

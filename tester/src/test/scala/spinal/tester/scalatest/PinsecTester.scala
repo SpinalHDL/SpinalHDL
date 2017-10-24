@@ -2,6 +2,7 @@ package spinal.tester.scalatest
 
 import org.scalatest.{Stepwise, Sequential, Suites}
 import spinal.core._
+import spinal.lib._
 import spinal.lib.com.jtag.Jtag
 import spinal.lib.com.uart.Uart
 import spinal.lib.io.TriStateArray
@@ -67,9 +68,23 @@ class PinsecTesterCocotbBoot extends SpinalTesterCocotbBase {
     sdramPowerupCounter.component.rework(
       sdramPowerupCounter init(sdramPowerupCounter.maxValue - 100)
     )
+    pinsec.axi.ram.rework{
+      import pinsec.axi.ram._
+
+      val port = ram.writePort
+      port.valid.setName("ram_port0_write")
+      port.address.setName("ram_port0_address")
+      port.data.setName("ram_port0_writeData")
+
+      Bool().setName("ram_port0_enable")
+      Bits(4 bits).setName("ram_port0_mask")
+    }
     pinsec
   }
-
+  override def backendConfig(config: SpinalConfig) = config.mode match {
+    case `Verilog` => config.copy(mergeAsyncProcess = false) // avoid iverilog bug
+    case _ => config
+  }
   override def noVhdl = true
 }
 

@@ -28,6 +28,7 @@ class ComponentEmiterTrace(val builders : Seq[mutable.StringBuilder], val string
 abstract class ComponentEmiter {
   def component : Component
   def algoIdIncrementalBase : Int
+  def mergeAsyncProcess : Boolean
   val wrappedExpressionToName = mutable.HashMap[Expression, String]()
   val referencesOverrides = mutable.HashMap[Nameable,Any]()
   var algoIdIncrementalOffset = 0
@@ -40,7 +41,10 @@ abstract class ComponentEmiter {
   val subComponentInputToNotBufferize = mutable.HashSet[Any]()
   val openSubIo = mutable.HashSet[BaseType]()
 
-
+  def getOrDefault[X,Y](map : java.util.concurrent.ConcurrentHashMap[X,Y], key : X, default : Y) = map.get(key) match {
+    case null => default
+    case x => x
+  }
 
 
   def wrapSubInput(io: BaseType) : Unit
@@ -116,7 +120,7 @@ abstract class ComponentEmiter {
         }
         if (rootTreeStatement != null) {
           val preExistingTargetProcess = asyncProcessFromNameableTarget.getOrElse(finalTarget, null)
-          val preExistingRootTreeProcess = rootTreeStatementPerAsyncProcess.getOrElse(rootTreeStatement, null)
+          val preExistingRootTreeProcess = if(mergeAsyncProcess) rootTreeStatementPerAsyncProcess.getOrElse(rootTreeStatement, null) else null
           if(preExistingTargetProcess == null && preExistingRootTreeProcess == null){ //Create new process
             val process = new AsyncProcess(rootScope, asyncGroupInstanceCounter)
             asyncGroupInstanceCounter += 1

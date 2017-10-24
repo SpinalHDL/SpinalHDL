@@ -85,7 +85,8 @@ case class SpinalConfig(
   globalPrefix : String = "",
   anonymSignalPrefix : String = null,
   device: Device = Device(),
-  genVhdlPkg : Boolean = true
+  genVhdlPkg : Boolean = true,
+  mergeAsyncProcess : Boolean = true
 //  phasesInserters : ArrayBuffer[(ArrayBuffer[Phase]) => Unit] = ArrayBuffer[(ArrayBuffer[Phase]) => Unit](),
 //  transformationPhases : ArrayBuffer[Phase] = ArrayBuffer[Phase](),
 //  memBlackBoxers : ArrayBuffer[Phase] =  ArrayBuffer[Phase](/*new PhaseMemBlackBoxerDefault(blackboxNothing)*/)
