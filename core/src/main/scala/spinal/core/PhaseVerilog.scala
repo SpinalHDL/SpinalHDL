@@ -12,6 +12,9 @@ class PhaseVerilog(pc : PhaseContext) extends PhaseMisc with VerilogBase {
   override def impl(pc: PhaseContext): Unit = {
     outFile = new java.io.FileWriter(pc.config.targetDirectory + "/" +  (if(pc.config.netlistFileName == null)(topLevel.definitionName + ".v") else pc.config.netlistFileName))
     outFile.write(VhdlVerilogBase.getHeader("//",topLevel))
+    if(pc.config.dumpWave != null) {
+      outFile.write("`timescale 1ns/1ps ")
+    }
     emitEnumPackage(outFile)
     for (c <- sortedComponents) {
       if (!c.isInBlackBoxTree) {
@@ -26,7 +29,15 @@ class PhaseVerilog(pc : PhaseContext) extends PhaseMisc with VerilogBase {
   val allocateAlgoIncrementaleBase = globalData.allocateAlgoIncrementale()
   def compile(component: Component): Unit = {
     val componentBuilderVerilog = new ComponentEmiterVerilog(component, this, allocateAlgoIncrementaleBase, globalData.anonymSignalPrefix, emitedComponentRef)
-
+    if(component.parentScope == null && pc.config.dumpWave != null) {
+      componentBuilderVerilog.logics ++=
+        s"""
+  initial begin
+    $$dumpfile("${pc.config.dumpWave.vcdPath}");
+    $$dumpvars(${pc.config.dumpWave.depth}, ${component.definitionName});
+  end
+"""
+    }
     val trace = componentBuilderVerilog.getTrace()
     val oldComponent = emitedComponent.getOrElse(trace, null)
     val text = if (oldComponent == null) {

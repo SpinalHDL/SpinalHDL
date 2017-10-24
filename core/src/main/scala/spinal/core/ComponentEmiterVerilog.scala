@@ -431,8 +431,8 @@ class ComponentEmiterVerilog(val c : Component,
             //Generate the code
             if(isPure) {
               def emitIsCond(that : Expression): String = that match {
-                case lit : BitVectorLiteral => '"' + lit.getBitsStringOnNoPoison(lit.getWidth) + '"'
-                case lit : BoolLiteral => if(lit.value) "'1'" else "'0'"
+                case e : BitVectorLiteral => s"${e.getWidth}'b${e.getBitsStringOn(e.getWidth,'x')}"
+                case e : BoolLiteral => if(e.value) "1'b1" else "1'b0"
                 case lit : EnumLiteral[_] => emitEnumLiteral(lit.enum, lit.encoding)
               }
 
