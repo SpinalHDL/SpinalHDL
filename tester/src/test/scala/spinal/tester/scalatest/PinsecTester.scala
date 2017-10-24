@@ -76,8 +76,8 @@ class PinsecTesterCocotbBoot extends SpinalTesterCocotbBase {
       port.address.setName("ram_port0_address")
       port.data.setName("ram_port0_writeData")
 
-      Bool().setName("ram_port0_enable")
-      Bits(4 bits).setName("ram_port0_mask")
+      Bool().setName("ram_port0_enable") := False
+      Bits(4 bits).setName("ram_port0_mask") := 0
     }
     pinsec
   }
@@ -86,6 +86,8 @@ class PinsecTesterCocotbBoot extends SpinalTesterCocotbBase {
     case _ => config
   }
   override def noVhdl = true
+
+//  withWaveform = true
 }
 
 

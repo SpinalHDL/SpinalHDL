@@ -422,10 +422,12 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
 
   /** Rework the component */
   def rework[T](gen: => T) : T = {
+    ClockDomain.push(this.clockDomain)
     Component.push(this)
     val ret = gen
     prePop()
     Component.pop(this)
+    ClockDomain.pop(this.clockDomain)
     ret
   }
 }

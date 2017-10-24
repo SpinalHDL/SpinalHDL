@@ -148,18 +148,22 @@ object PlayDevFillSwitch{
     val sel = UInt(2 bits)
     val result = Bits(8 bits)
 
+    result := 3
     switch(sel){
       is(0){
         result := 0
       }
-      is(1){
-        result := 1
-      }
-      is(2){
-        result := 2
-      }
+//      is(1){
+//        result := 1
+//      }
+//      is(2){
+//        result := 2
+//      }
       is(3){
-        result := 3
+//        result := 3
+      }
+      default{
+        result := 1
       }
     }
   }

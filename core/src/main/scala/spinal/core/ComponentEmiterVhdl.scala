@@ -433,38 +433,20 @@ class ComponentEmiterVhdl(val c : Component,
             statementIndex = emitLeafStatements(statements,statementIndex, scopePtr, assignementKind,b, tab + "  ")
           }
           case switchStatement : SwitchStatement => {
-            class Task(val element : SwitchStatementElement, val statementIndex : Int)
-            val tasks = mutable.LinkedHashMap[ScopeStatement, Task]()
-            var defaultTask : Task = null
-            var afterSwitchIndex = statementIndex
-            var continue = true
-            var isPure = true
-            //Fill tasks list
-            do {
-              val statement = statements(afterSwitchIndex)
-              def findSwitchScope(scope: ScopeStatement): ScopeStatement = scope.parentStatement match {
-                case null => null
-                case s if s == switchStatement => scope
-                case s => findSwitchScope(s.parentScope)
-              }
-              val isScope = findSwitchScope(statement.parentScope)
-              if (isScope == null) {
-                continue = false
-              } else {
-                if(isScope == switchStatement.defaultScope) {
-                  if(defaultTask == null) {
-                    defaultTask = new Task(null, afterSwitchIndex)
-                  }
-                } else {
-                  if (!tasks.contains(isScope)) {
-                    val e = switchStatement.elements.find(_.scopeStatement == isScope).get
-                    tasks(isScope) = new Task(e, afterSwitchIndex) //TODO find is O^2 complexity
-                    if (e.keys.exists(!_.isInstanceOf[Literal])) isPure = false
-                  }
-                }
-                afterSwitchIndex += 1
-              }
-            } while(continue && afterSwitchIndex < statements.length)
+            val isPure = switchStatement.elements.foldLeft(true)((carry, element) => carry && !(element.keys.exists(!_.isInstanceOf[Literal])))
+            //Generate the code
+            def findSwitchScopeRec(scope: ScopeStatement): ScopeStatement = scope.parentStatement match {
+              case null => null
+              case s if s == switchStatement => scope
+              case s => findSwitchScopeRec(s.parentScope)
+            }
+            def findSwitchScope() : ScopeStatement = {
+              if(statementIndex < statements.length)
+                findSwitchScopeRec(statements(statementIndex).parentScope)
+              else
+                null
+            }
+            var nextScope = findSwitchScope()
 
             //Generate the code
             if(isPure) {
@@ -475,14 +457,20 @@ class ComponentEmiterVhdl(val c : Component,
               }
 
               b ++= s"${tab}case ${emitExpression(switchStatement.value)} is\n"
-              tasks.foreach { case (scope, task) =>
-                b ++= s"${tab}  when ${task.element.keys.map(e => emitIsCond(e)).mkString(" | ")} =>\n"
-                emitLeafStatements(statements, task.statementIndex, scope, assignementKind, b, tab + "    ")
-              }
+              switchStatement.elements.foreach(element =>  {
+                b ++= s"${tab}  when ${element.keys.map(e => emitIsCond(e)).mkString(" | ")} =>\n"
+                if(nextScope == element.scopeStatement) {
+                  statementIndex = emitLeafStatements(statements, statementIndex, element.scopeStatement, assignementKind, b, tab + "    ")
+                  nextScope = findSwitchScope()
+                }
+              })
 
               b ++= s"${tab}  when others =>\n"
-              if (defaultTask != null) {
-                emitLeafStatements(statements, defaultTask.statementIndex, switchStatement.defaultScope, assignementKind, b, tab + "    ")
+              if (switchStatement.defaultScope != null) {
+                if(nextScope == switchStatement.defaultScope) {
+                  statementIndex = emitLeafStatements(statements, statementIndex, switchStatement.defaultScope, assignementKind, b, tab + "    ")
+                  nextScope = findSwitchScope()
+                }
               }
               b ++= s"${tab}end case;\n"
             } else {
@@ -491,21 +479,23 @@ class ComponentEmiterVhdl(val c : Component,
                 case that => s"(${emitExpression(switchStatement.value)} = ${emitExpression(that)})"
               }
               var index = 0
-              var tasksCount = tasks.size
-              for(e <- switchStatement.elements) tasks.get(e.scopeStatement) match {
-                case Some(task) =>
-                  b ++= s"${tab}${if(index == 0) "if" else "elsif"} ${task.element.keys.map(e => emitIsCond(e)).mkString(" or ")} then\n"
-                  emitLeafStatements(statements, task.statementIndex, e.scopeStatement, assignementKind, b, tab + "  ")
-                  index += 1
-                case _ =>
-              }
-              if(defaultTask != null){
+              switchStatement.elements.foreach(element =>  {
+                b ++= s"${tab}${if(index == 0) "if" else "elsif"} ${element.keys.map(e => emitIsCond(e)).mkString(" or ")} then\n"
+                if(nextScope == element.scopeStatement) {
+                  statementIndex = emitLeafStatements(statements, statementIndex, element.scopeStatement, assignementKind, b, tab + "    ")
+                  nextScope = findSwitchScope()
+                }
+                index += 1
+              })
+              if(switchStatement.defaultScope  != null){
                 b ++= s"${tab}else\n"
-                emitLeafStatements(statements, defaultTask.statementIndex, switchStatement.defaultScope, assignementKind, b, tab + "    ")
+                if(nextScope == switchStatement.defaultScope) {
+                  statementIndex = emitLeafStatements(statements, statementIndex, switchStatement.defaultScope, assignementKind, b, tab + "    ")
+                  nextScope = findSwitchScope()
+                }
               }
               b ++= s"${tab}end if;\n"
             }
-            statementIndex = afterSwitchIndex
           }
         }
       }
@@ -732,16 +722,20 @@ class ComponentEmiterVhdl(val c : Component,
         }
       } else {
         def maskCount = mask.getWidth
-        val writeEnableCat = if(writeEnable != null) writeEnable + " and" else ""
-        for(i <- 0 until maskCount) {
+        for(i <- 0 until symbolCount) {
+          var conds = if(writeEnable != null) List(writeEnable) else Nil
           val range = s"(${(i + 1) * bitPerSymbole - 1} downto ${i * bitPerSymbole})"
-          b ++= s"${tab}if $writeEnableCat ${emitExpression(mask)}($i) = '1' then\n"
+          if(mask != null)
+            conds =  s"${emitExpression(mask)}($i) = '1'" :: conds
+          if(conds.nonEmpty)
+            b ++= s"${tab}if ${conds.mkString(" and ")} then\n"
+
           if (memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
             b ++= s"$tab  ${emitReference(mem, false)}(to_integer(${emitExpression(address)}))$range <= ${emitExpression(data)}$range;\n"
           else
             b ++= s"$tab  ${emitReference(mem, false)}_symbol${i}(to_integer(${emitExpression(address)})) <= ${emitExpression(data)}$range;\n"
-
-          b ++= s"${tab}end if;\n"
+          if(conds.nonEmpty)
+            b ++= s"${tab}end if;\n"
         }
       }
     }

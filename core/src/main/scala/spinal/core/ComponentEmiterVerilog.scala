@@ -396,40 +396,21 @@ class ComponentEmiterVerilog(val c : Component,
             statementIndex = emitLeafStatements(statements,statementIndex, scopePtr, assignementKind,b, tab + "  ")
           }
           case switchStatement : SwitchStatement => {
-            class Task(val element : SwitchStatementElement, val statementIndex : Int)
-            val tasks = mutable.LinkedHashMap[ScopeStatement, Task]()
-            var defaultTask : Task = null
-            var afterSwitchIndex = statementIndex
-            var continue = true
-            var isPure = true
-            //Fill tasks list
-            do {
-              val statement = statements(afterSwitchIndex)
-              def findSwitchScope(scope: ScopeStatement): ScopeStatement = scope.parentStatement match {
-                case null => null
-                case s if s == switchStatement => scope
-                case s => findSwitchScope(s.parentScope)
-              }
-              val isScope = findSwitchScope(statement.parentScope)
-              if (isScope == null) {
-                continue = false
-              } else {
-                if(isScope == switchStatement.defaultScope) {
-                  if(defaultTask == null) {
-                    defaultTask = new Task(null, afterSwitchIndex)
-                  }
-                } else {
-                  if (!tasks.contains(isScope)) {
-                    val e = switchStatement.elements.find(_.scopeStatement == isScope).get
-                    tasks(isScope) = new Task(e, afterSwitchIndex) //TODO find is O^2 complexity
-                    if (e.keys.exists(!_.isInstanceOf[Literal])) isPure = false
-                  }
-                }
-                afterSwitchIndex += 1
-              }
-            } while(continue && afterSwitchIndex < statements.length)
-
+            val isPure = switchStatement.elements.foldLeft(true)((carry, element) => carry && !(element.keys.exists(!_.isInstanceOf[Literal])))
             //Generate the code
+            def findSwitchScopeRec(scope: ScopeStatement): ScopeStatement = scope.parentStatement match {
+              case null => null
+              case s if s == switchStatement => scope
+              case s => findSwitchScopeRec(s.parentScope)
+            }
+            def findSwitchScope() : ScopeStatement = {
+              if(statementIndex < statements.length)
+                findSwitchScopeRec(statements(statementIndex).parentScope)
+              else
+                null
+            }
+            var nextScope = findSwitchScope()
+
             if(isPure) {
               def emitIsCond(that : Expression): String = that match {
                 case e : BitVectorLiteral => s"${e.getWidth}'b${e.getBitsStringOn(e.getWidth,'x')}"
@@ -438,15 +419,19 @@ class ComponentEmiterVerilog(val c : Component,
               }
 
               b ++= s"${tab}case(${emitExpression(switchStatement.value)})\n"
-              tasks.foreach { case (scope, task) =>
-                b ++= s"${tab}  ${task.element.keys.map(e => emitIsCond(e)).mkString(", ")} : begin\n"
-                emitLeafStatements(statements, task.statementIndex, scope, assignementKind, b, tab + "    ")
+              switchStatement.elements.foreach(element =>  {
+                b ++= s"${tab}  ${element.keys.map(e => emitIsCond(e)).mkString(", ")} : begin\n"
+                if(nextScope == element.scopeStatement) {
+                  statementIndex = emitLeafStatements(statements, statementIndex, element.scopeStatement, assignementKind, b, tab + "    ")
+                  nextScope = findSwitchScope()
+                }
                 b ++= s"${tab}  end\n"
-              }
+              })
 
               b ++= s"${tab}  default : begin\n"
-              if (defaultTask != null) {
-                emitLeafStatements(statements, defaultTask.statementIndex, switchStatement.defaultScope, assignementKind, b, tab + "    ")
+              if(nextScope == switchStatement.defaultScope) {
+                statementIndex = emitLeafStatements(statements, statementIndex, switchStatement.defaultScope, assignementKind, b, tab + "    ")
+                nextScope = findSwitchScope()
               }
               b ++= s"${tab}  end\n"
               b ++= s"${tab}endcase\n"
@@ -456,21 +441,23 @@ class ComponentEmiterVerilog(val c : Component,
                 case that => s"(${emitExpression(switchStatement.value)} == ${emitExpression(that)})"
               }
               var index = 0
-              var tasksCount = tasks.size
-              for(e <- switchStatement.elements) tasks.get(e.scopeStatement) match {
-                case Some(task) =>
-                  b ++= s"${tab}${if(index == 0) "if" else "end else if"}(${task.element.keys.map(e => emitIsCond(e)).mkString(" || ")}) begin\n"
-                  emitLeafStatements(statements, task.statementIndex, e.scopeStatement, assignementKind, b, tab + "  ")
-                  index += 1
-                case _ =>
-              }
-              if(defaultTask != null){
+              switchStatement.elements.foreach(element =>  {
+                b ++= s"${tab}${if(index == 0) "if" else "end else if"}(${element.keys.map(e => emitIsCond(e)).mkString(" || ")}) begin\n"
+                if(nextScope == element.scopeStatement) {
+                  statementIndex = emitLeafStatements(statements, statementIndex, element.scopeStatement, assignementKind, b, tab + "    ")
+                  nextScope = findSwitchScope()
+                }
+                index += 1
+              })
+              if(switchStatement.defaultScope != null){
                 b ++= s"${tab}end else begin\n"
-                emitLeafStatements(statements, defaultTask.statementIndex, switchStatement.defaultScope, assignementKind, b, tab + "    ")
+                if(nextScope == switchStatement.defaultScope) {
+                  statementIndex = emitLeafStatements(statements, statementIndex, switchStatement.defaultScope, assignementKind, b, tab + "    ")
+                  nextScope = findSwitchScope()
+                }
               }
               b ++= s"${tab}end\n"
             }
-            statementIndex = afterSwitchIndex
           }
         }
       }
@@ -699,16 +686,20 @@ end
         }
       } else {
         def maskCount = mask.getWidth
-        val writeEnableCat = if(writeEnable != null) writeEnable + " &&" else ""
-        for(i <- 0 until maskCount) {
+        for(i <- 0 until symbolCount) {
+          var conds = if(writeEnable != null) List(writeEnable) else Nil
           val range = s"[${(i + 1) * bitPerSymbole - 1} : ${i * bitPerSymbole}]"
-          b ++= s"${tab}if($writeEnableCat ${emitExpression(mask)}[$i]) begin\n"
+          if(mask != null)
+            conds =  s"${emitExpression(mask)}[$i]" :: conds
+          if(conds.nonEmpty)
+            b ++= s"${tab}if(${conds.mkString(" && ")}) begin\n"
+
           if (memBitsMaskKind == SINGLE_RAM || symbolCount == 1)
             b ++= s"$tab  ${emitReference(mem, false)}[${emitExpression(address)}]$range <= ${emitExpression(data)}$range;\n"
           else
             b ++= s"$tab  ${emitReference(mem, false)}_symbol${i}[${emitExpression(address)}] <= ${emitExpression(data)}$range;\n"
-
-          b ++= s"${tab}end\n"
+          if(conds.nonEmpty)
+            b ++= s"${tab}end\n"
         }
       }
     }
