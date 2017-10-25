@@ -69,7 +69,7 @@ abstract class ComponentEmiter {
   }
 
   def isSubComponentInputBinded(data : BaseType) = {
-    if(data.isInput && data.isComb && data.hasOnlyOneStatement && data.head.parentScope == data.rootScopeStatement && Statement.isFullToFullStatement(data.head)/* && data.head.asInstanceOf[AssignementStatement].source.asInstanceOf[BaseType].component == data.component.parent*/)
+    if(data.isInput && data.isComb && data.hasOnlyOneStatement && data.head.parentScope == data.rootScopeStatement && Statement.isFullToFullStatement(data.head)/* && data.head.asInstanceOf[AssignmentStatement].source.asInstanceOf[BaseType].component == data.component.parent*/)
       data.head.source.asInstanceOf[BaseType]
     else
       null
@@ -82,14 +82,14 @@ abstract class ComponentEmiter {
     //Sort all leaf statements into their nature (sync/async)
     var syncGroupInstanceCounter = 0
     component.dslBody.walkLeafStatements(_ match {
-      case s : AssignementStatement => s.finalTarget match {
+      case s : AssignmentStatement => s.finalTarget match {
         case target : BaseType if target.isComb => asyncStatement += s
         case target : BaseType if target.isReg  => {
           val group = syncGroups.getOrElseUpdate((target.clockDomain, s.rootScopeStatement, target.hasInit) , new SyncGroup(target.clockDomain ,s.rootScopeStatement, target.hasInit, syncGroupInstanceCounter))
           syncGroupInstanceCounter += 1
           s match {
-            case s : InitAssignementStatement => group.initStatements += s
-            case s : DataAssignementStatement => group.dataStatements += s
+            case s : InitAssignmentStatement => group.initStatements += s
+            case s : DataAssignmentStatement => group.dataStatements += s
           }
         }
       }
@@ -108,7 +108,7 @@ abstract class ComponentEmiter {
     val rootTreeStatementPerAsyncProcess = mutable.LinkedHashMap[TreeStatement,AsyncProcess]()
     var asyncGroupInstanceCounter = 0
     for(s <- asyncStatement) s match{
-      case s : AssignementStatement => {
+      case s : AssignmentStatement => {
         var rootTreeStatement: TreeStatement = null
         var scopePtr = s.parentScope
         val finalTarget = s.finalTarget
@@ -157,7 +157,7 @@ abstract class ComponentEmiter {
     //Add statements into AsyncProcesses
     asyncProcessFromNameableTarget.valuesIterator.foreach(p => processes += p) //TODO IR better perf
     for(s <- asyncStatement) s match {
-      case s: AssignementStatement => {
+      case s: AssignmentStatement => {
         var process = asyncProcessFromNameableTarget.getOrElse(s.finalTarget,null)
         if(process == null){
           process = new AsyncProcess(s.rootScopeStatement,asyncGroupInstanceCounter)
@@ -182,7 +182,7 @@ abstract class ComponentEmiter {
           val statement = statements(statementIndex)
 
           statement match {
-            case AssignementStatement(target : RangedAssignmentFloating, _) => expressionToWrap += target.offset
+            case AssignmentStatement(target : RangedAssignmentFloating, _) => expressionToWrap += target.offset
             case _ =>
           }
 

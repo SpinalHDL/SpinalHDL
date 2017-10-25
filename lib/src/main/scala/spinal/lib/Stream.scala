@@ -204,17 +204,17 @@ class Stream[T <: Data](_dataType:  T) extends Bundle with IMasterSlave with Dat
     that.ready := this.ready
   }
 
-  def translateFrom[T2 <: Data](that: Stream[T2])(dataAssignement: (T, that.payload.type) => Unit): Stream[T] = {
+  def translateFrom[T2 <: Data](that: Stream[T2])(dataAssignment: (T, that.payload.type) => Unit): Stream[T] = {
     this.valid := that.valid
     that.ready := this.ready
-    dataAssignement(this.payload, that.payload)
+    dataAssignment(this.payload, that.payload)
     this
   }
 
 
 
-  def translateInto[T2 <: Data](into: Stream[T2])(dataAssignement: (T2, T) => Unit): Stream[T2] = {
-    into.translateFrom(this)(dataAssignement)
+  def translateInto[T2 <: Data](into: Stream[T2])(dataAssignment: (T2, T) => Unit): Stream[T2] = {
+    into.translateFrom(this)(dataAssignment)
     into
   }
 

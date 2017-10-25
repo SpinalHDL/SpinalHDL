@@ -294,7 +294,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
     return ret.asInstanceOf[this.type]
   }
   def allowOverride : this.type ={
-    addTag(allowAssignementOverride)
+    addTag(allowAssignmentOverride)
   }
 
 

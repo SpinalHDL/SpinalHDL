@@ -181,11 +181,11 @@ trait Expression extends BaseNode with ExpressionContainer{
 //TODO IR check same scope
 object Statement{
   def isFullToFullStatement(s : Statement) = s match {
-    case  AssignementStatement(a : DeclarationStatement,b : DeclarationStatement) => true
+    case  AssignmentStatement(a : DeclarationStatement,b : DeclarationStatement) => true
     case _ => false
   }
   def isSomethingToFullStatement(s : Statement) = s match {
-    case  AssignementStatement(a : DeclarationStatement,_) => true
+    case  AssignmentStatement(a : DeclarationStatement,_) => true
     case _ => false
   }
 }
@@ -271,16 +271,16 @@ trait TreeStatement extends Statement{
   }
 }
 
-//trait AssignementStatementTarget {
+//trait AssignmentStatementTarget {
 //  private [core] def nameableNode : NameableNode
 //}
 
 
-object AssignementStatement{
-  def unapply(x : AssignementStatement) : Option[(Expression, Expression)] = Some(x.target, x.source)
+object AssignmentStatement{
+  def unapply(x : AssignmentStatement) : Option[(Expression, Expression)] = Some(x.target, x.source)
 }
 
-abstract class AssignementStatement extends LeafStatement with StatementDoubleLinkedContainerElement[BaseType,AssignementStatement]{
+abstract class AssignmentStatement extends LeafStatement with StatementDoubleLinkedContainerElement[BaseType,AssignmentStatement]{
   var target, source : Expression = null
   override def rootScopeStatement = finalTarget.rootScopeStatement
 
@@ -296,7 +296,7 @@ abstract class AssignementStatement extends LeafStatement with StatementDoubleLi
 
   def finalTarget : BaseType = target match{
     case n : BaseType => n
-    case a : AssignementExpression => a.finalTarget
+    case a : AssignmentExpression => a.finalTarget
   }
 
   def foreachExpression(func : (Expression) => Unit) : Unit = {
@@ -307,7 +307,7 @@ abstract class AssignementStatement extends LeafStatement with StatementDoubleLi
   override def foreachDrivingExpression(func : (Expression) => Unit) : Unit = {
     target match {
       case ref : BaseType =>
-      case a : AssignementExpression => a.foreachDrivingExpression(func)
+      case a : AssignmentExpression => a.foreachDrivingExpression(func)
     }
     func(source)
   }
@@ -316,7 +316,7 @@ abstract class AssignementStatement extends LeafStatement with StatementDoubleLi
   override def remapDrivingExpressions(func: (Expression) => Expression): Unit = {
     target match {
       case ref : BaseType =>
-      case a : AssignementExpression => a.remapDrivingExpressions(func)
+      case a : AssignmentExpression => a.remapDrivingExpressions(func)
     }
     source = func(source)
   }
@@ -329,9 +329,9 @@ abstract class AssignementStatement extends LeafStatement with StatementDoubleLi
 
 }
 
-object DataAssignementStatement{
+object DataAssignmentStatement{
   def apply(target : Expression, source : Expression) = {
-    val ret = new DataAssignementStatement
+    val ret = new DataAssignmentStatement
     ret.target = target
     ret.source = source
     ret.finalTarget.dlcAppend(ret)
@@ -339,13 +339,13 @@ object DataAssignementStatement{
   }
 }
 
-class DataAssignementStatement extends AssignementStatement{
+class DataAssignmentStatement extends AssignmentStatement{
 
 }
 
-object InitAssignementStatement{
+object InitAssignmentStatement{
   def apply(target : Expression, source : Expression) = {
-    val ret = new InitAssignementStatement
+    val ret = new InitAssignmentStatement
     ret.target = target
     ret.source = source
     ret.finalTarget.dlcAppend(ret)
@@ -353,7 +353,7 @@ object InitAssignementStatement{
   }
 }
 
-class InitAssignementStatement extends AssignementStatement{
+class InitAssignmentStatement extends AssignmentStatement{
 
 }
 

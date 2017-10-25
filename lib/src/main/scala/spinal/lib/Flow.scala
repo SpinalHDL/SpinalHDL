@@ -89,9 +89,9 @@ class Flow[T <: Data](_dataType: T) extends Bundle with IMasterSlave with DataCa
     next
   }
 
-  def translateFrom[T2 <: Data](that: Flow[T2])(dataAssignement: (T, that.payload.type) => Unit): Flow[T] = {
+  def translateFrom[T2 <: Data](that: Flow[T2])(dataAssignment: (T, that.payload.type) => Unit): Flow[T] = {
     this.valid := that.valid
-    dataAssignement(this.payload, that.payload)
+    dataAssignment(this.payload, that.payload)
     this
   }
 

@@ -52,24 +52,24 @@ import java.util.{Calendar, Date}
 //}
 //
 //
-//trait AssignementLevelNode{
+//trait AssignmentLevelNode{
 //  var dependencies = 0
-//  val dependers = ArrayBuffer[AssignementLevelNode]()
+//  val dependers = ArrayBuffer[AssignmentLevelNode]()
 //
-//  def addDepender(that : AssignementLevelNode) : Unit = {
+//  def addDepender(that : AssignmentLevelNode) : Unit = {
 //    dependers += that
 //    that.dependencies += 1
 //  }
 //}
-//case class AssignementLevelSimple(that : Node,by : Node) extends AssignementLevelNode{
+//case class AssignmentLevelSimple(that : Node,by : Node) extends AssignmentLevelNode{
 //
 //}
-//class AssignementLevelWhen(val cond: Node,val context : WhenContext) extends AssignementLevelNode{
-//  var whenTrue: AssignementLevel = null
-//  var whenFalse: AssignementLevel = null
-//  val whenTrueCmds,whenFalseCmds = ArrayBuffer[AssignementLevelCmd]()
+//class AssignmentLevelWhen(val cond: Node,val context : WhenContext) extends AssignmentLevelNode{
+//  var whenTrue: AssignmentLevel = null
+//  var whenFalse: AssignmentLevel = null
+//  val whenTrueCmds,whenFalseCmds = ArrayBuffer[AssignmentLevelCmd]()
 //
-//  def isSwitchable: (Node,Node,AssignementLevelWhen) = {
+//  def isSwitchable: (Node,Node,AssignmentLevelWhen) = {
 //    (if(cond.isInstanceOf[Bool]) cond.asInstanceOf[Bool].input else cond) match {
 //      case cond : Operator.Enum.Equal => {
 //        (cond.left,if(cond.right.isInstanceOf[SpinalEnumCraft[_]]) cond.right.asInstanceOf[SpinalEnumCraft[_]].input else cond.right) match {
@@ -90,52 +90,52 @@ import java.util.{Calendar, Date}
 //    return null
 //  }
 //
-//  def getElseWhenChain() : List[AssignementLevelWhen] = {
-//    // && whenFalse.content.head.isInstanceOf[AssignementLevelWhen]
-//    if(whenFalse.content.size == 1 && whenFalse.content.head.isInstanceOf[AssignementLevelWhen]){
-//      this :: whenFalse.content.head.asInstanceOf[AssignementLevelWhen].getElseWhenChain()
+//  def getElseWhenChain() : List[AssignmentLevelWhen] = {
+//    // && whenFalse.content.head.isInstanceOf[AssignmentLevelWhen]
+//    if(whenFalse.content.size == 1 && whenFalse.content.head.isInstanceOf[AssignmentLevelWhen]){
+//      this :: whenFalse.content.head.asInstanceOf[AssignmentLevelWhen].getElseWhenChain()
 //    }else{
 //      List(this)
 //    }
 //  }
 //}
 //
-//class AssignementLevelSwitch(val key: Node) extends AssignementLevelNode {
+//class AssignmentLevelSwitch(val key: Node) extends AssignmentLevelNode {
 //  val cases = ArrayBuffer[SwitchTreeCase]()
 //  var default : SwitchTreeDefault = null
 //}
 //
-//case class SwitchTreeCase(const : Node,doThat : AssignementLevel)
-//case class SwitchTreeDefault(doThat : AssignementLevel)
-//case class AssignementLevelCmd(that : Node,by : Node)
+//case class SwitchTreeCase(const : Node,doThat : AssignmentLevel)
+//case class SwitchTreeDefault(doThat : AssignmentLevel)
+//case class AssignmentLevelCmd(that : Node,by : Node)
 //
-//class AssignementLevel(inTasks : Seq[AssignementLevelCmd]) {
-//  val content = new ArrayBuffer[AssignementLevelNode]()
+//class AssignmentLevel(inTasks : Seq[AssignmentLevelCmd]) {
+//  val content = new ArrayBuffer[AssignmentLevelNode]()
 //
 //  def isNotEmpty = !content.isEmpty
-//  def isOnlyAWhen = content.size == 1 && content.head.isInstanceOf[AssignementLevelWhen]
+//  def isOnlyAWhen = content.size == 1 && content.head.isInstanceOf[AssignmentLevelWhen]
 //
 //  def build(): Unit = {
 //    def getElements(that : Node): Iterator[Node] = if (that.isInstanceOf[MultipleAssignmentNode])
 //      that.getInputs else Iterator(that)
 //
-//    val whenMap = mutable.HashMap[WhenContext,AssignementLevelWhen]()
+//    val whenMap = mutable.HashMap[WhenContext,AssignmentLevelWhen]()
 //
 //    inTasks.foreach(inTask => {
-//      var previous : AssignementLevelNode = null
+//      var previous : AssignmentLevelNode = null
 //      getElements(inTask.by).foreach(input => input match {
 //        case input : WhenNode => {
 //          val temp = whenMap.getOrElseUpdate(input.w,{
-//            val newOne = new AssignementLevelWhen(input.cond,input.w)
+//            val newOne = new AssignmentLevelWhen(input.cond,input.w)
 //            content += newOne
 //            newOne
 //          })
 //
 //          if (input.whenTrue != null) {
-//            temp.whenTrueCmds += AssignementLevelCmd(inTask.that,input.whenTrue)
+//            temp.whenTrueCmds += AssignmentLevelCmd(inTask.that,input.whenTrue)
 //          }
 //          if (input.whenFalse != null) {
-//            temp.whenFalseCmds += AssignementLevelCmd(inTask.that,input.whenFalse)
+//            temp.whenFalseCmds += AssignmentLevelCmd(inTask.that,input.whenFalse)
 //          }
 //
 //          if(previous != null) previous.addDepender(temp)
@@ -143,7 +143,7 @@ import java.util.{Calendar, Date}
 //        }
 //        case reg: Reg =>
 //        case input  => {
-//          val temp = AssignementLevelSimple(inTask.that,input)
+//          val temp = AssignmentLevelSimple(inTask.that,input)
 //          content += temp
 //          if(previous != null) previous.addDepender(temp)
 //          previous = temp
@@ -154,7 +154,7 @@ import java.util.{Calendar, Date}
 //    val readyTasks = content.filter(_.dependencies == 0)
 //    content.clear()
 //
-//    def flushTask(task : AssignementLevelNode) : Unit = {
+//    def flushTask(task : AssignmentLevelNode) : Unit = {
 //      content += task
 //      task.dependers.foreach(depender => {
 //        depender.dependencies -= 1
@@ -164,11 +164,11 @@ import java.util.{Calendar, Date}
 //    readyTasks.foreach(flushTask)
 //
 //    content.foreach(_ match {
-//      case task : AssignementLevelWhen => {
-//        task.whenTrue = new AssignementLevel(task.whenTrueCmds)
-//        task.whenFalse = new AssignementLevel(task.whenFalseCmds)
+//      case task : AssignmentLevelWhen => {
+//        task.whenTrue = new AssignmentLevel(task.whenTrueCmds)
+//        task.whenFalse = new AssignmentLevel(task.whenFalseCmds)
 //      }
-//      case task : AssignementLevelNode =>
+//      case task : AssignmentLevelNode =>
 //    })
 //  }
 //
@@ -178,14 +178,14 @@ import java.util.{Calendar, Date}
 //    while(idx != 0){
 //      idx-=1;
 //      content(idx) match {
-//        case whenTree : AssignementLevelWhen if whenTree.context.parentElseWhen == null => {
+//        case whenTree : AssignmentLevelWhen if whenTree.context.parentElseWhen == null => {
 //          val chain = whenTree.getElseWhenChain()
 //          if(chain.size > 1){
 //            val switchable = chain.map(_.isSwitchable)
 //            if(switchable.foldLeft(true)((carry,e) => carry && (e != null))){
 //              val key = switchable.head._1
 //              if(switchable.foldLeft(true)((carry,k) => carry && (k._1 == key))) {
-//                val switchNode = new AssignementLevelSwitch(key)
+//                val switchNode = new AssignmentLevelSwitch(key)
 //                switchable.foreach { case (_, lit, src) => {
 //                  switchNode.cases += SwitchTreeCase(lit, src.whenTrue)
 //                }}
@@ -258,7 +258,7 @@ trait VhdlVerilogBase {
 //        //        val ma: MultipleAssignmentNode = nodes(0).getInput(0).asInstanceOf[MultipleAssignmentNode]
 //        //        val assignedBits = new AssignedBits(nodes(0).getWidth)
 //        //        ma.onEachInput(_ match {
-//        //          case assign: AssignementNode => {
+//        //          case assign: AssignmentNode => {
 //        //            val scope = assign.getScopeBits
 //        //            if (!AssignedBits.intersect(scope, assignedBits).isEmpty) return true
 //        //            assignedBits.add(scope)

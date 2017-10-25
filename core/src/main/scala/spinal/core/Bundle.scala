@@ -55,7 +55,7 @@ class Bundle extends MultiData with Nameable with OverridedEqualsHashCode {
     for ((name, element) <- elements) {
       val other = that.find(name)
       if (other == null)
-        PendingError(s"Bundle assignement is not complete. Missing $name\n " + ScalaLocated.long)
+        PendingError(s"Bundle assignment is not complete. Missing $name\n " + ScalaLocated.long)
       else element match {
         case b: Bundle => b.assignAllByName(other.asInstanceOf[Bundle])
         case _ => element := other
@@ -84,7 +84,7 @@ class Bundle extends MultiData with Nameable with OverridedEqualsHashCode {
           val other = that.find(name)
           if (other == null) {
             val trace = ScalaLocated.long
-            PendingError(s"Bundle assignement is not complete. $this need '$name' but $that doesn't provide it.\n$trace ")
+            PendingError(s"Bundle assignment is not complete. $this need '$name' but $that doesn't provide it.\n$trace ")
           }
           else
             element.compositAssignFrom(other,element,kind)

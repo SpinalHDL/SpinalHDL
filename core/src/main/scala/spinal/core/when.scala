@@ -61,7 +61,7 @@ object ConditionalContext{
 
     globalData.context.push(componentContextStack.pop())
     val cond = Bool()
-    originalContext.component.dslBody.prepend(DataAssignementStatement(cond, new BoolLiteral(false)))
+    originalContext.component.dslBody.prepend(DataAssignmentStatement(cond, new BoolLiteral(false)))
 
     while(componentContextStack.nonEmpty){
       globalData.context.push(componentContextStack.pop())
@@ -253,7 +253,7 @@ object default {
 //  override private[core] def checkInferedWidth: Unit = {
 //    def doit(input : T,i : Int) : Unit = {
 //      if (input != null && input.component != null && this.getWidth != input.getWidth) {
-//        PendingError(s"Assignement bit count missmatch. ${AssignementTree.getDrivedBaseType(this)} := ${input}} at\n${ScalaLocated.long(getAssignementContext(i))}")
+//        PendingError(s"Assignment bit count missmatch. ${AssignmentTree.getDrivedBaseType(this)} := ${input}} at\n${ScalaLocated.long(getAssignmentContext(i))}")
 //      }
 //    }
 //

@@ -72,7 +72,7 @@ package spinal.core
 //}
 
 
-//class VecBaseTypeAssignFixed(val vec : VecBaseType[_],val sels : Seq[Int]) extends AssignementNode{
+//class VecBaseTypeAssignFixed(val vec : VecBaseType[_],val sels : Seq[Int]) extends AssignmentNode{
 //  inputs += null
 //  def getData = getInput(0)
 //

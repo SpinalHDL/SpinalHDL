@@ -2615,7 +2615,7 @@ object PlayBigDecimal{
 
   }
 }
-//val context = new AssignementLevel(process.nodes.map(n => AssignementLevelCmd(n,n.getInput(0))))
+//val context = new AssignmentLevel(process.nodes.map(n => AssignmentLevelCmd(n,n.getInput(0))))
 
 object PlaySwitchEmit{
   class TopLevel extends Component {
@@ -3084,7 +3084,7 @@ object PlayCrossHearchy{
 
     val componentX = new ComponentX
     val Y = Bool
-    componentX.X := Y //This assignement is not legal
+    componentX.X := Y //This assignment is not legal
 
   }
   def main(args: Array[String]) {
@@ -3296,4 +3296,3 @@ object PlayDontCareEnum{
     SpinalConfig(debug = true).generateVerilog(new TopLevel)
   }
 }
-

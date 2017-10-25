@@ -1479,7 +1479,7 @@ class AssignedBits(val width : Int) {
   }
 }
 
-abstract class AssignementExpression extends Expression {
+abstract class AssignmentExpression extends Expression {
   def finalTarget: BaseType
   override def foreachDrivingExpression(func : (Expression) => Unit) : Unit
   override def remapDrivingExpressions(func: (Expression) => Expression): Unit
@@ -1493,7 +1493,7 @@ abstract class AssignementExpression extends Expression {
 
 
 
-abstract class BitVectorAssignementExpression extends AssignementExpression{
+abstract class BitVectorAssignmentExpression extends AssignmentExpression{
   override def getTypeObject = throw new Exception("Doesn't make sense")
   def minimalTargetWidth : Int
 }
@@ -1506,7 +1506,7 @@ object BitAssignmentFixed{
     ret
   }
 }
-class BitAssignmentFixed() extends BitVectorAssignementExpression with ScalaLocated{
+class BitAssignmentFixed() extends BitVectorAssignmentExpression with ScalaLocated{
   var out: BitVector = null
   var bitId: Int = -1
 
@@ -1558,7 +1558,7 @@ object RangedAssignmentFixed{
   }
 }
 
-class RangedAssignmentFixed() extends BitVectorAssignementExpression with WidthProvider {
+class RangedAssignmentFixed() extends BitVectorAssignmentExpression with WidthProvider {
   var out: BitVector = null
   var hi = -1
   var lo = 0
@@ -1605,7 +1605,7 @@ object BitAssignmentFloating{
     assign
   }
 }
-class BitAssignmentFloating() extends BitVectorAssignementExpression{
+class BitAssignmentFloating() extends BitVectorAssignmentExpression{
   var out  : BitVector = null
   var bitId  : Expression with WidthProvider = null
 
@@ -1664,7 +1664,7 @@ object RangedAssignmentFloating{
   }
 }
 
-class RangedAssignmentFloating() extends BitVectorAssignementExpression with WidthProvider {
+class RangedAssignmentFloating() extends BitVectorAssignmentExpression with WidthProvider {
   var out  : BitVector = null
   var offset  : Expression with WidthProvider = null
   var bitCount : Int = -1

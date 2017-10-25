@@ -20,7 +20,7 @@ case class Axi4ReadOnlyArbiter(outputConfig: Axi4Config,inputsCount : Int) exten
   (cmdArbiter.io.inputs,io.inputs.map(_.readCmd)).zipped.map(_ <> _)
   cmdArbiter.io.output <> io.output.readCmd
 
-  io.output.readCmd.id.removeAssignements()
+  io.output.readCmd.id.removeAssignments()
   io.output.readCmd.id := (cmdArbiter.io.chosen @@ cmdArbiter.io.output.id)
 
   // Route readResp
@@ -30,7 +30,7 @@ case class Axi4ReadOnlyArbiter(outputConfig: Axi4Config,inputsCount : Int) exten
   for((input,sel)<- (io.inputs,readRspSels).zipped){
     input.readRsp.valid := io.output.readRsp.valid && sel
     input.readRsp.payload <> io.output.readRsp.payload
-    input.readRsp.id.removeAssignements()
+    input.readRsp.id.removeAssignments()
     input.readRsp.id := io.output.readRsp.id(idPathRange.low-1 downto 0)
   }
   io.output.readRsp.ready := io.inputs(readRspIndex).readRsp.ready
@@ -60,7 +60,7 @@ case class Axi4WriteOnlyArbiter(outputConfig: Axi4Config,inputsCount : Int,route
   (cmdArbiter.io.inputs,io.inputs.map(_.writeCmd)).zipped.map(_ <> _)
   val (cmdOutputFork,cmdRouteFork) = StreamFork2(cmdArbiter.io.output)
   io.output.writeCmd << cmdOutputFork
-  io.output.writeCmd.id.removeAssignements()
+  io.output.writeCmd.id.removeAssignments()
   io.output.writeCmd.id := (cmdArbiter.io.chosen @@ cmdArbiter.io.output.id)
   
   // Route writeData
@@ -80,7 +80,7 @@ case class Axi4WriteOnlyArbiter(outputConfig: Axi4Config,inputsCount : Int,route
   for((input,sel)<- (io.inputs,writeRspSels).zipped){
     input.writeRsp.valid := io.output.writeRsp.valid && sel
     input.writeRsp.payload <> io.output.writeRsp.payload
-    input.writeRsp.id.removeAssignements()
+    input.writeRsp.id.removeAssignments()
     input.writeRsp.id := io.output.writeRsp.id(idPathRange.low-1 downto 0)
   }
   io.output.writeRsp.ready := io.inputs(writeRspIndex).writeRsp.ready
@@ -130,14 +130,14 @@ case class Axi4SharedArbiter(outputConfig: Axi4Config,
     val newPayload = Axi4Arw(sharedInputConfig)
     newPayload.assignSomeByName(axi.readCmd.payload)
     newPayload.write := False
-    newPayload.id.removeAssignements()
+    newPayload.id.removeAssignments()
     newPayload.id := axi.readCmd.id.resized
     axi.readCmd.translateWith(newPayload)
   }) ++ io.writeInputs.map(axi => {
     val newPayload = Axi4Arw(sharedInputConfig)
     newPayload.assignSomeByName(axi.writeCmd.payload)
     newPayload.write := True
-    newPayload.id.removeAssignements()
+    newPayload.id.removeAssignments()
     newPayload.id := axi.writeCmd.id.resized
     axi.writeCmd.translateWith(newPayload)
   }) ++ io.sharedInputs.map( axi => {
@@ -148,7 +148,7 @@ case class Axi4SharedArbiter(outputConfig: Axi4Config,
   (inputsCmd,cmdArbiter.io.inputs).zipped.map(_ drive _)
   val (cmdOutputFork,cmdRouteFork) = StreamFork2(cmdArbiter.io.output)
   io.output.sharedCmd << cmdOutputFork
-  io.output.sharedCmd.id.removeAssignements()
+  io.output.sharedCmd.id.removeAssignments()
   io.output.sharedCmd.id := Mux(
     sel       = cmdOutputFork.write,
     whenTrue  = OHToUInt(cmdArbiter.io.chosenOH(sharedRange) ## cmdArbiter.io.chosenOH(writeRange)) @@ cmdOutputFork.id,
@@ -174,7 +174,7 @@ case class Axi4SharedArbiter(outputConfig: Axi4Config,
   for((input,sel)<- (writeRspInputs,writeRspSels).zipped){
     input.valid := io.output.writeRsp.valid && sel
     input.payload <> io.output.writeRsp.payload
-    input.id.removeAssignements()
+    input.id.removeAssignments()
     input.id := io.output.writeRsp.id.resized
   }
   io.output.writeRsp.ready := writeRspInputs.read(writeRspIndex).ready
@@ -187,10 +187,8 @@ case class Axi4SharedArbiter(outputConfig: Axi4Config,
   for((input,sel)<- (readRspInputs,readRspSels).zipped){
     input.valid := io.output.readRsp.valid && sel
     input.payload <> io.output.readRsp.payload
-    input.id.removeAssignements()
+    input.id.removeAssignments()
     input.id := io.output.readRsp.id.resized
   }
   io.output.readRsp.ready := readRspInputs.read(readRspIndex).ready
 }
-
-

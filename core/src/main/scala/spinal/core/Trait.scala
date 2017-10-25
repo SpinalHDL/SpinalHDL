@@ -651,7 +651,7 @@ trait SpinalTag {
   def canSymplifyHost = false
 }
 
-object allowAssignementOverride extends SpinalTag
+object allowAssignmentOverride extends SpinalTag
 object unusedTag extends SpinalTag
 object noCombinatorialLoopCheck extends SpinalTag
 object crossClockDomain extends SpinalTag{override def moveToSyncNode = true}
@@ -814,7 +814,7 @@ class GlobalData {
 
   var anonymSignalPrefix : String = null
   var commonClockConfig = ClockDomainConfig()
-//  var overridingAssignementWarnings = true
+//  var overridingAssignmentWarnings = true
   var nodeAreNamed = false
   var nodeAreInferringWidth = false
   var nodeAreInferringEnumEncoding = false

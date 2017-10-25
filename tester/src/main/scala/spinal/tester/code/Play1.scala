@@ -2371,7 +2371,7 @@ object PlayLiteral {
   }
 }
 
-//TODO switch test comb loop and uncomplet assignement, maybe switchnode should extend multiple assignement node ?
+//TODO switch test comb loop and uncomplet assignment, maybe switchnode should extend multiple assignment node ?
 object PlaySwitch2 {
 
   class TopLevel extends Component {
