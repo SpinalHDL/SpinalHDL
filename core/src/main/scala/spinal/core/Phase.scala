@@ -764,153 +764,149 @@ class PhaseNormalizeNodeInputs(pc: PhaseContext) extends PhaseNetlist{
   }
 }
 
-//class PhaseCheckCombinationalLoops(pc: PhaseContext) extends PhaseCheck{
-//  override def useNodeConsumers = false
-//  override def impl(pc : PhaseContext): Unit = {
-//    import pc._
-//    val targetAlgoId = GlobalData.get.allocateAlgoId()
-//
-//    val errors = mutable.ArrayBuffer[String]()
-//    val pendingNodes = mutable.Stack[Node]()
-//    pendingNodes.pushAll(walkNodesDefautStack)
-//
-//    def nodeIsCompleted(node: Node) = node.algoId = targetAlgoId
-//    def isNodeCompleted(node : Node) = node.algoId == targetAlgoId
-//
-//    def getNodeWidth(that : Node): Int = that match {
-//      case that : WidthProvider => that.getWidth
-//      case _ => 1 //Pessimistic for enum
-//    }
-//
-//    while (!pendingNodes.isEmpty) {
-//      val pop = pendingNodes.pop()
-//      walk(scala.collection.immutable.HashMap[Node, AssignedBits](),Nil,pop,getNodeWidth(pop)-1,0)
-//    }
-//
-//    if (!errors.isEmpty)
-//      SpinalError(errors)
-//
-//    def walk(consumers :  scala.collection.immutable.HashMap[Node, AssignedBits],stack : List[(Node,Int,Int)],
-//             node: Node,
-//             outHi : Int, outLo : Int): Unit = {
-//      if (node == null || node.component == null) {
-//
-//      }else {
-//        val newStack = Tuple3(node,outHi,outLo) :: stack
-//        var bitsAlreadyUsed = consumers.getOrElse(node, new AssignedBits(getNodeWidth(node)))
-//        if (bitsAlreadyUsed.isIntersecting(AssignedRange(outHi, outLo))) {
-//          val ordred = newStack.reverseIterator
-//          val filtred = ordred.dropWhile((e) => (e._1 != node || e._2 < outLo || e._3 > outHi)).drop(1).toArray
-//          if(!filtred.exists(_._1.hasTag(noCombinatorialLoopCheck))) {
-//            // val filtredNode = filtred.map(_._1)
-//            val wellNameLoop = filtred.reverseIterator.filter { case (n, hi, lo) => n.isInstanceOf[Nameable] && n.asInstanceOf[Nameable].isNamed }.map { case (n, hi, lo) => n.asInstanceOf[Nameable].toString() + s"[$hi:$lo]" }.foldLeft("")(_ + _ + " ->\n      ")
-//            val multiLineLoop = filtred.reverseIterator.map(n => "      " + n.toString).foldLeft("") (_ + "\n" + _)
-//            errors += s"  Combinatorial loop !\n      Partial chain :\n      ${wellNameLoop}\n      Full chain :\n${multiLineLoop}"
-//          }
-//        }else if (!isNodeCompleted(node)) {
-//          node match {
-//            case syncNode: SyncNode => {
-//              nodeIsCompleted(node)
-//              val newConsumers = consumers + (node -> bitsAlreadyUsed.+(AssignedRange(outHi, outLo)))
-//              val syncNode = node.asInstanceOf[SyncNode]
-//              syncNode.getSynchronousInputs.foreach(addPendingNode(_))
-//              syncNode.getAsynchronousInputs.foreach(i => walk(newConsumers,newStack, i, getNodeWidth(i) - 1, 0)) //TODO, pessimistic
-//            }
-//            case baseType: BaseType => {
-//              val consumersPlusFull = consumers + (baseType -> bitsAlreadyUsed.+(AssignedRange(getNodeWidth(node) - 1, 0)))
-//              def walkBaseType(node: Node): Unit = {
-//                if (node != null) {
-//                  node match {
-//                    case node: MultipleAssignmentNode => node.onEachInput(input => walkBaseType(input))
-//                    case node: WhenNode => {
-//                      walk(consumersPlusFull,newStack, node.cond, 0, 0) //Todo, to pessimistic !
-//                      walkBaseType(node.whenTrue)
-//                      walkBaseType(node.whenFalse)
-//                    }
-//                    case node: AssignementNode => {
-//                      val newConsumers = consumers + (baseType -> bitsAlreadyUsed.+(node.getScopeBits))
-//                      node.onEachInput((input,idx) => {
-//                        val (inHi, inLo) = node.getOutToInUsage(idx, outHi, outLo)
-//                        if (inHi >= inLo) walk(newConsumers,newStack, input, inHi, inLo)
-//                      })
-//                    }
-//                    case _ => {
-//                      walk(consumersPlusFull,newStack, node, outHi, outLo)
-//                    }
-//                  }
-//                }
-//              }
-//
-//              walkBaseType(baseType.input)
-//            }
-//            case _ => {
-//              val newConsumers = consumers + (node -> bitsAlreadyUsed.+(AssignedRange(outHi, outLo)))
-//              node.onEachInput((input,idx) => {
-//                if (input != null) {
-//                  val (inHi, inLo) = node.getOutToInUsage(idx, outHi, outLo)
-//                  if (inHi >= inLo) walk(newConsumers,newStack, input, inHi, inLo)
-//                }
-//              })
-//            }
-//          }
-//          if (outHi == getNodeWidth(node) - 1 && outLo == 0) nodeIsCompleted(node)
-//        }
-//      }
-//    }
-//    def addPendingNode(node: Node) = {
-//      if (node != null && ! isNodeCompleted(node)) pendingNodes.push(node)
-//    }
-//
-//  }
-//}
-//
-//class PhaseCheckCrossClockDomains(pc: PhaseContext) extends PhaseCheck{
-//  override def useNodeConsumers = false
-//  override def impl(pc : PhaseContext): Unit = {
-//    import pc._
-//    val errors = mutable.ArrayBuffer[String]()
-//
-//    Node.walk(walkNodesDefautStack,node => {
-//      node match {
-//        case syncNode: SyncNode => {
-//          if (!syncNode.hasTag(crossClockDomain)) {
-//            val consumerCockDomain = syncNode.getClockDomain
-//            for (syncInput <- syncNode.getSynchronousInputs) {
-//              val walked = mutable.Set[Object]() //TODO upgrade it to the check bit by bit
-//              check(syncInput)
-//              def check(that: Node): Unit = {
-//                if(walked.contains(that)) return;
-//                walked += that
-//                if(that == null){
-//                  println(":(")
-//                }
-//                if (!that.hasTag(crossClockDomain)) {
-//                  that match {
-//                    case syncDriver: SyncNode => {
-//                      val driverClockDomain = syncDriver.getClockDomain
-//                      if (//syncDriver.getClockDomain.clock != consumerCockDomain.clock &&
-//                        ! driverClockDomain.isSyncronousWith(consumerCockDomain)) {
-//                        errors += s"Synchronous element ${syncNode.getScalaLocationShort} is driven " +
-//                          s"by ${syncDriver.getScalaLocationShort} but they don't have the same clock domain. " +
-//                          s"Register declaration at \n${syncNode.getScalaLocationLong}"
-//                      }
-//                    }
-//                    case _ => that.onEachInput(input => if (input != null) check(input))
-//                  }
-//                }
-//              }
-//            }
-//          }
-//        }
-//        case _ =>
-//      }
-//    })
-//
-//    if (!errors.isEmpty)
-//      SpinalError(errors)
-//  }
-//}
-//
+class PhaseCheckCombinationalLoops() extends PhaseCheck{
+  override def impl(pc : PhaseContext): Unit = {
+    import pc._
+    val walkingId = GlobalData.get.allocateAlgoIncrementale()
+    val okId = GlobalData.get.allocateAlgoIncrementale()
+
+    def walk(path : List[(BaseNode)],
+             node: BaseNode): Unit = {
+      val newPath = node :: path
+      if (node.algoIncrementale == walkingId) {
+        val ordred = newPath.reverseIterator
+        val filtred = ordred.dropWhile((e) => (e != node)).drop(1).toArray
+        if (!filtred.exists(e => e.isInstanceOf[SpinalTagReady] && e.asInstanceOf[SpinalTagReady].hasTag(noCombinatorialLoopCheck))) {
+          val wellNameLoop = new StringBuilder()
+          for(n <- filtred.reverseIterator) n match{
+            case n : DeclarationStatement => wellNameLoop ++= s"      >>> ${n.toString()} at ${n.getScalaLocationShort} >>>\n"
+            case _ =>
+          }
+          val multiLineLoop = filtred.reverseIterator.map(n => "      " + n.toString).foldLeft("")(_ + "\n" + _)
+          PendingError(s"  Combinatorial loop !\n      Partial chain :\n${wellNameLoop}\n      Full chain :\n${multiLineLoop}")
+        }
+      }else {
+        node.algoIncrementale = walkingId
+        node match {
+          case node: BaseType => {
+            if(node.isComb) {
+              node.algoIncrementale = walkingId
+              node.foreachStatements(s => walk(newPath, s))
+              node.algoIncrementale = okId
+            }
+          }
+          case node: AssignementStatement => {
+            node.foreachDrivingExpression(e => walk(newPath, e))
+            node.walkParentTreeStatementsUntilRootScope(s => walk(newPath, s))
+          }
+          case node: TreeStatement => {
+            if (node.algoIncrementale != okId) {
+              node.foreachDrivingExpression(e => walk(newPath, e))
+              node.algoIncrementale = okId
+            }
+          }
+          case node: Mem[_] =>
+          case node: MemReadSync =>
+          case node: MemReadWrite =>
+          case node: MemWrite =>
+          case node: Expression => {
+            node.foreachDrivingExpression(e => walk(newPath, e))
+          }
+          case node : AssertStatement => {
+            node.foreachDrivingExpression(e => walk(newPath, e))
+          }
+        }
+      }
+      node.algoIncrementale = okId
+    }
+
+    walkStatements(s => {
+      if (s.algoIncrementale != okId) {
+        walk(s :: Nil, s)
+      }
+    })
+  }
+}
+
+
+class PhaseCheckCrossClock() extends PhaseCheck{
+  override def impl(pc : PhaseContext): Unit = {
+    import pc._
+
+
+    walkStatements(s => {
+      var walked = 0
+
+      def walk(node: BaseNode, path : List[(BaseNode)], clockDomain: ClockDomain): Unit = {
+        if(node.algoIncrementale == walked) return
+        node.algoIncrementale = walked
+        val newPath = node :: path
+
+        def issue(syncDriver: BaseNode with ScalaLocated, otherClockDomain : ClockDomain): Unit ={
+            val wellNameLoop = new StringBuilder()
+            for(n <- newPath) n match{
+              case n : DeclarationStatement => wellNameLoop ++= s"      >>> ${n.toString()} at ${n.getScalaLocationShort} >>>\n"
+              case _ =>
+            }
+            val multiLineLoop = newPath.map(n => "      " + n.toString).foldLeft("")(_ + "\n" + _)
+            PendingError(
+              s"Synchronous element ${s} is driven " +
+              s"by ${syncDriver} but they don't have the same clock domain. " +
+              s"Register declaration at \n${s.getScalaLocationLong} through\n${wellNameLoop}"
+            )
+        }
+
+        node match {
+          case node : SpinalTagReady if node.hasTag(crossClockDomain) =>
+          case node: BaseType => {
+            if (node.isReg) {
+              if(!node.clockDomain.isSyncronousWith(clockDomain)) {
+                issue(node, node.clockDomain)
+              }
+            } else {
+              node.foreachStatements(s => walk(s, newPath, clockDomain))
+            }
+          }
+          case node : AssignementStatement => {
+            node.foreachDrivingExpression(e => walk(e, newPath, clockDomain))
+            node.walkParentTreeStatementsUntilRootScope(s => walk(s, newPath, clockDomain))
+          }
+          case node : TreeStatement => {
+            node.foreachDrivingExpression(e => walk(e, newPath, clockDomain))
+          }
+          case node : Mem[_] =>
+          case node : MemReadSync => {
+            if(!node.clockDomain.isSyncronousWith(clockDomain)) {
+              issue(node, node.clockDomain)
+            }
+          }
+          case node : MemReadWrite =>
+            if(!node.clockDomain.isSyncronousWith(clockDomain)) {
+              issue(node, node.clockDomain)
+            }
+          case node: Expression => {
+            node.foreachDrivingExpression(e => walk(e, newPath, clockDomain))
+          }
+        }
+      }
+      s match {
+        case s: BaseType if (s.isReg && !s.hasTag(crossClockDomain)) => {
+          walked = GlobalData.get.allocateAlgoIncrementale()
+          s.foreachStatements(as => walk(as, as :: s :: Nil, s.clockDomain))
+        }
+        case s: MemReadWrite if (!s.hasTag(crossClockDomain)) => {
+          walked = GlobalData.get.allocateAlgoIncrementale()
+          s.foreachDrivingExpression(as => walk(as, as :: s :: Nil, s.clockDomain))
+        }
+        case s: MemWrite if (!s.hasTag(crossClockDomain)) => {
+          walked = GlobalData.get.allocateAlgoIncrementale()
+          s.foreachDrivingExpression(as => walk(as, as :: s :: Nil, s.clockDomain))
+        }
+        case _ =>
+      }
+    })
+  }
+}
 
 class PhaseRemoveUselessStuff(postClockPulling : Boolean, tagVitals : Boolean) extends PhaseNetlist{
   override def impl(pc: PhaseContext): Unit = {
@@ -1429,6 +1425,8 @@ object SpinalVhdlBoot{
     phases += new PhaseRemoveIntermediateUnameds(false)
 
     phases += new PhaseCheck_noLatchNoOverride(pc)
+    phases += new PhaseCheckCombinationalLoops()
+    phases += new PhaseCheckCrossClock()
 
     phases += new PhaseAllocateNames(pc)
 
@@ -1550,6 +1548,8 @@ object SpinalVerilogBoot{
     phases += new PhaseRemoveIntermediateUnameds(false)
 
     phases += new PhaseCheck_noLatchNoOverride(pc)
+    phases += new PhaseCheckCombinationalLoops()
+    phases += new PhaseCheckCrossClock()
 
     phases += new PhaseAllocateNames(pc)
 

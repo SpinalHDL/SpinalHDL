@@ -187,3 +187,69 @@ object PlayDevStackTrace{
 }
 
 
+object PlayDevCombLoop{
+
+  class TopLevel extends Component {
+    val result,result2  = UInt(8 bits)
+
+    def miaou = {
+      val x, y, z  = UInt(8 bits)
+      x := y
+//      y := x
+      result := x
+      z := z
+    }
+
+
+    val xx, yy, zz  = UInt(8 bits)
+    xx := yy
+    yy := 0
+    when(True) {
+      yy := zz
+    }
+    zz := xx
+    result2 := xx
+
+
+    val xxx = UInt(8 bits)
+    xxx := xxx
+    miaou
+
+  }
+
+  def main(args: Array[String]) {
+    val toplevel = SpinalVhdl(new TopLevel()).toplevel
+    SpinalVerilog(new TopLevel())
+  }
+}
+
+
+
+object PlayDevCrossClock{
+
+  class TopLevel extends Component {
+    val clockA = in Bool
+    val clockB = in Bool
+
+    val areaA = new ClockingArea(ClockDomain(clockA)){
+      val reg = Reg(Bool)
+      reg := in(Bool)
+      val wire = Bool()
+      wire := reg
+      val wire2 = Bool()
+      wire2 := wire
+    }
+
+    val areaB = new ClockingArea(ClockDomain(clockB)){
+      val reg = Reg(Bool)
+      reg := areaA.wire2
+      val output = out Bool()
+      output := reg
+    }
+  }
+
+  def main(args: Array[String]) {
+    val toplevel = SpinalVhdl(new TopLevel()).toplevel
+    SpinalVerilog(new TopLevel())
+  }
+}

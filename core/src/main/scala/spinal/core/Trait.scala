@@ -505,28 +505,26 @@ object ScalaLocated {
 
   def filterStackTrace(that : Array[StackTraceElement]) = that.filter(trace => {
     val className = trace.getClassName
-    !(className.startsWith("scala.") || className.startsWith("spinal.core")) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
+    !(className.startsWith("scala.") || className.startsWith("spinal.core") || !filter(trace.toString)) || ScalaLocated.unfiltredFiles.contains(trace.getFileName)
   })
   def short(scalaTrace : Throwable) : String = {
     if(scalaTrace == null) return "???"
     filterStackTrace(scalaTrace.getStackTrace)(0).toString
   }
 
+  def filter(that : String) : Boolean = {
+    if(that.startsWith("sun.reflect")) return false
+    if(that.startsWith("java.lang.reflect")) return false
+    if(that.startsWith("java.lang.Class")) return false
+    if(that.startsWith("com.intellij")) return false
+    if(that.startsWith("org.scalatest")) return false
+
+    return true
+  }
 
   def long(scalaTrace : Throwable,tab : String = "    "): String = {
     if(scalaTrace == null) return "???"
-    def filter(that : String) : Boolean = {
-      if(that.startsWith("sun.reflect.NativeConstructorAccessorImpl.newInstance")) return false
-      if(that.startsWith("sun.reflect.DelegatingConstructorAccessorImpl.newInstance")) return false
-      if(that.startsWith("java.lang.reflect.Constructor.newInstance")) return false
-      if(that.startsWith("java.lang.Class.newInstance")) return false
-      if(that.startsWith("sun.reflect.NativeMethodAccessorImpl.invoke")) return false
-      if(that.startsWith("sun.reflect.DelegatingMethodAccessorImpl.invoke")) return false
-      if(that.startsWith("java.lang.reflect.Method.invoke")) return false
-      if(that.startsWith("com.intellij.rt.execution.application.AppMain.main")) return false
 
-      return true
-    }
 
     filterStackTrace(scalaTrace.getStackTrace).map(_.toString).filter(filter).map(tab + _ ).mkString("\n") + "\n\n"
   }

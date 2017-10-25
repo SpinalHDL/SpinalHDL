@@ -11,6 +11,7 @@ import scala.collection.mutable.ArrayBuffer
 // Implement check combinatorioal loops
 // Implement check cross clock
 // pruned stuff
+// Fix verilog backend component duplication detection
 case class DslContext(clockDomain: ClockDomain, component: Component, scope: ScopeStatement)
 
 
@@ -170,6 +171,10 @@ trait Expression extends BaseNode with ExpressionContainer{
   def opName : String
   def simplifyNode: Expression = this
   def getTypeObject : Any
+  private[core] def foreachDrivingExpression(outHi : Int, outLo : Int)(f : (Expression, Int,Int) => Unit) : Unit = foreachDrivingExpression{
+    case input : Expression with WidthProvider => f(input, input.getWidth-1,0)
+    case input => f(input, 0,0)
+  }
 }
 
 

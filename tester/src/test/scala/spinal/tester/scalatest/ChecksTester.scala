@@ -17,15 +17,13 @@ class ChecksTester extends FunSuite  {
     return false
   }
   def generationShouldFaild(gen : => Component): Unit ={
-    //TODO IR restore
     assert(checkFailure{SpinalVhdl(gen)})
-//    assert(checkFailure{SpinalVerilog(gen)})
+    assert(checkFailure{SpinalVerilog(gen)})
   }
 
   def generationShouldPass(gen : => Component): Unit ={
-    //TODO IR restore
     assert(!checkFailure{SpinalVhdl(gen)})
-//    assert(!checkFailure{SpinalVerilog(gen)})
+    assert(!checkFailure{SpinalVerilog(gen)})
   }
 
   test("reflectionNamming") {

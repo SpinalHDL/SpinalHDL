@@ -438,4 +438,9 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
   }
 
   override def foreachClockDomain(func: (ClockDomain) => Unit): Unit = if(isReg) func(clockDomain)
+
+  override def toString(): String = if(isNamed || !hasOnlyOneStatement || !head.source.isInstanceOf[Literal])
+    s"(${component.getPath() + "/" + this.getDisplayName()} : $getClassIdentifier)"
+  else
+    head.source.toString
 }
