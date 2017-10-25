@@ -333,7 +333,7 @@
 //
 //    for (process <- processList if !process.needProcessDef) {
 //      for (node <- process.nodes) {
-//        emitAssignement(node, node.getInput(0), ret, "  assign ", "=")
+//        emitAssignment(node, node.getInput(0), ret, "  assign ", "=")
 //      }
 //    }
 //
@@ -341,13 +341,13 @@
 //    for ((process,idx) <- processList.zipWithIndex if process.needProcessDef) {
 //      process.genSensitivity
 //
-//      val context = new AssignementLevel(process.nodes.map(n => AssignementLevelCmd(n,n.getInput(0))))
+//      val context = new AssignmentLevel(process.nodes.map(n => AssignmentLevelCmd(n,n.getInput(0))))
 //
 //
 //      if (process.sensitivity.size != 0) {
 //        val tmp = new StringBuilder
 //        referenceSet.clear()
-//        emitAssignementLevel(context,tmp, "    ", "=",false,process.sensitivity)
+//        emitAssignmentLevel(context,tmp, "    ", "=",false,process.sensitivity)
 //
 //        ret ++= s"  always @ (${referenceSet.toList.sortWith(_.instanceCounter < _.instanceCounter).map(emitReference(_)).reduceLeft(_ + " or " + _)})\n"
 //        ret ++= "  begin\n"
@@ -360,7 +360,7 @@
 //        assert(process.nodes.size == 1)
 //        for (node <- process.nodes) {
 //          ret ++= s"  initial begin\n"
-//          emitAssignementLevel(context,ret, "    ", "=")
+//          emitAssignmentLevel(context,ret, "    ", "=")
 //          ret ++= s"  end\n"
 //        }
 //      }
@@ -711,17 +711,17 @@
 //
 //
 //        val initialValues = ArrayBuffer[Node]()
-//        val initialTasks = ArrayBuffer[AssignementLevelCmd]()
+//        val initialTasks = ArrayBuffer[AssignmentLevelCmd]()
 //        for (syncNode <- activeArray) syncNode match {
 //          case reg: Reg => {
 //            if (reg.hasInitialValue) {
-//              initialTasks += AssignementLevelCmd(reg.getOutputByConsumers, reg.getInitialValue)
+//              initialTasks += AssignmentLevelCmd(reg.getOutputByConsumers, reg.getInitialValue)
 //              initialValues += reg.getInitialValue
 //            }
 //          }
 //          case _ =>
 //        }
-//        val initialValueAssignement = new AssignementLevel(initialTasks)
+//        val initialValueAssignment = new AssignmentLevel(initialTasks)
 //
 //
 //        if (asyncReset) {
@@ -736,7 +736,7 @@
 //        if (asyncReset) {
 //          ret ++= s"${tabStr}if (${if (clockDomain.config.resetActiveLevel == HIGH) "" else "!"}${emitReference(reset)}) begin\n";
 //          inc
-//          emitRegsInitialValue(initialValueAssignement, tabStr)
+//          emitRegsInitialValue(initialValueAssignment, tabStr)
 //          dec
 //          ret ++= s"${tabStr}end else begin\n"
 //          inc
@@ -753,7 +753,7 @@
 //
 //          ret ++= s"${tabStr}if(${condList.reduce(_ + " || " + _)}) begin\n"
 //          inc
-//          emitRegsInitialValue(initialValueAssignement, tabStr)
+//          emitRegsInitialValue(initialValueAssignment, tabStr)
 //          dec
 //          ret ++= s"${tabStr}end else begin\n"
 //          inc
@@ -775,15 +775,15 @@
 //        ret ++= s"${tabStr}\n"
 //
 //
-//        def emitRegsInitialValue(assignementLevel: AssignementLevel, tab: String): Unit = {
-//          emitAssignementLevel(assignementLevel,ret, tab, "<=")
+//        def emitRegsInitialValue(assignmentLevel: AssignmentLevel, tab: String): Unit = {
+//          emitAssignmentLevel(assignmentLevel,ret, tab, "<=")
 //        }
 //
 //
 //        def emitRegsLogic(tab: String): Unit = {
 //
 //
-//          val assignementTasks = ArrayBuffer[AssignementLevelCmd]()
+//          val assignmentTasks = ArrayBuffer[AssignmentLevelCmd]()
 //
 //
 //          for (syncNode <- activeArray) syncNode match {
@@ -792,7 +792,7 @@
 //              if (!regSignal.isIo || !regSignal.isInput) {
 //                val in = reg.getDataInput
 //                if (in != reg)
-//                  assignementTasks += AssignementLevelCmd(regSignal, in)
+//                  assignmentTasks += AssignmentLevelCmd(regSignal, in)
 //              }
 //            }
 //            case memWrite: MemWrite => {
@@ -969,77 +969,77 @@
 //              ret ++= s"${tab}end\n"
 //            }
 //          }
-//          val rootContext = new AssignementLevel(assignementTasks)
-//          emitAssignementLevel(rootContext,ret, tab, "<=")
+//          val rootContext = new AssignmentLevel(assignmentTasks)
+//          emitAssignmentLevel(rootContext,ret, tab, "<=")
 //        }
 //      }
 //    }
 //  }
 //
-//  def emitAssignement(to: Node, from: Node, ret: StringBuilder, tab: String, assignementKind: String): Unit = {
+//  def emitAssignment(to: Node, from: Node, ret: StringBuilder, tab: String, assignmentKind: String): Unit = {
 //    from match {
-//      case from: AssignementNode => {
+//      case from: AssignmentNode => {
 //        from match {
-//          case assign: BitAssignmentFixed => ret ++= s"$tab${emitAssignedReference(to)}[${assign.getBitId}] ${assignementKind} ${emitLogic(assign.getInput)};\n"
-//          case assign: BitAssignmentFloating => ret ++= s"$tab${emitAssignedReference(to)}[${emitLogic(assign.getBitId)}] ${assignementKind} ${emitLogic(assign.getInput)};\n"
-//          case assign: RangedAssignmentFixed => ret ++= s"$tab${emitAssignedReference(to)}[${assign.getHi} : ${assign.getLo}] ${assignementKind} ${emitLogic(assign.getInput)};\n"
-//          case assign: RangedAssignmentFloating => ret ++= s"$tab${emitAssignedReference(to)}[${emitLogic(assign.getOffset)} +: ${assign.getBitCount.value}] ${assignementKind} ${emitLogic(assign.getInput)};\n"
+//          case assign: BitAssignmentFixed => ret ++= s"$tab${emitAssignedReference(to)}[${assign.getBitId}] ${assignmentKind} ${emitLogic(assign.getInput)};\n"
+//          case assign: BitAssignmentFloating => ret ++= s"$tab${emitAssignedReference(to)}[${emitLogic(assign.getBitId)}] ${assignmentKind} ${emitLogic(assign.getInput)};\n"
+//          case assign: RangedAssignmentFixed => ret ++= s"$tab${emitAssignedReference(to)}[${assign.getHi} : ${assign.getLo}] ${assignmentKind} ${emitLogic(assign.getInput)};\n"
+//          case assign: RangedAssignmentFloating => ret ++= s"$tab${emitAssignedReference(to)}[${emitLogic(assign.getOffset)} +: ${assign.getBitCount.value}] ${assignmentKind} ${emitLogic(assign.getInput)};\n"
 //        }
 //      }
 //      case man: MultipleAssignmentNode => {
-//        //For some case with asyncronous partial assignement
+//        //For some case with asyncronous partial assignment
 //        man.onEachInput(assign => {
-//          emitAssignement(to, assign, ret, tab, assignementKind)
+//          emitAssignment(to, assign, ret, tab, assignmentKind)
 //        })
 //      }
-//      case _ => ret ++= s"$tab${emitAssignedReference(to)} ${assignementKind} ${emitLogic(from)};\n"
+//      case _ => ret ++= s"$tab${emitAssignedReference(to)} ${assignmentKind} ${emitLogic(from)};\n"
 //    }
 //  }
 //
-//   def emitAssignementLevel(context : AssignementLevel,ret: mutable.StringBuilder, tab: String, assignementKind: String, isElseIf: Boolean = false,hiddenSensitivity : mutable.Set[Node] = null): Unit = {
+//   def emitAssignmentLevel(context : AssignmentLevel,ret: mutable.StringBuilder, tab: String, assignmentKind: String, isElseIf: Boolean = false,hiddenSensitivity : mutable.Set[Node] = null): Unit = {
 //    val firstTab = if (isElseIf) "" else tab
 //
 //    context.content.foreach(_ match {
-//      case whenTree: AssignementLevelWhen => {
+//      case whenTree: AssignmentLevelWhen => {
 //        def doTrue = whenTree.whenTrue.isNotEmpty
 //        def doFalse = whenTree.whenFalse.isNotEmpty
 //        val condLogic = emitLogic(whenTree.cond)
 //
 //        if (doTrue && !doFalse) {
 //          ret ++= s"${firstTab}if($condLogic)begin\n"
-//          emitAssignementLevel(whenTree.whenTrue, ret, tab + "  ", assignementKind)
+//          emitAssignmentLevel(whenTree.whenTrue, ret, tab + "  ", assignmentKind)
 //          ret ++= s"${tab}end\n"
 //        } else {
 //          ret ++= s"${firstTab}if($condLogic)begin\n"
-//          emitAssignementLevel(whenTree.whenTrue, ret, tab + "  ", assignementKind)
+//          emitAssignmentLevel(whenTree.whenTrue, ret, tab + "  ", assignmentKind)
 //          val falseHead = if (whenTree.whenFalse.isOnlyAWhen) whenTree.whenFalse.content.head else null
-//          if (falseHead != null && falseHead.asInstanceOf[AssignementLevelWhen].context.parentElseWhen == whenTree.context) {
+//          if (falseHead != null && falseHead.asInstanceOf[AssignmentLevelWhen].context.parentElseWhen == whenTree.context) {
 //            ret ++= s"${tab}end else "
-//            emitAssignementLevel(whenTree.whenFalse, ret, tab, assignementKind, true)
+//            emitAssignmentLevel(whenTree.whenFalse, ret, tab, assignmentKind, true)
 //          } else {
 //            ret ++= s"${tab}end else begin\n"
-//            emitAssignementLevel(whenTree.whenFalse, ret, tab + "  ", assignementKind)
+//            emitAssignmentLevel(whenTree.whenFalse, ret, tab + "  ", assignmentKind)
 //            ret ++= s"${tab}end\n"
 //          }
 //        }
 //      }
 //
-//      case switchTree : AssignementLevelSwitch => {
+//      case switchTree : AssignmentLevelSwitch => {
 //        if(hiddenSensitivity != null) hiddenSensitivity += switchTree.key
 //        ret ++= s"${tab}case(${emitLogic(switchTree.key)})\n"
 //        switchTree.cases.foreach(c => {
 //          ret ++= s"${tab}  ${emitLogic(c.const)} : begin\n"
-//          emitAssignementLevel(c.doThat,ret,tab + "    ",assignementKind)
+//          emitAssignmentLevel(c.doThat,ret,tab + "    ",assignmentKind)
 //          ret ++= s"${tab}  end\n"
 //        })
 //        ret ++= s"${tab}  default : begin\n"
 //        if(switchTree.default != null){
-//          emitAssignementLevel(switchTree.default.doThat,ret,tab + "    ",assignementKind)
+//          emitAssignmentLevel(switchTree.default.doThat,ret,tab + "    ",assignmentKind)
 //        }
 //        ret ++= s"${tab}  end\n"
 //        ret ++= s"${tab}endcase\n"
 //      }
-//      case task: AssignementLevelSimple => emitAssignement(task.that, task.by, ret, tab, assignementKind)
+//      case task: AssignmentLevelSimple => emitAssignment(task.that, task.by, ret, tab, assignmentKind)
 //    })
 //  }
 //

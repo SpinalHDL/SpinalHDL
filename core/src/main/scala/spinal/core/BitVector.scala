@@ -150,12 +150,12 @@ abstract class BitVector extends BaseType with Widthable /*with CheckWidth*/ {
     if (isFixedWidth) return fixedWidth
     var w = -1
     foreachStatements(_ match{
-      case s : AssignementStatement =>{
+      case s : AssignmentStatement =>{
         s.target match {
           case target : BitVector => s.source match {
             case e : WidthProvider => w = Math.max(w, e.getWidth)
           }
-          case target : BitVectorAssignementExpression => w = Math.max(w, target.minimalTargetWidth)
+          case target : BitVectorAssignmentExpression => w = Math.max(w, target.minimalTargetWidth)
         }
       }
     })
@@ -167,9 +167,9 @@ abstract class BitVector extends BaseType with Widthable /*with CheckWidth*/ {
 //  override private[core] def assignFromImpl(that: AnyRef): Unit = {
 //    that match {
 //      case that : BaseType =>
-//        component.addStatement(new AssignementStatement(target = RefExpression(this), source = new RefExpression(that), AssignementKind.DATA))
+//        component.addStatement(new AssignmentStatement(target = RefExpression(this), source = new RefExpression(that), AssignmentKind.DATA))
 //      case that : Expression =>
-//        component.addStatement(new AssignementStatement(target = RefExpression(this), source = that, AssignementKind.DATA))
+//        component.addStatement(new AssignmentStatement(target = RefExpression(this), source = that, AssignmentKind.DATA))
 //      case _ =>
 //        throw new Exception(s"Undefined assignment $this := $that")
 //    }
@@ -181,9 +181,9 @@ abstract class BitVector extends BaseType with Widthable /*with CheckWidth*/ {
 //      LocatedPendingError(s"Try to set initial value of a data that is not a register ($this)")
 //    else that match {
 //      case that : BaseType =>
-//        component.addStatement(new AssignementStatement(target = RefExpression(this), source = new RefExpression(that), AssignementKind.INIT))
+//        component.addStatement(new AssignmentStatement(target = RefExpression(this), source = new RefExpression(that), AssignmentKind.INIT))
 //      case that : Expression =>
-//        component.addStatement(new AssignementStatement(target = RefExpression(this), source = that, AssignementKind.INIT))
+//        component.addStatement(new AssignmentStatement(target = RefExpression(this), source = that, AssignmentKind.INIT))
 //      case _ =>
 //        throw new Exception("Undefined assignment")
 //    }

@@ -89,7 +89,7 @@ object RegInit {
 
 
 
-//class RegDataComposite extends Assignable with AssignementStatementTarget{
+//class RegDataComposite extends Assignable with AssignmentStatementTarget{
 //  type T <: BaseType
 //  var baseType : T = null.asInstanceOf[T]
 //
@@ -97,9 +97,9 @@ object RegInit {
 //  override def assignFromImpl(that: AnyRef): Unit = {
 //    that match {
 //      case that: BaseType =>
-//        baseType.component.addStatement(new AssignementStatement(target = this, source = new RefExpression(that.asInstanceOf[NameableNode])))
+//        baseType.component.addStatement(new AssignmentStatement(target = this, source = new RefExpression(that.asInstanceOf[NameableNode])))
 //      case that: Expression =>
-//        baseType.component.addStatement(new AssignementStatement(target = this, source = that))
+//        baseType.component.addStatement(new AssignmentStatement(target = this, source = that))
 //      case _ =>
 //        throw new Exception("Undefined assignment")
 //    }
@@ -116,7 +116,7 @@ object RegInit {
 //
 //
 ////TODO remove outType
-//class Reg (outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) extends SyncNode(clockDomain) with Assignable with AssignementTreePart {
+//class Reg (outType: BaseType, clockDomain: ClockDomain = ClockDomain.current) extends SyncNode(clockDomain) with Assignable with AssignmentTreePart {
 //  type T <: Node
 //
 //  var dataInput     : T = this.asInstanceOf[T]
@@ -178,12 +178,12 @@ object RegInit {
 //
 //
 //
-//  override def getAssignementContext(id: Int): Throwable = id match {
-//    case RegS.getDataInputId => outType.getAssignementContext(0)
+//  override def getAssignmentContext(id: Int): Throwable = id match {
+//    case RegS.getDataInputId => outType.getAssignmentContext(0)
 //    case _ => null
 //  }
-//  override def setAssignementContext(id: Int, that: Throwable): Unit = id match {
-//    case RegS.getDataInputId => outType.setAssignementContext(0,that)
+//  override def setAssignmentContext(id: Int, that: Throwable): Unit = id match {
+//    case RegS.getDataInputId => outType.setAssignmentContext(0,that)
 //    case _ =>
 //  }
 //  def hasInitialValue = getInitialValue != null
@@ -199,19 +199,19 @@ object RegInit {
 //        val (consumer,inputId) = BaseType.walkWhenNodes(outType, this, RegS.getDataInputId,conservative)
 //        consumer.setInput(inputId, that)
 //      }
-//      case that : AssignementNode => {
+//      case that : AssignmentNode => {
 //        BaseType.checkAssignability(outType,that.asInstanceOf[Node])
 //        val (consumer,inputId) = BaseType.walkWhenNodes(outType, this, RegS.getDataInputId,conservative)
 //        consumer.setInput(inputId,that)
 //      }
-//      case _ => throw new Exception("Undefined assignement")
+//      case _ => throw new Exception("Undefined assignment")
 //    }
 //  }
 //
 //
 //  override private[core] def preInferationCheck(): Unit = {
 //    if(this.initialValue == null && this.dataInput == this){
-//      globalData.pendingErrors += (() => s"$this has no assignement value and no reset value at\n ${this.getScalaLocationLong}")
+//      globalData.pendingErrors += (() => s"$this has no assignment value and no reset value at\n ${this.getScalaLocationLong}")
 //    }
 //  }
 //
@@ -233,7 +233,7 @@ object RegInit {
 //
 //  override private[core] def checkInferedWidth: Unit = {
 //    if (dataInput != null && dataInput.component != null && this.getWidth != dataInput.getWidth) {
-//      PendingError(s"Assignment bit count mismatch. ${this} := ${dataInput} at \n${ScalaLocated.long(getAssignementContext(RegS.getDataInputId))}")
+//      PendingError(s"Assignment bit count mismatch. ${this} := ${dataInput} at \n${ScalaLocated.long(getAssignmentContext(RegS.getDataInputId))}")
 //    } else if(initialValue != null && initialValue.component != null && this.getWidth != initialValue.getWidth) {
 //      PendingError(s"Init bit count mismatch for ${this}.    The init value is ${initialValue} at \n${this.getScalaLocationLong}")
 //    }

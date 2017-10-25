@@ -71,11 +71,11 @@ trait BaseTypeCast extends SFixCast with UFixCast
 //    globalData.netlistUpdate()
 //
 //    def initMan(man: MultipleAssignmentNode, that: Node): Unit = {
-//      if(consumer.isInstanceOf[AssignementTreePart]){
-//        man.setAssignementContext(0,consumer.asInstanceOf[AssignementTreePart].getAssignementContext(consumerInputId))
+//      if(consumer.isInstanceOf[AssignmentTreePart]){
+//        man.setAssignmentContext(0,consumer.asInstanceOf[AssignmentTreePart].getAssignmentContext(consumerInputId))
 //      }
 //      //To be sure that there is basetype to bufferise (for future resize)
-//      if (that.isInstanceOf[WhenNode] || that.isInstanceOf[BaseType] || that.isInstanceOf[AssignementNode] ||
+//      if (that.isInstanceOf[WhenNode] || that.isInstanceOf[BaseType] || that.isInstanceOf[AssignmentNode] ||
 //          that.isInstanceOf[MultipleAssignmentNode] || that.isInstanceOf[Reg]) {
 //        man.inputs += that.asInstanceOf[man.T]
 //      } else {
@@ -94,8 +94,8 @@ trait BaseTypeCast extends SFixCast with UFixCast
 //            consumer.getInput(consumerInputId) match {
 //              case null =>
 //                val whenNode = WhenNode(baseType,when)
-//                if(consumer.isInstanceOf[AssignementTreePart]){
-//                  consumer.asInstanceOf[AssignementTreePart].setAssignementContext(consumerInputId,globalData.getThrowable())
+//                if(consumer.isInstanceOf[AssignmentTreePart]){
+//                  consumer.asInstanceOf[AssignmentTreePart].setAssignmentContext(consumerInputId,globalData.getThrowable())
 //                }
 //                consumer.setInput(consumerInputId,whenNode)
 //                consumer = whenNode
@@ -126,7 +126,7 @@ trait BaseTypeCast extends SFixCast with UFixCast
 //
 //    if (!initialConditionalAssignHit){
 //      val location = ScalaLocated.long
-//      SpinalError(s"$baseType is assigned outside the when statements where it is declared.\n Assignement there :\n $location The signal is declared there :\n${baseType.getScalaLocationLong}")
+//      SpinalError(s"$baseType is assigned outside the when statements where it is declared.\n Assignment there :\n $location The signal is declared there :\n${baseType.getScalaLocationLong}")
 //    }
 //
 //    if (conservative) {
@@ -147,7 +147,7 @@ trait BaseTypeCast extends SFixCast with UFixCast
 //    } else {
 //      val overrided = consumer.getInput(consumerInputId)
 //      if (overrided != null && !overrided.isInstanceOf[Reg])
-//        if (consumer.globalData.overridingAssignementWarnings) {
+//        if (consumer.globalData.overridingAssignmentWarnings) {
 //          val exept = new Throwable()
 //          val trace = ScalaLocated.short
 //          Component.current.addPrePopTask (() => {
@@ -157,7 +157,7 @@ trait BaseTypeCast extends SFixCast with UFixCast
 //    }
 //
 //    consumer match {
-//      case consumer : AssignementTreePart => consumer.setAssignementContext(consumerInputId,consumer.globalData.getThrowable())
+//      case consumer : AssignmentTreePart => consumer.setAssignmentContext(consumerInputId,consumer.globalData.getThrowable())
 //      case _                              =>
 //    }
 //    (consumer, consumerInputId)
@@ -173,7 +173,7 @@ object BaseType{
 /**
   * Abstract base class of all Spinal types
   */
-abstract class BaseType extends Data with DeclarationStatement with StatementDoubleLinkedContainer[BaseType, AssignementStatement] with Expression {
+abstract class BaseType extends Data with DeclarationStatement with StatementDoubleLinkedContainer[BaseType, AssignmentStatement] with Expression {
   globalData.contextHead.scope match {
     case null =>
     case scope =>  scope.append(this)
@@ -201,7 +201,7 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
 
   def hasInit : Boolean = {
     require(isReg)
-    foreachStatements(s => if(s.isInstanceOf[InitAssignementStatement]) return true)
+    foreachStatements(s => if(s.isInstanceOf[InitAssignmentStatement]) return true)
     return false
   }
 
@@ -223,7 +223,7 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
   private[core] def canSymplifyIt = !dontSimplify && isUnnamed && !existsTag(!_.canSymplifyHost)
 
 
-  def removeAssignements() : this.type = {
+  def removeAssignments() : this.type = {
     foreachStatements(s => {
       s.removeStatement()
     })
@@ -276,7 +276,7 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
   }
 
   def getSingleDriver : Option[this.type] = if(this.hasOnlyOneStatement) this.head match {
-    case AssignementStatement(target, driver : BaseType) if target == this && this.head.parentScope == this.rootScopeStatement =>
+    case AssignmentStatement(target, driver : BaseType) if target == this && this.head.parentScope == this.rootScopeStatement =>
       Some(driver.asInstanceOf[this.type])
     case _ => None
   }else None
@@ -284,11 +284,11 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
   override private[core] def assignFromImpl(that: AnyRef, target : AnyRef, kind : AnyRef): Unit = {
     def statement(that : Expression) = kind match {
       case `DataAssign` =>
-        DataAssignementStatement(target = target.asInstanceOf[Expression], source = that)
+        DataAssignmentStatement(target = target.asInstanceOf[Expression], source = that)
       case `InitAssign` =>
         if(!isReg)
           LocatedPendingError(s"Try to set initial value of a data that is not a register ($this)")
-        InitAssignementStatement(target = target.asInstanceOf[Expression], source = that)
+        InitAssignmentStatement(target = target.asInstanceOf[Expression], source = that)
     }
     that match {
       case that : BaseType =>
@@ -412,16 +412,16 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
 //
 //
 //
-//  var assignementThrowable: Throwable = null
+//  var assignmentThrowable: Throwable = null
 //
-//  override def getAssignementContext(id: Int): Throwable = {
+//  override def getAssignmentContext(id: Int): Throwable = {
 //    assert(id == 0)
-//    assignementThrowable
+//    assignmentThrowable
 //  }
 //
-//  override def setAssignementContext(id: Int,that : Throwable): Unit =  {
+//  override def setAssignmentContext(id: Int,that : Throwable): Unit =  {
 //    assert(id == 0)
-//    assignementThrowable =that
+//    assignmentThrowable =that
 //  }
 
 

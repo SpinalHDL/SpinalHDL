@@ -150,14 +150,14 @@ class Mem[T <: Data](_wordType: T, val wordCount: Int) extends DeclarationStatem
         val width = _widths(elementId)
         val mask = widthsMasks(elementId)
         def walk(that : BaseType) : Unit = that.head match {
-          case AssignementStatement(_, literal : Literal) if element.hasOnlyOneStatement =>
+          case AssignmentStatement(_, literal : Literal) if element.hasOnlyOneStatement =>
             val value = (((literal match {
               case literal : EnumLiteral[_] => elements(elementId).asInstanceOf[SpinalEnumCraft[_]].encoding.getValue(literal.enum)
               case literal : Literal => literal.getValue()
             }) & mask) << offset)
 
             builder += value
-          case AssignementStatement(_, input : BaseType) if element.hasOnlyOneStatement  => walk(input)
+          case AssignmentStatement(_, input : BaseType) if element.hasOnlyOneStatement  => walk(input)
           case _ => SpinalError("ROM initial value should be provided from full literals value")
         }
         walk(element)

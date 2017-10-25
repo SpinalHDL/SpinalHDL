@@ -644,7 +644,7 @@ class PhaseInferEnumEncodings(pc: PhaseContext,encodingSwap : (SpinalEnumEncodin
 
 
     walkStatements(s => s match {
-      case s : AssignementStatement =>
+      case s : AssignmentStatement =>
         val finalTarget = s.finalTarget
         s.source match {
           case source : Expression with EnumEncoded => consumers.getOrElseUpdate(source,ArrayBuffer[Expression]()) += finalTarget
@@ -795,7 +795,7 @@ class PhaseCheckCombinationalLoops() extends PhaseCheck{
               node.algoIncrementale = okId
             }
           }
-          case node: AssignementStatement => {
+          case node: AssignmentStatement => {
             node.foreachDrivingExpression(e => walk(newPath, e))
             node.walkParentTreeStatementsUntilRootScope(s => walk(newPath, s))
           }
@@ -867,7 +867,7 @@ class PhaseCheckCrossClock() extends PhaseCheck{
               node.foreachStatements(s => walk(s, newPath, clockDomain))
             }
           }
-          case node : AssignementStatement => {
+          case node : AssignmentStatement => {
             node.foreachDrivingExpression(e => walk(e, newPath, clockDomain))
             node.walkParentTreeStatementsUntilRootScope(s => walk(s, newPath, clockDomain))
           }
@@ -949,7 +949,7 @@ class PhaseRemoveUselessStuff(postClockPulling : Boolean, tagVitals : Boolean) e
               s.setAsVital()
             s.foreachStatements(propagate)
           }
-          case s: AssignementStatement => {
+          case s: AssignmentStatement => {
             s.walkExpression{ case e : Statement => propagate(e) case _ => }
             s.walkParentTreeStatements(propagate) //Could be walkParentTreeStatementsUntilRootScope but then should symplify removed TreeStatements
           }
@@ -995,7 +995,7 @@ class PhaseRemoveUselessStuff(postClockPulling : Boolean, tagVitals : Boolean) e
       case s : DeclarationStatement => if(s.isNamed) propagate(s, false)
       case s : AssertStatement => propagate(s, false)
       case s : TreeStatement =>
-      case s : AssignementStatement =>
+      case s : AssignmentStatement =>
       case s : MemWrite =>
       case s : MemReadWrite =>
       case s : MemReadSync =>
@@ -1080,7 +1080,7 @@ class PhaseCheckHiearchy extends PhaseCheck{
       c.dslBody.walkStatements(s => {
         var error = false
         s match {
-          case s : AssignementStatement => {
+          case s : AssignmentStatement => {
             val bt = s.finalTarget
             if (!(bt.isDirectionLess && bt.component == c) && !(bt.isOutput && bt.component == c) && !(bt.isInput && bt.component.parent == c)) {
               PendingError(s"HIERARCHY VIOLATION : $bt is drived by the $s statement, but isn't accessible in the $c component.\n${s.getScalaLocationLong}")
@@ -1130,32 +1130,32 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
         def getOrEmpty(bt : BaseType) = assigneds.getOrElseUpdate(bt, new AssignedBits(bt.getBitsWidth))
         def getOrEmptyAdd(bt : BaseType, src : AssignedBits): Boolean = {
           val dst = getOrEmpty(bt)
-          val ret = src.isFull && !dst.isEmpty && !bt.hasTag(allowAssignementOverride)
+          val ret = src.isFull && !dst.isEmpty && !bt.hasTag(allowAssignmentOverride)
           dst.add(src)
           ret
         }
         def getOrEmptyAdd2(bt : BaseType, src : AssignedRange): Boolean = {
           val dst = getOrEmpty(bt)
-          val ret = src.hi == dst.width-1 && src.lo == 0 && !dst.isEmpty  && !bt.hasTag(allowAssignementOverride)
+          val ret = src.hi == dst.width-1 && src.lo == 0 && !dst.isEmpty  && !bt.hasTag(allowAssignmentOverride)
           dst.add(src)
           ret
         }
         def getOrEmptyAdd3(bt : BaseType, hi : Int, lo : Int): Boolean = {
           val dst = getOrEmpty(bt)
-          val ret = hi == dst.width-1 && lo == 0 && !dst.isEmpty  && !bt.hasTag(allowAssignementOverride)
+          val ret = hi == dst.width-1 && lo == 0 && !dst.isEmpty  && !bt.hasTag(allowAssignmentOverride)
           dst.add(hi, lo)
           ret
         }
         body.foreachStatements {
-          case s: DataAssignementStatement => { //Omit InitAssignementStatement
+          case s: DataAssignmentStatement => { //Omit InitAssignmentStatement
             s.target match {
               case bt : BaseType => if(getOrEmptyAdd3(bt, bt.getBitsWidth - 1, 0)){
-                PendingError(s"The previous assignements of $bt are fully overridden at \n${s.getScalaLocationLong}")
+                PendingError(s"The previous assignments of $bt are fully overridden at \n${s.getScalaLocationLong}")
               }
-              case e : BitVectorAssignementExpression => {
+              case e : BitVectorAssignmentExpression => {
                 val bt = e.finalTarget
                 if(getOrEmptyAdd2(bt,e.getAssignedBits)){
-                  PendingError(s"The previous assignements of $bt are fully overridden at \n${s.getScalaLocationLong}")
+                  PendingError(s"The previous assignments of $bt are fully overridden at \n${s.getScalaLocationLong}")
                 }
               }
             }
@@ -1166,7 +1166,7 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
             for ((bt, assigned) <- whenTrue) {
               whenFalse.get(bt) match {
                 case Some(otherBt) => if(getOrEmptyAdd(bt,assigned.intersect(otherBt))){
-                  PendingError(s"The previous assignements of $bt are fully overridden inside the when statement at \n ${s.getScalaLocationLong}")
+                  PendingError(s"The previous assignments of $bt are fully overridden inside the when statement at \n ${s.getScalaLocationLong}")
                 }
                 case None =>
               }
@@ -1193,7 +1193,7 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
 
               for ((bt, assigned) <- head) {
                 if(getOrEmptyAdd(bt,assigned)){
-                  PendingError(s"The previous assignements of $bt are fully overridden inside the switch statement at \n ${s.getScalaLocationLong}")
+                  PendingError(s"The previous assignments of $bt are fully overridden inside the switch statement at \n ${s.getScalaLocationLong}")
                 }
               }
             }
@@ -1580,5 +1580,3 @@ object SpinalVerilogBoot{
     report
   }
 }
-
-

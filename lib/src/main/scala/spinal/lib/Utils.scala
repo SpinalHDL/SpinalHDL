@@ -270,7 +270,7 @@ class BitAggregator {
 object CounterFreeRun {
   def apply(stateCount: BigInt): Counter = {
     val c = Counter(stateCount)
-    c.willIncrement.removeAssignements()
+    c.willIncrement.removeAssignments()
     c.increment()
     c
   }

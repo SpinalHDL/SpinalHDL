@@ -39,7 +39,7 @@ import spinal.core._
 //  }
 //}
 //
-//object AssignementTrash{
+//object AssignmentTrash{
 //  class TopLevel extends Component{
 //
 //    var x = UInt(4 bit)

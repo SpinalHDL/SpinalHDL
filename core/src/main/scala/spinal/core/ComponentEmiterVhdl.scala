@@ -131,7 +131,7 @@ class ComponentEmiterVhdl(val c : Component,
     processes.foreach(p => {
       if(p.leafStatements.nonEmpty ) {
         p.leafStatements.head match {
-          case AssignementStatement(target: DeclarationStatement, _) if subComponentInputToNotBufferize.contains(target) =>
+          case AssignmentStatement(target: DeclarationStatement, _) if subComponentInputToNotBufferize.contains(target) =>
           case _ => emitAsyncronous(p)
         }
       } else {
@@ -337,8 +337,8 @@ class ComponentEmiterVhdl(val c : Component,
   def emitAsyncronous(process: AsyncProcess): Unit = {
     process match {
       case _ if process.leafStatements.size == 1 && process.leafStatements.head.parentScope == process.nameableTargets.head.rootScopeStatement => process.leafStatements.head match {
-        case s : AssignementStatement =>
-          logics ++= emitAssignement(s, "  ", "<=")
+        case s : AssignmentStatement =>
+          logics ++= emitAssignment(s, "  ", "<=")
       }
       case _ => {
         val tmp = new StringBuilder
@@ -372,7 +372,7 @@ class ComponentEmiterVhdl(val c : Component,
   }
 
 
-  def emitLeafStatements(statements : ArrayBuffer[LeafStatement], statementIndexInit : Int, scope : ScopeStatement, assignementKind : String, b : StringBuilder, tab : String): Int ={
+  def emitLeafStatements(statements : ArrayBuffer[LeafStatement], statementIndexInit : Int, scope : ScopeStatement, assignmentKind : String, b : StringBuilder, tab : String): Int ={
     var statementIndex = statementIndexInit
     var lastWhen : WhenStatement = null
     def closeSubs() : Unit = {
@@ -388,7 +388,7 @@ class ComponentEmiterVhdl(val c : Component,
       if(targetScope == scope){
         closeSubs()
         statement match {
-          case assignement : AssignementStatement => b ++= emitAssignement(assignement,tab, assignementKind)
+          case assignment : AssignmentStatement => b ++= emitAssignment(assignment,tab, assignmentKind)
           case assertStatement : AssertStatement => {
             val cond = emitExpression(assertStatement.cond)
             require(assertStatement.message.size == 0 || (assertStatement.message.size == 1 && assertStatement.message(0).isInstanceOf[String]))
@@ -430,7 +430,7 @@ class ComponentEmiterVhdl(val c : Component,
               b ++= s"${tab}if ${emitExpression(treeStatement.cond)} = '0' then\n"
             }
             lastWhen = treeStatement
-            statementIndex = emitLeafStatements(statements,statementIndex, scopePtr, assignementKind,b, tab + "  ")
+            statementIndex = emitLeafStatements(statements,statementIndex, scopePtr, assignmentKind,b, tab + "  ")
           }
           case switchStatement : SwitchStatement => {
             val isPure = switchStatement.elements.foldLeft(true)((carry, element) => carry && !(element.keys.exists(!_.isInstanceOf[Literal])))
@@ -460,7 +460,7 @@ class ComponentEmiterVhdl(val c : Component,
               switchStatement.elements.foreach(element =>  {
                 b ++= s"${tab}  when ${element.keys.map(e => emitIsCond(e)).mkString(" | ")} =>\n"
                 if(nextScope == element.scopeStatement) {
-                  statementIndex = emitLeafStatements(statements, statementIndex, element.scopeStatement, assignementKind, b, tab + "    ")
+                  statementIndex = emitLeafStatements(statements, statementIndex, element.scopeStatement, assignmentKind, b, tab + "    ")
                   nextScope = findSwitchScope()
                 }
               })
@@ -468,7 +468,7 @@ class ComponentEmiterVhdl(val c : Component,
               b ++= s"${tab}  when others =>\n"
               if (switchStatement.defaultScope != null) {
                 if(nextScope == switchStatement.defaultScope) {
-                  statementIndex = emitLeafStatements(statements, statementIndex, switchStatement.defaultScope, assignementKind, b, tab + "    ")
+                  statementIndex = emitLeafStatements(statements, statementIndex, switchStatement.defaultScope, assignmentKind, b, tab + "    ")
                   nextScope = findSwitchScope()
                 }
               }
@@ -482,7 +482,7 @@ class ComponentEmiterVhdl(val c : Component,
               switchStatement.elements.foreach(element =>  {
                 b ++= s"${tab}${if(index == 0) "if" else "elsif"} ${element.keys.map(e => emitIsCond(e)).mkString(" or ")} then\n"
                 if(nextScope == element.scopeStatement) {
-                  statementIndex = emitLeafStatements(statements, statementIndex, element.scopeStatement, assignementKind, b, tab + "    ")
+                  statementIndex = emitLeafStatements(statements, statementIndex, element.scopeStatement, assignmentKind, b, tab + "    ")
                   nextScope = findSwitchScope()
                 }
                 index += 1
@@ -490,7 +490,7 @@ class ComponentEmiterVhdl(val c : Component,
               if(switchStatement.defaultScope  != null){
                 b ++= s"${tab}else\n"
                 if(nextScope == switchStatement.defaultScope) {
-                  statementIndex = emitLeafStatements(statements, statementIndex, switchStatement.defaultScope, assignementKind, b, tab + "    ")
+                  statementIndex = emitLeafStatements(statements, statementIndex, switchStatement.defaultScope, assignmentKind, b, tab + "    ")
                   nextScope = findSwitchScope()
                 }
               }
@@ -505,10 +505,10 @@ class ComponentEmiterVhdl(val c : Component,
   }
 
 
-  def emitAssignement(assignement : AssignementStatement, tab: String, assignementKind: String): String = {
-    assignement match {
+  def emitAssignment(assignment : AssignmentStatement, tab: String, assignmentKind: String): String = {
+    assignment match {
       case _ => {
-        s"$tab${emitAssignedExpression(assignement.target)} ${assignementKind} ${emitExpression(assignement.source)};\n"
+        s"$tab${emitAssignedExpression(assignment.target)} ${assignmentKind} ${emitExpression(assignment.source)};\n"
       }
     }
   }
@@ -596,10 +596,10 @@ class ComponentEmiterVhdl(val c : Component,
   def getBaseTypeSignalInitialisation(signal : BaseType) : String = {
     if(signal.isReg){
       if(signal.clockDomain.config.resetKind == BOOT && signal.hasInit) {
-        var initStatement : AssignementStatement = null
+        var initStatement : AssignmentStatement = null
         var needFunc = false
         signal.foreachStatements {
-          case s : InitAssignementStatement if s.source.isInstanceOf[Literal] =>
+          case s : InitAssignmentStatement if s.source.isInstanceOf[Literal] =>
             if(initStatement != null)
               needFunc = true
             initStatement = s
@@ -664,7 +664,7 @@ class ComponentEmiterVhdl(val c : Component,
     val symbolWidth = mem.getMemSymbolWidth()
     val symbolCount = mem.getMemSymbolCount
 
-    val initAssignementBuilder = for(i <- 0 until symbolCount) yield {
+    val initAssignmentBuilder = for(i <- 0 until symbolCount) yield {
       val builder = new StringBuilder()
       val mask = (BigInt(1) << symbolWidth)-1
       if (mem.initialContent != null) {
@@ -700,12 +700,12 @@ class ComponentEmiterVhdl(val c : Component,
       declarations ++= s"  type ${emitReference(mem,false)}_type is array (0 to ${mem.wordCount - 1}) of std_logic_vector(${symbolWidth - 1} downto 0);\n"
       for(i <- 0 until symbolCount) {
         val postfix = "_symbol" + i
-        declarations ++= s"  signal ${emitReference(mem,false)}$postfix : ${emitDataType(mem)}${initAssignementBuilder(i).toString()};\n"
+        declarations ++= s"  signal ${emitReference(mem,false)}$postfix : ${emitDataType(mem)}${initAssignmentBuilder(i).toString()};\n"
         emitAttributes(mem,mem.instanceAttributes(Language.VHDL), "signal", declarations,postfix = postfix)
       }
     }else{
       declarations ++= s"  type ${emitReference(mem,false)}_type is array (0 to ${mem.wordCount - 1}) of std_logic_vector(${mem.getWidth - 1} downto 0);\n"
-      declarations ++= s"  signal ${emitReference(mem,false)} : ${emitDataType(mem)}${initAssignementBuilder.head.toString()};\n"
+      declarations ++= s"  signal ${emitReference(mem,false)} : ${emitDataType(mem)}${initAssignmentBuilder.head.toString()};\n"
       emitAttributes(mem, mem.instanceAttributes(Language.VHDL), "signal", declarations)
     }
 

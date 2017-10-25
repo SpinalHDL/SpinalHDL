@@ -107,7 +107,7 @@ class VecAccessAssign[T <: Data](enables: Seq[Bool], tos: Seq[BaseType], vec : V
     for ((enable, to) <- (enables, tos).zipped) {
       when(enable) {
         val thatSafe = that /*match {
-          case that: AssignementNode => that.clone(to)
+          case that: AssignmentNode => that.clone(to)
           case _ => that
         }*/
         to.compositAssignFrom(thatSafe, to, kind)
@@ -196,7 +196,7 @@ class Vec[T <: Data](_dataType: T, val vec: Vector[T]) extends MultiData with co
     ret
   }
 
-  //TODO sub element composite assignement, as well for indexed access (std)
+  //TODO sub element composite assignment, as well for indexed access (std)
   def oneHotAccess(oneHot: Bits): T = {
     if(elements.size == oneHot.getWidth){
       SpinalError(s"To many bit to address the vector (${oneHot.getWidth} in place of ${elements.size})\n at\n${ScalaLocated.long}")
@@ -252,4 +252,3 @@ class Vec[T <: Data](_dataType: T, val vec: Vector[T]) extends MultiData with co
   }
 //  println(elements)
 }
-

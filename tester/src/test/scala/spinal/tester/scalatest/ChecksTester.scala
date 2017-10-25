@@ -85,7 +85,7 @@ class ChecksTester extends FunSuite  {
     })
   }
 
-  test("checkNoPartialAssignement") {
+  test("checkNoPartialAssignment") {
     generationShouldPass(new Component{
       val cond = in Bool
       val input = in Bits(8 bits)

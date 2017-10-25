@@ -153,7 +153,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
 //      s.foreachExpression(expressionWalker)
 //      s.foreachStatements(statementWalker)
 //      s match {
-//        case a : AssignementStatement => nameablesSet += (a.finalTarget)
+//        case a : AssignmentStatement => nameablesSet += (a.finalTarget)
 //        case _ =>
 //      }
 //    }
@@ -431,5 +431,3 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     ret
   }
 }
-
-

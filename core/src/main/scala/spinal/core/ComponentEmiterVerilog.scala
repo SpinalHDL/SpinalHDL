@@ -123,7 +123,7 @@ class ComponentEmiterVerilog(val c : Component,
     processes.foreach(p => {
       if(p.leafStatements.nonEmpty ) {
         p.leafStatements.head match {
-          case AssignementStatement(target: DeclarationStatement, _) if subComponentInputToNotBufferize.contains(target) =>
+          case AssignmentStatement(target: DeclarationStatement, _) if subComponentInputToNotBufferize.contains(target) =>
           case _ => emitAsyncronous(p)
         }
       } else {
@@ -216,7 +216,7 @@ class ComponentEmiterVerilog(val c : Component,
     if (asyncReset) {
       referenceSetAdd(emitResetEdge(emitReference(reset,false),clockDomain.config.resetActiveLevel))
     }
-    
+
     b ++= s"${tabStr}always @ (${referehceSetSorted.mkString(" or ")})\n"
     b ++= s"${tabStr}begin\n"
     inc
@@ -292,7 +292,7 @@ class ComponentEmiterVerilog(val c : Component,
   def emitAsyncronous(process: AsyncProcess): Unit = {
     process match {
       case _ if process.leafStatements.size == 1 && process.leafStatements.head.parentScope == process.nameableTargets.head.rootScopeStatement => process.leafStatements.head match {
-        case s : AssignementStatement =>
+        case s : AssignmentStatement =>
           logics ++= s"  assign ${emitAssignedExpression(s.target)} = ${emitExpression(s.source)};\n"
       }
       case _ => {
@@ -322,7 +322,7 @@ class ComponentEmiterVerilog(val c : Component,
   }
 
 
-  def emitLeafStatements(statements : ArrayBuffer[LeafStatement], statementIndexInit : Int, scope : ScopeStatement, assignementKind : String, b : StringBuilder, tab : String): Int ={
+  def emitLeafStatements(statements : ArrayBuffer[LeafStatement], statementIndexInit : Int, scope : ScopeStatement, assignmentKind : String, b : StringBuilder, tab : String): Int ={
     var statementIndex = statementIndexInit
     var lastWhen : WhenStatement = null
     def closeSubs() : Unit = {
@@ -338,7 +338,7 @@ class ComponentEmiterVerilog(val c : Component,
       if(targetScope == scope){
         closeSubs()
         statement match {
-          case assignement : AssignementStatement => b ++= s"${tab}${emitAssignedExpression(assignement.target)} ${assignementKind} ${emitExpression(assignement.source)};\n"
+          case assignment : AssignmentStatement => b ++= s"${tab}${emitAssignedExpression(assignment.target)} ${assignmentKind} ${emitExpression(assignment.source)};\n"
           case assertStatement : AssertStatement => {
             val cond = emitExpression(assertStatement.cond)
             val severity = assertStatement.severity match{
@@ -393,7 +393,7 @@ class ComponentEmiterVerilog(val c : Component,
               b ++= s"${tab}if(! ${emitExpression(treeStatement.cond)}) begin\n"
             }
             lastWhen = treeStatement
-            statementIndex = emitLeafStatements(statements,statementIndex, scopePtr, assignementKind,b, tab + "  ")
+            statementIndex = emitLeafStatements(statements,statementIndex, scopePtr, assignmentKind,b, tab + "  ")
           }
           case switchStatement : SwitchStatement => {
             val isPure = switchStatement.elements.foldLeft(true)((carry, element) => carry && !(element.keys.exists(!_.isInstanceOf[Literal])))
@@ -422,7 +422,7 @@ class ComponentEmiterVerilog(val c : Component,
               switchStatement.elements.foreach(element =>  {
                 b ++= s"${tab}  ${element.keys.map(e => emitIsCond(e)).mkString(", ")} : begin\n"
                 if(nextScope == element.scopeStatement) {
-                  statementIndex = emitLeafStatements(statements, statementIndex, element.scopeStatement, assignementKind, b, tab + "    ")
+                  statementIndex = emitLeafStatements(statements, statementIndex, element.scopeStatement, assignmentKind, b, tab + "    ")
                   nextScope = findSwitchScope()
                 }
                 b ++= s"${tab}  end\n"
@@ -430,7 +430,7 @@ class ComponentEmiterVerilog(val c : Component,
 
               b ++= s"${tab}  default : begin\n"
               if(nextScope == switchStatement.defaultScope) {
-                statementIndex = emitLeafStatements(statements, statementIndex, switchStatement.defaultScope, assignementKind, b, tab + "    ")
+                statementIndex = emitLeafStatements(statements, statementIndex, switchStatement.defaultScope, assignmentKind, b, tab + "    ")
                 nextScope = findSwitchScope()
               }
               b ++= s"${tab}  end\n"
@@ -444,7 +444,7 @@ class ComponentEmiterVerilog(val c : Component,
               switchStatement.elements.foreach(element =>  {
                 b ++= s"${tab}${if(index == 0) "if" else "end else if"}(${element.keys.map(e => emitIsCond(e)).mkString(" || ")}) begin\n"
                 if(nextScope == element.scopeStatement) {
-                  statementIndex = emitLeafStatements(statements, statementIndex, element.scopeStatement, assignementKind, b, tab + "    ")
+                  statementIndex = emitLeafStatements(statements, statementIndex, element.scopeStatement, assignmentKind, b, tab + "    ")
                   nextScope = findSwitchScope()
                 }
                 index += 1
@@ -452,7 +452,7 @@ class ComponentEmiterVerilog(val c : Component,
               if(switchStatement.defaultScope != null){
                 b ++= s"${tab}end else begin\n"
                 if(nextScope == switchStatement.defaultScope) {
-                  statementIndex = emitLeafStatements(statements, statementIndex, switchStatement.defaultScope, assignementKind, b, tab + "    ")
+                  statementIndex = emitLeafStatements(statements, statementIndex, switchStatement.defaultScope, assignmentKind, b, tab + "    ")
                   nextScope = findSwitchScope()
                 }
               }
@@ -536,10 +536,10 @@ class ComponentEmiterVerilog(val c : Component,
   def getBaseTypeSignalInitialisation(signal : BaseType) : String = {
     if(signal.isReg){
       if(signal.clockDomain.config.resetKind == BOOT && signal.hasInit) {
-        var initStatement : AssignementStatement = null
+        var initStatement : AssignmentStatement = null
         var needFunc = false
         signal.foreachStatements {
-          case s : InitAssignementStatement if s.source.isInstanceOf[Literal] =>
+          case s : InitAssignmentStatement if s.source.isInstanceOf[Literal] =>
             if(initStatement != null)
               needFunc = true
             initStatement = s
@@ -601,7 +601,7 @@ class ComponentEmiterVerilog(val c : Component,
     val symbolWidth = mem.getMemSymbolWidth()
     val symbolCount = mem.getMemSymbolCount
 
-    val initAssignementBuilder = for(i <- 0 until symbolCount) yield {
+    val initAssignmentBuilder = for(i <- 0 until symbolCount) yield {
       val builder = new StringBuilder()
       val mask = (BigInt(1) << symbolWidth)-1
       if (mem.initialContent != null) {
@@ -828,7 +828,7 @@ end
       }
     }
     component.dslBody.walkStatements{
-      case s : AssignementStatement => {
+      case s : AssignmentStatement => {
         s.foreachExpression(e => {
           onEachExpression(e)
           e.walkDrivingExpressions(onEachExpressionNotDrivingBaseType)
