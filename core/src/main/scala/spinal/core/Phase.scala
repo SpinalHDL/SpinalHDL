@@ -785,7 +785,7 @@ class PhaseCheckCombinationalLoops() extends PhaseCheck{
           val multiLineLoop = filtred.reverseIterator.map(n => "      " + n.toString).foldLeft("")(_ + "\n" + _)
           PendingError(s"  Combinatorial loop !\n      Partial chain :\n${wellNameLoop}\n      Full chain :\n${multiLineLoop}")
         }
-      }else {
+      }else if (node.algoIncrementale != okId) {
         node.algoIncrementale = walkingId
         node match {
           case node: BaseType => {
