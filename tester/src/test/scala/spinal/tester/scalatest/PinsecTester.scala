@@ -72,9 +72,9 @@ class PinsecTesterCocotbBoot extends SpinalTesterCocotbBase {
       import pinsec.axi.ram._
 
       val port = ram.writePort
-      port.valid.setName("ram_port0_write")
-      port.address.setName("ram_port0_address")
-      port.data.setName("ram_port0_writeData")
+      port.valid.setName("ram_port0_write") := False
+      port.address.setName("ram_port0_address") := 0
+      port.data.setName("ram_port0_writeData") := 0
 
       Bool().setName("ram_port0_enable") := False
       Bits(4 bits).setName("ram_port0_mask") := 0
