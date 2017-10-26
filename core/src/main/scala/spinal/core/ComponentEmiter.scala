@@ -36,7 +36,7 @@ abstract class ComponentEmiter {
   val syncGroups = mutable.LinkedHashMap[(ClockDomain, ScopeStatement, Boolean), SyncGroup]()
   val processes = mutable.LinkedHashSet[AsyncProcess]()
   val mems = ArrayBuffer[Mem[_]]()
-  val expressionToWrap = mutable.HashSet[Expression]()
+  val expressionToWrap = mutable.LinkedHashSet[Expression]()
   val outputsToBufferize = mutable.LinkedHashSet[BaseType]() //Check if there is a reference to an output pin (read self outputed signal)
   val subComponentInputToNotBufferize = mutable.HashSet[Any]()
   val openSubIo = mutable.HashSet[BaseType]()
