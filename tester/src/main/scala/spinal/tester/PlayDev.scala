@@ -253,3 +253,11 @@ object PlayDevCrossClock{
     SpinalVerilog(new TopLevel())
   }
 }
+
+object PlayDebugPruned{
+
+  import spinal.lib._
+  def main(args: Array[String]) {
+    SpinalVhdl(StreamFifo(UInt(8 bits), 512)).printPruned()
+  }
+}

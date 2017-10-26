@@ -7,11 +7,7 @@ import scala.collection.mutable.ArrayBuffer
 
 //TODO IR :
 // Mem blackboxify
-// Add transformation phases
-// Implement check combinatorioal loops
-// Implement check cross clock
-// pruned stuff
-// Fix verilog backend component duplication detection
+// Add transformation phase
 case class DslContext(clockDomain: ClockDomain, component: Component, scope: ScopeStatement)
 
 

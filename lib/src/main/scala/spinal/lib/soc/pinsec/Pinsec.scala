@@ -294,7 +294,8 @@ class Pinsec(config: PinsecConfig) extends Component{
 object Pinsec{
   def main(args: Array[String]) {
     val config = SpinalConfig().dumpWave()
-    config.generateVerilog(new Pinsec(PinsecConfig.default))
+    config.generateVerilog(new Pinsec(PinsecConfig.default)).unusedSignals.toList.sortBy(_.getInstanceCounter).foreach(bt => SpinalWarning(s"Pruned wire detected : $bt"))
+    //    config.generateVerilog(new Pinsec(PinsecConfig.default))
 //    config.generateVhdl(new Pinsec(PinsecConfig.default))
   }
 }

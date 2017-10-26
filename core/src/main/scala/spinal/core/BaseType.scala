@@ -408,7 +408,6 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
   //Create a new instance of the same datatype without any configuration (width, direction)
   private[core] def weakClone: this.type
 
-//  override def toString(): String = s"(${(if(component != null) component.getPath() + "/" else "") + this.getDisplayName()} : ${if(isInput) "in " else if(isOutput) "out " else ""}$getClassIdentifier)"
 //
 //
 //
@@ -440,7 +439,9 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
   override def foreachClockDomain(func: (ClockDomain) => Unit): Unit = if(isReg) func(clockDomain)
 
   override def toString(): String = if(isNamed || !hasOnlyOneStatement || !head.source.isInstanceOf[Literal])
-    s"(${component.getPath() + "/" + this.getDisplayName()} : $getClassIdentifier)"
+    s"(${(if(component != null) component.getPath() + "/" else "") + this.getDisplayName()} : ${if(isInput) "in " else if(isOutput) "out " else ""}$getClassIdentifier)"
   else
     head.source.toString
+
+
 }

@@ -972,12 +972,15 @@ class PhaseRemoveUselessStuff(postClockPulling : Boolean, tagVitals : Boolean) e
             s.walkExpression{ case e : Statement => propagate(e) case _ => }
           }
           case s : MemReadWrite => {
+            propagate(s.mem)
             s.walkExpression{ case e : Statement => propagate(e) case _ => }
           }
           case s : MemReadSync => {
+            propagate(s.mem)
             s.walkExpression{ case e : Statement => propagate(e) case _ => }
           }
           case s : MemReadAsync => {
+            propagate(s.mem)
             s.walkExpression{ case e : Statement => propagate(e) case _ => }
           }
         }
@@ -1224,48 +1227,54 @@ class PhaseCheck_noLatchNoOverride(pc: PhaseContext) extends PhaseCheck{
   }
 }
 
-//class PhasePrintUnUsedSignals(prunedSignals : mutable.Set[BaseType],unusedSignals : mutable.Set[BaseType])(pc: PhaseContext) extends PhaseCheck{
-//  override def useNodeConsumers = false
-//  override def impl(pc : PhaseContext): Unit = {
-//    import pc._
-//
+class PhasePrintUnUsedSignals(prunedSignals : mutable.Set[BaseType],unusedSignals : mutable.Set[BaseType])(pc: PhaseContext) extends PhaseCheck{
+  override def impl(pc : PhaseContext): Unit = {
+    import pc._
+
 //    val targetAlgoId = GlobalData.get.algoId
 //    Node.walk(walkNodesDefautStack,node => {node.algoId = targetAlgoId})
-//
-//    for(c <- components){
-//      def checkNameable(that : Any) : Unit = that match {
-//        case area : Area => {
-//          area.forEachNameables(obj => checkNameable(obj))
-//        }
-//        case data : Data =>  {
-//          data.flatten.foreach(bt => {
-//            if(bt.algoId != targetAlgoId && (!bt.isInstanceOf[BitVector] || bt.asInstanceOf[BitVector].inferredWidth != 0) && !bt.hasTag(unusedTag)){
-//              prunedSignals += bt
-//            }
-//          })
-//        }
-//        case _ => {}
-//      }
-//
-//      c.forEachNameables(obj => checkNameable(obj))
-//    }
-//    if(!prunedSignals.isEmpty){
-//      SpinalWarning(s"${prunedSignals.size} signals were pruned. You can call printPruned on the backend report to get more informations.")
-//    }
-//
-//
-//    val targetAlgoId2 = GlobalData.get.allocateAlgoId()
-//    def walkPruned(node : Node) : Unit = node.onEachInput(input => {
-//      if(input != null && input.algoId != targetAlgoId2){
-//        input.algoId = targetAlgoId2
-//        walkPruned(input)
-//      }
-//    })
-//
-//    prunedSignals.foreach(source => walkPruned(source))
-//    unusedSignals ++= (prunedSignals.filter(_.algoId != targetAlgoId2))
-//  }
-//}
+
+    for(c <- components){
+      def checkNameable(that : Any) : Unit = that match {
+        case area : Area => {
+          area.foreachReflectableNameables(obj => checkNameable(obj))
+        }
+        case data : Data =>  {
+          data.flatten.foreach(bt => {
+            if(!bt.isVital && (!bt.isInstanceOf[BitVector] || bt.asInstanceOf[BitVector].inferredWidth != 0) && !bt.hasTag(unusedTag) && bt.isNamed){
+              prunedSignals += bt
+            }
+          })
+        }
+        case _ => {}
+      }
+
+      c.foreachReflectableNameables(obj => checkNameable(obj))
+    }
+    if(!prunedSignals.isEmpty){
+      SpinalWarning(s"${prunedSignals.size} signals were pruned. You can call printPruned on the backend report to get more informations.")
+    }
+
+
+    val usedId = GlobalData.get.allocateAlgoIncrementale()
+    walkStatements(s => {
+      s.walkDrivingExpressions(e => e.algoIncrementale = usedId)
+      s match {
+        case s: MemReadSync => s.algoIncrementale = usedId
+        case s: MemReadAsync => s.algoIncrementale = usedId
+        case s: MemReadWrite => s.algoIncrementale = usedId
+        case s =>
+      }
+    })
+
+    prunedSignals.foreach(s => {
+      if(s.algoIncrementale != usedId) {
+        unusedSignals += s
+      }
+    })
+  }
+}
+
 class PhaseAllocateNames(pc: PhaseContext) extends PhaseMisc{
   override def impl(pc : PhaseContext): Unit = {
     import pc._
@@ -1436,7 +1445,7 @@ object SpinalVhdlBoot{
       base
     }
 
-
+    phases += new PhasePrintUnUsedSignals(prunedSignals,unusedSignals)(pc)
     phases += initVhdlBase(new PhaseVhdl(pc))
 
 
@@ -1554,7 +1563,7 @@ object SpinalVerilogBoot{
     phases += new PhaseAllocateNames(pc)
 
 
-
+    phases += new PhasePrintUnUsedSignals(prunedSignals,unusedSignals)(pc)
     phases += new PhaseVerilog(pc)
 
 

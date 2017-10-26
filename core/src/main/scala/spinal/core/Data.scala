@@ -174,9 +174,11 @@ trait DataPrimitives[T <: Data]{
     else
       Component.current
 
-    Component.push(c)
-    _data.defaultImpl(that)
-    Component.pop(c)
+    if(c != null) {
+      Component.push(c)
+      _data.defaultImpl(that)
+      Component.pop(c)
+    }
     _data
   }
 

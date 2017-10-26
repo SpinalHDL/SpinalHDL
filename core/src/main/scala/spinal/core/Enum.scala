@@ -117,6 +117,9 @@ class SpinalEnumCraft[T <: SpinalEnum](val spinalEnum: T/*, encoding: SpinalEnum
 
   private[core] override def getDefaultEncoding(): SpinalEnumEncoding = spinalEnum.defaultEncoding
 
+
+  override private[core] def canSymplifyIt = super.canSymplifyIt && (this.encodingChoice == InferableEnumEncodingImplChoiceUndone)
+
   override def getDefinition: SpinalEnum = spinalEnum
 
   private[spinal] override def _data: SpinalEnumCraft[T] = this
