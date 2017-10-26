@@ -19,7 +19,6 @@ class ComponentEmiterTrace(val builders : Seq[mutable.StringBuilder], val string
       case that: ComponentEmiterTrace => {
         return (this.builders, that.builders).zipped.map(_ == _).reduce(_ && _) && (this.strings, that.strings).zipped.map(_ == _).reduce(_ && _)
       }
-      case _ => return ???
     }
   }
 
@@ -69,7 +68,7 @@ abstract class ComponentEmiter {
   }
 
   def isSubComponentInputBinded(data : BaseType) = {
-    if(data.isInput && data.isComb && data.hasOnlyOneStatement && data.head.parentScope == data.rootScopeStatement && Statement.isFullToFullStatement(data.head)/* && data.head.asInstanceOf[AssignmentStatement].source.asInstanceOf[BaseType].component == data.component.parent*/)
+    if(data.isInput && data.isComb && Statement.isFullToFullStatement(data)/* && data.head.asInstanceOf[AssignmentStatement].source.asInstanceOf[BaseType].component == data.component.parent*/)
       data.head.source.asInstanceOf[BaseType]
     else
       null
@@ -136,7 +135,6 @@ abstract class ComponentEmiter {
             process.nameableTargets = finalTarget :: process.nameableTargets
           } else if(preExistingTargetProcess != preExistingRootTreeProcess) { //Merge
             val process = preExistingRootTreeProcess
-            //TODO merge to smallest into the bigger (faster)
             asyncProcessFromNameableTarget(finalTarget) = process
             process.nameableTargets ++= preExistingTargetProcess.nameableTargets
             preExistingTargetProcess.nameableTargets.foreach(asyncProcessFromNameableTarget(_) = process)
@@ -155,7 +153,7 @@ abstract class ComponentEmiter {
     }
 
     //Add statements into AsyncProcesses
-    asyncProcessFromNameableTarget.valuesIterator.foreach(p => processes += p) //TODO IR better perf
+    asyncProcessFromNameableTarget.valuesIterator.foreach(p => processes += p)
     for(s <- asyncStatement) s match {
       case s: AssignmentStatement => {
         var process = asyncProcessFromNameableTarget.getOrElse(s.finalTarget,null)
@@ -170,8 +168,6 @@ abstract class ComponentEmiter {
     }
 
     //identify duplicated expression due to `when` spliting/duplication
-    //TODO IR include sync stuff
-
 
     {
       val whenCondOccurences = mutable.HashMap[Expression, Int]()

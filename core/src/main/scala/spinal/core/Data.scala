@@ -247,7 +247,7 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
         def recursiveSearch(bt: BaseType): Unit = {
           if (bt.isReg)
             bt.init (initElement)
-          else if(bt.hasOnlyOneStatement && Statement.isFullToFullStatement(bt.head))
+          else if(Statement.isFullToFullStatement(bt))
             recursiveSearch(bt.head.source.asInstanceOf[BaseType])
           else
             LocatedPendingError(s"Try to set initial value of a data that is not a register ($this)")
@@ -505,8 +505,8 @@ trait Data extends ContextUser with NameableByComponent with Assignable with Spi
         val pt = constructor.getParameterTypes.apply(0)
         if(c.getClass.isAssignableFrom(pt)){
           val copy =  constructor.newInstance(c).asInstanceOf[this.type]
-//          if(copy.isInstanceOf[Bundle]) //TODO IR !!
-//            copy.asInstanceOf[Bundle].cloneFunc = (() => constructor.newInstance(c).asInstanceOf[this.type])
+          if(copy.isInstanceOf[Bundle])
+            copy.asInstanceOf[Bundle].cloneFunc = (() => constructor.newInstance(c).asInstanceOf[this.type])
           return cleanCopy(copy)
         }
       }

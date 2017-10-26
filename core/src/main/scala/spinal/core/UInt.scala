@@ -184,31 +184,31 @@ class UInt extends BitVector with Num[UInt] with MinMaxProvider with DataPrimiti
 
   override def setAll(): Unit = this := maxValue
 
-//  /**
-//    * Assign a mask to the output signal
-//    * @example {{{ output4 assignMask M"1111 }}}
-//    * @param maskedLiteral masked litteral value
-//    */
-//  def assignMask(maskedLiteral: MaskedLiteral): Unit = {
-//    //TODO width assert
-//    var (literal, careAbout) = (maskedLiteral.value, maskedLiteral.careAbout)
-//    var offset = 0
-//    var value = careAbout.testBit(0)
-//    while(offset != maskedLiteral.width){
-//      var bitCount = 0
-//      while(offset + bitCount != maskedLiteral.width && careAbout.testBit(offset + bitCount) == value){
-//        bitCount += 1
-//      }
-//      if(value){
-//        this(offset, bitCount bit) := U((literal >> offset) & ((BigInt(1) << bitCount) - 1))
-//      }else{
-//        this(offset, bitCount bit).assignDontCare()
-//      }
-//      value = !value
-//      offset += bitCount
-//    }
-//  }
-//
+  /**
+    * Assign a mask to the output signal
+    * @example {{{ output4 assignMask M"1111 }}}
+    * @param maskedLiteral masked litteral value
+    */
+  def assignMask(maskedLiteral: MaskedLiteral): Unit = {
+    assert(maskedLiteral.width == this.getWidth)
+    var (literal, careAbout) = (maskedLiteral.value, maskedLiteral.careAbout)
+    var offset = 0
+    var value = careAbout.testBit(0)
+    while(offset != maskedLiteral.width){
+      var bitCount = 0
+      while(offset + bitCount != maskedLiteral.width && careAbout.testBit(offset + bitCount) == value){
+        bitCount += 1
+      }
+      if(value){
+        this(offset, bitCount bit) := U((literal >> offset) & ((BigInt(1) << bitCount) - 1))
+      }else{
+        this(offset, bitCount bit).assignDontCare()
+      }
+      value = !value
+      offset += bitCount
+    }
+  }
+
   override def apply(bitId: Int) : Bool = newExtract(bitId, new UIntBitAccessFixed)
   override def apply(bitId: UInt): Bool = newExtract(bitId, new UIntBitAccessFloating)
   override def apply(offset: Int, bitCount: BitCount): this.type  = newExtract(offset+bitCount.value-1, offset, new UIntRangedAccessFixed).setWidth(bitCount.value)

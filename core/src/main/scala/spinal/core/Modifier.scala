@@ -1711,7 +1711,7 @@ class RangedAssignmentFloating() extends BitVectorAssignmentExpression with Widt
 //
 //
   override def getAssignedBits: AssignedRange = AssignedRange()
-//  //TODO should not use constructor node ref
+
 //  def getScopeBits: AssignedRange = AssignedRange(Math.min(out.getWidth-1,(1 << Math.min(20,offset_.asInstanceOf[Node with WidthProvider].getWidth))+ bitCount.value - 1), 0) //TODO dirty offset_
 //  override private[core] def getOutToInUsage(inputId: Int, outHi: Int, outLo: Int): (Int, Int) = super.getOutToInUsage(inputId,outHi,outLo) //TODO
 //  def getOutBaseType: BaseType = out
@@ -1746,7 +1746,7 @@ case class AssertStatement(var cond : Expression, message : Seq[Any],severity : 
   }
 
   override def remapExpressions(func: (Expression) => Expression): Unit = {
-    cond = func(cond) //TODO message
+    cond = func(cond)
   }
 
   override def foreachClockDomain(func: (ClockDomain) => Unit): Unit = func(clockDomain)

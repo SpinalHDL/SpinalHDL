@@ -514,7 +514,6 @@ class PhaseCollectAndNameEnum(pc: PhaseContext) extends PhaseMisc{
   }
 }
 
-//TODO IR pull ram clocks
 class PhasePullClockDomains(pc: PhaseContext) extends PhaseNetlist{
   override def impl(pc : PhaseContext): Unit = {
     import pc._
@@ -546,7 +545,6 @@ class PhasePullClockDomains(pc: PhaseContext) extends PhaseNetlist{
 
 
 
-//TODO IR infer with on IO (even if they aren't assigned on top level)
 class PhaseInferWidth(pc: PhaseContext) extends PhaseMisc{
   override def impl(pc : PhaseContext): Unit = {
     import pc._
@@ -1033,7 +1031,7 @@ class PhaseRemoveIntermediateUnameds(onlyTypeNode : Boolean) extends PhaseNetlis
     walkStatements(s => if(s.algoIncrementale != koId){
       s.walkRemapDrivingExpressions(e => e match {
         case ref : BaseType => {
-          if(ref.algoInt == 1 && ref.isComb && ref.isDirectionLess && (!onlyTypeNode || ref.isTypeNode) && ref.canSymplifyIt && ref.hasOnlyOneStatement && Statement.isSomethingToFullStatement(ref.head) /*&& ref != excepted*/){ //TODO IR keep it
+          if(ref.algoInt == 1 && ref.isComb && ref.isDirectionLess && (!onlyTypeNode || ref.isTypeNode) && ref.canSymplifyIt  && Statement.isSomethingToFullStatement(ref) /*&& ref != excepted*/){ //TODO IR keep it
             ref.algoInt = 0
             val head = ref.head
             ref.algoIncrementale = koId

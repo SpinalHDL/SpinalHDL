@@ -405,7 +405,7 @@ abstract class Component extends NameableByComponent with ContextUser with Scala
     */
   def getPath(sep: String = "/"): String = (if (parent == null) "" else (getParentsPath(sep) + sep)) + this.getDisplayName()
 
-  //TODO IR
+
   def getGroupedIO(ioBundleBypass: Boolean): Seq[Data] = {
     val ret = mutable.Set[Data]()
     val ioBundle = if (ioBundleBypass) reflectIo else null

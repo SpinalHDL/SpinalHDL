@@ -208,7 +208,7 @@ class ComponentEmiterVhdl(val c : Component,
       }
       logics ++= s"    port map ( \n"
       for (data <- children.getOrdredNodeIo) {
-        val logic = if(openSubIo.contains(data)) "open" else emitReference(data, false) //TODO IR && false
+        val logic = if(openSubIo.contains(data)) "open" else emitReference(data, false)
         logics ++= addULogicCast(data, emitReferenceNoOverrides(data),logic , data.dir)
       }
       logics.setCharAt(logics.size - 2, ' ')

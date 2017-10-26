@@ -170,7 +170,7 @@ class ComponentEmiterVerilog(val c : Component,
 
       logics ++= s"${child.getName()} ( \n"
       for (data <- child.getOrdredNodeIo) {
-        val logic = if(openSubIo.contains(data)) "" else emitReference(data, false) //TODO IR && false
+        val logic = if(openSubIo.contains(data)) "" else emitReference(data, false)
         logics ++= s"    .${emitReferenceNoOverrides(data)}($logic),\n"
       }
       logics.setCharAt(logics.size - 2, ' ')

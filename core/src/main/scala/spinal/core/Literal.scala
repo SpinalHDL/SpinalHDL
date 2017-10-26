@@ -259,7 +259,6 @@ abstract class BitVectorLiteral() extends Literal with WidthProvider {
 
   override def hasPoison() = poisonMask != null && poisonMask != 0
 
-  //TODO BigInt.toString(2) is probably very slow
   override def getBitsStringOn(bitCount: Int, poisonSymbol : Char): String = {
     def makeIt(fillWith : Boolean) : String = {
       val str = new StringBuilder()

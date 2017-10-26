@@ -8,6 +8,7 @@ import scala.collection.mutable.ArrayBuffer
 //TODO IR :
 // Mem blackboxify
 // Add transformation phase
+// Switch enum encoding
 case class DslContext(clockDomain: ClockDomain, component: Component, scope: ScopeStatement)
 
 
@@ -174,16 +175,16 @@ trait Expression extends BaseNode with ExpressionContainer{
 }
 
 
-//TODO IR check same scope
+
 object Statement{
-  def isFullToFullStatement(s : Statement) = s match {
+  def isFullToFullStatement(bt : BaseType) : Boolean = bt.hasOnlyOneStatement && bt.head.parentScope == bt.rootScopeStatement && (bt.head match {
     case  AssignmentStatement(a : DeclarationStatement,b : DeclarationStatement) => true
     case _ => false
-  }
-  def isSomethingToFullStatement(s : Statement) = s match {
+  })
+  def isSomethingToFullStatement(bt : BaseType) : Boolean = bt.hasOnlyOneStatement && bt.head.parentScope == bt.rootScopeStatement && (bt.head match {
     case  AssignmentStatement(a : DeclarationStatement,_) => true
     case _ => false
-  }
+  })
 }
 
 trait Statement extends ExpressionContainer with ContextUser with ScalaLocated with BaseNode{
