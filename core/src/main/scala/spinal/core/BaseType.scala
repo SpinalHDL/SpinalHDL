@@ -291,9 +291,7 @@ abstract class BaseType extends Data with DeclarationStatement with StatementDou
         InitAssignmentStatement(target = target.asInstanceOf[Expression], source = that)
     }
     that match {
-      case that : BaseType =>
-        globalData.contextHead.scope.append(statement(that))
-      case that : Expression =>
+      case that : Expression if that.getTypeObject == target.asInstanceOf[Expression].getTypeObject =>
         globalData.contextHead.scope.append(statement(that))
       case _ =>
         throw new Exception(s"Undefined assignment $this := $that")

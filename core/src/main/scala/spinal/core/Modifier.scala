@@ -1494,7 +1494,6 @@ abstract class AssignmentExpression extends Expression {
 
 
 abstract class BitVectorAssignmentExpression extends AssignmentExpression{
-  override def getTypeObject = throw new Exception("Doesn't make sense")
   def minimalTargetWidth : Int
 }
 
@@ -1509,6 +1508,9 @@ object BitAssignmentFixed{
 class BitAssignmentFixed() extends BitVectorAssignmentExpression with ScalaLocated{
   var out: BitVector = null
   var bitId: Int = -1
+
+
+  override def getTypeObject = TypeBool
 
   override def finalTarget: BaseType = out
 
@@ -1565,7 +1567,7 @@ class RangedAssignmentFixed() extends BitVectorAssignmentExpression with WidthPr
   override def getWidth: Int = hi + 1 - lo
   override def finalTarget: BaseType = out
   override def minimalTargetWidth: Int = hi+1
-
+  override def getTypeObject = out.getTypeObject
   override def normalizeInputs: Unit = {
     if (hi >= out.getWidth || lo < 0) {
       PendingError(s"Static bits assignment ($hi downto $lo) is outside the range (${out.getWidth - 1} downto 0) of ${out} at\n${getScalaLocationLong}")
@@ -1608,7 +1610,7 @@ object BitAssignmentFloating{
 class BitAssignmentFloating() extends BitVectorAssignmentExpression{
   var out  : BitVector = null
   var bitId  : Expression with WidthProvider = null
-
+  override def getTypeObject = TypeBool
   override def finalTarget: BaseType = out
   override def minimalTargetWidth: Int = 1 << Math.min(20,bitId.getWidth)
   override def foreachExpression(func: (Expression) => Unit): Unit = {
@@ -1668,7 +1670,7 @@ class RangedAssignmentFloating() extends BitVectorAssignmentExpression with Widt
   var out  : BitVector = null
   var offset  : Expression with WidthProvider = null
   var bitCount : Int = -1
-
+  override def getTypeObject = out.getTypeObject
   override def normalizeInputs: Unit = {
     if (out.getWidth < bitCount) {
       PendingError(s"Dynamic bits assignment of $bitCount bits is outside the range (${out.getWidth - 1} downto 0) of ${out} at\n${getScalaLocationLong}")
