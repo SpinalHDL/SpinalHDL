@@ -19,7 +19,6 @@
 package spinal.core
 
 import scala.collection.mutable.ArrayBuffer
-//import scala.reflect.runtime.{universe => ru}
 
 
 object Data {

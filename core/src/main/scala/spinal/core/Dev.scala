@@ -7,20 +7,15 @@ import scala.collection.mutable.ArrayBuffer
 
 //TODO IR :
 // Mem blackboxify
-// Add transformation phase
 // Switch enum encoding
 case class DslContext(clockDomain: ClockDomain, component: Component, scope: ScopeStatement)
 
 
 trait BaseNode {
   var algoInt, algoIncrementale = 0
-//  var algoAny : Any = null
   private[core] def getClassIdentifier: String = this.getClass.getName.split('.').last.replace("$","")
 }
 
-//object NameableNode{
-//  def unapply(that : NameableNode) : Option[Unit] = Some()
-//}
 
 
 trait DoubleLinkedContainerElement[SC  <: DoubleLinkedContainer[SC, SE], SE <: DoubleLinkedContainerElement[SC, SE]]{
@@ -504,6 +499,9 @@ class ScopeStatement(var parentStatement : TreeStatement){
   var head, last : Statement = null
   def isEmpty = head == null
   def nonEmpty = head != null
+
+  def push() = GlobalData.get.context.push(GlobalData.get.contextHead.copy(scope = this))
+  def pop() = GlobalData.get.context.pop()
 
   def prepend(that : Statement) : this.type = {
     if(head != null){

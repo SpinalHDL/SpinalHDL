@@ -1402,6 +1402,7 @@ object SpinalVhdlBoot{
     val phases = ArrayBuffer[Phase]()
 
     phases += new PhaseCreateComponent(gen)(pc)
+    phases ++= config.transformationPhases
     phases += new PhaseApplyIoDefault(pc)
 
 
@@ -1446,7 +1447,9 @@ object SpinalVhdlBoot{
     phases += new PhasePrintUnUsedSignals(prunedSignals,unusedSignals)(pc)
     phases += initVhdlBase(new PhaseVhdl(pc))
 
-
+    for(inserter <-config.phasesInserters){
+      inserter(phases)
+    }
 
 
 
@@ -1525,6 +1528,7 @@ object SpinalVerilogBoot{
     val phases = ArrayBuffer[Phase]()
 
     phases += new PhaseCreateComponent(gen)(pc)
+    phases ++= config.transformationPhases
     phases += new PhaseApplyIoDefault(pc)
 
 
@@ -1566,7 +1570,9 @@ object SpinalVerilogBoot{
 
 
 
-
+    for(inserter <-config.phasesInserters){
+      inserter(phases)
+    }
 
     for(phase <- phases){
       SpinalProgress(phase.getClass.getName)

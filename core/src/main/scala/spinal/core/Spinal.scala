@@ -86,9 +86,9 @@ case class SpinalConfig(
   anonymSignalPrefix : String = null,
   device: Device = Device(),
   genVhdlPkg : Boolean = true,
-  mergeAsyncProcess : Boolean = true
-//  phasesInserters : ArrayBuffer[(ArrayBuffer[Phase]) => Unit] = ArrayBuffer[(ArrayBuffer[Phase]) => Unit](),
-//  transformationPhases : ArrayBuffer[Phase] = ArrayBuffer[Phase](),
+  mergeAsyncProcess : Boolean = true,
+  phasesInserters : ArrayBuffer[(ArrayBuffer[Phase]) => Unit] = ArrayBuffer[(ArrayBuffer[Phase]) => Unit](),
+  transformationPhases : ArrayBuffer[Phase] = ArrayBuffer[Phase]()
 //  memBlackBoxers : ArrayBuffer[Phase] =  ArrayBuffer[Phase](/*new PhaseMemBlackBoxerDefault(blackboxNothing)*/)
                          ){
   def generate[T <: Component](gen : => T) : SpinalReport[T] = Spinal(this)(gen)
@@ -101,13 +101,8 @@ case class SpinalConfig(
   }
   def dumpWave(depth : Int = 0, vcdPath : String = "wave.vcd") : SpinalConfig = this.copy(dumpWave=DumpWaveConfig(depth,vcdPath))
   def addTransformationPhase(phase : Phase): SpinalConfig = {
-    ???
-//    transformationPhases += phase
-////    def inserter(p : ArrayBuffer[Phase]) : Unit = {
-////      p.insertAll(p.indexWhere(_.isInstanceOf[PhaseCreateComponent]) + 1,phases)
-////    }
-////    phasesInserters += inserter
-//    this
+    transformationPhases += phase
+    this
   }
 
   //MemBlackboxingPolicy not any
